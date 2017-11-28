@@ -304,12 +304,12 @@ val compile_decs_def = tDefine "compile_decs" `
      (n, (next with tidx := next.tidx + LENGTH type_def),
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
-      MAP (λ(ns,cids). Dtype (sptree$toList cids)) new_env)) ∧
+      MAPi (λi (ns,cids). Dtype (next.tidx + i) (sptree$toList cids)) new_env)) ∧
   (compile_decs n next env [Dtabbrev locs tvs tn t] =
      (n, next, empty_env, [])) ∧
   (compile_decs n next env [Dexn locs cn ts] =
      (n, (next with eidx := next.eidx + 1),
-      <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>, [Dexn (LENGTH ts)])) ∧
+      <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>, [Dexn next.eidx (LENGTH ts)])) ∧
   (compile_decs n next env [Dmod mn ds] =
      let (n', next', new_env, ds') = compile_decs n next env ds in
        (n', next', (lift_env mn new_env), ds')) ∧

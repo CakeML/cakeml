@@ -33,6 +33,10 @@ val flookup_funion_submap = Q.prove (
   rw [SUBMAP_DEF, FLOOKUP_DEF] >>
   metis_tac []);
 
+val length_toList = Q.prove (
+  `!x sp (t:num). (x < LENGTH (toList sp) ∧ t < EL x (toList sp)) ⇔ (?t'. lookup x sp = SOME t' ∧ t < t')`,
+  cheat);
+
 (* value relation *)
 
 
@@ -542,8 +546,6 @@ val sv_rel_weak = Q.prove (
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!genv_c s s'.
     LIST_REL (sv_rel <| v := s'.globals; c := genv_c |>) s.refs s'.refs ∧
-    s.next_type_stamp = s'.next_type_id ∧
-    s.next_exn_stamp = s'.next_exn_id ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi
     ⇒
@@ -2390,11 +2392,13 @@ val invariant_def = Define `
   invariant genv idx s s_i1 ⇔
     genv_c_ok genv.c ∧
     (!n. idx.vidx ≤ n ∧ n < LENGTH genv.v ⇒ EL n genv.v = NONE) ∧
-    (!cn t a. t ≥ idx.tidx ⇒ ((cn,SOME t), a) ∉ FDOM genv.c) ∧
     (!cn t. t ≥ s.next_type_stamp ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
-    (!cn a. cn ≥ s.next_exn_stamp ⇒ ((cn,NONE), a) ∉ FDOM genv.c) ∧
     (!cn. cn ≥ s.next_exn_stamp ⇒ ExnStamp cn ∉ FRANGE genv.c) ∧
+    (!cn t a. t ≥ idx.tidx ⇒ ((cn,SOME t), a) ∉ FDOM genv.c) ∧
+    (!cn a. cn ≥ idx.eidx ⇒ ((cn,NONE), a) ∉ FDOM genv.c) ∧
+    (*
     s.next_exn_stamp ≤ idx.eidx ∧
+    *)
     genv.v = s_i1.globals ∧
     s_rel genv.c s s_i1`;
 
@@ -2476,13 +2480,40 @@ val evaluate_recfuns = Q.prove (
   rw [EL_APPEND_EQN, EL_TAKE, EL_LUPDATE, EL_DROP] >>
   fs []);
 
-    (*
+val lookup_inc_lookup = Q.prove (
+  `lookup_inc t new_cids = (tag,new_cids')
+   ⇒
+   lookup t new_cids' = SOME (tag+1)`,
+  rw [lookup_inc_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw []);
+
+val lookup_inc_lookup_unchanged = Q.prove (
+  `!t1. lookup_inc t new_cids = (tag,new_cids') ∧
+   t1 ≠ t
+   ⇒
+   lookup t1 new_cids = lookup t1 new_cids'`,
+  rw [lookup_inc_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw [lookup_insert]);
+
+val lookup_inc_lookup_new = Q.prove (
+  `lookup_inc t new_cids = (tag,new_cids')
+   ⇒
+   lookup t new_cids = NONE ∧ tag = 0 ∨ lookup t new_cids = SOME tag`,
+  rw [lookup_inc_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw []);
+
 val alloc_tags_submap = Q.prove (
   `!idx new_cids ctors ns cids.
     alloc_tags idx new_cids ctors = (ns, cids)
     ⇒
     !arity max_tag. lookup arity new_cids = SOME max_tag ⇒
-      ?max_tag'. lookup arity cids = SOME max_tag' ∧ max_tag' ≥ max_tag`,
+      ?max_tag'. lookup arity cids = SOME max_tag' ∧ max_tag ≤ max_tag'`,
   Induct_on `ctors` >>
   rw [alloc_tags_def] >>
   PairCases_on `h` >>
@@ -2505,7 +2536,6 @@ val alloc_tags_submap = Q.prove (
   pop_assum (qspecl_then [`max_tag + 1`, `arity`] mp_tac) >>
   rw [] >>
   rw []);
-  *)
 
 val evaluate_alloc_tags = Q.prove (
   `!idx (ctors :(tvarN, ast_t list) alist) ns cids genv s s' new_cids.
@@ -2516,13 +2546,9 @@ val evaluate_alloc_tags = Q.prove (
    ALL_DISTINCT (MAP FST ctors)
    ⇒
    ?genv_c.
-     {((idx,SOME s'.next_type_id),arity) |
-       arity < LENGTH (toList cids) ∧
-       idx < EL arity (toList cids)}
+     {((t,SOME idx.tidx),arity) | ?t'. lookup arity cids = SOME t' ∧ t < t' }
      DIFF
-     {((idx,SOME s'.next_type_id),arity) |
-       arity < LENGTH (toList new_cids) ∧
-       idx < EL arity (toList new_cids)} = FDOM genv_c ∧
+     {((t,SOME idx.tidx),arity) | ?t'. lookup arity new_cids = SOME t' ∧ t < t' } = FDOM genv_c ∧
      (!tag typ arity stamp.
        FLOOKUP genv_c ((tag,typ),arity) = SOME stamp ⇒
        typ = SOME idx.tidx ∧
@@ -2536,7 +2562,7 @@ val evaluate_alloc_tags = Q.prove (
        (genv with c := FUNION genv_c genv.c)
        (idx with tidx updated_by SUC)
        (s with next_type_stamp updated_by SUC)
-       (s' with next_type_id updated_by SUC) ∧
+       s' ∧
       global_env_inv (genv with c := FUNION genv_c genv.c)
         <| c := ns; v := nsEmpty |>
         {}
@@ -2580,7 +2606,53 @@ val evaluate_alloc_tags = Q.prove (
     rw [] >>
     fs [lookup_insert]) >>
   rw []
-  >- cheat
+  >- (
+    qpat_x_assum `_ DIFF _ = FDOM _` (assume_tac o GSYM) >>
+    rw [] >>
+    qmatch_goalsub_abbrev_tac `S1 DIFF S2 = x INSERT _ DIFF S3` >>
+    `x ∈ S1`
+    by (
+      simp [Abbr`x`, Abbr`S1`] >>
+      drule alloc_tags_submap >>
+      disch_then (qspecl_then [`LENGTH ts`, `tag + 1`] mp_tac) >>
+      simp [DECIDE ``!x:num y. x +1 ≤ y ⇔ x < y``] >>
+      disch_then irule >>
+      metis_tac [lookup_inc_lookup]) >>
+    `x ∉ S2`
+    by (
+      simp [Abbr`x`, Abbr`S2`] >>
+      drule lookup_inc_lookup_new >>
+      rw [] >>
+      rw []) >>
+    `S3 = x INSERT S2`
+    by (
+      simp [Abbr`x`, Abbr`S2`, Abbr`S3`] >>
+      rw [EXTENSION] >>
+      eq_tac >>
+      rw []
+      >- (
+        rw [PROVE [] ``!x y. x ∨ y ⇔ ~x ⇒ y``] >>
+        drule lookup_inc_lookup_new >>
+        drule lookup_inc_lookup >>
+        drule lookup_inc_lookup_unchanged >>
+        rw [] >>
+        fs [] >>
+        Cases_on `arity = LENGTH ts` >>
+        fs [])
+      >- (
+        drule lookup_inc_lookup >>
+        rw [])
+      >- (
+        Cases_on `arity = LENGTH ts` >>
+        fs [] >>
+        drule lookup_inc_lookup_unchanged >>
+        rw [] >>
+        metis_tac [])) >>
+    rw [EXTENSION] >>
+    eq_tac >>
+    rw [] >>
+    CCONTR_TAC >>
+    fs [SUBSET_DEF])
   >- (
     fs [FLOOKUP_UPDATE] >>
     every_case_tac >>
@@ -2666,8 +2738,7 @@ val evaluate_alloc_tags = Q.prove (
           rw [] >>
           fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def] >>
           fs [FRANGE_DEF] >>
-          `s'.next_type_id ≥ s'.next_type_id` by decide_tac >>
-          metis_tac [])
+          metis_tac [DECIDE ``!x:num. x ≥ x``])
         >- (
           Cases_on `stamp2` >>
           res_tac >>
@@ -2688,8 +2759,7 @@ val evaluate_alloc_tags = Q.prove (
           rw [] >>
           fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def] >>
           fs [FRANGE_DEF] >>
-          `s'.next_type_id ≥ s'.next_type_id` by decide_tac >>
-          metis_tac [])
+          metis_tac [DECIDE ``!x:num. x ≥ x``])
         >- (
           Cases_on `stamp1` >>
           res_tac >>
@@ -2892,7 +2962,6 @@ val compile_decs_correct' = Q.prove (
         ?err_i1.
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))`,
-
   ho_match_mp_tac terminationTheory.evaluate_decs_ind >>
   simp [terminationTheory.evaluate_decs_def] >>
   conj_tac
@@ -2931,7 +3000,8 @@ val compile_decs_correct' = Q.prove (
       drule compile_decs_num_bindings >>
       fs [] >>
       rw [] >>
-      rfs []) >>
+      rfs [] >>
+      metis_tac [GREATER_EQ]) >>
     BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rw[] >>
     first_x_assum drule >>
@@ -3040,7 +3110,7 @@ val compile_decs_correct' = Q.prove (
         rw [v_rel_lems, extend_env_def, extend_dec_env_def] >>
         fs [v_rel_eqns] >>
         fs [s_rel_cases] >>
-        imp_res_tac evaluate_state_const >>
+        imp_res_tac evaluatePropsTheory.evaluate_state_unchanged >>
         metis_tac [])
       >- ( (* Match *)
         qmatch_asmsub_abbrev_tac `match_result_rel _ _ (Match _) r` >>
@@ -3099,10 +3169,12 @@ val compile_decs_correct' = Q.prove (
           rw [EL_APPEND_EQN] >>
           last_x_assum (qspec_then `n` mp_tac) >>
           simp [EL_APPEND_EQN])
-        >- metis_tac [evaluate_state_const, s_rel_cases]
-        >- metis_tac [evaluate_state_const, s_rel_cases]
-        >- metis_tac [evaluate_state_const, s_rel_cases]
-        >- metis_tac [evaluate_state_const, s_rel_cases]
+        >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
+        >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
+        (*
+        >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
+        >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
+        *)
         >- (
           fs [s_rel_cases] >>
           irule LIST_REL_mono >>
@@ -3143,12 +3215,12 @@ val compile_decs_correct' = Q.prove (
       rw [] >>
       simp [subglobals_refl, extend_env_def, extend_dec_env_def] >>
       fs [v_rel_eqns] >>
-      metis_tac [s_rel_cases, evaluate_state_const])
+      metis_tac [s_rel_cases, evaluatePropsTheory.evaluate_state_unchanged])
     >- ( (* Expression abort *)
       qexists_tac `genv` >>
       rw [] >>
       simp [subglobals_refl, extend_env_def, extend_dec_env_def] >>
-      metis_tac [s_rel_cases, evaluate_state_const]))
+      metis_tac [s_rel_cases, evaluatePropsTheory.evaluate_state_unchanged]))
   >- ( (* Letrec *)
     `funs = [] ∨ (?f x e. funs = [(f,x,e)]) ∨ ?f1 f2 fs. funs = f1::f2::fs`
     by metis_tac [list_CASES, pair_CASES]
@@ -3387,17 +3459,18 @@ val compile_decs_correct' = Q.prove (
     >- (
       fs [terminationTheory.check_dup_ctors_thm] >>
       fs [invariant_def]) >>
-    rw [] >>
+    reverse (rw [])
+    >- (
+      fs [is_fresh_type_def, invariant_def] >>
+      rw [] >>
+      metis_tac [DECIDE ``!x:num. x ≥ x``]) >>
+    fs [length_toList] >>
     first_x_assum drule >>
     disch_then drule >>
     rw [] >>
-    fs [toList_def, toListA_def] >>
     qpat_x_assum `_ = FDOM _` (mp_tac o GSYM) >>
     rw [] >>
     fs [combinTheory.o_DEF, LAMBDA_PROD] >>
-    `s_i1 with next_type_id := s_i1.next_type_id + 1 =
-        (s_i1 with next_type_id updated_by SUC)`
-    by rw [state_component_equality] >>
     fs [] >>
     `!x y. SUC x + y = x + SUC y` by decide_tac >>
     asm_simp_tac std_ss [] >>
@@ -3450,11 +3523,14 @@ val compile_decs_correct' = Q.prove (
     fs [invariant_def, s_rel_cases, v_rel_eqns, extend_dec_env_def, extend_env_def,
         empty_env_def, env_domain_eq_def] >>
     metis_tac [subglobals_refl])
-
   >- ( (* exceptions *)
-    rw [evaluate_decs_def, evaluate_dec_def] >>
-    fs [invariant_def, s_rel_cases, v_rel_eqns] >>
-    qexists_tac `genv with c := genv.c |+ (((idx.eidx,NONE),LENGTH ts), ExnStamp s_i1.next_exn_id)` >>
+    reverse (rw [evaluate_decs_def, evaluate_dec_def]) >>
+    fs [invariant_def, s_rel_cases, v_rel_eqns]
+    >- (
+      fs [is_fresh_exn_def] >>
+      rw [] >>
+      metis_tac [DECIDE ``!x:num.x ≥ x``]) >>
+    qexists_tac `genv with c := genv.c |+ (((idx.eidx,NONE),LENGTH ts), ExnStamp s.next_exn_stamp)` >>
     rw []
     >- metis_tac [subglobals_refl]
     >- simp [EXTENSION]
@@ -3464,18 +3540,26 @@ val compile_decs_correct' = Q.prove (
       >- fs [has_bools_def, FLOOKUP_UPDATE]
       >- (
         fs [has_exns_def, FLOOKUP_UPDATE] >>
-        rw [div_stamp_def, div_id_def,
-            chr_stamp_def, chr_id_def,
-            bind_stamp_def, bind_id_def,
-            subscript_stamp_def, subscript_id_def])
+        rw [] >>
+        fs [FLOOKUP_DEF, is_fresh_exn_def])
       >- fs [has_lists_def, FLOOKUP_UPDATE]
       >- (
         fs [FLOOKUP_UPDATE] >>
         every_case_tac >>
         rw []
         >- rw [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def]
-        >- cheat
-        >- cheat
+        >- (
+          fs [has_exns_def, div_stamp_def] >>
+          res_tac >>
+          Cases_on `stamp1` >>
+          Cases_on `cn1` >>
+          fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def])
+        >- (
+          fs [has_exns_def, div_stamp_def] >>
+          res_tac >>
+          Cases_on `stamp2` >>
+          Cases_on `cn2` >>
+          fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def])
         >- metis_tac [])
       >- (
         fs [FLOOKUP_UPDATE] >>
@@ -3507,8 +3591,7 @@ val compile_decs_correct' = Q.prove (
       `genv = <|v := s_i1.globals; c := genv.c|>` by rw [theorem "global_env_component_equality"] >>
       metis_tac [])
     >- rw [env_domain_eq_def]
-    >- (
-      
+    >- rw [FLOOKUP_DEF])
   >- ( (* Module *)
     pairarg_tac >>
     fs [] >>

@@ -33,8 +33,6 @@ val _ = Datatype`
     clock   : num;
     refs    : v store;
     ffi     : 'ffi ffi_state;
-    next_type_id : num;
-    next_exn_id : num;
     globals : (v option) list
   |>`;
 
@@ -605,9 +603,7 @@ val evaluate_ind = theorem"evaluate_ind";
 
 val do_app_const = Q.store_thm ("do_app_const",
   `do_app s op vs = SOME (s',r) ⇒
-   s.clock = s'.clock ∧
-   s.next_type_id = s'.next_type_id ∧
-   s.next_exn_id = s'.next_exn_id`,
+   s.clock = s'.clock`,
   cheat);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
@@ -629,24 +625,38 @@ val evaluate_def = save_thm("evaluate_def",
 val evaluate_ind = save_thm("evaluate_ind",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
+val is_fresh_type_def = Define `
+  is_fresh_type type_id env ⇔
+    !ctor. ctor ∈ env.c ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)`;
+
+val is_fresh_exn_def = Define `
+  is_fresh_exn exn_id env ⇔
+    !ctor. ctor ∈ env.c ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
+
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet e) =
    case evaluate (env with v := []) s [e] of
    | (s, Rval [Conv NONE []]) => (s, {}, NONE)
    | (s, Rval _) => (s, {}, SOME (Rabort Rtype_error))
    | (s, Rerr e) => (s, {}, SOME e)) ∧
-  (evaluate_dec env s (Dtype ctors) =
-    (s with next_type_id := s.next_type_id + 1,
-     if env.check_ctor then
-             { ((idx, SOME s.next_type_id), arity) |
-               arity < LENGTH ctors ∧ idx < EL arity ctors }
-     else
-       {},
-     NONE)) ∧
-  (evaluate_dec env s (Dexn arity) =
-    (s with next_exn_id := s.next_exn_id + 1,
-     {((s.next_exn_id, NONE), arity)},
-     NONE))`;
+  (evaluate_dec env s (Dtype id ctors) =
+    if env.check_ctor then
+      if is_fresh_type id env then
+        (s,
+         { ((idx, SOME id), arity) | arity < LENGTH ctors ∧ idx < EL arity ctors },
+         NONE)
+      else
+        (s, {}, SOME (Rabort Rtype_error))
+    else
+      (s, {}, NONE)) ∧
+  (evaluate_dec env s (Dexn id arity) =
+    if env.check_ctor then
+      if is_fresh_exn id env then
+        (s, {((id, NONE), arity)}, NONE)
+      else
+        (s, {}, SOME (Rabort Rtype_error))
+    else
+      (s, {}, NONE))`;
 
 val evaluate_decs_def = Define`
   (evaluate_decs env s [] = (s, {}, NONE)) ∧

@@ -552,6 +552,7 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    EVAL_TAC)
    *)
 
+   (*
 val evaluate_state_const = Q.store_thm("evaluate_state_const",
   `(∀env (s:'ffi modSem$state) ls s' vs.
       modSem$evaluate env s ls = (s',vs) ⇒
@@ -565,6 +566,7 @@ val evaluate_state_const = Q.store_thm("evaluate_state_const",
   srw_tac[][evaluate_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> imp_res_tac do_app_const >>
   srw_tac[][dec_clock_def] >> metis_tac []);
+  *)
 
   (*
 val evaluate_dec_state_const = Q.store_thm("evaluate_dec_state_const",
