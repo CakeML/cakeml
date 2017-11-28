@@ -61,16 +61,16 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
        v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))`;
 
 val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Number n)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Block n p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Word64 p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (ByteVector p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (RefPtr p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Closure x1 x2 x3 x4 x5)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Recclosure y1 y2 y3 y4 y5)``,
-  prove(``v_rel x (Boolv b) <=> x = Boolv b``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Number n) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Block n p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Word64 p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (ByteVector p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Closure x1 x2 x3 x4 x5) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Recclosure y1 y2 y3 y4 y5) x``,
+  prove(``v_rel (Boolv b) x <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
-  prove(``v_rel x Unit <=> x = Unit``,
+  prove(``v_rel Unit x <=> x = Unit``,
         fs [closSemTheory.Unit_def,Once v_rel_cases])])
 
 (* state relation *)
@@ -110,7 +110,7 @@ val state_rel_def = Define `
 (* *)
 
 val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!y x.
+  ``!x y.
       v_rel x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
            (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
@@ -127,7 +127,7 @@ val v_rel_IMP_v_to_bytes = prove(
   rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
 
 val v_rel_IMP_v_to_words_lemma = prove(
-  ``!y x.
+  ``!x y.
       v_rel x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
            (v_to_list y = SOME (MAP Word64 ns))``,
@@ -212,18 +212,73 @@ val PUSH_IF = store_thm("PUSH_IF",
   ``!f b x y. (if b then f x else f y) = f (if b then x else y)``,
   METIS_TAC [])
 
+val PUSH_EQ_IF = store_thm("PUSH_EQ_IF",
+  ``!b x y z. (if b then x else y) = z <=> (if b then x = z else y = z)``,
+  METIS_TAC []);
+
+
 val dest_closure_SOME_IMP = store_thm("dest_closure_SOME_IMP",
   ``dest_closure max_app loc_opt f2 xs = SOME x ==>
     (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
     (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)``,
   fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
 
+val dest_closure_SOME_Full_app = store_thm("dest_closure_SOME_Full_app",
+  ``v_rel f1 f2 /\ v_rel a1 a2 /\ LIST_REL v_rel args1 args2 /\
+    dest_closure max_app loc_opt f1 (a1::args1) = SOME (Full_app exp1 env1 rest_args1) ==>
+      ?exp2 env2 rest_args2.
+      code_rel [exp1] [exp2] /\
+      LIST_REL v_rel env1 env2 /\
+      LIST_REL v_rel rest_args1 rest_args2 /\
+      dest_closure max_app loc_opt f2 (a2::args2) = SOME (Full_app exp2 env2 rest_args2)``,
+   rpt strip_tac
+   \\ imp_res_tac dest_closure_SOME_IMP
+   \\ rveq \\ fs [] \\ rveq
+   \\ imp_res_tac LIST_REL_LENGTH
+   \\ qpat_x_assum `_ = SOME _` mp_tac
+   THEN1 (rename1 `code_rel [e1] [e2]`
+          \\ simp [dest_closure_def]
+          \\ IF_CASES_TAC \\ simp []
+          \\ strip_tac \\ rveq \\ fs []
+          \\ conj_tac
+          THEN1 (ntac 2 (irule EVERY2_APPEND_suff \\ simp [])
+                 \\ irule EVERY2_REVERSE
+                 \\ irule EVERY2_TAKE
+                 \\ irule EVERY2_APPEND_suff \\ simp []
+                 \\ irule EVERY2_REVERSE \\ simp [])
+          \\ irule EVERY2_REVERSE
+          \\ irule EVERY2_DROP
+          \\ irule EVERY2_APPEND_suff \\ simp []
+          \\ irule EVERY2_REVERSE \\ simp [])
+   \\ rename1 `LIST_REL f_rel fns1 fns2`
+   \\ simp [dest_closure_def]
+   \\ ntac 2 (pairarg_tac \\ simp [])
+   \\ Cases_on `i < LENGTH fns2` \\ simp []
+   \\ IF_CASES_TAC \\ simp []
+   \\ strip_tac \\ rveq \\ fs []
+   \\ bump_assum `LIST_REL f_rel _ _`
+   \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
+   \\ simp [] \\ disch_then drule
+   \\ simp [f_rel_def]
+   \\ strip_tac \\ fs []
+   \\ conj_tac
+   THEN1 (irule EVERY2_APPEND_suff \\ simp []
+          \\ irule EVERY2_APPEND_suff \\ simp [LIST_REL_GENLIST]
+          \\ irule EVERY2_APPEND_suff \\ simp []
+          \\ irule EVERY2_REVERSE
+          \\ irule EVERY2_TAKE
+          \\ irule EVERY2_APPEND_suff \\ simp []
+          \\ irule EVERY2_REVERSE \\ simp [])
+   \\ irule EVERY2_REVERSE
+   \\ irule EVERY2_DROP
+   \\ irule EVERY2_APPEND_suff \\ simp []
+   \\ irule EVERY2_REVERSE \\ simp [])
+
 (* evaluate_let_op *)
 
 val evaluate_let_op = store_thm("evaluate_let_op",
   ``(!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 ys env2 t1.
        evaluate (xs, env1, s1) = (res1, s2) /\
-       (*res1 <> Rerr (Rabort Rtype_error) /\*)
        LIST_REL v_rel env1 env2 /\ state_rel s1 t1 /\
        code_rel xs ys ==>
        ?res2 t2.
@@ -494,23 +549,130 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ rveq \\ fs [])
   THEN1 (* evaluate_app NIL *)
    (simp [])
-
   (* evaluate_app CONS *)
   \\ fs [evaluate_def]
   \\ `s1.max_app = t1.max_app` by fs [state_rel_def]
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   THEN1 (* dest_closure returns NONE *)
    (fs [dest_closure_def]
-    \\ Cases_on `f2` \\ fs [] \\ rveq \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq
     \\ imp_res_tac LIST_REL_LENGTH
     \\ fs [PUSH_IF]
     \\ pairarg_tac \\ fs []
     \\ pairarg_tac \\ fs []
-    \\ Cases_on `n < LENGTH l1` \\ fs []
+    \\ Cases_on `i < LENGTH funs2` \\ fs []
     \\ bump_assum `LIST_REL f_rel _ _`
     \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
     \\ fs [] \\ disch_then drule \\ fs [f_rel_def]
     \\ strip_tac \\ fs [])
+  THEN1 (* dest_closure returns SOME Partial_app *)
+   (imp_res_tac dest_closure_SOME_IMP
+    \\ rveq \\ fs [] \\ rveq
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ `s1.clock = t1.clock` by fs [state_rel_def]
+    \\ qpat_x_assum `_ = SOME (Partial_app _)` mp_tac
+    \\ fs [dest_closure_def]
+    \\ TRY (ntac 2 (pairarg_tac \\ fs [])
+            \\ Cases_on `i < LENGTH funs2` \\ fs []
+            \\ bump_assum `LIST_REL f_rel _ _`
+            \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
+            \\ fs [] \\ disch_then drule
+            \\ fs [f_rel_def]
+            \\ strip_tac \\ fs [])
+    \\ IF_CASES_TAC \\ fs []
+    \\ strip_tac \\ rveq
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ fs [dec_clock_def, state_rel_def]
+    \\ irule EVERY2_APPEND_suff \\ fs [])
 
-  THEN1 (* dest_closure return SOME Partial_app *)
-    imp_res_tac dest_closure_SOME_IMP
+  (* dest_closure returns SOME Full_app *)
+  \\ bump_assum `v_rel f1 f2`
+  \\ drule (GEN_ALL dest_closure_SOME_Full_app)
+  \\ pop_assum kall_tac
+  \\ ntac 3 (disch_then drule)
+  \\ strip_tac \\ fs []
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ `s1.clock = t1.clock` by fs [state_rel_def]
+  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+  THEN1 fs [state_rel_def]
+  \\ fs [pair_case_eq] \\ fs []
+  \\ first_x_assum drule
+  \\ qmatch_goalsub_abbrev_tac `evaluate (xxx2, _, sss2)`
+  \\ disch_then (qspecl_then [`xxx2`, `sss2`] mp_tac)
+  \\ unabbrev_all_tac \\ simp []
+  \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
+  \\ strip_tac \\ fs []
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
+
+
+  (* Alternate version that doesnt use dest_closure_SOME_Full_app *)
+  (* dest_closure returns SOME Full_app *)
+  \\ imp_res_tac dest_closure_SOME_IMP
+  \\ rveq \\ fs [] \\ rveq
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ `s1.clock = t1.clock` by fs [state_rel_def]
+  \\ qpat_x_assum `_ = SOME _` mp_tac
+  \\ fs [dest_closure_def]
+  THEN1
+   (IF_CASES_TAC \\ fs []
+    \\ strip_tac \\ rveq
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    THEN1 fs [state_rel_def]
+    \\ fs [pair_case_eq]
+    \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `evaluate (xxx2, eee2, sss2)`
+    \\ qmatch_asmsub_abbrev_tac `evaluate (_, eee1, _)`
+    \\ `LIST_REL v_rel eee1 eee2`
+       by (unabbrev_all_tac
+           \\ ntac 2 (irule EVERY2_APPEND_suff \\ fs [])
+           \\ irule EVERY2_REVERSE
+           \\ irule EVERY2_TAKE
+           \\ irule EVERY2_APPEND_suff \\ fs []
+           \\ irule EVERY2_REVERSE \\ fs [])
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`xxx2`, `sss2`] mp_tac)
+    \\ unabbrev_all_tac
+    \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
+    \\ strip_tac
+    \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq
+    \\ first_x_assum irule \\ fs []
+    \\ irule EVERY2_REVERSE
+    \\ irule EVERY2_DROP
+    \\ irule EVERY2_APPEND_suff \\ simp []
+    \\ irule EVERY2_REVERSE \\ simp [])
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on `i < LENGTH funs2` \\ fs []
+  \\ bump_assum `LIST_REL f_rel _ _`
+  \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
+  \\ fs [] \\ disch_then drule
+  \\ simp [f_rel_def]
+  \\ strip_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ strip_tac \\ rveq
+  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+  THEN1 fs [state_rel_def]
+  \\ fs [pair_case_eq]
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `evaluate (xxx2, eee2, sss2)`
+  \\ qmatch_asmsub_abbrev_tac `evaluate (_, eee1, _)`
+  \\ `LIST_REL v_rel eee1 eee2`
+     by (unabbrev_all_tac
+         \\ irule EVERY2_APPEND_suff \\ simp []
+         \\ irule EVERY2_APPEND_suff \\ simp [LIST_REL_GENLIST]
+         \\ irule EVERY2_APPEND_suff \\ simp []
+         \\ irule EVERY2_REVERSE
+         \\ irule EVERY2_TAKE
+         \\ irule EVERY2_APPEND_suff \\ simp []
+         \\ irule EVERY2_REVERSE \\ simp [])
+  \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`xxx2`, `sss2`] mp_tac)
+  \\ unabbrev_all_tac
+  \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
+  \\ strip_tac
+  \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq
+  \\ first_x_assum irule \\ simp []
+  \\ irule EVERY2_REVERSE
+  \\ irule EVERY2_DROP
+  \\ irule EVERY2_APPEND_suff \\ simp []
+  \\ irule EVERY2_REVERSE \\ simp []
