@@ -304,13 +304,10 @@ val read_length = Q.store_thm("read_length",
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def]
-  \\ every_case_tac
+  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac)
-  \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
-  \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
-  \\ imp_res_tac read_length
-  \\ imp_res_tac LENGTH_EQ \\ fs[]);
+  \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac read_length \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
