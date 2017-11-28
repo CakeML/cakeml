@@ -6,7 +6,7 @@ val qexistsl_tac = map_every qexists_tac;
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 
-val _ = new_theory "clos_inlineProof";
+val _ = new_theory "clos_ticksProof";
 
 
 
