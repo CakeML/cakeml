@@ -965,6 +965,9 @@ val env_rel_IMP_EL =
   LESS_LENGTH_env_rel_IMP |> SPEC_ALL |> UNDISCH
   |> CONJUNCT2 |> DISCH_ALL |> GEN_ALL
 
+val compile_oracle_inv_def = Define `
+  compile_oracle_inv s_code s_cc s_co t_code t_cc t_co <=> ARB`
+
 val state_rel_def = Define `
   state_rel f (s:('c,'ffi) closSem$state) (t:('c,'ffi) bvlSem$state) <=>
     (s.ffi = t.ffi) /\
@@ -982,6 +985,8 @@ val state_rel_def = Define `
          lookup (generic_app_fn_location n) t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
     (!tot n. tot < s.max_app ∧ n < tot ⇒
       lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
+    compile_oracle_inv s.code s.compile s.compile_oracle
+                       t.code t.compile t.compile_oracle ∧
     (lookup (equality_location s.max_app) t.code = SOME (equality_code s.max_app)) ∧
     (lookup (block_equality_location s.max_app) t.code = SOME (block_equality_code s.max_app)) ∧
     (lookup (ToList_location s.max_app) t.code = SOME (ToList_code s.max_app)) ∧
