@@ -125,7 +125,6 @@ val state_rel_def = Define `
     s.compile = pure_cc compile_inc t.compile /\
     t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
 
-
 (* eval remove ticks *)
 
 val mk_Ticks_def = Define `
@@ -897,19 +896,45 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ Cases_on `res1` \\ fs [] \\ rveq
       \\ qexists_tac `ck` \\ fs [])))
 
+val remove_ticks_correct = Q.store_thm("remove_ticks_correct",
+  `(!xs env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1.
+     (evaluate (remove_ticks xs,env2,t1) = (res2,t2)) /\
+     LIST_REL v_rel env1 env2 /\ state_rel s1 t1 ==>
+     ?ck res1 s2.
+        (evaluate (xs,env1,s1 with clock := s1.clock + ck) = (res1,s2)) /\
+        result_rel (LIST_REL v_rel) v_rel res1 res2 /\
+        state_rel s2 t2)`,
+  rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_ticks) \\ simp [code_rel_def]);
 
 
-val remove_ticks_idem = store_thm("remove_ticks_idem",
-  ``!xs. remove_ticks (remove_ticks xs) = remove_ticks xs``,
-  recInduct remove_ticks_ind \\ rw [remove_ticks_def]
-  THEN1 (qspecl_then [`xs`, `y`] strip_assume_tac remove_ticks_cons
-         \\ fs [remove_ticks_def])
-  \\ simp [MAP_MAP_o, o_DEF, UNCURRY]
-  \\ simp [MAP_EQ_f]
-  \\ rpt strip_tac
-  \\ PairCases_on `x`
-  \\ res_tac  \\ fs [])
+(* preservation of observable semantics *)
 
+val semantics_remove_ticks = Q.store_thm("semantics_remove_ticks",
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (pure_cc compile_inc cc) xs <> Fail /\
+   1 <= max_app ==>
+   (∀n. SND (SND (co n)) = []) ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (pure_cc compile_inc cc) xs =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     (pure_co compile_inc ∘ co) cc
+     (remove_ticks xs)`,
+  (**)
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq_no_fail
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ drule remove_ticks_correct
+  \\ simp [code_rel_def]
+  \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
+                               co (pure_cc compile_inc cc) k` mp_tac)
+  \\ impl_tac
+  THEN1 (fs [state_rel_def, initial_state_def, FMAP_REL_def])
+  \\ simp [initial_state_def]
+  \\ strip_tac
+  \\ qexists_tac `ck` \\ simp []
+  \\ rename1 `result_rel _ v_rel res2 _`
+  \\ Cases_on `res2` \\ fs []
+  \\ TRY (Cases_on `e` \\ fs [])
+  \\ fs [state_rel_def])
 
 val _ = export_theory();
-
