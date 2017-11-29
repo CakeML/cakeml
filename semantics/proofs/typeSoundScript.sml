@@ -2151,14 +2151,28 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >> CCONTR_TAC
      >> fs [consistent_ctMap_def, RES_FORALL]
      >> res_tac
-     >> fs [])
-   >> cheat)
-   (*
+     >> fs []) >>
+   conj_asm1_tac
+   >- (
+     rw [o_f_FUPDATE, o_f_FUNION] >>
+     rw [EXTENSION, IN_FRANGE, FUNION_DEF] >>
+     CCONTR_TAC >>
+     fs [consistent_ctMap_def, good_ctMap_def, ctMap_has_exns_def, FLOOKUP_DEF] >>
+     rw []
+     >- (
+       pop_assum (qspec_then `bind_stamp` mp_tac) >>
+       rw []) >>
+     pop_assum (qspec_then `k` mp_tac) >>
+     rw [] >>
+     res_tac >>
+     fs [])
    >> conj_asm1_tac
    >- (
      fs [type_all_env_def]
      >> simp [type_ctor_def, FLOOKUP_FUNION, namespaceTheory.id_to_n_def, FLOOKUP_UPDATE])
    >> conj_asm1_tac
+   >- cheat
+   (*
    >- (
      fs [good_ctMap_def]
      >> rw []
@@ -2168,8 +2182,12 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
        >> simp []
        >> fs []
        >> simp [ctMap_ok_def, FEVERY_FUPDATE, FEVERY_FEMPTY, EVERY_MAP]
-       >> fs [check_exn_tenv_def, EVERY_MEM]
-       >> metis_tac [check_freevars_type_name_subst, tenv_ok_def])
+       >> fs [EVERY_MEM]
+       >> rw []
+       >> fs [FLOOKUP_UPDATE] >>
+       rw [same_type_def]
+       >- metis_tac [check_freevars_type_name_subst, tenv_ok_def] >>
+       fs [ctMap_ok_def, ctMap_has_exns_def, bind_stamp_def]
      >> TRY (irule still_has_bools)
      >> TRY (irule still_has_exns)
      >> TRY (irule still_has_lists)
@@ -2181,26 +2199,25 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >> pairarg_tac
      >> fs []
      >> rw [])
+     *)
+   >> conj_tac
+   >- (
+     fs [consistent_ctMap_def] >>
+     rw [] >>
+     rw []
+     >- metis_tac [] >>
+     res_tac >>
+     decide_tac)
    >> conj_tac
    >- (
      qmatch_assum_abbrev_tac `weakCT ctMap' _`
      >> `type_all_env ctMap' tenvS env tenv`
        by metis_tac [type_all_env_weakening, weakS_refl]
      >> fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
-     >> irule nsAll2_nsAppend
+     >> irule nsAll2_nsBind
      >> simp [])
-   >> conj_tac
-   >- metis_tac [type_s_weakening, good_ctMap_def]
-   >> conj_tac
-   >- (
-     irule consistent_decls_union
-     >> simp []
-     >> simp [consistent_decls_def, RES_FORALL])
-   >- (
-     irule consistent_ctMap_union
-     >> simp []
-     >> simp [consistent_ctMap_def, RES_FORALL])));
-     *)
+   >- metis_tac [type_s_weakening, good_ctMap_def])
+
  >- ( (* Case module *)
    qpat_x_assum `type_d _ _ (Dmod _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>
