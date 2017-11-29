@@ -8,8 +8,6 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_ticksProof";
 
-
-
 val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks",
   ``!(es:closLang$exp list). LENGTH (remove_ticks es) = LENGTH es``,
   recInduct remove_ticks_ind \\ fs [remove_ticks_def]);
@@ -17,6 +15,14 @@ val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks",
 val remove_ticks_IMP_LENGTH = store_thm("remove_ticks_LENGTH_imp",
   ``!(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs``,
   fs [LENGTH_remove_ticks]);
+
+val remove_ticks_SING = store_thm("remove_ticks_SING",
+  ``!e. ?e'. remove_ticks [e] = [e']``,
+  Induct \\ fs [remove_ticks_def]);
+
+val HD_remove_ticks_SING = store_thm("HD_remove_ticks_SING[simp]",
+  ``!x. [HD (remove_ticks [x])] = remove_ticks [x]``,
+  gen_tac \\ strip_assume_tac (Q.SPEC `x` remove_ticks_SING) \\ fs []);
 
 (* code relation *)
 
@@ -28,30 +34,18 @@ val code_rel_IMP_LENGTH = store_thm("code_rel_IMP_LENGTH",
   ``!xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys``,
   fs [code_rel_def, LENGTH_remove_ticks]);
 
-val remove_ticks_sing = store_thm("remove_ticks_sing",
-  ``!e. ?e'. remove_ticks [e] = [e']``,
-  Induct \\ fs [remove_ticks_def]);
-
-val remove_ticks_cons = store_thm("remove_ticks_cons",
+val remove_ticks_CONS = store_thm("remove_ticks_cons",
   ``!es e. remove_ticks (e::es) = HD (remove_ticks [e])::remove_ticks es``,
   Induct_on `es` \\ Induct_on `e` \\ fs [remove_ticks_def]);
-
-val code_rel_CONS = store_thm("code_rel_CONS",
-  ``!x xs y y ys. code_rel (x::xs) (y::ys) <=>
-                  code_rel [x] [y] /\ code_rel xs ys``,
-  fs [code_rel_def]
-  \\ rpt strip_tac
-  \\ `?x'. remove_ticks [x] = [x']` by metis_tac [remove_ticks_sing]
-  \\ rw [Once remove_ticks_cons]);
 
 val code_rel_CONS_CONS = store_thm("code_rel_CONS_CONS",
   ``!x1 x2 xs y1 y2 ys. code_rel (x1::x2::xs) (y1::y2::ys) <=>
                         code_rel [x1] [y1] /\ code_rel (x2::xs) (y2::ys)``,
   fs [code_rel_def]
   \\ rpt strip_tac
-  \\ `?t1. remove_ticks [x1] = [t1]` by metis_tac [remove_ticks_sing]
-  \\ `?t2. remove_ticks [x2] = [t2]` by metis_tac [remove_ticks_sing]
-  \\ rw [remove_ticks_cons]);
+  \\ `?t1. remove_ticks [x1] = [t1]` by metis_tac [remove_ticks_SING]
+  \\ `?t2. remove_ticks [x2] = [t2]` by metis_tac [remove_ticks_SING]
+  \\ rw [remove_ticks_CONS]);
 
 (* value relation *)
 
@@ -130,10 +124,6 @@ val state_rel_def = Define `
 val mk_Ticks_def = Define `
   (mk_Ticks [] (e : closLang$exp) = e) /\
   (mk_Ticks (t::tr) e = Tick t (mk_Ticks tr e))`;
-
-val HD_remove_ticks_SING = store_thm("HD_remove_ticks_SING[simp]",
-  ``!x. [HD (remove_ticks [x])] = remove_ticks [x]``,
-  gen_tac \\ strip_assume_tac (Q.SPEC `x` remove_ticks_sing) \\ fs []);
 
 val remove_ticks_Tick = store_thm("remove_ticks_Tick",
   ``!x t e. ~([Tick t e] = remove_ticks [x])``,
@@ -906,14 +896,12 @@ val remove_ticks_correct = Q.store_thm("remove_ticks_correct",
         state_rel s2 t2)`,
   rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_ticks) \\ simp [code_rel_def]);
 
-
 (* preservation of observable semantics *)
 
 val semantics_remove_ticks = Q.store_thm("semantics_remove_ticks",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs <> Fail /\
-   1 <= max_app ==>
-   (∀n. SND (SND (co n)) = []) ==>
+     co (pure_cc compile_inc cc) xs <> Fail ==>
+   (∀n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
