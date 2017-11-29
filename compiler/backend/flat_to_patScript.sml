@@ -1,7 +1,7 @@
-open preamble modLangTheory patLangTheory
+open preamble flatLangTheory patLangTheory
 open backend_commonTheory
 
-val _ = new_theory"mod_to_pat"
+val _ = new_theory"flat_to_pat"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val Bool_def = Define `

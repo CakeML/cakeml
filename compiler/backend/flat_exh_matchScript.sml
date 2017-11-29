@@ -1,9 +1,9 @@
-open preamble modLangTheory mod_reorder_matchTheory
+open preamble flatLangTheory flat_reorder_matchTheory
 open backend_commonTheory
 
 val _ = numLib.prefer_num()
 
-val _ = new_theory"mod_exh_match"
+val _ = new_theory"flat_exh_match"
 
 (*
 (* The translation only detects the following patterns:

@@ -1,22 +1,21 @@
 open preamble astTheory;
 open backend_commonTheory;
 
-val _ = new_theory "modLang";
+val _ = new_theory "flatLang";
 
 val _ = set_grammar_ancestry ["ast"];
 
-(* The first intermediate language modLang. It removes modules and resolves all
+(* The first intermediate language flatLang. It removes modules and resolves all
  * global scoping. Each value definition gets allocated a slot in a global
- * variable store, and each constructor gets a unique global identifier.
+ * variable store, and each type and exception gets a unique global identifier.
  * It removes andalso and orelse and replaces them with if, and removes the
  * AallocEmpty primitive op and replaces it with an alloc call with 0.
  *
- * The AST of modLang differs from the source language by having two variable
+ * The AST of flatLang differs from the source language by having two variable
  * reference forms, one to reference local bindings (still by name) and one to
- * reference global bindings (by index). At the top level, modules are gone.
- * Top-level lets and letrecs no longer bind names (or have patterns), and the
- * lets come with just a number indicating how many bindings to install in the
- * global environment. Constructor names are replaced with numbers, and type and
+ * reference global bindings (by index). At the top level, modules and let recs
+ * are gone.  Top-level lets and letrecs no longer bind names (or have
+ * patterns). Constructor names are replaced with numbers, and type and
  * exception definitions record the arities of the constructors rather than the
  * types. Type annotations are also gone.
  *)
@@ -113,11 +112,11 @@ val _ = Datatype`
 val exp_size_def = definition"exp_size_def";
 
 val exp6_size_APPEND = Q.store_thm("exp6_size_APPEND[simp]",
-  `modLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2`,
+  `flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2`,
   Induct_on`e`>>simp[exp_size_def])
 
 val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
-  `modLang$exp6_size (REVERSE es) = exp6_size es`,
+  `flatLang$exp6_size (REVERSE es) = exp6_size es`,
   Induct_on`es`>>simp[exp_size_def])
 
 val _ = Datatype`

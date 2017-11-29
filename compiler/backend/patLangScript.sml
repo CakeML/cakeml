@@ -1,7 +1,7 @@
-open preamble modLangTheory;
+open preamble flatLangTheory;
 
 val _ = new_theory "patLang"
-val _ = set_grammar_ancestry ["modLang"]
+val _ = set_grammar_ancestry ["flatLang"]
 
 (* Removes pattern-matching and variable names. Follows exhLang.
  *
@@ -14,7 +14,7 @@ val _ = set_grammar_ancestry ["modLang"]
 
 val _ = Datatype`
   op =
-   | Op (modLang$op)
+   | Op (flatLang$op)
    | Tag_eq num num
    | El num`;
 

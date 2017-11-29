@@ -1,13 +1,13 @@
 open preamble astTheory mlintTheory
-open modLangTheory patLangTheory closLangTheory
-     displayLangTheory source_to_modTheory;
+open flatLangTheory patLangTheory closLangTheory
+     displayLangTheory source_to_flatTheory;
 
 val _ = new_theory"presLang";
 
 (*
 (*
 * presLang is a presentation language, encompassing intermediate languages from
-* modLang to patLang of the compiler, adopting their constructors. However, the
+* flatLang to patLang of the compiler, adopting their constructors. However, the
 * constructors for patLang differ a bit since we don't want to present
 * information using de bruijn indices but rather variable names.
 *
@@ -23,7 +23,7 @@ val _ = new_theory"presLang";
 val _ = Datatype`
   op =
     | Ast_op ast$op
-    | Modlang_op modLang$op
+    | Modlang_op flatLang$op
     | Conlang_op conLang$op
     | Patlang_op patLang$op
     | Closlang_op closLang$op`;
@@ -96,92 +96,92 @@ val exp_size_def = fetch "-" "exp_size_def";
 
 (* Functions for converting intermediate languages to presLang. *)
 
-(* modLang *)
+(* flatLang *)
 
 val MEM_pat_size = prove(
   ``!pats a. MEM a (pats:ast$pat list) ==> pat_size a < pat1_size pats``,
   Induct \\ rw [] \\ rw [astTheory.pat_size_def] \\ res_tac \\ fs []);
 
-val mod_to_pres_pat_def = tDefine "mod_to_pres_pat" `
-  mod_to_pres_pat p =
+val flat_to_pres_pat_def = tDefine "flat_to_pres_pat" `
+  flat_to_pres_pat p =
     case p of
        | ast$Pvar varN => presLang$Pvar varN
        | Pany => presLang$Pany
        | Plit lit => Plit lit
-       | Pcon id pats => Pcon (Modlang_con id) (MAP mod_to_pres_pat pats)
-       | Pref pat => Pref (mod_to_pres_pat pat)
-       (* Won't happen, these are removed in compilation from source to mod. *)
-       | Ptannot pat t => Ptannot (mod_to_pres_pat pat) t`
+       | Pcon id pats => Pcon (Modlang_con id) (MAP flat_to_pres_pat pats)
+       | Pref pat => Pref (flat_to_pres_pat pat)
+       (* Won't happen, these are removed in compilation from source to flat. *)
+       | Ptannot pat t => Ptannot (flat_to_pres_pat pat) t`
   (WF_REL_TAC `measure pat_size` \\ rw []
    \\ imp_res_tac MEM_pat_size \\ fs [])
 
 val MEM_funs_size = prove(
-  ``!fs v1 v2 e. MEM (v1,v2,e) fs ==> modLang$exp_size e < exp1_size fs``,
-  Induct \\ fs [modLangTheory.exp_size_def] \\ rw []
-  \\ fs [modLangTheory.exp_size_def] \\ res_tac \\ fs []);
+  ``!fs v1 v2 e. MEM (v1,v2,e) fs ==> flatLang$exp_size e < exp1_size fs``,
+  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
+  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []);
 
 val MEM_exps_size = prove(
-  ``!exps e. MEM a exps ==> modLang$exp_size a < exp6_size exps``,
-  Induct \\ fs [modLangTheory.exp_size_def] \\ rw []
-  \\ fs [modLangTheory.exp_size_def] \\ res_tac \\ fs []);
+  ``!exps e. MEM a exps ==> flatLang$exp_size a < exp6_size exps``,
+  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
+  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []);
 
-val mod_to_pres_exp_def = tDefine"mod_to_pres_exp" `
-  (mod_to_pres_exp (modLang$Raise tra exp) = presLang$Raise tra (mod_to_pres_exp exp))
+val flat_to_pres_exp_def = tDefine"flat_to_pres_exp" `
+  (flat_to_pres_exp (flatLang$Raise tra exp) = presLang$Raise tra (flat_to_pres_exp exp))
   /\
-  (mod_to_pres_exp (Handle tra exp pes) =
-    Handle tra (mod_to_pres_exp exp) (mod_to_pres_pes pes))
+  (flat_to_pres_exp (Handle tra exp pes) =
+    Handle tra (flat_to_pres_exp exp) (flat_to_pres_pes pes))
   /\
-  (mod_to_pres_exp (Lit tra lit) = Lit tra lit)
+  (flat_to_pres_exp (Lit tra lit) = Lit tra lit)
   /\
-  (mod_to_pres_exp (Con tra id_opt exps) = Con tra (Modlang_con id_opt) (MAP mod_to_pres_exp exps))
+  (flat_to_pres_exp (Con tra id_opt exps) = Con tra (Modlang_con id_opt) (MAP flat_to_pres_exp exps))
   /\
-  (mod_to_pres_exp (Var_local tra varN) = Var_local tra varN)
+  (flat_to_pres_exp (Var_local tra varN) = Var_local tra varN)
   /\
-  (mod_to_pres_exp (Var_global tra num) = Var_global tra num)
+  (flat_to_pres_exp (Var_global tra num) = Var_global tra num)
   /\
-  (mod_to_pres_exp (Fun tra varN exp) = Fun tra varN (mod_to_pres_exp exp))
+  (flat_to_pres_exp (Fun tra varN exp) = Fun tra varN (flat_to_pres_exp exp))
   /\
-  (mod_to_pres_exp (App tra op exps) = App tra (Modlang_op op) (MAP mod_to_pres_exp exps))
+  (flat_to_pres_exp (App tra op exps) = App tra (Modlang_op op) (MAP flat_to_pres_exp exps))
   /\
-  (mod_to_pres_exp (If tra exp1 exp2 exp3) =
-    If tra (mod_to_pres_exp exp1) (mod_to_pres_exp exp2) (mod_to_pres_exp exp3))
+  (flat_to_pres_exp (If tra exp1 exp2 exp3) =
+    If tra (flat_to_pres_exp exp1) (flat_to_pres_exp exp2) (flat_to_pres_exp exp3))
   /\
-  (mod_to_pres_exp (Mat tra exp pes) =
-    Mat tra (mod_to_pres_exp exp) (mod_to_pres_pes pes))
+  (flat_to_pres_exp (Mat tra exp pes) =
+    Mat tra (flat_to_pres_exp exp) (flat_to_pres_pes pes))
   /\
-  (mod_to_pres_exp (Let tra varN_opt exp1 exp2) =
-    Let tra varN_opt (mod_to_pres_exp exp1) (mod_to_pres_exp exp2))
+  (flat_to_pres_exp (Let tra varN_opt exp1 exp2) =
+    Let tra varN_opt (flat_to_pres_exp exp1) (flat_to_pres_exp exp2))
   /\
-  (mod_to_pres_exp (Letrec tra funs exp) =
+  (flat_to_pres_exp (Letrec tra funs exp) =
     Letrec tra
-          (MAP (\(v1,v2,e).(v1,v2,mod_to_pres_exp e)) funs)
-          (mod_to_pres_exp exp))
+          (MAP (\(v1,v2,e).(v1,v2,flat_to_pres_exp e)) funs)
+          (flat_to_pres_exp exp))
   /\
   (* Pattern-expression pairs *)
-  (mod_to_pres_pes [] = [])
+  (flat_to_pres_pes [] = [])
   /\
-  (mod_to_pres_pes ((p,e)::pes) =
-    (mod_to_pres_pat p, mod_to_pres_exp e)::mod_to_pres_pes pes)`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL e => modLang$exp_size e
-                                         | INR pes => modLang$exp3_size pes)`
-   \\ rw [modLangTheory.exp_size_def]
+  (flat_to_pres_pes ((p,e)::pes) =
+    (flat_to_pres_pat p, flat_to_pres_exp e)::flat_to_pres_pes pes)`
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => flatLang$exp_size e
+                                         | INR pes => flatLang$exp3_size pes)`
+   \\ rw [flatLangTheory.exp_size_def]
    \\ imp_res_tac MEM_funs_size \\ fs []
    \\ imp_res_tac MEM_exps_size \\ fs []);
 
-val mod_to_pres_dec_def = Define`
-  mod_to_pres_dec d =
+val flat_to_pres_dec_def = Define`
+  flat_to_pres_dec d =
     case d of
-       | modLang$Dlet num exp => presLang$Dlet num (mod_to_pres_exp exp)
-       | Dletrec funs => Dletrec (MAP (\(v1,v2,e). (v1,v2,mod_to_pres_exp e)) funs)
+       | flatLang$Dlet num exp => presLang$Dlet num (flat_to_pres_exp exp)
+       | Dletrec funs => Dletrec (MAP (\(v1,v2,e). (v1,v2,flat_to_pres_exp e)) funs)
        | Dtype mods type_def => Dtype mods
        | Dexn mods conN ts => Dexn mods conN ts`;
 
-val mod_to_pres_prompt_def = Define`
-  mod_to_pres_prompt (Prompt modN decs) =
-    Prompt modN (MAP mod_to_pres_dec decs)`;
+val flat_to_pres_prompt_def = Define`
+  flat_to_pres_prompt (Prompt flatN decs) =
+    Prompt flatN (MAP flat_to_pres_dec decs)`;
 
-val mod_to_pres_def = Define`
-  mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
+val flat_to_pres_def = Define`
+  flat_to_pres prompts = Prog (MAP flat_to_pres_prompt prompts)`;
 
 (* con_to_pres *)
 
@@ -507,7 +507,7 @@ val op_to_display_def = tDefine "op_to_display"`
   /\
   (op_to_display (Ast_op AallocEmpty) = empty_item "AallocEmpty")
   /\
-  (op_to_display (Ast_op astop) = op_to_display (Modlang_op (astOp_to_modOp astop)))
+  (op_to_display (Ast_op astop) = op_to_display (Modlang_op (astOp_to_flatOp astop)))
   /\
   (op_to_display (Modlang_op (Opn opn)) = Item NONE "Opn" [opn_to_display opn])
   /\
@@ -914,8 +914,8 @@ val lang_to_json_def = Define`
       ("lang", String langN);
       ("prog", display_to_json (pres_to_display (func p)))]`;
 
-val mod_to_json_def = Define`
-  mod_to_json = lang_to_json "modLang" mod_to_pres`;
+val flat_to_json_def = Define`
+  flat_to_json = lang_to_json "flatLang" flat_to_pres`;
 
 val con_to_json_def = Define`
   con_to_json = lang_to_json "conLang" con_to_pres`;
