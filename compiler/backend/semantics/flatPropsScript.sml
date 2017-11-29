@@ -1,17 +1,17 @@
-open preamble modSemTheory
+open preamble flatSemTheory
 local
   open astTheory semanticPrimitivesPropsTheory terminationTheory
        evaluatePropsTheory
 in end
 
-val _ = new_theory"modProps"
+val _ = new_theory"flatProps"
 
 val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
-  `(∀p acc. modSem$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
+  `(∀p acc. flatSem$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
     ∀ps acc. pats_bindings ps acc = pats_bindings ps [] ⧺ acc`,
-  ho_match_mp_tac modLangTheory.pat_induction >>
+  ho_match_mp_tac flatLangTheory.pat_induction >>
   rw [] >>
-  REWRITE_TAC [modSemTheory.pat_bindings_def] >>
+  REWRITE_TAC [flatSemTheory.pat_bindings_def] >>
   metis_tac [APPEND, APPEND_ASSOC]);
 
 val pmatch_extend = Q.store_thm("pmatch_extend",
@@ -35,14 +35,14 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
 
 val pmatch_bindings = Q.store_thm ("pmatch_bindings",
   `(∀cenv s p v env r.
-      modSem$pmatch cenv s p v env = Match r
+      flatSem$pmatch cenv s p v env = Match r
       ⇒
       MAP FST r = pat_bindings p [] ++ MAP FST env) ∧
    ∀cenv s ps vs env r.
-     modSem$pmatch_list cenv s ps vs env = Match r
+     flatSem$pmatch_list cenv s ps vs env = Match r
      ⇒
      MAP FST r = pats_bindings ps [] ++ MAP FST env`,
-  ho_match_mp_tac modSemTheory.pmatch_ind >>
+  ho_match_mp_tac flatSemTheory.pmatch_ind >>
   rw [pmatch_def, pat_bindings_def] >>
   rw [] >>
   every_case_tac >>
@@ -51,7 +51,7 @@ val pmatch_bindings = Q.store_thm ("pmatch_bindings",
 
 val pmatch_length = Q.store_thm ("pmatch_length",
   `∀cenv s p v env r.
-      modSem$pmatch cenv s p v env = Match r
+      flatSem$pmatch cenv s p v env = Match r
       ⇒
       LENGTH r = LENGTH (pat_bindings p []) + LENGTH env`,
   rw [] >>
@@ -60,7 +60,7 @@ val pmatch_length = Q.store_thm ("pmatch_length",
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
-  FOLDR (λ(f,x,e) env'. (f, modSem$Recclosure env funs' f)::env') env' funs =
+  FOLDR (λ(f,x,e) env'. (f, flatSem$Recclosure env funs' f)::env') env' funs =
   MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'`,
   Induct >>
   srw_tac[][] >>
@@ -79,16 +79,16 @@ val Boolv_11 = Q.store_thm("Boolv_11[simp]",`Boolv b1 = Boolv b2 ⇔ (b1 = b2)`,
 *)
 
 val evaluate_length = Q.store_thm("evaluate_length",
-  `(∀env (s:'ffi modSem$state) ls s' vs.
+  `(∀env (s:'ffi flatSem$state) ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls) ∧
-   (∀env (s:'ffi modSem$state) v pes ev s' vs.
+   (∀env (s:'ffi flatSem$state) v pes ev s' vs.
       evaluate_match env s v pes ev = (s', Rval vs) ⇒ LENGTH vs = 1)`,
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
-  `modSem$evaluate env s (e::es) =
+  `flatSem$evaluate env s (e::es) =
    (case evaluate env s [e] of
     | (s,Rval v) =>
       (case evaluate env s es of
@@ -106,11 +106,11 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
   srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
 val c_updated_by = Q.prove (
-  `((env:modSem$environment) with c updated_by f) = (env with c := f env.c)`,
+  `((env:flatSem$environment) with c updated_by f) = (env with c := f env.c)`,
   rw [environment_component_equality]);
 
 val env_lemma = Q.prove (
-  `((env:modSem$environment) with c := env.c) = env`,
+  `((env:flatSem$environment) with c := env.c) = env`,
   rw [environment_component_equality]);
 
 val evaluate_decs_append = Q.store_thm ("evaluate_decs_append",
@@ -146,12 +146,12 @@ val evaluate_decs_append_err = Q.store_thm ("evaluate_decs_append_err",
 
   (*
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
-  `(∀env (s:'ffi modSem$state) es s' r.
+  `(∀env (s:'ffi flatSem$state) es s' r.
        evaluate env s es = (s',r) ∧
        r ≠ Rerr (Rabort Rtimeout_error) ⇒
        evaluate env (s with clock := s.clock + extra) es =
          (s' with clock := s'.clock + extra,r)) ∧
-   (∀env (s:'ffi modSem$state) pes v err_v s' r.
+   (∀env (s:'ffi flatSem$state) pes v err_v s' r.
        evaluate_match env s pes v err_v = (s',r) ∧
        r ≠ Rerr (Rabort Rtimeout_error) ⇒
        evaluate_match env (s with clock := s.clock + extra) pes v err_v =
@@ -266,10 +266,10 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
-  `(∀env (s:'ffi modSem$state) es.
+  `(∀env (s:'ffi flatSem$state) es.
       s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events ∧
       (IS_SOME s.ffi.final_event ⇒ (FST (evaluate env s es)).ffi = s.ffi)) ∧
-   (∀env (s:'ffi modSem$state) pes v err_v.
+   (∀env (s:'ffi flatSem$state) pes v err_v.
       s.ffi.io_events ≼ (FST (evaluate_match env s pes v err_v)).ffi.io_events ∧
       (IS_SOME s.ffi.final_event ⇒ (FST (evaluate_match env s pes v err_v)).ffi = s.ffi))`,
   ho_match_mp_tac evaluate_ind >>
@@ -284,13 +284,13 @@ val with_clock_ffi = Q.store_thm("with_clock_ffi",
   EVAL_TAC)
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
-  `(∀env (s:'ffi modSem$state) es extra.
+  `(∀env (s:'ffi flatSem$state) es extra.
        (FST (evaluate env s es)).ffi.io_events ≼
        (FST (evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
        (IS_SOME ((FST (evaluate env s es)).ffi.final_event) ⇒
          (FST (evaluate env (s with clock := s.clock + extra) es)).ffi =
          (FST (evaluate env s es)).ffi)) ∧
-   (∀env (s:'ffi modSem$state) pes v err_v extra.
+   (∀env (s:'ffi flatSem$state) pes v err_v extra.
        (FST (evaluate_match env s pes v err_v)).ffi.io_events ≼
        (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events ∧
        (IS_SOME ((FST (evaluate_match env s pes v err_v)).ffi.final_event) ⇒
@@ -425,7 +425,7 @@ val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_t
   *)
 
 val bind_locals_list_def = Define`
-  bind_locals_list ts ks = list$MAP2 (λt x. (modLang$Var_local t x)) ts ks`;
+  bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks`;
 
 
 val evaluate_vars = Q.store_thm("evaluate_vars",
@@ -456,18 +456,18 @@ val with_same_v = Q.store_thm("with_same_v[simp]",
 val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
   `(!env refs p v evs env' ts.
     refs = s.refs ∧
-    modSem$pmatch env s.refs p v evs = Match env' ∧
+    flatSem$pmatch env s.refs p v evs = Match env' ∧
     ALL_DISTINCT (pat_bindings p (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pat_bindings p (MAP FST evs))
     ⇒
-    modSem$evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
+    flatSem$evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
    (!env refs ps vs evs env' ts.
     refs = s.refs ∧
-    modSem$pmatch_list env s.refs ps vs evs = Match env' ∧
+    flatSem$pmatch_list env s.refs ps vs evs = Match env' ∧
     ALL_DISTINCT (pats_bindings ps (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pats_bindings ps (MAP FST evs))
     ⇒
-    modSem$evaluate (env with v := env') s (bind_locals_list ts (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
+    flatSem$evaluate (env with v := env') s (bind_locals_list ts (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][pat_bindings_def, pmatch_def]
   >- (
@@ -554,11 +554,11 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
 
    (*
 val evaluate_state_const = Q.store_thm("evaluate_state_const",
-  `(∀env (s:'ffi modSem$state) ls s' vs.
-      modSem$evaluate env s ls = (s',vs) ⇒
+  `(∀env (s:'ffi flatSem$state) ls s' vs.
+      flatSem$evaluate env s ls = (s',vs) ⇒
       s'.next_type_id = s.next_type_id ∧
       s'.next_exn_id = s.next_exn_id) ∧
-   (∀env (s:'ffi modSem$state) v pes ev s' vs.
+   (∀env (s:'ffi flatSem$state) v pes ev s' vs.
       evaluate_match env s v pes ev = (s', vs) ⇒
       s'.next_type_id = s.next_type_id ∧
       s'.next_exn_id = s.next_exn_id)`,
@@ -663,7 +663,7 @@ val evaluate_prompt_mods_disjoint = Q.store_thm("evaluate_prompt_mods_disjoint",
   *)
 
   (*
-val s = ``s:'ffi modSem$state``;
+val s = ``s:'ffi flatSem$state``;
 
 val evaluate_globals = Q.store_thm("evaluate_globals",
   `(∀env ^s es s' r. evaluate env s es = (s',r) ⇒ s'.globals = s.globals) ∧

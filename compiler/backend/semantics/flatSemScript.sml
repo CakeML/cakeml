@@ -1,13 +1,13 @@
-open preamble modLangTheory;
-open source_to_modTheory;
+open preamble flatLangTheory;
+open source_to_flatTheory;
 open semanticPrimitivesPropsTheory;
 
-val _ = new_theory "modSem";
+val _ = new_theory "flatSem";
 
-(* The values of modLang differ in that the closures do not environments for
+(* The values of flatLang differ in that the closures do not environments for
  * global definitions.
  *
- * The semantics of modLang differ in that there is no module environment menv, nor
+ * The semantics of flatLang differ in that there is no module environment menv, nor
  * are top-level bindings added to the normal env, thus when a closure is
  * created, only locals bindings are put into it. There is a global environment
  * genv, which is just a list of the top-level bindings seen so far, with the
@@ -192,7 +192,7 @@ val vs_to_string_def = Define`
   (vs_to_string _ = NONE)`;
 
 val do_app_def = Define `
-  do_app s op (vs:modSem$v list) =
+  do_app s op (vs:flatSem$v list) =
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
@@ -458,7 +458,7 @@ val same_ctor_def = Define `
 
 val pmatch_def = tDefine "pmatch" `
   (pmatch env s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
-  (pmatch env s modLang$Pany v' bindings = Match bindings) ∧
+  (pmatch env s flatLang$Pany v' bindings = Match bindings) ∧
   (pmatch env s (Plit l) (Litv l') bindings =
     if l = l' then
       Match bindings
@@ -506,7 +506,7 @@ val fix_clock_IMP = Q.prove(
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 val evaluate_def = tDefine "evaluate"`
-  (evaluate (env:modSem$environment) (s:'ffi modSem$state) ([]:modLang$exp list) = (s,Rval [])) ∧
+  (evaluate (env:flatSem$environment) (s:'ffi flatSem$state) ([]:flatLang$exp list) = (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
     case fix_clock s (evaluate env s [e1]) of
     | (s, Rval v) =>
@@ -545,8 +545,8 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
-       if op = modLang$Opapp then
-         (case modSem$do_opapp (REVERSE vs) of
+       if op = flatLang$Opapp then
+         (case flatSem$do_opapp (REVERSE vs) of
           | SOME (env', e) =>
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
@@ -578,7 +578,7 @@ val evaluate_def = tDefine "evaluate"`
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match (env:modSem$environment) s v [] err_v =
+  (evaluate_match (env:flatSem$environment) s v [] err_v =
     if env.exh_pat then
       (s, Rerr(Rabort Rtype_error))
     else
