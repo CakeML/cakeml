@@ -1,15 +1,10 @@
-open preamble closPropsTheory clos_inlineTheory closSemTheory;
+open preamble closPropsTheory clos_letopTheory closSemTheory;
 open closLangTheory;
 open backendPropsTheory;
 
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_letopProof";
-
-val LENGTH_let_op = store_thm("LENGTH_let_op",
-  ``!xs. LENGTH (let_op xs) = LENGTH xs``,
-  recInduct let_op_ind \\ simp [let_op_def]
-  \\ rw [] \\ CASE_TAC \\ simp []);
 
 val let_op_SING = store_thm("let_op_SING",
   ``!x. ?y. let_op [x] = [y]``,

@@ -1,4 +1,4 @@
-open preamble closPropsTheory clos_inlineTheory closSemTheory;
+open preamble closPropsTheory clos_ticksTheory closSemTheory;
 open closLangTheory;
 open backendPropsTheory;
 
@@ -7,10 +7,6 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 
 val _ = new_theory "clos_ticksProof";
-
-val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks",
-  ``!(es:closLang$exp list). LENGTH (remove_ticks es) = LENGTH es``,
-  recInduct remove_ticks_ind \\ fs [remove_ticks_def]);
 
 val remove_ticks_IMP_LENGTH = store_thm("remove_ticks_LENGTH_imp",
   ``!(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs``,
