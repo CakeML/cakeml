@@ -643,7 +643,7 @@ val evaluate_dec_def = Define`
     if env.check_ctor then
       if is_fresh_type id env then
         (s,
-         { ((idx, SOME id), arity) | arity < LENGTH ctors ∧ idx < EL arity ctors },
+         { ((idx, SOME id), arity) | ?max. lookup arity ctors = SOME max ∧ idx < max },
          NONE)
       else
         (s, {}, SOME (Rabort Rtype_error))

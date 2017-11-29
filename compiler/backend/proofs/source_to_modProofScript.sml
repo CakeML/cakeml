@@ -33,10 +33,6 @@ val flookup_funion_submap = Q.prove (
   rw [SUBMAP_DEF, FLOOKUP_DEF] >>
   metis_tac []);
 
-val length_toList = Q.prove (
-  `!x sp (t:num). (x < LENGTH (toList sp) ∧ t < EL x (toList sp)) ⇔ (?t'. lookup x sp = SOME t' ∧ t < t')`,
-  cheat);
-
 (* value relation *)
 
 
@@ -1385,45 +1381,6 @@ val s1 = mk_var("s",
   ``modSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``]);
 
-  (*
-val do_app_subglobals = Q.prove (
-  `!s op vs s' r.
-    modSem$do_app s op vs = SOME (s',r)
-    ⇒
-    subglobals s.globals s'.globals`,
-  cheat);
-
-val evaluate_subglobals = Q.prove (
-  `(∀env ^s1 es res.
-    modSem$evaluate env s es = res ⇒
-    !s' r.
-      res = (s',r) ⇒ subglobals s.globals s'.globals) ∧
-   (∀env ^s1 v pes err_v res.
-    modSem$evaluate_match env s v pes err_v = res ⇒
-    !s' r.
-      res = (s',r) ⇒ subglobals s.globals s'.globals)`,
-  ho_match_mp_tac evaluate_ind >>
-  rw [evaluate_def] >>
-  rw [subglobals_refl] >>
-  every_case_tac >>
-  fs [subglobals_def] >>
-  rfs []
-  >- metis_tac [LESS_LESS_EQ_TRANS]
-  >- metis_tac [LESS_LESS_EQ_TRANS]
-  >- metis_tac [LESS_LESS_EQ_TRANS]
-  >- (
-    fs [do_opapp_def, dec_clock_def] >>
-    every_case_tac >>
-    fs [] >>
-    rw [] >>
-    metis_tac [LESS_LESS_EQ_TRANS])
-  >- (
-    imp_res_tac do_app_subglobals >>
-    fs [subglobals_def] >>
-    metis_tac [LESS_LESS_EQ_TRANS]) >>
-  metis_tac [LESS_LESS_EQ_TRANS]);
-  *)
-
 val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
      evaluate$evaluate s env es = res ⇒
@@ -1988,8 +1945,13 @@ val compile_exp_correct' = Q.prove (
       simp [] >>
       rw []
       >- (
-        `<|v := env'.v; c := env'.c|> = env'` by rw [sem_env_component_equality] >>
-        cheat) >>
+        fs [v_rel_eqns] >>
+        rw [] >>
+        res_tac >>
+        fs [] >>
+        rw [] >>
+        `genv with v := s2.globals = genv` by rw [theorem"global_env_component_equality"] >>
+        metis_tac []) >>
       simp [v_rel_eqns] >>
       imp_res_tac evaluate_sing >>
       full_simp_tac(srw_ss())[] >>
@@ -3464,7 +3426,6 @@ val compile_decs_correct' = Q.prove (
       fs [is_fresh_type_def, invariant_def] >>
       rw [] >>
       metis_tac [DECIDE ``!x:num. x ≥ x``]) >>
-    fs [length_toList] >>
     first_x_assum drule >>
     disch_then drule >>
     rw [] >>

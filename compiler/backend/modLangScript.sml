@@ -123,9 +123,9 @@ val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
 val _ = Datatype`
  dec =
     Dlet exp
-  (* The first number is the identity for the type. The list is indexed by
-   * arity, and contains how many constructors have that arity *)
-  | Dtype num (num list)
+  (* The first number is the identity for the type. The sptree maps arities to
+   * how many constructors have that arity *)
+  | Dtype num (num spt)
   (* The first number is the identity of the exception. The second number is the
    * constructor's arity *)
   | Dexn num num`;
