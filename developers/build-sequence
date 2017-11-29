@@ -79,6 +79,5 @@ compiler/parsing/tests
 
 # compiler bootstrap
 compiler/bootstrap/translation
-compiler/bootstrap/translation
 compiler/bootstrap/compilation/x64/64
 compiler/bootstrap/compilation/x64/64/proofs
