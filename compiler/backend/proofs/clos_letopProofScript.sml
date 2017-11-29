@@ -2,7 +2,6 @@ open preamble closPropsTheory clos_inlineTheory closSemTheory;
 open closLangTheory;
 open backendPropsTheory;
 
-val qexistsl_tac = map_every qexists_tac;
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_letopProof";
@@ -19,6 +18,11 @@ val let_op_SING = store_thm("let_op_SING",
 val HD_let_op_SING = store_thm("HD_let_op_SING[simp]",
   ``!x. [HD (let_op [x])] = let_op [x]``,
   strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []);
+
+(* This seems generally useful, but what should it be called? *)
+val PUSH_IF = store_thm("PUSH_IF",
+  ``!f b x y. (if b then f x else f y) = f (if b then x else y)``,
+  METIS_TAC [])
 
 (* *)
 
@@ -186,7 +190,6 @@ val var_list_IMP_evaluate = prove(
        |> SIMP_RULE std_ss [APPEND,LENGTH])
   \\ asm_exists_tac \\ fs []);
 
-
 val lookup_vars_lemma = store_thm("lookup_vars_lemma",
   ``!vs env1 env2. LIST_REL v_rel env1 env2 ==>
     case lookup_vars vs env1 of
@@ -206,16 +209,6 @@ val find_code_lemma = store_thm("find_code_lemma",
       find_code p args s.code = NONE /\
       find_code p args t.code = NONE``,
   fs [state_rel_def, find_code_def]);
-
-
-val PUSH_IF = store_thm("PUSH_IF",
-  ``!f b x y. (if b then f x else f y) = f (if b then x else y)``,
-  METIS_TAC [])
-
-val PUSH_EQ_IF = store_thm("PUSH_EQ_IF",
-  ``!b x y z. (if b then x else y) = z <=> (if b then x = z else y = z)``,
-  METIS_TAC []);
-
 
 val dest_closure_SOME_IMP = store_thm("dest_closure_SOME_IMP",
   ``dest_closure max_app loc_opt f2 xs = SOME x ==>
@@ -676,3 +669,40 @@ val evaluate_let_op = store_thm("evaluate_let_op",
   \\ irule EVERY2_APPEND_suff \\ simp []
   \\ irule EVERY2_REVERSE \\ simp []
 *)
+
+val let_op_correct = Q.store_thm("let_op_correct",
+  `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
+       evaluate (xs, env1, s1) = (res1, s2) /\
+       LIST_REL v_rel env1 env2 /\ state_rel s1 t1 ==>
+       ?res2 t2.
+         evaluate (let_op xs, env2, t1) = (res2, t2) /\
+         result_rel (LIST_REL v_rel) v_rel res1 res2 /\
+         state_rel s2 t2`,
+  rpt strip_tac \\ drule (CONJUNCT1 evaluate_let_op) \\ simp [code_rel_def])
+
+(* preservation of observational semantics *)
+
+val semantics_let_op = Q.store_thm("semantics_let_op",
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (pure_cc compile_inc cc) xs <> Fail ==>
+   (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     (pure_co compile_inc o co) cc (let_op xs) =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (pure_cc compile_inc cc) xs`,
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ drule let_op_correct
+  \\ simp []
+  \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
+                               (pure_co compile_inc o co) cc k` mp_tac)
+  \\ impl_tac
+  THEN1 fs [state_rel_def, initial_state_def, FMAP_REL_def]
+  \\ strip_tac
+  \\ qexists_tac `0` \\ simp []
+  \\ fs [state_rel_def]
+  \\ Cases_on `res1` \\ fs []
+  \\ Cases_on `e` \\ fs [])
+
+val _ = export_theory();
