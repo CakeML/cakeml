@@ -334,7 +334,10 @@ val compile_exps_def = tDefine "compile_exps" `
        ([Tick (HD c1)], aux1)) /\
   (compile_exps max_app [Op t op xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
-     ([(* if op = Equal then
+     ([if op = Install then
+         Call 0 NONE [Op Install c1]
+       else
+       (* if op = Equal then
          TODO: remove everything related to the equality stubs
          TODO: also remove everything related to the ToList stubs
          Call 0 (SOME (equality_location max_app)) c1
