@@ -508,11 +508,11 @@ val evaluate_def = tDefine "evaluate"`
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = Run then
          (case do_install (REVERSE vs) s of
-          | SOME (e, s') =>
+          | SOME (e, s) =>
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate [] (dec_clock s') [e]
+              evaluate [] (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app s op (REVERSE vs)) of
