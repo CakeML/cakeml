@@ -209,6 +209,7 @@ val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
 s2 = s1 /\ u2 = u1 /\ ns2 = ns1`,
 rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
 fs[IO_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] >>
 IMP_RES_TAC FFI_PORT_IN_HEAP_LEM >>
 IMP_RES_TAC NON_OVERLAP_FFI_PART >>
 fs[]);
