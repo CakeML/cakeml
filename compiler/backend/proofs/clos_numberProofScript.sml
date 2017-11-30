@@ -670,10 +670,11 @@ val v_to_words = Q.prove(
 val do_install = Q.prove(
   `state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
-   (∀err. do_install x1 s1 = Rerr (Rabort Rtimeout_error) ⇒
-          do_install x2 s2 = Rerr (Rabort Rtimeout_error)) ∧
-   (∀e1 t1. do_install x1 s1 = Rval (e1,t1) ⇒
-     ∃e2 t2. do_install x2 s2 = Rval (e2,t2) ∧
+   (∀err t. do_install x1 s1 = (Rerr (Rabort Rtimeout_error),t) ⇒
+            ?t'. do_install x2 s2 = (Rerr (Rabort Rtimeout_error),t') /\
+                 state_rel t t') ∧
+   (∀e1 t1. do_install x1 s1 = (Rval e1,t1) ⇒
+     ∃e2 t2. do_install x2 s2 = (Rval e2,t2) ∧
              ¬contains_App_SOME t1.max_app [e1] ∧ t1.max_app = s1.max_app ∧
              e2 = SND (renumber_code_locs (FST(FST(s1.compile_oracle 0))) e1) ∧
              state_rel t1 t2)`,
@@ -729,7 +730,7 @@ val lookup_vars_SOME_related_env = Q.store_thm(
   simp[LIST_REL_EL_EQN]);
 
 val do_install_Rabort = prove(
-  ``closSem$do_install xs s2 = Rerr (Rabort a) ==>
+  ``closSem$do_install xs s2 = (Rerr (Rabort a),s3) ==>
     a = Rtype_error \/ a = Rtimeout_error``,
   rw [do_install_def]
   \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
@@ -866,7 +867,11 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ disch_then drule
       \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
       \\ TRY (strip_tac \\ fs[])
-      \\ imp_res_tac do_install_Rabort \\ fs [] ) >>
+      \\ imp_res_tac do_install_Rabort \\ fs []
+      \\ Cases_on `err` \\ fs []
+      \\ imp_res_tac do_install_not_Rraise \\ fs []
+      \\ rename1 `aa = Rtimeout_error ==> _`
+      \\ Cases_on `aa` \\ fs []) >>
     srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
