@@ -466,9 +466,10 @@ val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv32);
 val _ = translate (bignum_words_def |> inline_simp |> conv32);
 val _ = translate (BignumHalt_def |> inline_simp |> conv32);
-val _ = translate(Maxout_bits_code_def |> conv32)
-val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32)
-val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32)
+val _ = translate(Maxout_bits_code_def |> conv32);
+val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32);
+val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv32);
+val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32);
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 
