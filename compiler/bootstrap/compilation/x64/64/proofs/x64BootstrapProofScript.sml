@@ -1,6 +1,6 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler_x64ProgTheory x64BootstrapTheory
+     compiler64_ProgTheory x64BootstrapTheory
 
 val _ = new_theory"x64BootstrapProof";
 

@@ -1,10 +1,10 @@
 ARCH = x64
-INCLUDES = ../../translation/$(ARCH) ../../../../semantics ../../.. ../../../backend/$(ARCH) ../../../encoders/asm ../../../encoders/$(ARCH) ../../../../basis
+INCLUDES = ../../../translation ../../../../../semantics ../../../.. ../../../../backend/$(ARCH) ../../../../encoders/asm ../../../../encoders/$(ARCH) ../../../../../basis
 CLINE_OPTIONS = --qof
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../translation/$(ARCH)/heap
+PARENT_HOLHEAP = ../../../translation/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -12,10 +12,10 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP) cake-$(ARCH).tar.gz
 .PHONY: all
 
-BARE_THYS = ../../translation/$(ARCH)/compiler_$(ARCH)ProgTheory\
-						../../../../semantics/semanticsComputeLib\
-						../../../compilationLib\
-						../../../backend/$(ARCH)/$(ARCH)_configTheory
+BARE_THYS = ../../../translation/compiler64ProgTheory \
+						../../../../../semantics/semanticsComputeLib\
+						../../../../compilationLib\
+						../../../../backend/$(ARCH)/$(ARCH)_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
