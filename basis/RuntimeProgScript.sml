@@ -15,6 +15,12 @@ val fullGC_def = Define `
 val () = next_ml_names := ["fullGC"];
 val result = translate fullGC_def;
 
+val debugMsg_def = Define `
+  debugMsg s = silent_ffi s`;
+
+val () = next_ml_names := ["debugMsg"];
+val result = translate debugMsg_def;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
