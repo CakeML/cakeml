@@ -2850,46 +2850,20 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_Equality (CONJ th1 th2) |> UNDISCH
     in check_inv "equal" tm result end else
   (* and, or *)
-  if is_conj tm then
-    if is_precond (tm |> rator |> rand) then let
-      val (x1,x2) = dest_conj tm
-      val th2 = hol2deep x2
-      val lemma = AND_TAKEN1 |> SPEC x1 |> SPEC x2 |> UNDISCH |> SYM
-      val result = th2 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
-      in check_inv "and" tm result end
-    else if is_precond (tm |> rand) then let
-      val (x1,x2) = dest_conj tm
-      val th1 = hol2deep x1
-      val lemma = AND_TAKEN2 |> SPEC x1 |> SPEC x2 |> UNDISCH |> SYM
-      val result = th1 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
-      in check_inv "and" tm result end
-    else let
-      val (x1,x2) = dest_conj tm
-      val th1 = hol2deep x1
-      val th2 = hol2deep x2
-      val th = MATCH_MP Eval_And (LIST_CONJ [D th1, D th2])
-      val result = UNDISCH th
-      in check_inv "and" tm result end else
-  if is_disj tm then
-    if is_precond (tm |> rator |> rand) then let
-      val (x1,x2) = dest_disj tm
-      val th2 = hol2deep x2
-      val lemma = OR_TAKEN1 |> SPEC x1 |> SPEC x2 |> UNDISCH |> SYM
-      val result = th2 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
-      in check_inv "or" tm result end
-    else if is_precond (tm |> rand) then let
-      val (x1,x2) = dest_disj tm
-      val th1 = hol2deep x1
-      val lemma = OR_TAKEN2 |> SPEC x1 |> SPEC x2 |> UNDISCH |> SYM
-      val result = th1 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
-      in check_inv "or" tm result end
-    else let
-      val (x1,x2) = dest_disj tm
-      val th1 = hol2deep x1
-      val th2 = hol2deep x2
-      val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
-      val result = UNDISCH th
-      in check_inv "or" tm result end else
+  if is_conj tm then let
+    val (x1,x2) = dest_conj tm
+    val th1 = hol2deep x1
+    val th2 = hol2deep x2
+    val th = MATCH_MP Eval_And (LIST_CONJ [D th1, D th2])
+    val result = UNDISCH th
+    in check_inv "and" tm result end else
+  if is_disj tm then let
+    val (x1,x2) = dest_disj tm
+    val th1 = hol2deep x1
+    val th2 = hol2deep x2
+    val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
+    val result = UNDISCH th
+    in check_inv "or" tm result end else
   (* if statements *)
   if is_cond tm then
     if is_precond (tm |> rator |> rator |> rand) then let

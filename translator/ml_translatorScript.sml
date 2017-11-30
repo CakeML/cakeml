@@ -1876,22 +1876,6 @@ val IF_TAKEN = Q.store_thm("IF_TAKEN",
   `!b x y. b ==> ((if b then x else y) = x:'unlikely)`,
   SIMP_TAC std_ss []);
 
-val AND_TAKEN1 = Q.store_thm("AND_TAKEN1",
-  `!b1 b2. b1 ==> ((b1 /\ b2) = b2)`,
-  SIMP_TAC bool_ss []);
-
-val AND_TAKEN2 = Q.store_thm("AND_TAKEN2",
-  `!b1 b2. b2 ==> ((b1 /\ b2) = b1)`,
-  SIMP_TAC bool_ss []);
-
-val OR_TAKEN1 = Q.store_thm("OR_TAKEN1",
-  `!b1 b2. b1 ==> ((b1 \/ b2) = T)`,
-  SIMP_TAC bool_ss []);
-
-val OR_TAKEN2 = Q.store_thm("OR_TAKEN2",
-  `!b1 b2. b2 ==> ((b1 \/ b2) = T)`,
-  SIMP_TAC bool_ss []);
-
 val EQ_COND_INTRO = save_thm("EQ_COND_INTRO",
   METIS_PROVE[]``(b ==> c) ==> (c = if b then T else c)``);
 
