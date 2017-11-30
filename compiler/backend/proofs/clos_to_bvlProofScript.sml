@@ -918,7 +918,11 @@ val v_rel_SIMP = LIST_CONJ
    |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
    ``v_rel max_app f refs code (Number i) y``
    |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
+   ``v_rel max_app f refs code y (Number i)``
+   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
    ``v_rel max_app f refs code (Word64 i) y``
+   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
+   ``v_rel max_app f refs code y (Word64 i)``
    |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
    ``v_rel max_app f refs code (Closure loc args env num_args exp) y``
    |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
@@ -2554,19 +2558,118 @@ val env_rel_subspt = Q.store_thm("env_rel_subspt",
   \\ rw[env_rel_def]
   \\ metis_tac[v_rel_subspt]);
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_to_bytes a2 = SOME x /\ v_rel max_app f2 refs code a2 y ==>
-    v_to_bytes y = SOME x``,
-  cheat);
+val clos_tag_shift_eq_nil_tag = store_thm("clos_tag_shift_eq_nil_tag[simp]",
+  ``(clos_tag_shift tag = nil_tag <=> tag = nil_tag) /\
+    (clos_tag_shift tag = cons_tag <=> tag = cons_tag)``,
+  fs [clos_tag_shift_def] \\ rw [] \\ fs []
+  \\ EVAL_TAC \\ decide_tac);
+
+val v_rel_IMP_v_to_words_lemma = prove(
+  ``!x y.
+      v_rel max_app f refs code x y ==>
+      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
+           (v_to_list y = SOME (MAP Word64 ns))``,
+  ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
+  \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
+  \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
+  \\ res_tac \\ fs [case_eq_thms,v_rel_SIMP]
+  THEN1
+   (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
+  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]);
 
 val v_rel_IMP_v_to_words = prove(
-  ``v_to_words a2 = SOME x /\ v_rel max_app f2 refs code a2 y ==>
-    v_to_words y = SOME x``,
-  cheat);
+  ``v_rel max_app f refs code x y ==> v_to_words y = v_to_words x``,
+  rw [v_to_words_def,closSemTheory.v_to_words_def]
+  \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+
+val v_rel_IMP_v_to_bytes_lemma = prove(
+  ``!x y.
+      v_rel max_app f refs code x y ==>
+      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+  ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
+  \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
+  \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
+  \\ res_tac \\ fs [case_eq_thms,v_rel_SIMP]
+  THEN1
+   (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
+  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]);
+
+val v_rel_IMP_v_to_bytes = prove(
+  ``v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x``,
+  rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
+  \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
 
 val not_domain_lookup = store_thm("not_domain_lookup",
   ``~(n IN domain x) <=> lookup n x = NONE``,
   fs [domain_lookup] \\ Cases_on `lookup n x` \\ fs []);
+
+val cl_rel_union = prove(
+  ``!a x y.
+      cl_rel max_app f2 refs code a x y ==>
+      cl_rel max_app f2 refs (union code c2) a x y``,
+  ho_match_mp_tac cl_rel_ind \\ rw []
+  THEN1
+   (once_rewrite_tac [cl_rel_cases] \\ fs [lookup_union]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [code_installed_def]
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac MONO_EVERY)
+    \\ fs [FORALL_PROD,lookup_union])
+  THEN1
+   (once_rewrite_tac [cl_rel_cases] \\ fs [lookup_union]
+    \\ disj1_tac
+    \\ asm_exists_tac \\ fs []
+    \\ fs [code_installed_def]
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac MONO_EVERY)
+    \\ fs [FORALL_PROD,lookup_union])
+  THEN1
+   (once_rewrite_tac [cl_rel_cases] \\ fs [lookup_union]
+    \\ rpt disj2_tac
+    \\ qexists_tac `exps_ps` \\ fs []
+    \\ qexists_tac `r` \\ fs []
+    \\ fs [closure_code_installed_def]
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac MONO_EVERY)
+    \\ fs [FORALL_PROD,lookup_union]
+    \\ rw []
+    \\ asm_exists_tac \\ fs []
+    \\ fs [code_installed_def]
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac MONO_EVERY)
+    \\ fs [FORALL_PROD,lookup_union]));
+
+val v_rel_union = prove(
+  ``!c2 x y.
+      v_rel max_app f2 refs code x y ==>
+      v_rel max_app f2 refs (union code c2) x y``,
+  strip_tac \\ ho_match_mp_tac v_rel_ind \\ rw []
+  \\ TRY (once_rewrite_tac [v_rel_cases] \\ fs [] \\ NO_TAC)
+  THEN1
+   (once_rewrite_tac [v_rel_cases] \\ fs []
+    \\ pop_assum mp_tac
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  THEN1
+   (once_rewrite_tac [v_rel_cases] \\ fs []
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+    \\ rpt strip_tac
+    \\ disj2_tac
+    \\ asm_exists_tac \\ fs []
+    \\ match_mp_tac cl_rel_union \\ fs [])
+  THEN1
+   (once_rewrite_tac [v_rel_cases] \\ fs []
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+    \\ rpt strip_tac
+    \\ disj2_tac
+    \\ qexists_tac `arg_env`
+    \\ qexists_tac `cl`
+    \\ qexists_tac `env`
+    \\ qexists_tac `fvs`
+    \\ qexists_tac `num_args`
+    \\ fs [lookup_union]
+    \\ rpt strip_tac
+    \\ match_mp_tac cl_rel_union \\ fs []));
 
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
@@ -2841,10 +2944,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
   THEN1 (* Op *)
    (
 
-    Cases_on `op = Install`
-
-(*
-
+    Cases_on `op = Install` THEN1
+(
       rveq \\ fs [] \\ rveq
       \\ fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
       \\ pairarg_tac \\ fs []
@@ -2877,11 +2978,20 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ PairCases_on `yy` \\ fs []
       \\ PairCases_on `progs` \\ fs []
       \\ qpat_x_assum `xx = _` (assume_tac o GSYM) \\ fs []
-      \\ `xx <> Rerr (Rabort Rtype_error)` by
+      \\ PairCases_on `xx`
+      \\ `xx0 <> Rerr (Rabort Rtype_error)` by
            (strip_tac \\ fs [] \\ rveq \\ fs [])
-      \\ qpat_x_assum `_ = xx` mp_tac \\ fs []
+      \\ qpat_x_assum `_ = (xx0,xx1)` mp_tac \\ fs []
       \\ simp [Once bool_case_eq]
       \\ strip_tac \\ rveq \\ fs []
+      \\ `xx0 = (if t2.clock = 0 then Rerr (Rabort Rtimeout_error)
+                                 else Rval progs0) /\
+          xx1 = p1 with
+          <|clock := t2.clock − 1;
+            compile_oracle := shift_seq 1 p1.compile_oracle;
+            code := p1.code |++ progs1|>`
+           by (IF_CASES_TAC \\ fs [])
+      \\ rveq \\ fs []
       \\ pop_assum kall_tac \\ fs [EVAL ``shift_seq 1 f 0``]
       \\ fs [bEval_def]
       \\ fs [bvlSemTheory.do_install_def,do_app_def]
@@ -2890,31 +3000,94 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ disch_then drule \\ strip_tac
       \\ drule (GEN_ALL v_rel_IMP_v_to_words)
       \\ disch_then drule \\ strip_tac
+      \\ `p1.compile = pure_cc (compile_inc p1.max_app) t2.compile ∧
+          t2.compile_oracle = pure_co (compile_inc p1.max_app) ∘ p1.compile_oracle`
+            by fs [state_rel_def,compile_oracle_inv_def]
       \\ `?cfg loc1 prog1 progs. t2.compile_oracle 0 = (cfg,(loc1,0,prog1)::progs)`
-              by cheat
+          by (fs [backendPropsTheory.pure_co_def,compile_inc_def,compile_prog_def]
+              \\ pairarg_tac \\ fs []
+              \\ imp_res_tac compile_exps_SING \\ rveq \\ fs [])
       \\ `DISJOINT (domain t2.code) (set (MAP FST progs)) ∧
           loc1 ∉ domain t2.code ∧ ¬MEM loc1 (MAP FST progs) ∧
           ALL_DISTINCT (MAP FST progs)` by cheat
       \\ `t2.compile cfg' ((loc1,0,prog1)::progs) =
-            SOME (x,x',FST (t2.compile_oracle 1))`
-                 by cheat \\ fs []
-      \\ `state_rel f2 p1 (t2 with
-           <|compile_oracle := shift_seq 1 t2.compile_oracle;
-             code := union t2.code (fromAList ((loc1,0,prog1)::progs))|>)` by cheat
+            SOME (x,x',FST (t2.compile_oracle 1))` by
+           (fs [] \\ rfs []
+            \\ fs [backendPropsTheory.pure_co_def,backendPropsTheory.pure_cc_def])
+      \\ `state_rel f2 (p1 with
+              <|clock := p1.clock − 1;
+                compile_oracle := shift_seq 1 p1.compile_oracle;
+                code := p1.code |++ progs1|>) (t2 with
+           <|clock := t2.clock − 1;
+             compile_oracle := shift_seq 1 t2.compile_oracle;
+             code := union t2.code (fromAList ((loc1,0,prog1)::progs))|>)` by
+       (qpat_x_assum `state_rel f2 p1 t2` mp_tac \\ simp [state_rel_def]
+        \\ strip_tac \\ fs [lookup_union]
+        \\ rpt strip_tac
+        THEN1
+         (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+          \\ Cases \\ Cases \\ fs [OPTREL_def]
+          \\ strip_tac \\ match_mp_tac v_rel_union \\ fs [])
+        THEN1 (res_tac \\ fs[])
+        THEN1
+         (first_x_assum drule \\ strip_tac \\ fs []
+          \\ rename1 `_ x2 x3`
+          \\ Cases_on `x3` \\ fs []
+          \\ Cases_on `x2` \\ fs [ref_rel_def]
+          \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+          \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ fs [])
+        THEN1 (fs [compile_oracle_inv_def]
+               \\ fs [FUN_EQ_THM,shift_seq_def])
+        \\ fs [alistTheory.flookup_fupdate_list]
+        \\ Cases_on `ALOOKUP (REVERSE progs1) name` \\ fs []
+        THEN1
+         (first_x_assum drule
+          \\ strip_tac \\ asm_exists_tac \\ fs []
+          \\ fs [code_installed_def]
+          \\ pop_assum mp_tac
+          \\ match_mp_tac MONO_EVERY
+          \\ fs [FORALL_PROD,lookup_union])
+        \\ fs [] \\ rveq \\ fs []
+        \\ cheat (* probably true *))
+      \\ `FEVERY (λp. every_Fn_SOME [SND (SND p)]) (p1.code |++ progs1) ∧
+          FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) (p1.code |++ progs1)` by cheat
       \\ Cases_on `t2.clock = 0` \\ fs []
       THEN1
        (qexists_tac `ck` \\ fs []
         \\ fs [find_code_def,lookup_union]
         \\ fs [not_domain_lookup]
         \\ fs [lookup_fromAList] \\ rveq \\ fs []
-        \\ qexists_tac `f2` \\ fs [])
+        \\ qexists_tac `f2` \\ fs [] \\ rfs [])
       \\ imp_res_tac evaluate_const \\ fs []
-
-*)
-
-    THEN1 cheat >>
-    srw_tac[][] >>
-    full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
+      \\ fs [backendPropsTheory.pure_cc_def,compile_inc_def]
+      \\ fs [clos_to_bvlTheory.compile_prog_def]
+      \\ pairarg_tac \\ fs []
+      \\ first_x_assum drule
+      \\ imp_res_tac compile_exps_SING \\ fs [] \\ rveq \\ fs []
+      \\ disch_then (qspecl_then [`t2 with
+          <|compile_oracle := shift_seq 1 t2.compile_oracle;
+            code := union t2.code (fromAList ((loc1,0,prog1)::progs))|>`,
+         `[]`,`f2`] mp_tac)
+      \\ fs [] \\ impl_tac
+      THEN1 (fs [env_rel_def] \\ cheat (* almost true *))
+      \\ strip_tac
+      \\ qpat_x_assum `bvlSem$evaluate (c1,_) = _` assume_tac
+      \\ drule bvlPropsTheory.evaluate_add_clock \\ simp []
+      \\ disch_then (qspec_then `ck'` assume_tac)
+      \\ qexists_tac `ck+ck'` \\ fs [inc_clock_def]
+      \\ fs [backendPropsTheory.pure_cc_def]
+      \\ fs [backendPropsTheory.pure_co_def]
+      \\ rfs []
+      \\ fs [find_code_def,lookup_union]
+      \\ fs [not_domain_lookup]
+      \\ fs [lookup_fromAList] \\ rveq \\ fs []
+      \\ fs [compile_inc_def,compile_prog_def]
+      \\ rveq \\ fs [dec_clock_def]
+      \\ rename1 `state_rel f3 s3 t3`
+      \\ qexists_tac `f3` \\ fs []
+      \\ imp_res_tac SUBMAP_TRANS \\ fs [])
+    \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
     \\ `?cc. compile_exps s.max_app xs aux1 = cc` by full_simp_tac(srw_ss())[] \\ PairCases_on `cc` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
@@ -4031,6 +4204,13 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
           full_simp_tac(srw_ss())[num_remaining_args_def, add_args_def, partial_app_tag_neq_closure_tag]
           THEN1 simp [closSemTheory.dec_clock_def]
           THEN1 simp [closSemTheory.dec_clock_def]
+(*
+          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
+                 closSemTheory.dec_clock_def] >>
+              full_simp_tac(srw_ss())[state_rel_def])
+          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
+                 closSemTheory.dec_clock_def] >>
+              full_simp_tac(srw_ss())[state_rel_def]) *)
           >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
                  closSemTheory.dec_clock_def] >>
               full_simp_tac(srw_ss())[state_rel_def])
