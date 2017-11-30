@@ -2367,6 +2367,7 @@ val builtin_monops =
    Eval_vector,
    Eval_int_of_num,
    Eval_num_of_int,
+   Eval_silent_ffi,
    Eval_Chr,
    Eval_Ord]
   |> map SPEC_ALL
