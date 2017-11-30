@@ -165,11 +165,12 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
      = fsFFI$decode (basis_proj1 st.ffi_state ' "write") ==>
    extract_fs fs st'.io_events
      = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))`,
-     strip_tac
+  strip_tac
   \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
   \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
+  \\ Cases_on `n = ""` \\ fs [] THEN1 (rveq \\ fs [])
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
