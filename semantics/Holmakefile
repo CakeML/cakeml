@@ -25,17 +25,17 @@ $(GENS): $(LEMS) $(LEMLIB) ffi/ffi.lem
 
 astScript.sml: ast.lem namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< ;  ./addancs $@ integer words string namespace location; \
+          $(LEM_CMD) $< && ./addancs $@ integer words string namespace location; \
         else touch astScript.sml ; fi
 
 tokensScript.sml: tokens.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< ;  ./addancs $@ integer string ; \
+          $(LEM_CMD) $< && ./addancs $@ integer string ; \
         else touch $@ ; fi
 
 namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< ;  ./addancs $@ integer words string alist; \
+          $(LEM_CMD) $< && ./addancs $@ integer words string alist; \
         else touch namespaceScript.sml ; fi
 
 ifdef POLY
@@ -48,10 +48,16 @@ GRAMMAR_DEPS = $(patsubst %,$(HOLDIR)/examples/formal-languages/context-free/%Th
 BARE_THYS = ../misc/preamble $(GRAMMAR_DEPS) ../misc/basicComputeLib ffi/ffiTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
+ifdef RELOCBUILD
+RELOC_FIXUP = $(protect $(HOLDIR)/tools/set_mtime/set_mtime.exe addancs addancs.sml)
+else
+RELOC_FIXUP = :
+endif
+
 all: $(HOLHEAP)
 
 addancs: addancs.sml
-	$(POLYC) -o $@ $<
+	$(POLYC) -o $@ $< && $(RELOC_FIXUP)
 
 
 

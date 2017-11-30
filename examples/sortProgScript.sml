@@ -208,10 +208,10 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   imp_res_tac nextFD_leX \\
   imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\
   pop_assum(qspec_then`0`strip_assume_tac) \\ rfs[] \\
-  (* TODO: xlet_auto should be figuring this out *)
-  xlet_auto_spec(SOME(SPEC_ALL(Q.SPEC`fs'` get_file_contents_spec))) \\
+  xlet_auto >- fs[] \\
   imp_res_tac STD_streams_nextFD \\ rfs[] \\
-  (* TODO: xlet_auto should be figuring this out *)
+  (* TODO: Update xlet_auto so that it can try different specs -
+     xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
   >- xsimpl
   >- xsimpl >>
@@ -226,15 +226,15 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
 val _ = (append_prog o process_topdecs) `
   fun sort () =
     let val contents_list =
-      case Commandline.arguments () of
+      case CommandLine.arguments () of
         [] => get_file_contents TextIO.stdIn []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
     in
       (quicksort String.< contents_array;
-       Array.app TextIO.print_string contents_array)
+       Array.app TextIO.print contents_array)
     end
-    handle TextIO.BadFileName => TextIO.prerr_string "Cannot open file"`;
+    handle TextIO.BadFileName => TextIO.output TextIO.stdErr "Cannot open file"`;
 
 val valid_sort_result_def = Define`
   valid_sort_result cl init_fs result_fs ⇔
@@ -326,7 +326,7 @@ val sort_spec = Q.store_thm ("sort_spec",
   >- (
     fs [BadFileName_exn_def] >>
     xcases >>
-    xapp >>
+    xapp_spec output_stderr_spec >>
     xsimpl >>
     DEEP_INTRO_TAC sort_sem_intro >>
     simp[valid_sort_result_def] \\

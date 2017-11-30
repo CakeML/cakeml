@@ -7,10 +7,10 @@ val _ = translation_extends"basisProg";
 val echo = process_topdecs
   `fun echo u =
       let
-        val cl = Commandline.arguments ()
+        val cl = CommandLine.arguments ()
         val cls = String.concatWith " " cl
-        val ok = TextIO.print_string cls
-      in TextIO.print_newline() end`;
+        val ok = TextIO.print cls
+      in TextIO.output1 TextIO.stdOut #"\n" end`;
 
 val () = append_prog echo;
 
@@ -27,7 +27,7 @@ val echo_spec = Q.store_thm("echo_spec",
   cases_on`¬ STD_streams fs` >-(fs[STDIO_def] >> xpull) >>
   xlet_auto >- (xcon \\ xsimpl) \\
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) \\
-  `¬NULL cl` by fs[wfcl_def] \\
+  `¬NULL cl` by fs[wfcl_def,NULL_EQ] \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet`POSTv uv.  &UNIT_TYPE () uv * COMMANDLINE cl *
@@ -36,8 +36,7 @@ val echo_spec = Q.store_thm("echo_spec",
       (* TODO: why? *)
       qexists_tac`COMMANDLINE cl` >> xsimpl >>
       qexists_tac`fs` >> xsimpl) >>
-  xlet_auto >- (xcon >> xsimpl) >>
-  xapp >> xsimpl >>
+  xapp_spec output1_stdout_spec >> xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fs'` \\
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs'` \\
   unabbrev_all_tac \\

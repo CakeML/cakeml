@@ -1,9 +1,12 @@
 open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     CommandlineProofTheory TextIOProofTheory
+     CommandLineProofTheory TextIOProofTheory
 
 val _ = new_theory "basisProg"
 
 val _ = translation_extends"TextIOProg";
+
+val print_eval_thm = derive_eval_thm"print"``Var(Long"TextIO"(Short"print"))``
+val () = ml_prog_update (add_Dlet print_eval_thm "print" [])
 
 val res = register_type``:'a app_list``;
 val MISC_APP_LIST_TYPE_def = theorem"MISC_APP_LIST_TYPE_def";
@@ -43,6 +46,17 @@ val print_app_list_spec = Q.store_thm("print_app_list_spec",
   \\ xmatch
   \\ xapp
   \\ simp[]);
+
+val _ = (append_prog o process_topdecs)
+  `fun print_int i = TextIO.print (Int.toString i)`;
+
+val print_int_spec = Q.store_thm("print_int_spec",
+  `INT i iv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_int" (get_ml_prog_state())) [iv]
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (explode (toString i))))`,
+  xcf"print_int"(get_ml_prog_state())
+  \\ xlet_auto >- xsimpl
+  \\ xapp \\ xsimpl);
 
 val basis_st = get_ml_prog_state ();
 

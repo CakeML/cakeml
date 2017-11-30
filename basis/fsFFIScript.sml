@@ -246,45 +246,44 @@ val encode_inode_def = Define`
   encode_inode (File s) = Cons (Num 1) ((Str o explode) s)`;
 
 val encode_files_def = Define`
-  encode_files fs = encode_list (encode_pair encode_inode Str) fs
-`;
+  encode_files fs = encode_list (encode_pair encode_inode Str) fs`;
 
 val encode_fds_def = Define`
   encode_fds fds =
-     encode_list (encode_pair Num (encode_pair encode_inode Num)) fds
-`;
+     encode_list (encode_pair Num (encode_pair encode_inode Num)) fds`;
 
 val encode_def = zDefine`
-  encode fs = cfHeapsBase$Cons
-                (cfHeapsBase$Cons
+  encode fs = cfFFIType$Cons
+                (cfFFIType$Cons
                   (encode_files fs.files)
                   (encode_fds fs.infds))
-                (Stream fs.numchars)
-`
+                (Stream fs.numchars)`
 
-val decode_inode_def = Define`
-  decode_inode f = case decode_pair destNum (lift implode o destStr) f of
-                       SOME (0,s) => SOME (IOStream s)
-                     | SOME (1,s) => SOME (File s)
-                     | _ => NONE`;
+val encode_inode_11 = store_thm("encode_inode_11[simp]",
+  ``!x y. encode_inode x = encode_inode y <=> x = y``,
+  Cases \\ Cases_on `y` \\ fs [encode_inode_def,explode_11]);
 
+val encode_files_11 = store_thm("encode_files_11[simp]",
+  ``!xs ys. encode_files xs = encode_files ys <=> xs = ys``,
+  rw [] \\ eq_tac \\ rw [encode_files_def]
+  \\ drule encode_list_11
+  \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
 
-val decode_files_def = Define`
-  decode_files = decode_list (decode_pair decode_inode destStr) `
+val encode_fds_11 = store_thm("encode_fds_11[simp]",
+  ``!xs ys. encode_fds xs = encode_fds ys <=> xs = ys``,
+  rw [] \\ eq_tac \\ rw [encode_fds_def]
+  \\ drule encode_list_11
+  \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
 
-val decode_fds_def = Define`
-  decode_fds =
-    decode_list (decode_pair destNum (decode_pair decode_inode destNum)) `;
+val encode_11 = store_thm("encode_11[simp]",
+  ``!x y. encode x = encode y <=> x = y``,
+  fs [encode_def] \\ rw [] \\ eq_tac \\ rw []
+  \\ fs [IO_fs_component_equality]);
 
-val decode_def = zDefine`
-  (decode (Cons (Cons files0 fds0) (Stream numchars0)) =
-     do
-        files <- decode_files files0 ;
-        fds <- decode_fds fds0 ;
-        return <| files := files ; infds := fds; numchars := numchars0 |>
-     od) ∧
-  (decode _ = fail)
-`;
+val decode_encode = new_specification("decode_encode",["decode"],
+  prove(``?decode. !cls. decode (encode cls) = SOME cls``,
+        qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
+val _ = export_rewrites ["decode_encode"];
 
 val fs_ffi_part_def = Define`
   fs_ffi_part =

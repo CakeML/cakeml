@@ -274,7 +274,9 @@ val do_app_thm = Q.prove(
    (do_app op xs s1 = Rval (v,s2)) ==>
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
           v_rel v w /\ state_rel s2 t2`,
-  Cases_on `?i. op = EqualInt i`
+  Cases_on `op = ConfigGC`
+  THEN1 (fs [do_app_cases_val] \\ rw [] \\ fs [v_rel_simp])
+  \\ Cases_on `?i. op = EqualInt i`
   THEN1 (fs [] \\ fs [do_app_def] \\ every_case_tac \\ fs [])
   \\ reverse (Cases_on `op`) \\ rpt STRIP_TAC
   \\ TRY (full_simp_tac(srw_ss())[do_app_def] >> NO_TAC)
@@ -306,6 +308,9 @@ val do_app_thm = Q.prove(
   THEN1 (* FP_cmp *)
    (fs [do_app_cases_val] \\ rveq \\ fs [PULL_EXISTS]
     \\ rveq \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* WordFromWord *)
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* WordToInt *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
@@ -1169,11 +1174,9 @@ val shift_correct = Q.prove(
              ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
         \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
         THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs[]
         \\ MATCH_MP_TAC EVERY2_TAKE
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs[])
       \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
       \\ reverse (Cases_on `q`) \\ full_simp_tac(srw_ss())[]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
@@ -1183,10 +1186,8 @@ val shift_correct = Q.prove(
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
       \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
-      \\ MATCH_MP_TAC EVERY2_REVERSE
       \\ MATCH_MP_TAC EVERY2_DROP
-      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-      \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ Cases_on `EL n cs'` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
@@ -1236,10 +1237,8 @@ val shift_correct = Q.prove(
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
       \\ REPEAT STRIP_TAC THEN1
        (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE
         \\ MATCH_MP_TAC EVERY2_TAKE
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[LIST_REL_GENLIST]
       \\ full_simp_tac(srw_ss())[v_rel_simp] \\ REPEAT STRIP_TAC
       \\ full_simp_tac(srw_ss())[])
@@ -1253,10 +1252,8 @@ val shift_correct = Q.prove(
     \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[dec_clock_def]
-    \\ MATCH_MP_TAC EVERY2_REVERSE
     \\ MATCH_MP_TAC EVERY2_DROP
-    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-    \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[]));
+    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]));
 
 val env_set_default = Q.prove(
   `x SUBSET env_ok 0 0 LN [] env'`,

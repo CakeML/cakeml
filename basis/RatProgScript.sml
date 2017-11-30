@@ -10,7 +10,6 @@ val _ = ml_prog_update (open_module "Rat");
 
 (* connection between real and rat *)
 
-
 val real_of_rat_def = Define `
   real_of_rat (r:rat) : real = intreal$real_of_int (RATN r) /  real_of_num (RATD r)
 `;
@@ -66,8 +65,6 @@ val _ = add_type_inv ``RAT_TYPE`` ``:(int # num)``;
 val REAL_TYPE_def = Define `
   REAL_TYPE (r:real) =
     \v. ?x:rat. RAT_TYPE x v /\ (real_of_rat x = r)`;
-
-val _ = add_type_inv ``REAL_TYPE`` ``:(int # num)``;
 
 (* transfer *)
 
@@ -542,6 +539,7 @@ val Eval_RAT_INV = Q.prove(
   |> (fn th => MATCH_MP th pair_inv_v_thm)
   |> add_user_proved_v_thm;
 
+<<<<<<< HEAD
 val Eval_REAL_INV = Q.prove(
   `(!r. (PRECONDITION (r <> 0) ==> (Eq RAT_TYPE r --> RAT_TYPE) rat_minv v)) ==>
    (!x. (PRECONDITION (x <> 0) ==> (Eq REAL_TYPE x --> REAL_TYPE) inv v))`,
@@ -561,6 +559,10 @@ val Eval_REAL_INV = Q.prove(
   |> (fn th => MATCH_MP th (GEN_ALL (DISCH_ALL Eval_RAT_INV)))
   |> Q.SPEC `r` |> UNDISCH_ALL
   |> add_user_proved_v_thm;
+=======
+val _ = (next_ml_names := ["/"])
+val pair_div_v_thm = translate ratTheory.RAT_DIV_MULMINV;
+>>>>>>> origin/cleanup-201711
 
 val _ = (next_ml_names := ["/"])
 val Eval_RAT_DIV = translate ratTheory.RAT_DIV_MULMINV;

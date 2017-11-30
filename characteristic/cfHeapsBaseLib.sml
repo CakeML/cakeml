@@ -76,7 +76,7 @@ fun hpull_one_conseq_conv_core t =
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
     fun rearrange_conv tm =
-      let val rest = filter (fn tm' => tm' <> tm) ls in
+      let val rest = filter (not o aconv tm) ls in
         SEP_IMP_conv (rearrange_star_conv tm rest) REFL
       end
     fun pull tm =
@@ -142,11 +142,11 @@ fun hsimpl_cancel_one_conseq_conv_core t =
     val (l, r) = dest_sep_imp t
     val ls = list_dest dest_star l
     val rs = list_dest dest_star r
-    val is = intersect ls rs
+    val is = op_intersect aconv ls rs
     fun rearrange_conv tm1 tm2 =
       let
-        val ls' = filter (fn tm' => tm' <> tm1) ls
-        val rs' = filter (fn tm' => tm' <> tm2) rs
+        val ls' = filter (not o aconv tm1) ls
+        val rs' = filter (not o aconv tm2) rs
         val convl = rearrange_star_conv tm1 ls'
         val convr = rearrange_star_conv tm2 rs'
       in SEP_IMP_conv convl convr
@@ -169,7 +169,7 @@ fun hsimpl_cancel_one_conseq_conv_core t =
         Option.mapPartial (fn loc =>
           find_map (fn tm2 =>
             Option.mapPartial (fn loc' =>
-              if loc = loc' andalso same_cell_kind tm1 tm2 then
+              if loc ~~ loc' andalso same_cell_kind tm1 tm2 then
                 SOME (tm1, tm2)
               else NONE
             ) (cell_loc tm2)
@@ -253,7 +253,7 @@ fun hpullr_conseq_conv_core t =
     val (l, r) = dest_sep_imp t
     val rs = list_dest dest_star r
     fun rearrange_conv tm =
-      let val rest = filter (fn tm' => tm' <> tm) rs in
+      let val rest = filter (not o aconv tm) rs in
         SEP_IMP_conv REFL (rearrange_star_conv tm rest)
       end
     fun simpl tm =
@@ -377,9 +377,9 @@ fun sep_imp_instantiate {term, evars} = let
   val ts = strip_conj term
   fun find_inst t = let
     val (H1, H2) = dest_sep_imp t in
-    if mem H1 evars andalso not (mem H2 evars) then
+    if tmem H1 evars andalso not (tmem H2 evars) then
       {instantiation = [H1 |-> H2], new_evars = []}
-    else if mem H2 evars andalso not (mem H1 evars) then
+    else if tmem H2 evars andalso not (tmem H1 evars) then
       {instantiation = [H2 |-> H1], new_evars = []}
     else fail ()
   end

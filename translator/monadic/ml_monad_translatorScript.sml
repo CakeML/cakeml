@@ -38,7 +38,7 @@ fun list_dest f tm =
   handle HOL_ERR _ => [tm];
 (* *)
 
-(*********** Comes from cfLetAutoLib.sml ***********************************************)	 
+(*********** Comes from cfLetAutoLib.sml ***********************************************)
 (* [dest_pure_fact]
    Deconstruct a pure fact (a heap predicate of the form &P) *)
 val set_sep_cond_tm = ``set_sep$cond : bool -> hprop``;
@@ -582,7 +582,7 @@ val EvalM_Var_ArrowP = Q.store_thm("EvalM_Var_ArrowP",
    ArrowP H (PURE a) b x v`,
   rw[EvalM_def]
   \\fs[Once evaluate_cases]
-  \\ fs[ArrowP_def, ArrowM_def] \\ rw[]  
+  \\ fs[ArrowP_def, ArrowM_def] \\ rw[]
   \\ fs[LOOKUP_VAR_def, lookup_var_def]
   \\ first_x_assum drule \\ rw[]
   \\ first_x_assum (qspec_then `[]` strip_assume_tac)
@@ -600,7 +600,7 @@ val EvalM_Var_ArrowP_EqSt = Q.store_thm("EvalM_Var_ArrowP_EqSt",
    ArrowP H (EqSt (PURE a) n_st) b x v`,
   rw[EvalM_def]
   \\ fs[Once evaluate_cases]
-  \\ fs[ArrowP_def, ArrowM_def] \\ rw[]  
+  \\ fs[ArrowP_def, ArrowM_def] \\ rw[]
   \\ fs[LOOKUP_VAR_def, lookup_var_def]
   \\ first_x_assum drule \\ rw[]
   \\ first_x_assum (qspec_then `[]` strip_assume_tac)
@@ -904,7 +904,7 @@ val EvalM_handle_MODULE = Q.store_thm("EvalM_handle_MODULE",
   (!s. (!e s1. x1 s <> (Failure (ECons e), s1)) ==> handle_fun x1 x2 s = x1 s) ==>
   (!e ev. EXN_TYPE (ECons e) ev ==>
    ?ev'.
-   ev = Conv (SOME (cons_name,TypeExn (Long module_name (Short cons_name)))) [ev'] /\ 
+   ev = Conv (SOME (cons_name,TypeExn (Long module_name (Short cons_name)))) [ev'] /\
    TYPE e ev') ==>
   (!e ev. EXN_TYPE e ev ==>
    (!e'. e <> ECons e') ==>
@@ -928,7 +928,7 @@ val EvalM_handle_SIMPLE = Q.store_thm("EvalM_handle_SIMPLE",
   (!s. (!e s1. x1 s <> (Failure (ECons e), s1)) ==> handle_fun x1 x2 s = x1 s) ==>
   (!e ev. EXN_TYPE (ECons e) ev ==>
    ?ev'.
-   ev = Conv (SOME (cons_name,TypeExn (Short cons_name))) [ev'] /\ 
+   ev = Conv (SOME (cons_name,TypeExn (Short cons_name))) [ev'] /\
    TYPE e ev') ==>
   (!e ev. EXN_TYPE e ev ==>
    (!e'. e <> ECons e') ==>
@@ -1171,7 +1171,7 @@ rw[]
    >> fs[ref_bind_def]
    >> fs[Mref_def]
    >> fs[Mpop_ref_def]
-   >> Cases_on `f (StoreRef (LENGTH st)) (cons x::st)` 
+   >> Cases_on `f (StoreRef (LENGTH st)) (cons x::st)`
    >> fs[]
    >> Cases_on `q`
    >> Cases_on `res'`
@@ -1187,7 +1187,7 @@ rw[]
         >> fs[]
         >> irule FALSITY
 	>> qpat_x_assum `!F. P` IMP_RES_TAC
-	>> fs[GSYM STAR_ASSOC] 
+	>> fs[GSYM STAR_ASSOC]
 	>> IMP_RES_TAC STATE_REFS_LENGTH
         >> rw[]
 	>> fs[LENGTH])
@@ -1300,7 +1300,7 @@ refs = refs1 ++ [y] ++ refs2 /\
 H)) (st2heap p s)`,
 rpt STRIP_TAC
 \\ EQ_TAC
->-(     
+>-(
     rw[]
     >> sg `?refs1 refs'. refs = refs1 ++ refs' /\ LENGTH refs1 = LENGTH ptrs1`
     >-(
@@ -1355,7 +1355,7 @@ LENGTH ptrs2 = LENGTH refs2 ==>
 H)) (st2heap p s))`,
 rpt STRIP_TAC
 \\ EQ_TAC
->-(     
+>-(
     rw[]
     >> fs[STATE_REFS_EXTRACT_2])
 \\ rw[]
@@ -1540,7 +1540,7 @@ val evaluate_Opdref_REF = Q.prove(
 `nsLookup env.v (Short vname) = SOME (Loc loc) ==>
 (REF (Loc loc) v * H refs) (st2heap p s) ==>
 !junk. evaluate F env (s with refs := s.refs ++ junk) (App Opderef [Var (Short vname)]) (s with refs := s.refs ++ junk, Rval v)`,
-rw[] 
+rw[]
 \\ rw[Once evaluate_cases]
 \\ CONV_TAC SWAP_EXISTS_CONV
 \\ qexists_tac `s with refs := s.refs ++ junk`
@@ -1792,9 +1792,8 @@ val EvalM_Marray_update = Q.store_thm("EvalM_Marray_update",
   \\ IMP_RES_TAC store_lookup_CELL_st2heap
   \\ POP_ASSUM(fn x => ALL_TAC)
   \\ POP_ASSUM(qspec_then `[]` ASSUME_TAC)
-  \\ fs[ABS_NUM_EQ]
   \\ rw[Once evaluate_cases, evaluate_list_cases]
-  \\ reverse(rw[do_app_def]) >-(irule FALSITY >> fs[ABS_NUM_EQ])
+  \\ fs [] \\ rw [do_app_def]
   \\ ntac 4 (rw[Once evaluate_cases])
   \\ rw[prim_exn_def]
   \\ rw[Once evaluate_cases]
@@ -1809,12 +1808,12 @@ val EvalM_Marray_update = Q.store_thm("EvalM_Marray_update",
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
   \\ fs[]
   \\ first_assum(fn x => simp[MATCH_MP evaluate_unique_result x])
-  \\ qexists_tac `s with refs := s.refs ++ junk ++ refs' ++ refs'' ++ refs'''`
-  \\ qexists_tac `Rerr (Rraise res')`
+  \\ qexists_tac `s with refs := s.refs ++ junk ++ refs' ++ refs'' ++ refs'''` \\ fs []
+  \\ qexists_tac `Rerr (Rraise res')` \\ fs []
   \\ fs[state_component_equality]
   \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]);
- 
+
 val HPROP_TO_GC_R = Q.prove(`(A * B) s ==> (A * GC) s`,
 rw[STAR_def]
 \\ qexists_tac `u`
@@ -1872,7 +1871,8 @@ val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
   \\ fs[MONAD_def, Marray_alloc_def]
   \\ rw[REFS_PRED_FRAME_def, state_component_equality]
   \\ fs[RARRAY_def, RARRAY_REL_def, SEP_EXISTS_THM, SEP_CLAUSES]
-  \\ qexists_tac `REPLICATE (Num (ABS (&n))) res`
+  (*\\ qexists_tac `REPLICATE (Num (ABS (&n))) res`*)
+  \\ qexists_tac `REPLICATE n res`
   \\ qexists_tac `Loc loc`
   \\ qpat_x_assum `Abbrev X` (fn x => fs[PURE_REWRITE_RULE[markerTheory.Abbrev_def] x])
   \\ IMP_RES_TAC st2heap_REF_MEM
@@ -1884,13 +1884,13 @@ val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
   \\ rw[Once STAR_COMM]
   \\ rw[GSYM STAR_ASSOC]
   \\ rw[Once STAR_def]
-  \\ qexists_tac `store2heap_aux (LENGTH(LUPDATE (Refv (Loc loc)) l s.refs ++ junk ++ refs' ++ refs'')) [Varray (REPLICATE (Num (ABS (&n))) res)]`
+  \\ qexists_tac `store2heap_aux (LENGTH(LUPDATE (Refv (Loc loc)) l s.refs ++ junk ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
   \\ qexists_tac `st2heap p (s with
         refs := LUPDATE (Refv (Loc loc)) l s.refs ++ junk ++ refs' ++ refs'')`
   \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
   \\ fs[STATE_SPLIT_REFS]
   \\ simp[ARRAY_def, store2heap_aux_def, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT, cell_def, one_def]
-  \\ simp[LIST_REL_REPLICATE_same, ABS_NUM_EQ]
+  \\ simp[LIST_REL_REPLICATE_same]
   \\ rw[STAR_ASSOC, Once STAR_COMM]
   \\ EXTRACT_PURE_FACTS_TAC
   \\ sg `(Loc l ~~> arv' * H st * F' * GC) (st2heap p s)`
@@ -2608,7 +2608,7 @@ rw[EvalSt_def]
 	\\ EXTRACT_PURE_FACTS_TAC
 	\\ fs[LIST_REL_def,EQ_def]
 	\\ fs[RARRAY_HPROP_SAT_EQ,EQ_def,store2heap_aux_def]
-	\\ metis_tac[])	  
+	\\ metis_tac[])
     \\ fs[STAR_ASSOC]
     \\ rw[Once STAR_def]
     \\ qexists_tac `st2heap p s`
@@ -2655,7 +2655,7 @@ val lookup_cons_write_simp = Q.prove(
 val lookup_cons_build_rec_env_simp = Q.prove(
  `lookup_cons name2 <|v := build_rec_env exp env env.v; c := env.c|> =
   lookup_cons name2 env`,
-  fs[lookup_cons_def]); 
+  fs[lookup_cons_def]);
 
 val LOOKUP_ASSUM_SIMP = save_thm("LOOKUP_ASSUM_SIMP",
 LIST_CONJ[nsBind_to_write,Eval_Var_SIMP,Eval_lookup_var,nsLookup_write_simp,sem_env_same_components,lookup_cons_write_simp,lookup_cons_build_rec_env_simp]);

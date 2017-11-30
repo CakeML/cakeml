@@ -148,7 +148,7 @@ val _ = use_mem_intro := true;
 val r = translate build_or_def;
 val _ = use_mem_intro := false;
 
-val r = translate (normalize_def);
+val r = translate normalize_def;
 
 val r = translate mem_regexp_def;
 val r = translate exec_dfa_def;
@@ -346,13 +346,27 @@ val r = translate (pegexecTheory.peg_exec_def);
 
 (* -- *)
 
-(* TODO: translate shifts as part of a separate module? word module? *)
+val all_charsets_def = Define `
+  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)`;
 
-val r = translate (shift_left_def |> spec64 |> CONV_RULE (wordsLib.WORD_CONV));
+val all_charsets_eq = EVAL ``all_charsets``;
 
-(* -- *)
+val charset_sing_eq = prove(
+  ``!c. charset_sing c = sub all_charsets (ORD c)``,
+  Cases
+  \\ `ORD (CHR n) = n` by fs [ORD_CHR]
+  \\ asm_rewrite_tac [sub_def,all_charsets_def]
+  \\ fs [EL_GENLIST]);
 
-val r = translate (charset_sing_def |> SIMP_RULE(srw_ss())[shift_left_rwt]);
+val r = translate all_charsets_eq;
+val r = translate charset_sing_eq;
+
+val charset_sing_side = prove(
+  ``!c. charset_sing_side c = T``,
+  fs [fetch "-" "charset_sing_side_def"] \\ rw []
+  \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ qexists_tac `256` \\ fs [ORD_BOUND] \\ EVAL_TAC)
+  |> update_precondition
 
 val _ = use_mem_intro := true;
 val r = translate EscapableChar_def;
@@ -396,7 +410,7 @@ val parse_regexp_side = Q.prove(
 val print_matching_lines = process_topdecs`
   fun print_matching_lines match prefix fd =
     case TextIO.inputLine fd of NONE => ()
-    | SOME ln => (if match ln then (TextIO.print_string prefix; TextIO.print_string ln) else ();
+    | SOME ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 
@@ -435,9 +449,8 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ xmatch
   \\ rename1`lineFD _ _ = SOME ln`
   \\ rveq
-  (* TODO: xlet_auto fails *)
-  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * STDIO (lineForwardFD fs fd)`
-  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ xlet_auto >- xsimpl
+  (* TODO: xlet_auto doesn't handle if statements yet *)
   \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)(if m (implode ln) then explode pfx ++ ln else ""))`
   >- (
     xif
@@ -497,7 +510,7 @@ val print_matching_lines_in_file = process_topdecs`
     in (print_matching_lines m (String.concat[file,":"]) fd;
         TextIO.close fd)
     end handle TextIO.BadFileName =>
-        TextIO.prerr_string (notfound_string file)`;
+        TextIO.output TextIO.stdErr (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
@@ -525,7 +538,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
     \\ fs[BadFileName_exn_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
     \\ xlet_auto >- xsimpl
-    \\ xapp \\ instantiate \\ xsimpl
+    \\ xapp_spec output_stderr_spec \\ instantiate \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs`
     \\ xsimpl)
   >- ( xsimpl )
@@ -614,12 +627,12 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 
 val grep = process_topdecs`
   fun grep u =
-    case Commandline.arguments ()
-    of [] => TextIO.prerr_string usage_string
-     | [_] => TextIO.prerr_string usage_string
+    case CommandLine.arguments ()
+    of [] => TextIO.output TextIO.stdErr usage_string
+     | [_] => TextIO.output TextIO.stdErr usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
-         NONE => TextIO.prerr_string (parse_failure_string regexp)
+         NONE => TextIO.output TextIO.stdErr (parse_failure_string regexp)
        | SOME r =>
            (* abandoning this approach for now ...
          let
@@ -795,7 +808,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
-    \\ xapp
+    \\ xapp_spec output_stderr_spec
     \\ simp[grep_sem_def]
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -810,7 +823,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
-    \\ xapp
+    \\ xapp_spec output_stderr_spec
     \\ simp[grep_sem_def]
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -831,7 +844,7 @@ val grep_spec = Q.store_thm("grep_spec",
   >- (
     xmatch
     \\ xlet_auto >- xsimpl
-    \\ xapp
+    \\ xapp_spec output_stderr_spec
     \\ instantiate
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV

@@ -308,7 +308,7 @@ in
    fun find_env P g =
       g |> boolSyntax.strip_conj |> List.last
         |> HolKernel.find_terms (Lib.can (dest_env P))
-        |> Lib.mk_set
+        |> Lib.op_mk_set aconv
         |> mlibUseful.sort_map (HolKernel.term_size) Int.compare
         |> Lib.total (dest_env P o List.last)
    fun env_tac f (asl, g) =

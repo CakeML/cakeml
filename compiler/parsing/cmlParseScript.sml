@@ -16,7 +16,7 @@ val destResult_def = Define`
 val cmlParseExpr_def = Define`
   cmlParseExpr toks = do
     (toks', pts) <- destResult (cmlpegexec nE toks);
-    pt <- misc$oHD pts;
+    pt <- oHD pts;
     ast <- ptree_Expr nE pt;
     SOME(toks', ast)
   od
@@ -26,7 +26,7 @@ val parse_prog_def = Define`
   parse_prog toks =
     do
       (toks',pts) <- destResult (cmlpegexec nTopLevelDecs toks);
-      pt <- misc$oHD pts;
+      pt <- oHD pts;
       tds <- ptree_TopLevelDecs pt;
       if toks' <> [] then NONE else SOME tds
     od
