@@ -80,7 +80,7 @@ val _ = Define `
 (* The numbers for the primitive types *)
 val _ = Define `
  (prim_type_nums=  
- ([Tarray_num; Tchar_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
+ ([Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
    Tvector_num; Tword64_num; Tword8_num; Tword8array_num]))`;
 
 
