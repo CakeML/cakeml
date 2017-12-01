@@ -371,6 +371,8 @@ val do_app_def = Define `
             | NONE => NONE
             | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
      | _ => NONE)
+  | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+       SOME ((s,t), Rval (Conv NONE []))
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>

@@ -119,7 +119,7 @@ val res = translate format_output_def;
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
-    case TextIO.inputLinesFrom (List.hd (Commandline.arguments()))
+    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
       TextIO.print_list
         (List.map format_output

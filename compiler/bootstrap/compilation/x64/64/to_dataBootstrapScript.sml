@@ -1,4 +1,4 @@
-open preamble compiler_riscvProgTheory
+open preamble compiler64ProgTheory
 
 val _ = new_theory"to_dataBootstrap";
 
@@ -44,10 +44,10 @@ val (ls,ty) = compiler_prog_def |> rconc |> listSyntax.dest_list
 val new_prog = listSyntax.mk_list(List.take(ls,80),ty)
 val compiler_prog_thm = mk_thm([],mk_eq(lhs(concl(compiler_prog_def)),new_prog));
 *)
-val compiler_prog_thm = compiler_prog_def;
+val compiler64_prog_thm = compiler64_prog_def;
 
-val to_data_riscv_thm = save_thm("to_data_riscv_thm",
+val to_data_x64_thm = save_thm("to_data_x64_thm",
   compilationLib.compile_to_data
-    cs init_conf_def compiler_prog_thm "data_prog_riscv");
+    cs init_conf_def compiler64_prog_thm "data_prog_x64");
 
 val _ = export_theory();

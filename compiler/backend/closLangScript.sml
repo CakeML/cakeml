@@ -56,13 +56,15 @@ val _ = Datatype `
      | WordShift word_size shift num
      | WordFromInt
      | WordToInt
+     | WordFromWord bool
      | FP_cmp fp_cmp
      | FP_uop fp_uop
      | FP_bop fp_bop
      | BoundsCheckBlock
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
-     | LessConstSmall num`
+     | LessConstSmall num
+     | ConfigGC`
 
 val _ = Datatype `
   exp = Var tra num

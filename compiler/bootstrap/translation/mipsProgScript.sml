@@ -1,15 +1,13 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open compiler64ProgTheory
+open riscvProgTheory
 open mips_targetTheory mipsTheory;
 open inliningLib;
 
 val _ = new_theory "mipsProg"
 
-val _ = translation_extends "compiler64Prog";
-
-val RW = REWRITE_RULE
+val _ = translation_extends "riscvProg";
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
@@ -33,7 +31,7 @@ fun def_of_const tm = let
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
-  val def = def |> RW (!extra_preprocessing)
+  val def = def |> REWRITE_RULE (!extra_preprocessing)
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 (* TODO: This ss messes up defs containing if-then-else
                 with constant branches
@@ -43,32 +41,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val spec64 = INST_TYPE[alpha|->``:64``]
-
-val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
-
-val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
-val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
-
-val word_bit_thm = Q.prove(
-  `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
-  simp [GSYM wordsTheory.word_1_lsl]
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
-  \\ eq_tac
-  \\ rw []
-  >- (qexists_tac `n` \\ simp [DECIDE ``0 < a /\ n <= a - 1n ==> n < a``])
-  \\ `i = n` by decide_tac
-  \\ fs [])
-
-(* word_concat *)
-val wc_simp = CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w,LET_THM]
-(* word_extract *)
-val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
-val wcomp_simp = SIMP_RULE std_ss [word_2comp_def]
-val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
-val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
-
-val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
+val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)
 
 val defaults =
   [mips_ast_def,mips_encode_def,Encode_def,

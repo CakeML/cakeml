@@ -2018,17 +2018,13 @@ val lines_upd_lab_len_similar = Q.store_thm("lines_upd_lab_len_similar",
     LIST_REL line_similar (FST (lines_upd_lab_len pos lines aux)) (REVERSE aux ++ lines)`,
   recInduct lines_upd_lab_len_ind
   \\ rw[lines_upd_lab_len_def] \\ fs[]
-  \\ TRY (
-    match_mp_tac EVERY2_REVERSE
-    \\ simp[LIST_REL_EL_EQN,line_similar_refl] )
+  \\ TRY ( simp[LIST_REL_EL_EQN,line_similar_refl] \\ NO_TAC )
   \\ match_mp_tac LIST_REL_trans
   \\ first_assum(part_match_exists_tac (el 2 o strip_conj) o concl) \\ simp[]
   \\ (conj_tac >- metis_tac[line_similar_trans])
   \\ once_rewrite_tac[GSYM APPEND_ASSOC]
   \\ match_mp_tac EVERY2_APPEND_suff
   \\ simp[line_similar_def]
-  \\ conj_tac
-  \\ TRY (match_mp_tac EVERY2_REVERSE)
   \\ simp[LIST_REL_EL_EQN,line_similar_refl]);
 
 (* implications of code_similar *)
@@ -4797,7 +4793,7 @@ val compile_correct = Q.prove(
     \\ Cases_on `s1.regs s1.link_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr2_reg` \\ full_simp_tac(srw_ss())[]
-    \\ qmatch_assum_rename_tac `read_reg _.len2_reg _ = Word c2`    
+    \\ qmatch_assum_rename_tac `read_reg _.len2_reg _ = Word c2`
     \\ qmatch_assum_rename_tac `read_reg _.ptr2_reg _ = Word c2'`
     \\ qmatch_assum_rename_tac `read_reg _.ptr_reg _ = Word c'`
     \\ Cases_on `read_bytearray c' (w2n c) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
@@ -5038,7 +5034,7 @@ val init_ok_def = Define `
   init_ok (mc_conf, p) s ms <=>
     s.ffi.final_event = NONE /\
     ?code2 labs t1.
-      state_rel (mc_conf,code2,labs,p) s t1 ms`
+      state_rel (mc_conf,code2,labs,p) s t1 ms`;
 
 val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   `!mc_conf p (ms:'state) ^s1.
@@ -5072,7 +5068,7 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
         \\ disch_then drule \\ full_simp_tac(srw_ss())[])
       \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
     \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
-    \\ PairCases_on `z`
+    \\ PairCases_on `y`
     \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
     \\ pop_assum (K all_tac)
@@ -5172,7 +5168,7 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (qspec_then `k` assume_tac)
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[] \\ gen_tac
-  \\ PairCases_on `z`
+  \\ PairCases_on `y`
   \\ drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
@@ -5211,7 +5207,7 @@ val make_init_def = Define `
      ; ptr_reg        := mc_conf.ptr_reg
      ; len_reg        := mc_conf.len_reg
      ; ptr2_reg       := mc_conf.ptr2_reg
-     ; len2_reg       := mc_conf.len2_reg                           
+     ; len2_reg       := mc_conf.len2_reg
      ; link_reg       := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
      |>`;
 

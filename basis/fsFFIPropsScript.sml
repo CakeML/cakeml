@@ -105,6 +105,11 @@ val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
 
 (* getNullTermStr lemmas *)
 
+val getNullTermStr_add_null = Q.store_thm(
+  "getNullTermStr_add_null",
+  `∀cs. ¬MEM 0w cs ⇒ getNullTermStr (cs++(0w::ls)) = SOME (MAP (CHR o w2n) cs)`,
+  simp[getNullTermStr_def,  findi_APPEND, NOT_MEM_findi, findi_def, TAKE_APPEND])
+
 val getNullTermStr_insert_atI = Q.store_thm(
   "getNullTermStr_insert_atI",
   `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
@@ -277,51 +282,6 @@ val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
  `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
   rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
 
-(* encode/ decode *)
-
-val decode_encode_inode = Q.store_thm(
-  "decode_encode_inode",
-  `∀f. decode_inode (encode_inode f) = return f`,
-  strip_tac >> cases_on`f` >>
-  rw[encode_inode_def, decode_inode_def] >>
-  rpt CASE_TAC >> fs[decode_pair_def]);
-
-val decode_encode_files = Q.store_thm(
-  "decode_encode_files",
-  `∀l. decode_files (encode_files l) = return l`,
-  rw[encode_files_def, decode_files_def] >>
-  match_mp_tac decode_encode_list >>
-  match_mp_tac decode_encode_pair >>
-  simp[implode_explode,decode_encode_inode]);
-
-val encode_files_11 = Q.store_thm("encode_files_11",
-  `encode_files l1 = encode_files l2 ⇒ l1 = l2`,
-  rw[] >>
-  `decode_files (encode_files l1) = decode_files(encode_files l2)` by fs[] >>
-  fs[decode_encode_files]);
-
-val decode_encode_fds = Q.store_thm(
-  "decode_encode_fds",
-  `decode_fds (encode_fds fds) = return fds`,
-  simp[decode_fds_def, encode_fds_def] >>
-  simp[decode_encode_list, decode_encode_pair,decode_encode_inode]);
-
-val encode_fds_11 = Q.store_thm("encode_fds_11",
-  `encode_fds l1 = encode_fds l2 ⇒ l1 = l2`,
-  rw[] >> `decode_fds (encode_fds l1) = decode_fds(encode_fds l2)` by fs[] >>
-  fs[decode_encode_fds]);
-
-val decode_encode_FS = Q.store_thm(
-  "decode_encode_FS[simp]",
-  `decode (encode fs) = return fs`,
-  simp[decode_def, encode_def, decode_encode_files, decode_encode_fds] >>
-  simp[IO_fs_component_equality]);
-
-val encode_11 = Q.store_thm(
-  "encode_11[simp]",
-  `encode fs1 = encode fs2 ⇔ fs1 = fs2`,
-  metis_tac[decode_encode_FS, SOME_11]);
-
 (* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
@@ -344,13 +304,10 @@ val read_length = Q.store_thm("read_length",
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def]
-  \\ every_case_tac
+  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac)
-  \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
-  \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
-  \\ imp_res_tac read_length
-  \\ imp_res_tac LENGTH_EQ \\ fs[]);
+  \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac read_length \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
@@ -495,6 +452,12 @@ val fsupdate_A_DELKEY = Q.store_thm("fsupdate_A_DELKEY",
   rw[fsupdate_def,ALOOKUP_ADELKEY]
   \\ CASE_TAC \\ CASE_TAC
   \\ rw[A_DELKEY_ALIST_FUPDKEY_comm]);
+
+val fsupdate_0_numchars = Q.store_thm("fsupdate_0_numchars",
+  `IS_SOME (ALOOKUP fs.infds fd) ⇒
+   fsupdate fs fd n pos content =
+   fsupdate (fs with numchars := THE (LDROP n fs.numchars)) fd 0 pos content`,
+  rw[fsupdate_def] \\ TOP_CASE_TAC \\ fs[]);
 
 (* get_file_content *)
 
