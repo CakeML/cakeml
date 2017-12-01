@@ -917,10 +917,10 @@ local val assign_quotation = `
     | ConfigGC =>
         (dtcase args of
          | [v1;v2] =>
-             (list_Seq [SilentFFI c 3 (get_names names);
+             (list_Seq [SilentFFI c 3 (adjust_set (get_names names));
                         Assign 1 (Const 0w);
                         Alloc 1 (adjust_set (get_names names)); (* runs GC *)
-                        SilentFFI c 3 (get_names names);
+                        SilentFFI c 3 (adjust_set (get_names names));
                         Assign (adjust_var dest) (Const 2w)],l)
          | _ => (Skip,l))
     | ConsExtend tag =>

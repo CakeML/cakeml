@@ -6319,7 +6319,7 @@ val get_var_set_var_thm = Q.store_thm("get_var_set_var_thm",
   `wordSem$get_var n (set_var m x y) = if n = m then SOME x else get_var n y`,
   fs[wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert]);
 
-val alloc_NONE_IMP_cut_env = prove(
+val alloc_NONE_IMP_cut_env = store_thm("alloc_NONE_IMP_cut_env",
   ``alloc w (adjust_set names) t = (NONE,s1) ==>
     cut_env (adjust_set names) s1.locals = SOME s1.locals``,
   fs [wordSemTheory.alloc_def,wordSemTheory.gc_def]
