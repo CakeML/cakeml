@@ -2354,8 +2354,6 @@ val builtin_binops =
    Eval_force_gc_to_run,
    Eval_strsub,
    Eval_sub,
-   Eval_And,
-   Eval_Or,
    Eval_Implies]
   |> map SPEC_ALL
   |> map (fn th =>
@@ -2851,6 +2849,21 @@ fun hol2deep tm =
     val th2 = hol2deep x2
     val result = MATCH_MP Eval_Equality (CONJ th1 th2) |> UNDISCH
     in check_inv "equal" tm result end else
+  (* and, or *)
+  if is_conj tm then let
+    val (x1,x2) = dest_conj tm
+    val th1 = hol2deep x1
+    val th2 = hol2deep x2
+    val th = MATCH_MP Eval_And (LIST_CONJ [D th1, D th2])
+    val result = UNDISCH th
+    in check_inv "and" tm result end else
+  if is_disj tm then let
+    val (x1,x2) = dest_disj tm
+    val th1 = hol2deep x1
+    val th2 = hol2deep x2
+    val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
+    val result = UNDISCH th
+    in check_inv "or" tm result end else
   (* if statements *)
   if is_cond tm then
     if is_precond (tm |> rator |> rator |> rand) then let

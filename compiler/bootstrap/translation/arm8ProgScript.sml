@@ -1,15 +1,13 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open compiler64ProgTheory
+open x64ProgTheory
 open arm8_targetTheory arm8Theory;
 open inliningLib;
 
 val _ = new_theory "arm8Prog"
 
-val _ = translation_extends "compiler64Prog";
-
-val RW = REWRITE_RULE
+val _ = translation_extends "x64Prog";
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
@@ -33,7 +31,7 @@ fun def_of_const tm = let
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
-  val def = def |> RW (!extra_preprocessing)
+  val def = def |> REWRITE_RULE (!extra_preprocessing)
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 (* TODO: This ss messes up defs containing if-then-else
                 with constant branches
@@ -42,28 +40,6 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
-
-val spec64 = INST_TYPE[alpha|->``:64``]
-
-val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
-
-val word_bit_thm = Q.prove(
-  `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
-  simp [GSYM wordsTheory.word_1_lsl]
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
-  \\ eq_tac
-  \\ rw []
-  >- (qexists_tac `n` \\ simp [DECIDE ``0 < a /\ n <= a - 1n ==> n < a``])
-  \\ `i = n` by decide_tac
-  \\ fs [])
-
-(* word_concat *)
-val wc_simp = CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w,LET_THM]
-(* word_extract *)
-val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
-
-val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
-val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 val IS_SOME_rw = Q.prove(`
   (if IS_SOME A then B else C) =
@@ -230,14 +206,14 @@ val CountTrailing_eq = Q.prove(`
   ∀b w. CountTrailing (b,w) = ct_curr b w`,
   ho_match_mp_tac (fetch "-" "ct_curr_ind")>>
   rpt strip_tac>>
-  PURE_REWRITE_TAC[Once ct_curr_def,word_bit_thm]>>
+  PURE_REWRITE_TAC[Once ct_curr_def,word_bit_test]>>
   fs[]>>`-1w:word64 = 0xFFFFFFFFFFFFFFFFw` by fs[]>>
   IF_CASES_TAC
   >-
-    (PURE_REWRITE_TAC[Once CountTrailing_def,word_bit_thm]>>
+    (PURE_REWRITE_TAC[Once CountTrailing_def,word_bit_test]>>
     simp[])
   >>
-    simp[Once CountTrailing_def,word_bit_thm]>>
+    simp[Once CountTrailing_def,word_bit_test]>>
     metis_tac[]);
 
 val res = translate ct_curr_def
@@ -299,7 +275,7 @@ val notw = Q.prove(`
   !a. ~a = (-1w ?? (a))`,
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
 
-val res = translate (EVAL``w2v (w:word6)`` |> SIMP_RULE (srw_ss()) [word_bit_thm,word_bit_def,word_bit])
+val res = translate (EVAL``w2v (w:word6)`` |> SIMP_RULE (srw_ss()) [word_bit_test,word_bit_def,word_bit])
 
 val Num_rw = Q.prove(`
   (if len < 1 then NONE
@@ -309,7 +285,7 @@ val Num_rw = Q.prove(`
     else f (Num (ABS len))`,
   rw[]>>
   `0 ≤ len` by intLib.COOPER_TAC>>
-  fs[GSYM integerTheory.INT_ABS_EQ_ID])
+  metis_tac[integerTheory.INT_ABS_EQ_ID])
 
 val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE (srw_ss()++ARITH_ss) [hsb_compute,v2w_Ones,Replicate_def,bitstringTheory.length_pad_left,Ones_def,GSYM bitstringTheory.n2w_v2n,Num_rw]
 |> CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w]
@@ -321,12 +297,6 @@ val decodebitmasks_side = Q.prove(`
   simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition
 
 val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def |> SIMP_RULE std_ss [notw] |> gconv)
-
-(* the manual translation of w2w should no longer be necessary
-val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (concl arm8_enc_thm)))
-
-val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyntax.dest_word_type l,beta|->wordsSyntax.dest_word_type r] w2w_def |> translate end) w2ws;
-*)
 
 val res = translate arm8_enc_thm
 
