@@ -37,7 +37,7 @@ let Tword8array_num : type_ident = 14
 
 (* The numbers for the primitive types *)
 let prim_type_nums =
-  [Tarray_num; Tchar_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
+  [Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
    Tvector_num; Tword64_num; Tword8_num; Tword8array_num]
 
 let Tarray t = Tapp [t] Tarray_num
