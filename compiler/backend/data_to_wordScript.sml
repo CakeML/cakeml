@@ -232,9 +232,10 @@ val AllocVar_def = Define `
                 (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (Nat (shift (:'a)))))
                 (Assign 1 (Const (-1w:'a word)));
               Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
-              If Lower 3 (Reg 1) (list_Seq [SilentFFI c 3 (adjust_set names);
-                                            Alloc 1 (adjust_set names);
-                                            SilentFFI c 3 (adjust_set names)]) Skip]`;
+              If Lower 3 (Reg 1)
+                (list_Seq [SilentFFI c 3 (insert 1 () (adjust_set names));
+                           Alloc 1 (adjust_set names);
+                           SilentFFI c 3 (adjust_set names)]) Skip]`;
 
 val MakeBytes_def = Define `
   MakeBytes n =
@@ -916,8 +917,8 @@ local val assign_quotation = `
     | ConfigGC =>
         (dtcase args of
          | [v1;v2] =>
-             (list_Seq [Assign 1 (Const 0w);
-                        SilentFFI c 3 (get_names names);
+             (list_Seq [SilentFFI c 3 (get_names names);
+                        Assign 1 (Const 0w);
                         Alloc 1 (adjust_set (get_names names)); (* runs GC *)
                         SilentFFI c 3 (get_names names);
                         Assign (adjust_var dest) (Const 2w)],l)
@@ -1730,8 +1731,8 @@ val comp_def = Define `
         let w = if w2n w = n * k then w else ~0w in
           (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
-                 (list_Seq [Assign 1 (Const w);
-                            SilentFFI c 3 (adjust_set names);
+                 (list_Seq [SilentFFI c 3 (adjust_set names);
+                            Assign 1 (Const w);
                             Alloc 1 (adjust_set names);
                             SilentFFI c 3 (adjust_set names)])
                 Skip),l)
