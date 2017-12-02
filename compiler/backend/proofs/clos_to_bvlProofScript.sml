@@ -27,6 +27,15 @@ val _ = temp_overload_on ("krrel", ``clos_knownProof$res_rel``)
 
 (* TODO: move? *)
 
+val MEM_ALOOKUP = store_thm("MEM_ALOOKUP",
+  ``!xs x v.
+      ALL_DISTINCT (MAP FST xs) ==>
+      (MEM (x,v) xs <=> ALOOKUP xs x = SOME v)``,
+  Induct \\ fs [FORALL_PROD] \\ rw []
+  \\ res_tac \\ eq_tac \\ rw [] \\ rfs []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []);
+
 val ARITH_TAC = intLib.ARITH_TAC;
 
 val drop_lupdate = Q.store_thm ("drop_lupdate",
@@ -980,10 +989,23 @@ val compile_inc_def = Define `
   compile_inc max_app (e,prog) =
     clos_to_bvl$compile_prog max_app ((extract_name e,0,e)::prog)`;
 
+val nth_code_def = Define `
+  nth_code t_co 0 = LN /\
+  nth_code t_co (SUC n) =
+    union (fromAList (SND (t_co 0))) (nth_code (shift_seq 1 t_co) n)`
+
 val compile_oracle_inv_def = Define `
-  compile_oracle_inv max_app s_code s_cc s_co t_code t_cc t_co <=>
-    s_cc = pure_cc (compile_inc max_app) t_cc /\
-    t_co = pure_co (compile_inc max_app) o s_co`;
+  compile_oracle_inv max_app s_code s_cc s_co t_code t_cc t_co ⇔
+     s_cc = pure_cc (compile_inc max_app) t_cc ∧
+     t_co = pure_co (compile_inc max_app) ∘ s_co ∧
+     (!n cfg ps. t_co n = (cfg,ps) ==> ALL_DISTINCT (MAP FST ps)) /\
+     (!n. DISJOINT (domain (union t_code (nth_code t_co n)))
+            (set (MAP FST (SND (t_co n))))) /\
+     !n cfg e ps.
+       s_co n = (cfg,e,ps) ==>
+       every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e] /\
+       EVERY (λp. every_Fn_SOME [SND (SND p)]) ps /\
+       EVERY (λp. every_Fn_vs_SOME [SND (SND p)]) ps`;
 
 val state_rel_def = Define `
   state_rel f (s:('c,'ffi) closSem$state) (t:('c,'ffi) bvlSem$state) <=>
@@ -2671,6 +2693,46 @@ val v_rel_union = prove(
     \\ rpt strip_tac
     \\ match_mp_tac cl_rel_union \\ fs []));
 
+val FEVERY_FUPDATE_LIST_SUFF = store_thm("FEVERY_FUPDATE_LIST_SUFF",
+  ``!progs x p. FEVERY p x /\ EVERY p progs ==> FEVERY p (x |++ progs)``,
+  Induct \\ fs [FUPDATE_LIST] \\ rw [] \\ fs []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ Cases_on `h` \\ fs [FEVERY_FUPDATE]
+  \\ fs [FEVERY_DEF,FDOM_DRESTRICT,DRESTRICT_DEF]);
+
+val code_installed_union = store_thm("code_installed_union",
+  ``code_installed aux y /\ DISJOINT (set (MAP FST aux)) (domain x) ==>
+    code_installed aux (union x y)``,
+  fs [code_installed_def,EVERY_MEM,FORALL_PROD] \\ rw []
+  \\ first_x_assum drule
+  \\ fs [lookup_union,case_eq_thms]
+  \\ rw [] \\ disj1_tac
+  \\ fs [DISJOINT_DEF,EXTENSION]
+  \\ fs [METIS_PROVE [] ``~b\/c <=> b ==> c``,not_domain_lookup]
+  \\ first_x_assum match_mp_tac
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ asm_exists_tac \\ fs []);
+
+val code_installed_insert = store_thm("code_installed_insert",
+  ``code_installed aux t /\ ~(MEM x (MAP FST aux)) ==>
+    code_installed aux (insert x y t)``,
+  fs [code_installed_def,EVERY_MEM,FORALL_PROD] \\ rw []
+  \\ first_x_assum drule
+  \\ fs [lookup_insert,case_eq_thms]
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ rpt strip_tac \\ fs []
+  \\ CCONTR_TAC \\ fs []
+  \\ rveq \\ fs [] \\ rfs []);
+
+val code_installed_fromAList = store_thm("code_installed_fromAList",
+  ``ALL_DISTINCT (MAP FST aux) ==>
+    code_installed aux (fromAList (aux ++ xs))``,
+  fs [code_installed_def,EVERY_MEM,FORALL_PROD] \\ rw []
+  \\ fs [lookup_fromAList]
+  \\ fs [ALOOKUP_APPEND]
+  \\ fs [case_eq_thms]
+  \\ imp_res_tac MEM_ALOOKUP \\ fs []);
+
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
      (tmp = (xs,env,s1)) ∧
@@ -2722,7 +2784,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
        FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
        FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
        s2.clock = t2.clock)`,
-
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (srw_tac[][] >> full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
@@ -2940,13 +3001,9 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ fsrw_tac[ARITH_ss][inc_clock_def]
     \\ Q.EXISTS_TAC `f2'` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
-
   THEN1 (* Op *)
-   (
-
-    Cases_on `op = Install` THEN1
-(
-      rveq \\ fs [] \\ rveq
+   (Cases_on `op = Install` THEN1
+     (rveq \\ fs [] \\ rveq
       \\ fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
       \\ pairarg_tac \\ fs []
       \\ `?p. evaluate (xs,env,s) = p` by fs[] \\ PairCases_on `p` \\ fs[]
@@ -2996,10 +3053,9 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ fs [bEval_def]
       \\ fs [bvlSemTheory.do_install_def,do_app_def]
       \\ fs [EVAL ``shift_seq 1 f 0``]
-      \\ drule (GEN_ALL v_rel_IMP_v_to_bytes)
-      \\ disch_then drule \\ strip_tac
-      \\ drule (GEN_ALL v_rel_IMP_v_to_words)
-      \\ disch_then drule \\ strip_tac
+      \\ drule (GEN_ALL v_rel_IMP_v_to_bytes) \\ strip_tac
+      \\ `v_to_words y = v_to_words a3` by
+        (imp_res_tac v_rel_IMP_v_to_words \\ fs [])
       \\ `p1.compile = pure_cc (compile_inc p1.max_app) t2.compile ∧
           t2.compile_oracle = pure_co (compile_inc p1.max_app) ∘ p1.compile_oracle`
             by fs [state_rel_def,compile_oracle_inv_def]
@@ -3009,7 +3065,12 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
               \\ imp_res_tac compile_exps_SING \\ rveq \\ fs [])
       \\ `DISJOINT (domain t2.code) (set (MAP FST progs)) ∧
           loc1 ∉ domain t2.code ∧ ¬MEM loc1 (MAP FST progs) ∧
-          ALL_DISTINCT (MAP FST progs)` by cheat
+          ALL_DISTINCT (MAP FST progs)` by
+        (`ALL_DISTINCT (MAP FST ((loc1,0,prog1)::progs))` by
+            metis_tac [compile_oracle_inv_def,state_rel_def] \\ fs []
+         \\ fs [compile_oracle_inv_def,state_rel_def]
+         \\ qpat_x_assum `!n. DISJOINT _ _` (qspec_then `0` mp_tac)
+         \\ simp [nth_code_def] \\ rfs [])
       \\ `t2.compile cfg' ((loc1,0,prog1)::progs) =
             SOME (x,x',FST (t2.compile_oracle 1))` by
            (fs [] \\ rfs []
@@ -3036,8 +3097,16 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
           \\ Cases_on `x2` \\ fs [ref_rel_def]
           \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
           \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ fs [])
-        THEN1 (fs [compile_oracle_inv_def]
-               \\ fs [FUN_EQ_THM,shift_seq_def])
+        THEN1
+         (fs [compile_oracle_inv_def]
+          \\ fs [FUN_EQ_THM,shift_seq_def]
+          \\ rpt strip_tac \\ res_tac \\ fs []
+          \\ qpat_x_assum `!n. DISJOINT _ _` (qspec_then `SUC n` mp_tac)
+          \\ fs [nth_code_def]
+          \\ rewrite_tac [ADD1]
+          \\ match_mp_tac (METIS_PROVE [] ``(x = x1) ==> f x y ==> f x1 y``)
+          \\ fs [shift_seq_def,backendPropsTheory.pure_co_def]
+          \\ rfs [] \\ fs [union_assoc,compile_inc_def,compile_prog_def])
         \\ fs [alistTheory.flookup_fupdate_list]
         \\ Cases_on `ALOOKUP (REVERSE progs1) name` \\ fs []
         THEN1
@@ -3048,9 +3117,94 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
           \\ match_mp_tac MONO_EVERY
           \\ fs [FORALL_PROD,lookup_union])
         \\ fs [] \\ rveq \\ fs []
-        \\ cheat (* probably true *))
+        \\ qabbrev_tac `new_progs = (loc1,0,prog1)::progs`
+        \\ qabbrev_tac `aa = name + num_stubs p1.max_app`
+        \\ `ALL_DISTINCT (MAP FST new_progs)` by
+         (fs [compile_oracle_inv_def]
+          \\ ntac 4 (first_x_assum (qspec_then `0` mp_tac)) \\ rfs []
+          \\ fs [backendPropsTheory.pure_co_def,compile_inc_def,compile_prog_def])
+        \\ `?aux1 aux2 c2.
+              lookup aa (fromAList new_progs) = SOME (arity,c2) /\
+              compile_exps p1.max_app [c] aux1 = ([c2],aux2) /\
+              set aux2 SUBSET set new_progs` by
+           (rfs [] \\ fs [backendPropsTheory.pure_co_def]
+            \\ rveq \\ fs [compile_inc_def,lookup_fromAList]
+            \\ rfs [alookup_distinct_reverse]
+            \\ qpat_x_assum `ALL_DISTINCT (MAP FST progs1)` assume_tac
+            \\ qunabbrev_tac `aa`
+            \\ drule ALOOKUP_MEM
+            \\ ntac 2 (pop_assum mp_tac)
+            \\ qspec_tac (`progs1`,`progs1`)
+            \\ Induct \\ fs []
+            \\ fs [FORALL_PROD] \\ fs [compile_prog_def]
+            \\ rpt gen_tac
+            \\ pairarg_tac \\ fs []
+            \\ Cases_on `p_1 = name` \\ fs []
+            THEN1
+             (ntac 2 strip_tac
+              \\ `~MEM (name,arity,c) progs1'` by fs [MEM_MAP,EXISTS_PROD]
+              \\ simp [] \\ strip_tac \\ rveq \\ fs []
+              \\ pairarg_tac \\ fs []
+              \\ imp_res_tac compile_exps_SING \\ rveq \\ fs []
+              \\ fs [ALL_DISTINCT_APPEND]
+              \\ first_x_assum (qspec_then `name + num_stubs p1.max_app` mp_tac)
+              \\ fs [] \\ strip_tac
+              \\ fs [ALOOKUP_APPEND]
+              \\ imp_res_tac ALOOKUP_NONE \\ fs []
+              \\ asm_exists_tac \\ simp []
+              \\ fs [SUBSET_DEF])
+            \\ rpt strip_tac
+            \\ pairarg_tac \\ fs []
+            \\ qpat_x_assum `_ ==> _` mp_tac
+            \\ impl_tac THEN1
+             (fs [ALL_DISTINCT_APPEND] \\ rw []
+              \\ first_x_assum match_mp_tac \\ fs [])
+            \\ strip_tac \\ fs []
+            \\ simp [AC CONJ_COMM CONJ_ASSOC]
+            \\ asm_exists_tac \\ fs []
+            \\ conj_tac THEN1 (fs [SUBSET_DEF] \\ metis_tac [])
+            \\ fs [ALL_DISTINCT_APPEND]
+            \\ imp_res_tac compile_exps_SING \\ fs [] \\ rveq \\ fs []
+            \\ IF_CASES_TAC \\ fs []
+            \\ fs [ALOOKUP_APPEND]
+            \\ rfs [GSYM ALOOKUP_NONE]
+            \\ CASE_TAC \\ fs []
+            \\ CASE_TAC \\ fs []
+            \\ first_x_assum (qspec_then `name + num_stubs p1.max_app` mp_tac)
+            \\ drule ALOOKUP_MEM \\ simp []
+            \\ fs [MEM_MAP] \\ rpt strip_tac \\ fs []
+            \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ fs []
+            \\ fs [FORALL_PROD])
+        \\ `lookup aa t2.code = NONE` by
+           (fs [compile_oracle_inv_def]
+            \\ qpat_x_assum `!n. DISJOINT _ _` (qspec_then `0` mp_tac)
+            \\ fs [nth_code_def] \\ rfs []
+            \\ fs [DISJOINT_DEF,EXTENSION,not_domain_lookup]
+            \\ disch_then (qspec_then `aa` strip_assume_tac) \\ fs []
+            \\ fs [lookup_fromAList]
+            \\ drule ALOOKUP_MEM \\ simp []
+            \\ pop_assum mp_tac \\ simp [MEM_MAP,FORALL_PROD,PULL_EXISTS])
+        \\ fs [] \\ asm_exists_tac \\ fs []
+        \\ match_mp_tac code_installed_union
+        \\ reverse conj_tac
+        THEN1
+         (fs [Abbr `new_progs`,DISJOINT_DEF,SUBSET_DEF,EXTENSION]
+          \\ CCONTR_TAC \\ fs []
+          \\ fs [MEM_MAP] \\ fs []
+          \\ first_x_assum drule
+          \\ CCONTR_TAC \\ fs []
+          \\ rveq \\ fs []
+          \\ rename1 `MEM yy _` \\ PairCases_on `yy` \\ fs [FORALL_PROD]
+          \\ metis_tac [])
+        \\ simp [code_installed_def,EVERY_MEM,FORALL_PROD]
+        \\ rpt strip_tac
+        \\ fs [lookup_fromAList]
+        \\ fs [GSYM MEM_ALOOKUP] \\ fs [SUBSET_DEF])
       \\ `FEVERY (λp. every_Fn_SOME [SND (SND p)]) (p1.code |++ progs1) ∧
-          FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) (p1.code |++ progs1)` by cheat
+          FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) (p1.code |++ progs1)` by
+       (strip_tac \\ match_mp_tac FEVERY_FUPDATE_LIST_SUFF \\ fs []
+        \\ fs [compile_oracle_inv_def,state_rel_def]
+        \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
       \\ Cases_on `t2.clock = 0` \\ fs []
       THEN1
        (qexists_tac `ck` \\ fs []
@@ -3069,7 +3223,20 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
             code := union t2.code (fromAList ((loc1,0,prog1)::progs))|>`,
          `[]`,`f2`] mp_tac)
       \\ fs [] \\ impl_tac
-      THEN1 (fs [env_rel_def] \\ cheat (* almost true *))
+      THEN1 (fs [env_rel_def]
+             \\ rewrite_tac [CONJ_ASSOC]
+             \\ conj_tac THEN1
+              (qpat_x_assum `state_rel f2 p1 t2` mp_tac
+               \\ simp [state_rel_def,compile_oracle_inv_def]
+               \\ strip_tac
+               \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
+             \\ rfs [backendPropsTheory.pure_co_def,compile_inc_def]
+             \\ fs [compile_prog_def] \\ rveq \\ fs []
+             \\ match_mp_tac code_installed_union \\ fs []
+             \\ simp [fromAList_def]
+             \\ match_mp_tac code_installed_insert \\ fs []
+             \\ match_mp_tac code_installed_fromAList \\ fs []
+             \\ fs [ALL_DISTINCT_APPEND])
       \\ strip_tac
       \\ qpat_x_assum `bvlSem$evaluate (c1,_) = _` assume_tac
       \\ drule bvlPropsTheory.evaluate_add_clock \\ simp []
