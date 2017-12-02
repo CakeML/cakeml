@@ -468,6 +468,16 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
       `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
       metis_tac []));
 
+val evaluate_add_clock_initial_state = store_thm("evaluate_add_clock_initial_state",
+  ``evaluate (es,env,initial_state ffi code co cc k) = (r,s') ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ⇒
+    ∀extra.
+      evaluate (es,env,initial_state ffi code co cc (k + extra)) =
+      (r,s' with clock := s'.clock + extra)``,
+  rpt strip_tac
+  \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
+  \\ fs [bvlSemTheory.initial_state_def,inc_clock_def]);
+
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app op vs s1 = Rval (x,s2) ⇒
    s1.ffi.io_events ≼ s2.ffi.io_events ∧

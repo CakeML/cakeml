@@ -5031,32 +5031,6 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   rfs[EVERY_MEM,SUBSET_DEF]>>
   metis_tac [even_stubs3, IN_DEF]);
 
-val full_result_rel_def = Define`
-  full_result_rel c (r1,s1) (r2,s2) ⇔
-    ∃ra rb rc kgmap rd rf sa sb sc sd sf f.
-      (* MTI *)
-      result_rel (LIST_REL (v_rel c.max_app)) (v_rel c.max_app) r1 ra /\
-      clos_mtiProof$state_rel s1 sa ∧
-      (* Number *)
-      clos_numberProof$state_rel sa sb ∧
-      result_rel (LIST_REL (clos_numberProof$v_rel c.max_app)) (clos_numberProof$v_rel c.max_app) ra rb ∧
-      (* Known *)
-      clos_knownProof$opt_res_rel c.do_known kgmap (rb,sb) (rc,sc) ∧
-      (* call *)
-      clos_callProof$opt_result_rel c.do_call rc rd ∧
-      clos_callProof$opt_state_rel c.do_call sc sd ∧
-      (* TODO:
-       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) se.code ∧
-      ?*)
-      (* annotate *)
-      clos_annotateProof$state_rel sd sf ∧
-      result_rel (LIST_REL clos_annotateProof$v_rel) clos_annotateProof$v_rel rd rf ∧
-      (* TODO:
-      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sf.code ∧
-      FEVERY (λp. every_Fn_SOME [SND (SND p)]) sf.code ∧ *)
-      state_rel f sf s2 ∧
-      result_rel (LIST_REL (v_rel c.max_app f s2.refs s2.code)) (v_rel c.max_app f s2.refs s2.code) rf r2`;
-
 (* Initial state *)
 val clos_init_def = Define`
   clos_init max_app s ⇔
@@ -5121,6 +5095,365 @@ val evaluate_init = Q.prove(`
   `∀n. n < mapp2 ⇒ partial_app_fn_location mapp1 mapp2 n ∈ domain st.code` by fs[] >>
   drule evaluate_init1>>
   simp[]);
+
+val FST_EQ_LEMMA = prove(
+  ``FST x = y <=> ?y1. x = (y,y1)``,
+  Cases_on `x` \\ fs []);
+
+val evaluate_add_to_clock_io_events_mono_alt =
+  closPropsTheory.evaluate_add_to_clock_io_events_mono
+  |> SIMP_RULE std_ss [] |> CONJUNCT1 |> SPEC_ALL
+  |> DISCH ``evaluate (es,env,s) = (res,s1:('c,'ffi) closSem$state)``
+  |> SIMP_RULE std_ss [] |> GEN_ALL;
+
+val evaluate_add_to_clock_io_events_mono_alt_bvl =
+  bvlPropsTheory.evaluate_add_to_clock_io_events_mono
+  |> SIMP_RULE std_ss [] |> SPEC_ALL
+  |> DISCH ``evaluate (exps,env,s) = (res,s1:('a,'b) bvlSem$state)``
+  |> SIMP_RULE std_ss [] |> GEN_ALL;
+
+val eval_sim_def = Define `
+  eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 start rel =
+    !k res1 s2.
+      evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k) = (res1,s2) /\
+      res1 <> Rerr (Rabort Rtype_error) /\
+      rel code1 co1 cc1 es1 code2 co2 cc2 start ==>
+      ?ck res2 t2.
+        bvlSem$evaluate ([Call 0 (SOME start) []],[],
+          initial_state ffi code2 co2 cc2 (k+ck)) = (res2,t2) /\
+        result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi`
+
+val initial_state_with_clock = prove(
+  ``(initial_state ffi ma code co cc k with clock :=
+      (initial_state ffi ma code co cc k).clock + ck) =
+    initial_state ffi ma code co cc (k + ck)``,
+  fs [closSemTheory.initial_state_def]);
+
+val initial_state_with_clock_bvl = prove(
+  ``(initial_state ffi code co cc k with clock :=
+      (initial_state ffi code co cc k).clock + ck) =
+    initial_state ffi code co cc (k + ck) /\
+    (bvlProps$inc_clock ck (initial_state ffi code co cc k) =
+    initial_state ffi code co cc (k + ck))``,
+  fs [bvlSemTheory.initial_state_def,inc_clock_def]);
+
+val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
+  `eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 start rel /\
+   closSem$semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 es1 <> Fail ==>
+   rel code1 co1 cc1 es1 code2 co2 cc2 start ==>
+   bvlSem$semantics ffi code2 co2 cc2 start =
+   closSem$semantics ffi max_app code1 co1 cc1 es1`,
+  rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ strip_tac
+  \\ simp [Once closSemTheory.semantics_def]
+  \\ IF_CASES_TAC \\ fs [] \\ disch_then kall_tac
+  \\ strip_tac
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ simp [Once closSemTheory.semantics_def] \\ rw []
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+   (gen_tac \\ strip_tac \\ rveq \\ simp []
+    \\ simp [semantics_def]
+    \\ IF_CASES_TAC \\ fs [] THEN1
+     (first_x_assum (qspec_then `k'` mp_tac)
+      \\ strip_tac
+      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k')`
+      \\ fs [eval_sim_def]
+      \\ last_x_assum drule \\ fs []
+      \\ CCONTR_TAC \\ fs[]
+      \\ fs [FST_EQ_LEMMA]
+      \\ qpat_x_assum `_ = (Rerr (Rabort Rtype_error),_)` assume_tac
+      \\ drule evaluate_add_clock_initial_state \\ fs []
+      \\ qexists_tac `ck` \\ fs []
+      \\ CCONTR_TAC \\ fs [])
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ conj_tac
+    >-
+     (gen_tac \\ strip_tac \\ rveq \\ fs []
+      \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1`
+      \\ qabbrev_tac `st2 = initial_state ffi code2 co2 cc2`
+      \\ drule evaluate_add_to_clock_io_events_mono_alt_bvl
+      \\ qpat_x_assum `evaluate (es1,[],st1 k) = _` assume_tac
+      \\ drule evaluate_add_to_clock_io_events_mono_alt
+      \\ `!extra k. st1 k with clock := (st1 k).clock + extra = st1 (k + extra)`
+            by (unabbrev_all_tac \\ fs [closSemTheory.initial_state_def])
+      \\ `!extra k. st2 k with clock := (st2 k).clock + extra = st2 (k + extra)`
+            by (unabbrev_all_tac \\ fs [initial_state_def])
+      \\ fs []
+      \\ ntac 2 (disch_then assume_tac)
+      \\ Cases_on `s.ffi.final_event` \\ fs []
+      THEN1
+       (Cases_on `s'.ffi.final_event` \\ fs []
+        THEN1
+         (rveq \\ fs [eval_sim_def]
+          \\ first_x_assum drule \\ fs []
+          \\ strip_tac
+          \\ drule bvlPropsTheory.evaluate_add_clock
+          \\ impl_tac
+          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+          \\ fs []
+          \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
+          \\ qpat_x_assum `bvlSem$evaluate _ = _` kall_tac
+          \\ drule evaluate_add_clock
+          \\ impl_tac
+          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+          \\ disch_then (qspec_then `ck+k` mp_tac) \\ fs [inc_clock_def]
+          \\ unabbrev_all_tac \\ fs []
+          \\ fs [bvlSemTheory.state_component_equality])
+        \\ rveq \\ fs [eval_sim_def]
+        \\ first_x_assum drule \\ fs []
+        \\ CCONTR_TAC \\ fs []
+        \\ drule evaluate_add_clock
+        \\ impl_tac
+        THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+        \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
+        \\ CCONTR_TAC \\ fs []
+        \\ first_x_assum (qspec_then `ck+k` mp_tac) \\ fs []
+        \\ CCONTR_TAC \\ fs []
+        \\ unabbrev_all_tac \\ fs [inc_clock_def]
+        \\ rfs [] \\ fs [])
+      \\ qpat_x_assum `∀extra._` mp_tac
+      \\ first_x_assum (qspec_then `k'` assume_tac)
+      \\ first_assum (subterm (fn tm =>
+            Cases_on`^(assert has_pair_type tm)`) o concl)
+      \\ fs []
+      \\ strip_tac
+      \\ rveq \\ fs [eval_sim_def]
+      \\ first_x_assum drule \\ fs []
+      \\ impl_tac THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [] \\ rfs [])
+      \\ strip_tac \\ rveq \\ fs []
+      \\ reverse (Cases_on `s'.ffi.final_event`) \\ fs [] \\ rfs []
+      THEN1
+       (first_x_assum (qspec_then `ck + k` mp_tac)
+        \\ fs [ADD1]
+        \\ strip_tac \\ fs [] \\ rfs [inc_clock_def,Abbr `st2`] \\ fs [])
+      \\ qhdtm_x_assum `evaluate` mp_tac
+      \\ imp_res_tac evaluate_add_clock
+      \\ pop_assum mp_tac
+      \\ impl_tac
+      >- (strip_tac \\ rveq \\ fs [FST_EQ_LEMMA] \\ rfs [])
+      \\ disch_then (qspec_then `ck + k` mp_tac)
+      \\ fs [inc_clock_def,Abbr `st2`]
+      \\ rpt strip_tac \\ rveq
+      \\ CCONTR_TAC \\ fs []
+      \\ rveq \\ fs [] \\ rfs []
+      \\ unabbrev_all_tac \\ fs [initial_state_def])
+    \\ fs [FST_EQ_LEMMA]
+    \\ rveq \\ fs [eval_sim_def]
+    \\ first_x_assum drule \\ fs []
+    \\ impl_tac
+    THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [] \\ rfs [])
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `r` \\ fs []
+    \\ Cases_on `e` \\ fs [])
+  \\ strip_tac
+  \\ simp [bvlSemTheory.semantics_def]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (last_x_assum (qspec_then `k` assume_tac) \\ rfs [FST_EQ_LEMMA]
+    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)` \\ fs []
+    \\ rveq \\ fs [eval_sim_def]
+    \\ first_x_assum drule \\ fs []
+    \\ CCONTR_TAC \\ fs []
+    \\ qpat_x_assum `_ = (Rerr (Rabort Rtype_error),_)` assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ qexists_tac `ck` \\ fs [initial_state_def,closSemTheory.initial_state_def]
+    \\ CCONTR_TAC \\ fs [inc_clock_def] \\ rveq \\ fs [])
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  THEN1
+   (spose_not_then assume_tac \\ rw []
+    \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
+    \\ last_assum (qspec_then `k` mp_tac)
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ strip_tac \\ fs[]
+    \\ rveq \\ fs [eval_sim_def]
+    \\ first_x_assum drule \\ fs []
+    \\ CCONTR_TAC \\ fs []
+    \\ pop_assum (assume_tac o GSYM)
+    \\ qmatch_assum_rename_tac `evaluate (_,[],_ k) = (_,rr)`
+    \\ reverse (Cases_on `rr.ffi.final_event`)
+    THEN1
+      (first_x_assum
+        (qspecl_then
+          [`k`, `FFI_outcome(THE rr.ffi.final_event)`] mp_tac)
+      \\ simp [])
+    \\ qpat_x_assum `∀x y. ¬z` mp_tac \\ simp []
+    \\ qexists_tac `k` \\ simp []
+    \\ reverse (Cases_on `s.ffi.final_event`) \\ fs []
+    THEN1
+      (qhdtm_x_assum `bvlSem$evaluate` mp_tac
+      \\ qhdtm_x_assum `closSem$evaluate` mp_tac
+      \\ drule evaluate_add_to_clock_io_events_mono_alt_bvl
+      \\ fs [initial_state_with_clock_bvl,inc_clock_def]
+      \\ disch_then (qspec_then `ck` mp_tac)
+      \\ rpt strip_tac
+      \\ rfs [] \\ fs [] \\ rveq \\ rfs[])
+    \\ qhdtm_x_assum `bvlSem$evaluate` mp_tac
+    \\ imp_res_tac bvlPropsTheory.evaluate_add_clock
+    \\ pop_assum mp_tac
+    \\ impl_tac
+    >- (strip_tac \\ fs [])
+    \\ disch_then (qspec_then `ck` mp_tac)
+    \\ fs [initial_state_with_clock,inc_clock_def]
+    \\ rpt strip_tac \\ rveq \\ fs [])
+  \\ strip_tac
+  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
+  \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+     suffices_by metis_tac [build_lprefix_lub_thm,
+                            lprefix_lub_new_chain,
+                            unique_lprefix_lub]
+  \\ conj_asm1_tac
+  THEN1
+   (unabbrev_all_tac
+    \\ conj_tac
+    \\ Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
+    \\ REWRITE_TAC [IMAGE_COMPOSE]
+    \\ match_mp_tac prefix_chain_lprefix_chain
+    \\ simp [prefix_chain_def, PULL_EXISTS]
+    \\ qx_genl_tac [`k1`,`k2`]
+    \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
+    \\ strip_tac \\ fs [LESS_EQ_EXISTS] \\ rveq
+    \\ metis_tac
+        [bvlPropsTheory.evaluate_add_to_clock_io_events_mono,
+         closPropsTheory.evaluate_add_to_clock_io_events_mono,
+         initial_state_with_clock_bvl,
+         initial_state_with_clock])
+  \\ simp [equiv_lprefix_chain_thm]
+  \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
+  \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
+  \\ rpt gen_tac
+  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)`
+  \\ rveq \\ fs [eval_sim_def]
+  \\ first_x_assum drule \\ fs []
+  \\ impl_tac
+  THEN1 (CCONTR_TAC \\ fs [FST_EQ_LEMMA] \\ rfs [])
+  \\ strip_tac \\ fs []
+  \\ conj_tac \\ rw []
+  THEN1 (qexists_tac `ck + k` \\ fs [])
+  \\ qexists_tac `k` \\ fs []
+  \\ qmatch_assum_abbrev_tac `_ < (LENGTH (_ ffi1))`
+  \\ qsuff_tac `ffi1.io_events ≼ r.ffi.io_events`
+  THEN1 (rw [] \\ fs [IS_PREFIX_APPEND] \\ simp [EL_APPEND1])
+  \\ qunabbrev_tac `ffi1`
+  \\ metis_tac
+        [bvlPropsTheory.evaluate_add_to_clock_io_events_mono,
+         closPropsTheory.evaluate_add_to_clock_io_events_mono,
+         initial_state_with_clock_bvl,
+         initial_state_with_clock,SND,ADD_SYM]);
+
+val init_code_def = Define `
+  init_code code1 code2 max_app <=>
+    (∀n.
+       n < max_app ⇒
+       lookup (generic_app_fn_location n) code2 =
+       SOME (n + 2,generate_generic_app max_app n)) ∧
+    (∀tot n.
+       tot < max_app ∧ n < tot ⇒
+       lookup (partial_app_fn_location max_app tot n) code2 =
+       SOME (tot + 1 − n,generate_partial_app_closure_fn tot n)) ∧
+    lookup (equality_location max_app) code2 =
+    SOME (equality_code max_app) ∧
+    lookup (block_equality_location max_app) code2 =
+    SOME (block_equality_code max_app) ∧
+    lookup (ToList_location max_app) code2 = SOME (ToList_code max_app) ∧
+    ∀name arity c.
+      FLOOKUP code1 name = SOME (arity,c) ⇒
+      ∃aux1 c2 aux2.
+        compile_exps max_app [c] aux1 = ([c2],aux2) ∧
+        lookup (name + num_stubs max_app) code2 = SOME (arity,c2) ∧
+        code_installed aux2 code2`
+
+val compile_exps_semantics = store_thm("compile_exps_semantics",
+  ``closSem$semantics ffi max_app code1 co1 cc1 es1 <> Fail ==>
+    compile_exps max_app es1 [] = (ys,aux) /\ every_Fn_SOME es1 /\
+    FEVERY (λp. every_Fn_SOME [SND (SND p)]) code1 ∧
+    every_Fn_vs_SOME es1 ∧
+    FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 /\
+    compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 /\
+    code_installed aux code2 /\
+    lookup start code2 = SOME (0,init_globals max_app) /\
+    lookup (num_stubs max_app + 3) code2 = SOME (0,HD ys) /\
+    init_code code1 code2 max_app /\ LENGTH ys = 1
+    ==>
+    bvlSem$semantics ffi code2 co2 cc2 start =
+    closSem$semantics ffi max_app code1 co1 cc1 es1``,
+  strip_tac \\ ho_match_mp_tac IMP_semantics_eq \\ simp []
+  \\ pop_assum kall_tac
+  \\ fs [eval_sim_def] \\ rw []
+  \\ drule (compile_exps_correct |> SIMP_RULE std_ss [] |> CONJUNCT1 |> GEN_ALL)
+  \\ fs []
+  \\ disch_then drule \\ fs []
+  \\ simp [EVAL ``(initial_state ffi max_app code1 co1 cc1 k).code``]
+  \\ qabbrev_tac `gl = SOME (global_table max_app) :: []`
+  \\ disch_then (qspec_then `initial_state ffi code2 co2 cc2 k with globals := gl` mp_tac)
+  \\ disch_then (qspecl_then [`[]`,`FEMPTY`] mp_tac)
+  \\ impl_tac THEN1
+   (fs [EVAL ``(initial_state ffi code2 co2 cc2 k).code``]
+    \\ conj_tac THEN1 EVAL_TAC
+    \\ fs [state_rel_def,initial_state_def,closSemTheory.initial_state_def]
+    \\ fs [EVAL ``num_added_globals``,Abbr`gl`,get_global_def]
+    \\ metis_tac [init_code_def])
+  \\ strip_tac
+  \\ fs [EVAL ``(initial_state ffi max_app code1 co1 cc1 k).clock``]
+  \\ qexists_tac `ck+2` \\ fs []
+  \\ simp [evaluate_def,find_code_def,init_globals_def,do_app_def,
+         EVAL ``(dec_clock 1 (initial_state ffi code2 co2 cc2 k)).globals``]
+  \\ qmatch_goalsub_abbrev_tac `([Unit],tt)`
+  \\ qspecl_then [`max_app`,`max_app`,`tt`] mp_tac
+       (evaluate_init |> INST_TYPE [alpha|->beta,beta|->alpha])
+  \\ impl_tac THEN1
+   (fs [Abbr`tt`,dec_clock_def,init_code_def] \\ rw []
+    \\ CCONTR_TAC \\ fs [domain_lookup]
+    \\ Cases_on `lookup (partial_app_fn_location max_app m n) code2` \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule \\ fs [])
+  \\ fs [] \\ disch_then kall_tac
+  \\ `tt.globals = [NONE]` by (fs [Abbr`tt`] \\ EVAL_TAC)
+  \\ fs [EVAL ``get_global partial_app_label_table_loc [NONE]``]
+  \\ unabbrev_all_tac \\ fs [dec_clock_def]
+  \\ fs [GSYM global_table_def]
+  \\ fs [EVAL ``LUPDATE x partial_app_label_table_loc [NONE]``]
+  \\ fs [LENGTH_EQ_NUM_compute]
+  \\ rveq \\ fs []
+  \\ Cases_on `res1` \\ fs [] \\ fs [state_rel_def]
+  \\ Cases_on `e` \\ fs [] \\ fs [state_rel_def]);
+
+
+
+
+
+
+(* -- old --
+
+val full_result_rel_def = Define`
+  full_result_rel c (r1,s1) (r2,s2) ⇔
+    ∃ra rb rc kgmap rd rf sa sb sc sd sf f.
+      (* MTI *)
+      result_rel (LIST_REL (v_rel c.max_app)) (v_rel c.max_app) r1 ra /\
+      clos_mtiProof$state_rel s1 sa ∧
+      (* Number *)
+      clos_numberProof$state_rel sa sb ∧
+      result_rel (LIST_REL (clos_numberProof$v_rel c.max_app)) (clos_numberProof$v_rel c.max_app) ra rb ∧
+      (* Known *)
+      clos_knownProof$opt_res_rel c.do_known kgmap (rb,sb) (rc,sc) ∧
+      (* call *)
+      clos_callProof$opt_result_rel c.do_call rc rd ∧
+      clos_callProof$opt_state_rel c.do_call sc sd ∧
+      (* TODO:
+       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) se.code ∧
+      ?*)
+      (* annotate *)
+      clos_annotateProof$state_rel sd sf ∧
+      result_rel (LIST_REL clos_annotateProof$v_rel) clos_annotateProof$v_rel rd rf ∧
+      (* TODO:
+      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sf.code ∧
+      FEVERY (λp. every_Fn_SOME [SND (SND p)]) sf.code ∧ *)
+      state_rel f sf s2 ∧
+      result_rel (LIST_REL (v_rel c.max_app f s2.refs s2.code)) (v_rel c.max_app f s2.refs s2.code) rf r2`;
 
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s:'ffi closSem$state) = (r,s') ∧
@@ -5721,5 +6054,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         |> SIMP_RULE(srw_ss())[bvlPropsTheory.inc_clock_def],
       SND,ADD_SYM]) >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
+
+*)
 
 val _ = export_theory();
