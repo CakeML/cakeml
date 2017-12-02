@@ -970,7 +970,7 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    >- (
+    >- ( (* Install case *)
       pop_assum mp_tac
       \\ simp[case_eq_thms,pair_case_eq,PULL_EXISTS]
       \\ drule (GEN_ALL do_install_thm)
@@ -991,25 +991,18 @@ val shift_correct = Q.prove(
       \\ first_x_assum match_mp_tac \\ fs []
       \\ fs [SUBSET_DEF] \\ simp [IN_DEF]
       \\ simp [env_ok_def]
-      \\ fs [state_rel_def]
-      \\ rfs [] \\ fs []
-      \\ cheat)
-(*
-      \\ impl_tac >- simp[EVERY2_REVERSE] \\ strip_tac
-      \\ reverse strip_tac >- (rveq \\ fs[]) \\ fs[]
-      \\ fs[quotient_pairTheory.PAIR_REL]
-      \\ pairarg_tac \\ fs[]
       \\ rename1`alt_free [x]`
       \\ Cases_on`alt_free [x]`
-      \\ imp_res_tac alt_free_SING \\ fs[] \\ rfs[]
-      \\ qhdtm_x_assum`do_install`mp_tac
+      \\ imp_res_tac alt_free_SING \\ fs[] \\ rfs[] \\ rveq \\ fs []
+      \\ qpat_x_assum `_ = (Rval x,r)` mp_tac
       \\ simp[do_install_def,case_eq_thms]
       \\ strip_tac
       \\ pairarg_tac \\ fs[bool_case_eq,case_eq_thms,pair_case_eq]
+      \\ rveq \\ fs[]
+      \\ qpat_x_assum `evaluate (xs,env,s1) = _` assume_tac
       \\ code_tac
       \\ rveq \\ fs[]
       \\ metis_tac[FST,SND])
-*)
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (
