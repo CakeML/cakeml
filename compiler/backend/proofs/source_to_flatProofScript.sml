@@ -3472,7 +3472,7 @@ val compile_decs_correct' = Q.prove (
       fs [])
     >- rw []));
 
-val compile_correct = Q.store_thm ("compile_correct",
+val compile_decs_correct = Q.store_thm ("compile_decs_correct",
   `!s env ds s' r comp_map s_i1 idx ds_i1 next' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
@@ -3507,9 +3507,27 @@ val compile_correct = Q.store_thm ("compile_correct",
   simp [] >>
   qabbrev_tac `ext_glob = s_i1.globals ⧺ REPLICATE (next.vidx − idx.vidx) NONE` >>
   `invariant (genv with v := ext_glob) idx s (s_i1 with globals := ext_glob)`
-  by cheat >>
+  by (
+    fs [invariant_def, Abbr`ext_glob`] >>
+    rw [EL_APPEND_EQN] >>
+    fs []
+    >- rw [EL_REPLICATE] >>
+    fs [s_rel_cases] >>
+    irule LIST_REL_mono >>
+    qexists_tac `sv_rel <|v := s_i1.globals; c := genv.c|>` >>
+    rw [] >>
+    irule sv_rel_weak >>
+    rw [] >>
+    qexists_tac `<|v := s_i1.globals; c := genv.c|>` >>
+    rw [subglobals_def, EL_APPEND_EQN]) >>
   `global_env_inv (genv with v := ext_glob) comp_map {} env`
-  by cheat >>
+  by (
+    irule global_env_inv_weak >>
+    simp [] >>
+    qexists_tac `genv` >>
+    fs [invariant_def] >>
+    rw [Abbr `ext_glob`, subglobals_def, EL_APPEND_EQN] >>
+    rw []) >>
   disch_then drule >>
   disch_then drule >>
   disch_then drule >>
@@ -3550,6 +3568,7 @@ val SND_eq = Q.prove(
   `SND x = y ⇔ ∃a. x = (a,y)`,
   Cases_on`x`\\rw[]);
 
+  (*
 val compile_correct = Q.store_thm("compile_correct",
   `precondition s1 env1 c s2 env2 ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
@@ -3585,7 +3604,7 @@ val compile_correct = Q.store_thm("compile_correct",
     fs []
     \\ Cases_on`r`\\fs[result_rel_cases] >>
     rw [])
-  >- cheat);
+  >- );
     (*
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
   \\ conj_tac
@@ -3682,5 +3701,5 @@ val compile_correct = Q.store_thm("compile_correct",
                evaluatePropsTheory.io_events_mono_def,
                LESS_EQ_CASES,FST]);
                *)
-
+               *)
 val _ = export_theory ();
