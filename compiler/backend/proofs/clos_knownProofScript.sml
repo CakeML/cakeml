@@ -425,8 +425,15 @@ val lem = Q.prove(
       Cases_on `opn = Install` THEN1
        (rveq \\ fs []
         \\ reverse (Cases_on `do_install (REVERSE vs) s''`) \\ fs []
-        THEN1 (Cases_on `e` \\ fs [])
-        \\ PairCases_on `a` \\ fs []
+        \\ reverse (Cases_on `q`) \\ fs []
+        THEN1 (Cases_on `e` \\ rveq \\ fs []
+               \\ imp_res_tac do_install_not_Rraise \\ fs []
+               \\ fs [do_install_def]
+               \\ fs [case_eq_thms] \\ rveq \\ fs []
+               \\ pairarg_tac \\ fs []
+               \\ fs [case_eq_thms,bool_case_eq,pair_case_eq]
+               \\ fs [case_eq_thms] \\ rveq \\ fs []
+               \\ fs [mapped_globals_def])
         \\ pop_assum mp_tac
         \\ fs [do_install_def]
         \\ fs [case_eq_thms]
