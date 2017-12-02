@@ -1,5 +1,4 @@
-open preamble
-    mllistTheory miscTheory totoTheory
+open preamble totoTheory mllistTheory
 
 val _ = new_theory"mlstring"
 
@@ -202,6 +201,64 @@ val translate_thm = Q.store_thm (
   `!f s. translate f s = implode (MAP f (explode s))`,
   rw [translate_def, translate_aux_thm]
 );
+
+val splitl_aux_def = tDefine"splitl_aux"`
+  splitl_aux P s i =
+    if i < strlen s ∧ P (strsub s i) then
+        splitl_aux P s (i+1)
+    else (extract s 0 (SOME i), extract s i NONE)`
+(WF_REL_TAC`inv_image $< (λ(x,s,i). strlen s - i)`);
+
+val splitl_aux_ind = theorem"splitl_aux_ind";
+
+val splitl_def = Define`
+  splitl P s = splitl_aux P s 0`;
+
+val splitl_aux_SPLITP = Q.store_thm("splitl_aux_SPLITP",
+  `∀P s i.
+    splitl_aux P s i =
+    (implode o ((++)(TAKE i (explode s))) ## implode)
+      (SPLITP ((~) o P) (DROP i (explode s)))`,
+  recInduct splitl_aux_ind
+  \\ rw[]
+  \\ Cases_on`SPLITP P (DROP i (explode s))` \\ fs[]
+  \\ simp[Once splitl_aux_def]
+  \\ Cases_on`strlen s ≤ i` \\ fs[DROP_LENGTH_TOO_LONG,LENGTH_explode]
+  >- (
+    fs[SPLITP] \\ rveq
+    \\ simp[TAKE_LENGTH_TOO_LONG,LENGTH_explode]
+    \\ simp[extract_def]
+    \\ Cases_on`s` \\ fs[substring_def]
+    \\ rw[implode_def]
+    \\ qmatch_goalsub_rename_tac`MIN (LENGTH s) i`
+    \\ `MIN (LENGTH s) i = LENGTH s` by rw[MIN_DEF]
+    \\ rw[SEG_LENGTH_ID] )
+  \\ Cases_on`DROP i (explode s)` \\ fs[DROP_NIL,LENGTH_explode]
+  \\ fs[SPLITP]
+  \\ `strsub s i = h` by ( Cases_on`s` \\ rfs[strsub_def,DROP_EL_CONS] )
+  \\ rveq \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    rveq \\ fs[]
+    \\ rfs[DROP_EL_CONS,LENGTH_explode]
+    \\ rveq
+    \\ Cases_on`SPLITP ($~ o P) (DROP (i+1) (explode s))` \\ fs[]
+    \\ AP_TERM_TAC
+    \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE,LENGTH_explode]
+    \\ rw[]
+    \\ Cases_on`x < i` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE]
+    \\ Cases_on`x < i+1` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE,EL_CONS,PRE_SUB1]
+    \\ `x = i` by DECIDE_TAC
+    \\ rw[] )
+  \\ Cases_on`s`
+  \\ rw[extract_def,substring_def,implode_def] \\ fs[MIN_DEF]
+  \\ simp[TAKE_SEG] \\ rfs[]
+  \\ rfs[DROP_SEG]);
+
+val splitl_SPLITL = Q.store_thm("splitl_SPLITL",
+  `splitl P s = (implode ## implode) (SPLITL P (explode s))`,
+  rw[splitl_def,splitl_aux_SPLITP,SPLITL_def]
+  \\ Cases_on`SPLITP((~)o P)(explode s)` \\ fs[]);
 
 val tokens_aux_def = Define`
   (tokens_aux f s [] n 0 = []) /\
