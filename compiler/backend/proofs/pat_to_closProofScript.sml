@@ -167,8 +167,8 @@ val do_install = Q.store_thm("do_install",
    s.compile = pure_cc (λe. (compile e,[])) cc
    ==>
    closSem$do_install (MAP compile_v vs) (compile_state max_app cc s) =
-     if s.clock = 0 then Rerr (Rabort Rtimeout_error)
-     else Rval (compile v1,dec_clock 1(compile_state max_app cc v2))`,
+     if s.clock = 0 then (Rerr (Rabort Rtimeout_error),compile_state max_app cc v2)
+     else (Rval (compile v1),dec_clock 1(compile_state max_app cc v2))`,
   simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
   \\ simp[] \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_bytes \\ imp_res_tac v_to_words
