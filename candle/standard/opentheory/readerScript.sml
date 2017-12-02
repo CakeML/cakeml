@@ -96,7 +96,7 @@ val getThm_def = Define`
 val _ = Datatype`
   state = <|
     stack : object list;
-    dict : object spt;
+    dict : object spt; (* TODO keep two sptrees *)
     thms : thm list |>`;
 
 val init_state_def = Define `
