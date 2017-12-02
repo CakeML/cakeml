@@ -10,6 +10,7 @@ val _ = ml_prog_update (open_module "List");
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
 
 val result = translate LENGTH;
+val r = translate NULL;
 
 val result = next_ml_names := ["revAppend"]
 val res = translate REV_DEF;
