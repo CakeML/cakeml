@@ -192,6 +192,43 @@ val stdin_get_file_content = Q.store_thm("stdin_get_file_content",
   `stdin fs inp pos ⇒ get_file_content fs 0 = SOME (inp,pos)`,
   rw[stdin_def,fsFFITheory.get_file_content_def]);
 
+val stdin_forwardFD = Q.store_thm("stdin_forwardFD",
+  `stdin fs inp pos ⇒
+   stdin (forwardFD fs fd n) inp (if fd = 0 then pos+n else pos)`,
+  rw[stdin_def,forwardFD_def]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]);
+
+val stdin_get_stdin = Q.store_thm("stdin_get_stdin",
+  `stdin fs inp pos ⇒ get_stdin fs = DROP pos inp`,
+  rw[get_stdin_def]
+  \\ SELECT_ELIM_TAC
+  \\ rw[EXISTS_PROD,FORALL_PROD]
+  >- metis_tac[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac stdin_11 \\ fs[]);
+
+val get_stdin_forwardFD = Q.store_thm("get_stdin_forwardFD",
+  `stdin fs inp pos ⇒
+   get_stdin (forwardFD fs fd n) =
+   if fd = 0 then
+     DROP n (get_stdin fs)
+   else get_stdin fs`,
+  strip_tac
+  \\ imp_res_tac stdin_get_stdin
+  \\ imp_res_tac stdin_forwardFD
+  \\ first_x_assum(qspecl_then[`n`,`fd`]mp_tac)
+  \\ strip_tac
+  \\ simp[DROP_DROP_T]
+  \\ imp_res_tac stdin_get_stdin
+  \\ rw[]);
+
+val linesFD_splitlines_get_stdin = Q.store_thm("linesFD_splitlines_get_stdin",
+  `stdin fs inp pos ⇒
+   MAP (λl. l ++ "\n") (splitlines (get_stdin fs)) = linesFD fs 0`,
+  rw[linesFD_def]
+  \\ imp_res_tac stdin_get_stdin
+  \\ fs[stdin_def,get_file_content_def]);
+
 val stdo_numchars = Q.store_thm("stdo_numchars",
   `stdo fd name (fs with numchars := l) out ⇔ stdo fd name fs out`,
   rw[stdo_def]);
