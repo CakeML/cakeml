@@ -728,7 +728,7 @@ val WriteWord32_on_32_def = Define `
 
 val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
-    case opw of
+    dtcase opw of
     | Andw => list_Seq [Assign 29 (Const 0w);
                         Assign 27 (Const 0w);
                         Assign 33 (Op And [Var 13; Var 23]);
@@ -768,7 +768,7 @@ val WordShift64_on_32_def = Define `
                               ShiftVar Lsr 13 (n - 32)])]))
     else
       if n < 32 then
-        (case sh of
+        (dtcase sh of
          | Lsl => [Assign 33 (ShiftVar sh 13 n);
                    Assign 31 (Op Or [ShiftVar Lsr 13 (32 - n);
                                      ShiftVar sh 11 n])]
@@ -780,7 +780,7 @@ val WordShift64_on_32_def = Define `
                    Assign 31 (ShiftVar sh 11 n)]
          | Ror => [])
       else
-        (case sh of
+        (dtcase sh of
          | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
          | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
          | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));

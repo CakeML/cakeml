@@ -440,17 +440,9 @@ val _ = translate (WriteWord32_on_32_def |> inline_simp |> conv32)
 val _ = translate (WriteWord64_on_32_def |> inline_simp |> conv32)
 val _ = translate (WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_mul_def,word_2comp_def]|> conv32)
 
-val data_to_word_wordop64_on_32_side = Q.prove(`
-  data_to_word_wordop64_on_32_side x ⇔ T`,
-  Cases_on`x`>>EVAL_TAC)|>update_precondition ;
-
 val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
-
-val data_to_word_wordshift64_on_32_side = Q.prove(`
-  data_to_word_wordshift64_on_32_side x y ⇔ T`,
-  Cases_on`x`>>EVAL_TAC)|>update_precondition ;
 
 val Smallnum_alt = prove(
   ``Smallnum i =

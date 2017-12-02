@@ -1,7 +1,13 @@
 INCLUDES = ../../../misc ../../../translator ../../../characteristic \
            ../../inference ../../inference/proofs ../../parsing ../../backend \
            ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs \
-           ../../../basis $(HOLDIR)/examples/formal-languages/context-free
+           ../../../basis $(HOLDIR)/examples/formal-languages/context-free \
+					 ../../encoders/x64   ../../backend/x64 $(HOLDIR)/examples/l3-machine-code/x64/model \
+					 ../../encoders/arm6  ../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model \
+           ../../encoders/riscv ../../backend/riscv $(HOLDIR)/examples/l3-machine-code/riscv/model \
+           ../../encoders/mips  ../../backend/mips $(HOLDIR)/examples/l3-machine-code/mips/model \
+           ../../encoders/arm8  ../../backend/arm8 $(HOLDIR)/examples/l3-machine-code/arm8/model
+
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
