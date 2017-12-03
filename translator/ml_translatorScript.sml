@@ -363,31 +363,36 @@ val Eval_Equality = Q.store_thm("Eval_Equality",
 (* booleans *)
 
 val Eval_Or = Q.store_thm("Eval_Or",
-  `Eval env x1 (BOOL b1) ==>
-    Eval env x2 (BOOL b2) ==>
-    Eval env (Log Or x1 x2) (BOOL (b1 \/ b2))`,
+  `(a1 ==> Eval env x1 (BOOL b1)) /\
+   (a2 ==> Eval env x2 (BOOL b2))
+   ==>
+   (a1 /\ (~CONTAINER b1 ==> a2) ==>
+    Eval env (Log Or x1 x2) (BOOL (b1 \/ b2)))`,
   rw[Eval_def,BOOL_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ Cases_on `b1` \\ fs []
+  \\ Cases_on `b1` \\ fs [CONTAINER_def]
   THEN1 ( metis_tac[EVAL``do_log Or (Boolv T) x``,EVAL``Boolv T``] )
   \\ metis_tac[EVAL``do_log Or (Boolv F) x``,APPEND_ASSOC]);
 
 val Eval_And = Q.store_thm("Eval_And",
-  `Eval env x1 (BOOL b1) ==>
-    Eval env x2 (BOOL b2) ==>
-    Eval env (Log And x1 x2) (BOOL (b1 /\ b2))`,
+  `(a1 ==> Eval env x1 (BOOL b1)) /\
+   (a2 ==> Eval env x2 (BOOL b2))
+   ==>
+   (a1 /\ (CONTAINER b1 ==> a2) ==>
+    Eval env (Log And x1 x2) (BOOL (b1 /\ b2)))`,
   rw[Eval_def,BOOL_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ Cases_on `b1` \\ fs []
+  \\ Cases_on `b1` \\ fs [CONTAINER_def]
   THEN1 ( metis_tac[EVAL``do_log And (Boolv T) x``,APPEND_ASSOC] )
   \\ metis_tac[EVAL``do_log And (Boolv F) x``,EVAL``Boolv F``]);
 
 val Eval_If = Q.store_thm("Eval_If",
   `(a1 ==> Eval env x1 (BOOL b1)) /\
-    (a2 ==> Eval env x2 (a b2)) /\
-    (a3 ==> Eval env x3 (a b3)) ==>
-    (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
-     Eval env (If x1 x2 x3) (a (if b1 then b2 else b3)))`,
+   (a2 ==> Eval env x2 (a b2)) /\
+   (a3 ==> Eval env x3 (a b3))
+   ==>
+   (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
+    Eval env (If x1 x2 x3) (a (if b1 then b2 else b3)))`,
   rw[Eval_def,BOOL_def,CONTAINER_def] \\ fs[]
   \\ rw[Once evaluate_cases]
   \\ metis_tac[EVAL``do_if (Boolv T) x y``,EVAL``do_if (Boolv F) x y``,APPEND_ASSOC]);
@@ -1485,8 +1490,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
-  qexists_tac`EL n l'` >>
-  fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS]);
+  fs [LIST_REL_EL_EQN]);
 
 val Eval_vector = Q.store_thm("Eval_vector",
  `!env x1 a l.

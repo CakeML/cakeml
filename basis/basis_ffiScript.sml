@@ -68,48 +68,54 @@ val basis_proj1_write = Q.store_thm("basis_proj1_write",
   PairCases_on`ffi` \\ EVAL_TAC);
 
 (* builds the file system from a list of events *)
+
 val extract_fs_def = Define `
   (extract_fs init_fs [] = SOME init_fs) ∧
   (extract_fs init_fs ((IO_event name conf bytes)::xs) =
-  (* monadic style doesn't work here *)
-    case (ALOOKUP [("open_in",ffi_open_in); ("write",ffi_write);
-                   ("open_out",ffi_open_out); ("read",ffi_read);
-                   ("close",ffi_close);
-                   ("get_arg_count", (λ c b fs. SOME (b,fs)));
-                   ("get_arg_length", (λ c b fs. SOME (b,fs)));
-                   ("get_arg", (λ c b fs. SOME (b,fs)))] name) of
+    case (ALOOKUP (SND(SND fs_ffi_part)) name) of
     | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
                        | SOME (bytes',fs') => extract_fs fs' xs
                        | NONE => NONE)
-    | NONE => NONE)`
+    | NONE => extract_fs init_fs xs)`
 
 val extract_fs_APPEND = Q.store_thm("extract_fs_APPEND",
- `!xs ys init_fs. extract_fs init_fs (xs ++ ys) =
-   case extract_fs init_fs xs of
-      | NONE => NONE
-      | SOME fs => extract_fs fs ys`,
-  induct_on`xs` >> rw[extract_fs_def] >> CASE_TAC >>(
-  cases_on`h` >> fs[extract_fs_def] >>
-  cases_on`s = "open_in"` >> fs[] >- rpt(CASE_TAC >> fs[]) >>
-  cases_on`s = "write"` >> fs[] >- rpt(CASE_TAC >> fs[]) >>
-  cases_on`s = "open_out"` >> fs[] >- rpt(CASE_TAC >> fs[]) >>
-  cases_on`s = "read"` >> fs[] >- rpt(CASE_TAC >> fs[]) >>
-  cases_on`s = "close"` >> fs[] >- rpt(CASE_TAC >> fs[]) >>
-  cases_on`s = "get_arg_count"` >> fs[] >>
-  cases_on`s = "get_arg_length"` >> fs[] >>
-  cases_on`s = "get_arg"` >> fs[]));
+  `!xs ys init_fs. extract_fs init_fs (xs ++ ys) =
+    case extract_fs init_fs xs of
+    | NONE => NONE
+    | SOME fs => extract_fs fs ys`,
+  Induct_on`xs` \\ simp[extract_fs_def]
+  \\ Cases \\ simp[extract_fs_def]
+  \\ CASE_TAC
+  \\ rpt gen_tac
+  \\ rpt CASE_TAC);
 
-(* TODO:
+(*
+val is_write_def = Define`
+  (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
+  (is_write _ _ ⇔ F)`;
+val _ = export_rewrites["is_write_def"];
 
-  this looks rather involved, but worthwhile
+val extract_write_def = Define`
+  extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)`;
+val _ = export_rewrites["extract_write_def"];
 
-val extract_stdout_def = Define`
-  (extract_stdout [] = "") ∧
-  (extract_stdout ((IO_event name conf bytes)::xs) =
-   if name = "write" ∧ FST (HD bytes) = 1w ∧
-      IS_SOME (ffi_write conf (MAP FST bytes) ARB)
-   then MAP (CHR o w2n) (DROP 3 (MAP FST bytes)) ++
-        extract_stdout xs
+val extract_writes_def = Define
+  `extract_writes fd io_events =
+     FLAT (MAP extract_write (FILTER (is_write fd) io_events))`;
+val _ = overload_on("extract_stdout",``extract_writes 1w``);
+val _ = overload_on("extract_stderr",``extract_writes 2w``);
+
+val extract_writes_thm = Q.store_thm("extract_writes_thm",
+  `extract_fs init_fs io_events = SOME fs ∧
+   get_file_content init_fs = SOME (init,pos)
+   ⇒
+  `,
+  type_of``get_file_content``
+ffi_write_def
+write_def
+fs_ffi_part_def
+ffi_read_def
+read_def
 
 val extract_stdout_def = Define`
   extract_stdout io_events =
@@ -127,8 +133,8 @@ val extract_stdout_intro = Q.store_thm("extract_stdout_intro",
     first_x_assum(qspec_then`fs`mp_tac)
     \\ rw[]
     \\ imp_res_tac STD_streams_stdout
-    \\ imp_res_tac stdout_add_stdout
-    \\ metis_tac[stdout_UNICITY_R,stdout_numchars,APPEND_11] )
+    \\ imp_res_tac stdo_add_stdo
+    \\ metis_tac[stdo_UNICITY_R,stdo_numchars,APPEND_11] )
   \\ qexists_tac`out`
   \\ rw[]
   \\ Induct_on`io_events`
@@ -177,7 +183,7 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
   \\ fs [extract_fs_APPEND,extract_fs_def,basis_proj1_write] \\ rfs []
   \\ first_x_assum match_mp_tac
   \\ qpat_x_assum`_ = Oracle_return _ _`mp_tac
-  \\ simp[basis_ffi_oracle_def]
+  \\ simp[basis_ffi_oracle_def,fs_ffi_part_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
   \\ rpt(full_case_tac \\ fs[option_eq_some,MAP_ZIP] \\ rw[]) >>
   rfs[MAP_ZIP]);

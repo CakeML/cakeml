@@ -304,13 +304,10 @@ val read_length = Q.store_thm("read_length",
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def]
-  \\ every_case_tac
+  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac)
-  \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
-  \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
-  \\ imp_res_tac read_length
-  \\ imp_res_tac LENGTH_EQ \\ fs[]);
+  \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac read_length \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
@@ -455,6 +452,12 @@ val fsupdate_A_DELKEY = Q.store_thm("fsupdate_A_DELKEY",
   rw[fsupdate_def,ALOOKUP_ADELKEY]
   \\ CASE_TAC \\ CASE_TAC
   \\ rw[A_DELKEY_ALIST_FUPDKEY_comm]);
+
+val fsupdate_0_numchars = Q.store_thm("fsupdate_0_numchars",
+  `IS_SOME (ALOOKUP fs.infds fd) ⇒
+   fsupdate fs fd n pos content =
+   fsupdate (fs with numchars := THE (LDROP n fs.numchars)) fd 0 pos content`,
+  rw[fsupdate_def] \\ TOP_CASE_TAC \\ fs[]);
 
 (* get_file_content *)
 
@@ -801,6 +804,67 @@ val linesFD_cons_imp = Q.store_thm("linesFD_cons_imp",
   \\ IF_CASES_TAC \\ fs[] \\ rw[]
   \\ fs[SPLITP_NIL_SND_EVERY]
   \\ rveq \\ fs[DROP_LENGTH_TOO_LONG]);
+
+val linesFD_lineForwardFD = Q.store_thm("linesFD_lineForwardFD",
+  `linesFD (lineForwardFD fs fd) fd' =
+   if fd = fd' then
+     DROP 1 (linesFD fs fd)
+   else linesFD fs fd'`,
+  rw[linesFD_def,lineForwardFD_def]
+  >- (
+    CASE_TAC \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ CASE_TAC \\ fs[DROP_LENGTH_TOO_LONG]
+    \\ pairarg_tac \\ fs[]
+    \\ qmatch_asmsub_rename_tac`DROP x pos`
+    \\ Cases_on`splitlines (DROP x pos)` \\ fs[DROP_NIL]
+    \\ imp_res_tac splitlines_CONS_FST_SPLITP
+    \\ imp_res_tac splitlines_next
+    \\ rveq
+    \\ rw[NULL_EQ,DROP_DROP_T,ADD1]
+    \\ fs[SPLITP_NIL_SND_EVERY] \\ rw[]
+    \\ fs[o_DEF]
+    \\ drule SPLITP_EVERY
+    \\ strip_tac \\ fs[DROP_LENGTH_TOO_LONG])
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[get_file_content_def]
+  \\ simp[forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[]);
+
+val lineForwardFD_forwardFD = Q.store_thm("lineForwardFD_forwardFD",
+  `∀fs fd. ∃n. lineForwardFD fs fd = forwardFD fs fd n`,
+  rw[forwardFD_def,lineForwardFD_def]
+  \\ CASE_TAC
+  >- (
+    qexists_tac`0`
+    \\ simp[IO_fs_component_equality]
+    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ simp[FORALL_PROD] )
+  \\ CASE_TAC
+  \\ pairarg_tac \\ fs[]
+  \\ rw[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    qexists_tac`0`
+    \\ simp[IO_fs_component_equality]
+    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ simp[FORALL_PROD] ));
+
+val get_file_content_lineForwardFD_forwardFD = Q.store_thm("get_file_content_lineForwardFD_forwardFD",
+  `∀fs fd. get_file_content fs fd = SOME (x,pos) ⇒
+     lineForwardFD fs fd = forwardFD fs fd (LENGTH(FST(SPLITP((=)#"\n")(DROP pos x))) +
+                                            if NULL(SND(SPLITP((=)#"\n")(DROP pos x))) then 0 else 1)`,
+  simp[forwardFD_def,lineForwardFD_def]
+  \\ ntac 3 strip_tac
+  \\ pairarg_tac \\ fs[]
+  \\ reverse IF_CASES_TAC \\ fs[DROP_LENGTH_TOO_LONG,SPLITP]
+  \\ rw[IO_fs_component_equality]
+  \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+  \\ simp[FORALL_PROD] );
 
 (* Property ensuring that standard streams are correctly opened *)
 val STD_streams_def = Define

@@ -3624,9 +3624,9 @@ val th = Q.store_thm("assign_WordFromInt",
       rw[integer_wordTheory.i2w_def]
       \\ `F` suffices_by rw[]
       \\ intLib.COOPER_TAC )
-    \\ rfs[GSYM integerTheory.INT_ABS_EQ_ID]
     \\ rfs[w2w_n2w]
-    \\ simp[FAPPLY_FUPDATE_THM] )
+    \\ simp[FAPPLY_FUPDATE_THM]
+    \\ metis_tac [integerTheory.INT_ABS_EQ_ID])
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ simp[word_exp_rw,wordSemTheory.set_var_def]
   \\ assume_tac(GEN_ALL evaluate_WriteWord64)
