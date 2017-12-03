@@ -17,7 +17,7 @@ val _ = hide "state";
 
 val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
 
-val rev_assocd_thm = Q.prove(
+val rev_assocd_thm = Q.store_thm("rev_assocd_thm",
   `rev_assocd = REV_ASSOCD`,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
   \\ ONCE_REWRITE_TAC [rev_assocd_def] \\ SRW_TAC [] [REV_ASSOCD]

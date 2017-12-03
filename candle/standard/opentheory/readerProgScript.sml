@@ -1,11 +1,6 @@
-open preamble
-     readerTheory
-     ml_monadBaseTheory ml_monad_translatorLib ml_translatorTheory
-     holKernelTheory ml_hol_kernelProgTheory
-     basisProgTheory basis_ffiTheory basis_ffiLib basisFunctionsLib
-     cfTacticsLib cfLib cfMonadTheory cfMonadLib
-     fsFFITheory fsFFIPropsTheory
-     mlstringTheory
+open preamble basis
+     ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
+     holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
 
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
@@ -24,21 +19,13 @@ val _ = translate delete_dict_def
 val _ = translate first_def
 val _ = translate stringTheory.isDigit_def
 
-val rev_assocd_thm = Q.prove (
-  `!a l d. REV_ASSOCD a l d = rev_assocd a l d`,
-  recInduct (fetch "holKernel" "rev_assocd_ind") \\ rw []
-  \\ Cases_on `l` \\ fs []
-  \\ once_rewrite_tac [holKernelTheory.rev_assocd_def]
-  \\ fs [holSyntaxLibTheory.REV_ASSOCD_def]
-  \\ PairCases_on `h` \\ fs [])
-
-val _ = translate rev_assocd_thm;
-
 val _ = (use_mem_intro := true)
-val _ = translate holSyntaxExtraTheory.tymatch_def
+val tymatch_ind = save_thm("tymatch_ind",REWRITE_RULE[GSYM rev_assocd_thm]holSyntaxExtraTheory.tymatch_ind)
+val _ = add_preferred_thy"-";
+val r = translate (REWRITE_RULE[GSYM rev_assocd_thm]holSyntaxExtraTheory.tymatch_def)
 val _ = (use_mem_intro := false)
-val _ = translate OPTION_MAP_DEF
-val _ = translate holSyntaxExtraTheory.match_type_def
+val r = translate OPTION_MAP_DEF
+val r = translate holSyntaxExtraTheory.match_type_def
 
 val _ = m_translate find_axiom_def
 val _ = m_translate getNum_def
