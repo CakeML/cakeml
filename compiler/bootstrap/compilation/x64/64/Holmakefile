@@ -1,4 +1,5 @@
 ARCH = x64
+WORD_SIZE = 64
 INCLUDES = ../../../translation ../../../../../semantics ../../../.. ../../../../backend/$(ARCH) ../../../../encoders/asm ../../../../encoders/$(ARCH) ../../../../../basis
 CLINE_OPTIONS = --qof
 
@@ -9,10 +10,10 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP) cake-$(ARCH).tar.gz
+all: $(TARGETS) $(HOLHEAP) cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
 
-BARE_THYS = ../../../translation/compiler64ProgTheory \
+BARE_THYS = ../../../translation/compiler$(WORD_SIZE)ProgTheory \
 						../../../../../semantics/semanticsComputeLib\
 						../../../../compilationLib\
 						../../../../backend/$(ARCH)/$(ARCH)_configTheory
@@ -25,7 +26,7 @@ endif
 
 cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-$(ARCH).tar.gz: cake.S basis_ffi.c Makefile
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile
 
-EXTRA_CLEANS = cake.S cake-$(ARCH).tar.gz
+EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz
