@@ -628,24 +628,20 @@ val infer_e_def = tDefine "infer_e" `
                                     | INR (INR (INR (_,_,funs))) => exp1_size funs)` >>
  rw []);
 
-(* TODO: not updated below here *)
+val extend_dec_ienv_def = Define `
+  extend_dec_ienv ienv' ienv =
+     <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
+        inf_c := nsAppend ienv'.inf_c ienv.inf_c;
+        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>`;
 
-(* The final part of the inferencer state that appears at the decls level (and
- * above) are the declared names. The only difference from the type system is
- * that we use lists instead of sets *)
-
-(*
-val _ = Hol_datatype `
- inf_decls =
-  <| inf_defined_mods : modN list list;
-     inf_defined_types : ((modN, typeN) id) list;
-     inf_defined_exns : ((modN, conN) id) list|>`;
-
-val empty_inf_decls = Define `
- (empty_inf_decls = (<|inf_defined_mods := []; inf_defined_types := []; inf_defined_exns := []|>))`;*)
+val lift_ienv_def = Define `
+  lift_ienv mn ienv =
+    <| inf_v := nsLift mn ienv.inf_v;
+       inf_c := nsLift mn ienv.inf_c;
+       inf_t := nsLift mn ienv.inf_t |>`;
 
 val infer_d_def = Define `
-(infer_d mn idecls ienv (Dlet locs p e) =
+(infer_d ienv (Dlet locs p e) =
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e (SOME locs) ienv e;
@@ -655,12 +651,11 @@ val infer_d_def = Define `
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
      () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) (implode "Value restriction violated");
-     return ( [] ,
-             <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
-                inf_c := nsEmpty;
-                inf_t := nsEmpty |>)
+     return <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
+               inf_c := nsEmpty;
+               inf_t := nsEmpty |>
   od) ∧
-(infer_d mn idecls ienv (Dletrec locs funs) =
+(infer_d ienv (Dletrec locs funs) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) (implode "Duplicate function name");
      () <- init_state;
      next <- get_next_uvar;
@@ -670,65 +665,49 @@ val infer_d_def = Define `
      () <- add_constraints (SOME locs) uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
-     return ( [] ,
-             <| inf_v := alist_to_ns (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts');
-                inf_c := nsEmpty;
-                inf_t := nsEmpty |>)
+     return <| inf_v := alist_to_ns (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts');
+               inf_c := nsEmpty;
+               inf_t := nsEmpty |>
   od) ∧
-(infer_d mn idecls ienv (Dtype locs tdefs) =
+(infer_d ienv (Dtype locs tdefs) =
   do
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
      () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs) (implode "Bad type definition");
-     new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
-     () <- guard (EVERY (\new_id. ~MEM new_id idecls.inf_defined_types)
-     new_tdecls) (SOME locs) (implode "Duplicate type definition");
-     return ( tids ,
-             <| inf_v := nsEmpty;
-                inf_c := build_ctor_tenv ienvT2 tdefs tids;
-                inf_t := ienvT1 |>)
+     return <| inf_v := nsEmpty;
+               inf_c := build_ctor_tenv ienvT2 tdefs tids;
+               inf_t := ienvT1 |>
   od) ∧
-(infer_d mn idecls ienv (Dtabbrev locs tvs tn t) =
+(infer_d ienv (Dtabbrev locs tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) (SOME locs) (implode "Duplicate type variables");
      () <- guard (check_freevars_ast tvs t ∧ check_type_names ienv.inf_t t) (SOME locs)
                  (implode "Bad type definition");
-     return ( [],
-             <| inf_v := nsEmpty;
-                inf_c := nsEmpty;
-                inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>)
+     return <| inf_v := nsEmpty;
+               inf_c := nsEmpty;
+               inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>
   od) ∧
-(infer_d mn idecls ienv (Dexn locs cn ts) =
+(infer_d ienv (Dexn locs cn ts) =
   do () <- guard ( EVERY (check_freevars_ast []) ts ∧ EVERY (check_type_names ienv.inf_t) ts ) (SOME locs)
                  (implode "Bad exception definition");
-     return ( [],
-             <| inf_v := nsEmpty;
-                inf_c := nsSing cn ([], MAP (\x. type_name_subst ienv.inf_t x) ts, Texn_num);
-                inf_t := nsEmpty |>)
-  od)`;
-
-(*val append_decls_def = Define `
-append_decls idecls1 idecls2 =
-  <|inf_defined_mods := idecls1.inf_defined_mods ++ idecls2.inf_defined_mods ;
-    inf_defined_types := idecls1.inf_defined_types ++ idecls2.inf_defined_types ;
-    inf_defined_exns := idecls1.inf_defined_exns ++ idecls2.inf_defined_exns|>`;*)
-
-val extend_dec_ienv_def = Define `
-  extend_dec_ienv ienv' ienv =
-     <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
-        inf_c := nsAppend ienv'.inf_c ienv.inf_c;
-        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>`;
-
-val infer_ds_def = Define `
-(infer_ds mn idecls ienv [] =
-  return ([], <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
-(infer_ds mn idecls ienv (d::ds) =
+     return <| inf_v := nsEmpty;
+               inf_c := nsSing cn ([], MAP (\x. type_name_subst ienv.inf_t x) ts, Texn_num);
+               inf_t := nsEmpty |>
+  od) ∧
+(infer_d ienv (Dmod mn ds) =
+  do ienv' <- infer_ds ienv ds;
+     return (lift_ienv mn ienv')
+  od) ∧
+(infer_ds ienv [] =
+  return <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>) ∧
+(infer_ds ienv (d::ds) =
   do
-    (idecls',ienv') <- infer_d mn idecls ienv d;
-    (idecls'',ienv'') <- infer_ds mn (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) ds;
-    return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
+    ienv' <- infer_d ienv d;
+    ienv'' <- infer_ds (extend_dec_ienv ienv' ienv) ds;
+    return (extend_dec_ienv ienv'' ienv')
   od)`;
 
+  (*
 val t_to_freevars_def = Define `
 (t_to_freevars (Tvar tn) =
   return [tn]) ∧
@@ -848,21 +827,16 @@ val infer_prog_def = Define `
     (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) tops;
     return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
   od)`;
+  *)
 
-val _ = Datatype`
-  inferencer_config =
-  <| inf_decls : inf_decls
-   ; inf_env   : inf_env|>`
 
 val infertype_prog_def = Define`
-  infertype_prog c prog =
-    dtcase FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
-    | Success (new_decls, new_ienv) =>
-        Success ( <| inf_decls := append_decls new_decls c.inf_decls
-                ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
+  infertype_prog ienv prog =
+    dtcase FST (infer_ds ienv prog (init_infer_state <| next_id := 0; subst := FEMPTY; next_id := 0 |>)) of
+    | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
     | Failure x => Failure x`;
 
-val conf = ``<| inf_decls := empty_inf_decls ; inf_env := (<|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>)|>``
+val conf = ``<| inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>``
 
 val init_config = Define`
   init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program``
