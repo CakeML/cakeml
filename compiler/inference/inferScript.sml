@@ -57,12 +57,12 @@ val lookup_st_ex_def = Define `
 
 val _ = Hol_datatype `
 infer_st = <| next_uvar : num;
-              subst : 'a ;
+              subst : type_ident |-> infer_t ;
               next_id : num;
             |>`;
 
 val fresh_uvar_def = Define `
-(fresh_uvar : ('b infer_st, infer_t, α) M) =
+(fresh_uvar : (infer_st, infer_t, α) M) =
   \s. (Success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)`;
 
 val n_fresh_uvar_def = Define  `
@@ -829,10 +829,9 @@ val infer_prog_def = Define `
   od)`;
   *)
 
-
 val infertype_prog_def = Define`
   infertype_prog ienv prog =
-    dtcase FST (infer_ds ienv prog (init_infer_state <| next_id := 0; subst := FEMPTY; next_id := 0 |>)) of
+    dtcase FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := 0 |>)) of
     | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
     | Failure x => Failure x`;
 
