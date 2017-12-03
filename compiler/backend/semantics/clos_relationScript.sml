@@ -1140,6 +1140,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        \\ once_rewrite_tac [EVERY2_REVERSE1] \\ asm_rewrite_tac [])
      >- ( (* ConsExtend *)
        drule EVERY2_REVERSE >>
+       asm_simp_tac bool_ss [] >>
        rw [] >>
        rename1 `val_rel _ _ _ _ arg` >>
        Cases_on `arg` >>

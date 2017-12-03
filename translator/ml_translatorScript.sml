@@ -363,31 +363,36 @@ val Eval_Equality = Q.store_thm("Eval_Equality",
 (* booleans *)
 
 val Eval_Or = Q.store_thm("Eval_Or",
-  `Eval env x1 (BOOL b1) ==>
-    Eval env x2 (BOOL b2) ==>
-    Eval env (Log Or x1 x2) (BOOL (b1 \/ b2))`,
+  `(a1 ==> Eval env x1 (BOOL b1)) /\
+   (a2 ==> Eval env x2 (BOOL b2))
+   ==>
+   (a1 /\ (~CONTAINER b1 ==> a2) ==>
+    Eval env (Log Or x1 x2) (BOOL (b1 \/ b2)))`,
   rw[Eval_def,BOOL_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ Cases_on `b1` \\ fs []
+  \\ Cases_on `b1` \\ fs [CONTAINER_def]
   THEN1 ( metis_tac[EVAL``do_log Or (Boolv T) x``,EVAL``Boolv T``] )
   \\ metis_tac[EVAL``do_log Or (Boolv F) x``,APPEND_ASSOC]);
 
 val Eval_And = Q.store_thm("Eval_And",
-  `Eval env x1 (BOOL b1) ==>
-    Eval env x2 (BOOL b2) ==>
-    Eval env (Log And x1 x2) (BOOL (b1 /\ b2))`,
+  `(a1 ==> Eval env x1 (BOOL b1)) /\
+   (a2 ==> Eval env x2 (BOOL b2))
+   ==>
+   (a1 /\ (CONTAINER b1 ==> a2) ==>
+    Eval env (Log And x1 x2) (BOOL (b1 /\ b2)))`,
   rw[Eval_def,BOOL_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ Cases_on `b1` \\ fs []
+  \\ Cases_on `b1` \\ fs [CONTAINER_def]
   THEN1 ( metis_tac[EVAL``do_log And (Boolv T) x``,APPEND_ASSOC] )
   \\ metis_tac[EVAL``do_log And (Boolv F) x``,EVAL``Boolv F``]);
 
 val Eval_If = Q.store_thm("Eval_If",
   `(a1 ==> Eval env x1 (BOOL b1)) /\
-    (a2 ==> Eval env x2 (a b2)) /\
-    (a3 ==> Eval env x3 (a b3)) ==>
-    (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
-     Eval env (If x1 x2 x3) (a (if b1 then b2 else b3)))`,
+   (a2 ==> Eval env x2 (a b2)) /\
+   (a3 ==> Eval env x3 (a b3))
+   ==>
+   (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
+    Eval env (If x1 x2 x3) (a (if b1 then b2 else b3)))`,
   rw[Eval_def,BOOL_def,CONTAINER_def] \\ fs[]
   \\ rw[Once evaluate_cases]
   \\ metis_tac[EVAL``do_if (Boolv T) x y``,EVAL``do_if (Boolv F) x y``,APPEND_ASSOC]);
@@ -1565,6 +1570,30 @@ val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
   asm_exists_tac >> fs [] >>
   fs [do_app_def,INT_def,UNIT_TYPE_def]);
 
+val silent_ffi_def = Define `
+  silent_ffi (s:mlstring) = ()`;
+
+val Eval_silent_ffi = Q.store_thm("Eval_silent_ffi",
+  `Eval env x (STRING_TYPE s) ==>
+   Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
+     (UNIT_TYPE (silent_ffi s))`,
+  rw [Eval_def]
+  \\ ntac 8 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  \\ fs [do_app_def,store_alloc_def]
+  \\ ntac 1 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  \\ pop_assum (qspec_then `refs ⧺ [W8array []]` mp_tac)
+  \\ fs [empty_state_def]
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ ntac 1 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  \\ Cases_on `s` \\ fs [STRING_TYPE_def]
+  \\ rveq \\ fs [store_lookup_def]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ fs [ffiTheory.call_FFI_def]
+  \\ fs [store_assign_def]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ EVAL_TAC \\ fs []);
 
 (* a few misc. lemmas that help the automation *)
 

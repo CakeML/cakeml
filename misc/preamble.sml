@@ -412,4 +412,82 @@ fun simple_match_mp th1 th2 = let
   val (i,t) = match_term x (concl th2)
   in MP (INST i (INST_TYPE t th1)) th2 end
 
+(* ========================================================================= *)
+(* Execute processes on Posix systems and read results from stdout.          *)
+(*                                                                           *)
+(* The implementation is modeled after that of the Unix struct in the PolyML *)
+(* implementation of the SML basis library.                                  *)
+(* ========================================================================= *)
+
+fun read_process (cmd, args, dir) =
+  let
+    open Unix
+    open OS
+
+    fun search_paths t []      = NONE
+      | search_paths t (p::ps) =
+          let
+            val cmd = Path.concat (p, t)
+          in
+            if FileSys.access (cmd, [FileSys.A_READ, FileSys.A_EXEC]) then
+              SOME cmd
+            else
+              search_paths t ps
+          end
+
+    fun get_cmd t =
+      case Process.getEnv "PATH" of
+        NONE      => search_paths t ["."]
+      | SOME path =>
+          let
+            val paths = String.tokens (fn c => c = #":") path
+          in
+            search_paths t paths
+          end
+
+    val old_pwd = FileSys.getDir ()
+    val _ =
+      case dir of
+        NONE => ()
+      | SOME d => FileSys.chDir d
+  in
+    case get_cmd cmd of
+      NONE => NONE
+    | SOME cmd =>
+        let
+          val proc = execute (cmd, args)
+          val outp = TextIO.inputAll (textInstreamOf proc)
+          val str = String.substring (outp, 0, String.size outp - 1)
+        in
+          if Option.isSome dir then FileSys.chDir old_pwd else ();
+          if Process.isSuccess (reap proc) then SOME str else NONE
+        end
+  end
+  handle _ => NONE
+
+(* Run an external process and get its stdout as a string option term *)
+fun tm_from_proc cmd args =
+  case read_process (cmd, args, NONE) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
+
+fun tm_from_proc_from dir cmd args =
+  case read_process (cmd, args, SOME dir) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
+
+(* Run an external process and get its stdout as a mlstring option term *)
+fun mlstring_from_proc cmd args =
+  case read_process (cmd, args, NONE) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+
+fun mlstring_from_proc_from dir cmd args =
+  case read_process (cmd, args, SOME dir) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+
+(* ========================================================================= *)
+(* ========================================================================= *)
+
 end
