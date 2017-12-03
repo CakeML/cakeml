@@ -49,6 +49,8 @@ val type_ident_to_string_def = Define `
   else
     toString (&ti)`;
 
+(* TODO: update for pretty printing *)
+
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
   (inf_type_to_string (Infer_Tuvar n) =
     concat [implode "<unification variable "; toString (&n); implode ">"]) ∧
