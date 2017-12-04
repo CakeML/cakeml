@@ -856,9 +856,15 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
     fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,Maxout_bits_code_def])
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
-          fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
+          fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
+             SilentFFI_def,list_Seq_def]>>
     rw[]>> res_tac>>fs[]>>
-    CCONTR_TAC>>fs[]>>res_tac>>fs[]));
+    CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
+    fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
+       SilentFFI_def,list_Seq_def]>>
+    every_case_tac >> fs [] >>
+    fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
+       SilentFFI_def,list_Seq_def]));
 
 open match_goal
 
@@ -970,7 +976,8 @@ val comp_no_inst = Q.prove(`
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
   fs[assign_no_inst]>>
-  EVAL_TAC>>fs[]);
+  EVAL_TAC>>fs[] >>
+  IF_CASES_TAC >> EVAL_TAC >> fs []);
 
 val bounds_lem = Q.prove(`
   (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧
