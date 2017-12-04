@@ -209,8 +209,8 @@ val infer_p_def = tDefine "infer_p" `
            ts' <- n_fresh_uvar (LENGTH tvs');
            guard (LENGTH ts'' = LENGTH ts) l
                  (concat [implode "Constructor "; id_to_string cn; implode " given ";
-                          toString (&LENGTH ts''); implode " arguments, but expected ";
-                          toString (&LENGTH ts)]);
+                          toString (LENGTH ts''); implode " arguments, but expected ";
+                          toString (LENGTH ts)]);
            () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
            return (Infer_Tapp ts' (tid_exn_to_tc tn), tenv)
         od) ∧
@@ -487,8 +487,8 @@ val infer_e_def = tDefine "infer_e" `
           ts' <- n_fresh_uvar (LENGTH tvs');
            guard (LENGTH ts'' = LENGTH ts) l
                  (concat [implode "Constructor "; id_to_string cn; implode " given ";
-                          toString (&LENGTH ts''); implode " arguments, but expected ";
-                          toString (&LENGTH ts)]);
+                          toString (LENGTH ts''); implode " arguments, but expected ";
+                          toString (LENGTH ts)]);
           () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
           return (Infer_Tapp ts' (tid_exn_to_tc tn))
        od) ∧
