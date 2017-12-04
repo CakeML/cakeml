@@ -1,4 +1,4 @@
-open preamble mlstringTheory mlvectorTheory mlintTheory;
+open preamble mlstringTheory mlvectorTheory mlnumTheory mlintTheory;
 
 (* Some common helper functions for writing the final byte list -> string exporter *)
 val _ = new_theory "export";
@@ -27,7 +27,7 @@ val preamble_tm =
 val preamble_def = Define`preamble = ^preamble_tm`;
 
 val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (&n); strlit "\n"]`;
+  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString n; strlit "\n"]`;
 
 val data_section_def = Define`data_section word_directive heap_space stack_space =
      MAP (\n. strlit (n ++ "\n"))
@@ -65,7 +65,7 @@ val words_line_def = Define`
     List (word_directive :: comma_cat to_string ls)`;
 
 val word_to_string_def = Define`
-  word_to_string w = toString(&(w2n w))`;
+  word_to_string w = toString(w2n w)`;
 
 val byte_to_string_def = Define `
   byte_to_string (b:word8) =

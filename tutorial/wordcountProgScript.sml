@@ -36,9 +36,9 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
      [uv] (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs
-                   (concat [toString (&(LENGTH (TOKENS isSpace contents)));
+                   (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                             strlit " ";
-                            toString (&(LENGTH (splitlines contents)));
+                            mlint$toString (&(LENGTH (splitlines contents)));
                             strlit "\n"]))
                 * COMMANDLINE cl)`,
   simp [concat_def] \\
@@ -98,9 +98,9 @@ val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
    whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
    ((=)
      (add_stdout fs
-       (concat [toString (&(LENGTH (TOKENS isSpace contents)));
+       (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                 strlit " ";
-                toString (&(LENGTH (splitlines contents)));
+                mlint$toString (&(LENGTH (splitlines contents)));
                 strlit "\n"])))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

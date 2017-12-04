@@ -669,7 +669,7 @@ val pair_div_side_def = Eval_RAT_DIV
 val toString_def = Define `
   toString (i:int,n:num) =
     if n = 1 then mlint$toString i else
-      concat [mlint$toString i ; implode"/" ; mlint$toString (& n)]`
+      concat [mlint$toString i ; implode"/" ; mlnum$toString n]`
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
