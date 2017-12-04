@@ -44,12 +44,16 @@ val _ = m_translate getNvs_def
 val _ = m_translate getCns_def
 val _ = m_translate getTys_def
 val _ = m_translate getTms_def
-val _ = m_translate readLine_def
+val r = m_translate readLine_def
 
 val readline_side = Q.store_thm("readline_side",
   `!st1 l s. readline_side st1 l s <=> T`,
   rw [fetch "-" "readline_side_def"] \\ intLib.COOPER_TAC)
   |> update_precondition;
+
+val readline_spec = save_thm (
+  "readline_spec",
+  mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "readline_v_thm"));
 
 (* --- CakeML wrapper ------------------------------------------------------ *)
 
@@ -69,8 +73,22 @@ val _ = translate msg_usage_def
 val _ = translate msg_bad_name_def
 val _ = translate msg_failure_def
 
+val str_prefix_def = Define `
+  str_prefix str = extract str 0 (SOME (strlen str - 1))`;
+
+val Valid_line_def = Define `
+  Valid_line str <=>
+    1 < STRLEN str /\
+    ~IS_PREFIX str "#"`;
+
+val process_line_def = Define`
+  process_line st refs ln =
+    if Valid_line (explode ln)
+    then readLine (str_prefix ln) st refs
+    else (Success st, refs)`;
+
 val _ = (append_prog o process_topdecs) `
-  fun read_line st0 ins =
+  fun process_line st0 ins =
     case TextIO.inputLine ins of
       NONE    => NONE (* EOF *)
     | SOME ln =>
@@ -85,24 +103,12 @@ val _ = (append_prog o process_topdecs) `
             end
         end`;
 
-val Valid_line_def = Define `
-  Valid_line str <=>
-    1 < STRLEN str /\
-    ~IS_PREFIX str "#"`;
-
-val str_prefix_def = Define `
-  str_prefix str = extract str 0 (SOME (strlen str - 1))`;
-
-val readline_spec = save_thm (
-  "readline_spec",
-  mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "readline_v_thm"));
-
-val read_line_spec = Q.store_thm("read_line_spec",
+val process_line_spec = Q.store_thm("process_line_spec",
   `WORD (n2w fd : word8) fdv /\ fd <= 255 /\
    IS_SOME (get_file_content fs fd) /\
    STATE_TYPE st stv
    ==>
-   app (p: 'ffi ffi_proj) ^(fetch_v "read_line" (get_ml_prog_state()))
+   app (p: 'ffi ffi_proj) ^(fetch_v "process_line" (get_ml_prog_state()))
    [stv; fdv]
    (STDIO fs * HOL_STORE refs)
    (POST
@@ -113,62 +119,56 @@ val read_line_spec = Q.store_thm("read_line_spec",
           HOL_STORE refs *
           &OPTION_TYPE STATE_TYPE NONE stov
       | SOME ln =>
-          if Valid_line ln then
-            SEP_EXISTS sto refs'.
-              STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
-              &(readLine (str_prefix (strlit ln)) st refs = (Success sto, refs')) *
-              &OPTION_TYPE STATE_TYPE (SOME sto) stov
-          else
-            STDIO (lineForwardFD fs fd) *
-            HOL_STORE refs *
-            &OPTION_TYPE STATE_TYPE (SOME st) stov)
+          (case process_line st refs (implode ln) of
+           | (Success st, refs) =>
+             STDIO (lineForwardFD fs fd) * HOL_STORE refs *
+             &OPTION_TYPE STATE_TYPE (SOME st) stov
+           | _ => &F))
      (\ev.
-       SEP_EXISTS e ln refs'.
-         STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
-         &(readLine (str_prefix (strlit ln)) st refs = (Failure e, refs')) *
-         &HOL_EXN_TYPE e ev *
-         &(lineFD fs fd = SOME ln /\
-           1 < STRLEN ln /\
-           ~IS_PREFIX ln "#")))`,
-  xcf "read_line" (get_ml_prog_state())
+       case lineFD fs fd of NONE => &F
+       | SOME ln =>
+         (case process_line st refs (implode ln) of
+          | (Failure e, refs) =>
+            STDIO (lineForwardFD fs fd) * HOL_STORE refs *
+            &HOL_EXN_TYPE e ev
+          | _ => &F)))`,
+  xcf "process_line" (get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ Cases_on `lineFD fs fd` \\ fs [OPTION_TYPE_def] \\ xmatch
   >- (xvar \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ xif \\ fs [Valid_line_def]
+  \\ simp[process_line_def,Valid_line_def]
+  \\ xif \\ fs []
   >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ xif
-  >-
-   (`?t. x = #"#"::t` by (Cases_on `x` \\ fs [implode_def]) \\ fs []
-    \\ xcon \\ xsimpl)
+  \\ Cases_on`x` \\ fs[]
+  \\ xif >- ( fs[implode_def] \\ xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ `OPTION_TYPE NUM (SOME (STRLEN x - 1)) v'` by
+  \\ qmatch_assum_rename_tac`ov = Conv _ [iv]`
+  \\ qmatch_assum_rename_tac`INT (&SUC(LENGTH s)-1) iv`
+  \\ `OPTION_TYPE NUM (SOME (LENGTH s)) ov` by
    (fs [OPTION_TYPE_def, NUM_def, INT_def]
-    \\ Cases_on `x` \\ fs []
     \\ intLib.COOPER_TAC)
   \\ rveq
   \\ xlet_auto >- xsimpl
   \\ xlet_auto \\ xsimpl
-  >-
-   (qexists_tac `STDIO (lineForwardFD fs fd)`
+  >- (
+    qexists_tac `STDIO (lineForwardFD fs fd)`
     \\ qexists_tac `refs`
     \\ xsimpl)
-  >-
-   (fs [implode_def, str_prefix_def]
-    \\ rw [] \\ xsimpl
-    \\ CASE_TAC \\ fs [])
+  >- (
+    fs [implode_def, str_prefix_def]
+    \\ rw [] \\ xsimpl)
   \\ xcon
-  >-
-   (fs [implode_def, str_prefix_def]
-    \\ CASE_TAC \\ fs []
+  >- (
+    fs [implode_def, str_prefix_def]
     \\ xsimpl)
   \\ xsimpl
-  \\ CASE_TAC \\ fs []
-  \\ fs [implode_def, str_prefix_def]);
+  \\ fs[implode_def,str_prefix_def]
+  \\ xsimpl);
 
 val _ = (append_prog o process_topdecs) `
   fun read_file file =
@@ -176,7 +176,7 @@ val _ = (append_prog o process_topdecs) `
       val ins = TextIO.openIn file
 
       fun go st0 =
-        (case read_line st0 ins of
+        (case process_line st0 ins of
           NONE     => TextIO.print "OK!\n"
         | SOME st1 => go st1)
         (* Consume all input in case of exceptions (for now at least) *)
@@ -373,4 +373,3 @@ val (semantics_thm, prog_tm) = call_thm st name spec
 val reader_prog_def = Define `reader_prog = ^prog_tm`
 
 val _ = export_theory ();
-
