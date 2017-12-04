@@ -281,7 +281,6 @@ val evaluate_let_op = store_thm("evaluate_let_op",
          evaluate_app loc_opt f2 args2 t1 = (res2, t2) /\
          result_rel (LIST_REL v_rel) v_rel res1 res2 /\
          state_rel s2 t2)``,
-
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac
@@ -437,14 +436,15 @@ val evaluate_let_op = store_thm("evaluate_let_op",
              \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
              \\ IF_CASES_TAC \\ fs [shift_seq_def])
       \\ IF_CASES_TAC
-      THEN1 (fs [do_install_def] \\ rw []
+      THEN1 (fs [do_install_def] \\ strip_tac \\ rveq
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
              \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def])
+             \\ IF_CASES_TAC \\ fs [shift_seq_def]
+             \\ fs [FUPDATE_LIST, o_DEF])
       \\ fs [] \\ rveq \\ fs []
       \\ fs [do_install_def] \\ strip_tac
       \\ first_x_assum drule
-      \\ qmatch_goalsub_abbrev_tac `Rval (r0, tt)`
+      \\ qmatch_goalsub_abbrev_tac `(Rval r0, tt)`
       \\ disch_then (qspec_then `tt` mp_tac)
       \\ impl_tac
       THEN1 (qunabbrev_tac `tt`
@@ -590,80 +590,6 @@ val evaluate_let_op = store_thm("evaluate_let_op",
   \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
   \\ strip_tac \\ fs []
   \\ fs [case_eq_thms] \\ rveq \\ fs [])
-
-(*
-  (* Alternate version that doesnt use dest_closure_SOME_Full_app *)
-  (* dest_closure returns SOME Full_app *)
-  \\ imp_res_tac dest_closure_SOME_IMP
-  \\ rveq \\ fs [] \\ rveq
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ `s1.clock = t1.clock` by fs [state_rel_def]
-  \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ fs [dest_closure_def]
-  THEN1
-   (IF_CASES_TAC \\ fs []
-    \\ strip_tac \\ rveq
-    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-    THEN1 fs [state_rel_def]
-    \\ fs [pair_case_eq]
-    \\ fs []
-    \\ qmatch_goalsub_abbrev_tac `evaluate (xxx2, eee2, sss2)`
-    \\ qmatch_asmsub_abbrev_tac `evaluate (_, eee1, _)`
-    \\ `LIST_REL v_rel eee1 eee2`
-       by (unabbrev_all_tac
-           \\ ntac 2 (irule EVERY2_APPEND_suff \\ fs [])
-           \\ irule EVERY2_REVERSE
-           \\ irule EVERY2_TAKE
-           \\ irule EVERY2_APPEND_suff \\ fs []
-           \\ irule EVERY2_REVERSE \\ fs [])
-    \\ first_x_assum drule
-    \\ disch_then (qspecl_then [`xxx2`, `sss2`] mp_tac)
-    \\ unabbrev_all_tac
-    \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
-    \\ strip_tac
-    \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq
-    \\ first_x_assum irule \\ fs []
-    \\ irule EVERY2_REVERSE
-    \\ irule EVERY2_DROP
-    \\ irule EVERY2_APPEND_suff \\ simp []
-    \\ irule EVERY2_REVERSE \\ simp [])
-  \\ pairarg_tac \\ fs []
-  \\ pairarg_tac \\ fs []
-  \\ Cases_on `i < LENGTH funs2` \\ fs []
-  \\ bump_assum `LIST_REL f_rel _ _`
-  \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
-  \\ fs [] \\ disch_then drule
-  \\ simp [f_rel_def]
-  \\ strip_tac \\ fs []
-  \\ IF_CASES_TAC \\ fs []
-  \\ strip_tac \\ rveq
-  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-  THEN1 fs [state_rel_def]
-  \\ fs [pair_case_eq]
-  \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `evaluate (xxx2, eee2, sss2)`
-  \\ qmatch_asmsub_abbrev_tac `evaluate (_, eee1, _)`
-  \\ `LIST_REL v_rel eee1 eee2`
-     by (unabbrev_all_tac
-         \\ irule EVERY2_APPEND_suff \\ simp []
-         \\ irule EVERY2_APPEND_suff \\ simp [LIST_REL_GENLIST]
-         \\ irule EVERY2_APPEND_suff \\ simp []
-         \\ irule EVERY2_REVERSE
-         \\ irule EVERY2_TAKE
-         \\ irule EVERY2_APPEND_suff \\ simp []
-         \\ irule EVERY2_REVERSE \\ simp [])
-  \\ first_x_assum drule
-  \\ disch_then (qspecl_then [`xxx2`, `sss2`] mp_tac)
-  \\ unabbrev_all_tac
-  \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
-  \\ strip_tac
-  \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq
-  \\ first_x_assum irule \\ simp []
-  \\ irule EVERY2_REVERSE
-  \\ irule EVERY2_DROP
-  \\ irule EVERY2_APPEND_suff \\ simp []
-  \\ irule EVERY2_REVERSE \\ simp []
-*)
 
 val let_op_correct = Q.store_thm("let_op_correct",
   `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
