@@ -201,6 +201,8 @@ val compile_def = tDefine"compile" `
   (compile (App tra (El n) es) =
     if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es)) else
       Op (tra§0) El [Op (tra§1) (Const &n) []; compile (HD es)]) ∧
+  (compile (App tra Run es) =
+    Op tra Install (REVERSE (MAP compile es))) ∧
   (compile (If tra e1 e2 e3) =
     If tra (compile e1) (compile e2) (compile e3)) ∧
   (compile (Let tra e1 e2) =

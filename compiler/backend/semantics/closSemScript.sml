@@ -127,20 +127,21 @@ val do_install_def = Define `
                  (case s.compile cfg progs, progs of
                   | SOME (bytes',data',cfg'), (exp,aux) =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
-                        if s.clock = 0 then Rerr(Rabort Rtimeout_error) else
-                          let s' =
-                            s with <|
-                               code := s.code |++ aux
-                             ; compile_oracle := new_oracle
-                             ; clock := s.clock - 1
-                             |>
-                          in
-                            Rval (exp, s')
-                      else (Rerr(Rabort Rtype_error):(closLang$exp#('c,'ffi)state,unit)result)
-                  | _ => Rerr(Rabort Rtype_error))
-                  else Rerr(Rabort Rtype_error))
-            | _ => Rerr(Rabort Rtype_error))
-       | _ => Rerr(Rabort Rtype_error))`;
+                       (let s' =
+                          s with <|
+                             code := s.code |++ aux
+                           ; compile_oracle := new_oracle
+                           ; clock := s.clock - 1
+                           |>
+                        in
+                          if s.clock = 0
+                          then (Rerr(Rabort Rtimeout_error),s')
+                          else (Rval exp, s'))
+                      else ((Rerr(Rabort Rtype_error):(closLang$exp,v)result),s)
+                  | _ => (Rerr(Rabort Rtype_error),s))
+                  else (Rerr(Rabort Rtype_error),s))
+            | _ => (Rerr(Rabort Rtype_error),s))
+       | _ => (Rerr(Rabort Rtype_error),s))`;
 
 val do_app_def = Define `
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
@@ -476,8 +477,13 @@ val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
 val _ = save_thm ("case_eq_thms", case_eq_thms);
 
 val do_install_clock = Q.store_thm("do_install_clock",
-  `do_install vs s = Rval (e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`,
+  `do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`,
   rw[do_install_def,case_eq_thms]
+  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
+
+val do_install_clock_less_eq = Q.store_thm("do_install_clock_less_eq",
+  `do_install vs s = (res,s') ⇒ s'.clock <= s.clock`,
+  rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
 
 val evaluate_def = tDefine "evaluate" `
@@ -515,9 +521,8 @@ val evaluate_def = tDefine "evaluate" `
      | (Rval vs,s) =>
        if op = Install then
        (case do_install (REVERSE vs) s of
-        | Rval (e,s) => evaluate ([e],[],s)
-        | Rerr(Rabort a) => (Rerr(Rabort a),s)
-        | _ => (Rerr(Rabort Rtype_error),s))
+        | (Rval e,s) => evaluate ([e],[],s)
+        | (Rerr err,s) => (Rerr err,s))
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
@@ -617,7 +622,7 @@ val do_app_const = Q.store_thm("do_app_const",
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
 
-val evaluate_ind = theorem"evaluate_ind"
+val evaluate_ind = theorem"evaluate_ind";
 
 val evaluate_clock_help = Q.prove (
   `(!tup vs (s2:('c,'ffi) closSem$state).
@@ -632,7 +637,7 @@ val evaluate_clock_help = Q.prove (
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
-  \\ IMP_RES_TAC do_install_clock
+  \\ IMP_RES_TAC do_install_clock_less_eq
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",

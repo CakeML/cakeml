@@ -417,8 +417,9 @@ val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_cas
 val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def}
 val error_result_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def}
 val abort_thms = { nchotomy = semanticPrimitivesTheory.abort_nchotomy, case_def = semanticPrimitivesTheory.abort_case_def}
+val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, conop_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms, result_thms, error_result_thms, abort_thms])
+  [op_thms, conop_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms, result_thms, error_result_thms, abort_thms, eq_result_thms])
 
 val case_eq_thms = save_thm("case_eq_thms",eqs);
 
@@ -511,7 +512,7 @@ val evaluate_def = tDefine "evaluate"`
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate env (dec_clock s) [e]
+              evaluate [] (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app s op (REVERSE vs)) of

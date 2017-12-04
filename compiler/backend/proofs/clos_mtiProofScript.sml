@@ -925,22 +925,27 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       THEN1 (fs [do_install_def] \\ rw [] \\ fs []
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
              \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def])
+             \\ IF_CASES_TAC \\ fs [shift_seq_def]
+             \\ fs [FUPDATE_LIST,FUN_EQ_THM])
       \\ fs [] \\ rveq \\ fs []
-      \\ qpat_x_assum `!x. _` mp_tac
-      \\ simp [Once do_install_def]
-      \\ rw [] \\ fs [do_install_def]
       \\ `s2.clock = s'.clock /\
           s2.compile = pure_cc (compile_inc s2.max_app) s'.compile /\
           s'.compile_oracle =
             pure_co (compile_inc s2.max_app) ∘ s2.compile_oracle` by
               fs [state_rel_def]
       \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
+      \\ qpat_x_assum `!x. _` mp_tac
+      \\ simp [Once do_install_def]
+      \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
+      \\ rpt strip_tac \\ fs []
+      \\ rfs [state_rel_def,do_install_def]
+      \\ imp_res_tac evaluate_const \\ fs []
+      \\ rfs [] \\ fs [] \\ rveq \\ fs [compile_inc_def,shift_seq_def]
       \\ qmatch_goalsub_abbrev_tac `([],ss)`
       \\ first_x_assum (qspecl_then [`ss`,`[r0]`] mp_tac)
       \\ reverse impl_tac
       THEN1 (strip_tac \\ fs [] \\ unabbrev_all_tac \\ fs []
-             \\ rfs [state_rel_def]
+             \\ rfs [state_rel_def,do_install_def]
              \\ imp_res_tac evaluate_const \\ fs [])
       \\ rveq \\ fs []
       \\ qunabbrev_tac `ss` \\ fs []

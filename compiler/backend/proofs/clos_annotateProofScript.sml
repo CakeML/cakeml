@@ -589,7 +589,7 @@ val do_app_err_thm = Q.prove(
   \\ Cases_on `a` \\ fs []);
 
 val v_to_bytes = Q.store_thm("v_to_bytes",
-  `v_rel x y ==> OPTREL (=) (v_to_bytes x) (v_to_bytes y)`,
+  `v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)`,
   rw[v_to_bytes_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[OPTREL_def]
@@ -602,7 +602,7 @@ val v_to_bytes = Q.store_thm("v_to_bytes",
   \\ METIS_TAC[EL_MAP,o_DEF]);
 
 val v_to_words = Q.store_thm("v_to_words",
-  `v_rel x y ==> OPTREL (=) (v_to_words x) (v_to_words y)`,
+  `v_rel x y ==> (v_to_words x) = (v_to_words y)`,
   rw[v_to_words_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[OPTREL_def]
@@ -615,49 +615,54 @@ val v_to_words = Q.store_thm("v_to_words",
   \\ METIS_TAC[EL_MAP,o_DEF]);
 
 val do_install_thm = Q.store_thm("do_install_thm",
-  `state_rel s1 t1 /\ LIST_REL v_rel xs ys
+  `state_rel s1 t1 /\ LIST_REL v_rel xs ys /\
+   do_install xs s1 = (res1,s2) /\
+   do_install ys t1 = (res2,t2)
    ==>
-   result_rel ((λe1 e2. e2 = HD (annotate 0 [e1])) ### state_rel) (=)
-     (do_install xs s1)
-     (do_install ys t1)`,
-  rw[do_install_def]
-  \\ TOP_CASE_TAC \\ rw[] \\ fs[]
-  \\ TOP_CASE_TAC \\ rw[] \\ fs[]
-  \\ TOP_CASE_TAC \\ rw[] \\ fs[]
-  \\ rename1`v_to_bytes b1`
-  \\ rename1`v_to_words w1`
-  \\ qpat_x_assum`v_rel w1 _`mp_tac
-  \\ imp_res_tac v_to_bytes
-  \\ strip_tac \\ fs[OPTREL_def]
-  \\ qpat_x_assum`v_rel b1 _`kall_tac
+   result_rel (λe1 e2. e2 = HD (annotate 0 [e1])) (=) res1 res2 /\
+   state_rel s2 t2`,
+  fs[do_install_def]
+  \\ reverse (Cases_on `?x1 x2. xs = [x1;x2]`)
+  THEN1
+   (Cases_on `xs` \\ fs [] THEN1 (rw [] \\ fs [])
+    \\ Cases_on `t` \\ fs [] THEN1 (rw [] \\ fs [])
+    \\ Cases_on `t'` \\ fs [] THEN1 (rw [] \\ fs []))
+  \\ fs [] \\ strip_tac \\ rveq \\ fs []
   \\ imp_res_tac v_to_words
-  \\ fs[OPTREL_def]
+  \\ imp_res_tac v_to_bytes
+  \\ fs []
+  \\ Cases_on `v_to_bytes y` \\ fs [] THEN1 (rveq \\ fs [])
+  \\ Cases_on `v_to_words y'` \\ fs [] THEN1 (rveq \\ fs [])
   \\ `FDOM s1.code = FDOM t1.code`
   by fs[state_rel_def]
   \\ `t1.compile_oracle = (I ## (λe. HD (annotate 0 [e])) ## compile) o s1.compile_oracle`
   by fs[state_rel_def]
   \\ Cases_on`s1.compile_oracle 0` \\ fs[]
-  \\ IF_CASES_TAC \\ fs[]
+  \\ qpat_x_assum `_ = (res2,t2)` mp_tac
+  \\ reverse (IF_CASES_TAC \\ fs [])
+  THEN1 (rw [] \\ fs [])
+  THEN1 (rw [] \\ fs [])
   \\ `s1.compile = λcfg (e,aux). t1.compile cfg (HD (annotate 0 [e]),compile aux)`
   by fs[state_rel_def]
   \\ fs[]
-  \\ pairarg_tac \\ fs[]
+  \\ Cases_on `r` \\ fs []
   \\ TOP_CASE_TAC \\ fs[]
+  THEN1 (rw [] \\ fs [])
   \\ split_pair_case_tac \\ fs[]
   \\ fs[shift_seq_def]
   \\ `s1.clock = t1.clock`
   by fs[state_rel_def]
-  \\ IF_CASES_TAC \\ fs[]
-  \\ IF_CASES_TAC \\ fs[]
-  \\ simp[quotient_pairTheory.PAIR_REL_THM]
-  \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
-  \\ conj_tac >- metis_tac[]
-  \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
-  \\ rpt gen_tac
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ simp[annotate_def]
-  \\ Cases_on`alt_free [c]`
-  \\ imp_res_tac alt_free_SING \\ fs[]);
+  \\ reverse IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs []
+  THEN
+   (rw [] \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
+    \\ conj_tac >- metis_tac[]
+    \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
+    \\ rpt gen_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ simp[annotate_def]
+    \\ Cases_on`alt_free [c]`
+    \\ imp_res_tac alt_free_SING \\ fs[]));
 
 (* compiler correctness *)
 
@@ -761,7 +766,7 @@ val code_tac =
     \\ fs[DISTINCT_FUPDATE_LIST_UNION,DISJOINT_FEVERY_FUNION,
           ALL_DISTINCT_FEVERY_alist_to_fmap,EVERY_FLAT,
           EVERY_MAP,EVERY_GENLIST,shift_seq_def]
-    \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF]
+    \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF];
 
 val shift_correct = Q.prove(
   `(!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
@@ -965,26 +970,36 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    >- (
+    >- ( (* Install case *)
       pop_assum mp_tac
       \\ simp[case_eq_thms,pair_case_eq,PULL_EXISTS]
       \\ drule (GEN_ALL do_install_thm)
       \\ qmatch_assum_rename_tac`LIST_REL v_rel vs ws`
       \\ disch_then(qspecl_then[`REVERSE ws`,`REVERSE vs`]mp_tac)
-      \\ impl_tac >- simp[EVERY2_REVERSE] \\ strip_tac
-      \\ reverse strip_tac >- (rveq \\ fs[]) \\ fs[]
-      \\ fs[quotient_pairTheory.PAIR_REL]
-      \\ pairarg_tac \\ fs[]
-      \\ fs[annotate_def]
+      \\ simp[EVERY2_REVERSE]
+      \\ Cases_on `do_install (REVERSE vs) s2'` \\ fs []
+      \\ Cases_on `do_install (REVERSE ws) t2` \\ fs []
+      \\ reverse (rpt strip_tac) THEN1
+       (rveq \\ fs [] \\ rveq \\ fs []
+        \\ Cases_on `err` \\ fs []
+        \\ imp_res_tac do_install_not_Rraise \\ fs [])
+      \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ fs[annotate_def] \\ rfs []
+      \\ once_rewrite_tac [GSYM clos_annotateTheory.HD_FST_alt_free]
+      \\ simp [clos_annotateTheory.HD_shift]
+      \\ rewrite_tac [clos_annotateTheory.HD_FST_alt_free]
+      \\ first_x_assum match_mp_tac \\ fs []
+      \\ fs [SUBSET_DEF] \\ simp [IN_DEF]
+      \\ simp [env_ok_def]
       \\ rename1`alt_free [x]`
       \\ Cases_on`alt_free [x]`
-      \\ imp_res_tac alt_free_SING \\ fs[] \\ rfs[]
-      \\ first_x_assum match_mp_tac \\ simp[]
-      \\ simp[SUBSET_DEF,env_ok_def,IN_DEF]
-      \\ qhdtm_x_assum`do_install`mp_tac
+      \\ imp_res_tac alt_free_SING \\ fs[] \\ rfs[] \\ rveq \\ fs []
+      \\ qpat_x_assum `_ = (Rval x,r)` mp_tac
       \\ simp[do_install_def,case_eq_thms]
       \\ strip_tac
       \\ pairarg_tac \\ fs[bool_case_eq,case_eq_thms,pair_case_eq]
+      \\ rveq \\ fs[]
+      \\ qpat_x_assum `evaluate (xs,env,s1) = _` assume_tac
       \\ code_tac
       \\ rveq \\ fs[]
       \\ metis_tac[FST,SND])
