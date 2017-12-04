@@ -519,7 +519,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ `r1 = [] /\ progs1 = []` by
        (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
         \\ rveq \\ fs [] \\ metis_tac [SND])
-    \\ rveq \\ fs []    
+    \\ rveq \\ fs []
     \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
     THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
            \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
@@ -534,31 +534,30 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
            \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
            \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-           \\ IF_CASES_TAC \\ fs [shift_seq_def])
+           \\ IF_CASES_TAC \\ fs [shift_seq_def]
+           \\ fs [FUPDATE_LIST, o_DEF])
     \\ fs [] \\ rveq \\ fs []
-
+    \\ strip_tac
     \\ qpat_x_assum `!x. _` mp_tac
     \\ simp [Once do_install_def]
-    \\ rw [] \\ fs [] 
-    \\ `s2.clock = s'.clock /\
-        s2.compile = pure_cc compile_inc s'.compile /\
-        s'.compile_oracle = pure_co compile_inc ∘ s2.compile_oracle`
-          by fs [state_rel_def]
-    \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
-    \\ qpat_x_assum `!x. _` mp_tac
     \\ disch_then (qspec_then `s2 with
                                <|clock := s'.clock − 1;
                                  compile_oracle := (λi. s2.compile_oracle (i + 1));
                                  code := s2.code |++ []|>` mp_tac)
     \\ disch_then (qspec_then `[r0]` mp_tac)
     \\ impl_tac
-    THEN1 (rveq \\ fs [state_rel_def, FUPDATE_LIST, pure_co_def, o_DEF])
+    THEN1 (rfs [state_rel_def] \\ fs [pure_co_def, compile_inc_def]
+           \\ rveq \\ fs [shift_seq_def, FUPDATE_LIST, o_DEF])
     \\ fs [] \\ strip_tac
     \\ qexists_tac `ck + ck' + LENGTH ts` \\ fs []
     \\ imp_res_tac evaluate_clock
     \\ bump_assum `evalulate (es, _, _) = _`
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then kall_tac
+    \\ `s2.clock = s'.clock /\
+        s2.compile = pure_cc compile_inc s'.compile /\
+        s'.compile_oracle = pure_co compile_inc ∘ s2.compile_oracle`
+          by fs [state_rel_def]
     \\ fs [do_install_def]
     \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def])
   THEN1 (* Fn *)
@@ -596,7 +595,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ TRY (PairCases_on `yyy`)
       \\ fs [])
     \\ pop_assum (fn (thm) => fs [thm])
-    \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac                               (* bättre sätt att göra detta? *)
+    \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
     \\ reverse IF_CASES_TAC
     THEN1 (simp [] \\ strip_tac \\ rveq \\ qexists_tac `LENGTH ts` \\ fs [])
     \\ strip_tac \\ fs []
@@ -829,8 +828,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ strip_tac
     \\ qexists_tac `ck + ck'`
     \\ imp_res_tac evaluate_clock \\ fs []
-    \\ drule evaluate_add_clock \\ fs []) 
-
+    \\ drule evaluate_add_clock \\ fs [])
   THEN (* Solves two subgoals *)
    (imp_res_tac dest_closure_SOME_IMP \\ fs [] \\ rveq
     \\ imp_res_tac LIST_REL_LENGTH
