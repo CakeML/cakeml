@@ -217,13 +217,49 @@ val process_lines_def = Define`
    | (INL st,refs) => process_lines fd st refs (lineForwardFD fs fd) ls
    | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (explode (msg_failure e))) * HOL_STORE refs)`;
 
+val invalid_line_readLine = Q.store_thm("invalid_line_readLine",
+  `invalid_line ln ⇒ readLine ln s refs = (Success s, refs)`,
+  rw[invalid_line_def]
+  \\ rw[readLine_def] \\ fs[]
+
+val readLines_process_lines = Q.store_thm("readLines_process_lines",
+  `∀ls st refs r refs fs.
+   readLines ls st refs = (r,refs) ⇒
+   ∃n.
+     process_lines fd st refs fs ls =
+     case r of
+     | (Success _) => STDIO (add_stdout (fastForwardFD fs fd) "OK!\n") * HOL_STORE refs
+     | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) (explode (msg_failure e))) * HOL_STORE refs`,
+  recInduct readLines_ind
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ simp[Once readLines_def]
+  \\ CASE_TAC
+  >- (
+    simp[st_ex_return_def,process_lines_def]
+    \\ rw[] \\ rw[] )
+  \\ rw[process_lines_def]
+  \\ rw[process_line_def]
+  >- (
+    readLine_def
+
+  process_line_def
+    \\ rw[fastForwardFD_def,OPTION_BIND]
+    ff"forward""fast"
+    f"option_bind"
+    fastForwardFD_def
+    forwardFD_def
+    \\
+  \\ Cases_on`lls`
+  \\ fs[readLines_def
+
 val _ = (append_prog o process_topdecs) `
-  fun process_lines st0 ins =
+  fun process_lines ins st0 =
     case TextIO.inputLine ins of
       NONE => TextIO.print "OK!\n"
     | SOME ln =>
       (case process_line st0 ln of
-         Inl st1 => process_lines st1 ins
+         Inl st1 => process_lines ins st1
        | Inr e => TextIO.output TextIO.stdErr (msg_failure e))`;
 
 val process_lines_spec = Q.store_thm("process_lines_spec",
@@ -233,7 +269,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
      STD_streams fs /\
      get_file_content fs fd = SOME (content, n)
      ==>
-     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [stv;fdv]
+     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [fdv;stv]
        (STDIO fs * HOL_STORE refs)
        (POSTv u.
          &UNIT_TYPE () u *
@@ -317,7 +353,7 @@ val _ = (append_prog o process_topdecs) `
       val ins = TextIO.openIn file
     in
       process_lines ins init_state;
-      TextIO.closeIn ins
+      TextIO.close ins
     end
     (* Presuming that openIn will raise only this *)
     handle TextIO.BadFileName =>
@@ -325,12 +361,11 @@ val _ = (append_prog o process_topdecs) `
 
 val read_file_def = Define`
   read_file fs refs fnm =
-    (case ALOOKUP fs.files (File fnm) of
-      SOME content =>
-       (case readLines (MAP (λx. implode(x++"\n")) (splitlines content)) init_state refs of
+    (if inFS_fname fs (File fnm) then
+       (case readLines (all_lines fs (File fnm)) init_state refs of
         | (Success _, refs) => (add_stdout fs "OK!\n", refs)
         | (Failure (Fail e), refs) => (add_stderr fs (explode (msg_failure e)), refs))
-     | NONE => (add_stderr fs (explode (msg_bad_name fnm)), refs))`;
+     else (add_stderr fs (explode (msg_bad_name fnm)), refs))`;
 
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
@@ -341,22 +376,17 @@ val read_file_spec = Q.store_thm("read_file_spec",
        &UNIT_TYPE () u *
        STDIO (FST(read_file fs refs fnm)) *
        HOL_STORE (SND(read_file fs refs fnm)))`,
-
   xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
   \\ simp[read_file_def]
-  \\ CASE_TAC \\ fs[]
+  \\ reverse IF_CASES_TAC \\ fs[]
   >- (
     xhandle`POSTe ev.
       &BadFileName_exn ev *
       &(~inFS_fname fs (File fnm)) *
       STDIO fs * HOL_STORE refs`
-    >- (
-      xlet_auto_spec (SOME openIn_STDIO_spec)
-      \\ xsimpl
-      \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
-      \\ fs[] )
+    >- ( xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl )
     \\ fs[BadFileName_exn_def]
     \\ xcases
     \\ xlet_auto >- xsimpl
@@ -375,23 +405,37 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ rw[stdo_def,up_stdo_def,LENGTH_explode]
     \\ xsimpl)
   \\ CASE_TAC \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`$POSTv Qval`
+  \\ xhandle`$POSTv Qval` \\ xsimpl
+  \\ qunabbrev_tac`Qval`
+  \\ xlet_auto_spec (SOME openIn_STDIO_spec)
+  \\ xsimpl
+  \\ imp_res_tac nextFD_leX
+  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ pop_assum(qspec_then`0`mp_tac) \\ rw[]
+  \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd`
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+  \\ `get_file_content fs' fd = SOME (content,0)` by simp[get_file_content_def,Abbr`fs'`]
+  \\ imp_res_tac STD_streams_nextFD
+  \\ imp_res_tac STD_streams_openFileFS
+  \\ pop_assum(qspecl_then[`fnm`,`0`]assume_tac)
+  \\ `fd ≠ 1 ∧ fd ≠ 2` by rfs[]
+  \\ assume_tac (fetch"-""init_state_v_thm")
+  \\ xlet_auto_spec (SOME (Q.SPEC`fs'`(Q.GEN`fs`process_lines_spec)))
+  \\ xsimpl
+  \\ xapp_spec close_STDIO_spec
+  \\ instantiate
+  \\ rfs[]
+  \\ simp[Abbr`fs'`,linesFD_openFileFS_nextFD,Abbr`fd`,MAP_MAP_o,o_DEF]
 
-  (* TextIO.openIn might fail *)
-  \\ qmatch_goalsub_abbrev_tac`option_CASE _ Qerr Qval`
-  \\ xhandle
-    `POST
-       (\u.
-         SEP_EXISTS content.
-           &UNIT_TYPE () u *
-           &(ALOOKUP fs.files (File fnm) = SOME content) *
-           Qval content)
-       (\e.
-         &BadFileName_exn e *
-         &(~inFS_fname fs (File fnm)) *
-         STDIO fs * HOL_STORE refs)`
-  >-
-   (
-    xlet_auto_spec (SOME (SPEC_ALL TextIOProofTheory.openIn_STDIO_spec)) \\ xsimpl
+
+  \\ xlet_auto_spec (SOME (process_lines_spec |> Q.SPECL[`0`,`init_state`,`init_state_v`]))
+  \\ xlet_auto_spec (SOME (GEN_ALL process_lines_spec))
+  f"init_state_v_thm"
+
+  ff"inf""alo"
+
+  \\ xlet_auto_spec (SOME (SPEC_ALL TextIOProofTheory.openIn_STDIO_spec)) \\ xsimpl
     \\ imp_res_tac nextFD_leX
     \\ qspec_then `0` drule
       (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD) \\ fs []
