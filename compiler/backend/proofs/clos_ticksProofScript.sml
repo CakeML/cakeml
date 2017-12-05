@@ -83,11 +83,6 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
 
 (* state relation *)
 
-val v_rel_opt_def = Define `
-  (v_rel_opt NONE NONE <=> T) /\
-  (v_rel_opt (SOME x) (SOME y) <=> v_rel x y) /\
-  (v_rel_opt _ _ = F)`;
-
 val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
   (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
@@ -110,7 +105,7 @@ val state_rel_def = Define `
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
     t.ffi = s.ffi /\
-    LIST_REL v_rel_opt s.globals t.globals /\
+    LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
     t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
@@ -230,9 +225,19 @@ val evaluate_mk_Ticks = store_thm("evaluate_mk_Ticks",
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp ys t of
-      | Rerr err2 => ?err1. do_app opp xs s = Rerr err1 /\ exc_rel v_rel err1 err2
-      | Rval (y, t1) => ?x s1. v_rel x y /\ state_rel s1 t1 /\ do_app opp xs s = Rval (x, s1)``,
-  cheat);
+      | Rerr err2 => ?err1. do_app opp xs s = Rerr err1 /\
+                            exc_rel v_rel err1 err2
+      | Rval (y, t1) => ?x s1. v_rel x y /\ state_rel s1 t1 /\
+                               do_app opp xs s = Rval (x, s1)``,
+  match_mp_tac simple_val_rel_do_app_rev
+  \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw [] \\ fs [])
+  \\ fs [simple_state_rel_def, state_rel_def]
+  \\ rw []
+  \\ fs [FMAP_REL_def, FLOOKUP_DEF]
+  \\ rfs []
+  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [ref_rel_cases]);
 
 val lookup_vars_lemma = store_thm("lookup_vars_lemma",
   ``!vs env1 env2. LIST_REL v_rel env1 env2 ==>

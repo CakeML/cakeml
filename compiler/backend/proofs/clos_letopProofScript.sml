@@ -74,11 +74,6 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
 
 (* state relation *)
 
-val v_rel_opt_def = Define `
-  (v_rel_opt NONE NONE <=> T) /\
-  (v_rel_opt (SOME x) (SOME y) <=> v_rel x y) /\
-  (v_rel_opt _ _ = F)`;
-
 val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
   (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
@@ -101,7 +96,7 @@ val state_rel_def = Define `
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
     t.ffi = s.ffi /\
-    LIST_REL v_rel_opt s.globals t.globals /\
+    LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
     t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
@@ -262,6 +257,22 @@ val dest_closure_SOME_Full_app = store_thm("dest_closure_SOME_Full_app",
    \\ irule EVERY2_APPEND_suff \\ simp []
    \\ irule EVERY2_REVERSE \\ simp [])
 
+val do_app_lemma = prove(
+  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+    case do_app opp xs s of
+      | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
+                            exc_rel v_rel err1 err2
+      | Rval (x, s1) => ?y t1. v_rel x y /\ state_rel s1 t1 /\
+                               do_app opp ys t = Rval (y, t1)``,
+  match_mp_tac simple_val_rel_do_app
+  \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases])
+  \\ fs [simple_state_rel_def, state_rel_def]
+  \\ rw [] \\ fs [FMAP_REL_def, FLOOKUP_DEF]
+  \\ rfs []
+  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [ref_rel_cases]);
+
 (* evaluate_let_op *)
 
 val evaluate_let_op = store_thm("evaluate_let_op",
@@ -395,7 +406,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ strip_tac \\ fs []
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ IF_CASES_TAC \\ rveq \\ fs []
-    THEN1
+    THEN1 (* Op = Install *)
      (drule EVERY2_REVERSE
       \\ qabbrev_tac `a1 = REVERSE vs`
       \\ qabbrev_tac `a2 = REVERSE v'`
@@ -456,7 +467,14 @@ val evaluate_let_op = store_thm("evaluate_let_op",
       \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
       \\ fs [shift_seq_def]
       \\ rveq \\ fs [])
-   \\ cheat (* op <> Install *))
+   (* op <> Install *)
+   \\ drule EVERY2_REVERSE \\ disch_tac
+   \\ drule (GEN_ALL do_app_lemma)
+   \\ disch_then drule
+   \\ disch_then (qspec_then `op` mp_tac)
+   \\ fs [case_eq_thms, pair_case_eq]
+   \\ rveq \\ fs []
+   \\ strip_tac \\ fs [])
   THEN1 (* Fn *)
    (fs [code_rel_def, let_op_def] \\ rveq
     \\ fs [evaluate_def]
