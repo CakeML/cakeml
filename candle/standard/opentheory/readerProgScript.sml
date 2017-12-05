@@ -7,6 +7,8 @@ val _ = m_translation_extends "ml_hol_kernelProg"
 
 val exc_case_eq = prove_case_eq_thm{case_def=exc_case_def,nchotomy=exc_nchotomy};
 val term_case_eq = prove_case_eq_thm{case_def=holSyntaxTheory.term_case_def,nchotomy=holSyntaxTheory.term_nchotomy};
+val option_case_eq = prove_case_eq_thm{case_def=optionTheory.option_case_def,nchotomy=optionTheory.option_nchotomy};
+val object_case_eq = prove_case_eq_thm{case_def=readerTheory.object_case_def,nchotomy=readerTheory.object_nchotomy};
 
 val pop_not_clash = Q.store_thm("pop_not_clash[simp]",
   `pop x y ≠ (Failure (Clash tm),refs)`,
@@ -27,6 +29,10 @@ val getTerm_not_clash = Q.store_thm("getTerm_not_clash[simp]",
 val getThm_not_clash = Q.store_thm("getThm_not_clash[simp]",
   `getThm x y ≠ (Failure (Clash tm),refs)`,
   Cases_on`x` \\ EVAL_TAC);
+
+val getList_not_clash = Q.store_thm("getList_not_clash[simp]",
+  `getList x y <> (Failure (Clash tm),refs)`,
+  Cases_on `x` \\ EVAL_TAC);
 
 val dest_type_not_clash = Q.store_thm("dest_type_not_clash[simp]",
   `dest_type x y ≠ (Failure (Clash tm),refs)`,
@@ -70,10 +76,32 @@ val ABS_not_clash = Q.store_thm("ABS_not_clash[simp]",
   \\ CCONTR_TAC
   \\ fs[st_ex_return_def] \\ rveq \\ fs[]);
 
+val MK_COMB_not_clash = Q.store_thm("MK_COMB_not_clash[simp]",
+  `MK_COMB (a,b) c <> (Failure (Clash tm), refs)`,
+  Cases_on `a` \\ Cases_on `b` \\ EVAL_TAC
+  \\ every_case_tac \\ fs [raise_Fail_def, st_ex_bind_def]
+  \\ every_case_tac \\ fs [st_ex_return_def]
+  \\ metis_tac [mk_eq_not_clash, mk_comb_not_clash]);
+
+val mk_type_not_clash = Q.store_thm("mk_type_not_clash[simp]",
+  `!a b. mk_type a b <> (Failure (Clash tm), refs)`,
+  Cases \\ once_rewrite_tac [mk_type_def]
+  \\ fs [st_ex_bind_def, st_ex_return_def, raise_Fail_def]
+  \\ fs [try_def, otherwise_def, get_type_arity_def]
+  \\ fs [st_ex_bind_def, raise_Fail_def] \\ rw []
+  \\ every_case_tac \\ fs []);
+
+val ASSUME_not_clash = Q.store_thm("ASSUME_not_clash[simp]",
+  `!a b. ASSUME a b <> (Failure (Clash tm), refs)`,
+  Cases \\ rw [ASSUME_def]
+  \\ fs [st_ex_bind_def, st_ex_return_def, raise_Fail_def]
+  \\ every_case_tac \\ fs []
+  \\ metis_tac [type_of_not_clash, mk_type_not_clash, type_of_not_clash]);
+
 val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
   `readLine x y z ≠ (Failure (Clash tm),refs)`,
   strip_tac \\
-  fs[readLine_def,st_ex_bind_def,pair_case_eq,exc_case_eq,st_ex_return_def,option_caseeq,
+  fs[readLine_def,st_ex_bind_def,pair_case_eq,exc_case_eq,st_ex_return_def,option_case_eq,
      bool_case_eq,UNCURRY,COND_RATOR]
   \\ rveq \\ fs[] \\ rw[]
   \\ cheat);
