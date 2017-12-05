@@ -213,6 +213,61 @@ val new_basic_type_definition_not_clash = Q.store_thm("new_basic_type_definition
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [try_def, otherwise_def]
   \\ every_case_tac \\ fs [raise_Fail_def]);
 
+val forall_clash_thm = Q.store_thm("forall_clash_thm",
+  `!f l s.
+    (!x s. f x s <> (Failure (Clash tm),refs)) ==>
+    forall f l s <> (Failure (Clash tm),refs)`,
+  recInduct forall_ind \\ once_rewrite_tac [forall_def]
+  \\ rw [st_ex_bind_def, st_ex_return_def]
+  \\ Cases_on `l` \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ once_rewrite_tac [forall_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ metis_tac []);
+
+val vsubst_not_clash = Q.store_thm("vsubst_not_clash[simp]",
+  `vsubst x y s <> (Failure (Clash tm),refs)`,
+  fs [vsubst_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ pop_assum mp_tac \\ fs []
+  \\ ho_match_mp_tac forall_clash_thm \\ rw []
+  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ fs [exc_case_eq, pair_case_eq]);
+
+val image_clash_thm = Q.store_thm("image_clash_thm",
+  `!f l s.
+    (!x s. f x s <> (Failure (Clash tm),refs)) ==>
+    image f l s <> (Failure (Clash tm),refs)`,
+  recInduct image_ind \\ once_rewrite_tac [image_def]
+  \\ rw [st_ex_bind_def, st_ex_return_def, raise_Fail_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ pop_assum mp_tac \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ once_rewrite_tac [image_def] \\ fs [st_ex_return_def, st_ex_bind_def]);
+
+val INST_not_clash = Q.store_thm("INST_not_clash[simp]",
+  `INST theta x s <> (Failure (Clash tm),refs)`,
+  Cases_on `x` \\ fs [INST_def, st_ex_bind_def, st_ex_return_def, exc_case_eq, pair_case_eq]
+  \\ ho_match_mp_tac image_clash_thm \\ rw []);
+
+(*
+val inst_not_clash = Q.store_thm("inst_not_clash[simp]",
+  `inst tys r s <> (Failure (Clash tm),refs)`,
+  fs [inst_def, st_ex_return_def, COND_RATOR, pair_case_eq, bool_case_eq]
+  \\ Cases_on `tys` \\ fs []
+  \\ cheat (* TODO *)
+  );
+
+val INST_TYPE_not_clash = Q.store_thm("INST_TYPE_not_clash[simp]",
+  `INST_TYPE tys th s <> (Failure (Clash tm),refs)`,
+  Cases_on `th` \\ fs [INST_TYPE_def, st_ex_bind_def, st_ex_return_def]
+  \\ every_case_tac \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ pop_assum mp_tac \\ fs []
+  \\ ho_match_mp_tac image_clash_thm \\ rw []);
+*)
+
 (* TODO move to readerProofTheory *)
 
 val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
@@ -223,11 +278,10 @@ val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
   \\ rveq \\ fs[] \\ rw[]
   \\ every_case_tac \\ fs [raise_Fail_def]
   \\ TRY
-   (rename1 `map _ _ _ = (Failure (Clash tm),refs)`
-    \\ metis_tac [map_not_clash_thm, getTerm_not_clash, getCns_not_clash,
-                  getNvs_not_clash, getType_not_clash, getTms_not_clash,
-                  getTys_not_clash])
-  \\ cheat);
+   (pop_assum mp_tac \\ fs []
+    \\ ho_match_mp_tac map_not_clash_thm \\ rw [])
+  \\ cheat (* TODO need to figure out what triggers a clash in INST_TYPE *)
+  );
 
 val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
   `∀ls x y tm refs. readLines ls x y ≠ (Failure (Clash tm),refs)`,
@@ -536,6 +590,12 @@ val read_file_def = Define`
         | (Failure (Fail e), refs) => (add_stderr fs (explode (msg_failure e)), refs))
      else (add_stderr fs (explode (msg_bad_name fnm)), refs))`;
 
+(* TODO ??? *)
+val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
+  `forwardFD fs fd n with infds updated_by A_DELKEY fd =
+   fs with infds updated_by A_DELKEY fd`,
+  fs [forwardFD_def, IO_fs_component_equality]);
+
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
    ==>
@@ -605,19 +665,29 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
     \\ qexists_tac`fs'` \\ xsimpl
     \\ simp[Abbr`fs'`]
-    \\ simp[add_stdout_fastForwardFD]
-    \\ cheat
-    (* openFileFS_A_DELKEY_nextFD *) )
+    \\ simp[add_stdout_fastForwardFD] \\ rw [] \\ fs []
+    \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
+    \\ disch_then (qspecl_then [`0`,`fnm`] mp_tac) \\ rw []
+    \\ `1 <> nextFD fs` by fs []
+    \\ qmatch_goalsub_abbrev_tac `add_stdout _ str1`
+    \\ imp_res_tac add_stdo_A_DELKEY
+    \\ first_x_assum (qspecl_then [`str1`,`"stdout"`, `openFileFS fnm fs 0`] mp_tac)
+    \\ xsimpl
+    )
   \\ CASE_TAC \\ fs[]
   \\ xsimpl
   \\ qexists_tac`HOL_STORE r` \\ xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ qexists_tac`fs'` \\ xsimpl
   \\ simp[Abbr`fs'`]
-  \\ simp[add_stdo_forwardFD]
-  \\ cheat
-  (* forwardFD version of fastForwardFD_A_DELKEY_same? *)
-  );
+  \\ simp[add_stdo_forwardFD] \\ rw []
+  \\ `2 <> nextFD fs` by fs [] \\ fs []
+  \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
+  \\ disch_then (qspecl_then [`0`,`fnm`] mp_tac) \\ rw []
+  \\ imp_res_tac add_stdo_A_DELKEY
+  \\ qmatch_goalsub_abbrev_tac `add_stderr _ str1`
+  \\ first_x_assum (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs 0`] mp_tac)
+  \\ xsimpl);
 
 val _ = (append_prog o process_topdecs) `
   fun reader_main u =
@@ -625,14 +695,76 @@ val _ = (append_prog o process_topdecs) `
       [file] => read_file file
     | _      => TextIO.output TextIO.stdErr msg_usage`;
 
-val main_spec = Q.store_thm("main_spec",
-  `TODO`,
-  cheat
-  );
+val reader_main_def = Define `
+   reader_main fs refs cl =
+       case cl of
+         [fnm] => let (io, rfs) = read_file fs refs fnm in
+                    STDIO io * HOL_STORE rfs
+       | _ => STDIO (add_stderr fs (explode msg_usage)) *
+              HOL_STORE refs`;
+
+val reader_main_spec = Q.store_thm("reader_main_spec",
+  `hasFreeFD fs
+   ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
+     [Conv NONE []]
+     (STDIO fs * HOL_STORE refs * COMMANDLINE cl)
+     (POSTv u.
+       &UNIT_TYPE () u *
+       reader_main fs refs (TL (MAP implode cl)) *
+       COMMANDLINE cl)`,
+  xcf "reader_main" (get_ml_prog_state())
+  \\ fs [reader_main_def]
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ fs [UNIT_TYPE_def]
+  \\ reverse (Cases_on `wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
+  \\ fs [wfcl_def]
+  \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
+  >-
+   (qexists_tac `STDIO fs * HOL_STORE refs`
+    \\ xsimpl)
+  \\ reverse (Cases_on `STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ Cases_on `TL (MAP implode cl)` \\ fs [LIST_TYPE_def]
+  >-
+   (xmatch
+    \\ xapp_spec output_stderr_spec
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `msg_usage`
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `fs` \\ xsimpl
+    \\ fs [theorem"msg_usage_v_thm", UNIT_TYPE_def])
+  \\ reverse (Cases_on `t`) \\ fs [LIST_TYPE_def]
+  >-
+   (xmatch
+    \\ xapp_spec output_stderr_spec
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `msg_usage`
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `fs`
+    \\ xsimpl
+    \\ fs [theorem"msg_usage_v_thm", UNIT_TYPE_def])
+  \\ xmatch
+  \\ xapp
+  \\ instantiate \\ xsimpl
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `refs` \\ xsimpl
+  \\ qexists_tac `h`
+  \\ Cases_on `cl` \\ fs [] \\ rveq
+  \\ fs [implode_def, FILENAME_def, validArg_def]
+  \\ rw [UNIT_TYPE_def]
+  \\ pairarg_tac \\ fs []
+  \\ xsimpl);
 
 val st = get_ml_prog_state ();
 val name = "reader_main"
-val spec = main_spec |> SIMP_RULE std_ss [STDIO_def] |> add_basis_proj;
+val spec =
+  reader_main_spec
+  |> UNDISCH
+  |> SIMP_RULE std_ss [STDIO_def]
+  |> add_basis_proj;
+
+(* TODO: fails *)
 val (semantics_thm, prog_tm) = call_thm st name spec
 
 val reader_prog_def = Define `reader_prog = ^prog_tm`
