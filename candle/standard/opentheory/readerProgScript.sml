@@ -6,6 +6,12 @@ open preamble basis
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
+(* TODO: move *)
+val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
+  `forwardFD fs fd n with infds updated_by A_DELKEY fd =
+   fs with infds updated_by A_DELKEY fd`,
+  fs [forwardFD_def, IO_fs_component_equality]);
+
 val exc_case_eq = prove_case_eq_thm{case_def=exc_case_def,nchotomy=exc_nchotomy};
 val term_case_eq = prove_case_eq_thm{case_def=holSyntaxTheory.term_case_def,nchotomy=holSyntaxTheory.term_nchotomy};
 val option_case_eq = prove_case_eq_thm{case_def=optionTheory.option_case_def,nchotomy=optionTheory.option_nchotomy};
@@ -590,12 +596,6 @@ val read_file_def = Define`
         | (Failure (Fail e), refs) => (add_stderr fs (explode (msg_failure e)), refs))
      else (add_stderr fs (explode (msg_bad_name fnm)), refs))`;
 
-(* TODO ??? *)
-val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
-  `forwardFD fs fd n with infds updated_by A_DELKEY fd =
-   fs with infds updated_by A_DELKEY fd`,
-  fs [forwardFD_def, IO_fs_component_equality]);
-
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
    ==>
@@ -698,10 +698,8 @@ val _ = (append_prog o process_topdecs) `
 val reader_main_def = Define `
    reader_main fs refs cl =
        case cl of
-         [fnm] => let (io, rfs) = read_file fs refs fnm in
-                    STDIO io * HOL_STORE rfs
-       | _ => STDIO (add_stderr fs (explode msg_usage)) *
-              HOL_STORE refs`;
+         [fnm] => FST (read_file fs refs fnm)
+       | _ => add_stderr fs (explode msg_usage)`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
   `hasFreeFD fs
@@ -711,7 +709,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
      (STDIO fs * HOL_STORE refs * COMMANDLINE cl)
      (POSTv u.
        &UNIT_TYPE () u *
-       reader_main fs refs (TL (MAP implode cl)) *
+       STDIO (reader_main fs refs (TL (MAP implode cl))) *
        COMMANDLINE cl)`,
   xcf "reader_main" (get_ml_prog_state())
   \\ fs [reader_main_def]
@@ -749,11 +747,10 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ instantiate \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `refs` \\ xsimpl
-  \\ qexists_tac `h`
   \\ Cases_on `cl` \\ fs [] \\ rveq
   \\ fs [implode_def, FILENAME_def, validArg_def]
+  \\ asm_exists_tac
   \\ rw [UNIT_TYPE_def]
-  \\ pairarg_tac \\ fs []
   \\ xsimpl);
 
 val st = get_ml_prog_state ();
@@ -764,8 +761,10 @@ val spec =
   |> SIMP_RULE std_ss [STDIO_def]
   |> add_basis_proj;
 
-(* TODO: fails *)
-val (semantics_thm, prog_tm) = call_thm st name spec
+val (sem_thm, prog_tm) = call_thm st name spec
+(* TODO: figure out what to do about HOL_STORE refs.
+See ml_hol_initTheory.kernel_init_thm
+*)
 
 val reader_prog_def = Define `reader_prog = ^prog_tm`
 
