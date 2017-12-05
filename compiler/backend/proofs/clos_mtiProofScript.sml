@@ -454,17 +454,13 @@ val evaluate_apps_Clos_long = prove(
   \\ fs [dec_clock_def,ADD1]
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]);
 
-val LIST_REL_MAP = prove(
-  ``!xs. LIST_REL P xs (MAP f xs) <=> EVERY (\x. P x (f x)) xs``,
-  Induct \\ fs []);
-
 val LIST_REL_f_rel_IMP = prove(
   ``!fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)``,
   Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
   \\ res_tac \\ fs []
   \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Number n)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Block n p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Word64 p)``,
@@ -475,252 +471,48 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   prove(``v_rel max_app x (Boolv b) <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel max_app x Unit <=> x = Unit``,
-        fs [closSemTheory.Unit_def,Once v_rel_cases])])
+        fs [closSemTheory.Unit_def,Once v_rel_cases])]
+  |> map GEN_ALL))
 
-val state_rel_FLOOKUP_NONE = prove(
-  ``FLOOKUP t.refs ptr = NONE /\ state_rel s t ==>
-    FLOOKUP s.refs ptr = NONE``,
-  rw [state_rel_def,FMAP_REL_def] \\ fs [FLOOKUP_DEF]) |> GEN_ALL;
+val do_app_inst =
+  simple_val_rel_do_app_rev
+  |> Q.INST [`vr`|->`v_rel s.max_app`]
+  |> INST_TYPE [``:'a``|->``:'c``]
+  |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`]
+  |> SIMP_RULE std_ss []
 
-val state_rel_FLOOKUP_ByteArray = prove(
-  ``FLOOKUP t.refs ptr = SOME (ByteArray b w) /\ state_rel s t ==>
-    FLOOKUP s.refs ptr = SOME (ByteArray b w)``,
-  rw [state_rel_def,FMAP_REL_def] \\ fs [FLOOKUP_DEF]
-  \\ first_x_assum (qspec_then `ptr` mp_tac)
-  \\ Cases_on `s.refs ' ptr`
-  \\ fs [ref_rel_cases]) |> GEN_ALL;
+val v_rel_opt_thm = prove(
+  ``v_rel_opt m = OPTREL (v_rel m)``,
+  fs [FUN_EQ_THM] \\ Cases  \\ Cases \\ fs [OPTREL_def,v_rel_opt_def]);
 
-val state_rel_FLOOKUP_ValueArray = prove(
-  ``FLOOKUP t.refs ptr = SOME (ValueArray w) /\ state_rel s t ==>
-    ?w1. FLOOKUP s.refs ptr = SOME (ValueArray w1) /\
-         LIST_REL (v_rel s.max_app) w1 w``,
-  rw [state_rel_def,FMAP_REL_def] \\ fs [FLOOKUP_DEF]
-  \\ first_x_assum (qspec_then `ptr` mp_tac)
-  \\ Cases_on `s.refs ' ptr`
-  \\ fs [ref_rel_cases]) |> GEN_ALL;
-
-val v_rel_to_list_ByteVector = prove(
-  ``!lv x.
-      v_rel max_app x lv ==>
-      !wss. (v_to_list x = SOME (MAP ByteVector wss) <=>
-             v_to_list lv = SOME (MAP ByteVector wss))``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `wss` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
-
-val v_rel_to_list_byte = prove(
-  ``!y x.
-      v_rel max_app x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns) <=>
-           (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns)``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
-
-val v_to_list_SOME = prove(
-  ``!y ys x.
-      v_rel max_app x y /\ v_to_list y = SOME ys ==>
-      ∃xs. LIST_REL (v_rel max_app) xs ys ∧ v_to_list x = SOME xs``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ rveq \\ fs [PULL_EXISTS]);
-
-val v_to_list_NONE = prove(
-  ``!y x. v_rel max_app x y /\ v_to_list y = NONE ==>
-          v_to_list x = NONE``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ rveq \\ fs [PULL_EXISTS]);
-
-val v_rel_do_eq = prove(
-  ``(!y1 y2 x1 x2.
-      v_rel max_app x1 y1 /\ v_rel max_app x2 y2 ==>
-      do_eq x1 x2 = do_eq y1 y2) /\
-    (!y1 y2 x1 x2.
-      LIST_REL (v_rel max_app) x1 y1 /\ LIST_REL (v_rel max_app) x2 y2 ==>
-      do_eq_list x1 x2 = do_eq_list y1 y2)``,
-  ho_match_mp_tac do_eq_ind \\ rw []
-  THEN1
-   (Cases_on `y1` \\ fs [] \\ Cases_on `y2` \\ fs [do_eq_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ once_rewrite_tac [do_eq_def]
-  \\ fs [case_eq_thms]
-  \\ Cases_on `do_eq y1 y2` \\ fs []);
-
-val _ = print "The following proof is slow due to Rerr cases.\n"
-val do_app_lemma = time store_thm("do_app_lemma",
+val do_app_lemma = store_thm("do_app_lemma",
   ``state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
     case do_app opp ys t of
     | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
                            exc_rel (v_rel s.max_app) err1 err2)
     | Rval (y,t1) => ?x s1. v_rel s.max_app x y /\ state_rel s1 t1 /\
                             do_app opp xs s = Rval (x,s1)``,
-  `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
-  \\ Cases_on `opp = UpdateByte \/ opp = Update \/ ?n. opp = FFI n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ TRY (drule state_rel_FLOOKUP_NONE)
-    \\ TRY (drule state_rel_FLOOKUP_ByteArray)
-    \\ TRY (drule state_rel_FLOOKUP_ValueArray)
-    \\ rpt (disch_then drule) \\ rpt strip_tac \\ fs []
-    \\ TRY
-     (rename1 `~((ii:int) < _)`
-      \\ Cases_on `ii` \\ fs []
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-      \\ rveq \\ fs [] \\ NO_TAC)
-    \\ fs [state_rel_def,FMAP_REL_def,FLOOKUP_DEF]
-    \\ imp_res_tac (prove(``0 <= (i:int) ==> ?n. i = & n``,Cases_on `i` \\ fs []))
-    \\ rveq \\ fs []
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ strip_tac
-    \\ match_mp_tac (METIS_PROVE []
-           ``(b1 \/ ~b1 /\ b2 ==> b3) ==> (b1 \/ b2 ==> b3)``)
-    \\ rw [] \\ simp [FAPPLY_FUPDATE_THM]
-    \\ simp [ref_rel_cases]
-    \\ match_mp_tac EVERY2_LUPDATE_same \\ fs [])
-  \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ fs [state_rel_def,FMAP_REL_def,FLOOKUP_DEF]
-    \\ strip_tac
-    \\ match_mp_tac (METIS_PROVE []
-           ``(b1 \/ ~b1 /\ b2 ==> b3) ==> (b1 \/ b2 ==> b3)``)
-    \\ rw [] \\ simp [FAPPLY_FUPDATE_THM]
-    \\ simp [ref_rel_cases,LIST_REL_REPLICATE_same])
-  \\ Cases_on `?n. opp = SetGlobal n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ fs [state_rel_def,v_rel_opt_def]
-    THEN1 (match_mp_tac EVERY2_LUPDATE_same \\ fs [v_rel_opt_def])
-    \\ fs [get_global_def,state_rel_def,LIST_REL_EL_EQN]
-    \\ rfs [] \\ res_tac
-    \\ qpat_x_assum `!x. _` kall_tac
-    \\ Cases_on `EL n s.globals`
-    \\ rfs [v_rel_opt_def])
-  \\ Cases_on `opp = AllocGlobal` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ fs [state_rel_def,v_rel_opt_def])
-  \\ Cases_on `opp = Equal` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ imp_res_tac v_rel_do_eq \\ fs [])
-  \\ Cases_on `opp = FromListByte` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ drule v_rel_to_list_byte \\ fs [])
-  \\ Cases_on `?b. opp = FromList b` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ drule v_to_list_SOME
-    \\ drule v_to_list_NONE \\ fs [])
-  \\ Cases_on `?n. opp = Global n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ fs [get_global_def,state_rel_def,LIST_REL_EL_EQN]
-    \\ rfs [] \\ res_tac
-    \\ qpat_x_assum `!x. _` kall_tac
-    \\ Cases_on `EL n s.globals`
-    \\ rfs [v_rel_opt_def])
-  \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
-               opp = BoundsCheckArray \/ opp = LengthByte \/
-               opp = DerefByteVec \/ opp = DerefByte \/ opp = Deref \/
-               opp = GlobalsPtr \/ opp = El \/ opp = SetGlobalsPtr`
+  mp_tac do_app_inst \\ fs []
+  \\ reverse impl_tac THEN1
+   (rw [] \\ fs []
+    \\ Cases_on `do_app opp ys t` \\ fs []
+    \\ Cases_on `a` \\ fs [])
+  \\ fs [simple_val_rel_def] \\ rpt strip_tac \\ fs []
+  \\ fs [simple_state_rel_def,state_rel_def] \\ rw []
+  \\ fs [FMAP_REL_def,FLOOKUP_DEF] \\ rfs []
+  \\ res_tac \\ fs [v_rel_opt_thm]
   THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ TRY (drule state_rel_FLOOKUP_NONE)
-    \\ TRY (drule state_rel_FLOOKUP_ByteArray)
-    \\ TRY (drule state_rel_FLOOKUP_ValueArray)
-    \\ rpt (disch_then drule) \\ rpt strip_tac \\ fs []
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ fs [LIST_REL_EL_EQN]
-    \\ TRY (first_x_assum match_mp_tac)
-    \\ imp_res_tac (prove(``0 <= (i:int) ==> ?n. i = & n``,Cases_on `i` \\ fs []))
-    \\ rveq \\ fs [])
-  \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
-               opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
-               opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
-               (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
-               (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
-               (?f. opp = FP_bop f) \/ opp = WordToInt \/
-               (?n. opp = Label n) \/ (?n. opp = Cons n) \/
-               (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
-               (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
-               (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
-               (?w oo k. opp = WordShift w oo k) \/
-               (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
+   (Cases_on `s.refs ' ptr` \\ fs []
+    \\ Cases_on `t.refs ' ptr` \\ fs [ref_rel_cases]
+    \\ fs [] \\ rveq \\ fs [])
   THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ TRY (drule v_rel_to_list_ByteVector) \\ fs [])
-  \\ Cases_on `?n. opp = ConsExtend n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq] \\ rveq
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
-    \\ match_mp_tac EVERY2_TAKE \\ fs []
-    \\ match_mp_tac EVERY2_DROP \\ fs [])
-  \\ Cases_on `?b. opp = CopyByte b` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ rveq \\ fs []
-    \\ TRY (drule state_rel_FLOOKUP_NONE)
-    \\ TRY (drule state_rel_FLOOKUP_ByteArray)
-    \\ TRY (drule state_rel_FLOOKUP_ValueArray)
-    \\ rpt (disch_then drule) \\ rpt strip_tac \\ fs []
-    \\ rveq \\ fs []
-    \\ imp_res_tac state_rel_FLOOKUP_ByteArray
-    \\ fs [state_rel_def,FMAP_REL_def,FLOOKUP_DEF]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ strip_tac
-    \\ match_mp_tac (METIS_PROVE []
-           ``(b1 \/ ~b1 /\ b2 ==> b3) ==> (b1 \/ b2 ==> b3)``)
-    \\ rw [] \\ simp [FAPPLY_FUPDATE_THM]
-    \\ simp [ref_rel_cases])
-  \\ Cases_on `opp` \\ fs []);
+   (Cases_on `s'.refs ' ptr` \\ fs []
+    \\ Cases_on `t.refs ' ptr` \\ fs [ref_rel_cases]
+    \\ fs [] \\ rveq \\ fs [])
+  THEN
+   (rpt gen_tac \\ Cases_on `k = p` \\ fs []
+    THEN1 (fs [ref_rel_cases])
+    \\ fs [FAPPLY_FUPDATE_THM]));
 
 val v_rel_IMP_v_to_bytes_lemma = prove(
   ``!y x.
