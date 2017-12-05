@@ -5,6 +5,79 @@ open preamble basis
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
+val exc_case_eq = prove_case_eq_thm{case_def=exc_case_def,nchotomy=exc_nchotomy};
+val term_case_eq = prove_case_eq_thm{case_def=holSyntaxTheory.term_case_def,nchotomy=holSyntaxTheory.term_nchotomy};
+
+val pop_not_clash = Q.store_thm("pop_not_clash[simp]",
+  `pop x y ≠ (Failure (Clash tm),refs)`,
+  EVAL_TAC \\ rw[] \\ EVAL_TAC);
+
+val getNum_not_clash = Q.store_thm("getNum_not_clash[simp]",
+  `getNum x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val getVar_not_clash = Q.store_thm("getVar_not_clash[simp]",
+  `getVar x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val getTerm_not_clash = Q.store_thm("getTerm_not_clash[simp]",
+  `getTerm x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val getThm_not_clash = Q.store_thm("getThm_not_clash[simp]",
+  `getThm x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val dest_type_not_clash = Q.store_thm("dest_type_not_clash[simp]",
+  `dest_type x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val mk_fun_ty_not_clash = Q.store_thm("mk_fun_ty_not_clash[simp]",
+  `mk_fun_ty t a r ≠ (Failure(Clash tm),refs)`,
+  Cases_on`t` \\ EVAL_TAC
+  \\ rw[pair_case_eq,exc_case_eq,raise_Fail_def,st_ex_return_def]
+  \\ CCONTR_TAC \\ fs[bool_case_eq,COND_RATOR] \\ rw[]);
+
+val type_of_not_clash = Q.store_thm("type_of_not_clash[simp]",
+  `∀x y. type_of x y ≠ (Failure (Clash tm),refs)`,
+  recInduct type_of_ind
+  \\ rw[]
+  \\ rw[Once type_of_def,st_ex_bind_def,raise_Fail_def,pair_case_eq,exc_case_eq]
+  \\ CASE_TAC \\ fs[st_ex_return_def,pair_case_eq,exc_case_eq]
+  \\ CCONTR_TAC \\ fs[pair_case_eq] \\ rw[] \\ fs[] \\ rfs[]
+  \\ every_case_tac \\ fs[] \\ rfs[]);
+
+val mk_abs_not_clash = Q.store_thm("mk_abs_not_clash[simp]",
+  `mk_abs x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC \\ CASE_TAC \\ fs[]);
+
+val mk_comb_not_clash = Q.store_thm("mk_comb_not_clash[simp]",
+  `mk_comb x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ rw[mk_comb_def,st_ex_bind_def,pair_case_eq,exc_case_eq]
+  \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[raise_Fail_def,st_ex_return_def]);
+
+val mk_eq_not_clash = Q.store_thm("mk_eq_not_clash[simp]",
+  `mk_eq x y ≠ (Failure(Clash tm),refs)`,
+  Cases_on`x` \\ rw[mk_eq_def,st_ex_bind_def,try_def,otherwise_def,pair_case_eq,exc_case_eq]
+  \\ CCONTR_TAC \\ fs[st_ex_return_def,raise_Fail_def] \\ rw[]);
+
+val ABS_not_clash = Q.store_thm("ABS_not_clash[simp]",
+  `ABS x y z ≠ (Failure (Clash tm),refs)`,
+  Cases_on`y` \\ EVAL_TAC
+  \\ every_case_tac \\ fs[st_ex_bind_def,pair_case_eq,exc_case_eq]
+  \\ rw[raise_Fail_def]
+  \\ CCONTR_TAC
+  \\ fs[st_ex_return_def] \\ rveq \\ fs[]);
+
+val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
+  `readLine x y z ≠ (Failure (Clash tm),refs)`,
+  strip_tac \\
+  fs[readLine_def,st_ex_bind_def,pair_case_eq,exc_case_eq,st_ex_return_def,option_caseeq,
+     bool_case_eq,UNCURRY,COND_RATOR]
+  \\ rveq \\ fs[] \\ rw[]
+  \\ cheat);
+
 (* --- Translate readerTheory ---------------------------------------------- *)
 
 val _ = translate init_state_def
@@ -76,125 +149,189 @@ val _ = translate msg_failure_def
 val str_prefix_def = Define `
   str_prefix str = extract str 0 (SOME (strlen str - 1))`;
 
-val Valid_line_def = Define `
-  Valid_line str <=>
-    1 < STRLEN str /\
-    ~IS_PREFIX str "#"`;
+val invalid_line_def = Define`
+  invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"`;
 
 val process_line_def = Define`
   process_line st refs ln =
-    if Valid_line (explode ln)
-    then readLine (str_prefix ln) st refs
-    else (Success st, refs)`;
+    if invalid_line ln then (INL st, refs) else
+    case readLine (str_prefix ln) st refs
+    of (Success st, refs) => (INL st, refs)
+     | (Failure (Fail s), refs) => (INR s, refs)`;
+
+val r = translate str_prefix_def;
+
+val r = translate invalid_line_def;
+val r = Q.prove(
+  `∀x. invalid_line_side x ⇔ T`,
+  EVAL_TAC \\ rw[]) |> update_precondition;
 
 val _ = (append_prog o process_topdecs) `
-  fun process_line st0 ins =
-    case TextIO.inputLine ins of
-      NONE    => NONE (* EOF *)
-    | SOME ln =>
-        let val len = String.size ln in
-          if len <= 1 then SOME st0 (* Invalid line; "" or "\n" *)
-          else if String.sub ln 0 = #"#" then SOME st0 (* Comment *)
-          else
-            let
-              val pfx = String.extract ln 0 (SOME (len-1))
-            in
-              SOME (readline pfx st0)
-            end
-        end`;
+  fun process_line st0 ln =
+    if invalid_line ln
+    then Inl st0
+    else Inl (readline (str_prefix ln) st0)
+         handle Fail e => Inr e`;
 
 val process_line_spec = Q.store_thm("process_line_spec",
-  `WORD (n2w fd : word8) fdv /\ fd <= 255 /\
-   IS_SOME (get_file_content fs fd) /\
-   STATE_TYPE st stv
+  `STATE_TYPE st stv ∧ STRING_TYPE ln lnv
    ==>
    app (p: 'ffi ffi_proj) ^(fetch_v "process_line" (get_ml_prog_state()))
-   [stv; fdv]
-   (STDIO fs * HOL_STORE refs)
-   (POST
-     (\stov.
-      case lineFD fs fd of
-        NONE =>
-          STDIO (lineForwardFD fs fd) *
-          HOL_STORE refs *
-          &OPTION_TYPE STATE_TYPE NONE stov
-      | SOME ln =>
-          (case process_line st refs (implode ln) of
-           | (Success st, refs) =>
-             STDIO (lineForwardFD fs fd) * HOL_STORE refs *
-             &OPTION_TYPE STATE_TYPE (SOME st) stov
-           | _ => &F))
-     (\ev.
-       case lineFD fs fd of NONE => &F
-       | SOME ln =>
-         (case process_line st refs (implode ln) of
-          | (Failure e, refs) =>
-            STDIO (lineForwardFD fs fd) * HOL_STORE refs *
-            &HOL_EXN_TYPE e ev
-          | _ => &F)))`,
+   [stv; lnv]
+   (HOL_STORE refs)
+   (POSTv stv.
+      HOL_STORE (SND(process_line st refs ln)) *
+      &SUM_TYPE STATE_TYPE STRING_TYPE
+        (FST(process_line st refs ln)) stv)`,
   xcf "process_line" (get_ml_prog_state())
   \\ xlet_auto >- xsimpl
-  \\ Cases_on `lineFD fs fd` \\ fs [OPTION_TYPE_def] \\ xmatch
-  >- (xvar \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ simp[process_line_def,Valid_line_def]
+  \\ simp[process_line_def]
   \\ xif \\ fs []
-  >- (xcon \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ Cases_on`x` \\ fs[]
-  \\ xif >- ( fs[implode_def] \\ xcon \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ qmatch_assum_rename_tac`ov = Conv _ [iv]`
-  \\ qmatch_assum_rename_tac`INT (&SUC(LENGTH s)-1) iv`
-  \\ `OPTION_TYPE NUM (SOME (LENGTH s)) ov` by
-   (fs [OPTION_TYPE_def, NUM_def, INT_def]
-    \\ intLib.COOPER_TAC)
-  \\ rveq
+  >- ( xcon \\ xsimpl \\ fs[SUM_TYPE_def] )
+  \\ CASE_TAC
+  \\ reverse CASE_TAC \\ fs[]
+  >- (
+    CASE_TAC \\ fs[]
+    \\ qmatch_asmsub_rename_tac`(Failure (Fail err),refs')`
+    \\ xhandle`POSTe ev. &HOL_EXN_TYPE (Fail err) ev * HOL_STORE refs'`
+    >- (
+      xlet_auto >- xsimpl
+      \\ xlet_auto \\ xsimpl )
+    \\ xcases
+    \\ fs[HOL_EXN_TYPE_def]
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xcon \\ xsimpl
+    \\ fs[SUM_TYPE_def] )
+  \\ qmatch_goalsub_abbrev_tac `$POSTv Qval`
+  \\ xhandle`$POSTv Qval` \\ xsimpl
+  \\ qunabbrev_tac`Qval`
   \\ xlet_auto >- xsimpl
   \\ xlet_auto \\ xsimpl
+  \\ xcon \\ xsimpl
+  \\ fs[SUM_TYPE_def] );
+
+val process_lines_def = Define`
+  (process_lines fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) "OK!\n") * HOL_STORE refs) ∧
+  (process_lines fd st refs fs (ln::ls) =
+   case process_line st refs ln of
+   | (INL st,refs) => process_lines fd st refs (lineForwardFD fs fd) ls
+   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (explode (msg_failure e))) * HOL_STORE refs)`;
+
+val _ = (append_prog o process_topdecs) `
+  fun process_lines st0 ins =
+    case TextIO.inputLine ins of
+      NONE => TextIO.print "OK!\n"
+    | SOME ln =>
+      (case process_line st0 ln of
+         Inl st1 => process_lines st1 ins
+       | Inr e => TextIO.output TextIO.stdErr (msg_failure e))`;
+
+val process_lines_spec = Q.store_thm("process_lines_spec",
+  `!n st stv refs.
+     STATE_TYPE st stv /\
+     WORD8 (n2w fd) fdv /\ fd <= 255 /\ fd <> 1 /\ fd <> 2 /\
+     STD_streams fs /\
+     get_file_content fs fd = SOME (content, n)
+     ==>
+     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [stv;fdv]
+       (STDIO fs * HOL_STORE refs)
+       (POSTv u.
+         &UNIT_TYPE () u *
+         process_lines fd st refs fs (MAP implode (linesFD fs fd)))`,
+  Induct_on`linesFD fs fd`
   >- (
-    qexists_tac `STDIO (lineForwardFD fs fd)`
-    \\ qexists_tac `refs`
+    rpt strip_tac
+    \\ qpat_x_assum`[] = _`(assume_tac o SYM)
+    \\ xcf"process_lines"(get_ml_prog_state())
+    \\ `IS_SOME (get_file_content fs fd)` by fs []
+    \\ `lineFD fs fd = NONE` by fs [linesFD_nil_lineFD_NONE]
+    \\ simp[process_lines_def]
+    \\ xlet_auto >- xsimpl
+    \\ xmatch
+    \\ fs[OPTION_TYPE_def]
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xapp
+    \\ xsimpl
+    \\ simp[lineFD_NONE_lineForwardFD_fastForwardFD]
+    \\ qexists_tac`HOL_STORE refs` \\ xsimpl
+    \\ qexists_tac`fastForwardFD fs fd`
     \\ xsimpl)
+  \\ rpt strip_tac
+  \\ xcf"process_lines"(get_ml_prog_state())
+  \\ qpat_x_assum`_::_ = _`(assume_tac o SYM)
+  \\ imp_res_tac linesFD_cons_imp
+  \\ rveq \\ fs[] \\ rveq
+  \\ qmatch_assum_rename_tac`lineFD fs fd = SOME ln`
+  \\ xlet_auto >- xsimpl
+  \\ xmatch
+  \\ fs[OPTION_TYPE_def]
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+  \\ xlet_auto >- (
+    xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`refs` \\ xsimpl )
+  \\ xmatch
+  \\ Cases_on`process_line st refs (implode ln)` \\ fs[]
+  \\ qmatch_assum_rename_tac`SUM_TYPE _ _ sm _`
+  \\ Cases_on`sm` \\ fs[SUM_TYPE_def]
+  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   >- (
-    fs [implode_def, str_prefix_def]
-    \\ rw [] \\ xsimpl)
-  \\ xcon
-  >- (
-    fs [implode_def, str_prefix_def]
-    \\ xsimpl)
+    xapp
+    \\ simp[process_lines_def]
+    \\ xsimpl
+    \\ `STD_streams (lineForwardFD fs fd)` by simp[STD_streams_lineForwardFD]
+    \\ asm_exists_tac
+    \\ simp[]
+    \\ qexists_tac`emp` \\ xsimpl
+    \\ qmatch_asmsub_rename_tac`(INL st',refs')`
+    \\ qexists_tac`st'` \\ qexists_tac`refs'`
+    \\ qexists_tac`fd` \\ xsimpl
+    \\ imp_res_tac get_file_content_lineForwardFD_forwardFD
+    \\ simp[get_file_content_forwardFD] )
+  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
+  \\ xlet_auto >- xsimpl
+  \\ xapp_spec output_STDIO_spec
+  \\ simp[process_lines_def]
   \\ xsimpl
-  \\ fs[implode_def,str_prefix_def]
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
+  \\ qmatch_asmsub_rename_tac`(INR msg,refs')`
+  \\ qexists_tac`HOL_STORE refs'` \\ xsimpl
+  \\ `STD_streams fs'` by simp[STD_streams_lineForwardFD,Abbr`fs'`]
+  \\ drule STD_streams_stderr \\ strip_tac
+  \\ fs[stdo_def]
+  \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS]
+  \\ `2 <= 255n` by simp[] \\ asm_exists_tac
+  \\ instantiate \\ xsimpl
+  \\ conj_tac >- metis_tac[stderr_v_thm,stdErr_def]
+  \\ simp[insert_atI_end]
+  \\ simp[add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ (conj_tac >- metis_tac[STD_streams_stderr])
+  \\ rw[stdo_def,up_stdo_def,LENGTH_explode]
   \\ xsimpl);
 
 val _ = (append_prog o process_topdecs) `
   fun read_file file =
     let
       val ins = TextIO.openIn file
-
-      fun go st0 =
-        (case process_line st0 ins of
-          NONE     => TextIO.print "OK!\n"
-        | SOME st1 => go st1)
-        (* Consume all input in case of exceptions (for now at least) *)
-        handle Clash e => (TextIO.inputLines ins; ())
-             | Fail e  => (TextIO.inputLines ins;
-                           TextIO.output TextIO.stdErr (msg_failure e))
     in
-      go init_state;
+      process_lines ins init_state;
       TextIO.closeIn ins
     end
     (* Presuming that openIn will raise only this *)
-    handle TextIO.BadFileName e =>
+    handle TextIO.BadFileName =>
       TextIO.output TextIO.stdErr (msg_bad_name file)`;
 
-val fix_lines_def = Define `
-  fix_lines ss = MAP strlit (FILTER (\s. ~(IS_PREFIX s "#" \/ NULL s)) ss)`;
+val read_file_def = Define`
+  read_file fs refs fnm =
+    (case ALOOKUP fs.files (File fnm) of
+      SOME content =>
+       (case readLines (MAP (λx. implode(x++"\n")) (splitlines content)) init_state refs of
+        | (Success _, refs) => (add_stdout fs "OK!\n", refs)
+        | (Failure (Fail e), refs) => (add_stderr fs (explode (msg_failure e)), refs))
+     | NONE => (add_stderr fs (explode (msg_bad_name fnm)), refs))`;
 
-(* There is a readLines_def for reading multiple lines *)
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
    ==>
@@ -202,47 +339,56 @@ val read_file_spec = Q.store_thm("read_file_spec",
      (STDIO fs * HOL_STORE refs)
      (POSTv u.
        &UNIT_TYPE () u *
-       (case ALOOKUP fs.files (File fnm) of
-          SOME content =>
-            (case readLines (fix_lines (splitlines content)) init_state refs of
-              (Success s, refs') =>
-                  STDIO (add_stdout fs "OK!\n") *
-                  HOL_STORE refs'
-            | (Failure (Fail e), refs') =>
-                  STDIO (add_stderr fs (explode (msg_failure e))) *
-                  HOL_STORE refs'
-            | (Failure (Clash e), refs') =>
-                  STDIO fs *
-                  HOL_STORE refs')
-       | NONE =>
-           STDIO (add_stderr fs (explode (msg_bad_name fn))) *
-           HOL_STORE refs))`,
+       STDIO (FST(read_file fs refs fnm)) *
+       HOL_STORE (SND(read_file fs refs fnm)))`,
 
   xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
+  \\ simp[read_file_def]
+  \\ CASE_TAC \\ fs[]
+  >- (
+    xhandle`POSTe ev.
+      &BadFileName_exn ev *
+      &(~inFS_fname fs (File fnm)) *
+      STDIO fs * HOL_STORE refs`
+    >- (
+      xlet_auto_spec (SOME openIn_STDIO_spec)
+      \\ xsimpl
+      \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+      \\ fs[] )
+    \\ fs[BadFileName_exn_def]
+    \\ xcases
+    \\ xlet_auto >- xsimpl
+    \\ xapp_spec output_STDIO_spec
+    \\ xsimpl
+    \\ drule STD_streams_stderr \\ strip_tac
+    \\ fs[stdo_def]
+    \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS]
+    \\ `2 <= 255n` by simp[] \\ asm_exists_tac
+    \\ instantiate \\ xsimpl
+    \\ conj_tac >- metis_tac[stderr_v_thm,stdErr_def]
+    \\ simp[insert_atI_end]
+    \\ simp[add_stdo_def]
+    \\ SELECT_ELIM_TAC
+    \\ (conj_tac >- metis_tac[STD_streams_stderr])
+    \\ rw[stdo_def,up_stdo_def,LENGTH_explode]
+    \\ xsimpl)
+  \\ CASE_TAC \\ fs[]
+
   (* TextIO.openIn might fail *)
+  \\ qmatch_goalsub_abbrev_tac`option_CASE _ Qerr Qval`
   \\ xhandle
     `POST
        (\u.
          SEP_EXISTS content.
            &UNIT_TYPE () u *
            &(ALOOKUP fs.files (File fnm) = SOME content) *
-           (case readLines (fix_lines (splitlines content)) init_state refs of
-             (Success s, refs') =>
-                 STDIO (add_stdout fs "OK!\n") *
-                 HOL_STORE refs'
-           | (Failure (Fail e), refs') =>
-                 STDIO (add_stderr fs (explode (msg_failure e))) *
-                 HOL_STORE refs'
-           | (Failure (Clash e), refs') =>
-                 STDIO fs *
-                 HOL_STORE refs'))
+           Qval content)
        (\e.
          &BadFileName_exn e *
          &(~inFS_fname fs (File fnm)) *
-         STDIO fs *
-         HOL_STORE refs)`
+         STDIO fs * HOL_STORE refs)`
   >-
    (
     xlet_auto_spec (SOME (SPEC_ALL TextIOProofTheory.openIn_STDIO_spec)) \\ xsimpl
