@@ -298,12 +298,36 @@ val closure_spt_lemma =
 
 
 val closure_spt_thm = Q.store_thm ("closure_spt_thm",
-    `(start ∈ domain tree) ∧ (wf_set_tree tree)
+    `∀ start tree . (start ∈ domain tree) ∧ (wf_set_tree tree)
     ⇒ domain (closure_spt start tree) =
         {a | ∃ n . isReachable tree start a}`,
-    assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >> 
+    strip_tac >> strip_tac >> assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >> 
     first_x_assum match_mp_tac >> rw[]  >> fs[] >> res_tac >> fs[]
 );
+
+
+(* second definition - with start a set, rather than a single number *)
+
+val closure_spt2_def = Define `closure_spt2 start tree = close_spt LN start tree`;
+
+val closure_spt2_lemma = 
+    close_spt_thm |> Q.SPECL [`LN`, `start:num_set`, `tree`, `tree`]
+        |> SIMP_RULE std_ss [
+            GSYM closure_spt2_def, wf_def, wf_insert, subspt_def, domain_def, NOT_IN_EMPTY,
+            domain_insert, SUBSET_DEF
+           ] 
+        |> Q.SPECL[`domain (start:num_set)`]
+        |> SIMP_RULE std_ss [ConseqConvTheory.AND_CLAUSES_XX, ConseqConvTheory.IMP_CLAUSES_XX, IN_SING, Once isReachable_def, RTC_REFL, AND_CLAUSES]
+;
+
+val closure_spt2_thm = Q.store_thm("closure_spt2_thm",
+    `wf start ∧ (wf_set_tree tree) ∧ (domain start ⊆ domain tree)
+    ⇒ domain (closure_spt2 start tree) = 
+        {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`,
+    assume_tac closure_spt2_lemma >> rw[] >> fs[wf_set_tree_def] >> 
+    first_x_assum match_mp_tac >> reverse(rw[]) >> res_tac >> fs[SUBSET_DEF] >>
+    qexists_tac `k` >> fs[]
+); 
 
 
 
