@@ -1,8 +1,9 @@
 open preamble closLangTheory;
+open db_varsTheory;
 
 val _ = new_theory "clos_inline";
 
-val _ = set_grammar_ancestry ["closLang", "sptree", "misc", "backend_common"]
+(* val _ = set_grammar_ancestry ["closLang", "sptree", "misc", "backend_common"] *)
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -92,9 +93,133 @@ val is_rec_def = tDefine "is_rec" `
       by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
    \\ simp []);
 
+val free_def = tDefine "free" `
+  (free [] = ([],Empty)) /\
+  (free ((x:closLang$exp)::y::xs) =
+     let (c1,l1) = free [x] in
+     let (c2,l2) = free (y::xs) in
+       (c1 ++ c2,mk_Union l1 l2)) /\
+  (free [Var t v] = ([Var t v], Var v)) /\
+  (free [If t x1 x2 x3] =
+     let (c1,l1) = free [x1] in
+     let (c2,l2) = free [x2] in
+     let (c3,l3) = free [x3] in
+       ([If t (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
+  (free [Let t xs x2] =
+     let (c1,l1) = free xs in
+     let (c2,l2) = free [x2] in
+       ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
+  (free [Raise t x1] =
+     let (c1,l1) = free [x1] in
+       ([Raise t (HD c1)],l1)) /\
+  (free [Tick t x1] =
+     let (c1,l1) = free [x1] in
+       ([Tick t (HD c1)],l1)) /\
+  (free [Op t op xs] =
+     let (c1,l1) = free xs in
+       ([Op t op c1],l1)) /\
+  (free [App t loc_opt x1 xs2] =
+     let (c1,l1) = free [x1] in
+     let (c2,l2) = free xs2 in
+       ([App t loc_opt (HD c1) c2],mk_Union l1 l2)) /\
+  (free [Fn t loc _ num_args x1] =
+     let (c1,l1) = free [x1] in
+     let l2 = Shift num_args l1 in
+       ([Fn t loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
+  (free [Letrec t loc _ fns x1] =
+     let m = LENGTH fns in
+     let res = MAP (\(n,x). let (c,l) = free [x] in
+                              ((n,HD c),Shift (n + m) l)) fns in
+     let c1 = MAP FST res in
+     let l1 = list_mk_Union (MAP SND res) in
+     let (c2,l2) = free [x1] in
+       ([Letrec t loc (SOME (vars_to_list l1)) c1 (HD c2)],
+        mk_Union l1 (Shift (LENGTH fns) l2))) /\
+  (free [Handle t x1 x2] =
+     let (c1,l1) = free [x1] in
+     let (c2,l2) = free [x2] in
+       ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
+  (free [Call t ticks dest xs] =
+     let (c1,l1) = free xs in
+       ([Call t ticks dest c1],l1))`
+ (WF_REL_TAC `measure exp3_size`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
+
+val free_ind = theorem "free_ind";
+
+(*
+val free_LENGTH_LEMMA = Q.prove(
+  `!xs. (case free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
+  recInduct free_ind \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [free_def]
+  \\ SRW_TAC [] [] \\ SRW_TAC [] []
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ SRW_TAC [] [] \\ DECIDE_TAC)
+  |> SIMP_RULE std_ss [] |> SPEC_ALL;
+
+val free_LENGTH = Q.store_thm("free_LENGTH",
+  `!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
+  REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []);
+
+val free_SING = Q.store_thm("free_SING",
+  `(free [x] = (ys,l)) ==> ?y. ys = [y]`,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
+  \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
+
+val LENGTH_FST_free = Q.store_thm("LENGTH_FST_free",
+  `LENGTH (FST (free fns)) = LENGTH fns`,
+  Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
+
+val HD_FST_free = Q.store_thm("HD_FST_free",
+  `[HD (FST (free [x1]))] = FST (free [x1])`,
+  Cases_on `free [x1]` \\ fs []
+  \\ imp_res_tac free_SING \\ fs[]);
+
+val free_CONS = Q.store_thm("free_CONS",
+  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`,
+  Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
+  \\ Cases_on `free [x]` \\ fs []
+  \\ Cases_on `free (h::t)` \\ fs [SING_HD]
+\\ IMP_RES_TAC free_SING \\ fs []);
+*)
+
+val closed_def = Define `
+  closed x = isEmpty (db_to_set (SND (free [x])))`
+
+val contains_closures_def = tDefine "contains_closures" `
+  (contains_closures [] = F) /\
+  (contains_closures (x::y::xs) =
+    if contains_closures [x] then T else
+      contains_closures (y::xs)) /\
+  (contains_closures [Var t v] = F) /\
+  (contains_closures [If t x1 x2 x3] =
+     if contains_closures [x1] then T else
+     if contains_closures [x2] then T else
+       contains_closures [x3]) /\
+  (contains_closures [Let t xs x2] =
+     if contains_closures xs then T else
+       contains_closures [x2]) /\
+  (contains_closures [Raise t x1] = contains_closures [x1]) /\
+  (contains_closures [Handle t x1 x2] =
+     if contains_closures [x1] then T else
+       contains_closures [x2]) /\
+  (contains_closures [Op t op xs] = contains_closures xs) /\
+  (contains_closures [Tick t x] = contains_closures [x]) /\
+  (contains_closures [Call t ticks dest xs] = contains_closures xs) /\
+  (contains_closures [Fn t loc_opt ws_opt num_args x1] = T) /\
+  (contains_closures [Letrec t loc_opt ws_opt fns x1] = T) /\
+  (contains_closures [App t loc_opt x1 xs] =
+     if contains_closures [x1] then T else
+       contains_closures xs)`
+  (wf_rel_tac `measure exp3_size`);
+
 val must_inline_def = Define `
-  must_inline name limit e =
-    if is_small limit e then ~(is_rec name [e]) else F`
+  must_inline limit name num_args e =
+    if ~(is_small limit e) then F else
+    if is_rec name [e] then F else
+    if contains_closures [e] then F else
+    closed (Fn None NONE NONE num_args e)`
 
 (* -----------------------------------------------------------------
 
@@ -251,16 +376,22 @@ val dest_Clos_def = Define `
   (dest_Clos _ = NONE)`;
 val _ = export_rewrites["dest_Clos_def"];
 
-val clos_gen_def = Define`
-  (clos_gen n i [] = []) ∧
-  (clos_gen n i ((a,e)::xs) = Clos (n+2*i) a NONE::clos_gen n (i+1) xs)`
+val clos_approx_def = Define `
+  clos_approx limit loc num_args body =
+    Clos loc num_args (if must_inline limit loc num_args body
+                       then SOME body else NONE)`;
 
-val _ = Datatype`globalOpt = gO_Int int | gO_NullTuple num | gO_None`
+val clos_gen_def = Define`
+  (clos_gen limit n i [] = []) ∧
+  (clos_gen limit n i ((a,e)::xs) =
+    clos_approx limit (n+2*i) a e::clos_gen limit n (i+1) xs)`;
+
+val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
 
 val isGlobal_def = Define`
   (isGlobal (Global _) ⇔ T) ∧
-  (isGlobal _ ⇔ F)
-`
+  (isGlobal _ ⇔ F)`;
+
 val isGlobal_pmatch = Q.store_thm("isGlobal_pmatch",`!op.
   isGlobal op =
   case op of
@@ -274,12 +405,16 @@ val gO_destApx_def = Define`
   (gO_destApx (Int i) = gO_Int i) ∧
   (gO_destApx (Tuple tag args) = if NULL args then gO_NullTuple tag
                                  else gO_None) ∧
-  (gO_destApx _ = gO_None)
-`;
+  (gO_destApx _ = gO_None)`;
 
 val mk_Ticks_def = Define `
   (mk_Ticks t tc 0 e = e) /\
   (mk_Ticks t tc (SUC n) e = Tick (t§tc) (mk_Ticks t (tc + 1) n e))`;
+
+(* Accessors for the limit structure *)
+val size_limit_def = Define `size_limit = FST`;
+val depth_limit_def = Define `depth_limit = SND`;
+val dec_depth_def = Define `dec_depth = (I ## \d. d - 1n)`;
 
 val known_def = tDefine "known" `
   (known limit [] vs (g:val_approx spt) = ([],g)) /\
@@ -348,12 +483,12 @@ val known_def = tDefine "known" `
           | NONE => ([(App t new_loc_opt e1 (MAP FST e2),Other)],g)
           | SOME body => 
              if pure x then
-               let (ebody,g) = known ((I ## (\d. d - 1)) limit) [body] (MAP SND e2 ++ vs) g in
+               let (ebody,g) = known (dec_depth limit) [body] (MAP SND e2 ++ vs) g in
                let (ebody,abody) = HD ebody
                in
                  ([(Let (t§0) (MAP FST e2) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)
              else
-               let (ebody,g) = known ((I ## (\d. d - 1)) limit) [body] (SNOC a1 (MAP SND e2) ++ vs) g in
+               let (ebody,g) = known (dec_depth limit) [body] (SNOC a1 (MAP SND e2) ++ vs) g in
                let (ebody,abody) = HD ebody
                in
                  ([(Let (t§0) (SNOC e1 (MAP FST e2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
@@ -362,13 +497,12 @@ val known_def = tDefine "known" `
      let (body,a1) = HD e1 in
        ([(Fn t loc_opt NONE num_args body,
           dtcase loc_opt of
-          | SOME loc => Clos loc num_args (if must_inline loc (FST limit) body
-                                           then SOME body else NONE)
+          | SOME loc => clos_approx (size_limit limit) loc num_args body
           | NONE => Other)],g)) /\
   (known limit [Letrec t loc_opt _ fns x1] vs g =
      let clos = dtcase loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
-                |  SOME n => clos_gen n 0 fns in
+                |  SOME n => clos_gen (size_limit limit) n 0 fns in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)
      let new_fns = MAP (\(num_args,x).
@@ -379,42 +513,46 @@ val known_def = tDefine "known" `
      let (e1,a1) = HD e1 in
        ([(Letrec t loc_opt NONE new_fns e1,a1)],g))`
  (wf_rel_tac `inv_image (measure I LEX measure I)
-                        (\((_, depth_limit), xs, vs, g). (depth_limit, exp3_size xs))`
-  \\ simp [] \\ rpt strip_tac
+                        (\(limit, xs, vs, g). (depth_limit limit, exp3_size xs))`
+  \\ simp [dec_depth_def, depth_limit_def] \\ rpt strip_tac
   \\ imp_res_tac exp1_size_lemma
   \\ decide_tac);
 
+val known_ind = theorem "known_ind";
+
 val compile_def = Define `
-  compile F exp = (exp, LN,LN) /\
+  compile F exp = exp /\
   compile T exp =
     let (_,g1) = known (0,0) [exp] [] LN in
-    let (e,_) = known (0,0) [exp] [] g1 in
-    let (_,g2) = known (100,3) [FST (HD e)] [] LN in
-    let (e,_) = known (100,3) [FST (HD e)] [] g2 in
-      (FST (HD e), g1, g2)`
+    let (e1,_) = known (0,0) [exp] [] g1 in
+    let (_,g2) = known (0,0) [FST (HD e1)] [] LN in
+    let (e2,_) = known (100,1) [FST (HD e1)] [] g2 in
+      FST (HD e2)`
 
 val known_LENGTH = Q.store_thm(
   "known_LENGTH",
-  `∀es vs g. LENGTH (FST (known es vs g)) = LENGTH es`,
-  ho_match_mp_tac (fetch "-" "known_ind") >> simp[known_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]))
+  `∀limit es vs g. LENGTH (FST (known limit es vs g)) = LENGTH es`,
+  recInduct known_ind >> simp[known_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]) >>
+  rw [] >> CASE_TAC >> CASE_TAC >> fs [] >>
+  rpt (pairarg_tac >> fs []));
 
 val known_LENGTH_EQ_E = Q.store_thm(
   "known_LENGTH_EQ_E",
-  `known es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`,
+  `known limit es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`,
   metis_tac[FST, known_LENGTH]);
 
 val known_sing = Q.store_thm(
   "known_sing",
-  `∀e vs g. ∃e' a g'. known [e] vs g = ([(e',a)], g')`,
-  rpt strip_tac >> Cases_on `known [e] vs g` >>
-  rename1 `known [e] vs g = (res,g')` >>
-  qspecl_then [`[e]`, `vs`, `g`] mp_tac known_LENGTH >> simp[] >>
+  `∀limit e vs g. ∃e' a g'. known limit [e] vs g = ([(e',a)], g')`,
+  rpt strip_tac >> Cases_on `known limit [e] vs g` >>
+  rename1 `known limit [e] vs g = (res,g')` >>
+  qspecl_then [`limit`, `[e]`, `vs`, `g`] mp_tac known_LENGTH >> simp[] >>
   Cases_on `res` >> simp[LENGTH_NIL] >> metis_tac[pair_CASES])
 
 val known_sing_EQ_E = Q.store_thm(
   "known_sing_EQ_E",
-  `∀e vs g0 all g. known [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
+  `∀limit e vs g0 all g. known limit [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
   metis_tac[PAIR_EQ, known_sing]);
 
 (*
