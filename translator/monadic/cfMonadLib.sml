@@ -1,10 +1,17 @@
 structure cfMonadLib (* :> cfMonadLib *) = struct
 
-open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory
+open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
 
-val REF_REL_tm = ``REF_REL``;
-val RARRY_REL_tm = ``RARRAY_REL``;
-val emp_tm = ``emp : hprop``;
+val get_term = let
+  val ys = unpack_list (unpack_pair unpack_string unpack_term) cfMonadTheory.parsed_terms
+  in fn s => snd (first (fn (n,_) => n = s) ys) end
+
+fun get_fun_const def =
+  def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+val REF_REL_tm = get_fun_const REF_REL_def;
+val RARRY_REL_tm = get_fun_const RARRAY_REL_def;
+val emp_tm = get_term "emp";
+
 fun prove_Hpred_Mem_Only H_def = let
     val H = H_def |> concl |> lhs
     val state_var = concl H_def |> rhs |> dest_abs |> fst
@@ -21,7 +28,7 @@ fun prove_Hpred_Mem_Only H_def = let
 	val r = rator h |> rand
 	val get_fun = mk_abs(state_var, rand h)
 	val pred = rator h |> rator |> rator
-			 
+
 	val th = if same_const REF_REL_tm pred then
 		     ISPECL [A, get_fun, r] REFS_PRED_Mem_Only_REF_REL
 		 else ISPECL [A, get_fun, r] REFS_PRED_Mem_Only_RARRAY_REL
@@ -39,12 +46,12 @@ fun prove_Hpred_Mem_Only H_def = let
     val th = List.foldl apply_imp (List.hd interm_thms) (List.tl interm_thms)
 			|> PURE_REWRITE_RULE [GSYM H_def]
              (* If H is `\state. emp` *)
-	     handle Empty => Thm.INST_TYPE [``:'a`` |-> state_type] REFS_PRED_Mem_Only_emp
+	     handle Empty => Thm.INST_TYPE [alpha |-> state_type] REFS_PRED_Mem_Only_emp
 					   |> PURE_REWRITE_RULE [GSYM H_def]
 
 in th end
 
-val PURE_tm = ``PURE : ('a -> v -> bool) -> ('a, 'b) H``;
+val PURE_tm = get_term "PURE";
 val Eq_pat = SPEC_ALL ml_translatorTheory.Eq_def |> concl |> lhs;
 val EqSt_pat = SPEC_ALL EqSt_def |> concl |> lhs;
 
@@ -61,13 +68,13 @@ fun mk_app_of_ArrowP ffi spec = let
     val H = arrow_RI |> rator |> rator |> rand
     val state_type = type_of H |> dest_type |> snd |> List.hd
     val state_var = mk_var("state", state_type)
-    val p_var = mk_var("p", ``:unit ffi_proj``)
+    val p_var = get_term "p"
     val H_def = first (fn x => same_const H (concl x |> strip_forall |> snd |> lhs)) (DB.find ((dest_const H |> fst) ^"_def") |> List.map (fst o snd))
 
     (* Prove the assumptions on the STATE heap predicate *)
     val REFS_PRED_Mem_Only_thm = prove_Hpred_Mem_Only H_def
     fun remove_mem_only_assum th = MP th REFS_PRED_Mem_Only_thm
-    
+
     (* Create variables for the HOL and CakeML parameters,
        retrieve the refinement invariants *)
     fun get_params arrow_RI n = let
@@ -76,7 +83,7 @@ fun mk_app_of_ArrowP ffi spec = let
 	val arrow_RI' = rand arrow_RI
 	val comb_tm = rator arrow_RI'
 	val x = mk_var("x"^(Int.toString n), type_of ri |> dest_type |> snd |> List.hd)
-	val xv = mk_var("xv"^(Int.toString n), ``:v``)
+	val xv = mk_var("xv"^(Int.toString n), v_ty)
 	val x_triple = (x, xv, ri)
     in if same_const PURE_tm comb_tm then let
 	   val arrow_RI' = rand arrow_RI'
@@ -123,8 +130,8 @@ fun mk_app_of_ArrowP ffi spec = let
     val xl = List.map #1 params_info
     val xvl = List.map #2 params_info
     val params_info = List.tl(List.rev params_info)
-    val fv_var = mk_var("fv", ``:v``)
-    val gv_var = mk_var("gv", ``:v``)
+    val fv_var = mk_var("fv", v_ty)
+    val gv_var = mk_var("gv", v_ty)
 
     val lemma = if has_EqSt then ArrowP_MONAD_EqSt_to_app
 		else ArrowP_MONAD_to_app
@@ -142,7 +149,7 @@ fun mk_app_of_ArrowP ffi spec = let
 	val (xv2, xvl) = concl th |> dest_imp |> snd |> rator |> rator |> rand |> dest_comb
 	val xv2 = rand xv2
 	val f_tm = concl th |> dest_imp |> fst |> rator |> rand |> rator
-	
+
 	val assum = GEN gv_var th
 	val imp_th = ISPECL[A,B,f_tm,fv_var,x,xv,xv2,xvl,H,
 			    Q_abs,state_var,ffi] ArrowP_PURE_to_app
