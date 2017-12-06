@@ -147,7 +147,7 @@ val W8ARRAY_def = Define `
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
 
 val IO_def = Define `
-  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events)`;
+  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events) * cond (~MEM "" ns)`;
 
 val IOx_def = Define`
   IOx (encode,decode,ls) s =

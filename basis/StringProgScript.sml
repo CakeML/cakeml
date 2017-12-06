@@ -57,6 +57,8 @@ val translate_side_thm = Q.prove (
   rw [translate_side_def, translate_aux_side_thm] ) |> update_precondition
 
 
+val r = translate splitl_aux_def;
+val r = translate splitl_def;
 
 val result = translate tokens_aux_def;
 val tokens_aux_side_def = theorem"tokens_aux_side_def";
