@@ -706,7 +706,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
    ==>
    app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
      [Conv NONE []]
-     (STDIO fs * HOL_STORE refs * COMMANDLINE cl)
+     (STDIO fs * COMMANDLINE cl * HOL_STORE refs)
      (POSTv u.
        &UNIT_TYPE () u *
        STDIO (reader_main fs refs (TL (MAP implode cl))) *
@@ -753,19 +753,114 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ rw [UNIT_TYPE_def]
   \\ xsimpl);
 
-val st = get_ml_prog_state ();
+val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
+  `STD_streams fs ⇒ STD_streams (reader_main fs refs cl)`,
+  rw[reader_main_def]
+  \\ every_case_tac
+  \\ rw[STD_streams_add_stderr]
+  \\ rw[read_file_def,STD_streams_add_stderr]
+  \\ CASE_TAC \\ rw[STD_streams_add_stderr]
+  \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
+  \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
+  \\ fs[]);
+
+val init_refs_def = Define`
+  init_refs =
+   <|the_type_constants := init_type_constants;
+     the_term_constants := init_term_constants;
+     the_axioms := init_axioms;
+     the_context := init_context|>`;
+
 val name = "reader_main"
 val spec =
   reader_main_spec
   |> UNDISCH
   |> SIMP_RULE std_ss [STDIO_def]
-  |> add_basis_proj;
+  |> add_basis_proj
+  |> Q.GEN`refs` |> Q.SPEC`init_refs`;
+val st = get_ml_prog_state();
 
-val (sem_thm, prog_tm) = call_thm st name spec
-(* TODO: figure out what to do about HOL_STORE refs.
-See ml_hol_initTheory.kernel_init_thm
-*)
+(* TODO: where should this go? *)
+val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
+  `HOL_STORE init_refs
+   {Mem (1+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs)))
+        (Refv init_type_constants_v);
+    Mem (2+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs)))
+        (Refv init_term_constants_v);
+    Mem (3+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs)))
+        (Refv init_axioms_v);
+    Mem (4+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs++init_context_refs)))
+        (Refv init_context_v)}`,
+  qmatch_goalsub_abbrev_tac`1 + l1`
+  \\ qmatch_goalsub_abbrev_tac`2 + l2`
+  \\ qmatch_goalsub_abbrev_tac`3 + l3`
+  \\ qmatch_goalsub_abbrev_tac`4 + l4`
+  \\ rw[HOL_STORE_def,ml_monad_translatorBaseTheory.REF_REL_def,init_refs_def]
+  \\ rw[STAR_def,SEP_EXISTS_THM]
+  \\ qmatch_goalsub_abbrev_tac`Mem (l1+1) v1`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l2+2) v2`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l3+3) v3`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l4+4) v4`
+  \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2;Mem(l3+3)v3}`
+  \\ qexists_tac`{Mem(l4+4)v4}`
+  \\ `l1+1 < l2+2` by simp[Abbr`l1`,Abbr`l2`]
+  \\ `l2+2 < l3+3` by simp[Abbr`l2`,Abbr`l3`]
+  \\ `l3+3 < l4+4` by simp[Abbr`l3`,Abbr`l4`]
+  \\ conj_tac >- SPLIT_TAC
+  \\ reverse conj_tac
+  >- (
+    rw[REF_def,SEP_EXISTS_THM,EVAL``the_context``,cond_STAR,
+       ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
+    \\ rw[cond_def]
+    \\ qexists_tac`init_context_v`
+    \\ simp[init_context_v_thm]
+    \\ fs[Abbr`l4`]
+    \\ SPLIT_TAC )
+  \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2}`
+  \\ qexists_tac`{Mem(l3+3)v3}`
+  \\ conj_tac >- SPLIT_TAC
+  \\ reverse conj_tac
+  >- (
+    rw[REF_def,SEP_EXISTS_THM,EVAL``the_axioms``,cond_STAR,
+       ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
+    \\ rw[cond_def]
+    \\ qexists_tac`init_axioms_v`
+    \\ simp[init_axioms_v_thm]
+    \\ fs[Abbr`l3`]
+    \\ SPLIT_TAC )
+  \\ qexists_tac`{Mem(l1+1)v1}`
+  \\ qexists_tac`{Mem(l2+2)v2}`
+  \\ conj_tac >- SPLIT_TAC
+  \\ reverse conj_tac
+  >- (
+    rw[REF_def,SEP_EXISTS_THM,EVAL``the_term_constants``,cond_STAR,
+       ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
+    \\ rw[cond_def]
+    \\ qexists_tac`init_term_constants_v`
+    \\ simp[init_term_constants_v_thm]
+    \\ fs[Abbr`l2`]
+    \\ SPLIT_TAC ) \\
+  rw[REF_def,SEP_EXISTS_THM,EVAL``the_type_constants``,cond_STAR,
+     ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
+  \\ rw[cond_def]
+  \\ qexists_tac`init_type_constants_v`
+  \\ simp[init_type_constants_v_thm]
+  \\ fs[Abbr`l1`]
+  \\ SPLIT_TAC );
+(* -- *)
+
+val () = hprop_heap_thms := HOL_STORE_init_precond :: (!hprop_heap_thms)
+
+val (sem_thm,prog_tm) = call_thm st name spec
 
 val reader_prog_def = Define `reader_prog = ^prog_tm`
+
+val semantics_reader_prog =
+  sem_thm
+  |> REWRITE_RULE[GSYM reader_prog_def]
+  |> DISCH_ALL
+  |> CONV_RULE(LAND_CONV EVAL)
+  |> SIMP_RULE (srw_ss())[AND_IMP_INTRO,STD_streams_reader_main,GSYM CONJ_ASSOC]
+  |> curry save_thm "semantics_reader_prog";
 
 val _ = export_theory ();
