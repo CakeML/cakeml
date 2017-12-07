@@ -161,7 +161,6 @@ val EXN_TYPE = ref (get_term "UNIT_TYPE");
 val exn_type = ref unit_ty;
 
 (* Some functions to generate monadic types *)
-(* ``:^(!refs_type) -> (^ty, ^(!exn_type)) exc # ^(!refs_type)`` *)
 fun M_type ty = Type.type_subst [a_ty |-> !refs_type,
 				 b_ty |-> ty,
 				 c_ty |-> !exn_type]
@@ -505,7 +504,7 @@ fun derive_case_of ty = let
       in tryfind is_valid thms end
   (* *)
   val case_th = get_nchotomy_of ty
-  val pat = Eval_pat (* ``Eval env exp (P (res:'a))`` *)
+  val pat = Eval_pat
   val pure_tm = case_of ty |> concl
   (* Find a variable for the store invariant *)
   val pure_tm_vars = all_vars pure_tm
@@ -516,7 +515,6 @@ fun derive_case_of ty = let
     val (m,i) = match_term pat tm
     val res = mk_var("res", M_type a_ty)
     val st = mk_var("st",!refs_type)
-    (* val tm1 = subst m (inst i ``EvalM env st exp (MONAD P ^(!EXN_TYPE) ^res) ^H_var``) *)
     val tm0 = ISPECL_TM [!EXN_TYPE,res,H_var] derive_case_EvalM_abs
     val tm1 = subst m (inst i tm0)
     val ty1 = tm |> rand |> rand |> type_of
@@ -973,8 +971,6 @@ fun inst_EvalM_env v th = let
   val tys = Type.match_type (type_of v) (type_of inv |> dest_type |> snd |> List.hd)
   val v = Term.inst tys v
   val ri = mk_comb(inv, v)
-  (* val assum = ``Eval env (Var (Short ^str)) ^ri``
-  val new_env = ``write ^str (v:v) ^v_env`` *)
   val assum = ISPECL_TM [str,ri] Eval_name_RI_abs
   val new_env = mk_write str v_var v_env
   val old_env = new_env |> rand
@@ -1069,7 +1065,6 @@ fun apply_EvalM_Recclosure recc fname v th = let
   val v = Term.inst tys v
   val assum = subst [old_env|->new_env]
               (ISPECL_TM [vname_str,mk_comb(inv,v)] Eval_name_RI_abs)
-              (* ``Eval env (Var (Short ^vname_str)) (^inv ^v)`` *)
   val state_var = UNDISCH_ALL th |> concl |> get_EvalM_state
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum
