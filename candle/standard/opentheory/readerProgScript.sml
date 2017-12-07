@@ -16,6 +16,13 @@ val exc_case_eq = prove_case_eq_thm{case_def=exc_case_def,nchotomy=exc_nchotomy}
 val term_case_eq = prove_case_eq_thm{case_def=holSyntaxTheory.term_case_def,nchotomy=holSyntaxTheory.term_nchotomy};
 val option_case_eq = prove_case_eq_thm{case_def=optionTheory.option_case_def,nchotomy=optionTheory.option_nchotomy};
 val object_case_eq = prove_case_eq_thm{case_def=readerTheory.object_case_def,nchotomy=readerTheory.object_nchotomy};
+val exn_case_eq = prove_case_eq_thm{case_def=holKernelTheory.hol_exn_case_def,nchotomy=holKernelTheory.hol_exn_nchotomy};
+val list_case_eq = prove_case_eq_thm{case_def=listTheory.list_case_def,nchotomy=listTheory.list_nchotomy};
+val case_eq_thms =
+  LIST_CONJ
+    [exc_case_eq, term_case_eq, option_case_eq,
+     object_case_eq, list_case_eq, pair_case_eq,
+     exn_case_eq]
 
 (* TODO: Move these to holKernelProofTheory *)
 
@@ -257,22 +264,38 @@ val INST_not_clash = Q.store_thm("INST_not_clash[simp]",
   Cases_on `x` \\ fs [INST_def, st_ex_bind_def, st_ex_return_def, exc_case_eq, pair_case_eq]
   \\ ho_match_mp_tac image_clash_thm \\ rw []);
 
-(*
-val inst_not_clash = Q.store_thm("inst_not_clash[simp]",
-  `inst tys r s <> (Failure (Clash tm),refs)`,
-  fs [inst_def, st_ex_return_def, COND_RATOR, pair_case_eq, bool_case_eq]
-  \\ Cases_on `tys` \\ fs []
-  \\ cheat (* TODO *)
+val inst_aux_thm = Q.store_thm("inst_aux_thm",
+  `!env tyin tm s f t.
+     env = []
+     ==>
+     inst_aux env tyin tm s <> (Failure (Clash f),t)`,
+  recInduct inst_aux_ind \\ rw []
+  \\ Cases_on `tm` \\ fs []
+  \\ once_rewrite_tac [inst_aux_def] \\ fs []
+  \\ fs [st_ex_bind_def, st_ex_return_def, raise_Fail_def, raise_Clash_def]
+  >- fs [Once rev_assocd_def]
+  >- fs [bool_case_eq, case_eq_thms, COND_RATOR]
+  >- fs [case_eq_thms]
+  \\ fs [UNCURRY, handle_Clash_def] \\ every_case_tac \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs []
+  \\ fs [dest_var_def, st_ex_return_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  (* TODO I'm certain this mix of variant (...) things will ensure there is
+     no clash. How ? *)
+  \\ cheat
   );
 
+val inst_not_clash = Q.store_thm("inst_not_clash[simp]",
+  `inst x y z <> (Failure (Clash tm),refs)`,
+  fs [inst_def, st_ex_return_def, bool_case_eq, case_eq_thms, COND_RATOR]
+  \\ fs [inst_aux_thm]);
+
 val INST_TYPE_not_clash = Q.store_thm("INST_TYPE_not_clash[simp]",
-  `INST_TYPE tys th s <> (Failure (Clash tm),refs)`,
-  Cases_on `th` \\ fs [INST_TYPE_def, st_ex_bind_def, st_ex_return_def]
+  `INST_TYPE x y z <> (Failure (Clash tm),refs)`,
+  Cases_on `y` \\ fs [INST_TYPE_def, Once image_def]
+  \\ fs [st_ex_bind_def, st_ex_return_def]
   \\ every_case_tac \\ fs []
-  \\ CCONTR_TAC \\ fs [] \\ rw []
-  \\ pop_assum mp_tac \\ fs []
-  \\ ho_match_mp_tac image_clash_thm \\ rw []);
-*)
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [image_clash_thm]);
 
 (* TODO move to readerProofTheory *)
 
@@ -283,11 +306,8 @@ val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
      option_case_eq, bool_case_eq,UNCURRY,COND_RATOR]
   \\ rveq \\ fs[] \\ rw[]
   \\ every_case_tac \\ fs [raise_Fail_def]
-  \\ TRY
-   (pop_assum mp_tac \\ fs []
-    \\ ho_match_mp_tac map_not_clash_thm \\ rw [])
-  \\ cheat (* TODO need to figure out what triggers a clash in INST_TYPE *)
-  );
+  \\ pop_assum mp_tac \\ fs []
+  \\ ho_match_mp_tac map_not_clash_thm \\ rw []);
 
 val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
   `∀ls x y tm refs. readLines ls x y ≠ (Failure (Clash tm),refs)`,
