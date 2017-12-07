@@ -2760,7 +2760,9 @@ val parsed_types = save_thm("parsed_types",
      ("hprop_ty",``:hprop``),
      ("recclosure_exp_ty",``:(tvarN, tvarN # ast$exp) alist``),
      ("register_pure_type_pat",``:('a, 'b) ml_monadBase$exc``),
-     ("exc_ty",``:('a, 'b) exc``)]);
+     ("exc_ty",``:('a, 'b) exc``),
+     ("ffi",``:'ffi``)
+    ]);
 
 val knwn_consts_thm = save_thm("knwn_consts_thm",
   pack_list pack_term [
