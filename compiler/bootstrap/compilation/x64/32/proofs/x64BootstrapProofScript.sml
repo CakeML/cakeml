@@ -5,7 +5,12 @@ open preamble
 val _ = new_theory"x64BootstrapProof";
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler_prog |> Q.GENL[`cls`,`fs`]
+  semantics_compiler64_prog
+  |> SIMP_RULE (srw_ss()) [TextIOProofTheory.STD_streams_add_stderr,
+                           TextIOProofTheory.STD_streams_add_stdout,
+                           fsFFIPropsTheory.STD_streams_fastForwardFD,COND_RAND]
+  |> SIMP_RULE (srw_ss()) [GSYM COND_RAND,LET_THM,UNCURRY] (* TODO these simps should be done earlier *)
+  |> Q.GENL[`cls`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -27,6 +32,6 @@ val cake_compiled_thm =
   |> DISCH_ALL
   |> curry save_thm "cake_compiled_thm";
 
-(* TODO: compose this with a correctness theorem for compiler_x64? *)
+(* TODO: compose this with a correctness theorem for compiler_x32? *)
 
 val _ = export_theory();
