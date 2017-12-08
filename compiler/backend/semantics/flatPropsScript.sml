@@ -6,6 +6,13 @@ in end
 
 val _ = new_theory"flatProps"
 
+val ctor_same_type_OPTREL = Q.store_thm("ctor_same_type_OPTREL",
+  `∀c1 c2. ctor_same_type c1 c2 ⇔ OPTREL (inv_image $= SND) c1 c2`,
+  Cases \\ Cases \\ simp[OPTREL_def,ctor_same_type_def]
+  \\ rename1`_ (SOME p1) (SOME p2)`
+  \\ Cases_on`p1` \\ Cases_on`p2`
+  \\ EVAL_TAC);
+
 val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
   `(∀p acc. flatSem$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
     ∀ps acc. pats_bindings ps acc = pats_bindings ps [] ⧺ acc`,
