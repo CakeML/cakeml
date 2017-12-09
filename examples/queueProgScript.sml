@@ -179,18 +179,13 @@ val LIST_REL_REL_lqueue_HD = Q.store_thm(
   "LIST_REL_REL_lqueue_HD",
   ‘LIST_REL A qels qelvs ∧ lqueue qels f r (h::t) ⇒ A h (EL f qelvs)’,
   simp[lqueue_def] >> rw[]
-  >- (imp_res_tac LIST_REL_SPLIT1 >> rw[] >>
-      first_x_assum (strip_assume_tac o MATCH_MP (GEN_ALL LIST_REL_SPLIT1)) >>
-      rw[] >>
-      first_x_assum (strip_assume_tac o MATCH_MP (GEN_ALL LIST_REL_SPLIT1)) >>
-      fs[LIST_REL_CONS1] >> rw[] >> imp_res_tac LIST_REL_LENGTH >>
+  >- (fs[LIST_REL_SPLIT1] >> rw[] >>
+      imp_res_tac LIST_REL_LENGTH >>
       simp[EL_APPEND1, EL_APPEND2]) >>
-  Cases_on `p` >> fs[] >>
-  first_x_assum (strip_assume_tac o MATCH_MP (GEN_ALL LIST_REL_SPLIT1)) >>
-  rw[] >>
-  fs[LIST_REL_CONS1] >> rw[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+  Cases_on `p` >> fs[] >> rw[] >>
+  fs[LIST_REL_SPLIT1] >> rw[] >>
+  imp_res_tac LIST_REL_LENGTH >> fs[] >>
   simp[EL_APPEND1, EL_APPEND2]);
-
 
 val dequeue_spec_noexn = Q.prove(
     `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
