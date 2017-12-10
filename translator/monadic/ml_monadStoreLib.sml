@@ -3,6 +3,7 @@ structure ml_monadStoreLib :> ml_monadStoreLib = struct
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
+open packLib
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
 open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory ml_monadStoreTheory
@@ -13,11 +14,69 @@ fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT
 
+val get_term = let
+  val ys = unpack_list (unpack_pair unpack_string unpack_term)
+             ml_monadStoreTheory.parsed_terms
+  in fn s => snd (first (fn (n,_) => n = s) ys) end
+
+val get_type = let
+  val ys = unpack_list (unpack_pair unpack_string unpack_type)
+             ml_monadStoreTheory.parsed_types
+  in fn s => snd (first (fn (n,_) => n = s) ys) end
+
+(* Constants *)
+val hprop_ty = get_type "hprop"
+val v_ty = get_type "v"
+val unit_state_ty = get_type "unit_state"
+val unit_ffi_proj_ty = get_type "unit_ffi_proj"
+val lookup_ret_ty = get_type "lookup_ret"
+
+val TRUE = concl TRUTH
+val emp_const = get_term "emp"
+val APPEND_const = get_term "APPEND"
+val CONS_const = get_term "CONS"
+val REF_const = get_term "REF"
+val RARRAY_const = get_term "RARRAY"
+val SOME_const = get_term "SOME"
+val one_const = get_term "one"
+val cond_const = get_term "cond"
+val get_refs_const = get_term "get_refs"
+val opref_expr = get_term "opref_expr"
+val empty_v_list = get_term "empty_v_list"
+val empty_v_store = get_term "empty_v_store"
+val empty_alpha_list = get_term "empty_alpha_list"
+
+fun mk_get_refs state = let
+    val ffi_ty = type_of state |> dest_type |> snd |> hd
+    val get_refs = inst [alpha |-> ffi_ty] get_refs_const
+    val get_refs = mk_comb(get_refs, state) |> BETA_CONV |> concl |> rand
+in get_refs end
+
+fun mk_opref_expr name =
+  mk_comb(opref_expr, name) |> BETA_CONV |> concl |> rand
+
+fun mk_REF_REL TYPE r x =
+  ISPECL [TYPE, r, x] REF_REL_def |> concl |> dest_eq |> fst
+
+fun mk_RARRAY_REL TYPE r x =
+  ISPECL [TYPE, r, x] RARRAY_REL_def |> concl |> dest_eq |> fst
+
+fun mk_REFS_PRED H refs p s =
+  ISPECL [H, refs, p, s] REFS_PRED_def |> concl |> dest_eq |> fst
+
+fun mk_VALID_REFS_PRED H =
+  ISPECL [H] VALID_REFS_PRED_def |> concl |> dest_eq |> fst
+
+fun mk_lookup_eq name env type_tm = let
+    val lookup_tm = ISPECL [name, env] lookup_cons_def |> concl |> dest_eq |> fst
+    val some_tm = mk_comb (inst [alpha |-> lookup_ret_ty] SOME_const, mk_pair(one_const, type_tm))
+in mk_eq(lookup_tm, some_tm) end
+
 (******* COPY/PASTE from ml_monadProgScript.sml *****************************************)
 (*********** Comes from cfLetAutoLib.sml ***********************************************)	 
 (* [dest_pure_fact]
    Deconstruct a pure fact (a heap predicate of the form &P) *)
-val set_sep_cond_tm = ``set_sep$cond : bool -> hprop``;
+val set_sep_cond_tm = cond_const;
 fun dest_pure_fact p =
   case (dest_term p) of
   COMB dp =>
@@ -54,7 +113,7 @@ val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_
 (* TODO: use EXTRACT_PURE_FACT_CONV to rewrite EXTRACT_PURE_FACTS_TAC *)
 fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
   let
-      fun is_hprop a = ((dest_comb a |> fst |> type_of) = ``:hprop`` handle HOL_ERR _ => false)
+      fun is_hprop a = ((dest_comb a |> fst |> type_of) = hprop_ty handle HOL_ERR _ => false)
       val hpreds = List.filter is_hprop asl
       val hpreds' = List.map (fst o dest_comb) hpreds
       val hpreds_eqs = List.map (PURE_FACTS_FIRST_CONV) hpreds'
@@ -80,7 +139,7 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val ref_name = find_const_name (v_name ^ "_ref")
 
     (* Provisional *)
-    val array_v_def = define_abbrev false array_v_name ``[] : v list``
+    val array_v_def = define_abbrev false array_v_name empty_v_list (* ``[] : v list`` *)
     val ri = get_type_inv (concl value_def |> rhs |> type_of |> dest_type |> snd |> List.hd)
     val array_v_thm = Q.prove(`LIST_REL ^ri [] []`, rw[])
     val array_v_thm = SIMP_RULE pure_ss [GSYM value_def, GSYM array_v_def] array_v_thm
@@ -101,7 +160,7 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
 
     (* Abbreviate the reference location *)
     val res = concl th |> rand |> dest_pair |> snd |> rand
-    val ref_var = mk_var(ref_name, ``:v``)
+    val ref_var = mk_var(ref_name, v_ty)
     val ref_def = Define `^ref_var = ^res`
     val th = SIMP_RULE pure_ss [GSYM ref_def] th
 in (array_v_thm, array_loc_def, ref_def, th) end;
@@ -126,13 +185,13 @@ fun rewrite_pure_invariant refs_manip_list store_pinv_def = let
     val _ = if not is_partition then raise (ERR "rewrite_pure_invariant_aux" "Incorrect pure store invariant") else ()
 
     (* Rewrite the pure invariant *)
-    val preds = List.map (fn x => list_mk mk_conj x ``T``) split_conjs
+    val preds = List.map (fn x => list_mk mk_conj x TRUE) split_conjs
     val preds_info = zip get_pats preds
     fun make_abstract (pat, pred) = let
 	val x = mk_var("x", type_of pat)
 	val abs_pred = mk_comb(mk_abs(x, Term.subst [pat |-> x] pred), pat)
 	val eq = BETA_CONV abs_pred
-	val is_trivial = same_const pred ``T``
+	val is_trivial = same_const pred TRUE
     in (is_trivial, abs_pred, eq) end
     val abstracted_preds = List.map make_abstract preds_info
     val filtered_preds = List.filter (fn (x, _, _) => not x) abstracted_preds
@@ -159,7 +218,7 @@ fun get_rewritten_pure_invariant refs_manip_list store_pinv_opt =
 fun create_store refs_init_list arrays_init_list =
   let
       val initial_state = get_state(get_ml_prog_state())
-      val initial_store = EVAL ``^initial_state.refs`` |> concl |> rhs
+      val initial_store = EVAL (mk_get_refs initial_state) (* ``^initial_state.refs`` *) |> concl |> rhs
 
       (* Allocate the references *)
       fun create_ref (name, def) =
@@ -167,7 +226,7 @@ fun create_store refs_init_list arrays_init_list =
 	    val value_def = translate def
 	    val init_name = concl def |> dest_eq |> fst |> dest_const |> fst
 	    val init_name = stringLib.fromMLstring init_name
-	    val e = ``(App Opref [Var (Short ^init_name)])``
+	    val e = mk_opref_expr init_name (* ``(App Opref [Var (Short ^init_name)])`` *)
 	    val _ = ml_prog_update (add_Dlet (derive_eval_thm name e) name [])
 	    val ref_def = DB.fetch (current_theory()) (name ^ "_def")
 	in
@@ -254,7 +313,7 @@ fun create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs
                 (register_type ty; get_type_inv ty))
 	    val get_term = mk_comb (get_f, state_var) |> BETA_CONV |> concl |> dest_eq |> snd
 
-	    val hprop = ``REF_REL ^ref_inv ^ref_loc ^get_term``
+	    val hprop = mk_REF_REL ref_inv ref_loc get_term (* ``REF_REL ^ref_inv ^ref_loc ^get_term`` *)
 	in
 	    hprop
 	end
@@ -270,13 +329,13 @@ fun create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs
 				   |> get_type_inv
 	    val get_term = mk_comb (get_f, state_var) |> BETA_CONV |> concl |> dest_eq |> snd
 
-	    val hprop = ``RARRAY_REL ^ref_inv ^array_ref_loc ^get_term``
+	    val hprop = mk_RARRAY_REL ref_inv array_ref_loc get_term (* ``RARRAY_REL ^ref_inv ^array_ref_loc ^get_term`` *)
 	in
 	    hprop
 	end
       val arrays_hprops = List.map create_array_hprop create_array_hprop_params
 
-      val store_hprop = list_mk mk_star (refs_hprops @ arrays_hprops) ``emp : hprop``
+      val store_hprop = list_mk mk_star (refs_hprops @ arrays_hprops) emp_const
       val store_hprop = SIMP_CONV bool_ss [STAR_ASSOC] store_hprop |> concl |> dest_eq |> snd
 			handle UNCHANGED => store_hprop
       val store_hprop = case store_pinv_opt of
@@ -290,8 +349,8 @@ fun create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs
       val loc_vars = List.filter is_var (refs_locs @ arrays_refs_locs)
       val num_vars = List.length loc_vars
 
-      val store_hprop_type = mk_type("fun", [state_type, ``:hprop``])
-      fun mk_hprop_type n t = if n = 0 then t else mk_type("fun", [``:v``, mk_hprop_type (n-1) t])
+      val store_hprop_type = mk_type("fun", [state_type, hprop_ty])
+      fun mk_hprop_type n t = if n = 0 then t else mk_type("fun", [v_ty, mk_hprop_type (n-1) t])
       val store_hprop_type = mk_hprop_type num_vars store_hprop_type
       val store_hprop_var = mk_var(store_hprop_name, store_hprop_type)
       val store_hprop_pred = list_mk_comb (store_hprop_var, loc_vars)
@@ -355,16 +414,16 @@ val (g as (asl, w)) = top_goal();
       end
 
      fun eliminate_inherited_store_rec remaining_store =
-       if same_const remaining_store ``[] : 'a list`` then ALL_TAC
+       if same_const remaining_store empty_alpha_list (* ``[] : 'a list`` *) then ALL_TAC
        else let
 	   fun decompose_store remaining_store = let
 	       val (binder, remaining_store') = dest_comb remaining_store
 	       val (binder, e) = dest_comb binder
 	   in (binder, remaining_store') end
-           handle HOL_ERR _ => (``list$APPEND : 'a list -> 'a list -> 'a list``, ``[] : v store``)
+           handle HOL_ERR _ => (APPEND_const, empty_v_store) (* (``list$APPEND : 'a list -> 'a list -> 'a list``, ``[] : v store``) *)
 
 	   val (binder, remaining_store') = decompose_store remaining_store
-       in if same_const binder ``list$CONS : 'a -> 'a list -> 'a list`` then
+       in if same_const binder CONS_const (* ``list$CONS : 'a -> 'a list -> 'a list`` *) then
 	      (irule eliminate_store_elem_thm) \\ (eliminate_inherited_store_rec remaining_store')
 	  else (irule eliminate_substore_thm) \\ (eliminate_inherited_store_rec remaining_store')
        end
@@ -380,14 +439,14 @@ val (g as (asl, w)) = top_goal();
      fun check_ref (g as (asl, w)) = let
 	    val hprop = PURE_REWRITE_CONV [GSYM STAR_ASSOC] w
 					  |> concl |> rhs |> rator |> rator |> rand
-	  in if same_const ``REF`` (strip_comb hprop |> fst) then ALL_TAC g
+	  in if same_const REF_const (strip_comb hprop |> fst) then ALL_TAC g
 	     else FAIL_TAC "Not a ref" g end
              handle UNCHANGED => FAIL_TAC "Not a ref" g
 
      fun check_rarray (g as (asl, w)) = let
 	    val hprop = PURE_REWRITE_CONV [GSYM STAR_ASSOC] w
 					  |> concl |> rhs |> rator |> rator |> rand
-	  in if same_const ``RARRAY`` (strip_comb hprop |> fst) then ALL_TAC g
+	  in if same_const RARRAY_const (strip_comb hprop |> fst) then ALL_TAC g
 	     else FAIL_TAC "Not a resizable array" g end
           handle UNCHANGED => FAIL_TAC "Not a resizable array" g
 
@@ -395,7 +454,7 @@ in
     fun prove_valid_store_X_hprop save_th refs_manip_list arrays_manip_list refs_trans_results arrays_trans_results initial_store current_state state_type store_X_hprop_def store_pinv_info_opt =
       let
 	  val store_hprop_const = concl store_X_hprop_def |> dest_eq |> fst
-	  val current_store = ``^current_state.refs``
+	  val current_store = mk_get_refs current_state (* ``^current_state.refs`` *)
 	  val store_eval_thm = EVAL current_store
 
 	  val refs_get_funs = List.map (fn (_, _, x, _, _) => x) refs_manip_list
@@ -413,11 +472,15 @@ in
 	  in eq end
 	  val hyps = List.map mk_get_eq ((zip refs_get_funs refs_init_values)
 					 @ (zip arrays_get_funs arrays_init_values))
-	  val hyps = list_mk_conj hyps handle HOL_ERR _ => ``T``
+	  val hyps = list_mk_conj hyps handle HOL_ERR _ => TRUE
 
-          val tys = match_type (type_of current_state) ``:unit semanticPrimitives$state``
+          val tys = match_type (type_of current_state) unit_state_ty
           val current_state = Term.inst tys current_state
-	  val goal = ``!(^state_var) p. ^hyps ==> REFS_PRED ^store_hprop_const state p ^current_state``
+
+	  val p_var = mk_var("p", unit_ffi_proj_ty);
+	  val goal = mk_REFS_PRED store_hprop_const state_var p_var current_state
+	  val goal = list_mk_forall([state_var, p_var], mk_imp(hyps, goal))
+	  (* val goal = ``!(^state_var) p. ^hyps ==> REFS_PRED ^store_hprop_const state p ^current_state`` *)
           (* set_goal ([], goal) *)
 
 	  val solve_first_ref_subheap_tac =
@@ -496,9 +559,9 @@ end;
 (* Prove the validity theorem for the characteristic heap predicate *)
 fun prove_exists_store_X_hprop save_th state_type store_hprop_name valid_store_X_hprop_thm =
   let
-      val store_hprop_const = mk_const(store_hprop_name, mk_type("fun", [state_type, ``:hprop``]))
+      val store_hprop_const = mk_const(store_hprop_name, mk_type("fun", [state_type, hprop_ty]))
       val current_state = get_state(get_ml_prog_state())
-      val ty_subst = Type.match_type (type_of current_state) ``:unit semanticPrimitives$state``
+      val ty_subst = Type.match_type (type_of current_state) unit_state_ty
       val current_state = Term.inst ty_subst current_state
 
       val (vars, hyps) =
@@ -506,20 +569,20 @@ fun prove_exists_store_X_hprop save_th state_type store_hprop_name valid_store_X
       val (refs_var, ffi_var) = if List.length vars = 2
             then (hd vars, hd(tl vars))
             else failwith "prove_exists_store_X_hprop"
-      val hyps = dest_imp hyps |> fst handle HOL_ERR _ => ``T``
-      val interm_goal = ``?(^refs_var) (^ffi_var). ^hyps``
+      val hyps = dest_imp hyps |> fst handle HOL_ERR _ => TRUE
+      val interm_goal = list_mk_exists([refs_var, ffi_var], hyps) (* ``?(^refs_var) (^ffi_var). ^hyps`` *)
       val interm_solve_tac =  srw_tac[QI_ss][]
       val interm_th = prove(interm_goal, interm_solve_tac)
       (* set_goal([], interm_goal) *)
 
-      val goal = ``VALID_REFS_PRED ^store_hprop_const``
+      val goal = mk_VALID_REFS_PRED store_hprop_const (* ``VALID_REFS_PRED ^store_hprop_const`` *)
 
       (* set_goal([], goal) *)
       val solve_tac = 
           PURE_REWRITE_TAC[VALID_REFS_PRED_def]
           \\ STRIP_ASSUME_TAC interm_th
           \\ FIRST[CHANGED_TAC(IMP_RES_TAC valid_store_X_hprop_thm),
-		   ASSUME_TAC valid_store_X_hprop_thm] (* if hyps = ``T`` *)
+		   ASSUME_TAC valid_store_X_hprop_thm] (* if hyps = TRUE *)
           \\ metis_tac[]
 
       val thm_name = store_hprop_name ^"_EXISTS"
@@ -590,7 +653,7 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	val (state_var, H_part) = concl H_eq |> rhs |> dest_abs
 	val H_part = if List.length refs_manip_list + List.length arrays_manip_list > 1 then
 			 mk_abs(state_var, rand H_part)
-		     else mk_abs(state_var, ``emp : hprop``)
+		     else mk_abs(state_var, emp_const)
 
 	(* If there is a pure heap invariant provided *)
 	val (PINV, H_part2) =
@@ -601,7 +664,7 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 		 val H_part2 = mk_abs(state_var, H_part2)
 		 val PINV = rand PINV |> rator
 	     in (PINV, H_part2) end
-	      | NONE => (mk_abs(state_var, ``T``), H_part)
+	      | NONE => (mk_abs(state_var, TRUE), H_part)
 
 	fun rewrite_thm th = let
 	    val th = PURE_ONCE_REWRITE_RULE[GSYM loc_def] th
@@ -664,7 +727,7 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	val (state_var, H_part) = concl H_eq |> rhs |> dest_abs
 	val H_part = if List.length refs_manip_list + List.length arrays_manip_list > 1 then
 			 mk_abs(state_var, rand H_part)
-		     else mk_abs(state_var, ``emp : hprop``)
+		     else mk_abs(state_var, emp_const)
 
 	fun rewrite_thm th = let
 	    val th = PURE_ONCE_REWRITE_RULE[GSYM loc_def] th
@@ -695,7 +758,8 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
           |> snd |> dest_conj |> fst |> rhs |> rator |> rand |> rand |> dest_pair) types_pairs
 	val deep_type = tryfind (fn (x, y) => if x = exn_name_v then y else failwith "") types_pairs
 
-	val lookup_hyp = ``lookup_cons ^exn_name_v ^env = SOME (1, ^deep_type)``
+	(* val lookup_hyp = ``lookup_cons ^exn_name_v ^env = SOME (1, ^deep_type)`` *)
+	val lookup_hyp = mk_lookup_eq exn_name_v env deep_type
 	val goal = mk_imp(lookup_hyp, sub_assum)
 
 	val solve_tac = rw[Eval_def, lookup_cons_def]
@@ -737,7 +801,8 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
           |> snd |> dest_conj |> fst |> rhs |> rator |> rand |> rand |> dest_pair) types_pairs
 	val deep_type = tryfind (fn (x, y) => if x = exn_name_v then y else failwith "") types_pairs
 
-	val lookup_hyp = ``lookup_cons ^exn_name_v ^env = SOME (1, ^deep_type)``
+	(* val lookup_hyp = ``lookup_cons ^exn_name_v ^env = SOME (1, ^deep_type)`` *)
+val lookup_hyp = mk_lookup_eq exn_name_v env deep_type
 	val goal = mk_imp(lookup_hyp, update_assum)
 
 	val lookup_th = prove(goal, solve_tac)
@@ -770,11 +835,11 @@ end
 fun create_locs_variables refs_manip_list arrays_manip_list = let
     val refs_names = List.map (fn (n, _, _) => n) refs_manip_list
     val refs_locs_names = List.map (fn x => "init_"^x) refs_names
-    val refs_locs_vars = List.map (fn x => mk_var(x, ``:v``)) refs_locs_names
+    val refs_locs_vars = List.map (fn x => mk_var(x, v_ty)) refs_locs_names
 
     val arrays_names = List.map (fn (n, _, _, _, _, _, _) => n) arrays_manip_list
     val arrays_locs_names = List.map (fn x => "init_" ^x) arrays_names
-    val arrays_locs_vars = List.map (fn x => mk_var(x, ``:v``)) arrays_locs_names
+    val arrays_locs_vars = List.map (fn x => mk_var(x, v_ty)) arrays_locs_names
 in (refs_locs_vars, arrays_locs_vars) end
 
 type monadic_translation_parameters =
