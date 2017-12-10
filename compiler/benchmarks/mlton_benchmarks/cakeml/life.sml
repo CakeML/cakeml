@@ -147,8 +147,7 @@ structure Main =
        in loop size
        end
 
-    (*fun testit strm = show (fn c => TextIO.output (strm, c)) (nthgen gun 50)*)
-    fun testit () = show (fn c => print  c) (nthgen gun 50)
+    fun testit () = show (fn c => print  c) (nthgen gun 25000)
 
   end (* Life *)
 

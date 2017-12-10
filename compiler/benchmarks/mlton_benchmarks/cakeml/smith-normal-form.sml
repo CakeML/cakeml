@@ -195,7 +195,7 @@ structure Matrix =
       fun toString (mat, f) =
          let val mat = map (mat, f) in
          case mat of (height,width,_) =>
-         let fun maxSize from (i, width) = max (String.strlen (from i)) width
+         let fun maxSize from (i, width) = max (String.size (from i)) width
             fun colWidth col = naturalFold (height,
                                             0,
                                             maxSize (fetchCol (mat,
@@ -206,7 +206,7 @@ structure Matrix =
                   fun loop (col: int, ac: string list) =
                      let val next = from col
                         val ac = next::ac
-                        val s = String.strlen next
+                        val s = String.size next
                         val pad = Vector.sub widths col - s
                         val ac = if pad <= 0
                                     then ac
