@@ -558,9 +558,7 @@ val isConstructor_def = Define`
     do
       ifM (isSymbolicConstructor structopt s)
         (return T)
-        (return (dtcase misc$oHD s of
-                     NONE => F
-                   | SOME c => isAlpha c ∧ isUpper c))
+        (return (dtcase oHD s of NONE => F | SOME c => isAlpha c ∧ isUpper c))
     od
 `;
 
@@ -1127,7 +1125,7 @@ local
                 assert(tokcheck eqt EqualsT);
                 fname <- ptree_V fname_pt;
                 ps <- ptree_PbaseList1 pats_pt;
-                p1 <- misc$oHD ps;
+                p1 <- oHD ps;
                 body0 <- ptree_Expr nE body_pt;
                 SOME(fname,dePat p1 (FOLDR mkFun body0 (misc$safeTL ps)))
               od
