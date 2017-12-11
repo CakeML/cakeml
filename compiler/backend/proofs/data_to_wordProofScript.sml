@@ -106,17 +106,45 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
              asmTheory.word_cmp_def])
-    \\ Cases_on `dataSem$cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[add_space_def,wordSemTheory.word_exp_def,
-         wordSemTheory.get_var_def,wordSemTheory.set_var_def]
-    \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
-         (t with locals := insert 1 (Word (alloc_size k)) t.locals))
-             :('a result option)#( ('a,'ffi) wordSem$state)`
-    \\ full_simp_tac(srw_ss())[]
-    \\ drule (GEN_ALL alloc_lemma)
+    \\ reverse (Cases_on `c.call_empty_ffi`)
+    THEN1
+     (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def]
+      \\ Cases_on `dataSem$cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
+      \\ srw_tac[][]
+      \\ full_simp_tac(srw_ss())[add_space_def,wordSemTheory.word_exp_def,
+           wordSemTheory.get_var_def,wordSemTheory.set_var_def]
+      \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
+           (t with locals := insert 1 (Word (alloc_size k)) t.locals))
+               :('a result option)#( ('a,'ffi) wordSem$state)`
+      \\ full_simp_tac(srw_ss())[]
+      \\ drule (GEN_ALL alloc_lemma)
+      \\ rpt (disch_then drule)
+      \\ rw [] \\ fs [])
+    \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def,eq_eval]
+    \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
+           wordSemTheory.set_var_def,EVAL ``read_bytearray 0w 0 m``,
+           ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
+           wordSemTheory.get_var_def,lookup_insert]
+    \\ fs [cut_env_adjust_set_insert_1,cut_env_adjust_set_insert_3]
+    \\ drule (GEN_ALL cut_env_IMP_cut_env)
+    \\ Cases_on `dataSem$cut_env names s.locals` \\ fs []
+    \\ disch_then drule \\ strip_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ drule (GEN_ALL state_rel_cut_env_cut_env)
     \\ rpt (disch_then drule)
-    \\ rw [] \\ fs [])
+    \\ strip_tac
+    \\ drule (GEN_ALL alloc_lemma) \\ fs [] \\ rveq
+    \\ `dataSem$cut_env names x = SOME x` by
+      (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs [lookup_inter_alt,domain_inter])
+    \\ disch_then drule
+    \\ qmatch_assum_abbrev_tac `alloc _ _ t5 = _`
+    \\ `t5 = t with locals := insert 1 (Word (alloc_size k)) y` by
+          (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
+    \\ fs [] \\ disch_then drule
+    \\ strip_tac \\ Cases_on `res' = SOME NotEnoughSpace` \\ fs []
+    \\ rveq \\ fs []
+    \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
+    \\ fs [add_space_def] \\ fs [state_rel_thm])
   THEN1 (* Raise *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -828,9 +856,15 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
     fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,Maxout_bits_code_def])
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
-          fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
+          fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
+             SilentFFI_def,list_Seq_def]>>
     rw[]>> res_tac>>fs[]>>
-    CCONTR_TAC>>fs[]>>res_tac>>fs[]));
+    CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
+    fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
+       SilentFFI_def,list_Seq_def]>>
+    every_case_tac >> fs [] >>
+    fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
+       SilentFFI_def,list_Seq_def]));
 
 open match_goal
 
@@ -942,7 +976,8 @@ val comp_no_inst = Q.prove(`
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
   fs[assign_no_inst]>>
-  EVAL_TAC>>fs[]);
+  EVAL_TAC>>fs[] >>
+  IF_CASES_TAC >> EVAL_TAC >> fs []);
 
 val bounds_lem = Q.prove(`
   (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧

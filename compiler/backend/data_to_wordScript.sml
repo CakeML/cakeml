@@ -219,14 +219,23 @@ val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
 val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
   ``ByteCopyNew_location`` |> EVAL);
 
+val SilentFFI_def = Define `
+  SilentFFI c n names =
+    if c.call_empty_ffi then
+      Seq (Assign n (Const 0w)) (FFI "" n n n n names)
+    else Skip`;
+
 val AllocVar_def = Define `
-  AllocVar (limit:num) (names:num_set) =
+  AllocVar c (limit:num) (names:num_set) =
     list_Seq [Assign 1 (Shift Lsr (Var 1) (Nat 2));
               If Lower 1 (Imm (n2w limit))
                 (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (Nat (shift (:'a)))))
                 (Assign 1 (Const (-1w:'a word)));
               Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
-              If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip]`;
+              If Lower 3 (Reg 1)
+                (list_Seq [SilentFFI c 3 (insert 1 () (adjust_set names));
+                           Alloc 1 (adjust_set names);
+                           SilentFFI c 3 (adjust_set names)]) Skip]`;
 
 val MakeBytes_def = Define `
   MakeBytes n =
@@ -266,7 +275,7 @@ val RefByte_code_def = Define`
         list_Seq
           [BignumHalt 2;
            Assign 1 x;
-           AllocVar limit (fromList [();();()]);
+           AllocVar c limit (fromList [();();()]);
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
            Assign 7 (Shift Lsl (Var 5) (Nat 2));
@@ -326,7 +335,7 @@ val FromList_code_def = Define `
                    Return 0 6])
         (list_Seq
           [BignumHalt 2;
-           Assign 1 (Var 2); AllocVar limit (fromList [();();()]);
+           Assign 1 (Var 2); AllocVar c limit (fromList [();();()]);
            Assign 1 (Lookup NextFree);
            Assign 5 (Op Or [h; Const 3w; Var 6]);
            Assign 7 (Shift Lsr (Var 2) (Nat 2));
@@ -363,7 +372,7 @@ val RefArray_code_def = Define `
         list_Seq
           [BignumHalt 2;
            Move 0 [(1,2)];
-           AllocVar limit (fromList [();()]);
+           AllocVar c limit (fromList [();()]);
            Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
                       (Nat (shift (:'a))));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
@@ -451,7 +460,7 @@ val AnyArith_code_def = Define `
       AddNumSize c 0;
       AddNumSize c 1;
       Set (Temp 29w) (Var 1);
-      AllocVar (2 ** c.len_size) (fromList [();();()]);
+      AllocVar c (2 ** c.len_size) (fromList [();();()]);
       (* convert smallnums to bignum if necessary *)
       AnyHeader c 2 F 0w 31w 12w;
       AnyHeader c 4 T 1w 30w 11w;
@@ -908,8 +917,10 @@ local val assign_quotation = `
     | ConfigGC =>
         (dtcase args of
          | [v1;v2] =>
-             (list_Seq [Assign 1 (Const 0w);
+             (list_Seq [SilentFFI c 3 (adjust_set (get_names names));
+                        Assign 1 (Const 0w);
                         Alloc 1 (adjust_set (get_names names)); (* runs GC *)
+                        SilentFFI c 3 (adjust_set (get_names names));
                         Assign (adjust_var dest) (Const 2w)],l)
          | _ => (Skip,l))
     | ConsExtend tag =>
@@ -924,7 +935,7 @@ local val assign_quotation = `
                 (list_Seq
                   [BignumHalt (adjust_var tot);
                    Assign 1 (Var (adjust_var tot));
-                   AllocVar limit (list_insert args (get_names names));
+                   AllocVar c limit (list_insert args (get_names names));
                    Assign 1 (Lookup NextFree);
                    Assign 5 (Op Or [h; Const header]);
                    Assign 7 (Shift Lsr (Var (adjust_var tot)) (Nat 2));
@@ -1720,7 +1731,10 @@ val comp_def = Define `
         let w = if w2n w = n * k then w else ~0w in
           (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
-                 (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)))
+                 (list_Seq [SilentFFI c 3 (adjust_set names);
+                            Assign 1 (Const w);
+                            Alloc 1 (adjust_set names);
+                            SilentFFI c 3 (adjust_set names)])
                 Skip),l)
     | Assign dest op args names => assign c secn l dest op args names
     | Call ret target args handler =>

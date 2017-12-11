@@ -42,7 +42,7 @@ val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
    Equal1_code_def, Equal_code_def, LongDiv1_code_def, LongDiv_code_def,
    ShiftVar_def, generated_bignum_stubs_eq, DivCode_def,
    AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def,
-   WriteWord32_on_32_def, AllocVar_def,
+   WriteWord32_on_32_def, AllocVar_def, SilentFFI_def,
    WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]);
 
 val get_vars_SING = Q.store_thm("get_vars_SING",
@@ -350,7 +350,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
   \\ qabbrev_tac `limit = MIN (2 ** c.len_size) (dimword (:α) DIV 16)`
   \\ fs [get_var_set_var_thm]
   \\ Cases_on `evaluate
-       (AllocVar limit (fromList [(); ()]),set_var 1 (Word (n2w (4 * i))) t)`
+       (AllocVar c limit (fromList [(); ()]),set_var 1 (Word (n2w (4 * i))) t)`
   \\ fs []
   \\ disch_then drule
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
@@ -672,7 +672,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ qabbrev_tac `limit = MIN (2 ** c.len_size) (dimword (:α) DIV 16)`
   \\ fs [get_var_set_var_thm]
   \\ Cases_on `evaluate
-       (AllocVar limit (fromList [(); (); ()]),set_var 1 (Word wA) t)` \\ fs []
+       (AllocVar c limit (fromList [(); (); ()]),set_var 1 (Word wA) t)` \\ fs []
   \\ disch_then drule
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
@@ -2544,16 +2544,58 @@ val th = Q.store_thm("assign_ConfigGC",
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ fs[assign_def,EVAL ``op_requires_names ConfigGC``]
   \\ fs [list_Seq_def,eq_eval]
-  \\ fs [case_eq_thms]
+  \\ reverse (Cases_on `c.call_empty_ffi`)
+  THEN1
+   (fs [SilentFFI_def,wordSemTheory.evaluate_def]
+    \\ fs [case_eq_thms]
+    \\ qpat_abbrev_tac `alll = alloc _ _ _`
+    \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
+    \\ unabbrev_all_tac \\ fs []
+    \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+    \\ Cases_on `names_opt`
+    \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
+    \\ rpt_drule (alloc_lemma |> Q.INST [`k`|->`0`])
+    \\ fs [EVAL ``alloc_size 0``,get_names_def]
+    \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
+    \\ fs [state_rel_thm,set_var_def,bvi_to_data_def,bviSemTheory.bvl_to_bvi_def,
+           data_to_bvi_def,bviSemTheory.bvi_to_bvl_def]
+    \\ fs [lookup_insert,adjust_var_11]
+    \\ strip_tac \\ rw []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs [])
+  \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,eq_eval]
+  \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
+         wordSemTheory.set_var_def,EVAL ``read_bytearray 0w 0 m``,
+         ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
+         wordSemTheory.get_var_def,lookup_insert]
+  \\ Cases_on `names_opt`
+  \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
+  \\ fs [get_names_def]
+  \\ fs [cut_env_adjust_set_insert_3]
+  \\ drule (GEN_ALL cut_env_IMP_cut_env) \\ fs []
+  \\ `dataSem$cut_env x' env = SOME env` by
+    (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs[domain_inter,lookup_inter_alt])
+  \\ disch_then drule \\ strip_tac \\ fs []
   \\ qpat_abbrev_tac `alll = alloc _ _ _`
   \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
   \\ unabbrev_all_tac \\ fs []
-  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
-  \\ Cases_on `names_opt`
-  \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
-  \\ rpt_drule (alloc_lemma |> Q.INST [`k`|->`0`])
-  \\ fs [EVAL ``alloc_size 0``,get_names_def]
-  \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
+  \\ drule (GEN_ALL state_rel_cut_env_cut_env)
+  \\ fs []
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ strip_tac
+  \\ rpt_drule (alloc_lemma |> Q.INST [`k`|->`0`]) \\ fs []
+  \\ disch_then drule
+  \\ qmatch_assum_abbrev_tac `alloc _ _ t6 = _`
+  \\ `t6 = t with locals := insert 1 (Word (alloc_size 0)) y` by
+   (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality]
+    \\ fs [EVAL ``alloc_size 0``,ZERO_LT_dimword])
+  \\ fs [] \\ fs [EVAL ``alloc_size 0``,ZERO_LT_dimword]
+  \\ strip_tac
+  \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
+  \\ rveq \\ fs []
+  \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
   \\ fs [state_rel_thm,set_var_def,bvi_to_data_def,bviSemTheory.bvl_to_bvi_def,
          data_to_bvi_def,bviSemTheory.bvi_to_bvl_def]
   \\ fs [lookup_insert,adjust_var_11]
@@ -7738,7 +7780,7 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ fs[]
   \\ `state_rel c l1 l2 x t5 [] locs` by
        (unabbrev_all_tac \\ fs [state_rel_insert_1])
-  \\ qmatch_goalsub_abbrev_tac `AllocVar lim nms` \\ fs [] \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac `AllocVar c lim nms` \\ fs [] \\ strip_tac
   \\ `?xx. dataSem$cut_env nms x.locals = SOME xx` by
    (fs [dataSemTheory.cut_env_def,bvi_to_dataTheory.op_requires_names_def]
     \\ fs [EVAL ``op_space_reset (ConsExtend tag)``]
