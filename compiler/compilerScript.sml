@@ -278,6 +278,7 @@ val parse_data_conf_def = Define`
   let len_bits = find_num (strlit "--len_bits=") ls data.len_bits in
   let pad_bits = find_num (strlit "--pad_bits=") ls data.pad_bits in
   let len_size = find_num (strlit "--len_size=") ls data.len_size in
+  let gc_FFI   = find_bool (strlit"--log_gc") in
   let gc = parse_gc ls data.gc_kind in
   case (tag_bits,len_bits,pad_bits,len_size,gc) of
     (INL tb,INL lb,INL pb,INL ls,INL gc) =>
@@ -287,7 +288,8 @@ val parse_data_conf_def = Define`
          len_bits := lb;
          pad_bits := pb;
          len_size := ls;
-         gc_kind  := gc |>)
+         gc_kind  := gc;
+         call_empty_ffi := gc_FFI |>)
   | _ =>
      INR (concat [get_err_str tag_bits;
                   get_err_str len_bits;
