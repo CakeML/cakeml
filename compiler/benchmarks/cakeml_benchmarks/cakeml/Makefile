@@ -15,10 +15,10 @@ ASM_PROGS = $(patsubst %.sml,%.S,$(BMS))
 
 all: compiler benchmarks
 
-basis_ffi.c : ../../../basis/basis_ffi.c
+basis_ffi.c : ../../../../basis/basis_ffi.c
 	$(CP) $< $@
 
-cake.S : ../../bootstrap/evaluation/x64/cake.S
+cake.S : ../../../bootstrap/compilation/x64/64/cake.S
 	$(CP) $< $@
 
 compiler : cake.S basis_ffi.c
@@ -27,7 +27,7 @@ compiler : cake.S basis_ffi.c
 benchmarks : $(BM_PROGS_O4)
 
 cake_O0_% : %.sml
-	./$(CAKECC) --no_multi --no_known --no_call --no_remove < $(basename $<).sml > $(basename $<).S
+	./$(CAKECC) --max_app=1 --no_known --no_call --no_remove < $(basename $<).sml > $(basename $<).S
 	$(CC) $(basename $<).S basis_ffi.c $(FLAGS) $@
 
 cake_O1_% : %.sml
@@ -43,7 +43,7 @@ cake_O3_% : %.sml
 	$(CC) $(basename $<).S basis_ffi.c $(FLAGS) $@
 
 cake_O4_% : %.sml
-	./$(CAKECC) --max_app=10 < $(basename $<).sml > $(basename $<).S
+	./$(CAKECC) < $(basename $<).sml > $(basename $<).S
 	$(CC) $(basename $<).S basis_ffi.c $(FLAGS) $@
 
 clean:
