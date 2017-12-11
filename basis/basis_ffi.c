@@ -2,10 +2,44 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/time.h>
+
+/* GC FFI */
+int inGC = 0;
+struct timeval t1,t2;
+long microsecs = 0;
+int numGC = 0;
+
+void cml_exit(int arg) {
+  #ifdef DEBUG_FFI
+  {
+    printf("GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+  }
+  #endif
+  exit(arg);
+}
 
 /* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
-
 void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+  #ifdef DEBUG_FFI
+  {
+    if (clen == 0)
+    {
+      if(inGC==1)
+      {
+        gettimeofday(&t2, NULL);
+        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
+        numGC++;
+        inGC = 0;
+      }
+      else
+      {
+        inGC = 1;
+        gettimeofday(&t1, NULL);
+      }
+    }
+  }
+  #endif
 }
 
 /* clFFI (command line) */
