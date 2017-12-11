@@ -285,7 +285,7 @@ val parse_data_conf_def = Define`
   let len_bits = find_num (strlit "--len_bits=") ls data.len_bits in
   let pad_bits = find_num (strlit "--pad_bits=") ls data.pad_bits in
   let len_size = find_num (strlit "--len_size=") ls data.len_size in
-  let empty_FFI= find_bool (strlit"--call_empty_ffi=") ls data.call_empty_ffi in
+  let empty_FFI= find_bool (strlit"--emit_empty_ffi=") ls data.call_empty_ffi in
   let gc = parse_gc ls data.gc_kind in
   case (tag_bits,len_bits,pad_bits,len_size,gc,empty_FFI) of
     (INL tb,INL lb,INL pb,INL ls,INL gc, INL empty_FFI) =>
