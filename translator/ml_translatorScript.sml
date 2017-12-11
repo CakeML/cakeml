@@ -1570,13 +1570,10 @@ val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
   asm_exists_tac >> fs [] >>
   fs [do_app_def,INT_def,UNIT_TYPE_def]);
 
-val silent_ffi_def = Define `
-  silent_ffi (s:mlstring) = ()`;
-
-val Eval_silent_ffi = Q.store_thm("Eval_silent_ffi",
+val Eval_empty_ffi = Q.store_thm("Eval_empty_ffi",
   `Eval env x (STRING_TYPE s) ==>
    Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
-     (UNIT_TYPE (silent_ffi s))`,
+     (UNIT_TYPE (empty_ffi s))`,
   rw [Eval_def]
   \\ ntac 8 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
   \\ fs [do_app_def,store_alloc_def]
