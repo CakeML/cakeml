@@ -119,6 +119,7 @@ val res = translate inferTheory.init_config_def;
 *)
 val res = translate error_to_str_def;
 
+val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
 val res = translate find_str_def;
