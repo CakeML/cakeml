@@ -2,7 +2,7 @@ open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatche
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
-open cfHeapsBaseTheory basisFunctionsLib AC_Sort
+open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
 open determTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
 open cfStoreTheory cfTheory cfTacticsLib packLib
 
