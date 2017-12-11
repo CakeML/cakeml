@@ -2,7 +2,7 @@ open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatche
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
-open cfHeapsBaseTheory basisFunctionsLib AC_Sort
+open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
 open determTheory ml_monadBaseTheory
 open cfStoreTheory cfTheory cfTacticsLib
 
@@ -236,7 +236,7 @@ rw[STAR_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UN
 
 (* val HEAP_REF_MEM = Q.store_thm("HEAP_REF_MEM",
 `(Loc l ~~> xv * H) h ==> Mem l (Refv xv) IN h`,
-rw[STAR_def, REF_def, ARRAY_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]); 
+rw[STAR_def, REF_def, ARRAY_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]);
 
 val HEAP_ARRAY_MEM = Q.store_thm("HEAP_ARRAY_MEM",
 `(ARRAY (Loc l) av * H) h ==> Mem l (Varray av) IN h`,
@@ -501,7 +501,7 @@ sg `?s0 s1. s.refs = s0 ++ [rv] ++ s1 /\ LENGTH s0 = l`
 ) >>
 rw[LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_def] >>
 fs[STATE_SAT_CELL_STAR_H_EQ] >>
-sg `(st2heap p s) = st2heap p (s with refs := s0 ++ [rv] ++ s1)` 
+sg `(st2heap p s) = st2heap p (s with refs := s0 ++ [rv] ++ s1)`
 >-(
    `s = (s with refs := s0 ++ [rv] ++ s1)` by POP_ASSUM (fn x => rw[GSYM x, with_same_refs])
    >> POP_ASSUM(fn x => rw[GSYM x])
