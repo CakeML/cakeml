@@ -49,7 +49,7 @@ int nextFD() {
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDONLY))){
+  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDONLY))){
     a[0] = 0;
     a[1] = fd;
   }
@@ -59,7 +59,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDWR|O_CREAT|O_TRUNC))){
+  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDWR|O_CREAT|O_TRUNC))){
     a[0] = 0;
     a[1] = fd;
   }
