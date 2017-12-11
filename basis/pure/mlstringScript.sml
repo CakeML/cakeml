@@ -791,4 +791,9 @@ val ALL_DISTINCT_MAP_explode = Q.store_thm("ALL_DISTINCT_MAP_explode",
   simp[explode_11])
 val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
 
+(* The translator turns each `empty_ffi s` into a call to the FFI with
+   an empty name and passing `s` as the argument. The empty FFI is
+   used for logging/timing purposes. *)
+val empty_ffi_def = Define `empty_ffi (s:mlstring) = ()`
+
 val _ = export_theory()
