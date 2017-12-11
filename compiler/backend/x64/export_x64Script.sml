@@ -48,11 +48,11 @@ val ffi_code =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
-       "     callq   cdecl(exit@plt)";
+       "     callq   cdecl(cml_exit@plt)";
        "     .p2align 4";
        "";
        "cake_exit:";
-       "     callq   cdecl(exit@plt)";
+       "     callq   cdecl(cml_exit@plt)";
        "     .p2align 4";
        "";
        "cake_main:";
