@@ -203,6 +203,7 @@ fun alloc_aux alg k [] n = (print"\n";[])
 *)
 fun alloc_all alg t =
   let val (k,ls) = pairSyntax.dest_pair t
+      val _ = print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^Int.toString alg^ "\n")
     val clash_mov_ls = map pairSyntax.strip_pair (fst(listSyntax.dest_list ls)) in
     alloc_aux alg (int_of_term k) clash_mov_ls 0
   end
