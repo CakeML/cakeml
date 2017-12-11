@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"x64BootstrapProof";
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler64_prog
+  semantics_compiler32_prog
   |> SIMP_RULE (srw_ss()) [TextIOProofTheory.STD_streams_add_stderr,
                            TextIOProofTheory.STD_streams_add_stdout,
                            fsFFIPropsTheory.STD_streams_fastForwardFD,COND_RAND]
