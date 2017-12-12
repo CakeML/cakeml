@@ -264,11 +264,43 @@ val INST_not_clash = Q.store_thm("INST_not_clash[simp]",
   Cases_on `x` \\ fs [INST_def, st_ex_bind_def, st_ex_return_def, exc_case_eq, pair_case_eq]
   \\ ho_match_mp_tac image_clash_thm \\ rw []);
 
+
+(* and something about the environment? *)
+val inst_aux_clash_is_var = Q.store_thm("inst_aux_clash_is_var",
+  `!env tyin tm s f t.
+     inst_aux env tyin tm s = (Failure (Clash f),t)
+     ==>
+     ?a b. f = Var a b`,
+  recInduct inst_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on `tm` \\ fs []
+  \\ once_rewrite_tac [inst_aux_def] \\ fs []
+  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ simp [handle_Clash_def, raise_Clash_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []);
+
+val variant_same_ty = Q.store_thm("variant_same_ty",
+  `!x z c d.
+     variant x z = Var c d
+     ==>
+     ?a b. z = Var a b /\ b = d`,
+  recInduct holSyntaxExtraTheory.variant_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once holSyntaxExtraTheory.variant_def]
+  \\ every_case_tac \\ fs []);
+
+val vsubst_same_Var = Q.store_thm("vsubst_same_Var[simp]",
+  `vsubst_aux [(Var a b, Var c d)] (Var c d) = Var a b`,
+  once_rewrite_tac [vsubst_aux_def] \\ fs []
+  \\ once_rewrite_tac [rev_assocd_def] \\ fs []);
+
 val inst_aux_thm = Q.store_thm("inst_aux_thm",
   `!env tyin tm s f t.
      env = []
      ==>
      inst_aux env tyin tm s <> (Failure (Clash f),t)`,
+
   recInduct inst_aux_ind \\ rw []
   \\ Cases_on `tm` \\ fs []
   \\ once_rewrite_tac [inst_aux_def] \\ fs []
@@ -280,6 +312,31 @@ val inst_aux_thm = Q.store_thm("inst_aux_thm",
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs []
   \\ fs [dest_var_def, st_ex_return_def, raise_Fail_def]
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ imp_res_tac inst_aux_clash_is_var \\ rveq
+  \\ rpt (qpat_x_assum `_ = (Failure _, _)` mp_tac)
+  \\ simp [Once inst_aux_def]
+  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ simp [handle_Clash_def, raise_Clash_def]
+  \\ `b = t` by (drule variant_same_ty \\ rw []) \\ fs [] \\ rveq
+  \\ Cases_on `t0` \\ fs []
+  >-
+   (simp [Once vsubst_aux_def, Ntimes rev_assocd_def 2]
+    \\ rpt (IF_CASES_TAC \\ fs []) \\ rveq
+    \\ fs [Once vsubst_aux_def, Ntimes rev_assocd_def 2]
+    \\ strip_tac \\ rveq
+    \\ rfs [bool_case_eq] \\ fs [Ntimes rev_assocd_def 2] \\ rveq
+    \\ fs [Once inst_aux_def, Ntimes rev_assocd_def 2, st_ex_return_def] \\ rveq \\ fs []
+    \\ fs [bool_case_eq, raise_Clash_def] \\ rfs []
+    \\ fs [bool_case_eq, COND_RATOR]
+    \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs []
+    \\ fs [Once vsubst_aux_def, Ntimes rev_assocd_def 2, bool_case_eq]
+    \\ fs [Ntimes holSyntaxExtraTheory.frees_def 3]
+    \\ fs [Ntimes holSyntaxExtraTheory.variant_def 3, holSyntaxExtraTheory.vfree_in_def, strcat_def, concat_def]
+    \\ rename1 `str1 = strlit _` \\ Cases_on `str1` \\ fs [])
+  >-
+   (simp [Once vsubst_aux_def, Ntimes rev_assocd_def 2]
+    \\ rw [Once inst_aux_def, st_ex_return_def])
+  >- cheat (* TODO *)
   (* TODO I'm certain this mix of variant (...) things will ensure there is
      no clash. How ? *)
   \\ cheat
