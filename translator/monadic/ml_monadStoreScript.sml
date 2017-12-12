@@ -3,6 +3,7 @@
 open preamble bigStepTheory semanticPrimitivesTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
 open cfHeapsBaseTheory cfAppTheory ml_monad_translatorBaseTheory
+open packLib
 
 val _ = new_theory "ml_monadStore"
 
@@ -147,5 +148,33 @@ val H_STAR_empty = Q.store_thm("H_STAR_empty",
 
 val H_STAR_TRUE = Q.store_thm("H_STAR_TRUE",
 `(H * &T = H) /\ (&T * H = H)`, fs[SEP_CLAUSES]);
+
+(* Terms used by the ml_monadStore *)
+val parsed_terms = save_thm("parsed_terms",
+  pack_list (pack_pair pack_string pack_term)
+    [("emp",``emp : hprop``),
+     ("APPEND",``list$APPEND : 'a list -> 'a list -> 'a list``),
+     ("CONS",``list$CONS : 'a -> 'a list -> 'a list``),
+     ("REF",``REF``),
+     ("RARRAY",``RARRAY``),
+     ("SOME",``SOME : 'a -> 'a option``),
+     ("one",``1 : num``),
+     ("cond",``set_sep$cond : bool -> hprop``),
+     ("get_refs",``\(state : 'a semanticPrimitives$state). state.refs``),
+     ("opref_expr",``\name. (App Opref [Var (Short name)])``),
+     ("empty_v_list",``[] : v list``),
+     ("empty_v_store",``[] : v store``),
+     ("empty_alpha_list",``[] : 'a list``)
+    ]);
+
+(* Types used by the ml_monadStore *)
+val parsed_types = save_thm("parsed_types",
+  pack_list (pack_pair pack_string pack_type)
+    [("hprop",``:hprop``),
+     ("v",``:v``),
+     ("unit_state",``:unit semanticPrimitives$state``),
+     ("unit_ffi_proj",``: unit ffi_proj``),
+     ("lookup_ret",``:num # tid_or_exn``)
+    ]);
 
 val _ = export_theory();
