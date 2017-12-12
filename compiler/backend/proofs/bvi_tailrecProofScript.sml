@@ -526,7 +526,7 @@ val scan_expr_LENGTH = Q.store_thm ("scan_expr_LENGTH",
   \\ rw [scan_expr_def] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ TRY (PURE_CASE_TAC \\ fs [case_eq_thms, case_elim_thms, pair_case_eq])
-  \\ rw [LENGTH_MAP2_MIN, try_update_LENGTH]
+  \\ rw [try_update_LENGTH]
   \\ fs [LAST1_def, case_eq_thms] \\ rw [] \\ fs []
   \\ imp_res_tac EVERY_LAST1 \\ fs []);
 
@@ -649,7 +649,7 @@ val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
         \\ fs [case_eq_thms, case_elim_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
         \\ fs [bvl_to_bvi_id]
         \\ rw [] \\ fs [])
-      \\ fs [ty_rel_def, LIST_REL_EL_EQN, LENGTH_MAP2_MIN, index_of_def]
+      \\ fs [ty_rel_def, LIST_REL_EL_EQN, index_of_def]
       \\ fs [try_update_LENGTH, EL_MAP2] \\ rw []
       \\ pop_assum mp_tac
       \\ simp [try_update_def]
@@ -674,7 +674,7 @@ val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
       \\ Cases_on `op` \\ fs [is_arith_op_def, is_num_rel_def]
       \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
       \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
-    \\ fs [ty_rel_def, LIST_REL_EL_EQN, LENGTH_MAP2_MIN, index_of_def,
+    \\ fs [ty_rel_def, LIST_REL_EL_EQN, index_of_def,
            try_update_LENGTH, EL_MAP2]
     \\ rw []
     \\ pop_assum mp_tac
@@ -701,7 +701,7 @@ val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
     \\ Cases_on `op` \\ fs [is_arith_op_def, is_num_rel_def]
     \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
     \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
-  \\ fs [ty_rel_def, LIST_REL_EL_EQN, LENGTH_MAP2_MIN, index_of_def,
+  \\ fs [ty_rel_def, LIST_REL_EL_EQN, index_of_def,
          try_update_LENGTH, EL_MAP2]
   \\ rw []
   \\ pop_assum mp_tac

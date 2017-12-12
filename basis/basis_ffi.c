@@ -3,7 +3,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-/* commandLine */
+/* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
+
+void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+}
+
+/* clFFI (command line) */
 
 /* argc and argv are exported in cake.S */
 extern unsigned int argc;
@@ -31,6 +36,8 @@ void ffiget_arg (unsigned char *c, long clen, unsigned char *a, long alen) {
   }
 }
 
+/* fsFFI (file system and I/O) */
+
 /* 0 indicates null fd */
 int infds[256] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
@@ -42,7 +49,7 @@ int nextFD() {
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDONLY))){
+  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDONLY))){
     a[0] = 0;
     a[1] = fd;
   }
@@ -52,7 +59,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDWR|O_CREAT|O_TRUNC))){
+  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDWR|O_CREAT|O_TRUNC))){
     a[0] = 0;
     a[1] = fd;
   }

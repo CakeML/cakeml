@@ -1,5 +1,5 @@
 ARCH = x64
-WORD_SIZE = 64
+WORD_SIZE = 32
 INCLUDES = ../../../translation ../../../../../semantics ../../../.. ../../../../backend/$(ARCH) ../../../../encoders/asm ../../../../encoders/$(ARCH) ../../../../../basis
 CLINE_OPTIONS = --qof
 
@@ -9,9 +9,7 @@ PARENT_HOLHEAP = ../../../translation/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP) cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
 

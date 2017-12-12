@@ -300,7 +300,7 @@ val parse_stack_conf_def = Define`
   parse_stack_conf ls stack =
   let jump = find_bool (strlit"--no_jump") ls in
   case jump of
-    INL j => INL (stack with jump:=j)
+    INL j => INL (stack with jump:=¬j)
   | INR s => INR s`
 
 val extend_conf_def = Define`
@@ -328,7 +328,7 @@ val extend_conf_def = Define`
 (* Defaults to x64 if no target given *)
 val parse_target_64_def = Define`
   parse_target_64 ls =
-  case find_str (strlit"--target") ls of
+  case find_str (strlit"--target=") ls of
     NONE => INL (x64_backend_config,x64_export)
   | SOME rest =>
     if rest = strlit"x64" then INL (x64_backend_config,x64_export)
@@ -340,7 +340,7 @@ val parse_target_64_def = Define`
 (* Defaults to arm6, currently no other 32-bit architecture*)
 val parse_target_32_def = Define`
   parse_target_32 ls =
-  case find_str (strlit"--target") ls of
+  case find_str (strlit"--target=") ls of
     NONE => INL (arm6_backend_config,arm6_export)
   | SOME rest =>
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)

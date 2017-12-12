@@ -1,11 +1,11 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler64ProgTheory x64BootstrapTheory
+     compiler32ProgTheory x64BootstrapTheory
 
 val _ = new_theory"x64BootstrapProof";
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler64_prog
+  semantics_compiler32_prog
   |> SIMP_RULE (srw_ss()) [TextIOProofTheory.STD_streams_add_stderr,
                            TextIOProofTheory.STD_streams_add_stdout,
                            fsFFIPropsTheory.STD_streams_fastForwardFD,COND_RAND]
@@ -32,6 +32,6 @@ val cake_compiled_thm =
   |> DISCH_ALL
   |> curry save_thm "cake_compiled_thm";
 
-(* TODO: compose this with a correctness theorem for compiler_x64? *)
+(* TODO: compose this with a correctness theorem for compiler_x32? *)
 
 val _ = export_theory();

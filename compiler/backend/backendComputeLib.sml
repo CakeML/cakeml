@@ -486,6 +486,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.ByteCopyNew_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.get_gen_size_def
+    ,data_to_wordTheory.SilentFFI_def
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.WriteLastByte_aux_def

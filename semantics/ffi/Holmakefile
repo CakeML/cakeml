@@ -2,7 +2,9 @@ OPTIONS = QUIT_ON_FAILURE
 INCLUDES = ../../misc/lem_lib_stub
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
 all: $(TARGETS) ffiTheory.uo simpleIOTheory.uo
 .PHONY: all
 
@@ -14,6 +16,6 @@ LEMS = $(patsubst %,%.lem,$(LEMSRC))
 GENS = $(patsubst %,%Script.sml,$(LEMSRC))
 
 $(GENS): $(LEMS)
- 	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../misc/lem_lib_stub/lib.lem -hol $(LEMS);\
- 	else touch $(GENS); fi
+	if type lem;\
+	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../misc/lem_lib_stub/lib.lem -hol $(LEMS);\
+	else touch $(GENS); fi
