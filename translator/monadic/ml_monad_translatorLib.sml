@@ -27,8 +27,6 @@ fun primCases_on tm = Cases_on [ANTIQUOTE tm]
 
 val _ = (print_asts := true);
 
-val _ = (use_full_type_names := false);
-
 (* Some constants *)
 val venvironment = mk_environment v_ty
 val v_env = mk_var("env",venvironment)
