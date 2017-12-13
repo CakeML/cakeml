@@ -2025,6 +2025,8 @@ val translator_terms = save_thm("translator_terms",
      ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
      ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
      ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
-     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``)]);
+     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
+     ("no_closure_pat",``∀x v. p x v ⇒ no_closures v``),
+     ("types_match_pat",``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``)]);
 
 val _ = export_theory();

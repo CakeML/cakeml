@@ -1029,8 +1029,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
       (markerLib.move_conj_right p
       THENC
       (REWR_CONV (GSYM CONJ_ASSOC)))
-    val no_closure_pat = ``∀x v. p x v  ⇒ no_closures v``
-    val types_match_pat = ``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``
+    val no_closure_pat = get_term "no_closure_pat"
+    val types_match_pat = get_term "types_match_pat"
     val pull_no_closures = N_conj_conv (can (match_term no_closure_pat)) reps
     val pull_types_match = N_conj_conv (can (match_term types_match_pat)) reps
     val x2 = mk_var("x2",alpha)
@@ -3542,7 +3542,7 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ rpt(split_ineq_orelse_tac(metis_tac [])))
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
 (*
-val (th,(fname,def,_,pre)) = hd (zip results thms)
+val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
 *)
     (* clean up *)
     fun fix (th,(fname,ml_fname,def,_,pre)) = let

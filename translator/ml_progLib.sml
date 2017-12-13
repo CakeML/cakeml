@@ -25,7 +25,16 @@ fun prove_assum_by_eval th = let
   val (x,y) = dest_imp (concl th)
   val lemma = reduce_conv x
   val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) th
-  in MP lemma TRUTH end
+  in MP lemma TRUTH
+     handle HOL_ERR e => let
+       val _ = print "Failed to reduce:\n\n"
+       val _ = print_term x
+       val _ = print "\n\nto T. It only reduced to:\n\n"
+       val _ = print_term (lemma |> concl |> dest_eq |> snd)
+       val _ = print "\n\n"
+       in failwith "prove_assum_by_eval: unable to reduce term to T"
+     end
+  end;
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
@@ -126,6 +135,8 @@ fun clean (ML_code (ss,envs,vs,th)) = let
 
 (* --- *)
 
+val unknown_loc = locationTheory.unknown_loc_def |> concl |> dest_eq |> fst;
+
 val init_state =
   ML_code ([SPEC_ALL init_state_def],[init_env_def],[],ML_code_NIL);
 
@@ -154,7 +165,7 @@ fun add_Dtype tds_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dtype th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dtype th
-  val th = SPECL [tds_tm,``unknown_loc``] th |> prove_assum_by_eval
+  val th = SPECL [tds_tm,unknown_loc] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
             (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
                                APPEND,namespaceTheory.mk_id_def]))
@@ -169,7 +180,7 @@ fun add_Dexn n_tm l_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dexn th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dexn th
-  val th = SPECL [n_tm,l_tm,``unknown_loc``] th |> prove_assum_by_eval
+  val th = SPECL [n_tm,l_tm,unknown_loc] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
             (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
                                APPEND,namespaceTheory.mk_id_def]))
@@ -179,7 +190,7 @@ fun add_Dtabbrev l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dtabbrev th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dtabbrev th
-  val th = SPECL [l1_tm,l2_tm,l3_tm,``unknown_loc``] th
+  val th = SPECL [l1_tm,l2_tm,l3_tm,unknown_loc] th
   in clean (ML_code (ss,envs,vs,th)) end
 
 fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
@@ -188,7 +199,7 @@ fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
            MATCH_MP ML_code_SOME_Dlet_var th
   val th = MATCH_MP th eval_thm
            handle HOL_ERR _ => failwith "add_Dlet eval_thm does not match"
-  val th = th |> SPECL [stringSyntax.fromMLstring var_str,``unknown_loc``]
+  val th = th |> SPECL [stringSyntax.fromMLstring var_str,unknown_loc]
   in clean (ML_code (ss,envs,v_thms @ vs,th)) end
 
 (*
@@ -200,7 +211,7 @@ fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dlet_Fun th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dlet_Fun th
-  val th = SPECL [n,v,exp,``unknown_loc``] th
+  val th = SPECL [n,v,exp,unknown_loc] th
   val tm = th |> concl |> rator |> rand |> rator |> rand
   val v_def = define_abbrev false v_name tm
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
@@ -218,7 +229,7 @@ fun add_Dletrec funs v_names (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dletrec th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dletrec th
-  val th = SPECL [funs,``unknown_loc``] th |> prove_assum_by_eval
+  val th = SPECL [funs,unknown_loc] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
                   (SIMP_CONV std_ss [write_rec_def,FOLDR,
                     semanticPrimitivesTheory.build_rec_env_def]))
