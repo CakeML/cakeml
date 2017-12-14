@@ -91,6 +91,8 @@ val _ = translate (encode_header_def |> conv64_RHS)
 (* Manual inlines : shift_def, bytes_in_word because of 'a arg *)
 val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def]
 
+val _ = register_type ``:64 wordLang$prog``;
+
 val _ = translate (StoreEach_def |> inline_simp |> conv64)
 
 local
