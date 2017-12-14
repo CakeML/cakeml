@@ -47,9 +47,9 @@ val basis_ffi_oracle_def = Define `
 
 (* standard streams are initialized *)
 val basis_ffi_def = Define `
-  basis_ffi (cls: string list) fs =
+  basis_ffi cl fs =
     <| oracle := basis_ffi_oracle
-     ; ffi_state := (cls, fs)
+     ; ffi_state := (cl, fs)
      ; final_event := NONE
      ; io_events := [] |>`;
 
