@@ -104,11 +104,11 @@ val DROP_SUC_LENGTH_MAP = prove(
 
 val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
   `!n nv av cv a.
-     LIST_TYPE STRING_TYPE (DROP n (MAP implode cl)) cv /\
+     LIST_TYPE STRING_TYPE (DROP n cl) cv /\
      NUM n nv /\ n <= LENGTH cl /\ LENGTH a = 2 ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.cloop" st) [av; nv; cv]
       (COMMANDLINE cl * W8ARRAY av a)
-      (POSTv v. & LIST_TYPE STRING_TYPE (MAP implode cl) v * COMMANDLINE cl)`,
+      (POSTv v. & LIST_TYPE STRING_TYPE cl v * COMMANDLINE cl)`,
   Induct \\ rw []
   THEN1
    (xcf "CommandLine.cloop" st
@@ -126,7 +126,7 @@ val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
   \\ `(n DIV 256) MOD 256 = n DIV 256` by
         (match_mp_tac LESS_MOD \\ fs [DIV_LT_X,wfcl_def])
   \\ xlet `POSTv v.
-       W8ARRAY av (n2w (LENGTH x)::n2w (LENGTH x DIV 256)::[]) * COMMANDLINE cl`
+       W8ARRAY av (n2w (strlen x)::n2w (strlen x DIV 256)::[]) * COMMANDLINE cl`
   THEN1
    (xffi
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def]
@@ -140,14 +140,14 @@ val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
     \\ fs [wfcl_def])
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
-  \\ `LENGTH x < 65536` by
+  \\ `strlen x < 65536` by
        (fs [wfcl_def,SUC_SUC_LENGTH,Abbr`x`] \\ `n < LENGTH cl` by fs []
         \\ fs [EVERY_EL] \\ first_x_assum drule \\ fs [validArg_def])
-  \\ xlet `POSTv v. W8ARRAY av1 (MAP (n2w o ORD) x ++ DROP (LENGTH x) bytes) *
-       W8ARRAY av [n2w (STRLEN x); n2w (STRLEN x DIV 256)] * COMMANDLINE cl`
+  \\ xlet `POSTv v. W8ARRAY av1 (MAP (n2w o ORD) (explode x) ++ DROP (strlen x) bytes) *
+       W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)] * COMMANDLINE cl`
   THEN1 (xffi
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def]
-    \\ qabbrev_tac `extra = W8ARRAY av [n2w (STRLEN x); n2w (STRLEN x DIV 256)]`
+    \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
     \\ map_every qexists_tac [`extra`, `s`, `s`, `u`, `ns`]
@@ -157,7 +157,7 @@ val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
     \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum])
   \\ xlet_auto
-  THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum])
+  THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum,mlstringTheory.LENGTH_explode])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xapp
   \\ fs [COMMANDLINE_def] \\ xsimpl
@@ -166,26 +166,22 @@ val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
   \\ fs [GSYM LESS_EQ,GSYM ADD1]
   \\ drule LESS_LENGTH_EXISTS
   \\ strip_tac \\ rw [] \\ fs []
-  \\ `LENGTH ys = LENGTH (MAP implode ys)` by fs []
   \\ asm_rewrite_tac [DROP_LENGTH_APPEND]
   \\ fs [LIST_TYPE_def,DROP_SUC_LENGTH_MAP]
   \\ fs [two_byte_sum]
   \\ rfs [two_byte_sum]
-  \\ fs [mlstringTheory.implode_def]
   \\ qpat_x_assum `_ sv` mp_tac
-  \\ `LENGTH x = LENGTH (MAP ((n2w:num->word8) ∘ ORD) x)` by fs []
+  \\ `strlen x = LENGTH (MAP ((n2w:num->word8) ∘ ORD) (explode x))` by fs [mlstringTheory.LENGTH_explode]
   \\ asm_rewrite_tac [TAKE_LENGTH_APPEND]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,EL_LENGTH_APPEND,NULL,HD]
-  \\ fs [MAP_MAP_o]
-  \\ qmatch_goalsub_abbrev_tac `MAP ff`
-  \\ qsuff_tac `!xs. MAP ff xs = xs` THEN1 fs []
-  \\ Induct \\ fs [Abbr `ff`] \\ fs [ORD_BOUND,CHR_ORD]);
+  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD, GSYM mlstringTheory.implode_def]
+  \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG]);
 
 val CommandLine_cline_spec = Q.store_thm("CommandLine_cline_spec",
   `UNIT_TYPE u uv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.cline" st) [uv]
     (COMMANDLINE cl)
-    (POSTv v. & LIST_TYPE STRING_TYPE (MAP implode cl) v * COMMANDLINE cl)`,
+    (POSTv v. & LIST_TYPE STRING_TYPE cl v * COMMANDLINE cl)`,
   xcf "CommandLine.cline" st
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -213,7 +209,7 @@ val CommandLine_cline_spec = Q.store_thm("CommandLine_cline_spec",
   \\ xsimpl
   \\ `LENGTH cl <= LENGTH cl` by fs []
   \\ asm_exists_tac \\ fs [] \\ xsimpl
-  \\ `DROP (LENGTH cl) (MAP implode cl) = []` by fs [DROP_NIL]
+  \\ `DROP (LENGTH cl) cl = []` by fs [DROP_NIL]
   \\ fs [LIST_TYPE_def]
   \\ fs [wfcl_def] \\ rfs [two_byte_sum]);
 
@@ -224,11 +220,11 @@ val CommandLine_name_spec = Q.store_thm("CommandLine_name_spec",
   `UNIT_TYPE u uv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.name" st) [uv]
     (COMMANDLINE cl)
-    (POSTv namev. & STRING_TYPE (implode (HD cl)) namev * COMMANDLINE cl)`,
+    (POSTv namev. & STRING_TYPE (HD cl) namev * COMMANDLINE cl)`,
   xcf "CommandLine.name" st
   \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
   >-(xcon \\ xsimpl)
-  \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl`
+  \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
   >-(xapp \\ rw[])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
   \\ xapp_spec mlstring_hd_v_thm
@@ -242,11 +238,11 @@ val CommandLine_arguments_spec = Q.store_thm("CommandLine_arguments_spec",
     app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.arguments" st) [uv]
     (COMMANDLINE cl)
     (POSTv argv. & LIST_TYPE STRING_TYPE
-       (TL (MAP implode cl)) argv * COMMANDLINE cl)`,
+       (TL cl) argv * COMMANDLINE cl)`,
   xcf "CommandLine.arguments" st
   \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
   >-(xcon \\ xsimpl)
-  \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl`
+  \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
   >-(xapp \\ rw[])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
   \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate
@@ -259,17 +255,11 @@ fun prove_hprop_inj_tac thm =
 val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE",
   `!s cl1 cl2 H1 H2. VALID_HEAP s ==>
      (COMMANDLINE cl1 * H1) s /\ (COMMANDLINE cl2 * H2) s ==> cl2 = cl1`,
-  rw[COMMANDLINE_def, cfHeapsBaseTheory.IOx_def, cl_ffi_part_def,
-     encode_def, cfHeapsBaseTheory.encode_list_def, GSYM STAR_ASSOC] >>
-  IMP_RES_TAC FRAME_UNIQUE_IO >>
-  fs[] >> rw[] >>
-  sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
-  >-(
-    Induct_on `l2` >-(rw[])>>
-    rw[] >> fs[] >>
-    Cases_on `l1` >-(fs[])>>  fs[]
-  ) >>
-  fs[]);
+  rw[COMMANDLINE_def,cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,
+     GSYM STAR_ASSOC]
+  \\ IMP_RES_TAC FRAME_UNIQUE_IO
+  \\ fs[] \\ rw[]
+  \\ metis_tac[decode_encode,SOME_11]);
 
 val COMMANDLINE_HPROP_INJ = Q.store_thm("COMMANDLINE_HPROP_INJ[hprop_inj]",
   `!cl1 cl2. HPROP_INJ (COMMANDLINE cl1) (COMMANDLINE cl2) (cl2 = cl1)`,
