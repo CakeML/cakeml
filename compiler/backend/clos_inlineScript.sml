@@ -318,10 +318,7 @@ val known_op_def = Define `
   (known_op (SetGlobal n) as g =
      dtcase as of
      | [] => (Other,g)
-     | (a::xs) =>
-       dtcase lookup n g of
-       | NONE => (Other,insert n a g)
-       | SOME other => (Other,insert n (merge other a) g)) /\
+     | (a::xs) => (Other, insert n a g)) /\
   (known_op (Cons tg) as g = (Tuple tg as,g)) /\
   (known_op (Const i) as g = (Int i,g)) /\
   (known_op El as g =
@@ -347,10 +344,7 @@ known_op op as g =
   | SetGlobal n =>
     (case as of
      | [] => (Other,g)
-     | (a::xs) =>
-       case lookup n g of
-       | NONE => (Other,insert n a g)
-       | SOME other => (Other,insert n (merge other a) g))
+     | (a::xs) => (Other,insert n a g))
   | Cons tg => (Tuple tg as,g)
   | Const i => (Int i,g)
   | El =>
@@ -419,18 +413,18 @@ val dec_depth_def = Define `dec_depth = (I ## \d. d - 1n)`;
 val known_def = tDefine "known" `
   (known limit [] vs (g:val_approx spt) = ([],g)) /\
   (known limit ((x:closLang$exp)::y::xs) vs g =
-     let (e1,g) = known limit [x] vs g in
-     let (e2,g) = known limit (y::xs) vs g in
-       (e1 ++ e2,g)) /\
+     let (eas1,g) = known limit [x] vs g in
+     let (eas2,g) = known limit (y::xs) vs g in
+       (eas1 ++ eas2,g)) /\
   (known limit [Var t v] vs g =
      ([(Var t v,any_el v vs Other)],g)) /\
   (known limit [If t x1 x2 x3] vs g =
-     let (e1,g) = known limit [x1] vs g in
-     let (e2,g) = known limit [x2] vs g in
-     let (e3,g) = known limit [x3] vs g in
-     let (e1,a1) = HD e1 in
-     let (e2,a2) = HD e2 in
-     let (e3,a3) = HD e3 in
+     let (ea1,g) = known limit [x1] vs g in
+     let (ea2,g) = known limit [x2] vs g in
+     let (ea3,g) = known limit [x3] vs g in
+     let (e1,a1) = HD ea1 in
+     let (e2,a2) = HD ea2 in
+     let (e3,a3) = HD ea3 in
        ([(If t e1 e2 e3), merge a2 a3],g)) /\
   (known limit [Let t xs x2] vs g =
      let (e1,g) = known limit xs vs g in
@@ -483,12 +477,12 @@ val known_def = tDefine "known" `
           | NONE => ([(App t new_loc_opt e1 (MAP FST e2),Other)],g)
           | SOME body => 
              if pure x then
-               let (ebody,g) = known (dec_depth limit) [body] (MAP SND e2 ++ vs) g in
+               let (ebody,_) = known (dec_depth limit) [body] (MAP SND e2 ++ vs) g in
                let (ebody,abody) = HD ebody
                in
                  ([(Let (t§0) (MAP FST e2) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)
              else
-               let (ebody,g) = known (dec_depth limit) [body] (SNOC a1 (MAP SND e2) ++ vs) g in
+               let (ebody,_) = known (dec_depth limit) [body] (SNOC a1 (MAP SND e2) ++ vs) g in
                let (ebody,abody) = HD ebody
                in
                  ([(Let (t§0) (SNOC e1 (MAP FST e2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
