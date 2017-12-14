@@ -12,6 +12,10 @@ val _ = hide "state";
 
 (* translator setup *)
 
+val _ = (use_full_type_names := false);
+val _ = register_type ``:('a,'b) ml_monadBase$exc``;
+val _ = (use_full_type_names := true);
+
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
 fun list_dest f tm =
@@ -60,13 +64,13 @@ val _ = (find_def_for_const := def_of_const);
 val _ = register_type ``:locs``;
 val _ = register_exn_type ``:infer_exn``;
 val _ = register_type ``:infer_t``;
-val INFER_EXN_TYPE_def = theorem"INFER_EXN_TYPE_def";
+val INFER_EXN_TYPE_def = fetch "-" "INFER_INFER_EXN_TYPE_def"
 
 val exn_functions = [(raise_Exc_def, handle_Exc_def)];
 val _ = temp_overload_on ("failwith", ``raise_Exc``);
 
 val refs_manip_list = [("next_uvar", get_next_uvar_def, set_next_uvar_def),
-		      ("subst", get_subst_def, set_subst_def)];
+                       ("subst", get_subst_def, set_subst_def)];
 
 val store_hprop_name = "INFER_STATE_STORE";
 val state_type = ``:infer_st``;
@@ -79,12 +83,12 @@ val store_pinv_def_opt = NONE : thm option;
 
 val (monad_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-					       arrays_manip_list
-					       store_hprop_name
-					       state_type
-					       exn_ri_def
-					       exn_functions
-					       add_type_theories
+                                               arrays_manip_list
+                                               store_hprop_name
+                                               state_type
+                                               exn_ri_def
+                                               exn_functions
+                                               add_type_theories
                                                store_pinv_def_opt;
 
 
@@ -410,7 +414,7 @@ val op_apply = Q.prove(
 
 val list_apply = Q.prove(
   `!op. (list_CASE op x1 x2) y =
-         (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
+        (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
   Cases THEN SRW_TAC [] []);
 
 (* TODO: duplicated from ml_translatorLib, should go elsewhere*)
@@ -480,8 +484,8 @@ val lemma = prove(
   AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]);
 
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
-		   |> REWRITE_RULE [MAP_type_name_subst]
-  	           |> SIMP_RULE std_ss [lemma]);
+                   |> REWRITE_RULE [MAP_type_name_subst]
+                   |> SIMP_RULE std_ss [lemma]);
 
 val EVERY_INTRO = Q.prove(
   `(!x::set s. P x) = EVERY P s`,
@@ -890,7 +894,7 @@ val add_constraints_t_wfs = Q.prove(
   BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
   imp_res_tac unifyTheory.t_unify_wfs >>
   `t_wfs (st1 with subst := x).subst` by fs[] >>
-  last_x_assum imp_res_tac)  
+  last_x_assum imp_res_tac)
 
 val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
   `(!l menv e st. t_wfs st.subst ⇒ infer_e_side st l menv e) /\
@@ -963,10 +967,10 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   BasicProvers.EVERY_CASE_TAC >> simp_monad >> rw[] >>
   fs[infer_st_component_equality] >>
   TRY(FIRST[irule_infer_e_side_thm,
-	    irule_infer_p_side_thm,
-	    irule add_constraint_side_thm,
-	    irule add_constraints_side_thm,
-	    irule add_constraints_side_thm]) >>
+            irule_infer_p_side_thm,
+            irule add_constraint_side_thm,
+            irule add_constraints_side_thm,
+            irule add_constraints_side_thm]) >>
   fs[infer_st_component_equality,n_fresh_uvar_subst,t_wfs_FEMPTY] >>
   imp_res_tac pure_add_constraints_wfs >>
   imp_res_tac infer_e_wfs >>
@@ -1113,8 +1117,8 @@ val _ = print "Translated check_signature\n";
 val check_signature_side = prove(``
   ∀a b c d e f g. check_signature_side a b c d e f g``,
   Cases_on`f`>>rw[fetch"-""check_signature_side_def"]
-  >-(Cases_on `g`>>fs[])>>
-  rw[]) |> update_precondition
+  THEN1 (Cases_on `g`>>fs[])
+  \\ rw[]) |> update_precondition
 
 val _ = translate (def_of_const ``ienvLift``)
 val _ = m_translate (def_of_const ``infer_top``)
@@ -1125,7 +1129,7 @@ val infer_prog_side = prove(``
   ∀a b c d. infer_prog_side a b c d ⇔ T``,
   Induct_on`d`>>fs[Once (fetch "-" "infer_prog_side_def"),FORALL_PROD]>>rw[]>>
   Cases_on`d`>>fs[]>>rw[Once (fetch "-" "infer_prog_side_def")])
- |> update_precondition
+  |> update_precondition
 
 val _ = m_translate (def_of_const ``infertype_prog_aux``)
 val _ = m_translate_run (def_of_const ``infertype_prog``);
