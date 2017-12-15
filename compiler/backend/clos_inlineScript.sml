@@ -318,7 +318,10 @@ val known_op_def = Define `
   (known_op (SetGlobal n) as g =
      dtcase as of
      | [] => (Other,g)
-     | (a::xs) => (Other, insert n a g)) /\
+     | (a::xs) =>
+       dtcase lookup n g of
+       | NONE => (Other, insert n a g)
+       | SOME other => (Other, insert n (merge other a) g)) /\
   (known_op (Cons tg) as g = (Tuple tg as,g)) /\
   (known_op (Const i) as g = (Int i,g)) /\
   (known_op El as g =
@@ -344,7 +347,10 @@ known_op op as g =
   | SetGlobal n =>
     (case as of
      | [] => (Other,g)
-     | (a::xs) => (Other,insert n a g))
+     | (a::xs) => 
+       dtcase lookup n g of
+       | NONE => (Other, insert n a g)
+       | SOME other => (Other, insert n (merge other a) g))
   | Cons tg => (Tuple tg as,g)
   | Const i => (Int i,g)
   | El =>
@@ -427,43 +433,43 @@ val known_def = tDefine "known" `
      let (e3,a3) = HD ea3 in
        ([(If t e1 e2 e3), merge a2 a3],g)) /\
   (known limit [Let t xs x2] vs g =
-     let (e1,g) = known limit xs vs g in
-     let (e2,g) = known limit [x2] (MAP SND e1 ++ vs) g in
-     let (e2,a2) = HD e2 in
-       ([(Let t (MAP FST e1) e2, a2)],g)) /\
+     let (ea1,g) = known limit xs vs g in
+     let (ea2,g) = known limit [x2] (MAP SND ea1 ++ vs) g in
+     let (e2,a2) = HD ea2 in
+       ([(Let t (MAP FST ea1) e2, a2)],g)) /\
   (known limit [Raise t x1] vs g =
-     let (e1,g) = known limit [x1] vs g in
-     let (e1,a1) = HD e1 in
+     let (ea1,g) = known limit [x1] vs g in
+     let (e1,a1) = HD ea1 in
        ([(Raise t e1,Impossible)],g)) /\
   (known limit [Tick t x1] vs g =
-     let (e1,g) = known limit [x1] vs g in
-     let (e1,a1) = HD e1 in
+     let (ea1,g) = known limit [x1] vs g in
+     let (e1,a1) = HD ea1 in
        ([(Tick t e1,a1)],g)) /\
   (known limit [Handle t x1 x2] vs g =
-     let (e1,g) = known limit [x1] vs g in
-     let (e2,g) = known limit [x2] (Other::vs) g in
-     let (e1,a1) = HD e1 in
-     let (e2,a2) = HD e2 in
+     let (ea1,g) = known limit [x1] vs g in
+     let (ea2,g) = known limit [x2] (Other::vs) g in
+     let (e1,a1) = HD ea1 in
+     let (e2,a2) = HD ea2 in
        ([(Handle t e1 e2,merge a1 a2)],g)) /\
   (known limit [Call t ticks dest xs] vs g =
-     let (e1,g) = known limit xs vs g in
-       ([(Call t ticks dest (MAP FST e1),Other)],g)) /\
+     let (ea1,g) = known limit xs vs g in
+       ([(Call t ticks dest (MAP FST ea1),Other)],g)) /\
   (known limit [Op t op xs] vs g =
-     let (e1,g) = known limit xs vs g in
-     let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
+     let (ea1,g) = known limit xs vs g in
+     let (a,g) = known_op op (REVERSE (MAP SND ea1)) g in
      let e =
          if isGlobal op then
            dtcase gO_destApx a of
-             | gO_None => Op t op (MAP FST e1)
+             | gO_None => Op t op (MAP FST ea1)
              | gO_Int i => Op t (Const i) []
              | gO_NullTuple tag => Op t (Cons tag) []
-         else Op t op (MAP FST e1)
+         else Op t op (MAP FST ea1)
      in
        ([(e,a)],g)) /\
   (known limit [App t loc_opt x xs] vs g =
-     let (e2,g) = known limit xs vs g in
-     let (e1,g) = known limit [x] vs g in
-     let (e1,a1) = HD e1 in
+     let (ea2,g) = known limit xs vs g in
+     let (ea1,g) = known limit [x] vs g in
+     let (e1,a1) = HD ea1 in
      let (new_loc_opt, body_opt) =
          dtcase dest_Clos a1 of
            | NONE => (loc_opt, NONE)
@@ -471,24 +477,24 @@ val known_def = tDefine "known" `
                                           then (SOME loc, body_opt)
                                           else (NONE, NONE)
      in
-       if SND limit = 0n then ([(App t new_loc_opt e1 (MAP FST e2),Other)],g)
+       if SND limit = 0n then ([(App t new_loc_opt e1 (MAP FST ea2),Other)],g)
        else
        dtcase body_opt of 
-          | NONE => ([(App t new_loc_opt e1 (MAP FST e2),Other)],g)
+          | NONE => ([(App t new_loc_opt e1 (MAP FST ea2),Other)],g)
           | SOME body => 
              if pure x then
-               let (ebody,_) = known (dec_depth limit) [body] (MAP SND e2 ++ vs) g in
-               let (ebody,abody) = HD ebody
+               let (eabody,_) = known (dec_depth limit) [body] (MAP SND ea2 ++ vs) g in
+               let (ebody,abody) = HD eabody
                in
-                 ([(Let (t§0) (MAP FST e2) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)
+                 ([(Let (t§0) (MAP FST ea2) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)
              else
-               let (ebody,_) = known (dec_depth limit) [body] (SNOC a1 (MAP SND e2) ++ vs) g in
-               let (ebody,abody) = HD ebody
+               let (eabody,_) = known (dec_depth limit) [body] (SNOC a1 (MAP SND ea2) ++ vs) g in
+               let (ebody,abody) = HD eabody
                in
-                 ([(Let (t§0) (SNOC e1 (MAP FST e2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
+                 ([(Let (t§0) (SNOC e1 (MAP FST ea2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
   (known limit [Fn t loc_opt ws_opt num_args x1] vs g =
-     let (e1,g) = known limit [x1] (REPLICATE num_args Other ++ vs) g in
-     let (body,a1) = HD e1 in
+     let (ea1,g) = known limit [x1] (REPLICATE num_args Other ++ vs) g in
+     let (body,a1) = HD ea1 in
        ([(Fn t loc_opt NONE num_args body,
           dtcase loc_opt of
           | SOME loc => clos_approx (size_limit limit) loc num_args body
@@ -503,8 +509,8 @@ val known_def = tDefine "known" `
                     let new_vs = REPLICATE num_args Other ++ clos ++ vs in
                     let res = known limit [x] new_vs g in
                       (num_args,FST (HD (FST res)))) fns in
-     let (e1,g) = known limit [x1] (clos ++ vs) g in
-     let (e1,a1) = HD e1 in
+     let (ea1,g) = known limit [x1] (clos ++ vs) g in
+     let (e1,a1) = HD ea1 in
        ([(Letrec t loc_opt NONE new_fns e1,a1)],g))`
  (wf_rel_tac `inv_image (measure I LEX measure I)
                         (\(limit, xs, vs, g). (depth_limit limit, exp3_size xs))`
