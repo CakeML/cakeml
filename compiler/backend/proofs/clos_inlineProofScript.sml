@@ -1,5 +1,5 @@
 open preamble backendPropsTheory
-open closPropsTheory clos_inlineTheory closSemTheory
+open closPropsTheory clos_inlineTheory clos_inlinePropsTheory closSemTheory
 open bagTheory
 open mp_then
 
@@ -10,71 +10,6 @@ fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
                       nchotomy = TypeBase.nchotomy_of ``:val_approx``}
-
-val gO_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:globalOpt``,
-                      nchotomy = TypeBase.nchotomy_of ``:globalOpt``}
-
-
-val merge_Other = Q.store_thm(
-  "merge_Other[simp]",
-  `merge Other a = Other ∧ merge a Other = Other`,
-  Cases_on `a` >> simp[]);
-
-val merge_Impossible = Q.store_thm(
-  "merge_Impossible[simp]",
-  `merge a Impossible = a`,
-  Cases_on `a` >> simp[]);
-
-(*
-val (val_approx_val_rules, val_approx_val_ind, val_approx_val_cases) = Hol_reln `
-  (!i. val_approx_val (Int i) (Number i)) /\
-  (!v. val_approx_val Other v) /\
-  (!tag vas vs.
-     LIST_REL val_approx_val vas vs ==>
-     val_approx_val (Tuple tag vas) (Block tag vs)) /\
-  (!m n body_opt env body.
-     val_approx_val (Clos m n body_opt) (Closure (SOME m) [] env n body)) /\
-  (!m n body_opt base env fns k.
-     m = base + 2*k /\ k < LENGTH fns /\ n = FST (EL k fns) ==>
-     val_approx_val (Clos m n body_opt) (Recclosure (SOME base) [] env fns k))`
-*)
-
-val val_approx_val_def = tDefine "val_approx_val" `
-  (val_approx_val (Clos m n body_opt) v ⇔
-     (∃e2 b. v = Closure (SOME m) [] e2 n b) ∨
-     (∃base env fs j.
-        v = Recclosure (SOME base) [] env fs j ∧
-        m = base + 2*j ∧ j < LENGTH fs ∧
-        n = FST (EL j fs))) ∧
-  (val_approx_val (Tuple tg vas) v ⇔
-     ∃vs. v = Block tg vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
-  (val_approx_val Impossible v ⇔ F) ∧
-  (val_approx_val (Int i) v ⇔ v = Number i) ∧
-  (val_approx_val Other v ⇔ T)
-` (WF_REL_TAC `measure (val_approx_size o FST)` >> simp[] >> Induct >>
-   dsimp[val_approx_size_def] >> rpt strip_tac
-   >- (rename1 `val_approx1_size vvs` >> Induct_on `vvs` >>
-       dsimp[val_approx_size_def] >> rpt strip_tac >> res_tac >> simp[]) >>
-   res_tac >> simp[])
-
-val val_approx_val_def = save_thm(
-  "val_approx_val_def[simp]",
-  val_approx_val_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []);
-
-val val_approx_val_ind = theorem "val_approx_val_ind";
-
-
-val val_approx_val_merge_I = Q.store_thm(
-  "val_approx_val_merge_I",
-  `∀a1 v a2.
-     val_approx_val a1 v \/ val_approx_val a2 v ==>
-     val_approx_val (merge a1 a2) v`,
-  ho_match_mp_tac val_approx_val_ind >>
-  simp[] >> rpt strip_tac >> Cases_on `a2` >> simp[] >> fs[] >> rw[] >>
-  fs[LIST_REL_EL_EQN, LENGTH_MAP2, MAP2_MAP, EL_MAP, EL_ZIP] >>
-  metis_tac[MEM_EL])
-
 
 (* simple properties of constants from clos_known: i.e., merge and known *)
 
@@ -114,17 +49,17 @@ val known_changed_globals = Q.store_thm(
     \\ Cases_on `lookup i g1 = lookup i g0` \\ fs []
     \\ Cases_on `lookup i g2 = lookup i g1` \\ fs [])
   THEN1
-   (rename1 `known _ xs aenv g0 = (e1, g1)`
+   (rename1 `known _ xs aenv g0 = (ea1, g1)`
     \\ Cases_on `i ∈ domain g1` \\ fs[]
     \\ Cases_on `i ∈ domain g0` \\ fs[]
     \\ Cases_on `lookup i g1 = lookup i g0` \\ fs [])
   THEN1
-   (rename1 `known _ [x1] aenv g0 = (e1, g1)`
+   (rename1 `known _ [x1] aenv g0 = (ee1, g1)`
     \\ Cases_on `i ∈ domain g1` \\ fs[]
     \\ Cases_on `i ∈ domain g0` \\ fs[]
     \\ Cases_on `lookup i g1 = lookup i g0` \\ fs [])
   THEN1
-   (rename1 `known _ xs aenv g0 = (e1, g1)`
+   (rename1 `known _ xs aenv g0 = (ee1, g1)`
     \\ imp_res_tac known_op_changed_globals
     \\ Cases_on `i ∈ domain g1` \\ fs[]
     \\ Cases_on `i ∈ domain g0` \\ fs[]
@@ -233,20 +168,69 @@ val state_rel_def = Define `
 val first_n_exps_def = Define `
   first_n_exps co n = GENLIST (FST o SND o co) n`;
 
-val first_n_exps_aux_def = Q.store_thm("first_n_exps_aux",
-  `!co n. first_n_exps co n = MAP (FST o SND) (GENLIST co n)`,
-  fs [first_n_exps_def]
-  \\ fs [MAP_GENLIST])
-
 (* All globals set in the program and in code returned by
    the compile oracle are unique. *)
 val unique_set_globals_def = Define `
   unique_set_globals es co <=> 
-    (!n. BAG_ALL_DISTINCT (elist_globals (es ++ first_n_exps co n)))`;
+    !n. BAG_ALL_DISTINCT (elist_globals (es ++ first_n_exps co n))`;
+
+(* Compile oracle globals are disjoint from given map. *)
+val co_disjoint_globals_def = Define `
+  co_disjoint_globals g co = 
+    !n. DISJOINT (domain g) (SET_OF_BAG (set_globals (FST (SND (co n)))))`;
+
+
+val direct_subexp_def = Define `
+  (direct_subexp es [] <=> es = []) /\
+  (direct_subexp es (x1::x2::xs) <=> es = [x1] \/ es = (x2::xs)) /\
+  (direct_subexp es [Var t n] <=> F) /\
+  (direct_subexp es [If t x1 x2 x3] <=> es = [x1] \/ es = [x2] \/ es = [x3]) /\
+  (direct_subexp es [Let t xs x1] <=> es = xs \/ es = [x1]) /\
+  (direct_subexp es [Raise t x1] <=> es = [x1]) /\
+  (direct_subexp es [Handle t x1 x2] <=> es = [x1] \/ es = [x2]) /\
+  (direct_subexp es [Op t opn xs] <=> es = xs) /\
+  (direct_subexp es [Fn t loc_opt vsopt num_args x1] <=> es = [x1]) /\
+  (direct_subexp es [Letrec t loc_opt vsopt fns x1] <=> es = (MAP SND fns) \/ es = [x1]) /\
+  (direct_subexp es [App t loc_opt x1 xs] <=> es = [x1] \/ es = xs) /\
+  (direct_subexp es [Tick t x1] <=> es = [x1]) /\
+  (direct_subexp es [Call t ticks dest xs] <=> es = xs)`;
+
+val direct_subexp_def = save_thm(
+  "direct_subexp_def[simp]",
+  direct_subexp_def |> SIMP_RULE (srw_ss()) []);
+
+val BAG_DISJOINT_SYM = Q.prove(
+  `!b1 b2. BAG_DISJOINT b1 b2 <=> BAG_DISJOINT b2 b1`,
+  simp [BAG_DISJOINT, DISJOINT_SYM]);
+
+(*
+val unique_set_globals_IMP_subexp_disjoint = Q.store_thm(
+  "unique_set_globals_IMP_subexp_disjoint",
+  `(!xs co e1 e2. unique_set_globals xs co /\
+     direct_subexp e1 xs /\ direct_subexp e2 xs ==>
+     BAG_DISJOINT (elist_globals e1) (elist_globals e2)) /\
+   (!xs co e1 e2. unique_set_globals xs co /\
+     direct_subexp [e1] xs /\ direct_subexp e2 xs ==>
+     BAG_DISJOINT (set_globals e1) (elist_globals e2))`,
+  rpt strip_tac
+  THEN
+   (Cases_on `xs` \\ fs []
+    \\ Cases_on `t`
+    THEN1 
+     (Cases_on `h` \\ fs [] \\ rveq \\ fs []
+      \\ fs [unique_set_globals_def]
+      \\ fs [BAG_ALL_DISTINCT_BAG_UNION]
+      \\ simp [Once BAG_DISJOINT_SYM])
+    \\ fs [] \\ rveq \\ fs []
+    \\ fs [unique_set_globals_def, elist_globals_append]
+    \\ fs [BAG_ALL_DISTINCT_BAG_UNION]
+    \\ simp [Once BAG_DISJOINT_SYM]
+    \\ simp [Once BAG_DISJOINT_SYM]));
+*)
 
 val unique_set_globals_subexps = Q.store_thm("unique_set_globals_subexps",
- `(unique_set_globals (x1::xs) co ==>
-     unique_set_globals [x1] co /\ unique_set_globals xs co) /\
+ `(unique_set_globals (x1::x2::xs) co ==>
+     unique_set_globals [x1] co /\ unique_set_globals (x2::xs) co) /\
   (unique_set_globals [If t x1 x2 x3] co ==>
      unique_set_globals [x1] co /\ unique_set_globals [x2] co /\ unique_set_globals [x3] co) /\
   (unique_set_globals [Let t xs x2] co ==>
@@ -274,6 +258,10 @@ val unique_set_globals_subexps = Q.store_thm("unique_set_globals_subexps",
 
 val unique_set_globals_subexps = GEN_ALL unique_set_globals_subexps;
 
+val unique_set_globals_IMP_es_distinct_elist_globals = Q.store_thm(
+  "unique_set_globals_IMP_es_distinct_elist_globals",
+  `!es co. unique_set_globals es co ==> BAG_ALL_DISTINCT (elist_globals es)`,
+  simp [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]);
 
 (* State globals agree with the approximated globals. *)
 val state_globals_approx_def = Define `
@@ -305,6 +293,18 @@ val state_globals_approx_ffifupd = Q.store_thm(
    state_globals_approx s g`,
   simp[state_globals_approx_def]);
 
+val state_globals_approx_codeupd = Q.store_thm(
+  "state_globals_approx_codeupd[simp]",
+  `state_globals_approx (s with code updated_by f) g ⇔
+   state_globals_approx s g`,
+  simp[state_globals_approx_def]);
+
+val state_globals_approx_coupd = Q.store_thm(
+  "state_globals_approx_coupd[simp]",
+  `state_globals_approx (s with compile_oracle updated_by f) g ⇔
+   state_globals_approx s g`,
+  simp[state_globals_approx_def]);
+
 
 val first_n_exps_shift_seq = Q.store_thm("first_n_exps_shift_seq",
   `!co n k. first_n_exps co (n + k) = first_n_exps co k ++ first_n_exps (shift_seq k co) n`,
@@ -330,24 +330,116 @@ val unique_set_globals_evaluate = Q.store_thm("unique_set_globals_evaluate",
   rpt strip_tac \\ imp_res_tac evaluate_code \\ fs []
   \\ simp [unique_set_globals_shift_seq_co]);
 
+val subspt_better_definedg = Q.store_thm(
+  "subspt_better_definedg",
+  `!sp1 sp2 sp3. subspt sp1 sp3 ∧ better_definedg sp1 sp2 ∧ better_definedg sp2 sp3 ⇒
+   subspt sp1 sp2`,
+  simp[subspt_def, better_definedg_def] >> rpt strip_tac >>
+  spose_not_then assume_tac >>
+  `k ∈ domain sp2 ∧ k ∈ domain sp3` by metis_tac [] >>
+  `∃v1 v2 v3. lookup k sp1 = SOME v1 ∧ lookup k sp2 = SOME v2 ∧
+              lookup k sp3 = SOME v3` by metis_tac[domain_lookup] >>
+  `v3 = v1` by metis_tac[SOME_11] >> rveq >>
+  `v1 ◁ v2 ∧ v2 ◁ v1` by metis_tac[THE_DEF] >>
+  metis_tac[subapprox_antisym])
+
+val subspt_known_elist_globals = Q.store_thm(
+  "subspt_known_elist_globals",
+  `∀limit es1 as1 g0 al1 g1 es2 as2 al2 g2.
+     known limit es1 as1 g0 = (al1, g1) ∧ known limit es2 as2 g1 = (al2, g2) ∧
+     subspt g0 g2 ∧ BAG_DISJOINT (elist_globals es1) (elist_globals es2) ⇒
+     subspt g0 g1 ∧ subspt g1 g2`,
+  rpt gen_tac >> strip_tac >>
+  `subspt g0 g1` by metis_tac[known_better_definedg, subspt_better_definedg] >>
+  simp[] >> fs[subspt_def] >>
+  rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  `better_definedg g1 g2` by metis_tac[known_better_definedg] >>
+  `k ∈ domain g2` by fs[better_definedg_def] >> simp[] >>
+  spose_not_then strip_assume_tac >>
+  `k ∈ SET_OF_BAG (elist_globals es2)` by metis_tac[known_changed_globals] >>
+  Cases_on `k ∈ domain g0` >- metis_tac[] >>
+  `k ∈ SET_OF_BAG (elist_globals es1)` by metis_tac[known_changed_globals] >>
+  fs[BAG_DISJOINT, DISJOINT_DEF, EXTENSION] >> metis_tac[])
+
+val subspt_known_op_elist_globals = Q.store_thm(
+  "subspt_known_op_elist_globals",
+  `∀limit es as1 g0 al1 g1 opn as2 g2 a.
+      known limit es as1 g0 = (al1,g1) ∧ known_op opn as2 g1 = (a,g2) ∧ subspt g0 g2 ∧
+      BAG_DISJOINT (op_gbag opn) (elist_globals es) ⇒
+      subspt g0 g1 ∧ subspt g1 g2`,
+  rpt gen_tac >> strip_tac >>
+  `subspt g0 g1`
+    by metis_tac[known_better_definedg, subspt_better_definedg,
+                 known_op_better_definedg] >> simp[] >>
+  fs[subspt_def] >> rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  `better_definedg g1 g2` by metis_tac[known_op_better_definedg] >>
+  `k ∈ domain g2` by fs[better_definedg_def] >> simp[] >>
+  spose_not_then strip_assume_tac >>
+  `k ∈ SET_OF_BAG (op_gbag opn)` by metis_tac[known_op_changed_globals] >>
+  Cases_on `k ∈ domain g0` >- metis_tac[] >>
+  `k ∈ SET_OF_BAG (elist_globals es)` by metis_tac[known_changed_globals] >>
+  fs[BAG_DISJOINT, DISJOINT_DEF, EXTENSION] >> metis_tac[])
+
 
 val known_op_correct_approx = Q.store_thm("known_op_correct_approx",
-  `known_op opn args g0 = (a,g) ∧ LIST_REL val_approx_val args vs ∧
+  `!opn args g0 a g vs s0 g' v s.
+   known_op opn args g0 = (a,g) ∧ LIST_REL val_approx_val args vs ∧
    state_globals_approx s0 g' ∧ subspt g g' /\
    do_app opn vs s0 = Rval (v, s) ⇒
    state_globals_approx s g' ∧ val_approx_val a v`,
-  `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
+  rpt gen_tac
+  \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
   \\ Cases_on `opn`
-  \\ simp[known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
-          pair_case_eq] 
+  \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
+           pair_case_eq] 
   \\ rpt strip_tac \\ rveq \\ fs[]
-  THEN1    
-   (fs[state_globals_approx_def] \\ res_tac
+  THEN1
+   (fs [state_globals_approx_def] \\ res_tac
     \\ metis_tac [SOME_11, subspt_lookup])
-  THEN1    
+  THEN1
    (fs [state_globals_approx_def, get_global_def,
         EL_LUPDATE, bool_case_eq, lookup_insert]
-    \\ rw [] \\ simp [] \\ fs[subspt_def])
+    \\ rw [] \\ simp [] \\ fs [subspt_def])
+  THEN1
+   (fs [state_globals_approx_def, get_global_def,
+        EL_LUPDATE, bool_case_eq, lookup_insert]
+    \\ rw [] \\ simp [] \\ fs [subspt_def, val_approx_val_merge_I])
+  THEN1
+   (fs [state_globals_approx_def, get_global_def,
+        EL_APPEND_EQN, bool_case_eq]
+    \\ rw [] THEN1 (metis_tac [])
+    \\ rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals`
+    \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
+  THEN1
+   (rveq \\ fs [LIST_REL_EL_EQN]));
+
+val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_approx",
+  `!args g0 a g vs s0 g' e s1 res s.
+   co_disjoint_globals g' s0.compile_oracle /\
+   known_op Install args g0 = (a,g) /\ LIST_REL val_approx_val args vs /\
+   state_globals_approx s0 g' /\ subspt g g' /\
+   do_install vs s0 = (Rval e, s1) /\
+   evaluate ([e], [], s1) = (res, s) ⇒
+   state_globals_approx s g' /\ (!vs. res = Rval vs ==> ?v. vs = [v] /\ val_approx_val a v)`,
+
+  rpt gen_tac \\ disch_then strip_assume_tac
+  \\ fs [do_install_def]
+
+  \\ Cases_on `opn`
+  \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
+           pair_case_eq] 
+  \\ rpt strip_tac \\ rveq \\ fs[]
+  THEN1
+   (fs [state_globals_approx_def] \\ res_tac
+    \\ metis_tac [SOME_11, subspt_lookup])
+  THEN1
+   (fs [state_globals_approx_def, get_global_def,
+        EL_LUPDATE, bool_case_eq, lookup_insert]
+    \\ rw [] \\ simp [] \\ fs [subspt_def])
+  THEN1
+   (fs [state_globals_approx_def, get_global_def,
+        EL_LUPDATE, bool_case_eq, lookup_insert]
+    \\ rw [] \\ simp [] \\ fs [subspt_def, val_approx_val_merge_I])
   THEN1
    (fs [state_globals_approx_def, get_global_def,
         EL_APPEND_EQN, bool_case_eq]
@@ -365,7 +457,7 @@ val known_correct_approx = Q.store_thm(
   `!limit es aenv g1 eas g g' env s1 res s.
    known limit es aenv g1 = (eas,g) /\ 
    unique_set_globals es s1.compile_oracle /\
-   LIST_REL val_approx_val aenv env /\ (*subspt g1 g /\ subspt g g' /\*)
+   LIST_REL val_approx_val aenv env /\ subspt g1 g /\ subspt g g' /\
    state_globals_approx s1 g' /\
    evaluate (MAP FST eas, env, s1) = (res, s) ==>
      state_globals_approx s g' /\
@@ -394,6 +486,13 @@ val known_correct_approx = Q.store_thm(
     \\ imp_res_tac unique_set_globals_subexps
     \\ `unique_set_globals (exp2::exps) s2.compile_oracle`
          by (imp_res_tac evaluate_code \\ metis_tac [unique_set_globals_shift_seq_co])
+    \\ `subspt g1 g2 /\ subspt g2 g`
+       by (match_mp_tac subspt_known_elist_globals
+           \\ asm_exists_tac \\ simp []
+           \\ goal_assum drule
+           \\ fs [unique_set_globals_def,elist_globals_append]
+           \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
+    \\ `subspt g2 g'` by metis_tac [subspt_trans]
     \\ REPEAT (first_x_assum drule
                \\ rpt (disch_then drule)
                \\ fs [] \\ strip_tac)
@@ -413,10 +512,21 @@ val known_correct_approx = Q.store_thm(
     \\ imp_res_tac unique_set_globals_subexps
     \\ fs [evaluate_def]
     \\ fs [pair_case_eq]
-    \\ rename1 `evaluate ([e1],env,s1) = (res1, s2)`
+    \\ `subspt g1 g2 /\ subspt g2 g3 /\ subspt g3 g4`
+       by (`?unused. known limit [x1;x2] aenv g1 = (unused, g3)` by simp [known_def]
+           \\ drule subspt_known_elist_globals
+           \\ rpt (disch_then drule)
+           \\ impl_tac THEN1 fs [unique_set_globals_def,BAG_ALL_DISTINCT_BAG_UNION]
+           \\ strip_tac \\ simp []
+           \\ match_mp_tac subspt_known_elist_globals
+           \\ asm_exists_tac \\ simp []
+           \\ goal_assum drule
+           \\ fs [unique_set_globals_def,BAG_ALL_DISTINCT_BAG_UNION])
+    \\ `subspt g2 g' /\ subspt g3 g'` by metis_tac [subspt_trans]
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
-    \\ fs [] \\ strip_tac
+    \\ strip_tac
+    \\ rename1 `evaluate ([e1],env,s1) = (res1, s2)`
     \\ Cases_on `res1` \\ fs [] \\ rveq \\ fs []
     \\ rename1 `evaluate ([e1],env,s1) = (Rval [vcond],s2)`
     \\ Cases_on `Boolv T = vcond \/ Boolv F = vcond`
@@ -432,10 +542,10 @@ val known_correct_approx = Q.store_thm(
     \\ Cases_on `res` \\ fs [] \\ rveq
     \\ fs [val_approx_val_merge_I])
   THEN1
-   (say "Let"
+   (say "Let" \\ cheat
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
-    \\ rename1 `known limit xs aenv g1 = (e1, g2)`
+    \\ rename1 `known limit xs aenv g1 = (ea1, g2)`
     \\ rename1 `known limit [x2] _ g2 = ([(e2,a2)], g3)`
     \\ imp_res_tac unique_set_globals_subexps
     \\ fs [evaluate_def]
@@ -444,7 +554,7 @@ val known_correct_approx = Q.store_thm(
     \\ rpt (disch_then drule)
     \\ fs [] \\ strip_tac
     \\ fs [case_eq_thms] \\ fs [] \\ rveq \\ fs []
-    \\ rename1 `evaluate (MAP FST e1,env,s1) = (Rval vs, s2)`
+    \\ rename1 `evaluate (MAP FST ea1,env,s1) = (Rval vs, s2)`
     \\ `unique_set_globals [x2] s2.compile_oracle`
          by metis_tac [unique_set_globals_evaluate]
     \\ first_x_assum irule
@@ -467,29 +577,49 @@ val known_correct_approx = Q.store_thm(
   THEN1
    (say "Op"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ rename1 `known limit xs aenv g1 = (ea1, g2)`
     \\ rename1 `[Op _ opn _]`
-    \\ Cases_on `isGlobal opn` \\ fs []
+    \\ imp_res_tac unique_set_globals_subexps
+    \\ `subspt g1 g2 /\ subspt g2 g`
+       by (match_mp_tac subspt_known_op_elist_globals
+           \\ rpt (goal_assum drule)
+           \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
+    \\ `subspt g2 g'` by metis_tac [subspt_trans]
+    \\ Cases_on `opn = Install`
     THEN1
-      \\ Cases_on `opn` \\ fs [isGlobal_def]
-      rename1 `gO_destApx apx`
+     (rveq \\ fs [isGlobal_def]
+      \\ fs [evaluate_def]
+      \\ fs [pair_case_eq]
+      \\ first_x_assum drule
+      \\ rpt (disch_then drule)
+      \\ strip_tac
+      \\ reverse (fs [case_eq_thms, pair_case_eq]) \\ rveq \\ fs []
+      THEN1 (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
+             \\ pairarg_tac \\ fs []
+             \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs [])
+      \\ Cases_on `res` \\ rveq \\ fs []
+
+     )
+
+    \\ Cases_on `isGlobal opn` \\ fs []
+    THENL
+     [Cases_on `opn` \\ fs [isGlobal_def]
+      \\ rename1 `gO_destApx apx`
       \\ Cases_on `gO_destApx apx` \\ fs []
       \\ fs [evaluate_def]
       THEN1 (fs [do_app_def] \\ rveq
              \\ Cases_on `apx` \\ fs [gO_destApx_def, bool_case_eq])
       THEN1 (fs [do_app_def] \\ rveq
-             \\ Cases_on `apx` \\ fs [gO_destApx_def, bool_case_eq, NULL_EQ])
-      \\ fs [pair_case_eq]
-      \\ imp_res_tac unique_set_globals_subexps
-      \\ imp_res_tac unique_set_globals_evaluate
-      \\ drule known_op_correct_approx
-
-      \\ first_x_assum drule
-      \\ rpt (disch_then drule)
-
-, case_eq_thms] \\ rveq \\ fs []
-      
-
-    \\ cheat)
+             \\ Cases_on `apx` \\ fs [gO_destApx_def, bool_case_eq, NULL_EQ]),
+      fs [evaluate_def]]
+    \\ fs [pair_case_eq]
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule)
+    \\ strip_tac
+    \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
+    \\ irule known_op_correct_approx
+    \\ rpt (goal_assum drule \\ simp [])
+    \\ irule EVERY2_REVERSE \\ simp [])
 
   THEN1
    (say "App"
@@ -500,7 +630,7 @@ val known_correct_approx = Q.store_thm(
       fs [evaluate_def]
       \\ fs [bool_case_eq]
       \\ fs [pair_case_eq]
-      \\ imp_res_tac unique_set_globals_subxps
+      \\ imp_res_tac unique_set_globals_subexps
       \\ first_x_assum drule
       \\ rpt (disch_then drule)
       \\ strip_tac
@@ -517,7 +647,7 @@ val known_correct_approx = Q.store_thm(
       \\ Cases_on `res2` \\ fs [] \\ rveq \\ fs []
       \\ rename1 `(Rval [f], s3)`
 
-state_globals_approx_def
+      state_globals_approx_def
 
       \\ Cases_on `args` \\ fs [evaluate_def]
 
@@ -542,50 +672,8 @@ state_globals_approx_def
    (say "Letrec"
     \\ cheat)
 
+fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 
-(*
-  Detta kan inte stämma eftersom known kan skriva över
-  någonting som fanns i g1.
-
-   val known_subspt = Q.store_thm("known_subspt",
-     `known limit xs aenv g1 = (eas, g2) ==> subspt g1 g2`,
-*)
-
-
-val known_correct_approx_alt = Q.store_thm(
-  "known_correct_approx_alt",
-  `(!xs env (s1:('c,'ffi) closSem$state) res s limit aenv eas g1 g g'.
-      known limit es aenv g1 = (eas,g) /\ 
-      unique_set_globals es s1.compile_oracle /\
-      LIST_REL val_approx_val aenv env /\ (*subspt g1 g /\ subspt g g' /\*)
-      state_globals_approx s1 g' /\
-      evaluate (MAP FST eas, env, s1) = (res, s) ==>
-        state_globals_approx s g' /\
-        !vs. res = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs) /\
-   (!loc_opt f1 args1 (s1:('c,'ffi) closSem$state) res s f2 args2 t1.
-      known limit es aenv g1 = (eas,g) /\ 
-      evaluate_app loc_opt f1 args1 s1 = (res, s) ==>
-        state_globals_approx s g'
-/\
-      v_rel l g f1 f2 /\ LIST_REL (v_rel l g) args1 args2 /\
-      state_rel s1 t1 ==>
-      ?res2 t2.
-        evaluate_app loc_opt f2 args2 t1 = (res2, t2) /\
-        result_rel (LIST_REL (v_rel l g)) (v_rel l g) res1 res2 /\
-        state_rel s2 t2)`,
-
-
-  `(!limit es aenv g1 eas g g' env s1 res s.
-   known limit es aenv g1 = (eas,g) /\ 
-   unique_set_globals es s1.compile_oracle /\
-   LIST_REL val_approx_val aenv env /\ (*subspt g1 g /\ subspt g g' /\*)
-   state_globals_approx s1 g' /\
-   evaluate (MAP FST eas, env, s1) = (res, s) ==>
-     state_globals_approx s g' /\
-     !vs. res = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs) /\
-   ()`
-
-  (**)   
 
 
 
@@ -665,56 +753,6 @@ val union_idem = Q.store_thm(
   `∀spt. union spt spt = spt`,
   Induct >> simp[union_def]);
 
-val subspt_better_definedg = Q.store_thm(
-  "subspt_better_definedg",
-  `subspt sp1 sp3 ∧ better_definedg sp1 sp2 ∧ better_definedg sp2 sp3 ⇒
-   subspt sp1 sp2`,
-  simp[subspt_def, better_definedg_def] >> rpt strip_tac >>
-  spose_not_then assume_tac >>
-  `k ∈ domain sp2 ∧ k ∈ domain sp3` by metis_tac [] >>
-  `∃v1 v2 v3. lookup k sp1 = SOME v1 ∧ lookup k sp2 = SOME v2 ∧
-              lookup k sp3 = SOME v3` by metis_tac[domain_lookup] >>
-  `v3 = v1` by metis_tac[SOME_11] >> rveq >>
-  `v1 ◁ v2 ∧ v2 ◁ v1` by metis_tac[THE_DEF] >>
-  metis_tac[subapprox_antisym])
-
-val subspt_known_elist_globals = Q.store_thm(
-  "subspt_known_elist_globals",
-  `∀es1 as1 g0 al1 g1 es2 as2 al2 g2.
-     known es1 as1 g0 = (al1, g1) ∧ known es2 as2 g1 = (al2, g2) ∧
-     subspt g0 g2 ∧ BAG_DISJOINT (elist_globals es1) (elist_globals es2) ⇒
-     subspt g0 g1 ∧ subspt g1 g2`,
-  rpt gen_tac >> strip_tac >>
-  `subspt g0 g1` by metis_tac[known_better_definedg, subspt_better_definedg] >>
-  simp[] >> fs[subspt_def] >>
-  rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
-  `better_definedg g1 g2` by metis_tac[known_better_definedg] >>
-  `k ∈ domain g2` by fs[better_definedg_def] >> simp[] >>
-  spose_not_then strip_assume_tac >>
-  `k ∈ SET_OF_BAG (elist_globals es2)` by metis_tac[known_changed_globals] >>
-  Cases_on `k ∈ domain g0` >- metis_tac[] >>
-  `k ∈ SET_OF_BAG (elist_globals es1)` by metis_tac[known_changed_globals] >>
-  fs[BAG_DISJOINT, DISJOINT_DEF, EXTENSION] >> metis_tac[])
-
-val subspt_known_op_elist_globals = Q.store_thm(
-  "subspt_known_op_elist_globals",
-  `∀es as1 g0 al1 g1 opn as2 g2 a.
-      known es as1 g0 = (al1,g1) ∧ known_op opn as2 g1 = (a,g2) ∧ subspt g0 g2 ∧
-      BAG_DISJOINT (op_gbag opn) (elist_globals es) ⇒
-      subspt g0 g1 ∧ subspt g1 g2`,
-  rpt gen_tac >> strip_tac >>
-  `subspt g0 g1`
-    by metis_tac[known_better_definedg, subspt_better_definedg,
-                 known_op_better_definedg] >> simp[] >>
-  fs[subspt_def] >> rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
-  `better_definedg g1 g2` by metis_tac[known_op_better_definedg] >>
-  `k ∈ domain g2` by fs[better_definedg_def] >> simp[] >>
-  spose_not_then strip_assume_tac >>
-  `k ∈ SET_OF_BAG (op_gbag opn)` by metis_tac[known_op_changed_globals] >>
-  Cases_on `k ∈ domain g0` >- metis_tac[] >>
-  `k ∈ SET_OF_BAG (elist_globals es)` by metis_tac[known_changed_globals] >>
-  fs[BAG_DISJOINT, DISJOINT_DEF, EXTENSION] >> metis_tac[])
-
 val FINITE_BAG_FOLDR = Q.store_thm(
   "FINITE_BAG_FOLDR",
   `∀l f a.
@@ -727,13 +765,6 @@ val FINITE_set_globals = Q.store_thm(
   `(∀e. FINITE_BAG (set_globals e)) ∧ ∀es. FINITE_BAG (elist_globals es)`,
   ho_match_mp_tac set_globals_ind >> simp[] >> rpt strip_tac >>
   rename1 `op_gbag opn` >> Cases_on `opn` >> simp[op_gbag_def]);
-
-val state_globals_approx_def = Define`
-  state_globals_approx s g ⇔
-    ∀k v.
-      get_global k s.globals = SOME (SOME v) ⇒
-      ∃a. lookup k g = SOME a ∧ val_approx_val a v
-`;
 
 val state_approx_better_definedg = Q.store_thm(
   "state_approx_better_definedg",
@@ -781,29 +812,6 @@ val fixeqs = let
 in
   RULE_ASSUM_TAC (CONV_RULE (TRY_CONV c))
 end
-
-val state_globals_approx_clock_fupd = Q.store_thm(
-  "state_globals_approx_clock_fupd[simp]",
-  `state_globals_approx (s with clock updated_by f) g ⇔
-   state_globals_approx s g`,
-  simp[state_globals_approx_def]);
-
-val state_globals_approx_dec_clock = Q.store_thm(
-  "state_globals_approx_dec_clock[simp]",
-  `state_globals_approx (dec_clock n s) g ⇔ state_globals_approx s g`,
-  simp[dec_clock_def]);
-
-val state_globals_approx_refsfupd = Q.store_thm(
-  "state_globals_approx_refsfupd[simp]",
-  `state_globals_approx (s with refs updated_by f) g ⇔
-   state_globals_approx s g`,
-  simp[state_globals_approx_def]);
-
-val state_globals_approx_ffifupd = Q.store_thm(
-  "state_globals_approx_ffifupd[simp]",
-  `state_globals_approx (s with ffi updated_by f) g ⇔
-   state_globals_approx s g`,
-  simp[state_globals_approx_def]);
 
 val value_ind =
   TypeBase.induction_of ``:closSem$v``
@@ -1225,33 +1233,6 @@ val ssgc_free_preserved_SING = Q.store_thm(
      by metis_tac[known_preserves_esgc_free] >>
   `EVERY esgc_free [e1']` by fs[] >>
   metis_tac[ssgc_evaluate]);
-
-val known_op_correct_approx = Q.store_thm(
-  "known_op_correct_approx",
-  `known_op opn args g0 = (a,g) ∧ LIST_REL val_approx_val args vs ∧
-   subspt g g' ∧
-   state_globals_approx s0 g' ∧
-   do_app opn vs s0 = Rval (v, s) ⇒
-   state_globals_approx s g' ∧ val_approx_val a v`,
-  Cases_on `opn` >>
-  simp[known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
-       pair_case_eq] >>
-  rpt strip_tac >> rveq >> fs[]
-  >- (fs[state_globals_approx_def] >> res_tac >>
-      fs[subspt_def] >> metis_tac[SOME_11, domain_lookup])
-  >- (fs[state_globals_approx_def, get_global_def, EL_LUPDATE,
-         lookup_insert, bool_case_eq] >> rw[] >> simp[] >>
-      fs[subspt_def])
-  >- (fs[state_globals_approx_def, get_global_def, EL_LUPDATE,
-         bool_case_eq, lookup_insert] >> rw[] >> fs[subspt_def] >>
-      metis_tac[val_approx_val_merge_I])
-  >- (fs[state_globals_approx_def, get_global_def, EL_APPEND_EQN,
-         bool_case_eq] >> rw[]
-      >- metis_tac[]
-      >- (rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals` >>
-          `nn - LENGTH ss.globals = 0` by simp[] >>
-          pop_assum (fn th => fs[th])))
-  >- (rveq >> fs[LIST_REL_EL_EQN]));
 
 val LENGTH_clos_gen = Q.prove(`
   ∀ls x c.
