@@ -159,6 +159,10 @@ val explode_strcat = Q.store_thm("explode_strcat[simp]",
   `explode (strcat s1 s2) = explode s1 ++ explode s2`,
   rw[strcat_thm]);
 
+val strlen_strcat = Q.store_thm("strlen_strcat[simp]",
+  `strlen (strcat s1 s2) = strlen s1 + strlen s2`,
+  rw[strcat_thm]);
+
 val concatWith_aux_def = tDefine "concatWith_aux"`
   (concatWith_aux s [] bool = implode []) /\
   (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
@@ -188,6 +192,9 @@ val str_def = Define`
 val explode_str = Q.store_thm("explode_str[simp]",
   `explode (str c) = [c]`,
   rw[str_def])
+
+val strlen_str = Q.store_thm("strlen_str[simp]",
+  `strlen (str c) = 1`, rw[str_def]);
 
 val translate_aux_def = Define`
   (translate_aux f s n 0 = []) /\
