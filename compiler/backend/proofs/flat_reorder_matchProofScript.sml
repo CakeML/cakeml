@@ -1,6 +1,6 @@
-open preamble exh_reorderTheory exhSemTheory exhPropsTheory
+open preamble flat_reorder_matchTheory flatSemTheory flatPropsTheory
 
-val _ = new_theory "exh_reorderProof";
+val _ = new_theory "flat_reorder_matchProof";
 
 (* TODO: move *)
 
@@ -60,7 +60,7 @@ val BAG_OF_LIST_APPEND = Q.store_thm("BAG_OF_LIST_APPEND",
 
 (* -- *)
 
-val s = ``s:'ffi exhSem$state``;
+val s = ``s:'ffi modSem$state``;
 
 (* value transformation *)
 
@@ -134,19 +134,27 @@ val isPcon_isPvar = Q.store_thm("isPcon_isPvar",
   `∀x. isPcon x ==> ¬isPvar x`,
   Cases \\ rw[isPcon_def,isPvar_def]);
 
+val is_const_con_thm = Q.store_thm("is_const_con_thm",
+  `is_const_con x ⇔ ∃t. x = Pcon (SOME t) []`,
+  Cases_on`x` \\ EVAL_TAC \\ rw[]
+  \\ rename1`Pcon t l` \\ Cases_on`t` \\ EVAL_TAC \\ rw[]);
+
+val isPcon_thm = Q.store_thm("is_Pcon_thm",
+  `isPcon x ⇔ ∃t l. x = Pcon (SOME t) l`,
+  Cases_on`x` \\ EVAL_TAC \\ rw[]
+  \\ rename1`Pcon t l` \\ Cases_on`t` \\ EVAL_TAC \\ rw[EXISTS_THM]);
+
 val is_const_con_is_Pcon = Q.store_thm("is_const_con_is_Pcon",
   `is_const_con x ==> isPcon x`,
-  Cases_on`x` \\ rw[isPcon_def,is_const_con_def]);
+  rw[is_const_con_thm,isPcon_thm]);
 
 val is_const_con_pat_bindings_empty = Q.store_thm("is_const_con_pat_bindings_empty",
     `is_const_con x ==> pat_bindings x a = a`,
-    Cases_on `x`
-    \\ fs [is_const_con_def]
-    \\ EVAL_TAC)
+    rw [is_const_con_thm] \\ EVAL_TAC)
 
 fun hd_compile_sing_tac (goal as (asl,w)) =
     let
-       val t = find_term (can (match_term ``HD (exh_reorder$compile [e])``)) w;
+       val t = find_term (can (match_term ``HD (mod_reorder_match$compile [e])``)) w;
        val e_term =  rand $ rator $ rand $ rand t;
        in
         strip_assume_tac $ SPEC e_term compile_sing
@@ -156,7 +164,7 @@ fun hd_compile_sing_tac (goal as (asl,w)) =
 fun app_compile_sing_tac (goal as (asl,w)) =
     let
         val t = find_term (can (match_term
-            ``(evaluate env s (exh_reorder$compile [e1] ++ exh_reorder$compile (e2::es)))``)) w;
+            ``(evaluate env s (flat_reorder_match$compile [e1] ++ flat_reorder_match$compile (e2::es)))``)) w;
         val app_term = rand $ t;
         val e1_term = rand $ rator $ rand $ rand $ rator app_term;
         val e2_term = rand $ rator $ rand $ rand app_term;
@@ -190,85 +198,109 @@ val compile_reverse = Q.store_thm ("compile_reverse",
 (* alternative characterisation of pattern matching *)
 
 val find_match_def = Define`
-    find_match refs v [] = No_match /\
-    find_match refs v (pe::pes) =
+    find_match env s v [] = No_match /\
+    find_match env s v (pe::pes) =
         if ALL_DISTINCT (pat_bindings (FST pe) []) then
-            case pmatch refs (FST pe) v [] of
+            case pmatch env s (FST pe) v [] of
             | Match env' => Match (env', SND pe)
             | Match_type_error => Match_type_error
-            | _ => find_match refs v pes
+            | _ => find_match env s v pes
         else Match_type_error `
 
 val evaluate_match_find_match_none = Q.store_thm ("evaluate_match_find_match_none",
-  `(!env. find_match s.refs v pes ≠ Match env) ==>
-          evaluate_match env s v pes = (s, Rerr(Rabort Rtype_error))
-          `,
+  `env.exh_pat ∧ (!r. find_match env ^s.refs v pes ≠ Match r) ==>
+          evaluate_match env s v pes errv = (s, Rerr (Rabort Rtype_error))`,
   Induct_on `pes`
   \\ fs [find_match_def, evaluate_def]
   \\ Cases
   \\ fs [evaluate_def]
-  \\ rw []
-  \\ simp [Once pmatch_nil]
-  \\ every_case_tac
-  \\ fs [evaluate_def,find_match_def])
+  \\ IF_CASES_TAC \\ fs[]
+  \\ TOP_CASE_TAC
+  \\ rw [])
 
 val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match_some",
-  ` find_match s.refs v pes = Match (env',e) ==>
-      evaluate_match env s v pes = evaluate (env' ++ env) s [e] `,
+  ` find_match env s.refs v pes = Match (env',e) ==>
+      evaluate_match env s v pes errv = evaluate (env with v := env' ++ env.v) s [e] `,
   Induct_on `pes`
   \\ fs [find_match_def,evaluate_def]
   \\ Cases
   \\ fs [evaluate_def]
   \\ TOP_CASE_TAC
-  \\ strip_tac
-  \\ rw [Once pmatch_nil]
-  \\ pop_assum mp_tac
-  \\ TOP_CASE_TAC \\ fs[])
+  \\ CASE_TAC
+  \\ rw[])
 
 (* reordering operations are allowed *)
 
 val pmatch_same_match = Q.store_thm("pmatch_same_match",
-  `is_const_con x /\ pmatch refs x v [] = Match a /\ ¬(isPvar y) /\
-      pmatch refs y v [] = Match b
+  `is_const_con x /\ pmatch env refs x v [] = Match a /\ ¬(isPvar y) /\
+      pmatch env refs y v [] = Match b
       ==> (x = y)`,
-  Cases_on `x` \\ rw [is_const_con_def]
+  rw [is_const_con_thm]
   \\ Cases_on `v` \\ fs [pmatch_def]
-  \\ every_case_tac \\ fs []
-  \\ fs [LENGTH_NIL_SYM]
-  \\ Cases_on `y` \\ fs [pmatch_def]
-  \\ rw []
-  \\ every_case_tac \\ fs [LENGTH_NIL])
+  \\ rename[`Pcon o1 _`,`Conv o2 _`,`isPvar v`]
+  \\ Cases_on`o1` \\ Cases_on`o2` \\ Cases_on`v`
+  \\ fs[pmatch_def,bool_case_eq] \\ rveq
+  \\ rename[`Pcon o1`] \\ Cases_on`o1`
+  \\ fs[pmatch_def,bool_case_eq]
+  \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs[semanticPrimitivesTheory.same_ctor_def]
+  \\ rename[`pmatch_list _ _ _ l _`]
+  \\ Cases_on`l` \\ fs[pmatch_def]
+  \\ rename[`pmatch_list _ _ l _ _`]
+  \\ Cases_on`l` \\ fs[pmatch_def]);
 
 val pmatch_match_match = Q.store_thm("pmatch_match_match",
-    `! x y v. is_const_con x /\ isPcon y /\ pmatch refs x v [] = Match_type_error ==>
-        pmatch refs y v [] = Match_type_error`,
-     Cases \\ fs [isPcon_def, is_const_con_def]
-     \\ Cases \\ fs [isPcon_def,is_const_con_def]
-     \\ Cases \\ fs [pmatch_def]
-     \\ rw [LENGTH_NIL_SYM, LENGTH_NIL]
-     \\ fs [LENGTH_NIL_SYM, LENGTH_NIL]
-     \\ spose_not_then strip_assume_tac \\ fs[LENGTH_NIL_SYM]
-     \\ rfs[pmatch_def]);
+  `! x y v. is_const_con x /\ isPcon y /\ pmatch env refs x v [] = Match_type_error ==>
+      pmatch env refs y v [] = Match_type_error`,
+  rw[is_const_con_thm,isPcon_thm]
+  \\ Cases_on`v` \\ fs[pmatch_def]
+  \\ rename1`Conv tt _` \\ Cases_on`tt`
+  \\ fs[pmatch_def,semanticPrimitivesTheory.same_ctor_def]
+  \\ pop_assum mp_tac \\ simp[bool_case_eq]
+  \\ Cases_on`env.check_ctor` \\ fs[]
+  \\ Cases_on`t` \\ Cases_on`x` \\ Cases_on`t'` \\ fs[ctor_same_type_def]
+  \\ rename1`((g,t),LENGTH l)`
+  \\ Cases_on`((g,t),LENGTH l) ∈ env.c` \\ fs[]
+  \\ rename1`r1 ≠ r2`
+  \\ Cases_on`t = r2` \\ fs[] \\ rveq
+  \\ srw_tac[DNF_ss][]
+
+  Cases \\ fs [isPcon_def, is_const_con_def]
+  \\ Cases \\ fs [isPcon_def,is_const_con_def]
+  \\ Cases \\ fs [pmatch_def]
+  \\ rename[`Pcon o1 l1`,`Conv o2 l2`]
+  \\ Cases_on`o1` \\ Cases_on`o2` \\ fs[pmatch_def]
+  \\ rename[`Pcon o1 l1`]
+  \\ Cases_on`o1` \\ fs[pmatch_def,semanticPrimitivesTheory.same_ctor_def]
+  \\ rw[] \\ fs[pmatch_def] \\ rw[] \\ fs[pmatch_def]
+  \\ rw [LENGTH_NIL_SYM, LENGTH_NIL]
+  \\ fs [LENGTH_NIL_SYM, LENGTH_NIL]
+  \\ spose_not_then strip_assume_tac \\ fs[LENGTH_NIL_SYM]
+  \\ rfs[pmatch_def]);
 
 val pmatch_match_con = Q.store_thm("pmatch_match_con",
     `∀x y v.
-     is_const_con x /\ pmatch refs x v [] = Match a /\ (isPcon y) ==>
-        pmatch refs y v [] <> Match_type_error`,
+     is_const_con x /\ pmatch env s x v [] = Match a /\ (isPcon y) ==>
+        pmatch env s y v [] <> Match_type_error`,
     Cases \\ Cases \\ fs[is_const_con_def,isPcon_def,pmatch_def]
     \\ Cases \\ fs[pmatch_def]
+    \\ rename[`Pcon o1 l1`,`Conv o2 l2`]
+    \\ Cases_on`o1` \\ Cases_on`o2` \\ fs[pmatch_def] \\ rw[]
+    \\ fs[]
+
     \\ rw[]
     \\ fs[LENGTH_NIL_SYM,pmatch_def,LENGTH_NIL]);
 
 val find_match_drop_no_match = Q.store_thm ("find_match_drop_no_match",
-    `! a b. pmatch refs (FST b) v [] = No_match /\ (is_const_con (FST b)) ==>
-     ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
+    `! a b. pmatch env s (FST b) v [] = No_match /\ (is_const_con (FST b)) ==>
+     ((find_match env s v ( a++ [b] ++c)) = find_match env s v (a++c))`,
      Induct
      \\ rw [find_match_def, is_const_con_pat_bindings_empty]
 )
 
 val find_match_may_drop_dup = Q.store_thm ("find_match_may_drop_dup",
     `! a b. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a))) ==>
-     ((find_match refs v ( a++ [b] ++c)) = find_match refs v (a++c))`,
+     ((find_match env s v ( a++ [b] ++c)) = find_match env s v (a++c))`,
      Induct
      \\ rw [find_match_def]
      \\ CASE_TAC
@@ -278,9 +310,9 @@ val find_match_may_drop_dup = Q.store_thm ("find_match_may_drop_dup",
 val find_match_may_reord = Q.store_thm("find_match_may_reord",
     `! a b. is_const_con (FST b) /\ ¬((MEM (FST b) (MAP FST a)))
             /\ EVERY isPcon (MAP FST a) /\
-            find_match refs v (a ++ [b] ++ c) ≠ Match_type_error
+            find_match env s v (a ++ [b] ++ c) ≠ Match_type_error
             ==>
-        find_match refs v (a ++ [b] ++ c) = find_match refs v (b::a++c) `,
+        find_match env s v (a ++ [b] ++ c) = find_match env s v (b::a++c) `,
     Induct \\ fs []
     \\ rw [find_match_def]
     \\ every_case_tac \\ fs [find_match_def]
@@ -404,7 +436,7 @@ val const_cons_fst_find_match = Q.store_thm("const_cons_fst_find_match",
 
 val pmatch_nil_rwt =
     pmatch_nil |> CONJUNCT1
-    |> ADD_ASSUM``(env:(tvarN,exhSem$v) alist) <> []`` |> DISCH_ALL
+    |> ADD_ASSUM``(env:(tvarN,flatSem$v) alist) <> []`` |> DISCH_ALL
 
 val pmatch_nil_imp = Q.store_thm( "pmatch_nil_imp",
     ` pmatch refs p err_v [] = res
@@ -522,7 +554,7 @@ val compile_evaluate = Q.store_thm( "compile_evaluate",
           (compile_state s1, map_result (MAP compile_v) compile_v r1)
           ))
      /\
-      (!(env:(tvarN, exhSem$v) alist) ^s (err_v:exhSem$v) (pes:(pat,exhLang$exp)alist) s1 r1.
+      (!(env:(tvarN, flatSem$v) alist) ^s (err_v:flatSem$v) (pes:(pat,flatLang$exp)alist) s1 r1.
           evaluate_match env ^s err_v pes = (s1,r1) /\
           r1 <> Rerr (Rabort Rtype_error) ==>
               evaluate_match (compile_env env) (compile_state s) (compile_v err_v)
@@ -649,7 +681,7 @@ val compile_evaluate_rwt = Q.store_thm("compile_evaluate_rwt",
   Cases_on`evaluate env st es` \\ rw[] \\ imp_res_tac compile_evaluate);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `semantics env (st:'ffi exhSem$state) es ≠ Fail ⇒
+  `semantics env (st:'ffi flatSem$state) es ≠ Fail ⇒
    semantics (compile_env env) (compile_state st) (compile es) = semantics env st es`,
   simp[semantics_def,compile_state_with_clock] \\
   IF_CASES_TAC \\ fs[compile_evaluate_rwt] \\
@@ -684,7 +716,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 (* syntactic results *)
 
-val _ = bring_to_front_overload"elist_globals"{Thy="exhProps",Name="elist_globals"};
+val _ = bring_to_front_overload"elist_globals"{Thy="flatProps",Name="elist_globals"};
 
 val elist_globals_eq_empty = Q.store_thm("elist_globals_eq_empty",
   `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,

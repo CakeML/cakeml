@@ -606,7 +606,7 @@ val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def};
 val v_thms = { nchotomy = theorem "v_nchotomy", case_def = fetch "-" "v_case_def"};
 
-val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def};
+val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def};
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
 val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
 val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
@@ -628,12 +628,11 @@ val do_app_cases = save_thm ("do_app_cases",
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
-
-
 val do_app_const = Q.store_thm ("do_app_const",
-  `do_app s op vs = SOME (s',r) ⇒
-   s.clock = s'.clock`,
-  cheat);
+  `do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock`,
+  rw [do_app_cases] >>
+  rw [] >>
+  rfs []);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
