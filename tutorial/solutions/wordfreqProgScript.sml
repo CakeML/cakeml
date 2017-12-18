@@ -115,16 +115,19 @@ val format_output_def = Define`
 
 val res = translate format_output_def;
 
+val compute_wordfreq_output_def = Define `
+  compute_wordfreq_output input_lines =
+    MAP format_output (toAscList (FOLDL insert_line empty input_lines))`
+
+val res = translate compute_wordfreq_output_def;
+
 (* Main wordfreq implementation *)
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
     case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
-      TextIO.print_list
-        (List.map format_output
-          (toAscList
-            (List.foldl insert_line empty lines)))`;
+      TextIO.print_list (compute_wordfreq_output lines)`;
 
 val () = append_prog wordfreq;
 
@@ -201,8 +204,8 @@ val wordfreq_output_spec_def =
 
 val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   `!(fs: IO_fs) fname. valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
-      (concat (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname)))))`,
-  rw[valid_wordfreq_output_def] \\
+      (concat (compute_wordfreq_output (all_lines fs fname)))`,
+  rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
   (* EXERCISE: what is the list of words to use here? *)
   (* hint: toAscList returns a list of pairs, and you can use
@@ -319,22 +322,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* this part solves the validate_pat conjunct *)
   reverse conj_tac >- (EVAL_TAC \\ simp[]) \\
 
-  (* try xlet_auto and see that some of the specs for helper functions declared
-     above might be helpful. You can add them to the assumptions like this: *)
-  assume_tac insert_line_v_thm \\
-  (*ex *)
-
-  assume_tac empty_v_thm \\
   xlet_auto >- xsimpl \\
-  (* ex*)
-
-  (* EXERCISE: finish the rest of the CF part of the proof *)
-  (*ex *)
-
-  xlet_auto >- xsimpl \\
-  assume_tac format_output_v_thm \\
-  xlet_auto >- xsimpl \\
-  (* ex*)
 
   (* hint: when xlet_auto is no longer applicable, you can use other CF tactics like xapp *)
   (*ex *)
