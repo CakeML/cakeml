@@ -143,16 +143,16 @@ val () = append_prog wordfreq;
 val valid_wordfreq_output_def = Define`
   valid_wordfreq_output file_contents output =
     ∃ws. set ws = set (splitwords file_contents) ∧ SORTED $< ws ∧
-         output = FLAT (MAP (λw. explode (format_output (w, frequency file_contents w))) ws)`;
+         output = concat (MAP (λw. format_output (w, frequency file_contents w)) ws)`;
 
 (* Although we have defined valid_wordfreq_output as a relation between
    file_contents and output, it is actually functional (there is only one correct
    output). We prove this below: existence and uniqueness. *)
 
 val valid_wordfreq_output_exists = Q.store_thm("valid_wordfreq_output_exists",
-  `∃output. valid_wordfreq_output (implode file_chars) output`,
+  `∃output. valid_wordfreq_output file_chars output`,
   rw[valid_wordfreq_output_def] \\
-  qexists_tac`QSORT $<= (nub (splitwords (implode file_chars)))` \\
+  qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
   `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
   imp_res_tac PERM_LIST_TO_SET \\ fs[] \\
@@ -201,7 +201,7 @@ val wordfreq_output_spec_def =
 
 val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   `!(fs: IO_fs) fname. valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
-      (FLAT (MAP explode (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname))))))`,
+      (concat (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname)))))`,
   rw[valid_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
   (* EXERCISE: what is the list of words to use here? *)
@@ -248,7 +248,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
 );
 
 val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
-  `valid_wordfreq_output (implode file_chars) output ⇒
+  `valid_wordfreq_output file_chars output ⇒
    wordfreq_output_spec file_chars = output`,
   (* EXERCISE: prove this *)
   (* hint: it's a one-liner *)
@@ -269,9 +269,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* hint: use wordfreq_output_spec to produce the desired output *)
   (*ex *)
   `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
-   cl = [explode pname; explode fname] ∧
-   contents = THE (ALOOKUP fs.files (File fname))
-   ⇒
+   cl = [pname; fname] ∧
+   contents = implode (THE (ALOOKUP fs.files (File fname)))
+⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
      [uv] (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
@@ -302,17 +302,14 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xlet_auto >- (xsimpl) \\
   xlet_auto >- (xsimpl) \\
   (* trying xlet_auto shows (TODO: in an obscure way) we need a FILENAME assumption *)
-  `FILENAME fname fnamev` by (
-    fs[FILENAME_def,EVERY_MEM,
-       wfcl_def,GSYM LENGTH_explode,
-       validArg_def]) \\
+  `FILENAME fname fnamev` by (fs[FILENAME_def,EVERY_MEM,wfcl_def,validArg_def]) \\
 
   (* TODO: xlet_auto needs to be made to work with STDIO better *)
   (* TODO: inventing this is too hard for the tutorial *)
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
            (if inFS_fname fs (File fname) then SOME (all_lines fs (File fname))
               else NONE) sv * STDIO fs *
-              COMMANDLINE [explode pname; explode fname])`
+              COMMANDLINE [pname; fname])`
   >-(xapp \\ instantiate \\ xsimpl) \\
   (* ex*)
 

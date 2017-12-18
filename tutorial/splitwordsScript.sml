@@ -22,7 +22,8 @@ val splitwords_nil_lit = Q.store_thm("splitwords_nil_lit[simp]",
 val splitwords_concat = Q.store_thm("splitwords_concat",
   `isSpace sp ⇒
    splitwords (s1 ^ str sp ^ s2) = splitwords s1 ++ splitwords s2`,
-  rw[splitwords_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]);
+  rewrite_tac [GSYM strcat_assoc]
+  \\ rw[splitwords_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]);
 
 val splitwords_concat_space = Q.store_thm("splitwords_concat_space",
   `isSpace sp ⇒ splitwords (s1 ^ str sp) = splitwords s1`,
