@@ -4,7 +4,7 @@ CAKECC = cake
 CAKE_PREFIX ?= cake_
 PATH_PREFIX ?= .
 CAKE_FLAGS ?=
-FLAGS = -g -o
+FLAGS ?= -g -o
 BMS = $(wildcard *.sml)
 
 BM_PROGS = $(patsubst %.sml,$(CAKE_PREFIX)%,$(BMS))
