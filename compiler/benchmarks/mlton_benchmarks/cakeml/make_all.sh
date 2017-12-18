@@ -1,17 +1,17 @@
 #Build the compiler
-make compiler
-#No clos optimizations
-mkdir -p noclos
-make CAKE_PREFIX=cake_ PATH_PREFIX=./noclos CAKE_FLAGS="--multi=false --known=false --call=false --max_app=1"
-#No BVL optimizations
-mkdir -p nobvl
-make CAKE_PREFIX=cake_ PATH_PREFIX=./nobvl CAKE_FLAGS="--inline_size=0 --exp_cut=10000 --split=false"
-#No register allocator
-mkdir -p noalloc
-make CAKE_PREFIX=cake_ PATH_PREFIX=./noalloc CAKE_FLAGS="--reg_alg=0"
-#All optimizations enabled
-mkdir -p all
-make CAKE_PREFIX=cake_ PATH_PREFIX=./all
+#make compiler
+##No clos optimizations
+#mkdir -p noclos
+#make CAKE_PREFIX=cake_ PATH_PREFIX=./noclos CAKE_FLAGS="--multi=false --known=false --call=false --max_app=1"
+##No BVL optimizations
+#mkdir -p nobvl
+#make CAKE_PREFIX=cake_ PATH_PREFIX=./nobvl CAKE_FLAGS="--inline_size=0 --exp_cut=10000 --split=false"
+##No register allocator
+#mkdir -p noalloc
+#make CAKE_PREFIX=cake_ PATH_PREFIX=./noalloc CAKE_FLAGS="--reg_alg=0"
+##All optimizations enabled
+#mkdir -p all
+#make CAKE_PREFIX=cake_ PATH_PREFIX=./all
 
 #GC debug enabled
 #mkdir -p gc
@@ -23,14 +23,21 @@ make CAKE_PREFIX=cake_ PATH_PREFIX=./all
 
 #Compilation to different targets
 #mkdir -p arm8
-#make CAKE_PREFIX=cake_ PATH_PREFIX=./arm8 CAKE_FLAGS="--target=arm8"
-
+#SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./arm8 CAKE_FLAGS="--target=arm8"
+#
 #mkdir -p riscv
-#make CAKE_PREFIX=cake_ PATH_PREFIX=./riscv CAKE_FLAGS="--target=riscv"
-
+#SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./riscv CAKE_FLAGS="--target=riscv"
+#
 #mkdir -p mips
-#make CAKE_PREFIX=cake_ PATH_PREFIX=./mips CAKE_FLAGS="--target=mips --no_jump"
-
+#SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./mips CAKE_FLAGS="--target=mips --no_jump"
+#
 #mkdir -p x64
-#make CAKE_PREFIX=cake_ PATH_PREFIX=./x64 CAKE_FLAGS="--target=x64"
+#SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./x64 CAKE_FLAGS="--target=x64"
+
+#make compiler32
+mkdir -p arm6
+CAKECC=cake32 SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./arm6 CAKE_FLAGS="--target=arm6 --heap_size=500"
+
+#mkdir -p arm6
+#make CAKE_PREFIX=cake_ PATH_PREFIX=./arm6 CAKE_FLAGS="--target=arm6"
 
