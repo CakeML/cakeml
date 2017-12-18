@@ -47,11 +47,14 @@ val CONTEXT_def = Define `
 val THM_def = Define `
   THM ctxt (Sequent asl c) = ((thyof ctxt, asl) |- c)`;
 
+val lift_tm_def = Define `lift_tm c = Sequent [] c`;
+
 val STATE_def = Define `
   STATE ctxt state =
       (ctxt = state.the_context) /\ CONTEXT ctxt /\
       (state.the_type_constants = type_list ctxt) /\
-      (state.the_term_constants = const_list ctxt)`;
+      (state.the_term_constants = const_list ctxt) /\
+      (state.the_axioms = MAP lift_tm (axexts ctxt))`;
 
 (* ------------------------------------------------------------------------- *)
 (* impossible term lemmas                                                    *)
@@ -572,7 +575,7 @@ val TERM_Const = Q.prove(
     TERM defs (Const name a)`,
   rw[STATE_def,TERM_def,term_ok_def] >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
-  qpat_x_assum`X = Y`(ASSUME_TAC o SYM) >>
+  qpat_x_assum`_ = const_list _`(ASSUME_TAC o SYM) >>
   simp[ALOOKUP_MAP] >>
   qpat_x_assum`ALL_DISTINCT X`mp_tac >>
   simp[Once MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
@@ -2470,7 +2473,7 @@ val new_axiom_thm = Q.store_thm("new_axiom_thm",
     MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
     reverse conj_tac >- simp[] >>
     METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok] ) >>
-  fs[STATE_def] >>
+  fs[STATE_def,lift_tm_def] >>
   imp_res_tac term_type >>
   fs[CONTEXT_def] >>
   simp[extends_def,Once relationTheory.RTC_CASES1] >>
