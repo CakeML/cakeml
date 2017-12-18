@@ -115,16 +115,19 @@ val format_output_def = Define`
 
 val res = translate format_output_def;
 
+val compute_wordfreq_output_def = Define `
+  compute_wordfreq_output input_lines =
+    MAP format_output (toAscList (FOLDL insert_line empty input_lines))`
+
+val res = translate compute_wordfreq_output_def;
+
 (* Main wordfreq implementation *)
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
     case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
-      TextIO.print_list
-        (List.map format_output
-          (toAscList
-            (List.foldl insert_line empty lines)))`;
+      TextIO.print_list (compute_wordfreq_output lines)`;
 
 val () = append_prog wordfreq;
 
@@ -143,16 +146,16 @@ val () = append_prog wordfreq;
 val valid_wordfreq_output_def = Define`
   valid_wordfreq_output file_contents output =
     ∃ws. set ws = set (splitwords file_contents) ∧ SORTED $< ws ∧
-         output = FLAT (MAP (λw. explode (format_output (w, frequency file_contents w))) ws)`;
+         output = concat (MAP (λw. format_output (w, frequency file_contents w)) ws)`;
 
 (* Although we have defined valid_wordfreq_output as a relation between
    file_contents and output, it is actually functional (there is only one correct
    output). We prove this below: existence and uniqueness. *)
 
 val valid_wordfreq_output_exists = Q.store_thm("valid_wordfreq_output_exists",
-  `∃output. valid_wordfreq_output (implode file_chars) output`,
+  `∃output. valid_wordfreq_output file_chars output`,
   rw[valid_wordfreq_output_def] \\
-  qexists_tac`QSORT $<= (nub (splitwords (implode file_chars)))` \\
+  qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
   `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
   imp_res_tac PERM_LIST_TO_SET \\ fs[] \\
@@ -201,8 +204,8 @@ val wordfreq_output_spec_def =
 
 val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   `!(fs: IO_fs) fname. valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
-      (FLAT (MAP explode (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname))))))`,
-  rw[valid_wordfreq_output_def] \\
+      (concat (compute_wordfreq_output (all_lines fs fname)))`,
+  rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
   (* EXERCISE: what is the list of words to use here? *)
   (* hint: toAscList returns a list of pairs, and you can use
@@ -239,7 +242,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
 );
 
 val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
-  `valid_wordfreq_output (implode file_chars) output ⇒
+  `valid_wordfreq_output file_chars output ⇒
    wordfreq_output_spec file_chars = output`,
   (* EXERCISE: prove this *)
   (* hint: it's a one-liner *)
@@ -281,11 +284,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* this part solves the validate_pat conjunct *)
   reverse conj_tac >- (EVAL_TAC \\ simp[]) \\
 
-  (* try xlet_auto and see that some of the specs for helper functions declared
-     above might be helpful. You can add them to the assumptions like this: *)
-  assume_tac insert_line_v_thm \\
-
-  (* EXERCISE: finish the rest of the CF part of the proof *)
+  xlet_auto >- xsimpl \\
 
   (* hint: when xlet_auto is no longer applicable, you can use other CF tactics like xapp *)
 
