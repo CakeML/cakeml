@@ -374,7 +374,7 @@ val sort_spec = Q.store_thm ("sort_spec",
         xsimpl \\
         simp[linesFD_def,inFS_fname_def] \\
         conj_tac >- metis_tac[stdIn_def,stdin_v_thm] \\
-        fs[get_file_content_def,all_lines_def] \\
+        fs[get_file_content_def,all_lines_def,lines_of_def] \\
         pairarg_tac \\ fs[] \\
         `fnm = IOStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
         fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF])
