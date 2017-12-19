@@ -119,6 +119,29 @@ val OBJ_def = tDefine "OBJ" `
    \\ Induct \\ rw [object_size_def]
    \\ res_tac \\ fs []);
 
+(* TODO The theorems can be extended under certain assumptions *)
+
+val STATE_DEF_EQ = Q.store_thm("STATE_DEF_EQ",
+  `STATE (d1::defs) refs /\ STATE (d2::defs) refs
+   ==>
+   d1 = d2`,
+  rw [STATE_def, CONTEXT_def] \\ Cases_on `refs.the_context` \\ fs []);
+
+(* This does not hold in general -- likely this guarantee should be added
+   to new_basic_definition_thm and friends; all theorems which talk about
+   adding definitions. *)
+val THM_CONS_EXTEND = Q.store_thm("THM_CONS_EXTEND",
+  `STATE (d::defs) refs /\
+   THM defs th
+   ==>
+   THM (d::defs) th`,
+   cheat);
+
+val OBJ_CONS_EXTEND = Q.store_thm("OBJ_CONS_EXTEND",
+  `!defs obj d. STATE (d::defs) refs /\ OBJ defs obj ==> OBJ (d::defs) obj`,
+  recInduct (theorem"OBJ_ind") \\ rw [] \\ fs [OBJ_def, EVERY_MEM]
+  \\ metis_tac [TYPE_CONS_EXTEND, TERM_CONS_EXTEND, THM_CONS_EXTEND])
+
 val READER_STATE_def = Define `
   READER_STATE defs st <=>
     EVERY (THM defs) st.thms /\
@@ -133,11 +156,12 @@ val READER_STATE_EXTEND = Q.store_thm("READER_STATE_EXTEND",
    rw [READER_STATE_def]);
 
 val READER_STATE_CONS_EXTEND = Q.store_thm("READER_STATE_CONS_EXTEND",
-  `READER_STATE defs st /\
-   new_basic_definition thm refs = (Success thm, refs)
+  `STATE (d::defs) refs /\
+   READER_STATE defs st
    ==>
-   READER_STATE
-  `,
+   READER_STATE (d::defs) st`,
+  rw [READER_STATE_def]
+  \\ metis_tac [OBJ_CONS_EXTEND, THM_CONS_EXTEND, EVERY_MEM]);
 
 val getNum_thm = Q.store_thm("getNum_thm",
   `getNum obj refs = (res, refs') ==> refs = refs'`,
@@ -637,7 +661,7 @@ val get_const_type_thm = Q.store_thm("get_const_type_thm",
    ==>
    refs = refs' /\ !ty. res = Success ty ==> TYPE defs ty`,
   rw [get_const_type_def, st_ex_bind_def, st_ex_return_def, get_the_term_constants_def]
-  \\ cheat (* TODO types are ok in refs *)
+  \\ `EVERY (TYPE defs o SND) refs.the_term_constants` by cheat (* TODO *)
   \\ metis_tac [assoc_state_thm, assoc_ty_thm]);
 
 val tymatch_thm = Q.store_thm("tymatch_thm",
@@ -667,6 +691,7 @@ val match_type_thm = Q.store_thm("match_type_thm",
   \\ PairCases_on `z` \\ fs []
   \\ imp_res_tac tymatch_thm \\ rfs []);
 
+(* imp_res_tac is not useful when the monadic functions are too deep *)
 fun drule_or_nil thm =
   (drule (GEN_ALL thm) \\ rpt (disch_then drule \\ fs []) \\ rw []) ORELSE
   (qexists_tac `[]` \\ fs [] \\ metis_tac [])
@@ -795,8 +820,7 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   >- (* defineConst *)
-   (
-    fs [case_eq_thms] \\ rw []
+   (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getTerm_thm, getName_thm, type_of_thm] \\ fs []
@@ -814,7 +838,8 @@ val readLine_thm = Q.store_thm("readLine_thm",
       \\ `OBJ (d::defs) (Thm th)` by rw [OBJ_def])
     \\ TRY
       (irule push_push_thm \\ simp [OBJ_def]
-       \\ cheat (* READER_STATE extended with new definition *))
+       \\ irule READER_STATE_CONS_EXTEND \\ fs []
+       \\ asm_exists_tac \\ fs [])
     \\ qexists_tac `[]` \\ fs []
     \\ drule (GEN_ALL mk_var_thm)
     \\ disch_then (qspecl_then [`n`,`ty`] mp_tac) \\ rw []
@@ -824,10 +849,8 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ drule (GEN_ALL new_basic_definition_thm)
     \\ disch_then drule \\ fs [] \\ rw [])
   \\ IF_CASES_TAC \\ fs []
-
   >- (* defineConstList *)
-    (
-    fs [case_eq_thms] \\ rw []
+    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every drule_or_nil [pop_thm, getThm_thm, pop_thm, getList_thm, map_getNvs_thm, INST_thm]
@@ -845,45 +868,66 @@ val readLine_thm = Q.store_thm("readLine_thm",
       \\ drule (GEN_ALL new_specification_thm)
       \\ disch_then drule \\ fs []
       \\ NO_TAC)
-    >- cheat (* TODO READER_STATE extended with new definition *)
     \\ qexists_tac `[d]` \\ fs []
-    )
+    \\ irule push_push_thm \\ fs [OBJ_def] >- metis_tac []
+    \\ irule READER_STATE_CONS_EXTEND \\ fs []
+    \\ asm_exists_tac \\ fs [])
   \\ IF_CASES_TAC \\ fs []
+
   >- (* defineTypeOp *)
    (
     fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ cheat (* TODO must be able to extend `defs` *)
+    \\ rpt (CHANGED_TAC (TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []))
+    \\ map_every drule_or_nil [pop_thm, getThm_thm, pop_thm, getList_thm, pop_thm]
+    \\ imp_res_tac getName_thm \\ fs [] \\ rveq
+    \\ drule_or_nil pop_thm
+    \\ TRY (qexists_tac `[]` \\ fs [] \\ metis_tac [])
+    \\ drule_or_nil pop_thm
+    \\ TRY
+     (drule (GEN_ALL new_basic_type_definition_thm)
+      \\ disch_then (qspec_then `name` drule)
+      \\ disch_then (qspecl_then [`rep`,`abs`] mp_tac) \\ rw [])
+    \\ TRY (`TERM (ds ++ defs) (concl th1)` by metis_tac [concl_thm])
+    \\ drule_or_nil dest_eq_thm
+    \\ drule (GEN_ALL ABS_thm)
+    \\ disch_then (qspec_then `th1` mp_tac)
+    \\ rpt (disch_then drule) \\ rw []
+    \\ qspec_then `th2` mp_tac (GEN_ALL SYM_thm)
+    \\ rpt (disch_then drule) \\ rw []
+    \\ TRY (`TERM (ds ++ defs) (concl th2')` by metis_tac [concl_thm])
+    \\ drule_or_nil dest_eq_thm
+    \\ drule_or_nil dest_comb_thm
+    \\ drule_or_nil ABS_thm
+    \\ qexists_tac `ds` \\ fs []
+    \\ irule push_push_thm \\ fs [OBJ_def]
+    \\ irule push_push_thm \\ fs [OBJ_def]
+    \\ irule push_thm \\ fs [OBJ_def]
+    \\ TRY
+     (rename1 `READER_STATE (ds ++ _) _`
+      \\ cheat (* TODO this does not hold with READER_STATE as is *))
    )
   \\ IF_CASES_TAC \\ fs []
   >- (* eqMp *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ map_every imp_res_tac [pop_thm, getThm_thm ] \\ fs [] \\ rfs []
+    \\ map_every imp_res_tac [pop_thm, getThm_thm]
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
-    \\ metis_tac [EQ_MP_thm, STATE_EXTRA_def])
+    \\ metis_tac [EQ_MP_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* hdTl *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ every_case_tac \\ fs [] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getList_thm] \\ fs []
-    \\ TRY (metis_tac [STATE_EXTRA_def])
-    \\ irule push_thm >- metis_tac [OBJ_def]
-    \\ irule push_thm \\ metis_tac [OBJ_def])
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
+    \\ TRY (irule push_push_thm \\ fs [OBJ_def])
+    \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   >- (* nil *)
    (fs [case_eq_thms] \\ rw [] \\ fs []
+    \\ qexists_tac `[]` \\ fs []
     \\ irule push_thm \\ fs [OBJ_def])
   \\ IF_CASES_TAC \\ fs []
   >- (* opType *)
@@ -891,32 +935,37 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getList_thm, getTypeOp_thm, map_getType_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
-    \\ metis_tac [mk_type_thm, STATE_EXTRA_def])
+    \\ metis_tac [mk_type_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* pop *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ imp_res_tac pop_thm \\ fs [])
+    \\ imp_res_tac pop_thm \\ fs []
+    \\ qexists_tac `[]` \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   >- (* pragma *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ imp_res_tac pop_thm \\ fs [])
+    \\ imp_res_tac pop_thm \\ fs []
+    \\ qexists_tac `[]` \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   >- (* proveHyp *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [PROVE_HYP_thm, pop_thm, getThm_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
-    \\ metis_tac [STATE_EXTRA_def])
+    \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   >- (* ref *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []
     \\ every_case_tac \\ fs [] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getNum_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs []
     \\ irule push_thm \\ fs [OBJ_def]
     \\ metis_tac [READER_STATE_def])
   \\ IF_CASES_TAC \\ fs []
@@ -924,42 +973,47 @@ val readLine_thm = Q.store_thm("readLine_thm",
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getTerm_thm, REFL_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
-    \\ metis_tac [STATE_EXTRA_def])
+    \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   >- (* remove *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []
     \\ every_case_tac \\ fs [] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getNum_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ irule push_thm \\ fs [OBJ_def]
     \\ metis_tac [READER_STATE_def, delete_dict_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* subst *)
-   (
-    fs [case_eq_thms] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []
-    \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []
-    \\ map_every imp_res_tac
-      [pop_thm, getThm_thm, getPair_thm, getList_thm,
-       map_getTms_thm, map_getTys_thm, INST_thm] \\ fs [] \\ rw []
-    \\ cheat (* TODO a bit picky *)
-   )
+   (fs [case_eq_thms] \\ rw []
+    \\ rpt (CHANGED_TAC
+      (TRY (pairarg_tac \\ fs [])
+       \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []))
+    \\ map_every drule_or_nil [pop_thm, getThm_thm]
+    \\ map_every drule_or_nil [pop_thm, getPair_thm]
+    \\ qpat_x_assum `_ _ tys` assume_tac
+    \\ map_every drule_or_nil [getList_thm, map_getTys_thm, INST_TYPE_thm]
+    \\ qpat_x_assum `_ _ tms` assume_tac
+    \\ map_every drule_or_nil [getList_thm, map_getTms_thm, INST_thm]
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
+    \\ irule push_thm \\ fs [OBJ_def])
   \\ IF_CASES_TAC \\ fs []
   >- (* sym *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getThm_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
-    \\ metis_tac [SYM_thm, STATE_EXTRA_def])
+    \\ metis_tac [SYM_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* thm *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ fs [STATE_EXTRA_def]
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getTerm_thm, getList_thm, getThm_thm, map_getTerm_thm] \\ fs []
     \\ metis_tac [ALPHA_THM_thm, READER_STATE_EXTEND])
   \\ IF_CASES_TAC \\ fs []
@@ -968,13 +1022,15 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getThm_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
-    \\ metis_tac [TRANS_thm, STATE_EXTRA_def])
+    \\ metis_tac [TRANS_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* typeOp *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getName_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ irule push_thm \\ fs [OBJ_def])
   \\ IF_CASES_TAC \\ fs []
   >- (* var *)
@@ -982,60 +1038,76 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getName_thm, getType_thm] \\ fs []
-    \\ rfs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
     \\ fs [TYPE_def, TERM_def, holSyntaxTheory.term_ok_def]
-    \\ metis_tac [STATE_EXTRA_def])
+    \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   >-
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ map_every imp_res_tac [pop_thm, getVar_thm] \\ fs []
-    \\ TRY
-     (rename1 `mk_var v1` \\ PairCases_on `v1` \\ fs [mk_var_def, TERM_def]
-      \\ irule push_thm \\ fs [OBJ_def] \\ rfs []
-      \\ fs [TERM_def])
-    \\ metis_tac [STATE_EXTRA_def])
+    \\ drule_or_nil pop_thm
+    \\ drule_or_nil getVar_thm
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
+    \\ irule push_thm \\ fs [OBJ_def]
+    \\ rename1 `mk_var v1` \\ PairCases_on `v1` \\ fs [mk_var_def, TERM_def])
   \\ IF_CASES_TAC \\ fs []
   >- (* varType *)
    (fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getName_thm] \\ fs []
+    \\ qexists_tac `[]` \\ fs [] \\ rw []
     \\ irule push_thm \\ fs []
-    \\ fs [OBJ_def, STATE_def, STATE_EXTRA_def]
+    \\ fs [OBJ_def, STATE_def]
     \\ irule mk_vartype_thm
     \\ metis_tac [STATE_def, CONTEXT_def])
      (* digits *)
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ qexists_tac `[]` \\ fs [] \\ rw []
   \\ irule push_thm \\ fs [OBJ_def]);
 
 val readLines_thm = Q.store_thm("readLines_thm",
-  `!lines st res refs refs'.
-     STATE_EXTRA defs refs /\
+  `!lines st res refs refs' defs.
+     STATE defs refs /\
      READER_STATE defs st /\
      readLines lines st refs = (res, refs')
      ==>
-     STATE_EXTRA defs refs' /\
-     !st'. res = Success st' ==> READER_STATE defs st'`,
+     ?ds.
+       STATE (ds ++ defs) refs' /\
+       !st'. res = Success st' ==> READER_STATE (ds ++ defs) st'`,
   recInduct readLines_ind \\ rw [] \\ pop_assum mp_tac
   \\ once_rewrite_tac [readLines_def] \\ fs [st_ex_return_def, st_ex_bind_def]
   \\ CASE_TAC \\ fs []
-  \\ TRY (rw [] \\ fs [] \\ NO_TAC)
+  >- (rw [] \\ qexists_tac `[]` \\ fs [])
   \\ fs [case_eq_thms, PULL_EXISTS] \\ rw []
-  \\ imp_res_tac readLine_thm \\ fs []
+  \\ drule (GEN_ALL readLine_thm)
+  \\ rpt (disch_then drule) \\ rw []
   \\ first_x_assum drule
-  \\ disch_then drule \\ fs []);
+  \\ disch_then drule \\ rw []
+  \\ asm_exists_tac \\ fs []);
+
+val init_refs_def = Define `
+  init_refs =
+    <| the_type_constants := init_type_constants
+     ; the_term_constants := init_term_constants
+     ; the_axioms         := init_axioms
+     ; the_context        := init_ctxt |>`;
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
-  `STATE_EXTRA defs refs /\
-   readLines lines init_state refs = (res, refs')
+  `readLines lines init_state init_refs = (res, refs)
    ==>
-   STATE_EXTRA defs refs' /\
-   !st'. res = Success st' ==> READER_STATE defs st'`,
-  sg `READER_STATE defs init_state`
+   ?defs.
+     STATE defs refs /\
+     !st. res = Success st ==> READER_STATE defs st`,
+  sg `READER_STATE init_ctxt init_state`
   >- fs [init_state_def, READER_STATE_def, lookup_def]
-  \\ rw []
-  \\ metis_tac [readLines_thm]);
+  \\ sg `STATE init_ctxt init_refs`
+  >-
+   (fs [STATE_def, CONTEXT_def, extends_def, init_refs_def, init_ctxt_def,
+        ml_hol_kernelProgTheory.init_type_constants_def,
+        ml_hol_kernelProgTheory.init_term_constants_def,
+        ml_hol_kernelProgTheory.init_axioms_def])
+  \\ rw [] \\ metis_tac [readLines_thm]);
 
 val _ = export_theory();
 
