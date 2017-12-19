@@ -203,8 +203,9 @@ val wordfreq_output_spec_def =
 *)
 
 val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
-  `!(fs: IO_fs) fname. valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
-      (concat (compute_wordfreq_output (all_lines fs fname)))`,
+  `!file_contents.
+     valid_wordfreq_output file_contents
+       (concat (compute_wordfreq_output (lines_of file_contents)))`,
   rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
   (* EXERCISE: what is the list of words to use here? *)
@@ -213,10 +214,10 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
            of these pairs *)
   (* qexists_tac `<put your answer here>` \\ *)
   (* Now we use the theorem about insert_line proved earlier *)
-  qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
+  qspecl_then[`lines_of file_contents`,`empty`]mp_tac FOLDL_insert_line \\
   simp[empty_thm] \\
   impl_tac >- (
-    simp[all_lines_def,EVERY_MAP,implode_def,strcat_def] \\
+    simp[lines_of_def,EVERY_MAP,implode_def,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
   assume_tac good_cmp_compare \\ simp[Abbr`ls`] \\
@@ -226,7 +227,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
   qmatch_goalsub_abbrev_tac`set (splitwords w1) = set (splitwords w2)` \\
   `splitwords w1 = splitwords w2` by (
-    strip_assume_tac concat_all_lines
+    qspec_then `file_contents` strip_assume_tac concat_lines_of
     \\ simp[Abbr`w1`,Abbr`w2`]
     \\ `isSpace #"\n"` by EVAL_TAC
     \\ simp[splitwords_concat_space] ) \\
@@ -300,7 +301,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
-  (* EXERCISE: use the lemmas above to finish the proof *)
+  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
 );
 
 (* Finally, we package the verified program up with the following boilerplate*)
