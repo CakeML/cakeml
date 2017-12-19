@@ -537,10 +537,10 @@ val openIn_spec = Q.store_thm(
     >- (xraise >> xsimpl >>
         sg `0 < LENGTH (LUPDATE (n2w (nextFD fs)) 1 fnm)`
         >-(
-	  fs[] >> fs[markerTheory.Abbrev_def] >> fs[] >>
-	  `0 + LENGTH (MAP (n2w ∘ ORD) (explode s) ++ [0w]) <= LENGTH fnm0`
+          fs[] >> fs[markerTheory.Abbrev_def] >> fs[] >>
+          `0 + LENGTH (MAP (n2w ∘ ORD) (explode s) ++ [0w]) <= LENGTH fnm0`
         by (fs[LENGTH_explode]) >>
-	  fs[LENGTH_insert_atI]) >>
+          fs[LENGTH_insert_atI]) >>
         IMP_RES_TAC HD_LUPDATE >> fs[])) >>
   xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
@@ -551,10 +551,10 @@ val openIn_spec = Q.store_thm(
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
       map_every qexists_tac[`ns`,`f`,`st`,`st`] >> xsimpl >>
       simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-	   ffi_open_in_def, (* decode_encode_FS, *) Abbr`fnm`,
-	   getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
-	   dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
-	   implode_explode, LENGTH_explode] >>
+           ffi_open_in_def, (* decode_encode_FS, *) Abbr`fnm`,
+           getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
+           dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
+           implode_explode, LENGTH_explode] >>
       simp[not_inFS_fname_openFile]) >>
   xlet_auto >-(xsimpl) >> fs[iobuff_loc] >>
   xlet_auto >- xsimpl >>
@@ -774,16 +774,16 @@ val write_spec = Q.store_thm("write_spec",
   Induct_on`N` >>
   xcf "TextIO.write" (basis_st())
   >>(xlet_auto >- xsimpl >> xif
-	 >-(TRY instantiate >> xcon >>
-		simp[IOFS_iobuff_def,IOFS_def] >> xsimpl >> qexists_tac`0` >>
-	    fs[fsupdate_unchanged,insert_atI_def] >> xsimpl)) >>
+         >-(TRY instantiate >> xcon >>
+                simp[IOFS_iobuff_def,IOFS_def] >> xsimpl >> qexists_tac`0` >>
+            fs[fsupdate_unchanged,insert_atI_def] >> xsimpl)) >>
   NTAC 2 (xlet_auto >- xsimpl) >>
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   xlet_auto >> xsimpl
   >-(simp[iobuff_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl) >>
   xlet_auto >- xsimpl >> reverse xif
   >-(xcon >> xsimpl >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
-	 qexists_tac`(Lnext_pos fs.numchars + 1)` >> `nw = n` by fs[] >> xsimpl >>
+         qexists_tac`(Lnext_pos fs.numchars + 1)` >> `nw = n` by fs[] >> xsimpl >>
      imp_res_tac get_file_content_validFD >>
      fs[wfFS_fsupdate,validFD_def,always_DROP,ALIST_FUPDKEY_ALOOKUP,
         liveFS_fsupdate,get_file_content_def]) >>
@@ -796,9 +796,9 @@ val write_spec = Q.store_thm("write_spec",
   qexists_tac`insert_atI (TAKE nw (MAP (CHR ∘ w2n) (DROP i rest))) pos content` >>
   NTAC 2 (strip_tac >-(
       imp_res_tac get_file_content_validFD >>
-		  fs[Abbr`fs'`,liveFS_def,live_numchars_def,LDROP_1, wfFS_fsupdate,validFD_def,
-			 always_DROP,ALIST_FUPDKEY_ALOOKUP,get_file_content_def] >>
-		  pairarg_tac >> fs[fsupdate_def,always_DROP,ALIST_FUPDKEY_ALOOKUP] >>
+                  fs[Abbr`fs'`,liveFS_def,live_numchars_def,LDROP_1, wfFS_fsupdate,validFD_def,
+                         always_DROP,ALIST_FUPDKEY_ALOOKUP,get_file_content_def] >>
+                  pairarg_tac >> fs[fsupdate_def,always_DROP,ALIST_FUPDKEY_ALOOKUP] >>
           imp_res_tac NOT_LFINITE_DROP >>
           FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC`(Lnext_pos fs.numchars + 1)`) >>
           fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE)) >>
@@ -1779,7 +1779,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   >- ( xsimpl \\ simp[Abbr`fsob`] )
   \\ reverse xcon \\ xsimpl
   \\ fs[OPTION_TYPE_def]
-  \\ fs[all_lines_def]
+  \\ fs[all_lines_def,lines_of_def]
   \\ fs[get_file_content_def]
   \\ pairarg_tac \\ fs[]
   \\ fs[Abbr`fso`,openFileFS_files]

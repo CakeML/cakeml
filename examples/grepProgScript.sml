@@ -887,7 +887,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ `s1 = s2` suffices_by xsimpl
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
-    \\ simp[all_lines_def,FILTER_MAP,strcat_thm,MAP_MAP_o,o_DEF]
+    \\ simp[all_lines_def,lines_of_def,FILTER_MAP,strcat_thm,MAP_MAP_o,o_DEF]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
