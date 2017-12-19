@@ -34,7 +34,7 @@ benchmarks : $(BM_PROGS)
 
 $(CAKE_PREFIX)% : %.sml
 ifeq ($(SKIPGCC),F)
-	./$(CAKECC) $(CAKE_FLAGS) < $(basename $<).sml > $(PATH_PREFIX)/$(basename $<).S
+	./$(CAKECC) $(CAKE_FLAGS) < $(basename $<).sml > $(basename $<).S
 	$(CC) $(basename $<).S basis_ffi.c $(FLAGS) $(PATH_PREFIX)/$@
 else
 	./$(CAKECC) $(CAKE_FLAGS) < $(basename $<).sml > $(PATH_PREFIX)/$(basename $<).S
