@@ -114,11 +114,10 @@ val diff'_spec = Q.store_thm("diff'_spec",
          if inFS_fname fs (File f1) then
          if inFS_fname fs (File f2) then
            add_stdout fs (
-              CONCAT (MAP explode
-                          (diff_alg2 (all_lines fs (File f1))
-                                     (all_lines fs (File f2)))))
-         else add_stderr fs (explode (notfound_string f2))
-         else add_stderr fs (explode (notfound_string f1))))`,
+              concat ((diff_alg2 (all_lines fs (File f1))
+                                 (all_lines fs (File f2)))))
+         else add_stderr fs (notfound_string f2)
+         else add_stderr fs (notfound_string f1)))`,
   xcf"diff'"(get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
@@ -160,16 +159,16 @@ val diff_spec = Q.store_thm("diff_spec",
      (POSTv uv. &UNIT_TYPE () uv *
                 STDIO (
                   if (LENGTH cl = 3) then
-                  if inFS_fname fs (File (implode (EL 1 cl))) then
-                  if inFS_fname fs (File (implode (EL 2 cl))) then
+                  if inFS_fname fs (File (EL 1 cl)) then
+                  if inFS_fname fs (File (EL 2 cl)) then
                   add_stdout fs (
-                    CONCAT
-                      (MAP explode (diff_alg2
-                                      (all_lines fs (File (implode (EL 1 cl))))
-                                      (all_lines fs (File (implode (EL 2 cl)))))))
-                  else add_stderr fs (explode (notfound_string (implode (EL 2 cl))))
-                  else add_stderr fs (explode (notfound_string (implode (EL 1 cl))))
-                  else add_stderr fs (explode usage_string)) * (COMMANDLINE cl))`,
+                    concat
+                      (diff_alg2
+                         (all_lines fs (File (EL 1 cl)))
+                         (all_lines fs (File (EL 2 cl)))))
+                  else add_stderr fs (notfound_string (EL 2 cl))
+                  else add_stderr fs (notfound_string (EL 1 cl))
+                  else add_stderr fs usage_string) * (COMMANDLINE cl))`,
   strip_tac \\ xcf "diff" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -190,12 +189,10 @@ val diff_spec = Q.store_thm("diff_spec",
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xapp \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h''`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
-  \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
-  \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
-  \\ fs[validArg_def,EVERY_MEM]
-  \\ rw[] \\ xsimpl);
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `h''`
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `h'`
+  \\ xsimpl \\ fs[FILENAME_def]
+  \\ fs[validArg_def,EVERY_MEM]);
 
 val st = get_ml_prog_state();
 
