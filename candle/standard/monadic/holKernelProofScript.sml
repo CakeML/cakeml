@@ -1899,12 +1899,37 @@ val add_constants_thm = Q.prove(
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   simp[ALL_DISTINCT_APPEND])
 
+(* TODO move *)
+val tyvars_EQ_thm = Q.store_thm("tyvars_EQ_thm",
+  `holKernel$tyvars = holSyntax$tyvars`,
+  fs [FUN_EQ_THM]
+  \\ recInduct tyvars_ind \\ rw []
+  \\ once_rewrite_tac [holSyntaxTheory.tyvars_def, holKernelTheory.tyvars_def] \\ fs []
+  \\ pop_assum mp_tac
+  \\ Induct_on `tys` \\ rw [] \\ simp [itlist_def]
+  \\ first_assum (qspec_then `h` assume_tac)
+  \\ simp [union_def, Once itlist_def]
+  \\ CASE_TAC \\ fs []
+  \\ simp [LIST_UNION_def]
+  \\ rename1 `FOLDR LIST_INSERT xs`
+  \\ rpt (pop_assum kall_tac)
+  \\ qid_spec_tac `xs`
+  \\ qid_spec_tac `h'`
+  \\ qid_spec_tac `t`
+  \\ Induct \\ rw [] \\ simp [itlist_def, LIST_INSERT_def, insert_def]);
+
+(* TODO move, unless it already exists elsewhere *)
+val LIST_REL_MAP_EQ = Q.store_thm("LIST_REL_MAP_EQ",
+  `!r l. LIST_REL (\x y. x = f y) l r ==> (MAP f r = l)`,
+  Induct \\ rw []);
+
 val new_specification_thm = Q.store_thm("new_specification_thm",
   `THM defs th /\ STATE defs s ==>
     case new_specification th s of
     | (Failure exn, s') => (s' = s)
     | (Success th, s') => (?d. THM (d::defs) th /\
-                              STATE (d::defs) s')`,
+                              STATE (d::defs) s' /\
+                              !th. THM defs th ==> THM (d::defs) th)`,
   Cases_on`th` >>
   simp_tac std_ss [new_specification_def,GSYM STRCAT_SHADOW_def] >>
   simp[st_ex_bind_def,st_ex_return_def] >>
@@ -2041,6 +2066,38 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
   Q.PAT_ABBREV_TAC`s':hol_refs = X` >>
   qexists_tac`d` >>
   reverse conj_asm2_tac >- (
+    reverse conj_asm1_tac
+    >-
+     (
+      Cases
+      \\ once_rewrite_tac [THM_def]
+      \\ strip_tac
+      \\ irule updates_proves \\ fs []
+      \\ qunabbrev_tac `d`
+      \\ simp [updates_cases]
+      \\ fs [ALL_DISTINCT_APPEND, MAP_MAP_o, o_DEF, UNCURRY]
+      \\ sg `MAP (\((s,ty),t). Var s ty === t) a = l`
+      >- fs [LIST_REL_EL_EQN, UNCURRY, LIST_REL_MAP_EQ]
+      \\ fs [ELIM_UNCURRY]
+      \\ sg `EVERY (\x. SND (FST x) = typeof (SND x)) a`
+      >-
+       (fs [EVERY_MEM, LIST_REL_EL_EQN] \\ rw []
+        \\ fs [MEM_EL] \\ rveq
+        \\ metis_tac [WELLTYPED_LEMMA])
+      \\ sg `MAP (\x. Var (FST (FST x)) (typeof (SND x)) === SND x) a = l`
+      >- fs [EQ_SYM_EQ, MAP_EQ_f, EVERY_MEM]
+      \\ fs [THM_def]
+      \\ fs [tyvars_EQ_thm]
+      \\ once_rewrite_tac [METIS_PROVE[]``a/\b/\c<=>c/\a/\b``]
+      \\ conj_asm1_tac >- metis_tac [STATE_def]
+      \\ conj_asm1_tac
+      >-
+       (fs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL]
+        \\ ntac 2 strip_tac
+        \\ fs [EL_MAP])
+      \\ rpt strip_tac
+      \\ cheat (* TODO *)
+     ) >>
     fs[STATE_def,Abbr`s'`] >>
     simp[Abbr`d`] >>
     simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
@@ -2096,6 +2153,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     first_x_assum(qspec_then`n`mp_tac) >> simp[] >>
     Cases_on`EL n a`>>simp[]>>Cases_on`q`>>rw[]>>
     METIS_TAC[term_ok_welltyped,WELLTYPED_LEMMA] ) >>
+  fs [] >>
   simp[THM_def] >>
   qspecl_then[`s'`,`d::defs`,`theta`,`t`]mp_tac
     (Q.GENL[`s`,`defs`](CONV_RULE (RESORT_FORALL_CONV List.rev) vsubst_aux_thm)) >>
@@ -2138,7 +2196,8 @@ val new_basic_definition_thm = Q.store_thm("new_basic_definition_thm",
     case new_basic_definition tm s of
     | (Failure exn, s') => (s' = s)
     | (Success th, s') => (?d. THM (d::defs) th /\
-                              STATE (d::defs) s')`,
+                               STATE (d::defs) s' /\
+                               !th. THM defs th ==> THM (d::defs) th)`,
   rw[] >>
   simp[new_basic_definition_def,st_ex_bind_def] >>
   Cases_on`ASSUME tm s` >>
@@ -2152,7 +2211,8 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
     | (Failure exn, s') => (s' = s)
     | (Success (th1,th2), s') =>
       (?ds. THM (ds++defs) th1 /\ THM (ds++defs) th2 /\
-            STATE (ds++defs) s')`,
+            STATE (ds++defs) s' /\
+            !th. THM defs th ==> THM (ds++defs) th)`,
   Cases_on `th` \\ SIMP_TAC (srw_ss())
      [new_basic_type_definition_def,Once st_ex_bind_def,st_ex_return_def,raise_Fail_def,
       can_def |> SIMP_RULE std_ss [otherwise_def,st_ex_bind_def,st_ex_return_def]] >>
@@ -2405,12 +2465,27 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   pop_assum(ASSUME_TAC o SYM) >>
   simp[] >>
   simp[THM_def,ETA_AX] >>
-  conj_tac >>
-  match_mp_tac (List.nth(CONJUNCTS proves_rules,9)) >>
-  (conj_tac >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]) >>
-  simp[Abbr`s2`,conexts_of_upd_def] >>
-  imp_res_tac QSORT_type_vars_in_term >>
-  simp[equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+  conj_tac
+  >-
+   (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
+    \\ conj_tac
+    >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
+    \\ simp [Abbr`s2`,conexts_of_upd_def]
+    \\ imp_res_tac QSORT_type_vars_in_term
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+  \\ conj_tac
+  >-
+   (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
+    \\ conj_tac
+    >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
+    \\ simp [Abbr`s2`,conexts_of_upd_def]
+    \\ imp_res_tac QSORT_type_vars_in_term
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+  \\ Cases
+  \\ once_rewrite_tac [THM_def]
+  \\ strip_tac
+  \\ cheat (* TODO Will need a updates_proves for extends *)
+  )
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of context extension functions                               *)
@@ -2420,7 +2495,8 @@ val new_type_thm = Q.store_thm("new_type_thm",
   `STATE defs s ⇒
     case new_type (name,arity) s of
     | (Failure exn, s') => (s' = s)
-    | (Success (), s') => (?d. STATE (d::defs) s')`,
+    | (Success (), s') => (?d. STATE (d::defs) s' /\
+                               !th. THM defs th ==> THM (d::defs) th)`,
   rw[new_type_def,st_ex_bind_def,add_type_def,can_def,get_type_arity_def,get_the_type_constants_def
     ,otherwise_def,st_ex_return_def,raise_Fail_def] >>
   BasicProvers.CASE_TAC >>
@@ -2429,17 +2505,26 @@ val new_type_thm = Q.store_thm("new_type_thm",
   rw[set_the_type_constants_def,add_def_def,st_ex_bind_def
     ,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewType name arity` >>
-  fs[STATE_def] >>
-  fs[CONTEXT_def] >>
-  simp[extends_def,Once relationTheory.RTC_CASES1] >>
-  disj2_tac >> simp[GSYM extends_def] >>
-  rfs[updates_cases,MEM_MAP,EXISTS_PROD] )
+  conj_tac >- (
+    fs[STATE_def] >>
+    fs[CONTEXT_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] ) >>
+  Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
+  \\ irule updates_proves \\ fs []
+  \\ simp [updates_cases]
+  \\ fs [STATE_def, CONTEXT_def] \\ rveq
+  \\ CCONTR_TAC \\ fs [MEM_MAP]
+  \\ PairCases_on `y` \\ fs []
+  \\ metis_tac []);
 
 val new_constant_thm = Q.store_thm("new_constant_thm",
   `STATE defs s ∧ TYPE defs ty ⇒
     case new_constant (name,ty) s of
     | (Failure exn, s') => (s' = s)
-    | (Success (), s') => (?d. STATE (d::defs) s')`,
+    | (Success (), s') => (?d. STATE (d::defs) s' /\
+                           !th. THM defs th ==> THM (d::defs) th)`,
   rw[new_constant_def,st_ex_bind_def] >>
   qspecl_then[`[(name,ty)]`,`s`]mp_tac add_constants_thm >>
   Cases_on`add_constants [(name,ty)] s`>>simp[] >>
@@ -2447,18 +2532,27 @@ val new_constant_thm = Q.store_thm("new_constant_thm",
   imp_res_tac STATE_ALL_DISTINCT >> rw[] >>
   rw[add_def_def,st_ex_bind_def,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewConst name ty` >>
-  fs[STATE_def] >>
-  fs[CONTEXT_def] >>
-  simp[extends_def,Once relationTheory.RTC_CASES1] >>
-  disj2_tac >> simp[GSYM extends_def] >>
-  rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
-  fs[TYPE_def] )
+  conj_tac >- (
+    fs[STATE_def] >>
+    fs[CONTEXT_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
+    fs[TYPE_def] ) >>
+  Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
+  \\ irule updates_proves \\ fs []
+  \\ simp [updates_cases]
+  \\ fs [STATE_def, CONTEXT_def] \\ rveq
+  \\ conj_tac
+  >- (CCONTR_TAC \\ fs [MEM_MAP] \\ metis_tac [])
+  \\ fs [TYPE_def]);
 
 val new_axiom_thm = Q.store_thm("new_axiom_thm",
   `STATE defs s ∧ TERM defs p ⇒
     case new_axiom p s of
     | (Failure exn, s') => (s' = s)
-    | (Success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s')`,
+    | (Success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s' /\
+                               !th. THM defs th ==> THM (d::defs) th)`,
   rw[new_axiom_def,st_ex_bind_def] >>
   imp_res_tac type_of_thm >> rw[] >>
   qspecl_then[`(strlit "bool")`,`[]`,`s`]mp_tac mk_type_thm >>
@@ -2473,13 +2567,20 @@ val new_axiom_thm = Q.store_thm("new_axiom_thm",
     MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
     reverse conj_tac >- simp[] >>
     METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok] ) >>
-  fs[STATE_def,lift_tm_def] >>
-  imp_res_tac term_type >>
-  fs[CONTEXT_def] >>
-  simp[extends_def,Once relationTheory.RTC_CASES1] >>
-  disj2_tac >> simp[GSYM extends_def] >>
-  rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
-  fs[TERM_def] >>
-  METIS_TAC[term_ok_welltyped,WELLTYPED])
+  conj_tac >- (
+    fs[STATE_def,lift_tm_def] >>
+    imp_res_tac term_type >>
+    fs[CONTEXT_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
+    fs[TERM_def] >>
+    METIS_TAC[term_ok_welltyped,WELLTYPED] ) >>
+  Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
+  \\ irule updates_proves \\ fs []
+  \\ simp [updates_cases]
+  \\ reverse conj_tac >- fs [TERM_def]
+  \\ cheat (* TODO readerProof has a theorem which states type_of ... => ... has_type ... *)
+  );
 
 val _ = export_theory();
