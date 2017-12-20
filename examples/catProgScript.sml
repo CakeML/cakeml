@@ -43,7 +43,7 @@ val do_onefile_spec = Q.store_thm(
          (\u. SEP_EXISTS content.
               &UNIT_TYPE () u *
               &(ALOOKUP fs.files (File fnm) = SOME content) *
-              STDIO (add_stdout fs content))
+              STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs (File fnm)) *
               STDIO fs))`,
@@ -67,7 +67,7 @@ val do_onefile_spec = Q.store_thm(
          (STDIO fs00)
          (POSTv u.
             &UNIT_TYPE () u *
-            STDIO (add_stdout (fastForwardFD fs00 fd) (DROP n content)))`
+            STDIO (add_stdout (fastForwardFD fs00 fd) (implode (DROP n content))))`
   >- (Induct
       >- ((* base case *)
           rpt strip_tac >> `n = LENGTH content` by simp[] >> fs[] >> rveq >>
@@ -78,7 +78,7 @@ val do_onefile_spec = Q.store_thm(
           reverse conj_tac >- (EVAL_TAC \\ rw[]) \\
           xcon
           \\ imp_res_tac STD_streams_stdout
-          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD]
+          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD,implode_def]
           \\ imp_res_tac add_stdo_nil \\ xsimpl
           \\ simp[fastForwardFD_0]
           \\ xsimpl) >>
@@ -105,7 +105,7 @@ val do_onefile_spec = Q.store_thm(
       \\ imp_res_tac STD_streams_stdout
       \\ imp_res_tac add_stdo_o
       \\ xsimpl
-      \\ simp[DROP_CONS_EL,ADD1]
+      \\ simp[DROP_CONS_EL,ADD1,strcat_thm]
       \\ xsimpl) >>
   xlet_auto >- (xret >> xsimpl) >>
   (* calling recurse *)
@@ -119,7 +119,7 @@ val do_onefile_spec = Q.store_thm(
   (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
   *)
   xlet `POSTv u3. &(u3 = Conv NONE []) *
-                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) content)`
+                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) (implode content))`
   >- (xapp >>
       simp[fsFFITheory.get_file_content_def,PULL_EXISTS,EXISTS_PROD] >>
       goal_assum(first_assum o (mp_then (Pos (el 3)) mp_tac)) >>
@@ -136,7 +136,7 @@ val do_onefile_spec = Q.store_thm(
   xsimpl);
 
 val file_contents_def = Define `
-  file_contents fnm fs = THE (ALOOKUP fs.files (File fnm))`
+  file_contents fnm fs = implode (THE (ALOOKUP fs.files (File fnm)))`
 
 val file_contents_add_stdout = Q.store_thm("file_contents_add_stdout",
   `STD_streams fs ⇒
@@ -149,7 +149,7 @@ val file_contents_add_stdout = Q.store_thm("file_contents_add_stdout",
 
 val catfiles_string_def = Define`
   catfiles_string fs fns =
-    FLAT (MAP (λfnm. file_contents fnm fs) fns)
+    concat (MAP (λfnm. file_contents fnm fs) fns)
 `;
 
 val cat_spec0 = Q.prove(
@@ -184,7 +184,7 @@ val cat_spec0 = Q.prove(
   imp_res_tac STD_streams_stdout \\
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
-  simp[Once file_contents_def,SimpR``(==>>)``] \\
+  simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
   simp[file_contents_add_stdout] \\ xsimpl)
 
 val cat_spec = save_thm(
@@ -200,7 +200,7 @@ val _ = process_topdecs `
 val catfile_string_def = Define `
   catfile_string fs fnm =
     if inFS_fname fs (File fnm) then file_contents fnm fs
-    else []`
+    else (strlit"")`
 
 val cat1_spec = Q.store_thm (
   "cat1_spec",
@@ -215,7 +215,7 @@ val cat1_spec = Q.store_thm (
   xhandle `POST
              (\u. SEP_EXISTS content. &UNIT_TYPE () u *
                &(ALOOKUP fs.files (File fnm) = SOME content) *
-               STDIO (add_stdout fs content))
+               STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs (File fnm)) *
                   STDIO fs)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
@@ -238,11 +238,11 @@ val _ = append_prog cat_main;
 val st = get_ml_prog_state();
 
 val cat_main_spec = Q.store_thm("cat_main_spec",
-  `EVERY (inFS_fname fs o File) (MAP implode (TL cl)) ∧ hasFreeFD fs
+  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
-     (POSTv uv. &UNIT_TYPE () uv * (STDIO (add_stdout fs (catfiles_string fs (MAP implode (TL cl))))
+     (POSTv uv. &UNIT_TYPE () uv * (STDIO (add_stdout fs (catfiles_string fs (TL cl)))
                                     * (COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "cat_main" st
