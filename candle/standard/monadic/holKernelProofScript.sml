@@ -1842,6 +1842,11 @@ val INST_thm = Q.store_thm("INST_thm",
 (* Verification of definition functions                                      *)
 (* ------------------------------------------------------------------------- *)
 
+(* TODO move *)
+val ALL_DISTINCT_DISJOINT = Q.store_thm("ALL_DISTINCT_DISJOINT",
+  `!xs ys. ALL_DISTINCT (xs ++ ys) ==> DISJOINT (set xs) (set ys)`,
+  Induct \\ rw []);
+
 val TYPE_CONS_EXTEND = Q.store_thm("TYPE_CONS_EXTEND",
   `STATE (d::defs) s /\ TYPE defs ty ==> TYPE (d::defs) ty`,
   simp[STATE_def,TYPE_def] >> strip_tac >>
@@ -1849,6 +1854,17 @@ val TYPE_CONS_EXTEND = Q.store_thm("TYPE_CONS_EXTEND",
   HINT_EXISTS_TAC >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
   Cases_on`d`>>fs[SUBMAP_FUNION])
+
+val TYPE_APPEND_EXTEND = Q.store_thm("TYPE_APPEND_EXTEND",
+  `STATE (ds++defs) s /\ TYPE defs ty ==> TYPE (ds++defs) ty`,
+  simp [STATE_def, TYPE_def] \\ strip_tac
+  \\ match_mp_tac type_ok_extend
+  \\ HINT_EXISTS_TAC
+  \\ imp_res_tac CONTEXT_ALL_DISTINCT \\ fs []
+  \\ match_mp_tac SUBMAP_FUNION \\ fs []
+  \\ disj2_tac
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ match_mp_tac ALL_DISTINCT_DISJOINT \\ fs []);
 
 val TERM_CONS_EXTEND = Q.store_thm("TERM_CONS_EXTEND",
   `STATE (d::defs) s /\ TERM defs tm ==> TERM (d::defs) tm`,
@@ -1861,6 +1877,19 @@ val TERM_CONS_EXTEND = Q.store_thm("TERM_CONS_EXTEND",
   fs[pred_setTheory.IN_DISJOINT] >>
   fs[ALL_DISTINCT_APPEND] >>
   METIS_TAC[])
+
+val TERM_APPEND_EXTEND = Q.store_thm("TERM_APPEND_EXTEND",
+  `STATE (ds++defs) s /\ TERM defs tm ==> TERM (ds++defs) tm`,
+  simp [STATE_def, TERM_def] \\ strip_tac
+  \\ match_mp_tac term_ok_extend
+  \\ qexists_tac `tysof(defs)`
+  \\ qexists_tac `tmsof(defs)`
+  \\ imp_res_tac CONTEXT_ALL_DISTINCT \\ fs []
+  \\ conj_tac
+  \\ match_mp_tac SUBMAP_FUNION \\ fs []
+  \\ disj2_tac
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ match_mp_tac ALL_DISTINCT_DISJOINT \\ fs []);
 
 val STRCAT_SHADOW_def = zDefine`
   STRCAT_SHADOW = STRCAT`
