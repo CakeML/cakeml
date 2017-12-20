@@ -237,6 +237,30 @@ val THM_term_ok_bool = Q.prove(
   \\ FULL_SIMP_TAC std_ss []
   \\ METIS_TAC [WELLTYPED_LEMMA])
 
+(* TODO move *)
+val ALOOKUP_ALL_DISTINCT_MEM_EXISTS = Q.store_thm("ALOOKUP_ALL_DISTINCT_MEM_EXISTS",
+  `(?k. MEM (k,v) alist) /\
+    ALL_DISTINCT (MAP FST alist)
+    ==>
+    ?k. ALOOKUP alist k = SOME v`,
+  rw [] \\ qexists_tac `k` \\ metis_tac [ALOOKUP_ALL_DISTINCT_MEM]);
+
+val the_term_constants_TYPE = Q.store_thm("the_term_constants_TYPE",
+  `STATE defs refs
+   ==>
+   EVERY (\(_, ty). TYPE defs ty) refs.the_term_constants`,
+  rw [STATE_def, TYPE_def, EVERY_MEM, MEM_FLAT, UNCURRY]
+  \\ imp_res_tac CONTEXT_ALL_DISTINCT
+  \\ fs [CONTEXT_def]
+  \\ drule extends_theory_ok \\ simp [init_theory_ok]
+  \\ rw [theory_ok_def]
+  \\ first_x_assum (qspec_then `SND e` match_mp_tac)
+  \\ simp [IN_FRANGE_FLOOKUP]
+  \\ match_mp_tac ALOOKUP_ALL_DISTINCT_MEM_EXISTS \\ fs []
+  \\ fs [MEM_FLAT]
+  \\ qexists_tac `FST e` \\ fs []
+  \\ asm_exists_tac \\ fs []);
+
 (* ------------------------------------------------------------------------- *)
 (* Verification of type functions                                            *)
 (* ------------------------------------------------------------------------- *)
