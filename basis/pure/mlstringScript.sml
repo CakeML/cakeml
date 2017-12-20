@@ -394,7 +394,7 @@ val TOKENS_eq_tokens_sym = save_thm("TOKENS_eq_tokens_sym",
 val tokens_append = Q.store_thm("tokens_append",
   `!P s1 x s2.
     P x ==>
-      (tokens P (strcat s1 (strcat (str x) s2)) = tokens P s1 ++ tokens P s2)`,
+      (tokens P (strcat (strcat s1 (str x)) s2) = tokens P s1 ++ tokens P s2)`,
     rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`
     \\ rewrite_tac[GSYM MAP_APPEND] \\ AP_TERM_TAC
     \\ rw[explode_thm]
