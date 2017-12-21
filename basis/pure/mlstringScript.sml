@@ -720,11 +720,47 @@ val mlstring_ge_thm = Q.store_thm ("mlstring_ge_thm",
   rw [mlstring_ge_def, mlstring_le_def] >>
   metis_tac [TotOrd_compare, TotOrd]);
 
+val transitive_mlstring_le = store_thm("transitive_mlstring_le",
+  ``transitive mlstring_le``,
+  fs [transitive_def,mlstring_le_thm]
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_trans \\ fs []);
+
+val antisymmetric_mlstring_le = store_thm("antisymmetric_mlstring_le",
+  ``antisymmetric mlstring_le``,
+  fs [antisymmetric_def,mlstring_le_thm]
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_antisym);
+
+val char_lt_total = Q.store_thm ("char_lt_total",
+  `!(c1:char) c2. ¬(c1 < c2) ∧ ¬(c2 < c1) ⇒ c1 = c2`,
+  rw [char_lt_def, CHAR_EQ_THM]);
+
+val string_lt_total = Q.store_thm ("string_lt_total",
+  `!(s1:string) s2. ¬(s1 < s2) ∧ ¬(s2 < s1) ⇒ s1 = s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, char_lt_total]
+  >- (
+    Cases_on `s1` >>
+    fs [string_lt_def]) >>
+  metis_tac [char_lt_total]);
+
+val total_mlstring_le = store_thm("total_mlstring_le",
+  ``total mlstring_le``,
+  fs [total_def,mlstring_le_thm] \\ CCONTR_TAC \\ fs []
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_total \\ fs []);
+
 val transitive_mlstring_lt = Q.prove(
   `transitive mlstring_lt`,
   simp[mlstring_lt_inv_image] >>
   match_mp_tac transitive_inv_image >>
   metis_tac[transitive_def,string_lt_trans])
+
+val strlit_le_strlit = store_thm("strlit_le_strlit",
+  ``strlit s1 ≤ strlit s2 <=> s1 <= s2``,
+  fs [mlstring_le_thm] \\ Cases_on `s1 = s2`
+  \\ fs [string_le_def,mlstring_lt_inv_image]);
 
 val irreflexive_mlstring_lt = Q.prove(
   `irreflexive mlstring_lt`,
