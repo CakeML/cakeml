@@ -17,7 +17,7 @@ val helloErr_spec = Q.store_thm ("helloErr_spec",
         [Conv NONE []]
         (STDIO fs)
         (POSTv uv. &UNIT_TYPE () uv *
-                   (STDIO (add_stderr fs "Well oH lord!\n")) * emp)`,
+                   (STDIO (add_stderr fs (strlit "Well oH lord!\n"))) * emp)`,
   xcf "helloErr" st
   \\ xapp_spec output_stderr_spec \\ xsimpl
   \\ qexists_tac`emp` \\ qexists_tac`fs`
