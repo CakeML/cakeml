@@ -1,3 +1,4 @@
+fun print _ = ()
 
 structure Stream =
 struct
@@ -44,7 +45,7 @@ struct
 
    type lft = (IntInf.int * IntInf.int * IntInf.int * IntInf.int)
 
-   val unit : lft = (1,0,0,1)
+   val unit : lft = (IntInf.fromInt 1,IntInf.fromInt 0,IntInf.fromInt 0,IntInf.fromInt 1)
 
    fun comp (q,r,s,t) (u,v,w,x) : lft = (q*u+r*w, q*v+r*x, s*u+t*w, s*v+t*x)
 
