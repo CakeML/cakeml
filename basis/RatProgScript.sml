@@ -11,41 +11,78 @@ val _ = ml_prog_update (open_module "Rat");
 (* connection between real and rat *)
 
 val real_of_rat_def = Define `
-  real_of_rat (r:rat) : real = intreal$real_of_int (RATN r) /  real_of_num (RATD r)
+  real_of_rat (r:rat) : real =
+    intreal$real_of_int (RATN r) /  real_of_num (RATD r)
 `;
 
 val real_of_rat_int = store_thm("real_of_rat_int",
   ``real_of_rat (&x) = &x``,
   simp[real_of_rat_def, intrealTheory.real_of_int]);
 
-val real_of_rat_le = store_thm("real_of_rat_le",
+val real_of_rat_le = store_thm("real_of_rat_le[simp]",
   ``∀r1 r2. real_of_rat r1 ≤ real_of_rat r2 ⇔ r1 ≤ r2``,
   simp[real_of_rat_def] >> rpt gen_tac >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r1’] |> SYM) >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r2’] |> SYM) >>
-  map_every qabbrev_tac [‘n1 = RATN r1’, ‘n2 = RATN r2’, ‘d1 = RATD r1’, ‘d2 = RATD r2’] >>
+  map_every qabbrev_tac
+    [‘n1 = RATN r1’, ‘n2 = RATN r2’, ‘d1 = RATD r1’, ‘d2 = RATD r2’] >>
   ‘0 < d1 ∧ 0 < d2’ by simp[Abbr‘d1’, Abbr‘d2’] >>
-  simp[REAL_LE_LDIV_EQ, mult_ratl, REAL_LE_RDIV_EQ] >> cheat
+  simp[realTheory.REAL_LE_LDIV_EQ, realTheory.mult_ratl,
+       realTheory.REAL_LE_RDIV_EQ] >>
+  simp[RAT_LDIV_LEQ_POS, RDIV_MUL_OUT, RAT_RDIV_LEQ_POS] >>
+  simp_tac bool_ss [GSYM intrealTheory.real_of_int_num,
+                    GSYM intrealTheory.real_of_int_mul,
+                    intrealTheory.real_of_int_le, GSYM rat_of_int_of_num,
+                    rat_of_int_MUL, rat_of_int_LE, integerTheory.INT_MUL_COMM]
 );
+
+val real_of_rat_eq = store_thm("real_of_rat_eq[simp]",
+  ``∀r1 r2. real_of_rat r1 = real_of_rat r2 ⇔ r1 = r2``,
+  simp[real_of_rat_def] >> rpt gen_tac >>
+  assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r1’] |> SYM) >>
+  assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r2’] |> SYM) >>
+  map_every qabbrev_tac
+    [‘n1 = RATN r1’, ‘n2 = RATN r2’, ‘d1 = RATD r1’, ‘d2 = RATD r2’] >>
+  ‘0 < d1 ∧ 0 < d2’ by simp[Abbr‘d1’, Abbr‘d2’] >>
+  simp[realTheory.REAL_EQ_RDIV_EQ, realTheory.REAL_EQ_LDIV_EQ,
+       RAT_RDIV_EQ, RAT_LDIV_EQ, realTheory.mult_ratl, RDIV_MUL_OUT] >>
+  simp_tac bool_ss [GSYM intrealTheory.real_of_int_num,
+                    GSYM intrealTheory.real_of_int_mul,
+                    intrealTheory.real_of_int_11, GSYM rat_of_int_of_num,
+                    rat_of_int_MUL, rat_of_int_11, integerTheory.INT_MUL_COMM]);
 
 val real_of_rat_lt = store_thm("real_of_rat_lt",
   ``∀r1 r2. real_of_rat r1 < real_of_rat r2 ⇔ r1 < r2``,
-  cheat);
+  rpt gen_tac >>
+  ‘∀s1:real s2. s1 < s2 <=> s1 <= s2 /\ s1 <> s2’
+    by metis_tac[realTheory.REAL_LE_LT, realTheory.REAL_LT_REFL] >>
+  ‘∀r1 r2:rat. r1 < r2 <=> r1 <= r2 /\ r1 <> r2’
+    by metis_tac[rat_leq_def, RAT_LES_REF] >>
+  simp[]);
 
-val real_of_rat_eq = store_thm("real_of_rat_eq",
-  ``∀r1 r2. real_of_rat r1 = real_of_rat r2 ⇔ r1 = r2``,
-  cheat);
+
+val real_of_rat_mul = store_thm("real_of_rat_mul",
+  “∀r1 r2. real_of_rat (r1 * r2) = real_of_rat r1 * real_of_rat r2”,
+  simp[real_of_rat_def] >> cheat);
 
 val real_of_rat_add = store_thm("real_of_rat_add",
   ``∀r1 r2. real_of_rat (r1 + r2) = real_of_rat r1 + real_of_rat r2``,
+  simp[real_of_rat_def] >> rpt gen_tac >>
+  assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r1’] |> SYM) >>
+  assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r2’] |> SYM) >>
+  map_every qabbrev_tac
+    [‘n1 = RATN r1’, ‘n2 = RATN r2’, ‘d1 = RATD r1’, ‘d2 = RATD r2’] >>
+  ‘0 < d1 ∧ 0 < d2’ by simp[Abbr‘d1’, Abbr‘d2’] >>
+  simp[realTheory.REAL_ADD_RAT] >>
+  simp[realTheory.eq_ratr, realTheory.mult_ratr] >>
+  simp_tac bool_ss [GSYM intrealTheory.real_of_int_num,
+                    GSYM intrealTheory.real_of_int_mul,
+                    GSYM intrealTheory.real_of_int_add,
+                    intrealTheory.real_of_int_11] >>
   cheat);
 
 val real_of_rat_sub = store_thm("real_of_rat_sub",
   ``∀r1 r2. real_of_rat (r1 - r2) = real_of_rat r1 - real_of_rat r2``,
-  cheat);
-
-val real_of_rat_mul = store_thm("real_of_rat_mul",
-  ``∀r1 r2. real_of_rat (r1 * r2) = real_of_rat r1 * real_of_rat r2``,
   cheat);
 
 val real_of_rat_inv = store_thm("real_of_rat_inv",
