@@ -301,7 +301,10 @@ val semantics_compiler64_prog =
   th
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [STD_streams_add_stderr,STD_streams_add_stdout,STD_streams_fastForwardFD,
-                           AND_IMP_INTRO,GSYM CONJ_ASSOC, full_compile_64_def]
+                           AND_IMP_INTRO,GSYM CONJ_ASSOC, full_compile_64_def,
+                           Ntimes COND_RAND 15, LET_THM, UNCURRY,
+                           add_stdo_nil |> Q.GEN`out` |> REWRITE_RULE[LEFT_FORALL_IMP_THM]
+                           |> C MATCH_MP (UNDISCH STD_streams_stderr) |> DISCH_ALL]
   |> curry save_thm "semantics_compiler64_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
