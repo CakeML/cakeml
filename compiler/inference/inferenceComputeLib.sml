@@ -15,6 +15,7 @@ structure inferenceComputeLib = struct
     ,infer_ds_def
     ,infer_e_def
     ,infer_p_def
+    ,ml_monadBaseTheory.run_def
     ,ml_monadBaseTheory.st_ex_bind_def
     ,ml_monadBaseTheory.st_ex_return_def
     ,guard_def
@@ -35,6 +36,7 @@ structure inferenceComputeLib = struct
     ,Infer_Tfn_def
     ,init_config_def
     ,infertype_prog_def
+    ,infertype_prog_aux_def
     ,ienvLift_def
     ,check_signature_def
     ,check_weak_ienv_def
