@@ -1,11 +1,46 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/time.h>
+
+/* GC FFI */
+int inGC = 0;
+struct timeval t1,t2;
+long microsecs = 0;
+int numGC = 0;
+
+void cml_exit(int arg) {
+  #ifdef DEBUG_FFI
+  {
+    printf("GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+  }
+  #endif
+  exit(arg);
+}
 
 /* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
-
 void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+  #ifdef DEBUG_FFI
+  {
+    if (clen == 0)
+    {
+      if(inGC==1)
+      {
+        gettimeofday(&t2, NULL);
+        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
+        numGC++;
+        inGC = 0;
+      }
+      else
+      {
+        inGC = 1;
+        gettimeofday(&t1, NULL);
+      }
+    }
+  }
+  #endif
 }
 
 /* clFFI (command line) */
@@ -49,7 +84,7 @@ int nextFD() {
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDONLY))){
+  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDONLY))){
     a[0] = 0;
     a[1] = fd;
   }
@@ -59,7 +94,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDWR|O_CREAT|O_TRUNC))){
+  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDWR|O_CREAT|O_TRUNC))){
     a[0] = 0;
     a[1] = fd;
   }

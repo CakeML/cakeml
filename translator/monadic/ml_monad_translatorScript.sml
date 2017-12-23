@@ -2,7 +2,7 @@ open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatche
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
-open cfHeapsBaseTheory basisFunctionsLib AC_Sort
+open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
 open determTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
 open cfStoreTheory cfTheory cfTacticsLib packLib
 
@@ -2660,19 +2660,116 @@ val lookup_cons_build_rec_env_simp = Q.prove(
 val LOOKUP_ASSUM_SIMP = save_thm("LOOKUP_ASSUM_SIMP",
 LIST_CONJ[nsBind_to_write,Eval_Var_SIMP,Eval_lookup_var,nsLookup_write_simp,sem_env_same_components,lookup_cons_write_simp,lookup_cons_build_rec_env_simp]);
 
+val EVAL_T_F = save_thm("EVAL_T_F",
+  LIST_CONJ [EVAL ``ml_translator$CONTAINER ml_translator$TRUE``,
+             EVAL ``ml_translator$CONTAINER ml_translator$FALSE``]);
+
+val EVAL_PRECONDITION_T = save_thm("EVAL_PRECONDITION_T",
+  EVAL (``ml_translator$PRECONDITION T``));
+
+val H_STAR_emp = store_thm("H_STAR_emp",
+  ``H * emp = H``, simp[SEP_CLAUSES]);
+
+val H_STAR_TRUE = store_thm("H_STAR_TRUE",
+  ``(H * &T = H) /\ (&T * H = H)``, fs[SEP_CLAUSES]);
+
+val PreImp_PRECONDITION_T_SIMP = Q.store_thm("PreImp_PRECONDITION_T_SIMP",
+ `PreImp T a /\ PRECONDITION T <=> a`,
+ fs[PreImp_def, PRECONDITION_def]);
+
+val IF_T = Q.store_thm("IF_T",`(if T then x else y) = x:'a`,SIMP_TAC std_ss []);
+
+val IF_F = Q.store_thm("IF_F",`(if F then x else y) = y:'a`,SIMP_TAC std_ss []);
+
+val IMP_EQ_T = Q.store_thm("IMP_EQ_T",`a ==> (a <=> T)`,fs []);
+
+val BETA_PAIR_THM = Q.store_thm("BETA_PAIR_THM",`(\(x, y). f x y) (x, y) = (\x y. f x y) x y`, fs[]);
+
 (* Terms used by the ml_monad_translatorLib *)
-val m_translator_terms = save_thm("m_translator_terms",
+val parsed_terms = save_thm("parsed_terms",
   pack_list (pack_pair pack_string pack_term)
     [("EqSt remove",``!a st. EqSt a st = (a : ('a, 'b) H)``),
      ("PURE ArrowP eq", ``PURE(ArrowP H (PURE (Eq a x)) b)``),
      ("ArrowP PURE", ``ArrowP H a (PURE b)``),
-     ("ArrowP EqSt", ``ArrowP H (EqSt a st) b``)
-]);
+     ("ArrowP EqSt", ``ArrowP H (EqSt a st) b``),
+     ("ArrowM_const",``ArrowM``),
+     ("Eval_const",``Eval``),
+     ("EvalM_const",``EvalM``),
+     ("MONAD_const",``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,γ) H``),
+     ("PURE_const",``PURE : (α -> v -> bool) -> (α, β) H``),
+     ("SND_const",``SND``),
+     ("Fun_const",``ast$Fun``),
+     ("Short_const",``namespace$Short``),
+     ("Var_const",``ast$Var``),
+     ("Closure_const",``semanticPrimitives$Closure``),
+     ("failure_pat",``\v. (Failure(C v), state_var)``),
+     ("Eval_pat",``Eval env exp (P (res:'a))``),
+     ("Eval_pat2",``Eval env exp P``),
+     ("derive_case_EvalM_abs",``\EXN_TYPE res H. EvalM env st exp (MONAD P EXN_TYPE res) H``),
+     ("Eval_name_RI_abs",``\name RI. Eval env (Var (Short name)) RI``),
+     ("write_const",``write``),
+     ("RARRAY_REL_const",``RARRAY_REL``),
+     ("run_const",``ml_monadBase$run``),
+     ("EXC_TYPE_aux_const",``EXC_TYPE_aux``),
+     ("return_pat",``st_ex_return x``),
+     ("bind_pat",``st_ex_bind x y``),
+     ("otherwise_pat",``x otherwise y``),
+     ("if_statement_pat",``if b then (x:('a,'b,'c) M) else (y:('a,'b,'c) M)``),
+     ("raise_goal_abs",``
+      \cons_name deep_type refin_inv EXN_RI f.
+      !H x a.
+      (lookup_cons cons_name env = SOME (1,deep_type)) ==>
+      Eval env exp1 (refin_inv x) ==>
+      EvalM env st (Raise (Con (SOME (Short cons_name)) [exp1]))
+        (MONAD a EXN_RI (f x)) H``),
+     ("PreImp_EvalM_abs",``\a name RI f H. PreImp a (!st. EvalM env st (Var (Short name)) (RI f) H)``),
+     ("refs_emp",``\refs. emp``),
+     ("UNIT_TYPE",``UNIT_TYPE``),
+     ("namespaceLong_tm",``namespace$Long``),
+     ("eval Mat",``evaluate c x env (Mat e pats) (xx,res)``),
+     ("eval_match Pcon",``evaluate_match c x env args ((Pcon xx pats,exp2)::pats2) errv (yyy,y)``),
+     ("nsLookup_val_pat",``nsLookup (env : env_val) (Short (vname : tvarN)) = SOME (loc : v)``),
+     ("CONTAINER",``ml_translator$CONTAINER (b:bool)``),
+     ("EvalM_pat",``EvalM env st e p H``),
+     ("var_assum",``Eval env (Var n) (a (y:'a))``),
+     ("nsLookup_assum",``nsLookup env name = opt``),
+     ("lookup_cons_assum",``lookup_cons name env = opt``),
+     ("eqtype_assum",``EqualityType A``),
+     ("nsLookup_closure_pat",``nsLookup env1.v (Short name1) =
+		             SOME (Closure env2 name2 exp)``),
+     ("nsLookup_recclosure_pat",``nsLookup env1.v (Short name1) =
+                                SOME (Recclosure env2 exps name2)``),
+     ("Eq_pat",``Eq a x``),
+     ("EqSt_pat",``EqSt a x``),
+     ("PreImp simp",``(PreImp a b /\ PRECONDITION a) <=> b``),
+     ("PRECONDITION_pat",``ml_translator$PRECONDITION x``),
+     ("LOOKUP_VAR_pat",``LOOKUP_VAR name env exp``),
+     ("Long_tm",``namespace$Long : tvarN -> (tvarN, tvarN) id -> (tvarN, tvarN) id ``),
+     ("nsLookup_pat",``nsLookup (env : v sem_env).v (Short name) = SOME exp``),
+     ("emp_tm",``set_sep$emp``)
+    ]);
 
-(* val m_translator_types = save_thm("m_translator_types",
+(* Types used by the ml_monad_translatorLib *)
+val parsed_types = save_thm("parsed_types",
   pack_list (pack_pair pack_string pack_type)
-    [];
-[; *)
+    [("exp",``:ast$exp``),
+     ("string_ty",``:tvarN``),
+     ("unit",``:unit``),
+     ("poly_M_type",``:'a -> ('b, 'c) exc # 'a``),
+     ("v_bool_ty",``:v -> bool``),
+     ("hprop_ty",``:hprop``),
+     ("recclosure_exp_ty",``:(tvarN, tvarN # ast$exp) alist``),
+     ("register_pure_type_pat",``:('a, 'b) ml_monadBase$exc``),
+     ("exc_ty",``:('a, 'b) exc``),
+     ("ffi",``:'ffi``)
+    ]);
+
+val knwn_consts_thm = save_thm("knwn_consts_thm",
+  pack_list pack_term [
+   ``st_ex_bind``,``st_ex_return``,``$otherwise``,``COND``,``LET``,
+   ``PMATCH``,``PMATCH_ROW``,``BIT1``,``BIT2``,``NUMERAL``,``ZERO``,``CONS``,
+   ``[]``,``()``,``UNCURRY``,``CHR``,``integer$int_of_num``,``$/\``,``$=``
+   ]);
 
 val _ = (print_asts := true);
 

@@ -127,6 +127,12 @@ val parse_num_def = Define`
     SOME (num_from_dec_string_alt str)
   else NONE `
 
+val parse_bool_def = Define`
+  parse_bool str =
+  if str = strlit "true" then SOME T
+  else if str = strlit "false" then SOME F
+  else NONE`
+
 (* Finds the first occurence of the flag and
   returns the rest of the string after it *)
 val find_str_def = Define`
@@ -140,12 +146,13 @@ val find_str_def = Define`
 (* If flag is not present then F, else if it is present then
    we should not get any config string afterwards *)
 val find_bool_def = Define`
-  find_bool flag ls =
+  find_bool flag ls default =
   case find_str flag ls of
-    NONE => INL F
+    NONE => INL default
   | SOME rest =>
-    if rest = strlit "" then INL T
-    else INR (concat [strlit"Did not expect the argument: ";rest;strlit " for flag: ";flag])`
+    case parse_bool rest of
+      SOME b => INL b
+    | NONE => INR (concat [strlit"Unable to parse as bool: ";rest;strlit " for flag: ";flag])`
 
 (* If flag is not present then INL default, else if it is present then
    the rest of the config string should be a number *)
@@ -186,8 +193,8 @@ val parse_nums_def = Define `
   parse_nums str = (parse_num_list (comma_tokens [] [] (explode str)))`
 
 (*
-  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul"]``
-  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul=fdsa"]``
+  EVAL``find_bool (strlit "--mul=") [strlit "asf";strlit"--mul=fse"] F``
+  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul=fdsa"] T``
   EVAL``find_num (strlit "--fl") [strlit "asf";strlit"--f1234"] 5n``
 *)
 
@@ -200,17 +207,17 @@ val parse_nums_def = Define `
 (* clos_conf *)
 val parse_clos_conf_def = Define`
   parse_clos_conf ls clos =
-  let multi = find_bool (strlit"--no_multi") ls in
-  let known = find_bool (strlit"--no_known") ls in
-  let call = find_bool (strlit"--no_call") ls in
+  let multi = find_bool (strlit"--multi=") ls clos.do_mti in
+  let known = find_bool (strlit"--known=") ls clos.do_known in
+  let call = find_bool (strlit"--call=") ls clos.do_call in
   let maxapp = find_num (strlit "--max_app=") ls clos.max_app in
   case (multi,known,call,maxapp) of
     (INL m,INL k,INL c,INL n) =>
     (INL
       (clos with <|
-        do_mti   := ¬m;
-        do_known := ¬k;
-        do_call  := ¬c;
+        do_mti   := m;
+        do_known := k;
+        do_call  := c;
         max_app  := n
        |>))
   | _ =>
@@ -224,14 +231,14 @@ val parse_bvl_conf_def = Define`
   parse_bvl_conf ls bvl =
   let inlinesz = find_num (strlit "--inline_size=") ls bvl.inline_size_limit in
   let expcut = find_num (strlit "--exp_cut=") ls bvl.exp_cut in
-  let splitmain = find_bool (strlit"--no_split") ls in
+  let splitmain = find_bool (strlit"--split=") ls bvl.split_main_at_seq in
   case (inlinesz,expcut,splitmain) of
     (INL i,INL e,INL m) =>
     INL
       (bvl with <|
         inline_size_limit := i;
         exp_cut           := e;
-        split_main_at_seq := ¬m
+        split_main_at_seq := m
       |>)
   | _ =>
     INR (concat [get_err_str inlinesz;
@@ -278,29 +285,32 @@ val parse_data_conf_def = Define`
   let len_bits = find_num (strlit "--len_bits=") ls data.len_bits in
   let pad_bits = find_num (strlit "--pad_bits=") ls data.pad_bits in
   let len_size = find_num (strlit "--len_size=") ls data.len_size in
+  let empty_FFI= find_bool (strlit"--emit_empty_ffi=") ls data.call_empty_ffi in
   let gc = parse_gc ls data.gc_kind in
-  case (tag_bits,len_bits,pad_bits,len_size,gc) of
-    (INL tb,INL lb,INL pb,INL ls,INL gc) =>
+  case (tag_bits,len_bits,pad_bits,len_size,gc,empty_FFI) of
+    (INL tb,INL lb,INL pb,INL ls,INL gc, INL empty_FFI) =>
       (* TODO: check conf_ok here and raise error if violated *)
       INL (data with
       <| tag_bits := tb;
          len_bits := lb;
          pad_bits := pb;
          len_size := ls;
-         gc_kind  := gc |>)
+         gc_kind  := gc;
+         call_empty_ffi := empty_FFI |>)
   | _ =>
      INR (concat [get_err_str tag_bits;
                   get_err_str len_bits;
                   get_err_str pad_bits;
                   get_err_str len_size;
-                  get_err_str gc])`
+                  get_err_str gc;
+                  get_err_str empty_FFI])`
 
 (* stack *)
 val parse_stack_conf_def = Define`
   parse_stack_conf ls stack =
-  let jump = find_bool (strlit"--no_jump") ls in
+  let jump = find_bool (strlit"--jump=") ls stack.jump in
   case jump of
-    INL j => INL (stack with jump:=¬j)
+    INL j => INL (stack with jump:=j)
   | INR s => INR s`
 
 val extend_conf_def = Define`
@@ -357,7 +367,7 @@ val parse_top_config_def = Define`
   parse_top_config ls =
   let heap = find_num (strlit"--heap_size=") ls default_heap_sz in
   let stack = find_num (strlit"--stack_size=") ls default_stack_sz in
-  let sexp = find_bool (strlit"--sexp") ls in
+  let sexp = find_bool (strlit"--sexp=") ls F in
   case (heap,stack,sexp) of
     (INL heap,INL stack,INL sexp) =>
       INL (heap,stack,sexp)

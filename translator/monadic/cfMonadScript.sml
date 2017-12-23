@@ -1,5 +1,5 @@
 open ml_monad_translatorBaseTheory ml_monad_translatorTheory cfHeapsBaseTheory set_sepTheory pred_setTheory cfStoreTheory Satisfy
-open semanticPrimitivesTheory cfTacticsLib 
+open semanticPrimitivesTheory cfTacticsLib
 
 val _ = new_theory"cfMonad"
 
@@ -11,7 +11,7 @@ val _ = hide "state";
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
-(*********** Comes from cfLetAutoLib.sml ***********************************************)	 
+(*********** Comes from cfLetAutoLib.sml ***********************************************)
 (* [dest_pure_fact]
    Deconstruct a pure fact (a heap predicate of the form &P) *)
 val set_sep_cond_tm = ``set_sep$cond : bool -> hprop``;
@@ -237,7 +237,7 @@ rw[app_def]
 \\ qexists_tac `c`
 \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
 \\ rw[]
->-(    
+>-(
     sg `SPLIT (st2heap ARB (empty_state with refs := st.refs ++ junk)) (h1, h2 UNION h3)`
     >-(fs[SPLIT_def, SPLIT3_def, UNION_ASSOC] \\ metis_tac[DISJOINT_SYM])
     \\ apply_REFS_PRED_Mem_Only_IMP
@@ -494,5 +494,12 @@ app (p : 'a ffi_proj) fv [xv] (H refs)
      (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
      (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
 prove_MONAD_to_app);
+
+val parsed_terms = save_thm("parsed_terms",
+  packLib.pack_list
+   (packLib.pack_pair packLib.pack_string packLib.pack_term)
+      [("PURE",``PURE : ('a -> v -> bool) -> ('a, 'b) H``),
+       ("p",mk_var("p", ``:unit ffi_proj``)),
+       ("emp",``emp:hprop``)]);
 
 val _ = export_theory();
