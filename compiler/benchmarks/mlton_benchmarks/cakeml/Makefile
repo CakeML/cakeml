@@ -15,12 +15,6 @@ ASM_PROGS = $(patsubst %.sml,%.S,$(BMS))
 
 all: benchmarks
 
-cake.S : ../../../bootstrap/compilation/x64/64/cake.S
-	$(CP) $< $@
-
-cake32.S : ../../../bootstrap/compilation/x64/32/cake.S
-	$(CP) $< $@
-
 basis_ffi.c : ../../../../basis/basis_ffi.c
 	$(CP) $< $@
 

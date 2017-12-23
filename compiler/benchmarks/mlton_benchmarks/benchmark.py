@@ -52,8 +52,6 @@ comp_mls = {
     #"cakeml_gc" : "./cakeml/gc/cake_",
     #"cakeml_gc2" : "./cakeml/gc2/cake_",
     #"cakeml_gc3" : "./cakeml/gc3/cake_",
-    #"cakeml_gc4" : "./cakeml/gc4/cake_",
-    #"cakeml_gc5" : "./cakeml/gc5/cake_"
 }
 
 #interpreted MLs,
