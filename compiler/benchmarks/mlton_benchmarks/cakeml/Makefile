@@ -15,18 +15,6 @@ ASM_PROGS = $(patsubst %.sml,%.S,$(BMS))
 
 all: benchmarks
 
-<<<<<<< HEAD
-=======
-cake.S : ../../../bootstrap/compilation/x64/64/cake.S
-	$(CP) $< $@
-
-cake32.S : ../../../bootstrap/compilation/x64/32/cake.S
-	$(CP) $< $@
-
->>>>>>> origin/master
-basis_ffi.c : ../../../../basis/basis_ffi.c
-	$(CP) $< $@
-
 compiler : cake.S basis_ffi.c
 	$(CC) $< basis_ffi.c $(FLAGS) $(CAKECC64)
 
@@ -37,11 +25,7 @@ benchmarks : $(BM_PROGS)
 
 $(CAKE_PREFIX)% : %.sml
 ifeq ($(SKIPGCC),F)
-<<<<<<< HEAD
 	./$(CAKECC) $(CAKE_FLAGS) < $(basename $<).sml > $(basename $<).S
-=======
-	./$(CAKECC) $(CAKE_FLAGS) < $(basename $<).sml > $(PATH_PREFIX)/$(basename $<).S
->>>>>>> origin/master
 	$(CC) $(basename $<).S basis_ffi.c $(FLAGS) $(PATH_PREFIX)/$@
 else
 	./$(CAKECC) $(CAKE_FLAGS) < $(basename $<).sml > $(PATH_PREFIX)/$(basename $<).S
