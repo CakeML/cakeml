@@ -36,14 +36,6 @@ To run these benchmarks, enter the cakeml_benchmarks directory and run:
 By default, this produces a single plot (benchmarks2.eps)
 comparing OCaml, SML/NJ, MLton and Poly/ML
 
-To run closLang benchmarks:
-
-cd cakeml/
-make all_benchmarks
-cd ..
-
-In cakeml/benchmark.py, uncomment all lines, then run the benchmarking script
-
 mlton_benchmarks
 ---
 The mlton_benchmarks/ folder consists of a set of benchmarks taken from the

@@ -7,14 +7,10 @@ from os import system
 
 #Our micro benchmarks
 benchmarks = ["btree","fib","foldl","nqueens","qsortimp","qsort","queue","reverse"]
-bm_iters = 1
+bm_iters = 20
 
 #ML version to expected prefix
 comp_mls = {
-    #"cakeO0": "./cakeml/cake_O0_",
-    #"cakeO1": "./cakeml/cake_O1_",
-    #"cakeO2": "./cakeml/cake_O2_",
-    #"cakeO3": "./cakeml/cake_O3_",
     "cakeO4": "./cakeml/cake_O4_",
     #"ocamlc": "./ocaml/ocamlc_",
     "ocamlopt": "./ocaml/ocamlopt_",
@@ -46,22 +42,6 @@ for bm in benchmarks:
     timings["smlnj"] = timecmd(cmd,bm_iters)
     bmdict[bm] = timings
 
-#Plot CakeML graph O0 to O4
-#p1 = open('bm.dat', 'w')
-#for bm in bmdict:
-#  #All other numbers are normalised to this
-#  times = bmdict[bm]
-#  norm = np.mean(times["cakeO0"])
-#  pstr=bm
-#  for ml in ["cakeO0","cakeO1","cakeO2","cakeO3","cakeO4"]:
-#      maxtime = max(times[ml])/norm
-#      mintime = min(times[ml])/norm
-#      meantime = np.mean(times[ml])/norm
-#      pstr+=","+str(meantime)+","+str(mintime)+","+str(maxtime)
-#  p1.write(pstr+"\n")
-#
-#p1.close()
-
 #Plot CakeML vs other ML graph
 p2 = open('bm2.dat', 'w')
 for bm in bmdict:
@@ -78,7 +58,6 @@ for bm in bmdict:
 
 p2.close()
 
-#system('gnuplot plot_benchmarks.gplot')
 system('gnuplot plot_benchmarks2.gplot')
 
 print('Graph plotted at compiler/benchmarks/benchmarks2.eps')
