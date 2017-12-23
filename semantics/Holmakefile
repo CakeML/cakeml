@@ -49,7 +49,7 @@ BARE_THYS = ../misc/preamble $(GRAMMAR_DEPS) ../misc/basicComputeLib ffi/ffiTheo
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 ifdef RELOCBUILD
-RELOC_FIXUP = $(protect $(HOLDIR)/tools/set_mtime/set_mtime.exe addancs addancs.sml)
+RELOC_FIXUP = $(protect $(HOLDIR)/tools/set_mtime/set_mtime.exe) addancs addancs.sml
 else
 RELOC_FIXUP = :
 endif
