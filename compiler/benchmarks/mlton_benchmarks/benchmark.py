@@ -99,7 +99,7 @@ for bm in benchmarks:
         else:
             timings[mls] = timecmd(cmd,bm_iters)
     #Time the interpreted ones
-    for mls in ['smlnj']:
+    for mls in interp_mls:
         if ((mls,bm) in exclude):
             timings[mls] = None
         else:
