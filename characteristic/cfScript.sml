@@ -2142,7 +2142,6 @@ val cf_ffi_sound = Q.prove (
    first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
    fs [SPLIT_SING_2] \\ rveq \\
    rename1 `F' u2` \\
-
    `store_lookup y st.refs = SOME (W8array ws) /\
     Mem y (W8array ws) IN st2heap p st` by
      (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
@@ -2150,9 +2149,9 @@ val cf_ffi_sound = Q.prove (
       \\ imp_res_tac store2heap_IN_EL
       \\ imp_res_tac store2heap_IN_LENGTH
       \\ fs [store_lookup_def] \\ NO_TAC) \\
-
    fs [ffiTheory.call_FFI_def] \\
-   fs [IO_def,one_def,SEP_EXISTS_THM] \\ rveq \\
+   fs [IO_def,SEP_EXISTS_THM,cond_STAR] \\ rveq \\
+   fs [one_def] \\ rveq \\
    fs [st2heap_def,
        FFI_split_NOT_IN_store2heap,
        FFI_part_NOT_IN_store2heap,
@@ -2170,6 +2169,7 @@ val cf_ffi_sound = Q.prove (
          (fn th => mp_tac th \\ assume_tac th) \\
    simp_tac std_ss [parts_ok_def] \\ strip_tac \\
    qpat_x_assum `!x. _ ==> _` kall_tac \\
+   `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
    first_x_assum progress \\ fs [store_assign_def] \\
    imp_res_tac store2heap_IN_EL \\
    imp_res_tac store2heap_IN_LENGTH \\ fs [] \\

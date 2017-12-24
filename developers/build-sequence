@@ -81,3 +81,5 @@ compiler/parsing/tests
 compiler/bootstrap/translation
 compiler/bootstrap/compilation/x64/64
 compiler/bootstrap/compilation/x64/64/proofs
+compiler/bootstrap/compilation/x64/32
+compiler/bootstrap/compilation/x64/32/proofs

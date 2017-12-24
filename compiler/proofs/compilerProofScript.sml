@@ -115,6 +115,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Failure (ConfigError e) => T (* configuration string is malformed *)
     | Success (code,data,c) =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
@@ -164,6 +165,7 @@ val compile_correct = Q.store_thm("compile_correct",
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Failure (ConfigError e) => T (* configuration string is malformed *)
     | Success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧

@@ -1,9 +1,7 @@
-exception Fail of string;
 
-fun fib' n a b = case n of
-    0 => a
-  | _ => fib' (n-1) (a+b) a
-fun fib n = fib' n 0 1
+fun fib'(0,a,b) = a
+  | fib'(n,a,b) = fib'(n-1,a+b,a)
+fun fib n = fib'(n,0,1)
 
 structure Main =
    struct
@@ -18,9 +16,10 @@ structure Main =
           fun loop n =
             if n = 0
               then ()
-              else (doit();loop(n-1))
+              else (doit();
+                    loop(n-1))
         in loop (n * 1000000)
         end
    end
 
-val foo = Main.doit 50;
+val foo = Main.doit 100;

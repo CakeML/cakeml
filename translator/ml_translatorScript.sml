@@ -1570,6 +1570,30 @@ val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
   asm_exists_tac >> fs [] >>
   fs [do_app_def,INT_def,UNIT_TYPE_def]);
 
+val silent_ffi_def = Define `
+  silent_ffi (s:mlstring) = ()`;
+
+val Eval_silent_ffi = Q.store_thm("Eval_silent_ffi",
+  `Eval env x (STRING_TYPE s) ==>
+   Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
+     (UNIT_TYPE (silent_ffi s))`,
+  rw [Eval_def]
+  \\ ntac 8 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  \\ fs [do_app_def,store_alloc_def]
+  \\ ntac 1 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  \\ pop_assum (qspec_then `refs ⧺ [W8array []]` mp_tac)
+  \\ fs [empty_state_def]
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ ntac 1 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  \\ Cases_on `s` \\ fs [STRING_TYPE_def]
+  \\ rveq \\ fs [store_lookup_def]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ fs [ffiTheory.call_FFI_def]
+  \\ fs [store_assign_def]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ EVAL_TAC \\ fs []);
 
 (* a few misc. lemmas that help the automation *)
 

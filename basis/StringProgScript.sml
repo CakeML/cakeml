@@ -15,6 +15,8 @@ val _ = trans "implode" `implode`
 val _ = trans "size" `strlen`
 val _ = trans "concat" `mlstring$concat`
 val _ = trans "substring" `mlstring$substring`
+val result = translate strcat_def;
+val _ = trans "^" `mlstring$strcat`
 
 val result = translate explode_aux_def;
 val result = translate explode_def;
@@ -33,7 +35,6 @@ val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
   rw [extract_side_def, MIN_DEF] ) |> update_precondition
 
-val result = translate strcat_def;
 
 val result = translate concatWith_aux_def;
 val _ = next_ml_names := ["concatWith"];
@@ -57,6 +58,8 @@ val translate_side_thm = Q.prove (
   rw [translate_side_def, translate_aux_side_thm] ) |> update_precondition
 
 
+val r = translate splitl_aux_def;
+val r = translate splitl_def;
 
 val result = translate tokens_aux_def;
 val tokens_aux_side_def = theorem"tokens_aux_side_def";

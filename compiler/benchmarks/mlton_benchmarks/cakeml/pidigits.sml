@@ -1,4 +1,3 @@
-fun mkSome p = SOME p
 fun print _ = ()
 
 structure Stream =
@@ -11,7 +10,7 @@ struct
          fun loop b () =
             case f b of
                NONE => Nil
-             | SOME p => case p of (x,b) => (Cons (x, loop b))
+             | SOME p => case p of (x,b) => (Cons x (loop b))
       in
          loop
       end
@@ -20,7 +19,7 @@ struct
       unfold (fn s =>
               case s () of
                  Nil => NONE
-               | Cons (x, xs) => mkSome (f x, xs))
+               | Cons x xs => SOME (f x, xs))
 
 end
 
@@ -36,10 +35,10 @@ struct
                val y = next z
             in
                if safe z y
-                  then Stream.Cons (y, loop (prod z y) s)
+                  then Stream.Cons y (loop (prod z y) s)
                else (case s () of
                         Stream.Nil => Stream.Nil
-                      | Stream.Cons (x, xs) => loop (cons z x) xs ())
+                      | Stream.Cons x xs => loop (cons z x) xs ())
             end
       in
          loop
@@ -54,7 +53,7 @@ struct
    val pi =
       let
          val init = unit
-         val lfts = Stream.map (fn k => (k, 4*k+2, 0, 2*k+1)) (Stream.unfold (fn i => mkSome (i, i+1)) 1)
+         val lfts = Stream.map (fn k => (k, 4*k+2, 0, 2*k+1)) (Stream.unfold (fn i => SOME(i, i+1)) 1)
          fun floor_extr (q,r,s,t) x = (q * x + r) div (s * x + t)
          fun next z = floor_extr z 3
          fun safe z n = n = floor_extr z 4
@@ -82,7 +81,7 @@ struct
                     in
                        case ds () of
                           Stream.Nil => raise Empty
-                        | Stream.Cons (d, ds) =>
+                        | Stream.Cons d ds =>
                              (print (Int.toString d);
                               loop (ds, (k + 1, col)))
                     end
@@ -117,7 +116,7 @@ struct
          fun loop (ds, k, n) =
             case ds () of
                Stream.Nil => raise Empty
-             | Stream.Cons (d, ds) =>
+             | Stream.Cons d ds =>
                   if d = 0
                      then if n = 0
                              then (print (Int.toString k); print "\n")

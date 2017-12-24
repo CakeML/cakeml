@@ -1,4 +1,3 @@
-exception Fail of string;
 
 fun for (start, stop, f)
   = let
@@ -16,7 +15,7 @@ struct
     = let
         val x = ref 0
 
-        val u = for (0, 10, fn _ =>
+        val _ = for (0, 10, fn _ =>
                 for (0, 10, fn _ =>
                 for (0, 10, fn _ =>
                 for (0, 10, fn _ =>
