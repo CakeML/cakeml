@@ -256,6 +256,10 @@ val infer_p_def = tDefine "infer_p" `
 
 val infer_p_ind = fetch "-" "infer_p_ind";
 
+val word_tc_def = Define`
+  (word_tc W8 = Tword8_num) ∧
+  (word_tc W64 = Tword64_num)`
+
 val constrain_op_quotation = `
 constrain_op l op ts =
   dtcase (op,ts) of
@@ -270,10 +274,9 @@ constrain_op l op ts =
           return (Infer_Tapp [] Tbool_num)
        od
    | (Opw wz opw, [t1;t2]) =>
-       let tc = case wz of W8 => Tword8_num | W64 => Tword64_num in
-       do () <- add_constraint l t1 (Infer_Tapp [] tc);
-          () <- add_constraint l t2 (Infer_Tapp [] tc);
-          return (Infer_Tapp [] tc)
+       do () <- add_constraint l t1 (Infer_Tapp [] (word_tc wz));
+          () <- add_constraint l t2 (Infer_Tapp [] (word_tc wz));
+          return (Infer_Tapp [] (word_tc wz))
        od
    | (FP_bop bop, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
@@ -290,9 +293,8 @@ constrain_op l op ts =
           return (Infer_Tapp [] Tbool_num)
        od
    | (Shift wz sh n, [t]) =>
-       let tc = case wz of W8 => Tword8_num | W64 => Tword64_num in
-       do () <- add_constraint l t (Infer_Tapp [] tc);
-          return (Infer_Tapp [] tc)
+       do () <- add_constraint l t (Infer_Tapp [] (word_tc wz));
+          return (Infer_Tapp [] (word_tc wz))
        od
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
@@ -334,13 +336,11 @@ constrain_op l op ts =
           return (Infer_Tapp [] Ttup_num)
         od
    | (WordFromInt wz, [t]) =>
-       let tc = case wz of W8 => Tword8_num | W64 => Tword64_num in
        do () <- add_constraint l t (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] tc)
+          return (Infer_Tapp [] (word_tc wz))
        od
    | (WordToInt wz, [t]) =>
-       let tc = case wz of W8 => Tword8_num | W64 => Tword64_num in
-       do () <- add_constraint l t (Infer_Tapp [] tc);
+       do () <- add_constraint l t (Infer_Tapp [] (word_tc wz));
           return (Infer_Tapp [] Tint_num)
        od
    | (CopyStrStr, [t1;t2;t3]) =>
@@ -355,23 +355,23 @@ constrain_op l op ts =
          () <- add_constraint l t1 (Infer_Tapp [] Tstring_num);
          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t4 (Infer_Tapp [] Tword8_num);
+         () <- add_constraint l t4 (Infer_Tapp [] Tword8array_num);
          () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [] Ttup_num)
         od
    | (CopyAw8Str, [t1;t2;t3]) =>
        do
-         () <- add_constraint l t1 (Infer_Tapp [] Tword8_num);
+         () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [] Tstring_num)
         od
    | (CopyAw8Aw8, [t1;t2;t3;t4;t5]) =>
        do
-         () <- add_constraint l t1 (Infer_Tapp [] Tword8_num);
+         () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t4 (Infer_Tapp [] Tword8_num);
+         () <- add_constraint l t4 (Infer_Tapp [] Tword8array_num);
          () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [] Ttup_num)
         od
