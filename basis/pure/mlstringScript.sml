@@ -63,7 +63,7 @@ val implode_explode = Q.store_thm("implode_explode[simp]",
   `∀x. implode (explode x) = x`,
   Cases >> rw[implode_def])
 
-val explode_11 = Q.store_thm("explode_11",
+val explode_11 = Q.store_thm("explode_11[simp]",
   `∀s1 s2. (explode s1 = explode s2) ⇔ (s1 = s2)`,
   Cases >> Cases >> simp[])
 
@@ -81,7 +81,7 @@ val explode_BIJ = Q.store_thm("explode_BIJ",
   rw[implode_explode,
      explode_implode])
 
-val LENGTH_explode = Q.store_thm("LENGTH_explode",
+val LENGTH_explode = Q.store_thm("LENGTH_explode[simp]",
   `LENGTH (explode s) = strlen s`,
   Cases_on`s` \\ simp[]);
 
@@ -139,9 +139,9 @@ val strcat_thm = Q.store_thm("strcat_thm",
   rw[strcat_def,concat_def]
   \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[implode_def]);
 
-val strcat_assoc = Q.store_thm("strcat_assoc",
+val strcat_assoc = Q.store_thm("strcat_assoc[simp]",
   `!s1 s2 s3.
-    s1 ^ s2 ^ s3 = s1 ^ (s2 ^ s3)`,
+    s1 ^ (s2 ^ s3) = s1 ^ s2 ^ s3`,
     rw[strcat_def,concat_def]);
 
 val strcat_nil = Q.store_thm("strcat_nil[simp]",
@@ -155,6 +155,13 @@ val implode_STRCAT = Q.store_thm("implode_STRCAT",
     rw[implode_def, strcat_def, concat_def]
 );
 
+val explode_strcat = Q.store_thm("explode_strcat[simp]",
+  `explode (strcat s1 s2) = explode s1 ++ explode s2`,
+  rw[strcat_thm]);
+
+val strlen_strcat = Q.store_thm("strlen_strcat[simp]",
+  `strlen (strcat s1 s2) = strlen s1 + strlen s2`,
+  rw[strcat_thm]);
 
 val concatWith_aux_def = tDefine "concatWith_aux"`
   (concatWith_aux s [] bool = implode []) /\
@@ -181,6 +188,13 @@ val concatWith_CONCAT_WITH = Q.store_thm ("concatWith_CONCAT_WITH",
 
 val str_def = Define`
   str (c: char) = implode [c]`;
+
+val explode_str = Q.store_thm("explode_str[simp]",
+  `explode (str c) = [c]`,
+  rw[str_def])
+
+val strlen_str = Q.store_thm("strlen_str[simp]",
+  `strlen (str c) = 1`, rw[str_def]);
 
 val translate_aux_def = Define`
   (translate_aux f s n 0 = []) /\
@@ -380,10 +394,12 @@ val TOKENS_eq_tokens_sym = save_thm("TOKENS_eq_tokens_sym",
 val tokens_append = Q.store_thm("tokens_append",
   `!P s1 x s2.
     P x ==>
-      (tokens P (strcat s1 (strcat (str x) s2)) = tokens P s1 ++ tokens P s2)`,
-    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`  \\ rw[implode_def, explode_thm, strcat_thm, str_def, TOKENS_APPEND]
-)
-
+      (tokens P (strcat (strcat s1 (str x)) s2) = tokens P s1 ++ tokens P s2)`,
+    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`
+    \\ rewrite_tac[GSYM MAP_APPEND] \\ AP_TERM_TAC
+    \\ rw[explode_thm]
+    \\ rewrite_tac[GSYM APPEND_ASSOC,APPEND]
+    \\ match_mp_tac TOKENS_APPEND \\ rw[]);
 
 
 val fields_aux_def = Define `
@@ -704,11 +720,47 @@ val mlstring_ge_thm = Q.store_thm ("mlstring_ge_thm",
   rw [mlstring_ge_def, mlstring_le_def] >>
   metis_tac [TotOrd_compare, TotOrd]);
 
+val transitive_mlstring_le = store_thm("transitive_mlstring_le",
+  ``transitive mlstring_le``,
+  fs [transitive_def,mlstring_le_thm]
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_trans \\ fs []);
+
+val antisymmetric_mlstring_le = store_thm("antisymmetric_mlstring_le",
+  ``antisymmetric mlstring_le``,
+  fs [antisymmetric_def,mlstring_le_thm]
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_antisym);
+
+val char_lt_total = Q.store_thm ("char_lt_total",
+  `!(c1:char) c2. ¬(c1 < c2) ∧ ¬(c2 < c1) ⇒ c1 = c2`,
+  rw [char_lt_def, CHAR_EQ_THM]);
+
+val string_lt_total = Q.store_thm ("string_lt_total",
+  `!(s1:string) s2. ¬(s1 < s2) ∧ ¬(s2 < s1) ⇒ s1 = s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, char_lt_total]
+  >- (
+    Cases_on `s1` >>
+    fs [string_lt_def]) >>
+  metis_tac [char_lt_total]);
+
+val total_mlstring_le = store_thm("total_mlstring_le",
+  ``total mlstring_le``,
+  fs [total_def,mlstring_le_thm] \\ CCONTR_TAC \\ fs []
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_total \\ fs []);
+
 val transitive_mlstring_lt = Q.prove(
   `transitive mlstring_lt`,
   simp[mlstring_lt_inv_image] >>
   match_mp_tac transitive_inv_image >>
   metis_tac[transitive_def,string_lt_trans])
+
+val strlit_le_strlit = store_thm("strlit_le_strlit",
+  ``strlit s1 ≤ strlit s2 <=> s1 <= s2``,
+  fs [mlstring_le_thm] \\ Cases_on `s1 = s2`
+  \\ fs [string_le_def,mlstring_lt_inv_image]);
 
 val irreflexive_mlstring_lt = Q.prove(
   `irreflexive mlstring_lt`,

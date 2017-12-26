@@ -22,7 +22,7 @@ val () = append_prog print_app_list;
 val print_app_list_spec = Q.store_thm("print_app_list_spec",
   `∀ls lv out. MISC_APP_LIST_TYPE STRING_TYPE ls lv ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "print_app_list" (get_ml_prog_state())) [lv]
-     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (FLAT (MAP explode (append ls)))))`,
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))`,
   reverse(Cases_on`STD_streams fs`) >- (rw[STDIO_def] \\ xpull) \\
   pop_assum mp_tac \\ simp[PULL_FORALL] \\ qid_spec_tac`fs` \\
   reverse (Induct_on`ls`) \\ rw[MISC_APP_LIST_TYPE_def]
@@ -40,6 +40,7 @@ val print_app_list_spec = Q.store_thm("print_app_list_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs'` \\ xsimpl
     \\ simp[Abbr`fs'`,STD_streams_add_stdout]
     \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_o]
+    \\ simp[mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
     \\ xsimpl
     \\ metis_tac[STD_streams_stdout])
   \\ xcf "print_app_list" (get_ml_prog_state())
@@ -53,7 +54,7 @@ val _ = (append_prog o process_topdecs)
 val print_int_spec = Q.store_thm("print_int_spec",
   `INT i iv ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "print_int" (get_ml_prog_state())) [iv]
-     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (explode (toString i))))`,
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (toString i)))`,
   xcf"print_int"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl);
