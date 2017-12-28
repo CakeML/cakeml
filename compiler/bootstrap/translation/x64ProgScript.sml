@@ -93,7 +93,7 @@ val if_neq = Q.prove(`
 
 val fconv = SIMP_RULE (srw_ss()) [SHIFT_ZERO,case_ifs,case_ifs2,if_neq]
 
-val defaults = [x64_ast_def,x64_encode_def,encode_def,e_rm_reg_def,e_gen_rm_reg_def,e_ModRM_def,e_opsize_def,e_imm32_def,rex_prefix_def,x64_dec_fail_def,e_opc_def,e_rax_imm_def,e_rm_imm_def,asmSemTheory.is_test_def,x64_cmp_def,e_opsize_imm_def,e_imm8_def,e_rm_imm8_def,not_byte_def,e_imm16_def,e_imm64_def,Zsize_width_def,x64_bop_def,zreg2num_totalnum2zerg,e_imm_8_32_def,Zbinop_name2num_x64_sh,x64_sh_notZtest,exh_if_collapse,is_rax_zr_thm]
+val defaults = [x64_ast_def,x64_encode_def,encode_def,e_gen_rm_reg_def,e_ModRM_def,e_opsize_def,e_imm32_def,rex_prefix_def,x64_dec_fail_def,e_opc_def,e_rax_imm_def,e_rm_imm_def,asmSemTheory.is_test_def,x64_cmp_def,e_opsize_imm_def,e_imm8_def,e_rm_imm8_def,not_byte_def,e_imm16_def,e_imm64_def,Zsize_width_def,x64_bop_def,zreg2num_totalnum2zerg,e_imm_8_32_def,Zbinop_name2num_x64_sh,x64_sh_notZtest,exh_if_collapse,is_rax_zr_thm]
 
 val x64_enc_thms =
   x64_enc_def
