@@ -8,6 +8,8 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 val _ = Datatype` inode = IOStream mlstring | File mlstring`
 
+val _ = overload_on("isFile",``λinode. ∃fnm. inode = File fnm``);
+
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * position)
 *  numchars: stream of num modeling the nondeterministic output of read and
