@@ -4,7 +4,12 @@ struct
 open preamble ml_progLib cfTacticsLib ml_translatorTheory
      eqSolveRewriteLib Satisfy cfLetAutoTheory
 
-val _ = hide "EQ";
+(* TODO: move *)
+(* set_sep syntax *)
+val set_sep_cond_tm =
+  mk_thy_const{Name="cond",Thy="set_sep",Ty= bool --> cfHeapsBaseSyntax.hprop_ty}
+val (sep_imp_tm,mk_sep_imp,dest_sep_imp,is_sep_imp) = syntax_fns2 "set_sep" "SEP_IMP"
+(* -- *)
 
 (* TODO: move these to preamble, or Drule? *)
 (********************************************************************************************)
@@ -239,7 +244,6 @@ fun rename_dest_exists (varsl, c) =
 
 (* [dest_pure_fact]
    Deconstructs a pure fact (a heap predicate of the form &P) *)
-val set_sep_cond_tm = ``set_sep$cond : bool -> hprop``;
 fun dest_pure_fact p =
   case (dest_term p) of
   COMB dp =>
@@ -304,9 +308,9 @@ fun dest_heap_condition (varsl, c) =
 
 fun mk_heap_condition (ex_vl, hpl, pfl) =
   let
-    val c1 = list_mk_star hpl ``:hprop``
+    val c1 = list_mk_star hpl cfHeapsBaseSyntax.hprop_ty
     val hprop_pfl = List.map (fn x => mk_comb (set_sep_cond_tm, x)) pfl
-    val c2 = list_mk_star (c1::hprop_pfl) ``:hprop``
+    val c2 = list_mk_star (c1::hprop_pfl) cfHeapsBaseSyntax.hprop_ty
     val c3 = List.foldr mk_sep_exists c2 ex_vl
   in
     c3
@@ -513,23 +517,19 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
    HPROP_INJ A B EQ
    Returns: (A, B, EQ)
 *)
-val hprop_extract_pattern = ``HPROP_INJ A B EQ``;
+val (hprop_inj_tm,mk_hprop_inj,dest_hprop_inj,is_hprop_inj) = syntax_fns3 "cfLetAuto" "HPROP_INJ"
 fun convert_extract_thm th =
     let
 	val c = strip_forall (concl th) |> snd
-	val (tsubst, _) = match_term hprop_extract_pattern c
-	val cond = Term.subst tsubst ``A:hprop``
-	val eq = Term.subst tsubst ``B:hprop``
-	val res = Term.subst tsubst ``EQ:bool``
     in
-	(cond, eq, res)
+    dest_hprop_inj c
     end
     handle HOL_ERR _ => raise (ERR "hprop_extract_pattern"
 		("not a valid heap extraction theorem: " ^(thm_to_string th)))
 
 (* Some auxiliary definitions for the match_heap_conditions function *)
-val sep_imp_tm = ``$==>> : hprop -> hprop -> bool``;
-fun mk_sep_imp (t1, t2) = list_mk_comb (sep_imp_tm, [t1, t2]);
+fun mk_sep_imp_hprop (t1,t2) =
+  mk_sep_imp (assert (equal cfHeapsBaseSyntax.hprop_ty o type_of) t1,t2)
 
 (* Convert equations to substitutions *)
 fun convert_eqs_to_subs eqs =
@@ -547,15 +547,15 @@ fun convert_eqs_to_subs eqs =
 *)
 val type_to_name =
     [
-      (``:int`` |-> "iv"),
-      (``:num`` |-> "nv"),
-      (``:bool`` |-> "bv"),
-      (``:unit`` |-> "uv"),
-      (``:'a list`` |-> "lv"),
-      (``:string`` |-> "sv"),
-      (``:mlstring`` |-> "sv"),
-      (``:'a -> 'b`` |-> "fv"),
-      (``:'a`` |-> "v")
+      (equal intSyntax.int_ty, "iv"),
+      (equal numSyntax.num, "nv"),
+      (equal bool, "bv"),
+      (equal oneSyntax.one_ty, "uv"),
+      (listSyntax.is_list_type, "lv"),
+      (equal stringSyntax.string_ty, "sv"),
+      (equal mlstringSyntax.mlstring_ty, "sv"),
+      (can dom_rng, "fv"),
+      (K true, "v")
     ];
 
 fun rename_post_variables ri_thms asl post_condition =
@@ -605,7 +605,7 @@ fun rename_post_variables ri_thms asl post_condition =
 		      let
 			  val x_name = (fst o dest_var) shallow
 			  val v_name = String.concat [x_name, "v"]
-			  val n_var = ivariant varsl (mk_var(v_name, ``:v``))
+			  val n_var = ivariant varsl (mk_var(v_name, semanticPrimitivesSyntax.v_ty))
 			  val n_pred = Term.subst [v |-> n_var] H
 		      in
 			  (SOME n_var, SOME n_pred)
@@ -613,10 +613,9 @@ fun rename_post_variables ri_thms asl post_condition =
 		    | false =>
 		      let
 			  val s_t = type_of shallow
-			  fun name_from_type {redex = t, residue = n} =
-			    let val _ = (Type.match_type t) s_t in n end
-			  val v_name = tryfind name_from_type type_to_name
-			  val n_var = ivariant varsl (mk_var(v_name, ``:v``))
+			  fun name_from_type (t,_) = t s_t
+			  val v_name = #2 (Lib.first name_from_type type_to_name)
+			  val n_var = ivariant varsl (mk_var(v_name, semanticPrimitivesSyntax.v_ty))
 			  val n_pred = Term.subst [v |-> n_var] H
 		      in
 			  (SOME n_var, SOME n_pred)
@@ -729,7 +728,7 @@ fun generate_RI_unicity_thms eq_type_thms =
 	let
 	    val ref_inv = get_ref_inv eq_type_thm
 	    val (t1, t2) = get_types ref_inv
-	    val th1 = Thm.INST_TYPE [``:'a`` |-> t1, ``:'b`` |-> t2] EQTYPE_UNICITY_L
+	    val th1 = Thm.INST_TYPE [alpha |-> t1, beta |-> t2] EQTYPE_UNICITY_L
 	    val th2 = SPEC ref_inv th1
 	    val (x1, x2, y) = (mk_var("x1", t1), mk_var("x2", t1), mk_var("y", t2))
 	    val th3 = SPECL [x1, x2, y] th2
@@ -742,7 +741,7 @@ fun generate_RI_unicity_thms eq_type_thms =
 	let
 	    val ref_inv = get_ref_inv eq_type_thm
 	    val (t1, t2) = get_types ref_inv
-	    val th1 = Thm.INST_TYPE [``:'a`` |-> t1, ``:'b`` |-> t2] EQTYPE_UNICITY_R
+	    val th1 = Thm.INST_TYPE [alpha |-> t1, beta |-> t2] EQTYPE_UNICITY_R
 	    val th2 = SPEC ref_inv th1
 	    val (x, y1, y2) = (mk_var("x", t1), mk_var("y1", t2), mk_var("y2", t2))
 	    val th3 = SPECL [x, y1, y2] th2
@@ -881,7 +880,7 @@ val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
 fun export_match_thms slist = List.app export slist;
 
 (* Store the last iteration of the manipulated app_spec for debugging purposes, if xlet_auto fails *)
-val debug_app_spec = ref (REFL ``T``)
+val debug_app_spec = ref (REFL T)
 fun debug_get_app_spec () = !debug_app_spec
 fun debug_set_app_spec app_spec = (debug_app_spec := app_spec)
 
@@ -897,12 +896,12 @@ fun match_heap_conditions hcond sub_hcond =
 
       (* Retrieve the extraction triplets *)
       val extr_triplets = mapfilter convert_extract_thm extract_thms
-      val extr_pairs = List.map (fn (c, w, r) => (mk_sep_imp (c, w), r)) extr_triplets
+      val extr_pairs = List.map (fn (c, w, r) => (mk_sep_imp_hprop (c, w), r)) extr_triplets
 
       (* Decompose the heap conditions *)
-      val hc_hpl = list_dest dest_star hcond |> List.filter (fn x => not (same_const ``emp:hprop`` x))
+      val hc_hpl = list_dest dest_star hcond |> List.filter (fn x => not (same_const cfHeapsBaseSyntax.emp_tm x))
       val shc_hpl = list_dest dest_star sub_hcond |>
-			      List.filter (fn x => (not (same_const ``emp:hprop`` x)))
+			      List.filter (fn x => (not (same_const cfHeapsBaseSyntax.emp_tm x)))
 
       (* Perfom the matching *)
       fun try_match obj pat_pair =
@@ -919,7 +918,7 @@ fun match_heap_conditions hcond sub_hcond =
 	  if h1 = h2 then ([], hl2)
 	  else
 	      (let
-		  val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
+		  val result = tryfind (try_match (mk_sep_imp_hprop (h1, h2))) extr_pairs
 	      in
 		  (result, hl2)
 	      end
@@ -1212,7 +1211,7 @@ fun find_equality_types asl eqTypeThms =
 	    val (t', xv) = dest_comb t
 	    val eqType = dest_comb t' |> fst
 	in
-	    if type_of xv = ``:v`` then eqType else failwith ""
+	    if type_of xv = semanticPrimitivesSyntax.v_ty then eqType else failwith ""
 	end
       val pot_eqTypes = mapfilter get_pot_EqualityType asl
 
@@ -1322,7 +1321,7 @@ fun inst_refinement_invariants eq_type_thms asl app_spec =
       fun find_related A ty =
 	let
 	    val x = mk_var("x", ty)
-	    val mterm = mk_comb(mk_comb(A, x), ``v:v``)
+	    val mterm = mk_comb(mk_comb(A, x), mk_var("v",semanticPrimitivesSyntax.v_ty))
 	    val matchf = match_terml [] (HOLset.add (empty_varset, A)) mterm
 	    val related_clauses = mapfilter (fn t => (matchf t; t)) clauses
 	in
@@ -1549,7 +1548,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val final_spec = MP_ASSUML ((List.map ASSUME asl)@rw_asl) hsimp_app_spec'
 
       (* For debugging purposes *)
-      val _ = debug_set_app_spec final_spec 
+      val _ = debug_set_app_spec final_spec
 
       (* Have all the variables been instantiated? *)
       val _ = if all_instantiated asl let_pre app_info final_spec then final_spec
