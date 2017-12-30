@@ -153,6 +153,19 @@ val _ = (append_prog o process_topdecs) `
         (f1::f2::[]) => patch' f1 f2
       | _ => TextIO.output TextIO.stdErr usage_string`
 
+val patch_sem_def = Define`
+  patch_sem cl fs =
+    if (LENGTH cl = 3) then
+    if inFS_fname fs (File (EL 1 cl)) then
+    if inFS_fname fs (File (EL 2 cl)) then
+     case patch_alg (all_lines fs (File (EL 2 cl)))
+                    (all_lines fs (File (EL 1 cl))) of
+       NONE => add_stderr fs (rejected_patch_string)
+     | SOME s => add_stdout fs (concat s)
+    else add_stderr fs (notfound_string (EL 2 cl))
+    else add_stderr fs (notfound_string (EL 1 cl))
+    else add_stderr fs usage_string`;
+
 val patch_spec = Q.store_thm("patch_spec",
   `hasFreeFD fs
    ⇒
@@ -160,18 +173,9 @@ val patch_spec = Q.store_thm("patch_spec",
      [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
-                STDIO (
-                  if (LENGTH cl = 3) then
-                  if inFS_fname fs (File (EL 1 cl)) then
-                  if inFS_fname fs (File (EL 2 cl)) then
-                   case patch_alg (all_lines fs (File (EL 2 cl)))
-                                  (all_lines fs (File (EL 1 cl))) of
-                     NONE => add_stderr fs (rejected_patch_string)
-                   | SOME s => add_stdout fs (concat s)
-                  else add_stderr fs (notfound_string (EL 2 cl))
-                  else add_stderr fs (notfound_string (EL 1 cl))
-                  else add_stderr fs usage_string) * COMMANDLINE cl)`,
-  strip_tac \\ xcf "patch" (get_ml_prog_state())
+                STDIO (patch_sem cl fs) * COMMANDLINE cl)`,
+  once_rewrite_tac[patch_sem_def]
+  \\ strip_tac \\ xcf "patch" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
   \\ fs[wfcl_def]
@@ -200,21 +204,24 @@ val patch_spec = Q.store_thm("patch_spec",
 
 val st = get_ml_prog_state();
 
-val name = "patch"
-val spec = patch_spec |> UNDISCH |> SIMP_RULE(srw_ss())[STDIO_def]
-           |> add_basis_proj
-val (sem_thm,prog_tm) = call_thm st name spec
+val patch_whole_prog_spec = Q.store_thm("patch_whole_prog_spec",
+  `hasFreeFD fs ⇒
+   whole_prog_spec ^(fetch_v"patch"st) cl fs ((=) (patch_sem cl fs))`,
+  rw[whole_prog_spec_def]
+  \\ qexists_tac`patch_sem cl fs`
+  \\ reverse conj_tac
+  >- ( rw[patch_sem_def,GSYM add_stdo_with_numchars,with_same_numchars]
+       \\ CASE_TAC \\ rw[GSYM add_stdo_with_numchars,with_same_numchars])
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH patch_spec)))
+  \\ xsimpl);
 
+val name = "patch"
+val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH patch_whole_prog_spec)
 val patch_prog_def = Define`patch_prog = ^prog_tm`;
 
 val patch_semantics = save_thm("patch_semantics",
-  sem_thm
-  |> REWRITE_RULE[GSYM patch_prog_def]
+  sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
-  |> CONV_RULE(LAND_CONV EVAL)
-  |> REWRITE_RULE[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> SIMP_RULE(srw_ss())[Once option_case_compute]
-  |> SIMP_RULE(srw_ss())[STD_streams_add_stdout,STD_streams_add_stderr,
-                         Q.ISPEC`STD_streams`COND_RAND]);
+  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]);
 
 val _ = export_theory ();
