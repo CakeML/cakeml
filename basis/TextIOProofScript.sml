@@ -178,6 +178,16 @@ val stdo_numchars = Q.store_thm("stdo_numchars",
   `stdo fd name (fs with numchars := l) out ⇔ stdo fd name fs out`,
   rw[stdo_def]);
 
+val up_stdo_numchars = Q.store_thm("up_stdo_numchars[simp]",
+  `(up_stdo fd fs x).numchars = fs.numchars`,
+  rw[up_stdo_def,fsupdate_def]
+  \\ CASE_TAC \\ CASE_TAC \\ rw[]);
+
+val up_stdo_with_numchars = Q.store_thm("up_stdo_with_numchars",
+  `up_stdo fd (fs with numchars := ns) x =
+   up_stdo fd fs x with numchars := ns`,
+  rw[up_stdo_def,fsupdate_numchars]);
+
 val add_stdo_def = Define`
   add_stdo fd nm fs out = up_stdo fd fs ((@init. stdo fd nm fs init) ^ out)`;
 val _ = overload_on("add_stdout",``add_stdo 1 "stdout"``);
@@ -215,6 +225,15 @@ val add_stdo_o = Q.store_thm("add_stdo_o",
   \\ rename1`stdo _ _ (up_stdo _ _ _) l`
   \\ `l = out ^ x1` by metis_tac[stdo_UNICITY_R,stdo_up_stdo]
   \\ rveq \\ fs[up_stdo_def]);
+
+val add_stdo_numchars = Q.store_thm("add_stdo_numchars[simp]",
+  `(add_stdo fd nm fs x).numchars = fs.numchars`,
+  rw[add_stdo_def]);
+
+val add_stdo_with_numchars = Q.store_thm("add_stdo_with_numchars",
+  `add_stdo fd nm (fs with numchars := ns) x =
+   add_stdo fd nm fs x with numchars := ns`,
+  rw[add_stdo_def,stdo_numchars,up_stdo_with_numchars]);
 
 val up_stdo_MAP_FST_infds = Q.store_thm("up_stdo_MAP_FST_infds[simp]",
   `MAP FST (up_stdo fd fs out).infds = MAP FST fs.infds`,

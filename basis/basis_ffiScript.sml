@@ -397,6 +397,20 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
   \\ metis_tac[]
   );
 
+val heap_thms = [COMMANDLINE_precond, STDIO_precond];
+
+fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
+  | build_set [th] = th
+  | build_set (th1::th2::ths) =
+      let
+        val th = MATCH_MP append_hprop (CONJ th1 th2)
+        val th = CONV_RULE(LAND_CONV EVAL)th
+        val th = MATCH_MP th TRUTH |> SIMP_RULE (srw_ss()) [UNION_EMPTY]
+        val th = (CONV_RULE(RAND_CONV (pred_setLib.UNION_CONV EVAL)) th
+        handle _ => th) (* TODO quick fix *)
+      in build_set (th::ths) end
+
+val sets_thm = build_set heap_thms |> curry save_thm "sets_thm";
 
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,

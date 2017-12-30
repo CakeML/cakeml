@@ -20,6 +20,10 @@ val _ = Datatype`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
+val with_same_numchars = Q.store_thm("with_same_numchars",
+  `fs with numchars := fs.numchars = fs`,
+  rw[IO_fs_component_equality]);
+
 val get_file_content_def = Define`
     get_file_content fs fd =
       do
