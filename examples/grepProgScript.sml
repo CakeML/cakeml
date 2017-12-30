@@ -715,12 +715,24 @@ val grep_sem_file_lemma = Q.store_thm("grep_sem_file_lemma",
   \\ CASE_TAC
   \\ simp[FILTER_File_add_stderr,FILTER_File_add_stdout]);
 
-val STD_streams_grep_sem = Q.store_thm("STD_streams_grep_sem",
-  `∀cls fls fs. STD_streams fs ⇒ STD_streams (grep_sem cls fls fs)`,
+val grep_sem_file_with_numchars = Q.store_thm("grep_sem_file_with_numchars",
+  `grep_sem_file L file filename (fs with numchars := ns) =
+   grep_sem_file L file filename fs with numchars := ns`,
+  rw[grep_sem_file_def] \\ CASE_TAC \\ rw[add_stdo_with_numchars]);
+
+val grep_sem_with_numchars = Q.store_thm("grep_sem_with_numchars",
+  `∀cl fls fs.
+   grep_sem cl fls (fs with numchars := ns) =
+   grep_sem cl fls fs with numchars := ns`,
   recInduct grep_sem_ind
-  \\ rw[grep_sem_def,STD_streams_add_stderr]
-  \\ CASE_TAC \\ rw[STD_streams_add_stderr]
-  \\ imp_res_tac grep_sem_file_lemma \\ fs[]);
+  \\ rw[grep_sem_def,add_stdo_with_numchars]
+  \\ CASE_TAC \\ rw[add_stdo_with_numchars]
+  \\ rpt(pop_assum kall_tac)
+  \\ qid_spec_tac`fs`
+  \\ qid_spec_tac`filenames`
+  \\ ho_match_mp_tac SNOC_INDUCT
+  \\ rw[FOLDL_SNOC,FOLDL_APPEND]
+  \\ rw[grep_sem_file_with_numchars]);
 
 val grep_termination_assum_def = Define`
   (grep_termination_assum (_::regexp::filenames) ⇔
@@ -871,19 +883,26 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ fs[]);
 
 val st = get_ml_prog_state()
+
+val grep_whole_prog_spec = Q.store_thm("grep_whole_prog_spec",
+  `hasFreeFD fs ∧ grep_termination_assum cl ⇒
+   whole_prog_spec ^(fetch_v "grep" st) cl fs
+     ((=) (grep_sem cl fs.files fs))`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qexists_tac`grep_sem cl fs.files fs`
+  \\ simp[GSYM grep_sem_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH grep_spec)))
+  \\ xsimpl);
+
 val name = "grep"
-val spec = grep_spec |> UNDISCH |> SIMP_RULE std_ss [STDIO_def]
-                     |> add_basis_proj
-val (sem_thm,prog_tm) = call_thm st name spec
+val spec = grep_whole_prog_spec |> UNDISCH
+val (sem_thm,prog_tm) = whole_prog_thm st name spec
 
 val grep_prog_def = Define`grep_prog = ^prog_tm`;
 
 val grep_semantics = save_thm("grep_semantics",
-  sem_thm
-  |> REWRITE_RULE[GSYM grep_prog_def]
-  |> DISCH_ALL
-  |> CONV_RULE(LAND_CONV EVAL)
-  |> REWRITE_RULE[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> SIMP_RULE(srw_ss())[STD_streams_grep_sem]);
+  sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
+  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
 val _ = export_theory ();
