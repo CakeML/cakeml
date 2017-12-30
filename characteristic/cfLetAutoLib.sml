@@ -8,8 +8,8 @@ open preamble ml_progLib cfTacticsLib ml_translatorTheory
 (* set_sep syntax *)
 val (sep_imp_tm,mk_sep_imp,dest_sep_imp,is_sep_imp) = syntax_fns2 "set_sep" "SEP_IMP";
 (* -- *)
-(* typeSystem syntax *)
-val (type_env_c_tm,mk_type_env_c,dest_type_env_c,is_type_env_c) = syntax_fns1 "typeSystem" "type_env_c";
+(* semanticPrimitives syntax *)
+val (sem_env_c_tm,mk_sem_env_c,dest_sem_env_c,is_sem_env_c) = syntax_fns1 "semanticPrimitives" "sem_env_c";
 (* -- *)
 val set_sep_cond_hprop_tm =
   mk_thy_const{Name="cond",Thy="set_sep",Ty= bool --> cfHeapsBaseSyntax.hprop_ty}
@@ -1675,7 +1675,7 @@ fun xlet_expr_con let_expr_args asl w env pre post =
       val con_args_tms = List.map (get_value env) con_args_exprs
       val con_args_list_tm = listSyntax.mk_list (con_args_tms,
 						 semanticPrimitivesSyntax.v_ty)
-      val con_tm = mk_build_conv (mk_type_env_c env,con_name,con_args_list_tm)
+      val con_tm = mk_build_conv (mk_sem_env_c env,con_name,con_args_list_tm)
 				 |> cfTacticsLib.reduce_conv |> concl |> rhs
 				 |> optionSyntax.dest_some
 
