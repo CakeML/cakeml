@@ -6,10 +6,14 @@ open preamble ml_progLib cfTacticsLib ml_translatorTheory
 
 (* TODO: move *)
 (* set_sep syntax *)
-val set_sep_cond_tm =
-  mk_thy_const{Name="cond",Thy="set_sep",Ty= bool --> cfHeapsBaseSyntax.hprop_ty}
-val (sep_imp_tm,mk_sep_imp,dest_sep_imp,is_sep_imp) = syntax_fns2 "set_sep" "SEP_IMP"
+val (sep_imp_tm,mk_sep_imp,dest_sep_imp,is_sep_imp) = syntax_fns2 "set_sep" "SEP_IMP";
 (* -- *)
+(* typeSystem syntax *)
+val (type_env_c_tm,mk_type_env_c,dest_type_env_c,is_type_env_c) = syntax_fns1 "typeSystem" "type_env_c";
+(* -- *)
+val set_sep_cond_hprop_tm =
+  mk_thy_const{Name="cond",Thy="set_sep",Ty= bool --> cfHeapsBaseSyntax.hprop_ty}
+fun mk_cond_hprop tm = mk_comb(set_sep_cond_hprop_tm,tm)
 
 (* TODO: move these to preamble, or Drule? *)
 (********************************************************************************************)
@@ -247,7 +251,7 @@ fun rename_dest_exists (varsl, c) =
 fun dest_pure_fact p =
   case (dest_term p) of
   COMB dp =>
-    (if same_const set_sep_cond_tm (#1 dp) then (#2 dp)
+    (if same_const set_sep_cond_hprop_tm (#1 dp) then (#2 dp)
     else raise (ERR "dest_pure_fact" "Not a pure fact"))
   | _ => raise (ERR "dest_pure_fact" "Not a pure fact");
 
@@ -309,7 +313,7 @@ fun dest_heap_condition (varsl, c) =
 fun mk_heap_condition (ex_vl, hpl, pfl) =
   let
     val c1 = list_mk_star hpl cfHeapsBaseSyntax.hprop_ty
-    val hprop_pfl = List.map (fn x => mk_comb (set_sep_cond_tm, x)) pfl
+    val hprop_pfl = List.map (fn x => mk_comb (set_sep_cond_hprop_tm, x)) pfl
     val c2 = list_mk_star (c1::hprop_pfl) cfHeapsBaseSyntax.hprop_ty
     val c3 = List.foldr mk_sep_exists c2 ex_vl
   in
@@ -558,6 +562,9 @@ val type_to_name =
       (K true, "v")
     ];
 
+val x = mk_var("x",alpha);
+val RI = mk_var("RI",alpha --> semanticPrimitivesSyntax.v_ty --> bool)
+
 fun rename_post_variables ri_thms asl post_condition =
   let
       val ri_terms = mapfilter (snd o dest_comb o concl) ri_thms
@@ -585,15 +592,15 @@ fun rename_post_variables ri_thms asl post_condition =
 	      (let
 		  (* Find the predicate giving information about the type of v *)
 		  val preds = list_dest dest_star H
-		  val pat = ``&(RI (x:'a) ^v):hprop``
+		  val pat = mk_cond_hprop(list_mk_comb(RI,[x,v]))
 		  val sgl = HOLset.add (empty_varset, v)
 		  fun get_shallow p =
 		    let
 			val (tms, tys) = match_terml [] sgl pat p
 			val (tms', tys') = norm_subst ((tms, empty_varset), (tys, []))
 			val apply_subst = (Term.subst tms') o (Term.inst tys')
-			val RI = apply_subst ``RI : 'a -> v -> bool``
-			val shallow = apply_subst ``x : 'a``
+			val RI = apply_subst RI
+			val shallow = apply_subst x
 		    in
 			(* Check that RI is a refinement invariant *)
 			if HOLset.member (ri_set, RI) then shallow else failwith ""
@@ -1281,7 +1288,6 @@ fun find_equality_types asl eqTypeThms =
 
 
 (* [inst_refinement_invariants] : find instantiations for the quantified refinement invariants *)
-val equality_type_pattern = ``^(ml_translatorSyntax.EqualityType) A``
 fun inst_refinement_invariants eq_type_thms asl app_spec =
   let
       (* Retrieve information from the assumptions list *)
@@ -1309,8 +1315,7 @@ fun inst_refinement_invariants eq_type_thms asl app_spec =
       (* Find the polymorphic types *)
       fun extract_eqtype t =
 	let
-	    val (ts, tys) = match_term equality_type_pattern t
-	    val [{redex = _, residue = A}] = ts
+      val A = ml_translatorSyntax.dest_EqualityType t
 	    val ty = type_of A |> dest_type |> snd |> List.hd
 	in
 	    if not(HOLset.member (knwn_vars, A)) then (A, ty) else failwith ""
@@ -1670,13 +1675,14 @@ fun xlet_expr_con let_expr_args asl w env pre post =
       val con_args_tms = List.map (get_value env) con_args_exprs
       val con_args_list_tm = listSyntax.mk_list (con_args_tms,
 						 semanticPrimitivesSyntax.v_ty)
-      val con_tm = mk_build_conv (``^env.c``,con_name,con_args_list_tm)
+      val con_tm = mk_build_conv (mk_type_env_c env,con_name,con_args_list_tm)
 				 |> cfTacticsLib.reduce_conv |> concl |> rhs
 				 |> optionSyntax.dest_some
 
       (* Build the post-condition *)
       val nvar_eqn = mk_eq(nvar,con_tm)
-      val post_condition = ``POSTv ^nvar. &^nvar_eqn * ^pre``
+      val post_condition =
+        cfHeapsBaseSyntax.mk_postv(nvar,helperLib.mk_star(mk_cond_hprop nvar_eqn,pre))
 
       (* Apply some conversions to the post condition *)
 
