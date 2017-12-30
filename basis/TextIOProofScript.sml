@@ -434,6 +434,30 @@ val add_stderr_fastForwardFD = Q.store_thm("add_stderr_fastForwardFD",
    add_stderr (fastForwardFD fs fd) out = fastForwardFD (add_stderr fs out) fd`,
   rw[add_stdo_def,up_stderr_fastForwardFD,stdo_fastForwardFD]);
 
+val FILTER_File_add_stdo = Q.store_thm("FILTER_File_add_stdo",
+  `stdo fd nm fs init ⇒
+   FILTER (isFile o FST) (add_stdo fd nm fs out).files = FILTER (isFile o FST) fs.files`,
+  rw[add_stdo_def,up_stdo_def,fsupdate_def]
+  \\ CASE_TAC \\ CASE_TAC \\ fs[]
+  \\ match_mp_tac FILTER_EL_EQ \\ simp[]
+  \\ qmatch_assum_rename_tac`_ = SOME (k,_)`
+  \\ qx_gen_tac`n`
+  \\ simp[GSYM AND_IMP_INTRO] \\ strip_tac
+  \\ reverse(Cases_on`FST (EL n fs.files) = k`)
+  >- simp[EL_ALIST_FUPDKEY_unchanged]
+  \\ simp[FST_EL_ALIST_FUPDKEY,GSYM AND_IMP_INTRO]
+  \\ fs[stdo_def]);
+
+val FILTER_File_add_stdout = Q.store_thm("FILTER_File_add_stdout",
+  `STD_streams fs ⇒
+   FILTER (isFile o FST) (add_stdout fs out).files = FILTER (isFile o FST) fs.files`,
+  metis_tac[STD_streams_stdout,FILTER_File_add_stdo]);
+
+val FILTER_File_add_stderr = Q.store_thm("FILTER_File_add_stderr",
+  `STD_streams fs ⇒
+   FILTER (isFile o FST) (add_stderr fs out).files = FILTER (isFile o FST) fs.files`,
+  metis_tac[STD_streams_stderr,FILTER_File_add_stdo]);
+
 val stdin_def = Define
 `stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(IOStream(strlit"stdin"),pos) /\
                      ALOOKUP fs.files (IOStream(strlit"stdin"))= SOME inp)`
