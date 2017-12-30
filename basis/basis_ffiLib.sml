@@ -105,7 +105,7 @@ fun call_thm st name spec =
   let
     val call_ERR = ERR "call_thm"
     val th =
-      call_main_thm_basis
+      whole_prog_spec_semantics_prog
         |> C MATCH_MP (st |> get_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
         |> SPEC(stringSyntax.fromMLstring name)
         |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
