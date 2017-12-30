@@ -2014,231 +2014,87 @@ rw[EvalSt_def, Eval_def]
 \\ evaluate_unique_result_tac
 \\ fs[state_component_equality]);
 
-val handle_one_def = Define `
-handle_one vname cname exp1 exp2 =
-(Handle exp1 [(Pcon (SOME (Short cname)) [Pvar vname], Let (SOME vname) (Con (SOME (Short cname)) [Var(Short vname)]) exp2)])`;
-
 val handle_mult_def = Define `
-handle_mult varname (cname::cons_names) exp1 exp2 =
-handle_one varname cname (handle_mult varname cons_names exp1 exp2) exp2 /\
-handle_mult varname [] exp1 exp2 = exp1`;
+  handle_mult [] exp1 ename = exp1 /\
+  handle_mult (_:string list) exp1 ename =
+    Handle exp1 [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]`;
 
-val handle_mult_append = Q.prove(
-`!cons_names1 cons_names2 vname exp1 exp2.
-handle_mult vname (cons_names1 ++ cons_names2) exp1 exp2 =
-handle_mult vname cons_names1 (handle_mult vname cons_names2 exp1 exp2) exp2`,
-Induct >-(rw[handle_mult_def])
-\\ rw[handle_mult_def]);
+val evaluate_handle_mult_Rval = Q.prove(
+  `!cons_names exp1 ename res s s2 env.
+     evaluate F env s exp1 (s2, Rval res) ==>
+     evaluate F env s (handle_mult cons_names exp1 ename) (s2, Rval res)`,
+  Cases
+  \\ rw[handle_mult_def]
+  \\ rw[Once evaluate_cases]);
 
-val evaluate_handle_mult_Rval = Q.prove(`!cons_names vname exp1 exp2 res s s2 env.
- evaluate F env s exp1 (s2, Rval res) ==>
- evaluate F env s (handle_mult vname cons_names exp1 exp2) (s2, Rval res)`,
-Induct
->-(rw[handle_mult_def, handle_one_def])
-\\ rw[handle_mult_def, handle_one_def]
-\\ rw[Once evaluate_cases]);
+val evaluate_handle_mult_Rabort = Q.prove(
+  `!cons_names exp1 ename res s s2 env.
+     evaluate F env s exp1 (s2, Rerr (Rabort res)) ==>
+     evaluate F env s (handle_mult cons_names exp1 ename)
+       (s2, Rerr (Rabort res))`,
+  Cases
+  \\ rw[handle_mult_def]
+  \\ rw[Once evaluate_cases]);
 
-val evaluate_handle_mult_Rabort = Q.prove(`!cons_names vname exp1 exp2 res s s2 env.
- evaluate F env s exp1 (s2, Rerr (Rabort res)) ==>
- evaluate F env s (handle_mult vname cons_names exp1 exp2) (s2, Rerr (Rabort res))`,
-Induct
->-(rw[handle_mult_def, handle_one_def])
-\\ rw[handle_mult_def, handle_one_def]
-\\ rw[Once evaluate_cases]);
+val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE
+                     |> fst |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO];
 
-val evaluate_handle_EXN_THROUGH = Q.prove(`
-!cons_names exp1 exp2 vname s s2 ev env.
-evaluate F env s exp1 (s2, Rerr (Rraise ev)) ==>
-EVERY (\cname. pmatch env.c s2.refs (Pcon (SOME (Short cname)) [Pvar vname]) ev [] = No_match) cons_names ==>
-evaluate F env s (handle_mult vname cons_names exp1 exp2) =
-evaluate F env s exp1`,
-Induct >-(rw[handle_mult_def])
-\\ rw[]
-\\ rw[handle_mult_def]
-\\ irule EQ_EXT
-\\ rw[]
-\\ last_assum (fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
-\\ Cases_on `x`
-\\ fs[]
-\\ rw[handle_one_def]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[ALL_DISTINCT, pat_bindings_def]
-\\ rw[Once evaluate_cases]);
-
-val evaluate_handle_compos_suffices = Q.prove(`evaluate F env s exp3 = evaluate F env s exp4 ==>
-(evaluate F env s
-  (Handle exp3
-     [(Pcon (SOME (Short h)) [Pvar vname],
-       Let (SOME vname) (Con (SOME (Short h)) [Var (Short vname)])
-         exp2)]) =
-evaluate F env s
-  (Handle exp4
-     [(Pcon (SOME (Short h)) [Pvar vname],
-       Let (SOME vname) (Con (SOME (Short h)) [Var (Short vname)])
-         exp2)]))`,
-rw[]
-\\ irule EQ_EXT
-\\ rw[Once evaluate_cases]
-\\ rw[Once EQ_SYM_EQ]
-\\ rw[Once evaluate_cases]);
-
-val evaluate_handle_EXN_PARTIAL_THROUGH = Q.prove(`!cons_names1 cons_names2 exp1 exp2 vname s s2 ev env.
-evaluate F env s exp1 (s2, Rerr (Rraise ev)) ==>
-EVERY (\cname. pmatch env.c s2.refs (Pcon (SOME (Short cname)) [Pvar vname]) ev [] = No_match) cons_names2 ==>
-evaluate F env s (handle_mult vname (cons_names1 ++ cons_names2) exp1 exp2) =
-evaluate F env s (handle_mult vname cons_names1 exp1 exp2)`,
-Induct
->-(
-    rw[handle_mult_def]
-    \\ IMP_RES_TAC evaluate_handle_EXN_THROUGH
-    \\ fs[])
-\\ rw[handle_mult_def, handle_one_def]
-\\ irule evaluate_handle_compos_suffices
-\\ last_assum IMP_RES_TAC
-\\ fs[]);
-
-val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE |> fst |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO];
+val evaluate_11 = Q.store_thm("evaluate_11",
+  `!b env s exp x.
+     evaluate b env s exp x ==>
+     !y. evaluate b env s exp y <=> x = y`,
+  metis_tac [big_exp_determ]);
 
 val prove_evaluate_handle_mult_CASE =
-rw[]
-\\ last_x_assum IMP_RES_TAC
-\\ qexists_tac `cname`
-\\ qexists_tac `ev'`
-\\ simp[]
-\\ sg `?cons_names1 cons_names2. cons_names = cons_names1 ++ [cname] ++ cons_names2`
->-(
-    fs[MEM_EL]
-    \\ sg `?cons_names1 cons_names'. cons_names = cons_names1 ++ cons_names' /\ LENGTH cons_names1 = n`
-    >-(
-	qexists_tac `TAKE n cons_names`
-        \\ qexists_tac `DROP n cons_names`
-        \\ simp[TAKE_DROP, LENGTH_TAKE])
-    \\ qexists_tac `cons_names1`
-    \\ fs[]
-    \\ qexists_tac `TL cons_names'`
-    \\ Cases_on `cons_names'` >> fs[]
-    \\ rw[]
-    \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-    \\ `~NULL ([h] ++ t)` by fs[]
-    \\ IMP_RES_TAC EL_LENGTH_APPEND
-    \\ fs[])
-\\ sg `EVERY (\cname. pmatch env.c s2.refs (Pcon (SOME (Short cname)) [Pvar vname]) ev [] = No_match) cons_names2`
->-(
-    fs[ALL_DISTINCT_APPEND]
-    \\ fs[EVERY_MEM]
-    \\ rw[]
-    \\ fs[EL_APPEND1, EL_APPEND2]
-    \\ rw[Once pmatch_def]
-    \\ fs[lookup_cons_def]
-    \\ fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
-    \\ `cname' <> cname` by (first_assum(qspec_then `cname` ASSUME_TAC) \\ fs[] \\ metis_tac[])    \\ fs[])
-\\ fs[EL_APPEND1, EL_APPEND2]
-\\ rw[]
-\\ IMP_RES_TAC evaluate_handle_EXN_PARTIAL_THROUGH
-\\ fs[]
-\\ rw[handle_mult_append, handle_mult_def]
-\\ fs[Eval_def]
-\\ qpat_x_assum `!e' ev1 cname'. P` IMP_RES_TAC
-\\ first_x_assum(qspec_then `s2.refs ++ []` STRIP_ASSUME_TAC)
-\\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
-\\ fs[with_same_refs]
-\\ sg `evaluate F env s (handle_mult vname cons_names1 (handle_one vname cname exp1 exp2) exp2) =
-    evaluate F env s (handle_one vname cname exp1 exp2)`
->-(
-    sg `?s' res. evaluate F env s (handle_one vname cname exp1 exp2) (s', Rval res)`
-    >-(
-	rw[handle_one_def]
-	\\ rw[Once evaluate_cases]
-	\\ last_assum(fn x => simp[MATCH_MP evaluate_unique_result x])
-	\\ rw[Once evaluate_cases]
-	\\ fs[pat_bindings_def]
-	\\ fs[pmatch_def]
-	\\ fs[EVERY_MEM, lookup_cons_def]
-	\\ fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
-	\\ fs[write_def]
-	\\ fs[with_same_refs]
-	\\ rw[Once evaluate_cases]
-	\\ rw[Once evaluate_cases]
-	\\ rw[Once evaluate_cases]
-	\\ rw[Once evaluate_cases]
-	\\ rw[Once evaluate_cases]
-	\\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
-	\\ fs[namespaceTheory.id_to_n_def]
-	\\ first_x_assum(fn x => simp[MATCH_MP evaluate_unique_result x]))
-    \\ first_assum(fn x => MATCH_MP evaluate_handle_mult_Rval x |> ASSUME_TAC)
-    \\ first_x_assum(qspecl_then [`cons_names1`, `vname`, `exp2`] ASSUME_TAC)
-    \\ irule EQ_EXT
-    \\ rw[]
-    \\ Cases_on `x`
-    \\ first_x_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
-    \\ first_x_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
-    \\ fs[])
-\\ rw[]
-\\ rw[handle_one_def]
-\\ irule EQ_EXT
-\\ rw[]
-\\ Cases_on `x`
-\\ rw[Once evaluate_cases]
-\\ qpat_assum `evaluate F env s exp1 R` (fn x => simp[MATCH_MP evaluate_unique_result x])
-\\ rw[Once evaluate_cases]
-\\ fs[pat_bindings_def]
-\\ fs[pmatch_def]
-\\ fs[EVERY_MEM, lookup_cons_def]
-\\ fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
-\\ fs[namespaceTheory.id_to_n_def]
-\\ fs[write_def]
-\\ fs[with_same_refs]
-\\ pop_assum(fn x => ALL_TAC)
-\\ first_assum(fn x => simp[MATCH_MP evaluate_unique_result x])
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def];
+  rw[]
+  \\ last_x_assum IMP_RES_TAC
+  \\ rveq \\ fs []
+  \\ Cases_on `cons_names`
+  \\ fs [handle_mult_def,FUN_EQ_THM]
+  \\ simp [Once bigStepTheory.evaluate_cases]
+  \\ drule evaluate_11
+  \\ fs []
+  \\ disch_then kall_tac
+  \\ simp [Once bigStepTheory.evaluate_cases]
+  \\ fs [pmatch_def,pat_bindings_def,write_def]
 
 val evaluate_handle_mult_CASE_MODULE = Q.prove(`
-!EXN_TYPE cons_names module_name vname exp1 exp2 s s2 e ev env.
-(!e ev. EXN_TYPE e ev ==> ?ev' cname.
-MEM cname cons_names /\
-ev = Conv (SOME (cname, TypeExn (Long module_name (Short cname)))) [ev']) ==>
-EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Long module_name (Short cname)))) cons_names ==>
-(ALL_DISTINCT cons_names) ==>
-(∀e ev ev1 cname.
-EXN_TYPE e ev ==>
-ev = Conv (SOME (cname,TypeExn (Long module_name (Short cname)))) [ev1] ==>
-Eval (write vname ev (write vname ev1 env)) exp2 (\v. T)) ==>
-evaluate F env s exp1 (s2, Rerr (Rraise ev))
-/\ EXN_TYPE e ev ==>
-?cname ev'. ev = Conv (SOME (cname, TypeExn (Long module_name (Short cname)))) [ev'] /\
-evaluate F env s (handle_mult vname cons_names exp1 exp2) =
-evaluate F (write vname ev (write vname ev' env)) s2 exp2`,
-prove_evaluate_handle_mult_CASE);
+  ∀EXN_TYPE cons_names module_name ename exp1 s s2 e ev env.
+     (∀e ev.
+         EXN_TYPE e ev ⇒
+         ∃ev' cname.
+            MEM cname cons_names ∧
+            ev =
+            Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
+              [ev']) ⇒
+     evaluate F env (s:unit state) exp1 (s2,Rerr (Rraise ev)) ∧ EXN_TYPE e ev ⇒
+     ∃cname ev'.
+        ev =
+        Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
+          [ev'] ∧
+        evaluate F env s (handle_mult cons_names exp1 ename) =
+        evaluate F (write "e" ev env) s2
+          (Con (SOME (Short ename)) [Var (Short "e")])`,
+  prove_evaluate_handle_mult_CASE);
 
 val evaluate_handle_mult_CASE_SIMPLE = Q.prove(`
-!EXN_TYPE cons_names vname exp1 exp2 s s2 e ev env.
-(!e ev. EXN_TYPE e ev ==> ?ev' cname.
-MEM cname cons_names /\
-ev = Conv (SOME (cname, TypeExn (Short cname))) [ev']) ==>
-EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Short cname))) cons_names ==>
-(ALL_DISTINCT cons_names) ==>
-(∀e ev ev1 cname.
-EXN_TYPE e ev ==>
-ev = Conv (SOME (cname,TypeExn (Short cname))) [ev1] ==>
-Eval (write vname ev (write vname ev1 env)) exp2 (\v. T)) ==>
-evaluate F env s exp1 (s2, Rerr (Rraise ev))
-/\ EXN_TYPE e ev ==>
-?cname ev'. ev = Conv (SOME (cname, TypeExn (Short cname))) [ev'] /\
-evaluate F env s (handle_mult vname cons_names exp1 exp2) =
-evaluate F (write vname ev (write vname ev' env)) s2 exp2`,
-prove_evaluate_handle_mult_CASE);
+  ∀EXN_TYPE cons_names module_name ename exp1 s s2 e ev env.
+     (∀e ev.
+         EXN_TYPE e ev ⇒
+         ∃ev' cname.
+            MEM cname cons_names ∧
+            ev =
+            Conv (SOME (cname,TypeExn (Short cname)))
+              [ev']) ⇒
+     evaluate F env (s:unit state) exp1 (s2,Rerr (Rraise ev)) ∧ EXN_TYPE e ev ⇒
+     ∃cname ev'.
+        ev =
+        Conv (SOME (cname,TypeExn (Short cname)))
+          [ev'] ∧
+        evaluate F env s (handle_mult cons_names exp1 ename) =
+        evaluate F (write "e" ev env) s2
+          (Con (SOME (Short ename)) [Var (Short "e")])`,
+  prove_evaluate_handle_mult_CASE);
 
 val evaluate_Success_CONS = Q.prove(
 `lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
@@ -2278,99 +2134,92 @@ val EXC_TYPE_aux_def = Define `
        v = Conv (SOME ("Success",TypeId (Short "exc"))) [v1_1] ∧
 		a x_1 v1_1)`;
 
-fun prove_EvalM_to_EvalSt handle_mult_CASE =
-rw[EvalM_def, EvalSt_def]
-\\ qpat_x_assum `!s p. P` IMP_RES_TAC
-\\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
-\\ Cases_on `res`
-(* res is an Rval *)
->-(
-    IMP_RES_TAC evaluate_Success_CONS
-    \\ first_x_assum (fn x => MATCH_MP evaluate_handle_mult_Rval x |> ASSUME_TAC)
-    \\ first_x_assum (qspecl_then [`cons_names`, `vname`, `(Con (SOME (Short "Failure")) [Var (Short vname)])`] ASSUME_TAC)
-    \\ evaluate_unique_result_tac
-    \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
-    \\ Cases_on `x init_state'`
-    \\ Cases_on `q` \\ fs[]
-    \\ fs[EXC_TYPE_aux_def]
-    \\ metis_tac[])
-\\ reverse(Cases_on `e`)
-(* res is an Rerr (Rabort ...) *)
->-(
-    irule FALSITY
-    \\ fs[MONAD_def]
-    \\ Cases_on `x init_state'`
-    >> Cases_on `q`
-    >> fs[])
-(* res is an Rerr (Rraise ...) *)
-\\ qpat_x_assum `MONAD A B X S1 S2` (fn x => RW[MONAD_def] x |> ASSUME_TAC)
-\\ fs[]
-\\ Cases_on `x init_state'` \\ fs[]
-\\ Cases_on `q` \\ fs[]
-\\ LAST_ASSUM IMP_RES_TAC
-\\ IMP_RES_TAC (Thm.INST_TYPE [``:'b`` |-> ``:unit``] handle_mult_CASE)
-\\ POP_ASSUM(fn x => ALL_TAC)
-\\ first_x_assum(qspecl_then [`vname`, `Con (SOME (Short "Failure")) [Var (Short vname)]`] ASSUME_TAC)
-\\ IMP_RES_TAC evaluate_Success_CONS_err
-\\ first_assum(fn x => sg `^(fst(dest_imp (concl x)))`)
->-(
-    rw[]
-    \\ fs[EVERY_MEM]
-    \\ first_x_assum(qspec_then `cname` IMP_RES_TAC)
-    \\ fs[lookup_cons_def]
-    \\ rw[Eval_def]
-    \\ rw[Once evaluate_cases]
-    \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
-    \\ fs[namespaceTheory.id_to_n_def]
-    \\ fs[write_def]
-    \\ rw[Once evaluate_cases]
-    \\ rw[Once evaluate_cases]
-    \\ rw[Once evaluate_cases]
-    \\ rw[state_component_equality])
-\\ qpat_x_assum `P ==> Q` IMP_RES_TAC
-\\ ntac 2 (POP_ASSUM (fn x => ALL_TAC))
-\\ fs[]
-\\ rw[Once evaluate_cases]
-\\ fs[lookup_cons_def]
-\\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
-\\ fs[namespaceTheory.id_to_n_def, write_def]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ rw[Once evaluate_cases]
-\\ fs[run_def, EXC_TYPE_aux_def]
-\\ metis_tac[];
+val prove_EvalM_to_EvalSt =
+  rw[EvalM_def, EvalSt_def]
+  \\ qpat_x_assum `!s p. P` IMP_RES_TAC
+  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
+  \\ Cases_on `res`
+  (* res is an Rval *)
+  >-(
+      IMP_RES_TAC evaluate_Success_CONS
+      \\ first_x_assum (fn x => MATCH_MP evaluate_handle_mult_Rval x |> ASSUME_TAC)
+      \\ first_x_assum (qspecl_then [`cons_names`, `"Failure"`] ASSUME_TAC)
+      \\ evaluate_unique_result_tac
+      \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
+      \\ Cases_on `x init_state'`
+      \\ Cases_on `q` \\ fs[]
+      \\ fs[EXC_TYPE_aux_def]
+      \\ metis_tac[])
+  \\ reverse(Cases_on `e`)
+  (* res is an Rerr (Rabort ...) *)
+  >-(
+      irule FALSITY
+      \\ fs[MONAD_def]
+      \\ Cases_on `x init_state'`
+      >> Cases_on `q`
+      >> fs[])
+  (* res is an Rerr (Rraise ...) *)
+  \\ qpat_x_assum `MONAD A B X S1 S2` (fn x => RW[MONAD_def] x |> ASSUME_TAC)
+  \\ fs[]
+  \\ Cases_on `x init_state'` \\ fs[]
+  \\ Cases_on `q` \\ fs[]
+  \\ LAST_ASSUM IMP_RES_TAC
+  \\ (drule evaluate_handle_mult_CASE_MODULE
+      ORELSE drule evaluate_handle_mult_CASE_SIMPLE)
+  \\ `evaluate F env (s with refs := s.refs ⧺ junk)
+        (Con (SOME (Short "Success")) [exp])
+        (s2,Rerr (Rraise a))` by
+   (simp [Once evaluate_cases]
+    \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
+          write_def,lookup_cons_def,PULL_EXISTS]
+    \\ simp [Once evaluate_cases])
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then (qspec_then `"Failure"` strip_assume_tac)
+  \\ rveq \\ fs []
+  \\ simp [Once evaluate_cases]
+  \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
+        write_def,lookup_cons_def,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [run_def,EXC_TYPE_aux_def,namespaceTheory.id_to_n_def]
+  \\ asm_exists_tac \\ simp [];
 
-val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",
-`!cons_names module_name vname TYPE EXN_TYPE x exp H init_state env.
-(!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
-MEM cname cons_names /\
-ev = Conv (SOME (cname, TypeExn (Long module_name (Short cname)))) [ev']) ==>
-(ALL_DISTINCT cons_names) ==>
-vname <> "Success" ==>
-vname <> "Failure" ==>
-EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ==>
-EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Long module_name (Short cname)))) cons_names ==>
-lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
-lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ==>
-EvalSt env init_state (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp]) (Con (SOME (Short "Failure")) [Var (Short vname)]))
-(EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) H`,
-prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_MODULE);
+val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",`
+  ∀cons_names module_name TYPE EXN_TYPE x exp H init_state env.
+   (∀e ev.
+       EXN_TYPE e ev ⇒
+       ∃ev' e' cname.
+          MEM cname cons_names ∧
+          ev =
+          Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
+            [ev']) ⇒
+   EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
+   lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ⇒
+   lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ⇒
+   EvalSt env init_state
+     (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
+        "Failure") (EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt);
 
-val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",
-`!cons_names vname TYPE EXN_TYPE x exp H init_state env.
-(!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
-MEM cname cons_names /\
-ev = Conv (SOME (cname, TypeExn (Short cname))) [ev']) ==>
-(ALL_DISTINCT cons_names) ==>
-vname <> "Success" ==>
-vname <> "Failure" ==>
-EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ==>
-EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Short cname))) cons_names ==>
-lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
-lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ==>
-EvalSt env init_state (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp]) (Con (SOME (Short "Failure")) [Var (Short vname)]))
-(EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) H`,
-prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_SIMPLE);
+val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
+  ∀cons_names module_name TYPE EXN_TYPE x exp H init_state env.
+   (∀e ev.
+       EXN_TYPE e ev ⇒
+       ∃ev' e' cname.
+          MEM cname cons_names ∧
+          ev =
+          Conv (SOME (cname,TypeExn ((Short cname))))
+            [ev']) ⇒
+   EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
+   lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ⇒
+   lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ⇒
+   EvalSt env init_state
+     (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
+        "Failure") (EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt);
 
 val evaluate_let_opref = Q.store_thm("evaluate_let_opref",
 `Eval env exp1 P ==>

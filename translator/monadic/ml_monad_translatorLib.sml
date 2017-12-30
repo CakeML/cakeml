@@ -2685,35 +2685,11 @@ fun m_translate_run def = let
 			 !H, state_var, env] EvalM_to_EvalSt_SIMPLE
 
     (* Prove the assumptions *)
-    val [EXN_assum, distinct_assum, vname_assum1, vname_assum2] = List.take(
-	    concl th |> strip_imp |> fst, 4)
+    val [EXN_assum, vname_assum1, vname_assum2] = List.take(
+	    concl th |> strip_imp |> fst, 3)
     val EXN_th = prove(EXN_assum, rw[] \\ Cases_on `e` \\ fs[!EXN_TYPE_def_ref])
     val th = MP th EXN_th
-
-    val distinct_th = SIMP_CONV list_ss [] distinct_assum |> EQT_ELIM
-    val vname_th1 = SIMP_CONV list_ss [] vname_assum1 |> EQT_ELIM
-    val vname_th2 = SIMP_CONV list_ss [] vname_assum2 |> EQT_ELIM
-
-    val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
-    val EXC_TYPE_def = DB.find "EXC_TYPE_def" |> List.hd |> snd |> fst
-		       handle Empty => raise (ERR "m_translate_run" "The `exc` type needs to be registered in the current program")
-    val EXC_RI_prove_tac =
-	irule EQ_EXT \\ gen_name_tac "A"
-        \\ irule EQ_EXT \\ gen_name_tac "B"
-        \\ irule EQ_EXT \\ gen_name_tac "x"
-        \\ irule EQ_EXT \\ gen_name_tac "v"
-        \\ Cases_on `x`
-        \\ simp[EXC_TYPE_def, EXC_TYPE_aux_def]
-    val EXN_rw = prove(mk_eq(EXC_TYPE_aux_const, EXC_TYPE_tm), EXC_RI_prove_tac)
-
-    val th = List.foldl (fn (a, th) => MP th a) th [distinct_th, vname_th1, vname_th2]
-    val th = PURE_REWRITE_RULE[EXN_rw] th
-    val th = MATCH_MP th monad_th
-
-    (* Undischarge the EVERY lookup assumptions *)
-    val every_lookup_assum = concl th |> dest_imp |> fst
-    val every_lookup_rw = SIMP_CONV list_ss [] every_lookup_assum
-    val th = SIMP_RULE bool_ss [every_lookup_rw, GSYM AND_IMP_INTRO] th |> UNDISCH_ALL
+    val th = MATCH_MP th monad_th |> UNDISCH |> UNDISCH
 
     (* Replace the environment *)
     val th = instantiate_local_environment th
@@ -2764,7 +2740,7 @@ fun m_translate_run def = let
              in (th, pre_def) end
 
     (* Expand the abbreviated expressions and the handle_mult term *)
-    val th = PURE_REWRITE_RULE[handle_mult_def, handle_one_def] th
+    val th = PURE_REWRITE_RULE[handle_mult_def] th
 			      |> remove_local_code_abbrevs
     val _ = undef_local_code_abbrevs()
 
