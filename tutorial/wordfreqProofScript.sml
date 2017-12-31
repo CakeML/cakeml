@@ -27,6 +27,11 @@ val wordfreq_compiled_lemma =
   |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> DISCH_ALL;
 
+val compiler_output_def = Define `
+  compiler_output = (code,data,config)`;
+
+(* TODO: move  *)
+
 val get_file_contents_def = Define `
   get_file_contents fs fname =
     if inFS_fname fs (File fname) then
@@ -38,14 +43,13 @@ val get_file_contents_def = Define `
 val wfFS_def = Define `
   wfFS fs <=> fsFFIProps$wfFS fs ∧ STD_streams fs`;
 
-val compiler_output_def = Define `
-  compiler_output = (code,data,config)`;
-
 val x64_installed_def = Define `
   x64_installed (c,d,conf) ffi mc ms <=>
     is_x64_machine_config mc ∧
     backendProof$installed c d conf.ffi_names ffi
       (heap_regs x64_backend_config.stack_conf.reg_names) mc ms`
+
+(* -- *)
 
 val wordfreq_compiled_thm = store_thm("wordfreq_compiled_thm",
   ``wfcl [pname; fname] ∧ wfFS fs ∧ hasFreeFD fs ∧
