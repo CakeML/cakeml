@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"wordfreqProof";
 
 val wordfreq_io_events_def = new_specification("wordfreq_io_events_def",["wordfreq_io_events"],
-  wordfreq_semantics |> Q.GENL[`fs`,`pname`,`fname`(*,`contents`*)]
+  wordfreq_semantics |> Q.GENL[`fs`,`pname`,`fname`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
 val (wordfreq_sem,wordfreq_output) = wordfreq_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -55,18 +55,15 @@ val wordfreq_compiled_thm = store_thm("wordfreq_compiled_thm",
   ``wfcl [pname; fname] ∧ wfFS fs ∧ hasFreeFD fs ∧
     (get_file_contents fs fname = SOME file_contents) ∧
     x64_installed compiler_output (basis_ffi [pname; fname] fs) mc ms ⇒
-    ∃io_events ascii_output ll.
+    ∃io_events ascii_output.
       machine_sem mc (basis_ffi [pname; fname] fs) ms ⊆
       extend_with_resource_limit {Terminate Success io_events} ∧
-      (extract_fs fs io_events = SOME (add_stdout fs ascii_output with numchars := ll)) ∧
+      extract_fs fs io_events = SOME (add_stdout fs ascii_output) ∧
       valid_wordfreq_output file_contents ascii_output``,
   strip_tac
   \\ assume_tac wordfreq_compiled_lemma
   \\ rfs [get_file_contents_def,wfFS_def,compiler_output_def,x64_installed_def]
-  \\ asm_exists_tac \\ fs []
-  \\ FULL_CASE_TAC \\ fs []
-  \\ qexists_tac `wordfreq_output_spec file_contents` \\ fs []
-  \\ qexists_tac `ll`
-  \\ rveq \\ fs [wordfreqProgTheory.wordfreq_output_spec_def]);
+  \\ asm_exists_tac \\ fs [option_case_eq]
+  \\ metis_tac [wordfreqProgTheory.wordfreq_output_spec_def]);
 
 val _ = export_theory();
