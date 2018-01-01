@@ -58,7 +58,7 @@ val wordfreq_compiled_thm = store_thm("wordfreq_compiled_thm",
     ∃io_events ascii_output.
       machine_sem mc (basis_ffi [pname; fname] fs) ms ⊆
       extend_with_resource_limit {Terminate Success io_events} ∧
-      extract_fs fs io_events = SOME (add_stdout fs ascii_output) ∧
+      (extract_fs fs io_events = SOME (add_stdout fs ascii_output)) ∧
       valid_wordfreq_output file_contents ascii_output``,
   strip_tac
   \\ assume_tac wordfreq_compiled_lemma
