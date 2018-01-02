@@ -14,12 +14,37 @@ val not_fail = Q.prove(
     a ++ b :: c`,
    Cases_on `a`  \\ rw [])
 
+val lem = Q.prove(
+  `!n. n MOD 8 < 16`,
+  strip_tac
+  \\ `n MOD 8 < 8` by simp []
+  \\ simp []
+  )
+
+val Zreg2num_num2Zreg =
+  x64Theory.Zreg2num_num2Zreg
+  |> Q.SPEC `n MOD 8`
+  |> SIMP_RULE std_ss [lem]
+
+val xmm_reg =
+  blastLib.BBLAST_PROVE ``((3 >< 3) (w2w (a : word3) : word4) = 0w : word1)``
+
+val xmm_reg2 = Q.prove(
+  `!n. (3 >< 3) (n2w (n MOD 8) : word4) = 0w : word1`,
+  strip_tac
+  \\ `n MOD 8 < 8` by simp []
+  \\ qabbrev_tac `m = n MOD 8`
+  \\ fs [wordsTheory.NUMERAL_LESS_THM]
+  )
+
 local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
-           "load", (* "load32", *) "load8", "store", (* "store32", *)
-           "store8", "fp", "jump", "cjump reg", "cjump imm", "call",
-           "jump reg", "loc"]
+           "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
+           "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
+           "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp to reg",
+           "fp from reg", "fp to int", "fp from int",
+           "jump", "cjump reg", "cjump imm", "call", "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS x64_ast_def)
   val rex_prefix_conv =
      Conv.REWR_CONV rex_prefix_def
@@ -43,13 +68,15 @@ in
       (Conv.DEPTH_CONV rex_prefix_conv THENC SIMP_CONV (srw_ss()) [])
   val enc_rwts =
     [x64_encode_def, x64_enc_def, encode_def, e_gen_rm_reg_def,
-     e_ModRM_def, not_fail, cond_rand, listTheory.LIST_BIND_def]
+     e_ModRM_def, encode_sse_def, xmm_mem_to_rm_def, not_fail, cond_rand,
+     listTheory.LIST_BIND_def]
   fun enc_thm s rwts =
     let
       val rwt = Lib.assoc s l
       val tm = rwt |> utilsLib.lhsc |> dest_x64_ast |> mk_x64_enc
     in
-      SIMP_CONV (srw_ss()++rex_prefix_ss) (rwt :: (enc_rwts @ rwts)) tm
+      SIMP_CONV (srw_ss()++rex_prefix_ss++bitstringLib.v2w_n2w_ss)
+                (rwt :: (enc_rwts @ rwts)) tm
     end
 end
 
@@ -159,12 +186,37 @@ val jump_reg_rwt = enc_thm "jump reg" [e_opc_def, boolTheory.LET_DEF]
 
 val loc_rwt = enc_thm "loc" [e_opsize_def, boolTheory.LET_DEF]
 
+local
+  val rwts =
+    [Zreg2num_num2Zreg, e_opsize_def, e_opsize_imm_def, xmm_reg, xmm_reg2,
+     e_imm_8_32_def, e_imm8_def, e_imm32_def, encode_sse_binop_def,
+     boolTheory.LET_DEF]
+in
+  val fp_less = enc_thm "fp less" rwts
+  val fp_leq = enc_thm "fp less eq" rwts
+  val fp_eq = enc_thm "fp eq" rwts
+  val fp_mov = enc_thm "fp mov" rwts
+  val fp_abs = enc_thm "fp abs" rwts
+  val fp_neg = enc_thm "fp neg" rwts
+  val fp_sqrt = enc_thm "fp sqrt" rwts
+  val fp_add = enc_thm "fp add" rwts
+  val fp_sub = enc_thm "fp sub" rwts
+  val fp_mul = enc_thm "fp mul" rwts
+  val fp_div = enc_thm "fp div" rwts
+  val fp_to_reg = enc_thm "fp to reg" rwts
+  val fp_from_reg = enc_thm "fp from reg" rwts
+  val fp_to_int = enc_thm "fp to int" rwts
+  val fp_from_int = enc_thm "fp from int" rwts
+end
+
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
     [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt,
      long_div_rwt, long_mul_rwt, add_carry_rwt, add_overflow_rwt,
      sub_overflow_rwt, load_rwt, (* load32_rwt, *) load8_rwt, store_rwt,
      (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
-     jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
+     jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
+     fp_less, fp_leq, fp_eq, fp_mov, fp_abs, fp_neg, fp_sqrt, fp_add, fp_sub,
+     fp_mul, fp_div, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])
 
 val () = export_theory ()
