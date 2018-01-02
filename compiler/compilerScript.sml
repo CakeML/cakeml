@@ -82,6 +82,7 @@ val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
 
 val compile_def = Define`
   compile c prelude input =
+    let _ = empty_ffi (strlit "finished: start up") in
     case
       if c.input_is_sexp
       then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
@@ -89,10 +90,12 @@ val compile_def = Define`
     of
     | NONE => Failure ParseError
     | SOME prog =>
+       let _ = empty_ffi (strlit "finished: lexing and parsing") in
        case infertype_prog c.inferencer_config (prelude ++ prog) of
        | Failure (Exc (locs, msg)) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic =>
+          let _ = empty_ffi (strlit "finished: type inference") in
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
           | SOME (bytes,c) => Success (bytes,c)`;
