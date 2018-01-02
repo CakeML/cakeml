@@ -25,7 +25,7 @@ local
      Conv.REWR_CONV rex_prefix_def
      THENC Conv.PATH_CONV "llr"
              (blastLib.BBLAST_CONV
-              THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
+              THENC (fn t => if Teq t orelse Feq t then
                                 ALL_CONV t
                              else
                                 NO_CONV t))
@@ -42,7 +42,7 @@ in
     RIGHT_CONV_RULE
       (Conv.DEPTH_CONV rex_prefix_conv THENC SIMP_CONV (srw_ss()) [])
   val enc_rwts =
-    [x64_encode_def, x64_enc_def, encode_def, e_rm_reg_def, e_gen_rm_reg_def,
+    [x64_encode_def, x64_enc_def, encode_def, e_gen_rm_reg_def,
      e_ModRM_def, not_fail, cond_rand, listTheory.LIST_BIND_def]
   fun enc_thm s rwts =
     let
@@ -127,7 +127,7 @@ val sub_overflow_rwt =
 
 local
   val thms =
-    [e_rm_reg_def, e_gen_rm_reg_def, e_ModRM_def, e_opsize_def,
+    [e_gen_rm_reg_def, e_ModRM_def, e_opsize_def,
      mk_let_thm `(rex_prefix (v || 8w),1w: word8)`,
      mk_let_thm `(rex_prefix (7w && v),1w: word8)`]
 in

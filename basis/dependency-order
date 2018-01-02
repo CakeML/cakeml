@@ -10,6 +10,7 @@ be selected than simple prefixes of the current ordering.
 *)
 
 std_prelude
+Runtime
 Option
 List
 Vector
@@ -22,6 +23,6 @@ Word64
 Word8
 Word8Array
 Array
-Commandline
+CommandLine
 TextIO
 basis

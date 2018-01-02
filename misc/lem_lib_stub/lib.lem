@@ -17,10 +17,6 @@ val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 
 declare hol    target_rep function all2 = `EVERY2`
 
-val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a
-let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
-declare termination_argument num_fold = automatic
-
 let rec the _ (Just x) = x and the x Nothing = x
 
 val fapply : forall 'a 'b. MapKeyType 'b => 'a -> 'b -> Map.map 'b 'a -> 'a

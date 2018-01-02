@@ -427,29 +427,22 @@ val assign_rw = Q.prove(`
   rw[]
   >-
     (`0 ≤ 4* -i` by intLib.COOPER_TAC>>
-    fs[GSYM integerTheory.INT_ABS_EQ_ID])
+    metis_tac[integerTheory.INT_ABS_EQ_ID])
   >>
     `0 ≤ 4*i` by intLib.COOPER_TAC>>
-    fs[GSYM integerTheory.INT_ABS_EQ_ID])
+    metis_tac[integerTheory.INT_ABS_EQ_ID])
 
 (* TODO: word_mul should maybe target a real op ?
    TODO: econv might be going too far with case simplification
 *)
 
+val _ = translate (WriteWord32_on_32_def |> inline_simp |> conv32)
 val _ = translate (WriteWord64_on_32_def |> inline_simp |> conv32)
 val _ = translate (WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_mul_def,word_2comp_def]|> conv32)
-
-val data_to_word_wordop64_on_32_side = Q.prove(`
-  data_to_word_wordop64_on_32_side x ⇔ T`,
-  Cases_on`x`>>EVAL_TAC)|>update_precondition ;
 
 val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
-
-val data_to_word_wordshift64_on_32_side = Q.prove(`
-  data_to_word_wordshift64_on_32_side x y ⇔ T`,
-  Cases_on`x`>>EVAL_TAC)|>update_precondition ;
 
 val Smallnum_alt = prove(
   ``Smallnum i =
@@ -465,9 +458,10 @@ val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv32);
 val _ = translate (bignum_words_def |> inline_simp |> conv32);
 val _ = translate (BignumHalt_def |> inline_simp |> conv32);
-val _ = translate(Maxout_bits_code_def |> conv32)
-val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32)
-val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32)
+val _ = translate(Maxout_bits_code_def |> conv32);
+val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32);
+val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv32);
+val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32);
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 

@@ -1,0 +1,32 @@
+(*
+This file records the current, linear dependency order between the
+translations for the bootstrapped compiler.
+
+This unnatural linear dependency graph is required by the concrete mode
+translator (which provides only translation_extends as a method for joining two
+translations). Eventually, when we have an abstract mode translator, the
+different modules can be made more independent and different combinations can
+be selected than simple prefixes of the current ordering.
+*)
+
+basis
+to_data
+lexer
+parser
+infer
+reg_alloc
+explorer
+sexp_parser
+--- (the translation splits into two paths for 32- and 64-bit targets)
+to_word32
+to_target32
+arm6
+compiler32
+---
+to_word64
+to_target64
+x64
+arm8
+riscv
+mips
+compiler64

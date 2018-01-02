@@ -2,7 +2,7 @@
 ## A script that counts non-blank lines.
 
 find . -name '*Script.sml' -o -name '*Lib.sml' |
-egrep -v 'hollogs|candle|flame|lem_lib|examples|tests|unverified|_demo' |
+grep -E -v 'hollogs|candle|flame|lem_lib|examples|tests|unverified|_demo' |
 xargs cat |
 sed '/(\*/{: a ; /\*)/b b ; N ; b a ; : b ; d}' | # delete comments
 sed '/^\s*$/d' | # delete blank lines

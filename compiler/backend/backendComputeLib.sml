@@ -184,7 +184,7 @@ val add_backend_compset = computeLib.extend_compset
     [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
-    ,pat_to_closTheory.compile_def
+    ,pat_to_closTheory.dest_WordToInt_def
     ,pat_to_closTheory.CopyByteStr_def
     ,pat_to_closTheory.CopyByteAw8_def
     ,pat_to_closTheory.vector_tag_def
@@ -490,6 +490,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.ByteCopyNew_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.get_gen_size_def
+    ,data_to_wordTheory.SilentFFI_def
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.WriteLastByte_aux_def
@@ -528,6 +529,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.WriteWord64_on_32_def
+    ,data_to_wordTheory.WriteWord32_on_32_def
     ,data_to_wordTheory.WordOp64_on_32_def
     ,data_to_wordTheory.WordShift64_on_32_def
     ,data_to_wordTheory.ShiftVar_def

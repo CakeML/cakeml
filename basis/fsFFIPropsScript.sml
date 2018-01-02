@@ -105,6 +105,11 @@ val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
 
 (* getNullTermStr lemmas *)
 
+val getNullTermStr_add_null = Q.store_thm(
+  "getNullTermStr_add_null",
+  `∀cs. ¬MEM 0w cs ⇒ getNullTermStr (cs++(0w::ls)) = SOME (MAP (CHR o w2n) cs)`,
+  simp[getNullTermStr_def,  findi_APPEND, NOT_MEM_findi, findi_def, TAKE_APPEND])
+
 val getNullTermStr_insert_atI = Q.store_thm(
   "getNullTermStr_insert_atI",
   `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
@@ -277,51 +282,6 @@ val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
  `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
   rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
 
-(* encode/ decode *)
-
-val decode_encode_inode = Q.store_thm(
-  "decode_encode_inode",
-  `∀f. decode_inode (encode_inode f) = return f`,
-  strip_tac >> cases_on`f` >>
-  rw[encode_inode_def, decode_inode_def] >>
-  rpt CASE_TAC >> fs[decode_pair_def]);
-
-val decode_encode_files = Q.store_thm(
-  "decode_encode_files",
-  `∀l. decode_files (encode_files l) = return l`,
-  rw[encode_files_def, decode_files_def] >>
-  match_mp_tac decode_encode_list >>
-  match_mp_tac decode_encode_pair >>
-  simp[implode_explode,decode_encode_inode]);
-
-val encode_files_11 = Q.store_thm("encode_files_11",
-  `encode_files l1 = encode_files l2 ⇒ l1 = l2`,
-  rw[] >>
-  `decode_files (encode_files l1) = decode_files(encode_files l2)` by fs[] >>
-  fs[decode_encode_files]);
-
-val decode_encode_fds = Q.store_thm(
-  "decode_encode_fds",
-  `decode_fds (encode_fds fds) = return fds`,
-  simp[decode_fds_def, encode_fds_def] >>
-  simp[decode_encode_list, decode_encode_pair,decode_encode_inode]);
-
-val encode_fds_11 = Q.store_thm("encode_fds_11",
-  `encode_fds l1 = encode_fds l2 ⇒ l1 = l2`,
-  rw[] >> `decode_fds (encode_fds l1) = decode_fds(encode_fds l2)` by fs[] >>
-  fs[decode_encode_fds]);
-
-val decode_encode_FS = Q.store_thm(
-  "decode_encode_FS[simp]",
-  `decode (encode fs) = return fs`,
-  simp[decode_def, encode_def, decode_encode_files, decode_encode_fds] >>
-  simp[IO_fs_component_equality]);
-
-val encode_11 = Q.store_thm(
-  "encode_11[simp]",
-  `encode fs1 = encode fs2 ⇔ fs1 = fs2`,
-  metis_tac[decode_encode_FS, SOME_11]);
-
 (* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
@@ -344,13 +304,10 @@ val read_length = Q.store_thm("read_length",
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def]
-  \\ every_case_tac
+  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac)
-  \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
-  \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
-  \\ imp_res_tac read_length
-  \\ imp_res_tac LENGTH_EQ \\ fs[]);
+  \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac read_length \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
@@ -496,6 +453,12 @@ val fsupdate_A_DELKEY = Q.store_thm("fsupdate_A_DELKEY",
   \\ CASE_TAC \\ CASE_TAC
   \\ rw[A_DELKEY_ALIST_FUPDKEY_comm]);
 
+val fsupdate_0_numchars = Q.store_thm("fsupdate_0_numchars",
+  `IS_SOME (ALOOKUP fs.infds fd) ⇒
+   fsupdate fs fd n pos content =
+   fsupdate (fs with numchars := THE (LDROP n fs.numchars)) fd 0 pos content`,
+  rw[fsupdate_def] \\ TOP_CASE_TAC \\ fs[]);
+
 (* get_file_content *)
 
 val get_file_content_numchars = Q.store_thm("get_file_content_numchars",
@@ -574,7 +537,7 @@ val openFileFS_numchars = Q.store_thm("openFileFS_numchars",
 
 val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
   `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= 255 /\ wfFS fs ==>
-		   wfFS (openFileFS f fs k)`,
+                   wfFS (openFileFS f fs k)`,
   rw[wfFS_def,openFileFS_def,liveFS_def] >> full_case_tac >> fs[openFile_def] >>
   cases_on`x` >> rw[] >> fs[MEM_MAP] >> res_tac >> fs[]
   >-(imp_res_tac ALOOKUP_MEM >-(qexists_tac`(File f,x')` >> fs[])) >>
@@ -716,16 +679,20 @@ val linesFD_nil_lineFD_NONE = Q.store_thm("linesFD_nil_lineFD_NONE",
 
 (* all_lines: get all the lines based on filename *)
 
-val all_lines_def = Define
-  `all_lines fs fname =
+val lines_of_def = Define `
+  lines_of str =
     MAP (\x. strcat (implode x) (implode "\n"))
-          (splitlines (THE (ALOOKUP fs.files fname)))`
+          (splitlines (explode str))`
 
-val concat_all_lines = Q.store_thm("concat_all_lines",
-  `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ∨
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ^ str #"\n"`,
-  rw[all_lines_def] \\
-  qspec_tac(`THE (ALOOKUP fs.files fname)`,`ls`) \\
+val all_lines_def = Define `
+  all_lines fs fname = lines_of (implode (THE (ALOOKUP fs.files fname)))`
+
+val concat_lines_of = store_thm("concat_lines_of",
+  ``!s. concat (lines_of s) = s ∨
+        concat (lines_of s) = s ^ str #"\n"``,
+  rw[lines_of_def] \\
+  `s = implode (explode s)` by fs [explode_implode] \\
+  qabbrev_tac `ls = explode s` \\ pop_assum kall_tac \\ rveq \\
   Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
   fs[splitlines_eq_nil,concat_cons]
@@ -749,11 +716,16 @@ val concat_all_lines = Q.store_thm("concat_all_lines",
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC ));
 
+val concat_all_lines = Q.store_thm("concat_all_lines",
+  `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ∨
+   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ^ str #"\n"`,
+  fs [all_lines_def,concat_lines_of]);
+
 val linesFD_openFileFS_nextFD = Q.store_thm("linesFD_openFileFS_nextFD",
   `inFS_fname fs (File f) ∧ nextFD fs ≤ 255 ⇒
    linesFD (openFileFS f fs 0) (nextFD fs) = MAP explode (all_lines fs (File f))`,
   rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
-  \\ rw[all_lines_def]
+  \\ rw[all_lines_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]);
 
@@ -841,6 +813,67 @@ val linesFD_cons_imp = Q.store_thm("linesFD_cons_imp",
   \\ IF_CASES_TAC \\ fs[] \\ rw[]
   \\ fs[SPLITP_NIL_SND_EVERY]
   \\ rveq \\ fs[DROP_LENGTH_TOO_LONG]);
+
+val linesFD_lineForwardFD = Q.store_thm("linesFD_lineForwardFD",
+  `linesFD (lineForwardFD fs fd) fd' =
+   if fd = fd' then
+     DROP 1 (linesFD fs fd)
+   else linesFD fs fd'`,
+  rw[linesFD_def,lineForwardFD_def]
+  >- (
+    CASE_TAC \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ CASE_TAC \\ fs[DROP_LENGTH_TOO_LONG]
+    \\ pairarg_tac \\ fs[]
+    \\ qmatch_asmsub_rename_tac`DROP x pos`
+    \\ Cases_on`splitlines (DROP x pos)` \\ fs[DROP_NIL]
+    \\ imp_res_tac splitlines_CONS_FST_SPLITP
+    \\ imp_res_tac splitlines_next
+    \\ rveq
+    \\ rw[NULL_EQ,DROP_DROP_T,ADD1]
+    \\ fs[SPLITP_NIL_SND_EVERY] \\ rw[]
+    \\ fs[o_DEF]
+    \\ drule SPLITP_EVERY
+    \\ strip_tac \\ fs[DROP_LENGTH_TOO_LONG])
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[get_file_content_def]
+  \\ simp[forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[]);
+
+val lineForwardFD_forwardFD = Q.store_thm("lineForwardFD_forwardFD",
+  `∀fs fd. ∃n. lineForwardFD fs fd = forwardFD fs fd n`,
+  rw[forwardFD_def,lineForwardFD_def]
+  \\ CASE_TAC
+  >- (
+    qexists_tac`0`
+    \\ simp[IO_fs_component_equality]
+    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ simp[FORALL_PROD] )
+  \\ CASE_TAC
+  \\ pairarg_tac \\ fs[]
+  \\ rw[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    qexists_tac`0`
+    \\ simp[IO_fs_component_equality]
+    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ simp[FORALL_PROD] ));
+
+val get_file_content_lineForwardFD_forwardFD = Q.store_thm("get_file_content_lineForwardFD_forwardFD",
+  `∀fs fd. get_file_content fs fd = SOME (x,pos) ⇒
+     lineForwardFD fs fd = forwardFD fs fd (LENGTH(FST(SPLITP((=)#"\n")(DROP pos x))) +
+                                            if NULL(SND(SPLITP((=)#"\n")(DROP pos x))) then 0 else 1)`,
+  simp[forwardFD_def,lineForwardFD_def]
+  \\ ntac 3 strip_tac
+  \\ pairarg_tac \\ fs[]
+  \\ reverse IF_CASES_TAC \\ fs[DROP_LENGTH_TOO_LONG,SPLITP]
+  \\ rw[IO_fs_component_equality]
+  \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+  \\ simp[FORALL_PROD] );
 
 (* Property ensuring that standard streams are correctly opened *)
 val STD_streams_def = Define

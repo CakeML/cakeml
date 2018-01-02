@@ -351,4 +351,25 @@ val bytearray_fromlist_spec = Q.prove (
   xapp \\ fs [] \\ xsimpl \\ fs [LENGTH_NIL_SYM, LENGTH_REPLICATE]
 )
 
+val strcat_foo = process_topdecs
+  `fun strcat_foo r = r := !r ^ "foo"`
+
+val st = ml_progLib.add_prog strcat_foo pick_name basis_st
+
+val xlet_auto = cfLetAutoLib.xlet_auto
+
+val strcat_foo_spec = Q.prove (
+  `!rv sv s.
+     STRING_TYPE s sv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "strcat_foo" st) [rv]
+       (REF rv sv)
+       (POSTv uv. SEP_EXISTS sv'.
+            &(UNIT_TYPE () uv /\ STRING_TYPE (s ^ implode "foo") sv') *
+            REF rv sv')`,
+  xcf "strcat_foo" st >>
+  xlet_auto >- xsimpl >>
+  xlet `POSTv sv'. &(STRING_TYPE (s ^ implode "foo") sv') * rv ~~> sv`
+  >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
+  rveq >> xapp >> xsimpl);
+
 val _ = export_theory();

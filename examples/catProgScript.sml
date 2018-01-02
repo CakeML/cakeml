@@ -9,8 +9,8 @@ val _ = process_topdecs `
     let
       val fd = TextIO.openIn fname
       fun recurse () =
-        (TextIO.print_char (TextIO.read_char fd); recurse ())
-        handle TextIO.EndOfFile => ()
+        case TextIO.input1 fd of NONE => ()
+        | SOME c => (TextIO.output1 TextIO.stdOut c; recurse())
     in
       recurse () ;
       TextIO.close fd
@@ -43,7 +43,7 @@ val do_onefile_spec = Q.store_thm(
          (\u. SEP_EXISTS content.
               &UNIT_TYPE () u *
               &(ALOOKUP fs.files (File fnm) = SOME content) *
-              STDIO (add_stdout fs content))
+              STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs (File fnm)) *
               STDIO fs))`,
@@ -67,19 +67,18 @@ val do_onefile_spec = Q.store_thm(
          (STDIO fs00)
          (POSTv u.
             &UNIT_TYPE () u *
-            STDIO (add_stdout (fastForwardFD fs00 fd) (DROP n content)))`
+            STDIO (add_stdout (fastForwardFD fs00 fd) (implode (DROP n content))))`
   >- (Induct
       >- ((* base case *)
           rpt strip_tac >> `n = LENGTH content` by simp[] >> fs[] >> rveq >>
           xapp >> fs[UNIT_TYPE_def] >> xmatch >>
           imp_res_tac get_file_content_eof >> fs[] >>
-          xhandle`POSTe e. &EndOfFile_exn e * STDIO fs00`
-          >- ( xlet_auto \\ xsimpl \\ simp[bumpFD_0] \\ xsimpl )
-          \\ xcases \\ fs[EndOfFile_exn_def]
-          \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
-          \\ xcon
+          xlet_auto >- xsimpl \\
+          xmatch \\ fs[OPTION_TYPE_def] \\
+          reverse conj_tac >- (EVAL_TAC \\ rw[]) \\
+          xcon
           \\ imp_res_tac STD_streams_stdout
-          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD]
+          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD,implode_def]
           \\ imp_res_tac add_stdo_nil \\ xsimpl
           \\ simp[fastForwardFD_0]
           \\ xsimpl) >>
@@ -87,29 +86,27 @@ val do_onefile_spec = Q.store_thm(
       qpat_x_assum `UNIT_TYPE () _` mp_tac >> simp[UNIT_TYPE_def] >>
       strip_tac >> xmatch >>
       imp_res_tac get_file_content_eof >> rfs[] >>
-      qho_match_abbrev_tac`cf_handle _ _ _ _ (POSTv v. post v)` \\
-      xhandle`POSTv v. post v` \\ simp[Abbr`post`]
-      >- (
-        xlet_auto \\ xsimpl \\
-        xlet_auto_spec (SOME (Q.SPEC`forwardFD fs00 fd 1`(Q.GEN`fs`print_char_spec)))
-        >- xsimpl
-        \\ xlet_auto >- ( xcon \\ xsimpl )
-        \\ xapp
-        \\ qmatch_goalsub_abbrev_tac`STDIO fs01`
-        \\ map_every qexists_tac [`emp`,`n+1`,`fs01`]
-        \\ xsimpl
-        \\ simp[Abbr`fs01`,STD_streams_add_stdout,
-                STD_streams_forwardFD,get_file_content_add_stdout]
-        \\ simp[add_stdo_forwardFD,add_stdout_fastForwardFD,
-                STD_streams_forwardFD,STD_streams_fastForwardFD,STD_streams_add_stdout]
-        \\ simp[fastForwardFD_forwardFD,get_file_content_add_stdout,STD_streams_add_stdout]
-        \\ simp[UNIT_TYPE_def]
-        \\ imp_res_tac STD_streams_stdout
-        \\ imp_res_tac add_stdo_o
-        \\ xsimpl
-        \\ simp[DROP_CONS_EL,ADD1]
-        \\ xsimpl)
-      \\ xsimpl ) >>
+      xlet_auto >- xsimpl \\
+      xmatch \\ fs[OPTION_TYPE_def] \\
+      rpt(reverse conj_tac >- (EVAL_TAC \\ rw[])) \\
+      xlet_auto_spec (SOME (Q.SPEC`forwardFD fs00 fd 1`(Q.GEN`fs`output1_stdout_spec)))
+      >- xsimpl
+      \\ xlet_auto >- ( xcon \\ xsimpl )
+      \\ xapp
+      \\ qmatch_goalsub_abbrev_tac`STDIO fs01`
+      \\ map_every qexists_tac [`emp`,`n+1`,`fs01`]
+      \\ xsimpl
+      \\ simp[Abbr`fs01`,STD_streams_add_stdout,
+              STD_streams_forwardFD,get_file_content_add_stdout]
+      \\ simp[add_stdo_forwardFD,add_stdout_fastForwardFD,
+              STD_streams_forwardFD,STD_streams_fastForwardFD,STD_streams_add_stdout]
+      \\ simp[fastForwardFD_forwardFD,get_file_content_add_stdout,STD_streams_add_stdout]
+      \\ simp[UNIT_TYPE_def]
+      \\ imp_res_tac STD_streams_stdout
+      \\ imp_res_tac add_stdo_o
+      \\ xsimpl
+      \\ simp[DROP_CONS_EL,ADD1,strcat_thm]
+      \\ xsimpl) >>
   xlet_auto >- (xret >> xsimpl) >>
   (* calling recurse *)
   (*
@@ -119,10 +116,10 @@ val do_onefile_spec = Q.store_thm(
   \\ simp[fsFFITheory.get_file_content_def,PULL_EXISTS,FORALL_PROD]
   \\ disch_then(first_assum o (mp_then (Pos (el 2)) mp_tac))
   \\ simp[STD_streams_openFileFS] \\ strip_tac
-  (* TODO: xlet_auto fails here - why? *)
+  (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
   *)
   xlet `POSTv u3. &(u3 = Conv NONE []) *
-                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) content)`
+                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) (implode content))`
   >- (xapp >>
       simp[fsFFITheory.get_file_content_def,PULL_EXISTS,EXISTS_PROD] >>
       goal_assum(first_assum o (mp_then (Pos (el 3)) mp_tac)) >>
@@ -139,7 +136,7 @@ val do_onefile_spec = Q.store_thm(
   xsimpl);
 
 val file_contents_def = Define `
-  file_contents fnm fs = THE (ALOOKUP fs.files (File fnm))`
+  file_contents fnm fs = implode (THE (ALOOKUP fs.files (File fnm)))`
 
 val file_contents_add_stdout = Q.store_thm("file_contents_add_stdout",
   `STD_streams fs ⇒
@@ -152,7 +149,7 @@ val file_contents_add_stdout = Q.store_thm("file_contents_add_stdout",
 
 val catfiles_string_def = Define`
   catfiles_string fs fns =
-    FLAT (MAP (λfnm. file_contents fnm fs) fns)
+    concat (MAP (λfnm. file_contents fnm fs) fns)
 `;
 
 val cat_spec0 = Q.prove(
@@ -187,7 +184,7 @@ val cat_spec0 = Q.prove(
   imp_res_tac STD_streams_stdout \\
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
-  simp[Once file_contents_def,SimpR``(==>>)``] \\
+  simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
   simp[file_contents_add_stdout] \\ xsimpl)
 
 val cat_spec = save_thm(
@@ -203,7 +200,7 @@ val _ = process_topdecs `
 val catfile_string_def = Define `
   catfile_string fs fnm =
     if inFS_fname fs (File fnm) then file_contents fnm fs
-    else []`
+    else (strlit"")`
 
 val cat1_spec = Q.store_thm (
   "cat1_spec",
@@ -218,7 +215,7 @@ val cat1_spec = Q.store_thm (
   xhandle `POST
              (\u. SEP_EXISTS content. &UNIT_TYPE () u *
                &(ALOOKUP fs.files (File fnm) = SOME content) *
-               STDIO (add_stdout fs content))
+               STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs (File fnm)) *
                   STDIO fs)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
@@ -235,17 +232,17 @@ val cat1_spec = Q.store_thm (
 );
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
 val st = get_ml_prog_state();
 
 val cat_main_spec = Q.store_thm("cat_main_spec",
-  `EVERY (inFS_fname fs o File) (MAP implode (TL cl)) ∧ hasFreeFD fs
+  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
-     (POSTv uv. &UNIT_TYPE () uv * (STDIO (add_stdout fs (catfiles_string fs (MAP implode (TL cl))))
+     (POSTv uv. &UNIT_TYPE () uv * (STDIO (add_stdout fs (catfiles_string fs (TL cl)))
                                     * (COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "cat_main" st
@@ -259,7 +256,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xsimpl
   \\ fs[EVERY_MAP,EVERY_MEM]
   \\ match_mp_tac LIST_TYPE_mono
-  \\ simp[MAP_TL]
+  \\ simp[MAP_TL,NULL_EQ]
   \\ instantiate
   \\ Cases_on`cl` \\ fs[]
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]

@@ -939,8 +939,7 @@ val gen_gc_partial_thm = Q.store_thm("gen_gc_partial_thm",
     \\ Cases_on `gens`
     \\ fs [make_partial_conf_def]
     \\ fs [gen_gc_partialTheory.heap_gen_ok_def]
-    \\ fs [heap_segment_def]
-    \\ every_case_tac \\ fs [])
+    \\ fs [heap_segment_def])
   THEN1
     (fs [gc_kind_inv_def] \\ conj_tac THEN1
      (fs [reset_gens_def,gen_state_ok_def,EVERY_MAP]
@@ -984,12 +983,14 @@ val gen_gc_partial_thm = Q.store_thm("gen_gc_partial_thm",
     \\ qpat_x_assum `MEM e _` (assume_tac o REWRITE_RULE [MEM_SPLIT])
     \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ drule LIST_REL_SPLIT2
-    \\ strip_tac \\ fs [] \\ rveq \\ fs[]
+    \\ fs[LIST_REL_SPLIT2]
+    \\ rveq \\ fs[]
     \\ `isRef x` by metis_tac []
     \\ Cases_on `x` \\ fs [isRef_def]
     \\ Cases_on `b` \\ fs [isRef_def]
-    \\ Cases_on `e` \\ fs [gen_gc_partialTheory.similar_data_def,isRef_def])
+    \\ Cases_on `e` \\ rveq
+    \\ fs [gen_gc_partialTheory.similar_data_def,isRef_def]
+    \\ rveq \\ fs[isRef_def])
   \\ fs [roots_ok_def]
   \\ rpt strip_tac
   \\ imp_res_tac MEM_ADDR_MAP

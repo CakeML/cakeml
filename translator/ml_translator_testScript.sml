@@ -66,6 +66,13 @@ val _ = Datatype `bar2 = Ta | TI`
 val _ = register_type ``:bar1``
 val _ = register_type ``:bar2``
 
+val and_pre_def = Define`
+  and_pre x ⇔ x <> 0i ∧ 2 / x > 0`;
+val or_pre_def = Define`
+  or_pre x = if (x = 0) \/ 2 / x > 0 then and_pre x \/ 0 < x else x < 0`
+val res =  translate and_pre_def;
+val res =  translate or_pre_def;
+
 val _ = (print_asts := true);
 
 val _ = export_theory();

@@ -359,12 +359,11 @@ val scan_expr_LENGTH = Q.store_thm ("scan_expr_LENGTH",
   \\ rw [scan_expr_def] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ TRY (PURE_CASE_TAC \\ fs [case_eq_thms, case_elim_thms, pair_case_eq])
-  \\ rw [LENGTH_MAP2_MIN, try_update_LENGTH]
+  \\ rw [try_update_LENGTH]
   \\ fs [LAST1_def, case_eq_thms] \\ rw [] \\ fs []
   \\ imp_res_tac EVERY_LAST1 \\ fs []
   \\ Cases_on `op` \\ fs [arg_ty_def, update_context_def, check_op_def]
-  \\ fs [opbinargs_def, get_bin_args_def, op_type_def]
-  \\ fs [LENGTH_MAP2_MIN, try_update_LENGTH]);
+  \\ fs [opbinargs_def, get_bin_args_def, op_type_def]);
 
 val ty_rel_decide_ty = Q.store_thm ("ty_rel_decide_ty",
   `∀ts tt env.

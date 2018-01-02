@@ -21,24 +21,27 @@ val res = translate wc_lines_def;
 
 val wordcount = process_topdecs`
   fun wordcount u =
-    case TextIO.inputLinesFrom (List.hd (Commandline.arguments()))
+    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
-      (TextIO.print_string (Int.toString (wc_lines lines)); TextIO.print_string " ";
-       TextIO.print_string (Int.toString (List.length lines)); TextIO.print_newline())`;
+      (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
+       TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
 val _ = append_prog wordcount;
 
 val wordcount_spec = Q.store_thm("wordcount_spec",
   `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
-   cl = [explode pname; explode fname] ∧
+   cl = [pname; fname] ∧
    contents = THE (ALOOKUP fs.files (File fname))
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
      [uv] (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs
-                   ((toString (LENGTH (TOKENS isSpace contents))) ++ " " ++
-                    (toString (LENGTH (splitlines contents)) ++ "\n")))
+                   (concat [toString (&(LENGTH (TOKENS isSpace contents)));
+                            strlit " ";
+                            toString (&(LENGTH (splitlines contents)));
+                            strlit "\n"]))
                 * COMMANDLINE cl)`,
+  simp [concat_def] \\
   strip_tac \\
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
@@ -53,24 +56,19 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   (* TODO: xlet_auto doesn't work *)
   xlet_auto_spec(SOME inputLinesFrom_spec) >- (
     xsimpl \\
-    rfs[wfcl_def,validArg_def,EVERY_MEM,LENGTH_explode] ) \\
+    rfs[wfcl_def,validArg_def,EVERY_MEM] ) \\
   xmatch \\ fs[OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
-  (* TODO: xlet_auto fails *)
-  xlet_auto_spec(SOME (SPEC_ALL print_string_spec)) >- xsimpl \\
-  (* TODO: xlet_auto fails *)
-  qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-  xlet_auto_spec(SOME (Q.SPEC`fs'` print_string_spec)) >- xsimpl \\
-  xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   (* TODO: xlet_auto fails *)
-  qunabbrev_tac`fs'` \\
   qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-  xlet_auto_spec(SOME (Q.SPEC`fs'` print_string_spec)) >- xsimpl \\
-  xlet_auto >- ( xcon \\ xsimpl ) \\
-  xapp \\ xsimpl \\
+  xlet_auto_spec(SOME (Q.SPEC`fs'` (Q.GEN`fs`output1_stdout_spec))) >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xapp_spec output1_stdout_spec \\ xsimpl \\
   (* TODO: STDIO prevents xapp/xsimpl instantiating this already *)
   qunabbrev_tac`fs'` \\
   CONV_TAC SWAP_EXISTS_CONV \\
@@ -82,12 +80,13 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   qmatch_goalsub_abbrev_tac`STDIO (_ output) ==>> STDIO (_ output') * GC` \\
   `output = output'` suffices_by xsimpl \\
   simp[Abbr`output`,Abbr`output'`] \\
-  simp[wc_lines_def] \\
+  fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
+  simp[wc_lines_def,str_def,implode_def] \\
   qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
   simp[mlintTheory.toString_thm,integerTheory.INT_ABS_NUM] \\
-  reverse conj_tac >- simp[all_lines_def] \\
+  reverse conj_tac >- simp[all_lines_def,lines_of_def] \\
   simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT,splitwords_all_lines] \\
   simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]);
 

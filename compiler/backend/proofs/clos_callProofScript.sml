@@ -1391,6 +1391,15 @@ val do_app_thm = Q.prove(
     \\ rfs [] \\ rw []
     \\ match_mp_tac vrel_list_to_v \\ fs []
     \\ imp_res_tac vrel_v2l_l2v \\ fs [])
+  \\ Cases_on `op = ConfigGC` THEN1 (
+    rveq \\ rpt gen_tac
+    \\ Cases_on `do_app ConfigGC xs r`
+    \\ TRY (Cases_on `e`)
+    \\ TRY (Cases_on `a`)
+    \\ fs [do_app_cases_val] \\ rveq
+    \\ fs [do_app_cases_err] \\ rveq
+    \\ fs [do_app_cases_timeout] \\ rveq
+    \\ rw [] \\ fs [Unit_def,PULL_EXISTS,v_rel_def])
   \\ Cases_on `op = ConcatByteVec` THEN1 (
     rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
     fs[case_eq_thms] \\
@@ -1614,7 +1623,7 @@ val do_app_thm = Q.prove(
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `(?w oo. op = WordOp w oo) \/
+  \\ Cases_on `(?w oo. op = WordOp w oo) \/ (?b. op = WordFromWord b) \/
                op = WordFromInt \/ op = WordToInt \/
                (?w s n. op = WordShift w s n)` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []

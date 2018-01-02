@@ -233,7 +233,7 @@ val string_concat_empty = Q.store_thm("string_concat_empty",
 
 val tokens_append_strlit = Q.store_thm("tokens_append_strlit",
   `∀P s1 x s2.
-   P x ⇒ tokens P (s1 ^ (strlit [x] ^ s2)) = tokens P s1 ++ tokens P s2`,
+   P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2`,
   rpt strip_tac >> drule tokens_append >> fs[str_def,implode_def]);
 
 val tokens_append_right = Q.store_thm("tokens_append_right_strlit",
@@ -249,16 +249,6 @@ val zero_pad_acc = Q.prove(
   >> strip_tac >> first_assum(qspec_then `STRING #"0" acc` (assume_tac o GSYM))
   >> fs[]);
 
-val SPLITP_zero_pad = Q.prove(
-`!n acc.
-  SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-  (zero_pad n acc) =
-  let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
-    (STRCAT (zero_pad n "") l,r)`,
-  Induct >> rpt strip_tac >> fs[zero_pad_def,SPLITP]
-  >> pairarg_tac >> fs[zero_pad_acc]
-  >> PURE_ONCE_REWRITE_TAC[GSYM zero_pad_acc] >> fs[]);
-
 val simple_toChars_acc = Q.prove(
 `!n m acc. STRCAT (simple_toChars m n "") acc = (simple_toChars m n acc)`,
   recInduct COMPLETE_INDUCTION >> rpt strip_tac >> fs[]
@@ -267,19 +257,6 @@ val simple_toChars_acc = Q.prove(
   >> fs[] >> first_x_assum (qspec_then `n DIV 10` assume_tac) >> rfs[]
   >> first_assum (qspecl_then [`m - 1`,`(STRING (toChar (n MOD 10)) acc)`] (assume_tac o GSYM))
   >> fs[]);
-
-val SPLITP_simple_toChars = Q.prove(
-  `!n m acc.
-   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-   (simple_toChars n m acc) =
-   let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
-     (STRCAT (simple_toChars n m "") l,r)`,
-  recInduct simple_toChars_ind >> rpt strip_tac >> fs[SPLITP]
-  >> pairarg_tac >> fs[SPLITP] >> PURE_ONCE_REWRITE_TAC[simple_toChars_def]
-  >> Cases_on `i < 10` >> fs[SPLITP_zero_pad] >> pairarg_tac >> fs[]
-  >> PURE_ONCE_REWRITE_TAC[GSYM zero_pad_acc] >> fs[SPLITP] >> rfs[toChar_def]
-  >> PURE_ONCE_REWRITE_TAC[GSYM simple_toChars_acc] >> fs[]
-  >> `i MOD 10 + 48 < 58` by intLib.COOPER_TAC >> fs[]);
 
 val toChars_acc = Q.prove(
 `!n m acc. STRCAT (toChars m n "") acc = (toChars m n acc)`,
@@ -293,17 +270,6 @@ val toChars_acc = Q.prove(
                                `STRCAT (simple_toChars padLen_DEC m "") acc`]
                               (assume_tac o GSYM))
   >> fs[maxSmall_DEC_def]);
-
-val SPLITP_toChars = Q.prove(
-  `!n m acc.
-   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-   (toChars n m acc) =
-   let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
-     (STRCAT (toChars n m "") l,r)`,
-  recInduct toChars_ind >> rpt strip_tac >> fs[SPLITP]
-  >> pairarg_tac >> fs[SPLITP] >> PURE_ONCE_REWRITE_TAC[toChars_def]
-  >> rw[] >> fs[SPLITP_simple_toChars] >> PURE_ONCE_REWRITE_TAC[GSYM simple_toChars_acc]
-  >> fs[] >> PURE_ONCE_REWRITE_TAC[GSYM toChars_acc] >> fs[]);
 
 val one_to_ten = Q.store_thm("one_to_ten",
   `!P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (!n. (n:num) >= 10 ==> P n) ==> !n. P n`,
@@ -327,98 +293,18 @@ val one_to_ten = Q.store_thm("one_to_ten",
   >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC n))))))))`
   >> Cases_on `n` >> fs[]);
 
-val SPLITP_HEX = Q.prove(
-`!n. n < 10 ==> SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-     (STRING (HEX n) acc) =
-     let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
-       (STRING (HEX n) l,r)`,
-  recInduct one_to_ten >> rpt strip_tac >> fs[] >> pairarg_tac >> fs[SPLITP]);
-
 val _ = temp_overload_on("ml_int_toString",``mlint$toString``);
 val _ = temp_overload_on("hol_int_toString",``integer_word$toString``);
 val _ = temp_overload_on("num_toString",``num_to_dec_string``);
 
-val SPLITP_num_toString = Q.prove(
-  `!i.
-   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-   (toString (i:num)) = (toString i,[])`,
-  recInduct COMPLETE_INDUCTION >> rpt strip_tac
-  >> fs[ASCIInumbersTheory.num_to_dec_string_def]
-  >> fs[ASCIInumbersTheory.n2s_def]
-  >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def] >> rw[] >> fs[SPLITP,SPLITP_HEX]
-  >> first_x_assum (qspec_then `n DIV 10` assume_tac) >> rfs[]
-  >> fs[SPLITP_APPEND,SPLITP_NIL_SND_EVERY]
-  >> `n MOD 10 < 10` by fs[] >> rename [`HEX n`]
-  >> pop_assum mp_tac >> rpt(pop_assum kall_tac)
-  >> Q.SPEC_TAC (`n`,`n`) >> recInduct one_to_ten >> fs[]);
-
-val SPLITP_int_toString = Q.prove(
-  `!i.
-   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-   (toString (i:int)) = (toString i,[])`,
-  rpt strip_tac >> fs[integer_wordTheory.toString_def] >> rw[] >> fs[SPLITP,SPLITP_num_toString]);
-
-val TOKENS_tostring = Q.prove(
-`TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]`,
-  Cases_on `toString n` >> fs[TOKENS_def]
-  >-
-   (pop_assum mp_tac
-    >> fs[ASCIInumbersTheory.num_to_dec_string_def]
-    >> fs[ASCIInumbersTheory.n2s_def]
-    >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def] >> rw[])
-  >> qpat_x_assum `_ = STRING _ _` (assume_tac o GSYM) >> fs[]
-  >> pairarg_tac >> pop_assum (assume_tac o GSYM)
-  >> fs[SPLITP_num_toString,TOKENS_def]
-  >> qpat_x_assum `STRING _ _ = _` (assume_tac o GSYM) >> fs[]);
-
-val num_le_10 = Q.prove(
-  `!n. 0 ≤ n /\ n < 10 ==> Num n < 10`,
-  Cases >> fs[]);
-
-val tokens_toString = Q.prove(
-`tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:int)) = [toString n]`,
-  fs[Once toString_def] >> fs[TOKENS_eq_tokens_sym]
-  >> fs[implode_def,tokens_aux_def,toChar_def,str_def,strlen_def,maxSmall_DEC_def,toChars_thm]
-  >> every_case_tac >> fs[explode_thm,TOKENS_def]
-  >> TRY(pairarg_tac >> first_x_assum (assume_tac o GSYM)) >> fs[SPLITP] >> rfs[]
-  >> fs[SPLITP_num_toString,TOKENS_def,TOKENS_tostring]
-  >> TRY(fs[Once toString_def] >> fs[implode_def,tokens_def,tokens_aux_def,toChar_def,str_def,maxSmall_DEC_def,toChars_thm])
-  >> fs[GSYM integerTheory.INT_NOT_LT]
-  >> fs[integerTheory.INT_NOT_LT]
-  >> qpat_assum `0 <= n`
-      (fn thm => thm |> REWRITE_RULE[GSYM integerTheory.INT_ABS_EQ_ID] |> assume_tac)
-  >> drule num_le_10 >> fs[]);
-
-val tokens_strcat = Q.prove(
-`l ≠ [] ==>
-(tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-                                   (toString (n:int) ^
-                                    strlit (STRING (acd l r) "") ^ toString (m:int) ^ strlit "\n")
- = [toString n; toString m])`,
-  Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
-
-val tokens_strcat' = Q.prove(
-`r ≠ [] ==>
-(tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-                                   (toString (n:int) ^
-                                    strlit (STRING (acd l r) "") ^ toString (m:int) ^ strlit "\n")
- = [toString n; toString m])`,
-  Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
-
 val strsub_strcat =
-    Q.prove(`!s s'. strsub(s ^ s') (strlen s) = strsub s' 0`,
-    Induct >> fs[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
-    >> Induct >> fs[explode_thm]);
+    Q.prove(`!s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)`,
+    Induct >> simp[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
+    \\ gen_tac \\ Cases \\ simp[]);
 
-val strsub_nil =
-    Q.prove(`!s c. strsub(strlit (STRING c "") ^ s) 0 = c`,
-    Induct >> fs[strcat_thm,implode_def,strsub_def]);
-
-val strlen_append =
-    Q.prove(`!s s'. strlen(s ^ s') = strlen s + strlen s'`,
-    Induct >> strip_tac >> Induct >> strip_tac >> fs[strcat_thm,implode_def]);
+val strsub_str = Q.store_thm("strsub_str",
+  `strsub (str c) 0 = c`,
+  rw[str_def,implode_def,strsub_def]);
 
 val acd_simps =
     Q.prove(`l ≠ [] ==> (acd [] l = #"a" /\ acd l [] = #"d")`,
@@ -465,7 +351,7 @@ val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_canc
   by (
     qspec_then`Num(ABS(&n))`mp_tac toString_isDigit
     \\ simp[Abbr`ss`]
-    \\ Cases_on`num_to_dec_string (Num(ABS(&n)))` \\ simp[]
+    \\ Cases_on`num_toString n` \\ simp[]
     >- fs[num_to_dec_string_not_nil]
     \\ rpt strip_tac \\ fs[]
     \\ qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC )
@@ -485,7 +371,7 @@ val substring_adhoc_simps = Q.prove(`!h.
 
 val depatch_lines_strcat_cancel = Q.prove(
   `!r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r`,
-  Induct >> fs[depatch_lines_def,depatch_line_def,strlen_append,substring_adhoc_simps])
+  Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps])
 
 val depatch_lines_diff_add_prefix_cancel = Q.store_thm("depatch_lines_diff_add_prefix_cancel",
   `!l. depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l`,
@@ -557,21 +443,14 @@ val parse_header_cancel = Q.store_thm("parse_header_cancel",
   SOME(n,if LENGTH l <= 1 then NONE else SOME(n+LENGTH l),
        if l = [] then #"a" else if l' = [] then #"d" else #"c",
        n',if LENGTH l' <= 1 then NONE else SOME(n'+LENGTH l')))`,
-  Cases_on `l` >> Cases_on `l'`
-  >> fs[diff_single_header_def]
-  >> fs[parse_patch_header_def]
-  >> rw[]
-  >> fs[patch_aux_def,parse_patch_header_def,acd_def,implode_def,tokens_append,tokens_strcat,
-       tokens_strcat',GSYM strcat_assoc,tokens_toString_comma,tokens_append_strlit]
-  >> fs[tokens_append_strlit,tokens_toString,tokens_append_right,tokens_toString_comma,acd_simps,
-        acd_more_simps,strcat_assoc, strsub_strcat,strsub_nil,num_from_string_toString_cancel,
-        tokens_comma_lemma]
-  >> fs[line_numbers_def]
-  >> fs[patch_aux_def,parse_patch_header_def,acd_def,implode_def,tokens_append,tokens_strcat,
-        tokens_strcat',GSYM strcat_assoc,tokens_toString_comma,tokens_append_strlit]
-  >> fs[tokens_append_strlit,tokens_toString,tokens_append_right,tokens_toString_comma,acd_simps,
-        acd_more_simps,strcat_assoc, strsub_strcat,strsub_nil,num_from_string_toString_cancel,
-        tokens_comma_lemma,string_is_num_toString]);
+  rw[diff_single_header_def,parse_patch_header_def,
+     option_case_eq,list_case_eq,PULL_EXISTS,
+     strsub_strcat,tokens_append_right,GSYM str_def,
+     tokens_append,acd_simps,acd_more_simps,tokens_comma_lemma,
+     tokens_comma_lemma]
+  \\ rw[line_numbers_def,tokens_toString_comma,
+        string_is_num_toString,num_from_string_toString_cancel,
+        GSYM str_def,tokens_append,strsub_str]);
 
 val patch_aux_cancel_base_case = Q.prove(
   `patch_aux (diff_with_lcs [] r n r' m) r (LENGTH r) n = SOME r'`,
@@ -762,13 +641,13 @@ val headers_within_IMP_SOME = Q.store_thm("headers_within_IMP_SOME",
   `headers_within n m (h::t) /\ parse_patch_header h = SOME(q,SOME q',c,tup)
      ==> n <= q /\ q <= m /\ n <= q' /\ q' <= m`,
   rpt strip_tac >> fs[headers_within_def] >> rfs[pairTheory.ELIM_UNCURRY])
-                                    
+
 val headers_within_grow = Q.store_thm("headers_within_grow",
   `headers_within n' m' l /\ n <= n' /\ m' <= m ==> headers_within n m l`,
   Induct_on `l` >> rpt strip_tac >> fs[headers_within_def]
   >> Cases_on `parse_patch_header h` >> fs[pairTheory.ELIM_UNCURRY]
   >> rw[] >> fs[]);
- 
+
 val headers_within_append = Q.store_thm("headers_within_append",
   `headers_within n m (l++l') = (headers_within n m l /\ headers_within n m l')`,
   simp[headers_within_def]);
@@ -864,7 +743,7 @@ val diff_with_lcs_headers_within = Q.store_thm("diff_with_lcs_headers_within",
   >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
   >> drule(GEN_ALL headers_within_grow)
   >> disch_then match_mp_tac
-  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)  
+  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
   >> fs[]);
 
 val highly_specific_implication = Q.prove(
@@ -907,13 +786,13 @@ val IS_SUFFIX_DROP = Q.store_thm("IS_SUFFIX_DROP",
   `!l n. IS_SUFFIX l (DROP n l)`,
   Induct >> rpt strip_tac >> rw[DROP_def]
   >> metis_tac[IS_SUFFIX_CONS]);
-                                   
+
 val headers_within_snoc = Q.store_thm("headers_within_snoc",
 `!p1 n l m e. headers_within m (n + LENGTH l) p1 /\ m <= (n + LENGTH l) ==>
   patch_alg_offs n p1 (SNOC e l) = OPTION_MAP (SNOC e) (patch_alg_offs n p1 l)`,
   ho_match_mp_tac IS_SUFFIX_induct
   >> rpt strip_tac
-  >> fs[patch_alg_offs_def,patch_aux_def]            
+  >> fs[patch_alg_offs_def,patch_aux_def]
   >> every_case_tac >> fs[] >> rfs[]
   >> fs[DROP_DROP_T]
   >> TRY(qmatch_goalsub_abbrev_tac `F`
@@ -1016,7 +895,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> disch_then kall_tac
          >> `IS_SUFFIX p1 (DROP a4 p1)` by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
          >> first_assum drule
-         >> qunabbrev_tac `a4`         
+         >> qunabbrev_tac `a4`
          >> disch_then(qspecl_then [`a5`,`DROP (a5 - n) l`,`m`,`e`] mp_tac)
          >> impl_tac
          >- (qunabbrev_tac `a5`
@@ -1046,7 +925,7 @@ val headers_within_append1 = Q.store_thm("headers_within_append1",
   >> drule(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then[`n + LENGTH l'`,`m`] assume_tac)
   >> `!opt. lift ($++ (l' ⧺ [x])) opt = lift ($++ l') (lift (CONS x) opt)`
-       by(Cases >> fs[])  
+       by(Cases >> fs[])
   >> fs[ADD1]
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
   >> pop_assum kall_tac
@@ -1074,7 +953,7 @@ val headers_within_append2 = Q.store_thm("headers_within_append2",
   >> strip_tac >> first_x_assum drule
   >> fs[]
   >> `!opt. lift (combin$C $++ (h::l')) opt = lift (combin$C $++ l') (lift (SNOC h) opt)`
-       by(Cases >> fs[] ) 
+       by(Cases >> fs[] )
        >> fs[ADD1]
   >> pop_assum kall_tac
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
@@ -1154,7 +1033,7 @@ val patch_diff2_cancel = Q.store_thm("patch_diff2_cancel",
   >> pop_assum(qspecl_then [`a1`,`a1`] assume_tac)
   >> drule(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then [`a1`,`a1 + (LENGTH a3 - a2 + a2)`] mp_tac)
-  >> impl_tac >- (unabbrev_all_tac >> fs[])  
+  >> impl_tac >- (unabbrev_all_tac >> fs[])
   >> qunabbrev_tac `a1` >> strip_tac
   >> drule headers_within_append1'
   >> disch_then(qspec_then `TAKE (LENGTH a3 − a2) a3 ++ longest_common_suffix a3 a4` mp_tac)
@@ -1266,7 +1145,7 @@ val REVERSE_DROP_REVERSE_TAKE = Q.store_thm("REVERSE_DROP_REVERSE_TAKE",
   >> fs[ADD1,NOT_LEQ]
   >> imp_res_tac EQ_LESS_EQ >> fs[]
   >> fs[DROP_LENGTH_TOO_LONG])
-                                           
+
 val diff2_optimal = Q.store_thm("diff2_optimal",
   `!l r r'. lcs l r r' ==>
    LENGTH(FILTER is_patch_line (diff_alg2 r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)`,
@@ -1282,7 +1161,7 @@ val diff2_optimal = Q.store_thm("diff2_optimal",
         >> `LENGTH (longest_common_suffix a1 a2) <= LENGTH a2`
             by(metis_tac[longest_common_suffix_LENGTH])
         >> simp[REVERSE_DROP_REVERSE_TAKE]
-        >> unabbrev_all_tac >> simp[])  
+        >> unabbrev_all_tac >> simp[])
   >> `LENGTH l = LENGTH (longest_common_prefix r r' ++ dynamic_lcs a3 a4 ++ longest_common_suffix a1 a2)`
      by(match_mp_tac lcs_length >> metis_tac[])
   >> fs[diff_with_lcs_optimal]

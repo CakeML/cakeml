@@ -256,7 +256,7 @@ fun any_match_mp impth th =
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
     val c = first(can (C match_term (concl th))) h
     val th2 = impth
-      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (equal c))))
+      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (aconv c))))
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
   in
     MATCH_MP th2 th  end
@@ -318,11 +318,11 @@ fun exists_match_mp_then (ttac:thm_tactic) th (g as (_,w)) =
     val (_,b) = strip_exists b
     val ts = strip_conj b val t = hd ts
     val (tms,_) = match_term t c
-    val tms = filter (C mem vs o #redex) tms
-    val tms = filter (not o C mem ws o #residue) tms
+    val tms = filter (C (op_mem aconv) vs o #redex) tms
+    val tms = filter (not o C (op_mem aconv) ws o #residue) tms
     val xs = map #redex tms
     val ys = map #residue tms
-    fun sorter ls = xs@(filter(not o C mem xs) ls)
+    fun sorter ls = xs@(filter (not o C (op_mem aconv) xs) ls)
     val th = SPECL ys (CONV_RULE (RESORT_FORALL_CONV sorter) th)
   in
     ttac th
@@ -411,5 +411,83 @@ fun simple_match_mp th1 th2 = let
   val (x,y) = dest_imp (concl th1)
   val (i,t) = match_term x (concl th2)
   in MP (INST i (INST_TYPE t th1)) th2 end
+
+(* ========================================================================= *)
+(* Execute processes on Posix systems and read results from stdout.          *)
+(*                                                                           *)
+(* The implementation is modeled after that of the Unix struct in the PolyML *)
+(* implementation of the SML basis library.                                  *)
+(* ========================================================================= *)
+
+fun read_process (cmd, args, dir) =
+  let
+    open Unix
+    open OS
+
+    fun search_paths t []      = NONE
+      | search_paths t (p::ps) =
+          let
+            val cmd = Path.concat (p, t)
+          in
+            if FileSys.access (cmd, [FileSys.A_READ, FileSys.A_EXEC]) then
+              SOME cmd
+            else
+              search_paths t ps
+          end
+
+    fun get_cmd t =
+      case Process.getEnv "PATH" of
+        NONE      => search_paths t ["."]
+      | SOME path =>
+          let
+            val paths = String.tokens (fn c => c = #":") path
+          in
+            search_paths t paths
+          end
+
+    val old_pwd = FileSys.getDir ()
+    val _ =
+      case dir of
+        NONE => ()
+      | SOME d => FileSys.chDir d
+  in
+    case get_cmd cmd of
+      NONE => NONE
+    | SOME cmd =>
+        let
+          val proc = execute (cmd, args)
+          val outp = TextIO.inputAll (textInstreamOf proc)
+          val str = String.substring (outp, 0, String.size outp - 1)
+        in
+          if Option.isSome dir then FileSys.chDir old_pwd else ();
+          if Process.isSuccess (reap proc) then SOME str else NONE
+        end
+  end
+  handle _ => NONE
+
+(* Run an external process and get its stdout as a string option term *)
+fun tm_from_proc cmd args =
+  case read_process (cmd, args, NONE) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
+
+fun tm_from_proc_from dir cmd args =
+  case read_process (cmd, args, SOME dir) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
+
+(* Run an external process and get its stdout as a mlstring option term *)
+fun mlstring_from_proc cmd args =
+  case read_process (cmd, args, NONE) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+
+fun mlstring_from_proc_from dir cmd args =
+  case read_process (cmd, args, SOME dir) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+
+(* ========================================================================= *)
+(* ========================================================================= *)
 
 end

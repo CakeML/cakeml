@@ -116,7 +116,7 @@ val do_onefile_spec = Q.store_thm(
        (STDIO fs)
        (POSTv u. &UNIT_TYPE () u *
               STDIO (up_stdout (fsupdate fs fd 0 (LENGTH content) content)
-                               (out ++ DROP pos content)))`,
+                               (strcat out (implode (DROP pos content)))))`,
   NTAC 5 strip_tac >>
   `?N. STRLEN content - pos <= N`
     by (qexists_tac`STRLEN content - pos` >> fs[]) >>
@@ -131,7 +131,7 @@ val do_onefile_spec = Q.store_thm(
      `pos >= LENGTH contents` by fs[] >> imp_res_tac DROP_NIL >> xsimpl) >>
   first_x_assum (assume_tac o Q.SPEC`pos +nr`) >> rfs[]
   >-(xapp >> xsimpl >> qmatch_goalsub_abbrev_tac`STDIO fs'` >>
-     map_every qexists_tac [`GC`,`out ++ TAKE nr (DROP pos content)`,`fs'`] >>
+     map_every qexists_tac [`GC`,`strcat out (implode (TAKE nr (DROP pos content)))`,`fs'`] >>
      rw[Abbr`fs'`] >> fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >> xsimpl >>
      qmatch_abbrev_tac`STDIO xx ==>> STDIO yy` >>
      `xx = yy` suffices_by xsimpl >> unabbrev_all_tac >> rw[]
@@ -147,12 +147,14 @@ val do_onefile_spec = Q.store_thm(
   >-(`nr = 0` by fs[] >> fs[eof_def] >> pairarg_tac >> fs[] >>
     `pos' = STRLEN content`  by (rfs[] >> fs[]) >> fs[]));
 
+(* TODO: move *)
 val file_contents_def = Define `
-  file_contents fnm fs = THE (ALOOKUP fs.files fnm)`
+  file_contents fnm fs = implode (THE (ALOOKUP fs.files fnm))`
+(* -- *)
 
 val catfiles_string_def = Define`
   catfiles_string fs fns =
-    FLAT (MAP (λfnm. file_contents (File fnm) fs) fns)
+    concat (MAP (λfnm. file_contents (File fnm) fs) fns)
 `;
 
 val cat_spec0 = Q.prove(
@@ -186,7 +188,7 @@ val cat_spec0 = Q.prove(
        `r.infds = (nextFD fs,File h,0) :: fs.infds` by fs[IO_fs_component_equality] >>
        fs[] >> CASE_TAC >> metis_tac[nextFD_NOT_MEM]) >>
   xlet_auto_spec (SOME(Q.SPECL[`content`,`0`, `File h`,`nextFD fs`, `wv`,
-                               `openFileFS h fs 0`,`out`] do_onefile_spec))
+                               `openFileFS h fs 0`,`implode out`] do_onefile_spec))
   >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_files,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
@@ -211,7 +213,7 @@ val cat_spec0 = Q.prove(
     fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,A_DELKEY_nextFD_openFileFS,
        A_DELKEY_ALIST_FUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD] ) >>
   qmatch_goalsub_abbrev_tac`add_stdout fs'`
-  \\ `fs' = up_stdout fs (out ++ content)`
+  \\ `fs' = up_stdout fs (implode (out ++ content))`
   by (
     fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
        openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,
@@ -225,19 +227,21 @@ val cat_spec0 = Q.prove(
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   simp[ALIST_FUPDKEY_ALOOKUP] \\
   qmatch_goalsub_abbrev_tac`MAP f` \\
-  qmatch_goalsub_abbrev_tac`content ++ (FLAT (MAP f' _))` \\
+  qmatch_goalsub_abbrev_tac`_::(MAP f' _)` \\
   `f = f'` by (
     rw[Abbr`f`,Abbr`f'`,FUN_EQ_THM]
     \\ CASE_TAC ) \\
   qunabbrev_tac`f` \\
   pop_assum SUBST_ALL_TAC \\
-  `up_stdout fs (out ++ content) = add_stdout fs content`  by (
+  `up_stdout fs (implode (out ++ content)) = add_stdout fs (implode content)`  by (
     rw[add_stdo_def] \\
     SELECT_ELIM_TAC \\
-    metis_tac[stdo_UNICITY_R,stdo_def,SOME_11,PAIR] )
+    simp[strcat_thm] \\
+    metis_tac[stdo_UNICITY_R,stdo_def,SOME_11,PAIR,explode_implode,LENGTH_explode] )
   \\ pop_assum SUBST_ALL_TAC
   \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout]
   \\ imp_res_tac add_stdo_o
+  \\ simp[concat_cons]
   \\ xsimpl);
 
 val cat_spec = save_thm(
@@ -245,16 +249,16 @@ val cat_spec = save_thm(
   cat_spec0 |> SIMP_RULE (srw_ss()) [])
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
 val cat_main_spec = Q.store_thm("cat_main_spec",
-  `EVERY ((inFS_fname fs) o File) (MAP implode (TL cl)) ∧ hasFreeFD fs
+  `EVERY ((inFS_fname fs) o File) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main" (st())) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl )
      (POSTv uv. &UNIT_TYPE () uv *
-       (STDIO (add_stdout fs (catfiles_string fs (MAP implode (TL cl)))))
+       (STDIO (add_stdout fs (catfiles_string fs (TL cl))))
        * COMMANDLINE cl)`,
   strip_tac
   \\ xcf "cat_main" (st())
@@ -262,16 +266,14 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xlet_auto >-(xcon >> xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
   \\ fs[wfcl_def]
-  \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDIO fs * COMMANDLINE cl`
-  >-(xapp \\ xsimpl \\ simp[MAP_TL] \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl )
+  \\ xlet_auto >- xsimpl
   \\ xapp
   \\ instantiate
   \\ xsimpl
-  \\ fs[EVERY_MAP,EVERY_MEM]
   \\ match_mp_tac LIST_TYPE_mono
   \\ instantiate
-  \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS,explode_implode]
-  \\ fs[validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
+  \\ simp[FILENAME_def]
+  \\ fs[EVERY_MEM,validArg_def]
   \\ Cases_on`cl` \\ fs[]);
 
 val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL

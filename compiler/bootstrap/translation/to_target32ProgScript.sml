@@ -239,12 +239,13 @@ val _ = translate (spec32 comp_def)
 
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
 
-val _ = translate (compile_def |> INST_TYPE [alpha|->``:32``,beta|->``:32``])
+val _ = translate (compile_def |> INST_TYPE [alpha|->``:32``,beta|->``:32``]);
 
 open stack_allocTheory
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
                     stackLangTheory.word_shift_def, wordLangTheory.shift_def]
+val _ = translate (SetNewTrigger_def |> inline_simp |> conv32)
 val _ = translate (conv32 clear_top_inst_def)
 val _ = translate (memcpy_code_def |> inline_simp |> conv32)
 val _ = translate (word_gc_move_code_def |> inline_simp |> conv32)
@@ -271,7 +272,6 @@ val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> i
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv32);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv32);
 val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv32);
-val r = translate (stack_allocTheory.SetNewTrigger_def |> conv32);
 val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv32);
 
 val _ = translate (spec32 stubs_def);

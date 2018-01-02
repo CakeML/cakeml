@@ -23,11 +23,6 @@ val _ = new_theory "lib"
 
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 
-(*val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a*)
- val _ = Define `
- (num_fold f a n=  (if n =( 0 : num) then a else num_fold f (f a) (n -( 1 : num))))`;
-
-
  val _ = Define `
  (the _ (SOME x)=  x) /\ (the x NONE=  x)`;
 
