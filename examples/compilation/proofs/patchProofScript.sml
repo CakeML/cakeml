@@ -5,8 +5,8 @@ open preamble
 val _ = new_theory"patchProof";
 
 val patch_io_events_def = new_specification("patch_io_events_def",["patch_io_events"],
-  patch_semantics |> Q.GENL[`cls`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
+  patch_semantics |> Q.GENL[`cl`,`fs`]
+  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (patch_sem,patch_output) = patch_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (patch_not_fail,patch_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail patch_sem |> CONJ_PAIR
