@@ -259,9 +259,17 @@ val backend_config_ok_with_bvl_conf_updated = Q.store_thm("backend_config_ok_wit
   `(f cc.bvl_conf).next_name2 = cc.bvl_conf.next_name2 ⇒
    (backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc)`,
   rw[backend_config_ok_def]);
+
 val backend_config_ok_with_word_to_word_conf_updated = Q.store_thm("backend_config_ok_with_word_to_word_conf_updated[simp]",
   `backend_config_ok (cc with word_to_word_conf updated_by f) ⇔ backend_config_ok cc`,
   rw[backend_config_ok_def]);
+
+val backend_config_ok_call_empty_ffi = store_thm("backend_config_ok_call_empty_ffi[simp]",
+  ``backend_config_ok (cc with
+      data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
+    backend_config_ok cc``,
+  fs [backend_config_ok_def,data_to_word_gcProofTheory.conf_ok_def,
+      data_to_wordTheory.shift_length_def]);
 
 (* TODO: ?? where to put these ?? *)
 val mc_init_ok_def = Define`
@@ -284,9 +292,17 @@ val mc_init_ok_def = Define`
 val mc_init_ok_with_bvl_conf_updated = Q.store_thm("mc_init_ok_with_bvl_conf_updated[simp]",
   `mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
   rw[mc_init_ok_def]);
+
 val mc_init_ok_with_word_to_word_conf_updated = Q.store_thm("mc_init_ok_with_word_to_word_conf_updated[simp]",
   `mc_init_ok (cc with word_to_word_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
   rw[mc_init_ok_def]);
+
+val mc_init_ok_call_empty_ffi = store_thm("mc_init_ok_call_empty_ffi[simp]",
+  ``mc_init_ok (cc with
+      data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
+    mc_init_ok cc``,
+  fs [mc_init_ok_def,data_to_word_gcProofTheory.conf_ok_def,
+      data_to_wordTheory.shift_length_def,FUN_EQ_THM]);
 
 val heap_regs_def = Define`
   heap_regs reg_names =
