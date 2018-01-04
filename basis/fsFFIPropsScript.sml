@@ -377,6 +377,20 @@ val fastForwardFD_0 = Q.store_thm("fastForwardFD_0",
   \\ rw[] \\ rw[PAIR_MAP_THM]
   \\ rw[MAX_DEF]);
 
+val fastForwardFD_with_numchars = Q.store_thm("fastForwardFD_with_numchars",
+  `fastForwardFD (fs with numchars := ns) fd = fastForwardFD fs fd with numchars := ns`,
+  rw[fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+
+val fastForwardFD_numchars = Q.store_thm("fastForwardFD_numchars[simp]",
+  `(fastForwardFD fs fd).numchars = fs.numchars`,
+  rw[fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+
 (* fsupdate *)
 
 val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
@@ -720,6 +734,10 @@ val concat_all_lines = Q.store_thm("concat_all_lines",
   `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ∨
    concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ^ str #"\n"`,
   fs [all_lines_def,concat_lines_of]);
+
+val all_lines_with_numchars = Q.store_thm("all_lines_with_numchars",
+  `all_lines (fs with numchars := ns) = all_lines fs`,
+  rw[FUN_EQ_THM,all_lines_def]);
 
 val linesFD_openFileFS_nextFD = Q.store_thm("linesFD_openFileFS_nextFD",
   `inFS_fname fs (File f) ∧ nextFD fs ≤ 255 ⇒
