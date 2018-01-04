@@ -109,11 +109,11 @@ val tiny_enc_def = Define`
            Jump (fAdd, temp_reg, Reg temp_reg)]) /\
    (tiny_enc (Call a) =
       if -32w <= a /\ a < 32w then
-        enc (Jump (fAdd, 62w, Imm (w2w a)))
+        enc (Jump (fAdd, 0w, Imm (w2w a)))
       else
         tiny_encode
           [tiny_constant (temp_reg, a - 4w);
-           Jump (fAdd, 62w, Reg temp_reg)]) /\
+           Jump (fAdd, 0w, Reg temp_reg)]) /\
    (tiny_enc (JumpReg r) =
       enc (Jump (fSnd, temp_reg, Reg (n2w r)))) /\
    (tiny_enc (Loc r i) =
@@ -152,7 +152,7 @@ val tiny_config_def = Define`
     ; reg_count := 64
     ; fp_reg_count := 0
     ; avoid_regs := [63]
-    ; link_reg := SOME 62
+    ; link_reg := SOME 0
     ; two_reg_arith := F
     ; big_endian := F
     ; valid_imm := \_ i. -32w <= i /\ i < 32w

@@ -1,0 +1,1 @@
+INCLUDES = ../../../../misc .. ../../../encoders/tiny/proofs ../../semantics ../../proofs
