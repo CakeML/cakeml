@@ -60,7 +60,7 @@ val BAG_OF_LIST_APPEND = Q.store_thm("BAG_OF_LIST_APPEND",
 
 (* -- *)
 
-val s = ``s:'ffi modSem$state``;
+val s = ``s:'ffi flatSem$state``;
 
 (* value transformation *)
 
@@ -148,13 +148,20 @@ val is_const_con_is_Pcon = Q.store_thm("is_const_con_is_Pcon",
   `is_const_con x ==> isPcon x`,
   rw[is_const_con_thm,isPcon_thm]);
 
+val same_con_is_const_con = Q.store_thm("same_con_is_const_con",
+  `same_con x y ⇒ is_const_con x ∧ is_const_con y`,
+  Cases_on`x` \\ Cases_on`y` \\ simp[]
+  \\ rename1`same_con (Pcon o1 _) (Pcon o2 _)`
+  \\ Cases_on`o1` \\ Cases_on`o2` \\ simp[]
+  \\ Cases_on`l` \\ Cases_on`l'` \\ simp[]);
+
 val is_const_con_pat_bindings_empty = Q.store_thm("is_const_con_pat_bindings_empty",
     `is_const_con x ==> pat_bindings x a = a`,
     rw [is_const_con_thm] \\ EVAL_TAC)
 
 fun hd_compile_sing_tac (goal as (asl,w)) =
     let
-       val t = find_term (can (match_term ``HD (mod_reorder_match$compile [e])``)) w;
+       val t = find_term (can (match_term ``HD (flat_reorder_match$compile [e])``)) w;
        val e_term =  rand $ rator $ rand $ rand t;
        in
         strip_assume_tac $ SPEC e_term compile_sing
@@ -232,64 +239,43 @@ val evaluate_match_find_match_some = Q.store_thm ("evaluate_match_find_match_som
 (* reordering operations are allowed *)
 
 val pmatch_same_match = Q.store_thm("pmatch_same_match",
-  `is_const_con x /\ pmatch env refs x v [] = Match a /\ ¬(isPvar y) /\
-      pmatch env refs y v [] = Match b
-      ==> (x = y)`,
-  rw [is_const_con_thm]
-  \\ Cases_on `v` \\ fs [pmatch_def]
-  \\ rename[`Pcon o1 _`,`Conv o2 _`,`isPvar v`]
-  \\ Cases_on`o1` \\ Cases_on`o2` \\ Cases_on`v`
-  \\ fs[pmatch_def,bool_case_eq] \\ rveq
-  \\ rename[`Pcon o1`] \\ Cases_on`o1`
-  \\ fs[pmatch_def,bool_case_eq]
-  \\ every_case_tac \\ fs [] \\ rveq
-  \\ fs[semanticPrimitivesTheory.same_ctor_def]
-  \\ rename[`pmatch_list _ _ _ l _`]
-  \\ Cases_on`l` \\ fs[pmatch_def]
-  \\ rename[`pmatch_list _ _ l _ _`]
-  \\ Cases_on`l` \\ fs[pmatch_def]);
+  `pmatch env refs c1 v [] = Match a /\ is_const_con c1 /\
+   pmatch env refs c2 v [] = Match b /\ ~isPvar c2
+      ==> same_con c1 c2`,
+  rw[is_const_con_thm]
+  \\ Cases_on`v` \\ fs[pmatch_def]
+  \\ rename1`Conv o1` \\ Cases_on`o1` \\ fs[pmatch_def]
+  \\ Cases_on`c2` \\ fs[pmatch_def]
+  \\ rename1`same_con _ (Pcon o1 _)`
+  \\ Cases_on`o1` \\ fs[pmatch_def]
+  \\ fs[bool_case_eq,same_ctor_def] \\ rw[] \\ rfs[pmatch_def]
+  \\ fs[FST_EQ_EQUIV] \\ rw[]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[]
+  \\ Cases_on`x` \\ fs[]);
 
 val pmatch_match_match = Q.store_thm("pmatch_match_match",
-  `! x y v. is_const_con x /\ isPcon y /\ pmatch env refs x v [] = Match_type_error ==>
-      pmatch env refs y v [] = Match_type_error`,
+  `¬env.check_ctor ∧
+   is_const_con x /\ isPcon y /\ pmatch env refs x v [] = Match_type_error ==>
+   pmatch env refs y v [] = Match_type_error`,
   rw[is_const_con_thm,isPcon_thm]
   \\ Cases_on`v` \\ fs[pmatch_def]
   \\ rename1`Conv tt _` \\ Cases_on`tt`
   \\ fs[pmatch_def,semanticPrimitivesTheory.same_ctor_def]
-  \\ pop_assum mp_tac \\ simp[bool_case_eq]
-  \\ Cases_on`env.check_ctor` \\ fs[]
-  \\ Cases_on`t` \\ Cases_on`x` \\ Cases_on`t'` \\ fs[ctor_same_type_def]
-  \\ rename1`((g,t),LENGTH l)`
-  \\ Cases_on`((g,t),LENGTH l) ∈ env.c` \\ fs[]
-  \\ rename1`r1 ≠ r2`
-  \\ Cases_on`t = r2` \\ fs[] \\ rveq
-  \\ srw_tac[DNF_ss][]
+  \\ pop_assum mp_tac \\ simp[bool_case_eq]);
 
-  Cases \\ fs [isPcon_def, is_const_con_def]
-  \\ Cases \\ fs [isPcon_def,is_const_con_def]
-  \\ Cases \\ fs [pmatch_def]
-  \\ rename[`Pcon o1 l1`,`Conv o2 l2`]
+val pmatch_no_match = Q.store_thm("pmatch_no_match",
+  `¬env.check_ctor ∧ pmatch env refs x v [] = No_match ∧ same_con y x ⇒
+   pmatch env refs y v [] = No_match`,
+  Cases_on`x` \\ Cases_on`y` \\ fs[pmatch_def]
+  \\ rename1`same_con (Pcon o1 _) (Pcon o2 _)`
   \\ Cases_on`o1` \\ Cases_on`o2` \\ fs[pmatch_def]
-  \\ rename[`Pcon o1 l1`]
-  \\ Cases_on`o1` \\ fs[pmatch_def,semanticPrimitivesTheory.same_ctor_def]
-  \\ rw[] \\ fs[pmatch_def] \\ rw[] \\ fs[pmatch_def]
-  \\ rw [LENGTH_NIL_SYM, LENGTH_NIL]
-  \\ fs [LENGTH_NIL_SYM, LENGTH_NIL]
-  \\ spose_not_then strip_assume_tac \\ fs[LENGTH_NIL_SYM]
-  \\ rfs[pmatch_def]);
-
-val pmatch_match_con = Q.store_thm("pmatch_match_con",
-    `∀x y v.
-     is_const_con x /\ pmatch env s x v [] = Match a /\ (isPcon y) ==>
-        pmatch env s y v [] <> Match_type_error`,
-    Cases \\ Cases \\ fs[is_const_con_def,isPcon_def,pmatch_def]
-    \\ Cases \\ fs[pmatch_def]
-    \\ rename[`Pcon o1 l1`,`Conv o2 l2`]
-    \\ Cases_on`o1` \\ Cases_on`o2` \\ fs[pmatch_def] \\ rw[]
-    \\ fs[]
-
-    \\ rw[]
-    \\ fs[LENGTH_NIL_SYM,pmatch_def,LENGTH_NIL]);
+  \\ Cases_on`l` \\ Cases_on`l'` \\ fs[pmatch_def]
+  \\ Cases_on`x` \\ Cases_on`x'` \\ fs[pmatch_def]
+  \\ Cases_on`v` \\ fs[pmatch_def]
+  \\ Cases_on`o'` \\ fs[pmatch_def]
+  \\ Cases_on`x`
+  \\ rw[] \\ fs[same_ctor_def,ctor_same_type_def]
+  \\ rw[] \\ rfs[]);
 
 val find_match_drop_no_match = Q.store_thm ("find_match_drop_no_match",
     `! a b. pmatch env s (FST b) v [] = No_match /\ (is_const_con (FST b)) ==>
@@ -299,38 +285,44 @@ val find_match_drop_no_match = Q.store_thm ("find_match_drop_no_match",
 )
 
 val find_match_may_drop_dup = Q.store_thm ("find_match_may_drop_dup",
-    `! a b. ((is_const_con (FST b)) /\ (MEM (FST b) (MAP FST a))) ==>
+    `¬env.check_ctor ⇒
+     ! a b. ((is_const_con (FST b)) /\ (EXISTS (same_con (FST b) o FST) a)) ==>
      ((find_match env s v ( a++ [b] ++c)) = find_match env s v (a++c))`,
-     Induct
+     strip_tac \\ Induct
      \\ rw [find_match_def]
-     \\ CASE_TAC
-     \\ rw [find_match_drop_no_match]
-)
+     \\ CASE_TAC \\ fs[]
+     \\ match_mp_tac find_match_drop_no_match \\ fs[]
+     \\ match_mp_tac (GEN_ALL pmatch_no_match) \\ fs[]
+     \\ asm_exists_tac \\ fs[]
+);
 
 val find_match_may_reord = Q.store_thm("find_match_may_reord",
-    `! a b. is_const_con (FST b) /\ ¬((MEM (FST b) (MAP FST a)))
+    `¬env.check_ctor ⇒
+     ! a b. is_const_con (FST b) /\ ¬(EXISTS (same_con (FST b) o FST) a)
             /\ EVERY isPcon (MAP FST a) /\
             find_match env s v (a ++ [b] ++ c) ≠ Match_type_error
             ==>
         find_match env s v (a ++ [b] ++ c) = find_match env s v (b::a++c) `,
+    strip_tac \\
     Induct \\ fs []
     \\ rw [find_match_def]
     \\ every_case_tac \\ fs [find_match_def]
     >- ( imp_res_tac pmatch_match_match \\ fs [])
     >- ( imp_res_tac pmatch_match_match \\ fs [])
     >- (
-        imp_res_tac isPcon_isPvar \\
-        imp_res_tac pmatch_same_match  )
+        imp_res_tac isPcon_isPvar
+        \\ imp_res_tac pmatch_same_match)
     >- (
       CCONTR_TAC \\ fs[EVERY_MAP] \\
-      first_x_assum(qspec_then`b`mp_tac) \\ rw[] )
+      first_x_assum(qspec_then`b`mp_tac) \\ rw[]
+      \\ fs[EVERY_MEM])
     >- (
       CCONTR_TAC \\ fs[]
       \\ fs[is_const_con_pat_bindings_empty] ))
 
 val find_match_drop_after_pvar = Q.store_thm("find_match_drop_after_pvar",
     `! a. isPvar (FST b) ==>
-        find_match refs v (a ++ [b] ++ c) = find_match refs v (a ++ [b])
+        find_match env refs v (a ++ [b] ++ c) = find_match env refs v (a ++ [b])
     `,
     Induct \\ fs [find_match_def]
     \\ rw []
@@ -343,10 +335,10 @@ val find_match_drop_after_pvar = Q.store_thm("find_match_drop_after_pvar",
 val (reord_rules,reord_ind,reord_cases) = Hol_reln`
   (isPvar (FST b) ==> reord (a ++ [b] ++ c) (a ++ [b])) /\
   (is_const_con (FST b) /\
-   MEM (FST b) (MAP FST a) ==>
+   EXISTS (same_con (FST b) o FST) a ==>
    reord (a ++ [b] ++ c) (a ++ c)) /\
   (is_const_con (FST b) /\
-   ¬MEM (FST b) (MAP FST a) /\
+   ¬EXISTS (same_con (FST b) o FST) a /\
    EVERY isPcon (MAP FST a) ==>
    reord (a ++ [b] ++ c) ([b] ++ a ++ c))`;
 
@@ -372,7 +364,7 @@ val const_cons_sep_reord = Q.store_thm("const_cons_sep_reord",
        \\ rfs []
        \\ HINT_EXISTS_TAC
        \\ rw [reord_cases]
-       \\ METIS_TAC [APPEND_ASSOC, MEM_APPEND, MAP_APPEND]
+       \\ METIS_TAC[EXISTS_APPEND]
     )
     >-(
       fs []
@@ -383,10 +375,10 @@ val const_cons_sep_reord = Q.store_thm("const_cons_sep_reord",
       \\ HINT_EXISTS_TAC
       \\ rw [reord_cases]
       \\ disj2_tac \\ disj2_tac
-      \\ qexists_tac`const_cons++REVERSE a`
+      \\ qexists_tac`const_cons ++ REVERSE a`
       \\ simp[MAP_REVERSE,EVERY_REVERSE]
-      \\ fs[EVERY_MEM,MEM_MAP]
-      \\ metis_tac[is_const_con_is_Pcon] )
+      \\ fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]
+      \\ metis_tac[is_const_con_is_Pcon,same_con_is_const_con] )
     >- (
       first_x_assum drule \\ strip_tac
       \\ rfs[]
@@ -402,9 +394,11 @@ val const_cons_fst_reord = Q.store_thm("const_cons_fst_reord",
     \\ imp_res_tac const_cons_sep_reord \\ fs[])
 
 val find_match_preserved_reord = Q.store_thm("find_match_preserved_reord",
-    `! pes pes'. reord pes pes' ==>
-        find_match refs v pes <> Match_type_error ==>
-            find_match refs v pes = find_match refs v pes'`,
+    `¬env.check_ctor ⇒
+     ! pes pes'. reord pes pes' ==>
+        find_match env refs v pes <> Match_type_error ==>
+            find_match env refs v pes = find_match env refs v pes'`,
+    strip_tac \\
     ho_match_mp_tac reord_ind
     \\ strip_tac
     >-(
@@ -418,18 +412,18 @@ val find_match_preserved_reord = Q.store_thm("find_match_preserved_reord",
 )
 
 val find_match_preserved_reord_RTC = Q.store_thm("find_match_preserved_reord_RTC",
-    `! pes pes'. reord^* pes pes' ==>
-        find_match refs v pes <> Match_type_error ==>
-            find_match refs v pes = find_match refs v pes'`,
-    ho_match_mp_tac RTC_INDUCT
+    `¬env.check_ctor ⇒ ! pes pes'. reord^* pes pes' ==>
+        find_match env refs v pes <> Match_type_error ==>
+            find_match env refs v pes = find_match env refs v pes'`,
+    strip_tac \\ ho_match_mp_tac RTC_INDUCT
     \\ METIS_TAC [find_match_preserved_reord]
     )
 
 (* main lemma: find_match semantics preserved by compilation *)
 
 val const_cons_fst_find_match = Q.store_thm("const_cons_fst_find_match",
-    `find_match refs v pes <> Match_type_error ==>
-        find_match refs v pes = find_match refs v (const_cons_fst pes)`,
+    `¬env.check_ctor ∧ find_match env refs v pes <> Match_type_error ==>
+        find_match env refs v pes = find_match env refs v (const_cons_fst pes)`,
     METIS_TAC [find_match_preserved_reord_RTC, const_cons_fst_reord])
 
 (* semantic auxiliaries respect transformation of values *)

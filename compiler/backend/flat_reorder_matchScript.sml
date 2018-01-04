@@ -3,7 +3,7 @@ open preamble flatLangTheory
 val _ = new_theory"flat_reorder_match";
 
 val is_const_con_def = Define`
-  (is_const_con (Pcon tag plist) = (plist = [])) /\
+  (is_const_con (Pcon (SOME tag) plist) = (plist = [])) /\
   (is_const_con _  = F)`
 
 val isPvar_def = Define`
@@ -12,10 +12,14 @@ val isPvar_def = Define`
   isPvar _ = F`
 
 val isPcon_def = Define`
-  (isPcon (Pcon _ _) = T) /\
+  (isPcon (Pcon (SOME _) _) = T) /\
   isPcon _ = F`
 
-val _ = export_rewrites ["isPvar_def","isPcon_def", "is_const_con_def"]
+val same_con_def = Define`
+  (same_con (Pcon (SOME (t,_)) []) (Pcon (SOME (t',_)) []) ⇔ t = t') ∧
+  (same_con _ _ ⇔ F)`;
+
+val _ = export_rewrites ["isPvar_def","isPcon_def", "is_const_con_def", "same_con_def"]
 
 val const_cons_sep_def=Define `
   (const_cons_sep [] a const_cons = (const_cons,a) ) /\
@@ -23,7 +27,7 @@ val const_cons_sep_def=Define `
       if (isPvar (FST b)) then
           (const_cons,(b::a))
       else if (is_const_con (FST b)) then
-              if MEM (FST b) (MAP FST const_cons) then
+              if EXISTS (same_con (FST b) o FST) const_cons then
                    const_cons_sep c a const_cons
               else const_cons_sep c a (b::const_cons)
       else if isPcon (FST b) then
