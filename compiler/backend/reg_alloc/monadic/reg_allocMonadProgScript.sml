@@ -139,7 +139,7 @@ val r = translate empty_ra_state_def;
 val r = m_translate_run reg_alloc_def;
 
 val reg_alloc_side = Q.prove (
-  `reg_alloc_side k mtable ct forced <=> T`
+  `reg_alloc_side k mtable ct forced <=> T`,
   rw [fetch"-""reg_alloc_side_def", empty_ra_state_def])
   |> update_precondition;
 
