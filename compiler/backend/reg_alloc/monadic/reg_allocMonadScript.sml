@@ -4,8 +4,6 @@
 
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
-open ml_translatorTheory
-open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
 open sortingTheory
 
 val _ = new_theory "reg_allocMonad"
@@ -18,8 +16,6 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
-
-val _ = (use_full_type_names := false);
 
 (* The graph-coloring register allocator *)
 
@@ -761,16 +757,25 @@ val do_reg_alloc_def = Define`
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)
 
-val reg_alloc_def = Define`
+(* val reg_alloc_def = Define`
   reg_alloc k mtable ct forced =
   let init = <|adj_ls := []; dim := 0; node_tag := [] ; degrees := [] |> in
   do_reg_alloc k mtable ct forced init`
+
+val run_reg_alloc_def = Define`
+  run_reg_alloc k mtable ct forced state = run (do_reg_alloc k mtable ct forced)  state` *)
+
+val reg_alloc_def = Define`
+  reg_alloc k mtable ct forced =
+    run (do_reg_alloc k mtable ct forced) <|adj_ls := []; dim := 0; node_tag := [] ; degrees := [] |>`;
+
+
 
 (* ------------------------------------------------------------------------- *)
 (* Translation                                                               *)
 (* ------------------------------------------------------------------------- *)
 
-val run_reg_alloc_def = Define`
+(* val run_reg_alloc_def = Define`
   run_reg_alloc k mtable ct forced state = run (do_reg_alloc k mtable ct forced)  state`
 
 (* Accessor functions are defined (and used) previously together
@@ -854,7 +859,7 @@ val r = m_translate mk_tags_def           (* broken: st_ex_FOREACH *)
 
 val r = m_translate init_ra_state_def
 val r = m_translate do_reg_alloc_def;
-val r = m_translate_run run_reg_alloc_def;
+val r = m_translate_run run_reg_alloc_def; *)
 
 
 val _ = export_theory();
