@@ -757,109 +757,18 @@ val do_reg_alloc_def = Define`
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)
 
-(* val reg_alloc_def = Define`
-  reg_alloc k mtable ct forced =
-  let init = <|adj_ls := []; dim := 0; node_tag := [] ; degrees := [] |> in
-  do_reg_alloc k mtable ct forced init`
-
-val run_reg_alloc_def = Define`
-  run_reg_alloc k mtable ct forced state = run (do_reg_alloc k mtable ct forced)  state` *)
+val empty_ra_state_def = Define `
+  empty_ra_state =
+    <| adj_ls   := []
+     ; node_tag := []
+     ; degrees  := []
+     ; dim      := 0n
+     ; simp_wl  := []
+     ; spill_wl := []
+     ; stack    := [] |>`
 
 val reg_alloc_def = Define`
   reg_alloc k mtable ct forced =
-    run (do_reg_alloc k mtable ct forced) <|adj_ls := []; dim := 0; node_tag := [] ; degrees := [] |>`;
-
-
-
-(* ------------------------------------------------------------------------- *)
-(* Translation                                                               *)
-(* ------------------------------------------------------------------------- *)
-
-(* val run_reg_alloc_def = Define`
-  run_reg_alloc k mtable ct forced state = run (do_reg_alloc k mtable ct forced)  state`
-
-(* Accessor functions are defined (and used) previously together
-   with exceptions, etc. *)
-
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:unit``;
-val _ = register_type ``:tag``;
-val _ = register_type ``:clash_tree``;
-
-val state_type = ``:ra_state``;
-val exn_type   = ``:state_exn``;
-val _          = register_exn_type exn_type;
-
-val STATE_EXN_TYPE_def = theorem "STATE_EXN_TYPE_def";
-val exn_ri_def         = STATE_EXN_TYPE_def;
-val store_hprop_name   = "RA_STATE";
-
-val refs_manip_list = [el 4 accessors, el 5 accessors, el 6 accessors, el 7 accessors]
-val add_type_theories  = [];
-val store_pinv_def_opt = NONE;
-
-(* Initialize the translation *)
-
-val (trans_params, exn_specs) =
-  start_dynamic_init_fixed_store_translation
-    refs_manip_list
-    arr_manip
-    store_hprop_name
-    state_type
-    exn_ri_def
-    exn_functions
-    add_type_theories
-    store_pinv_def_opt;
-
-(* Rest of the translation *)
-
-val r = m_translate st_ex_FOREACH_def;    (* broken: list_CASE *)
-val r = m_translate st_ex_MAP_def;        (* broken: list_CASE*)
-
-val r = translate FILTER;
-val r = translate SNOC;
-val r = translate GENLIST;
-val r = m_translate remove_colours_def;
-
-val r = m_translate assign_Atemp_tag_def; (* broken: tag_CASE *)
-val r = m_translate assign_Atemps_def;    (* broken: st_ex_FOREACH *)
-
-val r = translate tag_col_def;
-val r = translate unbound_colour_def;
-val r = translate APPEND
-val r = translate PART_DEF
-val r = translate PARTITION_DEF
-val r = translate QSORT_DEF
-val r = translate MAP
-(*val r = translate mk_comb_PMATCHI*)
-val r = m_translate assign_Stemp_tag_def; (* broken: tag_CASE *)
-val r = m_translate assign_Stemps_def;    (* broken: st_ex_FOREACH *)
-
-val r = translate FST
-val r = translate EVEN
-val r = translate lookup_def
-val r = translate insert_def
-val r = translate list_remap_def
-val r = translate lrnext_def
-val r = translate foldi_def
-val r = translate toAList_def
-val r = translate mk_bij_aux_def
-val r = translate mk_bij_def
-val r = translate MEMBER_def
-val r = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO])
-val r = m_translate list_insert_edge_def
-val r = m_translate clique_insert_edge_def
-val r = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO])
-val r = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO])
-val r = m_translate extend_graph_def
-
-val r = m_translate mk_tags_def           (* broken: st_ex_FOREACH *)
-
-val r = m_translate init_ra_state_def
-val r = m_translate do_reg_alloc_def;
-val r = m_translate_run run_reg_alloc_def; *)
-
+    run (do_reg_alloc k mtable ct forced) empty_ra_state`;
 
 val _ = export_theory();
