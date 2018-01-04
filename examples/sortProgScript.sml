@@ -74,24 +74,6 @@ val LIST_REL_STRING_TYPE = Q.store_thm("LIST_REL_STRING_TYPE",
   `LIST_REL STRING_TYPE ls vs ⇒ ls = MAP (implode o v_to_string) vs`,
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
   Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]);
-
-val fastForwardFD_with_numchars = Q.store_thm("fastForwardFD_with_numchars",
-  `fastForwardFD (fs with numchars := ns) fd = fastForwardFD fs fd with numchars := ns`,
-  rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
-
-val fastForwardFD_numchars = Q.store_thm("fastForwardFD_numchars[simp]",
-  `(fastForwardFD fs fd).numchars = fs.numchars`,
-  rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
-
-val all_lines_with_numchars = Q.store_thm("all_lines_with_numchars",
-  `all_lines (fs with numchars := ns) = all_lines fs`,
-  rw[FUN_EQ_THM,all_lines_def]);
 (* -- *)
 
 val usage_string_def = Define`
