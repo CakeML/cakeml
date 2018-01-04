@@ -1,6 +1,6 @@
-open reg_allocMonadTheory
+open preamble reg_allocMonadTheory
 open ml_translatorTheory ml_translatorLib
-open ml_monadStoreLib ml_monad_translatorTheory 
+open ml_monadStoreLib ml_monad_translatorTheory
 open ml_monad_translatorLib
 
 val _ = new_theory "reg_allocMonadProg"
@@ -106,48 +106,41 @@ val _ = m_translate add_stack_def;
 val _ = m_translate split_degree_def;
 val _ = m_translate unspill_def;
 val _ = m_translate do_simplify_def;
-
 val _ = m_translate st_ex_list_MAX_deg_def;
 val _ = m_translate do_spill_def;
 val _ = m_translate do_step_def;
 val _ = m_translate rpt_do_step_def;
-
 val _ = m_translate remove_colours_def;
-
 val _ = m_translate assign_Atemp_tag_def;
 val _ = m_translate assign_Atemps_def;
-
 val _ = translate tag_col_def
 val _ = translate unbound_colour_def
-
-(*val r = translate mk_comb_PMATCHI*)
 val _ = m_translate assign_Stemp_tag_def;
 val _ = m_translate assign_Stemps_def;
-
 val _ = m_translate (first_match_col_def |> REWRITE_RULE [MEMBER_INTRO]);
-
 val _ = m_translate biased_pref_def;
-
 val _ = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate list_insert_edge_def;
 val _ = m_translate clique_insert_edge_def;
 val _ = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate extend_graph_def;
-
 val _ = m_translate mk_tags_def;
-
 val _ = m_translate init_ra_state_def;
 val _ = m_translate is_Atemp_def;
-
 val _ = m_translate init_alloc1_heu_def
 val _ = m_translate do_alloc1_def
-
 val _ = m_translate extract_color_def;
-
 val _ = m_translate do_reg_alloc_def;
 
 (* m_translate_run *)
-val _ = m_translate_run reg_alloc_def;
+
+val r = translate empty_ra_state_def;
+val r = m_translate_run reg_alloc_def;
+
+val reg_alloc_side = Q.prove (
+  `reg_alloc_side k mtable ct forced <=> T`
+  rw [fetch"-""reg_alloc_side_def", empty_ra_state_def])
+  |> update_precondition;
 
 val _ = export_theory();
