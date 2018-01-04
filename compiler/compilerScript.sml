@@ -90,7 +90,7 @@ val compile_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | Failure (locs, msg) =>
+       | Failure (Exc (locs, msg)) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
@@ -107,7 +107,7 @@ val compile_explorer_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+       | Failure (Exc (locs, msg)) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
 (* The top-level compiler *)

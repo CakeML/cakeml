@@ -30,7 +30,7 @@ val vector_length = Array.length
 fun vector_ref (x,y) = Array.sub x y
 fun vector_set (x,y,z) = Array.update x y z
 fun map_n_vector (x,y) = Array.tabulate x y
-val string_length = String.strlen
+val string_length = String.size
 fun string_ref (x,y) = String.sub x y
 fun write_char c = () (* TextIO.output1(TextIO.stdOut, c) *)
 fun modulo (x,y) = x mod y
@@ -346,17 +346,17 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                    then (matrix_set(marked, y, x, true)
                                          ; (case !tail of
                                                Nil =>
-                                                  (tail := Cons((x, y), ref Nil)
+                                                  (tail := Cons (x, y) (ref Nil)
                                                    ; q := !tail)
-                                             | Cons(_, cdr) =>
-                                                  (cdr := Cons((x, y), ref Nil)
+                                             | Cons _ cdr =>
+                                                  (cdr := Cons (x, y) (ref Nil)
                                                    ; tail := !cdr)))
                                 else ())
                      else ()
                   fun dequeue() =
                      case !q of
                         Nil => raise Fail "dequeue"
-                      | Cons(p, rest) =>
+                      | Cons p rest =>
                          (matrix_set(marked, y p, x p, false)
                           ; q := !rest
                           ; if null q then tail := Nil else ()

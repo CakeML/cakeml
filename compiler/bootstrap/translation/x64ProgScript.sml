@@ -38,11 +38,37 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val v2w_rw = Q.prove(`
+  v2w [P] = if P then 1w else 0w`,
+  rw[]>>EVAL_TAC);
+
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 val zreg2num_totalnum2zerg = Q.prove(`
   Zreg2num (total_num2Zreg n) = if n < 16 then n else 0`,
   EVAL_TAC>>IF_CASES_TAC>>fs[Zreg2num_num2Zreg]);
+
+val zreg2num_num2zerg_MOD8 = Q.prove(`
+  Zreg2num (num2Zreg (n MOD 8)) = n MOD 8`,
+  `n MOD 8 < 8` by fs[] >>
+  `n MOD 8 < 16` by DECIDE_TAC>>
+  fs[Zreg2num_num2Zreg]);
+
+val n2w_MOD8_simps = Q.prove(`
+  n2w (n MOD 8) :word4 >>> 3 = 0w /\
+  (n2w (n MOD 8) :word4 && 7w) = n2w (n MOD 8) ∧
+  BITS 3 0 (n MOD 8) =n MOD 8`,
+  FULL_BBLAST_TAC>>
+  `n MOD 8 < 8` by fs[]>>
+  `n MOD 8 = 0 \/
+  n MOD 8 = 1 \/
+  n MOD 8 = 2 \/
+  n MOD 8 = 3 \/
+  n MOD 8 = 4 \/
+  n MOD 8 = 5 \/
+  n MOD 8 = 6 \/
+  n MOD 8 = 7` by DECIDE_TAC>>
+  fs[]);
 
 val Zbinop_name2num_x64_sh = Q.prove(`
   ∀s.Zbinop_name2num (x64_sh s) =
@@ -93,7 +119,7 @@ val if_neq = Q.prove(`
 
 val fconv = SIMP_RULE (srw_ss()) [SHIFT_ZERO,case_ifs,case_ifs2,if_neq]
 
-val defaults = [x64_ast_def,x64_encode_def,encode_def,e_rm_reg_def,e_gen_rm_reg_def,e_ModRM_def,e_opsize_def,e_imm32_def,rex_prefix_def,x64_dec_fail_def,e_opc_def,e_rax_imm_def,e_rm_imm_def,asmSemTheory.is_test_def,x64_cmp_def,e_opsize_imm_def,e_imm8_def,e_rm_imm8_def,not_byte_def,e_imm16_def,e_imm64_def,Zsize_width_def,x64_bop_def,zreg2num_totalnum2zerg,e_imm_8_32_def,Zbinop_name2num_x64_sh,x64_sh_notZtest,exh_if_collapse,is_rax_zr_thm]
+val defaults = [x64_ast_def,x64_encode_def,encode_def,e_gen_rm_reg_def,e_ModRM_def,e_opsize_def,e_imm32_def,rex_prefix_def,x64_dec_fail_def,e_opc_def,e_rax_imm_def,e_rm_imm_def,asmSemTheory.is_test_def,x64_cmp_def,e_opsize_imm_def,e_imm8_def,e_rm_imm8_def,not_byte_def,e_imm16_def,e_imm64_def,Zsize_width_def,x64_bop_def,zreg2num_totalnum2zerg,e_imm_8_32_def,Zbinop_name2num_x64_sh,x64_sh_notZtest,exh_if_collapse,is_rax_zr_thm]
 
 val x64_enc_thms =
   x64_enc_def
@@ -155,7 +181,12 @@ val x64_enc1_4_aux = el 4 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expa
 (*TODO: can commute the NONE and if *)
 val x64_enc1_4 = reconstruct_case ``x64_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``x64_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) (map (csethm 2 o fconv o bconv) x64_enc1_4_aux)]
 
-val x64_enc1_5 = el 5 x64_enc1s;
+(* FP *)
+val fp_defaults = [encode_sse_def,xmm_mem_to_rm_def,encode_sse_binop_def]
+
+val x64_enc1_5_aux = el 5 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:fp``]) (defaults @ fp_defaults) |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,zreg2num_num2zerg_MOD8,n2w_MOD8_simps,w2w_n2w,dimindex_8,dimindex_4,pair_case_def,v2w_rw] |> gconv |> SIMP_RULE (srw_ss()) [] |> CONJUNCTS
+
+val x64_enc1_5 = reconstruct_case ``x64_enc (Inst (FP f))`` (rand o rand o rand) x64_enc1_5_aux
 
 val x64_simp1 = reconstruct_case ``x64_enc (Inst i)`` (rand o rand) [x64_enc1_1,x64_enc1_2,x64_enc1_3,x64_enc1_4,x64_enc1_5]
  |> SIMP_RULE std_ss [Q.ISPEC `Zbinop_name2num` COND_RAND,Zbinop_name2num_thm]

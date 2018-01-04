@@ -16,7 +16,7 @@ val hello_spec = Q.store_thm ("hello_spec",
         [Conv NONE []]
         (STDIO fs)
         (POSTv uv. &UNIT_TYPE () uv *  (* TODO: emp required because fsioProgLib.call_thm is too fragile *)
-            (STDIO (add_stdout fs "Hello World!\n")) * emp)`,
+            (STDIO (add_stdout fs (strlit "Hello World!\n"))) * emp)`,
   xcf "hello" st \\ xapp \\ xsimpl \\
   (* TODO: xsimpl should get this already *)
   map_every qexists_tac[`emp`,`fs`] \\ xsimpl);

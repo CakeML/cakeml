@@ -597,9 +597,11 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
              FP
            --------------*)
          \\ Cases_on `f`
-         >- (print_tac "FPLess"         \\ next_tac)
-         >- (print_tac "FPLessEqual"    \\ next_tac)
-         >- (print_tac "FPEqual"        \\ next_tac)
+         \\ next_tac
+         (*
+         >- (print_tac "FPLess"      \\ next_tac)
+         >- (print_tac "FPLessEqual" \\ next_tac)
+         >- (print_tac "FPEqual"     \\ next_tac)
          >- (print_tac "FPAbs"  \\ next_tac)
          >- (print_tac "FPNeg"  \\ next_tac)
          >- (print_tac "FPSqrt" \\ next_tac)
@@ -620,9 +622,9 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
                  \\ next_tac
                 )
              \\ next_tac
-
             )
          >- (print_tac "FPFromInt" \\ next_tac)
+         *)
       ) (* close Inst *)
       (*--------------
           Jump

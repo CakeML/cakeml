@@ -40,29 +40,43 @@ val compile_def = Define`
   compile c p =
     let (c',p) = source_to_mod$compile c.source_conf p in
     let c = c with source_conf := c' in
+    let _ = empty_ffi (strlit "finished: source_to_mod") in
     let (c',p) = mod_to_con$compile c.mod_conf p in
     let c = c with mod_conf := c' in
+    let _ = empty_ffi (strlit "finished: mod_to_con") in
     let (n,e) = con_to_dec$compile c.source_conf.next_global p in
     let c = c with source_conf updated_by (λc. c with next_global := n) in
+    let _ = empty_ffi (strlit "finished: con_to_dec") in
     let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
+    let _ = empty_ffi (strlit "finished: dec_to_exh") in
     let e = exh_to_pat$compile e in
+    let _ = empty_ffi (strlit "finished: exh_to_pat") in
     let e = pat_to_clos$compile e in
+    let _ = empty_ffi (strlit "finished: pat_to_clos") in
     let (c',p) = clos_to_bvl$compile c.clos_conf e in
     let c = c with clos_conf := c' in
+    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
     let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
     let c = c with clos_conf updated_by (λc. c with start:=s) in
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
+    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let p = bvi_to_data$compile_prog p in
+    let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+    let _ = empty_ffi (strlit "finished: data_to_word") in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
+    let _ = empty_ffi (strlit "finished: word_to_stack") in
     let p = stack_to_lab$compile
       c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
       (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
       (c.lab_conf.asm_conf.addr_offset) p in
-      attach_bitmaps c.word_conf.bitmaps
-        (lab_to_target$compile c.lab_conf (p:'a prog))`;
+    let _ = empty_ffi (strlit "finished: stack_to_lab") in
+    let res = attach_bitmaps c.word_conf.bitmaps
+      (lab_to_target$compile c.lab_conf (p:'a prog)) in
+    let _ = empty_ffi (strlit "finished: lab_to_target") in
+      res`;
 
 val to_mod_def = Define`
   to_mod c p =

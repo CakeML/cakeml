@@ -2,10 +2,7 @@ structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib lcsymtacs
   open infer_tTheory inferTheory
 
-  (* TODO: this could have been in inferSyntax but I don't think the
-           exc type should even be defined in inferTheory... *)
-  val (Success_tm,mk_Success,dest_Success,is_Success) = syntax_fns1 "infer" "Success"
-  (* -- *)
+  val (Success_tm,mk_Success,dest_Success,is_Success) = syntax_fns1 "ml_monadBase" "Success"
 
   val add_inference_compset = computeLib.extend_compset
   [computeLib.Defs
@@ -18,10 +15,11 @@ structure inferenceComputeLib = struct
     ,infer_ds_def
     ,infer_e_def
     ,infer_p_def
-    ,st_ex_bind_def
-    ,st_ex_return_def
+    ,ml_monadBaseTheory.run_def
+    ,ml_monadBaseTheory.st_ex_bind_def
+    ,ml_monadBaseTheory.st_ex_return_def
     ,guard_def
-    ,failwith_def
+    ,raise_Exc_def
     ,lookup_st_ex_def
     ,sub_completion_def
     ,t_to_freevars_def
@@ -38,13 +36,17 @@ structure inferenceComputeLib = struct
     ,Infer_Tfn_def
     ,init_config_def
     ,infertype_prog_def
+    ,infertype_prog_aux_def
     ,ienvLift_def
     ,check_signature_def
     ,check_weak_ienv_def
     ,check_tscheme_inst_def
     ,check_weak_decls_def
     ,check_specs_def
-    ,write_def
+    ,get_next_uvar_def
+    ,set_next_uvar_def
+    ,get_subst_def
+    ,set_subst_def
     ,extend_dec_ienv_def
     ,append_decls_def
     ,empty_inf_decls_def
@@ -61,12 +63,10 @@ structure inferenceComputeLib = struct
     ,init_infer_state_def
     ,n_fresh_uvar_def
     ,fresh_uvar_def
-    ,read_def
     ],
    computeLib.Tys
     [``:infer_t``
     ,``:('a,'b)exc``
-    ,``:'a infer_st``
     ,``:inferencer_config``
     ,``:inf_decls``
     ,``:inf_env``

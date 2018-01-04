@@ -21,7 +21,7 @@ val echo_spec = Q.store_thm("echo_spec",
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDIO fs * COMMANDLINE cl)
    (POSTv uv. &UNIT_TYPE () uv *
-      (STDIO (add_stdout fs (CONCAT_WITH " " (TL cl) ++ "\n"))) *
+      (STDIO (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n")))) *
       COMMANDLINE cl)`,
   xcf "echo" st \\
   cases_on`¬ STD_streams fs` >-(fs[STDIO_def] >> xpull) >>
@@ -31,7 +31,7 @@ val echo_spec = Q.store_thm("echo_spec",
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet`POSTv uv.  &UNIT_TYPE () uv * COMMANDLINE cl *
-        STDIO (add_stdout fs ((explode (concatWith (strlit " ") (TL (MAP implode cl))))))`
+        STDIO (add_stdout fs ((concatWith (strlit " ") (TL cl))))`
   >- (xapp >> xsimpl >> instantiate >> xsimpl >>
       (* TODO: why? *)
       qexists_tac`COMMANDLINE cl` >> xsimpl >>
@@ -40,9 +40,9 @@ val echo_spec = Q.store_thm("echo_spec",
   qmatch_goalsub_abbrev_tac`STDIO fs'` \\
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs'` \\
   unabbrev_all_tac \\
-  simp[concatWith_CONCAT_WITH,MAP_TL,implode_def] \\
   xsimpl >> fs[] >>
   imp_res_tac STD_streams_stdout >>
+  simp[str_def,implode_def] >>
   imp_res_tac add_stdo_o >> xsimpl);
 
 val st = get_ml_prog_state();
