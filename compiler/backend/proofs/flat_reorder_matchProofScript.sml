@@ -428,23 +428,15 @@ val const_cons_fst_find_match = Q.store_thm("const_cons_fst_find_match",
 
 (* semantic auxiliaries respect transformation of values *)
 
-val pmatch_nil_rwt =
-    pmatch_nil |> CONJUNCT1
-    |> ADD_ASSUM``(env:(tvarN,flatSem$v) alist) <> []`` |> DISCH_ALL
-
-val pmatch_nil_imp = Q.store_thm( "pmatch_nil_imp",
-    ` pmatch refs p err_v [] = res
-            ==> pmatch refs p err_v env = map_match (combin$C $++ env) res`,
-    METIS_TAC [pmatch_nil])
-
 val pmatch_compile = Q.store_thm("pmatch_compile",
-  `(! refs p err_v env.
-      pmatch (MAP compile_store_v refs) p (compile_v err_v) (compile_env env) =
-      map_match (compile_env) (pmatch refs p err_v env)) /\
-   (! refs ps vs env.
-      pmatch_list (MAP compile_store_v refs) ps (MAP compile_v vs) (compile_env env) =
-      map_match (compile_env) (pmatch_list refs ps vs env)) `,
+  `(! env refs p err_v acc.
+      pmatch env (MAP compile_store_v refs) p (compile_v err_v) (compile_env acc) =
+      map_match (compile_env) (pmatch env refs p err_v acc)) /\
+   (! env refs ps vs acc.
+      pmatch_list env (MAP compile_store_v refs) ps (MAP compile_v vs) (compile_env acc) =
+      map_match (compile_env) (pmatch_list env refs ps vs acc)) `,
   ho_match_mp_tac pmatch_ind \\ rw [pmatch_def]
+  >- (fs [ETA_AX])
   >- (fs [ETA_AX])
   >- (
     fs [semanticPrimitivesTheory.store_lookup_def]
@@ -459,19 +451,18 @@ val pmatch_compile = Q.store_thm("pmatch_compile",
 
 val pmatch_compile_nil = pmatch_compile |> CONJUNCT1
     |> SPEC_ALL
-    |> Q.GEN`env`
+    |> Q.GEN`acc`
     |> Q.SPEC`[]`
     |> SIMP_RULE (srw_ss())[]
 
 val find_match_compile = Q.store_thm("find_match_compile",
-  `find_match (MAP compile_store_v refs) (compile_v v) (MAP (I ## f) pes) =
-   map_match (compile_env ## f) (find_match refs v pes)`,
+  `find_match env (MAP compile_store_v refs) (compile_v v) (MAP (I ## f) pes) =
+   map_match (compile_env ## f) (find_match env refs v pes)`,
    Induct_on `pes`
    \\ fs [find_match_def]
    \\ rw []
    \\ fs [pmatch_compile_nil]
-   \\ every_case_tac \\ fs []
-   \\ rw [])
+   \\ every_case_tac \\ fs [])
 
 val find_match_imp_compile = Q.store_thm("find_match_imp_compile",
   `find_match s.refs v pes = Match (env',e) ==>
