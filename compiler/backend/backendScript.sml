@@ -314,11 +314,12 @@ val from_livesets_def = Define`
     MAP (λ(col_opt,((tree,moves,forced),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
-          (let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-           let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
-             let col = reg_alloc alg ext_graph k moves
-             in
-               (name_num,arg_count,remove_must_terminate (apply_colour (total_colour col) prog)))
+          let cp =
+            (case reg_alloc k LN tree forced of (* Moves not supported yet *)
+              Success col =>
+                (apply_colour (total_colour col) prog)
+            | Failure _ => prog (*cannot happen*)) in
+          (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`

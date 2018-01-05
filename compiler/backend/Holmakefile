@@ -1,4 +1,4 @@
-INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders ../encoders/asm reg_alloc $(HOLDIR)/examples/machine-code/multiword
+INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders ../encoders/asm reg_alloc reg_alloc/monadic $(HOLDIR)/examples/machine-code/multiword
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -15,7 +15,7 @@ PARENT_HOLHEAP = ../../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../../semantics/terminationTheory ../encoders/asm/asmTheory reg_alloc/reg_allocTheory
+BARE_THYS = ../../semantics/terminationTheory ../encoders/asm/asmTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

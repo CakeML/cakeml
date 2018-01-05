@@ -1,10 +1,11 @@
-open preamble wordLangTheory reg_allocTheory
+open preamble wordLangTheory reg_allocMonadTheory
 
 val _ = new_theory "word_alloc";
 val _ = set_grammar_ancestry [
   "asm" (* for arity-2 Const *),
-  "wordLang",
-  "reg_alloc"
+  "reg_allocMonad",
+  "misc",
+  "wordLang"
 ]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -828,7 +829,7 @@ val get_clash_tree_def = Define`
           else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
         Branch (SOME live_set) ret_tree handler_tree)`
 
-(*Preference edges*)
+(* Preference edges *)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
   (get_prefs (MustTerminate s1) acc =
@@ -984,9 +985,16 @@ val check_colouring_ok_alt_def = Define`
     let names = MAP (col o FST) (toAList x) in
       ALL_DISTINCT names ∧ check_colouring_ok_alt col xs)`
 
+(*
 val every_even_colour_def = Define`
   every_even_colour col ⇔
   EVERY (λ(x,y). if is_phy_var x then y = x else T) (toAList col)`
+*)
+
+(*Extract a colouring function from the generated sptree*)
+val total_colour_def = Define`
+  total_colour col =
+    (λx. case lookup x col of NONE => x | SOME x => 2*x)`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
@@ -995,8 +1003,7 @@ val oracle_colour_ok_def = Define`
     NONE => NONE
   | SOME col =>
      let tcol = total_colour col in
-     if (every_even_colour col ∧
-        check_clash_tree tcol tree LN LN ≠ NONE)
+     if (check_clash_tree tcol tree LN LN ≠ NONE)
      then
        let prog = apply_colour tcol prog in
        if
@@ -1017,14 +1024,14 @@ val oracle_colour_ok_def = Define`
 val word_alloc_def = Define`
   word_alloc c alg k prog col_opt =
   let tree = get_clash_tree prog in
-  let moves = get_prefs prog [] in
+  (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
-    let (clash_graph,_) = clash_tree_to_spg tree [] LN in
-    let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
-    let col = reg_alloc alg ext_graph k moves in
-      apply_colour (total_colour col) prog
+    (case reg_alloc k LN tree forced of (* Moves not supported yet *)
+      Success col =>
+        apply_colour (total_colour col) prog
+    | Failure _ => prog (*cannot happen*))
   | SOME col_prog =>
       col_prog`
 
