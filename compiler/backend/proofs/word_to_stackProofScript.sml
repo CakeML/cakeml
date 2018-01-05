@@ -3297,7 +3297,7 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
    word_exp t (map_var DIV2 e) = SOME x`,
   ho_match_mp_tac word_exp_ind
   \\ simp[word_exp_def,stackSemTheory.word_exp_def]
-  \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
+  \\ rw[wordLangTheory.every_var_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS]
   \\ TRY (
@@ -3380,7 +3380,7 @@ val word_exp_thm2 = Q.store_thm("word_exp_thm2",
    word_exp (set_var k (EL (t.stack_space + (f + k - (v + 1))) t.stack) t) (map_var (K k) e) = SOME x`,
   ho_match_mp_tac word_exp_ind
   \\ simp[word_exp_def,stackSemTheory.word_exp_def]
-  \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
+  \\ rw[wordLangTheory.every_var_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
@@ -3424,7 +3424,7 @@ val word_exp_thm3 = Q.store_thm("word_exp_thm3",
      (map_var (λx. if x = 2*v2 then k+1 else DIV2 x) e) = SOME x`,
   ho_match_mp_tac word_exp_ind
   \\ simp[word_exp_def,stackSemTheory.word_exp_def]
-  \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
+  \\ rw[wordLangTheory.every_var_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
@@ -3468,7 +3468,7 @@ val word_exp_thm4 = Q.store_thm("word_exp_thm4",
      (map_var (λx. if x = 2*v2 then k else DIV2 x) e) = SOME x`,
   ho_match_mp_tac word_exp_ind
   \\ simp[word_exp_def,stackSemTheory.word_exp_def]
-  \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
+  \\ rw[wordLangTheory.every_var_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
@@ -3513,7 +3513,7 @@ val word_exp_thm5 = Q.store_thm("word_exp_thm5",
      (map_var (λx. if x = 2*v1 then k else k+1) e) = SOME x`,
   ho_match_mp_tac word_exp_ind
   \\ simp[word_exp_def,stackSemTheory.word_exp_def]
-  \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
+  \\ rw[wordLangTheory.every_var_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
@@ -3558,7 +3558,7 @@ val word_exp_thm6 = Q.store_thm("word_exp_thm6",
      (Op b [Var k; Var (k+1)]) = SOME x`,
   ho_match_mp_tac word_exp_ind
   \\ simp[word_exp_def,stackSemTheory.word_exp_def]
-  \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
+  \\ rw[wordLangTheory.every_var_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ fs[wordSemTheory.word_exp_def,the_words_def]
@@ -3630,7 +3630,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
   \\ fs[wordLangTheory.every_var_inst_def,wordLangTheory.max_var_inst_def]
   \\ rw[] \\ rw[]
   >- (
-    fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,
+    fs[assign_def,word_exp_def,reg_allocMonadTheory.is_phy_var_def,
        GSYM EVEN_MOD2,EVEN_EXISTS]
     \\ rveq
     \\ match_mp_tac wRegWrite1_thm1
@@ -3644,7 +3644,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     >- (* SubOverflow *)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 4 (FULL_CASE_TAC)>>
-      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       simp[wInst_def,TWOxDIV2]>>
       pairarg_tac >> fs[]>>
       pairarg_tac >> fs[]>>
@@ -3676,7 +3676,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     >- (* AddOverflow *)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 4 (FULL_CASE_TAC)>>
-      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       simp[wInst_def,TWOxDIV2]>>
       pairarg_tac >> fs[]>>
       pairarg_tac >> fs[]>>
@@ -3708,7 +3708,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     >- (*AddCarry*)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 6 (FULL_CASE_TAC)>>
-      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       simp[wInst_def,TWOxDIV2]>>
       pairarg_tac >> fs[]>>
       pairarg_tac >> fs[]>>
@@ -3743,7 +3743,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     >- (*LongDiv*)
       (pop_assum mp_tac>>fs[get_vars_def]>>
       every_case_tac>>fs[wInst_def]>>
-      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       fs[TWOxDIV2]>>
       pairarg_tac>>fs[]>>
       strip_tac>>
@@ -3784,7 +3784,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       (* LongMul Note: this is greatly simplified because no stack loading is done*)
       (pop_assum mp_tac>>fs[get_vars_def]>>
       every_case_tac>>fs[wInst_def]>>
-      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       fs[TWOxDIV2]>>
       drule (GEN_ALL state_rel_get_var_imp)>>
       disch_then assume_tac>>
@@ -3800,7 +3800,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     >- (* Div *)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 5 (FULL_CASE_TAC)>>
-      fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       simp[wInst_def,TWOxDIV2]>>
       pairarg_tac >> fs[]>>
       pairarg_tac >> fs[]>>
@@ -3830,7 +3830,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
       simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE])
     >- (
-      fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+      fs[assign_def,word_exp_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
       \\ simp[wInst_def,TWOxDIV2]
       \\ fs[GSYM LEFT_ADD_DISTRIB]
       \\ fs[GSYM wordSemTheory.get_var_def]
@@ -3868,7 +3868,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ pop_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rveq
-    \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
     \\ imp_res_tac word_exp_Op_SOME_Word
     \\ rveq
     \\ fs[GSYM LEFT_ADD_DISTRIB]
@@ -3895,7 +3895,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ TRY (
         drule word_exp_thm1
         \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-                reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+                reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
                 wordLangTheory.max_var_exp_def,list_max_def]
         \\ impl_tac
         >- (
@@ -3927,7 +3927,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ TRY (
       drule word_exp_thm1
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-              reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+              reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ impl_tac
       >- (
@@ -3946,7 +3946,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ TRY (
       drule (GEN_ALL word_exp_thm3)
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-              reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+              reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ disch_then drule
       \\ simp[EQ_MULT_LCANCEL]
@@ -3954,7 +3954,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ TRY (
       drule (GEN_ALL word_exp_thm4)
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-              reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+              reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ disch_then drule
       \\ simp[EQ_MULT_LCANCEL]
@@ -3984,7 +3984,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ TRY(BasicProvers.TOP_CASE_TAC \\ fs[])
     \\ strip_tac \\ rveq
     \\ fs[GSYM wordSemTheory.get_var_def]
-    \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,LET_THM]
+    \\ fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,LET_THM]
     \\ rveq
     \\ fs[GSYM LEFT_ADD_DISTRIB]
     \\ simp[wInst_def]
@@ -4011,7 +4011,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ TRY (
         drule word_exp_thm1
         \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-                reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+                reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
                 wordLangTheory.max_var_exp_def,list_max_def]
         \\ impl_tac
         >- (
@@ -4047,7 +4047,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ TRY (
       drule (GEN_ALL word_exp_thm1)
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-              reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+              reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ simp[EQ_MULT_LCANCEL]
       \\ qpat_abbrev_tac`tt = set_var _ _ t`
@@ -4079,7 +4079,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ simp[])
     \\ drule (GEN_ALL word_exp_thm2)
     \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
-            reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+            reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
             wordLangTheory.max_var_exp_def,list_max_def]
     \\ simp[EQ_MULT_LCANCEL]
     \\ qpat_abbrev_tac`tt = stackSem$set_var (k+1) _ _`
@@ -4120,7 +4120,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     TRY
       (ntac 2 TOP_CASE_TAC >>fs[]>>
       strip_tac>>
-      fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[wordLangTheory.every_var_inst_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       pop_assum sym_sub_tac >> rveq>>
       match_mp_tac wRegWrite1_thm1 >> fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def]>>
       imp_res_tac state_rel_get_fp_var>>
@@ -4130,13 +4130,13 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       (every_case_tac>>fs[]
       >-
         (strip_tac>>
-        fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+        fs[wordLangTheory.every_var_inst_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
         rw[]>>
         match_mp_tac wRegWrite1_thm1 >> fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def]>>
         imp_res_tac state_rel_get_fp_var>>
         fs[])
       >>
-      fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+      fs[wordLangTheory.every_var_inst_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       strip_tac>>
       (* This case is a little bit harder than the rest because it is the only one
          involving a double write
@@ -4222,7 +4222,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       (IF_CASES_TAC >> fs[]
       >-
         (every_case_tac>>fs[]>>strip_tac>>
-        fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+        fs[wordLangTheory.every_var_inst_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
         pairarg_tac>>fs[]>>
         qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n1'),t) = (NONE,t') ∧ _ t'`>>
         simp[]>>
@@ -4247,7 +4247,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n1'),t) = (NONE,t') ∧ _ t'`>>
         simp[]>>
         match_mp_tac (GEN_ALL wStackLoad_thm1)>>
-        fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
+        fs[wordLangTheory.every_var_inst_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
         rw[]>>
         asm_exists_tac>>fs[]>>
         asm_exists_tac>>fs[Abbr`kont`]>>rw[]
@@ -4791,9 +4791,9 @@ val comp_correct = Q.store_thm("comp_correct",
       (drule evaluate_wLive
       \\ impl_keep_tac
       THEN1
-        (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
+        (fs[convs_def,reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2]>>
         fs[GSYM toAList_domain,EVERY_MEM]>>
-        fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
+        fs[X_LE_DIV,reg_allocMonadTheory.is_phy_var_def,LET_THM]>>
         rw[]>>res_tac>>DECIDE_TAC)
       \\ REPEAT STRIP_TAC \\ fs []
       \\ fs [stackSemTheory.evaluate_def,LET_THM]
@@ -4837,7 +4837,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ reverse conj_asm2_tac
       >- (
         qhdtm_x_assum`post_alloc_conventions`mp_tac
-        \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
+        \\ simp[convs_def,EVERY_MEM,reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2] )
       \\ match_mp_tac ALL_DISTINCT_MAP_INJ
       \\ rw[]
       \\ match_mp_tac EVEN_DIV2_INJ \\ simp[]
@@ -4868,7 +4868,7 @@ val comp_correct = Q.store_thm("comp_correct",
         \\ simp[DIV2_def,bitTheory.DIV_MULT_THM2]
         \\ rw[] \\ res_tac
         \\ qhdtm_x_assum`post_alloc_conventions`mp_tac
-        \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2]
+        \\ simp[convs_def,EVERY_MEM,reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2]
         \\ simp[MEM_MAP,PULL_EXISTS] )
       \\ conj_tac
       >- (
@@ -5011,7 +5011,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ strip_tac \\ rveq \\ simp[]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ fs[convs_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
     \\ rw[]
     \\ qexists_tac`0` \\ simp[]
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -5035,7 +5035,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ qexists_tac`NONE` \\ simp[]
     \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
     \\ fs[convs_def,wordLangTheory.every_var_exp_def]
-    \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
+    \\ fs[reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
     \\ rveq \\ fs[]
     \\ asm_exists_tac \\ simp[]
     \\ asm_exists_tac \\ simp[]
@@ -5119,7 +5119,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ Cases_on `x` \\ fs []
     \\ rename1 `get_var n s = SOME (Loc l1 l2)`
     \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
-    \\ fs [reg_allocTheory.is_phy_var_def,wordLangTheory.max_var_def]
+    \\ fs [reg_allocMonadTheory.is_phy_var_def,wordLangTheory.max_var_def]
     \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
         t.stack_space <= LENGTH t.stack` by
      (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
@@ -5237,7 +5237,7 @@ val comp_correct = Q.store_thm("comp_correct",
     ntac 3 (simp[Once stackSemTheory.evaluate_def])>>
     `EVEN r1 ∧ (case ri of Reg r => EVEN r | _ => T)` by
       (Cases_on`ri`>>
-      fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def])>>
+      fs[convs_def,EVEN_MOD2,reg_allocMonadTheory.is_phy_var_def])>>
     simp[evaluate_wStackLoad_clock]>>
     drule evaluate_wStackLoad_wReg1>>
     fs[]>>strip_tac>>
@@ -5260,7 +5260,7 @@ val comp_correct = Q.store_thm("comp_correct",
     strip_tac>>qexists_tac`ck`>>rfs[])
   THEN1 (* LocValue *) (
     fs[comp_def,wordSemTheory.evaluate_def]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ fs[convs_def,reg_allocMonadTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
     \\ every_case_tac \\ fs[]
     \\ rw[]
     \\ qexists_tac`0` \\ simp[]
@@ -5483,7 +5483,7 @@ val comp_correct = Q.store_thm("comp_correct",
               (ho_match_mp_tac max_var_intro>>
               fsrw_tac[][convs_def]>>
               match_mp_tac every_var_mono>>
-              HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+              HINT_EXISTS_TAC>>fsrw_tac[][reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2])>>
           unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
           rpt (pop_assum kall_tac)>>
           `m * 2 DIV 2 = m` by
@@ -5518,9 +5518,9 @@ val comp_correct = Q.store_thm("comp_correct",
     simp[]>>
     impl_keep_tac>-
       (Cases_on`handler`>>TRY(PairCases_on`x''`)>>
-      fsrw_tac[][convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
+      fsrw_tac[][convs_def,reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2]>>
       fsrw_tac[][GSYM toAList_domain,EVERY_MEM]>>
-      fsrw_tac[][X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
+      fsrw_tac[][X_LE_DIV,reg_allocMonadTheory.is_phy_var_def,LET_THM]>>
       (rw[]>>res_tac
       >-
         DECIDE_TAC>>
@@ -5810,7 +5810,7 @@ val comp_correct = Q.store_thm("comp_correct",
               (ho_match_mp_tac max_var_intro>>
               fsrw_tac[][convs_def]>>
               match_mp_tac every_var_mono>>
-              HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+              HINT_EXISTS_TAC>>fsrw_tac[][reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2])>>
           unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
           rpt (pop_assum kall_tac)>>
           `m * 2 DIV 2 = m` by
@@ -6272,7 +6272,7 @@ val comp_correct = Q.store_thm("comp_correct",
             (ho_match_mp_tac max_var_intro>>
             fsrw_tac[][convs_def]>>
             match_mp_tac every_var_mono>>
-            HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+            HINT_EXISTS_TAC>>fsrw_tac[][reg_allocMonadTheory.is_phy_var_def,EVEN_MOD2])>>
         unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
         rpt (pop_assum kall_tac)>>
         `m * 2 DIV 2 = m` by
@@ -7112,7 +7112,7 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
     TRY(Cases_on`f`)>>
     PairCases_on`kf`>>
     fs wconvs>>
-    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]>>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocMonadTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>fs[]>>

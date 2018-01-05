@@ -1008,7 +1008,7 @@ val oracle_colour_ok_def = Define`
        let prog = apply_colour tcol prog in
        if
          (* Note: possibly avoid these checks and instead check the oracle domain directly *)
-         every_var is_phy_var prog ∧
+         (*every_var is_phy_var prog ∧*)
          every_stack_var (λx. x ≥ 2*k) prog ∧
          EVERY (λ(x,y). (tcol x) ≠ (tcol y)) ls
        then
