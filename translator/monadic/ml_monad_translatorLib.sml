@@ -11,12 +11,14 @@ open Net List packLib stringSimps
 open ml_monadStoreLib
 
 val get_term = let
-  val ys = unpack_list (unpack_pair unpack_string unpack_term) m_translator_terms
+  val ys = unpack_list (unpack_pair unpack_string unpack_term)
+             ml_monad_translatorTheory.parsed_terms
   in fn s => snd (first (fn (n,_) => n = s) ys) end
 
-(* val get_packed_type = let
-  val ys = unpack_list (unpack_pair unpack_string unpack_type) m_translator_types
-  in fn s => snd (first (fn (n,_) => n = s) ys) end *)
+val get_type = let
+  val ys = unpack_list (unpack_pair unpack_string unpack_type)
+             ml_monad_translatorTheory.parsed_types
+  in fn s => snd (first (fn (n,_) => n = s) ys) end
 
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
@@ -25,62 +27,54 @@ fun primCases_on tm = Cases_on [ANTIQUOTE tm]
 
 val _ = (print_asts := true);
 
-val _ = (use_full_type_names := false);
-
 (* Some constants *)
 val venvironment = mk_environment v_ty
 val v_env = mk_var("env",venvironment)
-val exp_ty = ``:ast$exp``
+val exp_ty = get_type "exp"
 val exp_var = mk_var("exp", exp_ty)
 val cl_env_tm = mk_var("cl_env",venvironment)
-val string_ty = ``:tvarN``
-val a_ty = ``:'a``
-val b_ty = ``:'b``
-val c_ty = ``:'c``
-val d_ty = ``:'d``
-val unit_ty = ``:unit``
-val poly_M_type = ``:'a -> ('b, 'c) exc # 'a``
-val v_bool_ty = ``:v -> bool``
-val hprop_ty = ``:hprop``
-val string_ty = ``:string``
-val bool_ty = ``:bool``
-val recclosure_exp_ty = ``:(tvarN, tvarN # ast$exp) alist``
+val string_ty = get_type "string_ty"
+val a_ty = alpha
+val b_ty = beta
+val c_ty = gamma
+val d_ty = delta
+val unit_ty = get_type "unit"
+val poly_M_type = get_type "poly_M_type"
+val v_bool_ty = get_type "v_bool_ty"
+val hprop_ty = get_type "hprop_ty"
+val bool_ty = type_of T
+val recclosure_exp_ty = get_type "recclosure_exp_ty"
 val v_var = mk_var("v",v_ty)
+val exc_ty = get_type "exc_ty"
 
-val ArrowM_const = ``ArrowM``
-val Eval_const = ``Eval``
-val EvalM_const = ``EvalM``
-val MONAD_const = ``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,γ) H``
-val PURE_const = ``PURE : (α -> v -> bool) -> (α, β) H``
-val SND_const = ``SND``
+val ArrowM_const = get_term "ArrowM_const"
+val Eval_const = get_term "Eval_const"
+val EvalM_const = get_term "EvalM_const"
+val MONAD_const = get_term "MONAD_const"
+val PURE_const = get_term "PURE_const"
+val SND_const = get_term "SND_const"
 
-val Fun_const = ``ast$Fun``
-val Short_const = ``namespace$Short``
-val Var_const = ``ast$Var``
-val Closure_const = ``semanticPrimitives$Closure``
+val Fun_const = get_term "Fun_const"
+val Short_const = get_term "Short_const"
+val Var_const = get_term "Var_const"
+val Closure_const = get_term "Closure_const"
 
-val failure_pat = ``\v. (Failure(C v), state_var)``
-val Eval_pat = ``Eval env exp (P (res:'a))``
-val Eval_pat2 = ``Eval env exp P``
-val derive_case_EvalM_abs = ``\EXN_TYPE res H. EvalM env st exp (MONAD P EXN_TYPE res) H``
-val Eval_name_RI_abs = ``\name RI. Eval env (Var (Short name)) RI``
-val write_const = ``write``
-val RARRAY_REL_const = ``RARRAY_REL``
-val run_const = ``ml_monadBase$run``
-val EXC_TYPE_aux_const = ``EXC_TYPE_aux``
+val failure_pat = get_term "failure_pat"
+val Eval_pat = get_term "Eval_pat"
+val Eval_pat2 = get_term "Eval_pat2"
+val derive_case_EvalM_abs = get_term "derive_case_EvalM_abs"
+val Eval_name_RI_abs = get_term "Eval_name_RI_abs"
+val write_const = get_term "write_const"
+val RARRAY_REL_const = get_term "RARRAY_REL_const"
+val run_const = get_term "run_const"
+val EXC_TYPE_aux_const = get_term "EXC_TYPE_aux_const"
 
-val return_pat = ``st_ex_return x``
-val bind_pat = ``st_ex_bind x y``
-val otherwise_pat = ``x otherwise y``
-val if_statement_pat = ``if b then (x:('a,'b,'c) M) else (y:('a,'b,'c) M)``
-val raise_goal_abs = ``
-      \cons_name deep_type refin_inv EXN_RI f.
-      !H x a.
-      (lookup_cons cons_name env = SOME (1,deep_type)) ==>
-      Eval env exp1 (refin_inv x) ==>
-      EvalM env st (Raise (Con (SOME (Short cons_name)) [exp1]))
-        (MONAD a EXN_RI (f x)) H``
-val PreImp_EvalM_abs = ``\a name RI f H. PreImp a (!st. EvalM env st (Var (Short name)) (RI f) H)``
+val return_pat = get_term "return_pat"
+val bind_pat = get_term "bind_pat"
+val otherwise_pat = get_term "otherwise_pat"
+val if_statement_pat = get_term "if_statement_pat"
+val raise_goal_abs = get_term "raise_goal_abs"
+val PreImp_EvalM_abs = get_term "PreImp_EvalM_abs"
 
 (* ---- *)
 
@@ -142,8 +136,8 @@ fun Dfilter th a0 = let
 
 (* The store predicate *)
 val H_def = ref UNIT_TYPE_def; (* need a theorem here... *)
-val default_H = ref ``\refs. emp``;
-val H = ref ``\refs. emp``;
+val default_H = ref (get_term "refs_emp");
+val H = ref (get_term "refs_emp");
 val dynamic_init_H = ref false; (* Has the store predicate free variables? *)
 val store_pinv_def = ref (NONE : thm option);
 
@@ -161,11 +155,10 @@ val refs_type = ref unit_ty;
 
 (* The exception refinement invariant and type *)
 val EXN_TYPE_def_ref = ref UNIT_TYPE_def;
-val EXN_TYPE = ref ``UNIT_TYPE``;
+val EXN_TYPE = ref (get_term "UNIT_TYPE");
 val exn_type = ref unit_ty;
 
 (* Some functions to generate monadic types *)
-(* ``:^(!refs_type) -> (^ty, ^(!exn_type)) exc # ^(!refs_type)`` *)
 fun M_type ty = Type.type_subst [a_ty |-> !refs_type,
 				 b_ty |-> ty,
 				 c_ty |-> !exn_type]
@@ -341,7 +334,7 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, d
       rw[Once(CONJUNCT2 evaluate_cases)] >>
       first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
       IMP_RES_TAC (evaluate_empty_state_IMP
-		   |> INST_TYPE [``:'ffi``|->unit_ty]) >>
+		   |> INST_TYPE [get_type "ffi"|->unit_ty]) >>
       rw[do_con_check_def,build_conv_def] >>
       fs [lookup_cons_def] >>
       fs[exn_ri_def,namespaceTheory.id_to_n_def] >>
@@ -357,7 +350,7 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, d
    val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 in raise_spec end;
 
-val namespaceLong_tm = ``namespace$Long``;
+val namespaceLong_tm = get_term "namespaceLong_tm";
 (* val (handle_fun_def, ECons, exn_type, deep_type) = List.hd handle_info *)
 fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, ECons, exn_type, deep_type) = let
     val fun_tm = concl handle_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
@@ -469,14 +462,11 @@ in zip raise_specs handle_specs end;
   val _ = set_goal([],goal)
 *)
 local
-  val IF_T = Q.prove(`(if T then x else y) = x:'a`,SIMP_TAC std_ss [])
-  val IF_F = Q.prove(`(if F then x else y) = y:'a`,SIMP_TAC std_ss [])
-  val evaluate_Mat =
-    ``evaluate c x env (Mat e pats) (xx,res)``
+  val IF_T = ml_monad_translatorTheory.IF_T
+  val IF_F = ml_monad_translatorTheory.IF_F
+  val evaluate_Mat = (get_term "eval Mat")
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])
-  val evaluate_match_Conv =
-    ``evaluate_match c x env args ((Pcon xx pats,exp2)::pats2)
-                     errv (yyy,y)``
+  val evaluate_match_Conv = (get_term "eval_match Pcon")
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
        SIMP_CONV (srw_ss()) [pmatch_def])
 in
@@ -512,7 +502,7 @@ fun derive_case_of ty = let
       in tryfind is_valid thms end
   (* *)
   val case_th = get_nchotomy_of ty
-  val pat = Eval_pat (* ``Eval env exp (P (res:'a))`` *)
+  val pat = Eval_pat
   val pure_tm = case_of ty |> concl
   (* Find a variable for the store invariant *)
   val pure_tm_vars = all_vars pure_tm
@@ -523,7 +513,6 @@ fun derive_case_of ty = let
     val (m,i) = match_term pat tm
     val res = mk_var("res", M_type a_ty)
     val st = mk_var("st",!refs_type)
-    (* val tm1 = subst m (inst i ``EvalM env st exp (MONAD P ^(!EXN_TYPE) ^res) ^H_var``) *)
     val tm0 = ISPECL_TM [!EXN_TYPE,res,H_var] derive_case_EvalM_abs
     val tm1 = subst m (inst i tm0)
     val ty1 = tm |> rand |> rand |> type_of
@@ -614,7 +603,7 @@ fun mem_derive_case_of ty =
       val th = ISPEC (!H) th
   in th end);
 
-val nsLookup_val_pat = ``nsLookup (env : env_val) (Short (vname : tvarN)) = SOME (loc : v)``
+val nsLookup_val_pat = get_term "nsLookup_val_pat"
 fun compute_dynamic_refs_bindings all_access_specs = let
     val store_vars = FVL [(!H)] empty_varset;
     fun get_dynamic_init_bindings spec = let
@@ -724,7 +713,7 @@ fun inst_case_thm_for tm = let
   val ns = List.map (fn n => (n,args n)) names
   fun rename_var prefix ty v =
     mk_var(prefix ^ implode (tl (explode (fst (dest_var v)))),ty)
-  val ts = find_terms (can (match_term ``ml_translator$CONTAINER (b:bool)``)) (concl th)
+  val ts = find_terms (can (match_term (get_term "CONTAINER"))) (concl th)
            |> List.map (rand o rand)
            |> List.map (fn tm => (tm,List.map (fn x => (x,rename_var "n" string_ty x,
                                                 rename_var "v" v_ty x))
@@ -754,7 +743,7 @@ val tm = dest_conj hyps |> snd
 sat_hyps tm
 *)
 
-val EvalM_pat = ``EvalM env st e p H``
+val EvalM_pat = get_term "EvalM_pat"
 fun inst_case_thm tm m2deep = let
   val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
   val th = inst_case_thm_for tm
@@ -812,13 +801,13 @@ fun inst_case_thm tm m2deep = let
   in th |> UNDISCH_ALL end handle Empty => failwith "empty";
 
 (* PMATCH *)
-val IMP_EQ_T = Q.prove(`a ==> (a <=> T)`,fs [])
-val BETA_PAIR_THM = Q.prove(`(\(x, y). f x y) (x, y) = (\x y. f x y) x y`, fs[])
+val IMP_EQ_T = ml_monad_translatorTheory.IMP_EQ_T;
+val BETA_PAIR_THM = ml_monad_translatorTheory.BETA_PAIR_THM;
 
-val var_assum = ``Eval env (Var n) (a (y:'a))``
-val nsLookup_assum = ``nsLookup env name = opt``
-val lookup_cons_assum = ``lookup_cons name env = opt``
-val eqtype_assum = ``EqualityType A``
+val var_assum = get_term "var_assum"
+val nsLookup_assum = get_term "nsLookup_assum"
+val lookup_cons_assum = get_term "lookup_cons_assum"
+val eqtype_assum = get_term "eqtype_assum"
 fun prove_EvalMPatBind goal m2deep = let
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> get_Eval_arg |> rator
@@ -980,8 +969,6 @@ fun inst_EvalM_env v th = let
   val tys = Type.match_type (type_of v) (type_of inv |> dest_type |> snd |> List.hd)
   val v = Term.inst tys v
   val ri = mk_comb(inv, v)
-  (* val assum = ``Eval env (Var (Short ^str)) ^ri``
-  val new_env = ``write ^str (v:v) ^v_env`` *)
   val assum = ISPECL_TM [str,ri] Eval_name_RI_abs
   val new_env = mk_write str v_var v_env
   val old_env = new_env |> rand
@@ -1076,7 +1063,6 @@ fun apply_EvalM_Recclosure recc fname v th = let
   val v = Term.inst tys v
   val assum = subst [old_env|->new_env]
               (ISPECL_TM [vname_str,mk_comb(inv,v)] Eval_name_RI_abs)
-              (* ``Eval env (Var (Short ^vname_str)) (^inv ^v)`` *)
   val state_var = UNDISCH_ALL th |> concl |> get_EvalM_state
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum
@@ -1178,8 +1164,6 @@ fun get_pattern patterns tm = tryfind (fn(pat, th) => if can (match_term pat) tm
 fun print_tm_msg msg tm =
   print (msg  ^(term_to_string tm) ^ "\n\n");
 
-val H_STAR_TRUE = Q.prove(`(H * &T = H) /\ (&T * H = H)`, fs[SEP_CLAUSES])
-
 fun inst_EvalM_bind th1 th2 = let
     val vs = concl th2 |> dest_imp |> fst
     val v = rand vs
@@ -1276,9 +1260,9 @@ fun m2deep_previously_translated th tm = let
 in result end
 
 (* normal function application *)
-val nsLookup_assum = ``nsLookup env name = opt``
-val lookup_cons_assum = ``lookup_cons name env = opt``
-val eqtype_assum = ``EqualityType A``
+val nsLookup_assum = get_term "nsLookup_assum"
+val lookup_cons_assum = get_term "lookup_cons_assum"
+val eqtype_assum = get_term "eqtype_assum"
 fun m2deep_normal_fun_app tm m2deep = let
     val (f,x) = dest_comb tm
     val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
@@ -1323,10 +1307,8 @@ fun m2deep_normal_fun_app tm m2deep = let
     val result = PURE_REWRITE_RULE [GSYM ArrowM_def] result
 in result end
 
-val nsLookup_closure_pat = ``nsLookup env1.v (Short name1) =
-		             SOME (Closure env2 name2 exp)``
-val nsLookup_recclosure_pat = ``nsLookup env1.v (Short name1) =
-                                SOME (Recclosure env2 exps name2)``
+val nsLookup_closure_pat = get_term "nsLookup_closure_pat"
+val nsLookup_recclosure_pat = get_term "nsLookup_recclosure_pat"
 fun abbrev_nsLookup_code th = let
     (* Prevent the introduction of abbreviations for already abbreviated code *)
     val th = HYP_CONV_RULE (fn x => true) (PURE_REWRITE_CONV (List.map GSYM (!local_code_abbrevs))) th
@@ -1592,8 +1574,8 @@ in
     val remove_Eq = remove_Eq_aux o remove_EqSt
 end
 
-val Eq_pat = ``Eq a x``
-val EqSt_pat = ``EqSt a x``
+val Eq_pat = get_term "Eq_pat"
+val EqSt_pat = get_term "EqSt_pat"
 fun remove_Eq_from_v_thm th = let
   fun try_each f [] th = th
     | try_each f (x::xs) th = try_each f xs (f x th handle HOL_ERR _ => th)
@@ -1618,8 +1600,7 @@ fun remove_Eq_from_v_thm th = let
   val vs = tms |> List.map rand
   in try_each foo vs th end
 
-val EVAL_T_F = LIST_CONJ [EVAL ``ml_translator$CONTAINER ml_translator$TRUE``,
-			  EVAL ``ml_translator$CONTAINER ml_translator$FALSE``];
+val EVAL_T_F = ml_monad_translatorTheory.EVAL_T_F;
 
 fun get_manip_functions_defs () = let
     val defs_list = List.foldl (fn ((x, y), l) => x::y::l) [] (!exn_functions_defs)
@@ -1641,7 +1622,7 @@ fun extract_precondition_non_rec th pre_var =
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
     in if rhs = T then
-      (UNDISCH_ALL (SIMP_RULE std_ss [EVAL (``ml_translator$PRECONDITION T``)] th),NONE)
+      (UNDISCH_ALL (SIMP_RULE std_ss [EVAL_PRECONDITION_T] th),NONE)
     else let
     val def_tm = mk_eq(pre_var,rhs)
     val pre_def = quietDefine [ANTIQUOTE def_tm]
@@ -1651,10 +1632,6 @@ fun extract_precondition_non_rec th pre_var =
     val pre_def = clean_precondition pre_def
   in (th,SOME pre_def) end end
 (* *)
-
-val PreImp_PRECONDITION_T_SIMP = Q.prove(
- `PreImp T a /\ PRECONDITION T <=> a`,
- fs[PreImp_def, PRECONDITION_def]);
 
 fun extract_precondition_rec thms = let
 (* val (fname,ml_fname,def,th) = List.hd thms *)
@@ -1719,7 +1696,7 @@ val (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
 
   (* Remove the occurences of PreImp and PreCond *)
   fun replace_EvalM (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
-    val rw1 = mk_thm([], ``(PreImp a b /\ PRECONDITION a) <=> b``)
+    val rw1 = mk_thm([], get_term "PreImp simp")
     val rws = rw1::pre_var_EvalM_rws
     val assum = concl th |> dest_imp |> fst
     val st = concl th |> dest_imp |> snd |> get_EvalM_state
@@ -1837,8 +1814,9 @@ fun get_monadic_types_inst tm = let
 in tys end;
 
 (* Register a type which is neither the monadic state type nor the exc type *)
+val register_pure_type_pat = get_type "register_pure_type_pat"
 fun register_pure_type ty =
-    if (!refs_type) = ty orelse can (match_type ``:('a, 'b) ml_monadBase$exc``) ty then ()
+    if (!refs_type) = ty orelse can (match_type register_pure_type_pat) ty then ()
     else register_type ty;
 
 (* Preprocess the monadic defs *)
@@ -2014,11 +1992,7 @@ in thms end;
  * For debugging purposes only.
  *)
 
-val knwn_consts = [
- ``st_ex_bind``,``st_ex_return``,``$otherwise``,``COND``,``LET``,
- ``PMATCH``,``PMATCH_ROW``,``BIT1``,``BIT2``,``NUMERAL``,``ZERO``,``CONS``,
- ``[]``,``()``,``UNCURRY``,``CHR``,``integer$int_of_num``,``$/\``,``$=``
- ]
+val knwn_consts = unpack_list unpack_term knwn_consts_thm;
 fun m_find_untranslated def = let
     val fconsts = SPEC_ALL def |> CONJUNCTS
 	|> List.map (fst o strip_comb o fst o dest_eq o concl o SPEC_ALL)
@@ -2052,7 +2026,7 @@ fun m_find_untranslated def = let
 in untrans_consts end
 
 (* Update precondition *)
-val PRECONDITION_pat = ``ml_translator$PRECONDITION x``
+val PRECONDITION_pat = get_term "PRECONDITION_pat"
 val is_PRECONDITION = can (match_term PRECONDITION_pat)
 fun update_precondition new_pre = let
   val v_thms = get_v_thms_ref()
@@ -2253,7 +2227,7 @@ val (fname,ml_fname,def,th,pre) = List.hd thms
  * m_translate
  *)
 
-val LOOKUP_VAR_pat = ``LOOKUP_VAR name env exp``;
+val LOOKUP_VAR_pat = get_term "LOOKUP_VAR_pat";
 fun m_translate def =
   let
       val (is_rec,is_fun,results) = m_translate_main (* m_translate *) def
@@ -2346,7 +2320,7 @@ fun m_translate def =
  * m_translate_run
  *)
 
-val Long_tm = ``namespace$Long : tvarN -> (tvarN, tvarN) id -> (tvarN, tvarN) id ``;
+val Long_tm = get_term "Long_tm";
 fun get_exn_constructs () = let
     val exn_type_def = !EXN_TYPE_def_ref
     val exn_type_conjs = CONJUNCTS exn_type_def
@@ -2378,10 +2352,10 @@ fun clean_lookup_assums th = let
     val th = remove_local_code_abbrevs th
     val th = HYP_CONV_RULE (fn x => true) (SIMP_CONV list_ss (build_rec_env_def::lookup_var_write::LOOKUP_ASSUM_SIMP::FOLDR::string_rewrites)) th
     val th = HYP_CONV_RULE (fn x => true) (PURE_REWRITE_CONV (List.map GSYM (!local_code_abbrevs))) th
-    val th = MP (DISCH ``T`` th ) TRUTH handle HOL_ERR _ => th
+    val th = MP (DISCH T th ) TRUTH handle HOL_ERR _ => th
 in th end
 
-val nsLookup_pat = ``nsLookup (env : v sem_env).v (Short name) = SOME exp``
+val nsLookup_pat = get_term "nsLookup_pat"
 fun create_local_fun_defs th = let
     (* Retrieve the lookup assumptions for the functions definitions *)
     val assums =  List.filter (can (match_term nsLookup_pat)) (hyp th)
@@ -2474,8 +2448,7 @@ fun gen_name_tac name (g as (asl, w)) = let
     val renamed_w_th = RENAME_VARS_CONV [name] w
 in (PURE_ONCE_REWRITE_TAC[renamed_w_th] \\ strip_tac) g end
 
-val H_STAR_emp = Q.prove(`H * emp = H`, simp[SEP_CLAUSES]);
-val emp_tm = ``set_sep$emp``;
+val emp_tm = get_term "emp_tm";
 fun create_local_references th = let
     val th = PURE_REWRITE_RULE[!H_def] th
 			      |> PURE_ONCE_REWRITE_RULE[GSYM H_STAR_emp]
@@ -2721,7 +2694,7 @@ fun m_translate_run def = let
     val vname_th1 = SIMP_CONV list_ss [] vname_assum1 |> EQT_ELIM
     val vname_th2 = SIMP_CONV list_ss [] vname_assum2 |> EQT_ELIM
 
-    val EXC_TYPE_tm = get_type_inv ``:('a, 'b) exc`` |> rator |> rator
+    val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
     val EXC_TYPE_def = DB.find "EXC_TYPE_def" |> List.hd |> snd |> fst
 		       handle Empty => raise (ERR "m_translate_run" "The `exc` type needs to be registered in the current program")
     val EXC_RI_prove_tac =

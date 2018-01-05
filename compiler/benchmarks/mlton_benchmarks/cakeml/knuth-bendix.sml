@@ -159,14 +159,14 @@ datatype term
 
 fun vars t = case t of
     (Var n) => [n]
-  | (Term(_,l)) => vars_of_list l
+  | (Term _ l) => vars_of_list l
 and vars_of_list ls = case ls of
     [] => []
   | (t::r) => union (vars t) (vars_of_list r)
 
 fun substitute subst =
   let fun subst_rec t = case t of
-          (Term(oper,sons)) => Term(oper, map subst_rec sons)
+          (Term oper sons) => Term oper (map subst_rec sons)
         | ((Var n))     => (assoc n subst) handle Failure _ => t
   in subst_rec
   end
@@ -183,8 +183,8 @@ fun change f =
 fun replace m u n =
   let fun reprec p = case p of
           (_, []) => n
-        | (Term(oper,sons), (n::u)) =>
-             Term(oper, change (fn p => reprec(p,u)) sons n)
+        | (Term oper sons, (n::u)) =>
+             Term oper (change (fn p => reprec(p,u)) sons n)
         | _ => failwith "replace"
   in reprec(m,u)
   end
@@ -197,7 +197,7 @@ fun matching term1 term2 =
             if m = assoc v subst then subst else failwith "matching"
           else
             (v,m) :: subst
-        | (Term(op1,sons1), Term(op2,sons2)) =>
+        | (Term op1 sons1, Term op2 sons2) =>
           if op1 = op2 then it_list2 match_rec subst sons1 sons2
                        else failwith "matching"
         | _ => failwith "matching"
@@ -212,7 +212,7 @@ fun compsubst subst1 subst2 =
 fun occurs n =
   let fun occur_rec t = case t of
           (Var m) => (m=n)
-        | (Term(_,sons)) => exists occur_rec sons
+        | (Term _ sons) => exists occur_rec sons
   in occur_rec
   end
 
@@ -224,7 +224,7 @@ fun unify p = case p of
   | (term1, Var n2) =>
       if occurs n2 term1 then failwith "unify"
       else [(n2,term1)]
-  | (Term(op1,sons1), Term(op2,sons2)) =>
+  | (Term op1 sons1, Term op2 sons2) =>
       if op1 = op2 then
         it_list2 (fn s => fn (t1,t2) => compsubst (unify(substitute s t1,
                                                          substitute s t2)) s)
@@ -239,7 +239,7 @@ val iNFIXES = ["+","*"];
 fun pretty_term t = case t of
     (Var n) =>
       (print_string "v"; print_num n)
-  | (Term (oper,sons)) =>
+  | (Term oper sons) =>
       if mem oper iNFIXES then
         case sons of
             [s1,s2] =>
@@ -255,7 +255,7 @@ fun pretty_term t = case t of
                      app (fn t => (print_string ","; pretty_term t)) lt;
                      print_string ")"))
 and pretty_close m = case m of
-    (Term(oper, _)) =>
+    (Term oper _) =>
       if mem oper iNFIXES then
         (print_string "("; pretty_term m; print_string ")")
       else pretty_term m
@@ -298,7 +298,7 @@ fun reducible l =
   let fun redrec m =
     (matching l m; true)
     handle Failure _ =>
-      case m of Term(_,sons) => exists redrec sons
+      case m of Term _ sons => exists redrec sons
               |        _     => false
   in redrec
   end
@@ -318,7 +318,7 @@ fun mrewrite1 rules =
             | (son::rest) =>
                 (rewrec son :: rest) handle Failure _ => son :: tryrec rest
       in case m of
-          Term(f, sons) => Term(f, tryrec sons)
+          Term f sons => Term f (tryrec sons)
         | _ => failwith "mrewrite1"
       end
   in rewrec
@@ -363,7 +363,7 @@ fun diff_eq equiv (x,y) =
 
 (* multiset extension of order *)
 fun mult_ext order p = case p of
-  (Term(u1,sons1), Term(u2,sons2)) =>
+  (Term u1 sons1, Term u2 sons2) =>
       (case diff_eq (eq_ord order) (sons1,sons2) of
            ([],[]) => Equal
          | (l1,l2) =>
@@ -373,7 +373,7 @@ fun mult_ext order p = case p of
 
 (* lexicographic extension of order *)
 fun lex_ext order (m,n) = case (m,n) of
-  (Term(u1,sons1), Term(u2,sons2)) =>
+  (Term u1 sons1, Term u2 sons2) =>
       let fun lexrec p = case p of
               ([] , []) => Equal
             | ([] , _ ) => NotGE
@@ -396,11 +396,11 @@ fun rpo op_order ext =
     if m=n then Equal else
       case m of
           Var m => NotGE
-        | Term(op1,sons1) =>
+        | Term op1 sons1 =>
             case n of
                 Var n =>
                   if occurs n m then Greater else NotGE
-              | Term(op2,sons2) =>
+              | Term op2 sons2 =>
                   case (op_order op1 op2) of
                       Greater =>
                         if for_all (fn n' => gt_ord rporec (m,n')) sons2
@@ -420,7 +420,7 @@ fun rpo op_order ext =
 
 fun super m =
   let fun suprec n = case n of
-      Term(_,sons) =>
+      Term _ sons =>
       let fun collate (pairs,n) son =
                 (append (pairs,map (fn (u,sigma) => (n::u,sigma)) (suprec son)), n+1);
           val insides =
@@ -433,15 +433,15 @@ fun super m =
 (* Ex :
 let (m,_) = <<F(A,B)>>
 and (n,_) = <<H(F(A,x),F(x,y))>> in super m n;;
-==> [[1],[2,Term ("B",[])];                      x <- B
-     [2],[2,Term ("A",[]); 1,Term ("B",[])]]     x <- A  y <- B
+==> [[1],[2,Term "B" []];                      x <- B
+     [2],[2,Term "A" []; 1,Term "B" []]]     x <- A  y <- B
 *)
 
 (* All (u,sigma), u&[], such that n/u unifies with m *)
 (* super_strict : term -> term -> (num list & subst) list *)
 
 fun super_strict m t = case t of
-  (Term(_,sons)) =>
+  (Term _ sons) =>
         let fun collate (pairs,n) son =
           (append (pairs,map (fn (u,sigma) => (n::u,sigma)) (super m son)), n+1)
         in fst (it_list collate ([],1) sons) end
@@ -472,7 +472,7 @@ fun mutual_critical_pairs eq1 eq2 =
 fun rename n (t1,t2) =
   let fun ren_rec t = case t of
           (Var k) => Var(k+n)
-        | (Term(oper,sons)) => Term(oper, map ren_rec sons)
+        | (Term oper sons) => Term oper (map ren_rec sons)
   in (ren_rec t1, ren_rec t2)
   end
 
@@ -558,31 +558,31 @@ fun kb_complete greater complete_rules rules =
     end
 
 val group_rules = [
-  (1, (1, (Term("*", [Term("U",[]), Var 1]), Var 1))),
-  (2, (1, (Term("*", [Term("I",[Var 1]), Var 1]), Term("U",[])))),
-  (3, (3, (Term("*", [Term("*", [Var 1, Var 2]), Var 3]),
-           Term("*", [Var 1, Term("*", [Var 2, Var 3])]))))];
+  (1, (1, (Term "*" ([Term "U"([]), Var 1]), Var 1))),
+  (2, (1, (Term "*" ([Term "I"([Var 1]), Var 1]), Term "U" ([])))),
+  (3, (3, (Term "*" ([Term "*"( [Var 1, Var 2]), Var 3]),
+           Term "*" ([Var 1, Term"*" ([Var 2, Var 3])]))))];
 
 val geom_rules = [
- (1,(1,(Term ("*",[(Term ("U",[])), (Var 1)]),(Var 1)))),
- (2,(1,(Term ("*",[(Term ("I",[(Var 1)])), (Var 1)]),(Term ("U",[]))))),
- (3,(3,(Term ("*",[(Term ("*",[(Var 1), (Var 2)])), (Var 3)]),
-  (Term ("*",[(Var 1), (Term ("*",[(Var 2), (Var 3)]))]))))),
- (4,(0,(Term ("*",[(Term ("A",[])), (Term ("B",[]))]),
-  (Term ("*",[(Term ("B",[])), (Term ("A",[]))]))))),
- (5,(0,(Term ("*",[(Term ("C",[])), (Term ("C",[]))]),(Term ("U",[]))))),
+ (1,(1,(Term "*"([(Term "U"([])), (Var 1)]),(Var 1)))),
+ (2,(1,(Term "*"([(Term "I"([(Var 1)])), (Var 1)]),(Term "U"([]))))),
+ (3,(3,(Term "*"([(Term "*"([(Var 1), (Var 2)])), (Var 3)]),
+  (Term "*"([(Var 1), (Term "*"([(Var 2), (Var 3)]))]))))),
+ (4,(0,(Term "*"([(Term "A"([])), (Term "B"([]))]),
+  (Term "*"([(Term "B"([])), (Term "A"([]))]))))),
+ (5,(0,(Term "*"([(Term "C"([])), (Term "C"([]))]),(Term "U"([]))))),
  (6,(0,
   (Term
-   ("*",
-    [(Term ("C",[])),
-     (Term ("*",[(Term ("A",[])), (Term ("I",[(Term ("C",[]))]))]))]),
-  (Term ("I",[(Term ("A",[]))]))))),
+    "*"
+    ([(Term "C"([])),
+     (Term "*"([(Term "A"([])), (Term "I"([(Term "C"([]))]))]))]),
+  (Term "I"([(Term "A"([]))]))))),
  (7,(0,
   (Term
-   ("*",
-    [(Term ("C",[])),
-     (Term ("*",[(Term ("B",[])), (Term ("I",[(Term ("C",[]))]))]))]),
-  (Term ("B",[])))))
+   "*"
+    ([(Term "C"([])),
+     (Term "*"([(Term "B"([])), (Term "I"([(Term "C"([]))]))]))]),
+  (Term "B"([])))))
 ];
 
 fun group_rank s = case s of

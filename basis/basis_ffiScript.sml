@@ -47,9 +47,9 @@ val basis_ffi_oracle_def = Define `
 
 (* standard streams are initialized *)
 val basis_ffi_def = Define `
-  basis_ffi (cls: string list) fs =
+  basis_ffi cl fs =
     <| oracle := basis_ffi_oracle
-     ; ffi_state := (cls, fs)
+     ; ffi_state := (cl, fs)
      ; final_event := NONE
      ; io_events := [] |>`;
 
@@ -74,7 +74,10 @@ val extract_fs_def = Define `
   (extract_fs init_fs ((IO_event name conf bytes)::xs) =
     case (ALOOKUP (SND(SND fs_ffi_part)) name) of
     | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
-                       | SOME (bytes',fs') => extract_fs fs' xs
+                       | SOME (bytes',fs') =>
+                         if bytes' = MAP SND bytes then
+                           extract_fs fs' xs
+                         else NONE
                        | NONE => NONE)
     | NONE => extract_fs init_fs xs)`
 
@@ -90,6 +93,73 @@ val extract_fs_APPEND = Q.store_thm("extract_fs_APPEND",
   \\ rpt CASE_TAC);
 
 (*
+val extract_stdo_def = Define`
+  (extract_stdo fd [] = "") ∧
+  (extract_stdo fd (IO_event name conf bytes::xs) =
+   if name = "write" ∧
+      3 ≤ LENGTH bytes ∧
+      FST(HD bytes) = fd ∧
+      SND(HD bytes) = 0w
+   then
+     MAP (CHR o w2n o FST) (TAKE (w2n(SND(HD(TL bytes)))) (DROP 3 bytes))
+     ++ extract_stdo fd xs
+   else extract_stdo fd xs)`
+val _ = overload_on("extract_stdout",``extract_stdo stdOut``);
+val _ = overload_on("extract_stderr",``extract_stdo stdErr``);
+
+val extract_stdo_extract_fs = Q.store_thm("extract_stdo_extract_fs",
+  `∀io_events fs init out ll.
+   stdo fd nm fs init ∧ fd < 256 ∧ ALOOKUP fs.infds
+   extract_fs fs io_events = SOME (add_stdo fd nm fs out with numchars := ll) ⇒
+   extract_stdo (n2w fd) io_events = out`,
+  Induct \\ simp[extract_fs_def,extract_stdo_def]
+  >- (
+    rpt gen_tac
+    \\ simp[GSYM AND_IMP_INTRO] \\ strip_tac
+    \\ simp[add_stdo_def,up_stdo_def]
+    \\ SELECT_ELIM_TAC
+    \\ conj_tac >- metis_tac[]
+    \\ simp[stdo_def]
+    \\ simp[fsupdate_numchars]
+    \\ simp[fsupdate_def]
+    \\ rw[IO_fs_component_equality]
+    \\ qpat_assum`ALOOKUP fs.files _ = _`mp_tac
+    \\ qpat_assum`fs.files = _`SUBST1_TAC
+    \\ simp[ALIST_FUPDKEY_ALOOKUP] )
+  \\ Cases
+  \\ rw[extract_fs_def,extract_stdo_def]
+  >- (
+    fs[option_caseeq,pair_caseeq]
+    \\ fs[] \\ fs[fs_ffi_part_def]
+    \\ rveq
+    \\ fs[ffi_write_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION,UNCURRY] \\ rveq
+    \\ TRY ( Cases_on`l0` \\ fs[LUPDATE_def] \\ NO_TAC )
+    \\ qmatch_asmsub_abbrev_tac`extract_fs fs'`
+    \\ first_x_assum(qspec_then`fs'`mp_tac)
+    \\ simp[]
+    \\ fs[write_def,UNCURRY]
+    \\ rveq \\ fs[]
+    \\ Cases_on`l0` \\ fs[]
+    \\ Cases_on`t` \\ fs[]
+    \\ Cases_on`t'` \\ fs[]
+    \\ fs[LUPDATE_compute]
+    \\ Cases_on`h` \\ fs[] \\ rveq
+    \\ fs[stdo_def]
+    \\ simp[Abbr`fs'`,fsupdate_def]
+    \\ CASE_TAC \\ fs[]
+    \\ simp[ALIST_FUPDKEY_ALOOKUP]
+
+    \\ cheat)
+  \\ qpat_x_assum`_ = SOME _`mp_tac
+  \\ simp[option_caseeq,pair_caseeq]
+  \\ qhdtm_x_assum`stdo`mp_tac
+  \\ simp[fs_ffi_part_def]
+  \\ simp[stdo_def]
+  \\ simp[bool_case_eq]
+  \\ rw[] \\ fs[]
+  stdo_def
+
 val is_write_def = Define`
   (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
   (is_write _ _ ⇔ F)`;

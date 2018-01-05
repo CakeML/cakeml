@@ -1,4 +1,4 @@
-INCLUDES = ../misc ../semantics ../semantics/alt_semantics/proofs ../translator $(HOLDIR)/examples/machine-code/hoare-triple ../compiler/parsing
+INCLUDES = ../misc ../semantics ../semantics/alt_semantics/proofs ../basis/pure ../translator $(HOLDIR)/examples/machine-code/hoare-triple ../compiler/parsing
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

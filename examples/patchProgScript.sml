@@ -117,10 +117,10 @@ val patch'_spec = Q.store_thm("patch'_spec",
        (if inFS_fname fs (File f1) then
         if inFS_fname fs (File f2) then
         case patch_alg (all_lines fs (File f2)) (all_lines fs (File f1)) of
-        | NONE => add_stderr fs (explode rejected_patch_string)
-        | SOME s => add_stdout fs (CONCAT (MAP explode s))
-        else add_stderr fs (explode (notfound_string f2))
-        else add_stderr fs (explode (notfound_string f1))))`,
+        | NONE => add_stderr fs rejected_patch_string
+        | SOME s => add_stdout fs (concat s)
+        else add_stderr fs (notfound_string f2)
+        else add_stderr fs (notfound_string f1)))`,
   xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
@@ -162,15 +162,15 @@ val patch_spec = Q.store_thm("patch_spec",
      (POSTv uv. &UNIT_TYPE () uv *
                 STDIO (
                   if (LENGTH cl = 3) then
-                  if inFS_fname fs (File (implode (EL 1 cl))) then
-                  if inFS_fname fs (File (implode (EL 2 cl))) then
-                   case patch_alg (all_lines fs (File (implode (EL 2 cl))))
-                                  (all_lines fs (File (implode (EL 1 cl)))) of
-                     NONE => add_stderr fs (explode (rejected_patch_string))
-                   | SOME s => add_stdout fs (CONCAT (MAP explode s))
-                  else add_stderr fs (explode (notfound_string (implode (EL 2 cl))))
-                  else add_stderr fs (explode (notfound_string (implode (EL 1 cl))))
-                  else add_stderr fs (explode usage_string)) * COMMANDLINE cl)`,
+                  if inFS_fname fs (File (EL 1 cl)) then
+                  if inFS_fname fs (File (EL 2 cl)) then
+                   case patch_alg (all_lines fs (File (EL 2 cl)))
+                                  (all_lines fs (File (EL 1 cl))) of
+                     NONE => add_stderr fs (rejected_patch_string)
+                   | SOME s => add_stdout fs (concat s)
+                  else add_stderr fs (notfound_string (EL 2 cl))
+                  else add_stderr fs (notfound_string (EL 1 cl))
+                  else add_stderr fs usage_string) * COMMANDLINE cl)`,
   strip_tac \\ xcf "patch" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -193,8 +193,8 @@ val patch_spec = Q.store_thm("patch_spec",
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xapp
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h''`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `h''`
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `h'`
   \\ xsimpl \\ fs[FILENAME_def]
   \\ fs[validArg_def,EVERY_MEM]);
 

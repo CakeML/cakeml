@@ -119,6 +119,7 @@ val res = translate inferTheory.init_config_def;
 *)
 val res = translate error_to_str_def;
 
+val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
 val res = translate find_str_def;
@@ -186,7 +187,7 @@ val st = get_ml_prog_state()
 val full_compile_32_def = Define `
   full_compile_32 cl inp =
     if has_version_flag cl then
-      (List [current_build_info_str], implode"", F)
+      (List [current_build_info_str], strlit"", F)
     else
       let (a,b) = compile_32 cl inp in (a,b,T)`
 
@@ -195,9 +196,9 @@ val main_spec = Q.store_thm("main_spec",
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
        &UNIT_TYPE () uv *
-       (let (out,err,b) = full_compile_32 (TL (MAP implode cl)) (get_stdin fs) in
+       (let (out,err,b) = full_compile_32 (TL cl) (get_stdin fs) in
         let fs' = if b then fastForwardFD fs 0 else fs in
-         STDIO (add_stderr (add_stdout fs' (explode (concat (append out)))) (explode err)))
+         STDIO (add_stderr (add_stdout fs' (concat (append out))) err))
       * COMMANDLINE cl)`,
   xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
@@ -235,11 +236,12 @@ val main_spec = Q.store_thm("main_spec",
     \\ fs [compilerTheory.current_build_info_str_def,
            fetch "-" "compiler_current_build_info_str_v_thm"]
     \\ xsimpl
-    \\ rename1 `add_stdout _ string`
+    \\ rename1 `add_stdout _ (strlit string)`
     \\ fs [concat_def, explode_thm]
     \\ `!str. ?pos. stderr (add_stdout fs str) pos` by
-      metis_tac [stdo_def, STD_streams_def, STD_streams_add_stdout]
-    \\ pop_assum (qspec_then `string` strip_assume_tac)
+      metis_tac [stdo_def, STD_streams_def, STD_streams_add_stdout,
+                 LENGTH_explode, explode_implode]
+    \\ pop_assum (qspec_then `strlit string` strip_assume_tac)
     \\ imp_res_tac add_stdo_nil \\ xsimpl
     \\ qexists_tac `COMMANDLINE cl` \\ xsimpl
     \\ qexists_tac `fs` \\ xsimpl)
@@ -259,7 +261,6 @@ val main_spec = Q.store_thm("main_spec",
   \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
   \\ qexists_tac`fs'` \\ xsimpl
   \\ instantiate
-  \\ simp[Abbr`fs'`,mlstringTheory.concat_thm]
   \\ xsimpl);
 
 val spec = main_spec |> UNDISCH_ALL |> SIMP_RULE (srw_ss())[STDIO_def,LET_THM,UNCURRY] |> add_basis_proj;
@@ -276,7 +277,10 @@ val semantics_compiler32_prog =
   th
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [STD_streams_add_stderr,STD_streams_add_stdout,STD_streams_fastForwardFD,
-                           AND_IMP_INTRO,GSYM CONJ_ASSOC, full_compile_32_def]
+                           AND_IMP_INTRO,GSYM CONJ_ASSOC, full_compile_32_def,
+                           Ntimes COND_RAND 15, LET_THM, UNCURRY,
+                           add_stdo_nil |> Q.GEN`out` |> REWRITE_RULE[LEFT_FORALL_IMP_THM]
+                           |> C MATCH_MP (UNDISCH STD_streams_stderr) |> DISCH_ALL]
   |> curry save_thm "semantics_compiler32_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
