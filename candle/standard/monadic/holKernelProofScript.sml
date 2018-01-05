@@ -1079,7 +1079,7 @@ val vsubst_thm = Q.store_thm("vsubst_thm",
   rfs[STATE_def] >>
   rw[] >> METIS_TAC [WELLTYPED,term_ok_welltyped])
 
-val inst_aux_Var = Q.prove(
+val inst_aux_Var = Q.store_thm("inst_aux_Var",
   `inst_aux [] theta (Var v ty) state =
       (Success (Var v (type_subst theta ty)),state)`,
   SIMP_TAC (srw_ss()) [Once inst_aux_def,rev_assocd_thm,REV_ASSOCD,

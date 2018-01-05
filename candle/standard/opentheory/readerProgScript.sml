@@ -264,22 +264,6 @@ val INST_not_clash = Q.store_thm("INST_not_clash[simp]",
   Cases_on `x` \\ fs [INST_def, st_ex_bind_def, st_ex_return_def, exc_case_eq, pair_case_eq]
   \\ ho_match_mp_tac image_clash_thm \\ rw []);
 
-
-(* and something about the environment? *)
-val inst_aux_clash_is_var = Q.store_thm("inst_aux_clash_is_var",
-  `!env tyin tm s f t.
-     inst_aux env tyin tm s = (Failure (Clash f),t)
-     ==>
-     ?a b. f = Var a b`,
-  recInduct inst_aux_ind \\ rw []
-  \\ pop_assum mp_tac
-  \\ Cases_on `tm` \\ fs []
-  \\ once_rewrite_tac [inst_aux_def] \\ fs []
-  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
-  \\ simp [handle_Clash_def, raise_Clash_def, UNCURRY]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ res_tac \\ fs []);
-
 val variant_same_ty = Q.store_thm("variant_same_ty",
   `!x z c d.
      variant x z = Var c d
@@ -294,6 +278,136 @@ val vsubst_same_Var = Q.store_thm("vsubst_same_Var[simp]",
   `vsubst_aux [(Var a b, Var c d)] (Var c d) = Var a b`,
   once_rewrite_tac [vsubst_aux_def] \\ fs []
   \\ once_rewrite_tac [rev_assocd_def] \\ fs []);
+
+val inst_aux_clash_is_var = Q.store_thm("inst_aux_clash_is_var",
+  `!env tyin tm s f t.
+     inst_aux env tyin tm s = (Failure (Clash f),t)
+     ==>
+     ?a b. f = Var a b`,
+  recInduct inst_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on `tm` \\ fs []
+  \\ once_rewrite_tac [inst_aux_def] \\ fs []
+  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ simp [handle_Clash_def, raise_Clash_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []);
+
+val sizeof'_def = Define`
+  sizeof' (Comb s t) = 1 + sizeof' s + sizeof' t ∧
+  sizeof' (Abs v t) = 1 + sizeof' v + sizeof' t ∧
+  sizeof' _ = 1n`;
+val _ = export_rewrites["sizeof'_def"];
+
+val sizeof'_rev_assocd = Q.store_thm("sizeof'_rev_assocd",
+  `∀x  l d.
+   sizeof' d = sizeof' x ∧
+   EVERY (λp. sizeof' (FST p) = sizeof' (SND p)) l ⇒
+   sizeof' (rev_assocd x l d) = sizeof' x`,
+  simp[rev_assocd_thm]
+  \\ Induct_on`l` \\ rw[holSyntaxLibTheory.REV_ASSOCD_def]);
+
+val sizeof'_variant = Q.store_thm("sizeof'_variant[simp]",
+  `∀avoid tm. sizeof' (variant avoid tm) = sizeof' tm`,
+  recInduct holSyntaxExtraTheory.variant_ind
+  \\ rw[]
+  \\ rw[Once holSyntaxExtraTheory.variant_def]
+  \\ CASE_TAC \\ fs[]);
+
+val sizeof'_vsubst_aux = Q.store_thm("sizeof'_vsubst_aux",
+  `∀tm ss.
+    EVERY (λp. sizeof' (FST p) = sizeof' (SND p)) ss ⇒
+      sizeof' (vsubst_aux ss tm) = sizeof' tm`,
+  Induct \\ rw[]
+  \\ TRY (
+    rw[Once vsubst_aux_def]
+    \\ DEP_REWRITE_TAC[sizeof'_rev_assocd]
+    \\ simp[]
+    \\ NO_TAC )
+  \\ rw[Once vsubst_aux_def]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ simp[EVERY_FILTER]
+    \\ fs[EVERY_MEM]
+    \\ NO_TAC));
+
+(*
+val inst_aux_clash_is_var_in_env = Q.store_thm("inst_aux_clash_is_var_in_env",
+  `!n tm env tyin s f t.
+     sizeof' tm = n ∧
+     inst_aux env tyin tm s = (Failure (Clash f),t)
+     ==>
+     ?a b. f = Var a b /\ MEM f (MAP SND env) /\ (∀y t. tm <> Abs y t)`,
+  gen_tac
+  \\ completeInduct_on`n`
+  \\ Induct
+  \\ simp[Once inst_aux_def]
+  \\ rw[st_ex_return_def,st_ex_bind_def,raise_Fail_def,raise_Clash_def,handle_Clash_def]
+  \\ fs[exc_case_eq,pair_case_eq,hol_exn_case_eq,bool_case_eq] \\ rw[]
+  \\ fs[rev_assocd_thm]
+  \\ TRY (
+    qmatch_asmsub_abbrev_tac`REV_ASSOCD x l d`
+    \\ Q.ISPECL_THEN[`l`,`x`,`d`]strip_assume_tac holSyntaxLibTheory.REV_ASSOCD_MEM
+    \\ fs[MEM_MAP,SND_EQ_EQUIV,PULL_EXISTS]
+    \\ metis_tac[] )
+  \\ TRY (
+    first_x_assum(match_mp_tac o MP_CANON) \\ simp[]
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac \\ simp[] )
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm`mp_tac) \\ simp[]
+    \\ disch_then(qspec_then`tm`mp_tac) \\ simp[]
+    \\ disch_then drule \\ rw[] )
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm'`mp_tac) \\ simp[]
+    \\ disch_then(qspec_then`tm'`mp_tac) \\ simp[]
+    \\ disch_then drule \\ rw[] \\ NO_TAC)
+  \\ CCONTR_TAC \\ fs[] \\ rw[]
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm`mp_tac) \\ simp[]
+    \\ qexists_tac`tm`\\ simp[]
+    \\ asm_exists_tac \\ simp[])
+  \\ pop_assum mp_tac \\ rw[]
+  \\ fs[pair_case_eq,exc_case_eq] \\ rw[] \\ fs[]
+  \\ CCONTR_TAC \\ fs[] \\ rw[]
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm'`mp_tac) \\ simp[]
+    \\ qexists_tac`tm'`\\ simp[]
+    \\ asm_exists_tac \\ simp[] \\ fs[])
+  \\ pairarg_tac \\ fs[pair_case_eq,exc_case_eq] \\ rw[] \\ fs[]
+  \\ pairarg_tac \\ fs[pair_case_eq,exc_case_eq] \\ rw[] \\ fs[]
+  \\ imp_res_tac inst_aux_clash_is_var \\ fs[] \\ rw[]
+  \\ qhdtm_x_assum`dest_var`mp_tac \\ simp[dest_var_def]
+  \\ CASE_TAC \\ rw[raise_Fail_def,st_ex_return_def]
+  \\ fs[inst_aux_Var] \\ rw[]
+  \\ qhdtm_x_assum`dest_var`mp_tac \\ simp[dest_var_def]
+  \\ CASE_TAC \\ rw[raise_Fail_def,st_ex_return_def]
+  \\ imp_res_tac variant_same_ty \\ fs[] \\ rw[]
+  \\ CCONTR_TAC
+  \\ first_x_assum(qspec_then`sizeof' tm'`mp_tac) \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`vsubst_aux ss tm'`
+  \\ qexists_tac`vsubst_aux ss tm'` \\ simp[]
+  \\ DEP_REWRITE_TAC[sizeof'_vsubst_aux]
+  \\ simp[Abbr`ss`]
+  \\ asm_exists_tac \\ simp[]
+  \\ fs[] \\ rveq
+  \\ CCONTR_TAC \\ fs[] \\ rw[]
+
+  recInduct inst_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on `tm` \\ fs []
+  \\ once_rewrite_tac [inst_aux_def] \\ fs []
+  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ simp [handle_Clash_def, raise_Clash_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []
+  \\ rw[]
+  \\ strip_tac \\ fs[rev_assocd_thm,holSyntaxLibTheory.REV_ASSOCD_def]
+  \\ rw[]
+  );
+
+val inst_aux_not_clash
+*)
 
 val inst_aux_thm = Q.store_thm("inst_aux_thm",
   `!env tyin tm s f t.
