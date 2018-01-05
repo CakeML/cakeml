@@ -486,7 +486,7 @@ val isSubstring_aux_def = Define`
 val isSubstring_def = Define`
   isSubstring s1 s2 =
   if strlen s1 <= strlen s2
-    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1))
+    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1)+1)
   else F`;
 
 
