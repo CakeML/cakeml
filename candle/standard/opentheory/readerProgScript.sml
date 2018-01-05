@@ -473,14 +473,14 @@ val _ = (append_prog o process_topdecs) `
          handle Fail e => Inr e`;
 
 val process_line_spec = Q.store_thm("process_line_spec",
-  `STATE_TYPE st stv ∧ STRING_TYPE ln lnv
+  `READER_STATE_TYPE st stv ∧ STRING_TYPE ln lnv
    ==>
    app (p: 'ffi ffi_proj) ^(fetch_v "process_line" (get_ml_prog_state()))
    [stv; lnv]
    (HOL_STORE refs)
    (POSTv stv.
       HOL_STORE (SND(process_line st refs ln)) *
-      &SUM_TYPE STATE_TYPE STRING_TYPE
+      &SUM_TYPE READER_STATE_TYPE STRING_TYPE
         (FST(process_line st refs ln)) stv)`,
   xcf "process_line" (get_ml_prog_state())
   \\ xlet_auto >- xsimpl
@@ -510,11 +510,11 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ fs[SUM_TYPE_def] );
 
 val process_lines_def = Define`
-  (process_lines fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) "OK!\n") * HOL_STORE refs) ∧
+  (process_lines fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) (strlit "OK!\n")) * HOL_STORE refs) ∧
   (process_lines fd st refs fs (ln::ls) =
    case process_line st refs ln of
    | (INL st,refs) => process_lines fd st refs (lineForwardFD fs fd) ls
-   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (explode (msg_failure e))) * HOL_STORE refs)`;
+   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (msg_failure e)) * HOL_STORE refs)`;
 
 val _ = (append_prog o process_topdecs) `
   fun process_lines ins st0 =
@@ -527,7 +527,7 @@ val _ = (append_prog o process_topdecs) `
 
 val process_lines_spec = Q.store_thm("process_lines_spec",
   `!n st stv refs.
-     STATE_TYPE st stv /\
+     READER_STATE_TYPE st stv /\
      WORD8 (n2w fd) fdv /\ fd <= 255 /\ fd <> 1 /\ fd <> 2 /\
      STD_streams fs /\
      get_file_content fs fd = SOME (content, n)
@@ -603,7 +603,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
   \\ `2 <= 255n` by simp[] \\ asm_exists_tac
   \\ instantiate \\ xsimpl
   \\ conj_tac >- metis_tac[stderr_v_thm,stdErr_def]
-  \\ simp[insert_atI_end]
+  \\ simp[insert_atI_end |> Q.GEN`l2` |> Q.ISPEC`explode s` |> SIMP_RULE (srw_ss())[LENGTH_explode]]
   \\ simp[add_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ (conj_tac >- metis_tac[STD_streams_stderr])
@@ -628,8 +628,8 @@ val readLines_process_lines = Q.store_thm("readLines_process_lines",
    ∃n.
      process_lines fd st refs fs ls =
      case res of
-     | (Success _) => STDIO (add_stdout (fastForwardFD fs fd) "OK!\n") * HOL_STORE r
-     | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) (explode (msg_failure e))) * HOL_STORE r`,
+     | (Success _) => STDIO (add_stdout (fastForwardFD fs fd) (strlit"OK!\n")) * HOL_STORE r
+     | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) (msg_failure e)) * HOL_STORE r`,
   Induct
   \\ rw[process_lines_def]
   >- ( fs[Once readLines_def,st_ex_return_def] \\ rw[] )
@@ -669,9 +669,9 @@ val read_file_def = Define`
     (if inFS_fname fs (File fnm) then
        (case readLines (MAP str_prefix (FILTER ($~ o invalid_line) (all_lines fs (File fnm))))
                init_state refs of
-        | (Success _, refs) => (add_stdout fs "OK!\n", refs)
-        | (Failure (Fail e), refs) => (add_stderr fs (explode (msg_failure e)), refs))
-     else (add_stderr fs (explode (msg_bad_name fnm)), refs))`;
+        | (Success _, refs) => (add_stdout fs (strlit"OK!\n"), refs)
+        | (Failure (Fail e), refs) => (add_stderr fs (msg_failure e), refs))
+     else (add_stderr fs (msg_bad_name fnm), refs))`;
 
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
@@ -704,7 +704,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ `2 <= 255n` by simp[] \\ asm_exists_tac
     \\ instantiate \\ xsimpl
     \\ conj_tac >- metis_tac[stderr_v_thm,stdErr_def]
-    \\ simp[insert_atI_end]
+    \\ simp[insert_atI_end |> Q.GEN`l2` |> Q.ISPEC`explode s` |> SIMP_RULE (srw_ss())[LENGTH_explode]]
     \\ simp[add_stdo_def]
     \\ SELECT_ELIM_TAC
     \\ (conj_tac >- metis_tac[STD_streams_stderr])
@@ -776,7 +776,7 @@ val reader_main_def = Define `
    reader_main fs refs cl =
        case cl of
          [fnm] => FST (read_file fs refs fnm)
-       | _ => add_stderr fs (explode msg_usage)`;
+       | _ => add_stderr fs msg_usage`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
   `hasFreeFD fs
@@ -786,7 +786,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
      (STDIO fs * COMMANDLINE cl * HOL_STORE refs)
      (POSTv u.
        &UNIT_TYPE () u *
-       STDIO (reader_main fs refs (TL (MAP implode cl))) *
+       STDIO (reader_main fs refs (TL cl)) *
        COMMANDLINE cl)`,
   xcf "reader_main" (get_ml_prog_state())
   \\ fs [reader_main_def]
@@ -799,7 +799,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
    (qexists_tac `STDIO fs * HOL_STORE refs`
     \\ xsimpl)
   \\ reverse (Cases_on `STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ Cases_on `TL (MAP implode cl)` \\ fs [LIST_TYPE_def]
+  \\ Cases_on `TL cl` \\ fs [LIST_TYPE_def]
   >-
    (xmatch
     \\ xapp_spec output_stderr_spec

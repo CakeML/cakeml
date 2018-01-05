@@ -1,6 +1,6 @@
 structure cfMonadLib (* :> cfMonadLib *) = struct
 
-open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
+open cfAppTheory cfTacticsLib ml_monad_translatorBaseTheory ml_monad_translatorTheory cfMonadTheory packLib
 
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term) cfMonadTheory.parsed_terms
