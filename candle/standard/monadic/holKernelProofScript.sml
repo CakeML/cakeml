@@ -1096,7 +1096,7 @@ val MEM_frees = Q.prove(
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,MEM_subtract]);
 
-val inst_aux_thm = Q.prove(
+val inst_aux_thm = Q.store_thm("inst_aux_thm",
   `!env theta tm s s' res.
       EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
       EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) env /\
@@ -1105,8 +1105,8 @@ val inst_aux_thm = Q.prove(
       STATE defs s' /\
       case res of
       | Success t => (INST_CORE env theta tm = Result t)
-      | Failure (Fail _) => T
-      | Failure (Clash v) => (INST_CORE env theta tm = Clash v)`,
+      | Failure (Clash v) => (INST_CORE env theta tm = Clash v)
+      | _ => F`,
   HO_MATCH_MP_TAC inst_aux_ind \\ NTAC 4 STRIP_TAC \\ Cases_on `tm`
   \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
@@ -1194,8 +1194,10 @@ val inst_aux_thm = Q.prove(
       (Var v (TYPE_SUBST theta ty))` THEN1
    (SIMP_TAC std_ss [GSYM type_subst_thm])
   \\ FULL_SIMP_TAC (srw_ss()) [] >>
-  BasicProvers.CASE_TAC >> fs[] >- (rw[] >> rw[]) >>
-  BasicProvers.CASE_TAC >> fs[] >- (rw[] >> rw[])
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >- (
+    rw[] >> rw[]
+    \\ rw[Once INST_CORE_def] )
   \\ SIMP_TAC (srw_ss()) [inst_aux_Var,``dest_var (Var v ty) state``
         |> SIMP_CONV (srw_ss()) [holKernelTheory.dest_var_def,st_ex_return_def]]
   \\ Q.ABBREV_TAC `fresh_name = (VARIANT
@@ -1301,15 +1303,27 @@ val inst_thm = Q.store_thm("inst_thm",
   `EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
-    STATE defs s' /\ !t. (res = Success t) ==> TERM defs t /\
-    (t = INST theta (tm))`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC inst_lemma
+    STATE defs s' /\ (res = Success (INST theta tm)) /\ TERM defs (INST theta tm)`,
+  ntac 2 STRIP_TAC \\ IMP_RES_TAC inst_lemma
   \\ FULL_SIMP_TAC std_ss [TERM_def] >> imp_res_tac term_ok_welltyped
   \\ IMP_RES_TAC INST_CORE_LEMMA
-  \\ SIMP_TAC std_ss [INST_def]
+  \\ fs[INST_def]
   \\ POP_ASSUM (MP_TAC o Q.SPEC `theta`)
-  \\ STRIP_TAC
-  \\ MATCH_MP_TAC term_ok_INST_CORE
+  \\ STRIP_TAC \\ fs[]
+  \\ conj_tac >- (
+    fs[inst_def,st_ex_return_def]
+    \\ Cases_on`theta=[]`\\fs[]
+    \\ drule inst_aux_thm
+    \\ disch_then(qspec_then`[]`mp_tac)
+    \\ simp[TERM_def]
+    \\ disch_then drule
+    \\ simp[]
+    \\ disch_then(qspec_then`s`mp_tac)
+    \\ simp[]
+    \\ CASE_TAC
+    \\ CASE_TAC)
+  \\ drule term_ok_INST_CORE
+  \\ disch_then(qspecl_then[`[]`,`theta`]mp_tac) \\ simp[]
   \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS,FORALL_PROD,EVERY_MEM]
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TYPE_def,FORALL_PROD,MEM,IS_RESULT_def]
   \\ METIS_TAC [])
@@ -1798,8 +1812,9 @@ val INST_TYPE_thm = Q.store_thm("INST_TYPE_thm",
     qx_gen_tac`x` >> strip_tac >>
     qx_gen_tac`s9` >> strip_tac >>
     Cases_on`inst theta x s9` >>
-    imp_res_tac (inst_thm |> SIMP_RULE std_ss [EVERY_MEM]) >>
-    METIS_TAC[] )
+    drule (GEN_ALL (inst_thm |> SIMP_RULE std_ss [EVERY_MEM])) >>
+    simp[] >>
+    METIS_TAC[exc_11] )
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
   \\ Cases_on `inst theta t r`

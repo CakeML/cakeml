@@ -687,9 +687,11 @@ val inst_aux_def = tDefine "inst_aux" `
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;
-                            return (Abs y' t') od)
+                            if (y = y') /\ (t = t')
+                              then return tm
+                              else return (Abs y' t') od)
                         (\w'.
-                         if w' <> y' then failwith (strlit "clash") else
+                         if w' <> y' then raise_clash w' else
                          do temp <- inst_aux [] tyin t ;
                             y' <- return (variant (frees temp) y') ;
                             (v1,ty') <- dest_var y' ;
