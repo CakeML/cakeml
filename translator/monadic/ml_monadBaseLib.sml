@@ -1,6 +1,7 @@
 structure ml_monadBaseLib :> ml_monadBaseLib = struct
 
 open preamble ml_monadBaseTheory TypeBase
+open ParseDatatype Datatype
 open packLib
 
 (***************************************************************)
@@ -38,8 +39,13 @@ val pair_ty = get_type "pair"
 val a_ty = alpha
 val b_ty = beta
 val c_ty = gamma
+val num_ty = get_type "num"
+val M_ty = get_type "M"
 
-val K_tm = get_term "K"
+val K_const = get_term "K"
+val FST_const = get_term "FST"
+val SND_const = get_term "SND"
+val REPLICATE_const = get_term "REPLICATE"
 val unit_const = get_term "unit"
 val Failure_const = get_term "Failure"
 val Success_const = get_term "Success"
@@ -183,7 +189,7 @@ fun define_monad_access_funs data_type = let
 
     fun abstract_update set_f = let
 	val ty = dest_type (type_of set_f) |> snd |> List.hd |> dest_type |> snd |> List.hd
-	val tyK = Term.inst [a_ty |-> ty] K_tm
+	val tyK = Term.inst [a_ty |-> ty] K_const
 	val var = mk_var("x", ty)
         val set_f' = mk_abs(var, mk_comb(set_f, mk_comb(tyK, var)))
     in set_f' end
@@ -202,8 +208,8 @@ fun define_monad_access_funs data_type = let
       | zip3 [] [] [] = []
 in zip3 names get_funs set_funs end;
 
-(* Fixed store: creation of the array manipulation functions *)
-fun define_Marray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun_def) = let
+(* Fixed store: creation of the fixed-size array manipulation functions *)
+fun define_MFarray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun_def) = let
     val state = concl get_fun_def |> rhs |> dest_abs |> fst
     val get_fun = concl get_fun_def |> rhs |> dest_abs |> snd |> dest_pair |> fst |> rand
     val get_fun = mk_abs(state, get_fun)
@@ -229,6 +235,21 @@ fun define_Marray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun_
     val update_v = mk_var("update_" ^name, type_of update_f)
     val update_def = Define `^update_v = ^update_f`
 
+    (* TODO: resize *)
+in (name, get_fun_def, set_fun_def, length_def, sub_def, update_def) end;
+
+(* Fixed store: creation of the resizable array manipulation functions *)
+fun define_MRarray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun_def) = let
+    val x = concl set_fun_def |> dest_forall |> fst
+    val set_fun = concl set_fun_def |> strip_forall |> snd |> rhs
+    val state = dest_abs set_fun |> fst
+    val set_fun = dest_abs set_fun |> snd |> dest_pair |> snd
+    val set_fun = mk_abs(x, mk_abs(state, set_fun))
+    
+    val (name, get_fun_def, set_fun_def, length_def, sub_def, update_def) =
+	define_MFarray_manip_funs_aux sub_exn update_exn
+			       (name, get_fun_def, set_fun_def)
+
     (* alloc *)
     val alloc_f = my_list_mk_comb(Marray_alloc_const, [set_fun])
     val alloc_v = mk_var("alloc_" ^name, type_of alloc_f)
@@ -237,8 +258,75 @@ fun define_Marray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun_
     (* TODO: resize *)
 in (name, get_fun_def, set_fun_def, length_def, sub_def, update_def, alloc_def) end;
 
-fun define_Marray_manip_funs array_access_funs sub_exn update_exn =
-  List.map (define_Marray_manip_funs_aux sub_exn update_exn) array_access_funs;
+fun define_MFarray_manip_funs array_access_funs sub_exn update_exn =
+  List.map (define_MFarray_manip_funs_aux sub_exn update_exn) array_access_funs;
+
+fun define_MRarray_manip_funs array_access_funs sub_exn update_exn =
+  List.map (define_MRarray_manip_funs_aux sub_exn update_exn) array_access_funs;
+
+(* With fixed-size, locally defined arrays, we define a new data-type for the initialization, where the initialization values for the arrays are pairs (initial_value, size), together with a dedicated run function *)
+
+fun define_run state array_fields new_state_name = let
+  val fields = fields_of state
+  val accessors = accessors_of state
+  val type_info = zip fields accessors
+  val ntype_var = mk_vartype ("'" ^ new_state_name)
+
+  fun mk_field (field_name, field_type) =
+    if mem field_name array_fields then let
+	(* create a field (init_value, size) *)
+	val (type_cons, elem_type) = dest_type field_type
+	val _ = if type_cons <> "list" then failwith ("define_local_init_state : trying to define an array from a field which is not a list : " ^field_name) else ()
+	val elem_type = hd elem_type
+	val ty = mk_type ("prod", [num_ty, elem_type])
+    in (field_name, dAQ ty) end
+    (* keep the same field *)
+    else (field_name, dAQ field_type)
+
+  (* Define the new data_type *)
+  val fields_info = List.map mk_field fields
+  val type_info = (new_state_name, Record fields_info)
+  val _ = astHol_datatype [type_info]
+
+  (* Define the run function *)
+  val new_state = mk_type(new_state_name, [])
+  val state_cons = List.hd (constructors_of state)
+  (* val new_state_cons = List.hd (constructors_of new_state) *)
+  val new_fields = fields_of new_state
+  val new_fields_info = zip (fields_of new_state) (accessors_of new_state)
+  val new_state_var = mk_var("state", new_state)
+
+  (* val ((field_name, field_type), accessor) = List.tl new_fields_info *)
+  fun mk_new_field ((field_name, field_type), accessor) =
+    if mem field_name array_fields then let
+	val elem_type = dest_type field_type |> snd |> List.last
+	val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
+        val field_tm = mk_comb(accessor, new_state_var)
+	val ss = Term.inst [alpha |-> num_ty, beta |-> elem_type]
+	val FST_tm = ss FST_const
+	val SND_tm = ss SND_const
+	val REPLICATE_tm = Term.inst [alpha |-> elem_type] REPLICATE_const
+	val length_tm = mk_comb(FST_tm, field_tm)
+	val elem_tm = mk_comb(SND_tm, field_tm)
+	val tm = list_mk_comb (REPLICATE_tm, [length_tm, elem_tm])
+    in tm end
+    else let
+	val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
+        val field_tm = mk_comb(accessor, new_state_var)
+    in field_tm end
+  val new_fields = List.map mk_new_field new_fields_info
+  val synth_state = List.foldl (fn (x, y) => mk_comb (y, x)) state_cons new_fields
+
+  val x_var = mk_var("x", Type.type_subst [alpha |-> state] M_ty)
+  val body = mk_comb(x_var, synth_state)
+  val [ty1, ty2] = dest_type (type_of body) |> snd
+  val FST_tm = Term.inst [alpha |-> ty1, beta |-> ty2] FST_const
+  val body = mk_comb(FST_tm, body)
+  val run_type = list_mk_fun([type_of x_var, new_state], type_of body)
+  val run_var = mk_var("run_" ^ new_state_name, run_type)
+  val eq = mk_eq(list_mk_comb(run_var, [x_var, new_state_var]), body)
+  val run_def = Define `^eq`
+ in run_def end
 
 (* Dynamic stores: creation of the ressource manipulation functions *)
 fun create_dynamic_access_functions exn data_type = let

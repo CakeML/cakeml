@@ -395,6 +395,9 @@ val parsed_terms = save_thm("parsed_terms",
   pack_list (pack_pair pack_string pack_term)
     [
      ("K", ``K : 'a -> 'a -> 'a``),
+     ("FST", ``FST : 'a # 'b -> 'a``),
+     ("SND", ``SND : 'a # 'b -> 'b``),
+     ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
      ("unit", ``()``),
      ("Failure", ``Failure : 'a -> ('b, 'a) exc``),
      ("Success", ``Success : 'a -> ('a, 'b) exc``),
@@ -409,7 +412,9 @@ val parsed_types = save_thm("parsed_types",
   pack_list (pack_pair pack_string pack_type)
     [
       ("exc",``:('a, 'b) exc``),
-      ("pair", ``:'a # 'b``)
+      ("pair", ``:'a # 'b``),
+      ("num", ``:num``),
+      ("M", ``:('a, 'b, 'c) M``)
     ]);
 
 val _ = export_theory ();
