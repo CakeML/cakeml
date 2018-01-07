@@ -985,16 +985,14 @@ val check_colouring_ok_alt_def = Define`
     let names = MAP (col o FST) (toAList x) in
       ALL_DISTINCT names ∧ check_colouring_ok_alt col xs)`
 
-(*
 val every_even_colour_def = Define`
   every_even_colour col ⇔
-  EVERY (λ(x,y). if is_phy_var x then y = x else T) (toAList col)`
-*)
+  EVERY (λ(x,y). if is_phy_var x then y = x DIV 2 else T) (toAList col)`
 
 (*Extract a colouring function from the generated sptree*)
 val total_colour_def = Define`
-  total_colour col =
-    (λx. case lookup x col of NONE => x | SOME x => 2*x)`
+  total_colour col x =
+    dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
@@ -1003,7 +1001,7 @@ val oracle_colour_ok_def = Define`
     NONE => NONE
   | SOME col =>
      let tcol = total_colour col in
-     if (check_clash_tree tcol tree LN LN ≠ NONE)
+     if (every_even_colour col ∧ check_clash_tree tcol tree LN LN ≠ NONE)
      then
        let prog = apply_colour tcol prog in
        if
@@ -1028,7 +1026,7 @@ val word_alloc_def = Define`
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
-    (case reg_alloc k LN tree forced of (* Moves not supported yet *)
+    (dtcase reg_alloc k LN tree forced of (* Moves not supported yet *)
       Success col =>
         apply_colour (total_colour col) prog
     | Failure _ => prog (*cannot happen*))

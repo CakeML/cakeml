@@ -653,9 +653,9 @@ val mk_graph_def = Define`
       mk_graph ta t1 live
     od)`;
 
-
 val sp_default_def = Define`
-  sp_default t i = lookup_any i t 0n`
+  sp_default t i =
+  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)`
 
 val extend_graph_def = Define`
   (extend_graph ta [] = return ()) ∧
@@ -753,6 +753,9 @@ val do_reg_alloc_def = Define`
     spcol <- extract_color ta;
     return spcol (* return the composed from wordLang into the graph + the allocation *)
   od`
+
+val word_default_def = Define`
+  word_default t i = 2 * lookup_any i t 0n`
 
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)
