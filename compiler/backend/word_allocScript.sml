@@ -1020,7 +1020,7 @@ val oracle_colour_ok_def = Define`
   prog is the program to be colored
   col_opt is an optional oracle colour*)
 val word_alloc_def = Define`
-  word_alloc c alg k prog col_opt =
+  word_alloc c (alg:num) k prog col_opt =
   let tree = get_clash_tree prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
