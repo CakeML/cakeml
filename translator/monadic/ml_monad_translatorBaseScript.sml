@@ -28,15 +28,17 @@ val with_same_clock = Q.store_thm("with_same_clock",
 (* REF_REL *)
 val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
 
+val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
+
 (* REFS_PRED *)
-val REFS_PRED_def = Define `REFS_PRED H refs p s = (H refs * GC) (st2heap p s)`;
-val VALID_REFS_PRED_def = Define `VALID_REFS_PRED H = ?(s : unit state) p refs. REFS_PRED H refs p s`;
+val REFS_PRED_def = Define `REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)`;
+val VALID_REFS_PRED_def = Define `VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s`;
 
 (* Frame rule for EvalM *)
 val REFS_PRED_FRAME_def = Define
-`REFS_PRED_FRAME H p (refs1, s1) (refs2, s2) =
+`REFS_PRED_FRAME (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) =
 ?refs. s2 = s1 with refs := refs /\
-!F. (H refs1 * F) (st2heap p s1) ==> (H refs2 * F * GC) (st2heap p s2)`;
+!F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)`;
 
 val EMP_STAR_H = Q.store_thm("EMP_STAR_GC",
 `!H. emp * H = H`,
@@ -47,20 +49,21 @@ val SAT_GC = Q.store_thm("SAT_GC",
 fs[GC_def, SEP_EXISTS_THM] \\ STRIP_TAC \\ qexists_tac `\s. T` \\ fs[]);
 
 val REFS_PRED_FRAME_imp = Q.store_thm("REFS_PRED_FRAME_imp",
-`REFS_PRED H refs1 p s1 ==> REFS_PRED_FRAME H p (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 p s2`,
-rw[REFS_PRED_def, REFS_PRED_FRAME_def]
-\\ Cases_on `p`
+`REFS_PRED ^H refs1 s1 ==> REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 s2`,
+PairCases_on `H`
+\\ rw[REFS_PRED_def, REFS_PRED_FRAME_def]
 \\ fs[st2heap_def]
 \\ metis_tac[GC_STAR_GC, STAR_ASSOC]);
 
 val REFS_PRED_FRAME_trans = Q.store_thm("REFS_PRED_FRAME_trans",
-`REFS_PRED_FRAME H p (refs1, s1) (refs2, s2) ==>
-REFS_PRED_FRAME H p (refs2, s2) (refs3, s3) ==>
-REFS_PRED_FRAME H p (refs1, s1) (refs3, s3)`,
+`REFS_PRED_FRAME ^H (refs1, s1) (refs2, s2) ==>
+REFS_PRED_FRAME H (refs2, s2) (refs3, s3) ==>
+REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`,
+Cases_on `H` >>
 rw[REFS_PRED_FRAME_def] >>
 PURE_REWRITE_TAC[Once (GSYM GC_STAR_GC), STAR_ASSOC] >>
 qexists_tac `refs'` >> rw[] >>
-`H refs3 * F' * GC * GC = H refs3 * (F' * GC) * GC` by fs[STAR_ASSOC] >>
+`q refs3 * F' * GC * GC = q refs3 * (F' * GC) * GC` by fs[STAR_ASSOC] >>
 POP_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
 fs[state_component_equality] >>
 first_x_assum irule >>
@@ -217,12 +220,14 @@ sg `SPLIT3 (store2heap (a ++ b) ∪ ffi2heap (q,r) s.ffi) (store2heap a, store2h
 \\ rw[STAR_def]);
 
 val REFS_PRED_append = Q.store_thm("REFS_PRED_append",
-`!H refs s. REFS_PRED H refs p s ==> REFS_PRED H refs p (s with refs := s.refs ++ junk)`,
+`!H refs s. REFS_PRED H refs s ==> REFS_PRED ^H refs (s with refs := s.refs ++ junk)`,
+Cases >>
 rw[REFS_PRED_def] >> PURE_ONCE_REWRITE_TAC [GSYM GC_STAR_GC] >> fs[STAR_ASSOC] >>
 metis_tac[with_same_refs, STATE_APPEND_JUNK]);
 
 val REFS_PRED_FRAME_append = Q.store_thm("REFS_PRED_FRAME_append",
-`!H refs s. REFS_PRED_FRAME H p (refs, s) (refs, s with refs := s.refs ++ junk)`,
+`!H refs s. REFS_PRED_FRAME ^H (refs, s) (refs, s with refs := s.refs ++ junk)`,
+Cases >>
 rw[REFS_PRED_FRAME_def] \\ metis_tac[with_same_refs, STATE_APPEND_JUNK]);
 
 (*
