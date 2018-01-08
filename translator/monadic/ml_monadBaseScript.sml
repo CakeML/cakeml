@@ -404,7 +404,8 @@ val parsed_terms = save_thm("parsed_terms",
      ("Marray_length", Marray_length_const),
      ("Marray_sub", Marray_sub_const),
      ("Marray_update", Marray_update_const),
-     ("Marray_alloc", Marray_alloc_const)
+     ("Marray_alloc", Marray_alloc_const),
+     ("run", ``run``)
     ]);
 
 (* Types used by the ml_monadBaseLib *)

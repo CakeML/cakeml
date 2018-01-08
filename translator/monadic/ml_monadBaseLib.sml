@@ -53,6 +53,7 @@ val Marray_length_const = get_term "Marray_length"
 val Marray_sub_const = get_term "Marray_sub"
 val Marray_update_const = get_term "Marray_update"
 val Marray_alloc_const = get_term "Marray_alloc"
+val run_const = get_term "run"
 
 fun mk_exc_type a b = Type.type_subst [a_ty |-> a, b_ty |-> b] exc_ty
 
@@ -318,13 +319,11 @@ fun define_run state array_fields new_state_name = let
   val synth_state = List.foldl (fn (x, y) => mk_comb (y, x)) state_cons new_fields
 
   val x_var = mk_var("x", Type.type_subst [alpha |-> state] M_ty)
-  val body = mk_comb(x_var, synth_state)
-  val [ty1, ty2] = dest_type (type_of body) |> snd
-  val FST_tm = Term.inst [alpha |-> ty1, beta |-> ty2] FST_const
-  val body = mk_comb(FST_tm, body)
-  val run_type = list_mk_fun([type_of x_var, new_state], type_of body)
-  val run_var = mk_var("run_" ^ new_state_name, run_type)
-  val eq = mk_eq(list_mk_comb(run_var, [x_var, new_state_var]), body)
+  val body = my_list_mk_comb (run_const,[x_var, synth_state])
+
+  val new_run_type = list_mk_fun([type_of x_var, new_state], type_of body)
+  val new_run_var = mk_var("run_" ^ new_state_name, new_run_type)
+  val eq = mk_eq(list_mk_comb(new_run_var, [x_var, new_state_var]), body)
   val run_def = Define `^eq`
  in run_def end
 
