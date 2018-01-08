@@ -435,7 +435,7 @@ val line_Fail_def = Define `
       [ strlit"Failure on line "
       ; toString loc
       ; strlit": "
-      ; msg; "\n"])`;
+      ; msg; strlit"\n"])`;
 
 val fix_fun_typ_def = Define `
   fix_fun_typ s = if s = strlit"\"->\"" then strlit"\"fun\"" else s`;
@@ -456,7 +456,7 @@ val readLines_def = Define `
         else
           do
             s <- handle_Fail
-                   (readLine (str_prefix (fix_fun_typ l)) s)
+                   (readLine (fix_fun_typ (str_prefix l)) s)
                    (\e. raise_Fail (line_Fail loc e));
             readLines (loc+1) ls s
         od`;

@@ -527,7 +527,7 @@ val _ = translate msg_bad_name_def
 val process_line_def = Define`
   process_line st refs ln =
     if invalid_line ln then (INL st, refs) else
-    case readLine (str_prefix (fix_fun_typ ln)) st refs
+    case readLine (fix_fun_typ (str_prefix ln)) st refs
     of (Success st, refs) => (INL st, refs)
      | (Failure (Fail s), refs) => (INR s, refs)`;
 
@@ -542,7 +542,7 @@ val _ = (append_prog o process_topdecs) `
   fun process_line st0 ln =
     if invalid_line ln
     then Inl st0
-    else Inl (readline (str_prefix (fix_fun_typ ln)) st0)
+    else Inl (readline (fix_fun_typ (str_prefix ln)) st0)
          handle Fail e => Inr e`;
 
 val process_line_spec = Q.store_thm("process_line_spec",
