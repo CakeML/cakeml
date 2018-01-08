@@ -1265,7 +1265,7 @@ val evaluate_apply_colour = Q.store_thm("evaluate_apply_colour",
       pop_assum mp_tac >> impl_tac>-
         (match_mp_tac (GEN_ALL INJ_less)>>metis_tac[])>>
       srw_tac[][]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-      FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>  
+      FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       Cases_on`call_FFI st.ffi s x'' x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
       srw_tac[][]>>
       metis_tac[domain_lookup]));
@@ -6694,7 +6694,7 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
     first_x_assum drule>>fs[]>>rw[]>>
     fs[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
     metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]);
-    
+
 (*word_alloc preserves syntactic conventions*)
 val word_alloc_two_reg_inst_lem = Q.prove(`
   ∀f prog.
@@ -6773,6 +6773,14 @@ val lookup_undir_g_insert_existing = Q.prove(`
   rw[undir_g_insert_def,dir_g_insert_def,lookup_insert]>>
   fs[insert_shadow])
 *)
+val forced_distinct_col = Q.prove(`
+  EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x = y) ls /\
+  EVERY (λx,y. x ≠ y) ls ==>
+  EVERY (λ(x,y). (total_colour spcol) x <> (total_colour spcol) y) ls`,
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+  first_x_assum drule>>
+  fs[total_colour_rw]>>
+  metis_tac[]);
 
 val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   ∀alg k prog col_opt c.
@@ -6782,9 +6790,16 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   rveq>>
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
-  (* TODO  in reg alloc *)
-  cheat)
-  
+  fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by cheat>>
+  drule do_reg_alloc_correct>>
+  disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>
+  fs[]>>
+  match_mp_tac forced_distinct_col>>rfs[]>>
+  unabbrev_all_tac>>
+  match_mp_tac get_forced_pairwise_distinct>>
+  simp[]);
+
 (* label preservation theorems *)
 val fake_moves_no_labs = Q.prove(`
   ∀ls a b c d e f g h.

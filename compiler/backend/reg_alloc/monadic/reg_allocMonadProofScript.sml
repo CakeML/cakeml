@@ -1953,7 +1953,21 @@ val check_col_INJ = Q.store_thm("check_col_INJ",`
   | SOME (t,ft) =>
     ∃gt. check_col (g o f) s = SOME (t,gt) ∧
     domain gt = IMAGE g (domain ft)`,
-  cheat);
+  fs[check_col_def]>>
+  strip_tac>>
+  fs[GSYM MAP_MAP_o]>>
+  qpat_abbrev_tac`ls = MAP f _`>>
+  `ALL_DISTINCT ls ⇔ ALL_DISTINCT (MAP g ls)` by
+    (rw[EQ_IMP_THM]>-
+      (match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[INJ_DEF])
+    >>
+    metis_tac[ALL_DISTINCT_MAP])>>
+  IF_CASES_TAC>>fs[]>>
+  simp[domain_fromAList,MAP_MAP_o]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  AP_THM_TAC>>
+  AP_TERM_TAC>>
+  simp[FUN_EQ_THM]);
 
 val check_clash_tree_INJ = Q.store_thm("check_clash_tree_INJ",`
   ∀ct f g live flive glive.
@@ -2025,7 +2039,8 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
       k ≤ (sp_default spcol x)
     else
       T) ∧
-    !x. x ∈ domain spcol ⇒ in_clash_tree ct x`,
+    (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`,
   rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>rw[]>>
@@ -2070,7 +2085,8 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   rw[]>>simp[]>>
   `is_subgraph s'.adj_ls s''.adj_ls` by
     fs[is_subgraph_def]>>
-  qpat_x_assum`!a b. _` kall_tac>>
+  qpat_x_assum`!a b. _`mp_tac>>
+  qmatch_goalsub_abbrev_tac`hide ⇒ _`>>
   drule (GEN_ALL mk_tags_succeeds)>>
   disch_then(qspecl_then[`n`,`sp_default fa`] mp_tac)>>
   impl_tac>-
@@ -2111,7 +2127,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
       drule mk_bij_aux_wf>>fs[wf_def,markerTheory.Abbrev_def])>>
   rw[]>>simp[]>>
   drule no_clash_colouring_satisfactory >>
-  impl_tac>- (
+  impl_keep_tac>- (
     fs[good_ra_state_def,EVERY_EL,ra_state_component_equality,Abbr`stt`]>>
     rfs[]>>
     ntac 2 strip_tac>>
@@ -2161,7 +2177,49 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
       (`EL v s'''.node_tag ≠ Atemp` by fs[]>>
       res_tac>>fs[]>>
       rfs[extract_tag_def]))>>
-  fs[domain_map]);
+  CONJ_TAC>-
+    fs[domain_map]>>
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+  last_x_assum drule>>
+  strip_tac>>
+  fs[sp_default_def,lookup_map]>>
+  `p_1 ∈ domain ta ∧ p_2 ∈ domain ta` by fs[EXTENSION]>>
+  fs[domain_lookup]>>fs[]>>
+  fs[no_clash_def]>>
+  first_x_assum(qspecl_then [`v`,`v'`] mp_tac)>>
+  impl_tac>-
+    (fs[markerTheory.Abbrev_def]>>
+    `is_subgraph s''.adj_ls s''''''.adj_ls` by
+      (fs[ra_state_component_equality]>>
+      metis_tac[])>>
+    qsuff_tac`has_edge s''.adj_ls v v'`>-
+      fs[is_subgraph_def]>>
+    simp[]>>
+    DISJ2_TAC>>DISJ1_TAC>>
+    qexists_tac`p_1`>>qexists_tac`p_2`>>simp[])>>
+  strip_tac>>
+  qsuff_tac`v=v'`
+  >-
+    (qpat_x_assum`INJ _ _ _` mp_tac>>
+    simp[INJ_DEF,sp_default_def])
+  >>
+  pop_assum mp_tac>>
+  fs[MEM_EL,PULL_EXISTS]>>
+  `LENGTH s''''''.node_tag = n` by
+    fs[ra_state_component_equality,good_ra_state_def,Abbr`stt`]>>
+  first_assum(qspec_then`v` mp_tac)>>
+  impl_tac>-
+    (fs[sp_inverts_def]>>
+    metis_tac[domain_lookup,IN_COUNT,good_ra_state_def])>>
+  first_x_assum(qspec_then`v'` mp_tac)>>
+  impl_tac>-
+    (fs[sp_inverts_def]>>
+    metis_tac[domain_lookup,IN_COUNT,good_ra_state_def])>>
+  qpat_x_assum`extract_tag _ = _ ` mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  fs[extract_tag_def]>>
+  every_case_tac>>simp[]);
+
 (* --- --- *)
 
 val _ = export_theory ();
