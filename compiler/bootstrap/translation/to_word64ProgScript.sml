@@ -627,7 +627,7 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
 
-val _ = translate (spec64 word_to_wordTheory.compile_def)
+val _ = translate (spec64 word_to_wordTheory.compile_alt)
 
 (* TODO: remove when pmatch is fixedd
 val word_simp_const_fp_loop_side = Q.prove(`
