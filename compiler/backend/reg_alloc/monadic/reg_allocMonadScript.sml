@@ -4,7 +4,6 @@
 
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
-open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
 open sortingTheory
 
 val _ = new_theory "reg_allocMonad"
@@ -17,8 +16,6 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
-
-val _ = (use_full_type_names := false);
 
 (* The graph-coloring register allocator *)
 
@@ -760,13 +757,18 @@ val do_reg_alloc_def = Define`
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)
 
-(* Use this instead:
-val run_reg_alloc_def = Define`
-  run_reg_alloc k mtable ct state = run (do_reg_alloc k mtable ct) state`*)
+val empty_ra_state_def = Define `
+  empty_ra_state =
+    <| adj_ls   := []
+     ; node_tag := []
+     ; degrees  := []
+     ; dim      := 0n
+     ; simp_wl  := []
+     ; spill_wl := []
+     ; stack    := [] |>`
 
 val reg_alloc_def = Define`
   reg_alloc k mtable ct forced =
-  let init = <|adj_ls := []; dim := 0; node_tag := [] ; degrees := [] |> in
-  do_reg_alloc k mtable ct forced init`
+    run (do_reg_alloc k mtable ct forced) empty_ra_state`;
 
 val _ = export_theory();

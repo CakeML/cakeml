@@ -33,7 +33,7 @@ in
      (ERR "x64_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
-         [x64_bop_def, x64_cmp_def, x64_sh_def, e_rm_reg_def, e_gen_rm_reg_def,
+         [x64_bop_def, x64_cmp_def, x64_sh_def, e_gen_rm_reg_def,
           e_ModRM_def, e_opsize_def, rex_prefix_def, e_opc_def, e_rm_imm8_def,
           e_opsize_imm_def, not_byte_def, e_rax_imm_def, e_rm_imm_def,
           e_imm_8_32_def, e_imm_def, e_imm8_def, e_imm16_def, e_imm32_def,
