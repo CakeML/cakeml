@@ -52,17 +52,8 @@ val getNum_def = Define`
   (getNum (Num n) = return n) ∧
   (getNum _ = failwith (strlit"getNum"))`;
 
-(*
 val getName_def = Define`
   (getName (Name n) = return n) ∧
-  (getName _ = failwith (strlit"getName"))`;
-*)
-val getName_def = Define `
-  (getName (Name n) =
-    if n = strlit "\"->\"" then
-      return (strlit "\"fun\"")
-    else
-      return n) /\
   (getName _ = failwith (strlit"getName"))`;
 
 val getList_def = Define`
@@ -438,20 +429,36 @@ val readLine_def = Define`
             return (push (Name (implode (FRONT (c::cs)))) s)
         | _ => failwith (strlit"readLine")`;
 
-val readLines_def = Define `
-  readLines lls s =
-    case lls of
-      []    => return s
-    | l::ls =>
-        do
-          s <- readLine l s;
-          readLines ls s
-        od`;
+val line_Fail_def = Define `
+  line_Fail (loc: int) msg =
+    (mlstring$concat
+      [ strlit"Failure on line "
+      ; toString loc
+      ; strlit": "
+      ; msg; "\n"])`;
 
-val run_reader_def = Define `
-  run_reader ls =
-    do
-      readLines ls init_state
-    od`;
+val fix_fun_typ_def = Define `
+  fix_fun_typ s = if s = strlit"\"->\"" then strlit"\"fun\"" else s`;
+
+val str_prefix_def = Define `
+  str_prefix str = extract str 0 (SOME (strlen str - 1))`;
+
+val invalid_line_def = Define`
+  invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"`;
+
+val readLines_def = Define `
+  readLines loc lls s =
+    case lls of
+      []    => return (s, loc-1)
+    | l::ls =>
+        if invalid_line l then
+          readLines (loc+1) ls s
+        else
+          do
+            s <- handle_Fail
+                   (readLine (str_prefix (fix_fun_typ l)) s)
+                   (\e. raise_Fail (line_Fail loc e));
+            readLines (loc+1) ls s
+        od`;
 
 val _ = export_theory()

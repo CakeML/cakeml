@@ -1022,19 +1022,20 @@ val readLine_thm = Q.store_thm("readLine_thm",
   \\ irule push_thm \\ fs [OBJ_def]);
 
 val readLines_thm = Q.store_thm("readLines_thm",
-  `!lines st res refs refs' defs.
+  `!loc lines st res refs refs' defs.
      STATE defs refs /\
      READER_STATE defs st /\
-     readLines lines st refs = (res, refs')
+     readLines loc lines st refs = (res, refs')
      ==>
      ?ds.
        STATE (ds ++ defs) refs' /\
-       !st'. res = Success st' ==> READER_STATE (ds ++ defs) st'`,
+       !st' n. res = Success (st', n) ==> READER_STATE (ds ++ defs) st'`,
   recInduct readLines_ind \\ rw [] \\ pop_assum mp_tac
   \\ once_rewrite_tac [readLines_def] \\ fs [st_ex_return_def, st_ex_bind_def]
   \\ CASE_TAC \\ fs []
   >- (rw [] \\ qexists_tac `[]` \\ fs [])
-  \\ fs [case_eq_thms, PULL_EXISTS] \\ rw []
+  \\ fs [case_eq_thms, PULL_EXISTS, handle_Fail_def, raise_Fail_def] \\ rw []
+  \\ TRY (every_case_tac \\ rpt (pairarg_tac \\ fs []) \\ rw []) \\ fs []
   \\ drule (GEN_ALL readLine_thm)
   \\ rpt (disch_then drule) \\ rw []
   \\ first_x_assum drule
@@ -1049,11 +1050,11 @@ val init_refs_def = Define `
      ; the_context        := init_ctxt |>`;
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
-  `readLines lines init_state init_refs = (res, refs)
+  `readLines loc lines init_state init_refs = (res, refs)
    ==>
    ?defs.
      STATE defs refs /\
-     !st. res = Success st ==> READER_STATE defs st`,
+     !st n . res = Success (st, n) ==> READER_STATE defs st`,
   sg `READER_STATE init_ctxt init_state`
   >- fs [init_state_def, READER_STATE_def, lookup_def]
   \\ sg `STATE init_ctxt init_refs`

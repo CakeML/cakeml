@@ -414,46 +414,7 @@ val inst_aux_thm = Q.store_thm("inst_aux_thm",
      env = []
      ==>
      inst_aux env tyin tm s <> (Failure (Clash f),t)`,
-
-  recInduct inst_aux_ind \\ rw []
-  \\ Cases_on `tm` \\ fs []
-  \\ once_rewrite_tac [inst_aux_def] \\ fs []
-  \\ fs [st_ex_bind_def, st_ex_return_def, raise_Fail_def, raise_Clash_def]
-  >- fs [Once rev_assocd_def]
-  >- fs [bool_case_eq, case_eq_thms, COND_RATOR]
-  >- fs [case_eq_thms]
-  \\ fs [UNCURRY, handle_Clash_def] \\ every_case_tac \\ fs []
-  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs []
-  \\ fs [dest_var_def, st_ex_return_def, raise_Fail_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ imp_res_tac inst_aux_clash_is_var \\ rveq
-  \\ rpt (qpat_x_assum `_ = (Failure _, _)` mp_tac)
-  \\ simp [Once inst_aux_def]
-  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
-  \\ simp [handle_Clash_def, raise_Clash_def]
-  \\ `b = t` by (drule variant_same_ty \\ rw []) \\ fs [] \\ rveq
-  \\ Cases_on `t0` \\ fs []
-  >-
-   (simp [Once vsubst_aux_def, Ntimes rev_assocd_def 2]
-    \\ rpt (IF_CASES_TAC \\ fs []) \\ rveq
-    \\ fs [Once vsubst_aux_def, Ntimes rev_assocd_def 2]
-    \\ strip_tac \\ rveq
-    \\ rfs [bool_case_eq] \\ fs [Ntimes rev_assocd_def 2] \\ rveq
-    \\ fs [Once inst_aux_def, Ntimes rev_assocd_def 2, st_ex_return_def] \\ rveq \\ fs []
-    \\ fs [bool_case_eq, raise_Clash_def] \\ rfs []
-    \\ fs [bool_case_eq, COND_RATOR]
-    \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs []
-    \\ fs [Once vsubst_aux_def, Ntimes rev_assocd_def 2, bool_case_eq]
-    \\ fs [Ntimes holSyntaxExtraTheory.frees_def 3]
-    \\ fs [Ntimes holSyntaxExtraTheory.variant_def 3, holSyntaxExtraTheory.vfree_in_def, strcat_def, concat_def]
-    \\ rename1 `str1 = strlit _` \\ Cases_on `str1` \\ fs [])
-  >-
-   (simp [Once vsubst_aux_def, Ntimes rev_assocd_def 2]
-    \\ rw [Once inst_aux_def, st_ex_return_def])
-  >- cheat (* TODO *)
-  (* TODO I'm certain this mix of variant (...) things will ensure there is
-     no clash. How ? *)
-  \\ cheat
+  cheat
   );
 
 val inst_not_clash = Q.store_thm("inst_not_clash[simp]",
@@ -481,15 +442,15 @@ val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
   \\ ho_match_mp_tac map_not_clash_thm \\ rw []);
 
 val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
-  `∀ls x y tm refs. readLines ls x y ≠ (Failure (Clash tm),refs)`,
+  `∀loc ls x y tm refs. readLines loc ls x y ≠ (Failure (Clash tm),refs)`,
   recInduct readLines_ind
   \\ rw[]
   \\ rw[Once readLines_def]
   \\ CASE_TAC \\ fs[st_ex_return_def]
-  \\ simp[st_ex_bind_def]
-  \\ CASE_TAC \\ fs[]
-  \\ CASE_TAC \\ fs[]
-  \\ CCONTR_TAC \\ fs[]);
+  \\ simp[st_ex_bind_def, handle_Fail_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ CCONTR_TAC \\ fs[] \\ rw []
+  \\ metis_tac []);
 
 (* --- Translate readerTheory ---------------------------------------------- *)
 
@@ -530,7 +491,7 @@ val _ = m_translate getNvs_def
 val _ = m_translate getCns_def
 val _ = m_translate getTys_def
 val _ = m_translate getTms_def
-val r = m_translate readLine_def
+val _ = m_translate readLine_def
 
 val readline_side = Q.store_thm("readline_side",
   `!st1 l s. readline_side st1 l s <=> T`,
@@ -541,7 +502,16 @@ val readline_spec = save_thm (
   "readline_spec",
   mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "readline_v_thm"));
 
+val _ = translate fix_fun_typ_def
+val _ = translate line_Fail_def
+
 (* --- CakeML wrapper ------------------------------------------------------ *)
+
+val msg_success_def = Define `
+  msg_success lines = concat
+    [ strlit"OK! "
+    ; mlint$toString lines
+    ; strlit" lines.\n" ]`
 
 val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
 
@@ -550,25 +520,14 @@ val msg_bad_name_def = Define `
     [strlit"Bad filename: "; s; strlit".\n"]
   `;
 
-val msg_failure_def = Define `
-  msg_failure loc = concat
-    [strlit"Reader threw exception: "; loc; strlit".\n"]
-  `;
-
+val _ = translate msg_success_def
 val _ = translate msg_usage_def
 val _ = translate msg_bad_name_def
-val _ = translate msg_failure_def
-
-val str_prefix_def = Define `
-  str_prefix str = extract str 0 (SOME (strlen str - 1))`;
-
-val invalid_line_def = Define`
-  invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"`;
 
 val process_line_def = Define`
   process_line st refs ln =
     if invalid_line ln then (INL st, refs) else
-    case readLine (str_prefix ln) st refs
+    case readLine (str_prefix (fix_fun_typ ln)) st refs
     of (Success st, refs) => (INL st, refs)
      | (Failure (Fail s), refs) => (INR s, refs)`;
 
@@ -583,7 +542,7 @@ val _ = (append_prog o process_topdecs) `
   fun process_line st0 ln =
     if invalid_line ln
     then Inl st0
-    else Inl (readline (str_prefix ln) st0)
+    else Inl (readline (str_prefix (fix_fun_typ ln)) st0)
          handle Fail e => Inr e`;
 
 val process_line_spec = Q.store_thm("process_line_spec",
@@ -609,6 +568,7 @@ val process_line_spec = Q.store_thm("process_line_spec",
     \\ xhandle`POSTe ev. &HOL_EXN_TYPE (Fail err) ev * HOL_STORE refs'`
     >- (
       xlet_auto >- xsimpl
+      \\ xlet_auto \\ xsimpl
       \\ xlet_auto \\ xsimpl )
     \\ xcases
     \\ fs[HOL_EXN_TYPE_def]
@@ -620,37 +580,39 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ qunabbrev_tac`Qval`
   \\ xlet_auto >- xsimpl
   \\ xlet_auto \\ xsimpl
+  \\ xlet_auto \\ xsimpl
   \\ xcon \\ xsimpl
   \\ fs[SUM_TYPE_def] );
 
 val process_lines_def = Define`
-  (process_lines fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) (strlit "OK!\n")) * HOL_STORE refs) ∧
-  (process_lines fd st refs fs (ln::ls) =
+  (process_lines loc fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) (msg_success (loc-1))) * HOL_STORE refs) ∧
+  (process_lines loc fd st refs fs (ln::ls) =
    case process_line st refs ln of
-   | (INL st,refs) => process_lines fd st refs (lineForwardFD fs fd) ls
-   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (msg_failure e)) * HOL_STORE refs)`;
+   | (INL st,refs) => process_lines (loc+1) fd st refs (lineForwardFD fs fd) ls
+   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (line_Fail loc e)) * HOL_STORE refs)`;
 
 val _ = (append_prog o process_topdecs) `
-  fun process_lines ins st0 =
+  fun process_lines loc ins st0 =
     case TextIO.inputLine ins of
-      NONE => TextIO.print "OK!\n"
+      NONE => TextIO.print (msg_success (loc-1))
     | SOME ln =>
       (case process_line st0 ln of
-         Inl st1 => process_lines ins st1
-       | Inr e => TextIO.output TextIO.stdErr (msg_failure e))`;
+         Inl st1 => process_lines (loc+1) ins st1
+       | Inr e => TextIO.output TextIO.stdErr (line_fail loc e))`;
 
 val process_lines_spec = Q.store_thm("process_lines_spec",
-  `!n st stv refs.
+  `!n st stv refs loc locv.
      READER_STATE_TYPE st stv /\
      WORD8 (n2w fd) fdv /\ fd <= 255 /\ fd <> 1 /\ fd <> 2 /\
+     INT loc locv /\
      STD_streams fs /\
      get_file_content fs fd = SOME (content, n)
      ==>
-     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [fdv;stv]
+     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [locv;fdv;stv]
        (STDIO fs * HOL_STORE refs)
        (POSTv u.
          &UNIT_TYPE () u *
-         process_lines fd st refs fs (MAP implode (linesFD fs fd)))`,
+         process_lines loc fd st refs fs (MAP implode (linesFD fs fd)))`,
   Induct_on`linesFD fs fd`
   >- (
     rpt strip_tac
@@ -663,12 +625,15 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ xmatch
     \\ fs[OPTION_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto \\ xsimpl
     \\ xapp
     \\ xsimpl
     \\ simp[lineFD_NONE_lineForwardFD_fastForwardFD]
     \\ qexists_tac`HOL_STORE refs` \\ xsimpl
+    \\ instantiate
     \\ qexists_tac`fastForwardFD fs fd`
-    \\ xsimpl)
+    \\ xsimpl )
   \\ rpt strip_tac
   \\ xcf"process_lines"(get_ml_prog_state())
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM)
@@ -690,7 +655,9 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
   \\ Cases_on`sm` \\ fs[SUM_TYPE_def]
   \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   >- (
-    xapp
+    xlet_auto >- xsimpl
+    \\ qmatch_asmsub_abbrev_tac `STRING_TYPE fl sv`
+    \\ xapp
     \\ simp[process_lines_def]
     \\ xsimpl
     \\ `STD_streams (lineForwardFD fs fd)` by simp[STD_streams_lineForwardFD]
@@ -699,6 +666,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ qexists_tac`emp` \\ xsimpl
     \\ qmatch_asmsub_rename_tac`(INL st',refs')`
     \\ qexists_tac`st'` \\ qexists_tac`refs'`
+    \\ qexists_tac `loc+1`
     \\ qexists_tac`fd` \\ xsimpl
     \\ imp_res_tac get_file_content_lineForwardFD_forwardFD
     \\ simp[get_file_content_forwardFD] )
@@ -729,7 +697,8 @@ val _ = (append_prog o process_topdecs) `
     let
       val ins = TextIO.openIn file
     in
-      process_lines ins init_state;
+      (* Alternatively we can count lines from 0 *)
+      process_lines 1 ins init_state;
       TextIO.close ins
     end
     (* Presuming that openIn will raise only this *)
@@ -737,54 +706,46 @@ val _ = (append_prog o process_topdecs) `
       TextIO.output TextIO.stdErr (msg_bad_name file)`;
 
 val readLines_process_lines = Q.store_thm("readLines_process_lines",
-  `∀ls st refs res r fs.
-   readLines (MAP str_prefix (FILTER ($~ o invalid_line) ls)) st refs = (res,r) ⇒
+  `∀ls loc st refs res r fs.
+   readLines loc ls st refs = (res,r) ⇒
    ∃n.
-     process_lines fd st refs fs ls =
+     process_lines loc fd st refs fs ls =
      case res of
-     | (Success _) => STDIO (add_stdout (fastForwardFD fs fd) (strlit"OK!\n")) * HOL_STORE r
-     | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) (msg_failure e)) * HOL_STORE r`,
-  Induct
-  \\ rw[process_lines_def]
+     | (Success (_,m)) => STDIO (add_stdout (fastForwardFD fs fd) (msg_success m)) * HOL_STORE r
+     | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) e) * HOL_STORE r`,
+  Induct \\ rw[process_lines_def]
   >- ( fs[Once readLines_def,st_ex_return_def] \\ rw[] )
-  >- (
-    rw[process_line_def]
-    \\ pop_assum mp_tac
-    \\ simp[Once readLines_def]
-    \\ rw[st_ex_bind_def]
-    \\ CASE_TAC \\ fs[]
-    \\ CASE_TAC \\ fs[]
-    >- (
-      first_x_assum drule
-      \\ disch_then(qspec_then`lineForwardFD fs fd`strip_assume_tac)
-      \\ simp[]
-      \\ CASE_TAC
-      \\ CASE_TAC \\ fs[]
-      \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
-      \\ simp[forwardFD_o]
-      \\ metis_tac[] )
-    \\ rveq \\ fs[]
-    \\ CASE_TAC \\ fs[]
-    \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
-    \\ simp[]
-    \\ metis_tac[] )
-  \\ rw[process_line_def]
-  \\ first_x_assum drule
-  \\ disch_then(qspec_then`lineForwardFD fs fd`strip_assume_tac)
-  \\ simp[]
-  \\ CASE_TAC
+  \\ pop_assum mp_tac
+  \\ simp[Once readLines_def, handle_Fail_def, raise_Fail_def, st_ex_bind_def]
+  \\ simp [process_line_def]
   \\ CASE_TAC \\ fs[]
+  >-
+   (strip_tac
+    \\ first_x_assum drule
+    \\ disch_then(qspec_then`lineForwardFD fs fd`strip_assume_tac) \\ fs []
+    \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
+    \\ simp[forwardFD_o]
+    \\ metis_tac [])
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  >-
+   (strip_tac
+    \\ first_x_assum drule
+    \\ disch_then(qspec_then`lineForwardFD fs fd`strip_assume_tac) \\ fs []
+    \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
+    \\ simp[forwardFD_o]
+    \\ metis_tac [])
+  \\ CASE_TAC \\ fs []
+  \\ rw [] \\ fs []
   \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
-  \\ simp[forwardFD_o]
-  \\ metis_tac[] );
+  \\ metis_tac []);
 
 val read_file_def = Define`
   read_file fs refs fnm =
     (if inFS_fname fs (File fnm) then
-       (case readLines (MAP str_prefix (FILTER ($~ o invalid_line) (all_lines fs (File fnm))))
-               init_state refs of
-        | (Success _, refs) => (add_stdout fs (strlit"OK!\n"), refs)
-        | (Failure (Fail e), refs) => (add_stderr fs (msg_failure e), refs))
+       (case readLines 1 (all_lines fs (File fnm)) init_state refs of
+        | (Success (_,n), refs) => (add_stdout fs (msg_success n), refs)
+        | (Failure (Fail e), refs) => (add_stderr fs e, refs))
      else (add_stderr fs (msg_bad_name fnm), refs))`;
 
 val read_file_spec = Q.store_thm("read_file_spec",
@@ -828,8 +789,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ qmatch_goalsub_abbrev_tac`$POSTv Qval`
   \\ xhandle`$POSTv Qval` \\ xsimpl
   \\ qunabbrev_tac`Qval`
-  \\ xlet_auto_spec (SOME openIn_STDIO_spec)
-  \\ xsimpl
+  \\ xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl
   \\ imp_res_tac nextFD_leX
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ pop_assum(qspec_then`0`mp_tac) \\ rw[]
@@ -851,7 +811,8 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ simp[Abbr`fs'`,linesFD_openFileFS_nextFD,Abbr`fd`,MAP_MAP_o,o_DEF]
   \\ CASE_TAC
   >- (
-    xsimpl
+    CASE_TAC
+    \\ xsimpl
     \\ qexists_tac`HOL_STORE r` \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
     \\ qexists_tac`fs'` \\ xsimpl
@@ -863,8 +824,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ qmatch_goalsub_abbrev_tac `add_stdout _ str1`
     \\ imp_res_tac add_stdo_A_DELKEY
     \\ first_x_assum (qspecl_then [`str1`,`"stdout"`, `openFileFS fnm fs 0`] mp_tac)
-    \\ xsimpl
-    )
+    \\ xsimpl )
   \\ CASE_TAC \\ fs[]
   \\ xsimpl
   \\ qexists_tac`HOL_STORE r` \\ xsimpl
