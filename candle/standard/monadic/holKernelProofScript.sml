@@ -2281,6 +2281,7 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
       (?ds. THM (ds++defs) th1 /\ THM (ds++defs) th2 /\
             STATE (ds++defs) s' /\
             !th. THM defs th ==> THM (ds++defs) th)`,
+
   Cases_on `th` \\ SIMP_TAC (srw_ss())
      [new_basic_type_definition_def,Once st_ex_bind_def,st_ex_return_def,raise_Fail_def,
       can_def |> SIMP_RULE std_ss [otherwise_def,st_ex_bind_def,st_ex_return_def]] >>
@@ -2552,8 +2553,13 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   \\ Cases
   \\ once_rewrite_tac [THM_def]
   \\ strip_tac
-  \\ cheat (* TODO Will need a updates_proves for extends *)
+  \\ irule extends_proves
+  \\ HINT_EXISTS_TAC \\ fs []
+  \\ fs [STATE_def, CONTEXT_def] \\ rveq
+  \\ cheat (* prove that ds ++ defs extends the context *)
   )
+
+  print_find "_extends"
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of context extension functions                               *)
