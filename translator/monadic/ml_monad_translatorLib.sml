@@ -2513,8 +2513,8 @@ fun create_local_references init_state th = let
     val get_access_term = rator o lhs o snd o strip_forall o concl
     val state_accessors_thms = TypeBase.accessors_of (type_of state_var)
     val state_accessors = List.map get_access_term  state_accessors_thms
-    val init_state_accessors = TypeBase.accessors_of init_state_type
-				       |> List.map get_access_term
+    val init_state_accessors_thms = TypeBase.accessors_of init_state_type
+    val init_state_accessors = List.map get_access_term init_state_accessors_thms
     val state_accessors = zip state_accessors init_state_accessors
 
     fun get_farray_access_fun state_field = let
@@ -2522,6 +2522,18 @@ fun create_local_references init_state th = let
 	fun is_ok (x, _) = same_const x accessor
 	val accessor = first is_ok state_accessors |> snd
     in accessor end
+
+    (* Some other facilities *)
+    val rewrite_field_access_conv =
+	QCONV(SIMP_CONV std_ss (#rewrs (TypeBase.simpls_of init_state_type)))
+    fun rewrite_field_access_rule eq =
+      (CONV_RULE o RAND_CONV o RAND_CONV)
+	  (PURE_ONCE_REWRITE_CONV [GSYM eq])
+    fun get_field_access_eval_thm tm = let
+	val tm_eq = rewrite_field_access_conv tm
+	val tm = concl tm_eq |> rhs
+	val eval_thm = hol2deep tm |> rewrite_field_access_rule tm_eq
+    in eval_thm end
 
     (*******)
     (* val all_loc_info = !dynamic_refs_bindings
@@ -2549,8 +2561,8 @@ fun create_local_references init_state th = let
 	val TYPE = get_type_inv (type_of state_field)
 
 	val accessor = get_farray_access_fun state_field
-	val Eval_state_field = hol2deep (mk_comb (accessor, init_state))
-
+	val Eval_state_field =
+	    get_field_access_eval_thm (mk_comb (accessor, init_state))
 
 	val get_ref_exp = concl Eval_state_field |> get_Eval_exp
 	val st_name = stringLib.fromMLstring (dest_var state_var |> fst)
@@ -2572,12 +2584,12 @@ fun create_local_references init_state th = let
 		  EvalSt_AllocEmpty |> BETA_RULE |> UNDISCH
 	 else if is_farray then let
 	    val ntm = my_list_mk_comb(FST_const, [mk_comb(accessor, init_state)])
-	    val nexp_eval = hol2deep ntm
+	    val nexp_eval = get_field_access_eval_thm ntm
 	    val nexp = concl nexp_eval |> rator |> rand
 	    val n = concl nexp_eval |> rand |> rand
 
 	    val xtm = my_list_mk_comb(SND_const, [mk_comb(accessor, init_state)])
-	    val xexp_eval = hol2deep xtm
+	    val xexp_eval = get_field_access_eval_thm xtm
 	    val xexp = concl xexp_eval |> rator |> rand
 	    val (TYPE, x) = concl xexp_eval |> rand |> dest_comb
 
@@ -2598,49 +2610,6 @@ fun create_local_references init_state th = let
     (* Transform the EvalSt predicate to an Eval predicate *)
     val th = MATCH_MP EvalSt_to_Eval th
 in th end
-
-(* fun create_constant_state th init_state = let
-    (* Rewrite the data-type in an appropriate manner *)
-    val ty = type_of init_state
-    val type_name = dest_type ty |> fst
-    val rw_thms = DB.find (type_name ^ "_component_equality")
-			  |> List.map (fst o snd)
-    val pat = SPEC_ALL (TypeBase.one_one_of ty) |> concl |> dest_eq
-		       |> fst |> dest_eq |> fst
-    val eqns = mk_eq(pat,init_state) |> SIMP_CONV (srw_ss()) rw_thms
-    val ss = concl eqns |> rand |> list_dest dest_conj
-                 |> List.map ((fn (x,y) => x |-> y) o dest_eq)
-    val rw_init_state = Term.subst ss pat
-    val state_var_eq = prove(mk_eq(rw_init_state,init_state),fs rw_thms)
-
-    (* Instantiate the environment *)
-    val env = get_Eval_env (concl th)
-    val v = genvar v_ty
-    val nenv = mk_write (stringLib.fromMLstring "state") v env
-    val th1 = INST [env |-> nenv] th
-		   |> UNDISCH_ALL |> PURE_REWRITE_RULE [GSYM SafeVar_def]
-		   |> DISCH_ALL
-		   |> CONV_RULE (SIMP_CONV bool_ss [lookup_cons_write,lookup_var_write,Eval_Var_SIMP])
-		   |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-		   |> SIMP_RULE bool_ss []
-		   |> UNDISCH_ALL
-		   |> PURE_REWRITE_RULE [SafeVar_def]
-
-    (* Apply the theorem *)
-    val STATE_INV = get_type_inv (type_of state_var)
-    val INV_pat = list_mk_comb(STATE_INV, [state_var,v_var])
-    val assum = List.hd (List.filter (can (match_term INV_pat)) (hyp th1))
-    val th2 = DISCH assum th1 |> GEN v
-
-    val Eval_state = hol2deep rw_state_var
-	             |> PURE_REWRITE_RULE [state_var_eq]
-    val old_env = concl Eval_state |> get_Eval_env
-    val Eval_state = INST [old_env |-> env] Eval_state
-    val th3 = CONJ Eval_state th2
-    val th4 = MATCH_MP Eval_Let th3
-              |> CONV_RULE ((RAND_CONV (PURE_REWRITE_CONV[LET_DEF]))
-				THENC (DEPTH_CONV BETA_CONV))
-in th4 end *)
 
 (* val (vname,x) = List.last params_bindings *)
 fun apply_Eval_Fun_Eq ((vname,x), th) = let
@@ -2686,7 +2655,7 @@ fun inst_gen_eq_vars2 st th = let
     (* *)
 in th end;
 
-fun m_translate_run def = let
+fun m_translate_run_preprocess_def def = let
     (* Instantiate the monadic state and exceptions if they are polymorphic *)
     val tys = get_monadic_types_inst (def |> concl |> strip_forall |> snd |> rhs |> rator |> rand)
     val _ = if List.length tys > 0 then print "m_translate_run: instantiated monadic types\n" else ()
@@ -2695,6 +2664,11 @@ fun m_translate_run def = let
 
     (* preprocessing: register types *)
     val _ = register_term_types register_type (concl def)
+in def end
+
+fun m_translate_run def = let
+    (* Preprocess *)
+    val def = m_translate_run_preprocess_def def    
 
     (* Decompose the definition *)
     val (def_lhs, def_rhs) = concl def |> strip_forall |> snd |> dest_eq
@@ -2768,19 +2742,6 @@ fun m_translate_run def = let
 
     (* Add the state parameter Eval assumption *)
     val monad_state_is_var = is_var init_state
-    (* val env = concl monad_th |> get_Eval_env
-    val STATE_RI = get_type_inv (type_of init_state)
-    val monad_th = if monad_state_is_var then let
-	val state_var_name = stringLib.fromMLstring(dest_var state_var |> fst)
-	val exp1 = my_list_mk_comb(Short_const,[state_var_name])
-	val tys = Type.match_type (type_of exp1)
-                  (type_of Var_const |> dest_type |> snd |> List.hd)
-	val exp = mk_comb(Var_const,Term.inst tys exp1)
-	val Eval_state_var_assum = my_list_mk_comb(Eval_const,
-                            [env,exp,mk_comb(STATE_RI,init_state)])
-	val monad_th = ADD_ASSUM Eval_state_var_assum monad_th
-      in monad_th end
-      else monad_th *)
 
     (* Retrieve information about the exc type *)
     val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
