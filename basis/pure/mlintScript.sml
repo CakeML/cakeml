@@ -214,8 +214,13 @@ val fromString_def = Define`
   fromString str =
     if strlen str = 0
     then SOME 0i
-    else if strsub str 0 = #"~"
+    else if strsub str 0 = #"~" ∨
+            strsub str 0 = #"-"
       then OPTION_MAP ($~ o $&)
+             (fromChars (strlen str - 1)
+                        (substring str 1 (strlen str - 1)))
+    else if strsub str 0 = #"+"
+      then OPTION_MAP $&
              (fromChars (strlen str - 1)
                         (substring str 1 (strlen str - 1)))
       else OPTION_MAP $& (fromChars (strlen str) str)`;
@@ -307,11 +312,13 @@ val fromString_unsafe_thm = Q.store_thm("fromString_unsafe_thm",
   \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
 
 val fromString_thm = Q.store_thm("fromString_thm",
-  `∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
-         (HD str = #"~" ⇒ EVERY isDigit (DROP 1 str)) ⇒
+  `∀str. (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
+         (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
          fromString (strlit str) = SOME
-           if HD str = #"~"
+           if HD str = #"~" ∨ HD str = #"-"
            then ~&num_from_dec_string (DROP 1 str)
+           else if HD str = #"+"
+           then &num_from_dec_string (DROP 1 str)
            else &num_from_dec_string str`,
   rw [fromString_def
      , fromChars_eq_unsafe
