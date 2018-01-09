@@ -12,6 +12,21 @@ val HCOND_EXTRACT = save_thm("HCOND_EXTRACT", cfLetAutoTheory.HCOND_EXTRACT);
 val SEP_EXISTS_SEPARATE = save_thm("SEP_EXISTS_SEPARATE", List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL);
 val SEP_EXISTS_INWARD = save_thm("SEP_EXISTS_INWARD", List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL);
 
+fun evaluate_unique_result_tac (g as (asl, w)) = let
+    val asl = List.map ASSUME asl
+    val uniques = mapfilter (MATCH_MP evaluate_unique_result) asl
+in simp uniques g end;
+
+val ALLOCATE_ARRAY_evaluate = Q.store_thm("ALLOCATE_ARRAY_evaluate",
+`!env s n xname xv.
+ (nsLookup env.v (Short xname) = SOME xv) ==>
+ evaluate F env s (App Aalloc [Lit (IntLit &n); Var (Short xname)])
+ (s with refs := s.refs ++ [Varray (REPLICATE n xv)], Rval (Loc (LENGTH s.refs)))`,
+rw[]
+\\ ntac 6 (rw[Once evaluate_cases])
+\\ rw[state_component_equality]
+\\ rw[do_app_def, store_alloc_def]);
+
 val ALLOCATE_EMPTY_RARRAY_evaluate = Q.store_thm("ALLOCATE_EMPTY_RARRAY_evaluate",
 `!env s. evaluate F env s (App Opref [App AallocEmpty [Con NONE []]])
 (s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))], Rval (Loc (LENGTH s.refs + 1)))`,
@@ -19,6 +34,12 @@ rw[]
 \\ ntac 10 (rw[Once evaluate_cases])
 \\ rw[do_opapp_def, do_con_check_def, build_conv_def, do_app_def, store_alloc_def]
 \\ rw[state_component_equality]);
+
+val LIST_REL_REPLICATE = Q.store_thm("LIST_REL_REPLICATE",
+ `!n TYPE x v. TYPE x v ==> LIST_REL TYPE (REPLICATE n x) (REPLICATE n v)`,
+ rw[]
+ \\ Cases_on `n`
+ >> metis_tac[LIST_REL_REPLICATE_same]);
 
 val GC_INWARDS = Q.store_thm("GC_INWARDS",
   `GC * A = A * GC`, SIMP_TAC std_ss [STAR_COMM]);
@@ -41,28 +62,25 @@ val GC_DUPLICATE_3 = Q.store_thm("GC_DUPLICATE_3",
 
 val store2heap_aux_decompose_store1 = Q.store_thm(
  "store2heap_aux_decompose_store1",
- `H (store2heap_aux n (a ++ (b ++ c))) =
-  (DISJOINT (store2heap_aux n (a ++ b)) (store2heap_aux (n + LENGTH (a ++b)) c) ==>
-  H ((store2heap_aux n (a ++ b)) UNION (store2heap_aux (n + LENGTH (a ++b)) c)))`,
-  EQ_TAC
-  >-(
-      rw[]
-      \\ FULL_SIMP_TAC pure_ss [GSYM APPEND_ASSOC]
-      \\ FULL_SIMP_TAC pure_ss [store2heap_aux_append_many, ADD_ASSOC]
-      \\ metis_tac[UNION_COMM, UNION_ASSOC]
-  )
-  \\ rw[]
-  \\ qspecl_then [`n`, `a ++ b`, `c`] ASSUME_TAC store2heap_aux_DISJOINT \\ fs[]
-  \\ PURE_REWRITE_TAC [Once store2heap_aux_append_many]
-  \\ fs[UNION_COMM]);
+ `A (store2heap_aux n a) ==>
+  B (store2heap_aux (n + LENGTH a) b) ==>
+  (A * B) (store2heap_aux n (a ++ b))`,
+ rw[STAR_def, SPLIT_def]
+ \\ instantiate
+ \\ rw[Once UNION_COMM]
+ >- fs[store2heap_aux_append_many]
+ \\ fs[store2heap_aux_DISJOINT]);
 
 val store2heap_aux_decompose_store2 = Q.store_thm(
  "store2heap_aux_decompose_store2",
- `H (store2heap_aux n (a ++ b)) =
-  (DISJOINT (store2heap_aux n a) (store2heap_aux (n + LENGTH a) b) ==>
-  H ((store2heap_aux (n + LENGTH a) b) UNION (store2heap_aux n a)))`,
-  ASSUME_TAC (Thm.INST [``b:v store`` |-> ``[] : v store``] store2heap_aux_decompose_store1 |> GEN_ALL)
-  \\ fs[UNION_COMM]);
+ `A (store2heap_aux n [a]) ==>
+  B (store2heap_aux (n + 1) b) ==>
+  (A * B) (store2heap_aux n (a::b))`,
+ rw[]
+ \\ `a::b = [a]++b` by fs[]
+ \\ POP_ASSUM(fn x => PURE_ONCE_REWRITE_TAC[x])
+ \\ irule store2heap_aux_decompose_store1
+ \\ fs[]);
 
 val cons_to_append = Q.store_thm("cons_to_append", `a::b::c = [a; b]++c`, fs[]);
 
@@ -102,14 +120,14 @@ val rarray_exact_thm = Q.store_thm("rarray_exact_thm",
   \\ PURE_REWRITE_TAC[Once STAR_COMM]
   \\ `[Varray av; Refv (Loc l')] = [Varray av] ++ [Refv (Loc l')]` by fs[]
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
-  \\ PURE_REWRITE_TAC[store2heap_aux_decompose_store2]
-  \\ DISCH_TAC
-  \\ rw[STAR_def, SPLIT_def]
-  \\ instantiate
-  \\ rw[]
-  >-(rw[Once UNION_COMM])
+  \\ irule store2heap_aux_decompose_store1
   >-(rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
   \\ rw[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
+
+val farray_exact_thm = Q.store_thm("farray_exact_thm", 
+ `(n = l) ==>
+  ARRAY (Loc l) av (store2heap_aux n [Varray av])`,
+ rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
 	
 val eliminate_inherited_references_thm = Q.store_thm(
   "eliminate_inherited_references_thm", 
@@ -157,6 +175,7 @@ val parsed_terms = save_thm("parsed_terms",
      ("CONS",``list$CONS : 'a -> 'a list -> 'a list``),
      ("REF",``REF``),
      ("RARRAY",``RARRAY``),
+     ("ARRAY",``ARRAY``),
      ("SOME",``SOME : 'a -> 'a option``),
      ("one",``1 : num``),
      ("cond",``set_sep$cond : bool -> hprop``),
@@ -164,7 +183,8 @@ val parsed_terms = save_thm("parsed_terms",
      ("opref_expr",``\name. (App Opref [Var (Short name)])``),
      ("empty_v_list",``[] : v list``),
      ("empty_v_store",``[] : v store``),
-     ("empty_alpha_list",``[] : 'a list``)
+     ("empty_alpha_list",``[] : 'a list``),
+     ("nsLookup_env_short", ``\(env : v sem_env) name. nsLookup env.v (Short name)``)
     ]);
 
 (* Types used by the ml_monadStore *)
