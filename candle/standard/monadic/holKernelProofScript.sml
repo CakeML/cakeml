@@ -413,6 +413,45 @@ val term_type = Q.prove(
   imp_res_tac CONTEXT_std_sig >>
   fs[TYPE_def,type_ok_def,is_std_sig_def])
 
+val type_of_has_type = Q.store_thm("type_of_has_type",
+  `!tm refs ty refs'.
+     STATE defs refs /\
+     TERM defs tm /\
+     (type_of tm refs = (Success ty, refs'))
+     ==>
+     tm has_type ty /\
+     (typeof tm = ty)`,
+  Induct \\ rpt gen_tac \\ once_rewrite_tac [type_of_def] \\ fs []
+  \\ fs [st_ex_return_def, st_ex_bind_def, raise_Fail_def] \\ rw []
+  \\ once_rewrite_tac [holSyntaxTheory.has_type_rules]
+  \\ fs [TERM_def]
+  \\ fs [holSyntaxTheory.term_ok_def]
+  \\ pop_assum mp_tac
+  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ every_case_tac \\ fs [] \\ rw []
+  >-
+   (fs [dest_type_def, raise_Fail_def, st_ex_return_def]
+    \\ pop_assum mp_tac
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ match_mp_tac (CONJUNCTS holSyntaxTheory.has_type_rules |> el 3)
+    \\ last_x_assum drule
+    \\ disch_then drule \\ rw []
+    \\ qexists_tac `typeof tm'` \\ fs []
+    \\ fs [holSyntaxExtraTheory.WELLTYPED])
+  >-
+   (fs [dest_type_def, raise_Fail_def, st_ex_return_def]
+    \\ pop_assum mp_tac
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ last_x_assum drule
+    \\ disch_then drule \\ rw [])
+  \\ fs [mk_fun_ty_def, mk_type_def, st_ex_bind_def, try_def, otherwise_def]
+  \\ fs [get_type_arity_def, get_the_type_constants_def, st_ex_bind_def]
+  \\ fs [st_ex_return_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ last_x_assum drule
+  \\ disch_then drule \\ rw []
+  \\ simp [holSyntaxTheory.has_type_rules]);
+
 val type_of_thm = Q.prove(
   `!tm. TERM defs tm /\ STATE defs s ==>
          (type_of tm s = (Success (term_type tm),s))`,
@@ -2281,7 +2320,6 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
       (?ds. THM (ds++defs) th1 /\ THM (ds++defs) th2 /\
             STATE (ds++defs) s' /\
             !th. THM defs th ==> THM (ds++defs) th)`,
-
   Cases_on `th` \\ SIMP_TAC (srw_ss())
      [new_basic_type_definition_def,Once st_ex_bind_def,st_ex_return_def,raise_Fail_def,
       can_def |> SIMP_RULE std_ss [otherwise_def,st_ex_bind_def,st_ex_return_def]] >>
@@ -2555,11 +2593,8 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   \\ strip_tac
   \\ irule extends_proves
   \\ HINT_EXISTS_TAC \\ fs []
-  \\ fs [STATE_def, CONTEXT_def] \\ rveq
-  \\ cheat (* prove that ds ++ defs extends the context *)
-  )
-
-  print_find "_extends"
+  \\ fs [STATE_def, CONTEXT_def, Abbr`s2`, Abbr`s1`] \\ rw []
+  \\ fs [extends_def, Once RTC_CASES1, init_ctxt_def])
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of context extension functions                               *)
@@ -2653,8 +2688,7 @@ val new_axiom_thm = Q.store_thm("new_axiom_thm",
   Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
   \\ irule updates_proves \\ fs []
   \\ simp [updates_cases]
-  \\ reverse conj_tac >- fs [TERM_def]
-  \\ cheat (* TODO readerProof has a theorem which states type_of ... => ... has_type ... *)
-  );
+  \\ reverse conj_asm2_tac >- fs [TERM_def]
+  \\ metis_tac [type_of_has_type]);
 
 val _ = export_theory();
