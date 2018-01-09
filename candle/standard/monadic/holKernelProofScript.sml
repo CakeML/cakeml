@@ -2180,30 +2180,9 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
       \\ once_rewrite_tac [THM_def]
       \\ strip_tac
       \\ irule updates_proves \\ fs []
-      \\ qunabbrev_tac `d`
-      \\ simp [updates_cases]
-      \\ fs [ALL_DISTINCT_APPEND, MAP_MAP_o, o_DEF, UNCURRY]
-      \\ sg `MAP (\((s,ty),t). Var s ty === t) a = l`
-      >- fs [LIST_REL_EL_EQN, UNCURRY, LIST_REL_MAP_EQ]
-      \\ fs [ELIM_UNCURRY]
-      \\ sg `EVERY (\x. SND (FST x) = typeof (SND x)) a`
-      >-
-       (fs [EVERY_MEM, LIST_REL_EL_EQN] \\ rw []
-        \\ fs [MEM_EL] \\ rveq
-        \\ metis_tac [WELLTYPED_LEMMA])
-      \\ sg `MAP (\x. Var (FST (FST x)) (typeof (SND x)) === SND x) a = l`
-      >- fs [EQ_SYM_EQ, MAP_EQ_f, EVERY_MEM]
-      \\ fs [THM_def]
-      \\ fs [tyvars_EQ_thm]
-      \\ once_rewrite_tac [METIS_PROVE[]``a/\b/\c<=>c/\a/\b``]
-      \\ conj_asm1_tac >- metis_tac [STATE_def]
-      \\ conj_asm1_tac
-      >-
-       (fs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL]
-        \\ ntac 2 strip_tac
-        \\ fs [EL_MAP])
-      \\ rpt strip_tac
-      \\ cheat (* TODO *)
+      \\ `d::defs extends defs` suffices_by fs [Once RTC_CASES1, extends_def]
+      \\ fs [STATE_def, CONTEXT_def, Abbr`s'`] \\ rw []
+      \\ fs [extends_def, Once RTC_CASES1, init_ctxt_def] \\ rw [] \\ metis_tac []
      ) >>
     fs[STATE_def,Abbr`s'`] >>
     simp[Abbr`d`] >>
