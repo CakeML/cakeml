@@ -75,7 +75,8 @@ val refs_manip_list = [("next_uvar", get_next_uvar_def, set_next_uvar_def),
 val store_hprop_name = "INFER_STATE_STORE";
 val state_type = ``:infer_st``;
 
-val arrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val farrays_manip_list = [] : (string * thm * thm * thm * thm * thm) list;
 val add_type_theories = ["to_dataProg","lexerProg","parserProg"] : string list;
 val exn_ri_def = INFER_EXN_TYPE_def;
 
@@ -83,7 +84,8 @@ val store_pinv_def_opt = NONE : thm option;
 
 val (monad_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-                                               arrays_manip_list
+                                               rarrays_manip_list
+                                               farrays_manip_list
                                                store_hprop_name
                                                state_type
                                                exn_ri_def

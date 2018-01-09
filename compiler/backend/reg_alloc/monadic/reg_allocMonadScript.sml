@@ -82,7 +82,7 @@ val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
 val sub_exn = ``ReadError ()``;
 val update_exn = ``WriteError ()``;
-val arr_manip = define_Marray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
+val arr_manip = define_MRarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
 
 fun accessor_thm (a,b,c,d,e,f,g) = LIST_CONJ [b,c,d,e,f,g]
 
