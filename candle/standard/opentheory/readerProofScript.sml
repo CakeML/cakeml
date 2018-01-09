@@ -553,49 +553,6 @@ val type_of_thm = Q.store_thm("type_of_thm",
   \\ disch_then (qspec_then `Tyapp z w` mp_tac)
   \\ rw [holSyntaxTheory.type_ok_def, Abbr`z`, Abbr`w`]);
 
-val type_of_has_type = Q.store_thm("type_of_has_type",
-  `!tm refs ty refs'.
-     STATE defs refs /\
-     TERM defs tm /\
-     type_of tm refs = (Success ty, refs')
-     ==>
-     tm has_type ty /\
-     typeof tm = ty`,
-  Induct \\ rpt gen_tac \\ once_rewrite_tac [type_of_def] \\ fs []
-  \\ fs [st_ex_return_def, st_ex_bind_def, raise_Fail_def] \\ rw []
-  \\ once_rewrite_tac [holSyntaxTheory.has_type_rules]
-  \\ fs [TERM_def]
-  \\ fs [holSyntaxTheory.term_ok_def]
-  \\ pop_assum mp_tac
-  \\ CASE_TAC \\ fs [] \\ rw []
-  \\ fs [case_eq_thms] \\ rw []
-  >-
-   (every_case_tac \\ fs [] \\ rw []
-    \\ fs [dest_type_def, raise_Fail_def, st_ex_return_def]
-    \\ pop_assum mp_tac
-    \\ CASE_TAC \\ fs [] \\ rw []
-    \\ match_mp_tac (CONJUNCTS holSyntaxTheory.has_type_rules |> el 3)
-    \\ last_x_assum drule
-    \\ disch_then drule \\ rw []
-    \\ qexists_tac `typeof tm'` \\ fs []
-    \\ imp_res_tac holSyntaxExtraTheory.WELLTYPED_LEMMA
-    \\ fs [] \\ rw []
-    \\ fs [holSyntaxExtraTheory.WELLTYPED])
-  >-
-   (every_case_tac \\ fs [] \\ rw []
-    \\ fs [dest_type_def, raise_Fail_def, st_ex_return_def]
-    \\ pop_assum mp_tac
-    \\ CASE_TAC \\ fs [] \\ rw []
-    \\ last_x_assum drule
-    \\ disch_then drule \\ rw [])
-  \\ fs [mk_fun_ty_def, mk_type_def, st_ex_bind_def, try_def, otherwise_def]
-  \\ fs [get_type_arity_def, get_the_type_constants_def, st_ex_bind_def]
-  \\ fs [st_ex_return_def, raise_Fail_def]
-  \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []
-  \\ last_x_assum drule
-  \\ disch_then drule \\ rw []
-  \\ simp [holSyntaxTheory.has_type_rules]);
-
 val mk_comb_thm = Q.store_thm("mk_comb_thm",
   `STATE defs refs /\
    TERM defs f /\
