@@ -766,6 +766,6 @@ val reg_alloc_aux_def = Define`
 
 val reg_alloc_def = Define `
 reg_alloc k mtable ct forced =
-    LET (reg_alloc_aux k mtable ct forced) (mk_bij ct)`;
+    reg_alloc_aux k mtable ct forced (mk_bij ct)`;
 
 val _ = export_theory();
