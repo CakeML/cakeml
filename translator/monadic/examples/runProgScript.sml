@@ -18,7 +18,7 @@ val _ = (use_full_type_names := false);
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <| the_num : num ;
-	          the_num_array : num list ;
+                  the_num_array : num list ;
                   the_int_array : int list |>`;
 
 (* Data type for the exceptions *)
@@ -53,8 +53,8 @@ val init_num_def = Define `init_num = (0 : num)`;
 val init_num_array_def = Define `init_num_array = [] : num list`;
 val init_int_array_def = Define `init_int_array = [] : int list`;
 val refs_init_list = [(the_num_name, init_num_def, get_the_num_def, set_the_num_def),
-		     (the_num_array_name, init_num_array_def, get_the_num_array_def, set_the_num_array_def),
-		     (the_int_array_name, init_int_array_def, get_the_int_array_def, set_the_int_array_def)];
+                     (the_num_array_name, init_num_array_def, get_the_num_array_def, set_the_num_array_def),
+                     (the_int_array_name, init_int_array_def, get_the_int_array_def, set_the_int_array_def)];
 
 val infer_init_state = ``<|the_num := 0; the_num_array := []; the_int_array := []|>``;
 
@@ -73,12 +73,12 @@ val store_pinv_def_opt = NONE : thm option;
 (* Initialize the translation *)
 val (translation_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-					       rarrays_manip_list
-					       farrays_manip_list
-					       store_hprop_name
-					       state_type
-					       exn_ri_def
-					       exn_functions
+                                               rarrays_manip_list
+                                               farrays_manip_list
+                                               store_hprop_name
+                                               state_type
+                                               exn_ri_def
+                                               exn_functions
                                                [] NONE;
 
 (* Monadic translations *)
@@ -102,6 +102,8 @@ val test3_v_th = m_translate test3_def;
 (* Several non recursive functions *)
 val run_test3_def = Define `run_test3 n m z refs = run (test3 n m z) refs`;
 val run_test3_v_th = m_translate_run run_test3_def;
+val test3'_def = Define `test3' (n, m, z, refs) = run_test3 n m z refs :(num, state_exn) exc`;
+val res = translate test3'_def;
 
 (* Recursive function *)
 val test4_def = Define `
