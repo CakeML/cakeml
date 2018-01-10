@@ -1079,11 +1079,11 @@ val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
       rw[]) >>
   qpat_x_assum `~A` (fn x => fs[x]));
 
-val _ = check_specs_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
+val _ = check_specs_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition;
 
-val _ = m_translate (def_of_const ``check_tscheme_inst_aux``)
-val _ = m_translate_run  (def_of_const ``run_check_tscheme_inst_aux``)
-val _ = translate (def_of_const ``check_tscheme_inst``)
+val res = m_translate (def_of_const ``check_tscheme_inst_aux``);
+val res = m_translate_run (def_of_const ``run_check_tscheme_inst_aux``);
+val res = translate (def_of_const ``check_tscheme_inst``);
 
 val check_tscheme_inst_aux_side_def = fetch "-" "check_tscheme_inst_aux_side_def"
 val run_check_tscheme_inst_aux_side_def = fetch "-" "run_check_tscheme_inst_aux_side_def"
