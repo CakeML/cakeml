@@ -44,11 +44,12 @@ val refs_manip_list = [
     ("stack", get_stack_def, set_stack_def)
 ];
 
-val arrays_manip_list = [
+val rarrays_manip_list = [
     ("adj_ls", get_adj_ls_def, set_adj_ls_def, adj_ls_length_def, adj_ls_sub_def, update_adj_ls_def, alloc_adj_ls_def),
     ("node_tag", get_node_tag_def, set_node_tag_def, node_tag_length_def, node_tag_sub_def, update_node_tag_def, alloc_node_tag_def),
     ("degrees", get_degrees_def, set_degrees_def, degrees_length_def, degrees_sub_def, update_degrees_def, alloc_degrees_def)
 ];
+val farrays_manip_list = [] : (string * thm * thm * thm * thm * thm) list;
 
 val add_type_theories  = ([] : string list);
 val store_pinv_def_opt = NONE : thm option;
@@ -58,7 +59,8 @@ val store_pinv_def_opt = NONE : thm option;
 val (trans_params, exn_specs) =
   start_dynamic_init_fixed_store_translation
     refs_manip_list
-    arrays_manip_list
+    rarrays_manip_list
+    farrays_manip_list
     store_hprop_name
     state_type
     exn_ri_def

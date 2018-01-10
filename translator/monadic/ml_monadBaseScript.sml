@@ -395,13 +395,17 @@ val parsed_terms = save_thm("parsed_terms",
   pack_list (pack_pair pack_string pack_term)
     [
      ("K", ``K : 'a -> 'a -> 'a``),
+     ("FST", ``FST : 'a # 'b -> 'a``),
+     ("SND", ``SND : 'a # 'b -> 'b``),
+     ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
      ("unit", ``()``),
      ("Failure", ``Failure : 'a -> ('b, 'a) exc``),
      ("Success", ``Success : 'a -> ('a, 'b) exc``),
      ("Marray_length", Marray_length_const),
      ("Marray_sub", Marray_sub_const),
      ("Marray_update", Marray_update_const),
-     ("Marray_alloc", Marray_alloc_const)
+     ("Marray_alloc", Marray_alloc_const),
+     ("run", ``run``)
     ]);
 
 (* Types used by the ml_monadBaseLib *)
@@ -409,7 +413,9 @@ val parsed_types = save_thm("parsed_types",
   pack_list (pack_pair pack_string pack_type)
     [
       ("exc",``:('a, 'b) exc``),
-      ("pair", ``:'a # 'b``)
+      ("pair", ``:'a # 'b``),
+      ("num", ``:num``),
+      ("M", ``:('a, 'b, 'c) M``)
     ]);
 
 val _ = export_theory ();

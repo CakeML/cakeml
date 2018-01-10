@@ -11,6 +11,9 @@ sig
 
     val define_monad_access_funs : hol_type -> (string * thm * thm) list
 
-    val define_Marray_manip_funs : (string * thm * thm) list -> term -> term ->
-				   (string * thm * thm * thm * thm * thm * thm) list
+    val define_MFarray_manip_funs : (string * thm * thm) list -> term -> term ->
+				    (string * thm * thm * thm * thm * thm) list
+    val define_MRarray_manip_funs : (string * thm * thm) list -> term -> term ->
+				    (string * thm * thm * thm * thm * thm * thm) list
+    val define_run : hol_type -> string list -> string -> thm
 end
