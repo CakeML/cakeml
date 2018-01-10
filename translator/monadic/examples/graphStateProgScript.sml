@@ -44,7 +44,7 @@ val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
 val sub_exn = ``ReadError ()``;
 val update_exn = ``WriteError ()``;
-val arr_manip = define_Marray_manip_funs [adj_mat_accessors] sub_exn update_exn;
+val arr_manip = define_MRarray_manip_funs [adj_mat_accessors] sub_exn update_exn;
 
 val adj_mat_manip = el 1 arr_manip;
 
@@ -70,7 +70,7 @@ val EXN_RI = ``STATE_EXN_TYPE``;
 
 (* TODO: move? *)
 fun mk_ref_init (name,get,set) init = (name,init,get,set);
-fun mk_arr_init (name,get,set,len,sub,upd,alloc) init = (name,init,get,set,len,sub,upd,alloc);
+fun mk_rarr_init (name,get,set,len,sub,upd,alloc) init = (name,init,get,set,len,sub,upd,alloc);
 
 (* Initializers for the references *)
 val init_dim_def = Define`
@@ -82,11 +82,13 @@ val refs_init_list = [mk_ref_init dim_accessors init_dim_def]
 val init_adj_mat_def = Define`
   init_adj_mat = []:(num option) list`
 
-val arrays_init_list = [mk_arr_init adj_mat_manip init_adj_mat_def]
+val rarrays_init_list = [mk_rarr_init adj_mat_manip init_adj_mat_def]
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
 val (init_trans, store_translation, exn_thms) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      STATE_EXN_TYPE_def

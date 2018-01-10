@@ -48,8 +48,8 @@ val [(the_num_name, get_the_num_def, set_the_num_def),
 
 val sub_exn = ``ReadError ()``;
 val update_exn = ``WriteError ()``;
-val array_access_funs = (List.tl access_funs);
-val array_manip_funs = define_Marray_manip_funs array_access_funs sub_exn update_exn;
+val rarray_access_funs = (List.tl access_funs);
+val rarray_manip_funs = define_MRarray_manip_funs rarray_access_funs sub_exn update_exn;
 
 (* Prepare the translation *)
 val init_num_def = Define `init_num = (0 : num)`;
@@ -57,8 +57,10 @@ val refs_init_list = [(the_num_name, init_num_def, get_the_num_def, set_the_num_
 
 val init_num_array_def = Define `init_num_array = [] : num list`;
 val init_int_array_def = Define `init_int_array = [] : int list`;
-val arrays_init_values = [init_num_array_def, init_int_array_def];
-val arrays_init_list = List.map (fn ((x1, x2, x3, x4, x5, x6, x7), x) => (x1, x, x2, x3, x4, x5, x6, x7)) (zip array_manip_funs arrays_init_values);
+val rarrays_init_values = [init_num_array_def, init_int_array_def];
+val rarrays_init_list = List.map (fn ((x1, x2, x3, x4, x5, x6, x7), x) => (x1, x, x2, x3, x4, x5, x6, x7)) (zip rarray_manip_funs rarrays_init_values);
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
+
 
 val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
@@ -68,7 +70,8 @@ val store_pinv_opt = NONE : (thm * thm) option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      exn_ri_def

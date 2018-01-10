@@ -25,6 +25,11 @@ val with_same_clock = Q.store_thm("with_same_clock",
   `(s with clock := s.clock) = s`,
   simp[state_component_equality]);
 
+val evaluate_unique_result = Q.store_thm("evaluate_unique_result",
+`!expr env s s1 s2 res1 res2. evaluate F env s expr (s1, res1) ==>
+(evaluate F env s expr (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
+rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
+
 (* REF_REL *)
 val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
 
@@ -539,6 +544,10 @@ rw[]
 Thm.INST_TYPE [``:'ffi`` |-> ``:'a``] evaluate_empty_state_IMP |>
 Thm.INST[``s:'a state`` |-> ``(s:'a state) with refs := s.refs ++ junk``])
 \\ fs[]);
+
+(* Fixed-size arrays *)
+val ARRAY_REL = Define `
+ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av`;
 
 (* Resizable arrays *)
 val RARRAY_def = Define `
