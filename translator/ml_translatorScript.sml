@@ -652,6 +652,18 @@ val Eval_int_negate = Q.store_thm("Eval_int_negate",
 
 (* arithmetic for num *)
 
+val sub_nocheck_def = Define`
+  sub_nocheck (n:num) m = n - m`;
+
+val Eval_NUM_SUB_nocheck = save_thm("Eval_NUM_SUB_nocheck",
+  Eval_INT_SUB |> Q.SPECL [`&n`,`&m`]
+  |> UNDISCH_ALL |> DISCH ``PRECONDITION ((m:num) <= n)``
+  |> SIMP_RULE std_ss [GSYM NUM_def,INT_SUB,PRECONDITION_def]
+  |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
+  |> DISCH ``Eval env x2 (INT (&m))``
+  |> DISCH ``Eval env x1 (INT (&n))``
+  |> SIMP_RULE std_ss [GSYM NUM_def,GSYM sub_nocheck_def]);
+
 val Eval_NUM_ADD = save_thm("Eval_NUM_ADD",
   Eval_INT_ADD |> Q.SPECL [`&n1`,`&n2`]
   |> REWRITE_RULE [GSYM NUM_def,INT_ADD]);
