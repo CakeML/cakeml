@@ -1,6 +1,7 @@
 structure cfMonadLib (* :> cfMonadLib *) = struct
 
 open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
+open ml_monad_translatorBaseTheory
 
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term) cfMonadTheory.parsed_terms
@@ -65,10 +66,11 @@ fun mk_app_of_ArrowP ffi spec = let
     val arrow_RI = concl spec |> rator |> rator
     val f_const = concl spec |> rator |> rand
     val fv_const = concl spec |> rand
-    val H = arrow_RI |> rator |> rator |> rand
+    val H_pair = arrow_RI |> rator |> rator |> rand
+    val (H, p_var) = dest_pair H_pair
     val state_type = type_of H |> dest_type |> snd |> List.hd
     val state_var = mk_var("state", state_type)
-    val p_var = get_term "p"
+    (*val p_var = get_term "p"*)
     val H_def = first (fn x => same_const H (concl x |> strip_forall |> snd |> lhs)) (DB.find ((dest_const H |> fst) ^"_def") |> List.map (fst o snd))
 
     (* Prove the assumptions on the STATE heap predicate *)
@@ -180,24 +182,70 @@ val _ = Hol_datatype `
   state_refs = <| the_num : num ;
 	          the_num_array : num list ;
                   the_int_array : int list |>`;
+
 val ptr1_def = Define `ptr1 = Loc 1`;
 val ptr2_def = Define `ptr2 = Loc 2`;
 val ptr3_def = Define `ptr3 = Loc 3`;
-val STATE_REF_def = Define `STATE_REF = \st. REF_REL NUM ptr1 st.the_num
-                         * RARRAY_REL NUM ptr2 st.the_num_array
-                         * RARRAY_REL INT ptr3 st.the_int_array`
+
+val STATE_REF_def = Define `
+  STATE_REF = \st.
+    REF_REL NUM ptr1 st.the_num *
+    RARRAY_REL NUM ptr2 st.the_num_array *
+    RARRAY_REL INT ptr3 st.the_int_array`
+
 val f1_def = Define `f1 (x : num) y = st_ex_return(x + y)`
 val f1_v_def = Define `f1_v = Loc 0`
 val f1_side_def = Define `f1_side x y st = T`
-val spec1 = Q.prove(`ArrowP STATE_REF (PURE NUM) (ArrowM STATE_REF (PURE NUM) (MONAD NUM UNIT_TYPE)) f1 f1_v`,cheat);
-val spec2 = Q.prove(`PRECONDITION(f1_side x y st) ==>
-ArrowP STATE_REF (PURE (Eq NUM x))
-(ArrowM STATE_REF (EqSt (PURE (Eq NUM y)) st) (MONAD NUM UNIT_TYPE)) f1 f1_v`,cheat)
-val ffi = ``p:ffi ffi_proj``
+
+val ffi = ``p:'ffi ffi_proj``
+
+val spec1 = Q.prove (
+  `ArrowP (STATE_REF, ^ffi) (PURE NUM)
+          (ArrowM (STATE_REF, ^ffi) (PURE NUM) (MONAD NUM UNIT_TYPE)) f1 f1_v`,
+  cheat);
+
+val spec2 = Q.prove (
+  `PRECONDITION (f1_side x y st)
+   ==>
+   ArrowP (STATE_REF, ^ffi) (PURE (Eq NUM x))
+          (ArrowM (STATE_REF, ^ffi) (EqSt (PURE (Eq NUM y)) st)
+            (MONAD NUM UNIT_TYPE)) f1 f1_v`,
+  cheat)
 
 mk_app_of_ArrowP ffi spec1
 mk_app_of_ArrowP ffi spec2
 
 *)
+
+(* Some tests *)
+
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("ex_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("ex_return", ``st_ex_return``);
+
+val _ = Datatype `
+  my_state =
+    <| my_count : num
+     ; has_init : bool
+     |>`
+
+val init_state_def = Define `
+  init_state =
+    do
+      is_done <- get_has_init;
+      if is_done then
+        raise_Fail (strlit"init")
+      else
+        do
+          set_my_count 0;
+          set_has_init true;
+          return ()
+        od
+    od`
+
+
+(* *)
 
 end
