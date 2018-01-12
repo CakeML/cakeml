@@ -22,7 +22,7 @@ val startup =
        "     movabs  $cake_heap, %rsi        # arg2: first address of heap";
        "     movabs  $cake_bitmaps, %rdx";
        "     movq    %rdx, 0(%rsi)           # store bitmap pointer";
-       "     mobabs  $cake_stack, %rdx       # arg3: first address of stack";
+       "     movabs  $cake_stack, %rdx       # arg3: first address of stack";
        "     movabs  $cake_end, %rcx         # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
