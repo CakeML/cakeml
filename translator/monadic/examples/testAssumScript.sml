@@ -46,7 +46,9 @@ val init_string_def = Define `init_string = ""`;
 val refs_init_list = [(the_num_name, init_num_def, get_the_num_def, set_the_num_def),
 		      (the_string_name, init_string_def, get_the_string_def, set_the_string_def)];
 
-val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
+
 
 val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
@@ -65,7 +67,8 @@ val add_type_theories = [] : string list;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      exn_ri_def

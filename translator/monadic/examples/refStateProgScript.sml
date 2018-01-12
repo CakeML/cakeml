@@ -90,7 +90,8 @@ val init_num_ref_def = Define `init_num = (0 : num)`;
 val refs_init_list = [(the_num_ref_name, init_num_ref_def, get_the_num_ref_def, set_the_num_ref_def)];
 
 (* No arrays *)
-val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
 (* Name for the store invariant *)
 val store_hprop_name = "STATE_STORE";
@@ -111,7 +112,8 @@ val store_pinv_opt = NONE : (thm * thm) option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      exn_ri_def

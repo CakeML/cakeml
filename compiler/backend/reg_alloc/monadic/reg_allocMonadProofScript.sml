@@ -1919,14 +1919,17 @@ val check_clash_tree_same_dom = Q.store_thm("check_clash_tree_same_dom",`
     fs[SUBSET_DEF]>>
     metis_tac[]);
 
-(* The top-most correctness theorem --
-*)
 val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
-  ∀k mtable ct forced st.
+  ∀k mtable ct forced st ta fa n.
+  mk_bij ct = (ta,fa,n)==>
+  st.adj_ls = REPLICATE n [] ==>
+  st.node_tag = REPLICATE n Atemp ==>
+  st.degrees = REPLICATE n 0 ==>
+  st.dim = n ==>
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol st' livein flivein.
-    do_reg_alloc k mtable ct forced st = (Success spcol,st') ∧
+    do_reg_alloc k mtable ct forced (ta,fa,n) st = (Success spcol,st') ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     ∀x. in_clash_tree ct x ⇒
     if is_phy_var x then
@@ -1936,22 +1939,20 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     else
       T`,
   rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
-  pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>rw[]>>
+  `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>  
+  first_x_assum(fn x => fs[x])>>
   drule mk_bij_aux_domain>>rw[]>>
   drule mk_bij_aux_bij>> impl_tac>-
     simp[sp_inverts_def,lookup_def]>>
   strip_tac>>
   fs[set_dim_def,adj_ls_accessor,Marray_alloc_def,node_tag_accessor,degrees_accessor]>>
-  qmatch_goalsub_abbrev_tac`mk_graph _ _ _ stt` >>
-  `good_ra_state stt` by
-    (fs[good_ra_state_def,Abbr`stt`,EVERY_REPLICATE,undirected_def,has_edge_def]>>
+  `good_ra_state st` by
+    (fs[good_ra_state_def,EVERY_REPLICATE,undirected_def,has_edge_def]>>
     rw[]>>
-    `EL x (REPLICATE n []) = []:num list` by fs[EL_REPLICATE]>>fs[])>>
+    `EL x (REPLICATE st.dim []) = []:num list` by fs[EL_REPLICATE]>>fs[])>>
   drule mk_graph_succeeds>>
   disch_then(qspecl_then [`ct`,`sp_default ta`,`[]`] mp_tac)>>simp[is_clique_def]>>
   impl_keep_tac>-(
-    fs[Abbr`stt`]>>
     CONJ_ASM1_TAC>-
       (rw[]>>fs[sp_inverts_def,EXTENSION,domain_lookup,sp_default_def,lookup_any_def]>>
       TOP_CASE_TAC>>fs[]>>
@@ -1974,21 +1975,21 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     last_assum(qspec_then `p_1` assume_tac)>>
     last_x_assum(qspec_then `p_2` assume_tac)>>
     rfs[]>>
-    fs[good_ra_state_def,Abbr`stt`,ra_state_component_equality]>>
+    fs[good_ra_state_def,ra_state_component_equality]>>
     metis_tac[])>>
   rw[]>>simp[]>>
   `is_subgraph s'.adj_ls s''.adj_ls` by
     fs[is_subgraph_def]>>
   qpat_x_assum`!a b. _` kall_tac>>
   drule (GEN_ALL mk_tags_succeeds)>>
-  disch_then(qspecl_then[`n`,`sp_default fa`] mp_tac)>>
+  disch_then(qspecl_then[`st.dim`,`sp_default fa`] mp_tac)>>
   impl_tac>-
-    fs[Abbr`stt`,ra_state_component_equality]>>
+    fs[ra_state_component_equality]>>
   rw[]>>simp[]>>
   drule do_alloc1_success>>rw[]>>simp[]>>
   `no_clash s''''.adj_ls s''''.node_tag` by
     (fs[no_clash_def,has_edge_def]>>rw[]>>
-    rfs[good_ra_state_def,Abbr`stt`,ra_state_component_equality]>>
+    rfs[good_ra_state_def,ra_state_component_equality]>>
     res_tac>>
     qpat_x_assum(`!x. _`) kall_tac>>
     ntac 2 (pop_assum mp_tac)>>
@@ -2013,7 +2014,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   impl_tac>-
     (rw[]
     >-
-      (fs[Abbr`stt`,ra_state_component_equality]>>
+      (fs[ra_state_component_equality]>>
       fs[sp_inverts_def,EXTENSION,domain_lookup]>>
       metis_tac[])
     >>
@@ -2021,7 +2022,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   rw[]>>simp[]>>
   drule no_clash_colouring_satisfactory >>
   impl_tac>- (
-    fs[good_ra_state_def,EVERY_EL,ra_state_component_equality,Abbr`stt`]>>
+    fs[good_ra_state_def,EVERY_EL,ra_state_component_equality]>>
     rfs[]>>
     ntac 2 strip_tac>>
     first_x_assum drule>> IF_CASES_TAC>> fs[]>> strip_tac>>
@@ -2043,7 +2044,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     simp[sp_default_def,lookup_any_def,lookup_map,Abbr`col`]>>
     fs[EXTENSION,domain_lookup]>>
     last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
-    fs[sp_inverts_def,ra_state_component_equality,good_ra_state_def,Abbr`stt`]>>
+    fs[sp_inverts_def,ra_state_component_equality,good_ra_state_def]>>
     rfs[]>>
     metis_tac[])>>
   ntac 2 strip_tac>>
@@ -2051,7 +2052,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
   fs[sp_inverts_def]>> first_x_assum drule>>
   simp[sp_default_def,lookup_any_def,lookup_map]>>
-  rfs[Abbr`stt`,ra_state_component_equality,good_ra_state_def]>>
+  rfs[ra_state_component_equality,good_ra_state_def]>>
   fs[good_ra_state_def]>>
   strip_tac>>
   (qpat_x_assum`!x. x < n ⇒ if is_phy_var _ then _ else _` (qspec_then`v` assume_tac))>>rfs[]>>
@@ -2069,6 +2070,39 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     (`EL v s'''.node_tag ≠ Atemp` by fs[]>>
     res_tac>>fs[]>>
     rfs[extract_tag_def]));
+
+fun first_prove_imp thms =
+  (first_assum(fn x => sg `^(fst(dest_imp(concl x)))`) >- (fs thms) >>
+  POP_ASSUM(fn x  => fs[x]));
+
+(* The top-most correctness theorem --
+*)
+val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
+  ∀k mtable ct forced.
+  (* Needs to be proved in wordLang *)
+  EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
+  ∃spcol livein flivein.
+    reg_alloc k mtable ct forced = Success spcol ∧
+    check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
+    ∀x. in_clash_tree ct x ⇒
+    if is_phy_var x then
+      sp_default spcol x = x DIV 2
+    else if is_stack_var x then
+      k ≤ (sp_default spcol x)
+    else
+      T`,
+  rw[reg_alloc_def]>>
+  Cases_on `mk_bij ct`>>Cases_on`r`>>rw[]>>
+  rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
+  qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ st` >>
+  qmatch_goalsub_abbrev_tac `(ta,fa,n)` >>
+  ASSUME_TAC (Q.SPECL [`k`,`mtable`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
+  first_x_assum drule >> rw[] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_x_assum drule);
 (* --- --- *)
 
 val _ = export_theory ();
