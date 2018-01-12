@@ -373,7 +373,9 @@ val readLine_def = Define`
       (obj,s) <- pop s; th <- getThm obj;
       (obj,s) <- pop s; (tys,tms) <- getPair obj;
       tys <- getList tys; tys <- map getTys tys;
-      th <- INST_TYPE tys th;
+      th <- handle_Clash
+             (INST_TYPE tys th)
+             (\e. failwith (strlit"the impossible"));
       tms <- getList tms; tms <- map getTms tms;
       th <- INST tms th;
       return (push (Thm th) s)

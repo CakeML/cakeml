@@ -8,6 +8,7 @@ val _ = new_theory"readerProof";
 
 val case_eqs =
     [ { case_def = exc_case_def, nchotomy = exc_nchotomy }
+    , { case_def = hol_exn_case_def, nchotomy = hol_exn_nchotomy }
     , { case_def = holSyntaxTheory.term_case_def
       , nchotomy = holSyntaxTheory.term_nchotomy }
     , { case_def = optionTheory.option_case_def
@@ -899,7 +900,7 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ metis_tac [READER_STATE_def, delete_dict_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* subst *)
-   (fs [case_eq_thms] \\ rw []
+   (fs [case_eq_thms, handle_Clash_def] \\ rw []
     \\ rpt (CHANGED_TAC
       (TRY (pairarg_tac \\ fs [])
        \\ fs [case_eq_thms, bool_case_eq, COND_RATOR] \\ rw []))
@@ -1004,7 +1005,7 @@ val init_refs_def = Define `
     <| the_type_constants := init_type_constants
      ; the_term_constants := init_term_constants
      ; the_axioms         := init_axioms
-     ; the_context        := init_ctxt |>`;
+     ; the_context        := init_context |>`;
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
   `readLines loc lines init_state init_refs = (res, refs)
@@ -1012,14 +1013,12 @@ val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
    ?defs.
      STATE defs refs /\
      !st n . res = Success (st, n) ==> READER_STATE defs st`,
-  sg `READER_STATE init_ctxt init_state`
+  sg `READER_STATE init_context init_state`
   >- fs [init_state_def, READER_STATE_def, lookup_def]
-  \\ sg `STATE init_ctxt init_refs`
+  \\ sg `STATE init_context init_refs`
   >-
-   (fs [STATE_def, CONTEXT_def, extends_def, init_refs_def, init_ctxt_def,
-        ml_hol_kernelProgTheory.init_type_constants_def,
-        ml_hol_kernelProgTheory.init_term_constants_def,
-        ml_hol_kernelProgTheory.init_axioms_def])
+   (rw [STATE_def, CONTEXT_def, ml_hol_kernelProgTheory.full_context_extends]
+    \\ EVAL_TAC)
   \\ rw [] \\ metis_tac [readLines_thm]);
 
 val _ = export_theory();
