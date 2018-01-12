@@ -12,40 +12,6 @@ val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]
    fs with infds updated_by A_DELKEY fd`,
   fs [forwardFD_def, IO_fs_component_equality]);
 
-val exc_case_eq = prove_case_eq_thm{case_def=exc_case_def,nchotomy=exc_nchotomy};
-val term_case_eq = prove_case_eq_thm{case_def=holSyntaxTheory.term_case_def,nchotomy=holSyntaxTheory.term_nchotomy};
-val option_case_eq = prove_case_eq_thm{case_def=optionTheory.option_case_def,nchotomy=optionTheory.option_nchotomy};
-val object_case_eq = prove_case_eq_thm{case_def=readerTheory.object_case_def,nchotomy=readerTheory.object_nchotomy};
-val exn_case_eq = prove_case_eq_thm{case_def=holKernelTheory.hol_exn_case_def,nchotomy=holKernelTheory.hol_exn_nchotomy};
-val list_case_eq = prove_case_eq_thm{case_def=listTheory.list_case_def,nchotomy=listTheory.list_nchotomy};
-val case_eq_thms =
-  LIST_CONJ
-    [exc_case_eq, term_case_eq, option_case_eq,
-     object_case_eq, list_case_eq, pair_case_eq,
-     exn_case_eq]
-
-val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
-  `readLine x y z ≠ (Failure (Clash tm),refs)`,
-  strip_tac \\
-  fs[readLine_def,st_ex_bind_def,pair_case_eq,exc_case_eq,st_ex_return_def,
-     option_case_eq, bool_case_eq,UNCURRY,COND_RATOR]
-  \\ rveq \\ fs[] \\ rw[]
-  \\ every_case_tac \\ fs [raise_Fail_def, handle_Clash_def]
-  \\ every_case_tac \\ fs []
-  \\ qpat_x_assum `map _ _ _ = (Failure (Clash _),_)` mp_tac \\ fs []
-  \\ ho_match_mp_tac map_not_clash_thm \\ rw []);
-
-val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
-  `∀loc ls x y tm refs. readLines loc ls x y ≠ (Failure (Clash tm),refs)`,
-  recInduct readLines_ind
-  \\ rw[]
-  \\ rw[Once readLines_def]
-  \\ CASE_TAC \\ fs[st_ex_return_def]
-  \\ simp[st_ex_bind_def, handle_Fail_def, raise_Fail_def]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ CCONTR_TAC \\ fs[] \\ rw []
-  \\ metis_tac []);
-
 (* --- Translate readerTheory ---------------------------------------------- *)
 
 val _ = translate init_state_def

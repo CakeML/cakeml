@@ -25,6 +25,12 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::map prove_case_eq_thm case_eqs)
 
 (* --- Reader does not raise Clash --- *)
 
+(* TODO where? comes from translation of Candle kernel *)
+val find_axiom_not_clash = Q.store_thm("find_axiom_not_clash[simp]",
+  `find_axiom (a,b) c <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ rw [find_axiom_def, st_ex_bind_def, raise_Fail_def, st_ex_return_def]
+  \\ every_case_tac  \\ fs [get_the_axioms_def]);
+
 val pop_not_clash = Q.store_thm("pop_not_clash[simp]",
   `pop x y ≠ (Failure (Clash tm),refs)`,
   EVAL_TAC \\ rw[] \\ EVAL_TAC);
@@ -100,11 +106,23 @@ val getTys_not_clash = Q.store_thm("getTys_not_clash[simp]",
   \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [getName_not_clash, getType_not_clash, getPair_not_clash]);
 
-(* TODO replace with actual theorem *)
-val readLine_no_clash = Q.store_thm("readLine_no_clash[simp]",
-  `readLine line st refs <> (Failure (Clash tm), refs)`,
-  cheat
-  );
+val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
+  `readLine x y z ≠ (Failure (Clash tm),refs)`,
+  strip_tac \\
+  fs[readLine_def,st_ex_bind_def,st_ex_return_def,raise_Fail_def,
+     handle_Clash_def,case_eq_thms,bool_case_eq,UNCURRY,COND_RATOR] \\ rw []
+  \\ every_case_tac \\ fs [map_not_clash_thm]);
+
+val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
+  `∀loc ls x y tm refs. readLines loc ls x y ≠ (Failure (Clash tm),refs)`,
+  recInduct readLines_ind
+  \\ rw[]
+  \\ rw[Once readLines_def]
+  \\ CASE_TAC \\ fs[st_ex_return_def]
+  \\ simp[st_ex_bind_def, handle_Fail_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ CCONTR_TAC \\ fs[] \\ rw []
+  \\ metis_tac []);
 
 (* --- Use Candle kernel soundness theorem --- *)
 
@@ -310,6 +328,7 @@ val axioms_lemma1 = Q.store_thm("axioms_lemma1",
     \\ metis_tac [axiom_lemma])
   \\ metis_tac []);
 
+(* TODO move to holKernelProof *)
 val get_the_axioms_thm = Q.store_thm("get_the_axioms_thm",
   `STATE defs refs /\
    get_the_axioms refs = (res, refs')
@@ -325,6 +344,7 @@ val get_the_axioms_thm = Q.store_thm("get_the_axioms_thm",
   \\ fs [MEM_FLAT]
   \\ metis_tac [axioms_lemma1]);
 
+(* TODO move to holKernelProof *)
 val find_axiom_thm = Q.store_thm("find_axiom_thm",
   `STATE defs refs /\
    EVERY (TERM defs) ls /\
@@ -490,6 +510,7 @@ val assoc_thm = Q.store_thm("assoc_thm",
    \\ first_x_assum drule
    \\ TRY (disch_then drule) \\ rw []);
 
+(* TODO holKernelProof - move, or already exists? *)
 val assoc_state_thm = Q.store_thm("assoc_state_thm",
   `!s l refs res refs'. assoc s l refs = (res, refs') ==> refs = refs'`,
    Induct_on `l` \\ rw [] \\ pop_assum mp_tac
@@ -498,6 +519,7 @@ val assoc_state_thm = Q.store_thm("assoc_state_thm",
    \\ fs [bool_case_eq, COND_RATOR]
    \\ rw [] \\ fs [] \\ metis_tac []);
 
+(* TODO holKernelProof - move, or already exists? *)
 val assoc_ty_thm = Q.store_thm("assoc_ty_thm",
   `!s l refs res refs'.
      EVERY (TYPE defs o SND) l /\
@@ -510,6 +532,7 @@ val assoc_ty_thm = Q.store_thm("assoc_ty_thm",
   \\ CASE_TAC \\ fs [bool_case_eq, COND_RATOR] \\ rw [] \\ fs []
   \\ metis_tac []);
 
+(* TODO holKernelProof - move, or already exists? *)
 val type_of_thm = Q.store_thm("type_of_thm",
   `!tm refs res refs'.
      STATE defs refs /\
@@ -554,6 +577,7 @@ val type_of_thm = Q.store_thm("type_of_thm",
   \\ disch_then (qspec_then `Tyapp z w` mp_tac)
   \\ rw [holSyntaxTheory.type_ok_def, Abbr`z`, Abbr`w`]);
 
+(* TODO holKernelProof - move, or already exists? *)
 val mk_comb_thm = Q.store_thm("mk_comb_thm",
   `STATE defs refs /\
    TERM defs f /\
@@ -574,6 +598,7 @@ val mk_comb_thm = Q.store_thm("mk_comb_thm",
   \\ match_mp_tac holSyntaxExtraTheory.WELLTYPED_LEMMA
   \\ metis_tac [type_of_has_type, TERM_def,TYPE_def])
 
+(* TODO holKernelProof - move, or already exists? *)
 val get_const_type_thm = Q.store_thm("get_const_type_thm",
   `STATE defs refs /\
    get_const_type name refs = (res, refs')
@@ -583,6 +608,7 @@ val get_const_type_thm = Q.store_thm("get_const_type_thm",
   \\ imp_res_tac the_term_constants_TYPE \\ fs [ELIM_UNCURRY, GSYM o_DEF]
   \\ metis_tac [assoc_state_thm, assoc_ty_thm]);
 
+(* TODO holKernelProof - move, or already exists? *)
 val tymatch_thm = Q.store_thm("tymatch_thm",
   `!tys1 tys2 sids.
      EVERY (TYPE defs) tys1 /\
@@ -600,6 +626,7 @@ val tymatch_thm = Q.store_thm("tymatch_thm",
   \\ fs [GSYM TYPE_def] \\ rfs []
   \\ metis_tac []);
 
+(* TODO holKernelProof - move, or already exists? *)
 val match_type_thm = Q.store_thm("match_type_thm",
   `TYPE defs ty1 /\
    TYPE defs ty2 /\
@@ -1000,6 +1027,7 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ disch_then drule \\ rw []
   \\ asm_exists_tac \\ fs []);
 
+(* TODO move -- ml_kernel/ somewhere? *)
 val init_refs_def = Define `
   init_refs =
     <| the_type_constants := init_type_constants
