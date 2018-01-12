@@ -6,6 +6,7 @@ open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
 open holKernelTheory
 open basisProgTheory
+open holAxiomsSyntaxTheory holBoolSyntaxTheory (* for setting up the context *)
 
 val _ = new_theory "ml_hol_kernelProg";
 val _ = translation_extends "basisProg"
@@ -121,6 +122,8 @@ val _ = register_exn_type ``:hol_exn``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
 (* Initialize the translation *)
+
+(* (* --- old init code --- *)
 val init_type_constants_def = Define `
 init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
 
@@ -137,6 +140,61 @@ val init_axioms_def = Define `
 
 val init_context_def = Define `
   init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
+*)
+
+val init_ctxt_tm = rhs (concl (holSyntaxTheory.init_ctxt_def));
+
+val full_ctxt_tm = EVAL ``(mk_infinity_ctxt o mk_select_ctxt o mk_eta_ctxt o mk_bool_ctxt) ^init_ctxt_tm`` |> concl |> rhs;
+val init_context_def = Define `init_context = ^full_ctxt_tm`;
+
+(* TODO move *)
+val init_context_thm = Q.store_thm("init_context_thm",
+  `init_context = (mk_infinity_ctxt o mk_select_ctxt o mk_eta_ctxt o mk_bool_ctxt) init_ctxt`,
+  EVAL_TAC);
+
+(* TODO move *)
+val full_context_extends = Q.store_thm("full_context_extends",
+  `init_context extends init_ctxt`,
+  rw [init_context_thm]
+  \\ qmatch_goalsub_abbrev_tac `mk_eta_ctxt c1`
+  \\ irule holSyntaxExtraTheory.extends_trans
+  \\ qexists_tac `c1`
+  \\ reverse conj_asm2_tac >- metis_tac [holBoolSyntaxTheory.bool_extends_init]
+  \\ qmatch_goalsub_abbrev_tac `mk_select_ctxt c2`
+  \\ irule holSyntaxExtraTheory.extends_trans
+  \\ qexists_tac `c2`
+  \\ reverse conj_asm2_tac
+  >-
+   (imp_res_tac holSyntaxExtraTheory.extends_theory_ok
+    \\ fs [holSyntaxExtraTheory.init_theory_ok]
+    \\ imp_res_tac holSyntaxExtraTheory.theory_ok_sig
+    \\ simp [Abbr`c2`]
+    \\ irule holAxiomsSyntaxTheory.eta_extends \\ fs [])
+  \\ irule holSyntaxExtraTheory.extends_trans
+  \\ qexists_tac `mk_select_ctxt c2`
+  \\ reverse conj_asm2_tac
+  >-
+   (imp_res_tac holSyntaxExtraTheory.extends_theory_ok
+    \\ fs [holSyntaxExtraTheory.init_theory_ok]
+    \\ imp_res_tac holSyntaxExtraTheory.theory_ok_sig
+    \\ simp [Abbr`c2`, Abbr`c1`]
+    \\ irule holAxiomsSyntaxTheory.select_extends \\ fs []
+    \\ EVAL_TAC)
+  \\ imp_res_tac holSyntaxExtraTheory.extends_theory_ok
+  \\ fs [holSyntaxExtraTheory.init_theory_ok]
+  \\ imp_res_tac holSyntaxExtraTheory.theory_ok_sig
+  \\ simp [Abbr`c2`, Abbr`c1`]
+  \\ irule holAxiomsSyntaxTheory.infinity_extends \\ fs []
+  \\ EVAL_TAC);
+
+val init_type_constants_tm = EVAL ``type_list ^full_ctxt_tm`` |> concl |> rhs;
+val init_type_constants_def = Define `init_type_constants = ^init_type_constants_tm`;
+
+val init_axioms_tm = EVAL ``MAP (Sequent []) (axexts ^full_ctxt_tm)`` |> concl |> rhs;
+val init_axioms_def = Define `init_axioms = ^init_axioms_tm`;
+
+val init_term_constants_tm = EVAL ``const_list ^full_ctxt_tm`` |> concl |> rhs;
+val init_term_constants_def = Define `init_term_constants = ^init_term_constants_tm`;
 
 val refs_init_list = [
   ("the_type_constants", init_type_constants_def, get_the_type_constants_def,
