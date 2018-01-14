@@ -2759,6 +2759,15 @@ fun m_translate_run def = let
       val lemma = auto_prove "EXC_TYPE_RW" (mk_eq(x,EXC_TYPE_tm),t)
       in lemma end
 
+    (* Retrieve information about the exc type *)
+    val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
+    val EXC_TYPE_def = DB.find "EXC_TYPE_def" |> List.hd |> snd |> fst
+                       handle Empty => raise (ERR "m_translate_run" "The `exc` type needs to be registered in the current program")
+    val MNAME = concl EXC_TYPE_def |> list_dest dest_conj |> List.hd
+                      |> strip_forall |> snd |> rhs |> strip_exists |> snd
+                      |> dest_conj |> fst |> rhs |> rator |> rand |> rand
+                      |> rand |> rand |> rand
+
     (* Translate the run construct *)
     val env = concl monad_th |> get_Eval_env
     val x = concl monad_th |> get_Eval_arg

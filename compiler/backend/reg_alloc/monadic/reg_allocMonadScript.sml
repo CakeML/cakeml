@@ -655,7 +655,8 @@ val mk_graph_def = Define`
 
 
 val sp_default_def = Define`
-  sp_default t i = lookup_any i t 0n`
+  sp_default t i =
+  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)`
 
 val extend_graph_def = Define`
   (extend_graph ta [] = return ()) ∧
@@ -747,11 +748,11 @@ val do_reg_alloc_def = Define`
     return spcol (* return the composed from wordLang into the graph + the allocation *)
   od`
 
-(* As we are using fixed-size array, we need to define a different record type for the initialization *)
-val array_fields_names = ["adj_ls", "node_tag", "degrees"];
-val run_ira_state_def = define_run ``:ra_state``
-                                       array_fields_names
-				       "ira_state";
+val word_default_def = Define`
+  word_default t i = 2 * lookup_any i t 0n`
+
+(* The top-level (non-monadic) reg_alloc call which should be modified to fit
+   the translator's requirements *)
 
 val reg_alloc_aux_def = Define`
   reg_alloc_aux k mtable ct forced (ta,fa,n) =

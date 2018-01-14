@@ -2325,9 +2325,96 @@ val EXC_TYPE_aux_def = Define `
         v = Conv (SOME ("Failure",TypeId (Short MNAME))) [v2_1] ∧
         b x_2 v2_1) /\
      (EXC_TYPE_aux MNAME a b (Success x_1) v <=>
-     ?v1_1.
-       v = Conv (SOME ("Success",TypeId (Short MNAME))) [v1_1] ∧
-                a x_1 v1_1)`;
+      ?v1_1.
+        v = Conv (SOME ("Success",TypeId (Short MNAME))) [v1_1] ∧
+        a x_1 v1_1)`;
+
+val prove_EvalM_to_EvalSt =
+  rw[EvalM_def, EvalSt_def]
+  \\ qpat_x_assum `!s p. P` IMP_RES_TAC
+  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
+  \\ Cases_on `res`
+  (* res is an Rval *)
+  >-(
+      IMP_RES_TAC evaluate_Success_CONS
+      \\ first_x_assum (fn x => MATCH_MP evaluate_handle_mult_Rval x |> ASSUME_TAC)
+      \\ first_x_assum (qspecl_then [`cons_names`, `"Failure"`] ASSUME_TAC)
+      \\ evaluate_unique_result_tac
+      \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
+      \\ Cases_on `x init_state'`
+      \\ Cases_on `q` \\ fs[]
+      \\ fs[EXC_TYPE_aux_def]
+      \\ metis_tac[])
+  \\ reverse(Cases_on `e`)
+  (* res is an Rerr (Rabort ...) *)
+  >-(
+      irule FALSITY
+      \\ fs[MONAD_def]
+      \\ Cases_on `x init_state'`
+      >> Cases_on `q`
+      >> fs[])
+  (* res is an Rerr (Rraise ...) *)
+  \\ qpat_x_assum `MONAD A B X S1 S2` (fn x => RW[MONAD_def] x |> ASSUME_TAC)
+  \\ fs[]
+  \\ Cases_on `x init_state'` \\ fs[]
+  \\ Cases_on `q` \\ fs[]
+  \\ LAST_ASSUM IMP_RES_TAC
+  \\ (drule evaluate_handle_mult_CASE_MODULE
+      ORELSE drule evaluate_handle_mult_CASE_SIMPLE)
+  \\ `evaluate F env (s with refs := s.refs ⧺ junk)
+        (Con (SOME (Short "Success")) [exp])
+        (s2,Rerr (Rraise a))` by
+   (simp [Once evaluate_cases]
+    \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
+          write_def,lookup_cons_def,PULL_EXISTS]
+    \\ simp [Once evaluate_cases])
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then (qspec_then `"Failure"` strip_assume_tac)
+  \\ rveq \\ fs []
+  \\ simp [Once evaluate_cases]
+  \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
+        write_def,lookup_cons_def,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [Once evaluate_cases,PULL_EXISTS]
+  \\ simp [run_def,EXC_TYPE_aux_def,namespaceTheory.id_to_n_def]
+  \\ asm_exists_tac \\ simp [];
+
+val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",`
+  ∀cons_names module_name TYPE EXN_TYPE x exp H init_state MNAME env.
+   (∀e ev.
+       EXN_TYPE e ev ⇒
+       ∃ev' e' cname.
+          MEM cname cons_names ∧
+          ev =
+          Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
+            [ev']) ⇒
+   EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
+   lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ⇒
+   lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ⇒
+   EvalSt env init_state
+     (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
+        "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt);
+
+val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
+  ∀cons_names module_name TYPE EXN_TYPE x exp H init_state MNAME env.
+   (∀e ev.
+       EXN_TYPE e ev ⇒
+       ∃ev' e' cname.
+          MEM cname cons_names ∧
+          ev =
+          Conv (SOME (cname,TypeExn ((Short cname))))
+            [ev']) ⇒
+   EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
+   lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ⇒
+   lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ⇒
+   EvalSt env init_state
+     (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
+        "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt);
 
 val prove_EvalM_to_EvalSt =
   rw[EvalM_def, EvalSt_def]
