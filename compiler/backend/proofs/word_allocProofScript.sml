@@ -2061,6 +2061,18 @@ val check_colouring_ok_alt_INJ = Q.prove(`
   imp_res_tac INJ_ALL_DISTINCT_MAP>>
   full_simp_tac(srw_ss())[set_toAList_keys])
 *)
+val get_forced_tail_split = Q.prove(`
+  ∀c p ls ls'.
+  get_forced c p (ls++ls') =
+  get_forced c p ls ++ ls'`,
+  ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
+  EVERY_CASE_TAC>>fs[])
+
+val EVERY_get_forced = Q.prove(`
+  EVERY P (get_forced c p ls) ⇔
+  EVERY P (get_forced c p []) ∧ EVERY P ls`,
+  Q.SPECL_THEN [`c`,`p`,`[]`,`ls`] assume_tac get_forced_tail_split>>
+  fs[])
 
 val get_forced_pairwise_distinct = Q.prove(`
   ∀c prog ls.
@@ -2068,6 +2080,37 @@ val get_forced_pairwise_distinct = Q.prove(`
   EVERY (λx,y. x ≠ y) (get_forced c prog ls)`,
   ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
   EVERY_CASE_TAC>>fs[])
+
+val get_forced_in_get_clash_tree = Q.prove(`
+  ∀prog c.
+  let tree = get_clash_tree prog in
+  EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) (get_forced c prog [])`,
+  ho_match_mp_tac get_clash_tree_ind>>
+  fs[]>>rw[get_clash_tree_def,get_forced_def,in_clash_tree_def]
+  >-
+    (every_case_tac>>fs[get_delta_inst_def,in_clash_tree_def]>>
+    rfs[]>>fs[])
+  >-
+    (simp[Once EVERY_get_forced]>>
+    rw[]>>
+    fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])
+  >-
+    (every_case_tac>>fs[in_clash_tree_def,get_forced_def]>>
+    simp[Once EVERY_get_forced]>>
+    rw[]>>
+    fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])
+  >-
+    (every_case_tac>>fs[in_clash_tree_def,get_forced_def]>>
+    Cases_on`r`>>
+    simp[get_forced_def,Once EVERY_get_forced]>>
+    rw[]
+    >-
+      (fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])
+    >>
+      (simp[Once EVERY_get_forced]>>
+      fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])))|>SIMP_RULE (srw_ss()) [LET_THM];
 
 val total_colour_rw = Q.prove(`
   total_colour col = (\x. 2 * x) o (sp_default col)`,
@@ -2121,7 +2164,8 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
   >>
   fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
-  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by cheat>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule do_reg_alloc_correct>>
   disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
@@ -6669,7 +6713,8 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
   qpat_abbrev_tac`tree = get_clash_tree _`>>
   fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
-  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by cheat>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule do_reg_alloc_correct>>
   disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>fs[]>>
   assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
@@ -6733,19 +6778,6 @@ val word_alloc_flat_exp_conventions = Q.store_thm("word_alloc_flat_exp_conventio
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_flat_exp_conventions_lem]);
 
-val get_forced_tail_split = Q.prove(`
-  ∀c p ls ls'.
-  get_forced c p (ls++ls') =
-  get_forced c p ls ++ ls'`,
-  ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
-  EVERY_CASE_TAC>>fs[])
-
-val EVERY_get_forced = Q.prove(`
-  EVERY P (get_forced c p ls) ⇔
-  EVERY P (get_forced c p []) ∧ EVERY P ls`,
-  Q.SPECL_THEN [`c`,`p`,`[]`,`ls`] assume_tac get_forced_tail_split>>
-  fs[])
-
 val word_alloc_full_inst_ok_less_lem = Q.prove(`
   ∀f prog c.
   full_inst_ok_less c prog ∧
@@ -6791,7 +6823,8 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   rveq>>
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
   fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
-  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by cheat>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule do_reg_alloc_correct>>
   disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>
   fs[]>>
