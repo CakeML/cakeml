@@ -748,8 +748,11 @@ val do_reg_alloc_def = Define`
     return spcol (* return the composed from wordLang into the graph + the allocation *)
   od`
 
-val word_default_def = Define`
-  word_default t i = 2 * lookup_any i t 0n`
+(* As we are using fixed-size array, we need to define a different record type for the initialization *)
+val array_fields_names = ["adj_ls", "node_tag", "degrees"];
+val run_ira_state_def = define_run ``:ra_state``
+                                       array_fields_names
+                                      "ira_state";
 
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)

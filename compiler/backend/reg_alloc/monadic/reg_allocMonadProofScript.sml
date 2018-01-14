@@ -2131,7 +2131,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   rw[]>>simp[]>>
   drule no_clash_colouring_satisfactory >>
   impl_keep_tac>- (
-    fs[good_ra_state_def,EVERY_EL,ra_state_component_equality,Abbr`stt`]>>
+    fs[good_ra_state_def,EVERY_EL,ra_state_component_equality]>>
     rfs[]>>
     ntac 2 strip_tac>>
     first_x_assum drule>> IF_CASES_TAC>> fs[]>> strip_tac>>
@@ -2162,7 +2162,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
     fs[sp_inverts_def]>> first_x_assum drule>>
     simp[sp_default_def,lookup_map]>>
-    rfs[Abbr`stt`,ra_state_component_equality,good_ra_state_def]>>
+    rfs[ra_state_component_equality,good_ra_state_def]>>
     fs[good_ra_state_def]>>
     strip_tac>>
     (qpat_x_assum`!x. x < n ⇒ if is_phy_var _ then _ else _` (qspec_then`v` assume_tac))>>rfs[]>>
@@ -2208,8 +2208,8 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   >>
   pop_assum mp_tac>>
   fs[MEM_EL,PULL_EXISTS]>>
-  `LENGTH s''''''.node_tag = n` by
-    fs[ra_state_component_equality,good_ra_state_def,Abbr`stt`]>>
+  `LENGTH s''''''.node_tag = st.dim` by
+    fs[ra_state_component_equality,good_ra_state_def]>>
   first_assum(qspec_then`v` mp_tac)>>
   impl_tac>-
     (fs[sp_inverts_def]>>
