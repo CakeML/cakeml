@@ -1,4 +1,4 @@
-(* 
+(*
  * An example showing how to use the monadic translator to translate monadic functions
  * using references (no arrays, no exceptions).
  *)
@@ -11,7 +11,7 @@ open preamble
  *)
 open ml_monadBaseLib
 
-(* 
+(*
  * Those libraries are used in the translation
  *)
 open (* ml_monad_translatorTheory *) ml_monad_translatorLib
@@ -62,7 +62,7 @@ val access_funs = [("the_num_ref", get_the_num_ref_def, set_the_num_ref_def)];
 
 *)
 
-(* 
+(*
  * It is now possible to use those functions in new definitions:
  *)
 
@@ -70,7 +70,7 @@ val access_funs = [("the_num_ref", get_the_num_ref_def, set_the_num_ref_def)];
 val simple_fun_def = Define `simple_fun x = return x`;
 
 (* A recursive monadic function *)
-val rec_fun_def = Define `rec_fun l = dtcase l of [] => return (0 : num) 
+val rec_fun_def = Define `rec_fun l = dtcase l of [] => return (0 : num)
 					      | x::l' => do x <- rec_fun l'; return (1+x) od`;
 
 (* A monadic function calling other monadic functions *)

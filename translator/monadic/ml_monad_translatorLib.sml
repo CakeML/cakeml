@@ -348,8 +348,7 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, d
       rw[Once evaluate_cases,PULL_EXISTS] >>
       rw[Once(CONJUNCT2 evaluate_cases)] >>
       first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
-      IMP_RES_TAC (evaluate_empty_state_IMP
-                   |> INST_TYPE [get_type "ffi"|->unit_ty]) >>
+      IMP_RES_TAC evaluate_empty_state_IMP >>
       rw[do_con_check_def,build_conv_def] >>
       fs [lookup_cons_def] >>
       fs[exn_ri_def,namespaceTheory.id_to_n_def] >>
@@ -521,7 +520,8 @@ fun derive_case_of ty = let
   val pure_tm = case_of ty |> concl
   (* Find a variable for the store invariant *)
   val pure_tm_vars = all_vars pure_tm
-  val H_var = mk_var("H", mk_type("fun", [!refs_type, hprop_ty]))
+  val H_var = mk_var("H", mk_prod(mk_type("fun", [!refs_type, hprop_ty]),
+                                  type_of (get_term "ffi_ffi_proj")))
   val H_var = variant pure_tm_vars H_var
   (* Convert the Eval predicates to EvalM predicates *)
   fun Eval_to_EvalM tm = let
@@ -605,6 +605,10 @@ fun get_general_type ty =
   else ty
 end
 
+(*
+val ty = ``:'c list``
+*)
+
 val mem_derive_case_ref = ref ([] : (hol_type * thm) list);
 fun mem_derive_case_of ty =
   let
@@ -654,10 +658,11 @@ fun init_translation (monad_translation_params : monadic_translation_parameters)
          farrays_specs = farrays_specs} = monad_translation_params
 
     val _ = H_def := store_pred_def
-    val _ = default_H := (concl store_pred_def |> strip_forall |> snd |> dest_eq |> fst)
+    val _ = default_H := mk_pair((concl store_pred_def |> strip_forall |> snd |> dest_eq |> fst),get_term "ffi_ffi_proj")
     val _ = H := (!default_H)
-    val _ = dynamic_init_H := (not (List.null (free_vars (!H))))
-    val _ = refs_type := (type_of (!H) |> dest_type |> snd |> List.hd)
+    val _ = dynamic_init_H := (not (List.null (free_vars ((!H) |> dest_pair |> fst))))
+    val _ = refs_type := (type_of ((!H) |> dest_pair |> fst)
+                            |> dest_type |> snd |> List.hd)
     val _ = EXN_TYPE_def_ref := EXN_TYPE_def
     val _ = EXN_TYPE := (EXN_TYPE_def |> CONJUNCTS |> List.hd |> concl |> strip_forall |> snd |> dest_eq |> fst |> strip_comb |> fst)
     val _ = exn_type := (type_of (!EXN_TYPE) |> dest_type |> snd |> List.hd)
@@ -1426,6 +1431,13 @@ fun undef_local_code_abbrevs () = let
     val _ = mapfilter undef (!local_code_abbrevs)
     val _ = local_code_abbrevs := []
 in () end
+
+(*
+
+val _ = type_theories := (current_theory()::([]@["ml_translator"]))
+
+val tm = info |> hd |> (fn (_,_,_,x,_) => x)
+*)
 
 fun m2deep tm =
   (* variable *)
@@ -3050,6 +3062,5 @@ end
 val lhs = fst o dest_eq;
 val rhs = snd o dest_eq;
 *)
-
 
 end
