@@ -772,17 +772,17 @@ val EvalM_PMATCH_NIL = Q.store_thm("EvalM_PMATCH_NIL",
 
 val EvalM_PMATCH = Q.store_thm("EvalM_PMATCH",
   `!H b a x xv.
-      ALL_DISTINCT (pat_bindings p []) ⇒
+      ALL_DISTINCT (pat_bindings pt []) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
       Eval env x (a xv) ⇒
-      (p1 xv ⇒ EvalM env st (Mat x ys) (b (PMATCH xv yrs)) H) ⇒
-      EvalPatRel env a p pat ⇒
+      (pt1 xv ⇒ EvalM env st (Mat x ys) (b (PMATCH xv yrs)) H) ⇒
+      EvalPatRel env a pt pat ⇒
       (∀env2 vars.
-        EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
+        EvalPatBind env a pt pat vars env2 ∧ pt2 vars ⇒
         EvalM env2 st e (b (res vars)) H) ⇒
-      (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
-      ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
-      EvalM env st (Mat x ((p,e)::ys))
+      (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ pt2 vars) ∧
+      ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ pt1 xv) ⇒
+      EvalM env st (Mat x ((pt,e)::ys))
         (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs))) ^H`,
   rw[EvalM_def] >>
   imp_res_tac Eval_IMP_PURE >>
@@ -796,18 +796,18 @@ val EvalM_PMATCH = Q.store_thm("EvalM_PMATCH",
   rw[Once evaluate_cases,PULL_EXISTS] >>
   Cases_on`∃vars. PMATCH_ROW_COND pat (K T) xv vars` >> fs[] >- (
     imp_res_tac pmatch_PMATCH_ROW_COND_Match >>
-    qpat_x_assum`p1 xv ⇒ $! _`kall_tac >>
-    qpat_x_assum`_ ==> p1 xv`kall_tac >>
+    qpat_x_assum`pt1 xv ⇒ $! _`kall_tac >>
+    qpat_x_assum`_ ==> pt1 xv`kall_tac >>
     fs[EvalPatRel_def] >>
     first_x_assum(qspec_then`vars`mp_tac)>>simp[] >> strip_tac >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
     fs[PMATCH_ROW_COND_def] \\
     last_x_assum (qspec_then `s.refs ++ junk'` ASSUME_TAC) \\ rw[] \\
-    `EvalPatBind env a p pat vars (env with v := nsAppend (alist_to_ns env2) env.v)`
+    `EvalPatBind env a pt pat vars (env with v := nsAppend (alist_to_ns env2) env.v)`
     by (
-        simp[EvalPatBind_def,sem_env_component_equality] \\
-        qexists_tac `v` >> fs[] >>
-      qspecl_then[`s.refs ++ junk'`,`p`,`v`,`[]`,`env`]mp_tac(CONJUNCT1 pmatch_imp_Pmatch) \\
+      simp[EvalPatBind_def,sem_env_component_equality] \\
+      qexists_tac `v` >> fs[] >>
+      qspecl_then[`s.refs ++ junk'`,`pt`,`v`,`[]`,`env`]mp_tac(CONJUNCT1 pmatch_imp_Pmatch) \\
       simp[] \\
       metis_tac[] ) \\
     first_x_assum drule \\ simp[]
