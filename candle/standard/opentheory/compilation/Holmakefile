@@ -1,5 +1,5 @@
 INCLUDES = .. ../../../../compiler ../../../../misc
-CLINE_OPTIONS = -j1 --qof
+CLINE_OPTIONS = --qof
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 
 all: $(TARGETS)
