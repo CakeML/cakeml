@@ -22,8 +22,6 @@ val kernel_init_thm = Q.store_thm("kernel_init_thm",
      ASSUME_TAC (CONV_RULE ((SIMP_CONV bool_ss [REFS_PRED_def]) THENC EVAL_STATE_CONV) INIT_HOL_STORE)
      >> POP_ASSUM IMP_RES_TAC >> POP_ASSUM (qspec_then `p` ASSUME_TAC)
      >> Cases_on `p` >> fs[st2heap_def])
-  \\ rw [STATE_def, CONTEXT_def]
-  \\ simp [full_context_extends]
-  \\ EVAL_TAC);
+  \\ rw [STATE_def] \\ EVAL_TAC \\ fs []);
 
 val _ = export_theory()
