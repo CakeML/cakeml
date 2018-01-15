@@ -624,7 +624,7 @@ fun mem_derive_case_of ty =
 
 val nsLookup_val_pat = get_term "nsLookup_val_pat"
 fun compute_dynamic_refs_bindings all_access_specs = let
-    val store_vars = FVL [(!H)] empty_varset;
+    val store_vars = FVL [(!H) |> dest_pair |> fst] empty_varset;
     fun get_dynamic_init_bindings spec = let
         val spec = SPEC_ALL spec |> UNDISCH_ALL
         val pat = nsLookup_val_pat
@@ -637,7 +637,7 @@ fun compute_dynamic_refs_bindings all_access_specs = let
     val all_bindings = List.concat(List.map get_dynamic_init_bindings all_access_specs)
     val bindings_map = List.foldl (fn ((n, v), m) => Redblackmap.insert(m, v, n))
                                   (Redblackmap.mkDict Term.compare) all_bindings
-    val store_varsl = strip_comb (!H) |> snd
+    val store_varsl = strip_comb ((!H) |> dest_pair |> fst) |> snd
     val final_bindings = List.map (fn x => (Redblackmap.find (bindings_map, x), x)) store_varsl
 in final_bindings end
 
@@ -2512,7 +2512,8 @@ fun create_local_references init_state th = let
     val state = concl th |> rator |> rand |> rand |> rand
     val monad_state_is_var = is_var state_var
     val th = if monad_state_is_var then let
-        val H_eq = ALPHA_CONV state_var (concl th |> rand)
+        val H_eq = ((RATOR_CONV o RAND_CONV) (ALPHA_CONV state_var))
+                       (concl th |> rand)
         val th = PURE_ONCE_REWRITE_RULE[H_eq] th
     in th end else th
 
@@ -2561,10 +2562,11 @@ fun create_local_references init_state th = let
     (* val ((loc_name, loc)::loc_info) = loc_info; *)
     (* val ((loc_name, loc)::loc_info) = farrays_loc_info; *)
 
-    fun create_local_refs ((loc_name, loc)::loc_info) th = let
+    fun create_local_refs [] th = th
+      | create_local_refs ((loc_name, loc)::loc_info) th = let
         val exp = concl th |> rator |> rator |> rand
         val originalH = concl th |> rand
-        val (state_var,H_part) = dest_abs originalH
+        val (state_var,H_part) = dest_abs (originalH |> dest_pair |> fst)
         val (H_part1, H_part2) = dest_star H_part
         val H_part2 = mk_abs(state_var, H_part2)
 
@@ -2582,10 +2584,12 @@ fun create_local_references init_state th = let
 
         val nenv = mk_write loc_name loc env
         val gen_th = INST[env |-> nenv] th |> clean_lookup_assums |> GEN loc
-        val is_rarray = concl th |> rand |> dest_abs |> snd |> dest_star
+        val is_rarray = concl th |> rand |> dest_pair |> fst
+                             |> dest_abs |> snd |> dest_star
                              |> fst |> strip_comb |> fst
                              |> same_const RARRAY_REL_const
-        val is_farray = concl th |> rand |> dest_abs |> snd |> dest_star
+        val is_farray = concl th |> rand |> dest_pair |> fst
+                             |> dest_abs |> snd |> dest_star
                              |> fst |> strip_comb |> fst
                              |> same_const ARRAY_REL_const
 
@@ -2615,7 +2619,6 @@ fun create_local_references init_state th = let
                    EvalSt_Opref |> BETA_RULE |> PURE_REWRITE_RULE state_accessors_thms) Eval_state_field
         val th = MY_MATCH_MP lemma gen_th
     in create_local_refs loc_info th end
-      | create_local_refs [] th = th
 
     val th = create_local_refs loc_info th
 
@@ -2677,6 +2680,12 @@ fun m_translate_run_preprocess_def def = let
     (* preprocessing: register types *)
     val _ = register_term_types register_type (concl def)
 in def end
+
+(*
+val def = run_test3_def
+*)
+
+val ffi_ty_var = ``:'ffi``
 
 fun m_translate_run def = let
     (* Preprocess *)
@@ -2751,6 +2760,7 @@ fun m_translate_run def = let
       handle HOL_ERR _ => MY_MATCH_MP(MATCH_MP EvalM_ArrowM_Eq th) x
       handle HOL_ERR _ => MY_MATCH_MP(MATCH_MP EvalM_ArrowM th) x
     val monad_th = List.foldl insert_param monad_th params_evals
+    val monad_th = monad_th |> INST_TYPE [ffi_ty_var |-> unit_ty]
 
     (* Add the state parameter Eval assumption *)
     val monad_state_is_var = is_var init_state
@@ -2781,13 +2791,16 @@ fun m_translate_run def = let
     val vname = stringSyntax.fromMLstring "vname"
     val (exn_cons_names, exn_module_name) = get_exn_constructs ()
     val cons_names = listSyntax.mk_list(exn_cons_names, string_ty)
+
     val th = case exn_module_name of
                  SOME module_name =>
                  ISPECL [cons_names, module_name, vname, TYPE, EXN_TYPE, x, exp,
-                         !H, state, MNAME, env] EvalM_to_EvalSt_MODULE
+                         (!H) |> inst [ffi_ty_var |-> unit_ty],
+                         state, MNAME, env] EvalM_to_EvalSt_MODULE
                | NONE =>
                  ISPECL [cons_names, vname, TYPE, EXN_TYPE, x, exp,
-                         !H, state, MNAME, env] EvalM_to_EvalSt_SIMPLE
+                         (!H) |> inst [ffi_ty_var |-> unit_ty],
+                         state, MNAME, env] EvalM_to_EvalSt_SIMPLE
     val th = REWRITE_RULE [EXC_TYPE_RW] th
 
     (* Prove the assumptions *)

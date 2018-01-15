@@ -62,6 +62,9 @@ val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
 val EXN_RI = ``STATE_EXN_TYPE``;
 val exn_ri_def = STATE_EXN_TYPE_def;
+(*
+val EXN_TYPE_def = STATE_EXN_TYPE_def;
+*)
 
 val refs_manip_list = List.map (fn (x, _, y, z) => (x, y, z)) refs_init_list;
 val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
