@@ -957,7 +957,7 @@ val prove_EvalM_handle =
   \\ rw[Once evaluate_cases];
 
 val EvalM_handle_MODULE = Q.store_thm("EvalM_handle_MODULE",
- `!module_name cons_name CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE handle_fun arity bind_names x1 exp1 x2 exp2 H.
+ `!module_name cons_name CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE handle_fun x1 x2 arity a2 bind_names a H.
   (!s E s1. CORRECT_CONS E ==>
             x1 s = (Failure E, s1) ==>
             handle_fun x1 x2 s = x2 E s1) ==>
@@ -987,7 +987,7 @@ val EvalM_handle_MODULE = Q.store_thm("EvalM_handle_MODULE",
   prove_EvalM_handle);
 
 val EvalM_handle_SIMPLE = Q.store_thm("EvalM_handle_SIMPLE",
- `!cons_name CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE handle_fun arity bind_names x1 exp1 x2 exp2 H.
+ `!cons_name CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE handle_fun x1 x2 arity a2 bind_names a H.
   (!s E s1. CORRECT_CONS E ==>
             x1 s = (Failure E, s1) ==>
             handle_fun x1 x2 s = x2 E s1) ==>
@@ -1120,8 +1120,7 @@ val prove_EvalM_raise =
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append];
 
 val EvalM_raise_MODULE = Q.store_thm("EvalM_raise_MODULE",
- `!module_name cons_name EXN_TYPE EVAL_CONDS arity E exprs f H env.
-  LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS))) ==>
+ `!module_name cons_name EXN_TYPE EVAL_CONDS arity E exprs f a H.
   (!values.
    LENGTH values = arity ==>
    LIST_CONJ (MAP (\(P,v). P v) (ZIP(EVAL_CONDS,values))) ==>
@@ -1130,13 +1129,13 @@ val EvalM_raise_MODULE = Q.store_thm("EvalM_raise_MODULE",
   LENGTH exprs = arity ==>
   LENGTH EVAL_CONDS = arity ==>
   lookup_cons cons_name env = SOME (arity, TypeExn (Long module_name (Short cons_name))) ==>
+  LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS))) ==>
   EvalM env st (Raise (Con (SOME (Short cons_name)) exprs))
     (MONAD a EXN_TYPE f) H`,
   prove_EvalM_raise);
 
 val EvalM_raise_SIMPLE = Q.store_thm("EvalM_raise_SIMPLE",
- `!cons_name EXN_TYPE EVAL_CONDS arity E exprs f H env.
-  LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS))) ==>
+ `!cons_name EXN_TYPE EVAL_CONDS arity E exprs f a H.
   (!values.
    LENGTH values = arity ==>
    LIST_CONJ (MAP (\(P,v). P v) (ZIP(EVAL_CONDS,values))) ==>
@@ -1145,6 +1144,7 @@ val EvalM_raise_SIMPLE = Q.store_thm("EvalM_raise_SIMPLE",
   LENGTH exprs = arity ==>
   LENGTH EVAL_CONDS = arity ==>
   lookup_cons cons_name env = SOME (arity, TypeExn (Short cons_name)) ==>
+  LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS))) ==>  
   EvalM env st (Raise (Con (SOME (Short cons_name)) exprs))
     (MONAD a EXN_TYPE f) H`,
   prove_EvalM_raise);
@@ -3400,6 +3400,8 @@ val parsed_terms = save_thm("parsed_terms",
      ("PURE_const",``PURE : (α -> v -> bool) -> (α, β) H``),
      ("FST_const",``FST : 'a # 'b -> 'a``),
      ("SND_const",``SND : 'a # 'b -> 'b``),
+     ("LENGTH_const", ``LENGTH : 'a list -> num``),
+     ("EL_const", ``EL : num -> 'a list -> 'a``),
      ("Fun_const",``ast$Fun``),
      ("Short_const",``namespace$Short``),
      ("Var_const",``ast$Var``),
@@ -3418,13 +3420,6 @@ val parsed_terms = save_thm("parsed_terms",
      ("bind_pat",``st_ex_bind x y``),
      ("otherwise_pat",``x otherwise y``),
      ("if_statement_pat",``if b then (x:('a,'b,'c) M) else (y:('a,'b,'c) M)``),
-     ("raise_goal_abs",``
-      \cons_name deep_type refin_inv EXN_RI f.
-      !H x a.
-      (lookup_cons cons_name env = SOME (1,deep_type)) ==>
-      Eval env exp1 (refin_inv x) ==>
-      EvalM env st (Raise (Con (SOME (Short cons_name)) [exp1]))
-        (MONAD a EXN_RI (f x)) H``),
      ("PreImp_EvalM_abs",``\a name RI f H. PreImp a (!st. EvalM env st (Var (Short name)) (RI f) H)``),
      ("refs_emp",``\refs. emp``),
      ("UNIT_TYPE",``UNIT_TYPE``),
@@ -3458,6 +3453,7 @@ val parsed_types = save_thm("parsed_types",
     [("exp",``:ast$exp``),
      ("string_ty",``:tvarN``),
      ("unit",``:unit``),
+     ("pair", ``:'a # 'b``),
      ("num", ``:num``),
      ("poly_M_type",``:'a -> ('b, 'c) exc # 'a``),
      ("v_bool_ty",``:v -> bool``),
@@ -3465,7 +3461,8 @@ val parsed_types = save_thm("parsed_types",
      ("recclosure_exp_ty",``:(tvarN, tvarN # ast$exp) alist``),
      ("register_pure_type_pat",``:('a, 'b) ml_monadBase$exc``),
      ("exc_ty",``:('a, 'b) exc``),
-     ("ffi",``:'ffi``)
+     ("ffi",``:'ffi``),
+     ("v_list", ``:v list``)
     ]);
 
 val _ = (print_asts := true);

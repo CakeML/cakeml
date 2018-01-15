@@ -100,6 +100,12 @@ fun mk_list_vars basename types = let
 	| [] => []
 in mk_aux types 1 end
 
+fun mk_list_vars_same basename ty n = let
+    fun mk_aux i =
+      if i > n then []
+      else (mk_var(basename ^ (Int.toString i), ty))::(mk_aux (i+1))
+in mk_aux 1 end
+
 (* Creation of the raise/handle functions *)
 fun define_monad_exception_functions exn_type state_type = let
     val exn_cons = TypeBase.constructors_of exn_type
