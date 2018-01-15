@@ -2163,11 +2163,10 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
     full_simp_tac(srw_ss())[LET_THM]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
   >>
-  fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
-  drule do_reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>fs[]>>
+  drule reg_alloc_correct>>
+  disch_then(qspecl_then [`k`,`LN`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
     (srw_tac[][]
@@ -6712,10 +6711,9 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   >>
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
   qpat_abbrev_tac`tree = get_clash_tree _`>>
-  fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
-  drule do_reg_alloc_correct>>
+  drule reg_alloc_correct>>
   disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>fs[]>>
   assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
   rfs[]>>
@@ -6822,10 +6820,9 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   rveq>>
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
-  fs[reg_alloc_def,ml_monadBaseTheory.run_def]>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
-  drule do_reg_alloc_correct>>
+  drule reg_alloc_correct>>
   disch_then(qspecl_then [`k`,`LN`,`empty_ra_state`] assume_tac)>>rfs[]>>
   fs[]>>
   match_mp_tac forced_distinct_col>>rfs[]>>

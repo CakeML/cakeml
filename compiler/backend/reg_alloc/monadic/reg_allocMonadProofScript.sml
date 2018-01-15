@@ -2236,13 +2236,16 @@ val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
   ∃spcol livein flivein.
     reg_alloc k mtable ct forced = Success spcol ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
-    ∀x. in_clash_tree ct x ⇒
+    (∀x. in_clash_tree ct x ⇒
+    x ∈ domain spcol ∧
     if is_phy_var x then
       sp_default spcol x = x DIV 2
     else if is_stack_var x then
       k ≤ (sp_default spcol x)
     else
-      T`,
+      T) ∧
+    (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`,
   rw[reg_alloc_def]>>
   Cases_on `mk_bij ct`>>Cases_on`r`>>rw[]>>
   rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
