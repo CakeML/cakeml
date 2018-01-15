@@ -2129,11 +2129,11 @@ RARRAY2D rv l = SEP_EXISTS av. REF rv av * ARRAY2D av l`;
  * Run
  *)
 val EvalSt_def = Define `
-EvalSt env st exp P H =
-!(s : 'ffi semanticPrimitives$state). REFS_PRED H st s ==>
-!junk. ?s2 res st2.
-evaluate F env (s with refs := s.refs ++ junk) exp (s2, Rval res) /\
-P res /\ REFS_PRED_FRAME H (st, s) (st2, s2)`;
+  EvalSt env st exp P H =
+    !(s: unit semanticPrimitives$state). REFS_PRED H st s ==>
+    !junk. ?s2 res st2.
+    evaluate F env (s with refs := s.refs ++ junk) exp (s2, Rval res) /\
+    P res /\ REFS_PRED_FRAME H (st, s) (st2, s2)`;
 
 val LENGTH_Mem_IN_store2heap = Q.prove(`!refs n. n < LENGTH refs ==> (Mem n (EL n refs)) IN (store2heap refs)`,
 ASSUME_TAC(Q.ISPEC `\refs. !n. n < LENGTH refs ==> (Mem n (EL n refs)) IN (store2heap refs)` SNOC_INDUCT)
@@ -2187,14 +2187,20 @@ rw[]
 \\ IMP_RES_TAC IS_PREFIX_APPEND
 \\ rw[]);
 
-(* No longer true *)
 val EvalSt_to_Eval = Q.store_thm("EvalSt_to_Eval",
-  `EvalSt env st exp P ((\s. emp),p:'ffi ffi_proj) ==> Eval env exp P`,
-
-  rw [EvalSt_def, Eval_def, REFS_PRED_def, SEP_CLAUSES, SAT_GC]
-  \\ first_x_assum (assume_tac o Q.SPEC `[]` o CONV_RULE SWAP_FORALL_CONV) \\ fs []
-  \\ cheat (* TODO *)
-  );
+  `EvalSt env st exp P ((\s. emp),p) ==> Eval env exp P`,
+  rw[EvalSt_def, Eval_def]
+  \\ fs[REFS_PRED_def, SEP_CLAUSES, SAT_GC]
+  \\ first_x_assum(qspecl_then [`empty_state with refs := refs`, `[]`] STRIP_ASSUME_TAC)
+  \\ fs[state_component_equality]
+  \\ fs[REFS_PRED_FRAME_def, SEP_CLAUSES]
+  \\ rw[]
+  \\ ASSUME_TAC (ISPEC ``empty_state with refs := refs`` REFS_PRED_FRAME_partial_frame_rule)
+  \\ fs[]
+  \\ pop_assum drule
+  \\ rw[]
+  \\ evaluate_unique_result_tac
+  \\ fs[state_component_equality]);
 
 val handle_mult_def = Define `
   handle_mult [] exp1 ename = exp1 /\
@@ -2383,9 +2389,8 @@ val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",`
    lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ⇒
    EvalSt env init_state
      (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
-        "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) ^H`,
-  cheat (* prove_EvalM_to_EvalSt *)
-  );
+        "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt);
 
 val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
   ∀cons_names module_name TYPE EXN_TYPE x exp H init_state MNAME env.
@@ -2402,8 +2407,7 @@ val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
    EvalSt env init_state
      (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
         "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
-  cheat (* prove_EvalM_to_EvalSt *)
-  );
+  prove_EvalM_to_EvalSt);
 
 val prove_EvalM_to_EvalSt =
   rw[EvalM_def, EvalSt_def]
@@ -2473,8 +2477,7 @@ val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",`
    EvalSt env init_state
      (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
         "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
-  cheat (* prove_EvalM_to_EvalSt *)
-  );
+  prove_EvalM_to_EvalSt);
 
 val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
   ∀cons_names module_name TYPE EXN_TYPE x exp H init_state MNAME env.
@@ -2491,8 +2494,7 @@ val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
    EvalSt env init_state
      (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
         "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
-  cheat (* prove_EvalM_to_EvalSt *)
-  );
+  prove_EvalM_to_EvalSt);
 
 val evaluate_let_opref = Q.store_thm("evaluate_let_opref",
 `Eval env exp1 P ==>
@@ -2527,7 +2529,7 @@ rw[Eval_def]
 
 val EvalSt_Let_Fun = Q.store_thm("EvalSt_Let_Fun",
 `EvalSt (write vname (Closure env xv fexp) env) st exp P H ==>
-EvalSt env st (Let (SOME vname) (Fun xv fexp) exp) P ^H`,
+EvalSt env st (Let (SOME vname) (Fun xv fexp) exp) P H`,
 rw[EvalSt_def]
 \\ last_x_assum IMP_RES_TAC
 \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
@@ -2562,7 +2564,7 @@ val EvalSt_Letrec_Fun = Q.store_thm("EvalSt_Letrec_Fun",
 `!funs env exp st P H.
 (ALL_DISTINCT (MAP (\(x,y,z). x) funs)) ==>
 EvalSt <|v := (build_rec_env funs env env.v); c := env.c|> st exp P H ==>
-EvalSt env st (Letrec funs exp) P ^H`,
+EvalSt env st (Letrec funs exp) P H`,
 rw[EvalSt_def]
 \\ qpat_x_assum `!s. A` IMP_RES_TAC
 \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
@@ -2611,7 +2613,7 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
 Eval env get_ref_exp (TYPE (get_ref st)) ==>
 (!loc. EvalSt (write loc_name loc env) st exp P ((\st. REF_REL TYPE loc (get_ref st) * H st),p)) ==>
 EvalSt env st
-(Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p:'ffi ffi_proj)`,
+(Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)`,
 rw[EvalSt_def]
 \\ ntac 3 (rw[Once evaluate_cases])
 \\ fs[Eval_def]
@@ -2683,7 +2685,7 @@ val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
 `!exp get_ref loc_name TYPE st_name env H P st.
 EQ (get_ref st) [] ==>
 (* Eval env (Var (Short st_name)) (STATE_TYPE st) ==> *)
-(!loc. EvalSt (write loc_name loc env) st exp P ((\st. RARRAY_REL TYPE loc (get_ref st) * H st),p:'ffi ffi_proj)) ==>
+(!loc. EvalSt (write loc_name loc env) st exp P ((\st. RARRAY_REL TYPE loc (get_ref st) * H st),p)) ==>
 EvalSt env st
 (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp) P (H,p)`,
 rw[EvalSt_def]
@@ -2750,7 +2752,7 @@ EQ (get_farray st) (REPLICATE n x) ==>
 Eval env nexp (\v. v = Litv (IntLit (&n))) ==>
 Eval env xexp (TYPE x) ==>
 (!loc. EvalSt (write loc_name loc env) st exp P ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
-EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p:'ffi ffi_proj)`,
+EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)`,
 rw[EvalSt_def]
 \\ ntac 3 (rw[Once evaluate_cases])
 \\ fs[PULL_EXISTS]
