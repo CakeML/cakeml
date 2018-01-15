@@ -655,11 +655,15 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, cons_id) = let
 				 mk_conj(pre1,pre2_alt))
     val pre_eq = mk_eq(pre,pre_alt)
     (* set_goal ([], pre_eq) *)
+    fun random_gen_tac th = let
+      val (x,_) = dest_forall(concl th)
+      val y = genvar (type_of x)
+    in ASSUME_TAC(SPEC y th) end
     val pre_eq_lemma = prove(pre_eq,
       EQ_TAC
       >-(rpt strip_tac >> fs[CONTAINER_def]
-         \\ first_x_assum (qspec_then `^E_with_params` strip_assume_tac)
-	 \\ fs[])
+	 \\ `^pre1` by (rpt (first_x_assum random_gen_tac \\ fs[]) \\ fs[])
+         \\ fs[])
       \\ rpt strip_tac
       \\ TRY(Cases_on `^E_var`)
       \\ fs[CONTAINER_def])
@@ -670,8 +674,7 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, cons_id) = let
     val handle_spec =
 	SIMP_RULE list_ss [GSYM handle_fun_def,
 			   TypeBase.case_def_of exn_type,
-			   GSYM AND_IMP_INTRO,
-			   write_list_def] handle_spec
+			   GSYM AND_IMP_INTRO] handle_spec
     (* Check *)
     val f = UNDISCH_ALL handle_spec |> concl |> rator |> rand |> rand
     val _ = if f = handle_fun then () else raise (ERR "prove_handle_spec"
@@ -1599,8 +1602,7 @@ fun inst_list_EvalM_env vl th = let
     val new_assums = List.take((fst o strip_imp o concl) th1, num_params)
     val th2 = UNDISCHL num_params th1
 
-    val th3 = th2 |> UNDISCH
-		  |> PURE_REWRITE_RULE[AND_IMP_INTRO]
+    val th3 = th2 |> PURE_REWRITE_RULE[AND_IMP_INTRO]
 		  |> CONV_RULE ((RATOR_CONV o RAND_CONV)
 				     (DEPTH_CONV simp_EvalM_env))
 		  |> UNDISCH_ALL
@@ -1647,7 +1649,6 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
     val v_vars = List.map rand assums
     val thy7 = GENL (state_var::vars@v_vars) thy6
 
-    (* This shouldn't be necessary *)
     val lemma4 = PURE_REWRITE_RULE [write_list_def] lemma3
     val expr1 = concl lemma4 |> dest_imp |> fst |> strip_forall |> snd
 		      |> strip_imp |> snd |> rator |> rand |> rand
@@ -1655,7 +1656,7 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
     val eq = mk_eq(expr1, expr2)
     val eq_lemma = prove(eq, irule EQ_EXT \\ rw[])
     val lemma4 = PURE_REWRITE_RULE [eq_lemma] lemma4
-    (* *)
+
     val lemma5 = MY_MATCH_MP lemma4 thy7
 	    |> CONV_RULE ((RATOR_CONV o RAND_CONV)
 	       (SIMP_CONV list_ss []))
@@ -1663,29 +1664,6 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
 	       (SIMP_CONV list_ss [MAP]))
             |> UNDISCH_ALL
 in lemma5 end
-
-(*    val 
-PURE_REWRITE_RULE[write_list_def] thy2
-(* TODO HERE *)
-    val x = tm |> rator |> rand
-    val (v,y) = tm |> rand |> dest_abs
-    val th1 = m2deep x
-    val th2 = m2deep y
-    val th3 = inst_EvalM_env v th2
-    val type_assum = concl th3 |> dest_imp |> fst
-    val th4 = Dfilter (UNDISCH th3) type_assum
-    val assums = concl th4 |> dest_imp |> fst
-    val state_var = th4 |> concl |> dest_imp |> snd |> get_EvalM_state
-    val t = rator type_assum |> rand
-    val v = rand type_assum
-    val assums_abs = list_mk_comb(list_mk_abs([state_var, t], assums), [state_var, t])
-    val assums_eq = ((RATOR_CONV BETA_CONV) THENC BETA_CONV) assums_abs
-    val th5 = CONV_RULE ((RATOR_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV [GSYM assums_eq])) th4 |> DISCH type_assum |> GENL[state_var, t, v]
-    val lemma = EvalM_th |> SPEC_ALL |> UNDISCH
-    val th6 = CONJ (D th1) th5
-    val result = (MATCH_MP lemma th6 handle HOL_ERR _ => HO_MATCH_MP th4 th3)
-    val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
-in result end; *)
 
 fun inst_EvalM_otherwise tm m2deep = let
     val x = tm |> rator |> rand
