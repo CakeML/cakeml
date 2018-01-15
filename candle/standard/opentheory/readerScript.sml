@@ -440,7 +440,12 @@ val line_Fail_def = Define `
       ; msg; strlit"\n"])`;
 
 val fix_fun_typ_def = Define `
-  fix_fun_typ s = if s = strlit"\"->\"" then strlit"\"fun\"" else s`;
+  fix_fun_typ s =
+    if s = strlit"\"->\"" then
+      strlit"\"fun\""
+    else if s = strlit"\"select\"" then
+      strlit"\"@\""
+    else s`;
 
 val str_prefix_def = Define `
   str_prefix str = extract str 0 (SOME (strlen str - 1))`;
@@ -462,5 +467,27 @@ val readLines_def = Define `
                    (\e. raise_Fail (line_Fail loc e));
             readLines (loc+1) ls s
         od`;
+
+val select_name_def = Define `select_name = strlit"@"`
+val select_tm_def = Define `select_tm = Fun (Fun (Tyvar (strlit"A")) Bool) (Tyvar (strlit"A"))`
+val select_const_def = Define `select_const = NewConst select_name select_tm`;
+
+val ind_name_def = Define `ind_name = strlit"ind"`
+val ind_ty_def = Define `ind_ty = NewType ind_name 0`;
+
+val mk_reader_ctxt_def = Define `
+  mk_reader_ctxt ctxt = select_const :: ind_ty :: ctxt`
+
+(* TODO monadic translator wont accept this unless its a function? *)
+val set_reader_ctxt = Define `
+  set_reader_ctxt (): unit holKernelPmatch$M =
+    do
+      ts <- get_the_type_constants;
+      cs <- get_the_term_constants;
+      ctxt <- get_the_context;
+      set_the_type_constants ((ind_name,0)::ts);
+      set_the_term_constants ((select_name,select_tm)::cs);
+      set_the_context (mk_reader_ctxt ctxt)
+    od`
 
 val _ = export_theory()

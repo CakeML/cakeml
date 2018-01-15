@@ -1027,6 +1027,8 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ disch_then drule \\ rw []
   \\ asm_exists_tac \\ fs []);
 
+(* --- Custom reader context is ok --- *)
+
 (* TODO move -- ml_kernel/ somewhere? *)
 val init_refs_def = Define `
   init_refs =
@@ -1035,19 +1037,29 @@ val init_refs_def = Define `
      ; the_axioms         := init_axioms
      ; the_context        := init_context |>`;
 
+val set_reader_ctxt_ok = Q.store_thm("set_reader_ctxt_ok",
+  `set_reader_ctxt () init_refs = (res, refs)
+   ==>
+   res = Success () /\
+   ?defs. STATE defs refs`,
+  rw [set_reader_ctxt_def, st_ex_bind_def, st_ex_return_def,
+      get_the_type_constants_def, get_the_term_constants_def,
+      get_the_context_def, set_the_type_constants_def,
+      set_the_term_constants_def, set_the_context_def, init_refs_def]
+  \\ EVAL_TAC \\ rw [Once RTC_CASES1, updates_cases] \\ EVAL_TAC);
+
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
-  `readLines loc lines init_state init_refs = (res, refs)
+  `set_reader_ctxt () init_refs = (r, ax_refs) /\
+   readLines loc lines init_state ax_refs = (res, refs)
    ==>
    ?defs.
      STATE defs refs /\
      !st n . res = Success (st, n) ==> READER_STATE defs st`,
-  sg `READER_STATE init_context init_state`
+  strip_tac
+  \\ imp_res_tac set_reader_ctxt_ok
+  \\ sg `READER_STATE defs init_state`
   >- fs [init_state_def, READER_STATE_def, lookup_def]
-  \\ sg `STATE init_context init_refs`
-  >-
-   (rw [STATE_def, CONTEXT_def, ml_hol_kernelProgTheory.full_context_extends]
-    \\ EVAL_TAC)
-  \\ rw [] \\ metis_tac [readLines_thm]);
+  \\ metis_tac [readLines_thm]);
 
 val _ = export_theory();
 

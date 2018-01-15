@@ -65,6 +65,18 @@ val readline_spec = save_thm (
 val _ = translate fix_fun_typ_def
 val _ = translate line_Fail_def
 
+val _ = translate ind_name_def
+val _ = translate ind_ty_def
+val _ = translate select_name_def
+val _ = translate select_tm_def
+val _ = translate select_const_def
+val _ = translate mk_reader_ctxt_def
+val _ = m_translate set_reader_ctxt_def
+
+val set_reader_ctxt_spec = save_thm (
+  "set_reader_ctxt_spec",
+  mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "set_reader_ctxt_v_thm"));
+
 (* --- CakeML wrapper ------------------------------------------------------ *)
 
 val msg_success_def = Define `
@@ -400,16 +412,23 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ first_x_assum (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs 0`] mp_tac)
   \\ xsimpl);
 
+val set_reader_ctxt_no_exc = Q.store_thm("set_reader_ctxt_no_exc[simp]",
+  `set_reader_ctxt () refs <> (Failure err, refs')`,
+  rw [set_reader_ctxt_def, st_ex_bind_def, st_ex_return_def,
+      get_the_term_constants_def, get_the_type_constants_def,
+      get_the_context_def, set_the_term_constants_def,
+      set_the_type_constants_def, set_the_context_def]);
+
 val _ = (append_prog o process_topdecs) `
   fun reader_main u =
     case CommandLine.arguments () of
-      [file] => read_file file
+      [file] => (set_reader_ctxt (); read_file file)
     | _      => TextIO.output TextIO.stdErr msg_usage`;
 
 val reader_main_def = Define `
    reader_main fs refs cl =
        case cl of
-         [fnm] => FST (read_file fs refs fnm)
+         [fnm] => FST (read_file fs (SND (set_reader_ctxt () refs)) fnm)
        | _ => add_stderr fs msg_usage`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
@@ -424,6 +443,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
        COMMANDLINE cl)`,
   xcf "reader_main" (get_ml_prog_state())
   \\ fs [reader_main_def]
+  \\ Cases_on `set_reader_ctxt () refs` \\ fs [] \\ Cases_on `q` \\ fs []
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ fs [UNIT_TYPE_def]
   \\ reverse (Cases_on `wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
@@ -454,10 +474,15 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
     \\ xsimpl
     \\ fs [theorem"msg_usage_v_thm", UNIT_TYPE_def])
   \\ xmatch
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ drule set_reader_ctxt_spec
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ xlet_auto \\ xsimpl
+  >- (xapp \\ xsimpl \\ fs [UNIT_TYPE_def])
   \\ xapp
   \\ instantiate \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `refs` \\ xsimpl
+  \\ qexists_tac `r` \\ xsimpl
   \\ Cases_on `cl` \\ fs [] \\ rveq
   \\ fs [implode_def, FILENAME_def, validArg_def]
   \\ asm_exists_tac
