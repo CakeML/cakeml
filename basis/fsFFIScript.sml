@@ -8,6 +8,8 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 val _ = Datatype` inode = IOStream mlstring | File mlstring`
 
+val _ = overload_on("isFile",``λinode. ∃fnm. inode = File fnm``);
+
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * position)
 *  numchars: stream of num modeling the nondeterministic output of read and
@@ -19,6 +21,10 @@ val _ = Datatype`
              numchars : num llist |>`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
+
+val with_same_numchars = Q.store_thm("with_same_numchars",
+  `fs with numchars := fs.numchars = fs`,
+  rw[IO_fs_component_equality]);
 
 val get_file_content_def = Define`
     get_file_content fs fd =

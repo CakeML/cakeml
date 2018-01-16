@@ -30,7 +30,7 @@ val insert_word_def = Define`
 
 val insert_line_def = Define`
   insert_line t s =
-     FOLDL insert_word t (tokens isSpace s)`;
+     FOLDL insert_word t (splitwords s)`;
 
 (* and their verification *)
 
@@ -108,7 +108,7 @@ val res = translate toAscList_def;
 
 val res = translate lookup0_def;
 val res = translate insert_word_def;
-val res = translate insert_line_def;
+val res = translate (insert_line_def |> REWRITE_RULE[splitwords_def]);
 
 val format_output_def = Define`
   format_output (k,v) = concat [k; strlit": "; toString (&v); strlit"\n"]`;
@@ -304,21 +304,30 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
 );
 
-(* Finally, we package the verified program up with the following boilerplate*)
+(* Finally, we package the verified program up with the following boilerplate *)
 
-val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |>
-    SIMP_RULE(srw_ss())[STDIO_def] |> add_basis_proj;
-val name = "wordfreq"
-val (sem_thm,prog_tm) = call_thm (get_ml_prog_state ()) name spec
+val wordfreq_whole_prog_spec = Q.store_thm("wordfreq_whole_prog_spec",
+  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+   cl = [pname; fname] ∧
+   contents = implode (THE (ALOOKUP fs.files (File fname)))
+   ⇒
+   whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs
+         ((=) (add_stdout fs (wordfreq_output_spec contents)))`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH wordfreq_spec)))
+  \\ xsimpl);
+
+val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "wordfreq" (UNDISCH wordfreq_whole_prog_spec)
 val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
 
 val wordfreq_semantics =
-  sem_thm
-  |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
-  |> DISCH_ALL
-  |> Q.GENL[`cls`,`contents`]
-  |> SIMP_RULE(srw_ss())[PULL_EXISTS,LENGTH,STD_streams_add_stdout]
-  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH_explode]
+  sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
+  |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
+  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "wordfreq_semantics";
 
 val _ = export_theory();
