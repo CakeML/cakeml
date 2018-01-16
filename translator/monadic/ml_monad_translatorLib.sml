@@ -340,20 +340,20 @@ val get_EvalM_exp = rand o rator o rator o concl o UNDISCH_ALL
 (* ---- *)
 
 (* Prove the specifications for the exception handling *)
-(* val (raise_fun_def, cons, cons_id) = el 3 raise_info *)
+(* val (raise_fun_def, cons, cons_id) = el 1 raise_info *)
 val namespaceLong_tm = get_term "namespaceLong_tm";
 fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, cons_id) = let
     val fun_tm = concl raise_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
     val exn_param_types = (fst o ml_monadBaseLib.dest_fun_type o type_of) cons
     val refin_invs = List.map smart_get_type_inv exn_param_types
 
-    val is_module_exn = rand cons_id |> strip_comb |> fst
+    val is_module_exn = cons_id |> strip_comb |> fst
 			     |> same_const namespaceLong_tm
     val cons_name = if is_module_exn
 		    then rand cons_id |> rand
 		    else rand cons_id
     val raise_spec = if is_module_exn then let
-        val module_name = rand cons_id |> rator |> rand
+        val module_name = rator cons_id |> rand
     in SPECL [module_name, cons_name] EvalM_raise_MODULE end
     else SPEC cons_name EvalM_raise_SIMPLE
 
@@ -434,10 +434,10 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, cons_id) = let
     val exn_type = type_of EXN_RI_tm |> dest_type |> snd |> List.hd
 
     (* Retrieve the appropriate handle specification *)
-    val is_module_exn = rand cons_id |> strip_comb |> fst
+    val is_module_exn = strip_comb cons_id |> fst
 			     |> same_const namespaceLong_tm
     val handle_spec = if is_module_exn then let
-        val module_name = rand cons_id |> rator |> rand
+        val module_name = rator cons_id |> rand
         val cons_name = rand cons_id |> rand
     in SPECL [module_name, cons_name] EvalM_handle_MODULE end
     else let
@@ -1112,7 +1112,8 @@ fun inst_case_thm_for tm = let
 val tm = (!last_fail)
 val original_tm = tm;
 
-val tm = dest_conj hyps |> fst |> dest_conj |> fst |> dest_conj |> snd
+val tm0 = tm
+val tm = dest_conj hyps |> snd
 sat_hyps tm
 *)
 
@@ -1584,6 +1585,7 @@ fun inst_list_EvalM_env vl th = let
 	val assum = ISPECL_TM [str,ri] Eval_name_RI_abs
     in assum end
     val assums = List.map make_inv_assum vl
+    val assums_rws = List.map ASSUME assums
 
     fun simp_EvalM_env tm =
       if can (match_term EvalM_pat) tm then
@@ -1592,7 +1594,8 @@ fun inst_list_EvalM_env vl th = let
 	  THENC (SIMP_CONV bool_ss [])) tm
       else NO_CONV tm
     val th1 = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
-		 |> DISCH_ALL |> DISCHL assums |> SIMP_RULE bool_ss []
+		 |> DISCH_ALL |> PURE_REWRITE_RULE assums_rws
+		 |> DISCHL assums |> SIMP_RULE bool_ss []
 		 |> INST [old_env|->new_env]
 		 |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_var_write]
 		 |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
@@ -1608,7 +1611,7 @@ fun inst_list_EvalM_env vl th = let
 		  |> UNDISCH_ALL
 		  |> CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
 				    (UNBETA_CONVL vl))
-		  |> DISCHL new_assums
+		  |> DISCH_ALL 
 in th3 end
 
 fun inst_EvalM_handle EvalM_th tm m2deep = let
@@ -1624,7 +1627,7 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
     val var_to_HOL_name = stringLib.fromMLstring o fst o dest_var
     val HOL_names = List.map var_to_HOL_name vars
     val bind_names = listSyntax.mk_list (HOL_names, string_ty)
-    val lemma1 = ISPECL [bind_names, inv, !H] EvalM_th |> SPEC_ALL 
+    val lemma1 = ISPECL [bind_names, inv, !H] EvalM_th |> SPEC_ALL
 
     (* Prove the assumptions *)
     fun prove_assumption th = let
@@ -1663,7 +1666,7 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
 	    |> CONV_RULE ((RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
 	       (SIMP_CONV list_ss [MAP]))
             |> UNDISCH_ALL
-in lemma5 end
+in check_inv "handle" tm lemma5 end
 
 fun inst_EvalM_otherwise tm m2deep = let
     val x = tm |> rator |> rand
