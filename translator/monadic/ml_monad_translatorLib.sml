@@ -2755,13 +2755,14 @@ fun m_translate_run def =
     val monad_th = lookup_dynamic_v_thm monad_f
     fun inst_state_type th =
       let
-        val ty = concl th |> dest_forall |> fst |> type_of
-                       |> dest_type |> snd |> hd
+        val ty = concl th |> dest_forall |> fst |> type_of |> dest_prod
+                 |> fst |> dest_type |> snd |> hd
       in INST_TYPE [ty |-> !refs_type] th end
-    val monad_th = (MATCH_MP (inst_state_type Eval_IMP_PURE)  monad_th)
-                 |> ISPEC (!H)
-                 |> PURE_REWRITE_RULE[GSYM ArrowM_def]
-                 |> abbrev_nsLookup_code
+    val monad_th =
+      MATCH_MP (inst_state_type Eval_IMP_PURE) monad_th
+      |> ISPEC (!H)
+      |> PURE_REWRITE_RULE[GSYM ArrowM_def]
+      |> abbrev_nsLookup_code
     val monad_th = INST [concl monad_th |> get_EvalM_state |-> state] monad_th
 
     (* Insert the parameters *)
