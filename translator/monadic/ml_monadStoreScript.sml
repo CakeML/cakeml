@@ -99,9 +99,9 @@ val store2heap_REF_SAT = Q.store_thm("store2heap_REF_SAT",
   >> fs[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def]);
 
 val store2heap_eliminate_ffi_thm = Q.store_thm(
-  "store2heap_eliminate_ffi_thm", 
-  `H (store2heap s.refs) ==> (GC * H) (st2heap p s)`,
-  rw[] 
+  "store2heap_eliminate_ffi_thm",
+  `H (store2heap s.refs) ==> (GC * H) (st2heap (p:'ffi ffi_proj) s)`,
+  rw[]
   \\ Cases_on `p`
   \\ fs[st2heap_def, STAR_def]
   \\ qexists_tac `ffi2heap (q, r) s.ffi`
@@ -110,7 +110,7 @@ val store2heap_eliminate_ffi_thm = Q.store_thm(
   \\ PURE_ONCE_REWRITE_TAC[SPLIT_SYM]
   \\ fs[st2heap_SPLIT_FFI]);
 
-val rarray_exact_thm = Q.store_thm("rarray_exact_thm", 
+val rarray_exact_thm = Q.store_thm("rarray_exact_thm",
  `((l = l' + 1) /\ (n = l')) ==>
   RARRAY (Loc l) av (store2heap_aux n [Varray av; Refv (Loc l')])`,
   rw[]
@@ -124,13 +124,13 @@ val rarray_exact_thm = Q.store_thm("rarray_exact_thm",
   >-(rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
   \\ rw[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
 
-val farray_exact_thm = Q.store_thm("farray_exact_thm", 
+val farray_exact_thm = Q.store_thm("farray_exact_thm",
  `(n = l) ==>
   ARRAY (Loc l) av (store2heap_aux n [Varray av])`,
  rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
-	
+
 val eliminate_inherited_references_thm = Q.store_thm(
-  "eliminate_inherited_references_thm", 
+  "eliminate_inherited_references_thm",
  `!a b. H (store2heap_aux (LENGTH a) b) ==>
   (GC * H) (store2heap_aux 0 (a++b))`,
   rw[]
@@ -140,7 +140,7 @@ val eliminate_inherited_references_thm = Q.store_thm(
   \\ fs[SPEC_ALL store2heap_aux_SPLIT |> Thm.INST [``n:num`` |-> ``0:num``]
 		 |> SIMP_RULE arith_ss [], SAT_GC]);
 
-val eliminate_substore_thm = Q.store_thm("eliminate_substore_thm", 
+val eliminate_substore_thm = Q.store_thm("eliminate_substore_thm",
  `(H1 * GC * H2) (store2heap_aux (n + LENGTH a) b) ==>
   (H1 * GC * H2) (store2heap_aux n (a++b))`,
   rw[]
@@ -192,8 +192,8 @@ val parsed_types = save_thm("parsed_types",
   pack_list (pack_pair pack_string pack_type)
     [("hprop",``:hprop``),
      ("v",``:v``),
-     ("unit_state",``:unit semanticPrimitives$state``),
-     ("unit_ffi_proj",``: unit ffi_proj``),
+     ("ffi_state",``:'ffi semanticPrimitives$state``),
+     ("ffi_ffi_proj",``:'ffi ffi_proj``),
      ("lookup_ret",``:num # tid_or_exn``)
     ]);
 
