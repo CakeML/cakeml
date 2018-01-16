@@ -46,8 +46,7 @@ int byte2_to_int(unsigned char *b){
 void int_to_byte8(int i, unsigned char *b){
     /* i is encoded on 8 bytes */
     /* i is cast to long long to ensure having 64 bits */
-    /* assumes CHAR_BIT > 8
-     * use static assertion checks? */
+    /* assumes CHAR_BIT = 8. use static assertion checks? */
     b[0] = ((long long) i >> 56) & 0xFF;
     b[1] = ((long long) i >> 48) & 0xFF;
     b[2] = ((long long) i >> 40) & 0xFF;
