@@ -1565,26 +1565,25 @@ fun UNBETA_CONVL vl tm = let
     val eq_lemma = prove(eq,SIMP_TAC bool_ss [])
 in eq_lemma end
 
-fun UNDISCHL n th = if n = 0 then th else UNDISCH (UNDISCHL (n-1) th)
+(* fun UNDISCHL n th = if n = 0 then th else UNDISCH (UNDISCHL (n-1) th) *)
 
-fun inst_list_EvalM_env vl th = let
-    fun make_new_env (v,env) = let
-	val name = fst (dest_var v)
+fun inst_list_EvalM_env xl th = let
+    val vl = List.map (fn x => genvar v_ty) xl
+    val xv_pairs = zip xl vl
+
+    fun make_new_env ((x,v),env) = let
+	val name = fst (dest_var x)
 	val str = stringLib.fromMLstring name
-	val value_var = mk_var("_"^name, v_ty)
-	val new_env = mk_write str value_var env
+	val new_env = mk_write str v env
     in new_env end
     val old_env = get_EvalM_env th
-    val new_env = List.foldl make_new_env old_env vl
-    
-    fun make_inv_assum v = let
-	val name = fst (dest_var v)
-	val str = stringLib.fromMLstring name
-	val inv = smart_get_type_inv (type_of v)
-	val ri = mk_comb(inv, v)
-	val assum = ISPECL_TM [str,ri] Eval_name_RI_abs
+    val new_env = List.foldl make_new_env v_env xv_pairs
+
+    fun make_inv_assum (x,v) = let
+	val inv = get_type_inv (type_of x)
+	val assum = list_mk_comb(inv, [x,v])
     in assum end
-    val assums = List.map make_inv_assum vl
+    val assums = List.map make_inv_assum xv_pairs
     val assums_rws = List.map ASSUME assums
 
     fun simp_EvalM_env tm =
@@ -1593,26 +1592,29 @@ fun inst_list_EvalM_env vl th = let
           THENC (DEPTH_CONV stringLib.string_EQ_CONV)
 	  THENC (SIMP_CONV bool_ss [])) tm
       else NO_CONV tm
-    val th1 = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
-		 |> DISCH_ALL |> PURE_REWRITE_RULE assums_rws
-		 |> DISCHL assums |> SIMP_RULE bool_ss []
+    val th1 = th |> REWRITE_RULE [GSYM SafeVar_def]
+		 |> DISCH_ALL
 		 |> INST [old_env|->new_env]
 		 |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_var_write]
 		 |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
 		 |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
 		 |> SIMP_RULE bool_ss [SafeVar_def]
-    val num_params = List.length vl
-    val new_assums = List.take((fst o strip_imp o concl) th1, num_params)
-    val th2 = UNDISCHL num_params th1
+		 |> D 
 
-    val th3 = th2 |> PURE_REWRITE_RULE[AND_IMP_INTRO]
+    val state_var = get_EvalM_state (UNDISCH_ALL th1 |> concl)
+
+    val th2 = th1 |> PURE_REWRITE_RULE[AND_IMP_INTRO]
 		  |> CONV_RULE ((RATOR_CONV o RAND_CONV)
 				     (DEPTH_CONV simp_EvalM_env))
-		  |> UNDISCH_ALL
-		  |> CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
-				    (UNBETA_CONVL vl))
-		  |> DISCH_ALL 
-in th3 end
+		  |> PURE_REWRITE_RULE assums_rws
+		  |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+				    (UNBETA_CONVL (state_var::xl)))
+		  |> CONV_RULE ((RAND_CONV o RATOR_CONV o RAND_CONV o
+				RAND_CONV)
+				    (UNBETA_CONVL xl))
+		  |> DISCHL (List.rev assums)
+		  |> GENL (state_var::xl@vl)
+in th2 end
 
 fun inst_EvalM_handle EvalM_th tm m2deep = let
     val x = tm |> rator |> rand
@@ -1637,21 +1639,7 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
     val lemma2 = prove_assumption lemma1 |> prove_assumption |> UNDISCH
     val lemma3 = MATCH_MP lemma2 (D thx)
 
-    (* Rewrite the assumptions of thy2 before applying MATCH_MP *)
-    val num_parameters = List.length vars
-    val assums = List.take(concl thy2 |> strip_imp |> fst, num_parameters)
-    val thy3 = UNDISCHL num_parameters thy2
-    val (thy4,assum) = if can (dest_imp o concl) thy3 then
-			   (thy3, fst(dest_imp(concl thy3)))
-		       else (DISCH T thy3, T)
-    val state_var = get_EvalM_state (concl(UNDISCH_ALL thy4))
-    val assum_eq = UNBETA_CONVL (state_var::vars) assum
-    val thy5 = CONV_RULE ((RATOR_CONV o RAND_CONV)
-			      (PURE_ONCE_REWRITE_CONV [assum_eq])) thy4
-    val thy6 = DISCHL (List.rev assums) thy5
-    val v_vars = List.map rand assums
-    val thy7 = GENL (state_var::vars@v_vars) thy6
-
+    (* Match with thy2 *)
     val lemma4 = PURE_REWRITE_RULE [write_list_def] lemma3
     val expr1 = concl lemma4 |> dest_imp |> fst |> strip_forall |> snd
 		      |> strip_imp |> snd |> rator |> rand |> rand
@@ -1660,7 +1648,7 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
     val eq_lemma = prove(eq, irule EQ_EXT \\ rw[])
     val lemma4 = PURE_REWRITE_RULE [eq_lemma] lemma4
 
-    val lemma5 = MY_MATCH_MP lemma4 thy7
+    val lemma5 = MY_MATCH_MP lemma4 thy2
 	    |> CONV_RULE ((RATOR_CONV o RAND_CONV)
 	       (SIMP_CONV list_ss []))
 	    |> CONV_RULE ((RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
