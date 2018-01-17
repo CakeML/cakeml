@@ -70,6 +70,7 @@ val _ = m_translate getNvs_def
 val _ = m_translate getCns_def
 val _ = m_translate getTys_def
 val _ = m_translate getTms_def
+val _ = m_translate BETA_CONV_def
 val _ = m_translate readLine_def
 
 val readline_side = Q.store_thm("readline_side",
