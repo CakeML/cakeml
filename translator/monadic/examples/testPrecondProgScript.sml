@@ -67,6 +67,8 @@ val state_type = ``:state_refs``;
 val exn_ri_def = STATE_EXN_TYPE_def;
 val store_pinv_opt = NONE : (thm * thm) option;
 
+val extra_hprop = NONE : term option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
@@ -77,7 +79,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_ri_def
 					      exn_functions
 					      []
-                                              store_pinv_opt;
+                                              store_pinv_opt
+                                              extra_hprop;
 
 val hd_v_thm = translate HD;
 val tl_v_thm = translate TL;

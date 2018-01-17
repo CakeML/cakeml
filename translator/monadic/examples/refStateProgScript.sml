@@ -50,6 +50,7 @@ val _ = Hol_datatype `
 val refs_access_funs = define_monad_access_funs (``:state_refs``);
 val [(the_num_ref_name, get_the_num_ref_def, set_the_num_ref_def)] = refs_access_funs;
 
+
 (* Those functions too can be defined by hand:
 
 val get_the_num_ref_def =
@@ -109,6 +110,8 @@ val type_theories = [] : string list;
 (* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
 val store_pinv_opt = NONE : (thm * thm) option;
 
+val extra_hprop = NONE : term option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
@@ -119,7 +122,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_ri_def
 					      exn_functions
 					      type_theories
-                                              store_pinv_opt;
+                                              store_pinv_opt
+                                              extra_hprop;
 
 (* The polymorphism of simple_fun is taken into account *)
 val simple_fun_v_thm = simple_fun_def |> m_translate;

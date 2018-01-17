@@ -8,7 +8,7 @@ open astTheory libTheory semanticPrimitivesTheory bigStepTheory
 open terminationTheory
 open cfTacticsLib
 open Net List packLib stringSimps
-open ml_monadStoreLib
+(*open ml_monadStoreLib*)
 
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term)
@@ -19,6 +19,8 @@ val get_type = let
   val ys = unpack_list (unpack_pair unpack_string unpack_type)
              ml_monad_translatorTheory.parsed_types
   in fn s => snd (first (fn (n,_) => n = s) ys) end
+
+fun the (SOME x) = x | the _ = failwith("the of NONE")
 
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
@@ -85,22 +87,26 @@ val PreImp_EvalM_abs = get_term "PreImp_EvalM_abs"
 fun mk_write name v env = ISPECL[name,v,env] write_def
                                 |> concl |> rator |> rand
 
-fun my_list_mk_comb (f,xs) = let
-    fun mk_type_rec f_ty (x_ty::x_ty'::tys) = let
-        val [ty1,ty2] = dest_type f_ty |> snd
-        val (ty3,args_ty) = mk_type_rec ty2 (x_ty'::tys)
-        val ty4 = mk_type("fun",[ty1,ty3])
-        val args_ty = mk_type("fun",[x_ty,args_ty])
-    in (ty4,args_ty) end
-      | mk_type_rec f_ty [x] = let
-          val [ty1,ty2] = dest_type f_ty |> snd
-      in (ty1,x) end
+fun my_list_mk_comb (f,xs) =
+  let
+    fun mk_type_rec f_ty (x_ty::x_ty'::tys) =
+        (case dest_type f_ty of
+           (_,[ty1,ty2]) => let
+             val (ty3,args_ty) = mk_type_rec ty2 (x_ty'::tys)
+             val ty4 = mk_type("fun",[ty1,ty3])
+             val args_ty = mk_type("fun",[x_ty,args_ty])
+             in (ty4,args_ty) end
+         | _ => failwith "mk_type_rec")
+      | mk_type_rec f_ty [x] =
+         (case dest_type f_ty of
+            (_,[ty1,ty2]) => (ty1,x)
+          | _ => failwith "mk_type_rec")
       | mk_type_rec f_ty [] = failwith "mk_type_rec"
     val args_types = List.map type_of xs
     val (src_ty,target_ty) = mk_type_rec (type_of f) args_types
     val tys = Type.match_type src_ty target_ty
     val f = Term.inst tys f
-in list_mk_comb(f, xs) end
+  in list_mk_comb(f, xs) end
 
 fun ISPECL_TM xs tm = let
     val tm1 = my_list_mk_comb(tm,xs)
@@ -430,6 +436,7 @@ fun add_raise_handle_functions exceptions_functions exn_ri_def = let
     val (exn_ri_cons_names, exn_ri_deep_types) = unzip(List.map (dest_pair o rand) exn_ri_deep_cons)
     fun zip4 (x1::l1) (x2::l2) (x3::l3) (x4::l4) = (x1, x2, x3, x4)::(zip4 l1 l2 l3 l4)
       | zip4 [] [] [] [] = []
+      | zip4 _  _  _  _  = failwith "zip4"
     val exn_info = zip4 exn_ri_cons  exn_ri_cons_names exn_ri_types exn_ri_deep_types
     val exn_type = type_of EXN_RI_tm |> dest_type |> snd |> List.hd
 
@@ -443,16 +450,16 @@ fun add_raise_handle_functions exceptions_functions exn_ri_def = let
     val raise_specs = List.map (prove_raise_spec exn_ri_def EXN_RI_tm) raise_info
 
     (* Link the handle definitions with the appropriate information *)
-    fun get_handle_cons handle_fun_def = let
+    fun get_handle_cons handle_fun_def =
+      let
         val exn_cases = concl handle_fun_def |> strip_forall |> snd |> rhs |> dest_abs |> snd |>
                     rand |> strip_abs |> snd |> rand |> dest_abs |> snd
         val cases_list = strip_comb exn_cases |> snd |> List.tl
         val cases_cons = TypeBase.constructors_of exn_type
         val cases_pairs = zip cases_cons cases_list
 
-        val (SOME handled_cons) = List.find (fn (x, y) => not(can (Term.match_term failure_pat) y))
-                           cases_pairs
-    in fst handled_cons end handle Bind => failwith "get_handled_cons"
+        val handled_cons = the (List.find (fn (x, y) => not(can (Term.match_term failure_pat) y)) cases_pairs)
+      in fst handled_cons end handle Bind => failwith "get_handled_cons"
 
     val handle_funct_pairs = List.map (fn x => (x, get_handle_cons x)) handle_functions
     val handle_info = List.map (fn(d, tm) => tryfind (fn (x1, x2, x3, x4) => if x1 = tm
@@ -717,7 +724,9 @@ fun start_static_init_fixed_store_translation refs_init_list
                                               exn_ri_def
                                               exn_functions
                                               add_type_theories
-                                              store_pinv_opt = let
+                                              store_pinv_opt
+                                              extra_hprop =
+  let
     val (monad_translation_params, store_trans_result) =
         translate_static_init_fixed_store refs_init_list
                                           rarrays_init_list
@@ -726,6 +735,7 @@ fun start_static_init_fixed_store_translation refs_init_list
                                           state_type
                                           exn_ri_def
                                           store_pinv_opt
+                                          extra_hprop
 
     val refs_funs_defs = List.map(fn (_, _, x, y) => (x, y)) refs_init_list
     val rarrays_funs_defs = List.map (fn (_, _, x1, x2, x3, x4, x5, x6) => (x1, x2, x3, x4, x5, x6)) rarrays_init_list
@@ -747,7 +757,7 @@ fun start_static_init_fixed_store_translation refs_init_list
     val exn_specs = if List.length exn_functions > 0 then
                         add_raise_handle_functions exn_functions exn_ri_def
                     else []
-in (monad_translation_params, store_trans_result, exn_specs) end
+  in (monad_translation_params, store_trans_result, exn_specs) end
 
 fun start_dynamic_init_fixed_store_translation refs_manip_list
                                                rarrays_manip_list
@@ -757,7 +767,8 @@ fun start_dynamic_init_fixed_store_translation refs_manip_list
                                                exn_ri_def
                                                exn_functions
                                                add_type_theories
-                                               store_pinv_def_opt = let
+                                               store_pinv_def_opt =
+  let
     val monad_translation_params =
         translate_dynamic_init_fixed_store refs_manip_list
                                            rarrays_manip_list
@@ -783,7 +794,7 @@ fun start_dynamic_init_fixed_store_translation refs_manip_list
     val exn_specs = if List.length exn_functions > 0 then
                         add_raise_handle_functions exn_functions exn_ri_def
                     else []
-in (monad_translation_params, exn_specs) end
+  in (monad_translation_params, exn_specs) end
 
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
@@ -1916,7 +1927,6 @@ in (is_rec,defs,ind) end
 
 (* Apply the induction in the case of a recursive function without preconditions *)
 fun apply_ind thms ind = let
-    fun the (SOME x) = x | the _ = failwith("the of NONE")
     (* val (fname,ml_fname,def,th,pre) = hd thms *)
     fun get_goal (fname,ml_fname,def,th,pre) = let
         val th = REWRITE_RULE [CONTAINER_def] th
@@ -2818,8 +2828,9 @@ fun m_translate_run def =
     val th = REWRITE_RULE [EXC_TYPE_RW] th
 
     (* Prove the assumptions *)
-    val [EXN_assum, vname_assum1, vname_assum2] = List.take(
-            concl th |> strip_imp |> fst, 3)
+    val (EXN_assum, vname_assum1, vname_assum2) =
+      (case concl th |> strip_imp |> fst of
+        (x1::x2::x3::_) => (x1,x2,x3) | _ => hd [])
     val EXN_th = prove(EXN_assum, rw[] \\ Cases_on `e` \\ fs[!EXN_TYPE_def_ref])
     val th = MP th EXN_th
     val th = MATCH_MP th monad_th |> UNDISCH |> UNDISCH
@@ -2887,10 +2898,8 @@ fun m_translate_run def =
     val th = remove_Eq_from_v_thm th
 
     (* Store the certificate for later use *)
-    val _ = print (Int.toString (length (!(get_v_thms_ref()))) ^ "\n")
     val _ = add_v_thms (fname,fname,th,pre)
     val _ = print "Added to v_thms\n"
-    val _ = print (Int.toString (length (!(get_v_thms_ref()))) ^ "\n")
     val th = save_thm(fname ^ "_v_thm",th)
     val _ = print ("Saved theorem ____ :" ^fname ^ "_v_thm\n")
   in th end
@@ -3088,6 +3097,7 @@ end
 (*
 val lhs = fst o dest_eq;
 val rhs = snd o dest_eq;
+val add_type_theories = [] : string list;
 *)
 
 end
