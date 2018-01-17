@@ -106,11 +106,20 @@ val getTys_not_clash = Q.store_thm("getTys_not_clash[simp]",
   \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [getName_not_clash, getType_not_clash, getPair_not_clash]);
 
+val BETA_CONV_not_clash = Q.store_thm("BETA_CONV_not_clash[simp]",
+  `BETA_CONV t s <> (Failure (Clash tm),r)`,
+  Cases_on `t` \\ strip_tac
+  \\ fs [BETA_CONV_def, handle_Fail_def, raise_Fail_def, st_ex_bind_def,
+         st_ex_return_def, dest_comb_def, dest_abs_def, BETA_def, UNCURRY,
+         case_eq_thms]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
+
 val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
   `readLine x y z ≠ (Failure (Clash tm),refs)`,
   strip_tac \\
   fs[readLine_def,st_ex_bind_def,st_ex_return_def,raise_Fail_def,
-     handle_Clash_def,case_eq_thms,bool_case_eq,UNCURRY,COND_RATOR] \\ rw []
+     handle_Clash_def,handle_Fail_def,case_eq_thms,bool_case_eq,UNCURRY,
+     COND_RATOR] \\ rw []
   \\ every_case_tac \\ fs [map_not_clash_thm]);
 
 val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
@@ -637,10 +646,44 @@ val match_type_thm = Q.store_thm("match_type_thm",
   \\ PairCases_on `z` \\ fs []
   \\ imp_res_tac tymatch_thm \\ rfs []);
 
+(* TODO proven elsewhere *)
+val TERM_Comb = Q.store_thm("TERM_Comb",
+  `TERM defs (Comb a b) ==> TERM defs a /\ TERM defs b`,
+  rw [TERM_def, term_ok_def]);
+
+val TERM_Abs = Q.store_thm("TERM_Abs",
+  `TERM defs (Abs v e) ==> TERM defs v /\ TERM defs e`,
+  rw [TERM_def] \\ fs [term_ok_def]);
+
 (* imp_res_tac is not useful when the monadic functions are too deep *)
 fun drule_or_nil thm =
   (drule (GEN_ALL thm) \\ rpt (disch_then drule \\ fs []) \\ rw []) ORELSE
   (qexists_tac `[]` \\ fs [] \\ metis_tac [])
+
+(* TODO clean *)
+val BETA_CONV_thm = Q.store_thm("BETA_CONV_thm",
+  `STATE defs refs /\
+   TERM defs tm /\
+   BETA_CONV tm refs = (res, refs')
+   ==>
+   refs = refs' /\
+   !thm. res = Success thm ==> THM defs thm`,
+  Cases_on `tm`
+  \\ rw [BETA_CONV_def, handle_Fail_def, raise_Fail_def, st_ex_bind_def,
+        st_ex_return_def, case_eq_thms, UNCURRY, dest_comb_def, dest_abs_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ TRY (metis_tac [BETA_thm])
+  \\ imp_res_tac TERM_Comb \\ fs []
+  \\ imp_res_tac TERM_Abs \\ fs []
+  \\ qmatch_asmsub_abbrev_tac `BETA tm1 refs`
+  \\ qpat_x_assum `TERM defs tm1` assume_tac
+  \\ drule_or_nil BETA_thm
+  \\ qmatch_asmsub_abbrev_tac `mk_comb (a, b)`
+  \\ drule (GEN_ALL mk_comb_thm)
+  \\ disch_then (mp_tac o Q.SPECL [`b`,`a`] o (CONV_RULE (RESORT_FORALL_CONV rev))) \\ fs [] \\ rw []
+  \\ drule_or_nil BETA_thm
+  \\ `EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) [(t0,b)]` by fs []
+  \\ drule_or_nil INST_thm);
 
 val readLine_thm = Q.store_thm("readLine_thm",
   `STATE defs refs /\
@@ -714,10 +757,10 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ metis_tac [find_axiom_thm])
   \\ IF_CASES_TAC \\ fs []
   >- (* betaConv *)
-   (fs [case_eq_thms] \\ rw []
+   (fs [case_eq_thms, handle_Fail_def] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ qexists_tac `[]` \\ rw []
-    \\ map_every imp_res_tac [pop_thm, getTerm_thm, BETA_thm] \\ fs []
+    \\ map_every imp_res_tac [pop_thm, getTerm_thm, BETA_CONV_thm] \\ fs []
     \\ TRY (irule push_thm \\ fs [OBJ_def])
     \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []

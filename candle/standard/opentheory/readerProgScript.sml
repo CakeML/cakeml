@@ -1,7 +1,7 @@
 open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
-     readerProofTheory
+     readerProofTheory prettyTheory
 
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
@@ -11,6 +11,25 @@ val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]
   `forwardFD fs fd n with infds updated_by A_DELKEY fd =
    fs with infds updated_by A_DELKEY fd`,
   fs [forwardFD_def, IO_fs_component_equality]);
+
+(* --- Translate prettyTheory ---------------------------------------------- *)
+
+val _ = translate newline_def
+val _ = translate breakdist_def
+val _ = translate REPLICATE
+val _ = translate blanks_def
+val _ = translate printing_def
+val _ = translate pr_def
+val _ = translate tlength_def
+val _ = translate mk_blo_def
+val _ = translate mk_str_def
+val _ = translate mk_brk_def
+val _ = translate typ_def
+val _ = translate ty_to_string_def
+val _ = translate term_def
+val _ = translate tm_to_string_def
+val _ = translate ruler_def
+val _ = translate thm_to_string_def
 
 (* --- Translate readerTheory ---------------------------------------------- *)
 
