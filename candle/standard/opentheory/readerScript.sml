@@ -190,43 +190,51 @@ val BETA_CONV_def = Define `
 (* Debugging                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
+val pad_def = tDefine "pad" `
+  pad n s =
+    if n < strlen s then
+      pad (n + 4) s
+    else
+      concat (s::REPLICATE (n - strlen s) (strlit" "))`
+ (WF_REL_TAC `measure (\x. strlen (SND x) - FST x)`);
+
 val obj_t_def = tDefine "obj_t" `
   obj_t obj =
     case obj of
-      Num n => mk_str (strlit"Num " ^ toString n)
-    | Name s => mk_str (strlit"Name " ^ s)
+      Num n => mk_str (pad 8 (strlit"Num") ^ toString n)
+    | Name s => mk_str (pad 8 (strlit"Name") ^ fix_name s)
     | List ls =>
         mk_blo 0
-          ([mk_str (strlit"List ["); mk_brk 1] ++
+          ([mk_str (pad 8 (strlit"List")); mk_str (strlit"["); mk_brk 1] ++
            FLAT (MAP (\x. [obj_t x; mk_brk 1]) ls) ++
            [mk_str (strlit"]")])
-    | TypeOp s => mk_str (strlit"TypeOp " ^ s)
-    | Type ty => mk_blo 0 [mk_str (strlit"Type "); typ ty]
-    | Const s => mk_str (strlit"Const " ^ s)
-    | Var (s,ty) => mk_blo 0 [mk_str (strlit"Var " ^ s ^ strlit" "); typ ty]
-    | Term tm => mk_blo 0 [mk_str (strlit"Term "); term tm]
-    | Thm th => mk_blo 0 [mk_str (strlit"Thm ("); thm th; mk_str(strlit")")]`
+    | TypeOp s => mk_str (pad 8 (strlit"TypeOp") ^ s)
+    | Type ty => mk_blo 0 [mk_str (pad 8 (strlit"Type")); typ ty]
+    | Const s => mk_str (pad 8 (strlit"Const") ^ fix_name s)
+    | Var (s,ty) => mk_blo 0 [mk_str (pad 8 (strlit"Var") ^ s ^ strlit" : "); typ ty]
+    | Term tm => mk_blo 0 [mk_str (pad 8 (strlit"Term")); term tm]
+    | Thm th => mk_blo 0 [mk_str (pad 8 (strlit"Thm")); thm th]`
  (WF_REL_TAC `measure object_size`
-  \\ Induct \\ rw [definition"object_size_def"]
+  \\ Induct \\ rw [definition"object_size_def", pad_def]
   \\ res_tac
   \\ decide_tac);
 
 val stack_t_def = Define `
   stack_t ls =
     mk_blo 0
-      [mk_str (strlit"stack"); mk_str newline;
-       mk_str (strlit"-----"); mk_str newline;
-       mk_blo 4 (FLAT (MAP (\x. [obj_t x; mk_str newline]) ls))]`
+      [mk_str (strlit"STACK"); mk_str newline; mk_str newline;
+       mk_blo 0
+         (FLAT (MAPi (\(i:num) x. [mk_str (pad 6 (toString &i ^ strlit ":"));
+                                   obj_t x; mk_str newline]) ls))]`
 
 val pair_t_def = Define `
   pair_t (k:num, v) =
-    mk_blo 0 [mk_str (toString (&k) ^ strlit" ->"); mk_brk 1; obj_t v]`
+    mk_blo 0 [mk_str (pad 4 (toString (&k)) ^ strlit" ->"); mk_brk 1; obj_t v]`
 
 val dict_t_def = Define `
   dict_t (ds: object spt) =
-    mk_blo 0 [mk_str (strlit"dict"); mk_str newline;
-              mk_str (strlit"----"); mk_str newline;
-              mk_blo 4
+    mk_blo 0 [mk_str (strlit"DICT"); mk_str newline; mk_str newline;
+              mk_blo 0
                 (FLAT (MAP (\(x,y). [pair_t (x,y); mk_str newline])
                 (toAList ds)))]`
 

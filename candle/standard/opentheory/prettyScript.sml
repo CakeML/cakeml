@@ -35,7 +35,7 @@ val printing_def = tDefine "printing" `
      let (s1, r1) = (sp - strlen s, s) in
      let (s2, r2) = printing bs af s1 mr es in (s2, r1 ^ r2)) /\
   (printing bs af sp mr (Break ln::es) =
-     if ln + breakdist es af <= sp then
+     if ln + breakdist es af >  sp then
        let (s1, r1) = blanks sp ln in
        let (s2, r2) = printing bs af s1 mr es in (s2, r1 ^ r2)
      else
@@ -62,35 +62,52 @@ val mk_blo_def = Define `
 (* Printing types, terms and theorems                                        *)
 (* ------------------------------------------------------------------------- *)
 
-val margin_tm = ``78n``;
+val pp_margin_def = Define `pp_margin = 78n`;
 
 (* type := Tyvar mlstring | Tyapp mlstring (type list) *)
 
-(* TODO all types are written in postfix *)
 val typ_def = Define `
   typ ty =
     case ty of
       Tyvar n => mk_str n
-    | Tyapp n [] => mk_str n
-    | Tyapp n [t1] => mk_blo 0 [typ t1; mk_str (strlit" " ^ n)]
-    | Tyapp n (t1::ts) =>
-        let t1 =
-          case t1 of
-            Tyvar m => mk_str m
-          | tt => mk_blo 1 [mk_str (strlit"("); typ tt; mk_str (strlit")")]
-        in
-          mk_blo 0 [mk_str (strlit"("); t1; mk_brk 1; typ (Tyapp n ts); mk_str(strlit")")]`;
+    | Tyapp n ts =>
+        if n = strlit"fun" then (* infix -> *)
+          case ts of
+            [t1; t2] =>
+              let t1 =
+                case t1 of
+                  Tyvar n => mk_str n
+                | Tyapp n [] => mk_str n
+                | _ => mk_blo 1 [mk_str (strlit"(");
+                                 typ t1; mk_str (strlit")")]
+              in
+                mk_blo 0 [t1; mk_str (strlit" ->"); mk_brk 1; typ t2]
+          | _ => mk_str (strlit"<dummy>")
+        else
+          case ts of
+            [] => mk_str n
+          | [t1] =>
+                (case t1 of
+                  Tyvar n => mk_str n
+                | _ => mk_blo 0 [mk_blo 1 [mk_str (strlit"(");
+                                           typ t1; mk_str (strlit")")];
+                                 mk_str (strlit" "); mk_str n])
+    | _ => mk_str (strlit"<bad type>")`
 
-val ty_to_string_def = Define `ty_to_string ty = pr (typ ty) ^margin_tm`
+val ty_to_string_def = Define `ty_to_string ty = pr (typ ty) pp_margin`
 
-(*
-val A = ``Tyvar (strlit"A")``
-val B = ``Tyvar (strlit"B")``
-val AB = ``Tyapp (strlit"fun") [^A; ^B]``
-val Alist = ``Tyapp (strlit"list") [^A]``
+(* tests
 
-val test = EVAL ``ty_to_string ^AB``
-val test = EVAL ``ty_to_string ^Alist``
+  val A = ``Tyvar (strlit"A")``
+  val B = ``Tyvar (strlit"B")``
+  val AB = ``Tyapp (strlit"fun") [^A; ^B]``
+  val Alist = ``Tyapp (strlit"list") [^A]``
+
+  val test = EVAL ``ty_to_string ^AB``
+  val test = EVAL ``ty_to_string ^Alist``
+  val test = EVAL ``ty_to_string (Tyapp (strlit"list") [^AB])``
+  val test = EVAL ``ty_to_string (Tyapp (strlit"fun") [^AB;^AB])``
+
 *)
 
 (* term := Var mlstring type
@@ -98,21 +115,56 @@ val test = EVAL ``ty_to_string ^Alist``
          | Comb term term
          | Abs term term *)
 
-(* TODO Simplified to save time (avoid mutual recursion). It does not
- * handle abstractions or applications properly.
- *)
+(* Abs x (Abs y (Abs z e)))   -->   (\x. (\y. (\z. e))) *)
+(* Comb (Var x) (Var y)       -->   x y                 *)
+(* Comb (Abs x e) (Var y)     -->   (\x. e) y           *)
+(* Comb (Abs x e) (Abs y f)   -->   (\x. e) (\y. f)     *)
+(* Comb x <not-var-const>     -->   x (<not-var-const>) *)
+
+val paren_def = Define `
+  paren n t = mk_blo n [mk_str (strlit"("); t; mk_str (strlit")")]`
+
+(* Hide Data.Bool until names have their 'real' representation *)
+val fix_name_def = Define `
+  fix_name s =
+    if isPrefix (strlit"Data.Bool.") s then
+      extract s 10 NONE
+    else
+      s`;
+
+(* TODO fix it up *)
 val term_def = Define `
    term tm =
     case tm of
-      Var n ty => mk_blo 0 [mk_str n; mk_str (strlit" : "); mk_str (ty_to_string ty)]
-    | Const n ty => mk_blo 0 [mk_str n; mk_str (strlit" : "); mk_str (ty_to_string ty)]
-    | Abs s t => mk_blo 0 [mk_str (strlit"\\"); term s; mk_str (strlit"."); mk_brk 1; term t]
+    (* bases *)
+      Var n _ => mk_str n
+    | Const n _ => mk_str (fix_name n)
+    (* combinations *)
+    | Comb (Var m _) (Var n _) =>
+        paren 0 (mk_str (m ^ strlit " " ^ n))
+    | Comb (Var m _) (Const n _) =>
+        paren 0 (mk_str (m ^ strlit " " ^ fix_name n))
+    | Comb (Const m _) (Var n _) =>
+        paren 0 (mk_str (fix_name m ^ strlit " " ^ n))
+    | Comb (Const m _) (Const n _) =>
+        paren 0 (mk_str (fix_name m ^ strlit " " ^ fix_name n))
+    | Comb s (Var n _) =>
+        paren 0 (mk_blo 0 [paren 1 (term s); mk_str (strlit " " ^ n)])
+    | Comb s (Const n _) =>
+        paren 0 (mk_blo 0 [paren 1 (term s); mk_str (strlit " " ^ fix_name n)])
+    | Comb (Var n _) t =>
+        paren 0 (mk_blo 0 [mk_str n; mk_brk 1; paren 1 (term t)])
+    | Comb (Const n _) t =>
+        paren 0 (mk_blo 0 [mk_str (fix_name n); mk_brk 1; paren 1 (term t)])
     | Comb s t =>
-        let s1 = mk_blo 1 [mk_str (strlit"("); term s; mk_str (strlit")")]
-        in
-          mk_blo 0 [s1; mk_brk 1; term t]`;
+        paren 0 (mk_blo 0 [paren 1 (term s); mk_brk 1; paren 1 (term t)])
+    (* abstractions *)
+    | Abs (Var x _) s =>
+        mk_blo 0 [mk_str (strlit"\\" ^ x ^ strlit"."); mk_brk 1; term s]
+    | Abs v s => mk_str (strlit"<dummy>")
+  `;
 
-val tm_to_string_def = Define `tm_to_string tm = pr (term tm) ^margin_tm`
+val tm_to_string_def = Define `tm_to_string tm = pr (term tm) pp_margin`
 
 (*
 val Va = ``Var (strlit "a") (^A)``
@@ -134,14 +186,13 @@ val hyps_def = Define `
   hyps hs =
     case hs of
       []    => []
-    | [h]   => [term h]
     | h::hs => term h :: mk_str (strlit",") :: mk_brk 1 :: hyps hs`
 
 val thm_def = Define `
   thm (Sequent hs c) =
-    mk_blo 0 (hyps hs ++ [mk_brk 1; mk_str (strlit" |-"); mk_brk 1; term c])`
+    mk_blo 0 (hyps hs ++ [mk_str (strlit"|-"); mk_brk 1; term c])`
 
-val thm_to_string_def = Define `thm_to_string th = pr (thm th) ^margin_tm`
+val thm_to_string_def = Define `thm_to_string th = pr (thm th) pp_margin`
 
 val _ = export_theory ();
 
