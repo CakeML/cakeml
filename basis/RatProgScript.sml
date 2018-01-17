@@ -8,6 +8,8 @@ val _ = translation_extends "IntProg";
 
 val _ = ml_prog_update (open_module "Rat");
 
+val () = generate_sigs := true;
+
 (* connection between real and rat *)
 
 val real_of_rat_def = Define `
@@ -724,6 +726,23 @@ val EqualityType_REAL_TYPE = store_thm("EqualityType_REAL_TYPE",
   \\ metis_tac [])
   |> store_eq_thm;
 
-val _ = ml_prog_update (close_module NONE);
+val sigs = module_signatures [
+  "fromInt",
+  "<=",
+  ">=",
+  "<",
+  ">",
+  "min",
+  "max",
+  "+",
+  "-",
+  "~",
+  "*",
+  "inv",
+  "/",
+  "toString"
+];
+
+val _ = ml_prog_update (close_module (SOME sigs));
 
 val _ = export_theory ()
