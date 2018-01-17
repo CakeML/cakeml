@@ -1493,24 +1493,6 @@ val rsgc_free_def = Define`
 `;
 val _ = export_rewrites ["rsgc_free_def"]
 
-(* state is setglobal-closure free *)
-val ssgc_free_def = Define`
-  ssgc_free ^s ⇔
-    (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
-    (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
-    (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v)
-`;
-
-val ssgc_free_clockupd = Q.store_thm(
-  "ssgc_free_clockupd[simp]",
-  `ssgc_free (s with clock updated_by f) = ssgc_free s`,
-  simp[ssgc_free_def])
-
-val ssgc_free_dec_clock = Q.store_thm(
-  "ssgc_free_dec_clock[simp]",
-  `ssgc_free (dec_clock n s) ⇔ ssgc_free s`,
-  simp[dec_clock_def])
-
 val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Var _ _) ⇔ T) ∧
   (esgc_free (If _ e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
@@ -1528,6 +1510,26 @@ val esgc_free_def = tDefine "esgc_free" `
    imp_res_tac exp_size_MEM >> simp[])
 val esgc_free_def = save_thm("esgc_free_def[simp]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+
+(* state is setglobal-closure free *)
+val ssgc_free_def = Define`
+  ssgc_free ^s ⇔
+    (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
+    (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
+    (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
+    (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ esgc_free exp ∧
+         elist_globals (MAP (SND o SND) aux) = {||})
+`;
+
+val ssgc_free_clockupd = Q.store_thm(
+  "ssgc_free_clockupd[simp]",
+  `ssgc_free (s with clock updated_by f) = ssgc_free s`,
+  simp[ssgc_free_def])
+
+val ssgc_free_dec_clock = Q.store_thm(
+  "ssgc_free_dec_clock[simp]",
+  `ssgc_free (dec_clock n s) ⇔ ssgc_free s`,
+  simp[dec_clock_def])
 
 val elglobals_EQ_EMPTY = Q.store_thm(
   "elglobals_EQ_EMPTY",
