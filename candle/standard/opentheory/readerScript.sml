@@ -2,6 +2,7 @@ open preamble
      ml_hol_kernelProgTheory
      mlintTheory
      StringProgTheory
+     prettyTheory
 
 val _ = new_theory"reader"
 
@@ -171,6 +172,28 @@ val getCns_def = Define`
       return (Const n)
     od`;
 
+(* let BETA_CONV tm =
+ *   try BETA tm with Failure _ ->
+ *   try let f,arg = dest_comb tm in
+ *       let v = bndvar f in
+ *       INST [arg,v] (BETA (mk_comb(f,v)))
+ *   with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
+ *)
+
+val BETA_CONV_def = Define `
+  BETA_CONV tm =
+    handle_Fail (BETA tm)
+      (\e.
+        handle_Fail
+          (do
+            (f, arg) <- dest_comb tm;
+            (v, body) <- dest_abs f;
+            tm <- mk_comb (f, v);
+            thm <- BETA tm;
+            INST [(arg, v)] thm
+          od)
+          (\e. failwith (strlit"BETA_CONV: Not a beta-redex")))`;
+
 (* TODO Nothing in the reader respects the version so far. *)
 
 val readLine_def = Define`
@@ -228,7 +251,8 @@ val readLine_def = Define`
   else if line = strlit"betaConv" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
-      th <- BETA tm;
+      (*th <- BETA tm;*)
+      th <- BETA_CONV tm;
       return (push (Thm th) s)
     od
   else if line = strlit"cons" then
@@ -252,7 +276,7 @@ val readLine_def = Define`
             | SOME theta => mk_const(name,theta);
       return (push (Term tm) s)
     od
-  else if line = strlit"deductAntysim" then
+  else if line = strlit"deductAntisym" then
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
@@ -429,7 +453,7 @@ val readLine_def = Define`
         case explode line of
           #"\""::c::cs =>
             return (push (Name (implode (FRONT (c::cs)))) s)
-        | _ => failwith (strlit"readLine")`;
+        | _ => failwith (strlit"unrecognised input: " ^ line)`;
 
 val line_Fail_def = Define `
   line_Fail (loc: int) msg =
@@ -491,3 +515,4 @@ val set_reader_ctxt = Define `
     od`
 
 val _ = export_theory()
+
