@@ -44,12 +44,12 @@ val refs_manip_list = [
     ("stack", get_stack_def, set_stack_def)
 ];
 
-val rarrays_manip_list = [
-    ("adj_ls", get_adj_ls_def, set_adj_ls_def, adj_ls_length_def, adj_ls_sub_def, update_adj_ls_def, alloc_adj_ls_def),
-    ("node_tag", get_node_tag_def, set_node_tag_def, node_tag_length_def, node_tag_sub_def, update_node_tag_def, alloc_node_tag_def),
-    ("degrees", get_degrees_def, set_degrees_def, degrees_length_def, degrees_sub_def, update_degrees_def, alloc_degrees_def)
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val farrays_manip_list = [
+    ("adj_ls", get_adj_ls_def, set_adj_ls_def, adj_ls_length_def, adj_ls_sub_def, update_adj_ls_def),
+    ("node_tag", get_node_tag_def, set_node_tag_def, node_tag_length_def, node_tag_sub_def, update_node_tag_def),
+    ("degrees", get_degrees_def, set_degrees_def, degrees_length_def, degrees_sub_def, update_degrees_def)
 ];
-val farrays_manip_list = [] : (string * thm * thm * thm * thm * thm) list;
 
 val add_type_theories  = ([] : string list);
 val store_pinv_def_opt = NONE : thm option;
@@ -95,7 +95,7 @@ val _ = translate APPEND
 val _ = translate PART_DEF
 val _ = translate PARTITION_DEF
 val _ = translate QSORT_DEF
-val _ = translate lookup_any_def
+val _ = translate is_phy_var_def
 val _ = translate sp_default_def
 val _ = translate LENGTH
 val _ = translate extract_tag_def
@@ -136,13 +136,18 @@ val _ = m_translate extract_color_def;
 val _ = m_translate do_reg_alloc_def;
 
 (* m_translate_run *)
+(* Need to rewrite the definition of reg_alloc_aux because m_translate_run expects parameters which are variables - it doesn't offer support for a parameter of the form (ta,fa,n) *)
+val reg_alloc_aux_trans_def = Q.prove(
+ `∀k mtable ct forced x.
+     reg_alloc_aux k mtable ct forced x =
+     run_ira_state (do_reg_alloc k mtable ct forced x)
+       <|adj_ls := (SND(SND x),[]); node_tag := (SND(SND x),Atemp); degrees := (SND(SND x),0);
+         dim := SND(SND x); simp_wl := []; spill_wl := []; stack := []|>`,
+ Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]);
 
-val r = translate empty_ra_state_def;
-val r = m_translate_run reg_alloc_def;
+val _ = m_translate_run reg_alloc_aux_trans_def;
 
-val reg_alloc_side = Q.prove (
-  `reg_alloc_side k mtable ct forced <=> T`,
-  rw [fetch"-""reg_alloc_side_def", empty_ra_state_def])
-  |> update_precondition;
+(* The final function *)
+val _ = translate reg_alloc_def;
 
 val _ = export_theory();

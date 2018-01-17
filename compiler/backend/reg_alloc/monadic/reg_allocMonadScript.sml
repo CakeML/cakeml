@@ -82,9 +82,9 @@ val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
 val sub_exn = ``ReadError ()``;
 val update_exn = ``WriteError ()``;
-val arr_manip = define_MRarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
+val arr_manip = define_MFarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
 
-fun accessor_thm (a,b,c,d,e,f,g) = LIST_CONJ [b,c,d,e,f,g]
+fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 
 val adj_ls_manip = el 1 arr_manip;
 val node_tag_manip = el 2 arr_manip;
@@ -655,7 +655,8 @@ val mk_graph_def = Define`
 
 
 val sp_default_def = Define`
-  sp_default t i = lookup_any i t 0n`
+  sp_default t i =
+  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)`
 
 val extend_graph_def = Define`
   (extend_graph ta [] = return ()) ∧
@@ -674,18 +675,11 @@ val extend_graph_def = Define`
   forced = forced edges -- will need new proof that all forced edges are in the tree
 *)
 val init_ra_state_def = Define`
-  init_ra_state ct forced =
+  init_ra_state ct forced (ta,fa,n) =
   do
-    (ta,fa,n) <- return (mk_bij ct);
-    set_dim n; (* Set the size correctly *)
-    alloc_adj_ls n []; (* Initialize the adj list arr *)
-    alloc_node_tag n Atemp; (* Same, but for tags*)
-    alloc_degrees n 0; (* Currently unused, but need it to satisfy the state relation *)
-    (* At this point we should have good_ra_state *)
     mk_graph (sp_default ta) ct []; (* Put in the usual edges *)
     extend_graph (sp_default ta) forced;
     mk_tags n (sp_default fa);
-    return (ta,fa) (* Returning sptrees for now, see above *)
   od`;
 
 val is_Atemp_def = Define`
@@ -744,9 +738,9 @@ val extract_color_def = Define`
 
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
-  do_reg_alloc k mtable ct forced =
+  do_reg_alloc k mtable ct forced (ta,fa,n) =
   do
-    (ta,fa) <- init_ra_state ct forced;
+    init_ra_state ct forced (ta,fa,n);
     ls <- do_alloc1 k;
     assign_Atemps k ls (biased_pref mtable);
     assign_Stemps k;
@@ -754,21 +748,28 @@ val do_reg_alloc_def = Define`
     return spcol (* return the composed from wordLang into the graph + the allocation *)
   od`
 
+(* As we are using fixed-size array, we need to define a different record type for the initialization *)
+val array_fields_names = ["adj_ls", "node_tag", "degrees"];
+val run_ira_state_def = define_run ``:ra_state``
+                                       array_fields_names
+                                      "ira_state";
+
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)
 
-val empty_ra_state_def = Define `
-  empty_ra_state =
-    <| adj_ls   := []
-     ; node_tag := []
-     ; degrees  := []
-     ; dim      := 0n
-     ; simp_wl  := []
-     ; spill_wl := []
-     ; stack    := [] |>`
+val reg_alloc_aux_def = Define`
+  reg_alloc_aux k mtable ct forced (ta,fa,n) =
+    run_ira_state (do_reg_alloc k mtable ct forced (ta,fa,n))
+                      <| adj_ls   := (n, [])
+                       ; node_tag := (n, Atemp)
+		       ; degrees  := (n, 0)
+		       ; dim      := n
+		       ; simp_wl  := []
+		       ; spill_wl := []
+		       ; stack    := [] |>`;
 
-val reg_alloc_def = Define`
-  reg_alloc k mtable ct forced =
-    run (do_reg_alloc k mtable ct forced) empty_ra_state`;
+val reg_alloc_def = Define `
+reg_alloc k mtable ct forced =
+    reg_alloc_aux k mtable ct forced (mk_bij ct)`;
 
 val _ = export_theory();

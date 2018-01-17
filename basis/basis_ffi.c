@@ -5,44 +5,6 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-/* GC FFI */
-int inGC = 0;
-struct timeval t1,t2;
-long microsecs = 0;
-int numGC = 0;
-
-void cml_exit(int arg) {
-  #ifdef DEBUG_FFI
-  {
-    printf("GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
-  }
-  #endif
-  exit(arg);
-}
-
-/* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
-void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
-  #ifdef DEBUG_FFI
-  {
-    if (clen == 0)
-    {
-      if(inGC==1)
-      {
-        gettimeofday(&t2, NULL);
-        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
-        numGC++;
-        inGC = 0;
-      }
-      else
-      {
-        inGC = 1;
-        gettimeofday(&t1, NULL);
-      }
-    }
-  }
-  #endif
-}
-
 /* clFFI (command line) */
 
 /* argc and argv are exported in cake.S */
@@ -133,11 +95,62 @@ void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
   else
     a[0] = 0;
 }
-/*
-void ffiseek (unsigned char *a) {
-  int off = lseek(infds[a[0]], a[2], SEEK_SET);
-  if (off = -1)
-    a[0] = 1;
-  else
-    a[0] = 0;
-}*/
+
+/* GC FFI */
+int inGC = 0;
+struct timeval t1,t2,lastT;
+long microsecs = 0;
+int numGC = 0;
+int hasT = 0;
+
+void cml_exit(int arg) {
+  #ifdef DEBUG_FFI
+  {
+    printf("GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+  }
+  #endif
+  exit(arg);
+}
+
+/* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
+void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+  #ifdef DEBUG_FFI
+  {
+    if (clen == 0)
+    {
+      if(inGC==1)
+      {
+        gettimeofday(&t2, NULL);
+        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
+        numGC++;
+        inGC = 0;
+      }
+      else
+      {
+        inGC = 1;
+        gettimeofday(&t1, NULL);
+      }
+    } else {
+      int indent = 30;
+      for (int i=0; i<clen; i++) {
+        putc(c[i],stderr);
+        indent--;
+      }
+      for (int i=0; i<indent; i++) {
+        putc(' ',stderr);
+      }
+      struct timeval nowT;
+      gettimeofday(&nowT, NULL);
+      if (hasT) {
+        long usecs = (nowT.tv_usec - lastT.tv_usec) +
+                     (nowT.tv_sec - lastT.tv_sec)*1e6;
+        fprintf(stderr," --- %ld milliseconds\n",usecs / (long)1000);
+      } else {
+        fprintf(stderr,"\n");
+      }
+      gettimeofday(&lastT, NULL);
+      hasT = 1;
+    }
+  }
+  #endif
+}

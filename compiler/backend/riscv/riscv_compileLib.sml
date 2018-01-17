@@ -3,8 +3,6 @@ struct
 
 open HolKernel boolLib bossLib
 
-val _ = ParseExtras.temp_loose_equality()
-
 open riscv_targetLib asmLib;
 open backendComputeLib;
 open riscv_configTheory

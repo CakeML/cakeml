@@ -6,8 +6,8 @@ val _ = new_theory"helloProof";
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
-  hello_semantics |> Q.GENL[`cls`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM,AND_IMP_INTRO]);
+  hello_semantics |> Q.GENL[`cl`,`fs`]
+  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR

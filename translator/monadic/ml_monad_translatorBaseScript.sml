@@ -30,6 +30,11 @@ val evaluate_unique_result = Q.store_thm("evaluate_unique_result",
 (evaluate F env s expr (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
 rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
 
+val evaluate_list_unique_result = Q.store_thm("evaluate_list_unique_result",
+`!exprs env s s1 s2 res1 res2. evaluate_list F env s exprs (s1, res1) ==>
+(evaluate_list F env s exprs (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
+rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
+
 (* REF_REL *)
 val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
 

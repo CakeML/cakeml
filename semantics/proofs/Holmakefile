@@ -4,7 +4,8 @@ INCLUDES = .. ../ffi ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/forma
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
 TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS) $(HOLHEAP)
+
+all: $(TARGETS)
 .PHONY: all
 
 
@@ -15,6 +16,8 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../../misc/lem_lib_stub/libTheory ../evaluateTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../terminationTheory ../semanticsComputeLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
+
+all: $(HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)

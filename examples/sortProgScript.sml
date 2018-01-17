@@ -256,6 +256,10 @@ val valid_sort_result_exists = Q.store_thm("valid_sort_result_exists",
   \\ PROVE_TAC[QSORT_SORTED, QSORT_PERM, PERM_SYM, total_def,
                total_mlstring_le, transitive_mlstring_le ]);
 
+val valid_sort_result_numchars = Q.store_thm("valid_sort_result_numchars",
+  `valid_sort_result cl fs1 fs2 ⇒ fs2.numchars = fs1.numchars`,
+  rw[valid_sort_result_def] \\ rw[]);
+
 val sort_sem_def = new_specification("sort_sem_def",["sort_sem"],
   valid_sort_result_exists
   |> Q.GENL[`cl`,`fs`]
@@ -266,11 +270,10 @@ val sort_sem_intro = Q.store_thm("sort_sem_intro",
    ⇒ P (sort_sem cl fs)`,
   metis_tac[sort_sem_def,valid_sort_result_unique]);
 
-val STD_streams_sort_sem = Q.store_thm("STD_streams_sort_sem",
-  `STD_streams fs ⇒ STD_streams (sort_sem cl fs)`,
-  DEEP_INTRO_TAC sort_sem_intro \\
-  rw[valid_sort_result_def] \\
-  simp[STD_streams_fastForwardFD,STD_streams_add_stdout,STD_streams_add_stderr]);
+val sort_sem_numchars = Q.store_thm("sort_sem_numchars[simp]",
+  `(sort_sem cl fs).numchars = fs.numchars`,
+  DEEP_INTRO_TAC sort_sem_intro
+  \\ metis_tac[valid_sort_result_numchars]);
 
 val SORTED_mlstring_le = prove(
   ``!output. SORTED mlstring_le output = SORTED $<= (MAP explode output)``,
@@ -280,8 +283,7 @@ val SORTED_mlstring_le = prove(
   \\ fs [explode_def,strlit_le_strlit]);
 
 val sort_spec = Q.store_thm ("sort_spec",
-  `!cl fs out err.
-    (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+  `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
     ⇒
     app (p : 'ffi ffi_proj) ^(fetch_v "sort" (get_ml_prog_state ()))
       [Conv NONE []]
@@ -478,19 +480,24 @@ val sort_spec = Q.store_thm ("sort_spec",
     CONV_TAC (DEPTH_CONV ETA_CONV) \\
     fs []));
 
-val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> SIMP_RULE(srw_ss())[STDIO_def] |> add_basis_proj;
-val name = "sort"
-val (sem_thm,prog_tm) = call_thm (get_ml_prog_state ()) name spec
+val sort_whole_prog_spec = Q.store_thm("sort_whole_prog_spec",
+  `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+   ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs (valid_sort_result cl fs)`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qexists_tac`sort_sem cl fs`
+  \\ reverse conj_tac
+  >- metis_tac[with_same_numchars,sort_sem_numchars,sort_sem_def]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH sort_spec)))
+  \\ xsimpl);
+
+val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "sort" (UNDISCH sort_whole_prog_spec)
 val sort_prog_def = Define `sort_prog = ^prog_tm`;
 
-val length_gt_1_not_null =
-  Q.prove(`LENGTH cls > 1 ⇒ ¬ NULL cls`, rw[NULL_EQ] \\ strip_tac \\ fs[]);
-
 val sort_semantics =
-  sem_thm
-  |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
+  sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[PULL_EXISTS,AND_IMP_INTRO,GSYM CONJ_ASSOC,STD_streams_sort_sem]
+  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "sort_semantics";
 
 val _ = export_theory ();

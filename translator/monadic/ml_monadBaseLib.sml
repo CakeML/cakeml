@@ -74,6 +74,38 @@ fun mk_Success x exn_ty = let
     val tm = mk_comb(tm, x)
 in tm end
 
+fun dest_fun_type ty =
+  if can dest_type ty then
+  let
+    val (tys,tyl) = dest_type ty
+  in
+      if tys = "fun" then let
+	  val ty1 = el 1 tyl
+	  val ty2 = el 2 tyl
+	  val (params_ty, ret_ty) = dest_fun_type ty2
+      in (ty1::params_ty, ret_ty) end
+      else ([], ty)
+  end
+  else ([], ty)
+
+fun mk_fun_type (tyl, ret_ty) =
+  case tyl of
+      ty::tyl => mk_type("fun", [ty, mk_fun_type (tyl, ret_ty)])
+    | [] => ret_ty
+
+fun mk_list_vars basename types = let
+    fun mk_aux types i =
+      case types of
+	  ty::types => (mk_var(basename ^ (Int.toString i), ty))::(mk_aux types (i+1))
+	| [] => []
+in mk_aux types 1 end
+
+fun mk_list_vars_same basename ty n = let
+    fun mk_aux i =
+      if i > n then []
+      else (mk_var(basename ^ (Int.toString i), ty))::(mk_aux (i+1))
+in mk_aux 1 end
+
 (* Creation of the raise/handle functions *)
 fun define_monad_exception_functions exn_type state_type = let
     val exn_cons = TypeBase.constructors_of exn_type
@@ -81,81 +113,109 @@ fun define_monad_exception_functions exn_type state_type = let
     
     (* Raise functions *)
     fun mk_raise_fun ctor = let
-	val ty = type_of ctor |> dest_type |> snd |> List.hd
-
-	val var = mk_var("e", ty)
-	val fun_body = mk_pair(mk_Failure (mk_comb(ctor, var)) a_ty, state_var)
+	val (params_ty, ret_ty) = dest_fun_type (type_of ctor)	
+	val vars = mk_list_vars "e" params_ty
+	val fun_body = list_mk_comb (ctor, vars)
+	val fun_body = mk_pair(mk_Failure fun_body a_ty, state_var)
 	val fun_body = mk_abs(state_var, fun_body)
-
-	val fun_type = mk_type("fun", [ty, type_of fun_body])
 	val fun_name = "raise_" ^(dest_const ctor |> fst)
+	val fun_type = mk_fun_type(params_ty, type_of fun_body)
 	val fun_var = mk_var(fun_name, fun_type)
-
-	val fun_def = Define `^fun_var ^var= ^fun_body`
+	val def_lhs = list_mk_comb (fun_var, vars)
+	val def_eq = mk_eq (def_lhs, fun_body)
+	val fun_def = Define `^def_eq`
     in fun_def end
     val raise_funs = List.map mk_raise_fun exn_cons
 
     (* Handle functions *)
     fun mk_failure_success_fun ctor = let
-	val ty = type_of ctor |> dest_type |> snd |> List.hd
+	val (params_ty, ret_ty) = dest_fun_type (type_of ctor)	
+	val vars = mk_list_vars "e" params_ty
 	val ret_type = mk_exc_type a_ty exn_type
+
 	val monad_ret_type = mk_type("fun", [state_type, mk_type("prod", [ret_type, state_type])])
 
-	val var = mk_var("e", ty)
-	val f_var = mk_var("f", mk_type("fun", [ty, monad_ret_type]))
-	val success_fun_body = mk_abs(var, list_mk_comb (f_var, [var, state_var]))
-	val failure_fun_body = mk_abs(var , mk_pair(mk_Failure (mk_comb(ctor, var)) a_ty, state_var))
+	val f_type = mk_fun_type (params_ty, monad_ret_type)
+	val f_var = mk_var("f", f_type)
+
+	val success_fun_body = list_mk_comb(f_var,vars)
+	val success_fun_body = mk_comb(success_fun_body, state_var)
+	val success_fun_body = list_mk_abs(vars, success_fun_body)
+
+	val failure_fun_body = mk_Failure (list_mk_comb (ctor, vars)) a_ty
+	val failure_fun_body = mk_pair(failure_fun_body, state_var)
+	val failure_fun_body = list_mk_abs(vars, failure_fun_body)
     in (success_fun_body, failure_fun_body) end
     val cases_funs = List.map mk_failure_success_fun exn_cons
 
     val e_var = mk_var("e", exn_type)
-    val case_const = mk_comb(case_const_of exn_type, e_var)
-
+    val case_expr = mk_comb(case_const_of exn_type, e_var)
+    
     fun mk_funs_list ((s, f)::funs) n = if n = 0 then s::(mk_funs_list funs (n-1))
 				      else f::(mk_funs_list funs (n-1))
       | mk_funs_list [] n = []
 
     fun mk_int_list (i : int) n = if i = n then [] else i::(mk_int_list (i+1) n)
-    val nl = mk_int_list 0 (List.length exn_cons)
 
+
+    val nl = mk_int_list 0 (List.length exn_cons)
     val funs_lists = List.map (mk_funs_list cases_funs) nl
     val funs_pairs = zip exn_cons funs_lists
 
-    val r_var = mk_var("x", mk_exc_type a_ty exn_type)
-    val inst_monad_ty = mk_type("prod", [mk_exc_type a_ty exn_type, state_type])
-    val res_case_const = case_const_of exc_ty |> Term.inst [b_ty |-> exn_type, c_ty |-> inst_monad_ty]
-    val res_case_tm1 = mk_comb(res_case_const, r_var)
-    val x_var = mk_var("x", a_ty)
-    val res_case_tm2 = mk_pair(mk_Success x_var exn_type, state_var)
-    val res_case_tm = mk_comb(res_case_tm1, mk_abs(x_var, res_case_tm2))
+    (* x *)
+    val exc_type = mk_exc_type a_ty exn_type
+    val pair_exc_type = mk_type("prod", [exc_type, state_type])
+    val monad_type = mk_type("fun", [state_type, pair_exc_type])
 
-    val monad_x_var = mk_var("x", mk_Mtype state_type a_ty exn_type)
-    val compos_param = mk_comb(monad_x_var, state_var)
-    fun mk_handle_fun (ctor, funs) = let
-	val ret_type = type_of ctor |> dest_type |> snd |> List.hd
-	val case_tm = Term.inst [a_ty |-> inst_monad_ty] case_const
+    val x_var = mk_var("x", monad_type)
 
-	val case_tm = list_mk_comb(case_tm, funs)
-	val case_tm = mk_abs(e_var, case_tm)
-	val case_tm = mk_comb(res_case_tm, case_tm)
+    (* case x st of (res, st) => ... *)
+    val x_st_tm = mk_comb(x_var, state_var)
+    val case_x_st_tm = case_const_of pair_ty |>
+        Term.inst [alpha |-> pair_exc_type, beta |-> exc_type, gamma |-> state_type]
+    val case_x_st_tm = mk_comb(case_x_st_tm, x_st_tm)
+    val res_var = mk_var("res", exc_type)
+
+    (*
+       case res of
+         Success y => (Success y, st)
+       | Failure e => ... *)
+    val case_res_tm = case_const_of exc_type |>
+        Term.inst [beta |-> exn_type, gamma |-> pair_exc_type]
+    val y_var = mk_var ("y", a_ty)
+    val success_tm = mk_abs(y_var, mk_pair((mk_Success y_var exn_type), state_var))
+    val case_res_tm = mk_comb(case_res_tm, res_var)
+    val case_res_tm = mk_comb(case_res_tm, success_tm)
+
+    val e_var = mk_var("e", exn_type)
+
+    (* case e of *)
+    val exn_case_tm = case_const_of exn_type
+                   |> Term.inst [alpha |-> pair_exc_type]
+    val exn_case_tm = mk_comb(exn_case_tm, e_var)
+
+    (* For every constructor, make the approriate case function *)
+    fun mk_handle_fun (ctor, funs_list) = let
+	val case_tm = list_mk_comb (exn_case_tm, funs_list)
+	val case_tm = mk_comb(case_res_tm, mk_abs(e_var, case_tm))
+	val case_tm = list_mk_abs([res_var,state_var], case_tm)
+	val case_tm = mk_comb(case_x_st_tm, case_tm)
 	val case_tm = mk_abs(state_var, case_tm)
-	val case_tm = mk_abs(r_var, case_tm)
 
-	val inst_exc_ty = mk_exc_type a_ty exn_type
-	val pair_case_const = case_const_of pair_ty |> Term.inst [b_ty |-> inst_exc_ty, c_ty |-> state_type, a_ty |-> inst_monad_ty]
-	val pair_case_tm = mk_comb(pair_case_const, compos_param)
-	val fun_body = mk_comb(pair_case_tm, case_tm)
-	val fun_body = mk_abs(state_var, fun_body)
+	val Mtype = mk_Mtype state_type a_ty exn_type
+	val params_types = fst(dest_fun_type (type_of ctor))
+	val ftype = mk_fun_type(params_types, Mtype)
+	val fvar = mk_var("f", ftype)
 
 	val ctor_name = dest_const ctor |> fst
-	val fun_var_name = "handle_" ^ctor_name
-	val Mtype = mk_Mtype state_type a_ty exn_type
-	val fun_type = mk_type("fun", [mk_type("fun", [ret_type, Mtype]), Mtype])
-	val fun_type = mk_type("fun", [Mtype, fun_type])
-	val fun_var = mk_var(fun_var_name, fun_type)
+	val handle_fun_var_name = "handle_" ^ctor_name
+	val handle_fun_type = mk_fun_type([Mtype, ftype], Mtype)
+	val handle_fun_var = mk_var(handle_fun_var_name, handle_fun_type)
 
-	val fun_def = Define `^fun_var ^monad_x_var f = ^fun_body`
-    in fun_def end
+	val def_lhs = list_mk_comb(handle_fun_var, [x_var, fvar])
+	val def_eq = mk_eq(def_lhs, case_tm)
+	val def = Define `^def_eq`
+    in def end
     val handle_funs = List.map mk_handle_fun funs_pairs
 in zip raise_funs handle_funs end
 

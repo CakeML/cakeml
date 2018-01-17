@@ -3,8 +3,6 @@ struct
 
 open HolKernel boolLib bossLib
 
-val _ = ParseExtras.temp_loose_equality()
-
 open mips_targetLib asmLib;
 open backendComputeLib;
 open mips_configTheory

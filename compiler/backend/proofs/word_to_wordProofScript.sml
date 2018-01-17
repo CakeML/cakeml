@@ -9,7 +9,7 @@ val _ = new_theory "word_to_wordProof";
 val _ = bring_to_front_overload"Call"{Thy="wordLang",Name="Call"};
 
 val is_phy_var_tac =
-    full_simp_tac(srw_ss())[reg_allocTheory.is_phy_var_def]>>
+    full_simp_tac(srw_ss())[reg_allocMonadTheory.is_phy_var_def]>>
     `0<2:num` by DECIDE_TAC>>
     `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0];
@@ -42,7 +42,7 @@ val compile_single_lem = Q.store_thm("compile_single_lem",`
   Q.ISPECL_THEN [`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
-      srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
+      srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocMonadTheory.is_phy_var_def]
       >-
         is_phy_var_tac
       >>
