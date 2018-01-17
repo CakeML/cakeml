@@ -39,13 +39,19 @@ val nextFD_def = Define`
   nextFD fsys = LEAST n. ~ MEM n (MAP FST fsys.infds)
 `;
 
+(* file descriptors are encoded on 8 bytes but there might be OS limits
+*  so we define this limit as maxFD
+*  ulimit -n has a usual value of 1024 *)
+
+val _ = new_constant("maxFD", ``:num``)
+
 (* adds a new file in infds *)
 val openFile_def = Define`
   openFile fnm fsys pos =
      let fd = nextFD fsys
      in
        do
-          assert (fd <= 255) ;
+          assert (fd <= maxFD) ;
           ALOOKUP fsys.files (File fnm);
           return (fd, fsys with infds := (nextFD fsys, (File fnm, pos)) :: fsys.infds)
        od
@@ -63,7 +69,7 @@ val openFile_truncate_def = Define`
   openFile_truncate fnm fsys =
     let fd = nextFD fsys in
       do
-        assert (fd <= 255) ;
+        assert (fd <= maxFD) ;
         ALOOKUP fsys.files (File fnm);
         return (fd, (fsys with infds := (nextFD fsys, (File fnm, 0)) :: fsys.infds)
                           with files updated_by (ALIST_FUPDKEY (File fnm) (\x."")))
