@@ -172,14 +172,6 @@ val getCns_def = Define`
       return (Const n)
     od`;
 
-(* let BETA_CONV tm =
- *   try BETA tm with Failure _ ->
- *   try let f,arg = dest_comb tm in
- *       let v = bndvar f in
- *       INST [arg,v] (BETA (mk_comb(f,v)))
- *   with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
- *)
-
 val BETA_CONV_def = Define `
   BETA_CONV tm =
     handle_Fail (BETA tm)
@@ -192,9 +184,65 @@ val BETA_CONV_def = Define `
             thm <- BETA tm;
             INST [(arg, v)] thm
           od)
-          (\e. failwith (strlit"BETA_CONV: Not a beta-redex")))`;
+          (\e. failwith (strlit"BETA_CONV: not a beta-redex")))`;
 
-(* TODO Nothing in the reader respects the version so far. *)
+(* ------------------------------------------------------------------------- *)
+(* Debugging                                                                 *)
+(* ------------------------------------------------------------------------- *)
+
+val obj_t_def = tDefine "obj_t" `
+  obj_t obj =
+    case obj of
+      Num n => mk_str (strlit"Num " ^ toString n)
+    | Name s => mk_str (strlit"Name " ^ s)
+    | List ls =>
+        mk_blo 0
+          ([mk_str (strlit"List ["); mk_brk 1] ++
+           FLAT (MAP (\x. [obj_t x; mk_brk 1]) ls) ++
+           [mk_str (strlit"]")])
+    | TypeOp s => mk_str (strlit"TypeOp " ^ s)
+    | Type ty => mk_blo 0 [mk_str (strlit"Type "); typ ty]
+    | Const s => mk_str (strlit"Const " ^ s)
+    | Var (s,ty) => mk_blo 0 [mk_str (strlit"Var " ^ s ^ strlit" "); typ ty]
+    | Term tm => mk_blo 0 [mk_str (strlit"Term "); term tm]
+    | Thm th => mk_blo 0 [mk_str (strlit"Thm ("); thm th; mk_str(strlit")")]`
+ (WF_REL_TAC `measure object_size`
+  \\ Induct \\ rw [definition"object_size_def"]
+  \\ res_tac
+  \\ decide_tac);
+
+val stack_t_def = Define `
+  stack_t ls =
+    mk_blo 0
+      [mk_str (strlit"stack"); mk_str newline;
+       mk_str (strlit"-----"); mk_str newline;
+       mk_blo 4 (FLAT (MAP (\x. [obj_t x; mk_str newline]) ls))]`
+
+val pair_t_def = Define `
+  pair_t (k:num, v) =
+    mk_blo 0 [mk_str (toString (&k) ^ strlit" ->"); mk_brk 1; obj_t v]`
+
+val dict_t_def = Define `
+  dict_t (ds: object spt) =
+    mk_blo 0 [mk_str (strlit"dict"); mk_str newline;
+              mk_str (strlit"----"); mk_str newline;
+              mk_blo 4
+                (FLAT (MAP (\(x,y). [pair_t (x,y); mk_str newline])
+                (toAList ds)))]`
+
+val reader_state_t_def = Define `
+  reader_state_t s =
+    mk_blo 0
+      [ stack_t s.stack; mk_str newline; dict_t s.dict]`;
+
+val state_to_string = Define `
+  state_to_string s = pr (reader_state_t s) 78`;
+
+(* ------------------------------------------------------------------------- *)
+(* Article reader                                                            *)
+(* ------------------------------------------------------------------------- *)
+
+(* TODO The reader does not respect the "version" command. *)
 
 val readLine_def = Define`
   readLine line s =
@@ -251,7 +299,6 @@ val readLine_def = Define`
   else if line = strlit"betaConv" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
-      (*th <- BETA tm;*)
       th <- BETA_CONV tm;
       return (push (Thm th) s)
     od
@@ -263,6 +310,9 @@ val readLine_def = Define`
     od
   else if line = strlit"const" then
     do
+      (* TODO this could be handled like "axiom" and allow the *)
+      (* reader to fail early, since it will fail once the     *)
+      (* constant is used unless it exists in the context.     *)
       (obj,s) <- pop s; n <- getName obj;
       return (push (Const n) s)
     od
@@ -336,7 +386,11 @@ val readLine_def = Define`
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
-      th <- EQ_MP th1 th2;
+      (* th <- EQ_MP th1 th2; *)
+      (* DEBUG: *)
+      th <- handle_Fail (EQ_MP th1 th2)
+              (\e. failwith (e ^ strlit ":\n" ^ thm_to_string th1
+                               ^ strlit"\n" ^ thm_to_string th2));
       return (push (Thm th) s)
     od
   else if line = strlit"hdTl" then
@@ -358,7 +412,14 @@ val readLine_def = Define`
   else if line = strlit"pop" then
     do (_,s) <- pop s; return s od
   else if line = strlit"pragma" then
-    do (_,s) <- pop s; return s od
+    do (obj,s) <- pop s;
+       name <- handle_Fail (getName obj)
+                 (\e. return (strlit"bogus"));
+       if name = strlit"debug" then
+         failwith (state_to_string s)
+       else
+         return s
+    od
   else if line = strlit"proveHyp" then
     do
       (obj,s) <- pop s; th2 <- getThm obj;

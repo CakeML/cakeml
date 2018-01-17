@@ -59,8 +59,10 @@ val mk_blo_def = Define `
   mk_blo indent es = Block es indent (SUM (MAP tlength es))`
 
 (* ------------------------------------------------------------------------- *)
-(* Printing types and terms                                                  *)
+(* Printing types, terms and theorems                                        *)
 (* ------------------------------------------------------------------------- *)
+
+val margin_tm = ``78n``;
 
 (* type := Tyvar mlstring | Tyapp mlstring (type list) *)
 
@@ -79,7 +81,7 @@ val typ_def = Define `
         in
           mk_blo 0 [mk_str (strlit"("); t1; mk_brk 1; typ (Tyapp n ts); mk_str(strlit")")]`;
 
-val ty_to_string_def = Define `ty_to_string ty = pr (typ ty) 50`
+val ty_to_string_def = Define `ty_to_string ty = pr (typ ty) ^margin_tm`
 
 (*
 val A = ``Tyvar (strlit"A")``
@@ -110,7 +112,7 @@ val term_def = Define `
         in
           mk_blo 0 [s1; mk_brk 1; term t]`;
 
-val tm_to_string_def = Define `tm_to_string tm = pr (term tm) 50`
+val tm_to_string_def = Define `tm_to_string tm = pr (term tm) ^margin_tm`
 
 (*
 val Va = ``Var (strlit "a") (^A)``
@@ -128,15 +130,18 @@ val test = EVAL ``tm_to_string ^AbsApp``
 val test = EVAL ``tm_to_string ^AbsAppApp``
 *)
 
-val ruler_def = Define `
-  ruler margin = concat (REPLICATE margin (strlit"-")) ^ newline`;
+val hyps_def = Define `
+  hyps hs =
+    case hs of
+      []    => []
+    | [h]   => [term h]
+    | h::hs => term h :: mk_str (strlit",") :: mk_brk 1 :: hyps hs`
 
-val thm_to_string_def = Define `
-  thm_to_string (Sequent hs c) =
-    newline ^
-    concat
-      (MAP (\h. tm_to_string h ^ newline) hs ++
-       [ruler 50; tm_to_string c; newline])`;
+val thm_def = Define `
+  thm (Sequent hs c) =
+    mk_blo 0 (hyps hs ++ [mk_brk 1; mk_str (strlit" |-"); mk_brk 1; term c])`
+
+val thm_to_string_def = Define `thm_to_string th = pr (thm th) ^margin_tm`
 
 val _ = export_theory ();
 

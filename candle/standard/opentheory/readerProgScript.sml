@@ -28,7 +28,8 @@ val _ = translate typ_def
 val _ = translate ty_to_string_def
 val _ = translate term_def
 val _ = translate tm_to_string_def
-val _ = translate ruler_def
+val _ = translate hyps_def
+val _ = translate thm_def
 val _ = translate thm_to_string_def
 
 (* --- Translate readerTheory ---------------------------------------------- *)
@@ -71,6 +72,18 @@ val _ = m_translate getCns_def
 val _ = m_translate getTys_def
 val _ = m_translate getTms_def
 val _ = m_translate BETA_CONV_def
+
+(* stack and dictionary dumping *)
+val r = translate obj_t_def
+val r = translate stack_t_def
+val r = translate pair_t_def
+val r = translate sptreeTheory.lrnext_def
+val r = translate foldi_def
+val r = translate toAList_def
+val r = translate dict_t_def
+val r = translate reader_state_t_def
+val r = translate state_to_string_def
+
 val _ = m_translate readLine_def
 
 val readline_side = Q.store_thm("readline_side",

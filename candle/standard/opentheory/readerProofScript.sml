@@ -891,7 +891,7 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   >- (* eqMp *)
-   (fs [case_eq_thms] \\ rw []
+   (fs [case_eq_thms, handle_Fail_def] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
     \\ map_every imp_res_tac [pop_thm, getThm_thm]
@@ -929,9 +929,10 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ qexists_tac `[]` \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   >- (* pragma *)
-   (fs [case_eq_thms] \\ rw []
+   (fs [case_eq_thms, handle_Fail_def] \\ rw []
     \\ TRY (pairarg_tac \\ fs []) \\ fs [case_eq_thms] \\ rw []
-    \\ imp_res_tac pop_thm \\ fs []
+    \\ imp_res_tac pop_thm \\ fs [bool_case_eq, COND_RATOR]
+    \\ imp_res_tac getName_thm
     \\ qexists_tac `[]` \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   >- (* proveHyp *)
