@@ -227,10 +227,9 @@ val ffi_open_in_def = Define`
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
-      assert(fd <= 255);
-      return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
+      return (0w :: num_to_byte8 fd ++ DROP 9 bytes, fs')
     od ++
-    return (LUPDATE 255w 0 bytes, fs)`;
+    return (LUPDATE 1w 0 bytes, fs)`;
 
 (* open append:
       contents <- ALOOKUP fs.files (implode fname);
@@ -247,26 +246,27 @@ val ffi_open_out_def = Define`
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile_truncate (implode fname) fs;
       assert(fd <= 255);
-      return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
+      return (0w :: num_to_byte8 fd ++ DROP 9 bytes, fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 
 (*
-* [descriptor index; number of char to read; buffer]
-*   -> [return code; number of read chars; read chars]
+* [descriptor index (8 bytes); number of char to read (2 bytes); buffer]
+*   -> [return code; number of read chars (2 bytes); read chars]
 * corresponding system call:
 *  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
   ffi_read (conf: word8 list) bytes fs =
     (* the buffer contains at least the number of requested bytes *)
     case bytes of
-       | fd :: (numb :: pad :: tll) =>
+       | (n1 :: n0 :: pad1 :: pad2 :: tll) =>
            do
-             assert(LENGTH tll >= w2n numb);
-             (l, fs') <- read (w2n fd) fs (w2n numb);
+             assert(LENGTH conf = 8);
+             assert(LENGTH tll >= byte2_to_num [n1; n0]);
+             (l, fs') <- read (byte8_to_num conf) fs (byte2_to_num [n1; n0]);
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
-             return (0w :: n2w (LENGTH l) :: pad ::
+             return (0w :: num_to_byte2 (LENGTH l) ++ [pad2] ++
                     MAP (n2w o ORD) l ++
                     DROP (LENGTH l) tll, fs')
            od ++ return (LUPDATE 1w 0 bytes, fs)
@@ -280,26 +280,31 @@ val ffi_read_def = Define`
 * ssize_t write(int fildes, const void *buf, size_t nbytes) *)
 val ffi_write_def = Define`
   ffi_write (conf:word8 list) bytes fs =
-    do
-    (* the buffer contains at least the number of requested bytes *)
-      assert(LENGTH bytes >= 3);
-      (nw, fs') <- write (w2n (HD bytes)) (w2n (HD (TL bytes)))
-                         (MAP (CHR o w2n) (DROP (3+w2n (HD(TL(TL bytes)))) bytes)) fs;
-      (* return ok code and number of bytes written *)
-      return (LUPDATE (n2w nw) 1 (LUPDATE 0w 0 bytes), fs')
-    (* return error code *)
-    od ++ return (LUPDATE 1w 0 bytes, fs)`;
+    case bytes of
+       | (n1 :: n0 :: off1 :: off0 :: tll) =>
+          do
+          (* the buffer contains at least the number of requested bytes *)
+            assert(LENGTH conf = 8);
+            assert(LENGTH tll >= byte2_to_num [off1; off0]);
+            (nw, fs') <- write (byte8_to_num conf) (byte2_to_num [n1; n0])
+                               (MAP (CHR o w2n) (DROP (byte2_to_num [off1; off0]) tll)) fs;
+            (* return ok code and number of bytes written *)
+            return (0w :: num_to_byte2 nw ++ (off0 :: tll), fs')
+          (* return error code *)
+          od ++ return (LUPDATE 1w 0 bytes, fs)
+        | _ => NONE`;
 
 (* closes a file given its descriptor index *)
 val ffi_close_def = Define`
   ffi_close (conf:word8 list) (bytes: word8 list) fs =
     do
       assert(LENGTH bytes >= 1);
+      assert(LENGTH conf = 8);
       do
-        (_, fs') <- closeFD (w2n (HD bytes)) fs;
-        return (LUPDATE 1w 0 bytes, fs')
+        (_, fs') <- closeFD (byte8_to_num conf) fs;
+        return (LUPDATE 0w 0 bytes, fs')
       od ++
-      return (LUPDATE 0w 0 bytes, fs)
+      return (LUPDATE 1w 0 bytes, fs)
     od`;
 
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1
