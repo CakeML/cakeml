@@ -1884,7 +1884,7 @@ fun m2deep tm =
     val th2 = m2deep x2
     val th2 = inst_EvalM_env v th2
     val result = inst_EvalM_bind th1 th2
-  in check_inv "bind" tm result end else
+    in check_inv "bind" tm result end else
   (* otherwise *)
   if can (match_term otherwise_pat) tm then let
     (* val _ = print_tm_msg "otherwise\n" tm DEBUG *)
@@ -1936,6 +1936,7 @@ fun m2deep tm =
     in check_inv "if" tm result end else
   (* access functions *)
   if can (first (fn (pat,_) => can (match_term pat) tm)) (!access_patterns) then let
+
       (* val _ = print_tm_msg "access function\n" tm DEBUG *)
       val (pat,spec) = (first (fn (pat,_) => can (match_term pat) tm)) (!access_patterns)
       (* Substitute the parameters, and link the parameters to their expressions *)
@@ -1947,7 +1948,7 @@ fun m2deep tm =
         if can (match_term Eval_pat2) asm then let
             val param = rand asm |> rand
             val exp = rator asm |> rand
-        in (param, exp) end else failwith ""
+        in (param, exp) end else failwith "retrieve_params_exps_pair"
 
       val params_exps_pairs = mapfilter retrieve_params_exps_pair (hyp th)
       val params_exps_map = List.foldr (fn ((x, y), d) => Redblackmap.insert (d, x, y))
@@ -1960,15 +1961,16 @@ fun m2deep tm =
       (* Substitute the translated expressions of the parameters *)
       val eval_concls = List.map concl args_evals
       fun subst_expr (eval_th, th) = let
-          val (param, trans_param) = retrieve_params_exps_pair eval_th
-          val expr_var = Redblackmap.find (params_exps_map, param)
-      in Thm.INST [expr_var |-> trans_param] th end handle NotFound => th
+        val (param, trans_param) = retrieve_params_exps_pair eval_th
+        val expr_var = Redblackmap.find (params_exps_map, param)
+        in Thm.INST [expr_var |-> trans_param] th end handle NotFound => th
       val th = List.foldr subst_expr th eval_concls
 
       (* Remove the Eval assumptions *)
       val result = List.foldl (fn (eval_th, th) => MP (DISCH (concl eval_th) th) eval_th)
                               th args_evals
-  in check_inv "access ref/array" tm result end else
+
+    in check_inv "access ref/array" tm result end else
   (* recursive pattern *)
   if can match_rec_pattern tm then let
     (* val _ = print_tm_msg "recursive pattern\n" tm DEBUG *)
@@ -2004,7 +2006,6 @@ fun m2deep tm =
     val ss = fst (match_term lhs tm)
     val tys = match_type (type_of f) (type_of inv |> dest_type |> snd |> List.hd)
     val f = Term.inst tys f
-
     val pre = subst ss pre_var
     val h = ISPECL_TM [pre,str,inv,f,!H] PreImp_EvalM_abs |> ASSUME
             |> RW [PreImp_def] |> UNDISCH |> SPEC state_eq_var
