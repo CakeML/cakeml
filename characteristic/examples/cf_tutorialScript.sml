@@ -49,7 +49,7 @@ val bytearray_fromlist = process_topdecs
 
 (* Now add these definitions to the basis ml_prog_state.
 *)
-val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
+val st = ml_progLib.add_prog bytearray_fromlist ml_progLib.pick_name basis_st
 
 (* We can start proving a specification for length.
 
