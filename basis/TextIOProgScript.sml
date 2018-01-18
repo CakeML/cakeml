@@ -1,6 +1,6 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     CommandLineProgTheory
+     CommandLineProgTheory MarshallingProgTheory
 
 val _ = new_theory"TextIOProg";
 
@@ -34,9 +34,12 @@ val iobuff_loc = EVAL``iobuff_loc`` |> curry save_thm "iobuff_loc"
 val _ = export_rewrites["iobuff_loc"]
 
 (* stdin, stdout, stderr *)
-val stdIn_def = Define`stdIn:word8 = n2w 0`;
-val stdOut_def = Define`stdOut:word8 = n2w 1`;
-val stdErr_def = Define`stdErr:word8 = n2w 2`;
+val stdIn_def0 = Define`stdIn:mlstring= strlit (MAP (CHR o w2n) (n2w8 0))`
+val stdIn_def = stdIn_def0 |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+val stdOut_def0 = Define`stdOut:mlstring= strlit (MAP (CHR o w2n) (n2w8 1))`;
+val stdOut_def = stdOut_def0 |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+val stdErr_def0 = Define`stdErr:mlstring= strlit (MAP (CHR o w2n) (n2w8 2))`;
+val stdErr_def = stdErr_def0 |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
 val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
 val r = translate stdIn_def;
 val r = translate stdOut_def;
