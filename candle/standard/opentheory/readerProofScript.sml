@@ -20,8 +20,12 @@ val case_eqs =
     , { case_def = readerTheory.state_case_def
       , nchotomy = readerTheory.state_nchotomy }
     , { case_def = holSyntaxTheory.type_case_def
-      , nchotomy = holSyntaxTheory.type_nchotomy } ]
-val case_eq_thms = LIST_CONJ (pair_case_eq::map prove_case_eq_thm case_eqs)
+      , nchotomy = holSyntaxTheory.type_nchotomy }
+    , { case_def = sumTheory.sum_case_def
+      , nchotomy = sumTheory.sum_CASES } ]
+
+val case_eq_thms = save_thm ("case_eq_thms",
+  LIST_CONJ (pair_case_eq::map prove_case_eq_thm case_eqs));
 
 (* --- Reader does not raise Clash --- *)
 

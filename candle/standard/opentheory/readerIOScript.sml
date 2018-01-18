@@ -47,12 +47,14 @@ val inputLine_def = Define `
   inputLine fd = (\fs. (Success (OPTION_MAP implode (lineFD fs fd)),
                   lineForwardFD fs fd))`;
 
-(* TODO fix *)
 val inputLinesFrom_def = Define `
-  inputLinesFrom fname = (\fs. (Success ([]: mlstring list), fs))`;
+  inputLinesFrom f =
+    (\fs. (Success (if inFS_fname fs (File f) then
+                      SOME(all_lines fs (File f))
+                    else NONE), fs))`;
 
-val getArgs_def = Define `
-  getArgs = (\cmdl. (Success (TL cmdl), cmdl))`;
+val arguments = Define `
+  arguments () = (\c. (Success (TL c), c))`;
 
 (* ------------------------------------------------------------------------- *)
 (* Monadic wrappers for readLine                                             *)
@@ -94,22 +96,32 @@ val readLines_def = Define `
 val reader_main_def = Define `
   reader_main () =
     do
-      args <- cl getArgs;
+      args <- cl (arguments ());
       case args of
         [fname] =>
           do
             lines <- stdio (inputLinesFrom fname);
-            holrefs (set_reader_ctxt ());
-            res <- readLines init_state lines;
-            case res of
-              INL _ => return ()
-            | INR s =>
-                stdio (print
-                  (concat [strlit"OK! "; toString (lines_read s);
-                           strlit" lines read.\n"]))
+            case lines of
+              NONE => stdio (print_err (strlit"<error message placeholder>"))
+            | SOME lines =>
+                do
+                  holrefs (set_reader_ctxt ());
+                  res <- readLines init_state lines;
+                  case res of
+                    INL _ => return ()
+                  | INR s =>
+                      stdio (print
+                        (concat [strlit"OK! "; toString (lines_read s);
+                                 strlit" lines read.\n"]))
+                od
           od
       | _ => stdio (print_err (strlit"<error message placeholder>"))
     od`;
+
+(*
+val init_state_refs_def = Define `
+  ...`;
+  *)
 
 val _ = export_theory()
 
