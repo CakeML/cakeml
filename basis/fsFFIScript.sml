@@ -156,42 +156,42 @@ val getNullTermStr_def = Define`
 
 (* encode/decode nums as 2 or 8 bytes *)
 (* similar to n2l & l2n but with padding *)
-val num_to_byte2_def = Define`
-  num_to_byte2 (i : num) : word8 list = [n2w (i DIV 256); n2w i]`
+val n2w2_def = Define`
+  n2w2 (i : num) : word8 list = [n2w (i DIV 256); n2w i]`
 
-val num_to_byte8_def = Define`
-  num_to_byte8 (i : num) : word8 list =
+val n2w8_def = Define`
+  n2w8 (i : num) : word8 list =
    [n2w (i DIV 256**7); n2w (i DIV 256**6);
     n2w (i DIV 256**5); n2w (i DIV 256**4);
     n2w (i DIV 256**3); n2w (i DIV 256**2);
     n2w (i DIV 256); n2w i]`
 
-val byte2_to_num_def = Define`
-  byte2_to_num ([b1; b0] : word8 list) = w2n b1 * 256 + w2n b0`
+val w22n_def = Define`
+  w22n ([b1; b0] : word8 list) = w2n b1 * 256 + w2n b0`
 
-val byte8_to_num_def = Define`
-  byte8_to_num ([b7; b6; b5; b4; b3; b2; b1; b0] : word8 list) =
+val w82n_def = Define`
+  w82n ([b7; b6; b5; b4; b3; b2; b1; b0] : word8 list) =
   256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 *
   w2n b7 + w2n b6) + w2n b5) + w2n b4) + w2n b3) + w2n b2) + w2n b1) + w2n b0`
 
-val b2n_nb2 = Q.store_thm("b2n_nb2",
-  `!i. i < 2**(2*8) ==> byte2_to_num (num_to_byte2 i) = i`,
-  rw[byte2_to_num_def,num_to_byte2_def] >>
+val w2n_nw2 = Q.store_thm("w2n_nw2",
+  `!i. i < 2**(2*8) ==> w22n (n2w2 i) = i`,
+  rw[w22n_def,n2w2_def] >>
   `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >>
   first_x_assum (assume_tac o Q.SPEC`i`) >> fs[]);
 
-val nb2_b2n = Q.store_thm("nb2_b2n",
-  `!b. LENGTH b = 2 ==> num_to_byte2 (byte2_to_num b) = b`,
-  Cases_on`b` >> fs[] >> Cases_on`t` >> rw[byte2_to_num_def,num_to_byte2_def]
+val n2w2_w22n = Q.store_thm("n2w2_w22n",
+  `!b. LENGTH b = 2 ==> n2w2 (w22n b) = b`,
+  Cases_on`b` >> fs[] >> Cases_on`t` >> rw[w22n_def,n2w2_def]
   >-(PURE_REWRITE_TAC[Once MULT_COMM] >> fs[ADD_DIV_ADD_DIV] >>
      fs[LESS_DIV_EQ_ZERO,w2n_lt_256]) >>
   fs[GSYM word_add_n2w,GSYM word_mul_n2w] >>
   `256w : word8 = 0w` by fs[GSYM n2w_dimword] >>
   first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[]);
 
-val b8n_nb8 = Q.store_thm("b8n_nb8",
-  `!i. i <= 256**8 - 1 ==> byte8_to_num (num_to_byte8 i) = i`,
-  rw[byte8_to_num_def,num_to_byte8_def] >>
+val w82n_n2w8 = Q.store_thm("w82n_n2w8",
+  `!i. i <= 256**8 - 1 ==> w82n (n2w8 i) = i`,
+  rw[w82n_def,n2w8_def] >>
   `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >> rw[] >>
   NTAC 6(qmatch_abbrev_tac`256* i0 + x MOD 256 = x` >>
       `i0 = x DIV 256` suffices_by fs[] >>
@@ -204,11 +204,11 @@ val b8n_nb8 = Q.store_thm("b8n_nb8",
   fs[DIV_LE_X]);
 
 
-val nb8_b8n = Q.store_thm("nb8_nb8",
-  `!b. LENGTH b = 8 ==> num_to_byte8 (byte8_to_num b) = b`,
+val nw8_w8n = Q.store_thm("nw8_nw8",
+  `!b. LENGTH b = 8 ==> n2w8 (w82n b) = b`,
   Cases_on`b` >> fs[] >>
   NTAC 4 (Cases_on`t` >> fs[] >> Cases_on`t'` >> fs[]) >>
-  fs[byte8_to_num_def,num_to_byte8_def] >> rpt (TRY strip_tac
+  fs[w82n_def,n2w8_def] >> rpt (TRY strip_tac
   >-(rpt(qmatch_goalsub_abbrev_tac`(a + 256 * b) DIV m` >>
          `m = 256 * (m DIV 256)` by fs[Abbr`m`] >>
          first_x_assum (fn x => PURE_REWRITE_TAC[Once x]) >>
@@ -224,13 +224,13 @@ val nb8_b8n = Q.store_thm("nb8_nb8",
      `256w : word8 = 0w` by fs[GSYM n2w_dimword] >>
      first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[])));
 
-val LENGTH_num_to_byte2 = Q.store_thm("LENGTH_num_to_byte2",
-  `!n. LENGTH(num_to_byte2 n) = 2`,
-  fs[num_to_byte2_def]);
+val LENGTH_n2w2 = Q.store_thm("LENGTH_n2w2",
+  `!n. LENGTH(n2w2 n) = 2`,
+  fs[n2w2_def]);
 
-val LENGTH_num_to_byte8 = Q.store_thm("LENGTH_num_to_byte8",
-  `!n. LENGTH(num_to_byte8 n) = 8`,
-  fs[num_to_byte8_def])
+val LENGTH_n2w8 = Q.store_thm("LENGTH_n2w8",
+  `!n. LENGTH(n2w8 n) = 8`,
+  fs[n2w8_def])
 
 (* read file name from the first non null bytes
 *  open the file with read access
@@ -242,7 +242,7 @@ val ffi_open_in_def = Define`
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
-      return (0w :: num_to_byte8 fd ++ DROP 9 bytes, fs')
+      return (0w :: n2w8 fd ++ DROP 9 bytes, fs')
     od ++
     return (LUPDATE 1w 0 bytes, fs)`;
 
@@ -262,7 +262,7 @@ val ffi_open_out_def = Define`
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile_truncate (implode fname) fs;
       assert(fd <= 255);
-      return (0w :: num_to_byte8 fd ++ DROP 9 bytes, fs')
+      return (0w :: n2w8 fd ++ DROP 9 bytes, fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 
@@ -278,11 +278,11 @@ val ffi_read_def = Define`
        | (n1 :: n0 :: pad1 :: pad2 :: tll) =>
            do
              assert(LENGTH conf = 8);
-             assert(LENGTH tll >= byte2_to_num [n1; n0]);
-             (l, fs') <- read (byte8_to_num conf) fs (byte2_to_num [n1; n0]);
+             assert(LENGTH tll >= w22n [n1; n0]);
+             (l, fs') <- read (w82n conf) fs (w22n [n1; n0]);
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
-             return (0w :: num_to_byte2 (LENGTH l) ++ [pad2] ++
+             return (0w :: n2w2 (LENGTH l) ++ [pad2] ++
                     MAP (n2w o ORD) l ++
                     DROP (LENGTH l) tll, fs')
            od ++ return (LUPDATE 1w 0 bytes, fs)
@@ -301,11 +301,11 @@ val ffi_write_def = Define`
           do
           (* the buffer contains at least the number of requested bytes *)
             assert(LENGTH conf = 8);
-            assert(LENGTH tll >= byte2_to_num [off1; off0]);
-            (nw, fs') <- write (byte8_to_num conf) (byte2_to_num [n1; n0])
-                               (MAP (CHR o w2n) (DROP (byte2_to_num [off1; off0]) tll)) fs;
+            assert(LENGTH tll >= w22n [off1; off0]);
+            (nw, fs') <- write (w82n conf) (w22n [n1; n0])
+                               (MAP (CHR o w2n) (DROP (w22n [off1; off0]) tll)) fs;
             (* return ok code and number of bytes written *)
-            return (0w :: num_to_byte2 nw ++ (off0 :: tll), fs')
+            return (0w :: n2w2 nw ++ (off0 :: tll), fs')
           (* return error code *)
           od ++ return (LUPDATE 1w 0 bytes, fs)
         | _ => NONE`;
@@ -317,7 +317,7 @@ val ffi_close_def = Define`
       assert(LENGTH bytes >= 1);
       assert(LENGTH conf = 8);
       do
-        (_, fs') <- closeFD (byte8_to_num conf) fs;
+        (_, fs') <- closeFD (w82n conf) fs;
         return (LUPDATE 0w 0 bytes, fs')
       od ++
       return (LUPDATE 1w 0 bytes, fs)

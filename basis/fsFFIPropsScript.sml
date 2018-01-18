@@ -288,12 +288,12 @@ val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
   `ffi_open_in conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_in_def] \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[LENGTH_num_to_byte8]);
+  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[LENGTH_n2w8]);
 
 val ffi_open_out_length = Q.store_thm("ffi_open_out_length",
   `ffi_open_out conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_out_def] \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[LENGTH_num_to_byte8]);
+  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[LENGTH_n2w8]);
 
 val read_length = Q.store_thm("read_length",
     `read fd fs k = SOME (l, fs') ==> LENGTH l <= k`,
@@ -308,13 +308,13 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
-  \\ imp_res_tac read_length \\ fs[LENGTH_num_to_byte2]);
+  \\ imp_res_tac read_length \\ fs[LENGTH_n2w2]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[]
   \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
-  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[LENGTH_num_to_byte2]
+  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[LENGTH_n2w2]
   \\ rw[] \\ Cases_on`bytes` \\ fs[]
   \\ rpt(Cases_on`t` \\ fs[] \\ Cases_on`t'` \\ fs[]));
 
