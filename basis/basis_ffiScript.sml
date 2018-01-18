@@ -276,19 +276,22 @@ val append_hprop = Q.store_thm ("append_hprop",
   rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
 );
 
-(* TODO: avoid using constant for iobuff_loc *)
+val iobuff_loc_num =
+  TextIOProgTheory.iobuff_loc_def
+  |> concl |> rhs |> rand;
 
 val IOFS_precond = Q.prove(
   `wfFS fs ⇒ LENGTH v = 258 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
-    ∪ {Mem 0 (W8array v)})`,
+    ∪ {Mem ^iobuff_loc_num (W8array v)})`,
   rw[IOFS_def,cfHeapsBaseTheory.IOx_def,fs_ffi_part_def,cfHeapsBaseTheory.IO_def,one_def,
      IOFS_iobuff_def,W8ARRAY_def,cell_def]
-  \\ rw[set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,set_sepTheory.SEP_CLAUSES]
-  \\ qexists_tac`events` \\  qexists_tac`v` \\ qexists_tac`0`
+  \\ rw[set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,set_sepTheory.SEP_CLAUSES,
+        TextIOProgTheory.iobuff_loc_def]
+  \\ qexists_tac`events` \\  qexists_tac`v` \\ exists_tac iobuff_loc_num
   \\ fs[SEP_CLAUSES,one_STAR,one_def,append_hprop]
-  )|> UNDISCH_ALL |> curry save_thm "IOFS_precond"
+  )|> UNDISCH_ALL;
 
 val STDIO_precond = Q.prove(
 ` wfFS fs ==>
