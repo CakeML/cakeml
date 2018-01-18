@@ -100,6 +100,9 @@ val readline_spec = save_thm (
   mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "readline_v_thm"));
 
 val _ = translate fix_fun_typ_def
+val _ = translate current_line_def
+val r = translate lines_read_def
+val r = translate next_line_def
 val _ = translate line_Fail_def
 
 val _ = translate ind_name_def
@@ -194,34 +197,33 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ fs[SUM_TYPE_def] );
 
 val process_lines_def = Define`
-  (process_lines loc fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) (msg_success (loc-1))) * HOL_STORE refs) ∧
-  (process_lines loc fd st refs fs (ln::ls) =
+  (process_lines fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) (msg_success (lines_read st))) * HOL_STORE refs) ∧
+  (process_lines fd st refs fs (ln::ls) =
    case process_line st refs ln of
-   | (INL st,refs) => process_lines (loc+1) fd st refs (lineForwardFD fs fd) ls
-   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (line_Fail loc e)) * HOL_STORE refs)`;
+   | (INL st,refs) => process_lines fd (next_line st) refs (lineForwardFD fs fd) ls
+   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) * HOL_STORE refs)`;
 
 val _ = (append_prog o process_topdecs) `
-  fun process_lines loc ins st0 =
+  fun process_lines ins st0 =
     case TextIO.inputLine ins of
-      NONE => TextIO.print (msg_success (loc-1))
+      NONE => TextIO.print (msg_success (lines_read st0))
     | SOME ln =>
       (case process_line st0 ln of
-         Inl st1 => process_lines (loc+1) ins st1
-       | Inr e => TextIO.output TextIO.stdErr (line_fail loc e))`;
+         Inl st1 => process_lines ins (next_line st1)
+       | Inr e => TextIO.output TextIO.stdErr (line_fail st0 e))`;
 
 val process_lines_spec = Q.store_thm("process_lines_spec",
-  `!n st stv refs loc locv.
+  `!n st stv refs.
      READER_STATE_TYPE st stv /\
      WORD8 (n2w fd) fdv /\ fd <= 255 /\ fd <> 1 /\ fd <> 2 /\
-     INT loc locv /\
      STD_streams fs /\
      get_file_content fs fd = SOME (content, n)
      ==>
-     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [locv;fdv;stv]
+     app (p:'ffi ffi_proj) ^(fetch_v"process_lines"(get_ml_prog_state())) [fdv;stv]
        (STDIO fs * HOL_STORE refs)
        (POSTv u.
          &UNIT_TYPE () u *
-         process_lines loc fd st refs fs (MAP implode (linesFD fs fd)))`,
+         process_lines fd st refs fs (MAP implode (linesFD fs fd)))`,
   Induct_on`linesFD fs fd`
   >- (
     rpt strip_tac
@@ -274,8 +276,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ simp[]
     \\ qexists_tac`emp` \\ xsimpl
     \\ qmatch_asmsub_rename_tac`(INL st',refs')`
-    \\ qexists_tac`st'` \\ qexists_tac`refs'`
-    \\ qexists_tac `loc+1`
+    \\ qexists_tac`next_line st'` \\ qexists_tac`refs'`
     \\ qexists_tac`fd` \\ xsimpl
     \\ imp_res_tac get_file_content_lineForwardFD_forwardFD
     \\ simp[get_file_content_forwardFD] )
@@ -306,8 +307,7 @@ val _ = (append_prog o process_topdecs) `
     let
       val ins = TextIO.openIn file
     in
-      (* Alternatively we can count lines from 0 *)
-      process_lines 1 ins init_state;
+      process_lines ins init_state;
       TextIO.close ins
     end
     (* Presuming that openIn will raise only this *)
@@ -315,10 +315,10 @@ val _ = (append_prog o process_topdecs) `
       TextIO.output TextIO.stdErr (msg_bad_name file)`;
 
 val readLines_process_lines = Q.store_thm("readLines_process_lines",
-  `∀ls loc st refs res r fs.
-   readLines loc ls st refs = (res,r) ⇒
+  `∀ls st refs res r fs.
+   readLines ls st refs = (res,r) ⇒
    ∃n.
-     process_lines loc fd st refs fs ls =
+     process_lines fd st refs fs ls =
      case res of
      | (Success (_,m)) => STDIO (add_stdout (fastForwardFD fs fd) (msg_success m)) * HOL_STORE r
      | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) e) * HOL_STORE r`,
@@ -352,7 +352,7 @@ val readLines_process_lines = Q.store_thm("readLines_process_lines",
 val read_file_def = Define`
   read_file fs refs fnm =
     (if inFS_fname fs (File fnm) then
-       (case readLines 1 (all_lines fs (File fnm)) init_state refs of
+       (case readLines (all_lines fs (File fnm)) init_state refs of
         | (Success (_,n), refs) => (add_stdout fs (msg_success n), refs)
         | (Failure (Fail e), refs) => (add_stderr fs e, refs))
      else (add_stderr fs (msg_bad_name fnm), refs))`;

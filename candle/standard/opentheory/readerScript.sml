@@ -1,7 +1,5 @@
-open preamble
-     ml_hol_kernelProgTheory
-     mlintTheory
-     StringProgTheory
+open preamble ml_hol_kernelProgTheory
+     mlintTheory StringProgTheory
      prettyTheory
 
 val _ = new_theory"reader"
@@ -88,14 +86,25 @@ val getThm_def = Define`
 val _ = Datatype`
   state = <|
     stack : object list;
-    dict : object spt; (* TODO keep two sptrees *)
-    thms : thm list |>`;
+    dict  : object spt; (* TODO keep two sptrees *)
+    thms  : thm list;
+    linum : int |>`;
 
 val init_state_def = Define `
   init_state =
     <| stack := []
      ; dict  := LN
-     ; thms  := [] |>`;
+     ; thms  := []
+     ; linum := 1 |>`;
+
+val current_line_def = Define `
+  current_line s = s.linum`;
+
+val lines_read_def = Define `
+  lines_read s = s.linum - 1`;
+
+val next_line_def = Define `
+  next_line s = s with linum := s.linum + 1`;
 
 val pop_def = Define`
   pop s =
@@ -525,10 +534,10 @@ val readLine_def = Define`
         | _ => failwith (strlit"unrecognised input: " ^ line)`;
 
 val line_Fail_def = Define `
-  line_Fail (loc: int) msg =
+  line_Fail s msg =
     (mlstring$concat
       [ strlit"Failure on line "
-      ; toString loc
+      ; toString (current_line s)
       ; strlit": "
       ; msg; strlit"\n"])`;
 
@@ -547,18 +556,18 @@ val invalid_line_def = Define`
   invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"`;
 
 val readLines_def = Define `
-  readLines loc lls s =
+  readLines lls s =
     case lls of
-      []    => return (s, loc-1)
+      []    => return (s, lines_read s)
     | l::ls =>
         if invalid_line l then
-          readLines (loc+1) ls s
+          readLines ls (next_line s)
         else
           do
             s <- handle_Fail
                    (readLine (fix_fun_typ (str_prefix l)) s)
-                   (\e. raise_Fail (line_Fail loc e));
-            readLines (loc+1) ls s
+                   (\e. raise_Fail (line_Fail s e));
+            readLines ls (next_line s)
         od`;
 
 val select_name_def = Define `select_name = strlit"@"`

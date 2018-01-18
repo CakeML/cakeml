@@ -123,15 +123,13 @@ val readLine_not_clash = Q.store_thm("readLine_not_clash[simp]",
   \\ every_case_tac \\ fs [map_not_clash_thm]);
 
 val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
-  `∀loc ls x y tm refs. readLines loc ls x y ≠ (Failure (Clash tm),refs)`,
+  `∀ls x y tm refs. readLines ls x y ≠ (Failure (Clash tm),refs)`,
   recInduct readLines_ind
   \\ rw[]
   \\ rw[Once readLines_def]
   \\ CASE_TAC \\ fs[st_ex_return_def]
   \\ simp[st_ex_bind_def, handle_Fail_def, raise_Fail_def]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ CCONTR_TAC \\ fs[] \\ rw []
-  \\ metis_tac []);
+  \\ every_case_tac \\ fs [] \\ rw []);
 
 (* --- Use Candle kernel soundness theorem --- *)
 
@@ -1050,11 +1048,15 @@ val readLine_thm = Q.store_thm("readLine_thm",
   \\ qexists_tac `[]` \\ fs [] \\ rw []
   \\ irule push_thm \\ fs [OBJ_def]);
 
+val next_line_thm = Q.store_thm("next_line_thm",
+  `READER_STATE defs s ==> READER_STATE defs (next_line s)`,
+  rw [READER_STATE_def, next_line_def]);
+
 val readLines_thm = Q.store_thm("readLines_thm",
-  `!loc lines st res refs refs' defs.
+  `!lines st res refs refs' defs.
      STATE defs refs /\
      READER_STATE defs st /\
-     readLines loc lines st refs = (res, refs')
+     readLines lines st refs = (res, refs')
      ==>
      ?ds.
        STATE (ds ++ defs) refs' /\
@@ -1063,11 +1065,13 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ once_rewrite_tac [readLines_def] \\ fs [st_ex_return_def, st_ex_bind_def]
   \\ CASE_TAC \\ fs []
   >- (rw [] \\ qexists_tac `[]` \\ fs [])
-  \\ fs [case_eq_thms, PULL_EXISTS, handle_Fail_def, raise_Fail_def] \\ rw []
-  \\ TRY (every_case_tac \\ rpt (pairarg_tac \\ fs []) \\ rw []) \\ fs []
+  \\ fs [case_eq_thms, PULL_EXISTS, handle_Fail_def, raise_Fail_def]
+  \\ rw [] \\ fs [case_eq_thms] \\ rw [] \\ fs []
   \\ drule (GEN_ALL readLine_thm)
   \\ rpt (disch_then drule) \\ rw []
   \\ first_x_assum drule
+  >- (fs [next_line_def, READER_STATE_def] \\ metis_tac [])
+  \\ imp_res_tac next_line_thm
   \\ disch_then drule \\ rw []
   \\ asm_exists_tac \\ fs []);
 
@@ -1094,7 +1098,7 @@ val set_reader_ctxt_ok = Q.store_thm("set_reader_ctxt_ok",
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
   `set_reader_ctxt () init_refs = (r, ax_refs) /\
-   readLines loc lines init_state ax_refs = (res, refs)
+   readLines lines init_state ax_refs = (res, refs)
    ==>
    ?defs.
      STATE defs refs /\

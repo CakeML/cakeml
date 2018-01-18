@@ -24,7 +24,6 @@ val _ = Datatype `
     <| holrefs : hol_refs      (* HOL kernel state *)
      ; stdio   : IO_fs         (* STDIO            *)
      ; cl      : mlstring list (* Commandline args *)
-     ; dummy   : num           (* TODO: remove     *)
      |>`
 
 (* TODO derive automatically *)
@@ -61,29 +60,29 @@ val getArgs_def = Define `
 
 (* Wrapper to get rid of the exceptions *)
 val readLine_wrap_def = Define `
-  readLine_wrap loc line s =
+  readLine_wrap line s =
     handle_Fail
       (do s <- readLine line s;
           return (INR s) od)
-      (\e. return (INL (line_Fail loc e)))`;
+      (\e. return (INL (line_Fail s e)))`;
 
 (* Read all lines in the file, stop on errors. *)
 val readLines_def = Define `
-  readLines loc s lines =
+  readLines s lines =
     case lines of
-      [] => return (INR (s, loc-1))
+      [] => return (INR s)
     | l::ls =>
       do
         if invalid_line l then
-          readLines (loc+1) s ls
+          readLines (next_line s) ls
         else
           do
-            res <- holrefs (readLine_wrap loc l s);
+            res <- holrefs (readLine_wrap l s);
             case res of
-              INR s => readLines (loc+1) s ls
+              INR s => readLines (next_line s) ls
             | INL e => do
                          stdio (print_err e);
-                         return (INL (loc-1))
+                         return (INL s)
                        od
           od
       od`
@@ -101,12 +100,12 @@ val reader_main_def = Define `
           do
             lines <- stdio (inputLinesFrom fname);
             holrefs (set_reader_ctxt ());
-            res <- readLines 1 init_state lines;
+            res <- readLines init_state lines;
             case res of
               INL _ => return ()
-            | INR (_, linum) =>
+            | INR s =>
                 stdio (print
-                  (concat [strlit"OK! "; toString linum;
+                  (concat [strlit"OK! "; toString (lines_read s);
                            strlit" lines read.\n"]))
           od
       | _ => stdio (print_err (strlit"<error message placeholder>"))
