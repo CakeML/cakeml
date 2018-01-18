@@ -1,4 +1,5 @@
-open preamble readerIOTheory readerProofTheory
+open preamble readerTheory readerIOTheory readerProofTheory ml_monadBaseTheory
+     holKernelTheory holKernelProofTheory
 
 val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
   `READER_STATE defs s /\
@@ -13,9 +14,10 @@ val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
   \\ metis_tac [readLine_thm]);
 
 val readLines_def = readerIOTheory.readLines_def
+val readLines_ind = readerIOTheory.readLines_ind
 
 val readLines_thm = Q.store_thm("readLines_thm",
-  `!lines s res c c' defs.
+  `!s lines res c c' defs.
      STATE defs c.holrefs /\
      READER_STATE defs s /\
      readLines s lines c = (res, c')
@@ -64,7 +66,7 @@ val reader_main_thm = Q.store_thm("reader_main_thm",
   \\ qmatch_asmsub_abbrev_tac `readLines _ ls c1`
   \\ `STATE defs c1.holrefs` by fs [Abbr`c1`]
   \\ drule (GEN_ALL readLines_thm)
-  \\ disch_then (qspecl_then [`ls`,`init_state`] mp_tac) \\ fs [] \\ rw []
+  \\ disch_then (qspecl_then [`init_state`,`ls`] mp_tac) \\ fs [] \\ rw []
   \\ asm_exists_tac \\ fs []);
 
 (*
@@ -83,3 +85,6 @@ val reader_main_thm = Q.store_thm("reader_main_thm",
   ???
 
 *)
+
+val _ = export_theory ();
+
