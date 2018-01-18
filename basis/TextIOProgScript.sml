@@ -27,11 +27,8 @@ val EndOfFile_exn_def = Define `
     (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 258); Lit (Word8 0w)])``
-val _ = ml_prog_update
-          (add_Dlet (derive_eval_thm "iobuff_loc" iobuff_e) "iobuff" [])
-val iobuff_loc_def = definition "iobuff_loc_def"
-val iobuff_loc = EVAL``iobuff_loc`` |> curry save_thm "iobuff_loc"
-val _ = export_rewrites["iobuff_loc"]
+val eval_thm = derive_eval_thm false "iobuff_loc" iobuff_e;
+val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
 
 (* stdin, stdout, stderr *)
 val stdIn_def = Define`stdIn:word8 = n2w 0`;
