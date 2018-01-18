@@ -88,22 +88,6 @@ val FOLDL_insert_line = Q.store_thm("FOLDL_insert_line",
   rw[frequency_concat,splitwords_concat,frequency_concat_space,splitwords_concat_space] \\
   rw[EXTENSION] \\ metis_tac[]);
 
-(* Translation of balanced binary tree functions *)
-
-val res = translate lookup_def;
-val res = translate singleton_def;
-val res = translate ratio_def;
-val res = translate size_def;
-val res = translate delta_def;
-val _ = next_ml_names := ["balanceL","balanceR"];
-val res = translate balanceL_def;
-val res = translate balanceR_def;
-val res = translate insert_def;
-val res = translate empty_def;
-val _ = next_ml_names := ["foldrWithKey","toAscList"];
-val res = translate foldrWithKey_def;
-val res = translate toAscList_def;
-
 (* Translation of wordfreq helper functions *)
 
 val res = translate lookup0_def;
@@ -261,9 +245,8 @@ val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
   (* ex*)
 );
 
-(* These will be needed for xlet_auto to handle our use of List.foldl *)
-val insert_line_v_thm = theorem"insert_line_v_thm";
-val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRING_TYPE`,`NUM`];
+(* This will be needed for xlet_auto to handle our use of List.foldl *)
+val empty_v_thm = MapProgTheory.empty_v_thm |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRING_TYPE`,`NUM`];
 (* and this for our use of List.map *)
 val format_output_v_thm = theorem"format_output_v_thm";
 
