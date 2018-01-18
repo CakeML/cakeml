@@ -224,6 +224,14 @@ val nb8_b8n = Q.store_thm("nb8_nb8",
      `256w : word8 = 0w` by fs[GSYM n2w_dimword] >>
      first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[])));
 
+val LENGTH_num_to_byte2 = Q.store_thm("LENGTH_num_to_byte2",
+  `!n. LENGTH(num_to_byte2 n) = 2`,
+  fs[num_to_byte2_def]);
+
+val LENGTH_num_to_byte8 = Q.store_thm("LENGTH_num_to_byte8",
+  `!n. LENGTH(num_to_byte8 n) = 8`,
+  fs[num_to_byte8_def])
+
 (* read file name from the first non null bytes
 *  open the file with read access
 *  return result code in first byte
@@ -231,6 +239,7 @@ val nb8_b8n = Q.store_thm("nb8_nb8",
 val ffi_open_in_def = Define`
   ffi_open_in (conf: word8 list) bytes fs =
     do
+      assert(9 <= LENGTH bytes);
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
       return (0w :: num_to_byte8 fd ++ DROP 9 bytes, fs')
@@ -249,6 +258,7 @@ val ffi_open_in_def = Define`
 val ffi_open_out_def = Define`
   ffi_open_out (conf: word8 list) bytes fs =
     do
+      assert(9 <= LENGTH bytes);
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile_truncate (implode fname) fs;
       assert(fd <= 255);
