@@ -53,21 +53,20 @@ val r = translate stdErr_def;
 
 val _ =
   process_topdecs`fun writei fd n i =
-    let val a = Word8Array.update iobuff 0 fd
-        val a = Word8Array.update iobuff 1 n
-        val a = Word8Array.update iobuff 2 i
-        val a = #(write) "" iobuff in
+    let val a = Marshalling.n2w2 n iobuff 0
+        val a = Marshalling.n2w2 i iobuff 2
+        val a = #(write) fd iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 1
         then raise InvalidFD
         else
-          let val nw = Word8.toInt(Word8Array.sub iobuff 1) in
+          let val nw = Marshalling.w22n iobuff 1 in
             if nw = 0 then writei fd n i
             else nw
           end
     end
     fun write fd n i =
       if n = 0 then () else
-        let val nw = writei fd (Word8.fromInt n) (Word8.fromInt i) in
+        let val nw = writei fd n i in
           if nw < n then write fd (n-nw) (i+nw) else () end` |> append_prog
 
 (* Output functions on given file descriptor *)
@@ -81,7 +80,7 @@ val _ =
   process_topdecs` fun output fd s =
   if s = "" then () else
   let val z = String.size s
-      val n = if z <= 255 then z else 255
+      val n = if z < 2048 then z else 2048
       val fl = Word8Array.copyVec s 0 n iobuff 3
       val a = write fd n 0 in
          output fd (String.substring s n (z-n))
@@ -96,26 +95,25 @@ val _ = process_topdecs`
 
 val _ = process_topdecs`
 fun openIn fname =
-  let val b = Word8Array.array (String.size fname + 2) (Word8.fromInt 0)
+  let val b = Word8Array.array (String.size fname + 9) (Word8.fromInt 0)
       val a = Word8Array.copyVec fname 0 (String.size fname) b 0
       val a = #(open_in) "" b in
         if Word8Array.sub b 0 = Word8.fromInt 0
-        then Word8Array.sub b 1
+        then Word8Array.substring b 1 2
         else raise BadFileName
   end
 fun openOut fname =
-  let val b = Word8Array.array (String.size fname + 2) (Word8.fromInt 0)
+  let val b = Word8Array.array (String.size fname + 9) (Word8.fromInt 0)
       val a = Word8Array.copyVec fname 0 (String.size fname) b 0
       val a = #(open_out) "" b in
         if Word8Array.sub b 0 = Word8.fromInt 0
-        then Word8Array.sub b 1
+        then Word8Array.substring b 1 2
         else raise BadFileName
   end` |> append_prog
 val _ = process_topdecs`
 
 fun close fd =
-  let val a = Word8Array.update iobuff 0 fd
-      val a = #(close) "" iobuff in
+  let val a = #(close) fd iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 1
         then () else raise InvalidFD
   end` |> append_prog
@@ -123,11 +121,10 @@ fun close fd =
 (* wrapper for ffi call *)
 val _ = process_topdecs`
   fun read fd n =
-    let val a = Word8Array.update iobuff 0 fd
-        val a = Word8Array.update iobuff 1 n in
-          (#(read) "" iobuff;
+    let val a = Marshalling.n2w2 iobuff 0 n in
+          (#(read) fd iobuff;
           if Word8.toInt (Word8Array.sub iobuff 0) <> 1
-          then Word8.toInt(Word8Array.sub iobuff 1)
+          then Marshalling.w22n iobuff 1
           else raise InvalidFD)
     end` |> append_prog
 
@@ -135,7 +132,7 @@ val _ = process_topdecs`
 val _ = process_topdecs`
 fun read_byte fd =
     if read fd (Word8.fromInt 1) = 0 then raise EndOfFile
-    else Word8Array.sub iobuff 3
+    else Word8Array.sub iobuff 4
 ` |> append_prog
 
 val _ = (append_prog o process_topdecs)`
@@ -149,9 +146,9 @@ val _ =
   process_topdecs`
 fun input fd buff off len =
 let fun input0 off len count =
-    let val nread = read fd (Word8.fromInt(min len 255)) in
+    let val nread = read fd (Word8.fromInt(min len 2048)) in
         if nread = 0 then count else
-          (Word8Array.copy iobuff 3 nread buff off;
+          (Word8Array.copy iobuff 4 nread buff off;
            input0 (off + nread) (len - nread) (count + nread))
     end
 in input0 off len 0 end
