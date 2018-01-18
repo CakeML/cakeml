@@ -25,7 +25,10 @@ val _ = translate mk_blo_def
 val _ = translate mk_str_def
 val _ = translate mk_brk_def
 val _ = translate typ_def
+val _ = translate pp_margin_def
 val _ = translate ty_to_string_def
+val _ = translate fix_name_def
+val _ = translate paren_def
 val _ = translate term_def
 val _ = translate tm_to_string_def
 val _ = translate hyps_def
@@ -74,6 +77,7 @@ val _ = m_translate getTms_def
 val _ = m_translate BETA_CONV_def
 
 (* stack and dictionary dumping *)
+val r = translate pad_def
 val r = translate obj_t_def
 val r = translate stack_t_def
 val r = translate pair_t_def
