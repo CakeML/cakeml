@@ -271,9 +271,6 @@ val extract_fs_basis_ffi = Q.store_thm ("extract_fs_basis_ffi",
   rw[ml_progTheory.init_state_def,extract_fs_def,extract_fs_with_numchars_def,
      basis_ffi_def,basis_proj1_write,IO_fs_component_equality]);
 
-val emp_precond = Q.store_thm("emp_precond",
-  `emp {}`, EVAL_TAC);
-
 val append_hprop = Q.store_thm ("append_hprop",
   `A s1 /\ B s2 ==> DISJOINT s1 s2 ==> (A * B) (s1 ∪ s2)`,
   rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
@@ -293,7 +290,6 @@ val IOFS_precond = Q.prove(
   \\ fs[SEP_CLAUSES,one_STAR,one_def,append_hprop]
   )|> UNDISCH_ALL |> curry save_thm "IOFS_precond"
 
-  (* TODO: useful? *)
 val STDIO_precond = Q.prove(
 ` wfFS fs ==>
   STD_streams fs ==>
@@ -301,30 +297,12 @@ val STDIO_precond = Q.prove(
   STDIO fs
     ({FFI_part (encode fs)
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
-     ∪ {Mem 0 (W8array v)})`,
+     ∪ {Mem ^iobuff_loc_num (W8array v)})`,
   rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
   cases_on`fs` >> fs[IO_fs_numchars_fupd]
   ) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
-
-(* *)
-val STDIO_precond' = Q.prove(
- `wfFS fs ==> LENGTH v = 258 ==>
-  (SEP_EXISTS ll. IOFS (fs with numchars := ll))
-    ({FFI_part (encode fs)
-               (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
-     ∪ {Mem 0 (W8array v)})`,
-  rw[IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
-  qexists_tac`fs.numchars` >>
-  mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs`` )>>
-  cases_on`fs` >>
-  fs[IO_fs_numchars_fupd]
-  )|> UNDISCH_ALL |> curry save_thm "STDIO_precond'";
-
-val cond_precond = Q.prove(
-  `P ==> (&P) ∅`,
-  fs[cond_def]) |> UNDISCH_ALL |> curry save_thm "cond_precond"
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
