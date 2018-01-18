@@ -29,6 +29,8 @@ sig
 
     val add_raise_handle_functions : (thm * thm) list -> thm -> (thm * thm) list
 
+    val add_access_pattern : thm -> thm
+
     (* Translation functions *)
     val m_translate : thm -> thm
     val m_translate_run : thm -> thm

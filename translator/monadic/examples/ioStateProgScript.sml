@@ -19,6 +19,8 @@ open (* ml_monad_translatorTheory *) ml_monad_translatorLib
 
 val _ = new_theory "ioStateProg"
 
+val _ = translation_extends "basisProg";
+
 (* Use monadic syntax: do x <- f y; ... od *)
 val _ = ParseExtras.temp_loose_equality();
 val _ = monadsyntax.temp_add_monadsyntax();
@@ -41,17 +43,14 @@ val _ = (use_full_type_names := false);
 
 (* Create the data type to handle the references and I/O.
  *)
-val _ = Hol_datatype `
+val _ = Datatype `
   state_refs = <| the_num_ref : num
-                ; file_io : IO_fs |>`;
+                ; stdio : IO_fs |>`;
 
 (* Generate the monadic functions to manipulate the reference(s). *)
 val refs_access_funs = define_monad_access_funs (``:state_refs``);
 val [(the_num_ref_name, get_the_num_ref_def, set_the_num_ref_def),
-     (file_io_name, get_file_io_def, set_file_io_def)] = refs_access_funs;
-
-val print_def = Define `
-  print s = do fs <- get_file_io ; set_file_io (add_stdout fs s) od`
+     (stdio_name, get_stdio_def, set_stdio_def)] = refs_access_funs;
 
 (* Those functions too can be defined by hand:
 
@@ -115,7 +114,7 @@ val type_theories = [] : string list;
 (* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
 val store_pinv_opt = NONE : (thm * thm) option;
 
-val extra_hprop = SOME ``STDIO s.file_io``;
+val extra_hprop = SOME ``STDIO s.stdio``;
 
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
@@ -141,34 +140,55 @@ val calling_fun_v_thm = calling_fun_def |> m_translate;
 val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
-(* ...
-
-m2deep
-val tm = ``set_the_num_ref 0 : (state_refs, unit, unit) M``
+val print_def = Define `
+  print s = (\fs. (Success (), add_stdout fs s)): (IO_fs, unit, unit) M`
 
 val EvalM_print = prove(
-  ``Eval env exp (STRING_TYPE x) ==>
+  ``Eval env exp (STRING_TYPE x) /\
+    (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM env st (App Opassign [Var (Short "print"); exp])
-      (MONAD UNIT_TYPE UNIT_TYPE (print_foo x))
+      (MONAD UNIT_TYPE UNIT_TYPE (print x))
       (STDIO,p:'ffi ffi_proj)``,
   cheat);
 
-val EvalM_print = prove(
-  ``Eval env exp (STRING_TYPE x) ==>
+val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
+
+val stdio_INTRO = prove(
+  ``(!st. EvalM env st exp
+            (MONAD UNIT_TYPE UNIT_TYPE f)
+            (STDIO,p:'ffi ffi_proj)) ==>
+    (!st. EvalM env st exp
+            (MONAD UNIT_TYPE UNIT_TYPE (stdio f))
+            ((λs. STDIO s.stdio),p:'ffi ffi_proj))``,
+  fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
+  \\ first_x_assum (qspecl_then [`st.stdio`,`s`] mp_tac)
+  \\ impl_tac
+  THEN1 fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
+  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ asm_exists_tac \\ fs []
+  \\ qexists_tac `st with stdio := st2`
+  \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
+        semanticPrimitivesTheory.state_component_equality]
+  \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def,ml_monadBaseTheory.liftM_def]
+  \\ Cases_on `f st.stdio` \\ fs []
+  \\ every_case_tac \\ fs []);
+
+val EvalM_stdio_print = prove(
+  ``Eval env exp (STRING_TYPE x) /\
+    (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM env st (App Opassign [Var (Short "print"); exp])
-      (MONAD UNIT_TYPE UNIT_TYPE (print x))
-      ((λs. STDIO s.file_io),p:'ffi ffi_proj)``,
-  cheat);
+      (MONAD UNIT_TYPE UNIT_TYPE (stdio (print x)))
+      ((λs. STDIO s.stdio),p:'ffi ffi_proj)``,
+  metis_tac [stdio_INTRO,EvalM_print]);
 
-val th = EvalM_print |> UNDISCH;
-val tm = th |> concl |> rator |> rand |> rand;
+val _ = add_access_pattern EvalM_stdio_print;
+val _ = ignore_type ``:IO_fs``;
 
-val _ = (access_patterns := (tm,th)::(!access_patterns));
+val hello_def = Define `
+  hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M`
 
-m2deep ``print (strlit "hi") : (state_refs, unit, unit) M``
+val def = hello_def;
 
-hol2deep ``strlit "hi"``
-
-*)
+val res = m_translate def;
 
 val _ = export_theory ();

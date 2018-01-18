@@ -196,6 +196,11 @@ val refs_functions_defs = ref([] : (thm * thm) list);
 val rarrays_functions_defs = ref([] : (thm * thm * thm * thm * thm * thm) list);
 val farrays_functions_defs = ref([] : (thm * thm * thm * thm * thm) list);
 
+fun add_access_pattern th = let
+  val th = th |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> SPEC_ALL |> UNDISCH_ALL
+  val tm = th |> concl |> rator |> rand |> rand
+  val _ = (access_patterns := (tm,th)::(!access_patterns))
+  in th end;
 
 (* The specifications for dynamically initialized stores *)
 val dynamic_v_thms = ref (Net.empty : (string * string * term * thm * thm * string option) net);
@@ -386,7 +391,7 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, cons_id) = let
     val take_assumption = fst o dest_imp o concl
     val exn_ri_assum = take_assumption raise_spec
     val num_eq_tm = mk_eq(mk_var("n",num_ty), mk_var("m",num_ty))
-    fun get_the x = case x of SOME x => x
+    fun get_the x = case x of SOME x => x | _ => failwith "get_the"
     fun case_on_values (asl,w) = let
 	val a = List.find (can (match_term num_eq_tm)) asl
 	fun get_values_var a =
@@ -1820,6 +1825,8 @@ in () end
 val _ = type_theories := (current_theory()::([]@["ml_translator"]))
 
 val tm = info |> hd |> (fn (_,_,_,x,_) => x)
+
+val tm = ``do stdio (print (strlit "Hello")) ; set_the_num_ref x od : (state_refs, unit, unit) M``
 *)
 
 fun m2deep tm =
@@ -1938,7 +1945,10 @@ fun m2deep tm =
   if can (first (fn (pat,_) => can (match_term pat) tm)) (!access_patterns) then let
 
       (* val _ = print_tm_msg "access function\n" tm DEBUG *)
-      val (pat,spec) = (first (fn (pat,_) => can (match_term pat) tm)) (!access_patterns)
+      val (pat,spec) = first (fn (pat,_) => can (match_term pat) tm) (!access_patterns)
+      val ii = map (fn v => v |-> genvar (type_of v)) (free_vars pat)
+      val (pat,spec) = (subst ii pat, INST ii spec)
+
       (* Substitute the parameters, and link the parameters to their expressions *)
       val (tms, _) = match_term pat tm (* the type subst shouldn't be used *)
       val pat = Term.subst tms pat
@@ -1955,7 +1965,7 @@ fun m2deep tm =
                                        (Redblackmap.mkDict Term.compare) params_exps_pairs
 
       (* Translate the parameters *)
-      val args = strip_comb pat |> snd
+      val args = tms |> map (fn {redex = v, residue = x} => x)
       val args_evals = List.map hol2deep args
 
       (* Substitute the translated expressions of the parameters *)
@@ -2557,7 +2567,7 @@ val (fname,ml_fname,th,def) = List.hd thms
             val th2 = List.foldl (fn (v,th) => apply_EvalM_Fun v th true
                        |> remove_ArrowM_EqSt) th1 xs
             in (th2,v) end handle Empty => (th, List.last rev_params)
-    in (fname,ml_fname,def,th,v) end
+      in (fname,ml_fname,def,th,v) end
     val thms = List.map optimise_and_abstract thms
     (* final phase: extract precondition, perform induction, store cert *)
     val (is_fun,results) = if not is_rec then let
