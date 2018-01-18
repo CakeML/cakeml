@@ -519,7 +519,7 @@ val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
      FILENAME s sv ∧
-     CARD (FDOM (alist_to_fmap fs.infds)) < 256 ⇒
+     CARD (FDOM (alist_to_fmap fs.infds)) < maxFD ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
        (IOFS fs)
        (POST
@@ -547,7 +547,7 @@ val openIn_spec = Q.store_thm(
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
   Cases_on `inFS_fname fs (File s)`
   >- (xlet `POSTv u2.
-            &(UNIT_TYPE () u2 /\ nextFD fs < 256 /\
+            &(UNIT_TYPE () u2 /\ nextFD fs < maxFD /\
               validFD (nextFD fs) (openFileFS s fs 0)) *
             W8ARRAY loc (LUPDATE 0w 0 (LUPDATE (n2w (nextFD fs)) 1 fnm)) *
             W8ARRAY iobuff_loc fnm0 *
@@ -614,7 +614,7 @@ val openIn_STDIO_spec = Q.store_thm(
   "openIn_STDIO_spec",
   `∀s sv fs.
      FILENAME s sv ∧
-     CARD (FDOM (alist_to_fmap fs.infds)) < 256 ⇒
+     CARD (FDOM (alist_to_fmap fs.infds)) < maxFD ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
        (STDIO fs)
        (POST
@@ -1789,7 +1789,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
       \\ xcon \\ xsimpl \\ fs[ml_translatorTheory.OPTION_TYPE_def])
   >- xsimpl
-  \\ `CARD (set (MAP FST fs.infds)) < 256` by fs[]
+  \\ `CARD (set (MAP FST fs.infds)) < maxFD` by fs[]
   \\ reverse(Cases_on`STD_streams fs`)
   >- ( fs[STDIO_def] \\ xpull )
   \\ xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
