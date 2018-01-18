@@ -1,9 +1,9 @@
-open preamble wordLangTheory reg_allocMonadTheory
+open preamble wordLangTheory reg_allocTheory
 
 val _ = new_theory "word_alloc";
 val _ = set_grammar_ancestry [
   "asm" (* for arity-2 Const *),
-  "reg_allocMonad",
+  "reg_alloc",
   "misc",
   "wordLang"
 ]

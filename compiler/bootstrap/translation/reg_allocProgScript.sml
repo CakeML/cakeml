@@ -1,5 +1,5 @@
 open preamble
-open reg_allocMonadTheory reg_allocMonadProofTheory state_transformerTheory
+open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
 open inferProgTheory;
 

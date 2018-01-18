@@ -1,5 +1,5 @@
 INCLUDES = .. ../semantics ../../../misc ../../../semantics \
-           ../../../semantics/proofs ../../encoders/asm ../reg_alloc/monadic/ \
+           ../../../semantics/proofs ../../encoders/asm ../reg_alloc \
            ../gc $(HOLDIR)/examples/machine-code/hoare-triple \
            $(HOLDIR)/examples/machine-code/multiword
 

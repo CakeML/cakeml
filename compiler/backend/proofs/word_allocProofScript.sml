@@ -1,5 +1,5 @@
 open preamble
-     reg_allocMonadTheory reg_allocMonadProofTheory
+     reg_allocTheory reg_allocProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory
 
 val _ = new_theory "word_allocProof";
