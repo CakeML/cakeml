@@ -162,7 +162,7 @@ val ffi_open_in_def = Define`
   ffi_open_in (conf: word8 list) bytes fs =
     do
       assert(9 <= LENGTH bytes);
-      fname <- getNullTermStr bytes;
+      fname <- getNullTermStr conf;
       (fd, fs') <- openFile (implode fname) fs 0;
       return (0w :: n2w8 fd ++ DROP 9 bytes, fs')
     od ++
@@ -181,7 +181,7 @@ val ffi_open_out_def = Define`
   ffi_open_out (conf: word8 list) bytes fs =
     do
       assert(9 <= LENGTH bytes);
-      fname <- getNullTermStr bytes;
+      fname <- getNullTermStr conf;
       (fd, fs') <- openFile_truncate (implode fname) fs;
       assert(fd <= 255);
       return (0w :: n2w8 fd ++ DROP 9 bytes, fs')

@@ -1,7 +1,7 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIPropsTheory
-     Word8ProgTheory Word8ArrayProofTheory TextIOProgTheory
+     Word8ProgTheory Word8ArrayProofTheory TextIOProgTheory MarshallingTheory
 
 val _ = new_theory"TextIOProof";
 
@@ -513,6 +513,10 @@ val linesFD_splitlines_get_stdin = Q.store_thm("linesFD_splitlines_get_stdin",
   \\ imp_res_tac stdin_get_stdin
   \\ fs[stdin_def,get_file_content_def]);
 
+(* file descriptors are byte lists of length 8 *)
+val FD_def = Define `
+  FD fd fdv = (STRING_TYPE (strlit(MAP (CHR ∘ w2n) fd)) fdv ∧ LENGTH fd = 8)`;
+
 (* -- *)
 
 val openIn_spec = Q.store_thm(
@@ -523,7 +527,7 @@ val openIn_spec = Q.store_thm(
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
        (IOFS fs)
        (POST
-          (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
+          (\fdv. &(FD (n2w8 (nextFD fs)) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
                   inFS_fname fs (File s)) *
                 IOFS (openFileFS s fs 0))
@@ -532,81 +536,71 @@ val openIn_spec = Q.store_thm(
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs` >>
-  fs[iobuff_loc_def] >> xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl >>
-  qmatch_goalsub_abbrev_tac`W8ARRAY _ fnm` >>
-  `fnm = (MAP (n2w o ORD) (explode s) ++ [0w;0w])` by (
-    simp[Abbr`fnm`,DROP_REPLICATE,REPLICATE_compute]) \\
-  qunabbrev_tac`fnm` \\ fs[] \\ pop_assum kall_tac \\
-  qmatch_goalsub_abbrev_tac`W8ARRAY _ fnm` >>
-  qmatch_goalsub_rename_tac`W8ARRAY loc fnm` >>
+  fs[iobuff_loc_def] >>
+  rpt(xlet_auto >- xsimpl) >>
+  qmatch_goalsub_abbrev_tac`W8ARRAY _ fd0` >>
+  qmatch_goalsub_rename_tac`W8ARRAY loc fd0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
   Cases_on `inFS_fname fs (File s)`
   >- (xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < maxFD /\
               validFD (nextFD fs) (openFileFS s fs 0)) *
-            W8ARRAY loc (LUPDATE 0w 0 (LUPDATE (n2w (nextFD fs)) 1 fnm)) *
+            W8ARRAY loc (0w :: n2w8 (nextFD fs)) *
             W8ARRAY iobuff_loc fnm0 *
             catfs fs'`
     >- (simp[Abbr`catfs`,Abbr`fs'`] >>
         xffi >> simp[] >>
+        qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
+        fs[strcat_thm,implode_def] >>
         simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
         qmatch_goalsub_abbrev_tac`IO st f ns` >>
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
         map_every qexists_tac[`ns`,`f`,`encode (openFileFS s fs 0)`,`st`]
         >> xsimpl >>
         simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-             ffi_open_in_def, (* decode_encode_FS, *) Abbr`fnm`,
+             ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
              getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
-             dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
-             implode_explode, LENGTH_explode] >>
+             dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
+             LENGTH_explode,REPLICATE_compute,LUPDATE_compute,explode_implode] >>
         `∃content. ALOOKUP fs.files (File s) = SOME content`
           by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
               metis_tac[]) >>
+             (* fs[DROP_LENGTH_TOO_LONG,LENGTH_REPLICATE] *)
         imp_res_tac nextFD_ltX >>
-        csimp[openFileFS_def, openFile_def, validFD_def]) >>
+        csimp[openFileFS_def, openFile_def, validFD_def] >>
+        fs[STRING_TYPE_def]) >>
     xlet_auto >- xsimpl >>
     xlet_auto >- xsimpl >>
-    xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R)
+    xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R >> fs[])
     >> xif >-(
-      xapp >> simp[iobuff_loc_def] >> xsimpl >>
-      simp[EL_LUPDATE,Abbr`fnm`,LENGTH_explode] >>
-      fs[wfFS_openFile,Abbr`fs'`,liveFS_openFileFS]) >>
-    xlet_auto >- (xcon >> xsimpl)
-    >- (xraise >> xsimpl >>
-        sg `0 < LENGTH (LUPDATE (n2w (nextFD fs)) 1 fnm)`
-        >-(
-          fs[] >> fs[markerTheory.Abbrev_def] >> fs[] >>
-          `0 + LENGTH (MAP (n2w ∘ ORD) (explode s) ++ [0w]) <= LENGTH fnm0`
-        by (fs[LENGTH_explode]) >>
-          fs[LENGTH_insert_atI]) >>
-        IMP_RES_TAC HD_LUPDATE >> fs[])) >>
+      instantiate >>
+      xapp >> simp[iobuff_loc_def,FD_def] >> xsimpl >>
+      simp[EL_LUPDATE,Abbr`fd0`,LENGTH_explode,LENGTH_n2w8,TAKE_LENGTH_ID_rwt] >>
+      fs[wfFS_openFile,Abbr`fs'`,liveFS_openFileFS])) >>
   xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
-            W8ARRAY loc (LUPDATE 255w 0 fnm)`
+            W8ARRAY loc (LUPDATE 1w 0 fd0)`
   >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> simp[iobuff_loc_def] >>
       simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
       map_every qexists_tac[`ns`,`f`,`st`,`st`] >> xsimpl >>
+      qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
+      fs[strcat_thm,implode_def] >>
       simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-           ffi_open_in_def, (* decode_encode_FS, *) Abbr`fnm`,
+           ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
            getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
-           dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
+           dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
            implode_explode, LENGTH_explode] >>
-      simp[not_inFS_fname_openFile]) >>
+      fs[not_inFS_fname_openFile,STRING_TYPE_def]) >>
   xlet_auto >-(xsimpl) >> fs[iobuff_loc] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R) >>
   xif
   >-(xapp >> xsimpl >>
-     rfs[Abbr`fnm`,EL_LUPDATE,HD_LUPDATE])>>
+     rfs[Abbr`fd0`,EL_LUPDATE,HD_LUPDATE])>>
   xlet_auto >-(xcon >> xsimpl) >> xraise >> xsimpl >>
-  simp[BadFileName_exn_def,Abbr`fnm`,LENGTH_explode]
+  simp[BadFileName_exn_def,Abbr`fd0`,LENGTH_explode]
   );
 
 (* STDIO version *)

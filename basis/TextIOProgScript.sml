@@ -96,14 +96,14 @@ val _ = process_topdecs`
 val _ = process_topdecs`
 fun openIn fname =
   let val b = Word8Array.array 9 (Word8.fromInt 0)
-      val a = #(open_in) fname b in
+      val a = #(open_in) (fname^^(String.str (Char.chr 0))) b in
         if Word8Array.sub b 0 = Word8.fromInt 0
         then Word8Array.substring b 1 8
         else raise BadFileName
   end
 fun openOut fname =
   let val b = Word8Array.array 9 (Word8.fromInt 0)
-      val a = #(open_out) fname b in
+      val a = #(open_out) (fname^^(String.str (Char.chr 0))) b in
         if Word8Array.sub b 0 = Word8.fromInt 0
         then Word8Array.substring b 1 8
         else raise BadFileName
