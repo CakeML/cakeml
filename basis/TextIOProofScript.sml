@@ -545,7 +545,7 @@ val openIn_spec = Q.store_thm(
   >- (xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < maxFD /\
               validFD (nextFD fs) (openFileFS s fs 0)) *
-            W8ARRAY loc (0w :: n2w8(nextFD fs)) *
+            W8ARRAY loc (0w :: n2w8 (nextFD fs)) *
             W8ARRAY iobuff_loc fnm0 *
             catfs fs'`
     >- (simp[Abbr`catfs`,Abbr`fs'`] >>
