@@ -633,22 +633,22 @@ val close_spec = Q.store_thm(
      FD fdw fdv ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.close" (basis_st())) [fdv]
        (IOFS fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFD fdw fs) *
-                 IOFS (fs with infds updated_by A_DELKEY fdw))
-             (\e. &(InvalidFD_exn e /\ ¬ validFD fdw fs) * IOFS fs))`,
+       (POST (\u. &(UNIT_TYPE () u /\ validFD (w82n fdw) fs) *
+                 IOFS (fs with infds updated_by A_DELKEY (w82n fdw)))
+             (\e. &(InvalidFD_exn e /\ ¬ validFD (w82n fdw) fs) * IOFS fs))`,
   xcf "TextIO.close" (basis_st()) >> fs[IOFS_def, IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet`POSTv uv. &(UNIT_TYPE () uv) *
-        W8ARRAY iobuff_loc ((if validFD fdw fs then 0w else 1w) ::t) *
-        IOx fs_ffi_part (if validFD fdw fs then
-                            (fs with infds updated_by A_DELKEY fdw)
+        W8ARRAY iobuff_loc ((if validFD (w82n fdw) fs then 0w else 1w) ::t) *
+        IOx fs_ffi_part (if validFD (w82n fdw) fs then
+                            (fs with infds updated_by A_DELKEY (w82n fdw))
                          else fs)`
   >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def] >>
      qmatch_goalsub_abbrev_tac`IO st f ns` >> xsimpl >>
      qmatch_goalsub_abbrev_tac`_ ==>>IO (_ fs') f ns` >>
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
      map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >> xsimpl >>
-     qexists_tac`n2w8 fdw` >> fs[FD_def] >>
+     qexists_tac`fdw` >> fs[FD_def] >>
      unabbrev_all_tac >> CASE_TAC >> rw[] >>
      fs[mk_ffi_next_def, ffi_close_def, (* decode_encode_FS, *)
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
@@ -669,14 +669,14 @@ val close_STDIO_spec = Q.store_thm(
      FD fd fdv /\ fd >= 3 /\ fd <= maxFD ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.close" (basis_st())) [fdv]
        (STDIO fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFD fd fs) *
-                 STDIO (fs with infds updated_by A_DELKEY fd))
-             (\e. &(InvalidFD_exn e /\ ¬ validFD fd fs) * STDIO fs))`,
+       (POST (\u. &(UNIT_TYPE () u /\ validFD (w82n fd) fs) *
+                 STDIO (fs with infds updated_by A_DELKEY (w82n fd)))
+             (\e. &(InvalidFD_exn e /\ ¬ validFD (w82n fd) fs) * STDIO fs))`,
   rw[STDIO_def] >> xpull >> xapp_spec close_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFD_def] >> xsimpl >>
   fs[STD_streams_def,ALOOKUP_ADELKEY] \\
-  Cases_on`fd = 0` \\ fs[] \\ metis_tac[]);
+  Cases_on`w82n fd = 0` \\ fs[] \\ metis_tac[]);
 
 val writei_spec = Q.store_thm("writei_spec",
  `wfFS fs ⇒ 0 < n ⇒
@@ -690,7 +690,7 @@ val writei_spec = Q.store_thm("writei_spec",
     (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * &(nw > 0) * &(nw <= n) *
            W8ARRAY iobuff_loc (0w :: n2w2 nw ++ (n2w i :: rest)) *
            IOx fs_ffi_part
-               (fsupdate fs fd (1 + Lnext_pos fs.numchars) (pos + nw)
+               (fsupdate fs (w82n fd) (1 + Lnext_pos fs.numchars) (pos + nw)
                   (insert_atI (TAKE nw (MAP (CHR o w2n) (DROP i rest))) pos
                                     content)))
     (\e. &(InvalidFD_exn e) * W8ARRAY iobuff_loc (1w :: n2w n :: n2w2 i ++ rest) * &(F) *
@@ -700,7 +700,7 @@ val writei_spec = Q.store_thm("writei_spec",
   `ll ≠ [||]`  by (cases_on`ll` >> fs[wfFS_def,liveFS_def,live_numchars_def]) >>
   `always (eventually (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0)) ll`
     by fs[wfFS_def,liveFS_def,live_numchars_def] >>
-  reverse(Cases_on`validFD fd fs`) >- metis_tac[get_file_content_validFD] \\
+  reverse(Cases_on`validFD (w82n fd) fs`) >- metis_tac[get_file_content_validFD] \\
   pop_assum mp_tac \\
   UNDISCH_TAC ``fs.numchars = ll`` >> LAST_X_ASSUM MP_TAC >>
   LAST_ASSUM MP_TAC >>
