@@ -4,7 +4,7 @@ open preamble
 
 val _ = new_theory"TextIOProg";
 
-val _ = translation_extends "CommandLineProg";
+val _ = translation_extends "MarshallingProg";
 
 val _ = ml_prog_update (open_module "TextIO");
 
@@ -112,7 +112,7 @@ val _ = process_topdecs`
 
 fun close fd =
   let val a = #(close) fd iobuff in
-        if Word8Array.sub iobuff 0 = Word8.fromInt 1
+        if Word8Array.sub iobuff 0 = Word8.fromInt 0
         then () else raise InvalidFD
   end` |> append_prog
 

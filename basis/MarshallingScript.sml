@@ -22,7 +22,7 @@ val w82n_def = Define`
   256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 *
   w2n b7 + w2n b6) + w2n b5) + w2n b4) + w2n b3) + w2n b2) + w2n b1) + w2n b0`
 
-val w2n_nw2 = Q.store_thm("w2n_nw2",
+val w22n_n2w2 = Q.store_thm("w22n_n2w2",
   `!i. i < 2**(2*8) ==> w22n (n2w2 i) = i`,
   rw[w22n_def,n2w2_def] >>
   `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >>

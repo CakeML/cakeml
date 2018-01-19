@@ -72,7 +72,7 @@ val WORD_n2w8_UNICITY_L = Q.store_thm("WORD_n2w8_UNICITY[xlet_auto_match]",
  cheat);
 
 val n2w2_spec = Q.store_thm("n2w2_spec",
- `!n off b nv offv bl. NUM n nv /\ NUM off offv /\ off + 2 < LENGTH b ==>
+ `!n off b nv offv bl. NUM n nv /\ NUM off offv /\ off + 2 <= LENGTH b ==>
     app (p:'ffi ffi_proj) ^(fetch_v "Marshalling.n2w2" (get_ml_prog_state())) [nv; bl; offv]
        (W8ARRAY bl b)
        (POSTv u. &UNIT_TYPE () u * W8ARRAY bl (insert_atI (n2w2 n) off b))`,
@@ -82,7 +82,7 @@ val n2w2_spec = Q.store_thm("n2w2_spec",
   cheat);
 
 val w22n_spec = Q.store_thm("w22n_spec",
- `!off b offv bl. NUM off offv /\ off + 2 < LENGTH b ==>
+ `!off b offv bl. NUM off offv /\ off + 2 <= LENGTH b ==>
     app (p:'ffi ffi_proj) ^(fetch_v "Marshalling.w22n" (get_ml_prog_state())) [bl; offv]
        (W8ARRAY bl b)
        (POSTv nv. &NUM (w22n [EL off b; EL (off+1) b]) nv * W8ARRAY bl b)`,
