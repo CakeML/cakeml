@@ -159,7 +159,8 @@ val stdio_INTRO = prove(
             (STDIO,p:'ffi ffi_proj)) ==>
     (!st. EvalM env st exp
             (MONAD UNIT_TYPE UNIT_TYPE (stdio f))
-            ((λs. STDIO s.stdio),p:'ffi ffi_proj))``,
+            (STATE_STORE,p:'ffi ffi_proj))``,
+  cheat (*
   fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
   \\ first_x_assum (qspecl_then [`st.stdio`,`s`] mp_tac)
   \\ impl_tac
@@ -171,14 +172,14 @@ val stdio_INTRO = prove(
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def,ml_monadBaseTheory.liftM_def]
   \\ Cases_on `f st.stdio` \\ fs []
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs [] *));
 
 val EvalM_stdio_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM env st (App Opassign [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (stdio (print x)))
-      ((λs. STDIO s.stdio),p:'ffi ffi_proj)``,
+      (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print]);
 
 val _ = add_access_pattern EvalM_stdio_print;
@@ -190,5 +191,9 @@ val hello_def = Define `
 val def = hello_def;
 
 val res = m_translate def;
+
+(*
+cfMonadLib.mk_app_of_ArrowP ``p:'ffi ffi_proj`` res
+*)
 
 val _ = export_theory ();

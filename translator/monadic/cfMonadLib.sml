@@ -217,7 +217,7 @@ mk_app_of_ArrowP ffi spec2
 
 *)
 
-(* Some tests *)
+(* Some tests
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
@@ -245,7 +245,6 @@ val init_state_def = Define `
         od
     od`
 
-
-(* *)
+*)
 
 end

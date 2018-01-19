@@ -735,28 +735,26 @@ end;
 (* Prove the specifications for the get/set functions *)
 
 local
+
     fun pick_ref_order loc (t1, t2) = let
         val get_loc = (rand o rator)
         val is_loc1 = can get_loc t1
         val is_loc2 = can get_loc t2
-    in if is_loc1 andalso not is_loc2 then LESS
-       else if is_loc2 andalso not is_loc1 then GREATER
-       else if is_loc1 andalso is_loc2 then
-           (if loc = (get_loc t1) then LESS else GREATER)
-       else Term.compare(t1, t2)
-    end
-
+      in if is_loc1 andalso not is_loc2 then LESS
+        else if is_loc2 andalso not is_loc1 then GREATER
+        else if is_loc1 andalso is_loc2 then
+            (if loc = (get_loc t1) then LESS else GREATER)
+        else Term.compare(t1, t2)
+      end
     fun PICK_REF_CONV loc = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_ref_order loc, combine = ALL_CONV, preprocess = ALL_CONV}
-
     fun pick_pinv_order field_pat (t1, t2) = let
         val is_cond1 = is_cond t1
         val is_cond2 = is_cond t2
         val has_pat = patternMatchesSyntax.has_subterm (fn x => x = field_pat)
-    in if is_cond1 andalso has_pat t1 then LESS
-       else if is_cond2 andalso has_pat t2 then GREATER
-       else Term.compare(t1, t2)
-    end
-
+      in if is_cond1 andalso has_pat t1 then LESS
+         else if is_cond2 andalso has_pat t2 then GREATER
+         else Term.compare(t1, t2)
+      end
     fun PICK_PINV_CONV field_pat = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_pinv_order field_pat, combine = ALL_CONV, preprocess = ALL_CONV}
 
 in
@@ -770,7 +768,8 @@ fun prove_store_access_specs refs_manip_list
                              store_X_hprop_def
                              state_type
                              exn_ri_def
-                             store_pinv_def_opt = let
+                             store_pinv_def_opt
+                             extra_hprop = let
     val exn_ri = CONJUNCTS exn_ri_def |> List.hd |> concl |> strip_forall |> snd
                            |> lhs |> rator |> rator
     val store_pred = concl store_X_hprop_def |> strip_forall |> snd |> dest_eq |> fst
@@ -778,7 +777,10 @@ fun prove_store_access_specs refs_manip_list
     val exc_type_aq = ty_antiq exc_type
     val state_type_aq = ty_antiq state_type
 
-    (* val (name, get_fun_def, read_fun, set_fun_def, write_fun) = el 1 refs_manip_list
+    (*
+       val ((name, get_fun_def, read_fun, set_fun_def, write_fun), loc_def) =
+         hd (zip refs_manip_list refs_locs_defs)
+
        val loc_def = el 1 refs_locs_defs
      *)
     fun prove_ref_specs ((name, get_fun_def, read_fun, set_fun_def, write_fun),
@@ -797,7 +799,7 @@ fun prove_store_access_specs refs_manip_list
 
         val H_eq = compos_conv store_pred
         val (state_var, H_part) = concl H_eq |> rhs |> dest_abs
-        val H_part = if List.length refs_manip_list + List.length rarrays_manip_list + List.length farrays_manip_list > 1 then
+        val H_part = if List.length refs_manip_list + List.length rarrays_manip_list + List.length farrays_manip_list > 1 orelse isSome extra_hprop then
                          mk_abs(state_var, rand H_part)
                      else mk_abs(state_var, emp_const)
 
@@ -812,7 +814,8 @@ fun prove_store_access_specs refs_manip_list
              in (PINV, H_part2) end
               | NONE => (mk_abs(state_var, TRUE), H_part)
 
-        fun rewrite_thm th = let
+        fun rewrite_thm th =
+          let
             val th = PURE_ONCE_REWRITE_RULE[GSYM loc_def] th
             val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def, GSYM STAR_ASSOC] th
             val th = CONV_RULE (DEPTH_CONV BETA_CONV) th
@@ -821,7 +824,12 @@ fun prove_store_access_specs refs_manip_list
             val th = PURE_REWRITE_RULE[GSYM H_eq] th
             val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def] th
             val th = PURE_REWRITE_RULE[PRECONDITION_T, ConseqConvTheory.IMP_CLAUSES_TX] th
-        in th end
+            val hprop = th |> SPEC_ALL |> UNDISCH_ALL
+                           |> concl |> rand |> dest_pair |> fst
+            val hprop_target = H_eq |> concl |> dest_eq |> fst
+            val _ = aconv hprop hprop_target orelse
+                    failwith "rewrite_thm in prove_ref_specs"
+          in th end
 
         (* read *)
         val read_spec = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_var] EvalM_read_heap
@@ -1161,6 +1169,7 @@ fun translate_dynamic_init_fixed_store refs_manip_list
                                state_type
                                exn_ri_def
                                store_pinv_def_opt
+                               extra_hprop
 in
     {store_pred_def = store_X_hprop_def,
      refs_specs = refs_access_thms,
@@ -1227,6 +1236,7 @@ fun translate_static_init_fixed_store refs_init_list rarrays_init_list farrays_i
                                state_type
                                exn_ri_def
                                store_pinv_def_opt
+                               extra_hprop
 
     (* Prove the validity and existential theorems *)
     val current_state = get_state(get_ml_prog_state())
