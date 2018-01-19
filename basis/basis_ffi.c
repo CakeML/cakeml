@@ -67,7 +67,7 @@ int byte8_to_int(unsigned char *b){
 /* fsFFI (file system and I/O) */
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
-  int fd = open((const char *) a, O_RDONLY);
+  int fd = open((const char *) c, O_RDONLY);
   if (0 <= fd){
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
@@ -77,7 +77,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
-  int fd = open((const char *) a, O_RDWR|O_CREAT|O_TRUNC);
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
   if (0 <= fd){
     a[0] = 0;
     int_to_byte8(fd, &a[1]);

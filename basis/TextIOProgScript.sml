@@ -95,19 +95,17 @@ val _ = process_topdecs`
 
 val _ = process_topdecs`
 fun openIn fname =
-  let val b = Word8Array.array (String.size fname + 9) (Word8.fromInt 0)
-      val a = Word8Array.copyVec fname 0 (String.size fname) b 0
-      val a = #(open_in) "" b in
+  let val b = Word8Array.array 9 (Word8.fromInt 0)
+      val a = #(open_in) fname b in
         if Word8Array.sub b 0 = Word8.fromInt 0
-        then Word8Array.substring b 1 2
+        then Word8Array.substring b 1 8
         else raise BadFileName
   end
 fun openOut fname =
-  let val b = Word8Array.array (String.size fname + 9) (Word8.fromInt 0)
-      val a = Word8Array.copyVec fname 0 (String.size fname) b 0
-      val a = #(open_out) "" b in
+  let val b = Word8Array.array 9 (Word8.fromInt 0)
+      val a = #(open_out) fname b in
         if Word8Array.sub b 0 = Word8.fromInt 0
-        then Word8Array.substring b 1 2
+        then Word8Array.substring b 1 8
         else raise BadFileName
   end` |> append_prog
 val _ = process_topdecs`
