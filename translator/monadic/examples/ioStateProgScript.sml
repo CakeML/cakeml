@@ -143,13 +143,62 @@ val if_fun_v_thm = if_fun_def |> m_translate;
 val print_def = Define `
   print s = (\fs. (Success (), add_stdout fs s)): (IO_fs, unit, unit) M`
 
+
+open ml_translatorTheory ml_monad_translatorTheory ml_monad_translatorBaseTheory
+     bigStepTheory
+
+(* TODO cfAppTheory copy-paste *)
+val evaluate_list_SING = Q.prove(
+  `bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
+    bigStep$evaluate b env st exp (st', Rval v)`,
+  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
+
 val EvalM_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM env st (App Opassign [Var (Short "print"); exp])
+    EvalM env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (print x))
       (STDIO,p:'ffi ffi_proj)``,
-  cheat);
+  rw [EvalM_def, Eval_def]
+  \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
+  \\ drule (GEN_ALL TextIOProofTheory.print_spec)
+  \\ simp [cfAppTheory.app_def, cfAppTheory.app_basic_def]
+  \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
+  \\ fs [REFS_PRED_def, set_sepTheory.STAR_def]
+  \\ sg `?hk. SPLIT (st2heap p (s with refs := s.refs ++ junk ++ refs')) (u, hk)`
+  >- cheat (* TODO *)
+  \\ rpt (disch_then drule) \\ rw []
+  \\ fs [cfHeapsBaseTheory.POSTv_def]
+  \\ Cases_on `r` \\ fs [set_sepTheory.cond_def]
+  \\ rw [Once evaluate_cases, PULL_EXISTS]
+  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
+  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
+  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `Rval v'` \\ fs [PULL_EXISTS]
+  \\ fs [UNIT_TYPE_def]
+  \\ rw [MONAD_def, print_def, PULL_EXISTS]
+  \\ mp_tac ((Q.SPEC `s with refs := s.refs++junk` o
+              CONV_RULE SWAP_FORALL_CONV o GEN_ALL)
+             evaluate_empty_state_IMP) \\ fs []
+  \\ disch_then drule \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ qmatch_asmsub_abbrev_tac `do_opapp [a;_]`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qexists_tac `a` \\ fs [Abbr`a`]
+  \\ rw [Once evaluate_cases]
+  \\ fs [cfAppTheory.evaluate_ck_def]
+  \\ fs [funBigStepEquivTheory.functional_evaluate_list]
+  \\ qhdtm_x_assum `evaluate_list` assume_tac
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))]
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))] \\ rw []
+  \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
+  \\ disch_then (qspec_then `s.clock` assume_tac) \\ fs []
+  \\ qpat_x_assum `evaluate T _ _ _ _` kall_tac
+  \\ cheat (* TODO *)
+  );
 
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
@@ -167,17 +216,17 @@ val stdio_INTRO = prove(
   THEN1 fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
   \\ disch_then (qspec_then `junk` strip_assume_tac)
   \\ asm_exists_tac \\ fs []
-  \\ qexists_tac `st with stdio := st2`
+  (*\\ qexists_tac `st with stdio := st2`*)
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
-  \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def,ml_monadBaseTheory.liftM_def]
+  \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
   \\ Cases_on `f st.stdio` \\ fs []
   \\ every_case_tac \\ fs [] *));
 
 val EvalM_stdio_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM env st (App Opassign [Var (Short "print"); exp])
+    EvalM env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (stdio (print x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print]);
