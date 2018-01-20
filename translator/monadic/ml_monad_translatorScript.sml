@@ -1314,7 +1314,15 @@ rw[]
 
 val REFS_PRED_Mem_Only_STATE_REFS = store_thm("REFS_PRED_Mem_Only_STATE_REFS",
   ``!xs a. REFS_PRED_Mem_Only (STATE_REFS a xs)``,
-  cheat);
+  fs [REFS_PRED_Mem_Only_def, PULL_FORALL, AND_IMP_INTRO]
+  \\ Induct \\ gen_tac
+  THEN1 (Cases \\ fs [STATE_REFS_def,emp_def,cond_def])
+  \\ gen_tac \\ Cases \\ fs [STATE_REFS_def,emp_def,cond_def]
+  \\ fs [STATE_REF_def,SEP_CLAUSES,SEP_EXISTS_THM,REF_def]
+  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,PULL_EXISTS,cell_def,one_STAR]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ first_x_assum (qspec_then `x` mp_tac)
+  \\ fs [] \\ Cases_on `x = Mem loc (Refv v)` \\ fs []);
 
 val EvalM_ref_bind = Q.store_thm("EvalM_ref_bind",
   `Eval env xexpr (A (cons x)) ==>
@@ -2740,6 +2748,15 @@ val evaluate_Var_same_state = Q.prove(
   evaluate F env s1 (Var (Short name)) (s2, res) /\ s2 = s1`,
   EQ_TAC \\ ntac 2 (rw[Once evaluate_cases]));
 
+val REFS_PRED_Mem_Only_IMP_REF_REL = store_thm("REFS_PRED_Mem_Only_IMP_REF_REL",
+  ``REFS_PRED_Mem_Only H ==>
+    REFS_PRED_Mem_Only (λst'. REF_REL TYPE l (f st') * H st')``,
+  fs [REFS_PRED_Mem_Only_def,REF_REL_def,SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS,
+      REF_def,cell_def]
+  \\ simp_tac (srw_ss()++sep_cond_ss) [cond_STAR,one_STAR]
+  \\ rw [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+  \\ Cases_on `x = Mem loc (Refv v)` \\ fs []);
+
 val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
   `!exp get_ref_exp get_ref loc_name TYPE st_name env H P st.
     Eval env get_ref_exp (TYPE (get_ref st)) ==>
@@ -2747,7 +2764,6 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
       ((\st. REF_REL TYPE loc (get_ref st) * H st),p)) ==>
     EvalSt env st
       (Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)`,
-  cheat (*
   rw[EvalSt_def]
   \\ ntac 3 (rw[Once evaluate_cases])
   \\ fs[Eval_def]
@@ -2782,8 +2798,13 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
   \\ fs[merge_env_def, write_def]
   \\ evaluate_unique_result_tac
   \\ fs[REFS_PRED_FRAME_def]
-  \\ rw[state_component_equality]
   \\ qexists_tac `st2` \\ rw[]
+  THEN1
+   (first_x_assum match_mp_tac
+    \\ ho_match_mp_tac REFS_PRED_Mem_Only_IMP_REF_REL
+    \\ asm_rewrite_tac [])
+  \\ rw[state_component_equality]
+  \\ rw[]
   \\ first_x_assum(qspec_then `F' * GC` ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
@@ -2811,18 +2832,20 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
   \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
   \\ fs[STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
-  \\ fs[] *));
+  \\ fs[]);
 
 val EQ_def = Define `EQ x y <=> x = y`;
 
 val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
   `!exp get_ref loc_name TYPE st_name env H P st.
-  EQ (get_ref st) [] ==>
-  (* Eval env (Var (Short st_name)) (STATE_TYPE st) ==> *)
-  (!loc. EvalSt (write loc_name loc env) st exp P ((\st. RARRAY_REL TYPE loc (get_ref st) * H st),p)) ==>
-  EvalSt env st
-  (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp) P (H,p)`,
-  cheat (*
+     EQ (get_ref st) [] ==>
+     (* Eval env (Var (Short st_name)) (STATE_TYPE st) ==> *)
+     (!loc.
+       EvalSt (write loc_name loc env) st exp P
+         ((\st. RARRAY_REL TYPE loc (get_ref st) * H st),p)) ==>
+     EvalSt env st
+       (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp)
+         P (H,p)`,
   rw[EvalSt_def]
   \\ ntac 9 (rw[Once evaluate_cases])
   \\ fs[PULL_EXISTS]
@@ -2850,8 +2873,18 @@ val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
   \\ fs[merge_env_def, write_def]
   \\ evaluate_unique_result_tac
   \\ fs[REFS_PRED_FRAME_def]
-  \\ rw[state_component_equality]
   \\ qexists_tac `st2` \\ rw[]
+  THEN1
+   (first_x_assum match_mp_tac
+    \\ fs [REFS_PRED_Mem_Only_def,REF_REL_def,SEP_CLAUSES,SEP_EXISTS_THM,
+           REF_def,cell_def,RARRAY_REL_def,RARRAY_def,ARRAY_def,PULL_EXISTS]
+    \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,one_STAR]
+    \\ simp_tac std_ss [cond_STAR,one_STAR,GSYM STAR_ASSOC]
+    \\ rw [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+    \\ rename1 `x <> Mem yy1 yy2 ==> x <> Mem yy3 yy4 ==> _`
+    \\ Cases_on `x = Mem yy1 yy2` \\ fs []
+    \\ Cases_on `x = Mem yy3 yy4` \\ fs [])
+  \\ rw[state_component_equality]
   \\ first_x_assum(qspec_then `F' * GC` ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
@@ -2879,16 +2912,17 @@ val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
   \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
   \\ fs[STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
-  \\ fs[] *));
+  \\ fs[]);
 
 val EvalSt_Alloc = Q.store_thm("EvalSt_Alloc",
   `!exp nexp n xexp x get_farray loc_name TYPE env H P st.
-  EQ (get_farray st) (REPLICATE n x) ==>
-  Eval env nexp (\v. v = Litv (IntLit (&n))) ==>
-  Eval env xexp (TYPE x) ==>
-  (!loc. EvalSt (write loc_name loc env) st exp P ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
-  EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)`,
-  cheat (*
+     EQ (get_farray st) (REPLICATE n x) ==>
+     Eval env nexp (\v. v = Litv (IntLit (&n))) ==>
+     Eval env xexp (TYPE x) ==>
+     (!loc.
+        EvalSt (write loc_name loc env) st exp P
+          ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
+     EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)`,
   rw[EvalSt_def]
   \\ ntac 3 (rw[Once evaluate_cases])
   \\ fs[PULL_EXISTS]
@@ -2929,8 +2963,18 @@ val EvalSt_Alloc = Q.store_thm("EvalSt_Alloc",
   \\ fs[]
   \\ fs[write_def]
   \\ evaluate_unique_result_tac
-  \\ qexists_tac `st2`
-  \\ fs[REFS_PRED_FRAME_def] \\ rw[state_component_equality]
+  \\ fs[REFS_PRED_FRAME_def]
+  \\ qexists_tac `st2` \\ rw []
+  THEN1
+   (first_x_assum match_mp_tac
+    \\ fs [REFS_PRED_Mem_Only_def,REF_REL_def,SEP_CLAUSES,SEP_EXISTS_THM,
+           REF_def,cell_def,ARRAY_REL_def,RARRAY_def,ARRAY_def,PULL_EXISTS]
+    \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,one_STAR]
+    \\ simp_tac std_ss [cond_STAR,one_STAR,GSYM STAR_ASSOC]
+    \\ rw [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+    \\ rename1 `xx <> Mem yy1 yy2 ==> _`
+    \\ Cases_on `xx = Mem yy1 yy2` \\ fs [])
+  \\ rw[state_component_equality]
   \\ first_x_assum(qspec_then `F' * GC` STRIP_ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
@@ -2952,7 +2996,7 @@ val EvalSt_Alloc = Q.store_thm("EvalSt_Alloc",
   \\ first_x_assum(fn x => REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
   \\ fs[STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
-  \\ fs[] *));
+  \\ fs[]);
 
 val Eval_lookup_var = Q.store_thm("Eval_lookup_var",
   `!env vname xv x TYPE. nsLookup env.v (Short vname) = SOME xv ==>
