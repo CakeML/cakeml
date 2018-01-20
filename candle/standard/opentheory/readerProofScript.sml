@@ -27,7 +27,9 @@ val case_eqs =
 val case_eq_thms = save_thm ("case_eq_thms",
   LIST_CONJ (pair_case_eq::map prove_case_eq_thm case_eqs));
 
-(* --- Reader does not raise Clash --- *)
+(* ------------------------------------------------------------------------- *)
+(* Reader does not raise Clash                                               *)
+(* ------------------------------------------------------------------------- *)
 
 (* TODO where? comes from translation of Candle kernel *)
 val find_axiom_not_clash = Q.store_thm("find_axiom_not_clash[simp]",
@@ -135,7 +137,9 @@ val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
   \\ simp[st_ex_bind_def, handle_Fail_def, raise_Fail_def]
   \\ every_case_tac \\ fs [] \\ rw []);
 
-(* --- Use Candle kernel soundness theorem --- *)
+(* ------------------------------------------------------------------------- *)
+(* Refinement invariants                                                     *)
+(* ------------------------------------------------------------------------- *)
 
 (* Refinement invariant for objects *)
 val OBJ_def = tDefine "OBJ" `
@@ -185,134 +189,9 @@ val READER_STATE_CONS_EXTEND = save_thm ("READER_STATE_CONS_EXTEND",
   |> Q.INST [`ds`|->`[d]`]
   |> SIMP_RULE(srw_ss())[]);
 
-val getNum_thm = Q.store_thm("getNum_thm",
-  `getNum obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getNum_def, raise_Fail_def, st_ex_return_def] \\ fs []);
-
-val getName_thm = Q.store_thm("getName_thm",
-  `getName obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getName_def, raise_Fail_def, st_ex_return_def] \\ fs []);
-
-val getList_thm = Q.store_thm("getList_thm",
-  `OBJ defs obj /\
-   getList obj refs = (res, refs')
-   ==>
-   refs = refs' /\ !ls. res = Success ls ==> EVERY (OBJ defs) ls`,
-   Cases_on `obj` \\ rw [getList_def, raise_Fail_def, st_ex_return_def] \\ fs []
-   \\ metis_tac [OBJ_def]);
-
-val getTypeOp_thm = Q.store_thm("getTypeOp_thm",
-  `getTypeOp obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getTypeOp_def, raise_Fail_def, st_ex_return_def] \\ fs []);
-
-val getType_thm = Q.store_thm("getType_thm",
-  `OBJ defs obj /\
-   getType obj refs = (res, refs')
-   ==>
-   refs = refs' /\ !ty. res = Success ty ==> TYPE defs ty`,
-   Cases_on `obj` \\ rw [getType_def, raise_Fail_def, st_ex_return_def]
-   \\ fs [OBJ_def]);
-
-val map_getType_thm = Q.store_thm("map_getType_thm",
-  `!xs refs res refs'.
-     EVERY (OBJ defs) xs /\
-     map getType xs refs = (res, refs')
-     ==>
-     refs = refs' /\ !tys. res = Success tys ==> EVERY (TYPE defs) tys`,
-  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
-  \\ rw [case_eq_thms] \\ fs []
-  \\ imp_res_tac getType_thm \\ fs []
-  \\ first_x_assum drule \\ rw []);
-
-val getConst_thm = Q.store_thm("getConst_thm",
-  `getConst obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getConst_def, raise_Fail_def, st_ex_return_def] \\ fs []);
-
-val getVar_thm = Q.store_thm("getVar_thm",
-  `OBJ defs obj /\
-   getVar obj refs = (res, refs')
-   ==>
-   refs = refs' /\
-   !n ty. res = Success (n, ty) ==> TERM defs (Var n ty) /\ TYPE defs ty`,
-   Cases_on `obj` \\ rw [getVar_def, raise_Fail_def, st_ex_return_def]
-   \\ fs [OBJ_def]);
-
-val getTerm_thm = Q.store_thm("getTerm_thm",
-  `OBJ defs obj /\
-   getTerm obj refs = (res, refs')
-   ==>
-   refs = refs' /\ !tm. res = Success tm ==> TERM defs tm`,
-   Cases_on `obj` \\ rw [getTerm_def, raise_Fail_def, st_ex_return_def] \\ fs []
-   \\ fs [OBJ_def]);
-
-val map_getTerm_thm = Q.store_thm("map_getTerm_thm",
-  `!xs refs res refs'.
-     EVERY (OBJ defs) xs /\
-     map getTerm xs refs = (res, refs')
-     ==>
-     refs = refs' /\ !tms. res = Success tms ==> EVERY (TERM defs) tms`,
-  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
-  \\ rw [case_eq_thms] \\ fs []
-  \\ imp_res_tac getTerm_thm \\ fs []
-  \\ first_x_assum drule \\ rw []);
-
-val getThm_thm = Q.store_thm("getThm_thm",
-  `OBJ defs obj /\
-   getThm obj refs = (res, refs')
-   ==>
-   refs = refs' /\ !thm. res = Success thm ==> THM defs thm`,
-   Cases_on `obj` \\ rw [getThm_def, raise_Fail_def, st_ex_return_def]
-   \\ fs [OBJ_def]);
-
-val pop_thm = Q.store_thm("pop_thm",
-  `READER_STATE defs st /\
-   pop st refs = (res, refs')
-   ==>
-   refs = refs' /\
-   !a st'. res = Success (a, st') ==> OBJ defs a /\ READER_STATE defs st'`,
-   rw [pop_def, raise_Fail_def, st_ex_return_def]
-   \\ every_case_tac \\ fs [READER_STATE_def, state_component_equality]
-   \\ rw [] \\ metis_tac []);
-
-val peek_thm = Q.store_thm("peek_thm",
-  `READER_STATE defs st /\
-   peek st refs = (res, refs')
-   ==>
-   refs = refs' /\ !obj. res = Success obj ==> OBJ defs obj`,
-   rw [peek_def, raise_Fail_def, st_ex_return_def]
-   \\ every_case_tac \\ fs []
-   \\ fs [READER_STATE_def]);
-
-val push_thm = Q.store_thm("push_thm",
-  `READER_STATE defs st /\
-   OBJ defs obj
-   ==>
-   READER_STATE defs (push obj st)`,
-  rw [push_def, READER_STATE_def]);
-
-val push_push_thm = Q.store_thm("push_push_thm",
-  `READER_STATE defs st /\
-   OBJ defs obj1 /\
-   OBJ defs obj2
-   ==>
-   READER_STATE defs (push obj1 (push obj2 st))`,
-  rw [push_def, READER_STATE_def]);
-
-val insert_dict_thm = Q.store_thm("insert_dict_thm",
-  `READER_STATE defs st /\
-   OBJ defs obj
-   ==>
-   READER_STATE defs (insert_dict (Num n) obj st)`,
-  rw [insert_dict_def, READER_STATE_def]
-  \\ fs [bool_case_eq, lookup_insert]
-  \\ metis_tac []);
-
-val delete_dict_thm = Q.store_thm("delete_dict_thm",
-  `READER_STATE defs st
-   ==>
-   READER_STATE defs (delete_dict (Num n) st)`,
-  rw [delete_dict_def, READER_STATE_def]
-  \\ fs [lookup_delete] \\ metis_tac []);
+(* ------------------------------------------------------------------------- *)
+(* Kernel function support theorems (TODO: move)                             *)
+(* ------------------------------------------------------------------------- *)
 
 val first_EVERY = Q.store_thm("first_EVERY",
   `!Q xs x. EVERY P xs /\ first Q xs = SOME x ==> P x`,
@@ -370,144 +249,6 @@ val find_axiom_thm = Q.store_thm("find_axiom_thm",
   \\ qmatch_asmsub_abbrev_tac `first P`
   \\ Q.ISPECL_THEN [`THM defs`, `P`] mp_tac (GEN_ALL first_EVERY)
   \\ disch_then drule \\ rw []);
-
-val getPair_thm = Q.store_thm("getPair_thm",
-  `OBJ defs obj /\
-   getPair obj refs = (res, refs')
-   ==>
-   refs = refs' /\ !a b. res = Success (a, b) ==> OBJ defs a /\ OBJ defs b`,
-  Cases_on `obj` \\ rw [getPair_def, st_ex_return_def, raise_Fail_def] \\ fs []
-  \\ Cases_on `l` \\ fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ rfs []
-  \\ every_case_tac \\ fs []
-  \\ Cases_on `t` \\ fs [getPair_def, st_ex_return_def, raise_Fail_def]
-  \\ rename1 `x::y::z`
-  \\ Cases_on `z` \\ fs [getPair_def, st_ex_return_def, raise_Fail_def]
-  \\ fs [OBJ_def]);
-
-val getTys_thm = Q.store_thm("getTys_thm",
-  `STATE defs refs /\
-   OBJ defs obj /\
-   getTys obj refs = (res, refs')
-   ==>
-   refs = refs' /\ !t ty. res = Success (t, ty) ==> TYPE defs t /\ TYPE defs ty`,
-  Cases_on `obj`
-  \\ fs [getTys_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ TRY (fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ NO_TAC)
-  \\ TRY (PairCases_on `a`) \\ fs []
-  \\ map_every imp_res_tac [getPair_thm, getType_thm, getName_thm] \\ fs [] \\ rw []
-  \\ metis_tac [mk_vartype_thm, STATE_def]);
-
-val map_getTys_thm = Q.store_thm("map_getTys_thm",
-  `!xs refs res refs'.
-     STATE defs refs /\
-     EVERY (OBJ defs) xs /\
-     map getTys xs refs = (res, refs')
-     ==>
-     refs = refs' /\
-     !tys.
-       res = Success tys
-       ==>
-       EVERY (\(ty1,ty2). TYPE defs ty1 /\ TYPE defs ty2) tys`,
-  Induct \\ rw [] \\ pop_assum mp_tac
-  \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
-  \\ fs [case_eq_thms] \\ rw [] \\ fs []
-  \\ imp_res_tac getTys_thm
-  \\ first_x_assum drule \\ fs []
-  \\ rename1 `_ ==> _ z` \\ PairCases_on `z` \\ rw []);
-
-val getTms_thm = Q.store_thm("getTms_thm",
-  `STATE defs refs /\
-   OBJ defs obj /\
-   getTms obj refs = (res, refs')
-   ==>
-   refs = refs' /\
-   !tm var. res = Success (tm, var) ==> TERM defs tm /\ TERM defs var`,
-  Cases_on `obj`
-  \\ fs [getTms_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ TRY (fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ NO_TAC)
-  \\ TRY (PairCases_on `a`) \\ fs []
-  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm] \\ fs []
-  \\ TRY (rename1 `getVar _ _ = (_ v,_)` \\ PairCases_on `v`)
-  \\ TRY (metis_tac [])
-  \\ irule mk_var_thm >- (asm_exists_tac \\ fs [])
-  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm] \\ fs []);
-
-val map_getTms_thm = Q.store_thm("map_getTms_thm",
-  `!xs refs res refs'.
-     STATE defs refs /\
-     EVERY (OBJ defs) xs /\
-     map getTms xs refs = (res, refs')
-     ==>
-     refs = refs' /\
-     !tmvs.
-       res = Success tmvs
-       ==>
-       EVERY (\(tm1,tm2). TERM defs tm1 /\ TERM defs tm2) tmvs`,
-  Induct \\ rw [] \\ pop_assum mp_tac
-  \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
-  \\ fs [case_eq_thms] \\ rw [] \\ fs []
-  \\ imp_res_tac getTms_thm
-  \\ first_x_assum drule \\ fs []
-  \\ rename1 `_ ==> _ z` \\ PairCases_on `z` \\ rw []);
-
-val getNvs_thm = Q.store_thm("getNvs_thm",
-  `STATE defs refs /\
-   OBJ defs obj /\
-   getNvs obj refs = (res, refs')
-   ==>
-   refs = refs' /\
-   !tm1 tm2. res = Success (tm1, tm2) ==> TERM defs tm1 /\ TERM defs tm2`,
-  Cases_on `obj`
-  \\ fs [getNvs_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ TRY (fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ NO_TAC)
-  \\ TRY (PairCases_on `a`) \\ fs []
-  \\ map_every imp_res_tac [getPair_thm, getName_thm, getVar_thm] \\ fs []
-  \\ TRY (rename1 `getVar _ _ = (_ v,_)` \\ PairCases_on `v`)
-  \\ TRY (metis_tac [])
-  \\ irule mk_var_thm
-  \\ TRY (asm_exists_tac \\ fs [])
-  \\ map_every imp_res_tac [getPair_thm, getName_thm, getVar_thm] \\ fs []);
-
-val map_getNvs_thm = Q.store_thm("map_getNvs_thm",
-  `!xs refs res refs'.
-     STATE defs refs /\
-     EVERY (OBJ defs) xs /\
-     map getNvs xs refs = (res, refs')
-     ==>
-     refs = refs' /\
-     !ts. res = Success ts ==> EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) ts`,
-  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
-  \\ rw [case_eq_thms] \\ fs []
-  \\ imp_res_tac getNvs_thm \\ fs []
-  \\ rename1 `_ tm /\ EVERY _ tms`
-  \\ PairCases_on `tm`
-  \\ first_x_assum drule \\ rw []);
-
-val getCns_thm = Q.store_thm("getCns_thm",
-  `STATE defs refs /\
-   TERM defs tm /\
-   getCns (tm, _) refs = (res, refs')
-   ==>
-   refs = refs' /\ !a. res = Success a ==> OBJ defs a`,
-  rw [getCns_def, st_ex_bind_def, st_ex_return_def, UNCURRY]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ metis_tac [dest_var_thm, OBJ_def]);
-
-val map_getCns_thm = Q.store_thm("map_getCns_thm",
-  `!xs refs res refs'.
-     STATE defs refs /\
-     EVERY (TERM defs o FST) xs /\
-     map getCns xs refs = (res, refs')
-     ==>
-     refs = refs' /\ !xs. res = Success xs ==> EVERY (OBJ defs) xs`,
-  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
-  \\ Cases \\ fs []
-  \\ rw [case_eq_thms] \\ fs []
-  \\ imp_res_tac getCns_thm \\ fs []
-  \\ first_x_assum drule \\ rw []);
 
 val assoc_thm = Q.store_thm("assoc_thm",
   `!s l refs res refs'.
@@ -657,6 +398,281 @@ val TERM_Abs = Q.store_thm("TERM_Abs",
   `TERM defs (Abs v e) ==> TERM defs v /\ TERM defs e`,
   rw [TERM_def] \\ fs [term_ok_def]);
 
+(* ------------------------------------------------------------------------- *)
+(* Reader operations preserve invariants                                     *)
+(* ------------------------------------------------------------------------- *)
+
+val next_line_thm = Q.store_thm("next_line_thm",
+  `READER_STATE defs s ==> READER_STATE defs (next_line s)`,
+  rw [READER_STATE_def, next_line_def]);
+
+val getNum_thm = Q.store_thm("getNum_thm",
+  `getNum obj refs = (res, refs') ==> refs = refs'`,
+   Cases_on `obj` \\ rw [getNum_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+
+val getName_thm = Q.store_thm("getName_thm",
+  `getName obj refs = (res, refs') ==> refs = refs'`,
+   Cases_on `obj` \\ rw [getName_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+
+val getList_thm = Q.store_thm("getList_thm",
+  `OBJ defs obj /\
+   getList obj refs = (res, refs')
+   ==>
+   refs = refs' /\ !ls. res = Success ls ==> EVERY (OBJ defs) ls`,
+   Cases_on `obj` \\ rw [getList_def, raise_Fail_def, st_ex_return_def] \\ fs []
+   \\ metis_tac [OBJ_def]);
+
+val getTypeOp_thm = Q.store_thm("getTypeOp_thm",
+  `getTypeOp obj refs = (res, refs') ==> refs = refs'`,
+   Cases_on `obj` \\ rw [getTypeOp_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+
+val getType_thm = Q.store_thm("getType_thm",
+  `OBJ defs obj /\
+   getType obj refs = (res, refs')
+   ==>
+   refs = refs' /\ !ty. res = Success ty ==> TYPE defs ty`,
+   Cases_on `obj` \\ rw [getType_def, raise_Fail_def, st_ex_return_def]
+   \\ fs [OBJ_def]);
+
+val map_getType_thm = Q.store_thm("map_getType_thm",
+  `!xs refs res refs'.
+     EVERY (OBJ defs) xs /\
+     map getType xs refs = (res, refs')
+     ==>
+     refs = refs' /\ !tys. res = Success tys ==> EVERY (TYPE defs) tys`,
+  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ rw [case_eq_thms] \\ fs []
+  \\ imp_res_tac getType_thm \\ fs []
+  \\ first_x_assum drule \\ rw []);
+
+val getConst_thm = Q.store_thm("getConst_thm",
+  `getConst obj refs = (res, refs') ==> refs = refs'`,
+   Cases_on `obj` \\ rw [getConst_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+
+val getVar_thm = Q.store_thm("getVar_thm",
+  `OBJ defs obj /\
+   getVar obj refs = (res, refs')
+   ==>
+   refs = refs' /\
+   !n ty. res = Success (n, ty) ==> TERM defs (Var n ty) /\ TYPE defs ty`,
+   Cases_on `obj` \\ rw [getVar_def, raise_Fail_def, st_ex_return_def]
+   \\ fs [OBJ_def]);
+
+val getTerm_thm = Q.store_thm("getTerm_thm",
+  `OBJ defs obj /\
+   getTerm obj refs = (res, refs')
+   ==>
+   refs = refs' /\ !tm. res = Success tm ==> TERM defs tm`,
+   Cases_on `obj` \\ rw [getTerm_def, raise_Fail_def, st_ex_return_def] \\ fs []
+   \\ fs [OBJ_def]);
+
+val map_getTerm_thm = Q.store_thm("map_getTerm_thm",
+  `!xs refs res refs'.
+     EVERY (OBJ defs) xs /\
+     map getTerm xs refs = (res, refs')
+     ==>
+     refs = refs' /\ !tms. res = Success tms ==> EVERY (TERM defs) tms`,
+  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ rw [case_eq_thms] \\ fs []
+  \\ imp_res_tac getTerm_thm \\ fs []
+  \\ first_x_assum drule \\ rw []);
+
+val getThm_thm = Q.store_thm("getThm_thm",
+  `OBJ defs obj /\
+   getThm obj refs = (res, refs')
+   ==>
+   refs = refs' /\ !thm. res = Success thm ==> THM defs thm`,
+   Cases_on `obj` \\ rw [getThm_def, raise_Fail_def, st_ex_return_def]
+   \\ fs [OBJ_def]);
+
+val pop_thm = Q.store_thm("pop_thm",
+  `READER_STATE defs st /\
+   pop st refs = (res, refs')
+   ==>
+   refs = refs' /\
+   !a st'. res = Success (a, st') ==> OBJ defs a /\ READER_STATE defs st'`,
+   rw [pop_def, raise_Fail_def, st_ex_return_def]
+   \\ every_case_tac \\ fs [READER_STATE_def, state_component_equality]
+   \\ rw [] \\ metis_tac []);
+
+val peek_thm = Q.store_thm("peek_thm",
+  `READER_STATE defs st /\
+   peek st refs = (res, refs')
+   ==>
+   refs = refs' /\ !obj. res = Success obj ==> OBJ defs obj`,
+   rw [peek_def, raise_Fail_def, st_ex_return_def]
+   \\ every_case_tac \\ fs []
+   \\ fs [READER_STATE_def]);
+
+val push_thm = Q.store_thm("push_thm",
+  `READER_STATE defs st /\
+   OBJ defs obj
+   ==>
+   READER_STATE defs (push obj st)`,
+  rw [push_def, READER_STATE_def]);
+
+val push_push_thm = Q.store_thm("push_push_thm",
+  `READER_STATE defs st /\
+   OBJ defs obj1 /\
+   OBJ defs obj2
+   ==>
+   READER_STATE defs (push obj1 (push obj2 st))`,
+  rw [push_def, READER_STATE_def]);
+
+val insert_dict_thm = Q.store_thm("insert_dict_thm",
+  `READER_STATE defs st /\
+   OBJ defs obj
+   ==>
+   READER_STATE defs (insert_dict (Num n) obj st)`,
+  rw [insert_dict_def, READER_STATE_def]
+  \\ fs [bool_case_eq, lookup_insert]
+  \\ metis_tac []);
+
+val delete_dict_thm = Q.store_thm("delete_dict_thm",
+  `READER_STATE defs st
+   ==>
+   READER_STATE defs (delete_dict (Num n) st)`,
+  rw [delete_dict_def, READER_STATE_def]
+  \\ fs [lookup_delete] \\ metis_tac []);
+
+val getPair_thm = Q.store_thm("getPair_thm",
+  `OBJ defs obj /\
+   getPair obj refs = (res, refs')
+   ==>
+   refs = refs' /\ !a b. res = Success (a, b) ==> OBJ defs a /\ OBJ defs b`,
+  Cases_on `obj` \\ rw [getPair_def, st_ex_return_def, raise_Fail_def] \\ fs []
+  \\ Cases_on `l` \\ fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ rfs []
+  \\ every_case_tac \\ fs []
+  \\ Cases_on `t` \\ fs [getPair_def, st_ex_return_def, raise_Fail_def]
+  \\ rename1 `x::y::z`
+  \\ Cases_on `z` \\ fs [getPair_def, st_ex_return_def, raise_Fail_def]
+  \\ fs [OBJ_def]);
+
+val getTys_thm = Q.store_thm("getTys_thm",
+  `STATE defs refs /\
+   OBJ defs obj /\
+   getTys obj refs = (res, refs')
+   ==>
+   refs = refs' /\ !t ty. res = Success (t, ty) ==> TYPE defs t /\ TYPE defs ty`,
+  Cases_on `obj`
+  \\ fs [getTys_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ TRY (fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ NO_TAC)
+  \\ TRY (PairCases_on `a`) \\ fs []
+  \\ map_every imp_res_tac [getPair_thm, getType_thm, getName_thm] \\ fs [] \\ rw []
+  \\ metis_tac [mk_vartype_thm, STATE_def]);
+
+val map_getTys_thm = Q.store_thm("map_getTys_thm",
+  `!xs refs res refs'.
+     STATE defs refs /\
+     EVERY (OBJ defs) xs /\
+     map getTys xs refs = (res, refs')
+     ==>
+     refs = refs' /\
+     !tys.
+       res = Success tys
+       ==>
+       EVERY (\(ty1,ty2). TYPE defs ty1 /\ TYPE defs ty2) tys`,
+  Induct \\ rw [] \\ pop_assum mp_tac
+  \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ fs [case_eq_thms] \\ rw [] \\ fs []
+  \\ imp_res_tac getTys_thm
+  \\ first_x_assum drule \\ fs []
+  \\ rename1 `_ ==> _ z` \\ PairCases_on `z` \\ rw []);
+
+val getTms_thm = Q.store_thm("getTms_thm",
+  `STATE defs refs /\
+   OBJ defs obj /\
+   getTms obj refs = (res, refs')
+   ==>
+   refs = refs' /\
+   !tm var. res = Success (tm, var) ==> TERM defs tm /\ TERM defs var`,
+  Cases_on `obj`
+  \\ fs [getTms_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ TRY (fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ NO_TAC)
+  \\ TRY (PairCases_on `a`) \\ fs []
+  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm] \\ fs []
+  \\ TRY (rename1 `getVar _ _ = (_ v,_)` \\ PairCases_on `v`)
+  \\ TRY (metis_tac [])
+  \\ irule mk_var_thm >- (asm_exists_tac \\ fs [])
+  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm] \\ fs []);
+
+val map_getTms_thm = Q.store_thm("map_getTms_thm",
+  `!xs refs res refs'.
+     STATE defs refs /\
+     EVERY (OBJ defs) xs /\
+     map getTms xs refs = (res, refs')
+     ==>
+     refs = refs' /\
+     !tmvs.
+       res = Success tmvs
+       ==>
+       EVERY (\(tm1,tm2). TERM defs tm1 /\ TERM defs tm2) tmvs`,
+  Induct \\ rw [] \\ pop_assum mp_tac
+  \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ fs [case_eq_thms] \\ rw [] \\ fs []
+  \\ imp_res_tac getTms_thm
+  \\ first_x_assum drule \\ fs []
+  \\ rename1 `_ ==> _ z` \\ PairCases_on `z` \\ rw []);
+
+val getNvs_thm = Q.store_thm("getNvs_thm",
+  `STATE defs refs /\
+   OBJ defs obj /\
+   getNvs obj refs = (res, refs')
+   ==>
+   refs = refs' /\
+   !tm1 tm2. res = Success (tm1, tm2) ==> TERM defs tm1 /\ TERM defs tm2`,
+  Cases_on `obj`
+  \\ fs [getNvs_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ TRY (fs [getPair_def, st_ex_return_def, raise_Fail_def] \\ NO_TAC)
+  \\ TRY (PairCases_on `a`) \\ fs []
+  \\ map_every imp_res_tac [getPair_thm, getName_thm, getVar_thm] \\ fs []
+  \\ TRY (rename1 `getVar _ _ = (_ v,_)` \\ PairCases_on `v`)
+  \\ TRY (metis_tac [])
+  \\ irule mk_var_thm
+  \\ TRY (asm_exists_tac \\ fs [])
+  \\ map_every imp_res_tac [getPair_thm, getName_thm, getVar_thm] \\ fs []);
+
+val map_getNvs_thm = Q.store_thm("map_getNvs_thm",
+  `!xs refs res refs'.
+     STATE defs refs /\
+     EVERY (OBJ defs) xs /\
+     map getNvs xs refs = (res, refs')
+     ==>
+     refs = refs' /\
+     !ts. res = Success ts ==> EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) ts`,
+  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ rw [case_eq_thms] \\ fs []
+  \\ imp_res_tac getNvs_thm \\ fs []
+  \\ rename1 `_ tm /\ EVERY _ tms`
+  \\ PairCases_on `tm`
+  \\ first_x_assum drule \\ rw []);
+
+val getCns_thm = Q.store_thm("getCns_thm",
+  `STATE defs refs /\
+   TERM defs tm /\
+   getCns (tm, _) refs = (res, refs')
+   ==>
+   refs = refs' /\ !a. res = Success a ==> OBJ defs a`,
+  rw [getCns_def, st_ex_bind_def, st_ex_return_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ metis_tac [dest_var_thm, OBJ_def]);
+
+val map_getCns_thm = Q.store_thm("map_getCns_thm",
+  `!xs refs res refs'.
+     STATE defs refs /\
+     EVERY (TERM defs o FST) xs /\
+     map getCns xs refs = (res, refs')
+     ==>
+     refs = refs' /\ !xs. res = Success xs ==> EVERY (OBJ defs) xs`,
+  Induct \\ once_rewrite_tac [map_def] \\ fs [st_ex_return_def, st_ex_bind_def]
+  \\ Cases \\ fs []
+  \\ rw [case_eq_thms] \\ fs []
+  \\ imp_res_tac getCns_thm \\ fs []
+  \\ first_x_assum drule \\ rw []);
+
 (* imp_res_tac is not useful when the monadic functions are too deep *)
 fun drule_or_nil thm =
   (drule (GEN_ALL thm) \\ rpt (disch_then drule \\ fs []) \\ rw []) ORELSE
@@ -686,6 +702,10 @@ val BETA_CONV_thm = Q.store_thm("BETA_CONV_thm",
   \\ drule_or_nil BETA_thm
   \\ `EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) [(t0,b)]` by fs []
   \\ drule_or_nil INST_thm);
+
+(* ------------------------------------------------------------------------- *)
+(* Reader preserves invariants                                               *)
+(* ------------------------------------------------------------------------- *)
 
 val readLine_thm = Q.store_thm("readLine_thm",
   `STATE defs refs /\
@@ -1052,10 +1072,6 @@ val readLine_thm = Q.store_thm("readLine_thm",
   \\ qexists_tac `[]` \\ fs [] \\ rw []
   \\ irule push_thm \\ fs [OBJ_def]);
 
-val next_line_thm = Q.store_thm("next_line_thm",
-  `READER_STATE defs s ==> READER_STATE defs (next_line s)`,
-  rw [READER_STATE_def, next_line_def]);
-
 val readLines_thm = Q.store_thm("readLines_thm",
   `!lines st res refs refs' defs.
      STATE defs refs /\
@@ -1079,7 +1095,9 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ disch_then drule \\ rw []
   \\ asm_exists_tac \\ fs []);
 
-(* --- Custom reader context is ok --- *)
+(* ------------------------------------------------------------------------- *)
+(* Ok to use custom cotext/state                                             *)
+(* ------------------------------------------------------------------------- *)
 
 (* TODO move -- ml_kernel/ somewhere? *)
 val init_refs_def = Define `
@@ -1112,6 +1130,50 @@ val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
   \\ sg `READER_STATE defs init_state`
   >- fs [init_state_def, READER_STATE_def, lookup_def]
   \\ metis_tac [readLines_thm]);
+
+(* ------------------------------------------------------------------------- *)
+(* Program specification (shared)                                            *)
+(* ------------------------------------------------------------------------- *)
+
+val process_line_def = Define`
+  process_line st refs ln =
+    if invalid_line ln then (INL st, refs) else
+    case readLine (fix_fun_typ (str_prefix ln)) st refs
+    of (Success st, refs) => (INL st, refs)
+     | (Failure (Fail s), refs) => (INR s, refs)`;
+
+val process_lines_def = Define`
+  (process_lines fd st refs fs [] =
+    STDIO (add_stdout (fastForwardFD fs fd) (msg_success (lines_read st))) *
+    HOL_STORE refs) ∧
+  (process_lines fd st refs fs (ln::ls) =
+   case process_line st refs ln of
+   | (INL st,refs) =>
+       process_lines fd (next_line st) refs (lineForwardFD fs fd) ls
+   | (INR e,refs)  =>
+       STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) *
+       HOL_STORE refs)`;
+
+val read_file_def = Define`
+  read_file fs refs fnm =
+    (if inFS_fname fs (File fnm) then
+       (case readLines (all_lines fs (File fnm)) init_state refs of
+        | (Success (_,n), refs) => (add_stdout fs (msg_success n), refs)
+        | (Failure (Fail e), refs) => (add_stderr fs e, refs))
+     else (add_stderr fs (msg_bad_name fnm), refs))`;
+
+val set_reader_ctxt_no_exc = Q.store_thm("set_reader_ctxt_no_exc[simp]",
+  `set_reader_ctxt () refs <> (Failure err, refs')`,
+  rw [set_reader_ctxt_def, st_ex_bind_def, st_ex_return_def,
+      get_the_term_constants_def, get_the_type_constants_def,
+      get_the_context_def, set_the_term_constants_def,
+      set_the_type_constants_def, set_the_context_def]);
+
+val reader_main_def = Define `
+   reader_main fs refs cl =
+       case cl of
+         [fnm] => FST (read_file fs (SND (set_reader_ctxt () refs)) fnm)
+       | _ => add_stderr fs msg_usage`;
 
 val _ = export_theory();
 

@@ -117,38 +117,19 @@ val set_reader_ctxt_spec = save_thm (
   "set_reader_ctxt_spec",
   mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "set_reader_ctxt_v_thm"));
 
-(* --- CakeML wrapper ------------------------------------------------------ *)
-
-val msg_success_def = Define `
-  msg_success lines = concat
-    [ strlit"OK! "
-    ; mlint$toString lines
-    ; strlit" lines.\n" ]`
-
-val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
-
-val msg_bad_name_def = Define `
-  msg_bad_name s = concat
-    [strlit"Bad filename: "; s; strlit".\n"]
-  `;
-
 val _ = translate msg_success_def
 val _ = translate msg_usage_def
 val _ = translate msg_bad_name_def
+val _ = translate str_prefix_def;
+val _ = translate invalid_line_def;
 
-val process_line_def = Define`
-  process_line st refs ln =
-    if invalid_line ln then (INL st, refs) else
-    case readLine (fix_fun_typ (str_prefix ln)) st refs
-    of (Success st, refs) => (INL st, refs)
-     | (Failure (Fail s), refs) => (INR s, refs)`;
-
-val r = translate str_prefix_def;
-
-val r = translate invalid_line_def;
-val r = Q.prove(
+val _ = Q.prove(
   `∀x. invalid_line_side x ⇔ T`,
   EVAL_TAC \\ rw[]) |> update_precondition;
+
+(* ------------------------------------------------------------------------- *)
+(* CakeML wrapper                                                            *)
+(* ------------------------------------------------------------------------- *)
 
 val _ = (append_prog o process_topdecs) `
   fun process_line st0 ln =
@@ -195,13 +176,6 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ xlet_auto \\ xsimpl
   \\ xcon \\ xsimpl
   \\ fs[SUM_TYPE_def] );
-
-val process_lines_def = Define`
-  (process_lines fd st refs fs [] = STDIO (add_stdout (fastForwardFD fs fd) (msg_success (lines_read st))) * HOL_STORE refs) ∧
-  (process_lines fd st refs fs (ln::ls) =
-   case process_line st refs ln of
-   | (INL st,refs) => process_lines fd (next_line st) refs (lineForwardFD fs fd) ls
-   | (INR e,refs)  => STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) * HOL_STORE refs)`;
 
 val _ = (append_prog o process_topdecs) `
   fun process_lines ins st0 =
@@ -310,7 +284,6 @@ val _ = (append_prog o process_topdecs) `
       process_lines ins init_state;
       TextIO.close ins
     end
-    (* Presuming that openIn will raise only this *)
     handle TextIO.BadFileName =>
       TextIO.output TextIO.stdErr (msg_bad_name file)`;
 
@@ -348,14 +321,6 @@ val readLines_process_lines = Q.store_thm("readLines_process_lines",
   \\ rw [] \\ fs []
   \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
   \\ metis_tac []);
-
-val read_file_def = Define`
-  read_file fs refs fnm =
-    (if inFS_fname fs (File fnm) then
-       (case readLines (all_lines fs (File fnm)) init_state refs of
-        | (Success (_,n), refs) => (add_stdout fs (msg_success n), refs)
-        | (Failure (Fail e), refs) => (add_stderr fs e, refs))
-     else (add_stderr fs (msg_bad_name fnm), refs))`;
 
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
@@ -449,24 +414,11 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ first_x_assum (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs 0`] mp_tac)
   \\ xsimpl);
 
-val set_reader_ctxt_no_exc = Q.store_thm("set_reader_ctxt_no_exc[simp]",
-  `set_reader_ctxt () refs <> (Failure err, refs')`,
-  rw [set_reader_ctxt_def, st_ex_bind_def, st_ex_return_def,
-      get_the_term_constants_def, get_the_type_constants_def,
-      get_the_context_def, set_the_term_constants_def,
-      set_the_type_constants_def, set_the_context_def]);
-
 val _ = (append_prog o process_topdecs) `
   fun reader_main u =
     case CommandLine.arguments () of
       [file] => (set_reader_ctxt (); read_file file)
     | _      => TextIO.output TextIO.stdErr msg_usage`;
-
-val reader_main_def = Define `
-   reader_main fs refs cl =
-       case cl of
-         [fnm] => FST (read_file fs (SND (set_reader_ctxt () refs)) fnm)
-       | _ => add_stderr fs msg_usage`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
   `hasFreeFD fs
@@ -536,13 +488,6 @@ val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
   \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
   \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
   \\ fs[]);
-
-val init_refs_def = Define`
-  init_refs =
-   <|the_type_constants := init_type_constants;
-     the_term_constants := init_term_constants;
-     the_axioms := init_axioms;
-     the_context := init_context|>`;
 
 val name = "reader_main"
 val spec =

@@ -1,5 +1,12 @@
-open preamble readerTheory readerIOTheory readerProofTheory ml_monadBaseTheory
+open preamble
+     readerTheory readerProofTheory
+     readerIOTheory
      holKernelTheory holKernelProofTheory
+     ml_monadBaseTheory
+
+(* ------------------------------------------------------------------------- *)
+(* Monadic I/O reader preserves invariants                                   *)
+(* ------------------------------------------------------------------------- *)
 
 val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
   `READER_STATE defs s /\
@@ -12,9 +19,6 @@ val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
   rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
       case_eq_thms]
   \\ metis_tac [readLine_thm]);
-
-val readLines_def = readerIOTheory.readLines_def
-val readLines_ind = readerIOTheory.readLines_ind
 
 val readLines_thm = Q.store_thm("readLines_thm",
   `!s lines res c c' defs.
@@ -44,6 +48,7 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ rpt (disch_then drule) \\ rw []
   \\ metis_tac []);
 
+(* TODO move *)
 val READER_STATE_init_state = Q.store_thm("READER_STATE_init_state[simp]",
   `READER_STATE defs init_state`,
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]);
@@ -69,22 +74,10 @@ val reader_main_thm = Q.store_thm("reader_main_thm",
   \\ disch_then (qspecl_then [`init_state`,`ls`] mp_tac) \\ fs [] \\ rw []
   \\ asm_exists_tac \\ fs []);
 
-(*
+(* ------------------------------------------------------------------------- *)
+(* Monadic I/O reader satisfies I/O specification                            *)
+(* ------------------------------------------------------------------------- *)
 
- `VALID_HEAP s /\
-  STDIO c.stdio s /\
-  HOL_REFS c.holrefs s /\
-  CL c.cl s /\
-  reader_main () (c with holrefs := init_refs) = (res, c')
-  ==>
-  res = Success () /\
-  STDIO c'.stdio s /\
-  HOL_REFS c'.holrefs s /\
-  CL c'.cl s`
-
-  ???
-
-*)
 
 val _ = export_theory ();
 

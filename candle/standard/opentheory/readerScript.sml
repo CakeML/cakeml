@@ -533,12 +533,16 @@ val readLine_def = Define`
             return (push (Name (implode (FRONT (c::cs)))) s)
         | _ => failwith (strlit"unrecognised input: " ^ line)`;
 
+(* ------------------------------------------------------------------------- *)
+(* Informative error messages                                                *)
+(* ------------------------------------------------------------------------- *)
+
 val line_Fail_def = Define `
   line_Fail s msg =
     (mlstring$concat
       [ strlit"Failure on line "
       ; toString (current_line s)
-      ; strlit": "
+      ; strlit":\n"
       ; msg; strlit"\n"])`;
 
 val fix_fun_typ_def = Define `
@@ -554,6 +558,25 @@ val str_prefix_def = Define `
 
 val invalid_line_def = Define`
   invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"`;
+
+(* TODO this could dump the theorem list *)
+val msg_success_def = Define `
+  msg_success lines = concat
+    [ strlit"OK! "
+    ; mlint$toString lines
+    ; strlit" lines.\n" ]`
+
+val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
+
+val msg_bad_name_def = Define `
+  msg_bad_name s = concat
+    [strlit"Bad filename: "; s; strlit".\n"]
+  `;
+
+
+(* ------------------------------------------------------------------------- *)
+(* Using the reader                                                          *)
+(* ------------------------------------------------------------------------- *)
 
 val readLines_def = Define `
   readLines lls s =
@@ -580,7 +603,6 @@ val ind_ty_def = Define `ind_ty = NewType ind_name 0`;
 val mk_reader_ctxt_def = Define `
   mk_reader_ctxt ctxt = select_const :: ind_ty :: ctxt`
 
-(* TODO monadic translator wont accept this unless its a function? *)
 val set_reader_ctxt = Define `
   set_reader_ctxt (): unit holKernelPmatch$M =
     do
