@@ -158,7 +158,7 @@ val evaluate_list_SING = Q.prove(
 val EvalM_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM env st (App Opapp [Var (Short "print"); exp])
+    EvalM ro env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (print x))
       (STDIO,p:'ffi ffi_proj)``,
   rw [EvalM_def, Eval_def]
@@ -210,25 +210,11 @@ val IMP_STAR_GC = store_thm("IMP_STAR_GC",
   \\ fs [set_sepTheory.SEP_EXISTS_THM]
   \\ qexists_tac `K T` \\ fs []);
 
-val NOT_REFS_PRED_Mem_Only_STATE_STORE = prove(
-  ``~REFS_PRED_Mem_Only STATE_STORE``,
-  fs [fetch "-" "STATE_STORE_def",
-      TextIOProofTheory.STDIO_def,
-      TextIOProofTheory.IOFS_def,
-      cfHeapsBaseTheory.IOx_def,
-      cfHeapsBaseTheory.IO_def,
-      set_sepTheory.SEP_EXISTS_THM,
-      fsFFITheory.fs_ffi_part_def,
-      ml_monad_translatorBaseTheory.REFS_PRED_Mem_Only_def,
-      set_sepTheory.SEP_CLAUSES,PULL_EXISTS]
-  \\ CCONTR_TAC \\ fs [METIS_PROVE [] ``~x \/ y <=> (x ==> y)``]
-  \\ cheat (* hmmm *));
-
 val stdio_INTRO = prove(
-  ``(!st. EvalM env st exp
+  ``(!st. EvalM ro env st exp
             (MONAD UNIT_TYPE UNIT_TYPE f)
             (STDIO,p:'ffi ffi_proj)) ==>
-    (!st. EvalM env st exp
+    (!st. EvalM ro env st exp
             (MONAD UNIT_TYPE UNIT_TYPE (stdio f))
             (STATE_STORE,p:'ffi ffi_proj))``,
   fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
@@ -248,18 +234,20 @@ val stdio_INTRO = prove(
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
   \\ Cases_on `f st.stdio` \\ fs []
-  \\ every_case_tac \\ fs [NOT_REFS_PRED_Mem_Only_STATE_STORE]
+  \\ every_case_tac
   \\ rveq \\ fs []
   \\ fs [fetch "-" "STATE_STORE_def"]
   \\ rw []
   \\ first_x_assum (qspec_then
        `F' * REF_REL NUM the_num_ref st.the_num_ref` mp_tac)
-  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]);
+  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
+  \\ fs[ml_monadBaseTheory.liftM_def]
+  \\ rw[]);
 
 val EvalM_stdio_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM env st (App Opapp [Var (Short "print"); exp])
+    EvalM ro env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (stdio (print x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print]);
@@ -273,6 +261,6 @@ val hello_def = Define `
 val res = m_translate hello_def;
 
 val hello_app_thm = save_thm("hello_app_thm",
-  cfMonadLib.mk_app_of_ArrowP ``p:'ffi ffi_proj`` res |> SPEC_ALL);
+  cfMonadLib.mk_app_of_ArrowP res |> SPEC_ALL);
 
 val _ = export_theory ();
