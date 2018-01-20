@@ -73,10 +73,6 @@ fun mk_app_of_ArrowP ffi spec = let
     (*val p_var = get_term "p"*)
     val H_def = first (fn x => same_const H (concl x |> strip_forall |> snd |> lhs)) (DB.find ((dest_const H |> fst) ^"_def") |> List.map (fst o snd))
 
-    (* Prove the assumptions on the STATE heap predicate *)
-    val REFS_PRED_Mem_Only_thm = prove_Hpred_Mem_Only H_def
-    fun remove_mem_only_assum th = MP th REFS_PRED_Mem_Only_thm
-
     (* Create variables for the HOL and CakeML parameters,
        retrieve the refinement invariants *)
     fun get_params arrow_RI n = let
@@ -138,8 +134,7 @@ fun mk_app_of_ArrowP ffi spec = let
     val lemma = if has_EqSt then ArrowP_MONAD_EqSt_to_app
 		else ArrowP_MONAD_to_app
     val th = ISPECL[last_ri,ret_inv,exn_inv,current_f,gv_var,H,last_x,
-		    last_xv,state_var,ffi] lemma
-		   |> remove_mem_only_assum  |> UNDISCH
+		    last_xv,state_var,ffi] lemma |> UNDISCH
     val Q = concl th |> rand |> rand
     val Q_abs = mk_abs(state_var, Q)
 
@@ -155,7 +150,7 @@ fun mk_app_of_ArrowP ffi spec = let
 	val assum = GEN gv_var th
 	val imp_th = ISPECL[A,B,f_tm,fv_var,x,xv,xv2,xvl,H,
 			    Q_abs,state_var,ffi] ArrowP_PURE_to_app
-			|> remove_mem_only_assum |> UNDISCH |> BETA_RULE
+			|> UNDISCH |> BETA_RULE
 	val th = MATCH_MP imp_th assum |> SPEC_ALL |> Thm.INST [fv_var |-> gv_var]
     in mk_app_rec th x_info end
       | mk_app_rec th [] = th

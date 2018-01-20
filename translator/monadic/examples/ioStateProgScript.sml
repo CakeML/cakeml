@@ -202,6 +202,28 @@ val EvalM_print = prove(
 
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
+val IMP_STAR_GC = store_thm("IMP_STAR_GC",
+  ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
+  fs [set_sepTheory.STAR_def]
+  \\ rw[] \\ asm_exists_tac \\ fs []
+  \\ EVAL_TAC
+  \\ fs [set_sepTheory.SEP_EXISTS_THM]
+  \\ qexists_tac `K T` \\ fs []);
+
+val NOT_REFS_PRED_Mem_Only_STATE_STORE = prove(
+  ``~REFS_PRED_Mem_Only STATE_STORE``,
+  fs [fetch "-" "STATE_STORE_def",
+      TextIOProofTheory.STDIO_def,
+      TextIOProofTheory.IOFS_def,
+      cfHeapsBaseTheory.IOx_def,
+      cfHeapsBaseTheory.IO_def,
+      set_sepTheory.SEP_EXISTS_THM,
+      fsFFITheory.fs_ffi_part_def,
+      ml_monad_translatorBaseTheory.REFS_PRED_Mem_Only_def,
+      set_sepTheory.SEP_CLAUSES,PULL_EXISTS]
+  \\ CCONTR_TAC \\ fs [METIS_PROVE [] ``~x \/ y <=> (x ==> y)``]
+  \\ cheat (* hmmm *));
+
 val stdio_INTRO = prove(
   ``(!st. EvalM env st exp
             (MONAD UNIT_TYPE UNIT_TYPE f)
@@ -209,11 +231,16 @@ val stdio_INTRO = prove(
     (!st. EvalM env st exp
             (MONAD UNIT_TYPE UNIT_TYPE (stdio f))
             (STATE_STORE,p:'ffi ffi_proj))``,
-  cheat (*
   fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
   \\ first_x_assum (qspecl_then [`st.stdio`,`s`] mp_tac)
   \\ impl_tac
-  THEN1 fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
+  THEN1 (fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
+         \\ fs [fetch "-" "STATE_STORE_def"]
+         \\ qabbrev_tac `a = STDIO st.stdio`
+         \\ qabbrev_tac `b = GC`
+         \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
+         \\ last_x_assum mp_tac
+         \\ metis_tac [IMP_STAR_GC])
   \\ disch_then (qspec_then `junk` strip_assume_tac)
   \\ asm_exists_tac \\ fs []
   (*\\ qexists_tac `st with stdio := st2`*)
@@ -221,7 +248,13 @@ val stdio_INTRO = prove(
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
   \\ Cases_on `f st.stdio` \\ fs []
-  \\ every_case_tac \\ fs [] *));
+  \\ every_case_tac \\ fs [NOT_REFS_PRED_Mem_Only_STATE_STORE]
+  \\ rveq \\ fs []
+  \\ fs [fetch "-" "STATE_STORE_def"]
+  \\ rw []
+  \\ first_x_assum (qspec_then
+       `F' * REF_REL NUM the_num_ref st.the_num_ref` mp_tac)
+  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]);
 
 val EvalM_stdio_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
@@ -237,12 +270,9 @@ val _ = ignore_type ``:IO_fs``;
 val hello_def = Define `
   hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M`
 
-val def = hello_def;
+val res = m_translate hello_def;
 
-val res = m_translate def;
-
-(*
-cfMonadLib.mk_app_of_ArrowP ``p:'ffi ffi_proj`` res
-*)
+val hello_app_thm = save_thm("hello_app_thm",
+  cfMonadLib.mk_app_of_ArrowP ``p:'ffi ffi_proj`` res |> SPEC_ALL);
 
 val _ = export_theory ();
