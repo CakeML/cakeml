@@ -87,6 +87,8 @@ val PreImp_EvalM_abs = get_term "PreImp_EvalM_abs"
 
 (* ---- *)
 
+val ArrowM_ro_tm = mk_comb(ArrowM_const, mk_var("ro", bool_ty));
+
 fun mk_write name v env = ISPECL[name,v,env] write_def
                                 |> concl |> rator |> rand
 
@@ -306,7 +308,7 @@ fun get_arrow_type_inv ty =
     val i1 = get_arrow_type_inv ty1 handle HOL_ERR _ =>
              (mk_PURE (get_type_inv ty1))
     val i2 = get_arrow_type_inv ty2
-  in my_list_mk_comb (ArrowM_const, [!H,i1,i2]) end;
+  in my_list_mk_comb (ArrowM_ro_tm, [!H,i1,i2]) end;
 
 fun smart_get_type_inv ty =
   if not (can dest_monad_type ty) andalso
@@ -315,8 +317,8 @@ fun smart_get_type_inv ty =
     in ONCE_REWRITE_CONV [ArrowM_def] inv |> concl |> rand |> rand end
   else get_type_inv ty;
 
-val ArrowP_PURE_pat = get_term "ArrowP PURE";
-val ArrowP_EqSt_pat = get_term "ArrowP EqSt";
+val ArrowP_PURE_pat = get_term "ArrowP ro PURE";
+val ArrowP_EqSt_pat = get_term "ArrowP ro EqSt";
 fun get_EqSt_var tm =
   if can (match_term ArrowP_PURE_pat) tm
   then get_EqSt_var ((rand o rand) tm)
@@ -349,6 +351,7 @@ fun get_Eval_exp e = if same_const (strip_comb e |> fst) Eval_const then e |> ra
 val get_EvalM_state = rand o rator o rator o rator;
 val get_EvalM_env = rand o rator o rator o rator o rator o concl o UNDISCH_ALL
 val get_EvalM_exp = rand o rator o rator o concl o UNDISCH_ALL
+val get_EvalM_ro = rand o rator o rator o rator o rator o rator o concl o UNDISCH_ALL
 (* ---- *)
 
 (* Prove the specifications for the exception handling *)
@@ -2008,7 +2011,7 @@ fun m2deep tm =
       val eq_st = ISPECL [pure, state_eq_var] EqSt_def
                          |> concl |> dest_eq |> fst
     in eq_st end
-    fun mk_m_arrow x y = my_list_mk_comb(ArrowM_const, [!H,x,y])
+    fun mk_m_arrow x y = my_list_mk_comb(ArrowM_ro_tm, [!H,x,y])
     fun mk_inv [] res = res
       | mk_inv (x::xs) res = mk_inv xs (mk_m_arrow (mk_fix x) res)
     val res = mk_m_arrow (mk_fix_st (hd xs)) (get_m_type_inv (type_of tm))
@@ -2052,7 +2055,7 @@ fun EvalM_P_CONV CONV tm =
 
 (* Remove Eq *)
 local
-    val PURE_ArrowP_Eq_tm = get_term "PURE ArrowP eq";
+    val PURE_ArrowP_Eq_tm = get_term "PURE ArrowP ro eq";
     fun remove_Eq_aux th = let
         val th = RW [ArrowM_def] th
         val pat = PURE_ArrowP_Eq_tm
@@ -2540,7 +2543,7 @@ fun m_translate_main (* m_translate *) def = (let
 val i = 1
 val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
         install_rec_pattern lhs fname ml_fname) info
-val (fname,ml_name,lhs,tm,def) = el i info
+val (fname,ml_name,_,tm,def) = el i info
 can (find_term is_arb) (tm |> rand |> rator)
 *)
     val _ = print ("Translating " ^ msg ^ "\n")
@@ -3156,6 +3159,7 @@ fun m_translate_run def =
         val result = MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) result
         val st = concl result |> get_EvalM_state
         val result = INST [st |-> state] result
+	val result = INST [get_EvalM_ro result |-> T] result
       in check_inv "var" tm result end
     val params_evals = List.map var_create_Eval monad_params
 
@@ -3168,13 +3172,22 @@ fun m_translate_run def =
                  |> fst |> dest_type |> snd |> hd
       in INST_TYPE [ty |-> !refs_type] th end
     val monad_th =
-      MATCH_MP (inst_state_type Eval_IMP_PURE) monad_th
+      MATCH_MP (inst_state_type Eval_IMP_PURE_EvalM_T) monad_th
       |> ISPEC (!H)
       |> PURE_REWRITE_RULE[GSYM ArrowM_def]
       |> abbrev_nsLookup_code
     val monad_th = INST [concl monad_th |> get_EvalM_state |-> state] monad_th
 
+    (* Instantiate the ro boolean to T *)
+    val ro_var = concl monad_th |> rator |> rand |> strip_comb |> snd |> hd
+    val monad_th = if is_var ro_var then INST [ro_var |-> T] monad_th else monad_th
+
     (* Insert the parameters *)
+(* TODO HERE *)
+(*
+val x = hd params_evals;
+val th = monad_th;
+*)
     val monad_th = inst_gen_eq_vars2 state monad_th
                    handle HOL_ERR _ => monad_th
     fun insert_param (x, th) =
