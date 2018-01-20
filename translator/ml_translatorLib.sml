@@ -1029,8 +1029,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
       (markerLib.move_conj_right p
       THENC
       (REWR_CONV (GSYM CONJ_ASSOC)))
-    val no_closure_pat = ``∀x v. p x v  ⇒ no_closures v``
-    val types_match_pat = ``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``
+    val no_closure_pat = get_term "no_closure_pat"
+    val types_match_pat = get_term "types_match_pat"
     val pull_no_closures = N_conj_conv (can (match_term no_closure_pat)) reps
     val pull_types_match = N_conj_conv (can (match_term types_match_pat)) reps
     val x2 = mk_var("x2",alpha)
@@ -2331,6 +2331,7 @@ val builtin_terops =
 val builtin_binops =
   [Eval_NUM_ADD,
    Eval_NUM_SUB,
+   Eval_NUM_SUB_nocheck,
    Eval_NUM_MULT,
    Eval_NUM_DIV,
    Eval_NUM_MOD,
@@ -2369,7 +2370,7 @@ val builtin_monops =
    Eval_vector,
    Eval_int_of_num,
    Eval_num_of_int,
-   Eval_silent_ffi,
+   Eval_empty_ffi,
    Eval_Chr,
    Eval_Ord]
   |> map SPEC_ALL
@@ -2711,6 +2712,35 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_asr tm then Eval_word_asr else
   if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
+
+(* CakeML signature generation and manipulation *)
+val generate_sigs = ref false;
+
+fun sig_of_mlname name = definition (ml_progLib.pick_name name ^ "_sig") |> concl |> rhs;
+
+fun module_signatures names = listSyntax.mk_list(map sig_of_mlname names, spec_ty);
+
+fun sig_of_const cake_name tm =
+  mk_Sval (stringSyntax.fromMLstring (ml_progLib.pick_name cake_name), type2t (type_of tm));
+
+fun generate_sig_thms results = let
+  fun const_from_def th = th |> concl |> strip_conj |> hd |> strip_forall |> #2
+                             |> dest_eq |> #1 |> strip_comb |> #1;
+
+  fun mk_sig_thm sval = let
+    val cake_name = dest_Sval sval |> #1 |> fromHOLstring;
+    val sig_const_nm = cake_name ^ "_sig";
+    val sig_const_tm = mk_var(sig_const_nm, spec_ty);
+
+    val def = new_definition(sig_const_nm, mk_eq(sig_const_tm, sval));
+    in def
+  end
+
+  val signatures = map (fn (_, ml_fname, def, _, _) => sig_of_const ml_fname (const_from_def def))
+                       results;
+
+  in map mk_sig_thm signatures
+end
 
 (*
 val tm = rhs
@@ -3542,7 +3572,7 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ rpt(split_ineq_orelse_tac(metis_tac [])))
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
 (*
-val (th,(fname,def,_,pre)) = hd (zip results thms)
+val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
 *)
     (* clean up *)
     fun fix (th,(fname,ml_fname,def,_,pre)) = let
@@ -3583,6 +3613,11 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
 fun translate def =
   let
     val (is_rec,is_fun,results) = translate_main translate register_type def
+
+    val () =
+      if !generate_sigs then
+        let val _ = generate_sig_thms results in () end
+      else ();
   in
     if is_rec then
     let

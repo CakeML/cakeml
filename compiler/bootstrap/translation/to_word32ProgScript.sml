@@ -87,9 +87,11 @@ val _ = translate (tag_mask_def |> conv32_RHS |> we_simp |> conv32_RHS |> SIMP_R
 val _ = translate (encode_header_def |> conv32_RHS)
 
 (* Manual inlines : shift_def, bytes_in_word because of 'a arg *)
-val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def]
+val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def];
 
-val _ = translate (StoreEach_def |> inline_simp |> conv32)
+val _ = register_type ``:32 wordLang$prog``;
+
+val _ = translate (StoreEach_def |> inline_simp |> conv32);
 
 local
   val ths = ml_translatorLib.eq_lemmas();
@@ -624,7 +626,7 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition;
 
-val _ = translate (spec32 word_to_wordTheory.compile_def);
+val _ = translate (spec32 word_to_wordTheory.compile_alt);
 
 (* TODO: remove when pmatch is fixedd
 val word_simp_const_fp_loop_side = Q.prove(`
@@ -676,23 +678,9 @@ val word_inst_inst_select_side = Q.prove(`
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 
-val word_to_word_compile_single_side = Q.prove(`
-  ∀a b c d prog. word_to_word_compile_single_side a b c d prog ⇔ T`,
-  fs[fetch "-" "word_to_word_compile_single_side_def",
-     (*word_simp_compile_exp_side,*) word_inst_inst_select_side,
-     word_inst_three_to_two_reg_side]) |> update_precondition
-
-val word_to_word_full_compile_single_side = Q.prove(`
-  ∀a b c d prog. word_to_word_full_compile_single_side a b c d prog ⇔ T`,
-  fs[fetch "-" "word_to_word_full_compile_single_side_def",
-     word_to_word_compile_single_side,
-     word_remove_remove_must_terminate_side]) |> update_precondition
-
 val word_to_word_compile_side = Q.prove(`
   ∀x y z. word_to_word_compile_side x y z ⇔ T`,
-  fs[fetch"-""word_to_word_compile_side_def",
-     word_to_word_full_compile_single_side,
-     word_to_wordTheory.next_n_oracle_def]) |> update_precondition
+  fs[fetch"-""word_to_word_compile_side_def",word_to_wordTheory.next_n_oracle_def,word_inst_inst_select_side]) |> update_precondition
 
 val _ = translate(FromList_code_def |> conv32 |> econv)
 val _ = translate(FromList1_code_def |> inline_simp |> conv32)

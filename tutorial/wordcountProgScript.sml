@@ -29,16 +29,19 @@ val _ = append_prog wordcount;
 
 val wordcount_spec = Q.store_thm("wordcount_spec",
   `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
-   cl = [explode pname; explode fname] ∧
+   cl = [pname; fname] ∧
    contents = THE (ALOOKUP fs.files (File fname))
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
      [uv] (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs
-                   ((toString (LENGTH (TOKENS isSpace contents))) ++ " " ++
-                    (toString (LENGTH (splitlines contents)) ++ "\n")))
+                   (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
+                            strlit " ";
+                            mlint$toString (&(LENGTH (splitlines contents)));
+                            strlit "\n"]))
                 * COMMANDLINE cl)`,
+  simp [concat_def] \\
   strip_tac \\
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
@@ -53,7 +56,7 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   (* TODO: xlet_auto doesn't work *)
   xlet_auto_spec(SOME inputLinesFrom_spec) >- (
     xsimpl \\
-    rfs[wfcl_def,validArg_def,EVERY_MEM,GSYM LENGTH_explode] ) \\
+    rfs[wfcl_def,validArg_def,EVERY_MEM] ) \\
   xmatch \\ fs[OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\
@@ -77,28 +80,44 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   qmatch_goalsub_abbrev_tac`STDIO (_ output) ==>> STDIO (_ output') * GC` \\
   `output = output'` suffices_by xsimpl \\
   simp[Abbr`output`,Abbr`output'`] \\
-  simp[wc_lines_def] \\
+  fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
+  simp[wc_lines_def,str_def,implode_def] \\
   qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
   simp[mlintTheory.toString_thm,integerTheory.INT_ABS_NUM] \\
-  reverse conj_tac >- simp[all_lines_def] \\
+  reverse conj_tac >- simp[all_lines_def,lines_of_def] \\
   simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT,splitwords_all_lines] \\
   simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]);
 
-val spec = wordcount_spec |> UNDISCH_ALL
-           |> SIMP_RULE (srw_ss()) [STDIO_def] |> add_basis_proj
-val name = "wordcount" (* TODO: call_thm is not robust to reordering the precondition conjuncts etc. *)
-val (sem_thm,prog_tm) = call_thm (get_ml_prog_state()) name spec
+val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
+  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+   cl = [pname; fname] ∧
+   contents = THE (ALOOKUP fs.files (File fname))
+   ⇒
+   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
+   ((=)
+     (add_stdout fs
+       (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
+                strlit " ";
+                mlint$toString (&(LENGTH (splitlines contents)));
+                strlit "\n"])))`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH wordcount_spec)))
+  \\ xsimpl);
 
+val spec = wordcount_whole_prog_spec |> UNDISCH_ALL
+val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state()) "wordcount" spec
 val wordcount_prog_def = mk_abbrev"wordcount_prog" prog_tm;
 
 val wordcount_semantics = save_thm("wordcount_semantics",
-  sem_thm
-  |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
+  sem_thm |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
+  |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL
-  |> Q.GENL[`cls`,`contents`]
-  |> SIMP_RULE(srw_ss())[STD_streams_add_stdout]
-  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
 val _ = export_theory();

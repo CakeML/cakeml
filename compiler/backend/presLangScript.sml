@@ -1,4 +1,4 @@
-open preamble astTheory mlintTheory
+open preamble astTheory mlnumTheory mlintTheory
 open flatLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_flatTheory;
 
@@ -445,7 +445,7 @@ val string_to_display_def = Define`
   string_to_display s = empty_item ("\"" ++ s ++ "\"")`;
 
 val num_to_display_def = Define`
-  num_to_display n = empty_item (explode (toString (&n)))`;
+  num_to_display n = empty_item (explode (toString n))`;
 
 val word_size_to_display_def = Define`
   (word_size_to_display W8 = empty_item "W8")

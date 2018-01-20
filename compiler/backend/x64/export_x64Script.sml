@@ -12,18 +12,18 @@ val startup =
        "     .globl  cdecl(argc)";
        "     .globl  cdecl(argv)";
        "cdecl(main):";
-       "     leaq    cdecl(argc)(%rip), %rdx";
-       "     leaq    cdecl(argv)(%rip), %rcx";
+       "     movabs  $cdecl(argc), %rdx";
+       "     movabs  $cdecl(argv), %rcx";
        "     movq    %rdi, 0(%rdx)  # %rdi stores argc";
        "     movq    %rsi, 0(%rcx)  # %rsi stores argv";
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
-       "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
-       "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap";
-       "     leaq    cake_bitmaps(%rip), %rdx";
+       "     movabs  $cake_main, %rdi        # arg1: entry address";
+       "     movabs  $cake_heap, %rsi        # arg2: first address of heap";
+       "     movabs  $cake_bitmaps, %rdx";
        "     movq    %rdx, 0(%rsi)           # store bitmap pointer";
-       "     leaq    cake_stack(%rip), %rdx  # arg3: first address of stack";
-       "     leaq    cake_end(%rip), %rcx    # arg4: first address past the stack";
+       "     movabs  $cake_stack, %rdx       # arg3: first address of stack";
+       "     movabs  $cake_end, %rcx         # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 
@@ -48,11 +48,11 @@ val ffi_code =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
-       "     callq   cdecl(cml_exit@plt)";
+       "     callq   cdecl(cml_exit)";
        "     .p2align 4";
        "";
        "cake_exit:";
-       "     callq   cdecl(cml_exit@plt)";
+       "     callq   cdecl(cml_exit)";
        "     .p2align 4";
        "";
        "cake_main:";

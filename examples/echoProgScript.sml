@@ -17,11 +17,10 @@ val () = append_prog echo;
 val st = get_ml_prog_state()
 
 val echo_spec = Q.store_thm("echo_spec",
-  `!fs ls b bv.
-   app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
+  `app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDIO fs * COMMANDLINE cl)
    (POSTv uv. &UNIT_TYPE () uv *
-      (STDIO (add_stdout fs (CONCAT_WITH " " (TL cl) ++ "\n"))) *
+      (STDIO (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n")))) *
       COMMANDLINE cl)`,
   xcf "echo" st \\
   cases_on`¬ STD_streams fs` >-(fs[STDIO_def] >> xpull) >>
@@ -31,7 +30,7 @@ val echo_spec = Q.store_thm("echo_spec",
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet`POSTv uv.  &UNIT_TYPE () uv * COMMANDLINE cl *
-        STDIO (add_stdout fs ((explode (concatWith (strlit " ") (TL (MAP implode cl))))))`
+        STDIO (add_stdout fs ((concatWith (strlit " ") (TL cl))))`
   >- (xapp >> xsimpl >> instantiate >> xsimpl >>
       (* TODO: why? *)
       qexists_tac`COMMANDLINE cl` >> xsimpl >>
@@ -40,23 +39,27 @@ val echo_spec = Q.store_thm("echo_spec",
   qmatch_goalsub_abbrev_tac`STDIO fs'` \\
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs'` \\
   unabbrev_all_tac \\
-  simp[concatWith_CONCAT_WITH,MAP_TL,implode_def] \\
   xsimpl >> fs[] >>
   imp_res_tac STD_streams_stdout >>
+  simp[str_def,implode_def] >>
   imp_res_tac add_stdo_o >> xsimpl);
 
-val st = get_ml_prog_state();
-val spec = echo_spec |> SPEC_ALL |> UNDISCH_ALL |>
-            SIMP_RULE(srw_ss())[STDIO_def] |>
-            add_basis_proj;
-val name = "echo";
-val (call_thm_echo, echo_prog_tm) = call_thm st name spec;
+val echo_whole_prog_spec = Q.store_thm("echo_whole_prog_spec",
+  `whole_prog_spec ^(fetch_v "echo" st) cl fs
+    ((=) (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n"))))`,
+  rw[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe echo_spec))
+  \\ xsimpl);
+
+val (call_thm_echo, echo_prog_tm) = whole_prog_thm st "echo" echo_whole_prog_spec;
 val echo_prog_def = Define`echo_prog = ^echo_prog_tm`;
 
 val echo_semantics = save_thm("echo_semantics",
-  call_thm_echo
-  |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
+  call_thm_echo |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE std_ss [LENGTH,APPEND,AND_IMP_INTRO,STD_streams_add_stdout,GSYM CONJ_ASSOC]);
+  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
 val _ = export_theory();

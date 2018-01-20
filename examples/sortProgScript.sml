@@ -33,19 +33,6 @@ val string_list_uniq = Q.store_thm ("string_list_uniq",
   `?s'. h = strlit s'` by metis_tac [mlstringTheory.mlstring_nchotomy] >>
   fs [STRING_TYPE_def]);
 
-val char_lt_total = Q.store_thm ("char_lt_total",
-  `!(c1:char) c2. ¬(c1 < c2) ∧ ¬(c2 < c1) ⇒ c1 = c2`,
-  rw [char_lt_def, CHAR_EQ_THM]);
-
-val string_lt_total = Q.store_thm ("string_lt_total",
-  `!(s1:string) s2. ¬(s1 < s2) ∧ ¬(s2 < s1) ⇒ s1 = s2`,
-  ho_match_mp_tac string_lt_ind >>
-  rw [string_lt_def, char_lt_total]
-  >- (
-    Cases_on `s1` >>
-    fs [string_lt_def]) >>
-  metis_tac [char_lt_total]);
-
 val string_not_lt = Q.store_thm("string_not_lt",
   `¬(x < y) ⇔ (y:string) ≤ x`,
   rw[string_le_def]
@@ -72,11 +59,11 @@ val SORTED_string_lt_le = Q.store_thm("SORTED_string_lt_le",
   \\ asm_exists_tac \\ rw[string_le_def]);
 
 val validArg_filename = Q.store_thm ("validArg_filename",
-  `validArg (explode x) ∧ STRING_TYPE x v ⇒ FILENAME x v`,
+  `validArg x ∧ STRING_TYPE x v ⇒ FILENAME x v`,
   rw [validArg_def, FILENAME_def, EVERY_MEM, LENGTH_explode]);
 
 val validArg_filename_list = Q.store_thm ("validArg_filename_list",
-  `!x v. EVERY validArg (MAP explode x) ∧ LIST_TYPE STRING_TYPE x v ⇒ LIST_TYPE FILENAME x v`,
+  `!x v. EVERY validArg x ∧ LIST_TYPE STRING_TYPE x v ⇒ LIST_TYPE FILENAME x v`,
   Induct_on `x` >>
   rw [LIST_TYPE_def, validArg_filename]);
 
@@ -239,16 +226,16 @@ val _ = (append_prog o process_topdecs) `
 val valid_sort_result_def = Define`
   valid_sort_result cl init_fs result_fs ⇔
     let inodes = if LENGTH cl > 1
-                 then MAP File (TL (MAP implode cl))
+                 then MAP File (TL cl)
                  else [IOStream(strlit"stdin")] in
     if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) inodes then
-      let lines = MAP explode (FLAT (MAP (all_lines init_fs) inodes)) in
+      let lines = FLAT (MAP (all_lines init_fs) inodes) in
       let fs = if LENGTH cl ≤ 1 then fastForwardFD init_fs 0 else init_fs in
       ∃output.
         PERM output lines ∧
-        SORTED $<= output ∧
-        result_fs = add_stdout fs (FLAT output)
-    else result_fs = add_stderr init_fs "Cannot open file"`;
+        SORTED mlstring_le output ∧
+        result_fs = add_stdout fs (concat output)
+    else result_fs = add_stderr init_fs (strlit "Cannot open file")`;
 
 val valid_sort_result_unique = Q.store_thm("valid_sort_result_unique",
   `valid_sort_result cl fs fs1 ∧
@@ -259,7 +246,7 @@ val valid_sort_result_unique = Q.store_thm("valid_sort_result_unique",
   \\ AP_TERM_TAC
   \\ match_mp_tac (MP_CANON SORTED_PERM_EQ)
   \\ instantiate
-  \\ simp[string_le_transitive,string_le_antisymmetric]
+  \\ simp[transitive_mlstring_le,antisymmetric_mlstring_le]
   \\ metis_tac[PERM_SYM,PERM_TRANS]);
 
 val valid_sort_result_exists = Q.store_thm("valid_sort_result_exists",
@@ -267,7 +254,11 @@ val valid_sort_result_exists = Q.store_thm("valid_sort_result_exists",
   rw[valid_sort_result_def]
   \\ TRY CASE_TAC
   \\ PROVE_TAC[QSORT_SORTED, QSORT_PERM, PERM_SYM, total_def,
-               string_le_def, string_lt_total, string_le_transitive ]);
+               total_mlstring_le, transitive_mlstring_le ]);
+
+val valid_sort_result_numchars = Q.store_thm("valid_sort_result_numchars",
+  `valid_sort_result cl fs1 fs2 ⇒ fs2.numchars = fs1.numchars`,
+  rw[valid_sort_result_def] \\ rw[]);
 
 val sort_sem_def = new_specification("sort_sem_def",["sort_sem"],
   valid_sort_result_exists
@@ -279,18 +270,22 @@ val sort_sem_intro = Q.store_thm("sort_sem_intro",
    ⇒ P (sort_sem cl fs)`,
   metis_tac[sort_sem_def,valid_sort_result_unique]);
 
-val STD_streams_sort_sem = Q.store_thm("STD_streams_sort_sem",
-  `STD_streams fs ⇒ STD_streams (sort_sem cl fs)`,
-  DEEP_INTRO_TAC sort_sem_intro \\
-  rw[valid_sort_result_def] \\
-  simp[STD_streams_fastForwardFD,STD_streams_add_stdout,STD_streams_add_stderr]);
+val sort_sem_numchars = Q.store_thm("sort_sem_numchars[simp]",
+  `(sort_sem cl fs).numchars = fs.numchars`,
+  DEEP_INTRO_TAC sort_sem_intro
+  \\ metis_tac[valid_sort_result_numchars]);
+
+val SORTED_mlstring_le = prove(
+  ``!output. SORTED mlstring_le output = SORTED $<= (MAP explode output)``,
+  Induct \\ fs [SORTED_DEF]
+  \\ Cases_on `output` \\ fs [SORTED_DEF]
+  \\ Cases \\ Cases_on `h`
+  \\ fs [explode_def,strlit_le_strlit]);
 
 val sort_spec = Q.store_thm ("sort_spec",
-  `!cl fs out err.
-    (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+  `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
     ⇒
-    app (p : 'ffi ffi_proj)
-      ^(fetch_v "sort" (get_ml_prog_state ()))
+    app (p : 'ffi ffi_proj) ^(fetch_v "sort" (get_ml_prog_state ()))
       [Conv NONE []]
       (STDIO fs * COMMANDLINE cl)
       (POSTv uv.
@@ -298,7 +293,7 @@ val sort_spec = Q.store_thm ("sort_spec",
           STDIO (sort_sem cl fs) * COMMANDLINE cl)`,
   xcf "sort" (get_ml_prog_state ()) >>
   xmatch >>
-  qabbrev_tac `fnames = TL (MAP implode cl)` >>
+  qabbrev_tac `fnames = TL cl` >>
   qabbrev_tac `inodes = if LENGTH cl > 1 then MAP File fnames else [IOStream(strlit"stdin")]` >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
   fs[wfcl_def] >>
@@ -338,151 +333,171 @@ val sort_spec = Q.store_thm ("sort_spec",
       qexists_tac`fs` \\
       xsimpl ) \\
     fs[Abbr`inodes`] \\
-    fs[inFS_fname_def,MEM_MAP,EXISTS_PROD] )
+    fs[inFS_fname_def,MEM_MAP,EXISTS_PROD] ) >>
+  xlet_auto
+  >- (xret >> xsimpl) >>
+  xlet_auto >- xsimpl >>
+  xlet
+    `POST
+       (\strings_v.
+          COMMANDLINE cl * STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs) *
+          &(LIST_TYPE STRING_TYPE
+             (REVERSE (FLAT (MAP (all_lines fs) inodes))) strings_v ∧
+            EVERY (inFS_fname fs) inodes))
+       (\e.
+          COMMANDLINE cl * STDIO fs *
+          &(BadFileName_exn e ∧
+            ¬EVERY (inFS_fname fs) inodes))` >>
+  xsimpl
   >- (
-    xlet_auto
-    >- (xret >> xsimpl) >>
-    xlet_auto >- xsimpl >>
-    xlet
-      `POST
-         (\strings_v.
-            COMMANDLINE cl * STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs) *
-            &(LIST_TYPE STRING_TYPE
-               (REVERSE (FLAT (MAP (all_lines fs) inodes))) strings_v ∧
-              EVERY (inFS_fname fs) inodes))
-         (\e.
-            COMMANDLINE cl * STDIO fs *
-            &(BadFileName_exn e ∧
-              ¬EVERY (inFS_fname fs) inodes))` >>
+    `?command args. cl = command::args`
+    by (
+      Cases_on `cl` >>
+      fs [] >>
+      metis_tac []) >>
+    fs [LIST_TYPE_def, Abbr `fnames`] >>
+    Cases_on`args` >- (
+      fs[LIST_TYPE_def] \\ rveq \\ fs[] \\
+      xmatch \\
+      xlet_auto >- (xcon \\ xsimpl) \\
+      xapp \\
+      simp[IS_SOME_EXISTS,PULL_EXISTS,EXISTS_PROD] \\
+      instantiate \\
+      CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ qexists_tac`[]` \\
+      simp[LIST_TYPE_def,Abbr`inodes`] \\
+      xsimpl \\
+      simp[linesFD_def,inFS_fname_def] \\
+      conj_tac >- metis_tac[stdIn_def,stdin_v_thm] \\
+      fs[get_file_content_def,all_lines_def,lines_of_def] \\
+      pairarg_tac \\ fs[] \\
+      `fnm = IOStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
+      fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF])
+    \\ fs[LIST_TYPE_def]
+    \\ xmatch
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ xapp
+    \\ simp[LIST_TYPE_def]
+    \\ qpat_assum`_ = _::_`(mp_tac o Q.AP_TERM`LENGTH`)
+    \\ simp_tac(srw_ss())[] \\ strip_tac \\ fs[]
+    \\ instantiate \\ xsimpl
+    \\ qmatch_asmsub_abbrev_tac`command::args`
+    \\ qexists_tac`args`
+    \\ qexists_tac`[]` \\ fs[LIST_TYPE_def]
+    \\ conj_tac
+    >- (
+      fs[Abbr`args`,LIST_TYPE_def] \\
+      fs[quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC] \\
+      rveq \\ fs[] \\ rveq \\
+      fs[FILENAME_def,validArg_def,EVERY_MEM] \\
+      match_mp_tac LIST_TYPE_mono \\
+      asm_exists_tac \\
+      fs[FILENAME_def,MEM_MAP,PULL_EXISTS] )
+    \\ `inodes = MAP File args` by simp[Abbr`inodes`,Abbr`args`]
+    \\ qunabbrev_tac`inodes` \\ pop_assum SUBST_ALL_TAC
+    \\ simp[MAP_MAP_o,EVERY_MAP,o_DEF,EXISTS_MAP] ) >>
+  qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
+  imp_res_tac list_type_v_to_list \\
+  xlet_auto >- xsimpl \\
+  assume_tac strict_weak_order_string_cmp \\
+  xlet_auto >- (
     xsimpl
-    >- (
-      `?command args. MAP implode cl = command::args`
-      by (
-        Cases_on `cl` >>
-        fs [] >>
-        metis_tac []) >>
-      fs [LIST_TYPE_def, Abbr `fnames`] >>
-      Cases_on`args` >- (
-        fs[LIST_TYPE_def] \\ rveq \\ fs[] \\
-        xmatch \\
-        xlet_auto >- (xcon \\ xsimpl) \\
-        xapp \\
-        simp[IS_SOME_EXISTS,PULL_EXISTS,EXISTS_PROD] \\
-        instantiate \\
-        CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ qexists_tac`[]` \\
-        simp[LIST_TYPE_def,Abbr`inodes`] \\
-        xsimpl \\
-        simp[linesFD_def,inFS_fname_def] \\
-        conj_tac >- metis_tac[stdIn_def,stdin_v_thm] \\
-        fs[get_file_content_def,all_lines_def] \\
-        pairarg_tac \\ fs[] \\
-        `fnm = IOStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
-        fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF])
-      \\ fs[LIST_TYPE_def]
-      \\ xmatch
-      \\ xlet_auto >- (xcon \\ xsimpl)
-      \\ xapp
-      \\ simp[LIST_TYPE_def]
-      \\ qpat_assum`_ = _::_`(mp_tac o Q.AP_TERM`LENGTH`)
-      \\ simp_tac(srw_ss())[] \\ strip_tac \\ fs[]
-      \\ instantiate \\ xsimpl
-      \\ qmatch_asmsub_abbrev_tac`command::args`
-      \\ qexists_tac`args`
-      \\ qexists_tac`[]` \\ fs[LIST_TYPE_def]
-      \\ conj_tac
-      >- (
-        fs[Abbr`args`,LIST_TYPE_def] \\
-        fs[quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC] \\
-        rveq \\ fs[] \\ rveq \\
-        fs[FILENAME_def,validArg_def,EVERY_MEM] \\
-        match_mp_tac LIST_TYPE_mono \\
-        asm_exists_tac \\
-        fs[FILENAME_def,MEM_MAP,PULL_EXISTS] )
-      \\ `inodes = MAP File args` by simp[Abbr`inodes`,Abbr`args`]
-      \\ qunabbrev_tac`inodes` \\ pop_assum SUBST_ALL_TAC
-      \\ simp[MAP_MAP_o,EVERY_MAP,o_DEF,EXISTS_MAP] ) >>
-    qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
-    imp_res_tac list_type_v_to_list \\
-    xlet_auto >- xsimpl \\
-    assume_tac strict_weak_order_string_cmp \\
-    xlet_auto >- (
-      xsimpl
-      \\ mp_tac StringProgTheory.mlstring_lt_v_thm
-      \\ simp[mlstringTheory.mlstring_lt_inv_image,inv_image_def] )
-    \\ xapp >>
+    \\ mp_tac StringProgTheory.mlstring_lt_v_thm
+    \\ simp[mlstringTheory.mlstring_lt_inv_image,inv_image_def] )
+  \\ xapp >>
+  xsimpl >>
+  qexists_tac `COMMANDLINE cl` >>
+  xsimpl >>
+  qmatch_goalsub_abbrev_tac`STDIO fs0` >>
+  qexists_tac `\l n. STDIO (add_stdout fs0 (implode (CONCAT (MAP v_to_string (TAKE n l)))))` >>
+  xsimpl >>
+  simp [implode_def] >>
+  DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
+  conj_asm1_tac
+  >- (
+    simp[Abbr`fs0`]
+    \\ imp_res_tac STD_streams_stdout
+    \\ rw[stdo_fastForwardFD]
+    \\ asm_exists_tac \\ rw[] ) >>
+  xsimpl \\
+  rw []
+  >- (
+    xapp >>
     xsimpl >>
-    qexists_tac `COMMANDLINE cl` >>
+    simp [MAP_TAKE, MAP_MAP_o, combinTheory.o_DEF, v_to_string_def] >>
+    qexists_tac `emp` >>
     xsimpl >>
-    qmatch_goalsub_abbrev_tac`STDIO fs0` >>
-    qexists_tac `\l n. STDIO (add_stdout fs0 (CONCAT (MAP v_to_string (TAKE n l))))` >>
+    qmatch_goalsub_rename_tac`EL n sorted_vs` \\
+    qmatch_assum_rename_tac`LIST_REL STRING_TYPE sorted sorted_vs` \\
+    qexists_tac `EL n sorted` >>
+    qmatch_goalsub_abbrev_tac`STDIO fs'` \\
+    qexists_tac`fs'` \\
+    simp [ETA_THM, EL_MAP] >>
     xsimpl >>
-    DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
     conj_asm1_tac
-    >- (
-      simp[Abbr`fs0`]
-      \\ imp_res_tac STD_streams_stdout
-      \\ rw[stdo_fastForwardFD]
-      \\ asm_exists_tac \\ rw[] ) >>
-    xsimpl \\
-    rw []
-    >- (
-      xapp >>
-      xsimpl >>
-      simp [MAP_TAKE, MAP_MAP_o, combinTheory.o_DEF, v_to_string_def] >>
-      qexists_tac `emp` >>
-      xsimpl >>
-      qmatch_goalsub_rename_tac`EL n sorted_vs` \\
-      qmatch_assum_rename_tac`LIST_REL STRING_TYPE sorted sorted_vs` \\
-      qexists_tac `EL n sorted` >>
-      qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-      qexists_tac`fs'` \\
-      simp [ETA_THM, EL_MAP] >>
-      xsimpl >>
-      conj_asm1_tac
-      >- metis_tac [LIST_REL_EL_EQN] >>
-      rw [TAKE_EL_SNOC, EL_MAP, SNOC_APPEND, Abbr`fs'`] >>
-      DEP_REWRITE_TAC[GEN_ALL add_stdo_o] >>
-      conj_tac >- metis_tac[] >>
-      Cases_on`EL n sorted` \\ fs[STRING_TYPE_def,v_to_string_def] \\
-      xsimpl)
-    >- (
-      DEEP_INTRO_TAC sort_sem_intro \\
-      rw[valid_sort_result_def] \\
-      qmatch_abbrev_tac`STDIO (add_stdout _ s1) * _ ==>> STDIO (add_stdout _ s2) *_` \\
-      `s1 = s2` suffices_by xsimpl \\
-      simp[Abbr`s1`,Abbr`s2`] \\
-      AP_TERM_TAC \\
-      drule PERM_ZIP \\
-      imp_res_tac LIST_REL_LENGTH \\
-      disch_then(last_assum o mp_then (Pos (el 3)) mp_tac) \\ simp[] \\
-      disch_then(first_assum o mp_then (Pos (el 2)) mp_tac) \\ simp[] \\
-      qmatch_assum_abbrev_tac`PERM output orig` \\
-      `orig = REVERSE (MAP explode strings)`
-        by simp[Abbr`orig`,Abbr`strings`,MAP_REVERSE] \\
-      fs[Abbr`orig`] \\ strip_tac \\
-      match_mp_tac (MP_CANON SORTED_PERM_EQ) \\
-      goal_assum(first_assum o mp_then Any mp_tac) \\
-      simp[string_le_transitive,string_le_antisymmetric] \\
-      fs[GSYM inv_image_def,string_not_lt] \\
-      fs[GSYM sorted_map,string_le_transitive] \\
-      imp_res_tac LIST_REL_STRING_TYPE \\ rveq \\
-      fs[MAP_MAP_o,o_DEF,ETA_AX] \\
-      metis_tac[PERM_MAP,PERM_TRANS,PERM_SYM]
-    )));
+    >- metis_tac [LIST_REL_EL_EQN] >>
+    rw [TAKE_EL_SNOC, EL_MAP, SNOC_APPEND, Abbr`fs'`] >>
+    DEP_REWRITE_TAC[GEN_ALL add_stdo_o] >>
+    conj_tac >- metis_tac[] >>
+    Cases_on`EL n sorted` \\ fs[STRING_TYPE_def,v_to_string_def] \\
+    fs [strcat_def,concat_def] \\
+    xsimpl)
+  >- (
+    DEEP_INTRO_TAC sort_sem_intro \\
+    rw[valid_sort_result_def] \\
+    qmatch_abbrev_tac`STDIO (add_stdout _ s1) * _ ==>> STDIO (add_stdout _ s2) *_` \\
+    `s1 = s2` suffices_by xsimpl \\
+    simp[Abbr`s1`,Abbr`s2`] \\
+    simp [concat_def] \\
+    AP_TERM_TAC \\
+    drule PERM_ZIP \\
+    imp_res_tac LIST_REL_LENGTH \\
+    disch_then(last_assum o mp_then (Pos (el 3)) mp_tac) \\ simp[] \\
+    disch_then(first_assum o mp_then (Pos (el 2)) mp_tac) \\ simp[] \\
+    qmatch_assum_abbrev_tac`PERM output orig` \\
+    `orig = REVERSE strings`
+      by simp[Abbr`orig`,Abbr`strings`,MAP_REVERSE] \\
+    fs[Abbr`orig`] \\ strip_tac \\
+    match_mp_tac (MP_CANON SORTED_PERM_EQ) \\
+    qexists_tac `string_le` \\
+    simp[string_le_transitive,string_le_antisymmetric] \\
+    fs[GSYM inv_image_def,string_not_lt] \\
+    fs[GSYM sorted_map,string_le_transitive] \\
+    imp_res_tac LIST_REL_STRING_TYPE \\ rveq \\
+    fs[MAP_MAP_o,o_DEF,ETA_AX] \\
+    `(λs. case s of strlit x => x) = explode` by
+          (fs [FUN_EQ_THM] \\ Cases \\ fs []) \\ fs [] \\
+    fs [SORTED_mlstring_le] \\
+    drule (Q.ISPEC `explode `PERM_MAP) \\
+    fs [MAP_MAP_o,o_DEF] \\
+    CONV_TAC (DEPTH_CONV ETA_CONV) \\
+    strip_tac \\
+    match_mp_tac PERM_TRANS \\
+    asm_exists_tac \\ fs [] \\
+    qpat_x_assum `PERM output _` assume_tac \\
+    once_rewrite_tac [PERM_SYM] \\
+    drule (Q.ISPEC `explode `PERM_MAP) \\
+    fs [MAP_MAP_o,o_DEF] \\
+    CONV_TAC (DEPTH_CONV ETA_CONV) \\
+    fs []));
 
-val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> SIMP_RULE(srw_ss())[STDIO_def] |> add_basis_proj;
-val name = "sort"
-val (sem_thm,prog_tm) = call_thm (get_ml_prog_state ()) name spec
+val sort_whole_prog_spec = Q.store_thm("sort_whole_prog_spec",
+  `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+   ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs (valid_sort_result cl fs)`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qexists_tac`sort_sem cl fs`
+  \\ reverse conj_tac
+  >- metis_tac[with_same_numchars,sort_sem_numchars,sort_sem_def]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH sort_spec)))
+  \\ xsimpl);
+
+val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "sort" (UNDISCH sort_whole_prog_spec)
 val sort_prog_def = Define `sort_prog = ^prog_tm`;
 
-val length_gt_1_not_null =
-  Q.prove(`LENGTH cls > 1 ⇒ ¬ NULL cls`, rw[NULL_EQ] \\ strip_tac \\ fs[]);
-
 val sort_semantics =
-  sem_thm
-  |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
+  sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[PULL_EXISTS,AND_IMP_INTRO,GSYM CONJ_ASSOC,STD_streams_sort_sem]
+  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "sort_semantics";
 
 val _ = export_theory ();

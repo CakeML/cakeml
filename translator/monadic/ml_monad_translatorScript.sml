@@ -2241,9 +2241,9 @@ evaluate F (write vname ev (write vname ev' env)) s2 exp2`,
 prove_evaluate_handle_mult_CASE);
 
 val evaluate_Success_CONS = Q.prove(
-`lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
+`lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
 evaluate F env s e (s', Rval v) ==>
-evaluate F env s (Con (SOME (Short "Success")) [e]) (s', Rval (Conv (SOME ("Success",TypeId (Short "exc"))) [v]))`,
+evaluate F env s (Con (SOME (Short "Success")) [e]) (s', Rval (Conv (SOME ("Success",TypeId (Short MNAME))) [v]))`,
 rw[]
 \\ rw[Once evaluate_cases]
 \\ fs[lookup_cons_def]
@@ -2254,7 +2254,7 @@ rw[]
 \\ rw[Once evaluate_cases]);
 
 val evaluate_Success_CONS_err = Q.prove(
-`lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
+`lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
 evaluate F env s e (s', Rerr v) ==>
 evaluate F env s (Con (SOME (Short "Success")) [e]) (s', Rerr v)`,
 rw[]
@@ -2269,13 +2269,13 @@ rw[]
 (* For the dynamic store initialisation *)
 (* It is not possible to use register_type here... *)
 val EXC_TYPE_aux_def = Define `
-      (EXC_TYPE_aux a b (Failure x_2) v =
+     (EXC_TYPE_aux MNAME a b (Failure x_2) v =
       ?v2_1.
-        v = Conv (SOME ("Failure",TypeId (Short "exc"))) [v2_1] ∧
+        v = Conv (SOME ("Failure",TypeId (Short MNAME))) [v2_1] ∧
         b x_2 v2_1) /\
-     (EXC_TYPE_aux a b (Success x_1) v <=>
+     (EXC_TYPE_aux MNAME a b (Success x_1) v <=>
      ?v1_1.
-       v = Conv (SOME ("Success",TypeId (Short "exc"))) [v1_1] ∧
+       v = Conv (SOME ("Success",TypeId (Short MNAME))) [v1_1] ∧
 		a x_1 v1_1)`;
 
 fun prove_EvalM_to_EvalSt handle_mult_CASE =
@@ -2341,7 +2341,7 @@ rw[EvalM_def, EvalSt_def]
 \\ metis_tac[];
 
 val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",
-`!cons_names module_name vname TYPE EXN_TYPE x exp H init_state env.
+`!cons_names module_name vname TYPE EXN_TYPE x exp H init_state MNAME env.
 (!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
 MEM cname cons_names /\
 ev = Conv (SOME (cname, TypeExn (Long module_name (Short cname)))) [ev']) ==>
@@ -2350,14 +2350,14 @@ vname <> "Success" ==>
 vname <> "Failure" ==>
 EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ==>
 EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Long module_name (Short cname)))) cons_names ==>
-lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
-lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ==>
+lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
+lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ==>
 EvalSt env init_state (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp]) (Con (SOME (Short "Failure")) [Var (Short vname)]))
-(EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) H`,
+(EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
 prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_MODULE);
 
 val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",
-`!cons_names vname TYPE EXN_TYPE x exp H init_state env.
+`!cons_names vname TYPE EXN_TYPE x exp H init_state MNAME env.
 (!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
 MEM cname cons_names /\
 ev = Conv (SOME (cname, TypeExn (Short cname))) [ev']) ==>
@@ -2366,11 +2366,114 @@ vname <> "Success" ==>
 vname <> "Failure" ==>
 EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ==>
 EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Short cname))) cons_names ==>
-lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
-lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ==>
+lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
+lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ==>
 EvalSt env init_state (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp]) (Con (SOME (Short "Failure")) [Var (Short vname)]))
-(EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) H`,
+(EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
 prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_SIMPLE);
+
+fun prove_EvalM_to_EvalSt handle_mult_CASE =
+rw[EvalM_def, EvalSt_def]
+\\ qpat_x_assum `!s p. P` IMP_RES_TAC
+\\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
+\\ Cases_on `res`
+(* res is an Rval *)
+>-(
+    IMP_RES_TAC evaluate_Success_CONS
+    \\ first_x_assum (fn x => MATCH_MP evaluate_handle_mult_Rval x |> ASSUME_TAC)
+    \\ first_x_assum (qspecl_then [`cons_names`, `vname`, `(Con (SOME (Short "Failure")) [Var (Short vname)])`] ASSUME_TAC)
+    \\ evaluate_unique_result_tac
+    \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
+    \\ Cases_on `x init_state'`
+    \\ Cases_on `q` \\ fs[]
+    \\ fs[EXC_TYPE_aux_def]
+    \\ metis_tac[]
+    )
+\\ reverse(Cases_on `e`)
+(* res is an Rerr (Rabort ...) *)
+>-(
+    irule FALSITY
+    \\ fs[MONAD_def]
+    \\ Cases_on `x init_state'`
+    >> Cases_on `q`
+    >> fs[])
+(* res is an Rerr (Rraise ...) *)
+\\ qpat_x_assum `MONAD A B X S1 S2` (fn x => RW[MONAD_def] x |> ASSUME_TAC)
+\\ fs[]
+\\ Cases_on `x init_state'` \\ fs[]
+\\ Cases_on `q` \\ fs[]
+\\ LAST_ASSUM IMP_RES_TAC
+\\ IMP_RES_TAC (Thm.INST_TYPE [``:'b`` |-> ``:unit``] handle_mult_CASE)
+\\ POP_ASSUM(fn x => ALL_TAC)
+\\ first_x_assum(qspecl_then [`vname`, `Con (SOME (Short "Failure")) [Var (Short vname)]`] ASSUME_TAC)
+\\ IMP_RES_TAC evaluate_Success_CONS_err
+\\ first_assum(fn x => sg `^(fst(dest_imp (concl x)))`)
+>-(
+    rw[]
+    \\ fs[EVERY_MEM]
+    \\ first_x_assum(qspec_then `cname` IMP_RES_TAC)
+    \\ fs[lookup_cons_def]
+    \\ rw[Eval_def]
+    \\ rw[Once evaluate_cases]
+    \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
+    \\ fs[namespaceTheory.id_to_n_def]
+    \\ fs[write_def]
+    \\ rw[Once evaluate_cases]
+    \\ rw[Once evaluate_cases]
+    \\ rw[Once evaluate_cases]
+    \\ rw[state_component_equality])
+\\ qpat_x_assum `P ==> Q` IMP_RES_TAC
+\\ ntac 2 (POP_ASSUM (fn x => ALL_TAC))
+\\ fs[]
+\\ rw[Once evaluate_cases]
+\\ fs[lookup_cons_def]
+\\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
+\\ fs[namespaceTheory.id_to_n_def, write_def]
+\\ rw[Once evaluate_cases]
+\\ rw[Once evaluate_cases]
+\\ rw[Once evaluate_cases]
+\\ fs[run_def, EXC_TYPE_aux_def]
+\\ metis_tac[];
+
+val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",
+  `!cons_names module_name vname TYPE EXN_TYPE x exp H init_state MNAME env.
+     (!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
+      MEM cname cons_names /\
+      ev = Conv (SOME (cname, TypeExn (Long module_name (Short cname)))) [ev']) ==>
+     ALL_DISTINCT cons_names ==>
+     vname <> "Success" ==>
+     vname <> "Failure" ==>
+     EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ==>
+     EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Long module_name (Short cname))))
+           cons_names ==>
+     lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
+     lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ==>
+       EvalSt env init_state
+         (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp])
+           (Con (SOME (Short "Failure")) [Var (Short vname)]))
+         (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_MODULE);
+
+val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",
+  `!cons_names vname TYPE EXN_TYPE x exp H init_state MNAME env.
+     (!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
+      MEM cname cons_names /\
+      ev = Conv (SOME (cname, TypeExn (Short cname))) [ev']) ==>
+     ALL_DISTINCT cons_names ==>
+     vname <> "Success" ==>
+     vname <> "Failure" ==>
+     EvalM env init_state exp (MONAD TYPE EXN_TYPE x) H ==>
+     EVERY (\cname. lookup_cons cname env = SOME (1,TypeExn (Short cname)))
+           cons_names ==>
+     lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
+     lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME))
+     ==>
+     EvalSt env init_state
+       (handle_mult vname cons_names
+         (Con (SOME (Short "Success")) [exp])
+         (Con (SOME (Short "Failure")) [Var (Short vname)]))
+       (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
+  prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_SIMPLE);
 
 val evaluate_let_opref = Q.store_thm("evaluate_let_opref",
 `Eval env exp1 P ==>

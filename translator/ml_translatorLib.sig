@@ -41,6 +41,15 @@ sig
     val case_of             : hol_type -> thm
     val eq_lemmas           : unit -> thm list
 
+    (* CakeML signature generation and extraction *)
+    (* Get the CakeML signature of a named CakeML function which was created by translation *)
+    (* Returns ``:spec`` *)
+    val sig_of_mlname : string -> term
+
+    (* Get the CakeML signatures for a list of CakeML functions which were created by translation *)
+    (* Returns ``:spec list`` *)
+    val module_signatures : string list -> term
+
     (* loading / storing state of translator *)
 
     val translation_extends   : string -> unit
@@ -62,6 +71,7 @@ sig
     val add_preferred_thy    : string -> unit
     val find_def_for_const   : (term -> thm) ref
     val clean_on_exit        : bool ref
+    val generate_sigs        : bool ref
 
     (* internals, for the monadic translation *)
 

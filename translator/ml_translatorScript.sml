@@ -652,6 +652,18 @@ val Eval_int_negate = Q.store_thm("Eval_int_negate",
 
 (* arithmetic for num *)
 
+val sub_nocheck_def = Define`
+  sub_nocheck (n:num) m = n - m`;
+
+val Eval_NUM_SUB_nocheck = save_thm("Eval_NUM_SUB_nocheck",
+  Eval_INT_SUB |> Q.SPECL [`&n`,`&m`]
+  |> UNDISCH_ALL |> DISCH ``PRECONDITION ((m:num) <= n)``
+  |> SIMP_RULE std_ss [GSYM NUM_def,INT_SUB,PRECONDITION_def]
+  |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
+  |> DISCH ``Eval env x2 (INT (&m))``
+  |> DISCH ``Eval env x1 (INT (&n))``
+  |> SIMP_RULE std_ss [GSYM NUM_def,GSYM sub_nocheck_def]);
+
 val Eval_NUM_ADD = save_thm("Eval_NUM_ADD",
   Eval_INT_ADD |> Q.SPECL [`&n1`,`&n2`]
   |> REWRITE_RULE [GSYM NUM_def,INT_ADD]);
@@ -1570,13 +1582,10 @@ val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
   asm_exists_tac >> fs [] >>
   fs [do_app_def,INT_def,UNIT_TYPE_def]);
 
-val silent_ffi_def = Define `
-  silent_ffi (s:mlstring) = ()`;
-
-val Eval_silent_ffi = Q.store_thm("Eval_silent_ffi",
+val Eval_empty_ffi = Q.store_thm("Eval_empty_ffi",
   `Eval env x (STRING_TYPE s) ==>
    Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
-     (UNIT_TYPE (silent_ffi s))`,
+     (UNIT_TYPE (empty_ffi s))`,
   rw [Eval_def]
   \\ ntac 8 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
   \\ fs [do_app_def,store_alloc_def]
@@ -2028,6 +2037,8 @@ val translator_terms = save_thm("translator_terms",
      ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
      ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
      ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
-     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``)]);
+     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
+     ("no_closure_pat",``∀x v. p x v ⇒ no_closures v``),
+     ("types_match_pat",``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``)]);
 
 val _ = export_theory();

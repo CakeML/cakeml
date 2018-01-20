@@ -2313,13 +2313,23 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
-  (inst_ok_less c (FP (FPAbs d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPNeg d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPAbs d1 d2)) ⇔
+    (c.two_reg_arith ==> (d1 <> d2)) ∧ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPNeg d1 d2)) ⇔
+    (c.two_reg_arith ==> (d1 <> d2)) ∧ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPSqrt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPAdd d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPSub d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPMul d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPAdd d1 d2 d3)) ⇔
+    (c.two_reg_arith ==> (d1 = d2)) ∧
+    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPSub d1 d2 d3)) ⇔
+    (c.two_reg_arith ==> (d1 = d2)) ∧
+    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPMul d1 d2 d3)) ⇔
+    (c.two_reg_arith ==> (d1 = d2)) ∧
+    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔
+    (c.two_reg_arith ==> (d1 = d2)) ∧
+    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
   (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
       ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧

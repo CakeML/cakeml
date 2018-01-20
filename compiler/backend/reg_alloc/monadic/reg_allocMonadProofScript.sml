@@ -1,5 +1,6 @@
 open preamble state_transformerTheory reg_allocMonadTheory
-open sortingTheory ml_monadBaseTheory;
+open sortingTheory;
+open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "reg_allocMonadProof"
 
@@ -2072,90 +2073,3 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
 
 val _ = export_theory ();
 
-(* --- Translation ---
-
-(* Register the types used for the translation *)
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:unit``;
-val _ = register_type ``:tag``;
-
-val _ = register_exn_type ``:state_exn``;
-val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
-
-val store_hprop_name = "RA_STATE";
-val state_type = ``:ra_state``;
-(* val EXN_RI = ``STATE_EXN_TYPE``; *)
-
-(* Initializing the state monad
-  - Define an initializer for each stateful component of the state
-  - Pass to translate_fixed_store
-    - [list of ref inits]
-    - [list of array inits, along with their manipulators]
-*)
-
-(* TODO: move? *)
-fun mk_ref_init (name,get,set) init = (name,init,get,set);
-fun mk_arr_init (name,get,set,len,sub,upd,alloc) init = (name,init,get,set,len,sub,upd,alloc);
-
-(* Initializers for the references *)
-val init_dim_def = Define`
-  init_dim = 0:num`
-
-val refs_init_list = [mk_ref_init dim_accessors init_dim_def]
-
-(* Initializers for the arrays *)
-val init_adj_ls_def = Define`
-  init_adj_ls = []:(num list) list`
-
-val init_node_tag_def = Define`
-  init_node_tag = []:tag list`
-
-val init_degrees_def = Define`
-  init_degrees = []:num list`
-
-val arrays_init_list = List.map (uncurry mk_arr_init)
-  [(adj_ls_manip,init_adj_ls_def),
-   (node_tag_manip,init_node_tag_def),
-   (degrees_manip,init_degrees_def)
-  ];
-
-val (init_trans, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def
-
-(* Initialize the translation *)
-val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
-val exn_ri_def = STATE_EXN_TYPE_def;
-val _ = init_translation init_trans store_exists_thm exn_ri_def []
-
-(* Prove the theorems necessary to handle the exceptions *)
-val (raise_functions, handle_functions) = unzip exn_functions;
-val exn_ri_def = STATE_EXN_TYPE_def;
-val exn_thms = add_raise_handle_functions raise_functions handle_functions exn_ri_def;
-
-(* Rest of the translation *)
-val res = m_translate st_ex_FOREACH_def;
-val res = m_translate st_ex_MAP_def;
-val res = m_translate ifilter_aux_def;
-val res = m_translate ifilter_node_tag_def;
-val res = translate FILTER;
-
-(* Doesn't work:
-val res = m_translate remove_colours_def;
-val res = m_translate assign_Atemp_tag_def;
-val res = m_translate assign_Atemps_def; *)
-
-val res = translate tag_col_def;
-val res = translate unbound_colour_def;
-(* TODO: automate *)
-val res = translate APPEND
-val res = translate PART_DEF
-val res = translate PARTITION_DEF
-val res = translate QSORT_DEF
-val res = translate MAP
-val res = translate SNOC
-val res = translate GENLIST
-val res = translate mk_comb_PMATCHI
-val res = m_translate assign_Stemp_tag_def;
-val res = m_translate assign_Stemps_def;
- *)

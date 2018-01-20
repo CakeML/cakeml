@@ -1,5 +1,5 @@
 open preamble;
-open mlstringTheory mlintTheory;
+open mlstringTheory mlnumTheory mlintTheory;
 open astTheory semanticPrimitivesTheory typeSystemTheory;
 
 val _ = numLib.prefer_num();
@@ -53,9 +53,9 @@ val type_ident_to_string_def = Define `
 
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
   (inf_type_to_string (Infer_Tuvar n) =
-    concat [implode "<unification variable "; toString (&n); implode ">"]) ∧
+    concat [implode "<unification variable "; toString n; implode ">"]) ∧
   (inf_type_to_string (Infer_Tvar_db n) =
-    concat [implode "<type variable "; toString (&n); implode ">"]) ∧
+    concat [implode "<type variable "; toString n; implode ">"]) ∧
   (inf_type_to_string (Infer_Tapp ts ti) =
     if ti = Tfn_num then
       case ts of
@@ -86,9 +86,9 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
  `(∀t. inf_type_to_string t =
     case t of
       Infer_Tuvar n =>
-      concat [implode "<unification variable "; toString (&n); implode ">"]
+      concat [implode "<unification variable "; toString n; implode ">"]
     | Infer_Tvar_db n =>
-      concat [implode "<type variable "; toString (&n); implode ">"]
+      concat [implode "<type variable "; toString n; implode ">"]
     | Infer_Tapp [t1;t2] TC_fn =>
       concat [implode "("; inf_type_to_string t1; implode " -> "; inf_type_to_string t2; implode ")"]
     | Infer_Tapp _ TC_fn => implode "<bad function type>"

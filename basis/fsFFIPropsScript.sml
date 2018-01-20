@@ -377,6 +377,20 @@ val fastForwardFD_0 = Q.store_thm("fastForwardFD_0",
   \\ rw[] \\ rw[PAIR_MAP_THM]
   \\ rw[MAX_DEF]);
 
+val fastForwardFD_with_numchars = Q.store_thm("fastForwardFD_with_numchars",
+  `fastForwardFD (fs with numchars := ns) fd = fastForwardFD fs fd with numchars := ns`,
+  rw[fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+
+val fastForwardFD_numchars = Q.store_thm("fastForwardFD_numchars[simp]",
+  `(fastForwardFD fs fd).numchars = fs.numchars`,
+  rw[fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+
 (* fsupdate *)
 
 val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
@@ -537,7 +551,7 @@ val openFileFS_numchars = Q.store_thm("openFileFS_numchars",
 
 val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
   `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= 255 /\ wfFS fs ==>
-		   wfFS (openFileFS f fs k)`,
+                   wfFS (openFileFS f fs k)`,
   rw[wfFS_def,openFileFS_def,liveFS_def] >> full_case_tac >> fs[openFile_def] >>
   cases_on`x` >> rw[] >> fs[MEM_MAP] >> res_tac >> fs[]
   >-(imp_res_tac ALOOKUP_MEM >-(qexists_tac`(File f,x')` >> fs[])) >>
@@ -679,16 +693,20 @@ val linesFD_nil_lineFD_NONE = Q.store_thm("linesFD_nil_lineFD_NONE",
 
 (* all_lines: get all the lines based on filename *)
 
-val all_lines_def = Define
-  `all_lines fs fname =
+val lines_of_def = Define `
+  lines_of str =
     MAP (\x. strcat (implode x) (implode "\n"))
-          (splitlines (THE (ALOOKUP fs.files fname)))`
+          (splitlines (explode str))`
 
-val concat_all_lines = Q.store_thm("concat_all_lines",
-  `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ∨
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ^ str #"\n"`,
-  rw[all_lines_def] \\
-  qspec_tac(`THE (ALOOKUP fs.files fname)`,`ls`) \\
+val all_lines_def = Define `
+  all_lines fs fname = lines_of (implode (THE (ALOOKUP fs.files fname)))`
+
+val concat_lines_of = store_thm("concat_lines_of",
+  ``!s. concat (lines_of s) = s ∨
+        concat (lines_of s) = s ^ str #"\n"``,
+  rw[lines_of_def] \\
+  `s = implode (explode s)` by fs [explode_implode] \\
+  qabbrev_tac `ls = explode s` \\ pop_assum kall_tac \\ rveq \\
   Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
   fs[splitlines_eq_nil,concat_cons]
@@ -712,11 +730,20 @@ val concat_all_lines = Q.store_thm("concat_all_lines",
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC ));
 
+val concat_all_lines = Q.store_thm("concat_all_lines",
+  `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ∨
+   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ^ str #"\n"`,
+  fs [all_lines_def,concat_lines_of]);
+
+val all_lines_with_numchars = Q.store_thm("all_lines_with_numchars",
+  `all_lines (fs with numchars := ns) = all_lines fs`,
+  rw[FUN_EQ_THM,all_lines_def]);
+
 val linesFD_openFileFS_nextFD = Q.store_thm("linesFD_openFileFS_nextFD",
   `inFS_fname fs (File f) ∧ nextFD fs ≤ 255 ⇒
    linesFD (openFileFS f fs 0) (nextFD fs) = MAP explode (all_lines fs (File f))`,
   rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
-  \\ rw[all_lines_def]
+  \\ rw[all_lines_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]);
 

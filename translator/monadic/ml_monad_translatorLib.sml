@@ -27,8 +27,6 @@ fun primCases_on tm = Cases_on [ANTIQUOTE tm]
 
 val _ = (print_asts := true);
 
-val _ = (use_full_type_names := false);
-
 (* Some constants *)
 val venvironment = mk_environment v_ty
 val v_env = mk_var("env",venvironment)
@@ -741,7 +739,7 @@ fun inst_case_thm_for tm = let
 val tm = (!last_fail)
 val original_tm = tm;
 
-val tm = dest_conj hyps |> snd
+val tm = dest_conj hyps |> fst |> dest_conj |> fst |> dest_conj |> snd
 sat_hyps tm
 *)
 
@@ -1284,7 +1282,7 @@ fun m2deep_normal_fun_app tm m2deep = let
       else NO_CONV tm
     val thx = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assums)) thx
     val thx = CONV_RULE ((RATOR_CONV o RAND_CONV)
-              (SIMP_CONV (srw_ss()) [CONTAINER_def])) thx
+              (SIMP_CONV (srw_ss()) [CONTAINER_def, ml_translatorTheory.PRECONDITION_def])) thx
     val thx =  MP thx TRUTH
 	       handle HOL_ERR _ => failwith "normal function application"
     val thx = force_remove_fix thx |> PURE_REWRITE_RULE[ArrowM_def]
@@ -1356,7 +1354,7 @@ fun m2deep tm =
     val inv = ONCE_REWRITE_CONV [ArrowM_def] inv |> concl |> rand |> rand
     val str = stringSyntax.fromMLstring name
     val result = ISPECL_TM [str,mk_comb(inv,tm)] Eval_name_RI_abs |> ASSUME
-    val result = MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) result |> RW [GSYM ArrowM_def]
+    val result = MY_MATCH_MP (SPEC_ALL (ISPEC_EvalM Eval_IMP_PURE)) result |> RW [GSYM ArrowM_def]
     in check_inv "var" tm result end else
   (* raise *)
   if can (get_pattern (!exn_raises)) tm then let
@@ -1516,8 +1514,8 @@ fun m2deep tm =
     val h = ISPECL_TM [pre,str,inv,f,!H] PreImp_EvalM_abs |> ASSUME
             |> RW [PreImp_def] |> UNDISCH |> SPEC state_eq_var
     val h = INST [state_eq_var |-> state_var] h
-    val ys = List.map (fn tm => MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
-                             (MATCH_MP Eval_Eq (var_hol2deep tm))) xs
+    val ys = List.map (fn tm => MY_MATCH_MP (ISPEC_EvalM Eval_IMP_PURE |> SPEC_ALL)
+                             (MY_MATCH_MP Eval_Eq (var_hol2deep tm))) xs
     fun apply_arrow h [] = h
       | apply_arrow h (x::xs) = let
 	  val th = apply_arrow h xs
@@ -2078,9 +2076,10 @@ fun m_translate_main (* m_translate *) def = (let
 	val _ = uninstall_rec_patterns ()
     in thms end
 (*
+val i = 1
 val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
         install_rec_pattern lhs fname ml_fname) info
-val (fname,ml_name,lhs,rhs,def) = el 1 info
+val (fname,ml_name,lhs,rhs,def) = el i info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
     val _ = print ("Translating " ^ msg ^ "\n")
@@ -2150,7 +2149,7 @@ val (fname,ml_fname,th,def) = List.hd thms
       in
 	(is_fun,[(fname,ml_fname,def,th,pre)])
       end
-    else (* is_rec *) let
+    else (* recursive case *) let
       (* introduce Recclosure *)
       val (code_defs,thms) = let val x = List.map abbrev_code thms
                              in unzip x end
@@ -2242,7 +2241,7 @@ fun m_translate def =
       val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = List.map (fn x => find_const_name (#1 x ^ "_v")) results
       val _ = if not (!dynamic_init_H) then ml_prog_update (add_Dletrec recc v_names) else ()
-      val v_defs = List.take(get_curr_v_defs (), length v_names)
+      val v_defs = if not (!dynamic_init_H) then List.take(get_curr_v_defs (), length v_names) else []
       val jj = INST (if !dynamic_init_H  then [] else [v_env |-> get_curr_env()])
       (*
       val (fname,ml_fname,def,th,pre) = hd results
@@ -2669,6 +2668,15 @@ fun m_translate_run def = let
       in monad_th end
       else monad_th
 
+    (* Retrieve information about the exc type *)
+    val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
+    val EXC_TYPE_def = DB.find "EXC_TYPE_def" |> List.hd |> snd |> fst
+		       handle Empty => raise (ERR "m_translate_run" "The `exc` type needs to be registered in the current program")
+    val MNAME = concl EXC_TYPE_def |> list_dest dest_conj |> List.hd
+		      |> strip_forall |> snd |> rhs |> strip_exists |> snd
+		      |> dest_conj |> fst |> rhs |> rator |> rand |> rand
+		      |> rand |> rand |> rand
+
     (* Translate the run construct *)
     val x = concl monad_th |> get_Eval_arg
     val exp = concl monad_th |> get_Eval_exp
@@ -2681,10 +2689,10 @@ fun m_translate_run def = let
     val th = case exn_module_name of
 		 SOME module_name =>
 		 ISPECL [cons_names, module_name, vname, TYPE, EXN_TYPE, x, exp,
-			 !H, state_var, env] EvalM_to_EvalSt_MODULE
+			 !H, state_var, MNAME, env] EvalM_to_EvalSt_MODULE
 	       | NONE =>
 		 ISPECL [cons_names, vname, TYPE, EXN_TYPE, x, exp,
-			 !H, state_var, env] EvalM_to_EvalSt_SIMPLE
+			 !H, state_var, MNAME, env] EvalM_to_EvalSt_SIMPLE
 
     (* Prove the assumptions *)
     val [EXN_assum, distinct_assum, vname_assum1, vname_assum2] = List.take(
@@ -2696,9 +2704,6 @@ fun m_translate_run def = let
     val vname_th1 = SIMP_CONV list_ss [] vname_assum1 |> EQT_ELIM
     val vname_th2 = SIMP_CONV list_ss [] vname_assum2 |> EQT_ELIM
 
-    val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
-    val EXC_TYPE_def = DB.find "EXC_TYPE_def" |> List.hd |> snd |> fst
-		       handle Empty => raise (ERR "m_translate_run" "The `exc` type needs to be registered in the current program")
     val EXC_RI_prove_tac =
 	irule EQ_EXT \\ gen_name_tac "A"
         \\ irule EQ_EXT \\ gen_name_tac "B"
@@ -2706,7 +2711,9 @@ fun m_translate_run def = let
         \\ irule EQ_EXT \\ gen_name_tac "v"
         \\ Cases_on `x`
         \\ simp[EXC_TYPE_def, EXC_TYPE_aux_def]
-    val EXN_rw = prove(mk_eq(EXC_TYPE_aux_const, EXC_TYPE_tm), EXC_RI_prove_tac)
+    val EXC_TYPE_aux_tm = mk_comb(EXC_TYPE_aux_const, MNAME)
+
+    val EXN_rw = prove(mk_eq(EXC_TYPE_aux_tm, EXC_TYPE_tm), EXC_RI_prove_tac)
 
     val th = List.foldl (fn (a, th) => MP th a) th [distinct_th, vname_th1, vname_th2]
     val th = PURE_REWRITE_RULE[EXN_rw] th
