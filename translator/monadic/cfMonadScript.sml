@@ -84,14 +84,17 @@ rw[REFS_PRED_def, STAR_def]
 \\ fs[SAT_GC]
 );
 
-val state_with_refs_eq = Q.prove(
- `st with refs := r = st with refs := r' <=> r = r'`,
-fs[state_component_equality]);
-
 val HPROP_SPLIT3 = Q.prove(
 `(H1 * H2 * H3) h ==> ?h1 h2 h3. SPLIT3 h (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3`,
 rw[STAR_def, SPLIT_def, SPLIT3_def]
 \\ fs[DISJOINT_UNION]
+\\ metis_tac[]);
+
+val HPROP_SPLIT3_clock0 = Q.prove(
+`(H1 * H2 * H3) (st2heap p st) ==>
+ ?h1 h2 h3. SPLIT3 (st2heap p (st with clock := 0)) (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3`,
+rw[STAR_def, SPLIT_def, SPLIT3_def]
+\\ fs[DISJOINT_UNION, st2heap_def]
 \\ metis_tac[]);
 
 val evaluate_Rval_bigStep_to_evaluate = Q.prove(
@@ -110,124 +113,51 @@ rw[]
 \\ fs[evaluate_list_raise_SING]
 \\ instantiate);
 
-val st2heap_clock_inv = Q.prove(`st2heap p (st with clock := c) = st2heap p st`,
-Cases_on `p` \\ fs[st2heap_def]);
-
-(*
- * REFS_PRED_Mem_Only: a property we need to be satisfied by the heap to
- * prove the following theorems.
- *)
-
-val REFS_PRED_Mem_Only_IMP = Q.store_thm("REFS_PRED_Mem_Only_IMP",
-`!H. REFS_PRED_Mem_Only H ==> ((!p st state h1 h2. SPLIT (st2heap p st) (h1, h2) ==> H state h1 ==> ?h3. SPLIT (store2heap st.refs) (h1, h3)))`,
-rw[REFS_PRED_Mem_Only_def]
-\\ fs[SPLIT_def]
-\\ qexists_tac `store2heap st.refs DIFF h1`
-\\ rw[]
->-(
-    rw[SET_EQ_SUBSET, SUBSET_DEF]
-    \\ `x IN st2heap p st` by metis_tac[IN_UNION]
-    \\ fs[st2heap_def]
-    \\ last_x_assum IMP_RES_TAC
-    \\ fs[Mem_NOT_IN_ffi2heap])
-\\ fs[DISJOINT_ALT]);
-
-val REFS_PRED_Mem_Only_STAR_IMP = Q.store_thm("REFS_PRED_Mem_Only_STAR_IMP",
-`!H1 H2. REFS_PRED_Mem_Only H1 ==> REFS_PRED_Mem_Only H2 ==> REFS_PRED_Mem_Only (\state. H1 state * H2 state)`,
-rw[REFS_PRED_Mem_Only_def]
-\\ fs[STAR_def, SPLIT_def]
-\\ metis_tac[IN_DEF, IN_UNION]);
-
-val REFS_PRED_Mem_Only_REF_REL = Q.store_thm("REFS_PRED_Mem_Only_REF_REL",
-`!A get_val r. REFS_PRED_Mem_Only (\state. REF_REL A r (get_val state))`,
-rw[REFS_PRED_Mem_Only_def]
-\\ fs[REF_REL_def, SEP_EXISTS_THM, HCOND_EXTRACT, REF_def, cell_def, one_def]
-\\ rw[]
-\\ fs[IN_SING]);
-
-val REFS_PRED_Mem_Only_RARRAY_REL = Q.store_thm("REFS_PRED_Mem_Only_RARRAY_REL",
-`!A get_arr r. REFS_PRED_Mem_Only (\state. RARRAY_REL A r (get_arr state))`,
-rw[REFS_PRED_Mem_Only_def]
-\\ fs[RARRAY_REL_def, RARRAY_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM, HCOND_EXTRACT, REF_def, cell_def, one_def, GSYM STAR_ASSOC]
-\\ fs[STAR_def, SPLIT_def, cond_def]
-\\ rw[]
-\\ fs[IN_SING]);
-
-val REFS_PRED_Mem_Only_emp = Q.store_thm("REFS_PRED_Mem_Only_emp",
-`REFS_PRED_Mem_Only (\(state : 'a). emp)`,
-rw[REFS_PRED_Mem_Only_def]
-\\ fs[REF_REL_def, SEP_EXISTS_THM, HCOND_EXTRACT, REF_def, cell_def, one_def, emp_def]
-\\ rw[]
-\\ fs[]);
-
-(*
- * ffi of any type
- *)
-
-val DISJ_TO_IMP = Q.prove(`(A \/ B) <=> ~A ==> B`,
-EQ_TAC >-(rw[] \\ rw[])
-\\ Cases_on `A`
-\\ rw[]);
-
-val INTER_DISJOINT = Q.store_thm("INTER_DISJOINT",
-`x IN h1 ==> x IN h2 ==> DISJOINT h1 h2 = F`,
-rw[]
-\\ rpt STRIP_TAC
-\\ fs[DISJOINT_DEF]
-\\ `(h1 INTER h2) x` by rw[INTER_DEF]
-\\ `{} x` by metis_tac[]
-\\ fs[]);
-
-val apply_REFS_PRED_Mem_Only_IMP =
-  first_assum (fn x => let val lemma = (MATCH_MP REFS_PRED_Mem_Only_IMP x)
-  in first_assum (fn x => (MATCH_MP lemma x) |> drule) end)
-
-val apply_REFS_PRED_Mem_Only_IMP2 =
-  first_assum (fn x => let val lemma = (MATCH_MP REFS_PRED_Mem_Only_IMP x)
-  in last_assum (fn x => (MATCH_MP lemma x) |> drule) end)
+val REFS_PRED_from_SPLIT = Q.prove(
+  `!state (st : 'ffi semanticPrimitives$state) H p h1 h2.
+   H state h1 ==>
+   SPLIT (st2heap p st) (h1,h2) ==>
+   REFS_PRED (H,p) state st`,
+   rw[REFS_PRED_def]
+   \\ rw[STAR_def]
+   \\ metis_tac[SAT_GC]);
 
 val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
-  `!A B f fv x1 xv1 xv2 xvl H Q state p.
+  `!A B f fv x1 xv1 xv2 xvl H Q ro state p.
      A x1 xv1 ==>
      (!gv. B (f x1) gv ==>
      app (p : 'ffi ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
-     ArrowP (H,p) (PURE A) (PURE B) f fv ==>
+     ArrowP ro (H,p) (PURE A) (PURE B) f fv ==>
      app p fv (xv1::xv2::xvl) (H state) (Q state)`,
   rw [app_def, app_basic_def, ArrowP_def, PURE_def]
-  \\ fs [PULL_EXISTS]
+  \\ drule REFS_PRED_from_SPLIT
+  \\ disch_then drule \\ rw[]
+  \\ first_x_assum(qspecl_then [`x1`, `state`, `st`, `state`, `st`, `Rval xv1`] assume_tac)
+  \\ fs[state_component_equality]
+  \\ fs[GSYM AND_IMP_INTRO]
   \\ first_x_assum drule
-  \\ disch_then (qspecl_then [`state`,`st`,`[]`] mp_tac) \\ simp []
-  \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
-  \\ rw []
-  \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
-  \\ rfs [REFS_PRED_FRAME_def] \\ rw []
-  \\ pop_assum kall_tac
-  \\ fs [evaluate_ck_def]
-  \\ `(H state * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
-  \\ first_x_assum drule \\ rw []
-  \\ qexists_tac `Val v'` \\ fs []
+  \\ disch_then drule \\ rw[]
+  \\ first_x_assum (qspec_then `[]` strip_assume_tac)
+  \\ rw[]
+  \\ fs[REFS_PRED_FRAME_def, REFS_PRED_def]
+  \\ `(H st3 * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
+  \\ first_x_assum drule \\ rw[]
+  \\ drule HPROP_SPLIT3_clock0 \\ rw[]
+  \\ asm_exists_tac \\ fs []
+  \\ last_x_assum drule \\ rw[]
+  \\ qexists_tac `Val v` \\ fs []
   \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
   \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ qpat_x_assum `!x._` drule
-  \\ strip_tac
-  \\ once_rewrite_tac [CONJ_COMM]
   \\ asm_exists_tac \\ fs []
-  \\ fs [with_same_refs]
-  \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
-  \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
-  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
-  \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
-  \\ `junk' = []` by fs [state_component_equality]
-  \\ fs [with_same_refs]
-  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
-  \\ asm_exists_tac \\ fs []
-  \\ qexists_tac `h3` \\ fs []
-  \\ fs [st2heap_def]);
+  \\ drule evaluate_Rval_bigStep_to_evaluate \\ rw[]
+  \\ fs[with_same_refs]
+  \\ rw[evaluate_ck_def]
+  \\ asm_exists_tac \\ simp[]);
 
 val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
-  `!A B C f fv H x xv refs p.
+  `!A B C f fv H x xv ro refs p.
      A x xv ==>
-     ArrowP (H,p) (PURE A) (MONAD B C) f fv ==>
+     ArrowP ro (H,p) (PURE A) (MONAD B C) f fv ==>
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
      (POST
         (\rv. SEP_EXISTS refs' r. H refs' *
@@ -241,36 +171,31 @@ val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
   \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
   \\ rw []
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
-  \\ fs [REFS_PRED_FRAME_def] \\ rw []
-  \\ qpat_x_assum `REFS_PRED_Mem_Only H ⇒ _` kall_tac
+  \\ fs [REFS_PRED_FRAME_def]
   \\ `junk' = []` by fs [state_component_equality]
-  \\ fs [with_same_refs] \\ rveq \\ fs []
+  \\ fs [with_same_refs]
   \\ fs [evaluate_ck_def]
   \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
-  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
-  \\ fs [with_same_refs]
+  \\ drule HPROP_SPLIT3_clock0 \\ rw []
+  \\ asm_exists_tac \\ fs[]
   \\ Cases_on `res3` \\ Cases_on `f x refs` \\ Cases_on `q` \\ fs [MONAD_def]
-  \\ TRY (Cases_on `e` \\ fs [])
-  \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
-  \\ imp_res_tac evaluate_Rerr_bigStep_to_evaluate
-  \\ TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
-  \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
-  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
-  \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
-  \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
-  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ fs []
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ asm_exists_tac \\ fs []
-  \\ qexists_tac `h3` \\ fs []
-  \\ fs [st2heap_def]);
+  >> TRY (Cases_on `e` \\ fs [])
+  >> TRY (drule evaluate_Rval_bigStep_to_evaluate)
+  >> TRY (drule evaluate_Rerr_bigStep_to_evaluate)
+  >> rw[]
+  >> TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
+  >> TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
+  >> rw[]
+  >> qexists_tac `c`
+  >> fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+  >> simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  >> simp[]);
 
 val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
-  `!A B C f fv H x xv refs p.
+  `!A B C f fv H x xv ro refs p.
      A x xv ==>
-     ArrowP (H,p) (EqSt (PURE A) refs) (MONAD B C) f fv ==>
+     ArrowP ro (H,p) (EqSt (PURE A) refs) (MONAD B C) f fv ==>
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
      (POST
           (\rv. SEP_EXISTS refs' r. H refs' *
@@ -284,30 +209,26 @@ val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
   \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
   \\ rw []
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
-  \\ fs [REFS_PRED_FRAME_def] \\ rw []
+  \\ fs [REFS_PRED_FRAME_def]
   \\ `junk' = []` by fs [state_component_equality]
-  \\ fs [with_same_refs] \\ rveq \\ fs []
+  \\ fs [with_same_refs]
   \\ fs [evaluate_ck_def]
   \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
-  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
-  \\ fs [with_same_refs]
+  \\ drule HPROP_SPLIT3_clock0 \\ rw []
+  \\ asm_exists_tac \\ fs[]
   \\ Cases_on `res3` \\ Cases_on `f x refs` \\ Cases_on `q` \\ fs [MONAD_def]
-  \\ TRY (Cases_on `e` \\ fs [])
-  \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
-  \\ imp_res_tac evaluate_Rerr_bigStep_to_evaluate
-  \\ TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
-  \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
-  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
-  \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
-  \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
-  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ fs []
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ asm_exists_tac \\ fs []
-  \\ qexists_tac `h3` \\ fs []
-  \\ fs [st2heap_def]);
+  >> TRY (Cases_on `e` \\ fs [])
+  >> TRY (drule evaluate_Rval_bigStep_to_evaluate)
+  >> TRY (drule evaluate_Rerr_bigStep_to_evaluate)
+  >> rw[]
+  >> TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
+  >> TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
+  >> rw[]
+  >> qexists_tac `c`
+  >> fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+  >> simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  >> simp[]);
 
 val parsed_terms = save_thm("parsed_terms",
   packLib.pack_list
