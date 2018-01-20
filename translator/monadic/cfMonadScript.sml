@@ -188,13 +188,11 @@ val apply_REFS_PRED_Mem_Only_IMP2 =
 
 val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
   `!A B f fv x1 xv1 xv2 xvl H Q state p.
-     REFS_PRED_Mem_Only H ==>
      A x1 xv1 ==>
      (!gv. B (f x1) gv ==>
      app (p : 'ffi ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
      ArrowP (H,p) (PURE A) (PURE B) f fv ==>
      app p fv (xv1::xv2::xvl) (H state) (Q state)`,
-  cheat (*
   rw [app_def, app_basic_def, ArrowP_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
@@ -202,36 +200,29 @@ val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
   \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
   \\ rw []
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
-  \\ fs [REFS_PRED_FRAME_def] \\ rw []
+  \\ rfs [REFS_PRED_FRAME_def] \\ rw []
+  \\ pop_assum kall_tac
   \\ fs [evaluate_ck_def]
   \\ `(H state * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
-  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
+  \\ qexists_tac `Val v'` \\ fs []
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  \\ qpat_x_assum `!x._` drule
+  \\ strip_tac
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
   \\ fs [with_same_refs]
   \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
-  \\ qexists_tac `Val v'`
-  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
-  \\ Q.LIST_EXISTS_TAC [`st2heap p (st with refs := refs) DIFF h1 DIFF h_k`,`h1`]
-  \\ first_x_assum drule \\ strip_tac
-  \\ fs [SEP_EXISTS_THM, SEP_CLAUSES]
-  \\ reverse conj_tac
-  >-
-   (fs [HCOND_EXTRACT]
-    \\ asm_exists_tac
-    \\ fs [])
-  \\ `SPLIT (st2heap p (st with refs := refs)) (h1, h_k UNION h3)` by
-    fs [SPLIT_def, SPLIT3_def, UNION_ASSOC, DISJOINT_SYM]
-  \\ apply_REFS_PRED_Mem_Only_IMP
-  \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw []
-  \\ fs [SPLIT_def, SPLIT3_def]
-  \\ reverse conj_tac >- fs [DISJOINT_ALT]
-  \\ fs [st2heap_clock]
-  \\ once_rewrite_tac [UNION_COMM]
-  \\ simp [DIFF_UNION]
-  \\ qpat_x_assum `_ UNION _ UNION _ = _` (assume_tac o GSYM) \\ fs []
-  \\ metis_tac [IN_UNION, SUBSET_DEF, UNION_DIFF] *));
+  \\ `junk' = []` by fs [state_component_equality]
+  \\ fs [with_same_refs]
+  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ qexists_tac `h3` \\ fs []
+  \\ fs [st2heap_def]);
 
 val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
   `!A B C f fv H x xv refs p.
