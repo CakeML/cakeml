@@ -1,6 +1,6 @@
 INCLUDES = ../../../misc ../../../translator ../../../translator/monadic ../../../characteristic \
            ../../inference ../../inference/proofs ../../parsing ../../backend \
-           ../.. ../../backend/reg_alloc ../../backend/reg_alloc\proofs \
+           ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs \
            ../../../basis $(HOLDIR)/examples/formal-languages/context-free \
 					 ../../encoders/x64   ../../backend/x64 $(HOLDIR)/examples/l3-machine-code/x64/model \
 					 ../../encoders/arm6  ../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model \
