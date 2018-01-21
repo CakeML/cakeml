@@ -60,6 +60,10 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.do_reg_alloc_def,
     reg_allocTheory.reg_alloc_aux_def,
     reg_allocTheory.run_ira_state_def,
+    reg_allocTheory.pri_move_insert_def,
+    reg_allocTheory.undir_move_insert_def,
+    reg_allocTheory.moves_to_sp_def,
+    reg_allocTheory.resort_moves_def,
     reg_allocTheory.reg_alloc_def,
     (*parmove*)
     parmoveTheory.pmov_def,

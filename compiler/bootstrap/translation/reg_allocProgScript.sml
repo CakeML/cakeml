@@ -115,6 +115,11 @@ val _ = m_translate is_Atemp_def
 val _ = m_translate init_alloc1_heu_def
 val _ = m_translate do_alloc1_def
 val _ = m_translate extract_color_def
+
+val _ = translate pri_move_insert_def
+val _ = translate undir_move_insert_def
+val _ = translate moves_to_sp_def
+val _ = translate resort_moves_def
 val _ = m_translate do_reg_alloc_def
 
 (* Finish the monadic translation *)
