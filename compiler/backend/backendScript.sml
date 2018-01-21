@@ -314,8 +314,9 @@ val from_livesets_def = Define`
     MAP (λ(col_opt,((tree,moves,forced),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
+          let moves = get_prefs prog [] in
           let cp =
-            (case reg_alloc k LN tree forced of (* Moves not supported yet *)
+            (case reg_alloc k moves tree forced of
               Success col =>
                 (apply_colour (total_colour col) prog)
             | Failure _ => prog (*cannot happen*)) in

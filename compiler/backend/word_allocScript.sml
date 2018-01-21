@@ -1026,10 +1026,11 @@ val word_alloc_def = Define`
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
-    (dtcase reg_alloc k LN tree forced of (* Moves not supported yet *)
-      Success col =>
-        apply_colour (total_colour col) prog
-    | Failure _ => prog (*cannot happen*))
+      let moves = get_prefs prog [] in
+      (dtcase reg_alloc k moves tree forced of
+        Success col =>
+          apply_colour (total_colour col) prog
+      | Failure _ => prog (*cannot happen*))
   | SOME col_prog =>
       col_prog`
 

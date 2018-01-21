@@ -2166,7 +2166,7 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`LN`] assume_tac)>>rfs[]>>fs[]>>
+  disch_then(qspecl_then [`k`,`moves`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
     (srw_tac[][]
@@ -6714,7 +6714,7 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`LN`] assume_tac)>>rfs[]>>fs[]>>
+  disch_then(qspecl_then [`k`,`get_prefs prog []`] assume_tac)>>rfs[]>>fs[]>>
   assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
   rfs[]>>
   fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>rw[]
@@ -6823,7 +6823,7 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`LN`] assume_tac)>>rfs[]>>
+  disch_then(qspecl_then [`k`,`moves`] assume_tac)>>rfs[]>>
   fs[]>>
   match_mp_tac forced_distinct_col>>rfs[]>>
   unabbrev_all_tac>>

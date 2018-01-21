@@ -736,13 +736,36 @@ val extract_color_def = Define`
     return (fromAList itags)
   od`
 
+val pri_move_insert_def = Define`
+  pri_move_insert p x y acc =
+  case lookup x acc of
+    NONE =>
+      insert x [(p,y)] acc
+  | SOME ls =>
+      insert x ((p,y)::ls) acc`
+
+val undir_move_insert_def = Define`
+  undir_move_insert p x y acc =
+    pri_move_insert p x y (pri_move_insert p y x acc)`
+
+val moves_to_sp_def = Define`
+  (moves_to_sp [] acc = acc:num list num_map) ∧
+  (moves_to_sp (move::xs) acc =
+    let (p,x,y) = move in
+    moves_to_sp xs (undir_move_insert p x y acc))`
+
+(*Do a consistency sort after setting up the sptree of moves*)
+val resort_moves_def = Define`
+  resort_moves acc =
+  map (λls. MAP SND (QSORT (λp:num,x p',x'. p>p') ls )) acc`
+
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
-  do_reg_alloc k mtable ct forced (ta,fa,n) =
+  do_reg_alloc k moves ct forced (ta,fa,n) =
   do
     init_ra_state ct forced (ta,fa,n);
     ls <- do_alloc1 k;
-    assign_Atemps k ls (biased_pref mtable);
+    assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
     assign_Stemps k;
     spcol <- extract_color ta;
     return spcol (* return the composed from wordLang into the graph + the allocation *)
@@ -758,8 +781,8 @@ val run_ira_state_def = define_run ``:ra_state``
    the translator's requirements *)
 
 val reg_alloc_aux_def = Define`
-  reg_alloc_aux k mtable ct forced (ta,fa,n) =
-    run_ira_state (do_reg_alloc k mtable ct forced (ta,fa,n))
+  reg_alloc_aux k moves ct forced (ta,fa,n) =
+    run_ira_state (do_reg_alloc k moves ct forced (ta,fa,n))
                       <| adj_ls   := (n, [])
                        ; node_tag := (n, Atemp)
 		       ; degrees  := (n, 0)
@@ -769,7 +792,7 @@ val reg_alloc_aux_def = Define`
 		       ; stack    := [] |>`;
 
 val reg_alloc_def = Define `
-reg_alloc k mtable ct forced =
-    reg_alloc_aux k mtable ct forced (mk_bij ct)`;
+reg_alloc k moves ct forced =
+    reg_alloc_aux k moves ct forced (mk_bij ct)`;
 
 val _ = export_theory();

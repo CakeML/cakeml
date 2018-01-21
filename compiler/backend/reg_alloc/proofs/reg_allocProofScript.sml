@@ -2025,7 +2025,7 @@ val check_clash_tree_INJ = Q.store_thm("check_clash_tree_INJ",`
 (* The top-most correctness theorem --
 *)
 val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
-  ∀k mtable ct forced st ta fa n.
+  ∀k moves ct forced st ta fa n.
   mk_bij ct = (ta,fa,n)==>
   st.adj_ls = REPLICATE n [] ==>
   st.node_tag = REPLICATE n Atemp ==>
@@ -2034,7 +2034,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol st' livein flivein.
-    do_reg_alloc k mtable ct forced (ta,fa,n) st = (Success spcol,st') ∧
+    do_reg_alloc k moves ct forced (ta,fa,n) st = (Success spcol,st') ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -2047,7 +2047,7 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
     EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`,
   rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
-  `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>  
+  `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
   first_x_assum(fn x => fs[x])>>
   drule mk_bij_aux_domain>>rw[]>>
   drule mk_bij_aux_bij>> impl_tac>-
@@ -2115,7 +2115,8 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
       fs[TWOxDIV2])>>
     metis_tac[option_CLAUSES])>>
   drule assign_Atemps_correct>>simp[]>>
-  disch_then (qspecl_then[`k`,`ls`,`biased_pref mtable`] assume_tac)>>
+  qmatch_goalsub_abbrev_tac`assign_Atemps _ _ (biased_pref mov)`>>
+  disch_then (qspecl_then[`k`,`ls`,`biased_pref mov`] assume_tac)>>
   fs[good_pref_biased_pref]>>
   drule assign_Stemps_correct>>rw[]>>simp[]>>
   drule (GEN_ALL extract_color_succeeds)>>
@@ -2230,11 +2231,11 @@ fun first_prove_imp thms =
 (* The top-most correctness theorem --
 *)
 val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
-  ∀k mtable ct forced.
+  ∀k moves ct forced.
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol livein flivein.
-    reg_alloc k mtable ct forced = Success spcol ∧
+    reg_alloc k moves ct forced = Success spcol ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -2251,7 +2252,7 @@ val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
   rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
   qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ st` >>
   qmatch_goalsub_abbrev_tac `(ta,fa,n)` >>
-  ASSUME_TAC (Q.SPECL [`k`,`mtable`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
+  ASSUME_TAC (Q.SPECL [`k`,`moves`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
   first_x_assum drule >> rw[] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
