@@ -159,7 +159,7 @@ val evaluate_list_SING = Q.prove(
   \\ once_rewrite_tac [CONJ_COMM]
   \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
 
-val EvalM_print = prove(
+val EvalM_print = store_thm("EvalM_print",
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
