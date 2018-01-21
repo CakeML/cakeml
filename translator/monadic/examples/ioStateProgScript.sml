@@ -147,6 +147,10 @@ val print_def = Define `
 open ml_translatorTheory ml_monad_translatorTheory ml_monad_translatorBaseTheory
      bigStepTheory
 
+val st2heap_with_clock = store_thm("st2heap_with_clock[simp]",
+  ``st2heap p (s with clock := c) = st2heap p s``,
+  fs [cfStoreTheory.st2heap_def]);
+
 (* TODO cfAppTheory copy-paste *)
 val evaluate_list_SING = Q.prove(
   `bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
@@ -158,7 +162,7 @@ val evaluate_list_SING = Q.prove(
 val EvalM_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM ro env st (App Opapp [Var (Short "print"); exp])
+    EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (print x))
       (STDIO,p:'ffi ffi_proj)``,
   rw [EvalM_def, Eval_def]
@@ -197,8 +201,16 @@ val EvalM_print = prove(
   \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
   \\ disch_then (qspec_then `s.clock` assume_tac) \\ fs []
   \\ qpat_x_assum `evaluate T _ _ _ _` kall_tac
-  \\ cheat (* TODO *)
-  );
+  \\ qmatch_assum_abbrev_tac `_ s3 _ _`
+  \\ `s3 = s with refs := s.refs ⧺ junk ⧺ refs'` by
+    fs [Abbr`s3`,semanticPrimitivesTheory.state_component_equality]
+  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [REFS_PRED_FRAME_def]
+  \\ simp [Once set_sepTheory.STAR_def,PULL_EXISTS]
+  \\ rw []
+  (* here we can't prove that u and u' are the same, instead we need
+     to have the original theorem and instantiate it again *)
+  \\ cheat (* TODO *));
 
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
@@ -247,7 +259,7 @@ val stdio_INTRO = prove(
 val EvalM_stdio_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM ro env st (App Opapp [Var (Short "print"); exp])
+    EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (stdio (print x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print]);
