@@ -15,7 +15,7 @@ open ml_monadStoreLib
 (*
  * Those libraries are used in the translation
  *)
-open (* ml_monad_translatorTheory *) ml_monad_translatorLib
+open ml_monad_translatorLib
 
 val _ = new_theory "ioStateProg"
 
@@ -151,28 +151,25 @@ val st2heap_with_clock = store_thm("st2heap_with_clock[simp]",
   ``st2heap p (s with clock := c) = st2heap p s``,
   fs [cfStoreTheory.st2heap_def]);
 
-(* TODO cfAppTheory copy-paste *)
-val evaluate_list_SING = Q.prove(
-  `bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
-    bigStep$evaluate b env st exp (st', Rval v)`,
-  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
-
 val EvalM_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (print x))
       (STDIO,p:'ffi ffi_proj)``,
+
   rw [EvalM_def, Eval_def]
   \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
   \\ drule (GEN_ALL TextIOProofTheory.print_spec)
   \\ simp [cfAppTheory.app_def, cfAppTheory.app_basic_def]
   \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
   \\ fs [REFS_PRED_def, set_sepTheory.STAR_def]
-  \\ sg `?hk. SPLIT (st2heap p (s with refs := s.refs ++ junk ++ refs')) (u, hk)`
-  >- cheat (* TODO *)
+  \\ qabbrev_tac `rss = s.refs++junk++refs'`
+  \\ sg `?hk. SPLIT (st2heap p (s with refs := rss)) (u, hk)`
+  >- fs [Abbr`rss`, set_sepTheory.SPLIT_EQ,
+         cfAppTheory.st2heap_with_refs_append,
+         cfStoreTheory.st2heap_def, SUBSET_DEF]
+  \\ fs [Abbr`rss`]
   \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def]
   \\ Cases_on `r` \\ fs [set_sepTheory.cond_def]
@@ -208,6 +205,24 @@ val EvalM_print = prove(
   \\ fs [REFS_PRED_FRAME_def]
   \\ simp [Once set_sepTheory.STAR_def,PULL_EXISTS]
   \\ rw []
+  \\ irule ml_monadStoreTheory.H_STAR_GC_SAT_IMP
+  \\ fs [cfHeapsBaseTheory.SPLIT_emp1] \\ rveq
+
+  \\ simp [set_sepTheory.STAR_def]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `v'` \\ fs [] (* Unlikely to prove F' for anything else *)
+
+  (*
+  \\ drule (GEN_ALL TextIOProofTheory.print_spec)
+  \\ simp [cfAppTheory.app_def, cfAppTheory.app_basic_def]
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ rw []
+  \\ Cases_on `r` \\ fs [set_sepTheory.cond_def]
+  \\ fs [set_sepTheory.STAR_def]
+  \\ fs [cfHeapsBaseTheory.SPLIT_emp1] \\ rw []
+  *)
+
   (* here we can't prove that u and u' are the same, instead we need
      to have the original theorem and instantiate it again *)
   \\ cheat (* TODO *));
