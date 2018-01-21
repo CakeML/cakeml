@@ -69,7 +69,6 @@ val add_reg_alloc_compset = extend_compset
 
 val ERR = mk_HOL_ERR"reg_allocComputeLib";
 
-(*
 
 (* unit sptree to ML unit sptree_spt*)
 fun dest_unit_sptree tm =
@@ -120,6 +119,7 @@ fun dest_clash_tree tm =
       Branch (SOME((dest_unit_sptree o optionSyntax.dest_some) opt),dest_clash_tree t1,dest_clash_tree t2)
   | _ => raise ERR "dest_clash_tree" "";
 
+fun tup2 l = case l of [a, b] => (a, b) | _ => raise General.Bind
 fun tup3 l = case l of [a, b, c] => (a, (b, c)) | _ => raise General.Bind
 
 fun dest_moves tm =
@@ -128,15 +128,22 @@ fun dest_moves tm =
   map
   (fn p => tup3 (map int_of_term p)) split end
 
-fun ct_to_spg ct = fst(clash_tree_to_spg ct [] Ln)
+fun dest_forced tm =
+  let val (ls,_) = dest_list tm
+      val split = map pairSyntax.strip_pair ls in
+  map
+  (fn p => tup2 (map int_of_term p)) split end
 
 fun alloc_aux alg k [] n = (print"\n";[])
 |   alloc_aux alg k ([clash_tree,moves,force]::xs) n =
   let val _ = print (strcat (Int.toString n) " ")
-      val clash_tree_poly = (ct_to_spg o dest_clash_tree) clash_tree
-      (*TODO: handle forced edges*)
-      val moves_poly = dest_moves moves in
-      reg_alloc alg clash_tree_poly k moves_poly :: alloc_aux alg k xs (n+1)
+      val clash_tree_poly = dest_clash_tree clash_tree
+      val moves_poly = dest_moves moves
+      val force_poly = dest_forced force
+      val res = reg_alloc k moves_poly clash_tree_poly force_poly in
+    case res of
+      Success s => s:: alloc_aux alg k xs (n+1)
+    | Failure e => raise ERR "reg_alloc" "failure"
   end
 |   alloc_aux _ _ _ _ = raise General.Bind;
 
@@ -157,8 +164,8 @@ fun get_oracle alg t =
     \n. if n >= LENGTH alloc then NONE else SOME(EL n alloc)``
   end
 
-(*get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[]);Set LN,[(1n,1n,2n)]])`` *)
-
+(*
+get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[],[(1n,2n)]);Set LN,[(1n,1n,2n)],[]])`` 
 *)
 
 end
