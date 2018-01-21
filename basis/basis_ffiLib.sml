@@ -50,7 +50,10 @@ fun subset_basis_st st precond =
      \\ `parts_ok ffii (basis_proj1,basis_proj2)`
             by (fs[Abbr`ffii`] \\ prove_parts_ok_st)
      \\ fs[Abbr`ffii`]
-     \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE])
+     \\ EVAL_TAC
+     \\ rw[cfAppTheory.store2heap_aux_append_many,INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE]
+     \\ rw[cfStoreTheory.store2heap_aux_def]
+     )
   val (subgoals,_) = tac ([],goal)
   fun mk_mapping (x,y) =
     if mem x to_inst then SOME (x |-> y) else

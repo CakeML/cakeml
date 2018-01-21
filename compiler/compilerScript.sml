@@ -3,7 +3,7 @@ open preamble
      cmlParseTheory
      inferTheory
      backendTheory
-     mlintTheory mlstringTheory basisProgTheory
+     mlnumTheory mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
 open x64_configTheory export_x64Theory
@@ -69,13 +69,13 @@ val locs_to_string_def = Define `
     else
       concat
         [implode "location starting at row ";
-         toString &startl.row;
+         toString startl.row;
          implode " column ";
-         toString &startl.col;
+         toString startl.col;
          implode ", ending at row ";
-         toString &endl.row;
+         toString endl.row;
          implode " column ";
-         toString &endl.col])`;
+         toString endl.col])`;
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);

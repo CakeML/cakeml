@@ -8,6 +8,7 @@ val _ = translation_extends "VectorProg";
 
 val _ = ml_prog_update (open_module "String");
 
+val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "string" (Tapp [] TC_string)`` I);
 val _ = trans "sub" `strsub`
@@ -178,7 +179,32 @@ val collate_side_thm = Q.prove (
   `!f s1 s2. collate_1_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
+val sigs = module_signatures [
+  "sub",
+  "implode",
+  "size",
+  "concat",
+  "substring",
+  "^",
+  "explode",
+  "extract",
+  "concatWith",
+  "str",
+  "translate",
+  "splitl",
+  "tokens",
+  "fields",
+  "isPrefix",
+  "isSuffix",
+  "isSubstring",
+  "compare",
+  "<",
+  "<=",
+  ">=",
+  ">",
+  "collate"
+];
 
-val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (close_module (SOME sigs));
 
 val _ = export_theory()

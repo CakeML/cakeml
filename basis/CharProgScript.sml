@@ -9,6 +9,8 @@ val _ = translation_extends "RatProg";
 
 val _ = ml_prog_update (open_module "Char");
 
+val () = generate_sigs := true;
+
 val _ = append_dec ``Dtabbrev unknown_loc [] "char" (Tapp [] TC_char)``;
 val _ = trans "ord" `ORD`
 val _ = trans "chr" `CHR`
@@ -20,6 +22,16 @@ val _ = trans ">=" `string$char_ge`
 val _ = next_ml_names := ["isSpace"];
 val res = translate stringTheory.isSpace_def;
 
-val _ = ml_prog_update (close_module NONE);
+val sigs = module_signatures [
+  "ord",
+  "chr",
+  "<",
+  ">",
+  "<=",
+  ">=",
+  "isSpace"
+];
+
+val _ = ml_prog_update (close_module (SOME sigs));
 
 val _ = export_theory()
