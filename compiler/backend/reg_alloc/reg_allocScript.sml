@@ -749,7 +749,7 @@ val undir_move_insert_def = Define`
     pri_move_insert p x y (pri_move_insert p y x acc)`
 
 val moves_to_sp_def = Define`
-  (moves_to_sp [] acc = acc:num list num_map) ∧
+  (moves_to_sp [] acc = acc) ∧
   (moves_to_sp (move::xs) acc =
     let (p,x,y) = move in
     moves_to_sp xs (undir_move_insert p x y acc))`
