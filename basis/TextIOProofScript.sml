@@ -1056,13 +1056,13 @@ val print_spec = Q.store_thm("print_spec",
   \\ tac);
 
 val print_def = Define `
-  print s = (\fs. (Success (), add_stdout fs s)): (IO_fs, unit, unit) M`
+  print s = (\fs. (Success (), add_stdout fs s))`
 
 val EvalM_print = Q.store_thm("EvalM_print",
   `Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
-      (MONAD UNIT_TYPE UNIT_TYPE (print x))
+      (MONAD UNIT_TYPE exc_ty (print x))
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [print_def]
   \\ fs [MONAD_IO_def]
@@ -1102,7 +1102,7 @@ val EvalM_print_err = Q.store_thm("EvalM_print_err",
   `Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print_err") = SOME TextIO_print_err_v) ==>
     EvalM F env st (App Opapp [Var (Short "print_err"); exp])
-      (MONAD UNIT_TYPE UNIT_TYPE (print_err x))
+      (MONAD UNIT_TYPE exc_ty (print_err x))
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
   \\ fs [MONAD_IO_def]
@@ -1886,7 +1886,7 @@ val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
   `Eval env exp (FILENAME f) /\
     (nsLookup env.v (Short "inputLinesFrom") = SOME TextIO_inputLinesFrom_v) ==>
     EvalM F env st (App Opapp [Var (Short "inputLinesFrom"); exp])
-      (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) UNIT_TYPE (inputLinesFrom f))
+      (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) exc_ty (inputLinesFrom f))
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app
   \\ conj_tac >- rw [inputLinesFrom_def]

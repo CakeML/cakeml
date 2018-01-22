@@ -240,7 +240,7 @@ val EvalM_name = Q.store_thm("EvalM_name",
   `Eval env exp (UNIT_TYPE u) /\
     (nsLookup env.v (Short "name") = SOME CommandLine_name_v) ==>
     EvalM F env st (App Opapp [Var (Short "name"); exp])
-      (MONAD STRING_TYPE UNIT_TYPE (name u))
+      (MONAD STRING_TYPE exc_ty (name u))
       (COMMANDLINE,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [name_def]
   \\ metis_tac [CommandLine_name_spec]);
@@ -267,7 +267,7 @@ val EvalM_arguments = Q.store_thm("EvalM_arguments",
   `Eval env exp (UNIT_TYPE u) /\
     (nsLookup env.v (Short "arguments") = SOME CommandLine_arguments_v) ==>
     EvalM F env st (App Opapp [Var (Short "arguments"); exp])
-      (MONAD (LIST_TYPE STRING_TYPE) UNIT_TYPE (arguments u))
+      (MONAD (LIST_TYPE STRING_TYPE) exc_ty (arguments u))
       (COMMANDLINE,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [arguments_def]
   \\ metis_tac [CommandLine_arguments_spec]);
