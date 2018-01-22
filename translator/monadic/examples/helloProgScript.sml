@@ -23,7 +23,7 @@ open TextIOProofTheory
 (* For generating the CF spec *)
 open cfMonadLib
 
-val _ = new_theory "ioStateProg"
+val _ = new_theory "helloProg"
 
 val _ = translation_extends "basisProg";
 
