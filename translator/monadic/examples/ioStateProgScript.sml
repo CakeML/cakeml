@@ -17,6 +17,12 @@ open ml_monadStoreLib
  *)
 open ml_monad_translatorLib
 
+(* Gives access to monadic IO functions and EvalM theorems *)
+open TextIOProofTheory
+
+(* For generating the CF spec *)
+open cfMonadLib
+
 val _ = new_theory "ioStateProg"
 
 val _ = translation_extends "basisProg";
@@ -114,7 +120,7 @@ val type_theories = [] : string list;
 (* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
 val store_pinv_opt = NONE : (thm * thm) option;
 
-val extra_hprop = SOME ``STDIO s.stdio``;
+val extra_hprop = SOME ``MONAD_IO s.stdio``;
 
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
@@ -140,20 +146,6 @@ val calling_fun_v_thm = calling_fun_def |> m_translate;
 val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
-val print_def = Define `
-  print s = (\fs. (Success (), add_stdout fs s)): (IO_fs, unit, unit) M`
-
-val EvalM_print = Q.store_thm("EvalM_print",
-  `Eval env exp (STRING_TYPE x) /\
-    (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM F env st (App Opapp [Var (Short "print"); exp])
-      (MONAD UNIT_TYPE UNIT_TYPE (print x))
-      (STDIO,p:'ffi ffi_proj)`,
-  match_mp_tac EvalM_from_app
-  \\ qexists_tac `TextIO_print_v` \\ rw []
-  \\ fs [print_def]
-  \\ metis_tac [TextIOProofTheory.print_spec]);
-
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
 val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
@@ -167,7 +159,7 @@ val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
 val stdio_INTRO = prove(
   ``(!st. EvalM ro env st exp
             (MONAD UNIT_TYPE UNIT_TYPE f)
-            (STDIO,p:'ffi ffi_proj)) ==>
+            (MONAD_IO,p:'ffi ffi_proj)) ==>
     (!st. EvalM ro env st exp
             (MONAD UNIT_TYPE UNIT_TYPE (stdio f))
             (STATE_STORE,p:'ffi ffi_proj))``,
@@ -176,14 +168,13 @@ val stdio_INTRO = prove(
   \\ impl_tac
   THEN1 (fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
          \\ fs [fetch "-" "STATE_STORE_def"]
-         \\ qabbrev_tac `a = STDIO st.stdio`
+         \\ qabbrev_tac `a = MONAD_IO st.stdio`
          \\ qabbrev_tac `b = GC`
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
   \\ disch_then (qspec_then `junk` strip_assume_tac)
   \\ asm_exists_tac \\ fs []
-  (*\\ qexists_tac `st with stdio := st2`*)
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
