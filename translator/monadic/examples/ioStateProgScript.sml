@@ -143,43 +143,6 @@ val if_fun_v_thm = if_fun_def |> m_translate;
 val print_def = Define `
   print s = (\fs. (Success (), add_stdout fs s)): (IO_fs, unit, unit) M`
 
-
-open ml_translatorTheory ml_monad_translatorTheory ml_monad_translatorBaseTheory
-     bigStepTheory
-
-val st2heap_with_clock = store_thm("st2heap_with_clock[simp]", (* TODO: move *)
-  ``st2heap p (s with clock := c) = st2heap p s``,
-  fs [cfStoreTheory.st2heap_def]);
-
-val SPLIT3_IMP_STAR_STAR = store_thm("SPLIT3_IMP_STAR_STAR", (* TODO: move *)
-  ``!x s1 s2 s3 p1 p2 p3.
-      p1 s1 /\ p2 s2 /\ p3 s3 /\ SPLIT3 x (s1,s2,s3) ==> (p1 * p2 * p3) x``,
-  fs [set_sepTheory.STAR_def,PULL_EXISTS] \\ rw []
-  \\ qexists_tac `s1 UNION s2`
-  \\ qexists_tac `s3`
-  \\ qexists_tac `s1`
-  \\ qexists_tac `s2`
-  \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def,
-         cfHeapsBaseTheory.SPLIT3_def]
-  \\ metis_tac []);
-
-val GC_T = store_thm("GC_T", (* TODO: move *)
-  ``!x. GC x``,
-  rw [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
-  \\ qexists_tac `K T` \\ fs []);
-
-val st2heap_append_UNION = store_thm("st2heap_new_refs_UNION", (* TODO: move *)
-  ``!(st:'ffi semanticPrimitives$state) new_refs p.
-      ?x. (st2heap p (st with refs := st.refs ++ new_refs) = st2heap p st UNION x) /\
-          DISJOINT (st2heap p st) x``,
-  fs [cfAppTheory.st2heap_with_refs_append] \\ rw[]
-  \\ `(st with refs := st.refs) = st` by
-         fs [semanticPrimitivesTheory.state_component_equality] \\ fs []
-  \\ qexists_tac `store2heap_aux (LENGTH st.refs) new_refs DIFF st2heap p st`
-  \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
-  \\ metis_tac []);
-
-(* TODO statement of theorem *)
 val EvalM_print = Q.store_thm("EvalM_print",
   `Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
