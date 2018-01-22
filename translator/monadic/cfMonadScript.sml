@@ -230,6 +230,111 @@ val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
   >> simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   >> simp[]);
 
+val EvalM_from_app = Q.store_thm("EvalM_from_app",
+  `!(eff_v:v) ARG_TYPE EXC_TYPE.
+   (!x s. ?r t. f x s = (Success r, t)) /\
+   (!x xv s ret new_s.
+     ARG_TYPE x xv ==>
+     (f x s = (Success ret, new_s)) ==>
+     app (p: 'ffi ffi_proj) fun_v [xv] (H s)
+       (POSTv rv. &RET_TYPE ret rv * (H new_s)))
+   ==>
+   Eval env fun_exp (ARG_TYPE x) /\
+   (nsLookup env.v (Short fun_name) = SOME fun_v) ==>
+   EvalM F env st (App Opapp [Var (Short fun_name); fun_exp])
+    (MONAD RET_TYPE EXC_TYPE (f x))
+    (H, p)`,
+  rw [EvalM_def] \\ fs [ Eval_def]
+  \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
+  \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def]
+  \\ simp [MONAD_def]
+  \\ first_x_assum (qspecl_then [`x`,`st`] strip_assume_tac) \\ fs []
+  \\ first_assum drule
+  \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
+  \\ fs [REFS_PRED_def, set_sepTheory.STAR_def]
+  \\ qabbrev_tac `rss = s.refs++junk++refs'`
+  \\ sg `?hk. SPLIT (st2heap p (s with refs := rss)) (u, hk)`
+  >- fs [Abbr`rss`, set_sepTheory.SPLIT_EQ,
+         cfAppTheory.st2heap_with_refs_append,
+         cfStoreTheory.st2heap_def, SUBSET_DEF]
+  \\ fs [Abbr`rss`]
+  \\ rpt (disch_then drule) \\ rw []
+  \\ fs [cfHeapsBaseTheory.POSTv_def]
+  \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
+  \\ rw [Once evaluate_cases, PULL_EXISTS]
+  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
+  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
+  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ rename1 `Rval [val]`
+  \\ qexists_tac `Rval val` \\ fs [PULL_EXISTS]
+  \\ fs [UNIT_TYPE_def]
+  \\ rw [MONAD_def, print_def, PULL_EXISTS]
+  \\ mp_tac ((Q.SPEC `s with refs := s.refs++junk` o
+              CONV_RULE SWAP_FORALL_CONV o GEN_ALL)
+             evaluate_empty_state_IMP) \\ fs []
+  \\ disch_then drule \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ qmatch_asmsub_abbrev_tac `do_opapp [a;_]`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qexists_tac `a` \\ fs [Abbr`a`]
+  \\ rw [Once evaluate_cases]
+  \\ qhdtm_x_assum `evaluate_ck` mp_tac
+  \\ simp [cfAppTheory.evaluate_ck_def] \\ strip_tac \\ fs []
+  \\ fs [funBigStepEquivTheory.functional_evaluate_list]
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))]
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))] \\ rw []
+  \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
+  \\ disch_then (qspec_then `s.clock` assume_tac) \\ fs []
+  \\ qpat_x_assum `evaluate T _ _ _ _` kall_tac
+  \\ qmatch_assum_abbrev_tac `_ s3 _ _`
+  \\ `s3 = s with refs := s.refs ⧺ junk ⧺ refs'` by
+    fs [Abbr`s3`,semanticPrimitivesTheory.state_component_equality]
+  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [REFS_PRED_FRAME_def]
+  \\ simp [Once set_sepTheory.STAR_def,PULL_EXISTS]
+  \\ rw []
+  \\ qmatch_assum_abbrev_tac `evaluate F env' s6 exp2 _`
+  \\ rename1 `SPLIT (st2heap p s) (u1,v1)`
+  \\ `?he. SPLIT (st2heap p s6) (u1,v1 UNION he)` by
+   (qspecl_then [`s`,`junk++refs'`,`p`] strip_assume_tac st2heap_append_UNION
+    \\ rfs [] \\ qexists_tac `x'`
+    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def]
+    \\ metis_tac [])
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ rw []
+  \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.cond_def] \\ rw []
+  \\ rename1 `SPLIT3 (st2heap p st9) _`
+  \\ fs [cfHeapsBaseTheory.SPLIT_emp1] \\ rw []
+  \\ qsuff_tac `?ck. s2 = st9 with clock := ck`
+  THEN1
+   (rw [] \\ fs []
+    \\ match_mp_tac SPLIT3_IMP_STAR_STAR
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ rename1 `SPLIT3 _ (h1,h2 UNION h3,h4)`
+    \\ qexists_tac `(h4 UNION h3) DIFF h2`
+    \\ fs [GC_T,cfHeapsBaseTheory.SPLIT3_def]
+    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
+    \\ metis_tac [])
+  \\ fs [cfAppTheory.evaluate_ck_def]
+  \\ fs [funBigStepEquivTheory.functional_evaluate_list]
+  \\ qhdtm_x_assum `evaluate_list` assume_tac
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))]
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))] \\ rw []
+  \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
+  \\ disch_then (qspec_then `s6.clock` assume_tac) \\ fs []
+  \\ `(s6 with clock := s6.clock) = s6` by
+        fs [semanticPrimitivesTheory.state_component_equality] \\ fs []
+  \\ pop_assum kall_tac
+  \\ drule evaluate_11
+  \\ pop_assum kall_tac
+  \\ rw[] \\ fs []
+  \\ fs [semanticPrimitivesTheory.state_component_equality]);
+
 val parsed_terms = save_thm("parsed_terms",
   packLib.pack_list
    (packLib.pack_pair packLib.pack_string packLib.pack_term)

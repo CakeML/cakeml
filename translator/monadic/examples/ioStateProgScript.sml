@@ -179,98 +179,17 @@ val st2heap_append_UNION = store_thm("st2heap_new_refs_UNION", (* TODO: move *)
   \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
   \\ metis_tac []);
 
-val EvalM_print = prove( (* TODO: generalise into reusable lemma *)
-  ``Eval env exp (STRING_TYPE x) /\
+(* TODO statement of theorem *)
+val EvalM_print = Q.store_thm("EvalM_print",
+  `Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (print x))
-      (STDIO,p:'ffi ffi_proj)``,
-  rw [EvalM_def, Eval_def]
-  \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
-  \\ drule (GEN_ALL TextIOProofTheory.print_spec)
-  \\ simp [cfAppTheory.app_def, cfAppTheory.app_basic_def]
-  \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
-  \\ fs [REFS_PRED_def, set_sepTheory.STAR_def]
-  \\ qabbrev_tac `rss = s.refs++junk++refs'`
-  \\ sg `?hk. SPLIT (st2heap p (s with refs := rss)) (u, hk)`
-  >- fs [Abbr`rss`, set_sepTheory.SPLIT_EQ,
-         cfAppTheory.st2heap_with_refs_append,
-         cfStoreTheory.st2heap_def, SUBSET_DEF]
-  \\ fs [Abbr`rss`]
-  \\ rpt (disch_then drule) \\ rw []
-  \\ fs [cfHeapsBaseTheory.POSTv_def]
-  \\ Cases_on `r` \\ fs [set_sepTheory.cond_def]
-  \\ rw [Once evaluate_cases, PULL_EXISTS]
-  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
-  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
-  \\ rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS]
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `Rval v'` \\ fs [PULL_EXISTS]
-  \\ fs [UNIT_TYPE_def]
-  \\ rw [MONAD_def, print_def, PULL_EXISTS]
-  \\ mp_tac ((Q.SPEC `s with refs := s.refs++junk` o
-              CONV_RULE SWAP_FORALL_CONV o GEN_ALL)
-             evaluate_empty_state_IMP) \\ fs []
-  \\ disch_then drule \\ rw []
-  \\ asm_exists_tac \\ fs []
-  \\ qmatch_asmsub_abbrev_tac `do_opapp [a;_]`
-  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
-  \\ qexists_tac `a` \\ fs [Abbr`a`]
-  \\ rw [Once evaluate_cases]
-  \\ fs [cfAppTheory.evaluate_ck_def]
-  \\ fs [funBigStepEquivTheory.functional_evaluate_list]
-  \\ qhdtm_x_assum `evaluate_list` assume_tac
-  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))]
-  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))] \\ rw []
-  \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
-  \\ disch_then (qspec_then `s.clock` assume_tac) \\ fs []
-  \\ qpat_x_assum `evaluate T _ _ _ _` kall_tac
-  \\ qmatch_assum_abbrev_tac `_ s3 _ _`
-  \\ `s3 = s with refs := s.refs ⧺ junk ⧺ refs'` by
-    fs [Abbr`s3`,semanticPrimitivesTheory.state_component_equality]
-  \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ fs [REFS_PRED_FRAME_def]
-  \\ simp [Once set_sepTheory.STAR_def,PULL_EXISTS]
-  \\ rw []
-  \\ drule (GEN_ALL TextIOProofTheory.print_spec)
-  \\ simp [cfAppTheory.app_def, cfAppTheory.app_basic_def]
-  \\ qmatch_assum_abbrev_tac `evaluate F env' s6 exp2 _`
-  \\ rename1 `SPLIT (st2heap p s) (u1,v1)`
-  \\ `?he. SPLIT (st2heap p s6) (u1,v1 UNION he)` by
-   (qspecl_then [`s`,`junk++refs'`,`p`] strip_assume_tac st2heap_append_UNION
-    \\ rfs [] \\ qexists_tac `x'`
-    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def]
-    \\ metis_tac [])
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ rw []
-  \\ Cases_on `r` \\ fs [set_sepTheory.cond_STAR]
-  \\ fs [set_sepTheory.cond_def]
-  \\ qsuff_tac `?ck. s2 = st' with clock := ck`
-  THEN1
-   (rw [] \\ fs []
-    \\ match_mp_tac SPLIT3_IMP_STAR_STAR
-    \\ asm_exists_tac \\ fs []
-    \\ asm_exists_tac \\ fs []
-    \\ rename1 `SPLIT3 _ (h1,h2 UNION h3,h4)`
-    \\ qexists_tac `(h4 UNION h3) DIFF h2`
-    \\ fs [GC_T,cfHeapsBaseTheory.SPLIT3_def]
-    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
-    \\ metis_tac [])
-  \\ fs [cfAppTheory.evaluate_ck_def]
-  \\ fs [funBigStepEquivTheory.functional_evaluate_list]
-  \\ qhdtm_x_assum `evaluate_list` assume_tac
-  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))]
-  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))] \\ rw []
-  \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
-  \\ disch_then (qspec_then `s6.clock` assume_tac) \\ fs []
-  \\ `(s6 with clock := s6.clock) = s6` by
-        fs [semanticPrimitivesTheory.state_component_equality] \\ fs []
-  \\ pop_assum kall_tac
-  \\ drule evaluate_11
-  \\ pop_assum kall_tac
-  \\ rw[] \\ fs []
-  \\ fs [semanticPrimitivesTheory.state_component_equality]);
+      (STDIO,p:'ffi ffi_proj)`,
+  match_mp_tac EvalM_from_app
+  \\ qexists_tac `TextIO_print_v` \\ rw []
+  \\ fs [print_def]
+  \\ metis_tac [TextIOProofTheory.print_spec]);
 
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
