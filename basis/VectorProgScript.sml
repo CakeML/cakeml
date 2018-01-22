@@ -7,6 +7,8 @@ val _ = translation_extends "ListProg";
 
 val _ = ml_prog_update (open_module "Vector");
 
+val () = generate_sigs := true;
+
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)`` I);
 
 val _ = trans "fromList" `Vector`
@@ -199,6 +201,27 @@ val collate_side_thm = Q.prove (
   `!f vec1 vec2. collate_1_side f vec1 vec2`,
   rw[collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
-val _ = ml_prog_update (close_module NONE);
+val sigs = module_signatures [
+  "fromList",
+  "length",
+  "sub",
+  "tabulate",
+  "toList",
+  "update",
+  "concat",
+  "map",
+  "mapi",
+  "foldli",
+  "foldl",
+  "foldri",
+  "foldr",
+  "findi",
+  "find",
+  "exists",
+  "all",
+  "collate"
+];
+
+val _ = ml_prog_update (close_module (SOME sigs));
 
 val _ = export_theory ()

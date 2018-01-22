@@ -660,6 +660,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
     ,word_allocTheory.setup_ssa_def
+    ,word_allocTheory.total_colour_def
     ,word_allocTheory.oracle_colour_ok_def
     ,word_allocTheory.every_even_colour_def
     ,word_allocTheory.check_colouring_ok_alt_def

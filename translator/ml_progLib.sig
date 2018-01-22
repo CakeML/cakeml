@@ -59,4 +59,5 @@ sig
 
   val define_abbrev : bool -> string -> term -> thm
 
+  val pick_name : string -> string
 end

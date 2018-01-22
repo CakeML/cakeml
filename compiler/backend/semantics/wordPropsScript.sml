@@ -1,6 +1,6 @@
 open preamble BasicProvers
      wordLangTheory wordSemTheory
-     asmTheory reg_allocMonadTheory
+     asmTheory reg_allocTheory
 
 (*
 Main lemmas:

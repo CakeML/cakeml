@@ -2714,6 +2714,35 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
 
+(* CakeML signature generation and manipulation *)
+val generate_sigs = ref false;
+
+fun sig_of_mlname name = definition (ml_progLib.pick_name name ^ "_sig") |> concl |> rhs;
+
+fun module_signatures names = listSyntax.mk_list(map sig_of_mlname names, spec_ty);
+
+fun sig_of_const cake_name tm =
+  mk_Sval (stringSyntax.fromMLstring (ml_progLib.pick_name cake_name), type2t (type_of tm));
+
+fun generate_sig_thms results = let
+  fun const_from_def th = th |> concl |> strip_conj |> hd |> strip_forall |> #2
+                             |> dest_eq |> #1 |> strip_comb |> #1;
+
+  fun mk_sig_thm sval = let
+    val cake_name = dest_Sval sval |> #1 |> fromHOLstring;
+    val sig_const_nm = cake_name ^ "_sig";
+    val sig_const_tm = mk_var(sig_const_nm, spec_ty);
+
+    val def = new_definition(sig_const_nm, mk_eq(sig_const_tm, sval));
+    in def
+  end
+
+  val signatures = map (fn (_, ml_fname, def, _, _) => sig_of_const ml_fname (const_from_def def))
+                       results;
+
+  in map mk_sig_thm signatures
+end
+
 (*
 val tm = rhs
 val tm = rhs_tm
@@ -3585,6 +3614,11 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
 fun translate def =
   let
     val (is_rec,is_fun,results) = translate_main translate register_type def
+
+    val () =
+      if !generate_sigs then
+        let val _ = generate_sig_thms results in () end
+      else ();
   in
     if is_rec then
     let

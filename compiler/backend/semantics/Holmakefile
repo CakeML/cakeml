@@ -1,5 +1,5 @@
 INCLUDES = .. ../../../misc ../../../semantics ../../../semantics/proofs \
-           ../../encoders/asm ../reg_alloc/monadic
+           ../../encoders/asm ../reg_alloc
 
 OPTIONS = QUIT_ON_FAILURE
 

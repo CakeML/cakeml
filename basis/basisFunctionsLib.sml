@@ -53,7 +53,7 @@ fun prove_ref_spec op_name =
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
 
-fun derive_eval_thm v_name e = let
+fun derive_eval_thm for_eval v_name e = let
   val th = get_ml_prog_state () |> get_thm
   val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
            handle HOL_ERR _ =>
@@ -68,7 +68,7 @@ fun derive_eval_thm v_name e = let
                     simp_tac bool_ss [])
                  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
   val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev true v_name v_tm
+  val v_def = define_abbrev for_eval v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 
 end

@@ -1,7 +1,7 @@
 (*
    Implementation and verification of diff and patch algorithms
 *)
-open preamble lcsTheory mlintTheory mlstringTheory;
+open preamble lcsTheory mlintTheory mlnumTheory mlstringTheory;
 
 val _ = new_theory "diff";
 
@@ -10,9 +10,9 @@ val _ = new_theory "diff";
 val line_numbers_def = Define `
   (line_numbers l n =
    if LENGTH l <= 1 then
-     toString(int_of_num n)
+     toString n
    else
-      strcat (toString(int_of_num n)) (strcat(implode ",") (toString(int_of_num (n+LENGTH l)))))`
+      strcat (toString n) (strcat(implode ",") (toString (n+LENGTH l))))`
 
 val acd_def = Define `
   (acd [] [] = #" ")
@@ -111,7 +111,7 @@ val diff_alg2_refl = Q.store_thm("diff_alg_refl",
 
 (* Patch algorithm definition *)
 
-val num_from_string_def = Define `num_from_string s = num_of_int(fromString_unsafe s)`
+val num_from_string_def = Define `num_from_string s = fromString_unsafe s`
 
 val string_is_num_def = Define `string_is_num s = EVERY isDigit (explode s)`
 
@@ -293,9 +293,82 @@ val one_to_ten = Q.store_thm("one_to_ten",
   >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC n))))))))`
   >> Cases_on `n` >> fs[]);
 
-val _ = temp_overload_on("ml_int_toString",``mlint$toString``);
+val SPLITP_HEX = Q.prove(
+`!n. n < 10 ==> SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+     (STRING (HEX n) acc) =
+     let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
+       (STRING (HEX n) l,r)`,
+  recInduct one_to_ten >> rpt strip_tac >> fs[] >> pairarg_tac >> fs[SPLITP]);
+
+val _ = temp_overload_on("ml_num_toString",``mlnum$toString``);
 val _ = temp_overload_on("hol_int_toString",``integer_word$toString``);
 val _ = temp_overload_on("num_toString",``num_to_dec_string``);
+
+val SPLITP_num_toString = Q.prove(
+  `!i.
+   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+   (toString (i:num)) = (toString i,[])`,
+  recInduct COMPLETE_INDUCTION >> rpt strip_tac
+  >> fs[ASCIInumbersTheory.num_to_dec_string_def]
+  >> fs[ASCIInumbersTheory.n2s_def]
+  >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def] >> rw[] >> fs[SPLITP,SPLITP_HEX]
+  >> first_x_assum (qspec_then `n DIV 10` assume_tac) >> rfs[]
+  >> fs[SPLITP_APPEND,SPLITP_NIL_SND_EVERY]
+  >> `n MOD 10 < 10` by fs[] >> rename [`HEX n`]
+  >> pop_assum mp_tac >> rpt(pop_assum kall_tac)
+  >> Q.SPEC_TAC (`n`,`n`) >> recInduct one_to_ten >> fs[]);
+
+val SPLITP_int_toString = Q.prove(
+  `!i.
+   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+   (toString (i:int)) = (toString i,[])`,
+  rpt strip_tac >> fs[integer_wordTheory.toString_def] >> rw[] >> fs[SPLITP,SPLITP_num_toString]);
+
+val TOKENS_tostring = Q.prove(
+`TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]`,
+  Cases_on `num_toString n` >> fs[TOKENS_def]
+  >-
+   (pop_assum mp_tac
+    >> fs[ASCIInumbersTheory.num_to_dec_string_def]
+    >> fs[ASCIInumbersTheory.n2s_def]
+    >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def] >> rw[])
+  >> qpat_x_assum `_ = STRING _ _` (assume_tac o GSYM) >> fs[]
+  >> pairarg_tac >> pop_assum (assume_tac o GSYM)
+  >> fs[SPLITP_num_toString,TOKENS_def]
+  >> qpat_x_assum `STRING _ _ = _` (assume_tac o GSYM) >> fs[]);
+
+val num_le_10 = Q.prove(
+  `!n. 0 ≤ n /\ n < 10 ==> Num n < 10`,
+  Cases >> fs[]);
+
+val tokens_toString = Q.prove(
+`tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]`,
+  fs[Once toString_def,num_toString_def] >> fs[TOKENS_eq_tokens_sym]
+  >> fs[implode_def,tokens_aux_def,toChar_def,str_def,strlen_def,maxSmall_DEC_def,toChars_thm]
+  >> every_case_tac >> fs[explode_thm,TOKENS_def]
+  >> TRY(pairarg_tac >> first_x_assum (assume_tac o GSYM)) >> fs[SPLITP] >> rfs[]
+  >> fs[SPLITP_num_toString,TOKENS_def,TOKENS_tostring]
+  >> TRY(fs[Once toString_def,num_toString_def]
+         \\ fs[implode_def,tokens_def,tokens_aux_def
+              , toChar_def,str_def,maxSmall_DEC_def,toChars_thm]));
+
+val tokens_strcat = Q.prove(
+`l ≠ [] ==>
+(tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+                                   (toString (n:num) ^
+                                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+ = [toString n; toString m])`,
+  Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
+  fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
+
+val tokens_strcat' = Q.prove(
+`r ≠ [] ==>
+(tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+                                   (toString (n:num) ^
+                                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+ = [toString n; toString m])`,
+  Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
+  fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
 
 val strsub_strcat =
     Q.prove(`!s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)`,
@@ -342,7 +415,7 @@ val int_abs_toString_num = Q.store_thm("int_abs_toString_num",
   >> fs[integer_wordTheory.toString_def]);
 
 val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_cancel",
-  `!n. num_from_string (toString (&n)) = n`,
+  `!n. num_from_string (toString n) = n`,
   rw[num_from_string_def]
   \\ rw[toString_thm]
   \\ rw[implode_def]
@@ -356,8 +429,7 @@ val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_canc
     \\ rpt strip_tac \\ fs[]
     \\ qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC )
   \\ rw[fromString_unsafe_thm,Abbr`ss`]
-  \\ rw[ASCIInumbersTheory.toString_toNum_cancel]
-  \\ rw[integerTheory.INT_ABS_NUM]);
+  \\ rw[ASCIInumbersTheory.toString_toNum_cancel]);
 
 val substring_adhoc_simps = Q.prove(`!h.
    (substring (strlit "> " ^ h) 0 2 = strlit "> ")
@@ -381,24 +453,23 @@ val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux
 
 val line_numbers_not_empty = Q.prove(
   `!l n . line_numbers l n <> strlit ""`,
-  fs[line_numbers_def,toString_def,str_def,implode_def,maxSmall_DEC_def,strcat_thm] >>
+  fs[line_numbers_def,toString_def,num_toString_def
+    , str_def,implode_def,maxSmall_DEC_def,strcat_thm] >>
   rw[] >> fs[] >> rw[Once toChars_def]
   >> PURE_ONCE_REWRITE_TAC[simple_toChars_def] >> rw[Once zero_pad_def,padLen_DEC_def]
-  >> fs[integerTheory.INT_ABS_NUM]
   >> fs[Once(GSYM simple_toChars_acc),Once(GSYM zero_pad_acc),Once(GSYM toChars_acc)]);
 
 val tokens_toString_comma =
-    Q.prove(`tokens ($= #",") (toString (n:int)) = [toString n]`,
+    Q.prove(`tokens ($= #",") (toString (n:num)) = [toString n]`,
   fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
   >> fs[implode_def]
-  >> `EVERY isDigit (toString (Num (ABS n)))` by metis_tac[toString_isDigit]
-  >> `toString(Num(ABS n)) <> []` by metis_tac[num_to_dec_string_not_nil]
-  >> qpat_abbrev_tac `a = toString(Num _)` >> pop_assum kall_tac
+  >> `EVERY isDigit (toString n)` by metis_tac[toString_isDigit]
+  >> `toString n <> []` by metis_tac[num_to_dec_string_not_nil]
+  >> qpat_abbrev_tac `a = num_toString _` >> pop_assum kall_tac
   >> `!x. isDigit x ==> (λx. (¬(($= #",") x))) x` by fs[isDigit_def]
   >> drule EVERY_MONOTONIC
   >> strip_tac >> first_x_assum drule >> strip_tac >> drule SPLITP_EVERY
   >> strip_tac >> fs[] >> rw[]
-  >- (fs[TOKENS_def] >> pairarg_tac >> pop_assum (assume_tac o GSYM) >> fs[SPLITP,TOKENS_def])
   >> Cases_on `a` >> fs[TOKENS_def])
 
 val tokens_comma_lemma = Q.prove(
@@ -406,12 +477,12 @@ val tokens_comma_lemma = Q.prove(
      (line_numbers l n) = [line_numbers l n]`,
   `EVERY (λx. isDigit x \/ x = #",") (explode(line_numbers l n))`
   by(fs[line_numbers_def] >> rw[]
-     >> fs[toString_thm,int_abs_toString_num]
-     >> fs[explode_implode,strcat_thm,integerTheory.INT_ABS_NUM]
+     >> fs[toString_thm]
+     >> fs[explode_implode,strcat_thm]
      >> `!x. isDigit x ==> (\x. isDigit x \/ x = #",") x` by fs[]
      >> drule EVERY_MONOTONIC
      >> strip_tac
-     >> qspec_then `&n` assume_tac toString_isDigit
+     >> qspec_then `n` assume_tac toString_isDigit
      >> first_assum drule >> fs[]
      >> qspec_then `n + LENGTH l` assume_tac toString_isDigit
      >> first_assum drule >> fs[])
@@ -433,7 +504,7 @@ val tokens_comma_lemma = Q.prove(
   >> fs[TOKENS_def]);
 
 val string_is_num_toString = Q.store_thm("string_is_num_toString",
-  `string_is_num (toString (&n))`,
+  `string_is_num (toString (n:num))`,
   fs[string_is_num_def,toString_isDigit,int_abs_toString_num,
      toString_thm,num_from_string_toString_cancel,explode_implode]);
 
@@ -1091,11 +1162,11 @@ val is_patch_line_simps = Q.prove(
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
 
 val toString_obtain_digits = Q.prove(
-  `!n. ?f r. toString (&n) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
-  strip_tac >> fs[toString_thm,integerTheory.INT_ABS_NUM,implode_def]
+  `!n. ?f r. toString (n:num) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
+  strip_tac >> fs[toString_thm,implode_def]
   >> qspec_then `n` assume_tac toString_isDigit
   >> qspec_then `n` assume_tac (GEN_ALL num_to_dec_string_not_nil)
-  >> Cases_on `toString n` >> fs[]);
+  >> Cases_on `num_toString n` >> fs[]);
 
 val diff_single_patch_length = Q.prove(
   `!r n r' m. LENGTH (FILTER is_patch_line (diff_single r n r' m)) = LENGTH r + LENGTH r'`,

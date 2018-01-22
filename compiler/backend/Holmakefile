@@ -1,4 +1,4 @@
-INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders ../encoders/asm reg_alloc reg_alloc/monadic $(HOLDIR)/examples/machine-code/multiword
+INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders ../encoders/asm reg_alloc $(HOLDIR)/examples/machine-code/multiword
 
 OPTIONS = QUIT_ON_FAILURE
 
