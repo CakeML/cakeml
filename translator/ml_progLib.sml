@@ -151,9 +151,10 @@ fun open_module mn_str (ML_code (ss,envs,vs,th)) =
 fun close_module sig_opt (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_close_module th
   val v = th |> concl |> dest_forall |> fst
-  val sig_tm = (case sig_opt of
+  val sig_tm = mk_const("NONE",type_of v) (* TODO: remove *)
+             (* (case sig_opt of
                   NONE => mk_const("NONE",type_of v)
-                | SOME tm => optionSyntax.mk_some(tm))
+                | SOME tm => optionSyntax.mk_some(tm)) *)
   val th = SPEC sig_tm th
   in clean (ML_code (ss,envs,vs,th)) end
 
