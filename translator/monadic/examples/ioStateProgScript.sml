@@ -147,17 +147,44 @@ val print_def = Define `
 open ml_translatorTheory ml_monad_translatorTheory ml_monad_translatorBaseTheory
      bigStepTheory
 
-val st2heap_with_clock = store_thm("st2heap_with_clock[simp]",
+val st2heap_with_clock = store_thm("st2heap_with_clock[simp]", (* TODO: move *)
   ``st2heap p (s with clock := c) = st2heap p s``,
   fs [cfStoreTheory.st2heap_def]);
 
-val EvalM_print = prove(
+val SPLIT3_IMP_STAR_STAR = store_thm("SPLIT3_IMP_STAR_STAR", (* TODO: move *)
+  ``!x s1 s2 s3 p1 p2 p3.
+      p1 s1 /\ p2 s2 /\ p3 s3 /\ SPLIT3 x (s1,s2,s3) ==> (p1 * p2 * p3) x``,
+  fs [set_sepTheory.STAR_def,PULL_EXISTS] \\ rw []
+  \\ qexists_tac `s1 UNION s2`
+  \\ qexists_tac `s3`
+  \\ qexists_tac `s1`
+  \\ qexists_tac `s2`
+  \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def,
+         cfHeapsBaseTheory.SPLIT3_def]
+  \\ metis_tac []);
+
+val GC_T = store_thm("GC_T", (* TODO: move *)
+  ``!x. GC x``,
+  rw [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
+  \\ qexists_tac `K T` \\ fs []);
+
+val st2heap_append_UNION = store_thm("st2heap_new_refs_UNION", (* TODO: move *)
+  ``!(st:'ffi semanticPrimitives$state) new_refs p.
+      ?x. (st2heap p (st with refs := st.refs ++ new_refs) = st2heap p st UNION x) /\
+          DISJOINT (st2heap p st) x``,
+  fs [cfAppTheory.st2heap_with_refs_append] \\ rw[]
+  \\ `(st with refs := st.refs) = st` by
+         fs [semanticPrimitivesTheory.state_component_equality] \\ fs []
+  \\ qexists_tac `store2heap_aux (LENGTH st.refs) new_refs DIFF st2heap p st`
+  \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
+  \\ metis_tac []);
+
+val EvalM_print = prove( (* TODO: generalise into reusable lemma *)
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE UNIT_TYPE (print x))
       (STDIO,p:'ffi ffi_proj)``,
-
   rw [EvalM_def, Eval_def]
   \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
   \\ drule (GEN_ALL TextIOProofTheory.print_spec)
@@ -205,31 +232,49 @@ val EvalM_print = prove(
   \\ fs [REFS_PRED_FRAME_def]
   \\ simp [Once set_sepTheory.STAR_def,PULL_EXISTS]
   \\ rw []
-  \\ irule ml_monadStoreTheory.H_STAR_GC_SAT_IMP
-  \\ fs [cfHeapsBaseTheory.SPLIT_emp1] \\ rveq
-
-  \\ simp [set_sepTheory.STAR_def]
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `v'` \\ fs [] (* Unlikely to prove F' for anything else *)
-
-  (*
   \\ drule (GEN_ALL TextIOProofTheory.print_spec)
   \\ simp [cfAppTheory.app_def, cfAppTheory.app_basic_def]
+  \\ qmatch_assum_abbrev_tac `evaluate F env' s6 exp2 _`
+  \\ rename1 `SPLIT (st2heap p s) (u1,v1)`
+  \\ `?he. SPLIT (st2heap p s6) (u1,v1 UNION he)` by
+   (qspecl_then [`s`,`junk++refs'`,`p`] strip_assume_tac st2heap_append_UNION
+    \\ rfs [] \\ qexists_tac `x'`
+    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def]
+    \\ metis_tac [])
   \\ disch_then drule
   \\ disch_then drule
   \\ rw []
-  \\ Cases_on `r` \\ fs [set_sepTheory.cond_def]
-  \\ fs [set_sepTheory.STAR_def]
-  \\ fs [cfHeapsBaseTheory.SPLIT_emp1] \\ rw []
-  *)
-
-  (* here we can't prove that u and u' are the same, instead we need
-     to have the original theorem and instantiate it again *)
-  \\ cheat (* TODO *));
+  \\ Cases_on `r` \\ fs [set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.cond_def]
+  \\ qsuff_tac `?ck. s2 = st' with clock := ck`
+  THEN1
+   (rw [] \\ fs []
+    \\ match_mp_tac SPLIT3_IMP_STAR_STAR
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ rename1 `SPLIT3 _ (h1,h2 UNION h3,h4)`
+    \\ qexists_tac `(h4 UNION h3) DIFF h2`
+    \\ fs [GC_T,cfHeapsBaseTheory.SPLIT3_def]
+    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
+    \\ metis_tac [])
+  \\ fs [cfAppTheory.evaluate_ck_def]
+  \\ fs [funBigStepEquivTheory.functional_evaluate_list]
+  \\ qhdtm_x_assum `evaluate_list` assume_tac
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))]
+  \\ fs [Once (el 2 (CONJUNCTS evaluate_cases))] \\ rw []
+  \\ drule (GEN_ALL cfAppTheory.big_remove_clock) \\ fs []
+  \\ disch_then (qspec_then `s6.clock` assume_tac) \\ fs []
+  \\ `(s6 with clock := s6.clock) = s6` by
+        fs [semanticPrimitivesTheory.state_component_equality] \\ fs []
+  \\ pop_assum kall_tac
+  \\ drule evaluate_11
+  \\ pop_assum kall_tac
+  \\ rw[] \\ fs []
+  \\ fs [semanticPrimitivesTheory.state_component_equality]);
 
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
-val IMP_STAR_GC = store_thm("IMP_STAR_GC",
+val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
   ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
   fs [set_sepTheory.STAR_def]
   \\ rw[] \\ asm_exists_tac \\ fs []
