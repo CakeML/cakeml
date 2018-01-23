@@ -1100,8 +1100,9 @@ val print_err_def = Define `
 
 val EvalM_print_err = Q.store_thm("EvalM_print_err",
   `Eval env exp (STRING_TYPE x) /\
-    (nsLookup env.v (Short "print_err") = SOME TextIO_print_err_v) ==>
-    EvalM F env st (App Opapp [Var (Short "print_err"); exp])
+    (nsLookup env.v (Long "TextIO" (Short "print_err")) =
+      SOME TextIO_print_err_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
       (MONAD UNIT_TYPE exc_ty (print_err x))
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
@@ -1884,8 +1885,9 @@ val inputLinesFrom_def = Define `
 
 val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
   `Eval env exp (FILENAME f) /\
-    (nsLookup env.v (Short "inputLinesFrom") = SOME TextIO_inputLinesFrom_v) ==>
-    EvalM F env st (App Opapp [Var (Short "inputLinesFrom"); exp])
+    (nsLookup env.v (Long "TextIO" (Short "inputLinesFrom")) =
+       SOME TextIO_inputLinesFrom_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "inputLinesFrom")); exp])
       (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) exc_ty (inputLinesFrom f))
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app

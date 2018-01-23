@@ -142,7 +142,7 @@ val fibm_def = Define`
       n <- str_to_num a ;
       stdio (print (num_to_str (fiba 0 1 n))) ;
       stdio (print (strlit "\n"))
-    od ++ do
+    od otherwise do
             n <- commandline (name ()) ;
             stdio (print_err (strlit"usage: " ^ n ^ strlit" <n>\n"))
           od`
@@ -226,32 +226,33 @@ val EvalM_stdio_print = prove(
   ``Eval env exp (STRING_TYPE x) /\
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
-      (MONAD UNIT_TYPE exc_ty (stdio (print x)))
+      (MONAD UNIT_TYPE STATE_EXN_TYPE (stdio (print x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print]);
 
 val EvalM_stdio_print_err = prove(
   ``Eval env exp (STRING_TYPE x) /\
-    (nsLookup env.v (Short "print_err") = SOME TextIO_print_err_v) ==>
-    EvalM F env st (App Opapp [Var (Short "print_err"); exp])
-      (MONAD UNIT_TYPE exc_ty (stdio (print_err x)))
+    (nsLookup env.v (Long "TextIO" (Short "print_err")) = SOME TextIO_print_err_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
+      (MONAD UNIT_TYPE STATE_EXN_TYPE (stdio (print_err x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print_err]);
 
 val EvalM_commandline_name = prove(
   ``Eval env exp (UNIT_TYPE x) /\
-    (nsLookup env.v (Short "name") = SOME CommandLine_name_v) ==>
-    EvalM F env st (App Opapp [Var (Short "name"); exp])
-      (MONAD STRING_TYPE exc_ty (commandline (name x)))
+    (nsLookup env.v (Long "CommandLine" (Short "name")) =
+       SOME CommandLine_name_v) ==>
+    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
+      (MONAD STRING_TYPE STATE_EXN_TYPE (commandline (name x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [commandline_INTRO,EvalM_name]);
 
-
 val EvalM_commandline_arguments = prove(
   ``Eval env exp (UNIT_TYPE x) /\
-    (nsLookup env.v (Short "arguments") = SOME CommandLine_arguments_v) ==>
-    EvalM F env st (App Opapp [Var (Short "arguments"); exp])
-      (MONAD (LIST_TYPE STRING_TYPE) exc_ty (commandline (arguments x)))
+    (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
+       SOME CommandLine_arguments_v) ==>
+    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
+      (MONAD (LIST_TYPE STRING_TYPE) STATE_EXN_TYPE (commandline (arguments x)))
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [commandline_INTRO,EvalM_arguments]);
 
@@ -273,20 +274,6 @@ val str_to_num_side = Q.prove (
 val res = translate num_to_str_def
 val res = translate fiba_def
 
-val fibm_alt_def = Define `
-  fibm_alt () =
-    do
-      (args:mlstring list) <- commandline (arguments ()) ;
-      (a:mlstring) <- hd args ;
-      n <- str_to_num a ;
-      stdio (print (num_to_str (fiba 0 1 n))) ;
-      stdio (print (strlit "\n"))
-    od`
-
-(* Both fail. The first is more interesting *)
-(*
-val res = m_translate fibm_alt_def
 val res = m_translate fibm_def
-*)
 
 val _ = export_theory ();

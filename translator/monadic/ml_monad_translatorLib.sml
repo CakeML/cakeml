@@ -1682,11 +1682,21 @@ fun inst_EvalM_handle EvalM_th tm m2deep = let
             |> UNDISCH_ALL
 in check_inv "handle" tm lemma5 end
 
+fun inst_ro th1 th2 = let
+  val tm1 = th1 |> concl |> dest_args |> hd
+  val tm2 = th2 |> concl |> dest_args |> hd
+  in if is_var tm1 andalso not (is_var tm2) then (INST [tm1|->tm2] th1,th2) else
+     if is_var tm2 andalso not (is_var tm1) then (th1,INST [tm2|->tm1] th2) else
+       (th1,th2)
+  end handle HOL_ERR _ => (th1,th2)
+           | Empty => (th1,th2);
+
 fun inst_EvalM_otherwise tm m2deep = let
     val x = tm |> rator |> rand
     val y = tm |> rand
     val th1 = m2deep x
     val th2 = m2deep y
+    val (th1,th2) = inst_ro th1 th2
   fun simp_EvalM_env tm =
     if can (match_term EvalM_pat) tm then
         REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC (DEPTH_CONV stringLib.string_EQ_CONV) THENC (SIMP_CONV bool_ss [])) tm
@@ -1892,6 +1902,7 @@ fun m2deep tm =
     val (v,x2) = tm |> rand |> dest_abs
     val th1 = m2deep x1
     val th2 = m2deep x2
+    val (th1,th2) = inst_ro th1 th2
     val th2 = inst_EvalM_env v th2
     val result = inst_EvalM_bind th1 th2
     in check_inv "bind" tm result end else
@@ -1941,6 +1952,7 @@ fun m2deep tm =
     val th0 = hol2deep t
     val th1 = m2deep x1
     val th2 = m2deep x2
+    val (th1,th2) = inst_ro th1 th2
     val th = MATCH_MP (ISPEC_EvalM EvalM_If) (LIST_CONJ [D th0, D th1, D th2])
     val result = UNDISCH th
     in check_inv "if" tm result end else

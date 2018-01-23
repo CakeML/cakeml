@@ -272,8 +272,8 @@ val EvalM_from_app = Q.store_thm("EvalM_from_app",
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
    Eval env fun_exp (ARG_TYPE x) /\
-   (nsLookup env.v (Short fun_name) = SOME fun_v) ==>
-   EvalM F env st (App Opapp [Var (Short fun_name); fun_exp])
+   (nsLookup env.v fun_name = SOME fun_v) ==>
+   EvalM F env st (App Opapp [Var fun_name; fun_exp])
     (MONAD RET_TYPE EXC_TYPE (f x))
     (H, p)`,
   rw [EvalM_def] \\ fs [ Eval_def]
