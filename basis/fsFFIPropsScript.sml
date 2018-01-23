@@ -11,7 +11,9 @@ val numchars_self = Q.store_thm("numchars_self",
   `!fs. fs = fs with numchars := fs.numchars`,
   cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]);
 
-val _ = overload_on("hasFreeFD",``λfs. CARD (set (MAP FST fs.infds)) ≤ maxFD``);
+(* we can actually open a file if the OS limit has not been reached and we can
+* still encode the file descriptor on 8 bits *)
+val _ = overload_on("hasFreeFD",``λfs. CARD (set (MAP FST fs.infds)) < MIN maxFD (256**8)``);
 
 (* nextFD lemmas *)
 
@@ -476,7 +478,7 @@ val fsupdate_0_numchars = Q.store_thm("fsupdate_0_numchars",
 (* get_file_content *)
 
 val get_file_content_numchars = Q.store_thm("get_file_content_numchars",
- `!fs fd c p. get_file_content fs fd =
+ `!fs fd. get_file_content fs fd =
               get_file_content (fs with numchars := ll) fd`,
  fs[get_file_content_def]);
 

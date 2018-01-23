@@ -72,7 +72,7 @@ val _ =
 (* Output functions on given file descriptor *)
 val _ =
   process_topdecs` fun output1 fd c =
-    (Word8Array.update iobuff 3 (Word8.fromInt(Char.ord c)); write fd 1 0; ())
+    (Word8Array.update iobuff 4 (Word8.fromInt(Char.ord c)); write fd 1 0; ())
     ` |> append_prog
 
 (* writes a string into a file *)
@@ -80,8 +80,8 @@ val _ =
   process_topdecs` fun output fd s =
   if s = "" then () else
   let val z = String.size s
-      val n = if z < 2048 then z else 2048
-      val fl = Word8Array.copyVec s 0 n iobuff 3
+      val n = if z <= 2048 then z else 2048
+      val fl = Word8Array.copyVec s 0 n iobuff 4
       val a = write fd n 0 in
          output fd (String.substring s n (z-n))
   end;
@@ -119,7 +119,7 @@ fun close fd =
 (* wrapper for ffi call *)
 val _ = process_topdecs`
   fun read fd n =
-    let val a = Marshalling.n2w2 iobuff 0 n in
+    let val a = Marshalling.n2w2 n iobuff 0 in
           (#(read) fd iobuff;
           if Word8.toInt (Word8Array.sub iobuff 0) <> 1
           then Marshalling.w22n iobuff 1
@@ -129,7 +129,7 @@ val _ = process_topdecs`
 (* reads 1 char *)
 val _ = process_topdecs`
 fun read_byte fd =
-    if read fd (Word8.fromInt 1) = 0 then raise EndOfFile
+    if read fd 1 = 0 then raise EndOfFile
     else Word8Array.sub iobuff 4
 ` |> append_prog
 
@@ -144,7 +144,7 @@ val _ =
   process_topdecs`
 fun input fd buff off len =
 let fun input0 off len count =
-    let val nread = read fd (Word8.fromInt(min len 2048)) in
+    let val nread = read fd (min len 2048) in
         if nread = 0 then count else
           (Word8Array.copy iobuff 4 nread buff off;
            input0 (off + nread) (len - nread) (count + nread))
