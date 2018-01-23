@@ -29,7 +29,7 @@ val _ = Datatype `
 (* TODO derive automatically *)
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 val _ = overload_on("holrefs",``liftM state_refs_holrefs holrefs_fupd``);
-val _ = overload_on("cl",``liftM state_refs_cl cl_fupd``);
+val _ = overload_on("commandline",``liftM state_refs_cl cl_fupd``);
 
 (* ------------------------------------------------------------------------- *)
 (* Lifted operations                                                         *)
@@ -96,32 +96,24 @@ val readLines_def = Define `
 val reader_main_def = Define `
   reader_main () =
     do
-      args <- cl (arguments ());
+      args <- commandline (arguments ());
       case args of
         [fname] =>
           do
             lines <- stdio (inputLinesFrom fname);
             case lines of
-              NONE => stdio (print_err (strlit"<error message placeholder>"))
+              NONE => stdio (print_err (msg_bad_name fname))
             | SOME lines =>
                 do
                   holrefs (set_reader_ctxt ());
                   res <- readLines init_state lines;
                   case res of
                     INL _ => return ()
-                  | INR s =>
-                      stdio (print
-                        (concat [strlit"OK! "; toString (lines_read s);
-                                 strlit" lines read.\n"]))
+                  | INR s => stdio (print (msg_success (lines_read s)))
                 od
           od
-      | _ => stdio (print_err (strlit"<error message placeholder>"))
+      | _ => stdio (print_err msg_usage)
     od`;
-
-(*
-val init_state_refs_def = Define `
-  ...`;
-  *)
 
 val _ = export_theory()
 
