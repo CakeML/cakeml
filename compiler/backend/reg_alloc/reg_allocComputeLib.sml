@@ -65,6 +65,10 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.moves_to_sp_def,
     reg_allocTheory.resort_moves_def,
     reg_allocTheory.reg_alloc_def,
+    reg_allocTheory.numset_list_delete_def,
+    reg_allocTheory.check_clash_tree_def,
+    reg_allocTheory.check_partial_col_def,
+    reg_allocTheory.check_col_def,
     (*parmove*)
     parmoveTheory.pmov_def,
     parmoveTheory.parmove_def,
@@ -169,7 +173,7 @@ fun get_oracle alg t =
   end
 
 (*
-get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[],[(1n,2n)]);Set LN,[(1n,1n,2n)],[]])`` 
+get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[],[(1n,2n)]);Set LN,[(1n,1n,2n)],[]])``
 *)
 
 end
