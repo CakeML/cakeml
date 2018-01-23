@@ -9,13 +9,13 @@ val _ = translation_extends "CommandLineProg";
 
 val _ = ml_prog_update (open_module "Marshalling");
 
-val _ = process_topdecs`fun n2w2 n bytes off = 
+val _ = process_topdecs`fun n2w2 n bytes off =
   let val a = Word8Array.update bytes off     (Word8.fromInt (n div 256))
-      val a = Word8Array.update bytes (off+1) (Word8.fromInt n) 
+      val a = Word8Array.update bytes (off+1) (Word8.fromInt n)
   in () end` |> append_prog;
 
 
-val _ = process_topdecs`fun w22n bytes off = 
+val _ = process_topdecs`fun w22n bytes off =
   let val b1 = Word8Array.sub bytes off
       val b0 = Word8Array.sub bytes (off+1)
   in Word8.toInt b1 * 256 + Word8.toInt b0 end` |> append_prog;
@@ -40,7 +40,7 @@ val WORD_n2w2_UNICITY_L = Q.store_thm("WORD_n2w2_UNICITY[xlet_auto_match]",
  imp_res_tac Word8ProgTheory.WORD_UNICITY_L >> rw[] >> fs[n2w_11] >> rw[] >>
  `(n1 DIV 256) MOD 256 = (n1 DIV 256)` by fs[DIV_LT_X] >>
  `(n2 DIV 256) MOD 256 = (n2 DIV 256)` by fs[DIV_LT_X] >>
- `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >> rw[] >> 
+ `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >> rw[] >>
  first_assum (assume_tac o Q.SPEC`n1`) >> fs[] >>
  first_x_assum (assume_tac o Q.SPEC`n2`) >> fs[]);
 
@@ -69,7 +69,13 @@ val WORD_n2w8_UNICITY_L = Q.store_thm("WORD_n2w8_UNICITY[xlet_auto_match]",
    (LIST_TYPE WORD (n2w8 n2) f /\ n2 < 256**8 <=> n1 = n2)`,
  rw[] >> eq_tac >> rw[] >> fs[n2w8_def,LIST_TYPE_def] >> rw[] >>
  imp_res_tac Word8ProgTheory.WORD_UNICITY_L >> rw[] >> fs[n2w_11] >> rw[] >>
- cheat);
+ mp_tac (Q.SPEC `256` DIVISION) >> rw[] >>
+
+ NTAC 8(qmatch_abbrev_tac`x1 = x2` >>
+        first_assum(fn x => simp[Once (Q.SPEC `x2` x)]) >>
+        `(x1 DIV 256) = (x2 DIV 256)` suffices_by fs[] >>
+        unabbrev_all_tac >> fs[DIV_DIV_DIV_MULT]) >>
+ fs[LESS_DIV_EQ_ZERO]);
 
 val n2w2_spec = Q.store_thm("n2w2_spec",
  `!n off b nv offv bl. NUM n nv /\ NUM off offv /\ off + 2 <= LENGTH b ==>
@@ -79,7 +85,9 @@ val n2w2_spec = Q.store_thm("n2w2_spec",
   xcf "Marshalling.n2w2" (get_ml_prog_state()) >>
   NTAC 6 (xlet_auto >- xsimpl) >>
   xcon >> xsimpl >>
-  cheat);
+  fs[n2w2_def] >>
+  Cases_on`b` >- fs[] >> Cases_on`t` >>
+  fs[insert_atI_CONS,insert_atI_def,LUPDATE_commutes]);
 
 val w22n_spec = Q.store_thm("w22n_spec",
  `!off b offv bl. NUM off offv /\ off + 2 <= LENGTH b ==>
