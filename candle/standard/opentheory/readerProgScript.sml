@@ -2,9 +2,10 @@ open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
      readerProofTheory prettyTheory
+     readerSharedTheory
 
 val _ = new_theory "readerProg"
-val _ = m_translation_extends "ml_hol_kernelProg"
+val _ = m_translation_extends "readerShared"
 
 (* TODO: move *)
 val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
@@ -12,120 +13,15 @@ val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]
    fs with infds updated_by A_DELKEY fd`,
   fs [forwardFD_def, IO_fs_component_equality]);
 
-(* --- Translate prettyTheory ---------------------------------------------- *)
-
-val _ = translate newline_def
-val _ = translate breakdist_def
-val _ = translate REPLICATE
-val _ = translate blanks_def
-val _ = translate printing_def
-val _ = translate pr_def
-val _ = translate tlength_def
-val _ = translate mk_blo_def
-val _ = translate mk_str_def
-val _ = translate mk_brk_def
-val _ = translate typ_def
-val _ = translate pp_margin_def
-val _ = translate ty_to_string_def
-val _ = translate fix_name_def
-val _ = translate paren_def
-val _ = translate term_def
-val _ = translate tm_to_string_def
-val _ = translate hyps_def
-val _ = translate thm_def
-val _ = translate thm_to_string_def
-
-(* --- Translate readerTheory ---------------------------------------------- *)
-
-val _ = translate init_state_def
-val _ = translate mk_BN_def
-val _ = translate mk_BS_def
-val _ = translate insert_def
-val _ = translate delete_def
-val _ = translate lookup_def
-val _ = translate push_def
-val _ = translate insert_dict_def
-val _ = translate delete_dict_def
-val _ = translate first_def
-val _ = translate stringTheory.isDigit_def
-
-val _ = (use_mem_intro := true)
-val tymatch_ind = save_thm("tymatch_ind",REWRITE_RULE[GSYM rev_assocd_thm]holSyntaxExtraTheory.tymatch_ind)
-val _ = add_preferred_thy"-";
-val r = translate (REWRITE_RULE[GSYM rev_assocd_thm]holSyntaxExtraTheory.tymatch_def)
-val _ = (use_mem_intro := false)
-val r = translate OPTION_MAP_DEF
-val r = translate holSyntaxExtraTheory.match_type_def
-
-val _ = m_translate find_axiom_def
-val _ = m_translate getNum_def
-val _ = m_translate getName_def
-val _ = m_translate getList_def
-val _ = m_translate getTypeOp_def
-val _ = m_translate getType_def
-val _ = m_translate getConst_def
-val _ = m_translate getVar_def
-val _ = m_translate getTerm_def
-val _ = m_translate getThm_def
-val _ = m_translate pop_def
-val _ = m_translate peek_def
-val _ = m_translate getPair_def
-val _ = m_translate getNvs_def
-val _ = m_translate getCns_def
-val _ = m_translate getTys_def
-val _ = m_translate getTms_def
-val _ = m_translate BETA_CONV_def
-
-(* stack and dictionary dumping *)
-val r = translate pad_def
-val r = translate obj_t_def
-val r = translate stack_t_def
-val r = translate pair_t_def
-val r = translate sptreeTheory.lrnext_def
-val r = translate foldi_def
-val r = translate toAList_def
-val r = translate dict_t_def
-val r = translate reader_state_t_def
-val r = translate state_to_string_def
-
-val _ = m_translate readLine_def
-
-val readline_side = Q.store_thm("readline_side",
-  `!st1 l s. readline_side st1 l s <=> T`,
-  rw [fetch "-" "readline_side_def"] \\ intLib.COOPER_TAC)
-  |> update_precondition;
+(* ------------------------------------------------------------------------- *)
+(* Needed CF specs                                                           *)
+(* ------------------------------------------------------------------------- *)
 
 val readline_spec = save_thm (
-  "readline_spec",
-  mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "readline_v_thm"));
-
-val _ = translate fix_fun_typ_def
-val _ = translate current_line_def
-val r = translate lines_read_def
-val r = translate next_line_def
-val _ = translate line_Fail_def
-
-val _ = translate ind_name_def
-val _ = translate ind_ty_def
-val _ = translate select_name_def
-val _ = translate select_tm_def
-val _ = translate select_const_def
-val _ = translate mk_reader_ctxt_def
-val _ = m_translate set_reader_ctxt_def
+  "readline_spec", mk_app_of_ArrowP readline_v_thm);
 
 val set_reader_ctxt_spec = save_thm (
-  "set_reader_ctxt_spec",
-  mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "set_reader_ctxt_v_thm"));
-
-val _ = translate msg_success_def
-val _ = translate msg_usage_def
-val _ = translate msg_bad_name_def
-val _ = translate str_prefix_def;
-val _ = translate invalid_line_def;
-
-val _ = Q.prove(
-  `∀x. invalid_line_side x ⇔ T`,
-  EVAL_TAC \\ rw[]) |> update_precondition;
+  "set_reader_ctxt_spec", mk_app_of_ArrowP set_reader_ctxt_v_thm);
 
 (* ------------------------------------------------------------------------- *)
 (* CakeML wrapper                                                            *)
@@ -374,7 +270,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ imp_res_tac STD_streams_openFileFS
   \\ pop_assum(qspecl_then[`fnm`,`0`]assume_tac)
   \\ `fd ≠ 1 ∧ fd ≠ 2` by rfs[]
-  \\ assume_tac (fetch"-""init_state_v_thm")
+  \\ assume_tac init_state_v_thm
   \\ xlet_auto_spec (SOME (Q.SPEC`fs'`(Q.GEN`fs`process_lines_spec)))
   \\ xsimpl
   \\ xapp_spec close_STDIO_spec
@@ -450,7 +346,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
     \\ qexists_tac `msg_usage`
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `fs` \\ xsimpl
-    \\ fs [theorem"msg_usage_v_thm", UNIT_TYPE_def])
+    \\ fs [msg_usage_v_thm, UNIT_TYPE_def])
   \\ reverse (Cases_on `t`) \\ fs [LIST_TYPE_def]
   >-
    (xmatch
@@ -461,7 +357,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `fs`
     \\ xsimpl
-    \\ fs [theorem"msg_usage_v_thm", UNIT_TYPE_def])
+    \\ fs [msg_usage_v_thm, UNIT_TYPE_def])
   \\ xmatch
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ drule set_reader_ctxt_spec
@@ -477,6 +373,9 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ asm_exists_tac
   \\ rw [UNIT_TYPE_def]
   \\ xsimpl);
+
+(* TODO the stuff below will break because of changes to call_thm
+   (it got removed) *)
 
 val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
   `STD_streams fs ⇒ STD_streams (reader_main fs refs cl)`,
@@ -582,3 +481,4 @@ val semantics_reader_prog =
   |> curry save_thm "semantics_reader_prog";
 
 val _ = export_theory ();
+
