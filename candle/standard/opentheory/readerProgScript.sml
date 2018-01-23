@@ -374,9 +374,6 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ rw [UNIT_TYPE_def]
   \\ xsimpl);
 
-(* TODO the stuff below will break because of changes to call_thm
-   (it got removed) *)
-
 val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
   `STD_streams fs ⇒ STD_streams (reader_main fs refs cl)`,
   rw[reader_main_def]
@@ -388,25 +385,26 @@ val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
   \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
   \\ fs[]);
 
-val name = "reader_main"
-val spec =
-  reader_main_spec
-  |> UNDISCH
-  |> SIMP_RULE std_ss [STDIO_def]
-  |> add_basis_proj
-  |> Q.GEN`refs` |> Q.SPEC`init_refs`;
-val st = get_ml_prog_state();
+(*val name = "reader_main"*)
+(*val spec =*)
+  (*reader_main_spec*)
+  (*|> UNDISCH*)
+  (*|> SIMP_RULE std_ss [STDIO_def]*)
+  (*|> add_basis_proj*)
+  (*|> Q.GEN`refs` |> Q.SPEC`init_refs`;*)
+(*val st = get_ml_prog_state();*)
 
 (* TODO: where should this go? *)
+
 val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   `HOL_STORE init_refs
-   {Mem (1+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs)))
+   {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs)))
         (Refv init_type_constants_v);
-    Mem (2+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs)))
+    Mem (2+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs)))
         (Refv init_term_constants_v);
-    Mem (3+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs)))
+    Mem (3+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs)))
         (Refv init_axioms_v);
-    Mem (4+(LENGTH(stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs++init_context_refs)))
+    Mem (4+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs++init_context_refs)))
         (Refv init_context_v)}`,
   qmatch_goalsub_abbrev_tac`1 + l1`
   \\ qmatch_goalsub_abbrev_tac`2 + l2`
@@ -431,7 +429,7 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
     \\ rw[cond_def]
     \\ qexists_tac`init_context_v`
     \\ simp[init_context_v_thm]
-    \\ fs[Abbr`l4`]
+    \\ unabbrev_all_tac
     \\ SPLIT_TAC )
   \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2}`
   \\ qexists_tac`{Mem(l3+3)v3}`
@@ -443,7 +441,7 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
     \\ rw[cond_def]
     \\ qexists_tac`init_axioms_v`
     \\ simp[init_axioms_v_thm]
-    \\ fs[Abbr`l3`]
+    \\ unabbrev_all_tac
     \\ SPLIT_TAC )
   \\ qexists_tac`{Mem(l1+1)v1}`
   \\ qexists_tac`{Mem(l2+2)v2}`
@@ -455,21 +453,43 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
     \\ rw[cond_def]
     \\ qexists_tac`init_term_constants_v`
     \\ simp[init_term_constants_v_thm]
-    \\ fs[Abbr`l2`]
+    \\ unabbrev_all_tac
     \\ SPLIT_TAC ) \\
   rw[REF_def,SEP_EXISTS_THM,EVAL``the_type_constants``,cond_STAR,
      ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
   \\ rw[cond_def]
   \\ qexists_tac`init_type_constants_v`
   \\ simp[init_type_constants_v_thm]
-  \\ fs[Abbr`l1`]
+  \\ unabbrev_all_tac
   \\ SPLIT_TAC );
 (* -- *)
 
+(*
 val () = hprop_heap_thms := HOL_STORE_init_precond :: (!hprop_heap_thms)
+*)
 
-val (sem_thm,prog_tm) = call_thm st name spec
+val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
+  `hasFreeFD fs
+   ==>
+   whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state())) cl fs
+    ((=) (reader_main fs init_refs (TL cl)))`,
 
+  rw [whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
+  \\ qexists_tac `fs1`
+  \\ qunabbrev_tac `fs1`
+  \\ reverse conj_tac
+  >-
+   (fs [reader_main_def, read_file_def]
+    \\ every_case_tac
+    \\ fs [GSYM add_stdo_with_numchars, with_same_numchars])
+  \\ cheat (* TODO *)
+  );
+
+(*
+val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ())
+                                       "reader"
+                                       (UNDISCH reader_whole_prog_spec)
 val reader_prog_def = Define `reader_prog = ^prog_tm`
 
 val semantics_reader_prog =
@@ -479,6 +499,8 @@ val semantics_reader_prog =
   |> CONV_RULE(LAND_CONV EVAL)
   |> SIMP_RULE (srw_ss())[AND_IMP_INTRO,STD_streams_reader_main,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_reader_prog";
+
+*)
 
 val _ = export_theory ();
 
