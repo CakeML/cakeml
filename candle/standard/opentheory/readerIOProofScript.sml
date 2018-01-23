@@ -4,6 +4,8 @@ open preamble
      holKernelTheory holKernelProofTheory
      ml_monadBaseTheory
 
+val _ = new_theory "readerIOProof"
+
 (* ------------------------------------------------------------------------- *)
 (* Monadic I/O reader preserves invariants                                   *)
 (* ------------------------------------------------------------------------- *)
@@ -78,6 +80,23 @@ val reader_main_thm = Q.store_thm("reader_main_thm",
 (* Monadic I/O reader satisfies I/O specification                            *)
 (* ------------------------------------------------------------------------- *)
 
+(* The monad-io readLine function satisfies the process_line spec *)
+val readLine_wrap_correct = Q.store_thm("readLine_wrap_correct",
+  `readLine_wrap line s refs = (res, refs') /\
+   process_line s refs line = res_p
+   ==>
+   case res of
+     Success (INL s) (* Error *) => res_p = (INR s, refs')
+   | Success (INR s) (* Ok *) => res_p = (INL s, refs')
+   | _ => F (* Does not happen *)`,
+
+  NO_TAC (* TODO *)
+  );
+
+(* The monad-io readLines satisfies the process_lines spec *)
+val readLines_correct = Q.store_thm("readLines_correct",
+  `
+  `,
 
 val _ = export_theory ();
 
