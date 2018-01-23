@@ -56,26 +56,10 @@ val _ = type_abbrev("M", ``: (hol_refs, 'a, hol_exn) M``);
 
 (* deref/ref functions *)
 
-(* val _ = define_monad_access_funs ("the_type_constants",
-                                  ``\state. state.the_type_constants``,
-				  ``\x state. state with the_type_constants := x``);
-val _ = define_monad_access_funs ("the_term_constants",
-                                  ``\state. state.the_term_constants``,
-				  ``\x state. state with the_term_constants := x``);
-val _ = define_monad_access_funs ("the_axioms",
-                                  ``\state. state.the_axioms``,
-				  ``\x state. state with the_axioms := x``);
-val _ = define_monad_access_funs ("the_context",
-                                  ``\state. state.the_context``,
-				  ``\x state. state with the_context := x``); *)
-
 val _ = define_monad_access_funs ``:hol_refs``;
 
 
-(* failwith and otherwise *)
-
-(* val failwith_def = Define `
-  ((failwith msg) : 'a M) = \state. (Failure (Fail msg), state)`; *)
+(* failwith *)
 
 val _ = define_monad_exception_functions ``:hol_exn`` ``:hol_refs``;
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
@@ -86,15 +70,6 @@ val _ = temp_overload_on ("handle_clash", ``handle_Clash``);
 
 val _ = Define `
   try f x msg = (f x otherwise failwith msg)`;
-
-(* val raise_clash_def = Define `
-  ((raise_clash c) :'a M) = \state. (Failure (Clash c), state)`
-
-val handle_clash_def = Define `
-  handle_clash x f = \state.
-    dtcase ((x : 'a M) state) of
-    | (Failure (Clash t), state) => f t state
-    | other => other`; *)
 
 (* define failing lookup function *)
 

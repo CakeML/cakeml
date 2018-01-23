@@ -36,9 +36,9 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
      [uv] (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs
-                   (concat [toString (&(LENGTH (TOKENS isSpace contents)));
+                   (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                             strlit " ";
-                            toString (&(LENGTH (splitlines contents)));
+                            mlint$toString (&(LENGTH (splitlines contents)));
                             strlit "\n"]))
                 * COMMANDLINE cl)`,
   simp [concat_def] \\
@@ -90,19 +90,34 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT,splitwords_all_lines] \\
   simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]);
 
-val spec = wordcount_spec |> UNDISCH_ALL
-           |> SIMP_RULE (srw_ss()) [STDIO_def] |> add_basis_proj
-val name = "wordcount" (* TODO: call_thm is not robust to reordering the precondition conjuncts etc. *)
-val (sem_thm,prog_tm) = call_thm (get_ml_prog_state()) name spec
+val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
+  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+   cl = [pname; fname] ∧
+   contents = THE (ALOOKUP fs.files (File fname))
+   ⇒
+   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
+   ((=)
+     (add_stdout fs
+       (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
+                strlit " ";
+                mlint$toString (&(LENGTH (splitlines contents)));
+                strlit "\n"])))`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH wordcount_spec)))
+  \\ xsimpl);
 
+val spec = wordcount_whole_prog_spec |> UNDISCH_ALL
+val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state()) "wordcount" spec
 val wordcount_prog_def = mk_abbrev"wordcount_prog" prog_tm;
 
 val wordcount_semantics = save_thm("wordcount_semantics",
-  sem_thm
-  |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
+  sem_thm |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
+  |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL
-  |> Q.GENL[`cls`,`contents`]
-  |> SIMP_RULE(srw_ss())[STD_streams_add_stdout]
-  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
 val _ = export_theory();

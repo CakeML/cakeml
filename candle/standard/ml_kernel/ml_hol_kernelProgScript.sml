@@ -149,7 +149,9 @@ val refs_init_list = [
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
-val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
+
 
 val raise_functions = [raise_Fail_def, raise_Clash_def];
 val handle_functions = [handle_Fail_def, handle_Clash_def];
@@ -161,12 +163,14 @@ val exn_ri_def = HOL_EXN_TYPE_def
 
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      exn_ri_def
 					      exn_functions
 					      []
+                                              NONE
                                               NONE;
 
 (**************************************************************************************************)

@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"sortProof";
 
 val sort_io_events_def = new_specification("sort_io_events_def", ["sort_io_events"],
-  sort_semantics |> Q.GENL[`cls`,`fs`]
+  sort_semantics |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
 val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -23,7 +23,7 @@ val compile_correct_applied =
   |> REWRITE_RULE[AND_IMP_INTRO]
 
 val sort_compiled_thm =
-  LIST_CONJ [compile_correct_applied,sort_output]
+  CONJ compile_correct_applied sort_output
   |> DISCH_ALL
   |> curry save_thm "sort_compiled_thm";
 

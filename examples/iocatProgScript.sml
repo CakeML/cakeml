@@ -276,19 +276,27 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ fs[EVERY_MEM,validArg_def]
   \\ Cases_on`cl` \\ fs[]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
-            |> SIMP_RULE std_ss [Once STAR_ASSOC,STDIO_def]
-            |> add_basis_proj;
-val name = "cat_main"
+val st = st();
 
-val (semantics_thm,prog_tm) = call_thm (st()) name spec
+val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
+  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
+   whole_prog_spec ^(fetch_v"cat_main"st) cl fs
+    ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH cat_main_spec)))
+  \\ xsimpl);
+
+val name = "cat_main"
+val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
 val cat_prog_def = Define`cat_prog = ^prog_tm`;
 
 val cat_semantics_thm =
-  semantics_thm
-  |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[inFS_fname_def,LENGTH,STD_streams_add_stdout,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
+  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();

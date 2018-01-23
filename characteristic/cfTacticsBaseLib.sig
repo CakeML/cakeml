@@ -34,7 +34,6 @@ sig
   val parse_decl : string quotation -> term
   val parse_topdecs : string quotation -> term
 
-  val pick_name : string -> string
   val fetch_v : string -> ml_progLib.ml_prog_state -> term
   val fetch_def : string -> ml_progLib.ml_prog_state -> thm
 

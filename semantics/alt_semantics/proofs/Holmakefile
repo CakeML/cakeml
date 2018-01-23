@@ -5,7 +5,7 @@ THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
 TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
 
-all: $(TARGETS) $(HOLHEAP)
+all: $(TARGETS)
 .PHONY: all
 
 SEMI = ../tokens ../ast ../semanticPrimitives bigStep
@@ -24,6 +24,8 @@ ifdef POLY
 HOLHEAP = heap
 PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+all: $(HOLHEAP)
 
 BARE_THYS = ../bigStepTheory ../smallStepTheory ../../proofs/semanticPrimitivesPropsTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)

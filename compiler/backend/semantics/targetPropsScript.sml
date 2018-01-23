@@ -5,7 +5,7 @@ open preamble
 
 val _ = new_theory"targetProps";
 
-val _ = set_grammar_ancestry["ffi","asm","targetSem"];
+val _ = set_grammar_ancestry["ffi","asm","targetSem","misc"];
 
 val asserts_restrict = Q.prove(
   `!n next1 next2 s P Q.

@@ -33,6 +33,9 @@ timing.log
 # Emacs backup files
 *~
 
+# Vim swap files
+*.swp
+
 # Reference manual
 documentation/*.pdf
 documentation/*.aux
