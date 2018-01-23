@@ -69,7 +69,7 @@ val readFile_def = Define `
 (* Matching reader_main *)
 
 val readMain_def = Define `
-  reader_main () =
+  readMain () =
     do
       args <- commandline (arguments ());
       case args of
