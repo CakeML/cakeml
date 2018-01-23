@@ -1,22 +1,15 @@
 open preamble ml_hol_kernelProgTheory
      mlintTheory StringProgTheory
      readerTheory
+open CommandLineProofTheory TextIOProofTheory
 
 val _ = new_theory"readerIO"
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
 val _ = temp_add_monadsyntax()
-
-(* Lifting between different state-exception monads *)
-(* TODO this will be defined elsewhere on another branch *)
-val liftM = Define `
-  liftM (read:'d->'a) write (op: ('a,'b,'c) M) =
-    (λstate. let (ret,new) = op (read state) in
-               (ret, write (K new) state))`;
 
 (* Necessary to compose different monads *)
 val _ = Datatype `
@@ -32,85 +25,58 @@ val _ = overload_on("holrefs",``liftM state_refs_holrefs holrefs_fupd``);
 val _ = overload_on("commandline",``liftM state_refs_cl cl_fupd``);
 
 (* ------------------------------------------------------------------------- *)
-(* Lifted operations                                                         *)
-(* ------------------------------------------------------------------------- *)
-
-(* These are defined to match their CF specs *)
-
-val print_err_def = Define `
-  print_err s = (\fs. (Success (), add_stderr fs s))`;
-
-val print_def = Define `
-  print s = (\fs. (Success (), add_stdout fs s))`;
-
-val inputLine_def = Define `
-  inputLine fd = (\fs. (Success (OPTION_MAP implode (lineFD fs fd)),
-                  lineForwardFD fs fd))`;
-
-val inputLinesFrom_def = Define `
-  inputLinesFrom f =
-    (\fs. (Success (if inFS_fname fs (File f) then
-                      SOME(all_lines fs (File f))
-                    else NONE), fs))`;
-
-val arguments = Define `
-  arguments () = (\c. (Success (TL c), c))`;
-
-(* ------------------------------------------------------------------------- *)
 (* Monadic wrappers for readLine                                             *)
 (* ------------------------------------------------------------------------- *)
 
-(* Wrapper to get rid of the exceptions *)
+(* Matching process_line *)
+
 val readLine_wrap_def = Define `
   readLine_wrap line s =
-    handle_Fail
-      (do s <- readLine line s;
-          return (INR s) od)
-      (\e. return (INL (line_Fail s e)))`;
+    if invalid_line line then
+      return (INR s)
+    else
+      let line = fix_fun_typ (str_prefix line) in
+        handle_Fail
+          (do s <- readLine line s;
+              return (INR s) od)
+          (\e. return (INL e))`;
 
-(* Read all lines in the file, stop on errors. *)
+(* Matching process_lines *)
+
 val readLines_def = Define `
   readLines s lines =
     case lines of
-      [] => return (INR s)
-    | l::ls =>
-      do
-        if invalid_line l then
-          readLines (next_line s) ls
-        else
-          do
-            res <- holrefs (readLine_wrap l s);
-            case res of
-              INR s => readLines (next_line s) ls
-            | INL e => do
-                         stdio (print_err e);
-                         return (INL s)
-                       od
-          od
-      od`
+      [] => stdio (print (msg_success (lines_read s)))
+    | ln::ls =>
+        do
+          res <- holrefs (readLine_wrap ln s);
+          case res of
+            INL e => stdio (print_err (line_Fail s e))
+          | INR s => readLines (next_line s) ls
+        od`
 
-(* ------------------------------------------------------------------------- *)
-(* Monadic program entry-point                                               *)
-(* ------------------------------------------------------------------------- *)
+(* Matching read_file *)
 
-val reader_main_def = Define `
+val readFile_def = Define `
+  readFile fname =
+    do
+      lines <- stdio (inputLinesFrom fname);
+      case lines of
+        NONE => stdio (print_err (msg_bad_name fname))
+      | SOME ls => readLines init_state ls
+    od`
+
+(* Matching reader_main *)
+
+val readMain_def = Define `
   reader_main () =
     do
       args <- commandline (arguments ());
       case args of
         [fname] =>
           do
-            lines <- stdio (inputLinesFrom fname);
-            case lines of
-              NONE => stdio (print_err (msg_bad_name fname))
-            | SOME lines =>
-                do
-                  holrefs (set_reader_ctxt ());
-                  res <- readLines init_state lines;
-                  case res of
-                    INL _ => return ()
-                  | INR s => stdio (print (msg_success (lines_read s)))
-                od
+            holrefs (set_reader_ctxt ());
+            readFile fname
           od
       | _ => stdio (print_err msg_usage)
     od`;
