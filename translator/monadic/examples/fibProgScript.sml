@@ -36,7 +36,6 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* Some overloadings for the parser *)
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 (* Need to hide "state" because of semanticPrimitives *)
