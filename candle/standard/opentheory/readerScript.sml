@@ -259,6 +259,13 @@ val state_to_string = Define `
 (* Article reader                                                            *)
 (* ------------------------------------------------------------------------- *)
 
+
+(* TODO fromString is broken *)
+val i2s_def = Define `
+  i2s s = if s = strlit"" then NONE:int option else fromString s`
+
+val _ = export_rewrites ["i2s_def"]
+
 (* TODO The reader does not respect the "version" command. *)
 
 val readLine_def = Define`
@@ -336,11 +343,11 @@ val readLine_def = Define`
   else if line = strlit"constTerm" then
     do
       (obj,s) <- pop s; ty <- getType obj;
-      (obj,s) <- pop s; name <- getConst obj;
-      ty0 <- get_const_type name;
+      (obj,s) <- pop s; nm <- getConst obj;
+      ty0 <- get_const_type nm;
       tm <- case match_type ty0 ty of
             | NONE => failwith (strlit"constTerm")
-            | SOME theta => mk_const(name,theta);
+            | SOME theta => mk_const(nm,theta);
       return (push (Term tm) s)
     od
   else if line = strlit"deductAntisym" then
@@ -383,8 +390,8 @@ val readLine_def = Define`
       (obj,s) <- pop s; ls <- getList obj;
       (obj,s) <- pop s; rep <- getName obj;
       (obj,s) <- pop s; abs <- getName obj;
-      (obj,s) <- pop s; name <- getName obj;
-      (th1,th2) <- new_basic_type_definition name abs rep th;
+      (obj,s) <- pop s; nm <- getName obj;
+      (th1,th2) <- new_basic_type_definition nm abs rep th;
       (_,a) <- dest_eq (concl th1);
       th1 <- ABS a th1;
       th2 <- SYM th2;
@@ -396,7 +403,7 @@ val readLine_def = Define`
         (push (Thm th1)
         (push (Const rep)
         (push (Const abs)
-        (push (TypeOp name)
+        (push (TypeOp nm)
          s))))))
     od
   else if line = strlit"eqMp" then
@@ -430,9 +437,9 @@ val readLine_def = Define`
     do (_,s) <- pop s; return s od
   else if line = strlit"pragma" then
     do (obj,s) <- pop s;
-       name <- handle_Fail (getName obj)
+       nm <- handle_Fail (getName obj)
                  (\e. return (strlit"bogus"));
-       if name = strlit"debug" then
+       if nm = strlit"debug" then
          failwith (state_to_string s)
        else
          return s
@@ -525,7 +532,7 @@ val readLine_def = Define`
       return (push (Type (mk_vartype n)) s)
     od
   else (* Integer literals and names *)
-    case fromString line of
+    case i2s line of
       SOME n => return (push (Num n) s)
     | NONE =>
         case explode line of

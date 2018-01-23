@@ -353,7 +353,7 @@ val mk_comb_thm = Q.store_thm("mk_comb_thm",
 (* TODO holKernelProof - move, or already exists? *)
 val get_const_type_thm = Q.store_thm("get_const_type_thm",
   `STATE defs refs /\
-   get_const_type name refs = (res, refs')
+   get_const_type n refs = (res, refs')
    ==>
    refs = refs' /\ !ty. res = Success ty ==> TYPE defs ty`,
   rw [get_const_type_def, st_ex_bind_def, st_ex_return_def, get_the_term_constants_def]
@@ -892,7 +892,7 @@ val readLine_thm = Q.store_thm("readLine_thm",
     \\ drule_or_nil pop_thm
     \\ TRY
      (drule (GEN_ALL new_basic_type_definition_thm)
-      \\ disch_then (qspec_then `name` drule)
+      \\ disch_then (qspec_then `nm` drule)
       \\ disch_then (qspecl_then [`rep`,`abs`] mp_tac) \\ rw [])
     \\ TRY (`TERM (ds ++ defs) (concl th1)` by metis_tac [concl_thm])
     \\ drule_or_nil dest_eq_thm
