@@ -143,8 +143,8 @@ val fibm_def = Define`
       stdio (print (num_to_str (fiba 0 1 n))) ;
       stdio (print (strlit "\n"))
     od otherwise do
-            n <- commandline (name ()) ;
-            stdio (print_err (strlit"usage: " ^ n ^ strlit" <n>\n"))
+            name <- commandline (name ()) ;
+            stdio (print_err (strlit"usage: " ^ name ^ strlit" <n>\n"))
           od`
 
 val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
