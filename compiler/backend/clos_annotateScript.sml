@@ -1,7 +1,7 @@
 open preamble closLangTheory db_varsTheory;
 
 val _ = new_theory "clos_annotate";
-val _ = set_grammar_ancestry ["closLang","db_vars"]
+val _ = set_grammar_ancestry ["closLang","db_vars","misc"]
 
 (* alt_free calculates free variable annotations, and replaces unused lets with dummies *)
 

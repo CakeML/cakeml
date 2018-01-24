@@ -1,4 +1,4 @@
-(* 
+(*
  * An example showing how to use the monadic translator to translate monadic functions
  * using references (no arrays, no exceptions).
  *)
@@ -11,7 +11,7 @@ open preamble
  *)
 open ml_monadBaseLib
 
-(* 
+(*
  * Those libraries are used in the translation
  *)
 open (* ml_monad_translatorTheory *) ml_monad_translatorLib
@@ -62,7 +62,7 @@ val access_funs = [("the_num_ref", get_the_num_ref_def, set_the_num_ref_def)];
 
 *)
 
-(* 
+(*
  * It is now possible to use those functions in new definitions:
  *)
 
@@ -70,7 +70,7 @@ val access_funs = [("the_num_ref", get_the_num_ref_def, set_the_num_ref_def)];
 val simple_fun_def = Define `simple_fun x = return x`;
 
 (* A recursive monadic function *)
-val rec_fun_def = Define `rec_fun l = dtcase l of [] => return (0 : num) 
+val rec_fun_def = Define `rec_fun l = dtcase l of [] => return (0 : num)
 					      | x::l' => do x <- rec_fun l'; return (1+x) od`;
 
 (* A monadic function calling other monadic functions *)
@@ -90,7 +90,8 @@ val init_num_ref_def = Define `init_num = (0 : num)`;
 val refs_init_list = [(the_num_ref_name, init_num_ref_def, get_the_num_ref_def, set_the_num_ref_def)];
 
 (* No arrays *)
-val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
 (* Name for the store invariant *)
 val store_hprop_name = "STATE_STORE";
@@ -111,7 +112,8 @@ val store_pinv_opt = NONE : (thm * thm) option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      exn_ri_def

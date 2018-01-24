@@ -1,12 +1,11 @@
 (*
- * An example showing how to use the monadic translator to translate monadic functions
- * using exceptions (no references, no arrays).
+ * A test file for the support of exceptions
  *)
 
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib
 
-val _ = new_theory "exceptionProg"
+val _ = new_theory "exceptionArityTestProg"
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = monadsyntax.temp_add_monadsyntax();
@@ -21,46 +20,27 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 (* Need to hide "state" because of semanticPrimitives *)
 val _ = hide "state";
 
-val _ = (use_full_type_names := false);
-
 (* No references/arays, so use unit for the state type *)
 val state_type = ``:unit``;
 val _ = register_type ``:unit``;
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail1 of string | Fail2 of int`;
+  state_exn = Fail1
+	    | Fail2 of int 
+            | Fail3 of string => bool
+            | Fail4 of int => num => string`;
 
 (* It is necessary to register that type for the CakeML program to be able to use it*)
 val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
-val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
+val STATE_EXN_TYPE_def = theorem"EXCEPTIONARITYTESTPROG_STATE_EXN_TYPE_def";
 
 (* Generate the monadic functions to handle the exceptions *)
+val exn_type = ``:state_exn``;
 val exn_functions = define_monad_exception_functions ``:state_exn`` state_type;
 val _ = temp_overload_on("failwith", ``raise_Fail1``);
 val _ = temp_overload_on("handle_fail", ``handle_Fail1``);
-
-(* It is possible to define the exceptions handling functions by hand:
-
-val failwith_def = Define `failwith x = \(state : state_refs). (Failure (Fail1 x), state)`;
-val handle_fail_def = Define `handle_fail x f = \(state : state_refs). dtcase x state of
-(Success x, state) => (Success x, state)
-| (Failure (Fail1 e), state) => f e state
-| other => other`
-...
-
-*)
-
-(* 
- * It is now possible to use those functions in new definitions:
- *)
-
-val assert_def = Define `assert b = if b then failwith "assert" else return ()`
-val decrease_def = Define `decrease n = monad_ignore_bind (assert (n > (0:num))) (return (n-1))`;
-val handle_decrease_def = Define `handle_decrease n = handle_fail (decrease n) (\e. return 0)`;
-
-(* ... *)
 
 (* TRANSLATION: initialisation *)
 (* No references *)
@@ -92,12 +72,36 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_ri_def
 					      exn_functions
 					      type_theories
-                                              store_pinv_opt;;
+                                              store_pinv_opt;
 
 (* Translate *)
-val assert_v_thm = assert_def |> m_translate;
-val decrease_v_thm = decrease_def |> m_translate;
-val handle_decrease = handle_decrease_def |> m_translate;
+val raise1_def = Define `raise1 x = if x then return 1n else raise_Fail1`
+val r1 = m_translate raise1_def
+
+val raise2_def = Define `raise2 x = raise_Fail2 x`
+val r2 = m_translate raise2_def
+
+val raise3_def = Define `raise3 x y = raise_Fail3 x y`
+val r3 = m_translate raise3_def
+
+val raise4_def = Define `raise4 x y z = raise_Fail4 x y z`
+val r4 = m_translate raise4_def
+
+val handle1_def = Define `
+  handle1 n = handle_Fail1 (return n) (return n)`
+val rh1 = m_translate handle1_def
+
+val handle2_def = Define `
+  handle2 n = handle_Fail2 (return n) (\x. return n)`
+val rh2 = m_translate handle2_def
+
+val handle3_def = Define `
+  handle3 n = handle_Fail3 (return n) (\x y. return n)`
+val rh3 = m_translate handle3_def
+
+val handle4_def = Define `
+  handle4 n = handle_Fail4 (return n) (\x y z. return n)`
+val rh4 = m_translate handle4_def
 
 (* ... *)
 

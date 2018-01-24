@@ -31,13 +31,13 @@ fun PURE_FACTS_FIRST_CONV H =
   in
       if List.null ordered_preds then REFL H
       else
-	  let val H' = List.foldl (fn (x, y) => mk_star(y, x)) (List.hd ordered_preds)
-				  (List.tl ordered_preds)
+          let val H' = List.foldl (fn (x, y) => mk_star(y, x)) (List.hd ordered_preds)
+                                  (List.tl ordered_preds)
           (* For some strange reason, AC_CONV doesn't work *)
           val H_to_norm = STAR_AC_CONV H
-	  val norm_to_H' = (SYM(STAR_AC_CONV H') handle UNCHANGED => REFL H')
-	  in TRANS H_to_norm norm_to_H'
-	  end
+          val norm_to_H' = (SYM(STAR_AC_CONV H') handle UNCHANGED => REFL H')
+          in TRANS H_to_norm norm_to_H'
+          end
   end;
 
 val EXTRACT_PURE_FACTS_CONV =
@@ -77,7 +77,7 @@ val evaluate_list_raise_SING = Q.prove(
 (* END OF COPY/PASTE *)
 
 val REFS_PRED_lemma = Q.prove(
-`SPLIT (st2heap (p : unit ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED H refs p st`,
+`SPLIT (st2heap (p : 'ffi ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED (H,p) refs st`,
 rw[REFS_PRED_def, STAR_def]
 \\ qexists_tac `h1`
 \\ qexists_tac `h2`
@@ -190,316 +190,149 @@ val apply_REFS_PRED_Mem_Only_IMP2 =
 
 val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
 `!A B f fv x1 xv1 xv2 xvl H Q state p.
-REFS_PRED_Mem_Only H ==>
-A x1 xv1 ==>
-(!gv. B (f x1) gv ==>
-app (p : 'a ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
-ArrowP H (PURE A) (PURE B) f fv ==>
-app p fv (xv1::xv2::xvl) (H state) (Q state)`,
-rw[app_def]
-\\ rw[app_basic_def]
-\\ fs[ArrowP_def]
-\\ fs[PURE_def]
-\\ first_x_assum (qspec_then `x1` ASSUME_TAC)
-\\ POP_ASSUM IMP_RES_TAC
-\\ first_x_assum(qspecl_then[`empty_state with refs := st.refs`, `empty_state with refs := st.refs`, `[]`] ASSUME_TAC)
-\\ fs[state_component_equality]
-\\ sg `!p. ?h2. SPLIT (st2heap p (empty_state with refs := st.refs)) (h_i, h2)`
->-(
-    (* last_x_assum IMP_RES_TAC *)
-    apply_REFS_PRED_Mem_Only_IMP \\ rw[]
-    \\ rw[st2heap_def]
-    \\ qexists_tac `h3 UNION (ffi2heap p' empty_state.ffi)`
-    \\ fs[SPLIT_def, UNION_ASSOC]
-    \\ PURE_ONCE_REWRITE_TAC[DISJOINT_SYM]
-    \\ fs[]
-    \\ ASSUME_TAC (ISPECL [``p':unit ffi_proj``, ``empty_state with refs := st.refs``] st2heap_SPLIT_FFI)
-    \\ fs[SPLIT_def]
-    \\ qpat_x_assum `h_i UNION h3 = h` (fn x => fs[SYM x]))
-\\ first_x_assum(qspec_then `ARB` STRIP_ASSUME_TAC)
-\\ IMP_RES_TAC REFS_PRED_lemma
-\\ qpat_x_assum `!refs. R` (fn x => ALL_TAC)
-\\ qpat_x_assum `!refs1 p. R ==> ?env. R2` drule \\ rw[]
-\\ POP_ASSUM(qspec_then `[]` STRIP_ASSUME_TAC)
-\\ fs[REFS_PRED_FRAME_def]
-\\ fs[evaluate_ck_def]
-\\ rw[]
-\\ `(H st3 * (\s. s = h2)) (st2heap ARB (empty_state with refs := st.refs))` by (rw[STAR_def] \\ SATISFY_TAC)
-\\ qpat_assum `!F. P` drule \\ rw[]
-\\ first_x_assum drule \\ strip_tac
-\\ drule HPROP_SPLIT3 \\ rw[]
-\\ fs[with_same_refs] \\ rw[]
-\\ drule evaluate_Rval_bigStep_to_evaluate \\ rw[]
-\\ qexists_tac `Val v`
-\\ qexists_tac `h1`
-\\ qexists_tac `(st2heap p (st with refs := st.refs ++ junk)) DIFF h1 DIFF h_k`
-\\ qexists_tac `st with <| clock := 0; refs := st.refs ++ junk |>`
-\\ qexists_tac `c`
-\\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
-\\ rw[]
->-(
-    sg `SPLIT (st2heap ARB (empty_state with refs := st.refs ++ junk)) (h1, h2 UNION h3)`
-    >-(fs[SPLIT_def, SPLIT3_def, UNION_ASSOC] \\ metis_tac[DISJOINT_SYM])
-    \\ apply_REFS_PRED_Mem_Only_IMP
-    \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw[]
-    \\ fs[state_component_equality]
-    \\ fs[SPLIT_def, SPLIT3_def]
-    \\ sg `!x. x IN h_i ==> x IN store2heap st.refs`
-    >-(
-	rw[]
-	\\ `x IN (h_i UNION h3')` by fs[]
-	\\ metis_tac[UNION_DEF, IN_DEF])
-    \\ sg `h2 INTER (store2heap st.refs) = h_k INTER (store2heap st.refs)`
-    >-(
-	simp[SET_EQ_SUBSET, SUBSET_DEF]
-	\\ fs[st2heap_def]
-        \\ rw[]
-        >-(
-            `x IN h_i UNION h_k` by metis_tac[IN_UNION]
-            \\ fs[]
-            \\ IMP_RES_TAC INTER_DISJOINT)
-        \\ `x IN h_i UNION h2` by metis_tac[IN_UNION]
-        \\ fs[]
-        \\ IMP_RES_TAC INTER_DISJOINT)
-    \\ reverse(rw[])
-    >-(
-	rw[DISJOINT_DEF]
-	\\ PURE_ONCE_REWRITE_TAC[GSYM SUBSET_EMPTY]
-	\\ PURE_REWRITE_TAC[SUBSET_DEF]
-	\\ rpt STRIP_TAC
-	\\ fs[]
-	\\ metis_tac[])
-    >-(
-	rw[DISJOINT_DEF]
-	\\ PURE_ONCE_REWRITE_TAC[GSYM SUBSET_EMPTY]
-	\\ PURE_REWRITE_TAC[SUBSET_DEF]
-	\\ rpt STRIP_TAC
-	\\ fs[]
-	\\ metis_tac[])
-    (* DISJOINT h1 h_k *)
-    >-(
-	rw[DISJOINT_ALT]
-	\\ rw[]
-	\\ `x IN store2heap (st.refs ++ junk)` by metis_tac[IN_UNION]
-	\\ fs[cfAppTheory.store2heap_append_many]
-	>-(
-	    strip_tac
-            \\ `x IN h2` by metis_tac[IN_INTER]
-            \\ fs[DISJOINT_ALT]
-	    \\ metis_tac[])
-	>-(
-	    strip_tac
-	    \\ `x IN (st2heap p st)` by metis_tac[IN_UNION]
-	    \\ fs[st2heap_def]
-	    >-(
-		`SPLIT (store2heap (st.refs ++ junk)) (store2heap st.refs, store2heap_aux (LENGTH st.refs) junk)` by fs[store2heap_SPLIT]
-		\\ fs[SPLIT_def]
-		\\ fs[DISJOINT_ALT])
-	    \\ Cases_on `x`
-	    \\ fs[Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux]))
-    (* SETS EQUALITY *)
-    \\ simp[Once SET_EQ_SUBSET, SUBSET_DEF]
-    \\ fs[st2heap_clock]
-    \\ rw[]
-    >-(
-	sg `x IN store2heap (st.refs ++ junk)`
-	>-(
-	    fs[st2heap_def, cfAppTheory.store2heap_append_many]
-	    \\ `x IN h1 ∪ h3''` by fs[]
-	    \\ `x IN store2heap st.refs ∪ store2heap_aux (LENGTH st.refs) junk` by metis_tac[]
-	    \\ fs[])
-	\\ rw[st2heap_def])
-    >-(
-	sg `x IN st2heap p st`
-	>-(
-	    `x IN h_i ∪ h_k` by fs[]
-	    \\ metis_tac[])
-	\\ rw[st2heap_def]
-	\\ fs[st2heap_def, cfAppTheory.store2heap_append_many])
-    \\ Cases_on `x IN h1` >> fs[]
-    \\ Cases_on `x IN h_k` >> fs[]
-    \\ fs[IN_DEF, st2heap_def])
->-(qexists_tac `H st3` \\ fs[HCOND_EXTRACT])
-\\ ASSUME_TAC (Thm.INST_TYPE[``:'a`` |-> ``:unit``, ``:'b`` |-> ``:'a``] (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
-\\ first_x_assum IMP_RES_TAC
-\\ fs[state_component_equality, ml_translatorTheory.empty_state_def, ffiTheory.initial_ffi_state_def]);
-
-val prove_ArrowP_MONAD_to_app_SPLIT3 =
-  ntac 3 (POP_ASSUM (fn x => ALL_TAC))
-  \\ sg `SPLIT (st2heap pu (empty_state with refs := refs')) (h1, h2 UNION h3)`
-  >-(fs[SPLIT_def, SPLIT3_def, UNION_ASSOC] \\ metis_tac[DISJOINT_SYM])
+   REFS_PRED_Mem_Only H ==>
+   A x1 xv1 ==>
+   (!gv. B (f x1) gv ==>
+   app (p : 'ffi ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
+   ArrowP (H,p) (PURE A) (PURE B) f fv ==>
+   app p fv (xv1::xv2::xvl) (H state) (Q state)`,
+  rw [app_def, app_basic_def, ArrowP_def, PURE_def]
+  \\ fs [PULL_EXISTS]
+  \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`state`,`st`,`[]`] mp_tac) \\ simp []
+  \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
+  \\ rw []
+  \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
+  \\ fs [REFS_PRED_FRAME_def] \\ rw []
+  \\ fs [evaluate_ck_def]
+  \\ `(H state * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
+  \\ first_x_assum drule \\ rw []
+  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
+  \\ fs [with_same_refs]
+  \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
+  \\ qexists_tac `Val v'`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
+  \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
+  \\ Q.LIST_EXISTS_TAC [`st2heap p (st with refs := refs) DIFF h1 DIFF h_k`,`h1`]
+  \\ first_x_assum drule \\ strip_tac
+  \\ fs [SEP_EXISTS_THM, SEP_CLAUSES]
+  \\ reverse conj_tac
+  >-
+   (fs [HCOND_EXTRACT]
+    \\ asm_exists_tac
+    \\ fs [])
+  \\ `SPLIT (st2heap p (st with refs := refs)) (h1, h_k UNION h3)` by
+    fs [SPLIT_def, SPLIT3_def, UNION_ASSOC, DISJOINT_SYM]
   \\ apply_REFS_PRED_Mem_Only_IMP
-  \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw[]
-  (* cleanup *)
-  \\ ntac 2 (last_x_assum (fn x => ALL_TAC))
-  \\ fs[state_component_equality, st2heap_clock]
-  \\ ntac 3 (last_x_assum ASSUME_TAC)
-  \\ ntac 6 (last_x_assum (fn x => ALL_TAC))
-  (* end of cleanup *)
-  \\ fs[SPLIT_def, SPLIT3_def]
-  \\ `!x. x IN h_i ==> x IN store2heap st.refs` by metis_tac[IN_UNION]
-  \\ sg `h2 INTER (store2heap refs') = h_k INTER (store2heap refs')`
-  >-(
-      simp[SET_EQ_SUBSET, SUBSET_DEF]
-      \\ fs[st2heap_def]
-      \\ rw[]
-      >-(
-	  sg `x IN store2heap st.refs`
-	  >-(
-	      `x IN store2heap st.refs UNION ffi2heap pu empty_state.ffi` by metis_tac[IN_UNION]
-	      \\ Cases_on `x`
-	      >> fs[store2heap_def, Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux])
-	  \\ `x IN h_i ∪ h_k` by metis_tac[IN_UNION]
-	  \\ fs[]
-	  \\ IMP_RES_TAC INTER_DISJOINT)
-      \\ sg `x IN store2heap st.refs`
-	  >-(
-	     `x IN store2heap st.refs UNION ffi2heap p st.ffi` by metis_tac[IN_UNION]
-	     \\ Cases_on `x`
-	     >> fs[store2heap_def, Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux])
-      \\ `x IN h_i ∪ h2` by metis_tac[IN_UNION]
-      \\ fs[]
-      \\ IMP_RES_TAC INTER_DISJOINT)
-  \\ sg `h2 INTER (store2heap st.refs) = h_k INTER (store2heap st.refs)`
-  >-(
-      simp[SET_EQ_SUBSET, SUBSET_DEF]
-      \\ fs[st2heap_def]
-      \\ rw[]
-      >-(
-	  `x IN h_i UNION h_k` by metis_tac[IN_UNION]
-	  \\ fs[]
-	  \\ IMP_RES_TAC INTER_DISJOINT)
-      \\ `x IN h_i UNION h2` by metis_tac[IN_UNION]
-      \\ fs[]
-      \\ IMP_RES_TAC INTER_DISJOINT)
-  \\ reverse(rw[])
-  >-(
-      rw[DISJOINT_DEF]
-      \\ PURE_ONCE_REWRITE_TAC[GSYM SUBSET_EMPTY]
-      \\ PURE_REWRITE_TAC[SUBSET_DEF]
-      \\ rpt STRIP_TAC
-      \\ fs[]
-      \\ metis_tac[])
-  >-(
-      rw[DISJOINT_DEF]
-      \\ PURE_ONCE_REWRITE_TAC[GSYM SUBSET_EMPTY]
-      \\ PURE_REWRITE_TAC[SUBSET_DEF]
-      \\ rpt STRIP_TAC
-      \\ fs[]
-      \\ metis_tac[])
-  (* DISJOINT h1 h_k *)
-  >-(
-      rw[DISJOINT_ALT]
-      \\ rw[]
-      \\ `x IN store2heap refs'` by metis_tac[IN_UNION]
-      \\ strip_tac
-      \\ `x IN h2` by metis_tac[IN_UNION, IN_INTER]
-      \\ IMP_RES_TAC INTER_DISJOINT)
-  (* SETS EQUALITY *)
-  \\ simp[Once SET_EQ_SUBSET, SUBSET_DEF]
-  \\ reverse(rw[])
-  >-(metis_tac[])
-  >-(
-      `x IN st2heap p st` by metis_tac[IN_UNION]
-      \\ fs[st2heap_def]
-      \\ `x IN store2heap refs' ∪ ffi2heap pu empty_state.ffi` by metis_tac[IN_UNION, UNION_ASSOC, IN_INTER]
-      \\ fs[]
-      \\ irule FALSITY
-      \\ Cases_on `x`
-      >> fs[store2heap_def, Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux])
-  \\ fs[st2heap_def]
-  \\ metis_tac[IN_UNION];
-
-val prove_MONAD_to_app =
-rw[app_def]
-\\ rw[app_basic_def]
-\\ fs[ArrowP_def]
-\\ fs[EqSt_def, PURE_def]
-\\ first_x_assum (qspec_then `x` ASSUME_TAC)
-\\ POP_ASSUM IMP_RES_TAC
-\\ fs[state_component_equality]
-\\ first_x_assum(qspecl_then[`empty_state with refs := st.refs`, `[]`] ASSUME_TAC)
-\\ sg `!p. ?h2. SPLIT (st2heap p (empty_state with refs := st.refs)) (h_i, h2)`
->-(
-    apply_REFS_PRED_Mem_Only_IMP
-    \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw[]
-    \\ rw[st2heap_def]
-    \\ qexists_tac `h3 UNION (ffi2heap p' empty_state.ffi)`
-    \\ fs[SPLIT_def, UNION_ASSOC]
-    \\ PURE_ONCE_REWRITE_TAC[DISJOINT_SYM]
-    \\ fs[]
-    \\ rw[DISJOINT_ALT]
-    \\ sg `x' IN store2heap st.refs`
-    >-(
-	`x' IN h_i UNION h3` by fs[]
-        \\ metis_tac[])
-    \\ fs[store2heap_def]
-    \\ Cases_on `x'`
-    >> fs[Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux])
-\\ first_x_assum(qspec_then `pu` STRIP_ASSUME_TAC)
-\\ IMP_RES_TAC REFS_PRED_lemma
-\\ last_x_assum drule \\ rw[]
-\\ POP_ASSUM(qspec_then `[]` STRIP_ASSUME_TAC)
-\\ fs[REFS_PRED_FRAME_def]
-\\ fs[evaluate_ck_def]
-\\ rw[]
-\\ `(H refs * (\s. s = h2)) (st2heap pu (empty_state with refs := st.refs))` by (rw[STAR_def] \\ SATISFY_TAC)
-\\ qpat_assum `!F. P` IMP_RES_TAC
-\\ IMP_RES_TAC HPROP_SPLIT3
-\\ fs[with_same_refs] \\ rw[]
-\\ Cases_on `res3`
->> Cases_on `f x refs`
->> Cases_on `q`
->> fs[MONAD_def]
-THENL[ALL_TAC, Cases_on `e`]
->> fs[]
-THENL[IMP_RES_TAC evaluate_Rval_bigStep_to_evaluate \\ qexists_tac `Val a`,
-      IMP_RES_TAC evaluate_Rerr_bigStep_to_evaluate \\ qexists_tac `Exn a`]
-\\ qexists_tac `h1`
-\\ qexists_tac `(st2heap p (st with refs := refs')) DIFF h1 DIFF h_k`
-\\ qexists_tac `st with <| clock := 0; refs := refs' |>`
-\\ qexists_tac `c`
-\\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
-\\ rw[]
->-(prove_ArrowP_MONAD_to_app_SPLIT3)
->-(fs[HCOND_EXTRACT])
->-(
-    ASSUME_TAC (Thm.INST_TYPE[``:'a`` |-> ``:unit``, ``:'b`` |-> ``:'a``] (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
-    \\ first_x_assum IMP_RES_TAC
-    \\ fs[state_component_equality, ml_translatorTheory.empty_state_def, ffiTheory.initial_ffi_state_def])
->-(prove_ArrowP_MONAD_to_app_SPLIT3)
->-(fs[HCOND_EXTRACT])
-\\ ASSUME_TAC (Thm.INST_TYPE[``:'a`` |-> ``:unit``, ``:'b`` |-> ``:'a``] (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
-\\ first_x_assum IMP_RES_TAC
-\\ fs[state_component_equality, ml_translatorTheory.empty_state_def, ffiTheory.initial_ffi_state_def]
+  \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw []
+  \\ fs [SPLIT_def, SPLIT3_def]
+  \\ reverse conj_tac >- fs [DISJOINT_ALT]
+  \\ fs [st2heap_clock]
+  \\ once_rewrite_tac [UNION_COMM]
+  \\ simp [DIFF_UNION]
+  \\ qpat_x_assum `_ UNION _ UNION _ = _` (assume_tac o GSYM) \\ fs []
+  \\ metis_tac [IN_UNION, SUBSET_DEF, UNION_DIFF])
 
 val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
-`!A B C f fv H x xv refs p.
-REFS_PRED_Mem_Only H ==>
-A x xv ==>
-ArrowP H (PURE A) (MONAD B C) f fv ==>
-app (p : 'a ffi_proj) fv [xv] (H refs)
-(POST
-     (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
-     (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
-prove_MONAD_to_app);
+  `!A B C f fv H x xv refs p.
+     REFS_PRED_Mem_Only H ==>
+     A x xv ==>
+     ArrowP (H,p) (PURE A) (MONAD B C) f fv ==>
+     app (p : 'ffi ffi_proj) fv [xv] (H refs)
+     (POST
+          (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
+          (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+  rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
+  \\ fs [PULL_EXISTS]
+  \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`refs`,`st`,`[]`] mp_tac)
+  \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
+  \\ rw []
+  \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
+  \\ fs [REFS_PRED_FRAME_def] \\ rw []
+  \\ fs [evaluate_ck_def]
+  \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
+  \\ first_x_assum drule \\ rw []
+  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
+  \\ fs [with_same_refs]
+  \\ Cases_on `res3` \\ Cases_on `f x refs` \\ Cases_on `q` \\ fs [MONAD_def]
+  \\ TRY (Cases_on `e` \\ fs [])
+  \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
+  \\ imp_res_tac evaluate_Rerr_bigStep_to_evaluate
+  \\ TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
+  \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
+  \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
+  \\ Q.LIST_EXISTS_TAC [`st2heap p (st with refs := refs') DIFF h1 DIFF h_k`,`h1`]
+  \\ fs [SEP_EXISTS_THM, SEP_CLAUSES] \\ rw []
+  \\ fs [HCOND_EXTRACT]
+  \\ `SPLIT (st2heap p (st with refs := refs')) (h1, h_k UNION h3)` by
+    fs [SPLIT_def, SPLIT3_def, UNION_ASSOC, DISJOINT_SYM]
+  \\ apply_REFS_PRED_Mem_Only_IMP
+  \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw []
+  \\ fs [SPLIT_def, SPLIT3_def]
+  \\ reverse conj_tac
+  \\ TRY (fs [DISJOINT_ALT] \\ NO_TAC)
+  \\ fs [st2heap_clock]
+  \\ once_rewrite_tac [UNION_COMM]
+  \\ simp [DIFF_UNION]
+  \\ qpat_x_assum `_ UNION _ UNION _ = _` (assume_tac o GSYM) \\ fs []
+  \\ metis_tac [IN_UNION, SUBSET_DEF, UNION_DIFF])
 
 val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
-`!A B C f fv H x xv refs p.
-REFS_PRED_Mem_Only H ==>
-A x xv ==>
-ArrowP H (EqSt (PURE A) refs) (MONAD B C) f fv ==>
-app (p : 'a ffi_proj) fv [xv] (H refs)
-(POST
-     (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
-     (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
-prove_MONAD_to_app);
+  `!A B C f fv H x xv refs p.
+     REFS_PRED_Mem_Only H ==>
+     A x xv ==>
+     ArrowP (H,p) (EqSt (PURE A) refs) (MONAD B C) f fv ==>
+     app (p : 'ffi ffi_proj) fv [xv] (H refs)
+     (POST
+          (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
+          (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+  rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
+  \\ fs [PULL_EXISTS]
+  \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`st`,`[]`] mp_tac)
+  \\ impl_keep_tac >- metis_tac [REFS_PRED_lemma]
+  \\ rw []
+  \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
+  \\ fs [REFS_PRED_FRAME_def] \\ rw []
+  \\ fs [evaluate_ck_def]
+  \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
+  \\ first_x_assum drule \\ rw []
+  \\ drule (GEN_ALL HPROP_SPLIT3) \\ rw []
+  \\ fs [with_same_refs]
+  \\ Cases_on `res3` \\ Cases_on `f x refs` \\ Cases_on `q` \\ fs [MONAD_def]
+  \\ TRY (Cases_on `e` \\ fs [])
+  \\ imp_res_tac evaluate_Rval_bigStep_to_evaluate
+  \\ imp_res_tac evaluate_Rerr_bigStep_to_evaluate
+  \\ TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
+  \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qmatch_asmsub_abbrev_tac `evaluate _ _ _ = (st2, _)`
+  \\ Q.LIST_EXISTS_TAC [`c`,`st2`] \\ fs [Abbr`st2`]
+  \\ Q.LIST_EXISTS_TAC [`st2heap p (st with refs := refs') DIFF h1 DIFF h_k`,`h1`]
+  \\ fs [SEP_EXISTS_THM, SEP_CLAUSES] \\ rw []
+  \\ fs [HCOND_EXTRACT]
+  \\ `SPLIT (st2heap p (st with refs := refs')) (h1, h_k UNION h3)` by
+    fs [SPLIT_def, SPLIT3_def, UNION_ASSOC, DISJOINT_SYM]
+  \\ apply_REFS_PRED_Mem_Only_IMP
+  \\ apply_REFS_PRED_Mem_Only_IMP2 \\ rw []
+  \\ fs [SPLIT_def, SPLIT3_def]
+  \\ reverse conj_tac
+  \\ TRY (fs [DISJOINT_ALT] \\ NO_TAC)
+  \\ fs [st2heap_clock]
+  \\ once_rewrite_tac [UNION_COMM]
+  \\ simp [DIFF_UNION]
+  \\ qpat_x_assum `_ UNION _ UNION _ = _` (assume_tac o GSYM) \\ fs []
+  \\ metis_tac [IN_UNION, SUBSET_DEF, UNION_DIFF])
 
 val parsed_terms = save_thm("parsed_terms",
   packLib.pack_list
    (packLib.pack_pair packLib.pack_string packLib.pack_term)
-      [("PURE",``PURE : ('a -> v -> bool) -> ('a, 'b) H``),
-       ("p",mk_var("p", ``:unit ffi_proj``)),
+      [("PURE",``PURE : ('a -> v -> bool) -> ('a, 'ffi, 'b) H``),
+       ("p",mk_var("p", ``:'ffi ffi_proj``)),
        ("emp",``emp:hprop``)]);
 
 val _ = export_theory();
