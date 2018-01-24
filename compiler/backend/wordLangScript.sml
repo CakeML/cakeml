@@ -267,7 +267,6 @@ val word_sh_def = Define `
       | Asr => SOME (w >> n)
       | Ror => SOME (word_ror w n)`;
 
-val shift_def = Define `
-  shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;
+val _ = overload_on ("shift", “backend_common$word_shift”);
 
 val _ = export_theory();
