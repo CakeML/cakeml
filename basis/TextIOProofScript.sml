@@ -536,7 +536,6 @@ val openIn_spec = Q.store_thm(
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs` >>
-  fs[iobuff_loc_def] >>
   rpt(xlet_auto >- xsimpl) >>
   qmatch_goalsub_abbrev_tac`W8ARRAY _ fd0` >>
   qmatch_goalsub_rename_tac`W8ARRAY loc fd0` >>
@@ -574,14 +573,14 @@ val openIn_spec = Q.store_thm(
     xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R >> fs[])
     >> xif >-(
       instantiate >>
-      xapp >> simp[iobuff_loc_def,FD_def] >> xsimpl >>
+      xapp >> simp[FD_def] >> xsimpl >>
       simp[EL_LUPDATE,Abbr`fd0`,LENGTH_explode,LENGTH_n2w8,TAKE_LENGTH_ID_rwt] >>
         imp_res_tac nextFD_ltX >>
       fs[wfFS_openFile,Abbr`fs'`,liveFS_openFileFS])) >>
   xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
             W8ARRAY loc (LUPDATE 1w 0 fd0)`
-  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> simp[iobuff_loc_def] >>
+  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> simp[] >>
       simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -594,7 +593,7 @@ val openIn_spec = Q.store_thm(
            dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
            implode_explode, LENGTH_explode] >>
       fs[not_inFS_fname_openFile,STRING_TYPE_def]) >>
-  xlet_auto >-(xsimpl) >> fs[iobuff_loc] >>
+  xlet_auto >-(xsimpl) >> fs[] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R) >>
   xif
@@ -643,7 +642,7 @@ val close_spec = Q.store_thm(
         IOx fs_ffi_part (if validFD fdw fs then
                             (fs with infds updated_by A_DELKEY fdw)
                          else fs)`
-  >-(xffi >> simp[iobuff_loc_def,IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def] >>
+  >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def] >>
      qmatch_goalsub_abbrev_tac`IO st f ns` >> xsimpl >>
      qmatch_goalsub_abbrev_tac`_ ==>>IO (_ fs') f ns` >>
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -720,7 +719,7 @@ val writei_spec = Q.store_thm("writei_spec",
                            TAKE (MIN n k) (MAP (CHR o w2n) (DROP i rest)) ++
                            DROP (MIN n k + pos) content))`
      >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >> xffi >> xsimpl >>
-        fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def,
+        fs[IOFS_def,IOx_def,fs_ffi_part_def,
                mk_ffi_next_def] >>
         qmatch_goalsub_abbrev_tac`IO st f ns` >>
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -743,7 +742,7 @@ val writei_spec = Q.store_thm("writei_spec",
         rw[] >> rfs[]) >>
      qmatch_goalsub_abbrev_tac` _ * IOx _ fs'` >>
      qmatch_goalsub_abbrev_tac`W8ARRAY _ (_::m1 :: m0 :: n2w i :: rest)` >>
-     fs[iobuff_loc_def] >>
+     fs[] >>
      NTAC 3 (xlet_auto >- xsimpl) >> xif >> fs[FALSE_def] >> instantiate >>
      NTAC 2 (xlet_auto >- xsimpl) >>
      fs[GSYM n2w2_def] >>
@@ -761,7 +760,7 @@ val writei_spec = Q.store_thm("writei_spec",
                            TAKE 0 (MAP (CHR o w2n) (DROP i rest)) ++
                            DROP pos content))`
   >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >> xffi >> xsimpl >>
-     fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def,
+     fs[IOFS_def,IOx_def,fs_ffi_part_def,
             mk_ffi_next_def] >>
      qmatch_goalsub_abbrev_tac`IO st f ns` >>
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -826,9 +825,8 @@ val write_spec = Q.store_thm("write_spec",
          >-(TRY instantiate >> xcon >>
                 simp[IOFS_iobuff_def,IOFS_def] >> xsimpl >> qexists_tac`0` >>
             fs[fsupdate_unchanged,insert_atI_def] >> xsimpl)) >>
-  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   xlet_auto >> xsimpl
-  >-(simp[iobuff_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl) >>
+  >-(simp[] >> xsimpl >> rw[] >> instantiate >> xsimpl) >>
   xlet_auto >- xsimpl >> reverse xif
   >-(xcon >> xsimpl >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
          qexists_tac`(Lnext_pos fs.numchars + 1)` >> `nw = n` by fs[] >> xsimpl >>
@@ -875,8 +873,8 @@ val output1_spec = Q.store_thm("output1_spec",
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: h2 :: h3 :: h4 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: h2 :: h3 :: h4 :: h5 :: t` >>
   simp[LUPDATE_compute] >>
-  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
-  xlet_auto >-(PURE_REWRITE_TAC[GSYM iobuff_loc_def] >> xsimpl) >>
+  xlet_auto
+  >-(xsimpl >> rw[] >> qexists_tac`x` >> xsimpl) >>
   xcon >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >> rw[] >>
   fs[CHR_ORD,LESS_MOD,ORD_BOUND] >> qexists_tac`k` >> xsimpl);
 
@@ -965,16 +963,15 @@ val output_spec = Q.store_thm("output_spec",
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
   xlet`POSTv mv. &NUM (MIN (strlen s) 2048) mv * IOx fs_ffi_part fs * W8ARRAY
-  (Loc 0) (h1::h2::h3::h4::t)`
+  (iobuff_loc) (h1::h2::h3::h4::t)`
   >- (
     xif
     >- (xret \\ xsimpl \\ fs[NUM_def,INT_def,MIN_DEF] )
     \\ xlit \\ xsimpl \\ fs[MIN_DEF] ) >>
   xlet_auto >- xsimpl >>
-  fs[insert_atI_def] >> PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
+  fs[insert_atI_def] >>
   xlet_auto >> xsimpl
-  >-(PURE_REWRITE_TAC[GSYM iobuff_loc_def] >> xsimpl >>
-     fs[LENGTH_explode,strlen_substring]) >>
+  >-(xsimpl >> fs[LENGTH_explode,strlen_substring]) >>
   sg`OPTION_TYPE NUM NONE (Conv (SOME ("NONE",TypeId (Short "option"))) [])`
   >- fs[OPTION_TYPE_def] >>
   xlet_auto >- xsimpl >>
@@ -1091,9 +1088,9 @@ val read_spec = Q.store_thm("read_spec",
    xlet_auto >- xsimpl >>
    simp[insert_atI_def,n2w2_def] >>
    cases_on`get_file_content fs fd`
-   >-(xlet`POSTv v. W8ARRAY (Loc 0) (1w::n2w n::h3::h4::rest) * IOx fs_ffi_part fs`
+   >-(xlet`POSTv v. W8ARRAY iobuff_loc (1w::n2w n::h3::h4::rest) * IOx fs_ffi_part fs`
       >-(xffi >> xsimpl >>
-         fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
          qmatch_goalsub_abbrev_tac`IO st f ns` >>
          CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
          map_every qexists_tac[`ns`,`f`] >>
@@ -1117,7 +1114,7 @@ val read_spec = Q.store_thm("read_spec",
           (MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)))
             (\e. &(get_file_content fs fd = NONE))` >> xsimpl
    >-(xffi >> xsimpl >>
-      fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+      fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
       map_every qexists_tac[`ns`,`f`] >>
@@ -1155,8 +1152,7 @@ val read_byte_spec = Q.store_thm("read_byte_spec",
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
-  xlet_auto >-(fs[iobuff_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl)
+  xlet_auto >-(fs[] >> xsimpl >> rw[] >> instantiate >> xsimpl)
   >- xsimpl >>
   xlet_auto >- xsimpl >>
   xif >-(xlet_auto >- (xcon >> xsimpl) >> xraise >>
@@ -1249,7 +1245,6 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
       Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
       Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
       Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-      rewrite_tac[GSYM iobuff_loc_def] \\
       xlet_auto \\ simp[]
       >- xsimpl
       >- xsimpl
@@ -1298,8 +1293,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-     PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
-     xlet_auto >-(fs[iobuff_loc_def] >> xsimpl) >- xsimpl >>
+     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >>
      xlet_auto >-xsimpl >>
      xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
@@ -1322,8 +1316,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-     PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
-     xlet_auto >-(fs[iobuff_loc_def] >> xsimpl) >- xsimpl >>
+     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >>
      xlet_auto >- xsimpl >> xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
@@ -1336,14 +1329,13 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      `fs1 = fs2` suffices_by xsimpl >>
      unabbrev_all_tac >> fs[IO_fs_component_equality,ALIST_FUPDKEY_unchanged]) >>
   xlet_auto >- xsimpl >>
-  rename [`W8ARRAY (Loc 0) bdef`] >>
+  rename [`W8ARRAY iobuff_loc bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   xlet_auto
-  >-(fs[iobuff_loc_def] >> xsimpl >> rw[] >> TRY instantiate >> xsimpl)
+  >-(fs[] >> xsimpl >> rw[] >> TRY instantiate >> xsimpl)
   >- xsimpl >>
   xlet_auto >- xsimpl >>
   `MEM fd (MAP FST fs'.infds)` by
@@ -1363,7 +1355,6 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      fs[IO_fs_component_equality,ALIST_FUPDKEY_unchanged,fsupdate_def,LDROP_1,
         wfFS_def,liveFS_def,live_numchars_def]) >>
   NTAC 4 (xlet_auto >- xsimpl) >>
-  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   qmatch_goalsub_abbrev_tac`W8ARRAY bufv buf'' * W8ARRAY iobuff_loc _ *
                             IOx fs_ffi_part fs''` >>
   xapp >> xsimpl >>

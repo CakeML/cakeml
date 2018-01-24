@@ -208,14 +208,6 @@ val res = append_prog main;
 
 val st = get_ml_prog_state()
 
-val full_compile_64_def = Define `
-  full_compile_64 cl inp fs =
-    if has_version_flag cl then
-      add_stdout fs current_build_info_str
-    else
-      let (out,err) = compile_64 cl inp in
-      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
-
 val main_spec = Q.store_thm("main_spec",
   `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)

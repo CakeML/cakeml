@@ -1,10 +1,10 @@
 open preamble
      ml_translatorLib ml_progLib ml_translatorTheory
-     ArrayProgTheory basisFunctionsLib
+     MapProgTheory basisFunctionsLib
 
 val _ = new_theory "CommandLineProg";
 
-val _ = translation_extends "ArrayProg";
+val _ = translation_extends "MapProg";
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 

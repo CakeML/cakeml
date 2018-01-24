@@ -8,6 +8,8 @@ val _ = translation_extends "MarshallingProg";
 
 val _ = ml_prog_update (open_module "TextIO");
 
+val () = generate_sigs := true;
+
 val _ = process_topdecs `
   exception BadFileName;
   exception InvalidFD;
@@ -27,11 +29,8 @@ val EndOfFile_exn_def = Define `
     (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
-val _ = ml_prog_update
-          (add_Dlet (derive_eval_thm "iobuff_loc" iobuff_e) "iobuff" [])
-val iobuff_loc_def = definition "iobuff_loc_def"
-val iobuff_loc = EVAL``iobuff_loc`` |> curry save_thm "iobuff_loc"
-val _ = export_rewrites["iobuff_loc"]
+val eval_thm = derive_eval_thm false "iobuff_loc" iobuff_e;
+val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
 
 (* stdin, stdout, stderr *)
 val stdIn_def0 = Define`stdIn:mlstring= strlit (MAP (CHR o w2n) (n2w8 0))`
@@ -287,6 +286,9 @@ val () = (append_prog o process_topdecs)`
         end
       in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
 
-val _ = ml_prog_update (close_module NONE);
+(* TODO: need signatures for the non-translated functions as well *)
+val sigs_subset = module_signatures ["stdIn", "stdOut", "stdErr"];
+
+val _ = ml_prog_update (close_module (SOME sigs_subset));
 
 val _ = export_theory();
