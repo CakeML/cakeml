@@ -1095,6 +1095,8 @@ fun start_dynamic_init_fixed_store_translation refs_manip_list
                     else []
   in (monad_translation_params, exn_specs) end
 
+fun INST_ro th = if (!dynamic_init_H) then th else INST [mk_var("ro",bool)|->F] th;
+
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
   val names = List.map fst names
@@ -1131,6 +1133,7 @@ fun inst_case_thm_for tm = let
   val th = CONV_RULE (DEPTH_CONV rename_bound_conv) th
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
   val th = MP th TRUTH
+  val th = INST_ro th
   in th end;
 
 (*
@@ -1164,6 +1167,7 @@ fun inst_case_thm tm m2deep = let
     val lemma = if can dest_monad_type (type_of z)
                 then m2deep z
                 else hol2deep z
+    val lemma = INST_ro lemma
     val lemma = D lemma
     val new_env = get_Eval_env y
     val env = v_env
@@ -1507,6 +1511,7 @@ in th4 end;
 val check_inv_fail = ref T;
 
 fun check_inv name tm result = let
+  val result = INST_ro result
   val tm2 = get_Eval_arg (concl result)
   in if aconv tm2 tm then result else let
     val _ = (check_inv_fail := tm)
@@ -1754,9 +1759,11 @@ val eqtype_assum = get_term "eqtype_assum"
 fun m2deep_normal_fun_app tm m2deep = let
     val (f,x) = dest_comb tm
     val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
+    val thf = INST_ro thf
     val (thx,is_monad) =
         ((hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) |> D,false)
               handle e => (D(m2deep x),true))
+    val thx = INST_ro thx
     (* If the argument is monadic, clean it by removing Eq and EqSt*)
     val is_var_assum = can (match_term var_assum)
     fun is_var_lookup_eqtype_assum x =
