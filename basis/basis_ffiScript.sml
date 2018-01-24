@@ -282,7 +282,7 @@ val append_hprop = Q.store_thm ("append_hprop",
 (* TODO: avoid using constant for iobuff_loc *)
 
 val IOFS_precond = Q.prove(
-  `wfFS fs ⇒ LENGTH v >= 256**2+4 ⇒
+  `wfFS fs ⇒ LENGTH v >= 2052 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
     ∪ {Mem 0 (W8array v)})`,
@@ -297,7 +297,7 @@ val IOFS_precond = Q.prove(
 val STDIO_precond = Q.prove(
 ` wfFS fs ==>
   STD_streams fs ==>
-  LENGTH v >= 256**2+4 ==>
+  LENGTH v >= 2052 ==>
   STDIO fs
     ({FFI_part (encode fs)
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
@@ -310,7 +310,7 @@ val STDIO_precond = Q.prove(
 
 (* *)
 val STDIO_precond' = Q.prove(
- `wfFS fs ==> LENGTH v >= 256**2+4 ==>
+ `wfFS fs ==> LENGTH v >= 2052 ==>
   (SEP_EXISTS ll. IOFS (fs with numchars := ll))
     ({FFI_part (encode fs)
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
