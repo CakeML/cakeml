@@ -14,7 +14,7 @@ val basis_st = get_ml_prog_state;
 
 val IOFS_iobuff_def = Define`
   IOFS_iobuff =
-    SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v >= 256**2+4) `;
+    SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v >= 2052) `;
 
 val IOFS_def = Define `
   IOFS fs = IOx (fs_ffi_part) fs * IOFS_iobuff * &wfFS fs`
@@ -680,7 +680,7 @@ val close_STDIO_spec = Q.store_thm(
 
 val writei_spec = Q.store_thm("writei_spec",
  `wfFS fs ⇒ 0 < n ⇒
-   256**2 <= LENGTH rest ⇒ i + n < 256**2 ⇒
+   MAX (i+n) 2048 <= LENGTH rest ⇒ i + n < 256**2 ⇒
   get_file_content fs fd = SOME(content, pos) ⇒
   FD fd fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
   bc = h1 :: h2 :: h3 :: h4 :: rest ⇒
@@ -808,7 +808,7 @@ val writei_spec = Q.store_thm("writei_spec",
 
 val write_spec = Q.store_thm("write_spec",
   `!n fs fd i pos h1 h2 h3 h4 rest bc fdv nv iv content.
-   wfFS fs ⇒ 256 ** 2 <= LENGTH rest ⇒ i + n < 256 ** 2 ⇒
+   wfFS fs ⇒ MAX(i + n) 2048 <= LENGTH rest ⇒ i + n < 256 ** 2 ⇒
    get_file_content fs fd = SOME(content, pos) ⇒
    FD fd fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
    bc = h1 :: h2 :: h3 :: h4 :: rest ⇒
@@ -1073,7 +1073,7 @@ val output_stderr_spec = Q.store_thm("output_stderr_spec",
 
 val read_spec = Q.store_thm("read_spec",
   `!fs fd fdv n nv. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
-   n < 256**2 ⇒ 256**2 <= LENGTH rest ⇒
+   n < 256**2 ⇒ MAX n 2048 <= LENGTH rest ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read" (basis_st())) [fdv;nv]
    (W8ARRAY iobuff_loc (h1::h2::h3::h4::rest) * IOx fs_ffi_part fs)
    (POST
