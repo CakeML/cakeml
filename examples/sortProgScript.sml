@@ -106,7 +106,7 @@ val _ = append_prog get_file_contents;
 (* TODO: these functions are generic, and should probably be moved *)
 val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   `!fs fd fd_v acc_v acc.
-    WORD (n2w fd : word8) fd_v ∧
+    FD fd fd_v ∧
     IS_SOME (get_file_content fs fd) ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
@@ -124,7 +124,6 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   rw [] >>
   xcf "get_file_contents" (get_ml_prog_state ()) >>
   `validFD fd fs` by metis_tac[get_file_content_validFD,IS_SOME_EXISTS,PAIR] \\
-  reverse(Cases_on`fd ≤ 255`) >- (fs[STDIO_def,IOFS_def,wfFS_def,validFD_def] \\ xpull \\ metis_tac[]) \\
   xlet_auto >- xsimpl \\
   Cases_on `lineFD fs fd` >>
   fs [OPTION_TYPE_def] >>
@@ -192,8 +191,8 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   >- xsimpl
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
-  imp_res_tac nextFD_leX \\
-  imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\
+  imp_res_tac nextFD_ltX \\
+  imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
   pop_assum(qspec_then`0`strip_assume_tac) \\ rfs[] \\
   xlet_auto >- fs[] \\
   imp_res_tac STD_streams_nextFD \\ rfs[] \\
@@ -366,8 +365,8 @@ val sort_spec = Q.store_thm ("sort_spec",
       CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ qexists_tac`[]` \\
       simp[LIST_TYPE_def,Abbr`inodes`] \\
       xsimpl \\
-      simp[linesFD_def,inFS_fname_def] \\
-      conj_tac >- metis_tac[stdIn_def,stdin_v_thm] \\
+      simp[linesFD_def,inFS_fname_def,FD_def,stdin_v_thm,GSYM stdIn_def] \\
+      rw[] \\
       fs[get_file_content_def,all_lines_def,lines_of_def] \\
       pairarg_tac \\ fs[] \\
       `fnm = IOStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
