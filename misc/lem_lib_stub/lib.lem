@@ -19,6 +19,7 @@ declare isabelle target_rep function disjoint = `disjoint`
 val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 
 declare hol    target_rep function all2 = `EVERY2`
+declare isabelle    target_rep function all2 = `list_all2`
 
 let rec the _ (Just x) = x and the x Nothing = x
 
@@ -89,7 +90,9 @@ declare isabelle target_rep function lhd = `lhd'`
 declare hol target_rep function ltl = `LTL`
 declare isabelle target_rep function ltl = `ltl'`
 declare hol target_rep function lnil = `LNIL`
+declare isabelle target_rep function lnil = `lnil'`
 declare hol target_rep function lcons = `LCONS`
+declare isabelle target_rep function lcons = `lcons'`
 
 
 (* TODO: proper support for words... *)
@@ -195,6 +198,7 @@ type alist 'a 'b = list ('a * 'b)
 declare hol target_rep function lookup x y = `ALOOKUP` y x
 val alistToFmap : forall 'k 'v. alist 'k 'v -> Map.map 'k 'v
 declare hol target_rep function alistToFmap = `alist_to_fmap`
+declare isabelle target_rep function alistToFmap = `map_of`
 
 val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b
 let opt_bind n v e =
@@ -216,3 +220,4 @@ declare hol target_rep type locn = `locn`
 declare hol target_rep type locs = `locs`
 val unknown_loc : locs
 declare hol target_rep function unknown_loc = `unknown_loc`
+declare isabelle target_rep function unknown_loc = `unknown_loc`
