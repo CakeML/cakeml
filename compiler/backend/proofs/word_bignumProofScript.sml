@@ -6,6 +6,8 @@ val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = new_theory "word_bignumProof";
 
+val shift_def = backend_commonTheory.word_shift_def
+
 
 (* semantics of the little language *)
 
