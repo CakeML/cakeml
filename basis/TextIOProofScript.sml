@@ -155,8 +155,6 @@ val EndOfFile_UNICITY = Q.store_thm("EndOfFile_UNICITY[xlet_auto_match]",
 `!v1 v2. EndOfFile_exn v1 ==> (EndOfFile_exn v2 <=> v2 = v1)`,
   fs[EndOfFile_exn_def]);
 
-(* TODO: move? *)
-
 (* convenient functions for standard output/error
  * n.b. numchars is ignored *)
 
@@ -2059,15 +2057,12 @@ val print_list_spec = Q.store_thm("print_list_spec",
   \\ xmatch
   >- (xcon \\ fs[STD_streams_stdout,add_stdo_nil] \\ xsimpl)
   \\ rename1`STRING_TYPE s sv`
-  (* TODO: fix xlet_auto to deal with STDIO properly *)
-  \\ xlet`POSTv uv.  &UNIT_TYPE () uv *
-            STDIO (add_stdout fs s)`
+  \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl
-  \\ map_every qexists_tac [`emp`,`add_stdout fs s`]
-  \\ xsimpl
   \\ imp_res_tac STD_streams_stdout
   \\ imp_res_tac add_stdo_o
   \\ simp[concat_cons]
+  \\ map_every qexists_tac [`emp`,`add_stdout fs s`]
   \\ xsimpl);
 
 val _ = export_theory();
