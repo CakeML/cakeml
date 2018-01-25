@@ -1069,7 +1069,7 @@ val EvalM_print = Q.store_thm("EvalM_print",
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [print_def]
   \\ fs [MONAD_IO_def]
-  \\ reverse (Cases_on `hasFreeFD s`) >- xpull
+  \\ xpull
   \\ fs [SEP_CLAUSES]
   \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
   \\ drule (GEN_ALL print_spec)
@@ -1110,7 +1110,7 @@ val EvalM_print_err = Q.store_thm("EvalM_print_err",
       (MONAD_IO,p:'ffi ffi_proj)`,
   ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
   \\ fs [MONAD_IO_def]
-  \\ reverse (Cases_on `hasFreeFD s`) >- xpull
+  \\ xpull
   \\ fs [SEP_CLAUSES]
   \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
   \\ drule (GEN_ALL print_err_spec)
@@ -1893,7 +1893,7 @@ val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
   ho_match_mp_tac EvalM_from_app
   \\ conj_tac >- rw [inputLinesFrom_def]
   \\ rw [MONAD_IO_def]
-  \\ reverse (Cases_on `hasFreeFD s`) >- xpull
+  \\ xpull
   \\ fs [SEP_CLAUSES]
   \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
   \\ drule (GEN_ALL inputLinesFrom_spec)
