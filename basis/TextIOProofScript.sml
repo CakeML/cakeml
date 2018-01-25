@@ -1288,7 +1288,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   Induct_on`N` >> rw[]
   >-(xapp >> fs[IOFS_def,IOFS_iobuff_def] >> xpull >>
      xlet_auto >- xsimpl >>
-     rename [`W8ARRAY (Loc 0) bdef`] >>
+     rename [`W8ARRAY iobuff_loc bdef`] >>
      Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
@@ -1311,7 +1311,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   rw[] >> cases_on`len'`
   >-(rw[] >>
      xlet_auto >- xsimpl >>
-     rename [`W8ARRAY (Loc 0) bdef`] >>
+     rename [`W8ARRAY iobuff_loc bdef`] >>
      Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
