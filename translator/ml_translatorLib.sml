@@ -465,6 +465,7 @@ in
     val _ = (type_memory := map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) => (ty,inv_def,conses,case_lemma)) res @ (!type_memory))
     val _ = (preprocessor_rws := rws2 @ (!preprocessor_rws))
     in () end
+  fun ignore_type ty = (type_memory := (ty,TRUTH,[],TRUTH) :: (!type_memory));
   fun lookup_type_thms ty = first (fn (ty1,_,_,_) => can (match_type ty1) ty) (!type_memory)
   fun eq_lemmas () = (!all_eq_lemmas)
   fun get_preprocessor_rws () = (!preprocessor_rws)

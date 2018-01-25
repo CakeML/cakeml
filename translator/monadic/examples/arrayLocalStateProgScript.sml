@@ -5,7 +5,7 @@
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib
 
-val _ = new_theory "arrayStateProg"
+val _ = new_theory "arrayLocalStateProg"
 val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = monadsyntax.temp_add_monadsyntax()

@@ -8,8 +8,9 @@ sig
 	(string * thm * thm * thm * thm * thm * thm * thm) list ->
 	(string * (int * thm) * thm * thm * thm * thm * thm) list ->
         string -> hol_type -> thm -> (thm * thm) list -> string list ->
-        (thm * thm) option -> monadic_translation_parameters *
-			      store_translation_result * (thm * thm) list
+        (thm * thm) option -> term option ->
+        monadic_translation_parameters *
+	store_translation_result * (thm * thm) list
 
     val start_dynamic_init_fixed_store_translation :
 	(string * thm * thm) list ->
@@ -27,6 +28,8 @@ sig
         thm option -> thm -> string list -> thm option -> unit
 
     val add_raise_handle_functions : (thm * thm) list -> thm -> (thm * thm) list
+
+    val add_access_pattern : thm -> thm
 
     (* Translation functions *)
     val m_translate : thm -> thm

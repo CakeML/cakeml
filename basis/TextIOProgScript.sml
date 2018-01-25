@@ -85,6 +85,7 @@ val _ =
          output fd (String.substring s n (z-n))
   end;
   fun print s = output stdOut s
+  fun print_err s = output stdErr s
     ` |> append_prog
 
 val _ = process_topdecs`

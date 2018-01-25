@@ -34,6 +34,7 @@ sig
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
     val abs_register_type : hol_type -> unit
+    val ignore_type    : hol_type -> unit
 
     val register_exn_type   : hol_type -> unit
     val abs_register_exn_type : hol_type -> unit

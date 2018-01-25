@@ -27,7 +27,7 @@ val _ = register_type ``:unit``;
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
   state_exn = Fail1
-	    | Fail2 of int 
+	    | Fail2 of int
             | Fail3 of string => bool
             | Fail4 of int => num => string`;
 
@@ -62,6 +62,8 @@ val type_theories = [] : string list;
 (* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
 val store_pinv_opt = NONE : (thm * thm) option;
 
+val extra_hprop = NONE : term option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
@@ -72,7 +74,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_ri_def
 					      exn_functions
 					      type_theories
-                                              store_pinv_opt;
+                                              store_pinv_opt
+                                              extra_hprop;
 
 (* Translate *)
 val raise1_def = Define `raise1 x = if x then return 1n else raise_Fail1`
