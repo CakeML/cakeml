@@ -64,6 +64,8 @@ val add_type_theories = [] : string list;
 
 (* val store_pinv_def = STATE_PINV_def *)
 
+val extra_hprop = NONE : term option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
@@ -74,7 +76,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_ri_def
 					      exn_functions
 					      add_type_theories
-                                              store_pinv_opt;
+                                              store_pinv_opt
+                                              extra_hprop;
 
 (* TESTS *)
 val _ = set_trace "assumptions" 1;
@@ -121,7 +124,7 @@ Cases_on `l1`
 \\ fs[ZIP_def]);
 
 val zip_v_thm = translate ZIP_def2;
-	
+
 val mf7_def = Define `mf7 l1 l2 = do z <- if LENGTH l1 = LENGTH l2 then return () else failwith ""; return (ZIP (l1, l2)) od`;
 val def = mf7_def;
 val mf7_v_thm = m_translate def;

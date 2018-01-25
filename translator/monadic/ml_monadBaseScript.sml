@@ -12,6 +12,11 @@ val _ = Datatype `
 
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 
+val liftM_def = Define `
+  (liftM read (write:('a->'a)->'d->'d) (op: ('a,'b,'c) M)) : ('d,'b,'c) M =
+    (λstate. let (ret,new) = op (read state) in
+               (ret, write (K new) state))`
+
 (* Definitions using monadic syntax *)
 val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();

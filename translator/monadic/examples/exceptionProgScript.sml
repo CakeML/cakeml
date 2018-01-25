@@ -52,7 +52,7 @@ val handle_fail_def = Define `handle_fail x f = \(state : state_refs). dtcase x 
 
 *)
 
-(* 
+(*
  * It is now possible to use those functions in new definitions:
  *)
 
@@ -82,6 +82,8 @@ val type_theories = [] : string list;
 (* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
 val store_pinv_opt = NONE : (thm * thm) option;
 
+val extra_hprop = NONE : term option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
@@ -92,7 +94,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_ri_def
 					      exn_functions
 					      type_theories
-                                              store_pinv_opt;;
+                                              store_pinv_opt
+                                              extra_hprop;
 
 (* Translate *)
 val assert_v_thm = assert_def |> m_translate;

@@ -1,5 +1,6 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
+     cfMonadLib
      mlstringTheory fsFFITheory fsFFIPropsTheory
      Word8ProgTheory Word8ArrayProofTheory TextIOProgTheory
 
@@ -53,6 +54,9 @@ val IOFS_iobuff_HPROP_INJ = Q.store_thm("IOFS_iobuff_HPROP_INJ[hprop_inj]",
 val STDIO_def = Define`
  STDIO fs = (SEP_EXISTS ll. IOFS (fs with numchars := ll)) *
    &STD_streams fs`
+
+(* Used by the monadic translator *)
+val MONAD_IO_def = Define `MONAD_IO fs = STDIO fs * &hasFreeFD fs`;
 
 val STDIO_numchars = Q.store_thm("STDIO_numchars",
   `STDIO (fs with numchars := x) = STDIO fs`,
@@ -1051,6 +1055,25 @@ val print_spec = Q.store_thm("print_spec",
   \\ xapp_spec output_STDIO_spec
   \\ tac);
 
+val print_def = Define `
+  print s = (\fs. (Success (), add_stdout fs s))`
+
+val EvalM_print = Q.store_thm("EvalM_print",
+  `Eval env exp (STRING_TYPE x) /\
+    (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
+    EvalM F env st (App Opapp [Var (Short "print"); exp])
+      (MONAD UNIT_TYPE exc_ty (print x))
+      (MONAD_IO,p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app \\ rw [print_def]
+  \\ fs [MONAD_IO_def]
+  \\ reverse (Cases_on `hasFreeFD s`) >- xpull
+  \\ fs [SEP_CLAUSES]
+  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
+  \\ drule (GEN_ALL print_spec)
+  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
+  \\ asm_exists_tac \\ fs []
+  \\ xsimpl);
+
 val output_stderr_spec = Q.store_thm("output_stderr_spec",
   `!fs sv s fdv.
     STRING_TYPE s sv ∧ fdv = stderr_v ⇒
@@ -1061,6 +1084,36 @@ val output_stderr_spec = Q.store_thm("output_stderr_spec",
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec output_STDIO_spec
   \\ tac);
+
+val print_err_spec = Q.store_thm("print_err_spec",
+  `!fs sv s.
+    STRING_TYPE s sv ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.print_err" (basis_st())) [sv]
+    (STDIO fs)
+    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs s))`,
+  xcf "TextIO.print_err" (basis_st())
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ xapp_spec output_stderr_spec \\ fs []);
+
+val print_err_def = Define `
+  print_err s = (\fs. (Success (), add_stderr fs s))`;
+
+val EvalM_print_err = Q.store_thm("EvalM_print_err",
+  `Eval env exp (STRING_TYPE x) /\
+    (nsLookup env.v (Long "TextIO" (Short "print_err")) =
+      SOME TextIO_print_err_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
+      (MONAD UNIT_TYPE exc_ty (print_err x))
+      (MONAD_IO,p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
+  \\ fs [MONAD_IO_def]
+  \\ reverse (Cases_on `hasFreeFD s`) >- xpull
+  \\ fs [SEP_CLAUSES]
+  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
+  \\ drule (GEN_ALL print_err_spec)
+  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
+  \\ asm_exists_tac \\ fs []
+  \\ xsimpl);
 
 val read_spec = Q.store_thm("read_spec",
   `!fs fd fdv n nv. fd <= 255 ⇒ wfFS fs ⇒
@@ -1823,6 +1876,31 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
           libTheory.the_def, openFileFS_numchars,
           IO_fs_component_equality,openFileFS_files]);
+
+val inputLinesFrom_def = Define `
+  inputLinesFrom f =
+    (\fs. (Success (if inFS_fname fs (File f) then
+                      SOME(all_lines fs (File f))
+                    else NONE), fs))`;
+
+val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
+  `Eval env exp (FILENAME f) /\
+    (nsLookup env.v (Long "TextIO" (Short "inputLinesFrom")) =
+       SOME TextIO_inputLinesFrom_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "inputLinesFrom")); exp])
+      (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) exc_ty (inputLinesFrom f))
+      (MONAD_IO,p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app
+  \\ conj_tac >- rw [inputLinesFrom_def]
+  \\ rw [MONAD_IO_def]
+  \\ reverse (Cases_on `hasFreeFD s`) >- xpull
+  \\ fs [SEP_CLAUSES]
+  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
+  \\ drule (GEN_ALL inputLinesFrom_spec)
+  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
+  \\ rfs [inputLinesFrom_def]
+  \\ asm_exists_tac \\ fs []
+  \\ xsimpl);
 
 val inputAll_spec = Q.store_thm("inputAll_spec",
   `WORD8 (n2w fd) fdv ∧ fd ≤ 255 ∧

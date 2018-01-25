@@ -29,6 +29,6 @@ sig
        (string * thm * thm * thm) list ->
        (string * thm * thm * thm * thm * thm * thm * thm) list ->
        (string * (int * thm) * thm * thm * thm * thm * thm) list ->
-       string -> hol_type -> thm -> (thm * thm) option ->
+       string -> hol_type -> thm -> (thm * thm) option -> term option ->
        monadic_translation_parameters * store_translation_result
 end

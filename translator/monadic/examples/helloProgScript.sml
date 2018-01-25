@@ -4,19 +4,28 @@
  *)
 
 (* Load the CakeML basic stuff *)
-open preamble
+open preamble basisProgTheory
 
 (* The ml_monadBaseLib is necessary to define the references and arrays manipulation functions
  * automatically.
  *)
 open ml_monadBaseLib
+open ml_monadStoreLib
 
 (*
  * Those libraries are used in the translation
  *)
-open (* ml_monad_translatorTheory *) ml_monad_translatorLib
+open ml_monad_translatorLib
 
-val _ = new_theory "refStateProg"
+(* Gives access to monadic IO functions and EvalM theorems *)
+open TextIOProofTheory
+
+(* For generating the CF spec *)
+open cfMonadLib
+
+val _ = new_theory "helloProg"
+
+val _ = translation_extends "basisProg";
 
 (* Use monadic syntax: do x <- f y; ... od *)
 val _ = ParseExtras.temp_loose_equality();
@@ -38,18 +47,16 @@ val _ = hide "state";
 
 val _ = (use_full_type_names := false);
 
-(* Create the data type to handle the references.
-   In this example, the data type has only one field, which means that
-   the translation will only generate one reference. It is of course possible to use as
-   many as needed.
+(* Create the data type to handle the references and I/O.
  *)
-val _ = Hol_datatype `
-  state_refs = <| the_num_ref : num |>`;
+val _ = Datatype `
+  state_refs = <| the_num_ref : num
+                ; stdio : IO_fs |>`;
 
 (* Generate the monadic functions to manipulate the reference(s). *)
 val refs_access_funs = define_monad_access_funs (``:state_refs``);
-val [(the_num_ref_name, get_the_num_ref_def, set_the_num_ref_def)] = refs_access_funs;
-
+val [(the_num_ref_name, get_the_num_ref_def, set_the_num_ref_def),
+     (stdio_name, get_stdio_def, set_stdio_def)] = refs_access_funs;
 
 (* Those functions too can be defined by hand:
 
@@ -79,6 +86,9 @@ val calling_fun_def = Define `calling_fun l = do x <- rec_fun l; simple_fun x od
 
 (* A monadic function using the store *)
 val store_fun_def = Define `store_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od`;
+
+val io_fun_def = Define `
+  io_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od`;
 
 (* Other *)
 val if_fun_def = Define `if_fun (x : num) y = if x > y then return T else return F`;
@@ -110,7 +120,7 @@ val type_theories = [] : string list;
 (* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
 val store_pinv_opt = NONE : (thm * thm) option;
 
-val extra_hprop = NONE : term option;
+val extra_hprop = SOME ``MONAD_IO s.stdio``;
 
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
@@ -136,6 +146,66 @@ val calling_fun_v_thm = calling_fun_def |> m_translate;
 val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
-(* ... *)
+val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
+
+val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
+  ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
+  fs [set_sepTheory.STAR_def]
+  \\ rw[] \\ asm_exists_tac \\ fs []
+  \\ EVAL_TAC
+  \\ fs [set_sepTheory.SEP_EXISTS_THM]
+  \\ qexists_tac `K T` \\ fs []);
+
+val stdio_INTRO = prove(
+  ``(!st. EvalM ro env st exp
+            (MONAD UNIT_TYPE UNIT_TYPE f)
+            (MONAD_IO,p:'ffi ffi_proj)) ==>
+    (!st. EvalM ro env st exp
+            (MONAD UNIT_TYPE UNIT_TYPE (stdio f))
+            (STATE_STORE,p:'ffi ffi_proj))``,
+  fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
+  \\ first_x_assum (qspecl_then [`st.stdio`,`s`] mp_tac)
+  \\ impl_tac
+  THEN1 (fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
+         \\ fs [fetch "-" "STATE_STORE_def"]
+         \\ qabbrev_tac `a = MONAD_IO st.stdio`
+         \\ qabbrev_tac `b = GC`
+         \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
+         \\ last_x_assum mp_tac
+         \\ metis_tac [IMP_STAR_GC])
+  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ asm_exists_tac \\ fs []
+  \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
+        semanticPrimitivesTheory.state_component_equality]
+  \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
+  \\ Cases_on `f st.stdio` \\ fs []
+  \\ every_case_tac
+  \\ rveq \\ fs []
+  \\ fs [fetch "-" "STATE_STORE_def"]
+  \\ rw []
+  \\ first_x_assum (qspec_then
+       `F' * REF_REL NUM the_num_ref st.the_num_ref` mp_tac)
+  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
+  \\ fs[ml_monadBaseTheory.liftM_def]
+  \\ rw[]);
+
+val EvalM_stdio_print = prove(
+  ``Eval env exp (STRING_TYPE x) /\
+    (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
+    EvalM F env st (App Opapp [Var (Short "print"); exp])
+      (MONAD UNIT_TYPE UNIT_TYPE (stdio (print x)))
+      (STATE_STORE,p:'ffi ffi_proj)``,
+  metis_tac [stdio_INTRO,EvalM_print]);
+
+val _ = add_access_pattern EvalM_stdio_print;
+val _ = ignore_type ``:IO_fs``;
+
+val hello_def = Define `
+  hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M`
+
+val res = m_translate hello_def;
+
+val hello_app_thm = save_thm("hello_app_thm",
+  cfMonadLib.mk_app_of_ArrowP res |> SPEC_ALL);
 
 val _ = export_theory ();

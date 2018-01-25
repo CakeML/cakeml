@@ -93,7 +93,7 @@ val (init_trans, store_translation, exn_thms) =
 					      state_type
 					      STATE_EXN_TYPE_def
 					      exn_functions
-					      [] NONE
+					      [] NONE NONE;
 
 (* Interacting with the graph component of the state monad *)
 
