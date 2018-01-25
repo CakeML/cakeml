@@ -221,7 +221,7 @@ val infer_p_def = tDefine "infer_p" `
 (infer_p l ienv (Ptannot p t) =
  do (t',tenv) <- infer_p l ienv p;
     () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) l
-                (concat [implode "Bad type annotation in pattern: "; type_to_string t]);
+                (concat [implode "Bad type annotation in pattern: "(*; type_to_string t*)]);
     () <- add_constraint l t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
     return (t', tenv)
  od) ∧
@@ -570,7 +570,7 @@ val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Tannot e t) =
   do t' <- infer_e l ienv e;
      () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) l
-                (concat [implode "Bad type annotation in expression: "; type_to_string t]);
+                (concat [implode "Bad type annotation in expression: "(*; type_to_string t*)]);
      () <- add_constraint l t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
      return t'
    od) ∧
@@ -666,7 +666,7 @@ val infer_d_def = Define `
 (infer_d mn idecls ienv (Dtabbrev locs tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) (SOME locs) (implode "Duplicate type variables");
      () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) (SOME locs)
-                 (concat [implode "Bad type abbreviation: "; type_to_string t]);
+                 (concat [implode "Bad type abbreviation: "(*; type_to_string t*)]);
      return (empty_inf_decls,
              <| inf_v := nsEmpty;
                 inf_c := nsEmpty;
@@ -726,7 +726,7 @@ val check_specs_def = Define `
   do fvs <- t_to_freevars t;
      fvs' <- return (nub fvs);
      () <- guard (check_type_names tenvT t) NONE
-                 (concat [implode "Bad type in val specification: "; type_to_string t]);
+                 (concat [implode "Bad type in val specification: "(*; type_to_string t*)]);
      check_specs mn tenvT idecls
        (ienv with inf_v := nsBind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs'))))
                                                      (type_name_subst tenvT t))
@@ -747,7 +747,7 @@ val check_specs_def = Define `
 (check_specs mn tenvT idecls ienv (Stabbrev tvs tn t :: specs) =
   do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) NONE
-                 (concat [implode "Bad type abbreviation in signature "; type_to_string t]);
+                 (concat [implode "Bad type abbreviation in signature "(*; type_to_string t*)]);
      new_tenvT <- return (nsSing tn (tvs,type_name_subst tenvT t));
      check_specs mn (nsAppend new_tenvT tenvT) idecls (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
   od) ∧

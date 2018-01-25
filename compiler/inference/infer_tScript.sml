@@ -86,6 +86,7 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[inf_type_to_string_def]);
 
+  (*
 val type_to_string_def = tDefine "type_to_string" `
   (type_to_string (Tvar s) =
     concat [implode "'"; implode s]) ∧
@@ -136,5 +137,6 @@ val type_to_string_pmatch = Q.store_thm("type_to_string_pmatch",
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[type_to_string_def]);
+  *)
 
 val _ = export_theory ();
