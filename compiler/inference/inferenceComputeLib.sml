@@ -8,7 +8,7 @@ structure inferenceComputeLib = struct
   [computeLib.Defs
     [id_to_string_def
     ,inf_type_to_string_def
-    ,type_to_string_def
+    (*,type_to_string_def*)
     ,tc_to_string_def
     ,infer_prog_def
     ,infer_top_def
