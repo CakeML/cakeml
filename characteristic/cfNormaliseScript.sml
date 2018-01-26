@@ -158,7 +158,7 @@ val dest_opapp_size = Q.prove(
 
 val get_name_aux_def = tDefine "get_name_aux" `
   get_name_aux n vs =
-    let v = "t" ++ num_to_dec_string n in
+    let v = "t" ++ num_toString n in
       if MEM v vs then get_name_aux (n+1) (FILTER (\x. v <> x) vs) else v`
  (WF_REL_TAC `measure (\(n,vs). LENGTH vs)`
   \\ rw [] \\ fs [MEM_SPLIT,FILTER_APPEND]

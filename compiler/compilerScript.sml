@@ -3,7 +3,7 @@ open preamble
      cmlParseTheory
      inferTheory
      backendTheory
-     mlintTheory mlstringTheory basisProgTheory
+     mlnumTheory mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
 open x64_configTheory export_x64Theory
@@ -69,13 +69,13 @@ val locs_to_string_def = Define `
     else
       concat
         [implode "location starting at row ";
-         toString &startl.row;
+         toString startl.row;
          implode " column ";
-         toString &startl.col;
+         toString startl.col;
          implode ", ending at row ";
-         toString &endl.row;
+         toString endl.row;
          implode " column ";
-         toString &endl.col])`;
+         toString endl.col])`;
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
@@ -416,6 +416,14 @@ val compile_64_def = Define`
   | _ =>
     (List[],error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
+val full_compile_64_def = Define `
+  full_compile_64 cl inp fs =
+    if has_version_flag cl then
+      add_stdout fs current_build_info_str
+    else
+      let (out,err) = compile_64 cl inp in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
+
 val compile_32_def = Define`
   compile_32 cl input =
   let confexp = parse_target_32 cl in
@@ -437,5 +445,13 @@ val compile_32_def = Define`
     (List[],error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
     (List[],error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+
+val full_compile_32_def = Define `
+  full_compile_32 cl inp fs =
+    if has_version_flag cl then
+      add_stdout fs current_build_info_str
+    else
+      let (out,err) = compile_32 cl inp in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
 
 val _ = export_theory();

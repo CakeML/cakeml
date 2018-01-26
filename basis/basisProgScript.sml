@@ -5,7 +5,7 @@ val _ = new_theory "basisProg"
 
 val _ = translation_extends"TextIOProg";
 
-val print_eval_thm = derive_eval_thm"print"``Var(Long"TextIO"(Short"print"))``
+val print_eval_thm = derive_eval_thm true "print" ``Var(Long"TextIO"(Short"print"))``
 val () = ml_prog_update (add_Dlet print_eval_thm "print" [])
 
 val res = register_type``:'a app_list``;

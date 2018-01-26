@@ -1,12 +1,14 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     mlvectorTheory IntProgTheory basisFunctionsLib
+     mlvectorTheory NumProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "IntProg";
+val _ = translation_extends "NumProg";
 
 val _ = ml_prog_update (open_module "Rat");
+
+val () = generate_sigs := true;
 
 (* connection between real and rat *)
 
@@ -669,7 +671,7 @@ val pair_div_side_def = Eval_RAT_DIV
 val toString_def = Define `
   toString (i:int,n:num) =
     if n = 1 then mlint$toString i else
-      concat [mlint$toString i ; implode"/" ; mlint$toString (& n)]`
+      concat [mlint$toString i ; implode"/" ; mlnum$toString n]`
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
@@ -724,6 +726,23 @@ val EqualityType_REAL_TYPE = store_thm("EqualityType_REAL_TYPE",
   \\ metis_tac [])
   |> store_eq_thm;
 
-val _ = ml_prog_update (close_module NONE);
+val sigs = module_signatures [
+  "fromInt",
+  "<=",
+  ">=",
+  "<",
+  ">",
+  "min",
+  "max",
+  "+",
+  "-",
+  "~",
+  "*",
+  "inv",
+  "/",
+  "toString"
+];
+
+val _ = ml_prog_update (close_module (SOME sigs));
 
 val _ = export_theory ()

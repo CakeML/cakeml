@@ -35,7 +35,7 @@ in
   if Array.length a = 0 then () else outer_loop 0
 end;
 `;
-val insertsort_st = ml_progLib.add_prog insertsort pick_name (basis_st());
+val insertsort_st = ml_progLib.add_prog insertsort ml_progLib.pick_name (basis_st());
 
 val list_rel_perm_help = Q.prove (
   `!l1 l2.

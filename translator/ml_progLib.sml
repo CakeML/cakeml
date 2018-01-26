@@ -151,9 +151,10 @@ fun open_module mn_str (ML_code (ss,envs,vs,th)) =
 fun close_module sig_opt (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_close_module th
   val v = th |> concl |> dest_forall |> fst
-  val sig_tm = (case sig_opt of
+  val sig_tm = mk_const("NONE",type_of v) (* TODO: remove *)
+             (* (case sig_opt of
                   NONE => mk_const("NONE",type_of v)
-                | SOME tm => optionSyntax.mk_some(tm))
+                | SOME tm => optionSyntax.mk_some(tm)) *)
   val th = SPEC sig_tm th
   in clean (ML_code (ss,envs,vs,th)) end
 
@@ -348,21 +349,23 @@ fun clean_state (ML_code (ss,envs,vs,th)) = let
   val () = app delete_def vs
   in (ML_code (dd ss, dd envs, [], th)) end
 
-(*
-
 fun pick_name str =
   if str = "<" then "lt" else
   if str = ">" then "gt" else
   if str = "<=" then "le" else
   if str = ">=" then "ge" else
   if str = "=" then "eq" else
+  if str = "<>" then "neq" else
   if str = "~" then "uminus" else
   if str = "+" then "plus" else
   if str = "-" then "minus" else
   if str = "*" then "times" else
+  if str = "/" then "div" else
   if str = "!" then "deref" else
-  if str = ":=" then "update" else str
+  if str = ":=" then "assign" else
+  if str = "^" then "strcat" else str (* name is fine *)
 
+(*
 val s = init_state
 val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
 val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
