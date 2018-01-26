@@ -448,7 +448,9 @@ val readLine_def = Define`
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
-      th <- PROVE_HYP th1 th2;
+      (* These were called in the wrong order according to article semantics: *)
+      (*th <- PROVE_HYP th1 th2;*)
+      th <- PROVE_HYP th2 th1;
       return (push (Thm th) s)
     od
   else if line = strlit"ref" then
@@ -580,7 +582,6 @@ val msg_bad_name_def = Define `
     [strlit"Bad filename: "; s; strlit".\n"]
   `;
 
-
 (* ------------------------------------------------------------------------- *)
 (* Using the reader                                                          *)
 (* ------------------------------------------------------------------------- *)
@@ -600,6 +601,11 @@ val readLines_def = Define `
             readLines ls (next_line s)
         od`;
 
+(* ------------------------------------------------------------------------- *)
+(* Reader needs to start with axioms in state (but not bool theory)          *)
+(* ------------------------------------------------------------------------- *)
+
+(*
 val select_name_def = Define `select_name = strlit"@"`
 val select_tm_def = Define `select_tm = Fun (Fun (Tyvar (strlit"A")) Bool) (Tyvar (strlit"A"))`
 val select_const_def = Define `select_const = NewConst select_name select_tm`;
@@ -609,16 +615,33 @@ val ind_ty_def = Define `ind_ty = NewType ind_name 0`;
 
 val mk_reader_ctxt_def = Define `
   mk_reader_ctxt ctxt = select_const :: ind_ty :: ctxt`
+*)
+
+open holAxiomsSyntaxTheory
+
+val context_tm =
+  ``mk_eta_ctxt (mk_select_ctxt (mk_infinity_ctxt init_ctxt))``
+  |> EVAL |> rconc;
+
+val mk_reader_ctxt_def = Define `
+  mk_reader_ctxt () = ^context_tm`
+
+val reader_tys_tm = ``type_list ^context_tm`` |> EVAL |> rconc;
+val reader_tys_def = Define `reader_tys = ^reader_tys_tm`
+
+val reader_const_tm = ``const_list ^context_tm`` |> EVAL |> rconc;
+val reader_const_def = Define `reader_const = ^reader_const_tm`;
+
+val reader_axs_tm = ``MAP (Sequent []) (axiom_list ^context_tm)`` |> EVAL |> rconc;
+val reader_axs_def = Define `reader_axs = ^reader_axs_tm`
 
 val set_reader_ctxt = Define `
   set_reader_ctxt (): unit holKernelPmatch$M =
     do
-      ts <- get_the_type_constants;
-      cs <- get_the_term_constants;
-      ctxt <- get_the_context;
-      set_the_type_constants ((ind_name,0)::ts);
-      set_the_term_constants ((select_name,select_tm)::cs);
-      set_the_context (mk_reader_ctxt ctxt)
+      set_the_type_constants reader_tys;
+      set_the_term_constants reader_const;
+      set_the_axioms reader_axs;
+      set_the_context (mk_reader_ctxt ())
     od`
 
 val _ = export_theory()
