@@ -6,6 +6,7 @@ open preamble basis
      bigStepTheory ml_monadBaseTheory
      ml_monad_translatorLib
      cfMonadLib
+     readerIOProofTheory
 
 val _ = new_theory "readerIOProg"
 val _ = m_translation_extends "readerShared";
@@ -170,7 +171,7 @@ val EvalM_stdio_inputLinesFrom = prove(
     EvalM F env st (App Opapp [Var (Long "TextIO" (Short "inputLinesFrom")); exp])
       (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) HOL_EXN_TYPE (stdio (inputLinesFrom f)))
       (STATE_STORE,p:'ffi ffi_proj)``,
-  cheat
+  cheat (* TODO *)
   (*
   strip_tac
   \\ assume_tac (GEN_ALL EvalM_inputLinesFrom)
@@ -201,7 +202,7 @@ val EvalM_readline_wrap = Q.prove (
   Eval env rv (READER_STATE_TYPE rs)
   ==>
   EvalM ro env st
-    (App Opapp [App Opapp [Var (Short "readline_wrap"); rv]; lv])
+    (App Opapp [App Opapp [Var (Short "readline_wrap"); lv]; rv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
        (readLine_wrap ln rs)) (HOL_STORE, p:'ffi ffi_proj)`,
   rw [EvalM_def]
@@ -209,7 +210,7 @@ val EvalM_readline_wrap = Q.prove (
   \\ rw [Once evaluate_cases, PULL_EXISTS]
   \\ ntac 10 (rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS])
   \\ fs [Eval_def]
-  \\ last_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ mp_tac ((Q.SPEC `s with refs := s.refs++junk` o
               CONV_RULE SWAP_FORALL_CONV o GEN_ALL)
@@ -219,18 +220,18 @@ val EvalM_readline_wrap = Q.prove (
   \\ Cases_on `q` \\ fs []
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ qexists_tac `r` \\ fs []
-  \\ qpat_x_assum `evaluate _ _ _ lv _` mp_tac
-  \\ qpat_x_assum `evaluate _ _ _ lv _` kall_tac
+  \\ qpat_x_assum `evaluate _ _ _ rv _` mp_tac
+  \\ qpat_x_assum `evaluate _ _ _ rv _` kall_tac
   \\ strip_tac
   \\ first_x_assum (qspec_then `s.refs++junk++refs'` strip_assume_tac)
   \\ mp_tac ((Q.SPEC `s with refs := s.refs++junk++refs'` o
               CONV_RULE SWAP_FORALL_CONV o GEN_ALL)
              evaluate_empty_state_IMP) \\ fs []
   \\ disch_then drule \\ rw []
-  \\ qpat_x_assum `evaluate _ _ _ rv _` mp_tac
-  \\ qpat_x_assum `evaluate _ _ _ rv _` kall_tac \\ strip_tac
-  \\ cheat
-  );
+  \\ qpat_x_assum `evaluate _ _ _ lv _` mp_tac
+  \\ qpat_x_assum `evaluate _ _ _ lv _` kall_tac \\ strip_tac
+  \\ fs [PULL_EXISTS]
+  \\ cheat);
 
 val EvalM_set_reader_ctxt = Q.prove (
  `nsLookup env.v (Short "set_reader_ctxt") = SOME set_reader_ctxt_v /\
@@ -249,7 +250,7 @@ val EvalM_holrefs_readline_wrap = Q.prove (
   Eval env rv (READER_STATE_TYPE rs)
   ==>
   EvalM ro env st
-    (App Opapp [App Opapp [Var (Short "readline_wrap"); rv]; lv])
+    (App Opapp [App Opapp [Var (Short "readline_wrap"); lv]; rv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
        (holrefs (readLine_wrap ln rs))) (STATE_STORE, p:'ffi ffi_proj)`,
   rw []
@@ -344,21 +345,51 @@ val readMain_side = Q.prove (
 val readMain_spec = save_thm ("readMain_spec",
   cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm"));
 
-val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
-  `hasFreeFD st.stdio /\ wfcl st.cl
+val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
+  `wfcl st.cl ==>
+   app (p:'ffi ffi_proj) readmain_v [Conv NONE []]
+     (STATE_STORE st)
+     (POSTv uv.
+       &UNIT_TYPE () uv *
+       STDIO (reader_main st.stdio st.holrefs (TL st.cl)) *
+       COMMANDLINE st.cl)`, cheat)
+
+(* ------------------------------------------------------------------------- *)
+(* Custom whole_prog_spec                                                    *)
+(* ------------------------------------------------------------------------- *)
+
+open alt_basisLib alt_basisTheory (* basis does not do what I want here *)
+
+val monadreader_wps = Q.store_thm("monadreader_wps",
+  `hasFreeFD st.stdio /\ wfcl st.cl /\
+   st.holrefs = init_refs
    ==>
-   whole_prog_spec ^(fetch_v "readmain" (get_ml_prog_state())) st.cl st.stdio
-    ((=) st.stdio)`, (* <--- TODO use real specification *)
-  rw [whole_prog_spec_def]
-  \\ qexists_tac `fs`
-  \\ fs [GSYM add_stdo_with_numchars, with_same_numchars]
-  \\ cheat
-  );
+   whole_prog_spec_extra ^(fetch_v "readmain" (get_ml_prog_state()))
+     st.cl st.stdio STATE_STORE st
+     ((=) (reader_main st.stdio st.holrefs (TL st.cl)))`,
+  rw [whole_prog_spec_extra_def]
+  \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
+  \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
+  \\ reverse conj_tac
+  >-
+   (fs [readerProofTheory.reader_main_def,
+        readerProofTheory.read_file_def]
+    \\ every_case_tac
+    \\ fs [GSYM add_stdo_with_numchars, with_same_numchars])
+  \\ match_mp_tac (GEN_ALL (MP_CANON (MATCH_MP app_wgframe (UNDISCH readMain_spec_wp))))
+  \\ xsimpl);
 
-(* TODO Fix above theorem
+(* TODO: need one of these *)
+(* val _ = set_user_heap_thm STATE_STORE_init_precond; *)
 
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state()) "readerIO" (UNDISCH reader_whole_prog_spec)
+(* ------------------------------------------------------------------------- *)
 
-*)
+val st = get_ml_prog_state ();
+val name = "readmain";
+val spec = UNDISCH monadreader_wps;
+(* TODO need the set_user_heap_thm first for whole_prog_thm *)
+val prog_tm = whole_prog_term st name spec
+val readerIO_prog_def = Define `readerIO_prog = ^prog_tm`
 
 val _ = export_theory ();
+
