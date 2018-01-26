@@ -2,7 +2,8 @@ INCLUDES = ../../../misc ../monadic \
 	   ../ml_kernel \
 	   ../../../basis \
 	   ../../../translator/monadic \
-	   ../../../characteristic
+	   ../../../characteristic \
+	   ../../../semantics
 
 OPTIONS = QUIT_ON_FAILURE
 
