@@ -398,13 +398,21 @@ val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
 
 val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   `HOL_STORE init_refs
-   {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs)))
+   {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++stderr_refs++init_type_constants_refs)))
         (Refv init_type_constants_v);
-    Mem (2+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs)))
+    Mem (2+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++stderr_refs++init_type_constants_refs
+                             ++init_term_constants_refs)))
         (Refv init_term_constants_v);
-    Mem (3+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs)))
+    Mem (3+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++stderr_refs++init_type_constants_refs
+                             ++init_term_constants_refs++init_axioms_refs)))
         (Refv init_axioms_v);
-    Mem (4+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs++stderr_refs++init_type_constants_refs++init_term_constants_refs++init_axioms_refs++init_context_refs)))
+    Mem (4+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++stderr_refs++init_type_constants_refs
+                             ++init_term_constants_refs++init_axioms_refs
+                             ++init_context_refs)))
         (Refv init_context_v)}`,
   qmatch_goalsub_abbrev_tac`1 + l1`
   \\ qmatch_goalsub_abbrev_tac`2 + l2`
@@ -464,32 +472,38 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   \\ SPLIT_TAC );
 (* -- *)
 
-(*
-val () = hprop_heap_thms := HOL_STORE_init_precond :: (!hprop_heap_thms)
-*)
+(* ------------------------------------------------------------------------- *)
+(* Custom whole_prog_spec                                                    *)
+(* ------------------------------------------------------------------------- *)
+
+open alt_basisLib alt_basisTheory (* basis does not do what I want here *)
 
 val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   `hasFreeFD fs
    ==>
-   whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state())) cl fs
-    ((=) (reader_main fs init_refs (TL cl)))`,
-
-  rw [whole_prog_spec_def]
+   whole_prog_spec_extra ^(fetch_v "reader_main" (get_ml_prog_state()))
+     cl fs HOL_STORE init_refs ((=) (reader_main fs init_refs (TL cl)))`,
+  rw [whole_prog_spec_extra_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
-  \\ qexists_tac `fs1`
-  \\ qunabbrev_tac `fs1`
+  \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
   \\ reverse conj_tac
   >-
    (fs [reader_main_def, read_file_def]
     \\ every_case_tac
     \\ fs [GSYM add_stdo_with_numchars, with_same_numchars])
-  \\ cheat (* TODO *)
-  );
+  \\ match_mp_tac (GEN_ALL (MP_CANON (MATCH_MP app_wgframe (UNDISCH reader_main_spec))))
+  \\ xsimpl
+  \\ Q.LIST_EXISTS_TAC [`init_refs`,`cl`,`emp`]
+  \\ xsimpl);
 
-(*
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ())
-                                       "reader"
-                                       (UNDISCH reader_whole_prog_spec)
+val _ = set_user_heap_thm HOL_STORE_init_precond;
+
+(* ------------------------------------------------------------------------- *)
+
+val st = get_ml_prog_state ();
+val name = "reader_main";
+val spec = UNDISCH reader_whole_prog_spec;
+val (sem_thm,prog_tm) = whole_prog_thm st name spec
 val reader_prog_def = Define `reader_prog = ^prog_tm`
 
 val semantics_reader_prog =
@@ -499,8 +513,6 @@ val semantics_reader_prog =
   |> CONV_RULE(LAND_CONV EVAL)
   |> SIMP_RULE (srw_ss())[AND_IMP_INTRO,STD_streams_reader_main,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_reader_prog";
-
-*)
 
 val _ = export_theory ();
 
