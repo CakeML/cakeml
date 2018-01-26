@@ -20,9 +20,9 @@ val _ = Datatype `
      |>`
 
 (* TODO derive automatically *)
-val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
-val _ = overload_on("holrefs",``liftM state_refs_holrefs holrefs_fupd``);
-val _ = overload_on("commandline",``liftM state_refs_cl cl_fupd``);
+val _ = overload_on("stdio",      ``liftM state_refs_stdio   stdio_fupd``);
+val _ = overload_on("holrefs",    ``liftM state_refs_holrefs holrefs_fupd``);
+val _ = overload_on("commandline",``liftM state_refs_cl      cl_fupd``);
 
 (* ------------------------------------------------------------------------- *)
 (* Monadic wrappers for readLine                                             *)
@@ -35,9 +35,8 @@ val readLine_wrap_def = Define `
     if invalid_line line then
       return (INR s)
     else
-      let line = fix_fun_typ (str_prefix line) in
         handle_Fail
-          (do s <- readLine line s;
+          (do s <- readLine (fix_fun_typ (str_prefix line)) s;
               return (INR s) od)
           (\e. return (INL e))`;
 
