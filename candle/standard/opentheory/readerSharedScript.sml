@@ -100,11 +100,9 @@ val r = translate lines_read_def
 val r = translate next_line_def
 val r = translate line_Fail_def
 
-val r = translate ind_name_def
-val r = translate ind_ty_def
-val r = translate select_name_def
-val r = translate select_tm_def
-val r = translate select_const_def
+val r = translate reader_tys_def
+val r = translate reader_const_def
+val r = translate reader_axs_def
 val r = translate mk_reader_ctxt_def
 val r = m_translate set_reader_ctxt_def
 
