@@ -7,5 +7,7 @@ all: $(TARGETS)
 
 reader: reader.S ../../../../basis/basis_ffi.o
 	$(CC) $< ../../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+readerIO: readerIO.S ../../../../basis/basis_ffi.o
+	$(CC) $< ../../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 
-EXTRA_CLEANS=reader reader.S
+EXTRA_CLEANS=reader reader.S readerIO readerIO.S
