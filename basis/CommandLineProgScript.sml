@@ -1,10 +1,10 @@
 open preamble
      ml_translatorLib ml_progLib ml_translatorTheory
-     MapProgTheory basisFunctionsLib
+     CompareProgTheory basisFunctionsLib
 
 val _ = new_theory "CommandLineProg";
 
-val _ = translation_extends "MapProg";
+val _ = translation_extends "CompareProg";
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
