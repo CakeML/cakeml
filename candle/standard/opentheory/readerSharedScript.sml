@@ -75,18 +75,16 @@ val r = m_translate getTms_def
 val r = m_translate BETA_CONV_def
 
 (* stack and dictionary dumping *)
-val r = translate pad_def
+val r = translate commas_def
+val r = translate listof_def
 val r = translate obj_t_def
-val r = translate stack_t_def
-val r = translate pair_t_def
 val r = translate sptreeTheory.lrnext_def
 val r = translate foldi_def
 val r = translate toAList_def
-val r = translate dict_t_def
-val r = translate reader_state_t_def
+val r = translate obj_to_string_def
 val r = translate state_to_string_def
 
-val r = translate i2s_def (* why is it not named s2i? *)
+val r = translate s2i_def
 val r = m_translate readLine_def
 
 val readline_side = Q.store_thm("readline_side",
