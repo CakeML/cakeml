@@ -35,7 +35,7 @@ val printing_def = tDefine "printing" `
      let (s1, r1) = (sp - strlen s, s) in
      let (s2, r2) = printing bs af s1 mr es in (s2, r1 ^ r2)) /\
   (printing bs af sp mr (Break ln::es) =
-     if ln + breakdist es af >  sp then
+     if ln + breakdist es af < sp then
        let (s1, r1) = blanks sp ln in
        let (s2, r2) = printing bs af s1 mr es in (s2, r1 ^ r2)
      else
@@ -132,36 +132,28 @@ val fix_name_def = Define `
     else
       s`;
 
+val _ = temp_overload_on ("ptyp",
+  ``\ty. case ty of
+           Tyvar _ => typ ty
+         | Tyapp _ [] => typ ty
+         | Tyapp _ _ => paren 1 (typ ty)``);
+
 (* TODO fix it up *)
 val term_def = Define `
    term tm =
     case tm of
-    (* bases *)
-      Var n _ => mk_str n
-    | Const n _ => mk_str (fix_name n)
-    (* combinations *)
-    | Comb (Var m _) (Var n _) =>
-        paren 0 (mk_str (m ^ strlit " " ^ n))
-    | Comb (Var m _) (Const n _) =>
-        paren 0 (mk_str (m ^ strlit " " ^ fix_name n))
-    | Comb (Const m _) (Var n _) =>
-        paren 0 (mk_str (fix_name m ^ strlit " " ^ n))
-    | Comb (Const m _) (Const n _) =>
-        paren 0 (mk_str (fix_name m ^ strlit " " ^ fix_name n))
-    | Comb s (Var n _) =>
-        paren 0 (mk_blo 0 [paren 1 (term s); mk_str (strlit " " ^ n)])
-    | Comb s (Const n _) =>
-        paren 0 (mk_blo 0 [paren 1 (term s); mk_str (strlit " " ^ fix_name n)])
-    | Comb (Var n _) t =>
-        paren 0 (mk_blo 0 [mk_str n; mk_brk 1; paren 1 (term t)])
-    | Comb (Const n _) t =>
-        paren 0 (mk_blo 0 [mk_str (fix_name n); mk_brk 1; paren 1 (term t)])
-    | Comb s t =>
-        paren 0 (mk_blo 0 [paren 1 (term s); mk_brk 1; paren 1 (term t)])
-    (* abstractions *)
-    | Abs (Var x _) s =>
-        mk_blo 0 [mk_str (strlit"\\" ^ x ^ strlit"."); mk_brk 1; term s]
-    | Abs v s => mk_str (strlit"<dummy>")
+      Var n ty => mk_blo 0 [mk_str (strlit"Var"); mk_brk 1;
+                            mk_str n; mk_brk 1; ptyp ty]
+    | Const n ty => mk_blo 0 [mk_str (strlit"Const"); mk_brk 1;
+                              mk_str (fix_name n); mk_brk 1; ptyp ty]
+    | Comb f x =>
+        mk_blo 0 [mk_str (strlit"Comb"); mk_brk 1;
+                  paren 1 (term f); mk_brk 1;
+                  paren 1 (term x)]
+    | Abs v x =>
+        mk_blo 0 [mk_str (strlit"Abs"); mk_brk 1;
+                  paren 1 (term v); mk_brk 1;
+                  paren 1 (term x)]
   `;
 
 val tm_to_string_def = Define `tm_to_string tm = pr (term tm) pp_margin`
@@ -186,11 +178,12 @@ val hyps_def = Define `
   hyps hs =
     case hs of
       []    => []
-    | h::hs => term h :: mk_str (strlit",") :: mk_brk 1 :: hyps hs`
+    | h::hs => mk_str (strlit", ") :: term h :: hyps hs`
 
 val thm_def = Define `
   thm (Sequent hs c) =
-    mk_blo 0 (hyps hs ++ [mk_str (strlit"|-"); mk_brk 1; term c])`
+    let hs = case hs of [] => [] | h::hs => term h::hyps hs in
+    mk_blo 0 (hs ++ [mk_str (strlit"|-"); mk_brk 1; term c])`
 
 val thm_to_string_def = Define `thm_to_string th = pr (thm th) pp_margin`
 
