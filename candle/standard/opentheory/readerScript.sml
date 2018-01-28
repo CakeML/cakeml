@@ -612,22 +612,11 @@ val _ = temp_overload_on ("e", ``Var (strlit"e") A``);
 (* check for the types.                                                      *)
 val eta_ax_term_def = Define `
   eta_ax_term =
-    Comb
-      (Abs a
-        (Comb
-          (Comb
-            (Const (strlit"=")
-               (Fun (Fun (Fun A B) Bool) (Fun (Fun (Fun A B) Bool) Bool))) a)
-          (Abs b
-            (Comb
-              (Comb (Const (strlit"=")
-                (Fun (Fun Bool Bool) (Fun (Fun Bool Bool) Bool)))
-                    (Abs c c))
-              (Abs c c)))))
-      (Abs d
-       (Comb
-        (Comb (Const (strlit"=") (Fun (Fun A B) (Fun (Fun A B) Bool)))
-         (Abs e (Comb d e))) d))`
+    Comb (Abs a (Comb (Comb (Const (strlit"=") (Fun (Fun (Fun A B) Bool) (Fun
+    (Fun (Fun A B) Bool) Bool))) a) (Abs b (Comb (Comb (Const (strlit"=") (Fun
+    (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c))))) (Abs d
+    (Comb (Comb (Const (strlit"=") (Fun (Fun A B) (Fun (Fun A B) Bool))) (Abs e
+    (Comb d e))) d))`
 
 val eta_ax_term_ok = Q.prove (
   `eta_ax_term has_type Bool`,
@@ -659,30 +648,69 @@ val eta_ok = Q.prove (
 
 (* -- SELECT_AX: |- !p. (!x. (p x) ==> (p ((select) p))) ------------------- *)
 
-(* TODO proofs *)
+val _ = temp_overload_on ("a", ``Var (strlit"a") (Fun (Fun A Bool) Bool)``);
+val _ = temp_overload_on ("b", ``Var (strlit"b") (Fun A Bool)``);
+val _ = temp_overload_on ("c", ``Var (strlit"c") Bool``);
+val _ = temp_overload_on ("d", ``Var (strlit"d") (Fun A Bool)``);
+val _ = temp_overload_on ("e", ``Var (strlit"e") (Fun A Bool)``);
+val _ = temp_overload_on ("f", ``Var (strlit"f") A``);
+val _ = temp_overload_on ("g", ``Var (strlit"g") A``);
+val _ = temp_overload_on ("h", ``Var (strlit"h") Bool``);
+val _ = temp_overload_on ("i", ``Var (strlit"i") Bool``);
+val _ = temp_overload_on ("j", ``Var (strlit"j") Bool``);
+val _ = temp_overload_on ("k", ``Var (strlit"k") Bool``);
+val _ = temp_overload_on ("l", ``Var (strlit"l") (Fun Bool (Fun Bool Bool))``);
+val _ = temp_overload_on ("m", ``Var (strlit"m") (Fun Bool (Fun Bool Bool))``);
 
-(* p : A -> Bool *)
-val _ = temp_overload_on ("p", ``Var (strlit"p") (Fun A Bool)``);
-
-(* select : (A -> Bool) -> A *)
 val _ = temp_overload_on ("select", ``Const (strlit"@") (Fun (Fun A Bool) A)``)
 
-(* /\ : Bool -> Bool -> Bool *)
-val _ = temp_overload_on ("f", ``Var (strlit"f") (Fun Bool Bool)``)
-val _ = temp_overload_on ("AND",
-  ``\a b. Abs a (Abs b
-            (Abs f (Comb (Comb f a) b) ===
-             Abs f (Comb (Comb f TRUE) TRUE)))``);
+val select_ax_term_def = Define `
+  select_ax_term =
+    Comb (Abs a (Comb (Comb (Const (strlit"=") (Fun (Fun (Fun A Bool) Bool)
+    (Fun (Fun (Fun A Bool) Bool) Bool))) a) (Abs b (Comb (Comb (Const (strlit"=")
+    (Fun (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c)))))
+    (Abs d (Comb (Abs e (Comb (Comb (Const (strlit"=") (Fun (Fun A Bool)
+    (Fun (Fun A Bool) Bool))) e) (Abs f (Comb (Comb (Const (strlit"=") (Fun
+    (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c)))))
+    (Abs g (Comb (Comb (Abs h (Abs i (Comb (Comb (Const (strlit"=") (Fun Bool
+    (Fun Bool Bool))) (Comb (Comb (Abs j (Abs k (Comb (Comb (Const (strlit"=")
+    (Fun (Fun (Fun Bool (Fun Bool Bool)) Bool) (Fun (Fun (Fun Bool
+    (Fun Bool Bool)) Bool) Bool))) (Abs l (Comb (Comb l j) k))) (Abs m (Comb
+    (Comb m (Comb (Comb (Const (strlit"=") (Fun (Fun Bool Bool) (Fun
+    (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c))) (Comb (Comb (Const (strlit"=")
+    (Fun (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c))
+    (Abs c c))))))) h) i)) h))) (Comb d g)) (Comb d (Comb select d))))))`;
 
-(* ==> : Bool -> Bool -> Bool *)
-val _ = temp_overload_on ("IMP", ``\a b. Abs a (Abs b (AND a b === a))``);
+val select_ax_term_ok = Q.prove (
+  `select_ax_term has_type Bool`,
+  EVAL_TAC \\ ntac 66 (fs [Once has_type_cases]));
+
+val _ = temp_overload_on ("z", ``Var (strlit"z") (Fun Bool (Fun Bool Bool))``)
+val _ = temp_overload_on ("AND",
+  ``Abs h (Abs i ((Abs z (Comb (Comb z h) i)) ===
+                  (Abs z (Comb (Comb z TRUE) TRUE))))``);
+val _ = temp_overload_on ("CONJ", ``\a b. Comb (Comb AND a) b``);
+
+val _ = temp_overload_on ("TRUE", ``Abs c c === Abs c c`` |> EVAL |> rconc);
+val _ = temp_overload_on ("P", ``Var (strlit"P") (Fun (Fun A B) Bool)``);
+val _ = temp_overload_on ("ALL", ``Abs a (a === Abs b TRUE)``);
+val _ = temp_overload_on ("ALL2", ``Abs e (e === Abs f TRUE)``);
+val _ = temp_overload_on ("FORALL", ``\v b. Comb ALL (Abs v b)``);
+val _ = temp_overload_on ("FORALL2", ``\v b. Comb ALL2 (Abs v b)``);
+val _ = temp_overload_on ("IMP", ``Abs h (Abs i (CONJ h i === h))``);
+val _ = temp_overload_on ("IMPL", ``\a b. Comb (Comb IMP a) b``);
 
 (* Axiom *)
 val select_ax_def = Define `
   select_ax =
-    FORALL p
-      (FORALL x
-        (IMP (Comb p x) (Comb p (Comb select p))))`
+    FORALL b
+      (FORALL2 f
+        (IMPL (Comb b f) (Comb b (Comb select b))))`
+
+(* Sanity check *)
+val select_ax_ok = Q.prove (
+  `aconv select_ax select_ax_term`,
+  EVAL_TAC);
 
 (* -- INFINITY_AX: |- ?f. injective f /\ ~surjective f --------------------- *)
 
