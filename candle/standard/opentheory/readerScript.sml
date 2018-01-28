@@ -1,6 +1,7 @@
 open preamble ml_hol_kernelProgTheory
      mlintTheory StringProgTheory
      prettyTheory
+     holSyntaxTheory (* For building the axioms; move to another theory *)
 
 val _ = new_theory"reader"
 
@@ -199,72 +200,60 @@ val BETA_CONV_def = Define `
 (* Debugging                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
-val pad_def = tDefine "pad" `
-  pad n s =
-    if n < strlen s then
-      pad (n + 4) s
-    else
-      concat (s::REPLICATE (n - strlen s) (strlit" "))`
- (WF_REL_TAC `measure (\x. strlen (SND x) - FST x)`);
+val commas_def = Define `
+  commas xs =
+    case xs of
+      [] => []
+    | x::xs => mk_str(strlit", ") :: x :: commas xs`
+
+val listof_def = Define `
+  listof xs =
+    case xs of
+      [] => mk_str (strlit"[]")
+    | x::xs =>
+        mk_blo 0 ([mk_str (strlit"["); x] ++
+                  commas xs ++
+                  [mk_str (strlit"]")])`
 
 val obj_t_def = tDefine "obj_t" `
   obj_t obj =
     case obj of
-      Num n => mk_str (pad 8 (strlit"Num") ^ toString n)
-    | Name s => mk_str (pad 8 (strlit"Name") ^ fix_name s)
-    | List ls =>
-        mk_blo 0
-          ([mk_str (pad 8 (strlit"List")); mk_str (strlit"["); mk_brk 1] ++
-           FLAT (MAP (\x. [obj_t x; mk_brk 1]) ls) ++
-           [mk_str (strlit"]")])
-    | TypeOp s => mk_str (pad 8 (strlit"TypeOp") ^ s)
-    | Type ty => mk_blo 0 [mk_str (pad 8 (strlit"Type")); typ ty]
-    | Const s => mk_str (pad 8 (strlit"Const") ^ fix_name s)
-    | Var (s,ty) => mk_blo 0 [mk_str (pad 8 (strlit"Var") ^ s ^ strlit" : "); typ ty]
-    | Term tm => mk_blo 0 [mk_str (pad 8 (strlit"Term")); term tm]
-    | Thm th => mk_blo 0 [mk_str (pad 8 (strlit"Thm")); thm th]`
+      Num n => mk_str (toString n)
+    | Name s => mk_str (fix_name s)
+    | List ls => listof (MAP obj_t ls)
+    | TypeOp s => mk_str s
+    | Type ty => typ ty
+    | Const s => mk_str s
+    | Var (s,ty) => mk_blo 0 [mk_str (s ^ strlit " :"); mk_brk 1; typ ty]
+    | Term tm => term tm
+    | Thm th => thm th`
  (WF_REL_TAC `measure object_size`
-  \\ Induct \\ rw [definition"object_size_def", pad_def]
+  \\ Induct \\ rw [definition"object_size_def"]
   \\ res_tac
   \\ decide_tac);
 
-val stack_t_def = Define `
-  stack_t ls =
-    mk_blo 0
-      [mk_str (strlit"STACK"); mk_str newline; mk_str newline;
-       mk_blo 0
-         (FLAT (MAPi (\(i:num) x. [mk_str (pad 6 (toString &i ^ strlit ":"));
-                                   obj_t x; mk_str newline]) ls))]`
-
-val pair_t_def = Define `
-  pair_t (k:num, v) =
-    mk_blo 0 [mk_str (pad 4 (toString (&k)) ^ strlit" ->"); mk_brk 1; obj_t v]`
-
-val dict_t_def = Define `
-  dict_t (ds: object spt) =
-    mk_blo 0 [mk_str (strlit"DICT"); mk_str newline; mk_str newline;
-              mk_blo 0
-                (FLAT (MAP (\(x,y). [pair_t (x,y); mk_str newline])
-                (toAList ds)))]`
-
-val reader_state_t_def = Define `
-  reader_state_t s =
-    mk_blo 0
-      [ stack_t s.stack; mk_str newline; dict_t s.dict]`;
+val obj_to_string_def = Define `
+  obj_to_string t = pr (obj_t t) pp_margin`;
 
 val state_to_string = Define `
-  state_to_string s = pr (reader_state_t s) 78`;
+  state_to_string s =
+    let stack = concat (MAP (\t. obj_to_string t ^ strlit"\n") s.stack) in
+    let dict  = concat [strlit"dict: [";
+                        toString (LENGTH (toAList s.dict));
+                        strlit"]\n"] in
+    let thm   = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
+    let thms  = concat (MAP (\t. thm_to_string t ^ strlit"\n") s.thms) in
+      concat [stack; strlit"\n"; dict; thm; thms]`;
 
 (* ------------------------------------------------------------------------- *)
 (* Article reader                                                            *)
 (* ------------------------------------------------------------------------- *)
 
-
 (* TODO fromString is broken *)
-val i2s_def = Define `
-  i2s s = if s = strlit"" then NONE:int option else fromString s`
+val s2i_def = Define `
+  s2i s = if s = strlit"" then NONE:int option else fromString s`
 
-val _ = export_rewrites ["i2s_def"]
+val _ = export_rewrites ["s2i_def"]
 
 (* TODO The reader does not respect the "version" command. *)
 
@@ -534,7 +523,7 @@ val readLine_def = Define`
       return (push (Type (mk_vartype n)) s)
     od
   else (* Integer literals and names *)
-    case i2s line of
+    case s2i line of
       SOME n => return (push (Num n) s)
     | NONE =>
         case explode line of
@@ -602,25 +591,123 @@ val readLines_def = Define `
         od`;
 
 (* ------------------------------------------------------------------------- *)
-(* Reader needs to start with axioms in state (but not bool theory)          *)
+(* AXIOMS                                                                    *)
 (* ------------------------------------------------------------------------- *)
 
+(* The axioms needs to be more explicit than in holAxiomsSyntax; e.g.        *)
+(* |- (\P. P = \x. T) (\x. P[x]) over |- !x. P[x]                            *)
+(* (Perhaps this is also true for Candle as well?)                           *)
+
+(* -- ETA_AX: |- !t. (\x. t x) = t ----------------------------------------- *)
+
+val _ = temp_overload_on ("A", ``Tyvar (strlit"A")``);
+val _ = temp_overload_on ("B", ``Tyvar (strlit"B")``);
+val _ = temp_overload_on ("a", ``Var (strlit"a") (Fun (Fun A B) Bool)``);
+val _ = temp_overload_on ("b", ``Var (strlit"b") (Fun A B)``);
+val _ = temp_overload_on ("c", ``Var (strlit"c") Bool``);
+val _ = temp_overload_on ("d", ``Var (strlit"d") (Fun A B)``);
+val _ = temp_overload_on ("e", ``Var (strlit"e") A``);
+
+(* TODO This term came from the opentheory tool and is just here as a sanity *)
+(* check for the types.                                                      *)
+val eta_ax_term_def = Define `
+  eta_ax_term =
+    Comb
+      (Abs a
+        (Comb
+          (Comb
+            (Const (strlit"=")
+               (Fun (Fun (Fun A B) Bool) (Fun (Fun (Fun A B) Bool) Bool))) a)
+          (Abs b
+            (Comb
+              (Comb (Const (strlit"=")
+                (Fun (Fun Bool Bool) (Fun (Fun Bool Bool) Bool)))
+                    (Abs c c))
+              (Abs c c)))))
+      (Abs d
+       (Comb
+        (Comb (Const (strlit"=") (Fun (Fun A B) (Fun (Fun A B) Bool)))
+         (Abs e (Comb d e))) d))`
+
+val eta_ax_term_ok = Q.prove (
+  `eta_ax_term has_type Bool`,
+  EVAL_TAC \\ ntac 21 (fs [Once has_type_cases]));
+
+val _ = temp_overload_on ("t", ``Var (strlit"t") (Fun A B)``);
+val _ = temp_overload_on ("x", ``Var (strlit"x") A``);
+val _ = temp_overload_on ("y", ``Var (strlit"y") Bool``);
+val _ = temp_overload_on ("P", ``Var (strlit"P") (Fun (Fun A B) Bool)``);
+val _ = temp_overload_on ("TRUE", ``Abs y y === Abs y y``);
+val _ = temp_overload_on ("ALL", ``Abs P (P === Abs t TRUE)``);
+val _ = temp_overload_on ("FORALL", ``\v b. Comb ALL (Abs v b)``);
+
+val TRUE_ok = Q.prove (
+  `TRUE has_type Bool`,
+  EVAL_TAC \\ ntac 5 (fs [Once has_type_cases]));
+
+val ALL_ok = Q.prove (
+  `ALL has_type Fun (Fun (Fun A B) Bool) Bool`,
+  EVAL_TAC \\ ntac 11 (fs [Once has_type_cases]));
+
+(* Axiom *)
+val eta_ax_def = Define `eta_ax = FORALL t (Abs x (Comb t x) === t)`
+
+(* Sanity check *)
+val eta_ok = Q.prove (
+  `aconv eta_ax eta_ax_term`,
+  EVAL_TAC);
+
+(* -- SELECT_AX: |- !p. (!x. (p x) ==> (p ((select) p))) ------------------- *)
+
+(* TODO proofs *)
+
+(* p : A -> Bool *)
+val _ = temp_overload_on ("p", ``Var (strlit"p") (Fun A Bool)``);
+
+(* select : (A -> Bool) -> A *)
+val _ = temp_overload_on ("select", ``Const (strlit"@") (Fun (Fun A Bool) A)``)
+
+(* /\ : Bool -> Bool -> Bool *)
+val _ = temp_overload_on ("f", ``Var (strlit"f") (Fun Bool Bool)``)
+val _ = temp_overload_on ("AND",
+  ``\a b. Abs a (Abs b
+            (Abs f (Comb (Comb f a) b) ===
+             Abs f (Comb (Comb f TRUE) TRUE)))``);
+
+(* ==> : Bool -> Bool -> Bool *)
+val _ = temp_overload_on ("IMP", ``\a b. Abs a (Abs b (AND a b === a))``);
+
+(* Axiom *)
+val select_ax_def = Define `
+  select_ax =
+    FORALL p
+      (FORALL x
+        (IMP (Comb p x) (Comb p (Comb select p))))`
+
+(* -- INFINITY_AX: |- ?f. injective f /\ ~surjective f --------------------- *)
+
+(* TODO later, bool builds w/o it *)
 (*
-val select_name_def = Define `select_name = strlit"@"`
-val select_tm_def = Define `select_tm = Fun (Fun (Tyvar (strlit"A")) Bool) (Tyvar (strlit"A"))`
-val select_const_def = Define `select_const = NewConst select_name select_tm`;
-
-val ind_name_def = Define `ind_name = strlit"ind"`
-val ind_ty_def = Define `ind_ty = NewType ind_name 0`;
-
-val mk_reader_ctxt_def = Define `
-  mk_reader_ctxt ctxt = select_const :: ind_ty :: ctxt`
+val _ = temp_overload_on ("FALSE", ``FORALL x x``);
+val _ = temp_overload_on ("NOT", ``\a. Abs a (IMP a FALSE)``);
+vl _ = temp_overload_on ("EXISTS",
 *)
 
-open holAxiomsSyntaxTheory
+(* ------------------------------------------------------------------------- *)
+(* Start reader with axioms                                                  *)
+(* ------------------------------------------------------------------------- *)
+
+val MK_ETA_AX_def = Define `MK_ETA_AX ctxt = NewAxiom eta_ax :: ctxt`;
+val MK_SELECT_AX_def = Define `
+  MK_SELECT_AX ctxt =
+    NewAxiom select_ax ::
+    NewConst (strlit"@") (Fun (Fun A Bool) A) :: ctxt`;
+
+val MK_INFINITY_AX_def = Define `
+  MK_INFINITY_AX ctxt = NewType (strlit"ind") 0 :: ctxt`
 
 val context_tm =
-  ``mk_eta_ctxt (mk_select_ctxt (mk_infinity_ctxt init_ctxt))``
+  ``MK_ETA_AX (MK_SELECT_AX (MK_INFINITY_AX init_ctxt))``
   |> EVAL |> rconc;
 
 val mk_reader_ctxt_def = Define `
