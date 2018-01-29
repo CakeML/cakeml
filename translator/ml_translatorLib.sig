@@ -126,4 +126,6 @@ sig
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
 
+    val stop_on_failed_ind_proof : bool ref
+
 end

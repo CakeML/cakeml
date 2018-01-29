@@ -3463,6 +3463,37 @@ fun get_ind_thm_goal goals =
          mk_imp(list_mk_conj(map snd pss),list_mk_conj(map fst pss)))
   in ind_thm_goal end;
 
+fun get_custom_ind_with_pre ind ind_thm_goal = let
+  val (x,y) = dest_imp (the ind |> SPEC_ALL |> concl)
+  val tm = ind_thm_goal |> list_dest dest_forall |> last |> dest_imp |> fst
+  in if (* checks that the conclusion of the ind thm has an implication *)
+        (the ind |> SPEC_ALL |> UNDISCH |> CONJUNCTS
+                 |> hd |> SPEC_ALL |> concl |> is_imp)
+        andalso
+        (* checks that the form of the assumptions fits *)
+        aconv x tm
+     then concl (the ind) else ind_thm_goal end
+
+val stop_on_failed_ind_proof = ref true;
+
+fun print_unable_to_prove_ind_thm ml_name =
+  if not (!stop_on_failed_ind_proof) then
+    print ("\nWARNING: "^ml_name^" has unproved induction.\n\n")
+  else let
+    val _ = print ("\nERROR: "^ml_name^" has unproved induction.\n")
+    val _ = print ("\n  Try something along the lines of:")
+    val _ = print ("\n    val _ = (stop_on_failed_ind_proof := false);")
+    val _ = print ("\n    val res = translate "^ml_name^"_def;")
+    val _ = print ("\n    val "^ml_name^"_ind_goal = first is_forall (hyp res);")
+    val _ = print ("\n    (* set_goal([],"^ml_name^"_ind_goal); *)")
+    val _ = print ("\n    val "^ml_name^"_ind = prove(")
+    val _ = print ("\n      "^ml_name^"_ind_goal,")
+    val _ = print ("\n      ... )")
+    val _ = print ("\n      |> update_precondition;")
+    val _ = print ("\n    val _ = (stop_on_failed_ind_proof := true);\n\n")
+    in failwith ("ml_translatorLib: Unable to prove required induction theorem") end;
+
+
 (*
 
 val _ = (next_ml_names := ["+","+","+","+","+"]);
@@ -3483,6 +3514,8 @@ val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate
 val def = sortingTheory.QSORT_DEF;
+
+val def = WHILE;
 
 *)
 
@@ -3537,11 +3570,7 @@ val (fname,ml_fname,th,def) = hd thms
                     last rev_params)
     in (fname,ml_fname,def,th,v) end
   val thms = map optimise_and_abstract thms
-
   (* final phase: extract precondition, perform induction, store cert *)
-(*
-val _ = (max_print_depth := 25)
-*)
 
   val (is_fun,results) = if not is_rec then let
     (* non-recursive case *)
@@ -3618,7 +3647,9 @@ val (fname,ml_fname,def,th,v) = hd thms
     val goals = map get_goal thms
 
     (* generate ind theorem statement *)
-    val ind_thm_goal = get_ind_thm_goal goals
+    val ind_thm_goal = let
+      val ind_thm_goal = get_ind_thm_goal goals
+      in get_custom_ind_with_pre ind ind_thm_goal end
 
     (* instantiate ind thm *)
     val custom_ind_thm = ASSUME ind_thm_goal
@@ -3632,8 +3663,7 @@ val (fname,ml_fname,def,th,v) = hd thms
     val th = MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
              handle HOL_ERR _ => let
                val (_,ml_name,_,_,_) = hd thms
-               in (print ("\nWARNING: unable to prove induction for translation of "
-                       ^ml_name^"\n\n"); th) end
+               in (print_unable_to_prove_ind_thm ml_name; th) end
 
     val results = th |> CONJUNCTS |> map SPEC_ALL
 (*
