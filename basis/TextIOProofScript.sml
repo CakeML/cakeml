@@ -518,6 +518,18 @@ val linesFD_splitlines_get_stdin = Q.store_thm("linesFD_splitlines_get_stdin",
 val FD_def = Define `
   FD fd fdv = (STRING_TYPE (strlit(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)`;
 
+val FD_stdin = Q.store_thm("FD_stdin",
+  `FD 0 stdin_v`,
+  fs[FD_def,MarshallingTheory.n2w8_def,stdin_v_thm,GSYM stdIn_def]);
+
+val FD_stdout = Q.store_thm("FD_stdout",
+  `FD 1 stdout_v`,
+  fs[FD_def,MarshallingTheory.n2w8_def,stdout_v_thm,GSYM stdOut_def]);
+
+val FD_stderr = Q.store_thm("FD_stderr",
+  `FD 2 stderr_v`,
+  fs[FD_def,MarshallingTheory.n2w8_def,stderr_v_thm,GSYM stdErr_def]);
+
 (* -- *)
 
 val openIn_spec = Q.store_thm(
