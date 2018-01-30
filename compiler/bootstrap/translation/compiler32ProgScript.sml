@@ -18,7 +18,7 @@ val max_heap_limit_32_def = Define`
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
       |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[wordLangTheory.shift_def]
+      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
       |> concl |> rhs)`;
 
 val res = translate max_heap_limit_32_def
