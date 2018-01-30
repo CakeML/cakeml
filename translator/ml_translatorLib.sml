@@ -3307,7 +3307,7 @@ val def = listTheory.APPEND;
 
 *)
 
-fun translate_main translate register_type def = (let
+fun translate_main utac translate register_type def = (let
 
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -3496,7 +3496,21 @@ val (fname,ml_fname,def,th,v) = hd thms
     (*
       set_goal([],goal)
     *)
+    val ulemma =
+        case utac of
+            NONE => NONE
+          | SOME tac => SOME (auto_prove "ind" (goal,
+                          STRIP_TAC
+                          \\ MATCH_MP_TAC ind_thm
+                          \\ REPEAT STRIP_TAC
+                          \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+                          \\ REPEAT STRIP_TAC
+                          \\ POP_MP_TACs
+                          \\ tac)) handle HOL_ERR _ => NONE
     val lemma =
+        case ulemma of
+            SOME th => th
+          | _ =>
       auto_prove "ind" (goal,
         STRIP_TAC
         \\ MATCH_MP_TAC ind_thm
@@ -3611,14 +3625,15 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
-fun translate def =
+fun translate0 tacopt def =
   let
-    val (is_rec,is_fun,results) = translate_main translate register_type def
+    val (is_rec,is_fun,results) =
+        translate_main tacopt (translate0 tacopt) register_type def
 
     val () =
       if !generate_sigs then
         let val _ = generate_sig_thms results in () end
-      else ();
+      else ()
   in
     if is_rec then
     let
@@ -3702,9 +3717,13 @@ fun translate def =
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
+val translate = translate0 NONE
+fun utranslate tac = translate0 (SOME tac)
+
 fun abs_translate def =
   let
-    val (is_rec,is_fun,results) = translate_main abs_translate abs_register_type def
+    val (is_rec,is_fun,results) =
+        translate_main NONE abs_translate abs_register_type def
     (*
       val (fname,ml_fname,def,th,preopt) = hd results
     *)
