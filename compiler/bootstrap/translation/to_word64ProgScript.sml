@@ -89,7 +89,8 @@ val _ = translate (tag_mask_def |> conv64_RHS |> we_simp |> conv64_RHS |> SIMP_R
 val _ = translate (encode_header_def |> conv64_RHS)
 
 (* Manual inlines : shift_def, bytes_in_word because of 'a arg *)
-val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def]
+val inline_simp =
+    SIMP_RULE std_ss [backend_commonTheory.word_shift_def,bytes_in_word_def]
 
 val _ = register_type ``:64 wordLang$prog``;
 

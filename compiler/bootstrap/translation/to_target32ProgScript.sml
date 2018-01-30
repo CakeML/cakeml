@@ -244,7 +244,7 @@ val _ = translate (compile_def |> INST_TYPE [alpha|->``:32``,beta|->``:32``]);
 open stack_allocTheory
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
-                    stackLangTheory.word_shift_def, wordLangTheory.shift_def]
+                                    backend_commonTheory.word_shift_def]
 val _ = translate (SetNewTrigger_def |> inline_simp |> conv32)
 val _ = translate (conv32 clear_top_inst_def)
 val _ = translate (memcpy_code_def |> inline_simp |> conv32)
