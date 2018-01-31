@@ -1609,13 +1609,20 @@ val state_rel_def = Define `
 val evaluate_changed_globals_inst = INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``] evaluate_changed_globals
 val known_correct_approx_inst = INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``] known_correct_approx
 
+val co_every_Fn_vs_NONE_def = Define `
+  co_every_Fn_vs_NONE co =
+    !n exp aux. SND (co n) = (exp, aux) ==>
+      every_Fn_vs_NONE [exp] /\
+      every_Fn_vs_NONE (MAP (SND o SND) aux)`
+
 val known_correct0 = Q.prove(
   `(!xs env1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env2 t0 limit g0 g g' aenv eas.
       evaluate (xs, env1, s0) = (res1, s) /\
       known limit xs aenv g0 = (eas, g) /\
       LIST_REL (v_rel limit g') env1 env2 /\
       state_rel limit g' s0 t0 /\
-      every_Fn_vs_NONE es /\ (* för orakel också *)
+      every_Fn_vs_NONE xs /\
+      co_every_Fn_vs_NONE s0.compile_oracle /\
       EVERY esgc_free xs /\ ssgc_free s0 /\
       EVERY vsgc_free env1 /\
       subspt g0 g /\ subspt g g' /\
@@ -1646,6 +1653,9 @@ val known_correct0 = Q.prove(
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [])
 
+  \\ cheat)
+
+(*
   THEN1
    (say "CONS"
     \\ fs [known_def, evaluate_def]
@@ -1699,8 +1709,9 @@ val known_correct0 = Q.prove(
   THEN1
    (say "NIL"
     \\ cheat)
+*)
 
-
+(*
   `(∀a es env1 env2 (s01:('a,'b) closSem$state) s02 res1 s1 g0 g g' as ealist.
 
 
@@ -3785,6 +3796,8 @@ compile_correct
 state_globals_approx_def
 clos_knownTheory.compile_def
 val_rel_def
+*)
+
 *)
 
 val _ = export_theory();
