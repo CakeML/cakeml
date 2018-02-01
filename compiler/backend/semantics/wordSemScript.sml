@@ -148,9 +148,9 @@ val word_exp_def = tDefine "word_exp" `
      case the_words (MAP (word_exp s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp nexp) =
+  (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w (num_exp nexp))
+     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE)`
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
@@ -381,7 +381,7 @@ val inst_def = Define `
                                     | Imm w => Const w]) s
     | Arith (Shift sh r1 r2 n) =>
         assign r1
-          (Shift sh (Var r2) (Nat n)) s
+          (Shift sh (Var r2) n) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of

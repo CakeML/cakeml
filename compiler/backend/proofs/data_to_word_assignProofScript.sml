@@ -31,8 +31,7 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   bvi_to_data_def, wordSemTheory.the_words_def,
   bviSemTheory.bvl_to_bvi_def, data_to_bvi_def,
   bviSemTheory.bvi_to_bvl_def,wordSemTheory.mem_load_def,
-  wordLangTheory.word_op_def, wordLangTheory.word_sh_def,
-  wordLangTheory.num_exp_def]
+  wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
 
 (* This list must list all auxiliary definitions used in assign_def *)
 val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
@@ -2071,7 +2070,7 @@ val th = Q.store_thm("assign_WordFromWord",
         |> ONCE_REWRITE_RULE [CONJ_COMM])
   \\ strip_tac \\ rveq
   \\ TOP_CASE_TAC \\ fs [] \\ fs [good_dimindex_def,list_Seq_def] \\ rfs []
-  \\ fs [eq_eval,num_exp_def,word_sh_def,Smallnum_def]
+  \\ fs [eq_eval,word_sh_def,Smallnum_def]
   \\ qpat_abbrev_tac `ww = _ >>> 2`
   \\ `ww = n2w (w2n w)` by
    (unabbrev_all_tac
@@ -3266,7 +3265,7 @@ val th = Q.store_thm("assign_WordFromInt",
       \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Var``)) o concl)]
       \\ fs[wordSemTheory.get_var_def]
       \\ `31 < dimindex(:'a)` by fs[good_dimindex_def]
-      \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
+      \\ simp[wordLangTheory.word_sh_def]
       \\ simp[wordSemTheory.set_var_def]
       \\ simp[wordSemTheory.word_exp_def]
       \\ fs[adjust_var_def,lookup_insert]
@@ -3568,7 +3567,7 @@ val th = Q.store_thm("assign_WordFromInt",
     \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Shift``)) o concl)]
     \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Var``)) o concl)]
     \\ fs[wordSemTheory.get_var_def]
-    \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ simp[wordLangTheory.word_sh_def]
     \\ simp[wordSemTheory.set_var_def]
     \\ rpt_drule memory_rel_Number_IMP
     \\ strip_tac \\ clean_tac
@@ -4515,7 +4514,7 @@ val assign_BoundsCheckBlock = store_thm("assign_BoundsCheckBlock",
                                  (let addr = real_addr c (adjust_var v1) in
                                   let header = Load addr in
                                   let k = dimindex (:'a) - c.len_size in
-                                    Shift Lsr header (Nat k)));
+                                    Shift Lsr header k));
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
@@ -4565,7 +4564,7 @@ val th = Q.store_thm("assign_BoundsCheckBlock",
   \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
        (match_mp_tac (GEN_ALL get_real_addr_lemma)
         \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
-  \\ fs [eq_eval,word_sh_def,num_exp_def]
+  \\ fs [eq_eval,word_sh_def]
   \\ fs [list_Seq_def,eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
   \\ `c.len_size < dimindex (:α) /\
@@ -4595,7 +4594,7 @@ val assign_BoundsCheckArray = store_thm("assign_BoundsCheckArray",
                                (let addr = real_addr c (adjust_var v1) in
                                 let header = Load addr in
                                 let k = dimindex (:'a) - c.len_size in
-                                  Shift Lsr header (Nat k));
+                                  Shift Lsr header k);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
@@ -4633,7 +4632,7 @@ val th = Q.store_thm("assign_BoundsCheckArray",
   \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
        (match_mp_tac (GEN_ALL get_real_addr_lemma)
         \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
-  \\ fs [eq_eval,word_sh_def,num_exp_def]
+  \\ fs [eq_eval,word_sh_def]
   \\ fs [list_Seq_def,eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
   \\ `c.len_size < dimindex (:α) /\
@@ -4665,7 +4664,7 @@ val assign_BoundsCheckByte = store_thm("assign_BoundsCheckByte",
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
                                 let k = dimindex (:'a) - c.len_size - extra in
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
-                                  Op Sub [Shift Lsr header (Nat k); Const kk]);
+                                  Op Sub [Shift Lsr header k; Const kk]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
@@ -4704,7 +4703,7 @@ val th = Q.store_thm("assign_BoundsCheckByte",
   \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
        (match_mp_tac (GEN_ALL get_real_addr_lemma)
         \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
-  \\ fs [eq_eval,word_sh_def,num_exp_def]
+  \\ fs [eq_eval,word_sh_def]
   \\ fs [list_Seq_def,eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
   \\ `c.len_size < dimindex (:α) /\
@@ -7893,7 +7892,7 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ once_rewrite_tac [list_Seq_def]
   \\ `n2w (4 * tot_len) ⋙ 2 = n2w tot_len:'a word` by
       (rewrite_tac [GSYM w2n_11,w2n_lsr,w2n_n2w] \\ fs [] \\ rfs [] \\ NO_TAC)
-  \\ fs [eq_eval,wordLangTheory.word_sh_def,num_exp_def]
+  \\ fs [eq_eval,wordLangTheory.word_sh_def]
   \\ qpat_abbrev_tac `full_header = word_or _ _`
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,s2)`
