@@ -531,8 +531,6 @@ val res = translate (wordLangTheory.word_sh_def
   |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv32 |> we_simp |> SIMP_RULE (srw_ss()++ARITH_ss) [SHIFT_ZERO,MOD_LESS] |> gconv
   |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt]  );
 
-val _ = translate (wordLangTheory.num_exp_def |> conv32);
-
 val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec32 |> REWRITE_RULE[word_msb_rw]);
 
 (* TODO: remove when pmatch is fixed *)

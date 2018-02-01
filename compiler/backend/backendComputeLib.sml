@@ -428,8 +428,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Tys
     [ (* wordLang *)
-     ``:'a wordLang$num_exp``
-    ,``:'a wordLang$exp``
+     ``:'a wordLang$exp``
     ,``:'a wordLang$prog``
       (* word_bignum *)
     ,``:word_bignum$address``
@@ -437,7 +436,6 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [wordLangTheory.every_var_exp_def
-    ,wordLangTheory.num_exp_def
     ,wordLangTheory.word_sh_def
     ,wordLangTheory.word_op_def
     ,wordLangTheory.every_var_imm_def

@@ -5812,7 +5812,6 @@ val word_exp_rw = save_thm("word_exp_rw",LIST_CONJ
    wordLangTheory.word_op_def,
    wordLangTheory.word_sh_def,
    wordSemTheory.get_var_imm_def,
-   wordLangTheory.num_exp_def,
    wordSemTheory.the_words_def,
    lookup_insert]);
 
