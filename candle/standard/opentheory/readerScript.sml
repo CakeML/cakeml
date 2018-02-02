@@ -596,6 +596,7 @@ val readLines_def = Define `
 
 val _ = temp_overload_on ("A", ``Tyvar (strlit"A")``);
 val _ = temp_overload_on ("B", ``Tyvar (strlit"B")``);
+val _ = temp_overload_on ("Ind", ``Tyapp (strlit"ind") []``);
 
 (* -- ETA_AX: |- !t. (\x. t x) = t ----------------------------------------- *)
 
@@ -741,17 +742,13 @@ val mk_exists_def = Define `
 val mk_surj_def = Define `
   mk_surj f dom codom=
     do
-      (* unsure about this: comb (f, \f...) or not ? *)
       ty <- type_of f;
-      f' <- return (mk_var (strlit"f'", ty));
       y <- return (mk_var (strlit"y", codom));
       x <- return (mk_var (strlit"x", dom));
-      fx <- mk_comb (f', x);
+      fx <- mk_comb (f, x);
       eq <- mk_eq (y, fx);
       ex <- mk_exists (x, eq);
-      all <- mk_forall (y, ex);
-      abs <- mk_abs (f', all);
-      mk_comb (abs, f)
+      mk_forall (y, ex);
     od`;
 
 (* injective f :=     !x y. f x = f y ==> x = y *)
@@ -760,18 +757,15 @@ val mk_inj_def = Define `
   mk_inj f dom =
     do
       ty <- type_of f;
-      f' <- return (mk_var (strlit"f'", ty));
       x <- return (mk_var (strlit"x", dom));
       y <- return (mk_var (strlit"y", dom));
-      fx <- mk_comb (f', x);
-      fy <- mk_comb (f', y);
+      fx <- mk_comb (f, x);
+      fy <- mk_comb (f, y);
       lhs <- mk_eq (fx, fy);
       rhs <- mk_eq (x, y);
       imp <- mk_imp (lhs, rhs);
       yall <- mk_forall (y, imp);
-      xall <- mk_forall (x, yall);
-      abs <- mk_abs (f', xall);
-      mk_comb (abs, f)
+      mk_forall (x, yall);
     od`;
 
 (* F := !p. p *)
@@ -803,9 +797,9 @@ val mk_neg_def = Define `
 val mk_infinity_ax_def = Define `
   mk_infinity_ax () =
     do
-      f <- return (mk_var (strlit"f", Fun A B));
-      surj <- mk_surj f A B;
-      inj <- mk_inj f A;
+      f <- return (mk_var (strlit"f", Fun Ind Ind));
+      surj <- mk_surj f Ind Ind;
+      inj <- mk_inj f Ind;
       nsurj <- mk_neg surj;
       conj <- mk_conj (inj, nsurj);
       mk_exists (f, conj)
