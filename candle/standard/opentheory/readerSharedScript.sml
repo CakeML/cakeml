@@ -98,10 +98,32 @@ val r = translate lines_read_def
 val r = translate next_line_def
 val r = translate line_Fail_def
 
-val r = translate reader_tys_def
-val r = translate reader_const_def
-val r = translate reader_axs_def
-val r = translate mk_reader_ctxt_def
+(* --- Translate axioms --- *)
+
+val r = m_translate mk_true_def
+val r = m_translate mk_univ_def
+val r = m_translate mk_forall_def
+val r = m_translate mk_eta_ax_def
+val r = translate select_const_def
+val r = m_translate mk_conj_const_def
+val r = m_translate mk_conj_def
+val r = m_translate mk_imp_const_def
+val r = m_translate mk_imp_def
+val r = m_translate mk_select_ax_def
+val r = m_translate mk_ex_def
+val r = m_translate mk_exists_def
+val r = m_translate mk_surj_def
+val r = m_translate mk_inj_def
+val r = m_translate mk_false_def
+val r = m_translate mk_neg_const_def
+val r = m_translate mk_neg_def
+val r = m_translate mk_infinity_ax_def
+val r = m_translate mk_ind_type_def
+val r = m_translate mk_select_const_def
+val r = m_translate mk_reader_ctxt_def
+val r = m_translate mk_types_def
+val r = m_translate mk_consts_def
+val r = m_translate mk_axs_def
 val r = m_translate set_reader_ctxt_def
 
 val r = translate msg_success_def

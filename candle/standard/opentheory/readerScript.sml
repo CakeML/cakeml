@@ -594,169 +594,286 @@ val readLines_def = Define `
 (* AXIOMS                                                                    *)
 (* ------------------------------------------------------------------------- *)
 
-(* The axioms needs to be more explicit than in holAxiomsSyntax; e.g.        *)
-(* |- (\P. P = \x. T) (\x. P[x]) over |- !x. P[x]                            *)
-(* (Perhaps this is also true for Candle as well?)                           *)
+val _ = temp_overload_on ("A", ``Tyvar (strlit"A")``);
+val _ = temp_overload_on ("B", ``Tyvar (strlit"B")``);
 
 (* -- ETA_AX: |- !t. (\x. t x) = t ----------------------------------------- *)
 
-val _ = temp_overload_on ("A", ``Tyvar (strlit"A")``);
-val _ = temp_overload_on ("B", ``Tyvar (strlit"B")``);
-val _ = temp_overload_on ("a", ``Var (strlit"a") (Fun (Fun A B) Bool)``);
-val _ = temp_overload_on ("b", ``Var (strlit"b") (Fun A B)``);
-val _ = temp_overload_on ("c", ``Var (strlit"c") Bool``);
-val _ = temp_overload_on ("d", ``Var (strlit"d") (Fun A B)``);
-val _ = temp_overload_on ("e", ``Var (strlit"e") A``);
+(* T := (\p. p) = \p. p *)
+val mk_true_def = Define `
+  mk_true () =
+    do
+      p <- return (mk_var (strlit"p", Bool));
+      f <- mk_abs (p, p);
+      mk_eq (f, f)
+    od`;
 
-(* TODO This term came from the opentheory tool and is just here as a sanity *)
-(* check for the types.                                                      *)
-val eta_ax_term_def = Define `
-  eta_ax_term =
-    Comb (Abs a (Comb (Comb (Const (strlit"=") (Fun (Fun (Fun A B) Bool) (Fun
-    (Fun (Fun A B) Bool) Bool))) a) (Abs b (Comb (Comb (Const (strlit"=") (Fun
-    (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c))))) (Abs d
-    (Comb (Comb (Const (strlit"=") (Fun (Fun A B) (Fun (Fun A B) Bool))) (Abs e
-    (Comb d e))) d))`
+(* (!) := \p. (p = \x. T) *)
+val mk_univ_def = Define `
+  mk_univ ty =
+    do
+      p <- return (mk_var (strlit"p", Fun ty Bool));
+      x <- return (mk_var (strlit"x", ty));
+      tru <- mk_true ();
+      f <- mk_abs (x, tru);
+      b <- mk_eq (p, f);
+      mk_abs (p, b)
+    od`;
 
-val eta_ax_term_ok = Q.prove (
-  `eta_ax_term has_type Bool`,
-  EVAL_TAC \\ ntac 21 (fs [Once has_type_cases]));
+(* !x. P[x] := (!) (\x. P[x]) *)
+val mk_forall_def = Define `
+  mk_forall (v, P) =
+    do
+      ty <- type_of v;
+      all <- mk_univ ty;
+      pabs <- mk_abs (v, P);
+      mk_comb (all, pabs)
+    od`;
 
-val _ = temp_overload_on ("t", ``Var (strlit"t") (Fun A B)``);
-val _ = temp_overload_on ("x", ``Var (strlit"x") A``);
-val _ = temp_overload_on ("y", ``Var (strlit"y") Bool``);
-val _ = temp_overload_on ("P", ``Var (strlit"P") (Fun (Fun A B) Bool)``);
-val _ = temp_overload_on ("TRUE", ``Abs y y === Abs y y``);
-val _ = temp_overload_on ("ALL", ``Abs P (P === Abs t TRUE)``);
-val _ = temp_overload_on ("FORALL", ``\v b. Comb ALL (Abs v b)``);
-
-val TRUE_ok = Q.prove (
-  `TRUE has_type Bool`,
-  EVAL_TAC \\ ntac 5 (fs [Once has_type_cases]));
-
-val ALL_ok = Q.prove (
-  `ALL has_type Fun (Fun (Fun A B) Bool) Bool`,
-  EVAL_TAC \\ ntac 11 (fs [Once has_type_cases]));
-
-(* Axiom *)
-val eta_ax_def = Define `eta_ax = FORALL t (Abs x (Comb t x) === t)`
-
-(* Sanity check *)
-val eta_ok = Q.prove (
-  `aconv eta_ax eta_ax_term`,
-  EVAL_TAC);
+(* !(t: 'a -> 'b). (\(x:'a). t x) = t *)
+val mk_eta_ax_def = Define `
+  mk_eta_ax () =
+    do
+      t <- return (mk_var (strlit"t", Fun A B));
+      x <- return (mk_var (strlit"x", A));
+      body <- mk_comb (t, x);
+      tabs <- mk_abs (x, body);
+      P <- mk_eq (tabs, t);
+      mk_forall (t, P)
+    od`;
 
 (* -- SELECT_AX: |- !p. (!x. (p x) ==> (p ((select) p))) ------------------- *)
 
-val _ = temp_overload_on ("a", ``Var (strlit"a") (Fun (Fun A Bool) Bool)``);
-val _ = temp_overload_on ("b", ``Var (strlit"b") (Fun A Bool)``);
-val _ = temp_overload_on ("c", ``Var (strlit"c") Bool``);
-val _ = temp_overload_on ("d", ``Var (strlit"d") (Fun A Bool)``);
-val _ = temp_overload_on ("e", ``Var (strlit"e") (Fun A Bool)``);
-val _ = temp_overload_on ("f", ``Var (strlit"f") A``);
-val _ = temp_overload_on ("g", ``Var (strlit"g") A``);
-val _ = temp_overload_on ("h", ``Var (strlit"h") Bool``);
-val _ = temp_overload_on ("i", ``Var (strlit"i") Bool``);
-val _ = temp_overload_on ("j", ``Var (strlit"j") Bool``);
-val _ = temp_overload_on ("k", ``Var (strlit"k") Bool``);
-val _ = temp_overload_on ("l", ``Var (strlit"l") (Fun Bool (Fun Bool Bool))``);
-val _ = temp_overload_on ("m", ``Var (strlit"m") (Fun Bool (Fun Bool Bool))``);
+(* @ *)
+val select_const_def = Define `
+  select_const = Const (strlit"@") (Fun (Fun A Bool) A)`;
 
-val _ = temp_overload_on ("select", ``Const (strlit"@") (Fun (Fun A Bool) A)``)
+(* (/\) := \p q. (\f. f p q) = \f. f T T *)
+val mk_conj_const_def = Define `
+  mk_conj_const () =
+    do
+      p <- return (mk_var (strlit"p", Bool));
+      q <- return (mk_var (strlit"q", Bool));
+      t <- mk_true ();
+      f <- return (mk_var (strlit"f", Fun Bool (Fun Bool Bool)));
+      ft <- mk_comb (f, t); ftt <- mk_comb (ft, t);
+      fp <- mk_comb (f, p); fpq <- mk_comb (fp, q);
+      labs <- mk_abs (f, fpq);
+      rabs <- mk_abs (f, ftt);
+      eq <- mk_eq (labs, rabs);
+      eabs <- mk_abs (q, eq);
+      mk_abs (p, eabs)
+    od`;
 
-val select_ax_term_def = Define `
-  select_ax_term =
-    Comb (Abs a (Comb (Comb (Const (strlit"=") (Fun (Fun (Fun A Bool) Bool)
-    (Fun (Fun (Fun A Bool) Bool) Bool))) a) (Abs b (Comb (Comb (Const (strlit"=")
-    (Fun (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c)))))
-    (Abs d (Comb (Abs e (Comb (Comb (Const (strlit"=") (Fun (Fun A Bool)
-    (Fun (Fun A Bool) Bool))) e) (Abs f (Comb (Comb (Const (strlit"=") (Fun
-    (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c)))))
-    (Abs g (Comb (Comb (Abs h (Abs i (Comb (Comb (Const (strlit"=") (Fun Bool
-    (Fun Bool Bool))) (Comb (Comb (Abs j (Abs k (Comb (Comb (Const (strlit"=")
-    (Fun (Fun (Fun Bool (Fun Bool Bool)) Bool) (Fun (Fun (Fun Bool
-    (Fun Bool Bool)) Bool) Bool))) (Abs l (Comb (Comb l j) k))) (Abs m (Comb
-    (Comb m (Comb (Comb (Const (strlit"=") (Fun (Fun Bool Bool) (Fun
-    (Fun Bool Bool) Bool))) (Abs c c)) (Abs c c))) (Comb (Comb (Const (strlit"=")
-    (Fun (Fun Bool Bool) (Fun (Fun Bool Bool) Bool))) (Abs c c))
-    (Abs c c))))))) h) i)) h))) (Comb d g)) (Comb d (Comb select d))))))`;
+(* p /\ q *)
+val mk_conj_def = Define `
+  mk_conj (p, q) =
+    do
+      c <- mk_conj_const ();
+      app <- mk_comb (c, p);
+      mk_comb (app, q)
+    od`;
 
-val select_ax_term_ok = Q.prove (
-  `select_ax_term has_type Bool`,
-  EVAL_TAC \\ ntac 66 (fs [Once has_type_cases]));
+(* (==>) := \p q. p /\ q = p *)
+val mk_imp_const_def = Define `
+  mk_imp_const () =
+    do
+      p <- return (mk_var (strlit"p", Bool));
+      q <- return (mk_var (strlit"q", Bool));
+      conj <- mk_conj (p, q);
+      eq <- mk_eq (conj, p);
+      eabs <- mk_abs (q, eq);
+      mk_abs (p, eabs)
+    od`;
 
-val _ = temp_overload_on ("z", ``Var (strlit"z") (Fun Bool (Fun Bool Bool))``)
-val _ = temp_overload_on ("AND",
-  ``Abs h (Abs i ((Abs z (Comb (Comb z h) i)) ===
-                  (Abs z (Comb (Comb z TRUE) TRUE))))``);
-val _ = temp_overload_on ("CONJ", ``\a b. Comb (Comb AND a) b``);
+(* p ==> q *)
+val mk_imp_def = Define `
+  mk_imp (p, q) =
+    do
+      imp <- mk_imp_const ();
+      app <- mk_comb (imp, p);
+      mk_comb (app, q)
+    od`;
 
-val _ = temp_overload_on ("TRUE", ``Abs c c === Abs c c`` |> EVAL |> rconc);
-val _ = temp_overload_on ("P", ``Var (strlit"P") (Fun (Fun A B) Bool)``);
-val _ = temp_overload_on ("ALL", ``Abs a (a === Abs b TRUE)``);
-val _ = temp_overload_on ("ALL2", ``Abs e (e === Abs f TRUE)``);
-val _ = temp_overload_on ("FORALL", ``\v b. Comb ALL (Abs v b)``);
-val _ = temp_overload_on ("FORALL2", ``\v b. Comb ALL2 (Abs v b)``);
-val _ = temp_overload_on ("IMP", ``Abs h (Abs i (CONJ h i === h))``);
-val _ = temp_overload_on ("IMPL", ``\a b. Comb (Comb IMP a) b``);
-
-(* Axiom *)
-val select_ax_def = Define `
-  select_ax =
-    FORALL b
-      (FORALL2 f
-        (IMPL (Comb b f) (Comb b (Comb select b))))`
-
-(* Sanity check *)
-val select_ax_ok = Q.prove (
-  `aconv select_ax select_ax_term`,
-  EVAL_TAC);
+(* !p x. p x ==> p ((@) p) *)
+val mk_select_ax_def = Define `
+  mk_select_ax () =
+    do
+      p <- return (mk_var (strlit"p", Fun A Bool));
+      x <- return (mk_var (strlit"x", A));
+      px <- mk_comb (p, x);
+      sp <- mk_comb (select_const, p);
+      psp <- mk_comb (p, sp);
+      imp <- mk_imp (px, psp);
+      all <- mk_forall (x, imp);
+      mk_forall (p, all)
+    od`;
 
 (* -- INFINITY_AX: |- ?f. injective f /\ ~surjective f --------------------- *)
 
-(* TODO later, bool builds w/o it *)
-(*
-val _ = temp_overload_on ("FALSE", ``FORALL x x``);
-val _ = temp_overload_on ("NOT", ``\a. Abs a (IMP a FALSE)``);
-vl _ = temp_overload_on ("EXISTS",
-*)
+(* (?) := \p. !q. (!x. p x ==> q) ==> q *)
+val mk_ex_def = Define `
+  mk_ex ty =
+    do
+      p <- return (mk_var (strlit"p", Fun ty Bool));
+      q <- return (mk_var (strlit"q", Bool));
+      x <- return (mk_var (strlit"x", ty));
+      px <- mk_comb (p, x);
+      imp <- mk_imp (px, q);
+      l <- mk_forall (x, imp);
+      imp2 <- mk_imp (l, q);
+      all <- mk_forall (q, imp2);
+      mk_abs (p, all)
+    od`;
+
+(* ?x. P[x] := (?) (\x. P[x]) *)
+val mk_exists_def = Define `
+  mk_exists (v, P) =
+    do
+      ty <- type_of v;
+      ex <- mk_ex ty;
+      pabs <- mk_abs (v, P);
+      mk_comb (ex, pabs)
+    od`;
+
+(* surjective f :=     !y. ?x. y = f x *)
+(* surjective   := \f. !y. ?x. y = f x *)
+val mk_surj_def = Define `
+  mk_surj f dom codom=
+    do
+      (* unsure about this: comb (f, \f...) or not ? *)
+      ty <- type_of f;
+      f' <- return (mk_var (strlit"f'", ty));
+      y <- return (mk_var (strlit"y", codom));
+      x <- return (mk_var (strlit"x", dom));
+      fx <- mk_comb (f', x);
+      eq <- mk_eq (y, fx);
+      ex <- mk_exists (x, eq);
+      all <- mk_forall (y, ex);
+      abs <- mk_abs (f', all);
+      mk_comb (abs, f)
+    od`;
+
+(* injective f :=     !x y. f x = f y ==> x = y *)
+(* injective   := \f. !x y. f x = f y ==> x = y *)
+val mk_inj_def = Define `
+  mk_inj f dom =
+    do
+      ty <- type_of f;
+      f' <- return (mk_var (strlit"f'", ty));
+      x <- return (mk_var (strlit"x", dom));
+      y <- return (mk_var (strlit"y", dom));
+      fx <- mk_comb (f', x);
+      fy <- mk_comb (f', y);
+      lhs <- mk_eq (fx, fy);
+      rhs <- mk_eq (x, y);
+      imp <- mk_imp (lhs, rhs);
+      yall <- mk_forall (y, imp);
+      xall <- mk_forall (x, yall);
+      abs <- mk_abs (f', xall);
+      mk_comb (abs, f)
+    od`;
+
+(* F := !p. p *)
+val mk_false_def = Define `
+  mk_false () =
+    do
+      p <- return (mk_var (strlit"p", Bool));
+      mk_forall (p, p)
+    od`;
+
+(* (~) := \p. p ==> F *)
+val mk_neg_const_def = Define `
+  mk_neg_const () =
+    do
+      p <- return (mk_var (strlit"p", Bool));
+      f <- mk_false ();
+      imp <- mk_imp (p, f);
+      mk_abs (p, imp)
+    od`;
+
+(* ~p := (~) p *)
+val mk_neg_def = Define `
+  mk_neg p =
+    do
+      neg <- mk_neg_const ();
+      mk_comb (neg, p)
+    od`;
+
+val mk_infinity_ax_def = Define `
+  mk_infinity_ax () =
+    do
+      f <- return (mk_var (strlit"f", Fun A B));
+      surj <- mk_surj f A B;
+      inj <- mk_inj f A;
+      nsurj <- mk_neg surj;
+      conj <- mk_conj (inj, nsurj);
+      mk_exists (f, conj)
+    od`;
 
 (* ------------------------------------------------------------------------- *)
 (* Start reader with axioms                                                  *)
 (* ------------------------------------------------------------------------- *)
 
-val MK_ETA_AX_def = Define `MK_ETA_AX ctxt = NewAxiom eta_ax :: ctxt`;
-val MK_SELECT_AX_def = Define `
-  MK_SELECT_AX ctxt =
-    NewAxiom select_ax ::
-    NewConst (strlit"@") (Fun (Fun A Bool) A) :: ctxt`;
+val mk_ind_type_def = Define `
+  mk_ind_type () : (mlstring # num) M = return (strlit"ind", 0n)`;
 
-val MK_INFINITY_AX_def = Define `
-  MK_INFINITY_AX ctxt = NewType (strlit"ind") 0 :: ctxt`
+val mk_select_const_def = Define `
+  mk_select_const () : (mlstring # type) M =
+    return (strlit"@", Fun (Fun A Bool) A)`;
 
-val context_tm =
-  ``MK_ETA_AX (MK_SELECT_AX (MK_INFINITY_AX init_ctxt))``
-  |> EVAL |> rconc;
-
+(* Extend context *)
 val mk_reader_ctxt_def = Define `
-  mk_reader_ctxt () = ^context_tm`
-
-val reader_tys_tm = ``type_list ^context_tm`` |> EVAL |> rconc;
-val reader_tys_def = Define `reader_tys = ^reader_tys_tm`
-
-val reader_const_tm = ``const_list ^context_tm`` |> EVAL |> rconc;
-val reader_const_def = Define `reader_const = ^reader_const_tm`;
-
-val reader_axs_tm = ``MAP (Sequent []) (axiom_list ^context_tm)`` |> EVAL |> rconc;
-val reader_axs_def = Define `reader_axs = ^reader_axs_tm`
-
-val set_reader_ctxt = Define `
-  set_reader_ctxt (): unit holKernelPmatch$M =
+  mk_reader_ctxt ctxt =
     do
-      set_the_type_constants reader_tys;
-      set_the_term_constants reader_const;
-      set_the_axioms reader_axs;
-      set_the_context (mk_reader_ctxt ())
+      eta_term      <- mk_eta_ax ();
+      select_term   <- mk_select_ax ();
+      infinity_term <- mk_infinity_ax ();
+      (ind_name, ind_ar) <- mk_ind_type ();
+      (select_name, select_ty) <- mk_select_const ();
+      return (MAP NewAxiom [eta_term; select_term; infinity_term]      ++
+              [NewType ind_name ind_ar; NewConst select_name select_ty] ++
+              ctxt)
+    od`;
+
+(* Extend type constants *)
+val mk_types_def = Define `
+  mk_types tys =
+    do
+      ind <- mk_ind_type ();
+      return (ind::tys)
+    od`;
+
+(* Extend term constants *)
+val mk_consts_def = Define `
+  mk_consts cs =
+    do
+      select <- mk_select_const ();
+      return (select::cs)
+    od`;
+
+(* Extend axioms *)
+val mk_axs_def = Define `
+  mk_axs axs =
+    do
+      eta_term      <- mk_eta_ax ();
+      select_term   <- mk_select_ax ();
+      infinity_term <- mk_infinity_ax ();
+      return (MAP (Sequent []) [eta_term; select_term; infinity_term] ++ axs)
+    od`;
+
+(* Initialise context with all of the above *)
+val set_reader_ctxt = Define `
+  set_reader_ctxt () =
+    do
+      tys  <- get_the_type_constants; tys  <- mk_types tys;
+      cs   <- get_the_term_constants; cs   <- mk_consts cs;
+      axs  <- get_the_axioms;         axs  <- mk_axs axs;
+      ctxt <- get_the_context;        ctxt <- mk_reader_ctxt ctxt;
+      set_the_type_constants tys;
+      set_the_term_constants cs;
+      set_the_axioms axs;
+      set_the_context ctxt
     od`
 
 val _ = export_theory()

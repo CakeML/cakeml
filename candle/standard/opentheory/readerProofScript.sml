@@ -1112,12 +1112,7 @@ val set_reader_ctxt_ok = Q.store_thm("set_reader_ctxt_ok",
    ==>
    res = Success () /\
    ?defs. STATE defs refs`,
-  rw [set_reader_ctxt_def, st_ex_bind_def, st_ex_return_def,
-      set_the_type_constants_def, set_the_term_constants_def,
-      set_the_context_def, set_the_axioms_def, get_the_context_def,
-      init_refs_def, reader_tys_def, reader_const_def, reader_axs_def]
-  \\ EVAL_TAC \\ rw [Once RTC_CASES1, updates_cases] \\ EVAL_TAC
-  \\ cheat (* TODO update STATE_def *)
+  cheat (* TODO update STATE_def *)
   );
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
@@ -1166,9 +1161,8 @@ val read_file_def = Define`
 
 val set_reader_ctxt_no_exc = Q.store_thm("set_reader_ctxt_no_exc[simp]",
   `set_reader_ctxt () refs <> (Failure err, refs')`,
-  rw [set_reader_ctxt_def, st_ex_bind_def, st_ex_return_def,
-      get_the_context_def, set_the_term_constants_def,
-      set_the_type_constants_def, set_the_context_def, set_the_axioms_def]);
+  cheat (* TODO *)
+  );
 
 val reader_main_def = Define `
    reader_main fs refs cl =
