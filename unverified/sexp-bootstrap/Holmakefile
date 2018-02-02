@@ -1,0 +1,46 @@
+INCLUDES = ../../compiler/bootstrap/translation
+CLINE_OPTIONS = --qof
+
+ARCH = x64
+WORD_SIZE = 64
+BUILDDIR = build
+CAKEDIR = $(BUILDDIR)/existing-$(ARCH)-$(WORD_SIZE)
+STRAPDIR = $(BUILDDIR)/bootstrapped-$(ARCH)-$(WORD_SIZE)
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../../compiler/bootstrap/translation/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
+all: $(TARGETS) $(HOLHEAP) $(STRAPDIR)/cake
+.PHONY: all
+
+BARE_THYS = ../../compiler/bootstrap/translation/compiler$(WORD_SIZE)ProgTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+
+endif
+
+$(BUILDDIR)/cake.tar.gz:
+	mkdir -p $(BUILDDIR)
+	wget https://cakeml.org/cake-$(ARCH)-$(WORD_SIZE).tar.gz -O $(BUILDDIR)/cake.tar.gz
+
+$(CAKEDIR)/cake: $(BUILDDIR)/cake.tar.gz
+	mkdir -p $(CAKEDIR)
+	tar -xvzf $(BUILDDIR)/cake.tar.gz -C $(CAKEDIR) --strip-components 1
+	make -C $(CAKEDIR) cake
+
+$(STRAPDIR)/cake: $(CAKEDIR)/cake toSexpressionTheory.sml
+	mkdir -p $(STRAPDIR)
+	tar -xvzf $(BUILDDIR)/cake.tar.gz -C $(STRAPDIR) --strip-components 1
+	$(CAKEDIR)/cake --sexp=true --exclude_prelude=true --skip_type_inference=true < compiler-sexp-$(ARCH)-$(WORD_SIZE) > $(STRAPDIR)/cake.S
+	make -C $(STRAPDIR) cake
+
+EXTRA_CLEANS = $(BUILDDIR) compiler-sexp-$(ARCH)-$(WORD_SIZE)
