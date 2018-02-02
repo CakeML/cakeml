@@ -416,8 +416,8 @@ val _ = append_prog print_matching_lines;
 
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   WORD ((n2w fd):word8) fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
-   fd ≤ 255 ∧ IS_SOME (get_file_content fs fd) ⇒
+   FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
+   IS_SOME (get_file_content fs fd) ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
      (STDIO fs)
@@ -557,8 +557,8 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ rveq
   \\ xlet_auto >- xsimpl
   \\ qmatch_asmsub_abbrev_tac`add_stdout fs out`
-  \\ imp_res_tac nextFD_leX
-  \\ imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD
+  \\ imp_res_tac nextFD_ltX
+  \\ imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[]
   \\ imp_res_tac STD_streams_nextFD
   \\ rpt(first_x_assum(qspec_then`0`strip_assume_tac))
   \\ xlet_auto >- xsimpl
@@ -569,7 +569,8 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ xsimpl
   \\ rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`]
   \\ simp[o_DEF,mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
-  \\ srw_tac[ETA_ss][linesFD_openFileFS_nextFD,FILTER_MAP,o_DEF]
+  \\ fs[linesFD_openFileFS_nextFD]
+  \\ srw_tac[ETA_ss][FILTER_MAP,o_DEF]
   \\ simp[MAP_MAP_o,o_DEF]
   \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
   \\ simp[GSYM add_stdo_A_DELKEY,openFileFS_A_DELKEY_nextFD]
