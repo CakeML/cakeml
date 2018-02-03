@@ -18,6 +18,17 @@ val _ = temp_overload_on ("CONTAINER", ``ml_translator$CONTAINER``);
 
 val _ = hide "state";
 
+(* Tests *)
+val _ = Hol_datatype `exn_type = Fail of string | Subscript`
+val _ = register_type ``:string``
+
+val ty = ``:exn_type``
+val is_exn_type = true
+
+val _ = register_exn_type ``:exn_type``
+
+(*********)
+
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
 val REF_EXISTS_LOC = Q.prove(`(rv ~~> v * H) s ==> ?l. rv = Loc l`,
