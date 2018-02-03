@@ -725,7 +725,7 @@ fun tag_name type_name const_name =
   if (type_name = "OPTION_TYPE") andalso (const_name = "NONE") then "NONE" else
   if (type_name = "OPTION_TYPE") andalso (const_name = "SOME") then "SOME" else
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
-  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else 
+  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else
 let
     val x = clean_lowercase type_name
     val y = clean_lowercase const_name
@@ -1421,7 +1421,12 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val pat = tm
     fun str_tl s = implode (tl (explode s))
     val exps = map (fn (x,_,_) => (x,mk_var("exp" ^ str_tl (fst (dest_var x)), astSyntax.exp_ty))) xs
-    val tag = tag_name name (repeat rator tm |> dest_const |> fst)
+    val tag = inv_def
+        |> CONJUNCTS |> map (concl o SPEC_ALL)
+        |> first (can (match_term tm) o rand o rator o fst o dest_eq)
+        |> find_term optionSyntax.is_some |> rand |> dest_pair |> fst
+        |> stringSyntax.fromHOLstring
+        handle HOL_ERR _ => tag_name name (repeat rator tm |> dest_const |> fst)
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator

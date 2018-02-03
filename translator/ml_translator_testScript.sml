@@ -73,6 +73,9 @@ val or_pre_def = Define`
 val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
+val _ = Hol_datatype `exn_type = Fail of string | Subscript`
+val _ = register_exn_type ``:exn_type``
+
 val _ = (print_asts := true);
 
 val _ = export_theory();
