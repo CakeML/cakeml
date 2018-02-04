@@ -2670,16 +2670,16 @@ val evaluate_handle_mult_CASE_MODULE = Q.prove(`
   ∀EXN_TYPE cons_names module_name ename exp1 s s2 e ev env.
      (∀e ev.
          EXN_TYPE e ev ⇒
-         ∃ev' cname.
+         ∃evp cname.
             MEM cname cons_names ∧
             ev =
             Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
-              [ev']) ⇒
+              evp) ⇒
      evaluate F env (s:unit state) exp1 (s2,Rerr (Rraise ev)) ∧ EXN_TYPE e ev ⇒
-     ∃cname ev'.
+     ∃cname evp.
         ev =
         Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
-          [ev'] ∧
+          evp ∧
         evaluate F env s (handle_mult cons_names exp1 ename) =
         evaluate F (write "e" ev env) s2
           (Con (SOME (Short ename)) [Var (Short "e")])`,
@@ -2689,16 +2689,16 @@ val evaluate_handle_mult_CASE_SIMPLE = Q.prove(`
   ∀EXN_TYPE cons_names module_name ename exp1 s s2 e ev env.
      (∀e ev.
          EXN_TYPE e ev ⇒
-         ∃ev' cname.
+         ∃evp cname.
             MEM cname cons_names ∧
             ev =
             Conv (SOME (cname,TypeExn (Short cname)))
-              [ev']) ⇒
+              evp) ⇒
      evaluate F env (s:unit state) exp1 (s2,Rerr (Rraise ev)) ∧ EXN_TYPE e ev ⇒
-     ∃cname ev'.
+     ∃cname evp.
         ev =
         Conv (SOME (cname,TypeExn (Short cname)))
-          [ev'] ∧
+          evp ∧
         evaluate F env s (handle_mult cons_names exp1 ename) =
         evaluate F (write "e" ev env) s2
           (Con (SOME (Short ename)) [Var (Short "e")])`,
@@ -2798,11 +2798,11 @@ val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",`
   ∀cons_names module_name TYPE EXN_TYPE x exp H init_state MNAME env.
    (∀e ev.
        EXN_TYPE e ev ⇒
-       ∃ev' e' cname.
+       ∃evp e' cname.
           MEM cname cons_names ∧
           ev =
           Conv (SOME (cname,TypeExn (Long module_name (Short cname))))
-            [ev']) ⇒
+            evp) ⇒
    EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
    lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ⇒
    lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ⇒
@@ -2815,11 +2815,11 @@ val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
   ∀cons_names module_name TYPE EXN_TYPE x exp H init_state MNAME env.
    (∀e ev.
        EXN_TYPE e ev ⇒
-       ∃ev' e' cname.
+       ∃evp e' cname.
           MEM cname cons_names ∧
           ev =
           Conv (SOME (cname,TypeExn ((Short cname))))
-            [ev']) ⇒
+            evp) ⇒
    EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
    lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ⇒
    lookup_cons "Failure" env = SOME (1,TypeId (Short MNAME)) ⇒
