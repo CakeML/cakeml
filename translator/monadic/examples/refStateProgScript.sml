@@ -129,6 +129,7 @@ val (monad_parameters, store_translation, exn_specs) =
 val simple_fun_v_thm = simple_fun_def |> m_translate;
 
 (* It is of course possible to translate recursive functions *)
+val def = rec_fun_def
 val rec_fun_v_thm = rec_fun_def |> m_translate;
 
 (* And others... *)

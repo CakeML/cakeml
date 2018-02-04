@@ -32,9 +32,8 @@ val _ = Hol_datatype `
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
-val _ = register_type ``:unit``;
 val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
@@ -52,8 +51,8 @@ val [(ref1_name, get_ref1_def, set_ref1_def),
      (farray1_name, get_farry1_def, set_farray1_def),
      (farray2_name, get_farry2_def, set_farray2_def)] = access_funs;
 
-val sub_exn = ``ReadError ()``;
-val update_exn = ``WriteError ()``;
+val sub_exn = ``Subscript``;
+val update_exn = ``Subscript``;
 
 val arrays_access_funs = List.drop (access_funs, 2);
 val farrays_manip_list = List.drop (arrays_access_funs, 2);
@@ -160,8 +159,6 @@ val run_test6_v_thm = m_translate_run run_test6_def;
 
 val crun_test6_def = Define `crun_test6 n x = run_init_state (test6 n x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
 val crun_test6_v_thm = m_translate_run crun_test6_def;
-
-
 
 (* ... *)
 
