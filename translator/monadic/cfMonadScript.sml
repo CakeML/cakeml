@@ -369,7 +369,7 @@ val EvalM_from_app = Q.store_thm("EvalM_from_app",
 val parsed_terms = save_thm("parsed_terms",
   packLib.pack_list
    (packLib.pack_pair packLib.pack_string packLib.pack_term)
-      [("PURE",``PURE : ('a -> v -> bool) -> ('a, 'ffi, 'b) H``),
+      [("PURE",``PURE : ('a -> v -> bool) -> ('a, 'b) H``),
        ("p",mk_var("p", ``:'ffi ffi_proj``)),
        ("emp",``emp:hprop``)]);
 

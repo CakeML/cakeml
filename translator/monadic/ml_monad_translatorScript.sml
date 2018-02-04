@@ -2313,8 +2313,8 @@ RARRAY2D rv l = SEP_EXISTS av. REF rv av * ARRAY2D av l`;
 val EvalSt_def = Define `
   EvalSt env st exp P H =
     !(s: unit semanticPrimitives$state). REFS_PRED H st s ==>
-    !junk. ?s2 res st2.
-    evaluate F env (s with refs := s.refs ++ junk) exp (s2, Rval res) /\
+    ?s2 res st2.
+    evaluate F env s exp (s2, Rval res) /\
     P res /\ REFS_PRED_FRAME T H (st, s) (st2, s2)`;
 
 val LENGTH_Mem_IN_store2heap = Q.prove(
@@ -2378,7 +2378,7 @@ val EvalSt_to_Eval = Q.store_thm("EvalSt_to_Eval",
   `EvalSt env st exp P ((\s. emp),p) ==> Eval env exp P`,
   rw[EvalSt_def, Eval_def]
   \\ fs[REFS_PRED_def, SEP_CLAUSES, SAT_GC]
-  \\ first_x_assum(qspecl_then [`empty_state with refs := refs`, `[]`]
+  \\ first_x_assum(qspecl_then [`empty_state with refs := refs`]
         STRIP_ASSUME_TAC)
   \\ fs[state_component_equality]
   \\ fs[REFS_PRED_FRAME_def, SEP_CLAUSES]
@@ -2513,7 +2513,6 @@ val EXC_TYPE_aux_def = Define `
 val prove_EvalM_to_EvalSt =
   rw[EvalM_def, EvalSt_def]
   \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
   \\ Cases_on `res`
   (* res is an Rval *)
   >-(
@@ -2542,7 +2541,7 @@ val prove_EvalM_to_EvalSt =
   \\ LAST_ASSUM IMP_RES_TAC
   \\ (drule evaluate_handle_mult_CASE_MODULE
       ORELSE drule evaluate_handle_mult_CASE_SIMPLE)
-  \\ `evaluate F env (s with refs := s.refs ⧺ junk)
+  \\ `evaluate F env s
         (Con (SOME (Short "Success")) [exp])
         (s2,Rerr (Rraise a))` by
    (simp [Once evaluate_cases]
@@ -2636,7 +2635,6 @@ val EvalSt_Let_Fun = Q.store_thm("EvalSt_Let_Fun",
    EvalSt env st (Let (SOME vname) (Fun xv fexp) exp) P H`,
   rw[EvalSt_def]
   \\ last_x_assum IMP_RES_TAC
-  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
   \\ rw[Once evaluate_cases]
   \\ rw[Once evaluate_cases]
   \\ rw[namespaceTheory.nsOptBind_def]
@@ -2678,7 +2676,6 @@ val EvalSt_Letrec_Fun = Q.store_thm("EvalSt_Letrec_Fun",
   EvalSt env st (Letrec funs exp) P H`,
   rw[EvalSt_def]
   \\ qpat_x_assum `!s. A` IMP_RES_TAC
-  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
   \\ rw[Once evaluate_cases]
   \\ `<|v := build_rec_env funs env env.v; c := env.c|> =
       env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
@@ -2702,14 +2699,6 @@ val Bind_list_to_write = Q.store_thm("Bind_list_to_write",
   \\ Cases_on `n`
   \\ rw[namespaceTheory.nsAppend_def, namespaceTheory.nsBind_def]);
 
-(* val VALID_REFS_PRED_EvalM_simp = Q.store_thm("VALID_REFS_PRED_EvalM_simp",
-  `(VALID_REFS_PRED H ==> EvalM ro env st exp P H) <=> EvalM ro env st exp P ^H`,
-  EQ_TAC
-  \\ rw[]
-  \\ Cases_on `VALID_REFS_PRED H` >> fs[]
-  \\ rw[]
-  \\ fs[VALID_REFS_PRED_def, EvalM_def]); *)
-
 val evaluate_Var_IMP = Q.prove(
  `evaluate F env s1 (Var (Short name)) (s2, Rval v) ==>
   nsLookup env.v (Short name) = SOME v`,
@@ -2719,15 +2708,6 @@ val evaluate_Var_same_state = Q.prove(
  `evaluate F env s1 (Var (Short name)) (s2, res) <=>
   evaluate F env s1 (Var (Short name)) (s2, res) /\ s2 = s1`,
   EQ_TAC \\ ntac 2 (rw[Once evaluate_cases]));
-
-(* val REFS_PRED_Mem_Only_IMP_REF_REL = store_thm("REFS_PRED_Mem_Only_IMP_REF_REL",
-  ``REFS_PRED_Mem_Only H ==>
-    REFS_PRED_Mem_Only (λst'. REF_REL TYPE l (f st') * H st')``,
-  fs [REFS_PRED_Mem_Only_def,REF_REL_def,SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS,
-      REF_def,cell_def]
-  \\ simp_tac (srw_ss()++sep_cond_ss) [cond_STAR,one_STAR]
-  \\ rw [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
-  \\ Cases_on `x = Mem loc (Refv v)` \\ fs []); *)
 
 val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
   `!exp get_ref_exp get_ref loc_name TYPE st_name env H P st.
@@ -2740,21 +2720,21 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
   \\ ntac 3 (rw[Once evaluate_cases])
   \\ fs[Eval_def]
   \\ fs[PULL_EXISTS]
-  \\ last_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
-  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> ASSUME_TAC)
+  \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> ASSUME_TAC)
   \\ evaluate_unique_result_tac
   \\ rw[Once evaluate_cases]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ rw[state_component_equality,with_same_ffi]
-  \\ last_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ junk ++ refs'))`, `s with refs := s.refs ++ junk ++ refs' ++ [Refv res]`] ASSUME_TAC)
+  \\ last_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ refs'))`, `s with refs := s.refs ++ refs' ++ [Refv res]`] ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
       POP_ASSUM (fn x => ALL_TAC)
       \\ SIMP_TAC bool_ss [REFS_PRED_def]
       \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
       \\ SIMP_TAC bool_ss [Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ junk ++ refs')) [Refv res]`
-      \\ qexists_tac `st2heap p (s with refs := s.refs ++ junk ++ refs')`
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs')) [Refv res]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
       \\ SIMP_TAC bool_ss [GSYM REFS_PRED_def, REFS_PRED_append, GSYM APPEND_ASSOC]
@@ -2766,7 +2746,6 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
       \\ EXTRACT_PURE_FACTS_TAC
       \\ rw[REF_HPROP_SAT_EQ, cfStoreTheory.store2heap_aux_def])
   \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum (qspec_then `[]` strip_assume_tac)
   \\ fs[merge_env_def, write_def]
   \\ evaluate_unique_result_tac
   \\ fs[REFS_PRED_FRAME_def]
@@ -2779,8 +2758,8 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
   >-(
       rw[GSYM STAR_ASSOC]
       \\ rw[Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ junk ++ refs')) [Refv res]`
-      \\ qexists_tac `st2heap p (s with refs := s.refs ++ junk ++ refs')`
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs')) [Refv res]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ rw[STATE_SPLIT_REFS]
       >-(
@@ -2792,7 +2771,7 @@ val EvalSt_Opref = Q.store_thm("EvalSt_Opref",
       \\ rw[STAR_ASSOC]
       \\ rw[Once STAR_def]
       \\ qexists_tac `st2heap p (s with refs := s.refs)`
-      \\ qexists_tac `store2heap_aux (LENGTH s.refs) (junk ++ refs')`
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) (refs')`
       \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
       \\ rw[STATE_SPLIT_REFS, SAT_GC]
       \\ fs[REFS_PRED_def, with_same_refs])
@@ -2820,24 +2799,24 @@ val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
   \\ fs[do_con_check_def, build_conv_def]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ simp[with_same_ffi]
-  \\ last_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ junk ++ [Varray []]))`, `s with refs := s.refs ++ junk ++ [Varray []; Refv (Loc (LENGTH (s.refs ++ junk)))]`] ASSUME_TAC)
+  \\ last_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ [Varray []]))`, `s with refs := s.refs ++ [Varray []; Refv (Loc (LENGTH s.refs))]`] ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
       POP_ASSUM (fn x => ALL_TAC)
       \\ SIMP_TAC bool_ss [REFS_PRED_def]
       \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
       \\ SIMP_TAC bool_ss [Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ junk)) [Varray []; Refv (Loc (LENGTH (s.refs ⧺ junk)))]`
-      \\ qexists_tac `st2heap p (s with refs := s.refs ++ junk)`
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [Varray []; Refv (Loc (LENGTH s.refs))]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs)`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
-      \\ ASM_SIMP_TAC bool_ss [GSYM REFS_PRED_def, REFS_PRED_append]
+      \\ ASM_SIMP_TAC bool_ss [GSYM REFS_PRED_def, with_same_refs]
       \\ fs[RARRAY_REL_def, SEP_EXISTS]
       \\ EXTRACT_PURE_FACTS_TAC
       \\ fs[RARRAY_HPROP_SAT_EQ,EQ_def,store2heap_aux_def]
       \\ metis_tac[])
   \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum (qspec_then `[]` strip_assume_tac)
+(*  \\ first_x_assum (qspec_then `[]` strip_assume_tac) *)
   \\ fs[merge_env_def, write_def]
   \\ evaluate_unique_result_tac
   \\ fs[REFS_PRED_FRAME_def]
@@ -2848,8 +2827,8 @@ val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
   >-(
       rw[GSYM STAR_ASSOC]
       \\ rw[Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ junk)) [Varray []; Refv (Loc (LENGTH junk + LENGTH s.refs))]`
-      \\ qexists_tac `st2heap p (s with refs := s.refs ++ junk)`
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [Varray []; Refv (Loc (LENGTH s.refs))]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs)`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ fs[STATE_SPLIT_REFS]
       \\ rw[]
@@ -2860,11 +2839,8 @@ val EvalSt_AllocEmpty = Q.store_thm("EvalSt_AllocEmpty",
           \\ fs[RARRAY_HPROP_SAT_EQ,EQ_def,store2heap_aux_def]
           \\ metis_tac[])
       \\ fs[STAR_ASSOC]
-      \\ rw[Once STAR_def]
-      \\ qexists_tac `st2heap p s`
-      \\ qexists_tac `store2heap_aux (LENGTH s.refs) junk`
-      \\ fs[SAT_GC]
-      \\ metis_tac[GSYM with_same_refs, STATE_SPLIT_REFS])
+      \\ irule H_STAR_GC_SAT_IMP
+      \\ fs[with_same_refs])
   \\ first_x_assum drule \\ rw[]
   \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
   \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
@@ -2885,17 +2861,17 @@ val EvalSt_Alloc = Q.store_thm("EvalSt_Alloc",
   \\ ntac 3 (rw[Once evaluate_cases])
   \\ fs[PULL_EXISTS]
   \\ fs[Eval_def]
-  \\ first_x_assum(qspec_then `s.refs ++ junk` STRIP_ASSUME_TAC)
-  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ evaluate_unique_result_tac
   \\ rw[Once evaluate_cases]
-  \\ first_x_assum(qspec_then `s.refs ++ (junk ++ refs')` STRIP_ASSUME_TAC)
+  \\ first_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
   \\ fs[] \\ evaluate_unique_result_tac
   \\ rw[Once evaluate_cases]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ fs[with_same_ffi]
-  \\ first_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ junk ++ refs' ++ refs''))`, `s with refs := s.refs ++ junk ++ refs' ++ refs'' ++ [Varray (REPLICATE n res)]`] STRIP_ASSUME_TAC)
+  \\ first_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ refs' ++ refs''))`, `s with refs := s.refs ++ refs' ++ refs'' ++ [Varray (REPLICATE n res)]`] STRIP_ASSUME_TAC)
   \\ fs[]
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
@@ -2903,22 +2879,19 @@ val EvalSt_Alloc = Q.store_thm("EvalSt_Alloc",
       \\ SIMP_TAC bool_ss [REFS_PRED_def]
       \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
       \\ SIMP_TAC bool_ss [Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ junk ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
-      \\ qexists_tac `st2heap p (s with refs := s.refs ++ junk ++ refs' ++ refs'')`
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
       \\ fs[REFS_PRED_def] \\ fs[Once (GSYM with_same_refs)]
       \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
-      \\ first_x_assum(qspec_then `junk ++ refs' ++ refs''` STRIP_ASSUME_TAC)
+      \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
       \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
       \\ fs[store2heap_aux_def, ARRAY_REL_def, SEP_EXISTS]
       \\ qexists_tac `REPLICATE n res`
       \\ EXTRACT_PURE_FACTS_TAC
       \\ fs[EQ_def, LIST_REL_REPLICATE_same]
       \\ rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
-  \\ fs[]
-  \\ first_x_assum(qspec_then `[]` STRIP_ASSUME_TAC)
-  \\ fs[]
   \\ fs[write_def]
   \\ evaluate_unique_result_tac
   \\ fs[REFS_PRED_FRAME_def]
@@ -2930,13 +2903,13 @@ val EvalSt_Alloc = Q.store_thm("EvalSt_Alloc",
       POP_ASSUM (fn x => ALL_TAC)
       \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
       \\ SIMP_TAC bool_ss [Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ junk ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
-      \\ qexists_tac `st2heap p (s with refs := s.refs ++ junk ++ refs' ++ refs'')`
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
       \\ fs[REFS_PRED_def] \\ fs[Once (GSYM with_same_refs)]
       \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
-      \\ first_x_assum(qspec_then `junk ++ refs' ++ refs''` STRIP_ASSUME_TAC)
+      \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
       \\ fs[STAR_ASSOC]
       \\ rw[ARRAY_REL_def, ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]
       \\ fs[EQ_def, LIST_REL_REPLICATE_same])
@@ -3015,15 +2988,15 @@ val BETA_PAIR_THM = Q.store_thm("BETA_PAIR_THM",`(\(x, y). f x y) (x, y) = (\x y
 (* Terms used by the ml_monad_translatorLib *)
 val parsed_terms = save_thm("parsed_terms",
   pack_list (pack_pair pack_string pack_term)
-    [("EqSt remove",``!a st. EqSt a st = (a : ('a, 'ffi, 'b) H)``),
+    [("EqSt remove",``!a st. EqSt a st = (a : ('a, 'b) H)``),
      ("PURE ArrowP ro eq", ``PURE(ArrowP ro H (PURE (Eq a x)) b)``),
      ("ArrowP ro PURE", ``ArrowP ro H a (PURE b)``),
      ("ArrowP ro EqSt", ``ArrowP ro H (EqSt a st) b``),
      ("ArrowM_const",``ArrowM``),
      ("Eval_const",``Eval``),
      ("EvalM_const",``EvalM``),
-     ("MONAD_const",``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,'ffi,γ) H``),
-     ("PURE_const",``PURE : (α -> v -> bool) -> (α, 'ffi, β) H``),
+     ("MONAD_const",``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,γ) H``),
+     ("PURE_const",``PURE : (α -> v -> bool) -> (α, β) H``),
      ("FST_const",``FST : 'a # 'b -> 'a``),
      ("SND_const",``SND : 'a # 'b -> 'b``),
      ("LENGTH_const", ``LENGTH : 'a list -> num``),
