@@ -115,7 +115,7 @@ in simp uniques g end;
 
 (*
  * Definition of EvalM
- * `ro`: refs only
+ * `ro`: references only
  *)
 
 val EvalM_def = Define `
@@ -212,9 +212,6 @@ val ArrowP_def = Define `
 val ArrowM_def = Define `
   ArrowM ro H (a:('a, 'refs) H) (b:('b, 'refs) H) =
      PURE (ArrowP ro H a b) : ('a -> 'b, 'refs) H`;
-
-(*val _ = add_infix("-M->",400,HOLgrammars.RIGHT)
-val _ = overload_on ("-M->",``ArrowM``) *)
 
 val evaluate_list_cases = let
   val lemma = evaluate_cases |> CONJUNCTS |> el 2
@@ -1502,16 +1499,6 @@ rw[]
 \\ IMP_RES_TAC store2heap_IN_LENGTH
 \\ fs[store_lookup_def]);
 
-(*
-val store_lookup_REF_st2heap = Q.store_thm("store_lookup_REF_st2heap",
-`(Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME (Refv v)`,
-rw[]
-\\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP_REF
-\\ IMP_RES_TAC st2heap_REF_MEM
-\\ IMP_RES_TAC store2heap_IN_LENGTH
-\\ fs[store_lookup_def]);
-*)
-
 val store_lookup_REF_st2heap = Q.store_thm("store_lookup_REF_st2heap",
 `(Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Refv v)`,
 rw[]
@@ -1528,17 +1515,6 @@ rw[]
 \\ IMP_RES_TAC st2heap_REF_MEM
 \\ IMP_RES_TAC store2heap_IN_LENGTH
 \\ fs[store_lookup_def]);
-
-
-(*
-val store_lookup_ARRAY_st2heap = Q.store_thm("store_lookup_ARRAY_st2heap",
-`(ARRAY (Loc l) av * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME (Varray av)`,
-rw[]
-\\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP_ARRAY
-\\ IMP_RES_TAC st2heap_ARRAY_MEM
-\\ IMP_RES_TAC store2heap_IN_LENGTH
-\\ fs[store_lookup_def]);
-*)
 
 val store_lookup_ARRAY_st2heap = Q.store_thm("store_lookup_ARRAY_st2heap",
 `(ARRAY (Loc l) av * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Varray av)`,
@@ -1713,17 +1689,6 @@ rw[]
 \\ IMP_RES_TAC store_lookup_REF_st2heap_junk
 \\ fs[]);
 
-(* val do_app_Alength_ARRAY = Q.prove(
-`(ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) (s with refs := s.refs ++ junk)) ==>
-do_app (s.refs ++ junk, s.ffi) Alength [rv] =
-SOME ((s.refs ++ junk, s.ffi), Rval (Litv(IntLit(int_of_num(LENGTH v)))))`,
-rw[do_app_def]
-\\ fs[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
-\\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
-\\ IMP_RES_TAC store_lookup_CELL_st2heap
-\\ first_x_assum(qspec_then `[]` ASSUME_TAC)
-\\ fs[]); *)
-
 val do_app_Alength_ARRAY = Q.prove(
 `(ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
 do_app (s.refs, s.ffi) Alength [rv] =
@@ -1766,18 +1731,6 @@ val EvalM_R_Marray_length = Q.store_thm("EvalM_R_Marray_length",
   \\ IMP_RES_TAC LIST_REL_LENGTH
   \\ fs[REFS_PRED_FRAME_same]);
 
-(* val do_app_Asub_ARRAY = Q.prove(
-`(ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) (s with refs := s.refs ++ junk)) ==>
-do_app (s.refs ++ junk, s.ffi) Asub [rv; Litv (IntLit (&n))] =
-if n < LENGTH v then SOME ((s.refs ++ junk, s.ffi), Rval (EL n v))
-else SOME ((s.refs ++ junk, s.ffi), Rerr (Rraise (prim_exn "Subscript")))`,
-rw[do_app_def]
-\\ fs[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
-\\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
-\\ IMP_RES_TAC store_lookup_CELL_st2heap
-\\ first_x_assum(qspec_then `[]` ASSUME_TAC)
-\\ fs[ABS_NUM_EQ]); *)
-
 val do_app_Asub_ARRAY = Q.prove(
 `(ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
 !junk. do_app (s.refs ++ junk, s.ffi) Asub [rv; Litv (IntLit (&n))] =
@@ -1790,7 +1743,56 @@ rw[do_app_def]
 \\ fs[ABS_NUM_EQ]
 \\ Cases_on `n ≥ LENGTH v` \\ fs[]);
 
-val EvalM_R_Marray_sub = Q.store_thm("EvalM_R_Marray_sub",
+val EvalM_R_Marray_sub_subscript = Q.store_thm("EvalM_R_Marray_sub_subscript",
+  `!vname loc TYPE EXC_TYPE H get_arr e env n nexp.
+   EXC_TYPE e (prim_exn "Subscript") ==>
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st (App Asub [App Opderef [Var (Short vname)]; nexp])
+   ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`,
+  rw[EvalM_def]
+  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
+  \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
+  \\ IMP_RES_TAC REF_EXISTS_LOC
+  \\ first_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ evaluate_unique_result_tac
+  \\ fs[GSYM STAR_ASSOC]
+  \\ IMP_RES_TAC evaluate_Opdref_REF
+  \\ POP_ASSUM(qspec_then `refs'` ASSUME_TAC)
+  \\ fs[]
+  \\ evaluate_unique_result_tac
+  \\ fs[STAR_ASSOC]
+  \\ EXTRACT_PURE_FACTS_TAC
+  \\ IMP_RES_TAC LIST_REL_LENGTH
+  \\ rw[]
+  \\ fs[GSYM STAR_ASSOC]
+  \\ fs[Once STAR_COMM]
+  \\ fs[GSYM STAR_ASSOC]
+  \\ IMP_RES_TAC do_app_Asub_ARRAY
+  \\ first_x_assum (qspecl_then [`n`, `refs'`] assume_tac)
+  \\ fs[]
+  \\ Cases_on `n < LENGTH (get_arr st)`
+  >-(fs[]
+     \\ fs[MONAD_def, Marray_sub_def]
+     \\ qexists_tac `s with refs := s.refs ++ refs'`
+     \\ qexists_tac `Rval (EL n av)`
+     \\ fs[state_component_equality]
+     \\ fs[Msub_eq]
+     \\ fs[LIST_REL_EL_EQN]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ fs[with_same_ffi]
+  \\ qexists_tac `s with refs := s.refs ++ refs'`
+  \\ qexists_tac `Rerr (Rraise (prim_exn "Subscript"))`
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq]
+  \\ fs[REFS_PRED_FRAME_append]);
+
+val EvalM_R_Marray_sub_handle = Q.store_thm("EvalM_R_Marray_sub_handle",
   `!vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
@@ -1867,7 +1869,115 @@ val EvalM_R_Marray_sub = Q.store_thm("EvalM_R_Marray_sub",
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
   \\ rw[REFS_PRED_FRAME_append]);
 
-val EvalM_R_Marray_update = Q.store_thm("EvalM_R_Marray_update",
+val EvalM_R_Marray_update_subscript = Q.store_thm("EvalM_R_Marray_update_subscript",
+  `!vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
+   EXC_TYPE e (prim_exn "Subscript") ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (TYPE x) ==>
+   EvalM ro env st (App Aupdate [App Opderef [Var (Short vname)]; nexp; xexp])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`,
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
+  \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
+  \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
+  \\ IMP_RES_TAC REF_EXISTS_LOC
+  \\ rw[]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ first_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
+  \\ fs[]
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
+  \\ first_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
+  \\ fs[] \\ rw[]
+  \\ IMP_RES_TAC evaluate_Opdref_REF
+  \\ first_x_assum(qspec_then `refs' ++ refs''` ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
+  \\ rw[Once evaluate_list_cases]
+  \\ fs[]
+  \\ fs[Once STAR_COMM]
+  \\ fs[GSYM STAR_ASSOC]
+  \\ fs[Once (GSYM with_same_refs)]
+  \\ IMP_RES_TAC STATE_APPEND_JUNK
+  \\ POP_ASSUM(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
+  \\ Cases_on `n < LENGTH av`
+  >-(
+      rw[do_app_def]
+      >> fs[ARRAY_def, SEP_EXISTS_THM, SEP_CLAUSES]
+      >> EXTRACT_PURE_FACTS_TAC
+      >> rw[]
+      >> IMP_RES_TAC LIST_REL_LENGTH
+      >> fs[GSYM STAR_ASSOC]
+      >> IMP_RES_TAC store_lookup_CELL_st2heap
+      >> POP_ASSUM(fn x => ALL_TAC)
+      >> POP_ASSUM(qspec_then `[]` ASSUME_TAC)
+      >> fs[ABS_NUM_EQ]
+      >> IMP_RES_TAC st2heap_CELL_MEM
+      >> IMP_RES_TAC store2heap_IN_LENGTH
+      >> fs[store_assign_def, store_v_same_type_def]
+      >> IMP_RES_TAC store2heap_IN_EL
+      >> fs[]
+      >> qexists_tac `s with refs := LUPDATE (Varray (LUPDATE res n av)) loc
+         (s.refs ++ refs' ++ refs'')`
+      >> fs[state_component_equality]
+      >> qexists_tac `Rval (Conv NONE [])`
+      >> rw[]
+      >> qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      >> fs[MONAD_def, Marray_update_def, Mupdate_eq]
+      >> fs[REFS_PRED_FRAME_def]
+      >> rw[state_component_equality]
+      >> fs[Once (GSYM with_same_refs)]
+      >> POP_ASSUM(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+      >> POP_ASSUM(qspec_then`refs'++refs''` ASSUME_TAC)
+      >> fs[GSYM STAR_ASSOC]
+      >> fs[Once STAR_COMM]
+      >> fs[RARRAY_def, RARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
+      >> fs[STAR_ASSOC, PULL_EXISTS]
+      >> qexists_tac `LUPDATE res n av`
+      >> qexists_tac `arv`
+      >> EXTRACT_PURE_FACTS_TAC
+      >> fs[EVERY2_LUPDATE_same]
+      >> fs[GSYM STAR_ASSOC]
+      >> fs[Once STAR_COMM]
+      >> sg `arv  = Loc loc`
+      >-(fs[STAR_ASSOC]
+         >> POP_ASSUM(fn x => PURE_REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
+         >> fs[GSYM STAR_ASSOC]
+         >> qpat_x_assum `(GC * H1) X` (fn x => PURE_REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
+         >> fs[GSYM STAR_ASSOC]
+         >> fs[REF_def, SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC, HCOND_EXTRACT]
+         >> IMP_RES_TAC UNIQUE_CELLS
+         >> rw[])
+      >> rw[]
+      >> fs[GSYM STAR_ASSOC]
+      >> IMP_RES_TAC STATE_UPDATE_HPROP_ARRAY
+      >> POP_ASSUM(qspec_then `LUPDATE res n av` ASSUME_TAC)
+      >> fs[])
+  \\ fs[ARRAY_def, SEP_EXISTS_THM, SEP_CLAUSES]
+  \\ EXTRACT_PURE_FACTS_TAC
+  \\ rw[]
+  \\ IMP_RES_TAC LIST_REL_LENGTH
+  \\ fs[GSYM STAR_ASSOC]
+  \\ IMP_RES_TAC store_lookup_CELL_st2heap
+  \\ POP_ASSUM(fn x => ALL_TAC)
+  \\ POP_ASSUM(qspec_then `[]` ASSUME_TAC)
+  \\ rw[Once evaluate_cases, evaluate_list_cases]
+  \\ fs [with_same_refs, with_same_ffi] \\ rw [do_app_def]
+  \\ ntac 3 (rw[Once evaluate_cases])
+  \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
+  \\ qexists_tac `s with refs := s.refs ++ refs' ++ refs''`
+  \\ qexists_tac `Rerr (Rraise (prim_exn "Subscript"))`
+  \\ qexists_tac `st`
+  \\ rw[with_same_ffi]
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]);
+
+val EvalM_R_Marray_update_handle = Q.store_thm("EvalM_R_Marray_update_handle",
   `!vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
@@ -2127,7 +2237,52 @@ val EvalM_F_Marray_length = Q.store_thm("EvalM_F_Marray_length",
   \\ IMP_RES_TAC LIST_REL_LENGTH
   \\ fs[REFS_PRED_FRAME_same]);
 
-val EvalM_F_Marray_sub = Q.store_thm("EvalM_F_Marray_sub",
+val EvalM_F_Marray_sub_subscript = Q.store_thm("EvalM_F_Marray_sub_subscript",
+  `!vname loc TYPE EXC_TYPE H get_arr e env n nexp.
+   EXC_TYPE e (prim_exn "Subscript") ==>
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st (App Asub [Var (Short vname); nexp])
+   ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`,
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ first_x_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
+  \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
+  \\ EXTRACT_PURE_FACTS_TAC
+  \\ fs[GSYM STAR_ASSOC]
+  \\ first_assum (fn x => MATCH_MP ARRAY_EXISTS_LOC x |> ASSUME_TAC)
+  \\ rw[]
+  \\ IMP_RES_TAC LIST_REL_LENGTH
+  \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ evaluate_unique_result_tac
+  \\ rw[Once evaluate_cases]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Asub_ARRAY x |> ASSUME_TAC)
+  \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
+  \\ Cases_on `n < LENGTH av`
+  >-(fs[]
+     \\ fs[MONAD_def, Marray_sub_def]
+     \\ qexists_tac `s with refs := s.refs ++ refs'`
+     \\ qexists_tac `Rval (EL n av)`
+     \\ fs[state_component_equality]
+     \\ fs[Msub_eq]
+     \\ fs[LIST_REL_EL_EQN]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]
+     \\ rw[Once evaluate_cases]
+     \\ evaluate_unique_result_tac
+     \\ ntac 3 (rw[Once evaluate_cases]))
+  \\ rw[Once evaluate_cases, with_same_ffi]
+  \\ qexists_tac `s with refs := s.refs ++ refs'`
+  \\ qexists_tac `Rerr (Rraise (prim_exn "Subscript"))`
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append]
+  \\ evaluate_unique_result_tac
+  \\ ntac 3 (rw[Once evaluate_cases])
+  \\ fs[with_same_ffi]);
+
+val EvalM_F_Marray_sub_handle = Q.store_thm("EvalM_F_Marray_sub_handle",
   `!vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
@@ -2195,7 +2350,84 @@ val EvalM_F_Marray_sub = Q.store_thm("EvalM_F_Marray_sub",
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
   \\ rw[REFS_PRED_FRAME_append])
 
-val EvalM_F_Marray_update = Q.store_thm("EvalM_F_Marray_update",
+val EvalM_F_Marray_update_subscript = Q.store_thm("EvalM_F_Marray_update_subscript",
+  `!vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
+   EXC_TYPE e (prim_exn "Subscript") ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (TYPE x) ==>
+   EvalM ro env st (App Aupdate [Var (Short vname); nexp; xexp])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`,
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
+  \\ POP_ASSUM(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
+  \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
+  \\ EXTRACT_PURE_FACTS_TAC
+  \\ fs[GSYM STAR_ASSOC]
+  \\ first_assum(fn x => MATCH_MP ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
+  \\ rw[]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ evaluate_unique_result_tac
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ evaluate_unique_result_tac
+  \\ ntac 3 (rw[Once evaluate_cases])
+  \\ rw[do_app_def]
+  \\ fs[ARRAY_def, SEP_EXISTS_THM, SEP_CLAUSES]
+  \\ EXTRACT_PURE_FACTS_TAC
+  \\ rw[]
+  \\ IMP_RES_TAC LIST_REL_LENGTH
+  \\ fs[GSYM STAR_ASSOC]
+  \\ first_assum(fn x => MATCH_MP (GEN_ALL store_lookup_CELL_st2heap) x |> ASSUME_TAC)
+  \\ POP_ASSUM(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC, GC_STAR_GC]))
+  \\ fs[]
+  (* \\ first_x_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+  \\ POP_ASSUM(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC, GC_STAR_GC])) *)
+  \\ Cases_on `n < LENGTH av`
+  >-(
+      rw[]
+      \\ first_assum(fn x => MATCH_MP st2heap_CELL_MEM x |> ASSUME_TAC)
+      \\ first_assum(fn x => MATCH_MP store2heap_IN_LENGTH x |> ASSUME_TAC)
+      \\ fs[store_assign_def, store_v_same_type_def]
+      \\ first_assum(fn x => MATCH_MP store2heap_IN_EL x |> ASSUME_TAC)
+      \\ fs[]
+      \\ qexists_tac `s with refs := LUPDATE (Varray (LUPDATE res n av)) l
+         (s.refs ++ refs' ++ refs'')`
+      \\ fs[state_component_equality]
+      \\ qexists_tac `Rval (Conv NONE [])`
+      \\ drule EL_APPEND1 \\ disch_then (qspec_then `refs' ++ refs''` assume_tac)
+      \\ reverse(rw[] \\ fs[])
+      >-(ntac 2 (qpat_x_assum `_ = _` (fn x => fs [x])))
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
+      \\ fs[REFS_PRED_FRAME_def]
+      \\ rw[state_component_equality]
+      \\ fs[Once (GSYM with_same_refs)]
+      \\ POP_ASSUM(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+      \\ POP_ASSUM(qspec_then`refs'++refs''` ASSUME_TAC)
+      \\ fs[ARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
+      \\ qexists_tac `LUPDATE res n av`
+      \\ EXTRACT_PURE_FACTS_TAC
+      \\ fs[EVERY2_LUPDATE_same]
+      \\ fs[GSYM STAR_ASSOC]
+      \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_UPDATE_HPROP_ARRAY) x |> ASSUME_TAC)
+      \\ POP_ASSUM(qspec_then `LUPDATE res n av` ASSUME_TAC)
+      \\ fs[])
+  \\ fs[with_same_ffi]
+  \\ qexists_tac ` s with refs := s.refs ++ refs' ++ refs''`
+  \\ qexists_tac `Rerr (Rraise (prim_exn "Subscript"))`
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def,Marray_update_def,Mupdate_exn_eq]
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]);
+
+val EvalM_F_Marray_update_handle = Q.store_thm("EvalM_F_Marray_update_handle",
   `!vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>

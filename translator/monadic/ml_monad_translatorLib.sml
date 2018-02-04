@@ -2801,8 +2801,9 @@ val Long_tm = get_term "Long_tm";
 fun get_exn_constructs () = let
     val exn_type_def = !EXN_TYPE_def_ref
     val exn_type_conjs = CONJUNCTS exn_type_def
+
     val deep_cons_list = List.map (fn x => concl x |> strip_forall |> snd |> rhs |> strip_exists
-                                |> snd |> dest_conj |> fst |> rhs |> rator) exn_type_conjs
+                                |> snd |> strip_conj |> hd |> rhs |> rator) exn_type_conjs
     val deep_names = List.map (fn x => rand x |> rand |> dest_pair |> fst) deep_cons_list
 
     (* Get the module name *)
@@ -3195,11 +3196,6 @@ fun m_translate_run def =
     val monad_th = if is_var ro_var then INST [ro_var |-> T] monad_th else monad_th
 
     (* Insert the parameters *)
-(* TODO HERE *)
-(*
-val x = hd params_evals;
-val th = monad_th;
-*)
     val monad_th = inst_gen_eq_vars2 state monad_th
                    handle HOL_ERR _ => monad_th
     fun insert_param (x, th) =
@@ -3265,6 +3261,8 @@ val th = monad_th;
       (case concl th |> strip_imp |> fst of
         (x1::x2::x3::_) => (x1,x2,x3) | _ => hd [])
     val EXN_th = prove(EXN_assum, rw[] \\ Cases_on `e` \\ fs[!EXN_TYPE_def_ref])
+
+(* set_goal ([],EXN_assum) *)
     val th = MP th EXN_th
     val th = MATCH_MP th monad_th |> UNDISCH |> UNDISCH
 

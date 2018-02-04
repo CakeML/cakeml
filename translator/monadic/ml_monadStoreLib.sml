@@ -67,6 +67,7 @@ val empty_v_list = get_term "empty_v_list"
 val empty_v_store = get_term "empty_v_store"
 val empty_alpha_list = get_term "empty_alpha_list"
 val nsLookup_env_short_term = get_term "nsLookup_env_short"
+val prim_exn_Subscript = get_term "prim_exn Subscript"
 
 fun mk_get_refs state = let
     val ffi_ty = type_of state |> dest_type |> snd |> hd
@@ -757,6 +758,11 @@ local
       end
     fun PICK_PINV_CONV field_pat = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_pinv_order field_pat, combine = ALL_CONV, preprocess = ALL_CONV}
 
+    fun remove_assumption th = let
+	val assum = concl th |> dest_imp |> fst
+	val lemma = SIMP_CONV (srw_ss()) [] assum |> EQT_ELIM
+    in MP th lemma end
+
 in
 
 fun prove_store_access_specs refs_manip_list
@@ -899,76 +905,72 @@ fun prove_store_access_specs refs_manip_list
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
         (* sub *)
-        val sub_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr, sub_exn, sub_rexp]
-                            EvalM_R_Marray_sub |> SPEC_ALL
-        val sub_thm = rewrite_thm sub_thm |> UNDISCH |> UNDISCH |> UNDISCH
+        (* Test if the sub exception is linked to the CakeML subscript
+           exception by the exception refinement invariant *)
+        val EXN_TYPE_e_Subscript =
+	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
+	val (subscript_eval, usesSubscript) = let
+	    val eval_th = EVAL EXN_TYPE_e_Subscript
+	    val eval_th = EQT_ELIM eval_th
+	in (eval_th, true) end
+        handle HOL_ERR _ => (TRUTH, false)
 
-        (* Remove the Eval assumption about the correct evaluation of the exception expression *)
-        val sub_assum = concl sub_thm |> dest_imp |> fst
-        val env = rator sub_assum |> rator |> rand
-        val exn_name_v = rator sub_assum |> rand |> rator |> rand |> rand |> rand
-        val types_pairs = CONJUNCTS exn_ri_def
-        val types_pairs = List.map (fn x => concl x |> strip_forall |> snd |> rhs |> strip_exists
-          |> snd |> dest_conj |> fst |> rhs |> rator |> rand |> rand |> dest_pair) types_pairs
-        val deep_type = tryfind (fn (x, y) => if x = exn_name_v then y else failwith "") types_pairs
-
-        val lookup_hyp = mk_lookup_eq exn_name_v env deep_type
-        val goal = mk_imp(lookup_hyp, sub_assum)
-
-        val solve_tac = rw[Eval_def, lookup_cons_def]
-           \\ PURE_ONCE_REWRITE_TAC[evaluate_cases]
-           \\ simp[exn_ri_def, do_con_check_def]
-           \\ simp[build_conv_def, namespaceTheory.id_to_n_def]
-           \\ EVAL_TAC
-           \\ rw[Once evaluate_cases]
-           \\ rw[Once evaluate_cases]
-           \\ rw[Once evaluate_cases]
-           \\ rw[Once evaluate_cases]
-           \\ simp[exn_ri_def, do_con_check_def]
-           \\ simp[build_conv_def, namespaceTheory.id_to_n_def]
-           \\ simp[state_component_equality, REV_DEF]
-
-        val lookup_th = prove(goal, solve_tac)
-        val sub_thm = MP sub_thm (UNDISCH lookup_th)
+	val sub_thm =
+	  if usesSubscript then let
+	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
+                            EvalM_R_Marray_sub_subscript |> SPEC_ALL
+	    val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
+	  in th end
+	  else let
+	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
+                            EvalM_R_Marray_sub_handle |> SPEC_ALL
+            val th = rewrite_thm th |> UNDISCH |> UNDISCH |> UNDISCH
+	    val th = MP th Eval_sub_rexp
+	  in th end
 
         val thm_name = name ^"_sub_thm"
         val _ = save_thm(thm_name, sub_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
         (* update *)
-        val update_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr, set_arr, update_exn,
-                                update_rexp] EvalM_R_Marray_update
-                               |> SPEC_ALL
-        val update_thm = rewrite_thm update_thm
-        val update_conditions = concl update_thm |> strip_imp |> fst
-        val update_conditions = List.take(List.drop(update_conditions, 2), 2)
-        val update_conditions = List.map (SIMP_CONV (srw_ss()) []) update_conditions
-        val update_thm = SIMP_RULE bool_ss update_conditions update_thm
-                                   |> UNDISCH |> UNDISCH |> UNDISCH
+        (* Test if the update exception is linked to the CakeML subscript
+           exception by the exception refinement invariant *)
+        val EXN_TYPE_e_Subscript =
+	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
+	val (subscript_eval, usesSubscript) = let
+	    val eval_th = EVAL EXN_TYPE_e_Subscript
+	    val eval_th = EQT_ELIM eval_th
+	in (eval_th, true) end
+        handle HOL_ERR _ => (TRUTH, false)
 
-        val update_assum = concl update_thm |> dest_imp |> fst
-        val env = rator update_assum |> rator |> rand
-        val exn_name_v = rator update_assum |> rand |> rator |> rand |> rand |> rand
-        val types_pairs = CONJUNCTS exn_ri_def
-        val types_pairs = List.map (fn x => concl x |> strip_forall |> snd |> rhs |> strip_exists
-          |> snd |> dest_conj |> fst |> rhs |> rator |> rand |> rand |> dest_pair) types_pairs
-        val deep_type = tryfind (fn (x, y) => if x = exn_name_v then y else failwith "") types_pairs
-
-        val lookup_hyp = mk_lookup_eq exn_name_v env deep_type
-        val goal = mk_imp(lookup_hyp, update_assum)
-
-        val lookup_th = prove(goal, solve_tac)
-        val update_thm = MP update_thm (UNDISCH lookup_th)
+	val update_thm =
+	  if usesSubscript then let
+	    val th =
+	      ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
+		      EvalM_R_Marray_update_subscript
+	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+	    val th = MP th subscript_eval |> remove_assumption
+			|> remove_assumption |> UNDISCH_ALL
+	  in rewrite_thm th end
+	  else let
+	    val th =
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
+		     update_exn,update_rexp] EvalM_R_Marray_update_handle
+	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+	    val th = remove_assumption th |> remove_assumption
+	    val th = UNDISCH th
+	    val th = MP th Eval_update_rexp |> UNDISCH
+	  in rewrite_thm th end
 
         val thm_name = name ^"_update_thm"
         val _ = save_thm(thm_name, update_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
         (* alloc *)
-        val alloc_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr, set_arr]
+        val alloc_thm = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr]
                               EvalM_R_Marray_alloc |> SPEC_ALL
-        val alloc_thm = rewrite_thm alloc_thm
-        val alloc_thm = SIMP_RULE bool_ss update_conditions alloc_thm |> DISCH_ALL |> GEN_ALL
+        val alloc_thm = rewrite_thm alloc_thm |> UNDISCH
+	val alloc_thm = remove_assumption alloc_thm |> remove_assumption
 
         val thm_name = name ^"_alloc_thm"
         val _ = save_thm(thm_name, alloc_thm)
@@ -1022,66 +1024,62 @@ fun prove_store_access_specs refs_manip_list
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
         (* sub *)
-        val sub_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr, sub_exn, sub_rexp]
-                            EvalM_F_Marray_sub |> SPEC_ALL
-        val sub_thm = rewrite_thm sub_thm |> UNDISCH |> UNDISCH |> UNDISCH
+        (* Test if the sub exception is linked to the CakeML subscript
+           exception by the exception refinement invariant *)
+        val EXN_TYPE_e_Subscript =
+	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
+	val (subscript_eval, usesSubscript) = let
+	    val eval_th = EVAL EXN_TYPE_e_Subscript
+	    val eval_th = EQT_ELIM eval_th
+	in (eval_th, true) end
+        handle HOL_ERR _ => (TRUTH, false)
 
-        (* Remove the Eval assumption about the correct evaluation of the exception expression *)
-        val sub_assum = concl sub_thm |> dest_imp |> fst
-        val env = rator sub_assum |> rator |> rand
-        val exn_name_v = rator sub_assum |> rand |> rator |> rand |> rand |> rand
-        val types_pairs = CONJUNCTS exn_ri_def
-        val types_pairs = List.map (fn x => concl x |> strip_forall |> snd |> rhs |> strip_exists
-          |> snd |> dest_conj |> fst |> rhs |> rator |> rand |> rand |> dest_pair) types_pairs
-        val deep_type = tryfind (fn (x, y) => if x = exn_name_v then y else failwith "") types_pairs
-
-        val lookup_hyp = mk_lookup_eq exn_name_v env deep_type
-        val goal = mk_imp(lookup_hyp, sub_assum)
-
-        val solve_tac = rw[Eval_def, lookup_cons_def]
-           \\ PURE_ONCE_REWRITE_TAC[evaluate_cases]
-           \\ simp[exn_ri_def, do_con_check_def]
-           \\ simp[build_conv_def, namespaceTheory.id_to_n_def]
-           \\ EVAL_TAC
-           \\ rw[Once evaluate_cases]
-           \\ rw[Once evaluate_cases]
-           \\ rw[Once evaluate_cases]
-           \\ rw[Once evaluate_cases]
-           \\ simp[exn_ri_def, do_con_check_def]
-           \\ simp[build_conv_def, namespaceTheory.id_to_n_def]
-           \\ simp[state_component_equality, REV_DEF]
-
-        val lookup_th = prove(goal, solve_tac)
-        val sub_thm = MP sub_thm (UNDISCH lookup_th)
+	val sub_thm =
+	  if usesSubscript then let
+	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
+                            EvalM_F_Marray_sub_subscript |> SPEC_ALL
+	    val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
+	  in th end
+	  else let
+	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
+                            EvalM_F_Marray_sub_handle |> SPEC_ALL
+            val th = rewrite_thm th |> UNDISCH |> UNDISCH |> UNDISCH
+	    val th = MP th Eval_sub_rexp
+	  in th end
 
         val thm_name = name ^"_sub_thm"
         val _ = save_thm(thm_name, sub_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
         (* update *)
-        val update_thm = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_arr, set_arr, update_exn,
-                                update_rexp] EvalM_F_Marray_update
-                               |> SPEC_ALL
-        val update_thm = rewrite_thm update_thm
-        val update_conditions = concl update_thm |> strip_imp |> fst
-        val update_conditions = List.take(List.drop(update_conditions, 2), 2)
-        val update_conditions = List.map (SIMP_CONV (srw_ss()) []) update_conditions
-        val update_thm = SIMP_RULE bool_ss update_conditions update_thm
-                                   |> UNDISCH |> UNDISCH |> UNDISCH
+        (* Test if the update exception is linked to the CakeML subscript
+           exception by the exception refinement invariant *)
+        val EXN_TYPE_e_Subscript =
+	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
+	val (subscript_eval, usesSubscript) = let
+	    val eval_th = EVAL EXN_TYPE_e_Subscript
+	    val eval_th = EQT_ELIM eval_th
+	in (eval_th, true) end
+        handle HOL_ERR _ => (TRUTH, false)
 
-        val update_assum = concl update_thm |> dest_imp |> fst
-        val env = rator update_assum |> rator |> rand
-        val exn_name_v = rator update_assum |> rand |> rator |> rand |> rand |> rand
-        val types_pairs = CONJUNCTS exn_ri_def
-        val types_pairs = List.map (fn x => concl x |> strip_forall |> snd |> rhs |> strip_exists
-          |> snd |> dest_conj |> fst |> rhs |> rator |> rand |> rand |> dest_pair) types_pairs
-        val deep_type = tryfind (fn (x, y) => if x = exn_name_v then y else failwith "") types_pairs
-
-        val lookup_hyp = mk_lookup_eq exn_name_v env deep_type
-        val goal = mk_imp(lookup_hyp, update_assum)
-
-        val lookup_th = prove(goal, solve_tac)
-        val update_thm = MP update_thm (UNDISCH lookup_th) |> UNDISCH_ALL
+	val update_thm =
+	  if usesSubscript then let
+	    val th =
+	      ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
+		      EvalM_F_Marray_update_subscript
+	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+	    val th = MP th subscript_eval |> remove_assumption
+			|> remove_assumption |> UNDISCH_ALL
+	  in rewrite_thm th end
+	  else let
+	    val th =
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
+		     update_exn,update_rexp] EvalM_F_Marray_update_handle
+	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+	    val th = remove_assumption th |> remove_assumption
+	    val th = UNDISCH th
+	    val th = MP th Eval_update_rexp |> UNDISCH
+	  in rewrite_thm th end
 
         val thm_name = name ^"_update_thm"
         val _ = save_thm(thm_name, update_thm)
