@@ -186,6 +186,7 @@ val VALID_STORE_THM = ref (NONE : thm option);
 
 (* Additional theories where to look for refinement invariants *)
 val type_theories = ref ([current_theory(), "ml_translator"] : string list);
+fun get_type_theories () = !type_theories;
 
 (* Theorems proved to handle exceptions *)
 val exn_handles = ref ([] : (term * thm) list);
@@ -780,6 +781,7 @@ in zip raise_specs handle_specs end;
 (* support for datatypes... *)
 
 (*
+  val ty = (repeat rator tm) |> type_of |> domain
   val _ = set_goal([],goal)
 *)
 local
@@ -790,6 +792,29 @@ local
   val evaluate_match_Conv = (get_term "eval_match Pcon")
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
        SIMP_CONV (srw_ss()) [pmatch_def])
+
+  (* COPY/PASTE from ml_monadStoreScript *)
+  fun evaluate_unique_result_tac (g as (asl, w)) = let
+      val asl = List.map ASSUME asl
+      val uniques = mapfilter (MATCH_MP evaluate_unique_result) asl
+  in simp uniques g end;
+  (* End of COPY/PASTE from ml_monadStoreScript *)
+
+  (* TODO: make that tactic work *)
+  val pick_evaluate_assumption = let
+    val rewrite_conjs =
+	((PURE_REWRITE_CONV[CONJ_ASSOC]) THENC
+         (PURE_REWRITE_CONV [Once CONJ_COMM]) THENC
+	 (PURE_REWRITE_CONV[GSYM CONJ_ASSOC]) THENC
+	 (PURE_REWRITE_CONV[CONJ_ASSOC]))
+    val conjs_to_imps = PURE_REWRITE_CONV [GSYM AND_IMP_INTRO]
+    val final_conv = ((STRIP_QUANT_CONV o RATOR_CONV) rewrite_conjs)
+			 THENC conjs_to_imps
+    val rewrite_rule = CONV_RULE final_conv
+    val thm_tac = (fn x => drule (rewrite_rule x))
+    (* the thm_tac does not work *)
+  in (first_x_assum thm_tac \\ rpt (disch_then drule) \\ disch_then strip_assume_tac) end
+
 in
 fun derive_case_of ty = let
   (* TODO : clean that *)
@@ -803,10 +828,10 @@ fun derive_case_of ty = let
   in (name, name_thy) end
   val (name, name_thy) = if ty <> unit_ty then get_name ty else ("UNIT_TYPE", "UNIT_TYPE")
   val inv_def = tryfind (fn thy_name => fetch thy_name (name ^ "_def"))
-                        (!type_theories)
+                        (get_type_theories())
       handle HOL_ERR _ =>
              tryfind (fn thy_name => fetch thy_name (name_thy ^ "_def"))
-                     (!type_theories)
+                     (get_type_theories())
       handle  HOL_ERR _ => let
           val thms = DB.find (name ^ "_def") |> List.map (fst o snd)
           val inv_ty = mk_type("fun", [ty, v_bool_ty])
@@ -864,6 +889,7 @@ fun derive_case_of ty = let
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (ISPEC x_var case_th)
   (* TODO: this tactic is not safe *)
+  (* TODO: replace the rw and fs tactics and remove the quotations *)
   val case_tac =
         Q.PAT_X_ASSUM `b0 ==> Eval env exp something`
            (MP_TAC o REWRITE_RULE [TAG_def,inv_def,Eval_def])
@@ -883,19 +909,29 @@ fun derive_case_of ty = let
         \\ drule evaluate_empty_state_IMP
         \\ strip_tac \\ asm_exists_tac
         \\ ASM_SIMP_TAC std_ss []
-        \\ REWRITE_TAC[evaluate_match_Conv,pmatch_def,LENGTH]
-        \\ fs[pmatch_def,pat_bindings_def,write_def,
-              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
+        (* Rewrite the evaluate_pmatch *)
+	\\ fs[lookup_cons_def]
+	\\ (rpt o CHANGED_TAC)
+	    (rw[Once evaluate_match_Conv]
+               \\ rw[pmatch_def,pat_bindings_def,write_def,
+              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def])
 	\\ IMP_RES_TAC REFS_PRED_append
 	(* TODO: replace this quote *)
 	\\ first_x_assum (qspec_then `refs'` assume_tac)
-	\\ first_x_assum drule
-	\\ rpt (disch_then drule)
-	\\ rw[]
-	\\ drule evaluate_unique_result
-	\\ disch_then assume_tac \\ simp[]
-	\\ asm_exists_tac \\ simp[]
+	(* Prove the evaluate assumption *)
+        (* TODO: do that in a smarter manner *)
+        \\ rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
+	\\ fs[write_def]
+	\\ evaluate_unique_result_tac
+	(* Finish the proof *)	
+	\\ TRY asm_exists_tac \\ simp[]
 	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[]
+	(*pick_evaluate_assumption
+	\\ fs[write_def]
+	\\ evaluate_unique_result_tac
+	(* Finish the proof *)	
+	\\ TRY asm_exists_tac \\ simp[]
+	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[] *)
 (*
   val _ = set_goal([],goal)
 *)
@@ -3404,7 +3440,7 @@ local
       (pack_list (pack_pair pack_term pack_thm)) (* exn_handles         *)
       (pack_list (pack_pair pack_term pack_thm)) (* exn_raises          *)
       (pack_list (pack_pair pack_thm pack_thm))  (* exn_functions_defs  *)
-        ( !EXN_TYPE_def_ref, !EXN_TYPE, !type_theories
+        ( !EXN_TYPE_def_ref, !EXN_TYPE, get_type_theories()
         , !exn_handles, !exn_raises, !exn_functions_defs )
   fun pack_part2 () =
     pack_7tuple
