@@ -6,7 +6,7 @@ open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
 open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
 
-val _ = new_theory "graphStateProg"
+val _ = new_theory "floyd_warshallProg"
 val _ = ParseExtras.temp_loose_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
