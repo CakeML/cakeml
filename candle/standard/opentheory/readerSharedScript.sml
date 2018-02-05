@@ -5,7 +5,7 @@
 open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
-     readerProofTheory prettyTheory
+     readerProofTheory reader_initTheory prettyTheory
 
 val _ = new_theory "readerShared"
 val _ = m_translation_extends "ml_hol_kernelProg"
@@ -98,7 +98,7 @@ val r = translate lines_read_def
 val r = translate next_line_def
 val r = translate line_Fail_def
 
-(* --- Translate axioms --- *)
+(* --- Translate reader_initTheory --- *)
 
 val r = m_translate mk_true_def
 val r = m_translate mk_univ_def
@@ -118,17 +118,14 @@ val r = m_translate mk_false_def
 val r = m_translate mk_neg_const_def
 val r = m_translate mk_neg_def
 val r = m_translate mk_infinity_ax_def
-val r = m_translate mk_ind_type_def
-val r = m_translate mk_select_const_def
-val r = m_translate mk_reader_ctxt_def
-val r = m_translate mk_types_def
-val r = m_translate mk_consts_def
-val r = m_translate mk_axs_def
-val r = m_translate set_reader_ctxt_def
+val r = translate select_sym_def
+val r = translate ind_type_def
+val r = m_translate init_reader_def
 
 val r = translate msg_success_def
 val r = translate msg_usage_def
 val r = translate msg_bad_name_def
+val r = translate msg_axioms_def
 val r = translate str_prefix_def;
 val r = translate invalid_line_def;
 
