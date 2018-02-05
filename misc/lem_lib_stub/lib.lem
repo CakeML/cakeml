@@ -170,28 +170,28 @@ declare isabelle target_rep function W64sub = `Groups.minus`
 
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`
-declare isabelle target_rep function W8lsl = `undefined`
+declare isabelle target_rep function W8lsl = `word_lsl`
 val W8lsr : word8 -> nat -> word8
 declare hol target_rep function W8lsr = `word_lsr`
-declare isabelle target_rep function W8lsr = `undefined`
+declare isabelle target_rep function W8lsr = `word_lsr`
 val W8asr : word8 -> nat -> word8
 declare hol target_rep function W8asr = `word_asr`
-declare isabelle target_rep function W8asr = `undefined`
+declare isabelle target_rep function W8asr = `word_asr`
 val W8ror : word8 -> nat -> word8
 declare hol target_rep function W8ror = `word_ror`
-declare isabelle target_rep function W8ror = `undefined`
+declare isabelle target_rep function W8ror = `word_ror`
 val W64lsl : word64 -> nat -> word64
 declare hol target_rep function W64lsl = `word_lsl`
-declare isabelle target_rep function W64lsl = `undefined`
+declare isabelle target_rep function W64lsl = `word_lsl`
 val W64lsr : word64 -> nat -> word64
 declare hol target_rep function W64lsr = `word_lsr`
-declare isabelle target_rep function W64lsr = `undefined`
+declare isabelle target_rep function W64lsr = `word_lsr`
 val W64asr : word64 -> nat -> word64
 declare hol target_rep function W64asr = `word_asr`
-declare isabelle target_rep function W64asr = `undefined`
+declare isabelle target_rep function W64asr = `word_asr`
 val W64ror : word64 -> nat -> word64
 declare hol target_rep function W64ror = `word_ror`
-declare isabelle target_rep function W64ror = `undefined`
+declare isabelle target_rep function W64ror = `word_ror`
 
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)
