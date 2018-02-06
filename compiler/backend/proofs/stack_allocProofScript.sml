@@ -325,14 +325,14 @@ val bytes_in_word_word_shift_n2w = Q.store_thm("bytes_in_word_word_shift_n2w",
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
-       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,
+       asmTheory.word_cmp_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
 val tac1 = simp [Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
-       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,set_store_def,
+       asmTheory.word_cmp_def,set_store_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
@@ -4859,7 +4859,7 @@ val alloc_correct_lemma_None = Q.store_thm("alloc_correct_lemma_None",
        list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
-       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,FAPPLY_FUPDATE_THM,
+       asmTheory.word_cmp_def,FAPPLY_FUPDATE_THM,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
   \\ fs [labSemTheory.word_cmp_def,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def]
