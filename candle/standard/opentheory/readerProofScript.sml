@@ -28,6 +28,23 @@ val case_eqs =
 val case_eq_thms = save_thm ("case_eq_thms",
   LIST_CONJ (pair_case_eq::map prove_case_eq_thm case_eqs));
 
+(* TODO move *)
+
+val new_axiom_not_clash = Q.store_thm("new_axiom_not_clash[simp]",
+  `new_axiom ax s <> (Failure (Clash tm), t)`,
+  strip_tac
+  \\ fs [new_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
+         case_eq_thms, bool_case_eq, COND_RATOR, get_the_axioms_def,
+         set_the_axioms_def] \\ rw [] \\ fs []);
+
+val new_constant_not_clash = Q.store_thm("new_constant_not_clash[simp]",
+  `new_constant (a,b) s <> (Failure (Clash tm), t)`,
+  rw [new_constant_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val new_type_not_clash = Q.store_thm("new_type_not_clash[simp]",
+  `new_type (a,b) s <> (Failure (Clash tm), t)`,
+  rw [new_type_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
 (* ------------------------------------------------------------------------- *)
 (* Reader does not raise Clash                                               *)
 (* ------------------------------------------------------------------------- *)
@@ -137,6 +154,83 @@ val readLines_not_clash = Q.store_thm("readLines_not_clash[simp]",
   \\ CASE_TAC \\ fs[st_ex_return_def]
   \\ simp[st_ex_bind_def, handle_Fail_def, raise_Fail_def]
   \\ every_case_tac \\ fs [] \\ rw []);
+
+(* ------------------------------------------------------------------------- *)
+(* reader_init does not raise Clash                                          *)
+(* ------------------------------------------------------------------------- *)
+
+val mk_true_not_clash = Q.store_thm("mk_true_not_clash[simp]",
+  `mk_true () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_true_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_univ_not_clash = Q.store_thm("mk_univ_not_clash[simp]",
+  `mk_univ ty refs <> (Failure (Clash tm), refs')`,
+  rw [mk_univ_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_forall_not_clash = Q.store_thm("mk_forall_not_clash[simp]",
+  `mk_forall (v,p) refs <> (Failure (Clash tm), refs')`,
+  rw [mk_forall_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_eta_ax_not_clash = Q.store_thm("mk_eta_ax_not_clash[simp]",
+  `mk_eta_ax () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_eta_ax_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_conj_const_not_clash = Q.store_thm("mk_conj_const_not_clash[simp]",
+  `mk_conj_const () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_conj_const_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_conj_not_clash = Q.store_thm("mk_conj_not_clash[simp]",
+  `mk_conj (p,q) refs <> (Failure (Clash tm), refs')`,
+  rw [mk_conj_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_imp_const_not_clash = Q.store_thm("mk_imp_const_not_clash[simp]",
+  `mk_imp_const () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_imp_const_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_imp_not_clash = Q.store_thm("mk_imp_not_clash[simp]",
+  `mk_imp (p,q) refs <> (Failure (Clash tm), refs')`,
+  rw [mk_imp_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_select_ax_not_clash = Q.store_thm("mk_select_ax_not_clash[simp]",
+  `mk_select_ax () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_select_ax_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_ex_not_clash = Q.store_thm("mk_ex_not_clash[simp]",
+  `mk_ex ty refs <> (Failure (Clash tm), refs')`,
+  rw [mk_ex_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_exists_not_clash = Q.store_thm("mk_exists_not_clash[simp]",
+  `mk_exists (v,p) refs <> (Failure (Clash tm), refs')`,
+  rw [mk_exists_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_surj_not_clash = Q.store_thm("mk_surj_not_clash[simp]",
+  `mk_surj f a b refs <> (Failure (Clash tm), refs')`,
+  rw [mk_surj_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_inj_not_clash = Q.store_thm("mk_inj_not_clash[simp]",
+  `mk_inj f a refs <> (Failure (Clash tm), refs')`,
+  rw [mk_inj_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_false_not_clash = Q.store_thm("mk_false_not_clash[simp]",
+  `mk_false () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_false_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_neg_const_not_clash = Q.store_thm("mk_neg_const_not_clash[simp]",
+  `mk_neg_const () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_neg_const_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_neg_not_clash = Q.store_thm("mk_neg_not_clash[simp]",
+  `mk_neg p refs <> (Failure (Clash tm), refs')`,
+  rw [mk_neg_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val mk_infinity_ax_not_clash = Q.store_thm("mk_infinity_ax_not_clash[simp]",
+  `mk_infinity_ax () refs <> (Failure (Clash tm), refs')`,
+  rw [mk_infinity_ax_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val init_reader_not_clash = Q.store_thm("init_reader_not_clash[simp]",
+  `init_reader () refs <> (Failure (Clash tm), refs')`,
+  rw [init_reader_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
+      select_sym_def, ind_type_def]);
 
 (* ------------------------------------------------------------------------- *)
 (* Refinement invariants                                                     *)
