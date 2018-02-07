@@ -1,7 +1,7 @@
 open preamble ml_hol_kernelProgTheory
      mlintTheory StringProgTheory
-     readerTheory
-open CommandLineProofTheory TextIOProofTheory
+     readerTheory reader_initTheory
+     CommandLineProofTheory TextIOProofTheory
 
 val _ = new_theory"readerIO"
 
@@ -45,7 +45,7 @@ val readLine_wrap_def = Define `
 val readLines_def = Define `
   readLines s lines =
     case lines of
-      [] => stdio (print (msg_success (lines_read s)))
+      [] => stdio (print (msg_success s))
     | ln::ls =>
         do
           res <- holrefs (readLine_wrap ln s);
@@ -65,6 +65,17 @@ val readFile_def = Define `
       | SOME ls => readLines init_state ls
     od`
 
+(* Wrap away the exception *)
+
+val init_reader_wrap_def = Define `
+  init_reader_wrap () =
+    handle_Fail
+      (do
+         init_reader ();
+         return (INR ())
+       od)
+      (\e. return (INL e))`;
+
 (* Matching reader_main *)
 
 val readMain_def = Define `
@@ -74,8 +85,10 @@ val readMain_def = Define `
       case args of
         [fname] =>
           do
-            holrefs (set_reader_ctxt ());
-            readFile fname
+            res <- holrefs (init_reader_wrap ());
+            case res of
+              INL e => stdio (print_err (msg_axioms e))
+            | INR () => readFile fname
           od
       | _ => stdio (print_err msg_usage)
     od`;
