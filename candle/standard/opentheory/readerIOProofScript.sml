@@ -8,7 +8,7 @@ open preamble
 val _ = new_theory "readerIOProof"
 
 (* ------------------------------------------------------------------------- *)
-(* Monadic I/O reader preserves invariants                                   *)
+(* Wrappers are ok                                                           *)
 (* ------------------------------------------------------------------------- *)
 
 val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
@@ -25,6 +25,20 @@ val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
   >- (qexists_tac `[]` \\ fs [])
   \\ fs []
   \\ metis_tac [readLine_thm]);
+
+val init_reader_wrap_thm = Q.store_thm("init_reader_wrap_thm",
+  `init_reader_wrap () init_refs = (res, refs')
+   ==>
+   ?defs x.
+     res = Success x /\
+     STATE defs refs'`,
+  rw [init_reader_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
+      case_eq_thms] \\ fs []
+  \\ metis_tac [init_reader_ok]);
+
+(* ------------------------------------------------------------------------- *)
+(* Monadic I/O reader preserves invariants                                   *)
+(* ------------------------------------------------------------------------- *)
 
 val readLines_thm = Q.store_thm("readLines_thm",
   `!s lines res st st1 defs.
@@ -74,7 +88,7 @@ val READER_STATE_init_state = Q.store_thm("READER_STATE_init_state[simp]",
   `READER_STATE defs init_state`,
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]);
 
-val readMain_thm = Q.store_thm("reader_main_thm",
+val readMain_thm = Q.store_thm("readMain_thm",
   `readMain () (c with holrefs := init_refs) = (res, c')
    ==>
    res = Success () /\
@@ -84,7 +98,7 @@ val readMain_thm = Q.store_thm("reader_main_thm",
       COND_RATOR, liftM_def, readFile_def]
   \\ every_case_tac \\ fs [] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ imp_res_tac set_reader_ctxt_ok \\ fs []
+  \\ imp_res_tac init_reader_wrap_thm \\ fs []
   \\ TRY
    (rw [STATE_def, CONTEXT_def]
     \\ EVAL_TAC \\ fs []
@@ -136,7 +150,7 @@ val readLines_EQ = Q.store_thm("readLines_EQ",
      refs = c_out.holrefs /\
      res1 = Success () /\
      case res2 of
-       Success (_,n) => c_out.stdio = add_stdout c.stdio (msg_success n)
+       Success (s,_) => c_out.stdio = add_stdout c.stdio (msg_success s)
      | Failure (Fail e) => c_out.stdio = add_stderr c.stdio e
      | _ => F`,
   recInduct readLines_ind \\ rw []
@@ -166,6 +180,27 @@ val readFile_correct = Q.store_thm("readFile_correct",
   \\ rename1 `readLines lines init_state`
   \\ imp_res_tac readLines_EQ \\ fs [] \\ rw [] \\ rfs [])
 
+val readMain_correct = Q.store_thm ("readMain_correct",
+  `readMain () c = (res, c_out) /\
+   reader_main c.stdio c.holrefs (TL c.cl) = fs
+   ==>
+   res = Success () /\ fs = c_out.stdio`,
+  rw [readMain_def, st_ex_bind_def, case_eq_thms]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [liftM_def, print_err_def, arguments_def, init_reader_wrap_def,
+         handle_Fail_def, st_ex_bind_def, st_ex_return_def, ELIM_UNCURRY]
+  \\ rw []
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [reader_main_def]
+  \\ qmatch_asmsub_abbrev_tac `readFile h c'`
+  \\ Cases_on `read_file c'.stdio c'.holrefs h`
+  \\ `r = c'.holrefs /\ c.stdio = c'.stdio` by fs [Abbr`c'`] \\ fs []
+  \\ imp_res_tac readFile_correct \\ rw []);
+
+(* ------------------------------------------------------------------------- *)
+(* Preserving the commandline is crucial                                     *)
+(* ------------------------------------------------------------------------- *)
+
 val readLines_COMMANDLINE_pres = Q.store_thm("readLines_COMMANDLINE_pres",
   `!s line sr res tr.
      readLines s line sr = (res, tr)
@@ -179,6 +214,15 @@ val readLines_COMMANDLINE_pres = Q.store_thm("readLines_COMMANDLINE_pres",
   \\ every_case_tac \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ first_x_assum drule \\ rw []);
+
+val readMain_COMMANDLINE_pres  = Q.store_thm("readMain_COMMANDLINE_pres",
+  `readMain () c = (res, d)
+   ==>
+   c.cl = d.cl`,
+  rw [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms, readFile_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [liftM_def, arguments_def, print_err_def, UNCURRY] \\ rw []
+  \\ imp_res_tac readLines_COMMANDLINE_pres \\ fs []);
 
 val _ = export_theory ();
 
