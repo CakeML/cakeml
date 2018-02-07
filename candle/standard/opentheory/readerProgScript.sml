@@ -2,7 +2,7 @@ open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
      readerProofTheory prettyTheory
-     readerSharedTheory
+     readerSharedTheory reader_initTheory
 
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "readerShared"
@@ -20,8 +20,8 @@ val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]
 val readline_spec = save_thm (
   "readline_spec", mk_app_of_ArrowP readline_v_thm);
 
-val set_reader_ctxt_spec = save_thm (
-  "set_reader_ctxt_spec", mk_app_of_ArrowP set_reader_ctxt_v_thm);
+val init_reader_spec = save_thm (
+  "init_reader_spec", mk_app_of_ArrowP init_reader_v_thm);
 
 (* ------------------------------------------------------------------------- *)
 (* CakeML wrapper                                                            *)
@@ -76,7 +76,7 @@ val process_line_spec = Q.store_thm("process_line_spec",
 val _ = (append_prog o process_topdecs) `
   fun process_lines ins st0 =
     case TextIO.inputLine ins of
-      NONE => TextIO.print (msg_success (lines_read st0))
+      NONE => TextIO.print (msg_success st0)
     | SOME ln =>
       (case process_line st0 ln of
          Inl st1 => process_lines ins (next_line st1)
@@ -107,7 +107,6 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ fs[OPTION_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
     \\ xlet_auto >- xsimpl
-    \\ xlet_auto \\ xsimpl
     \\ xapp
     \\ xsimpl
     \\ simp[lineFD_NONE_lineForwardFD_fastForwardFD]
@@ -189,7 +188,7 @@ val readLines_process_lines = Q.store_thm("readLines_process_lines",
    ∃n.
      process_lines fd st refs fs ls =
      case res of
-     | (Success (_,m)) => STDIO (add_stdout (fastForwardFD fs fd) (msg_success m)) * HOL_STORE r
+     | (Success (s,_)) => STDIO (add_stdout (fastForwardFD fs fd) (msg_success s)) * HOL_STORE r
      | (Failure (Fail e)) => STDIO (add_stderr (forwardFD fs fd n) e) * HOL_STORE r`,
   Induct \\ rw[process_lines_def]
   >- ( fs[Once readLines_def,st_ex_return_def] \\ rw[] )
@@ -313,7 +312,8 @@ val read_file_spec = Q.store_thm("read_file_spec",
 val _ = (append_prog o process_topdecs) `
   fun reader_main u =
     case CommandLine.arguments () of
-      [file] => (set_reader_ctxt (); read_file file)
+      [file] => ((init_reader (); read_file file)
+                 handle Fail e => TextIO.output TextIO.stdErr (msg_axioms e))
     | _      => TextIO.output TextIO.stdErr msg_usage`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
@@ -328,9 +328,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
        COMMANDLINE cl)`,
   xcf "reader_main" (get_ml_prog_state())
   \\ fs [reader_main_def]
-  \\ Cases_on `set_reader_ctxt () refs` \\ fs [] \\ Cases_on `q` \\ fs []
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ fs [UNIT_TYPE_def]
   \\ reverse (Cases_on `wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
   \\ fs [wfcl_def]
   \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
@@ -359,19 +357,43 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
     \\ xsimpl
     \\ fs [msg_usage_v_thm, UNIT_TYPE_def])
   \\ xmatch
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ drule set_reader_ctxt_spec
+  \\ Cases_on `init_reader () refs` \\ fs []
+  \\ drule init_reader_spec
   \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ reverse (Cases_on `q`) \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `$POSTv Q`
+  >-
+   (Cases_on `b` \\ fs []
+    \\ xhandle
+      `POST Q (\ev.
+         &HOL_EXN_TYPE (Fail m) ev *
+         HOL_STORE r *
+         COMMANDLINE cl *
+         STDIO fs)` \\ xsimpl
+    >-
+     (xlet_auto >- (xcon \\ xsimpl)
+      \\ xlet_auto \\ xsimpl
+      \\ fs [UNIT_TYPE_def] \\ rveq \\ xapp \\ xsimpl)
+    \\ fs [HOL_EXN_TYPE_def]
+    \\ xcases
+    \\ xlet_auto >- xsimpl
+    \\ xapp_spec output_stderr_spec \\ xsimpl
+    \\ instantiate
+    \\ unabbrev_all_tac \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `fs` \\ xsimpl)
+  \\ xhandle `$POSTv Q` \\ xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto \\ xsimpl
-  >- (xapp \\ xsimpl \\ fs [UNIT_TYPE_def])
+  >- (fs [UNIT_TYPE_def] \\ rveq \\ xapp \\ xsimpl)
   \\ xapp
+  \\ unabbrev_all_tac \\ rw [] \\ xsimpl
   \\ instantiate \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `r` \\ xsimpl
   \\ Cases_on `cl` \\ fs [] \\ rveq
   \\ fs [implode_def, FILENAME_def, validArg_def]
   \\ asm_exists_tac
-  \\ rw [UNIT_TYPE_def]
   \\ xsimpl);
 
 val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
@@ -385,17 +407,7 @@ val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
   \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
   \\ fs[]);
 
-(*val name = "reader_main"*)
-(*val spec =*)
-  (*reader_main_spec*)
-  (*|> UNDISCH*)
-  (*|> SIMP_RULE std_ss [STDIO_def]*)
-  (*|> add_basis_proj*)
-  (*|> Q.GEN`refs` |> Q.SPEC`init_refs`;*)
-(*val st = get_ml_prog_state();*)
-
-(* TODO: where should this go? *)
-
+(* TODO: Try to fish this out of ml_monadStore *)
 val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   `HOL_STORE init_refs
    {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
