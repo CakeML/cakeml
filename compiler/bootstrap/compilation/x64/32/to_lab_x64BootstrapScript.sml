@@ -10,9 +10,13 @@ val _ = new_theory "to_lab_x64Bootstrap";
 val _ = Globals.max_print_depth := 10;
 
 val bootstrap_conf =
-  ``(x64_backend_config with
+  ``(x64_backend_config
+     with
      bvl_conf updated_by
-       (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))``
+       (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))
+     with
+     data_conf updated_by
+       (λc. c with <| call_empty_ffi := T (* enables logging messages *) |>)``
 
 val to_data_thm0 =
   MATCH_MP backendTheory.to_data_change_config to_data_x64_thm

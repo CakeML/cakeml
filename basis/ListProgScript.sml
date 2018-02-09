@@ -7,6 +7,8 @@ val _ = translation_extends "OptionProg"
 
 val _ = ml_prog_update (open_module "List");
 
+val () = generate_sigs := true;
+
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
 
 val result = translate LENGTH;
@@ -120,6 +122,7 @@ val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
 val result = translate FRONT_DEF;
+val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
 
@@ -145,7 +148,47 @@ val nth_side_def = Q.prove(
 val _ = next_ml_names := ["update"];
 val result = translate LUPDATE_def;
 
-val _ =  ml_prog_update (close_module NONE);
+(* TODO: signature for `app` is missing because it's written in CakeML *)
+val sigs = module_signatures [
+  "length",
+  "null",
+  "revAppend",
+  "rev",
+  "append",
+  "hd",
+  "tl",
+  "last",
+  "getItem",
+  "nth",
+  "take",
+  "drop",
+  "concat",
+  "map",
+  "mapPartial",
+  "find",
+  "filter",
+  "partition",
+  "foldl",
+  "foldr",
+  "exists",
+  "all",
+  "snoc",
+  "tabulate",
+  "collate",
+  "zip",
+  "member",
+  "sum",
+  "unzip",
+  "pad_right",
+  "pad_left",
+  "all_distinct",
+  "isPrefix",
+  "front",
+  "splitAtPki",
+  "update"
+];
+
+val _ =  ml_prog_update (close_module (SOME sigs));
 
 (* sorting -- included here because it depends on List functions like append  *)
 

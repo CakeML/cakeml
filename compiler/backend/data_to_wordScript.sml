@@ -917,9 +917,9 @@ val fp_bop_inst_def = Define `
   fp_bop_inst FP_Div = FPDiv 0 0 1`
 
 val fp_uop_inst_def = Define `
-  fp_uop_inst FP_Neg = FPNeg 0 0 /\
-  fp_uop_inst FP_Abs = FPAbs 0 0 /\
-  fp_uop_inst FP_Sqrt = FPSqrt 0 0`
+  fp_uop_inst FP_Neg = FPNeg 1 0 /\
+  fp_uop_inst FP_Abs = FPAbs 1 0 /\
+  fp_uop_inst FP_Sqrt = FPSqrt 1 0`
 
 local val assign_quotation = `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -1664,7 +1664,7 @@ local val assign_quotation = `
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
                Inst (FP (FPMovFromReg 0 3 3));
                Inst (FP (fp_uop_inst fpu));
-               Inst (FP (FPMovToReg 3 5 0));
+               Inst (FP (FPMovToReg 3 5 1));
                WriteWord64 c header dest 3],l))
         else
          (dtcase encode_header c 3 2 of
@@ -1676,7 +1676,7 @@ local val assign_quotation = `
                Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
                Inst (FP (FPMovFromReg 0 13 11));
                Inst (FP (fp_uop_inst fpu));
-               Inst (FP (FPMovToReg 5 3 0));
+               Inst (FP (FPMovToReg 5 3 1));
                WriteWord64_on_32 c header dest 5 3],l)))
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;

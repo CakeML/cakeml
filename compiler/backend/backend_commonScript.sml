@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib;
 open preamble fpSemTheory;
 
 val _ = new_theory "backend_common";
-val _ = set_grammar_ancestry ["arithmetic"]
+val _ = set_grammar_ancestry ["arithmetic", "words"]
 
 (* these must match what the prim_types_program generates *)
 
@@ -91,5 +91,13 @@ val bvl_to_bvi_namespaces_def = Define`
 
 val bvl_num_stub_MOD = Q.store_thm("bvl_num_stub_MOD",
   `bvl_num_stubs MOD bvl_to_bvi_namespaces = 0`, EVAL_TAC);
+
+(* shift values, per dimindex(:α) *)
+val word_shift_def = Define `
+  word_shift (:'a) =
+    (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
+       to be sure that LOG doesn't unnecessarily end up in the
+       generated CakeML code *)
+    if dimindex (:'a) = 32 then 2 else 3:num`;
 
 val _ = export_theory();

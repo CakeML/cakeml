@@ -4,7 +4,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      gc_sharedTheory gc_combinedTheory;
 local open blastLib in end;
 
-val shift_def = wordLangTheory.shift_def;
+val shift_def = backend_commonTheory.word_shift_def;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_word_memoryProof";

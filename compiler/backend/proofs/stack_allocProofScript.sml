@@ -13,6 +13,8 @@ open preamble
 val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
 
+val word_shift_def = backend_commonTheory.word_shift_def
+
 val _ = bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
 (* TODO: move *)
 
@@ -252,7 +254,7 @@ val nine_less = DECIDE
 
 val word_shift_not_0 = Q.store_thm("word_shift_not_0",
   `word_shift (:'a) <> 0`,
-  srw_tac[][stackLangTheory.word_shift_def] \\ full_simp_tac(srw_ss())[]);
+  srw_tac[][word_shift_def] \\ full_simp_tac(srw_ss())[]);
 
 val select_lower_lemma = Q.store_thm("select_lower_lemma",
   `(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)`,
@@ -4506,10 +4508,7 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
            FAPPLY_FUPDATE_THM,isWord_thm] \\ NO_TAC)
     \\ tac \\ fs [set_store_def] \\ tac
     \\ simp [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ IF_CASES_TAC THEN1
-     (fs [] \\ rfs [labPropsTheory.good_dimindex_def]
-      \\ rfs [wordLangTheory.shift_def])
-    \\ pop_assum kall_tac \\ fs []
+    \\ fs []
     \\ drule word_gen_gc_partial_move_ref_list_ok
     \\ strip_tac \\ rveq \\ fs []
     \\ abbrev_under_exists ``s3:('a,'b)stackSem$state``
@@ -4704,10 +4703,7 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ fs [WORD_NOT_LOWER,FAPPLY_FUPDATE_THM,theWord_def] \\ NO_TAC)
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ ntac 15 tac1
-  \\ IF_CASES_TAC THEN1
-   (fs [] \\ rfs [labPropsTheory.good_dimindex_def]
-    \\ rfs [wordLangTheory.shift_def])
-  \\ pop_assum kall_tac \\ fs []
+  \\ fs []
   \\ ntac 4 tac1
   \\ simp [FLOOKUP_DEF]
   \\ ntac 2 tac1

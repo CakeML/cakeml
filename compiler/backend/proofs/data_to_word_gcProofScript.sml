@@ -8,6 +8,8 @@ local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_gcProof";
 
+val shift_def = backend_commonTheory.word_shift_def
+
 val _ = hide "next";
 
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
