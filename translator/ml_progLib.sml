@@ -363,6 +363,7 @@ fun pick_name str =
   if str = "/" then "div" else
   if str = "!" then "deref" else
   if str = ":=" then "assign" else
+  if str = "@" then "append" else
   if str = "^" then "strcat" else str (* name is fine *)
 
 (*
