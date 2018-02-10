@@ -66,7 +66,7 @@ candle/standard/opentheory
 # examples and tests
 characteristic/examples
 tutorial/solutions
-#translator/monadic/examples   # TODO: uncomment this line
+translator/monadic/examples
 
 examples
 examples/compilation
