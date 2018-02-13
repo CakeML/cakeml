@@ -4078,33 +4078,6 @@ val make_cons_ptr_def = Define `
     Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word)
             || get_lowerbits conf (Word (ptr_bits conf tag len)))`;
 
-val make_cons_ptr_alt = Q.store_thm("make_cons_ptr_alt",
-  `shift_length conf > shift (:'a) (* necessary, and probably satisfied *)
-   ==>
-   make_cons_ptr conf (nff:'a word) tag len =
-     Word (nff << (shift_length conf - shift (:'a))
-                + get_lowerbits conf (Word (ptr_bits conf tag len)))`,
-
-  rw [make_cons_ptr_def]
-  \\ qmatch_goalsub_abbrev_tac `lb || nfs || _`
-  \\ `(lb || 1w) = lb` by fs [get_lowerbits_def, Abbr`lb`]
-  \\ `(nfs || 1w) = (1w || nfs)` by fs []
-  \\ pop_assum (fn th => once_rewrite_tac [th])
-  \\ once_rewrite_tac [GSYM WORD_OR_ASSOC]
-  \\ pop_assum (fn th => once_rewrite_tac [th])
-  \\ match_mp_tac (GSYM WORD_ADD_OR)
-  \\ unabbrev_all_tac
-  \\ fs [get_lowerbits_def, small_shift_length_def, shift_length_def]
-  \\ pop_assum mp_tac
-  \\ once_rewrite_tac [DECIDE ``a+(b+(c+2n))=a+c+(b+2)``]
-  \\ qabbrev_tac `N = conf.len_bits + conf.tag_bits`
-  \\ qabbrev_tac `M = conf.pad_bits + 2`
-  \\ strip_tac
-  \\ Cases_on `N + M - shift(:'a) > dimindex(:'a)` >- rw []
-  \\ `N + M - shift(:'a) - 1 < dimindex (:'a)` by fs [] \\ fs []
-  \\ cheat (* TODO *)
-  );
-
 val make_ptr_def = Define `
   make_ptr conf nf tag len =
     Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word))`;
@@ -9617,14 +9590,17 @@ val memory_rel_append = store_thm("memory_rel_append",
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
        ((list_to_v (in1 ++ in2),Word init_ptr)::vars)``,
-  (* memory_rel_Cons_alt *)
-  cheat);
+
+  rw [make_cons_ptr_thm]
+  \\ cheat
+  );
 
 val memory_rel_list_limit = store_thm("memory_rel_list_limit",
   ``memory_rel c be refs sp0 st m dm ((list_to_v xs, (w: 'a word_loc))::vars)
     ==>
     3 * (LENGTH xs + 1) * (dimindex (:'a) DIV 8) < dimword (:'a)``,
 
-  cheat);
+  cheat
+  );
 
 val _ = export_theory();
