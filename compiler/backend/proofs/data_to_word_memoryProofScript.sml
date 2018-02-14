@@ -9576,10 +9576,16 @@ val append_writes_def = Define `
         let ptr = (ptr + 3w << (shift_length c - shift (:'a))) in
           Word ptr :: append_writes c ptr hdr xs l`
 
+val list_to_v_alt_list_to_v = Q.store_thm("list_to_v_alt_list_to_v",
+  `!xs ys.
+   list_to_v_alt (list_to_v ys) xs = list_to_v (xs ++ ys)`,
+  Induct \\ rw [list_to_v_alt_def, list_to_v_def]);
+
 val memory_rel_append = store_thm("memory_rel_append",
   ``memory_rel c be refs sp st m1 dm
-      (ZIP (in1,ws) ++ (list_to_v in2,h)::vars) /\
-    (word_list next_free (append_writes c init_ptr hdr ws h) * SEP_T)
+      ((list_to_v in2,h)::ZIP (in1,ws) ++ vars) /\
+    (word_list next_free
+      (append_writes c init_ptr (make_header c 0w (LENGTH ws)) ws h) * SEP_T)
       (fun2set (m1,dm)) /\
     LENGTH in1 = LENGTH ws /\ in1 <> [] /\
     3 * LENGTH in1 <= sp /\ good_dimindex (:'a) /\
@@ -9592,7 +9598,49 @@ val memory_rel_append = store_thm("memory_rel_append",
        ((list_to_v (in1 ++ in2),Word init_ptr)::vars)``,
 
   rw [make_cons_ptr_thm]
-  \\ cheat
+  \\ qabbrev_tac `p1 = ptr_bits c 0 2`
+  \\ qabbrev_tac `sl = shift_length c - shift (:'a)`
+  \\ qmatch_asmsub_abbrev_tac `append_writes c nfs`
+  \\ qhdtm_x_assum `memory_rel` (strip_assume_tac o REWRITE_RULE [memory_rel_def])
+  \\ imp_res_tac MAP_ZIP
+  \\ fs [word_ml_inv_def]
+  \\ mp_tac (GEN_ALL cons_multi_thm)
+  \\ disch_then (qspecl_then [`in1`,`list_to_v in2`] mp_tac) \\ fs []
+  \\ disch_then drule
+  \\ impl_tac
+  >- (Cases_on `ws` \\ Cases_on `in1` \\ fs [])
+  \\ rw []
+  \\ fs [list_to_v_alt_list_to_v]
+  \\ rw [memory_rel_def, word_ml_inv_def, PULL_EXISTS]
+  \\ qmatch_asmsub_abbrev_tac `abs_ml_inv _ _ _ (r0::rs0,h0,_,a0,sp0,_) _`
+  \\ Q.LIST_EXISTS_TAC [`h0`,`limit`,`a0`,`sp0`,`sp1`,`gens`,`r0`,`rs0`] \\ fs []
+  \\ reverse conj_tac
+  >-
+   (
+    unabbrev_all_tac
+    \\ fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
+    \\ reverse conj_tac
+    >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length])
+    \\ fs [heap_in_memory_store_def] \\ rfs [] \\ rw []
+    \\ once_rewrite_tac [GSYM WORD_NEG_MUL]
+    \\ once_rewrite_tac [WORD_2COMP_LSL]
+    \\ qmatch_goalsub_abbrev_tac `-x` \\ fs [] (* really? *)
+    \\ fs [Abbr`x`]
+    \\ cheat (* TODO *)
+   )
+  \\ unabbrev_all_tac
+  \\ fs [heap_in_memory_store_def]
+  \\ Cases_on `rs`
+  \\ fs [list_to_BlockReps_heap_length, heap_length_heap_expand,
+         heap_length_APPEND]
+  \\ fs [FLOOKUP_UPDATE] \\ rveq
+  \\ fs [word_heap_heap_expand, word_heap_APPEND]
+  \\ conj_asm1_tac
+  >- (Cases_on `curr` \\ rw [bytes_in_word_def, word_mul_n2w, word_add_n2w])
+  \\ fs [list_to_BlockReps_heap_length, heap_length_APPEND,
+         heap_length_heap_expand]
+  \\ qpat_x_assum `_ (fun2set _)` mp_tac
+  \\ cheat (* TODO *)
   );
 
 val memory_rel_list_limit = store_thm("memory_rel_list_limit",
