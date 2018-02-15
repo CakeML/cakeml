@@ -9616,8 +9616,7 @@ val memory_rel_append = store_thm("memory_rel_append",
   \\ Q.LIST_EXISTS_TAC [`h0`,`limit`,`a0`,`sp0`,`sp1`,`gens`,`r0`,`rs0`] \\ fs []
   \\ reverse conj_tac
   >-
-   (
-    unabbrev_all_tac
+   (unabbrev_all_tac
     \\ fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
     \\ reverse conj_tac
     >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length])
@@ -9625,9 +9624,12 @@ val memory_rel_append = store_thm("memory_rel_append",
     \\ once_rewrite_tac [GSYM WORD_NEG_MUL]
     \\ once_rewrite_tac [WORD_2COMP_LSL]
     \\ qmatch_goalsub_abbrev_tac `-x` \\ fs [] (* really? *)
-    \\ fs [Abbr`x`]
-    \\ cheat (* TODO *)
-   )
+    \\ rw [word_addr_def, get_addr_def, backend_commonTheory.cons_tag_def]
+    \\ fs [bytes_in_word_mul_eq_shift, get_lowerbits_def, fcpTheory.CART_EQ,
+           fcpTheory.FCP_BETA, word_bits_def, word_or_def]
+    \\ rw [] \\ fs [] \\ eq_tac \\ fs [] \\ rw [] \\ fs []
+    \\ rfs [ptr_bits_def, word_or_def, fcpTheory.FCP_BETA, small_shift_length_def]
+    \\ imp_res_tac maxout_bits_IMP \\ fs [])
   \\ unabbrev_all_tac
   \\ fs [heap_in_memory_store_def]
   \\ Cases_on `rs`
@@ -9637,9 +9639,8 @@ val memory_rel_append = store_thm("memory_rel_append",
   \\ fs [word_heap_heap_expand, word_heap_APPEND]
   \\ conj_asm1_tac
   >- (Cases_on `curr` \\ rw [bytes_in_word_def, word_mul_n2w, word_add_n2w])
-  \\ fs [list_to_BlockReps_heap_length, heap_length_APPEND,
-         heap_length_heap_expand]
-  \\ qpat_x_assum `_ (fun2set _)` mp_tac
+  \\ fs [list_to_BlockReps_heap_length, heap_length_APPEND, heap_length_heap_expand]
+
   \\ cheat (* TODO *)
   );
 
