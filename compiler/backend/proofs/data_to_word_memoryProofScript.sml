@@ -9576,6 +9576,11 @@ val append_writes_def = Define `
         let ptr = (ptr + 3w << (shift_length c - shift (:'a))) in
           Word ptr :: append_writes c ptr hdr xs l`
 
+val append_writes_LENGTH = Q.store_thm("append_writes_LENGTH",
+  `!xs ptr.
+   xs <> [] ==> LENGTH (append_writes c ptr hdr xs l) = 3 * LENGTH xs`,
+   Induct \\ rw [append_writes_def]);
+
 val list_to_v_alt_list_to_v = Q.store_thm("list_to_v_alt_list_to_v",
   `!xs ys.
    list_to_v_alt (list_to_v ys) xs = list_to_v (xs ++ ys)`,
@@ -9609,15 +9614,16 @@ val memory_rel_append = store_thm("memory_rel_append",
   \\ disch_then drule
   \\ impl_tac
   >- (Cases_on `ws` \\ Cases_on `in1` \\ fs [])
+  \\ qhdtm_x_assum `abs_ml_inv` kall_tac
   \\ rw []
   \\ fs [list_to_v_alt_list_to_v]
   \\ rw [memory_rel_def, word_ml_inv_def, PULL_EXISTS]
   \\ qmatch_asmsub_abbrev_tac `abs_ml_inv _ _ _ (r0::rs0,h0,_,a0,sp0,_) _`
   \\ Q.LIST_EXISTS_TAC [`h0`,`limit`,`a0`,`sp0`,`sp1`,`gens`,`r0`,`rs0`] \\ fs []
+  \\ unabbrev_all_tac
   \\ reverse conj_tac
   >-
-   (unabbrev_all_tac
-    \\ fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
+   (fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
     \\ reverse conj_tac
     >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length])
     \\ fs [heap_in_memory_store_def] \\ rfs [] \\ rw []
@@ -9630,17 +9636,15 @@ val memory_rel_append = store_thm("memory_rel_append",
     \\ rw [] \\ fs [] \\ eq_tac \\ fs [] \\ rw [] \\ fs []
     \\ rfs [ptr_bits_def, word_or_def, fcpTheory.FCP_BETA, small_shift_length_def]
     \\ imp_res_tac maxout_bits_IMP \\ fs [])
-  \\ unabbrev_all_tac
   \\ fs [heap_in_memory_store_def]
   \\ Cases_on `rs`
   \\ fs [list_to_BlockReps_heap_length, heap_length_heap_expand,
-         heap_length_APPEND]
-  \\ fs [FLOOKUP_UPDATE] \\ rveq
-  \\ fs [word_heap_heap_expand, word_heap_APPEND]
-  \\ conj_asm1_tac
-  >- (Cases_on `curr` \\ rw [bytes_in_word_def, word_mul_n2w, word_add_n2w])
-  \\ fs [list_to_BlockReps_heap_length, heap_length_APPEND, heap_length_heap_expand]
-
+         heap_length_APPEND, FLOOKUP_UPDATE, word_heap_heap_expand,
+         word_heap_APPEND]
+  \\ rfs [] \\ rveq
+  \\ conj_tac
+  >- (Cases_on `curr` \\ fs [GSYM word_add_n2w, bytes_in_word_mul_eq_shift])
+  \\ fs []
   \\ cheat (* TODO *)
   );
 
