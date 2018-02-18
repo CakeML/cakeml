@@ -479,12 +479,12 @@ fun tm_from_proc_from dir cmd args =
 (* Run an external process and get its stdout as a mlstring option term *)
 fun mlstring_from_proc cmd args =
   case read_process (cmd, args, NONE) of
-    NONE => Term `NONE : string option`
+    NONE => Term `NONE : mlstring option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
 fun mlstring_from_proc_from dir cmd args =
   case read_process (cmd, args, SOME dir) of
-    NONE => Term `NONE : string option`
+    NONE => Term `NONE : mlstring option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
 (* ========================================================================= *)
