@@ -1693,6 +1693,7 @@ val cons_multi_thm = Q.store_thm("cons_multi_thm",
        let Allocd = list_to_BlockReps conf rt a rs in
          (roots = rt::rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
          heap = heap1 ++ heap_expand (sp + sp1) ++ heap2 /\
+         a = heap_length heap1 /\
          abs_ml_inv conf
            (list_to_v_alt t xs :: stack) refs
            (Pointer a (Word (ptr_bits conf cons_tag 2))::roots2,
@@ -9687,6 +9688,7 @@ val memory_rel_append = Q.store_thm("memory_rel_append",
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
        ((list_to_v (in1 ++ in2),Word init_ptr)::vars)`,
+
   rw []
   \\ qabbrev_tac `p1 = ptr_bits c 0 2`
   \\ qabbrev_tac `sl = shift_length c - shift (:'a)`
@@ -9726,7 +9728,6 @@ val memory_rel_append = Q.store_thm("memory_rel_append",
   \\ conj_tac
   >- fs [WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
   \\ last_x_assum assume_tac
-  \\ `a = heap_length heap1` by cheat (* TODO *)
   \\ fs [] \\ rveq
   \\ fs [AC STAR_COMM STAR_ASSOC]
   \\ drule (GEN_ALL word_list_AND_word_list_exists_IMP
