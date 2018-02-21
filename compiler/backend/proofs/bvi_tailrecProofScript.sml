@@ -1798,6 +1798,7 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
      >-
        (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
        \\ drule evaluate_add_clock
+       \\ CONV_TAC(LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL]))
        \\ impl_tac >- fs []
        \\ strip_tac
        \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _) = _` kall_tac
@@ -1836,11 +1837,13 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
                \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
            \\ strip_tac
            \\ drule evaluate_add_clock
+           \\ CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL]))
            \\ impl_tac
            >- (every_case_tac \\ fs [])
            \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
            \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog2) _) = _` mp_tac
            \\ drule evaluate_add_clock
+           \\ CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL]))
            \\ impl_tac
            >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
            \\ disch_then (qspec_then `ck+k` mp_tac) \\ simp [inc_clock_def]

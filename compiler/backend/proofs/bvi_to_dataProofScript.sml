@@ -1196,13 +1196,17 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
           strip_tac >>
           drule dataPropsTheory.evaluate_add_clock >>
+          simp[GSYM PULL_FORALL] >>
           impl_tac >- (
-            full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
+            full_simp_tac(srw_ss())[] >> strip_tac >>
+            full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k'`mp_tac)>>simp[]>>
           qhdtm_x_assum`dataSem$evaluate`mp_tac >>
           drule dataPropsTheory.evaluate_add_clock >>
+          simp[GSYM PULL_FORALL] >>
           impl_tac >- (
-            full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
+            full_simp_tac(srw_ss())[] >> strip_tac >>
+            full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
           ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
           full_simp_tac(srw_ss())[state_component_equality] >>
@@ -1217,6 +1221,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         strip_tac >>
         qhdtm_x_assum`bviSem$evaluate`mp_tac >>
         drule bviPropsTheory.evaluate_add_clock >>
+        simp[GSYM PULL_FORALL] >>
         impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[inc_clock_def] >>
         ntac 2 strip_tac >> rveq >>
@@ -1233,7 +1238,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
       qhdtm_x_assum`dataSem$evaluate`mp_tac >>
       drule dataPropsTheory.evaluate_add_clock >>
-      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      simp[GSYM PULL_FORALL] >> impl_tac
+      >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>
       ntac 2 strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
