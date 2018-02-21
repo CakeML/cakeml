@@ -51,6 +51,9 @@ documentation/lem-generated
 *.exe
 *.cgi
 
+# Built Compiler
+compiler/bootstrap/compilation/x64/*/cake
+
 # Benchmarks
 compiler/benchmarks/ocaml/*.cmi
 compiler/benchmarks/ocaml/*.cmo

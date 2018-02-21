@@ -1,0 +1,30 @@
+(*
+  This CakeML program generates tutorial exercises from their solutions
+*)
+
+(* The program generates exercises by making a copy of its argument files in the
+   parent folder where the "(*ex *) ... (* ex*)" blocks have been removed *)
+fun copy_until_solution_start src dst =
+  case TextIO.inputLine src of
+       NONE =>  ()
+     | SOME line => if String.isSubstring "(*ex" line
+                    then drop_until_solution_end src dst
+                    else (TextIO.output dst line;
+                          copy_until_solution_start src dst)
+
+and drop_until_solution_end src dst =
+  case TextIO.inputLine src of
+       NONE => ()
+     | SOME line => if String.isSubstring "ex*)" line
+                    then copy_until_solution_start src dst
+                    else drop_until_solution_end src dst;
+
+fun handle_file fname = let
+  val src = TextIO.openIn fname
+  val dest = TextIO.openOut ("../" ^ fname) in
+  copy_until_solution_start src dest;
+  TextIO.close dest;
+  TextIO.close src
+end;
+
+val main = List.app handle_file (CommandLine.arguments ());

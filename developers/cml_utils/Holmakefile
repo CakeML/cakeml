@@ -1,0 +1,24 @@
+# Depend on the bootstrapped compiler unless `cake` exists on $PATH
+CAKE_ON_PATH=$(protect $(which cake))
+COMPILER_DIR=$(if $(CAKE_ON_PATH),$(shell dirname $(CAKE_ON_PATH)),../../compiler/bootstrap/compilation/x64/64)
+
+COMPILER_EXE=$(COMPILER_DIR)/cake
+
+INCLUDES=$(if $(CAKE_ON_PATH), , $(COMPILER_DIR))
+
+all: make_ex
+.PHONY: all
+
+make_ex: make_ex.o basis_ffi.o
+	cc make_ex.o basis_ffi.o -o $@
+
+make_ex.o: make_ex.S
+	cc -c $< -o $@
+
+make_ex.S: make_ex.cml
+	$(protect $(COMPILER_EXE)) < $< > $@
+
+basis_ffi.o: basis_ffi.c
+	cc -c $< -o $@
+
+EXTRA_CLEANS = $(wildcard *.o) $(wildcard *.S) make_ex

@@ -14,6 +14,12 @@ paths relative to the root directory.
 [build-sequence](build-sequence):
 The regression test runs through this list of directories.
 
+[cml_utils](cml_utils):
+This directory contains some utility programs implemented in CakeML
+concrete syntax. If you have a CakeML compiler (`cake`) on your path,
+Holmake will use that, else it will build a bootstrapped compiler
+from the source tree (which takes much longer).
+
 [readme_gen.sml](readme_gen.sml):
 This SML program generates a `README.md` summary for the files
 given as command-line arguments to this script. The contents of the
