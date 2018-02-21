@@ -734,7 +734,7 @@ val AppendMainLoop_code_def = Define `
        If Test 5 (Imm 1w) Skip (* cons case: *)
          (list_Seq
            [Assign 10 (Op Add [Var 10;
-              Const (n2w (3 * 2 ** (shift_length c − shift (:α))))]);
+              Const (n2w (3 * 2 ** shift_length c))]);
             Assign 8 (Op Sub [Var 8; Const (3w * bytes_in_word)]);
             Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 10;
             Assign 2 (Op Add [Var 2; Const (3w * bytes_in_word)]);
