@@ -3205,14 +3205,23 @@ val th = Q.store_thm("assign_ListAppend",
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
     \\ simp [FAPPLY_FUPDATE_THM]
+    \\ qmatch_asmsub_abbrev_tac `memory_rel _ _ _ _ _ _ _ (A ++ B::C)`
+    \\ sg `memory_rel c t.be s.refs sp t.store m1 t.mdomain ((B::A) ++ C)`
+    >-
+     (irule memory_rel_rearrange
+      \\ HINT_EXISTS_TAC
+      \\ rw [] \\ fs [])
+    \\ map_every qunabbrev_tac [`A`,`B`,`C`]
     \\ rpt_drule memory_rel_append
+    \\ simp [make_cons_ptr_def]
     \\ impl_keep_tac
-    THEN1 (fs [make_cons_ptr_def,Abbr `init_ptr`,get_lowerbits_def])
+    >- fs [Abbr`init_ptr`, get_lowerbits_def, make_header_def, encode_header_def]
     \\ strip_tac
     \\ drule (GEN_ALL memory_rel_less_space)
     \\ disch_then (qspec_then `0` mp_tac) \\ fs []
     \\ fs [join_env_def]
     \\ match_mp_tac (METIS_PROVE [] ``x = y ==> x ==> y``)
+    \\ fs [Abbr`init_ptr`, get_lowerbits_def]
     \\ AP_TERM_TAC \\ AP_TERM_TAC \\ fs []
     \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
     \\ fs [spt_eq_thm,lookup_inter_alt]
@@ -3273,8 +3282,10 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once list_Seq_def,eq_eval,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,FLOOKUP_UPDATE]
-  \\ qmatch_goalsub_abbrev_tac `AllocVar ll ss,tt`
-  \\ Cases_on `evaluate (AllocVar ll ss,tt)`
+  (*\\ qmatch_goalsub_abbrev_tac `AllocVar ll ss,tt`*)
+  (*\\ Cases_on `evaluate (AllocVar ll ss,tt)`*)
+  \\ qmatch_goalsub_abbrev_tac `AllocVar _ ll ss,tt`
+  \\ Cases_on `evaluate (AllocVar c ll ss,tt)`
   \\ rename1 `_ = (aa1,aa2)`
   \\ drule (AllocVar_thm
         |> ONCE_REWRITE_RULE [METIS_PROVE []
@@ -3451,7 +3462,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ Cases_on `o'` \\ fs [stack_rel_def]
   \\ reverse IF_CASES_TAC THEN1
    (sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
-    \\ qspecl_then [`AllocVar ll ss`,`tt`] mp_tac
+    \\ qspecl_then [`AllocVar c ll ss`,`tt`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'ffi``])
     \\ fs []
@@ -3483,15 +3494,24 @@ val th = Q.store_thm("assign_ListAppend",
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
   \\ simp [FAPPLY_FUPDATE_THM]
+  \\ qmatch_asmsub_abbrev_tac `memory_rel _ _ _ _ _ _ _ (A ++ B::C)`
+  \\ sg `memory_rel c aa2.be s.refs sp' aa2.store m1' aa2.mdomain ((B::A) ++ C)`
+  >-
+   (irule memory_rel_rearrange
+    \\ HINT_EXISTS_TAC
+    \\ rw [] \\ fs [])
+  \\ map_every qunabbrev_tac [`A`,`B`,`C`]
   \\ rpt_drule memory_rel_append
+  \\ simp [make_cons_ptr_def]
   \\ impl_keep_tac
-  THEN1 (fs [make_cons_ptr_def,Abbr `init_ptr2`,get_lowerbits_def])
+  >- fs [Abbr`init_ptr2`, get_lowerbits_def, make_header_def, encode_header_def]
   \\ strip_tac
   \\ drule (GEN_ALL memory_rel_less_space)
   \\ disch_then (qspec_then `0` mp_tac) \\ fs []
   \\ fs [join_env_def]
   \\ match_mp_tac memory_rel_rearrange
   \\ fs [] \\ rpt strip_tac \\ fs []
+  >- fs [Abbr`init_ptr2`, get_lowerbits_def]
   \\ ntac 3 disj2_tac
   \\ disj1_tac
   \\ pop_assum mp_tac
