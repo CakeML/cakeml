@@ -9568,13 +9568,22 @@ val memory_rel_space_max = store_thm("memory_rel_space_max",
   \\ fs [word_ml_inv_def,abs_ml_inv_def,unused_space_inv_def,heap_ok_def]
   \\ rfs [] \\ rveq \\ fs []);
 
+val get_lowerbits_ptrbits = Q.store_thm("get_lowerbits_ptrbits",
+  `get_lowerbits c (Word (ptr_bits c x y)) = (ptr_bits c x y || 1w)`,
+  rw [get_lowerbits_def, fcpTheory.CART_EQ, fcpTheory.FCP_BETA, ptr_bits_def,
+      small_shift_length_def]
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rfs [word_or_def, word_lsl_def, word_bits_def, fcpTheory.FCP_BETA]
+  \\ imp_res_tac maxout_bits_IMP \\ fs []);
+
 val append_writes_def = Define `
   append_writes c ptr hdr [] l = ARB /\
   append_writes c ptr (hdr:'a word) (x::xs) l =
     Word hdr :: x ::
       if xs = [] then [l] else
-        let ptr = (ptr + 3w << (shift_length c - shift (:'a))) in
-          Word ptr :: append_writes c ptr hdr xs l`
+        let ptr = ptr + (3w << shift_length c) in
+          Word ptr ::
+          append_writes c ptr hdr xs l`
 
 val append_writes_LENGTH = Q.store_thm("append_writes_LENGTH",
   `!xs ptr.
@@ -9586,12 +9595,89 @@ val list_to_v_alt_list_to_v = Q.store_thm("list_to_v_alt_list_to_v",
    list_to_v_alt (list_to_v ys) xs = list_to_v (xs ++ ys)`,
   Induct \\ rw [list_to_v_alt_def, list_to_v_def]);
 
-val memory_rel_append = store_thm("memory_rel_append",
-  ``memory_rel c be refs sp st m1 dm
+val ptr_bits_1 = Q.prove (
+  `(ptr_bits c 0 2 || 1w) = ptr_bits c 0 2 + 1w`,
+  irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
+  \\ rw [word_0, fcpTheory.CART_EQ, ptr_bits_def]
+  \\ strip_tac
+  \\ rfs [fcpTheory.FCP_BETA, word_and_def, word_or_def]
+  \\ imp_res_tac maxout_bits_IMP \\ fs []
+  \\ imp_res_tac word_bit
+  \\ fsrw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, word_bit_test, shift_length_def]
+  \\ rveq \\ fs [maxout_bits_def, word_0]
+  \\ FULL_CASE_TAC \\ rfs [fcpTheory.FCP_BETA, word_lsl_def, all_ones_def]
+  \\ FULL_CASE_TAC \\ fs [word_0]
+  \\ fs [WORD_SLICE_THM, word_lsl_def, word_bits_def, fcpTheory.FCP_BETA]);
+
+val ptr_bits_lemma = Q.store_thm("ptr_bits_lemma",
+  `(w << shift_length conf || ptr_bits conf 0 2 || 1w) =
+   w << shift_length conf + ptr_bits conf 0 2 + 1w`,
+  once_rewrite_tac [GSYM WORD_ADD_ASSOC]
+  \\ once_rewrite_tac [GSYM ptr_bits_1]
+  \\ irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
+  \\ rw [word_0, fcpTheory.CART_EQ] \\ strip_tac
+  \\ rfs [fcpTheory.FCP_BETA, word_lsl_def, word_or_def, word_and_def, ptr_bits_def]
+  \\ imp_res_tac maxout_bits_IMP \\ fs []
+  \\ imp_res_tac word_bit
+  \\ fsrw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, word_bit_test, shift_length_def]);
+
+val encode_header_lemma = Q.store_thm("encode_header_lemma",
+  `1 < c.len_size /\ c.len_size + 5 < dimindex (:'a) /\
+   good_dimindex (:'a)
+   ==>
+   decode_length c (make_header c 0w 2) = (2w: 'a word) /\
+   encode_header c 0 2 = SOME (make_header c (0w: 'a word) 2)`,
+  strip_tac
+  \\ reverse conj_asm2_tac
+  >- fs [encode_header_def, good_dimindex_def, dimword_def]
+  \\ imp_res_tac encode_header_IMP \\ fs []);
+
+val append_writes_list_to_BlockReps = Q.store_thm("append_writes_list_to_BlockReps",
+  `!xs ws x w offset init_ptr.
+     LENGTH xs = LENGTH ws /\
+     good_dimindex (:'a) /\
+     1 < c.len_size /\ c.len_size + 5 < dimindex (:'a) /\
+     shift (:'a) <= shift_length c /\
+     LIST_REL (\v w. word_addr c v = w) (x::xs) (w::ws) /\
+     Word init_ptr = make_cons_ptr c (bytes_in_word * (n2w offset: 'a word)) 0 2
+     ==>
+     word_list (curr + bytes_in_word * (n2w offset :'a word))
+       (append_writes c init_ptr
+          (make_header c 0w 2) (w::ws) (word_addr c v)) =
+     word_heap (curr + bytes_in_word * n2w offset :'a word)
+       (list_to_BlockReps c v offset (x::xs)) c`,
+  Induct \\ rw []
+  >- rw [append_writes_def, list_to_BlockReps_def, BlockRep_def, word_heap_def,
+         el_length_def, word_el_def, word_payload_def,
+         backend_commonTheory.cons_tag_def, word_list_def, word_addr_def,
+         get_addr_def, get_lowerbits_ptrbits, encode_header_lemma, SEP_CLAUSES,
+         WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w, AC STAR_COMM STAR_ASSOC]
+  \\ rw [Once append_writes_def, Once list_to_BlockReps_def, BlockRep_def,
+         word_heap_def, el_length_def, word_el_def, word_payload_def,
+         backend_commonTheory.cons_tag_def, word_list_def, word_addr_def,
+         get_addr_def, get_lowerbits_ptrbits, encode_header_lemma, SEP_CLAUSES,
+         WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w, AC STAR_COMM STAR_ASSOC]
+  \\ fs []
+  \\ first_x_assum (qspecl_then [`ys`,`h`,`offset+3`] mp_tac) \\ fs [] \\ rw []
+  \\ fs [make_cons_ptr_thm]
+  \\ rfs [get_lowerbits_ptrbits, bytes_in_word_mul_eq_shift,
+         PURE_ONCE_REWRITE_RULE [WORD_MULT_COMM] bytes_in_word_mul_eq_shift]
+  \\ fs [] \\ rw [] \\ fs []
+  \\ fs [ptr_bits_lemma]
+  \\ once_rewrite_tac [GSYM WORD_ADD_LSL]
+  \\ once_rewrite_tac [GSYM WORD_ADD_ASSOC]
+  \\ once_rewrite_tac [GSYM WORD_ADD_LSL]
+  \\ once_rewrite_tac [word_add_n2w]
+  \\ pop_assum (fn th => fs [GSYM th])
+  \\ fs [AC STAR_COMM STAR_ASSOC, ptr_bits_lemma]);
+
+val memory_rel_append = Q.store_thm("memory_rel_append",
+  `memory_rel c be refs sp st m1 dm
       ((list_to_v in2,h)::ZIP (in1,ws) ++ vars) /\
     (word_list next_free
-      (append_writes c init_ptr (make_header c 0w (LENGTH ws)) ws h) * SEP_T)
+      (append_writes c init_ptr (make_header c 0w 2) ws h) * SEP_T)
       (fun2set (m1,dm)) /\
+    1 < c.len_size  /\
     LENGTH in1 = LENGTH ws /\ in1 <> [] /\
     3 * LENGTH in1 <= sp /\ good_dimindex (:'a) /\
     Word init_ptr = make_cons_ptr c (next_free - curr) 0 2 /\
@@ -9600,9 +9686,8 @@ val memory_rel_append = store_thm("memory_rel_append",
     memory_rel c be refs (sp - 3 * LENGTH in1)
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
-       ((list_to_v (in1 ++ in2),Word init_ptr)::vars)``,
-
-  rw [make_cons_ptr_thm]
+       ((list_to_v (in1 ++ in2),Word init_ptr)::vars)`,
+  rw []
   \\ qabbrev_tac `p1 = ptr_bits c 0 2`
   \\ qabbrev_tac `sl = shift_length c - shift (:'a)`
   \\ qmatch_asmsub_abbrev_tac `append_writes c nfs`
@@ -9614,7 +9699,6 @@ val memory_rel_append = store_thm("memory_rel_append",
   \\ disch_then drule
   \\ impl_tac
   >- (Cases_on `ws` \\ Cases_on `in1` \\ fs [])
-  \\ qhdtm_x_assum `abs_ml_inv` kall_tac
   \\ rw []
   \\ fs [list_to_v_alt_list_to_v]
   \\ rw [memory_rel_def, word_ml_inv_def, PULL_EXISTS]
@@ -9626,27 +9710,41 @@ val memory_rel_append = store_thm("memory_rel_append",
    (fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
     \\ reverse conj_tac
     >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length])
-    \\ fs [heap_in_memory_store_def] \\ rfs [] \\ rw []
+    \\ fs [heap_in_memory_store_def, make_cons_ptr_thm] \\ rfs [] \\ rw []
     \\ once_rewrite_tac [GSYM WORD_NEG_MUL]
     \\ once_rewrite_tac [WORD_2COMP_LSL]
     \\ qmatch_goalsub_abbrev_tac `-x` \\ fs [] (* really? *)
     \\ rw [word_addr_def, get_addr_def, backend_commonTheory.cons_tag_def]
-    \\ fs [bytes_in_word_mul_eq_shift, get_lowerbits_def, fcpTheory.CART_EQ,
-           fcpTheory.FCP_BETA, word_bits_def, word_or_def]
-    \\ rw [] \\ fs [] \\ eq_tac \\ fs [] \\ rw [] \\ fs []
-    \\ rfs [ptr_bits_def, word_or_def, fcpTheory.FCP_BETA, small_shift_length_def]
-    \\ imp_res_tac maxout_bits_IMP \\ fs [])
+    \\ fs [get_lowerbits_ptrbits, bytes_in_word_mul_eq_shift])
+  \\ qhdtm_x_assum `heap_in_memory_store` mp_tac
   \\ fs [heap_in_memory_store_def]
   \\ Cases_on `rs`
   \\ fs [list_to_BlockReps_heap_length, heap_length_heap_expand,
          heap_length_APPEND, FLOOKUP_UPDATE, word_heap_heap_expand,
          word_heap_APPEND]
-  \\ rfs [] \\ rveq
+  \\ rw [] \\ rfs [] \\ rveq
   \\ conj_tac
-  >- (Cases_on `curr` \\ fs [GSYM word_add_n2w, bytes_in_word_mul_eq_shift])
-  \\ fs []
-  \\ cheat (* TODO *)
-  );
+  >- fs [WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
+  \\ last_x_assum assume_tac
+  \\ `a = heap_length heap1` by cheat (* TODO *)
+  \\ fs [] \\ rveq
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ drule (GEN_ALL word_list_AND_word_list_exists_IMP
+       |> SIMP_RULE std_ss [Once STAR_COMM])
+  \\ qmatch_asmsub_abbrev_tac `(word_heap _ _ _ * (Q * _))`
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ unabbrev_all_tac
+  \\ simp [Once STAR_COMM]
+  \\ disch_then drule
+  \\ Cases_on `ws` \\ fs [append_writes_LENGTH] \\ fs []
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ qpat_abbrev_tac `PAT1 = word_list _ (append_writes _ _ _ _ _)`
+  \\ qpat_abbrev_tac `PAT2 = word_heap _ (list_to_BlockReps _ _ _ _) _`
+  \\ qsuff_tac `PAT1 = PAT2`
+  >- fs [AC STAR_COMM STAR_ASSOC, WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
+  \\ unabbrev_all_tac \\ rfs []
+  \\ irule append_writes_list_to_BlockReps \\ fs []
+  \\ metis_tac [LIST_REL_APPEND_IMP]);
 
 val memory_rel_list_limit = store_thm("memory_rel_list_limit",
   ``memory_rel c be refs sp0 st m dm ((list_to_v xs, (w: 'a word_loc))::vars)
