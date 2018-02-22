@@ -9795,16 +9795,9 @@ val ok_list_same_length = Q.store_thm("ok_list_same_length",
      ==>
      len = len'`,
   Induct \\ Cases \\ rw [] \\ fs [ok_list_def, walk_list_def, BlockRep_def]
-  \\ rpt (FULL_CASE_TAC \\ fs [] \\ rveq) \\ metis_tac []);
-
-val v_inv_list_to_v = Q.store_thm("v_inv_list_to_v",
-  `!vs x.
-     v_inv c (list_to_v vs) (x,f,heap)
-     ==>
-     EVERY (\v. ?x. v_inv c v (x,f,heap)) vs`,
-  Induct \\ rw [list_to_v_def, v_inv_def]
-  >- (asm_exists_tac \\ fs [])
-  \\ rfs [] \\ metis_tac []);
+  \\ TRY (pop_assum mp_tac)
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [] \\ rveq)
+  \\ metis_tac []);
 
 val v_inv_list_to_v_not_same = Q.store_thm("v_inv_list_to_v_not_same",
   `!vs x.
@@ -9812,21 +9805,19 @@ val v_inv_list_to_v_not_same = Q.store_thm("v_inv_list_to_v_not_same",
      vs <> []
      ==>
      !n. n < LENGTH vs /\ 0 < n ==>
-       ?x'. v_inv c (list_to_v (DROP n vs)) (x',f,heap) /\
-       x' <> x`,
+       ?x'. v_inv c (list_to_v (DROP n vs)) (x',f,heap) /\ x' <> x`,
   Cases >- rw []
   \\ ntac 2 strip_tac
   \\ Induct \\ fs [] \\ rw [] \\ Cases_on `n` \\ fs []
+  \\ imp_res_tac v_inv_ok_list \\ fs []
+  \\ qhdtm_x_assum `v_inv` mp_tac
+  \\ rw [Once list_to_v_def, v_inv_def, PULL_EXISTS]
+  \\ imp_res_tac v_inv_ok_list
   >-
-   (imp_res_tac v_inv_ok_list \\ fs []
-    \\ qhdtm_x_assum `v_inv` mp_tac
-    \\ rw [Once list_to_v_def, v_inv_def, PULL_EXISTS]
-    \\ imp_res_tac v_inv_ok_list \\ fs []
+   (asm_exists_tac \\ fs []
     \\ Cases_on `t` \\ fs []
-    \\ qexists_tac `Pointer ptr' (Word (ptr_bits c cons_tag 2))` \\ fs []
     \\ CCONTR_TAC \\ fs []
     \\ imp_res_tac ok_list_same_length \\ fs [])
-  \\ imp_res_tac v_inv_ok_list \\ fs []
   \\ sg `?x xs. DROP n' t = x::xs /\ DROP (SUC n') t = xs /\ xs <> []`
   >-
    (qpat_x_assum `_ < _` mp_tac
@@ -9836,9 +9827,9 @@ val v_inv_list_to_v_not_same = Q.store_thm("v_inv_list_to_v_not_same",
     \\ res_tac \\ fs [DROP_def])
   \\ fs []
   \\ qhdtm_x_assum `v_inv` mp_tac
-  \\ rw [Once list_to_v_def, v_inv_def, PULL_EXISTS]
+  \\ rw [list_to_v_def, v_inv_def, PULL_EXISTS]
   \\ imp_res_tac v_inv_ok_list \\ fs [] \\ rveq
-  \\ qexists_tac `Pointer ptr'' (Word (ptr_bits c cons_tag 2))` \\ fs []
+  \\ asm_exists_tac \\ fs []
   \\ CCONTR_TAC \\ fs []
   \\ imp_res_tac ok_list_same_length \\ fs []);
 
