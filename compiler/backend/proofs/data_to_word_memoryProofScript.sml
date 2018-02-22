@@ -9688,7 +9688,6 @@ val memory_rel_append = Q.store_thm("memory_rel_append",
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
        ((list_to_v (in1 ++ in2),Word init_ptr)::vars)`,
-
   rw []
   \\ qabbrev_tac `p1 = ptr_bits c 0 2`
   \\ qabbrev_tac `sl = shift_length c - shift (:'a)`
@@ -9747,11 +9746,108 @@ val memory_rel_append = Q.store_thm("memory_rel_append",
   \\ irule append_writes_list_to_BlockReps \\ fs []
   \\ metis_tac [LIST_REL_APPEND_IMP]);
 
-val memory_rel_list_limit = store_thm("memory_rel_list_limit",
-  ``memory_rel c be refs sp0 st m dm ((list_to_v xs, (w: 'a word_loc))::vars)
-    ==>
-    3 * (LENGTH xs + 1) * (dimindex (:'a) DIV 8) < dimword (:'a)``,
+(* --- ML lists cannot exceed heap size: --- *)
 
+(* Traverse a linked list on the heap in t + 1 steps *)
+val walk_list_def = Define `
+  (walk_list c 0n heap ptr = heap_lookup ptr heap) /\
+  (walk_list c t heap ptr =
+    case heap_lookup ptr heap of
+      NONE => NONE
+    | SOME rep =>
+        (case rep of
+          DataElement xs len ts =>
+            if len = LENGTH xs /\
+               2   = LENGTH xs /\
+               ts  = (BlockTag cons_tag,[]) then
+              (case xs of [x; p] =>
+                (case p of
+                  Pointer ptr' w =>
+                    (if w = Word (ptr_bits c cons_tag 2) then
+                      walk_list c (t-1) heap ptr'
+                    else NONE)
+                | _ => NONE))
+            else NONE
+        | _ => NONE))`
+
+(* A linked list is ok for some length if we hit a nil after stepping over it *)
+val ok_list_def = Define `
+  ok_list c len heap ptr <=>
+    ?v. walk_list c len heap ptr =
+      SOME (BlockRep cons_tag [v; Data (Word (BlockNil nil_tag))])`;
+
+val v_inv_ok_list = Q.store_thm("v_inv_ok_list",
+  `!vs x f heap.
+     v_inv c (list_to_v vs) (x,f,heap) /\
+     vs <> []
+     ==>
+     ?ptr.
+     x = Pointer ptr (Word (ptr_bits c cons_tag 2)) /\
+     ok_list c (LENGTH vs - 1) heap ptr`,
+  Induct \\ rw [list_to_v_def, v_inv_def]
+  \\ first_x_assum drule
+  \\ Cases_on `vs`
+  \\ fs [list_to_v_def, v_inv_def, ok_list_def, walk_list_def, BlockRep_def]);
+
+val ok_list_same_length = Q.store_thm("ok_list_same_length",
+  `!len len' ptr.
+     ok_list c len heap ptr /\ ok_list c len' heap ptr
+     ==>
+     len = len'`,
+  Induct \\ Cases \\ rw [] \\ fs [ok_list_def, walk_list_def, BlockRep_def]
+  \\ rpt (FULL_CASE_TAC \\ fs [] \\ rveq) \\ metis_tac []);
+
+val v_inv_list_to_v = Q.store_thm("v_inv_list_to_v",
+  `!vs x.
+     v_inv c (list_to_v vs) (x,f,heap)
+     ==>
+     EVERY (\v. ?x. v_inv c v (x,f,heap)) vs`,
+  Induct \\ rw [list_to_v_def, v_inv_def]
+  >- (asm_exists_tac \\ fs [])
+  \\ rfs [] \\ metis_tac []);
+
+val v_inv_list_to_v_not_same = Q.store_thm("v_inv_list_to_v_not_same",
+  `!vs x.
+     v_inv c (list_to_v vs) (x,f,heap) /\
+     vs <> []
+     ==>
+     !n. n < LENGTH vs /\ 0 < n ==>
+       ?x'. v_inv c (list_to_v (DROP n vs)) (x',f,heap) /\
+       x' <> x`,
+  Cases >- rw []
+  \\ ntac 2 strip_tac
+  \\ Induct \\ fs [] \\ rw [] \\ Cases_on `n` \\ fs []
+  >-
+   (imp_res_tac v_inv_ok_list \\ fs []
+    \\ qhdtm_x_assum `v_inv` mp_tac
+    \\ rw [Once list_to_v_def, v_inv_def, PULL_EXISTS]
+    \\ imp_res_tac v_inv_ok_list \\ fs []
+    \\ Cases_on `t` \\ fs []
+    \\ qexists_tac `Pointer ptr' (Word (ptr_bits c cons_tag 2))` \\ fs []
+    \\ CCONTR_TAC \\ fs []
+    \\ imp_res_tac ok_list_same_length \\ fs [])
+  \\ imp_res_tac v_inv_ok_list \\ fs []
+  \\ sg `?x xs. DROP n' t = x::xs /\ DROP (SUC n') t = xs /\ xs <> []`
+  >-
+   (qpat_x_assum `_ < _` mp_tac
+    \\ map_every qid_spec_tac [`n'`,`t`]
+    \\ Induct \\ rw []
+    \\ Cases_on `n''` >- (Cases_on `t'` \\ fs [])
+    \\ res_tac \\ fs [DROP_def])
+  \\ fs []
+  \\ qhdtm_x_assum `v_inv` mp_tac
+  \\ rw [Once list_to_v_def, v_inv_def, PULL_EXISTS]
+  \\ imp_res_tac v_inv_ok_list \\ fs [] \\ rveq
+  \\ qexists_tac `Pointer ptr'' (Word (ptr_bits c cons_tag 2))` \\ fs []
+  \\ CCONTR_TAC \\ fs []
+  \\ imp_res_tac ok_list_same_length \\ fs []);
+
+val memory_rel_list_limit = Q.store_thm("memory_rel_list_limit",
+  `memory_rel c be refs sp0 st m dm ((list_to_v xs, (w: 'a word_loc))::vars)
+   ==>
+   3 * (LENGTH xs + 1) * (dimindex (:'a) DIV 8) < dimword (:'a)`,
+
+  rw [memory_rel_def, word_ml_inv_def]
   cheat
   );
 
