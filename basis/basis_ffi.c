@@ -40,7 +40,7 @@ void int_to_byte2(int i, unsigned char *b){
 }
 
 int byte2_to_int(unsigned char *b){
-    int i = ((b[0] << 8) | b[1]);
+    return ((b[0] << 8) | b[1]);
 }
 
 void int_to_byte8(int i, unsigned char *b){
@@ -58,7 +58,7 @@ void int_to_byte8(int i, unsigned char *b){
 }
 
 int byte8_to_int(unsigned char *b){
-    int i = (((long long) b[0] << 56) | ((long long) b[1] << 48) |
+    return (((long long) b[0] << 56) | ((long long) b[1] << 48) |
              ((long long) b[2] << 40) | ((long long) b[3] << 32) |
              (b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]);
 }
