@@ -537,7 +537,7 @@ val inst_select_exp_thm = Q.prove(`
     (simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
     full_simp_tac(srw_ss())[LET_THM,word_exp_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
     >-
-      (`word_sh s' c' (num_exp n) = SOME c'` by
+      (`word_sh s' c' n = SOME c'` by
         (full_simp_tac(srw_ss())[word_sh_def]>>EVERY_CASE_TAC>>
         fs[])>>
       srw_tac[][]>>res_tac>>
@@ -546,7 +546,7 @@ val inst_select_exp_thm = Q.prove(`
       `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
       full_simp_tac(srw_ss())[set_vars_def,alist_insert_def,state_component_equality,lookup_insert]>>
       srw_tac[][]>>rev_full_simp_tac(srw_ss())[]>>
-      `x ≠ temp` by DECIDE_TAC>>metis_tac[])
+      Cases_on `x = temp`>>fs[]>>metis_tac[])
     >-
       (assume_tac DIMINDEX_GT_0>>
       `0 ≠ dimindex(:'a)` by DECIDE_TAC>>full_simp_tac(srw_ss())[])
@@ -555,11 +555,11 @@ val inst_select_exp_thm = Q.prove(`
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
       full_simp_tac(srw_ss())[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
       `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
-      full_simp_tac(srw_ss())[num_exp_def,set_var_def,state_component_equality,lookup_insert]>>
+      full_simp_tac(srw_ss())[set_var_def,state_component_equality,lookup_insert]>>
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>
       metis_tac[])
     >-
-      (`num_exp n ≥ dimindex(:'a)` by DECIDE_TAC>>
+      (`n ≥ dimindex(:'a)` by DECIDE_TAC>>
       full_simp_tac(srw_ss())[word_sh_def])));
 
 val locals_rm = Q.prove(`
