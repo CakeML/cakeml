@@ -1,8 +1,10 @@
 INCLUDES = $(HOLDIR)/examples/balanced_bst ../../misc ../../translator ../../basis/pure ../../basis ../../characteristic ../../compiler\
-					 ../../semantics ../../semantics/proofs ../../compiler/backend/proofs ../../compiler/backend/x64/proofs
+					 ../../semantics ../../semantics/proofs ../../compiler/backend/proofs ../../compiler/backend/x64/proofs\
+                                         ../../developers/cml_utils
 CLINE_OPTIONS = --qof
 
 SOLUTIONS = wordfreqProgScript.sml simple_bstScript.sml
+MAKE_EX = ../../developers/cml_utils/make_ex
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
@@ -10,10 +12,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
 
 all: $(TARGETS) exercises
 
-.PHONY: all
+.PHONY: all exercises
 
-exercises: $(SOLUTIONS) make_ex
-	./make_ex $(SOLUTIONS)
-
-make_ex: make_ex.sml
-	$(POLYC) make_ex.sml -o make_ex
+exercises: $(SOLUTIONS) $(MAKE_EX)
+	$(MAKE_EX) $(SOLUTIONS)

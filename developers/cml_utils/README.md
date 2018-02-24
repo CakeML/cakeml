@@ -1,0 +1,7 @@
+This directory contains some utility programs implemented in CakeML
+concrete syntax. If you have a CakeML compiler (`cake`) on your path,
+Holmake will use that, else it will build a bootstrapped compiler
+from the source tree (which takes much longer).
+
+[make_ex.cml](make_ex.cml):
+This CakeML program generates tutorial exercises from their solutions

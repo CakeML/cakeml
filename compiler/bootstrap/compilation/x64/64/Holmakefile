@@ -28,13 +28,19 @@ endif
 
 cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile
-	make cake   # the following lines are a basic test
+cake: cake.S basis_ffi.c Makefile
+	make cake
+
+# Basic compiler test
+exec_test: cake input.cml
 	./cake <input.cml >result.S
 	cc -o result basis_ffi.c result.S
 	./result >output
 	echo 'Hello!'>expected_output
 	diff output expected_output   # returns non-zero if files differ
+.PHONY: exec_test
+
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile exec_text
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile
 
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz output expected_output result.S result

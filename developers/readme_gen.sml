@@ -236,6 +236,7 @@ fun create_summary filenames_and_paths = let
     (if (OS.FileSys.isDir filename handle OS.SysErr _ => false) then
        TitleAndContent (filename,read_comment_from_dir filename)
      else if String.isSuffix ".sml" filename orelse
+             String.isSuffix ".cml" filename orelse
              String.isSuffix ".lem" filename then
        TitleAndContent (filename,read_comment_from_sml filename)
      else if String.isSuffix ".sh" filename then
