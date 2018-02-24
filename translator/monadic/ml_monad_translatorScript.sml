@@ -1,10 +1,11 @@
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
+open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory AC_Sort
 open determTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
-open cfStoreTheory cfTheory cfTacticsLib packLib
+open cfStoreTheory cfTheory cfTacticsLib packLib;
+open preamble;
 
 val _ = new_theory "ml_monad_translator";
 
