@@ -9864,15 +9864,24 @@ val heap_length_Blocks = Q.store_thm("heap_length_Blocks",
   \\ fs [LEFT_ADD_DISTRIB, heap_length_APPEND, ADD1, LESS_EQ_TRANS]);
 
 val v_inv_list_to_v_EVERY = Q.store_thm("v_inv_list_to_v_EVERY",
-  `!vs p.
-   v_inv c (list_to_v vs)
-     (Pointer p (Word (ptr_bits c cons_tag 2)),f,heap) /\
-   vs <> [] /\
-   walk c heap p (LENGTH vs) = ps
-   ==>
-   EVERY (\p. ?x y. heap_lookup p heap = SOME (BlockRep cons_tag [x; y])) ps`,
-  cheat
-  );
+  `!vs p ps.
+     v_inv c (list_to_v vs)
+       (Pointer p (Word (ptr_bits c cons_tag 2)),f,heap) /\
+     vs <> [] /\
+     walk c heap p (LENGTH vs) = ps
+     ==>
+     EVERY (\p. ?x y. heap_lookup p heap = SOME (BlockRep cons_tag [x; y])) ps`,
+  Induct \\ rw [list_to_v_def, v_inv_def]
+  \\ imp_res_tac v_inv_list_to_v_lemma
+  \\ Cases_on `vs = []` \\ fs []
+  >- (once_rewrite_tac [walk_def] \\ fs [BlockRep_def])
+  \\ rveq
+  \\ first_x_assum drule
+  \\ rw [EVERY_MEM]
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [walk_def] \\ fs []
+  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ fs [BlockRep_def]);
 
 val v_inv_walk_ALL_DISTINCT = Q.store_thm("v_inv_walk_ALL_DISTINCT",
   `!vs ptr ps.
