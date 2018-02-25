@@ -56,7 +56,9 @@ val _ = Datatype`
   config =
     <| inferencer_config : inferencer_config
      ; backend_config : α backend$config
-     ; input_is_sexp : bool
+     ; input_is_sexp       : bool
+     ; exclude_prelude     : bool
+     ; skip_type_inference : bool
      |>`;
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError | ConfigError mlstring`;
@@ -91,7 +93,12 @@ val compile_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        let _ = empty_ffi (strlit "finished: lexing and parsing") in
-       case infertype_prog c.inferencer_config (prelude ++ prog) of
+       let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
+       case
+         if c.skip_type_inference
+         then Success c.inferencer_config
+         else infertype_prog c.inferencer_config full_prog
+       of
        | Failure (Exc (locs, msg)) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic =>
@@ -109,7 +116,12 @@ val compile_explorer_def = Define`
     of
     | NONE => Failure ParseError
     | SOME prog =>
-       case infertype_prog c.inferencer_config (prelude ++ prog) of
+       let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
+       case
+         if c.skip_type_inference
+         then Success c.inferencer_config
+         else infertype_prog c.inferencer_config full_prog
+       of
        | Failure (Exc (locs, msg)) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
@@ -371,12 +383,16 @@ val parse_top_config_def = Define`
   let heap = find_num (strlit"--heap_size=") ls default_heap_sz in
   let stack = find_num (strlit"--stack_size=") ls default_stack_sz in
   let sexp = find_bool (strlit"--sexp=") ls F in
-  case (heap,stack,sexp) of
-    (INL heap,INL stack,INL sexp) =>
-      INL (heap,stack,sexp)
+  let prelude = find_bool (strlit"--exclude_prelude=") ls F in
+  let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
+  case (heap,stack,sexp,prelude,typeinference) of
+    (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
+      INL (heap,stack,sexp,prelude,typeinference)
   | _ => INR (concat [get_err_str heap;
                get_err_str stack;
-               get_err_str sexp])`
+               get_err_str sexp;
+               get_err_str prelude;
+               get_err_str typeinference])`
 
 (* Check for version flag
    TODO: fix this
@@ -399,14 +415,16 @@ val compile_64_def = Define`
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp)) =>
+    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
         let compiler_conf =
-          <| inferencer_config := init_config;
-             backend_config    := ext_conf;
-             input_is_sexp     := sexp |> in
+          <| inferencer_config   := init_config;
+             backend_config      := ext_conf;
+             input_is_sexp       := sexp;
+             exclude_prelude     := prelude;
+             skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
           Success (bytes,data,c) =>
             (export (the [] c.ffi_names) heap stack bytes data, implode "")
@@ -429,14 +447,16 @@ val compile_32_def = Define`
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp)) =>
+    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
         let compiler_conf =
-          <| inferencer_config := init_config;
-             backend_config    := ext_conf;
-             input_is_sexp     := sexp |> in
+          <| inferencer_config   := init_config;
+             backend_config      := ext_conf;
+             input_is_sexp       := sexp;
+             exclude_prelude     := prelude;
+             skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
           Success (bytes,data,c) =>
             (export (the [] c.ffi_names) heap stack bytes data, implode "")
