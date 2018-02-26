@@ -1,5 +1,6 @@
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
+open basisFunctionsLib
 
 val _ = new_theory"ListProg"
 
