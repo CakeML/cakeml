@@ -62,8 +62,8 @@ fun mk_Arrow_of_app_goal t = let
       val (tm'', args) = strip_n (n-1) tm'
     in (tm'', args @ [arg]) end
   fun dest_pred t = strip_n 2 t
-  fun pred_v t = let val (_, [_, v]) = dest_pred t in v end
-  fun pred_x t = let val (_, [x, _]) = dest_pred t in x end
+  fun pred_v t = case dest_pred t of (_, [_, v]) => v | _ => failwith "pred_v"
+  fun pred_x t = case dest_pred t of (_, [x, _]) => x | _ => failwith "pred_x"
   val (t_vars, t_body) = strip_forall t
   val (hyps1, concl_tm) = strip_imp t_body
   (* hyps: list of hypothesis *)
@@ -95,7 +95,10 @@ fun mk_Arrow_of_app_goal t = let
   val (_, post_body1) = dest_comb post (* dest_POSTv *)
   val (_, post_body2) = dest_abs post_body1
   val (_, pure_post) = dest_comb post_body2 (* dest_cond *)
-  val (concl_pred, [f_x, v]) = dest_pred pure_post
+  val (concl_pred, f_x, v) =
+    (case dest_pred pure_post of
+       (concl_pred, [f_x, v]) => (concl_pred, f_x, v)
+     | _ => failwith "dest_pred")
   val (f, _) = strip_n (List.length argsv_list) f_x
   (* build the iterated Arrows *)
   val arrows = foldl (fn (argv, arrows) =>
