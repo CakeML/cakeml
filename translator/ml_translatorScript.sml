@@ -3,14 +3,15 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open preamble integerTheory
+open integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
      mlvectorTheory mlstringTheory ml_progTheory packLib;
 open integer_wordSyntax
 open terminationTheory
-local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end
+local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end;
+open preamble;
 
 val _ = new_theory "ml_translator";
 
