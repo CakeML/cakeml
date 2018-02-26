@@ -3521,7 +3521,8 @@ val gen_starts_in_store_IMP = store_thm("gen_starts_in_store_IMP",
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp sp1 gens c s m dm limit <=>
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
-    heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    (* +3 is breathing room for lists: *)
+    (heap_length heap + 3) * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
     c.len_size + 7 (* 5 tag bits + 2-3 bits for byte arrays *) < dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\ Globals ∈ FDOM s /\
@@ -9769,7 +9770,7 @@ val v_inv_list_to_v_lemma = Q.store_thm("v_inv_list_to_v_lemma",
   \\ pop_assum mp_tac
   \\ rw [list_to_v_def, v_inv_def, BlockRep_def]);
 
-val v_inv_walk_LENGTH = Q.store_thm("v_inv_walk_LENGTH",
+val walk_LENGTH = Q.store_thm("walk_LENGTH",
   `!vs ptr ps.
      v_inv c (list_to_v vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,heap) /\
      vs <> [] /\
@@ -9841,7 +9842,7 @@ val heap_length_Blocks = Q.store_thm("heap_length_Blocks",
     \\ rfs [heap_lookup_APPEND, heap_length_APPEND, BlockRep_def])
   \\ fs [LEFT_ADD_DISTRIB, heap_length_APPEND, ADD1, LESS_EQ_TRANS]);
 
-val v_inv_list_to_v_EVERY = Q.store_thm("v_inv_list_to_v_EVERY",
+val walk_heap_lookup = Q.store_thm("walk_heap_lookup",
   `!vs p ps.
      v_inv c (list_to_v vs)
        (Pointer p (Word (ptr_bits c cons_tag 2)),f,heap) /\
@@ -9969,7 +9970,7 @@ val list_to_v_DROP = Q.store_thm("list_to_v_DROP",
   \\ Cases_on `k` \\ fs []
   \\ once_rewrite_tac [walk_def] \\ fs [BlockRep_def]);
 
-val v_inv_walk_ALL_DISTINCT = Q.store_thm("v_inv_walk_ALL_DISTINCT",
+val walk_ALL_DISTINCT = Q.store_thm("walk_ALL_DISTINCT",
   `!vs ptr ps.
      v_inv c (list_to_v vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,heap) /\
      vs <> [] /\
@@ -9981,37 +9982,26 @@ val v_inv_walk_ALL_DISTINCT = Q.store_thm("v_inv_walk_ALL_DISTINCT",
   \\ rename1 `SUC (LENGTH vs)`
   \\ drule (GEN_ALL v_inv_list_to_v_lemma) \\ strip_tac
   \\ Cases_on `vs = []` \\ fs [] \\ rveq
-  \\ once_rewrite_tac [walk_def] \\ fs []
-  \\ fs [BlockRep_def, some_def]
+  \\ once_rewrite_tac [walk_def] \\ fs [BlockRep_def]
   \\ Cases_on `ptr = p` \\ fs [] \\ rveq
   >-
-   (
-    first_x_assum drule \\ rw []
+   (first_x_assum drule \\ rw []
     \\ Cases_on `vs` \\ fs [] \\ rw [Once walk_def]
-    >- fs [v_inv_def, list_to_v_def, BlockRep_def]
-    \\ simp [some_def, BlockRep_def]
-    \\ qhdtm_x_assum `ALL_DISTINCT` mp_tac
-    \\ rw [Once walk_def, some_def, BlockRep_def]
-    \\ qhdtm_x_assum `v_inv` mp_tac
-    \\ rw [v_inv_def, list_to_v_def, BlockRep_def]
+    \\ fs [v_inv_def, list_to_v_def, BlockRep_def]
+    \\ rfs [Once walk_def, BlockRep_def] \\ fs []
     \\ metis_tac [walk_MEM])
   \\ CCONTR_TAC \\ fs []
   \\ qabbrev_tac `ps = walk c heap p (LENGTH vs)`
   \\ first_x_assum drule \\ strip_tac
   \\ fs [MEM_EL]
-  \\ sg `v_inv c (list_to_v (DROP n vs)) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,heap)`
-  >-
-   (drule (GEN_ALL list_to_v_DROP) \\ fs []
-    \\ disch_then (qspec_then `n` mp_tac)
-    \\ impl_tac \\ fs []
-    \\ metis_tac [v_inv_walk_LENGTH])
+  \\ sg `v_inv c (list_to_v (DROP n vs))
+           (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,heap)`
+  >- (drule (GEN_ALL list_to_v_DROP) \\ fs [] \\ metis_tac [walk_LENGTH])
   \\ sg `v_inv c (list_to_v (h::vs))
            (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,heap)`
   >- rw [v_inv_def, list_to_v_def, BlockRep_def]
   \\ sg `LENGTH (h::vs) = LENGTH (DROP n vs)`
-  >-
-   (irule list_to_v_same_LENGTH
-    \\ asm_exists_tac \\ fs [])
+  >- (irule list_to_v_same_LENGTH \\ asm_exists_tac \\ fs [])
   \\ fs [LENGTH_DROP]);
 
 val list_to_v_heap_length = Q.store_thm("list_to_v_heap_length",
@@ -10019,9 +10009,8 @@ val list_to_v_heap_length = Q.store_thm("list_to_v_heap_length",
    vs <> []
    ==>
    3 * LENGTH vs <= heap_length heap`,
-  metis_tac [v_inv_list_to_v_EVERY, heap_length_Blocks,
-             v_inv_walk_LENGTH, v_inv_walk_ALL_DISTINCT,
-             v_inv_ok, ok_def, v_inv_list_to_v_lemma]);
+  metis_tac [walk_heap_lookup, walk_LENGTH, walk_ALL_DISTINCT,
+             heap_length_Blocks, v_inv_list_to_v_lemma]);
 
 (* ------------------------------------------------------------------------- *)
 
@@ -10033,15 +10022,6 @@ val memory_rel_list_limit = Q.store_thm("memory_rel_list_limit",
   rw [memory_rel_def, word_ml_inv_def, abs_ml_inv_def, bc_stack_ref_inv_def,
       heap_ok_def, heap_in_memory_store_def]
   \\ drule (GEN_ALL list_to_v_heap_length)
-  \\ Cases_on `xs` \\ fs []
-  >- fs [dimword_def, good_dimindex_def]
-  \\ rw []
-  \\ simp [ADD1, LEFT_ADD_DISTRIB]
-  \\ irule LESS_TRANS
-  \\ qexists_tac `heap_length heap * (dimindex (:'a) DIV 8)` \\ fs []
-  \\ qsuff_tac `3 * (LENGTH t + 2) < heap_length heap`
-  >- fs [LT_MULT_RCANCEL, good_dimindex_def]
-  \\ cheat (* TODO *)
-  );
+  \\ Cases_on `xs` \\ fs [dimword_def, good_dimindex_def] \\ rw [] \\ fs []);
 
 val _ = export_theory();
