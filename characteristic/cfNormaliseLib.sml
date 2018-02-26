@@ -122,7 +122,9 @@ in listSyntax.mk_list (funs', ty) end
 fun dest_opapp e = let
   val (app_op, args_tm) = dest_App e
   val _ = assert (same_const Opapp) app_op
-  val ([f, x], _) = listSyntax.dest_list args_tm
+  val fx = listSyntax.dest_list args_tm |> fst
+  val f = el 1 fx
+  val x = el 2 fx
 in
   case dest_opapp f of
      SOME (f', args) => SOME (f', args @ [x])
