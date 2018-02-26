@@ -464,15 +464,13 @@ val do_app = Q.prove (
     \\ fs [v_rel_eqns, result_rel_cases, PULL_EXISTS,
            semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]
     \\ imp_res_tac v_to_list \\ fs [] \\ rveq
-    \\ metis_tac [list_to_v_v_rel, list_to_v_v_rel_APPEND])
-  \\ Cases_on `op` \\ fs [] >>
+    \\ metis_tac [list_to_v_v_rel, list_to_v_v_rel_APPEND]) >>
   Cases_on `op = ConfigGC` >-
      (simp [astOp_to_modOp_def] >>
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]) >>
-  pop_assum mp_tac >>
   Cases_on `op` >>
-  simp [astOp_to_modOp_def]
+  fs [astOp_to_modOp_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
