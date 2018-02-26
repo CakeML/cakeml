@@ -3552,7 +3552,7 @@ val memory_rel_def = Define `
     ∃heap limit a sp sp1 gens.
        heap_in_memory_store heap a sp sp1 gens c st m dm limit ∧
        word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs vars ∧
-       limit * (dimindex (:α) DIV 8) + 1 < dimword (:α) ∧ space ≤ sp`
+       (limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α) ∧ space ≤ sp`
 
 val EVERY2_MAP_MAP = Q.store_thm("EVERY2_MAP_MAP",
   `!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs`,
