@@ -355,10 +355,9 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- bvi_tailrec ---- *)
     ,bvi_tailrecTheory.dummy_def
     ,bvi_tailrecTheory.small_int_def
-    ,bvi_tailrecTheory.is_arith_op_def
-    ,bvi_tailrecTheory.is_const_def
-    ,bvi_tailrecTheory.is_num_rel_def
     ,bvi_tailrecTheory.is_rec_def
+    ,bvi_tailrecTheory.is_const_def
+    ,bvi_tailrecTheory.op_type_def
     ,bvi_tailrecTheory.to_op_def
     ,bvi_tailrecTheory.from_op_def
     ,bvi_tailrecTheory.op_eq_def
@@ -367,17 +366,24 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.index_of_def
     ,bvi_tailrecTheory.args_from_def
     ,bvi_tailrecTheory.get_bin_args_def
+    ,bvi_tailrecTheory.opbinargs_def
     ,bvi_tailrecTheory.try_update_def
-    ,bvi_tailrecTheory.no_err_def
-    ,bvi_tailrecTheory.is_rec_or_rec_binop_def
-    ,bvi_tailrecTheory.assoc_swap_def
-    ,bvi_tailrecTheory.rewrite_op_def
+    ,bvi_tailrecTheory.term_ok_def
+    ,bvi_tailrecTheory.rotate_def
+    ,bvi_tailrecTheory.do_assocr_def
+    ,bvi_tailrecTheory.assocr_def
+    ,bvi_tailrecTheory.do_comml_def
+    ,bvi_tailrecTheory.check_op_def
     ,bvi_tailrecTheory.decide_ty_def
     ,bvi_tailrecTheory.LAST1_def
+    ,bvi_tailrecTheory.update_context_def
+    ,bvi_tailrecTheory.arg_ty_def
+    ,bvi_tailrecTheory.op_ty_def
     ,bvi_tailrecTheory.scan_expr_def
+    ,bvi_tailrecTheory.comml_def
     ,bvi_tailrecTheory.push_call_def
-    ,bvi_tailrecTheory.mk_tailcall_def
     ,bvi_tailrecTheory.rewrite_def
+    ,bvi_tailrecTheory.has_rec_def
     ,bvi_tailrecTheory.check_exp_def
     ,bvi_tailrecTheory.let_wrap_def
     ,bvi_tailrecTheory.mk_aux_call_def
