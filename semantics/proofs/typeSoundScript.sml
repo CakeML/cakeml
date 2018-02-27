@@ -1311,7 +1311,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> fs [dec_clock_def, PULL_EXISTS]
        >> rename1 `type_e tenv' tenvE' e t`
        >> rename1 `type_s _ _ tenvS'`
-       >> disch_then (qspecl_then [`0`, `tenvS'`, `t`] mp_tac)
+       >> disch_then (qspecl_then [`0`, `t`] mp_tac)
        >> simp [bind_tvar_def]
        >> rw []
        >> metis_tac [store_type_extension_trans])

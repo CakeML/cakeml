@@ -248,9 +248,6 @@ val preamble_ERR = mk_HOL_ERR"preamble"
 
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
 
-fun drule th =
-  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
-
 fun any_match_mp impth th =
   let
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj

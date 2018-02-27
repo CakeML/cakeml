@@ -2570,6 +2570,7 @@ val prove_EvalM_to_EvalSt =
     \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
           write_def,lookup_cons_def,PULL_EXISTS]
     \\ simp [Once evaluate_cases])
+  \\ simp[]
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then (qspec_then `"Failure"` strip_assume_tac)

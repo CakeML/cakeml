@@ -3091,7 +3091,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
         \\ rpt(first_x_assum drule) \\ simp[]
         \\ fs[wfv_state_def,dec_clock_def]
-        \\ ntac 3 strip_tac
+        \\ ntac 4 strip_tac
         \\ conj_tac >- (
           match_mp_tac subg_trans \\ asm_exists_tac \\ fs []
           \\ match_mp_tac subg_trans \\ once_rewrite_tac [CONJ_COMM]
@@ -3159,7 +3159,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
       \\ rpt(first_x_assum drule) \\ simp[]
       \\ fs[wfv_state_def,dec_clock_def]
-      \\ ntac 3 strip_tac
+      \\ ntac 4 strip_tac
       \\ conj_tac
       >- (
         match_mp_tac subg_trans
