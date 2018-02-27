@@ -268,7 +268,7 @@ val backend_config_ok_call_empty_ffi = store_thm("backend_config_ok_call_empty_f
   ``backend_config_ok (cc with
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
     backend_config_ok cc``,
-  fs [backend_config_ok_def,data_to_word_gcProofTheory.conf_ok_def,
+  fs [backend_config_ok_def,data_to_wordTheory.conf_ok_def,
       data_to_wordTheory.shift_length_def]);
 
 (* TODO: ?? where to put these ?? *)
@@ -301,7 +301,7 @@ val mc_init_ok_call_empty_ffi = store_thm("mc_init_ok_call_empty_ffi[simp]",
   ``mc_init_ok (cc with
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
     mc_init_ok cc``,
-  fs [mc_init_ok_def,data_to_word_gcProofTheory.conf_ok_def,
+  fs [mc_init_ok_def,data_to_wordTheory.conf_ok_def,
       data_to_wordTheory.shift_length_def,FUN_EQ_THM]);
 
 val heap_regs_def = Define`
@@ -671,7 +671,7 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[full_make_init_def,stack_allocProofTheory.make_init_def,Abbr`stack_st_opt`] ) \\
     simp[Abbr`stack_st`] \\
     conj_tac
-    >- fs [data_to_word_gcProofTheory.conf_ok_def,
+    >- fs [data_to_wordTheory.conf_ok_def,
            data_to_wordTheory.shift_length_def] \\
     match_mp_tac (GEN_ALL IMP_init_store_ok) \\ fs [] \\
     metis_tac[PAIR]) \\
