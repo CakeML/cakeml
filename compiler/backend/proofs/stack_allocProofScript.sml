@@ -1,11 +1,13 @@
 open preamble
      stack_allocTheory
      stackLangTheory
+     wordSemTheory
      stackSemTheory
      stackPropsTheory
-     data_to_word_memoryProofTheory
+     word_gcFunctionsTheory
+(*     data_to_word_memoryProofTheory
      data_to_word_gcProofTheory
-     data_to_wordProofTheory
+     data_to_wordProofTheory *)
      local open blastLib in end
 
      (* TODO: the data_to_word* are possibly only for lemmas that should be moved anyway *)
@@ -268,11 +270,11 @@ val select_eq_select_0 = Q.store_thm("select_eq_select_0",
 
 val is_fwd_ptr_iff = Q.prove(
   `!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w`,
-  Cases \\ full_simp_tac(srw_ss())[is_fwd_ptr_def]);
+  Cases \\ full_simp_tac(srw_ss())[wordSemTheory.is_fwd_ptr_def]);
 
 val isWord_thm = Q.prove(
   `!w. isWord w = ?v. w = Word v`,
-  Cases \\ full_simp_tac(srw_ss())[isWord_def]);
+  Cases \\ full_simp_tac(srw_ss())[wordSemTheory.isWord_def]);
 
 val lower_2w_eq = Q.prove(
   `!w:'a word. good_dimindex (:'a) ==> (w <+ 2w <=> w = 0w \/ w = 1w)`,
@@ -5807,7 +5809,7 @@ val stack_alloc_stack_asm_convs = Q.store_thm("stack_alloc_stack_asm_convs",`
          EVAL_TAC>>every_case_tac >>
          fs [] >> EVAL_TAC >>
      fs[reg_name_def, labPropsTheory.good_dimindex_def,
-        asmTheory.offset_ok_def, data_to_word_gcProofTheory.conf_ok_def,
+        asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
         data_to_wordTheory.shift_length_def]>>
      pairarg_tac>>fs[]>>NO_TAC)
   >>

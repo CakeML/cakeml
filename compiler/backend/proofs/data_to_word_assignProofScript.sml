@@ -5,13 +5,15 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
      labPropsTheory whileTheory set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib
      word_bignumTheory wordLangTheory word_bignumProofTheory
-     gen_gc_partialTheory gc_sharedTheory;
+     gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_assignProof";
 
 val _ = hide "next";
 val shift_def = backend_commonTheory.word_shift_def
+val isWord_def = wordSemTheory.isWord_def
+val theWord_def = wordSemTheory.theWord_def
 
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)

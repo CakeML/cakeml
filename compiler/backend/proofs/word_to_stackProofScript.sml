@@ -645,13 +645,6 @@ val list_LUPDATE_write_bitmap_NOT_NIL = Q.prove(
   \\ match_mp_tac bits_to_word_NOT_0 \\ fs [LENGTH_TAKE_EQ]
   \\ fs [MIN_LE,MIN_ADD] \\ decide_tac);
 
-val LESS_EQ_LENGTH = Q.prove(
-  `!xs n. n <= LENGTH xs ==> ?xs1 xs2. xs = xs1 ++ xs2 /\ n = LENGTH xs1`,
-  once_rewrite_tac [EQ_SYM_EQ]
-  \\ Induct_on `n` \\ fs [LENGTH_NIL] \\ rpt strip_tac
-  \\ Cases_on `xs` \\ fs [] \\ res_tac \\ rw []
-  \\ Q.LIST_EXISTS_TAC [`h::xs1`,`xs2`] \\ fs []);
-
 val word_or_eq_0 = Q.prove(
   `((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] []
@@ -759,6 +752,7 @@ val APPEND_LEMMA = Q.prove(
   \\ Q.PAT_X_ASSUM `n1 + n2 + n3 <= LENGTH xs` MP_TAC
   \\ imp_res_tac LESS_EQ_LENGTH
   \\ rw [DROP_LENGTH_APPEND]  \\ fs []
+  \\ rename [‘n2 + (n3 + LENGTH xs1) ≤ LENGTH xs1 + LENGTH xs2’]
   \\ `n2 <= LENGTH xs2` by decide_tac
   \\ imp_res_tac LESS_EQ_LENGTH
   \\ rw [] \\ metis_tac []);
