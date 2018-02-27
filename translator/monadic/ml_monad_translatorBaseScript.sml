@@ -10,6 +10,12 @@ val _ = new_theory "ml_monad_translatorBase";
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
+fun set_imp_as_sg th = let
+    val imp = concl th |> dest_imp |> fst
+in sg `^imp` end
+
+val clear_first_assum = POP_ASSUM (fn x => ALL_TAC)
+
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (* a few basics *)
@@ -49,10 +55,6 @@ val VALID_REFS_PRED_def = Define `
 
 (* Frame rule for EvalM *)
 
-(* val REFS_PRED_Mem_Only_def = Define `
-  REFS_PRED_Mem_Only H =
-    !state h. H state h ==> !x. x IN h ==> ?n v. x = Mem n v`; *)
-
 val REFS_PRED_FRAME_def = Define `
   REFS_PRED_FRAME ro (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) <=>
     (ro ==> ?refs. s2 = s1 with refs := refs) /\
@@ -67,10 +69,12 @@ val SAT_GC = Q.store_thm("SAT_GC",
   fs[GC_def, SEP_EXISTS_THM] \\ STRIP_TAC \\ qexists_tac `\s. T` \\ fs[]);
 
 val REFS_PRED_FRAME_imp = Q.store_thm("REFS_PRED_FRAME_imp",
-  `REFS_PRED ^H refs1 s1 ==>
+  `!refs1 s1 H refs2 s2.
+   REFS_PRED ^H refs1 s1 ==>
    REFS_PRED_FRAME ro H (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 s2`,
-  PairCases_on `H`
-  \\ rw[REFS_PRED_def, REFS_PRED_FRAME_def]
+  rw[]
+  \\ PairCases_on `H`
+  \\ fs[REFS_PRED_def, REFS_PRED_FRAME_def]
   \\ fs[st2heap_def]
   \\ metis_tac[GC_STAR_GC, STAR_ASSOC]);
 
@@ -86,6 +90,21 @@ val REFS_PRED_FRAME_trans = Q.store_thm("REFS_PRED_FRAME_trans",
   POP_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
   first_x_assum irule >>
   fs[STAR_ASSOC]);
+
+val H_STAR_GC_SAT_IMP = Q.store_thm("H_STAR_GC_SAT_IMP",
+ `H s ==> (H * GC) s`,
+  rw[STAR_def]
+  \\ qexists_tac `s`
+  \\ qexists_tac `{}`
+  \\ rw[SPLIT_emp2, SAT_GC]);
+
+val REFS_PRED_FRAME_same = Q.store_thm("REFS_PRED_FRAME_same",
+  `!H st s. REFS_PRED_FRAME ro H (st,s) (st,s)`,
+  Cases_on `H`
+  \\ rw[REFS_PRED_FRAME_def]
+  >-(fs[state_component_equality])
+  \\ irule H_STAR_GC_SAT_IMP
+  \\ fs[]);
 
 (*
  * Proof of REFS_PRED_APPEND:
@@ -251,6 +270,13 @@ val REFS_PRED_append = Q.store_thm("REFS_PRED_append",
   rw[REFS_PRED_def] >> PURE_ONCE_REWRITE_TAC [GSYM GC_STAR_GC] >>
   fs[STAR_ASSOC] >>
   metis_tac[with_same_refs, STATE_APPEND_JUNK]);
+
+val REFS_PRED_qappend = Q.store_thm("REFS_PRED_qappend",
+  `∀H refs s.
+     REFS_PRED H refs s ⇒
+     !junk.
+     REFS_PRED H refs (s with refs := s.refs ⧺ junk)`,
+  fs[REFS_PRED_append]);
 
 val REFS_PRED_FRAME_append = Q.store_thm("REFS_PRED_FRAME_append",
   `!H refs s. REFS_PRED_FRAME ro ^H (refs, s) (refs, s with refs := s.refs ++ junk)`,
@@ -554,5 +580,50 @@ val RARRAY_HPROP_SAT_EQ = Q.store_thm("RARRAY_HPROP_SAT_EQ",
   \\ PURE_ONCE_REWRITE_TAC[UNION_COMM]
   \\ irule EQ_EXT
   \\ rw[]);
+
+val GC_ABSORB_L = Q.prove(`!A B s. (A * B * GC) s ==> (A * GC) s`,
+rw[]
+\\ fs[GSYM STAR_ASSOC]
+\\ fs[Once STAR_def]
+\\ qexists_tac `u`
+\\ qexists_tac `v`
+\\ fs[SAT_GC]);
+
+val st2heap_SPLIT = Q.store_thm("st2heap_SPLIT",
+ `SPLIT (st2heap ffi (s with refs := s.refs ++ junk))
+        (st2heap ffi s, store2heap_aux (LENGTH s.refs) junk)`,
+  rw[SPLIT_def, st2heap_def, store2heap_def]
+  >-(
+      fs[store2heap_aux_append_many]
+      \\ metis_tac[UNION_COMM, UNION_ASSOC])
+  >-(
+      qspec_then `0` assume_tac store2heap_aux_DISJOINT
+      \\ fs[])
+  \\ fs[IN_DISJOINT]
+  \\ PURE_REWRITE_TAC[NEG_DISJ_TO_IMP]
+  \\ rw[]
+  \\ Cases_on `x`
+  \\ fs[Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux,
+        FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux]);
+
+val REFS_PRED_FRAME_remove_junk = Q.store_thm(
+ "REFS_PRED_FRAME_remove_junk",
+ `REFS_PRED_FRAME ro H (n_st,s1 with refs := s1.refs ⧺ junk) (st2,s2) ==>
+  REFS_PRED_FRAME ro H (n_st,s1) (st2,s2)`,
+  Cases_on `H`
+  \\ rw[REFS_PRED_FRAME_def]
+  \\ first_x_assum (qspec_then `F' * (\h. h = store2heap_aux (LENGTH s1.refs) junk)` assume_tac)
+  \\ first_assum set_imp_as_sg
+  >-(
+      clear_first_assum
+      \\ fs[STAR_ASSOC]
+      \\ rw[Once STAR_def]
+      \\ qexists_tac `st2heap r s1`
+      \\ fs[st2heap_SPLIT]
+      \\ fs[st2heap_def])
+  \\ fs[] \\ clear_first_assum
+  \\ fs[STAR_ASSOC]
+  \\ drule GC_ABSORB_L
+  \\ fs[]);
 
 val _ = export_theory();

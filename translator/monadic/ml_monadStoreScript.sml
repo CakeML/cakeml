@@ -184,7 +184,8 @@ val parsed_terms = save_thm("parsed_terms",
      ("empty_v_list",``[] : v list``),
      ("empty_v_store",``[] : v store``),
      ("empty_alpha_list",``[] : 'a list``),
-     ("nsLookup_env_short", ``\(env : v sem_env) name. nsLookup env.v (Short name)``)
+     ("nsLookup_env_short", ``\(env : v sem_env) name. nsLookup env.v (Short name)``),
+     ("prim_exn Subscript", ``prim_exn "Subscript"``)
     ]);
 
 (* Types used by the ml_monadStore *)

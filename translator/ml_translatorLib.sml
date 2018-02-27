@@ -358,6 +358,7 @@ val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
   val deferred_dprogs = ref ([]:term list)
   val all_eq_lemmas = ref (CONJUNCTS EqualityType_NUM_BOOL)
 local
+  val primitive_exceptions = ["Subscript"]
 in
   fun type_reset () =
     (type_mappings := [];
@@ -469,6 +470,8 @@ in
   fun lookup_type_thms ty = first (fn (ty1,_,_,_) => can (match_type ty1) ty) (!type_memory)
   fun eq_lemmas () = (!all_eq_lemmas)
   fun get_preprocessor_rws () = (!preprocessor_rws)
+  (* primitive exceptions *)
+  fun is_primitive_exception name = mem name primitive_exceptions
   (* store/load to/from a single thm *)
   fun pack_types () =
     pack_6tuple
@@ -722,7 +725,8 @@ fun tag_name type_name const_name =
   if (type_name = "OPTION_TYPE") andalso (const_name = "NONE") then "NONE" else
   if (type_name = "OPTION_TYPE") andalso (const_name = "SOME") then "SOME" else
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
-  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else let
+  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else
+let
     val x = clean_lowercase type_name
     val y = clean_lowercase const_name
     fun upper_case_hd s =
@@ -894,11 +898,14 @@ fun define_ref_inv is_exn_type tys = let
   val _ = map reg_type ys
   val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP,OPTION_TYPE_SIMP,SUM_TYPE_SIMP]
   val def_tm = let
-
+(* TODO HERE // *)
     fun mk_lines ml_ty_name lhs ty [] input = []
       | mk_lines ml_ty_name lhs ty (x::xs) input = let
       val k = length xs + 1
-      val tag = tag_name name (repeat rator x |> dest_const |> fst)
+      val cons_name = (repeat rator x |> dest_const |> fst)
+      val tag = if is_exn_type andalso is_primitive_exception cons_name
+		then cons_name
+		else tag_name name cons_name
       fun rename [] = []
         | rename (x::xs) = let val n = int_to_string k ^ "_" ^
                                        int_to_string (length xs + 1)
@@ -1276,8 +1283,15 @@ fun derive_thms_for_type is_exn_type ty = let
     val ts = map mk_vars ys
     (* patterns *)
     val patterns = map (fn (n,f,fxs,pxs,tm,exp,xs) => let
-      val str = tag_name name (repeat rator tm |> dest_const |> fst)
+      (* TODO HERE *)
+      val cons_name = (repeat rator tm |> dest_const |> fst)
+      val str = if is_exn_type andalso is_primitive_exception cons_name
+		then cons_name
+		else tag_name name cons_name
       val str = stringSyntax.fromMLstring str
+
+      (* val str = tag_name name (repeat rator tm |> dest_const |> fst)
+      val str = stringSyntax.fromMLstring str *)
       val vars = map (fn (x,n,v) => astSyntax.mk_Pvar n) xs
       val vars = listSyntax.mk_list(vars,astSyntax.pat_ty)
       val tag_tm = if name = "PAIR_TYPE"
@@ -1347,6 +1361,17 @@ fun derive_thms_for_type is_exn_type ty = let
                can (match_term tag_pat_0) tm orelse
                can (match_term tag_pat_n) tm)
           \\ POP_ASSUM (fn th => FULL_SIMP_TAC (srw_ss()) [th])
+(*
+val (asl,w) = top_goal()
+
+fun rewrite_term CONV tm = let
+  val eq = QCONV CONV tm
+in concl eq |> rand end
+
+val assum = el 3 asl
+val assum = rewrite_term (REWRITE_CONV [TAG_def,Eval_def]) assum
+((RAND_CONV o QUANT_CONV o RAND_CONV) (ALPHA_CONV v)) assum
+*)
           \\ PAT_X_ASSUM tag_pat_0 (MP_TAC o
                (CONV_RULE ((RAND_CONV o QUANT_CONV o RAND_CONV)
                  (ALPHA_CONV v))) o
@@ -1396,7 +1421,12 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val pat = tm
     fun str_tl s = implode (tl (explode s))
     val exps = map (fn (x,_,_) => (x,mk_var("exp" ^ str_tl (fst (dest_var x)), astSyntax.exp_ty))) xs
-    val tag = tag_name name (repeat rator tm |> dest_const |> fst)
+    val tag = inv_def
+        |> CONJUNCTS |> map (concl o SPEC_ALL)
+        |> first (can (match_term tm) o rand o rator o fst o dest_eq)
+        |> find_term optionSyntax.is_some |> rand |> dest_pair |> fst
+        |> stringSyntax.fromHOLstring
+        handle HOL_ERR _ => tag_name name (repeat rator tm |> dest_const |> fst)
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
@@ -1474,11 +1504,17 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
 *)
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
+
+  fun is_primitive_Dexn tm = let
+      val holstr = (rand o rator) tm
+      val name = stringLib.fromHOLstring holstr
+  in is_primitive_exception name end
+
   val dprog =
     let
       val tops = map mk_Tdec
         (if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"] then []
-         else if is_exn_type then dexn_list
+         else if is_exn_type then filter (not o is_primitive_Dexn) dexn_list
          else [dtype])
     in
       listSyntax.mk_list(tops,top_ty)

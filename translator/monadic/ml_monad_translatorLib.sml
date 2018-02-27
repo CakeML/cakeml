@@ -186,6 +186,7 @@ val VALID_STORE_THM = ref (NONE : thm option);
 
 (* Additional theories where to look for refinement invariants *)
 val type_theories = ref ([current_theory(), "ml_translator"] : string list);
+fun get_type_theories () = !type_theories;
 
 (* Theorems proved to handle exceptions *)
 val exn_handles = ref ([] : (term * thm) list);
@@ -780,6 +781,7 @@ in zip raise_specs handle_specs end;
 (* support for datatypes... *)
 
 (*
+  val ty = (repeat rator tm) |> type_of |> domain
   val _ = set_goal([],goal)
 *)
 local
@@ -790,6 +792,29 @@ local
   val evaluate_match_Conv = (get_term "eval_match Pcon")
     |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
        SIMP_CONV (srw_ss()) [pmatch_def])
+
+  (* COPY/PASTE from ml_monadStoreScript *)
+  fun evaluate_unique_result_tac (g as (asl, w)) = let
+      val asl = List.map ASSUME asl
+      val uniques = mapfilter (MATCH_MP evaluate_unique_result) asl
+  in simp uniques g end;
+  (* End of COPY/PASTE from ml_monadStoreScript *)
+
+  (* TODO: make that tactic work *)
+  val pick_evaluate_assumption = let
+    val rewrite_conjs =
+	((PURE_REWRITE_CONV[CONJ_ASSOC]) THENC
+         (PURE_REWRITE_CONV [Once CONJ_COMM]) THENC
+	 (PURE_REWRITE_CONV[GSYM CONJ_ASSOC]) THENC
+	 (PURE_REWRITE_CONV[CONJ_ASSOC]))
+    val conjs_to_imps = PURE_REWRITE_CONV [GSYM AND_IMP_INTRO]
+    val final_conv = ((STRIP_QUANT_CONV o RATOR_CONV) rewrite_conjs)
+			 THENC conjs_to_imps
+    val rewrite_rule = CONV_RULE final_conv
+    val thm_tac = (fn x => drule (rewrite_rule x))
+    (* the thm_tac does not work *)
+  in (first_x_assum thm_tac \\ rpt (disch_then drule) \\ disch_then strip_assume_tac) end
+
 in
 fun derive_case_of ty = let
   (* TODO : clean that *)
@@ -803,10 +828,10 @@ fun derive_case_of ty = let
   in (name, name_thy) end
   val (name, name_thy) = if ty <> unit_ty then get_name ty else ("UNIT_TYPE", "UNIT_TYPE")
   val inv_def = tryfind (fn thy_name => fetch thy_name (name ^ "_def"))
-                        (!type_theories)
+                        (get_type_theories())
       handle HOL_ERR _ =>
              tryfind (fn thy_name => fetch thy_name (name_thy ^ "_def"))
-                     (!type_theories)
+                     (get_type_theories())
       handle  HOL_ERR _ => let
           val thms = DB.find (name ^ "_def") |> List.map (fst o snd)
           val inv_ty = mk_type("fun", [ty, v_bool_ty])
@@ -863,6 +888,8 @@ fun derive_case_of ty = let
   val init_tac =
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (ISPEC x_var case_th)
+  (* TODO: this tactic is not safe *)
+  (* TODO: replace the rw and fs tactics and remove the quotations *)
   val case_tac =
         Q.PAT_X_ASSUM `b0 ==> Eval env exp something`
            (MP_TAC o REWRITE_RULE [TAG_def,inv_def,Eval_def])
@@ -877,16 +904,34 @@ fun derive_case_of ty = let
         \\ FULL_SIMP_TAC std_ss [EvalM_def,PULL_FORALL] \\ REPEAT STRIP_TAC
         \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
         \\ SIMP_TAC (std_ss ++ DNF_ss) [] \\ disj1_tac
-        \\ first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac)
+        (* TODO : replace this quote *)
+        \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
         \\ drule evaluate_empty_state_IMP
         \\ strip_tac \\ asm_exists_tac
         \\ ASM_SIMP_TAC std_ss []
-        \\ REWRITE_TAC[evaluate_match_Conv,pmatch_def,LENGTH]
-        \\ fs[pmatch_def,pat_bindings_def,write_def,
-              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
-        \\ ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
-        \\ first_x_assum (match_mp_tac o MP_CANON)
-        \\ fs[]
+        (* Rewrite the evaluate_pmatch *)
+	\\ fs[lookup_cons_def]
+	\\ (rpt o CHANGED_TAC)
+	    (rw[Once evaluate_match_Conv]
+               \\ rw[pmatch_def,pat_bindings_def,write_def,
+              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def])
+	\\ IMP_RES_TAC REFS_PRED_append
+	(* TODO: replace this quote *)
+	\\ first_x_assum (qspec_then `refs'` assume_tac)
+	(* Prove the evaluate assumption *)
+        (* TODO: do that in a smarter manner *)
+        \\ rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
+	\\ fs[write_def]
+	\\ evaluate_unique_result_tac
+	(* Finish the proof *)	
+	\\ TRY asm_exists_tac \\ simp[]
+	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[]
+	(*pick_evaluate_assumption
+	\\ fs[write_def]
+	\\ evaluate_unique_result_tac
+	(* Finish the proof *)	
+	\\ TRY asm_exists_tac \\ simp[]
+	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[] *)
 (*
   val _ = set_goal([],goal)
 *)
@@ -2801,8 +2846,9 @@ val Long_tm = get_term "Long_tm";
 fun get_exn_constructs () = let
     val exn_type_def = !EXN_TYPE_def_ref
     val exn_type_conjs = CONJUNCTS exn_type_def
+
     val deep_cons_list = List.map (fn x => concl x |> strip_forall |> snd |> rhs |> strip_exists
-                                |> snd |> dest_conj |> fst |> rhs |> rator) exn_type_conjs
+                                |> snd |> strip_conj |> hd |> rhs |> rator) exn_type_conjs
     val deep_names = List.map (fn x => rand x |> rand |> dest_pair |> fst) deep_cons_list
 
     (* Get the module name *)
@@ -3195,11 +3241,6 @@ fun m_translate_run def =
     val monad_th = if is_var ro_var then INST [ro_var |-> T] monad_th else monad_th
 
     (* Insert the parameters *)
-(* TODO HERE *)
-(*
-val x = hd params_evals;
-val th = monad_th;
-*)
     val monad_th = inst_gen_eq_vars2 state monad_th
                    handle HOL_ERR _ => monad_th
     fun insert_param (x, th) =
@@ -3264,7 +3305,8 @@ val th = monad_th;
     val (EXN_assum, vname_assum1, vname_assum2) =
       (case concl th |> strip_imp |> fst of
         (x1::x2::x3::_) => (x1,x2,x3) | _ => hd [])
-    val EXN_th = prove(EXN_assum, rw[] \\ Cases_on `e` \\ fs[!EXN_TYPE_def_ref])
+    val EXN_th = prove(EXN_assum, Cases \\ rw[!EXN_TYPE_def_ref])
+
     val th = MP th EXN_th
     val th = MATCH_MP th monad_th |> UNDISCH |> UNDISCH
 
@@ -3398,7 +3440,7 @@ local
       (pack_list (pack_pair pack_term pack_thm)) (* exn_handles         *)
       (pack_list (pack_pair pack_term pack_thm)) (* exn_raises          *)
       (pack_list (pack_pair pack_thm pack_thm))  (* exn_functions_defs  *)
-        ( !EXN_TYPE_def_ref, !EXN_TYPE, !type_theories
+        ( !EXN_TYPE_def_ref, !EXN_TYPE, get_type_theories()
         , !exn_handles, !exn_raises, !exn_functions_defs )
   fun pack_part2 () =
     pack_7tuple

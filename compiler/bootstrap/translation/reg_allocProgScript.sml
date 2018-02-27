@@ -30,8 +30,7 @@ val store_hprop_name   = "RA_STATE";
 
 val exn_functions = [
     (raise_Fail_def, handle_Fail_def),
-    (raise_ReadError_def, handle_ReadError_def),
-    (raise_WriteError_def, handle_WriteError_def)
+    (raise_Subscript_def, handle_Subscript_def)
 ];
 
 val refs_manip_list = [
