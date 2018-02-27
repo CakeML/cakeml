@@ -76,6 +76,12 @@ val small_shift_length_def = Define `
 val shift_length_def = Define `
   shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
 
+val conf_ok_def = Define `
+  conf_ok (:'a) c <=>
+    shift_length c < dimindex (:α) ∧
+    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
+    c.len_size + 7 < dimindex (:α)`
+
 val max_heap_limit_def = Define `
   max_heap_limit (:'a) c =
     MIN (dimword (:'a) DIV 2 ** shift_length c)

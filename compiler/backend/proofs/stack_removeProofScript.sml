@@ -2087,9 +2087,6 @@ val star_move_lemma = Q.prove(
   `p0 * p1 * p2 * p3 * p4 = p2 * (p1 * STAR p3 (p4 * p0))`,
   fs [AC STAR_COMM STAR_ASSOC]);
 
-(* TODO: let's not repeat these everywhere *)
-val isWord_def = Define `(isWord (Word w) = T) /\ (isWord _ = F)`
-val theWord_def = Define `theWord (Word w) = w`
 
 val read_mem_def = Define `
   (read_mem a m 0 = []) /\
@@ -2500,13 +2497,14 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ rfs [] \\ decide_tac) \\ strip_tac
   \\ qunabbrev_tac `s8`
   \\ qunabbrev_tac `s7`
-  \\ fs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,theWord_def,FLOOKUP_UPDATE,mem_val_def]
+  \\ fs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,wordSemTheory.theWord_def,
+         FLOOKUP_UPDATE,mem_val_def]
   \\ fs [store_init_def,store_list_def,UPDATE_LIST_def,APPLY_UPDATE_THM,
          FLOOKUP_UPDATE,word_store_def,mem_val_def,FAPPLY_FUPDATE_THM]
   \\ fs [FLOOKUP_DEF,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV,LENGTH_read_mem,
-         theWord_def,init_prop_def,the_SOME_Word_def,is_SOME_Word_def,
-         FLOOKUP_UPDATE]
+         wordSemTheory.theWord_def,init_prop_def,the_SOME_Word_def,
+         is_SOME_Word_def, FLOOKUP_UPDATE]
   \\ fs [GSYM CONJ_ASSOC]
   \\ `read_mem (n2w (d * h2)) m1 (LENGTH heap) = heap` by
    (match_mp_tac(GEN_ALL(ONCE_REWRITE_RULE[STAR_COMM]word_list_IMP_read_mem))
