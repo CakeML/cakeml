@@ -19,6 +19,7 @@ val _ = new_theory "lib"
 
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)
 
+(*open import {isabelle} `Isabelle_Support`*)
 (*val disjoint : forall 'a. set 'a -> set 'a -> bool*)
 
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
