@@ -449,7 +449,6 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.tag_mask_def
     ,data_to_wordTheory.encode_header_def
     ,data_to_wordTheory.list_Seq_def
-    ,wordLangTheory.shift_def
     ,data_to_wordTheory.StoreEach_def
     ,data_to_wordTheory.small_shift_length_def
     ,data_to_wordTheory.shift_length_def
@@ -660,6 +659,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
     ,word_allocTheory.setup_ssa_def
+    ,word_allocTheory.total_colour_def
     ,word_allocTheory.oracle_colour_ok_def
     ,word_allocTheory.every_even_colour_def
     ,word_allocTheory.check_colouring_ok_alt_def
@@ -698,7 +698,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
-    ,stackLangTheory.word_shift_def
+    ,backend_commonTheory.word_shift_def
     ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
       (* ---- word_to_stack ---- *)

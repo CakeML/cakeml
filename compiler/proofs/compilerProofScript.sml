@@ -13,6 +13,8 @@ val config_ok_def = Define`
     env_rel prim_tenv cc.inferencer_config.inf_env ∧
     prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     ¬cc.input_is_sexp ∧
+    ¬cc.exclude_prelude ∧
+    ¬cc.skip_type_inference ∧
     backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
@@ -22,6 +24,8 @@ val initial_condition_def = Define`
     env_rel st.tenv cc.inferencer_config.inf_env ∧
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
     ¬cc.input_is_sexp ∧
+    ¬cc.exclude_prelude ∧
+    ¬cc.skip_type_inference ∧
     backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
@@ -123,7 +127,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[compilerTheory.compile_def]
   \\ simp[parse_prog_correct]
   \\ BasicProvers.CASE_TAC
-  >- fs[initial_condition_def]
+  \\ fs[initial_condition_def]
   \\ BasicProvers.CASE_TAC
   \\ simp[semantics_def]
   \\ fs[initial_condition_def]

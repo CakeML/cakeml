@@ -8,6 +8,7 @@ val _ = translation_extends "VectorProg";
 
 val _ = ml_prog_update (open_module "String");
 
+val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "string" (Tapp [] TC_string)`` I);
 val _ = trans "sub" `strsub`
@@ -97,12 +98,11 @@ val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
 
 val isStringThere_aux_side_thm = Q.prove (
-  `!s1 s2 s1i s2i len. (s1i + len = strlen s1)  /\ (s2i + len <= strlen s2) /\
-        (strlen s1 <= strlen s2)
-        ==> (isstringthere_aux_side s1 s2 s1i s2i len)`,
+  `!s1 s2 s1i s2i len.
+     s1i + len ≤ strlen s1 ∧ s2i + len <= strlen s2 ==>
+     isstringthere_aux_side s1 s2 s1i s2i len`,
   Induct_on `len` \\ rw [Once isStringThere_aux_side_def]
 );
-
 
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPrefix_def;
@@ -121,9 +121,12 @@ val isSuffix_thm = Q.prove (
 val result = translate isSubstring_aux_def;
 val isSubstring_aux_side_def = theorem"issubstring_aux_side_def";
 val isSubstring_aux_side_thm = Q.prove (
-  `!s1 s2 lens1 n len. (n + len = strlen s2 - strlen s1) /\ (lens1 = strlen s1) ==>
+  `!s1 s2 lens1 n len.
+    (lens1 = strlen s1) ∧ n + len + lens1 ≤ strlen s2 + 1 ==>
     issubstring_aux_side s1 s2 lens1 n len`,
-  Induct_on `len` \\ rw [Once isSubstring_aux_side_def, isStringThere_aux_side_thm]
+  Induct_on `len` >>
+  rw [Once isSubstring_aux_side_def] >>
+  irule isStringThere_aux_side_thm >> simp[]
 );
 
 val _ = next_ml_names := ["isSubstring"];
@@ -131,7 +134,7 @@ val result = translate isSubstring_def;
 val isSubstring_side_def = definition"issubstring_side_def";
 val isSubstring_side_thm = Q.prove (
   `!s1 s2. issubstring_side s1 s2`,
-  rw [isSubstring_side_def, isSubstring_aux_side_thm] ) |> update_precondition
+  rw [isSubstring_side_def, isSubstring_aux_side_thm]) |> update_precondition
 
 
 val result = translate compare_aux_def;
@@ -178,7 +181,32 @@ val collate_side_thm = Q.prove (
   `!f s1 s2. collate_1_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
+val sigs = module_signatures [
+  "sub",
+  "implode",
+  "size",
+  "concat",
+  "substring",
+  "^",
+  "explode",
+  "extract",
+  "concatWith",
+  "str",
+  "translate",
+  "splitl",
+  "tokens",
+  "fields",
+  "isPrefix",
+  "isSuffix",
+  "isSubstring",
+  "compare",
+  "<",
+  "<=",
+  ">=",
+  ">",
+  "collate"
+];
 
-val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (close_module (SOME sigs));
 
 val _ = export_theory()

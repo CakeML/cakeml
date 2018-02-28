@@ -18,7 +18,7 @@ val max_heap_limit_32_def = Define`
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
       |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[wordLangTheory.shift_def]
+      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
       |> concl |> rhs)`;
 
 val res = translate max_heap_limit_32_def
@@ -184,22 +184,13 @@ val res = append_prog main;
 
 val st = get_ml_prog_state()
 
-val full_compile_32_def = Define `
-  full_compile_32 cl inp =
-    if has_version_flag cl then
-      (List [current_build_info_str], strlit"", F)
-    else
-      let (a,b) = compile_32 cl inp in (a,b,T)`
-
 val main_spec = Q.store_thm("main_spec",
   `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
-       &UNIT_TYPE () uv *
-       (let (out,err,b) = full_compile_32 (TL cl) (get_stdin fs) in
-        let fs' = if b then fastForwardFD fs 0 else fs in
-         STDIO (add_stderr (add_stdout fs' (concat (append out))) err))
-      * COMMANDLINE cl)`,
+       &UNIT_TYPE () uv
+       * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
+       * COMMANDLINE cl)`,
   xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
@@ -227,9 +218,8 @@ val main_spec = Q.store_thm("main_spec",
   \\ imp_res_tac stdin_get_file_content
   \\ xlet_auto >- xsimpl
   \\ xif
-  >-
-   (pairarg_tac \\ fs []
-    \\ rfs [full_compile_32_def] \\ rw []
+  >- (
+    simp[full_compile_32_def]
     \\ xapp
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `current_build_info_str`
@@ -237,24 +227,17 @@ val main_spec = Q.store_thm("main_spec",
            fetch "-" "compiler_current_build_info_str_v_thm"]
     \\ xsimpl
     \\ rename1 `add_stdout _ (strlit string)`
-    \\ fs [concat_def, explode_thm]
-    \\ `!str. ?pos. stderr (add_stdout fs str) pos` by
-      metis_tac [stdo_def, STD_streams_def, STD_streams_add_stdout,
-                 LENGTH_explode, explode_implode]
-    \\ pop_assum (qspec_then `strlit string` strip_assume_tac)
-    \\ imp_res_tac add_stdo_nil \\ xsimpl
-    \\ qexists_tac `COMMANDLINE cl` \\ xsimpl
-    \\ qexists_tac `fs` \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ metis_tac[stdin_v_thm,stdIn_def])
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`fs`
+    \\ xsimpl)
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_32_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ pairarg_tac
   \\ fs[ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
-  (* TODO: xlet_auto: why does xlet_auto not work? *)
-  \\ xlet_auto_spec(SOME (Q.SPEC`fastForwardFD fs 0`(Q.GEN`fs`basisProgTheory.print_app_list_spec)))
-  >- xsimpl
+  \\ xlet_auto >- xsimpl
   \\ xapp_spec output_stderr_spec
   \\ xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
@@ -263,24 +246,28 @@ val main_spec = Q.store_thm("main_spec",
   \\ instantiate
   \\ xsimpl);
 
-val spec = main_spec |> UNDISCH_ALL |> SIMP_RULE (srw_ss())[STDIO_def,LET_THM,UNCURRY] |> add_basis_proj;
-val name = "main"
-val (semantics_thm,prog_tm) = call_thm st name spec;
+val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
+  `whole_prog_spec ^(fetch_v "main" st) cl fs
+    ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))`,
+  simp[whole_prog_spec_def,UNCURRY]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ reverse conj_tac >-
+    rw[Abbr`fs1`,full_compile_32_def,UNCURRY,
+       GSYM fastForwardFD_with_numchars,
+       GSYM add_stdo_with_numchars, with_same_numchars]
+  \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
+  \\ xsimpl);
+
+val (semantics_thm,prog_tm) = whole_prog_thm st "main" main_whole_prog_spec;
 
 val compiler32_prog_def = Define`compiler32_prog = ^prog_tm`;
 
-val th =
+val semantics_compiler32_prog =
   semantics_thm
   |> PURE_ONCE_REWRITE_RULE[GSYM compiler32_prog_def]
-
-val semantics_compiler32_prog =
-  th
   |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [STD_streams_add_stderr,STD_streams_add_stdout,STD_streams_fastForwardFD,
-                           AND_IMP_INTRO,GSYM CONJ_ASSOC, full_compile_32_def,
-                           Ntimes COND_RAND 15, LET_THM, UNCURRY,
-                           add_stdo_nil |> Q.GEN`out` |> REWRITE_RULE[LEFT_FORALL_IMP_THM]
-                           |> C MATCH_MP (UNDISCH STD_streams_stderr) |> DISCH_ALL]
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_compiler32_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

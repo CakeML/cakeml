@@ -163,21 +163,6 @@ val parse_exp = parse ``nE`` ``ptree_Expr nE``
 val parse_decl = parse ``nDecl`` ``ptree_Decl``
 val parse_topdecs = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
 
-fun pick_name str =
-  if str = "<" then "lt" else
-  if str = ">" then "gt" else
-  if str = "<=" then "le" else
-  if str = ">=" then "ge" else
-  if str = "=" then "eq" else
-  if str = "<>" then "neq" else
-  if str = "~" then "uminus" else
-  if str = "+" then "plus" else
-  if str = "-" then "minus" else
-  if str = "*" then "times" else
-  if str = "!" then "deref" else
-  if str = ":=" then "assign" else
-  if str = "^" then "strcat" else str (* name is fine *)
-
 (* for debugging
 val st = (basis_st())
 val name = "Word8Array.array"

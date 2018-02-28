@@ -486,9 +486,61 @@ val isSubstring_aux_def = Define`
 val isSubstring_def = Define`
   isSubstring s1 s2 =
   if strlen s1 <= strlen s2
-    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1))
+    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1) + 1)
   else F`;
 
+(* proof that isSubstring has the right sort of properties *)
+val isStringThere_SEG = Q.store_thm("isStringThere_SEG",
+  ‘∀i1 i2.
+     i1 + n ≤ LENGTH s1 ∧ i2 + n ≤ LENGTH s2 ⇒
+     (isStringThere_aux (strlit s1) (strlit s2) i1 i2 n <=>
+       (SEG n i1 s1 = SEG n i2 s2))’,
+  Induct_on `n`
+  >- simp[SEG, isStringThere_aux_def]
+  >- simp[isStringThere_aux_def, SEG_SUC_EL]);
+
+val isSubstring_aux_lemma = Q.store_thm("isSubstring_aux_lemma",
+  ‘∀i len.
+     i + len ≤ strlen s2 ==>
+     (isSubstring_aux s1 s2 lens1 i len ⇔
+      ∃n. n < len ∧ isStringThere_aux s1 s2 0 (n+i) lens1)’,
+  Induct_on `len`
+  >- simp[isSubstring_aux_def] >>
+  fs[isSubstring_aux_def] >> rw[EQ_IMP_THM]
+  >- (qexists_tac ‘0’ >> simp[])
+  >- (rename [‘n < len’, ‘i + (n + 1)’] >> qexists_tac ‘n + 1’ >> simp[]) >>
+  rename [‘isStringThere_aux _ _ 0 (i + n)’] >>
+  Cases_on ‘n’ >> fs[] >> metis_tac[ADD1]);
+
+val isSubstring_SEG = Q.store_thm("isSubstring_SEG",
+  ‘isSubstring (strlit s1) (strlit s2) <=>
+   ∃i. i + LENGTH s1 ≤ LENGTH s2 ∧ SEG (LENGTH s1) i s2 = s1’,
+  rw[isSubstring_def] >> Cases_on `s1` >> simp[]
+  >- (fs[isSubstring_aux_def, isStringThere_aux_def, GSYM ADD1] >>
+      qexists_tac `0` >> simp[SEG])
+  >- (simp[] >>
+      rename [‘SUC (STRLEN s0) ≤ STRLEN s2’, ‘STRING h s0’] >>
+      Cases_on ‘SUC(STRLEN s0) ≤ STRLEN s2’ >> fs[] >>
+      csimp[isSubstring_aux_lemma, isStringThere_SEG, SUB_LEFT_LESS,
+            DECIDE “x < y + 1n ⇔ x ≤ y”] >>
+      ‘STRLEN (STRING h s0) = SUC (STRLEN s0)’ by simp[] >>
+      metis_tac[SEG_LENGTH_ID]))
+
+val strlit_STRCAT = Q.store_thm("strlit_STRCAT",
+  `strlit a ^ strlit b = strlit (a ++ b)`,
+  fs[strcat_def, concat_def]);
+
+val isSubString_spec = Q.store_thm("isSubString_spec",
+  ‘isSubstring s1 s2 ⇔ ∃p s. s2 = p ^ s1 ^ s’,
+  map_every Cases_on [`s1`,`s2`] >> rw[isSubstring_SEG, EQ_IMP_THM]
+  >- (rename [‘SEG (STRLEN s1) i s2 = s1’] >>
+      map_every qexists_tac [
+        ‘strlit (TAKE i s2)’, ‘strlit (DROP (i + STRLEN s1) s2)’
+      ] >> simp[strlit_STRCAT] >> metis_tac[TAKE_SEG_DROP, ADD_COMM]) >>
+  rename [‘strlit s2 = px ^ strlit s1 ^ sx’] >>
+  qexists_tac `strlen px` >> Cases_on `px` >> simp[strlit_STRCAT] >>
+  Cases_on `sx` >> fs[strlit_STRCAT] >>
+  simp[SEG_APPEND1, SEG_APPEND2, SEG_LENGTH_ID]);
 
 (* String orderings *)
 val compare_aux_def = Define`

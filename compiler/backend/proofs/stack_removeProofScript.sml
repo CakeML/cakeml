@@ -10,6 +10,7 @@ local open dep_rewrite blastLib in end
 
 val _ = new_theory"stack_removeProof";
 
+val word_shift_def = backend_commonTheory.word_shift_def
 val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
 
 (* TODO: move *)
@@ -2993,7 +2994,7 @@ val stack_remove_comp_stack_asm_name = Q.prove(`
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
   >>
-    fs[labPropsTheory.good_dimindex_def,stackLangTheory.word_shift_def]
+    fs[labPropsTheory.good_dimindex_def,word_shift_def]
   >>
     simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
     qpat_assum`!n. A ⇒ B` mp_tac>>

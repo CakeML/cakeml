@@ -3,8 +3,6 @@ struct
 
 open HolKernel boolLib bossLib
 
-val _ = ParseExtras.temp_loose_equality()
-
 open arm8_targetLib asmLib;
 open backendComputeLib;
 open arm8_configTheory

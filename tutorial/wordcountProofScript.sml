@@ -7,8 +7,8 @@ val _ = new_theory"wordcountProof";
 val _ = temp_clear_overloads_on"STRCAT";
 
 val wordcount_io_events_def = new_specification("wordcount_io_events_def",["wordcount_io_events"],
-  wordcount_semantics |> Q.GENL[`fs`,`pname`,`fname`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
+  wordcount_semantics |> Q.GENL[`pname`,`fname`,`fs`,`cl`,`contents`]
+  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (wordcount_not_fail,wordcount_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail wordcount_sem |> CONJ_PAIR

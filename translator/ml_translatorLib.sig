@@ -6,6 +6,7 @@ sig
     (* main functionality *)
 
     val translate  : thm -> thm    (* e.g. try translate listTheory.MAP *)
+    val utranslate : tactic -> thm -> thm (* tactic for induction proof *)
     val abs_translate : thm -> thm
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
@@ -34,12 +35,22 @@ sig
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
     val abs_register_type : hol_type -> unit
+    val ignore_type    : hol_type -> unit
 
     val register_exn_type   : hol_type -> unit
     val abs_register_exn_type : hol_type -> unit
     val full_name_of_type   : hol_type -> string
     val case_of             : hol_type -> thm
     val eq_lemmas           : unit -> thm list
+
+    (* CakeML signature generation and extraction *)
+    (* Get the CakeML signature of a named CakeML function which was created by translation *)
+    (* Returns ``:spec`` *)
+    val sig_of_mlname : string -> term
+
+    (* Get the CakeML signatures for a list of CakeML functions which were created by translation *)
+    (* Returns ``:spec list`` *)
+    val module_signatures : string list -> term
 
     (* loading / storing state of translator *)
 
@@ -62,6 +73,7 @@ sig
     val add_preferred_thy    : string -> unit
     val find_def_for_const   : (term -> thm) ref
     val clean_on_exit        : bool ref
+    val generate_sigs        : bool ref
 
     (* internals, for the monadic translation *)
 

@@ -17,12 +17,15 @@ Vector
 String
 basics
 Int
+Num
 Rat
 Char
 Word64
 Word8
 Word8Array
 Array
+Compare
+Map
 CommandLine
 TextIO
 basis
