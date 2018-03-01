@@ -3584,7 +3584,7 @@ val def = listTheory.APPEND;
 
 *)
 
-fun translate_main utac translate register_type def = (let
+fun translate_main translate register_type def = (let
 
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -3771,10 +3771,9 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
-fun translate0 tacopt def =
+fun translate def =
   let
-    val (is_rec,is_fun,results) =
-        translate_main tacopt (translate0 tacopt) register_type def
+    val (is_rec,is_fun,results) = translate_main translate register_type def
 
     val () =
       if !generate_sigs then
@@ -3863,13 +3862,10 @@ fun translate0 tacopt def =
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
-val translate = translate0 NONE
-fun utranslate tac = translate0 (SOME tac)
-
 fun abs_translate def =
   let
     val (is_rec,is_fun,results) =
-        translate_main NONE abs_translate abs_register_type def
+        translate_main abs_translate abs_register_type def
     (*
       val (fname,ml_fname,def,th,preopt) = hd results
     *)
