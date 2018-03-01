@@ -7621,7 +7621,7 @@ val write_bytes_inj = Q.store_thm("write_bytes_inj",
   \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
   \\ metis_tac[]);
 
-val word_eq_thm = store_thm("word_eq_thm",
+val word_eq_thm0 = prove(
   ``(!refs v1 v2 l b w1 w2.
        memory_rel c be refs sp st m dm
           ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
@@ -7909,7 +7909,7 @@ val word_eq_thm = store_thm("word_eq_thm",
        word_eq c st dm m (MustTerminate_limit (:'a) - 1) w1 w2 = SOME (res,l1) /\
        (b <=> (res = 1w))``,
   rw [] \\ imp_res_tac memory_rel_limit
-  \\ drule (word_eq_thm |> CONJUNCT1)
+  \\ drule (word_eq_thm0 |> CONJUNCT1)
   \\ fs []
   \\ `dimword (:α) * vb_size v1 < MustTerminate_limit (:α) − 1`
            by (fs [good_dimindex_def,dimword_def] \\ rfs [])
