@@ -11,7 +11,19 @@ val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
+val _ = (skip_ind_proof := true);
 val res = translate ZIP2_def;
+val _ = (skip_ind_proof := false);
+
+val zip2_ind_goal = first is_forall (hyp res);
+val zip2_ind = prove(
+  ``^zip2_ind_goal``,
+  rpt gen_tac \\ strip_tac
+  \\ Cases
+  \\ qspec_tac (`r`,`r`)
+  \\ Induct_on `q`
+  \\ rw [])
+  |> update_precondition;
 
 val ZIP4_def = Define `
   ZIP4 xs = ZIP2 xs 6`

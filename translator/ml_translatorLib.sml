@@ -3837,8 +3837,11 @@ fun translate def =
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)
         in save_thm(fname ^ "_v_thm", th) end
-      val thms = map inst_envs results
-      in LIST_CONJ thms end
+      val v_thm = map inst_envs results |> LIST_CONJ
+      val v_thm = v_thm |> DISCH_ALL
+                  |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                  |> UNDISCH_ALL
+      in v_thm end
     else (* not is_rec *)
     let
       val (fname,ml_fname,def,th,pre) = hd results
@@ -3894,6 +3897,9 @@ fun translate def =
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = ml_prog_update (add_Dlet eval_thm var_str [])
         val _ = add_v_thms (fname,var_str,v_thm,pre_def)
+        val v_thm = v_thm |> DISCH_ALL
+                    |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                    |> UNDISCH_ALL
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
