@@ -37,7 +37,7 @@ val list_to_v_simp = Q.store_thm("list_to_v_simp[simp]",
   `!xs. v_to_list (list_to_v xs) = SOME xs`,
   Induct \\ fs [bvlSemTheory.v_to_list_def, bvlSemTheory.list_to_v_def]);
 
-val to_op_inj = Q.store_thm("to_op_inj[simp]",
+val to_op_11 = Q.store_thm("to_op_11[simp]",
   `to_op op1 = to_op op2 <=> op1 = op2`,
   Cases_on `op1` \\ Cases_on `op2` \\ rw [to_op_def]);
 
@@ -102,7 +102,6 @@ val list_to_v_imp = Q.store_thm ("list_to_v_imp",
   \\ fs [case_eq_thms] \\ rw []
   \\ fs [bvlSemTheory.list_to_v_def]);
 
-(* Very slow, because of how term_ok is defined *)
 val term_ok_SING = Q.store_thm("term_ok_SING",
   `!ts ty exp env (s: 'ffi bviSem$state) r t.
      term_ok ts ty exp /\
@@ -115,33 +114,40 @@ val term_ok_SING = Q.store_thm("term_ok_SING",
          Int => ?k. v = Number k
        | List => ?ys. v_to_list v = SOME ys
        | _ => T`,
-  recInduct term_ok_ind
-  \\ rpt strip_tac
+  recInduct term_ok_ind \\ rw []
   \\ pop_assum mp_tac
-  \\ qpat_x_assum `term_ok _ _ _` mp_tac
-  \\ simp [term_ok_def]
-  \\ simp [evaluate_def]
+  \\ fs [term_ok_def, evaluate_def]
   \\ TRY
-   (rename1 `if _ < LENGTH _ then _ else _`
-    \\ fs [term_ok_def, ty_rel_def, LIST_REL_EL_EQN] \\ rw []
-    \\ every_case_tac \\ fs [])
-  \\ fs [pair_case_eq, case_eq_thms, case_elim_thms, bool_case_eq, PULL_EXISTS]
-  \\ rw [term_ok_def]
-  \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [] \\ rveq
+   (rename1 `if _ then _ < LENGTH _ else _`
+    \\ fs [ty_rel_def, LIST_REL_EL_EQN]
+    \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
+  \\ qhdtm_x_assum `COND` mp_tac
+  \\ rw [] \\ fs []
+  >- (Cases_on `op` \\ fs []
+      \\ fs [case_eq_thms, pair_case_eq, do_app_def,
+             do_app_aux_def, bvlSemTheory.do_app_def]
+      \\ rw [] \\ fs [evaluate_def])
   \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-  \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
-  \\ rw [bvlSemTheory.v_to_list_def]
-  \\ fs [bvl_to_bvi_id, PULL_EXISTS]
-  \\ fsrw_tac [DNF_ss] [evaluate_def]
-  \\ fs [pair_case_eq, case_eq_thms, case_elim_thms] \\ rw []
-  \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-  \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-  \\ fs [PULL_EXISTS]
-  \\ TRY (ntac 2 (first_x_assum drule \\ rpt (disch_then drule) \\ rw []) \\ NO_TAC)
-  \\ fs [small_int_def, small_enough_int_def]
-  \\ TRY CASE_TAC \\ fs []);
+  \\ fs [evaluate_def, case_eq_thms, pair_case_eq] \\ rveq
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ TRY
+   (qpat_x_assum `is_const op` assume_tac
+    \\ Cases_on `op` \\ fs []
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, pair_case_eq,
+           case_eq_thms]
+    \\ rpt (PURE_CASE_TAC \\ fs [])
+    \\ rw [] \\ fs [small_enough_int_def, small_int_def])
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, pair_case_eq,
+         case_eq_thms, PULL_EXISTS]
+  \\ rw [] \\ fs []
+  \\ fs [bvl_to_bvi_id]
+  \\ fsrw_tac [DNF_ss] []
+  \\ rpt (PURE_CASE_TAC \\ fs [])
+  \\ TRY (res_tac \\ fs [] \\ NO_TAC)
+  \\ fs [bvlSemTheory.v_to_list_def] \\ EVAL_TAC
+  \\ CASE_TAC \\ fs []
+  \\ res_tac \\ fs []);
 
 val op_id_val_def = Define `
   op_id_val Plus   = Number 0 /\
@@ -630,7 +636,7 @@ val term_ok_extend = Q.store_thm("term_ok_extend",
   \\ Cases_on `ty = Any` \\ fs []
   \\ simp [term_ok_def]
   \\ rw [] \\ rfs []
-  \\ fs [EL_APPEND1, EVERY_MEM]);
+  \\ fs [EL_APPEND1, EVERY_MEM, LENGTH_EQ_NUM_compute]);
 
 val decide_ty_imp = Q.store_thm("decide_ty_imp",
   `decide_ty ty1 ty2 <> Any ==> ty1 <> Any /\ ty2 <> Any`,
