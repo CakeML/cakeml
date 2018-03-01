@@ -267,7 +267,18 @@ in
     val n = term_to_string const
     val _ = (eval_thms := (n,const,th)::(!eval_thms))
     in th end;
+  fun check_no_ind_assum tm th = let
+    val hs = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+                |> UNDISCH_ALL |> hyp
+    in if can (first is_forall) hs then let
+         val str = "User must prove skipped induction theorem for " ^
+                   term_to_string tm
+         in print ("\nERROR: " ^ str ^ "\n\n") ; failwith str end
+       else ()
+    end
   fun pack_v_thms () = let
+    fun check_no_ind_assum_in_v (_,_,tm,th,_,_) = check_no_ind_assum tm th
+    val _ = map check_no_ind_assum_in_v (!v_thms)
     val pack_vs = pack_list (pack_6tuple pack_string pack_string pack_term
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
@@ -2848,6 +2859,7 @@ fun hol2deep tm =
   (* previously translated term *)
   let
     val th = lookup_abs_v_thm tm
+    val _ = check_no_ind_assum tm th
     val inv = get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
     val res = th |> UNDISCH_ALL |> concl |> rand
@@ -2858,6 +2870,7 @@ fun hol2deep tm =
   (* previously translated term *)
   if can lookup_v_thm tm then let
     val th = lookup_v_thm tm
+    val _ = check_no_ind_assum tm th
     val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
     val xs = find_terms (can (match_term pat)) (concl th) |> map rand
     val ss = map (fn v => v |-> genvar(type_of v)) xs
@@ -3555,15 +3568,28 @@ fun get_custom_ind_with_pre ind ind_thm_goal = let
         aconv x tm
      then concl (the ind) else ind_thm_goal end
 
-val stop_on_failed_ind_proof = ref true;
+val skip_ind_proof = ref false;
+
+(*
+skip_ind_proof := true
+
+translate APPEND
+translate listTheory.REVERSE_DEF
+
+
+*)
 
 fun print_unable_to_prove_ind_thm ml_name =
-  if not (!stop_on_failed_ind_proof) then
-    print ("\nWARNING: "^ml_name^" has unproved induction.\n\n")
+  if !skip_ind_proof then
+    print ("Skipping induction proof for "^ml_name^"\n")
   else let
-    val _ = print ("\nERROR: "^ml_name^" has unproved induction.\n")
-    val _ = print ("\n  Try something along the lines of:")
-    val _ = print ("\n    val _ = (stop_on_failed_ind_proof := false);")
+    val _ = print ("\nERROR: Unable to prove induction for "^ml_name^"")
+    val _ = print ("\n")
+    val _ = print ("\n  The induction goal has been left as an assumption on")
+    val _ = print ("\n  the theorem returned by the translator. You must prove")
+    val _ = print ("\n  it with something like the following before this")
+    val _ = print ("\n  constant is used in subsequent translations.")
+    val _ = print ("\n")
     val _ = print ("\n    val res = translate "^ml_name^"_def;")
     val _ = print ("\n    val "^ml_name^"_ind_goal = first is_forall (hyp res);")
     val _ = print ("\n    (* set_goal([],"^ml_name^"_ind_goal); *)")
@@ -3571,8 +3597,16 @@ fun print_unable_to_prove_ind_thm ml_name =
     val _ = print ("\n      "^ml_name^"_ind_goal,")
     val _ = print ("\n      ... )")
     val _ = print ("\n      |> update_precondition;")
-    val _ = print ("\n    val _ = (stop_on_failed_ind_proof := true);\n\n")
-    in failwith ("ml_translatorLib: Unable to prove required induction theorem") end;
+    val _ = print ("\n")
+    val _ = print ("\n  To turn off this ERROR message, tell the translator ")
+    val _ = print ("\n  to not attempt the induction proof using skip_ind_proof:")
+    val _ = print ("\n")
+    val _ = print ("\n    val _ = (skip_ind_proof := true);")
+    val _ = print ("\n")
+    val _ = print ("\n  Remember to only have this flag set to true temporarily.")
+    val _ = print ("\n")
+    val _ = print ("\n")
+    in () end;
 
 (*
 
@@ -3726,7 +3760,8 @@ val (fname,ml_fname,def,th,v) = hd thms
     val th = MP lemma lemma1
 
     (* attempt to prove induction assumption *)
-    val th = MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
+    val th = (if !skip_ind_proof then fail()
+              else MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal))
              handle HOL_ERR _ => let
                val (_,ml_name,_,_,_) = hd thms
                in (print_unable_to_prove_ind_thm ml_name; th) end

@@ -137,6 +137,7 @@ sig
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
 
-    val stop_on_failed_ind_proof : bool ref
+    (* true tells translator to leave complicated proof obligation to user *)
+    val skip_ind_proof : bool ref
 
 end
