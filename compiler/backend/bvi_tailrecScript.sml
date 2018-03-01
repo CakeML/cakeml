@@ -436,7 +436,7 @@ val do_comml_def = tDefine "do_comml" `
         else if ~term_ok ts Int l then exp
         else if is_rec loc r then apply_op opr r l
         else
-          case opbinargs opr (do_comml ts loc opr r) of
+          dtcase opbinargs opr (do_comml ts loc opr r) of
             NONE => exp
           | SOME (r1, r2) =>
               if is_rec loc r1 then
