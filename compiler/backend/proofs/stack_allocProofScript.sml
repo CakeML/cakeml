@@ -5,12 +5,7 @@ open preamble
      stackSemTheory
      stackPropsTheory
      word_gcFunctionsTheory
-(*     data_to_word_memoryProofTheory
-     data_to_word_gcProofTheory
-     data_to_wordProofTheory *)
      local open blastLib in end
-
-     (* TODO: the data_to_word* are possibly only for lemmas that should be moved anyway *)
 
 val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
