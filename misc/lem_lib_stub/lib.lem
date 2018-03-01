@@ -78,6 +78,7 @@ declare hol target_rep function nat_map_map f s = `sptree$map` f s
 (* TODO: proper support for lazy lists *)
 
 open import {hol} `llistTheory`
+open import {isabelle} `Coinductive.Coinductive_List`
 type llist 'a
 declare hol target_rep type llist 'a = `llist` 'a
 declare isabelle target_rep type llist 'a = `llist` 'a
@@ -90,9 +91,9 @@ declare isabelle target_rep function lhd = `lhd'`
 declare hol target_rep function ltl = `LTL`
 declare isabelle target_rep function ltl = `ltl'`
 declare hol target_rep function lnil = `LNIL`
-declare isabelle target_rep function lnil = `lnil'`
+declare isabelle target_rep function lnil = `LNil`
 declare hol target_rep function lcons = `LCONS`
-declare isabelle target_rep function lcons = `lcons'`
+declare isabelle target_rep function lcons = `LCons`
 
 
 (* TODO: proper support for words... *)
