@@ -39,31 +39,25 @@ val is_rec_def = Define `
   (is_rec _    _                     ⇔ F)
   `;
 
-val is_rec_PMATCH_def = Define `
-  is_rec_PMATCH name expr =
+val is_rec_PMATCH = Q.store_thm ("is_rec_PMATCH",
+  `!expr. is_rec name expr =
     case expr of
       Call _ d _ NONE => d = SOME name
-    | _               => F`;
-
-val is_rec_PMATCH_transl = Q.store_thm("is_rec_PMATCH_transl",
-  `is_rec = is_rec_PMATCH`,
-  fs [FUN_EQ_THM]
-  \\ recInduct (theorem "is_rec_ind")
-  \\ rw [is_rec_def, is_rec_PMATCH_def]);
+    | _               => F`,
+  Cases \\ rw [is_rec_def]
+  \\ rename1 `Call _ _ _ hdl`
+  \\ Cases_on `hdl` \\ fs [is_rec_def]);
 
 val is_const_def = Define `
   (is_const (Const i) <=> small_int i) /\
   (is_const _         <=> F)`;
 
-val is_const_PMATCH_def = Define `
-  is_const_PMATCH op =
+val is_const_PMATCH = Q.store_thm ("is_const_PMATCH",
+  `!op. is_const op =
     case op of
       Const i => small_int i
-    | _       => F`;
-
-val is_const_PMATCH_transl = Q.store_thm("is_const_PMATCH_transl",
-  `is_const = is_const_PMATCH`,
-  fs [FUN_EQ_THM] \\ Induct \\ rw [is_const_def, is_const_PMATCH_def]);
+    | _       => F`,
+  Cases \\ rw [is_const_def]);
 
 val _ = export_rewrites ["is_const_def"];
 
@@ -95,17 +89,15 @@ val from_op_def = Define `
     else Noop
   `;
 
-val from_op_PMATCH_def = Define `
-  from_op_PMATCH op =
-    case op of
-      Add        => Plus
-    | Mult       => Times
-    | ListAppend => Append
-    | _          => Noop`;
-
-val from_op_PMATCH_transl = Q.store_thm("from_op_PMATCH_transl",
-  `from_op = from_op_PMATCH`,
-  fs [FUN_EQ_THM] \\ Cases \\ rw [from_op_def, from_op_PMATCH_def]);
+val from_op_PMATCH = Q.store_thm ("from_op_PMATCH",
+  `!op.
+    from_op op =
+      case op of
+        Add        => Plus
+      | Mult       => Times
+      | ListAppend => Append
+      | _          => Noop`,
+  Cases \\ rw [from_op_def]);
 
 val from_op_thm = save_thm("from_op_thm[simp]",
   map (fn tm => EVAL ``from_op ^tm``)
@@ -119,20 +111,18 @@ val op_eq_def = Define `
   (op_eq Append (Op op xs) <=> op = ListAppend) /\
   (op_eq _      _          <=> F)`;
 
-val op_eq_PMATCH_def = Define `
-  op_eq_PMATCH a expr =
-    case expr of
-      Op op xs =>
-        (case a of
-          Plus   => op = Add
-        | Times  => op = Mult
-        | Append => op = ListAppend
-        | _      => F)
-    | _ => F`;
-
-val op_eq_PMATCH_transl = Q.store_thm("op_eq_PMATCH_transl",
-  `op_eq = op_eq_PMATCH`,
-  fs [FUN_EQ_THM] \\ Cases \\ Cases \\ rw [op_eq_PMATCH_def, op_eq_def]);
+val op_eq_PMATCH = Q.store_thm ("op_eq_PMATCH",
+  `!a expr.
+     op_eq a expr =
+       case expr of
+         Op op xs =>
+           (case a of
+             Plus   => op = Add
+           | Times  => op = Mult
+           | Append => op = ListAppend
+           | _      => F)
+       | _ => F`,
+  Cases \\ Cases \\ rw [op_eq_def]);
 
 val op_eq_to_op = Q.store_thm ("op_eq_to_op[simp]",
   `∀iop op xs.
@@ -157,32 +147,28 @@ val index_of_def = Define `
   (index_of _           = NONE)
   `;
 
-val index_of_PMATCH_def = Define `
-  index_of_PMATCH expr =
-    case expr of
-      Var i => SOME i
-    | _     => NONE`;
-
-val index_of_PMATCH_transl = Q.store_thm("index_of_PMATCH_transl",
-  `index_of = index_of_PMATCH`,
-  fs [FUN_EQ_THM]
-  \\ Cases \\ rw [index_of_def, index_of_PMATCH_def]);
+val index_of_PMATCH = Q.store_thm ("index_of_PMATCH",
+  `!expr.
+     index_of expr =
+       case expr of
+         Var i => SOME i
+       | _     => NONE`,
+  Cases \\ rw [index_of_def]);
 
 val args_from_def = Define `
   (args_from (bvi$Call t (SOME d) as hdl) = SOME (t, d, as, hdl)) ∧
   (args_from _                            = NONE)
   `;
 
-val args_from_PMATCH_def = Define `
-  args_from_PMATCH expr =
-    case expr of
-      Call t (SOME d) as hdl => SOME (t,d,as,hdl)
-    | _                      => NONE`;
-
-val args_from_PMATCH_transl = Q.store_thm("args_from_PMATCH_transl",
-  `args_from = args_from_PMATCH`,
-  fs [FUN_EQ_THM] \\ Cases \\ rw [args_from_def, args_from_PMATCH_def]
-  \\ Cases_on `o0` \\ rw [args_from_def]);
+val args_from_PMATCH = Q.store_thm ("args_from_PMATCH",
+  `!expr.
+     args_from expr =
+       case expr of
+         Call t (SOME d) as hdl => SOME (t,d,as,hdl)
+       | _                      => NONE`,
+  Cases \\ rw [args_from_def]
+  \\ rename1 `Call _ nm _ _`
+  \\ Cases_on `nm` \\ rw [args_from_def]);
 
 val get_bin_args_def = Define `
   get_bin_args op =
@@ -190,17 +176,16 @@ val get_bin_args_def = Define `
     | bvi$Op _ [e1; e2] => SOME (e1, e2)
     | _ => NONE`;
 
-val get_bin_args_PMATCH_def = Define `
-  get_bin_args_PMATCH op =
-    case op of
-      Op _ [e1; e2] => SOME (e1,e2)
-    | _             => NONE`;
-
-val get_bin_args_PMATCH_transl = Q.store_thm("get_bin_args_PMATCH_transl",
-  `get_bin_args = get_bin_args_PMATCH`,
-  fs [FUN_EQ_THM]
-  \\ Cases \\ rw [get_bin_args_def, get_bin_args_PMATCH_def]
-  \\ rpt (CASE_TAC \\ fs []));
+val get_bin_args_PMATCH = Q.store_thm ("get_bin_args_PMATCH",
+  `!op.
+     get_bin_args op =
+       case op of
+         Op _ [e1; e2] => SOME (e1,e2)
+       | _             => NONE`,
+  Cases \\ rw [get_bin_args_def]
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []);
 
 val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
   `∀x x1 x2.
@@ -225,6 +210,12 @@ val try_update_def = Define `
 
 (* --- Checking termination guarantees --- *)
 
+val is_arith_def = Define `
+  is_arith op <=> op = Add \/ op = Sub \/ op = Mult`;
+
+val is_rel_def = Define `
+  is_rel op <=> op = Less \/ op = LessEq \/ op = Greater \/ op = GreaterEq`;
+
 val term_ok_def = tDefine "term_ok" `
   (* Variables *)
   (term_ok ts ty (Var i) <=>
@@ -232,106 +223,27 @@ val term_ok_def = tDefine "term_ok" `
     else if i < LENGTH ts then EL i ts = ty
     else F) /\
   (* Operations *)
-  (*(term_ok ts ty (Op (Const i) xs) <=> small_int i /\ xs = [] /\ ty <> List) /\*)
   (term_ok ts ty (Op op xs) <=>
-    if is_const op /\ xs = [] then ty <> List
-    (* List operations *)
-    else if op = ListAppend then
-      ty <> Int /\ LENGTH xs = 2 /\ EVERY (term_ok ts List) xs
-    else if op = Add then
-      ty <> List /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = Sub then
-      ty <> List /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = Mult then
-      ty <> List /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = Less then
-      ty = Any /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = LessEq then
-      ty = Any /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = Greater then
-      ty = Any /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = GreaterEq then
-      ty = Any /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if op = Cons 0 /\ xs = [] then ty <> Int
-    else if op = Cons 0 /\ LENGTH xs = 2 then
-      term_ok ts List (HD xs) /\
-      term_ok ts Any (EL 1 xs) /\ ty <> Int
-    else F) /\
+    dtcase get_bin_args (Op op xs) of
+      NONE => xs = [] /\
+        if is_const op then ty <> List
+        else if op = Cons 0 then ty <> Int
+        else F
+    | SOME (x,y) =>
+        if op = ListAppend then
+          ty <> Int /\ term_ok ts List x /\ term_ok ts List y
+        else if is_arith op then
+          ty <> List /\ term_ok ts Int x /\ term_ok ts Int y
+        else if is_rel op then
+          ty = Any /\ term_ok ts Int x /\ term_ok ts Int y
+        else if op = Cons 0 then
+          ty <> Int /\ term_ok ts List x /\ term_ok ts Any y
+        else F) /\
   (term_ok ts ty _ <=> F)`
   (WF_REL_TAC `measure (exp_size o SND o SND)`
    \\ rw [] \\ EVAL_TAC
-   \\ fs [bviTheory.exp_size_def, LENGTH_EQ_NUM_compute]
-   \\ imp_res_tac MEM_exp_size_imp \\ fs []);
-
-val term_ok_PMATCH_def = Define `
-  term_ok_PMATCH ts ty expr =
-    case expr of
-      (* Variables *)
-      Var i =>
-        if ty = Any then i < LENGTH ts
-        else if i < LENGTH ts then EL i ts = ty
-        else F
-      (* Integer literals *)
-    | Op (Const i) [] => small_int i /\ ty <> List
-      (* Lists literals *)
-    | Op (Cons 0) [] => ty <> Int
-    | Op (Cons 0) [x;y] =>
-        term_ok_PMATCH ts List x /\
-        term_ok_PMATCH ts Any y /\ ty <> Int
-      (* List operations *)
-    | Op ListAppend [x;y] =>
-        term_ok_PMATCH ts List x /\
-        term_ok_PMATCH ts List y /\
-        ty <> Int
-      (* Arithmetic *)
-    | Op Add  [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty <> List
-    | Op Mult [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty <> List
-    | Op Sub  [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty <> List
-      (* Other things *)
-    | Op Less      [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty = Any
-    | Op LessEq    [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty = Any
-    | Op Greater   [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty = Any
-    | Op GreaterEq [x;y] =>
-        term_ok_PMATCH ts Int x /\
-        term_ok_PMATCH ts Int y /\ ty = Any
-      (* Catch-all *)
-    | _ => F`;
-
-val term_ok_PMATCH_transl = Q.store_thm("term_ok_PMATCH_transl",
-  `term_ok = term_ok_PMATCH`,
-  fs [FUN_EQ_THM]
-  \\ recInduct (theorem "term_ok_ind") \\ rw [term_ok_def]
-  >- (once_rewrite_tac [term_ok_PMATCH_def] \\ fs [])
-  >- (once_rewrite_tac [term_ok_PMATCH_def] \\ fs [])
-  >- (Cases_on `op` \\ fs [] \\ once_rewrite_tac [term_ok_PMATCH_def] \\ fs [])
-  \\ TRY
-   (once_rewrite_tac [term_ok_PMATCH_def] \\ fs []
-    \\ rename1 `MEM _ xs` \\ Cases_on `xs` \\ fs []
-    \\ rename1 `MEM _ xs` \\ Cases_on `xs` \\ fs []
-    \\ rename1 `MEM _ xs` \\ Cases_on `xs` \\ fs []
-    \\ metis_tac [])
-  \\ rfs []
-  >- (once_rewrite_tac [term_ok_PMATCH_def] \\ fs [] \\ Cases_on `op` \\ fs [])
-  >- (once_rewrite_tac [term_ok_PMATCH_def] \\ fs [] \\ Cases_on `op` \\ fs [])
-  \\ (eq_tac
-      >-
-       (rw [] \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-        \\ once_rewrite_tac [term_ok_PMATCH_def] \\ fs [])
-      \\ once_rewrite_tac [term_ok_PMATCH_def] \\ fs []
-      \\ Cases_on `op = Cons 0` \\ fs []
-      \\ Cases_on `LENGTH xs = 2` \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []));
+   \\ imp_res_tac exp_size_get_bin_args
+   \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def]);
 
 (* --- Right-associate all targeted operations --- *)
 
@@ -345,7 +257,7 @@ val rotate_def = tDefine "rotate" `
         | SOME (a, b) =>
             rotate opr (apply_op opr a (apply_op opr b c))`
   (WF_REL_TAC `measure (\(opr,x).
-    case opbinargs opr x of
+    dtcase opbinargs opr x of
       NONE => exp_size x
     | SOME (a, c) => exp_size a)`
   \\ rw [opbinargs_def, apply_op_def, get_bin_args_def]
@@ -391,23 +303,20 @@ val assocr_def = Define `
     else do_assocr (from_op op) (Op op xs)) /\
   (assocr exp = exp)`;
 
-val assocr_PMATCH_def = Define `
-  assocr_PMATCH expr =
-    case expr of
-      If x1 x2 x3      => If x1 (assocr_PMATCH x2) (assocr_PMATCH x3)
-    | Let xs x         => Let xs (assocr_PMATCH x)
-    | Tick x           => Tick (assocr_PMATCH x)
-    | Op Add xs        => do_assocr Plus expr
-    | Op Mult xs       => do_assocr Times expr
-    | Op ListAppend xs => do_assocr Append expr
-    | _                => expr`;
-
-val assocr_PMATCH_transl = Q.store_thm("assocr_PMATCH_transl",
-  `assocr = assocr_PMATCH`,
-  fs [FUN_EQ_THM] \\ Induct \\ rw [assocr_def]
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ TRY (rename1 `Op op xs` \\ Cases_on `op` \\ fs [])
-  \\ simp [Once assocr_PMATCH_def]);
+val assocr_PMATCH = Q.store_thm ("assocr_PMATCH",
+  `!expr.
+     assocr expr =
+       case expr of
+         If x1 x2 x3      => If x1 (assocr x2) (assocr x3)
+       | Let xs x         => Let xs (assocr x)
+       | Tick x           => Tick (assocr x)
+       | Op Add xs        => do_assocr Plus expr
+       | Op Mult xs       => do_assocr Times expr
+       | Op ListAppend xs => do_assocr Append expr
+       | _                => expr`,
+  Induct \\ rw [assocr_def]
+  \\ rename1 `from_op op`
+  \\ Cases_on `op` \\ fs []);
 
 (* Test do_assocr *)
 val test_tm = ``
@@ -478,16 +387,14 @@ val decide_ty_def = Define `
   (decide_ty List List = List) /\
   (decide_ty _    _    = Any)`;
 
-val decide_ty_PMATCH_def = Define `
-  decide_ty_PMATCH ty1 ty2 =
-    case (ty1,ty2) of
-      (Int, Int)   => Int
-    | (List, List) => List
-    | _            => Any`
-
-val decide_ty_PMATCH_transl = Q.store_thm("decide_ty_PMATCH_transl",
-  `decide_ty = decide_ty_PMATCH`,
-  fs [FUN_EQ_THM] \\ Cases \\ Cases \\ rw [decide_ty_def, decide_ty_PMATCH_def]);
+val decide_ty_PMATCH = Q.store_thm ("decide_ty_PMATCH",
+  `!ty1 ty2.
+     decide_ty ty1 ty2 =
+       case (ty1,ty2) of
+         (Int, Int)   => Int
+       | (List, List) => List
+       | _            => Any`,
+  Cases \\ Cases \\ rw [decide_ty_def]);
 
 val _ = export_rewrites ["decide_ty_def"]
 
@@ -514,25 +421,23 @@ val arg_ty_def = Define `
   arg_ty ListAppend = List /\
   arg_ty _          = Any`;
 
-val arg_ty_PMATCH_def = Define `
-  arg_ty_PMATCH op =
-    case op of
-      Add        => Int
-    | Sub        => Int
-    | Mult       => Int
-    | Div        => Int
-    | Mod        => Int
-    | LessEq     => Int
-    | Less       => Int
-    | Greater    => Int
-    | GreaterEq  => Int
-    | ListAppend => List
-    | Const i    => if small_int i then Int else Any
-    | _          => Any`;
-
-val arg_ty_PMATCH_transl = Q.store_thm("arg_ty_PMATCH_transl",
-  `arg_ty = arg_ty_PMATCH`,
-  fs [FUN_EQ_THM] \\ Cases \\ rw [arg_ty_def, arg_ty_PMATCH_def]);
+val arg_ty_PMATCH = Q.store_thm ("arg_ty_PMATCH",
+  `!op.
+     arg_ty op =
+       case op of
+         Add        => Int
+       | Sub        => Int
+       | Mult       => Int
+       | Div        => Int
+       | Mod        => Int
+       | LessEq     => Int
+       | Less       => Int
+       | Greater    => Int
+       | GreaterEq  => Int
+       | ListAppend => List
+       | Const i    => if small_int i then Int else Any
+       | _          => Any`,
+  Cases \\ rw [arg_ty_def]);
 
 val op_ty_def = Define `
   (op_ty Add        = Int) /\
@@ -545,22 +450,20 @@ val op_ty_def = Define `
   (op_ty (Const i)  = if small_int i then Int else Any) /\
   (op_ty _          = Any)`;
 
-val op_ty_PMATCH_def = Define `
-  op_ty_PMATCH op =
-    case op of
-      Add        => Int
-    | Sub        => Int
-    | Mult       => Int
-    | Div        => Int
-    | Mod        => Int
-    | ListAppend => List
-    | Cons tag   => if tag = cons_tag \/ tag = nil_tag then List else Any
-    | Const i    => if small_int i then Int else Any
-    | _          => Any`;
-
-val op_ty_PMATCH_transl = Q.store_thm("op_ty_PMATCH_transl",
-  `op_ty = op_ty_PMATCH`,
-  fs [FUN_EQ_THM] \\ Cases \\ rw [op_ty_def, op_ty_PMATCH_def]);
+val op_ty_PMATCH = Q.store_thm ("op_ty_PMATCH",
+  `!op.
+     op_ty op =
+       case op of
+         Add        => Int
+       | Sub        => Int
+       | Mult       => Int
+       | Div        => Int
+       | Mod        => Int
+       | ListAppend => List
+       | Cons tag   => if tag = cons_tag \/ tag = nil_tag then List else Any
+       | Const i    => if small_int i then Int else Any
+       | _          => Any`,
+  Cases \\ rw [op_ty_def]);
 
 (* Gather information about expressions:
 
@@ -650,31 +553,27 @@ val comml_def = Define `
     else do_comml ts loc (from_op op) (Op op xs)) /\
   (comml ts loc exp = exp)`;
 
-val comml_PMATCH_def = Define `
-  comml_PMATCH ts loc expr =
-    case expr of
-      If x1 x2 x3 =>
-        let t1 = FST (HD (scan_expr ts loc [x1])) in
-        let y2 = comml_PMATCH t1 loc x2 in
-        let y3 = comml_PMATCH t1 loc x3 in
-          If x1 y2 y3
-    | Let xs x =>
-        let ys = scan_expr ts loc xs in
-        let tt = MAP (FST o SND) ys in
-        let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
-        let y  = comml_PMATCH (tt ++ tr) loc x in
-          Let xs y
-    | Tick x     => Tick (comml_PMATCH ts loc x)
-    | Op Add xs  => do_comml ts loc Plus expr
-    | Op Mult xs => do_comml ts loc Times expr
-    | _          => expr`;
-
-val comml_PMATCH_transl = Q.store_thm("comml_PMATCH_transl",
-  `comml = comml_PMATCH`,
-  fs [FUN_EQ_THM] \\ recInduct (theorem "comml_ind")
-  \\ rw [comml_def]
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once comml_PMATCH_def]
-  \\ TRY (CASE_TAC \\ fs [])
+val comml_PMATCH = Q.store_thm ("comml_PMATCH",
+  `!ts loc expr.
+     comml ts loc expr =
+       case expr of
+         If x1 x2 x3 =>
+           let t1 = FST (HD (scan_expr ts loc [x1])) in
+           let y2 = comml t1 loc x2 in
+           let y3 = comml t1 loc x3 in
+             If x1 y2 y3
+       | Let xs x =>
+           let ys = scan_expr ts loc xs in
+           let tt = MAP (FST o SND) ys in
+           let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+           let y  = comml (tt ++ tr) loc x in
+             Let xs y
+       | Tick x     => Tick (comml ts loc x)
+       | Op Add xs  => do_comml ts loc Plus expr
+       | Op Mult xs => do_comml ts loc Times expr
+       | _          => expr`,
+  recInduct (theorem "comml_ind") \\ rw [comml_def]
+  >- (Cases_on `x` \\ fs [] \\ FULL_CASE_TAC \\ fs [])
   \\ Cases_on `op` \\ fs []);
 
 val push_call_def = Define `
@@ -707,39 +606,34 @@ val rewrite_def = Define `
         NONE => (F, apply_op opr exp (Var acc))
       | SOME (f, xs) => (T, push_call next opr acc xs (args_from f)))`
 
-val rewrite_PMATCH_def = Define `
-  rewrite_PMATCH loc next opr acc ts expr =
-    case expr of
-      Var n => (F, Var n)
-    | If x1 x2 x3 =>
-        let t1 = FST (HD (scan_expr ts loc [x1])) in
-        let (r2, y2) = rewrite_PMATCH loc next opr acc t1 x2 in
-        let (r3, y3) = rewrite_PMATCH loc next opr acc t1 x3 in
-        let z2 = if r2 then y2 else apply_op opr x2 (Var acc) in
-        let z3 = if r3 then y3 else apply_op opr x3 (Var acc) in
-          (r2 \/ r3, If x1 z2 z3)
-    | Let xs x =>
-        let ys = scan_expr ts loc xs in
-        let tt = MAP (FST o SND) ys in
-        let tr = dtcase LAST1 ys of NONE => ts | SOME c => FST c in
-        let (r, y) = rewrite_PMATCH loc next opr (acc + LENGTH xs) (tt ++ tr) x in
-          (r, Let xs y)
-    | Tick x =>
-        let (r, y) = rewrite_PMATCH loc next opr acc ts x in (r, Tick y)
-    | _ =>
-        if ~check_op ts opr loc expr then
-          (F, apply_op opr expr (Var acc))
-        else
-          dtcase opbinargs opr expr of
-            NONE => (F, apply_op opr expr (Var acc))
-          | SOME (f, xs) => (T, push_call next opr acc xs (args_from f))`
-
-val rewrite_PMATCH_transl = Q.store_thm("rewrite_PMATCH_transl",
-  `rewrite = rewrite_PMATCH`,
-  fs [FUN_EQ_THM]
-  \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once rewrite_PMATCH_def]
-  \\ rpt (pairarg_tac \\ fs []));
+val rewrite_PMATCH = Q.store_thm ("rewrite_PMATCH",
+  `!loc next opr acc ts expr.
+     rewrite loc next opr acc ts expr =
+       case expr of
+         Var n => (F, Var n)
+       | If x1 x2 x3 =>
+           let t1 = FST (HD (scan_expr ts loc [x1])) in
+           let (r2, y2) = rewrite loc next opr acc t1 x2 in
+           let (r3, y3) = rewrite loc next opr acc t1 x3 in
+           let z2 = if r2 then y2 else apply_op opr x2 (Var acc) in
+           let z3 = if r3 then y3 else apply_op opr x3 (Var acc) in
+             (r2 \/ r3, If x1 z2 z3)
+       | Let xs x =>
+           let ys = scan_expr ts loc xs in
+           let tt = MAP (FST o SND) ys in
+           let tr = dtcase LAST1 ys of NONE => ts | SOME c => FST c in
+           let (r, y) = rewrite loc next opr (acc + LENGTH xs) (tt ++ tr) x in
+             (r, Let xs y)
+       | Tick x =>
+           let (r, y) = rewrite loc next opr acc ts x in (r, Tick y)
+       | _ =>
+           if ~check_op ts opr loc expr then
+             (F, apply_op opr expr (Var acc))
+           else
+             dtcase opbinargs opr expr of
+               NONE => (F, apply_op opr expr (Var acc))
+             | SOME (f, xs) => (T, push_call next opr acc xs (args_from f))`,
+  recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]);
 
 (* --- Top-level expression check --- *)
 
@@ -752,24 +646,16 @@ val has_rec_def = tDefine "has_rec" `
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
    \\ imp_res_tac MEM_exp_size_imp \\ fs []);
 
-val has_rec_PMATCH_def = tDefine "has_rec_PMATCH" `
-  has_rec_PMATCH loc expr =
-    case expr of
-      If x1 x2 x3 => has_rec_PMATCH loc x2 \/ has_rec_PMATCH loc x3
-    | Let xs x    => has_rec_PMATCH loc x
-    | Tick x      => has_rec_PMATCH loc x
-    | Op op xs    => EXISTS (is_rec loc) xs \/ EXISTS (has_rec_PMATCH loc) xs
-    | _           => F`
-  (WF_REL_TAC `measure (exp_size o SND)`
-  \\ fs [] \\ rw []
-  \\ imp_res_tac MEM_exp_size_imp \\ fs []);
-
-val has_rec_PMATCH_transl = Q.store_thm("has_rec_PMATCH_transl",
-  `has_rec = has_rec_PMATCH`,
-  fs [FUN_EQ_THM]
-  \\ recInduct (theorem "has_rec_ind") \\ rw [has_rec_def]
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once has_rec_PMATCH_def]
-  \\ fs [EXISTS_MEM] \\ metis_tac []);
+val has_rec_PMATCH = Q.store_thm ("has_rec_PMATCH",
+  `!loc expr.
+     has_rec loc expr =
+       case expr of
+         If x1 x2 x3 => has_rec loc x2 \/ has_rec loc x3
+       | Let xs x    => has_rec loc x
+       | Tick x      => has_rec loc x
+       | Op op xs    => EXISTS (is_rec loc) xs \/ EXISTS (has_rec loc) xs
+       | _           => F`,
+  recInduct (theorem "has_rec_ind") \\ rw [has_rec_def] \\ fs [EXISTS_MEM]);
 
 val test1_tm = ``Let [] (Call 0 (SOME 0) [] NONE)``
 val has_rec_test1 = Q.store_thm("has_rec_test1",
@@ -878,7 +764,6 @@ val opt_tm = ``
            (Call 0 (SOME 1) [Var 0; Op Mult [Var 2; Var 3]]
               NONE)))``
 val aux_tm = ``Let [Var 0; Op (Const 1) []] ^opt_tm``
-
 
 val fac_check_exp = Q.store_thm("fac_check_exp",
   `check_exp 0 1 ^fac_tm = SOME Times`, EVAL_TAC);
