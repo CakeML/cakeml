@@ -5921,12 +5921,6 @@ val memory_rel_any_Number_IMP = store_thm("memory_rel_any_Number_IMP",
   \\ simp_tac std_ss [fcpTheory.FCP_BETA,DIMINDEX_GT_0,word_1comp_def]
   \\ EVAL_TAC);
 
-val Smallnum_i2w = store_thm("Smallnum_i2w",
-  ``Smallnum i = i2w (4 * i)``,
-  Cases_on `i` \\ fs [Smallnum_def,integer_wordTheory.i2w_def]
-  \\ reverse IF_CASES_TAC THEN1 (`F` by intLib.COOPER_TAC)
-  \\ ntac 2 AP_TERM_TAC \\ intLib.COOPER_TAC);
-
 val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   ``good_dimindex (:'a) /\ small_int (:'a) i /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
