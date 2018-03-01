@@ -5082,7 +5082,7 @@ val word_gen_gc_partial_move_IMP_isWord = Q.store_thm("word_gen_gc_partial_move_
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]);
 
-val word_gc_move_roots_IMP_FILTER = Q.store_thm("word_gc_move_roots_IMP_FILTER",
+val word_gc_move_roots_IMP_FILTER0 = Q.prove(
   `!ws i pa old m dm ws2 i2 pa2 m2 c2 c.
       word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
       word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
@@ -5099,7 +5099,7 @@ val word_gc_move_roots_IMP_FILTER = Q.store_thm("word_gc_move_roots_IMP_FILTER",
   \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
   \\ res_tac \\ fs [isWord_def]);
 
-val word_gen_gc_move_roots_IMP_FILTER = Q.store_thm("word_gen_gc_move_roots_IMP_FILTER",
+val word_gen_gc_move_roots_IMP_FILTER0 = Q.prove(
   `!ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
       word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
          (ws2,i2,pa2,ib2,pb2,m2,c2) ==>
@@ -5150,7 +5150,7 @@ val word_gc_fun_IMP_FILTER = Q.store_thm("word_gc_fun_IMP_FILTER",
     \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
     \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac word_gc_move_roots_IMP_FILTER
+    \\ imp_res_tac word_gc_move_roots_IMP_FILTER0
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
   \\ TOP_CASE_TAC \\ fs []
@@ -5170,7 +5170,7 @@ val word_gc_fun_IMP_FILTER = Q.store_thm("word_gc_fun_IMP_FILTER",
     \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
     \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac word_gen_gc_move_roots_IMP_FILTER
+    \\ imp_res_tac word_gen_gc_move_roots_IMP_FILTER0
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]));
 
