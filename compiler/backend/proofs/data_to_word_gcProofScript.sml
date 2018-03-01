@@ -1253,7 +1253,7 @@ val gc_move_with_NIL_LEMMA = store_thm("gc_move_with_NIL_LEMMA",
   \\ fs [gc_sharedTheory.gc_state_component_equality]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
 
-val gc_move_list_ok_irr = store_thm("gc_move_list_ok_irr",
+val gc_move_list_ok_irr0 = prove(
   ``!x s y1 y2 t1 t2 h2 r4.
       gen_gc$gc_move gen_conf s x = (y1,t1) /\
       gen_gc$gc_move gen_conf (s with <| h2 := h2 ; r4 := r4 |>) x = (y2,t2) ==>
@@ -1278,7 +1278,7 @@ val gc_move_list_ok_irr = store_thm("gc_move_list_ok_irr",
   \\ asm_exists_tac \\ fs []
   \\ once_rewrite_tac [CONJ_COMM]
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac [gc_move_list_ok_irr]);
+  \\ metis_tac [gc_move_list_ok_irr0]);
 
 val gc_move_list_with_NIL_LEMMA = store_thm("gc_move_list_with_NIL_LEMMA",
   ``!x s y t h2 r4 y1 t1.
