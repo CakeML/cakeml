@@ -1337,14 +1337,6 @@ val FromList_thm = Q.store_thm("FromList_thm",
   \\ match_mp_tac memory_rel_rearrange
   \\ fs [] \\ rw [] \\ fs []);
 
-val cut_env_adjust_set_insert_1 = Q.store_thm("cut_env_adjust_set_insert_1",
-  `cut_env (adjust_set x) (insert 1 w l) =
-    cut_env (adjust_set x) l`,
-  fs [wordSemTheory.cut_env_def] \\ rw []
-  \\ fs [lookup_inter_alt,lookup_insert]
-  \\ rw [] \\ fs [SUBSET_DEF]
-  \\ res_tac \\ fs [NOT_1_domain]);
-
 val get_var_get_real_addr_lemma =
     GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(
                                    same_const``wordSem$get_var`` o #1 o
