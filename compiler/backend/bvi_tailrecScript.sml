@@ -254,8 +254,8 @@ val term_ok_def = tDefine "term_ok" `
       ty = Any /\ LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
     else if op = Cons 0 /\ xs = [] then ty <> Int
     else if op = Cons 0 /\ LENGTH xs = 2 then
-      term_ok ts Any (HD xs) /\
-      term_ok ts List (EL 1 xs) /\ ty <> Int
+      term_ok ts List (HD xs) /\
+      term_ok ts Any (EL 1 xs) /\ ty <> Int
     else F) /\
   (term_ok ts ty _ <=> F)`
   (WF_REL_TAC `measure (exp_size o SND o SND)`
@@ -276,8 +276,8 @@ val term_ok_PMATCH_def = Define `
       (* Lists literals *)
     | Op (Cons 0) [] => ty <> Int
     | Op (Cons 0) [x;y] =>
-        term_ok_PMATCH ts Any x /\
-        term_ok_PMATCH ts List y /\ ty <> Int
+        term_ok_PMATCH ts List x /\
+        term_ok_PMATCH ts Any y /\ ty <> Int
       (* List operations *)
     | Op ListAppend [x;y] =>
         term_ok_PMATCH ts List x /\
@@ -467,7 +467,7 @@ val do_comml_test2 = Q.store_thm("do_comml_test2",
 (* Check if ok to lift xs into accumulator *)
 val check_op_def = Define `
   check_op ts opr loc exp =
-    case opbinargs opr exp of
+    dtcase opbinargs opr exp of
       NONE => F
     | SOME (f, xs) => is_rec loc f /\ term_ok ts (op_type opr) xs`;
 
@@ -641,7 +641,7 @@ val comml_def = Define `
   (comml ts loc (Let xs x) =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
-    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+    let tr = (dtcase LAST1 ys of SOME c => FST c | NONE => ts) in
     let y  = comml (tt ++ tr) loc x in
       Let xs y) /\
   (comml ts loc (Tick x) = Tick (comml ts loc x)) /\
@@ -674,6 +674,7 @@ val comml_PMATCH_transl = Q.store_thm("comml_PMATCH_transl",
   fs [FUN_EQ_THM] \\ recInduct (theorem "comml_ind")
   \\ rw [comml_def]
   \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once comml_PMATCH_def]
+  \\ TRY (CASE_TAC \\ fs [])
   \\ Cases_on `op` \\ fs []);
 
 val push_call_def = Define `
