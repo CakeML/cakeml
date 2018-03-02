@@ -430,6 +430,17 @@ val do_app_const = Q.store_thm("do_app_const",
     (s2.clock = s1.clock) /\ (s2.code = s1.code)`,
   rw[do_app_def,case_eq_thms,PULL_EXISTS] \\ rw[]);
 
+val bvl_do_app_Ref = Q.store_thm("bvl_do_app_Ref[simp]",
+  `do_app Ref vs s = Rval
+     (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
+      s with refs :=
+        s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`,
+  fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+
+val bvl_do_app_Cons = Q.store_thm("bvl_do_app_Cons[simp]",
+  `do_app (Cons tag) vs s = Rval (Block tag vs,s)`,
+  fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `!xs env s1 vs s2.
 				(evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
