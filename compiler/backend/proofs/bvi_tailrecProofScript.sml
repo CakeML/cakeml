@@ -89,11 +89,22 @@ val v_ty_cases = CONJ (prove_case_elim_thm v_ty_thms) (prove_case_eq_thm v_ty_th
 val term_ok_IMP = Q.store_thm("term_ok_IMP",
   `!ts ty x.
      term_ok ts ty x ==> term_ok ts Any x`,
-  recInduct term_ok_ind \\ rw []
+  gen_tac \\ Cases \\ simp [term_ok_def] \\ qid_spec_tac `ts`
+  >-
+   (recInduct term_ok_int_ind \\ once_rewrite_tac [term_ok_int_def]
+    \\ gen_tac \\ Cases \\ fs [] \\ rw []
+    \\ once_rewrite_tac [term_ok_al_def] \\ fs []
+    \\ fs [case_elim_thms, case_eq_thms, pair_case_eq]
+    \\ rw [] \\ fs [is_op_thms])
+  \\ qmatch_goalsub_abbrev_tac `GOAL`
+  \\ qsuff_tac `GOAL /\ GOAL` >- fs []
+  \\ unabbrev_all_tac
+  \\ ho_match_mp_tac term_ok_al_ind
+  \\ rw []
   \\ pop_assum mp_tac
-  \\ once_rewrite_tac [term_ok_def]
-  \\ TRY (Cases_on `ty` \\ fs []) \\ rw []
-  \\ fs [EVERY_MEM] \\ rw []);
+  \\ once_rewrite_tac [term_ok_al_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [is_op_thms])
 
 val list_to_v_imp = Q.store_thm ("list_to_v_imp",
   `!x xs. v_to_list x = SOME xs ==> list_to_v xs = x`,
@@ -101,6 +112,99 @@ val list_to_v_imp = Q.store_thm ("list_to_v_imp",
   \\ rw [bvlSemTheory.v_to_list_def]
   \\ fs [case_eq_thms] \\ rw []
   \\ fs [bvlSemTheory.list_to_v_def]);
+
+val term_ok_int_SING = Q.store_thm("term_ok_int_SING",
+  `!ts exp env (s: 'ffi bviSem$state) r t.
+     term_ok_int ts exp /\
+     ty_rel env ts /\
+     evaluate ([exp], env, s) = (r, t) ==>
+       s = t /\
+       ?v. r = Rval [v] /\
+       (!(s: 'ffi bviSem$state). evaluate ([exp], env, s) = (r, s)) /\
+       ?k. v = Number k`,
+  recInduct term_ok_int_ind \\ rw [] \\ Cases_on `expr`
+  \\ qhdtm_x_assum `term_ok_int` mp_tac
+  \\ once_rewrite_tac [term_ok_int_def]
+  \\ fs [case_elim_thms, case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
+  \\ TRY
+   (fs [ty_rel_def, LIST_REL_EL_EQN, evaluate_def, pair_case_eq, bool_case_eq]
+    \\ NO_TAC)
+  \\ TRY
+   (rename1 `is_const op` \\ Cases_on `op` \\ fs []
+    \\ fs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
+           do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
+           small_enough_int_def]
+    \\ rw [] \\ fs [])
+  \\ rename1 `is_arith op` \\ Cases_on `op` \\ fs [is_arith_def]
+  \\ fs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
+         do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
+         small_enough_int_def, case_elim_thms, case_eq_thms]
+  \\ rw [] \\ fs []
+  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rw []
+  \\ res_tac \\ rw [] \\ fs []
+  \\ fs [bvl_to_bvi_id]);
+
+val term_ok_al_SING = Q.store_thm("term_ok_al_SING",
+  `(!ts exp env (s: 'ffi bviSem$state) r t.
+     term_ok_any ts exp /\
+     ty_rel env ts /\
+     evaluate ([exp], env, s) = (r, t) ==>
+       s = t /\
+       ?v. r = Rval [v] /\
+       (!(s: 'ffi bviSem$state). evaluate ([exp], env, s) = (r, s))) /\
+   (!ts exp env (s: 'ffi bviSem$state) r t.
+     term_ok_list ts exp /\
+     ty_rel env ts /\
+     evaluate ([exp], env, s) = (r, t) ==>
+       s = t /\
+       ?v. r = Rval [v] /\
+       (!(s: 'ffi bviSem$state). evaluate ([exp], env, s) = (r, s)) /\
+       ?ys. v_to_list v = SOME ys)`,
+  ho_match_mp_tac term_ok_al_ind \\ rw []
+  \\ TRY (qhdtm_x_assum `term_ok_any` mp_tac)
+  \\ TRY (qhdtm_x_assum `term_ok_list` mp_tac)
+  \\ once_rewrite_tac [term_ok_al_def] \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TRY
+   (rename1 `Var n` \\ rw []
+    \\ rfs [ty_rel_def, evaluate_def, LIST_REL_EL_EQN, case_elim_thms,
+            case_elim_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs []
+    \\ NO_TAC)
+  \\ PURE_TOP_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ TRY
+   (rename1 `is_const op` \\ Cases_on `op`
+    \\ fs [evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+           case_eq_thms, case_elim_thms, pair_case_eq]
+    \\ fs [small_enough_int_def, small_int_def])
+  \\ fs [is_op_thms]
+  \\ TRY
+   (rename1 `Op (Cons 0) []`
+    \\ fs [evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+           case_eq_thms, case_elim_thms, pair_case_eq]
+    \\ fs [bvl_to_bvi_id]
+    \\ rw [] \\ fs [bvlSemTheory.v_to_list_def]
+    \\ EVAL_TAC)
+  \\ TRY
+   (rename1 `is_rel op` \\ Cases_on `op` \\ fs [is_rel_def]
+    \\ fs [evaluate_def, pair_case_eq, case_elim_thms, case_eq_thms] \\ rw []
+    \\ imp_res_tac evaluate_SING_IMP \\ rw [] \\ fs []
+    \\ imp_res_tac term_ok_int_SING \\ fs []
+    \\ rfs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def] \\ rw []
+    \\ fs [bvl_to_bvi_id])
+  \\ TRY
+   (rename1 `is_arith op` \\ Cases_on `op` \\ fs [is_arith_def]
+    \\ fs [evaluate_def, pair_case_eq, case_elim_thms, case_eq_thms] \\ rw []
+    \\ imp_res_tac term_ok_int_SING \\ fs [] \\ rw []
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def] \\ rw []
+    \\ fs [bvl_to_bvi_id])
+  \\ fs [evaluate_def, pair_case_eq, case_eq_thms, case_elim_thms] \\ rw []
+  \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+  \\ fs [LENGTH_EQ_NUM_compute] \\ rw []
+  \\ fs [LENGTH_EQ_NUM_compute] \\ rw [] \\ fs []
+  \\ res_tac \\ fs [] \\ rw []
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def] \\ rw []
+  \\ fs [bvl_to_bvi_id]
+  \\ fs [bvlSemTheory.v_to_list_def] \\ EVAL_TAC);
 
 val term_ok_SING = Q.store_thm("term_ok_SING",
   `!ts ty exp env (s: 'ffi bviSem$state) r t.
@@ -111,43 +215,11 @@ val term_ok_SING = Q.store_thm("term_ok_SING",
        ?v. r = Rval [v] /\
        (!(s: 'ffi bviSem$state). evaluate ([exp], env, s) = (r, s)) /\
        case ty of
-         Int => ?k. v = Number k
+         Int  => ?k. v = Number k
        | List => ?ys. v_to_list v = SOME ys
-       | _ => T`,
-  recInduct term_ok_ind \\ rw []
-  \\ pop_assum mp_tac
-  \\ fs [term_ok_def, evaluate_def]
-  \\ TRY
-   (rename1 `if _ then _ < LENGTH _ else _`
-    \\ fs [ty_rel_def, LIST_REL_EL_EQN]
-    \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
-  \\ qhdtm_x_assum `COND` mp_tac
-  \\ rw [] \\ fs []
-  >- (Cases_on `op` \\ fs []
-      \\ fs [case_eq_thms, pair_case_eq, do_app_def,
-             do_app_aux_def, bvlSemTheory.do_app_def]
-      \\ rw [] \\ fs [evaluate_def])
-  \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-  \\ fs [evaluate_def, case_eq_thms, pair_case_eq] \\ rveq
-  \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-  \\ TRY
-   (qpat_x_assum `is_const op` assume_tac
-    \\ Cases_on `op` \\ fs []
-    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, pair_case_eq,
-           case_eq_thms]
-    \\ rpt (PURE_CASE_TAC \\ fs [])
-    \\ rw [] \\ fs [small_enough_int_def, small_int_def])
-  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, pair_case_eq,
-         case_eq_thms, PULL_EXISTS]
-  \\ rw [] \\ fs []
-  \\ fs [bvl_to_bvi_id]
-  \\ fsrw_tac [DNF_ss] []
-  \\ rpt (PURE_CASE_TAC \\ fs [])
-  \\ TRY (res_tac \\ fs [] \\ NO_TAC)
-  \\ fs [bvlSemTheory.v_to_list_def] \\ EVAL_TAC
-  \\ CASE_TAC \\ fs []
-  \\ res_tac \\ fs []);
+       | _    => T`,
+  rw [term_ok_def, case_elim_thms, case_eq_thms, v_ty_cases]
+  \\ metis_tac [term_ok_int_SING, term_ok_al_SING]);
 
 val op_id_val_def = Define `
   op_id_val Plus   = Number 0 /\
@@ -628,15 +700,32 @@ val from_op_to_op = Q.store_thm("from_op_to_op[simp]",
   `from_op (to_op opr) = opr`,
   Cases_on `opr` \\ fs [from_op_def, to_op_def]);
 
+val term_ok_int_extend = Q.store_thm("term_ok_int_extend",
+  `!ts exp extra.
+     term_ok_int ts exp ==> term_ok_int (ts ++ extra) exp`,
+  recInduct term_ok_int_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [term_ok_int_def] \\ fs []
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ rw [EL_APPEND1]);
+
+val term_ok_al_extend = Q.store_thm("term_ok_al_extend",
+  `(!ts exp extra.
+     term_ok_any ts exp ==> term_ok_any (ts ++ extra) exp) /\
+   (!ts exp extra.
+    term_ok_list ts exp ==> term_ok_list (ts ++ extra) exp)`,
+  ho_match_mp_tac term_ok_al_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [term_ok_al_def] \\ fs []
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ rw [EL_APPEND1]
+  \\ metis_tac [term_ok_int_extend]);
+
 val term_ok_extend = Q.store_thm("term_ok_extend",
   `!ts ty exp extra.
      term_ok ts ty exp ==> term_ok (ts ++ extra) ty exp`,
-  recInduct term_ok_ind \\ rw []
-  \\ pop_assum mp_tac
-  \\ Cases_on `ty = Any` \\ fs []
-  \\ simp [term_ok_def]
-  \\ rw [] \\ rfs []
-  \\ fs [EL_APPEND1, EVERY_MEM, LENGTH_EQ_NUM_compute]);
+  rw [term_ok_def] \\ CASE_TAC \\ fs []
+  \\ metis_tac [term_ok_al_extend, term_ok_int_extend]);
 
 val decide_ty_imp = Q.store_thm("decide_ty_imp",
   `decide_ty ty1 ty2 <> Any ==> ty1 <> Any /\ ty2 <> Any`,
@@ -665,7 +754,9 @@ val is_rec_term_ok = Q.store_thm("is_rec_term_ok",
   `!exp ts loc ty.
      (is_rec loc exp ==> ~term_ok ts ty exp) /\
      (term_ok ts ty exp ==> ~is_rec loc exp)`,
-  Cases \\ rw [is_rec_def, term_ok_def]);
+  Cases \\ simp [is_rec_def, term_ok_def]
+  \\ once_rewrite_tac [term_ok_int_def, term_ok_al_def] \\ fs [] \\ rw []
+  \\ FULL_CASE_TAC \\ fs []);
 
 val do_comml_lemma = Q.store_thm("do_comml_lemma",
   `!ts loc opr exp env (s: 'ffi bviSem$state) r t.

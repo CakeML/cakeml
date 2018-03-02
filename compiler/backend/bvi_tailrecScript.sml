@@ -211,39 +211,107 @@ val try_update_def = Define `
 (* --- Checking termination guarantees --- *)
 
 val is_arith_def = Define `
-  is_arith op <=> op = Add \/ op = Sub \/ op = Mult`;
+  is_arith op =
+    dtcase op of
+      Add  => T
+    | Sub  => T
+    | Mult => T
+    | _    => F`;
+
+val is_arith_PMATCH = Q.store_thm("is_arith_PMATCH",
+  `!op.
+     is_arith op =
+       case op of
+         Add  => T
+       | Sub  => T
+       | Mult => T
+       | _    => F`,
+  Cases \\ rw [is_arith_def]);
 
 val is_rel_def = Define `
-  is_rel op <=> op = Less \/ op = LessEq \/ op = Greater \/ op = GreaterEq`;
+  is_rel op =
+    dtcase op of
+      Less      => T
+    | LessEq    => T
+    | Greater   => T
+    | GreaterEq => T
+    | _         => F`;
 
-val term_ok_def = tDefine "term_ok" `
-  (* Variables *)
-  (term_ok ts ty (Var i) <=>
-    if ty = Any then i < LENGTH ts
-    else if i < LENGTH ts then EL i ts = ty
-    else F) /\
-  (* Operations *)
-  (term_ok ts ty (Op op xs) <=>
-    dtcase get_bin_args (Op op xs) of
-      NONE => xs = [] /\
-        if is_const op then ty <> List
-        else if op = Cons 0 then ty <> Int
-        else F
-    | SOME (x,y) =>
-        if op = ListAppend then
-          ty <> Int /\ term_ok ts List x /\ term_ok ts List y
-        else if is_arith op then
-          ty <> List /\ term_ok ts Int x /\ term_ok ts Int y
-        else if is_rel op then
-          ty = Any /\ term_ok ts Int x /\ term_ok ts Int y
-        else if op = Cons 0 then
-          ty <> Int /\ term_ok ts List x /\ term_ok ts Any y
-        else F) /\
-  (term_ok ts ty _ <=> F)`
-  (WF_REL_TAC `measure (exp_size o SND o SND)`
-   \\ rw [] \\ EVAL_TAC
+val is_rel_PMATCH = Q.store_thm("is_rel_PMATCH",
+  `!op.
+     is_rel op =
+       case op of
+         Less      => T
+       | LessEq    => T
+       | Greater   => T
+       | GreaterEq => T
+       | _         => F`,
+  Cases \\ rw [is_rel_def]);
+
+val term_ok_int_def = tDefine "term_ok_int" `
+  (term_ok_int ts expr =
+    dtcase expr of
+      Var i => if i < LENGTH ts then EL i ts = Int else F
+    | Op op xs =>
+        (dtcase get_bin_args expr of
+          NONE       => xs = [] /\ is_const op
+        | SOME (x,y) => is_arith op /\ term_ok_int ts x /\ term_ok_int ts y)
+    | _ => F)`
+  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  \\ imp_res_tac exp_size_get_bin_args
+  \\ fs [bviTheory.exp_size_def]);
+
+val term_ok_int_ind = save_thm ("term_ok_int_ind",
+  theorem "term_ok_int_ind" |> SIMP_RULE (srw_ss()) []);
+
+val term_ok_al_def = tDefine "term_ok_al" `
+  (term_ok_any ts expr =
+    dtcase expr of
+      Var i => i < LENGTH ts
+    | Op op xs =>
+        (dtcase get_bin_args expr of
+          NONE       => xs = [] /\ (is_const op \/ op = Cons 0)
+        | SOME (x,y) =>
+            if op = ListAppend  then term_ok_list ts x /\ term_ok_list ts y
+            else if is_arith op then term_ok_int  ts x /\ term_ok_int  ts y
+            else if is_rel op   then term_ok_int  ts x /\ term_ok_int  ts y
+            else if op = Cons 0 then term_ok_list ts x /\ term_ok_any  ts y
+            else F)
+    | _ => F)
+  /\
+  (term_ok_list ts expr =
+    dtcase expr of
+      Var i => if i < LENGTH ts then EL i ts = List else F
+    | Op op xs =>
+        (dtcase get_bin_args expr of
+          NONE       => xs = [] /\ op = Cons 0
+        | SOME (x,y) =>
+            if op = ListAppend  then term_ok_list ts x /\ term_ok_list ts y
+            else if op = Cons 0 then term_ok_list ts x /\ term_ok_any  ts y
+            else F)
+    | _ => F)`
+  (WF_REL_TAC `measure (\tm. sum_CASE tm (exp_size o SND) (exp_size o SND))`
+   \\ rw []
    \\ imp_res_tac exp_size_get_bin_args
    \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def]);
+
+val is_op_thms = Q.store_thm("is_op_thms",
+  `~is_arith (Cons 0) /\ ~is_arith ListAppend /\
+   ~is_rel (Cons 0) /\ ~is_rel ListAppend /\
+   (!op. op <> ListAppend /\ is_arith op <=> is_arith op) /\
+   (!op. op <> ListAppend /\ ~is_arith op /\ is_rel op <=> is_rel op)`,
+  rw [is_arith_def, is_rel_def]
+  \\ CASE_TAC \\ fs []);
+
+val term_ok_al_ind = save_thm ("term_ok_al_ind",
+  theorem "term_ok_al_ind" |> SIMP_RULE (srw_ss()) [is_op_thms]);
+
+val term_ok_def = Define `
+  term_ok ts ty expr =
+    dtcase ty of
+      Any  => term_ok_any ts expr
+    | Int  => term_ok_int ts expr
+    | List => term_ok_list ts expr`;
 
 (* --- Right-associate all targeted operations --- *)
 
