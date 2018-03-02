@@ -11,7 +11,6 @@ val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
 declare hol    target_rep function rtc = `RTC`
 declare isabelle target_rep function rtc = `rtranclp`
 
-open import {isabelle} `Isabelle_Support`
 val disjoint : forall 'a. set 'a -> set 'a -> bool
 declare hol    target_rep function disjoint = `DISJOINT`
 declare isabelle target_rep function disjoint = `(% M N. M \<inter> N = {})`
@@ -171,28 +170,28 @@ declare isabelle target_rep function W64sub = `Groups.minus`
 
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`
-declare isabelle target_rep function W8lsl = `word_lsl`
+declare isabelle target_rep function W8lsl = `shiftl`
 val W8lsr : word8 -> nat -> word8
 declare hol target_rep function W8lsr = `word_lsr`
-declare isabelle target_rep function W8lsr = `word_lsr`
+declare isabelle target_rep function W8lsr = `shiftr`
 val W8asr : word8 -> nat -> word8
 declare hol target_rep function W8asr = `word_asr`
-declare isabelle target_rep function W8asr = `word_asr`
+declare isabelle target_rep function W8asr = `sshiftr`
 val W8ror : word8 -> nat -> word8
 declare hol target_rep function W8ror = `word_ror`
-declare isabelle target_rep function W8ror = `word_ror`
+declare isabelle target_rep function W8ror = `(% a b. word_rotr b a)`
 val W64lsl : word64 -> nat -> word64
 declare hol target_rep function W64lsl = `word_lsl`
-declare isabelle target_rep function W64lsl = `word_lsl`
+declare isabelle target_rep function W64lsl = `shiftl`
 val W64lsr : word64 -> nat -> word64
 declare hol target_rep function W64lsr = `word_lsr`
-declare isabelle target_rep function W64lsr = `word_lsr`
+declare isabelle target_rep function W64lsr = `shiftr`
 val W64asr : word64 -> nat -> word64
 declare hol target_rep function W64asr = `word_asr`
-declare isabelle target_rep function W64asr = `word_asr`
+declare isabelle target_rep function W64asr = `sshiftr`
 val W64ror : word64 -> nat -> word64
 declare hol target_rep function W64ror = `word_ror`
-declare isabelle target_rep function W64ror = `word_ror`
+declare isabelle target_rep function W64ror = `(% a b. word_rotr b a)`
 
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)
@@ -221,4 +220,4 @@ declare hol target_rep type locn = `locn`
 declare hol target_rep type locs = `locs`
 val unknown_loc : locs
 declare hol target_rep function unknown_loc = `unknown_loc`
-declare isabelle target_rep function unknown_loc = `unknown_loc`
+declare isabelle target_rep function unknown_loc = `undefined`
