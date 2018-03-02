@@ -2,6 +2,7 @@ open import Pervasives
 open import Lib
 
 open import {hol} `machine_ieeeTheory`
+open import {isabelle} `IEEE_Floating_Point.FP64`
 
 type rounding
 declare hol target_rep type rounding = `rounding`
