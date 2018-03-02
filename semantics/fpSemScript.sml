@@ -12,6 +12,7 @@ val _ = new_theory "fpSem"
 (*open import Lib*)
 
 (*open import {hol} `machine_ieeeTheory`*)
+(*open import {isabelle} `IEEE_Floating_Point.FP64`*)
 
 (*type rounding*)
 
