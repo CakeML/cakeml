@@ -264,34 +264,22 @@ val term_ok_int_def = tDefine "term_ok_int" `
 val term_ok_int_ind = save_thm ("term_ok_int_ind",
   theorem "term_ok_int_ind" |> SIMP_RULE (srw_ss()) []);
 
-val term_ok_al_def = tDefine "term_ok_al" `
-  (term_ok_any ts expr =
-    dtcase expr of
-      Var i => i < LENGTH ts
-    | Op op xs =>
-        (dtcase get_bin_args expr of
-          NONE       => xs = [] /\ (is_const op \/ op = Cons 0)
-        | SOME (x,y) =>
-            if op = ListAppend  then term_ok_list ts x /\ term_ok_list ts y
-            else if is_arith op then term_ok_int  ts x /\ term_ok_int  ts y
-            else if is_rel op   then term_ok_int  ts x /\ term_ok_int  ts y
-            else if op = Cons 0 then term_ok_list ts x /\ term_ok_any  ts y
-            else F)
-    | _ => F)
-  /\
-  (term_ok_list ts expr =
-    dtcase expr of
-      Var i => if i < LENGTH ts then EL i ts = List else F
-    | Op op xs =>
-        (dtcase get_bin_args expr of
-          NONE       => xs = [] /\ op = Cons 0
-        | SOME (x,y) =>
-            if op = ListAppend  then term_ok_list ts x /\ term_ok_list ts y
-            else if op = Cons 0 then term_ok_list ts x /\ term_ok_any  ts y
-            else F)
-    | _ => F)`
-  (WF_REL_TAC `measure (\tm. sum_CASE tm (exp_size o SND) (exp_size o SND))`
-   \\ rw []
+val term_ok_any_def = tDefine "term_ok_any" `
+  (term_ok_any ts list (Var i) <=>
+    if ~list then i < LENGTH ts
+    else if i < LENGTH ts then EL i ts = List
+    else F) /\
+  (term_ok_any ts list (Op op xs) <=>
+    dtcase get_bin_args (Op op xs) of
+      NONE       => xs = [] /\ if list then op = Cons 0 else is_const op
+    | SOME (x,y) =>
+        if op = ListAppend then term_ok_any ts T x /\ term_ok_any ts T y
+        else if ~list /\ is_arith op then term_ok_int ts x /\ term_ok_int ts y
+        else if ~list /\ is_rel op   then term_ok_int ts x /\ term_ok_int ts y
+        else if op = Cons 0 then term_ok_any ts T x /\ term_ok_any ts F y
+        else F) /\
+  (term_ok_any ts list expr <=> F)`
+  (WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
    \\ imp_res_tac exp_size_get_bin_args
    \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def]);
 
@@ -299,19 +287,42 @@ val is_op_thms = Q.store_thm("is_op_thms",
   `~is_arith (Cons 0) /\ ~is_arith ListAppend /\
    ~is_rel (Cons 0) /\ ~is_rel ListAppend /\
    (!op. op <> ListAppend /\ is_arith op <=> is_arith op) /\
-   (!op. op <> ListAppend /\ ~is_arith op /\ is_rel op <=> is_rel op)`,
-  rw [is_arith_def, is_rel_def]
-  \\ CASE_TAC \\ fs []);
+   (!op. op <> ListAppend /\ ~is_arith op /\ is_rel op <=> is_rel op) /\
+   (!op. ~is_arith op /\ ~is_rel op /\ op = Cons 0 <=> op = Cons 0) /\
+   (!op. op <> ListAppend /\ op = Cons 0 <=> op = Cons 0)`,
+  rw [is_arith_def, is_rel_def] \\ fs []
+  \\ Cases_on `op` \\ fs []);
 
-val term_ok_al_ind = save_thm ("term_ok_al_ind",
-  theorem "term_ok_al_ind" |> SIMP_RULE (srw_ss()) [is_op_thms]);
+val term_ok_any_ind = save_thm ("term_ok_any_ind",
+  theorem "term_ok_any_ind" |> SIMP_RULE (srw_ss()) [is_op_thms]);
 
+(* TODO the translator does not accept this with the induction theorem
+   above (yet):
+
+val term_ok_any_PMATCH = Q.store_thm("term_ok_any_PMATCH",
+  `term_ok_any ts list expr =
+     case expr of
+       Var i => if ~list then i < LENGTH ts
+                else if i < LENGTH ts then EL i ts = List
+                else F
+     | Op op xs =>
+          (dtcase get_bin_args (Op op xs) of
+            NONE       => xs = [] /\ if list then op = Cons 0 else is_const op
+          | SOME (x,y) =>
+              if op = ListAppend then term_ok_any ts T x /\ term_ok_any ts T y
+              else if ~list /\ is_arith op then term_ok_int ts x /\ term_ok_int ts y
+              else if ~list /\ is_rel op   then term_ok_int ts x /\ term_ok_int ts y
+              else if op = Cons 0 then term_ok_any ts T x /\ term_ok_any ts F y
+              else F)
+     | _ => F`,
+  Cases_on `expr` \\ once_rewrite_tac [term_ok_any_def] \\ fs []);
+*)
 val term_ok_def = Define `
   term_ok ts ty expr =
     dtcase ty of
-      Any  => term_ok_any ts expr
+      Any  => term_ok_any ts F expr
     | Int  => term_ok_int ts expr
-    | List => term_ok_list ts expr`;
+    | List => term_ok_any ts T expr`;
 
 (* --- Right-associate all targeted operations --- *)
 
@@ -621,6 +632,8 @@ val comml_def = Define `
     else do_comml ts loc (from_op op) (Op op xs)) /\
   (comml ts loc exp = exp)`;
 
+(* TODO The translator does not accept this (yet):
+
 val comml_PMATCH = Q.store_thm ("comml_PMATCH",
   `!ts loc expr.
      comml ts loc expr =
@@ -643,6 +656,7 @@ val comml_PMATCH = Q.store_thm ("comml_PMATCH",
   recInduct (theorem "comml_ind") \\ rw [comml_def]
   >- (Cases_on `x` \\ fs [] \\ FULL_CASE_TAC \\ fs [])
   \\ Cases_on `op` \\ fs []);
+*)
 
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
@@ -706,36 +720,34 @@ val rewrite_PMATCH = Q.store_thm ("rewrite_PMATCH",
 (* --- Top-level expression check --- *)
 
 val has_rec_def = tDefine "has_rec" `
-  (has_rec loc (If x1 x2 x3) <=> has_rec loc x2 \/ has_rec loc x3) /\
-  (has_rec loc (Let xs x) <=> has_rec loc x) /\
-  (has_rec loc (Tick x) <=> has_rec loc x) /\
-  (has_rec loc (Op op xs) <=> EXISTS (is_rec loc) xs \/ EXISTS (has_rec loc) xs) /\
-  (has_rec loc _ <=> F)`
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
-   \\ imp_res_tac MEM_exp_size_imp \\ fs []);
+  (has_rec loc [] = F) /\
+  (has_rec loc (x::y::xs) =
+    if has_rec loc [x] then T
+    else has_rec loc (y::xs)) /\
+  (has_rec loc [If x1 x2 x3] =
+    if has_rec loc [x2] then T
+    else has_rec loc [x3]) /\
+  (has_rec loc [Let xs x] = has_rec loc [x]) /\
+  (has_rec loc [Tick x] = has_rec loc [x]) /\
+  (has_rec loc [Op op xs] =
+    if EXISTS (is_rec loc) xs then T
+    else has_rec loc xs) /\
+  (has_rec loc [x] = F)`
+  (WF_REL_TAC `measure (exp2_size o SND)`);
 
-val has_rec_PMATCH = Q.store_thm ("has_rec_PMATCH",
-  `!loc expr.
-     has_rec loc expr =
-       case expr of
-         If x1 x2 x3 => has_rec loc x2 \/ has_rec loc x3
-       | Let xs x    => has_rec loc x
-       | Tick x      => has_rec loc x
-       | Op op xs    => EXISTS (is_rec loc) xs \/ EXISTS (has_rec loc) xs
-       | _           => F`,
-  recInduct (theorem "has_rec_ind") \\ rw [has_rec_def] \\ fs [EXISTS_MEM]);
+val has_rec1_def = Define `has_rec1 loc x = has_rec loc [x]`;
 
 val test1_tm = ``Let [] (Call 0 (SOME 0) [] NONE)``
 val has_rec_test1 = Q.store_thm("has_rec_test1",
-  `has_rec 0 ^test1_tm <=> F`, EVAL_TAC);
+  `has_rec1 0 ^test1_tm <=> F`, EVAL_TAC);
 
 val test2_tm = ``Op Add [Call 0 (SOME 0) [] NONE; Var 0]``
 val has_rec_test2 = Q.store_thm("has_rec_test2",
-  `has_rec 0 ^test2_tm <=> T`, EVAL_TAC);
+  `has_rec1 0 ^test2_tm <=> T`, EVAL_TAC);
 
 val check_exp_def = Define `
   check_exp loc arity exp =
-    if ~has_rec loc exp then NONE else
+    if ~has_rec1 loc exp then NONE else
       let context = REPLICATE arity Any in
       let expa = assocr exp in
       let expc = comml context loc expa in
@@ -804,7 +816,7 @@ val scan_expr_HD_SING = Q.store_thm ("scan_expr_HD_SING[simp]",
 val check_exp_SOME_simp = Q.store_thm ("check_exp_SOME_simp[simp]",
   `check_exp loc arity exp = SOME op <=>
      ?ts ty r.
-       has_rec loc exp /\
+       has_rec1 loc exp /\
        scan_expr (REPLICATE arity Any) loc
          [comml (REPLICATE arity Any) loc (assocr exp)] = [(ts,ty,r,SOME op)] /\
        ty = op_type op`,
