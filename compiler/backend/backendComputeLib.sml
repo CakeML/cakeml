@@ -368,6 +368,10 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.get_bin_args_def
     ,bvi_tailrecTheory.opbinargs_def
     ,bvi_tailrecTheory.try_update_def
+    ,bvi_tailrecTheory.is_arith_def
+    ,bvi_tailrecTheory.is_rel_def
+    ,bvi_tailrecTheory.term_ok_int_def
+    ,bvi_tailrecTheory.term_ok_any_def
     ,bvi_tailrecTheory.term_ok_def
     ,bvi_tailrecTheory.rotate_def
     ,bvi_tailrecTheory.do_assocr_def
@@ -384,6 +388,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.push_call_def
     ,bvi_tailrecTheory.rewrite_def
     ,bvi_tailrecTheory.has_rec_def
+    ,bvi_tailrecTheory.has_rec1_def
     ,bvi_tailrecTheory.check_exp_def
     ,bvi_tailrecTheory.let_wrap_def
     ,bvi_tailrecTheory.mk_aux_call_def
