@@ -74,14 +74,14 @@ val (degrees,get_degrees_def,set_degrees_def) = degrees_accessors;
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
 (* Monadic functions to handle the exceptions *)
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:ra_state``;
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
-val sub_exn = ``ReadError ()``;
-val update_exn = ``WriteError ()``;
+val sub_exn = ``Subscript``;
+val update_exn = ``Subscript``;
 val arr_manip = define_MFarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
 
 fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
@@ -403,7 +403,7 @@ val biased_pref_def = Define`
     case lookup n mtable of
       NONE => return NONE
     | SOME vs =>
-      handle_ReadError (first_match_col ks vs) (λ_. return NONE)
+      handle_Subscript (first_match_col ks vs) (return NONE)
   od`
 
 (* Clash tree representation of a program -- this is designed as an interface:

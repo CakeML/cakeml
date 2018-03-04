@@ -33,12 +33,7 @@ fun resolve_selected f th = first_assum (mp_then (Pos f) mp_tac th)
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 
 (* repeated resolution, requiring that all preconditions get removed *)
-fun nailIHx k =
-  first_x_assum
-    (REPEAT_GTCL
-       (fn ttcl => fn th => first_assum (mp_then (Pos hd) ttcl th))
-       (k o assert (not o is_imp o #2 o strip_forall o concl)) o
-     assert (is_imp o #2 o strip_forall o concl))
+fun nailIHx k = first_x_assum (drule_all_then k)
 
 infix >~
 fun (f >~ g) th = f th >> g

@@ -91,7 +91,7 @@ val node_tag_sub_eqn= Q.store_thm("node_tag_sub_eqn[simp]",`
   if n < LENGTH s.node_tag then
     (Success (EL n s.node_tag),s)
   else
-    (Failure (ReadError ()),s)`,
+    (Failure (Subscript),s)`,
   rw[node_tag_sub_def]>>
   fs[Marray_sub_def]);
 
@@ -100,7 +100,7 @@ val adj_ls_sub_eqn= Q.store_thm("adj_ls_sub_eqn[simp]",`
   if n < LENGTH s.adj_ls then
     (Success (EL n s.adj_ls),s)
   else
-    (Failure (ReadError ()),s)`,
+    (Failure (Subscript),s)`,
   rw[adj_ls_sub_def]>>
   fs[Marray_sub_def]);
 
@@ -122,7 +122,7 @@ val update_node_tag_eqn = Q.store_thm("update_node_tag_eqn[simp]",`
   if n < LENGTH s.node_tag then
      (Success (),s with node_tag := LUPDATE t n s.node_tag)
   else
-     (Failure (WriteError ()),s)`,
+     (Failure (Subscript),s)`,
   rw[update_node_tag_def]>>
   fs[Marray_update_def]);
 
@@ -131,7 +131,7 @@ val update_adj_ls_eqn = Q.store_thm("update_adj_ls_eqn[simp]",`
   if n < LENGTH s.adj_ls then
      (Success (),s with adj_ls := LUPDATE t n s.adj_ls)
   else
-     (Failure (WriteError ()),s)`,
+     (Failure (Subscript),s)`,
   rw[update_adj_ls_def]>>
   fs[Marray_update_def]);
 
@@ -140,7 +140,7 @@ val update_degrees_eqn = Q.store_thm("update_degrees_eqn[simp]",`
   if n < LENGTH s.degrees then
      (Success (),s with degrees := LUPDATE t n s.degrees)
   else
-     (Failure (WriteError ()),s)`,
+     (Failure (Subscript),s)`,
   rw[update_degrees_def]>>
   fs[Marray_update_def]);
 
@@ -522,7 +522,7 @@ val first_match_col_correct = Q.prove(`
   ∀x ks s.
   ∃res. first_match_col ks x s = (res,s) ∧
   case res of
-    Failure v => v = ReadError ()
+    Failure v => v = Subscript
   | Success (SOME k) => MEM k ks
   | _ => T`,
   Induct>>fs[first_match_col_def]>>fs msimps>>
@@ -536,7 +536,7 @@ val good_pref_biased_pref = Q.store_thm("good_pref_biased_pref",`
   TOP_CASE_TAC>>simp msimps>>
   (first_match_col_correct |> SPEC_ALL |> assume_tac)>>
   fs[]>>
-  EVERY_CASE_TAC>>fs[handle_ReadError_def]);
+  EVERY_CASE_TAC>>fs[handle_Subscript_def]);
 
 (* -- *)
 

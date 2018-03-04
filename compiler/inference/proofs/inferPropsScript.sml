@@ -976,6 +976,7 @@ val t_walkstar_uncheck_lem = Q.prove (
     check_t max_tvs (uvs ∪ FDOM s) t`,
  ntac 2 strip_tac
  >> drule t_walkstar_ind
+ >> simp[GSYM PULL_FORALL]
  >> disch_then ho_match_mp_tac
  >> rw []
  >> Cases_on `t`

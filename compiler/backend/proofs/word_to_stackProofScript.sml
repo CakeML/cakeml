@@ -645,13 +645,6 @@ val list_LUPDATE_write_bitmap_NOT_NIL = Q.prove(
   \\ match_mp_tac bits_to_word_NOT_0 \\ fs [LENGTH_TAKE_EQ]
   \\ fs [MIN_LE,MIN_ADD] \\ decide_tac);
 
-val LESS_EQ_LENGTH = Q.prove(
-  `!xs n. n <= LENGTH xs ==> ?xs1 xs2. xs = xs1 ++ xs2 /\ n = LENGTH xs1`,
-  once_rewrite_tac [EQ_SYM_EQ]
-  \\ Induct_on `n` \\ fs [LENGTH_NIL] \\ rpt strip_tac
-  \\ Cases_on `xs` \\ fs [] \\ res_tac \\ rw []
-  \\ Q.LIST_EXISTS_TAC [`h::xs1`,`xs2`] \\ fs []);
-
 val word_or_eq_0 = Q.prove(
   `((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] []
@@ -759,6 +752,7 @@ val APPEND_LEMMA = Q.prove(
   \\ Q.PAT_X_ASSUM `n1 + n2 + n3 <= LENGTH xs` MP_TAC
   \\ imp_res_tac LESS_EQ_LENGTH
   \\ rw [DROP_LENGTH_APPEND]  \\ fs []
+  \\ rename [‘n2 + (n3 + LENGTH xs1) ≤ LENGTH xs1 + LENGTH xs2’]
   \\ `n2 <= LENGTH xs2` by decide_tac
   \\ imp_res_tac LESS_EQ_LENGTH
   \\ rw [] \\ metis_tac []);
@@ -2838,7 +2832,7 @@ val parsem_parmove_DIV2_lemma = Q.prove(
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
     \\ simp[] )
   \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`f`,`r`]parsem_MAP_INJ)
-  \\ impl_tac
+  \\ simp[GSYM PULL_FORALL, GSYM AND_IMP_INTRO] >> impl_tac
   >- (
     simp[INJ_DEF]
     \\ Cases \\ simp[]
@@ -6608,6 +6602,9 @@ val clock_simps =
     EVAL``(^s' with clock := c).clock``,
     EVAL``(^s' with clock := c) with clock := d``];
 
+fun drule0 th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
 val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
   `state_rel k 0 0 ^s t lens /\ semantics s start <> Fail ==>
    semantics start t IN extend_with_resource_limit { semantics s start }`,
@@ -6628,18 +6625,18 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
       last_x_assum(qspec_then`k''`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       strip_tac >>
-      drule comp_Call >> fs[] >>
+      drule0 comp_Call >> fs[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- ( strip_tac >> fs[] ) >>
-      drule(GEN_ALL state_rel_with_clock) >>
+      drule0(GEN_ALL state_rel_with_clock) >>
       disch_then(qspec_then`k''`strip_assume_tac) >> fs[] >>
-      disch_then drule >> simp[] >>
+      disch_then drule0 >> simp[] >>
       Cases_on`q`>>fs[]>>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       strip_tac >> fs[] >>
-      drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+      drule0 (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >>
       simp[] >> strip_tac >> rveq >> fs[] >>
       every_case_tac >> fs[] >> rveq >> fs[]) >>
@@ -6648,16 +6645,16 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
       rw[extend_with_resource_limit_def] >> fs[] >>
       Cases_on`t'.ffi.final_event`>>fs[] >- (
         Cases_on`r`>>fs[] >> rveq >>
-        drule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
+        drule0(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
         simp[RIGHT_FORALL_IMP_THM] >>
         impl_tac >- (strip_tac >> fs[]) >>
         disch_then(qspec_then`k''`mp_tac)>>simp[]>>strip_tac>>
-        drule comp_Call >>
+        drule0 comp_Call >>
         simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
         impl_tac >- (strip_tac >> fs[]) >>
-        drule (GEN_ALL state_rel_with_clock) >> simp[] >>
+        drule0 (GEN_ALL state_rel_with_clock) >> simp[] >>
         disch_then(qspec_then`k'+k''`mp_tac)>>simp[]>>strip_tac>>
-        disch_then drule>>
+        disch_then drule0>>
         simp[]>>strip_tac>>
         `t''.ffi.io_events ≼ t1.ffi.io_events ∧
          (IS_SOME t''.ffi.final_event ⇒ t1.ffi = t''.ffi)` by (
@@ -6671,7 +6668,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
           `t'.ffi = t''.ffi` by (every_case_tac >> fs[]) >>
           fs[]) >>
         qhdtm_x_assum`stackSem$evaluate`mp_tac >>
-        drule(GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+        drule0(GEN_ALL stackPropsTheory.evaluate_add_clock) >>
         simp[] >>
         disch_then(qspec_then`ck+k'`mp_tac) >>
         simp[] >>
@@ -6687,14 +6684,14 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
                     IS_SOME_EXISTS,
                     clock_simps
                     ]) >>
-      drule comp_Call >>
+      drule0 comp_Call >>
       simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (
         last_x_assum(qspec_then`k'+k''`mp_tac)>>rw[]>>
         strip_tac>>fs[])>>
-      drule(GEN_ALL state_rel_with_clock)>>simp[]>>
+      drule0(GEN_ALL state_rel_with_clock)>>simp[]>>
       disch_then(qspec_then`k'+k''`mp_tac)>>simp[]>>strip_tac>>
-      disch_then drule>>
+      disch_then drule0>>
       simp[]>>strip_tac>>
       `t''.ffi.io_events ≼ t1.ffi.io_events ∧
        (IS_SOME t''.ffi.final_event ⇒ t1.ffi = t''.ffi)` by (
@@ -6708,7 +6705,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
       first_x_assum(qspec_then`k''`mp_tac)>>simp[]>>
       strip_tac >> fs[]>>
       qhdtm_x_assum`stackSem$evaluate`mp_tac >>
-      drule(GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+      drule0(GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then`k'+ck`mp_tac) >>
       simp[] >> strip_tac >>
       TRY strip_tac >> fs[] >>
@@ -6716,14 +6713,14 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
       rveq >> fs[] >>
       every_case_tac>>fs[]>>rveq>>rfs[]) >>
     rw[] >> fs[] >>
-    drule comp_Call >>
+    drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       rw[] >> strip_tac >> fs[] ) >>
-    drule(GEN_ALL state_rel_with_clock) >>
+    drule0(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
-    disch_then drule >>
+    disch_then drule0 >>
     simp[] >> strip_tac >>
     first_x_assum(qspec_then`k'+ck`mp_tac) >> simp[] >>
     first_x_assum(qspec_then`k'+ck`mp_tac) >> simp[] >>
@@ -6735,16 +6732,16 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
     (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
     strip_tac >>
-    drule comp_Call >>
+    drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- ( strip_tac >> fs[] ) >>
-    drule(GEN_ALL state_rel_with_clock) >>
+    drule0(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
-    disch_then drule >>
+    disch_then drule0 >>
     simp[] >> strip_tac >>
     qmatch_assum_abbrev_tac`FST p ≠ _` >>
     Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+    drule0 (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (strip_tac >> fs[]) >>
     disch_then(qspec_then`ck`mp_tac) >>
@@ -6756,15 +6753,15 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     qpat_x_assum`∀x y. _`(qspec_then`k'`mp_tac)>>
     (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
     strip_tac >>
-    drule comp_Call >>
+    drule0 comp_Call >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       strip_tac >> fs[] >>
       last_x_assum(qspec_then`k'`mp_tac) >>
       simp[] ) >>
-    drule(GEN_ALL state_rel_with_clock) >>
+    drule0(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
-    disch_then drule >>
+    disch_then drule0 >>
     simp[] >> strip_tac >>
     `t'.ffi.io_events ≼ t1.ffi.io_events ∧
      (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
@@ -6777,7 +6774,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     first_x_assum(qspec_then`k'+ck`mp_tac) >>
     fsrw_tac[ARITH_ss][] >>
     qhdtm_x_assum`stackSem$evaluate`mp_tac >>
-    drule(GEN_ALL stackPropsTheory.evaluate_add_clock)>>
+    drule0(GEN_ALL stackPropsTheory.evaluate_add_clock)>>
     simp[]>>
     disch_then(qspec_then`ck`mp_tac)>>
     last_x_assum(qspec_then`k'`mp_tac) >>
@@ -6795,7 +6792,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
       metis_tac[
         wordPropsTheory.evaluate_add_clock_io_events_mono,
         clock_simps]) >>
-    drule build_lprefix_lub_thm >>
+    drule0 build_lprefix_lub_thm >>
     simp[lprefix_lub_def] >> strip_tac >>
     match_mp_tac (GEN_ALL LPREFIX_TRANS) >>
     simp[LPREFIX_fromList] >>
@@ -6832,14 +6829,14 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
   reverse conj_tac >> strip_tac >- (
     qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
     Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    drule comp_Call >>
+    drule0 comp_Call >>
     simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (
       last_x_assum(qspec_then`k'`mp_tac)>>rw[]>>
       strip_tac >> fs[] ) >>
-    drule(GEN_ALL state_rel_with_clock) >>
+    drule0(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
-    disch_then drule >>
+    disch_then drule0 >>
     simp[] >> strip_tac >>
     qexists_tac`k'+ck`>>simp[]>>
     pop_assum mp_tac >>
@@ -6847,14 +6844,14 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
     BasicProvers.TOP_CASE_TAC >> simp[]) >>
     (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
-  drule comp_Call >>
+  drule0 comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
     last_x_assum(qspec_then`k'`mp_tac)>>rw[]>>
     strip_tac >> fs[] ) >>
-  drule(state_rel_with_clock) >>
+  drule0(state_rel_with_clock) >>
   simp[] >> strip_tac >>
-  disch_then drule >>
+  disch_then drule0 >>
   simp[] >> strip_tac >>
   qmatch_assum_abbrev_tac`n < LENGTH (SND (stackSem$evaluate (exps,ss))).ffi.io_events` >>
   Q.ISPECL_THEN[`exps`,`ss`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>

@@ -172,7 +172,7 @@ val stdio_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ disch_then strip_assume_tac
   \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
@@ -206,7 +206,7 @@ val commandline_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ disch_then strip_assume_tac
   \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
