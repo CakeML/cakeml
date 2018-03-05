@@ -2217,10 +2217,18 @@ val known_correct0 = Q.prove(
       \\ fs [case_eq_thms, pair_case_eq]
       \\ rveq \\ fs []
       \\ strip_tac \\ fs []))
-
   THEN1
    (say "Fn"
-    \\ cheat)
+    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ fs [evaluate_def, bool_case_eq] \\ rveq
+    \\ dsimp []
+    \\ qexists_tac `aenv`
+    \\ rpt conj_tac
+    THEN1 fs [state_rel_def]
+    THEN1 metis_tac [v_rel_LIST_REL_val_approx]
+    THEN1 (simp [exp_rel_def, EVERY_REPLICATE]
+           \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq
+           \\ rpt (goal_assum drule)))
   THEN1
    (say "Letrec"
     \\ cheat)
