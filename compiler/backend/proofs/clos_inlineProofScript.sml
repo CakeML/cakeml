@@ -2015,6 +2015,25 @@ val state_rel_co_disjoint_globals = Q.store_thm("state_rel_co_disjoint_globals",
   \\ rpt (qpat_x_assum `!n. _` (qspec_then `n` assume_tac))
   \\ imp_res_tac SUB_BAG_DIFF_EQ \\ pop_assum (fn th => fs [Once th]));
 
+val do_app_lemma = Q.prove(
+  `!l g s t xs ys opp. state_rel l g s t /\ LIST_REL (v_rel l g) xs ys ==>
+    case do_app opp xs s of
+      | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
+                            exc_rel (v_rel l g) err1 err2
+      | Rval (x, s1) => ?y t1. v_rel l g x y /\ state_rel l g s1 t1 /\
+                               do_app opp ys t = Rval (y, t1)`,
+  rpt gen_tac
+  \\ match_mp_tac simple_val_rel_do_app
+  \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases])
+  \\ fs [simple_state_rel_def, state_rel_def]
+  \\ rw [] \\ fs [fmap_rel_def, FLOOKUP_DEF]
+  \\ rfs []
+  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [ref_rel_cases]);
+
+
+val say = say0 "known_correct0";
 
 val known_correct0 = Q.prove(
   `(!xs env1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env2 t0 limit g0 g g' aenv eas.
@@ -2033,7 +2052,8 @@ val known_correct0 = Q.prove(
       state_globals_approx s0 g' /\
       EVERY val_approx_sgc_free aenv /\
       unique_set_globals xs s0.compile_oracle /\
-      co_disjoint_globals g' s0.compile_oracle ==>
+      co_disjoint_globals g' s0.compile_oracle /\
+      res1 <> Rerr (Rabort Rtype_error) ==>
       ?res2 t.
         evaluate (MAP FST eas, env2, t0) = (res2, t) /\
         result_rel (LIST_REL (v_rel limit g')) (v_rel limit g') res1 res2 /\
@@ -2068,11 +2088,13 @@ val known_correct0 = Q.prove(
     \\ strip_tac
     \\ first_x_assum drule
     \\ rpt (disch_then drule \\ simp [])
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+    THEN1 (impl_tac THEN1 (metis_tac [subspt_trans])
+           \\ strip_tac \\ simp [evaluate_append])
     \\ impl_tac THEN1 (metis_tac [subspt_trans])
     \\ strip_tac
     \\ simp [evaluate_append]
-    \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ fs [pair_case_eq]
+    \\ fs [pair_case_eq] \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ rpt (disch_then drule \\ simp [])
     \\ patresolve `evaluate ([_], _, _) = _` hd evaluate_changed_globals_inst
@@ -2107,8 +2129,8 @@ val known_correct0 = Q.prove(
     \\ strip_tac \\ rveq \\ fs []
     \\ qpat_x_assum `state_rel _ _ s1 _` assume_tac
     \\ drule state_rel_state_globals_approx \\ strip_tac \\ fs []
-    \\ strip_tac
-    \\ fs [result_case_eq] \\ rveq \\ fs [])
+    \\ fs [result_case_eq] \\ rveq \\ fs []
+    \\ strip_tac \\ simp [])
   THEN1
    (say "Var"
     \\ fs [known_def] \\ rveq \\ fs []
@@ -2125,7 +2147,8 @@ val known_correct0 = Q.prove(
   THEN1
    (say "Raise"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ fs [evaluate_def, pair_case_eq]
+    \\ fs [evaluate_def, pair_case_eq, result_case_eq]
+    \\ rveq \\ fs []
     \\ imp_res_tac unique_set_globals_subexps
     \\ first_x_assum drule
     \\ rpt (disch_then drule \\ simp [])
@@ -2138,7 +2161,63 @@ val known_correct0 = Q.prove(
     \\ cheat)
   THEN1
    (say "Op"
-    \\ cheat)
+    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ rename1 `known _ _ _ g0 = (_, g1)`
+    \\ imp_res_tac unique_set_globals_subexps
+    \\ drule subspt_known_op_elist_globals
+    \\ rpt (disch_then drule)
+    \\ impl_tac THEN1 (imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
+                       \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
+    \\ strip_tac
+    \\ rename [`isGlobal opn`, `gO_destApx apx`]
+    \\ fs [evaluate_def, pair_case_eq]
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule \\ simp [])
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+    THEN1 (impl_tac THEN1 metis_tac [subspt_trans]
+           \\ strip_tac \\ rveq \\ fs []
+           \\ Cases_on `opn` \\ simp [isGlobal_def, evaluate_def]
+           \\ Cases_on `apx` \\ simp [gO_destApx_def] \\ rveq
+           \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
+           \\ fs [evaluate_def])
+    \\ impl_tac THEN1 metis_tac [subspt_trans]
+    \\ strip_tac
+    \\ Cases_on `opn = Install` \\ fs []
+    THEN1 cheat
+    \\ Cases_on `isGlobal opn /\ gO_destApx apx <> gO_None`
+    THEN1
+     (fs []
+      \\ Cases_on `opn` \\ fs [isGlobal_def]
+      \\ Cases_on `apx` \\ fs[gO_destApx_def] \\ rveq
+      \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
+      \\ imp_res_tac known_LENGTH_EQ_E \\ fs [LENGTH_NIL_SYM] \\ rveq
+      \\ fs [evaluate_def, do_app_def] \\ rveq \\ fs []
+      \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq
+      \\ rename1 `lookup nn gg`
+      \\ Cases_on `lookup nn gg` \\ fs [] \\ rveq
+      \\ fs [state_globals_approx_def, subspt_def]
+      \\ qmatch_asmsub_abbrev_tac `lookup nn gg = SOME (apx)`
+      \\ `lookup nn g' = SOME (apx)` by metis_tac [domain_lookup]
+      \\ res_tac
+      \\ unabbrev_all_tac
+      \\ fs [val_approx_val_def])
+    THEN1
+     (rename1 `Op tr opn (MAP FST ea1)`
+      \\ qmatch_goalsub_abbrev_tac `evaluate ([opexp],_,_)`
+      \\ `opexp = Op tr opn (MAP FST ea1)`
+         by (Cases_on `isGlobal opn` \\ fs [] \\ rfs [])
+      \\ pop_assum SUBST_ALL_TAC
+      \\ qpat_x_assum `~(_ /\  _)` kall_tac
+      \\ simp [evaluate_def]
+      \\ qmatch_asmsub_abbrev_tac `do_app _ vvs _`
+      \\ qmatch_goalsub_abbrev_tac `do_app _ wws _`
+      \\ drule do_app_lemma
+      \\ disch_then (qspecl_then [`vvs`, `wws`, `opn`] mp_tac)
+      \\ impl_tac THEN1 metis_tac [EVERY2_REVERSE]
+      \\ fs [case_eq_thms, pair_case_eq]
+      \\ rveq \\ fs []
+      \\ strip_tac \\ fs []))
+
   THEN1
    (say "Fn"
     \\ cheat)
