@@ -653,16 +653,22 @@ val fp_name_def = Define `
       reg_name r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPEqual r d1 d2) c <=>
       reg_name r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_name (FPAbs d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_name (FPNeg d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPAbs d1 d2) c <=>
+      (c.two_reg_arith ==> (d1 <> d2)) /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPNeg d1 d2) c <=>
+      (c.two_reg_arith ==> (d1 <> d2)) /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPSqrt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPAdd d1 d2 d3) c <=>
+      (c.two_reg_arith ==> (d1 = d2)) /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPSub d1 d2 d3) c <=>
+      (c.two_reg_arith ==> (d1 = d2)) /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPMul d1 d2 d3) c <=>
+      (c.two_reg_arith ==> (d1 = d2)) /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPDiv d1 d2 d3) c <=>
+      (c.two_reg_arith ==> (d1 = d2)) /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>

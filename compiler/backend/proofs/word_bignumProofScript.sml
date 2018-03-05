@@ -6,6 +6,8 @@ val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = new_theory "word_bignumProof";
 
+val shift_def = backend_commonTheory.word_shift_def
+
 
 (* semantics of the little language *)
 
@@ -1054,6 +1056,7 @@ val compile_thm = store_thm("compile_thm",
     \\ first_x_assum drule
     \\ disch_then (qspecl_then [`ys`,`st |+ (Temp (n2w h),Word v)`] mp_tac)
     \\ fs []
+    \\ simp[GSYM PULL_FORALL, GSYM AND_IMP_INTRO]
     \\ impl_tac THEN1
      (fs [reg_write_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ ntac 2 strip_tac
       \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rw [])
@@ -1617,7 +1620,7 @@ fun read_conv tm =
 fun make_new_vars th = let
   val vs = D th |> concl |> free_vars
   fun f v =
-    if v = s_var then s_var |-> s_var else let
+    if v ~~ s_var then s_var |-> s_var else let
       val (n,ty) = dest_var v
       in v |-> mk_var("new_" ^ n,ty) end
   in INST (map f vs) th end
@@ -1783,8 +1786,8 @@ fun derive_corr_thm const_def = let
       in th end
 
   fun get_corr tm =
-    if tm = Skip_tm then skip_thm else
-    if tm = Continue_tm then cont_thm else
+    if tm ~~ Skip_tm then skip_thm else
+    if tm ~~ Continue_tm then cont_thm else
     if is_If tm then let
       val i = fst (match_term (get_pat Corr_If) tm)
       val p1 = get_corr (tm |> rator |> rand)
@@ -1810,7 +1813,7 @@ fun derive_corr_thm const_def = let
       val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) simp_var_assums_conv)
       val th = th |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
       val th = CONV_RULE sort_writes_conv th
-      val ss = filter (fn tm => not (mem s_var (free_vars (lhs tm)))) (hyp th)
+      val ss = filter (fn tm => not (tmem s_var (free_vars (lhs tm)))) (hyp th)
       val cc = list_let_intro_conv (map rhs ss)
       val th = th |> CONV_RULE (RAND_CONV cc THENC (RATOR_CONV o RAND_CONV) cc)
       val th = INST (map (fn tm => rhs tm |-> lhs tm) ss) th
@@ -2001,7 +2004,7 @@ val const_def = time (first (not o time (can derive_corr_thm)))
                      (all_code_defs |> CONJUNCTS |> rev)
                 handle HOL_ERR _ => TRUTH;
 
-val _ = (concl const_def = T) orelse failwith "derive_corr_thm failed";
+val _ = (Teq (concl const_def)) orelse failwith "derive_corr_thm failed";
 
 (*
 

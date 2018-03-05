@@ -783,6 +783,8 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
+        SOME ((s,t), Rval (Conv NONE []))
     | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>

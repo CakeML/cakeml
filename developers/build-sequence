@@ -63,23 +63,24 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
 
-# benchmarks
-compiler/benchmarks
+# examples and tests
+characteristic/examples
+tutorial/solutions
+translator/monadic/examples
 
-# other examples
 examples
 examples/compilation
 examples/compilation/proofs
 
-# tests
+compiler/benchmarks
+
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
 
 # compiler bootstrap
 compiler/bootstrap/translation
-compiler/bootstrap/translation/x64
-compiler/bootstrap/compilation/x64
-compiler/bootstrap/compilation/x64/proofs
-compiler/bootstrap/translation/riscv
-compiler/bootstrap/compilation/riscv
+compiler/bootstrap/compilation/x64/64
+compiler/bootstrap/compilation/x64/64/proofs
+compiler/bootstrap/compilation/x64/32
+compiler/bootstrap/compilation/x64/32/proofs

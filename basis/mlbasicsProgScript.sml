@@ -1,10 +1,11 @@
 open preamble
-     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib mlstringProgTheory
+     semanticPrimitivesTheory ml_translatorTheory
+     ml_translatorLib ml_progLib cfLib basisFunctionsLib
+     StringProgTheory
 
 val _ = new_theory "mlbasicsProg"
 
-val _ = translation_extends"mlstringProg"
+val _ = translation_extends"StringProg"
 
 val mk_binop_def = Define `
   mk_binop name prim = Dlet unknown_loc (Pvar name)
@@ -45,6 +46,9 @@ val _ = trans "~" `\i. - (i:int)`
 val _ = trans "=" `\x1 x2. x1 = x2:'a`
 val _ = trans "not" `\x. ~x:bool`
 val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
+val _ = trans "^" `mlstring$strcat`
+
+val _ = remove_ovl_mapping "strcat" {Name = "strcat", Thy = "mlbasicsProg"}
 
 val _ = append_prog
   ``[Tdec (mk_binop ":=" Opassign);

@@ -353,8 +353,10 @@ val semantics_remove_ticks = Q.store_thm ("semantics_remove_ticks",
     \\ simp [semantics_def]
     \\ IF_CASES_TAC \\ fs []
     >-
-      (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+      (first_assum
+         (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
       \\ drule evaluate_add_clock
+      \\ CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss()) [GSYM PULL_FORALL]))
       \\ impl_tac >- fs []
       \\ strip_tac
       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
@@ -386,14 +388,12 @@ val semantics_remove_ticks = Q.store_thm ("semantics_remove_ticks",
           \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
           \\ strip_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          >- (every_case_tac \\ fs [])
+          \\ simp[]
           \\ rveq
           \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
+          \\ simp[]
           \\ disch_then (qspec_then `ck+k` mp_tac) \\ simp [inc_clock_def]
           \\ ntac 2 strip_tac \\ rveq \\ fs []
           \\ fs [state_component_equality, state_rel_def])

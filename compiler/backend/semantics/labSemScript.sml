@@ -185,7 +185,7 @@ val fp_upd_def = Define `
   (fp_upd (FPToInt d1 d2) s =
      case fp64_to_int roundTiesToEven (read_fp_reg d2 s) of
          SOME i =>
-           let w = i2w i : 'a word in
+           let w = i2w i : word32 in
              (if dimindex(:'a) = 64 then
                 upd_fp_reg d1 (w2w w)
               else let (h, l) = if ODD d1 then (63, 32) else (31, 0) in
@@ -195,7 +195,7 @@ val fp_upd_def = Define `
       | _ => assert F s) /\
   (fp_upd (FPFromInt d1 d2) s =
      let i = if dimindex(:'a) = 64 then
-               w2i (read_fp_reg d2 s)
+               w2i ((31 >< 0) (read_fp_reg d2 s) : word32)
              else let v = read_fp_reg (d2 DIV 2) s in
                w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word)
      in

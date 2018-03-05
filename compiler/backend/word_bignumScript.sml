@@ -145,7 +145,7 @@ in
   fun dest_lupdate_let tm = let
     val (rest,r) = dest_let tm
     val (v,body) = dest_abs rest
-    val _ = (v = rand r) orelse fail ()
+    val _ = (v ~~ rand r) orelse fail ()
     val _ = can (match_term LUPDATE_pat) r orelse fail()
     val x = r |> rator |> rator |> rand
     val y = r |> rator |> rand |> rand
@@ -337,7 +337,7 @@ fun get_full_prog inp tm = let
   val init_prog = get_prog tm
   (* compute what vars are deleted or assigned *)
   val x = !code_defs |> CONJUNCTS
-             |> filter (fn tm => mem (lhs (concl tm)) (!immediate_deps)
+             |> filter (fn tm => tmem (lhs (concl tm)) (!immediate_deps)
                                  handle HOL_ERR _ => true)
              |> LIST_CONJ |> CONJ (REFL init_prog) |> concl
   fun is_delete tm =
@@ -354,15 +354,15 @@ fun get_full_prog inp tm = let
     can (match_term Mul_tm) tm orelse can (match_term (rator Mul_tm)) tm orelse
     can (match_term Div_tm) tm orelse can (match_term (rator Div_tm)) tm
   fun f tm = dest_reg tm handle HOL_ERR _ => tm
-  val ds = Lib.mk_set ((find_terms is_assign x |> map rand) @
+  val ds = op_mk_set aconv ((find_terms is_assign x |> map rand) @
                        (find_terms is_delete x
                             |> map (fst o listSyntax.dest_list o rand)
                             |> flatten) @
                        filter (not o is_var) (map f (free_vars inp)))
   fun add_dels [] tm = tm
     | add_dels vs tm = mk_Seq (mk_Delete (listSyntax.mk_list(vs,type_of (hd vs))), tm)
-  val _ = (ret_tm := add_dels (Lib.set_diff ds (map f (!ret_vars))) Skip_tm)
-  val cont_dels = (Lib.set_diff ds (map f (!cont_vars)))
+  val _ = (ret_tm := add_dels (op_set_diff aconv ds (map f (!ret_vars))) Skip_tm)
+  val cont_dels = (op_set_diff aconv ds (map f (!cont_vars)))
   val _ = (cont_tm := add_dels cont_dels Continue_tm)
   in (listSyntax.mk_list(cont_dels,``:num``),get_prog tm) end
 
@@ -371,7 +371,7 @@ fun to_deep def = let
   val f = def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
   val tm = def |> SPEC_ALL |> concl |> rand
   val inp = def |> SPEC_ALL |> concl |> rator |> rand |> rand
-  val is_rec = can (find_term (fn tm => (tm = f))) tm
+  val is_rec = can (find_term (aconv f)) tm
   fun loop () =
     get_full_prog inp tm
     handle UnableToTranslate str =>

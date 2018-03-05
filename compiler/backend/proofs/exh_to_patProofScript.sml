@@ -1289,12 +1289,10 @@ val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     srw_tac[][Once exp_rel_cases] >>
-    full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
+    full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS,pair_case_eq] >> fs[] >>
     imp_res_tac EVERY2_REVERSE >>
-    every_case_tac >> full_simp_tac(srw_ss())[PULL_EXISTS] >> rpt var_eq_tac >> simp[] >> rev_full_simp_tac(srw_ss())[] >>
-    res_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-    simp[Once v_rel_cases] >>
-    metis_tac[EVERY2_REVERSE]) >>
+    first_x_assum drule \\ disch_then drule \\ strip_tac \\ fs[] \\
+    every_case_tac \\ fs[] \\ rveq \\ fs[v_rel_cases]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[Once exp_rel_cases] >>

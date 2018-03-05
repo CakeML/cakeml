@@ -4,7 +4,7 @@
 
 open preamble
      mlstringTheory
-     mlfileioProgTheory
+     fsFFIPropsTheory
 
 val _ = new_theory"splitwords";
 
@@ -22,7 +22,8 @@ val splitwords_nil_lit = Q.store_thm("splitwords_nil_lit[simp]",
 val splitwords_concat = Q.store_thm("splitwords_concat",
   `isSpace sp ⇒
    splitwords (s1 ^ str sp ^ s2) = splitwords s1 ++ splitwords s2`,
-  rw[splitwords_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]);
+  rewrite_tac [GSYM strcat_assoc]
+  \\ rw[splitwords_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]);
 
 val splitwords_concat_space = Q.store_thm("splitwords_concat_space",
   `isSpace sp ⇒ splitwords (s1 ^ str sp) = splitwords s1`,
@@ -33,7 +34,7 @@ val splitwords_all_lines = Q.store_thm("splitwords_all_lines",
   `FLAT (MAP splitwords (all_lines fs fname)) =
    splitwords (implode (THE (ALOOKUP fs.files fname)))`,
   `isSpace #"\n"` by EVAL_TAC \\
-  rw[mlfileioProgTheory.all_lines_def,MAP_MAP_o,o_DEF,
+  rw[all_lines_def,lines_of_def,MAP_MAP_o,o_DEF,
      GSYM mlstringTheory.str_def,splitwords_concat_space] \\
   rw[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym] \\
   srw_tac[ETA_ss][GSYM o_DEF,GSYM MAP_MAP_o] \\

@@ -1802,16 +1802,17 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
                (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
-               (?f. opp = FP_bop f) \/ opp = WordToInt \/
+               (?f. opp = FP_bop f) \/ opp = WordToInt \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
                (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
+               (?b. opp = WordFromWord b) \/
                (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
     \\ strip_tac \\ rveq
     \\ drule v_rel_to_list_ByteVector
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
@@ -2048,6 +2049,7 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
           \\ first_x_assum drule \\ fs []
           \\ strip_tac
           \\ drule evaluate_add_clock
+          \\ simp [GSYM PULL_FORALL]
           \\ impl_tac
           THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
           \\ fs []
@@ -2055,8 +2057,7 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+          \\ simp [GSYM PULL_FORALL]
           \\ disch_then (qspec_then `ck+k` mp_tac) \\ fs []
           \\ asm_simp_tac std_ss [ADD_ASSOC]
           \\ fs [state_component_equality])
@@ -2064,8 +2065,8 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
         \\ first_x_assum drule \\ fs []
         \\ CCONTR_TAC \\ fs []
         \\ drule evaluate_add_clock
-        \\ impl_tac
-        THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+        \\ `res2 ≠ Rerr (Rabort Rtimeout_error)`
+               by (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
         \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
         \\ CCONTR_TAC \\ fs []
         \\ first_x_assum (qspec_then `ck+k` mp_tac) \\ fs []
@@ -2250,6 +2251,7 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
           \\ first_x_assum drule \\ fs []
           \\ strip_tac
           \\ drule evaluate_add_clock
+          \\ simp [GSYM PULL_FORALL]
           \\ impl_tac
           THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
           \\ fs []
@@ -2257,8 +2259,7 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+          \\ simp [GSYM PULL_FORALL]
           \\ disch_then (qspec_then `ck+k` mp_tac) \\ fs []
           \\ asm_simp_tac std_ss [ADD_ASSOC]
           \\ fs [state_component_equality])
@@ -2266,8 +2267,8 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
         \\ first_x_assum drule \\ fs []
         \\ CCONTR_TAC \\ fs []
         \\ drule evaluate_add_clock
-        \\ impl_tac
-        THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+        \\ `res2 ≠ Rerr (Rabort Rtimeout_error)`
+             by (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
         \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
         \\ CCONTR_TAC \\ fs []
         \\ first_x_assum (qspec_then `ck+k` mp_tac) \\ fs []

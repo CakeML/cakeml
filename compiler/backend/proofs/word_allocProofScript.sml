@@ -463,9 +463,9 @@ val env_to_list_keys = Q.prove(`
     full_simp_tac(srw_ss())[mem_list_rearrange,QSORT_MEM,MEM_toAList,domain_lookup]);
 
 val list_rearrange_keys = Q.store_thm("list_rearrange_keys",`
-  list_rearrange perm ls = e ⇒
+  list_rearrange perm (ls:('a,'b) alist) = e ⇒
   set(MAP FST e) = set(MAP FST ls)`,
-  full_simp_tac(srw_ss())[LET_THM,EXTENSION]>>srw_tac[][EQ_IMP_THM]>>
+  rw[]>>fs[EXTENSION]>>
   metis_tac[MEM_toAList,mem_list_rearrange,MEM_MAP]);
 
 val pop_env_frame = Q.store_thm("pop_env_frame",
@@ -1427,7 +1427,7 @@ val colouring_ok_alt_thm = Q.store_thm("colouring_ok_alt_thm",
     Cases_on`get_clash_sets prog live`>>
     full_simp_tac(srw_ss())[UNCURRY]);
 
-val fs1 = full_simp_tac(srw_ss())[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,in_clash_sets_def,every_name_def,toAList_domain];
+val fs1 = full_simp_tac(srw_ss())[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,every_name_def,toAList_domain];
 
 val every_var_exp_get_live_exp = Q.prove(
 `∀exp.
@@ -1439,6 +1439,7 @@ val every_var_exp_get_live_exp = Q.prove(
   HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
   metis_tac[SUBSET_DEF,domain_big_union_subset]);
 
+(*
 (*Every variable is in some clash set*)
 val every_var_in_get_clash_set = Q.store_thm("every_var_in_get_clash_set",
 `∀prog live.
@@ -1605,7 +1606,31 @@ val every_var_in_get_clash_set = Q.store_thm("every_var_in_get_clash_set",
         full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union])>>
     TRY(HINT_EXISTS_TAC>>metis_tac[domain_union])>>
     TRY(qexists_tac`insert n () (union q' q)`>>
+<<<<<<< HEAD
         full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union])));
+=======
+        full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union]))
+  >-
+    (srw_tac[][]
+    >-
+      (HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])
+    >>
+      qexists_tac`insert n () s`>>full_simp_tac(srw_ss())[])
+  >-
+    (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
+    qexists_tac`insert n () live`>>full_simp_tac(srw_ss())[])
+  >-
+    (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
+    qexists_tac`insert n () (insert n0 () live)`>>full_simp_tac(srw_ss())[])
+  >-
+    (rw[]>>
+    (qexists_tac`union (insert n () LN) live`>>fs[domain_union]))
+  >-
+    (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
+     qexists_tac `insert n () (insert n0 () (insert n1 () (insert n2 () s0)))` >> fs[])
+    );
+*)
+>>>>>>> origin/master
 
 (* Proofs for check_clash_tree *)
 val check_col_INJ = Q.store_thm("check_col_INJ",
@@ -1624,9 +1649,9 @@ val check_col_INJ = Q.store_thm("check_col_INJ",
     fs[domain_lookup]);
 
 val wf_insert_swap = Q.prove(`
-  wf t ⇒
-  insert a () (insert c () t) =
-  insert c () (insert a () t)`,
+  wf (t:num_set) ⇒
+  insert (a:num) () (insert c () t) =
+  insert (c:num) () (insert a () t)`,
   rw[]>>
   dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm]>>
   fs[wf_insert,lookup_insert]>>
@@ -2129,6 +2154,18 @@ val check_colouring_ok_alt_INJ = Q.prove(`
   imp_res_tac INJ_ALL_DISTINCT_MAP>>
   full_simp_tac(srw_ss())[set_toAList_keys])
 *)
+val get_forced_tail_split = Q.prove(`
+  ∀c p ls ls'.
+  get_forced c p (ls++ls') =
+  get_forced c p ls ++ ls'`,
+  ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
+  EVERY_CASE_TAC>>fs[])
+
+val EVERY_get_forced = Q.prove(`
+  EVERY P (get_forced c p ls) ⇔
+  EVERY P (get_forced c p []) ∧ EVERY P ls`,
+  Q.SPECL_THEN [`c`,`p`,`[]`,`ls`] assume_tac get_forced_tail_split>>
+  fs[])
 
 val get_forced_pairwise_distinct = Q.prove(`
   ∀c prog ls.
@@ -2136,6 +2173,44 @@ val get_forced_pairwise_distinct = Q.prove(`
   EVERY (λx,y. x ≠ y) (get_forced c prog ls)`,
   ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
   EVERY_CASE_TAC>>fs[])
+
+val get_forced_in_get_clash_tree = Q.prove(`
+  ∀prog c.
+  let tree = get_clash_tree prog in
+  EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) (get_forced c prog [])`,
+  ho_match_mp_tac get_clash_tree_ind>>
+  fs[]>>rw[get_clash_tree_def,get_forced_def,in_clash_tree_def]
+  >-
+    (every_case_tac>>fs[get_delta_inst_def,in_clash_tree_def]>>
+    rfs[]>>fs[])
+  >-
+    (simp[Once EVERY_get_forced]>>
+    rw[]>>
+    fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])
+  >-
+    (every_case_tac>>fs[in_clash_tree_def,get_forced_def]>>
+    simp[Once EVERY_get_forced]>>
+    rw[]>>
+    fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])
+  >-
+    (every_case_tac>>fs[in_clash_tree_def,get_forced_def]>>
+    Cases_on`r`>>
+    simp[get_forced_def,Once EVERY_get_forced]>>
+    rw[]
+    >-
+      (fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])
+    >>
+      (simp[Once EVERY_get_forced]>>
+      fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])))|>SIMP_RULE (srw_ss()) [LET_THM];
+
+val total_colour_rw = Q.prove(`
+  total_colour col = (\x. 2 * x) o (sp_default col)`,
+  rw[FUN_EQ_THM]>>fs[total_colour_def,sp_default_def,lookup_any_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]);
 
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = Q.store_thm("word_alloc_correct",`
@@ -2156,7 +2231,7 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   qpat_abbrev_tac`cprog = word_alloc A B C D E`>>
   full_simp_tac(srw_ss())[word_alloc_def]>>
   pop_assum mp_tac>>LET_ELIM_TAC>>
-  pop_assum mp_tac>>reverse FULL_CASE_TAC>>strip_tac
+  pop_assum mp_tac>>reverse TOP_CASE_TAC>>strip_tac
   >-
     (fs[oracle_colour_ok_def]>>
     EVERY_CASE_TAC>>fs[]>>
@@ -2171,65 +2246,43 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
       last_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
       fs[GSYM MEM_toAList]>>FULL_CASE_TAC>>fs[]>>
       fs[EVERY_MEM,FORALL_PROD,GSYM MEM_toAList]>>
-      metis_tac[])>>
+      first_x_assum drule>>
+      simp[]>>
+      `?k. n = 2*k` by
+        metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS]>>
+      metis_tac[TWOxDIV2])>>
     srw_tac[][]>>
     qexists_tac`perm'`>>srw_tac[][]>>
     full_simp_tac(srw_ss())[LET_THM]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
   >>
-  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour col`,`LN:num_set`] mp_tac evaluate_apply_colour>>
-  `undir_graph clash_graph ∧ undir_graph ext_graph ∧ is_subgraph clash_graph ext_graph` by
-    (CONJ_ASM1_TAC>-
-     (imp_res_tac clash_tree_to_spg_props>>
-     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
-    fs[Abbr`ext_graph`]>>
-    qspecl_then [`c`,`prog`,`[]`] assume_tac get_forced_pairwise_distinct>>
-    rfs[]>>
-    pop_assum mp_tac>>
-    pop_assum mp_tac>>
-    qid_spec_tac`clash_graph`>>
-    qid_spec_tac`forced`>>
-    rpt (pop_assum kall_tac)>>
-    Induct>>fs[FORALL_PROD]>>rw[]>>
-    fs[is_subgraph_refl]>>
-    res_tac>>fs[]>>
-    imp_res_tac undir_g_insert_props>>fs[]>>
-    metis_tac[is_subgraph_trans])>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
+  drule reg_alloc_correct>>
+  disch_then(qspecl_then [`k`,`moves`] assume_tac)>>rfs[]>>fs[]>>
+  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
     (srw_tac[][]
     >-
-      (*Prove that the colors are okay*)
-      (imp_res_tac clash_tree_to_spg_props>>
-      pop_assum mp_tac>>
-      ntac 35 (pop_assum kall_tac)>>
-      fs[AND_IMP_INTRO]>> impl_keep_tac>-
-        fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>
-      fs[]>>
-      imp_res_tac (reg_alloc_total_satisfactory|>rm_let)>>
-      pop_assum kall_tac>>
-      pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>
+      (fs[total_colour_rw]>>
+      `INJ (\x. 2n*x) UNIV UNIV` by fs[INJ_DEF]>>
+      drule check_clash_tree_INJ >>
+      disch_then(qspecl_then[`tree`,`sp_default spcol`,`LN`,`LN`,`LN`] assume_tac)>>
       rfs[]>>
-      imp_res_tac colouring_satisfactory_subgraph>>
-      imp_res_tac colouring_satisfactory_check_clash_tree>>
-      pop_assum kall_tac>>
-      pop_assum(qspecl_then[`LN`,`LN`] mp_tac)>>
-      ntac 22 (pop_assum kall_tac)>>
-      fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>rw[]>>
-      Q.ISPECL_THEN [`prog`,`total_colour col`,`LN:num_set`,`LN:num_set`,`livein`,`flivein`] mp_tac clash_tree_colouring_ok>>
-      fs[wf_def,hide_def])
+      drule clash_tree_colouring_ok>>
+      fs[GSYM total_colour_rw]>>
+      disch_then(qspecl_then[`total_colour spcol`,`LN`,`LN`,`livein`,`gliveout`] assume_tac)>>
+      rfs[wf_def]>>
+      fs[hide_def])
     >-
-      full_simp_tac(srw_ss())[word_state_eq_rel_def]
+      fs[word_state_eq_rel_def]
     >>
-      full_simp_tac(srw_ss())[strong_locals_rel_def,even_starting_locals_def]>>
-      srw_tac[][]>>
-      full_simp_tac(srw_ss())[domain_lookup]>>
-      first_x_assum(qspec_then`n` assume_tac)>>
-      rev_full_simp_tac(srw_ss())[]>>
-      Q.ISPECL_THEN[`alg`,`ext_graph`,`k`,`moves`] mp_tac (reg_alloc_conventional_phy_var|>rm_let)>>
-      impl_tac>-
-        fs[]
-      >>
-      srw_tac[][colouring_conventional_def,LET_THM])
+      fs[strong_locals_rel_def,even_starting_locals_def]>>rw[]>>
+      fs[domain_lookup,total_colour_def]>>
+      TOP_CASE_TAC>>fs[]>>
+      rpt(first_x_assum(qspec_then`n` assume_tac))>>
+      rfs[]>>fs[sp_default_def]>>rfs[]>>
+      metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2])
   >>
   srw_tac[][]>>
   qexists_tac`perm'`>>srw_tac[][]>>
@@ -6972,79 +7025,69 @@ val every_var_T = Q.prove(`
   ho_match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>
   fs[]);
 
+val every_var_is_phy_var_total_colour = Q.prove(`
+  every_var is_phy_var (apply_colour (total_colour col) prog)`,
+  match_mp_tac every_var_apply_colour>>
+  qexists_tac`\x. T`>>
+  simp[every_var_T]>>
+  fs[total_colour_def]>>rw[]>>
+  TOP_CASE_TAC>>fs[]>>
+  is_phy_var_tac)
+
 val oracle_colour_ok_conventions = Q.prove(`
   pre_alloc_conventions prog ∧
   oracle_colour_ok k col_opt (get_clash_tree prog) prog ls = SOME x ⇒
   post_alloc_conventions k x`,
-  fs[oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
-  rw[]>>fs[]>>
+  fs[oracle_colour_ok_def]>>EVERY_CASE_TAC>>
+  fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
+  rw[]>>fs[every_var_is_phy_var_total_colour]>>
   match_mp_tac call_arg_convention_preservation>>fs[]>>
   ho_match_mp_tac every_var_mono>>
   qexists_tac`λx. T`>>fs[every_var_T]>>
   rw[total_colour_def]>>FULL_CASE_TAC>>
   fs[every_even_colour_def]>>
   fs[GSYM MEM_toAList]>>
-  fs[EVERY_MEM,FORALL_PROD]);
+  fs[EVERY_MEM,FORALL_PROD]>>
+  first_x_assum drule>>rw[]>>
+  metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]);
 
 val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_alloc",`
   ∀c alg prog k col_opt.
   pre_alloc_conventions prog ⇒
   post_alloc_conventions k (word_alloc c alg k prog col_opt)`,
-  fs[post_alloc_conventions_def,word_alloc_def]>>
-  rw[]>>
-  FULL_CASE_TAC>>fs[]>>
-  imp_res_tac oracle_colour_ok_conventions >>
-  fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
-  pairarg_tac>>fs[]>>
-  qmatch_goalsub_abbrev_tac`reg_alloc alg ext_graph`>>
-  `undir_graph clash_graph ∧ undir_graph ext_graph ∧ is_subgraph clash_graph ext_graph` by
-    (CONJ_ASM1_TAC>-
-     (imp_res_tac clash_tree_to_spg_props>>
-     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
-    fs[Abbr`ext_graph`]>>
-    qspecl_then [`c`,`prog`,`[]`] assume_tac get_forced_pairwise_distinct>>
-    rfs[]>>
-    qmatch_goalsub_abbrev_tac`FOLDR _ _ forced`>>
-    pop_assum kall_tac>>
-    pop_assum mp_tac>>
-    pop_assum mp_tac>>
-    qid_spec_tac`clash_graph`>>
-    qid_spec_tac`forced`>>
-    rpt (pop_assum kall_tac)>>
-    Induct>>fs[FORALL_PROD]>>rw[]>>
-    fs[is_subgraph_refl]>>
-    res_tac>>fs[]>>
-    imp_res_tac undir_g_insert_props>>fs[]>>
-    metis_tac[is_subgraph_trans])>>
-  imp_res_tac reg_alloc_conventional>>
-  pop_assum kall_tac>>
-  pop_assum(qspecl_then[`get_prefs prog []`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
-  `every_var (λx. x ∈ domain ext_graph) prog` by
-    (match_mp_tac every_var_mono>>
-    HINT_EXISTS_TAC>>srw_tac[][]>>
-    imp_res_tac clash_tree_to_spg_domain>>
-    fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>
-    metis_tac[is_subgraph_def,SUBSET_DEF])>>
-  full_simp_tac(srw_ss())[colouring_conventional_def,LET_THM]
+  rpt strip_tac>>fs[word_alloc_def]>>
+  reverse TOP_CASE_TAC>>fs[]
   >-
-    (match_mp_tac every_var_apply_colour>>
-    HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
-    srw_tac[][]>>
-    metis_tac[])
+    metis_tac[oracle_colour_ok_conventions]
+  >>
+  qpat_abbrev_tac`forced = get_forced _ _ _`>>
+  qpat_abbrev_tac`tree = get_clash_tree _`>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
+  drule reg_alloc_correct>>
+  disch_then(qspecl_then [`k`,`get_prefs prog []`] assume_tac)>>rfs[]>>fs[]>>
+  assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
+  rfs[]>>
+  fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>rw[]
+  >-
+    metis_tac[every_var_is_phy_var_total_colour]
   >-
     (match_mp_tac every_stack_var_apply_colour>>
     imp_res_tac every_var_imp_every_stack_var>>
-    qexists_tac `λx. (x ∈ domain ext_graph ∧ is_stack_var x)` >>srw_tac[][]
+    qexists_tac `λx. (in_clash_tree tree x ∧ is_stack_var x)` >>srw_tac[][]
     >-
-      metis_tac[every_stack_var_conj]
+      metis_tac[every_stack_var_conj,ETA_AX]
     >>
+    first_x_assum drule>>fs[]>>
+    rw[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
     metis_tac[convention_partitions])
   >>
-  match_mp_tac call_arg_convention_preservation>>
-  srw_tac[][]>>match_mp_tac every_var_mono>>
-  HINT_EXISTS_TAC>>
-  metis_tac[]);
+    match_mp_tac call_arg_convention_preservation>>
+    srw_tac[][]>>match_mp_tac every_var_mono>>
+    qexists_tac `in_clash_tree tree` >> rw[]>>
+    first_x_assum drule>>fs[]>>rw[]>>
+    fs[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
+    metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]);
 
 (*word_alloc preserves syntactic conventions*)
 val word_alloc_two_reg_inst_lem = Q.prove(`
@@ -7084,19 +7127,6 @@ val word_alloc_flat_exp_conventions = Q.store_thm("word_alloc_flat_exp_conventio
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_flat_exp_conventions_lem]);
 
-val get_forced_tail_split = Q.prove(`
-  ∀c p ls ls'.
-  get_forced c p (ls++ls') =
-  get_forced c p ls ++ ls'`,
-  ho_match_mp_tac get_forced_ind>>rw[get_forced_def]>>
-  EVERY_CASE_TAC>>fs[])
-
-val EVERY_get_forced = Q.prove(`
-  EVERY P (get_forced c p ls) ⇔
-  EVERY P (get_forced c p []) ∧ EVERY P ls`,
-  Q.SPECL_THEN [`c`,`p`,`[]`,`ls`] assume_tac get_forced_tail_split>>
-  fs[])
-
 val word_alloc_full_inst_ok_less_lem = Q.prove(`
   ∀f prog c.
   full_inst_ok_less c prog ∧
@@ -7114,6 +7144,7 @@ val word_alloc_full_inst_ok_less_lem = Q.prove(`
     fs[get_forced_def]>>
     metis_tac[EVERY_get_forced])
 
+(*
 val lookup_undir_g_insert_existing = Q.prove(`
   lookup x G = SOME v ⇒
   lookup x (undir_g_insert a b G) =
@@ -7121,7 +7152,20 @@ val lookup_undir_g_insert_existing = Q.prove(`
   else if x = b then SOME (insert a () v)
   else SOME v`,
   rw[undir_g_insert_def,dir_g_insert_def,lookup_insert]>>
+<<<<<<< HEAD
   fs[insert_shadow]);
+=======
+  fs[insert_shadow])
+*)
+val forced_distinct_col = Q.prove(`
+  EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x = y) ls /\
+  EVERY (λx,y. x ≠ y) ls ==>
+  EVERY (λ(x,y). (total_colour spcol) x <> (total_colour spcol) y) ls`,
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+  first_x_assum drule>>
+  fs[total_colour_rw]>>
+  metis_tac[]);
+>>>>>>> origin/master
 
 val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   ∀alg k prog col_opt c.
@@ -7131,48 +7175,15 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   rveq>>
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
-  `undir_graph clash_graph ∧ undir_graph ext_graph` by
-    (CONJ_ASM1_TAC>-
-     (imp_res_tac clash_tree_to_spg_props>>
-     fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
-    fs[Abbr`ext_graph`]>>
-    qspecl_then [`c`,`prog`,`[]`] assume_tac (INST_TYPE [beta|->alpha] get_forced_pairwise_distinct)>>
-    rfs[]>>
-    pop_assum mp_tac>>
-    pop_assum mp_tac>>
-    qid_spec_tac`clash_graph`>>
-    qid_spec_tac`forced`>>
-    rpt (pop_assum kall_tac)>>
-    Induct>>fs[FORALL_PROD]>>rw[]>>
-    fs[is_subgraph_refl]>>
-    res_tac>>fs[]>>
-    imp_res_tac undir_g_insert_props>>fs[]>>
-    metis_tac[is_subgraph_trans])>>
-  imp_res_tac reg_alloc_satisfactory>>fs[]>>
-  pop_assum kall_tac>>
-  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rfs[]>>
-  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
-  `p_1 ∈ domain ext_graph ∧ p_2 ∈ domain ext_graph ∧ p_2 ∈ domain (THE (lookup p_1 ext_graph))` by
-    (fs[Abbr`ext_graph`]>>
-    pop_assum mp_tac>>
-    map_every qid_spec_tac [`p_1`,`p_2`,`clash_graph`,`forced`]>>
-    rpt(pop_assum kall_tac)>>
-    Induct>>fs[FORALL_PROD]>>rw[]>>
-    fs[undir_g_insert_domain]>>
-    TRY(metis_tac[])
-    >-
-      (fs[undir_g_insert_def,dir_g_insert_def,lookup_insert]>>
-      TOP_CASE_TAC>>fs[])
-    >>
-      last_x_assum drule>>
-      disch_then(qspec_then`clash_graph` assume_tac)>>
-      rfs[domain_lookup]>>
-      imp_res_tac lookup_undir_g_insert_existing>>
-      fs[]>>
-      rw[lookup_insert])>>
-  fs[SUBSET_DEF]>>res_tac>>
-  fs[partial_colouring_satisfactory_def,total_colour_def,domain_lookup]>>
-  metis_tac[])
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
+  drule reg_alloc_correct>>
+  disch_then(qspecl_then [`k`,`moves`] assume_tac)>>rfs[]>>
+  fs[]>>
+  match_mp_tac forced_distinct_col>>rfs[]>>
+  unabbrev_all_tac>>
+  match_mp_tac get_forced_pairwise_distinct>>
+  simp[]);
 
 (* label preservation theorems *)
 val fake_moves_no_labs = Q.prove(`

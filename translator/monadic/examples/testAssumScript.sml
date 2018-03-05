@@ -24,9 +24,8 @@ val _ = Hol_datatype `
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
-val _ = register_type ``:unit``;
 val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
@@ -46,7 +45,9 @@ val init_string_def = Define `init_string = ""`;
 val refs_init_list = [(the_num_name, init_num_def, get_the_num_def, set_the_num_def),
 		      (the_string_name, init_string_def, get_the_string_def, set_the_string_def)];
 
-val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
+
 
 val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
@@ -62,16 +63,20 @@ val add_type_theories = [] : string list;
 
 (* val store_pinv_def = STATE_PINV_def *)
 
+val extra_hprop = NONE : term option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      arrays_init_list
+					      rarrays_init_list
+					      farrays_init_list
 					      store_hprop_name
 					      state_type
 					      exn_ri_def
 					      exn_functions
 					      add_type_theories
-                                              store_pinv_opt;
+                                              store_pinv_opt
+                                              extra_hprop;
 
 (* TESTS *)
 val _ = set_trace "assumptions" 1;
@@ -109,11 +114,18 @@ val mf6_def = Define `mf6 l = dtcase l of [] => return 0 | x::l => return 1`;
 val def = mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
-val zip_v_thm = translate listTheory.ZIP;
+val ZIP_def2 = Q.prove(`ZIP (l1,l2) = dtcase (l1,l2) of
+    (x::l1,y::l2) => (x,y)::(ZIP (l1,l2))
+ |  ([],[]) => []
+ | other => []`,
+Cases_on `l1`
+\\ Cases_on `l2`
+\\ fs[ZIP_def]);
+
+val zip_v_thm = translate ZIP_def2;
 
 val mf7_def = Define `mf7 l1 l2 = do z <- if LENGTH l1 = LENGTH l2 then return () else failwith ""; return (ZIP (l1, l2)) od`;
 val def = mf7_def;
 val mf7_v_thm = m_translate def;
-val mf7_side_def = definition"mf7_side_def"
 
 val _ = export_theory ();

@@ -53,11 +53,9 @@ val add_basic_compset =
    , miscTheory.list_max_def
    , miscTheory.anub_def
    , miscTheory.safeTL_def
-   , miscTheory.oHD_def
    , miscTheory.zlookup_def
    , miscTheory.tlookup_def
    , miscTheory.any_el_def
-   , miscTheory.LLOOKUP_def
    , miscTheory.append_aux_def
    , miscTheory.append_def
    , miscTheory.SmartAppend_thm

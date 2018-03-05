@@ -31,6 +31,21 @@ val buffer_write_def = Define`
 val _ = Datatype `
   word_loc = Word ('a word) | Loc num num `;
 
+
+val is_fwd_ptr_def = Define `
+  (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
+  (is_fwd_ptr _ = F)`;
+
+val theWord_def = Define `
+  theWord (Word w) = w`
+
+val isWord_def = Define `
+  (isWord (Word w) = T) /\ (isWord _ = F)`;
+
+val isWord_exists = Q.store_thm("isWord_exists",
+  `isWord x ⇔ ∃w. x = Word w`,
+  Cases_on`x` \\ rw[isWord_def]);
+
 val byte_index_def = Define `
   byte_index (a:'a word) is_bigendian =
     let d = dimindex (:'a) DIV 8 in
@@ -572,7 +587,7 @@ val inst_def = Define `
       case fp64_to_int roundTiesToEven f of
         NONE => NONE
       | SOME i =>
-        let w = i2w i : 'a word in
+        let w = i2w i : word32 in
         if w2i w = i then
           (if dimindex(:'a) = 64 then
              SOME (set_fp_var d1 (w2w w) s)
@@ -588,7 +603,7 @@ val inst_def = Define `
       if dimindex(:'a) = 64 then
         case get_fp_var d2 s of
         | SOME f =>
-          let i =  w2i f in
+          let i =  w2i ((31 >< 0) f : word32) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
       else

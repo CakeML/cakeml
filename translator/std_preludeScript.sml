@@ -22,6 +22,7 @@ val res = translate UNCURRY;
 
 (* combin *)
 
+val _ = next_ml_names := ["o"];
 val res = translate o_DEF;
 val res = translate I_THM;
 val res = translate C_DEF;
@@ -102,6 +103,7 @@ val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
 
 val _ = add_preferred_thy "-";
 
+val _ = next_ml_names := ["while"];
 val res = translate WHILE;
 val res = translate OWHILE_THM;
 
