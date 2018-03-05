@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 open preamble mp_then backendPropsTheory
-=======
-open preamble
->>>>>>> origin/master
      bvlSemTheory bvlPropsTheory
      bvl_to_bviTheory
      bviSemTheory bviPropsTheory;
