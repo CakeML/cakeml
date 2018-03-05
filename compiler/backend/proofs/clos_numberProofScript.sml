@@ -649,10 +649,10 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
       \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
-      \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
       \\ imp_res_tac state_rel_max_app
       \\ imp_res_tac evaluate_const
       \\ drule (GEN_ALL do_install) \\ fs[]
+      \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
       \\ disch_then drule
       \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
       \\ TRY (strip_tac \\ fs[])
