@@ -680,7 +680,7 @@ val word_inst_inst_select_side = Q.prove(`
 >> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 
 val word_to_word_compile_side = Q.prove(`
-C>
+  ∀x y z. word_to_word_compile_side x y z ⇔ T`,
   fs[fetch"-""word_to_word_compile_side_def",word_to_wordTheory.next_n_oracle_def,word_inst_inst_select_side]) |> update_precondition
 
 val _ = translate(FromList_code_def |> conv32 |> econv)
