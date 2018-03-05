@@ -2596,16 +2596,16 @@ val evaluate_AppendMainLoop_code = prove(
   \\ `get_var 4 t = SOME (Word ww)` by fs [wordSemTheory.get_var_def]
   \\ `shift_length c < dimindex (:α)` by
         fs [memory_rel_def,heap_in_memory_store_def]
-  \\ rpt_drule get_var_get_real_addr_lemma \\ fs []
+  \\ rpt_drule0 get_var_get_real_addr_lemma \\ fs []
   \\ disch_then kall_tac
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [eq_eval,wordSemTheory.set_var_def]
-  \\ rpt_drule memory_rel_Block_MEM
+  \\ rpt_drule0 memory_rel_Block_MEM
   \\ disch_then (qspec_then `0` mp_tac) \\ fs []
   \\ fs [get_real_offset_def,Smallnum_def]
   \\ strip_tac
   \\ drule memory_rel_swap \\ strip_tac
-  \\ rpt_drule memory_rel_Block_MEM
+  \\ rpt_drule0 memory_rel_Block_MEM
   \\ disch_then (qspec_then `1` mp_tac) \\ fs []
   \\ `get_real_offset (Smallnum 1) = SOME (2w * bytes_in_word )` by
      (EVAL_TAC \\ fs [good_dimindex_def,dimword_def]) \\ fs []
@@ -2645,7 +2645,7 @@ val evaluate_AppendMainLoop_code = prove(
   \\ Cases_on `t'`
   THEN1
    (fs [list_to_v_def]
-    \\ rpt_drule memory_rel_Block_IMP
+    \\ rpt_drule0 memory_rel_Block_IMP
     \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
     \\ disch_then kall_tac
     \\ rewrite_tac [list_Seq_def]
@@ -2673,7 +2673,7 @@ val evaluate_AppendMainLoop_code = prove(
     \\ impl_tac THEN1 fs [] \\ strip_tac
     \\ rfs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,Abbr`next_free`])
   \\ fs [list_to_v_def]
-  \\ rpt_drule memory_rel_Block_IMP
+  \\ rpt_drule0 memory_rel_Block_IMP
   \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
   \\ strip_tac \\ fs []
   \\ qmatch_goalsub_abbrev_tac `list_Seq test`
@@ -2781,16 +2781,16 @@ val evaluate_AppendMainLoop_code_alt = prove(
   \\ `get_var 4 t = SOME (Word ww)` by fs [wordSemTheory.get_var_def]
   \\ `shift_length c < dimindex (:α)` by
         fs [memory_rel_def,heap_in_memory_store_def]
-  \\ rpt_drule get_var_get_real_addr_lemma \\ fs []
+  \\ rpt_drule0 get_var_get_real_addr_lemma \\ fs []
   \\ disch_then kall_tac
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [eq_eval,wordSemTheory.set_var_def]
-  \\ rpt_drule memory_rel_Block_MEM
+  \\ rpt_drule0 memory_rel_Block_MEM
   \\ disch_then (qspec_then `0` mp_tac) \\ fs []
   \\ fs [get_real_offset_def,Smallnum_def]
   \\ strip_tac
   \\ drule memory_rel_swap \\ strip_tac
-  \\ rpt_drule memory_rel_Block_MEM
+  \\ rpt_drule0 memory_rel_Block_MEM
   \\ disch_then (qspec_then `1` mp_tac) \\ fs []
   \\ `get_real_offset (Smallnum 1) = SOME (2w * bytes_in_word )` by
      (EVAL_TAC \\ fs [good_dimindex_def,dimword_def]) \\ fs []
@@ -2854,7 +2854,7 @@ val evaluate_AppendMainLoop_code_alt = prove(
     \\ fs [good_dimindex_def,bytes_in_word_def,dimword_def]
     \\ rfs [WORD_LO,dimword_def,word_mul_n2w])
   \\ fs [list_to_v_def]
-  \\ rpt_drule memory_rel_Block_IMP
+  \\ rpt_drule0 memory_rel_Block_IMP
   \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
   \\ strip_tac \\ fs []
   \\ qmatch_goalsub_abbrev_tac `list_Seq test`
@@ -2955,20 +2955,20 @@ val evaluate_AppendLenLoop_code = prove(
     \\ `t with <|locals := t.locals; clock := t.clock|> = t`
           by fs [wordSemTheory.state_component_equality] \\ fs []
     \\ fs [list_to_v_def]
-    \\ rpt_drule memory_rel_Block_IMP
+    \\ rpt_drule0 memory_rel_Block_IMP
     \\ EVAL_TAC \\ fs [])
   \\ rw []
   \\ simp [Once AppendLenLoop_code_def]
   \\ fs [list_to_v_def]
-  \\ rpt_drule memory_rel_Block_IMP
+  \\ rpt_drule0 memory_rel_Block_IMP
   \\ strip_tac \\ fs[eq_eval]
   \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
   \\ `get_var 2 t = SOME (Word w)` by fs [wordSemTheory.get_var_def]
   \\ `shift_length c < dimindex (:α)` by
         fs [memory_rel_def,heap_in_memory_store_def]
-  \\ rpt_drule get_var_get_real_addr_lemma \\ fs []
+  \\ rpt_drule0 get_var_get_real_addr_lemma \\ fs []
   \\ fs [eq_eval,list_Seq_def]
-  \\ rpt_drule memory_rel_Block_MEM
+  \\ rpt_drule0 memory_rel_Block_MEM
   \\ disch_then (qspec_then `1` mp_tac) \\ fs []
   \\ `get_real_offset (Smallnum 1) = SOME (2w * bytes_in_word )` by
      (EVAL_TAC \\ fs [good_dimindex_def,dimword_def]) \\ fs []
@@ -2978,7 +2978,7 @@ val evaluate_AppendLenLoop_code = prove(
   \\ fs [Abbr`ttt`,eq_eval]
   \\ `?xx. t.memory (a + 2w * bytes_in_word) = Word xx` by
      (Cases_on `xs` \\ fs [list_to_v_def]
-      \\ rpt_drule memory_rel_Block_IMP \\ fs [] \\ rw [] \\ fs [])
+      \\ rpt_drule0 memory_rel_Block_IMP \\ fs [] \\ rw [] \\ fs [])
   \\ disch_then (qspecl_then [`xx`,`vars`] mp_tac)
   \\ impl_tac THEN1
    (fs [LEFT_ADD_DISTRIB,word_add_n2w]
@@ -3209,7 +3209,7 @@ val th = Q.store_thm("assign_ListAppend",
       \\ HINT_EXISTS_TAC
       \\ rw [] \\ fs [])
     \\ map_every qunabbrev_tac [`A`,`B`,`C`]
-    \\ rpt_drule memory_rel_append
+    \\ rpt_drule0 memory_rel_append
     \\ simp [make_cons_ptr_def]
     \\ impl_keep_tac
     >- fs [Abbr`init_ptr`, get_lowerbits_def, make_header_def, encode_header_def]
@@ -3374,7 +3374,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ qmatch_assum_abbrev_tac `state_rel c n l s4 _ _ _`
   \\ `dataSem$get_vars [0;1] s4.locals = SOME [list_to_v (i1::in1); list_to_v in2]`
     by (qunabbrev_tac `s4` \\ fs [get_vars_SOME_IFF_data] \\ EVAL_TAC)
-  \\ rpt_drule state_rel_get_vars_IMP
+  \\ rpt_drule0 state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ simp [PULL_EXISTS]
   \\ ntac 3 strip_tac
@@ -3408,7 +3408,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,
            EVAL ``MAP adjust_var [0; 1]``,list_to_v_def]
   \\ strip_tac
-  \\ rpt_drule memory_rel_Block_IMP
+  \\ rpt_drule0 memory_rel_Block_IMP
   \\ strip_tac \\ fs []
   \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def]
@@ -3498,7 +3498,7 @@ val th = Q.store_thm("assign_ListAppend",
     \\ HINT_EXISTS_TAC
     \\ rw [] \\ fs [])
   \\ map_every qunabbrev_tac [`A`,`B`,`C`]
-  \\ rpt_drule memory_rel_append
+  \\ rpt_drule0 memory_rel_append
   \\ simp [make_cons_ptr_def]
   \\ impl_keep_tac
   >- fs [Abbr`init_ptr2`, get_lowerbits_def, make_header_def, encode_header_def]
