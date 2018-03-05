@@ -5,8 +5,10 @@ sig
 
     (* main functionality *)
 
-    val translate  : thm -> thm    (* e.g. try translate listTheory.MAP *)
-    val abs_translate : thm -> thm
+    val translate            : thm -> thm    (* e.g. translate listTheory.MAP *)
+    val translate_no_ind     : thm -> thm
+    val abs_translate        : thm -> thm
+    val abs_translate_no_ind : thm -> thm
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
 
@@ -137,7 +139,7 @@ sig
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
 
-    (* true tells translator to leave complicated proof obligation to user *)
-    val skip_ind_proof : bool ref
+    (* returns the induction theorem for the latest rec translation *)
+    val latest_ind : unit -> thm
 
 end

@@ -11,18 +11,15 @@ val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
-val _ = (skip_ind_proof := true);
-val res = translate ZIP2_def;
-val _ = (skip_ind_proof := false);
+val res = translate_no_ind ZIP2_def;
 
 val zip2_ind_goal = first is_forall (hyp res);
 val zip2_ind = prove(
   ``^zip2_ind_goal``,
   rpt gen_tac \\ strip_tac
-  \\ Cases
-  \\ qspec_tac (`r`,`r`)
-  \\ Induct_on `q`
-  \\ rw [])
+  \\ simp [FORALL_PROD]
+  \\ ho_match_mp_tac (latest_ind())
+  \\ fs [])
   |> update_precondition;
 
 val ZIP4_def = Define `
@@ -38,6 +35,18 @@ val res = translate char_to_byte_def;
 val res = translate MAP;
 
 val res = translate mlstringTheory.explode_aux_def;
+
+val explode_aux_ind_goal = first is_forall (hyp res);
+val explode_aux_ind = prove(
+  ``^explode_aux_ind_goal``,
+  rpt gen_tac \\ strip_tac
+  \\ simp [FORALL_PROD]
+  \\ ho_match_mp_tac (latest_ind())
+  \\ rw [] \\ fs [arithmeticTheory.ADD1]
+  \\ first_x_assum match_mp_tac
+  \\ fs [] \\ cheat)
+  |> update_precondition;
+
 val res = translate mlstringTheory.explode_def;
 
 val string_to_bytes_def = Define`

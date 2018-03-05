@@ -3568,45 +3568,42 @@ fun get_custom_ind_with_pre ind ind_thm_goal = let
         aconv x tm
      then concl (the ind) else ind_thm_goal end
 
-val skip_ind_proof = ref false;
+fun print_unable_to_prove_ind_thm ml_name = let
+  val _ = print ("\nERROR: Unable to prove induction for "^ml_name^"")
+  val _ = print ("\n")
+  val _ = print ("\n  The induction goal has been left as an assumption on")
+  val _ = print ("\n  the theorem returned by the translator. You must prove")
+  val _ = print ("\n  it with something like the following before this")
+  val _ = print ("\n  constant is used in subsequent translations.")
+  val _ = print ("\n")
+  val _ = print ("\n    val res = translate "^ml_name^"_def;")
+  val _ = print ("\n    val "^ml_name^"_ind_goal = first is_forall (hyp res);")
+  val _ = print ("\n    (* set_goal([],"^ml_name^"_ind_goal); *)")
+  val _ = print ("\n    val "^ml_name^"_ind = prove(")
+  val _ = print ("\n      "^ml_name^"_ind_goal,")
+  val _ = print ("\n      ... )")
+  val _ = print ("\n      |> update_precondition;")
+  val _ = print ("\n")
+  val _ = print ("\n  To turn off this ERROR message, tell the translator ")
+  val _ = print ("\n  to not attempt the induction proof using skip_ind_proof:")
+  val _ = print ("\n")
+  val _ = print ("\n    val _ = (skip_ind_proof := true);")
+  val _ = print ("\n")
+  val _ = print ("\n  Remember to only have this flag set to true temporarily.")
+  val _ = print ("\n")
+  val _ = print ("\n")
+  in () end;
 
-(*
-skip_ind_proof := true
+datatype options = NoInd;
+val options = ([]:options list);
 
-translate APPEND
-translate listTheory.REVERSE_DEF
-
-
-*)
-
-fun print_unable_to_prove_ind_thm ml_name =
-  if !skip_ind_proof then
-    print ("Skipping induction proof for "^ml_name^"\n")
-  else let
-    val _ = print ("\nERROR: Unable to prove induction for "^ml_name^"")
-    val _ = print ("\n")
-    val _ = print ("\n  The induction goal has been left as an assumption on")
-    val _ = print ("\n  the theorem returned by the translator. You must prove")
-    val _ = print ("\n  it with something like the following before this")
-    val _ = print ("\n  constant is used in subsequent translations.")
-    val _ = print ("\n")
-    val _ = print ("\n    val res = translate "^ml_name^"_def;")
-    val _ = print ("\n    val "^ml_name^"_ind_goal = first is_forall (hyp res);")
-    val _ = print ("\n    (* set_goal([],"^ml_name^"_ind_goal); *)")
-    val _ = print ("\n    val "^ml_name^"_ind = prove(")
-    val _ = print ("\n      "^ml_name^"_ind_goal,")
-    val _ = print ("\n      ... )")
-    val _ = print ("\n      |> update_precondition;")
-    val _ = print ("\n")
-    val _ = print ("\n  To turn off this ERROR message, tell the translator ")
-    val _ = print ("\n  to not attempt the induction proof using skip_ind_proof:")
-    val _ = print ("\n")
-    val _ = print ("\n    val _ = (skip_ind_proof := true);")
-    val _ = print ("\n")
-    val _ = print ("\n  Remember to only have this flag set to true temporarily.")
-    val _ = print ("\n")
-    val _ = print ("\n")
-    in () end;
+local
+  val latest_ind_thm = ref (NONE: thm option)
+in
+  fun set_latest_ind ind = (latest_ind_thm := ind);
+  fun latest_ind () =
+    case !latest_ind_thm of SOME th => th | _ => failwith "latest_ind";
+end;
 
 (*
 
@@ -3618,7 +3615,7 @@ val def = listTheory.APPEND;
 
 *)
 
-fun translate_main translate register_type def = (let
+fun translate_main options translate register_type def = (let
 
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -3760,11 +3757,12 @@ val (fname,ml_fname,def,th,v) = hd thms
     val th = MP lemma lemma1
 
     (* attempt to prove induction assumption *)
-    val th = (if !skip_ind_proof then fail()
-              else MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal))
-             handle HOL_ERR _ => let
-               val (_,ml_name,_,_,_) = hd thms
-               in (print_unable_to_prove_ind_thm ml_name; th) end
+    val _ = set_latest_ind ind
+    val th = if mem NoInd options then th
+             else (MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
+                   handle HOL_ERR _ => let
+                     val (_,ml_name,_,_,_) = hd thms
+                     in (print_unable_to_prove_ind_thm ml_name; th) end)
 
     val results = th |> CONJUNCTS |> map SPEC_ALL
 (*
@@ -3806,9 +3804,10 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
-fun translate def =
+fun translate_options options def =
   let
-    val (is_rec,is_fun,results) = translate_main translate register_type def
+    val (is_rec,is_fun,results) =
+      translate_main options (translate_options options) register_type def
 
     val () =
       if !generate_sigs then
@@ -3903,10 +3902,13 @@ fun translate def =
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
-fun abs_translate def =
+val translate = translate_options [];
+val translate_no_ind = translate_options [NoInd];
+
+fun abs_translate_options options def =
   let
     val (is_rec,is_fun,results) =
-        translate_main abs_translate abs_register_type def
+        translate_main options (abs_translate_options options) abs_register_type def
     (*
       val (fname,ml_fname,def,th,preopt) = hd results
     *)
@@ -3920,6 +3922,9 @@ fun abs_translate def =
   in
     LIST_CONJ (map mapthis results)
   end
+
+val abs_translate = abs_translate_options [];
+val abs_translate_no_ind = abs_translate_options [NoInd];
 
 val _ = set_translator translate;
 
