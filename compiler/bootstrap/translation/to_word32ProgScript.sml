@@ -680,7 +680,7 @@ val word_inst_inst_select_side = Q.prove(`
 >> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 
 val word_to_word_compile_side = Q.prove(`
-  ∀x y z. word_to_word_compile_side x y z ⇔ T`,
+C>
   fs[fetch"-""word_to_word_compile_side_def",word_to_wordTheory.next_n_oracle_def,word_inst_inst_select_side]) |> update_precondition
 
 val _ = translate(FromList_code_def |> conv32 |> econv)
@@ -705,7 +705,7 @@ val r = translate(ByteCopyAdd_code_def |> conv32)
 val r = translate(ByteCopySub_code_def |> conv32 |> econv)
 val r = translate(ByteCopyNew_code_def |> conv32)
 
-val _ = translate(Append_code_def|> inline_simp |> conv32)
+val _ = translate(Append_code_def|> inline_simp |> conv32 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv32)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv32)
 val _ = translate(AppendFastLoop_code_def|> inline_simp |> conv32)

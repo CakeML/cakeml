@@ -706,7 +706,7 @@ val r = translate(ByteCopyAdd_code_def |> conv64)
 val r = translate(ByteCopySub_code_def |> conv64 |> econv)
 val r = translate(ByteCopyNew_code_def |> conv64)
 
-val _ = translate(Append_code_def|> inline_simp |> conv64)
+val _ = translate(Append_code_def|> inline_simp |> conv64 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv64)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv64)
 val _ = translate(AppendFastLoop_code_def|> inline_simp |> conv64)
