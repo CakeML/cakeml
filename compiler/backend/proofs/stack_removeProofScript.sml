@@ -3285,12 +3285,8 @@ val stack_remove_comp_stack_asm_name = Q.prove(`
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
   >>
-<<<<<<< HEAD
-    fs[labPropsTheory.good_dimindex_def,stackLangTheory.word_shift_def]>>
-=======
     fs[labPropsTheory.good_dimindex_def,word_shift_def]
   >>
->>>>>>> origin/master
     simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
     qpat_assum`!n. A ⇒ B` mp_tac>>
     rpt(qpat_x_assum`reg_name _ c` mp_tac)>>
