@@ -1336,9 +1336,7 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
-<<<<<<< HEAD
   \\ Cases_on `op = Install` >- fs[do_app_def]
-=======
   \\ Cases_on `op = ConfigGC` THEN1 (
     rveq \\ rpt gen_tac
     \\ Cases_on `do_app ConfigGC xs r`
@@ -1348,7 +1346,6 @@ val do_app_thm = Q.prove(
     \\ fs [do_app_cases_err] \\ rveq
     \\ fs [do_app_cases_timeout] \\ rveq
     \\ rw [] \\ fs [Unit_def,PULL_EXISTS,v_rel_def])
->>>>>>> origin/master
   \\ Cases_on `op = ConcatByteVec` THEN1 (
     rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
     fs[case_eq_thms] \\
