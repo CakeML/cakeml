@@ -1182,8 +1182,9 @@ val semantics_tick_inline = prove(
     \\ simp [semantics_def]
     \\ IF_CASES_TAC \\ fs []
     >-
-      (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+     (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
       \\ drule evaluate_add_clock
+      \\ disch_then (qspec_then `k` mp_tac)
       \\ impl_tac >- fs []
       \\ strip_tac
       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
@@ -1191,11 +1192,7 @@ val semantics_tick_inline = prove(
       \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
       \\ rw [] \\ fs [] \\ rveq
       \\ CCONTR_TAC
-      \\ drule (GEN_ALL in_evaluate_Call) \\ simp []
-      \\ strip_tac
-      \\ first_x_assum (qspec_then `0` mp_tac)
-      \\ simp [inc_clock_def]
-      \\ rw[] \\ fs [])
+      \\ drule (GEN_ALL in_evaluate_Call) \\ simp [])
     \\ DEEP_INTRO_TAC some_intro \\ simp []
     \\ conj_tac
     >-
@@ -1212,21 +1209,23 @@ val semantics_tick_inline = prove(
       \\ ntac 2 strip_tac
       \\ Cases_on `s.ffi.final_event` \\ fs []
       >-
-        (Cases_on `s'.ffi.final_event` \\ fs []
+       (Cases_on `s'.ffi.final_event` \\ fs []
         >-
-          (unabbrev_all_tac
+         (unabbrev_all_tac
           \\ drule (GEN_ALL in_evaluate_Call) \\ simp []
           \\ strip_tac
           \\ drule evaluate_add_clock
+          \\ disch_then (qspec_then `k'` mp_tac)
           \\ impl_tac
           >- (every_case_tac \\ fs [])
           \\ rveq
-          \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
+          \\ simp [inc_clock_def]
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
+          \\ disch_then (qspec_then `k` mp_tac)
           \\ impl_tac
           >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
-          \\ disch_then (qspec_then `k` mp_tac) \\ simp [inc_clock_def]
+          \\ simp [inc_clock_def]
           \\ ntac 2 strip_tac \\ rveq \\ fs []
           \\ fs [state_component_equality] \\ rfs [] \\ rfs [])
         \\ qpat_x_assum `∀extra._` mp_tac
@@ -1367,18 +1366,7 @@ val semantics_tick_inline = prove(
   \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
   \\ strip_tac \\ fs []
   \\ conj_tac \\ rw []
-  \\ qexists_tac `k` \\ fs []
-  \\ qmatch_assum_abbrev_tac `_ < (LENGTH (_ ffi1))`
-  \\ `ffi1.io_events ≼ r.ffi.io_events` by
-    (qunabbrev_tac `ffi1`
-    \\ metis_tac [
-       initial_state_with_simp, evaluate_add_to_clock_io_events_mono
-         |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-         |> Q.SPEC`s with clock := k`
-         |> SIMP_RULE(srw_ss())[inc_clock_def],
-       SND,ADD_SYM])
-  \\ fs [IS_PREFIX_APPEND]
-  \\ simp [EL_APPEND1]);
+  \\ qexists_tac `k` \\ fs []);
 
 (* let_op *)
 
@@ -1608,14 +1596,15 @@ val semantics_let_op = prove(
   \\ DEEP_INTRO_TAC some_intro \\ simp []
   \\ conj_tac
   >-
-   (gen_tac \\ strip_tac \\ rveq \\ simp []
+   (
+    gen_tac \\ strip_tac \\ rveq \\ simp []
     \\ simp [semantics_def]
     \\ IF_CASES_TAC \\ fs []
     >-
-      (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+     (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
       \\ drule evaluate_add_clock
-      \\ impl_tac >- fs []
-      \\ strip_tac
+      \\ `q <> Rerr (Rabort Rtimeout_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+      \\ CCONTR_TAC \\ fs []
       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
       \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
@@ -1624,8 +1613,7 @@ val semantics_let_op = prove(
       \\ drule (GEN_ALL let_evaluate_Call) \\ simp []
       \\ strip_tac
       \\ first_x_assum (qspec_then `0` mp_tac)
-      \\ simp [inc_clock_def]
-      \\ rw[] \\ fs [])
+      \\ simp [inc_clock_def])
     \\ DEEP_INTRO_TAC some_intro \\ simp []
     \\ conj_tac
     >-
@@ -1641,20 +1629,15 @@ val semantics_let_op = prove(
       \\ ntac 2 strip_tac
       \\ Cases_on `s.ffi.final_event` \\ fs []
       >-
-        (Cases_on `s'.ffi.final_event` \\ fs []
+       (Cases_on `s'.ffi.final_event` \\ fs []
         >-
-          (unabbrev_all_tac
+         (unabbrev_all_tac
           \\ drule (GEN_ALL let_evaluate_Call) \\ simp []
           \\ strip_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          >- (every_case_tac \\ fs [])
-          \\ rveq
           \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
           \\ disch_then (qspec_then `k` mp_tac) \\ simp [inc_clock_def]
           \\ ntac 2 strip_tac \\ rveq \\ fs []
           \\ fs [state_component_equality] \\ rfs [] \\ rfs [])
@@ -1793,19 +1776,7 @@ val semantics_let_op = prove(
   \\ drule (GEN_ALL let_evaluate_Call)
   \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
   \\ strip_tac \\ fs []
-  \\ conj_tac \\ rw []
-  \\ qexists_tac `k` \\ fs []
-  \\ qmatch_assum_abbrev_tac `_ < (LENGTH (_ ffi1))`
-  \\ `ffi1.io_events ≼ r.ffi.io_events` by
-    (qunabbrev_tac `ffi1`
-    \\ metis_tac [
-       initial_state_with_simp, evaluate_add_to_clock_io_events_mono
-         |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-         |> Q.SPEC`s with clock := k`
-         |> SIMP_RULE(srw_ss())[inc_clock_def],
-       SND,ADD_SYM])
-  \\ fs [IS_PREFIX_APPEND]
-  \\ simp [EL_APPEND1]);
+  \\ conj_tac \\ rw [] \\ qexists_tac `k` \\ fs []);
 
 (* combined theorems *)
 

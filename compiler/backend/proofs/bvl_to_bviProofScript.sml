@@ -11,15 +11,6 @@ local open
 in end;
 
 (*
-open preamble
-open bvlSemTheory bvlPropsTheory
-open bvl_to_bviTheory
-open bviSemTheory bviPropsTheory;
-open bvl_constProofTheory
-open bvl_handleProofTheory
-open bvi_letProofTheory
-open bvl_inlineProofTheory
-open bvi_tailrecProofTheory
 
 set_prover (fn (tm,_) => mk_thm([],tm))
 
@@ -1391,7 +1382,6 @@ val state_rel_add_bytearray = Q.store_thm("state_rel_add_bytearray",
   \\ rw[]
   \\ metis_tac[INJ_DEF] );
 
-<<<<<<< HEAD
 val iEval_bVarBound_extra = prove(
   ``∀n xs n vs s env d.
      bVarBound (LENGTH vs) xs ∧ handle_ok xs /\ d = FST (compile_exps n xs) ⇒
@@ -1628,9 +1618,8 @@ val not_in_ns_1 = prove(
 val names_nss_DIV_nss = prove(
   ``(name * nss) DIV nss = name``,
   fs [EVAL ``nss``,MULT_DIV]);
-=======
+
 fun note_tac s g = (print ("compile_exps_correct: " ^ s ^ "\n"); ALL_TAC g)
->>>>>>> origin/master
 
 val compile_exps_correct = Q.prove(
   `!xs env s1 n res s2 (t1:('c,'ffi) bviSem$state) n2 ys aux b1.
@@ -2128,10 +2117,10 @@ val compile_exps_correct = Q.prove(
       \\ disch_then (qspec_then `0` strip_assume_tac) \\ fs []
       \\ qexists_tac `c + c' + c'' + 2`
       \\ ntac 2 (pop_assum mp_tac)
-      \\ drule bviPropsTheory.evaluate_add_clock \\ impl_tac THEN1 fs []
+      \\ drule bviPropsTheory.evaluate_add_clock
       \\ disch_then (qspec_then `c'+c''+2` assume_tac)
       \\ rpt strip_tac
-      \\ drule bviPropsTheory.evaluate_add_clock \\ impl_tac THEN1 fs []
+      \\ drule bviPropsTheory.evaluate_add_clock
       \\ disch_then (qspec_then `c'+1` assume_tac)
       \\ fs [inc_clock_ADD]
       \\ fs [evaluate_def,EVAL ``bviSem$do_app (Const 0) [] t2``,
@@ -2239,17 +2228,11 @@ val compile_exps_correct = Q.prove(
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[iEval_def,iEvalOp_def]
       \\ full_simp_tac(srw_ss())[EVAL ``do_app_aux (Const 0) [] t2``]
       \\ SRW_TAC [] [adjust_bv_def])
-<<<<<<< HEAD
     \\ Cases_on `∃n. op = Label n` THEN1
-     (fs[compile_op_def,evaluate_def,case_eq_thms] \\ rveq \\
+     (note_tac "Op: Label" \\
+      fs[compile_op_def,evaluate_def,case_eq_thms] \\ rveq \\
       fs[do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
          case_eq_thms,bool_case_eq] \\
-=======
-    \\ Cases_on `∃n. op = Label n` THEN1 (
-      note_tac "Op: Label" \\
-      fs[compile_op_def,evaluate_def,case_eq_thms] \\ rveq \\
-      fs[do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,case_eq_thms,bool_case_eq] \\
->>>>>>> origin/master
       CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`b2` \\
       CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`c` \\ simp[] \\ rveq \\
       simp[adjust_bv_def]
@@ -3100,15 +3083,10 @@ val compile_exps_correct = Q.prove(
     \\ disch_then (qspecl_then [`r`,`q`,`op`,`a`] mp_tac)
     \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE])
   THEN1 (* Tick *)
-<<<<<<< HEAD
-   (`?c1 aux1 n1. compile_exps n [x] = (c1,aux1,n1)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[PULL_FORALL]
-=======
    (note_tac "Tick" \\
     `?c1 aux1 n1. compile_exps n [x] = (c1,aux1,n1)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
->>>>>>> origin/master
+    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[PULL_FORALL]
     \\ IMP_RES_TAC compile_exps_LENGTH
     \\ `?d. c1 = [d]` by (Cases_on `c1` \\ full_simp_tac(srw_ss())[LENGTH_NIL]) \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
@@ -3128,15 +3106,10 @@ val compile_exps_correct = Q.prove(
            \\ metis_tac[])
     \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL])
   THEN1 (* Call *)
-<<<<<<< HEAD
-   (`?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[PULL_FORALL]
-=======
    (note_tac "Call" \\
     `?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
-    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
->>>>>>> origin/master
+    \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[PULL_FORALL]
     \\ `?res5 s5. evaluate (xs,env,s1) = (res5,s5)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
     \\ full_simp_tac(srw_ss())[]
