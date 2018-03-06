@@ -1606,9 +1606,8 @@ val every_var_in_get_clash_set = Q.store_thm("every_var_in_get_clash_set",
         full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union])>>
     TRY(HINT_EXISTS_TAC>>metis_tac[domain_union])>>
     TRY(qexists_tac`insert n () (union q' q)`>>
-<<<<<<< HEAD
         full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union])));
-=======
+
         full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union]))
   >-
     (srw_tac[][]
@@ -1630,7 +1629,6 @@ val every_var_in_get_clash_set = Q.store_thm("every_var_in_get_clash_set",
      qexists_tac `insert n () (insert n0 () (insert n1 () (insert n2 () s0)))` >> fs[])
     );
 *)
->>>>>>> origin/master
 
 (* Proofs for check_clash_tree *)
 val check_col_INJ = Q.store_thm("check_col_INJ",
@@ -7152,11 +7150,9 @@ val lookup_undir_g_insert_existing = Q.prove(`
   else if x = b then SOME (insert a () v)
   else SOME v`,
   rw[undir_g_insert_def,dir_g_insert_def,lookup_insert]>>
-<<<<<<< HEAD
   fs[insert_shadow]);
-=======
-  fs[insert_shadow])
 *)
+
 val forced_distinct_col = Q.prove(`
   EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x = y) ls /\
   EVERY (λx,y. x ≠ y) ls ==>
@@ -7165,7 +7161,6 @@ val forced_distinct_col = Q.prove(`
   first_x_assum drule>>
   fs[total_colour_rw]>>
   metis_tac[]);
->>>>>>> origin/master
 
 val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   ∀alg k prog col_opt c.
