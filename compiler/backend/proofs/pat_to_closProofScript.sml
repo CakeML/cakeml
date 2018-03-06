@@ -314,7 +314,6 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] >>
       simp[evaluate_def] >> rw[] >>
       imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] ) >>
-<<<<<<< HEAD
     Cases_on`op = Run` \\ fs[] >- (
       split_pair_case_tac \\ fs[] \\
       fs[evaluate_def,MAP_REVERSE,ETA_AX] \\
@@ -326,11 +325,6 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       imp_res_tac patPropsTheory.do_install_const \\
       IF_CASES_TAC \\ fs[] \\ fs[patSemTheory.dec_clock_def]) \\
     reverse(fs[case_eq_thms,pair_case_eq]) \\ rw[] \\ fs[] >- (
-=======
-    split_pair_case_tac >> fs[] >>
-    reverse BasicProvers.CASE_TAC >> fs[] >> rfs[]
-    >- (
->>>>>>> origin/master
       reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>
         rw[] >> fs[] ) >>
