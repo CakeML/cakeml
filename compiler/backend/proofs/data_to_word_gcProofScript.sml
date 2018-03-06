@@ -6001,7 +6001,8 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
       \\ fs [NOT_LESS,w2n_minus_1_LESS_EQ,bytes_in_word_ADD_1_NOT_ZERO])
     \\ reverse (Cases_on `c.call_empty_ffi`)
     THEN1
-     (fs [SilentFFI_def,wordSemTheory.evaluate_def]
+     (
+      fs [SilentFFI_def,wordSemTheory.evaluate_def]
       \\ match_mp_tac (GEN_ALL alloc_fail) \\ fs []
       \\ `state_rel c l1 l2 s (t with locals :=
              insert 3 (Word (end + -1w * next)) t.locals) [] locs` by
@@ -6009,9 +6010,7 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
       \\ asm_exists_tac \\ fs []
       \\ asm_exists_tac \\ fs [insert_insert_3_1]
       \\ qmatch_goalsub_abbrev_tac `alloc _ p2 p3`
-      \\ Cases_on `alloc (-1w) p2 p3` \\ fs []
-      \\ pairarg_tac \\ fs []
-      \\ Cases_on `res` \\ fs [])
+      \\ Cases_on `alloc (-1w) p2 p3` \\ fs [bool_case_eq])
     \\ fs [Once SilentFFI_def,wordSemTheory.evaluate_def]
     \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
            wordSemTheory.set_var_def,EVAL ``read_bytearray 0w 0 m``,
@@ -6088,10 +6087,13 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
   \\ reverse (Cases_on `c.call_empty_ffi`)
   THEN1
    (fs [SilentFFI_def,wordSemTheory.evaluate_def,lookup_insert]
+    \\ qabbrev_tac `t1 = t with locals := insert 3 (Word (end + -1w * next)) t.locals`
+    \\ (fn (tl,t) => suff_tac (subst [``t:('a,'c,'ffi) wordSem$state``|->``t1:('a,'c,'ffi) wordSem$state``] t) (tl,t))
+    >- fs [Abbr`t1`]
     \\ match_mp_tac (alloc_alt |> SPEC_ALL
-          |> DISCH ``(t:('a,'ffi) wordSem$state).store = st``
+          |> DISCH ``(t1:('a,'c,'ffi) wordSem$state).store = st``
           |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)
-    \\ qexists_tac `t with locals := insert 3 (Word (end + -1w * next)) t.locals`
+    \\ qexists_tac `t1` \\ fs [Abbr`t1`]
     \\ fs [state_rel_insert_3]
     \\ asm_exists_tac \\ fs []
     \\ qpat_assum `_ = (q,r)` (fn th => fs [GSYM th])
@@ -6120,19 +6122,15 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
     \\ rw [] \\ drule domain_adjust_set_EVEN \\ EVAL_TAC)
   \\ fs []
   \\ match_mp_tac (alloc_alt |> SPEC_ALL
-<<<<<<< HEAD
+        |> Q.INST [`s`|->`s with locals := z`]
+        |> SIMP_RULE (srw_ss()) []
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).store = st``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).code = c1``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).code_buffer = c2``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).data_buffer = c2``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile = c3``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile_oracle = c4``
-=======
-        |> Q.INST [`s`|->`s with locals := z`]
-        |> SIMP_RULE (srw_ss()) []
-        |> DISCH ``(t:('a,'ffi) wordSem$state).store = st``
->>>>>>> origin/master
-        |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)
+        |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL) \\ fs []
   \\ qexists_tac `x`
   \\ qexists_tac `t with locals := y` \\ fs []
   \\ simp [GSYM PULL_EXISTS]
