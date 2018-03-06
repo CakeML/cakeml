@@ -5159,14 +5159,12 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
           \\ first_x_assum drule \\ fs []
           \\ strip_tac
           \\ drule bvlPropsTheory.evaluate_add_clock
+          \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
           \\ impl_tac
           THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
           \\ fs []
-          \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
           \\ qpat_x_assum `bvlSem$evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
           \\ disch_then (qspec_then `ck+k` mp_tac) \\ fs [inc_clock_def]
           \\ unabbrev_all_tac \\ fs []
           \\ fs [bvlSemTheory.state_component_equality])
@@ -5174,8 +5172,6 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
         \\ first_x_assum drule \\ fs []
         \\ CCONTR_TAC \\ fs []
         \\ drule evaluate_add_clock
-        \\ impl_tac
-        THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
         \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
         \\ CCONTR_TAC \\ fs []
         \\ first_x_assum (qspec_then `ck+k` mp_tac) \\ fs []
@@ -5206,8 +5202,7 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
       \\ fs [inc_clock_def,Abbr `st2`]
       \\ rpt strip_tac \\ rveq
       \\ CCONTR_TAC \\ fs []
-      \\ rveq \\ fs [] \\ rfs []
-      \\ unabbrev_all_tac \\ fs [initial_state_def])
+      \\ rveq \\ fs [] \\ rfs [])
     \\ fs [FST_EQ_LEMMA]
     \\ rveq \\ fs [eval_sim_def]
     \\ first_x_assum drule \\ fs []
