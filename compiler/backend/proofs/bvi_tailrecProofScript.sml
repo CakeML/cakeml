@@ -1611,7 +1611,8 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     \\ imp_res_tac do_app_to_op_state \\ fs[])
   \\ Cases_on `∃xs op. h = Op op xs` \\ fs [] \\ rveq
   >-
-   (simp [evaluate_def]
+   (
+    simp [evaluate_def]
     \\ PURE_TOP_CASE_TAC \\ fs []
     \\ strip_tac
     \\ simp[CONJ_ASSOC,LEFT_EXISTS_AND_THM]
@@ -1621,9 +1622,6 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
       \\ simp [bviTheory.exp_size_def]
       \\ `env_rel F acc env1 env2` by fs [env_rel_def]
       \\ rpt (disch_then drule) \\ fs[]
-      (*
-      \\ disch_then (qspec_then `loc` mp_tac) \\ fs []
-      *)
       \\ impl_tac >- (strip_tac \\ fs[]) \\ rw[] \\ fs[]
       \\ Cases_on`op=Install`
       >- (
@@ -1756,7 +1754,8 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
         imp_res_tac state_rel_do_app_err \\
         rw[apply_op_def,evaluate_def] )
       >- (
-        drule state_rel_do_app
+        drule (GEN_ALL state_rel_do_app)
+        \\ disch_then drule
         \\ simp[] \\ strip_tac
         \\ simp[apply_op_def,evaluate_def]
         \\ `acc < LENGTH env2` by fs[env_rel_def]
@@ -2013,8 +2012,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     \\ impl_tac >- (strip_tac \\ fs[])
     \\ rw []
     \\ first_x_assum (qspecl_then [`op`,`n`] mp_tac)
-    \\ impl_tac
-    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ impl_tac \\ pairarg_tac \\ fs [] \\ rw []
     \\ qpat_x_assum `env_rel_ (LENGTH a) _ _` kall_tac
     \\ qpat_x_assum `ty_rel a _` kall_tac
     \\ sg `env_rel T (LENGTH a) a (a ++ [Number m])`
@@ -2324,7 +2322,6 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
    \\ conj_tac >- (
      gen_tac \\ strip_tac \\ rveq \\ simp []
      \\ simp [semantics_def]
-<<<<<<< HEAD
      \\ IF_CASES_TAC \\ fs [] >- (
        qpat_x_assum`_ = (r,s)`kall_tac
        \\ first_assum(qspec_then`k'`mp_tac)
@@ -2333,28 +2330,6 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
        \\ rpt(disch_then drule)
        \\ first_x_assum (qspec_then `k'` strip_assume_tac)
        \\ rfs [] \\ CCONTR_TAC \\ fs [] \\ rfs[] \\ fs[] \\ rfs[])
-=======
-     \\ IF_CASES_TAC \\ fs []
-     >-
-       (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
-       \\ drule evaluate_add_clock
-       \\ CONV_TAC(LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL]))
-       \\ impl_tac >- fs []
-       \\ strip_tac
-       \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _) = _` kall_tac
-       \\ last_assum (qspec_then `SUC k'` mp_tac)
-       \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
-       \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
-       \\ disch_then drule
-       \\ impl_tac
-       >-
-         (fs [] \\ last_x_assum (qspec_then `SUC k'` strip_assume_tac)
-         \\ rfs [] \\ spose_not_then strip_assume_tac \\ fs [])
-       \\ strip_tac
-       \\ first_x_assum (qspec_then `SUC ck` mp_tac)
-       \\ simp [inc_clock_def]
-       \\ fs [ADD1])
->>>>>>> origin/master
      \\ DEEP_INTRO_TAC some_intro \\ simp []
      \\ conj_tac >- (
        gen_tac \\ strip_tac \\ rveq \\ fs []
@@ -2433,9 +2408,9 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
          \\ fs [] \\ rfs []
          \\ rw[] \\ fs[])
        \\ ntac 2 (qhdtm_x_assum `evaluate` mp_tac)
-       \\ drule evaluate_add_clock
-       \\ impl_tac >- (strip_tac \\ fs [])
+       \\ drule (GEN_ALL evaluate_add_clock)
        \\ disch_then (qspec_then `k` mp_tac)
+       \\ impl_tac >- (strip_tac \\ fs [])
        \\ simp [inc_clock_def]
        \\ ntac 3 strip_tac \\ rveq
        \\ imp_res_tac state_rel_const
