@@ -3125,7 +3125,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
-           wordLangTheory.num_exp_def,wordLangTheory.word_sh_def]
+           wordLangTheory.word_sh_def]
   \\ IF_CASES_TAC THEN1
    (sg `F` \\ fs []
     \\ fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
@@ -3421,7 +3421,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
-           wordLangTheory.num_exp_def,wordLangTheory.word_sh_def]
+           wordLangTheory.word_sh_def]
   \\ qmatch_goalsub_abbrev_tac `insert 7 (Word init_ptr2)`
   \\ simp [list_Seq_def,eq_eval,wordSemTheory.set_store_def]
   \\ `lookup AppendMainLoop_location aa2.code = SOME (6,AppendMainLoop_code c)` by
