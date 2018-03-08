@@ -200,17 +200,6 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
              asmTheory.word_cmp_def])
-<<<<<<< HEAD
-    \\ Cases_on `dataSem$cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[add_space_def,wordSemTheory.word_exp_def,
-         wordSemTheory.get_var_def,wordSemTheory.set_var_def]
-    \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
-         (t with locals := insert 1 (Word (alloc_size k)) t.locals))
-             :('a result option)#( ('a,'c,'ffi) wordSem$state)`
-    \\ full_simp_tac(srw_ss())[]
-    \\ drule (GEN_ALL alloc_lemma)
-=======
     \\ reverse (Cases_on `c.call_empty_ffi`)
     THEN1
      (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def]
@@ -220,7 +209,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
            wordSemTheory.get_var_def,wordSemTheory.set_var_def]
       \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
            (t with locals := insert 1 (Word (alloc_size k)) t.locals))
-               :('a result option)#( ('a,'ffi) wordSem$state)`
+               :('a result option)#( ('a,'c,'ffi) wordSem$state)`
       \\ full_simp_tac(srw_ss())[]
       \\ drule (GEN_ALL alloc_lemma)
       \\ rpt (disch_then drule)
@@ -236,13 +225,12 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ disch_then drule \\ strip_tac \\ fs []
     \\ pairarg_tac \\ fs []
     \\ drule (GEN_ALL state_rel_cut_env_cut_env)
->>>>>>> origin/master
     \\ rpt (disch_then drule)
     \\ strip_tac
     \\ drule (GEN_ALL alloc_lemma) \\ fs [] \\ rveq
     \\ `dataSem$cut_env names x = SOME x` by
       (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs [lookup_inter_alt,domain_inter])
-    \\ disch_then drule
+    \\ rpt (disch_then drule)
     \\ qmatch_assum_abbrev_tac `alloc _ _ t5 = _`
     \\ `t5 = t with locals := insert 1 (Word (alloc_size k)) y` by
           (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
