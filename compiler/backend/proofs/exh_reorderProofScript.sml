@@ -495,11 +495,32 @@ val vs_to_strings_compile = Q.store_thm("vs_to_strings_compile[simp]",
   `∀vs. vs_to_string (MAP compile_v vs) = vs_to_string vs`,
   ho_match_mp_tac vs_to_string_ind \\ rw[vs_to_string_def]);
 
+val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
+  `!xs ys.
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs) /\
+     list_to_v (MAP compile_v ys) = compile_v (list_to_v ys) ==>
+       list_to_v (MAP compile_v (xs ++ ys)) =
+       compile_v (list_to_v (xs ++ ys))`,
+  Induct \\ rw [compile_v_def, list_to_v_def] \\ rfs []);
+
+val list_to_v_compile = Q.store_thm("list_to_v_compile",
+  `!xs. list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`,
+  Induct \\ rw [compile_v_def, list_to_v_def]);
+
 val do_app_compile = Q.store_thm("do_app_compile[simp]",
   `do_app (compile_state s) op (MAP compile_v as) =
    OPTION_MAP (λ(s,r). (compile_state s, map_result compile_v compile_v r)) (do_app s op as)`,
-  Cases_on`do_app s op as`
-  \\ pop_assum(strip_assume_tac o SIMP_RULE(srw_ss())[do_app_cases,do_app_cases_none])
+  Cases_on `op = Op ListAppend`
+  >-
+   (Cases_on `do_app s op as`
+    \\ fs [] \\ rveq
+    \\ pop_assum mp_tac
+    \\ simp [do_app_def]
+    \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
+    \\ pairarg_tac \\ fs [] \\ rveq
+    \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND])
+  \\ Cases_on`do_app s op as`
+  \\ pop_assum (strip_assume_tac o SIMP_RULE(srw_ss())[do_app_cases,do_app_cases_none])
   \\ rw[]
   \\ fs[do_app_def,
         semanticPrimitivesTheory.store_assign_def,
@@ -596,7 +617,8 @@ val compile_evaluate = Q.store_thm( "compile_evaluate",
       every_case_tac  \\ fs [compile_reverse] \\ rfs [] \\ rw[] \\
       fs[GSYM MAP_REVERSE,dec_clock_compile_state] \\ rw[] \\
       TRY(hd_compile_sing_tac \\ fs[]) \\
-      fs[list_result_map_result] )
+      fs[list_result_map_result]
+      )
    >- (
       hd_compile_sing_tac
       \\ every_case_tac \\ fs [] \\ rw [] \\ rfs []

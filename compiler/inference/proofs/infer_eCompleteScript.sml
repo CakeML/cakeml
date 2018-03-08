@@ -1070,6 +1070,34 @@ t = convert_t (t_walkstar s' t')`,
     fs[pure_add_constraints_combine] >>
     qpat_abbrev_tac `ls = (h,_)::_` >>
     pac_tac )
+  >> TRY1
+    (
+    qexists_tac`Infer_Tapp [Infer_Tuvar st.next_uvar] (TC_name (Short "list"))` >>
+    fs[pure_add_constraints_combine]>>
+    rename1`Tapp [t1] (TC_name (Short "list"))` >>
+    extend_uvar_tac`t1`>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    `pure_add_constraints s' ls s'` by
+      (match_mp_tac pure_add_constraints_ignore >>
+      fs[Abbr`ls`]>>
+      simp[t_walkstar_eqn1]>>
+      metis_tac[t_walkstar_no_vars,t_walkstar_SUBMAP])>>
+    pure_add_constraints_combine_tac [`st`,`constraints'`,`s'`]>>
+    fs[pure_add_constraints_append]>>
+    Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar+1 |>` >>fs[]>>
+    Q.EXISTS_TAC`si`>>
+    Q.EXISTS_TAC`constraints'`>>
+    Q.SPECL_THEN [`n`,`si`,`s'`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+    rfs[]>>
+    rw[]
+    >-
+      metis_tac[t_compat_trans]
+    >-
+      metis_tac[pure_add_constraints_success]
+    >>
+      `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+      fs[t_walkstar_eqn,t_walk_eqn,convert_t_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
   );
 
 val simp_tenv_invC_def = Define`

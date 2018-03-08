@@ -1336,6 +1336,14 @@ val do_eq_list_T_every = Q.store_thm("do_eq_list_T_every",
   \\ srw_tac[][]
   \\ every_case_tac \\  full_simp_tac(srw_ss())[]);
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.
+     LIST_REL (v_rel app f refs code) xs ys ==>
+       v_rel app f refs code (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]);
+
 val do_app = Q.prove(
   `(do_app op xs s1 = Rval (v,s2)) /\
    state_rel f s1 t1 /\
@@ -1351,7 +1359,15 @@ val do_app = Q.prove(
      v_rel s1.max_app f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
-  Cases_on `?i. op = LessConstSmall i` THEN1
+  Cases_on `op = ListAppend`
+  >-
+   (rw []
+    \\ fs [do_app_def, closSemTheory.do_app_def, case_eq_thms, PULL_EXISTS]
+    \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    \\ imp_res_tac v_to_list \\ fs [] \\ rveq \\ rfs [] \\ rw []
+    \\ match_mp_tac list_to_v_v_rel
+    \\ fs [EVERY2_APPEND_suff])
+  \\ Cases_on `?i. op = LessConstSmall i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
   \\ Cases_on `op = BoundsCheckBlock` THEN1
