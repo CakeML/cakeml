@@ -3568,29 +3568,45 @@ fun get_custom_ind_with_pre ind ind_thm_goal = let
         aconv x tm
      then concl (the ind) else ind_thm_goal end
 
-fun print_unable_to_prove_ind_thm ml_name = let
-  val _ = print ("\nERROR: Unable to prove induction for "^ml_name^"")
+fun guess_def_name original_def = let
+  val def_tm = concl original_def
+  val const_tm = original_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                              |> concl |> dest_eq |> fst |> repeat rator
+  val const_name = const_tm |> dest_thy_const |> #Name
+  val const_thy = const_tm |> dest_thy_const |> #Thy
+  fun try_find_in thys = let
+    val xs = DB.match thys def_tm
+    val xs = filter (aconv def_tm o concl o fst o snd) xs
+    val ((thy,name),_) = first (fn x => Def = (x |> snd |> snd)) xs
+                         handle HOL_ERR _ => hd xs handle Empty => fail ()
+    in (thy,name) end
+  val (thy,name) = try_find_in [const_thy]
+                   handle HOL_ERR _ => try_find_in []
+                   handle HOL_ERR _ => (const_thy,const_name ^ "_def")
+  in if current_theory() = thy then name else thy ^ "Theory." ^ name end
+
+fun print_unable_to_prove_ind_thm original_def ml_name = let
+  val name = guess_def_name original_def
+  val _ = print ("\nERROR: Unable to prove induction for "^name^"")
   val _ = print ("\n")
   val _ = print ("\n  The induction goal has been left as an assumption on")
   val _ = print ("\n  the theorem returned by the translator. You must prove")
   val _ = print ("\n  it with something like the following before this")
   val _ = print ("\n  constant is used in subsequent translations.")
   val _ = print ("\n")
-  val _ = print ("\n    val res = translate "^ml_name^"_def;")
-  val _ = print ("\n    val "^ml_name^"_ind_goal = first is_forall (hyp res);")
-  val _ = print ("\n    (* set_goal([],"^ml_name^"_ind_goal); *)")
-  val _ = print ("\n    val "^ml_name^"_ind = prove(")
-  val _ = print ("\n      "^ml_name^"_ind_goal,")
+  val _ = print ("\n    val res = translate_no_ind "^name^";")
+  val _ = print ("\n")
+  val _ = print ("\n    val "^ml_name^"_ind = Q.prove(")
+  val _ = print ("\n      `^(first is_forall (hyp res))`,")
+  val _ = print ("\n      rpt gen_tac")
+  val _ = print ("\n      \\ disch_then strip_assume_tac")
+  val _ = print ("\n      \\ match_mp_tac (latest_ind ())")
+  val _ = print ("\n      \\ rpt strip_tac")
   val _ = print ("\n      ... )")
   val _ = print ("\n      |> update_precondition;")
   val _ = print ("\n")
-  val _ = print ("\n  To turn off this ERROR message, tell the translator ")
-  val _ = print ("\n  to not attempt the induction proof using skip_ind_proof:")
-  val _ = print ("\n")
-  val _ = print ("\n    val _ = (skip_ind_proof := true);")
-  val _ = print ("\n")
-  val _ = print ("\n  Remember to only have this flag set to true temporarily.")
-  val _ = print ("\n")
+  val _ = print ("\n  Here `translate_no_ind` does exactly the same as")
+  val _ = print ("\n  `translate` except it doesn't attempt an induction.")
   val _ = print ("\n")
   in () end;
 
@@ -3762,7 +3778,7 @@ val (fname,ml_fname,def,th,v) = hd thms
              else (MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
                    handle HOL_ERR _ => let
                      val (_,ml_name,_,_,_) = hd thms
-                     in (print_unable_to_prove_ind_thm ml_name; th) end)
+                     in (print_unable_to_prove_ind_thm original_def ml_name; th) end)
 
     val results = th |> CONJUNCTS |> map SPEC_ALL
 (*
