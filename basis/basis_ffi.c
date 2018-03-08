@@ -33,67 +33,90 @@ void ffiget_arg (unsigned char *c, long clen, unsigned char *a, long alen) {
   }
 }
 
-/* fsFFI (file system and I/O) */
-
-/* 0 indicates null fd */
-int infds[256] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-
-int nextFD() {
-  int fd = 0;
-  while(fd < 256 && infds[fd] != -1) fd++;
-  return fd;
+void int_to_byte2(int i, unsigned char *b){
+    /* i is encoded on 2 bytes */
+    b[0] = (i >> 8) & 0xFF;
+    b[1] = i & 0xFF;
 }
 
+int byte2_to_int(unsigned char *b){
+    return ((b[0] << 8) | b[1]);
+}
+
+void int_to_byte8(int i, unsigned char *b){
+    /* i is encoded on 8 bytes */
+    /* i is cast to long long to ensure having 64 bits */
+    /* assumes CHAR_BIT = 8. use static assertion checks? */
+    b[0] = ((long long) i >> 56) & 0xFF;
+    b[1] = ((long long) i >> 48) & 0xFF;
+    b[2] = ((long long) i >> 40) & 0xFF;
+    b[3] = ((long long) i >> 32) & 0xFF;
+    b[4] = ((long long) i >> 24) & 0xFF;
+    b[5] = ((long long) i >> 16) & 0xFF;
+    b[6] = ((long long) i >> 8) & 0xFF;
+    b[7] =  (long long) i & 0xFF;
+}
+
+int byte8_to_int(unsigned char *b){
+    return (((long long) b[0] << 56) | ((long long) b[1] << 48) |
+             ((long long) b[2] << 40) | ((long long) b[3] << 32) |
+             (b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]);
+}
+
+
+/* fsFFI (file system and I/O) */
+
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
-  int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDONLY))){
+  int fd = open((const char *) c, O_RDONLY);
+  if (0 <= fd){
     a[0] = 0;
-    a[1] = fd;
+    int_to_byte8(fd, &a[1]);
   }
   else
-    a[0] = 255;
+    a[0] = 1;
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
-  int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open((const char *) a, O_RDWR|O_CREAT|O_TRUNC))){
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  if (0 <= fd){
     a[0] = 0;
-    a[1] = fd;
+    int_to_byte8(fd, &a[1]);
   }
   else
     a[0] = 255;
 }
 
 void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
-  int nread = read(infds[a[0]], &a[3], a[1]);
+  int fd = byte8_to_int(c);
+  int n = byte2_to_int(a);
+  int nread = read(fd, &a[4], n);
   if(nread < 0){
     a[0] = 1;
   }
   else{
     a[0] = 0;
-    a[1] = nread;
+    int_to_byte2(nread,&a[1]);
   }
 }
 
 void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
-  int nw = write(infds[a[0]], &a[3+a[2]], a[1]);
+  int fd = byte8_to_int(c);
+  int n = byte2_to_int(a);
+  int off = byte2_to_int(&a[2]);
+  int nw = write(fd, &a[4 + off], n);
   if(nw < 0){
       a[0] = 1;
   }
-
   else{
     a[0] = 0;
-    a[1] = nw;
+    int_to_byte2(nw,&a[1]);
   }
 }
 
 void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
-  if (infds[a[0]] && close(infds[a[0]]) == 0) {
-    infds[a[0]] = -1;
-    a[0] = 1;
-  }
-  else
-    a[0] = 0;
+  int fd = byte8_to_int(c);
+  if (close(fd) == 0) a[0] = 0;
+  else a[0] = 1;
 }
 
 /* GC FFI */

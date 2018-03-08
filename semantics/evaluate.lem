@@ -148,6 +148,9 @@ evaluate_match st env v ((p,e)::pes) err_v  =
     end
   else (st, Rerr (Rabort Rtype_error))
 
+declare {isabelle} rename function evaluate = fun_evaluate
+declare {isabelle} rename function evaluate_match = fun_evaluate_match
+
 val evaluate_decs :
   forall 'ffi. list modN -> state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec
@@ -206,6 +209,8 @@ evaluate_decs mn st env [Dexn locs cn ts] =
      Rval <| v = nsEmpty; c = nsSing cn (length ts, TypeExn (mk_id mn cn)) |>)
 declare termination_argument evaluate_decs = automatic
 
+declare {isabelle} rename function evaluate_decs = fun_evaluate_decs
+
 let envLift mn env =
   <| v = nsLift mn env.v; c = nsLift mn env.c |>
 
@@ -247,3 +252,5 @@ evaluate_prog st env prog =
     evaluate_tops st env prog
   else
     (st, Rerr (Rabort Rtype_error))
+
+declare {isabelle} rename function evaluate_prog = fun_evaluate_prog

@@ -6,6 +6,8 @@ val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = new_theory "word_bignumProof";
 
+val shift_def = backend_commonTheory.word_shift_def
+
 
 (* semantics of the little language *)
 
@@ -1050,6 +1052,7 @@ val compile_thm = store_thm("compile_thm",
     \\ first_x_assum drule
     \\ disch_then (qspecl_then [`ys`,`st |+ (Temp (n2w h),Word v)`] mp_tac)
     \\ fs []
+    \\ simp[GSYM PULL_FORALL, GSYM AND_IMP_INTRO]
     \\ impl_tac THEN1
      (fs [reg_write_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ ntac 2 strip_tac
       \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rw [])

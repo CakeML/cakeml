@@ -169,6 +169,8 @@ val REAL_TYPE_def = Define `
   REAL_TYPE (r:real) =
     \v. ?x:rat. RAT_TYPE x v /\ (real_of_rat x = r)`;
 
+val _ = add_type_inv ``REAL_TYPE`` ``:(int # num)``;
+
 (* transfer *)
 
 val RAT_RAT = Q.prove(

@@ -1,10 +1,10 @@
 open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
-     gc_sharedTheory gc_combinedTheory;
+     gc_sharedTheory gc_combinedTheory word_gcFunctionsTheory;
 local open blastLib in end;
 
-val shift_def = wordLangTheory.shift_def;
+val shift_def = backend_commonTheory.word_shift_def;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_word_memoryProof";
@@ -315,16 +315,6 @@ val abs_ml_inv_def = Define `
 
 (* TODO: move/reorganise various things in this file *)
 
-val theWord_def = Define `
-  theWord (Word w) = w`
-
-val isWord_def = Define `
-  (isWord (Word w) = T) /\ (isWord _ = F)`;
-
-val isWord_exists = Q.store_thm("isWord_exists",
-  `isWord x ⇔ ∃w. x = Word w`,
-  Cases_on`x` \\ rw[isWord_def]);
-
 val word_list_limit = Q.store_thm("word_list_limit",
   `EVERY isWord ws ∧ ALL_DISTINCT ws ⇒
     LENGTH (ws:'a word_loc list) ≤ dimword(:'a) `,
@@ -401,21 +391,6 @@ val EVERY2_IMP_EL = METIS_PROVE[EVERY2_EQ_EL]
 val EVERY2_MAP_FST_SND = Q.prove(
   `!xs. EVERY2 P (MAP FST xs) (MAP SND xs) = EVERY (\(x,y). P x y) xs`,
   Induct \\ srw_tac [] [LIST_REL_def] \\ Cases_on `h` \\ srw_tac [] []);
-
-val LESS_EQ_LENGTH = Q.store_thm("LESS_EQ_LENGTH",
-  `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`,
-  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
-  \\ srw_tac [] [ADD1]);
-
-val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
-  `!xs k. k < LENGTH xs ==>
-           ?ys1 y ys2. (xs = ys1 ++ y::ys2) /\ (LENGTH ys1 = k)`,
-  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
-  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
-  \\ srw_tac [] [ADD1]);
 
 val fapply_fupdate_update = Q.store_thm("fapply_fupdate_update",
   `$' (f |+ p) = (FST p =+ SND p) ($' f)`,
@@ -3044,9 +3019,6 @@ val word_payload_T_IMP = Q.store_thm("word_payload_T_IMP",
   \\ fs [labPropsTheory.good_dimindex_def,fcpTheory.FCP_BETA,
          word_index] \\ rfs []);
 
-val decode_length_def = Define `
-  decode_length conf (w:'a word) = w >>> (dimindex (:'a) - conf.len_size)`;
-
 val word_el_def = Define `
   (word_el a (Unused l) conf = word_list_exists (a:'a word) (l+1)) /\
   (word_el a (ForwardPointer n d l) conf =
@@ -3221,12 +3193,6 @@ val memory_rel_Unit = Q.store_thm("memory_rel_Unit",
     memory_rel c be refs sp st m dm ((Unit,Word (2w:'a word))::xs)`,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac word_ml_inv_Unit \\ fs []);
-
-val bytes_in_word_mul_eq_shift = Q.store_thm("bytes_in_word_mul_eq_shift",
-  `good_dimindex (:'a) ==>
-   (bytes_in_word * w = (w << shift (:'a)):'a word)`,
-  fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []);
 
 val get_lowerbits_LSL_shift_length = Q.store_thm("get_lowerbits_LSL_shift_length",
   `get_lowerbits conf a >>> shift_length conf = 0w`,
@@ -5200,11 +5166,6 @@ val memory_rel_ValueArray_IMP = Q.store_thm("memory_rel_ValueArray_IMP",
   \\ fs [labPropsTheory.good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
 
-val LESS_LENGTH_IMP = Q.prove(
-  `!xs n. n < LENGTH xs ==> ?ys t ts. xs = ys ++ t::ts /\ LENGTH ys = n`,
-  Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL] \\ rw []
-  \\ res_tac \\ clean_tac \\ qexists_tac `h::ys` \\ fs []);
-
 val expand_num =
   DECIDE ``4 = SUC 3 /\ 3 = SUC 2 /\ 2 = SUC 1 /\ 1 = SUC 0 /\
            5 = SUC 4 /\ 6 = SUC 5 /\ 7 = SUC 6 /\ 8 = SUC 7``
@@ -5771,7 +5732,7 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
         (EL (i DIV 2 ** k) (MAP Word (write_bytes vals (REPLICATE ws 0w) be)))` by
      (`i DIV 2 ** k < LENGTH (MAP Word (write_bytes vals (REPLICATE ws 0w) be))` by
                 (fs [] \\ decide_tac)
-      \\ drule LESS_LENGTH_IMP \\ strip_tac \\ clean_tac
+      \\ drule LESS_LENGTH \\ strip_tac \\ clean_tac
       \\ fs [word_list_def,word_list_APPEND,bytes_in_word_def,word_mul_n2w]
       \\ SEP_R_TAC \\ fs []
       \\ pop_assum (fn th => rewrite_tac [GSYM th])
@@ -5779,7 +5740,8 @@ val memory_rel_ByteArray_IMP = Q.store_thm("memory_rel_ByteArray_IMP",
       \\ fs [EL_LENGTH_APPEND])
     \\ fs [EL_MAP,LENGTH_write_bytes]
     \\ `i DIV 2 ** k < LENGTH (REPLICATE ws 0w)` by simp[]
-    \\ drule LESS_LENGTH_IMP \\ strip_tac \\ clean_tac
+    \\ drule LESS_LENGTH \\ strip_tac \\ clean_tac
+    \\ rename [‘REPLICATE ws 0w = ys ++ t::ts’]
     \\ fs [write_bytes_APPEND]
     \\ `i DIV 2 ** k = LENGTH (write_bytes vals ys be)` by
           metis_tac [LENGTH_write_bytes]
@@ -5958,12 +5920,6 @@ val memory_rel_any_Number_IMP = store_thm("memory_rel_any_Number_IMP",
   \\ rewrite_tac [WORD_NEG,WORD_ADD_BIT0,word_index,word_1comp_def]
   \\ simp_tac std_ss [fcpTheory.FCP_BETA,DIMINDEX_GT_0,word_1comp_def]
   \\ EVAL_TAC);
-
-val Smallnum_i2w = store_thm("Smallnum_i2w",
-  ``Smallnum i = i2w (4 * i)``,
-  Cases_on `i` \\ fs [Smallnum_def,integer_wordTheory.i2w_def]
-  \\ reverse IF_CASES_TAC THEN1 (`F` by intLib.COOPER_TAC)
-  \\ ntac 2 AP_TERM_TAC \\ intLib.COOPER_TAC);
 
 val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   ``good_dimindex (:'a) /\ small_int (:'a) i /\
@@ -6286,10 +6242,6 @@ val word_ml_inv_SP_LIMIT = Q.store_thm("word_ml_inv_SP_LIMIT",
   \\ imp_res_tac heap_lookup_SPLIT \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[heap_length_APPEND,
         heap_length_def,el_length_def] \\ decide_tac);
-
-val word_or_eq_0 = Q.prove(
-  `((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)`,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ metis_tac [])
 
 val lt8 =
   DECIDE ``(n < 8n) = (n = 0 \/ n = 1 \/ n = 2 \/ n = 3 \/
@@ -7663,7 +7615,7 @@ val write_bytes_inj = Q.store_thm("write_bytes_inj",
   \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
   \\ metis_tac[]);
 
-val word_eq_thm = store_thm("word_eq_thm",
+val word_eq_thm0 = prove(
   ``(!refs v1 v2 l b w1 w2.
        memory_rel c be refs sp st m dm
           ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
@@ -7951,7 +7903,7 @@ val word_eq_thm = store_thm("word_eq_thm",
        word_eq c st dm m (MustTerminate_limit (:'a) - 1) w1 w2 = SOME (res,l1) /\
        (b <=> (res = 1w))``,
   rw [] \\ imp_res_tac memory_rel_limit
-  \\ drule (word_eq_thm |> CONJUNCT1)
+  \\ drule (word_eq_thm0 |> CONJUNCT1)
   \\ fs []
   \\ `dimword (:α) * vb_size v1 < MustTerminate_limit (:α) − 1`
            by (fs [good_dimindex_def,dimword_def] \\ rfs [])
@@ -8038,11 +7990,6 @@ val memory_rel_Number_const_test = Q.store_thm("memory_rel_Number_const_test",
   \\ pop_assum mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ intLib.COOPER_TAC);
-
-val word_or_eq_0 = store_thm("word_or_eq_0",
-  ``(w || v) = 0w <=> w = 0w /\ v = 0w``,
-  fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_index]
-  \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
 
 val word_1_and_eq_0 = prove(
   ``((1w && w) = 0w) <=> ~(word_bit 0 w)``,

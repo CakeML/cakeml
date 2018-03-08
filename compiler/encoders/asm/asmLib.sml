@@ -4,6 +4,14 @@ struct
 open HolKernel boolLib bossLib
 open asmTheory asmSemTheory asmPropsTheory utilsLib
 
+structure Parse = struct
+  open Parse
+  val (Type,Term) = parse_from_grammars asmPropsTheory.asmProps_grammars
+end
+
+open Parse
+
+
 val ERR = Feedback.mk_HOL_ERR "asmLib"
 
 (* some rewrites ---------------------------------------------------------- *)
@@ -28,8 +36,8 @@ val asm_rwts =
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
     mem_op_def, inst_def, jump_to_offset_def, asm_def,
-    Q.prove
-      (`!a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)`, rw [])
+    prove
+      (“!a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)”, rw [])
     ]
 
 (* compset support -------------------------------------------------------- *)
@@ -104,7 +112,7 @@ end
 local
   val aligned2 =
     Conv.RIGHT_CONV_RULE EVAL
-      (Q.SPECL [`2`, `x`] alignmentTheory.aligned_bitwise_and)
+      (SPECL [“2n”, “x:α words$word”] alignmentTheory.aligned_bitwise_and)
   val rwts = ref ([aligned2] : thm list)
   val cnv = ref NO_CONV
   val pair_term_compare = Lib.pair_compare (Term.compare, Term.compare)
@@ -166,7 +174,7 @@ val strip_bytes_in_memory =
 
 local
    val bytes_in_memory_concat =
-      Q.GENL [`l1`, `l2`]
+      GENL [“l1: word8 list”, “l2 : word8 list”]
          (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
    val w8 = ``:word8``
    val pc = Term.mk_var ("pc", ``:'a word``)
@@ -206,9 +214,9 @@ end
 local
    fun bit_mod_thm n m =
       let
-         val th = bitTheory.BITS_ZERO3 |> Q.SPEC n |> numLib.REDUCE_RULE
          val M = Parse.Term m
          val N = Parse.Term n
+         val th = bitTheory.BITS_ZERO3 |> SPEC N |> numLib.REDUCE_RULE
       in
          Tactical.prove (
              ``BIT ^M n = BIT ^M (n MOD 2 ** (^N + 1))``,

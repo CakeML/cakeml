@@ -12,6 +12,21 @@ val _ = set_grammar_ancestry [
 val _ = Datatype `
   word_loc = Word ('a word) | Loc num num `;
 
+
+val is_fwd_ptr_def = Define `
+  (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
+  (is_fwd_ptr _ = F)`;
+
+val theWord_def = Define `
+  theWord (Word w) = w`
+
+val isWord_def = Define `
+  (isWord (Word w) = T) /\ (isWord _ = F)`;
+
+val isWord_exists = Q.store_thm("isWord_exists",
+  `isWord x ⇔ ∃w. x = Word w`,
+  Cases_on`x` \\ rw[isWord_def]);
+
 val byte_index_def = Define `
   byte_index (a:'a word) is_bigendian =
     let d = dimindex (:'a) DIV 8 in

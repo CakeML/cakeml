@@ -1,4 +1,5 @@
 open import Pervasives
+open import Set_extra
 
 type alist 'k 'v = list ('k * 'v)
 
@@ -95,11 +96,11 @@ let nsAll2 r env1 env2 =
   nsSub r env1 env2 &&
   nsSub (fun x y z -> r x z y) env2 env1
 
-val nsDom : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (id 'm 'n)
-let nsDom env = { n | forall v n | nsLookup env n = Just v }
+val nsDom : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v, SetType 'v => namespace 'm 'n 'v -> set (id 'm 'n)
+let nsDom env = { n | forall (v IN universal) (n IN universal) | nsLookup env n = Just v }
 
 val nsDomMod : forall 'v 'm 'n. SetType 'm, Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (list 'm)
-let nsDomMod env = { n | forall v n | nsLookupMod env n = Just v }
+let nsDomMod env = { n | forall (v IN universal) (n IN universal) | nsLookupMod env n = Just v }
 
 val nsMap : forall 'v 'w 'm 'n. ('v -> 'w) -> namespace 'm 'n 'v -> namespace 'm 'n 'w
 let rec nsMap f (Bind v m) =

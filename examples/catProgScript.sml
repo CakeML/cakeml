@@ -52,8 +52,9 @@ val do_onefile_spec = Q.store_thm(
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
   >- xsimpl
-  \\ imp_res_tac nextFD_leX
+  \\ imp_res_tac nextFD_ltX
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
   \\ pop_assum(qspec_then`0`strip_assume_tac)
   \\ imp_res_tac STD_streams_nextFD
   \\ qabbrev_tac`fd = nextFD fs` \\

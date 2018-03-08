@@ -24,9 +24,8 @@ val _ = Hol_datatype `
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
-val _ = register_type ``:unit``;
 val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";

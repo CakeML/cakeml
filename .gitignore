@@ -65,3 +65,7 @@ compiler/benchmarks/sml/polyc_*
 compiler/benchmarks/sml/sml_*
 compiler/benchmarks/*.dat
 compiler/benchmarks/*.eps
+
+# sexpression build
+unverified/sexp-bootstrap/build
+compiler-sexp*

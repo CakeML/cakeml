@@ -6,7 +6,7 @@ open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
 open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
 
-val _ = new_theory "graphStateProg"
+val _ = new_theory "floyd_warshallProg"
 val _ = ParseExtras.temp_loose_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -36,14 +36,14 @@ val (dim,get_dim_def,set_dim_def) = dim_accessors;
 (* Create the data type to handle the references *)
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
 (* Monadic functions to handle the exceptions *)
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:graph``;
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
-val sub_exn = ``ReadError ()``;
-val update_exn = ``WriteError ()``;
+val sub_exn = ``Subscript``;
+val update_exn = ``Subscript``;
 val arr_manip = define_MRarray_manip_funs [adj_mat_accessors] sub_exn update_exn;
 
 val adj_mat_manip = el 1 arr_manip;

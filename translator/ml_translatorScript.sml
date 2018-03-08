@@ -3,14 +3,15 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open preamble integerTheory
+open integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
      mlvectorTheory mlstringTheory ml_progTheory packLib;
 open integer_wordSyntax
 open terminationTheory
-local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end
+local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end;
+open preamble;
 
 val _ = new_theory "ml_translator";
 
@@ -109,8 +110,8 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
               INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``](
                 CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro)))
   \\ simp[]
-  \\ impl_tac >- EVAL_TAC
   \\ disch_then(qspec_then`s with clock := c`mp_tac)
+  \\ impl_tac >- EVAL_TAC
   \\ simp[] \\ strip_tac
   \\ `Rval [x] = list_result ((Rval x):(v,v) result)` by EVAL_TAC
   \\ pop_assum SUBST_ALL_TAC

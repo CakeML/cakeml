@@ -5,7 +5,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory;
+     gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
@@ -301,7 +301,7 @@ val get_real_addr_lemma = Q.store_thm("get_real_addr_lemma",
   \\ eval_tac \\ fs [] \\ rw []
   \\ eval_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
-  \\ rfs [shift_def] \\ fs []);
+  \\ rfs [backend_commonTheory.word_shift_def] \\ fs []);
 
 val memory_rel_lookup = Q.store_thm("memory_rel_lookup",
   `memory_rel c be refs s st m dm

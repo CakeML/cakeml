@@ -156,6 +156,7 @@ val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
   \\ fs [set_sepTheory.SEP_EXISTS_THM]
   \\ qexists_tac `K T` \\ fs []);
 
+
 val stdio_INTRO = prove(
   ``(!st. EvalM ro env st exp
             (MONAD UNIT_TYPE UNIT_TYPE f)
@@ -173,7 +174,7 @@ val stdio_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ disch_then strip_assume_tac
   \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
