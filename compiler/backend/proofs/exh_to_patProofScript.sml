@@ -47,18 +47,18 @@ val map_result_compile_vs_list_result = Q.store_thm("map_result_compile_vs_list_
   Cases_on`r`>>simp[])
 
 val compile_state_def = Define`
-  compile_state (s:'ffi exhSem$state) =
+  compile_state (:'c) (s:'ffi exhSem$state) :('c,'ffi) patSem$state =
     <| clock := s.clock;
        refs := MAP (map_sv compile_v) s.refs;
        ffi := s.ffi;
        globals := MAP (OPTION_MAP compile_v) s.globals |>`;
 
 val compile_state_dec_clock = Q.prove(
-  `compile_state (dec_clock s) = dec_clock (compile_state s)`,
+  `compile_state (:'c) (dec_clock s) = dec_clock (compile_state (:'c) s)`,
   EVAL_TAC)
 
 val compile_state_with_clock = Q.prove(
-  `compile_state (s with clock := k) = compile_state s with clock := k`,
+  `compile_state (:'c) (s with clock := k) = compile_state (:'c) s with clock := k`,
   EVAL_TAC)
 
 (* semantic functions obey translation *)
@@ -130,8 +130,8 @@ val do_app = Q.prove(
   `∀op vs s0 s0_pat env s res.
      do_app s0 op vs = SOME (s,res)
      ⇒
-     do_app (compile_state s0) (Op op) (compile_vs vs) =
-       SOME (compile_state s,map_result compile_v compile_v res)`,
+     do_app (compile_state (:'c) s0) (Op op) (compile_vs vs) =
+       SOME (compile_state (:'c) s,map_result compile_v compile_v res)`,
   srw_tac[][compile_state_def] >>
   fs[exhSemTheory.do_app_cases] >> rw[] >>
   rw[patSemTheory.do_app_def,
@@ -191,7 +191,7 @@ val v_to_list_no_closures = Q.prove (
 
 val s = mk_var("s",
   ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
-  |> type_subst[alpha |-> ``:'ffi``])
+  |> type_subst[alpha|->gamma,beta|->``:'ffi``])
 
 val lemmas =
   [PAIR_EQ,
@@ -340,9 +340,9 @@ val compile_pat_correct = Q.prove(
        pmatch s.refs p v env = res ∧ res ≠ Match_type_error ⇒
        evaluate
          (compile_v v::env4)
-         (compile_state s)
+         (compile_state (:'c) s)
          [compile_pat t p] =
-         (compile_state s
+         (compile_state (:'c) s
          ,Rval [Boolv (∃env'. res = Match env')])) ∧
     (∀t n ps qs vs ^s env env' res env4.
        pmatch_list s.refs qs (TAKE n vs) env = Match env' ∧
@@ -350,9 +350,9 @@ val compile_pat_correct = Q.prove(
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
        evaluate
          (compile_vs vs ++ env4)
-         (compile_state s)
+         (compile_state (:'c) s)
          [compile_pats t n ps] =
-         (compile_state s
+         (compile_state (:'c) s
          ,Rval [Boolv (∃env'. res = Match env')]))`,
   ho_match_mp_tac compile_pat_ind >>
   srw_tac[][exhSemTheory.pmatch_def,compile_pat_def] >>
@@ -449,8 +449,9 @@ val compile_row_correct = Q.prove(
         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
        ∀env count genv e res.
          evaluate (menv4++env)
-           <| clock := count; refs := MAP (map_sv compile_v) s.refs;
-              ffi := s.ffi; globals := genv |> [e] = res ∧
+           ((<| clock := count; refs := MAP (map_sv compile_v) s.refs;
+                ffi := s.ffi; globals := genv |>):('c,'ffi) patSem$state)
+         [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate (compile_v v::env)
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
@@ -471,8 +472,9 @@ val compile_row_correct = Q.prove(
         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
        ∀env count genv e res.
          evaluate (menv4++menv4k++(Conv tag (MAP compile_v vs))::env)
-           <| clock := count; refs := MAP (map_sv compile_v) s.refs;
-              ffi := s.ffi; globals := genv |> [e] = res ∧
+           ((<| clock := count; refs := MAP (map_sv compile_v) s.refs;
+                ffi := s.ffi; globals := genv |>): ('c,'ffi) patSem$state)
+         [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate (menv4k++(Conv tag (MAP compile_v vs))::env)
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
@@ -919,7 +921,7 @@ val v_rel_sym = Q.store_thm("v_rel_sym",
   srw_tac[][] >> fsrw_tac[ARITH_ss][env_rel_def])
 
 val state_rel_def = Define`
-  state_rel s1 s2 ⇔
+  state_rel (s1: ('c,'ffi) patSem$state) (s2: ('c,'ffi) patSem$state) ⇔
     s1.clock = s2.clock ∧
     LIST_REL (sv_rel v_rel) s1.refs s2.refs ∧
     s1.ffi = s2.ffi ∧
@@ -1072,7 +1074,7 @@ val v_to_list_SOME = Q.prove(
   BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[])
 
 val v_to_list_v_rel = Q.prove(
-  `∀l1 l2 n l3.
+  `∀l1 l2 l3.
     v_rel l1 l2 ∧ v_to_list l1 = SOME l3 ⇒
     ∃l4. v_to_list l2 = SOME l4 ∧
          LIST_REL v_rel l3 l4`,
@@ -1088,7 +1090,7 @@ val v_to_list_v_rel = Q.prove(
   res_tac >> simp[])
 
 val v_to_list_v_rel_none = Q.prove(
-  `∀l1 l2 n l3.
+  `∀l1 l2.
     v_rel l1 l2 ∧ v_to_list l1 = NONE ⇒
     v_to_list l2 = NONE`,
   ho_match_mp_tac patSemTheory.v_to_list_ind >>
@@ -1100,7 +1102,7 @@ val v_to_list_v_rel_none = Q.prove(
   res_tac >> fs[]);
 
 val v_to_char_list_v_rel = Q.prove(
-  `∀l1 l2 n l3.
+  `∀l1 l2 l3.
     v_rel l1 l2 ∧ v_to_char_list l1 = SOME l3 ⇒
     v_to_char_list l2 = SOME l3`,
   ho_match_mp_tac patSemTheory.v_to_char_list_ind >>
@@ -1115,7 +1117,7 @@ val v_to_char_list_v_rel = Q.prove(
   res_tac >> simp[])
 
 val v_to_char_list_v_rel_none = Q.prove(
-  `∀l1 l2 n l3.
+  `∀l1 l2.
     v_rel l1 l2 ∧ v_to_char_list l1 = NONE ⇒
     v_to_char_list l2 = NONE`,
   ho_match_mp_tac patSemTheory.v_to_char_list_ind >>
@@ -1141,7 +1143,7 @@ val do_app_def = patSemTheory.do_app_def
 local
   val ty =
     ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
-    |> type_subst[alpha |-> ``:'ffi``]
+    |> type_subst[alpha|->gamma,beta|->``:'ffi``]
 in
   val s1 = mk_var("s1",ty)
   val s = mk_var("s",ty)
@@ -1323,7 +1325,9 @@ val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
     qmatch_assum_rename_tac`evaluate env1 s1 _ = (_,r)` >>
     reverse(Cases_on`r`)>>full_simp_tac(srw_ss())[]>- srw_tac[][] >>
     reverse IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    imp_res_tac EVERY2_REVERSE >- (
+    imp_res_tac EVERY2_REVERSE
+    >- cheat (* TODO: do_install *)
+    >- (
       imp_res_tac do_app_v_rel >>
       last_x_assum(qspec_then`op`mp_tac) >>
       srw_tac[][OPTREL_def] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -2013,18 +2017,18 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     ∃ress4.
       evaluate
         (MAP (compile_v o SND) env)
-        (compile_state s)
+        (compile_state (:'c) s)
         (compile_exps (MAP (SOME o FST) env) exps) = ress4 ∧
-      state_rel (compile_state (FST ress)) (FST ress4) ∧
+      state_rel (compile_state (:'c) (FST ress)) (FST ress4) ∧
       result_rel (LIST_REL v_rel) v_rel (map_result compile_vs compile_v (SND ress)) (SND ress4)) ∧
    (∀env ^s v pes res t. evaluate_match env s v pes = res ⇒
     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
     ∃res4.
       evaluate
         (compile_v v::(MAP (compile_v o SND) env))
-        (compile_state s)
+        (compile_state (:'c) s)
         [compile_pes t (NONE::(MAP (SOME o FST) env)) pes] = res4 ∧
-      state_rel (compile_state (FST res)) (FST res4) ∧
+      state_rel (compile_state (:'c) (FST res)) (FST res4) ∧
       result_rel (LIST_REL v_rel) v_rel (map_result (MAP compile_v) compile_v (SND res)) (SND res4))`,
   ho_match_mp_tac exhSemTheory.evaluate_ind >>
   (* nil *)
@@ -2404,7 +2408,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   `semantics env st es ≠ Fail ⇒
    semantics
      (MAP (compile_v o SND) env)
-     (compile_state st)
+     (compile_state (:'c) st)
      (compile_exps (MAP (SOME o FST) env) es) =
    semantics env st es`,
   simp[exhSemTheory.semantics_def] >>
@@ -2427,7 +2431,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
       qmatch_assum_abbrev_tac`exhSem$evaluate env ss es = _` >>
       qmatch_assum_abbrev_tac`patSem$evaluate bnv bs be = _` >>
       qispl_then[`env`,`ss`,`es`]mp_tac (CONJUNCT1 exhPropsTheory.evaluate_add_to_clock_io_events_mono) >>
-      qspecl_then[`bnv`,`bs`,`be`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
+      Q.ISPECL_THEN [`bnv`,`bs`,`be`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
       simp[Abbr`bs`,Abbr`ss`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
