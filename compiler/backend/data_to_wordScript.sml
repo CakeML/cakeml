@@ -719,7 +719,7 @@ val Append_code_def = Define `
              Assign 3 (Const header);
              Assign 5 (Op Sub [Lookup TriggerGC; Var 1]);
              Assign 7 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                                   (Nat (shift_length c − shift (:'a)));
+                                   (shift_length c − shift (:'a));
                               Const (1w || (small_shift_length c − 1 -- 0)
                                               (ptr_bits c 0 2))]);
              Set (Temp 2w) (Var 7);
