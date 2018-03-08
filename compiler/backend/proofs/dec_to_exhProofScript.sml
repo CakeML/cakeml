@@ -351,6 +351,25 @@ val tac =
   every_case_tac >>
   full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[];
 
+val v_rel_l2v_APPEND = Q.store_thm("v_rel_l2v_APPEND",
+  `!x1 x2 y1 y2.
+   v_rel exh (list_to_v x1) (list_to_v x2) /\
+   v_rel exh (list_to_v y1) (list_to_v y2) ==>
+     v_rel exh (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct \\ Induct_on `x2`
+  \\ rw [v_rel_rules, conSemTheory.list_to_v_def, exhSemTheory.list_to_v_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ simp [Once v_rel_cases] \\ rw []
+  \\ simp [Once v_rel_cases]);
+
+val v_rel_l2v = Q.store_thm("v_rel_l2v",
+  `!xs ys.
+     LIST_REL (v_rel exh) xs ys ==>
+       v_rel exh (list_to_v xs) (list_to_v ys)`,
+  Induct \\ rw []
+  \\ fs [exhSemTheory.list_to_v_def, conSemTheory.list_to_v_def, v_rel_rules]
+  \\ simp [Once v_rel_cases]);
+
 val do_app_lem = Q.prove (
   `!(exh:exh_ctors_env) s1 op vs r' ffi' res s1_exh vs_exh.
     conSem$do_app (s1.refs,s1.ffi) op vs = SOME ((r',ffi'), res) ∧
@@ -391,6 +410,13 @@ val do_app_lem = Q.prove (
     strip_tac >> `n = LENGTH s1_exh.refs` by simp[] >> simp[] >>
     simp[LIST_REL_EL_EQN,LENGTH_REPLICATE,EL_REPLICATE] >>
     NO_TAC)
+  \\ TRY
+   (rename1 `list_to_v`
+    \\ fs [PULL_EXISTS]
+    \\ imp_res_tac v_to_list \\ fs []
+    \\ reverse conj_tac
+    >- tac
+    \\ metis_tac [v_rel_l2v, v_rel_l2v_APPEND])
   \\ (tac >> fsrw_tac[ARITH_ss][LIST_REL_EL_EQN,EL_LUPDATE] >>
       metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def,
                  NOT_SOME_NONE, SOME_11, GREATER_EQ, NOT_LESS, LIST_REL_EL_EQN, PAIR_EQ]));

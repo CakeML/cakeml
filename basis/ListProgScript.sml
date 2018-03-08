@@ -1,5 +1,6 @@
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
+open basisFunctionsLib
 
 val _ = new_theory"ListProg"
 
@@ -18,7 +19,14 @@ val result = next_ml_names := ["revAppend"]
 val res = translate REV_DEF;
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
-val append_v_thm = translate APPEND;
+
+(* New list-append translation *)
+val append_v_thm = trans "@" `(++): 'a list -> 'a list -> 'a list`
+val _ = save_thm("append_v_thm",append_v_thm);
+
+(* Old list-append translation *)
+(*val append_v_thm = translate APPEND;*)
+(*val _ = save_thm("append_v_thm",append_v_thm);*)
 
 val result = translate HD;
 val hd_side_def = Q.prove(
@@ -310,13 +318,17 @@ val Eval_o_f = Q.prove(
   |> (fn th => MATCH_MP th AMAP_eval)
   |> add_user_proved_v_thm;
 
-val append_eval = let
-  val th = fetch "-" "append_v_thm"
-  val inv = ``x ++ (y:('a # 'b) list)``
-            |> repeat rator |> hol2deep |> concl |> rand
-  val pat = th |> concl |> rator
-  val (ii,ss) = match_term pat inv
-  val th = INST ii (INST_TYPE ss th)
+(* TODO: quick fix on account of hol2deep not accepting ``$++`` *)
+val append_eval =
+  let
+    val th  = fetch "-" "append_v_thm"
+    val pat = th |> concl |> rator
+    val inv = ``(LIST_TYPE (PAIR_TYPE a b) -->
+                 LIST_TYPE (PAIR_TYPE a b) -->
+                 LIST_TYPE (PAIR_TYPE a b))
+                 ((++) : ('a # 'b) list -> ('a # 'b) list -> ('a # 'b) list)``
+    val (ii,ss) = match_term pat inv
+    val th = INST ii (INST_TYPE ss th)
   in th end
 
 val Eval_FUNION = Q.prove(
