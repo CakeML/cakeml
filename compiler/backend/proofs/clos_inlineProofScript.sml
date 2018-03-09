@@ -966,7 +966,6 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ metis_tac [UNION_ASSOC, UNION_COMM])
     \\ qexists_tac `n` \\ fs []));
 
-
 val evaluate_changed_globals = save_thm(
    "evaluate_changed_globals",
    CONJUNCT1 evaluate_changed_globals_0);
@@ -996,6 +995,40 @@ val mglobals_extend_DISJOINT_state_globals_approx = Q.store_thm(
   THEN1 (fs [state_globals_approx_def] \\ metis_tac [])
   THEN1 (`k ∉ domain g` by fs [Once DISJOINT_SYM, DISJOINT_ALT]
          \\ fs [domain_lookup]));
+
+(*
+val first_n_exps_SUC = Q.store_thm("first_n_exps_SUC",
+  `!co n. elist_globals (first_n_exps co (SUC n)) =
+  elist_globals (first_n_exps co n) ⊎ set_globals (FST (SND (co n)))`,
+  rw [] \\ simp [first_n_exps_def, GENLIST, SNOC_APPEND, elist_globals_append]);
+
+val first_n_exps_disjoint_globals = Q.store_thm("first_n_exps_disjoint_globals",
+  `!g co. co_disjoint_globals g co ==>
+   !n. DISJOINT (domain g) (SET_OF_BAG (elist_globals (first_n_exps co n)))`,
+  rpt strip_tac
+  \\ fs [co_disjoint_globals_def]
+  \\ Induct_on `n`
+  THEN1 simp [first_n_exps_def]
+  \\ simp [first_n_exps_SUC, SET_OF_BAG_UNION, DISJOINT_SYM]);
+
+val evaluate_changed_globals_alt = Q.save_thm(
+  "evaluate_changed_globals_alt",
+  `!es env s0 res s g'.
+     evaluate (es,env,s0) = (res,s) /\ ssgc_free s0 /\
+     EVERY esgc_free es /\ EVERY vsgc_free env /\
+     state_globals_approx s0 g' /\
+     co_disjoint_globals g' s0.compile_oracle ==>
+     state_globals_approx s g'`,
+
+  rpt strip_tac
+  \\ drule evaluate_changed_globals
+  \\ simp [] \\ strip_tac
+  \\ match_mp_tac mglobals_extend_DISJOINT_state_globals_approx
+  \\ goal_assum drule \\ simp []
+  \\ reverse conj_tac
+  THEN1 metis_tac [DISJOINT_SYM, first_n_exps_disjoint_globals]
+*)
+
 
 val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_approx",
   `!args g0 a g vs (s0:('c, 'ffi) closSem$state) g' e s1 res s.
@@ -1947,6 +1980,21 @@ val state_rel_ssgc_free = Q.store_thm(
     \\ qpat_x_assum `!n. _ = []` (qspec_then `nn` mp_tac)
     \\ simp []))
 
+
+val loptrel_def = Define`
+  loptrel fv numargs lopt1 lopt2 ⇔
+     lopt2 = lopt1 ∨
+     lopt1 = NONE ∧
+     case (fv,lopt2) of
+       | (Closure (SOME loc1) ae _ n bod, SOME loc2) =>
+            loc1 = loc2 ∧ n = numargs ∧ ae = []
+       | (Recclosure (SOME loc1) ae _ fns i, SOME loc2) =>
+         i < LENGTH fns ∧ loc2 = loc1 + 2 * i ∧ numargs = FST (EL i fns) ∧
+         ae = []
+       | _ => F
+`;
+
+
 val evaluate_changed_globals_inst = INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``] evaluate_changed_globals
 val known_correct_approx_inst = INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``] known_correct_approx
 
@@ -2032,8 +2080,42 @@ val do_app_lemma = Q.prove(
   \\ fs [FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs [ref_rel_cases]);
 
+(*
+val evaluate_app_lemma = Q.store_thm(
+  "evaluate_app_lemma",
+  `evaluate_app app_lopt
+     (Closure clos_lopt clos_args env arity body)
+     args s0 = (res, s) /\ res <> Rerr (Rabort Rtype_error) ==>
+     app_lopt = clos_lopt`,
+  Cases_on `args` \\ simp [evaluate_def]
+  \\ strip_tac
+
+val v_caseT = v_case_eq |> INST_TYPE [alpha |-> bool] |> Q.INST [`v` |-> `T`]
+                        |> REWRITE_RULE []
+val optcaset = ``option$option_CASE``
+val opt_caseT = case_eq_thms |> CONJUNCTS
+                    |> List.find (fn th => th |> concl |> lhs |> lhs
+                                              |> strip_comb
+                                              |> #1 |> same_const optcaset)
+                    |> valOf
+                    |> INST_TYPE [beta |-> bool]
+                    |> Q.INST [`v'` |-> `T`]
+                    |> SIMP_RULE (srw_ss()) []
+
+
+val loptrel_arg1_SOME = save_thm(
+  "loptrel_arg1_SOME",
+  loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `SOME loc1`]
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+
+val loptrel_arg1_NONE = save_thm(
+  "loptrel_arg1_NONE",
+  loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `NONE`]
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+*)
 
 val say = say0 "known_correct0";
+
 
 val known_correct0 = Q.prove(
   `(!xs env1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env2 t0 limit g0 g g' aenv eas.
@@ -2058,14 +2140,17 @@ val known_correct0 = Q.prove(
         evaluate (MAP FST eas, env2, t0) = (res2, t) /\
         result_rel (LIST_REL (v_rel limit g')) (v_rel limit g') res1 res2 /\
         state_rel limit g' s t) /\
-   (!loc_opt f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s f2 args2 t0 limit g'.
-      evaluate_app loc_opt f1 args1 s0 = (res1, s) /\
-      v_rel limit g' f1 f2 /\ LIST_REL (v_rel limit g') args1 args2 /\
-      state_rel limit g' s0 t0 ==>
+   (!lopt1 f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s lopt2 f2 args2 t0 limit g.
+      evaluate_app lopt1 f1 args1 s0 = (res1, s) /\
+      ssgc_free s0 /\
+      v_rel limit g f1 f2 /\ LIST_REL (v_rel limit g) args1 args2 /\
+      state_rel limit g s0 t0 /\ state_globals_approx s0 g /\
+      vsgc_free f1 /\ oracle_state_sgc_free s0.compile_oracle /\
+      loptrel f2 (LENGTH args1) lopt1 lopt2 ==>
       ?res2 t.
-        evaluate_app loc_opt f2 args2 t0 = (res2, t) /\
-        result_rel (LIST_REL (v_rel limit g')) (v_rel limit g') res1 res2 /\
-        state_rel limit g' s t)`,
+        evaluate_app lopt2 f2 args2 t0 = (res2, t) /\
+        result_rel (LIST_REL (v_rel limit g)) (v_rel limit g) res1 res2 /\
+        state_rel limit g s t)`,
 
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
@@ -2232,9 +2317,110 @@ val known_correct0 = Q.prove(
   THEN1
    (say "Letrec"
     \\ cheat)
+
+
   THEN1
    (say "App"
-    \\ cheat)
+    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ imp_res_tac unique_set_globals_subexps
+    \\ imp_res_tac known_LENGTH_EQ_E
+    \\ rename1 `known _ _ _ g0 = (_, g1)`
+    \\ rename1 `known _ _ _ g1 = (_, g2)`
+    \\ `g2 = g` by (fs [bool_case_eq, case_eq_thms]
+                    \\ rpt (pairarg_tac \\ fs []))
+    \\ rveq
+    \\ patresolve `subspt g0 g` (el 3) subspt_known_elist_globals
+    \\ rpt (disch_then drule)
+    \\ impl_tac THEN1 (imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
+                       \\ fs [BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+    \\ strip_tac
+    \\ `subspt g1 g'` by metis_tac [subspt_trans]
+    (* Cases split on annotate or inline *)
+    \\ Cases_on `SND limit = 0 \/ body_opt = NONE`
+    THEN1
+     (`eas = [(App v9 new_loc_opt e1 (MAP FST ea2),Other)]` by (fs [] \\ fs [])
+      \\ qpat_x_assum `_ \/ _` kall_tac
+      \\ qpat_x_assum `(if SND limit = 0 then _ else _) = _` kall_tac
+      \\ rveq
+      \\ fs [evaluate_def, bool_case_eq, pair_case_eq]
+      \\ first_x_assum drule
+      \\ rpt (disch_then drule \\ simp [])
+      \\ fs [result_case_eq] \\ rveq \\ fs []
+      \\ strip_tac \\ fs [] \\ rveq
+      \\ fs [pair_case_eq]
+      \\ first_x_assum drule
+      \\ rpt (disch_then drule \\ simp [])
+      \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_changed_globals_inst
+      \\ simp [] \\ strip_tac \\ fs []
+      \\ fs [co_disjoint_globals_shift_seq,
+             unique_set_globals_shift_seq,
+             co_every_Fn_vs_NONE_shift_seq,
+             oracle_state_sgc_free_shift_seq]
+      \\ patresolve `known _ _ _ g0 = _` hd known_preserves_esgc_free
+      \\ simp [] \\ strip_tac
+      \\ patresolve `known _ _ _ g0 = _` hd known_correct_approx
+      \\ disch_then drule \\ simp []
+      \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
+      \\ patresolve `LIST_REL _ env1 env2` hd v_rel_EVERY_vsgc_free
+      \\ simp [] \\ strip_tac
+      \\ patresolve `LIST_REL _ env1 env2` hd v_rel_LIST_REL_val_approx
+      \\ strip_tac \\ fs []
+      \\ qpat_x_assum `state_rel _ _ s0 _` assume_tac
+      \\ drule state_rel_ssgc_free \\ simp []
+      \\ strip_tac
+      \\ drule state_rel_state_globals_approx
+      \\ strip_tac \\ fs []
+      \\ disch_then (qpat_assum `state_globals_approx _ _` o mp_then Any mp_tac)
+      \\ simp []
+      \\ drule state_rel_unique_set_globals \\ simp []
+      \\ disch_then kall_tac
+      \\ drule state_rel_co_disjoint_globals \\ simp []
+      \\ disch_then kall_tac
+      \\ strip_tac \\ rveq \\ fs []
+      \\ qpat_x_assum `state_rel _ _ s1 _` assume_tac
+      \\ drule state_rel_state_globals_approx \\ strip_tac \\ fs []
+      \\ fs [result_case_eq] \\ fs [] \\ rveq
+      \\ strip_tac \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_SING
+      \\ rveq \\ fs []
+      \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals_inst
+      \\ simp [] \\ strip_tac \\ fs []
+      \\ first_x_assum match_mp_tac \\ fs []
+      \\ `oracle_state_sgc_free s2.compile_oracle` by fs [oracle_state_sgc_free_shift_seq]
+      \\ rfs []
+      \\ patresolve `known _ _ _ g1 = _` hd known_correct_approx
+      \\ simp []
+      \\ disch_then drule \\ simp []
+      \\ disch_then (qspec_then `g'` mp_tac) \\ simp []
+      \\ qpat_x_assum `state_rel _ _ s1 _` assume_tac
+      \\ drule state_rel_ssgc_free
+      \\ simp [oracle_state_sgc_free_shift_seq]
+      \\ strip_tac
+      \\ `oracle_state_sgc_free s1.compile_oracle` by fs [oracle_state_sgc_free_shift_seq]
+      \\ `unique_set_globals [x1] s1.compile_oracle` by fs [unique_set_globals_shift_seq]
+      \\ `co_disjoint_globals g' s1.compile_oracle` by fs [co_disjoint_globals_shift_seq]
+      \\ rfs []
+      \\ drule state_rel_unique_set_globals \\ simp []
+      \\ disch_then kall_tac
+      \\ drule state_rel_co_disjoint_globals \\ simp []
+      \\ disch_then kall_tac
+      \\ strip_tac
+      \\ qpat_x_assum `state_rel _ _ s2 _` assume_tac
+      \\ drule state_rel_state_globals_approx
+      \\ strip_tac \\ simp []
+      \\ rename1 `dest_Clos fapx`
+      \\ Cases_on `dest_Clos fapx` \\ fs []
+      THEN1 fs [loptrel_def] \\ rveq \\ fs []
+      \\ Cases_on `lopt1` \\ fs []
+      THEN1 (simp [loptrel_def]
+             \\ rename1 `dest_Clos fapx = SOME clos_apx`
+             \\ `?clos_loc clos_arity clos_body. clos_apx = (clos_loc, clos_arity, clos_body)`
+                by (Cases_on `fapx` \\ fs [] \\ metis_tac [])
+             \\ fs [bool_case_eq] \\ metis_tac [evaluate_IMP_LENGTH])
+      \\ simp [loptrel_def]
+      \\ fs [pair_case_eq, bool_case_eq])
+   THEN1
+    (cheat))
   THEN1
    (say "Tick"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq

@@ -347,7 +347,7 @@ known_op op as g =
   | SetGlobal n =>
     (case as of
      | [] => (Other,g)
-     | (a::xs) => 
+     | (a::xs) =>
        dtcase lookup n g of
        | NONE => (Other, insert n a g)
        | SOME other => (Other, insert n (merge other a) g))
@@ -473,15 +473,16 @@ val known_def = tDefine "known" `
      let (new_loc_opt, body_opt) =
          dtcase dest_Clos a1 of
            | NONE => (loc_opt, NONE)
-           | SOME (loc,arity,body_opt) => if arity = LENGTH xs
-                                          then (SOME loc, body_opt)
-                                          else (NONE, NONE)
+           | SOME (loc,arity,body_opt) =>
+               if (loc_opt = NONE \/ loc_opt = SOME loc) /\ arity = LENGTH xs
+               then (SOME loc, body_opt)
+               else (loc_opt, NONE)
      in
        if SND limit = 0n then ([(App t new_loc_opt e1 (MAP FST ea2),Other)],g)
        else
-       dtcase body_opt of 
+       dtcase body_opt of
           | NONE => ([(App t new_loc_opt e1 (MAP FST ea2),Other)],g)
-          | SOME body => 
+          | SOME body =>
              if pure x then
                let (eabody,_) = known (dec_depth limit) [body] (MAP SND ea2 ++ vs) g in
                let (ebody,abody) = HD eabody
