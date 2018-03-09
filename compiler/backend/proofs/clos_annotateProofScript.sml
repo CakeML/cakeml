@@ -249,6 +249,12 @@ val ALOOKUP_compile = Q.store_thm("ALOOKUP_compile",
 
 (* semantic functions respect relation *)
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.  LIST_REL v_rel xs ys ==> v_rel (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
+
 val v_to_list = Q.prove(
   `!h h'.
       v_rel h h' ==>

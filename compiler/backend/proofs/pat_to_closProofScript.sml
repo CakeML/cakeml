@@ -206,6 +206,25 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL]);
 
+val list_to_v_compile = Q.store_thm("list_to_v_compile",
+  `!x xs.
+   v_to_list x = SOME xs /\
+   v_to_list (compile_v x) = SOME (MAP compile_v xs) ==>
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`,
+  ho_match_mp_tac patSemTheory.v_to_list_ind
+  \\ rw [patSemTheory.v_to_list_def] \\ fs []
+  \\ fs [list_to_v_def, patSemTheory.list_to_v_def, case_eq_thms] \\ rveq
+  \\ fs [v_to_list_def, case_eq_thms, list_to_v_def, patSemTheory.list_to_v_def]);
+
+val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
+  `!xs ys.
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs) /\
+     list_to_v (MAP compile_v ys) = compile_v (list_to_v ys) ==>
+       list_to_v (MAP compile_v (xs ++ ys)) =
+       compile_v (list_to_v (xs ++ ys))`,
+  Induct \\ rw [patSemTheory.list_to_v_def]
+  \\ fs [list_to_v_def, patSemTheory.list_to_v_def]);
+
 val dest_WordToInt_SOME = store_thm("dest_WordToInt_SOME",
   ``!w es x. dest_WordToInt w es = SOME x <=>
              ?tra. es = [App tra (Op (Op (WordToInt w))) [x]]``,
@@ -363,6 +382,17 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
         fs[do_app_def])) >>
+    Cases_on `op = Op (Op ListAppend)`
+    >-
+     (rw []
+      \\ fs [do_app_cases, SWAP_REVERSE_SYM] \\ rw []
+      \\ fsrw_tac [ETA_ss] [evaluate_def, do_app_def, case_eq_thms,
+                            pair_case_eq, PULL_EXISTS, SWAP_REVERSE_SYM]
+      \\ imp_res_tac evaluate_length
+      \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+      \\ fs [evaluate_def, case_eq_thms, pair_case_eq] \\ rveq
+      \\ imp_res_tac v_to_list \\ fs []
+      \\ metis_tac [list_to_v_compile_APPEND, list_to_v_compile, MAP_APPEND]) >>
     fs[patSemTheory.do_app_cases] >> rw[] >>
     rfs[] >>
     fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>

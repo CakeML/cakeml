@@ -936,6 +936,23 @@ val tac =
   full_simp_tac(srw_ss())[Boolv] >>
   TRY (full_simp_tac(srw_ss())[gtagenv_wf_def, has_exns_def] >> NO_TAC);
 
+val v_rel_l2v_APPEND = Q.store_thm("v_rel_l2v_APPEND",
+  `!x1 y1 x2 y2.
+     v_rel tagenv (list_to_v x1) (list_to_v x2) /\
+     v_rel tagenv (list_to_v y1) (list_to_v y2) ==>
+       v_rel tagenv (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct \\ Induct_on `x2`
+  \\ rw [list_to_v_def, conSemTheory.list_to_v_def, v_rel_eqns]);
+
+val v_rel_l2v = Q.store_thm("v_rel_l2v",
+  `!x y.
+   gtagenv_wf tagenv /\
+   vs_rel tagenv x y ==>
+     v_rel tagenv (list_to_v x) (list_to_v y)`,
+  Induct \\ rw [list_to_v_def, conSemTheory.list_to_v_def, v_rel_eqns]
+  \\ fs [gtagenv_wf_def, has_lists_def, conSemTheory.list_to_v_def]
+  \\ res_tac \\ fs []);
+
 val do_app = Q.prove (
   `!gtagenv s1 s2 op vs r s1_i2 vs_i2.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -952,6 +969,12 @@ val do_app = Q.prove (
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i2` >>
+  Cases_on `op = ListAppend`
+  >-
+   (rw [] \\ tac
+    \\ imp_res_tac v_to_list \\ fs []
+    \\ rfs [] \\ rw []
+    \\ metis_tac [v_rel_l2v, v_rel_l2v_APPEND]) >>
   Cases_on `op = ConfigGC` THEN1 tac >>
   cases_on `op` >>
   srw_tac[][]
@@ -1025,14 +1048,10 @@ val do_app = Q.prove (
       TRY (cases_on `t'`) >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       srw_tac[][]
-(*<<<<<<< HEAD
-      >> (every_case_tac >>
-=======*)
       >- (every_case_tac \\ fs[Once v_rel_cases] \\ rw[]
           \\ TRY (every_case_tac) \\ fs [conSemTheory.do_app_def] \\ rw[]
           \\ full_simp_tac (srw_ss()) [conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def, has_exns_def, gtagenv_wf_def])
       >- (every_case_tac >>
-(*>>>>>>> origin*)
           imp_res_tac v_to_list >>
           srw_tac[][conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def] >>
           srw_tac[][]))

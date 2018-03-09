@@ -183,8 +183,16 @@ val InstallData_location_def = Define `
   InstallData_location = InstallCode_location+1`;
 val Dummy_location_def = Define `
   Dummy_location = InstallData_location+1`;
+val Append_location_def = Define `
+  Append_location = Dummy_location+1`;
+val AppendMainLoop_location_def = Define `
+  AppendMainLoop_location = Append_location+1`;
+val AppendLenLoop_location_def = Define `
+  AppendLenLoop_location = AppendMainLoop_location+1`;
+val AppendFastLoop_location_def = Define `
+  AppendFastLoop_location = AppendLenLoop_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = Dummy_location+1`;
+  Bignum_location = AppendFastLoop_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -240,6 +248,14 @@ val InstallData_location_eq = save_thm("InstallData_location_eq",
   ``InstallData_location`` |> EVAL);
 val Dummy_location_eq = save_thm("Dummy_location_eq",
   ``Dummy_location`` |> EVAL);
+val Append_location_eq = save_thm("Append_location_eq",
+  ``Append_location`` |> EVAL);
+val AppendMainLoop_location_eq = save_thm("AppendMainLoop_location_eq",
+  ``AppendMainLoop_location`` |> EVAL);
+val AppendLenLoop_location_eq = save_thm("AppendLenLoop_location_eq",
+  ``AppendLenLoop_location`` |> EVAL);
+val AppendFastLoop_location_eq = save_thm("AppendFastLoop_location_eq",
+  ``AppendFastLoop_location`` |> EVAL);
 
 val SilentFFI_def = Define `
   SilentFFI c n names =
@@ -744,6 +760,70 @@ val LongDiv1_code_def = Define `
                    Inst (Arith (AddCarry 12 12 14 1));
                    Call NONE (SOME LongDiv1_location) [0;2;4;6;8;10;12] NONE])`;
 
+val Append_code_def = Define `
+  Append_code c =
+    (dtcase encode_header c 0 2 of
+     | NONE => Skip  :'a wordLang$prog
+     | SOME (header:'a word) =>
+        If Test 4 (Imm 1w) (Return 0 2)
+          (list_Seq
+            [Set (Temp 0w) (Var 2);
+             Set (Temp 1w) (Var 4);
+             Assign 1 (Lookup NextFree);
+             Assign 3 (Const header);
+             Assign 5 (Op Sub [Lookup TriggerGC; Var 1]);
+             Assign 7 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                                   (Nat (shift_length c − shift (:'a)));
+                              Const (1w || (small_shift_length c − 1 -- 0)
+                                              (ptr_bits c 0 2))]);
+             Set (Temp 2w) (Var 7);
+             Call NONE (SOME AppendMainLoop_location) [0; 1; 4; 3; 5; 7] NONE]))`
+
+val AppendMainLoop_code_def = Define `
+  AppendMainLoop_code c =
+    list_Seq
+      [Assign 1 (real_addr c 4);
+       Assign 3 (Load (Op Add [Var 1; Const bytes_in_word]));
+       Assign 5 (Load (Op Add [Var 1; Const (2w * bytes_in_word)]));
+       If Lower 8 (Imm (3w * bytes_in_word))
+         (* unlucky case: GC is needed *)
+         (Seq (Assign 1 (Const 0w))
+              (Call NONE (SOME AppendLenLoop_location) [0; 4; 1] NONE)) Skip;
+       Store (Var 2) 6;
+       Store (Op Add [Var 2; Const bytes_in_word]) 3;
+       If Test 5 (Imm 1w) Skip (* cons case: *)
+         (list_Seq
+           [Assign 10 (Op Add [Var 10;
+              Const (n2w (3 * 2 ** shift_length c))]);
+            Assign 8 (Op Sub [Var 8; Const (3w * bytes_in_word)]);
+            Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 10;
+            Assign 2 (Op Add [Var 2; Const (3w * bytes_in_word)]);
+            Call NONE (SOME AppendMainLoop_location) [0; 2; 5; 6; 8; 10] NONE]);
+       (* nil case *)
+       Assign 1 (Lookup (Temp 0w)); (* arg 2 to append *)
+       Assign 3 (Lookup (Temp 2w)); (* ret value *)
+       Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 1;
+       Set NextFree (Op Add [Var 2; Const (3w * bytes_in_word)]);
+       Return 0 3] :'a wordLang$prog`;
+
+val AppendLenLoop_code_def = Define `
+  AppendLenLoop_code c =
+    If Test 2 (Imm 1w)
+      (list_Seq
+        [Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
+         Assign 1 (Op Add [Var 4; ShiftVar Lsr 1 (shift (:'a) - 2)]);
+         Assign 4 (Lookup (Temp 0w));
+         Assign 2 (Lookup (Temp 1w));
+         AllocVar c (dimword (:α) DIV 8 - 1) (fromList [();()]);
+         Call NONE (SOME Append_location) [0; 4; 2] NONE])
+      (list_Seq
+        [Assign 2 (Load (Op Add [real_addr c 2; Const (2w * bytes_in_word)]));
+         Assign 4 (Op Add [Var 4; Const (12w:'a word)]);
+         Call NONE (SOME AppendLenLoop_location) [0; 2; 4] NONE])`;
+
+val AppendFastLoop_code_def = Define `
+  AppendFastLoop_code c = Skip :'a wordLang$prog`;
+
 val get_names_def = Define `
   (get_names NONE = LN) /\
   (get_names (SOME x) = x)`;
@@ -955,6 +1035,17 @@ local val assign_quotation = `
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
       | _ => (Skip,l))
+    | ListAppend =>
+      (dtcase args of
+       | [v1;v2] =>
+         (dtcase encode_header c 0 2 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME Append_location)
+                   [adjust_var v2; adjust_var v1] NONE) :'a wordLang$prog,l+1))
+       | _ => (Skip,l))
     | Cons tag => if LENGTH args = 0 then
                     if tag < dimword (:'a) DIV 16 then
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
@@ -1988,6 +2079,10 @@ val stubs_def = Define`
     (Install_location,3n,Install_code data_conf);
     (InstallCode_location,4n,InstallCode_code data_conf);
     (InstallData_location,4n,InstallData_code data_conf);
+    (Append_location,3n,Append_code data_conf);
+    (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
+    (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
+    (AppendFastLoop_location,5n,AppendFastLoop_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);

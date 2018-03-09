@@ -241,6 +241,12 @@ val infer_p_ind = fetch "-" "infer_p_ind";
 val constrain_op_quotation = `
 constrain_op l op ts =
   dtcase (op,ts) of
+     (ListAppend, [t1;t2]) =>
+       do uvar <- fresh_uvar ();
+          () <- add_constraint l t1 (Infer_Tapp [uvar] (TC_name (Short "list")));
+          () <- add_constraint l t2 (Infer_Tapp [uvar] (TC_name (Short "list")));
+          return (Infer_Tapp [uvar] (TC_name (Short "list")))
+       od
    | (Opn opn, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] TC_int);
           () <- add_constraint l t2 (Infer_Tapp [] TC_int);

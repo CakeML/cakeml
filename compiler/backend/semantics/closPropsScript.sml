@@ -1786,6 +1786,56 @@ val refs_ffi_lemma = prove(
     ((s with refs := refs') with ffi := ffi')``,
   fs []);
 
+val simple_val_rel_list = Q.store_thm("simple_val_rel_list",
+  `!x x1 xs vr.
+     simple_val_rel vr /\
+     vr x x1 /\
+     v_to_list x1 = SOME xs
+     ==>
+     ?xs1.
+     vr (list_to_v xs1) (list_to_v xs) /\
+     v_to_list x = SOME xs1`,
+   recInduct v_to_list_ind \\ rw []
+   \\ fs [v_to_list_def, list_to_v_def]
+   \\ rfs [simple_val_rel_alt] \\ rw [] \\ rfs []
+   \\ Cases_on `x1` \\ fs [] \\ rfs [] \\ rw []
+   \\ fs [v_to_list_def, list_to_v_def] \\ rw []
+   \\ fs [v_to_list_def, list_to_v_def] \\ rw []
+   \\ fs [case_eq_thms] \\ rw []
+   \\ Cases_on `y'` \\ fs [v_to_list_def] \\ rfs [] \\ fs [] \\ rw []
+   \\ fs [list_to_v_def, PULL_EXISTS]
+   \\ first_x_assum drule
+   \\ rpt (disch_then drule \\ fs []) \\ rw []
+   \\ metis_tac []);
+
+val simple_val_rel_APPEND = Q.store_thm("simple_val_rel_APPEND",
+  `!xs1 ys1 xs2 ys2 vr.
+   simple_val_rel vr /\
+   vr (list_to_v xs1) (list_to_v xs2) /\
+   vr (list_to_v ys1) (list_to_v ys2)
+   ==>
+   vr (list_to_v (xs1++ys1)) (list_to_v (xs2++ys2))`,
+  Induct \\ rw []
+  \\ rfs [simple_val_rel_alt]
+  \\ fs [list_to_v_def]
+  \\ Cases_on `xs2` \\ rfs [list_to_v_def]
+  \\ first_x_assum drule
+  \\ fs [PULL_EXISTS]
+  \\ metis_tac []);
+
+val vr_list_NONE = Q.store_thm("vr_list_NONE",
+  `!x x1 vr.
+   simple_val_rel vr /\
+   vr x x1 /\
+   v_to_list x1 = NONE ==>
+   v_to_list x = NONE`,
+  recInduct v_to_list_ind \\ rw []
+  \\ Cases_on `x1` \\ rfs [simple_val_rel_alt]
+  \\ fs [v_to_list_def] \\ rw [] \\ fs [v_to_list_def, case_eq_thms]
+  \\ TRY (first_x_assum drule)
+  \\ rpt (disch_then drule \\ fs [])
+  \\ rw [] \\ metis_tac [isClos_def]);
+
 val _ = print "The following proof is slow due to Rerr cases.\n"
 val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
   ``simple_val_rel vr /\ simple_state_rel vr sr ==>
@@ -1797,6 +1847,12 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                             do_app opp xs s = Rval (x,s1)``,
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `opp = ListAppend`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ pop_assum mp_tac
+    \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
+    \\ TRY CASE_TAC \\ fs [] \\ rw []
+    \\ metis_tac [simple_val_rel_list, simple_val_rel_APPEND, vr_list_NONE])
   \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
                opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
                opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/

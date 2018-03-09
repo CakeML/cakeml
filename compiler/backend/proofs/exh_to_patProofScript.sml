@@ -126,6 +126,28 @@ val vs_to_string = Q.prove(
   ho_match_mp_tac exhSemTheory.vs_to_string_ind
   \\ rw[exhSemTheory.vs_to_string_def,patSemTheory.vs_to_string_def]);
 
+val list_to_v_compile = Q.store_thm("list_to_v_compile",
+  `!x xs.
+   v_to_list x = SOME xs /\
+   v_to_list (compile_v x) = SOME (MAP compile_v xs) ==>
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`,
+  ho_match_mp_tac exhSemTheory.v_to_list_ind
+  \\ rw [exhSemTheory.v_to_list_def] \\ fs []
+  \\ fs [patSemTheory.list_to_v_def, exhSemTheory.list_to_v_def]
+  \\ PURE_FULL_CASE_TAC \\ fs [] \\ rveq
+  \\ fs [patSemTheory.list_to_v_def, exhSemTheory.list_to_v_def,
+         patSemTheory.v_to_list_def, exhSemTheory.v_to_list_def]
+  \\ PURE_FULL_CASE_TAC \\ fs [] \\ rveq)
+
+val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
+  `!xs ys.
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs) /\
+     list_to_v (MAP compile_v ys) = compile_v (list_to_v ys) ==>
+       list_to_v (MAP compile_v (xs ++ ys)) =
+       compile_v (list_to_v (xs ++ ys))`,
+  Induct \\ rw [patSemTheory.list_to_v_def]
+  \\ fs [exhSemTheory.list_to_v_def, patSemTheory.list_to_v_def]);
+
 val do_app = Q.prove(
   `∀op vs s0 s0_pat env s res.
      do_app s0 op vs = SOME (s,res)
@@ -145,7 +167,8 @@ val do_app = Q.prove(
   imp_res_tac v_to_char_list >>
   fs[vs_to_string] >>
   TRY (last_x_assum mp_tac) >>
-  TOP_CASE_TAC \\ fs[] \\ rw[exhSemTheory.Boolv_def]);
+  TRY TOP_CASE_TAC \\ fs[] \\ rw[exhSemTheory.Boolv_def]
+  \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]);
 
 (* pattern compiler correctness *)
 
@@ -1149,6 +1172,23 @@ in
   val s = mk_var("s",ty)
 end
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys. LIST_REL v_rel xs ys ==> v_rel (list_to_v xs) (list_to_v ys)`,
+  Induct \\ rw [] \\ fs [patSemTheory.list_to_v_def, v_rel_rules]);
+
+val list_to_v_APPEND = Q.store_thm("list_to_v_APPEND",
+  `!x1 y1 x2 y2.
+     v_rel (list_to_v x1) (list_to_v x2) /\
+     v_rel (list_to_v y1) (list_to_v y2) ==>
+       v_rel (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct \\ Induct_on `x2`
+  \\ TRY (rw [v_rel_cases, patSemTheory.list_to_v_def] \\ NO_TAC)
+  \\ rw []
+  \\ fs [patSemTheory.list_to_v_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ simp [Once v_rel_cases] \\ rw []
+  \\ simp [Once v_rel_cases]);
+
 val do_app_v_rel = Q.store_thm("do_app_v_rel",
   `∀^s op s' vs vs'.
       LIST_REL v_rel vs vs' ⇒
@@ -1162,7 +1202,15 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
   srw_tac[][] >>
   srw_tac[][optionTheory.OPTREL_def] >>
   Cases_on`do_app s op vs`>>srw_tac[][]>-(
-    pop_assum(strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases_none]) >>
+    Cases_on `op = Op (Op ListAppend)`
+    >-
+     (fs [] \\ rveq
+     \\ pop_assum mp_tac
+     \\ fs [patSemTheory.do_app_def]
+     \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw []
+     \\ imp_res_tac v_to_list_v_rel_none
+     \\ imp_res_tac v_to_list_v_rel \\ rfs [])
+    \\ qpat_x_assum `do_app _ _ _ = _` (strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases_none]) >>
     rw[] >> fs[v_rel_cases] >>
     rw[patSemTheory.do_app_def] >>
     fs[store_alloc_def, store_lookup_def, store_assign_def, state_rel_def, OPTREL_def, do_eq_def] >>
@@ -1217,7 +1265,16 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     \\ TRY CASE_TAC \\ fs[]
     \\ fs[LIST_REL_EL_EQN,OPTREL_def]
     \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]) >>
-  pop_assum(strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases]) >>
+  Cases_on `op = Op (Op ListAppend)`
+  >-
+   (fs [] \\ rveq
+    \\ pop_assum mp_tac
+    \\ fs [patSemTheory.do_app_def]
+    \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw []
+    \\ imp_res_tac v_to_list_v_rel_none
+    \\ imp_res_tac v_to_list_v_rel \\ rfs [] \\ rw []
+    \\ metis_tac [list_to_v_APPEND, list_to_v_v_rel])
+  \\ qpat_x_assum `do_app _ _ _ = _` (strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases]) >>
   rw[patSemTheory.do_app_def] >>
   rfs[] >>
   fs[store_alloc_def,store_lookup_def,store_assign_def] >> rw[] >>

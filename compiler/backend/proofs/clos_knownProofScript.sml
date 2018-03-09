@@ -311,6 +311,26 @@ val mglobals_extend_decclock = Q.store_thm(
    (mglobals_extend s0 gs (dec_clock n s) ⇔ mglobals_extend s0 gs s)`,
   simp[dec_clock_def]);
 
+(* TODO closProps? *)
+val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
+  `!(x: closSem$v) y xs ys.
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys /\
+     (!t l. P (Block t l) <=> EVERY P l) /\
+     P x /\ P y ==>
+       P (list_to_v (xs ++ ys))`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, case_eq_thms] \\ fs []
+  >-
+   (qpat_x_assum `v_to_list _ = _` mp_tac
+    \\ pop_assum mp_tac
+    \\ ConseqConv.SPEC_ALL_TAC
+    \\ ho_match_mp_tac v_to_list_ind
+    \\ rw [v_to_list_def, case_eq_thms]
+    \\ fs [list_to_v_def])
+  \\ rfs []
+  \\ res_tac
+  \\ fs [list_to_v_def])
+
 val do_app_ssgc = Q.store_thm(
   "do_app_ssgc",
   `∀opn args s0 res.
@@ -369,6 +389,12 @@ val do_app_ssgc = Q.store_thm(
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
   >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
+  >- (* ListAppend *)
+   (rw [] \\ fs []
+    \\ match_mp_tac list_to_v_EVERY_APPEND
+    \\ simp [vsgc_free_def]
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs [])
   >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
       simp[v_to_list_def] >> Cases >>
@@ -1278,6 +1304,29 @@ val kvrel_do_eq0 = Q.prove(
 
 val kvrel_do_eq = save_thm("kvrel_do_eq", kvrel_do_eq0 |> CONJUNCT1);
 
+val kvrel_list_to_v = Q.store_thm("kvrel_list_to_v",
+  `!xs1 xs2 ys1 ys2.
+     LIST_REL (kvrel g) xs1 xs2 /\
+     LIST_REL (kvrel g) ys1 ys2 /\
+     kvrel g (list_to_v xs1) (list_to_v xs2) /\
+     kvrel g (list_to_v ys1) (list_to_v ys2) ==>
+       kvrel g (list_to_v (xs1 ++ ys1)) (list_to_v (xs2 ++ ys2))`,
+  Induct >- rw [list_to_v_def] \\ gen_tac
+  \\ Induct \\ rw [list_to_v_def] \\ fs []);
+
+val kvrel_v2l_l2v = Q.store_thm("kvrel_v2l_l2v",
+  `!x y xs ys.
+     kvrel g x y /\
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys ==>
+       kvrel g (list_to_v xs) (list_to_v ys)`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def]
+  \\ fs [list_to_v_def] \\ rveq
+  \\ fs [v_to_list_def] \\ rveq
+  \\ fs [list_to_v_def, case_eq_thms] \\ rveq
+  \\ fs [list_to_v_def]
+  \\ res_tac);
+
 (* necessary(!) *)
 val kvrel_op_correct_Rval = Q.store_thm(
   "kvrel_op_correct_Rval",
@@ -1327,6 +1376,11 @@ val kvrel_op_correct_Rval = Q.store_thm(
       ntac 2 strip_tac >>
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
+  >-
+   (rw [] \\ fs [] \\ rw []
+    \\ imp_res_tac kvrel_v_to_list \\ fs [] \\ rfs [] \\ rw []
+    \\ match_mp_tac kvrel_list_to_v \\ fs []
+    \\ imp_res_tac kvrel_v2l_l2v \\ fs [])
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
   >- (
     rw[] \\ fs[] \\

@@ -80,10 +80,10 @@ val word_num_stubs_def = Define`
   word_num_stubs = stack_num_stubs + 1 (* raise *)`;
 
 val data_num_stubs_def = Define`
-  data_num_stubs = word_num_stubs + (* general: *) 25 + (* dummy to make it odd *) 1 + (* bignum: *) 23 `;
+  data_num_stubs = word_num_stubs + (* general: *) 30 + (* dummy to make it odd *) 0 + (* bignum: *) 23 `;
 
 val bvl_num_stubs_def = Define`
-  bvl_num_stubs = data_num_stubs + 7 + (* dummy for bvl_num_stub_MOD *) 2
+  bvl_num_stubs = data_num_stubs + 7 + (* dummy to make it a multiple of 3 *) 1
 `;
 
 val bvl_to_bvi_namespaces_def = Define`

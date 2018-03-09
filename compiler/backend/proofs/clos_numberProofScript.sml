@@ -405,6 +405,13 @@ val do_app_lemma = store_thm("do_app_lemma",
   \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
   \\ metis_tac []);
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.
+     LIST_REL (v_rel app) xs ys ==> v_rel app (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
+
 val do_app = Q.prove(
   `state_rel s1 s2 ∧
     LIST_REL (v_rel s1.max_app) x1 x2 ⇒
@@ -494,11 +501,10 @@ val do_install = Q.prove(
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ IF_CASES_TAC \\ fs[]
-  >- (
-    IF_CASES_TAC \\ fs[]
-    \\ fs[state_rel_def,state_co_def,ignore_table_def]
-    \\ pairarg_tac \\ fs[]
-    \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] ));
+  \\ IF_CASES_TAC \\ fs[]
+  \\ fs[state_rel_def,state_co_def,ignore_table_def]
+  \\ pairarg_tac \\ fs[]
+  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] );
 
 (* compiler correctness *)
 

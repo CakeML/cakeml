@@ -3805,6 +3805,8 @@ val word_gc_fun_lemma = Q.store_thm("word_gc_fun_lemma",
     \\ `?k9. new_trig (bytes_in_word * n2w s2.n) a22 a33 =
              bytes_in_word * n2w k9 /\ k9 <= s2.n` by metis_tac [new_trig_LESS_EQ]
     \\ conj_tac THEN1 (match_mp_tac new_trig_ok \\ fs [])
+    \\ conj_tac
+    >- (unabbrev_all_tac \\ fs [good_dimindex_def, dimword_def] \\ rfs [] \\ fs [])
     \\ qexists_tac `k9` \\ fs []
     \\ rewrite_tac [CONJ_ASSOC]
     \\ simp [GSYM PULL_EXISTS]
@@ -4062,7 +4064,7 @@ val state_rel_init = Q.store_thm("state_rel_init",
   \\ fs [memory_rel_def]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
-  \\ `limit * (dimindex (:α) DIV 8) + 1 < dimword (:α)` by
+  \\ `(limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α)` by
    (fs [labPropsTheory.good_dimindex_def,dimword_def]
     \\ rfs [shift_def] \\ decide_tac)
   \\ asm_exists_tac \\ fs []
@@ -5715,16 +5717,16 @@ val has_space_state_rel = Q.store_thm("has_space_state_rel",
   \\ full_simp_tac(srw_ss())[heap_in_memory_store_def,wordSemTheory.has_space_def]
   \\ full_simp_tac(srw_ss())[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ full_simp_tac(srw_ss())[alloc_size_def,bytes_in_word_def]
-  \\ `(sp * (dimindex (:'a) DIV 8)) + 1 < dimword (:'a)` by
+  \\ `((sp+3) * (dimindex (:'a) DIV 8)) + 1 < dimword (:'a)` by
    (imp_res_tac word_ml_inv_SP_LIMIT
     \\ match_mp_tac LESS_EQ_LESS_TRANS
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
-  \\ `(sp * (dimindex (:'a) DIV 8)) < dimword (:'a)` by decide_tac
+  \\ `((sp+3) * (dimindex (:'a) DIV 8)) < dimword (:'a)` by decide_tac
   \\ every_case_tac \\ full_simp_tac(srw_ss())[word_mul_n2w]
   \\ full_simp_tac(srw_ss())[good_dimindex_def]
   \\ full_simp_tac(srw_ss())[w2n_minus1] \\ rev_full_simp_tac(srw_ss())[]
-  \\ `F` by decide_tac);
+  \\ fs []);
 
 val evaluate_IMP_inc_clock = Q.store_thm("evaluate_IMP_inc_clock",
   `evaluate (q,t) = (NONE,t1) ==>

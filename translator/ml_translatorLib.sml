@@ -2391,6 +2391,7 @@ val builtin_binops =
    Eval_INT_GREATER_EQ,
    Eval_force_gc_to_run,
    Eval_strsub,
+   Eval_ListAppend,
    Eval_sub,
    Eval_Implies]
   |> map SPEC_ALL
