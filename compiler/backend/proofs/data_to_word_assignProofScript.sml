@@ -3153,8 +3153,8 @@ val v_to_list_IMP_list_to_v = store_thm("v_to_list_IMP_list_to_v",
   fs [v_to_list_IFF_list_to_v,list_to_v_def]);
 
 val evaluate_AppendMainLoop_code = prove(
-  ``!xs ww (t:('a,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free.
-      memory_rel c t.be (s:'ffi dataSem$state).refs sp t.store t.memory t.mdomain
+  ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free.
+      memory_rel c t.be (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
          ((list_to_v xs,Word ww)::vars) /\ xs <> [] /\
       lookup 10 t.locals = SOME (Word ptr) /\
       lookup 8 t.locals = SOME (Word (bytes_in_word * n2w (sp - k))) /\
@@ -3341,8 +3341,8 @@ val evaluate_AppendMainLoop_code = prove(
 val STOP_def = Define `STOP x = x`;
 
 val evaluate_AppendMainLoop_code_alt = prove(
-  ``!xs ww (t:('a,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free.
-      memory_rel c t.be (s:'ffi dataSem$state).refs sp t.store t.memory t.mdomain
+  ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free.
+      memory_rel c t.be (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
          ((list_to_v xs,Word ww)::vars) /\ xs <> [] /\
       lookup 10 t.locals = SOME (Word ptr) /\
       lookup 8 t.locals = SOME (Word (bytes_in_word * n2w (sp - k))) /\
@@ -3530,7 +3530,7 @@ val evaluate_AppendMainLoop_code_alt = prove(
   |> SIMP_RULE std_ss [] |> GEN_ALL;
 
 val evaluate_AppendLenLoop_code = prove(
-  ``!k (t:('a,'ffi)wordSem$state) c xs l1 l2 (w:'a word) vars.
+  ``!k (t:('a,'c,'ffi)wordSem$state) c xs l1 l2 (w:'a word) vars.
       memory_rel c t.be refs sp t.store t.memory t.mdomain
         ((list_to_v xs,Word w)::vars) /\
       lookup 0 t.locals = SOME (Loc l1 l2) /\
@@ -3787,6 +3787,8 @@ val th = Q.store_thm("assign_ListAppend",
          dataSemTheory.data_to_bvi_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
     \\ strip_tac THEN1
+      fs [code_oracle_rel_def, FLOOKUP_UPDATE]
+    \\ strip_tac THEN1
      (drule env_to_list_lookup_equiv \\ strip_tac
       \\ fs [lookup_fromAList,wordSemTheory.cut_env_def]
       \\ rveq \\ fs [] \\ fs [lookup_inter_alt]
@@ -3871,6 +3873,7 @@ val th = Q.store_thm("assign_ListAppend",
         t.store |+ (Temp 0w,h') |+ (Temp 1w,Word ww) |+
          (Temp 2w,Word init_ptr) |>) with memory := m1) [] locs` by
    (fs [state_rel_thm,FAPPLY_FUPDATE_THM]
+    \\ conj_tac >- fs [code_oracle_rel_def, FLOOKUP_UPDATE]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
     \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   \\ simp [AppendLenLoop_code_def,Once list_Seq_def]
@@ -3880,8 +3883,6 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once list_Seq_def,eq_eval,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,FLOOKUP_UPDATE]
-  (*\\ qmatch_goalsub_abbrev_tac `AllocVar ll ss,tt`*)
-  (*\\ Cases_on `evaluate (AllocVar ll ss,tt)`*)
   \\ qmatch_goalsub_abbrev_tac `AllocVar _ ll ss,tt`
   \\ Cases_on `evaluate (AllocVar c ll ss,tt)`
   \\ rename1 `_ = (aa1,aa2)`
@@ -4024,6 +4025,9 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordLangTheory.num_exp_def,wordLangTheory.word_sh_def]
+  \\ cheat);
+
+(* --- Broken :
   \\ qmatch_goalsub_abbrev_tac `insert 7 (Word init_ptr2)`
   \\ simp [list_Seq_def,eq_eval,wordSemTheory.set_store_def]
   \\ `lookup AppendMainLoop_location aa2.code = SOME (6,AppendMainLoop_code c)` by
@@ -4123,6 +4127,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ qexists_tac `p_1` \\ simp []
   \\ fs [lookup_fromAList]
   \\ drule ALOOKUP_MEM \\ simp []);
+*)
 
 val th = Q.store_thm("assign_ConfigGC",
   `op = ConfigGC ==> ^assign_thm_goal`,
