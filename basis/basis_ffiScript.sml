@@ -320,10 +320,10 @@ val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
 val whole_prog_spec_def = Define`
-  whole_prog_spec fv cl fs post ⇔
+  whole_prog_spec fv cl fs sprop post ⇔
     ∃fs'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
-      (COMMANDLINE cl * STDIO fs)
+      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME (p,s) => p s)
       (POSTv uv. &UNIT_TYPE () uv * STDIO fs') ∧
     post (fs' with numchars := fs.numchars)`;
 
@@ -331,10 +331,11 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
   `∀fname fv.
      ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
-     whole_prog_spec fv cl fs Q ==>
+     whole_prog_spec fv cl fs sprop Q ==>
      no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_mods /\
      no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_types ==>
-     (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ (COMMANDLINE cl * STDIO fs) h1)
+     (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
+     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME (p,s) => p s) h1)
    ==>
    ∃io_events fs'.
      semantics_prog (init_state (basis_ffi cl fs)) env1
@@ -375,9 +376,14 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
   \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
   \\ fs[basis_proj1_write,STAR_def,cond_def]
-  \\ metis_tac[]
-  );
+  \\ metis_tac[]);
 
+(* NOTE: This needs to be dynamic so it has been moved to basis_ffiLib instead.
+   (You need to be able to provide an additional precond for the extra hprop
+   that is needed by Candle in particular (and monadic translator things in
+   general).
+*)
+(*
 val heap_thms = [COMMANDLINE_precond, STDIO_precond];
 
 fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
@@ -393,6 +399,7 @@ fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
 
 val sets_thm = build_set heap_thms |> curry save_thm "sets_thm";
 
+*)
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
  ffi_close_length, clFFITheory.ffi_get_arg_count_length,
