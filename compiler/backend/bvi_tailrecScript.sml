@@ -1,26 +1,9 @@
 open preamble bviTheory backend_commonTheory;
 
-(* TODO
-
-   - When scan_expr returns an operation, the type it returns should match this
-     operation. scan_expr may need some tweaks to ensure that this is always the
-     case.
-
-   - If rewrite succeeds for an operation and an expression, then scan_expr
-     should succeed for the same combination.
-
-   - It does not really work to run comml as-is; it changes order of evaluation
-     and needs all expressions 'to the left' of the first function call to pass
-     term_ok.
-
-   - The update_context thing is incredibly annoying to work with (in
-     particular, proving that the ty_rel relation holds also for the result).
-     It might help to just figure out and prove the invariants.
-*)
-
 val _ = new_theory "bvi_tailrec";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 val dummy_def = Define `dummy = bvi$Var 1234567890`;
 
@@ -44,7 +27,8 @@ val is_rec_PMATCH = Q.store_thm ("is_rec_PMATCH",
     case expr of
       Call _ d _ NONE => d = SOME name
     | _               => F`,
-  Cases \\ rw [is_rec_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
+  \\ Cases \\ fs [is_rec_def]
   \\ rename1 `Call _ _ _ hdl`
   \\ Cases_on `hdl` \\ fs [is_rec_def]);
 
@@ -57,7 +41,8 @@ val is_const_PMATCH = Q.store_thm ("is_const_PMATCH",
     case op of
       Const i => small_int i
     | _       => F`,
-  Cases \\ rw [is_const_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
+  \\ Cases \\ rw [is_const_def]);
 
 val _ = export_rewrites ["is_const_def"];
 
@@ -97,7 +82,7 @@ val from_op_PMATCH = Q.store_thm ("from_op_PMATCH",
       | Mult       => Times
       | ListAppend => Append
       | _          => Noop`,
-  Cases \\ rw [from_op_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [from_op_def]);
 
 val from_op_thm = save_thm("from_op_thm[simp]",
   map (fn tm => EVAL ``from_op ^tm``)
@@ -122,7 +107,7 @@ val op_eq_PMATCH = Q.store_thm ("op_eq_PMATCH",
            | Append => op = ListAppend
            | _      => F)
        | _ => F`,
-  Cases \\ Cases \\ rw [op_eq_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ Cases \\ rw [op_eq_def]);
 
 val op_eq_to_op = Q.store_thm ("op_eq_to_op[simp]",
   `∀iop op xs.
@@ -153,7 +138,7 @@ val index_of_PMATCH = Q.store_thm ("index_of_PMATCH",
        case expr of
          Var i => SOME i
        | _     => NONE`,
-  Cases \\ rw [index_of_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [index_of_def]);
 
 val args_from_def = Define `
   (args_from (bvi$Call t (SOME d) as hdl) = SOME (t, d, as, hdl)) ∧
@@ -166,7 +151,7 @@ val args_from_PMATCH = Q.store_thm ("args_from_PMATCH",
        case expr of
          Call t (SOME d) as hdl => SOME (t,d,as,hdl)
        | _                      => NONE`,
-  Cases \\ rw [args_from_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [args_from_def]
   \\ rename1 `Call _ nm _ _`
   \\ Cases_on `nm` \\ rw [args_from_def]);
 
@@ -182,10 +167,7 @@ val get_bin_args_PMATCH = Q.store_thm ("get_bin_args_PMATCH",
        case op of
          Op _ [e1; e2] => SOME (e1,e2)
        | _             => NONE`,
-  Cases \\ rw [get_bin_args_def]
-  \\ CASE_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
-  \\ CASE_TAC \\ fs []);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [get_bin_args_def]);
 
 val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
   `∀x x1 x2.
@@ -226,7 +208,7 @@ val is_arith_PMATCH = Q.store_thm("is_arith_PMATCH",
        | Sub  => T
        | Mult => T
        | _    => F`,
-  Cases \\ rw [is_arith_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [is_arith_def]);
 
 val is_rel_def = Define `
   is_rel op =
@@ -246,7 +228,7 @@ val is_rel_PMATCH = Q.store_thm("is_rel_PMATCH",
        | Greater   => T
        | GreaterEq => T
        | _         => F`,
-  Cases \\ rw [is_rel_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [is_rel_def]);
 
 val term_ok_int_def = tDefine "term_ok_int" `
   (term_ok_int ts expr =
@@ -393,9 +375,9 @@ val assocr_PMATCH = Q.store_thm ("assocr_PMATCH",
        | Op Mult xs       => do_assocr Times expr
        | Op ListAppend xs => do_assocr Append expr
        | _                => expr`,
-  Induct \\ rw [assocr_def]
-  \\ rename1 `from_op op`
-  \\ Cases_on `op` \\ fs []);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
+  \\ Induct \\ rw [assocr_def]
+  \\ PURE_CASE_TAC \\ fs []);
 
 (* Test do_assocr *)
 val test_tm = ``
@@ -473,7 +455,7 @@ val decide_ty_PMATCH = Q.store_thm ("decide_ty_PMATCH",
          (Int, Int)   => Int
        | (List, List) => List
        | _            => Any`,
-  Cases \\ Cases \\ rw [decide_ty_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ Cases \\ rw [decide_ty_def]);
 
 val _ = export_rewrites ["decide_ty_def"]
 
@@ -516,7 +498,7 @@ val arg_ty_PMATCH = Q.store_thm ("arg_ty_PMATCH",
        | ListAppend => List
        | Const i    => if small_int i then Int else Any
        | _          => Any`,
-  Cases \\ rw [arg_ty_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [arg_ty_def]);
 
 val op_ty_def = Define `
   (op_ty Add        = Int) /\
@@ -542,7 +524,7 @@ val op_ty_PMATCH = Q.store_thm ("op_ty_PMATCH",
        | Cons tag   => if tag = cons_tag \/ tag = nil_tag then List else Any
        | Const i    => if small_int i then Int else Any
        | _          => Any`,
-  Cases \\ rw [op_ty_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [op_ty_def]);
 
 (* Gather information about expressions:
 
@@ -715,7 +697,8 @@ val rewrite_PMATCH = Q.store_thm ("rewrite_PMATCH",
              dtcase opbinargs opr expr of
                NONE => (F, apply_op opr expr (Var acc))
              | SOME (f, xs) => (T, push_call next opr acc xs (args_from f))`,
-  recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]);
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
+  \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]);
 
 (* --- Top-level expression check --- *)
 
