@@ -10,6 +10,7 @@ local open dep_rewrite blastLib in end
 
 val _ = new_theory"stack_removeProof";
 
+val word_shift_def = backend_commonTheory.word_shift_def
 val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
 
 (* TODO: move *)
@@ -1634,7 +1635,7 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
-    \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ simp[wordLangTheory.word_sh_def]
     \\ IF_CASES_TAC \\ simp[]
     >- (
       full_simp_tac(srw_ss())[word_shift_def]
@@ -1679,7 +1680,7 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
-    \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ simp[wordLangTheory.word_sh_def]
     \\ IF_CASES_TAC \\ simp[]
     >- (
       full_simp_tac(srw_ss())[word_shift_def]
@@ -1717,7 +1718,7 @@ val comp_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[LET_THM,stackSemTheory.inst_def,stackSemTheory.assign_def,
            word_exp_def,set_var_def,FLOOKUP_UPDATE,get_var_def]
     \\ `FLOOKUP t1.regs v = SOME (Word c)` by metis_tac [state_rel_def] \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,FLOOKUP_UPDATE,wordLangTheory.num_exp_def,
+    \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,FLOOKUP_UPDATE,
            wordLangTheory.word_sh_def]
     \\ `mem_load (c << word_shift (:'a) + ww << word_shift (:'a)) t1 =
         SOME (Word (EL (w2n c) s.bitmaps))` by
@@ -1981,7 +1982,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
-       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,
+       asmTheory.word_cmp_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
@@ -2086,9 +2087,6 @@ val star_move_lemma = Q.prove(
   `p0 * p1 * p2 * p3 * p4 = p2 * (p1 * STAR p3 (p4 * p0))`,
   fs [AC STAR_COMM STAR_ASSOC]);
 
-(* TODO: let's not repeat these everywhere *)
-val isWord_def = Define `(isWord (Word w) = T) /\ (isWord _ = F)`
-val theWord_def = Define `theWord (Word w) = w`
 
 val read_mem_def = Define `
   (read_mem a m 0 = []) /\
@@ -2499,13 +2497,14 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ rfs [] \\ decide_tac) \\ strip_tac
   \\ qunabbrev_tac `s8`
   \\ qunabbrev_tac `s7`
-  \\ fs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,theWord_def,FLOOKUP_UPDATE,mem_val_def]
+  \\ fs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,wordSemTheory.theWord_def,
+         FLOOKUP_UPDATE,mem_val_def]
   \\ fs [store_init_def,store_list_def,UPDATE_LIST_def,APPLY_UPDATE_THM,
          FLOOKUP_UPDATE,word_store_def,mem_val_def,FAPPLY_FUPDATE_THM]
   \\ fs [FLOOKUP_DEF,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV,LENGTH_read_mem,
-         theWord_def,init_prop_def,the_SOME_Word_def,is_SOME_Word_def,
-         FLOOKUP_UPDATE]
+         wordSemTheory.theWord_def,init_prop_def,the_SOME_Word_def,
+         is_SOME_Word_def, FLOOKUP_UPDATE]
   \\ fs [GSYM CONJ_ASSOC]
   \\ `read_mem (n2w (d * h2)) m1 (LENGTH heap) = heap` by
    (match_mp_tac(GEN_ALL(ONCE_REWRITE_RULE[STAR_COMM]word_list_IMP_read_mem))
@@ -2993,7 +2992,7 @@ val stack_remove_comp_stack_asm_name = Q.prove(`
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
   >>
-    fs[labPropsTheory.good_dimindex_def,stackLangTheory.word_shift_def]
+    fs[labPropsTheory.good_dimindex_def,word_shift_def]
   >>
     simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
     qpat_assum`!n. A ⇒ B` mp_tac>>

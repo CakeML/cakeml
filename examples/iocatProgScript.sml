@@ -2,44 +2,45 @@ open preamble basis
 
 val _ = new_theory "iocatProg"
 
+
 val _ = translation_extends"basisProg";
 
 val st = get_ml_prog_state;
 val basis_st = get_ml_prog_state;
 
 val _ = process_topdecs`
-  fun pipe_255 fd1 fd2 =
-  let val nr = TextIO.read fd1 (Word8.fromInt 255) in
+  fun pipe_2048 fd1 fd2 =
+  let val nr = TextIO.read fd1 2048 in
     if nr = 0 then 0 else (TextIO.write fd2 nr 0; nr) end`
  |> append_prog
 
 (* to ensure preserving standard STREAMS, fd1 cannot be a std output *)
-val pipe_255_spec = Q.store_thm("pipe_255_spec",
+val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
  `!fs fd1 fd2 fnm1 fnm2 fd1v fd2v pos1 c1 c2.
-  fd1 <> fd2 /\ fnm1 <> fnm2 /\ fd1 <= 255 /\ fd2 <= 255 /\
-  WORD (n2w fd1 :word8) fd1v /\ WORD (n2w fd2 :word8) fd2v /\
+  fd1 <> fd2 /\ fnm1 <> fnm2 /\
+  FD fd1 fd1v /\ FD fd2 fd2v /\
   ALOOKUP fs.infds fd1 = SOME(fnm1,pos1) /\
   ALOOKUP fs.infds fd2 = SOME(fnm2,LENGTH c2) /\
   ALOOKUP fs.files fnm1 = SOME c1 /\ ALOOKUP fs.files fnm2 = SOME c2 /\
   fnm1 ≠ IOStream(strlit "stdout") ∧ fnm1 ≠ IOStream(strlit "stderr")
   ==>
-  app (p:'ffi ffi_proj) ^(fetch_v "pipe_255" (st())) [fd1v;fd2v]
+  app (p:'ffi ffi_proj) ^(fetch_v "pipe_2048" (st())) [fd1v;fd2v]
        (STDIO fs)
        (POSTv nrv. SEP_EXISTS nr. &NUM nr nrv *
-            &(nr <= MIN 255 (LENGTH c1 - pos1)) *
+            &(nr <= MIN 2048 (LENGTH c1 - pos1)) *
             &((nr = 0) = (eof fd1 fs = SOME T)) *
             STDIO (fsupdate (fsupdate fs fd1 0 (pos1 + nr) c1)
                             fd2 0 (LENGTH c2 +nr)
                             (c2 ++ TAKE nr (DROP pos1 c1))))`,
-  xcf "pipe_255" (st()) >> fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
-  xlet_auto >- xsimpl >>
+  xcf "pipe_2048" (st()) >> fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ bdef`] >>
-  Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
-  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
-  Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
+  Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::h3::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::h3::h4::t` >>
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   (* xlet_auto picks the wrong fd here *)
-  xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`fd1`, `fd1v`, `255w`] read_spec))
+  xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`fd1`, `fd1v`, `2048`] read_spec))
   >-(rw[get_file_content_def] >> xsimpl >> rw[]  >> instantiate  >> xsimpl)
   >-(rw[get_file_content_def] >> xsimpl) >>
   xlet_auto >- xsimpl >>
@@ -94,7 +95,7 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
 
 (* implementation of cat using low-level IO functions *)
 val _ = process_topdecs `
-  fun do_onefile fd = if pipe_255 fd TextIO.stdOut > 0 then do_onefile fd else ();
+  fun do_onefile fd = if pipe_2048 fd TextIO.stdOut > 0 then do_onefile fd else ();
   fun cat fnames =
     case fnames of
       [] => ()
@@ -106,7 +107,7 @@ val _ = process_topdecs `
 val do_onefile_spec = Q.store_thm(
   "do_onefile_spec",
   `∀content pos fnm fd fdv fs out.
-      WORD (n2w fd: word8) fdv /\ fd <= 255 /\
+      FD fd fdv /\
       ALOOKUP fs.infds fd = SOME (fnm,pos) /\
       ALOOKUP fs.files fnm = SOME content /\
       fnm <> IOStream(strlit "stdout") /\ fnm <> IOStream(strlit "stderr") /\
@@ -123,8 +124,9 @@ val do_onefile_spec = Q.store_thm(
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
   Induct_on`N` >> strip_tac >> cases_on`STRLEN content = pos` >> fs[] >>
   xcf "do_onefile" (st()) >> fs[stdo_def,up_stdo_def] >>
-  (xlet_auto_spec(SOME(Q.SPECL [`fs`,`fd`,`1`] pipe_255_spec))
-   >-(xsimpl >> rw[] \\ TRY instantiate \\ xsimpl \\ metis_tac[stdOut_def,stdout_v_thm])
+  (xlet_auto_spec(SOME(Q.SPECL [`fs`,`fd`,`1`] pipe_2048_spec))
+   >-(xsimpl >> rw[] \\ TRY instantiate \\ xsimpl \\
+      fs[FD_def,GSYM stdOut_def,stdout_v_thm])
    >> xlet_auto >- xsimpl >> xif)
   >-(instantiate >> xcon >>
      fs[eof_def] >> pairarg_tac >> fs[] >> rfs[] >>
@@ -161,7 +163,7 @@ val cat_spec0 = Q.prove(
   `∀fns fnsv fs.
      LIST_TYPE FILENAME fns fnsv ∧
      EVERY ((inFS_fname fs) o File) fns ∧
-     CARD (FDOM (alist_to_fmap fs.infds)) < 256
+     hasFreeFD fs
     ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
        (STDIO fs)
@@ -178,7 +180,7 @@ val cat_spec0 = Q.prove(
   fs[FILENAME_def] >>
   xmatch >> progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME(Q.SPECL[`h`,`v2_1`,`fs` ] openIn_STDIO_spec)) >>
-  xsimpl >> progress nextFD_ltX >>
+  xsimpl >> imp_res_tac nextFD_ltX >> rfs[] >>
   `nextFD fs <> 0 /\ nextFD fs <> 1 /\ nextFD fs <> 2`
     by(metis_tac[STD_streams_def,ALOOKUP_MEM,nextFD_NOT_MEM]) >>
   `∃out. ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"),STRLEN out) ∧

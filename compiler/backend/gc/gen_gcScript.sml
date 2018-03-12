@@ -901,7 +901,7 @@ val pointers_ok = prove(
   \\ `?i. FLOOKUP (heap_map 0 state.heap) i = SOME j` by
    (match_mp_tac BIJ_IMP_FLOOKUP_SOME \\ asm_exists_tac
     \\ fs [heap_addresses_APPEND,heap_length_APPEND] \\ NO_TAC)
-  \\ first_assum drule
+  \\ first_x_assum drule
   \\ fs [] \\ strip_tac \\ fs [heap_ok_def]
   \\ `isSomeDataElement (heap_lookup ptr heap0)` by metis_tac [heap_lookup_IMP_MEM]
   \\ imp_res_tac heaps_similar_lemma \\ fs []);

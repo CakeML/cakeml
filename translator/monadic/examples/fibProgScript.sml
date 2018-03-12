@@ -36,7 +36,6 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* Some overloadings for the parser *)
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 (* Need to hide "state" because of semanticPrimitives *)
@@ -143,8 +142,8 @@ val fibm_def = Define`
       stdio (print (num_to_str (fiba 0 1 n))) ;
       stdio (print (strlit "\n"))
     od otherwise do
-            n <- commandline (name ()) ;
-            stdio (print_err (strlit"usage: " ^ n ^ strlit" <n>\n"))
+            name <- commandline (name ()) ;
+            stdio (print_err (strlit"usage: " ^ name ^ strlit" <n>\n"))
           od`
 
 val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
@@ -173,7 +172,7 @@ val stdio_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ disch_then strip_assume_tac
   \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
@@ -207,7 +206,7 @@ val commandline_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
+  \\ disch_then strip_assume_tac
   \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]

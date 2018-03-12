@@ -355,10 +355,9 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- bvi_tailrec ---- *)
     ,bvi_tailrecTheory.dummy_def
     ,bvi_tailrecTheory.small_int_def
-    ,bvi_tailrecTheory.is_arith_op_def
-    ,bvi_tailrecTheory.is_const_def
-    ,bvi_tailrecTheory.is_num_rel_def
     ,bvi_tailrecTheory.is_rec_def
+    ,bvi_tailrecTheory.is_const_def
+    ,bvi_tailrecTheory.op_type_def
     ,bvi_tailrecTheory.to_op_def
     ,bvi_tailrecTheory.from_op_def
     ,bvi_tailrecTheory.op_eq_def
@@ -367,17 +366,29 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.index_of_def
     ,bvi_tailrecTheory.args_from_def
     ,bvi_tailrecTheory.get_bin_args_def
+    ,bvi_tailrecTheory.opbinargs_def
     ,bvi_tailrecTheory.try_update_def
-    ,bvi_tailrecTheory.no_err_def
-    ,bvi_tailrecTheory.is_rec_or_rec_binop_def
-    ,bvi_tailrecTheory.assoc_swap_def
-    ,bvi_tailrecTheory.rewrite_op_def
+    ,bvi_tailrecTheory.is_arith_def
+    ,bvi_tailrecTheory.is_rel_def
+    ,bvi_tailrecTheory.term_ok_int_def
+    ,bvi_tailrecTheory.term_ok_any_def
+    ,bvi_tailrecTheory.term_ok_def
+    ,bvi_tailrecTheory.rotate_def
+    ,bvi_tailrecTheory.do_assocr_def
+    ,bvi_tailrecTheory.assocr_def
+    ,bvi_tailrecTheory.do_comml_def
+    ,bvi_tailrecTheory.check_op_def
     ,bvi_tailrecTheory.decide_ty_def
     ,bvi_tailrecTheory.LAST1_def
+    ,bvi_tailrecTheory.update_context_def
+    ,bvi_tailrecTheory.arg_ty_def
+    ,bvi_tailrecTheory.op_ty_def
     ,bvi_tailrecTheory.scan_expr_def
+    ,bvi_tailrecTheory.comml_def
     ,bvi_tailrecTheory.push_call_def
-    ,bvi_tailrecTheory.mk_tailcall_def
     ,bvi_tailrecTheory.rewrite_def
+    ,bvi_tailrecTheory.has_rec_def
+    ,bvi_tailrecTheory.has_rec1_def
     ,bvi_tailrecTheory.check_exp_def
     ,bvi_tailrecTheory.let_wrap_def
     ,bvi_tailrecTheory.mk_aux_call_def
@@ -417,8 +428,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Tys
     [ (* wordLang *)
-     ``:'a wordLang$num_exp``
-    ,``:'a wordLang$exp``
+     ``:'a wordLang$exp``
     ,``:'a wordLang$prog``
       (* word_bignum *)
     ,``:word_bignum$address``
@@ -426,7 +436,6 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [wordLangTheory.every_var_exp_def
-    ,wordLangTheory.num_exp_def
     ,wordLangTheory.word_sh_def
     ,wordLangTheory.word_op_def
     ,wordLangTheory.every_var_imm_def
@@ -449,7 +458,6 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.tag_mask_def
     ,data_to_wordTheory.encode_header_def
     ,data_to_wordTheory.list_Seq_def
-    ,wordLangTheory.shift_def
     ,data_to_wordTheory.StoreEach_def
     ,data_to_wordTheory.small_shift_length_def
     ,data_to_wordTheory.shift_length_def
@@ -479,6 +487,10 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv1_location_eq
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
+    ,data_to_wordTheory.Append_location_eq
+    ,data_to_wordTheory.AppendMainLoop_location_eq
+    ,data_to_wordTheory.AppendLenLoop_location_eq
+    ,data_to_wordTheory.AppendFastLoop_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.ByteCopy_location_eq
     ,data_to_wordTheory.ByteCopyAdd_location_eq
@@ -505,6 +517,10 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.Mul_code_def
     ,data_to_wordTheory.Div_code_def
     ,data_to_wordTheory.Mod_code_def
+    ,data_to_wordTheory.Append_code_def
+    ,data_to_wordTheory.AppendMainLoop_code_def
+    ,data_to_wordTheory.AppendLenLoop_code_def
+    ,data_to_wordTheory.AppendFastLoop_code_def
     ,data_to_wordTheory.Compare1_code_def
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def
@@ -699,7 +715,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
-    ,stackLangTheory.word_shift_def
+    ,backend_commonTheory.word_shift_def
     ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
       (* ---- word_to_stack ---- *)

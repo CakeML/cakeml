@@ -29,9 +29,8 @@ val _ = Hol_datatype `
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
-val _ = register_type ``:unit``;
 val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
@@ -46,8 +45,8 @@ val [(the_num_name, get_the_num_def, set_the_num_def),
      (the_num_array_name, get_the_num_array_def, set_the_num_array_def),
      (the_int_array_name, get_the_int_array_def, set_the_int_array_def)] = access_funs;
 
-val sub_exn = ``ReadError ()``;
-val update_exn = ``WriteError ()``;
+val sub_exn = ``Subscript``;
+val update_exn = ``Subscript``;
 val rarray_access_funs = (List.tl access_funs);
 val rarray_manip_funs = define_MRarray_manip_funs rarray_access_funs sub_exn update_exn;
 

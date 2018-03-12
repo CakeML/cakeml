@@ -1,4 +1,4 @@
-open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
+open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory MarshallingTheory
 
 val _ = new_theory"fsFFIProps"
 
@@ -11,7 +11,9 @@ val numchars_self = Q.store_thm("numchars_self",
   `!fs. fs = fs with numchars := fs.numchars`,
   cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]);
 
-val _ = overload_on("hasFreeFD",``λfs. CARD (set (MAP FST fs.infds)) ≤ 255``);
+(* we can actually open a file if the OS limit has not been reached and we can
+* still encode the file descriptor on 8 bits *)
+val _ = overload_on("hasFreeFD",``λfs. CARD (set (MAP FST fs.infds)) < MIN maxFD (256**8)``);
 
 (* nextFD lemmas *)
 
@@ -127,13 +129,13 @@ val live_numchars_def = Define`
 val liveFS_def = Define`
   liveFS fs ⇔ live_numchars fs.numchars`;
 
-(* well formed file descriptor: all descriptors are <= 255
+(* well formed file descriptor: all descriptors are <= maxFD
 *  and correspond to file names in files *)
 
 val wfFS_def = Define`
   wfFS fs =
     ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
-         fd <= 255 ∧
+         fd <= maxFD ∧
          ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
                    fnm ∈ FDOM (alist_to_fmap fs.files))∧
     liveFS fs)
@@ -155,10 +157,11 @@ val wfFS_openFile = Q.store_thm(
   "wfFS_openFile",
   `wfFS fs ⇒ wfFS (openFileFS fnm fs off)`,
   simp[openFileFS_def, openFile_def] >>
-  Cases_on `nextFD fs <= 255` >> simp[] >>
+  Cases_on `nextFD fs <= maxFD` >> simp[] >>
   Cases_on `ALOOKUP fs.files (File fnm)` >> simp[] >>
   dsimp[wfFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
-  fs[liveFS_def] >> metis_tac[ALOOKUP_EXISTS_IFF]);
+  fs[liveFS_def] >> imp_res_tac ALOOKUP_EXISTS_IFF >>
+  metis_tac[]);
 
 val wfFS_DELKEY = Q.store_thm(
   "wfFS_DELKEY[simp]",
@@ -271,7 +274,7 @@ val ALOOKUP_SOME_inFS_fname = Q.store_thm(
 );
 
 val ALOOKUP_inFS_fname_openFileFS_nextFD = Q.store_thm("ALOOKUP_inFS_fname_openFileFS_nextFD",
-  `inFS_fname fs (File f) ∧ nextFD fs <= 255
+  `inFS_fname fs (File f) ∧ nextFD fs <= maxFD
    ⇒
    ALOOKUP (openFileFS f fs off).infds (nextFD fs) = SOME (File f,off)`,
   rw[openFileFS_def,openFile_def]
@@ -287,12 +290,12 @@ val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
   `ffi_open_in conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_in_def] \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
+  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]);
 
 val ffi_open_out_length = Q.store_thm("ffi_open_out_length",
   `ffi_open_out conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_out_def] \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
+  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]);
 
 val read_length = Q.store_thm("read_length",
     `read fd fs k = SOME (l, fs') ==> LENGTH l <= k`,
@@ -306,21 +309,20 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   rw[ffi_read_def]
   \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[n2w2_def]
   \\ imp_res_tac read_length \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[]
   \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
-  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
-  \\ metis_tac[LENGTH_LUPDATE]);
+  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[n2w2_def]
+  \\ rw[] \\ Cases_on`bytes` \\ fs[]
+  \\ rpt(Cases_on`t` \\ fs[] \\ Cases_on`t'` \\ fs[]));
 
 val ffi_close_length = Q.store_thm("ffi_close_length",
   `ffi_close conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
-  rw[ffi_close_def]
-  \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
-  \\ pairarg_tac \\ fs[] \\ rw[]);
+  rw[ffi_close_def] \\ fs[option_eq_some] \\ TRY pairarg_tac \\ fs[] \\ rw[]);
 
 (* fastForwardFD *)
 
@@ -476,7 +478,7 @@ val fsupdate_0_numchars = Q.store_thm("fsupdate_0_numchars",
 (* get_file_content *)
 
 val get_file_content_numchars = Q.store_thm("get_file_content_numchars",
- `!fs fd c p. get_file_content fs fd =
+ `!fs fd. get_file_content fs fd =
               get_file_content (fs with numchars := ll) fd`,
  fs[get_file_content_def]);
 
@@ -550,7 +552,7 @@ val openFileFS_numchars = Q.store_thm("openFileFS_numchars",
    \\ fs[openFile_def] \\ rw[]);
 
 val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
-  `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= 255 /\ wfFS fs ==>
+  `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= maxFD /\ wfFS fs ==>
                    wfFS (openFileFS f fs k)`,
   rw[wfFS_def,openFileFS_def,liveFS_def] >> full_case_tac >> fs[openFile_def] >>
   cases_on`x` >> rw[] >> fs[MEM_MAP] >> res_tac >> fs[]
@@ -570,14 +572,14 @@ val openFileFS_fupd_numchars = Q.store_thm("openFileFS_fupd_numchars",
   rw[openFileFS_def,openFile_fupd_numchars] >> rpt CASE_TAC);
 
 val IS_SOME_get_file_content_openFileFS_nextFD = Q.store_thm("IS_SOME_get_file_content_openFileFS_nextFD",
-  `inFS_fname fs (File f) ∧ nextFD fs ≤ 255
+  `inFS_fname fs (File f) ∧ nextFD fs ≤ maxFD
    ⇒ IS_SOME (get_file_content (openFileFS f fs off) (nextFD fs)) `,
   rw[get_file_content_def]
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]);
 
 val A_DELKEY_nextFD_openFileFS = Q.store_thm("A_DELKEY_nextFD_openFileFS[simp]",
-  `nextFD fs <= 255 ⇒
+  `nextFD fs <= maxFD ⇒
    A_DELKEY (nextFD fs) (openFileFS f fs off).infds = fs.infds`,
   rw[openFileFS_def]
   \\ CASE_TAC
@@ -587,7 +589,7 @@ val A_DELKEY_nextFD_openFileFS = Q.store_thm("A_DELKEY_nextFD_openFileFS[simp]",
   \\ rw[A_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
 
 val openFileFS_A_DELKEY_nextFD = Q.store_thm("openFileFS_A_DELKEY_nextFD",
-  `nextFD fs ≤ 255 ⇒
+  `nextFD fs ≤ maxFD ⇒
    openFileFS f fs off with infds updated_by A_DELKEY (nextFD fs) = fs`,
   rw[IO_fs_component_equality,openFileFS_numchars,A_DELKEY_nextFD_openFileFS]);
 
@@ -740,7 +742,7 @@ val all_lines_with_numchars = Q.store_thm("all_lines_with_numchars",
   rw[FUN_EQ_THM,all_lines_def]);
 
 val linesFD_openFileFS_nextFD = Q.store_thm("linesFD_openFileFS_nextFD",
-  `inFS_fname fs (File f) ∧ nextFD fs ≤ 255 ⇒
+  `inFS_fname fs (File f) ∧ nextFD fs ≤ maxFD ⇒
    linesFD (openFileFS f fs 0) (nextFD fs) = MAP explode (all_lines fs (File f))`,
   rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
   \\ rw[all_lines_def,lines_of_def]

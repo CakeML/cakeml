@@ -87,7 +87,8 @@ val _ = translate (tag_mask_def |> conv32_RHS |> we_simp |> conv32_RHS |> SIMP_R
 val _ = translate (encode_header_def |> conv32_RHS)
 
 (* Manual inlines : shift_def, bytes_in_word because of 'a arg *)
-val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def];
+val inline_simp =
+    SIMP_RULE std_ss [backend_commonTheory.word_shift_def,bytes_in_word_def];
 
 val _ = register_type ``:32 wordLang$prog``;
 
@@ -142,9 +143,6 @@ val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
 val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
   |> SIMP_RULE std_ss []
 
-val EqualityType_WORDLANG_NUM_EXP_TYPE = find_equality_type_thm``WORDLANG_NUM_EXP_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-
 val WORDLANG_EXP_TYPE_def = theorem"WORDLANG_EXP_TYPE_def";
 val WORDLANG_EXP_TYPE_ind = theorem"WORDLANG_EXP_TYPE_ind";
 
@@ -166,8 +164,7 @@ val WORDLANG_EXP_TYPE_no_closures = Q.prove(
             EqualityType_WORD,
             EqualityType_AST_SHIFT_TYPE,
             EqualityType_ASM_BINOP_TYPE,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_WORDLANG_NUM_EXP_TYPE]);
+            EqualityType_STACKLANG_STORE_NAME_TYPE]);
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
 
@@ -193,8 +190,7 @@ val WORDLANG_EXP_TYPE_types_match = Q.prove(
             EqualityType_WORD,
             EqualityType_AST_SHIFT_TYPE,
             EqualityType_ASM_BINOP_TYPE,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_WORDLANG_NUM_EXP_TYPE]);
+            EqualityType_STACKLANG_STORE_NAME_TYPE]);
 
 val WORDLANG_EXP_TYPE_11 = Q.prove(
   `∀a b c d. WORDLANG_EXP_TYPE a b ∧ WORDLANG_EXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
@@ -226,8 +222,7 @@ val WORDLANG_EXP_TYPE_11 = Q.prove(
             EqualityType_WORD,
             EqualityType_AST_SHIFT_TYPE,
             EqualityType_ASM_BINOP_TYPE,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_WORDLANG_NUM_EXP_TYPE])
+            EqualityType_STACKLANG_STORE_NAME_TYPE])
 
 val EqualityType_WORDLANG_EXP_TYPE = Q.prove(
   `EqualityType WORDLANG_EXP_TYPE`,
@@ -530,8 +525,6 @@ val res = translate (wordLangTheory.word_sh_def
   |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv32 |> we_simp |> SIMP_RULE (srw_ss()++ARITH_ss) [SHIFT_ZERO,MOD_LESS] |> gconv
   |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt]  );
 
-val _ = translate (wordLangTheory.num_exp_def |> conv32);
-
 val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec32 |> REWRITE_RULE[word_msb_rw]);
 
 (* TODO: remove when pmatch is fixed *)
@@ -703,6 +696,11 @@ val r = translate(ByteCopy_code_def |> inline_simp |> conv32)
 val r = translate(ByteCopyAdd_code_def |> conv32)
 val r = translate(ByteCopySub_code_def |> conv32 |> econv)
 val r = translate(ByteCopyNew_code_def |> conv32)
+
+val _ = translate(Append_code_def|> inline_simp |> conv32 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
+val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv32)
+val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv32)
+val _ = translate(AppendFastLoop_code_def|> inline_simp |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)

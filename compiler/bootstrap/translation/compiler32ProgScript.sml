@@ -18,7 +18,7 @@ val max_heap_limit_32_def = Define`
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
       |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[wordLangTheory.shift_def]
+      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
       |> concl |> rhs)`;
 
 val res = translate max_heap_limit_32_def
@@ -230,7 +230,7 @@ val main_spec = Q.store_thm("main_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ metis_tac[stdin_v_thm,stdIn_def])
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_32_def]

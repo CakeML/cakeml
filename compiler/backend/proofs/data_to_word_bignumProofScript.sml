@@ -5,7 +5,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory;
+     gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
@@ -26,8 +26,7 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   bvi_to_data_def, wordSemTheory.the_words_def,
   bviSemTheory.bvl_to_bvi_def, data_to_bvi_def,
   bviSemTheory.bvi_to_bvl_def,wordSemTheory.mem_load_def,
-  wordLangTheory.word_op_def, wordLangTheory.word_sh_def,
-  wordLangTheory.num_exp_def]
+  wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
 
 val eq_eval = save_thm("eq_eval",
   LIST_CONJ [wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
@@ -302,7 +301,7 @@ val get_real_addr_lemma = Q.store_thm("get_real_addr_lemma",
   \\ eval_tac \\ fs [] \\ rw []
   \\ eval_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
-  \\ rfs [shift_def] \\ fs []);
+  \\ rfs [backend_commonTheory.word_shift_def] \\ fs []);
 
 val memory_rel_lookup = Q.store_thm("memory_rel_lookup",
   `memory_rel c be refs s st m dm
@@ -361,7 +360,7 @@ val evaluate_AddNumSize = store_thm("evaluate_AddNumSize",
             (real_addr c (adjust_var src)) = SOME (Word a)` by
     (match_mp_tac (GEN_ALL get_real_addr_lemma)
      \\ fs [wordSemTheory.get_var_def,lookup_insert] \\ NO_TAC) \\ fs []
-  \\ fs [num_exp_def,word_sh_def,decode_length_def]
+  \\ fs [word_sh_def,decode_length_def]
   \\ IF_CASES_TAC THEN1
    (rfs [memory_rel_def,heap_in_memory_store_def]
     \\ fs [good_dimindex_def]  \\ rfs [] \\ fs[])
@@ -431,7 +430,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
     \\ `word_exp t (real_addr c (adjust_var r)) = SOME (Word a)` by
      (match_mp_tac (GEN_ALL get_real_addr_lemma)
       \\ fs [wordSemTheory.get_var_def]) \\ fs []
-    \\ fs [word_sh_def,num_exp_def]
+    \\ fs [word_sh_def]
     \\ IF_CASES_TAC
     THEN1 (rfs [memory_rel_def,heap_in_memory_store_def]
            \\ rfs [good_dimindex_def])
@@ -476,7 +475,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
        \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
     \\ fs [] \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def]
     \\ Cases_on `a` \\ fs [FLOOKUP_UPDATE,heap_in_memory_store_def,memory_rel_def]
-    \\ fs [word_sh_def,num_exp_def]
+    \\ fs [word_sh_def]
     \\ qexists_tac `Word 0w` \\ fs []
     \\ fs [wordSemTheory.state_component_equality]
     \\ fs [GSYM fmap_EQ,FUN_EQ_THM,FAPPLY_FUPDATE_THM]
@@ -513,7 +512,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
        \\ rewrite_tac [GSYM WORD_NEG_MUL] \\ fs [])
     \\ fs [] \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def]
     \\ Cases_on `a` \\ fs [FLOOKUP_UPDATE,heap_in_memory_store_def,memory_rel_def]
-    \\ fs [word_sh_def,num_exp_def]
+    \\ fs [word_sh_def]
     \\ qexists_tac `Word 0w` \\ fs []
     \\ fs [wordSemTheory.state_component_equality]
     \\ fs [GSYM fmap_EQ,FUN_EQ_THM,FAPPLY_FUPDATE_THM]
@@ -1006,7 +1005,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
                     |> ONCE_REWRITE_RULE [CONJ_COMM])
     \\ fs [Smallnum_def] \\ NO_TAC)
   \\ fs [lookup_insert]
-  \\ fs [word_sh_def,num_exp_def]
+  \\ fs [word_sh_def]
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (_,t9)` \\ rveq
   \\ qabbrev_tac `dm = s9.mdomain`
   \\ qabbrev_tac `m = s9.memory`
@@ -1518,7 +1517,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   THEN1
    (qunabbrev_tac `if_stmt` \\ fs [eq_eval]
     \\ IF_CASES_TAC THEN1
-     (fs [num_exp_def,word_sh_def,lookup_insert]
+     (fs [word_sh_def,lookup_insert]
       \\ `v1 >>> (dimindex (:α) - 3) = 0w /\
           v1 << 2 = Smallnum v` by
        (ntac 2 (pop_assum mp_tac)
@@ -1542,7 +1541,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
       \\ rpt_drule state_rel_Number_small_int
       \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac [])
     \\ IF_CASES_TAC THEN1
-     (fs [num_exp_def,word_sh_def,lookup_insert]
+     (fs [word_sh_def,lookup_insert]
       \\ `(v1 + -1w) >>> (dimindex (:α) - 3) = 0w /\
           -1w * v1 << 2 = Smallnum v` by
        (ntac 3 (pop_assum mp_tac)
@@ -1572,7 +1571,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ qmatch_goalsub_abbrev_tac `evaluate (if_stmt,t8)`
   \\ `?w. evaluate (if_stmt,t8) = (NONE, set_var 5 w t8)` by
    (qunabbrev_tac `t8` \\ qunabbrev_tac `if_stmt`
-    \\ simp [eq_eval,word_sh_def,num_exp_def]
+    \\ simp [eq_eval,word_sh_def]
     \\ IF_CASES_TAC \\ simp [] THEN1
      (full_simp_tac std_ss [HD]
       \\ reverse IF_CASES_TAC \\ full_simp_tac std_ss []
