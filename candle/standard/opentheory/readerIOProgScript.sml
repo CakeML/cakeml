@@ -32,24 +32,6 @@ val readline_spec = save_thm (
 val readline_wrap_spec = save_thm (
   "readline_wrap_spec", mk_app_of_ArrowP (theorem"readline_wrap_v_thm"));
 
-(* readLine
-
-⊢ EvalM F env st (Var (Short "readline"))
-    (ArrowM F (HOL_STORE,p) (PURE STRING_TYPE)
-       (ArrowM F (HOL_STORE,p) (PURE READER_STATE_TYPE)
-          (MONAD READER_STATE_TYPE HOL_EXN_TYPE)) readLine)
-    (HOL_STORE,p):
-*)
-
-(* readLine s
-
-⊢ Eval env (Var (Short "s")) (STRING_TYPE s)] ==>
-  EvalM F env st (App Opapp [Var (Short "readline"); Var (Short "s")])
-    (ArrowM F (HOL_STORE,p) (PURE READER_STATE_TYPE)
-       (MONAD READER_STATE_TYPE HOL_EXN_TYPE) (readLine s))
-    (HOL_STORE,p):
-*)
-
 (* ------------------------------------------------------------------------- *)
 (* Set up translation to 'resume' from readerShared                          *)
 (* ------------------------------------------------------------------------- *)
@@ -107,18 +89,15 @@ val stdio_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
-  \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
+  \\ fs [liftM_def, UNCURRY]
   \\ Cases_on `f st.stdio` \\ fs []
-  \\ every_case_tac
-  \\ rveq \\ fs []
+  \\ every_case_tac \\ rveq \\ fs []
   \\ fs [fetch "-" "STATE_STORE_def"] \\ rw []
   \\ first_x_assum (qspec_then `F' * COMMANDLINE st.cl * HOL_STORE st.holrefs` mp_tac)
-  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
-  \\ fs [ml_monadBaseTheory.liftM_def] \\ rw []
   \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]);
 
 (* TODO move *)
@@ -139,17 +118,16 @@ val commandline_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
-  \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
+  \\ fs [liftM_def, UNCURRY]
   \\ Cases_on `f st.cl` \\ fs []
   \\ every_case_tac \\ rveq \\ fs []
   \\ fs [fetch "-" "STATE_STORE_def"] \\ rw []
   \\ first_x_assum (qspec_then `MONAD_IO st.stdio * HOL_STORE st.holrefs * F'` mp_tac)
-  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
-  \\ fs [ml_monadBaseTheory.liftM_def] \\ rw []);
+  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]);
 
 val holrefs_INTRO = prove(
   ``(!st. EvalM ro env st exp
@@ -168,17 +146,15 @@ val holrefs_INTRO = prove(
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
          \\ last_x_assum mp_tac
          \\ metis_tac [IMP_STAR_GC])
-  \\ disch_then (qspec_then `junk` strip_assume_tac)
-  \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
         semanticPrimitivesTheory.state_component_equality]
   \\ rveq \\ fs [ml_monad_translatorTheory.MONAD_def]
+  \\ fs [liftM_def, UNCURRY]
   \\ Cases_on `f st.holrefs` \\ fs []
   \\ every_case_tac \\ rveq \\ fs []
   \\ fs [fetch "-" "STATE_STORE_def"] \\ rw []
   \\ first_x_assum (qspec_then `MONAD_IO st.stdio * COMMANDLINE st.cl * F'` mp_tac)
-  \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
-  \\ fs [ml_monadBaseTheory.liftM_def] \\ rw []
   \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]);
 
 val EvalM_stdio_print = prove(
@@ -261,6 +237,10 @@ val EvalM_readline_wrap = Q.prove (
     (App Opapp [App Opapp [Var (Short "readline_wrap"); lv]; rv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
        (readLine_wrap ln rs)) (HOL_STORE, p:'ffi ffi_proj)`,
+  cheat (* TODO *)
+  );
+
+(* old theorem:
   strip_tac \\ pop_assum mp_tac
   \\ sg `EvalM F env st (App Opapp [Var (Short "readline_wrap"); lv])
            (ArrowM F (HOL_STORE,p) (PURE READER_STATE_TYPE)
@@ -321,6 +301,7 @@ val EvalM_readline_wrap = Q.prove (
   \\ rw [] \\ fs []
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []);
+*)
 
 val EvalM_holrefs_readline_wrap = Q.prove (
  `nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v /\
@@ -376,8 +357,7 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
      (HOL_STORE st.holrefs * COMMANDLINE st.cl * MONAD_IO st.stdio)
      (POSTv uv.
        &UNIT_TYPE () uv *
-       STDIO (reader_main st.stdio st.holrefs (TL st.cl)) *
-       COMMANDLINE st.cl)`,
+       STDIO (reader_main st.stdio st.holrefs (TL st.cl)))`,
   rw [] \\ xapp \\ xsimpl
   \\ simp [definition"STATE_STORE_def"]
   \\ CONV_TAC SWAP_EXISTS_CONV
@@ -404,17 +384,16 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
   \\ imp_res_tac readMain_COMMANDLINE_pres \\ fs [] \\ xsimpl);
 
 (* ------------------------------------------------------------------------- *)
-(* Custom whole_prog_spec                                                    *)
+(* whole_prog_spec                                                           *)
 (* ------------------------------------------------------------------------- *)
-
-open alt_basisLib alt_basisTheory (* basis does not do what I want here *)
 
 val monadreader_wps = Q.store_thm("monadreader_wps",
   `hasFreeFD fs /\ wfcl cl
    ==>
-   whole_prog_spec_extra ^(fetch_v "readmain" (get_ml_prog_state()))
-     cl fs HOL_STORE init_refs ((=) (reader_main fs init_refs (TL cl)))`,
-  rw [whole_prog_spec_extra_def]
+   whole_prog_spec ^(fetch_v "readmain" (get_ml_prog_state()))
+     cl fs (SOME (HOL_STORE, init_refs))
+     ((=) (reader_main fs init_refs (TL cl)))`,
+  rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
   \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
   \\ reverse conj_tac
