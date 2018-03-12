@@ -85,7 +85,7 @@ val _ = (append_prog o process_topdecs) `
 val process_lines_spec = Q.store_thm("process_lines_spec",
   `!n st stv refs.
      READER_STATE_TYPE st stv /\
-     WORD8 (n2w fd) fdv /\ fd <= 255 /\ fd <> 1 /\ fd <> 2 /\
+     FD fd fdv /\ fd <= maxFD /\ fd <> 1 /\ fd <> 2 /\
      STD_streams fs /\
      get_file_content fs fd = SOME (content, n)
      ==>
@@ -163,7 +163,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
   \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS]
   \\ `2 <= 255n` by simp[] \\ asm_exists_tac
   \\ instantiate \\ xsimpl
-  \\ conj_tac >- metis_tac[stderr_v_thm,stdErr_def]
+  \\ conj_tac >- fs [FD_def, GSYM stdErr_def, stderr_v_thm]
   \\ simp[insert_atI_end |> Q.GEN`l2` |> Q.ISPEC`explode s` |> SIMP_RULE (srw_ss())[LENGTH_explode]]
   \\ simp[add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -247,7 +247,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS]
     \\ `2 <= 255n` by simp[] \\ asm_exists_tac
     \\ instantiate \\ xsimpl
-    \\ conj_tac >- metis_tac[stderr_v_thm,stdErr_def]
+    \\ conj_tac >- fs [GSYM stdErr_def, FD_def, stderr_v_thm]
     \\ simp[insert_atI_end |> Q.GEN`l2` |> Q.ISPEC`explode s` |> SIMP_RULE (srw_ss())[LENGTH_explode]]
     \\ simp[add_stdo_def]
     \\ SELECT_ELIM_TAC
@@ -259,9 +259,10 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ xhandle`$POSTv Qval` \\ xsimpl
   \\ qunabbrev_tac`Qval`
   \\ xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl
-  \\ imp_res_tac nextFD_leX
+  \\ qspecl_then [`maxFD`,`fs`] mp_tac (GEN_ALL nextFD_leX)
+  \\ impl_tac \\ fs [] \\ rw []
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-  \\ pop_assum(qspec_then`0`mp_tac) \\ rw[]
+  \\ pop_assum (qspec_then`0`mp_tac) \\ rw []
   \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd`
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ `get_file_content fs' fd = SOME (content,0)` by simp[get_file_content_def,Abbr`fs'`]
@@ -270,7 +271,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ pop_assum(qspecl_then[`fnm`,`0`]assume_tac)
   \\ `fd ≠ 1 ∧ fd ≠ 2` by rfs[]
   \\ assume_tac init_state_v_thm
-  \\ xlet_auto_spec (SOME (Q.SPEC`fs'`(Q.GEN`fs`process_lines_spec)))
+  \\ xlet_auto_spec (SOME (Q.SPEC `fs'` (Q.GEN`fs`process_lines_spec)))
   \\ xsimpl
   \\ xapp_spec close_STDIO_spec
   \\ instantiate
@@ -321,11 +322,10 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
    ==>
    app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
      [Conv NONE []]
-     (STDIO fs * COMMANDLINE cl * HOL_STORE refs)
+     (COMMANDLINE cl * STDIO fs * HOL_STORE refs)
      (POSTv u.
        &UNIT_TYPE () u *
-       STDIO (reader_main fs refs (TL cl)) *
-       COMMANDLINE cl)`,
+       STDIO (reader_main fs refs (TL cl)))`,
   xcf "reader_main" (get_ml_prog_state())
   \\ fs [reader_main_def]
   \\ xlet_auto >- (xcon \\ xsimpl)
@@ -397,17 +397,16 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ xsimpl);
 
 (* ------------------------------------------------------------------------- *)
-(* Custom whole_prog_spec                                                    *)
+(* whole_prog_spec                                                           *)
 (* ------------------------------------------------------------------------- *)
-
-open alt_basisLib alt_basisTheory (* basis does not do what I want here *)
 
 val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   `hasFreeFD fs
    ==>
-   whole_prog_spec_extra ^(fetch_v "reader_main" (get_ml_prog_state()))
-     cl fs HOL_STORE init_refs ((=) (reader_main fs init_refs (TL cl)))`,
-  rw [whole_prog_spec_extra_def]
+   whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
+     cl fs (SOME (HOL_STORE, init_refs))
+     ((=) (reader_main fs init_refs (TL cl)))`,
+  rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
   \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
   \\ reverse conj_tac
@@ -415,10 +414,12 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
    (fs [reader_main_def, read_file_def]
     \\ every_case_tac
     \\ fs [GSYM add_stdo_with_numchars, with_same_numchars])
-  \\ match_mp_tac (GEN_ALL (MP_CANON (MATCH_MP app_wgframe (UNDISCH reader_main_spec))))
+  \\ irule (DISCH_ALL ((MP_CANON (MATCH_MP app_wgframe (UNDISCH reader_main_spec)))))
+  \\ xsimpl \\ instantiate
   \\ xsimpl
-  \\ Q.LIST_EXISTS_TAC [`init_refs`,`cl`,`emp`]
-  \\ xsimpl);
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qexists_tac `init_refs` \\ xsimpl
+  \\ qexists_tac `cl` \\ xsimpl);
 
 val _ = set_user_heap_thm HOL_STORE_init_precond;
 
