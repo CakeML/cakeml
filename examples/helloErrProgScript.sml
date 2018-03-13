@@ -20,7 +20,7 @@ val helloErr_spec = Q.store_thm ("helloErr_spec",
   xcf "helloErr" st \\ xapp_spec output_stderr_spec \\ xsimpl);
 
 val helloErr_whole_prog_spec = Q.store_thm("helloErr_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "helloErr" st) cl fs
+  `whole_prog_spec ^(fetch_v "helloErr" st) cl fs NONE
     ((=) (add_stderr fs (strlit "Well oH lord!\n")))`,
   rw[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`

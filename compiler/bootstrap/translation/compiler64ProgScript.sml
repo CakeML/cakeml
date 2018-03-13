@@ -271,7 +271,7 @@ val main_spec = Q.store_thm("main_spec",
   \\ xsimpl);
 
 val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "main" st) cl fs
+  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
     ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`,
   simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
