@@ -404,7 +404,7 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   `hasFreeFD fs
    ==>
    whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
-     cl fs (SOME (HOL_STORE, init_refs))
+     cl fs (SOME (HOL_STORE init_refs))
      ((=) (reader_main fs init_refs (TL cl)))`,
   rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`

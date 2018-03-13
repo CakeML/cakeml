@@ -323,7 +323,7 @@ val whole_prog_spec_def = Define`
   whole_prog_spec fv cl fs sprop post ⇔
     ∃fs'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
-      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME (p,s) => p s)
+      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
       (POSTv uv. &UNIT_TYPE () uv * STDIO fs') ∧
     post (fs' with numchars := fs.numchars)`;
 
@@ -335,7 +335,7 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
      no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_mods /\
      no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_types ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
-     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME (p,s) => p s) h1)
+     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p) h1)
    ==>
    ∃io_events fs'.
      semantics_prog (init_state (basis_ffi cl fs)) env1
