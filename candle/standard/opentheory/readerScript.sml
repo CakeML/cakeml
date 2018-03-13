@@ -11,6 +11,7 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
 val _ = temp_add_monadsyntax()
 
+
 (* We just represent names in the string (dotted) format.
    To make the namespace more explicit, the following functions could
    be useful.
@@ -44,8 +45,6 @@ val _ = Datatype`
          | Var (mlstring # type)
          | Term term
          | Thm thm`;
-
-(* TODO: these would translate to better code using PMATCH *)
 
 val getNum_def = Define`
   (getNum (Num n) = return n) ∧
@@ -108,15 +107,15 @@ val next_line_def = Define `
 
 val pop_def = Define`
   pop s =
-  case s.stack of
-  | [] => failwith (strlit"pop")
-  | (h::t) => return (h,s with <| stack := t |>)`;
+    case s.stack of
+      [] => failwith (strlit"pop")
+    | (h::t) => return (h,s with <| stack := t |>)`;
 
 val peek_def = Define`
   peek s =
-  case s.stack of
-  | [] => failwith (strlit"peek")
-  | (h::_) => return h`;
+    case s.stack of
+      [] => failwith (strlit"peek")
+    | (h::_) => return h`;
 
 val push_def = Define`
   push obj s = s with <| stack := obj::s.stack |>`;
@@ -132,7 +131,7 @@ val delete_dict_def = Define`
 val first_def = Define`
   first p l =
     case l of
-    | [] => NONE
+      [] => NONE
     | (h::t) => if p h then SOME h else first p t`;
 
 val find_axiom_def = Define`
@@ -592,6 +591,94 @@ val readLines_def = Define `
                    (\e. raise_Fail (line_Fail s e));
             readLines ls (next_line s)
         od`;
+
+(* ------------------------------------------------------------------------- *)
+(* PMATCH definitions                                                        *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
+
+val getNum_PMATCH = Q.store_thm("getNum_PMATCH",
+  `!obj.
+     getNum obj =
+       case obj of
+         Num n => return n
+       | _ => failwith (strlit"getNum")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getNum_def]);
+
+val getName_PMATCH = Q.store_thm("getName_PMATCH",
+  `!obj.
+     getName obj =
+       case obj of
+         Name n => return n
+       | _ => failwith (strlit"getName")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getName_def]);
+
+val getList_PMATCH = Q.store_thm("getList_PMATCH",
+  `!obj.
+     getList obj =
+       case obj of
+         List n => return n
+       | _ => failwith (strlit"getList")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getList_def]);
+
+val getTypeOp_PMATCH = Q.store_thm("getTypeOp_PMATCH",
+  `!obj.
+     getTypeOp obj =
+       case obj of
+         TypeOp n => return n
+       | _ => failwith (strlit"getTypeOp")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTypeOp_def]);
+
+val getType_PMATCH = Q.store_thm("getType_PMATCH",
+  `!obj.
+     getType obj =
+       case obj of
+         Type n => return n
+       | _ => failwith (strlit"getType")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getType_def]);
+
+val getConst_PMATCH = Q.store_thm("getConst_PMATCH",
+  `!obj.
+     getConst obj =
+       case obj of
+         Const n => return n
+       | _ => failwith (strlit"getConst")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getConst_def]);
+
+val getVar_PMATCH = Q.store_thm("getVar_PMATCH",
+  `!obj.
+     getVar obj =
+       case obj of
+         Var n => return n
+       | _ => failwith (strlit"getVar")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getVar_def]);
+
+val getTerm_PMATCH = Q.store_thm("getTerm_PMATCH",
+  `!obj.
+     getTerm obj =
+       case obj of
+         Term n => return n
+       | _ => failwith (strlit"getTerm")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTerm_def]);
+
+val getThm_PMATCH = Q.store_thm("getThm_PMATCH",
+  `!obj.
+     getThm obj =
+       case obj of
+         Thm n => return n
+       | _ => failwith (strlit"getThm")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getThm_def]);
+
+val getPair_PMATCH = Q.store_thm("getPair_PMATCH",
+  `!obj.
+     getPair obj =
+       case obj of
+         List [x;y] => return (x,y)
+       | _ => failwith (strlit"getPair")`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ fs [getPair_def]
+  \\ rpt (PURE_CASE_TAC \\ fs [getPair_def]));
 
 val _ = export_theory()
 
