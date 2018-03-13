@@ -927,13 +927,13 @@ fun derive_case_of ty = let
         \\ rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
 	\\ fs[write_def]
 	\\ evaluate_unique_result_tac
-	(* Finish the proof *)	
+	(* Finish the proof *)
 	\\ TRY asm_exists_tac \\ simp[]
 	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[]
 	(*pick_evaluate_assumption
 	\\ fs[write_def]
 	\\ evaluate_unique_result_tac
-	(* Finish the proof *)	
+	(* Finish the proof *)
 	\\ TRY asm_exists_tac \\ simp[]
 	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[] *)
 (*
@@ -1315,12 +1315,13 @@ fun prove_EvalMPatBind goal m2deep = let
     \\ NTAC num_assums STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL) (* Expand the refin. inv. *)
     \\ STRIP_TAC \\ fs [] \\ rfs []
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt]
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_IF_ELIM]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
     \\ fs[GSYM FORALL_PROD]
-    \\ EVAL_TAC)
+    \\ EVAL_TAC
+    \\ fs [])
   in UNDISCH_ALL th end handle HOL_ERR e => failwith ("prove_EvalMPatBind failed: (" ^ #message e ^ ")");
 
 val pmatch_index = ref 1;
@@ -1404,6 +1405,7 @@ val th_ref = ref nil_lemma
         in th end
 
   val th = trans ts
+
   val _ = pmatch_index := (!pmatch_index - 1)
   val th = MY_MATCH_MP th (UNDISCH x_res) (* strange bug with MATCH_MP: the side function variable is sometimes renamed?? *)
   val th = UNDISCH_ALL th
