@@ -118,7 +118,7 @@ fun whole_prog_thm st name spec =
       types_tm |> (RAND_CONV EVAL THENC no_dup_top_types_conv)
       |> EQT_ELIM handle HOL_ERR _ => raise(call_ERR "duplicate top types")
     val th = MATCH_MP th (CONJ mods_thm types_thm)
-    val th = th |> SIMP_RULE std_ss []
+    val th = th |> SIMP_RULE std_ss [SEP_CLAUSES]
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1
     val st = split |> rator |> rand
