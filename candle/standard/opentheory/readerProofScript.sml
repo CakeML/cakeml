@@ -1794,5 +1794,36 @@ val reader_main_def = Define `
           | _ => fs)
        | _ => add_stderr fs msg_usage`;
 
+(* ------------------------------------------------------------------------- *)
+(* Specs imply invariants                                                    *)
+(* ------------------------------------------------------------------------- *)
+
+val process_line_inv = Q.store_thm("process_line_inv",
+  `STATE defs refs /\
+   READER_STATE defs st /\
+   process_line st refs ln = (res, refs')
+   ==>
+   ?ds.
+     STATE (ds++defs) refs' /\
+     !s. res = INL s ==> READER_STATE (ds++defs) s`,
+   rw [process_line_def]
+   >- (qexists_tac `[]` \\ fs [])
+   \\ fs [case_eq_thms] \\ rw [] \\ fs []
+   \\ drule (GEN_ALL readLine_thm)
+   \\ rpt (disch_then drule) \\ rw []);
+
+(* TODO if the specs are changed around a bit (process_lines and the others
+        do not preserve the reader state) we could say that at the end of
+        execution, READER_STATE holds for the resulting state and some
+        definitions. Then we could say that at the end of the program,
+        msg_success is called on a state containing only theorems and
+        correct definitions, and so what comes out is at least theorems
+        modulo pretty-printing and i/o functions
+
+
+   TODO it would be interesting to see if this can be connected with the
+        existing soundness proof
+*)
+
 val _ = export_theory();
 
