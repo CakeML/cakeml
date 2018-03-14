@@ -1,5 +1,8 @@
 ## The regression test runs through this list of directories.
 
+# download the latest cake binary
+developers/bin
+
 # semantics and metatheory
 semantics/ffi
 semantics

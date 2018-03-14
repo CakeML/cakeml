@@ -2,8 +2,8 @@ ARCH = x64
 WORD_SIZE = 32
 STACK_MB = 1000
 HEAP_MB = 1000
-CAKE_BIN = cake
-INCLUDES = ../../../../compiler/bootstrap/translation ../../../sexpr-bootstrap
+CAKE_BIN = ../../../../developers/bin/cake
+INCLUDES = ../../../../compiler/bootstrap/translation ../../../sexpr-bootstrap ../../../../developers/bin/
 CLINE_OPTIONS = --qof
 
 ifdef POLY
