@@ -3986,7 +3986,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once state_rel_thm]
   \\ strip_tac \\ fs []
   \\ `lookup Append_location aa2.code = SOME (3,Append_code c)` by
-        fs [code_rel_def,stubs_def] \\ simp []
+        fs [code_rel_def,stubs_def] \\ simp [] \\ rfs []
   \\ `dimword (:'a) < s4.clock` by
    (qunabbrev_tac `s4` \\ fs [Abbr `tt`]
     \\ `10 * dimword (:'a) <= MustTerminate_limit (:α)` by
@@ -4025,13 +4025,10 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordLangTheory.num_exp_def,wordLangTheory.word_sh_def]
-  \\ cheat);
-
-(* --- Broken :
   \\ qmatch_goalsub_abbrev_tac `insert 7 (Word init_ptr2)`
   \\ simp [list_Seq_def,eq_eval,wordSemTheory.set_store_def]
   \\ `lookup AppendMainLoop_location aa2.code = SOME (6,AppendMainLoop_code c)` by
-       fs [state_rel_thm,code_rel_def,stubs_def] \\ fs []
+       fs [state_rel_thm,code_rel_def,stubs_def] \\ fs [] \\ rfs []
   \\ fs [v_to_list_IFF_list_to_v] \\ rveq \\ fs []
   \\ drule memory_rel_space_max
   \\ simp [] \\ strip_tac \\ fs []
@@ -4066,7 +4063,7 @@ val th = Q.store_thm("assign_ListAppend",
    (sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
     \\ qspecl_then [`AllocVar c ll ss`,`tt`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
-            |> INST_TYPE [``:'b``|->``:'ffi``])
+            |> INST_TYPE [``:'c``|->``:'ffi``,``:'b``|->``:'c``])
     \\ fs []
     \\ `tt.stack = StackFrame q NONE::t.stack` by fs [Abbr`tt`] \\ fs []
     \\ fs [wordPropsTheory.s_key_eq_def]
@@ -4091,6 +4088,10 @@ val th = Q.store_thm("assign_ListAppend",
   \\ fs [memory_rel_Temp,
          MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC))]
   \\ fs [contains_loc_def,lookup_fromAList]
+  \\ strip_tac
+  THEN1
+   (qpat_x_assum `code_oracle_rel c _ _ _ _ _ _ _` mp_tac
+    \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE])
   \\ strip_tac
   THEN1 (rw[] \\ fs [adjust_var_11])
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -4127,7 +4128,6 @@ val th = Q.store_thm("assign_ListAppend",
   \\ qexists_tac `p_1` \\ simp []
   \\ fs [lookup_fromAList]
   \\ drule ALOOKUP_MEM \\ simp []);
-*)
 
 val th = Q.store_thm("assign_ConfigGC",
   `op = ConfigGC ==> ^assign_thm_goal`,
