@@ -9,12 +9,16 @@ val _ = translation_extends "Word64Prog";
 
 val _ = ml_prog_update (open_module "Word8");
 
+val () = generate_sigs := true;
+
 val _ = append_dec ``Dtabbrev unknown_loc [] "word" (Tapp [] TC_word8)``;
 val _ = trans "fromInt" `n2w:num->word8`
 val _ = trans "toInt" `w2n:word8->num`
 val _ = trans "andb" `word_and:word8->word8->word8`;
 
-val _ = ml_prog_update (close_module NONE);
+val sigs = module_signatures ["fromInt", "toInt", "andb"];
+
+val _ = ml_prog_update (close_module (SOME sigs));
 
 (* if any more theorems get added here, probably should create Word8ProofTheory *)
 

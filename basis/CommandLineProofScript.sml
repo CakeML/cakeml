@@ -1,5 +1,5 @@
 open preamble ml_translatorTheory ml_progLib ml_translatorLib cfLib
-     CommandLineProgTheory clFFITheory Word8ArrayProofTheory
+     CommandLineProgTheory clFFITheory Word8ArrayProofTheory cfMonadTheory
 
 val _ = new_theory"CommandLineProof";
 
@@ -233,6 +233,19 @@ val CommandLine_name_spec = Q.store_thm("CommandLine_name_spec",
 val tl_v_thm = fetch "ListProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
+val name_def = Define `
+  name () = (\cl. (Success (HD cl), cl))`;
+
+val EvalM_name = Q.store_thm("EvalM_name",
+  `Eval env exp (UNIT_TYPE u) /\
+    (nsLookup env.v (Long "CommandLine" (Short "name")) =
+      SOME CommandLine_name_v) ==>
+    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
+      (MONAD STRING_TYPE exc_ty (name u))
+      (COMMANDLINE,p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app \\ rw [name_def]
+  \\ metis_tac [CommandLine_name_spec]);
+
 val CommandLine_arguments_spec = Q.store_thm("CommandLine_arguments_spec",
   `UNIT_TYPE u uv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.arguments" st) [uv]
@@ -247,6 +260,19 @@ val CommandLine_arguments_spec = Q.store_thm("CommandLine_arguments_spec",
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
   \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate
   \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]);
+
+val arguments_def = Define `
+  arguments () = (\cl. (Success (TL cl), cl))`
+
+val EvalM_arguments = Q.store_thm("EvalM_arguments",
+  `Eval env exp (UNIT_TYPE u) /\
+    (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
+       SOME CommandLine_arguments_v) ==>
+    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
+      (MONAD (LIST_TYPE STRING_TYPE) exc_ty (arguments u))
+      (COMMANDLINE,p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app \\ rw [arguments_def]
+  \\ metis_tac [CommandLine_arguments_spec]);
 
 fun prove_hprop_inj_tac thm =
     rw[HPROP_INJ_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM, HCOND_EXTRACT] >>

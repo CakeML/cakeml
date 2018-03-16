@@ -4,6 +4,8 @@ local open ml_progLib basisProgTheory in end
 
 val _ = new_theory "cf_examples";
 
+val pick_name = ml_progLib.pick_name;
+
 val basis_st =
   ml_progLib.unpack_ml_prog_state
     basisProgTheory.basis_prog_state

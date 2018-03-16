@@ -75,7 +75,8 @@ val refs_manip_list = [("next_uvar", get_next_uvar_def, set_next_uvar_def),
 val store_hprop_name = "INFER_STATE_STORE";
 val state_type = ``:infer_st``;
 
-val arrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val farrays_manip_list = [] : (string * thm * thm * thm * thm * thm) list;
 val add_type_theories = ["to_dataProg","lexerProg","parserProg"] : string list;
 val exn_ri_def = INFER_EXN_TYPE_def;
 
@@ -83,7 +84,8 @@ val store_pinv_def_opt = NONE : thm option;
 
 val (monad_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-                                               arrays_manip_list
+                                               rarrays_manip_list
+                                               farrays_manip_list
                                                store_hprop_name
                                                state_type
                                                exn_ri_def
@@ -330,7 +332,7 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40) y =
          (ast$op_CASE op
             (* Opn 1 *)
             (\z. x1 z y)
@@ -406,10 +408,12 @@ val op_apply = Q.prove(
             (x36 y)
             (* Aupdate *)
             (x37 y)
-            (* ConfigGC *)
+            (* ListAppend *)
             (x38 y)
+            (* ConfigGC *)
+            (x39 y)
             (* FFI *)
-            (\z. x39 z y))`,
+            (\z. x40 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
@@ -1077,11 +1081,11 @@ val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
       rw[]) >>
   qpat_x_assum `~A` (fn x => fs[x]));
 
-val _ = check_specs_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
+val _ = check_specs_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition;
 
-val _ = m_translate (def_of_const ``check_tscheme_inst_aux``)
-val _ = m_translate_run  (def_of_const ``run_check_tscheme_inst_aux``)
-val _ = translate (def_of_const ``check_tscheme_inst``)
+val res = m_translate (def_of_const ``check_tscheme_inst_aux``);
+val res = m_translate_run (def_of_const ``run_check_tscheme_inst_aux``);
+val res = translate (def_of_const ``check_tscheme_inst``);
 
 val check_tscheme_inst_aux_side_def = fetch "-" "check_tscheme_inst_aux_side_def"
 val run_check_tscheme_inst_aux_side_def = fetch "-" "run_check_tscheme_inst_aux_side_def"

@@ -2413,6 +2413,36 @@ val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
    ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
   ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
 
+val FILTER_EL_EQ = Q.store_thm("FILTER_EL_EQ",
+  `∀l1 l2. LENGTH l1 = LENGTH l2 ∧
+   (∀n. n < LENGTH l1 ∧ (P (EL n l1) ∨ P (EL n l2)) ⇒ (EL n l1 = EL n l2))
+   ⇒
+   FILTER P l1 = FILTER P l2`,
+  Induct \\ rw[] \\ Cases_on`l2` \\ fs[]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ simp_tac (srw_ss())[] \\ simp[]
+  \\ rw[] \\ fs[]
+  \\ first_x_assum match_mp_tac \\ rw[]
+  \\ first_x_assum(qspec_then`SUC n`mp_tac) \\ rw[]);
+
+val LENGTH_ALIST_FUPDKEY = Q.store_thm("LENGTH_ALIST_FUPDKEY[simp]",
+  `∀ls. LENGTH (ALIST_FUPDKEY k f ls) = LENGTH ls`,
+  Induct \\ simp[ALIST_FUPDKEY_def]
+  \\ Cases \\ rw[ALIST_FUPDKEY_def]);
+
+val FST_EL_ALIST_FUPDKEY = Q.store_thm("FST_EL_ALIST_FUPDKEY",
+  `∀n. n < LENGTH ls ⇒ FST (EL n (ALIST_FUPDKEY k f ls)) = FST (EL n ls)`,
+  Induct_on`ls` \\ simp[]
+  \\ Cases \\ rw[ALIST_FUPDKEY_def]
+  \\ Cases_on`n` \\ fs[]);
+
+val EL_ALIST_FUPDKEY_unchanged = Q.store_thm("EL_ALIST_FUPDKEY_unchanged",
+  `∀n. n < LENGTH ls ∧ FST (EL n ls) ≠ k ⇒ EL n (ALIST_FUPDKEY k f ls) = EL n ls`,
+  Induct_on`ls` \\ simp[]
+  \\ Cases \\ simp[ALIST_FUPDKEY_def]
+  \\ Cases \\ simp[]
+  \\ IF_CASES_TAC \\ rveq \\ rw[]);
+
 val A_DELKEY_def = Define`
   A_DELKEY k alist = FILTER (λp. FST p <> k) alist
 `;
@@ -3134,5 +3164,20 @@ val A_DELKEY_ALIST_FUPDKEY_comm = Q.store_thm("A_DELKEY_ALIST_FUPDKEY_comm",
   A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`,
   Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
   Cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
+
+val LESS_EQ_LENGTH = Q.store_thm("LESS_EQ_LENGTH",
+  `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`,
+  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
+  \\ srw_tac [] [ADD1]);
+
+val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
+  `!xs k. k < LENGTH xs ==>
+           ?ys1 y ys2. (xs = ys1 ++ y::ys2) /\ (LENGTH ys1 = k)`,
+  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
+  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
+  \\ srw_tac [] [ADD1]);
 
 val _ = export_theory()

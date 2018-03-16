@@ -451,6 +451,9 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    unification variables are exactly bound in s1 and s2 to
    Infer_Tbool and Infer_Tint, hence the walkstars must differ *)
 
+fun drule0 th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
 val infer_funs_complete = Q.store_thm("infer_funs_complete",
  `
   ienv_ok {} ienv ∧
@@ -470,6 +473,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   sub_completion tvs st'.next_uvar st'.subst constr s ∧
   FDOM s = count st'.next_uvar ∧
   MAP SND bindings = MAP (convert_t o t_walkstar s) funs_ts`,
+
   rw[]>>
   imp_res_tac type_funs_distinct >> fs[FST_triple] >>
   imp_res_tac type_funs_MAP_FST >>
@@ -482,7 +486,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>res_tac>>fs[])>>
   qmatch_goalsub_abbrev_tac`pure_add_constraints _ init_constraints init_subst`>>rw[]>>
   qmatch_goalsub_abbrev_tac`infer_funs _ ienv_upd _`>>rw[]>>
-  drule (el 3 (CONJUNCTS infer_e_complete))>>
+  drule0 (el 3 (CONJUNCTS infer_e_complete))>>
   disch_then (qspecl_then [`loc`, `init_subst`,`ienv_upd`,`(init_infer_state with next_uvar := LENGTH funs)`,`init_constraints`] mp_tac)>>
   fs[Abbr`ienv_upd`]>>
   impl_keep_tac>-
@@ -590,7 +594,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
       metis_tac[LENGTH_MAP]>>
     simp[EL_MAP]>>
     imp_res_tac infer_e_check_t>>rfs[ienv_ok_def]>>
-    drule (CONJUNCT1 check_t_walkstar)>>
+    drule0 (CONJUNCT1 check_t_walkstar)>>
     disch_then(qspecl_then[`EL n env'`,`tvs`] mp_tac)>>
     impl_tac>-
       (fs[EVERY_EL]>>res_tac>>
@@ -635,4 +639,3 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def])
 
 val _ = export_theory ();
-

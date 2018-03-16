@@ -358,6 +358,7 @@ val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
   val deferred_dprogs = ref ([]:term list)
   val all_eq_lemmas = ref (CONJUNCTS EqualityType_NUM_BOOL)
 local
+  val primitive_exceptions = ["Subscript"]
 in
   fun type_reset () =
     (type_mappings := [];
@@ -465,9 +466,12 @@ in
     val _ = (type_memory := map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) => (ty,inv_def,conses,case_lemma)) res @ (!type_memory))
     val _ = (preprocessor_rws := rws2 @ (!preprocessor_rws))
     in () end
+  fun ignore_type ty = (type_memory := (ty,TRUTH,[],TRUTH) :: (!type_memory));
   fun lookup_type_thms ty = first (fn (ty1,_,_,_) => can (match_type ty1) ty) (!type_memory)
   fun eq_lemmas () = (!all_eq_lemmas)
   fun get_preprocessor_rws () = (!preprocessor_rws)
+  (* primitive exceptions *)
+  fun is_primitive_exception name = mem name primitive_exceptions
   (* store/load to/from a single thm *)
   fun pack_types () =
     pack_6tuple
@@ -721,7 +725,8 @@ fun tag_name type_name const_name =
   if (type_name = "OPTION_TYPE") andalso (const_name = "NONE") then "NONE" else
   if (type_name = "OPTION_TYPE") andalso (const_name = "SOME") then "SOME" else
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
-  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else let
+  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else
+let
     val x = clean_lowercase type_name
     val y = clean_lowercase const_name
     fun upper_case_hd s =
@@ -893,11 +898,14 @@ fun define_ref_inv is_exn_type tys = let
   val _ = map reg_type ys
   val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP,OPTION_TYPE_SIMP,SUM_TYPE_SIMP]
   val def_tm = let
-
+(* TODO HERE // *)
     fun mk_lines ml_ty_name lhs ty [] input = []
       | mk_lines ml_ty_name lhs ty (x::xs) input = let
       val k = length xs + 1
-      val tag = tag_name name (repeat rator x |> dest_const |> fst)
+      val cons_name = (repeat rator x |> dest_const |> fst)
+      val tag = if is_exn_type andalso is_primitive_exception cons_name
+		then cons_name
+		else tag_name name cons_name
       fun rename [] = []
         | rename (x::xs) = let val n = int_to_string k ^ "_" ^
                                        int_to_string (length xs + 1)
@@ -1275,8 +1283,15 @@ fun derive_thms_for_type is_exn_type ty = let
     val ts = map mk_vars ys
     (* patterns *)
     val patterns = map (fn (n,f,fxs,pxs,tm,exp,xs) => let
-      val str = tag_name name (repeat rator tm |> dest_const |> fst)
+      (* TODO HERE *)
+      val cons_name = (repeat rator tm |> dest_const |> fst)
+      val str = if is_exn_type andalso is_primitive_exception cons_name
+		then cons_name
+		else tag_name name cons_name
       val str = stringSyntax.fromMLstring str
+
+      (* val str = tag_name name (repeat rator tm |> dest_const |> fst)
+      val str = stringSyntax.fromMLstring str *)
       val vars = map (fn (x,n,v) => astSyntax.mk_Pvar n) xs
       val vars = listSyntax.mk_list(vars,astSyntax.pat_ty)
       val tag_tm = if name = "PAIR_TYPE"
@@ -1346,6 +1361,17 @@ fun derive_thms_for_type is_exn_type ty = let
                can (match_term tag_pat_0) tm orelse
                can (match_term tag_pat_n) tm)
           \\ POP_ASSUM (fn th => FULL_SIMP_TAC (srw_ss()) [th])
+(*
+val (asl,w) = top_goal()
+
+fun rewrite_term CONV tm = let
+  val eq = QCONV CONV tm
+in concl eq |> rand end
+
+val assum = el 3 asl
+val assum = rewrite_term (REWRITE_CONV [TAG_def,Eval_def]) assum
+((RAND_CONV o QUANT_CONV o RAND_CONV) (ALPHA_CONV v)) assum
+*)
           \\ PAT_X_ASSUM tag_pat_0 (MP_TAC o
                (CONV_RULE ((RAND_CONV o QUANT_CONV o RAND_CONV)
                  (ALPHA_CONV v))) o
@@ -1395,7 +1421,12 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val pat = tm
     fun str_tl s = implode (tl (explode s))
     val exps = map (fn (x,_,_) => (x,mk_var("exp" ^ str_tl (fst (dest_var x)), astSyntax.exp_ty))) xs
-    val tag = tag_name name (repeat rator tm |> dest_const |> fst)
+    val tag = inv_def
+        |> CONJUNCTS |> map (concl o SPEC_ALL)
+        |> first (can (match_term tm) o rand o rator o fst o dest_eq)
+        |> find_term optionSyntax.is_some |> rand |> dest_pair |> fst
+        |> stringSyntax.fromHOLstring
+        handle HOL_ERR _ => tag_name name (repeat rator tm |> dest_const |> fst)
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
@@ -1473,11 +1504,17 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
 *)
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
+
+  fun is_primitive_Dexn tm = let
+      val holstr = (rand o rator) tm
+      val name = stringLib.fromHOLstring holstr
+  in is_primitive_exception name end
+
   val dprog =
     let
       val tops = map mk_Tdec
         (if mem name ["LIST_TYPE","OPTION_TYPE","PAIR_TYPE"] then []
-         else if is_exn_type then dexn_list
+         else if is_exn_type then filter (not o is_primitive_Dexn) dexn_list
          else [dtype])
     in
       listSyntax.mk_list(tops,top_ty)
@@ -2331,6 +2368,7 @@ val builtin_terops =
 val builtin_binops =
   [Eval_NUM_ADD,
    Eval_NUM_SUB,
+   Eval_NUM_SUB_nocheck,
    Eval_NUM_MULT,
    Eval_NUM_DIV,
    Eval_NUM_MOD,
@@ -2353,6 +2391,7 @@ val builtin_binops =
    Eval_INT_GREATER_EQ,
    Eval_force_gc_to_run,
    Eval_strsub,
+   Eval_ListAppend,
    Eval_sub,
    Eval_Implies]
   |> map SPEC_ALL
@@ -2711,6 +2750,35 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_asr tm then Eval_word_asr else
   if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
+
+(* CakeML signature generation and manipulation *)
+val generate_sigs = ref false;
+
+fun sig_of_mlname name = definition (ml_progLib.pick_name name ^ "_sig") |> concl |> rhs;
+
+fun module_signatures names = listSyntax.mk_list(map sig_of_mlname names, spec_ty);
+
+fun sig_of_const cake_name tm =
+  mk_Sval (stringSyntax.fromMLstring (ml_progLib.pick_name cake_name), type2t (type_of tm));
+
+fun generate_sig_thms results = let
+  fun const_from_def th = th |> concl |> strip_conj |> hd |> strip_forall |> #2
+                             |> dest_eq |> #1 |> strip_comb |> #1;
+
+  fun mk_sig_thm sval = let
+    val cake_name = dest_Sval sval |> #1 |> fromHOLstring;
+    val sig_const_nm = cake_name ^ "_sig";
+    val sig_const_tm = mk_var(sig_const_nm, spec_ty);
+
+    val def = new_definition(sig_const_nm, mk_eq(sig_const_tm, sval));
+    in def
+  end
+
+  val signatures = map (fn (_, ml_fname, def, _, _) => sig_of_const ml_fname (const_from_def def))
+                       results;
+
+  in map mk_sig_thm signatures
+end
 
 (*
 val tm = rhs
@@ -3276,7 +3344,7 @@ val def = listTheory.APPEND;
 
 *)
 
-fun translate_main translate register_type def = (let
+fun translate_main utac translate register_type def = (let
 
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -3465,7 +3533,21 @@ val (fname,ml_fname,def,th,v) = hd thms
     (*
       set_goal([],goal)
     *)
+    val ulemma =
+        case utac of
+            NONE => NONE
+          | SOME tac => SOME (auto_prove "ind" (goal,
+                          STRIP_TAC
+                          \\ MATCH_MP_TAC ind_thm
+                          \\ REPEAT STRIP_TAC
+                          \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+                          \\ REPEAT STRIP_TAC
+                          \\ POP_MP_TACs
+                          \\ tac)) handle HOL_ERR _ => NONE
     val lemma =
+        case ulemma of
+            SOME th => th
+          | _ =>
       auto_prove "ind" (goal,
         STRIP_TAC
         \\ MATCH_MP_TAC ind_thm
@@ -3580,9 +3662,15 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
-fun translate def =
+fun translate0 tacopt def =
   let
-    val (is_rec,is_fun,results) = translate_main translate register_type def
+    val (is_rec,is_fun,results) =
+        translate_main tacopt (translate0 tacopt) register_type def
+
+    val () =
+      if !generate_sigs then
+        let val _ = generate_sig_thms results in () end
+      else ()
   in
     if is_rec then
     let
@@ -3666,9 +3754,13 @@ fun translate def =
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
+val translate = translate0 NONE
+fun utranslate tac = translate0 (SOME tac)
+
 fun abs_translate def =
   let
-    val (is_rec,is_fun,results) = translate_main abs_translate abs_register_type def
+    val (is_rec,is_fun,results) =
+        translate_main NONE abs_translate abs_register_type def
     (*
       val (fname,ml_fname,def,th,preopt) = hd results
     *)

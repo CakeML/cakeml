@@ -1,5 +1,8 @@
 ## The regression test runs through this list of directories.
 
+# download the latest cake binary
+developers/bin
+
 # semantics and metatheory
 semantics/ffi
 semantics
@@ -78,8 +81,14 @@ translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
 
-# compiler bootstrap
+# compiler translation
 compiler/bootstrap/translation
+
+# compiler sexpr bootstrap
+unverified/sexpr-bootstrap/x64/64
+unverified/sexpr-bootstrap/x64/32
+
+# compiler HOL bootstrap
 compiler/bootstrap/compilation/x64/64
 compiler/bootstrap/compilation/x64/64/proofs
 compiler/bootstrap/compilation/x64/32

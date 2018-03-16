@@ -52,8 +52,9 @@ val do_onefile_spec = Q.store_thm(
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
   >- xsimpl
-  \\ imp_res_tac nextFD_leX
+  \\ imp_res_tac nextFD_ltX
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
   \\ pop_assum(qspec_then`0`strip_assume_tac)
   \\ imp_res_tac STD_streams_nextFD
   \\ qabbrev_tac`fd = nextFD fs` \\
@@ -262,17 +263,25 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]
   \\ fs[validArg_def,EVERY_MEM]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
-            |> SIMP_RULE std_ss [STDIO_def] |> add_basis_proj;
+val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
+  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
+   whole_prog_spec ^(fetch_v"cat_main"st) cl fs
+    ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
+  disch_then assume_tac
+  \\ simp[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH cat_main_spec)))
+  \\ xsimpl);
+
 val name = "cat_main"
-val (semantics_thm,prog_tm) = call_thm st name spec
+val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
 val cat_prog_def = Define`cat_prog = ^prog_tm`;
 
 val cat_semantics_thm =
-  semantics_thm
-  |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[STD_streams_add_stdout,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
+  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();

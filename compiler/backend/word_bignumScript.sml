@@ -114,7 +114,7 @@ fun get_exp x =
   val (_,name) = first (fn (pat,_) => can (match_term pat) x) shifts
   val x1 = get_exp (x |> rator |> rand)
   val x2 = x |> rand
-  in wordLangSyntax.mk_Shift(name,x1,``Nat ^x2``) end
+  in wordLangSyntax.mk_Shift(name,x1,``^x2``) end
   handle HOL_ERR _ =>
   (* ~ *) let
   val r = wordsSyntax.dest_word_1comp x
@@ -430,7 +430,7 @@ val compile_exp_def = Define `
   compile_exp (Op b [x1;x2]) = Op b [compile_exp x1; compile_exp x2] /\
   compile_exp (Var n) = Lookup (Temp (n2w n)) /\
   compile_exp (Const w) = Const w /\
-  compile_exp (Shift sh x (Nat na)) = Shift sh (compile_exp x) (Nat na) /\
+  compile_exp (Shift sh x na) = Shift sh (compile_exp x) na /\
   compile_exp _ = Const 0w`
 
 val TempIn1_def = Define `TempIn1 = Temp 31w`
@@ -453,7 +453,7 @@ val SeqIndex_def = Define `
   SeqIndex i r arr p =
     let t = (case arr of Out => TempOut | In2 => TempIn2 | In1 => TempIn1) in
       Seq (Assign i (Op Add [Lookup t;
-           Shift Lsl (Lookup (Temp (n2w r))) (Nat (shift (:'a)))])) p
+           Shift Lsl (Lookup (Temp (n2w r))) (shift (:'a))])) p
               :'a wordLang$prog`
 
 val div_location_def = Define `

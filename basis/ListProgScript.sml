@@ -1,11 +1,14 @@
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
+open basisFunctionsLib
 
 val _ = new_theory"ListProg"
 
 val _ = translation_extends "OptionProg"
 
 val _ = ml_prog_update (open_module "List");
+
+val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
 
@@ -16,7 +19,14 @@ val result = next_ml_names := ["revAppend"]
 val res = translate REV_DEF;
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
-val append_v_thm = translate APPEND;
+
+(* New list-append translation *)
+val append_v_thm = trans "@" `(++): 'a list -> 'a list -> 'a list`
+val _ = save_thm("append_v_thm",append_v_thm);
+
+(* Old list-append translation *)
+(*val append_v_thm = translate APPEND;*)
+(*val _ = save_thm("append_v_thm",append_v_thm);*)
 
 val result = translate HD;
 val hd_side_def = Q.prove(
@@ -113,6 +123,7 @@ val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
 val result = translate FRONT_DEF;
+val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
 
@@ -138,7 +149,47 @@ val nth_side_def = Q.prove(
 val _ = next_ml_names := ["update"];
 val result = translate LUPDATE_def;
 
-val _ =  ml_prog_update (close_module NONE);
+(* TODO: signature for `app` is missing because it's written in CakeML *)
+val sigs = module_signatures [
+  "length",
+  "null",
+  "revAppend",
+  "rev",
+  "append",
+  "hd",
+  "tl",
+  "last",
+  "getItem",
+  "nth",
+  "take",
+  "drop",
+  "concat",
+  "map",
+  "mapPartial",
+  "find",
+  "filter",
+  "partition",
+  "foldl",
+  "foldr",
+  "exists",
+  "all",
+  "snoc",
+  "tabulate",
+  "collate",
+  "zip",
+  "member",
+  "sum",
+  "unzip",
+  "pad_right",
+  "pad_left",
+  "all_distinct",
+  "isPrefix",
+  "front",
+  "splitAtPki",
+  "update"
+];
+
+val _ =  ml_prog_update (close_module (SOME sigs));
 
 (* sorting -- included here because it depends on List functions like append  *)
 
@@ -267,13 +318,17 @@ val Eval_o_f = Q.prove(
   |> (fn th => MATCH_MP th AMAP_eval)
   |> add_user_proved_v_thm;
 
-val append_eval = let
-  val th = fetch "-" "append_v_thm"
-  val inv = ``x ++ (y:('a # 'b) list)``
-            |> repeat rator |> hol2deep |> concl |> rand
-  val pat = th |> concl |> rator
-  val (ii,ss) = match_term pat inv
-  val th = INST ii (INST_TYPE ss th)
+(* TODO: quick fix on account of hol2deep not accepting ``$++`` *)
+val append_eval =
+  let
+    val th  = fetch "-" "append_v_thm"
+    val pat = th |> concl |> rator
+    val inv = ``(LIST_TYPE (PAIR_TYPE a b) -->
+                 LIST_TYPE (PAIR_TYPE a b) -->
+                 LIST_TYPE (PAIR_TYPE a b))
+                 ((++) : ('a # 'b) list -> ('a # 'b) list -> ('a # 'b) list)``
+    val (ii,ss) = match_term pat inv
+    val th = INST ii (INST_TYPE ss th)
   in th end
 
 val Eval_FUNION = Q.prove(

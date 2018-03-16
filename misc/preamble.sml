@@ -248,9 +248,6 @@ val preamble_ERR = mk_HOL_ERR"preamble"
 
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
 
-fun drule th =
-  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
-
 fun any_match_mp impth th =
   let
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
@@ -479,12 +476,12 @@ fun tm_from_proc_from dir cmd args =
 (* Run an external process and get its stdout as a mlstring option term *)
 fun mlstring_from_proc cmd args =
   case read_process (cmd, args, NONE) of
-    NONE => Term `NONE : string option`
+    NONE => Term `NONE : mlstring option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
 fun mlstring_from_proc_from dir cmd args =
   case read_process (cmd, args, SOME dir) of
-    NONE => Term `NONE : string option`
+    NONE => Term `NONE : mlstring option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
 (* ========================================================================= *)

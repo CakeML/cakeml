@@ -29,9 +29,8 @@ val _ = Hol_datatype `
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
-  state_exn = Fail of string | ReadError of unit | WriteError of unit`;
+  state_exn = Fail of string | Subscript`;
 
-val _ = register_type ``:unit``;
 val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
@@ -46,14 +45,15 @@ val [(the_num_name, get_the_num_def, set_the_num_def),
      (the_num_array_name, get_the_num_array_def, set_the_num_array_def),
      (the_int_array_name, get_the_int_array_def, set_the_int_array_def)] = access_funs;
 
-val sub_exn = ``ReadError ()``;
-val update_exn = ``WriteError ()``;
-val array_access_funs = (List.tl access_funs);
-val array_manip_funs = define_Marray_manip_funs array_access_funs sub_exn update_exn;
+val sub_exn = ``Subscript``;
+val update_exn = ``Subscript``;
+val rarray_access_funs = (List.tl access_funs);
+val rarray_manip_funs = define_MRarray_manip_funs rarray_access_funs sub_exn update_exn;
 
 (* Prepare the translation *)
 val refs_manip_list = [(the_num_name, get_the_num_def, set_the_num_def)];
-val arrays_manip_list = array_manip_funs;
+val rarrays_manip_list = rarray_manip_funs;
+val farrays_manip_list = [] : (string * thm * thm * thm * thm * thm) list;
 
 val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
@@ -67,7 +67,8 @@ val add_type_theories = [] : string list;
 (* Initialize the translation *)
 val (monad_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-					       arrays_manip_list
+					       rarrays_manip_list
+					       farrays_manip_list
 					       store_hprop_name
 					       state_type
 					       exn_ri_def

@@ -882,7 +882,7 @@ val stub_labels = Q.store_thm("stub_labels",`
 
 val stubs_with_has_fp_ops = store_thm("stubs_with_has_fp_ops[simp]",
   ``stubs (:α) (data_conf with has_fp_ops := b) = stubs (:α) data_conf``,
-  EVAL_TAC);
+  EVAL_TAC \\ fs []);
 
 val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",`
   let (c,p) = compile data_conf word_conf asm_conf prog in

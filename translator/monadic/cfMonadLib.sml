@@ -1,6 +1,7 @@
 structure cfMonadLib (* :> cfMonadLib *) = struct
 
 open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
+open ml_monad_translatorBaseTheory
 
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term) cfMonadTheory.parsed_terms
@@ -8,72 +9,30 @@ val get_term = let
 
 fun get_fun_const def =
   def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+fun get_ro_var def = concl def |> strip_comb |> snd |> hd
+
 val REF_REL_tm = get_fun_const REF_REL_def;
 val RARRY_REL_tm = get_fun_const RARRAY_REL_def;
 val emp_tm = get_term "emp";
-
-fun prove_Hpred_Mem_Only H_def = let
-    val H = H_def |> concl |> lhs
-    val state_var = concl H_def |> rhs |> dest_abs |> fst
-    val state_type = type_of state_var
-    val hpreds = concl H_def |> rhs |> dest_abs |> snd |> list_dest dest_star
-
-    (* If H is `\state. emp` *)
-    val hpreds = if List.length hpreds = 1 andalso same_const emp_tm (List.hd hpreds) then []
-		 else hpreds
-
-    (* Prove the REFS_PRED_Mem_Only for every predicate *)
-    fun prove_mem_only h = let
-	val A = rator h |> rator |> rand
-	val r = rator h |> rand
-	val get_fun = mk_abs(state_var, rand h)
-	val pred = rator h |> rator |> rator
-
-	val th = if same_const REF_REL_tm pred then
-		     ISPECL [A, get_fun, r] REFS_PRED_Mem_Only_REF_REL
-		 else ISPECL [A, get_fun, r] REFS_PRED_Mem_Only_RARRAY_REL
-    in BETA_RULE th end
-    val interm_thms = List.map prove_mem_only hpreds
-
-    (* Assemble the predicates *)
-    fun apply_imp (th2, th1) = let
-	val H1 = concl th1 |> rand
-	val H2 = concl th2 |> rand
-
-	val th = ISPECL [H1, H2] REFS_PRED_Mem_Only_STAR_IMP
-	val th = MP (MP th th1) th2 |> BETA_RULE
-    in th end
-    val th = List.foldl apply_imp (List.hd interm_thms) (List.tl interm_thms)
-			|> PURE_REWRITE_RULE [GSYM H_def]
-             (* If H is `\state. emp` *)
-	     handle Empty => Thm.INST_TYPE [alpha |-> state_type] REFS_PRED_Mem_Only_emp
-					   |> PURE_REWRITE_RULE [GSYM H_def]
-
-in th end
 
 val PURE_tm = get_term "PURE";
 val Eq_pat = SPEC_ALL ml_translatorTheory.Eq_def |> concl |> lhs;
 val EqSt_pat = SPEC_ALL EqSt_def |> concl |> lhs;
 
 (*
-val ffi = ``p:ffi ffi_proj``
 val spec = spec1
 *)
-fun mk_app_of_ArrowP ffi spec = let
+fun mk_app_of_ArrowP spec = let
     val spec = PURE_REWRITE_RULE[ArrowM_def] spec
 				|> UNDISCH_ALL
     val arrow_RI = concl spec |> rator |> rator
     val f_const = concl spec |> rator |> rand
     val fv_const = concl spec |> rand
-    val H = arrow_RI |> rator |> rator |> rand
+    val H_pair = arrow_RI |> rator |> rator |> rand
+    val (H, p_var) = dest_pair H_pair
     val state_type = type_of H |> dest_type |> snd |> List.hd
     val state_var = mk_var("state", state_type)
-    val p_var = get_term "p"
-    val H_def = first (fn x => same_const H (concl x |> strip_forall |> snd |> lhs)) (DB.find ((dest_const H |> fst) ^"_def") |> List.map (fst o snd))
-
-    (* Prove the assumptions on the STATE heap predicate *)
-    val REFS_PRED_Mem_Only_thm = prove_Hpred_Mem_Only H_def
-    fun remove_mem_only_assum th = MP th REFS_PRED_Mem_Only_thm
+    val ro = get_ro_var spec
 
     (* Create variables for the HOL and CakeML parameters,
        retrieve the refinement invariants *)
@@ -136,8 +95,7 @@ fun mk_app_of_ArrowP ffi spec = let
     val lemma = if has_EqSt then ArrowP_MONAD_EqSt_to_app
 		else ArrowP_MONAD_to_app
     val th = ISPECL[last_ri,ret_inv,exn_inv,current_f,gv_var,H,last_x,
-		    last_xv,state_var,ffi] lemma
-		   |> remove_mem_only_assum  |> UNDISCH
+		    last_xv,ro,state_var,p_var] lemma |> UNDISCH
     val Q = concl th |> rand |> rand
     val Q_abs = mk_abs(state_var, Q)
 
@@ -152,8 +110,8 @@ fun mk_app_of_ArrowP ffi spec = let
 
 	val assum = GEN gv_var th
 	val imp_th = ISPECL[A,B,f_tm,fv_var,x,xv,xv2,xvl,H,
-			    Q_abs,state_var,ffi] ArrowP_PURE_to_app
-			|> remove_mem_only_assum |> UNDISCH |> BETA_RULE
+			    Q_abs,ro,state_var,p_var] ArrowP_PURE_to_app
+			|> UNDISCH |> BETA_RULE
 	val th = MATCH_MP imp_th assum |> SPEC_ALL |> Thm.INST [fv_var |-> gv_var]
     in mk_app_rec th x_info end
       | mk_app_rec th [] = th
@@ -168,7 +126,7 @@ fun mk_app_of_ArrowP ffi spec = let
 
     (* Perform some cleanup *)
     val th = SIMP_RULE bool_ss[ml_translatorTheory.PRECONDITION_def,
-			      ml_translatorTheory.Eq_def] th
+			       ml_translatorTheory.Eq_def] th
 
     (* Generalize the variables *)
     val th = GENL[state_var] th |> GENL xvl |> GENL xl
@@ -180,23 +138,68 @@ val _ = Hol_datatype `
   state_refs = <| the_num : num ;
 	          the_num_array : num list ;
                   the_int_array : int list |>`;
+
 val ptr1_def = Define `ptr1 = Loc 1`;
 val ptr2_def = Define `ptr2 = Loc 2`;
 val ptr3_def = Define `ptr3 = Loc 3`;
-val STATE_REF_def = Define `STATE_REF = \st. REF_REL NUM ptr1 st.the_num
-                         * RARRAY_REL NUM ptr2 st.the_num_array
-                         * RARRAY_REL INT ptr3 st.the_int_array`
+
+val STATE_REF_def = Define `
+  STATE_REF = \st.
+    REF_REL NUM ptr1 st.the_num *
+    RARRAY_REL NUM ptr2 st.the_num_array *
+    RARRAY_REL INT ptr3 st.the_int_array`
+
 val f1_def = Define `f1 (x : num) y = st_ex_return(x + y)`
 val f1_v_def = Define `f1_v = Loc 0`
 val f1_side_def = Define `f1_side x y st = T`
-val spec1 = Q.prove(`ArrowP STATE_REF (PURE NUM) (ArrowM STATE_REF (PURE NUM) (MONAD NUM UNIT_TYPE)) f1 f1_v`,cheat);
-val spec2 = Q.prove(`PRECONDITION(f1_side x y st) ==>
-ArrowP STATE_REF (PURE (Eq NUM x))
-(ArrowM STATE_REF (EqSt (PURE (Eq NUM y)) st) (MONAD NUM UNIT_TYPE)) f1 f1_v`,cheat)
-val ffi = ``p:ffi ffi_proj``
 
-mk_app_of_ArrowP ffi spec1
-mk_app_of_ArrowP ffi spec2
+val ffi = ``p:'ffi ffi_proj``
+
+val spec1 = Q.prove (
+  `ArrowP ro (STATE_REF, ^ffi) (PURE NUM)
+          (ArrowM ro (STATE_REF, ^ffi) (PURE NUM) (MONAD NUM UNIT_TYPE)) f1 f1_v`,
+  cheat);
+
+val spec2 = Q.prove (
+  `PRECONDITION (f1_side x y st)
+   ==>
+   ArrowP ro (STATE_REF, ^ffi) (PURE (Eq NUM x))
+          (ArrowM ro (STATE_REF, ^ffi) (EqSt (PURE (Eq NUM y)) st)
+            (MONAD NUM UNIT_TYPE)) f1 f1_v`,
+  cheat)
+
+mk_app_of_ArrowP spec1
+mk_app_of_ArrowP spec2
+
+*)
+
+(* Some tests
+
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("ex_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("ex_return", ``st_ex_return``);
+
+val _ = Datatype `
+  my_state =
+    <| my_count : num
+     ; has_init : bool
+     |>`
+
+val init_state_def = Define `
+  init_state =
+    do
+      is_done <- get_has_init;
+      if is_done then
+        raise_Fail (strlit"init")
+      else
+        do
+          set_my_count 0;
+          set_has_init true;
+          return ()
+        od
+    od`
 
 *)
 

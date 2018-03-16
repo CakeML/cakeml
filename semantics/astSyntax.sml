@@ -12,6 +12,7 @@ structure astSyntax = struct
   val decs_ty = listSyntax.mk_list_type dec_ty;
   val top_ty = mk_thy_type{Thy="ast",Tyop="top",Args=[]};
   val t_ty = mk_thy_type{Thy="ast",Tyop="t",Args=[]};
+  val spec_ty = mk_thy_type{Thy="ast",Tyop="spec",Args=[]};
   val TC_int = prim_mk_const{Thy="ast",Name="TC_int"};
   val TC_char = prim_mk_const{Thy="ast",Name="TC_char"};
   val TC_string = prim_mk_const{Thy="ast",Name="TC_string"};
@@ -45,6 +46,7 @@ structure astSyntax = struct
   val (TC_name_tm,mk_TC_name,dest_TC_name,is_TC_name) = s "TC_name"
   val (Tdec_tm,mk_Tdec,dest_Tdec,is_Tdec) = s "Tdec"
   val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit"
+  val (Stype_tm,mk_Stype,dest_Stype,is_Stype) = s "Stype"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
   val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
@@ -60,6 +62,9 @@ structure astSyntax = struct
   val (Tannot_tm,mk_Tannot,dest_Tannot,is_Tannot) = s "Tannot"
   val (Lannot_tm,mk_Lannot,dest_Lannot,is_Lannot) = s "Lannot"
   val (Ptannot_tm,mk_Ptannot,dest_Ptannot,is_Ptannot) = s "Ptannot"
+  val (Sval_tm,mk_Sval,dest_Sval,is_Sval) = s "Sval"
+  val (Stype_opq_tm,mk_Stype_opq,dest_Stype_opq,is_Stype_opq) = s "Stype_opq"
+  val (Sexn_tm,mk_Sexn,dest_Sexn,is_Sexn) = s "Sexn"
   end
   local val s = HolKernel.syntax_fns3 "ast" in
   val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
@@ -68,6 +73,7 @@ structure astSyntax = struct
   val (Let_tm,mk_Let,dest_Let,is_Let) = s "Let"
   val (Log_tm,mk_Log,dest_Log,is_Log) = s "Log"
   val (If_tm,mk_If,dest_If,is_If) = s "If"
+  val (Stabbrev_tm,mk_Stabbrev,dest_Stabbrev,is_Stabbrev) = s "Stabbrev"
   end
   local val s = HolKernel.syntax_fns4 "ast" in
   val (Dtabbrev_tm,mk_Dtabbrev,dest_Dtabbrev,is_Dtabbrev) = s "Dtabbrev"

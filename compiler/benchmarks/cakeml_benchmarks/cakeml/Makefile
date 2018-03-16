@@ -9,9 +9,9 @@ BM_PROGS_O4 = $(patsubst %.sml,cake_O4_%,$(BMS))
 
 ASM_PROGS = $(patsubst %.sml,%.S,$(BMS))
 
-all: compiler benchmarks
+all: $(CAKECC) benchmarks
 
-compiler : cake.S basis_ffi.c
+$(CAKECC) : cake.S basis_ffi.c
 	$(CC) $< basis_ffi.c $(FLAGS) $(CAKECC)
 
 benchmarks : $(BM_PROGS_O4)
