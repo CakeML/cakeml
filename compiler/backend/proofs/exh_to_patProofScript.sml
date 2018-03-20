@@ -11,6 +11,84 @@ val _ = Parse.hide"U";
 
 val pmatch_exh_def = exhSemTheory.pmatch_def
 
+(* Get rid of Run ops everywhere to rid the proof of cheats.       *)
+(* Prove that NoRun holds for everything that goes out of exh,     *)
+(* and that everything pat->pat preserves it.                      *)
+
+val NoRun_def = tDefine "NoRun" `
+  (NoRun (Raise t e)      <=> NoRun e) /\
+  (NoRun (Handle t e1 e2) <=> NoRun e1 /\ NoRun e2) /\
+  (NoRun (Con t n es)     <=> EVERY NoRun es) /\
+  (NoRun (Fun t e)        <=> NoRun e) /\
+  (NoRun (App t op es)    <=> op <> Run /\ EVERY NoRun es) /\
+  (NoRun (If t e1 e2 e3)  <=> NoRun e1 /\ NoRun e2 /\ NoRun e3) /\
+  (NoRun (Let t e1 e2)    <=> NoRun e1 /\ NoRun e2) /\
+  (NoRun (Seq t e1 e2)    <=> NoRun e1 /\ NoRun e2) /\
+  (NoRun (Letrec t es e)  <=> EVERY NoRun es /\ NoRun e) /\
+  (NoRun expr             <=> T)`
+  (WF_REL_TAC `measure exp_size` \\ rw []
+   \\ imp_res_tac exp_size_MEM \\ fs [])
+
+val sLet_NoRun = Q.store_thm("sLet_NoRun",
+  `!e1 e2.
+     NoRun e1 /\ NoRun e2
+     ==>
+     !t. NoRun (sLet t e1 e2)`,
+  recInduct (theorem"NoRun_ind") \\ rw [NoRun_def]
+  \\ simp [sLet_def]
+  \\ every_case_tac \\ fs [NoRun_def]);
+
+val sIf_NoRun = Q.store_thm("sIf_NoRun",
+  `!e1 e2 e3.
+     NoRun e1 /\ NoRun e2 /\ NoRun e3
+     ==>
+     !t. NoRun (sIf t e1 e2 e3)`,
+  recInduct (theorem"NoRun_ind") \\ rw [NoRun_def]
+  \\ simp [sIf_def]
+  \\ every_case_tac \\ fs [NoRun_def]);
+
+val compile_row_NoRun = Q.store_thm("compile_row_NoRun",
+  `(!t bvs p ns n f e.
+      NoRun e /\
+      compile_row t bvs p = (ns, n, f)
+      ==>
+      NoRun (f e)) /\
+   (!t bvs n1 n2 ps ns n f e.
+      NoRun e /\
+      compile_cols t bvs n1 n2 ps = (ns, n, f)
+      ==>
+      NoRun (f e))`,
+   ho_match_mp_tac compile_row_ind \\ rw [compile_row_def] \\ fs []
+   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+   \\ irule sLet_NoRun \\ fs [NoRun_def]);
+
+val Let_Els_NoRun = Q.store_thm("Let_Els_NoRun",
+  `!t n m e. NoRun e ==> NoRun (Let_Els t n m e)`,
+  recInduct Let_Els_ind \\ rw [NoRun_def] \\ fs [Let_Els_def]
+  \\ irule sLet_NoRun \\ fs [NoRun_def]);
+
+val compile_pat_NoRun = Q.store_thm("compile_pat_NoRun",
+  `(!t p. NoRun (compile_pat t p)) /\
+   (!t n ps. NoRun (compile_pats t n ps))`,
+  ho_match_mp_tac compile_pat_ind \\ rw [compile_pat_def] \\ fs [NoRun_def]
+  \\ TRY (irule sIf_NoRun) \\ fs [NoRun_def]
+  \\ TRY (irule sLet_NoRun) \\ fs [NoRun_def]
+  \\ TRY (irule Let_Els_NoRun) \\ fs []);
+
+val compile_exp_NoRun = Q.store_thm("compile_exp_NoRun",
+  `(!bvs x. NoRun (compile_exp bvs x)) /\
+   (!bvs xs. EVERY NoRun (compile_exps bvs xs)) /\
+   (!bvs xs. EVERY NoRun (compile_funs bvs xs)) /\
+   (!tr bvs xs. NoRun (compile_pes tr bvs xs))`,
+  ho_match_mp_tac compile_exp_ind \\ rw [NoRun_def] \\ fs [ETA_AX]
+  \\ rpt CASE_TAC \\ fs [NoRun_def]
+  \\ TRY (metis_tac [sLet_NoRun, compile_row_NoRun])
+  \\ metis_tac [compile_row_NoRun, sIf_NoRun, compile_pat_NoRun]);
+
+val compile_NoRun = Q.store_thm("compile_NoRun",
+  `NoRun (compile e)`,
+  rw [compile_def, compile_exp_NoRun]);
+
 (* value translation *)
 
 val compile_v_def = tDefine"compile_v"`
