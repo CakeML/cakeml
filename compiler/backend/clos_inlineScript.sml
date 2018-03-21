@@ -381,10 +381,17 @@ val clos_approx_def = Define `
     Clos loc num_args (if must_inline limit loc num_args body
                        then SOME body else NONE)`;
 
+(*
 val clos_gen_def = Define`
   (clos_gen limit n i [] = []) ∧
   (clos_gen limit n i ((a,e)::xs) =
     clos_approx limit (n+2*i) a e::clos_gen limit n (i+1) xs)`;
+*)
+
+val clos_gen_noinline_def = Define`
+  (clos_gen_noinline n i [] = []) /\
+  (clos_gen_noinline n i ((a,e)::xs) =
+    Clos (n+2*i) a NONE::clos_gen_noinline n (i+1) xs)`;
 
 val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
 
@@ -503,7 +510,7 @@ val known_def = tDefine "known" `
   (known limit [Letrec t loc_opt _ fns x1] vs g =
      let clos = dtcase loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
-                |  SOME n => clos_gen (size_limit limit) n 0 fns in
+                |  SOME loc => clos_gen_noinline loc 0 fns in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)
      let new_fns = MAP (\(num_args,x).
@@ -526,8 +533,8 @@ val compile_def = Define `
   compile T exp =
     let (_,g1) = known (0,0) [exp] [] LN in
     let (e1,_) = known (0,0) [exp] [] g1 in
-    let (_,g2) = known (0,0) [FST (HD e1)] [] LN in
-    let (e2,_) = known (100,1) [FST (HD e1)] [] g2 in
+    let (_,g2) = known (100,0) [FST (HD e1)] [] LN in
+    let (e2,_) = known (100,2) [FST (HD e1)] [] g2 in
       FST (HD e2)`
 
 val known_LENGTH = Q.store_thm(
@@ -555,6 +562,93 @@ val known_sing_EQ_E = Q.store_thm(
   "known_sing_EQ_E",
   `∀limit e vs g0 all g. known limit [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
   metis_tac[PAIR_EQ, known_sing]);
+
+
+(*
+
+(* Trace starting points *)
+val t0 = ``SourceLoc 0 0 0 0``;
+val t1 = ``SourceLoc 1 1 1 1``;
+
+(* The numerical constant 1 *)
+val const1 = ``Op None (Const 1) []``;
+val const2 = ``Op None (Const 2) []``;
+
+
+(* fn f x => f x *)
+val apply = ``Fn None (SOME 0) NONE 2 (App ^t0 NONE (Var None 0) [Var None 1])``;
+
+(* fn x => x + 1 *)
+val succ = ``Fn None (SOME 2) NONE 1 (Op None Add [Var None 0; ^const1])``;
+
+(* -------------------------------*)
+
+(* (fn f x => f x) (fn x => x + 1) 2 *)
+val example_direct = ``App ^t1 NONE ^apply [^succ; ^const2]``;
+
+val inline_direct = ``clos_inline$compile T ^example_direct``;
+EVAL inline_direct;
+
+val exp = ``Let None [^const1; ^const2] (Op None Add [Var None 0; Var None 1])`` 
+
+EVAL ``clos_letop$let_op [^exp]``;
+
+(*-------------------------------*)
+
+(*
+let apply = fn f x => f x
+    succ = fn x => x + 1
+in
+  apply succ 1
+end
+*)
+val example_local = ``Let None [^apply; ^succ] (App ^t1 NONE (Var None 0) [Var None 1; ^const1])``;
+val inlined_local = EVAL ``clos_inline$compile T ^example_local``;
+
+val inline_local = ``clos_inline$compile T ^example_local``;
+EVAL inline_local;
+
+(*-------------------------------*)
+
+(* fun apply <f,x> = f x *)
+val sg_apply = ``Op None (SetGlobal 0) [^apply]``;
+val g_apply = ``Op None (Global 0) []``;
+
+(* fun succ <x> = x + 1 *)
+val sg_succ = ``Op None (SetGlobal 1) [^succ]``;
+val g_succ = ``Op None (Global 1) []``;
+
+(*
+let _ = SetGlobal 0 (fn f x => f x)
+    _ = SetGlobal 1 (fn x => x + 1)
+in
+  (Global 0) (Global 1) 1
+end
+*)
+val example_global = ``Let None [^sg_apply; ^sg_succ] (App ^t1 NONE ^g_apply [^g_succ; ^const1])``;
+
+val inline_global = ``clos_inline$compile T ^example_global``;
+
+EVAL inline_global;
+
+EVAL ``known (100,0) [^apply] [] LN``;
+EVAL ``known (100,0) [^succ] [] LN``;
+
+EVAL ``known (0,0) [^example_global] [] LN``;
+
+EVAL ``
+    let exp = ^example_local in
+    let (_,g1) = known (0,0) [exp] [] LN in
+    let (e1,g1') = known (0,0) [exp] [] g1 in
+    let (e2,g2) = known (0,0) [FST (HD e1)] [] LN in
+    (e1, e2, g1, g1')
+``
+
+
+    let (e2,_) = known (100,2) [FST (HD e1)] [] g2 in
+      FST (HD e2)
+
+*)
 
 (*
 
