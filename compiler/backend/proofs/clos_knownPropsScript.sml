@@ -11,7 +11,7 @@ val va_case_eq =
 
 val dest_Clos_eq_SOME = Q.store_thm(
   "dest_Clos_eq_SOME[simp]",
-  `dest_Clos a = SOME (i, j) ⇔ a = Clos i j`,
+  `dest_Clos a = SOME (i, j, e) ⇔ a = Clos i j e`,
   Cases_on `a` >> simp[]);
 
 
@@ -96,9 +96,10 @@ val subapprox_Int = Q.store_thm(
 
 val subapprox_Clos = Q.store_thm(
   "subapprox_Clos[simp]",
-  `(a ◁ Clos m n ⇔ a = Clos m n ∨ a = Impossible) ∧
-   (Clos m n ◁ a ⇔ a = Clos m n ∨ a = Other)`,
-  simp[subapprox_def] >> Cases_on `a` >> simp[] >> rw[]);
+  `(a ◁ Clos m n e ⇔ a = Clos m n e ∨ a = Impossible) ∧
+   (Clos m n e ◁ a ⇔ a = Clos m n e ∨ a = Other)`,
+  simp[subapprox_def] >> Cases_on `a` >> simp[] >> rw[] >>
+  fs [DE_MORGAN_THM]);
 
 val subapprox_Impossible = Q.store_thm(
   "subapprox_Impossible[simp]",
@@ -137,19 +138,23 @@ val known_op_better_definedg = Q.store_thm(
 
 val known_better_definedg = Q.store_thm(
   "known_better_definedg",
-  `∀es apxs g0 alist g.
-     known es apxs g0 = (alist, g) ⇒ better_definedg g0 g`,
-  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rw[] >>
+  `∀limit es apxs g0 alist g.
+     known limit es apxs g0 = (alist, g) ⇒ better_definedg g0 g`,
+  ho_match_mp_tac known_ind >> simp[known_def] >>
+  reverse (rpt strip_tac) >> rpt (pairarg_tac >> fs[]) >> rw[]
+  >- (EVERY_CASE_TAC >> rpt (pairarg_tac >> fs[]) >>
+      metis_tac[better_definedg_trans, known_op_better_definedg]) >>
   metis_tac[better_definedg_trans, known_op_better_definedg]);
 
 val val_approx_val_def = tDefine "val_approx_val" `
-  (val_approx_val (Clos m n) v ⇔
-     (∃e2 b. v = Closure (SOME m) [] e2 n b) ∨
+  (val_approx_val (Clos m n NONE) v ⇔
+     (∃env b. v = Closure (SOME m) [] env n b) ∨
      (∃base env fs j.
         v = Recclosure (SOME base) [] env fs j ∧
         m = base + 2*j ∧ j < LENGTH fs ∧
         n = FST (EL j fs))) ∧
+  (val_approx_val (Clos m n (SOME b)) v ⇔
+     (∃env. v = Closure (SOME m) [] env n b)) ∧
   (val_approx_val (Tuple tg vas) v ⇔
      ∃vs. v = Block tg vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
   (val_approx_val Impossible v ⇔ F) ∧
