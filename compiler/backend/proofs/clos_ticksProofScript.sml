@@ -777,9 +777,8 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
             (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE xs ++ [x])) ++ args1 ++ env1)
             (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE ys ++ [y])) ++ arg_env ++ clo_env )`
          by (ntac 2 (irule EVERY2_APPEND_suff \\ simp [])
-             \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
-             \\ irule EVERY2_APPEND_suff \\ simp []
-             \\ irule EVERY2_REVERSE \\ simp [])
+             \\ irule EVERY2_TAKE
+             \\ irule EVERY2_APPEND_suff \\ simp [])
       \\ first_x_assum drule
       \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
       \\ simp [state_rel_clock]
@@ -789,8 +788,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ `LIST_REL v_rel (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE xs ++ [x])))
                          (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE ys ++ [y])))`
          by (irule EVERY2_REVERSE \\ irule EVERY2_DROP
-             \\ irule EVERY2_APPEND_suff \\ simp []
-             \\ irule EVERY2_REVERSE \\ simp [])
+             \\ irule EVERY2_APPEND_suff \\ simp [])
       \\ first_x_assum drule
       \\ ntac 2 (disch_then drule)
       \\ strip_tac
@@ -814,9 +812,8 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
        by (irule EVERY2_APPEND_suff \\ simp []
            \\ reverse (irule EVERY2_APPEND_suff) THEN1 fs [LIST_REL_GENLIST]
            \\ irule EVERY2_APPEND_suff \\ simp []
-           \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
-           \\ irule EVERY2_APPEND_suff \\ simp []
-           \\ irule EVERY2_REVERSE \\ simp [])
+           \\ irule EVERY2_TAKE
+           \\ irule EVERY2_APPEND_suff \\ simp [])
     \\ first_x_assum drule
     \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
     \\ simp [state_rel_clock]
@@ -826,8 +823,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ `LIST_REL v_rel (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE xs ++ [x])))
                        (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE ys ++ [y])))`
        by (irule EVERY2_REVERSE \\ irule EVERY2_DROP
-           \\ irule EVERY2_APPEND_suff \\ simp []
-           \\ irule EVERY2_REVERSE \\ simp [])
+           \\ irule EVERY2_APPEND_suff \\ simp [])
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
     \\ strip_tac
@@ -846,9 +842,8 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
             (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE xs ++ [x])) ++ args1 ++ env1)
             (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE ys ++ [y])) ++ arg_env ++ clo_env )`
          by (ntac 2 (irule EVERY2_APPEND_suff \\ simp [])
-             \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
-             \\ irule EVERY2_APPEND_suff \\ simp []
-             \\ irule EVERY2_REVERSE \\ simp [])
+             \\ irule EVERY2_TAKE
+             \\ irule EVERY2_APPEND_suff \\ simp [])
       \\ first_x_assum drule
       \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
       \\ simp [state_rel_clock]
@@ -874,9 +869,8 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
          by (irule EVERY2_APPEND_suff \\ simp []
              \\ reverse (irule EVERY2_APPEND_suff) THEN1 fs [LIST_REL_GENLIST]
              \\ irule EVERY2_APPEND_suff \\ simp []
-             \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
-             \\ irule EVERY2_APPEND_suff \\ simp []
-             \\ irule EVERY2_REVERSE \\ simp [])
+             \\ irule EVERY2_TAKE
+             \\ irule EVERY2_APPEND_suff \\ simp [])
       \\ first_x_assum drule
       \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
       \\ simp [state_rel_clock]
