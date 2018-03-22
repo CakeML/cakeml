@@ -599,7 +599,6 @@ val do_app_ssgc = Q.store_thm(
             s.compile_oracle = s0.compile_oracle /\
             mglobals_extend s0 (SET_OF_BAG (op_gbag opn)) s) /\
      (!v. res = Rerr (Rraise v) ==> vsgc_free v)`,
-
   gen_tac >>
   `?this_is_case. this_is_case = opn` by metis_tac [] >>
   Cases_on `opn` >>
@@ -655,8 +654,11 @@ val do_app_ssgc = Q.store_thm(
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
   >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- ((* ListAppend *)
-
-      cheat)
+      rw [] \\ fs []
+      \\ match_mp_tac list_to_v_EVERY_APPEND
+      \\ simp [vsgc_free_def]
+      \\ asm_exists_tac \\ fs []
+      \\ asm_exists_tac \\ fs [])
   >- ((* FromList *)
       simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
