@@ -1,22 +1,19 @@
 open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     CommandLineProofTheory TextIOProofTheory
+     CommandLineProofTheory TextIOProofTheory PrettyPrinterProgTheory
 
 val _ = new_theory "basisProg"
 
-val _ = translation_extends"TextIOProg";
+val _ = translation_extends"PrettyPrinterProg";
 
 val print_eval_thm = derive_eval_thm true "print" ``Var(Long"TextIO"(Short"print"))``
 val () = ml_prog_update (add_Dlet print_eval_thm "print" [])
 
-val res = register_type``:'a app_list``;
-val MISC_APP_LIST_TYPE_def = theorem"MISC_APP_LIST_TYPE_def";
-
 val print_app_list = process_topdecs
   `fun print_app_list ls =
    (case ls of
-      Nil => ()
-    | List ls => TextIO.print_list ls
-    | Append l1 l2 => (print_app_list l1; print_app_list l2))`;
+      PrettyPrinter.Nil => ()
+    | PrettyPrinter.List ls => TextIO.print_list ls
+    | PrettyPrinter.Append l1 l2 => (print_app_list l1; print_app_list l2))`;
 val () = append_prog print_app_list;
 
 val print_app_list_spec = Q.store_thm("print_app_list_spec",
