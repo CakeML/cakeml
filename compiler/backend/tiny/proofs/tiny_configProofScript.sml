@@ -18,17 +18,11 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-val tiny_config_addr_offset_lemma = prove(
-  ``tiny_config.addr_offset = (0xFFFFFF54w(* can be smaller *), 31w) /\
-    (tiny_config.valid_imm (INL Add) i ⇔ 0xFFFFFFE0w ≤ i ∧ i < 1024w) /\
-    (tiny_config.valid_imm (INL Sub) i ⇔ 0xFFFFFFE0w ≤ i ∧ i < 1024w)``,
-  cheat); (* the offsets need to be a bit larger... *)
-
 val tiny_backend_config_ok = Q.store_thm("tiny_backend_config_ok",`
   backend_config_ok tiny_backend_config`,
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   \\ fs[tiny_backend_config_def,(*tiny_targetTheory.tiny_config_def,*)asmTheory.offset_ok_def,
-        alignmentTheory.aligned_0,tlookup_bij_iff,tiny_config_addr_offset_lemma]
+        alignmentTheory.aligned_0,tlookup_bij_iff]
   \\ fs[tiny_backend_config_def,tiny_targetTheory.tiny_config_def,asmTheory.offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
   THEN1 blastLib.FULL_BBLAST_TAC

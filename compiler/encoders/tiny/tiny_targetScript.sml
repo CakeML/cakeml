@@ -61,7 +61,12 @@ val tiny_enc_def = Define`
    (tiny_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       enc (Normal (tiny_bop bop, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (tiny_enc (Inst (Arith (Binop bop r1 r2 (asm$Imm i)))) =
-      enc (Normal (tiny_bop bop, n2w r1, Reg (n2w r2), Imm (w2w i)))) /\
+    if i < 32w then
+      enc (Normal (tiny_bop bop, n2w r1, Reg (n2w r2), Imm (w2w i)))
+    else
+      tiny_encode
+        [tiny_constant (temp_reg, i);
+         Normal (tiny_bop bop, n2w r1, Reg (n2w r2), Reg temp_reg)]) /\
    (tiny_enc (Inst (Arith (asm$Shift sh r1 r2 n))) =
       enc (Shift (tiny_sh sh, n2w r1, Reg (n2w r2), Imm (n2w n)))) /\
    (tiny_enc (Inst (Arith (Div _ _ _))) = enc ReservedInstr) /\
@@ -84,20 +89,44 @@ val tiny_enc_def = Define`
         [Normal (fSub, n2w r1, Reg (n2w r2), Reg (n2w r3));
          Normal (fOverflow, n2w r4, Imm 0w, Imm 0w)]) /\
    (tiny_enc (Inst (Mem Load r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
       tiny_encode
         [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+         LoadMEM (n2w r1, Reg (n2w r1))]
+    else
+      tiny_encode
+        [tiny_constant (temp_reg, a);
+         Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))]) /\
    (tiny_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
       tiny_encode
         [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+         LoadMEMByte (n2w r1, Reg (n2w r1))]
+    else
+      tiny_encode
+        [tiny_constant (temp_reg, a);
+         Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEMByte (n2w r1, Reg (n2w r1))]) /\
    (tiny_enc (Inst (Mem Store r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
       tiny_encode
         [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+         StoreMEM (fSnd, temp_reg, Reg (n2w r1), Reg temp_reg)]
+    else
+      tiny_encode
+        [tiny_constant (temp_reg, a);
+         Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEM (fSnd, temp_reg, Reg (n2w r1), Reg temp_reg)]) /\
    (tiny_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
       tiny_encode
         [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+         StoreMEMByte (fSnd, temp_reg, Reg (n2w r1), Reg temp_reg)]
+    else
+      tiny_encode
+        [tiny_constant (temp_reg, a);
+         Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEMByte (fSnd, temp_reg, Reg (n2w r1), Reg temp_reg)]) /\
    (tiny_enc (Inst (FP _)) = enc ReservedInstr) /\
    (tiny_enc (Jump a) =
@@ -155,8 +184,11 @@ val tiny_config_def = Define`
     ; link_reg := SOME 0
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := \_ i. -32w <= i /\ i < 32w
-    ; addr_offset := (-32w, 31w)
+    ; valid_imm := \i n. if i = INL Add \/ i = INL Sub then
+                           -32w <= n /\ n < 1024w
+                         else
+                           -32w <= n /\ n < 32w
+    ; addr_offset := (-172w, 31w) (* old comment: "-172w can be smaller" *)
     ; byte_offset := (-32w, 31w)
     ; jump_offset := (-0x7FFFFFw + 4w, 0x7FFFFFw + 4w)
     ; cjump_offset := (-0x7FFFFFw + 4w, 0x7FFFFFw + 4w)

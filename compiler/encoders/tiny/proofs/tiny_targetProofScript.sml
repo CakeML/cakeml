@@ -101,11 +101,21 @@ val load_lem2 = Q.prove(
   \\ blastLib.BBLAST_TAC
   )
 
+val load_lem3 =
+  blastLib.BBLAST_PROVE
+   ``!(c:word32). 0xFFFFFF54w <= c /\ ~(0w <= c) ==>
+      (-1w * w2w (w2w (-1w * c) : 23 word) = c)``
+
 val store_lem =
   blastLib.BBLAST_PROVE
     ``(!a: word32. a <> a + 3w) /\
       (!a: word32. a <> a + 2w) /\
       (!a: word32. a <> a + 1w)``
+
+val store_lem2 =
+  blastLib.BBLAST_PROVE
+   ``!(c:word32). 0w <= c /\ c <= 31w ==>
+      (w2w ((w2w c) : 23 word) = c)``
 
 (* some rewrites ---------------------------------------------------------- *)
 
@@ -270,7 +280,7 @@ val state_tac =
       asmPropsTheory.all_pcs, tiny_ok_def, tiny_config,
       combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
       alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
-      wordsTheory.WORD_LS_word_T, load_lem, load_lem2]
+      wordsTheory.WORD_LS_word_T, load_lem, load_lem2, load_lem3, store_lem2]
   \\ rw [alignmentTheory.aligned_numeric, combinTheory.APPLY_UPDATE_THM,
          wordsTheory.word_lsl_bv_def, wordsTheory.word_lsr_bv_def,
          wordsTheory.word_asr_bv_def, wordsTheory.word_ror_bv_def,
@@ -363,7 +373,9 @@ val tiny_backend_correct = Q.store_thm ("tiny_backend_correct",
             \\ Cases_on `(b = Xor) /\ (c = -1w)`
             >- next_tac
             \\ Cases_on `b`
-            \\ next_tac
+            \\ (Cases_on `-32w <= c /\ c < 32w`
+                >| [all_tac, Cases_on `0w <= c` \\ fs []]
+                \\ next_tac)
             )
          >- (
             (*--------------
@@ -423,7 +435,9 @@ val tiny_backend_correct = Q.store_thm ("tiny_backend_correct",
          print_tac "Mem"
          \\ Cases_on `a`
          \\ Cases_on `m`
-         \\ next_tac
+         \\ (Cases_on `-32w <= c /\ c < 32w`
+             >| [all_tac, Cases_on `0w <= c` \\ fs []]
+             \\ next_tac)
          )
          (*--------------
              FP
