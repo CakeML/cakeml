@@ -3348,8 +3348,6 @@ fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 fun the (SOME x) = x | the _ = failwith("the of NONE")
 
-val SUC_SUB1_LEMMA = Q.SPECL [`n`,`1`] ADD_SUB |> REWRITE_RULE [GSYM ADD1]
-
 fun prove_ind_thm ind ind_thm_goal =
 (*
 set_goal([],ind_thm_goal)
