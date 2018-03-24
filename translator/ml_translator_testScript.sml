@@ -11,16 +11,30 @@ val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
-val res = translate_no_ind ZIP2_def;
+val res = translate ZIP2_def;
 
-val zip2_ind_goal = first is_forall (hyp res);
-val zip2_ind = prove(
-  ``^zip2_ind_goal``,
-  rpt gen_tac \\ strip_tac
-  \\ simp [FORALL_PROD]
-  \\ ho_match_mp_tac (latest_ind())
-  \\ fs [])
-  |> update_precondition;
+val res = translate APPEND;
+val res = translate REVERSE_DEF;
+val res = translate mllistTheory.tabulate_aux_def;
+
+val res = translate MEMBER_def;
+
+val AEVERY_AUX_def = Define `
+  (AEVERY_AUX aux P [] = T) /\
+  (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
+     if MEMBER x aux then AEVERY_AUX aux P xs else
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
+
+val res = translate AEVERY_AUX_def;
+
+val res = translate mlstringTheory.strcat_def;
+val res = translate mlstringTheory.concatWith_aux_def
+
+val ADEL_def = Define `
+  (ADEL [] z = []) /\
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+
+val res = translate ADEL_def;
 
 val ZIP4_def = Define `
   ZIP4 xs = ZIP2 xs 6`
@@ -35,17 +49,6 @@ val res = translate char_to_byte_def;
 val res = translate MAP;
 
 val res = translate mlstringTheory.explode_aux_def;
-
-val explode_aux_ind_goal = first is_forall (hyp res);
-val explode_aux_ind = prove(
-  ``^explode_aux_ind_goal``,
-  rpt gen_tac \\ strip_tac
-  \\ simp [FORALL_PROD]
-  \\ ho_match_mp_tac (latest_ind())
-  \\ rw [] \\ fs [arithmeticTheory.ADD1]
-  \\ first_x_assum match_mp_tac
-  \\ fs [] \\ cheat)
-  |> update_precondition;
 
 val res = translate mlstringTheory.explode_def;
 

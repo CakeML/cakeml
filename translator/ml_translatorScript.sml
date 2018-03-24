@@ -2005,6 +2005,10 @@ val evaluate_match_rw = Q.store_thm("evaluate_match_rw",
   \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args []`
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+val PreImp_LEMMA = store_thm("PreImp_LEMMA",
+  ``(b1 ==> PreImp b1 b2) ==> PreImp b1 b2``,
+  fs [PreImp_def,PRECONDITION_def]);
+
 (* terms used by the Lib file *)
 
 val translator_terms = save_thm("translator_terms",

@@ -55,7 +55,7 @@ fun prove (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith "prove failed" end end
 
-fun auto_prove proof_name (goal,tac) = let
+fun auto_prove proof_name (goal,tac:tactic) = let
   val (rest,validation) = tac ([],goal) handle Empty => fail()
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
@@ -3348,13 +3348,17 @@ fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 fun the (SOME x) = x | the _ = failwith("the of NONE")
 
+val SUC_SUB1_LEMMA = Q.SPECL [`n`,`1`] ADD_SUB |> REWRITE_RULE [GSYM ADD1]
+
 fun prove_ind_thm ind ind_thm_goal =
 (*
 set_goal([],ind_thm_goal)
 *)
   auto_prove "prove_ind_thm" (ind_thm_goal,
     rpt gen_tac
+    \\ rewrite_tac [TRUE_def,FALSE_def]
     \\ disch_then strip_assume_tac
+    \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
     \\ match_mp_tac (the ind)
     \\ rpt strip_tac
     \\ last_x_assum match_mp_tac
@@ -3552,9 +3556,25 @@ fun get_ind_thm_goal goals =
             rec_replace_pat_list pats (concl tt)))) (zip pats goals)
     val ps = map fst pss |>
       map (hd o list_dest dest_comb o last o list_dest dest_forall)
+    fun remove_pres tm =
+      if is_forall tm then let
+        val (v,tm) = dest_forall tm
+        in mk_forall (v,remove_pres tm) end
+      else if is_CONTAINER tm then rand tm
+      else if is_neg tm andalso is_CONTAINER (rand tm) then
+        mk_neg(rand (rand tm))
+      else if is_conj tm then let
+        val (x,y) = dest_conj tm
+        in mk_conj (remove_pres x, remove_pres y) end
+      else if is_imp tm then let
+        val (x,y) = dest_imp tm
+        in mk_imp (remove_pres x, remove_pres y) end
+      else if is_var (repeat rator tm) then tm else T
     val ind_thm_goal =
       list_mk_forall(ps,
-         mk_imp(list_mk_conj(map snd pss),list_mk_conj(map fst pss)))
+         mk_imp(remove_pres (list_mk_conj(map snd pss)),
+                list_mk_conj(map fst pss)))
+      |> QCONV (REWRITE_CONV [CONTAINER_def]) |> concl |> rand
   in ind_thm_goal end;
 
 fun get_custom_ind_with_pre ind ind_thm_goal = let
@@ -3594,16 +3614,16 @@ fun print_unable_to_prove_ind_thm original_def ml_name = let
   val _ = print ("\n  it with something like the following before this")
   val _ = print ("\n  constant is used in subsequent translations.")
   val _ = print ("\n")
-  val _ = print ("\n    val res = translate_no_ind "^name^";")
+  val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
-  val _ = print ("\n    val "^ml_name^"_ind = Q.prove(")
-  val _ = print ("\n      `^(first is_forall (hyp res))`,")
-  val _ = print ("\n      rpt gen_tac")
-  val _ = print ("\n      \\ disch_then strip_assume_tac")
-  val _ = print ("\n      \\ match_mp_tac (latest_ind ())")
-  val _ = print ("\n      \\ rpt strip_tac")
-  val _ = print ("\n      ... )")
-  val _ = print ("\n      |> update_precondition;")
+  val _ = print ("\nval ind_lemma = Q.prove(")
+  val _ = print ("\n  `^(first is_forall (hyp res))`,")
+  val _ = print ("\n  rpt gen_tac")
+  val _ = print ("\n  \\\\ disch_then strip_assume_tac")
+  val _ = print ("\n  \\\\ match_mp_tac (latest_ind ())")
+  val _ = print ("\n  \\\\ rpt strip_tac")
+  val _ = print ("\n  ... )")
+  val _ = print ("\n  |> update_precondition;")
   val _ = print ("\n")
   val _ = print ("\n  Here `translate_no_ind` does exactly the same as")
   val _ = print ("\n  `translate` except it doesn't attempt an induction.")
@@ -3628,6 +3648,12 @@ val _ = (next_ml_names := ["+","+","+","+","+"]);
 val def = Define `foo n = if n = 0 then 0 else foo (n-1n)`
 
 val def = listTheory.APPEND;
+val def = sortingTheory.PART_DEF;
+val def = mlstringTheory.explode_aux_def;
+
+val def = Define `
+  (ZIP2 ([],[]) z = []) /\
+  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
 *)
 
@@ -3751,7 +3777,7 @@ val (fname,ml_fname,def,th,v) = hd thms
 
     (* apply induction *)
     fun get_goal (fname,ml_fname,def,th,pre) = let
-      val th = REWRITE_RULE [CONTAINER_def] th
+      val th = REWRITE_RULE [] th
       val hs = hyp th
       val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
       val hyp_tm = list_mk_abs(rev rev_params, th |> UNDISCH_ALL |> concl)
@@ -3768,8 +3794,27 @@ val (fname,ml_fname,def,th,v) = hd thms
     val custom_ind_thm = ASSUME ind_thm_goal
     val lemma = SPECL (map fst goals) custom_ind_thm
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
+      |> REWRITE_RULE [CONTAINER_def]
     val lemma1 = CONV_RULE (DEPTH_CONV BETA_CONV) (LIST_CONJ
       (map (fn (x,(tt,_)) => GENL (butlast (list_dest dest_abs x)) tt) goals))
+      |> REWRITE_RULE [CONTAINER_def]
+    val g0 = concl lemma1
+    val g1 = fst (dest_imp (concl lemma))
+    val lemma1 = if aconv g0 g1 then lemma1 else let
+      val gs = mk_imp (g0,g1)
+      val pre_defs = thms |> map (fn x => case (#5 x) of NONE => TRUTH | SOME t => t)
+      val lem = auto_prove "unroll_pre_in_ind" (gs,
+        rpt strip_tac
+        \\ TRY (match_mp_tac PreImp_LEMMA
+                \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pre_defs))
+                \\ strip_tac)
+        \\ last_x_assum match_mp_tac
+        \\ rewrite_tac [CONTAINER_def]
+        \\ rpt strip_tac
+        \\ TRY (last_x_assum match_mp_tac)
+        \\ asm_rewrite_tac [] \\ res_tac
+        \\ fs [])
+      in MP lem lemma1 end
     val th = MP lemma lemma1
 
     (* attempt to prove induction assumption *)

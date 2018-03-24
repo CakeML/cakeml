@@ -129,6 +129,8 @@ sig
     val AUTO_ETA_EXPAND_CONV         : conv
     val find_ind_thm                 : thm -> thm
 
+    val auto_prove                   : string -> term * tactic -> thm
+
     (* for debugging *)
     val pmatch_hol2deep_fail : term ref
     val pmatch_hol2deep : term -> (term -> thm) -> thm
