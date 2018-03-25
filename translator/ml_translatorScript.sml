@@ -30,8 +30,8 @@ val empty_state_def = Define`
     (* force the ffi state to unit
        the translator does not currently support ffi *)
     ffi := initial_ffi_state ARB ();
-    defined_types := {};
-    defined_mods := {}|>`;
+    next_type_stamp := 0;
+    next_exn_stamp := 0|>`;
 
 val Eval_def = Define `
   Eval env exp P =
@@ -109,7 +109,7 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
               INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``](
                 CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro)))
   \\ simp[]
-  \\ impl_tac >- EVAL_TAC
+  \\ fs [EVAL ``empty_state.ffi.final_event = NONE``]
   \\ disch_then(qspec_then`s with clock := c`mp_tac)
   \\ simp[] \\ strip_tac
   \\ `Rval [x] = list_result ((Rval x):(v,v) result)` by EVAL_TAC
@@ -254,7 +254,7 @@ val Eval_Val_WORD = Q.store_thm("Eval_Val_WORD",
                    then Word8 (w2w w << (8-dimindex(:'a)))
                    else Word64 (w2w w << (64-dimindex(:'a)))))
              (WORD w)`,
-  SIMP_TAC (srw_ss()) [WORD_def,Eval_def,Once evaluate_cases,state_component_equality])
+  simp [WORD_def,Eval_def,Once evaluate_cases,state_component_equality]);
 
 (* Equality *)
 
@@ -1215,11 +1215,11 @@ val LIST_TYPE_def = Define `
   (!a x_2 x_1 v.
      LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
-       v = Conv (SOME ("::",TypeId (Short "list"))) [v2_1; v2_2] /\
+       v = Conv (SOME (TypeStamp "::" 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   !a v.
      LIST_TYPE a [] v <=>
-     v = Conv (SOME ("nil",TypeId (Short "list"))) []`
+     v = Conv (SOME (TypeStamp "nil" 1)) []`
 
 val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
@@ -1256,7 +1256,7 @@ val PAIR_TYPE_def = Define `
 
 val PAIR_TYPE_SIMP = Q.prove(
   `!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
-                            (\y v. if y = SND x then b y v else ARB) x =
+                           (\y v. if y = SND x then b y v else ARB) x =
         PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x`,
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
@@ -1267,11 +1267,11 @@ val OPTION_TYPE_def = Define `
   (!a x_2 v.
      OPTION_TYPE a (SOME x_2) v <=>
      ?v2_1.
-       v = Conv (SOME ("SOME",TypeId (Short "option"))) [v2_1] /\
+       v = Conv (SOME (TypeStamp "SOME" 2)) [v2_1] /\
        a x_2 v2_1) /\
   !a v.
      OPTION_TYPE a NONE v <=>
-     v = Conv (SOME ("NONE",TypeId (Short "option"))) []`
+     v = Conv (SOME ((TypeStamp "NONE" 2))) []`
 
 val OPTION_TYPE_SIMP = Q.prove(
   `!x. CONTAINER OPTION_TYPE
@@ -1281,6 +1281,7 @@ val OPTION_TYPE_SIMP = Q.prove(
   |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
   |> curry save_thm "OPTION_TYPE_SIMP";
 
+(*
 val SUM_TYPE_def = Define `
   (∀a b x_2 v.
       SUM_TYPE a b (INR x_2) v ⇔
@@ -1300,6 +1301,7 @@ val SUM_TYPE_SIMP = Q.prove(`
   Cases>>rw[CONTAINER_def,FUN_EQ_THM,SUM_TYPE_def])
   |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
   |> curry save_thm "SUM_TYPE_SIMP";
+*)
 
 (* characters *)
 
@@ -1381,8 +1383,9 @@ val Eval_char_ge = Q.store_thm("Eval_char_ge",
 
 val LIST_TYPE_CHAR_v_to_char_list = Q.store_thm("LIST_TYPE_CHAR_v_to_char_list",
   `∀l v. LIST_TYPE CHAR l v ⇒ v_to_char_list v = SOME l`,
-  Induct >>
-  simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def])
+  Induct
+  \\ simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def]
+  \\ EVAL_TAC \\ simp []);
 
 val tac =
   rw[Eval_def] >>
@@ -1444,12 +1447,13 @@ val Eval_concat = Q.store_thm("Eval_concat",
   \\ qid_spec_tac`res`
   \\ Induct_on`ls`
   \\ rw[LIST_TYPE_def,v_to_list_def,vs_to_string_def,STRING_TYPE_def]
-  \\ rw[v_to_list_def]
+  THEN1 EVAL_TAC
+  \\ fs[v_to_list_def,LIST_TYPE_def]
   \\ first_x_assum drule \\ rw[]
   \\ rename1`concat (s::ls)`
   \\ Cases_on`s` \\ fs[STRING_TYPE_def]
   \\ rw[vs_to_string_def]
-  \\ fs[concat_def,STRING_TYPE_def]);
+  \\ fs[concat_def,STRING_TYPE_def] \\ EVAL_TAC);
 
 val Eval_substring = Q.store_thm("Eval_substring",
   `∀env x1 x2 x3 len off st.
@@ -1523,9 +1527,10 @@ val Eval_vector = Q.store_thm("Eval_vector",
   Q.SPEC_TAC (`res`, `res`) >>
   Induct_on `l` >>
   rw [] >>
-  fs [LIST_TYPE_def, v_to_list_def, PULL_EXISTS] >>
+  fs [LIST_TYPE_def, v_to_list_def, PULL_EXISTS]
+  THEN1 EVAL_TAC >>
   BasicProvers.FULL_CASE_TAC >>
-  fs [] >>
+  fs [EVAL ``list_type_num``] >>
   metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
 
 val Eval_length = Q.store_thm("Eval_length",
@@ -1803,15 +1808,12 @@ val type_names_eq = Q.prove(
                 case d of
                   Dlet _ v6 v7 => []
                 | Dletrec _ v8 => []
+                | Dmod _ ds => []
                 | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
                 | Dexn _ v10 v11 => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
-
-val no_dup_types_eval = Q.prove(
-  `!ds. no_dup_types ds = ALL_DISTINCT (type_names ds [])`,
-  fs [no_dup_types_def,type_names_eq,decs_to_types_def,ALL_DISTINCT_FLAT_REVERSE]);
 
 val lookup_APPEND = Q.prove(
   `!xs ys n. ~(MEM n (MAP FST ys)) ==>
