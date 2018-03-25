@@ -16,13 +16,14 @@ sig
   val close_module : term option (* optional signature *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dtype    : term (* tds *) ->
+  val add_Dtype    : term (* loc *) -> term (* tds *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dexn     : term -> term (* Dexn args *) ->
+  val add_Dexn     : term (* loc *) -> term -> term (* Dexn args *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dtabbrev : term -> term -> term -> (* Dtabbrev args *)
+  val add_Dtabbrev : term (* loc *) ->
+                     term -> term -> term -> (* Dtabbrev args *)
                      ml_prog_state -> ml_prog_state
 
   val add_Dlet     : thm (* evaluate thm *) ->
@@ -30,11 +31,11 @@ sig
                      thm list (* v const thms *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dlet_Fun : term -> term -> term (* terms of Dlet (Pvar _) (Fun _ _) *) ->
+  val add_Dlet_Fun : term (* loc *) -> term -> term -> term (* terms of Dlet (Pvar _) (Fun _ _) *) ->
                      string (* v const name *) ->
                      ml_prog_state -> ml_prog_state
 
-  val add_Dletrec  : term (* funs *) ->
+  val add_Dletrec  : term (* loc *) -> term (* funs *) ->
                      string list (* names of v consts *) ->
                      ml_prog_state -> ml_prog_state
 
@@ -53,6 +54,9 @@ sig
   val get_env      : ml_prog_state -> term (* env in ML_code thm *)
   val get_state    : ml_prog_state -> term (* state in ML_code thm *)
   val get_v_defs   : ml_prog_state -> thm list (* v abbrev defs *)
+
+  val get_next_exn_stamp  : ml_prog_state -> int
+  val get_next_type_stamp : ml_prog_state -> int
 
   val pack_ml_prog_state   : ml_prog_state -> thm
   val unpack_ml_prog_state : thm -> ml_prog_state

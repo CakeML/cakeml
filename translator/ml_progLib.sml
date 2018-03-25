@@ -310,6 +310,20 @@ fun get_env s = let
 
 fun get_state s = get_thm s |> concl |> rand
 
+fun get_next_type_stamp s =
+  semanticPrimitivesTheory.state_component_equality
+  |> ISPEC (get_state s)
+  |> SPEC (get_state s)
+  |> concl |> rand |> rand |> rand |> rand |> rator |> rand |> rand
+  |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
+
+fun get_next_exn_stamp s =
+  semanticPrimitivesTheory.state_component_equality
+  |> ISPEC (get_state s)
+  |> SPEC (get_state s)
+  |> concl |> rand |> rand |> rand |> rand |> rand |> rand
+  |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
+
 fun add_prog prog_tm pick_name s = let
   val ts = fst (listSyntax.dest_list prog_tm)
   in remove_snocs (foldl (fn (x,y) => add_dec x pick_name y) s ts) end
