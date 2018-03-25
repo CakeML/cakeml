@@ -422,10 +422,8 @@ val build_rec_env_APPEND = Q.prove(
   \\ Induct_on `funs` \\ fs [FORALL_PROD]);
 
 val ML_code_env_def = Define `
-  ML_code_env env1 mn env2 =
-    merge_env env2
-            (case mn of NONE => env1
-             | SOME (_,_,env) => merge_env env env1)`
+  (ML_code_env env1 NONE env2 = merge_env env2 env1) /\
+  (ML_code_env env1 (SOME (_,_,env)) env2 = merge_env env2 (merge_env env env1))`;
 
 val ML_code_Dletrec = Q.store_thm("ML_code_Dletrec",
   `ML_code env1 s1 prog mn env2 s2 ==>
