@@ -245,8 +245,13 @@ in
     get_thm (!prog_state)
     |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL);
   fun update_precondition new_pre = let
-    fun update_aux (name,ml_name,tm,th,pre,module)= let
+    fun update_aux (name,ml_name,tm,th,pre,module) = let
       val th1 = D th
+      val new_pre = (if is_imp (concl (SPEC_ALL new_pre))
+                     then (* case: new_pre is an induction theorem *)
+                       (MATCH_MP IMP_EQ_T (MP (D new_pre) TRUTH)
+                        handle HOL_ERR _ => new_pre)
+                     else new_pre)
       val th2 = PURE_REWRITE_RULE [new_pre,PRECONDITION_T] th1
       in if aconv (concl th1) (concl th2)
          then (name,ml_name,tm,th,pre,module) else let
@@ -2009,7 +2014,8 @@ fun pmatch_hol2deep tm hol2deep = let
     val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
     val th = remove_primes th
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-          (SIMP_CONV std_ss [FORALL_PROD,patternMatchesTheory.PMATCH_ROW_COND_def])) th
+          (SIMP_CONV std_ss [FORALL_PROD,PMATCH_SIMP,
+              patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
   val th = trans ts
@@ -2795,6 +2801,10 @@ val tm = rhs
 val tm = rhs_tm
 val tm = ``case v3 of (v2,v1) => QSORT v7 v2 ++ [v6] ++ QSORT v7 v1``
 val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
+
+val tm = ``case l of
+       (x,y)::l1 => if y = a then x else x+y:num | _ => d``
+
 *)
 
 fun hol2deep tm =
@@ -3358,11 +3368,13 @@ set_goal([],ind_thm_goal)
     \\ disch_then strip_assume_tac
     \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
     \\ match_mp_tac (the ind)
+    \\ rewrite_tac [UNCURRY_SIMP]
     \\ rpt strip_tac
     \\ last_x_assum match_mp_tac
     \\ rpt strip_tac
-    \\ fs [] \\ rpt var_eq_tac
-    \\ fs [ADD1])
+    \\ fs []
+    \\ rpt var_eq_tac
+    \\ fs [ADD1,UNCURRY_SIMP])
 
 (*
     val gs = goals |> map (snd o snd o snd) |> list_mk_conj
