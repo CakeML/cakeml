@@ -8,14 +8,16 @@ open packLib
 (* COPY/PASTE from ml_monad_translatorLib *)
 fun my_list_mk_comb (f,xs) = let
     fun mk_type_rec f_ty (x_ty::x_ty'::tys) = let
-	val [ty1,ty2] = dest_type f_ty |> snd
+	val (ty1,ty2) = (case dest_type f_ty |> snd of
+                           [ty1,ty2] => (ty1,ty2)
+                         | _ => fail ())
 	val (ty3,args_ty) = mk_type_rec ty2 (x_ty'::tys)
 	val ty4 = mk_type("fun",[ty1,ty3])
 	val args_ty = mk_type("fun",[x_ty,args_ty])
     in (ty4,args_ty) end
       | mk_type_rec f_ty [x] = let
-	  val [ty1,ty2] = dest_type f_ty |> snd
-      in (ty1,x) end
+	  val ty1 = dest_type f_ty |> snd |> hd
+          in (ty1,x) end
       | mk_type_rec f_ty [] = failwith "mk_type_rec"
     val args_types = List.map type_of xs
     val (src_ty,target_ty) = mk_type_rec (type_of f) args_types
@@ -110,10 +112,10 @@ in mk_aux 1 end
 fun define_monad_exception_functions exn_type state_type = let
     val exn_cons = TypeBase.constructors_of exn_type
     val state_var = mk_var("state", state_type)
-    
+
     (* Raise functions *)
     fun mk_raise_fun ctor = let
-	val (params_ty, ret_ty) = dest_fun_type (type_of ctor)	
+	val (params_ty, ret_ty) = dest_fun_type (type_of ctor)
 	val vars = mk_list_vars "e" params_ty
 	val fun_body = list_mk_comb (ctor, vars)
 	val fun_body = mk_pair(mk_Failure fun_body a_ty, state_var)
@@ -129,7 +131,7 @@ fun define_monad_exception_functions exn_type state_type = let
 
     (* Handle functions *)
     fun mk_failure_success_fun ctor = let
-	val (params_ty, ret_ty) = dest_fun_type (type_of ctor)	
+	val (params_ty, ret_ty) = dest_fun_type (type_of ctor)
 	val vars = mk_list_vars "e" params_ty
 	val ret_type = mk_exc_type a_ty exn_type
 
@@ -150,7 +152,7 @@ fun define_monad_exception_functions exn_type state_type = let
 
     val e_var = mk_var("e", exn_type)
     val case_expr = mk_comb(case_const_of exn_type, e_var)
-    
+
     fun mk_funs_list ((s, f)::funs) n = if n = 0 then s::(mk_funs_list funs (n-1))
 				      else f::(mk_funs_list funs (n-1))
       | mk_funs_list [] n = []
@@ -264,9 +266,10 @@ fun define_monad_access_funs data_type = let
 
     val get_funs = List.map define_monad_get_fun get_info
     val set_funs = List.map define_monad_set_fun set_info
-  
+
     fun zip3 (x1::l1) (x2::l2) (x3::l3) = (x1, x2, x3)::(zip3 l1 l2 l3)
       | zip3 [] [] [] = []
+      | zip3 _  _  _  = failwith "zip3 given lists of different lengths"
 in zip3 names get_funs set_funs end;
 
 (* Fixed store: creation of the fixed-size array manipulation functions *)
@@ -281,7 +284,7 @@ fun define_MFarray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun
     val set_fun = dest_abs set_fun |> snd |> dest_pair |> snd
     val set_fun = mk_abs(x, mk_abs(state, set_fun))
 
-    (* length *) 
+    (* length *)
     val length_f = my_list_mk_comb(Marray_length_const, [get_fun])
     val length_v = mk_var(name ^"_length", type_of length_f)
     val length_def = Define `^length_v = ^length_f`
@@ -306,7 +309,7 @@ fun define_MRarray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun
     val state = dest_abs set_fun |> fst
     val set_fun = dest_abs set_fun |> snd |> dest_pair |> snd
     val set_fun = mk_abs(x, mk_abs(state, set_fun))
-    
+
     val (name, get_fun_def, set_fun_def, length_def, sub_def, update_def) =
 	define_MFarray_manip_funs_aux sub_exn update_exn
 			       (name, get_fun_def, set_fun_def)
@@ -412,7 +415,7 @@ fun create_dynamic_access_functions exn data_type = let
     fun mk_destruct_fun case_tm = let
 	val (lhs, rhs) = dest_eq case_tm
 	val (case_tm, funs) = strip_comb lhs
-	
+
 	val funs = List.tl funs
 	val var = mk_var("x", data_type)
 	val ret_type = rand rhs |> type_of
@@ -433,7 +436,7 @@ fun create_dynamic_access_functions exn data_type = let
 	      val x_var = mk_var("x", param_type)
 	      val error_fun = mk_abs(x_var, mk_Failure exn ret_type)
           in mk_comb(case_tm, error_fun) end
-	
+
 	val case_tm = List.foldl add_fun case_tm funs
 	val destruct_fun = mk_abs(var, case_tm)
 
