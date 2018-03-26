@@ -3375,6 +3375,22 @@ set_goal([],ind_thm_goal)
     \\ fs []
     \\ rpt var_eq_tac
     \\ fs [ADD1,UNCURRY_SIMP])
+  handle HOL_ERR _ =>
+  auto_prove "prove_ind_thm" (ind_thm_goal,
+    rpt gen_tac
+    \\ rewrite_tac [TRUE_def,FALSE_def]
+    \\ disch_then strip_assume_tac
+    \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
+    \\ match_mp_tac (the ind)
+    \\ rewrite_tac [UNCURRY_SIMP]
+    \\ rpt strip_tac
+    \\ last_x_assum match_mp_tac
+    \\ rpt strip_tac
+    \\ fs [FORALL_PROD]
+    \\ imp_res_tac LENGTH_EQ_SUC_IMP
+    \\ rpt var_eq_tac
+    \\ fs [ADD1,UNCURRY_SIMP]
+    \\ metis_tac []);
 
 (*
     val gs = goals |> map (snd o snd o snd) |> list_mk_conj
@@ -3587,16 +3603,21 @@ fun get_ind_thm_goal goals =
       |> QCONV (REWRITE_CONV [CONTAINER_def]) |> concl |> rand
   in ind_thm_goal end;
 
-fun get_custom_ind_with_pre ind ind_thm_goal = let
-  val (x,y) = dest_imp (the ind |> SPEC_ALL |> concl)
-  val tm = ind_thm_goal |> list_dest dest_forall |> last |> dest_imp |> fst
-  in if (* checks that the conclusion of the ind thm has an implication *)
-        (the ind |> SPEC_ALL |> UNDISCH |> CONJUNCTS
-                 |> hd |> SPEC_ALL |> concl |> is_imp)
-        andalso
-        (* checks that the form of the assumptions fits *)
-        aconv x tm
-     then concl (the ind) else ind_thm_goal end
+fun get_custom_ind_with_pre ind ind_thm_goal =
+  if (* checks that the conclusion of the ind thm has an implication *)
+     (the ind |> SPEC_ALL |> UNDISCH |> CONJUNCTS
+              |> hd |> SPEC_ALL |> concl |> is_imp)
+  then
+    let
+      val tmg = butlast (list_dest dest_forall (concl (the ind)))
+      val tmi = butlast (list_dest dest_forall ind_thm_goal)
+      val (s,i) = match_term (list_mk_pair tmg) (list_mk_pair tmi)
+      val new_concl = subst s (inst i (last (list_dest dest_forall (concl (the ind)))))
+                      |> dest_imp |> snd
+      val old_hyp = last (list_dest dest_forall ind_thm_goal) |> dest_imp |> fst
+      val ind_thm_goal = list_mk_forall (tmi,mk_imp(old_hyp, new_concl))
+    in ind_thm_goal end
+  else ind_thm_goal
 
 fun guess_def_name original_def = let
   val def_tm = concl original_def
@@ -3620,9 +3641,9 @@ fun print_unable_to_prove_ind_thm original_def ml_name = let
   val _ = print ("\nERROR: Unable to prove induction for "^name^"")
   val _ = print ("\n")
   val _ = print ("\n  The induction goal has been left as an assumption on")
-  val _ = print ("\n  the theorem returned by the translator. You must prove")
-  val _ = print ("\n  it with something like the following before this")
-  val _ = print ("\n  constant is used in subsequent translations.")
+  val _ = print ("\n  the theorem returned by the translator. You must")
+  val _ = print ("\n  prove it with something like the following before")
+  val _ = print ("\n  this constant is used in subsequent translations.")
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
@@ -3632,11 +3653,14 @@ fun print_unable_to_prove_ind_thm original_def ml_name = let
   val _ = print ("\n  \\\\ disch_then strip_assume_tac")
   val _ = print ("\n  \\\\ match_mp_tac (latest_ind ())")
   val _ = print ("\n  \\\\ rpt strip_tac")
-  val _ = print ("\n  ... )")
+  val _ = print ("\n  \\\\ last_x_assum match_mp_tac")
+  val _ = print ("\n  \\\\ rpt strip_tac")
+  val _ = print ("\n  \\\\ fs [FORALL_PROD])")
   val _ = print ("\n  |> update_precondition;")
   val _ = print ("\n")
   val _ = print ("\n  Here `translate_no_ind` does exactly the same as")
   val _ = print ("\n  `translate` except it doesn't attempt an induction.")
+  val _ = print ("\n")
   val _ = print ("\n")
   in () end;
 
@@ -3785,7 +3809,7 @@ val (fname,ml_fname,def,th,v) = hd thms
     (* collect precondition *)
     val thms = extract_precondition_rec thms
 
-    (* apply induction *)
+    (* construct ind goal *)
     fun get_goal (fname,ml_fname,def,th,pre) = let
       val th = REWRITE_RULE [] th
       val hs = hyp th

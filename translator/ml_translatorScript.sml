@@ -2012,6 +2012,10 @@ val PreImp_LEMMA = store_thm("PreImp_LEMMA",
 val SUC_SUB1_LEMMA = save_thm("SUC_SUB1_LEMMA",
   Q.SPECL [`n`,`1`] ADD_SUB |> REWRITE_RULE [GSYM ADD1]);
 
+val LENGTH_EQ_SUC_IMP = store_thm("LENGTH_EQ_SUC_IMP",
+  ``LENGTH xs = SUC n ==> xs <> []``,
+  Cases_on `xs` \\ fs []);
+
 (* terms used by the Lib file *)
 
 val translator_terms = save_thm("translator_terms",
