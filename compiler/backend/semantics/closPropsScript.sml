@@ -519,10 +519,8 @@ val evaluate_code_ind =
 
 val evaluate_code_lemma = prove(
   evaluate_code_ind |> concl |> rand,
-  cheat) (*
-  MATCH_MP_TAC evaluate_code_ind
-  \\ rw[]
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[]
+  MATCH_MP_TAC evaluate_code_ind \\ rw[]
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[] \\ rw []
   \\ every_case_tac \\ fs[] \\ rfs[shift_seq_def,FUN_EQ_THM]
   \\ fs[dec_clock_def]
   \\ TRY(qexists_tac`0` \\ simp[FUPDATE_LIST_THM] \\ NO_TAC)
@@ -552,13 +550,41 @@ val evaluate_code_lemma = prove(
     qexists_tac`nn` \\
     imp_res_tac do_app_const \\
     fs[] \\ NO_TAC)
-  \\ qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
-  \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
-  \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
-  \\ qexists_tac`z+1+y`
-  \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
-  \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
-  \\ metis_tac[]) *)
+  \\ TRY
+   (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
+    \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
+    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+    \\ qexists_tac`z+1+y`
+    \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
+    \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
+    \\ metis_tac[])
+  >-
+   (fs [do_install_def]
+    \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
+    \\ rw [] \\ fs [shift_seq_def]
+    \\ qmatch_goalsub_rename_tac `nn + _`
+    \\ qexists_tac `nn+1` \\ fs []
+    \\ once_rewrite_tac [ADD_COMM]
+    \\ fs [GENLIST_APPEND] \\ rfs []
+    \\ last_x_assum (qspec_then `0` (assume_tac o GSYM)) \\ fs []
+    \\ fs [FUPDATE_LIST_APPEND, ALL_DISTINCT_APPEND, IN_DISJOINT]
+    \\ rfs []
+    \\ fs [FDOM_FUPDATE_LIST]
+    \\ metis_tac [])
+  \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
+  \\ qexists_tac `n1+n2+n3` \\ fs []
+  \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`
+  >- fsrw_tac [ETA_ss] [GSYM FUN_EQ_THM]
+  \\ fs []
+  \\ rfs []
+  \\ sg `GENLIST r'.compile_oracle n3 = GENLIST (\x. s.compile_oracle (n1 + (n2 + x))) n3`
+  >- (fsrw_tac [ETA_ss] [GSYM FUN_EQ_THM] \\ fs [])
+  \\ fs []
+  \\ once_rewrite_tac [ADD_ASSOC]
+  \\ once_rewrite_tac [ADD_COMM]
+  \\ fs [GSYM FUPDATE_LIST_APPEND, GENLIST_APPEND, ALL_DISTINCT_APPEND,
+         IN_DISJOINT, FDOM_FUPDATE_LIST]
+  \\ metis_tac [])
   |> SIMP_RULE std_ss [FORALL_PROD];
 
 val evaluate_code = Q.store_thm("evaluate_code",
