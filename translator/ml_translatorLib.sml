@@ -3365,7 +3365,7 @@ set_goal([],ind_thm_goal)
   auto_prove "prove_ind_thm" (ind_thm_goal,
     rpt gen_tac
     \\ rewrite_tac [TRUE_def,FALSE_def]
-    \\ disch_then strip_assume_tac
+    \\ rpt (disch_then strip_assume_tac)
     \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
     \\ match_mp_tac (the ind)
     \\ rewrite_tac [UNCURRY_SIMP]
@@ -3379,13 +3379,14 @@ set_goal([],ind_thm_goal)
   auto_prove "prove_ind_thm" (ind_thm_goal,
     rpt gen_tac
     \\ rewrite_tac [TRUE_def,FALSE_def]
-    \\ disch_then strip_assume_tac
+    \\ rpt (disch_then strip_assume_tac)
     \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
     \\ match_mp_tac (the ind)
     \\ rewrite_tac [UNCURRY_SIMP]
     \\ rpt strip_tac
     \\ last_x_assum match_mp_tac
     \\ rpt strip_tac
+    \\ fs []
     \\ fs [FORALL_PROD]
     \\ imp_res_tac LENGTH_EQ_SUC_IMP
     \\ rpt var_eq_tac
