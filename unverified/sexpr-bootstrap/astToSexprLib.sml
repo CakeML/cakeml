@@ -1,6 +1,6 @@
-open preamble fromSexpTheory compiler64ProgTheory
+structure astToSexprLib = struct
 
-val _ = new_theory"toSexpression";
+open preamble fromSexpTheory
 
 datatype exp = exp_tuple of exp list | exp_list of exp list | exp_str of string;
 
@@ -154,30 +154,24 @@ fun exp_to_string e =
             | exp_list l => "(" ^ (list_to_string l) ^ ")"
   end
 
-fun print_prog pf prog =
+fun write_ast write prog =
   let
-    val out = pf o exp_to_string o ast_to_exp
-    fun step pl =
-      case pl of [] => ()
+    val out = write o exp_to_string o ast_to_exp
+    val (funcs, _) = listSyntax.dest_list prog
+    fun step l =
+      case l of [] => ()
                | [x] => out x
-               | x::xs => (out x; pf " "; step xs)
-    val _ = pf "("
-    val (pl, _) = listSyntax.dest_list prog
-    val _ = step pl
+               | x::xs => (out x; write " \n"; step xs)
   in
-    pf ")"
+    write "(\n"; step funcs; write "\n)"
   end
 
-fun dump_prog_exp file prog =
+fun write_ast_to_file filename prog =
   let
-    val fd = TextIO.openOut file
-    fun out s = TextIO.output(fd, s)
-    val _ = print_prog out prog
+    val fd = TextIO.openOut filename
+    val _ = write_ast (fn s => TextIO.output(fd, s)) prog
   in
     TextIO.closeOut fd
   end
 
-val print = dump_prog_exp "compiler-sexp-x64-64";
-val _ = (print o rhs o concl) compiler64_prog_def;
-
-val _ = export_theory();
+end

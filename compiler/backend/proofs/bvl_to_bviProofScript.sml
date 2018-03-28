@@ -159,6 +159,17 @@ val v_to_list_ok = Q.prove(
   simp[v_to_list_def,bv_ok_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
+val list_to_v_ok = Q.store_thm("list_to_v_ok",
+  `!xs. EVERY (bv_ok refs) xs ==> bv_ok refs (list_to_v xs)`,
+  Induct \\ rw [list_to_v_def, bv_ok_def]);
+
+val list_to_v_ok_APPEND = Q.store_thm("list_to_v_ok_APPEND",
+  `!xs ys.
+     bv_ok refs (list_to_v xs) /\
+     bv_ok refs (list_to_v ys) ==>
+       bv_ok refs (list_to_v (xs ++ ys))`,
+  Induct \\ rw [list_to_v_def, bv_ok_def]);
+
 val do_app_ok_lemma = Q.prove(
   `state_ok r /\ EVERY (bv_ok r.refs) a /\
     (do_app op a r = Rval (q,t)) ==>
@@ -246,14 +257,15 @@ val do_app_ok_lemma = Q.prove(
     \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
     \\ res_tac
     \\ TRY asm_exists_tac \\ simp[SUBSET_DEF] )
+  >- (* ListAppend *)
+    metis_tac [v_to_list_ok, list_to_v_ok, list_to_v_ok_APPEND]
   THEN1 (
     rename1 `_ () = FromList n`
     \\ simp[bv_ok_def] >>
     imp_res_tac v_to_list_ok >>
     full_simp_tac(srw_ss())[EVERY_MEM])
   THEN1 (
-    (* TODO: HOL Issue 430 *)
-    rename1`_ () = closLang$String _`
+    rename1`_ () = String _`
     \\ fs[state_ok_def,bv_ok_def,EVERY_MEM,FLOOKUP_UPDATE]
     \\ rw[]
     \\ CASE_TAC \\ fs[]
@@ -953,6 +965,21 @@ val do_eq_adjust = Q.prove(
    do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b`,
   metis_tac [do_eq_adjust_lemma]);
 
+val list_to_v_adjust = Q.store_thm("list_to_v_adjust",
+  `!xs.
+   list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs)`,
+   Induct \\ rw [list_to_v_def, adjust_bv_def]);
+
+val list_to_v_adjust_APPEND = Q.store_thm("list_to_v_adjust_APPEND",
+  `!xs ys.
+     list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs) /\
+     list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs) ==>
+      list_to_v (MAP (adjust_bv b) (xs ++ ys)) =
+      adjust_bv b (list_to_v (xs ++ ys))`,
+  Induct
+  >- (Induct_on `ys` \\ rw [] \\ fs [adjust_bv_def, list_to_v_def])
+  \\ rw [list_to_v_def, adjust_bv_def] \\ fs []);
+
 val do_app_adjust = Q.prove(
   `state_rel b2 s5 t2 /\
    (!i. op <> Const i) /\ (op <> Ref) /\ (∀flag. op ≠ RefByte flag) ∧ (op ≠ RefArray) ∧
@@ -971,6 +998,13 @@ val do_app_adjust = Q.prove(
     \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
+  \\ Cases_on `op = ListAppend` \\ fs []
+  >-
+   (fs [case_eq_thms, case_elim_thms, PULL_EXISTS, SWAP_REVERSE_SYM]
+    \\ rw [] \\ fs []
+    \\ fs [bvlSemTheory.do_app_def, case_eq_thms, PULL_EXISTS, bvl_to_bvi_id]
+    \\ fs [v_to_list_adjust]
+    \\ metis_tac [list_to_v_adjust, list_to_v_adjust_APPEND, MAP_APPEND])
   \\ Cases_on `op = Length` \\ fs [] THEN1
    (every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bEvalOp_def] >>
@@ -1250,14 +1284,6 @@ val EVERY_isVar_evaluate_Rval_MEM = Q.store_thm("EVERY_isVar_evaluate_Rval_MEM",
   \\ Cases_on `l` \\ fs [bvlSemTheory.evaluate_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rveq
   \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []);
-
-val bvl_do_app_Ref = Q.prove(
-  `bvlSem$do_app Ref vs s = Rval
-       (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
-        s with refs :=
-          s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`,
-  fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
-  \\ every_case_tac \\ fs []);
 
 val do_app_Ref = Q.prove(
   `do_app Ref vs s =

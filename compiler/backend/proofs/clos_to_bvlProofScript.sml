@@ -1336,6 +1336,14 @@ val do_eq_list_T_every = Q.store_thm("do_eq_list_T_every",
   \\ srw_tac[][]
   \\ every_case_tac \\  full_simp_tac(srw_ss())[]);
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.
+     LIST_REL (v_rel app f refs code) xs ys ==>
+       v_rel app f refs code (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]);
+
 val do_app = Q.prove(
   `(do_app op xs s1 = Rval (v,s2)) /\
    state_rel f s1 t1 /\
@@ -1351,7 +1359,15 @@ val do_app = Q.prove(
      v_rel s1.max_app f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
-  Cases_on `?i. op = LessConstSmall i` THEN1
+  Cases_on `op = ListAppend`
+  >-
+   (rw []
+    \\ fs [do_app_def, closSemTheory.do_app_def, case_eq_thms, PULL_EXISTS]
+    \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    \\ imp_res_tac v_to_list \\ fs [] \\ rveq \\ rfs [] \\ rw []
+    \\ match_mp_tac list_to_v_v_rel
+    \\ fs [EVERY2_APPEND_suff])
+  \\ Cases_on `?i. op = LessConstSmall i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
   \\ Cases_on `op = BoundsCheckBlock` THEN1
@@ -2475,16 +2491,6 @@ val no_partial_args = Q.prove (
 
 val s1 = ``s1:'ffi closSem$state``;
 
-val bvl_do_app_Ref = Q.store_thm("bvl_do_app_Ref[simp]",
-  `bvlSem$do_app Ref vs s = Rval
-     (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
-      s with refs :=
-        s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`,
-  fs [bvlSemTheory.do_app_def,LET_THM] \\ every_case_tac \\ fs []);
-
-val bvl_do_app_Cons = Q.store_thm("bvl_do_app_Cons[simp]",
-  `bvlSem$do_app (Cons tag) vs s = Rval (Block tag vs,s)`,
-  fs [bvlSemTheory.do_app_def,LET_THM] \\ every_case_tac \\ fs []);
 
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 t1 env' f1 res s2 ys aux2.

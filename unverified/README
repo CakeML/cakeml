@@ -10,3 +10,7 @@ bytecode/
 
 reg_alloc/
   translated and pretty printed register allocator (with a few changes).
+
+sexpr-bootstrap/
+  an alternative bootstrapping process. The translated AST is printed as sexpr
+  and fed into an existing cake executable.
