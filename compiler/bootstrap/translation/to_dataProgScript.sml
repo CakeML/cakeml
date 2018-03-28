@@ -419,17 +419,32 @@ val clos_known_known_op_side = Q.prove(`
   intLib.COOPER_TAC))
 *)
 
+val r = translate (clos_knownTheory.dec_depth_def |> SIMP_RULE (srw_ss()) [PAIR_MAP, FUN_EQ_THM, FORALL_PROD])
+
+val r = translate clos_knownTheory.free_def
+
+val clos_known_free_side = Q.store_thm("clos_known_free_side",
+  `!x. clos_known_free_side x`,
+  ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
+  \\ `!xs ys l. free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
+   (ho_match_mp_tac clos_knownTheory.free_ind
+    \\ rw [] \\ fs [clos_knownTheory.free_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rw [])
+  \\ `!x l. free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
+  \\ once_rewrite_tac [fetch "-" "clos_known_free_side_def"] \\ fs []
+  \\ rw [] \\ fs [] \\ metis_tac []) |> update_precondition;
+
 val r = translate (clos_knownTheory.known_def)
 
 val clos_known_known_side = Q.prove(`
-  ∀a b c. clos_known_known_side a b c ⇔ T`,
-  ho_match_mp_tac clos_knownTheory.known_ind>>
-  `∀z a b c. known [z] a b ≠ ([],c)` by
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
-    fs[])>>
-  rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
-  metis_tac[FST,PAIR]) |> update_precondition
+  ∀a b c d. clos_known_known_side a b c d ⇔ T`,
+  ho_match_mp_tac clos_knownTheory.known_ind
+  \\ `∀z a b c d e. known a [z] b c ≠ ([],d)` by
+   (CCONTR_TAC \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[])
+  \\ rw [] \\ simp [Once (fetch "-" "clos_known_known_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
 
 val r = translate clos_knownTheory.compile_def
 
