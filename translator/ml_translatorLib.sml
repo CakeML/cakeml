@@ -3502,7 +3502,7 @@ fun print_unable_to_prove_ind_thm original_def ml_name = let
   val _ = print ("\nval ind_lemma = Q.prove(")
   val _ = print ("\n  `^(first is_forall (hyp res))`,")
   val _ = print ("\n  rpt gen_tac")
-  val _ = print ("\n  \\\\ disch_then strip_assume_tac")
+  val _ = print ("\n  \\\\ rpt (disch_then strip_assume_tac)")
   val _ = print ("\n  \\\\ match_mp_tac (latest_ind ())")
   val _ = print ("\n  \\\\ rpt strip_tac")
   val _ = print ("\n  \\\\ last_x_assum match_mp_tac")
