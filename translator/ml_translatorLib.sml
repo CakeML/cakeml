@@ -1099,7 +1099,7 @@ fun persistent_skip_case_const const = let
   val str = "val () = computeLib.set_skip computeLib.the_compset" ^
             " " ^ str ^ " (SOME 1);\n"
   val _ = adjoin_to_theory
-     {sig_ps = NONE, struct_ps = SOME(fn ppstrm => PP.add_string ppstrm str)}
+     {sig_ps = NONE, struct_ps = SOME(fn _ => PP.add_string str)}
   in computeLib.set_skip computeLib.the_compset const (SOME 1) end
 
 val _ = persistent_skip_case_const (get_term "COND");
