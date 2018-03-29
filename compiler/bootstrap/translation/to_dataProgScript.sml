@@ -717,17 +717,32 @@ val bvl_handle_compile_side = Q.prove(`
   rw[]>>fs[]>>
   metis_tac[])|>update_precondition
 
-val _ = translate (bvl_inlineTheory.inline_def)
+val r = translate (bvl_inlineTheory.tick_inline_def)
 
-val bvl_inline_inline_side = Q.prove(`
-  ∀x y. bvl_inline_inline_side x y ⇔ T`,
-  ho_match_mp_tac bvl_inlineTheory.inline_ind>>
-  `∀a b. bvl_inline$inline a [b] ≠ []` by
-    (CCONTR_TAC>>fs[]>>
-    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-    simp[bvl_inlineTheory.LENGTH_inline])>>
-  rw[]>>
-  simp[Once (fetch "-" "bvl_inline_inline_side_def")])|>update_precondition
+val bvl_inline_tick_inline_side = Q.prove (
+  `!a0 a1. bvl_inline_tick_inline_side a0 a1 <=> T`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_ind
+  \\ `!a x. LENGTH (tick_inline a x) = LENGTH x` by
+   (ho_match_mp_tac bvl_inlineTheory.tick_inline_ind \\ rw []
+    \\ fs [bvl_inlineTheory.tick_inline_def]
+    \\ every_case_tac \\ fs [])
+  \\ `!a x. tick_inline a [x] <> []` by
+   (CCONTR_TAC \\ fs [] \\ last_x_assum (qspecl_then [`a`,`[x]`] assume_tac) \\ rfs [])
+  \\ rw [] \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_side_def"] \\ fs [])
+  |> update_precondition;
+
+val r = translate bvl_inlineTheory.tick_inline_all_def
+
+val bvl_inline_tick_inline_all_side = Q.prove (
+  `!a0 a1 a2 a3. bvl_inline_tick_inline_all_side a0 a1 a2 a3 <=> T`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_all_ind
+  \\ `!(x:(num # bvl$exp) num_map) y. tick_inline x [y] <> []` by
+   (CCONTR_TAC \\ fs []
+    \\ Q.ISPECL_THEN [`x`,`[y]`] assume_tac bvl_inlineTheory.LENGTH_tick_inline
+    \\ rfs [])
+  \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_all_side_def"] \\ fs [])
+  |> update_precondition;
 
 val _ = translate (bvl_constTheory.compile_def)
 
