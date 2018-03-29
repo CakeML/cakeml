@@ -24,6 +24,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val res = translate jsonLangTheory.escape_def;
 val res = translate jsonLangTheory.concat_with_def;
 
 val mem_to_string_lemma = prove(

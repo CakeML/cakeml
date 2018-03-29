@@ -526,8 +526,6 @@ val res = translate (wordLangTheory.word_sh_def
   |> REWRITE_RULE [miscTheory.word_ror_eq_any_word64_ror]
   |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv64)
 
-val _ = translate (wordLangTheory.num_exp_def |> conv64);
-
 val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec64 |> REWRITE_RULE[word_msb_rw]);
 
 (* TODO: remove when pmatch is fixed *)
