@@ -1,7 +1,7 @@
 (* Basic properties of the AST *)
 
 open preamble;
-open astTheory;
+open astTheory astSyntax;
 
 val _ = new_theory "astProps";
 
