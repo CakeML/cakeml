@@ -204,7 +204,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.closed_def
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
-    ,clos_callTheory.calls_def
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_def_compute
     ,clos_callTheory.GENLIST_Var_def
@@ -226,7 +225,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_knownTheory.contains_closures_def
     ,clos_knownTheory.must_inline_def
     ,clos_knownTheory.merge_def
-    ,clos_knownTheory.merge_tup_def
     ,clos_knownTheory.known_op_def
     ,clos_knownTheory.dest_Clos_def
     ,clos_knownTheory.clos_gen_noinline_def
@@ -238,6 +236,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_knownTheory.dec_depth_def
     ,clos_knownTheory.known_def
     ,clos_knownTheory.compile_def
+    ,clos_knownTheory.clos_approx_def
     ]
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
@@ -248,6 +247,9 @@ val add_backend_compset = computeLib.extend_compset
      backend_commonTheory.closure_tag_def
     ,backend_commonTheory.clos_tag_shift_def
     ,backend_commonTheory.partial_app_tag_def
+    ,backend_commonTheory.bool_to_tag_def
+    ,bvlTheory.mk_tick_def
+    ,bvlTheory.Bool_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
@@ -265,7 +267,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.partial_app_label_table_loc_def
     ,clos_to_bvlTheory.partial_app_fn_location_code_def
     ,clos_to_bvlTheory.init_globals_def
-    ,bvlTheory.mk_tick_def
     ,clos_to_bvlTheory.mk_cl_call_def
     ,clos_to_bvlTheory.ToList_location_def
     ,clos_to_bvlTheory.block_equality_location_def
@@ -281,8 +282,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_label_def
     ,clos_to_bvlTheory.compile_op_def
     ,clos_to_bvlTheory.mk_const_def
-    ,bvlTheory.Bool_def
-    ,backend_commonTheory.bool_to_tag_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
     ,clos_to_bvlTheory.code_split_def
