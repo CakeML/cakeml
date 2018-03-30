@@ -188,10 +188,10 @@ val Eval_PMATCH = Q.store_thm("Eval_PMATCH",
       (∀env2 vars.
         EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
         Eval env2 e (b (res vars))) ⇒
-      (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
-      ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
+      (∀vars. CONTAINER (PMATCH_ROW_COND pat (K T) xv vars) ⇒ p2 vars) ∧
+      ((∀vars. ¬CONTAINER (PMATCH_ROW_COND pat (K T) xv vars)) ⇒ p1 xv) ⇒
       Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))`,
-  rw[Eval_def] >>
+  rw[Eval_def,CONTAINER_def] >>
   rw[Once evaluate_cases,PULL_EXISTS] >> fs[] >>
   first_x_assum(qspec_then`refs`strip_assume_tac) >>
   asm_exists_tac \\ fs[] \\
@@ -237,5 +237,12 @@ val PMATCH_option_case_rwt = Q.store_thm("PMATCH_option_case_rwt",
       | SOME (y1,y2) => P y1 y2) = SOME env2) <=>
     ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)`,
   Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
+
+val PMATCH_SIMP = store_thm("PMATCH_SIMP",
+  ``((∀vars. ¬CONTAINER (vars = x)) = F) /\
+    ((∀vars. ¬CONTAINER (x = vars)) = F) /\
+    ((∀vars. ¬(vars = x)) = F) /\
+    ((∀vars. ¬(x = vars)) = F)``,
+  fs [CONTAINER_def]);
 
 val _ = export_theory()

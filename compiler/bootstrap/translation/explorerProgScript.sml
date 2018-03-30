@@ -24,16 +24,30 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val res = translate jsonLangTheory.escape_def;
+val res = translate jsonLangTheory.concat_with_def;
+
 val mem_to_string_lemma = prove(
   ``mem_to_string x =
     Append (Append (Append (List "\"") (List (FST x))) (List "\":"))
        (json_to_string (SND x))``,
   Cases_on `x` \\ simp [Once jsonLangTheory.json_to_string_def] \\ fs []);
 
-val res = translate
+val res = translate_no_ind
   (jsonLangTheory.json_to_string_def
    |> CONJUNCT1 |> SPEC_ALL
    |> (fn th => LIST_CONJ [th,mem_to_string_lemma]));
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [])
+  |> update_precondition;
 
 val res = translate presLangTheory.num_to_hex_digit_def;
 

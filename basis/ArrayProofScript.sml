@@ -171,12 +171,13 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
       >- (xapp \\ xsimpl \\ instantiate)
     \\ xlet `POSTv u. ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
       >- (xapp \\ xsimpl \\ instantiate \\ `LENGTH l_pre + LENGTH rest <> LENGTH l_pre` by metis_tac[num_eq_thm] \\ fs[])
-    \\ xlet `POSTv vp. & NUM ((LENGTH l_pre) + 1) vp * ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
-      >- (xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate  \\ rw[integerTheory.INT_ADD])
+    \\ xlet_auto
+    \\ fs [plus_def]
+    THEN1 xsimpl
     \\ xapp \\ xsimpl \\ cases_on `rest`
       >- (`xv = nv` by fs [NUM_def, INT_def])
     \\ qexists_tac `t` \\ qexists_tac `l_pre ++ [val]`
-  \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1]) >>
+    \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1,NUM_def,GSYM integerTheory.INT_ADD]) >>
   Cases_on `n` >>
   fs [NUM_def, INT_def] >>
   rfs []

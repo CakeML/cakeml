@@ -103,7 +103,8 @@ val result = translate EVERY_DEF;
 val result = translate SNOC;
 val result = translate GENLIST_AUX;
 val result = translate GENLIST_GENLIST_AUX;
-val result = translate tabulate_aux_def;
+val res = translate tabulate_aux_def;
+
 val result = translate tabulate_def;
 
 val result = translate collate_def;

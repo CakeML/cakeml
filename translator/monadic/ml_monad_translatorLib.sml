@@ -526,8 +526,10 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, cons_id) = let
 				       |> snd |> rhs
 	val (state_var1, case_tm1) = dest_abs handle_fun_def_rhs
 	val case_tm0 = dest_comb case_tm1 |> fst
-	val ([res_var, state_var2], case_tm2) = dest_comb case_tm1
-			|> snd |> strip_abs
+	val (res_var_state_var2, case_tm2) = dest_comb case_tm1
+                                             |> snd |> strip_abs
+        val (res_var, state_var2) = (el 1 res_var_state_var2,
+                                     el 2 res_var_state_var2)
 	val case_tm3 = rator case_tm2
 	val alt_x2_tm = rand case_tm2
 	val (e_var,alt_x2_tm) = dest_abs alt_x2_tm
@@ -923,13 +925,13 @@ fun derive_case_of ty = let
         \\ rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
 	\\ fs[write_def]
 	\\ evaluate_unique_result_tac
-	(* Finish the proof *)	
+	(* Finish the proof *)
 	\\ TRY asm_exists_tac \\ simp[]
 	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[]
 	(*pick_evaluate_assumption
 	\\ fs[write_def]
 	\\ evaluate_unique_result_tac
-	(* Finish the proof *)	
+	(* Finish the proof *)
 	\\ TRY asm_exists_tac \\ simp[]
 	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[] *)
 (*

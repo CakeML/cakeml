@@ -11,8 +11,6 @@ open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
 local open integer_wordSyntax in end
 
-infix \\ val op \\ = op THEN;
-
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
@@ -55,7 +53,7 @@ fun prove (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith "prove failed" end end
 
-fun auto_prove proof_name (goal,tac) = let
+fun auto_prove proof_name (goal,tac:tactic) = let
   val (rest,validation) = tac ([],goal) handle Empty => fail()
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
@@ -245,8 +243,13 @@ in
     get_thm (!prog_state)
     |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL);
   fun update_precondition new_pre = let
-    fun update_aux (name,ml_name,tm,th,pre,module)= let
+    fun update_aux (name,ml_name,tm,th,pre,module) = let
       val th1 = D th
+      val new_pre = (if is_imp (concl (SPEC_ALL new_pre))
+                     then (* case: new_pre is an induction theorem *)
+                       (MATCH_MP IMP_EQ_T (MP (D new_pre) TRUTH)
+                        handle HOL_ERR _ => new_pre)
+                     else new_pre)
       val th2 = PURE_REWRITE_RULE [new_pre,PRECONDITION_T] th1
       in if aconv (concl th1) (concl th2)
          then (name,ml_name,tm,th,pre,module) else let
@@ -267,7 +270,18 @@ in
     val n = term_to_string const
     val _ = (eval_thms := (n,const,th)::(!eval_thms))
     in th end;
+  fun check_no_ind_assum tm th = let
+    val hs = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+                |> UNDISCH_ALL |> hyp
+    in if can (first is_forall) hs then let
+         val str = "User must prove skipped induction theorem for " ^
+                   term_to_string tm
+         in print ("\nERROR: " ^ str ^ "\n\n") ; failwith str end
+       else ()
+    end
   fun pack_v_thms () = let
+    fun check_no_ind_assum_in_v (_,_,tm,th,_,_) = check_no_ind_assum tm th
+    val _ = map check_no_ind_assum_in_v (!v_thms)
     val pack_vs = pack_list (pack_6tuple pack_string pack_string pack_term
                              pack_thm pack_thm (pack_option pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
@@ -1998,7 +2012,8 @@ fun pmatch_hol2deep tm hol2deep = let
     val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
     val th = remove_primes th
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-          (SIMP_CONV std_ss [FORALL_PROD,patternMatchesTheory.PMATCH_ROW_COND_def])) th
+          (SIMP_CONV std_ss [FORALL_PROD,PMATCH_SIMP,
+              patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
   val th = trans ts
@@ -2785,6 +2800,10 @@ val tm = rhs
 val tm = rhs_tm
 val tm = ``case v3 of (v2,v1) => QSORT v7 v2 ++ [v6] ++ QSORT v7 v1``
 val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
+
+val tm = ``case l of
+       (x,y)::l1 => if y = a then x else x+y:num | _ => d``
+
 *)
 
 fun hol2deep tm =
@@ -2849,6 +2868,7 @@ fun hol2deep tm =
   (* previously translated term *)
   let
     val th = lookup_abs_v_thm tm
+    val _ = check_no_ind_assum tm th
     val inv = get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
     val res = th |> UNDISCH_ALL |> concl |> rand
@@ -2859,6 +2879,7 @@ fun hol2deep tm =
   (* previously translated term *)
   if can lookup_v_thm tm then let
     val th = lookup_v_thm tm
+    val _ = check_no_ind_assum tm th
     val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
     val xs = find_terms (can (match_term pat)) (concl th) |> map rand
     val ss = map (fn v => v |-> genvar(type_of v)) xs
@@ -3334,6 +3355,176 @@ val find_def_for_const =
 
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
+fun the (SOME x) = x | the _ = failwith("the of NONE")
+
+fun prove_ind_thm ind ind_thm_goal =
+(*
+set_goal([],ind_thm_goal)
+*)
+  auto_prove "prove_ind_thm" (ind_thm_goal,
+    rpt gen_tac
+    \\ rewrite_tac [TRUE_def,FALSE_def]
+    \\ rpt (disch_then strip_assume_tac)
+    \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
+    \\ match_mp_tac (the ind)
+    \\ rewrite_tac [UNCURRY_SIMP]
+    \\ rpt strip_tac
+    \\ last_x_assum match_mp_tac
+    \\ rpt strip_tac
+    \\ fs []
+    \\ rpt var_eq_tac
+    \\ fs [ADD1,UNCURRY_SIMP])
+  handle HOL_ERR _ =>
+  auto_prove "prove_ind_thm" (ind_thm_goal,
+    rpt gen_tac
+    \\ rewrite_tac [TRUE_def,FALSE_def]
+    \\ rpt (disch_then strip_assume_tac)
+    \\ simp_tac std_ss [FORALL_PROD,SUC_SUB1_LEMMA]
+    \\ match_mp_tac (the ind)
+    \\ rewrite_tac [UNCURRY_SIMP]
+    \\ rpt strip_tac
+    \\ last_x_assum match_mp_tac
+    \\ rpt strip_tac
+    \\ fs []
+    \\ fs [FORALL_PROD]
+    \\ imp_res_tac LENGTH_EQ_SUC_IMP
+    \\ rpt var_eq_tac
+    \\ fs [ADD1,UNCURRY_SIMP]
+    \\ metis_tac []);
+
+fun get_ind_thm_goal goals =
+  let
+    fun gen_ind_var_names [x] = ["P"]
+      | gen_ind_var_names xs =
+          List.tabulate (length xs,fn n => "P" ^ Int.toString n)
+    val ind_vars = gen_ind_var_names goals
+    fun make_pat (name,(t,_)) = let
+      val p = mk_var(name,type_of t)
+      val xs = list_dest dest_abs t
+      val res = list_mk_comb(p,butlast xs)
+      in (last xs, res) end
+    fun replace_pat pat x tm = let
+      val i = fst (match_term pat tm)
+      in SOME (subst i x) end handle HOL_ERR _ => NONE;
+    fun replace_pat_list [] tm = tm
+      | replace_pat_list ((pat,x)::rest) tm =
+          case replace_pat pat x tm of
+            SOME x => x
+          | NONE => replace_pat_list rest tm;
+    fun rec_replace_pat_list xs tm =
+      if is_comb tm then
+        let val (x,y) = dest_comb tm
+        in mk_comb(rec_replace_pat_list xs x, rec_replace_pat_list xs y)
+           |> replace_pat_list xs end
+      else if is_abs tm then
+        let val (x,y) = dest_abs tm
+        in mk_abs(x, rec_replace_pat_list xs y)
+           |> replace_pat_list xs end
+      else
+        replace_pat_list xs tm
+        handle HOL_ERR _ => tm
+    val pats = map make_pat (zip ind_vars goals)
+    (* val ((_,p),(x,(tt,_))) = hd (zip pats goals) *)
+    val pss =
+      map (fn ((_,p),(x,(tt,_))) =>
+          (list_mk_forall (butlast (list_dest dest_abs x),p),
+           list_mk_forall (butlast (list_dest dest_abs x),
+            rec_replace_pat_list pats (concl tt)))) (zip pats goals)
+    val ps = map fst pss |>
+      map (hd o list_dest dest_comb o last o list_dest dest_forall)
+    fun remove_pres tm =
+      if is_forall tm then let
+        val (v,tm) = dest_forall tm
+        in mk_forall (v,remove_pres tm) end
+      else if is_CONTAINER tm then rand tm
+      else if is_neg tm andalso is_CONTAINER (rand tm) then
+        mk_neg(rand (rand tm))
+      else if is_conj tm then let
+        val (x,y) = dest_conj tm
+        in mk_conj (remove_pres x, remove_pres y) end
+      else if is_imp tm then let
+        val (x,y) = dest_imp tm
+        in mk_imp (remove_pres x, remove_pres y) end
+      else if is_var (repeat rator tm) then tm else T
+    val ind_thm_goal =
+      list_mk_forall(ps,
+         mk_imp(remove_pres (list_mk_conj(map snd pss)),
+                list_mk_conj(map fst pss)))
+      |> QCONV (REWRITE_CONV [CONTAINER_def]) |> concl |> rand
+  in ind_thm_goal end;
+
+fun get_custom_ind_with_pre ind ind_thm_goal =
+  if (* checks that the conclusion of the ind thm has an implication *)
+     (the ind |> SPEC_ALL |> UNDISCH |> CONJUNCTS
+              |> hd |> SPEC_ALL |> concl |> is_imp)
+  then
+    let
+      val tmg = butlast (list_dest dest_forall (concl (the ind)))
+      val tmi = butlast (list_dest dest_forall ind_thm_goal)
+      val (s,i) = match_term (list_mk_pair tmg) (list_mk_pair tmi)
+      val new_concl = subst s (inst i (last (list_dest dest_forall (concl (the ind)))))
+                      |> dest_imp |> snd
+      val old_hyp = last (list_dest dest_forall ind_thm_goal) |> dest_imp |> fst
+      val ind_thm_goal = list_mk_forall (tmi,mk_imp(old_hyp, new_concl))
+    in ind_thm_goal end
+  else ind_thm_goal
+
+fun guess_def_name original_def = let
+  val def_tm = concl original_def
+  val const_tm = original_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                              |> concl |> dest_eq |> fst |> repeat rator
+  val const_name = const_tm |> dest_thy_const |> #Name
+  val const_thy = const_tm |> dest_thy_const |> #Thy
+  fun try_find_in thys = let
+    val xs = DB.match thys def_tm
+    val xs = filter (aconv def_tm o concl o fst o snd) xs
+    val ((thy,name),_) = first (fn x => Def = (x |> snd |> snd)) xs
+                         handle HOL_ERR _ => hd xs handle Empty => fail ()
+    in (thy,name) end
+  val (thy,name) = try_find_in [const_thy]
+                   handle HOL_ERR _ => try_find_in []
+                   handle HOL_ERR _ => (const_thy,const_name ^ "_def")
+  in if current_theory() = thy then name else thy ^ "Theory." ^ name end
+
+fun print_unable_to_prove_ind_thm original_def ml_name = let
+  val name = guess_def_name original_def
+  val _ = print ("\nERROR: Unable to prove induction for "^name^"")
+  val _ = print ("\n")
+  val _ = print ("\n  The induction goal has been left as an assumption on")
+  val _ = print ("\n  the theorem returned by the translator. You must")
+  val _ = print ("\n  prove it with something like the following before")
+  val _ = print ("\n  this constant is used in subsequent translations.")
+  val _ = print ("\n")
+  val _ = print ("\nval res = translate_no_ind "^name^";")
+  val _ = print ("\n")
+  val _ = print ("\nval ind_lemma = Q.prove(")
+  val _ = print ("\n  `^(first is_forall (hyp res))`,")
+  val _ = print ("\n  rpt gen_tac")
+  val _ = print ("\n  \\\\ rpt (disch_then strip_assume_tac)")
+  val _ = print ("\n  \\\\ match_mp_tac (latest_ind ())")
+  val _ = print ("\n  \\\\ rpt strip_tac")
+  val _ = print ("\n  \\\\ last_x_assum match_mp_tac")
+  val _ = print ("\n  \\\\ rpt strip_tac")
+  val _ = print ("\n  \\\\ fs [FORALL_PROD])")
+  val _ = print ("\n  |> update_precondition;")
+  val _ = print ("\n")
+  val _ = print ("\n  Here `translate_no_ind` does exactly the same as")
+  val _ = print ("\n  `translate` except it doesn't attempt an induction.")
+  val _ = print ("\n")
+  val _ = print ("\n")
+  in () end;
+
+datatype options = NoInd;
+val options = ([]:options list);
+
+local
+  val latest_ind_thm = ref (NONE: thm option)
+in
+  fun set_latest_ind ind = (latest_ind_thm := ind);
+  fun latest_ind () =
+    case !latest_ind_thm of SOME th => th | _ => failwith "latest_ind";
+end;
+
 (*
 
 val _ = (next_ml_names := ["+","+","+","+","+"]);
@@ -3341,10 +3532,16 @@ val _ = (next_ml_names := ["+","+","+","+","+"]);
 val def = Define `foo n = if n = 0 then 0 else foo (n-1n)`
 
 val def = listTheory.APPEND;
+val def = sortingTheory.PART_DEF;
+val def = mlstringTheory.explode_aux_def;
+
+val def = Define `
+  (ZIP2 ([],[]) z = []) /\
+  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
 *)
 
-fun translate_main utac translate register_type def = (let
+fun translate_main options translate register_type def = (let
 
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -3396,11 +3593,7 @@ val (fname,ml_fname,th,def) = hd thms
                     last rev_params)
     in (fname,ml_fname,def,th,v) end
   val thms = map optimise_and_abstract thms
-
   (* final phase: extract precondition, perform induction, store cert *)
-(*
-val _ = (max_print_depth := 25)
-*)
 
   val (is_fun,results) = if not is_rec then let
     (* non-recursive case *)
@@ -3466,163 +3659,57 @@ val (fname,ml_fname,def,th,v) = hd thms
     (* collect precondition *)
     val thms = extract_precondition_rec thms
 
-    (* apply induction *)
+    (* construct ind goal *)
     fun get_goal (fname,ml_fname,def,th,pre) = let
-      val th = REWRITE_RULE [CONTAINER_def] th
+      val th = REWRITE_RULE [] th
       val hs = hyp th
       val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
       val hyp_tm = list_mk_abs(rev rev_params, th |> UNDISCH_ALL |> concl)
       val goal = list_mk_forall(rev rev_params, th |> UNDISCH_ALL |> concl)
       in (hyp_tm,(th,(hs,goal))) end
     val goals = map get_goal thms
-    val gs = goals |> map (snd o snd o snd) |> list_mk_conj
-    val hs = goals |> map (fst o snd o snd) |> flatten
-                   |> op_mk_set aconv |> list_mk_conj
-    val goal = mk_imp(hs,gs)
-    val ind_thm = (the ind)
-                  |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
-                  |> ISPECL (goals |> map fst)
-                  |> CONV_RULE (DEPTH_CONV BETA_CONV)
-    fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
-      | POP_MP_TACs (ws,gg) =
-          POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
-    val pres = map (fn (_,_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
 
-    fun split_ineq_orelse_tac tac (asms,concl) = (asms,concl) |>
-      let
-        val (asms',concl) = strip_imp concl
-        val asms = asms'@asms
-        fun is_ineq t = is_neg t andalso is_eq(rand t)
-        fun is_disj_of_ineq t = all is_ineq (strip_disj t)
-        fun is_all_disj_of_ineq t = is_disj_of_ineq(snd(strip_forall t))
-        val var_equalities =
-            map strip_conj asms
-            |> List.concat
-            |> filter is_eq
-            |> filter (is_var o lhs)
-            |> filter (is_var o rhs)
-        fun case_split_vars (l,r) =
-          if can (match_term r) l then
-            match_term r l
-            |> fst
-            |> filter (fn {residue,...} => not(is_var residue))
-            |> map (fn {redex,...} => redex)
-          else if is_comb r andalso
-                  not(TypeBase.is_constructor(fst(strip_comb r))) then
-            [r]
-          else
-            []
-      in
-        case List.find is_all_disj_of_ineq asms of
-            NONE => tac
-          | SOME asm =>
-            let val asm' = snd(strip_forall asm)
-                val disjuncts = strip_disj asm'
-                val lsrs = map (dest_eq o rand) disjuncts
-                val vars =
-                    map case_split_vars lsrs
-                    |> filter (not o null)
-                    |> map hd
-                    |> op_mk_set aconv
-            in
-              case vars of
-                  [] => tac
-                | l => foldr (fn (x,t) => primCases_on x \\ t) ALL_TAC l
-            end
-      end
-    (*
-      set_goal([],goal)
-    *)
-    val ulemma =
-        case utac of
-            NONE => NONE
-          | SOME tac => SOME (auto_prove "ind" (goal,
-                          STRIP_TAC
-                          \\ MATCH_MP_TAC ind_thm
-                          \\ REPEAT STRIP_TAC
-                          \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
-                          \\ REPEAT STRIP_TAC
-                          \\ POP_MP_TACs
-                          \\ tac)) handle HOL_ERR _ => NONE
-    val lemma =
-        case ulemma of
-            SOME th => th
-          | _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ POP_MP_TACs
-        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
-        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
-        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
-        \\ METIS_TAC [])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0] (*For arithmetic-based goals*)
-        \\ METIS_TAC[])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ SIMP_TAC std_ss [FORALL_PROD]
-        \\ (MATCH_MP_TAC ind_thm ORELSE
-            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
-        \\ METIS_TAC [])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ SIMP_TAC std_ss [FORALL_PROD]
-        \\ (MATCH_MP_TAC ind_thm ORELSE
-            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
-        \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC PreImp_IMP
-        \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
-        \\ (STRIP_TAC THENL (map MATCH_MP_TAC (map (fst o snd) goals)))
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-(*
-        \\ REPEAT (POP_ASSUM MP_TAC)
-        \\ ONCE_REWRITE_TAC pre_rw1
-        \\ REPEAT STRIP_TAC
-*)
-        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
-        \\ METIS_TAC [])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ METIS_TAC [])
-      handle HOL_ERR e =>
-        auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ POP_MP_TACs
-        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
-        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
-        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
-        \\ rpt(split_ineq_orelse_tac(metis_tac [])))
-    val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
+    (* generate ind theorem statement *)
+    val ind_thm_goal = let
+      val ind_thm_goal = get_ind_thm_goal goals
+      in get_custom_ind_with_pre ind ind_thm_goal end
+
+    (* instantiate ind thm *)
+    val custom_ind_thm = ASSUME ind_thm_goal
+    val lemma = SPECL (map fst goals) custom_ind_thm
+                |> CONV_RULE (DEPTH_CONV BETA_CONV)
+      |> REWRITE_RULE [CONTAINER_def]
+    val lemma1 = CONV_RULE (DEPTH_CONV BETA_CONV) (LIST_CONJ
+      (map (fn (x,(tt,_)) => GENL (butlast (list_dest dest_abs x)) tt) goals))
+      |> REWRITE_RULE [CONTAINER_def]
+    val g0 = concl lemma1
+    val g1 = fst (dest_imp (concl lemma))
+    val lemma1 = if aconv g0 g1 then lemma1 else let
+      val gs = mk_imp (g0,g1)
+      val pre_defs = thms |> map (fn x => case (#5 x) of NONE => TRUTH | SOME t => t)
+      val lem = auto_prove "unroll_pre_in_ind" (gs,
+        rpt strip_tac
+        \\ TRY (match_mp_tac PreImp_LEMMA
+                \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pre_defs))
+                \\ strip_tac)
+        \\ last_x_assum match_mp_tac
+        \\ rewrite_tac [CONTAINER_def]
+        \\ rpt strip_tac
+        \\ TRY (last_x_assum match_mp_tac)
+        \\ asm_rewrite_tac [] \\ res_tac
+        \\ fs [])
+      in MP lem lemma1 end
+    val th = MP lemma lemma1
+
+    (* attempt to prove induction assumption *)
+    val _ = set_latest_ind ind
+    val th = if mem NoInd options then th
+             else (MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
+                   handle HOL_ERR _ => let
+                     val (_,ml_name,_,_,_) = hd thms
+                     in (print_unable_to_prove_ind_thm original_def ml_name; th) end)
+
+    val results = th |> CONJUNCTS |> map SPEC_ALL
 (*
 val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
 *)
@@ -3662,10 +3749,10 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
-fun translate0 tacopt def =
+fun translate_options options def =
   let
     val (is_rec,is_fun,results) =
-        translate_main tacopt (translate0 tacopt) register_type def
+      translate_main options (translate_options options) register_type def
 
     val () =
       if !generate_sigs then
@@ -3694,8 +3781,11 @@ fun translate0 tacopt def =
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)
         in save_thm(fname ^ "_v_thm", th) end
-      val thms = map inst_envs results
-      in LIST_CONJ thms end
+      val v_thm = map inst_envs results |> LIST_CONJ
+      val v_thm = v_thm |> DISCH_ALL
+                  |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                  |> UNDISCH_ALL
+      in v_thm end
     else (* not is_rec *)
     let
       val (fname,ml_fname,def,th,pre) = hd results
@@ -3751,16 +3841,19 @@ fun translate0 tacopt def =
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = ml_prog_update (add_Dlet eval_thm var_str [])
         val _ = add_v_thms (fname,var_str,v_thm,pre_def)
+        val v_thm = v_thm |> DISCH_ALL
+                    |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+                    |> UNDISCH_ALL
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
-val translate = translate0 NONE
-fun utranslate tac = translate0 (SOME tac)
+val translate = translate_options [];
+val translate_no_ind = translate_options [NoInd];
 
-fun abs_translate def =
+fun abs_translate_options options def =
   let
     val (is_rec,is_fun,results) =
-        translate_main NONE abs_translate abs_register_type def
+        translate_main options (abs_translate_options options) abs_register_type def
     (*
       val (fname,ml_fname,def,th,preopt) = hd results
     *)
@@ -3774,6 +3867,9 @@ fun abs_translate def =
   in
     LIST_CONJ (map mapthis results)
   end
+
+val abs_translate = abs_translate_options [];
+val abs_translate_no_ind = abs_translate_options [NoInd];
 
 val _ = set_translator translate;
 
