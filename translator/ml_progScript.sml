@@ -316,7 +316,7 @@ val Decls_SNOC = Q.store_thm("Decls_SNOC",
 val ML_code_def = Define `
   (ML_code env1 s1 prog NONE env2 s2 <=>
      Decls env1 s1 prog env2 s2) /\
-  (ML_code env1 s1 prog (SOME (mn,outside,env)) env2 s2 <=>
+  (ML_code env1 s1 prog (SOME (mn:string,outside,env)) env2 s2 <=>
      ?s.
        Decls env1 s1 outside env s /\
        Decls (merge_env env env1) s prog env2 s2)`

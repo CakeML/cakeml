@@ -1162,6 +1162,9 @@ fun derive_thms_for_type is_exn_type ty = let
          (mk_Attup(listSyntax.mk_list([],astSyntax.ast_t_ty))),
        listSyntax.mk_nil(alpha)) else
     if name = "PAIR_TYPE" then (Dtype [],listSyntax.mk_nil(alpha)) else let
+(*
+val th = inv_defs |> map #2 |> hd
+*)
     fun extract_dtype_part th = let
       val xs = CONJUNCTS th |> map (dest_eq o concl o SPEC_ALL)
       val ys = xs |>  map (fn (x,y) => (x |> rator |> rand,
@@ -1172,7 +1175,8 @@ fun derive_thms_for_type is_exn_type ty = let
       val tyname =
         if is_order_type then order_tyname else
         if is_unit_type then unit_tyname else
-          ys |> hd |> fst |> type_of |> type2t |> rand |> rand
+          ys |> hd |> fst |> type_of |> type2t |> rand
+             |> repeat (snd o dest_Long) |> rand
       val ys = map (fn (x,y) => (y |> rator |> rand,
                                  x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
