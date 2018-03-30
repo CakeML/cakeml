@@ -12,6 +12,7 @@ structure semanticPrimitivesSyntax = struct
   val sem_env_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="sem_env",Args=[alpha]};
   val stamp_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="stamp",Args=[]};
   val state_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="state",Args=[alpha]};
+  val store_v_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="store_v",Args=[alpha]};
   val v_ty = mk_thy_type{Thy="semanticPrimitives",Tyop="v",Args=[]};
   (* constants *)
   val Eq_type_error = prim_mk_const{Thy="semanticPrimitives",Name="Eq_type_error"};

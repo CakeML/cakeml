@@ -166,9 +166,12 @@ val tds_tm = ``[]:type_def``
 fun add_Dtype loc tds_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_Dtype th
   val th = SPECL [tds_tm,loc] th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-            (SIMP_CONV std_ss [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
-                               write_conses_def,ML_code_env_def,
+  val tm = th |> concl |> rator |> rand |> rator |> rator |> rand
+  val th = th |> CONV_RULE ((* (RATOR_CONV o RAND_CONV) *)
+            (REWRITE_CONV [EVAL tm] THENC
+             SIMP_CONV std_ss [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                               write_conses_def,ML_code_env_def,LENGTH,
+                               semanticPrimitivesTheory.build_constrs_def,
                                APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
