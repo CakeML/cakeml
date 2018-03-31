@@ -353,8 +353,8 @@ and v_to_list (Conv (Just stamp) [v1;v2]) =
 and v_to_list _ = Nothing
 
 val list_to_v : list v -> v
-let rec list_to_v [] = Conv (Just ("nil", TypeId (Short "list"))) []
-and list_to_v (x::xs) = Conv (Just ("::", TypeId (Short "list"))) [x; list_to_v xs]
+let rec list_to_v [] = Conv (Just (TypeStamp "nil" list_type_num)) []
+and list_to_v (x::xs) = Conv (Just (TypeStamp "::" list_type_num)) [x; list_to_v xs]
 
 val v_to_char_list : v -> maybe (list char)
 let rec v_to_char_list (Conv (Just stamp) []) =
