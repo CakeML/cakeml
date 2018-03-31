@@ -72,6 +72,8 @@ val _ = Datatype `
   | Asub
   | Alength
   | Aupdate
+  (* List operations *)
+  | ListAppend
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)

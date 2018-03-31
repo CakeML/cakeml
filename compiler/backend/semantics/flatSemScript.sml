@@ -168,6 +168,11 @@ val v_to_list_def = Define `
   ∧
   (v_to_list _ = NONE)`;
 
+val list_to_v_def = Define `
+  (list_to_v [] = Conv (SOME (nil_id, SOME list_id)) []) ∧
+  (list_to_v (x::xs) =
+    Conv (SOME (cons_id, SOME list_id)) [x; list_to_v xs])`;
+
 val v_to_char_list_def = Define `
  (v_to_char_list (Conv (SOME (cid, tid)) []) =
   if cid = nil_id ∧ tid = SOME list_id then
@@ -398,6 +403,10 @@ val do_app_def = Define `
            (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
             | NONE => NONE
             | SOME s' => SOME (s with refs := s', Rval (Conv NONE [])))
+     | _ => NONE)
+  | (ListAppend, [x1; x2]) =>
+    (case (v_to_list x1, v_to_list x2) of
+     | (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval (Conv NONE []))

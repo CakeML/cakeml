@@ -92,6 +92,7 @@ val astOp_to_flatOp_def = Define `
   | Asub => flatLang$Asub
   | Alength => flatLang$Alength
   | Aupdate => flatLang$Aupdate
+  | ListAppend => flatLang$ListAppend
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string`;
 

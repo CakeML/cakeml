@@ -375,7 +375,7 @@ val do_app_def = Define `
                  SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
                | NONE => NONE))
         | _ => NONE)
-    | (Op (Op ListAppend), [x1;x2]) =>
+    | (Op ListAppend, [x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
           (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
         | _ => NONE)
