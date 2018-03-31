@@ -902,13 +902,13 @@ val prove_EvalM_handle =
       \\ metis_tac[])
   \\ rw[Once evaluate_cases]
   \\ last_x_assum(fn x => ALL_TAC)
-  \\ last_x_assum drule \\ rw[]
+  \\ last_x_assum drule \\ rw[] \\ rfs []
   (* pattern matching *)
   \\ fs[pat_bindings_def]
   \\ drule ALL_DISTINCT_pats_bindings \\ rw[]
   \\ fs[pmatch_def]
-  \\ fs[lookup_cons_def, same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
-  \\ rw[Once evaluate_cases];
+  \\ fs[lookup_cons_def, same_type_def, same_ctor_def]
+  \\ rw[Once evaluate_cases] \\ cheat;
 
 val EvalM_handle_MODULE = Q.store_thm("EvalM_handle_MODULE",
  `!module_name cons_name CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE handle_fun x1 x2 arity a2 bind_names a H.
@@ -950,16 +950,16 @@ val EvalM_handle_SIMPLE = Q.store_thm("EvalM_handle_SIMPLE",
   (!E ev. EXN_TYPE E ev ==>
           CORRECT_CONS E ==>
    ?paramsv.
-   ev = Conv (SOME (cons_name,TypeExn (Short cons_name))) paramsv /\
+   ev = Conv (SOME (ExnStamp stamp)) paramsv /\
    PARAMS_CONDITIONS E paramsv /\ LENGTH paramsv = arity) ==>
   (!E ev. EXN_TYPE E ev ==>
    ~CORRECT_CONS E ==>
    ?paramsv cons_name_1.
-   ev = Conv (SOME (cons_name_1,TypeExn (Short cons_name_1))) paramsv /\
+   ev = Conv (SOME (ExnStamp stamp)) paramsv /\
    cons_name_1 <> cons_name) ==>
   ALL_DISTINCT bind_names ==>
   LENGTH bind_names = arity ==>
-  lookup_cons cons_name env = SOME (arity,TypeExn (Short cons_name)) ==>
+  lookup_cons cons_name env = SOME (arity,ExnStamp stamp) ==>
   ((a1 ==> EvalM ro env st exp1 (MONAD a EXN_TYPE x1) H) /\
   (!st E paramsv.
      PARAMS_CONDITIONS E paramsv ==>
@@ -1056,17 +1056,18 @@ val prove_EvalM_raise =
   \\ rw[Once (GSYM LIST_CONJ_REVERSE), GSYM MAP_REVERSE,REVERSE_ZIP,REVERSE_REVERSE]
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append];
 
+(*
 val EvalM_raise_MODULE = Q.store_thm("EvalM_raise_MODULE",
  `!module_name cons_name EXN_TYPE EVAL_CONDS arity E exprs f a H.
   (!values.
    LENGTH values = arity ==>
    LIST_CONJ (MAP (\(P,v). P v) (ZIP(EVAL_CONDS,values))) ==>
-   EXN_TYPE E (Conv (SOME (cons_name, TypeExn (Long module_name (Short cons_name)))) values)) ==>
+   EXN_TYPE E (Conv exn) values) ==>
   f st = (Failure E, st) ==>
   LENGTH exprs = arity ==>
   LENGTH EVAL_CONDS = arity ==>
-  lookup_cons cons_name env = SOME (arity, TypeExn (Long module_name (Short cons_name))) ==>
-  LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS))) ==>
+  lookup_cons cons_name env = SOME (arity, exn1) ==>
+  LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS)))`` ==>
   EvalM ro env st (Raise (Con (SOME (Short cons_name)) exprs))
     (MONAD a EXN_TYPE f) H`,
   prove_EvalM_raise);
@@ -1085,6 +1086,7 @@ val EvalM_raise_SIMPLE = Q.store_thm("EvalM_raise_SIMPLE",
   EvalM ro env st (Raise (Con (SOME (Short cons_name)) exprs))
     (MONAD a EXN_TYPE f) H`,
   prove_EvalM_raise);
+*)
 
 (* read and update refs *)
 
@@ -2666,6 +2668,7 @@ val prove_evaluate_handle_mult_CASE =
   \\ simp [Once bigStepTheory.evaluate_cases]
   \\ fs [pmatch_def,pat_bindings_def,write_def]
 
+(*
 val evaluate_handle_mult_CASE_MODULE = Q.prove(`
   ∀EXN_TYPE cons_names module_name ename exp1 s s2 e ev env.
      (∀e ev.
@@ -2703,7 +2706,9 @@ val evaluate_handle_mult_CASE_SIMPLE = Q.prove(`
         evaluate F (write "e" ev env) s2
           (Con (SOME (Short ename)) [Var (Short "e")])`,
   prove_evaluate_handle_mult_CASE);
+*)
 
+(*
 val evaluate_Success_CONS = Q.prove(
   `lookup_cons "Success" env = SOME (1,TypeId (Short MNAME)) ==>
   evaluate F env s e (s', Rval v) ==>
@@ -2729,7 +2734,9 @@ val evaluate_Success_CONS_err = Q.prove(
   \\ rw[Once evaluate_cases]
   \\ qexists_tac `s'`
   \\ rw[Once evaluate_cases]);
+*)
 
+(*
 (* For the dynamic store initialisation *)
 (* It is not possible to use register_type here... *)
 val EXC_TYPE_aux_def = Define `
@@ -2828,6 +2835,7 @@ val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",`
      (handle_mult cons_names (Con (SOME (Short "Success")) [exp])
         "Failure") (EXC_TYPE_aux MNAME TYPE EXN_TYPE (run x init_state)) H`,
   prove_EvalM_to_EvalSt);
+*)
 
 val evaluate_let_opref = Q.store_thm("evaluate_let_opref",
   `Eval env exp1 P ==>

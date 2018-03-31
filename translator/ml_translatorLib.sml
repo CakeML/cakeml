@@ -2807,8 +2807,7 @@ val generate_sigs = ref false;
 
 fun sig_of_mlname name = definition (ml_progLib.pick_name name ^ "_sig") |> concl |> rhs;
 
-fun module_signatures names =
-  failwith "module signatures are currently not supported"
+fun module_signatures names = ()
   (* listSyntax.mk_list(map sig_of_mlname names, spec_ty); *)
 
 fun sig_of_const cake_name tm =
