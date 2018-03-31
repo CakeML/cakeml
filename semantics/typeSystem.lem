@@ -284,7 +284,7 @@ let type_op op ts t =
     | (Aupdate, [t1; t2; t3]) -> t1 = Tarray t3 && t2 = Tint && t = Ttup []
     | (ConfigGC, [t1;t2]) -> t1 = Tint && t2 = Tint && t = Ttup []
     | (FFI n, [t1;t2]) -> t1 = Tstring && t2 = Tword8array && t = Ttup []
-    | (ListAppend, [Tapp [t1] ctor1; Tapp [t2] ctor2]) -> (t1 = t2) && ctor1 = Tlist_num && ctor2 = Tlist_num
+    | (ListAppend, [Tapp [t1] ctor; t2]) -> ctor = Tlist_num && t2 = Tapp [t1] ctor && t = t2
     | _ -> false
   end
 

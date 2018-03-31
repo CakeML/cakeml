@@ -603,6 +603,41 @@ val store_lookup_type_sound = Q.store_thm ("store_lookup_type_sound",
 
  *)
 
+val type_v_list_to_v = Q.store_thm("type_v_list_to_v",
+  `!x xs t.
+   type_v n ctMap tenvS x t /\
+   v_to_list x = SOME xs ==>
+     type_v n ctMap tenvS (list_to_v xs) t`,
+   recInduct v_to_list_ind \\ rw [Once type_v_cases]
+   \\ fs [v_to_list_def, list_to_v_def] \\ rw []
+   \\ fs [list_to_v_def]
+   \\ FULL_CASE_TAC \\ fs [] \\ rw []
+   \\ fs [list_to_v_def]
+   \\ qpat_x_assum `type_v _ _ _ _ _` mp_tac
+   \\ rw [Once type_v_cases] \\ simp [Once type_v_cases]);
+
+val type_v_list_to_v_APPEND = Q.store_thm("type_v_list_to_v_APPEND",
+  `!xs ys t.
+     ctMap_has_lists ctMap /\
+     type_v 0 ctMap tenvS (list_to_v xs) (Tapp [t] Tlist_num) /\
+     type_v 0 ctMap tenvS (list_to_v ys) (Tapp [t] Tlist_num)
+     ==>
+     type_v 0 ctMap tenvS (list_to_v (xs ++ ys)) (Tapp [t] Tlist_num)`,
+  Induct \\ rw [list_to_v_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ rw [Once type_v_cases]
+  \\ rw [Once type_v_cases]
+  \\ rename1 `_ = [t1;t2]`
+  \\ `LENGTH ts = LENGTH [t1;t2]` by metis_tac [LENGTH_MAP]
+  \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
+  \\ fs [] \\ rveq
+  \\ imp_res_tac ctMap_has_lists_def \\ fs [] \\ rveq
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ qpat_x_assum `type_v _ _ _ (_ xs) _` mp_tac
+  \\ EVAL_TAC \\ strip_tac
+  \\ first_x_assum (qspec_then `ys` mp_tac)
+  \\ EVAL_TAC \\ metis_tac [Tlist_num_def]);
+
 val op_type_sound = Q.store_thm ("op_type_sound",
 `!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
@@ -940,7 +975,17 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> metis_tac [store_type_extension_refl])
  >> TRY ( (* list append *)
    rename1`ListAppend` >>
-   cheat));
+   rw [do_app_cases, PULL_EXISTS] >>
+   MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+     (CONJUNCTS ctor_canonical_values_thm) >>
+   pop_assum mp_tac >>
+   MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+     (CONJUNCTS ctor_canonical_values_thm) >>
+   rw [] >>
+   rw [] >>
+   qexists_tac `tenvS` >>
+   rw [store_type_extension_refl] >>
+   metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v]));
 
 val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
 `!envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
