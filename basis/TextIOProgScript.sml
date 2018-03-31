@@ -16,17 +16,22 @@ val _ = process_topdecs `
   exception EndOfFile
 ` |> append_prog
 
+fun get_exn_conv name =
+  EVAL ``lookup_cons ^name ^(get_env (get_ml_prog_state ()))``
+  |> concl |> rand |> rand |> rand
+
+val BadFileName = get_exn_conv ``"BadFileName"``
+val InvalidFD = get_exn_conv ``"InvalidFD"``
+val EndOfFile = get_exn_conv ``"EndOfFile"``
+
 val BadFileName_exn_def = Define `
-  BadFileName_exn v =
-    (v = Conv (SOME ("BadFileName", TypeExn (Long "TextIO" (Short "BadFileName")))) [])`
+  BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])`
 
 val InvalidFD_exn_def = Define `
-  InvalidFD_exn v =
-    (v = Conv (SOME ("InvalidFD", TypeExn (Long "TextIO" (Short "InvalidFD")))) [])`
+  InvalidFD_exn v = (v = Conv (SOME ^InvalidFD) [])`
 
 val EndOfFile_exn_def = Define `
-  EndOfFile_exn v =
-    (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
+  EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
 val eval_thm = derive_eval_thm false "iobuff_loc" iobuff_e;

@@ -55,9 +55,7 @@ fun prove_ref_spec op_name =
 
 fun derive_eval_thm for_eval v_name e = let
   val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
+  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val lemma = goal
     |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,

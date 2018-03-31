@@ -7,9 +7,11 @@ val _ = translation_extends"Word8ArrayProg"
 
 val () = ml_prog_update (open_module "Array");
 
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "array" (Atapp [Atvar "'a"] (Short "array"))`` I);
+
 val () = append_decs
-   ``[Dtabbrev unknown_loc ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
-      mk_binop "array" Aalloc;
+   ``[mk_binop "array" Aalloc;
       mk_unop "arrayEmpty" AallocEmpty;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
@@ -173,7 +175,7 @@ val _ = append_prog array_find;
 
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
-``[Tdec (Dletrec unknown_loc
+``[(Dletrec unknown_loc
 [("findi_aux","f",
  Fun "arr"
    (Fun "max"

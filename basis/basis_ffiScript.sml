@@ -315,7 +315,7 @@ val STDIO_precond = Q.prove(
   st.io_events  *)
 
 fun mk_main_call s =
-  ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+  ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 

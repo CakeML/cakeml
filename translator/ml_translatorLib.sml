@@ -2807,19 +2807,20 @@ val generate_sigs = ref false;
 
 fun sig_of_mlname name = definition (ml_progLib.pick_name name ^ "_sig") |> concl |> rhs;
 
-fun module_signatures names = ()
+fun module_signatures names = T
+  (* failwith "module signatures are currently not supported" *)
   (* listSyntax.mk_list(map sig_of_mlname names, spec_ty); *)
 
-fun sig_of_const cake_name tm =
-  failwith "module signatures are currently not supported"
+fun sig_of_const cake_name tm = T
+  (* failwith "module signatures are currently not supported" *)
   (* mk_Sval (stringSyntax.fromMLstring (ml_progLib.pick_name cake_name), type2t (type_of tm)); *)
 
 fun generate_sig_thms results = let
   fun const_from_def th = th |> concl |> strip_conj |> hd |> strip_forall |> #2
                              |> dest_eq |> #1 |> strip_comb |> #1;
 
-  fun mk_sig_thm sval =
-    failwith "module signatures are currently not supported"
+  fun mk_sig_thm sval = TRUTH
+  (* failwith "module signatures are currently not supported" *)
   (* let
     val cake_name = dest_Sval sval |> #1 |> fromHOLstring;
     val sig_const_nm = cake_name ^ "_sig";
