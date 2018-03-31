@@ -1,5 +1,5 @@
 open preamble;
-open mlstringTheory mlnumTheory mlintTheory;
+open mlstringTheory mlintTheory;
 open astTheory semanticPrimitivesTheory typeSystemTheory;
 
 val _ = numLib.prefer_num();
@@ -53,9 +53,9 @@ val type_ident_to_string_def = Define `
 
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
   (inf_type_to_string (Infer_Tuvar n) =
-    concat [implode "<unification variable "; toString n; implode ">"]) ∧
+    concat [implode "<unification variable "; toString (&n); implode ">"]) ∧
   (inf_type_to_string (Infer_Tvar_db n) =
-    concat [implode "<type variable "; toString n; implode ">"]) ∧
+    concat [implode "<type variable "; toString (&n); implode ">"]) ∧
   (inf_type_to_string (Infer_Tapp ts ti) =
     if ti = Tfn_num then
       case ts of
@@ -86,9 +86,9 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
  `(∀t. inf_type_to_string t =
     case t of
       Infer_Tuvar n =>
-      concat [implode "<unification variable "; toString n; implode ">"]
+      concat [implode "<unification variable "; toString (&n); implode ">"]
     | Infer_Tvar_db n =>
-      concat [implode "<type variable "; toString n; implode ">"]
+      concat [implode "<type variable "; toString (&n); implode ">"]
     | Infer_Tapp [t1;t2] TC_fn =>
       concat [implode "("; inf_type_to_string t1; implode " -> "; inf_type_to_string t2; implode ")"]
     | Infer_Tapp _ TC_fn => implode "<bad function type>"
@@ -107,59 +107,6 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[inf_type_to_string_def]);
-  *)
-
-  (*
-val type_to_string_def = tDefine "type_to_string" `
-  (type_to_string (Tvar s) =
-    concat [implode "'"; implode s]) ∧
-  (type_to_string (Tvar_db n) =
-    concat [implode "<type variable "; toString n; implode ">"]) ∧
-  (type_to_string (Tapp [t1;t2] TC_fn) =
-    concat [implode "("; type_to_string t1; implode " -> "; type_to_string t2; implode ")"]) ∧
-  (type_to_string (Tapp ts TC_fn) =
-    implode "<bad function type>") ∧
-  (type_to_string (Tapp ts TC_tup) =
-    concat [implode "("; types_to_string ts; implode ")"]) ∧
-  (type_to_string (Tapp [] tc1) =
-    tc_to_string tc1) ∧
-  (type_to_string (Tapp [t] tc1) =
-    concat [type_to_string t; implode " "; tc_to_string tc1]) ∧
-  (type_to_string (Tapp ts tc1) =
-    concat [implode "("; types_to_string ts; implode ") "; tc_to_string tc1]) ∧
-  (types_to_string [] =
-    implode "") ∧
-  (types_to_string [t] =
-    type_to_string t) ∧
-  (types_to_string (t::ts) =
-    concat [type_to_string t; implode ", "; types_to_string ts])`
- (WF_REL_TAC `measure (\x. dtcase x of INL x => t_size x | INR x => t1_size x)`);
-
-val type_to_string_pmatch = Q.store_thm("type_to_string_pmatch",
- `(∀t. type_to_string t =
-    case t of
-      Tvar s =>
-      concat [implode "'"; implode s]
-    | Tvar_db n =>
-      concat [implode "<type variable "; toString n; implode ">"]
-    | Tapp [t1;t2] TC_fn =>
-      concat [implode "("; type_to_string t1; implode " -> "; type_to_string t2; implode ")"]
-    | Tapp _ TC_fn => implode "<bad function type>"
-    | Tapp ts TC_tup =>
-      concat [implode "("; types_to_string ts; implode ")"]
-    | Tapp [] tc1 => tc_to_string tc1
-    | Tapp [t] tc1 =>
-      concat [type_to_string t; implode " "; tc_to_string tc1]
-    | Tapp ts tc1 =>
-      concat [implode "("; types_to_string ts; implode ") "; tc_to_string tc1]) ∧
- (∀ts. types_to_string ts =
-    case ts of
-      [] => implode ""
-    | [t] => type_to_string t
-    | t::ts => concat [type_to_string t; implode ", "; types_to_string ts])`,
-  rpt strip_tac
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[type_to_string_def]);
   *)
 
 val _ = export_theory ();
