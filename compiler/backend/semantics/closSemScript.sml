@@ -98,6 +98,11 @@ val v_to_list_def = Define`
      else NONE) ∧
   (v_to_list _ = NONE)`
 
+val list_to_v_def = Define `
+  list_to_v [] = Block nil_tag [] /\
+  list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
+  `;
+
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
@@ -128,6 +133,10 @@ val do_app_def = Define `
     | (ConsExtend tag,_) => Error
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (ListAppend, [x1; x2]) =>
+        (case (v_to_list x1, v_to_list x2) of
+        | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
+        | _ => Error)
     | (LengthBlock,[Block tag xs]) =>
         Rval (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>

@@ -175,15 +175,18 @@ fun add_Dtype loc tds_tm (ML_code (ss,envs,vs,th)) = let
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
+val loc = unknown_loc
 val n_tm = ``"bar"``
-val l_tm = ``[]:t list``
+val l_tm = ``[]:ast_t list``
 *)
 
 fun add_Dexn loc n_tm l_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_Dexn th
-  val th = SPECL [n_tm,l_tm,loc] th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-            (SIMP_CONV std_ss [MAP,ML_code_env_def,
+  val th = SPECL [n_tm,l_tm,loc] th
+  val tm = th |> concl |> rand |> rator |> rand |> rand |> rator |> rand
+  val th = th |> CONV_RULE ((* (RATOR_CONV o RAND_CONV) *)
+            (REWRITE_CONV [EVAL tm] THENC
+             SIMP_CONV std_ss [MAP,ML_code_env_def,
                                FLAT,FOLDR,REVERSE_DEF,
                                APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
@@ -365,6 +368,7 @@ fun pick_name str =
   if str = "/" then "div" else
   if str = "!" then "deref" else
   if str = ":=" then "assign" else
+  if str = "@" then "append" else
   if str = "^" then "strcat" else str (* name is fine *)
 
 (*

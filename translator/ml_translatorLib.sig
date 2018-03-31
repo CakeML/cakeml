@@ -5,8 +5,10 @@ sig
 
     (* main functionality *)
 
-    val translate  : thm -> thm    (* e.g. try translate listTheory.MAP *)
-    val abs_translate : thm -> thm
+    val translate            : thm -> thm    (* e.g. translate listTheory.MAP *)
+    val translate_no_ind     : thm -> thm
+    val abs_translate        : thm -> thm
+    val abs_translate_no_ind : thm -> thm
     val hol2deep   : term -> thm   (* e.g. try hol2deep ``\x.x`` *)
     val hol2val    : term -> term  (* e.g. try hol2val ``5:num`` *)
 
@@ -34,6 +36,7 @@ sig
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
     val abs_register_type : hol_type -> unit
+    val ignore_type    : hol_type -> unit
 
     val register_exn_type   : hol_type -> unit
     val abs_register_exn_type : hol_type -> unit
@@ -126,6 +129,8 @@ sig
     val AUTO_ETA_EXPAND_CONV         : conv
     val find_ind_thm                 : thm -> thm
 
+    val auto_prove                   : string -> term * tactic -> thm
+
     (* for debugging *)
     val pmatch_hol2deep_fail : term ref
     val pmatch_hol2deep : term -> (term -> thm) -> thm
@@ -135,5 +140,8 @@ sig
 
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
+
+    (* returns the induction theorem for the latest rec translation *)
+    val latest_ind : unit -> thm
 
 end

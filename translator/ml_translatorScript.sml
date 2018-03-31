@@ -3,14 +3,15 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open preamble integerTheory
+open integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
      mlvectorTheory mlstringTheory ml_progTheory packLib;
 open integer_wordSyntax
 open terminationTheory
-local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end
+local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end;
+open preamble;
 
 val _ = new_theory "ml_translator";
 
@@ -111,6 +112,7 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
   \\ simp[]
   \\ fs [EVAL ``empty_state.ffi.final_event = NONE``]
   \\ disch_then(qspec_then`s with clock := c`mp_tac)
+  \\ impl_tac >- EVAL_TAC
   \\ simp[] \\ strip_tac
   \\ `Rval [x] = list_result ((Rval x):(v,v) result)` by EVAL_TAC
   \\ pop_assum SUBST_ALL_TAC
@@ -1550,6 +1552,55 @@ val Eval_length = Q.store_thm("Eval_length",
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
+val list_to_v_LIST_TYPE = Q.store_thm("list_to_v_LIST_TYPE",
+  `!xs v ys.
+     LIST_TYPE a xs v /\
+     v_to_list v = SOME ys ==>
+       LIST_TYPE a xs (list_to_v ys)`,
+  Induct
+  \\ fs [LIST_TYPE_def, v_to_list_def, list_to_v_def]
+  \\ rw [] \\ fs [v_to_list_def]
+  \\ FULL_CASE_TAC \\ fs [] \\ rw []
+  \\ fs [list_to_v_def]
+  \\ res_tac \\ fs []);
+
+(* ListAppend theorems *)
+
+val list_to_v_LIST_TYPE_APPEND = Q.store_thm("list_to_v_LIST_TYPE_APPEND",
+  `!xs ys x y.
+     LIST_TYPE a x (list_to_v xs) /\
+     LIST_TYPE a y (list_to_v ys) ==>
+       LIST_TYPE a (x ++ y) (list_to_v (xs ++ ys))`,
+  Induct \\ EVAL_TAC \\ rw []
+  \\ Cases_on `x` \\ fs [list_to_v_def, LIST_TYPE_def]);
+
+val v_to_list_LIST_TYPE = Q.store_thm("v_to_list_LIST_TYPE",
+  `!x v.
+     LIST_TYPE a x v ==> ?xs. v_to_list v = SOME xs`,
+  Induct \\ EVAL_TAC \\ rw [] \\ fs [v_to_list_def]
+  \\ res_tac \\ fs [] \\ EVAL_TAC);
+
+val Eval_ListAppend = Q.store_thm("Eval_ListAppend",
+  `!env x1 x2 a l1 l2.
+     Eval env x2 (LIST_TYPE a l1) ==>
+     Eval env x1 (LIST_TYPE a l2) ==>
+      Eval env (App ListAppend [x2;x1]) (LIST_TYPE a (l1 ++ l2))`,
+  rw [Eval_def]
+  \\ rw [Once evaluate_cases, PULL_EXISTS, empty_state_with_refs_eq]
+  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))), PULL_EXISTS])
+  \\ rename1 `_ with refs := rfs1`
+  \\ first_x_assum (qspec_then `rfs1` strip_assume_tac) \\ rename1 `(_,Rval r1)`
+  \\ rename1 `rfs1 ++ rfs2`
+  \\ first_x_assum (qspec_then `rfs1++rfs2` strip_assume_tac) \\ rename1 `(_,Rval r2)`
+  \\ CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["ffi"]))
+  \\ qexists_tac `empty_state.ffi` \\ simp [empty_state_with_ffi_elim]
+  \\ rw [do_app_cases, PULL_EXISTS]
+  \\ rename1 `_ ++ _ ++ rfs3`
+  \\ qexists_tac `rfs2++rfs3` \\ fs [APPEND_ASSOC]
+  \\ rpt (asm_exists_tac \\ fs [])
+  \\ imp_res_tac v_to_list_LIST_TYPE \\ fs []
+  \\ metis_tac [list_to_v_LIST_TYPE, list_to_v_LIST_TYPE_APPEND]);
+
 val Eval_length = Q.store_thm("Eval_length",
   `!env x1 x2 a n v.
       Eval env x1 (VECTOR_TYPE a v) ==>
@@ -2006,6 +2057,24 @@ val evaluate_match_rw = Q.store_thm("evaluate_match_rw",
   \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args []`
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+val PreImp_LEMMA = store_thm("PreImp_LEMMA",
+  ``(b1 ==> PreImp b1 b2) ==> PreImp b1 b2``,
+  fs [PreImp_def,PRECONDITION_def]);
+
+val SUC_SUB1_LEMMA = save_thm("SUC_SUB1_LEMMA",
+  Q.SPECL [`n`,`1`] ADD_SUB |> REWRITE_RULE [GSYM ADD1]);
+
+val LENGTH_EQ_SUC_IMP = store_thm("LENGTH_EQ_SUC_IMP",
+  ``LENGTH xs = SUC n ==> xs <> []``,
+  Cases_on `xs` \\ fs []);
+
+val prim_exn_list = let
+  val tm = primSemEnvTheory.prim_sem_env_eq |> concl |> rand |> rand |> rand
+  val (xs,ty) = ``^tm.c`` |> SIMP_CONV (srw_ss()) []
+                |> concl |> rand |> rator |> rand |> listSyntax.dest_list
+  val ys = filter (semanticPrimitivesSyntax.is_ExnStamp o rand o rand) xs
+  in listSyntax.mk_list(ys, ty) end
+
 (* terms used by the Lib file *)
 
 val translator_terms = save_thm("translator_terms",
@@ -2040,7 +2109,8 @@ val translator_terms = save_thm("translator_terms",
      ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
      ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
      ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
-     ("no_closure_pat",``∀x v. p x v ⇒ no_closures v``),
-     ("types_match_pat",``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``)]);
+     ("no_closure_pat",``!x v. p x v ==> no_closures v``),
+     ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
+     ("prim_exn_list",prim_exn_list)]);
 
 val _ = export_theory();

@@ -148,6 +148,9 @@ evaluate_match st env v ((p,e)::pes) err_v  =
     end
   else (st, Rerr (Rabort Rtype_error))
 
+declare {isabelle} rename function evaluate = fun_evaluate
+declare {isabelle} rename function evaluate_match = fun_evaluate_match
+
 val evaluate_decs :
   forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec

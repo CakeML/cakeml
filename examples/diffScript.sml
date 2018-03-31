@@ -5,6 +5,10 @@ open preamble lcsTheory mlintTheory mlnumTheory mlstringTheory;
 
 val _ = new_theory "diff";
 
+fun drule0 th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
+
 (* Diff algorithm definition *)
 
 val line_numbers_def = Define `
@@ -234,12 +238,12 @@ val string_concat_empty = Q.store_thm("string_concat_empty",
 val tokens_append_strlit = Q.store_thm("tokens_append_strlit",
   `∀P s1 x s2.
    P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2`,
-  rpt strip_tac >> drule tokens_append >> fs[str_def,implode_def]);
+  rpt strip_tac >> drule0 tokens_append >> fs[str_def,implode_def]);
 
 val tokens_append_right = Q.store_thm("tokens_append_right_strlit",
   `∀P s x.
    P x ⇒ tokens P (s ^ strlit [x]) = tokens P s`,
-  rpt strip_tac >> drule tokens_append_strlit
+  rpt strip_tac >> drule0 tokens_append_strlit
   >> disch_then (qspecl_then [`s`,`strlit ""`] assume_tac)
   >> fs[string_concat_empty,tokens_def,tokens_aux_def]);
 
@@ -467,8 +471,8 @@ val tokens_toString_comma =
   >> `toString n <> []` by metis_tac[num_to_dec_string_not_nil]
   >> qpat_abbrev_tac `a = num_toString _` >> pop_assum kall_tac
   >> `!x. isDigit x ==> (λx. (¬(($= #",") x))) x` by fs[isDigit_def]
-  >> drule EVERY_MONOTONIC
-  >> strip_tac >> first_x_assum drule >> strip_tac >> drule SPLITP_EVERY
+  >> drule0 EVERY_MONOTONIC
+  >> strip_tac >> first_x_assum drule0 >> strip_tac >> drule0 SPLITP_EVERY
   >> strip_tac >> fs[] >> rw[]
   >> Cases_on `a` >> fs[TOKENS_def])
 
@@ -480,15 +484,15 @@ val tokens_comma_lemma = Q.prove(
      >> fs[toString_thm]
      >> fs[explode_implode,strcat_thm]
      >> `!x. isDigit x ==> (\x. isDigit x \/ x = #",") x` by fs[]
-     >> drule EVERY_MONOTONIC
+     >> drule0 EVERY_MONOTONIC
      >> strip_tac
      >> qspec_then `n` assume_tac toString_isDigit
-     >> first_assum drule >> fs[]
+     >> first_assum drule0 >> fs[]
      >> qspec_then `n + LENGTH l` assume_tac toString_isDigit
-     >> first_assum drule >> fs[])
+     >> first_assum drule0 >> fs[])
   >> `!x. (\x. isDigit x \/ x = #",") x ==> ($~ ∘ (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")) x` by fs[isDigit_def,GSYM ORD_11]
-  >> drule EVERY_MONOTONIC >> strip_tac
-  >> first_x_assum drule >> rpt(pop_assum kall_tac) >> strip_tac
+  >> drule0 EVERY_MONOTONIC >> strip_tac
+  >> first_x_assum drule0 >> rpt(pop_assum kall_tac) >> strip_tac
   >> qspecl_then [`l`,`n`] assume_tac line_numbers_not_empty
   >> qpat_abbrev_tac `a = line_numbers _ _` >> pop_assum kall_tac
   >> qpat_abbrev_tac `p = (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")` >> pop_assum kall_tac
@@ -608,7 +612,7 @@ val patch_aux_keep_init_cons = Q.prove(
    case patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) t (LENGTH t) (n+1) of
      SOME r => SOME(h::r)
     | NONE => NONE`,
-    rpt strip_tac >> drule patch_aux_keep_init
+    rpt strip_tac >> drule0 patch_aux_keep_init
     >> disch_then (qspecl_then [`[h]`,`n`,`m`] assume_tac) >> fs[ADD1]);
 
 val list_nil_sub_length = Q.prove(`l ≠ [] ==> (1 - LENGTH l = 0)`,
@@ -641,33 +645,33 @@ Induct
     >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
     >> rveq
     >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
-    >> drule common_subsequence_split_css2
+    >> drule0 common_subsequence_split_css2
     >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
-    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
+    >> drule0 SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
     >> fs[patch_aux_def] >> rw[]
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[] >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
                   depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND]
-    >> drule patch_aux_keep_init_cons
+    >> drule0 patch_aux_keep_init_cons
     >> disch_then(qspecl_then [`n`,`h`,`m + LENGTH l'l`] assume_tac)
-    >> drule SPLITP_JOIN
+    >> drule0 SPLITP_JOIN
     >> fs[])
 >- (fs[SPLITP_NIL_FST] >> rveq
     >> Cases_on `lr` >> fs[common_subsequence_empty']
     >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
     >> rveq
     >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
-    >> drule common_subsequence_split_css
+    >> drule0 common_subsequence_split_css
     >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
-    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
+    >> drule0 SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
     >> fs[patch_aux_def] >> rw[]
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[]
-    >> drule SPLITP_JOIN >> strip_tac >> fs[]
+    >> drule0 SPLITP_JOIN >> strip_tac >> fs[]
     >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
           depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
           minus_add_too_large]
-    >> drule patch_aux_keep_init_cons
+    >> drule0 patch_aux_keep_init_cons
     >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m`] mp_tac)
     >> fs[list_length_1_lemma,ADD1])
 >- (fs[SPLITP_NIL_FST] >> rveq
@@ -675,19 +679,19 @@ Induct
     >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
     >> rveq
     >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
-    >> drule common_subsequence_split_css >> strip_tac >> drule common_subsequence_split_css2
+    >> drule0 common_subsequence_split_css >> strip_tac >> drule0 common_subsequence_split_css2
     >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
-    >> drule SPLITP_IMP >> qpat_x_assum `SPLITP _ _ = _ ` mp_tac
-    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
+    >> drule0 SPLITP_IMP >> qpat_x_assum `SPLITP _ _ = _ ` mp_tac
+    >> drule0 SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
     >> fs[patch_aux_def] >> rw[]
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[]
-    >> drule SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac
-    >> drule SPLITP_JOIN >> ntac 3 strip_tac
+    >> drule0 SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac
+    >> drule0 SPLITP_JOIN >> ntac 3 strip_tac
     >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
           depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
           minus_add_too_large,TAKE_APPEND,minus_add_too_large',ONE_MINUS_SUCC]
-    >> drule patch_aux_keep_init_cons
+    >> drule0 patch_aux_keep_init_cons
     >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m + LENGTH l'l`] mp_tac)
     >> fs[ADD1,list_length_1_lemma]));
 
@@ -787,11 +791,11 @@ val diff_with_lcs_headers_within = Q.store_thm("diff_with_lcs_headers_within",
   >> fs[diff_with_lcs_def]
   >> rpt(pairarg_tac >> fs[])
   >> IF_CASES_TAC
-  >- (drule split_common_subsequence
+  >- (drule0 split_common_subsequence
       >> strip_tac
-      >> first_x_assum drule >> fs[]
+      >> first_x_assum drule0 >> fs[]
       >> disch_then(qspecl_then [`n+1`,`n+1`] assume_tac)
-      >> drule(GEN_ALL headers_within_grow)
+      >> drule0(GEN_ALL headers_within_grow)
       >> disch_then match_mp_tac
       >> fs[SPLITP_NIL_FST]
       >> Cases_on `r` >> fs[common_subsequence_empty'])
@@ -805,14 +809,14 @@ val diff_with_lcs_headers_within = Q.store_thm("diff_with_lcs_headers_within",
       >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
       >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
       >> fs[parse_nonheader_lemma3] >> rfs[]
-      >> drule common_subsequence_split >> strip_tac >> fs[] >> rveq >> fs[])
-  >> drule split_common_subsequence
-  >> drule common_subsequence_split
-  >> drule common_subsequence_split2
+      >> drule0 common_subsequence_split >> strip_tac >> fs[] >> rveq >> fs[])
+  >> drule0 split_common_subsequence
+  >> drule0 common_subsequence_split
+  >> drule0 common_subsequence_split2
   >> rpt strip_tac >> fs[] >> rveq
-  >> fs[] >> rfs[] >> first_x_assum drule
+  >> fs[] >> rfs[] >> first_x_assum drule0
   >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
-  >> drule(GEN_ALL headers_within_grow)
+  >> drule0(GEN_ALL headers_within_grow)
   >> disch_then match_mp_tac
   >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
   >> fs[]);
@@ -832,8 +836,8 @@ val headers_within_cons = Q.store_thm("headers_within_cons",
   >> fs[patch_alg_offs_def,patch_aux_def]
   >> every_case_tac
   >> fs[headers_within_def] >> rfs[]
-  >> TRY(drule(GEN_ALL highly_specific_implication) >> disch_then drule >> disch_then (fn x => fs[x]))
-  >> TRY(drule(GEN_ALL highly_specific_implication2) >> disch_then (fn x => fs[x]))
+  >> TRY(drule0(GEN_ALL highly_specific_implication) >> disch_then drule0 >> disch_then (fn x => fs[x]))
+  >> TRY(drule0(GEN_ALL highly_specific_implication2) >> disch_then (fn x => fs[x]))
   >> fs[GSYM ADD1]);
 
 val IS_SUFFIX_induct_aux =
@@ -870,7 +874,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> qmatch_asmsub_abbrev_tac `patch_aux (DROP a1 _) _ _ a2`
          >> `IS_SUFFIX p1 (DROP a1 p1)`
                by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
-         >> first_assum drule
+         >> first_assum drule0
          >> qunabbrev_tac `a1`
          >> disch_then(qspecl_then [`a2`,`DROP (a2 - n) l`,`m`,`e`] mp_tac)
          >> impl_tac
@@ -888,7 +892,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> fs[DROP_def] >> imp_res_tac headers_within_IMP >> fs[]
          >> qunabbrev_tac `a2` >> fs[]
          >> qmatch_asmsub_abbrev_tac `patch_aux _ _ _ a2`
-         >> (first_assum drule
+         >> (first_assum drule0
              >> disch_then(qspecl_then [`a2`,`[]`,`m`,`e`] mp_tac)
              >> impl_tac
              >- (match_mp_tac(GEN_ALL headers_within_grow)
@@ -901,7 +905,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
                  >> pop_assum(fn x => fs[x])
                  >> `(n + LENGTH l - a2) = 0` by(intLib.COOPER_TAC)
                  >> pop_assum(fn x => fs[x]) >> rveq >> fs[]
-                 >> (first_assum drule
+                 >> (first_assum drule0
                      >> disch_then(qspecl_then [`a2`,`[]`,`m`,`e`] mp_tac)
                      >> impl_tac
                      >- (match_mp_tac(GEN_ALL headers_within_grow)
@@ -927,7 +931,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> qmatch_asmsub_abbrev_tac `DROP 1 _`
          >> `IS_SUFFIX p1 (DROP 1 p1)`
                by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
-         >> first_assum drule
+         >> first_assum drule0
          >> disch_then(qspecl_then [`q`,`DROP (q - n) l`,`m`,`e`] mp_tac)
          >> impl_tac
          >- (match_mp_tac(GEN_ALL headers_within_grow)
@@ -943,7 +947,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> imp_res_tac headers_within_IMP
          >> `q = n + LENGTH l - 1` by intLib.COOPER_TAC
          >> rveq >> fs[]
-         >> (first_assum drule
+         >> (first_assum drule0
              >> disch_then(qspecl_then [`q`,`[]`,`m`,`e`] mp_tac)
              >> impl_tac
              >- (match_mp_tac(GEN_ALL headers_within_grow)
@@ -961,11 +965,11 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> qmatch_asmsub_abbrev_tac `patch_aux (DROP a4 _) _ _ a5 = _`
          >> imp_res_tac headers_within_IMP >> fs[]
          >> `a5 - n <= LENGTH l` by(unabbrev_all_tac >> intLib.COOPER_TAC)
-         >> drule TAKE_SNOC
+         >> drule0 TAKE_SNOC
          >> simp[SNOC_APPEND]
          >> disch_then kall_tac
          >> `IS_SUFFIX p1 (DROP a4 p1)` by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
-         >> first_assum drule
+         >> first_assum drule0
          >> qunabbrev_tac `a4`
          >> disch_then(qspecl_then [`a5`,`DROP (a5 - n) l`,`m`,`e`] mp_tac)
          >> impl_tac
@@ -993,14 +997,14 @@ val headers_within_append1 = Q.store_thm("headers_within_append1",
   >> rpt strip_tac
   >> fs[SNOC_APPEND]
   >> FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC]
-  >> drule(GEN_ALL headers_within_grow)
+  >> drule0(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then[`n + LENGTH l'`,`m`] assume_tac)
   >> `!opt. lift ($++ (l' ⧺ [x])) opt = lift ($++ l') (lift (CONS x) opt)`
        by(Cases >> fs[])
   >> fs[ADD1]
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
   >> pop_assum kall_tac
-  >> drule(GEN_ALL headers_within_cons)
+  >> drule0(GEN_ALL headers_within_cons)
   >> fs[]);
 
 val headers_within_append1' = Q.store_thm("headers_within_append1'",
@@ -1018,10 +1022,10 @@ val headers_within_append2 = Q.store_thm("headers_within_append2",
   >> rpt strip_tac
   >- (fs[] >> qmatch_goalsub_abbrev_tac `OPTION_MAP _ a1` >> Cases_on `a1` >> fs[])
   >> SIMP_TAC bool_ss [Once CONS_APPEND,APPEND_ASSOC]
-  >> drule(GEN_ALL headers_within_grow)
+  >> drule0(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then[`m`,`n + LENGTH(l ++ [h])`] mp_tac)
   >> impl_tac >> fs[]
-  >> strip_tac >> first_x_assum drule
+  >> strip_tac >> first_x_assum drule0
   >> fs[]
   >> `!opt. lift (combin$C $++ (h::l')) opt = lift (combin$C $++ l') (lift (SNOC h) opt)`
        by(Cases >> fs[] )
@@ -1029,7 +1033,7 @@ val headers_within_append2 = Q.store_thm("headers_within_append2",
   >> pop_assum kall_tac
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
   >> fs[GSYM SNOC_APPEND]
-  >> drule(GEN_ALL headers_within_snoc)
+  >> drule0(GEN_ALL headers_within_snoc)
   >> fs[]);
 
 val longest_common_sandwich = Q.store_thm("longest_common_sandwich",
@@ -1102,11 +1106,11 @@ val patch_diff2_cancel = Q.store_thm("patch_diff2_cancel",
   >> fs[lcs_def]
   >> imp_res_tac diff_with_lcs_headers_within
   >> pop_assum(qspecl_then [`a1`,`a1`] assume_tac)
-  >> drule(GEN_ALL headers_within_grow)
+  >> drule0(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then [`a1`,`a1 + (LENGTH a3 - a2 + a2)`] mp_tac)
   >> impl_tac >- (unabbrev_all_tac >> fs[])
   >> qunabbrev_tac `a1` >> strip_tac
-  >> drule headers_within_append1'
+  >> drule0 headers_within_append1'
   >> disch_then(qspec_then `TAKE (LENGTH a3 − a2) a3 ++ longest_common_suffix a3 a4` mp_tac)
   >> impl_tac >- (unabbrev_all_tac >> fs[])
   >> strip_tac
@@ -1117,14 +1121,14 @@ val patch_diff2_cancel = Q.store_thm("patch_diff2_cancel",
   >> fs[]
   >> conj_tac
   >- (ntac 2 (pop_assum kall_tac)
-      >> drule (GEN_ALL(headers_within_append2 |> PURE_ONCE_REWRITE_RULE [ADD_SYM]))
+      >> drule0 (GEN_ALL(headers_within_append2 |> PURE_ONCE_REWRITE_RULE [ADD_SYM]))
       >> disch_then(qspec_then `longest_common_suffix a3 a4` mp_tac)
       >> impl_tac >- fs[]
       >> strip_tac
       >> `a6 = LENGTH a3 - LENGTH(longest_common_suffix a3 a4)`
            by(unabbrev_all_tac >> fs[])
        >> rveq >> fs[]
-       >> drule patch_aux_diff_cancel
+       >> drule0 patch_aux_diff_cancel
        >> fs[patch_alg_offs_def]
        >> disch_then kall_tac
        >> unabbrev_all_tac >> fs[])
@@ -1189,16 +1193,16 @@ val diff_with_lcs_optimal = Q.prove(
   >> fs[SPLITP_NIL_FST,FILTER_APPEND,diff_single_patch_length] >> rveq
   >- (Cases_on `lr` >> Cases_on `l'r` >> fs[lcs_empty']
       >> rveq >> fs[cons_lcs_optimal_substructure])
-  >> drule lcs_split_lcs >> strip_tac >> drule lcs_split_lcs2 >> strip_tac
+  >> drule0 lcs_split_lcs >> strip_tac >> drule0 lcs_split_lcs2 >> strip_tac
   >> Cases_on `lr` >> Cases_on `l'r` >> rfs[lcs_empty']
-  >> drule SPLITP_IMP
-  >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule SPLITP_IMP
+  >> drule0 SPLITP_IMP
+  >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule0 SPLITP_IMP
   >> ntac 3 strip_tac >> fs[] >> rveq
-  >> drule SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule SPLITP_IMP
-  >> drule SPLITP_JOIN >> rpt strip_tac
+  >> drule0 SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule0 SPLITP_IMP
+  >> drule0 SPLITP_JOIN >> rpt strip_tac
   >> fs[cons_lcs_optimal_substructure,MULT_SUC,SUB_LEFT_ADD]
   >> rw[] >> rpt (qpat_x_assum `lcs (_::_) _ _` kall_tac)
-  >> drule lcs_max_length >> fs[]);
+  >> drule0 lcs_max_length >> fs[]);
 
 val diff_optimal = Q.store_thm("diff_optimal",
   `!l r r'. lcs l r r' ==>

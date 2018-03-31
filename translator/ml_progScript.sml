@@ -394,7 +394,6 @@ val ML_code_Dtype = Q.store_thm("ML_code_Dtype",
 val ML_code_Dexn = Q.store_thm("ML_code_Dexn",
   `ML_code env1 s1 prog mn env2 s2 ==>
    !n l locs.
-     EVERY check_dup_ctors tds ==>
      ML_code env1 s1 (SNOC (Dexn locs n l) prog) mn
        (write_cons n (LENGTH l,ExnStamp s2.next_exn_stamp) env2)
        (s2 with next_exn_stamp := s2.next_exn_stamp + 1)`,

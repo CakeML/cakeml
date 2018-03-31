@@ -36,8 +36,7 @@ val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
   rw [extract_side_def, MIN_DEF] ) |> update_precondition
 
-
-val result = translate concatWith_aux_def;
+val res = translate concatWith_aux_def;
 val _ = next_ml_names := ["concatWith"];
 val result = translate concatWith_def;
 
@@ -62,7 +61,7 @@ val translate_side_thm = Q.prove (
 val r = translate splitl_aux_def;
 val r = translate splitl_def;
 
-val result = translate tokens_aux_def;
+val res = translate tokens_aux_def;
 val tokens_aux_side_def = theorem"tokens_aux_side_def";
 val result = translate tokens_def;
 val tokens_side_def = definition"tokens_side_def";
@@ -98,12 +97,11 @@ val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
 
 val isStringThere_aux_side_thm = Q.prove (
-  `!s1 s2 s1i s2i len. (s1i + len = strlen s1)  /\ (s2i + len <= strlen s2) /\
-        (strlen s1 <= strlen s2)
-        ==> (isstringthere_aux_side s1 s2 s1i s2i len)`,
+  `!s1 s2 s1i s2i len.
+     s1i + len ≤ strlen s1 ∧ s2i + len <= strlen s2 ==>
+     isstringthere_aux_side s1 s2 s1i s2i len`,
   Induct_on `len` \\ rw [Once isStringThere_aux_side_def]
 );
-
 
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPrefix_def;
@@ -122,9 +120,12 @@ val isSuffix_thm = Q.prove (
 val result = translate isSubstring_aux_def;
 val isSubstring_aux_side_def = theorem"issubstring_aux_side_def";
 val isSubstring_aux_side_thm = Q.prove (
-  `!s1 s2 lens1 n len. (n + len = strlen s2 - strlen s1) /\ (lens1 = strlen s1) ==>
+  `!s1 s2 lens1 n len.
+    (lens1 = strlen s1) ∧ n + len + lens1 ≤ strlen s2 + 1 ==>
     issubstring_aux_side s1 s2 lens1 n len`,
-  Induct_on `len` \\ rw [Once isSubstring_aux_side_def, isStringThere_aux_side_thm]
+  Induct_on `len` >>
+  rw [Once isSubstring_aux_side_def] >>
+  irule isStringThere_aux_side_thm >> simp[]
 );
 
 val _ = next_ml_names := ["isSubstring"];
@@ -132,7 +133,7 @@ val result = translate isSubstring_def;
 val isSubstring_side_def = definition"issubstring_side_def";
 val isSubstring_side_thm = Q.prove (
   `!s1 s2. issubstring_side s1 s2`,
-  rw [isSubstring_side_def, isSubstring_aux_side_thm] ) |> update_precondition
+  rw [isSubstring_side_def, isSubstring_aux_side_thm]) |> update_precondition
 
 
 val result = translate compare_aux_def;

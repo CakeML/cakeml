@@ -44,7 +44,8 @@ fun SEP_IMP_conv convl convr t =
 
 fun rearrange_star_conv tm rest =
   let val rearranged = list_mk_star (rest @ [tm]) ``:hprop`` in
-    fn t => prove (mk_eq (t, rearranged), rew_heap_AC)
+    fn t => ml_translatorLib.auto_prove "rearrange_star_conv"
+              (mk_eq (t, rearranged), rew_heap_AC)
   end
 
 (** hpullable *)

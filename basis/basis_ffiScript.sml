@@ -281,7 +281,7 @@ val iobuff_loc_num =
   |> concl |> rhs |> rand;
 
 val IOFS_precond = Q.prove(
-  `wfFS fs ⇒ LENGTH v = 258 ⇒
+  `wfFS fs ⇒ LENGTH v >= 2052 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
     ∪ {Mem ^iobuff_loc_num (W8array v)})`,
@@ -296,7 +296,7 @@ val IOFS_precond = Q.prove(
 val STDIO_precond = Q.prove(
 ` wfFS fs ==>
   STD_streams fs ==>
-  LENGTH v = 258 ==>
+  LENGTH v >= 2052 ==>
   STDIO fs
     ({FFI_part (encode fs)
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
