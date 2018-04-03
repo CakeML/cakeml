@@ -5,6 +5,7 @@ val f = DB.find;
 val _ = type_abbrev("num_set",``:unit spt``);
 fun tzDefine s q = Lib.with_flag (computeLib.auto_import_definitions,false) (tDefine s q);
 
+val _ = new_theory "reachability";
 
 (****************************** RESULTS FROM SPTREETHEORY ******************************)
 
@@ -66,7 +67,7 @@ val domain_difference = Q.store_thm("domain_difference",
 (********** DELETION **********)
 
 val delete_fail = Q.store_thm ("delete_fail",
-    `∀ n t . (wf t) ⇒ (n ∉  domain t <=> (delete n t = t))`,
+    `∀ n t . (wf t) ⇒ (n ∉  domain t ⇔ (delete n t = t))`,
     simp[domain_lookup] >>
     recInduct lookup_ind >>
     rw[lookup_def, wf_def, delete_def, mk_BN_thm, mk_BS_thm]
@@ -192,7 +193,7 @@ val close_spt_def = tDefine "close_spt" `
         | SOME new => 
         close_spt (insert index () reachable) (union new seen) (delete index tree)
     )` 
-    (WF_REL_TAC `measure (λ (reachable, toLook, tree) . size tree)` 
+    (WF_REL_TAC `measure (λ (reachable, seen, tree) . size tree)` 
     \\ rw[size_delete, lookup_zero] 
     \\ imp_res_tac lookup_zero
     \\ fs[]);
@@ -284,147 +285,29 @@ val close_spt_thm = Q.store_thm("close_spt_thm",
 
 (**************************************** CLOSURE_SPT ****************************************)
 
-val closure_spt_def = Define `(closure_spt start tree = close_spt LN (insert start () LN) tree)`;
+val closure_spt_def = Define `closure_spt start tree = close_spt LN start tree`;
 
 val closure_spt_lemma = 
-    close_spt_thm |> Q.SPECL [`LN`, `insert start () LN`, `tree`, `tree`]
+    close_spt_thm |> Q.SPECL [`LN`, `start:num_set`, `tree`, `tree`]
         |> SIMP_RULE std_ss [
             GSYM closure_spt_def, wf_def, wf_insert, subspt_def, domain_def, NOT_IN_EMPTY,
             domain_insert, SUBSET_DEF
            ] 
-        |> Q.SPECL[`{start}`]
-        |> SIMP_RULE std_ss [ConseqConvTheory.AND_CLAUSES_XX, IN_SING, Once isReachable_def, RTC_REFL, AND_CLAUSES]
-;
-
-
-val closure_spt_thm = Q.store_thm ("closure_spt_thm",
-    `∀ start tree . (start ∈ domain tree) ∧ (wf_set_tree tree)
-    ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . isReachable tree start a}`,
-    strip_tac >> strip_tac >> assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >> 
-    first_x_assum match_mp_tac >> rw[]  >> fs[] >> res_tac >> fs[]
-);
-
-
-(* second definition - with start a set, rather than a single number *)
-
-val closure_spt2_def = Define `closure_spt2 start tree = close_spt LN start tree`;
-
-val closure_spt2_lemma = 
-    close_spt_thm |> Q.SPECL [`LN`, `start:num_set`, `tree`, `tree`]
-        |> SIMP_RULE std_ss [
-            GSYM closure_spt2_def, wf_def, wf_insert, subspt_def, domain_def, NOT_IN_EMPTY,
-            domain_insert, SUBSET_DEF
-           ] 
         |> Q.SPECL[`domain (start:num_set)`]
-        |> SIMP_RULE std_ss [ConseqConvTheory.AND_CLAUSES_XX, ConseqConvTheory.IMP_CLAUSES_XX, IN_SING, Once isReachable_def, RTC_REFL, AND_CLAUSES]
+        |> SIMP_RULE std_ss [
+                ConseqConvTheory.AND_CLAUSES_XX, ConseqConvTheory.IMP_CLAUSES_XX,
+                IN_SING, Once isReachable_def, RTC_REFL, AND_CLAUSES
+           ] |> GEN_ALL
 ;
 
-val closure_spt2_thm = Q.store_thm("closure_spt2_thm",
-    `wf start ∧ (wf_set_tree tree) ∧ (domain start ⊆ domain tree)
-    ⇒ domain (closure_spt2 start tree) = 
+val closure_spt_thm = Q.store_thm("closure_spt_thm",
+    `∀ tree start . wf start ∧ (wf_set_tree tree) ∧ (domain start ⊆ domain tree)
+    ⇒ domain (closure_spt start tree) = 
         {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`,
-    assume_tac closure_spt2_lemma >> rw[] >> fs[wf_set_tree_def] >> 
+    rw[] >> assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >>    
     first_x_assum match_mp_tac >> reverse(rw[]) >> res_tac >> fs[SUBSET_DEF] >>
     qexists_tac `k` >> fs[]
-); 
+);
 
+val _ = export_theory();
 
-
-(*********************************************************************************************************************************************************)
-
-(* ORIGINAL CASE 2.2 PROOF
-            rfs[EXTENSION] >> pop_assum (qspecl_then [`fullTree`, `roots`] mp_tac) >> rw[] >>
-            pop_assum match_mp_tac >>
-            `wf (insert (getOne (difference seen reachable)) () reachable)` by rw[wf_insert, wf_difference] >>
-            `∀ n x. lookup n tree = SOME x ⇒ wf x` by (
-                fs[subspt_def] >> rw[domain_lookup] >>
-                `lookup n fullTree = SOME x'` by fs[domain_lookup] >>
-                metis_tac[]) >>
-            `wf (union x seen)` by metis_tac[wf_union] >>
-            `wf (delete (getOne (difference seen reachable)) tree)` by rw[wf_delete] >>
-            `∀ n x n'. lookup n (delete n' tree) = SOME x ⇒ wf x` by (rw[lookup_delete] >> metis_tac[]) >>
-            `wf (close_spt (insert (getOne (difference seen reachable)) () reachable) (union x seen)
-                (delete (getOne (difference seen reachable)) tree))` by metis_tac[wf_close_spt] >>
-            `getOne (difference seen reachable) ∈ domain (union x seen)` by (
-                rw[domain_union, getOne_domain] >>
-                `domain (difference seen reachable) ⊆ domain seen` by rw[domain_difference] >>
-                fs[SUBSET_DEF] >>
-                `getOne(difference seen reachable)∈ domain(difference seen reachable)` 
-                    by rw[getOne_domain, wf_difference] >>
-                metis_tac [] ) >>
-            `∀x'. x' ∈ domain reachable ⇒ x' ∈ domain (union x seen)` by rw[domain_union] >>
-            `subspt (delete (getOne (difference seen reachable)) tree) fullTree` by rw[subspt_delete] >>    
-            `∀n . n ≠ getOne (difference seen reachable) ∧ n ∉ domain reachable ⇒
-                lookup n (delete (getOne (difference seen reachable)) tree) = lookup n fullTree`
-                by rw[lookup_delete] >>
-            `∀k. k = getOne (difference seen reachable) ∨ k ∈ domain reachable ⇒
-                     ∀a. isAdjacent fullTree k a ⇒ a ∈ domain (union x seen)` by (
-                   pop_assum kall_tac >> strip_tac
-                   >> Cases_on `k ∈ domain reachable`
-                   >> simp[domain_union]
-                   >> metis_tac [domain_union, isAdjacent_def, domain_lookup, SOME_11]
-                ) >>
-            
-            `∀x'. x' ∈ roots ⇒ x' ∈ domain (union x seen)` by rw[domain_union] >>
-            asm_rewrite_tac [] >>
-            
-            `∀k. k ∈ domain (union x seen) ⇒ ∃n. n ∈ roots ∧ isReachable fullTree n k` by (
-                rw[domain_union] >> Cases_on `k ∈ domain seen` >> rw[] (* reverse (rw[]) *)
-                >| [
-                    rw[] >>
-                    `getOne (difference seen reachable) ∈ domain seen` by ( 
-                        `getOne(difference seen reachable) ∈ domain (difference seen reachable)` 
-                            by rw[wf_difference, getOne_domain] >>
-                        fs[domain_difference]
-                    ) >>
-                    res_tac >> qexists_tac `n` >> rw[] >> rw[isReachable_def, Once RTC_CASES2] >> disj2_tac >>
-                    qexists_tac `getOne (difference seen reachable)` >> rw[isAdjacent_def]
-                    >- metis_tac[isReachable_def] >> qexists_tac `x` >>
-                    `getOne (difference seen reachable) ∉ domain reachable` by (
-                        `getOne (difference seen reachable) ∈ domain (difference seen reachable)` 
-                            by rw[wf_difference, getOne_domain] >>
-                        fs[domain_difference]
-                    ) >>
-                    res_tac >> rw[] >> fs[domain_lookup] >>
-                    qpat_x_assum `wf_set_tree _` assume_tac >>
-                    fs[wf_set_tree_def] >>
-                    qpat_x_assum `_ = SOME x` assume_tac >>
-                    first_x_assum drule >>
-                    rw[SUBSET_DEF, domain_lookup]
-                    ,
-                    metis_tac[]
-                   ]
-            ) >>        
-             metis_tac[]
-*)
-
-
-(* TRICOLOUR
-val white_def = Define `
-    white (reachable :num_set) (seen :num_set) (tree :num_set spt) = 
-        difference (difference tree seen) reachable
-`;
-
-val grey_def = Define `
-    grey (reachable :num_set) (seen :num_set) (tree :num_set spt) = difference seen reachable
-`;
-
-val black_def = Define `
-    black (reachable :num_set) (seen :num_set) (tree :num_set spt) = reachable
-`;
-
-val tricolour_disjoint = Q.store_thm("tricolour_disjoint",
-    `∀ reachable seen tree .
-        (domain (white reachable seen tree) ∩ domain (grey reachable seen tree) = {}) ∧
-        (domain (white reachable seen tree) ∩ domain (black reachable seen tree) = {}) ∧
-        (domain (grey reachable seen tree) ∩ domain (black reachable seen tree) = {})`,
-        rw[white_def, grey_def, black_def, domain_difference]
-        >> rw[pred_setTheory.DIFF_DEF, 
-            GSYM pred_setTheory.DISJOINT_DEF, pred_setTheory.IN_DISJOINT]
-        >| [
-            Cases_on `x ∈ domain seen` >> rw[] >> rw[] ,
-            Cases_on `x ∈ domain reachable` >> rw[] >> rw[] ,
-            Cases_on `x ∈ domain reachable` >> rw[] >> rw[]
-           ]
-*)
