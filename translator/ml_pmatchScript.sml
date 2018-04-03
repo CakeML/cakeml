@@ -32,12 +32,13 @@ val Pmatch_def = tDefine"Pmatch"`
   (Pmatch env refs [Pvar x] [v] = SOME (write x v env)) ∧
   (Pmatch env refs [Plit l] [Litv l'] =
      if l = l' then SOME env else NONE) ∧
-  (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (n',t')) vs] =
+  (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (t')) vs] =
      case nsLookup env.c n of
       | NONE => NONE
      | SOME (l,t) =>
-       if same_tid t t' ∧ LENGTH ps = l ∧
-          same_ctor (id_to_n n, t) (n',t')
+       if LENGTH ps = l ∧
+          same_ctor t t' ∧
+          same_type t t'
        then Pmatch env refs ps vs
        else NONE) ∧
   (Pmatch env refs [Pcon NONE ps] [Conv NONE vs] =
@@ -92,7 +93,11 @@ val pmatch_imp_Pmatch = Q.prove(
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >> fs[] >>
-    BasicProvers.CASE_TAC >> fs[] )
+    BasicProvers.CASE_TAC >> fs[] >>
+    first_x_assum(qspec_then`aenv`mp_tac) \\
+    simp[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    rw [] \\ fs [])
   >- (
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
@@ -118,33 +123,10 @@ val pmatch_imp_Pmatch = Q.prove(
 val Pmatch_SOME_const = Q.store_thm("Pmatch_SOME_const",
   `∀env refs ps vs env'.
       Pmatch env refs ps vs = SOME env' ⇒
-      (*env'.m = env.m ∧*)
       env'.c = env.c`,
   ho_match_mp_tac Pmatch_ind >> simp[Pmatch_def] >>
   rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[write_def])
-
-(*
-val Pmatch_imp_pmatch = Q.store_thm("Pmatch_imp_pmatch",
-  `∀env s ps vs env'.
-    (Pmatch env s ps vs = SOME env' ⇒
-       pmatch_list env.c s ps vs env.v =
-         Match env'.v) ∧
-      (Pmatch env s ps vs = NONE ⇒
-       ∀env2.
-       pmatch_list env.c s ps vs env.v ≠
-         Match env2)`,
-  ho_match_mp_tac Pmatch_ind >>
-  simp[Pmatch_def,pmatch_def] >> rw[] >>
-  fs[write_def] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  BasicProvers.EVERY_CASE_TAC >> rfs[] >> rw[] >>
-  imp_res_tac Pmatch_SOME_const >>
-  fs[write_def] >>
-  rfs[] >>
-  Cases_on`v20`>>fs[pmatch_def] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[store_lookup_def,empty_store_def])
-*)
 
 val pmatch_PMATCH_ROW_COND_No_match = Q.store_thm("pmatch_PMATCH_ROW_COND_No_match",
   `EvalPatRel env a p pat ∧
@@ -188,10 +170,10 @@ val Eval_PMATCH = Q.store_thm("Eval_PMATCH",
       (∀env2 vars.
         EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
         Eval env2 e (b (res vars))) ⇒
-      (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
-      ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
+      (∀vars. CONTAINER (PMATCH_ROW_COND pat (K T) xv vars) ⇒ p2 vars) ∧
+      ((∀vars. ¬CONTAINER (PMATCH_ROW_COND pat (K T) xv vars)) ⇒ p1 xv) ⇒
       Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))`,
-  rw[Eval_def] >>
+  rw[Eval_def,CONTAINER_def] >>
   rw[Once evaluate_cases,PULL_EXISTS] >> fs[] >>
   first_x_assum(qspec_then`refs`strip_assume_tac) >>
   asm_exists_tac \\ fs[] \\
@@ -237,5 +219,12 @@ val PMATCH_option_case_rwt = Q.store_thm("PMATCH_option_case_rwt",
       | SOME (y1,y2) => P y1 y2) = SOME env2) <=>
     ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)`,
   Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
+
+val PMATCH_SIMP = store_thm("PMATCH_SIMP",
+  ``((∀vars. ¬CONTAINER (vars = x)) = F) /\
+    ((∀vars. ¬CONTAINER (x = vars)) = F) /\
+    ((∀vars. ¬(vars = x)) = F) /\
+    ((∀vars. ¬(x = vars)) = F)``,
+  fs [CONTAINER_def]);
 
 val _ = export_theory()

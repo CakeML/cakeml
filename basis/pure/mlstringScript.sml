@@ -1,5 +1,4 @@
-open preamble
-    mllistTheory miscTheory totoTheory
+open preamble totoTheory mllistTheory
 
 val _ = new_theory"mlstring"
 
@@ -64,7 +63,7 @@ val implode_explode = Q.store_thm("implode_explode[simp]",
   `∀x. implode (explode x) = x`,
   Cases >> rw[implode_def])
 
-val explode_11 = Q.store_thm("explode_11",
+val explode_11 = Q.store_thm("explode_11[simp]",
   `∀s1 s2. (explode s1 = explode s2) ⇔ (s1 = s2)`,
   Cases >> Cases >> simp[])
 
@@ -82,7 +81,7 @@ val explode_BIJ = Q.store_thm("explode_BIJ",
   rw[implode_explode,
      explode_implode])
 
-val LENGTH_explode = Q.store_thm("LENGTH_explode",
+val LENGTH_explode = Q.store_thm("LENGTH_explode[simp]",
   `LENGTH (explode s) = strlen s`,
   Cases_on`s` \\ simp[]);
 
@@ -140,9 +139,9 @@ val strcat_thm = Q.store_thm("strcat_thm",
   rw[strcat_def,concat_def]
   \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[implode_def]);
 
-val strcat_assoc = Q.store_thm("strcat_assoc",
+val strcat_assoc = Q.store_thm("strcat_assoc[simp]",
   `!s1 s2 s3.
-    s1 ^ s2 ^ s3 = s1 ^ (s2 ^ s3)`,
+    s1 ^ (s2 ^ s3) = s1 ^ s2 ^ s3`,
     rw[strcat_def,concat_def]);
 
 val strcat_nil = Q.store_thm("strcat_nil[simp]",
@@ -156,6 +155,13 @@ val implode_STRCAT = Q.store_thm("implode_STRCAT",
     rw[implode_def, strcat_def, concat_def]
 );
 
+val explode_strcat = Q.store_thm("explode_strcat[simp]",
+  `explode (strcat s1 s2) = explode s1 ++ explode s2`,
+  rw[strcat_thm]);
+
+val strlen_strcat = Q.store_thm("strlen_strcat[simp]",
+  `strlen (strcat s1 s2) = strlen s1 + strlen s2`,
+  rw[strcat_thm]);
 
 val concatWith_aux_def = tDefine "concatWith_aux"`
   (concatWith_aux s [] bool = implode []) /\
@@ -183,6 +189,13 @@ val concatWith_CONCAT_WITH = Q.store_thm ("concatWith_CONCAT_WITH",
 val str_def = Define`
   str (c: char) = implode [c]`;
 
+val explode_str = Q.store_thm("explode_str[simp]",
+  `explode (str c) = [c]`,
+  rw[str_def])
+
+val strlen_str = Q.store_thm("strlen_str[simp]",
+  `strlen (str c) = 1`, rw[str_def]);
+
 val translate_aux_def = Define`
   (translate_aux f s n 0 = []) /\
   (translate_aux f s n (SUC len) = f (strsub s n)::translate_aux f s (n + 1) len)`;
@@ -202,6 +215,64 @@ val translate_thm = Q.store_thm (
   `!f s. translate f s = implode (MAP f (explode s))`,
   rw [translate_def, translate_aux_thm]
 );
+
+val splitl_aux_def = tDefine"splitl_aux"`
+  splitl_aux P s i =
+    if i < strlen s ∧ P (strsub s i) then
+        splitl_aux P s (i+1)
+    else (extract s 0 (SOME i), extract s i NONE)`
+(WF_REL_TAC`inv_image $< (λ(x,s,i). strlen s - i)`);
+
+val splitl_aux_ind = theorem"splitl_aux_ind";
+
+val splitl_def = Define`
+  splitl P s = splitl_aux P s 0`;
+
+val splitl_aux_SPLITP = Q.store_thm("splitl_aux_SPLITP",
+  `∀P s i.
+    splitl_aux P s i =
+    (implode o ((++)(TAKE i (explode s))) ## implode)
+      (SPLITP ((~) o P) (DROP i (explode s)))`,
+  recInduct splitl_aux_ind
+  \\ rw[]
+  \\ Cases_on`SPLITP P (DROP i (explode s))` \\ fs[]
+  \\ simp[Once splitl_aux_def]
+  \\ Cases_on`strlen s ≤ i` \\ fs[DROP_LENGTH_TOO_LONG,LENGTH_explode]
+  >- (
+    fs[SPLITP] \\ rveq
+    \\ simp[TAKE_LENGTH_TOO_LONG,LENGTH_explode]
+    \\ simp[extract_def]
+    \\ Cases_on`s` \\ fs[substring_def]
+    \\ rw[implode_def]
+    \\ qmatch_goalsub_rename_tac`MIN (LENGTH s) i`
+    \\ `MIN (LENGTH s) i = LENGTH s` by rw[MIN_DEF]
+    \\ rw[SEG_LENGTH_ID] )
+  \\ Cases_on`DROP i (explode s)` \\ fs[DROP_NIL,LENGTH_explode]
+  \\ fs[SPLITP]
+  \\ `strsub s i = h` by ( Cases_on`s` \\ rfs[strsub_def,DROP_EL_CONS] )
+  \\ rveq \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    rveq \\ fs[]
+    \\ rfs[DROP_EL_CONS,LENGTH_explode]
+    \\ rveq
+    \\ Cases_on`SPLITP ($~ o P) (DROP (i+1) (explode s))` \\ fs[]
+    \\ AP_TERM_TAC
+    \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE,LENGTH_explode]
+    \\ rw[]
+    \\ Cases_on`x < i` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE]
+    \\ Cases_on`x < i+1` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE,EL_CONS,PRE_SUB1]
+    \\ `x = i` by DECIDE_TAC
+    \\ rw[] )
+  \\ Cases_on`s`
+  \\ rw[extract_def,substring_def,implode_def] \\ fs[MIN_DEF]
+  \\ simp[TAKE_SEG] \\ rfs[]
+  \\ rfs[DROP_SEG]);
+
+val splitl_SPLITL = Q.store_thm("splitl_SPLITL",
+  `splitl P s = (implode ## implode) (SPLITL P (explode s))`,
+  rw[splitl_def,splitl_aux_SPLITP,SPLITL_def]
+  \\ Cases_on`SPLITP((~)o P)(explode s)` \\ fs[]);
 
 val tokens_aux_def = Define`
   (tokens_aux f s [] n 0 = []) /\
@@ -323,10 +394,12 @@ val TOKENS_eq_tokens_sym = save_thm("TOKENS_eq_tokens_sym",
 val tokens_append = Q.store_thm("tokens_append",
   `!P s1 x s2.
     P x ==>
-      (tokens P (strcat s1 (strcat (str x) s2)) = tokens P s1 ++ tokens P s2)`,
-    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`  \\ rw[implode_def, explode_thm, strcat_thm, str_def, TOKENS_APPEND]
-)
-
+      (tokens P (strcat (strcat s1 (str x)) s2) = tokens P s1 ++ tokens P s2)`,
+    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`
+    \\ rewrite_tac[GSYM MAP_APPEND] \\ AP_TERM_TAC
+    \\ rw[explode_thm]
+    \\ rewrite_tac[GSYM APPEND_ASSOC,APPEND]
+    \\ match_mp_tac TOKENS_APPEND \\ rw[]);
 
 
 val fields_aux_def = Define `
@@ -413,9 +486,61 @@ val isSubstring_aux_def = Define`
 val isSubstring_def = Define`
   isSubstring s1 s2 =
   if strlen s1 <= strlen s2
-    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1))
+    then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1) + 1)
   else F`;
 
+(* proof that isSubstring has the right sort of properties *)
+val isStringThere_SEG = Q.store_thm("isStringThere_SEG",
+  ‘∀i1 i2.
+     i1 + n ≤ LENGTH s1 ∧ i2 + n ≤ LENGTH s2 ⇒
+     (isStringThere_aux (strlit s1) (strlit s2) i1 i2 n <=>
+       (SEG n i1 s1 = SEG n i2 s2))’,
+  Induct_on `n`
+  >- simp[SEG, isStringThere_aux_def]
+  >- simp[isStringThere_aux_def, SEG_SUC_EL]);
+
+val isSubstring_aux_lemma = Q.store_thm("isSubstring_aux_lemma",
+  ‘∀i len.
+     i + len ≤ strlen s2 ==>
+     (isSubstring_aux s1 s2 lens1 i len ⇔
+      ∃n. n < len ∧ isStringThere_aux s1 s2 0 (n+i) lens1)’,
+  Induct_on `len`
+  >- simp[isSubstring_aux_def] >>
+  fs[isSubstring_aux_def] >> rw[EQ_IMP_THM]
+  >- (qexists_tac ‘0’ >> simp[])
+  >- (rename [‘n < len’, ‘i + (n + 1)’] >> qexists_tac ‘n + 1’ >> simp[]) >>
+  rename [‘isStringThere_aux _ _ 0 (i + n)’] >>
+  Cases_on ‘n’ >> fs[] >> metis_tac[ADD1]);
+
+val isSubstring_SEG = Q.store_thm("isSubstring_SEG",
+  ‘isSubstring (strlit s1) (strlit s2) <=>
+   ∃i. i + LENGTH s1 ≤ LENGTH s2 ∧ SEG (LENGTH s1) i s2 = s1’,
+  rw[isSubstring_def] >> Cases_on `s1` >> simp[]
+  >- (fs[isSubstring_aux_def, isStringThere_aux_def, GSYM ADD1] >>
+      qexists_tac `0` >> simp[SEG])
+  >- (simp[] >>
+      rename [‘SUC (STRLEN s0) ≤ STRLEN s2’, ‘STRING h s0’] >>
+      Cases_on ‘SUC(STRLEN s0) ≤ STRLEN s2’ >> fs[] >>
+      csimp[isSubstring_aux_lemma, isStringThere_SEG, SUB_LEFT_LESS,
+            DECIDE “x < y + 1n ⇔ x ≤ y”] >>
+      ‘STRLEN (STRING h s0) = SUC (STRLEN s0)’ by simp[] >>
+      metis_tac[SEG_LENGTH_ID]))
+
+val strlit_STRCAT = Q.store_thm("strlit_STRCAT",
+  `strlit a ^ strlit b = strlit (a ++ b)`,
+  fs[strcat_def, concat_def]);
+
+val isSubString_spec = Q.store_thm("isSubString_spec",
+  ‘isSubstring s1 s2 ⇔ ∃p s. s2 = p ^ s1 ^ s’,
+  map_every Cases_on [`s1`,`s2`] >> rw[isSubstring_SEG, EQ_IMP_THM]
+  >- (rename [‘SEG (STRLEN s1) i s2 = s1’] >>
+      map_every qexists_tac [
+        ‘strlit (TAKE i s2)’, ‘strlit (DROP (i + STRLEN s1) s2)’
+      ] >> simp[strlit_STRCAT] >> metis_tac[TAKE_SEG_DROP, ADD_COMM]) >>
+  rename [‘strlit s2 = px ^ strlit s1 ^ sx’] >>
+  qexists_tac `strlen px` >> Cases_on `px` >> simp[strlit_STRCAT] >>
+  Cases_on `sx` >> fs[strlit_STRCAT] >>
+  simp[SEG_APPEND1, SEG_APPEND2, SEG_LENGTH_ID]);
 
 (* String orderings *)
 val compare_aux_def = Define`
@@ -647,11 +772,47 @@ val mlstring_ge_thm = Q.store_thm ("mlstring_ge_thm",
   rw [mlstring_ge_def, mlstring_le_def] >>
   metis_tac [TotOrd_compare, TotOrd]);
 
+val transitive_mlstring_le = store_thm("transitive_mlstring_le",
+  ``transitive mlstring_le``,
+  fs [transitive_def,mlstring_le_thm]
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_trans \\ fs []);
+
+val antisymmetric_mlstring_le = store_thm("antisymmetric_mlstring_le",
+  ``antisymmetric mlstring_le``,
+  fs [antisymmetric_def,mlstring_le_thm]
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_antisym);
+
+val char_lt_total = Q.store_thm ("char_lt_total",
+  `!(c1:char) c2. ¬(c1 < c2) ∧ ¬(c2 < c1) ⇒ c1 = c2`,
+  rw [char_lt_def, CHAR_EQ_THM]);
+
+val string_lt_total = Q.store_thm ("string_lt_total",
+  `!(s1:string) s2. ¬(s1 < s2) ∧ ¬(s2 < s1) ⇒ s1 = s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, char_lt_total]
+  >- (
+    Cases_on `s1` >>
+    fs [string_lt_def]) >>
+  metis_tac [char_lt_total]);
+
+val total_mlstring_le = store_thm("total_mlstring_le",
+  ``total mlstring_le``,
+  fs [total_def,mlstring_le_thm] \\ CCONTR_TAC \\ fs []
+  \\ rw [] \\ fs [mlstring_lt_inv_image]
+  \\ imp_res_tac string_lt_total \\ fs []);
+
 val transitive_mlstring_lt = Q.prove(
   `transitive mlstring_lt`,
   simp[mlstring_lt_inv_image] >>
   match_mp_tac transitive_inv_image >>
   metis_tac[transitive_def,string_lt_trans])
+
+val strlit_le_strlit = store_thm("strlit_le_strlit",
+  ``strlit s1 ≤ strlit s2 <=> s1 <= s2``,
+  fs [mlstring_le_thm] \\ Cases_on `s1 = s2`
+  \\ fs [string_le_def,mlstring_lt_inv_image]);
 
 val irreflexive_mlstring_lt = Q.prove(
   `irreflexive mlstring_lt`,
@@ -733,5 +894,10 @@ val ALL_DISTINCT_MAP_explode = Q.store_thm("ALL_DISTINCT_MAP_explode",
   STRIP_TAC >> MATCH_MP_TAC ALL_DISTINCT_MAP_INJ >>
   simp[explode_11])
 val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
+
+(* The translator turns each `empty_ffi s` into a call to the FFI with
+   an empty name and passing `s` as the argument. The empty FFI is
+   used for logging/timing purposes. *)
+val empty_ffi_def = Define `empty_ffi (s:mlstring) = ()`
 
 val _ = export_theory()

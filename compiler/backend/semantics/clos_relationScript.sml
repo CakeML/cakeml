@@ -1051,6 +1051,14 @@ val LIST_REL_SNOC = prove(
       ?y zs. ys = zs ++ [y] /\ LIST_REL P xs zs /\ P x y``,
   Induct \\ fs [] \\ rw [] \\ fs [PULL_EXISTS] \\ metis_tac []);
 
+val list_to_v_val_rel = Q.store_thm("list_to_v_val_rel",
+  `!xs ys.
+     LIST_REL (val_rel (:'ffi) c w) xs ys ==>
+       val_rel (:'ffi) c w (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, val_rel_rw, list_to_v_def]
+  \\ rw [] \\ fs [val_rel_rw, list_to_v_def]);
+
 val res_rel_do_app = Q.store_thm ("res_rel_do_app",
 `!c w op vs vs' (s:'ffi closSem$state) s'.
   state_rel c w s s' ∧
@@ -1066,6 +1074,25 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
      Rval (v,s') => (Rval [v],s')
    | Rerr err => (Rerr err,s'))`,
  srw_tac[][] >>
+ Cases_on `op = ConfigGC` THEN1
+  (Cases_on `do_app op (REVERSE vs) s` >>
+   `?v s'. a = (v,s')` by metis_tac [pair_CASES] >>
+   srw_tac[][] >>
+   srw_tac[][res_rel_rw] >>
+   fs[do_app_cases_val,do_app_cases_err] >> rw[] >>
+   TRY (Cases_on `e`) >>
+   srw_tac[][res_rel_rw] >>
+   fs [do_app_cases_err] >>
+   TRY (Cases_on `a`) >>
+   full_simp_tac(srw_ss())[res_rel_rw] >>
+   fs [do_app_cases_timeout] >>
+   full_simp_tac(srw_ss())[] >>
+   fs[SWAP_REVERSE_SYM] >> rveq >> fs [] >>
+   full_simp_tac(srw_ss())[do_app_def, val_rel_rw] >>
+   Cases_on `y` >>
+   full_simp_tac(srw_ss())[do_app_def, val_rel_rw] >>
+   Cases_on `y'` >>
+   full_simp_tac(srw_ss())[do_app_def, val_rel_rw,Unit_def]) >>
  Cases_on `do_app op (REVERSE vs) s`
  >- (`?v s'. a = (v,s')` by metis_tac [pair_CASES] >>
      srw_tac[][] >>
@@ -1121,6 +1148,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        \\ once_rewrite_tac [EVERY2_REVERSE1] \\ asm_rewrite_tac [])
      >- ( (* ConsExtend *)
        drule EVERY2_REVERSE >>
+       asm_simp_tac bool_ss [] >>
        rw [] >>
        rename1 `val_rel _ _ _ _ arg` >>
        Cases_on `arg` >>
@@ -1240,6 +1268,12 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        imp_res_tac state_rel_refs \\
        fs[case_eq_thms,PULL_EXISTS,ref_v_rel_rw] \\
        rw[Unit_def,val_rel_rw])
+     >-
+      (fs [PULL_EXISTS, SWAP_REVERSE_SYM, case_eq_thms, pair_case_eq]
+       \\ imp_res_tac v_to_list_val_rel
+       \\ rfs [OPTREL_SOME]
+       \\ match_mp_tac list_to_v_val_rel
+       \\ fs [EVERY2_APPEND_suff])
      >- (
        imp_res_tac v_to_list_val_rel >>
        pop_assum mp_tac >>
@@ -2185,7 +2219,7 @@ fun PART_MATCH' f th t =
     val localconsts = hyp_frees specth
     val localtycons = HOLset.listItems (hyp_tyvars specth)
     val theta as (tms, tys) = match_terml localtycons localconsts pat t
-    val vs' = set_diff (map (Term.inst tys) vs) (map #redex tms)
+    val vs' = op_set_diff aconv (map (Term.inst tys) vs) (map #redex tms)
   in
     GENL vs' (INST_TY_TERM theta specth)
   end

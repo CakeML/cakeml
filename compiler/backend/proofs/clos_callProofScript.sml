@@ -1322,6 +1322,49 @@ val wfv_Boolv = Q.store_thm("wfv_Boolv",
   `wfv g1 l1 (Boolv b) /\ wfv g1 l1 Unit`,
   Cases_on `b` \\ EVAL_TAC);
 
+val vrel_list_to_v = Q.store_thm("vrel_list_to_v",
+  `!xs1 xs2 ys1 ys2.
+     LIST_REL (v_rel g l) xs1 xs2 /\
+     LIST_REL (v_rel g l) ys1 ys2 /\
+     v_rel g l (list_to_v xs1) (list_to_v xs2) /\
+     v_rel g l (list_to_v ys1) (list_to_v ys2) ==>
+       v_rel g l (list_to_v (xs1 ++ ys1)) (list_to_v (xs2 ++ ys2))`,
+  Induct >- rw [list_to_v_def] \\ gen_tac
+  \\ Induct \\ rw [list_to_v_def] \\ fs [v_rel_def]);
+
+val vrel_v2l_l2v = Q.store_thm("vrel_v2l_l2v",
+  `!x y xs ys.
+     v_rel g l x y /\
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys ==>
+       v_rel g l (list_to_v xs) (list_to_v ys)`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, v_rel_def]
+  \\ fs [list_to_v_def] \\ rveq
+  \\ fs [v_to_list_def] \\ rveq
+  \\ fs [list_to_v_def, case_eq_thms, v_rel_def] \\ rveq
+  \\ fs [list_to_v_def, v_rel_def]
+  \\ res_tac);
+
+val wfv_v2l_l2v = Q.store_thm("wfv_v2l_l2v",
+  `!x y xs ys.  wfv g l x /\ v_to_list x = SOME xs ==> wfv g l (list_to_v xs)`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, wfv_def]
+  \\ fs [list_to_v_def, case_eq_thms]
+  \\ rw [list_to_v_def]);
+
+val wfv_v2l = Q.store_thm("wfv_v2l",
+  `!x y xs ys.
+   wfv g l x /\ wfv g l y /\
+   v_to_list x = SOME xs /\ v_to_list y = SOME ys ==>
+     ?z. wfv g l z /\ v_to_list z = SOME (xs ++ ys)`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def] \\ fs []
+  >- metis_tac []
+  \\ fs [case_eq_thms] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then drule \\ fs [] \\ rw []
+  \\ Cases_on `z` \\ fs [v_to_list_def]
+  \\ qexists_tac `Block cons_tag [h; Block n l']`
+  \\ fs [wfv_def, v_to_list_def]);
+
 val do_app_thm = Q.prove(
   `case do_app op (REVERSE a) (r:'ffi closSem$state) of
       Rerr (Rraise _) => F
@@ -1336,6 +1379,27 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
+  \\ Cases_on `op = ListAppend`
+  >-
+   (rw []
+    \\ fs [do_app_def, case_eq_thms,
+           pair_case_eq, bool_case_eq, PULL_EXISTS, PULL_FORALL]
+    \\ rpt (PURE_CASE_TAC \\ fs [])
+    \\ conj_tac \\ rw []
+    >- (match_mp_tac wfv_v2l_l2v \\ fs [] \\ metis_tac [wfv_v2l])
+    \\ imp_res_tac v_to_list_thm \\ fs [] \\ rveq
+    \\ rfs [] \\ rw []
+    \\ match_mp_tac vrel_list_to_v \\ fs []
+    \\ imp_res_tac vrel_v2l_l2v \\ fs [])
+  \\ Cases_on `op = ConfigGC` THEN1 (
+    rveq \\ rpt gen_tac
+    \\ Cases_on `do_app ConfigGC xs r`
+    \\ TRY (Cases_on `e`)
+    \\ TRY (Cases_on `a`)
+    \\ fs [do_app_cases_val] \\ rveq
+    \\ fs [do_app_cases_err] \\ rveq
+    \\ fs [do_app_cases_timeout] \\ rveq
+    \\ rw [] \\ fs [Unit_def,PULL_EXISTS,v_rel_def])
   \\ Cases_on `op = ConcatByteVec` THEN1 (
     rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
     fs[case_eq_thms] \\
@@ -1559,7 +1623,7 @@ val do_app_thm = Q.prove(
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `(?w oo. op = WordOp w oo) \/
+  \\ Cases_on `(?w oo. op = WordOp w oo) \/ (?b. op = WordFromWord b) \/
                op = WordFromInt \/ op = WordToInt \/
                (?w s n. op = WordShift w s n)` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
@@ -3082,7 +3146,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
         \\ rpt(first_x_assum drule) \\ simp[]
         \\ fs[wfv_state_def,dec_clock_def]
-        \\ ntac 3 strip_tac
+        \\ ntac 4 strip_tac
         \\ conj_tac >- (
           match_mp_tac subg_trans \\ asm_exists_tac \\ fs []
           \\ match_mp_tac subg_trans \\ once_rewrite_tac [CONJ_COMM]
@@ -3150,7 +3214,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[IN_DISJOINT,SUBSET_DEF,MEM_FLAT,PULL_EXISTS,MEM_MAP]
       \\ rpt(first_x_assum drule) \\ simp[]
       \\ fs[wfv_state_def,dec_clock_def]
-      \\ ntac 3 strip_tac
+      \\ ntac 4 strip_tac
       \\ conj_tac
       >- (
         match_mp_tac subg_trans

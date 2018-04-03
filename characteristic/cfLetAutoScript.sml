@@ -209,6 +209,7 @@ val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
 s2 = s1 /\ u2 = u1 /\ ns2 = ns1`,
 rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
 fs[IO_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] >>
 IMP_RES_TAC FFI_PORT_IN_HEAP_LEM >>
 IMP_RES_TAC NON_OVERLAP_FFI_PART >>
 fs[]);
@@ -406,10 +407,11 @@ types_match v1 v2`,
 Induct_on `x1`
 >-(
     Cases_on `x2` >>
-    types_match_tac
+    types_match_tac >>
+    EVAL_TAC
 ) >>
 Cases_on `x2`
->-(types_match_tac)>>
+>-(types_match_tac >> EVAL_TAC)>>
 types_match_tac
 >-(metis_tac[EqualityType_def])>>
 last_assum IMP_RES_TAC);

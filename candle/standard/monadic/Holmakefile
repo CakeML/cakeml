@@ -7,7 +7,9 @@ PARENT_HOLHEAP = ../syntax/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 

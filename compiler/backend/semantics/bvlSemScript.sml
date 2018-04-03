@@ -45,6 +45,10 @@ val v_to_list_def = Define`
      else NONE) ∧
   (v_to_list _ = NONE)`
 
+val list_to_v_def = Define `
+  list_to_v [] = Block nil_tag [] /\
+  list_to_v (v::vs) = Block cons_tag [v; list_to_v vs]`;
+
 val isClos_def = Define `
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])`;
 
@@ -114,6 +118,10 @@ val do_app_def = Define `
     | (ConsExtend tag,_) => Error
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (ListAppend,[x1;x2]) =>
+        (case (v_to_list x1, v_to_list x2) of
+         | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys),s)
+         | _ => Error)
     | (LengthBlock,[Block tag xs]) =>
         Rval (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
@@ -258,6 +266,12 @@ val do_app_def = Define `
         Rval (Word64 (i2w i),s)
     | (WordToInt, [Word64 w]) =>
         Rval (Number (&(w2n w)),s)
+    | (WordFromWord T, [Word64 w]) =>
+        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
+    | (WordFromWord F, [Number n]) =>
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => Error
+        | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
@@ -305,6 +319,7 @@ val do_app_def = Define `
          | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
+    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
 val dec_clock_def = Define `
@@ -422,6 +437,17 @@ val do_app_const = Q.store_thm("do_app_const",
   `(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\ (s2.code = s1.code)`,
   rw[do_app_def,case_eq_thms,PULL_EXISTS] \\ rw[]);
+
+val bvl_do_app_Ref = Q.store_thm("bvl_do_app_Ref[simp]",
+  `do_app Ref vs s = Rval
+     (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
+      s with refs :=
+        s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`,
+  fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+
+val bvl_do_app_Cons = Q.store_thm("bvl_do_app_Cons[simp]",
+  `do_app (Cons tag) vs s = Rval (Block tag vs,s)`,
+  fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `!xs env s1 vs s2.

@@ -471,7 +471,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
                   NONE => NONE
                 | SOME (len, t) =>
                   if len = LENGTH argsv then
-                    SOME (Conv (SOME (id_to_n id,t)) argsv, insts_rest, wildcards_rest)
+                    SOME (Conv (SOME t) argsv, insts_rest, wildcards_rest)
                   else NONE)
       | NONE => NONE) /\
   v_of_pat _ (Pref pat) _ _ =
@@ -795,6 +795,14 @@ val validate_pat_def = Define `
    from the semantics.
 *)
 
+val same_type_EQ_same_ctor = store_thm("same_type_EQ_same_ctor[simp]",
+  ``same_type r r <=> same_ctor r r``,
+  Cases_on `r` \\ fs [same_type_def] \\ fs [same_ctor_def]);
+
+val same_ctor_REFL = store_thm("same_ctor_REFL[simp]",
+  ``same_ctor r r``,
+  fs [same_ctor_def]);
+
 val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
   `(!envC s pat v env_v insts wildcards wildcards_rest.
       v_of_pat envC pat insts wildcards = SOME (v, [], wildcards_rest) ==>
@@ -804,7 +812,6 @@ val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
       v_of_pat_list envC pats insts wildcards = SOME (vs, [], wildcards_rest) ==>
       pmatch_list envC s pats vs env_v = Match
         (ZIP (pats_bindings pats [], REVERSE insts) ++ env_v))`,
-
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
@@ -815,10 +822,7 @@ val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     every_case_tac \\ fs [] \\ rw []
     THEN1 (progress v_of_pat_list_length \\ first_assum progress)
-    THEN1 (progress v_of_pat_list_length \\ fs []) \\
-    `!(n:tvarN) t. same_ctor (n, t) (n, t)` by (
-      Cases_on `n` \\ Cases_on `t` \\ fs [same_ctor_def]
-    ) \\ fs []
+    THEN1 (progress v_of_pat_list_length \\ fs [])
   )
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
@@ -867,7 +871,6 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
       ?insts wildcards.
         env_v' = ZIP (pats_bindings pats [], REVERSE insts) ++ env_v /\
         v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))`,
-
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
   THEN1 (
@@ -886,10 +889,9 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
   THEN1 (
     fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
     fs [pat_bindings_def] \\ Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\
-    rename1 `same_ctor (id_to_n id1, t1) (n2, t2)` \\
-    `t1 = t2 /\ id_to_n id1 = n2` by
-      (irule semanticPrimitivesPropsTheory.same_ctor_and_same_tid \\ fs []) \\ rw [] \\
-    rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length
+    rename1 `same_ctor t1 t2` \\ fs [] \\
+    rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length \\
+    fs [same_ctor_def]
   )
   THEN1 (
     fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
@@ -1637,7 +1639,7 @@ val cf_match_def = Define `
   cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      cf_cases v Bindv rows env H Q)`
+      cf_cases v bind_exn_v rows env H Q)`
 
 val cf_raise_def = Define `
   cf_raise e = \env. local (\H Q.
@@ -2142,7 +2144,6 @@ val cf_ffi_sound = Q.prove (
    first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
    fs [SPLIT_SING_2] \\ rveq \\
    rename1 `F' u2` \\
-
    `store_lookup y st.refs = SOME (W8array ws) /\
     Mem y (W8array ws) IN st2heap p st` by
      (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
@@ -2150,9 +2151,9 @@ val cf_ffi_sound = Q.prove (
       \\ imp_res_tac store2heap_IN_EL
       \\ imp_res_tac store2heap_IN_LENGTH
       \\ fs [store_lookup_def] \\ NO_TAC) \\
-
    fs [ffiTheory.call_FFI_def] \\
-   fs [IO_def,one_def,SEP_EXISTS_THM] \\ rveq \\
+   fs [IO_def,SEP_EXISTS_THM,cond_STAR] \\ rveq \\
+   fs [one_def] \\ rveq \\
    fs [st2heap_def,
        FFI_split_NOT_IN_store2heap,
        FFI_part_NOT_IN_store2heap,
@@ -2170,6 +2171,7 @@ val cf_ffi_sound = Q.prove (
          (fn th => mp_tac th \\ assume_tac th) \\
    simp_tac std_ss [parts_ok_def] \\ strip_tac \\
    qpat_x_assum `!x. _ ==> _` kall_tac \\
+   `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
    first_x_assum progress \\ fs [store_assign_def] \\
    imp_res_tac store2heap_IN_EL \\
    imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
@@ -2322,6 +2324,7 @@ fun add_to_clock qtm th g =
 
 val cf_sound = Q.store_thm ("cf_sound",
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`,
+
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
@@ -2410,7 +2413,8 @@ val cf_sound = Q.store_thm ("cf_sound",
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
-  THEN1 (
+
+  THEN1 cheat (* (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
       (* FFI *)
@@ -2501,12 +2505,13 @@ val cf_sound = Q.store_thm ("cf_sound",
           qpat_assum `evaluate _ _ [App Opapp papp] = _` (add_to_clock `ck' + 1`) \\
           fs [with_clock_with_clock] \\
           (* Finish proving the goal *)
-          rename1 `SPLIT3 (st2heap _ st'') (h_f', _, h_g')` \\
-          `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f', h_k, h_g' UNION h_g)`
+          rename1 `SPLIT3 (st2heap _ st2) (h_f', _, h_g')` \\
+          `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f', h_k, h_g' UNION h_g)`
             by SPLIT_TAC \\
-          GEN_EXISTS_TAC "st'''" `st'' with clock := st''.clock + st'.clock` \\
+          rename1 `SPLIT (st2heap _ st1)` \\
+          GEN_EXISTS_TAC "st'''" `st2 with clock := st2.clock + st1.clock` \\
           fs [st2heap_clock] \\ instantiate \\ fs [evaluateTheory.dec_clock_def] \\
-          qpat_assum `evaluate (st' with clock := _) _ _ = _` (add_to_clock `st'.clock`) \\
+          qpat_assum `evaluate (st1 with clock := _) _ _ = _` (add_to_clock `st1.clock`) \\
           fs [with_clock_with_clock]
         )
       )
@@ -2576,17 +2581,18 @@ val cf_sound = Q.store_thm ("cf_sound",
     ) \\
     try_finally (
       (* Aw8alloc & Aalloc *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
       fs [do_app_def, store_alloc_def, st2heap_def] \\
       fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
       first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      qmatch_asmsub_rename_tac(`REPLICATE (Num n) vv`) \\
       ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
-          [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) w)) INSERT h_i`])
+          [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) vv)) INSERT h_i`])
         ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
-          [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num n) v)) INSERT h_i`]) \\
+          [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num n) vv)) INSERT h_i`]) \\
       fs [integerTheory.INT_ABS] \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
@@ -2661,7 +2667,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     ) \\
     try_finally (
       (* Aw8update & Aupdate *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
       fs [st2heap_def, app_aw8update_def, app_aupdate_def] \\
@@ -2677,9 +2683,10 @@ val cf_sound = Q.store_thm ("cf_sound",
       fs [integerTheory.INT_ABS] \\
       full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
       fs [evaluateTheory.list_result_def] \\
+      rename1`LUPDATE vv (Num i) ws` \\
       ((rename1 `W8array _` \\
-        qexists_tac `Mem l (W8array (LUPDATE w (Num i) ws)) INSERT u`) ORELSE
-       qexists_tac `Mem l (Varray (LUPDATE v (Num i) vs)) INSERT u`) \\
+        qexists_tac `Mem l (W8array (LUPDATE vv (Num i) ws)) INSERT u`) ORELSE
+       qexists_tac `Mem l (Varray (LUPDATE vv (Num i) ws)) INSERT u`) \\
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
@@ -2720,6 +2727,8 @@ val cf_sound = Q.store_thm ("cf_sound",
       first_assum irule \\
       qexists_tac`u` \\
       qexists_tac`{Mem ld (W8array wd')}` \\ fs[Abbr`wd'`] \\
+      rename1`TAKE (Num l) (DROP (Num so) _)` \\
+      rename1`TAKE (Num do) (MAP _ wd)` \\
       `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
       simp[MAP_TAKE,MAP_DROP,MAP_MAP_o,o_DEF,integer_wordTheory.i2w_pos] \\
       simp[GSYM o_DEF,n2w_ORD_CHR_w2n] \\
@@ -2749,7 +2758,8 @@ val cf_sound = Q.store_thm ("cf_sound",
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
       fs[o_DEF] \\
       first_assum irule \\
-      SPLIT_TAC ) \\
+      SPLIT_TAC
+    ) \\
     try_finally (
       (* CopyAw8Aw8 *)
       Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
@@ -2761,6 +2771,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       first_x_assum progress
       \\ rename1 `s = Loc ls` \\ rename1 `d = Loc ld` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      rename1`Mem ls (W8array ws)` \\
       (rename1 `W8array _` \\
         `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
@@ -2778,10 +2789,12 @@ val cf_sound = Q.store_thm ("cf_sound",
       first_assum irule \\
       qexists_tac`Mem ls (W8array ws) INSERT u` \\
       qexists_tac`{Mem ld (W8array wd')}` \\ fs[Abbr`wd'`] \\
+      rename1`TAKE (Num do) wd ++ TAKE (Num l) (DROP (Num so) ws)` \\
       `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
       SPLIT_TAC
     )
-  )
+  ) *)
+
   THEN1 (
     (* Log *)
     cf_strip_sound_full_tac \\
@@ -2790,12 +2803,12 @@ val cf_sound = Q.store_thm ("cf_sound",
     fs [SEP_IMP_def] \\ first_x_assum progress \\ instantiate \\
     try_finally (
       qexists_tac `ck` \\ cf_exp2v_evaluate_tac `st with clock := ck` \\
-      fs [do_log_def]
+      fs [do_log_def] \\ Cases_on `r` \\ fs [Boolv_def]
     ) \\
     try_finally (
       Q.LIST_EXISTS_TAC [`st`, `{}`, `st.clock`] \\
       progress SPLIT3_of_SPLIT_emp3 \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_log_def]
+      cf_exp2v_evaluate_tac `st` \\ fs [do_log_def,Boolv_def]
     )
   )
   THEN1 (

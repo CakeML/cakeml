@@ -424,7 +424,7 @@ val big_clocked_total_lem = Q.prove (
       `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
       rw [] >-
       metis_tac [] >>
-      `?s2 r2. evaluate_match T env s1 v l (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []) (s2,r2)`
+      `?s2 r2. evaluate_match T env s1 v l bind_exn_v (s2,r2)`
                 by (match_mp_tac eval_match_total >>
                     metis_tac [LESS_TRANS, with_same_clock, with_clock_clock,
                                clock_monotone, LESS_OR_EQ]) >>
@@ -553,6 +553,7 @@ evaluate T env (s with clock := s.clock - s'.clock) e (s' with clock := 0, r')`,
  `s'.clock = 0 + s'.clock ∧ s.clock = (s.clock - s'.clock) + s'.clock:num` by decide_tac >>
  metis_tac [sub_from_counter]);
 
+ (*
 val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
 `!mn s env d s' r.
   evaluate_dec F mn env s d (s', r) ⇒ r ≠ Rerr (Rabort Rtimeout_error)`,
@@ -1125,5 +1126,6 @@ val prog_clocked_unclocked_equiv = Q.store_thm("prog_clocked_unclocked_equiv",
  imp_res_tac prog_unclocked_ignore >> fs[] >>
  rfs [] >>
  metis_tac[with_same_clock]);
+ *)
 
 val _ = export_theory ();

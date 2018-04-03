@@ -1,5 +1,6 @@
 INCLUDES = .. ../semantics ../../../misc ../../../semantics \
-           ../../../semantics/proofs ../../encoders/asm ../reg_alloc/proofs \
+           ../../../semantics/proofs ../../encoders/asm ../reg_alloc \
+	   ../reg_alloc/proofs \
            ../gc $(HOLDIR)/examples/machine-code/hoare-triple \
            $(HOLDIR)/examples/machine-code/multiword
 
@@ -21,9 +22,7 @@ BARE_THYS = ../../../semantics/terminationTheory\
             ../../../semantics/proofs/semanticsPropsTheory\
             ../../../semantics/proofs/semanticPrimitivesPropsTheory\
             ../semantics/targetPropsTheory\
-            ../semantics/modPropsTheory\
-            ../semantics/conPropsTheory\
-            ../semantics/decPropsTheory\
+            ../semantics/flatPropsTheory\
             ../semantics/exhPropsTheory\
             ../semantics/patPropsTheory\
             ../semantics/closPropsTheory\
@@ -31,7 +30,6 @@ BARE_THYS = ../../../semantics/terminationTheory\
             ../semantics/bviPropsTheory\
             ../semantics/dataPropsTheory\
             ../semantics/labPropsTheory\
-            ../reg_alloc/proofs/reg_allocProofTheory\
             ../backendTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)

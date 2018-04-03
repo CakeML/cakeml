@@ -79,38 +79,41 @@ val evaluate_decs_ctors_in = Q.store_thm("evaluate_decs_ctors_in",
   METIS_TAC[pair_CASES])
 
   *)
+
 val st = ``st:'ffi state``
 
-val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_types_mods",
+val evaluate_no_new_types_exns = Q.store_thm ("evaluate_no_new_types_exns",
 `(!ck env ^st e r. evaluate ck env st e r ⇒
-   st.defined_types = (FST r).defined_types ∧
-   st.defined_mods = (FST r).defined_mods) ∧
+   st.next_type_stamp = (FST r).next_type_stamp ∧
+   st.next_exn_stamp = (FST r).next_exn_stamp) ∧
  (!ck env ^st es r. evaluate_list ck env st es r ⇒
-   st.defined_types = (FST r).defined_types ∧
-   st.defined_mods = (FST r).defined_mods) ∧
+   st.next_type_stamp = (FST r).next_type_stamp ∧
+   st.next_exn_stamp = (FST r).next_exn_stamp) ∧
  (!ck env ^st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒
-   st.defined_types = (FST r).defined_types ∧
-   st.defined_mods = (FST r).defined_mods)`,
+   st.next_type_stamp = (FST r).next_type_stamp ∧
+   st.next_exn_stamp = (FST r).next_exn_stamp)`,
  ho_match_mp_tac bigStepTheory.evaluate_ind >>
  srw_tac[][]);
 
-val evaluate_ignores_types_mods = Q.store_thm ("evaluate_ignores_types_mods",
+val evaluate_ignores_types_exns = Q.store_thm ("evaluate_ignores_types_exns",
 `(∀ck env ^st e r.
    evaluate ck env st e r ⇒
-   !x y. evaluate ck env (st with <| defined_types:= x; defined_mods := y |>) e
-            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
+   !x y. evaluate ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) e
+            ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r)) ∧
  (∀ck env ^st es r.
    evaluate_list ck env st es r ⇒
-   !x y. evaluate_list ck env (st with <| defined_types:= x; defined_mods := y |>) es
-            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
+   !x y. evaluate_list ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) es
+            ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r)) ∧
  (∀ck env ^st v pes err_v r.
    evaluate_match ck env st v pes err_v r ⇒
-   !x y. evaluate_match ck env (st with <| defined_types:= x; defined_mods := y |>) v pes err_v
-            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r))`,
+   !x y. evaluate_match ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) v pes err_v
+            ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r))`,
  ho_match_mp_tac bigStepTheory.evaluate_ind >>
  srw_tac[][] >>
  srw_tac[][Once evaluate_cases, state_component_equality] >>
  metis_tac [state_accfupds, K_DEF]);
+
+(*
 
 val eval_d_no_new_mods = Q.store_thm ("eval_d_no_new_mods",
 `!ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`,
@@ -124,6 +127,7 @@ val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
  srw_tac[][] >>
  imp_res_tac eval_d_no_new_mods >>
  full_simp_tac(srw_ss())[]);
+ *)
 
 (* REPL bootstrap lemmas *)
 

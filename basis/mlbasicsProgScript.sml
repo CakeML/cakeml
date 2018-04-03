@@ -1,10 +1,11 @@
 open preamble
-     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib mlstringProgTheory
+     semanticPrimitivesTheory ml_translatorTheory
+     ml_translatorLib ml_progLib cfLib basisFunctionsLib
+     StringProgTheory
 
 val _ = new_theory "mlbasicsProg"
 
-val _ = translation_extends"mlstringProg"
+val _ = translation_extends"StringProg"
 
 val mk_binop_def = Define `
   mk_binop name prim = Dlet unknown_loc (Pvar name)
@@ -14,6 +15,7 @@ val mk_unop_def = Define `
   mk_unop name prim = Dlet unknown_loc (Pvar name)
     (Fun "x" (App prim [Var (Short "x")]))`;
 
+(* no longer necessary
 (* list, bool, and option come from the primitive types in
  * semantics/primTypesTheory *)
 val _ = append_prog
@@ -26,7 +28,7 @@ val _ = append_prog
      Tdec (Dtabbrev unknown_loc [] "exn" (Tapp [] TC_exn));
      Tdec (Dtabbrev unknown_loc [] "word" (Tapp [] TC_word64));
      Tdec (Dtabbrev unknown_loc [] "char" (Tapp [] TC_char))]``
-
+*)
 
 val _ = trans "+" `(+):int->int->int`
 val _ = trans "-" `(-):int->int->int`
@@ -38,6 +40,7 @@ val _ = trans ">" `(>):int->int->bool`
 val _ = trans "<=" `(<=):int->int->bool`
 val _ = trans ">=" `(>=):int->int->bool`
 val _ = trans "~" `\i. - (i:int)`
+val _ = trans "@" `(++):'a list -> 'a list -> 'a list`
 
 
 (* other basics that parser targets -- CF verified *)
@@ -45,11 +48,14 @@ val _ = trans "~" `\i. - (i:int)`
 val _ = trans "=" `\x1 x2. x1 = x2:'a`
 val _ = trans "not" `\x. ~x:bool`
 val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
+val _ = trans "^" `mlstring$strcat`
+
+val _ = remove_ovl_mapping "strcat" {Name = "strcat", Thy = "mlbasicsProg"}
 
 val _ = append_prog
-  ``[Tdec (mk_binop ":=" Opassign);
-     Tdec (mk_unop "!" Opderef);
-     Tdec (mk_unop "ref" Opref)]``
+  ``[mk_binop ":=" Opassign;
+     mk_unop "!" Opderef;
+     mk_unop "ref" Opref]``
 
 fun prove_ref_spec op_name =
   xcf op_name (get_ml_prog_state()) \\

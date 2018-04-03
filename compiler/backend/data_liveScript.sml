@@ -22,6 +22,7 @@ val is_pure_def = Define `
   (is_pure (ConsExtend _) = F) /\
   (is_pure (FFI _) = F) /\
   (is_pure (FromList _) = F) /\
+  (is_pure ListAppend = F) /\
   (is_pure Add = F) /\
   (is_pure Sub = F) /\
   (is_pure Mult = F) /\
@@ -34,8 +35,10 @@ val is_pure_def = Define `
   (is_pure (WordShift W64 _ _) = F) /\
   (is_pure WordFromInt = F) /\
   (is_pure WordToInt = F) /\
+  (is_pure (WordFromWord b) = F) /\
   (is_pure (FP_uop _) = F) /\
   (is_pure (FP_bop _) = F) /\
+  (is_pure ConfigGC = F) /\
   (is_pure _ = T)`
 
 val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
@@ -54,6 +57,7 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     | ConsExtend _ => F
     | FFI _ => F
     | FromList _ => F
+    | ListAppend => F
     | Add => F
     | Sub => F
     | Mult => F
@@ -66,8 +70,10 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     | WordShift W64 _ _ => F
     | WordFromInt => F
     | WordToInt => F
+    | WordFromWord b => F
     | FP_uop _ => F
     | FP_bop _ => F
+    | ConfigGC => F
     | _ => T`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)

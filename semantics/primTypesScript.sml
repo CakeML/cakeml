@@ -16,23 +16,25 @@ val _ = new_theory "primTypes"
 (*open import Lib*)
 (*open import Evaluate*)
 
-(*val prim_types_program : prog*)
+(* The ordering in the following is important. The stamps generated from the
+   exceptions and types must match those in semanticPrimitives *)
+(*val prim_types_program : list dec*)
 val _ = Define `
  (prim_types_program=  
- ([Tdec  (Dexn unknown_loc "Bind" []);
-   Tdec  (Dexn unknown_loc "Chr" []);
-   Tdec  (Dexn unknown_loc "Div" []);
-   Tdec  (Dexn unknown_loc "Subscript" []);
-   Tdec  (Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])]);
-   Tdec  (Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
-   Tdec (Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]) ])]) ]))`;
+ ([Dexn unknown_loc "Bind" [];
+   Dexn unknown_loc "Chr" [];
+   Dexn unknown_loc "Div" [];
+   Dexn unknown_loc "Subscript" [];
+   Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])];
+   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])];
+   Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Atvar "'a"]) ])] ]))`;
 
 
 (*val add_to_sem_env :
-  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> prog -> maybe (state 'ffi * sem_env v)*)
+  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> list dec -> maybe (state 'ffi * sem_env v)*)
 val _ = Define `
  (add_to_sem_env (st, env) prog=  
- ((case evaluate_prog st env prog of
+ ((case evaluate_decs st env prog of
     (st', Rval env') => SOME (st', extend_dec_env env' env)
   | _ => NONE
   )))`;
@@ -42,7 +44,7 @@ val _ = Define `
 val _ = Define `
  (prim_sem_env ffi=  
  (add_to_sem_env
-    (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); defined_mods := ({}); defined_types := ({}) |>,
+    (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)) |>,
      <| v := nsEmpty; c := nsEmpty |>)
         prim_types_program))`;
 

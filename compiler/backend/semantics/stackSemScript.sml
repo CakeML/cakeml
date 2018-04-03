@@ -116,10 +116,10 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Op op wexps) =
      let ws = MAP (word_exp s) wexps in
        if EVERY IS_SOME ws then word_op op (MAP THE ws) else NONE) /\
-  (word_exp s (Shift sh wexp nexp) =
+  (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | NONE => NONE
-     | SOME w => word_sh sh w (num_exp nexp))`
+     | SOME w => word_sh sh w n)`
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
@@ -260,7 +260,7 @@ val inst_def = Define `
                                       | Imm w => Const w]) s
     | Arith (Shift sh r1 r2 n) =>
         assign r1
-          (Shift sh (Var r2) (Nat n)) s
+          (Shift sh (Var r2) n) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -426,7 +426,7 @@ val inst_def = Define `
       case fp64_to_int roundTiesToEven f of
         NONE => NONE
       | SOME i =>
-        let w = i2w i : 'a word in
+        let w = i2w i : word32 in
         if w2i w = i then
           (if dimindex(:'a) = 64 then
              SOME (set_fp_var d1 (w2w w) s)
@@ -442,7 +442,7 @@ val inst_def = Define `
       if dimindex(:'a) = 64 then
         case get_fp_var d2 s of
         | SOME f =>
-          let i =  w2i f in
+          let i =  w2i ((31 >< 0) f : word32) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
       else

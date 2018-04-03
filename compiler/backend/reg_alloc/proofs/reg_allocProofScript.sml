@@ -1,742 +1,373 @@
-open preamble
-open state_transformerTheory
-open reg_allocTheory
+open preamble state_transformerTheory reg_allocTheory
+open sortingTheory;
+open ml_monadBaseTheory ml_monadBaseLib;
 
-val _ = new_theory "reg_allocProof";
+val _ = new_theory "reg_allocProof"
+
+val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val convention_partitions = Q.store_thm("convention_partitions",`
-  ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))`,
-  srw_tac[][is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
-  \\ `n MOD 2 = (n MOD 4) MOD 2` by
-   (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
-    \\ full_simp_tac(srw_ss())[arithmeticTheory.MOD_MULT_MOD])
-  \\ full_simp_tac(srw_ss())[]
-  \\ `n MOD 4 < 4` by full_simp_tac(srw_ss())[]
-  \\ IMP_RES_TAC (DECIDE
-       ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
-  \\ full_simp_tac(srw_ss())[]);
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("return", ``st_ex_return``);
 
-val in_clash_sets_def = Define`
-  in_clash_sets (ls: ('a num_map) list) x = ∃y. MEM y ls ∧ x ∈ domain y`
+(* Edge from node x to node y, in terms of an adjacency list *)
+val has_edge_def = Define`
+  has_edge adjls x y ⇔
+  x < LENGTH adjls ∧
+  y < LENGTH adjls ∧
+  MEM y (EL x adjls)`
 
-(*
-  Clash sets always appear as cliques in the graph
-  colouring_satisfactory guarantees that cliques have all distinct colours
+val undirected_def = Define`
+  undirected adjls ⇔
+  ∀x y.
+    has_edge adjls x y ⇒
+    has_edge adjls y x`
+
+(* --- some side properties on the state --- *)
+val good_ra_state_def = Define`
+  good_ra_state s ⇔
+  LENGTH s.adj_ls = s.dim ∧
+  LENGTH s.node_tag = s.dim ∧
+  LENGTH s.degrees = s.dim ∧
+  EVERY (λls. EVERY (λv. v < s.dim) ls) s.adj_ls ∧
+  undirected s.adj_ls`
+
+(* --- invariant: no two adjacent nodes have the same colour --- *)
+val no_clash_def = Define`
+  no_clash adj_ls node_tag ⇔
+  ∀x y.
+    has_edge adj_ls x y ⇒
+    case (EL x node_tag,EL y node_tag) of
+      (Fixed n,Fixed m) =>
+        n = m ⇒ x = y
+    | _ => T`
+
+(* Good preference oracle may only inspect, but not touch the state
+   Moreover, it must always select a member of the input list
 *)
-
-val lookup_dir_g_insert_correct = Q.prove(`
-  ∀x y g.
-  let g' = dir_g_insert x y g in
-  lookup_g x y g' = T ∧
-  ∀x' y'.
-    x' ≠ x ∨ y' ≠ y ⇒
-    lookup_g x' y' g' = lookup_g x' y' g`,
-  full_simp_tac(srw_ss())[dir_g_insert_def,LET_THM,lookup_g_def]>>
-  ntac 3 strip_tac>>CONJ_ASM1_TAC
-  >-
-    (every_case_tac>>full_simp_tac(srw_ss())[domain_insert])
-  >>
-    srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
-    Cases_on`x'=x`>>full_simp_tac(srw_ss())[]>>
-    full_case_tac>>
-    full_simp_tac(srw_ss())[domain_insert,lookup_insert,lookup_def]);
-
-val undir_g_insert_domain = Q.store_thm("undir_g_insert_domain",`
-  domain (undir_g_insert x y G) =
-  {x;y} ∪ domain G`,
-  srw_tac[][undir_g_insert_def,dir_g_insert_def]>>
-  full_simp_tac(srw_ss())[domain_insert,EXTENSION]>>
-  metis_tac[]);
-
-val list_g_insert_domain = Q.prove(`
-  ∀ls.
-  domain(list_g_insert q ls G) =
-  domain G ∪ set ls ∪ {q}`,
-  Induct>>full_simp_tac(srw_ss())[list_g_insert_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[EXTENSION,undir_g_insert_domain]>>
-  every_case_tac>>full_simp_tac(srw_ss())[domain_insert,domain_lookup,lookup_insert]>>
-  metis_tac[]);
-
-val clique_g_insert_domain = Q.prove(`
-  ∀ls.
-  domain (clique_g_insert ls G) =
-  domain G ∪ set ls`,
-  Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[list_g_insert_domain]>>
-  srw_tac[][EXTENSION]>>metis_tac[]);
-
-val list_g_insert_correct = Q.prove(`
-  ∀ls x g.
-  let g' = list_g_insert x ls g in
-    ∀u v.
-      lookup_g u v g' = ((u = x ∧ MEM v ls)
-                      ∨ (v = x ∧ MEM u ls)
-                      ∨ lookup_g u v g)`,
-  Induct>>srw_tac[][list_g_insert_def,undir_g_insert_def]>>
-  unabbrev_all_tac>>full_simp_tac(srw_ss())[]>-
-    (full_simp_tac(srw_ss())[lookup_g_def]>>every_case_tac>>full_simp_tac(srw_ss())[lookup_insert]>>
-    every_case_tac>>full_simp_tac(srw_ss())[]>>qpat_x_assum`LN = x'` (SUBST_ALL_TAC o SYM)>>
-    full_simp_tac(srw_ss())[lookup_def])>>
-  metis_tac[lookup_dir_g_insert_correct]);
-
-val clique_g_insert_correct = Q.prove(`
-  !ls x g.
-  ALL_DISTINCT ls ⇒
-  let g' = clique_g_insert ls g in
-    ∀u v.
-      lookup_g u v g' = ((MEM u ls ∧ MEM v ls ∧ u ≠ v)
-                      ∨ lookup_g u v g)`,
-  Induct>>srw_tac[][clique_g_insert_def]>>
-  unabbrev_all_tac>>metis_tac[list_g_insert_correct]);
-
-(*Cliques in sp_g*)
-val sp_g_is_clique_def = Define`
-  (sp_g_is_clique ls g =
-    (set ls ⊆ domain g ∧
-    !x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒
-      lookup_g x y g ∧ lookup_g y x g))`
-
-(*colouring_satisfactory for sp_graphs*)
-val colouring_satisfactory_def = Define `
-  (colouring_satisfactory col (G:sp_graph) =
-  ∀v. v ∈ domain G ⇒
-    let edges = lookup v G in
-    case edges of NONE => F
-                | SOME edges => ∀e. e ∈ domain edges ⇒ col e ≠ col v)`
-
-val clique_g_insert_is_clique = Q.prove(`
-  !ls g.
-  sp_g_is_clique ls (clique_g_insert ls g)`,
-  Induct>>
-  srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
-  fs[list_g_insert_domain,clique_g_insert_domain,SUBSET_DEF]>>
-  TRY (metis_tac[list_g_insert_correct,list_g_insert_domain])
-  >>
-    full_simp_tac(srw_ss())[sp_g_is_clique_def]>>
-    metis_tac[list_g_insert_correct]);
-
-val clique_g_insert_preserves_clique = Q.prove(`
-  !ls g ls'.
-  ALL_DISTINCT ls' ∧
-  sp_g_is_clique ls g ⇒
-  sp_g_is_clique ls (clique_g_insert ls' g)`,
-  Induct>>
-  srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
-  fs[clique_g_insert_domain,SUBSET_DEF]>>
-  metis_tac[clique_g_insert_correct]);
-
-val clash_sets_clique = Q.store_thm("clash_sets_clique",`
-  ∀ls x.
-  MEM x ls ⇒
-  sp_g_is_clique (MAP FST (toAList x)) (clash_sets_to_sp_g ls)`,
-  Induct>>full_simp_tac(srw_ss())[clash_sets_to_sp_g_def]>>srw_tac[][]>>
-  unabbrev_all_tac>>
-  metis_tac[clique_g_insert_is_clique
-           ,clique_g_insert_preserves_clique,ALL_DISTINCT_MAP_FST_toAList]);
-
-val colouring_satisfactory_cliques = Q.store_thm("colouring_satisfactory_cliques",`
-  ∀ls g (f:num->num).
-  ALL_DISTINCT ls ∧
-  colouring_satisfactory f g ∧ sp_g_is_clique ls g
-  ⇒
-  ALL_DISTINCT (MAP f ls)`,
-  Induct>>
-  full_simp_tac(srw_ss())[sp_g_is_clique_def,colouring_satisfactory_def]>>
-  srw_tac[][]
-  >-
-    (full_simp_tac(srw_ss())[MEM_MAP]>>srw_tac[][]>>
-    first_x_assum(qspecl_then [`h`,`y`] assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    Cases_on`MEM y ls`>>Cases_on`h=y`>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[lookup_g_def]>>every_case_tac>>full_simp_tac(srw_ss())[]>>
-    imp_res_tac domain_lookup>>
-    res_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-    Cases_on`lookup y g`>>full_simp_tac(srw_ss())[])
-  >>
-    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]);
-
-(*Final colouring conventions*)
-val colouring_conventional_def = Define`
-  colouring_conventional (G:sp_graph) k col ⇔
-  let vertices = domain G in
-  ∀x. x ∈ vertices ⇒
-    if is_phy_var x then col x = x
-    else
-    let y = col x in
-    if is_stack_var x then
-       is_phy_var y ∧ y ≥ 2*k
-    else
-    (*x must be an alloc var and it must go to some y*)
-       is_phy_var y`
-
-(*Undirected irreflexive (simple) graph*)
-val undir_graph_def = Define`
-  undir_graph (G:sp_graph) =
-    ∀x.
-    case lookup x G of
+val good_pref_def = Define`
+  good_pref pref ⇔
+  ∀n ks s. ?res.
+    pref n ks s = (Success res,s) ∧
+    case res of
       NONE => T
-    | SOME es =>
-      x ∉ domain es ∧
-      ∀y. y ∈ domain es ⇒
-      ∃z. lookup y G = SOME z ∧ x ∈ domain z`
+    | SOME k => MEM k ks`
 
-(*Property of preference function, it only chooses a colour it is given*)
-val satisfactory_pref_def = Define`
-  satisfactory_pref prefs ⇔
-    ∀h ls col v. prefs h ls col = SOME v ⇒ MEM v ls`
+val msimps = [st_ex_bind_def,st_ex_return_def];
 
-(*
-  We need to show 2 things:
-  1) The total colouring generated is satisfactory
-  2) The total colouring generated is conventional
-*)
+(* Success conditions *)
 
-val aux_pref_satisfactory = Q.prove(`
-  ∀prefs.
-  satisfactory_pref (aux_pref prefs)`,
-  full_simp_tac(srw_ss())[satisfactory_pref_def,aux_pref_def,LET_THM]>>srw_tac[][]>>
-  every_case_tac>>
-  Cases_on`ls`>>full_simp_tac(srw_ss())[]>>
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
+val case_eq_thms = pair_case_eq::
+  List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
+  |> LIST_CONJ |> curry save_thm "case_eq_thms"
+
+val tag_case_st = Q.store_thm("tag_case_st",`
+  !t.
+  (tag_CASE t a b c) f = (tag_CASE t (λn. a n f) (b f) (c f))`,
+  Cases>>fs[]);
+
+val list_case_st = Q.store_thm("list_case_st",`
+  !t.
+  (list_CASE t a b) f = (list_CASE t (a f) (λx y.b x y f))`,
+  Cases>>fs[]);
+
+(* TODO: These equational lemmas one ought to be automatic *)
+val Msub_eqn = Q.store_thm("Msub_eqn[simp]",`
+  ∀e n ls v.
+  Msub e n ls =
+  if n < LENGTH ls then Success (EL n ls)
+                   else Failure e`,
+  ho_match_mp_tac Msub_ind>>rw[]>>
+  simp[Once Msub_def]>>
+  Cases_on`ls`>>fs[]>>
+  IF_CASES_TAC>>fs[]>>
+  Cases_on`n`>>fs[]);
+
+val node_tag_sub_eqn= Q.store_thm("node_tag_sub_eqn[simp]",`
+  node_tag_sub n s =
+  if n < LENGTH s.node_tag then
+    (Success (EL n s.node_tag),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[node_tag_sub_def]>>
+  fs[Marray_sub_def]);
+
+val adj_ls_sub_eqn= Q.store_thm("adj_ls_sub_eqn[simp]",`
+  adj_ls_sub n s =
+  if n < LENGTH s.adj_ls then
+    (Success (EL n s.adj_ls),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[adj_ls_sub_def]>>
+  fs[Marray_sub_def]);
+
+val Mupdate_eqn = Q.store_thm("Mupdate_eqn[simp]",`
+  ∀e x n ls.
+  Mupdate e x n ls =
+  if n < LENGTH ls then
+    Success (LUPDATE x n ls)
+  else
+    Failure e`,
+  ho_match_mp_tac Mupdate_ind>>rw[]>>
+  simp[Once Mupdate_def]>>
+  Cases_on`ls`>>fs[]>>
+  IF_CASES_TAC>>fs[LUPDATE_def]>>
+  Cases_on`n`>>fs[LUPDATE_def]);
+
+val update_node_tag_eqn = Q.store_thm("update_node_tag_eqn[simp]",`
+  update_node_tag n t s =
+  if n < LENGTH s.node_tag then
+     (Success (),s with node_tag := LUPDATE t n s.node_tag)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_node_tag_def]>>
+  fs[Marray_update_def]);
+
+val update_adj_ls_eqn = Q.store_thm("update_adj_ls_eqn[simp]",`
+  update_adj_ls n t s =
+  if n < LENGTH s.adj_ls then
+     (Success (),s with adj_ls := LUPDATE t n s.adj_ls)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_adj_ls_def]>>
+  fs[Marray_update_def]);
+
+val update_degrees_eqn = Q.store_thm("update_degrees_eqn[simp]",`
+  update_degrees n t s =
+  if n < LENGTH s.degrees then
+     (Success (),s with degrees := LUPDATE t n s.degrees)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_degrees_def]>>
+  fs[Marray_update_def]);
+
+val remove_colours_frame = Q.store_thm("remove_colours_frame",`
+  ∀adjs ks s res s'.
+  remove_colours adjs ks s = (res,s') ⇒
+  s = s'`,
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  fs msimps>>
+  pop_assum mp_tac >> IF_CASES_TAC>> simp[]>>
+  rw[]>>fs [case_eq_thms,tag_case_st]>>
+  rw[]>>fs[]>>
   metis_tac[]);
 
-val first_match_col_mem = Q.prove(`
-  ∀ls.
-  first_match_col cand col ls = SOME x
-  ⇒ MEM x cand`,
-  Induct>>srw_tac[][first_match_col_def]>>
-  Cases_on`h`>>full_simp_tac(srw_ss())[first_match_col_def,LET_THM]>>
-  every_case_tac>>rev_full_simp_tac(srw_ss())[]);
+val remove_colours_success = Q.store_thm("remove_colorus_success",`
+  ∀adjs ks s ls s'.
+  remove_colours adjs ks s = (Success ls,s') ⇒
+  Abbrev(set ls ⊆ set ks ∧
+  ∀n. MEM n adjs ∧ n < LENGTH s'.node_tag ⇒
+    case EL n s.node_tag of
+      Fixed c => ¬MEM c ls
+    | _ => T)`,
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  fs msimps
+  >-
+    (rw[markerTheory.Abbrev_def]>>TOP_CASE_TAC>>fs[])
+  >-
+    rw[markerTheory.Abbrev_def,SUBSET_DEF]
+  >>
+  pop_assum mp_tac>>IF_CASES_TAC>>fs[]>>
+  strip_tac>>
+  fs[case_eq_thms,tag_case_st]>>rw[]>>
+  first_x_assum drule>>
+  strip_tac>>
+  fs[markerTheory.Abbrev_def]>>
+  rw[]>>fs[]
+  >-
+    (fs[SUBSET_DEF]>>
+    rw[]>>first_x_assum drule>>
+    IF_CASES_TAC>>rw[]>>fs[MEM_FILTER])
+  >>
+    CCONTR_TAC>>
+    fs[SUBSET_DEF]>>
+    first_x_assum drule>>
+    IF_CASES_TAC>>rw[]>>fs[MEM_FILTER]);
 
-val move_pref_satisfactory = Q.prove(`
-  ∀moves.
-  satisfactory_pref (move_pref moves)`,
-  full_simp_tac(srw_ss())[satisfactory_pref_def,move_pref_def,LET_THM]>>srw_tac[][]>>
-  every_case_tac>>Cases_on`ls`>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac first_match_col_mem>>
-  full_simp_tac(srw_ss())[]);
+val no_clash_LUPDATE_Stemp = Q.prove(`
+  no_clash adjls tags ⇒
+  no_clash adjls (LUPDATE Stemp n tags)`,
+  rw[no_clash_def]>>
+  fs[EL_LUPDATE]>>
+  rw[]>>every_case_tac>>rw[]>>fs[]>>
+  first_x_assum drule>>
+  disch_then drule>>fs[]>>
+  fs[]);
 
-val aux_move_pref_satisfactory = Q.prove(`
-  ∀prefs moves.
-  satisfactory_pref (aux_move_pref prefs moves)`,
-  full_simp_tac(srw_ss())[satisfactory_pref_def,aux_move_pref_def,LET_THM]>>srw_tac[][]>>
-  every_case_tac>>
-  metis_tac[aux_pref_satisfactory,move_pref_satisfactory,satisfactory_pref_def]);
+val no_clash_LUPDATE_Fixed = Q.prove(`
+  undirected adjls ∧
+  EVERY (λls. EVERY (λv. v < LENGTH tags) ls) adjls ∧
+  n < LENGTH adjls ∧
+  (∀m. MEM m (EL n adjls) ∧ m < LENGTH tags ⇒
+    EL m tags ≠ Fixed x) ∧
+  no_clash adjls tags ⇒
+  no_clash adjls (LUPDATE (Fixed x) n tags)`,
+  rw[no_clash_def]>>
+  fs[EL_LUPDATE]>>
+  rw[]
+  >-
+    (fs[has_edge_def]>>
+    last_x_assum drule>>
+    impl_tac>-
+      (fs[EVERY_MEM,MEM_EL]>>
+      metis_tac[])>>
+    rw[]>>
+    TOP_CASE_TAC>>simp[]>>
+    CCONTR_TAC>>fs[])
+  >>
+    `has_edge adjls n x'` by
+      metis_tac[undirected_def]>>
+    fs[has_edge_def]>>
+    qpat_x_assum`MEM n _` kall_tac>>
+    last_x_assum drule>>
+    impl_tac>-
+      (fs[EVERY_MEM,MEM_EL]>>
+      metis_tac[])>>
+    rw[]>>
+    TOP_CASE_TAC>>simp[]>>
+    CCONTR_TAC>>fs[]);
 
-val id_colour_lemma = Q.prove(`
-  ∀ls.
-  let t = id_colour ls in
-  domain t = set ls ∧
-  ∀x. (MEM x ls ⇒ lookup x t = SOME x)`,
-  Induct>>full_simp_tac(srw_ss())[id_colour_def,LET_THM,lookup_insert]>>srw_tac[][]);
+val remove_colours_succeeds = Q.prove(`
+  ∀adj ks s s.
+  EVERY (\v. v < LENGTH s.node_tag) adj ⇒
+  ∃ls. remove_colours adj ks s = (Success ls,s)`,
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  simp msimps>>
+  Cases_on`EL x s.node_tag`>>fs[]>>
+  rpt (first_x_assum drule)>>rw[]>>fs[]>>
+  first_x_assum(qspec_then`n` assume_tac)>>fs[]>>
+  rfs[]);
 
-(*alloc_colouring_aux never overwrites an old colouring*)
-val alloc_colouring_aux_never_overwrites_col = Q.prove(`
-  ∀xs spill col spill' col'.
-  lookup x col = SOME y ∧
-  alloc_colouring_aux G k prefs xs col spill = (col',spill')
-  ⇒
-  lookup x col' = SOME y`,
-  Induct>>full_simp_tac(srw_ss())[alloc_colouring_aux_def,assign_colour_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
-  Cases_on`x = h`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
+val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  good_pref pref ∧
+  n < s.dim ⇒
+  ∃s'.
+  assign_Atemp_tag ks pref n s = (Success (),s') ∧
+  (∀m.
+    if n = m ∧ EL n s.node_tag = Atemp
+      then EL n s'.node_tag ≠ Atemp
+      else EL m s'.node_tag = EL m s.node_tag) ∧
+  no_clash s'.adj_ls s'.node_tag ∧
+  good_ra_state s' ∧
+  s' = s with node_tag := s'.node_tag`,
+  rw[assign_Atemp_tag_def]>>
+  pop_assum mp_tac>>
+  simp msimps>>
+  fs[good_ra_state_def]>>
+  strip_tac>>
+  simp[Once markerTheory.Abbrev_def]>>
+  TOP_CASE_TAC>> simp[]>>
+  `EVERY (\v. v < LENGTH s.node_tag) (EL n s.adj_ls)` by
+    fs[EVERY_MEM,MEM_EL,PULL_EXISTS]>>
+  drule remove_colours_succeeds>>
+  disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  simp[ra_state_component_equality]>>
+  TOP_CASE_TAC>> simp[EL_LUPDATE]
+  >-
+    simp[no_clash_LUPDATE_Stemp]
+  >>
+  qpat_abbrev_tac`ls = h::t`>>
+  fs[good_pref_def]>>
+  first_x_assum(qspecl_then [`n`,`ls`,`s`] assume_tac)>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  simp[EL_LUPDATE,Abbr`ls`]>>
+  imp_res_tac remove_colours_success>>
+  match_mp_tac no_clash_LUPDATE_Fixed>>
+  fs[markerTheory.Abbrev_def]>>
+  rw[]>>first_x_assum drule>>
+  fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  metis_tac[]);
+
+val assign_Atemps_FOREACH_lem = Q.prove(`
+  ∀ls s ks prefs.
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  good_pref prefs ∧
+  EVERY (\v. v < s.dim) ls ==>
+  ∃s'.
+    st_ex_FOREACH ls (assign_Atemp_tag ks prefs) s = (Success (),s') ∧
+    no_clash s'.adj_ls s'.node_tag ∧
+    good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
+    (∀m.
+      if MEM m ls ∧ EL m s.node_tag = Atemp
+        then EL m s'.node_tag ≠ Atemp
+        else EL m s'.node_tag = EL m s.node_tag)`,
+  Induct>>rw[st_ex_FOREACH_def]>>
+  fs msimps>-
+    simp[ra_state_component_equality]>>
+  drule (GEN_ALL assign_Atemp_tag_correct)>>
+  rpt(disch_then drule)>>
+  disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  first_x_assum drule>>
+  rpt (disch_then drule)>>
+  fs[]>>simp[]>>
+  disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>rfs[]>>
+  rw[]
+  >-
+    (rpt(first_x_assum (qspec_then`h` mp_tac))>>
+    simp[]>>
+    strip_tac>>IF_CASES_TAC>>fs[])
   >-
     metis_tac[]
   >>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>TRY(metis_tac[])>>
-  res_tac>>full_simp_tac(srw_ss())[lookup_insert]);
+    fs[]>>(
+    rpt(first_x_assum (qspec_then`m` mp_tac))>>
+    simp[]>>
+    strip_tac>>IF_CASES_TAC>>fs[]>>
+    metis_tac[]));
 
-val alloc_colouring_aux_never_overwrites_spill = Q.prove(`
-  ∀xs spill col spill' col'.
-  MEM x spill ∧
-  alloc_colouring_aux G k prefs xs col spill = (col',spill')
-  ⇒
-  MEM x spill'`,
-  Induct>>full_simp_tac(srw_ss())[alloc_colouring_aux_def,assign_colour_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  TRY(`MEM x (h::spill')` by (full_simp_tac(srw_ss())[]>>NO_TAC))>>
-  metis_tac[]);
-
-(*Coloring satisfactory but restricted to a partial colouring
-  i.e. only talk about the subgraph induced by the vertices
-  in the domain of the colouring
-*)
-val partial_colouring_satisfactory_def = Define`
-  partial_colouring_satisfactory col (G:sp_graph) ⇔
-  domain col ⊆ domain G ∧
-  ∀v.
-    v ∈ domain G ∧ v ∈ domain col ⇒
-    let edges = THE (lookup v G) in
-    ∀v'. v' ∈ domain edges ∧ v' ∈ domain col ⇒ lookup v col ≠ lookup v' col`
-
-val remove_colours_removes = Q.prove(`
-  ∀ls col k ls'.
-  remove_colours col ls k = ls'
-  ⇒
-  ∀x. MEM x ls' ⇒
-  MEM x k ∧
-  (∀y c. MEM y ls ∧ lookup y col = SOME c ⇒ c ≠ x)`,
-  Induct>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-  Cases_on`k`>>
-  full_simp_tac(srw_ss())[remove_colours_def,LET_THM]
-  >-
-    (full_case_tac>>full_simp_tac(srw_ss())[]>-
-    (res_tac>>pop_assum(qspec_then `y` assume_tac)>>full_simp_tac(srw_ss())[])>>
-    Cases_on`h'=x'`>>full_simp_tac(srw_ss())[]>>res_tac>>
-    full_simp_tac(srw_ss())[MEM_FILTER])
+val assign_Atemps_correct = Q.store_thm("assign_Atemps_correct",`
+  ∀k ls prefs s.
+  good_ra_state s ∧
+  good_pref prefs ∧
+  no_clash s.adj_ls s.node_tag ==>
+  ∃s'.
+  assign_Atemps k ls prefs s = (Success (),s') ∧
+  no_clash s'.adj_ls s'.node_tag ∧
+  good_ra_state s' ∧
+  s' = s with node_tag := s'.node_tag ∧
+  EVERY (λn. n ≠ Atemp) s'.node_tag ∧
+  (* The next one is probably necessary for coloring correctness *)
+  !m.
+    m < LENGTH s.node_tag ∧ EL m s.node_tag ≠ Atemp ⇒
+    EL m s'.node_tag = EL m s.node_tag`,
+  rw[assign_Atemps_def,get_dim_def]>>
+  simp msimps>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH lsf`>>
+  qpat_abbrev_tac`ks = (GENLIST _ k)`>>
+  (* The heuristic step *)
+  drule assign_Atemps_FOREACH_lem>>
+  rpt(disch_then drule)>>
+  disch_then(qspecl_then[`lsf`,`ks`] assume_tac)>>
+  fs[EVERY_FILTER,Abbr`lsf`]>>
+  (* The "real" step *)
+  drule assign_Atemps_FOREACH_lem>>
+  rpt(disch_then drule)>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH lsg`>>
+  disch_then(qspecl_then[`lsg`,`ks`] assume_tac)>>
+  fs[EVERY_GENLIST,Abbr`lsg`]>>
+  CONJ_TAC
+  >- (
+    fs[EVERY_MEM,MEM_GENLIST,good_ra_state_def]>>
+    CCONTR_TAC>>
+    fs[MEM_EL]>>
+    first_x_assum(qspec_then`n` assume_tac)>>
+    rfs[]>>fs[ra_state_component_equality])
   >>
-    full_case_tac>>full_simp_tac(srw_ss())[]>-
-      (res_tac>>pop_assum(qspec_then`y` assume_tac)>>
-      Cases_on`y=h`>>full_simp_tac(srw_ss())[])>>
-    res_tac>>
-    Cases_on`h'=x'`>>full_simp_tac(srw_ss())[]>>
-    first_x_assum(qspec_then`y` assume_tac)>>
-    Cases_on`y=h`>>full_simp_tac(srw_ss())[MEM_FILTER]>>metis_tac[]);
-
-val partial_colouring_satisfactory_extend = Q.prove(`
-  partial_colouring_satisfactory col G ∧
-  undir_graph G ∧
-  h ∉ domain col ∧
-  lookup h G = SOME x ∧
-  (∀y. y ∈ domain x ∧
-       y ∈ domain col ⇒
-       THE (lookup y col) ≠ (v:num))
-  ⇒
-  partial_colouring_satisfactory (insert h v col) G`,
-  full_simp_tac(srw_ss())[partial_colouring_satisfactory_def]>>rpt strip_tac
-  >-
-    full_simp_tac(srw_ss())[domain_lookup]
-  >-
-    (full_simp_tac(srw_ss())[domain_lookup,LET_THM,lookup_insert,undir_graph_def]>>srw_tac[][]
-    >-
-      (ntac 2 (last_x_assum(qspec_then`h`mp_tac))>>full_simp_tac(srw_ss())[])
-    >>
-      rev_full_simp_tac(srw_ss())[]>>
-      first_x_assum(qspec_then`v'''`mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[])
-  >>
-    full_simp_tac(srw_ss())[domain_lookup,LET_THM,lookup_insert,undir_graph_def]>>srw_tac[][]
-    >-
-      (ntac 2 (last_x_assum(qspec_then`h`mp_tac))>>full_simp_tac(srw_ss())[])
-    >-
-      (rev_full_simp_tac(srw_ss())[]>>
-      first_x_assum(qspec_then`v'''`mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[])
-    >-
-      (
-      qsuff_tac`lookup v' x = SOME ()`>-
-      (srw_tac[][]>>
-      first_x_assum(qspec_then`v'` assume_tac)>>
-      rev_full_simp_tac(srw_ss())[])>>
-      last_x_assum(qspec_then`v'`mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      last_x_assum(qspec_then`v'`assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-      first_x_assum(qspec_then`h`assume_tac)>>rev_full_simp_tac(srw_ss())[])
-    >>
-      full_simp_tac(srw_ss())[]>>
-      last_x_assum(qspec_then`v'`mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      pop_assum(qspec_then`v''''`assume_tac)>>rev_full_simp_tac(srw_ss())[]);
-
-(*Coloring produced after each alloc_colouring_aux_step is
-  partial_colouring_satisfactory*)
-val alloc_colouring_aux_satisfactory = Q.prove(`
-  ∀G k prefs ls col spill.
-  undir_graph G ∧
-  satisfactory_pref prefs ∧
-  partial_colouring_satisfactory col G
-  ⇒
-  let (col',spill') = alloc_colouring_aux G k prefs ls col spill in
-    partial_colouring_satisfactory col' G`,
-  Induct_on`ls`>>full_simp_tac(srw_ss())[alloc_colouring_aux_def,assign_colour_def,LET_THM]>>srw_tac[][]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  TRY
-  (first_x_assum(qspecl_then
-    [`G`,`k`,`prefs`,`insert h h' col`,`spill'`] mp_tac)>>
-  impl_tac>>full_simp_tac(srw_ss())[]>>
-  match_mp_tac partial_colouring_satisfactory_extend>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  imp_res_tac remove_colours_removes>>
-  full_simp_tac(srw_ss())[satisfactory_pref_def]>>
-  first_x_assum(qspecl_then[`h`,`h'::t`,`col`] assume_tac))>>
-  TRY
-  (first_x_assum(qspecl_then
-    [`G`,`k`,`prefs`,`insert h x' col`,`spill'`] mp_tac)>>
-  impl_tac>>full_simp_tac(srw_ss())[]>>
-  match_mp_tac partial_colouring_satisfactory_extend>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  imp_res_tac remove_colours_removes>>
-  imp_res_tac satisfactory_pref_def>>
-  first_x_assum(qspecl_then[`x'`] assume_tac))>>
-  rev_full_simp_tac(srw_ss())[]>>
-  `MEM y (MAP FST (toAList x))` by
-    full_simp_tac(srw_ss())[MEM_MAP,MEM_toAList,EXISTS_PROD,domain_lookup]>>
-  rev_full_simp_tac(srw_ss())[]>>res_tac>>
-  metis_tac[]);
-
-(*Domains of the colouring and spills are disjoint*)
-val alloc_colouring_aux_domain_1 = Q.prove(`
-  ∀G k prefs ls col spill col' spill'.
-  domain col ∩ set spill = {} ∧
-  alloc_colouring_aux G k prefs ls col spill = (col',spill')
-  ⇒
-  domain col' ∩ set spill' = {}`,
-  Induct_on`ls`>>full_simp_tac(srw_ss())[alloc_colouring_aux_def,LET_THM,assign_colour_def]>>srw_tac[][]
-  >-(every_case_tac>>full_simp_tac(srw_ss())[]>>metis_tac[])
-  >>
-  Cases_on`lookup h col`>>full_simp_tac(srw_ss())[]
-  >-
-    (Cases_on`lookup h G`>>full_simp_tac(srw_ss())[]
-    >- metis_tac[]
-    >>
-    `h ∉ domain col` by full_simp_tac(srw_ss())[domain_lookup]>>
-    `domain col ∩ set (h::spill') = {}` by
-      (full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][]>>Cases_on`x'=h`>>full_simp_tac(srw_ss())[])>>
-    Cases_on`is_alloc_var h`>>full_simp_tac(srw_ss())[]
-    >-
-      (full_case_tac>>full_simp_tac(srw_ss())[]
-      >-
-        (res_tac>>full_simp_tac(srw_ss())[])
-      >>
-        res_tac>>pop_assum mp_tac>>impl_tac>>
-        full_simp_tac(srw_ss())[domain_insert,EXTENSION]>>srw_tac[][]>>
-        Cases_on`x'=h`>>full_simp_tac(srw_ss())[])
-    >>
-      res_tac>>full_simp_tac(srw_ss())[])
-  >>
-    metis_tac[domain_lookup]);
-
-(*Coloring and spills contain everything in the list*)
-val alloc_colouring_aux_domain_2 = Q.prove(`
-  ∀G k prefs ls col spill col' spill'.
-  alloc_colouring_aux G k prefs ls col spill = (col',spill')
-  ⇒
-  ∀x. MEM x ls ∧ x ∈ domain G ⇒
-    x ∈ domain col' ∨ MEM x spill'`,
-  Induct_on`ls`>>reverse (srw_tac[][alloc_colouring_aux_def,UNCURRY,LET_THM])>>full_simp_tac(srw_ss())[]
-  >- metis_tac[]
-  >>
-  full_simp_tac(srw_ss())[assign_colour_def,LET_THM]>>every_case_tac>>
-  imp_res_tac alloc_colouring_aux_never_overwrites_col>>
-  imp_res_tac alloc_colouring_aux_never_overwrites_spill>>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  metis_tac[lookup_insert]);
-
-val assign_colour_props = Q.prove(`
-  h ∉ domain col ∧
-  ¬MEM h spill' ∧
-  h ∈ domain G ∧
-  (∀x. MEM x k ⇒ is_phy_var x) ∧
-  domain col ∩ set spill' = {} ∧
-  satisfactory_pref prefs
-  ⇒
-  let (col',spill'') = assign_colour G k prefs h col spill' in
-    (if is_alloc_var h then
-      if h ∈ domain col' then
-        spill'' = spill' ∧
-        ∃y. col' = insert h y col ∧ is_phy_var y
-      else col = col' ∧ MEM h spill''
-    else col = col' ∧ MEM h spill'') ∧
-    domain col' ∩ set spill'' = {}`,
-  rpt strip_tac>>
-  full_simp_tac(srw_ss())[assign_colour_def]>>
-  `lookup h col = NONE` by
-    metis_tac[domain_lookup,optionTheory.option_CLAUSES]>>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  IF_CASES_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-  qabbrev_tac `lss = MAP FST (toAList v)`>>
-  Cases_on`remove_colours col lss k`>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac remove_colours_removes>>
-  every_case_tac>>
-  imp_res_tac satisfactory_pref_def>>
-  TRY(`h ∉ domain col` by full_simp_tac(srw_ss())[domain_lookup]>>
-  full_simp_tac(srw_ss())[EXTENSION,INTER_DEF]>>metis_tac[]));
-
-(*Conventions over the extension domain*)
-val alloc_colouring_aux_domain_3 = Q.prove(`
-  ∀G:sp_graph k prefs ls col spill col' spill'.
-  (∀x. MEM x k ⇒ is_phy_var x) ∧
-  (domain col ∩ set spill = {}) ∧
-  (satisfactory_pref prefs) ∧
-  alloc_colouring_aux G k prefs ls col spill = (col',spill')
-  ⇒
-  ∀x. MEM x ls ∧ x ∉ domain col ∧ ¬MEM x spill ∧ x ∈ domain G ⇒
-    (if is_alloc_var x then
-      if x ∈ domain col' then
-        ∃y. lookup x col' = SOME y ∧ is_phy_var y
-      else MEM x spill'
-    else MEM x spill')`,
-  Induct_on`ls`>>srw_tac[][alloc_colouring_aux_def,LET_THM]
-  >-
-    (imp_res_tac assign_colour_props>>full_simp_tac(srw_ss())[LET_THM]>>
-    IF_CASES_TAC>>
-    Cases_on`assign_colour G k prefs h col spill'`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h ∈ domain q`>>full_simp_tac(srw_ss())[]
-    >-
-      (full_simp_tac(srw_ss())[domain_lookup]>>
-      metis_tac[lookup_insert,alloc_colouring_aux_never_overwrites_col])
-    >>
-    imp_res_tac alloc_colouring_aux_never_overwrites_spill>>
-    imp_res_tac alloc_colouring_aux_domain_1>>
-    `h ∉ domain col'` by
-        (full_simp_tac(srw_ss())[INTER_DEF,EXTENSION]>>
-        metis_tac[])>>
-    full_simp_tac(srw_ss())[])
-  >>
-    Cases_on`x=h`>>full_simp_tac(srw_ss())[]
-    >-
-    (imp_res_tac assign_colour_props>>full_simp_tac(srw_ss())[LET_THM]>>
-    IF_CASES_TAC>>
-    Cases_on`assign_colour G k prefs h col spill'`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h ∈ domain q`>>full_simp_tac(srw_ss())[]
-    >-
-      (full_simp_tac(srw_ss())[domain_lookup]>>
-      metis_tac[lookup_insert,alloc_colouring_aux_never_overwrites_col])
-    >>
-    imp_res_tac alloc_colouring_aux_never_overwrites_spill>>
-    imp_res_tac alloc_colouring_aux_domain_1>>
-    `h ∉ domain col'` by
-        (full_simp_tac(srw_ss())[INTER_DEF,EXTENSION]>>
-        metis_tac[])>>
-    full_simp_tac(srw_ss())[])
-    >>
-    full_simp_tac(srw_ss())[assign_colour_def]>>
-    Cases_on`lookup h col`>>
-    Cases_on`MEM h spill'`>>
-    Cases_on`lookup h G` >>
-    Cases_on`is_alloc_var h`>>full_simp_tac(srw_ss())[]>>
-    TRY(res_tac>>NO_TAC)>>
-    `¬MEM x (h::spill')` by full_simp_tac(srw_ss())[]>>
-    `domain col ∩ set (h::spill') = {}` by
-      (full_simp_tac(srw_ss())[EXTENSION,INTER_DEF]>>srw_tac[][]>>
-      Cases_on`x''=h`>>full_simp_tac(srw_ss())[domain_lookup])
-    >-
-      (full_simp_tac(srw_ss())[LET_THM]>>
-      Cases_on`remove_colours col(MAP FST (toAList x')) k`>>
-      full_simp_tac(srw_ss())[]
-      >-
-        (first_x_assum(qspecl_then [`G`,`k`,`prefs`,`col`,`(h::spill')`
-                     ,`col'`,`spill''`] mp_tac)>>
-        impl_tac>>full_simp_tac(srw_ss())[])
-      >>
-        qpat_x_assum `A = (col',spill'')` mp_tac>>
-        qpat_abbrev_tac `coln = insert h A col`>>
-        `x ∉ domain coln` by
-          full_simp_tac(srw_ss())[Abbr`coln`]>>
-        strip_tac>>
-        first_x_assum(qspecl_then [`G`,`k`,`prefs`,`coln`,`spill'`
-                     ,`col'`,`spill''`] mp_tac)>>
-        impl_tac>>full_simp_tac(srw_ss())[EXTENSION,INTER_DEF]>>
-        srw_tac[][Abbr`coln`]>>Cases_on`x''=h`>>full_simp_tac(srw_ss())[])
-    >>
-    res_tac);
-
-val list_mem = Q.prove(`
-  ∀ls ls'.
-    MEM x ls ∧ (h::ls') = ls ∧ x ≠ h
-    ⇒
-    MEM x ls'`,
-  srw_tac[][]>>full_simp_tac(srw_ss())[]);
-
-(*If not the assigned colour then it must have come from before*)
-val assign_colour_reverse = Q.prove(`
-  ∀G:sp_graph k prefs h col spill col' spill'.
-  assign_colour G k prefs h col spill = (col',spill')
-  ⇒
-  (∀x. x ≠ h ⇒
-  (x ∈ domain col' ⇒ x ∈ domain col) ∧
-  (MEM x spill' ⇒ MEM x spill))`,
-  srw_tac[][assign_colour_def]>>every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  qpat_x_assum `A = col'` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[domain_insert]>>metis_tac[list_mem]);
-
-(*Not in the final state means it must have come from before*)
-val alloc_colouring_aux_domain_4 = Q.prove(`
-  ∀G:sp_graph k prefs ls col spill col' spill'.
-  alloc_colouring_aux G k prefs ls col spill = (col',spill')
-  ⇒
-  ∀x. ¬MEM x ls ⇒
-  (x ∈ domain col' ⇒ x ∈ domain col) ∧
-  (MEM x spill' ⇒ MEM x spill)`,
-  Induct_on`ls`>>srw_tac[][alloc_colouring_aux_def,LET_THM]>>
-  Cases_on`assign_colour G k prefs h col spill'`>>full_simp_tac(srw_ss())[]>>
-  metis_tac[assign_colour_reverse]);
-
-(*Everything appearing in the spills was already in G*)
-val alloc_colouring_aux_domain_5 = Q.prove(`
-  ∀G:sp_graph k prefs ls col spill col' spill'.
-  alloc_colouring_aux G k prefs ls col spill = (col',spill')
-  ⇒
-  ∀x. MEM x spill' ⇒
-  x ∈ domain G ∨ MEM x spill`,
-  Induct_on`ls`>>srw_tac[][alloc_colouring_aux_def,LET_THM]>>
-  Cases_on`assign_colour G k prefs h col spill'`>>
-  full_simp_tac(srw_ss())[]>>
-  res_tac>>
-  full_simp_tac(srw_ss())[assign_colour_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[domain_lookup]);
-
-val id_colour_always_sat = Q.prove(`
-  undir_graph G ∧
-  (∀x. MEM x ls ⇒ x ∈ domain G)
-  ⇒
-  partial_colouring_satisfactory (id_colour ls) G`,
-  Q.ISPEC_THEN `ls` assume_tac id_colour_lemma>>
-  srw_tac[][undir_graph_def,partial_colouring_satisfactory_def]>>
-  full_simp_tac(srw_ss())[LET_THM]>-
-    full_simp_tac(srw_ss())[SUBSET_DEF]
-  >>
-  qsuff_tac `v ≠ v'`
-  >-
-    (`MEM v ls ∧ MEM v' ls` by metis_tac[EXTENSION]>>
-    res_tac>>
-    full_simp_tac(srw_ss())[])
-  >>
-    first_x_assum(qspec_then `v` assume_tac)>>
-    first_x_assum(qspec_then `v` assume_tac)>>
-    full_simp_tac(srw_ss())[domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>
-    metis_tac[]);
-
-(*The first colouring should produce a partial colouring such that:
-  Phy vars are mapped to themselves
-  Stack vars are all in spills
-  Alloc vars are either spilled (exclusive)OR in the colouring
-*)
-val alloc_colouring_success = Q.prove(`
-  undir_graph G ∧ satisfactory_pref prefs ⇒
-  let (col,spills) = alloc_colouring G k prefs ls in
-  partial_colouring_satisfactory col G ∧
-  domain col ∩ set spills = {} ∧
-  ∀x. x ∈ domain G ⇒
-    if is_phy_var x then lookup x col = SOME x
-    else if is_stack_var x then MEM x spills
-    else (*is_alloc_var x*)
-      if x ∈ domain col then
-        ∃y. lookup x col = SOME y ∧ is_phy_var y
-      else MEM x spills`,
-  full_simp_tac(srw_ss())[alloc_colouring_def]>>srw_tac[][]
-  >-
-    (imp_res_tac alloc_colouring_aux_satisfactory>>
-    ntac 2 (pop_assum kall_tac)>>
-    first_assum(qspec_then`col` mp_tac)>>
-    impl_tac
-    >-
-      (full_simp_tac(srw_ss())[Abbr`col`]>>
-      match_mp_tac id_colour_always_sat>>
-      full_simp_tac(srw_ss())[PARTITION_DEF]>>
-      srw_tac[][]>>
-      `MEM x vertices` by
-        (qpat_x_assum `A=(phy_var,others)` (assume_tac o SYM)>>
-        imp_res_tac PART_MEM>>
-        full_simp_tac(srw_ss())[])>>
-      unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[MEM_MAP]>>Cases_on`y`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
-    >>
-    strip_tac>>
-    pop_assum(qspecl_then [`[]`,`ls`,`colours`] assume_tac)>>
-    rev_full_simp_tac(srw_ss())[LET_THM]>>
-    first_x_assum(qspec_then`col'` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    pop_assum(qspecl_then [`spills`,`others`,`colours`] assume_tac)>>
-    rev_full_simp_tac(srw_ss())[])
-  >-
-    (imp_res_tac alloc_colouring_aux_domain_1>>
-    rev_full_simp_tac(srw_ss())[])
-  >>
-    imp_res_tac alloc_colouring_aux_domain_2>>
-    `MEM x vertices` by
-      full_simp_tac(srw_ss())[Abbr`vertices`,MEM_toAList,MEM_MAP,EXISTS_PROD,domain_lookup]>>
-    full_simp_tac(srw_ss())[PARTITION_DEF]>>
-    Q.ISPECL_THEN [`is_phy_var`,`vertices`,`phy_var`,`others`,`[]:num list`
-      ,`[]:num list`]assume_tac PARTs_HAVE_PROP>>
-    Q.ISPECL_THEN [`is_phy_var`,`vertices`,`phy_var`,`others`,`[]:num list`
-      ,`[]:num list`]assume_tac PART_MEM>>
-    rev_full_simp_tac(srw_ss())[]>>
-    `∀x. MEM x colours ⇒ is_phy_var x` by
-      (srw_tac[][Abbr`colours`,MEM_GENLIST,is_phy_var_def]>>
-      `0<2:num` by DECIDE_TAC>>
-      `(2:num)*x''=x''*2` by DECIDE_TAC>>
-      metis_tac[arithmeticTheory.MOD_EQ_0])>>
-    IF_CASES_TAC
-    >-
-      (`lookup x col = SOME x` by metis_tac[id_colour_lemma]>>
-      metis_tac[alloc_colouring_aux_never_overwrites_col])
-    >>
-    `x ∉ domain col` by (qspec_then `phy_var` assume_tac id_colour_lemma>>
-          rev_full_simp_tac(srw_ss())[LET_THM]>>metis_tac[])>>
-    IF_CASES_TAC
-    >-
-      (`MEM x others` by metis_tac[]>>
-      `¬is_alloc_var x` by metis_tac[convention_partitions]>>
-      Q.SPECL_THEN [`G`,`colours`,`prefs`,`ls`,`col`,`[]`,`col'`,`spills`]
-        assume_tac alloc_colouring_aux_domain_3>>rev_full_simp_tac(srw_ss())[]>>
-      srw_tac[][]>>
-      Cases_on`MEM x ls`>>full_simp_tac(srw_ss())[]
-      >-
-        (first_x_assum(qspec_then`x` mp_tac)>>full_simp_tac(srw_ss())[]>>
-        metis_tac[alloc_colouring_aux_never_overwrites_spill])
-      >>
-        imp_res_tac alloc_colouring_aux_domain_4>>
-        full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-        imp_res_tac alloc_colouring_aux_domain_1>>
-        Q.SPECL_THEN [`G`,`colours`,`prefs`,`others`,`col'`,`spills`
-          ,`col''`,`spills'`] assume_tac alloc_colouring_aux_domain_3>>
-        rev_full_simp_tac(srw_ss())[]>>metis_tac[])
-    >>
-      `is_alloc_var x ∧ MEM x others` by metis_tac[convention_partitions]>>
-      Q.SPECL_THEN [`G`,`colours`,`prefs`,`ls`,`col`,`[]`,`col'`,`spills`]
-        assume_tac alloc_colouring_aux_domain_3>>
-      rev_full_simp_tac(srw_ss())[]>>
-      Cases_on`MEM x ls`>>full_simp_tac(srw_ss())[]
-      >-
-        (first_x_assum(qspec_then`x` mp_tac)>>full_simp_tac(srw_ss())[]
-        >>
-        Cases_on`x ∈ domain col'`>>full_simp_tac(srw_ss())[]
-        >- metis_tac[alloc_colouring_aux_never_overwrites_col]
-        >>
-        (*In spills so in spills'*)
-        `MEM x spills'` by
-          metis_tac[alloc_colouring_aux_never_overwrites_spill]>>
-        (*But we always kept everything disjoint*)
-        imp_res_tac alloc_colouring_aux_domain_1>>
-        full_simp_tac(srw_ss())[INTER_DEF,EXTENSION]>>srw_tac[][]>>
-        metis_tac[])
-      >>
-        imp_res_tac alloc_colouring_aux_domain_4>>
-        full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-        imp_res_tac alloc_colouring_aux_domain_1>>
-        Q.SPECL_THEN [`G`,`colours`,`prefs`,`others`,`col'`,`spills`
-          ,`col''`,`spills'`] assume_tac alloc_colouring_aux_domain_3>>
-        full_simp_tac(srw_ss())[]>>metis_tac[]);
-
-val alloc_colouring_success_2 = Q.prove(`
-  let (col,spills) = alloc_colouring G k prefs ls in
-  ∀x. MEM x spills ⇒ x ∈ domain G`,
-  full_simp_tac(srw_ss())[alloc_colouring_def]>>srw_tac[][]>>
-  imp_res_tac alloc_colouring_aux_domain_5>>full_simp_tac(srw_ss())[]);
-
-val spill_colouring_never_overwrites = Q.prove(`
-  ∀ls col col'.
-  lookup x col = SOME y ∧
-  spill_colouring G k prefs ls col = col'
-  ⇒
-  lookup x col' = SOME y`,
-  Induct>>full_simp_tac(srw_ss())[spill_colouring_def,assign_colour2_def]>>srw_tac[][]>>
-  Cases_on`x=h`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
-  >-
-    metis_tac[]
-  >>
-  every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[lookup_insert]);
-
-val spill_colouring_domain_subset = Q.prove(`
-  ∀ls col col'.
-  domain col ⊆ domain (spill_colouring G k prefs ls col)`,
-  srw_tac[][SUBSET_DEF]>>full_simp_tac(srw_ss())[domain_lookup]>>
-  metis_tac[domain_lookup,spill_colouring_never_overwrites]);
-
-val SORTED_TAIL = Q.prove(`
-  SORTED R (x::xs) ⇒ SORTED R xs`,
-  Cases_on`xs`>>full_simp_tac(srw_ss())[SORTED_DEF]);
+    fs[MEM_GENLIST,MEM_FILTER,good_ra_state_def]>>
+    rw[]>>
+    rpt(first_x_assum(qspec_then`m` assume_tac))>>rfs[]>>
+    fs[ra_state_component_equality]>>
+    rfs[]);
 
 val SORTED_HEAD_LT = Q.prove(`
   ∀ls.
@@ -749,1135 +380,517 @@ val SORTED_HEAD_LT = Q.prove(`
     last_x_assum mp_tac>>impl_tac>>
     Cases_on`ls`>>full_simp_tac(srw_ss())[SORTED_DEF]>>DECIDE_TAC);
 
-(*prove multiple properties in one go*)
-val unbound_colours_props = Q.prove(`
-  ∀col ls col'.
-    is_phy_var col ∧
-    SORTED (λx y.x≤y) ls ∧
-    unbound_colours col ls = col'
-    ⇒
-    is_phy_var col' ∧ col' ≥ col ∧
-    ¬MEM col' ls`,
-  Induct_on`ls`>>srw_tac[][unbound_colours_def]>>
-  imp_res_tac SORTED_TAIL>>
-  `is_phy_var (col+2)` by
-    fs[is_phy_var_def]>>
-  full_simp_tac(srw_ss())[]
-  >-
-    DECIDE_TAC
+(* Correctness for the second step *)
+val unbound_colour_correct = Q.store_thm("unbound_colour_correct",`
+  ∀ls k k'.
+  SORTED (λx y.x ≤ y) ls  ==>
+  k ≤ unbound_colour k ls ∧
+  ~MEM (unbound_colour k ls) ls`,
+  Induct>>fs[unbound_colour_def]>>rw[]>>
+  fs[]>>
+  imp_res_tac SORTED_TL>>
+  first_x_assum drule>>rw[]
   >-
     metis_tac[SORTED_HEAD_LT]
-  >>
-    (res_tac>>DECIDE_TAC));
-
-val SORTED_TAC =
-    `SORTED (λx y. x≤y) lss` by
-    (unabbrev_all_tac>>match_mp_tac QSORT_SORTED>>
-    full_simp_tac(srw_ss())[relationTheory.transitive_def,relationTheory.total_def]>>
-    srw_tac[][]>>DECIDE_TAC);
-
-val is_phy_var_tac =
-   `is_phy_var (2*k)` by
-    (full_simp_tac(srw_ss())[is_phy_var_def]>>
-    `0<2:num` by DECIDE_TAC>>
-    `(2:num)*k=k*2` by DECIDE_TAC>>
-    metis_tac[arithmeticTheory.MOD_EQ_0]);
-
-val option_filter_eq = Q.prove(`
-  ∀ls. option_filter ls = MAP THE (FILTER IS_SOME ls)`,
-  Induct>>srw_tac[][option_filter_def]>>every_case_tac>>full_simp_tac(srw_ss())[]);
-
-val assign_colour2_satisfactory = Q.prove(`
-  undir_graph G ∧
-  partial_colouring_satisfactory col G ⇒
-  partial_colouring_satisfactory (assign_colour2 G k prefs h col) G`,
-  srw_tac[][assign_colour2_def]>>
-  full_simp_tac(srw_ss())[LET_THM]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  match_mp_tac (GEN_ALL partial_colouring_satisfactory_extend)>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  TRY(
-  qpat_abbrev_tac`lss = QSORT (λx:num y:num. x≤y)  B`>>
-  SORTED_TAC>>
-  `MEM v lss` by
-    (unabbrev_all_tac>>
-    full_simp_tac(srw_ss())[QSORT_MEM,option_filter_eq,MEM_MAP,MEM_FILTER,EXISTS_PROD
-      ,MEM_toAList,PULL_EXISTS]>>
-    TRY(Q.EXISTS_TAC`y`>>full_simp_tac(srw_ss())[])>>
-    HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
-  is_phy_var_tac>>
-  metis_tac[unbound_colours_props])>>
-  qpat_x_assum `¬A` mp_tac >>
-  qpat_abbrev_tac`lss = option_filter (MAP (λx. lookup x col) A)` >>
-  qsuff_tac `MEM v lss`>-metis_tac[]>>
-  unabbrev_all_tac>>
-  full_simp_tac(srw_ss())[option_filter_eq,MEM_MAP,MEM_FILTER,EXISTS_PROD
-    ,PULL_EXISTS,MEM_toAList]>>
-  HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]);
-
-val assign_colour2_conventional = Q.prove(`
-  v ∈ domain G ∧
-  v ∉ domain col ∧
-  assign_colour2 G k prefs v col  = col'
-  ⇒
-  ∃y. lookup v col' = SOME y ∧ y≥2*k ∧ is_phy_var y`,
-  srw_tac[][assign_colour2_def]>>
-  full_simp_tac(srw_ss())[LET_THM,domain_lookup]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  is_phy_var_tac>>
-  qpat_abbrev_tac`lss = QSORT (λx:num y:num. x≤y)  B`>>
-  SORTED_TAC>>
-  metis_tac[unbound_colours_props]);
-
-(*Coloring produced after each spill_colouring step is
-  partial_colouring_satisfactory*)
-val spill_colouring_satisfactory = Q.prove(`
-  ∀G k prefs ls col.
-  undir_graph G ∧
-  partial_colouring_satisfactory col G
-  ⇒
-  let col' = spill_colouring G k prefs ls col in
-    partial_colouring_satisfactory col' G`,
-  Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  metis_tac[assign_colour2_satisfactory]);
-
-(*Domain is extended*)
-val spill_colouring_domain_1 = Q.prove(`
-  ∀G k prefs ls col.
-  let col' = spill_colouring G k prefs ls col in
-  ∀x. MEM x ls ∧ x ∈ domain G ⇒
-      x ∈ domain col'`,
-  Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]
   >-
-    (full_simp_tac(srw_ss())[assign_colour2_def,domain_lookup,LET_THM]>>
-    every_case_tac>>full_simp_tac(srw_ss())[]
-    >>
-    TRY(qpat_abbrev_tac `col' = insert h A col`>>
-    qsuff_tac `∃y. lookup h col' = SOME y ∧ is_phy_var y`
-    >-
-      metis_tac[spill_colouring_never_overwrites]
-    >>
-      unabbrev_all_tac>>full_simp_tac(srw_ss())[lookup_insert]>>
-      is_phy_var_tac>>
-      qpat_abbrev_tac `lss = QSORT (λx:num y. x≤y) A`>>
-      SORTED_TAC>>
-      imp_res_tac unbound_colours_props>>
-      metis_tac[])
-    >>
-    metis_tac[spill_colouring_never_overwrites])
+    (first_x_assum(qspec_then`h+1` assume_tac)>>fs[])
+  >-
+    (first_x_assum(qspec_then`h+1` assume_tac)>>fs[])
   >>
+    first_x_assum(qspec_then`k` assume_tac)>>fs[]);
+
+val st_ex_MAP_node_tag_sub = Q.store_thm("st_ex_MAP_node_tag_sub",`
+  ∀ls s.
+  EVERY (λv. v < LENGTH s.node_tag) ls ⇒
+  st_ex_MAP (\i.node_tag_sub i) ls s = (Success (MAP (λi. EL i s.node_tag) ls),s)`,
+  Induct>>fs[st_ex_MAP_def]>>fs msimps)
+
+val assign_Stemp_tag_correct = Q.store_thm("assign_Stemp_tag_correct",`
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  n < s.dim ⇒
+  ∃s'.
+  assign_Stemp_tag k n s = (Success (),s') ∧
+  (∀m.
+    if n = m ∧ EL n s.node_tag = Stemp
+      then ∃k'. EL n s'.node_tag = Fixed k' ∧ k ≤ k'
+      else EL m s'.node_tag = EL m s.node_tag) ∧
+  no_clash s'.adj_ls s'.node_tag ∧
+  good_ra_state s' ∧
+  s' = s with node_tag := s'.node_tag`,
+  rw[assign_Stemp_tag_def]>>simp msimps>>
+  reverse IF_CASES_TAC >- fs[good_ra_state_def]>>
+  simp[]>>
+  TOP_CASE_TAC>>simp msimps>>
+  simp[ra_state_component_equality]>>
+  reverse IF_CASES_TAC >- fs[good_ra_state_def]>>
+  simp[]>>
+  `EVERY (λv. v< LENGTH s.node_tag) (EL n s.adj_ls)` by
+    fs[good_ra_state_def,EVERY_MEM,MEM_EL,PULL_EXISTS]>>
+  imp_res_tac st_ex_MAP_node_tag_sub>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`unbound_colour k ls`>>
+  simp[EL_LUPDATE]>>
+  fs[good_ra_state_def]>>
+  `SORTED (\ x y. x ≤ y) ls` by
+    (fs[Abbr`ls`]>>
+    match_mp_tac QSORT_SORTED>>
+    fs[relationTheory.transitive_def,relationTheory.total_def])>>
+  drule unbound_colour_correct>>
+  strip_tac>>fs[]>>
+  match_mp_tac no_clash_LUPDATE_Fixed>>
+  simp[MEM_EL,PULL_EXISTS]>>
+  rw[]>>
+  first_x_assum(qspec_then`k` assume_tac)>>
+  qabbrev_tac`k' = unbound_colour k ls`>>
+  fs[Abbr`ls`,QSORT_MEM,MEM_MAP]>>
+  first_x_assum(qspec_then`Fixed k'` assume_tac)>>fs[tag_col_def]>>
+  pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
+  metis_tac[MEM_EL]);
+
+(* Almost exactly the same as the FOREACH for Atemps *)
+val assign_Stemps_FOREACH_lem = Q.prove(`
+  ∀ls s k.
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  EVERY (\v. v < s.dim) ls ==>
+  ∃s'.
+    st_ex_FOREACH ls (assign_Stemp_tag k) s = (Success (),s') ∧
+    no_clash s'.adj_ls s'.node_tag ∧
+    good_ra_state s' ∧
+    (∀m.
+      if MEM m ls ∧ EL m s.node_tag = Stemp
+        then ∃k'. EL m s'.node_tag = Fixed k' ∧ k ≤ k'
+        else EL m s'.node_tag = EL m s.node_tag) ∧
+    s' = s with node_tag := s'.node_tag`,
+  Induct>>rw[st_ex_FOREACH_def]>>
+  fs msimps>- simp[ra_state_component_equality]>>
+  drule (GEN_ALL assign_Stemp_tag_correct)>>
+  rpt(disch_then drule)>>
+  disch_then(qspec_then`k` assume_tac)>>fs[]>>
+  first_x_assum drule>>
+  rpt (disch_then drule)>>
+  fs[]>>simp[]>>
+  disch_then(qspec_then`k` assume_tac)>>fs[]>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>rfs[]>>
+  rw[]
+  >-
+    (rpt(first_x_assum (qspec_then`h` mp_tac))>>
+    simp[]>>
+    strip_tac>>IF_CASES_TAC>>fs[])
+  >-
+    metis_tac[]
+  >>
+    fs[]>>(
+    rpt(first_x_assum (qspec_then`m` mp_tac))>>
+    simp[]>>
+    strip_tac>>IF_CASES_TAC>>fs[]>>
+    metis_tac[]));
+
+val assign_Stemps_correct = Q.store_thm("assign_Stemps_correct",`
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ⇒
+  ∃s'.
+    assign_Stemps k s = (Success (),s') ∧
+    no_clash s'.adj_ls s'.node_tag ∧
+    good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
+    ∀m.
+      m < LENGTH s.node_tag ==>
+      if EL m s.node_tag = Stemp then
+        ∃k'. EL m s'.node_tag = Fixed k' ∧ k ≤ k'
+      else
+      EL m s'.node_tag = EL m s.node_tag`,
+  rw[assign_Stemps_def]>>
+  simp msimps>>
+  simp [get_dim_def]>>
+  drule assign_Stemps_FOREACH_lem>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls _`>>
+  disch_then (qspecl_then [`ls`,`k`] mp_tac)>>
+  impl_tac>-
+    fs[Abbr`ls`,EVERY_GENLIST]>>
+  strip_tac>>
+  fs[Abbr`ls`,MEM_GENLIST]>>
+  fs[good_ra_state_def]>>
+  metis_tac[]);
+
+(* --  Random sanity checks that will be needed at some point -- *)
+
+(* Checking that biased_pref satisfies good_pref *)
+val first_match_col_correct = Q.prove(`
+  ∀x ks s.
+  ∃res. first_match_col ks x s = (res,s) ∧
+  case res of
+    Failure v => v = Subscript
+  | Success (SOME k) => MEM k ks
+  | _ => T`,
+  Induct>>fs[first_match_col_def]>>fs msimps>>
+  rw[]>>
+  TOP_CASE_TAC>>fs[]>>
+  IF_CASES_TAC>>fs[]);
+
+val good_pref_biased_pref = Q.store_thm("good_pref_biased_pref",`
+  ∀t. good_pref (biased_pref t)`,
+  rw[good_pref_def,biased_pref_def]>>
+  TOP_CASE_TAC>>simp msimps>>
+  (first_match_col_correct |> SPEC_ALL |> assume_tac)>>
+  fs[]>>
+  EVERY_CASE_TAC>>fs[handle_Subscript_def]);
+
+(* -- *)
+
+(* Checking that the bijection produced is correct *)
+
+val in_clash_tree_def = Define`
+  (in_clash_tree (Delta w r) x ⇔ MEM x w ∨ MEM x r) ∧
+  (in_clash_tree (Set names) x ⇔ x ∈ domain names) ∧
+  (in_clash_tree (Branch name_opt t1 t2) x ⇔
+    in_clash_tree t1 x ∨
+    in_clash_tree t2 x ∨
+    case name_opt of
+      SOME names => x ∈ domain names
+    | NONE => F) ∧
+  (in_clash_tree (Seq t t') x ⇔ in_clash_tree t x ∨ in_clash_tree t' x)`
+
+(*g inverts f as an sptree *)
+val sp_inverts_def = Define`
+  sp_inverts f g ⇔
+  ∀m fm.
+    lookup m f = SOME fm ⇒
+    lookup fm g = SOME m`
+
+val sp_inverts_insert = Q.prove(`
+  sp_inverts f g ∧
+  x ∉ domain f ∧
+  y ∉ domain g ⇒
+  sp_inverts (insert x y f) (insert y x g)`,
+  rw[sp_inverts_def,lookup_insert]>>
+  pop_assum mp_tac>> IF_CASES_TAC>> rw[]>>
+  CCONTR_TAC >> fs[]>> first_x_assum drule>>
+  fs[domain_lookup]);
+
+val list_remap_domain = Q.prove(`
+  ∀ls ta fa n ta' fa' n'.
+  list_remap ls (ta,fa,n) = (ta',fa',n') ⇒
+  domain ta' = domain ta ∪ set ls`,
+  Induct>>rw[list_remap_def]>>
+  EVERY_CASE_TAC>>
+  first_x_assum drule>>fs[domain_insert]>>
+  fs[EXTENSION]>>
+  metis_tac[domain_lookup]);
+
+val list_remap_bij = Q.prove(`
+  ∀ls ta fa n ta' fa' n'.
+  list_remap ls (ta,fa,n) = (ta',fa',n') ∧
+  sp_inverts ta fa ∧
+  sp_inverts fa ta ∧
+  domain fa = count n ==>
+  Abbrev(sp_inverts ta' fa' ∧
+  sp_inverts fa' ta' ∧
+  domain fa' = count n')`,
+  Induct>>rw[list_remap_def]>>fs[markerTheory.Abbrev_def]>>
+  reverse EVERY_CASE_TAC>>
+  first_x_assum drule
+  >-
+    metis_tac[]
+  >>
+    impl_tac >-
+      (rw[]>>
+      TRY(match_mp_tac sp_inverts_insert>>
+        fs[]>>
+        CCONTR_TAC>>rfs[domain_lookup])>>
+      fs[domain_insert,EXTENSION])>>
+    metis_tac[])|>SIMP_RULE std_ss [markerTheory.Abbrev_def];
+
+val mk_bij_aux_domain = Q.prove(`
+  ∀ct ta fa n ta' fa' n'.
+  mk_bij_aux ct (ta,fa,n) = (ta',fa',n') ⇒
+  domain ta' = domain ta ∪ {x | in_clash_tree ct x}`,
+  Induct>>rw[mk_bij_aux_def]>>fs[in_clash_tree_def]
+  >- (
+    Cases_on`list_remap l0 (ta,fa,n)`>>Cases_on`r`>>
+    imp_res_tac list_remap_domain>>
+    fs[EXTENSION]>>
+    metis_tac[])
+  >- (
+    imp_res_tac list_remap_domain>>
+    fs[EXTENSION,toAList_domain])
+  >- (
+    `∃ta1 fa1 n1. mk_bij_aux ct (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct' (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    qpat_x_assum`_= (_,_,n')` mp_tac>> TOP_CASE_TAC>> fs[]
+    >-
+      (rw[]>>
+      simp[EXTENSION]>>metis_tac[])
+    >>
+      strip_tac>> drule list_remap_domain>>
+      rw[]>>simp[EXTENSION,toAList_domain]>>
+      metis_tac[])
+  >>
+    `∃ta1 fa1 n1. mk_bij_aux ct' (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    fs[]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]>>
+    rw[]>>simp[EXTENSION]>>
     metis_tac[]);
 
-(*Coloring is extended on the list according to conventions*)
-val spill_colouring_domain_2 = Q.prove(`
-  ∀G k prefs ls col.
-  let col' = spill_colouring G k prefs ls col in
-  ∀x. MEM x ls ∧ x ∈ domain G ∧ x ∉ domain col ⇒
-      ∃y. lookup x col' = SOME y ∧ y ≥ 2*k ∧ is_phy_var y`,
-  Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]
-  >-
-    (imp_res_tac assign_colour2_conventional>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_colouring_never_overwrites])
-  >>
-    Cases_on`x=h`>>full_simp_tac(srw_ss())[]
+val mk_bij_aux_bij = Q.prove(`
+  ∀ct ta fa n ta' fa' n'.
+  mk_bij_aux ct (ta,fa,n) = (ta',fa',n') ∧
+  sp_inverts ta fa ∧
+  sp_inverts fa ta ∧
+  domain fa = count n ==>
+  Abbrev(sp_inverts ta' fa' ∧
+  sp_inverts fa' ta' ∧
+  domain fa' = count n')`,
+  Induct>>rw[mk_bij_aux_def]>>
+  simp[markerTheory.Abbrev_def]
+  >- (
+    Cases_on`list_remap l0 (ta,fa,n)`>>Cases_on`r`>>
+    match_mp_tac list_remap_bij>>
+    asm_exists_tac>> simp[]>>
+    match_mp_tac list_remap_bij>>
+    metis_tac[])
+  >- (
+    match_mp_tac list_remap_bij>>
+    asm_exists_tac>> fs[])
+  >- (
+    `∃ta1 fa1 n1. mk_bij_aux ct (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct' (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    qpat_x_assum`_= (_,_,n')` mp_tac>> TOP_CASE_TAC>> fs[]
     >-
-      (imp_res_tac assign_colour2_conventional>>full_simp_tac(srw_ss())[]>>
-      metis_tac[spill_colouring_never_overwrites])
+      metis_tac[]
     >>
-      full_simp_tac(srw_ss())[assign_colour2_def]>>every_case_tac>>
-      full_simp_tac(srw_ss())[LET_THM]>>
-      metis_tac[]);
-
-val assign_colour2_reverse = Q.prove(`
-  ∀G:sp_graph k prefs h col col'.
-  assign_colour2 G k prefs h col = col'
-  ⇒
-  ∀x. x ≠ h ⇒
-  (x ∈ domain col' ⇒ x ∈ domain col)`,
-  srw_tac[][assign_colour2_def]>>every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[]);
-
-val spill_colouring_domain_3 = Q.prove(`
-  ∀G k prefs ls col.
-  let col' = spill_colouring G k prefs ls col in
-  ∀x. ¬MEM x ls ⇒
-  (x ∈ domain col' ⇒ x ∈ domain col)`,
-  Induct_on`ls`>>srw_tac[][spill_colouring_def,LET_THM]>>
-  Cases_on`assign_colour2 G k prefs h col`>>full_simp_tac(srw_ss())[]>>
-  metis_tac[assign_colour2_reverse]);
-
-val is_subgraph_edges_def = Define`
-  is_subgraph_edges G H ⇔
-    domain G = domain H  ∧  (*We never change the vertex set*)
-   (∀x y. lookup_g x y G ⇒ lookup_g x y H)`
-
-val partial_colouring_satisfactory_subgraph_edges = Q.prove(`
-  ∀G H col.
-  (*Every edge in G is in H*)
-  undir_graph G ∧
-  is_subgraph_edges G H ∧
-  (partial_colouring_satisfactory col H) ⇒
-  partial_colouring_satisfactory col G`,
-  full_simp_tac(srw_ss())[partial_colouring_satisfactory_def,lookup_g_def,is_subgraph_edges_def]>>
-  srw_tac[][]>>
-  `v ∈ domain G` by full_simp_tac(srw_ss())[]>>
-  full_simp_tac(srw_ss())[domain_lookup,undir_graph_def]>>
-  last_x_assum(qspec_then`v` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  first_x_assum(qspec_then`v'` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  last_assum(qspec_then`v` assume_tac)>>
-  pop_assum(qspec_then`v'` assume_tac)>>
-  last_x_assum(qspec_then`v'` assume_tac)>>
-  pop_assum(qspec_then`v` assume_tac)>>
-  rev_full_simp_tac(srw_ss())[]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  first_x_assum(qspec_then`v` assume_tac)>>full_simp_tac(srw_ss())[LET_THM]>>
-  rev_full_simp_tac(srw_ss())[]>>
-  pop_assum(qspec_then`v'` assume_tac)>>
-  rev_full_simp_tac(srw_ss())[]);
-
-val undir_g_preserve = Q.prove(`
-  undir_graph G ∧
-  x ≠ y ⇒
-  undir_graph (undir_g_insert x y G)`,
-  full_simp_tac(srw_ss())[undir_graph_def,undir_g_insert_def,dir_g_insert_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[lookup_insert]>>
-  IF_CASES_TAC >-
-    (rev_full_simp_tac(srw_ss())[]>>Cases_on`lookup x G`>>full_simp_tac(srw_ss())[Abbr`tree'`,Abbr`tree`]>>
-    first_x_assum(qspec_then`x`assume_tac)>>rev_full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`lookup y G`>>full_simp_tac(srw_ss())[])>>
-  IF_CASES_TAC >-
-    (rev_full_simp_tac(srw_ss())[]>>Cases_on`lookup y G`>>full_simp_tac(srw_ss())[Abbr`tree'`,Abbr`tree`]>>
-    first_x_assum(qspec_then`y`assume_tac)>>rev_full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`lookup x G`>>full_simp_tac(srw_ss())[])>>
-  rev_full_simp_tac(srw_ss())[]>>full_case_tac>>
-  first_x_assum(qspec_then`x'`assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[]
-  >-
-    (first_x_assum(qspec_then`x` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[Abbr`tree'`])
+      strip_tac>> metis_tac[list_remap_bij])
   >>
-    (first_x_assum(qspec_then`y` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[Abbr`tree`]));
+    `∃ta1 fa1 n1. mk_bij_aux ct' (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    fs[]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]) |> SIMP_RULE std_ss [markerTheory.Abbrev_def];
 
-val finish_tac =
-  last_x_assum(qspec_then`v` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  first_x_assum(qspec_then`v'` assume_tac)>>rev_full_simp_tac(srw_ss())[domain_lookup]>>
-  last_x_assum(qspec_then `v'` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  pop_assum(qspec_then`v` assume_tac)>>rev_full_simp_tac(srw_ss())[];
+val list_remap_wf = Q.prove(`
+  ∀l ta fa n ta' fa' n'.
+  list_remap l (ta,fa,n) = (ta',fa',n') /\
+  wf ta ∧ wf fa ==>
+  wf ta' ∧ wf fa'`,
+  Induct>>fs[list_remap_def,FORALL_PROD]>>
+  rw[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  first_x_assum drule>>
+  rpt (disch_then drule)>>
+  fs[wf_insert]);
 
-val partial_colouring_satisfactory_extend_2 = Q.prove(`
-  undir_graph G ∧
-  partial_colouring_satisfactory col G ∧
-  (x ∉ domain col ∨ y ∉ domain col ∧
-  x ∈ domain G ∧ y ∈ domain G) ⇒
-  partial_colouring_satisfactory col (undir_g_insert x y G)`,
-  full_simp_tac(srw_ss())[undir_g_insert_def,dir_g_insert_def
-    ,partial_colouring_satisfactory_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[domain_lookup,LET_THM]>>
-  rev_full_simp_tac(srw_ss())[lookup_insert]
-  >>
-    TRY(full_simp_tac(srw_ss())[SUBSET_DEF]>>NO_TAC)
-  >>
-  Cases_on`v=x`>>
-  Cases_on`x=y`>>
-  full_simp_tac(srw_ss())[undir_graph_def]>>
-  unabbrev_all_tac>>
-  TRY(finish_tac>>NO_TAC)>>
-  TRY(rename[`COND (v = y)`,`lookup y G`] >> Cases_on`v=y`>>
-      Cases_on`lookup y G`>>full_simp_tac(srw_ss())[]>>
-      TRY (qpat_x_assum `insert _ _ _ = _` (SUBST_ALL_TAC o SYM) >>
-           full_simp_tac(srw_ss())[lookup_insert]>>
-           rename1`COND (v'=x)` >>
-           Cases_on`v'=x`>>
-           full_simp_tac(srw_ss())[lookup_def])>> finish_tac) >>
-  rveq >>
-  full_simp_tac(srw_ss())[lookup_insert]>>rename1`COND (v' = y)`>>
-  Cases_on`v'=y`>>full_simp_tac(srw_ss())[lookup_def]>>
-  finish_tac);
-
-val list_g_insert_undir = Q.prove(`
-  ∀ls G col.
-  undir_graph G ∧
-  ¬MEM q ls ⇒
-  let G' = list_g_insert q ls G in
-  undir_graph G'`,
-  Induct>>srw_tac[][list_g_insert_def]>>
-  full_simp_tac(srw_ss())[Abbr`G'`]
+val mk_bij_aux_wf = Q.store_thm("mk_bij_aux_wf",`
+  ∀ct ta fa n ta' fa' n'.
+  mk_bij_aux ct (ta,fa,n) = (ta',fa',n') /\
+  wf ta ∧ wf fa ⇒
+  Abbrev(wf ta' ∧ wf fa')`,
+  Induct>>rw[mk_bij_aux_def]
   >-
-    (every_case_tac>>full_simp_tac(srw_ss())[undir_graph_def,lookup_insert]>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]>>full_case_tac>>
-    last_x_assum(qspec_then`x` assume_tac)>>full_simp_tac(srw_ss())[domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>
-    srw_tac[][]>>
-    first_x_assum(qspec_then`q` assume_tac)>>
-    rev_full_simp_tac(srw_ss())[])
-  >>
-    metis_tac[undir_g_preserve]);
-
-val list_g_insert_lemma = Q.prove(`
-  ∀ls G col.
-  undir_graph G ∧
-  ¬ MEM q ls ∧
-  q ∈ domain G ∧
-  (∀x. MEM x ls ⇒ x ∈ domain G ∧ x ∉ domain col) ∧
-  partial_colouring_satisfactory col G
-  ⇒
-  let G' = list_g_insert q ls G in
-  is_subgraph_edges G G' ∧
-  undir_graph G' ∧
-  partial_colouring_satisfactory col G'`,
-  Induct
+    (Cases_on`list_remap l0 (ta,fa,n)`>>Cases_on`r`>>
+    simp[markerTheory.Abbrev_def]>>
+    drule list_remap_wf>>fs[]>>strip_tac>>
+    metis_tac[PAIR_EQ,PAIR,list_remap_wf,FST,SND])
   >-
-    (srw_tac[][list_g_insert_def,is_subgraph_edges_def]>>
-    every_case_tac>>unabbrev_all_tac>>
-    full_simp_tac(srw_ss())[domain_insert,SUBSET_DEF,lookup_g_def,lookup_insert,undir_graph_def
-      ,partial_colouring_satisfactory_def,domain_empty]>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]>- (full_simp_tac(srw_ss())[EXTENSION]>>metis_tac[])
-    >-
-    (full_case_tac>>
-    last_x_assum(qspec_then`x` assume_tac)>>full_simp_tac(srw_ss())[domain_lookup]>>rev_full_simp_tac(srw_ss())[])
-    >>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[domain_empty])
-  >>
-  srw_tac[][list_g_insert_def,is_subgraph_edges_def]>>
-  full_simp_tac(srw_ss())[]>>
-  first_x_assum(qspecl_then[`G`,`col`] mp_tac)>>impl_tac>>
-  full_simp_tac(srw_ss())[LET_THM,Abbr`G'`]>>srw_tac[][]
+    (simp[markerTheory.Abbrev_def]>>
+    drule list_remap_wf>>fs[])
   >-
-    (full_simp_tac(srw_ss())[is_subgraph_edges_def,undir_g_insert_def]>>
-    full_simp_tac(srw_ss())[EXTENSION,domain_lookup]>>srw_tac[][]>>
-    full_simp_tac(srw_ss())[dir_g_insert_def,LET_THM]>>every_case_tac>>
-    full_simp_tac(srw_ss())[lookup_insert]>>
-    rpt(IF_CASES_TAC>>full_simp_tac(srw_ss())[]))
-  >-
-    (full_simp_tac(srw_ss())[undir_g_insert_def]>>
-    metis_tac[lookup_dir_g_insert_correct,list_g_insert_correct])
-  >-
-    metis_tac[undir_g_preserve]
-  >>
-    match_mp_tac partial_colouring_satisfactory_extend_2>>
-    rev_full_simp_tac(srw_ss())[list_g_insert_domain]);
-
-val is_subgraph_edges_trans = Q.prove(`
-  is_subgraph_edges A B ∧
-  is_subgraph_edges B C ⇒
-  is_subgraph_edges A C`,
-  full_simp_tac(srw_ss())[is_subgraph_edges_def]>>srw_tac[][SUBSET_DEF]);
-
-val full_coalesce_aux_extends = Q.prove(`
-  ∀(G:sp_graph) (ls:(num,num#num) alist) spills col.
-  partial_colouring_satisfactory col G ∧
-  (∀x. MEM x spills ⇒ x ∈ domain G ∧  x ∉ domain col) ∧
-  undir_graph G ⇒
-  let (G',ls') = full_coalesce_aux G spills ls in
-  is_subgraph_edges G G' ∧
-  undir_graph G' ∧
-  partial_colouring_satisfactory col G'`,
-  Induct_on`ls`>-full_simp_tac(srw_ss())[full_coalesce_aux_def,LET_THM,is_subgraph_edges_def]>>
-  ntac 4 strip_tac>>
-  PairCases_on`h`>>
-  full_simp_tac(srw_ss())[full_coalesce_aux_def,LET_THM]>>
-  IF_CASES_TAC>-
-    (full_simp_tac(srw_ss())[]>>metis_tac[])>>
-  full_simp_tac(srw_ss())[]>>every_case_tac>>full_simp_tac(srw_ss())[]>>
-  qpat_abbrev_tac `G'=list_g_insert h1 A G`>>
-  first_x_assum(qspecl_then[`G'`,`spills`,`col`] mp_tac)>>
-  rev_full_simp_tac(srw_ss())[]>>
-  srw_tac[][Abbr`G'`]>>
-  qpat_abbrev_tac`lss = FILTER P (MAP FST (toAList A))`>>
-  Q.ISPECL_THEN [`h1`,`lss`,`G`,`col`] mp_tac (GEN_ALL list_g_insert_lemma)>>
-  rev_full_simp_tac(srw_ss())[]>>
-  impl_keep_tac>-
     (
-    srw_tac[][]
+    `∃ta1 fa1 n1. mk_bij_aux ct (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct' (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    qpat_x_assum`_= (_,_,n')` mp_tac>> TOP_CASE_TAC>> fs[]
     >-
-      (CCONTR_TAC>>
-      full_simp_tac(srw_ss())[MEM_FILTER,Abbr`lss`,MEM_toAList,FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
-      rev_full_simp_tac(srw_ss())[undir_graph_def,lookup_g_def]>>
-      Cases_on`lookup h1 G`>>full_simp_tac(srw_ss())[]>>
-      first_x_assum(qspec_then`h2` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-      `h2 ∉ domain x'` by
-        full_simp_tac(srw_ss())[domain_lookup]>>
-      first_x_assum(qspec_then`h1` mp_tac)>>full_simp_tac(srw_ss())[domain_lookup])
-    >-
-      metis_tac[domain_lookup,optionTheory.option_CLAUSES]
+      metis_tac[]
     >>
-      full_simp_tac(srw_ss())[Abbr`lss`,MEM_FILTER]>>metis_tac[])
+      strip_tac>>
+      metis_tac[list_remap_wf])
   >>
-  full_simp_tac(srw_ss())[LET_THM,UNCURRY]>>strip_tac>>
-  qpat_x_assum `A ⇒ B` mp_tac>>
-  impl_tac>-
-    (`h1 ∈ domain G` by full_simp_tac(srw_ss())[FORALL_PROD]>>
-    full_simp_tac(srw_ss())[EXTENSION,list_g_insert_domain])>>
-  metis_tac[is_subgraph_edges_trans]);
+    `∃ta1 fa1 n1. mk_bij_aux ct' (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    fs[]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]);
 
-val full_coalesce_lemma = Q.prove(`
-  undir_graph G ∧
-  partial_colouring_satisfactory col G ∧
-  (∀x. MEM x ls ⇒ x ∉ domain col ∧ x ∈ domain G) ∧
-  full_coalesce G k moves ls = (G',spills,coalesce_map)
-  ⇒
-  is_subgraph_edges G G' ∧
-  undir_graph G' ∧
-  partial_colouring_satisfactory col G'`,
-  full_simp_tac(srw_ss())[full_coalesce_def,LET_THM]>>
-  qpat_abbrev_tac `lss = QSORT g (FILTER f moves)`>>
-  Cases_on`full_coalesce_aux G ls lss`>>
-  strip_tac>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac full_coalesce_aux_extends>>
-  ntac 2 (pop_assum kall_tac)>>
-  pop_assum (Q.ISPEC_THEN `ls` mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[]>>
-  strip_tac>>
-  pop_assum (Q.ISPEC_THEN `lss` mp_tac)>>
-  full_simp_tac(srw_ss())[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM,QSORT_MEM]);
+(* Properties of the graph manipulating functions
+   All of these simultaneously prove success
+   together with the correctness properties.
 
-fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
-
-val foreach_graph = Q.prove(`
-  ∀ls s.
-    ∃s'.
-    FOREACH (ls,dec_one) s = ((),s') ∧
-    s'.graph = s.graph ∧
-    s'.clock = s.clock`,
-    Induct>>srw_tac[][]>>fsm[dec_one_def,get_deg_def,set_deg_def]>>
-    every_case_tac>>fsm[]>>
-    first_x_assum(qspec_then`s with degs := insert h (x-1) s.degs` assume_tac)>>
-    srw_tac[][]>>metis_tac[]);
-
-val foreach_graph2 = Q.prove(`
-  ∀ls s.
-    ∃s'.
-    FOREACH (ls,revive_moves) s = ((),s') ∧
-    s'.graph = s.graph ∧
-    s'.clock = s.clock`,
-    Induct>>srw_tac[][]>>
-    fsm[revive_moves_def,get_graph_def,LET_THM,get_unavail_moves_def,
-        set_unavail_moves_def,add_avail_moves_def,add_avail_moves_pri_def]>>
-    every_case_tac>>fsm[]>>
-    qpat_abbrev_tac`lsrs = PARTITION P s.unavail_moves`>>
-    Cases_on`lsrs`>>srw_tac[][]>>
-    Cases_on`split_priority q`>>srw_tac[][]>>
-    qpat_abbrev_tac`sfin = s with <|avail_moves_pri:=A;avail_moves:=B;unavail_moves:=C|>`>>
-    first_x_assum(qspec_then`sfin` assume_tac)>>
-    srw_tac[][]>>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[]);
-
-val rest_tac =
-  Q.ISPECL_THEN [`MAP FST (toAList x)`,`sopt`] assume_tac foreach_graph>>
-  fsm[]>>
-  qpat_x_assum `A = ((),s'')` SUBST_ALL_TAC>>
-  fsm[]>>
-  TRY(qpat_abbrev_tac`lsrs = PARTITION P s.spill_worklist`)>>
-  TRY(qpat_abbrev_tac`lsrs = PARTITION P s''.spill_worklist`)>>
-  TRY(qpat_abbrev_tac`lsrs = PARTITION P r`)>>
-  Cases_on`lsrs`>>fsm[]>>
-  TRY(qpat_abbrev_tac`lsrs = PARTITION P q`)>>
-  TRY(qpat_abbrev_tac`lsrs = PARTITION P q'`)>>
-  Cases_on`lsrs`>>fsm[set_spill_worklist_def,add_freeze_worklist_def,add_simp_worklist_def]>>
-  TRY(Q.ISPECL_THEN [`q`,`sopt`] assume_tac foreach_graph2)>>
-  TRY(Q.ISPECL_THEN [`q`,`s''`] assume_tac foreach_graph2)>>
-  TRY(Q.ISPECL_THEN [`q'`,`sopt`] assume_tac foreach_graph2)>>
-  TRY(Q.ISPECL_THEN [`q'`,`s''`] assume_tac foreach_graph2)>>
-  fsm[]>>
-  qpat_x_assum `A = ((),s''')` SUBST_ALL_TAC>>
-  srw_tac[][Abbr`sopt`]>>full_simp_tac(srw_ss())[ra_state_nchotomy]
-
-(*Simplify neverchanges the graph*)
-val simplify_graph = Q.prove(`
-  ∀s G s' opt.
-    simplify s = (opt,s') ⇒
-    s'.graph = s.graph ∧
-    s'.clock = s.clock`,
-  srw_tac[][]>>
-  fsm[simplify_def,get_simp_worklist_def]>>
-  Cases_on`s.simp_worklist`>>fsm[set_simp_worklist_def]>>
-  srw_tac[][]>>every_case_tac>>
-  fsm[dec_deg_def,get_graph_def]>>srw_tac[][]>>
-  every_case_tac>>
-  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colours_def,get_move_rel_def,LET_THM]>>
-  pop_assum mp_tac>>
-  qpat_abbrev_tac`sopt = s with simp_worklist := A`>>
-  rest_tac);
-
-val freeze_graph = Q.prove(`
-∀s G s' opt.
-    freeze s = (opt,s') ⇒
-    s'.graph = s.graph ∧
-    s'.clock = s.clock`,
-  srw_tac[][]>>
-  fsm[freeze_def,get_coalesced_def,get_freeze_worklist_def,freeze_node_def,get_unavail_moves_def,get_graph_def,get_degs_def,set_move_rel_def,set_unavail_moves_def,LET_THM]>>
-  pop_assum mp_tac>>
-  qpat_abbrev_tac`ls = PARTITION P (FILTER Q s.freeze_worklist)`>>
-  Cases_on`ls`>>fsm[]>>
-  srw_tac[][]>>every_case_tac>>
-  fsm[dec_deg_def,get_graph_def]>>srw_tac[][]>>
-  every_case_tac>>
-  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colours_def,get_move_rel_def,LET_THM,add_simp_worklist_def,set_freeze_worklist_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  pop_assum mp_tac>>
-  TRY(qpat_abbrev_tac`sopt = s with <|simp_worklist:=A;freeze_worklist:=B;move_related:=C;unavail_moves:=D|>`)>>
-  TRY(qpat_abbrev_tac`sopt = s with <|freeze_worklist:=A;move_related:=B;unavail_moves:=C|>`)>>
-  rest_tac);
-
-val spill_graph = Q.prove(`
-∀s G s' opt.
-    spill s = (opt,s') ⇒
-    s'.graph = s.graph ∧
-    s'.clock = s.clock`,
-  srw_tac[][]>>
-  fsm[spill_def,get_coalesced_def,get_spill_worklist_def]>>
-  Cases_on`s.spill_worklist`>>fsm[set_spill_worklist_def]>>
-  srw_tac[][]>>every_case_tac>>
-  fsm[dec_deg_def,get_graph_def]>>srw_tac[][]>>
-  every_case_tac>>
-  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colours_def,get_move_rel_def,LET_THM]>>
-  ntac 2 (pop_assum mp_tac)>>
-  qpat_abbrev_tac`A = max_non_coalesced B C D E G`>>
-  Cases_on`A`>>full_simp_tac(srw_ss())[]>>
-  TRY(full_case_tac)>>full_simp_tac(srw_ss())[]>>
-  qpat_abbrev_tac`sopt = s with spill_worklist :=A`>>
-  rest_tac);
-
-val rest_tac2 =
-    first_x_assum(qspec_then`sopt`mp_tac)>>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[]>>
-    impl_tac>-
-    (srw_tac[][]>-
-      (match_mp_tac undir_g_preserve>>rev_full_simp_tac(srw_ss())[])
-    >>
-    full_simp_tac(srw_ss())[undir_g_insert_domain])>>
-    srw_tac[][]>>HINT_EXISTS_TAC >>rev_full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[undir_g_insert_domain]>>
-    full_simp_tac(srw_ss())[undir_g_insert_def]>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[EXTENSION]>>
-    metis_tac[lookup_dir_g_insert_correct]
-
-val foreach_graph_extend = Q.prove(`
-  ∀ls s.
-  undir_graph s.graph ∧
-  x ∈ domain s.graph ∧
-  (∀y. MEM y ls ⇒ x ≠ y ∧ y ∈ domain s.graph) ⇒
-  ∃s'.
-  FOREACH (ls,
-          (λv.
-            if lookup v x_edges = NONE then
-              do
-                inc_one x;
-                force_add x v
-              od
-            else
-              dec_one v)) s = ((),s') ∧
-   is_subgraph_edges s.graph s'.graph ∧
-   undir_graph s'.graph`,
-  Induct>>srw_tac[][]>>fsm[is_subgraph_edges_def]>>
-  IF_CASES_TAC>>fsm[force_add_def,inc_one_def,get_deg_def]>>
-  every_case_tac>>
-  fsm[set_deg_def,dec_one_def,get_deg_def]>>every_case_tac>>
-  fsm[]>>srw_tac[][]
-  >-
-    (qpat_abbrev_tac`sopt = s with graph:=undir_g_insert x h s.graph`>>
-    rest_tac2)
-  >-
-    (qpat_abbrev_tac`sopt = s with <|graph:=A;degs:=B|>`>>
-    rest_tac2)
-  >>
-    (qpat_abbrev_tac`sopt = s with degs:=insert h (x'-1) s.degs`>>
-    first_x_assum(qspec_then`sopt`mp_tac)>>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[]));
-
-val foreach_graph_extend_2 = Q.prove(`
-  ∀ls s s'.
-  FOREACH (ls,
-          (λv.
-           if lookup v x_edges = NONE then
-              do
-                inc_one x;
-                force_add x v
-              od
-            else
-              dec_one v)) s = ((),s') ⇒
-   s'.clock = s.clock`,
-  Induct>>srw_tac[][]>>fsm[is_subgraph_edges_def]>>
-  fsm[force_add_def,inc_one_def,get_deg_def]>>
-  every_case_tac>>fsm[set_deg_def,dec_one_def,get_deg_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  res_tac>>full_simp_tac(srw_ss())[]);
-
-val split_avail_filter = Q.prove(`
-  ∀ls acc B C.
-  split_avail (is_valid_move G A) Q ls acc = (SOME (p,x,y),B,C)
-  ⇒
-  ¬ lookup_g x y G`,
-  Induct>>
-  srw_tac[][split_avail_def,LET_THM]
-  >-
-  full_simp_tac(srw_ss())[is_valid_move_def,LET_THM]
-  >>
-  metis_tac[]);
-
-val unspill_lem = GEN_ALL (prove(``
-  unspill s = (q,r) ⇒
-  r.graph = s.graph ∧
-  r.clock = s.clock``,
-  fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colours_def,get_move_rel_def,LET_THM]>>
-  qpat_abbrev_tac`sopt = s`>>
-  rest_tac));
-
-val do_coalesce_lem = Q.prove(`
-  undir_graph s.graph ∧
-  is_subgraph_edges G s.graph ∧
-  ¬lookup_g q r s.graph ∧
-  do_coalesce (q,r) s = ((),s') ⇒
-  undir_graph s'.graph ∧
-  is_subgraph_edges G s'.graph`,
-  fsm[do_coalesce_def,add_coalesce_def,get_edges_def,get_degs_def
-     ,get_colours_def,LET_THM]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  TRY(srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-  fsm[LET_THM]>>
-  qpat_abbrev_tac `ls = FILTER P (MAP FST (toAList x'))`>>
-  qpat_abbrev_tac `sopt = (s with coalesced:= A)`>>
-  strip_tac>>
-  Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`] mp_tac (GEN_ALL foreach_graph_extend)>>
-  impl_tac>-
-   (`∀x. MEM x (MAP FST (toAList x')) ⇒ x ∈ domain sopt.graph` by
-     (srw_tac[][]>>full_simp_tac(srw_ss())[MEM_MAP]>>Cases_on`y`>>full_simp_tac(srw_ss())[MEM_toAList,Abbr`sopt`]>>
-     full_simp_tac(srw_ss())[undir_graph_def]>>
-     first_x_assum(qspec_then`r` assume_tac)>>rev_full_simp_tac(srw_ss())[domain_lookup]>>
-     first_x_assum(qspec_then`q'` assume_tac)>>rev_full_simp_tac(srw_ss())[])>>
-   unabbrev_all_tac>>full_simp_tac(srw_ss())[MEM_FILTER]>>
-   CONJ_ASM1_TAC>- full_simp_tac(srw_ss())[domain_lookup]>>
-   DISJ2_TAC>>
-   full_simp_tac(srw_ss())[lookup_g_def,undir_graph_def]>>srw_tac[][]>>
-   first_x_assum(qspec_then`q` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-   CCONTR_TAC>>full_simp_tac(srw_ss())[]>>
-   `lookup q x' = SOME ()` by
-     (full_simp_tac(srw_ss())[MEM_MAP]>>Cases_on`y`>>full_simp_tac(srw_ss())[MEM_toAList])>>
-   first_x_assum(qspec_then`r` assume_tac)>>rev_full_simp_tac(srw_ss())[domain_lookup]>>
-   first_x_assum(qspec_then`q` assume_tac)>>rev_full_simp_tac(srw_ss())[])
-  >>
-  srw_tac[][]>>fsm[Abbr`sopt`]>>
-  metis_tac[is_subgraph_edges_trans]);
-
-val do_coalesce_clock_lem=prove(``
-  do_coalesce (q,r) s = ((),s') ⇒
-  s'.clock = s.clock``,
-  fsm[do_coalesce_def,add_coalesce_def,get_edges_def,get_degs_def
-     ,get_colours_def,LET_THM]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  TRY(srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-  fsm[LET_THM]>>
-  qpat_abbrev_tac `ls = FILTER P (MAP FST (toAList x'))`>>
-  qpat_abbrev_tac `sopt = (s with coalesced:= A)`>>
-  strip_tac>>
-  Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`,`s'`] assume_tac (GEN_ALL foreach_graph_extend_2)>>
-  fsm[]>>rev_full_simp_tac(srw_ss())[Abbr`sopt`]);
-
-val respill_lem = Q.prove(`
-  ∀s v r. respill v s = ((),r) ⇒
-  r.graph = s.graph ∧ r.clock = s.clock`,
-  srw_tac[][respill_def]>>
-  fsm[get_colours_def,get_deg_def,get_freeze_worklist_def
-     ,add_spill_worklist_def,set_freeze_worklist_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  Cases_on`MEM v s.freeze_worklist`>>full_simp_tac(srw_ss())[]>>
-  qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[]);
-
-val coalesce_graph = Q.prove(`
-∀s G s' opt.
-    undir_graph s.graph ∧
-    is_subgraph_edges G s.graph ∧
-    coalesce s = (opt,s') ⇒
-    undir_graph s'.graph ∧
-    is_subgraph_edges G s'.graph`,
-  ntac 5 strip_tac>>
-  fsm[coalesce_def,get_avail_moves_pri_def,get_avail_moves_def,get_graph_def,get_colours_def,get_degs_def,get_move_rel_def]>>
-  every_case_tac>>
-  fsm[set_avail_moves_pri_def,set_avail_moves_def,add_unavail_moves_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>-
-    (srw_tac[][]>>full_simp_tac(srw_ss())[])>>
-  pop_assum mp_tac>>
-  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>Cases_on`do_coalesce (q''',r''') s''`)>>
-  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;unavail_moves:=D|>`>>
-  Cases_on`do_coalesce (q'',r'') s''`)>>
-  fsm[get_unavail_moves_def,LET_THM,set_unavail_moves_def]>>
-  qpat_abbrev_tac`sopt = r with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>
-  Cases_on`unspill sopt`>>full_simp_tac(srw_ss())[]>>
-  TRY(Cases_on`respill q''' r''''`)>>
-  TRY(Cases_on`respill q'' r'''`)>>
-  strip_tac>>full_simp_tac(srw_ss())[]>>
-  `s''.graph = s.graph ∧ s''.clock = s.clock` by full_simp_tac(srw_ss())[Abbr`s''`]>>
-  `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by full_simp_tac(srw_ss())[]>>
-  imp_res_tac split_avail_filter>>
-  qpat_x_assum`A = s.graph` (SUBST_ALL_TAC o SYM)>>
-  imp_res_tac do_coalesce_lem>>
-  imp_res_tac respill_lem>>
-  imp_res_tac unspill_lem>>
-  unabbrev_all_tac>>full_simp_tac(srw_ss())[]>>
-  rev_full_simp_tac(srw_ss())[]);
-
-val coalesce_graph_2 = Q.prove(`
-∀s G s' opt.
-    coalesce s = (opt,s') ⇒
-    s'.clock = s.clock`,
-  ntac 5 strip_tac>>
-  fsm[coalesce_def,get_avail_moves_pri_def,get_avail_moves_def,get_graph_def,get_colours_def,get_degs_def,get_move_rel_def]>>
-  every_case_tac>>
-  fsm[set_avail_moves_pri_def,set_avail_moves_def,add_unavail_moves_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>-
-    (srw_tac[][]>>full_simp_tac(srw_ss())[])>>
-  pop_assum mp_tac>>
-  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>Cases_on`do_coalesce (q''',r''') s''`)>>
-  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;unavail_moves:=D|>`>>
-  Cases_on`do_coalesce (q'',r'') s''`)>>
-  fsm[get_unavail_moves_def,LET_THM,set_unavail_moves_def]>>
-  qpat_abbrev_tac`sopt = r with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>
-  Cases_on`unspill sopt`>>full_simp_tac(srw_ss())[]>>
-  TRY(Cases_on`respill q''' r''''`)>>
-  TRY(Cases_on`respill q'' r'''`)>>
-  strip_tac>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac do_coalesce_clock_lem>>
-  imp_res_tac respill_lem>>
-  imp_res_tac unspill_lem>>
-  unabbrev_all_tac>>full_simp_tac(srw_ss())[]);
-
-val do_step_graph_lemma = Q.store_thm("do_step_graph_lemma",`
-  ∀s G s'.
-    undir_graph s.graph ∧
-    is_subgraph_edges G s.graph ∧
-    s.clock ≠ 0 ∧
-    do_step s = ((),s') ⇒
-    undir_graph s'.graph ∧
-    is_subgraph_edges G s'.graph`,
-    srw_tac[][]>>
-    fsm[do_step_def,dec_clock_def]>>
-    qabbrev_tac`sopt = (s with clock:=s.clock-1)`>>
-    `sopt.graph = s.graph` by full_simp_tac(srw_ss())[Abbr`sopt`]>>
-    `sopt.clock < s.clock` by (full_simp_tac(srw_ss())[Abbr`sopt`]>>DECIDE_TAC)>>
-    Cases_on`simplify sopt`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`coalesce r`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`freeze r'`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`spill r''`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    fsm[push_stack_def]>>
-    TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2]);
-
-val do_step_clock_lemma = Q.store_thm("do_step_clock_lemma",`
-  ∀s G s'.
-    s.clock ≠ 0 ∧
-    do_step s = ((),s') ⇒
-    s'.clock < s.clock`,
-    srw_tac[][]>>
-    fsm[do_step_def,dec_clock_def]>>
-    qabbrev_tac`sopt = (s with clock:=s.clock-1)`>>
-    `sopt.graph = s.graph` by full_simp_tac(srw_ss())[Abbr`sopt`]>>
-    `sopt.clock < s.clock` by (full_simp_tac(srw_ss())[Abbr`sopt`]>>DECIDE_TAC)>>
-    Cases_on`simplify sopt`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`coalesce r`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`freeze r'`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`spill r''`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-    fsm[push_stack_def]>>
-    TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2]);
-
-val rpt_do_step_graph_lemma = Q.store_thm("rpt_do_step_graph_lemma",`
-  ∀s.
-    undir_graph s.graph
-    ⇒
-    let ((),s') = rpt_do_step s in
-    undir_graph s'.graph ∧
-    is_subgraph_edges s.graph s'.graph`,
-  full_simp_tac(srw_ss())[rpt_do_step_def]>>
-  completeInduct_on`s.clock`>>
-  srw_tac[][]>>
-  pop_assum mp_tac>>
-  Q.ISPECL_THEN [`has_work`,`do_step`] assume_tac MWHILE_DEF>>
-  pop_assum (SUBST1_TAC)>>
-  fsm[has_work_def,get_clock_def]>>
-  pop_assum mp_tac>>IF_CASES_TAC>>
-  srw_tac[][]>>fsm[]>>
-  TRY(full_simp_tac(srw_ss())[is_subgraph_edges_def]>>NO_TAC)>>
-  Cases_on`do_step s`>>
-  first_x_assum(qspec_then`r.clock` mp_tac)>>
-  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_graph_lemma>>
-  (impl_tac>-
-    (rev_full_simp_tac(srw_ss())[is_subgraph_edges_def]>>
-    DECIDE_TAC))>>
-  Q.ISPECL_THEN[`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
-  (impl_tac>-
-    (full_simp_tac(srw_ss())[]>>DECIDE_TAC))>>
-  srw_tac[][]>>
-  pop_assum(qspec_then`r` mp_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[is_subgraph_edges_trans]);
-
-val do_step2_clock_lemma = Q.store_thm("do_step2_clock_lemma",`
-  ∀s G s'.
-    s.clock ≠ 0 ∧
-    do_step2 s = ((),s') ⇒
-    s'.clock < s.clock`,
-  srw_tac[][]>>fsm[do_step2_def,dec_clock_def,full_simplify_def,get_simp_worklist_def,get_degs_def]>>full_case_tac>>
-  fsm[dec_deg_def,set_simp_worklist_def,get_graph_def,push_stack_def]>>
-  TRY(full_case_tac)>>full_simp_tac(srw_ss())[]>>
-  TRY(pop_assum (SUBST_ALL_TAC o SYM)>>full_simp_tac(srw_ss())[]>>DECIDE_TAC)>>
-  pop_assum mp_tac>>
-  qpat_abbrev_tac`ls = MAP FST (toAList x)`>>
-  qpat_abbrev_tac`sopt = s with <|simp_worklist:=A;clock:=B|>`>>
-  Q.ISPECL_THEN [`ls`,`sopt`] assume_tac foreach_graph>>full_simp_tac(srw_ss())[LET_THM]>>
-  srw_tac[][Abbr`sopt`]>>
-  fsm[]>>
-  DECIDE_TAC);
-
-val do_briggs_step_clock_lemma = Q.store_thm("do_briggs_step_clock_lemma",`
-  ∀s G s'.
-    s.clock ≠ 0 ∧
-    do_briggs_step s = ((),s') ⇒
-    s'.clock < s.clock`,
-  rw[]>>fsm[do_briggs_step_def,dec_clock_def,UNCURRY]>>
-  Cases_on`coalesce (s with clock:=s.clock-1)`>>Cases_on`q`>>full_simp_tac(srw_ss())[push_stack_def]>>
-  imp_res_tac coalesce_graph_2>>
-  rpt var_eq_tac>>fs[]);
-
-(*Note:Briggs clock is not pulled out since it isn't used (yet)*)
-val do_briggs_step_graph_lemma = Q.prove(`
-  ∀s G s'.
-    undir_graph s.graph ∧
-    is_subgraph_edges G s.graph ∧
-    s.clock ≠ 0 ∧
-    do_briggs_step s = ((),s') ⇒
-    undir_graph s'.graph ∧
-    is_subgraph_edges G s'.graph ∧
-    s'.clock < s.clock`,
-  srw_tac[][]>>
-  fsm[do_briggs_step_def,dec_clock_def]>>
-  qabbrev_tac`sopt = (s with clock:=s.clock-1)`>>
-  `sopt.graph = s.graph` by full_simp_tac(srw_ss())[Abbr`sopt`]>>
-  `sopt.clock < s.clock` by (full_simp_tac(srw_ss())[Abbr`sopt`]>>DECIDE_TAC)>>
-  Cases_on`coalesce sopt`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
-  fsm[push_stack_def]>>
-  TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
-  metis_tac[coalesce_graph,coalesce_graph_2]);
-
-val briggs_coalesce_lemma = Q.prove(`
-  ∀s.
-    undir_graph s.graph
-    ⇒
-    let ((),s') = briggs_coalesce s in
-    undir_graph s'.graph ∧
-    is_subgraph_edges s.graph s'.graph`,
-  full_simp_tac(srw_ss())[briggs_coalesce_def]>>
-  completeInduct_on`s.clock`>>
-  srw_tac[][]>>
-  pop_assum mp_tac>>
-  Q.ISPECL_THEN [`briggs_has_work`,`do_briggs_step`] assume_tac MWHILE_DEF>>
-  pop_assum (SUBST1_TAC)>>
-  fsm[briggs_has_work_def,get_clock_def,get_avail_moves_pri_def,get_avail_moves_def]>>
-  pop_assum mp_tac>>Cases_on`s.clock>0`>>
-  srw_tac[][]>>fsm[set_unavail_moves_def,set_move_rel_def]>>
-  TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM)>>full_simp_tac(srw_ss())[is_subgraph_edges_def]>>NO_TAC)>>
-  Cases_on`do_briggs_step s`>>
-  first_x_assum(qspec_then`r.clock` mp_tac)>>
-  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_briggs_step_graph_lemma>>
-  (impl_tac>-
-    (rev_full_simp_tac(srw_ss())[is_subgraph_edges_def]>>
-    DECIDE_TAC))>>
-  srw_tac[][]>>
-  pop_assum(qspec_then`r` mp_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[is_subgraph_edges_trans]);
-
-val reg_alloc_satisfactory = Q.store_thm ("reg_alloc_satisfactory",`
-  ∀G k moves alg.
-  undir_graph G ⇒
-  let col = reg_alloc alg G k moves in
-  (domain G ⊆ domain col ∧
-  partial_colouring_satisfactory col G)`,
-  rpt strip_tac>>full_simp_tac(srw_ss())[reg_alloc_def]>>LET_ELIM_TAC>>
-  `satisfactory_pref pref` by
-    (every_case_tac>>full_simp_tac(srw_ss())[Abbr`pref`,aux_pref_satisfactory,move_pref_satisfactory,aux_move_pref_satisfactory])>>
-  `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by
-    (every_case_tac>>full_simp_tac(srw_ss())[]>>
-    TRY(`s'.graph = G` by
-      (unabbrev_all_tac>>full_simp_tac(srw_ss())[init_ra_state_def,LET_THM,UNCURRY]>>NO_TAC))>>
-    Q.ISPEC_THEN`init_ra_state G k moves'` assume_tac briggs_coalesce_lemma>>
-    rev_full_simp_tac(srw_ss())[LET_THM,init_ra_state_def,UNCURRY]>>
-    Q.ISPEC_THEN `s'` assume_tac rpt_do_step_graph_lemma>>
-    rev_full_simp_tac(srw_ss())[LET_THM]>>metis_tac[is_subgraph_edges_trans])>>
-  imp_res_tac alloc_colouring_success>>
-  pop_assum kall_tac>>
-  pop_assum(qspecl_then [`s''.stack`,`k`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  `∀x. MEM x ls ⇒ x ∈ domain s''.graph` by
-    (Q.ISPECL_THEN [`pref`,`s''.stack`,`k`,`s''.graph`] assume_tac
-      (GEN_ALL alloc_colouring_success_2)>>
-    rev_full_simp_tac(srw_ss())[LET_THM])>>
-  `partial_colouring_satisfactory col G` by
-    metis_tac[partial_colouring_satisfactory_subgraph_edges]>>
-  `is_subgraph_edges s''.graph G' ∧ undir_graph G' ∧
-   partial_colouring_satisfactory col G'` by
-     (match_mp_tac (GEN_ALL full_coalesce_lemma)>>
-     srw_tac[][]>>
-     full_simp_tac(srw_ss())[INTER_DEF,EXTENSION]>>
-     metis_tac[])>>
-  `is_subgraph_edges G G'` by metis_tac[is_subgraph_edges_trans]
-  >>
-    TRY(full_simp_tac(srw_ss())[is_subgraph_edges_def]>>
-    `domain col ⊆ domain col''` by
-      metis_tac[spill_colouring_domain_subset,SUBSET_DEF]>>
-    Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac spill_colouring_domain_1>>
-    rev_full_simp_tac(srw_ss())[LET_THM]>>
-    full_simp_tac(srw_ss())[SUBSET_DEF,EXTENSION]>>srw_tac[][]>>res_tac>>
-    res_tac>>
-    pop_assum mp_tac>>
-    rpt (IF_CASES_TAC>-metis_tac[domain_lookup])>>
-    full_simp_tac(srw_ss())[]>>NO_TAC)
-  >>
-    match_mp_tac partial_colouring_satisfactory_subgraph_edges>>
-    Q.EXISTS_TAC`G'`>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_colouring_satisfactory]);
-
-val reg_alloc_total_satisfactory = Q.store_thm ("reg_alloc_total_satisfactory",`
-  ∀alg G k moves.
-  undir_graph G ⇒
-  let col = reg_alloc alg G k moves in
-  colouring_satisfactory (total_colour col) G`,
-  srw_tac[][]>>imp_res_tac reg_alloc_satisfactory>>
-  pop_assum(qspecl_then[`moves`,`k`]assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  full_simp_tac(srw_ss())[colouring_satisfactory_def,partial_colouring_satisfactory_def
-      ,total_colour_def,undir_graph_def]>>
-  srw_tac[][]>>
-  last_x_assum(qspec_then`v` assume_tac)>>
-  rev_full_simp_tac(srw_ss())[Abbr`edges'`,domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>
-  srw_tac[][]>>res_tac>>
-  `e ∈ domain G ∧ v ∈ domain col ∧ e ∈ domain col` by
-    (full_simp_tac(srw_ss())[domain_lookup,SUBSET_DEF]>> metis_tac[]) >>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  first_x_assum(qspec_then`v'''` assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[]);
-
-val reg_alloc_conventional = Q.store_thm("reg_alloc_conventional" ,`
-  ∀alg G k moves.
-  undir_graph G ⇒
-  let col = reg_alloc alg G k moves in
-  colouring_conventional G k (total_colour col)`,
-  srw_tac[][]>>imp_res_tac reg_alloc_satisfactory>>
-  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  srw_tac[][total_colour_def,reg_alloc_def,colouring_conventional_def]>>
-  `x ∈ domain col` by
-    full_simp_tac(srw_ss())[SUBSET_DEF]>>
-  full_simp_tac(srw_ss())[domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>unabbrev_all_tac>>
-  full_simp_tac(srw_ss())[reg_alloc_def]>>pop_assum mp_tac>>
-  LET_ELIM_TAC>>
-  rev_full_simp_tac(srw_ss())[LET_THM]>>
-  `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by
-    (every_case_tac>>full_simp_tac(srw_ss())[]>>
-    TRY(`s'.graph = G` by
-      (unabbrev_all_tac>>full_simp_tac(srw_ss())[init_ra_state_def,LET_THM,UNCURRY]>>NO_TAC))>>
-    Q.ISPEC_THEN`init_ra_state G k moves'` assume_tac briggs_coalesce_lemma>>
-    rev_full_simp_tac(srw_ss())[LET_THM,init_ra_state_def,UNCURRY]>>
-    Q.ISPEC_THEN `s'` assume_tac rpt_do_step_graph_lemma>>
-    rev_full_simp_tac(srw_ss())[LET_THM]>>metis_tac[is_subgraph_edges_trans])>>
-  imp_res_tac alloc_colouring_success>>
-  pop_assum kall_tac>>
-  pop_assum(qspec_then `pref` mp_tac)>>impl_tac
-  >-
-    (every_case_tac>>full_simp_tac(srw_ss())[Abbr`pref`,aux_pref_satisfactory,move_pref_satisfactory,aux_move_pref_satisfactory])>>
-  full_simp_tac(srw_ss())[]>>strip_tac>>
-  pop_assum(qspecl_then[`s''.stack`,`k`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  `partial_colouring_satisfactory col G` by
-    metis_tac[partial_colouring_satisfactory_subgraph_edges]>>
-  `is_subgraph_edges s''.graph G' ∧ undir_graph G' ∧
-   partial_colouring_satisfactory col G'` by
-     (`∀x. MEM x ls ⇒ x ∈ domain s''.graph` by
-       (Q.ISPECL_THEN [`pref`,`s''.stack`,`k`,`s''.graph`] assume_tac
-         (GEN_ALL alloc_colouring_success_2)>>
-       rev_full_simp_tac(srw_ss())[LET_THM])>>
-     match_mp_tac (GEN_ALL full_coalesce_lemma)>>
-     srw_tac[][]>>
-     full_simp_tac(srw_ss())[INTER_DEF,EXTENSION]>>
-     metis_tac[])>>
-  `x ∈ domain G' ∧ x ∈ domain s''.graph` by
-    full_simp_tac(srw_ss())[is_subgraph_edges_def,SUBSET_DEF]>>
-  IF_CASES_TAC>-
-    (first_x_assum(qspec_then`x`assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_colouring_never_overwrites,optionTheory.option_CLAUSES])
-  >>
-  IF_CASES_TAC>-
-    (`MEM x ls` by metis_tac[]>>
-    `x ∉ domain col` by
-      (full_simp_tac(srw_ss())[INTER_DEF,EXTENSION]>>metis_tac[])>>
-    Cases_on`MEM x s''''.stack`>>full_simp_tac(srw_ss())[]
-    >-
-      (Q.ISPECL_THEN [`G'`,`k`,`coalesce_map`,`s''''.stack`,`col`] assume_tac
-        spill_colouring_domain_2>> rev_full_simp_tac(srw_ss())[LET_THM,is_subgraph_edges_def]>>
-      metis_tac[spill_colouring_never_overwrites,optionTheory.option_CLAUSES])
-    >>
-      Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac
-        spill_colouring_domain_2>> rev_full_simp_tac(srw_ss())[LET_THM,is_subgraph_edges_def]>>
-      metis_tac[spill_colouring_domain_3,optionTheory.option_CLAUSES])
-  >>
-  first_x_assum(qspec_then`x`assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  Cases_on`x ∈ domain col`
-  >-
-    metis_tac[spill_colouring_never_overwrites,optionTheory.option_CLAUSES]
-  >>
-  full_simp_tac(srw_ss())[]>>
-  Cases_on`MEM x s''''.stack`>>full_simp_tac(srw_ss())[]
-    >-
-      (Q.ISPECL_THEN [`G'`,`k`,`coalesce_map`,`s''''.stack`,`col`] assume_tac
-        spill_colouring_domain_2>> rev_full_simp_tac(srw_ss())[LET_THM,is_subgraph_edges_def]>>
-      metis_tac[spill_colouring_never_overwrites,optionTheory.option_CLAUSES])
-    >>
-      Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac
-        spill_colouring_domain_2>> rev_full_simp_tac(srw_ss())[LET_THM,is_subgraph_edges_def]>>
-      metis_tac[spill_colouring_domain_3,optionTheory.option_CLAUSES]);
-
-(*strengthen case of the above*)
-val reg_alloc_conventional_phy_var = Q.store_thm("reg_alloc_conventional_phy_var",`
-  ∀alg G k moves.
-  undir_graph G ⇒
-  let col = reg_alloc alg G k moves in
-  ∀x. is_phy_var x ⇒ (total_colour col) x = x`,
-  srw_tac[][]>>Cases_on`x ∈ domain col`
-  >-
-  (imp_res_tac reg_alloc_satisfactory >>
-  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  imp_res_tac reg_alloc_conventional>>
-  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  full_simp_tac(srw_ss())[colouring_conventional_def]>>
-  full_simp_tac(srw_ss())[LET_THM,partial_colouring_satisfactory_def]>>
-  full_simp_tac(srw_ss())[SUBSET_DEF]>>
-  metis_tac[])
-  >>
-  (full_simp_tac(srw_ss())[total_colour_def]>>
-  full_case_tac>>full_simp_tac(srw_ss())[domain_lookup]));
-
-(*Various side theorems necessary to link up proofs:
-  - clash_sets_to_sp_g captures everything appearing in the clashsets
-  - clash_sets_to_sp_g produces undirected graphs
+   One could also imagine proving the success separately from
+   the correctness
 *)
+(* the list represents a clique *)
+val is_clique_def = Define`
+  is_clique ls adjls ⇔
+  ∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒
+    has_edge adjls x y`
 
-val clique_g_insert_undir = Q.prove(`
-  ∀ls G.
-  undir_graph G ∧
-  ALL_DISTINCT ls
-  ⇒
-  undir_graph (clique_g_insert ls G)`,
-  Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
-  metis_tac[list_g_insert_undir]);
-
-val clash_sets_to_sp_g_undir = Q.store_thm("clash_sets_to_sp_g_undir",`
-∀ls.
-  undir_graph (clash_sets_to_sp_g ls)`,
-  Induct>-srw_tac[][clash_sets_to_sp_g_def,undir_graph_def,lookup_def]>>
-  srw_tac[][clash_sets_to_sp_g_def]>>
-  match_mp_tac clique_g_insert_undir>>
-  unabbrev_all_tac>>
-  full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList]);
-
-val clash_sets_to_sp_g_domain = Q.store_thm("clash_sets_to_sp_g_domain",`
-∀ls x.
-  in_clash_sets ls x ⇒
-  x ∈ domain (clash_sets_to_sp_g ls)`,
-  Induct>>full_simp_tac(srw_ss())[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>srw_tac[][]>>res_tac>>
-  full_simp_tac(srw_ss())[clique_g_insert_domain]>>
-  full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD]);
-
-(*Less restrictive subgraph definition,
-  maybe update is_subgraph_edges to be a restriction of this
-*)
 val is_subgraph_def = Define`
-  is_subgraph G H ⇔
-  domain G ⊆ domain H ∧
-  ∀x y. lookup_g x y G ⇒ lookup_g x y H`
+  is_subgraph g h ⇔
+  ∀x y.
+    has_edge g x y ⇒ has_edge h x y`
 
-val is_subgraph_refl = Q.store_thm("is_subgraph_refl",`is_subgraph G G`, fs[is_subgraph_def]);
+val insert_edge_succeeds = Q.store_thm("insert_edge_succeeds",`
+  good_ra_state s ∧
+  y < s.dim ∧
+  x < s.dim ⇒
+  ∃s'. insert_edge x y s = (Success (),s') ∧
+  good_ra_state s' ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  ∀a b.
+  (has_edge s'.adj_ls a b ⇔
+    (a = x ∧ b = y) ∨ (a = y ∧ b = x) ∨ (has_edge s.adj_ls a b))`,
+  rw[good_ra_state_def,insert_edge_def]>>fs msimps>>
+  IF_CASES_TAC >> fs[]
+  >- (
+    fs[ra_state_component_equality,has_edge_def,undirected_def]>>
+    rfs[]>>
+    res_tac>>
+    rw[]>>metis_tac[])>>
+  CONJ_TAC>- (
+    match_mp_tac IMP_EVERY_LUPDATE>>
+    rw[] >- metis_tac[EVERY_EL]>>
+    match_mp_tac IMP_EVERY_LUPDATE>>
+    rw[] >- metis_tac[EVERY_EL])>>
+  CONJ_ASM2_TAC>- (
+    fs[undirected_def]>>
+    metis_tac[])>>
+  rw[has_edge_def]>>
+  simp[EL_LUPDATE] >>rw[]>>metis_tac[]);
+
+val list_insert_edge_succeeds = Q.store_thm("list_insert_edge_succeeds",`
+  ∀ys x s.
+  good_ra_state s ∧
+  x < s.dim ∧
+  EVERY ( λy. y < s.dim) ys ⇒
+  ∃s'. list_insert_edge x ys s = (Success (),s') ∧
+  good_ra_state s' ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  ∀a b.
+  (has_edge s'.adj_ls a b ⇔
+    (a = x ∧ MEM b ys) ∨
+    (b = x ∧ MEM a ys) ∨
+    (has_edge s.adj_ls a b))`,
+  Induct>>rw[list_insert_edge_def]>>fs msimps
+  >-
+    fs[ra_state_component_equality]>>
+  drule (GEN_ALL insert_edge_succeeds)>>
+  disch_then (qspecl_then [`h`,`x`] assume_tac)>>rfs[]>>
+  last_x_assum drule>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+  disch_then (qspec_then`x` strip_assume_tac)>>rfs[]>>
+  rw[]>>metis_tac[]);
 
 val is_subgraph_trans = Q.store_thm("is_subgraph_trans",`
-  is_subgraph A B ∧ is_subgraph B C ⇒
-  is_subgraph A C`,
-  fs[is_subgraph_def]>>
-  metis_tac[SUBSET_TRANS]);
+  is_subgraph s s' ∧
+  is_subgraph s' s'' ==>
+  is_subgraph s s''`,
+  rw[is_subgraph_def]);
 
-val undir_g_insert_props = Q.store_thm("undir_g_insert_props",`
-  undir_graph G ∧
-  x ≠ y ⇒
-  let G' = undir_g_insert x y G in
-  is_subgraph G G' ∧
-  undir_graph G'`,
-  rw[]>>
-  fs[is_subgraph_def,undir_g_insert_domain,lookup_g_def,undir_g_insert_def,undir_g_preserve,dir_g_insert_def]>>rw[]>>
-  fs[lookup_insert]>>
-  rpt IF_CASES_TAC>>fs[]>>
-  FULL_CASE_TAC>>fs[lookup_insert]);
-
-val list_g_insert_props = Q.prove(`
-  ∀live h G.
-  sp_g_is_clique live G ∧
-  undir_graph G ∧
-  ¬MEM h live ⇒
-  let G' = list_g_insert h live G in
-  is_subgraph G G' ∧
-  undir_graph G' ∧
-  sp_g_is_clique (h::live) G'`,
-  ntac 4 strip_tac>>
-  Q.ISPECL_THEN [`live`,`h`,`G`] assume_tac list_g_insert_correct>>
-  Q.ISPECL_THEN [`h`,`live`,`G`] assume_tac (GEN_ALL list_g_insert_undir)>>
-  fs[is_subgraph_def,sp_g_is_clique_def,list_g_insert_domain]>>
-  metis_tac[SUBSET_UNION,UNION_COMM,UNION_ASSOC]);
-
-val clique_g_insert_subgraph = Q.prove(`
-  ∀live G.
-  ALL_DISTINCT live ⇒
-  is_subgraph G (clique_g_insert live G)`,
-  rw[]>>
-  imp_res_tac clique_g_insert_correct>>
-  fs[is_subgraph_def,clique_g_insert_domain]);
-
-(* The result is undirected, contains a clique and is a subgraph *)
-val extend_clique_props = Q.prove(`
-  ∀l live G G' live'.
-  sp_g_is_clique live G ∧
-  undir_graph G ∧
-  ALL_DISTINCT live ∧
-  extend_clique l live G = (G',live') ⇒
-  ALL_DISTINCT live' ∧
-  undir_graph G' ∧
-  sp_g_is_clique live' G' ∧
-  is_subgraph G G' ∧
-  set live' = set (live++l)`,
-  Induct>>fs[extend_clique_def,is_subgraph_refl]>>
-  ntac 5 strip_tac>> IF_CASES_TAC>>strip_tac
+(* From here onwards we stop characterizing s'.adj_ls exactly
+   although it could be done
+ *)
+val clique_insert_edge_succeeds = Q.store_thm("clique_insert_edge_succeeds",`
+  ∀ls s.
+  good_ra_state s ∧
+  EVERY ( λy. y < s.dim) ls ==>
+  ∃s'. clique_insert_edge ls s = (Success (),s') ∧
+  good_ra_state s' ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  is_clique ls s'.adj_ls ∧
+  is_subgraph s.adj_ls s'.adj_ls`,
+  Induct>>rw[clique_insert_edge_def]>>fs msimps
   >-
-    (res_tac>>fs[EXTENSION]>>
+    fs[ra_state_component_equality,is_subgraph_def,is_clique_def]>>
+  drule list_insert_edge_succeeds>>
+  rpt (disch_then drule)>>
+  strip_tac>>simp[]>>
+  last_x_assum drule>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+  strip_tac>>fs[]>>
+  CONJ_TAC>-
+    (fs[is_clique_def,is_subgraph_def]>>
+    reverse (rw[]) >- metis_tac[] >>
+    fs[EVERY_MEM])
+  >>
+  match_mp_tac (GEN_ALL is_subgraph_trans)>>
+  qexists_tac`s'.adj_ls`>>fs[is_subgraph_def]);
+
+val extend_clique_succeeds = Q.store_thm("extend_clique_succeeds",`
+  ∀ls cli s.
+  good_ra_state s ∧
+  is_clique cli s.adj_ls ∧
+  EVERY ( λy. y < s.dim) ls ∧
+  ALL_DISTINCT cli ∧
+  EVERY ( λy. y < s.dim) cli ⇒
+  ∃cli' s'. extend_clique ls cli s = (Success cli', s') ∧
+  good_ra_state s' ∧
+  ALL_DISTINCT cli' ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  set cli' = set (cli++ls) ∧
+  is_clique cli' s'.adj_ls ∧
+  is_subgraph s.adj_ls s'.adj_ls`,
+  Induct>>rw[extend_clique_def]>>fs msimps
+  >-
+    simp[ra_state_component_equality,is_subgraph_def]
+  >-
+    (first_x_assum drule>> disch_then drule>> simp[]>> strip_tac>>
+    fs[EXTENSION]>>
     metis_tac[])
   >>
-    (imp_res_tac list_g_insert_props>>
+    drule list_insert_edge_succeeds>>
+    disch_then drule>> disch_then drule>> strip_tac>> fs[]>>
+    first_x_assum(qspecl_then [`h::cli`,`s'`] mp_tac)>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>
+    impl_tac>-
+      (fs[is_clique_def]>>
+      metis_tac[])>>
+    fs[]>> strip_tac>>
     fs[]>>
-    first_x_assum(qspecl_then[`h::live`,`list_g_insert h live G`,`G'`,`live'`] assume_tac)>>
-    rfs[is_subgraph_def]>>
-    fs[EXTENSION]>>metis_tac[SUBSET_TRANS]));
+    CONJ_TAC>-
+      (simp[EXTENSION]>>metis_tac[])>>
+    fs[is_subgraph_def]);
 
-val colouring_satisfactory_subgraph = Q.store_thm("colouring_satisfactory_subgraph",`
-  is_subgraph G H ∧
-  colouring_satisfactory col H ⇒
-  colouring_satisfactory col G`,
-  fs[colouring_satisfactory_def,is_subgraph_def]>>rw[]>>
-  fs[domain_lookup,lookup_g_def]>>rw[]>>
-  first_x_assum(qspecl_then[`v`,`e`] assume_tac)>>rfs[]>>
-  FULL_CASE_TAC>>fs[]>>
-  first_x_assum(qspec_then`v`assume_tac)>>rfs[]);
+(* The col needed to get colouring satisfactory can be generated
+   from the node tags
+   The correctness should be a consequence of no_clash *)
+val colouring_satisfactory_def = Define `
+  colouring_satisfactory col adjls =
+  ∀x. x < LENGTH adjls ⇒
+   (∀y. y < LENGTH adjls ∧ MEM y (EL x adjls) ⇒
+   col x = col y ==> x = y)`
 
 (*TODO: this is in word_allocProof*)
 val INJ_less = Q.prove(`
-  INJ f s' UNIV ∧ s ⊆ s'
+  ∀f s' t s.
+  INJ f s' t ∧ s ⊆ s'
   ⇒
-  INJ f s UNIV`,
+  INJ f s t`,
   metis_tac[INJ_DEF,SUBSET_DEF]);
 
-(*Form up the entire clique, then check*)
 val check_partial_col_success = Q.prove(`
   ∀ls live flive col.
   domain flive = IMAGE col (domain live) ∧
@@ -1885,7 +898,6 @@ val check_partial_col_success = Q.prove(`
   ⇒
   ∃livein flivein.
   check_partial_col col ls live flive = SOME (livein,flivein) ∧
-  domain livein = set ls ∪ domain live ∧
   domain flivein = IMAGE col (domain livein)`,
   Induct>>fs[check_partial_col_def]>>rw[]>>
   TOP_CASE_TAC>>fs[]
@@ -1910,52 +922,63 @@ val check_partial_col_success = Q.prove(`
     fs[]>>
     first_x_assum(qspecl_then[`insert h () live`,`insert (col h) () flive`,`col`] mp_tac)>>
     impl_tac>-
-      (fs[]>>match_mp_tac (GEN_ALL INJ_less)>>
+      (fs[]>>match_mp_tac INJ_less>>
       HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
     rw[]>>fs[EXTENSION]>>
     metis_tac[])>>
   res_tac>>pop_assum mp_tac>>
   impl_tac>-
-    (match_mp_tac (GEN_ALL INJ_less)>>
+    (match_mp_tac INJ_less>>
     HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
-  rw[]>>fs[EXTENSION]>>
-  fs[domain_lookup]>>metis_tac[]);
+  rw[]>>fs[EXTENSION]);
 
-val ALL_DISTINCT_set_INJ = Q.prove(`
-  ∀ls col.
-  ALL_DISTINCT (MAP col ls) ⇒
-  INJ col (set ls) UNIV`,
-  Induct>>fs[INJ_DEF]>>rw[]>>
-  fs[MEM_MAP]>>
-  metis_tac[]);
-
-val ALL_DISTINCT_IMP_INJ = Q.prove(`
-  ALL_DISTINCT (MAP col live') ∧
-  set live' = set livelist ∪ set l ⇒
-  INJ col (set l ∪ set livelist) UNIV`,
+val INJ_COMPOSE_IMAGE = Q.store_thm("INJ_COMPOSE_IMAGE",`
+  ∀a b u.
+  INJ f a b ∧
+  INJ g (IMAGE f a) u ⇒
+  INJ (g o f) a u`,
   rw[]>>
-  imp_res_tac ALL_DISTINCT_set_INJ>>
-  metis_tac[UNION_COMM]);
+  match_mp_tac INJ_COMPOSE>>
+  metis_tac[INJ_IMAGE]);
 
-val sp_g_is_clique_subgraph = Q.prove(`
-  ∀ls.
-  sp_g_is_clique ls G ∧
-  is_subgraph G G' ⇒
-  sp_g_is_clique ls G'`,
-  Induct>>fs[sp_g_is_clique_def,SUBSET_DEF]>>
-  ntac 5 strip_tac>>fs[is_subgraph_def,SUBSET_DEF]>>
-  metis_tac[]);
+val colouring_satisfactory_cliques = Q.store_thm("colouring_satisfactory_cliques",`
+  ∀ls g (f:num->num).
+  ALL_DISTINCT ls ∧
+  EVERY (λx. x < LENGTH g) ls ∧
+  colouring_satisfactory f g ∧ is_clique ls g
+  ⇒
+  ALL_DISTINCT (MAP f ls)`,
+  Induct>>fs[is_clique_def,colouring_satisfactory_def]>>
+  rw[]
+  >-
+    (fs[MEM_MAP]>>rw[]>>
+    first_x_assum(qspecl_then [`h`,`y`] assume_tac)>>rfs[]>>
+    Cases_on`MEM y ls`>>Cases_on`h=y`>>fs[]>>
+    fs[has_edge_def]>>
+    metis_tac[])
+  >>
+    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]);
 
-(*More generally, any LIST SUBSET satisfies this*)
-val sp_g_is_clique_FILTER = Q.prove(`
+val domain_eq_IMAGE = Q.prove(`
+  domain s = IMAGE FST (set(toAList s))`,
+  fs[EXTENSION,EXISTS_PROD]>>
+  fs[MEM_toAList,domain_lookup]);
+
+val is_clique_FILTER = Q.prove(`
   ∀ls.
-  sp_g_is_clique ls G ⇒
-  sp_g_is_clique (FILTER P ls) G`,
-  Induct>>fs[sp_g_is_clique_def]>>
+  is_clique ls G ⇒
+  is_clique (FILTER P ls) G`,
+  Induct>>fs[is_clique_def]>>
   strip_tac>>
   cases_on`P h`>>
   fs[MEM_FILTER]>>
   metis_tac[]);
+
+val is_clique_subgraph = Q.prove(`
+  is_clique ls s ∧
+  is_subgraph s s' ⇒
+  is_clique ls s'`,
+  fs[is_clique_def,is_subgraph_def]);
 
 val domain_numset_list_delete = Q.store_thm("domain_numset_list_delete",`
   ∀l live.
@@ -1965,265 +988,1278 @@ val domain_numset_list_delete = Q.store_thm("domain_numset_list_delete",`
   fs[EXTENSION]>>
   metis_tac[]);
 
-val clash_tree_to_spg_props = Q.store_thm("clash_tree_to_spg_props",`
-  ∀ct live G G' live'.
-  undir_graph G ∧
-  ALL_DISTINCT live ∧
-  sp_g_is_clique live G ∧
-  clash_tree_to_spg ct live G = (G',live') ⇒
-  is_subgraph G G' ∧
-  ALL_DISTINCT live' ∧
-  undir_graph G' ∧
-  sp_g_is_clique live' G'`,
-  Induct>>fs[clash_tree_to_spg_def]
+(* The success theorem is separated here *)
+val mk_graph_succeeds = Q.store_thm("mk_graph_succeeds",`
+  ∀ct ta liveout s.
+  good_ra_state s ∧
+  (∀x. in_clash_tree ct x ⇒ ta x < s.dim) ∧
+  INJ ta ({x | in_clash_tree ct x}) (count (LENGTH s.adj_ls)) ∧
+  (is_clique liveout s.adj_ls) ∧
+  ALL_DISTINCT liveout ∧
+  (EVERY (λy.y < s.dim) liveout) ⇒
+  ∃livein s'. mk_graph ta ct liveout s = (Success livein, s') ∧
+  good_ra_state s' ∧
+  is_clique livein s'.adj_ls ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  (EVERY (λy.y < s.dim) livein) ∧
+  ALL_DISTINCT livein ∧
+  set livein SUBSET set liveout ∪ IMAGE ta {x | in_clash_tree ct x} ∧
+  is_subgraph s.adj_ls s'.adj_ls`,
+  Induct>>
+  rw[in_clash_tree_def,mk_graph_def]>>fs msimps
   >-
-    (ntac 7 strip_tac>>
-    pairarg_tac>>fs[]>>
-    imp_res_tac extend_clique_props>>
-    ntac 5 (pop_assum kall_tac)>>
-    pairarg_tac>>fs[]>>
-    Q.ISPECL_THEN [`l0`,`FILTER (λx. ¬MEM x l) live''`,`G''`,`G'''`,`livein` ] mp_tac extend_clique_props>>
+    (drule extend_clique_succeeds>>
+    disch_then drule>>simp[]>>
+    disch_then(qspec_then`MAP ta l` mp_tac)>>
     impl_tac>-
-      fs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
-    fs[]>>
+      simp[EVERY_MAP,EVERY_MEM]>>
+    rw[]>>
+    simp[]>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[EVERY_MEM,MEM_MAP]>>
+    qmatch_goalsub_abbrev_tac`extend_clique x xs _`>>
+    drule extend_clique_succeeds>>
+    disch_then (qspecl_then [`x`,`xs`] mp_tac)>>
+    impl_keep_tac>-
+      (unabbrev_all_tac>>simp[is_clique_FILTER]>>
+      simp[EVERY_MAP,EVERY_MEM,FILTER_ALL_DISTINCT,MEM_FILTER]>>
+      fs[MEM_MAP]>>
+      metis_tac[])>>
+    rw[]>>
+    simp[]>>
+    unabbrev_all_tac>>
+    fs[EVERY_MEM,SUBSET_DEF,EXTENSION,MEM_FILTER,MEM_MAP]>>
     metis_tac[is_subgraph_trans])
   >-
-    (rw[]>>
-    `ALL_DISTINCT (MAP FST (toAList s))` by
-      fs[ALL_DISTINCT_MAP_FST_toAList]>>
-    fs[clique_g_insert_subgraph,clique_g_insert_undir,clique_g_insert_is_clique])
+    (drule clique_insert_edge_succeeds>>
+    qmatch_goalsub_abbrev_tac`_ ls  s'`>>
+    disch_then (qspec_then`ls` mp_tac)>>
+    impl_keep_tac>-
+      (simp[Abbr`ls`,EVERY_MEM,Once MEM_MAP,toAList_domain]>>
+      metis_tac[])>>
+    strip_tac>>simp[Abbr`ls`]>>
+    CONJ_TAC>-(
+      match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF])>>
+    fs[Once LIST_TO_SET_MAP,SUBSET_DEF,toAList_domain])
   >-
-    (ntac 6 strip_tac>>
-    pairarg_tac>>fs[]>>
-    last_x_assum(qspecl_then[`live`,`G`,`G''`,`t1_live`] assume_tac)>>
-    rfs[]>>
-    pairarg_tac>>fs[]>>
-    last_x_assum(qspecl_then[`live`,`G''`,`G'''`,`t2_live`] mp_tac)>>
+    (last_x_assum drule>>
+    disch_then(qspecl_then[`ta`,`liveout`] mp_tac)>>simp[]>>
     impl_tac>-
-      metis_tac[sp_g_is_clique_subgraph,is_subgraph_trans]>>
-    strip_tac>>
-    Cases_on`o'`>>fs[]
+      (match_mp_tac INJ_less>> asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>simp[]>>
+    last_x_assum drule>>
+    disch_then(qspecl_then[`ta`,`liveout`] mp_tac)>>simp[]>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+    impl_tac>- (
+      reverse(rw[])>- metis_tac[is_clique_subgraph]>>
+      fs[good_ra_state_def]>>rfs[]>>
+      match_mp_tac INJ_less>> asm_exists_tac>>
+      fs[SUBSET_DEF])>>
+    strip_tac>>simp[]>>
+    qpat_x_assum`s'' = _` SUBST_ALL_TAC>>
+    Cases_on`o'`>>simp[]
     >-
-      (imp_res_tac extend_clique_props>>
+      (drule extend_clique_succeeds>>
+      disch_then(qspecl_then[`livein`,`livein'`] mp_tac)>>simp[]>>
+      simp[]>>strip_tac>>
+      simp[]>>
+      fs[EVERY_MEM,SUBSET_DEF,EXTENSION,MEM_FILTER,MEM_MAP]>>
       metis_tac[is_subgraph_trans])
     >>
-      rveq>>fs[]>>
-      `ALL_DISTINCT (MAP FST (toAList x))` by
-        fs[ALL_DISTINCT_MAP_FST_toAList]>>
-      fs[clique_g_insert_subgraph,clique_g_insert_undir,clique_g_insert_is_clique]>>
-      metis_tac[is_subgraph_trans,clique_g_insert_subgraph])
-  >>
-    ntac 5 strip_tac>>pairarg_tac>>fs[]>>
-    first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
-    rfs[]>>
-    metis_tac[is_subgraph_trans]);
-
-val sp_g_is_clique_swap = Q.prove(`
-  ∀ls'.
-  sp_g_is_clique ls G ∧
-  (∀x. MEM x ls ⇔ MEM x ls') ⇒
-  sp_g_is_clique ls' G`,
-  fs[sp_g_is_clique_def,SUBSET_DEF]);
-
-val colouring_satisfactory_check_clash_tree = Q.store_thm("colouring_satisfactory_check_clash_tree",`
-  ∀ct G livelist live flive col G' live'.
-  domain live = set livelist ∧
-  ALL_DISTINCT livelist ∧
-  sp_g_is_clique livelist G ∧
-  undir_graph G ∧
-  domain flive = IMAGE col (domain live) ∧
-  clash_tree_to_spg ct livelist G = (G',live') ∧
-  colouring_satisfactory col G'
-  ⇒
-  ∃livein flivein.
-  check_clash_tree col ct live flive = SOME (livein,flivein) ∧
-  domain livein = set live' ∧
-  (*can be separated out into props*)
-  domain flivein = IMAGE col (domain livein)`,
-  Induct>>rw[clash_tree_to_spg_def,check_clash_tree_def]
-  >-
-    (pairarg_tac>>fs[]>>
-    imp_res_tac extend_clique_props>>
-    ntac 5 (pop_assum kall_tac)>>
-    pairarg_tac>>fs[]>>
-    Q.ISPECL_THEN [`l0`,`FILTER (λx. ¬MEM x l) live''`,`G''`,`G'''`,`livein` ] mp_tac extend_clique_props>>
-    impl_tac>-
-      fs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
-    strip_tac>>
-    imp_res_tac colouring_satisfactory_cliques>>
-    ntac 7 (pop_assum kall_tac)>>
-    ntac 3(pop_assum mp_tac>>impl_tac>-
-      metis_tac[sp_g_is_clique_subgraph])>>
-    rw[]>>
-    `INJ col (set l ∪ domain live) UNIV` by
-      metis_tac[ALL_DISTINCT_IMP_INJ]>>
-    imp_res_tac check_partial_col_success>>fs[]>>
-    qpat_abbrev_tac`A = numset_list_delete l live`>>
-    qpat_abbrev_tac`B = numset_list_delete C flive`>>
-    Q.ISPECL_THEN[`l0`,`A`,`B`,`col`] mp_tac check_partial_col_success>>
-    unabbrev_all_tac>>fs[domain_numset_list_delete]>>
-    impl_keep_tac>-
-      (CONJ_TAC>-
-        (fs[EXTENSION]>>
-        rw[EQ_IMP_THM,MEM_MAP]
-        >- metis_tac[]
-        >- metis_tac[]>>
-        Cases_on`x'=y`>>fs[]>>
-        Cases_on`MEM y l`>>fs[]>>
-        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
-        first_x_assum(qspecl_then[`x'`,`y`] mp_tac)>>
-        impl_tac>- simp[]>>
+      drule clique_insert_edge_succeeds>>
+      qmatch_goalsub_abbrev_tac`clique_insert_edge ls _`>>
+      disch_then(qspec_then`ls` mp_tac)>>
+      impl_keep_tac>-
+        (fs[Abbr`ls`,EVERY_MEM,Once MEM_MAP,toAList_domain]>>
         metis_tac[])>>
-      imp_res_tac ALL_DISTINCT_IMP_INJ>>
-      fs[GSYM list_to_set_diff]>>
-      rfs[DIFF_SAME_UNION])>>
-    rw[]>>fs[]>>
-    fs[GSYM list_to_set_diff,DIFF_SAME_UNION,UNION_COMM])
-  >-
-    (fs[check_col_def,GSYM MAP_MAP_o]>>
-    rw[]
-    >-
-      (qpat_abbrev_tac`ls = MAP FST A`>>
-      Q.ISPECL_THEN [`ls`,`G`] assume_tac clique_g_insert_is_clique>>
-      match_mp_tac colouring_satisfactory_cliques>>fs[]>>
-      qexists_tac`clique_g_insert ls G`>>
-      fs[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList])
-    >- fs[EXTENSION,toAList_domain]>>
-    fs[domain_fromAList,MAP_MAP_o,o_DEF,EXTENSION,MEM_MAP,EXISTS_PROD]>>
-    fs[MEM_toAList,domain_lookup])
-  >-
-    (pairarg_tac>>fs[]>>
-    pairarg_tac>>fs[]>>
-    imp_res_tac clash_tree_to_spg_props>>fs[]>>
-    `sp_g_is_clique livelist G''` by metis_tac[sp_g_is_clique_subgraph]>>
-    rfs[]>>fs[]>>
-    `is_subgraph G''' G'` by
-      (Cases_on`o'`>>fs[]
-      >-
-        metis_tac[extend_clique_props]>>
-      rveq>>
-      match_mp_tac clique_g_insert_subgraph>>
-      fs[ALL_DISTINCT_MAP_FST_toAList])>>
-    first_x_assum drule>>
-    disch_then(qspecl_then[`G''`,`flive`,`col`,`G'''`,`t2_live`] mp_tac)>>
-    impl_tac>-
-      metis_tac[colouring_satisfactory_subgraph,is_subgraph_trans,sp_g_is_clique_subgraph]>>
-    first_x_assum drule>>
-    disch_then(qspecl_then[`G`,`flive`,`col`,`G''`,`t1_live`] mp_tac)>>
-    impl_tac>-
-      metis_tac[colouring_satisfactory_subgraph,is_subgraph_trans,sp_g_is_clique_subgraph]>>
-    rw[]>>fs[]>>
-    Cases_on`o'`>>fs[]
-    >-
-      (Q.ISPECL_THEN[`t1_live`,`t2_live`,`G'''`,`G'`,`live'`] assume_tac extend_clique_props>>
-      rfs[]>>
-      `set t2_live ∪ set t1_live =
-      set (MAP FST (toAList (difference livein' livein))) ∪ domain livein` by
-        (fs[EXTENSION,toAList_domain,domain_lookup,lookup_difference]>>
-        rw[EQ_IMP_THM]>>fs[]>>
-        Cases_on`lookup x livein`>>fs[]>>
-        metis_tac[])>>
-      fs[]>>
-      qpat_assum`A = set t1_live` sym_sub_tac>>
-      match_mp_tac check_partial_col_success>>
-      fs[]>>
-      drule colouring_satisfactory_cliques>>
-      rpt (disch_then drule)>>
-      strip_tac>>
-      metis_tac[ALL_DISTINCT_set_INJ])
-    >>
-      fs[check_col_def,GSYM MAP_MAP_o]>>
+      strip_tac>>fs[Abbr`ls`]>>
       rw[]
       >-
-        (Q.ISPECL_THEN [`MAP FST (toAList x)`,`G'''`] assume_tac clique_g_insert_is_clique>>
-        match_mp_tac colouring_satisfactory_cliques>>
-        fs[ALL_DISTINCT_MAP_FST_toAList]>>
+        (match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF]>>
+        rw[])
+      >-
+        (fs[Once LIST_TO_SET_MAP,SUBSET_DEF,toAList_domain]>>
         metis_tac[])
-      >- fs[EXTENSION,toAList_domain]
       >>
-      fs[domain_fromAList,MAP_MAP_o,o_DEF,EXTENSION,MEM_MAP,EXISTS_PROD]>>
-      fs[MEM_toAList,domain_lookup])
+      metis_tac[is_subgraph_trans])
   >>
-    pairarg_tac>>fs[]>>
-    first_x_assum(qspecl_then[`G`,`livelist`,`live`,`flive`,`col`,`G''`,`live''`] mp_tac)>>
+    first_x_assum drule>>
+    simp[Once CONJ_COMM,GSYM CONJ_ASSOC]>>
+    disch_then(qspecl_then[`ta`,`liveout`] mp_tac)>>
+    simp[]>>
     impl_tac>-
-      metis_tac[clash_tree_to_spg_props,colouring_satisfactory_subgraph]>>
+      (match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    rw[]>>simp[]>>
+    first_x_assum drule>>
+    simp[Once CONJ_COMM,GSYM CONJ_ASSOC]>>
+    disch_then(qspecl_then[`ta`,`livein`] mp_tac)>>
+    simp[]>>
+    impl_tac>-
+      (qpat_x_assum`s'=_` SUBST_ALL_TAC>>
+      fs[good_ra_state_def]>>rfs[]>>
+      match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+    CONJ_TAC>-
+      (fs[SUBSET_DEF]>>metis_tac[])>>
+    metis_tac[is_subgraph_trans]);
+
+val colouring_satisfactory_subgraph = Q.store_thm("colouring_satisfactory_subgraph",`
+  colouring_satisfactory f h ∧
+  is_subgraph g h ⇒
+  colouring_satisfactory f g`,
+  fs[colouring_satisfactory_def,is_subgraph_def]>>rw[]>>
+  fs[has_edge_def]>>
+  metis_tac[]);
+
+val ALL_DISTINCT_set_INJ = Q.prove(`
+  ∀ls col.
+  ALL_DISTINCT (MAP col ls) ⇒
+  INJ col (set ls) UNIV`,
+  Induct>>fs[INJ_DEF]>>rw[]>>
+  fs[MEM_MAP]>>
+  metis_tac[]);
+
+val IMAGE_DIFF = Q.prove(`
+  INJ f (s ∪ t) UNIV ⇒
+  IMAGE f (s DIFF t) =
+  (IMAGE f s DIFF IMAGE f t)`,
+  rw[EXTENSION,INJ_DEF]>>
+  metis_tac[]);
+
+val set_FILTER = Q.prove(`
+  set (FILTER P live) =
+  set live DIFF (λx. ¬P x)`,
+  rw[EXTENSION,MEM_FILTER]>>
+  metis_tac[]);
+
+val MEM_MAP_IMAGE = Q.prove(`
+   (λx. MEM x (MAP f l)) = IMAGE f (set l)`,
+   rw[EXTENSION,MEM_MAP]);
+
+val domain_difference = Q.prove(`
+  domain(difference s t) = domain s DIFF domain t`,
+  fs[EXTENSION,domain_lookup,lookup_difference]>>
+  rw[EQ_IMP_THM]>>fs[]>>
+  metis_tac[option_nchotomy]);
+
+val UNION_DIFF_3 = Q.prove(`
+ s DIFF t ∪ t = s ∪ t`,
+ rw[EXTENSION]>>
+ metis_tac[]);
+
+val check_partial_col_domain = Q.store_thm("check_partial_col_domain",`
+  ∀ls f live flive v.
+  check_partial_col f ls live flive = SOME v ⇒
+  domain (FST v) = set ls ∪ domain live`,
+  Induct>>fs[check_partial_col_def]>>rw[]>>EVERY_CASE_TAC>>fs[]>>
+  first_x_assum drule>>
+  fs[EXTENSION]>>
+  metis_tac[domain_lookup]);
+
+val check_clash_tree_domain = Q.store_thm("check_clash_tree_domain",`
+  ∀ct f live flive live' flive'.
+  check_clash_tree f ct live flive = SOME (live',flive') ⇒
+  domain live' ⊆ domain live ∪ {x | in_clash_tree ct x}`,
+  Induct>>fs[check_clash_tree_def,in_clash_tree_def]>>
+  rw[]>>fs[case_eq_thms,FORALL_PROD,check_col_def]>>
+  rw[]>>imp_res_tac check_partial_col_domain>>
+  fs[SUBSET_DEF,domain_numset_list_delete,toAList_domain,domain_difference]>>
+  metis_tac[]);
+
+(* the correctness theorem for mk_graph *)
+val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
+  ∀ct ta livelist s livelist' s' col live flive.
+  mk_graph ta ct livelist s = (Success livelist',s') ∧
+  colouring_satisfactory col s'.adj_ls ∧
+  INJ ta ({x | in_clash_tree ct x} ∪ domain live) (count (LENGTH s.adj_ls)) ∧
+  IMAGE ta (domain live) = set livelist ∧
+  ALL_DISTINCT livelist ∧
+  EVERY (λy.y < s.dim) livelist ∧
+  is_clique livelist s.adj_ls ∧
+  good_ra_state s ∧
+  domain flive = IMAGE (col o ta) (domain live) ==>
+  ∃livein flivein.
+  check_clash_tree (col o ta) ct live flive = SOME (livein,flivein) ∧
+  IMAGE ta (domain livein) = set livelist' ∧
+  domain flivein = IMAGE (col o ta) (domain livein)`,
+  Induct>>rw[mk_graph_def,check_clash_tree_def]>>fs msimps>>
+  fs[case_eq_thms,in_clash_tree_def]>>rw[]
+  >- (
+    drule extend_clique_succeeds>> disch_then drule>>
+    disch_then(qspec_then`MAP ta l` mp_tac)>>
+    simp[AND_IMP_INTRO]>>
+    impl_tac>- (
+      fs[EVERY_MEM,MEM_MAP,good_ra_state_def]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT,EXTENSION,IN_IMAGE]>>
+      rw[]>>
+      last_x_assum match_mp_tac>>simp[])>>
+    rw[]>>
+    drule extend_clique_succeeds>>
+    qmatch_asmsub_abbrev_tac`extend_clique ls cli _`>>
+    disch_then (qspecl_then[`ls`,`cli`] mp_tac)>>
+    impl_tac>-(
+      unabbrev_all_tac>>fs[good_ra_state_def]>>rw[]
+      >-
+        metis_tac[is_clique_FILTER]
+      >-
+        (fs[INJ_DEF,EVERY_MEM]>>
+        fs[ra_state_component_equality]>>
+        metis_tac[MEM_MAP])
+      >-
+        fs[FILTER_ALL_DISTINCT]
+      >>
+        fs[EVERY_MEM,EXTENSION,MEM_FILTER,MEM_MAP]>>
+        fs[ra_state_component_equality]>>
+        metis_tac[])>>
     rw[]>>fs[]>>
-    first_assum match_mp_tac>>fs[]>>
-    qexists_tac`G''`>>
-    qexists_tac`live''`>>
-    fs[]>>metis_tac[clash_tree_to_spg_props]);
-
-val in_clash_tree_def = Define`
-  (in_clash_tree (Delta w r) x ⇔ MEM x w ∨ MEM x r) ∧
-  (in_clash_tree (Set names) x ⇔ x ∈ domain names) ∧
-  (in_clash_tree (Branch name_opt t1 t2) x ⇔
-    in_clash_tree t1 x ∨
-    in_clash_tree t2 x ∨
-    case name_opt of
-      SOME names => x ∈ domain names
-    | NONE => F) ∧
-  (in_clash_tree (Seq t t') x ⇔ in_clash_tree t x ∨ in_clash_tree t' x)`
-
-(*Not all the assumptions are needed...*)
-val clash_tree_to_spg_domain = Q.store_thm("clash_tree_to_spg_domain",`
-  ∀ct live G G' live'.
-  undir_graph G ∧
-  ALL_DISTINCT live ∧
-  sp_g_is_clique live G ∧
-  set live ⊆ domain G ∧
-  clash_tree_to_spg ct live G = (G',live') ⇒
-  ∀x.
-  in_clash_tree ct x ⇒
-  x ∈ domain G'`,
-  Induct>>fs[in_clash_tree_def,clash_tree_to_spg_def]
-  >-
-    (rw[]>>pairarg_tac>>fs[]>>pairarg_tac>>fs[]>>
-    imp_res_tac extend_clique_props>>
-    rfs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
-    rpt (qpat_x_assum`!a b c.P` kall_tac)>>
-    fs[is_subgraph_def,EXTENSION,SUBSET_DEF,sp_g_is_clique_def])
-  >-
-    (rw[]>>
-    fs[clique_g_insert_domain,toAList_domain])
-  >-
-    (ntac 6 strip_tac>>
-    pairarg_tac>>fs[]>>
-    last_x_assum(qspecl_then[`live`,`G`,`G''`,`t1_live`] assume_tac)>>
-    rfs[]>>
-    imp_res_tac clash_tree_to_spg_props>>
-    ntac 4 (pop_assum kall_tac)>>
-    rpt(qpat_x_assum `A ⇒ B` kall_tac)>>
-    pairarg_tac>>fs[]>>
-    last_x_assum(qspecl_then[`live`,`G''`,`G'''`,`t2_live`] assume_tac)>>
-    rfs[]>>
-    imp_res_tac sp_g_is_clique_subgraph>>
-    `set live ⊆ domain G''` by
-      metis_tac[is_subgraph_def,SUBSET_TRANS]>>
-    fs[]>>
-    imp_res_tac clash_tree_to_spg_props>>
-    rpt (qpat_x_assum `!a b c. P` kall_tac)>>
-    rpt (qpat_x_assum `Q ⇒P` kall_tac)>>
+    drule check_partial_col_success>>
+    disch_then(qspec_then `l` mp_tac)>>
+    impl_keep_tac>-(
+      match_mp_tac INJ_COMPOSE_IMAGE>>
+      qexists_tac`count (LENGTH s.adj_ls)`>>
+      CONJ_TAC>-
+        (match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+      fs[IMAGE_UNION,LIST_TO_SET_MAP]>>
+      simp[Once UNION_COMM]>>
+      qpat_assum`set live' = _`(SUBST1_TAC o SYM)>>
+      match_mp_tac ALL_DISTINCT_set_INJ>>
+      match_mp_tac colouring_satisfactory_cliques>>
+      fs[]>>
+      HINT_EXISTS_TAC>>fs[good_ra_state_def]>>rfs[]>>
+      fs[EXTENSION,EVERY_MEM]>>
+      CONJ_TAC>-
+        (fs[ra_state_component_equality]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF]>>
+        rw[]>-metis_tac[IN_UNION,EXTENSION]>>
+        fs[IN_COUNT])>>
+      metis_tac[is_clique_subgraph])>>
+    rw[]>>simp[]>>
+    qmatch_goalsub_abbrev_tac`_ _ a b c`>>
+    qspecl_then [`a`,`b`,`c`,`col o ta`] mp_tac check_partial_col_success>>
+    unabbrev_all_tac>>
+    fs[domain_numset_list_delete]>>
+    impl_keep_tac >-
+      (rw[LIST_TO_SET_MAP] >-(
+        match_mp_tac (GSYM IMAGE_DIFF)>>
+        metis_tac[UNION_COMM])>>
+      match_mp_tac INJ_COMPOSE_IMAGE>>
+      qexists_tac`count (LENGTH s.adj_ls)`>>
+      CONJ_TAC>-
+        (match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+      fs[set_FILTER,MEM_MAP_IMAGE]>>
+      qmatch_goalsub_abbrev_tac`_ _ ss _`>>
+      `ss = set livelist'` by
+        (unabbrev_all_tac>>fs[]>>
+        qpat_x_assum`_ = set livelist` sym_sub_tac>>
+        fs[LIST_TO_SET_MAP]>>
+        simp[DIFF_SAME_UNION,UNION_COMM]>>
+        AP_TERM_TAC>>
+        match_mp_tac IMAGE_DIFF>>
+        match_mp_tac INJ_SUBSET >> asm_exists_tac>> simp[SUBSET_DEF])>>
+      pop_assum SUBST1_TAC>>
+      match_mp_tac ALL_DISTINCT_set_INJ>>
+      match_mp_tac colouring_satisfactory_cliques>>fs[]>>
+      HINT_EXISTS_TAC>>fs[good_ra_state_def]>>rfs[]>>
+      fs[EXTENSION,EVERY_MEM,IN_COUNT]>>
+      fs[ra_state_component_equality,MEM_MAP]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT]>>
+      strip_tac>> strip_tac
+      >- metis_tac[]
+      >- metis_tac[] >>
+      simp[])>>
+    rw[]>>
+    simp[set_FILTER]>>
+    imp_res_tac check_partial_col_domain>>fs[]>>
+    simp[MEM_MAP_IMAGE,LIST_TO_SET_MAP,DIFF_SAME_UNION,UNION_COMM]>>
+    AP_TERM_TAC>>
+    qpat_x_assum`_ = set livelist` sym_sub_tac>>
+    fs[domain_numset_list_delete]>>
+    match_mp_tac IMAGE_DIFF>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>fs[SUBSET_DEF])
+  >- (
+    fs[check_col_def]>>
+    fs[LIST_TO_SET_MAP]>>
+    CONJ_TAC>-
+      (simp[GSYM MAP_MAP_o]>>
+      qpat_abbrev_tac`tas = MAP ta _`>>
+      match_mp_tac colouring_satisfactory_cliques>>
+      qexists_tac`s''.adj_ls`>>fs[]>>
+      drule clique_insert_edge_succeeds>>
+      disch_then (qspec_then`tas` mp_tac)>>
+      impl_keep_tac>- (
+        unabbrev_all_tac>>
+        rw[EVERY_MEM]>>
+        fs[Once MEM_MAP,toAList_domain]>>
+        FULL_SIMP_TAC std_ss [good_ra_state_def]>>
+        FULL_SIMP_TAC std_ss [MEM_MAP,INJ_DEF,AND_IMP_INTRO,IN_COUNT]>>
+        first_x_assum match_mp_tac>>
+        metis_tac[IN_UNION])>>
+      strip_tac>>rfs[]>>
+      rw[]>>
+      fs[good_ra_state_def]>>
+      qpat_x_assum`s'' = _` SUBST_ALL_TAC>>
+      fs[Abbr`tas`]>>
+      match_mp_tac ALL_DISTINCT_MAP_INJ>>
+      fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+      rw[]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF]>>
+      first_x_assum(qspecl_then[`x`,`y`] mp_tac)>>
+      simp[])>>
+    simp[GSYM domain_eq_IMAGE]>>
+    simp[domain_fromAList,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+    simp[PULL_EXISTS,domain_lookup])
+  >- (
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct`,`ta`,`livelist`] mp_tac)>>
+    impl_tac>- (
+      simp[]>>
+      ntac 2 (last_x_assum kall_tac)>>
+      CONJ_TAC>-
+        fs[INJ_DEF,EVERY_MEM,EXTENSION,good_ra_state_def]>>
+      match_mp_tac INJ_less>> asm_exists_tac>> simp[SUBSET_DEF])>>
+    strip_tac>>fs[]>>rw[]>>
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct'`,`ta`,`livelist`] mp_tac)>>
+    impl_tac>- (
+      ntac 2 (last_x_assum kall_tac)>>fs[good_ra_state_def]>>
+      qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+      CONJ_TAC>- fs[INJ_DEF,EVERY_MEM,EXTENSION]>>
+      CONJ_TAC>-
+        (match_mp_tac INJ_less >> asm_exists_tac>>fs[SUBSET_DEF])>>
+      metis_tac[is_clique_subgraph])>>
+    strip_tac>>fs[]>>rw[]>>
     Cases_on`o'`>>fs[]
-    >-
-      (imp_res_tac extend_clique_props>>
-      rpt (qpat_x_assum `!a b c. P` kall_tac)>>
-      fs[is_subgraph_def,SUBSET_DEF,sp_g_is_clique_def]>>
+    >-(
+      drule extend_clique_succeeds>>
+      disch_then(qspecl_then[`livein`,`livein'`] mp_tac)>>fs[AND_IMP_INTRO]>>
+      impl_tac>-
+        (fs[ra_state_component_equality]>>rfs[])>>
+      strip_tac>>
+      fs[]>>rw[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >-
+          metis_tac[colouring_satisfactory_subgraph]
+        >>
+          match_mp_tac INJ_less>>
+          asm_exists_tac>>fs[SUBSET_DEF])>>
+      strip_tac>>fs[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >- metis_tac[colouring_satisfactory_subgraph]
+        >-
+          (match_mp_tac INJ_less>>
+          fs[good_ra_state_def]>>
+          qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+          asm_exists_tac>>fs[SUBSET_DEF])
+        >-
+          fs[ra_state_component_equality]>>
+        metis_tac[is_clique_subgraph])>>
+      strip_tac>>simp[]>>
+      imp_res_tac check_clash_tree_domain>>fs[]>>
+      qmatch_goalsub_abbrev_tac`_ _ a b c`>>
+      qspecl_then [`a`,`b`,`c`,`col o ta`] mp_tac check_partial_col_success>>
+      impl_tac>- (
+        unabbrev_all_tac>>
+        fs[]>>match_mp_tac INJ_COMPOSE_IMAGE>>
+        simp[LIST_TO_SET_MAP]>>
+        simp[GSYM domain_eq_IMAGE]>>
+        qpat_x_assum`_=set livein` sym_sub_tac>>
+        SIMP_TAC std_ss [Once (GSYM IMAGE_UNION),domain_difference]>>
+        SIMP_TAC std_ss [UNION_DIFF_3]>>
+        qexists_tac`count (LENGTH s.adj_ls)`>>
+        CONJ_TAC>-(
+          match_mp_tac INJ_less>>
+          last_assum (match_exists_tac o concl)>>
+          fs[SUBSET_DEF]>>
+          metis_tac[])>>
+        simp[]>>
+        qpat_assum`set cli' = _` (SUBST1_TAC o SYM)>>
+        match_mp_tac ALL_DISTINCT_set_INJ>>
+        match_mp_tac colouring_satisfactory_cliques>>fs[]>>
+        qexists_tac`s'.adj_ls`>>simp[]>>
+        fs[EXTENSION,EVERY_MEM,IN_COUNT]>>
+        fs[ra_state_component_equality,MEM_MAP]>>
+        strip_tac>> strip_tac
+        >-
+          (first_x_assum drule>>
+          fs[good_ra_state_def])
+        >>
+        qpat_x_assum`INJ ta _ _` kall_tac>>
+        qpat_x_assum`INJ ta _ _` mp_tac>>
+        fs[good_ra_state_def]>>
+        qmatch_goalsub_abbrev_tac`INJ ta ss _`>>
+        `x' ∈ ss` by
+          (fs[Abbr`ss`,SUBSET_DEF]>>
+          metis_tac[])>>
+        pop_assum mp_tac>>
+        rpt (pop_assum kall_tac)>> simp[INJ_DEF,IN_COUNT])>>
+      strip_tac>>
+      unabbrev_all_tac>>simp[]>>
+      imp_res_tac check_partial_col_domain>>fs[]>>
+      qmatch_goalsub_abbrev_tac`set (MAP FST ls)`>>
+      `set (MAP FST ls) = domain livein''' DIFF domain livein''` by
+        fs[Abbr`ls`,EXTENSION,toAList_domain,domain_difference]>>
+      fs[]>>rw[]>>
+      fs[SUBSET_DEF,EXTENSION]>>
       metis_tac[])
     >>
-    rveq>>fs[clique_g_insert_domain]>>
-    rw[]>>fs[is_subgraph_def,SUBSET_DEF,toAList_domain])
+      drule clique_insert_edge_succeeds>>
+      disch_then(qspec_then`MAP ta (MAP FST (toAList x))` mp_tac)>>
+      impl_tac>-
+        (simp[Once EVERY_MAP,EVERY_MEM,toAList_domain]>>
+        fs[ra_state_component_equality]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT,good_ra_state_def]>>
+        ntac 2 strip_tac>>last_x_assum match_mp_tac>>
+        simp[])>>
+      strip_tac>>fs[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >-
+          metis_tac[colouring_satisfactory_subgraph]
+        >>
+          match_mp_tac INJ_less>>
+          asm_exists_tac>>fs[SUBSET_DEF])>>
+      strip_tac>>fs[]>>
+      imp_res_tac check_clash_tree_domain>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >- metis_tac[colouring_satisfactory_subgraph]
+        >-
+          (match_mp_tac INJ_less>>
+          fs[good_ra_state_def]>>
+          qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+          asm_exists_tac>>fs[SUBSET_DEF])
+        >-
+          fs[ra_state_component_equality]>>
+        metis_tac[is_clique_subgraph])>>
+      strip_tac>>simp[]>>
+      imp_res_tac check_clash_tree_domain>>
+      simp[check_col_def]>>
+      fs[LIST_TO_SET_MAP]>>
+      CONJ_TAC>-
+        (simp[GSYM MAP_MAP_o]>>
+        match_mp_tac colouring_satisfactory_cliques>>
+        rw[]>>
+        qexists_tac`s'.adj_ls`>>fs[]>>
+        CONJ_TAC>-
+          (fs[good_ra_state_def]>>
+          match_mp_tac ALL_DISTINCT_MAP_INJ>>
+          fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+          rw[]>>
+          ntac 3 (pop_assum mp_tac)>>
+          ntac 30 (pop_assum kall_tac)>>
+          FULL_SIMP_TAC std_ss [INJ_DEF,AND_IMP_INTRO]>>
+          strip_tac>>
+          first_x_assum(qspecl_then[`x'`,`y`] match_mp_tac)>>
+          simp[])>>
+        fs[Once EVERY_MAP,EVERY_MEM,toAList_domain,ra_state_component_equality,good_ra_state_def]>>
+        rw[]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT]>>
+        last_x_assum match_mp_tac>>
+        simp[])>>
+      rw[]
+      >-
+        (simp[Once LIST_TO_SET_MAP]>>AP_TERM_TAC>>
+        metis_tac[EXTENSION,toAList_domain])
+      >>
+        simp[EXTENSION,domain_fromAList,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+        simp[domain_lookup])
   >>
-    ntac 5 strip_tac>>
-    pairarg_tac>>fs[]>>
-    first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
-    rfs[]>>
-    imp_res_tac clash_tree_to_spg_props>>
-    rpt (qpat_x_assum `Q ⇒P` kall_tac)>>
-    rpt (qpat_x_assum `!a b c. P⇒Q⇒R` kall_tac)>>
-    first_x_assum(qspecl_then[`live''`,`G''`,`G'`,`live'`] assume_tac)>>
-    rfs[sp_g_is_clique_def]>>
-    fs[is_subgraph_def,SUBSET_DEF]>>
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct'`,`ta`,`livelist`] mp_tac)>>
+    impl_tac>- (
+      ntac 2 (last_x_assum kall_tac)>> simp[]>>
+      CONJ_TAC>-
+        fs[INJ_DEF,EVERY_MEM,EXTENSION,good_ra_state_def]>>
+      match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>rw[]>>
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct`,`ta`,`live'`] mp_tac)>>
+    impl_tac>- (
+      ntac 2 (last_x_assum kall_tac)>>
+      fs[good_ra_state_def]>>
+      qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+      CONJ_TAC>-
+        (fs[INJ_DEF,EVERY_MEM,EXTENSION,good_ra_state_def]>>
+        metis_tac[is_clique_subgraph])>>
+      match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>rw[]>>
+    first_x_assum drule>>
+    disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+    impl_keep_tac>-(
+      rw[]
+      >-
+        metis_tac[colouring_satisfactory_subgraph]
+      >>
+        match_mp_tac INJ_less>>
+        asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>
+    imp_res_tac check_clash_tree_domain>>
+    last_x_assum drule>>simp[]>>
+    disch_then(qspecl_then[`col`,`livein'`,`flivein`] mp_tac)>>
+    impl_keep_tac>-(
+      simp[]>>
+      rw[]
+      >-
+        (fs[good_ra_state_def]>>rfs[]>>
+        match_mp_tac INJ_less>>
+        qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+        last_assum (match_exists_tac o concl)>> fs[SUBSET_DEF]>>
+        metis_tac[])
+      >>
+        fs[EVERY_MEM,SUBSET_DEF,good_ra_state_def]>>
+        qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[])>>
+    strip_tac>>fs[SUBSET_DEF]>>
     metis_tac[]);
 
-val _ = export_theory()
+(* This precise characterization is needed to show that the forced edges
+   correctly force any two to be distinct *)
+val extend_graph_succeeds = Q.store_thm("extend_graph_succeeds",`
+  ∀forced:(num,num)alist f s.
+  good_ra_state s ∧
+  EVERY (λx,y.f x < s.dim ∧ f y < s.dim) forced ==>
+  ∃s'.
+    extend_graph f forced s = (Success (),s') ∧
+    good_ra_state s' ∧
+    s' = s with adj_ls := s'.adj_ls ∧
+    ∀a b.
+    (has_edge s'.adj_ls a b ⇔
+    (∃x y. f x = a ∧ f y = b ∧ MEM (y,x) forced) ∨
+    (∃x y. f x = a ∧ f y = b ∧ MEM (x,y) forced) ∨ (has_edge s.adj_ls a b))`,
+  Induct>>fs[extend_graph_def]>>fs msimps
+  >-
+    rw[ra_state_component_equality]
+  >>
+    Cases>>fs[extend_graph_def]>>rw[]>>fs msimps>>
+    drule (GEN_ALL insert_edge_succeeds)>>
+    disch_then (qspecl_then [`f r`,`f q`] assume_tac)>>rfs[]>>
+    simp[]>>
+    first_x_assum (qspecl_then [`f`,`s'`] assume_tac)>>rfs[]>>
+    fs[ra_state_component_equality]>>rfs[]>>
+    fs[good_ra_state_def]>>
+    metis_tac[]);
+
+(* Again, this characterization is only needed for the conventions,
+   but not for the correctness theorem *)
+val mk_tags_st_ex_FOREACH_lem = Q.prove(`
+  ∀ls s fa.
+  good_ra_state s ∧
+  EVERY (\v. v < s.dim) ls ⇒
+  ∃s'.
+    st_ex_FOREACH ls
+       (λi.
+       if fa i MOD 4 = 1 then update_node_tag i Atemp
+       else if fa i MOD 4 = 3 then update_node_tag i Stemp
+       else update_node_tag i (Fixed (fa i DIV 2))) s = (Success (),s') ∧
+    good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
+    (∀x.
+    x < s.dim ⇒
+    if MEM x ls then
+      (if is_phy_var (fa x) then EL x s'.node_tag = Fixed ((fa x) DIV 2)
+      else if is_stack_var (fa x) then EL x s'.node_tag = Stemp
+      else EL x s'.node_tag = Atemp)
+    else
+       EL x s'.node_tag = EL x s.node_tag)`,
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps
+  >-
+    simp[ra_state_component_equality]>>
+  rw[]>>
+  (reverse IF_CASES_TAC >- fs[good_ra_state_def])>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH _ _ ss` >>
+  first_x_assum(qspecl_then [`ss`,`fa`] mp_tac)>>
+  (impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def])>>
+  rw[]>> fs[Abbr`ss`]>>
+  ntac 2 strip_tac>>
+  first_x_assum drule>>
+  IF_CASES_TAC>> simp[]>>
+  fs[EL_LUPDATE]
+  >-
+    (`is_alloc_var (fa h)` by fs[is_alloc_var_def]>>
+    rw[]>>fs[Once convention_partitions])
+  >-
+    (`is_stack_var (fa h)` by fs[is_stack_var_def]>>
+    rw[]>>fs[Once convention_partitions])
+  >-
+    (`¬is_alloc_var (fa h) ∧ ¬ is_stack_var (fa h)` by fs[is_stack_var_def,is_alloc_var_def]>>
+    metis_tac[convention_partitions]));
+
+val mk_tags_succeeds = Q.store_thm("mk_tags_succeeds",`
+  good_ra_state s ∧
+  n = s.dim ⇒
+  ∃s'.
+    mk_tags n fa s = (Success (),s') ∧
+    good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
+    ∀x y.
+    x < n ∧ y = fa x ⇒
+    if is_phy_var y then EL x s'.node_tag = Fixed (y DIV 2)
+    else if is_stack_var y then EL x s'.node_tag = Stemp
+    else EL x s'.node_tag = Atemp`,
+  rw[mk_tags_def]>>fs msimps>>
+  drule mk_tags_st_ex_FOREACH_lem>>
+  qpat_abbrev_tac`ls = GENLIST _ _`>>
+  disch_then(qspecl_then[`ls`,`fa`] mp_tac)>>impl_tac>>
+  unabbrev_all_tac>>fs[EVERY_GENLIST]>>rw[]>>simp[]>>
+  fs[MEM_GENLIST]);
+
+(* copied from word-to-stack proof*)
+val TWOxDIV2 = Q.store_thm("TWOxDIV2",
+  `2 * x DIV 2 = x`,
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]);
+
+val extract_color_st_ex_MAP_lem = Q.prove(`
+  ∀ls s.
+  EVERY (λ(k,v). v < LENGTH s.node_tag) ls ⇒
+  st_ex_MAP (λ(k,v). do t <- node_tag_sub v; return (k,extract_tag t) od) ls s =
+  (Success(MAP (λ(k,v). (k,extract_tag (EL v s.node_tag))) ls),s)`,
+  Induct>>fs[st_ex_MAP_def]>>fs msimps>>rw[]>>
+  Cases_on`h`>>fs[]);
+
+val extract_color_succeeds = Q.store_thm("extract_color_succeeds",`
+  good_ra_state s ∧
+  (∀x y. lookup x ta = SOME y ==> y < s.dim) /\
+  wf ta ==>
+  extract_color ta s =
+  (Success (map (λv. extract_tag (EL v s.node_tag)) ta ),s)`,
+  rw[extract_color_def]>>
+  simp[Once st_ex_bind_def,Once st_ex_return_def]>>
+  simp[Once st_ex_bind_def]>>
+  Q.ISPECL_THEN [`toAList ta`,`s`] mp_tac extract_color_st_ex_MAP_lem>>
+  impl_tac>-
+    (fs[EVERY_MEM,MEM_toAList,FORALL_PROD,good_ra_state_def]>>
+    metis_tac[])>>
+  rw[]>>simp msimps>>
+  simp[GSYM map_fromAList]>>
+  drule fromAList_toAList>>
+  simp[]);
+
+(* Minimal proofs about the heuristic steps *)
+
+val st_ex_PARTITION_split_degree = Q.prove(`
+  ∀atemps k lss lss' s.
+  good_ra_state s ⇒
+  ?ts fs. st_ex_PARTITION (split_degree s.dim k) atemps lss lss' s =
+    (Success (ts,fs),s)`,
+  Induct_on`atemps`>>fs[st_ex_PARTITION_def,EXISTS_PROD]>>fs msimps>>
+  rw[split_degree_def]>>rfs msimps>>
+  fs[degrees_accessor,Marray_sub_def]>>
+  first_x_assum drule>>
+  fs[good_ra_state_def]>>
+  rw[]);
+
+(* This is currently more general than necessary because it doesn't
+   do any coalescing (yet) *)
+val dec_deg_success = Q.prove(`
+  ∀ls s.
+  EVERY (λv. v < s.dim) ls ∧
+  good_ra_state s ⇒
+  ∃d. st_ex_FOREACH ls dec_deg s = (Success (),s with degrees :=d) ∧
+  LENGTH d = LENGTH s.degrees
+  `,
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps >- fs[ra_state_component_equality]>>
+  rw[dec_deg_def]>>fs msimps>>fs[degrees_accessor,Marray_sub_def]>>
+  reverse IF_CASES_TAC>- fs[good_ra_state_def]>> simp[]>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH _ _ ss`>>
+  first_x_assum(qspec_then`ss` assume_tac)>>rfs[Abbr`ss`,good_ra_state_def]>>
+  simp[ra_state_component_equality]);
+
+val dec_degree_success = Q.prove(`
+  ∀ls s.
+  good_ra_state s ⇒
+  ∃d.
+  st_ex_FOREACH ls dec_degree s = (Success (),s with degrees :=d)∧
+  LENGTH d = LENGTH s.degrees`,
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps >- fs[ra_state_component_equality]>>
+  rw[dec_degree_def]>>fs msimps>>
+  fs[get_dim_def]>>
+  reverse IF_CASES_TAC>>fs[]>>
+  reverse IF_CASES_TAC>-fs[good_ra_state_def]>>
+  fs[]>>
+  `EVERY (\v. v < s.dim) (EL h s.adj_ls)` by
+    fs[good_ra_state_def,EVERY_EL]>>
+  drule dec_deg_success>>rw[]>>simp[]>>
+  first_x_assum (qspec_then `s with degrees := d` assume_tac)>>
+  rfs[good_ra_state_def]>>fs[]>>
+  metis_tac[]);
+
+val unspill_success = Q.prove(`
+  ∀k s.
+  good_ra_state s ⇒
+  ∃s' b.
+  unspill k s = (Success (),s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[unspill_def]>> fs msimps>>
+  simp[get_dim_def,get_spill_wl_def]>>
+  drule st_ex_PARTITION_split_degree>>
+  disch_then(qspecl_then[`s.spill_wl`,`k`,`[]:num list`,`[]:num list`] assume_tac)>>
+  fs[]>>
+  simp[set_spill_wl_def,add_simp_wl_def]>>simp msimps>>
+  simp[get_simp_wl_def,set_simp_wl_def]>>
+  fs[good_ra_state_def,is_subgraph_def]);
+
+val do_simplify_success = Q.prove(`
+  ∀s.
+  good_ra_state s ⇒
+  ∃s' b.
+  do_simplify k s = (Success b,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_simplify_def]>>fs msimps>>fs[get_simp_wl_def]>>
+  rw[]>- fs[is_subgraph_def]>>
+  drule dec_degree_success>>
+  disch_then(qspec_then`s.simp_wl` assume_tac)>>fs[]>>
+  simp([add_stack_def,get_stack_def,set_stack_def,set_simp_wl_def] @msimps)>>
+  qmatch_goalsub_abbrev_tac`unspill k ss`>>
+  qspecl_then [`k`,`ss`] assume_tac unspill_success >> rfs[Abbr`ss`,good_ra_state_def]);
+
+val st_ex_list_MAX_deg_success = Q.prove(`
+  ∀ls s k v acc.
+  good_ra_state s ∧
+  k < s.dim ⇒
+  ∃x y.
+  st_ex_list_MAX_deg ls (s.dim) k v acc s = (Success (x,y),s) ∧
+  x < s.dim`,
+  Induct>>fs[st_ex_list_MAX_deg_def]>>simp msimps>>rw[]>>
+  fs[degrees_accessor,Marray_sub_def]>>
+  reverse (rw[])>- fs[good_ra_state_def]>>
+  rw[]);
+
+val do_spill_success = Q.prove(`
+  ∀s.
+  good_ra_state s ⇒
+  ∃s' b.
+  do_spill k s = (Success b,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_spill_def]>>fs msimps>>fs[get_spill_wl_def]>>fs[get_dim_def]>>
+  TOP_CASE_TAC>-fs[is_subgraph_def]>>
+  IF_CASES_TAC>-fs[is_subgraph_def]>>
+  fs[degrees_accessor,Marray_sub_def]>>
+  reverse IF_CASES_TAC>-fs[good_ra_state_def]>>
+  fs[]>>
+  drule st_ex_list_MAX_deg_success>>
+  rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
+  qmatch_goalsub_abbrev_tac`st_ex_list_MAX_deg ls _ kk vv acc _`>>
+  first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>rfs[]>>
+  simp[dec_deg_def]>> simp msimps>> simp[degrees_accessor,Marray_sub_def]>>
+  qmatch_goalsub_abbrev_tac`unspill k ss`>>
+  qspecl_then [`k`,`ss`] mp_tac unspill_success>>
+  impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def]>>
+  rw[]>>simp[add_stack_def]>>simp msimps>>
+  simp[get_stack_def,set_stack_def,set_spill_wl_def]>>
+  fs[Abbr`ss`,good_ra_state_def]);
+
+val do_step_success = Q.prove(`
+  ∀k s.
+  good_ra_state s ⇒
+  ∃s'.
+  do_step k s = (Success (),s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_step_def]>>fs msimps>>
+  drule do_simplify_success>>rw[]>>simp[]>>
+  IF_CASES_TAC>>fs[]>>
+  drule do_spill_success>>rw[]>>simp[]>>
+  metis_tac[is_subgraph_trans]);
+
+val rpt_do_step_success = Q.prove(`
+  ∀n s k.
+    good_ra_state s ⇒
+    ∃s'.
+      rpt_do_step k n s = (Success (),s') ∧
+      good_ra_state s' ∧
+      is_subgraph s.adj_ls s'.adj_ls ∧
+      s.dim = s'.dim ∧
+      s.node_tag = s'.node_tag`,
+  Induct>>fs[rpt_do_step_def]>>fs msimps>-fs[is_subgraph_def]>>
+  rw[]>>
+  drule do_step_success>> disch_then(qspec_then`k` assume_tac)>>rfs[]>>
+  metis_tac[is_subgraph_trans,do_step_success]);
+
+val do_alloc1_success = Q.prove(`
+  good_ra_state s ⇒
+  ∃ls s'.
+  do_alloc1 k s = (Success ls,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  (* This allows the coalescing phase to modify the adjacency list *)
+  s'.dim = s.dim ∧
+  s'.node_tag = s.node_tag`,
+  rw[do_alloc1_def]>>simp msimps>>
+  simp[get_dim_def,init_alloc1_heu_def]>> simp msimps>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls f s`>>
+  `EVERY (λv. v < s.dim) ls` by fs[Abbr`ls`,EVERY_GENLIST] >>
+  `?s'. st_ex_FOREACH ls f s = (Success (),s') ∧
+  s with degrees := s'.degrees = s' ∧
+  good_ra_state s' ∧
+  LENGTH s'.degrees = LENGTH s.degrees` by
+    (pop_assum mp_tac>>
+    pop_assum kall_tac>>
+    fs[Abbr`f`]>>
+    pop_assum mp_tac>>
+    qid_spec_tac`s`>> Induct_on`ls`>>
+    fs[st_ex_FOREACH_def]>>fs msimps>>fs[ra_state_component_equality]>>
+    reverse (rw[])>-fs[good_ra_state_def]>>
+    reverse (rw[])>-fs[good_ra_state_def]>>
+    qpat_abbrev_tac`ss = s with degrees := _`>>
+    `good_ra_state ss` by
+      fs[Abbr`ss`,good_ra_state_def]>>
+    first_x_assum drule>> fs[Abbr`ss`])>>
+  fs[ra_state_component_equality]>>
+  qmatch_goalsub_abbrev_tac`_ is_Atemp _ lss _`>>
+  `EVERY (\v. v < s'.dim) lss` by fs[Abbr`lss`]>>
+  `∃atemps. st_ex_FILTER is_Atemp ls lss s' = (Success atemps,s') ∧
+    EVERY (λv. v < s'.dim) atemps` by
+    (qpat_x_assum`EVERY _ ls` mp_tac>>
+    qpat_x_assum`good_ra_state s'` mp_tac>>
+    qpat_x_assum`EVERY _ lss` mp_tac>>
+    qid_spec_tac`lss`>>qid_spec_tac`s'`>>
+    rpt (pop_assum kall_tac)>>
+    Induct_on`ls`>>fs[st_ex_FILTER_def]>>fs msimps>>
+    rw[]>>rfs[is_Atemp_def]>>fs msimps>>
+    fs[good_ra_state_def]>>
+    rw[])>>
+  simp[]>>
+  drule st_ex_PARTITION_split_degree >>
+  disch_then(qspecl_then[`atemps`,`k`,`lss`,`lss`] assume_tac)>>fs[]>>
+  simp[set_simp_wl_def,set_spill_wl_def]>>
+  qmatch_goalsub_abbrev_tac`rpt_do_step _ _ ss`>>
+  qspecl_then [`LENGTH atemps`,`ss`,`k`] mp_tac rpt_do_step_success>>
+  impl_tac>- fs[Abbr`ss`,good_ra_state_def]>>
+  rw[]>>simp[get_stack_def]>>
+  fs[Abbr`ss`]);
+
+val no_clash_colouring_satisfactory = Q.store_thm("no_clash_colouring_satisfactory",`
+  no_clash adjls node_tag ∧
+  LENGTH adjls = LENGTH node_tag ∧
+  EVERY (λn. n ≠ Stemp ∧ n ≠ Atemp) node_tag
+  ⇒
+  colouring_satisfactory
+    (λf. if f < LENGTH node_tag
+    then extract_tag (EL f node_tag)
+    else 0) adjls`,
+  rw[no_clash_def,colouring_satisfactory_def]>>
+  fs[has_edge_def]>>
+  first_x_assum (qspecl_then[`f`,`f'`] mp_tac)>>simp[]>>
+  fs[EVERY_EL]>>
+  TOP_CASE_TAC>>rfs[]>>
+  TOP_CASE_TAC>>rfs[]>>
+  fs[extract_tag_def]);
+
+val check_partial_col_same_dom = Q.store_thm("check_partial_col_same_dom",`
+  ∀ls f g t ft.
+  (∀x. MEM x ls ⇒ f x = g x) ⇒
+  check_partial_col f ls t ft = check_partial_col g ls t ft`,
+  Induct>>fs[check_partial_col_def]>>rw[]>>
+  metis_tac[]);
+
+val check_clash_tree_same_dom = Q.store_thm("check_clash_tree_same_dom",`
+  ∀ct f g live flive.
+  (∀x. in_clash_tree ct x ∨ x ∈ domain live ⇒ f x = g x) ⇒
+  check_clash_tree f ct live flive =
+  check_clash_tree g ct live flive`,
+  Induct>>fs[in_clash_tree_def,check_clash_tree_def]>>rw[]
+  >-
+    metis_tac[check_partial_col_same_dom,MAP_EQ_f]
+  >-
+    (fs[check_col_def]>>
+    qpat_abbrev_tac`lsf= MAP _ (toAList s)`>>
+    qpat_abbrev_tac`lsg= MAP _ (toAList s)`>>
+    `lsf = lsg` by
+      (unabbrev_all_tac>>fs[MAP_EQ_f,FORALL_PROD,MEM_toAList,domain_lookup])>>
+    metis_tac[])
+  >-
+    (fs[DISJ_IMP_THM,FORALL_AND_THM]>>
+    rpt (first_x_assum drule)>>
+    rw[]>>EVERY_CASE_TAC>>fs[check_col_def]
+    >-
+      (imp_res_tac check_clash_tree_domain>>
+      match_mp_tac check_partial_col_same_dom>>
+      simp[toAList_domain,domain_difference]>>
+      fs[SUBSET_DEF]>>
+      metis_tac[SUBSET_DEF,IN_UNION])
+    >>
+      qpat_abbrev_tac`lsf= MAP _ (toAList s)`>>
+      qpat_abbrev_tac`lsg= MAP _ (toAList s)`>>
+      `lsf = lsg` by
+        (unabbrev_all_tac>>fs[MAP_EQ_f,FORALL_PROD,MEM_toAList,domain_lookup])>>
+      metis_tac[])
+  >>
+    fs[DISJ_IMP_THM,FORALL_AND_THM]>>
+    rpt (first_x_assum drule)>> rw[]>>
+    EVERY_CASE_TAC>>fs[]>>
+    first_x_assum match_mp_tac>>
+    drule check_clash_tree_domain>>
+    fs[SUBSET_DEF]>>
+    metis_tac[]);
+
+val opt_split = Q.prove(`
+  a ≠ NONE ⇔ a = SOME ()`,
+  Cases_on`a`>>fs[]);
+
+val INJ_IMG_lookup = Q.store_thm("INJ_IMG_lookup",`
+  ∀x. INJ g UNIV UNIV ∧
+  domain (gt:num_set) = IMAGE g (domain ft) ⇒
+  lookup (g x) gt = lookup x ft`,
+  fs[EXTENSION,domain_lookup,INJ_DEF]>>rw[]>>
+  Cases_on`lookup x ft`>>
+  CCONTR_TAC>>fs[opt_split]>>
+  metis_tac[NOT_SOME_NONE])
+
+val check_partial_col_INJ = Q.store_thm("check_partial_col_INJ",`
+  ∀ls t ft gt.
+  INJ g UNIV UNIV ∧
+  domain gt = IMAGE g (domain ft) ⇒
+  case check_partial_col f ls t ft of
+    NONE => check_partial_col (g o f) ls t gt = NONE
+  | SOME (tt,ftt) =>
+    ∃gtt. check_partial_col (g o f) ls t gt = SOME(tt,gtt) ∧
+    domain gtt = IMAGE g (domain ftt)`,
+  Induct>>fs[check_partial_col_def]>>rw[]>>
+  Cases_on`lookup h t`>>fs[]>>
+  drule INJ_IMG_lookup>>rfs[]>>
+  FULL_CASE_TAC>>fs[]);
+
+val check_col_INJ = Q.store_thm("check_col_INJ",`
+  INJ g UNIV UNIV ==>
+  case check_col f (s:num_set) of
+    NONE => check_col (g o f) s = NONE
+  | SOME (t,ft) =>
+    ∃gt. check_col (g o f) s = SOME (t,gt) ∧
+    domain gt = IMAGE g (domain ft)`,
+  fs[check_col_def]>>
+  strip_tac>>
+  fs[GSYM MAP_MAP_o]>>
+  qpat_abbrev_tac`ls = MAP f _`>>
+  `ALL_DISTINCT ls ⇔ ALL_DISTINCT (MAP g ls)` by
+    (rw[EQ_IMP_THM]>-
+      (match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[INJ_DEF])
+    >>
+    metis_tac[ALL_DISTINCT_MAP])>>
+  IF_CASES_TAC>>fs[]>>
+  simp[domain_fromAList,MAP_MAP_o]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  AP_THM_TAC>>
+  AP_TERM_TAC>>
+  simp[FUN_EQ_THM]);
+
+val check_clash_tree_INJ = Q.store_thm("check_clash_tree_INJ",`
+  ∀ct f g live flive glive.
+  INJ g UNIV UNIV ∧
+  domain glive = IMAGE g (domain flive)
+  ==>
+  case check_clash_tree f ct live flive of
+    NONE => check_clash_tree (g o f) ct live glive = NONE
+  | SOME (liveout,fliveout) =>
+    ∃gliveout.
+    check_clash_tree (g o f) ct live glive = SOME(liveout,gliveout) ∧
+    domain gliveout = IMAGE g (domain fliveout)`,
+  Induct>>fs[check_clash_tree_def]>>rw[]
+  >-
+    (drule check_partial_col_INJ>> disch_then drule>>
+    disch_then(qspecl_then[`l`,`live`] mp_tac)>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>rw[]>>simp[]>>
+    match_mp_tac check_partial_col_INJ>>simp[domain_numset_list_delete]>>
+    simp[LIST_TO_SET_MAP,IMAGE_COMPOSE]>>
+    match_mp_tac (GSYM IMAGE_DIFF)>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>fs[])
+  >-
+    metis_tac[check_col_INJ]
+  >-
+    (last_x_assum drule>>
+    disch_then drule>>
+    disch_then (qspecl_then[`f`,`live`] mp_tac)>>
+    TOP_CASE_TAC>>simp[]>>
+    TOP_CASE_TAC>>simp[]>>rw[]>>
+    simp[]>>
+    first_x_assum drule>>
+    disch_then(qspecl_then[`f`,`live`,`flive`] mp_tac)>>simp[]>>
+    disch_then drule>>
+    TOP_CASE_TAC>>simp[]>>
+    TOP_CASE_TAC>>simp[]>>rw[]>>
+    simp[]>>
+    Cases_on`o'`>>simp[]
+    >-
+      (match_mp_tac check_partial_col_INJ>>fs[])
+    >>
+      metis_tac[check_col_INJ])
+  >>
+    first_x_assum drule>>
+    disch_then drule>>
+    disch_then (qspecl_then[`f`,`live`] mp_tac)>>
+    TOP_CASE_TAC>>simp[]>>
+    TOP_CASE_TAC>>simp[]>>rw[]>>
+    first_x_assum drule>>
+    disch_then drule>>
+    disch_then (qspecl_then[`f`,`q`] mp_tac)>>
+    TOP_CASE_TAC>>simp[])
+
+(* The top-most correctness theorem --
+*)
+val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
+  ∀k moves ct forced st ta fa n.
+  mk_bij ct = (ta,fa,n)==>
+  st.adj_ls = REPLICATE n [] ==>
+  st.node_tag = REPLICATE n Atemp ==>
+  st.degrees = REPLICATE n 0 ==>
+  st.dim = n ==>
+  (* Needs to be proved in wordLang *)
+  EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
+  ∃spcol st' livein flivein.
+    do_reg_alloc k moves ct forced (ta,fa,n) st = (Success spcol,st') ∧
+    check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
+    (∀x. in_clash_tree ct x ⇒
+    x ∈ domain spcol ∧
+    if is_phy_var x then
+      sp_default spcol x = x DIV 2
+    else if is_stack_var x then
+      k ≤ (sp_default spcol x)
+    else
+      T) ∧
+    (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`,
+  rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
+  `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
+  first_x_assum(fn x => fs[x])>>
+  drule mk_bij_aux_domain>>rw[]>>
+  drule mk_bij_aux_bij>> impl_tac>-
+    simp[sp_inverts_def,lookup_def]>>
+  strip_tac>>
+  fs[set_dim_def,adj_ls_accessor,Marray_alloc_def,node_tag_accessor,degrees_accessor]>>
+  `good_ra_state st` by
+    (fs[good_ra_state_def,EVERY_REPLICATE,undirected_def,has_edge_def]>>
+    rw[]>>
+    `EL x (REPLICATE st.dim []) = []:num list` by fs[EL_REPLICATE]>>fs[])>>
+  drule mk_graph_succeeds>>
+  disch_then(qspecl_then [`ct`,`sp_default ta`,`[]`] mp_tac)>>simp[is_clique_def]>>
+  impl_keep_tac>-(
+    CONJ_ASM1_TAC>-
+      (rw[]>>fs[sp_inverts_def,EXTENSION,domain_lookup,sp_default_def]>>
+      TOP_CASE_TAC>>fs[]>>
+      metis_tac[option_nchotomy])>>
+    rw[INJ_DEF] >>
+    fs[sp_default_def]>>
+    pop_assum mp_tac>>
+    fs[domain_lookup,EXTENSION]>>
+    TOP_CASE_TAC>>fs[]>- metis_tac[option_CLAUSES]>>
+    TOP_CASE_TAC>>fs[]>- metis_tac[option_CLAUSES]>>
+    fs[sp_inverts_def]>>
+    metis_tac[SOME_11])>>
+  strip_tac>>fs[]>>
+  drule extend_graph_succeeds>>
+  disch_then(qspecl_then[`forced`,`sp_default ta`] mp_tac)>>
+  impl_tac>- (
+    fs[EVERY_MEM,sp_inverts_def,FORALL_PROD]>>ntac 3 strip_tac>>
+    first_x_assum drule>>fs[EXTENSION,domain_lookup,sp_default_def]>>
+    strip_tac>>
+    last_assum(qspec_then `p_1` assume_tac)>>
+    last_x_assum(qspec_then `p_2` assume_tac)>>
+    rfs[]>>
+    fs[good_ra_state_def,ra_state_component_equality]>>
+    metis_tac[])>>
+  rw[]>>simp[]>>
+  `is_subgraph s'.adj_ls s''.adj_ls` by
+    fs[is_subgraph_def]>>
+  qpat_x_assum`!a b. _`mp_tac>>
+  qmatch_goalsub_abbrev_tac`hide ⇒ _`>>
+  drule (GEN_ALL mk_tags_succeeds)>>
+  disch_then(qspecl_then[`st.dim`,`sp_default fa`] mp_tac)>>
+  impl_tac>-
+    fs[ra_state_component_equality]>>
+  rw[]>>simp[]>>
+  drule do_alloc1_success>>rw[]>>simp[]>>
+  `no_clash s''''.adj_ls s''''.node_tag` by
+    (fs[no_clash_def,has_edge_def]>>rw[]>>
+    rfs[good_ra_state_def,ra_state_component_equality]>>
+    res_tac>>
+    qpat_x_assum(`!x. _`) kall_tac>>
+    ntac 2 (pop_assum mp_tac)>>
+    reverse (rpt (IF_CASES_TAC >> simp[]))>>
+    rw[]>>
+    fs[sp_default_def,sp_inverts_def,domain_lookup,EXTENSION]>>
+    pop_assum mp_tac>>
+    TOP_CASE_TAC>- metis_tac[option_CLAUSES]>>
+    TOP_CASE_TAC>- metis_tac[option_CLAUSES]>>
+    fs[is_phy_var_def]>>
+    rw[]>>
+    `x' = x''` by
+      (fs[GSYM EVEN_MOD2,EVEN_EXISTS]>>rw[]>>
+      fs[TWOxDIV2])>>
+    metis_tac[option_CLAUSES])>>
+  drule assign_Atemps_correct>>simp[]>>
+  qmatch_goalsub_abbrev_tac`assign_Atemps _ _ (biased_pref mov)`>>
+  disch_then (qspecl_then[`k`,`ls`,`biased_pref mov`] assume_tac)>>
+  fs[good_pref_biased_pref]>>
+  drule assign_Stemps_correct>>rw[]>>simp[]>>
+  drule (GEN_ALL extract_color_succeeds)>>
+  disch_then(qspec_then`ta` mp_tac)>>
+  impl_tac>-
+    (rw[]
+    >-
+      (fs[ra_state_component_equality]>>
+      fs[sp_inverts_def,EXTENSION,domain_lookup]>>
+      metis_tac[])
+    >>
+      drule mk_bij_aux_wf>>fs[wf_def,markerTheory.Abbrev_def])>>
+  rw[]>>simp[]>>
+  drule no_clash_colouring_satisfactory >>
+  impl_keep_tac>- (
+    fs[good_ra_state_def,EVERY_EL,ra_state_component_equality]>>
+    rfs[]>>
+    ntac 2 strip_tac>>
+    first_x_assum drule>> IF_CASES_TAC>> fs[]>> strip_tac>>
+    rfs[])>>
+  qmatch_goalsub_abbrev_tac`colouring_satisfactory col _`>>
+  rw[]>>
+  drule mk_graph_check_clash_tree>>
+  disch_then(qspecl_then[`col`,`LN`,`LN`] mp_tac)>>
+  impl_tac>-
+    (fs[is_clique_def]>>
+    fs[ra_state_component_equality]>>
+    metis_tac[colouring_satisfactory_subgraph,is_subgraph_trans])>>
+  strip_tac>>fs[]>>
+  qexists_tac`livein'`>>
+  qexists_tac`flivein`>>
+  qpat_x_assum`_ = SOME _` sym_sub_tac>>
+  CONJ_TAC>-
+    (match_mp_tac check_clash_tree_same_dom>>rw[]>>
+    simp[sp_default_def,lookup_map,Abbr`col`]>>
+    fs[EXTENSION,domain_lookup]>>
+    last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
+    fs[sp_inverts_def,ra_state_component_equality,good_ra_state_def]>>
+    rfs[]>>
+    metis_tac[])>>
+  CONJ_TAC>- (
+    ntac 2 strip_tac>>
+    fs[domain_lookup,EXTENSION]>>
+    last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
+    fs[sp_inverts_def]>> first_x_assum drule>>
+    simp[sp_default_def,lookup_map]>>
+    rfs[ra_state_component_equality,good_ra_state_def]>>
+    fs[good_ra_state_def]>>
+    strip_tac>>
+    (qpat_x_assum`!x. x < n ⇒ if is_phy_var _ then _ else _` (qspec_then`v` assume_tac))>>rfs[]>>
+    `sp_default fa v = x` by
+      (fs[sp_default_def]>>
+      res_tac>>fs[])>>
+    fs[]>>
+    IF_CASES_TAC>>fs[]
+    >-
+      (`EL v s'''.node_tag ≠ Atemp ∧ EL v s'''.node_tag ≠ Stemp` by fs[]>>
+      res_tac>>fs[]>>
+      rfs[extract_tag_def])
+    >>
+      strip_tac>>fs[]>>
+      (`EL v s'''.node_tag ≠ Atemp` by fs[]>>
+      res_tac>>fs[]>>
+      rfs[extract_tag_def]))>>
+  CONJ_TAC>-
+    fs[domain_map]>>
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+  last_x_assum drule>>
+  strip_tac>>
+  fs[sp_default_def,lookup_map]>>
+  `p_1 ∈ domain ta ∧ p_2 ∈ domain ta` by fs[EXTENSION]>>
+  fs[domain_lookup]>>fs[]>>
+  fs[no_clash_def]>>
+  first_x_assum(qspecl_then [`v`,`v'`] mp_tac)>>
+  impl_tac>-
+    (fs[markerTheory.Abbrev_def]>>
+    `is_subgraph s''.adj_ls s''''''.adj_ls` by
+      (fs[ra_state_component_equality]>>
+      metis_tac[])>>
+    qsuff_tac`has_edge s''.adj_ls v v'`>-
+      fs[is_subgraph_def]>>
+    simp[]>>
+    DISJ2_TAC>>DISJ1_TAC>>
+    qexists_tac`p_1`>>qexists_tac`p_2`>>simp[])>>
+  strip_tac>>
+  qsuff_tac`v=v'`
+  >-
+    (qpat_x_assum`INJ _ _ _` mp_tac>>
+    simp[INJ_DEF,sp_default_def])
+  >>
+  pop_assum mp_tac>>
+  fs[MEM_EL,PULL_EXISTS]>>
+  `LENGTH s''''''.node_tag = st.dim` by
+    fs[ra_state_component_equality,good_ra_state_def]>>
+  first_assum(qspec_then`v` mp_tac)>>
+  impl_tac>-
+    (fs[sp_inverts_def]>>
+    metis_tac[domain_lookup,IN_COUNT,good_ra_state_def])>>
+  first_x_assum(qspec_then`v'` mp_tac)>>
+  impl_tac>-
+    (fs[sp_inverts_def]>>
+    metis_tac[domain_lookup,IN_COUNT,good_ra_state_def])>>
+  qpat_x_assum`extract_tag _ = _ ` mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  fs[extract_tag_def]>>
+  every_case_tac>>simp[]);
+
+fun first_prove_imp thms =
+  (first_assum(fn x => sg `^(fst(dest_imp(concl x)))`) >- (fs thms) >>
+  POP_ASSUM(fn x  => fs[x]));
+
+(* The top-most correctness theorem --
+*)
+val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
+  ∀k moves ct forced.
+  (* Needs to be proved in wordLang *)
+  EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
+  ∃spcol livein flivein.
+    reg_alloc k moves ct forced = Success spcol ∧
+    check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
+    (∀x. in_clash_tree ct x ⇒
+    x ∈ domain spcol ∧
+    if is_phy_var x then
+      sp_default spcol x = x DIV 2
+    else if is_stack_var x then
+      k ≤ (sp_default spcol x)
+    else
+      T) ∧
+    (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`,
+  rw[reg_alloc_def]>>
+  Cases_on `mk_bij ct`>>Cases_on`r`>>rw[]>>
+  rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
+  qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ st` >>
+  qmatch_goalsub_abbrev_tac `(ta,fa,n)` >>
+  ASSUME_TAC (Q.SPECL [`k`,`moves`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
+  first_x_assum drule >> rw[] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_prove_imp [Abbr `st`,ra_state_component_equality] >>
+  first_x_assum drule);
+(* --- --- *)
+
+val _ = export_theory ();
+

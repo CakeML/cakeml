@@ -14,7 +14,9 @@ BARE_THYS = $(patsubst %,../../../semantics/proofs/%,$(META_BARE_THYS)) $(patsub
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 

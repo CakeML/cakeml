@@ -351,6 +351,25 @@ val tac =
   every_case_tac >>
   full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[];
 
+val v_rel_l2v_APPEND = Q.store_thm("v_rel_l2v_APPEND",
+  `!x1 x2 y1 y2.
+   v_rel exh (list_to_v x1) (list_to_v x2) /\
+   v_rel exh (list_to_v y1) (list_to_v y2) ==>
+     v_rel exh (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct \\ Induct_on `x2`
+  \\ rw [v_rel_rules, conSemTheory.list_to_v_def, exhSemTheory.list_to_v_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ simp [Once v_rel_cases] \\ rw []
+  \\ simp [Once v_rel_cases]);
+
+val v_rel_l2v = Q.store_thm("v_rel_l2v",
+  `!xs ys.
+     LIST_REL (v_rel exh) xs ys ==>
+       v_rel exh (list_to_v xs) (list_to_v ys)`,
+  Induct \\ rw []
+  \\ fs [exhSemTheory.list_to_v_def, conSemTheory.list_to_v_def, v_rel_rules]
+  \\ simp [Once v_rel_cases]);
+
 val do_app_lem = Q.prove (
   `!(exh:exh_ctors_env) s1 op vs r' ffi' res s1_exh vs_exh.
     conSem$do_app (s1.refs,s1.ffi) op vs = SOME ((r',ffi'), res) ∧
@@ -391,6 +410,13 @@ val do_app_lem = Q.prove (
     strip_tac >> `n = LENGTH s1_exh.refs` by simp[] >> simp[] >>
     simp[LIST_REL_EL_EQN,LENGTH_REPLICATE,EL_REPLICATE] >>
     NO_TAC)
+  \\ TRY
+   (rename1 `list_to_v`
+    \\ fs [PULL_EXISTS]
+    \\ imp_res_tac v_to_list \\ fs []
+    \\ reverse conj_tac
+    >- tac
+    \\ metis_tac [v_rel_l2v, v_rel_l2v_APPEND])
   \\ (tac >> fsrw_tac[ARITH_ss][LIST_REL_EL_EQN,EL_LUPDATE] >>
       metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def,
                  NOT_SOME_NONE, SOME_11, GREATER_EQ, NOT_LESS, LIST_REL_EL_EQN, PAIR_EQ]));
@@ -838,7 +864,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
       disch_then drule >>
       disch_then(qspec_then`env.exh`mp_tac)>>
       impl_tac >- simp[] >>
-      impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
+      simp[] >> strip_tac >>
       full_simp_tac(srw_ss())[result_rel_cases] >> full_simp_tac(srw_ss())[]) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
@@ -860,7 +886,6 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           disch_then drule >>
           disch_then(qspec_then`env.exh`mp_tac)>>
           impl_tac >- simp[] >>
-          impl_tac >- full_simp_tac(srw_ss())[] >>
           CONV_TAC(LAND_CONV(SIMP_CONV std_ss [EXISTS_PROD])) >>
           strip_tac >>
           drule (GEN_ALL (CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
@@ -872,7 +897,9 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
           ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[state_component_equality,result_rel_cases,state_rel_def] >> rev_full_simp_tac(srw_ss())[]) >>
+          full_simp_tac(srw_ss())[state_component_equality,
+                                  result_rel_cases,state_rel_def] >>
+          rev_full_simp_tac(srw_ss())[]) >>
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
         unabbrev_all_tac >>
         drule (CONJUNCT1 compile_exp_evaluate) >>
@@ -881,11 +908,11 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
         first_x_assum(qspec_then`k'+k`strip_assume_tac) >>
         disch_then drule >>
         disch_then(qspec_then`env.exh`mp_tac)>>
-        impl_tac >- simp[] >>
+        CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss()) [EXISTS_PROD])) >>
         impl_tac >- (
           last_x_assum(qspec_then`k+k'`mp_tac)>>
-          rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
+          rpt strip_tac >> fsrw_tac[ARITH_ss][] >>
+          rev_full_simp_tac(srw_ss())[] ) >>
         strip_tac >>
         qhdtm_x_assum`decSem$evaluate`mp_tac >>
         drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
@@ -895,8 +922,10 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
         strip_tac >>
         spose_not_then strip_assume_tac >>
         rveq >>
-        fsrw_tac[ARITH_ss][state_rel_def,result_rel_cases] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]) >>
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
+        fsrw_tac[ARITH_ss][state_rel_def,result_rel_cases] >>
+        rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]) >>
+      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o
+                  concl) >> full_simp_tac(srw_ss())[] >>
       unabbrev_all_tac >>
       drule (CONJUNCT1 compile_exp_evaluate) >>
       disch_then drule >>
@@ -904,31 +933,38 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
       first_x_assum(qspec_then`k'+k`strip_assume_tac) >>
       disch_then drule >>
       disch_then(qspec_then`env.exh`mp_tac)>>
-      impl_tac >- simp[] >>
+      CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
       impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>
-        rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
-      CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
+        rpt strip_tac >> fsrw_tac[ARITH_ss][] >>
+        rev_full_simp_tac(srw_ss())[] ) >>
       strip_tac >> rveq >>
-      reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
-        fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[state_rel_def,result_rel_cases] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
+      reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>
+      rev_full_simp_tac(srw_ss())[]
+      >- (
+        fsrw_tac[ARITH_ss][] >>
+        rev_full_simp_tac(srw_ss())[state_rel_def,result_rel_cases] >>
+        full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
       qhdtm_x_assum`exhSem$evaluate`mp_tac >>
       drule (GEN_ALL(CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
       impl_tac >- full_simp_tac(srw_ss())[] >>
       disch_then(qspec_then`k`mp_tac)>>simp[] >>
       rpt strip_tac >> spose_not_then strip_assume_tac >>
-      fsrw_tac[ARITH_ss][state_rel_def,result_rel_cases,state_component_equality] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
+      fsrw_tac[ARITH_ss][state_rel_def,result_rel_cases,
+                         state_component_equality] >>
+      full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     drule (CONJUNCT1 compile_exp_evaluate) >> simp[] >>
     disch_then drule >>
     imp_res_tac state_rel_with_clock >>
     first_x_assum(qspec_then`k`strip_assume_tac) >>
     disch_then drule >>
     disch_then(qspec_then`env.exh`mp_tac)>>
-    impl_tac >- simp[] >>
+    CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss()) [])) >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
-      full_simp_tac(srw_ss())[] >> rpt strip_tac >> full_simp_tac(srw_ss())[] ) >>
+      full_simp_tac(srw_ss())[] >> rpt strip_tac >>
+      full_simp_tac(srw_ss())[] ) >>
     strip_tac >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     qexists_tac`k`>>simp[] >>
@@ -965,7 +1001,6 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
     first_x_assum(qspec_then`k`strip_assume_tac) >>
     disch_then drule >>
     disch_then(qspec_then`env.exh`mp_tac)>>
-    impl_tac >- simp[] >>
     impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
     full_simp_tac(srw_ss())[result_rel_cases,state_rel_def] >> rveq >> full_simp_tac(srw_ss())[] >>
     CASE_TAC >> full_simp_tac(srw_ss())[]) >>

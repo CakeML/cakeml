@@ -6,6 +6,8 @@ val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = new_theory "word_bignumProof";
 
+val shift_def = backend_commonTheory.word_shift_def
+
 
 (* semantics of the little language *)
 
@@ -23,16 +25,16 @@ val eval_exp_def = Define `
   eval_exp s (Op And [x1;x2]) = word_and (eval_exp s x1) (eval_exp s x2) /\
   eval_exp s (Op Or [x1;x2]) = word_or (eval_exp s x1) (eval_exp s x2) /\
   eval_exp s (Op Xor [x1;x2]) = word_xor (eval_exp s x1) (eval_exp s x2) /\
-  eval_exp s (Shift Lsl x (Nat n)) = eval_exp s x << n /\
-  eval_exp s (Shift Asr x (Nat n)) = eval_exp s x >> n /\
-  eval_exp s (Shift Lsr x (Nat n)) = eval_exp s x >>> n /\
-  eval_exp s (Shift Ror x (Nat n)) = word_ror (eval_exp s x) n`
+  eval_exp s (Shift Lsl x n) = eval_exp s x << n /\
+  eval_exp s (Shift Asr x n) = eval_exp s x >> n /\
+  eval_exp s (Shift Lsr x n) = eval_exp s x >>> n /\
+  eval_exp s (Shift Ror x n) = word_ror (eval_exp s x) n`
 
 val eval_exp_pre_def = Define `
   (eval_exp_pre s (Const w) <=> T) /\
   (eval_exp_pre s (Var v) <=> v IN FDOM s.regs) /\
   (eval_exp_pre s (Op _ [x;y]) <=> eval_exp_pre s x /\ eval_exp_pre s y) /\
-  (eval_exp_pre s (Shift sh x (Nat n)) <=> eval_exp_pre s x /\ n = 1) /\
+  (eval_exp_pre s (Shift sh x n) <=> eval_exp_pre s x /\ n = 1) /\
   (eval_exp_pre s _ <=> F)`
 
 val eval_ri_pre_def = Define `
@@ -382,9 +384,9 @@ val compile_exp_thm = prove(
   \\ Cases_on `n`
   \\ fs [word_exp_def,eval_exp_def,eval_exp_pre_def,compile_exp_def] \\ rveq
   \\ fs [compile_exp_def]
-  \\ `exp_size (K 0) e < exp_size (K 0) (Shift s e (Nat 1))` by
+  \\ `exp_size (K 0) e < exp_size (K 0) (Shift s e 1)` by
        (fs [exp_size_def] \\ decide_tac)
-  \\ res_tac \\ fs [num_exp_def]
+  \\ res_tac \\ fs []
   \\ Cases_on `s`
   \\ fs [word_sh_def,eval_exp_def]
   \\ fs [good_dimindex_def]);
@@ -676,7 +678,7 @@ val compile_thm = store_thm("compile_thm",
          (fn th => assume_tac (REWRITE_RULE [state_rel_def] th))
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ Cases_on `a`
-    \\ fs [word_exp_def,FLOOKUP_DEF,word_sh_def,num_exp_def]
+    \\ fs [word_exp_def,FLOOKUP_DEF,word_sh_def]
     \\ `shift (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def] \\ NO_TAC)
     \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,
@@ -702,7 +704,7 @@ val compile_thm = store_thm("compile_thm",
          (fn th => assume_tac (REWRITE_RULE [state_rel_def] th))
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [evaluate_def]
-    \\ fs [word_exp_def,FLOOKUP_DEF,word_sh_def,num_exp_def,set_var_def]
+    \\ fs [word_exp_def,FLOOKUP_DEF,word_sh_def,set_var_def]
     \\ `shift (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def] \\ NO_TAC)
     \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,get_var_def,
@@ -1050,6 +1052,7 @@ val compile_thm = store_thm("compile_thm",
     \\ first_x_assum drule
     \\ disch_then (qspecl_then [`ys`,`st |+ (Temp (n2w h),Word v)`] mp_tac)
     \\ fs []
+    \\ simp[GSYM PULL_FORALL, GSYM AND_IMP_INTRO]
     \\ impl_tac THEN1
      (fs [reg_write_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ ntac 2 strip_tac
       \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rw [])
@@ -1615,7 +1618,7 @@ fun read_conv tm =
 fun make_new_vars th = let
   val vs = D th |> concl |> free_vars
   fun f v =
-    if v = s_var then s_var |-> s_var else let
+    if v ~~ s_var then s_var |-> s_var else let
       val (n,ty) = dest_var v
       in v |-> mk_var("new_" ^ n,ty) end
   in INST (map f vs) th end
@@ -1781,8 +1784,8 @@ fun derive_corr_thm const_def = let
       in th end
 
   fun get_corr tm =
-    if tm = Skip_tm then skip_thm else
-    if tm = Continue_tm then cont_thm else
+    if tm ~~ Skip_tm then skip_thm else
+    if tm ~~ Continue_tm then cont_thm else
     if is_If tm then let
       val i = fst (match_term (get_pat Corr_If) tm)
       val p1 = get_corr (tm |> rator |> rand)
@@ -1808,7 +1811,7 @@ fun derive_corr_thm const_def = let
       val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) simp_var_assums_conv)
       val th = th |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
       val th = CONV_RULE sort_writes_conv th
-      val ss = filter (fn tm => not (mem s_var (free_vars (lhs tm)))) (hyp th)
+      val ss = filter (fn tm => not (tmem s_var (free_vars (lhs tm)))) (hyp th)
       val cc = list_let_intro_conv (map rhs ss)
       val th = th |> CONV_RULE (RAND_CONV cc THENC (RATOR_CONV o RAND_CONV) cc)
       val th = INST (map (fn tm => rhs tm |-> lhs tm) ss) th
@@ -1999,7 +2002,7 @@ val const_def = time (first (not o time (can derive_corr_thm)))
                      (all_code_defs |> CONJUNCTS |> rev)
                 handle HOL_ERR _ => TRUTH;
 
-val _ = (concl const_def = T) orelse failwith "derive_corr_thm failed";
+val _ = (Teq (concl const_def)) orelse failwith "derive_corr_thm failed";
 
 (*
 

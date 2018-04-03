@@ -31,6 +31,7 @@ val extend_dec_env_assoc = Q.store_thm ("extend_dec_env_assoc[simp]",
     extend_dec_env (extend_dec_env env1 env2) env3`,
  rw [extend_dec_env_def]);
 
+ (*
 val Tword_simp = Q.store_thm("Tword_simp[simp]",
   `(∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
    (∀z1 z2. (TC_word z1 = TC_word z2) ⇔ (z1 = z2)) ∧
@@ -56,6 +57,7 @@ val Tword_simp = Q.store_thm("Tword_simp[simp]",
    (∀n a. (Tword8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
    (∀n a. (Tword64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))`,
   rpt conj_tac \\ rpt Cases \\ EVAL_TAC \\ metis_tac[]);
+  *)
 
 val opw_lookup_def = Define`
   (opw_lookup Andw = word_and) ∧
@@ -145,8 +147,7 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- res_tac >>
- qexists_tac `env'''++env''` >>
+ res_tac >> rveq >>
  srw_tac[][] >>
  metis_tac [pat_bindings_accum]);
 
@@ -407,6 +408,7 @@ srw_tac[][do_con_check_def, build_conv_def] >>
 every_case_tac >>
 full_simp_tac(srw_ss())[]);
 
+(*
 val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
 `!cn1 tn1 cn2 tn2.
   same_tid tn1 tn2 ∧
@@ -450,6 +452,7 @@ val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
            (alist_to_ns (REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)))) ∧
  (!mn. build_tdefs mn [] = nsEmpty)`,
  srw_tac[][build_tdefs_def, REVERSE_APPEND]);
+*)
 
  (*
 val MAP_FST_build_tdefs = Q.store_thm("MAP_FST_build_tdefs",
@@ -461,6 +464,7 @@ val MAP_FST_build_tdefs = Q.store_thm("MAP_FST_build_tdefs",
   metis_tac[UNION_COMM])
   *)
 
+  (*
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
   check_dup_ctors ((tvs,ts,ctors)::tds)
@@ -476,6 +480,7 @@ induct_on `ctors` >>
 srw_tac[][] >>
 PairCases_on `h` >>
 full_simp_tac(srw_ss())[]);
+*)
 
 val map_error_result_def = Define`
   (map_error_result f (Rraise e) = Rraise (f e)) ∧
@@ -766,6 +771,7 @@ val FV_dec_def = Define`
   (FV_dec (Dexn _ _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
+(*
 val new_dec_vs_def = Define`
   (new_dec_vs (Dtype _ _) = []) ∧
   (new_dec_vs (Dtabbrev _ _ _ _) = []) ∧
@@ -798,5 +804,6 @@ val all_env_dom_def = Define`
   all_env_dom (envM,envC,envE) =
     IMAGE Short (set (MAP FST envE)) ∪
     { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`;
+    *)
 
 val _ = export_theory ();

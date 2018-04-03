@@ -12,6 +12,21 @@ val _ = set_grammar_ancestry [
 val _ = Datatype `
   word_loc = Word ('a word) | Loc num num `;
 
+
+val is_fwd_ptr_def = Define `
+  (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
+  (is_fwd_ptr _ = F)`;
+
+val theWord_def = Define `
+  theWord (Word w) = w`
+
+val isWord_def = Define `
+  (isWord (Word w) = T) /\ (isWord _ = F)`;
+
+val isWord_exists = Q.store_thm("isWord_exists",
+  `isWord x ⇔ ∃w. x = Word w`,
+  Cases_on`x` \\ rw[isWord_def]);
+
 val byte_index_def = Define `
   byte_index (a:'a word) is_bigendian =
     let d = dimindex (:'a) DIV 8 in
@@ -148,9 +163,9 @@ val word_exp_def = tDefine "word_exp" `
      case the_words (MAP (word_exp s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp nexp) =
+  (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w (num_exp nexp))
+     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE)`
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
@@ -381,7 +396,7 @@ val inst_def = Define `
                                     | Imm w => Const w]) s
     | Arith (Shift sh r1 r2 n) =>
         assign r1
-          (Shift sh (Var r2) (Nat n)) s
+          (Shift sh (Var r2) n) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -547,7 +562,7 @@ val inst_def = Define `
       case fp64_to_int roundTiesToEven f of
         NONE => NONE
       | SOME i =>
-        let w = i2w i : 'a word in
+        let w = i2w i : word32 in
         if w2i w = i then
           (if dimindex(:'a) = 64 then
              SOME (set_fp_var d1 (w2w w) s)
@@ -563,7 +578,7 @@ val inst_def = Define `
       if dimindex(:'a) = 64 then
         case get_fp_var d2 s of
         | SOME f =>
-          let i =  w2i f in
+          let i =  w2i ((31 >< 0) f : word32) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
       else

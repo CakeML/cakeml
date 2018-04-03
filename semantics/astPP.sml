@@ -18,13 +18,13 @@ val _ = bring_fwd_ctors ``:ast$opb``
 val _ = bring_fwd_ctors ``:('a,'b) namespace$id``
 val _ = bring_fwd_ctors ``:ast$op``
 val _ = bring_fwd_ctors ``:ast$lop``
-val _ = bring_fwd_ctors ``:ast$tctor``
-val _ = bring_fwd_ctors ``:ast$t``
+(* val _ = bring_fwd_ctors ``:ast$tctor`` *)
+(* val _ = bring_fwd_ctors ``:ast$t`` *)
 val _ = bring_fwd_ctors ``:ast$pat``
 val _ = bring_fwd_ctors ``:ast$exp``
 val _ = bring_fwd_ctors ``:ast$dec``
-val _ = bring_fwd_ctors ``:ast$spec``
-val _ = bring_fwd_ctors ``:ast$top``
+(* val _ = bring_fwd_ctors ``:ast$spec`` *)
+(* val _ = bring_fwd_ctors ``:ast$top`` *)
 
 val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 
@@ -193,9 +193,9 @@ val _=add_astPP("tcnameshortprint", ``TC_name (Short x)``,genPrint tcnameshortPr
 fun tappPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
       val args = #1(listSyntax.dest_list (strip l))
-      val sep = if r = ``TC_tup`` then " * " else
-                if r = ``TC_fn``  then " -> " else " , "
-      val spa = if r = ``TC_tup`` then "" else " "
+      val sep = if aconv r ``TC_tup`` then " * " else
+                if aconv r ``TC_fn``  then " -> " else " , "
+      val spa = if aconv r ``TC_tup`` then "" else " "
   in
     (case args of [] => str"" | (_::_::_) => str"(">>printTuple sep (sys (pg,pg,pg) d) str args >>str ")" >>str spa
      | _ => printTuple sep (sys (pg,pg,pg) d) str args >>str spa)
@@ -438,9 +438,9 @@ val _=add_astPP ("contupprint", ``Con (SOME x) [Con NONE y]``,genPrint contupPri
 check_tail checks whether it is a fully specified list*)
 fun check_tail t =
   let val (x,y) = dest_comb t in
-    if x = ``Con (SOME (Short "nil"))`` then true
+    if aconv x ``Con (SOME (Short "nil"))`` then true
     else
-      if x = ``Con (SOME (Short "::"))`` then
+      if aconv x ``Con (SOME (Short "::"))`` then
            check_tail (hd (tl (#1(listSyntax.dest_list y))))
     else false
   end;
@@ -787,7 +787,7 @@ fun astlistPrint sys d t pg str brk blk =
     printterms ls
   end;
 
-val _=add_astPP("astlistprint",``x:ast$prog``,genPrint astlistPrint);
+(* val _=add_astPP("astlistprint",``x:ast$prog``,genPrint astlistPrint); *)
 
 fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())

@@ -21,6 +21,7 @@ val _ = Datatype `
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
+            ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
 val adjust_var_def = Define `
@@ -75,6 +76,12 @@ val small_shift_length_def = Define `
 val shift_length_def = Define `
   shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
 
+val conf_ok_def = Define `
+  conf_ok (:'a) c <=>
+    shift_length c < dimindex (:α) ∧
+    shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
+    c.len_size + 7 < dimindex (:α)`
+
 val max_heap_limit_def = Define `
   max_heap_limit (:'a) c =
     MIN (dimword (:'a) DIV 2 ** shift_length c)
@@ -97,21 +104,21 @@ val real_addr_def = Define `
     let k = shift (:'a) in
       if k <= conf.pad_bits + 1 then
         Op Add [Lookup CurrHeap;
-                Shift Lsr (Var r) (Nat (shift_length conf - k))]
+                Shift Lsr (Var r) (shift_length conf - k)]
       else
         Op Add [Lookup CurrHeap;
                 Shift Lsl (Shift Lsr (Var r)
-                  (Nat (shift_length conf))) (Nat k)]`
+                  (shift_length conf)) k]`
 
 val real_offset_def = Define `
   (real_offset (conf:data_to_word$config) r): 'a wordLang$exp =
      Op Add [Const bytes_in_word;
-             if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)]`
+             if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) 1]`
 
 val real_byte_offset_def = Define`
   real_byte_offset r : 'a wordLang$exp =
     Op Add [Const bytes_in_word;
-            Shift Lsr (Var r) (Nat 2)]`;
+            Shift Lsr (Var r) 2]`;
 
 val _ = Datatype`
   word_op_type = Bitwise binop | Carried binop`;
@@ -168,8 +175,16 @@ val ByteCopySub_location_def = Define `
   ByteCopySub_location = ByteCopyAdd_location+1`;
 val ByteCopyNew_location_def = Define `
   ByteCopyNew_location = ByteCopySub_location+1`;
+val Append_location_def = Define `
+  Append_location = ByteCopyNew_location+1`;
+val AppendMainLoop_location_def = Define `
+  AppendMainLoop_location = Append_location+1`;
+val AppendLenLoop_location_def = Define `
+  AppendLenLoop_location = AppendMainLoop_location+1`;
+val AppendFastLoop_location_def = Define `
+  AppendFastLoop_location = AppendLenLoop_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = ByteCopyNew_location+1`;
+  Bignum_location = AppendFastLoop_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -217,27 +232,44 @@ val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
   ``ByteCopySub_location`` |> EVAL);
 val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
   ``ByteCopyNew_location`` |> EVAL);
+val Append_location_eq = save_thm("Append_location_eq",
+  ``Append_location`` |> EVAL);
+val AppendMainLoop_location_eq = save_thm("AppendMainLoop_location_eq",
+  ``AppendMainLoop_location`` |> EVAL);
+val AppendLenLoop_location_eq = save_thm("AppendLenLoop_location_eq",
+  ``AppendLenLoop_location`` |> EVAL);
+val AppendFastLoop_location_eq = save_thm("AppendFastLoop_location_eq",
+  ``AppendFastLoop_location`` |> EVAL);
+
+val SilentFFI_def = Define `
+  SilentFFI c n names =
+    if c.call_empty_ffi then
+      Seq (Assign n (Const 0w)) (FFI "" n n n n names)
+    else Skip`;
 
 val AllocVar_def = Define `
-  AllocVar (limit:num) (names:num_set) =
-    list_Seq [Assign 1 (Shift Lsr (Var 1) (Nat 2));
+  AllocVar c (limit:num) (names:num_set) =
+    list_Seq [Assign 1 (Shift Lsr (Var 1) 2);
               If Lower 1 (Imm (n2w limit))
-                (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (Nat (shift (:'a)))))
+                (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (shift (:'a))))
                 (Assign 1 (Const (-1w:'a word)));
               Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
-              If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip]`;
+              If Lower 3 (Reg 1)
+                (list_Seq [SilentFFI c 3 (insert 1 () (adjust_set names));
+                           Alloc 1 (adjust_set names);
+                           SilentFFI c 3 (adjust_set names)]) Skip]`;
 
 val MakeBytes_def = Define `
   MakeBytes n =
-    list_Seq [Assign n (Shift Lsr (Var n) (Nat 2));
-              Assign n (Op Or [Var n; Shift Lsl (Var n) (Nat 8)]);
-              Assign n (Op Or [Var n; Shift Lsl (Var n) (Nat 16)]);
+    list_Seq [Assign n (Shift Lsr (Var n) 2);
+              Assign n (Op Or [Var n; Shift Lsl (Var n) 8]);
+              Assign n (Op Or [Var n; Shift Lsl (Var n) 16]);
               if dimindex (:'a) = 32 then Skip else
-                Assign n (Op Or [Var n; Shift Lsl (Var n) (Nat 32)])]
+                Assign n (Op Or [Var n; Shift Lsl (Var n) 32])]
                    :'a wordLang$prog`
 
 val SmallLsr_def = Define `
-  SmallLsr e n = if n = 0 then e else Shift Lsr e (Nat n)`;
+  SmallLsr e n = if n = 0 then e else Shift Lsr e n`;
 
 val WriteLastByte_aux_def = Define`
   WriteLastByte_aux offset a b n p =
@@ -259,24 +291,24 @@ val WriteLastBytes_def = Define`
 val RefByte_code_def = Define`
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-      let h = Op Add [Shift Lsr (Var 2) (Nat 2); Const (bytes_in_word - 1w)] in
+      let h = Op Add [Shift Lsr (Var 2) 2; Const (bytes_in_word - 1w)] in
       let x = SmallLsr h (dimindex (:'a) - 63) in
-      let y = Shift Lsl h (Nat (dimindex (:'a) - shift (:'a) - c.len_size)) in
+      let y = Shift Lsl h (dimindex (:'a) - shift (:'a) - c.len_size) in
         list_Seq
           [BignumHalt 2;
            Assign 1 x;
-           AllocVar limit (fromList [();();()]);
+           AllocVar c limit (fromList [();();()]);
            (* compute length *)
-           Assign 5 (Shift Lsr h (Nat (shift (:'a))));
-           Assign 7 (Shift Lsl (Var 5) (Nat 2));
+           Assign 5 (Shift Lsr h (shift (:'a)));
+           Assign 7 (Shift Lsl (Var 5) 2);
            Assign 9 (Lookup NextFree);
            (* adjust end of heap *)
            Assign 1 (Op Add [Var 9;
-                             Shift Lsl (Var 5) (Nat (shift (:'a)))]);
+                             Shift Lsl (Var 5) (shift (:'a))]);
            Set NextFree (Op Add [Var 1; Const bytes_in_word]);
            (* 3 := return value *)
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 9; Lookup CurrHeap])
-               (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
+               (shift_length c − shift (:'a)); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [Op Or [y; Const 7w]; Var 6]);
            (* compute repeated byte *)
@@ -287,7 +319,7 @@ val RefByte_code_def = Define`
            If Equal 7 (Imm 0w) (Return 0 3)
            (list_Seq [
              (* write last word of byte array *)
-             Assign 11 (Op And [Shift Lsr (Var 2) (Nat 2);
+             Assign 11 (Op And [Shift Lsr (Var 2) 2;
                                 Const (bytes_in_word - 1w)]);
              If Equal 11 (Imm 0w) Skip
              (list_Seq [
@@ -304,7 +336,7 @@ val RefByte_code_def = Define`
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
     If Lower n (Imm (n2w (2 ** rep_len)))
-      (Assign dest (Op Or [Var dest; Shift Lsl (Var n) (Nat k)]))
+      (Assign dest (Op Or [Var dest; Shift Lsl (Var n) k]))
       (Assign dest (Op Or [Var dest; Const (all_ones (k + rep_len) k)]))
          :'a wordLang$prog`
 
@@ -312,24 +344,24 @@ val Make_ptr_bits_code_def = Define `
   Make_ptr_bits_code c tag len dest =
     list_Seq [Assign dest (Op Or
        [Const 1w; Shift Lsl (Op Sub [Lookup NextFree; Lookup CurrHeap])
-           (Nat (shift_length c − shift (:'a)))]);
+           (shift_length c − shift (:'a))]);
         Maxout_bits_code c.tag_bits (1 + c.len_bits) dest tag;
         Maxout_bits_code c.len_bits 1 dest len] :'a wordLang$prog`
 
 val FromList_code_def = Define `
   FromList_code c =
     let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-    let h = Shift Lsl (Var 2) (Nat (dimindex (:'a) - c.len_size - 2)) in
+    let h = Shift Lsl (Var 2) (dimindex (:'a) - c.len_size - 2) in
       If Equal 2 (Imm 0w)
         (list_Seq [Assign 6 (Op Add [Var 6; Const (2w:'a word)]);
                    Return 0 6])
         (list_Seq
           [BignumHalt 2;
-           Assign 1 (Var 2); AllocVar limit (fromList [();();()]);
+           Assign 1 (Var 2); AllocVar c limit (fromList [();();()]);
            Assign 1 (Lookup NextFree);
            Assign 5 (Op Or [h; Const 3w; Var 6]);
-           Assign 7 (Shift Lsr (Var 2) (Nat 2));
-           Assign 9 (Shift Lsr (Var 6) (Nat 4));
+           Assign 7 (Shift Lsr (Var 2) 2);
+           Assign 9 (Shift Lsr (Var 6) 4);
            Make_ptr_bits_code c 9 7 3;
            Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE]):'a wordLang$prog`;
 
@@ -362,18 +394,18 @@ val RefArray_code_def = Define `
         list_Seq
           [BignumHalt 2;
            Move 0 [(1,2)];
-           AllocVar limit (fromList [();()]);
-           Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
-                      (Nat (shift (:'a))));
+           AllocVar c limit (fromList [();()]);
+           Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) 2); Const 1w])
+                      (shift (:'a)));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-               (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
+               (shift_length c − shift (:'a)); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [Shift Lsl (Var 2)
-                              (Nat (dimindex (:'a) − c.len_size - 2));
+                              (dimindex (:'a) − c.len_size - 2);
                             Const (make_header c 2w 0)]);
            (* store header *)
            Store (Var 1) 5;
@@ -404,7 +436,7 @@ val AddNumSize_def = Define `
        (Assign 1 (Op Add [Var 1;
          (Shift Lsl (Shift Lsr
             (Load (real_addr c (adjust_var src)))
-               (Nat (dimindex (:'a) - c.len_size))) (Nat 2))]))):'a wordLang$prog`
+               (dimindex (:'a) - c.len_size))) 2]))):'a wordLang$prog`
 
 val AnyHeader_def = Define `
   AnyHeader c r a t1 (* header *) t2 (* pointer *) t3 (* payload *) =
@@ -418,30 +450,30 @@ val AnyHeader_def = Define `
         [Assign 7 (real_addr c r);
          Set (Temp t2) (Op Add [Var 7; Const bytes_in_word]);
          Set (Temp t1) (Op Add
-           [Shift Lsl (Shift Lsr (Load (Var 7)) (Nat ((dimindex (:'a)) - c.len_size))) (Nat 1);
-            Op And [Const 1w; Shift Lsr (Load (Var 7)) (Nat 4)]]);
+           [Shift Lsl (Shift Lsr (Load (Var 7)) ((dimindex (:'a)) - c.len_size)) 1;
+            Op And [Const 1w; Shift Lsr (Load (Var 7)) 4]]);
          Set (Temp t3) (Const 0w)])
    (If NotLess r (Imm 0w)
       (list_Seq
         [Set (Temp t1) (Const 2w);
          Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
-         Set (Temp t3) (Shift Lsr (Var r) (Nat 2));
+         Set (Temp t3) (Shift Lsr (Var r) 2);
          Assign 7 (Const 0w)])
       (list_Seq
         [Set (Temp t1) (Const 3w);
          Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
-         Set (Temp t3) (Op Sub [Const 0w; Shift Asr (Var r) (Nat 2)]);
+         Set (Temp t3) (Op Sub [Const 0w; Shift Asr (Var r) 2]);
          Assign 7 (Const 0w)])))`
 
 val ShiftVar_def = Define `
   ShiftVar sh v n =
     if sh = Ror then
       (let m = if n < dimindex (:'a) then n else n MOD (dimindex (:'a)) in
-         if m = 0 then Var v else Shift sh (Var v) (Nat m))
+         if m = 0 then Var v else Shift sh (Var v) m)
     else if n = 0 then Var v
     else if dimindex (:'a) <= n then
-      if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
-    else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
+      if sh = Asr then Shift sh (Var v) (dimindex (:'a) - 1) else Const 0w
+    else (Shift sh (Var v) n):'a wordLang$exp`
 
 val AnyArith_code_def = Define `
   AnyArith_code c = list_Seq [
@@ -450,7 +482,7 @@ val AnyArith_code_def = Define `
       AddNumSize c 0;
       AddNumSize c 1;
       Set (Temp 29w) (Var 1);
-      AllocVar (2 ** c.len_size) (fromList [();();()]);
+      AllocVar c (2 ** c.len_size) (fromList [();();()]);
       (* convert smallnums to bignum if necessary *)
       AnyHeader c 2 F 0w 31w 12w;
       AnyHeader c 4 T 1w 30w 11w;
@@ -461,7 +493,7 @@ val AnyArith_code_def = Define `
       Get 1 (Temp 29w);
       Assign 2 (Lookup NextFree);
       Set (Temp 29w) (Var 2);
-      Set (Temp 3w) (Shift Lsr (Var 6) (Nat 2));
+      Set (Temp 3w) (Shift Lsr (Var 6) 2);
       Assign 3 (Const 0w);
       (* zero out result array *)
       Call (SOME (0,fromList [()],Skip,AnyArith_location,1))
@@ -475,16 +507,16 @@ val AnyArith_code_def = Define `
       If Test 1 (Reg 1) (Return 0 1) Skip;
       Assign 3 (Load (Op Add [Lookup NextFree; Const bytes_in_word]));
       If Equal 1 (Imm 2w)
-        (Seq (Assign 5 (Shift Lsr (Var 3) (Nat (dimindex (:'a) - 3))))
+        (Seq (Assign 5 (Shift Lsr (Var 3) (dimindex (:'a) - 3)))
              (If Test 5 (Reg 5)
-                (Seq (Assign 1 (Shift Lsl (Var 3) (Nat 2)))
+                (Seq (Assign 1 (Shift Lsl (Var 3) 2))
                      (Return 0 1))
                 Skip))
         (If Equal 1 (Imm 3w)
           (Seq (Assign 5 (Shift Lsr (Op Sub [Var 3; Const 1w])
-                            (Nat (dimindex (:'a) - 3))))
+                            (dimindex (:'a) - 3)))
                (If Test 5 (Reg 5)
-                  (Seq (Assign 1 (Op Sub [Const 0w; Shift Lsl (Var 3) (Nat 2)]))
+                  (Seq (Assign 1 (Op Sub [Const 0w; Shift Lsl (Var 3) 2]))
                        (Return 0 1))
                   Skip))
           (Assign 5 (Const 0w)));
@@ -563,12 +595,12 @@ val Compare_code_def = Define `
                  Assign 1 (Load (Var 11)); (* loads header of 1st arg *)
                  Assign 13 (real_addr c 4);
                  Assign 3 (Load (Var 13)); (* loads header of 2nd arg *)
-                 Assign 6 (Shift Lsr (Var 1) (Nat ((dimindex(:'a) − c.len_size))));
-                 Assign 8 (Shift Lsr (Var 3) (Nat ((dimindex(:'a) − c.len_size))));
+                 Assign 6 (Shift Lsr (Var 1) ((dimindex(:'a) − c.len_size)));
+                 Assign 8 (Shift Lsr (Var 3) ((dimindex(:'a) − c.len_size)));
                  If Equal 1 (Reg 3) (* headers are the same *)
                    (list_Seq
-                     [Assign 2 (Op Add [Var 11;Shift Lsl (Var 6)(Nat(shift (:'a)))]);
-                      Assign 4 (Op Add [Var 13;Shift Lsl (Var 6)(Nat(shift (:'a)))]);
+                     [Assign 2 (Op Add [Var 11;Shift Lsl (Var 6)(shift (:'a))]);
+                      Assign 4 (Op Add [Var 13;Shift Lsl (Var 6)(shift (:'a))]);
                       If Test 1 (Imm 16w)
                        (Call NONE (SOME Compare1_location) [0;6;2;4] NONE)
                        (Call NONE (SOME Compare1_location) [0;6;4;2] NONE)])
@@ -674,6 +706,70 @@ val LongDiv1_code_def = Define `
                    Inst (Arith (AddCarry 12 12 14 1));
                    Call NONE (SOME LongDiv1_location) [0;2;4;6;8;10;12] NONE])`;
 
+val Append_code_def = Define `
+  Append_code c =
+    (dtcase encode_header c 0 2 of
+     | NONE => Skip  :'a wordLang$prog
+     | SOME (header:'a word) =>
+        If Test 4 (Imm 1w) (Return 0 2)
+          (list_Seq
+            [Set (Temp 0w) (Var 2);
+             Set (Temp 1w) (Var 4);
+             Assign 1 (Lookup NextFree);
+             Assign 3 (Const header);
+             Assign 5 (Op Sub [Lookup TriggerGC; Var 1]);
+             Assign 7 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                                   (shift_length c − shift (:'a));
+                              Const (1w || (small_shift_length c − 1 -- 0)
+                                              (ptr_bits c 0 2))]);
+             Set (Temp 2w) (Var 7);
+             Call NONE (SOME AppendMainLoop_location) [0; 1; 4; 3; 5; 7] NONE]))`
+
+val AppendMainLoop_code_def = Define `
+  AppendMainLoop_code c =
+    list_Seq
+      [Assign 1 (real_addr c 4);
+       Assign 3 (Load (Op Add [Var 1; Const bytes_in_word]));
+       Assign 5 (Load (Op Add [Var 1; Const (2w * bytes_in_word)]));
+       If Lower 8 (Imm (3w * bytes_in_word))
+         (* unlucky case: GC is needed *)
+         (Seq (Assign 1 (Const 0w))
+              (Call NONE (SOME AppendLenLoop_location) [0; 4; 1] NONE)) Skip;
+       Store (Var 2) 6;
+       Store (Op Add [Var 2; Const bytes_in_word]) 3;
+       If Test 5 (Imm 1w) Skip (* cons case: *)
+         (list_Seq
+           [Assign 10 (Op Add [Var 10;
+              Const (n2w (3 * 2 ** shift_length c))]);
+            Assign 8 (Op Sub [Var 8; Const (3w * bytes_in_word)]);
+            Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 10;
+            Assign 2 (Op Add [Var 2; Const (3w * bytes_in_word)]);
+            Call NONE (SOME AppendMainLoop_location) [0; 2; 5; 6; 8; 10] NONE]);
+       (* nil case *)
+       Assign 1 (Lookup (Temp 0w)); (* arg 2 to append *)
+       Assign 3 (Lookup (Temp 2w)); (* ret value *)
+       Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 1;
+       Set NextFree (Op Add [Var 2; Const (3w * bytes_in_word)]);
+       Return 0 3] :'a wordLang$prog`;
+
+val AppendLenLoop_code_def = Define `
+  AppendLenLoop_code c =
+    If Test 2 (Imm 1w)
+      (list_Seq
+        [Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
+         Assign 1 (Op Add [Var 4; ShiftVar Lsr 1 (shift (:'a) - 2)]);
+         Assign 4 (Lookup (Temp 0w));
+         Assign 2 (Lookup (Temp 1w));
+         AllocVar c (dimword (:α) DIV 8 - 1) (fromList [();()]);
+         Call NONE (SOME Append_location) [0; 4; 2] NONE])
+      (list_Seq
+        [Assign 2 (Load (Op Add [real_addr c 2; Const (2w * bytes_in_word)]));
+         Assign 4 (Op Add [Var 4; Const (12w:'a word)]);
+         Call NONE (SOME AppendLenLoop_location) [0; 2; 4] NONE])`;
+
+val AppendFastLoop_code_def = Define `
+  AppendFastLoop_code c = Skip :'a wordLang$prog`;
+
 val get_names_def = Define `
   (get_names NONE = LN) /\
   (get_names (SOME x) = x)`;
@@ -698,7 +794,7 @@ val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
               Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
               Assign (adjust_var dest)
                 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                          (Nat (shift_length c − shift (:'a)));
+                          (shift_length c − shift (:'a));
                         Const 1w])]:'a wordLang$prog`;
 
 val WriteWord64_on_32_def = Define `
@@ -711,12 +807,24 @@ val WriteWord64_on_32_def = Define `
               Set NextFree (Op Add [Var 1; Const (3w * bytes_in_word)]);
               Assign (adjust_var dest)
                 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                          (Nat (shift_length c − shift (:'a)));
+                          (shift_length c − shift (:'a));
                         Const 1w])]:'a wordLang$prog`;
+
+val WriteWord32_on_32_def = Define `
+  WriteWord32_on_32 c header dest i1 =
+     list_Seq
+       [Assign 1 (Lookup NextFree);
+        Store (Op Add [Var 1; Const bytes_in_word]) i1;
+        Assign 3 (Const header); Store (Var 1) 3;
+        Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
+        Assign (adjust_var dest)
+          (Op Or
+             [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                (shift_length c − shift (:α)); Const (1w:'a word)])]`
 
 val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
-    case opw of
+    dtcase opw of
     | Andw => list_Seq [Assign 29 (Const 0w);
                         Assign 27 (Const 0w);
                         Assign 33 (Op And [Var 13; Var 23]);
@@ -756,7 +864,7 @@ val WordShift64_on_32_def = Define `
                               ShiftVar Lsr 13 (n - 32)])]))
     else
       if n < 32 then
-        (case sh of
+        (dtcase sh of
          | Lsl => [Assign 33 (ShiftVar sh 13 n);
                    Assign 31 (Op Or [ShiftVar Lsr 13 (32 - n);
                                      ShiftVar sh 11 n])]
@@ -768,7 +876,7 @@ val WordShift64_on_32_def = Define `
                    Assign 31 (ShiftVar sh 11 n)]
          | Ror => [])
       else
-        (case sh of
+        (dtcase sh of
          | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
          | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
          | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));
@@ -815,9 +923,9 @@ val fp_bop_inst_def = Define `
   fp_bop_inst FP_Div = FPDiv 0 0 1`
 
 val fp_uop_inst_def = Define `
-  fp_uop_inst FP_Neg = FPNeg 0 0 /\
-  fp_uop_inst FP_Abs = FPAbs 0 0 /\
-  fp_uop_inst FP_Sqrt = FPSqrt 0 0`
+  fp_uop_inst FP_Neg = FPNeg 1 0 /\
+  fp_uop_inst FP_Abs = FPAbs 1 0 /\
+  fp_uop_inst FP_Sqrt = FPSqrt 1 0`
 
 local val assign_quotation = `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -855,7 +963,7 @@ local val assign_quotation = `
             Assign 1 (Op Add [real_addr c (adjust_var v1);
                               real_byte_offset (adjust_var v2)]);
             Inst (Mem Load8 3 (Addr 1 0w));
-            Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2))
+            Assign (adjust_var dest) (Shift Lsl (Var 3) 2)
           ], l)
        | _ => (Skip,l))
     | Update => (dtcase args of
@@ -869,10 +977,21 @@ local val assign_quotation = `
       | [v1;v2;v3] => (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
                             real_byte_offset (adjust_var v2)]);
-          Assign 3 (Shift Lsr (Var (adjust_var v3)) (Nat 2));
+          Assign 3 (Shift Lsr (Var (adjust_var v3)) 2);
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
       | _ => (Skip,l))
+    | ListAppend =>
+      (dtcase args of
+       | [v1;v2] =>
+         (dtcase encode_header c 0 2 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME Append_location)
+                   [adjust_var v2; adjust_var v1] NONE) :'a wordLang$prog,l+1))
+       | _ => (Skip,l))
     | Cons tag => if LENGTH args = 0 then
                     if tag < dimword (:'a) DIV 16 then
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
@@ -886,12 +1005,21 @@ local val assign_quotation = `
                          StoreEach 1 (3::MAP adjust_var args) 0w;
                          Assign (adjust_var dest)
                            (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                                     (Nat (shift_length c − shift (:'a)));
+                                     (shift_length c − shift (:'a));
                                    Const (1w ||
                                            (small_shift_length c − 1 -- 0)
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
+    | ConfigGC =>
+        (dtcase args of
+         | [v1;v2] =>
+             (list_Seq [SilentFFI c 3 (adjust_set (get_names names));
+                        Assign 1 (Const 0w);
+                        Alloc 1 (adjust_set (get_names names)); (* runs GC *)
+                        SilentFFI c 3 (adjust_set (get_names names));
+                        Assign (adjust_var dest) (Const 2w)],l)
+         | _ => (Skip,l))
     | ConsExtend tag =>
         (dtcase args of
          | (old::start::len::tot::rest) =>
@@ -900,19 +1028,19 @@ local val assign_quotation = `
            | SOME header =>
               let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
               let h = Shift Lsl (Var (adjust_var tot))
-                        (Nat (dimindex (:'a) - c.len_size - 2)) in
+                        (dimindex (:'a) - c.len_size - 2) in
                 (list_Seq
                   [BignumHalt (adjust_var tot);
                    Assign 1 (Var (adjust_var tot));
-                   AllocVar limit (list_insert args (get_names names));
+                   AllocVar c limit (list_insert args (get_names names));
                    Assign 1 (Lookup NextFree);
                    Assign 5 (Op Or [h; Const header]);
-                   Assign 7 (Shift Lsr (Var (adjust_var tot)) (Nat 2));
+                   Assign 7 (Shift Lsr (Var (adjust_var tot)) 2);
                    Assign 9 (Const (n2w tag));
                    StoreEach 1 (5::MAP adjust_var rest) 0w;
                    Make_ptr_bits_code c 9 7 3;
                    Set NextFree (Op Add [Var 1; Const bytes_in_word;
-                     Shift Lsl (Var 7) (Nat (shift (:'a)))]);
+                     Shift Lsl (Var 7) (shift (:'a))]);
                    Assign 15 (Var (adjust_var len));
                    Assign 13 (Op Add [Var 1;
                      Const (bytes_in_word * n2w (LENGTH rest + 1))]);
@@ -937,7 +1065,7 @@ local val assign_quotation = `
                   StoreEach 1 (3::MAP adjust_var args) 0w;
                   Assign (adjust_var dest)
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                              (Nat (shift_length c − shift (:'a)));
+                              (shift_length c − shift (:'a));
                             Const 1w])],l))
     | RefByte immutable =>
       (dtcase args of
@@ -997,7 +1125,7 @@ local val assign_quotation = `
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
                                 let k = dimindex (:'a) - c.len_size - extra in
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
-                                  Op Sub [Shift Lsr header (Nat k); Const kk]);
+                                  Op Sub [Shift Lsr header k; Const kk]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
@@ -1010,7 +1138,7 @@ local val assign_quotation = `
                                (let addr = real_addr c (adjust_var v1) in
                                 let header = Load addr in
                                 let k = dimindex (:'a) - c.len_size in
-                                  Shift Lsr header (Nat k));
+                                  Shift Lsr header k);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
@@ -1024,7 +1152,7 @@ local val assign_quotation = `
                                  (let addr = real_addr c (adjust_var v1) in
                                   let header = Load addr in
                                   let k = dimindex (:'a) - c.len_size in
-                                    Shift Lsr header (Nat k)));
+                                    Shift Lsr header k));
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
@@ -1080,16 +1208,16 @@ local val assign_quotation = `
                               (let addr = real_addr c (adjust_var v1) in
                                let header = Load addr in
                                let k = dimindex (:'a) - c.len_size in
-                               let len = Shift Lsr header (Nat k) in
-                                 (Shift Lsl len (Nat 2)))),l)
+                               let len = Shift Lsr header k in
+                                 (Shift Lsl len 2))),l)
                | _ => (Skip,l))
     | Length => (dtcase args of
                | [v1] => (Assign (adjust_var dest)
                               (let addr = real_addr c (adjust_var v1) in
                                let header = Load addr in
                                let k = dimindex (:'a) - c.len_size in
-                               let len = Shift Lsr header (Nat k) in
-                                 (Shift Lsl len (Nat 2))),l)
+                               let len = Shift Lsr header k in
+                                 (Shift Lsl len 2)),l)
                | _ => (Skip,l))
     | LengthByte => (
         dtcase args of
@@ -1098,9 +1226,9 @@ local val assign_quotation = `
                (let addr = real_addr c (adjust_var v1) in
                 let header = Load addr in
                 let k = dimindex(:'a) - shift(:'a) - c.len_size in
-                let fakelen = Shift Lsr header (Nat k) in
+                let fakelen = Shift Lsr header k in
                 let len = Op Sub [fakelen; Const (bytes_in_word-1w)] in
-                  (Shift Lsl len (Nat 2))),l)
+                  (Shift Lsl len 2)),l)
           | _ => (Skip,l))
     | TagLenEq tag len => (dtcase args of
                | [v1] => (if len = 0 then
@@ -1236,7 +1364,7 @@ local val assign_quotation = `
            (Assign (adjust_var dest)
             (dtcase lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
-             | Carried op => let k = Nat (dimindex(:'a)-10) in
+             | Carried op => let k = dimindex(:'a)-10 in
                Shift Lsr (Shift Lsl
                  (Op op [Var (adjust_var v1); Var (adjust_var v2)]) k) k), l)
         | _ => (Skip,l))
@@ -1283,26 +1411,24 @@ local val assign_quotation = `
            (dtcase sh of
             | Lsl =>
               Shift Lsr
-                (Shift Lsl (Var (adjust_var v1)) (Nat(dimindex(:'a)-10+(MIN n 8))))
-                (Nat (dimindex(:'a) - 10))
+                (Shift Lsl (Var (adjust_var v1)) (dimindex(:'a)-10+(MIN n 8)))
+                (dimindex(:'a) - 10)
             | Lsr =>
               Shift Lsl
-                (Shift Lsr (Var (adjust_var v1)) (Nat ((MIN n 8)+2)))
-                (Nat 2)
+                (Shift Lsr (Var (adjust_var v1)) ((MIN n 8)+2)) 2
             | Asr =>
               Shift Lsl
                 (Shift Lsr
                    (Shift Asr
-                      (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10)))
-                      (Nat (MIN n 8)))
-                   (Nat (dimindex(:'a) - 8)))
-                (Nat 2)
+                      (Shift Lsl (Var (adjust_var v1)) (dimindex(:'a) - 10))
+                      (MIN n 8))
+                   (dimindex(:'a) - 8)) 2
             | Ror =>
               (let n = n MOD 8 in
                  Op Or
-                  [Shift Lsl (ShiftVar Lsr (adjust_var v1) (n + 2)) (Nat 2);
+                  [Shift Lsl (ShiftVar Lsr (adjust_var v1) (n + 2)) 2;
                    Shift Lsr (ShiftVar Lsl (adjust_var v1)
-                     ((dimindex (:'a) - 2) - n)) (Nat (dimindex (:'a) - 10))])),l)
+                     ((dimindex (:'a) - 2) - n)) (dimindex (:'a) - 10)])),l)
       | _ => (Skip,l))
     | WordShift W64 sh n => (dtcase args of
        | [v1] =>
@@ -1323,6 +1449,30 @@ local val assign_quotation = `
                  WordShift64_on_32 sh n;
                  WriteWord64_on_32 c header dest 33 31],l))
        | _ => (Skip,l))
+    | WordFromWord b => (dtcase args of
+      | [v1] =>
+          if b then
+            (list_Seq [Assign 1 (real_addr c (adjust_var v1));
+                       Assign 1 (Load (Op Add [Var 1;
+                         Const (if dimindex (:'a) = 32
+                                then 2w * bytes_in_word else bytes_in_word)]));
+                       Assign 1 (Op And [Var 1; Const 255w]);
+                       Assign (adjust_var dest) (ShiftVar Lsl 1 2)],l)
+          else
+          (let
+             len = if dimindex (:α) < 64 then 2 else 1
+           in
+             dtcase encode_header c 3 len of
+               NONE => (GiveUp,l)
+             | SOME header =>
+                (if len = 1 then
+                   (list_Seq [Assign 3 (Shift Lsr (Var (adjust_var v1)) 2);
+                              WriteWord64 c header dest 3],l)
+                 else
+                   (list_Seq [Assign 5 (Shift Lsr (Var (adjust_var v1)) 2);
+                              Assign 3 (Const 0w);
+                              WriteWord64_on_32 c header dest 5 3],l)))
+      | _ => (Skip, l))
     | WordFromInt => (dtcase args of
       | [v1] =>
         let len = if dimindex(:'a) < 64 then 2 else 1 in
@@ -1334,44 +1484,97 @@ local val assign_quotation = `
                (* put the word value into 3 *)
                (If Test (adjust_var v1) (Imm 1w)
                    (* smallnum case *)
-                    (Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2)))
+                    (Assign 3 (Shift Asr (Var (adjust_var v1)) 2))
                    (* bignum case *)
                    (Seq
                      (LoadBignum c 1 3 (adjust_var v1))
                      (If Test 1 (Imm 16w) Skip
                         (Assign 3 (Op Sub [Const 0w; Var 3])))))
                (WriteWord64 c header dest 3)
-            else GiveUp (* TODO: 32bit *), l))
+            else If Test (adjust_var v1) (Imm 1w)
+              (list_Seq [
+                Assign 3 (Shift Asr (Var (adjust_var v1)) 2);
+                Assign 5 (Shift Asr (Var (adjust_var v1)) 31);
+                WriteWord64_on_32 c header dest 3 5
+              ])
+              (list_Seq [
+                Assign 1 (real_addr c (adjust_var v1));
+                Assign 3 (Load (Var 1));
+                Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
+                Assign 7 (ShiftVar Lsr 3 (dimindex (:'a) − c.len_size));
+                If Equal 7 (Imm 1w)
+                  (* bignum of length 1 *)
+                  (If Test 3 (Imm 16w)
+                    (* positive case *)
+                    (Seq (Assign 9 (Const 0w))
+                         (WriteWord64_on_32 c header dest 5 9))
+                    (* negative case *)
+                    (Seq (Assign 9 (Const ~0w))
+                    (Seq (Assign 5 (Op Sub [Const 0w; Var 5]))
+                         (WriteWord64_on_32 c header dest 5 9))))
+                  (* longer bignum *)
+                  (If Test 3 (Imm 16w)
+                    (* positive case *)
+                    (Seq (Assign 9 (Load
+                           (Op Add [Var 1; Const (2w * bytes_in_word)])))
+                         (WriteWord64_on_32 c header dest 5 9))
+                    (* negative case -- messy *)
+                    (list_Seq
+                      [Assign 11 (Const 0w);
+                       Assign 13 (Const 1w);
+                       Assign 9 (Load
+                         (Op Add [Var 1; Const (2w * bytes_in_word)]));
+                       Assign 5 (Op Xor [Const ~0w; Var 5]);
+                       Assign 9 (Op Xor [Const ~0w; Var 9]);
+                       Inst (Arith (AddCarry 15 11 5 13));
+                       Inst (Arith (AddCarry 19 11 9 13));
+                       WriteWord64_on_32 c header dest 15 19]))])), l)
       | _ => (Skip, l))
-    | WordToInt =>
+   | WordToInt =>
      (dtcase args of
       | [v] =>
-         if dimindex(:'a) = 64 then
-           dtcase encode_header c 3 1 of
+        let len = if dimindex(:'a) < 64 then 2 else 1 in
+        (dtcase encode_header c 3 len of
            | NONE => (GiveUp,l)
            | SOME header =>
-             (list_Seq [LoadWord64 c 3 (adjust_var v);
-                        Assign 1 (Shift Lsr (Var 3) (Nat 61));
-                        If Equal 1 (Imm 0w)
-                          (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
-                          (WriteWord64 c header dest 3)], l)
-         else (GiveUp (* TODO: 32bit *) ,l)
+             if len = 1 then
+               (list_Seq [LoadWord64 c 3 (adjust_var v);
+                          Assign 1 (Shift Lsr (Var 3) 61);
+                          If Equal 1 (Imm 0w)
+                            (Assign (adjust_var dest) (Shift Lsl (Var 3) 2))
+                            (WriteWord64 c header dest 3)], l)
+             else
+              (dtcase encode_header c 3 1 of
+               | NONE => (GiveUp,l)
+               | SOME header1 =>
+                 (list_Seq [
+                  Assign 15 (real_addr c (adjust_var v));
+                  Assign 13 (Load (Op Add [Var 15; Const bytes_in_word]));
+                  Assign 11 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                  If NotEqual 13 (Imm 0w)
+                    (WriteWord64_on_32 c header dest 13 11)
+                    (list_Seq [
+                      Assign 1 (Shift Lsr (Var 11) 29);
+                      If Equal 1 (Imm 0w)
+                        (Assign (adjust_var dest) (Shift Lsl (Var 11) 2))
+                        (WriteWord32_on_32 c header1 dest 11)])],l)))
       | _ => (Skip, l))
     | FFI ffi_index =>
+      if ¬c.call_empty_ffi ∧ ffi_index = "" then (Assign (adjust_var dest) Unit,l) else
       (dtcase args of
        | [v1; v2] =>
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
-        let fakelen1 = Shift Lsr header1 (Nat k) in
+        let fakelen1 = Shift Lsr header1 k in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
-        let fakelen2 = Shift Lsr header2 (Nat k) in            
+        let fakelen2 = Shift Lsr header2 k in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
-          Assign 5 (Op Add [addr2; Const bytes_in_word]);
-          Assign 7 (Op Sub [fakelen2; Const (bytes_in_word-1w)]);
+          Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
+          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const (bytes_in_word-1w)]));
           FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
@@ -1465,7 +1668,7 @@ local val assign_quotation = `
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
                Inst (FP (FPMovFromReg 0 3 3));
                Inst (FP (fp_uop_inst fpu));
-               Inst (FP (FPMovToReg 3 5 0));
+               Inst (FP (FPMovToReg 3 5 1));
                WriteWord64 c header dest 3],l))
         else
          (dtcase encode_header c 3 2 of
@@ -1477,7 +1680,7 @@ local val assign_quotation = `
                Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
                Inst (FP (FPMovFromReg 0 13 11));
                Inst (FP (fp_uop_inst fpu));
-               Inst (FP (FPMovToReg 5 3 0));
+               Inst (FP (FPMovToReg 5 3 1));
                WriteWord64_on_32 c header dest 5 3],l)))
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
@@ -1623,7 +1826,10 @@ val comp_def = Define `
         let w = if w2n w = n * k then w else ~0w in
           (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
-                 (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)))
+                 (list_Seq [SilentFFI c 3 (adjust_set names);
+                            Assign 1 (Const w);
+                            Alloc 1 (adjust_set names);
+                            SilentFFI c 3 (adjust_set names)])
                 Skip),l)
     | Assign dest op args names => assign c secn l dest op args names
     | Call ret target args handler =>
@@ -1786,6 +1992,10 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
+    (Append_location,3n,Append_code data_conf);
+    (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
+    (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
+    (AppendFastLoop_location,5n,AppendFastLoop_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);

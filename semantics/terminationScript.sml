@@ -125,20 +125,20 @@ val _ = register "type_subst" type_subst_def type_subst_ind;
 
 val (type_name_subst_def, type_name_subst_ind) =
   tprove_no_defn ((type_name_subst_def, type_name_subst_ind),
-  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
+  WF_REL_TAC `measure (λ(x,y). ast_t_size y)` >>
   rw [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  rw [ast_t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "type_name_subst" type_name_subst_def type_name_subst_ind;
 
 val (check_type_names_def, check_type_names_ind) =
   tprove_no_defn ((check_type_names_def, check_type_names_ind),
-  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
+  WF_REL_TAC `measure (λ(x,y). ast_t_size y)` >>
   rw [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  rw [ast_t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "check_type_names" check_type_names_def check_type_names_ind;
@@ -162,6 +162,16 @@ srw_tac [ARITH_ss] [t_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
+
+val (check_freevars_ast_def,check_freevars_ast_ind) =
+  tprove_no_defn ((check_freevars_ast_def,check_freevars_ast_ind),
+wf_rel_tac `measure (ast_t_size o SND)` >>
+srw_tac [ARITH_ss] [ast_t_size_def] >>
+induct_on `ts` >>
+srw_tac [ARITH_ss] [ast_t_size_def] >>
+res_tac >>
+decide_tac);
+val _ = register "check_freevars_ast" check_freevars_ast_def check_freevars_ast_ind;
 
 val (deBruijn_inc_def,deBruijn_inc_ind) =
   tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
@@ -206,28 +216,21 @@ val (vs_to_string_def,vs_to_string_ind) =
 wf_rel_tac `measure LENGTH` \\ rw[]);
 val _ = register "vs_to_string" vs_to_string_def vs_to_string_ind;
 
-val check_ctor_foldr_flat_map = Q.prove (
-`!c. (FOLDR
-         (λ(tvs,tn,condefs) x2.
-            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) [] c)
-    =
-    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
-induct_on `c` >>
-rw [LET_THM] >>
-PairCases_on `h` >>
-fs [LET_THM] >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [] >>
-PairCases_on `h` >>
-rw []);
-
 val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
-`!tds.
-  check_dup_ctors tds =
-    ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
-metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
+  `check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)`,
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []);
 
+(*
 val do_log_thm = Q.store_thm("do_log_thm",
   `do_log l v e =
     if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
@@ -237,6 +240,7 @@ val do_log_thm = Q.store_thm("do_log_thm",
     NONE`,
   rw[semanticPrimitivesTheory.do_log_def] >>
     every_case_tac >> rw[])
+    *)
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
@@ -250,7 +254,7 @@ val (evaluate_def,evaluate_ind) =
          | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   dec_clock_def,LESS_OR_EQ,
-  do_if_def,do_log_thm] >>
+  do_if_def,do_log_def] >>
   imp_res_tac fix_clock_IMP >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
@@ -277,5 +281,14 @@ val evaluate_ind = save_thm("evaluate_ind",
 val _ = register "evaluate" evaluate_def evaluate_ind
 
 val _ = export_rewrites["evaluate.list_result_def"];
+
+val (evaluate_decs_def,evaluate_decs_ind) =
+  tprove_no_defn ((evaluate_decs_def,evaluate_decs_ind),
+  wf_rel_tac `measure (list_size dec_size o SND o SND)` >>
+  rw [] >>
+  induct_on `ds` >>
+  rw [list_size_def, dec_size_def]);
+
+val _ = register "evaluate_decs" evaluate_decs_def evaluate_decs_ind
 
 val _ = export_theory ();

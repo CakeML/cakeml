@@ -1,10 +1,10 @@
 INCLUDES = ../../misc ../../semantics ../../semantics/proofs $(HOLDIR)/examples/unification/triangular/first-order ../../basis/pure
 OPTIONS = QUIT_ON_FAILURE
 
-SEMANTICSI = semanticPrimitives
-
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
 all: $(TARGETS)
 .PHONY: all
 

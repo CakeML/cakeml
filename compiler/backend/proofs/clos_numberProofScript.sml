@@ -358,6 +358,13 @@ val v_to_list = Q.prove(
   first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
   full_simp_tac(srw_ss())[optionTheory.OPTREL_def])
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.
+     LIST_REL (v_rel app) xs ys ==> v_rel app (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
+
 val do_eq = Q.prove(
   `∀x1 y1. v_rel max_app x1 y1 ⇒
       ∀x2 y2. v_rel max_app x2 y2 ⇒ (do_eq x1 x2 = do_eq y1 y2)`,
@@ -378,7 +385,14 @@ val do_app = Q.prove(
              ∃v2 w2. do_app op x2 s2 = Rval(v2,w2) ∧
                      v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)`,
   strip_tac >>
-  Cases_on `?tag. op = ConsExtend tag`
+  Cases_on `op = ListAppend`
+  >-
+   (rw []
+    \\ fs [do_app_def, case_eq_thms, pair_case_eq] \\ fs [] \\ rw []
+    \\ imp_res_tac v_to_list \\ rfs [OPTREL_def]
+    \\ match_mp_tac list_to_v_v_rel
+    \\ fs [EVERY2_APPEND_suff])
+  \\ Cases_on `?tag. op = ConsExtend tag`
   >- (
     rw [do_app_cases_val]
     >- (
@@ -751,11 +765,11 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac EVERY2_REVERSE >> pop_assum kall_tac >>
     `s.max_app = s2'.max_app` by (
       imp_res_tac state_rel_max_app >>
       imp_res_tac evaluate_const >>
       fs[]) >> fs[] >>
+    imp_res_tac EVERY2_REVERSE >> pop_assum kall_tac >>
     first_assum(fn th1 => first_assum(fn th2 => mp_tac (MATCH_MP do_app (CONJ th1 th2)))) >>
     strip_tac >>
     last_x_assum mp_tac >>

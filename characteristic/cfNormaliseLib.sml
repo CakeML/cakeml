@@ -39,7 +39,7 @@ fun mk_triple (t1, t2, t3) =
 fun strip_annot_pat p =
   if is_Pvar p
      orelse is_Plit p
-     orelse p = Pany
+     orelse p ~~ Pany
   then
       p
   else if is_Pcon p then
@@ -121,8 +121,10 @@ in listSyntax.mk_list (funs', ty) end
 
 fun dest_opapp e = let
   val (app_op, args_tm) = dest_App e
-  val _ = assert (curry op= Opapp) app_op
-  val ([f, x], _) = listSyntax.dest_list args_tm
+  val _ = assert (same_const Opapp) app_op
+  val fx = listSyntax.dest_list args_tm |> fst
+  val f = el 1 fx
+  val x = el 2 fx
 in
   case dest_opapp f of
      SOME (f', args) => SOME (f', args @ [x])
@@ -167,7 +169,7 @@ fun mk_names_generator () = let
 in (get, record) end
 
 fun record_pat_names record_var pat =
-  if pat = Pany then ()
+  if pat ~~ Pany then ()
   else if is_Pvar pat then
     record_var (dest_Pvar pat)
   else if is_Plit pat then ()
@@ -193,7 +195,7 @@ fun Let_NONE e1 e2 =
   )
 
 fun is_App_Opapp e =
-  (is_App e) andalso fst (dest_App e) = Opapp
+  (is_App e) andalso fst (dest_App e) ~~ Opapp
 
 fun norm_exp gen e = let
   val (fresh, record_name) = gen
@@ -258,8 +260,8 @@ fun norm_exp gen e = let
       val (e1', b1) = norm false true e1
       val (e2', b2) = norm false true e2
     in
-      if b2 = [] then (
-        if b1 = [] then (
+      if List.null b2 then (
+        if List.null b1 then (
           (* produce: <e1> op <e2> *)
           (mk_Log (l, e1', e2'), [])
         ) else (
@@ -268,10 +270,10 @@ fun norm_exp gen e = let
         )
       ) else (
         let val (e2', b2) = norm false false e2 in
-        if l = And then
+        if l ~~ And then
           (* produce: let <b1> in <e1'> andalso (lets <b2> in <e2'>) *)
           wrap_if_needed as_value (mk_Log (And, e1', Lets b2 e2')) b1
-        else if l = Or then
+        else if l ~~ Or then
           (* produce: let <b1> in <e1'> orelse (let <b2> in <e2'>) *)
           wrap_if_needed as_value (mk_Log (Or, e1', Lets b2 e2')) b1
         else fail ()
@@ -391,16 +393,9 @@ fun normalise_decl d =
   in mk_Dletrec (locs, l'_tm) end
   else d
 
-fun normalise_top td =
-  if is_Tdec td then let
-    val d = dest_Tdec td
-    val d' = normalise_decl d
-  in mk_Tdec d' end
-  else td
-
 fun normalise_prog p_tm = let
   val (p, p_ty) = listSyntax.dest_list p_tm
-  val p' = List.map normalise_top p
+  val p' = List.map normalise_decl p
 in listSyntax.mk_list (p', p_ty) end
 
 end

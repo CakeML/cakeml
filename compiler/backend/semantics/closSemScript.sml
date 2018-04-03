@@ -1,4 +1,4 @@
-open preamble backend_commonTheory closLangTheory conLangTheory
+open preamble backend_commonTheory closLangTheory flatLangTheory
      semanticPrimitivesPropsTheory (* for opw_lookup and others *)
 
 val _ = new_theory"closSem"
@@ -98,6 +98,11 @@ val v_to_list_def = Define`
      else NONE) ∧
   (v_to_list _ = NONE)`
 
+val list_to_v_def = Define `
+  list_to_v [] = Block nil_tag [] /\
+  list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
+  `;
+
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
@@ -128,6 +133,10 @@ val do_app_def = Define `
     | (ConsExtend tag,_) => Error
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (ListAppend, [x1; x2]) =>
+        (case (v_to_list x1, v_to_list x2) of
+        | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
+        | _ => Error)
     | (LengthBlock,[Block tag xs]) =>
         Rval (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
@@ -269,6 +278,12 @@ val do_app_def = Define `
         Rval (Word64 (i2w i),s)
     | (WordToInt, [Word64 w]) =>
         Rval (Number (&(w2n w)),s)
+    | (WordFromWord T, [Word64 w]) =>
+        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
+    | (WordFromWord F, [Number n]) =>
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => Error
+        | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray f ws) =>
@@ -306,6 +321,7 @@ val do_app_def = Define `
          | _ => Error)
     | (LessConstSmall n,[Number i]) =>
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
+    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
 val dec_clock_def = Define `

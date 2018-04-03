@@ -1,5 +1,8 @@
 ## The regression test runs through this list of directories.
 
+# download the latest cake binary
+developers/bin
+
 # semantics and metatheory
 semantics/ffi
 semantics
@@ -63,23 +66,30 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
 
-# benchmarks
-compiler/benchmarks
+# examples and tests
+characteristic/examples
+tutorial/solutions
+translator/monadic/examples
 
-# other examples
 examples
 examples/compilation
 examples/compilation/proofs
 
-# tests
+compiler/benchmarks
+
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
 
-# compiler bootstrap
+# compiler translation
 compiler/bootstrap/translation
-compiler/bootstrap/translation/x64
-compiler/bootstrap/compilation/x64
-compiler/bootstrap/compilation/x64/proofs
-compiler/bootstrap/translation/riscv
-compiler/bootstrap/compilation/riscv
+
+# compiler sexpr bootstrap
+unverified/sexpr-bootstrap/x64/64:cake-unverified-x64-64.tar.gz
+unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
+
+# compiler HOL bootstrap
+compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
+compiler/bootstrap/compilation/x64/64/proofs
+compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
+compiler/bootstrap/compilation/x64/32/proofs
