@@ -710,6 +710,15 @@ val v_rel_lems = Q.prove (
   every_case_tac >>
   simp [v_rel_eqns]);
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.
+     has_lists genv.c ∧ LIST_REL (v_rel genv) xs ys ⇒
+       v_rel genv (list_to_v xs) (list_to_v ys)`,
+  Induct >>
+  rw [] >>
+  fs [LIST_REL_EL_EQN, flatSemTheory.list_to_v_def, has_lists_def,
+      v_rel_eqns, semanticPrimitivesTheory.list_to_v_def]);
+
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -977,6 +986,17 @@ val do_app = Q.prove (
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][] >>
       decide_tac)
+  >- ((* ListAppend *)
+    simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+    rw [] >>
+    fs [] >>
+    rw [] >>
+    imp_res_tac v_to_list >>
+    fs [] >>
+    rw [result_rel_cases] >>
+    irule list_to_v_v_rel >>
+    fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_APPEND_EQN] >>
+    rw [])
   >- ((* FFI *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
