@@ -32,7 +32,7 @@ val dest_GlobalVarLookup_def = Define `
 `
 
 val num_set_tree_union_def = Define `
-    (num_set_tree_union LN t2 = t2) ∧
+    (num_set_tree_union (LN:num_set num_map) t2 = t2) ∧
     (num_set_tree_union (LS a) t =
      case t of
        | LN => LS a
@@ -263,7 +263,7 @@ val analyseCode_thm = Q.store_thm("analyseCode_thm",
 val lit0_def = Define `
     lit0 n = Dlet (App None (GlobalVarInit n) [Lit None (IntLit 0)])
 `
-
+(*
 val keep_def = Define `
     (keep reachable (Dlet e) = case (findLoc e) of
         | LN => T (* no global vars, skip over *)
@@ -272,6 +272,17 @@ val keep_def = Define `
            the reachable set, then do not keep - if any are in, then keep *)
     (keep reachable _ = T) (* not a Dlet, may be type info etc. so keep *)
 `
+*)
+
+val keep_def = Define `
+    (keep reachable (Dlet e) = 
+        if isEmpty (inter (findLoc e) reachable) then F else T) ∧ 
+        (* i.e. if none of the global variables that e may assign to are in
+           the reachable set, then do not keep - if any are in, then keep *)
+    (keep reachable _ = T) (* not a Dlet, may be type info etc. so keep *)
+`
+
+val keep_ind = theorem "keep_ind";
 
 val removeUnreachable_def = Define `
     removeUnreachable reachable l = FILTER (keep reachable) l
