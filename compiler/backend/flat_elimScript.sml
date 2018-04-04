@@ -225,13 +225,13 @@ val wf_codeAnalysis_union = Q.store_thm("wf_codeAnalysis_union",
 );
 
 val wf_codeAnalysis_union_strong = Q.store_thm("wf_codeAnalysis_union_strong",
-    `∀ r3:num_set r2 r1 t1:sp_graph t2 t3. wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 
+    `∀ r3:num_set r2 r1 (t1:num_set num_map) t2 t3. wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 
         ∧ codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3`,
     rw[codeAnalysis_union_def] >> rw[wf_union] >> imp_res_tac wf_num_set_tree_union >> fs[]
 );
 
 val domain_codeAnalysis_union = Q.store_thm("domain_codeAnalysis_union",
-    `∀ r1:num_set r2 r3 t1:sp_graph t2 t3 . domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧ 
+    `∀ r1:num_set r2 r3 (t1:num_set num_map) t2 t3 . domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧ 
     codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3`,
     rw[codeAnalysis_union_def] >> rw[domain_union] >> rw[domain_num_set_tree_union] >>
     fs[SUBSET_DEF]
@@ -326,7 +326,7 @@ val subspt_superdomain = Q.store_thm("subspt_superdomain",
 );
 
 val superdomain_thm = Q.store_thm("superdomain_thm",
-    `∀ x y (tree:sp_graph) . lookup x tree = SOME y ⇒ domain y ⊆ domain (superdomain tree)`,
+    `∀ x y (tree:num_set num_map) . lookup x tree = SOME y ⇒ domain y ⊆ domain (superdomain tree)`,
     Induct_on `tree` >- rw[lookup_def] 
     >- rw[lookup_def, superdomain_def, foldi_def, domain_map]
     >> rw[] >> fs[lookup_def] >> Cases_on `EVEN x` >> res_tac >> 

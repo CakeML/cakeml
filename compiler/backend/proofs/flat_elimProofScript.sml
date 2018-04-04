@@ -25,6 +25,8 @@ val findAllGlobals_def = Define `
     (findAllGlobalsL (h::t) = union (findAllGlobals h) (findAllGlobalsL t))
 `
 
+val findAllGlobals_ind = theorem "findAllGlobals_ind";
+
 val findVglobals_def = tDefine "findVglobals" `
     (findVglobals (Conv _ vl) = findVglobalsL vl) ∧
     (findVglobals (Closure vvs _ e) = 
@@ -44,11 +46,15 @@ val findVglobals_def = tDefine "findVglobals" `
     Cases_on `v3_size(MAP SND vvs) = v1_size vvs` >> rw[]
 );
 
+val findVglobals_ind = theorem "findVglobals_ind";
+
 val findRefsGlobals_def = Define `
     (findRefsGlobals (Refv a::t) = union (findVglobals a) (findRefsGlobals t)) ∧ 
     (findRefsGlobals (Varray l::t) = union (findVglobalsL l) (findRefsGlobals t)) ∧
     (findRefsGlobals _ = LN)
 `
+
+val findRefsGlobals_ind = theorem "findRefsGlobals_ind";
 
 (******** FINDENVGLOBALS, FINDRESULTGLOBALS ********)
 
@@ -61,11 +67,13 @@ val findResultGlobals_def = Define `
     (findResultGlobals _ = LN)
 `
 
+val findResultGlobals_ind = theorem "findResultGlobals_ind";
+
 (**************************** GLOBALS_REL *****************************)
 
 (* s = state, t = removed state *)
 val globals_rel_def = Define `
-    globals_rel (reachable : num_set) s t ⇔ 
+    globals_rel (reachable : num_set) (s : 'ffi flatSem$state) (t : 'ffi flatSem$state) ⇔ 
         LENGTH s.globals = LENGTH t.globals ∧ 
         (∀ n . n ∈ domain reachable ∧ n < LENGTH t.globals
         ⇒ EL n s.globals = EL n t.globals)
@@ -74,7 +82,7 @@ val globals_rel_def = Define `
 (**************************** DECSCLOSED *****************************)
 
 val decsClosed_def = Define `
-    decsClosed reachable decs ⇔  ∀ r t . analyseCode decs = (r,t)
+    decsClosed (reachable : num_set) decs ⇔  ∀ r t . analyseCode decs = (r,t)
     ⇒ domain r ⊆ domain reachable ∧
       (∀ n m . n ∈ domain reachable ∧ isReachable (mk_wf_set_tree t) n m 
       ⇒ m ∈ domain reachable)
@@ -82,15 +90,24 @@ val decsClosed_def = Define `
 
 val decsClosed_reduce = Q.store_thm ("decsClosed_reduce",
     `∀ reachable h t . decsClosed reachable (h::t) ⇒ decsClosed reachable t`,
-    fs[decsClosed_def] >> rw[] >>
-    Cases_on `h` >> fs[analyseCode_def] >> cheat);
+    fs[decsClosed_def] >> rw[] >> Cases_on `h` >> fs[analyseCode_def] 
+    >- (Cases_on `analyseExp e` >> fs[codeAnalysis_union_def, domain_union])
+    >- (
+        Cases_on `analyseExp e` >> fs[codeAnalysis_union_def, domain_union] >>
+        first_x_assum drule >> rw[] >>
+        pop_assum match_mp_tac >>
+        fs[isReachable_def] >>
+        cheat (* TODO *)
+    )
+    >> metis_tac[] 
+);
 
 
 (**************************** FLAT_STATE_REL *****************************)
 
 (* s = state, t = removed state *)
 val flat_state_rel_def = Define `
-    flat_state_rel (reachable : num_set) s t ⇔ s.clock = t.clock ∧ s.refs = t.refs ∧
+    flat_state_rel reachable s t ⇔ s.clock = t.clock ∧ s.refs = t.refs ∧
     s.ffi = t.ffi ∧ globals_rel reachable s t ∧ 
     domain (findRefsGlobals s.refs) ⊆ domain reachable
 `
@@ -122,7 +139,7 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
         evaluate_decs env removed_state removed_decs = (new_removed_state, new_ctors, result) ∧
         flat_state_rel reachable new_state new_removed_state ∧ 
         domain (findResultGlobals result) ⊆ domain reachable`
-, 
+,cheat); (* 
     Induct_on `decs` 
     >- (rw[evaluate_decs_def, removeUnreachable_def] >> fs[evaluate_decs_def, findResultGlobals_def])
     >> fs[evaluate_decs_def, removeUnreachable_def] >> reverse(rw[])
@@ -161,7 +178,7 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
                `env2 = env` by (fs[flatSemTheory.environment_component_equality, Abbr `env2`]) >>
                fs[] >> asm_exists_tac >> fs[] >> drule keep_state_rel_thm >> disch_then drule >>
                disch_then drule >> fs[]
-
+*)
 (* in code, you can say get global -> in flatLang you have code in closures, which can get globals therefore
     -> therefore anything in which you can say "get global" must be in reachable set -> have to scan all closures and recclosures *)
 
@@ -188,6 +205,7 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
 
 
 
+val _ = export_theory();
 
 
 
@@ -195,7 +213,7 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
 
 
 (* OLD *****************************************************************************************************************)
-
+(*
 (**************************** STATE_REL *****************************)
 val state_rel_def = Define `
     state_rel (reachable:num_set) s t ⇔ s.clock = t.clock ∧ s.refs = t.refs ∧ 
@@ -326,8 +344,7 @@ val removal_thm = Q.store_thm ("removal_thm",
         state_rel reachable s1 t1`,
     
     ho_match_mp_tac evaluate_ind
-
-val _ = export_theory();
+*)
 
 (**************************** DLETS ******************************)
 

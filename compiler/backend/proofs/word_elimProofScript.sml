@@ -479,7 +479,7 @@ val word_state_rel_word_exp = Q.store_thm("word_state_rel_word_exp",
     `∀ s1 exp s2 reachable . word_state_rel reachable s1 s2 ⇒ word_exp s1 exp = word_exp s2 exp`,
     recInduct word_exp_ind >> rw[word_exp_def] 
     >- (fs[word_state_rel_def]) >- (fs[word_state_rel_def])
-    >- (first_x_assum drule >> rw[] >> Cases_on `word_exp s2 addr` >> rw[] >> Cases_on `x` >> fs[] >> fs[mem_load_def, word_state_rel_def])
+    >- (first_x_assum drule >> rw[] >> Cases_on `word_exp s2 addr'` >> rw[] >> Cases_on `x` >> fs[] >> fs[mem_load_def, word_state_rel_def])
     >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by (fs[MAP_EQ_f] >> metis_tac[]) >> fs[])
     >- (first_x_assum drule >> rw[])
 );
@@ -497,9 +497,9 @@ val word_state_rel_inst_NONE = Q.store_thm("word_state_rel_inst_NONE",
        >- (`word_exp s (Op b [Var n0; Const c]) = word_exp t (Op b [Var n0; Const c])` by 
                 metis_tac[word_state_rel_word_exp, word_state_rel_def] >> fs[] >>
             Cases_on `word_exp t (Op b [Var n0; Const c])` >> fs[])
-       >- (`word_exp s (Shift s' (Var n0) (Nat n1)) = word_exp t (Shift s' (Var n0) (Nat n1))` by 
+       >- (`word_exp s (Shift s' (Var n0) n1) = word_exp t (Shift s' (Var n0) n1)` by 
                 metis_tac[word_state_rel_word_exp, word_state_rel_def] >> fs[] >>
-            Cases_on `word_exp t (Shift s' (Var n0) (Nat n1))` >> fs[]))
+            Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[]))
     >- (`∀ exp . word_exp t exp = word_exp s exp` by metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
         fs[get_var_def, mem_load_def, set_var_def] >> EVERY_CASE_TAC >> rfs[mem_store_def])
     >- (fs[get_fp_var_def, set_var_def, set_fp_var_def, get_var_def] >>
@@ -520,9 +520,9 @@ val word_state_rel_inst_SOME = Q.store_thm ("word_state_rel_inst_SOME",
             fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[word_exp_def] >> fs[the_words_def] >> EVERY_CASE_TAC >> fs[] >>
            qspecl_then [`n`, `Word z'`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
         >- (fs[assign_def] >> 
-            `word_exp s (Shift s' (Var n0) (Nat n1)) = 
-                word_exp t (Shift s' (Var n0) (Nat n1))` by metis_tac[word_state_rel_word_exp] >> fs[] >>
-            Cases_on `word_exp t (Shift s' (Var n0) (Nat n1))` >> fs[] >> fs[set_var_def] >> rw[] >> 
+            `word_exp s (Shift s' (Var n0) n1) = 
+                word_exp t (Shift s' (Var n0) n1)` by metis_tac[word_state_rel_word_exp] >> fs[] >>
+            Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[] >> fs[set_var_def] >> rw[] >> 
             fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[word_exp_def] >> fs[the_words_def] >> EVERY_CASE_TAC >> fs[] >>
             qspecl_then [`n`, `Word z'`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
         >- (EVERY_CASE_TAC >> fs[] >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>

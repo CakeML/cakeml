@@ -57,7 +57,7 @@ val wf_findWordRef = Q.store_thm("wf_findWordRef",
 (*********************************** CODE ANALYSIS ***********************************)
 
 val analyseWordCode_def = Define`
-    (analyseWordCode [] = LN:sp_graph) ∧ 
+    (analyseWordCode [] = LN:num_set num_map) ∧ 
     (analyseWordCode ((n, args, prog)::t) = insert n (findWordRef prog) (analyseWordCode t))
 `
 
