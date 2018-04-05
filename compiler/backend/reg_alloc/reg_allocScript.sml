@@ -169,6 +169,20 @@ val add_simp_wl_def = Define`
     set_simp_wl (ls ++ swl)
   od`
 
+val add_moves_wl_def = Define`
+  add_moves_wl ls =
+  do
+    mwl <- get_moves_wl;
+    set_moves_wl (ls ++ mwl)
+  od`
+
+val add_freeze_wl_def = Define`
+  add_freeze_wl ls =
+  do
+    fwl <- get_freeze_wl;
+    set_freeze_wl (ls ++ fwl)
+  od`
+
 val add_stack_def = Define`
   add_stack ls =
   do
