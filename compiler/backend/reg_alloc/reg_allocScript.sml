@@ -250,6 +250,28 @@ val do_coalesce_def = Define`
       od
   od`
 
+(* TODO! *)
+val do_freeze_moves_def = Define`
+  do_freeze_moves k x =
+    do
+      return ()
+    od`
+
+val do_freeze_def = Define`
+  do_freeze k =
+  do
+    freeze <- get_freeze_wl;
+    if NULL freeze then
+      return F
+    else
+      do
+        add_simp_wl freeze;
+        set_freeze_wl [];
+        st_ex_FOREACH freeze (do_freeze_moves k);
+        return T
+      od
+  od`
+
 
 val st_ex_list_MAX_deg_def = Define`
   (st_ex_list_MAX_deg [] d k v acc = return (k,acc)) ∧
@@ -297,10 +319,15 @@ val do_step_def = Define`
         if b then
           return ()
         else
-          (* TODO: freeze *)
           do
-            b <- do_spill k;
-            return ()
+            b <- do_freeze k;
+            if b then
+              return ()
+            else
+              do
+                b <- do_spill k;
+                return ()
+              od
           od
       od
   od`
