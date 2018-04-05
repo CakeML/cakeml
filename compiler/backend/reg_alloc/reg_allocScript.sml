@@ -799,13 +799,15 @@ val run_ira_state_def = define_run ``:ra_state``
 val reg_alloc_aux_def = Define`
   reg_alloc_aux k moves ct forced (ta,fa,n) =
     run_ira_state (do_reg_alloc k moves ct forced (ta,fa,n))
-                      <| adj_ls   := (n, [])
-                       ; node_tag := (n, Atemp)
-		       ; degrees  := (n, 0)
-		       ; dim      := n
-		       ; simp_wl  := []
-		       ; spill_wl := []
-		       ; stack    := [] |>`;
+                      <| adj_ls    := (n, [])
+                       ; node_tag  := (n, Atemp)
+                       ; degrees   := (n, 0)
+                       ; dim       := n
+                       ; simp_wl   := []
+                       ; spill_wl  := []
+                       ; moves_wl  := []
+                       ; freeze_wl := []
+                       ; stack     := [] |>`;
 
 val reg_alloc_def = Define `
 reg_alloc k moves ct forced =
