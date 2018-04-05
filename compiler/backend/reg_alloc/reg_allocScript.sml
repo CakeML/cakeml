@@ -144,7 +144,7 @@ val dec_deg_def = Define`
   dec_deg n =
   do
     cd <- degrees_sub n;
-    update_degrees n (cd+1)
+    update_degrees n (cd-1)
   od`
 
 val dec_degree_def = Define`
