@@ -829,7 +829,9 @@ val get_clash_tree_def = Define`
           else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
         Branch (SOME live_set) ret_tree handler_tree)`
 
-(* Preference edges *)
+(* Preference edges
+  The allocator tries hard to coalesce these edges
+*)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
   (get_prefs (MustTerminate s1) acc =
@@ -870,9 +872,190 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
   >> rpt strip_tac >> fs[Once get_prefs_def]
   >> every_case_tac >> metis_tac[pair_CASES]));
 
-(* Forced edges for certain instructions
-  At the moment this really only ever occurs for AddCarry, AddOverflow, SubOverflow
+(*
+  For each var, we collect 5 tuples indicating the number of
+  instructions in which it is involved in: (const,reg,memory,fp,other)
+
+  Currently, the FP ones are probably not very useful until we make use of
+  all FP instructions
+
+  Other is a catchall for remaining things -- perhaps they could be given priority?
+
+  The last component lists all the known call paths that the var could be in
 *)
+val _ = Datatype `
+  heu_data =
+    <| const : num;
+       reg   : num;
+       mem   : num;
+       fp    : num;
+       other : num;
+       calls : num list |>`
+
+val empty_heu_data_def = Define`
+  empty_heu_data = <| const:=0; reg:=0; mem:=0; fp:=0; other:=0; calls := []|>`
+
+val lookup_add1_const_def = Define`
+  lookup_add1_const x t =
+  dtcase lookup x t of NONE =>
+    insert x (empty_heu_data with const:= 1) t
+  | SOME v =>
+    insert x (v with const:= v.const+1) t`
+
+val lookup_add1_reg_def = Define`
+  lookup_add1_reg x t =
+  dtcase lookup x t of NONE =>
+    insert x (empty_heu_data with reg:= 1) t
+  | SOME v =>
+    insert x (v with reg:= v.reg+1) t`
+
+val lookup_add1_mem_def = Define`
+  lookup_add1_mem x t =
+  dtcase lookup x t of NONE =>
+    insert x (empty_heu_data with mem:= 1) t
+  | SOME v =>
+    insert x (v with mem:= v.mem+1) t`
+
+val lookup_add1_fp_def = Define`
+  lookup_add1_fp x t =
+  dtcase lookup x t of NONE =>
+    insert x (empty_heu_data with fp:= 1) t
+  | SOME v =>
+    insert x (v with fp:= v.fp+1) t`
+
+val lookup_add1_other_def = Define`
+  lookup_add1_other x t =
+  dtcase lookup x t of NONE =>
+    insert x (empty_heu_data with other:= 1) t
+  | SOME v =>
+    insert x (v with other:= v.other+1) t`
+
+val get_heu_inst_def = Define`
+  (get_heu_inst Skip tup = tup) ∧
+  (get_heu_inst (Const reg w) (lhs,rhs) =
+    (lookup_add1_const reg lhs,rhs)) ∧
+  (get_heu_inst (Arith (Binop bop r1 r2 ri)) (lhs,rhs) =
+    (dtcase ri of
+      Reg r3 => (* r1 := r2 op r3*)
+        (lookup_add1_reg r1 lhs, lookup_add1_reg r3 (lookup_add1_reg r2 rhs))
+    | _ =>
+        (lookup_add1_reg r1 lhs, lookup_add1_reg r2 rhs))) ∧
+  (get_heu_inst (Arith (Shift shift r1 r2 n)) (lhs,rhs) =
+     (lookup_add1_reg r1 lhs, lookup_add1_reg r2 rhs)) ∧
+  (get_heu_inst (Arith (Div r1 r2 r3)) (lhs,rhs) =
+     (lookup_add1_reg r1 lhs, lookup_add1_reg r3 (lookup_add1_reg r2 rhs))) ∧
+  (get_heu_inst (Arith (AddCarry r1 r2 r3 r4)) (lhs,rhs) =
+    (*r1,r4 := r2,r3,r4 *)
+     (lookup_add1_reg r4 (lookup_add1_reg r1 lhs),
+      lookup_add1_reg r4 (lookup_add1_reg r3 (lookup_add1_reg r2 rhs)))) ∧
+  (get_heu_inst (Arith (AddOverflow r1 r2 r3 r4)) (lhs,rhs) =
+    (*r1,r4 := r2,r3 *)
+     (lookup_add1_reg r4 (lookup_add1_reg r1 lhs),
+      (lookup_add1_reg r3 (lookup_add1_reg r2 rhs)))) ∧
+  (get_heu_inst (Arith (SubOverflow r1 r2 r3 r4)) (lhs,rhs) =
+    (*r1,r4 := r2,r3 *)
+     (lookup_add1_reg r4 (lookup_add1_reg r1 lhs),
+      (lookup_add1_reg r3 (lookup_add1_reg r2 rhs)))) ∧
+  (get_heu_inst (Arith (LongMul r1 r2 r3 r4)) (lhs,rhs) =
+    (*r1,r2 := r3,r4 *)
+     (lookup_add1_reg r2 (lookup_add1_reg r1 lhs),
+      (lookup_add1_reg r4 (lookup_add1_reg r3 rhs)))) ∧
+  (get_heu_inst (Arith (LongDiv r1 r2 r3 r4 r5)) (lhs,rhs) =
+    (*r1,r2 := r3,r4,r5 *)
+     (lookup_add1_reg r2 (lookup_add1_reg r1 lhs),
+      (lookup_add1_reg r5 (lookup_add1_reg r4 (lookup_add1_reg r3 rhs))))) ∧
+  (get_heu_inst (Mem Load r (Addr a w)) (lhs,rhs) =
+     (lookup_add1_mem r lhs,rhs)) ∧
+  (get_heu_inst (Mem Store r (Addr a w)) (lhs,rhs) =
+     (lhs,lookup_add1_mem r rhs)) ∧
+  (get_heu_inst (Mem Load8 r (Addr a w)) (lhs,rhs) =
+     (lookup_add1_mem r lhs,rhs)) ∧
+  (get_heu_inst (Mem Store8 r (Addr a w)) (lhs,rhs) =
+     (lhs,lookup_add1_mem r rhs)) ∧
+  (get_heu_inst (FP (FPLess r f1 f2)) (lhs,rhs) =
+     (lookup_add1_fp r lhs, rhs)) ∧
+  (get_heu_inst (FP (FPLessEqual r f1 f2)) (lhs,rhs) =
+     (lookup_add1_fp r lhs, rhs)) ∧
+  (get_heu_inst (FP (FPEqual r f1 f2)) (lhs,rhs) =
+     (lookup_add1_fp r lhs, rhs)) ∧
+  (get_heu_inst (FP (FPMovToReg r1 r2 d):'a inst) (lhs,rhs) =
+     (lookup_add1_fp r2 (lookup_add1_fp r1 lhs), rhs)) ∧
+  (get_heu_inst (FP (FPMovFromReg d r1 r2)) (lhs,rhs) =
+     (lhs,lookup_add1_fp r2 (lookup_add1_fp r1 rhs))) ∧
+  (*Catchall -- for future instructions to be added, and all other FP *)
+  (get_heu_inst x lr = lr)`
+
+(* For Ifs, as a heuristic we take the max over branching paths *)
+val heu_max_def = Define`
+  heu_max heu1 heu2 =
+    <| const:=MAX heu1.const heu2.const;
+       reg:=MAX heu1.reg heu2.reg;
+       mem:=MAX heu1.mem heu2.mem;
+       fp:=MAX heu1.fp heu2.fp;
+       other:=MAX heu1.other heu2.other;
+       calls:= heu1.calls ++ heu2.calls |>`
+
+val heu_max_all_def = Define`
+  heu_max_all t1 t2 =
+  let t1r = difference t1 t2 in (*everything in t1 not already in t2*)
+  union
+  t1r
+  (mapi (λk v.
+    dtcase lookup k t1 of
+      NONE => v
+    | SOME v' => heu_max v v') t2)`
+
+val add_call_def = Define`
+  add_call t c =
+  map (λv. v with calls := c::v.calls) t`
+
+val get_heu_def = Define `
+  (get_heu (Move pri ls) (lhs,rhs) =
+    (FOLDR lookup_add1_reg lhs (MAP FST ls),
+    FOLDR lookup_add1_reg rhs (MAP SND ls))) ∧
+  (get_heu (Inst i) lr = get_heu_inst i lr) ∧
+  (get_heu (Get num store) (lhs,rhs) =
+    (lookup_add1_other num lhs,rhs)) ∧
+  (get_heu (Set _ exp) (lhs,rhs) =
+    dtcase exp of (Var r) =>
+      (lhs,lookup_add1_other r rhs)
+    | _ => (lhs,rhs)) ∧ (* General Set exp ignored *)
+  (get_heu (LocValue r l1) (lhs,rhs) =
+    (lookup_add1_other r lhs, rhs)) ∧
+  (get_heu (Seq s1 s2) lr = get_heu s2 (get_heu s1 lr)) ∧
+  (get_heu (MustTerminate s1) lr = get_heu s1 lr) ∧
+  (get_heu (If cmp r1 ri e2 e3) lr =
+    let (lhs2,rhs2) = get_heu e2 lr in
+    let (lhs3,rhs3) = get_heu e3 lr in
+    let lhs = heu_max_all lhs2 lhs3 in
+    let rhs = heu_max_all rhs2 rhs3 in
+    dtcase ri of
+      Reg r2 =>
+      (lhs, lookup_add1_reg r1 (lookup_add1_reg r2 rhs))
+    | _ =>
+      (lhs, lookup_add1_reg r1 rhs)) ∧
+  (get_heu (Call NONE dest args h) (lhs,rhs) =
+    case dest of NONE => (lhs,rhs)
+    | SOME p =>
+    (add_call lhs p, add_call rhs p)) ∧
+  (get_heu (Call (SOME (_,_,e2,_,_)) dest args h) (lhs,rhs) =
+    let (lhs,rhs) =
+      case dest of NONE => (lhs,rhs)
+      | SOME p =>
+      (add_call lhs p, add_call rhs p) in
+    let (lhs2,rhs2) = get_heu e2 (lhs,rhs) in
+    dtcase h of
+      NONE => (lhs2,rhs2)
+    | SOME (_,e3,_,_) =>
+      let (lhs3,rhs3) = get_heu e3 (lhs,rhs) in
+      (heu_max_all lhs2 lhs3,heu_max_all rhs2 rhs3)) ∧
+  (* The remaining ones are exps, or otherwise unimportant from the
+  pov of register allocation, since all their temps are already forced into
+  specific registers
+  Omitted: Skip, Assign, Store, FFI, Alloc, Raise, Tick, Call NONE*)
+  (get_heu f lr = lr)`
+
+(* Forced edges for certain instructions *)
 val get_forced_def = Define`
   (get_forced (c:'a asm_config) ((Inst i):'a prog) acc =
     dtcase i of
