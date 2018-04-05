@@ -58,6 +58,8 @@ val _ = Hol_datatype `
                        the state? *)
               ; simp_wl  : num list
               ; spill_wl : num list
+              ; moves_wl : num list
+              ; freeze_wl : num list
               ; stack    : num list
               |>`;
 
