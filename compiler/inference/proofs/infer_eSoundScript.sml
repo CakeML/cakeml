@@ -550,7 +550,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> `?tvs t. v = (tvs, t)` by metis_tac [pair_CASES]
    >> `t_wfs s` by metis_tac [sub_completion_wfs]
    >> drule tscheme_approx_thm
-   >> fs []
+   >> var_eq_tac
    >> disch_then drule
    >> disch_then
      (qspec_then `MAP (t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` mp_tac)
