@@ -873,62 +873,45 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
   >> every_case_tac >> metis_tac[pair_CASES]));
 
 (*
-  For each var, we collect 5 tuples indicating the number of
-  instructions in which it is involved in: (const,reg,memory,fp,other)
+  For each var, we collect 3 tuples indicating the number of
+  instructions in which it is involved in: (const,reg,memory)
 
-  Currently, the FP ones are probably not very useful until we make use of
-  all FP instructions
+  Currently, this just treats FP as a "reg" instruction
 
-  Other is a catchall for remaining things -- perhaps they could be given priority?
+  This is meant to be small and quick to compute, because it has to be applied
+  to the entire program just before register allocation, which can be huge.
 
-  The last component lists all the known call paths that the var could be in
-*)
-val _ = Datatype `
+  Hence, it directly uses tuples instead of a record:
+
+  val _ = Datatype `
   heu_data =
     <| const : num;
        reg   : num;
-       mem   : num;
-       fp    : num;
-       other : num;
-       calls : num list |>`
+       mem   : num|>`
+*)
 
-val empty_heu_data_def = Define`
-  empty_heu_data = <| const:=0; reg:=0; mem:=0; fp:=0; other:=0; calls := []|>`
+val _ = type_abbrev ("heu_data",``:num#num#num``);
 
 val lookup_add1_const_def = Define`
-  lookup_add1_const x t =
+  lookup_add1_const x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
-    insert x (empty_heu_data with const:= 1) t
-  | SOME v =>
-    insert x (v with const:= v.const+1) t`
+    insert x (1,0,0) t
+  | SOME (const,reg,mem) =>
+    insert x (const+1,reg,mem) t`
 
 val lookup_add1_reg_def = Define`
-  lookup_add1_reg x t =
+  lookup_add1_reg x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
-    insert x (empty_heu_data with reg:= 1) t
-  | SOME v =>
-    insert x (v with reg:= v.reg+1) t`
+    insert x (0,1,0) t
+  | SOME (const,reg,mem) =>
+    insert x (const,reg+1,mem) t`
 
 val lookup_add1_mem_def = Define`
-  lookup_add1_mem x t =
+  lookup_add1_mem x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
-    insert x (empty_heu_data with mem:= 1) t
-  | SOME v =>
-    insert x (v with mem:= v.mem+1) t`
-
-val lookup_add1_fp_def = Define`
-  lookup_add1_fp x t =
-  dtcase lookup x t of NONE =>
-    insert x (empty_heu_data with fp:= 1) t
-  | SOME v =>
-    insert x (v with fp:= v.fp+1) t`
-
-val lookup_add1_other_def = Define`
-  lookup_add1_other x t =
-  dtcase lookup x t of NONE =>
-    insert x (empty_heu_data with other:= 1) t
-  | SOME v =>
-    insert x (v with other:= v.other+1) t`
+    insert x (0,0,1) t
+  | SOME (const,reg,mem) =>
+    insert x (const,reg,mem+1) t`
 
 val get_heu_inst_def = Define`
   (get_heu_inst Skip tup = tup) ∧
@@ -973,27 +956,22 @@ val get_heu_inst_def = Define`
   (get_heu_inst (Mem Store8 r (Addr a w)) (lhs,rhs) =
      (lhs,lookup_add1_mem r rhs)) ∧
   (get_heu_inst (FP (FPLess r f1 f2)) (lhs,rhs) =
-     (lookup_add1_fp r lhs, rhs)) ∧
+     (lookup_add1_reg r lhs, rhs)) ∧
   (get_heu_inst (FP (FPLessEqual r f1 f2)) (lhs,rhs) =
-     (lookup_add1_fp r lhs, rhs)) ∧
+     (lookup_add1_reg r lhs, rhs)) ∧
   (get_heu_inst (FP (FPEqual r f1 f2)) (lhs,rhs) =
-     (lookup_add1_fp r lhs, rhs)) ∧
+     (lookup_add1_reg r lhs, rhs)) ∧
   (get_heu_inst (FP (FPMovToReg r1 r2 d):'a inst) (lhs,rhs) =
-     (lookup_add1_fp r2 (lookup_add1_fp r1 lhs), rhs)) ∧
+     (lookup_add1_reg r2 (lookup_add1_reg r1 lhs), rhs)) ∧
   (get_heu_inst (FP (FPMovFromReg d r1 r2)) (lhs,rhs) =
-     (lhs,lookup_add1_fp r2 (lookup_add1_fp r1 rhs))) ∧
+     (lhs,lookup_add1_reg r2 (lookup_add1_reg r1 rhs))) ∧
   (*Catchall -- for future instructions to be added, and all other FP *)
   (get_heu_inst x lr = lr)`
 
 (* For Ifs, as a heuristic we take the max over branching paths *)
 val heu_max_def = Define`
-  heu_max heu1 heu2 =
-    <| const:=MAX heu1.const heu2.const;
-       reg:=MAX heu1.reg heu2.reg;
-       mem:=MAX heu1.mem heu2.mem;
-       fp:=MAX heu1.fp heu2.fp;
-       other:=MAX heu1.other heu2.other;
-       calls:= heu1.calls ++ heu2.calls |>`
+  heu_max (c1,r1,m1) (c2,r2,m2) =
+    (MAX c1 c2, MAX r1 r2, MAX m1 m2)`
 
 val heu_max_all_def = Define`
   heu_max_all t1 t2 =
@@ -1005,55 +983,68 @@ val heu_max_all_def = Define`
       NONE => v
     | SOME v' => heu_max v v') t2)`
 
+val heu_merge_call_def = Define`
+  heu_merge_call t1 t2 =
+  let t1r = difference t1 t2 in (*everything in t1 not already in t2*)
+  union
+  t1r
+  (mapi (λk v.
+    dtcase lookup k t1 of
+      NONE => v
+    | SOME v' => v++v') t2)`
+
+(* We use "rhs" to approximate any new vars not already tracked in calls *)
 val add_call_def = Define`
-  add_call t c =
-  map (λv. v with calls := c::v.calls) t`
+  add_call c rhs calls =
+  let rhsr = difference rhs calls in (* "new" vars *)
+  union (map (λv. [c]) rhsr)
+    (map (λv. c::v) calls)`
 
 val get_heu_def = Define `
-  (get_heu (Move pri ls) (lhs,rhs) =
-    (FOLDR lookup_add1_reg lhs (MAP FST ls),
-    FOLDR lookup_add1_reg rhs (MAP SND ls))) ∧
-  (get_heu (Inst i) lr = get_heu_inst i lr) ∧
-  (get_heu (Get num store) (lhs,rhs) =
-    (lookup_add1_other num lhs,rhs)) ∧
-  (get_heu (Set _ exp) (lhs,rhs) =
-    dtcase exp of (Var r) =>
-      (lhs,lookup_add1_other r rhs)
-    | _ => (lhs,rhs)) ∧ (* General Set exp ignored *)
-  (get_heu (LocValue r l1) (lhs,rhs) =
-    (lookup_add1_other r lhs, rhs)) ∧
+  (get_heu (Move pri ls) ((lhs,rhs),calls) =
+    ((FOLDR lookup_add1_reg lhs (MAP FST ls),
+    FOLDR lookup_add1_reg rhs (MAP SND ls)),calls)) ∧
+  (get_heu (Inst i) (lr,calls) = (get_heu_inst i lr,calls)) ∧
+  (get_heu (Get num store) ((lhs,rhs),calls) =
+    ((lookup_add1_mem num lhs,rhs),calls)) ∧
+  (get_heu (Set _ exp) ((lhs,rhs),calls) =
+    (dtcase exp of (Var r) =>
+      ((lhs,lookup_add1_mem r rhs),calls)
+    | _ => ((lhs,rhs),calls))) ∧ (* General Set exp ignored *)
+  (get_heu (LocValue r l1) ((lhs,rhs),calls) =
+    ((lookup_add1_reg r lhs, rhs),calls)) ∧
   (get_heu (Seq s1 s2) lr = get_heu s2 (get_heu s1 lr)) ∧
   (get_heu (MustTerminate s1) lr = get_heu s1 lr) ∧
   (get_heu (If cmp r1 ri e2 e3) lr =
-    let (lhs2,rhs2) = get_heu e2 lr in
-    let (lhs3,rhs3) = get_heu e3 lr in
+    let ((lhs2,rhs2),calls2) = get_heu e2 lr in
+    let ((lhs3,rhs3),calls3) = get_heu e3 lr in
     let lhs = heu_max_all lhs2 lhs3 in
     let rhs = heu_max_all rhs2 rhs3 in
-    dtcase ri of
+    let calls = heu_merge_call calls2 calls3 in
+    ((dtcase ri of
       Reg r2 =>
       (lhs, lookup_add1_reg r1 (lookup_add1_reg r2 rhs))
     | _ =>
-      (lhs, lookup_add1_reg r1 rhs)) ∧
-  (get_heu (Call NONE dest args h) (lhs,rhs) =
-    case dest of NONE => (lhs,rhs)
-    | SOME p =>
-    (add_call lhs p, add_call rhs p)) ∧
-  (get_heu (Call (SOME (_,_,e2,_,_)) dest args h) (lhs,rhs) =
-    let (lhs,rhs) =
-      case dest of NONE => (lhs,rhs)
-      | SOME p =>
-      (add_call lhs p, add_call rhs p) in
-    let (lhs2,rhs2) = get_heu e2 (lhs,rhs) in
+      (lhs, lookup_add1_reg r1 rhs)),calls)) ∧
+  (get_heu (Call NONE dest args h) ((lhs,rhs),calls) =
+    case dest of
+      NONE => ((lhs,rhs),calls)
+    | SOME p => ((lhs,rhs),add_call p rhs calls)) ∧
+  (get_heu (Call (SOME (_,_,e2,_,_)) dest args h) ((lhs,rhs),calls) =
+    let calls =
+      case dest of NONE => calls
+      | SOME p => add_call p rhs calls in
+    let ((lhs2,rhs2),calls2) = (get_heu e2 ((lhs,rhs),calls)) in
     dtcase h of
-      NONE => (lhs2,rhs2)
+      NONE => ((lhs2,rhs2),calls)
     | SOME (_,e3,_,_) =>
-      let (lhs3,rhs3) = get_heu e3 (lhs,rhs) in
-      (heu_max_all lhs2 lhs3,heu_max_all rhs2 rhs3)) ∧
+      let ((lhs3,rhs3),calls3) = get_heu e3 ((lhs,rhs),calls) in
+      ((heu_max_all lhs2 lhs3,heu_max_all rhs2 rhs3), heu_merge_call calls2 calls3)) ∧
   (* The remaining ones are exps, or otherwise unimportant from the
   pov of register allocation, since all their temps are already forced into
   specific registers
   Omitted: Skip, Assign, Store, FFI, Alloc, Raise, Tick, Call NONE*)
-  (get_heu f lr = lr)`
+  (get_heu f lrc = lrc)`
 
 (* Forced edges for certain instructions *)
 val get_forced_def = Define`
