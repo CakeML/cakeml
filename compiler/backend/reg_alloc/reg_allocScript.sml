@@ -236,6 +236,21 @@ val do_simplify_def = Define`
     od
   od`
 
+
+(* TODO ! *)
+val do_coalesce_def = Define`
+  do_coalesce k =
+  do
+    moves <- get_moves_wl;
+    if NULL moves then
+      return F
+    else
+      do
+        return F
+      od
+  od`
+
+
 val st_ex_list_MAX_deg_def = Define`
   (st_ex_list_MAX_deg [] d k v acc = return (k,acc)) ∧
   (st_ex_list_MAX_deg (x::xs) d k v acc =
@@ -277,10 +292,17 @@ val do_step_def = Define`
     if b then
       return ()
     else
-  do
-    b <- do_spill k;
-    return ()
-  od
+      do
+        b <- do_coalesce k;
+        if b then
+          return ()
+        else
+          (* TODO: freeze *)
+          do
+            b <- do_spill k;
+            return ()
+          od
+      od
   od`
 
 val rpt_do_step_def = Define`
