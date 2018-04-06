@@ -503,6 +503,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv1_location_eq
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
+    ,data_to_wordTheory.Dummy_location_eq
     ,data_to_wordTheory.Install_location_eq
     ,data_to_wordTheory.InstallCode_location_eq
     ,data_to_wordTheory.InstallData_location_eq
