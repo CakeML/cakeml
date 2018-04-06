@@ -179,6 +179,8 @@ val add_backend_compset = computeLib.extend_compset
     ,``:closLang$op``
     ,``:clos_known$val_approx``
     ,``:clos_known$globalOpt``
+    ,``:clos_known$inliningDecision``
+    ,``:clos_known$config``
     ]
   ,computeLib.Defs
     [closLangTheory.pure_def
@@ -217,23 +219,21 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.no_overlap_def_compute
     ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
-    ,clos_knownTheory.is_small_aux_def
-    ,clos_knownTheory.is_small_def
-    ,clos_knownTheory.is_rec_def
+    ,clos_knownTheory.get_size_sc_aux_def
+    ,clos_knownTheory.get_size_sc_def
+    ,clos_knownTheory.get_size_aux_def
+    ,clos_knownTheory.get_size_def
     ,clos_knownTheory.free_def
     ,clos_knownTheory.closed_def
     ,clos_knownTheory.contains_closures_def
-    ,clos_knownTheory.must_inline_def
+    ,clos_knownTheory.decide_inline_def
     ,clos_knownTheory.merge_def
     ,clos_knownTheory.known_op_def
-    ,clos_knownTheory.dest_Clos_def
     ,clos_knownTheory.clos_gen_noinline_def
     ,clos_knownTheory.isGlobal_def
     ,clos_knownTheory.gO_destApx_def
     ,clos_knownTheory.mk_Ticks_def
-    ,clos_knownTheory.size_limit_def
-    ,clos_knownTheory.depth_limit_def
-    ,clos_knownTheory.dec_depth_def
+    ,clos_knownTheory.dec_inline_factor_def
     ,clos_knownTheory.known_def
     ,clos_knownTheory.compile_def
     ,clos_knownTheory.clos_approx_def

@@ -102,48 +102,10 @@ val get_size_sc_aux_correct = Q.store_thm("get_size_sc_aux_correct",
   `!xs limit n. get_size_sc_aux limit xs = n ==> n = limit - get_size_aux xs` suffices_by metis_tac []
   \\ ho_match_mp_tac get_size_aux_ind
   \\ simp [get_size_sc_aux_def, get_size_aux_def]);
-  
+
 val get_size_sc_SOME = Q.store_thm("get_size_sc_SOME",
   `!exp limit n. get_size_sc limit exp = SOME n ==> get_size exp = n`,
   simp [get_size_sc_def, get_size_def, get_size_sc_aux_correct]);
-
-val is_small_def = Define `
-  is_small limit e = ~(get_size_sc_aux limit [e] = 0)`;
-                     
-val is_rec_def = tDefine "is_rec" `
-  (is_rec n [] = F) /\
-  (is_rec n (x::y::xs) =
-     if is_rec n [x] then T else
-       is_rec n (y::xs)) /\
-  (is_rec n [Var t v] = F) /\
-  (is_rec n [If t x1 x2 x3] =
-     if is_rec n [x1] then T else
-     if is_rec n [x2] then T else
-       is_rec n [x3]) /\
-  (is_rec n [Let t xs x2] =
-     if is_rec n xs then T else
-       is_rec n [x2]) /\
-  (is_rec n [Raise t x1] = is_rec n [x1]) /\
-  (is_rec n [Handle t x1 x2] =
-     if is_rec n [x1] then T else
-       is_rec n [x2]) /\
-  (is_rec n [Op t op xs] = is_rec n xs) /\
-  (is_rec n [Tick t x] = is_rec n [x]) /\
-  (is_rec n [Call t ticks dest xs] = is_rec n xs) /\
-  (is_rec n [Fn t loc_opt ws_opt num_args x1] =
-     is_rec n [x1]) /\
-  (is_rec n [Letrec t loc_opt ws_opt fns x1] =
-     if is_rec n (MAP SND fns) then T else
-       is_rec n [x1]) /\
-  (is_rec n [App t loc_opt x1 xs] =
-     if loc_opt = SOME n then T else
-     if is_rec n [x1] then T else
-       is_rec n xs)`
-  (WF_REL_TAC `measure (exp3_size o SND)`
-   \\ simp [] \\ rpt strip_tac
-   \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-      by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-   \\ simp []);
 
 val free_def = tDefine "free" `
   (free [] = ([],Empty)) /\
@@ -425,13 +387,6 @@ val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
-(*
-val dest_Clos_def = Define `
-  (dest_Clos (Clos n a e) = SOME (n,a,e)) /\
-  (dest_Clos _ = NONE)`;
-val _ = export_rewrites["dest_Clos_def"];
-*)
-
 val clos_approx_def = Define `
   clos_approx max_size loc num_args body =
     dtcase get_size_sc max_size body of
@@ -465,9 +420,10 @@ val gO_destApx_def = Define`
                                  else gO_None) ∧
   (gO_destApx _ = gO_None)`;
 
-val mk_Ticks_def = Define `
-  (mk_Ticks t tc 0 e = e) /\
-  (mk_Ticks t tc (SUC n) e = Tick (t§tc) (mk_Ticks t (tc + 1) n e))`;
+val mk_Ticks_def = tDefine "mk_Ticks" `
+  mk_Ticks t tc n e =
+    if n = 0n then e else mk_Ticks t (tc + 1) (n - 1) (Tick (t§tc) e)`
+  (wf_rel_tac `measure (FST o SND o SND)`);
 
 val _ = Datatype `
   inliningDecision = inlD_Nothing
@@ -485,19 +441,19 @@ val dec_inline_factor_def = Define `
   dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
 
 val decide_inline_def = Define `
-  decide_inline c fapx app_lopt app_arity = 
+  decide_inline c fapx app_lopt app_arity =
     dtcase fapx of
       | ClosNoInline loc arity =>
           if app_lopt = NONE /\ app_arity = arity
             then inlD_Annotate loc
             else inlD_Nothing
       | Clos loc arity body body_size =>
-          if app_lopt = NONE /\ app_arity = arity /\
-             body_size < c.inline_factor * (1 + app_arity) /\
-             ~contains_closures [body] /\
-             closed (Fn None NONE NONE app_arity body)
-            then inlD_LetInline body
-            else inlD_Nothing
+          if app_lopt = NONE /\ app_arity = arity then
+            (if body_size < c.inline_factor * (1 + app_arity) /\
+                ~contains_closures [body] /\ closed (Fn None NONE NONE app_arity body)
+               then inlD_LetInline body
+               else inlD_Annotate loc)
+          else inlD_Nothing
       | _ => inlD_Nothing
 `;
 
@@ -610,8 +566,8 @@ val compile_def = Define `
   compile F max_app exp = exp /\
   compile T max_app exp =
     let c = <| max_app := max_app
-             ; inline_max_body_size := 50
-             ; inline_factor := 4 |> in
+             ; inline_max_body_size := (max_app + 1) * 8
+             ; inline_factor := 8 |> in
     let (e1, _) = known c [exp] [] LN in
       FST (HD e1)`;
 
@@ -667,7 +623,7 @@ val example_direct = ``App ^t1 NONE ^apply [^succ; ^const2]``;
 val inline_direct = ``clos_known$compile T ^example_direct``;
 EVAL inline_direct;
 
-val exp = ``Let None [^const1; ^const2] (Op None Add [Var None 0; Var None 1])`` 
+val exp = ``Let None [^const1; ^const2] (Op None Add [Var None 0; Var None 1])``
 
 EVAL ``clos_letop$let_op [^exp]``;
 

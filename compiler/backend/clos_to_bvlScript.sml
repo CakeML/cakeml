@@ -489,7 +489,7 @@ val default_config_def = Define`
     next_loc := 0;
     start := 1;
     do_mti := T;
-    do_known := F; (* shutting this down until I figure out why in-logic compilation gets stuck here *)
+    do_known := T;
     do_call := T;
     max_app := 10 |>`;
 
