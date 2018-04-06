@@ -7,57 +7,109 @@ val _ = new_theory "clos_known";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-(* This definition is written to exit as soon as possible. *)
-val is_small_aux_def = tDefine "is_small_aux" `
-  (is_small_aux n [] = n) /\
-  (is_small_aux n (x::y::xs) =
+(* This definition is written to short-circuit,
+   i.e. exit as soon as possible. *)
+val get_size_sc_aux_def = tDefine "get_size_sc_aux" `
+  (get_size_sc_aux n [] = n) /\
+  (get_size_sc_aux n (x::y::xs) =
      if n = 0n then n else
-       let n = is_small_aux n [x] in if n = 0 then n else
-         is_small_aux n (y::xs)) /\
-  (is_small_aux n [Var t v] = n) /\
-  (is_small_aux n [If t x1 x2 x3] =
+       let n = get_size_sc_aux n [x] in if n = 0 then n else
+         get_size_sc_aux n (y::xs)) /\
+  (get_size_sc_aux n [Var t v] = n - 1) /\
+  (get_size_sc_aux n [If t x1 x2 x3] =
      let n = n - 1 in if n = 0 then 0 else
-     let n = is_small_aux n [x1] in if n = 0 then 0 else
-     let n = is_small_aux n [x2] in if n = 0 then 0 else
-       is_small_aux n [x3]) /\
-  (is_small_aux n [Let t xs x2] =
+     let n = get_size_sc_aux n [x1] in if n = 0 then 0 else
+     let n = get_size_sc_aux n [x2] in if n = 0 then 0 else
+       get_size_sc_aux n [x3]) /\
+  (get_size_sc_aux n [Let t xs x2] =
      let n = n - 1 in if n = 0 then 0 else
-     let n = is_small_aux n xs in if n = 0 then 0 else
-       is_small_aux n [x2]) /\
-  (is_small_aux n [Raise t x1] =
+     let n = get_size_sc_aux n xs in if n = 0 then 0 else
+       get_size_sc_aux n [x2]) /\
+  (get_size_sc_aux n [Raise t x1] =
      let n = n - 1 in if n = 0 then 0 else
-       is_small_aux n [x1]) /\
-  (is_small_aux n [Handle t x1 x2] =
+       get_size_sc_aux n [x1]) /\
+  (get_size_sc_aux n [Handle t x1 x2] =
      let n = n - 1 in if n = 0 then 0 else
-     let n = is_small_aux n [x1] in if n = 0 then 0 else
-       is_small_aux n [x2]) /\
-  (is_small_aux n [Op t op xs] =
+     let n = get_size_sc_aux n [x1] in if n = 0 then 0 else
+       get_size_sc_aux n [x2]) /\
+  (get_size_sc_aux n [Op t op xs] =
      let n = n - 1 in if n = 0 then 0 else
-       is_small_aux n xs) /\
-  (is_small_aux n [Tick t x] = is_small_aux n [x]) /\
-  (is_small_aux n [Call t ticks dest xs] =
+       get_size_sc_aux n xs) /\
+  (get_size_sc_aux n [Tick t x] = get_size_sc_aux n [x]) /\
+  (get_size_sc_aux n [Call t ticks dest xs] =
      let n = n - 1 in if n = 0 then 0 else
-       is_small_aux n xs) /\
-  (is_small_aux n [Fn t loc_opt ws_opt num_args x1] =
+       get_size_sc_aux n xs) /\
+  (get_size_sc_aux n [Fn t loc_opt ws_opt num_args x1] =
      let n = n - 1 in if n = 0 then 0 else
-       is_small_aux n [x1]) /\
-  (is_small_aux n [Letrec t loc_opt ws_opt fns x1] =
+       get_size_sc_aux n [x1]) /\
+  (get_size_sc_aux n [Letrec t loc_opt ws_opt fns x1] =
      let n = n - 1 in if n = 0 then 0 else
-     let n = is_small_aux n (MAP SND fns) in if n = 0 then 0 else
-       is_small_aux n [x1]) /\
-  (is_small_aux n [App t loc_opt x1 xs] =
+     let n = get_size_sc_aux n (MAP SND fns) in if n = 0 then 0 else
+       get_size_sc_aux n [x1]) /\
+  (get_size_sc_aux n [App t loc_opt x1 xs] =
      let n = n - 1 in if n = 0 then 0 else
-     let n = is_small_aux n [x1] in if n = 0 then 0 else
-       is_small_aux n xs)`
+     let n = get_size_sc_aux n [x1] in if n = 0 then 0 else
+       get_size_sc_aux n xs)`
   (WF_REL_TAC `measure (exp3_size o SND)`
    \\ simp [] \\ rpt strip_tac
    \\ `exp3_size (MAP SND fns) <= exp1_size fns`
       by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
    \\ simp []);
 
-val is_small_def = Define `
-  is_small limit e = ~(is_small_aux limit [e] = 0)`;
+val get_size_sc_def = Define `
+  get_size_sc limit e =
+    let n = get_size_sc_aux (limit + 1) [e] in
+      if n = 0 then NONE else SOME (limit + 1 - n)
+`;
 
+val get_size_aux_def = tDefine "get_size_aux" `
+  (get_size_aux [] = 0n) /\
+  (get_size_aux (x::y::xs) =
+     get_size_aux [x] + get_size_aux (y::xs)) /\
+  (get_size_aux [Var t v] = 1) /\
+  (get_size_aux [If t x1 x2 x3] =
+     1 + get_size_aux [x1] + get_size_aux [x2] + get_size_aux [x3]) /\
+  (get_size_aux [Let t xs x2] =
+     1 + get_size_aux xs + get_size_aux [x2]) /\
+  (get_size_aux [Raise t x1] =
+     1 + get_size_aux [x1]) /\
+  (get_size_aux [Handle t x1 x2] =
+     1 + get_size_aux [x1] + get_size_aux [x2]) /\
+  (get_size_aux [Op t op xs] =
+     1 + get_size_aux xs) /\
+  (get_size_aux [Tick t x] =
+     get_size_aux [x]) /\
+  (get_size_aux [Call t ticks dest xs] =
+     1 + get_size_aux xs) /\
+  (get_size_aux [Fn t loc_opt ws_opt num_args x1] =
+     1 + get_size_aux [x1]) /\
+  (get_size_aux [Letrec t loc_opt ws_opt fns x1] =
+     1 + get_size_aux (MAP SND fns) + get_size_aux [x1]) /\
+  (get_size_aux [App t loc_opt x1 xs] =
+     1 + get_size_aux [x1] + get_size_aux xs)`
+  (WF_REL_TAC `measure exp3_size`
+   \\ simp [] \\ rpt strip_tac
+   \\ `exp3_size (MAP SND fns) <= exp1_size fns`
+      by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
+   \\ simp []);
+
+val get_size_aux_ind = theorem "get_size_aux_ind";
+
+val get_size_def = Define `get_size e = get_size_aux [e]`;
+
+val get_size_sc_aux_correct = Q.store_thm("get_size_sc_aux_correct",
+  `!xs limit n. get_size_sc_aux limit xs = limit - get_size_aux xs`,
+  `!xs limit n. get_size_sc_aux limit xs = n ==> n = limit - get_size_aux xs` suffices_by metis_tac []
+  \\ ho_match_mp_tac get_size_aux_ind
+  \\ simp [get_size_sc_aux_def, get_size_aux_def]);
+  
+val get_size_sc_SOME = Q.store_thm("get_size_sc_SOME",
+  `!exp limit n. get_size_sc limit exp = SOME n ==> get_size exp = n`,
+  simp [get_size_sc_def, get_size_def, get_size_sc_aux_correct]);
+
+val is_small_def = Define `
+  is_small limit e = ~(get_size_sc_aux limit [e] = 0)`;
+                     
 val is_rec_def = tDefine "is_rec" `
   (is_rec n [] = F) /\
   (is_rec n (x::y::xs) =
@@ -214,13 +266,6 @@ val contains_closures_def = tDefine "contains_closures" `
        contains_closures xs)`
   (wf_rel_tac `measure exp3_size`);
 
-val must_inline_def = Define `
-  must_inline limit name num_args e =
-    if ~(is_small limit e) then F else
-    if is_rec name [e] then F else
-    if contains_closures [e] then F else
-    closed (Fn None NONE NONE num_args e)`
-
 (* -----------------------------------------------------------------
 
   This compiler transformation turns App NONEs into APP SOMEs.
@@ -237,7 +282,8 @@ val must_inline_def = Define `
 
 val _ = Datatype `
   val_approx =
-    Clos num num (exp option)     (* location in code table, arity, function body *)
+    ClosNoInline num num        (* location in code table, arity *)
+  | Clos num num exp num        (* loc, arity, body, body size *)
   | Tuple num (val_approx list) (* conses or tuples *)
   | Int int                     (* used to index tuples *)
   | Other                       (* unknown *)
@@ -250,8 +296,12 @@ val merge_def = tDefine "merge" `
   (merge (Tuple tg1 xs) (Tuple tg2 ys) =
      if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (MAP2 merge xs ys)
      else Other) ∧
-  (merge (Clos m1 n1 e1) (Clos m2 n2 e2) = if m1 = m2 ∧ n1 = n2 /\ e1 = e2 then Clos m1 n1 e1
-                                     else Other) ∧
+  (merge (ClosNoInline m1 n1) (ClosNoInline m2 n2) =
+     if m1 = m2 ∧ n1 = n2
+       then ClosNoInline m1 n1 else Other) ∧
+  (merge (Clos m1 n1 e1 s1) (Clos m2 n2 e2 s2) =
+     if m1 = m2 ∧ n1 = n2 /\ e1 = e2 /\ s1 = s2
+       then Clos m1 n1 e1 s1 else Other) ∧
   (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
   (merge _ _ = Other)
 ` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
@@ -272,8 +322,12 @@ val merge_tup_def = tDefine "merge_tup" `
      if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then
        Tuple tg1 (MAP merge_tup (ZIP(xs,ys)))
      else Other) ∧
-  (merge_tup (Clos m1 n1 e1,Clos m2 n2 e2) = if m1 = m2 ∧ n1 = n2 /\ e1 = e2 then Clos m1 n1 e1
-                                     else Other) ∧
+  (merge_tup (ClosNoInline m1 n1,ClosNoInline m2 n2) =
+     if m1 = m2 ∧ n1 = n2
+       then ClosNoInline m1 n1 else Other) ∧
+  (merge_tup (Clos m1 n1 e1 s1,Clos m2 n2 e2 s2) =
+     if m1 = m2 ∧ n1 = n2 /\ e1 = e2 /\ s1 = s2
+       then Clos m1 n1 e1 s1 else Other) ∧
   (merge_tup (Int i,Int j) = if i = j then Int i else Other) ∧
   (merge_tup (_,_) = Other)
 ` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
@@ -371,27 +425,24 @@ val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
+(*
 val dest_Clos_def = Define `
   (dest_Clos (Clos n a e) = SOME (n,a,e)) /\
   (dest_Clos _ = NONE)`;
 val _ = export_rewrites["dest_Clos_def"];
+*)
 
 val clos_approx_def = Define `
-  clos_approx limit loc num_args body =
-    Clos loc num_args (if must_inline limit loc num_args body
-                       then SOME body else NONE)`;
-
-(*
-val clos_gen_def = Define`
-  (clos_gen limit n i [] = []) ∧
-  (clos_gen limit n i ((a,e)::xs) =
-    clos_approx limit (n+2*i) a e::clos_gen limit n (i+1) xs)`;
-*)
+  clos_approx max_size loc num_args body =
+    dtcase get_size_sc max_size body of
+      | NONE => ClosNoInline loc num_args
+      | SOME body_size => Clos loc num_args body body_size
+`;
 
 val clos_gen_noinline_def = Define`
   (clos_gen_noinline n i [] = []) /\
   (clos_gen_noinline n i ((a,e)::xs) =
-    Clos (n+2*i) a NONE::clos_gen_noinline n (i+1) xs)`;
+    ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)`;
 
 val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
 
@@ -418,51 +469,86 @@ val mk_Ticks_def = Define `
   (mk_Ticks t tc 0 e = e) /\
   (mk_Ticks t tc (SUC n) e = Tick (t§tc) (mk_Ticks t (tc + 1) n e))`;
 
-(* Accessors for the limit structure *)
-val size_limit_def = Define `size_limit = FST`;
-val depth_limit_def = Define `depth_limit = SND`;
-val dec_depth_def = Define `dec_depth = (I ## \d. d - 1n)`;
+val _ = Datatype `
+  inliningDecision = inlD_Nothing
+                   | inlD_Annotate num
+                   | inlD_LetInline exp
+`;
+
+val _ = Datatype`
+  config = <| max_app : num
+            ; inline_max_body_size : num
+            ; inline_factor : num
+            |>`;
+
+val dec_inline_factor_def = Define `
+  dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
+
+val decide_inline_def = Define `
+  decide_inline c fapx app_lopt app_arity = 
+    dtcase fapx of
+      | ClosNoInline loc arity =>
+          if app_lopt = NONE /\ app_arity = arity
+            then inlD_Annotate loc
+            else inlD_Nothing
+      | Clos loc arity body body_size =>
+          if app_lopt = NONE /\ app_arity = arity /\
+             body_size < c.inline_factor * (1 + app_arity) /\
+             ~contains_closures [body] /\
+             closed (Fn None NONE NONE app_arity body)
+            then inlD_LetInline body
+            else inlD_Nothing
+      | _ => inlD_Nothing
+`;
+
+val decide_inline_LetInline = Q.store_thm(
+  "decide_inline_LetInline",
+  `!c fapx lopt arity body.
+     decide_inline c fapx lopt arity = inlD_LetInline body ==> 0 < c.inline_factor`,
+  rpt strip_tac
+  \\ Cases_on `fapx` \\ fs [decide_inline_def, bool_case_eq]
+  \\ spose_not_then assume_tac \\ fs []);
 
 val known_def = tDefine "known" `
-  (known limit [] vs (g:val_approx spt) = ([],g)) /\
-  (known limit ((x:closLang$exp)::y::xs) vs g =
-     let (eas1,g) = known limit [x] vs g in
-     let (eas2,g) = known limit (y::xs) vs g in
+  (known c [] vs (g:val_approx spt) = ([],g)) /\
+  (known c ((x:closLang$exp)::y::xs) vs g =
+     let (eas1,g) = known c [x] vs g in
+     let (eas2,g) = known c (y::xs) vs g in
        (eas1 ++ eas2,g)) /\
-  (known limit [Var t v] vs g =
+  (known c [Var t v] vs g =
      ([(Var t v,any_el v vs Other)],g)) /\
-  (known limit [If t x1 x2 x3] vs g =
-     let (ea1,g) = known limit [x1] vs g in
-     let (ea2,g) = known limit [x2] vs g in
-     let (ea3,g) = known limit [x3] vs g in
+  (known c [If t x1 x2 x3] vs g =
+     let (ea1,g) = known c [x1] vs g in
+     let (ea2,g) = known c [x2] vs g in
+     let (ea3,g) = known c [x3] vs g in
      let (e1,a1) = HD ea1 in
      let (e2,a2) = HD ea2 in
      let (e3,a3) = HD ea3 in
        ([(If t e1 e2 e3), merge a2 a3],g)) /\
-  (known limit [Let t xs x2] vs g =
-     let (ea1,g) = known limit xs vs g in
-     let (ea2,g) = known limit [x2] (MAP SND ea1 ++ vs) g in
+  (known c [Let t xs x2] vs g =
+     let (ea1,g) = known c xs vs g in
+     let (ea2,g) = known c [x2] (MAP SND ea1 ++ vs) g in
      let (e2,a2) = HD ea2 in
        ([(Let t (MAP FST ea1) e2, a2)],g)) /\
-  (known limit [Raise t x1] vs g =
-     let (ea1,g) = known limit [x1] vs g in
+  (known c [Raise t x1] vs g =
+     let (ea1,g) = known c [x1] vs g in
      let (e1,a1) = HD ea1 in
        ([(Raise t e1,Impossible)],g)) /\
-  (known limit [Tick t x1] vs g =
-     let (ea1,g) = known limit [x1] vs g in
+  (known c [Tick t x1] vs g =
+     let (ea1,g) = known c [x1] vs g in
      let (e1,a1) = HD ea1 in
        ([(Tick t e1,a1)],g)) /\
-  (known limit [Handle t x1 x2] vs g =
-     let (ea1,g) = known limit [x1] vs g in
-     let (ea2,g) = known limit [x2] (Other::vs) g in
+  (known c [Handle t x1 x2] vs g =
+     let (ea1,g) = known c [x1] vs g in
+     let (ea2,g) = known c [x2] (Other::vs) g in
      let (e1,a1) = HD ea1 in
      let (e2,a2) = HD ea2 in
        ([(Handle t e1 e2,merge a1 a2)],g)) /\
-  (known limit [Call t ticks dest xs] vs g =
-     let (ea1,g) = known limit xs vs g in
+  (known c [Call t ticks dest xs] vs g =
+     let (ea1,g) = known c xs vs g in
        ([(Call t ticks dest (MAP FST ea1),Other)],g)) /\
-  (known limit [Op t op xs] vs g =
-     let (ea1,g) = known limit xs vs g in
+  (known c [Op t op xs] vs g =
+     let (ea1,g) = known c xs vs g in
      let (a,g) = known_op op (REVERSE (MAP SND ea1)) g in
      let e =
          if isGlobal op then
@@ -473,41 +559,33 @@ val known_def = tDefine "known" `
          else Op t op (MAP FST ea1)
      in
        ([(e,a)],g)) /\
-  (known limit [App t loc_opt x xs] vs g =
-     let (ea2,g) = known limit xs vs g in
-     let (ea1,g) = known limit [x] vs g in
-     let (e1,a1) = HD ea1 in
-     let (new_loc_opt, body_opt) =
-         dtcase dest_Clos a1 of
-           | NONE => (loc_opt, NONE)
-           | SOME (loc,arity,body_opt) =>
-               if (loc_opt = NONE \/ loc_opt = SOME loc) /\ arity = LENGTH xs
-               then (SOME loc, body_opt)
-               else (loc_opt, NONE)
+  (known c [App t loc_opt x xs] vs g =
+     let (ea2,g) = known c xs vs g in
+     let (ea1,g) = known c [x] vs g in
+     let (e1,a1) = HD ea1
      in
-       if SND limit = 0n then ([(App t new_loc_opt e1 (MAP FST ea2),Other)],g)
-       else
-       dtcase body_opt of
-          | NONE => ([(App t new_loc_opt e1 (MAP FST ea2),Other)],g)
-          | SOME body =>
+       dtcase decide_inline c a1 loc_opt (LENGTH xs) of
+         | inlD_Nothing => ([(App t loc_opt e1 (MAP FST ea2), Other)], g)
+         | inlD_Annotate new_loc => ([(App t (SOME new_loc) e1 (MAP FST ea2), Other)], g)
+         | inlD_LetInline body =>
              if pure x then
-               let (eabody,_) = known (dec_depth limit) [body] (MAP SND ea2 ++ vs) g in
-               let (ebody,abody) = HD eabody
+               let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2 ++ vs) g in
+               let (ebody, abody) = HD eabody
                in
-                 ([(Let (t§0) (MAP FST ea2) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)
+                 ([(Let (t§0) (MAP FST ea2) (mk_Ticks t 1 (LENGTH xs) ebody), abody)],g)
              else
-               let (eabody,_) = known (dec_depth limit) [body] (SNOC a1 (MAP SND ea2) ++ vs) g in
-               let (ebody,abody) = HD eabody
+               let (eabody,_) = known (dec_inline_factor c) [body] (SNOC a1 (MAP SND ea2) ++ vs) g in
+               let (ebody, abody) = HD eabody
                in
                  ([(Let (t§0) (SNOC e1 (MAP FST ea2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
-  (known limit [Fn t loc_opt ws_opt num_args x1] vs g =
-     let (ea1,g) = known limit [x1] (REPLICATE num_args Other ++ vs) g in
+  (known c [Fn t loc_opt ws_opt num_args x1] vs g =
+     let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD ea1 in
        ([(Fn t loc_opt NONE num_args body,
           dtcase loc_opt of
-          | SOME loc => clos_approx (size_limit limit) loc num_args body
-          | NONE => Other)],g)) /\
-  (known limit [Letrec t loc_opt _ fns x1] vs g =
+            | SOME loc => clos_approx c.inline_max_body_size loc num_args x1
+            | NONE => Other)], g)) /\
+  (known c [Letrec t loc_opt _ fns x1] vs g =
      let clos = dtcase loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
                 |  SOME loc => clos_gen_noinline loc 0 fns in
@@ -515,27 +593,27 @@ val known_def = tDefine "known" `
         appear there, and missing it just means this opt will do less. *)
      let new_fns = MAP (\(num_args,x).
                     let new_vs = REPLICATE num_args Other ++ clos ++ vs in
-                    let res = known limit [x] new_vs g in
+                    let res = known c [x] new_vs g in
                       (num_args,FST (HD (FST res)))) fns in
-     let (ea1,g) = known limit [x1] (clos ++ vs) g in
+     let (ea1,g) = known c [x1] (clos ++ vs) g in
      let (e1,a1) = HD ea1 in
        ([(Letrec t loc_opt NONE new_fns e1,a1)],g))`
  (wf_rel_tac `inv_image (measure I LEX measure I)
-                        (\(limit, xs, vs, g). (depth_limit limit, exp3_size xs))`
-  \\ simp [dec_depth_def, depth_limit_def] \\ rpt strip_tac
-  \\ imp_res_tac exp1_size_lemma
-  \\ decide_tac);
+                        (\(c, xs, vs, g). (c.inline_factor, exp3_size xs))`
+  \\ simp [dec_inline_factor_def] \\ rpt strip_tac
+  THEN1 (imp_res_tac exp1_size_lemma \\ decide_tac)
+  \\ imp_res_tac decide_inline_LetInline \\ fs []);
 
 val known_ind = theorem "known_ind";
 
 val compile_def = Define `
-  compile F exp = exp /\
-  compile T exp =
-    let (_,g1) = known (0,0) [exp] [] LN in
-    let (e1,_) = known (0,0) [exp] [] g1 in
-    let (_,g2) = known (100,0) [FST (HD e1)] [] LN in
-    let (e2,_) = known (100,2) [FST (HD e1)] [] g2 in
-      FST (HD e2)`
+  compile F max_app exp = exp /\
+  compile T max_app exp =
+    let c = <| max_app := max_app
+             ; inline_max_body_size := 50
+             ; inline_factor := 4 |> in
+    let (e1, _) = known c [exp] [] LN in
+      FST (HD e1)`;
 
 val known_LENGTH = Q.store_thm(
   "known_LENGTH",

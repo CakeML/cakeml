@@ -538,7 +538,7 @@ val compile_def = Define`
     let es = clos_mti$compile c.do_mti c.max_app [e] in
     let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 3) es in
     let c = c with next_loc := n in
-    let e = clos_known$compile c.do_known (HD es) in
+    let e = clos_known$compile c.do_known c.max_app (HD es) in
     let (e,aux) = clos_call$compile c.do_call e in
     let prog = (3,0,e) :: aux in
     let c = c with start := num_stubs c.max_app + 1 in
