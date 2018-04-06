@@ -3,23 +3,75 @@ open preamble backendComputeLib sptreeTheory flatLangTheory reachabilityTheory
 val _ = add_backend_compset computeLib.the_compset;
 
 val m = Hol_pp.print_apropos;
-val f = DB.find;
+val f = print_find;
 
 val _ = new_theory "flat_elim";
 
 (*********************************** HELPER FUNCTIONS ************************************)
 
-(* TODO - make sure isHidden is just right (everything else should be safe enough) *)
+(* from source_to_flat$compile_decs:
+    env_with_closure : alist_to_ns (alloc_defs n next_vidx fun_names)
+        (where we call compile_decs n next env decs_list)
+        =>  alloc_defs : num -> num -> tvarN list -> (tvarN, exp) alist     (where tvarN = string)
+            alist_to_ns : (tvarN, exp) alist -> (tvarN, tvarN, exp) namespace 
 
-val isHidden_def = Define `
-    (isHidden (Fun _ _ _) = T) ∧
-    (isHidden (Letrec _ _ _) = T) ∧
-    (isHidden (Mat _ (Fun _ _ _) _) = T) ∧
-    (isHidden (Mat _ (Letrec _ _ _) _) = T) ∧ 
-    (isHidden (App _ (GlobalVarInit _) [Fun _ _ _]) = T) ∧
-    (isHidden (App _ (GlobalVarInit _) [Letrec _ _ _]) = T) ∧  
+    Dlet locs p e => env_with_closure, Dlet (Mat _ (compile_exp _ env e) [(compile_pat env p, make_varls ...)])
+    Dletrec locs [(f,x,e)] => env_with_closure, Dlet (App _ (GlobalVarInit _) [compile_exp _ env (Letrec [(f,x,e)] (Var _))]
+    Dletrec locs [] => emptyish_env, []
+    Dletrec locs (a::b::c) => env_with_closure,
+                    MAP (λ (f,x,e) . Dlet (App _ (GlobalVarInit _ [Fun _ x e]))) (compile_funs _ new_env (a::b::c))
+    Dtype locs type_def => emptyish_env, MAP (λ (ns,cids) . Dtype _ cids) new_env
+    Dtabbrev locs tvs tn t => empty_env, []
+    Dexn locs cn ts => emptyish_env, Dexn _ (LENGTH ts)
+    Dmod mn ds => let (n1, next1, new_env, decs1) = compile_decs n next env ds in
+                    (n1, next1, , decs1
+*)
+
+(* isHidden exp = T means there is no direct execution of GlobalVarLookup *)
+val isHidden_def = tDefine "isHidden" `
+    (isHidden (Raise t e) = isHidden e) ∧                                       (* raise exception *)
+    (isHidden (Handle t e pes) = F) ∧                                           (* exception handler *) 
+    (isHidden (Lit t l) = T) ∧                                                  (* literal *)
+    (isHidden (Con t id_option es) = EVERY isHidden es) ∧                       (* constructor *)
+    (isHidden (Var_local t str) = T) ∧                                          (* local var *)
+    (isHidden (Fun t name body) = T) ∧                                          (* function abstraction *)
+    (isHidden (App t Opapp l) = F) ∧                                            (* function application *)
+    (isHidden (App t (GlobalVarInit g) [e]) = isHidden e) ∧                     (* GlobalVarInit *)
+    (isHidden (App t (GlobalVarLookup g) [e]) = F) ∧                            (* GlobalVarLookup *)
+    (isHidden (If t e1 e2 e3) = (isHidden e1 ∧ isHidden e2 ∧ isHidden e3)) ∧    (* if expression *)
+    (isHidden (Mat t e1 [p,e2]) = (isHidden e1 ∧ isHidden e2)) ∧                (* SINGLE pattern match *)
+    (isHidden (Let t opt e1 e2) = (isHidden e1 ∧ isHidden e2)) ∧                (* let-expression *)
+    (isHidden (Letrec t funs e) = isHidden e) ∧                                 (* local def of mutually recursive funs *)
     (isHidden _ = F)
 `
+    (
+        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> 
+        Induct_on `es` >> rw[exp_size_def] >> fs[] 
+    );
+
+val isHidden_ind = theorem "isHidden_ind";
+
+(* check if expression is pure in that it does not make any visible changes (other than writing to globals) *)
+val isPure_def = tDefine "isPure" `
+    (isPure (Handle t e pes) = isPure e) ∧
+    (isPure (Lit t l) = T) ∧
+    (isPure (Con t id_option es) = T) ∧
+    (isPure (Var_local t str) = T) ∧
+    (isPure (Fun t name body) = T) ∧
+    (isPure (App t (GlobalVarInit g) [e]) = isPure e) ∧ 
+    (isPure (If t e1 e2 e3) = (isPure e1 ∧ isPure e2 ∧ isPure e3)) ∧
+    (isPure (Mat t e1 pes) = (isPure e1 ∧ EVERY isPure (MAP SND pes))) ∧
+    (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧ 
+    (isPure (Letrec t funs e) = isPure e) ∧
+    (isPure _ = F)
+`
+    (
+        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >>
+        Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
+        Cases_on `h` >> fs[exp_size_def]
+    )
+
+val isPure_ind = theorem "isPure_ind";
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧ 
@@ -89,9 +141,6 @@ val exp_size_map_snd_snd = Q.store_thm("exp_size_map_snd_snd",
         (Cases_on `h` >> Cases_on `r` >> rw[exp_size_def]) >> rw[]
 );
 
-(* TODO - OPTIMISE THIS, PROBABLY DOESN'T NEED SO MANY CASES *)
-(* TODO - PROVE WF WITHOUT NEEDING MK_WF *)
-
 val findLoc_def = tDefine "findLoc" `
     (findLoc (e:flatLang$exp) = case e of
         | Raise _ er => findLoc er
@@ -112,7 +161,7 @@ val findLoc_def = tDefine "findLoc" `
         | Letrec _ vv_es elr1 => 
             union (findLocL (MAP (SND o SND) vv_es)) (findLoc elr1)) ∧ 
     (findLocL [] = LN) ∧
-    (findLocL (e::es) = union (mk_wf (findLoc e)) (findLocL es)) (* mk_wf here shouldn't be necessary *)
+    (findLocL (e::es) = union (findLoc e) (findLocL es))
 ` 
     (
         WF_REL_TAC `measure (λ e . case e of
@@ -133,28 +182,24 @@ val findLoc_def = tDefine "findLoc" `
 
 val findLoc_ind = theorem "findLoc_ind";
 
-(*
-val wf_findLocL = Q.store_thm("wf_findLocL",
-    `∀ l . (∀ e1. wf(findLoc e1)) ⇒ wf(findLocL l)`,
-    Induct >> rw[] >> rw[Once findLoc_def, wf_def, wf_union]
+val wf_findLoc_wf_findLocL = Q.store_thm ("wf_findLoc_wf_findLocL",
+    `(∀ e locs . findLoc  e = locs ⇒ wf locs) ∧
+    (∀ l locs . findLocL l = locs ⇒ wf locs)`,
+    ho_match_mp_tac findLoc_ind >> rw[]
+    >- (Cases_on `e` >> simp[Once findLoc_def, wf_union, wf_def] >> 
+        CASE_TAC >> fs[wf_insert])
+    >-  fs[findLoc_def, wf_def]
+    >- (simp[Once findLoc_def, wf_union])
 );
-
-val wf_findLoc_basic = Q.store_thm("wf_findLoc_basic",
-    `∀ e . (∀ l . wf(findLocL l)) ⇒ wf(findLoc e)`,
-    Induct >> rw[Once findLoc_def] >>
-    TRY(CASE_TAC) >> rw[wf_union, wf_def, wf_insert]
-);
-*)
 
 val wf_findLocL = Q.store_thm("wf_findLocL",
     `∀ l . wf(findLocL l)`,
-    Induct >> rw[] >> rw[Once findLoc_def, wf_def, wf_union]
+    metis_tac[wf_findLoc_wf_findLocL]
 );
 
 val wf_findLoc = Q.store_thm("wf_findLoc",
     `∀ e . wf(findLoc e)`,
-    ASSUME_TAC wf_findLocL >>
-    Induct >> rw[Once findLoc_def] >> TRY(CASE_TAC) >> rw[wf_union, wf_def, wf_insert]
+    metis_tac[wf_findLoc_wf_findLocL]
 );
 
 val findLookups_def = tDefine "findLookups" `
@@ -276,10 +321,11 @@ val keep_def = Define `
 
 val keep_def = Define `
     (keep reachable (Dlet e) = 
-        if isEmpty (inter (findLoc e) reachable) then F else T) ∧ 
-        (* i.e. if none of the global variables that e may assign to are in
-           the reachable set, then do not keep - if any are in, then keep *)
-    (keep reachable _ = T) (* not a Dlet, may be type info etc. so keep *)
+        (* if none of the global variables that e may assign to are in
+           the reachable set, then e is candidate for removal - if any are in, then keep e 
+            -> however if e is not pure (can have side-effects), then it must be kept *)
+        if isEmpty (inter (findLoc e) reachable) then (¬ (isPure e)) else T) ∧ 
+    (keep reachable _ = T) (* not a Dlet, will be Dtype/Dexn so keep *)
 `
 
 val keep_ind = theorem "keep_ind";
@@ -301,7 +347,7 @@ val removeFlatProg_def = Define `
 (* TODO - USE THIS FOLD DEFINITION OF SUPERDOMAIN 
 
 val sd_def = Define `
-    sd (t:sp_graph) = (foldi (λ k v a . union v a) 0 LN) t
+    sd (t:num_set num_map) = (foldi (λ k v a . union v a) 0 LN) t
 `
 
 val subspt_sd = Q.store_thm("subspt_sd",
@@ -310,13 +356,8 @@ val subspt_sd = Q.store_thm("subspt_sd",
                  subspt a (sd (BS t1 a t2)) ∧ 
                  subspt (sd t1) (sd (BN t1 t2)) ∧ 
                  subspt (sd t2) (sd (BN t1 t2))`,
-    
-    simp[subspt_domain, sd_def]
-    Induct >> Induct_on `t2` >> fs[foldi_def, domain_def, domain_union]
-    metis_tac[SUBSET_TRANS, foldi_def, union_def]
-
-    rw[foldi_def, domain_union]
-    fs[foldi_def, domain_def]
+    cheat
+);
 
 *)
 
@@ -376,10 +417,6 @@ val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
     qspec_then `t` mp_tac mk_wf_set_tree_domain >> rw[] >> metis_tac[SUBSET_TRANS]
 );
 
-(* TODO - write syntactic condition assuming that the above property holds i.e. each Dlet binds only one global var *)
-
-(* TODO *)
-
 
 (*********************************** TESTING ***********************************)
 
@@ -402,8 +439,8 @@ val input = ``
        [("bar1","i",App Opapp [Var (Short "bar2"); Lit (IntLit 0)]); (*gl4*)
         ("bar2","i",App Opapp [Var (Short "bar1"); Lit (IntLit 0)])]; (*gl5*)
             (* bar1 = λ i . bar2 0  ∧  bar2 = λ i . bar1 0 *)
-     Dlet ^l (* gl6 *) (Pvar "main") (App Opapp [Var (Short "f"); Lit (IntLit 0)])]
-        (* main = f 0 *)
+     Dlet ^l (* gl6 *) (Pvar "main") (App Opapp [Var (Short "f"); Lit (IntLit 0)]); (* main = f 0 *)
+     Dletrec ^l (* gl 7 *) [("foobar", "x", App Opapp [Var (Short "foobar"); Lit (IntLit 0)])] ]
 ``
 
 val test_compile_def = Define `
@@ -445,6 +482,7 @@ val test_result = EVAL ``test_analyse_removal ^input``;
     gl4 := _ = λ i . (gl5) 0
     gl5 := _ = λ i . (gl4) 0
     gl6 := "main" = (gl1 = "f") 0
+    gl7 := "foobar" = λ x . foobar 0
 [
     ***** WHAT DOES THIS DO? *****
     Dlet (Let _ NONE (App _ (GlobalVarAlloc 7) []) (Con _ NONE [])); --> what does this do?
@@ -483,6 +521,11 @@ val test_result = EVAL ``test_analyse_removal ^input``;
     ] );
 
     GL6 ***** Match ((lookup 1) 0) => "main", stored in gl6  --> i.e. "main" = "f" 0 *****
+    Dlet (Mat _ (App _ Opapp [App _ (GlobalVarLookup 1) []; Lit _ (IntLit 0)])
+        [( Pvar "main", App _ (GlobalVarInit 6) [Var_local _ "main"] )]
+    )
+    
+    GL7 ***** gl7 := (letrec "foobar" = λ x . foobar 0)   --> i.e foobar = (fn x => foobar 0) *****
     Dlet (Mat _ (App _ Opapp [App _ (GlobalVarLookup 1) []; Lit _ (IntLit 0)])
         [( Pvar "main", App _ (GlobalVarInit 6) [Var_local _ "main"] )]
     )
