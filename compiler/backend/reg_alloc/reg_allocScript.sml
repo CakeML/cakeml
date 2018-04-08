@@ -60,6 +60,15 @@ val _ = Hol_datatype `
               ; spill_wl : num list
               ; moves_wl : num list
               ; freeze_wl : num list
+
+              ; coalesced_moves : num list
+              ; constrained_moves : num list
+              ; active_moves : num list
+              ; move_list : (num list) list
+
+              ; coalesced_nodes : num list
+              ; alias : num list
+
               ; stack    : num list
               |>`;
 
@@ -74,6 +83,12 @@ val (node_tag,get_node_tag_def,set_node_tag_def) = node_tag_accessors;
 val degrees_accessors = el 3 accessors;
 val (degrees,get_degrees_def,set_degrees_def) = degrees_accessors;
 
+val move_list_accessors = el 12 accessors; (* ? *)
+val (move_list, get_move_list_def, set_move_list_def) = move_list_accessors
+
+val alias_accessors = el 14 accessors; (* ? *)
+val (alias, get_move_list_def, set_move_list_def) = move_list_accessors
+
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
   state_exn = Fail of string | Subscript`;
@@ -84,17 +99,22 @@ val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;
-val arr_manip = define_MFarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
+val arr_manip = define_MFarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors, move_list_accessors, alias_accessors] sub_exn update_exn;
 
 fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 
 val adj_ls_manip = el 1 arr_manip;
 val node_tag_manip = el 2 arr_manip;
 val degrees_manip = el 3 arr_manip;
+val move_list_manip = el 4 arr_manip;
+val alias_manip = el 5 arr_manip;
 
 val adj_ls_accessor = save_thm("adj_ls_accessor",accessor_thm adj_ls_manip);
 val node_tag_accessor = save_thm("node_tag_accessor",accessor_thm node_tag_manip);
 val degrees_accessor = save_thm("degrees_accessor",accessor_thm degrees_manip);
+val move_list_accessor = save_thm("move_list_accessor",accessor_thm move_list_manip);
+val alias_accessor = save_thm("alias_accessor",accessor_thm alias_manip);
+
 
 (* Helper functions for defining the allocator *)
 
@@ -169,6 +189,13 @@ val add_simp_wl_def = Define`
     set_simp_wl (ls ++ swl)
   od`
 
+val add_spill_wl_def = Define`
+  add_spill_wl ls =
+  do
+    swl <- get_spill_wl;
+    set_spill_wl (ls ++ swl)
+  od`
+
 val add_moves_wl_def = Define`
   add_moves_wl ls =
   do
@@ -181,6 +208,34 @@ val add_freeze_wl_def = Define`
   do
     fwl <- get_freeze_wl;
     set_freeze_wl (ls ++ fwl)
+  od`
+
+val add_coalesced_moves_def = Define`
+  add_coalesced_moves xs =
+  do
+    ys <- get_coalesced_moves;
+    set_coalesced_moves (xs ++ ys)
+  od`
+
+val add_coalesced_nodes_def = Define`
+  add_coalesced_nodes xs =
+  do
+    ys <- get_coalesced_nodes;
+    set_coalesced_nodes (xs ++ ys)
+  od`
+
+val add_active_moves_def = Define`
+  add_active_moves xs =
+  do
+    ys <- get_active_moves;
+    set_active_moves (xs ++ ys)
+  od`
+
+val add_constrained_moves_def = Define`
+  add_constrained_moves xs =
+  do
+    ys <- get_constrained_moves;
+    set_constrained_moves (xs ++ ys)
   od`
 
 val add_stack_def = Define`
@@ -234,7 +289,204 @@ val do_simplify_def = Define`
     od
   od`
 
-(* TODO ! *)
+
+(* TODO: if a node i is a copy from x to y, this should return the pair x, y.
+ * I don't know where to get this info. *)
+val node_as_copy_def = Define`
+  node_as_copy i =
+  node_as_copy i`
+
+(* TODO: check *)
+val get_deep_alias_def = Define`
+  get_deep_alias i =
+  do
+    coals <- get_coalesced_nodes;
+    if MEM i coals then
+      do
+        n' <- alias_sub n;
+        get_deep_alias n'
+      od
+    else
+      return n
+  od`
+
+(* TODO: check *)
+
+val add_worklist_def = Define`
+  add_worklist k u =
+  do
+    u_precolored <- is_Fixed u;
+    u_mv_rl <- move_related u;
+    u_deg <- degrees_sub u;
+    if (not u_precolored andalso not u_mv_rl andalso u_deg < k) then
+      do
+        remove_freeze u;
+        add_simp_wl [u]
+      od
+    else
+      return ()
+  od`
+
+
+val is_ok_def = Define`
+  is_ok k t r =
+  do
+    d <- degrees_sub t;
+    if d then
+      return T
+    else
+      do
+        t_precolored <- is_Fixed t;
+        if t_precolored then
+          return T
+        else
+          do
+            adj_t <- adj_ls_sub t;
+            if MEM r adj_t then
+              return T
+            else
+              return F
+          od
+      od
+  od`
+
+val adjacent_def = Define`
+  adjacent n =
+  do
+    adj <- adj_ls_sub n;
+    stk <- get_stack;
+    coal <- get_coalesced_nodes;
+    st_ex_FILTER (\x. MEM x stk orelse MEM x coal) adj []
+  od`
+
+val node_moves_def = Define`
+  node_moves n =
+  do
+    xs <- move_list_sub n;
+    (* is this right? I think there may be a typo in George/Appel paper.
+     * they have an array called moveList in their specification, but elsewhere,
+     * they refer to nodeMoves as an array in the state. But nodeMoves is
+     * not included in the specification. *)
+
+    ys <- get_active_moves;
+    zs <- get_moves_wl;
+    return (FILTER (\x. MEM x ys orelse MEM x zs) xs)
+  od`
+
+
+val move_related_def = Define`
+  move_related n =
+  do
+    xs <- node_moves n;
+    return (LENGTH xs ≥ 0)
+  od`
+
+
+val conservative_def = Define`
+  conservative k acc nodes =
+  case nodes of
+     [] => return (acc < k)
+   | x::xs =>
+     do
+       deg <- degrees_sub x;
+       let acc' = if def ≥ k then acc + 1 else acc in
+       conservative k acc' xs
+     od`
+
+val remove_spill_def = Define`
+  remove_spill x =
+  do
+    spl_wl <- get_spill_wl;
+    let spl_wl' = FILTER (\y. y ≠ x) spl_wl in
+    set_spill_wl spl_wl'
+  od`
+
+val remove_freeze_def = Define`
+  remove_freeze x =
+  do
+    frz_wl <- get_freeze_wl;
+    let frz_wl' = FILTER (\y. y ≠ x) frz_wl in
+    set_freeze_wl frz_wl'
+  od`
+
+(* TODO: check *)
+val combine_def = Define`
+  combine u v =
+  do
+    (* TODO: this is dumb, we traverse the list twice! *)
+    frz_wl <- get_freeze_wl;
+    (if MEM v frz_wl then remove_freeze v else remove_spill v);
+    add_coalesced_nodes [v];
+
+    update_alias v u;
+
+    nmvs_u <- move_list_sub u;
+    nmvs_v <- move_list_sub v;
+    update_move_list u (nmvs_u ++ nmvs_v);
+
+    adj_v <- adjacent v;
+    st_ex_FOREACH adj_v
+      (\t.
+        do
+          insert_edge t u;
+          dec_degree t
+        od);
+
+    deg_u <- degrees_sub u;
+    if deg_u ≥ k andalso MEM u frz_wl then
+      do
+        remove_freeze u;
+        add_spill [u]
+      od
+    else
+      return ()
+  od`
+
+(* TODO: check *)
+val do_coalesce_node_def = Define`
+  do_coalesce_node k m =
+  do
+    move <- node_as_copy m;
+    let (x, y) = move in
+    x <- get_deep_alias x;
+    y <- get_deep_alias y;
+
+    y_precolored <- is_Fixed y; (* is that right? *)
+    let (u, v) = if y_precolored then (y, x) else (x, y) in
+    if u = v then
+      do
+        add_coalesced_moves [u];
+        add_worklist k u
+      od
+    else
+      v_precolored <- is_Fixed v;
+      adju <- adj_ls_sub u;
+      if v_precolored orelse MEM v adju then
+        do
+          add_constrained_moves [m];
+          add_worklist u;
+          add_worklist v;
+        od
+      else
+        do
+          u_precolored <- is_Fixed u;
+          adj_v <- adjacent v;
+          ok_adj_v <- st_ex_FILTER (\t. is_ok k t u) adj_v [];
+
+          let all_adj_ok = LENGTH ok_adj_v > 0 in
+          adj_u <- adjacent u;
+          are_conserv <- conservative k 0 (adj_u ++ adj_v);
+          if ((u_precolored andalso all_adj_ok) orelse (not u_precolored andalso are_conserv)) then
+            do
+              add_coalesced_moves [m];
+              combine u v;
+              add_worklist u;
+            od
+          else
+            add_active_moves [m]
+        od
+  od`
+
 val do_coalesce_def = Define`
   do_coalesce k =
   do
@@ -243,7 +495,9 @@ val do_coalesce_def = Define`
       return F
     else
       do
-        return F
+        st_ex_FOREACH moves (do_coalesce_node k);
+        set_moves_wl [];
+        return T
       od
   od`
 
@@ -752,6 +1006,13 @@ val is_Atemp_def = Define`
     return (dt = Atemp)
   od`
 
+val is_Fixed_def = Define`
+  is_Fixed d =
+  do
+    dt <- node_tag_sub d;
+    return (dt = Fixed)
+  od`
+
 (* Initializer for the first allocation step *)
 val init_alloc1_heu_def = Define`
   init_alloc1_heu d k =
@@ -856,8 +1117,8 @@ val reg_alloc_aux_def = Define`
                        ; freeze_wl := []
                        ; stack     := [] |>`;
 
-val reg_alloc_def = Define `
-reg_alloc sc k moves ct forced =
+val reg_alloc_def = Define`
+  reg_alloc sc k moves ct forced =
     reg_alloc_aux sc k moves ct forced (mk_bij ct)`;
 
 val _ = export_theory();
