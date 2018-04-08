@@ -55,10 +55,14 @@ val isHidden_ind = theorem "isHidden_ind";
 val isPure_def = tDefine "isPure" `
     (isPure (Handle t e pes) = isPure e) ∧
     (isPure (Lit t l) = T) ∧
-    (isPure (Con t id_option es) = T) ∧
+    (isPure (Con t id_option es) = EVERY isPure es) ∧ (* TODO - check this is OK *)
     (isPure (Var_local t str) = T) ∧
     (isPure (Fun t name body) = T) ∧
-    (isPure (App t (GlobalVarInit g) [e]) = isPure e) ∧ 
+    
+    (isPure (App t (GlobalVarInit g) es) = EVERY isPure es) ∧ 
+(*    (isPure (App t Opapp es) = F) ∧ *)
+(*    (isPure (App t op es) = EVERY isPure es) ∧ (* TODO - check this is OK *)*)
+
     (isPure (If t e1 e2 e3) = (isPure e1 ∧ isPure e2 ∧ isPure e3)) ∧
     (isPure (Mat t e1 pes) = (isPure e1 ∧ EVERY isPure (MAP SND pes))) ∧
     (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧ 
@@ -66,12 +70,21 @@ val isPure_def = tDefine "isPure" `
     (isPure _ = F)
 `
     (
-        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >>
-        Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
-        Cases_on `h` >> fs[exp_size_def]
-    )
+        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
+        TRY (Induct_on `es` >> rw[exp_size_def] >> fs[])
+        >- (Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
+            Cases_on `h` >> fs[exp_size_def])
+ );
+ (*>- (Induct_on `v122` >> rw[exp_size_def] >> fs[] >>
+            Cases_on `h` >> fs[exp_size_def])
+    )*)
 
 val isPure_ind = theorem "isPure_ind";
+            
+val isPure_EVERY_aconv = Q.store_thm ("isPure_EVERY_aconv",
+    `∀ es . EVERY (λ a . isPure a) es = EVERY isPure es`,
+    Induct >> fs[]
+);
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧ 
@@ -334,13 +347,6 @@ val removeUnreachable_def = Define `
     removeUnreachable reachable l = FILTER (keep reachable) l
 `
 
-val removeFlatProg_def = Define `
-    removeFlatProg code =
-        let (r, t) = analyseCode code in
-        let reachable = closure_spt r t in
-        removeUnreachable reachable code
-`
-
 
 (*********************************** MAKE WF_SET_TREE ***********************************)
 
@@ -405,6 +411,13 @@ val mk_wf_set_tree_thm = Q.store_thm("mk_wf_set_tree_thm",
 
 
 (*********************************** REACHABILITY ***********************************)
+
+val removeFlatProg_def = Define `
+    removeFlatProg code =
+        let (r, t) = analyseCode code in
+        let reachable = closure_spt r (mk_wf_set_tree t) in
+        removeUnreachable reachable code
+`
 
 val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
    `∀ (compiled : dec list) start tree t . ((start, t) = analyseCode compiled) ∧ 
