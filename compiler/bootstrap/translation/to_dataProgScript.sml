@@ -419,8 +419,6 @@ val clos_known_known_op_side = Q.prove(`
   intLib.COOPER_TAC))
 *)
 
-val r = translate (clos_knownTheory.dec_depth_def |> SIMP_RULE (srw_ss()) [PAIR_MAP, FUN_EQ_THM, FORALL_PROD])
-
 val r = translate clos_knownTheory.free_def
 
 val clos_known_free_side = Q.store_thm("clos_known_free_side",
@@ -449,7 +447,7 @@ val clos_known_known_side = Q.prove(`
 val r = translate clos_knownTheory.compile_def
 
 val clos_known_compile_side = Q.prove(
-  `∀x y. clos_known_compile_side x y ⇔ T`,
+  `∀x y z. clos_known_compile_side x y z ⇔ T`,
   EVAL_TAC \\ rw[] \\ strip_tac \\
   imp_res_tac clos_knownTheory.known_sing_EQ_E \\
   fs[]) |> update_precondition;
@@ -902,11 +900,7 @@ val r = translate bvi_tailrecTheory.args_from_PMATCH
 val r = translate bvi_tailrecTheory.get_bin_args_PMATCH
 val r = translate bvi_tailrecTheory.is_arith_PMATCH
 val r = translate bvi_tailrecTheory.is_rel_PMATCH
-val r = translate bvi_tailrecTheory.term_ok_int_def
-
 (*val r = translate bvi_tailrecTheory.term_ok_any_PMATCH (* auto_prove failed for ind *)*)
-val r = translate bvi_tailrecTheory.term_ok_any_def
-val r = translate bvi_tailrecTheory.assocr_PMATCH
 val r = translate bvi_tailrecTheory.decide_ty_PMATCH
 val r = translate bvi_tailrecTheory.arg_ty_PMATCH
 val r = translate bvi_tailrecTheory.op_ty_PMATCH
@@ -919,15 +913,6 @@ val bvi_tailrec_scan_expr_side = Q.store_thm("bvi_tailrec_scan_expr_side",
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_scan_expr_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
-(*val r = translate bvi_tailrecTheory.comml_PMATCH (* prove_evalPatBind failed *)*)
-val r = translate bvi_tailrecTheory.comml_def
-
-val bvi_tailrec_comml_side = Q.store_thm("bvi_tailrec_comml_side",
-  `!v23 v24 v25. bvi_tailrec_comml_side v23 v24 v25`,
-  recInduct bvi_tailrecTheory.comml_ind \\ rw []
-  \\ once_rewrite_tac [fetch "-" "bvi_tailrec_comml_side_def"] \\ fs []
-  \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
-
 val r = translate bvi_tailrecTheory.rewrite_PMATCH
 
 val bvi_tailrec_rewrite_side = Q.store_thm("bvi_tailrec_rewrite_side",
@@ -935,8 +920,6 @@ val bvi_tailrec_rewrite_side = Q.store_thm("bvi_tailrec_rewrite_side",
   recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_rewrite_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
-
-val r = translate bvi_tailrecTheory.has_rec_def
 
 val _ = translate(bvi_tailrecTheory.compile_prog_def);
 
