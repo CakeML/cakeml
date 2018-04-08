@@ -650,10 +650,13 @@ val do_prefreeze_def = Define`
 
     swl_pre <- get_spill_wl;
     swl <- st_ex_FILTER is_not_coalesced swl_pre [];
+    set_spill_wl swl;
 
     uam_pre <- get_unavail_moves_wl;
     uam <- st_ex_FILTER (λ(_,(x,y)).consistency_ok x y) uam_pre [];
     reset_move_related uam;
+    uam <- set_unavail_moves_wl uam;
+
     (ltkfreeze,ltksimp) <- st_ex_PARTITION (move_related_sub) fwl [] [];
     add_simp_wl ltksimp;
     set_freeze_wl ltkfreeze;
