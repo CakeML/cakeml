@@ -299,6 +299,7 @@ val term_ok_any_PMATCH = Q.store_thm("term_ok_any_PMATCH",
      | _ => F`,
   Cases_on `expr` \\ once_rewrite_tac [term_ok_any_def] \\ fs []);
 *)
+
 val term_ok_def = Define `
   term_ok ts ty expr =
     dtcase ty of
@@ -485,7 +486,7 @@ val scan_expr_def = tDefine "scan_expr" `
 
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
-    Call ticks (SOME n) (args ++ [apply_op op exp (Var acc)]) handler) ∧
+    Call ticks (SOME n) (args ++ [apply_op op (Var acc) exp]) handler) ∧
   (push_call _ _ _ _ _ = dummy)
   `;
 
@@ -495,8 +496,8 @@ val rewrite_def = Define `
     let t1 = FST (HD (scan_expr ts loc [x1])) in
     let (r2, y2) = rewrite loc next opr acc t1 x2 in
     let (r3, y3) = rewrite loc next opr acc t1 x3 in
-    let z2 = if r2 then y2 else apply_op opr x2 (Var acc) in
-    let z3 = if r3 then y3 else apply_op opr x3 (Var acc) in
+    let z2 = if r2 then y2 else apply_op opr (Var acc) x2 in
+    let z3 = if r3 then y3 else apply_op opr (Var acc) x3 in
       (r2 \/ r3, If x1 z2 z3)) /\
   (rewrite loc next opr acc ts (Let xs x) =
     let ys = scan_expr ts loc xs in
@@ -509,10 +510,10 @@ val rewrite_def = Define `
       (r, Tick y)) /\
   (rewrite loc next opr acc ts exp =
     dtcase check_op ts opr loc exp of
-      NONE => (F, apply_op opr exp (Var acc))
+      NONE => (F, apply_op opr (Var acc) exp)
     | SOME exp =>
         dtcase opbinargs opr exp of
-          NONE => (F, apply_op opr exp (Var acc))
+          NONE => (F, apply_op opr (Var acc) exp)
         | SOME (xs, f) => (T, push_call next opr acc xs (args_from f)))`
 
 val rewrite_PMATCH = Q.store_thm ("rewrite_PMATCH",
@@ -524,8 +525,8 @@ val rewrite_PMATCH = Q.store_thm ("rewrite_PMATCH",
            let t1 = FST (HD (scan_expr ts loc [x1])) in
            let (r2, y2) = rewrite loc next opr acc t1 x2 in
            let (r3, y3) = rewrite loc next opr acc t1 x3 in
-           let z2 = if r2 then y2 else apply_op opr x2 (Var acc) in
-           let z3 = if r3 then y3 else apply_op opr x3 (Var acc) in
+           let z2 = if r2 then y2 else apply_op opr (Var acc) x2 in
+           let z3 = if r3 then y3 else apply_op opr (Var acc) x3 in
              (r2 \/ r3, If x1 z2 z3)
        | Let xs x =>
            let ys = scan_expr ts loc xs in
@@ -537,10 +538,10 @@ val rewrite_PMATCH = Q.store_thm ("rewrite_PMATCH",
            let (r, y) = rewrite loc next opr acc ts x in (r, Tick y)
        | _ =>
            dtcase check_op ts opr loc expr of
-             NONE => (F, apply_op opr expr (Var acc))
+             NONE => (F, apply_op opr (Var acc) expr)
            | SOME exp =>
              dtcase opbinargs opr exp of
-               NONE => (F, apply_op opr exp (Var acc))
+               NONE => (F, apply_op opr (Var acc) exp)
              | SOME (xs, f) => (T, push_call next opr acc xs (args_from f))`,
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]);
@@ -657,14 +658,14 @@ val fac_tm = ``
   Let [Op LessEq [Var 0; Op (Const 1) []]]
     (If (Var 0)
        (Op (Const 1) [])
-       (Let [Op Sub [Var 1; Op (Const 1) []]]
+       (Let [Op Sub [Op (Const 1) []; Var 1]]
          (Op Mult [Var 2; Call 0 (SOME 0) [Var 0] NONE])))``
 
 val opt_tm = ``
   Let [Op LessEq [Var 0; Op (Const 1) []]]
-     (If (Var 0) (Op Mult [Op (Const 1) []; Var 2])
-        (Let [Op Sub [Var 1; Op (Const 1) []]]
-           (Call 0 (SOME 1) [Var 0; Op Mult [Var 2; Var 3]]
+     (If (Var 0) (Op Mult [Var 2; Op (Const 1) []])
+        (Let [Op Sub [Op (Const 1) []; Var 1]]
+           (Call 0 (SOME 1) [Var 0; Op Mult [Var 3; Var 2]]
               NONE)))``
 val aux_tm = ``Let [Var 0; Op (Const 1) []] ^opt_tm``
 
@@ -687,12 +688,12 @@ val rev_tm = ``
 val opt_tm = ``
   Let [Op (Const 0) []]
     (If (Op (TagLenEq 0 0) [Var 1])
-        (Op ListAppend [Op (Cons 0) []; Var 2])
+        (Op ListAppend [Var 2; Op (Cons 0) []])
         (Let [Op El [Op (Const 0) []; Var 1]]
           (Let [Op El [Op (Const 1) []; Var 2]]
             (Call 0 (SOME 445)
               [Var 0;
-               Op ListAppend [Op (Cons 0) [Op (Cons 0) []; Var 1]; Var 4]]
+               Op ListAppend [Var 4; Op (Cons 0) [Op (Cons 0) []; Var 1]]]
               NONE))))``
 
 val aux_tm = ``Let [Var 0; Op (Cons 0) []] ^opt_tm``
