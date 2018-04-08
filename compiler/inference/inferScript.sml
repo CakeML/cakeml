@@ -451,6 +451,12 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [] Ttup_num)
        od
+   | (ListAppend, [t1;t2]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tlist_num);
+          () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
+          return (Infer_Tapp [uvar] Tlist_num)
+       od
    | (FFI n, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tstring_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tword8array_num);
