@@ -192,8 +192,6 @@ val add_stack_def = Define`
 
 (* Move any vertices in the spill list that has
    degree < k into the simplify worklist
-   TODO: could redefine a monadic PARTITION instead of
-
 *)
 val split_degree_def = Define`
   split_degree d k v =
@@ -236,7 +234,6 @@ val do_simplify_def = Define`
     od
   od`
 
-
 (* TODO ! *)
 val do_coalesce_def = Define`
   do_coalesce k =
@@ -273,22 +270,23 @@ val do_freeze_def = Define`
   od`
 
 
-val st_ex_list_MAX_deg_def = Define`
-  (st_ex_list_MAX_deg [] d k v acc = return (k,acc)) ∧
-  (st_ex_list_MAX_deg (x::xs) d k v acc =
+val st_ex_list_MIN_cost_def = Define`
+  (st_ex_list_MIN_cost sc [] d k v acc = return (k,acc)) ∧
+  (st_ex_list_MIN_cost sc (x::xs) d k v acc =
   if x < d then
     do
       xv <- degrees_sub x;
-      if v < xv then
-        st_ex_list_MAX_deg xs d x xv (k::acc)
+      cost <- return (lookup_any x sc 0n DIV xv);
+      if v > cost then
+        st_ex_list_MIN_cost sc xs d x cost (k::acc)
       else
-        st_ex_list_MAX_deg xs d k v (x::acc)
+        st_ex_list_MIN_cost sc xs d k v (x::acc)
     od
   else
-    st_ex_list_MAX_deg xs d k v acc)`
+    st_ex_list_MIN_cost sc xs d k v acc)`
 
 val do_spill_def = Define`
-  do_spill k =
+  do_spill sc k =
   do
     spills <- get_spill_wl;
     d <- get_dim;
@@ -298,7 +296,7 @@ val do_spill_def = Define`
       if x >= d then return T else
       do
         xv <- degrees_sub x;
-        (y,ys) <- st_ex_list_MAX_deg xs d x xv [];
+        (y,ys) <- st_ex_list_MIN_cost sc xs d x (lookup_any x sc 0n DIV xv) [];
         dec_deg y;
         unspill k;
         add_stack [y];
@@ -308,7 +306,7 @@ val do_spill_def = Define`
   od`
 
 val do_step_def = Define`
-  do_step k =
+  do_step sc k =
   do
     b <- do_simplify k;
     if b then
@@ -325,7 +323,7 @@ val do_step_def = Define`
               return ()
             else
               do
-                b <- do_spill k;
+                b <- do_spill sc k;
                 return ()
               od
           od
@@ -333,11 +331,11 @@ val do_step_def = Define`
   od`
 
 val rpt_do_step_def = Define`
-  (rpt_do_step k 0 = return ()) ∧
-  (rpt_do_step k (SUC c) =
+  (rpt_do_step sc k 0 = return ()) ∧
+  (rpt_do_step sc k (SUC c) =
   do
-    do_step k;
-    rpt_do_step k c
+    do_step sc k;
+    rpt_do_step sc k c
   od)`
 
 (*
@@ -774,11 +772,11 @@ val init_alloc1_heu_def = Define`
   od`
 
 val do_alloc1_def = Define`
-  do_alloc1 k =
+  do_alloc1 sc k =
   do
     d <- get_dim;
     l <- init_alloc1_heu d k;
-    rpt_do_step k l;
+    rpt_do_step sc k l;
     st <- get_stack;
     return st
   od`
@@ -826,10 +824,10 @@ val resort_moves_def = Define`
 
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
-  do_reg_alloc k moves ct forced (ta,fa,n) =
+  do_reg_alloc sc k moves ct forced (ta,fa,n) =
   do
     init_ra_state ct forced (ta,fa,n);
-    ls <- do_alloc1 k;
+    ls <- do_alloc1 sc k;
     assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
     assign_Stemps k;
     spcol <- extract_color ta;
@@ -846,8 +844,8 @@ val run_ira_state_def = define_run ``:ra_state``
    the translator's requirements *)
 
 val reg_alloc_aux_def = Define`
-  reg_alloc_aux k moves ct forced (ta,fa,n) =
-    run_ira_state (do_reg_alloc k moves ct forced (ta,fa,n))
+  reg_alloc_aux sc k moves ct forced (ta,fa,n) =
+    run_ira_state (do_reg_alloc sc k moves ct forced (ta,fa,n))
                       <| adj_ls    := (n, [])
                        ; node_tag  := (n, Atemp)
                        ; degrees   := (n, 0)
@@ -859,7 +857,7 @@ val reg_alloc_aux_def = Define`
                        ; stack     := [] |>`;
 
 val reg_alloc_def = Define `
-reg_alloc k moves ct forced =
-    reg_alloc_aux k moves ct forced (mk_bij ct)`;
+reg_alloc sc k moves ct forced =
+    reg_alloc_aux sc k moves ct forced (mk_bij ct)`;
 
 val _ = export_theory();
