@@ -50,27 +50,35 @@ val _ = Datatype`
 
 *)
 val _ = Hol_datatype `
-  ra_state = <| adj_ls   : (num list) list
-              ; node_tag : tag list
-              ; degrees  : num list
-              ; dim      : num
-              (* TODO: should these be kept as a separate record in
-                       the state? *)
-              ; simp_wl  : num list
-              ; spill_wl : num list
-              ; moves_wl : num list
-              ; freeze_wl : num list
+  ra_state = <|
+     (* Info about the graph *)
+       adj_ls   : (num list) list (* adjacency list -- arr of lists *)
+     ; node_tag : tag list        (* tags for each node -- arr *)
+     ; degrees  : num list        (* degrees for each node -- arr *)
+     ; dim      : num             (* num vertices in the graph -- arr *)
 
-              ; coalesced_moves : num list
-              ; constrained_moves : num list
-              ; active_moves : num list
-              ; move_list : (num list) list
+     (* worklists *)
+     ; simp_wl  : num list        (* simp worklist -- list, non-move related deg < k *)
+     ; spill_wl : num list        (* spill worklist -- list, deg ≥ k *)
+     ; freeze_wl : num list       (* freeze worklist -- list, move related deg < k *)
 
-              ; coalesced_nodes : num list
-              ; alias : num list
+     ; avail_moves_wl : (num,(num # num)) alist   (* active moves -- list, sorted by pri *)
+     ; unavail_moves_wl : (num,(num # num)) alist (* inactive moves -- list *)
 
-              ; stack    : num list
-              |>`;
+     (* book keeping *)
+     ; coalesced : (num option) list  (* keep track of coalesce for each node *)
+     ; move_related : bool list       (* fast check if a node is still move related *)
+
+     (*
+     ; constrained_moves : num list
+     ; active_moves : num list
+     ; move_list : (num list) list
+
+     ; coalesced_nodes : num list
+     ; alias : num list
+      *)
+     ; stack    : num list
+     |>`;
 
 val accessors = define_monad_access_funs ``:ra_state``;
 
@@ -83,11 +91,19 @@ val (node_tag,get_node_tag_def,set_node_tag_def) = node_tag_accessors;
 val degrees_accessors = el 3 accessors;
 val (degrees,get_degrees_def,set_degrees_def) = degrees_accessors;
 
+val coalesced_accessors = el 10 accessors;
+val (coalesced, get_coalesced_def, set_coalesced_def) = coalesced_accessors;
+
+val move_related_accessors = el 11 accessors;
+val (move_related, get_move_related_def, set_move_related_def) = move_related_accessors;
+
+(*
 val move_list_accessors = el 12 accessors; (* ? *)
 val (move_list, get_move_list_def, set_move_list_def) = move_list_accessors
 
 val alias_accessors = el 14 accessors; (* ? *)
 val (alias, get_move_list_def, set_move_list_def) = move_list_accessors
+*)
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
@@ -99,22 +115,35 @@ val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;
-val arr_manip = define_MFarray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors, move_list_accessors, alias_accessors] sub_exn update_exn;
+
+(* Fixed-size array manipulators *)
+val arr_manip = define_MFarray_manip_funs
+  [adj_ls_accessors,node_tag_accessors,degrees_accessors,
+   coalesced_accessors, move_related_accessors] sub_exn update_exn;
 
 fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 
 val adj_ls_manip = el 1 arr_manip;
 val node_tag_manip = el 2 arr_manip;
 val degrees_manip = el 3 arr_manip;
+val coalesced_manip = el 4 arr_manip;
+val move_related_manip = el 5 arr_manip;
+
+(*
 val move_list_manip = el 4 arr_manip;
 val alias_manip = el 5 arr_manip;
+*)
 
 val adj_ls_accessor = save_thm("adj_ls_accessor",accessor_thm adj_ls_manip);
 val node_tag_accessor = save_thm("node_tag_accessor",accessor_thm node_tag_manip);
 val degrees_accessor = save_thm("degrees_accessor",accessor_thm degrees_manip);
+val coalesced_accessor = save_thm("coalesced_accessor",accessor_thm coalesced_manip);
+val move_related_accessor = save_thm("move_related_accessor",accessor_thm move_related_manip);
+
+(*
 val move_list_accessor = save_thm("move_list_accessor",accessor_thm move_list_manip);
 val alias_accessor = save_thm("alias_accessor",accessor_thm alias_manip);
-
+*)
 
 (* Helper functions for defining the allocator *)
 
@@ -158,10 +187,61 @@ val st_ex_FILTER_def = Define`
       st_ex_FILTER P xs acc
   od)`
 
+(* Insert an undirect edge into the adj list representation
+  -- This is VERY lightly optimized to remove duplicates
+  -- alternative: maintain an "invisible" invariant that
+     all the adj_lists are sorted
+*)
+
+val insert_edge_def = Define`
+  insert_edge x y =
+  do
+    adjx <- adj_ls_sub x;
+    adjy <- adj_ls_sub y;
+    if MEM y adjx then return ()
+    else
+    do
+      update_adj_ls x (y::adjx);
+      update_adj_ls y (x::adjy)
+    od
+  od`;
+
+(* insert a list of edges all adjacent to one node *)
+val list_insert_edge_def = Define`
+  (list_insert_edge x [] = return ()) ∧
+  (list_insert_edge x (y::ys) =
+    do
+      insert_edge x y;
+      list_insert_edge x ys
+    od)`;
+
+val clique_insert_edge_def = Define`
+  (clique_insert_edge [] = return ()) ∧
+  (clique_insert_edge (x::xs) =
+  do
+    list_insert_edge x xs;
+    clique_insert_edge xs
+  od)`;
+
+(* assuming vertices in cli already forms a clique,
+   extend it with new members
+*)
+val extend_clique_def = Define`
+  (extend_clique [] cli = return cli) ∧
+  (extend_clique (x::xs) cli =
+    if MEM x cli
+    then
+      extend_clique xs cli
+    else
+    do
+      list_insert_edge x cli;
+      extend_clique xs (x::cli)
+    od)`;
+
 (* The allocator heuristics, designed to minimize proof at the
    cost of some extra computation *)
 
-(* (Safely) decrement the degree of all adjacent vertices by 1 *)
+(* (Safely) decrement the degree of all vertices adjacent to n by 1 *)
 val dec_deg_def = Define`
   dec_deg n =
   do
@@ -172,7 +252,7 @@ val dec_deg_def = Define`
 val dec_degree_def = Define`
   dec_degree n =
   do
-    d <- get_dim;
+    d <- get_dim; (* TODO: check unnecessary *)
     if n < d then
     do
       adjs <- adj_ls_sub n;
@@ -196,18 +276,36 @@ val add_spill_wl_def = Define`
     set_spill_wl (ls ++ swl)
   od`
 
-val add_moves_wl_def = Define`
-  add_moves_wl ls =
-  do
-    mwl <- get_moves_wl;
-    set_moves_wl (ls ++ mwl)
-  od`
-
 val add_freeze_wl_def = Define`
   add_freeze_wl ls =
   do
     fwl <- get_freeze_wl;
     set_freeze_wl (ls ++ fwl)
+  od`
+
+(* push x onto the stack, deleting it from "existence" *)
+val push_stack_def = Define`
+  push_stack x =
+  do
+    swl <- get_stack;
+    update_degrees x 0;
+    update_move_related x F;
+    set_stack (x::swl)
+  od`
+
+val add_unavail_moves_wl_def = Define`
+  add_unavail_moves_wl ls =
+  do
+    swl <- get_unavail_moves_wl;
+    set_unavail_moves_wl (ls ++ swl)
+  od`
+
+(*
+val add_moves_wl_def = Define`
+  add_moves_wl ls =
+  do
+    mwl <- get_moves_wl;
+    set_moves_wl (ls ++ mwl)
   od`
 
 val add_coalesced_moves_def = Define`
@@ -238,19 +336,16 @@ val add_constrained_moves_def = Define`
     set_constrained_moves (xs ++ ys)
   od`
 
-val add_stack_def = Define`
-  add_stack ls =
-  do
-    swl <- get_stack;
-    set_stack (ls ++ swl)
-  od`
+*)
 
-(* Move any vertices in the spill list that has
-   degree < k into the simplify worklist
+(* unspill:
+   Move any vertices in the spill list that has
+   degree < k into the simplify or freeze worklist
+   Revive all neighboring moves of these nodes
 *)
 val split_degree_def = Define`
   split_degree d k v =
-  if v < d then
+  if v < d then (* TODO: unnecessary *)
   do
     vd <- degrees_sub v;
     return (vd < k)
@@ -258,20 +353,60 @@ val split_degree_def = Define`
   else
     return T`
 
+(* sort moves by priority *)
+val sort_moves_def = Define`
+  sort_moves ls =
+    QSORT (λp:num,x p',x'. p>p') ls`
+
+(* merge two sorted lists *)
+val merge_def = Define`
+  (merge [] ys = ys) ∧
+  (merge xs [] = xs) ∧
+  (merge ((p:num,m)::xs) ((p',m')::ys) =
+    if p>=p' then
+      (p,m) :: merge xs ((p',m')::ys)
+    else
+      (p',m') :: merge ((p,m)::xs) ys
+  )`
+
+(*
+  revive the unavailable moves that touch each neighbor
+*)
+val revive_moves_def = Define`
+  revive_moves vs =
+  do
+    nbs <- st_ex_MAP adj_ls_sub vs;
+    uam <- get_unavail_moves_wl;
+    am <- get_avail_moves_wl;
+    let fnbs = FLAT nbs in
+    let (rev,unavail) = PARTITION
+      (λ(_,(x,y)). MEM x fnbs ∨ MEM y fnbs) uam in
+    let sorted = merge (sort_moves rev) am in
+    do
+      set_avail_moves_wl sorted;
+      set_unavail_moves_wl unavail
+    od
+  od`
+
 val unspill_def = Define`
   unspill (k:num) =
   do
     d <- get_dim;
     swl <- get_spill_wl ;
     (ltk,gtk) <- st_ex_PARTITION (split_degree d k) swl [] [];
+    (* The nodes in ltk have turned into low degree nodes *)
+    revive_moves ltk;
+    (ltkfreeze,ltksimp) <- st_ex_PARTITION (move_related_sub) ltk [] [];
     set_spill_wl gtk;
-    add_simp_wl ltk
+    add_simp_wl ltksimp;
+    add_freeze_wl ltkfreeze
   od`
 
-(* Directly simplifies the entire list
-   instead of doing it 1-by-1
-   T = successful simplification
-   F = no simplification
+(* simplify:
+  Directly simplifies the entire list
+  instead of doing it 1-by-1
+  T = successful simplification
+  F = no simplification
 *)
 val do_simplify_def = Define`
   do_simplify k =
@@ -282,14 +417,310 @@ val do_simplify_def = Define`
     else
     do
       st_ex_FOREACH simps dec_degree;
-      add_stack simps;
+      st_ex_FOREACH simps push_stack;
       set_simp_wl [];
       unspill k;
       return T
     od
   od`
 
+(* increment degree of n by d *)
+val inc_deg_def = Define`
+  inc_deg n d =
+  do
+    cd <- degrees_sub n;
+    update_degrees n (cd+d)
+  od`
 
+(*
+  do coalesce for real :
+  perform a coalesce of (x,y) by merging y into x
+
+  we only "pretend" to delete y from the graph
+*)
+val pair_rename_def = Define`
+  pair_rename x y (p,(a,b)) =
+  let a = if a = y then x else a in
+  let b = if b = y then x else b in
+  (p,(a,b))`
+
+val do_coalesce_real_def = Define`
+  do_coalesce_real x y =
+  do
+    (* mark y as coalesced to x *)
+    update_coalesced y (SOME x);
+    (* replace all instances of y in the move lists to x *)
+    am <- get_avail_moves_wl;
+    set_avail_moves_wl (MAP (pair_rename x y) am);
+    uam <- get_unavail_moves_wl;
+    set_unavail_moves_wl (MAP (pair_rename x y) uam);
+    (* their respective edge lists *)
+    adjx <- adj_ls_sub x;
+    adjy <- adj_ls_sub y;
+    (*
+      Now we need to update the degrees of adjacent edges correctly
+      Case 1:
+      x -> v <- y, then the degree of v is reduced by 1
+      Case 2:
+      x -/-> v <- y, then the degree of x is increased by 1
+      Case 3:
+      x -> v <-/- y, no change
+
+      In both cases, we leave the v-y edge dangling
+    *)
+    let (case1,case2) = PARTITION (λv. MEM v adjx) adjy in
+    do
+      inc_deg x (LENGTH case2);
+      list_insert_edge x case2;
+      st_ex_FOREACH case1 dec_deg;
+      push_stack y
+    od
+  od`
+
+(* The coalesceable criterion, Briggs and George *)
+
+(*
+  Briggs:
+  the result of combining x,y should have fewer than k neighbors
+  of significant degree (i.e. degree ≥ k)
+
+  George:
+  assume that x is a high degree node (typically a "Fixed" node)
+  then coalescing y into x is allowed if every neighbor of y not already
+  a neighbor of x (i.e. case 2) has degree < k
+
+  TODO: The implementation here isn't super great,
+  because the George check is only
+  really efficient if one has a true adjacency matrix representation
+*)
+val bg_ok_def = Define`
+  bg_ok k x y =
+  do
+    adjx <- adj_ls_sub x;
+    adjy <- adj_ls_sub y;
+    (* see do_coalesce_real for the cases *)
+    let (case1,case2) = PARTITION (λv. MEM v adjx) adjy in
+    do
+      (* First we check the George criterion *)
+      case2degs <- st_ex_MAP degrees_sub case2;
+      let c2len = LENGTH (FILTER (λx. x >= k) case2degs) in
+      if c2len = 0 then
+        return T
+      else
+      let case3 = FILTER (λv. ¬MEM v adjy) adjx in
+      do
+        case1degs <- st_ex_MAP degrees_sub case1;
+        case3degs <- st_ex_MAP degrees_sub case3;
+        c1len <- return (LENGTH (FILTER (λx. x-1 >= k) case1degs));
+        c3len <- return (LENGTH (FILTER (λx. x >= k) case3degs));
+        return (c1len+c2len+c3len < k)
+      od
+    od
+  od`
+
+val is_Fixed_def = Define`
+  is_Fixed x =
+  do
+    xt <- node_tag_sub x;
+    return (case xt of Fixed n => T | _ => F)
+  od`
+
+(*
+  We will also need consistency checks for moves.
+  Any moves failing this check can be directly discarded
+  1) x ≠ y
+  2) x,y must not already clash
+  3) if x is a phy_var, then y move_related
+  4) else both x,y move_related and y is not a phy_var
+*)
+
+val consistency_ok_def = Define`
+  consistency_ok x y =
+  if x = y then
+    return F (* check 1 *)
+  else
+  do
+    d <- get_dim; (* unnecessary*)
+    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    else
+    do
+      adjy <- adj_ls_sub y; (* check 2 *)
+      if MEM x adjy then return F
+      else
+      do
+        b <- is_Fixed x;
+        movrelx <- move_related_sub x;
+        movrely <- move_related_sub y;
+        return ((b ∨ movrelx) ∧ movrely);
+      od
+    od
+  od`
+
+(*
+  Picks apart the available moves worklist
+  1) If we find any inconsistent ones -> throw them away
+  2) returns the first bg_ok move, that is also consistent
+*)
+
+val st_ex_FIRST_def = Define`
+  (st_ex_FIRST P Q [] unavail = return (NONE,unavail)) ∧
+  (st_ex_FIRST P Q (m::ms) unavail =
+    let (p,(x,y)) = m in
+    do
+      b1 <- P x y;
+      if b1 then
+        st_ex_FIRST P Q ms unavail
+      else
+      do
+        b2 <- Q x y;
+        if b2 then
+          return (SOME ((x,y),ms),unavail)
+        else
+          st_ex_FIRST P Q ms (m::unavail)
+      od
+    od)`
+
+val do_coalesce_def = Define`
+  do_coalesce k =
+  do
+    am <- get_avail_moves_wl;
+    (ores,unavail) <- st_ex_FIRST consistency_ok (bg_ok k) am [];
+    add_unavail_moves_wl unavail;
+    case ores of
+      NONE =>
+        do
+          set_avail_moves_wl [];
+          return F
+        od
+    | SOME ((x,y),ms) =>
+    do
+      set_avail_moves_wl ms;
+      (* coalesce y into x *)
+      do_coalesce_real x y;
+      unspill k;
+      (*
+        TODO: x might have high degree after coalescing, so it may
+        need to be respilled from the freeze worklist into the spill worklist!
+      *)
+      return T
+    od
+  od`
+
+(*
+  prefreeze: make the freeze and spill worklists consistent.
+
+  If this makes a node simplifiable, then we skip freezing
+
+  If we got here, it means coalescing failed, i.e. everything is
+  an "unavailable" move now
+
+  Here, we cleanup any potential mess in the coalescing phase
+  1) Filter out all nodes y that have been coalesced
+  2) delete any moves in the unavailable list, that are actually invalid
+  3) mark only nodes involved in the remaining moves as "move related"
+  4) simplify any resulting non-move-related nodes
+
+*)
+val is_not_coalesced_def = Define`
+  is_not_coalesced d =
+  do
+    dt <- coalesced_sub d;
+    return (dt = NONE)
+  od`
+
+val reset_move_related_def = Define`
+  reset_move_related ls =
+  do
+    d <- get_dim;
+    (* zero out move_related *)
+    st_ex_FOREACH (COUNT_LIST d) (λx. update_move_related x F);
+    (* reset to correct values *)
+    st_ex_FOREACH ls (λ(_,(x,y)).
+        do
+          update_move_related x T;
+          update_move_related y T
+        od)
+  od`
+
+val do_prefreeze_def = Define`
+  do_prefreeze k =
+  do
+    fwl_pre <- get_freeze_wl;
+    fwl <- st_ex_FILTER is_not_coalesced fwl_pre [];
+
+    swl_pre <- get_spill_wl;
+    swl <- st_ex_FILTER is_not_coalesced swl_pre [];
+
+    uam_pre <- get_unavail_moves_wl;
+    uam <- st_ex_FILTER (λ(_,(x,y)).consistency_ok x y) uam_pre [];
+    reset_move_related uam;
+    (ltkfreeze,ltksimp) <- st_ex_PARTITION (move_related_sub) fwl [] [];
+    add_simp_wl ltksimp;
+    set_freeze_wl ltkfreeze;
+    do_simplify k
+  od`
+
+(* if prefreeze failed, then just freeze *)
+
+val do_freeze_def = Define`
+  do_freeze k =
+  do
+    freeze <- get_freeze_wl;
+    if NULL freeze then
+      return F
+    else
+    case freeze of
+      [] => return F
+    | x::xs =>
+      do
+        dec_degree x;
+        push_stack x;
+        set_freeze_wl xs;
+        unspill k;
+        return T
+      od
+  od`
+
+(* spill:
+  Picks the cheapest node in the spill worklist,
+  based on spill cost / d
+*)
+val st_ex_list_MIN_cost_def = Define`
+  (st_ex_list_MIN_cost sc [] d k v acc = return (k,acc)) ∧
+  (st_ex_list_MIN_cost sc (x::xs) d k v acc =
+  if x < d then
+    do
+      xv <- degrees_sub x;
+      cost <- return (lookup_any x sc 0n DIV xv);
+      if v > cost then
+        st_ex_list_MIN_cost sc xs d x cost (k::acc)
+      else
+        st_ex_list_MIN_cost sc xs d k v (x::acc)
+    od
+  else
+    st_ex_list_MIN_cost sc xs d k v acc)`
+
+val do_spill_def = Define`
+  do_spill sc k =
+  do
+    spills <- get_spill_wl;
+    d <- get_dim;
+    case spills of
+      [] => return F
+    | (x::xs) =>
+      if x >= d then return T else
+      do
+        xv <- degrees_sub x;
+        (y,ys) <- st_ex_list_MIN_cost sc xs d x (lookup_any x sc 0n DIV xv) [];
+        dec_deg y;
+        unspill k;
+        push_stack y;
+        set_spill_wl ys;
+        return T
+      od
+  od`
+
+(*
 (* TODO: if a node i is a copy from x to y, this should return the pair x, y.
  * I don't know where to get this info. *)
 val node_as_copy_def = Define`
@@ -441,147 +872,34 @@ val combine_def = Define`
     else
       return ()
   od`
-
-(* TODO: check *)
-val do_coalesce_node_def = Define`
-  do_coalesce_node k m =
-  do
-    move <- node_as_copy m;
-    let (x, y) = move in
-    x <- get_deep_alias x;
-    y <- get_deep_alias y;
-
-    y_precolored <- is_Fixed y; (* is that right? *)
-    let (u, v) = if y_precolored then (y, x) else (x, y) in
-    if u = v then
-      do
-        add_coalesced_moves [u];
-        add_worklist k u
-      od
-    else
-      v_precolored <- is_Fixed v;
-      adju <- adj_ls_sub u;
-      if v_precolored orelse MEM v adju then
-        do
-          add_constrained_moves [m];
-          add_worklist u;
-          add_worklist v;
-        od
-      else
-        do
-          u_precolored <- is_Fixed u;
-          adj_v <- adjacent v;
-          ok_adj_v <- st_ex_FILTER (\t. is_ok k t u) adj_v [];
-
-          let all_adj_ok = LENGTH ok_adj_v > 0 in
-          adj_u <- adjacent u;
-          are_conserv <- conservative k 0 (adj_u ++ adj_v);
-          if ((u_precolored andalso all_adj_ok) orelse (not u_precolored andalso are_conserv)) then
-            do
-              add_coalesced_moves [m];
-              combine u v;
-              add_worklist u;
-            od
-          else
-            add_active_moves [m]
-        od
-  od`
-
-val do_coalesce_def = Define`
-  do_coalesce k =
-  do
-    moves <- get_moves_wl;
-    if NULL moves then
-      return F
-    else
-      do
-        st_ex_FOREACH moves (do_coalesce_node k);
-        set_moves_wl [];
-        return T
-      od
-  od`
-
-(* TODO! *)
-val do_freeze_moves_def = Define`
-  do_freeze_moves k x =
-    do
-      return ()
-    od`
-
-val do_freeze_def = Define`
-  do_freeze k =
-  do
-    freeze <- get_freeze_wl;
-    if NULL freeze then
-      return F
-    else
-      do
-        add_simp_wl freeze;
-        set_freeze_wl [];
-        st_ex_FOREACH freeze (do_freeze_moves k);
-        return T
-      od
-  od`
-
-
-val st_ex_list_MIN_cost_def = Define`
-  (st_ex_list_MIN_cost sc [] d k v acc = return (k,acc)) ∧
-  (st_ex_list_MIN_cost sc (x::xs) d k v acc =
-  if x < d then
-    do
-      xv <- degrees_sub x;
-      cost <- return (lookup_any x sc 0n DIV xv);
-      if v > cost then
-        st_ex_list_MIN_cost sc xs d x cost (k::acc)
-      else
-        st_ex_list_MIN_cost sc xs d k v (x::acc)
-    od
-  else
-    st_ex_list_MIN_cost sc xs d k v acc)`
-
-val do_spill_def = Define`
-  do_spill sc k =
-  do
-    spills <- get_spill_wl;
-    d <- get_dim;
-    case spills of
-      [] => return F
-    | (x::xs) =>
-      if x >= d then return T else
-      do
-        xv <- degrees_sub x;
-        (y,ys) <- st_ex_list_MIN_cost sc xs d x (lookup_any x sc 0n DIV xv) [];
-        dec_deg y;
-        unspill k;
-        add_stack [y];
-        set_spill_wl ys;
-        return T
-      od
-  od`
+*)
 
 val do_step_def = Define`
   do_step sc k =
   do
     b <- do_simplify k;
-    if b then
-      return ()
+    if b then return ()
     else
+    do
+      b <- do_coalesce k;
+      if b then return ()
+      else
       do
-        b <- do_coalesce k;
-        if b then
-          return ()
+        b <- do_prefreeze k;
+        if b then return ()
         else
-          do
-            b <- do_freeze k;
-            if b then
+        do
+          b <- do_freeze k;
+          if b then
+            return ()
+          else
+            do
+              b <- do_spill sc k;
               return ()
-            else
-              do
-                b <- do_spill sc k;
-                return ()
-              od
-          od
+            od
+        od
       od
+    od
   od`
 
 val rpt_do_step_def = Define`
@@ -712,16 +1030,6 @@ val first_match_col_def = Define`
           if MEM m ks then return (SOME m) else first_match_col ks xs
       | _ => first_match_col ks xs
     od)`
-
-(* mtable is an sptree lookup for the moves *)
-val biased_pref_def = Define`
-  biased_pref mtable n ks =
-  do
-    case lookup n mtable of
-      NONE => return NONE
-    | SOME vs =>
-      handle_Subscript (first_match_col ks vs) (return NONE)
-  od`
 
 (* Clash tree representation of a program -- this is designed as an interface:
   wordLang program -> clash tree -> reg alloc
@@ -879,57 +1187,6 @@ val mk_tags_def = Define`
         update_node_tag i (Fixed (v DIV 2)))
   od`;
 
-(* Insert an undirect edge into the adj list representation
-  -- This is VERY lightly optimized to remove duplicates
-  -- alternative: maintain an "invisible" invariant that
-     all the adj_lists are sorted
-*)
-
-val insert_edge_def = Define`
-  insert_edge x y =
-  do
-    adjx <- adj_ls_sub x;
-    adjy <- adj_ls_sub y;
-    if MEM y adjx then return ()
-    else
-    do
-      update_adj_ls x (y::adjx);
-      update_adj_ls y (x::adjy)
-    od
-  od`;
-
-(* insert a list of edges all adjacent to one node *)
-val list_insert_edge_def = Define`
-  (list_insert_edge x [] = return ()) ∧
-  (list_insert_edge x (y::ys) =
-    do
-      insert_edge x y;
-      list_insert_edge x ys
-    od)`;
-
-val clique_insert_edge_def = Define`
-  (clique_insert_edge [] = return ()) ∧
-  (clique_insert_edge (x::xs) =
-  do
-    list_insert_edge x xs;
-    clique_insert_edge xs
-  od)`;
-
-(* assuming vertices in cli already forms a clique,
-   extend it with new members
-*)
-val extend_clique_def = Define`
-  (extend_clique [] cli = return cli) ∧
-  (extend_clique (x::xs) cli =
-    if MEM x cli
-    then
-      extend_clique xs cli
-    else
-    do
-      list_insert_edge x cli;
-      extend_clique xs (x::cli)
-    od)`;
-
 (* Initializes the clash_graph using a clash_tree and a remapping bijection *)
 val mk_graph_def = Define`
   (mk_graph ta (Delta w r) liveout =
@@ -970,7 +1227,6 @@ val mk_graph_def = Define`
       mk_graph ta t1 live
     od)`;
 
-
 val sp_default_def = Define`
   sp_default t i =
   (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)`
@@ -1006,18 +1262,11 @@ val is_Atemp_def = Define`
     return (dt = Atemp)
   od`
 
-val is_Fixed_def = Define`
-  is_Fixed d =
-  do
-    dt <- node_tag_sub d;
-    return (dt = Fixed)
-  od`
-
 (* Initializer for the first allocation step *)
 val init_alloc1_heu_def = Define`
-  init_alloc1_heu d k =
+  init_alloc1_heu moves d k =
   do
-    ds <- return (GENLIST (\x.x) d);
+    ds <- return (COUNT_LIST d);
     st_ex_FOREACH ds (* Set the degree for each node *)
       (λi.
       do
@@ -1025,18 +1274,25 @@ val init_alloc1_heu_def = Define`
         update_degrees i (LENGTH adjls)
       od
       );
-    allocs <- st_ex_FILTER is_Atemp ds [];
+    allocs <- st_ex_FILTER is_Atemp ds []; (* only need to allocate Atemps *)
+    (* pretend all the allocs are move related to reuse some earlier code *)
+    st_ex_FOREACH allocs (λx. update_move_related x T);
+    moves <- st_ex_FILTER (λ(_,(x,y)).consistency_ok x y) moves [];
+    reset_move_related moves;
+
     (ltk,gtk) <- st_ex_PARTITION (split_degree d k) allocs [] [];
-    set_simp_wl ltk;
+    (ltkfreeze,ltksimp) <- st_ex_PARTITION (move_related_sub) ltk [] [];
     set_spill_wl gtk;
+    set_simp_wl ltksimp;
+    set_freeze_wl ltkfreeze;
     return (LENGTH allocs)
   od`
 
 val do_alloc1_def = Define`
-  do_alloc1 sc k =
+  do_alloc1 moves sc k =
   do
     d <- get_dim;
-    l <- init_alloc1_heu d k;
+    l <- init_alloc1_heu moves d k;
     rpt_do_step sc k l;
     st <- get_stack;
     return st
@@ -1083,12 +1339,37 @@ val resort_moves_def = Define`
   resort_moves acc =
   map (λls. MAP SND (QSORT (λp:num,x p',x'. p>p') ls )) acc`
 
+val _ = Datatype`
+  algorithm = Simple | IRC`
+
+(* mtable is an sptree lookup for the moves *)
+val biased_pref_def = Define`
+  biased_pref mtable n ks =
+  do
+    d <- get_dim;
+    if n < d then
+    do
+      copt <- coalesced_sub n;
+      (case copt of
+        NONE =>
+        (case lookup n mtable of
+          NONE => return NONE
+        | SOME vs =>
+          handle_Subscript (first_match_col ks vs) (return NONE))
+      | SOME v =>
+          handle_Subscript (first_match_col ks [v]) (return NONE))
+    od
+    else
+      return NONE
+  od`
+
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
-  do_reg_alloc sc k moves ct forced (ta,fa,n) =
+  do_reg_alloc alg sc k moves ct forced (ta,fa,n) =
   do
     init_ra_state ct forced (ta,fa,n);
-    ls <- do_alloc1 sc k;
+    moves <- return (MAP  (λ(p,(x,y)). (p,(sp_default ta x),(sp_default ta y))) moves);
+    ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
     assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
     assign_Stemps k;
     spcol <- extract_color ta;
@@ -1096,7 +1377,7 @@ val do_reg_alloc_def = Define`
   od`
 
 (* As we are using fixed-size array, we need to define a different record type for the initialization *)
-val array_fields_names = ["adj_ls", "node_tag", "degrees"];
+val array_fields_names = ["adj_ls", "node_tag", "degrees","coalesced","move_related"];
 val run_ira_state_def = define_run ``:ra_state``
                                        array_fields_names
                                       "ira_state";
@@ -1105,20 +1386,23 @@ val run_ira_state_def = define_run ``:ra_state``
    the translator's requirements *)
 
 val reg_alloc_aux_def = Define`
-  reg_alloc_aux sc k moves ct forced (ta,fa,n) =
-    run_ira_state (do_reg_alloc sc k moves ct forced (ta,fa,n))
+  reg_alloc_aux alg sc k moves ct forced (ta,fa,n) =
+    run_ira_state (do_reg_alloc alg sc k moves ct forced (ta,fa,n))
                       <| adj_ls    := (n, [])
                        ; node_tag  := (n, Atemp)
                        ; degrees   := (n, 0)
                        ; dim       := n
                        ; simp_wl   := []
                        ; spill_wl  := []
-                       ; moves_wl  := []
                        ; freeze_wl := []
+                       ; avail_moves_wl   := []
+                       ; unavail_moves_wl := []
+                       ; coalesced := (n,NONE)
+                       ; move_related := (n,F)
                        ; stack     := [] |>`;
 
 val reg_alloc_def = Define`
-  reg_alloc sc k moves ct forced =
-    reg_alloc_aux sc k moves ct forced (mk_bij ct)`;
+  reg_alloc alg sc k moves ct forced =
+    reg_alloc_aux alg sc k moves ct forced (mk_bij ct)`;
 
 val _ = export_theory();
