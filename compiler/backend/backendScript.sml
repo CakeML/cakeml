@@ -316,7 +316,7 @@ val from_livesets_def = Define`
         NONE =>
           let (heu_moves,spillcosts) = get_heuristics name_num prog in
           let cp =
-            (case reg_alloc spillcosts k heu_moves tree forced of
+            (case reg_alloc (if alg = 0n then Simple else IRC) spillcosts k heu_moves tree forced of
               Success col =>
                 (apply_colour (total_colour col) prog)
             | Failure _ => prog (*cannot happen*)) in

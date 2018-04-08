@@ -1265,14 +1265,14 @@ val get_heuristics_def = Define`
   col_opt is an optional oracle colour
 *)
 val word_alloc_def = Define`
-  word_alloc fc c (alg:num) k prog col_opt =
+  word_alloc fc c alg k prog col_opt =
   let tree = get_clash_tree prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics fc prog in
-      (dtcase reg_alloc spillcosts k heu_moves tree forced of
+      (dtcase reg_alloc (if alg = 0n then Simple else IRC) spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))
