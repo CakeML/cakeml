@@ -280,6 +280,7 @@ val domain_superdomain_num_set_tree_union = Q.store_thm("domain_superdomain_num_
     rw[] >> imp_res_tac superdomain_thm >> metis_tac[SUBSET_DEF]
 );
 
+
 val isAdjacent_wf_set_tree_num_set_tree_union = Q.store_thm ("isAdjacent_wf_set_tree_num_set_tree_union",
     `∀ t1 t2 n m . 
         isAdjacent (mk_wf_set_tree t1) n m 
@@ -292,7 +293,24 @@ val isAdjacent_wf_set_tree_num_set_tree_union = Q.store_thm ("isAdjacent_wf_set_
     rw[SUBSET_DEF, domain_lookup]
 );
 
-(*
+val domain_superdomain_num_set_tree_union_STRONG = Q.store_thm("domain_superdomain_num_set_tree_union_STRONG",
+    `∀ t1 t2 . domain (superdomain t1) ∪ domain (superdomain t2) = domain (superdomain (num_set_tree_union t1 t2))`,
+    fs[EXTENSION] >> rw[] >> EQ_TAC >> rw[] 
+    >- metis_tac[domain_superdomain_num_set_tree_union, SUBSET_DEF, num_set_tree_union_sym]
+    >- metis_tac[domain_superdomain_num_set_tree_union, SUBSET_DEF, num_set_tree_union_sym]
+    >- (imp_res_tac superdomain_inverse_thm >> fs[lookup_num_set_tree_union] >> EVERY_CASE_TAC >> fs[]
+        >- (disj1_tac >> imp_res_tac superdomain_thm >> fs[SUBSET_DEF])
+        >- (disj2_tac >> imp_res_tac superdomain_thm >> fs[SUBSET_DEF])
+        >- (rveq >> imp_res_tac superdomain_thm >> fs[SUBSET_DEF, domain_union]))
+);
+
+val mk_wf_union = Q.store_thm("mk_wf_union",
+    `∀ t1 t2 . mk_wf (union t1 t2) = union (mk_wf t1) (mk_wf t2)`,
+    rw[] >> `wf(union (mk_wf t1) (mk_wf t2)) ∧ wf(mk_wf (union t1 t2))` by 
+        metis_tac[wf_mk_wf, wf_union] >>
+    rw[spt_eq_thm] >> fs[lookup_union, lookup_mk_wf]
+);
+
 val mk_wf_set_tree_num_set_tree_union = Q.store_thm("mk_wf_set_tree_num_set_tree_union",
     `∀ t1 t2 . mk_wf_set_tree (num_set_tree_union t1 t2) = 
         num_set_tree_union (mk_wf_set_tree t1) (mk_wf_set_tree t2)`,
@@ -300,20 +318,21 @@ val mk_wf_set_tree_num_set_tree_union = Q.store_thm("mk_wf_set_tree_num_set_tree
     `wf (mk_wf_set_tree (num_set_tree_union t1 t2))` by metis_tac[mk_wf_set_tree_thm, wf_set_tree_def] >>
     `wf (num_set_tree_union (mk_wf_set_tree t1) (mk_wf_set_tree t2))` by 
         metis_tac[mk_wf_set_tree_thm, wf_set_tree_def, wf_num_set_tree_union] >> 
-    rw[spt_eq_thm] >>
-    simp[mk_wf_set_tree_def] >>
-    fs[lookup_map] >> fs[lookup_union] >> fs[lookup_map] >>
-    fs[lookup_num_set_tree_union] >>
-    fs[lookup_map] >> fs[lookup_union] >>
-    fs[lookup_map] >> fs[OPTION_MAP_COMPOSE, mk_wf_def] >>
-    Cases_on `lookup n t1` >> Cases_on `lookup n t2` >> fs[] >>
-    EVERY_CASE_TAC >> fs[mk_wf_def, union_def] >>
-    
-    `lookup n (num_set_tree_union t1 t2) = NONE` by fs[lookup_num_set_tree_union] >>
-
-cheat (* TODO - not necessary for now, but a useful result *)
+    rw[spt_eq_thm] >> simp[mk_wf_set_tree_def] >> fs[lookup_map] >> fs[lookup_union] >> fs[lookup_map] >>
+    fs[lookup_num_set_tree_union] >> fs[lookup_map] >> fs[lookup_union] >> fs[lookup_map] >> 
+    fs[OPTION_MAP_COMPOSE, mk_wf_def] >> Cases_on `lookup n t1` >> Cases_on `lookup n t2` >> fs[] >>
+    EVERY_CASE_TAC >> fs[mk_wf_def, union_def] >> fs[lookup_NONE_domain, GSYM domain_lookup] >> 
+    qspecl_then [`t1`, `t2`] mp_tac domain_superdomain_num_set_tree_union_STRONG >> strip_tac >>
+    fs[EXTENSION]
+    >-  metis_tac[]
+    >- (qsuff_tac `n ∈ domain (superdomain (num_set_tree_union t1 t2))` >- rw[domain_lookup]
+        >> imp_res_tac domain_lookup >> metis_tac[])
+    >- (qsuff_tac `n ∈ domain (superdomain (num_set_tree_union t1 t2))` >- rw[domain_lookup]
+        >> imp_res_tac domain_lookup >> metis_tac[])
+    >- (qsuff_tac `n ∈ domain (superdomain (num_set_tree_union t1 t2))` >- rw[domain_lookup]
+        >> imp_res_tac domain_lookup >> metis_tac[])
+    >-  metis_tac[mk_wf_union]
 );
-*)
 
 val isReachable_wf_set_tree_num_set_tree_union = Q.store_thm ("isReachable_wf_set_tree_num_set_tree_union",
     `∀ t1 t2 n m . 
@@ -406,25 +425,10 @@ val findRefsGlobals_LUPDATE = Q.store_thm ("findRefsGlobals_LUPDATE",
     (∀ vs . domain (findVglobalsL vs) ⊆ domain reachable 
         ⇒ domain (findRefsGlobals (LUPDATE (Varray vs) n  refs)) ⊆ domain reachable) ∧ 
     (∀ ws.  domain (findRefsGlobals (LUPDATE (W8array ws) n  refs)) ⊆ domain reachable)`,
-    Induct_on `refs` >>  
-    rw[] >>
-    Cases_on `h` >> fs[findRefsGlobals_def, domain_union] >>
+    Induct_on `refs` >> rw[] >> Cases_on `h` >> fs[findRefsGlobals_def, domain_union] >>
     Cases_on `n = 0` >> fs[LUPDATE_def, findRefsGlobals_def, domain_union] >>
-
-    fs[domain_union, LUPDATE_def] >>
-    
-    
-    (*
-    MEM_LUPDATE_E
-    MEM_LUPDATE
-    LUPDATE_SEM
-    lupdate_append
-    lupdate_append2
-    EL_UPDATE
-    findRefsGlobals_EL 
-    *)
-
-cheat (* TODO *)
+    fs[domain_union, LUPDATE_def] >> Cases_on `n` >> fs[] >>
+    fs[LUPDATE_def, findRefsGlobals_def, domain_union]
 );
 
 val findRefsGlobals_APPEND = Q.store_thm ("findRefsGlobals_APPEND",
