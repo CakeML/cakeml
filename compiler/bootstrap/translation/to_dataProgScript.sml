@@ -1003,16 +1003,6 @@ val bvl_handle_compile_exp_side = Q.prove(`
   \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
   \\ rw[]) |> update_precondition;
 
-val _ = translate(bvl_inlineTheory.inline_all_def);
-
-val bvl_inline_inline_all_side = Q.prove(`
-  ∀a b c d e f. bvl_inline_inline_all_side a b c d e f ⇔ T`,
-  ho_match_mp_tac bvl_inlineTheory.inline_all_ind>>
-  rw[]>>simp[Once (fetch "-" "bvl_inline_inline_all_side_def")]>>
-  CCONTR_TAC>>fs[]>>
-  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-  simp[bvl_inlineTheory.LENGTH_inline]) |> update_precondition
-
 val _ = translate(bvl_inlineTheory.compile_prog_def);
 
 val _ = translate(bvl_to_bviTheory.compile_def)
