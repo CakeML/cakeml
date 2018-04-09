@@ -112,6 +112,24 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
    (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
   srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
+val evaluate_append = Q.store_thm ("evaluate_append",
+  `evaluate env s (l1 ++ l2) =
+   case evaluate env s l1 of
+   | (s,Rval v1) =>
+     (case evaluate env s l2 of
+      | (s,Rval v2) => (s,Rval(v1++v2))
+      | r => r)
+   | r => r`,
+  map_every qid_spec_tac[`l2`,`s`] >> Induct_on`l1` >>
+  srw_tac[][evaluate_def] >- (
+    every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+  srw_tac[][Once evaluate_cons] >>
+  match_mp_tac EQ_SYM >>
+  srw_tac[][Once evaluate_cons] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  Cases_on`r`>>full_simp_tac(srw_ss())[] >>
+  every_case_tac  >> full_simp_tac(srw_ss())[]);
+
 val c_updated_by = Q.prove (
   `((env:flatSem$environment) with c updated_by f) = (env with c := f env.c)`,
   rw [environment_component_equality]);
