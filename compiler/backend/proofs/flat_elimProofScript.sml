@@ -84,7 +84,7 @@ val findVglobalsL_REVERSE = Q.store_thm("findVglobals_REVERSE",
     fs[findVglobalsL_APPEND, union_num_set_sym, findVglobals_def]
 );
 
-val findVglobalsL_domain_MEM = Q.store_thm("findVglobalsL_MEM",
+val findVglobalsL_MEM = Q.store_thm("findVglobalsL_MEM",
     `∀ k v vs . MEM (k, v) vs ⇒ domain (findVglobals v) ⊆ domain (findVglobalsL (MAP SND vs))`,
     Induct_on `vs` >> rw[] >> fs[findVglobals_def, domain_union] >> res_tac >> fs[SUBSET_DEF]
 );
@@ -117,6 +117,14 @@ val findRefsGlobals_EL = Q.store_thm("findRefsGlobals_EL",
        `n < LENGTH (TL l)` by fs[LENGTH_TL] >> fs[] >> 
        Cases_on `l` >> fs[] >> 
        Cases_on `h` >> fs[findRefsGlobals_def, domain_union, SUBSET_DEF]
+);
+
+val findRefsGlobals_MEM = Q.store_thm("findRefsGlobals_MEM",
+    `∀ refs reachable:num_set . domain (findRefsGlobals refs) ⊆ domain reachable ⇒
+        (∀ a . MEM (Refv a) refs ⇒ domain (findVglobals a) ⊆ domain reachable) ∧
+        (∀ vs . MEM (Varray vs) refs ⇒ domain (findVglobalsL vs) ⊆ domain reachable)`,
+    Induct >> rw[] >> fs[findRefsGlobals_def, domain_union] >>
+    Cases_on `h` >> fs[findRefsGlobals_def, domain_union]
 );
 
 (******** FINDENVGLOBALS, FINDRESULTGLOBALS ********)
@@ -444,49 +452,61 @@ val findVglobalsL_REPLICATE = Q.store_thm ("findVglobalsL_REPLICATE",
     Induct >> fs[REPLICATE, findVglobals_def, domain_union]
 );
 
+
+val findVglobalsL_LUPDATE = Q.store_thm ("findVglobalsL_LUPDATE",
+    `∀ n vs (reachable:num_set) v . n < LENGTH vs ∧ 
+    domain (findVglobalsL vs) ⊆ domain reachable ∧ domain (findVglobals v) ⊆ domain reachable
+    ⇒ domain (findVglobalsL (LUPDATE v n vs)) ⊆ domain reachable`,
+    Induct_on `vs` >> rw[] >> Cases_on `n` >> fs[LUPDATE_def] >> fs[findVglobals_def, domain_union]
+);
+
+
 val do_app_SOME_flat_state_rel = Q.store_thm("do_app_SOME_flat_state_rel",
     `∀ reachable state removed_state op l new_state result new_removed_state. 
         flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧ domain(findVglobalsL l) ⊆ domain reachable 
-        ⇒ do_app state op l = SOME (new_state, result) 
+        ⇒ do_app state op l = SOME (new_state, result) ∧ result ≠ Rerr (Rabort Rtype_error)
             ⇒ ∃ new_removed_state . flat_state_rel reachable new_state new_removed_state ∧ 
                 do_app removed_state op l = SOME (new_removed_state, result)`
   ,
     rw[] >> qpat_x_assum `flat_state_rel _ _ _` mp_tac >> simp[Once flat_state_rel_def] >> strip_tac >>
-    Cases_on `op` >> fs[do_app_cases] >> rveq >> fs[] >> rw[] >> 
+    reverse (Cases_on `op`) >> fs[] 
+    >- ( 
+        fs[do_app_def] >> Cases_on `l` >> fs[findVglobals_def] >>
+        rveq >> fs[flat_state_rel_def, globals_rel_def] >>
+        cheat (* TODO - this doesn't look possible *)
+    )
+    >- ( 
+        fs[do_app_def] >> Cases_on `l` >> fs[findVglobals_def] >>
+        Cases_on `t` >> fs[] >>
+        rveq >> fs[flat_state_rel_def, globals_rel_def] >> rfs[] >>
+        cheat (* TODO - this doesn't look possible *)
+    ) >>
+    fs[do_app_cases] >> rveq >> fs[] >> rw[] >> 
     fs[semanticPrimitivesTheory.store_assign_def, semanticPrimitivesTheory.store_v_same_type_def] >>
     fs[semanticPrimitivesTheory.store_alloc_def, semanticPrimitivesTheory.store_lookup_def] >>
-    fs[flat_state_rel_def, globals_rel_def, findVglobals_def, domain_union, findRefsGlobals_def] >> rveq
-    (* 19 subgoals *)
+    fs[flat_state_rel_def, globals_rel_def, findVglobals_def, domain_union, findRefsGlobals_def] >> rveq >> rfs[]
+    (* 16 subgoals *)
+    >- (rw[] >> Cases_on `n' < LENGTH removed_state.globals` >> 
+        rveq >> fs[] >- fs[EL_APPEND1] >- fs[EL_APPEND2])
     >-  metis_tac[findRefsGlobals_LUPDATE]
-    >- (fs[findRefsGlobals_APPEND, domain_union,findRefsGlobals_def, findVglobals_def] >> metis_tac[])
-    >- (fs[findRefsGlobals_APPEND, domain_union,findRefsGlobals_def, findVglobals_def] >> metis_tac[])
-    >- (qexists_tac `removed_state` >> fs[])
-    >-  metis_tac[findRefsGlobals_LUPDATE]
-    >- (qexists_tac `removed_state` >> fs[])
-    >-  metis_tac[findRefsGlobals_LUPDATE]
-    >-  metis_tac[findRefsGlobals_LUPDATE]
+    >- (qsuff_tac `domain (findVglobalsL (LUPDATE v'''''' (Num (ABS i''''''')) vs)) ⊆ domain reachable` 
+        >-  metis_tac[findRefsGlobals_LUPDATE]
+        >>  match_mp_tac findVglobalsL_LUPDATE >> fs[] >> imp_res_tac EL_MEM >> rfs[] >>
+            fs[findRefsGlobals_def] >> metis_tac[findRefsGlobals_MEM])  
     >- (qexists_tac `removed_state` >> fs[])
     >- (qexists_tac `removed_state` >> fs[])
     >- (fs[findRefsGlobals_APPEND, domain_union,findRefsGlobals_def, findVglobals_def] >> 
         metis_tac[findVglobalsL_REPLICATE, SUBSET_DEF])
     >- (qexists_tac `removed_state` >> fs[])
-    >- (
-    
-        cheat (* TODO, marginally more tricky than some other cases *))
     >- (qexists_tac `removed_state` >> fs[])
     >-  metis_tac[findRefsGlobals_LUPDATE]
-    >- (reverse(rw[]) >- metis_tac[] >> Cases_on `n' < LENGTH removed_state.globals` >> 
-        rveq >> fs[] >- fs[EL_APPEND1] >- fs[EL_APPEND2])
-    >- (qexists_tac `removed_state with globals := LUPDATE (SOME v''''''') n removed_state.globals` >> fs[] >> 
-        rw[] >- (fs[LUPDATE_SEM] >> metis_tac[]) >- metis_tac[]
-        >- cheat (* TODO - this looks like a serious problem *))
-    >- (fs[quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE])
-    >- (
-        qexists_tac `removed_state` >> fs[] >>
-        rw[] >>
-        cheat (* TODO - again, looks like a problem *)
-        
-        )
+    >-  metis_tac[findRefsGlobals_LUPDATE] 
+    >-  metis_tac[findRefsGlobals_LUPDATE]
+    >- (qexists_tac `removed_state` >> fs[])
+    >- (qexists_tac `removed_state` >> fs[])
+    >- (fs[findRefsGlobals_APPEND, domain_union,findRefsGlobals_def, findVglobals_def] >> metis_tac[])
+    >- (fs[findRefsGlobals_APPEND, domain_union,findRefsGlobals_def, findVglobals_def] >> metis_tac[])
+    >-  metis_tac[findRefsGlobals_LUPDATE]
 
 (* TODO - it seems for op = GlobalVarInit n/GlobalVarLookup n, we have problems 
     -> need an assumption that n is in reachable, which can only come from adding an assumption
@@ -498,7 +518,7 @@ val do_app_SOME_flat_state_rel = Q.store_thm("do_app_SOME_flat_state_rel",
         keep = T ⇒ ALL global vars are in the reachable set
         keep = F ⇒ NONE of the global vars are in the reachable set 
         so that we can assume findLoc e ⊆ reachable in evaluate_sing_keep_flat_state_rel_eq_lemma
-        *)
+*)
 );
 
 
@@ -590,7 +610,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm("evaluate_sing_keep
         >- (qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> strip_tac >> rveq >>
             Cases_on `ALOOKUP env.v n` >> fs[findSemPrimResGlobals_def, findVglobals_def] >>
-            imp_res_tac ALOOKUP_MEM >> imp_res_tac findVglobalsL_domain_MEM >>
+            imp_res_tac ALOOKUP_MEM >> imp_res_tac findVglobalsL_MEM >>
             fs[findEnvGlobals_def] >> fs[SUBSET_DEF])
             (* Fun - DONE!!! *)
         >- (qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
@@ -626,6 +646,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm("evaluate_sing_keep
                 Cases_on `do_app q op (REVERSE a)` >> fs[] >>
                 PairCases_on `x` >>
                 fs[] >> rveq >>
+                fs[evaluateTheory.list_result_def] >>
                 cheat (* TODO - this looks tricky *)
             )
         )
@@ -899,7 +920,7 @@ val evaluate_flat_state_rel_lemma = Q.store_thm ("evaluate_flat_state_rel_lemma"
         (* Var_local - DONE!!! *)
         fs[evaluate_def] >> Cases_on `ALOOKUP env.v n` >> fs[] >> rveq >> fs[] >>
         fs[findVglobals_def, findEnvGlobals_def] >> imp_res_tac ALOOKUP_MEM >>
-        imp_res_tac findVglobalsL_domain_MEM >> imp_res_tac SUBSET_TRANS
+        imp_res_tac findVglobalsL_MEM >> imp_res_tac SUBSET_TRANS
       ,
         (* Fun - DONE!!! *)
         qpat_assum `flat_state_rel _ _ _` mp_tac >> 
