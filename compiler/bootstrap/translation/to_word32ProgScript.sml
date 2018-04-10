@@ -705,6 +705,10 @@ val r = translate(ByteCopyAdd_code_def |> conv32)
 val r = translate(ByteCopySub_code_def |> conv32 |> econv)
 val r = translate(ByteCopyNew_code_def |> conv32)
 
+val r = translate(Install_code_def |> conv32)
+val r = translate(InstallCode_code_def |> inline_simp |> conv32)
+val r = translate(InstallData_code_def |> inline_simp |> conv32)
+
 val _ = translate(Append_code_def|> inline_simp |> conv32 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv32)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv32)
