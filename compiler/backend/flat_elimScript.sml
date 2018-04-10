@@ -55,14 +55,11 @@ val isHidden_ind = theorem "isHidden_ind";
 val isPure_def = tDefine "isPure" `
     (isPure (Handle t e pes) = isPure e) ∧
     (isPure (Lit t l) = T) ∧
-    (isPure (Con t id_option es) = EVERY isPure es) ∧ (* TODO - check this is OK *)
+    (isPure (Con t id_option es) = EVERY isPure es) ∧ 
     (isPure (Var_local t str) = T) ∧
-    (isPure (Fun t name body) = T) ∧
-    
-    (isPure (App t (GlobalVarInit g) es) = EVERY isPure es) ∧ 
-(*    (isPure (App t Opapp es) = F) ∧ *)
-(*    (isPure (App t op es) = EVERY isPure es) ∧ (* TODO - check this is OK *)*)
-
+    (isPure (Fun t name body) = T) ∧ 
+    (isPure (App t (GlobalVarInit g) es) = EVERY isPure es) ∧
+    (isPure (App t (GlobalVarLookup g) es) = EVERY isPure es) ∧ 
     (isPure (If t e1 e2 e3) = (isPure e1 ∧ isPure e2 ∧ isPure e3)) ∧
     (isPure (Mat t e1 pes) = (isPure e1 ∧ EVERY isPure (MAP SND pes))) ∧
     (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧ 
@@ -75,9 +72,6 @@ val isPure_def = tDefine "isPure" `
         >- (Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
             Cases_on `h` >> fs[exp_size_def])
  );
- (*>- (Induct_on `v122` >> rw[exp_size_def] >> fs[] >>
-            Cases_on `h` >> fs[exp_size_def])
-    )*)
 
 val isPure_ind = theorem "isPure_ind";
             
@@ -155,42 +149,36 @@ val exp_size_map_snd_snd = Q.store_thm("exp_size_map_snd_snd",
 );
 
 val findLoc_def = tDefine "findLoc" `
-    (findLoc (e:flatLang$exp) = case e of
-        | Raise _ er => findLoc er
-        | Handle _ eh p_es =>
-            union (findLoc eh) (findLocL (MAP SND p_es))
-        | Lit _ _ => LN:num_set
-        | Con _ _ es => findLocL es
-        | Var_local _ _ => LN
-        | Fun _ _ ef => findLoc ef
-        | App _ op es => (case (dest_GlobalVarInit op) of
-            | SOME n => (insert n () (findLocL es))
-            | NONE => findLocL es)
-        | If _ ei1 ei2 ei3 => 
-            union (findLoc ei1) (union (findLoc ei2) (findLoc ei3))
-        | Mat _ em p_es => 
-            union (findLoc em) (findLocL (MAP SND p_es))
-        | Let _ _ el1 el2 => union (findLoc el1) (findLoc el2)
-        | Letrec _ vv_es elr1 => 
-            union (findLocL (MAP (SND o SND) vv_es)) (findLoc elr1)) ∧ 
+    (findLoc ((Raise _ er):flatLang$exp) = findLoc er) ∧
+    (findLoc (Handle _ eh p_es) = union (findLoc eh) (findLocL (MAP SND p_es))) ∧
+    (findLoc (Lit _ _) = LN:num_set) ∧
+    (findLoc (Con _ _ es) = findLocL es) ∧
+    (findLoc (Var_local _ _) = LN) ∧
+    (findLoc (Fun _ _ ef) = findLoc ef) ∧
+    (findLoc (App _ op es) = (case (dest_GlobalVarInit op) of
+        | SOME n => (insert n () (findLocL es))
+        | NONE => findLocL es)) ∧
+    (findLoc (If _ ei1 ei2 ei3) = union (findLoc ei1) (union (findLoc ei2) (findLoc ei3))) ∧ 
+    (findLoc (Mat _ em p_es) = union (findLoc em) (findLocL (MAP SND p_es))) ∧ 
+    (findLoc (Let _ _ el1 el2) = union (findLoc el1) (findLoc el2)) ∧ 
+    (findLoc (Letrec _ vv_es elr1) = union (findLocL (MAP (SND o SND) vv_es)) (findLoc elr1)) ∧ 
     (findLocL [] = LN) ∧
-    (findLocL (e::es) = union (findLoc e) (findLocL es))
-` 
+    (findLocL (e::es) = union (findLoc e) (findLocL es))`  
     (
         WF_REL_TAC `measure (λ e . case e of
             | INL x => exp_size x
             | INR y => exp6_size y)` >>
         rw[exp_size_def]
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
-        >- (qspec_then `p_es'` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es') = exp3_size p_es'` >>
-            rw[])
         >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
             Cases_on `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
             rw[])
-    )
+        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
+            Cases_on `flatLang$exp6_size(MAP SND p_es) = exp3_size p_es` >>
+            rw[])
+        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
+            Cases_on `exp6_size(MAP SND p_es') = exp3_size p_es` >>
+            rw[])
+    );
 
 
 val findLoc_ind = theorem "findLoc_ind";
@@ -198,11 +186,8 @@ val findLoc_ind = theorem "findLoc_ind";
 val wf_findLoc_wf_findLocL = Q.store_thm ("wf_findLoc_wf_findLocL",
     `(∀ e locs . findLoc  e = locs ⇒ wf locs) ∧
     (∀ l locs . findLocL l = locs ⇒ wf locs)`,
-    ho_match_mp_tac findLoc_ind >> rw[]
-    >- (Cases_on `e` >> simp[Once findLoc_def, wf_union, wf_def] >> 
-        CASE_TAC >> fs[wf_insert])
-    >-  fs[findLoc_def, wf_def]
-    >- (simp[Once findLoc_def, wf_union])
+    ho_match_mp_tac findLoc_ind >> rw[findLoc_def, wf_union] >> rw[wf_def] >>
+    Cases_on `dest_GlobalVarInit op` >> fs[wf_insert]
 );
 
 val wf_findLocL = Q.store_thm("wf_findLocL",
@@ -216,60 +201,77 @@ val wf_findLoc = Q.store_thm("wf_findLoc",
 );
 
 val findLookups_def = tDefine "findLookups" `
-    (findLookups e = case e of 
-        | Raise _ er => findLookups er
-        | Handle _ eh p_es =>
-            union (findLookups eh) (findLookupsL (MAP SND p_es))
-        | Lit _ _ => LN
-        | Con _ _ es => findLookupsL es
-        | Var_local _ _ => LN
-        | Fun _ _ ef => findLookups ef
-        | App _ op es => (case (dest_GlobalVarLookup op) of
-            | SOME n => (insert n () (findLookupsL es))
-            | NONE => findLookupsL es)
-        | If _ ei1 ei2 ei3 => 
-            union (findLookups ei1) (union (findLookups ei2) (findLookups ei3))
-        | Mat _ em p_es => 
-            union (findLookups em) (findLookupsL (MAP SND p_es))
-        | Let _ _ el1 el2 => union (findLookups el1) (findLookups el2)
-        | Letrec _ vv_es elr1 => 
-            union (findLookupsL (MAP (SND o SND) vv_es)) (findLookups elr1)) ∧ 
-        (findLookupsL [] = LN) ∧ 
-        (findLookupsL (e::es) = union (findLookups e) (findLookupsL es))
+    (findLookups (Raise _ er) = findLookups er) ∧ 
+    (findLookups (Handle _ eh p_es) = union (findLookups eh) (findLookupsL (MAP SND p_es))) ∧
+    (findLookups (Lit _ _) = LN) ∧ 
+    (findLookups (Con _ _ es) = findLookupsL es) ∧
+    (findLookups (Var_local _ _) = LN) ∧ 
+    (findLookups (Fun _ _ ef) = findLookups ef) ∧
+    (findLookups (App _ op es) = (case (dest_GlobalVarLookup op) of
+        | SOME n => (insert n () (findLookupsL es))
+        | NONE => findLookupsL es)) ∧
+    (findLookups (If _ ei1 ei2 ei3) = union (findLookups ei1) (union (findLookups ei2) (findLookups ei3))) ∧
+    (findLookups (Mat _ em p_es) = union (findLookups em) (findLookupsL (MAP SND p_es))) ∧
+    (findLookups (Let _ _ el1 el2) = union (findLookups el1) (findLookups el2)) ∧
+    (findLookups (Letrec _ vv_es elr1) =  union (findLookupsL (MAP (SND o SND) vv_es)) (findLookups elr1)) ∧ 
+    (findLookupsL [] = LN) ∧ 
+    (findLookupsL (e::es) = union (findLookups e) (findLookupsL es))
 `
     (
         WF_REL_TAC `measure (λ e . case e of 
                 | INL x => exp_size x 
                 | INR (y:flatLang$exp list) => flatLang$exp6_size y)` >> rw[exp_size_def]
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
-        >- (qspec_then `p_es'` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es') = exp3_size p_es'` >>
-            rw[])
         >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
             Cases_on `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
             rw[])
+        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
+            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
+            rw[])
+        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
+            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
+            rw[])
     );
 
+val findLookups_ind = theorem "findLookups_ind";
+
+val wf_findLookups_wf_findLookupsL = Q.store_thm ("wf_findLookups_wf_findLookupsL",
+    `(∀ e lookups . findLookups e = lookups ⇒ wf lookups) ∧
+    (∀ l lookups . findLookupsL l = lookups ⇒ wf lookups)`,
+    ho_match_mp_tac findLookups_ind >> rw[findLookups_def, wf_union] >> rw[wf_def] >>
+    Cases_on `dest_GlobalVarLookup op` >> fs[wf_insert]
+);
+
+val wf_findLookupsL = Q.store_thm("wf_findLookupsL",
+    `∀ l . wf(findLookupsL l)`,
+    metis_tac[wf_findLookups_wf_findLookupsL]
+);
+
+val wf_findLookups = Q.store_thm("wf_findLookups",
+    `∀ e . wf(findLookups e)`,
+    metis_tac[wf_findLookups_wf_findLookupsL]
+);
 
 (*********************************** CODE ANALYSIS ***********************************)
 
 val analyseExp_def = Define `
     analyseExp e = let locs = (findLoc e) in let lookups = (findLookups e) in
-        if (isHidden e) then (LN, map (K lookups) locs) 
-        else (locs, map (K lookups) locs)
+        if isPure e then (
+            if (isHidden e) then (LN, map (K lookups) locs) 
+            else (locs, map (K lookups) locs)
+        ) else (
+            (union locs lookups, (map (K LN) (union locs lookups))) (* TODO - check that this is OK *)
+        )
 `
 
 val wf_analyseExp = Q.store_thm("wf_analyseExp",
     `∀ e roots tree . analyseExp e = (roots, tree) ⇒ (wf roots) ∧ (wf tree)`,
-    simp[analyseExp_def] >> Cases_on `isHidden e` >> rw[wf_map] >>
-    rw[wf_def, wf_map, wf_findLoc]
+    simp[analyseExp_def] >> rw[] >> 
+    metis_tac[wf_def, wf_map, wf_union, wf_findLoc, wf_findLookups_wf_findLookupsL]
 );
 
 val analyseExp_domain = Q.store_thm("analyseExp_domain",
    `∀ e roots tree . analyseExp e = (roots, tree) ⇒ (domain roots ⊆ domain tree)`,
-    simp[analyseExp_def] >> Cases_on `isHidden e` >> rw[] >> rw[domain_def, domain_map]
+    simp[analyseExp_def] >> rw[] >> rw[domain_def, domain_map]
 );
 
 val codeAnalysis_union_def = Define `
@@ -321,17 +323,6 @@ val analyseCode_thm = Q.store_thm("analyseCode_thm",
 val lit0_def = Define `
     lit0 n = Dlet (App None (GlobalVarInit n) [Lit None (IntLit 0)])
 `
-(*
-val keep_def = Define `
-    (keep reachable (Dlet e) = case (findLoc e) of
-        | LN => T (* no global vars, skip over *)
-        | locs => (if isEmpty (inter locs reachable) then F else T)) ∧ 
-        (* i.e. if none of the global variables that e may assign to are in
-           the reachable set, then do not keep - if any are in, then keep *)
-    (keep reachable _ = T) (* not a Dlet, may be type info etc. so keep *)
-`
-*)
-
 val keep_def = Define `
     (keep reachable (Dlet e) = 
         (* if none of the global variables that e may assign to are in
