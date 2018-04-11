@@ -40,24 +40,24 @@ local val SmartOp_quotation = `
       | [x1;x2] =>
         if MEM op [Add; Sub; Mult; Div; Mod; Less; LessEq; Greater; GreaterEq] then
           dtcase (dest_simple x1, dest_simple x2) of
-          | (SOME x2, SOME (x1:int)) =>
+          | (SOME x1, SOME (x2:int)) =>
               (dtcase op of
-               | Add => Op (Const (x1 + x2)) []
-               | Sub => Op (Const (x1 - x2)) []
-               | Mult => Op (Const (x1 * x2)) []
-               | Div => if x2 = 0 then default else Op (Const (x1 / x2)) []
-               | Mod => if x2 = 0 then default else Op (Const (x1 % x2)) []
-               | Less => Bool (x1 < x2)
-               | LessEq => Bool (x1 <= x2)
-               | Greater => Bool (x1 > x2)
-               | GreaterEq => Bool (x1 >= x2)
+               | Add => Op (Const (x2 + x1)) []
+               | Sub => Op (Const (x2 - x1)) []
+               | Mult => Op (Const (x2 * x1)) []
+               | Div => if x1 = 0 then default else Op (Const (x2 / x1)) []
+               | Mod => if x1 = 0 then default else Op (Const (x2 % x1)) []
+               | Less => Bool (x2 < x1)
+               | LessEq => Bool (x2 <= x1)
+               | Greater => Bool (x2 > x1)
+               | GreaterEq => Bool (x2 >= x1)
                | _ => default)
           | _ => default
         else if op = Equal then
-          dtcase (dest_simple x2, dest_simple x1) of
-          | (SOME i, SOME j) => Bool (i = j)
-          | (SOME i, _) => Op (EqualInt i) [x1]
-          | (_, SOME i) => Op (EqualInt i) [x2]
+          dtcase (dest_simple x1, dest_simple x2) of
+          | (SOME i, SOME j) => Bool (j = i)
+          | (SOME i, _) => Op (EqualInt i) [x2]
+          | (_, SOME i) => Op (EqualInt i) [x1]
           | _ => default
         else default
       | _ => default`
