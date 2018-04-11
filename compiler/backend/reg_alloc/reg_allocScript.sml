@@ -55,7 +55,7 @@ val _ = Hol_datatype `
        adj_ls   : (num list) list (* adjacency list -- arr of lists *)
      ; node_tag : tag list        (* tags for each node -- arr *)
      ; degrees  : num list        (* degrees for each node -- arr *)
-     ; dim      : num             (* num vertices in the graph -- arr *)
+     ; dim      : num             (* num vertices in the graph *)
 
      (* worklists *)
      ; simp_wl  : num list        (* simp worklist -- list, non-move related deg < k *)
@@ -66,8 +66,8 @@ val _ = Hol_datatype `
      ; unavail_moves_wl : (num,(num # num)) alist (* inactive moves -- list *)
 
      (* book keeping *)
-     ; coalesced : (num option) list  (* keep track of coalesce for each node *)
-     ; move_related : bool list       (* fast check if a node is still move related *)
+     ; coalesced : (num option) list  (* keep track of coalesce for each node -- arr *)
+     ; move_related : bool list       (* fast check if a node is still move related -- arr *)
 
      (*
      ; constrained_moves : num list
@@ -1006,7 +1006,7 @@ val assign_Stemp_tag_def = Define`
       Stemp =>
       do
         adjs <- adj_ls_sub n;
-        tags <- st_ex_MAP (λi. node_tag_sub i) adjs;
+        tags <- st_ex_MAP node_tag_sub adjs;
         col <- return (unbound_colour k (QSORT (λx y. x≤y) (MAP tag_col tags)));
         update_node_tag n (Fixed col)
       od
