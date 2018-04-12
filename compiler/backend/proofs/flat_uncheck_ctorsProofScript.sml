@@ -111,6 +111,10 @@ val alookup_env_rel = Q.prove (
   first_x_assum (qspec_then `env' with v := t'` mp_tac) >>
   rw [env_rel_cases]);
 
+val v_rel_bool = Q.prove (
+  `!v b. v_rel (Boolv b) v ⇔ v = Boolv b`,
+  rw [Once v_rel_cases, Boolv_def, libTheory.the_def]);
+
 val compile_exp_correct = Q.prove (
   `(∀env (s : 'a flatSem$state) es s' r s1 env'.
     evaluate env s es = (s',r) ∧
@@ -260,13 +264,19 @@ val compile_exp_correct = Q.prove (
       `?e'. compile [e1] = [e']` by metis_tac [compile_sing] >>
       fs [] >>
       rw [] >>
-      cheat)
+      fs [do_if_def] >>
+      Cases_on `v = Boolv T` >>
+      fs [v_rel_bool]
+      >- metis_tac [compile_sing, HD] >>
+      rfs [v_rel_bool] >>
+      metis_tac [compile_sing, HD])
     >- (
       `?e'. compile [e1] = [e']` by metis_tac [compile_sing] >>
       res_tac >>
       fs [] >>
       rw [] >>
       rfs []))
+
   >- cheat
   >- cheat
   >- cheat
