@@ -7,7 +7,9 @@ val f = print_find;
 
 val _ = new_theory "flat_elim";
 
-(*********************************** HELPER FUNCTIONS ************************************)
+(******************************************************** HELPER FUNCTIONS *********************************************************)
+
+(**************************** ISHIDDEN/ISPURE *****************************)
 
 (* from source_to_flat$compile_decs:
     env_with_closure : alist_to_ns (alloc_defs n next_vidx fun_names)
@@ -59,7 +61,7 @@ val isPure_def = tDefine "isPure" `
     (isPure (Var_local t str) = T) ∧
     (isPure (Fun t name body) = T) ∧ 
     (isPure (App t (GlobalVarInit g) es) = EVERY isPure es) ∧
-    (isPure (App t (GlobalVarLookup g) es) = EVERY isPure es) ∧ 
+(*    (isPure (App t (GlobalVarLookup g) es) = EVERY isPure es) ∧ *)
     (isPure (If t e1 e2 e3) = (isPure e1 ∧ isPure e2 ∧ isPure e3)) ∧
     (isPure (Mat t e1 pes) = (isPure e1 ∧ EVERY isPure (MAP SND pes))) ∧
     (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧ 
@@ -80,6 +82,9 @@ val isPure_EVERY_aconv = Q.store_thm ("isPure_EVERY_aconv",
     Induct >> fs[]
 );
 
+
+(**************************** DEST_GLOBALVARINIT/DEST_GLOBALVARLOOOKUP *****************************)
+
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧ 
     dest_GlobalVarInit _ = NONE
@@ -90,48 +95,9 @@ val dest_GlobalVarLookup_def = Define `
     dest_GlobalVarLookup _ = NONE
 `
 
-val num_set_tree_union_def = Define `
-    (num_set_tree_union (LN:num_set num_map) t2 = t2) ∧
-    (num_set_tree_union (LS a) t =
-     case t of
-       | LN => LS a
-       | LS b => LS (union a b)
-       | BN t1 t2 => BS t1 a t2
-       | BS t1 b t2 => BS t1 (union a b) t2) ∧ 
-  (num_set_tree_union (BN t1 t2) t =
-     case t of
-       | LN => BN t1 t2
-       | LS a => BS t1 a t2
-       | BN t1' t2' => BN (num_set_tree_union t1 t1') (num_set_tree_union t2 t2')
-       | BS t1' a t2' => BS (num_set_tree_union t1 t1') a (num_set_tree_union t2 t2')) ∧ 
-  (num_set_tree_union (BS t1 a t2) t =
-     case t of
-       | LN => BS t1 a t2
-       | LS b => BS t1 (union a b) t2
-       | BN t1' t2' => BS (num_set_tree_union t1 t1') a (num_set_tree_union t2 t2')
-       | BS t1' b t2' => BS (num_set_tree_union t1 t1') (union a b) (num_set_tree_union t2 t2'))
-`;
+(**************************** FIND GLOBALVARINIT/GLOBALVARLOOKUP *****************************)
 
-val num_set_tree_union_empty = Q.store_thm("num_set_tree_union_empty",
-    `∀ t1 t2 . isEmpty(num_set_tree_union t1 t2) ⇔ isEmpty t1 ∧ isEmpty t2`,
-    Induct >> rw[num_set_tree_union_def] >> CASE_TAC >> rw[num_set_tree_union_def]
-);
-
-val wf_num_set_tree_union = Q.store_thm("wf_num_set_tree_union",
-    `∀ t1 t2 result . wf t1 ∧ wf t2 ∧ num_set_tree_union t1 t2 = result ⇒ wf result`,
-    Induct >> rw[num_set_tree_union_def, wf_def] >> rw[wf_def] >> TRY(CASE_TAC) >>
-    rw[wf_def] >> TRY(metis_tac[wf_def, num_set_tree_union_empty])
-);
-
-val domain_num_set_tree_union = Q.store_thm ("domain_num_set_tree_union",
-    `∀ t1 t2 . domain (num_set_tree_union t1 t2) = domain t1 ∪ domain t2`,
-    Induct >> rw[num_set_tree_union_def, domain_def] >> CASE_TAC >>
-    rw[domain_def, domain_union] >> rw[UNION_ASSOC] >> rw[UNION_COMM] >> rw[UNION_ASSOC] >> 
-    rw[UNION_COMM] >> metis_tac[UNION_ASSOC, UNION_COMM, UNION_IDEMPOT]
-);
-
-
-(*********************************** GLOBAL VAR INIT/LOOKUP ***********************************)
+(******** LEMMAS ********)
 
 val exp_size_map_snd = Q.store_thm("exp_size_map_snd",
     `∀ p_es . exp6_size (MAP SND p_es) ≤ exp3_size p_es`,
@@ -147,6 +113,8 @@ val exp_size_map_snd_snd = Q.store_thm("exp_size_map_snd_snd",
     `exp_size (SND (SND h)) ≤ exp2_size h` by 
         (Cases_on `h` >> Cases_on `r` >> rw[exp_size_def]) >> rw[]
 );
+
+(******** FINDLOC ********)
 
 val findLoc_def = tDefine "findLoc" `
     (findLoc ((Raise _ er):flatLang$exp) = findLoc er) ∧
@@ -200,6 +168,9 @@ val wf_findLoc = Q.store_thm("wf_findLoc",
     metis_tac[wf_findLoc_wf_findLocL]
 );
 
+
+(******** FINDLOOKUPS ********)
+
 val findLookups_def = tDefine "findLookups" `
     (findLookups (Raise _ er) = findLookups er) ∧ 
     (findLookups (Handle _ eh p_es) = union (findLookups eh) (findLookupsL (MAP SND p_es))) ∧
@@ -234,6 +205,8 @@ val findLookups_def = tDefine "findLookups" `
 
 val findLookups_ind = theorem "findLookups_ind";
 
+(*** THEOREMS ***)
+
 val wf_findLookups_wf_findLookupsL = Q.store_thm ("wf_findLookups_wf_findLookupsL",
     `(∀ e lookups . findLookups e = lookups ⇒ wf lookups) ∧
     (∀ l lookups . findLookupsL l = lookups ⇒ wf lookups)`,
@@ -251,7 +224,29 @@ val wf_findLookups = Q.store_thm("wf_findLookups",
     metis_tac[wf_findLookups_wf_findLookupsL]
 );
 
-(*********************************** CODE ANALYSIS ***********************************)
+val findLookupsL_MEM = Q.store_thm("findLookupsL_MEM",
+    `∀ e es . MEM e es ⇒ domain (findLookups e) ⊆ domain (findLookupsL es)`,
+    Induct_on `es` >> rw[] >> fs[findLookups_def, domain_union] >> res_tac >> fs[SUBSET_DEF]
+);
+
+val findLookupsL_APPEND = Q.store_thm("findLookupsL_APPEND",
+    `∀ l1 l2 . findLookupsL (l1 ++ l2) = union (findLookupsL l1) (findLookupsL l2)`,
+    Induct >> fs[findLookups_def] >> fs[union_assoc]
+);
+
+val findLookupsL_REVERSE = Q.store_thm("findLookupsL_REVERSE",
+    `∀ l . findLookupsL l = findLookupsL (REVERSE l)`,
+    Induct >> fs[findLookups_def] >>
+    fs[findLookupsL_APPEND, findLookups_def, union_num_set_sym]
+);
+
+val findLoc_EVERY_isEmpty = Q.store_thm("findLoc_EVERY_isEmpty",
+    `∀ l reachable:num_set . EVERY (λ e . isEmpty (inter (findLoc e) reachable)) l ⇔ isEmpty (inter (findLocL l) reachable)`,
+    Induct >- fs[Once findLoc_def, inter_def] >> fs[EVERY_DEF] >> rw[] >> EQ_TAC >> rw[] >> 
+        qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >> fs[inter_union_empty]
+);
+
+(******************************************************** CODE ANALYSIS *********************************************************)
 
 val analyseExp_def = Define `
     analyseExp e = let locs = (findLoc e) in let lookups = (findLookups e) in
@@ -272,29 +267,6 @@ val wf_analyseExp = Q.store_thm("wf_analyseExp",
 val analyseExp_domain = Q.store_thm("analyseExp_domain",
    `∀ e roots tree . analyseExp e = (roots, tree) ⇒ (domain roots ⊆ domain tree)`,
     simp[analyseExp_def] >> rw[] >> rw[domain_def, domain_map]
-);
-
-val codeAnalysis_union_def = Define `
-    codeAnalysis_union (r1, t1) (r2, t2) = ((union r1 r2), (num_set_tree_union t1 t2))
-`
-
-val wf_codeAnalysis_union = Q.store_thm("wf_codeAnalysis_union",
-    `∀ r3 r2 r1 t1 t2 t3. wf r1 ∧ wf r2 
-        ∧ codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3`,
-    rw[codeAnalysis_union_def] >> rw[wf_union]
-);
-
-val wf_codeAnalysis_union_strong = Q.store_thm("wf_codeAnalysis_union_strong",
-    `∀ r3:num_set r2 r1 (t1:num_set num_map) t2 t3. wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 
-        ∧ codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3`,
-    rw[codeAnalysis_union_def] >> rw[wf_union] >> imp_res_tac wf_num_set_tree_union >> fs[]
-);
-
-val domain_codeAnalysis_union = Q.store_thm("domain_codeAnalysis_union",
-    `∀ r1:num_set r2 r3 (t1:num_set num_map) t2 t3 . domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧ 
-    codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3`,
-    rw[codeAnalysis_union_def] >> rw[domain_union] >> rw[domain_num_set_tree_union] >>
-    fs[SUBSET_DEF]
 );
 
 val analyseCode_def = Define `
@@ -318,11 +290,14 @@ val analyseCode_thm = Q.store_thm("analyseCode_thm",
 );
 
 
-(**************************************** CODE REMOVAL ****************************************)
+(******************************************************** CODE REMOVAL *********************************************************)
 
+(* TODO DELETE THIS 
 val lit0_def = Define `
     lit0 n = Dlet (App None (GlobalVarInit n) [Lit None (IntLit 0)])
 `
+*)
+
 val keep_def = Define `
     (keep reachable (Dlet e) = 
         (* if none of the global variables that e may assign to are in
@@ -334,74 +309,14 @@ val keep_def = Define `
 
 val keep_ind = theorem "keep_ind";
 
+val keep_Dlet = Q.store_thm("keep_Dlet",
+    `∀ (reachable:num_set) h . ¬ keep reachable h ⇒ ∃ x . h = Dlet x`,
+   Cases_on `h` >> rw[keep_def]
+);
+
 val removeUnreachable_def = Define `
     removeUnreachable reachable l = FILTER (keep reachable) l
 `
-
-
-(*********************************** MAKE WF_SET_TREE ***********************************)
-
-(* TODO - USE THIS FOLD DEFINITION OF SUPERDOMAIN 
-
-val sd_def = Define `
-    sd (t:num_set num_map) = (foldi (λ k v a . union v a) 0 LN) t
-`
-
-val subspt_sd = Q.store_thm("subspt_sd",
-    `∀ t1 a t2 . subspt (sd t1) (sd (BS t1 a t2)) ∧  
-                 subspt (sd t2) (sd (BS t1 a t2)) ∧ 
-                 subspt a (sd (BS t1 a t2)) ∧ 
-                 subspt (sd t1) (sd (BN t1 t2)) ∧ 
-                 subspt (sd t2) (sd (BN t1 t2))`,
-    cheat
-);
-
-*)
-
-val superdomain_def = Define `
-    superdomain LN = LN ∧ 
-    superdomain (LS (t:num_set)) = t ∧ 
-    superdomain (BN t1 t2) = union (superdomain t1) (superdomain t2) ∧ 
-    superdomain (BS t1 a t2) = union (superdomain t1) (union a (superdomain t2))
-`
-
-val subspt_superdomain = Q.store_thm("subspt_superdomain",
-    `∀ t1 a t2 . subspt (superdomain t1) (superdomain (BS t1 a t2)) ∧  
-                 subspt (superdomain t2) (superdomain (BS t1 a t2)) ∧ 
-                 subspt a (superdomain (BS t1 a t2)) ∧ 
-                 subspt (superdomain t1) (superdomain (BN t1 t2)) ∧ 
-                 subspt (superdomain t2) (superdomain (BN t1 t2))`,
-    rw[subspt_domain, superdomain_def, domain_union, SUBSET_DEF]
-);
-
-val superdomain_thm = Q.store_thm("superdomain_thm",
-    `∀ x y (tree:num_set num_map) . lookup x tree = SOME y ⇒ domain y ⊆ domain (superdomain tree)`,
-    Induct_on `tree` >- rw[lookup_def] 
-    >- rw[lookup_def, superdomain_def, foldi_def, domain_map]
-    >> rw[] >> fs[lookup_def] >> Cases_on `EVEN x` >> res_tac >> 
-       qspecl_then [`tree`, `a`, `tree'`] mp_tac subspt_superdomain >> 
-       Cases_on `x = 0` >> fs[subspt_domain] >> metis_tac[SUBSET_TRANS]
-);
-
-val mk_wf_set_tree_def = Define `
-    mk_wf_set_tree t =
-        let t' = union t (map (K LN) (superdomain t)) in mk_wf (map (mk_wf) t')
-`
-
-val mk_wf_set_tree_domain = Q.store_thm("mk_wf_set_tree_domain",
-    `∀ tree . domain tree ⊆ domain (mk_wf_set_tree tree)`,
-    Induct >> rw[mk_wf_set_tree_def, domain_map, domain_mk_wf, domain_union, SUBSET_DEF]
-);
-
-val mk_wf_set_tree_thm = Q.store_thm("mk_wf_set_tree_thm",
-    `∀ x tree . x = mk_wf_set_tree tree ⇒ wf_set_tree x`,
-    rw[mk_wf_set_tree_def, wf_set_tree_def] >> fs[lookup_map] >> rw[domain_map, domain_union] >>
-    fs[lookup_union] >> Cases_on `lookup x' tree` >> fs[] >- fs[lookup_map] >> rw[] >> 
-    qspecl_then [`x'`, `x`, `tree`] mp_tac superdomain_thm >> rw[SUBSET_DEF]
-);
-
-
-(*********************************** REACHABILITY ***********************************)
 
 val removeFlatProg_def = Define `
     removeFlatProg code =
@@ -409,6 +324,9 @@ val removeFlatProg_def = Define `
         let reachable = closure_spt r (mk_wf_set_tree t) in
         removeUnreachable reachable code
 `
+
+
+(******************************************************** REACHABILITY *********************************************************)
 
 val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
    `∀ (compiled : dec list) start tree t . ((start, t) = analyseCode compiled) ∧ 
@@ -422,7 +340,7 @@ val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
 );
 
 
-(*********************************** TESTING ***********************************)
+(******************************************************** TESTING *********************************************************)
 
 val flat_compile_def = Define `
     flat_compile c p = 

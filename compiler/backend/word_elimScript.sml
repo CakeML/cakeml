@@ -1,4 +1,4 @@
-open preamble backendComputeLib sptreeTheory wordLangTheory reachabilityTheory flat_elimTheory
+open preamble backendComputeLib sptreeTheory wordLangTheory reachabilityTheory
 
 val _ = add_backend_compset computeLib.the_compset;
 
@@ -8,24 +8,11 @@ val f = DB.find;
 val _ = new_theory "word_elim";
 
 
-(*********************************** GLOBAL VAR INIT/LOOKUP ***********************************)
+(******************************************************** FIND LOCATIONS/REFERENCES *********************************************************)
 
 val findWordLoc_def = Define `
     (findWordLoc (name:num, _, _) = name) 
 `
-
-(* OLD DEFINITION
-val findWordRef_def = Define `
-    (findWordRef (MustTerminate p) = findWordRef p) ∧
-    (findWordRef (Call _ target _ _) = case target of
-        | NONE => LN
-        | SOME n => (insert n () LN)) ∧
-    (findWordRef (Seq p1 p2) = union (findWordRef p1) (findWordRef p2)) ∧
-    (findWordRef (If _ _ _ p1 p2) = union (findWordRef p1) (findWordRef p2)) ∧
-    (findWordRef (LocValue n _) = insert n () LN) ∧ 
-    (findWordRef _ = LN)
-`
-*)
 
 val findWordRef_def = Define `
     (findWordRef (MustTerminate p) = findWordRef p) ∧
@@ -48,13 +35,14 @@ val wf_findWordRef = Q.store_thm("wf_findWordRef",
     recInduct findWordRef_ind >> rw[findWordRef_def, wf_union, wf_def, wf_insert] >>
     TRY(CASE_TAC) >> rw[wf_def, wf_insert]
     >- (Cases_on `ret` >> Cases_on `handler` >> fs[wf_union, wf_def] >>
-        PairCases_on `x` >> fs[] >> PairCases_on `x'` >> fs[wf_union])
+        PairCases_on `x` >> fs[] >> TRY(PairCases_on `x'`) >> fs[wf_union, wf_insert])
     >- (Cases_on `ret` >> Cases_on `handler` >> fs[wf_union, wf_insert, wf_def] >>
         PairCases_on `x'` >> fs[wf_union, wf_insert, wf_def] >> PairCases_on `x''` >> 
         fs[wf_insert, wf_union, wf_def])
 );
 
-(*********************************** CODE ANALYSIS ***********************************)
+
+(******************************************************** CODE ANALYSIS *********************************************************)
 
 val analyseWordCode_def = Define`
     (analyseWordCode [] = LN:num_set num_map) ∧ 
@@ -67,7 +55,12 @@ val wf_analyseWordCode = Q.store_thm("wf_analyseWordCode",
     >> Cases_on `h` >> Cases_on `r` >> rw[analyseWordCode_def] >> rw[wf_insert]
 );
 
-(**************************************** CODE REMOVAL ****************************************)
+val lookup_analyseWordCode = Q.store_thm ("lookup_analyseWordCode",
+`∀ code n arity prog. ALOOKUP code n = SOME (arity, prog) ⇒ lookup n (analyseWordCode code) = SOME (findWordRef prog)`,
+    Induct >> fs[FORALL_PROD] >> fs[analyseWordCode_def] >> fs[lookup_insert] >> rw[]);
+
+
+(******************************************************** CODE REMOVAL *********************************************************)
 
 val removeWordCode_def = Define `
     removeWordCode reachable l = FILTER (\ x . IS_SOME (lookup (FST x) reachable)) l
@@ -78,6 +71,16 @@ val removeWordCode_thm = Q.store_thm("removeWordCode_thm",
     Induct_on `l` >> rw[] >> fs[removeWordCode_def] >> fs[domain_lookup] >> Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[]
 );
 
+val removeWordCode_thm = Q.store_thm("removeWordCode_thm",
+    `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l) 
+    ⇒ ∀ v . (n ∈ domain reachable ∧ MEM (n, v) l ⇔ MEM (n, v) (removeWordCode reachable l))`,
+    rw[] >> EQ_TAC >> rw[]
+    >- (Induct_on `l` >> rw[] >> fs[removeWordCode_def] >> fs[domain_lookup] >> Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
+    >> fs[removeWordCode_def]
+    >- (Induct_on `l` >> rw[] >> fs[domain_lookup, IS_SOME_EXISTS])
+    >- (fs[MEM_MAP, MEM_FILTER] >> qexists_tac `y` >> rw[])
+);
+
 val removeWordProg_def = Define `
     removeWordProg (n:num) code =
         let t = analyseWordCode code in
@@ -85,7 +88,8 @@ val removeWordProg_def = Define `
         removeWordCode reachable code
 `
 
-(*********************************** REACHABILITY ***********************************)
+
+(******************************************************** REACHABILITY *********************************************************)
 
 val analyseWordCode_reachable_thm = Q.store_thm("analyseWordCode_reachable_thm",
     `∀ (code : (ctor_id, ctor_id # α prog) alist) t start n tree. analyseWordCode code = t ∧  start = insert n () (LN:num_set) ∧ 
@@ -98,7 +102,10 @@ val analyseWordCode_reachable_thm = Q.store_thm("analyseWordCode_reachable_thm",
     rw[wf_insert, wf_def] 
 );
 
-(****************************************************************************************)
+val _ = export_theory();
+
+
+(******************************************************** OLD IMPLEMENTATION: TODO DELETE THIS *********************************************************)
 (*
 val analyseWordExp_def = Define `
     analyseWordExp e = (LN:num_set, insert (findWordLoc e) (findWordRef ((SND o SND) e)) LN)
@@ -299,5 +306,4 @@ val test_code = EVAL ``test_compile ^input``;
 val test_result = EVAL ``test_analyse_removal ^input``;
 
 *)
-val _ = export_theory();
 

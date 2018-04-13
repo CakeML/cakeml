@@ -6,7 +6,7 @@ val f = print_find;
 val _ = new_theory "word_elimProof";
 
 
-(******************************************************** STATE_REL *********************************************************)
+(******************************************************** STATE RELATION *********************************************************)
 
 (**************************** DESTWORDLOC, DESTRESULTLOC *****************************)
 
@@ -344,14 +344,6 @@ val word_state_rel_def = Define `
 
 (**************************** GENERIC LEMMAS *****************************)
 
-val fromList2_value = Q.store_thm("fromList2_value",
-    `∀ e l t n . MEM e l ⇔  ∃ n . lookup n (fromList2 l) = SOME e`,
-    rw[lookup_fromList2] >> rw[lookup_fromList] >> fs[MEM_EL] >>
-    EQ_TAC >> rw[]
-    >- (qexists_tac `n * 2` >> fs[] >> once_rewrite_tac [MULT_COMM] >> rw[EVEN_DOUBLE, MULT_DIV])
-    >- (qexists_tac `n DIV 2` >> fs[])
-);
-
 val EL_APPEND = Q.store_thm("EL_APPEND",
     `∀ n x e x1 . EL n x = e ∧ n < LENGTH x ⇒ EL n (x ⧺ [x1]) = e`,
     Induct_on `x` >> rw[Once EL] >> Cases_on `n` >> rw[]
@@ -438,29 +430,10 @@ val stack_list_rearrange_lemma = Q.store_thm("stack_list_rearrange_lemma",
 
 (**************************** IMPLEMENTATION LEMMAS *****************************)
 
-val lookup_mk_wf_set_tree = Q.store_thm("lookup_mk_wf_set_tree",
-    `∀ n tree x . lookup n tree = SOME x ⇒ ∃ y . lookup n (mk_wf_set_tree tree) = SOME y ∧ domain x = domain y`,
-    rw[flat_elimTheory.mk_wf_set_tree_def] >> rw[lookup_map] >> rw[lookup_union]
-);
-
-val lookup_analyseWordCode = Q.store_thm ("lookup_analyseWordCode",
-`∀ code n arity prog. ALOOKUP code n = SOME (arity, prog) ⇒ lookup n (analyseWordCode code) = SOME (findWordRef prog)`,
-    Induct >> fs[FORALL_PROD] >> fs[analyseWordCode_def] >> fs[lookup_insert] >> rw[]);
-
 val removeWordCode_thm_FST = Q.store_thm("removeWordCode_thm_FST",
     `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l) 
     ⇒ (n ∈ domain reachable ∧ MEM n (MAP FST l) ⇔ MEM n (MAP FST (removeWordCode reachable l)))`,
     rw[] >> EQ_TAC >> rw[] 
-    >- (Induct_on `l` >> rw[] >> fs[removeWordCode_def] >> fs[domain_lookup] >> Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
-    >> fs[removeWordCode_def]
-    >- (Induct_on `l` >> rw[] >> fs[domain_lookup, IS_SOME_EXISTS])
-    >- (fs[MEM_MAP, MEM_FILTER] >> qexists_tac `y` >> rw[])
-);
-
-val removeWordCode_thm = Q.store_thm("removeWordCode_thm",
-    `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l) 
-    ⇒ ∀ v . (n ∈ domain reachable ∧ MEM (n, v) l ⇔ MEM (n, v) (removeWordCode reachable l))`,
-    rw[] >> EQ_TAC >> rw[]
     >- (Induct_on `l` >> rw[] >> fs[removeWordCode_def] >> fs[domain_lookup] >> Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
     >> fs[removeWordCode_def]
     >- (Induct_on `l` >> rw[] >> fs[domain_lookup, IS_SOME_EXISTS])
@@ -666,7 +639,9 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
         `∀ args . get_vars args removed_state = get_vars args s` by (
             Induct >> rw[get_vars_def] >> rw[get_var_def] >> rw[])
-    >| [ (* CALL - DONE !!! *) 
+    >| [ 
+
+    (* CALL - DONE !!! *) 
         simp[wordSemTheory.evaluate_def] >> Cases_on `get_vars args s` >> fs[] >>
         Cases_on `bad_dest_args dest args` >> fs[] >>
         `get_vars args s = SOME [] ⇒ args = []` by (Cases_on `args` >> 
@@ -727,7 +702,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                                 rfs[lookup_fromAList] >> drule lookup_analyseWordCode >> fs[]) >>
                             drule lookup_mk_wf_set_tree >> rw[] >> asm_exists_tac >> fs[] >> fs[domain_lookup] >>
                             `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))` 
-                                by metis_tac[flat_elimTheory.mk_wf_set_tree_thm] >>
+                                by metis_tac[mk_wf_set_tree_thm] >>
                             fs[wf_set_tree_def] >> last_x_assum drule >> fs[SUBSET_DEF, domain_lookup])
                         >- (fs[findWordRef_def] >> rename1 `n ∈ domain reachable` >> rename1 `get_vars _ _ = SOME z` >>
                             fs[codeClosed_def] >> simp[SUBSET_DEF] >> rw[] >> last_x_assum drule >> disch_then match_mp_tac >>
@@ -737,7 +712,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                                 Cases_on `x'` >> fs[] >> drule lookup_analyseWordCode >> fs[]) >>
                             drule lookup_mk_wf_set_tree >> rw[] >> asm_exists_tac >> fs[] >> fs[domain_lookup] >>
                             `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))` 
-                                by metis_tac[flat_elimTheory.mk_wf_set_tree_thm] >>
+                                by metis_tac[mk_wf_set_tree_thm] >>
                             fs[wf_set_tree_def] >> last_x_assum drule >> fs[SUBSET_DEF, domain_lookup]))
                )
            )
@@ -755,7 +730,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                             qspecl_then [`args`, `s`, `h::t`, `n`, `0`] mp_tac get_vars_getLocals >> rw[] >> fs[SUBSET_DEF]) >>
                             rw[SUBSET_DEF] >> qpat_x_assum `∀ n m . n ∈ _ ∧ _ ⇒ _` (qspecl_then [`n`, `x`] mp_tac) >> 
                             reverse(impl_tac) >> fs[] >> fs[isReachable_def] >> match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
-                            `wf_set_tree(mk_wf_set_tree (analyseWordCode code1))` by metis_tac[flat_elimTheory.mk_wf_set_tree_thm] >>
+                            `wf_set_tree(mk_wf_set_tree (analyseWordCode code1))` by metis_tac[mk_wf_set_tree_thm] >>
                             fs[wf_set_tree_def] >> qexists_tac `findWordRef r` >> fs[lookup_analyseWordCode] >>
                             `lookup n (analyseWordCode code1) = SOME (findWordRef r)` by fs[lookup_fromAList, lookup_analyseWordCode] >>
                             imp_res_tac lookup_mk_wf_set_tree >> `wf (findWordRef r) ∧ wf y` by metis_tac[wf_findWordRef] >>
@@ -766,7 +741,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                     >- (Cases_on `lookup x' s.code` >> fs[] >> Cases_on `x''` >> fs[] >> rw[SUBSET_DEF] >>
                         qpat_x_assum `∀ n m . n ∈ _ ∧ _ ⇒ _` (qspecl_then [`x'`, `x''`] mp_tac) >> reverse(impl_tac) >> fs[] >>
                         fs[isReachable_def] >> match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
-                        `wf_set_tree(mk_wf_set_tree (analyseWordCode code1))` by metis_tac[flat_elimTheory.mk_wf_set_tree_thm] >>
+                        `wf_set_tree(mk_wf_set_tree (analyseWordCode code1))` by metis_tac[mk_wf_set_tree_thm] >>
                         fs[wf_set_tree_def] >> qexists_tac `findWordRef r` >> fs[lookup_analyseWordCode] >> 
                         `lookup x' (analyseWordCode code1) = SOME (findWordRef r)` by (match_mp_tac lookup_analyseWordCode >> 
                             qexists_tac `SUC (LENGTH x)` >> metis_tac[lookup_fromAList]) >> imp_res_tac lookup_mk_wf_set_tree >>
@@ -857,7 +832,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                    )
                 >>  first_x_assum (qspecl_then [`reachable`, 
                     `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> rw[] >> rw[] 
-, (* FFI - DONE!!! *)
+,   (* FFI - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup len1 s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >> Cases_on `lookup ptr1 s.locals` >> fs[] >> Cases_on `x` >> fs[] >> 
         Cases_on `lookup len2 s.locals` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `lookup ptr2 s.locals` >> fs[] >> 
@@ -874,19 +849,19 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 rw[] >> fs[domain_lookup] >> metis_tac[]) >> metis_tac[])
         >- metis_tac[getMemory_write_bytearray_lemma]
         >- fs[destResultLoc_def]
-, (* LocValue - DONE!!! *)
+,   (* LocValue - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[findWordRef_def] >> imp_res_tac code_rel_def >>
         Cases_on `l1 ∈ domain s.code` >> fs[] >> `l1 ∈ domain removed_state.code` by fs[domain_lookup] >> 
         rw[] >> fs[set_var_def, word_state_rel_def] >> fs[domain_findLocState] >>
         `domain (getLocals (insert r (Loc l1 0) s.locals)) ⊆ domain (getLocals s.locals) ∪ {l1}` 
         by (metis_tac[getLocals_insert_Loc]) >> fs[SUBSET_DEF] >> rw[] >> res_tac >> fs[]
         >> fs[destResultLoc_def]
-, (* If - DONE!!! *)
+,   (* If - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup r1 s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >> `get_var_imm ri s = get_var_imm ri removed_state` by (Cases_on `ri` >> fs[get_var_imm_def, get_var_def]) >>
         Cases_on `get_var_imm ri removed_state` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `word_cmp cmp c c'` >> fs[] >> rw[] >>
         fs[findWordRef_def, domain_union]
-, (* Raise - DONE!!! *)
+,   (* Raise - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >>  
         `jump_exc s = NONE ⇔ jump_exc removed_state = NONE` by (fs[jump_exc_def] >> EVERY_CASE_TAC) >>
         drule word_state_rel_jump_exc >> strip_tac >> Cases_on `jump_exc s` >> fs[] >>
@@ -894,14 +869,14 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         >> Cases_on `x` >> fs[destResultLoc_def] >> fs[SUBSET_DEF] >> 
             qspecl_then [`n'`, `s.locals`] mp_tac domain_getLocals_lookup >> rw[] >>
             fs[domain_findLocState] >> res_tac >> fs[]
-, (* Return - DONE!!! *)
+,   (* Return - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >> Cases_on `lookup m s.locals` >> fs[] >> rw[] >>
         fs[call_env_def, fromList2_def, word_state_rel_def, domain_findLocState, getLocals_def]
         >> Cases_on `x` >> fs[destResultLoc_def] >> fs[SUBSET_DEF] >>
             qspecl_then [`n''`, `s.locals`] mp_tac domain_getLocals_lookup >> rw[] >>
             fs[domain_findLocState] >> res_tac >> fs[]
-, (* Seq - DONE!!! *)
+,   (* Seq - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[findWordRef_def, domain_union] >>
         Cases_on `evaluate (c1, s)` >> fs[] >> Cases_on `q` >> fs[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >> rw[] >> fs[] >>
@@ -910,20 +885,20 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         `r.gc_fun = s.gc_fun` by metis_tac[evaluate_code_gc_fun_const] >> fs[] >>
         qexists_tac `code1` >> reverse(rw[]) >> fs[] >> res_tac >> 
         imp_res_tac evaluate_code_const >> fs[]
-, (* MustTerminate - DONE!!! *) 
+,   (* MustTerminate - DONE!!! *) 
         simp[wordSemTheory.evaluate_def] >> Cases_on `s.termdep` >> fs[] >>
         Cases_on `evaluate (p, s with <|clock := MustTerminate_limit (:'a); termdep := n|>)` >> fs[] >>
         Cases_on `q = SOME TimeOut` >> fs[] >> rw[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state with <|clock := MustTerminate_limit (:'a); termdep := n|>`] mp_tac) >> 
         fs[] >> rw[] >> fs[findWordRef_def] >> rfs[]  >> fs[word_state_rel_def] >> rfs[domain_findLocState]
-, (* Tick - DONE!!! *)
+,   (* Tick - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `s.clock = 0` >> fs[]
         >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >> 
             rw[findLocState_def, domain_union, getLocals_def, getStack_def] >>
             fs[domain_findLocState, SUBSET_DEF, destResultLoc_def])
         >- (rw[] >> fs[dec_clock_def, word_state_rel_def, domain_findLocState, destResultLoc_def])
-, (* Store - DONE!!! *) 
+,   (* Store - DONE!!! *) 
         simp[wordSemTheory.evaluate_def] >>
         `word_exp s exp = word_exp removed_state exp` by metis_tac[word_state_rel_word_exp] >> fs[] >>
         Cases_on `word_exp removed_state exp` >> fs[] >> Cases_on `x` >> fs[] >> fs[get_var_def] >>
@@ -933,7 +908,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         Cases_on `x` >> fs[destWordLoc_def] >> rw[] >- metis_tac[SUBSET_TRANS] >>
         `n ∈ domain reachable` by (imp_res_tac domain_getLocals_lookup >> fs[SUBSET_DEF]) >>
         fs[SUBSET_DEF] >> metis_tac[]
-, (* Set - DONE!!! *)
+,   (* Set - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `v = Handler ∨ v = BitmapBase` >> fs[] >>
         `word_exp s exp = word_exp removed_state exp` by metis_tac[word_state_rel_word_exp] >> fs[] >>
@@ -954,7 +929,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 Cases_on `the_words (MAP (λa. word_exp removed_state a) l)` >> fs[]) 
             >- (Cases_on `word_exp removed_state e` >> fs[] >> Cases_on `x` >> fs[])) >>
         fs[SUBSET_DEF] >> metis_tac[] 
-, (* Get - DONE!!! *)
+,   (* Get - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `FLOOKUP s.store name` >> fs[] >>
         fs[set_var_def] >>
@@ -964,7 +939,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         Cases_on `x` >> fs[destWordLoc_def] >- metis_tac[SUBSET_TRANS] >> rw[] >>
         `n ∈ domain reachable` by metis_tac[domain_getStore, SUBSET_DEF] >>
         fs[SUBSET_DEF] >> metis_tac[]
-, (* Assign - DONE!!! *) 
+,   (* Assign - DONE!!! *) 
         simp[wordSemTheory.evaluate_def] >>
         `word_exp s exp = word_exp removed_state exp` by metis_tac[word_state_rel_word_exp] >> fs[] >>
         fs[] >> Cases_on `word_exp removed_state exp` >> fs[] >>
@@ -982,14 +957,14 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 Cases_on `the_words (MAP (λa. word_exp removed_state a) l)` >> fs[]) 
             >- (Cases_on `word_exp removed_state e` >> fs[] >> Cases_on `x` >> fs[])) >>
         fs[SUBSET_DEF] >> metis_tac[] 
-, (* Inst - DONE!!! *)
+,   (* Inst - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         `inst i s = NONE ⇔ inst i removed_state = NONE` by metis_tac[word_state_rel_inst_NONE] >>
         Cases_on `inst i s` >> fs[] >>
         Cases_on `inst i removed_state` >> fs[] >> rw[]
         >- metis_tac[word_state_rel_inst_SOME]
         >- fs[destResultLoc_def]
-, (* Move - DONE!!! *)
+,   (* Move - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> EVERY_CASE_TAC >> fs[] >> rw[] >> fs[set_vars_def] >>
         fs[word_state_rel_def, domain_findLocState] >> fs[alist_insert_def] >>
         fs[SUBSET_DEF, domain_getLocals_lookup] >> rw[] >> imp_res_tac get_vars_length_lemma >>
@@ -999,13 +974,13 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
             >> `LENGTH x = LENGTH (MAP FST moves)` by metis_tac[LENGTH_MAP] >> rveq >>
                metis_tac[ALOOKUP_ZIP_SUCCESS])
         >> fs[destResultLoc_def]
-, (* Alloc - DONE!!! *)
+,   (* Alloc - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         fs[get_var_def] >>
         Cases_on `lookup n s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >>
         metis_tac[word_state_rel_alloc]
-, (* Skip - DONE!!! *)
+,   (* Skip - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> rw[] >> fs[word_state_rel_def, destResultLoc_def]        
     ]      
 );
@@ -1045,13 +1020,6 @@ val word_removal_thm = Q.store_thm("word_removal_thm",
             Cases_on `lookup start (fromAList code1)` >> fs[] >> fs[get_var_def] >> EVERY_CASE_TAC >> fs[] >>
             fs[lookup_fromAList] >> drule lookup_analyseWordCode >> rw[] >> fs[domain_lookup] >> 
             drule lookup_mk_wf_set_tree >> rw[] >> fs[])
-           (*Cases_on `x` >> fs[] >> Cases_on `q = 0` >> fs[] >> fs[domain_lookup] >> qexists_tac `findWordRef r` >> fs[] >> 
-            qspecl_then [`start`, `analyseWordCode code1`, `findWordRef r`] mp_tac lookup_mk_wf_set_tree >> impl_tac 
-            >- (fs[lookup_fromAList] >> drule lookup_analyseWordCode >> fs[]) 
-            >> rw[] >> fs[domain_lookup] >> `wf(findWordRef r)` by metis_tac[wf_findWordRef] >> 
-            `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))` by metis_tac[flat_elimTheory.mk_wf_set_tree_thm] >>
-            fs[wf_set_tree_def] >> res_tac >> fs[spt_eq_thm] >> rw[] >> Cases_on `lookup n y` >> fs[domain_lookup, EXTENSION]
-            >- (qpat_x_assum `∀ x . _ ⇔ _` (qspecl_then [`n`] mp_tac) >> rw[] >> Cases_on `lookup n (findWordRef r)` >> fs[]) >> metis_tac[])*)
 );
 
 val _ = export_theory();
