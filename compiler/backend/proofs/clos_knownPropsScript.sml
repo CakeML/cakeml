@@ -9,12 +9,6 @@ val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
                       nchotomy = TypeBase.nchotomy_of ``:val_approx``}
 
-val dest_Clos_eq_SOME = Q.store_thm(
-  "dest_Clos_eq_SOME[simp]",
-  `dest_Clos a = SOME (i, j) ⇔ a = Clos i j`,
-  Cases_on `a` >> simp[]);
-
-
 val merge_Other = Q.store_thm(
   "merge_Other[simp]",
   `merge Other a = Other ∧ merge a Other = Other`,
@@ -94,11 +88,20 @@ val subapprox_Int = Q.store_thm(
    (Int i ◁ a ⇔ a = Int i ∨ a = Other)`,
   simp[subapprox_def] >> Cases_on `a` >> simp[] >> rw[]);
 
+
+val subapprox_ClosNoInline = Q.store_thm(
+  "subapprox_ClosNoInline[simp]",
+  `(a ◁ ClosNoInline m n ⇔ a = ClosNoInline m n ∨ a = Impossible) ∧
+   (ClosNoInline m n ◁ a ⇔ a = ClosNoInline m n ∨ a = Other)`,
+  simp[subapprox_def] >> Cases_on `a` >> simp[] >> rw[] >>
+  fs [DE_MORGAN_THM]);
+
 val subapprox_Clos = Q.store_thm(
   "subapprox_Clos[simp]",
-  `(a ◁ Clos m n ⇔ a = Clos m n ∨ a = Impossible) ∧
-   (Clos m n ◁ a ⇔ a = Clos m n ∨ a = Other)`,
-  simp[subapprox_def] >> Cases_on `a` >> simp[] >> rw[]);
+  `(a ◁ Clos m n e s ⇔ a = Clos m n e s ∨ a = Impossible) ∧
+   (Clos m n e s ◁ a ⇔ a = Clos m n e s ∨ a = Other)`,
+  simp[subapprox_def] >> Cases_on `a` >> simp[] >> rw[] >>
+  fs [DE_MORGAN_THM]);
 
 val subapprox_Impossible = Q.store_thm(
   "subapprox_Impossible[simp]",
@@ -137,19 +140,23 @@ val known_op_better_definedg = Q.store_thm(
 
 val known_better_definedg = Q.store_thm(
   "known_better_definedg",
-  `∀es apxs g0 alist g.
-     known es apxs g0 = (alist, g) ⇒ better_definedg g0 g`,
-  ho_match_mp_tac known_ind >> simp[known_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rw[] >>
+  `∀c es apxs g0 alist g.
+     known c es apxs g0 = (alist, g) ⇒ better_definedg g0 g`,
+  ho_match_mp_tac known_ind >> simp[known_def] >>
+  reverse (rpt strip_tac) >> rpt (pairarg_tac >> fs[]) >> rw[]
+  >- (EVERY_CASE_TAC >> rpt (pairarg_tac >> fs[]) >> fs [] >>
+      metis_tac[better_definedg_trans, known_op_better_definedg]) >>
   metis_tac[better_definedg_trans, known_op_better_definedg]);
 
 val val_approx_val_def = tDefine "val_approx_val" `
-  (val_approx_val (Clos m n) v ⇔
-     (∃e2 b. v = Closure (SOME m) [] e2 n b) ∨
+  (val_approx_val (ClosNoInline m n) v ⇔
+     (∃env b. v = Closure (SOME m) [] env n b) ∨
      (∃base env fs j.
         v = Recclosure (SOME base) [] env fs j ∧
         m = base + 2*j ∧ j < LENGTH fs ∧
         n = FST (EL j fs))) ∧
+  (val_approx_val (Clos m n b s) v ⇔
+     (∃env. v = Closure (SOME m) [] env n b)) ∧
   (val_approx_val (Tuple tg vas) v ⇔
      ∃vs. v = Block tg vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
   (val_approx_val Impossible v ⇔ F) ∧
@@ -182,5 +189,10 @@ val val_approx_better_approx = Q.store_thm(
   ho_match_mp_tac (theorem "val_approx_val_ind") >> dsimp[] >> rpt gen_tac >>
   rename1 `Tuple _ a2s ◁ apx2` >>
   Cases_on `apx2` >> dsimp[] >> simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
+
+val mk_Ticks_alt = Q.store_thm("mk_Ticks_alt",
+  `(!t tc e. mk_Ticks t tc 0 e = e) /\
+   (!t tc n e. mk_Ticks t tc (SUC n) e = mk_Ticks t (tc + 1) n (Tick (t§tc) e))`,
+  conj_tac \\ simp [Once mk_Ticks_def]);
 
 val _ = export_theory();

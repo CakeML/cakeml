@@ -65,7 +65,8 @@ val _ = Datatype `
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | LessConstSmall num
-     | ConfigGC`
+     | ConfigGC
+     | Install`
 
 val _ = Datatype `
   exp = Var tra num
@@ -99,6 +100,7 @@ val pure_op_def = Define `
     | CopyByte F => F
     | Ref => F
     | Update => F
+    | Install => F
     | _ => T
 `;
 

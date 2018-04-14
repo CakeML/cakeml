@@ -54,12 +54,14 @@ val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
 
 val op_requires_names_def = Define`
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
-                         (∃new_flag. op = CopyByte new_flag))`;
+                         (∃new_flag. op = CopyByte new_flag) ∨
+                         (op = Install))`;
 
 val op_requires_names_eqn = Q.store_thm("op_requires_names_eqn",
   `∀op. op_requires_names op =
     (op_space_reset op ∨ (dtcase op of
                           | FFI n => T
+                          | Install => T
                           | CopyByte new_flag => T
                           | _ => F))`,
   Cases>>fs[op_requires_names_def]);
@@ -68,6 +70,7 @@ val op_requires_names_pmatch = Q.store_thm("op_requires_names_pmatch",
   `∀op. op_requires_names op =
   (op_space_reset op ∨ (case op of
                         | FFI n => T
+                        | Install => T
                         | CopyByte new_flag => T
                         | _ => F))`,
   rpt strip_tac >>

@@ -6,6 +6,7 @@ val _ = new_theory"labSem";
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;
 
+val _ = Datatype.big_record_size := 50;
 val _ = Datatype `
   state =
     <| regs       : num -> 'a word_loc
@@ -15,8 +16,12 @@ val _ = Datatype `
      ; pc         : num
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
-     ; io_regs    : num -> num -> 'a word option  (* oracle *)
+     ; io_regs    : num -> num -> 'a word option  (* oracle: sequence of havoc on registers at each FFI call *)
+     ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
      ; code       : 'a labLang$prog
+     ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # 'a labLang$prog
+     ; code_buffer : ('a,8) buffer
      ; clock      : num
      ; failed     : bool
      ; ptr_reg    : num
@@ -134,7 +139,7 @@ val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp
 val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
 
 val fp_upd_def = Define `
-  (fp_upd (FPLess r d1 d2) (s:('a,'b) state) =
+  (fp_upd (FPLess r d1 d2) (s:('a,'c,'ffi) state) =
      upd_reg r (Word (if fp64_lessThan (read_fp_reg d1 s) (read_fp_reg d2 s)
                       then 1w
                       else 0w)) s) /\
@@ -205,7 +210,7 @@ val addr_def = Define `
 val is_Loc_def = Define `(is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)`;
 
 val mem_store_def = Define `
-  mem_store r a (s:('a,'ffi) labSem$state) =
+  mem_store r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
@@ -213,7 +218,7 @@ val mem_store_def = Define `
                   (upd_mem w (read_reg r s) s)`
 
 val mem_load_def = Define `
-  mem_load r a (s:('a,'ffi) labSem$state) =
+  mem_load r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
@@ -221,7 +226,7 @@ val mem_load_def = Define `
                   (upd_reg r (s.mem w) s)`
 
 val mem_load_byte_def = Define `
-  mem_load_byte r a (s:('a,'ffi) labSem$state) =
+  mem_load_byte r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w =>
@@ -230,7 +235,7 @@ val mem_load_byte_def = Define `
         | NONE => assert F s`
 
 val mem_store_byte_def = Define `
-  mem_store_byte r a (s:('a,'ffi) labSem$state) =
+  mem_store_byte r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w =>
@@ -250,7 +255,7 @@ val mem_op_def = Define `
   (mem_op Store32 r (a:'a addr) = assert F)`;
 
 val asm_inst_def = Define `
-  (asm_inst Skip s = (s:('a,'ffi) labSem$state)) /\
+  (asm_inst Skip s = (s:('a,'c,'ffi) labSem$state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s) /\
@@ -327,7 +332,7 @@ val asm_inst_consts = Q.store_thm("asm_inst_consts",
     \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]) ;
 
 val get_pc_value_def = Define `
-  get_pc_value lab (s:('a,'ffi) labSem$state) =
+  get_pc_value lab (s:('a,'c,'ffi) labSem$state) =
     case lab of
     | Lab n1 n2 => loc_to_pc n1 n2 s.code`;
 
@@ -355,7 +360,7 @@ val get_reg_value_def = Define `
   (get_reg_value (SOME v) _ f = f v)`
 
 val evaluate_def = tDefine "evaluate" `
-  evaluate (s:('a,'ffi) labSem$state) =
+  evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
     | SOME (Asm (Asmi a) _ _) =>
@@ -373,6 +378,14 @@ val evaluate_def = tDefine "evaluate" `
                       evaluate (upd_pc p (dec_clock s)))
              | _ => (Error,s))
          | _ => (Error,s))
+    | SOME (Asm (Cbw r1 r2) _ _) =>
+      (case (read_reg r1 s,read_reg r2 s) of
+      | (Word w1, Word w2) =>
+        (case buffer_write s.code_buffer w1 (w2w w2) of
+        | SOME new_cb =>
+          evaluate (inc_pc (dec_clock (s with code_buffer:= new_cb)))
+        | _ => (Error,s))
+      | _ => (Error,s))
     | SOME (LabAsm Halt _ _ _) =>
        (case s.regs s.ptr_reg of
         | Word 0w => (Halt Success,s)
@@ -403,6 +416,33 @@ val evaluate_def = tDefine "evaluate" `
           | SOME k =>
              let s1 = upd_reg s.link_reg k s in
                evaluate (upd_pc p (dec_clock s1))))
+    | SOME (LabAsm Install _ _ _) =>
+       (case (s.regs s.ptr_reg,s.regs s.len_reg,s.regs s.link_reg) of
+        | (Word w1, Word w2, Loc n1 n2) =>
+           (case (buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
+            | (SOME (bytes, cb), SOME new_pc) =>
+              let (cfg,prog) = s.compile_oracle 0 in (* the next oracle program *)
+              let new_oracle = shift_seq 1 s.compile_oracle in
+                (case (s.compile cfg prog, prog) of
+                 | (SOME (bytes',cfg'), Section k _ :: _) =>
+                   if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then (* the oracle was correct *)
+                     evaluate
+                       (s with <|
+                                pc := new_pc
+                              ; code_buffer := cb
+                              ; code := s.code ++ prog
+                              ; cc_regs := shift_seq 1 s.cc_regs
+                              ; regs := (s.ptr_reg =+ Loc k 0)
+                                          (λa. get_reg_value  (s.cc_regs 0 a)
+                                                   (s.regs a) Word)
+                              ; compile_oracle := new_oracle
+                              ; clock := s.clock - 1
+                              |>)
+                   else
+                     (Error,s)
+                 | _ => (Error, s))
+                 | _ => (Error, s))
+        | _ => (Error, s))
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
        (case (s.regs s.len_reg,s.regs s.ptr_reg,
               s.regs s.len2_reg,s.regs s.ptr2_reg,s.regs s.link_reg) of

@@ -42,6 +42,10 @@ val _ = Datatype `
        | Return num num
        | Tick
        | LocValue num num        (* assign v1 := Loc v2 0 *)
+       | Install num num num num num_set (* code buffer start, length of new code,
+                                      data buffer start, length of new data, cut-set *)
+       | CodeBufferWrite num num (* code buffer address, byte to write *)
+       | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
@@ -100,13 +104,16 @@ val every_name_def = Define`
   EVERY P (MAP FST (toAList t))`
 
 val every_var_def = Define `
-  (every_var P Skip = T) ∧
+  (every_var P (Skip:'a prog) ⇔ T) ∧
   (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
   (every_var P (Inst i) = every_var_inst P i) ∧
   (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (Get num store) = P num) ∧
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (LocValue r _) = P r) ∧
+  (every_var P (Install r1 r2 r3 r4 names) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ every_name P names)) ∧
+  (every_var P (CodeBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
+  (every_var P (DataBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
   (every_var P (FFI ffi_index cptr clen ptr len names) =
     (P cptr ∧ P clen ∧ P ptr ∧ P len ∧ every_name P names)) ∧
   (every_var P (MustTerminate s1) = every_var P s1) ∧
@@ -136,6 +143,8 @@ val every_var_def = Define `
 (*Recursor for stack variables*)
 val every_stack_var_def = Define `
   (every_stack_var P (FFI ffi_index cptr clen ptr len names) =
+    every_name P names) ∧
+  (every_stack_var P (Install _ _ _ _ names) =
     every_name P names) ∧
   (every_stack_var P (Call ret dest args h) =
     (case ret of
@@ -222,6 +231,12 @@ val max_var_def = Define `
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
     MAX num (list_max (MAP FST (toAList numset)))) ∧
+  (max_var (Install r1 r2 r3 r4 numset) =
+    (list_max (r1::r2::r3::r4::MAP FST (toAList numset)))) ∧
+  (max_var (CodeBufferWrite r1 r2) =
+    MAX r1 r2) ∧
+  (max_var (DataBufferWrite r1 r2) =
+    MAX r1 r2) ∧
   (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     list_max (ptr1::len1::ptr2::len2::MAP FST (toAList numset))) ∧
   (max_var (Raise num) = num) ∧

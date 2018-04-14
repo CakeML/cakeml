@@ -106,7 +106,7 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ simp[]);
 
 val compile_correct_gen = Q.store_thm("compile_correct_gen",
-  `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc.
+  `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
@@ -117,9 +117,9 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code data c.ffi_names st.sem_st.ffi
-            (heap_regs cc.backend_config.stack_conf.reg_names)
-            mc ms ⇒
+          installed code cbspace data data_sp c.ffi_names st.sem_st.ffi
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms
+            ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,
@@ -149,14 +149,14 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[]
   \\ disch_then(qspec_then`st.sem_st.ffi`mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars["ffi"])))
   \\ qpat_x_assum`_ = THE _`(assume_tac o SYM)
-  \\ simp[]
+  \\ simp [AC CONJ_COMM CONJ_ASSOC]
   \\ disch_then (match_mp_tac o MP_CANON)
-  \\ simp[RIGHT_EXISTS_AND_THM]
+  \\ simp [RIGHT_EXISTS_AND_THM]
   \\ fs[can_type_prog_def] >>
   metis_tac [semantics_type_sound]);
 
 val compile_correct = Q.store_thm("compile_correct",
-  `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc.
+  `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
@@ -167,7 +167,7 @@ val compile_correct = Q.store_thm("compile_correct",
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code data c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,

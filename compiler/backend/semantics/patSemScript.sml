@@ -124,6 +124,12 @@ val vs_to_string_def = Define`
    | _ => NONE) ∧
   (vs_to_string _ = NONE)`;
 
+val v_to_bytes_def = Define `
+  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)`;
+
+val v_to_words_def = Define `
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)`;
+
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
@@ -133,6 +139,8 @@ val _ = Datatype`
      ; refs    : patSem$v store
      ; ffi     : 'ffi ffi_state
      ; globals : patSem$v option list
+     ; compile : 'c -> patLang$exp -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # patLang$exp
      |>`;
 
 val do_app_def = Define `
@@ -389,6 +397,23 @@ val do_app_def = Define `
     | _ => NONE
   )))`;
 
+val do_install_def = Define`
+  do_install vs s =
+    case vs of
+    | [v1;v2] =>
+      (case (v_to_bytes v1, v_to_words v2) of
+       | (SOME bytes, SOME data) =>
+         let (st,exp) = s.compile_oracle 0 in
+         let new_oracle = shift_seq 1 s.compile_oracle in
+         (case s.compile st exp of
+          | SOME (bytes',data',st') =>
+            if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = st' then
+              SOME (exp, s with compile_oracle := new_oracle)
+            else NONE
+          | _ => NONE)
+       | _ => NONE)
+    | _ => NONE`;
+
 val op_thms = { nchotomy = patLangTheory.op_nchotomy, case_def = patLangTheory.op_case_def}
 val conop_thms = { nchotomy = conLangTheory.op_nchotomy, case_def = conLangTheory.op_case_def}
 val modop_thms = {nchotomy = modLangTheory.op_nchotomy, case_def = modLangTheory.op_case_def}
@@ -398,8 +423,18 @@ val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
 val sv_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def }
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def}
+val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def}
+val error_result_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def}
+val abort_thms = { nchotomy = semanticPrimitivesTheory.abort_nchotomy, case_def = semanticPrimitivesTheory.abort_case_def}
+val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, conop_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
+  [op_thms, conop_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms, result_thms, error_result_thms, abort_thms, eq_result_thms])
+
+val case_eq_thms = save_thm("case_eq_thms",eqs);
+
+val do_install_clock = Q.store_thm("do_install_clock",
+  `do_install vs s = SOME (e,s') ⇒ s'.clock = s.clock`,
+  rw[do_install_def,UNCURRY,eqs,pair_case_eq] \\ rw[]);
 
 val do_app_cases = save_thm("do_app_cases",
   ``patSem$do_app s op vs = SOME x`` |>
@@ -439,7 +474,7 @@ val fix_clock_IMP = Q.prove(
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 val evaluate_def = tDefine "evaluate"`
-  (evaluate (env:patSem$v list) (s:'ffi patSem$state) ([]:patLang$exp list) = (s,Rval [])) ∧
+  (evaluate (env:patSem$v list) (s:('c,'ffi) patSem$state) ([]:patLang$exp list) = (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
     case fix_clock s (evaluate env s [e1]) of
     | (s, Rval v) =>
@@ -480,6 +515,14 @@ val evaluate_def = tDefine "evaluate"`
             else
               evaluate env (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
+       else if op = Run then
+         (case do_install (REVERSE vs) s of
+          | SOME (e, s) =>
+            if s.clock = 0 then
+              (s, Rerr (Rabort Rtimeout_error))
+            else
+              evaluate [] (dec_clock s) [e]
+          | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app s op (REVERSE vs)) of
         | NONE => (s, Rerr (Rabort Rtype_error))
@@ -509,6 +552,7 @@ val evaluate_def = tDefine "evaluate"`
   THEN rpt strip_tac
   THEN imp_res_tac fix_clock_IMP
   THEN imp_res_tac do_if_either_or
+  THEN imp_res_tac do_install_clock
   THEN fs [dec_clock_def])
 
 val evaluate_ind = theorem"evaluate_ind"
@@ -520,7 +564,13 @@ val do_app_clock = Q.store_thm("do_app_clock",
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >> every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >> imp_res_tac fix_clock_IMP >> imp_res_tac do_app_clock >> fs[])
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def,eqs,pair_case_eq,bool_case_eq] >>
+  fs[dec_clock_def] >> rw[] >> rfs[] >>
+  imp_res_tac fix_clock_IMP >>
+  imp_res_tac do_app_clock >>
+  imp_res_tac do_install_clock >>
+  fs[EQ_SYM_EQ] >> res_tac >> rfs[]
+);
 
 val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
   `fix_clock s (evaluate env s e) = evaluate env s e`,

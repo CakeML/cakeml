@@ -307,6 +307,31 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
+  (ssa_cc_trans (Install ptr len dptr dlen numset) ssa na =
+    let ls = MAP FST (toAList numset) in
+    let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
+    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let ptr' = option_lookup ssa' ptr in
+    let len' = option_lookup ssa' len in
+    let dptr' = option_lookup ssa' dptr in
+    let dlen' = option_lookup ssa' dlen in
+    let ssa_cut = inter ssa' numset in
+    let (ptr'',ssa'',na'') = next_var_rename ptr ssa_cut (na'+2) in
+    let (ret_mov,ssa''',na''') =
+      list_next_var_rename_move ssa'' na'' ls in
+    let prog = (Seq (stack_mov)
+               (Seq (Move 0 [(2,ptr');(4,len')])
+               (Seq (Install 2 4 dptr' dlen' stack_set)
+               (Seq (Move 0 [(ptr'',2)]) ret_mov)))) in
+    (prog,ssa''',na''')) ∧
+  (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = option_lookup ssa r2 in
+    (CodeBufferWrite r1' r2',ssa,na)) ∧
+  (ssa_cc_trans (DataBufferWrite r1 r2) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = option_lookup ssa r2 in
+    (DataBufferWrite r1' r2',ssa,na)) ∧
   (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -439,6 +464,12 @@ val apply_colour_def = Define `
   (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
+  (apply_colour f (Install r1 r2 r3 r4 numset) =
+    Install (f r1) (f r2) (f r3) (f r4) (apply_nummap_key f numset)) ∧
+  (apply_colour f (CodeBufferWrite r1 r2) =
+    CodeBufferWrite (f r1) (f r2)) ∧
+  (apply_colour f (DataBufferWrite r1 r2) =
+    DataBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧
   (apply_colour f (LocValue r l1) =
@@ -574,6 +605,12 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (Install r1 r2 r3 r4 numset) live =
+    list_insert [r1;r2;r3;r4] numset) ∧
+  (get_live (CodeBufferWrite r1 r2) live =
+    list_insert [r1;r2] live) ∧
+  (get_live (DataBufferWrite r1 r2) live =
+    list_insert [r1;r2] live) ∧
   (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
    insert ptr1 () (insert len1 ()
      (insert ptr2 () (insert len2 () numset)))) ∧
@@ -692,6 +729,7 @@ val get_writes_def = Define`
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
+  (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
 val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
@@ -702,6 +740,7 @@ val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
     | Assign num exp => insert num () LN
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
+    | Install r1 _ _ _ _ => insert r1 () LN
     | prog => LN`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -805,6 +844,12 @@ val get_clash_tree_def = Define`
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
+  (get_clash_tree (Install r1 r2 r3 r4 numset) =
+    Seq (Delta [] [r4;r3;r2;r1]) (Seq (Set numset) (Delta [r1] []))) ∧
+  (get_clash_tree (CodeBufferWrite r1 r2) =
+    Delta [] [r2;r1]) ∧
+  (get_clash_tree (DataBufferWrite r1 r2) =
+    Delta [] [r2;r1]) ∧
   (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
@@ -976,7 +1021,7 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
   >> fs[get_forced_def]
   >> every_case_tac
   >> fs[]
-  >> metis_tac[pair_CASES])
+  >> metis_tac[pair_CASES]);
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`

@@ -67,7 +67,7 @@ val evaluate_delete_var_Rerr = Q.prove(
 
 val evaluate_delete_var_Rval = Q.prove(
   `!xs env2 s a r ax env d.
-      evaluate (xs,env2,s:'a bviSem$state) = (Rval a,r) /\
+      evaluate (xs,env2,s:('c,'ffi) bviSem$state) = (Rval a,r) /\
       env_rel ax d env env2 ==>
       ?b. evaluate (MAP delete_var xs,env2,s) = (Rval b,r) /\
           env_rel (extract_list xs ++ ax) d (a ++ env) (b ++ env2)`,
@@ -140,7 +140,7 @@ val env_rel_MAP = Q.store_thm("env_rel_MAP",
   \\ fs [EL_APPEND2]);
 
 val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
-  `!xs env1 (s1:'a bviSem$state) ax env2 res s2 ys d.
+  `!xs env1 (s1:('c,'ffi) bviSem$state) ax env2 res s2 ys d.
       (evaluate (xs,env1,s1) = (res,s2)) /\
       env_rel ax d env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
