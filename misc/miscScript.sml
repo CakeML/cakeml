@@ -2904,6 +2904,26 @@ val INJ_UPDATE = store_thm("INJ_UPDATE",
   simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
 
+val subspt_union = Q.store_thm("subspt_union",`
+  subspt s (union s t)`,
+  fs[subspt_lookup,lookup_union]);
+
+val subspt_FOLDL_union = Q.store_thm("subspt_FOLDL_union",
+  `∀ls t. subspt t (FOLDL union t ls)`,
+  Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
+
+val lookup_FOLDL_union = Q.store_thm("lookup_FOLDL_union",
+  `lookup k (FOLDL union t ls) =
+   FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`,
+  qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
+  BasicProvers.TOP_CASE_TAC \\ simp[]);
+
+val map_union = Q.store_thm("map_union",
+  `∀t1 t2. map f (union t1 t2) = union (map f t1) (map f t2)`,
+  Induct
+  \\ rw[map_def,union_def]
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ rw[map_def,union_def]);
 
 (* Some temporal logic definitions based on lazy lists *)
 (* move into llistTheory? *)
@@ -3025,6 +3045,51 @@ val _ =  save_thm("option_eq_some",
     OPTION_IGNORE_BIND_EQUALS_OPTION,
     OPTION_BIND_EQUALS_OPTION,
     OPTION_CHOICE_EQUALS_OPTION]);
+
+val ALL_DISTINCT_alist_to_fmap_REVERSE = Q.store_thm("ALL_DISTINCT_alist_to_fmap_REVERSE",
+  `ALL_DISTINCT (MAP FST ls) ⇒ alist_to_fmap (REVERSE ls) = alist_to_fmap ls`,
+  Induct_on`ls` \\ simp[FORALL_PROD] \\ rw[] \\ rw[FUNION_FUPDATE_2]);
+
+val FUPDATE_LIST_alist_to_fmap = Q.store_thm ("FUPDATE_LIST_alist_to_fmap",
+`∀ls fm. fm |++ ls = alist_to_fmap (REVERSE ls) ⊌ fm`,
+ metis_tac [FUNION_alist_to_fmap, REVERSE_REVERSE]);
+
+val DISTINCT_FUPDATE_LIST_UNION = Q.store_thm("DISTINCT_FUPDATE_LIST_UNION",
+  `ALL_DISTINCT (MAP FST ls) /\
+   DISJOINT (FDOM f) (set(MAP FST ls)) ==>
+   f |++ ls = FUNION f (alist_to_fmap ls)`,
+  rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
+  \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]);
+
+val FEVERY_alist_to_fmap = Q.store_thm("FEVERY_alist_to_fmap",
+  `EVERY P ls ==> FEVERY P (alist_to_fmap ls)`,
+  Induct_on`ls` \\ simp[FORALL_PROD]
+  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM \\ fs[EVERY_MEM]);
+
+val ALL_DISTINCT_FEVERY_alist_to_fmap = Q.store_thm("ALL_DISTINCT_FEVERY_alist_to_fmap",
+  `ALL_DISTINCT (MAP FST ls) ⇒
+   (FEVERY P (alist_to_fmap ls) ⇔ EVERY P ls)`,
+  Induct_on`ls` \\ simp[FORALL_PROD]
+  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] \\ fs[FEVERY_ALL_FLOOKUP]
+  \\ rw[EQ_IMP_THM]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[ALOOKUP_MEM]);
+
+val DISJOINT_FEVERY_FUNION = Q.store_thm("DISJOINT_FEVERY_FUNION",
+  `DISJOINT (FDOM m1) (FDOM m2) ⇒
+   (FEVERY P (FUNION m1 m2) <=> FEVERY P m1 /\ FEVERY P m2)`,
+  rw[EQ_IMP_THM,fevery_funion]
+  \\ fs[FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION,IN_DISJOINT] \\ rw[]
+  \\ first_x_assum match_mp_tac
+  \\ CASE_TAC
+  \\ fs[FLOOKUP_DEF]
+  \\ metis_tac[]);
+
+val EVERY_FLAT = Q.store_thm("EVERY_FLAT",
+  `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`,
+  rw[EVERY_MEM,MEM_FLAT,PULL_EXISTS] \\ metis_tac[]);
 
 val SUM_MAP_K = Q.store_thm("SUM_MAP_K",
   `∀f ls c. (∀x. f x = c) ⇒ SUM (MAP f ls) = LENGTH ls * c`,

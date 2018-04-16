@@ -192,6 +192,14 @@ local val compile_op_quotation = `
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
+    | Install => Let (if LENGTH c1 <> 2
+                      then [Let c1 (Op (Const 0) []); Op (Const 0) []] else c1)
+                        (Op Install
+                        [Call 0 (SOME ListLength_location)
+                           [Var 0; Op (Const 0) []] NONE;
+                         Call 0 (SOME ListLength_location)
+                           [Var 1; Op (Const 0) []] NONE;
+                         Var 0; Var 1])
     | String str =>
         Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
           (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
@@ -315,7 +323,8 @@ val compile_exps_SING = Q.store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (aux ++ List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))],n1)`
+      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))]
+        ++ aux, n1)`
 
 val compile_list_def = Define `
   (compile_list n [] = (List [],n)) /\
@@ -323,6 +332,11 @@ val compile_list_def = Define `
      let (code1,n1) = compile_single n p in
      let (code2,n2) = compile_list n1 progs in
        (code1 ++ code2,n2))`
+
+val compile_inc_def = Define ` (* incremental version used by Install *)
+  compile_inc n prog =
+    let (p1,n1) = bvl_to_bvi$compile_list n prog in
+      (n1,append p1)`
 
 val compile_prog_def = Define `
   compile_prog start n prog =
@@ -353,8 +367,8 @@ val compile_def = Define `
   compile start c prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
-    let (loc, code, n1) = compile_prog start c.next_name1 prog in
-    let (n2, code') = bvi_tailrec$compile_prog c.next_name2 code in
+    let (loc, code, n1) = compile_prog start 0 prog in
+    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
       (loc, code', inlines, n1, n2)`;
 
 val _ = export_theory();

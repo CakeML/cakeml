@@ -424,7 +424,7 @@ val compile_explorer_def = Define`
     let (n,es) = renumber_code_locs_list (num_stubs c.clos_conf.max_app + 3) es in
     let res = clos_to_json "-number" (HD es)::res in
     let new_c = c.clos_conf with next_loc := n in
-    let e = compile new_c.do_known (HD es) in
+    let e = compile new_c.do_known new_c.max_app (HD es) in
     let res = clos_to_json "-known" e::res in
     let (e,aux) = compile new_c.do_call e in
     let prog = (3,0,e)::aux in

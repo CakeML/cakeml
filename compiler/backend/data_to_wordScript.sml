@@ -175,8 +175,16 @@ val ByteCopySub_location_def = Define `
   ByteCopySub_location = ByteCopyAdd_location+1`;
 val ByteCopyNew_location_def = Define `
   ByteCopyNew_location = ByteCopySub_location+1`;
+val Install_location_def = Define `
+  Install_location = ByteCopyNew_location+1`;
+val InstallCode_location_def = Define `
+  InstallCode_location = Install_location+1`;
+val InstallData_location_def = Define `
+  InstallData_location = InstallCode_location+1`;
+val Dummy_location_def = Define `
+  Dummy_location = InstallData_location+1`;
 val Append_location_def = Define `
-  Append_location = ByteCopyNew_location+1`;
+  Append_location = Dummy_location+1`;
 val AppendMainLoop_location_def = Define `
   AppendMainLoop_location = Append_location+1`;
 val AppendLenLoop_location_def = Define `
@@ -232,6 +240,14 @@ val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
   ``ByteCopySub_location`` |> EVAL);
 val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
   ``ByteCopyNew_location`` |> EVAL);
+val Install_location_eq = save_thm("Install_location_eq",
+  ``Install_location`` |> EVAL);
+val InstallCode_location_eq = save_thm("InstallCode_location_eq",
+  ``InstallCode_location`` |> EVAL);
+val InstallData_location_eq = save_thm("InstallData_location_eq",
+  ``InstallData_location`` |> EVAL);
+val Dummy_location_eq = save_thm("Dummy_location_eq",
+  ``Dummy_location`` |> EVAL);
 val Append_location_eq = save_thm("Append_location_eq",
   ``Append_location`` |> EVAL);
 val AppendMainLoop_location_eq = save_thm("AppendMainLoop_location_eq",
@@ -558,6 +574,44 @@ val Mod_code_def = Define `
   Mod_code = Seq (Assign 6 (Const (n2w (4 * 6))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
+
+val Install_code_def = Define `
+  Install_code c =
+      list_Seq [Assign 1 (Lookup BitmapBuffer);
+                Assign 3 (Lookup CodeBuffer);
+                Set BitmapBuffer (Var 2);
+                Set CodeBuffer (Var 4);
+                Install 3 4 1 2 (LS ());
+                Return 0 3]
+   :'a wordLang$prog`;
+
+val InstallCode_code_def = Define `
+  InstallCode_code c =
+       If Test 2 (Imm 1w)
+        (Seq (Assign 2 (Lookup BitmapBuffer))
+             (Call NONE (SOME InstallData_location) [0;2;4;6] NONE))
+        (list_Seq [Assign 3 (real_addr c 2);
+                   Assign 2 (Load (Op Add [Var 3; Const bytes_in_word]));
+                   Assign 2 (ShiftVar Lsr 2 2);
+                   CodeBufferWrite 6 2;
+                   Assign 6 (Op Add [Var 6; Const 1w]);
+                   Assign 2 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
+                   Call NONE (SOME InstallCode_location) [0;2;4;6] NONE])
+   :'a wordLang$prog`;
+
+val InstallData_code_def = Define `
+  InstallData_code c =
+       If Test 4 (Imm 1w)
+        (list_Seq [Call NONE (SOME Install_location) [0;2;6] NONE])
+        (list_Seq [Assign 3 (real_addr c 4);
+                   Assign 4 (Load (Op Add [Var 3; Const bytes_in_word]));
+                   Assign 4 (real_addr c 4);
+                   Assign 4 (Load (Op Add [Var 4; Const bytes_in_word]));
+                   DataBufferWrite 2 4;
+                   Assign 2 (Op Add [Var 2; Const bytes_in_word]);
+                   Assign 4 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
+                   Call NONE (SOME InstallData_location) [0;2;4;6] NONE])
+   :'a wordLang$prog`;
 
 val Compare1_code_def = Define `
   Compare1_code =
@@ -1596,6 +1650,26 @@ local val assign_quotation = `
                            MemEqList 0w words;
                            Assign (adjust_var dest) (Var 1)]),l))
        | _ => (Skip,l))
+    | Install =>
+      (dtcase args of
+       | [v1;v2;v3;v4] => (list_Seq
+                  [BignumHalt (adjust_var v3); (* length must be smallint *)
+                   BignumHalt (adjust_var v4); (* length must be smallint *)
+                   Assign 1 (Lookup BitmapBuffer);
+                   Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
+                   Assign 5 (ShiftVar Lsr (adjust_var v4) 2);
+                   Assign 3 (ShiftVar Lsr 3 (shift (:'a)));
+                   If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
+                   Assign 1 (Lookup CodeBuffer);
+                   Assign 3 (Op Sub [Lookup CodeBufferEnd; Var 1]);
+                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
+                   If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
+                   MustTerminate
+                    (Call (SOME (adjust_var dest,
+                       adjust_set (get_names names),Skip,secn,l))
+                    (SOME InstallCode_location)
+                      [adjust_var v1; adjust_var v2; 1] NONE)],l+1)
+       | _ => (Skip,l))
     | FP_cmp fpc => (dtcase args of
        | [v1;v2] =>
        (if ~c.has_fp_ops then (GiveUp,l) else
@@ -1721,6 +1795,14 @@ val assign_pmatch_lemmas = [
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[]),
   Q.prove(`
+   (case args of
+    | [v1;v2;v3;v4] => y1 v1 v2 v3 v4
+    | _ => z) = (dtcase args of
+    | [v1;v2;v3;v4] => y1 v1 v2 v3 v4
+    | _ => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
    (case opt of
       NONE => y
     | SOME x => z x) = (dtcase opt of
@@ -1800,7 +1882,7 @@ val assign_pmatch = Q.store_thm("assign_pmatch", `∀c secn l dest op args names
   >> ASSUME_TAC(Q.SPEC `op` (fetch "closLang" "op_nchotomy") )
   >> Cases_on `op` >> fs []
   >> fs[assign_def]
-  >> Cases_on `w` >> fs[]
+  >> TRY(Cases_on `w`) >> fs[]
   >> every_case_tac >> fs []);
 end
 
@@ -1992,6 +2074,9 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
+    (Install_location,3n,Install_code data_conf);
+    (InstallCode_location,4n,InstallCode_code data_conf);
+    (InstallData_location,4n,InstallData_code data_conf);
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
     (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
@@ -2000,7 +2085,8 @@ val stubs_def = Define`
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
-    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf)
+    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf);
+    (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",

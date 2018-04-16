@@ -14,41 +14,71 @@ val _ = Datatype `
      ; global  : num option
      ; handler : num
      ; refs    : num |-> bvlSem$v ref
+     ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list
      ; clock   : num
      ; code    : (num # dataLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; space   : num |> `
 
+val s = ``(s:('c,'ffi) dataSem$state)``
+
 val data_to_bvi_def = Define `
-  (data_to_bvi:'ffi dataSem$state->'ffi bviSem$state) s =
+  data_to_bvi ^s =
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; ffi := s.ffi
-     ; global := s.global |>`;
+     ; global := s.global |> : ('c,'ffi) bviSem$state`;
 
 val bvi_to_data_def = Define `
-  (bvi_to_data:'ffi bviSem$state->'ffi dataSem$state->'ffi dataSem$state) s t =
+  (bvi_to_data:('c,'ffi) bviSem$state->('c,'ffi) dataSem$state->('c,'ffi) dataSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi
             ; global := s.global |>`;
 
 val add_space_def = Define `
-  add_space s k = s with space := k`;
+  add_space ^s k = s with space := k`;
 
 val consume_space_def = Define `
-  consume_space k s =
+  consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
 val do_space_def = Define `
-  do_space op l s =
+  do_space op l ^s =
     if op_space_reset op then SOME (s with space := 0)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
+val do_install_def = Define `
+  do_install vs ^s =
+      (case vs of
+       | [v1;v2;vl1;vl2] =>
+           (case (v_to_bytes v1, v_to_words v2) of
+            | (SOME bytes, SOME data) =>
+               if vl1 <> Number (& LENGTH bytes) \/
+                  vl2 <> Number (& LENGTH data)
+               then Rerr(Rabort Rtype_error) else
+               let (cfg,progs) = s.compile_oracle 0 in
+               let new_oracle = shift_seq 1 s.compile_oracle in
+                 (case s.compile cfg progs, progs of
+                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                      if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+                        let s' =
+                          s with <|
+                             code := union s.code (fromAList progs)
+                           ; compile_oracle := new_oracle |>
+                        in
+                          Rval (CodePtr k, s')
+                      else Rerr(Rabort Rtype_error)
+                  | _ => Rerr(Rabort Rtype_error))
+            | _ => Rerr(Rabort Rtype_error))
+       | _ => Rerr(Rabort Rtype_error))`;
+
 val do_app_def = Define `
-  do_app op vs (s:'ffi dataSem$state) =
+  do_app op vs ^s =
+    if op = Install then do_install vs s else
     if MEM op [Greater; GreaterEq] then Rerr(Rabort Rtype_error) else
     case do_space op (LENGTH vs) s of
     | NONE => Rerr(Rabort Rtype_error)
@@ -86,23 +116,23 @@ val LESS_EQ_dec_clock = Q.prove(
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val call_env_def = Define `
-  call_env args s =
+  call_env args ^s =
     s with <| locals := fromList args |>`;
 
 val push_env_def = Define `
-  (push_env env F s = s with <| stack := Env env :: s.stack |>) /\
-  (push_env env T s = s with <| stack := Exc env s.handler :: s.stack
-                              ; handler := LENGTH s.stack |>)`;
+  (push_env env F ^s = s with <| stack := Env env :: s.stack |>) /\
+  (push_env env T ^s = s with <| stack := Exc env s.handler :: s.stack
+                               ; handler := LENGTH s.stack |>)`;
 
 val pop_env_def = Define `
-  pop_env s =
+  pop_env ^s =
     case s.stack of
     | (Env e::xs) => SOME (s with <| locals := e ; stack := xs |>)
     | (Exc e n::xs) => SOME (s with <| locals := e; stack := xs ; handler := n |>)
     | _ => NONE`;
 
 val jump_exc_def = Define `
-  jump_exc s =
+  jump_exc ^s =
     if s.handler < LENGTH s.stack then
       case LASTN (s.handler+1) s.stack of
       | Exc e n :: xs =>
@@ -117,7 +147,7 @@ val cut_env_def = Define `
     else NONE`
 
 val cut_state_def = Define `
-  cut_state names s =
+  cut_state names ^s =
     case cut_env names s.locals of
     | NONE => NONE
     | SOME env => SOME (s with locals := env)`;
@@ -141,7 +171,7 @@ val push_env_clock = Q.prove(
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip,s) = (NONE,s:'ffi dataSem$state)) /\
+  (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
      case get_var src s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -237,7 +267,11 @@ val evaluate_ind = theorem"evaluate_ind";
 
 val do_app_clock = Q.store_thm("do_app_clock",
   `(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock`,
-  SIMP_TAC std_ss [do_app_def,do_space_def,consume_space_def]
+  SIMP_TAC std_ss [do_app_def,do_space_def,consume_space_def,do_install_def]
+  \\ IF_CASES_TAC
+  THEN1 (
+    every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
   \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ IMP_RES_TAC bviSemTheory.do_app_const \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def] \\ SRW_TAC [] []);
@@ -282,7 +316,7 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code k = <|
+  initial_state ffi code coracle cc k = <|
     locals := LN
   ; stack := []
   ; global := NONE
@@ -290,21 +324,24 @@ val initial_state_def = Define`
   ; refs := FEMPTY
   ; clock := k
   ; code := code
+  ; compile := cc
+  ; compile_oracle := coracle
   ; ffi := ffi
   ; space := 0
   |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code start =
+  semantics init_ffi code coracle cc start =
   let p = Call NONE (SOME start) [] NONE in
-    if ∃k. case FST(evaluate (p,initial_state init_ffi code k)) of
+  let init = initial_state init_ffi code coracle cc in
+    if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error
              | NONE => T | _ => F
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate (p,initial_state init_ffi code k) = (SOME r,s) ∧
+        evaluate (p,init k) = (SOME r,s) ∧
         (case (s.ffi.final_event,r) of
          | (SOME e,_) => outcome = FFI_outcome e
          | (_,Rval _) => outcome = Success
@@ -314,7 +351,7 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (p,initial_state init_ffi code k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND (evaluate (p,init k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 

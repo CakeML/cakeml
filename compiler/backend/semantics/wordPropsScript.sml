@@ -1,6 +1,6 @@
 open preamble BasicProvers
      wordLangTheory wordSemTheory
-     asmTheory reg_allocTheory
+     asmTheory reg_allocTheory;
 
 (*
 Main lemmas:
@@ -43,9 +43,21 @@ val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
 
 (* Clock lemmas *)
 
+(*TODO: define globally somewhere? *)
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
+  [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``
+  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).clock = z.clock ∧
-   (set_store x y z).ffi = z.ffi`,
+   (set_store x y z).ffi = z.ffi ∧
+   (set_store x y z).compile = z.compile ∧
+   (set_store x y z).compile_oracle = z.compile_oracle ∧
+   (set_store x y z).be = z.be ∧
+   (set_store x y z).data_buffer = z.data_buffer ∧
+   (set_store x y z).code_buffer = z.code_buffer ∧
+   (set_store x y z).code = z.code`,
   EVAL_TAC);
 
 val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
@@ -54,7 +66,15 @@ val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
 
 val push_env_const = Q.store_thm("push_env_const[simp]",
   `(push_env x y z).clock = z.clock ∧
-   (push_env x y z).ffi = z.ffi`,
+   (push_env x y z).ffi = z.ffi ∧
+   (push_env x y z).termdep = z.termdep ∧
+   (push_env x y z).data_buffer = z.data_buffer ∧
+   (push_env x y z).code_buffer = z.code_buffer ∧
+   (push_env x y z).compile = z.compile ∧
+   (push_env x y z).compile_oracle = z.compile_oracle ∧
+   (push_env x y z).gc_fun = z.gc_fun ∧
+   (push_env x y z).be = z.be ∧
+   (push_env x y z).code = z.code`,
   Cases_on`y`>>simp[push_env_def,UNCURRY] >>
   rename1`SOME p` >>
   PairCases_on`p` >>
@@ -71,7 +91,13 @@ val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
 val pop_env_const = Q.store_thm("pop_env_const",
   `pop_env x = SOME y ⇒
    y.clock = x.clock /\
-   y.ffi = x.ffi`,
+   y.ffi = x.ffi ∧
+   y.be = x.be ∧
+   y.compile = x.compile ∧
+   y.compile_oracle = x.compile_oracle ∧
+   y.data_buffer = x.data_buffer ∧
+   y.code_buffer = x.code_buffer ∧
+   y.code = x.code`,
    srw_tac[][pop_env_def] >>
    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -82,7 +108,14 @@ val pop_env_with_const = Q.store_thm("pop_env_with_const[simp]",
 
 val call_env_const = Q.store_thm("call_env_const[simp]",
   `(call_env x y).clock = y.clock ∧
-   (call_env x y).ffi = y.ffi`,
+   (call_env x y).compile_oracle = y.compile_oracle ∧
+   (call_env x y).compile = y.compile ∧
+   (call_env x y).be = y.be ∧
+   (call_env x y).gc_fun = y.gc_fun ∧
+   (call_env x y).ffi = y.ffi ∧
+   (call_env x y).code = y.code ∧
+   (call_env x y).code_buffer = y.code_buffer ∧
+   (call_env x y).data_buffer = y.data_buffer`,
   EVAL_TAC);
 
 val call_env_with_const = Q.store_thm("call_env_with_const[simp]",
@@ -96,7 +129,13 @@ val has_space_with_const = Q.store_thm("has_space_with_const[simp]",
 val gc_const = Q.store_thm("gc_const",
   `gc x = SOME y ⇒
    y.clock = x.clock ∧
-   y.ffi = x.ffi`,
+   y.ffi = x.ffi ∧
+   y.code = x.code ∧
+   y.be = x.be ∧
+   y.code_buffer = x.code_buffer ∧
+   y.data_buffer = x.data_buffer ∧
+   y.compile = x.compile ∧
+   y.compile_oracle = x.compile_oracle`,
   simp[gc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
 
@@ -112,7 +151,13 @@ val gc_with_const = Q.store_thm("gc_with_const[simp]",
 val alloc_const = Q.store_thm("alloc_const",
   `alloc c names s = (r,s') ⇒
    s'.clock = s.clock ∧
-   s'.ffi = s.ffi`,
+   s'.ffi = s.ffi ∧
+   s'.code = s.code ∧
+   s'.be = s.be ∧
+   s'.code_buffer = s.code_buffer ∧
+   s'.data_buffer = s.data_buffer ∧
+   s'.compile = s.compile ∧
+   s'.compile_oracle = s.compile_oracle`,
   srw_tac[][alloc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
@@ -130,11 +175,25 @@ val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
   CASE_TAC >> full_simp_tac(srw_ss())[]);
 
 val get_var_with_const = Q.store_thm("get_var_with_const[simp]",
-  `get_var x (y with clock := k) = get_var x y`,
+  `get_var x (y with clock := k) = get_var x y /\
+   get_var x (y with permute := p) = get_var x y /\
+   get_var x (y with code_buffer := cb) = get_var x y /\
+   get_var x (y with data_buffer := db) = get_var x y /\
+   get_var x (y with code := cc) = get_var x y /\
+   get_var x (y with compile_oracle := co) = get_var x y /\
+   get_var x (y with compile := ccc) = get_var x y /\
+   get_var x (y with stack := xs) = get_var x y`,
   EVAL_TAC);
 
 val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
-  `get_vars x (y with clock := k) = get_vars x y`,
+  `get_vars x (y with clock := k) = get_vars x y /\
+   get_vars x (y with permute := p) = get_vars x y /\
+   get_vars x (y with code_buffer := cb) = get_vars x y /\
+   get_vars x (y with data_buffer := db) = get_vars x y /\
+   get_vars x (y with code := cc) = get_vars x y /\
+   get_vars x (y with compile_oracle := co) = get_vars x y /\
+   get_vars x (y with compile := ccc) = get_vars x y /\
+   get_vars x (y with stack := xs) = get_vars x y`,
   Induct_on`x`>>srw_tac[][get_vars_def]);
 
 val get_fp_var_with_const = Q.store_thm("get_fp_var_with_const[simp]",
@@ -143,7 +202,12 @@ val get_fp_var_with_const = Q.store_thm("get_fp_var_with_const[simp]",
 
 val set_var_const = Q.store_thm("set_var_const[simp]",
   `(set_var x y z).clock = z.clock ∧
+   (set_var x y z).be = z.be ∧
    (set_var x y z).ffi = z.ffi ∧
+   (set_var x y z).compile = z.compile ∧
+   (set_var x y z).compile_oracle = z.compile_oracle ∧
+   (set_var x y z).code_buffer = z.code_buffer ∧
+   (set_var x y z).data_buffer = z.data_buffer ∧
    (set_var x y z).stack = z.stack`,
   EVAL_TAC);
 
@@ -154,7 +218,8 @@ val set_fp_var_const = Q.store_thm("set_fp_var_const[simp]",
   EVAL_TAC);
 
 val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
-  `set_var x y (z with clock := k) = set_var x y z with clock := k`,
+  `set_var x y (z with clock := k) = set_var x y z with clock := k /\
+   set_var x y (z with permute := p) = set_var x y z with permute := p`,
   EVAL_TAC);
 
 val set_fp_var_with_const = Q.store_thm("set_fp_var_with_const[simp]",
@@ -163,22 +228,38 @@ val set_fp_var_with_const = Q.store_thm("set_fp_var_with_const[simp]",
 
 val set_vars_const = Q.store_thm("set_vars_const[simp]",
   `(set_vars x y z).clock = z.clock ∧
+   (set_vars x y z).compile_oracle = z.compile_oracle ∧
+   (set_vars x y z).code = z.code ∧
+   (set_vars x y z).code_buffer = z.code_buffer ∧
+   (set_vars x y z).data_buffer = z.data_buffer ∧
+   (set_vars x y z).compile = z.compile ∧
+   (set_vars x y z).be = z.be ∧
    (set_vars x y z).ffi = z.ffi`,
   EVAL_TAC);
 
 val set_vars_with_const = Q.store_thm("set_vars_with_const[simp]",
-  `set_vars x y (z with clock := k) = set_vars x y z with clock := k`,
+  `set_vars x y (z with clock := k) = set_vars x y z with clock := k /\
+   set_vars x y (z with permute := p) = set_vars x y z with permute := p`,
   EVAL_TAC);
 
 val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
-  `mem_load x (y with clock := k) = mem_load x y`,
+  `mem_load x (y with clock := k) = mem_load x y ∧
+   mem_load x (y with code := c) = mem_load x y ∧
+   mem_load x (y with compile_oracle := co) = mem_load x y ∧
+   mem_load x (y with compile := cc) = mem_load x y`,
   EVAL_TAC);
 
 val mem_store_const_full = Q.store_thm("mem_store_const_full",
   `mem_store x y z = SOME a ⇒
    a.clock = z.clock ∧
+   a.be = z.be ∧
    a.ffi = z.ffi ∧
    a.handler = z.handler ∧
+   a.code = z.code ∧
+   a.code_buffer = z.code_buffer ∧
+   a.data_buffer = z.data_buffer ∧
+   a.compile = z.compile ∧
+   a.compile_oracle = z.compile_oracle ∧
    a.stack = z.stack`,
   EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
 
@@ -193,10 +274,14 @@ val mem_store_with_const = Q.store_thm("mem_store_with_const[simp]",
   EVAL_TAC >> every_case_tac >> simp[]);
 
 val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
-  `∀x y k. word_exp (x with clock := k) y = word_exp x y`,
+  `∀x y k c co cc.
+  word_exp (x with clock := k) y = word_exp x y ∧
+  word_exp (x with code := c) y = word_exp x y ∧
+  word_exp (x with compile_oracle := co) y = word_exp x y ∧
+  word_exp (x with compile := cc) y = word_exp x y`,
   recInduct word_exp_ind >>
-  srw_tac[][word_exp_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  rw[word_exp_def] >>
+  every_case_tac >> fs[]>>
   ntac 2 (pop_assum mp_tac)>>
   qpat_abbrev_tac`ls = MAP A B`>>
   qpat_abbrev_tac`ls' = MAP A B`>>
@@ -206,6 +291,11 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
 
 val assign_const_full = Q.store_thm("assign_const_full",
   `assign x y z = SOME a ⇒
+   a.code = z.code ∧
+   a.code_buffer = z.code_buffer ∧
+   a.data_buffer = z.data_buffer ∧
+   a.compile = z.compile ∧
+   a.compile_oracle = z.compile_oracle ∧
    a.clock = z.clock ∧
    a.ffi = z.ffi ∧
    a.handler = z.handler ∧
@@ -228,6 +318,11 @@ val inst_with_const = Q.store_thm("inst_with_const[simp]",
 
 val inst_const_full = Q.store_thm("inst_const_full",
   `inst i s = SOME s' ⇒
+   s'.code = s.code ∧
+   s'.code_buffer = s.code_buffer ∧
+   s'.data_buffer = s.data_buffer ∧
+   s'.compile = s.compile ∧
+   s'.compile_oracle = s.compile_oracle ∧
    s'.clock = s.clock ∧
    s'.ffi = s.ffi ∧
    s'.handler = s.handler ∧
@@ -258,7 +353,15 @@ val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
   Cases_on`x`>>EVAL_TAC);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
-  `(dec_clock s).ffi = s.ffi`,
+  `(dec_clock s).be = s.be /\
+   (dec_clock s).ffi = s.ffi /\
+   (dec_clock s).code = s.code /\
+   (dec_clock s).code_buffer = s.code_buffer /\
+   (dec_clock s).data_buffer = s.data_buffer /\
+   (dec_clock s).compile_oracle = s.compile_oracle ∧
+   (dec_clock s).stack = s.stack ∧
+   (dec_clock s).permute = s.permute ∧
+   (dec_clock s).compile = s.compile`,
   EVAL_TAC);
 
 (* Standard add clock lemma for FBS *)
@@ -364,7 +467,14 @@ val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
   >- tac
   >- (tac>>imp_res_tac jump_exc_const>>full_simp_tac(srw_ss())[])
   >- tac
-  >- (tac>>full_simp_tac(srw_ss())[cut_env_def,LET_THM]>>pairarg_tac>>full_simp_tac(srw_ss())[state_component_equality]>>rveq>>full_simp_tac(srw_ss())[])
+  >-
+     (tac>>fs[]>>pairarg_tac>>fs[]>>
+     every_case_tac>>fs[state_component_equality])
+  >- tac
+  >- tac
+  >- (tac>>fs[cut_env_def]>>
+     pairarg_tac>>
+     fs[state_component_equality]>>rveq>>fs[])
   >>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 5 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -564,29 +674,43 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
 val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   pop_env r = SOME x ⇒
   r.code = x.code ∧
+  r.code_buffer = x.code_buffer ∧
+  r.data_buffer = x.data_buffer ∧
   r.gc_fun = x.gc_fun ∧
   r.clock = x.clock ∧
   r.be = x.be ∧
-  r.mdomain = x.mdomain`,
+  r.mdomain = x.mdomain ∧
+  r.compile = x.compile ∧
+  r.compile_oracle = x.compile_oracle`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]);
 
 val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain /\ t.be = s.be`,
+  t.code = s.code /\
+  t.code_buffer = s.code_buffer /\
+  t.data_buffer = s.data_buffer /\
+  t.gc_fun = s.gc_fun /\
+  t.mdomain = s.mdomain /\
+  t.be = s.be ∧
+  t.compile = s.compile ∧
+  t.compile_oracle = s.compile_oracle`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
   imp_res_tac pop_env_code_gc_fun_clock>>fs[]);
 
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
-  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
+  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be ∧ s.compile = t.compile`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]);
 
-val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
+val evaluate_consts = Q.store_thm("evaluate_consts",
   `!xs s1 vs s2.
      evaluate (xs,s1) = (vs,s2) ==>
-     s1.code = s2.code /\ s1.gc_fun = s2.gc_fun /\
-     s1.mdomain = s2.mdomain /\ s1.be = s2.be`,
+     s1.gc_fun = s2.gc_fun /\
+     s1.mdomain = s2.mdomain /\
+     s1.be = s2.be ∧
+     s1.compile = s2.compile
+     `,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
   >-
     (rename1 `bad_dest_args _ _`>>
@@ -603,25 +727,11 @@ val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
   >>
     fs[jump_exc_def]>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
-    TRY(pairarg_tac>>fs[state_component_equality])>>
+    TRY(pairarg_tac>>fs[])>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
-    metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const]);
+    metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const,state_component_equality]);
 
-val evaluate_code_const = Q.store_thm("evaluate_code_const",
-  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code`,
-  metis_tac [evaluate_code_gc_fun_const]);
-
-val evaluate_gc_fun_const = Q.store_thm("evaluate_gc_fun_const",
-  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.gc_fun = s2.gc_fun`,
-  metis_tac [evaluate_code_gc_fun_const]);
-
-val evaluate_mdomain_const = Q.store_thm("evaluate_mdomain_const",
-  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.mdomain = s2.mdomain`,
-  metis_tac [evaluate_code_gc_fun_const]);
-
-val evaluate_be_const = Q.store_thm("evaluate_be_const",
-  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.be = s2.be`,
-  metis_tac [evaluate_code_gc_fun_const]);
+(* TODO: monotonicity *)
 
 (* -- *)
 
@@ -1032,7 +1142,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
   >-(*Skip*)
     (full_simp_tac(srw_ss())[evaluate_def,s_key_eq_refl]>>srw_tac[][]>>HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[s_key_eq_refl])
   >-(*Alloc*)
-    (full_simp_tac(srw_ss())[evaluate_def,alloc_def]>>reverse every_case_tac>>
+    (fs[evaluate_def,alloc_def]>>reverse every_case_tac>>
     (every_case_tac>>
     IMP_RES_TAC gc_s_key_eq>>
     IMP_RES_TAC push_env_pop_env_s_key_eq>>
@@ -1046,7 +1156,6 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
       every_case_tac>>full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def]>>
       srw_tac[][]>>full_simp_tac(srw_ss())[]))>> TRY(full_simp_tac(srw_ss())[call_env_def,fromList2_def]>>srw_tac[][])>>
     full_case_tac>>full_simp_tac(srw_ss())[get_var_def]>>
-    full_case_tac>>
     Q.MATCH_ASSUM_ABBREV_TAC `gc a = y`>>
     Q.MATCH_ASSUM_ABBREV_TAC `gc b = SOME x'`>>
     `s_val_eq b.stack a.stack /\ b with stack:=a.stack = a` by
@@ -1065,7 +1174,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
       metis_tac[s_frame_val_and_key_eq,s_frame_key_eq_sym])>>
     full_simp_tac(srw_ss())[pop_env_def] >>Cases_on`h'`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def]>>
     full_simp_tac(srw_ss())[state_component_equality]>>
-    full_simp_tac(srw_ss())[has_space_def])>-full_simp_tac(srw_ss())[state_component_equality]>>
+    full_simp_tac(srw_ss())[has_space_def])
+    >-
+      full_simp_tac(srw_ss())[state_component_equality]>>
     Q.EXISTS_TAC`t'`>>
     full_simp_tac(srw_ss())[state_component_equality]>>
     metis_tac[s_val_eq_def,s_key_eq_sym])
@@ -1088,19 +1199,21 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])>>
     rw[]>>fs[])
   >- (*Assign*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
+    (fs[evaluate_def]>>every_case_tac>>
+    fs[set_var_def,s_key_eq_refl]>>
     rpt strip_tac>>
     HINT_EXISTS_TAC>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
   >-(*Get*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
+    (fs[evaluate_def]>>every_case_tac>>
+    fs[set_var_def,s_key_eq_refl]>>
     full_simp_tac(srw_ss())[set_store_def,s_key_eq_refl]>>
     rpt strip_tac>>
     HINT_EXISTS_TAC>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
   >-(*Set*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_store_def,s_key_eq_refl]>>
+    (fs[evaluate_def]>>every_case_tac>>
+    fs[set_store_def,s_key_eq_refl]>>
     rpt strip_tac>>
     HINT_EXISTS_TAC>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
@@ -1212,6 +1325,31 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
   >- (*LocValue*) (
     fs[evaluate_def,set_var_def,state_component_equality,s_key_eq_refl]
     \\ rw[s_key_eq_refl,state_component_equality] )
+  >- (* Install *) (
+    fs[evaluate_def]>>
+    TOP_CASE_TAC>>fs[]>>
+    reverse (TOP_CASE_TAC)>>fs[]
+    >-(
+      pop_assum mp_tac>>
+      simp[case_eq_thms]>>rw[]>>
+      pairarg_tac>>fs[]>>
+      qpat_x_assum`_ = (SOME _,_)` mp_tac>>
+      simp[case_eq_thms]>>rw[])
+    >>
+      fs[case_eq_thms]>>
+      pairarg_tac>>fs[case_eq_thms]>>
+      rw[]>>fs[state_component_equality]>>
+      metis_tac[s_key_eq_refl])
+  >- (* CBW *) (
+    fs[evaluate_def]>>rw[]>>
+    fs[case_eq_thms]>>
+    every_case_tac>>fs[state_component_equality]>>
+    metis_tac[s_key_eq_refl])
+  >- (* DBW *) (
+    fs[evaluate_def]>>rw[]>>
+    fs[case_eq_thms]>>
+    every_case_tac>>fs[state_component_equality]>>
+    metis_tac[s_key_eq_refl])
   >-(*FFI*)
    (full_simp_tac(srw_ss())[evaluate_def]>>
     every_case_tac>>rename[`call_FFI s.ffi ffi_index conf bytes`]>>
@@ -1619,9 +1757,9 @@ val get_var_imm_perm = Q.store_thm("get_var_imm_perm",`
   get_var_imm n (st with permute:=perm) =
   (get_var_imm n st)`,
   Cases_on`n`>>
-  full_simp_tac(srw_ss())[get_var_imm_def,get_var_perm]);
+  fs[get_var_imm_def]);
 
-val set_var_perm = Q.store_thm("set_var_perm",`
+val set_var_perm = Q.store_thm("set_var_perm[simp]",`
   set_var v x (s with permute:=perm) =
   (set_var v x s) with permute:=perm`,
   full_simp_tac(srw_ss())[set_var_def]);
@@ -1636,7 +1774,7 @@ val get_vars_perm = Q.prove(`
   (get_vars ls st)`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_perm]);
 
-val set_vars_perm = Q.prove(`
+val set_vars_perm = Q.store_thm("set_vars_perm[simp]",`
   ∀ls. set_vars ls x (st with permute := perm) =
        (set_vars ls x st) with permute:=perm`,
   full_simp_tac(srw_ss())[set_vars_def]);
@@ -1653,7 +1791,7 @@ val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
           `(λn. perm' n) = perm'` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
           simp[]);
 
-val word_exp_perm = Q.store_thm("word_exp_perm",`
+val word_exp_perm = Q.store_thm("word_exp_perm[simp]",`
   ∀s exp. word_exp (s with permute:=perm) exp =
           word_exp s exp`,
   ho_match_mp_tac word_exp_ind>>srw_tac[][word_exp_def]
@@ -1682,11 +1820,12 @@ val jump_exc_perm = Q.prove(`
   every_case_tac>>
   full_simp_tac(srw_ss())[state_component_equality]);
 
-(*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
+(*For any target result permute, we can find an initial permute such that the
+  final permute is equal to the target *)
 val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   ∀prog st perm.
   let (res,rst) = evaluate(prog,st) in
-    res ≠ SOME Error  (*Provable without this assum*)
+    res ≠ SOME Error  (*Note: actually provable without this assum, but this is simpler*)
     ⇒
     ∃perm'. evaluate(prog,st with permute := perm') =
     (res,rst with permute:=perm)`,
@@ -1696,44 +1835,39 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   >-
     (full_simp_tac(srw_ss())[alloc_def]>>
     qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
-    full_simp_tac(srw_ss())[get_var_perm]>>
+    fs[]>>
     full_case_tac>>full_case_tac>>full_simp_tac(srw_ss())[]
     >-
       (Cases_on`x`>>full_simp_tac(srw_ss())[])
     >>
     full_case_tac>>full_simp_tac(srw_ss())[]>>
     Cases_on`gc (push_env x NONE (set_store AllocSize (Word c) st))`>>
-    full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
+    fs[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
     imp_res_tac gc_perm>>full_simp_tac(srw_ss())[pop_env_perm]>>
     ntac 3 (full_case_tac>>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[has_space_def]>>
     IF_CASES_TAC>>
     full_simp_tac(srw_ss())[state_component_equality,FUN_EQ_THM,call_env_def])
   >-
-    (qexists_tac`perm`>>full_simp_tac(srw_ss())[get_vars_perm]>>
+    (qexists_tac`perm`>>fs[]>>
     ntac 2 (full_case_tac>>full_simp_tac(srw_ss())[])>>
-    full_simp_tac(srw_ss())[set_vars_perm])
+    fs[])
   >-
     (qexists_tac`perm`>>
-    full_simp_tac(srw_ss())[inst_def,assign_def,LET_THM]>>every_case_tac>>
+    fs[inst_def,assign_def,LET_THM]>>every_case_tac>>
+    fs[mem_store_perm,mem_load_def]>>
     full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm,get_fp_var_perm,set_fp_var_perm]>>
     rfs[]>>fs[]>>rveq>>
     fs[state_component_equality])
   >-
-    (full_simp_tac(srw_ss())[word_exp_perm]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_var_perm]>>
-    metis_tac[state_component_equality])
+    (fs[]>>
+    every_case_tac>>fs[state_component_equality])
   >-
-    (every_case_tac>>full_simp_tac(srw_ss())[set_var_perm]>>
-    metis_tac[state_component_equality])
+    (every_case_tac>>fs[state_component_equality])
   >-
-    (full_simp_tac(srw_ss())[word_exp_perm]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_store_def]>>
-    qexists_tac`perm`>>full_simp_tac(srw_ss())[state_component_equality])
+    (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality])
   >-
-    (full_simp_tac(srw_ss())[word_exp_perm]>>every_case_tac>>
-    full_simp_tac(srw_ss())[get_var_perm,mem_store_perm]>>
-    metis_tac[state_component_equality])
+    (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality,mem_store_perm])
   >-
     (qexists_tac`perm`>>
     every_case_tac>>full_simp_tac(srw_ss())[dec_clock_def,call_env_def]>>
@@ -1761,18 +1895,24 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
       qexists_tac`perm'`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
   >-
-    (full_simp_tac(srw_ss())[get_var_perm]>>every_case_tac>>
+    (fs[]>>every_case_tac>>
     full_simp_tac(srw_ss())[call_env_def,state_component_equality])
   >-
-    (full_simp_tac(srw_ss())[get_var_perm]>>every_case_tac>>
+    (fs[]>>every_case_tac>>
     full_simp_tac(srw_ss())[jump_exc_perm]>>metis_tac[state_component_equality])
   >-
     (Cases_on`ri`>>
-    full_simp_tac(srw_ss())[get_var_perm,get_var_imm_def]>>every_case_tac>>full_simp_tac(srw_ss())[]
+    full_simp_tac(srw_ss())[get_var_imm_def]>>every_case_tac>>full_simp_tac(srw_ss())[]
     >>
       full_simp_tac(srw_ss())[LET_THM])
   >- (*LocValue*)
     (qexists_tac`perm`>>rw[]>>fs[set_var_def,state_component_equality])
+  >- (*Install*)
+    (qexists_tac`perm`>>fs[case_eq_thms,UNCURRY])
+  >- (* CBW *)
+    fs[case_eq_thms,state_component_equality]
+  >- (* DBW *)
+    fs[case_eq_thms,state_component_equality]
   >- (*FFI*)
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[get_var_perm]>>
@@ -1781,8 +1921,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
         Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
   >- (*Call*)
-    (full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
-    full_simp_tac(srw_ss())[get_vars_perm]>>
+    (fs[evaluate_def]>>
     ntac 5 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
     >- (*Tail Call*)
       (every_case_tac>>
@@ -1821,7 +1960,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
         full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM,call_env_def]>>
         `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
         full_simp_tac(srw_ss())[state_component_equality,call_env_def]>>
-        full_simp_tac(srw_ss())[pop_env_perm]>>full_simp_tac(srw_ss())[set_var_perm])
+        full_simp_tac(srw_ss())[pop_env_perm]>>full_simp_tac(srw_ss())[])
       >-
         (full_case_tac>>full_simp_tac(srw_ss())[]
         >-
@@ -1839,7 +1978,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
         full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
         `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
         full_simp_tac(srw_ss())[state_component_equality,call_env_def]>>
-        full_simp_tac(srw_ss())[set_var_perm])
+        full_simp_tac(srw_ss())[])
       >>
         perm_assum_tac>>
         Cases_on`handler`>>TRY(PairCases_on`x''`)>>
@@ -2239,6 +2378,18 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     (rw[]>>fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
     qpat_x_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
+  >- (* Install *)
+    (fs[case_eq_thms,UNCURRY,every_var_def]>>rw[]>>
+    imp_res_tac locals_rel_cut_env>>
+    imp_res_tac locals_rel_get_var>>fs[state_component_equality]>>
+    match_mp_tac locals_rel_set_var>>
+    fs[locals_rel_def])
+  >-
+    (fs[case_eq_thms,every_var_def]>>rw[]>>
+    imp_res_tac locals_rel_get_var>>fs[state_component_equality])
+  >-
+    (fs[case_eq_thms,every_var_def]>>rw[]>>
+    imp_res_tac locals_rel_get_var>>fs[state_component_equality])
   >>
     (qpat_x_assum `A = (res,rst)` mp_tac>> ntac 5 full_case_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
@@ -2261,7 +2412,7 @@ val gc_fun_ok_def = Define `
       ~(Handler IN FDOM s1) /\
       (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
 
-(* wordLang syntactic things *)
+(* wordLang syntactic things, TODO: not updated for install,cbw,dbw *)
 (* No expressions occur except in Set, where it must be a Var expr *)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
@@ -2405,6 +2556,7 @@ val full_inst_ok_less_def = Define`
 (* All cutsets are well-formed *)
 val wf_cutsets_def = Define`
   (wf_cutsets (Alloc n s) = wf s) ∧
+  (wf_cutsets (Install _ _ _ _ s) = wf s) ∧
   (wf_cutsets (Call ret dest args h) =
     (case ret of
       NONE => T
@@ -2439,6 +2591,7 @@ val call_arg_convention_def = Define`
   (call_arg_convention (Inst i) = inst_arg_convention i) ∧
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
+  (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
                                                          ptr2 = 6 ∧ len2 = 8)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧

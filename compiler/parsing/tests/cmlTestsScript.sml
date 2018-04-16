@@ -64,14 +64,14 @@ fun parsetest0 nt sem s opt = let
                     ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
-    fun pp pps (s,t) =
-        (PP.begin_block pps PP.CONSISTENT 0;
-         PP.add_string pps s;
-         PP.add_break pps (1,2);
-         pp_term pps t;
-         PP.end_block pps)
+    fun pp (s,t) =
+      PP.block PP.CONSISTENT 0 [
+        PP.add_string s,
+        PP.add_break (1,2),
+        pp_term t
+      ]
   in
-    print (PP.pp_to_string 79 pp (s,t) ^ "\n")
+    PP.prettyPrint (print, 79) (pp (s,t))
   end
   fun die (s,t) = (diag (s,t); raise Fail ("Failed "^s))
 

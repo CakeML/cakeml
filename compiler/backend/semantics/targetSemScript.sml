@@ -24,6 +24,10 @@ val _ = Datatype `
     ; next_interfer : num -> 'b -> 'b
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
+    (* entry point for calling clear_cache *)
+    ; ccache_pc : 'a word
+    (* major interference by calling clear_cache *)
+    ; ccache_interfer : num -> 'a word # 'a word # 'b -> 'b
     (* target next-state function etc. *)
     ; target : ('a,'b,'c) target
     |>`
@@ -47,6 +51,14 @@ val evaluate_def = Define `
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then Halt Success else Halt Resource_limit_hit,ms,ffi)
+      else if mc.target.get_pc ms = mc.ccache_pc then
+        let (ms1,new_oracle) =
+          apply_oracle mc.ccache_interfer
+            (mc.target.get_reg ms mc.ptr_reg,
+             mc.target.get_reg ms mc.len_reg,
+             ms) in
+        let mc = mc with ccache_interfer := new_oracle in
+          evaluate mc ffi (k-1) ms1
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)

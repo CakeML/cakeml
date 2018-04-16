@@ -429,7 +429,7 @@ structure reg_alloc = struct
                                                 Readerror(x)
                                               end
                  in
-                  (Array.update ( degrees, v2, (v1 + 1)))
+                  (Array.update ( degrees, v2, (v1 - 1)))
                   handle  Subscript =>  raise  let val  x = ()
                                               in
                                                 Writeerror(x)

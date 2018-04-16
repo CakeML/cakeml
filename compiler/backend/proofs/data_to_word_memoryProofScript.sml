@@ -3847,6 +3847,11 @@ val memory_rel_El = Q.store_thm("memory_rel_El",
   \\ fs [word_list_def,word_list_APPEND]
   \\ SEP_R_TAC \\ fs []);
 
+val memory_rel_swap = Q.store_thm("memory_rel_swap",
+  `memory_rel c be refs sp st m dm (x::y::z) ==>
+   memory_rel c be refs sp st m dm (y::x::z)`,
+  match_mp_tac memory_rel_rearrange \\ rw[] \\ rw[]);
+
 val memory_rel_Deref = Q.store_thm("memory_rel_Deref",
   `memory_rel c be refs sp st m dm
      ((RefPtr nn,ptr)::(Number (&index),i)::vars) /\
@@ -5309,6 +5314,32 @@ val IMP_memory_rel_Number = Q.store_thm("IMP_memory_rel_Number",
   \\ strip_tac \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [Smallnum_def] \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma]);
+
+val memory_rel_El_any = Q.store_thm("memory_rel_El_any",
+  `memory_rel c be refs sp st m dm ((Block tag vals,ptr:'a word_loc)::vars) /\
+    good_dimindex (:'a) /\
+    index < LENGTH vals ==>
+    ?ptr_w x y:'a word.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      (x + bytes_in_word + bytes_in_word * n2w index) IN dm /\
+      memory_rel c be refs sp st m dm
+        ((EL index vals,m (x + bytes_in_word + bytes_in_word * n2w index))::
+         (Block tag vals,ptr)::vars)`,
+  rw [] \\ rpt_drule memory_rel_Block_IMP \\ rw [] \\ fs []
+  \\ Cases_on `vals = []` \\ fs []
+  \\ `memory_rel c be refs sp st m dm
+           ((Block tag vals,Word w)::(Number (&index),
+              Word (Smallnum (&index)))::vars)` by
+   (match_mp_tac memory_rel_swap
+    \\ match_mp_tac IMP_memory_rel_Number \\ fs []
+    \\ fs [small_int_def,dimword_def,good_dimindex_def] \\ rfs [])
+  \\ rpt_drule memory_rel_El \\ fs [] \\ strip_tac \\ fs []
+  \\ fs [get_real_offset_def, good_dimindex_def] \\ rfs [Smallnum_def]
+  \\ rveq \\ fs [bytes_in_word_def] \\ rfs [word_mul_n2w,WORD_MUL_LSL]
+  \\ pop_assum mp_tac
+  \\ match_mp_tac memory_rel_rearrange
+  \\ fs [] \\ rw [] \\ fs []);
 
 val copy_list_def = Define `
   copy_list c' st k (a,x,b:'a word,m:'a word -> 'a word_loc,dm) =
@@ -7132,11 +7163,6 @@ val v_ind =
   |> SIMP_RULE(srw_ss())[]
   |> UNDISCH_ALL |> CONJUNCT1
   |> DISCH_ALL
-
-val memory_rel_swap = Q.store_thm("memory_rel_swap",
-  `memory_rel c be refs sp st m dm (x::y::z) ==>
-   memory_rel c be refs sp st m dm (y::x::z)`,
-  match_mp_tac memory_rel_rearrange \\ rw[] \\ rw[]);
 
 val memory_rel_Block_MEM = Q.store_thm("memory_rel_Block_MEM",
   `memory_rel c be refs sp st m dm ((Block n ls,(v:'a word_loc))::vars) ∧
