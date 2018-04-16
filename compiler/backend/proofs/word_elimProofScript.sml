@@ -11,7 +11,7 @@ val _ = new_theory "word_elimProof";
 (**************************** DESTWORDLOC, DESTRESULTLOC *****************************)
 
 val destWordLoc_def = Define ` (* 'a word_loc = Word ('a word) | Loc num num *)
-    (destWordLoc (Loc n _) = SOME n) ∧ 
+    (destWordLoc (Loc n _) = SOME n) ∧
     (destWordLoc (_:'a word_loc) = NONE)
 `
 
@@ -31,84 +31,60 @@ val destResultLoc_def = Define `
 (* TODO could do alt def using toAList - not necessary though, may not be cleaner *)
 val getLocals_def = Define ` (* locals : ('a word_loc) num_map *)
     (getLocals (LN : ('a word_loc) num_map) = LN) ∧
-    (getLocals (LS a) = case (destWordLoc a) of 
-        | SOME n => insert n () LN 
+    (getLocals (LS a) = case (destWordLoc a) of
+        | SOME n => insert n () LN
         | NONE => LN) ∧
     (getLocals (BN t1 t2) = union (getLocals t1) (getLocals t2)) ∧
     (getLocals (BS t1 a t2) = let t = (union (getLocals t1) (getLocals t2)) in
-        case (destWordLoc a) of 
-            | SOME n => insert n () t 
+        case (destWordLoc a) of
+            | SOME n => insert n () t
             | NONE => t)
 `
 
 (******** THEOREMS ********)
 
 val getLocals_thm = Q.store_thm("getLocals_thm",
-    `∀ t n1 n0 locs . 
-        (∃ n . lookup n (t:('a word_loc) num_map) = SOME (Loc n1 n0)) ∧ 
+    `∀ t n1 n0 locs .
+        (∃ n . lookup n (t:('a word_loc) num_map) = SOME (Loc n1 n0)) ∧
         locs = getLocals t ⇒ n1 ∈ domain locs`,
     Induct >> rw[lookup_def, getLocals_def, destWordLoc_def, domain_union]
     >- (fs[lookup_def] >> Cases_on `EVEN n` >> fs[] >> metis_tac[])
-    >- (Cases_on `destWordLoc a` >> fs[] >> rw[domain_union] >> fs[lookup_def] >> 
+    >- (Cases_on `destWordLoc a` >> fs[] >> rw[domain_union] >> fs[lookup_def] >>
         Cases_on `n = 0` >> fs[] >> rveq >> fs[destWordLoc_def] >>
         Cases_on `a` >> fs[destWordLoc_def] >> Cases_on `EVEN n` >> fs[] >> metis_tac[])
 );
 
-val getLocals_thm_STRONG = Q.store_thm("getLocals_thm_STRONG",
-    `∀ t n1 . (∃n n0. lookup n t = SOME (Loc n1 n0)) ⇔ n1 ∈ domain (getLocals t)`,
-    rw[] >> EQ_TAC >> rw[]
-    >- (qspecl_then [`t`, `n1`, `n0`, `getLocals t`] mp_tac getLocals_thm >> rw[] >> res_tac)
-    >> Induct_on `t` 
+val domain_getLocals_lookup = Q.store_thm ("domain_getLocals_lookup",
+    `∀ n t . n ∈ domain (getLocals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)`,
+    rw[] >> reverse (EQ_TAC) >> rw[]
+    >- (match_mp_tac getLocals_thm >> fs[PULL_EXISTS] >> qexists_tac `t` >>
+        qexists_tac `n1` >> qexists_tac `k` >> fs[])
+    >> Induct_on `t`
         >- rw[getLocals_def, domain_def]
         >- (rw[getLocals_def, domain_def, lookup_def] >> Cases_on `a` >> fs[destWordLoc_def])
         >- (rw[getLocals_def, domain_def, lookup_def] >> fs[domain_union] >> res_tac
-            >- (qexists_tac `2 * n + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
-            >- (qexists_tac `2 * n + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV]))
+            >- (qexists_tac `2 * k + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
+            >- (qexists_tac `2 * k + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV]))
         >- (rw[getLocals_def, domain_def, lookup_def] >> Cases_on `a` >> fs[destWordLoc_def]
             >- (fs[domain_union] >> res_tac
-                >- (qexists_tac `2 * n + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
-                >- (qexists_tac `2 * n + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV]))
+                >- (qexists_tac `2 * k + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
+                >- (qexists_tac `2 * k + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV]))
             >- (rveq >> qexists_tac `0n` >> fs[])
             >- (fs[domain_union] >> res_tac
-                >- (qexists_tac `2 * n' + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
-                >- (qexists_tac `2 * n' + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])))
-);
-
-val domain_getLocals_lookup = Q.store_thm ("domain_getLocals_lookup",
-    `∀ n t . n ∈ domain (getLocals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)`,
-    Induct_on `t` >> rw[getLocals_def, lookup_def] 
-        >- (Cases_on `destWordLoc a` >> fs[] >> Cases_on `a` >> fs[] >> fs[destWordLoc_def])
-        >- (fs[domain_union] >> res_tac >> EQ_TAC >> rw[]
-            >- (qexists_tac `k * 2 + 2` >> fs[] >> `EVEN (2 * (k + 1))` by fs[EVEN_DOUBLE] >>
-                fs[LEFT_ADD_DISTRIB] >> once_rewrite_tac [MULT_COMM] >> FULL_SIMP_TAC std_ss [DIV_MULT] >> fs[])
-            >- (qexists_tac `k * 2 + 1` >> fs[] >> `¬EVEN (2 * k + 1)` by fs[EVEN_ADD, EVEN_DOUBLE] >> 
-                once_rewrite_tac [MULT_COMM] >> fs[MULT_DIV])
-            >- (Cases_on `EVEN k` >> fs[] >> metis_tac[]))
-        >- (Cases_on `destWordLoc a` >> fs[] >> Cases_on `a` >> fs[] >> fs[destWordLoc_def] >>
-            fs[domain_union] >> res_tac >> EQ_TAC >> rw[]
-            >- (qexists_tac `2 * k + 2` >> fs[] >> `EVEN (2 * (k + 1))` by fs[EVEN_DOUBLE] >> fs[LEFT_ADD_DISTRIB] >> 
-                once_rewrite_tac [MULT_COMM] >> FULL_SIMP_TAC std_ss [DIV_MULT] >> fs[])
-            >- (qexists_tac `k * 2 + 1` >> fs[] >> `¬EVEN (2 * k + 1)` by fs[EVEN_ADD, EVEN_DOUBLE] >> 
-                once_rewrite_tac [MULT_COMM] >> fs[MULT_DIV])
-            >- (Cases_on `EVEN k` >> fs[] >> Cases_on `k = 0` >> fs[] >> metis_tac[])
-            >- (qexists_tac `0` >> fs[])
-            >- (rveq >> qexists_tac `2 * k + 2` >> fs[] >> `EVEN (2 * (k + 1))` by fs[EVEN_DOUBLE] >> 
-                fs[LEFT_ADD_DISTRIB] >> once_rewrite_tac [MULT_COMM] >> FULL_SIMP_TAC std_ss [DIV_MULT] >> fs[])
-            >- (rveq >> qexists_tac `k * 2 + 1` >> fs[] >> `¬EVEN (2 * k + 1)` by fs[EVEN_ADD, EVEN_DOUBLE] >> 
-                once_rewrite_tac [MULT_COMM] >> fs[MULT_DIV])
-            >- (Cases_on `n = n'` >> fs[] >> Cases_on `EVEN k` >> fs[] >> Cases_on `k = 0` >> fs[] >> metis_tac[]))
+                >- (qexists_tac `2 * k + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
+                >- (qexists_tac `2 * k + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >> once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])))
 );
 
 val getLocals_insert_Loc = Q.store_thm("getLocals_insert_Loc",
-    `∀ k n1 n0 (locals : ('a word_loc) num_map). 
+    `∀ k n1 n0 (locals : ('a word_loc) num_map).
         domain (getLocals (insert k (Loc n1 n0) locals)) ⊆ domain (getLocals locals) ∪ {n1}`,
         rw[] >> fs[SUBSET_DEF] >>  rw[domain_getLocals_lookup] >> fs[lookup_insert] >> rw[] >>
         Cases_on `k' = k` >> fs[] >> disj1_tac >> qexists_tac `k'` >> qexists_tac `n1'` >> fs[]
 );
 
 val getLocals_insert = Q.store_thm("getLocals_insert",
-    `∀ k v (locals : ('a word_loc) num_map). 
-        domain (getLocals (insert k v locals)) ⊆ domain (getLocals locals) 
+    `∀ k v (locals : ('a word_loc) num_map).
+        domain (getLocals (insert k v locals)) ⊆ domain (getLocals locals)
         ∪ (case destWordLoc v of | NONE => {} | SOME n => {n})`,
         reverse(Cases_on `v`) >> fs[destWordLoc_def]
         >- fs[getLocals_insert_Loc]
@@ -119,7 +95,7 @@ val getLocals_insert = Q.store_thm("getLocals_insert",
 (**************************** GETSTORE *****************************)
 
 val getStore_def = Define ` (* store : store_name |-> 'a word_loc *)
-    getStore (st:store_name |-> 'a word_loc) = 
+    getStore (st:store_name |-> 'a word_loc) =
         let locSet = SET_TO_LIST (FRANGE st) in
         let locList = MAP THE (FILTER IS_SOME (MAP destWordLoc locSet)) in
         FOLDL (λ acc loc . insert loc () acc) LN locList
@@ -147,7 +123,7 @@ val getStore_update = Q.store_thm("getStore_update",
 (******** GET_NUMWORDLOC_ALIST ********)
 
 val get_NumWordLoc_alist_def = Define `
-    get_NumWordLoc_alist (l: (num, 'a word_loc) alist) = 
+    get_NumWordLoc_alist (l: (num, 'a word_loc) alist) =
         let locs = MAP THE (FILTER IS_SOME (MAP (destWordLoc o SND) l)) in
         FOLDL (λ acc loc . insert loc () acc) LN locs
 `
@@ -159,7 +135,7 @@ val get_NumWordLoc_alist_thm = Q.store_thm ("get_NumWordLoc_alist_thm",
         qexists_tac `y` >> metis_tac[destWordLoc_def])
     >- (Cases_on `SND y'` >> fs[destWordLoc_def] >>
         qexists_tac `n0` >> qexists_tac `y'` >> fs[])
-); 
+);
 
 val get_NumWordLoc_alist_getLocals = Q.store_thm ("get_NumWordLoc_alist_getlocals",
     `∀ e . domain (getLocals (fromAList e)) ⊆ domain (get_NumWordLoc_alist e)`,
@@ -173,7 +149,7 @@ val get_NumWordLoc_alist_getLocals = Q.store_thm ("get_NumWordLoc_alist_getlocal
 (******** GETSTACK ********)
 
 val getStack_def = Define ` (* stack : ('a stack_frame) list *)
-    (getStack [] = LN:num_set) ∧ 
+    (getStack [] = LN:num_set) ∧
     (getStack ((StackFrame e _)::xs) = union (get_NumWordLoc_alist e) (getStack xs))
 `
 
@@ -182,19 +158,19 @@ val getStack_ind = theorem "getStack_ind";
 (******** THEOREMS ********)
 
 val getStack_hd_thm = Q.store_thm ("getStack_hd_thm",
-    `∀ stack reachable l opt t . domain (getStack stack) ⊆ domain reachable ∧ stack = StackFrame l opt::t 
+    `∀ stack reachable l opt t . domain (getStack stack) ⊆ domain reachable ∧ stack = StackFrame l opt::t
         ⇒ domain (getLocals (fromAList l)) ⊆ domain reachable ∧ domain (getStack t) ⊆ domain (reachable)`,
-            recInduct getStack_ind >> rw[] 
+            recInduct getStack_ind >> rw[]
             >- (Cases_on `e` >> fs[getStack_def, domain_union, fromAList_def, getLocals_def] >>
                 fs[getStack_def, domain_union, fromAList_def] >>
                 metis_tac[get_NumWordLoc_alist_getLocals, SUBSET_TRANS])
             >-  fs[getStack_def, domain_union]
 );
-    
+
 val getStack_LASTN = Q.store_thm("getStack_LASTN",
-    `∀ stack reachable n . domain (getStack stack) ⊆ domain reachable 
+    `∀ stack reachable n . domain (getStack stack) ⊆ domain reachable
     ⇒ domain(getStack (LASTN n stack)) ⊆ domain reachable`,
-    recInduct getStack_ind >> rw[getStack_def, LASTN_ALT] >> 
+    recInduct getStack_ind >> rw[getStack_def, LASTN_ALT] >>
     Cases_on `SUC (LENGTH xs) ≤ n` >> fs[getStack_def, domain_union]
 );
 
@@ -204,25 +180,25 @@ val getStack_CONS = Q.store_thm("getStack_CONS",
 );
 
 val getStack_enc_stack = Q.store_thm("getStack_enc_stack",
-    `∀ stack reachable . domain (getStack stack) ⊆ domain reachable ⇒ ∀ e . MEM e (enc_stack stack) 
+    `∀ stack reachable . domain (getStack stack) ⊆ domain reachable ⇒ ∀ e . MEM e (enc_stack stack)
     ⇒ (case destWordLoc e of | NONE => {} | SOME n => {n}) ⊆ domain reachable`,
-    recInduct getStack_ind >> rw[enc_stack_def, getStack_def, domain_union] 
+    recInduct getStack_ind >> rw[enc_stack_def, getStack_def, domain_union]
     >- (last_x_assum kall_tac >>
         Cases_on `e'` >> fs[destWordLoc_def] >>
-        qsuff_tac `n ∈ domain (get_NumWordLoc_alist e)` >> fs[SUBSET_DEF] >>        
+        qsuff_tac `n ∈ domain (get_NumWordLoc_alist e)` >> fs[SUBSET_DEF] >>
         imp_res_tac get_NumWordLoc_alist_thm)
     >- res_tac
 );
 
 val getStack_dec_stack = Q.store_thm("getStack_dec_stack",
-    `∀ locs stack reachable new_stack . (∀ n n0 . MEM (Loc n n0) locs ⇒ n ∈ domain reachable) ∧ 
-    domain (getStack stack) ⊆ domain reachable ∧ dec_stack locs stack = SOME new_stack 
+    `∀ locs stack reachable new_stack . (∀ n n0 . MEM (Loc n n0) locs ⇒ n ∈ domain reachable) ∧
+    domain (getStack stack) ⊆ domain reachable ∧ dec_stack locs stack = SOME new_stack
     ⇒ domain (getStack new_stack) ⊆ domain reachable`,
     ho_match_mp_tac dec_stack_ind >> rw[]
     >- (fs[dec_stack_def] >> rveq >> fs[getStack_def])
     >- (`∀ n n0 . MEM (Loc n n0) (DROP (LENGTH l) locs) ⇒ n ∈ domain reachable` by metis_tac[MEM_DROP_IMP] >>
         fs[dec_stack_def] >> Cases_on `dec_stack (DROP (LENGTH l) locs) stack` >> fs[] >>
-        first_x_assum (qspec_then `reachable` mp_tac) >> rw[] >> fs[getStack_def, domain_union] >> rw[] 
+        first_x_assum (qspec_then `reachable` mp_tac) >> rw[] >> fs[getStack_def, domain_union] >> rw[]
         >- (fs[SUBSET_DEF, GSYM get_NumWordLoc_alist_thm] >> rw[] >> fs[MEM_MAP] >>
             `LENGTH (MAP FST l) = LENGTH (TAKE (LENGTH l) locs)` by fs[LENGTH_TAKE] >>
             fs[MEM_ZIP] >> fs[] >> `n < LENGTH (TAKE (LENGTH l) locs)` by fs[LENGTH_TAKE] >>
@@ -237,18 +213,18 @@ val s_val_eq_getStack = Q.store_thm("s_val_eq_getStack",
         recInduct getStack_ind >> rw[] >> Cases_on `stack2` >> fs[s_val_eq_def] >>
         Cases_on `h` >> fs[s_frame_val_eq_def, getStack_def] >>
         first_x_assum drule >> rw[] >> Cases_on `v0` >> Cases_on `o'` >> fs[s_frame_val_eq_def] >> rw[] >>
-        `MAP (destWordLoc o SND) e = MAP (destWordLoc o SND) l` by rw[GSYM MAP_MAP_o] >> fs[] >> 
+        `MAP (destWordLoc o SND) e = MAP (destWordLoc o SND) l` by rw[GSYM MAP_MAP_o] >> fs[] >>
         fs[get_NumWordLoc_alist_def]
 );
 
 (**************************** GETMEMORY *****************************)
 
 val getMemory_def = Define ` (* 'a word -> 'a word_loc *)
-    getMemory (mem:'a word -> 'a word_loc) (mdom:'a word set) = 
-        let locSet = SET_TO_LIST(IMAGE mem mdom) in 
+    getMemory (mem:'a word -> 'a word_loc) (mdom:'a word set) =
+        let locSet = SET_TO_LIST(IMAGE mem mdom) in
         let locList = MAP THE (FILTER IS_SOME (MAP destWordLoc locSet)) in
         FOLDL (λ acc loc . insert loc () acc) LN locList
-` 
+`
 
 val FINITE_mdom_mem = Q.store_thm("FINITE_mdom_mem",
     `∀ mdom . FINITE mdom ⇒ FINITE {mem x | x ∈ mdom}`,
@@ -260,7 +236,7 @@ val FINITE_mdom_mem = Q.store_thm("FINITE_mdom_mem",
 
 val domain_getMemory = Q.store_thm ("domain_getMemory",
     `∀ mem (mdom : 'a word set) n . (n ∈ domain (getMemory mem mdom) ⇔ (∃ k n1 . k ∈ mdom ∧ mem k = Loc n n1))`,
-    fs[getMemory_def, IMAGE_DEF] >> fs[FILTER_MAP, MAP_MAP_o] >> rw[] >> 
+    fs[getMemory_def, IMAGE_DEF] >> fs[FILTER_MAP, MAP_MAP_o] >> rw[] >>
     `FINITE mdom` by metis_tac[WORD_FINITE] >>
     fs[MEM_MAP, MEM_FILTER] >> `FINITE {mem x | x ∈ mdom}` by metis_tac[FINITE_mdom_mem] >>
     rw[MEM_SET_TO_LIST] >>
@@ -270,19 +246,19 @@ val domain_getMemory = Q.store_thm ("domain_getMemory",
 );
 
 val getMemory_update = Q.store_thm("getMemory_update",
-    `∀ k v (memory : 'a word -> 'a word_loc) (mdomain : 'a word set) . 
-        (domain (getMemory ((k =+ v) memory) mdomain)) ⊆ (domain (getMemory memory mdomain)) 
+    `∀ k v (memory : 'a word -> 'a word_loc) (mdomain : 'a word set) .
+        (domain (getMemory ((k =+ v) memory) mdomain)) ⊆ (domain (getMemory memory mdomain))
         ∪ (case (destWordLoc v) of | NONE => {} | SOME n => {n})`,
-        Cases_on `v` >> fs[destWordLoc_def] >> rw[] >> fs[SUBSET_DEF] >> rw[domain_getMemory] >> 
+        Cases_on `v` >> fs[destWordLoc_def] >> rw[] >> fs[SUBSET_DEF] >> rw[domain_getMemory] >>
         fs[lookup_insert] >> rw[] >> fs[APPLY_UPDATE_THM] >> Cases_on `k' = k` >> fs[]
         >| [ALL_TAC, disj1_tac] >> qexists_tac `k'` >> qexists_tac `n1` >> fs[]
-); 
+);
 
 (**************************** FINDLOCSTATE *****************************)
 
 val findLocState_def = Define`
-    findLocState s = 
-        let loc = (getLocals s.locals) in 
+    findLocState s =
+        let loc = (getLocals s.locals) in
         let sto = (getStore s.store) in
         let sta = (getStack s.stack) in
         let mem = (getMemory s.memory s.mdomain) in
@@ -299,9 +275,9 @@ val domain_findLocState = Q.store_thm("domain_findLocState",
 (**************************** CODE_REL, CODE_CLOSED, GCNONEWLOCS *****************************)
 
 val code_rel_def = Define`
-    code_rel (reachable:num_set) s_code (t_code :(num # ('a wordLang$prog)) num_map) = 
+    code_rel (reachable:num_set) s_code (t_code :(num # ('a wordLang$prog)) num_map) =
         ∀ n . n ∈ domain reachable ⇒
-            lookup n s_code = lookup n t_code        
+            lookup n s_code = lookup n t_code
 `
 
 val codeClosed_def = Define`
@@ -311,8 +287,8 @@ val codeClosed_def = Define`
 `
 
 val gcNoNewLocs_def = Define`
-    gcNoNewLocs (g:'a gc_fun_type) ⇔  ∀ sta mem mdom sto wl mem1 sto1 sta1 .  
-        (g (enc_stack sta, mem, mdom, sto) = SOME (wl, mem1, sto1)) ∧ dec_stack wl sta = SOME sta1 ⇒ 
+    gcNoNewLocs (g:'a gc_fun_type) ⇔  ∀ sta mem mdom sto wl mem1 sto1 sta1 .
+        (g (enc_stack sta, mem, mdom, sto) = SOME (wl, mem1, sto1)) ∧ dec_stack wl sta = SOME sta1 ⇒
         domain (getStack sta1) ⊆ domain (getStack sta) ∧ domain (getMemory mem1 mdom) ⊆ domain (getMemory mem mdom) ∧
         domain (getStore sto1) ⊆ domain (getStore sto)
 `
@@ -321,9 +297,9 @@ val gcNoNewLocs_def = Define`
 (**************************** WORD_STATE_REL *****************************)
 
 val word_state_rel_def = Define `
-    word_state_rel (reachable:num_set) t s ⇔ 
-        s.locals = t.locals ∧ 
-        s.fp_regs = t.fp_regs ∧ 
+    word_state_rel (reachable:num_set) t s ⇔
+        s.locals = t.locals ∧
+        s.fp_regs = t.fp_regs ∧
         s.store = t.store ∧
         s.stack = t.stack ∧
         s.memory = t.memory ∧
@@ -332,10 +308,10 @@ val word_state_rel_def = Define `
         s.gc_fun = t.gc_fun ∧
         s.handler = t.handler ∧
         s.clock = t.clock ∧
-        s.termdep = t.termdep ∧ 
+        s.termdep = t.termdep ∧
         code_rel reachable (s.code) (t.code) ∧
         s.be = t.be ∧
-        s.ffi = t.ffi ∧  
+        s.ffi = t.ffi ∧
         domain (findLocState t) ⊆ domain (reachable)
 `
 
@@ -371,11 +347,11 @@ val get_vars_locals = Q.store_thm("get_vars_locals",
 (**************************** GETLOCALS/GETMEMORY/GETSTACK LEMMAS *****************************)
 
 val get_vars_getLocals = Q.store_thm("get_vars_getLocals",
-    `∀ args s x n n1. get_vars args s = SOME x ∧ MEM (Loc n n1) x 
+    `∀ args s x n n1. get_vars args s = SOME x ∧ MEM (Loc n n1) x
     ⇒ n ∈ domain (getLocals s.locals)`,
-    ASSUME_TAC get_vars_locals >> 
+    ASSUME_TAC get_vars_locals >>
     strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
-    first_x_assum (qspecl_then [`args`, `s`, `x`, `Loc n n1`] mp_tac) >> 
+    first_x_assum (qspecl_then [`args`, `s`, `x`, `Loc n n1`] mp_tac) >>
     rw[] >> fs[] >> imp_res_tac getLocals_thm >> metis_tac[]
 );
 
@@ -385,12 +361,12 @@ val getLocals_fromList2 = Q.store_thm("getLocals_fromList2",
     rw[] >> rw[SUBSET_DEF] >>
     qspecl_then [`x'`, `fromList2 x`] mp_tac domain_getLocals_lookup >> rw[] >>
     `MEM (Loc x' n1) x` by (fs[fromList2_value] >> qexists_tac `k` >> fs[]) >>
-    metis_tac[get_vars_getLocals]    
+    metis_tac[get_vars_getLocals]
 );
 
 val getLocals_fromList2_extension = Q.store_thm("getLocals_fromList2_extension",
     `∀  x y ys. x ∈ domain (getLocals (fromList2 ys)) ⇒ x ∈ domain (getLocals (fromList2 (ys ⧺ [y])))`,
-        rw[] >> fs[domain_getLocals_lookup] >> qexists_tac `k` >> qexists_tac `n1` >> 
+        rw[] >> fs[domain_getLocals_lookup] >> qexists_tac `k` >> qexists_tac `n1` >>
         Induct_on `ys` >> rw[] >- (fs[fromList2_def, lookup_def]) >>
         fs[lookup_fromList2, lookup_fromList] >> qpat_x_assum `k DIV 2 < LENGTH ys ∧ _ ⇒ _` kall_tac >>
         imp_res_tac EVEN_EXISTS >> rveq >> fs[EVEN_DOUBLE] >>
@@ -408,32 +384,32 @@ val getLocals_fromList2_FRONT = Q.store_thm("getLocals_fromList2_FRONT",
 );
 
 val getMemory_write_bytearray_lemma = Q.store_thm("getMemory_write_bytearray_lemma",
-    `∀ mem mdom reachable c r be . domain(getMemory mem mdom) ⊆ domain reachable 
+    `∀ mem mdom reachable c r be . domain(getMemory mem mdom) ⊆ domain reachable
     ⇒ domain (getMemory (write_bytearray c r mem mdom be) mdom) ⊆ domain reachable`,
-    Induct_on `r` >> fs[write_bytearray_def] >> rw[] >> fs[mem_store_byte_aux_def] >> 
+    Induct_on `r` >> fs[write_bytearray_def] >> rw[] >> fs[mem_store_byte_aux_def] >>
     Cases_on `write_bytearray (c + 1w) r mem mdom be (byte_align c)` >> fs[] >>
-    Cases_on `byte_align c ∈ mdom` >> fs[] >> first_x_assum drule >> rw[] >> 
-    pop_assum (qspecl_then [`c + 1w`, `be`] mp_tac) >> rw[] >> 
+    Cases_on `byte_align c ∈ mdom` >> fs[] >> first_x_assum drule >> rw[] >>
+    pop_assum (qspecl_then [`c + 1w`, `be`] mp_tac) >> rw[] >>
     qspecl_then [`byte_align c`, `Word (set_byte c h c' be)`, `write_bytearray (c + 1w) r mem mdom be`, `mdom`]
         mp_tac getMemory_update >> rw[destWordLoc_def] >> metis_tac[SUBSET_TRANS]
 );
 
 val stack_list_rearrange_lemma = Q.store_thm("stack_list_rearrange_lemma",
-    `∀ s reachable locs opt . domain (getLocals s.locals) ⊆ domain reachable ∧ domain (getStack s.stack) ⊆ domain reachable 
+    `∀ s reachable locs opt . domain (getLocals s.locals) ⊆ domain reachable ∧ domain (getStack s.stack) ⊆ domain reachable
     ⇒ domain (getStack (StackFrame (list_rearrange (s.permute 0) (QSORT key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
         ⊆ domain reachable`,
     rw[] >> fs[getStack_def, domain_union] >> rw[SUBSET_DEF] >> imp_res_tac get_NumWordLoc_alist_thm >>
     fs[MEM_MAP] >> fs[mem_list_rearrange, QSORT_MEM] >> Cases_on `y` >> fs[MEM_toAList] >> fs[lookup_inter] >>
-    Cases_on `lookup q s.locals` >> fs[] >> Cases_on `lookup q locs` >> fs[] >> rveq >> 
-    fs[SUBSET_DEF, domain_getLocals_lookup] >> metis_tac[]   
+    Cases_on `lookup q s.locals` >> fs[] >> Cases_on `lookup q locs` >> fs[] >> rveq >>
+    fs[SUBSET_DEF, domain_getLocals_lookup] >> metis_tac[]
 );
 
 (**************************** IMPLEMENTATION LEMMAS *****************************)
 
 val removeWordCode_thm_FST = Q.store_thm("removeWordCode_thm_FST",
-    `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l) 
+    `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l)
     ⇒ (n ∈ domain reachable ∧ MEM n (MAP FST l) ⇔ MEM n (MAP FST (removeWordCode reachable l)))`,
-    rw[] >> EQ_TAC >> rw[] 
+    rw[] >> EQ_TAC >> rw[]
     >- (Induct_on `l` >> rw[] >> fs[removeWordCode_def] >> fs[domain_lookup] >> Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
     >> fs[removeWordCode_def]
     >- (Induct_on `l` >> rw[] >> fs[domain_lookup, IS_SOME_EXISTS])
@@ -450,7 +426,7 @@ val removeWordCode_MAP_FST_lemma = Q.store_thm("removeWordCode_MAP_FST_lemma",
 
 val word_state_rel_word_exp = Q.store_thm("word_state_rel_word_exp",
     `∀ s1 exp s2 reachable . word_state_rel reachable s1 s2 ⇒ word_exp s1 exp = word_exp s2 exp`,
-    recInduct word_exp_ind >> rw[word_exp_def] 
+    recInduct word_exp_ind >> rw[word_exp_def]
     >- (fs[word_state_rel_def]) >- (fs[word_state_rel_def])
     >- (first_x_assum drule >> rw[] >> Cases_on `word_exp s2 addr'` >> rw[] >> Cases_on `x` >> fs[] >> fs[mem_load_def, word_state_rel_def])
     >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by (fs[MAP_EQ_f] >> metis_tac[]) >> fs[])
@@ -460,17 +436,17 @@ val word_state_rel_word_exp = Q.store_thm("word_state_rel_word_exp",
 val word_state_rel_inst_NONE = Q.store_thm("word_state_rel_inst_NONE",
     `∀ reachable s t i . word_state_rel reachable s t ⇒ (inst i s = NONE ⇔ inst i t = NONE)`,
     rw[] >> fs[word_state_rel_def] >> Cases_on `i` >> fs[inst_def]
-    >- (fs[assign_def] >> 
-        `word_exp s (Const c) = word_exp t (Const c)` by metis_tac[word_state_rel_word_exp, word_state_rel_def] >> 
+    >- (fs[assign_def] >>
+        `word_exp s (Const c) = word_exp t (Const c)` by metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
         fs[] >> Cases_on `word_exp t (Const c)` >> rw[])
-    >- (fs[get_var_def, get_vars_def] >> EVERY_CASE_TAC >> fs[assign_def] 
-       >- (`word_exp s (Op b [Var n0; Var n']) = word_exp t (Op b [Var n0; Var n'])` by 
+    >- (fs[get_var_def, get_vars_def] >> EVERY_CASE_TAC >> fs[assign_def]
+       >- (`word_exp s (Op b [Var n0; Var n']) = word_exp t (Op b [Var n0; Var n'])` by
                 metis_tac[word_state_rel_word_exp, word_state_rel_def] >> fs[] >>
             Cases_on `word_exp t (Op b [Var n0; Var n'])` >> fs[])
-       >- (`word_exp s (Op b [Var n0; Const c]) = word_exp t (Op b [Var n0; Const c])` by 
+       >- (`word_exp s (Op b [Var n0; Const c]) = word_exp t (Op b [Var n0; Const c])` by
                 metis_tac[word_state_rel_word_exp, word_state_rel_def] >> fs[] >>
             Cases_on `word_exp t (Op b [Var n0; Const c])` >> fs[])
-       >- (`word_exp s (Shift s' (Var n0) n1) = word_exp t (Shift s' (Var n0) n1)` by 
+       >- (`word_exp s (Shift s' (Var n0) n1) = word_exp t (Shift s' (Var n0) n1)` by
                 metis_tac[word_state_rel_word_exp, word_state_rel_def] >> fs[] >>
             Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[]))
     >- (`∀ exp . word_exp t exp = word_exp s exp` by metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
@@ -481,57 +457,57 @@ val word_state_rel_inst_NONE = Q.store_thm("word_state_rel_inst_NONE",
 
 val word_state_rel_inst_SOME = Q.store_thm ("word_state_rel_inst_SOME",
     `∀ reachable s t i s1 t1 . word_state_rel reachable s t ⇒ (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)`,
-    fs[inst_def] >> Cases_on `i` >> fs[] 
+    fs[inst_def] >> Cases_on `i` >> fs[]
     >- (fs[assign_def] >> fs[word_exp_def] >> fs[set_var_def] >> fs[word_state_rel_def] >> rw[] >> fs[domain_findLocState] >>
         qspecl_then [`n`, `Word c`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> imp_res_tac SUBSET_TRANS)
     >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
         fs[get_vars_def, get_var_def] >> Cases_on `a` >> fs[] >> `s.locals = t.locals` by fs[word_state_rel_def] >> fs[]
         >- (fs[assign_def] >>
-            `word_exp s (Op b [Var n0; case r of Reg r3 => Var r3 | Imm w => Const w]) = 
+            `word_exp s (Op b [Var n0; case r of Reg r3 => Var r3 | Imm w => Const w]) =
                 word_exp t (Op b [Var n0; case r of Reg r3 => Var r3 | Imm w => Const w])` by metis_tac[word_state_rel_word_exp] >> fs[] >>
             Cases_on `word_exp t (Op b [Var n0; case r of Reg r3 => Var r3 | Imm w => Const w])` >> fs[] >> fs[set_var_def] >> rw[] >>
             fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[word_exp_def] >> fs[the_words_def] >> EVERY_CASE_TAC >> fs[] >>
            qspecl_then [`n`, `Word z'`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (fs[assign_def] >> 
-            `word_exp s (Shift s' (Var n0) n1) = 
+        >- (fs[assign_def] >>
+            `word_exp s (Shift s' (Var n0) n1) =
                 word_exp t (Shift s' (Var n0) n1)` by metis_tac[word_state_rel_word_exp] >> fs[] >>
-            Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[] >> fs[set_var_def] >> rw[] >> 
+            Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[] >> fs[set_var_def] >> rw[] >>
             fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[word_exp_def] >> fs[the_words_def] >> EVERY_CASE_TAC >> fs[] >>
             qspecl_then [`n`, `Word z'`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
         >- (EVERY_CASE_TAC >> fs[] >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>
             qspecl_then [`n`, `Word (c' / c)`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (fs[set_var_def] >> fs[] >> 
+        >- (fs[set_var_def] >> fs[] >>
             fs[] >> EVERY_CASE_TAC >> fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>
-            qspecl_then [`n`, `Word (n2w (w2n c * w2n c' DIV dimword (:α)))`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >> 
-            qspecl_then [`n0`, `Word (n2w (w2n c * w2n c'))`, `insert n (Word (n2w (w2n c * w2n c' DIV dimword (:α)))) s.locals`] 
+            qspecl_then [`n`, `Word (n2w (w2n c * w2n c' DIV dimword (:α)))`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >>
+            qspecl_then [`n0`, `Word (n2w (w2n c * w2n c'))`, `insert n (Word (n2w (w2n c * w2n c' DIV dimword (:α)))) s.locals`]
                 mp_tac getLocals_insert >> rw[destWordLoc_def] >> fs[] >> rw[] >> imp_res_tac SUBSET_TRANS)
         >- (EVERY_CASE_TAC >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>
-            qspecl_then [`n0`, `Word (n2w ((w2n c' + dimword (:α) * w2n c) MOD w2n c''))`, `s.locals`] mp_tac getLocals_insert >> 
-            rw[destWordLoc_def] >> 
+            qspecl_then [`n0`, `Word (n2w ((w2n c' + dimword (:α) * w2n c) MOD w2n c''))`, `s.locals`] mp_tac getLocals_insert >>
+            rw[destWordLoc_def] >>
             qspecl_then [`n`, `Word (n2w ((w2n c' + dimword (:α) * w2n c) DIV w2n c''))`,
-                `insert n0 (Word (n2w ((w2n c' + dimword (:α) * w2n c) MOD w2n c''))) s.locals`] mp_tac getLocals_insert >> 
+                `insert n0 (Word (n2w ((w2n c' + dimword (:α) * w2n c) MOD w2n c''))) s.locals`] mp_tac getLocals_insert >>
                 rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
         >- (EVERY_CASE_TAC >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[]
-            >| [qspecl_then [`n`, `Word (n2w (w2n c + w2n c'))`, `s.locals`] mp_tac getLocals_insert >>  
-                qspecl_then [`n2`, `Word 1w`, `insert n (Word (n2w (w2n c + w2n c'))) s.locals`] mp_tac getLocals_insert    , 
-                qspecl_then [`n`, `Word (n2w (w2n c + w2n c'))`, `s.locals`] mp_tac getLocals_insert >>  
+            >| [qspecl_then [`n`, `Word (n2w (w2n c + w2n c'))`, `s.locals`] mp_tac getLocals_insert >>
+                qspecl_then [`n2`, `Word 1w`, `insert n (Word (n2w (w2n c + w2n c'))) s.locals`] mp_tac getLocals_insert    ,
+                qspecl_then [`n`, `Word (n2w (w2n c + w2n c'))`, `s.locals`] mp_tac getLocals_insert >>
                 qspecl_then [`n2`, `Word 0w`, `insert n (Word (n2w (w2n c + w2n c'))) s.locals`] mp_tac getLocals_insert    ,
-                qspecl_then [`n`, `Word (n2w (w2n c + (w2n c' + 1)))`, `s.locals`] mp_tac getLocals_insert >>  
-                qspecl_then [`n2`, `Word 1w`, `insert n (Word (n2w (w2n c + (w2n c' + 1)))) s.locals`] mp_tac getLocals_insert    , 
-                qspecl_then [`n`, `Word (n2w (w2n c + (w2n c' + 1)))`, `s.locals`] mp_tac getLocals_insert >>  
+                qspecl_then [`n`, `Word (n2w (w2n c + (w2n c' + 1)))`, `s.locals`] mp_tac getLocals_insert >>
+                qspecl_then [`n2`, `Word 1w`, `insert n (Word (n2w (w2n c + (w2n c' + 1)))) s.locals`] mp_tac getLocals_insert    ,
+                qspecl_then [`n`, `Word (n2w (w2n c + (w2n c' + 1)))`, `s.locals`] mp_tac getLocals_insert >>
                 qspecl_then [`n2`, `Word 0w`, `insert n (Word (n2w (w2n c + (w2n c' + 1)))) s.locals`] mp_tac getLocals_insert] >>
             rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (EVERY_CASE_TAC >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >> 
+        >- (EVERY_CASE_TAC >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>
             qspecl_then [`n`, `Word (c + c')`, `s.locals`] mp_tac getLocals_insert
             >| [qspecl_then [`n2`, `Word 1w`, `insert n (Word (c + c')) s.locals`] mp_tac getLocals_insert  ,
                 qspecl_then [`n2`, `Word 0w`, `insert n (Word (c + c')) s.locals`] mp_tac getLocals_insert] >>
                 rw[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
         >- (EVERY_CASE_TAC >> fs[set_var_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>
-            qspecl_then [`n`, `Word (c + -1w * c')`, `s.locals`] mp_tac getLocals_insert 
+            qspecl_then [`n`, `Word (c + -1w * c')`, `s.locals`] mp_tac getLocals_insert
             >| [qspecl_then [`n2`, `Word 1w`, `insert n (Word (c + -1w * c')) s.locals`] mp_tac getLocals_insert  ,
                 qspecl_then [`n2`, `Word 0w`, `insert n (Word (c + -1w * c')) s.locals`] mp_tac getLocals_insert] >>
                 rw[destWordLoc_def] >> imp_res_tac SUBSET_TRANS))
-    >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> Cases_on `a` >> fs[] >> 
+    >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> Cases_on `a` >> fs[] >>
         `word_exp t (Op Add [Var n'; Const c]) = word_exp s (Op Add [Var n'; Const c])` by metis_tac[word_state_rel_word_exp] >>
         Cases_on `m` >> fs[] >> fs[word_exp_def, the_words_def, word_state_rel_def] >> Cases_on `lookup n' s.locals` >> fs[] >>
         Cases_on `x` >> fs[]
@@ -543,20 +519,20 @@ val word_state_rel_inst_SOME = Q.store_thm ("word_state_rel_inst_SOME",
             Cases_on `byte_align (c + c') ∈ s.mdomain` >> fs[] >> fs[set_var_def] >> rw[] >> fs[domain_findLocState] >>
             qspecl_then [`n`, `Word (w2w (get_byte (c + c') c'' s.be))`, `s.locals`] mp_tac getLocals_insert >> rw[destWordLoc_def] >>
             rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (fs[word_op_def, get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >> fs[mem_store_def] >> 
+        >- (fs[word_op_def, get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >> fs[mem_store_def] >>
             Cases_on `c + c' ∈ s.mdomain` >> fs[] >> rw[] >> fs[domain_findLocState] >>
             qspecl_then [`c + c'`, `x`, `s.memory`, `s.mdomain`] mp_tac getMemory_update >> rw[] >>
             Cases_on `x` >> fs[destWordLoc_def] >> rw[] >- imp_res_tac SUBSET_TRANS >>
             `n'' ∈ domain reachable` by metis_tac[SUBSET_DEF, domain_getLocals_lookup] >> fs[SUBSET_DEF] >> metis_tac[])
         >- (fs[word_op_def, get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >> Cases_on `x` >> fs[] >> fs[mem_store_byte_aux_def] >>
             Cases_on `s.memory (byte_align (c + c'))` >> fs[] >> Cases_on `byte_align (c + c') ∈ s.mdomain` >> fs[] >>
-            rw[] >> fs[domain_findLocState] >> qspecl_then [`byte_align (c + c')`, `Word(set_byte (c + c') (w2w c'') c''' s.be)`, 
+            rw[] >> fs[domain_findLocState] >> qspecl_then [`byte_align (c + c')`, `Word(set_byte (c + c') (w2w c'') c''' s.be)`,
                 `s.memory`, `s.mdomain`] mp_tac getMemory_update >> rw[] >> fs[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS))
     >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
         fs[get_var_def, get_fp_var_def, set_fp_var_def, set_var_def] >> `t.fp_regs = s.fp_regs` by fs[word_state_rel_def] >>
-        EVERY_CASE_TAC >> fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>  
-        `∀ w . domain (getLocals (insert n (Word w) s.locals)) ⊆ domain reachable` by 
-            (rw[] >> qspecl_then [`n`, `Word w`, `s.locals`] mp_tac getLocals_insert >> 
+        EVERY_CASE_TAC >> fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[] >> fs[] >>
+        `∀ w . domain (getLocals (insert n (Word w) s.locals)) ⊆ domain reachable` by
+            (rw[] >> qspecl_then [`n`, `Word w`, `s.locals`] mp_tac getLocals_insert >>
              fs[destWordLoc_def] >> rw[] >> imp_res_tac SUBSET_TRANS) >> fs[] >>
         rfs[] >>
         qspecl_then [`n`, `Word ((31 >< 0) x)`, `s.locals`] mp_tac getLocals_insert >>
@@ -565,7 +541,7 @@ val word_state_rel_inst_SOME = Q.store_thm ("word_state_rel_inst_SOME",
 );
 
 val word_state_rel_jump_exc = Q.store_thm("word_state_rel_jump_exc",
-    `∀ reachable s t s1 l1 l2 . word_state_rel reachable s t ==> jump_exc s = SOME (s1, l1, l2) 
+    `∀ reachable s t s1 l1 l2 . word_state_rel reachable s t ==> jump_exc s = SOME (s1, l1, l2)
     ⇒ ∃ t1 . jump_exc t = SOME (t1, l1, l2) ∧ word_state_rel reachable s1 t1`,
     strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
     fs[jump_exc_def] >> `s.handler = t.handler ∧ s.stack = t.stack` by fs[word_state_rel_def] >> fs[] >>
@@ -581,39 +557,39 @@ val word_state_rel_gc = Q.store_thm("word_state_rel_gc",
     qpat_x_assum `gc _ = _` mp_tac >>
     full_simp_tac (srw_ss())[gc_def] >> fs[] >>
     CASE_TAC >> fs[] >> PairCases_on `x` >> fs[] >>
-    Cases_on `dec_stack x0 s.stack` >> fs[] >> 
+    Cases_on `dec_stack x0 s.stack` >> fs[] >>
     fs[word_state_rel_def] >> rw[] >> fs[] >>
     fs[gcNoNewLocs_def, domain_findLocState] >>
     first_x_assum drule >> disch_then drule >> rw[] >> imp_res_tac SUBSET_TRANS
-); 
+);
 
 val word_state_rel_alloc = Q.store_thm("word_state_rel_alloc",
     `∀ reachable s t res c n s1 . word_state_rel reachable s t ∧ res ≠ SOME Error ∧ gcNoNewLocs s.gc_fun
-    ⇒ alloc c n s = (res, s1) ⇒ ∃ t1 . alloc c n t = (res, t1) ∧ word_state_rel reachable s1 t1 ∧ 
+    ⇒ alloc c n s = (res, s1) ⇒ ∃ t1 . alloc c n t = (res, t1) ∧ word_state_rel reachable s1 t1 ∧
       destResultLoc res ⊆ domain reachable`,
-    rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >> SIMP_TAC std_ss [Once word_state_rel_def] >> 
+    rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >> SIMP_TAC std_ss [Once word_state_rel_def] >>
     strip_tac >> qpat_x_assum `alloc _ _ _ = _` mp_tac >>
-    fs[alloc_def] >> fs[cut_env_def, domain_findLocState] >> 
+    fs[alloc_def] >> fs[cut_env_def, domain_findLocState] >>
     Cases_on `domain n ⊆ domain s.locals` >> fs[] >> CASE_TAC >> fs[] >>
-    `word_state_rel reachable (push_env (inter s.locals n) NONE (set_store AllocSize (Word c) s)) 
+    `word_state_rel reachable (push_env (inter s.locals n) NONE (set_store AllocSize (Word c) s))
         (push_env (inter s.locals n) NONE (set_store AllocSize (Word c) t))` by (
             simp[push_env_def, env_to_list_def, set_store_def, word_state_rel_def, domain_findLocState] >> rw[]
-            >- (qspecl_then [`s.store`, `AllocSize`, `Word c`] mp_tac getStore_update >> fs[destWordLoc_def] >> 
+            >- (qspecl_then [`s.store`, `AllocSize`, `Word c`] mp_tac getStore_update >> fs[destWordLoc_def] >>
                 rw[] >> imp_res_tac SUBSET_TRANS)
             >- fs[stack_list_rearrange_lemma]) >>
-    `(push_env (inter s.locals n) NONE (set_store AllocSize (Word c) s)).gc_fun = s.gc_fun` by 
+    `(push_env (inter s.locals n) NONE (set_store AllocSize (Word c) s)).gc_fun = s.gc_fun` by
         fs[env_to_list_def, push_env_def, set_store_def] >> fs[] >> rw[] >>
     qmatch_asmsub_abbrev_tac `gc s_state` >> qmatch_goalsub_abbrev_tac `gc t_state` >>
     qspecl_then [`reachable`, `s_state`, `t_state`, `x`] mp_tac word_state_rel_gc >>
     impl_tac >- fs[push_env_def]
-    >>  rw[] >> fs[] >> 
+    >>  rw[] >> fs[] >>
         qpat_assum `word_state_rel _ _ _` mp_tac >> SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
         qpat_x_assum `(_) = (a,b)` mp_tac >> fs[pop_env_def] >> Cases_on `x.stack` >> fs[] >>
         Cases_on `h` >> fs[] >> Cases_on `o'` >> fs[] >| [ALL_TAC, (Cases_on `x'` >> fs[])] >>
         EVERY_CASE_TAC >> fs[has_space_def, call_env_def, fromList2_def] >> rfs[] >>
         strip_tac >> rveq >> fs[destResultLoc_def, word_state_rel_def] >> rw[] >>
         fs[domain_findLocState]
-        >- (drule getStack_hd_thm >> rw[] >> metis_tac[]) >- (fs[getLocals_def, getStack_def]) 
+        >- (drule getStack_hd_thm >> rw[] >> metis_tac[]) >- (fs[getLocals_def, getStack_def])
         >- (drule getStack_hd_thm >> rw[] >> metis_tac[]) >- (fs[getLocals_def, getStack_def])
 );
 
@@ -623,31 +599,31 @@ val word_state_rel_alloc = Q.store_thm("word_state_rel_alloc",
 (**************************** WORD_REMOVAL LEMMA *****************************)
 
 val word_removal_lemma = Q.store_thm ("word_removal_lemma",
-    `∀ program state result new_state reachable removed_state . 
-        wordSem$evaluate (program, state) = (result, new_state) ∧ 
-        result ≠ SOME Error ∧ word_state_rel reachable state removed_state ∧  
+    `∀ program state result new_state reachable removed_state .
+        wordSem$evaluate (program, state) = (result, new_state) ∧
+        result ≠ SOME Error ∧ word_state_rel reachable state removed_state ∧
         gcNoNewLocs state.gc_fun ∧
         domain (findWordRef program) ⊆ domain (reachable) ∧
         codeClosed reachable state.code
         ⇒ ∃ s .
             wordSem$evaluate (program, removed_state) = (result, s) ∧
-            word_state_rel reachable new_state s ∧ 
+            word_state_rel reachable new_state s ∧
             (destResultLoc result) ⊆ domain (reachable)`
-,            
+,
         recInduct wordSemTheory.evaluate_ind >> reverse(rw[]) >>
-        qpat_x_assum `evaluate _ = _` mp_tac >> qpat_assum `word_state_rel _ _ _` mp_tac >> 
+        qpat_x_assum `evaluate _ = _` mp_tac >> qpat_assum `word_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
         `∀ args . get_vars args removed_state = get_vars args s` by (
             Induct >> rw[get_vars_def] >> rw[get_var_def] >> rw[])
-    >| [ 
+    >| [
 
-    (* CALL - DONE !!! *) 
+    (* CALL - DONE !!! *)
         simp[wordSemTheory.evaluate_def] >> Cases_on `get_vars args s` >> fs[] >>
         Cases_on `bad_dest_args dest args` >> fs[] >>
-        `get_vars args s = SOME [] ⇒ args = []` by (Cases_on `args` >> 
+        `get_vars args s = SOME [] ⇒ args = []` by (Cases_on `args` >>
             fs[get_vars_def] >> Cases_on `get_var h s` >> fs[] >>
             Cases_on `get_vars t s` >> fs[] >> rveq >> fs[NOT_CONS_NIL]) >>
-        `find_code dest (add_ret_loc ret x) s.code = 
+        `find_code dest (add_ret_loc ret x) s.code =
             find_code dest (add_ret_loc ret x) removed_state.code` by (
                 Cases_on `dest` >> rw[find_code_def] >> Cases_on `x` >> rfs[bad_dest_args_def]
                 >- (Cases_on `LAST (add_ret_loc ret (h::t))` >> fs[] >> Cases_on `n0` >> fs[] >>
@@ -655,31 +631,31 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                         >- metis_tac[LAST_DEF, MEM_LAST, MEM]
                         >- (PairCases_on `x` >> fs[add_ret_loc_def] >> metis_tac[LAST_DEF, MEM_LAST, MEM])) >>
                     qspecl_then [`args`, `s`, `h::t`, `n`, `0`] mp_tac get_vars_getLocals >> rw[] >>
-                    `n ∈ domain reachable` by (qspec_then `s` mp_tac domain_findLocState >> 
+                    `n ∈ domain reachable` by (qspec_then `s` mp_tac domain_findLocState >>
                         fs[SUBSET_DEF, SUBSET_UNION, SUBSET_TRANS]) >>
                     `lookup n s.code = lookup n removed_state.code` by metis_tac[code_rel_def] >> fs[])
                 >> `x' ∈ domain reachable` by fs[findWordRef_def, SUBSET_DEF, domain_union] >>
                    `lookup x' s.code = lookup x' removed_state.code` by metis_tac[code_rel_def] >> fs[]
-        ) >> rveq >> Cases_on `find_code dest (add_ret_loc ret x) removed_state.code` >> fs[] >> 
+        ) >> rveq >> Cases_on `find_code dest (add_ret_loc ret x) removed_state.code` >> fs[] >>
         PairCases_on `x'` >> fs[] >> Cases_on `ret` >> fs[]
         >- (Cases_on `handler` >> fs[] >> Cases_on `s.clock = 0` >> fs[]
-            >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >> 
+            >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >>
                 rw[findLocState_def, domain_union, getLocals_def, getStack_def] >>
-                fs[domain_findLocState, SUBSET_DEF, destResultLoc_def]) 
-            >- (`word_state_rel reachable (call_env x'0 (dec_clock s)) 
+                fs[domain_findLocState, SUBSET_DEF, destResultLoc_def])
+            >- (`word_state_rel reachable (call_env x'0 (dec_clock s))
                 (call_env x'0 (dec_clock removed_state))` by (
                     rw[word_state_rel_def, call_env_def, dec_clock_def] >>
-                    fs[findLocState_def, domain_union, domain_findLocState] >> fs[add_ret_loc_def] >>  
+                    fs[findLocState_def, domain_union, domain_findLocState] >> fs[add_ret_loc_def] >>
                     Cases_on `dest` >> fs[find_code_def] >> Cases_on `x` >> rfs[bad_dest_args_def]
                     >- (Cases_on `LAST (h::t)` >> fs[] >> Cases_on `n0` >> fs[] >>
                         qspecl_then [`args`, `s`, `(h::t)`, `n`, `0`] mp_tac get_vars_getLocals >> strip_tac >>
-                        `n ∈ domain reachable` by (qspec_then `s` mp_tac domain_findLocState >> rw[] >> 
+                        `n ∈ domain reachable` by (qspec_then `s` mp_tac domain_findLocState >> rw[] >>
                             metis_tac[SUBSET_DEF, SUBSET_UNION, SUBSET_TRANS, MEM_LAST]) >>
                         `lookup n s.code = lookup n removed_state.code` by metis_tac[code_rel_def] >> fs[] >>
                         Cases_on `lookup n removed_state.code` >> fs[] >> Cases_on `x` >> fs[] >>
-                        qspecl_then [`args`, `s`, `(h::t)`, `x'0`, `fromList2 x'0`] mp_tac getLocals_fromList2_FRONT >>   
+                        qspecl_then [`args`, `s`, `(h::t)`, `x'0`, `fromList2 x'0`] mp_tac getLocals_fromList2_FRONT >>
                         rw[] >> metis_tac[SUBSET_TRANS])
-                    >>  fs[findWordRef_def, domain_insert] >> 
+                    >>  fs[findWordRef_def, domain_insert] >>
                         `lookup x' s.code = lookup x' removed_state.code` by metis_tac[code_rel_def] >>
                         Cases_on `lookup x' removed_state.code` >> fs[] >> Cases_on `x` >> fs[]
                         >- (rw[SUBSET_DEF] >> fs[SUBSET_DEF, fromList2_def, getLocals_def])
@@ -688,38 +664,38 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 Cases_on `evaluate (x'1, call_env x'0 (dec_clock s))` >> fs[] >>
                 Cases_on `q = SOME Error` >> fs[] >> first_x_assum drule >>
                 reverse(impl_tac) >- (strip_tac >> fs[] >> Cases_on `q` >> fs[] >> rw[] >> fs[])
-                    >- (rw[dec_clock_def, call_env_def] >> fs[add_ret_loc_def] >> Cases_on `dest` >> fs[find_code_def] 
+                    >- (rw[dec_clock_def, call_env_def] >> fs[add_ret_loc_def] >> Cases_on `dest` >> fs[find_code_def]
                         >- (`∃ y ys . x = SNOC y ys` by metis_tac[SNOC_CASES] >> full_simp_tac std_ss [LAST_SNOC, FRONT_SNOC] >>
-                            Cases_on `y` >> fs[] >> Cases_on `n0` >> fs[] >> Cases_on `lookup n s.code` >> fs[] >> 
-                            Cases_on `x'` >> fs[] >> rveq >> fs[ADD1] >> rveq >> fs[domain_findLocState] >> 
-                            `n ∈ domain reachable` by ( 
-                                qspecl_then [`args`, `s`, `SNOC (Loc n 0) x'0`, `n`, `0`] mp_tac get_vars_getLocals >> 
-                                strip_tac >> fs[MEM_SNOC] >> rfs[] >> qspec_then `s` mp_tac domain_findLocState >> 
-                                rw[] >> fs[SUBSET_UNION, SUBSET_DEF]) >>     
+                            Cases_on `y` >> fs[] >> Cases_on `n0` >> fs[] >> Cases_on `lookup n s.code` >> fs[] >>
+                            Cases_on `x'` >> fs[] >> rveq >> fs[ADD1] >> rveq >> fs[domain_findLocState] >>
+                            `n ∈ domain reachable` by (
+                                qspecl_then [`args`, `s`, `SNOC (Loc n 0) x'0`, `n`, `0`] mp_tac get_vars_getLocals >>
+                                strip_tac >> fs[MEM_SNOC] >> rfs[] >> qspec_then `s` mp_tac domain_findLocState >>
+                                rw[] >> fs[SUBSET_UNION, SUBSET_DEF]) >>
                             fs[codeClosed_def] >> simp[SUBSET_DEF] >> rw[] >> last_x_assum drule >> disch_then match_mp_tac >>
                             fs[isReachable_def] >> match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
                             `∃ aSetx . lookup n (analyseWordCode code1) = SOME aSetx ∧ x ∈ domain aSetx` by (
                                 rfs[lookup_fromAList] >> drule lookup_analyseWordCode >> fs[]) >>
                             drule lookup_mk_wf_set_tree >> rw[] >> asm_exists_tac >> fs[] >> fs[domain_lookup] >>
-                            `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))` 
+                            `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))`
                                 by metis_tac[mk_wf_set_tree_thm] >>
                             fs[wf_set_tree_def] >> last_x_assum drule >> fs[SUBSET_DEF, domain_lookup])
                         >- (fs[findWordRef_def] >> rename1 `n ∈ domain reachable` >> rename1 `get_vars _ _ = SOME z` >>
                             fs[codeClosed_def] >> simp[SUBSET_DEF] >> rw[] >> last_x_assum drule >> disch_then match_mp_tac >>
                             fs[isReachable_def] >> match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
                             `∃ aSetx . lookup n (analyseWordCode code1) = SOME aSetx ∧ x ∈ domain aSetx` by (
-                                rfs[lookup_fromAList] >> Cases_on `ALOOKUP code1 n` >> fs[] >> 
+                                rfs[lookup_fromAList] >> Cases_on `ALOOKUP code1 n` >> fs[] >>
                                 Cases_on `x'` >> fs[] >> drule lookup_analyseWordCode >> fs[]) >>
                             drule lookup_mk_wf_set_tree >> rw[] >> asm_exists_tac >> fs[] >> fs[domain_lookup] >>
-                            `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))` 
+                            `wf_set_tree (mk_wf_set_tree (analyseWordCode code1))`
                                 by metis_tac[mk_wf_set_tree_thm] >>
                             fs[wf_set_tree_def] >> last_x_assum drule >> fs[SUBSET_DEF, domain_lookup]))
                )
            )
         >>  PairCases_on `x'` >> fs[] >> Cases_on `domain x'1' = {}` >> fs[] >>
             fs[cut_env_def] >> Cases_on `domain x'1' ⊆ domain s.locals` >> fs[] >>
-            Cases_on `s.clock = 0` >> fs[]                
-            >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >> 
+            Cases_on `s.clock = 0` >> fs[]
+            >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >>
                 rw[findLocState_def, domain_union, getLocals_def, getStack_def] >>
                 fs[domain_findLocState, SUBSET_DEF, destResultLoc_def])
             >>  fs[add_ret_loc_def] >> fs[findWordRef_def, domain_findLocState, domain_union] >>
@@ -728,7 +704,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                         Cases_on `n0` >> fs[] >> Cases_on `x'` >> fs[] >> rveq >> Cases_on `x` >> rfs[bad_dest_args_def] >> rw[] >>
                         `n ∈ domain reachable` by (`MEM (Loc n 0) (h::t)` by metis_tac[MEM, LAST_DEF, MEM_LAST] >>
                             qspecl_then [`args`, `s`, `h::t`, `n`, `0`] mp_tac get_vars_getLocals >> rw[] >> fs[SUBSET_DEF]) >>
-                            rw[SUBSET_DEF] >> qpat_x_assum `∀ n m . n ∈ _ ∧ _ ⇒ _` (qspecl_then [`n`, `x`] mp_tac) >> 
+                            rw[SUBSET_DEF] >> qpat_x_assum `∀ n m . n ∈ _ ∧ _ ⇒ _` (qspecl_then [`n`, `x`] mp_tac) >>
                             reverse(impl_tac) >> fs[] >> fs[isReachable_def] >> match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
                             `wf_set_tree(mk_wf_set_tree (analyseWordCode code1))` by metis_tac[mk_wf_set_tree_thm] >>
                             fs[wf_set_tree_def] >> qexists_tac `findWordRef r` >> fs[lookup_analyseWordCode] >>
@@ -742,53 +718,53 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                         qpat_x_assum `∀ n m . n ∈ _ ∧ _ ⇒ _` (qspecl_then [`x'`, `x''`] mp_tac) >> reverse(impl_tac) >> fs[] >>
                         fs[isReachable_def] >> match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
                         `wf_set_tree(mk_wf_set_tree (analyseWordCode code1))` by metis_tac[mk_wf_set_tree_thm] >>
-                        fs[wf_set_tree_def] >> qexists_tac `findWordRef r` >> fs[lookup_analyseWordCode] >> 
-                        `lookup x' (analyseWordCode code1) = SOME (findWordRef r)` by (match_mp_tac lookup_analyseWordCode >> 
+                        fs[wf_set_tree_def] >> qexists_tac `findWordRef r` >> fs[lookup_analyseWordCode] >>
+                        `lookup x' (analyseWordCode code1) = SOME (findWordRef r)` by (match_mp_tac lookup_analyseWordCode >>
                             qexists_tac `SUC (LENGTH x)` >> metis_tac[lookup_fromAList]) >> imp_res_tac lookup_mk_wf_set_tree >>
-                        `wf (findWordRef r) ∧ wf y` by metis_tac[wf_findWordRef] >> 
-                        `y = findWordRef r` by (fs[spt_eq_thm, domain_lookup, EXTENSION] >> rw[] >> 
-                        Cases_on `lookup n y` >> fs[] >> Cases_on `lookup n (findWordRef r)` >> fs[] >> rfs[] >> 
-                        qpat_x_assum `∀ x . lookup _ _ = _ ⇔ _` (qspec_then `n` mp_tac) >> rw[] >> fs[]) >> rveq >> 
+                        `wf (findWordRef r) ∧ wf y` by metis_tac[wf_findWordRef] >>
+                        `y = findWordRef r` by (fs[spt_eq_thm, domain_lookup, EXTENSION] >> rw[] >>
+                        Cases_on `lookup n y` >> fs[] >> Cases_on `lookup n (findWordRef r)` >> fs[] >> rfs[] >>
+                        qpat_x_assum `∀ x . lookup _ _ = _ ⇔ _` (qspec_then `n` mp_tac) >> rw[] >> fs[]) >> rveq >>
                         fs[domain_lookup, SUBSET_DEF] >> metis_tac[]) ) >>
                 `codeClosed reachable (call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock s))).code` by (
-                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> TRY(PairCases_on `x'` >> fs[]) >> 
+                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> TRY(PairCases_on `x'` >> fs[]) >>
                     fs[push_env_def, env_to_list_def] ) >>
                 `word_state_rel reachable (call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock s)))
                     (call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state)))` by (
                     `∀ e . MEM e x'0 ⇒ (case destWordLoc e of | NONE => {} | SOME n => {n}) ⊆ domain reachable` by (
-                        rw[] >> Cases_on `e` >> fs[destWordLoc_def, SUBSET_EMPTY] >> Cases_on `dest` >> fs[find_code_def] >> 
-                        EVERY_CASE_TAC >> fs[] >> rveq >> imp_res_tac MEM_FRONT >> fs[] >> 
+                        rw[] >> Cases_on `e` >> fs[destWordLoc_def, SUBSET_EMPTY] >> Cases_on `dest` >> fs[find_code_def] >>
+                        EVERY_CASE_TAC >> fs[] >> rveq >> imp_res_tac MEM_FRONT >> fs[] >>
                         qspecl_then [`args`, `s`, `x`, `n`, `n0`] mp_tac get_vars_getLocals >> rw[] >> fs[SUBSET_DEF]) >>
-                      fs[dec_clock_def, call_env_def] >> Cases_on `handler` 
+                      fs[dec_clock_def, call_env_def] >> Cases_on `handler`
                       >- (fs[push_env_def, env_to_list_def] >> fs[word_state_rel_def, domain_findLocState] >> rw[]
-                          >- (rw[SUBSET_DEF] >> fs[domain_getLocals_lookup] >> imp_res_tac fromList2_value >> 
+                          >- (rw[SUBSET_DEF] >> fs[domain_getLocals_lookup] >> imp_res_tac fromList2_value >>
                               qpat_x_assum `∀ e . MEM _ _ ⇒ _` (qspec_then `Loc x' n1` mp_tac) >> fs[destWordLoc_def])
                           >- fs[stack_list_rearrange_lemma])
                       >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def, word_state_rel_def, domain_findLocState] >>
                           rw[]
-                          >- (rw[SUBSET_DEF] >> fs[domain_getLocals_lookup] >> imp_res_tac fromList2_value >> 
+                          >- (rw[SUBSET_DEF] >> fs[domain_getLocals_lookup] >> imp_res_tac fromList2_value >>
                               qpat_x_assum `∀ e . MEM _ _ ⇒ _` (qspec_then `Loc x' n1` mp_tac) >> fs[destWordLoc_def])
                           >- fs[stack_list_rearrange_lemma]) ) >>
                 Cases_on `evaluate (x'1, call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock s)))` >> fs[] >>
                 Cases_on `q` >> fs[] >> Cases_on `x'` >> fs[] >>
                 `r.gc_fun = s.gc_fun` by (
-                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> fs[push_env_def, env_to_list_def] 
+                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> fs[push_env_def, env_to_list_def]
                     >- (drule evaluate_code_gc_fun_const >> fs[]) >> PairCases_on `x'` >> fs[push_env_def, env_to_list_def]
                     >> drule evaluate_code_gc_fun_const >> fs[] ) >>
-                `gcNoNewLocs (call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock s))).gc_fun` by ( 
+                `gcNoNewLocs (call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock s))).gc_fun` by (
                     fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> fs[push_env_def, env_to_list_def] >>
                     PairCases_on `x'` >> fs[push_env_def, env_to_list_def] )
-                >- (Cases_on `w ≠ Loc x'3 x'4` >> fs[] >> fs[pop_env_def] >> Cases_on `r.stack` >> fs[] >> 
+                >- (Cases_on `w ≠ Loc x'3 x'4` >> fs[] >> fs[pop_env_def] >> Cases_on `r.stack` >> fs[] >>
                     Cases_on `h` >> fs[] >> Cases_on `o'` >> fs[]
                     >- (Cases_on `domain (fromAList l) = domain (inter s.locals x'1')` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`,
-                            `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> 
+                            `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >>
                         rw[] >> fs[] >> `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >>
                         first_x_assum (qspecl_then [`reachable`,`set_var x'0' w0 (s' with <|locals := fromAList l;stack := t|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
-                        `r.code = s.code` by (fs[call_env_def, dec_clock_def] >> Cases_on `handler` 
+                        `r.code = s.code` by (fs[call_env_def, dec_clock_def] >> Cases_on `handler`
                             >- (fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])
-                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >> 
+                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >>
                         fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[]
                         >- (`domain (getLocals (fromAList l)) ⊆ domain reachable` by imp_res_tac getStack_hd_thm >>
                             qspecl_then [`x'0'`, `w0`, `fromAList l`] mp_tac getLocals_insert >> rw[] >>
@@ -796,15 +772,15 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                             fs[destResultLoc_def] >> fs[SUBSET_DEF] >> metis_tac[])
                         >- metis_tac[getStack_hd_thm])
                     >- (Cases_on `x'` >> fs[] >> Cases_on `domain (fromAList l) = domain (inter s.locals x'1')` >> fs[] >> rw[] >>
-                        first_x_assum (qspecl_then [`reachable`, 
+                        first_x_assum (qspecl_then [`reachable`,
                             `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> rw[] >>
-                        fs[] >> `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >> 
-                        first_x_assum (qspecl_then [`reachable`,`set_var x'0' w0 
+                        fs[] >> `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >>
+                        first_x_assum (qspecl_then [`reachable`,`set_var x'0' w0
                             (s' with <|locals := fromAList l; stack := t; handler := q|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
-                        `r.code = s.code` by (fs[call_env_def, dec_clock_def] >> Cases_on `handler` 
+                        `r.code = s.code` by (fs[call_env_def, dec_clock_def] >> Cases_on `handler`
                             >- (fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])
-                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >> 
+                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >>
                             fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[]
                         >- (`domain (getLocals (fromAList l)) ⊆ domain reachable` by imp_res_tac getStack_hd_thm >>
                             qspecl_then [`x'0'`, `w0`, `fromAList l`] mp_tac getLocals_insert >> rw[] >>
@@ -814,29 +790,29 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                    )
                 >- (Cases_on `handler` >> fs[]
                     >- (rw[] >> qmatch_goalsub_abbrev_tac `(_, n_state)` >>
-                        first_x_assum (qspecl_then [`reachable`, `n_state`] mp_tac) >>  
+                        first_x_assum (qspecl_then [`reachable`, `n_state`] mp_tac) >>
                         reverse(impl_tac) >- (rw[] >> fs[])
                         >> fs[call_env_def, push_env_def, dec_clock_def, env_to_list_def, word_state_rel_def, domain_findLocState] >> rw[])
                     >- (PairCases_on `x'` >> fs[] >> Cases_on `w ≠ Loc x'2' x'3'` >> fs[] >>
                         Cases_on `domain r.locals = domain (inter s.locals x'1')` >> fs[] >> rw[] >>
-                        first_x_assum (qspecl_then [`reachable`, `call_env x'0 (push_env (inter s.locals x'1') 
+                        first_x_assum (qspecl_then [`reachable`, `call_env x'0 (push_env (inter s.locals x'1')
                             (SOME (x'0'',x'1'',x'2',x'3')) (dec_clock removed_state))`] mp_tac) >> rw[] >> fs[] >>
                         `s'.locals = r.locals` by fs[word_state_rel_def] >> fs[] >>
-                        first_x_assum (qspecl_then [`reachable`, `set_var x'0'' w0 s'`] mp_tac) >> 
+                        first_x_assum (qspecl_then [`reachable`, `set_var x'0'' w0 s'`] mp_tac) >>
                         reverse(impl_tac) >> fs[] >> fs[set_var_def, word_state_rel_def, domain_findLocState] >> rw[]
                         >- (qspecl_then [`x'0''`, `w0`, `r.locals`] mp_tac getLocals_insert >> rw[] >>
                             Cases_on `w0` >> fs[destWordLoc_def] >> rw[] >- imp_res_tac SUBSET_TRANS >>
                             fs[destResultLoc_def] >> fs[SUBSET_DEF] >> metis_tac[])
-                        >- (`r.code = s.code` by (fs[call_env_def, dec_clock_def, push_env_def, env_to_list_def] >> 
+                        >- (`r.code = s.code` by (fs[call_env_def, dec_clock_def, push_env_def, env_to_list_def] >>
                                 (fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >> fs[]))
                    )
-                >>  first_x_assum (qspecl_then [`reachable`, 
-                    `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> rw[] >> rw[] 
+                >>  first_x_assum (qspecl_then [`reachable`,
+                    `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> rw[] >> rw[]
 ,   (* FFI - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup len1 s.locals` >> fs[] >>
-        Cases_on `x` >> fs[] >> Cases_on `lookup ptr1 s.locals` >> fs[] >> Cases_on `x` >> fs[] >> 
-        Cases_on `lookup len2 s.locals` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `lookup ptr2 s.locals` >> fs[] >> 
-        Cases_on `x` >> fs[] >> Cases_on `cut_env names s.locals` >> fs[] >> 
+        Cases_on `x` >> fs[] >> Cases_on `lookup ptr1 s.locals` >> fs[] >> Cases_on `x` >> fs[] >>
+        Cases_on `lookup len2 s.locals` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `lookup ptr2 s.locals` >> fs[] >>
+        Cases_on `x` >> fs[] >> Cases_on `cut_env names s.locals` >> fs[] >>
         Cases_on `read_bytearray c' (w2n c) (mem_load_byte_aux s.memory s.mdomain s.be)` >> fs[] >>
         Cases_on `read_bytearray c''' (w2n c'') (mem_load_byte_aux s.memory s.mdomain s.be)` >> fs[] >>
         Cases_on `call_FFI s.ffi ffi_index x' x''` >> fs[] >> rw[] >> fs[word_state_rel_def] >>
@@ -844,16 +820,16 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         >- (`subspt x s.locals` by (fs[cut_env_def] >> fs[subspt_def] >> rw[] >> fs[domain_inter] >>
             fs[lookup_inter] >> fs[domain_lookup]) >> fs[SUBSET_DEF] >> rw[] >>
             `x''' ∈ domain (getLocals x) ⇒ x''' ∈ domain (getLocals s.locals)` by (
-                imp_res_tac getLocals_thm_STRONG >> rw[] >> imp_res_tac subspt_def >> pop_assum (qspec_then `n` mp_tac) >> 
-                fs[domain_lookup] >> qspecl_then [`s.locals`, `x'''`, `n0`, `getLocals s.locals`] mp_tac getLocals_thm >>
+                imp_res_tac domain_getLocals_lookup >> rw[] >> imp_res_tac subspt_def >> pop_assum (qspec_then `k` mp_tac) >>
+                fs[domain_lookup] >> qspecl_then [`s.locals`, `x'''`, `n1`, `getLocals s.locals`] mp_tac getLocals_thm >>
                 rw[] >> fs[domain_lookup] >> metis_tac[]) >> metis_tac[])
         >- metis_tac[getMemory_write_bytearray_lemma]
         >- fs[destResultLoc_def]
 ,   (* LocValue - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[findWordRef_def] >> imp_res_tac code_rel_def >>
-        Cases_on `l1 ∈ domain s.code` >> fs[] >> `l1 ∈ domain removed_state.code` by fs[domain_lookup] >> 
+        Cases_on `l1 ∈ domain s.code` >> fs[] >> `l1 ∈ domain removed_state.code` by fs[domain_lookup] >>
         rw[] >> fs[set_var_def, word_state_rel_def] >> fs[domain_findLocState] >>
-        `domain (getLocals (insert r (Loc l1 0) s.locals)) ⊆ domain (getLocals s.locals) ∪ {l1}` 
+        `domain (getLocals (insert r (Loc l1 0) s.locals)) ⊆ domain (getLocals s.locals) ∪ {l1}`
         by (metis_tac[getLocals_insert_Loc]) >> fs[SUBSET_DEF] >> rw[] >> res_tac >> fs[]
         >> fs[destResultLoc_def]
 ,   (* If - DONE!!! *)
@@ -862,11 +838,11 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         Cases_on `get_var_imm ri removed_state` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `word_cmp cmp c c'` >> fs[] >> rw[] >>
         fs[findWordRef_def, domain_union]
 ,   (* Raise - DONE!!! *)
-        simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >>  
+        simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >>
         `jump_exc s = NONE ⇔ jump_exc removed_state = NONE` by (fs[jump_exc_def] >> EVERY_CASE_TAC) >>
         drule word_state_rel_jump_exc >> strip_tac >> Cases_on `jump_exc s` >> fs[] >>
         PairCases_on `x'` >> fs[] >> rw[] >> fs[word_state_rel_def]
-        >> Cases_on `x` >> fs[destResultLoc_def] >> fs[SUBSET_DEF] >> 
+        >> Cases_on `x` >> fs[destResultLoc_def] >> fs[SUBSET_DEF] >>
             qspecl_then [`n'`, `s.locals`] mp_tac domain_getLocals_lookup >> rw[] >>
             fs[domain_findLocState] >> res_tac >> fs[]
 ,   (* Return - DONE!!! *)
@@ -883,22 +859,22 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         first_x_assum (qspecl_then [`reachable`, `s'`] mp_tac) >> impl_tac >> fs[] >>
         fs[codeClosed_def] >> fs[word_state_rel_def, code_rel_def] >>
         `r.gc_fun = s.gc_fun` by metis_tac[evaluate_code_gc_fun_const] >> fs[] >>
-        qexists_tac `code1` >> reverse(rw[]) >> fs[] >> res_tac >> 
+        qexists_tac `code1` >> reverse(rw[]) >> fs[] >> res_tac >>
         imp_res_tac evaluate_code_const >> fs[]
-,   (* MustTerminate - DONE!!! *) 
+,   (* MustTerminate - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> Cases_on `s.termdep` >> fs[] >>
         Cases_on `evaluate (p, s with <|clock := MustTerminate_limit (:'a); termdep := n|>)` >> fs[] >>
         Cases_on `q = SOME TimeOut` >> fs[] >> rw[] >>
-        first_x_assum (qspecl_then [`reachable`, `removed_state with <|clock := MustTerminate_limit (:'a); termdep := n|>`] mp_tac) >> 
+        first_x_assum (qspecl_then [`reachable`, `removed_state with <|clock := MustTerminate_limit (:'a); termdep := n|>`] mp_tac) >>
         fs[] >> rw[] >> fs[findWordRef_def] >> rfs[]  >> fs[word_state_rel_def] >> rfs[domain_findLocState]
 ,   (* Tick - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `s.clock = 0` >> fs[]
-        >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >> 
+        >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >>
             rw[findLocState_def, domain_union, getLocals_def, getStack_def] >>
             fs[domain_findLocState, SUBSET_DEF, destResultLoc_def])
         >- (rw[] >> fs[dec_clock_def, word_state_rel_def, domain_findLocState, destResultLoc_def])
-,   (* Store - DONE!!! *) 
+,   (* Store - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         `word_exp s exp = word_exp removed_state exp` by metis_tac[word_state_rel_word_exp] >> fs[] >>
         Cases_on `word_exp removed_state exp` >> fs[] >> Cases_on `x` >> fs[] >> fs[get_var_def] >>
@@ -926,9 +902,9 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
             >- (`MAP (λa. word_exp s a) l = MAP (λa. word_exp removed_state a) l` by (fs[MAP_EQ_f] >> rw[] >>
                     `word_state_rel reachable s removed_state` by fs[word_state_rel_def, domain_findLocState] >>
                     metis_tac[word_state_rel_word_exp]) >> fs[] >>
-                Cases_on `the_words (MAP (λa. word_exp removed_state a) l)` >> fs[]) 
+                Cases_on `the_words (MAP (λa. word_exp removed_state a) l)` >> fs[])
             >- (Cases_on `word_exp removed_state e` >> fs[] >> Cases_on `x` >> fs[])) >>
-        fs[SUBSET_DEF] >> metis_tac[] 
+        fs[SUBSET_DEF] >> metis_tac[]
 ,   (* Get - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `FLOOKUP s.store name` >> fs[] >>
@@ -939,7 +915,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         Cases_on `x` >> fs[destWordLoc_def] >- metis_tac[SUBSET_TRANS] >> rw[] >>
         `n ∈ domain reachable` by metis_tac[domain_getStore, SUBSET_DEF] >>
         fs[SUBSET_DEF] >> metis_tac[]
-,   (* Assign - DONE!!! *) 
+,   (* Assign - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         `word_exp s exp = word_exp removed_state exp` by metis_tac[word_state_rel_word_exp] >> fs[] >>
         fs[] >> Cases_on `word_exp removed_state exp` >> fs[] >>
@@ -954,9 +930,9 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
             >- (`MAP (λa. word_exp s a) l = MAP (λa. word_exp removed_state a) l` by (fs[MAP_EQ_f] >> rw[] >>
                     `word_state_rel reachable s removed_state` by fs[word_state_rel_def, domain_findLocState] >>
                     metis_tac[word_state_rel_word_exp]) >> fs[] >>
-                Cases_on `the_words (MAP (λa. word_exp removed_state a) l)` >> fs[]) 
+                Cases_on `the_words (MAP (λa. word_exp removed_state a) l)` >> fs[])
             >- (Cases_on `word_exp removed_state e` >> fs[] >> Cases_on `x` >> fs[])) >>
-        fs[SUBSET_DEF] >> metis_tac[] 
+        fs[SUBSET_DEF] >> metis_tac[]
 ,   (* Inst - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         `inst i s = NONE ⇔ inst i removed_state = NONE` by metis_tac[word_state_rel_inst_NONE] >>
@@ -969,8 +945,8 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         fs[word_state_rel_def, domain_findLocState] >> fs[alist_insert_def] >>
         fs[SUBSET_DEF, domain_getLocals_lookup] >> rw[] >> imp_res_tac get_vars_length_lemma >>
         fs[lookup_alist_insert] >> Cases_on `ALOOKUP (ZIP (MAP FST moves, x)) k` >> fs[]
-        >- metis_tac[] 
-        >- (qsuff_tac `MEM x'' x` >- metis_tac[get_vars_getLocals, domain_getLocals_lookup] 
+        >- metis_tac[]
+        >- (qsuff_tac `MEM x'' x` >- metis_tac[get_vars_getLocals, domain_getLocals_lookup]
             >> `LENGTH x = LENGTH (MAP FST moves)` by metis_tac[LENGTH_MAP] >> rveq >>
                metis_tac[ALOOKUP_ZIP_SUCCESS])
         >> fs[destResultLoc_def]
@@ -981,44 +957,44 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
         Cases_on `x` >> fs[] >>
         metis_tac[word_state_rel_alloc]
 ,   (* Skip - DONE!!! *)
-        simp[wordSemTheory.evaluate_def] >> rw[] >> fs[word_state_rel_def, destResultLoc_def]        
-    ]      
+        simp[wordSemTheory.evaluate_def] >> rw[] >> fs[word_state_rel_def, destResultLoc_def]
+    ]
 );
 
 (**************************** WORD_REMOVAL_THM *****************************)
 
 val word_removal_thm = Q.store_thm("word_removal_thm",
-    `∀ start state result new_state r reachable code1. 
-        wordSem$evaluate (Call NONE (SOME start) [0] NONE, state) = (result, new_state) ∧ 
+    `∀ start state result new_state r reachable code1.
+        wordSem$evaluate (Call NONE (SOME start) [0] NONE, state) = (result, new_state) ∧
         result ≠ SOME Error ∧ state.code = fromAList code1 ∧
-        domain (findLocState state) ⊆ {} ∧ gcNoNewLocs state.gc_fun ∧  
-        reachable = closure_spt (insert start () LN)  (mk_wf_set_tree (analyseWordCode code1)) ∧ ALL_DISTINCT (MAP FST code1)  
+        domain (findLocState state) ⊆ domain reachable ∧ gcNoNewLocs state.gc_fun ∧
+        reachable = closure_spt (insert start () LN)  (mk_wf_set_tree (analyseWordCode code1)) ∧ ALL_DISTINCT (MAP FST code1)
         ⇒ ∃ s .
             wordSem$evaluate (Call NONE (SOME start) [0] NONE, state with code := fromAList (removeWordCode reachable code1))
                 = (result, s)`,
     rpt strip_tac >>
-    qspecl_then [`Call NONE (SOME start) [0] NONE`, `state'`, `result`, `new_state`, `reachable`, 
+    qspecl_then [`Call NONE (SOME start) [0] NONE`, `state'`, `result`, `new_state`, `reachable`,
         `state' with code := fromAList(removeWordCode reachable code1)`] mp_tac word_removal_lemma >>
     reverse(impl_tac) >- metis_tac[]
-    >>  qspecl_then [`code1`, `analyseWordCode code1`, `insert start () LN`, `start`, 
+    >>  qspecl_then [`code1`, `analyseWordCode code1`, `insert start () LN`, `start`,
             `mk_wf_set_tree (analyseWordCode code1)`] mp_tac analyseWordCode_reachable_thm >>
-        reverse(impl_tac >> rw[]) 
+        reverse(impl_tac >> rw[])
         >- (fs[codeClosed_def] >> qexists_tac `code1` >> fs[] >> fs[isReachable_def] >> metis_tac[RTC_TRANSITIVE, transitive_def])
         >- (fs[findWordRef_def, isReachable_def, RTC_REFL])
         >- (fs[word_state_rel_def, code_rel_def, lookup_fromAList] >> fs[EXTENSION, SUBSET_DEF] >> rw[] >>
             res_tac >> rename1 `closure_spt x y` >> Cases_on `ALOOKUP code1 n` >> fs[]
-                >- (fs[ALOOKUP_NONE] >> drule removeWordCode_thm_FST >> rw[] >> 
+                >- (fs[ALOOKUP_NONE] >> drule removeWordCode_thm_FST >> rw[] >>
                     pop_assum (qspecl_then [`n`, `closure_spt x y`] mp_tac) >> rw[])
                 >- (imp_res_tac ALOOKUP_MEM >> drule removeWordCode_thm >> rw[] >>
                     pop_assum (qspecl_then [`n`, `closure_spt x y`] mp_tac) >> rw[] >> res_tac >>
-                    `ALL_DISTINCT (MAP FST (removeWordCode (closure_spt x y) code1))` by (fs[removeWordCode_def] >> 
-                    `MAP FST (FILTER (λx'. IS_SOME (lookup (FST x') (closure_spt x y))) code1) 
-                        = FILTER (λx'. IS_SOME (lookup x' (closure_spt x y))) (MAP FST code1)` by 
+                    `ALL_DISTINCT (MAP FST (removeWordCode (closure_spt x y) code1))` by (fs[removeWordCode_def] >>
+                    `MAP FST (FILTER (λx'. IS_SOME (lookup (FST x') (closure_spt x y))) code1)
+                        = FILTER (λx'. IS_SOME (lookup x' (closure_spt x y))) (MAP FST code1)` by
                             metis_tac[removeWordCode_MAP_FST_lemma] >>
                     fs[FILTER_ALL_DISTINCT]) >> fs[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME]))
         >- (fs[evaluate_def, get_vars_def, bad_dest_args_def, add_ret_loc_def, find_code_def] >>
             Cases_on `lookup start (fromAList code1)` >> fs[] >> fs[get_var_def] >> EVERY_CASE_TAC >> fs[] >>
-            fs[lookup_fromAList] >> drule lookup_analyseWordCode >> rw[] >> fs[domain_lookup] >> 
+            fs[lookup_fromAList] >> drule lookup_analyseWordCode >> rw[] >> fs[domain_lookup] >>
             drule lookup_mk_wf_set_tree >> rw[] >> fs[])
 );
 

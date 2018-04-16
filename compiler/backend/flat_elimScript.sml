@@ -254,7 +254,7 @@ val analyseExp_def = Define `
             if (isHidden e) then (LN, map (K lookups) locs) 
             else (locs, map (K lookups) locs)
         ) else (
-            (union locs lookups, (map (K LN) (union locs lookups))) (* TODO - check that this is OK *)
+            (union locs lookups, (map (K LN) (union locs lookups)))
         )
 `
 
@@ -291,12 +291,6 @@ val analyseCode_thm = Q.store_thm("analyseCode_thm",
 
 
 (******************************************************** CODE REMOVAL *********************************************************)
-
-(* TODO DELETE THIS 
-val lit0_def = Define `
-    lit0 n = Dlet (App None (GlobalVarInit n) [Lit None (IntLit 0)])
-`
-*)
 
 val keep_def = Define `
     (keep reachable (Dlet e) = 

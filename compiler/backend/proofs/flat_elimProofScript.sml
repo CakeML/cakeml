@@ -18,19 +18,6 @@ val v_size_map_snd = Q.store_thm("exp_size_map_snd",
 );
 
 
-(******** FINDALLGLOBALS - TODO: DELETE THIS ********)
-(*
-val findAllGlobals_def = Define `
-    (findAllGlobals e = union (findLookups e) (findLoc e)) ∧
-    (findAllGlobalsL [] = LN) ∧
-    (findAllGlobalsL (h::t) = union (findAllGlobals h) (findAllGlobalsL t))
-`
-
-val findAllGlobals_ind = theorem "findAllGlobals_ind";
-*)
-
-(******** FINDVGLOBALS ********)
-
 val findVglobals_def = tDefine "findVglobals" `
     (findVglobals (Conv _ vl) = (findVglobalsL vl):num_set) ∧
     (findVglobals (Closure vvs _ e) =
@@ -167,12 +154,7 @@ val findRefsGlobals_APPEND = Q.store_thm ("findRefsGlobals_APPEND",
     Cases_on `h` >> fs[findRefsGlobals_def] >> fs[union_assoc]
 
 );
-(*
-val findRefsGlobals_Varray_REPLICATE = Q.store_thm ("findRefsGlobalsiglobalsL_REPLICATE",
-    `∀ n v vs . domain (findVglobalsL (REPLICATE n v)) ⊆  domain (findVglobals v)`,
-    Induct >> fs[REPLICATE, findVglobals_def, domain_union]
-);
-*)
+
 (******** FINDENVGLOBALS ********)
 
 val findEnvGlobals_def = Define `
@@ -210,12 +192,6 @@ val globals_rel_def = Define `
      ∧    (∀ n x . n ∈ domain reachable ∧ n < LENGTH t.globals ∧ EL n t.globals = SOME x ⇒
             domain (findVglobals x) ⊆ domain reachable)
 `
-(*
-val globals_rel_refl = Q.store_thm("globals_rel_refl",
-    `∀ reachable s . globals_rel reachable s s`,
-    rw[globals_rel_def]
-);
-*)
 val globals_rel_trans = Q.store_thm("globals_rel_trans",
     `∀ reachable s1 s2 s3 .
         globals_rel reachable s1 s2 ∧ globals_rel reachable s2 s3
@@ -258,8 +234,6 @@ val decsClosed_reduce_HD = Q.store_thm("decsClosed_reduce_HD",
 
 
 (**************************** FLAT_STATE_REL *****************************)
-
-(* TODO - check if findAllGlobals or just findLookups necessary - may not care about initialisations *)
 
 (* s = state, t = removed state *)
 val flat_state_rel_def = Define `
@@ -671,8 +645,6 @@ val evaluate_dec_flat_state_rel = Q.store_thm("evaluate_dec_flat_state_rel",
 
 (******** EVALUATE MUTUAL INDUCTION ********)
 
-(* TODO create weak version of findGlobals to solve this *)
-
 val evaluate_flat_state_rel_lemma = Q.store_thm ("evaluate_flat_state_rel_lemma",
     `(∀ env (state:'a flatSem$state) exprL new_state result reachable removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
@@ -984,23 +956,3 @@ val flat_removal_thm = Q.store_thm ("flat_removal_thm",
 );
 
 val _ = export_theory();
-
-
-
-
-(* in code, you can say get global -> in flatLang you have code in closures, which can get globals therefore
-    -> therefore anything in which you can say "get global" must be in reachable set -> have to scan all closures and recclosures *)
-
-(* implementation-wise, be conservative - look for patterns of code that point into closures
-    -> look at source_to_flatTheory, look at patterns of code that it generates and then shape isHidden function to match this *)
-
-(* what you want to get out of the matcher isHidden -
-    isHidden should be of type : (num # exp) list option, where num is a global and exp is the corresponding code that gets
-    unconditionally stored in the closure *)
-
-(* pattern matcher should handle things like val (x, y, z) = someBigThing, or more generally val (Branch v1 v2 v3) = foo -
-    there is only ever one pattern to match to usually *)
-
-(* also check how mutually recursive functions turn out *)
-
-(* if isHidden matcher gives out NONE, then make sure that everything is deemed reachable and the optimisation is therefore safe *)

@@ -8,6 +8,9 @@ val f = DB.find;
 val _ = new_theory "reachability";
 
 
+
+
+
 (******************************************************** GENERAL SPTREE LEMMAS *********************************************************)
 
 (**************************** RESULTS FROM SPTREETHEORY *****************************)
@@ -411,6 +414,7 @@ val lookup_domain_mk_wf_set_tree = Q.store_thm("lookup_domain_mk_wf_set_tree",
 (**************************************** GETONE ****************************************)
 
 val getOne_def = Define `
+    (* NB: no LN case, must ensure that "getOne LN" never occurs *)
     (getOne (LS ()) = 0n) ∧
     (getOne (BN LN t2) = 2n * (getOne t2) + 1n) ∧
     (getOne (BN t1 _ ) = 2n * (getOne t1) + 2n) ∧
