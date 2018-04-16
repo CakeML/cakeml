@@ -5,6 +5,67 @@ val f = print_find;
 
 val _ = new_theory "word_elimProof";
 
+(******************************************************** NOINSTALL PREDICATE *********************************************************)
+
+(*  ensures there are no install instructions in the code to be optimised - these will break the dead code elimination
+    pass as they introduce new code at runtime, which may reference code that has been eliminated *)
+val noInstall_def = Define `
+    (noInstall (MustTerminate p) = noInstall p) ∧
+    (noInstall (Call ret _ _ handler) = (case ret of
+        | NONE => (case handler of 
+            | NONE => T
+            | SOME (_,ph,_,_) => noInstall ph)
+        | SOME (_,_,pr,_,_) => (case handler of
+            | NONE => noInstall pr
+            | SOME (_,ph,_,_) => noInstall ph ∧ noInstall pr))) ∧ 
+    (noInstall (Seq p1 p2) = (noInstall p1 ∧ noInstall p2)) ∧
+    (noInstall (If _ _ _ p1 p2) = (noInstall p1 ∧ noInstall p2)) ∧
+    (noInstall (Install _ _ _ _ _) = F) ∧ 
+    (noInstall _ = T)
+` 
+
+val noInstall_ind = theorem "noInstall_ind";
+
+val noInstall_code_def = Define `
+    noInstall_code (code : (num # ('a wordLang$prog)) num_map) ⇔ 
+        ∀ k n p . lookup k code = SOME (n, p) ⇒ noInstall p
+`
+
+val noInstall_find_code = Q.store_thm("noInstall_find_code",
+    `∀ code dest args args1 expr . noInstall_code code ∧ find_code dest args code = SOME (args1, expr)
+    ⇒ noInstall expr`,
+    rw[noInstall_code_def] >> Cases_on `dest` >> fs[find_code_def] >> EVERY_CASE_TAC >> metis_tac[]
+);
+
+val noInstall_evaluate_const_code = Q.store_thm("noInstall_evaluate_const_code",
+    `∀ prog s result s1 . evaluate (prog, s) = (result, s1) ∧ 
+        noInstall prog ∧ noInstall_code s.code 
+    ⇒ s.code = s1.code`,
+    recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>         
+    fs[evaluate_def]
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[])
+    >- (fs[get_vars_def, set_vars_def] >> EVERY_CASE_TAC >> fs[] >> rw[] >> fs[get_vars_def])
+    >- (rw[] >> EVERY_CASE_TAC >> imp_res_tac inst_const_full >> fs[] >> rveq >> fs[])
+    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[set_store_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[mem_store_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[call_env_def, dec_clock_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rename1 `evaluate (p, st)` >> Cases_on `evaluate (p, st)` >> 
+        fs[noInstall_def] >> EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
+    >- (Cases_on `evaluate (c1,s)` >> fs[noInstall_def] >> CASE_TAC >> rfs[])
+    >- (EVERY_CASE_TAC >> fs[call_env_def] >> rw[] >> fs[])
+    >- (fs[jump_exc_def] >> EVERY_CASE_TAC >> rw[] >> fs[])
+    >- (fs[noInstall_def] >> EVERY_CASE_TAC >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
+    >- (fs[noInstall_def])
+    >- (EVERY_CASE_TAC >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> rw[] >> fs[] >> fs[ffiTheory.call_FFI_def] >>
+        EVERY_CASE_TAC >> rw[] >> fs[state_component_equality])
+    >- (fs[noInstall_def, dec_clock_def, call_env_def, push_env_def, cut_env_def, pop_env_def, set_var_def] >> 
+        EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[noInstall_find_code])
+);
 
 (******************************************************** STATE RELATION *********************************************************)
 
@@ -293,25 +354,28 @@ val gcNoNewLocs_def = Define`
         domain (getStore sto1) ⊆ domain (getStore sto)
 `
 
-
 (**************************** WORD_STATE_REL *****************************)
 
 val word_state_rel_def = Define `
     word_state_rel (reachable:num_set) t s ⇔
-        s.locals = t.locals ∧
-        s.fp_regs = t.fp_regs ∧
-        s.store = t.store ∧
-        s.stack = t.stack ∧
-        s.memory = t.memory ∧
-        s.mdomain = t.mdomain ∧
-        s.permute = t.permute ∧
-        s.gc_fun = t.gc_fun ∧
-        s.handler = t.handler ∧
-        s.clock = t.clock ∧
-        s.termdep = t.termdep ∧
+        s.locals         = t.locals ∧
+        s.fp_regs        = t.fp_regs ∧
+        s.store          = t.store ∧
+        s.stack          = t.stack ∧
+        s.memory         = t.memory ∧
+        s.mdomain        = t.mdomain ∧
+        s.permute        = t.permute ∧
+        s.compile        = t.compile ∧
+        s.compile_oracle = t.compile_oracle ∧ 
+        s.code_buffer    = t.code_buffer ∧ 
+        s.data_buffer    = t.data_buffer ∧ 
+        s.gc_fun         = t.gc_fun ∧
+        s.handler        = t.handler ∧
+        s.clock          = t.clock ∧
+        s.termdep        = t.termdep ∧
+        s.be             = t.be ∧
+        s.ffi            = t.ffi ∧
         code_rel reachable (s.code) (t.code) ∧
-        s.be = t.be ∧
-        s.ffi = t.ffi ∧
         domain (findLocState t) ⊆ domain (reachable)
 `
 
@@ -581,7 +645,7 @@ val word_state_rel_alloc = Q.store_thm("word_state_rel_alloc",
         fs[env_to_list_def, push_env_def, set_store_def] >> fs[] >> rw[] >>
     qmatch_asmsub_abbrev_tac `gc s_state` >> qmatch_goalsub_abbrev_tac `gc t_state` >>
     qspecl_then [`reachable`, `s_state`, `t_state`, `x`] mp_tac word_state_rel_gc >>
-    impl_tac >- fs[push_env_def]
+    impl_tac >- fs[push_env_def, Abbr `s_state`]
     >>  rw[] >> fs[] >>
         qpat_assum `word_state_rel _ _ _` mp_tac >> SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
         qpat_x_assum `(_) = (a,b)` mp_tac >> fs[pop_env_def] >> Cases_on `x.stack` >> fs[] >>
@@ -602,14 +666,15 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
     `∀ program state result new_state reachable removed_state .
         wordSem$evaluate (program, state) = (result, new_state) ∧
         result ≠ SOME Error ∧ word_state_rel reachable state removed_state ∧
-        gcNoNewLocs state.gc_fun ∧
+        gcNoNewLocs state.gc_fun ∧ 
+        noInstall program ∧ noInstall_code state.code ∧ noInstall_code removed_state.code ∧ 
         domain (findWordRef program) ⊆ domain (reachable) ∧
         codeClosed reachable state.code
         ⇒ ∃ s .
             wordSem$evaluate (program, removed_state) = (result, s) ∧
             word_state_rel reachable new_state s ∧
             (destResultLoc result) ⊆ domain (reachable)`
-,
+    ,
         recInduct wordSemTheory.evaluate_ind >> reverse(rw[]) >>
         qpat_x_assum `evaluate _ = _` mp_tac >> qpat_assum `word_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
@@ -619,7 +684,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
 
     (* CALL - DONE !!! *)
         simp[wordSemTheory.evaluate_def] >> Cases_on `get_vars args s` >> fs[] >>
-        Cases_on `bad_dest_args dest args` >> fs[] >>
+        Cases_on `bad_dest_args dest args` >> fs[noInstall_def] >>
         `get_vars args s = SOME [] ⇒ args = []` by (Cases_on `args` >>
             fs[get_vars_def] >> Cases_on `get_var h s` >> fs[] >>
             Cases_on `get_vars t s` >> fs[] >> rveq >> fs[NOT_CONS_NIL]) >>
@@ -665,6 +730,8 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 Cases_on `q = SOME Error` >> fs[] >> first_x_assum drule >>
                 reverse(impl_tac) >- (strip_tac >> fs[] >> Cases_on `q` >> fs[] >> rw[] >> fs[])
                     >- (rw[dec_clock_def, call_env_def] >> fs[add_ret_loc_def] >> Cases_on `dest` >> fs[find_code_def]
+                        >- (EVERY_CASE_TAC >> fs[] >> rveq >> fs[] >> fs[noInstall_code_def] >> res_tac)
+                        >- (EVERY_CASE_TAC >> fs[] >> rveq >> fs[] >> fs[noInstall_code_def] >> res_tac)
                         >- (`∃ y ys . x = SNOC y ys` by metis_tac[SNOC_CASES] >> full_simp_tac std_ss [LAST_SNOC, FRONT_SNOC] >>
                             Cases_on `y` >> fs[] >> Cases_on `n0` >> fs[] >> Cases_on `lookup n s.code` >> fs[] >>
                             Cases_on `x'` >> fs[] >> rveq >> fs[ADD1] >> rveq >> fs[domain_findLocState] >>
@@ -749,50 +816,61 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 Cases_on `q` >> fs[] >> Cases_on `x'` >> fs[] >>
                 `r.gc_fun = s.gc_fun` by (
                     fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> fs[push_env_def, env_to_list_def]
-                    >- (drule evaluate_code_gc_fun_const >> fs[]) >> PairCases_on `x'` >> fs[push_env_def, env_to_list_def]
-                    >> drule evaluate_code_gc_fun_const >> fs[] ) >>
+                    >- (drule evaluate_consts >> fs[]) >> PairCases_on `x'` >> fs[push_env_def, env_to_list_def]
+                    >> drule evaluate_consts >> fs[] ) >>
                 `gcNoNewLocs (call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock s))).gc_fun` by (
                     fs[call_env_def, dec_clock_def] >> Cases_on `handler` >> fs[push_env_def, env_to_list_def] >>
-                    PairCases_on `x'` >> fs[push_env_def, env_to_list_def] )
+                    PairCases_on `x'` >> fs[push_env_def, env_to_list_def] ) 
                 >- (Cases_on `w ≠ Loc x'3 x'4` >> fs[] >> fs[pop_env_def] >> Cases_on `r.stack` >> fs[] >>
                     Cases_on `h` >> fs[] >> Cases_on `o'` >> fs[]
                     >- (Cases_on `domain (fromAList l) = domain (inter s.locals x'1')` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`,
                             `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >>
-                        rw[] >> fs[] >> `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >>
+                        rw[] >> fs[] >> `noInstall x'1` by metis_tac[noInstall_find_code] >> fs[] >> 
+                        `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >>
                         first_x_assum (qspecl_then [`reachable`,`set_var x'0' w0 (s' with <|locals := fromAList l;stack := t|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
                         `r.code = s.code` by (fs[call_env_def, dec_clock_def] >> Cases_on `handler`
-                            >- (fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])
-                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >>
+                            >- (fs[push_env_def, env_to_list_def] >> imp_res_tac noInstall_evaluate_const_code >> fs[])
+                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> 
+                                imp_res_tac noInstall_evaluate_const_code >> fs[])) >>
                         fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[]
                         >- (`domain (getLocals (fromAList l)) ⊆ domain reachable` by imp_res_tac getStack_hd_thm >>
                             qspecl_then [`x'0'`, `w0`, `fromAList l`] mp_tac getLocals_insert >> rw[] >>
                             Cases_on `w0` >> fs[destWordLoc_def] >> rw[] >- imp_res_tac SUBSET_TRANS >>
                             fs[destResultLoc_def] >> fs[SUBSET_DEF] >> metis_tac[])
-                        >- metis_tac[getStack_hd_thm])
+                        >- metis_tac[getStack_hd_thm]
+                        >- (Cases_on `handler` >> fs[] >> PairCases_on `x'` >> fs[])
+                        >- (`s'.code = removed_state.code` by (imp_res_tac noInstall_evaluate_const_code >> fs[]) >> rveq >> fs[]) 
+                       )
                     >- (Cases_on `x'` >> fs[] >> Cases_on `domain (fromAList l) = domain (inter s.locals x'1')` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`,
                             `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> rw[] >>
-                        fs[] >> `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >>
+                        fs[] >> `noInstall x'1` by metis_tac[noInstall_find_code] >> fs[] >> 
+                        `s'.stack = r.stack` by fs[word_state_rel_def] >> fs[] >>
                         first_x_assum (qspecl_then [`reachable`,`set_var x'0' w0
                             (s' with <|locals := fromAList l; stack := t; handler := q|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
                         `r.code = s.code` by (fs[call_env_def, dec_clock_def] >> Cases_on `handler`
-                            >- (fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])
-                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >>
+                            >- (fs[push_env_def, env_to_list_def] >> imp_res_tac noInstall_evaluate_const_code >> fs[])
+                            >- (PairCases_on `x'` >> fs[] >> fs[push_env_def, env_to_list_def] >> 
+                                imp_res_tac noInstall_evaluate_const_code >> fs[])) >>
                             fs[] >> fs[word_state_rel_def, domain_findLocState] >> rw[]
                         >- (`domain (getLocals (fromAList l)) ⊆ domain reachable` by imp_res_tac getStack_hd_thm >>
                             qspecl_then [`x'0'`, `w0`, `fromAList l`] mp_tac getLocals_insert >> rw[] >>
                             Cases_on `w0` >> fs[destWordLoc_def] >> rw[] >- imp_res_tac SUBSET_TRANS >>
                             fs[destResultLoc_def] >> fs[SUBSET_DEF] >> metis_tac[])
-                        >- metis_tac[getStack_hd_thm])
+                        >- metis_tac[getStack_hd_thm]
+                        >- (Cases_on `handler` >> fs[] >> PairCases_on `x'` >> fs[])
+                        >- (`s'.code = removed_state.code` by (imp_res_tac noInstall_evaluate_const_code >> fs[]) >> rveq >> fs[]) 
+                        )
                    )
-                >- (Cases_on `handler` >> fs[]
+                >- (Cases_on `handler` >> fs[] >> `noInstall x'1` by metis_tac[noInstall_find_code] >> fs[]
                     >- (rw[] >> qmatch_goalsub_abbrev_tac `(_, n_state)` >>
                         first_x_assum (qspecl_then [`reachable`, `n_state`] mp_tac) >>
                         reverse(impl_tac) >- (rw[] >> fs[])
-                        >> fs[call_env_def, push_env_def, dec_clock_def, env_to_list_def, word_state_rel_def, domain_findLocState] >> rw[])
+                        >> fs[call_env_def, push_env_def, dec_clock_def, env_to_list_def, word_state_rel_def, domain_findLocState] >>
+                        rw[] >> `n_state.code = removed_state.code` by (fs[Abbr `n_state`]) >> rveq >> fs[])
                     >- (PairCases_on `x'` >> fs[] >> Cases_on `w ≠ Loc x'2' x'3'` >> fs[] >>
                         Cases_on `domain r.locals = domain (inter s.locals x'1')` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`, `call_env x'0 (push_env (inter s.locals x'1')
@@ -803,11 +881,12 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                         >- (qspecl_then [`x'0''`, `w0`, `r.locals`] mp_tac getLocals_insert >> rw[] >>
                             Cases_on `w0` >> fs[destWordLoc_def] >> rw[] >- imp_res_tac SUBSET_TRANS >>
                             fs[destResultLoc_def] >> fs[SUBSET_DEF] >> metis_tac[])
-                        >- (`r.code = s.code` by (fs[call_env_def, dec_clock_def, push_env_def, env_to_list_def] >>
-                                (fs[push_env_def, env_to_list_def] >> imp_res_tac evaluate_code_const >> fs[])) >> fs[]))
+                        >> `r.code = s.code ∧ removed_state.code = s'.code` by (
+                                fs[push_env_def, env_to_list_def] >> imp_res_tac noInstall_evaluate_const_code >> fs[]) >> fs[])
                    )
                 >>  first_x_assum (qspecl_then [`reachable`,
-                    `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> rw[] >> rw[]
+                    `call_env x'0 (push_env (inter s.locals x'1') handler (dec_clock removed_state))`] mp_tac) >> 
+                    rw[] >> rw[] >> rfs[dec_clock_def] >> `noInstall x'1` by metis_tac[noInstall_find_code] >> fs[] 
 ,   (* FFI - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup len1 s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >> Cases_on `lookup ptr1 s.locals` >> fs[] >> Cases_on `x` >> fs[] >>
@@ -825,6 +904,26 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
                 rw[] >> fs[domain_lookup] >> metis_tac[]) >> metis_tac[])
         >- metis_tac[getMemory_write_bytearray_lemma]
         >- fs[destResultLoc_def]
+,   (* DataBufferWrite - DONE!!! *)
+        simp[wordSemTheory.evaluate_def] >>
+        Cases_on `get_var r1 s` >> fs[] >> Cases_on `x` >> fs[] >>
+        Cases_on `get_var r2 s` >> fs[] >> Cases_on `x` >> fs[] >>
+        Cases_on `buffer_write s.data_buffer c c'` >> fs[] >>
+        fs[get_var_def, buffer_write_def] >>
+        strip_tac >> rveq >> 
+        fs[word_state_rel_def] >>
+        fs[domain_findLocState, destResultLoc_def]
+,   (* CodeBufferWrite - DONE!!! *)
+        simp[wordSemTheory.evaluate_def] >>
+        Cases_on `get_var r1 s` >> fs[] >> Cases_on `x` >> fs[] >>
+        Cases_on `get_var r2 s` >> fs[] >> Cases_on `x` >> fs[] >>
+        Cases_on `buffer_write s.code_buffer c (w2w c')` >> fs[] >>
+        fs[get_var_def, buffer_write_def] >>
+        strip_tac >> rveq >> 
+        fs[word_state_rel_def] >>
+        fs[domain_findLocState, destResultLoc_def]
+,   (* Install - DONE!!! *)
+        fs[noInstall_def]
 ,   (* LocValue - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[findWordRef_def] >> imp_res_tac code_rel_def >>
         Cases_on `l1 ∈ domain s.code` >> fs[] >> `l1 ∈ domain removed_state.code` by fs[domain_lookup] >>
@@ -835,8 +934,8 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
 ,   (* If - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup r1 s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >> `get_var_imm ri s = get_var_imm ri removed_state` by (Cases_on `ri` >> fs[get_var_imm_def, get_var_def]) >>
-        Cases_on `get_var_imm ri removed_state` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `word_cmp cmp c c'` >> fs[] >> rw[] >>
-        fs[findWordRef_def, domain_union]
+        fs[] >> Cases_on `get_var_imm ri removed_state` >> fs[] >> Cases_on `x` >> fs[] >> Cases_on `word_cmp cmp c c'` >> fs[] >> rw[] >>
+        fs[findWordRef_def, domain_union, noInstall_def]
 ,   (* Raise - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >> Cases_on `lookup n s.locals` >> fs[] >>
         `jump_exc s = NONE ⇔ jump_exc removed_state = NONE` by (fs[jump_exc_def] >> EVERY_CASE_TAC) >>
@@ -854,19 +953,18 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
             fs[domain_findLocState] >> res_tac >> fs[]
 ,   (* Seq - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> fs[findWordRef_def, domain_union] >>
-        Cases_on `evaluate (c1, s)` >> fs[] >> Cases_on `q` >> fs[] >>
-        first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >> rw[] >> fs[] >>
-        first_x_assum (qspecl_then [`reachable`, `s'`] mp_tac) >> impl_tac >> fs[] >>
-        fs[codeClosed_def] >> fs[word_state_rel_def, code_rel_def] >>
-        `r.gc_fun = s.gc_fun` by metis_tac[evaluate_code_gc_fun_const] >> fs[] >>
-        qexists_tac `code1` >> reverse(rw[]) >> fs[] >> res_tac >>
-        imp_res_tac evaluate_code_const >> fs[]
+        Cases_on `evaluate (c1, s)` >> fs[] >> Cases_on `q` >> fs[] >> rw[] >> 
+        first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >> 
+        strip_tac >> rveq >> fs[noInstall_def, findWordRef_def] >> rw[] >> fs[] >> rfs[] >>
+        first_x_assum (qspecl_then [`reachable`, `s'`] match_mp_tac) >> fs[] >>
+        `s.code = r.code ∧ removed_state.code = s'.code ∧ r.code = new_state.code ∧ r.gc_fun = s.gc_fun` by 
+            metis_tac[noInstall_evaluate_const_code, evaluate_consts] >> rveq >> fs[]
 ,   (* MustTerminate - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >> Cases_on `s.termdep` >> fs[] >>
         Cases_on `evaluate (p, s with <|clock := MustTerminate_limit (:'a); termdep := n|>)` >> fs[] >>
         Cases_on `q = SOME TimeOut` >> fs[] >> rw[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state with <|clock := MustTerminate_limit (:'a); termdep := n|>`] mp_tac) >>
-        fs[] >> rw[] >> fs[findWordRef_def] >> rfs[]  >> fs[word_state_rel_def] >> rfs[domain_findLocState]
+        impl_tac >> rw[] >> fs[noInstall_def, word_state_rel_def, findWordRef_def, domain_findLocState]
 ,   (* Tick - DONE!!! *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `s.clock = 0` >> fs[]
@@ -968,19 +1066,25 @@ val word_removal_thm = Q.store_thm("word_removal_thm",
         wordSem$evaluate (Call NONE (SOME start) [0] NONE, state) = (result, new_state) ∧
         result ≠ SOME Error ∧ state.code = fromAList code1 ∧
         domain (findLocState state) ⊆ domain reachable ∧ gcNoNewLocs state.gc_fun ∧
-        reachable = closure_spt (insert start () LN)  (mk_wf_set_tree (analyseWordCode code1)) ∧ ALL_DISTINCT (MAP FST code1)
+        reachable = closure_spt (insert start () LN)  (mk_wf_set_tree (analyseWordCode code1)) ∧ 
+        ALL_DISTINCT (MAP FST code1) ∧ noInstall_code state.code
         ⇒ ∃ s .
-            wordSem$evaluate (Call NONE (SOME start) [0] NONE, state with code := fromAList (removeWordCode reachable code1))
-                = (result, s)`,
+            wordSem$evaluate (Call NONE (SOME start) [0] NONE, 
+                state with code := fromAList (removeWordCode reachable code1)) = (result, s)`,
     rpt strip_tac >>
-    qspecl_then [`Call NONE (SOME start) [0] NONE`, `state'`, `result`, `new_state`, `reachable`,
-        `state' with code := fromAList(removeWordCode reachable code1)`] mp_tac word_removal_lemma >>
-    reverse(impl_tac) >- metis_tac[]
+    drule word_removal_lemma >> disch_then drule >> 
+    strip_tac >> pop_assum (qspecl_then [`reachable`, `state' with code := fromAList(removeWordCode reachable code1)`] mp_tac) >> 
+    reverse(impl_tac) >- metis_tac[] 
     >>  qspecl_then [`code1`, `analyseWordCode code1`, `insert start () LN`, `start`,
             `mk_wf_set_tree (analyseWordCode code1)`] mp_tac analyseWordCode_reachable_thm >>
         reverse(impl_tac >> rw[])
         >- (fs[codeClosed_def] >> qexists_tac `code1` >> fs[] >> fs[isReachable_def] >> metis_tac[RTC_TRANSITIVE, transitive_def])
         >- (fs[findWordRef_def, isReachable_def, RTC_REFL])
+       
+        >- (fs[noInstall_code_def] >> rw[] >> first_x_assum match_mp_tac >> qexists_tac `k` >> 
+            qexists_tac `n` >> fs[] >> fs[lookup_fromAList] >> imp_res_tac ALOOKUP_MEM >> 
+            imp_res_tac removeWordCode_thm >> metis_tac[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
+        >- fs[noInstall_def] 
         >- (fs[word_state_rel_def, code_rel_def, lookup_fromAList] >> fs[EXTENSION, SUBSET_DEF] >> rw[] >>
             res_tac >> rename1 `closure_spt x y` >> Cases_on `ALOOKUP code1 n` >> fs[]
                 >- (fs[ALOOKUP_NONE] >> drule removeWordCode_thm_FST >> rw[] >>
