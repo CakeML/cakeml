@@ -434,7 +434,7 @@ val _ = Datatype `
 val _ = Datatype`
   config = <| max_app : num
             ; inline_max_body_size : num
-            ; inline_factor : num
+            ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
             |>`;
 
 val dec_inline_factor_def = Define `
@@ -450,7 +450,7 @@ val decide_inline_def = Define `
       | Clos loc arity body body_size =>
           if app_lopt = NONE /\ app_arity = arity then
             (if body_size < c.inline_factor * (1 + app_arity) /\
-                ~contains_closures [body] /\ closed (Fn None NONE NONE app_arity body)
+                ~contains_closures [body] /\ closed (Fn None NONE NONE app_arity body) (* Consider moving these checks to the point of creation of Clos approximations and the val_approx_val relation. *)
                then inlD_LetInline body
                else inlD_Annotate loc)
           else inlD_Nothing
