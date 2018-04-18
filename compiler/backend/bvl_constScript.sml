@@ -33,47 +33,153 @@ val dest_simple_pmatch = Q.store_thm("dest_simple_pmatch",`
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[dest_simple_def]);
 
-local val SmartOp_quotation = `
-  SmartOp op (xs:bvl$exp list) =
-    let default = Op op xs in
-      dtcase xs of
-      | [x1;x2] =>
-        if MEM op [Add; Sub; Mult; Div; Mod; Less; LessEq; Greater; GreaterEq] then
-          dtcase (dest_simple x1, dest_simple x2) of
-          | (SOME x1, SOME (x2:int)) =>
-              (dtcase op of
-               | Add => Op (Const (x2 + x1)) []
-               | Sub => Op (Const (x2 - x1)) []
-               | Mult => Op (Const (x2 * x1)) []
-               | Div => if x1 = 0 then default else Op (Const (x2 / x1)) []
-               | Mod => if x1 = 0 then default else Op (Const (x2 % x1)) []
-               | Less => Bool (x2 < x1)
-               | LessEq => Bool (x2 <= x1)
-               | Greater => Bool (x2 > x1)
-               | GreaterEq => Bool (x2 >= x1)
-               | _ => default)
-          | _ => default
-        else if op = Equal then
-          dtcase (dest_simple x1, dest_simple x2) of
-          | (SOME i, SOME j) => Bool (j = i)
-          | (SOME i, _) => Op (EqualInt i) [x2]
-          | (_, SOME i) => Op (EqualInt i) [x1]
-          | _ => default
-        else default
-      | _ => default`
-in
-val SmartOp_def = Define SmartOp_quotation
+val case_op_const_def = Define `
+    case_op_const exp =
+        dtcase exp of
+        | (Op op [x1; Op (Const n2) l]) => if NULL l then SOME (op, x1, n2) else NONE
+        | _ => NONE
+`
 
-val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",
-  SmartOp_quotation |>
+val case_op_const_pmatch = Q.store_thm("case_op_const_pmatch",`
+  ∀exp. case_op_const exp =
+    case exp of
+      | (Op op [x1; Op (Const n2) []]) => SOME (op, x1, n2)
+      | _ => NONE`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[case_op_const_def]);
+
+val SmartOp_flip_def = Define `
+    SmartOp_flip op x1 x2 =
+      dtcase (dest_simple x1) of
+      | (SOME i) =>
+          if MEM op [Add; Mult] then (op, x2, x1)
+          else if op = Sub then (Add, x2, Op (Const (-i)) [])
+          else (op, x1, x2)
+      | _ => (op, x1, x2)
+`
+
+val SmartOp_flip_pmatch = Q.store_thm("SmartOp_flip_pmatch",`
+    !op x1 x2. SmartOp_flip op x1 x2 =
+    case (dest_simple x1) of
+    | (SOME i) =>
+        if MEM op [Add; Mult] then (op, x2, x1)
+        else if op = Sub then (Add, x2, Op (Const (-i)) [])
+        else (op, x1, x2)
+    | _ => (op, x1, x2)
+`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[SmartOp_flip_def]
+);
+
+local val SmartOp2_quotation = `
+  SmartOp2 (op, x1:bvl$exp, x2:bvl$exp) =
+    let mk_add_const x1 c2 =
+      if c2 = 0 then x1
+      else Op Add [x1; Op (Const c2) []]
+    in
+    let mk_add x1 x2 =
+      let default = Op Add [x1; x2] in
+        dtcase (dest_simple x2) of
+        | (SOME n2) => (
+            dtcase (case_op_const x1) of
+            | SOME (op, x11, n12) =>
+                if op = Add then mk_add_const x11 (n2+n12)
+                else if op = Sub then Op Sub [x11; Op (Const (n2+n12)) []]
+                else default
+            | _ =>
+                dtcase (dest_simple x1) of
+                | SOME n1 => Op (Const (n2+n1)) []
+                | _ => mk_add_const x1 n2
+        )
+        | _ => default
+    in
+    let mk_sub x1 x2 =
+      let default = Op Sub [x1; x2] in
+        dtcase (dest_simple x2) of
+        | (SOME n2) => (
+            dtcase (case_op_const x1) of
+            | SOME (op, x11, n12) =>
+                if op = Add then Op Sub [x11; Op (Const (n2-n12)) []]
+                else if op = Sub then mk_add_const x11 (n2-n12)
+                else default
+            | _ =>
+                dtcase (dest_simple x1) of
+                | SOME n1 => Op (Const (n2-n1)) []
+                | _ => default
+        )
+        | _ => default
+    in
+    let mk_mul x1 x2 =
+      let default = Op Mult [x1; x2] in
+        dtcase (dest_simple x2) of
+        | (SOME n2) => (
+            dtcase (case_op_const x1) of
+            | SOME (op, x11, n12) =>
+                if op = Mult then Op Mult [x11; Op (Const (n2*n12)) []]
+                else default
+            | _ =>
+                dtcase (dest_simple x1) of
+                | SOME n1 => Op (Const (n2*n1)) []
+                | _ =>
+                    if n2 = 1 then x1
+                    else if n2 = -1 then mk_sub x1 (Op (Const 0) [])
+                    else default
+        )
+        | _ => default
+    in
+    let default = Op op [x1;x2] in
+    if op = Add then
+      mk_add x1 x2
+    else if op = Sub then
+      mk_sub x1 x2
+    else if op = Mult then
+      mk_mul x1 x2
+    else if MEM op [Div; Mod; Less; LessEq; Greater; GreaterEq] then
+      dtcase (dest_simple x1, dest_simple x2) of
+      | (SOME x1, SOME (x2:int)) =>
+          (dtcase op of
+           | Div => if x1 = 0 then default else Op (Const (x2 / x1)) []
+           | Mod => if x1 = 0 then default else Op (Const (x2 % x1)) []
+           | Less => Bool (x2 < x1)
+           | LessEq => Bool (x2 <= x1)
+           | Greater => Bool (x2 > x1)
+           | GreaterEq => Bool (x2 >= x1)
+           | _ => default)
+      | _ => default
+    else if op = Equal then
+      dtcase (dest_simple x1, dest_simple x2) of
+      | (SOME i, SOME j) => Bool (j = i)
+      | (SOME i, _) => Op (EqualInt i) [x2]
+      | (_, SOME i) => Op (EqualInt i) [x1]
+      | _ => default
+    else default`
+in
+val SmartOp2_def = Define SmartOp2_quotation
+
+val SmartOp2_pmatch = Q.store_thm("SmartOp2_pmatch",
+  SmartOp2_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq),
-  rpt strip_tac
-  >> PURE_REWRITE_TAC [LET_DEF]
-  >> BETA_TAC
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[SmartOp_def]);
+  CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
+  simp [SmartOp2_def]);
 end
+
+val SmartOp_def = Define `
+  (SmartOp op [x1; x2] = SmartOp2 (SmartOp_flip op x1 x2)) /\
+  (SmartOp op xs = Op op xs)
+`
+
+val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",`
+    !op xs. SmartOp op xs =
+      case xs of
+      | [x1;x2] => SmartOp2 (SmartOp_flip op x1 x2)
+      | _ => Op op xs`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[SmartOp_def]
+)
 
 val extract_def = Define `
   (extract ((Var n):bvl$exp) ys = SOME ((Var (n + LENGTH ys + 1)):bvl$exp)) /\
