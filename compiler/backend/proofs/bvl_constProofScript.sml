@@ -109,19 +109,73 @@ val dest_simple_eq = prove(
   \\ Cases_on `o'` \\ fs [dest_simple_def,NULL_EQ]
   \\ eq_tac \\ rw [] \\ rw []);
 
-val SmartOp_thm = Q.store_thm("SmartOp_thm",
-  `evaluate ([Op op xs],env,s) = (res,s2) /\
+val case_op_const_eq = prove(
+  ``case_op_const exp = SOME (op, x1, n2) <=> (exp = Op op [x1; Op (Const n2) []])``,
+  Cases_on `exp` \\ fs [case_op_const_def, NULL_EQ]
+  \\ rpt (every_case_tac \\ fs [])
+)
+
+val SmartOp_flip_thm = prove(
+    ``(op', x1', x2') = SmartOp_flip op x1 x2 /\
+    evaluate ([Op op [x1; x2]], env, s) = (res, s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([SmartOp op xs],env,s) = (res,s2)`,
-  full_simp_tac std_ss [SmartOp_def]
+    evaluate ([Op op' [x1'; x2']], env, s) = (res, s2)``,
+
+    rpt strip_tac >>
+    Cases_on `MEM op [Add; Sub; Mult]` THEN1 (
+      Cases_on `op` >> fs [] >>
+      Cases_on `dest_simple x1` >>
+      fs [SmartOp_flip_def, dest_simple_eq] >>
+      fs [dest_simple_eq] >>
+      fs [evaluate_def, do_app_def] >>
+      fs [case_eq_thms, pair_case_eq, bool_case_eq] >>
+      rveq >> fs [] >> rveq >> fs [REVERSE] >> rveq >> fs [] >>
+      intLib.COOPER_TAC
+    ) >>
+    Cases_on `op` >>
+    Cases_on `dest_simple x1` >>
+    fs [SmartOp_flip_def]
+)
+
+val SmartOp2_thm = prove(
+  ``evaluate ([Op op [x1;x2]],env,s) = (res,s2) /\
+    res ≠ Rerr (Rabort Rtype_error) ==>
+    evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)``,
+
+  rpt strip_tac >>
+  sg `!(x:bvl$exp) result. (evaluate([x], env, s) = (Rval result, s2)) ==> (?a.  result = [a])`
+  THEN1 (
+    rpt strip_tac
+    \\ mp_tac (GEN_ALL evaluate_IMP_LENGTH)
+    \\ strip_tac
+    \\ `LENGTH [x] = LENGTH result` by metis_tac []
+    \\ Cases_on `result` \\ TRY (Cases_on `t`) \\ fs []
+  )
+  \\ simp [SmartOp2_def]
+  \\ Cases_on `MEM op [Add; Sub; Mult]`
+  THEN1 (
+    Cases_on `dest_simple x1` \\ fs [] \\
+    Cases_on `dest_simple x2` \\ fs [] \\
+    Cases_on `case_op_const x1` \\ fs [] \\
+    Cases_on `case_op_const x2` \\ fs [] \\
+
+    rpt TOP_CASE_TAC \\
+    fs [dest_simple_eq, case_op_const_eq] \\
+    rveq \\
+    fs [evaluate_def, do_app_def] >>
+
+    fs [case_eq_thms, pair_case_eq, bool_case_eq] >>
+    rveq >> fs [] >> rveq >> fs [REVERSE] >> rveq >> fs [] >>
+    res_tac >>
+    fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_SUB_CALCULATE, integerTheory.INT_MUL_LID, integerTheory.INT_NEG_ADD, integerTheory.INT_MUL_ASSOC] >>
+    TRY intLib.COOPER_TAC
+  )
+
   \\ reverse (Cases_on `op = Equal`)
   THEN1
    (reverse (Cases_on `op`) \\ fs [] \\ every_case_tac \\ fs []
     \\ fs [dest_simple_eq]
     \\ fs [evaluate_def,do_app_def] \\ rw [])
-  \\ reverse (Cases_on `?x1 x2. xs = [x2;x1]`)
-  THEN1
-   (Cases_on `xs` \\ fs [] \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs [])
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
@@ -133,6 +187,29 @@ val SmartOp_thm = Q.store_thm("SmartOp_thm",
   \\ TRY (Cases_on `d1`) \\ fs [do_eq_def]
   \\ rw [] \\ fs []
   \\ eq_tac \\ fs []);
+
+
+val SmartOp_thm = Q.store_thm("SmartOp_thm",
+  `evaluate ([Op op xs],env,s) = (res,s2) /\
+    res ≠ Rerr (Rabort Rtype_error) ==>
+    evaluate ([SmartOp op xs],env,s) = (res,s2)`,
+
+  rpt strip_tac
+  \\ reverse (Cases_on `?x1 x2. xs = [x1;x2]`)
+  THEN1 (
+    Cases_on `xs` \\ fs [SmartOp_def]
+    \\ Cases_on `t` \\ fs [SmartOp_def]
+    \\ Cases_on `t'` \\ fs [SmartOp_def]
+  )
+  \\ fs [] \\ fs []
+  \\ simp [SmartOp_def]
+  \\ Cases_on `SmartOp_flip op x1 x2`
+  \\ Cases_on `r`
+  \\ rename1 `SmartOp_flip op x1 x2 = (op', x1', x2')`
+  \\ `evaluate ([Op op' [x1'; x2']], env, s) = (res, s2)` by metis_tac [SmartOp_flip_thm]
+  \\ rw [SmartOp2_thm]
+)
+
 
 val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
   `!xs env1 (s1:('c,'ffi) bvlSem$state) ax env2 res s2 ys.
