@@ -142,15 +142,15 @@ val SmartOp2_thm = prove(
     res ≠ Rerr (Rabort Rtype_error) ==>
     evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)``,
 
-  rpt strip_tac >>
-  sg `!(x:bvl$exp) result. (evaluate([x], env, s) = (Rval result, s2)) ==> (?a.  result = [a])`
+  sg `!(x:bvl$exp) env' s' res' s2'. (evaluate([x], env', s') = (Rval res', s2')) ==> (?a.  res' = [a])`
   THEN1 (
     rpt strip_tac
     \\ mp_tac (GEN_ALL evaluate_IMP_LENGTH)
     \\ strip_tac
-    \\ `LENGTH [x] = LENGTH result` by metis_tac []
-    \\ Cases_on `result` \\ TRY (Cases_on `t`) \\ fs []
+    \\ `LENGTH [x] = LENGTH res'` by metis_tac []
+    \\ Cases_on `res'` \\ TRY (Cases_on `t`) \\ fs []
   )
+
   \\ simp [SmartOp2_def]
   \\ Cases_on `MEM op [Add; Sub; Mult]`
   THEN1 (
@@ -164,7 +164,8 @@ val SmartOp2_thm = prove(
     rveq \\
     fs [evaluate_def, do_app_def] >>
 
-    fs [case_eq_thms, pair_case_eq, bool_case_eq] >>
+    rpt (CASE_TAC >> simp []) >>
+    rpt strip_tac >>
     rveq >> fs [] >> rveq >> fs [REVERSE] >> rveq >> fs [] >>
     res_tac >>
     fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_SUB_CALCULATE, integerTheory.INT_MUL_LID, integerTheory.INT_NEG_ADD, integerTheory.INT_MUL_ASSOC] >>
