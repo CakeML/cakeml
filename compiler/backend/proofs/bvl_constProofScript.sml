@@ -164,8 +164,7 @@ val SmartOp2_thm = prove(
     rveq \\
     fs [evaluate_def, do_app_def] >>
 
-    rpt (CASE_TAC >> simp []) >>
-    rpt strip_tac >>
+    rw [case_eq_thms] >>
     rveq >> fs [] >> rveq >> fs [REVERSE] >> rveq >> fs [] >>
     res_tac >>
     fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_SUB_CALCULATE, integerTheory.INT_MUL_LID, integerTheory.INT_NEG_ADD, integerTheory.INT_MUL_ASSOC] >>
