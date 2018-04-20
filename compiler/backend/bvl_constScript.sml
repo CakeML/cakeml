@@ -93,7 +93,17 @@ local val SmartOp2_quotation = `
                 | SOME n1 => Op (Const (n2+n1)) []
                 | _ => mk_add_const x1 n2
         )
-        | _ => default
+        | _ =>
+            dtcase (case_op_const x1, case_op_const x2) of
+            | (SOME (op1, x11, n12), SOME (op2, x21, n22)) =>
+                if op1 = Add /\ op2 = Add then
+                  mk_add_const (Op Add [x11; x21]) (n22+n12)
+                else if op1 = Add /\ op2 = Sub then
+                  Op Sub [Op Sub [x11; x21]; Op (Const (n22+n12)) []]
+                else if op1 = Sub /\ op2 = Add then
+                  mk_add_const (Op Sub [x11; x21]) (n22+n12)
+                else default
+            | _ => default
     in
     let mk_sub x1 x2 =
       let default = Op Sub [x1; x2] in
@@ -109,7 +119,17 @@ local val SmartOp2_quotation = `
                 | SOME n1 => Op (Const (n2-n1)) []
                 | _ => default
         )
-        | _ => default
+        | _ =>
+            dtcase (case_op_const x1, case_op_const x2) of
+            | (SOME (op1, x11, n12), SOME (op2, x21, n22)) =>
+                if op1 = Add /\ op2 = Add then
+                  Op Add [Op Sub [x11; x21]; Op (Const (n22-n12)) []]
+                else if op1 = Add /\ op2 = Sub then
+                  Op Sub [Op Add [x11; x21]; Op (Const (n22-n12)) []]
+                else if op1 = Sub /\ op2 = Add then
+                  mk_add_const (Op Add [x11; x21]) (n22-n12)
+                else default
+            | _ => default
     in
     let mk_mul x1 x2 =
       let default = Op Mult [x1; x2] in
@@ -127,7 +147,13 @@ local val SmartOp2_quotation = `
                     else if n2 = -1 then mk_sub x1 (Op (Const 0) [])
                     else default
         )
-        | _ => default
+        | _ =>
+            dtcase (case_op_const x1, case_op_const x2) of
+            | (SOME (op1, x11, n12), SOME (op2, x21, n22)) =>
+                if op1 = Mult /\ op2 = Mult then
+                  Op Mult [Op (Const (n22*n12)) []; Op Mult [x11; x21]]
+                else default
+            | _ => default
     in
     let default = Op op [x1;x2] in
     if op = Add then
