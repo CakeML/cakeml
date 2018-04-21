@@ -359,14 +359,14 @@ val sort_moves_def = Define`
     QSORT (λp:num,x p',x'. p>p') ls`
 
 (* merge two sorted lists *)
-val merge_def = Define`
-  (merge [] ys = ys) ∧
-  (merge xs [] = xs) ∧
-  (merge ((p:num,m)::xs) ((p',m')::ys) =
+val smerge_def = Define`
+  (smerge [] ys = ys) ∧
+  (smerge xs [] = xs) ∧
+  (smerge ((p:num,m)::xs) ((p',m')::ys) =
     if p>=p' then
-      (p,m) :: merge xs ((p',m')::ys)
+      (p,m) :: smerge xs ((p',m')::ys)
     else
-      (p',m') :: merge ((p,m)::xs) ys
+      (p',m') :: smerge ((p,m)::xs) ys
   )`
 
 (*
@@ -381,7 +381,7 @@ val revive_moves_def = Define`
     let fnbs = FLAT nbs in
     let (rev,unavail) = PARTITION
       (λ(_,(x,y)). MEM x fnbs ∨ MEM y fnbs) uam in
-    let sorted = merge (sort_moves rev) am in
+    let sorted = smerge (sort_moves rev) am in
     do
       set_avail_moves_wl sorted;
       set_unavail_moves_wl unavail

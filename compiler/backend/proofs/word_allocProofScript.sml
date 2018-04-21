@@ -2212,21 +2212,21 @@ val total_colour_rw = Q.prove(`
 
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = Q.store_thm("word_alloc_correct",`
-  ∀c alg prog k col_opt st.
+  ∀fc c alg prog k col_opt st.
   even_starting_locals st.locals ∧
   wf_cutsets prog
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
   if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(word_alloc c alg k prog col_opt,st) in
+  let (res',rcst) = evaluate(word_alloc fc c alg k prog col_opt,st) in
     res = res' ∧
     word_state_eq_rel rst rcst ∧
     case res of
       NONE => T
     | SOME _ => rst.locals = rcst.locals`,
   srw_tac[][]>>
-  qpat_abbrev_tac`cprog = word_alloc A B C D E`>>
+  qpat_abbrev_tac`cprog = word_alloc _ _ _ _ _ _`>>
   full_simp_tac(srw_ss())[word_alloc_def]>>
   pop_assum mp_tac>>LET_ELIM_TAC>>
   pop_assum mp_tac>>reverse TOP_CASE_TAC>>strip_tac
@@ -2257,7 +2257,8 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`moves`] assume_tac)>>rfs[]>>fs[]>>
+  qabbrev_tac`algg = if alg = 0 then Simple else IRC`>>
+  disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
     (srw_tac[][]
@@ -7050,9 +7051,9 @@ val oracle_colour_ok_conventions = Q.prove(`
   metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]);
 
 val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_alloc",`
-  ∀c alg prog k col_opt.
+  ∀fc c alg prog k col_opt.
   pre_alloc_conventions prog ⇒
-  post_alloc_conventions k (word_alloc c alg k prog col_opt)`,
+  post_alloc_conventions k (word_alloc fc c alg k prog col_opt)`,
   rpt strip_tac>>fs[word_alloc_def]>>
   reverse TOP_CASE_TAC>>fs[]
   >-
@@ -7062,8 +7063,10 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   qpat_abbrev_tac`tree = get_clash_tree _`>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
+  pairarg_tac>>fs[]>>
+  qabbrev_tac`algg = if alg = 0 then Simple else IRC`>>
   drule reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`get_prefs prog []`] assume_tac)>>rfs[]>>fs[]>>
+  disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
   assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
   rfs[]>>
   fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>rw[]
@@ -7100,9 +7103,9 @@ val word_alloc_two_reg_inst_lem = Q.prove(`
     EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]);
 
 val word_alloc_two_reg_inst = Q.store_thm("word_alloc_two_reg_inst",`
-  ∀c alg k prog col_opt.
+  ∀fc c alg k prog col_opt.
   every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (word_alloc c alg k prog col_opt)`,
+  every_inst two_reg_inst (word_alloc fc c alg k prog col_opt)`,
   full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_two_reg_inst_lem]);
@@ -7118,9 +7121,9 @@ val word_alloc_flat_exp_conventions_lem = Q.prove(`
     Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def]);
 
 val word_alloc_flat_exp_conventions = Q.store_thm("word_alloc_flat_exp_conventions",`
-  ∀c alg k prog col_opt.
+  ∀fc c alg k prog col_opt.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (word_alloc c alg k prog col_opt)`,
+  flat_exp_conventions (word_alloc fc c alg k prog col_opt)`,
   full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
   srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[word_alloc_flat_exp_conventions_lem]);
@@ -7163,17 +7166,22 @@ val forced_distinct_col = Q.prove(`
   metis_tac[]);
 
 val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
-  ∀alg k prog col_opt c.
+  ∀fc alg k prog col_opt c.
   full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (word_alloc c alg k prog col_opt)`,
-  full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
-  srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
-  rveq>>
+  full_inst_ok_less c (word_alloc fc c alg k prog col_opt)`,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  qabbrev_tac`algg = if alg = 0 then Simple else IRC`>>
+  qpat_abbrev_tac`forced = get_forced _ _ _`>>
+  qpat_abbrev_tac`tree = get_clash_tree prog`>>
+  EVERY_CASE_TAC>>fs[]>>
+  rw[]>>rveq>>
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule reg_alloc_correct>>
-  disch_then(qspecl_then [`k`,`moves`] assume_tac)>>rfs[]>>
+  disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>
   fs[]>>
   match_mp_tac forced_distinct_col>>rfs[]>>
   unabbrev_all_tac>>
@@ -7217,9 +7225,12 @@ val apply_colour_lab_pres = Q.prove(`
   EVERY_CASE_TAC>>fs[]);
 
 val word_alloc_lab_pres = Q.store_thm("word_alloc_lab_pres",`
-  extract_labels prog = extract_labels (word_alloc c alg k prog col_opt)`,
-  fs[word_alloc_def,oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[]>>
-  TRY(pairarg_tac)>>fs[]>>metis_tac[apply_colour_lab_pres]);
+  extract_labels prog = extract_labels (word_alloc fc c alg k prog col_opt)`,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[apply_colour_lab_pres]);
 
 (* every remove_dead syntactic theorem proved together *)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
