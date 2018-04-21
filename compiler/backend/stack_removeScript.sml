@@ -13,6 +13,7 @@ val word_offset_def = Define `
 val store_list_def = Define `
   store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap; TriggerGC;
                 AllocSize; Handler; Globals; ProgStart; BitmapBase; GenStart;
+                CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
                 Temp 00w; Temp 01w; Temp 02w; Temp 03w; Temp 04w;
                 Temp 05w; Temp 06w; Temp 07w; Temp 08w; Temp 09w;
                 Temp 10w; Temp 11w; Temp 12w; Temp 13w; Temp 14w;
@@ -131,6 +132,7 @@ val comp_def = Define `
         Inst (Mem Load r (Addr k w))
       else
         Seq (move r k) (stack_load r n)
+    | DataBufferWrite r1 r2 => Inst (Mem Store r2 (Addr r1 0w)) (* remove data buffer *)
     | StackLoadAny r i => Seq (Seq (move r i) (add_inst r k))
                               (Inst (Mem Load r (Addr r 0w)))
     | StackStoreAny r i => Seq (Inst (Arith (Binop Add k k (Reg i))))
@@ -190,7 +192,11 @@ val store_init_def = Define `
        (EndOfHeap,INR 2);
        (HeapLength,INR 5);
        (OtherHeap,INR 2);
-       (BitmapBase,INR 3)]`
+       (BitmapBase,INR 3);
+       (BitmapBuffer,INR 4);
+       (BitmapBufferEnd,INR 6);
+       (CodeBuffer,INR 7);
+       (CodeBufferEnd,INR 1)]`
 
 (* init code assumes:
     reg 1: start of program
@@ -246,6 +252,15 @@ val init_code_def = Define `
                 move (k+1) 3;
                 load_inst 3 (k+2);
                 right_shift_inst 3 (word_shift (:'a));
+                move 0 (k+2);
+                add_bytes_in_word_inst 0;
+                load_inst 4 0;
+                add_bytes_in_word_inst 0;
+                load_inst 6 0;
+                add_bytes_in_word_inst 0;
+                load_inst 7 0;
+                add_bytes_in_word_inst 0;
+                load_inst 1 0;
                 init_memory k (MAP (store_init gen_gc k) (REVERSE store_list));
                 LocValue 0 1 0]`
 

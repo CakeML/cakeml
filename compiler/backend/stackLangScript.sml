@@ -7,6 +7,7 @@ val _ = Datatype `
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
     CurrHeap | OtherHeap | AllocSize | Globals | Handler | GenStart |
+    CodeBuffer | CodeBufferEnd | BitmapBuffer | BitmapBufferEnd |
     Temp (5 word)`
 
 val _ = Datatype `
@@ -30,6 +31,10 @@ val _ = Datatype `
                                            array_ptr, array_len, ret_addr *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
+       | Install num num num num num (* code buffer start, length of new code,
+                                      data buffer start, length of new data, ret_addr *)
+       | CodeBufferWrite num num (* code buffer address, byte to write *)
+       | DataBufferWrite num num (* data buffer address, word to write *)
        (* new in stackLang, compared to wordLang, below *)
        | StackAlloc num         (* allocate n slots on the stack *)
        | StackFree num          (* free n slots on the stack *)

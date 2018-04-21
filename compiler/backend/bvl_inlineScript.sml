@@ -2,36 +2,37 @@ open preamble bvlTheory bvl_handleTheory;
 
 val _ = new_theory "bvl_inline";
 
-(* A function that inlines a function body *)
+(* tick_inline -- a function that inlines a function body *)
 
-val inline_def = tDefine "inline" `
-  (inline cs [] = []) /\
-  (inline cs (x::y::xs) =
-     HD (inline cs [x]) :: inline cs (y::xs)) /\
-  (inline cs [Var v] = [Var v]) /\
-  (inline cs [If x1 x2 x3] =
-     [If (HD (inline cs [x1]))
-         (HD (inline cs [x2]))
-         (HD (inline cs [x3]))]) /\
-  (inline cs [Let xs x2] =
-     [Let (inline cs xs)
-           (HD (inline cs [x2]))]) /\
-  (inline cs [Raise x1] =
-     [Raise (HD (inline cs [x1]))]) /\
-  (inline cs [Handle x1 x2] =
-     [Handle (HD (inline cs [x1]))
-              (HD (inline cs [x2]))]) /\
-  (inline cs [Op op xs] =
-     [Op op (inline cs xs)]) /\
-  (inline cs [Tick x] = inline cs [x]) /\
-  (inline cs [Call ticks dest xs] =
-     case dest of NONE => [Call 0 dest (inline cs xs)] | SOME n =>
+val tick_inline_def = tDefine "tick_inline" `
+  (tick_inline cs [] = []) /\
+  (tick_inline cs (x::y::xs) =
+     HD (tick_inline cs [x]) :: tick_inline cs (y::xs)) /\
+  (tick_inline cs [Var v] = [Var v]) /\
+  (tick_inline cs [If x1 x2 x3] =
+     [If (HD (tick_inline cs [x1]))
+         (HD (tick_inline cs [x2]))
+         (HD (tick_inline cs [x3]))]) /\
+  (tick_inline cs [Let xs x2] =
+     [Let (tick_inline cs xs)
+           (HD (tick_inline cs [x2]))]) /\
+  (tick_inline cs [Raise x1] =
+     [Raise (HD (tick_inline cs [x1]))]) /\
+  (tick_inline cs [Handle x1 x2] =
+     [Handle (HD (tick_inline cs [x1]))
+              (HD (tick_inline cs [x2]))]) /\
+  (tick_inline cs [Op op xs] =
+     [Op op (tick_inline cs xs)]) /\
+  (tick_inline cs [Tick x] =
+     [Tick (HD (tick_inline cs [x]))]) /\
+  (tick_inline cs [Call ticks dest xs] =
+     case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
      case lookup n cs of
-     | NONE => [Call 0 dest (inline cs xs)]
-     | SOME (arity,code) => [Let (inline cs xs) code])`
+     | NONE => [Call ticks dest (tick_inline cs xs)]
+     | SOME (arity,code) => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)])`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
-val inline_ind = theorem"inline_ind";
+val tick_inline_ind = theorem"tick_inline_ind";
 
 (* This definition is written to exit as soon as possible. *)
 val is_small_aux_def = tDefine "is_small_aux" `
@@ -92,6 +93,68 @@ val is_rec_def = tDefine "is_rec" `
      if dest = SOME n then T else is_rec n xs)`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
+val must_inline_def = Define `
+  must_inline name limit e =
+    if is_small limit e then ~(is_rec name [e]) else F`
+
+val tick_inline_all_def = Define `
+  (tick_inline_all limit cs [] aux = (cs,REVERSE aux)) /\
+  (tick_inline_all limit cs ((n,arity:num,e1)::xs) aux =
+     let e2 = HD (tick_inline cs [e1]) in
+     let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
+       tick_inline_all limit cs2 xs ((n,arity,e2)::aux))`;
+
+val tick_compile_prog_def = Define `
+  tick_compile_prog limit cs prog = tick_inline_all limit cs prog []`
+
+val LENGTH_tick_inline = Q.store_thm("LENGTH_tick_inline",
+  `!cs xs. LENGTH (tick_inline cs xs) = LENGTH xs`,
+  recInduct tick_inline_ind \\ REPEAT STRIP_TAC
+  \\ fs [Once tick_inline_def,LET_DEF] \\ rw [] \\ every_case_tac \\ fs []);
+
+val HD_tick_inline = Q.store_thm("HD_tick_inline[simp]",
+  `[HD (tick_inline cs [x])] = tick_inline cs [x]`,
+  `LENGTH (tick_inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_tick_inline]
+  \\ Cases_on `tick_inline cs [x]` \\ FULL_SIMP_TAC std_ss [LENGTH]
+  \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);
+
+(* remove_ticks -- a function that removes Ticks *)
+
+val remove_ticks_def = tDefine "remove_ticks" `
+  (remove_ticks [] = []) /\
+  (remove_ticks (x::y::xs) =
+     HD (remove_ticks [x]) :: remove_ticks (y::xs)) /\
+  (remove_ticks [Var v] = [Var v]) /\
+  (remove_ticks [If x1 x2 x3] =
+     [If (HD (remove_ticks [x1]))
+         (HD (remove_ticks [x2]))
+         (HD (remove_ticks [x3]))]) /\
+  (remove_ticks [Let xs x2] =
+     [Let (remove_ticks xs) (HD (remove_ticks [x2]))]) /\
+  (remove_ticks [Raise x1] =
+     [Raise (HD (remove_ticks [x1]))]) /\
+  (remove_ticks [Handle x1 x2] =
+     [Handle (HD (remove_ticks [x1]))
+             (HD (remove_ticks [x2]))]) /\
+  (remove_ticks [Op op xs] =
+     [Op op (remove_ticks xs)]) /\
+  (remove_ticks [Tick x] = remove_ticks [x]) /\
+  (remove_ticks [Call ticks dest xs] =
+     [Call 0 dest (remove_ticks xs)])`
+  (WF_REL_TAC `measure exp1_size`);
+
+val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks[simp]",
+  ``!xs. LENGTH (remove_ticks xs) = LENGTH xs``,
+  recInduct (theorem "remove_ticks_ind") \\ fs [remove_ticks_def]);
+
+val remove_ticks_SING = store_thm("remove_ticks_SING[simp]",
+  ``[HD (remove_ticks [r])] = remove_ticks [r]``,
+  qsuff_tac `?a. remove_ticks [r] = [a]` \\ rw[] \\ fs []
+  \\ `LENGTH (remove_ticks [r]) = LENGTH [r]` by fs [LENGTH_remove_ticks]
+  \\ Cases_on `remove_ticks [r]` \\ fs []);
+
+(* let_op -- a function that optimises Let [...] (Op op [Var ...]) *)
+
 val var_list_def = Define `
   var_list n [] [] = T /\
   var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
@@ -134,34 +197,17 @@ val let_op_sing_def = Define `
     | _ => Op (Const 0) []`;
 
 val optimise_def = Define `
-  optimise split_seq cut_size arity exp =
-    bvl_handle$compile_any split_seq cut_size arity exp`;
+  optimise split_seq cut_size (name,arity, exp) =
+    (name,arity,bvl_handle$compile_any split_seq cut_size arity
+                  (let_op_sing (HD (remove_ticks [exp]))))`;
 
-val must_inline_def = Define `
-  must_inline name limit e =
-    if is_small limit e then ~(is_rec name [e]) else F`
-
-val inline_all_def = Define `
-  (inline_all limit split_seq cut_size cs [] aux = (cs,REVERSE aux)) /\
-  (inline_all limit split_seq cut_size cs ((n,arity,e1)::xs) aux =
-     let e2 = HD (inline cs [e1]) in
-     let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
-       inline_all limit split_seq cut_size cs2 xs
-         ((n,arity,optimise split_seq cut_size arity (let_op_sing e2))::aux))`;
+val compile_inc_def = Define `
+  compile_inc limit split_seq cut_size cs prog =
+    let (cs,prog1) = tick_compile_prog limit cs prog in
+      (cs, MAP (optimise split_seq cut_size) prog1)`
 
 val compile_prog_def = Define `
   compile_prog limit split_seq cut_size prog =
-    inline_all limit split_seq cut_size LN prog []`
-
-val LENGTH_inline = Q.store_thm("LENGTH_inline",
-  `!cs xs. LENGTH (inline cs xs) = LENGTH xs`,
-  recInduct inline_ind \\ REPEAT STRIP_TAC
-  \\ fs [Once inline_def,LET_DEF] \\ rw [] \\ every_case_tac \\ fs []);
-
-val HD_inline = Q.store_thm("HD_inline[simp]",
-  `[HD (inline cs [x])] = inline cs [x]`,
-  `LENGTH (inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_inline]
-  \\ Cases_on `inline cs [x]` \\ FULL_SIMP_TAC std_ss [LENGTH]
-  \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);
+    compile_inc limit split_seq cut_size LN prog`
 
 val _ = export_theory();
