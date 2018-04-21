@@ -11,9 +11,9 @@ val () = ml_prog_update (add_Dlet print_eval_thm "print" [])
 val print_app_list = process_topdecs
   `fun print_app_list ls =
    (case ls of
-      PrettyPrinter.Nil => ()
-    | PrettyPrinter.List ls => TextIO.print_list ls
-    | PrettyPrinter.Append l1 l2 => (print_app_list l1; print_app_list l2))`;
+      Nil => ()
+    | List ls => TextIO.print_list ls
+    | Append l1 l2 => (print_app_list l1; print_app_list l2))`;
 val () = append_prog print_app_list;
 
 val print_app_list_spec = Q.store_thm("print_app_list_spec",

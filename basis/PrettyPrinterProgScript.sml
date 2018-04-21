@@ -9,11 +9,9 @@ val _ = (
   new_theory "PrettyPrinterProg";
   translation_extends "TextIOProg";
   generate_sigs := true;
+  register_type ``:'a app_list``;
   ml_prog_update (open_module "PrettyPrinter")
 )
-
-val _ = register_type``:'a app_list``;
-val _ = theorem "MISC_APP_LIST_TYPE_def";
 
 fun tr name def = (
   next_ml_names := [name];
