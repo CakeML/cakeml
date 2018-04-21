@@ -568,7 +568,7 @@ val st_ex_FIRST_def = Define`
     let (p,(x,y)) = m in
     do
       b1 <- P x y;
-      if b1 then
+      if ¬b1 then
         st_ex_FIRST P Q ms unavail
       else
       do
@@ -1281,6 +1281,7 @@ val init_alloc1_heu_def = Define`
     (* pretend all the allocs are move related to reuse some earlier code *)
     st_ex_FOREACH allocs (λx. update_move_related x T);
     moves <- st_ex_FILTER (λ(_,(x,y)).consistency_ok x y) moves [];
+    set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
     (ltk,gtk) <- st_ex_PARTITION (split_degree d k) allocs [] [];
