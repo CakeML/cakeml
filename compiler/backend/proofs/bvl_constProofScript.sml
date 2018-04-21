@@ -110,9 +110,11 @@ val dest_simple_eq = prove(
   \\ eq_tac \\ rw [] \\ rw []);
 
 val case_op_const_eq = prove(
-  ``case_op_const exp = SOME (op, x1, n2) <=> (exp = Op op [x1; Op (Const n2) []])``,
-  Cases_on `exp` \\ fs [case_op_const_def, NULL_EQ]
-  \\ rpt (every_case_tac \\ fs [])
+  ``case_op_const exp = SOME x <=>
+  (?op x1 n2. x = (op, x1, n2) /\ (exp = Op op [x1; Op (Const n2) []]))``,
+  Cases_on `exp` \\ fs [case_op_const_def, NULL_EQ] \\
+  every_case_tac \\
+  eq_tac \\ rw []
 )
 
 val SmartOp_flip_thm = prove(
@@ -158,10 +160,10 @@ val SmartOp2_thm = prove(
     Cases_on `dest_simple x2` \\ fs [] \\
     Cases_on `case_op_const x1` \\ fs [] \\
     Cases_on `case_op_const x2` \\ fs [] \\
-
-    rpt TOP_CASE_TAC \\
     fs [dest_simple_eq, case_op_const_eq] \\
-    rveq \\
+    rveq >>
+    rw [case_eq_thms] >>
+    qpat_x_assum `evaluate _ = _` mp_tac >>
     fs [evaluate_def, do_app_def] >>
 
     rw [case_eq_thms] >>
