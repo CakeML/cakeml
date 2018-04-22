@@ -264,7 +264,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           mips_backend_config_def, mips_names_def,
           riscv_backend_config_def, riscv_names_def,
           x64_backend_config_def, x64_names_def,
-          data_prog_def ]
+          data_prog_def
+          ]
       ] cs
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
@@ -349,6 +350,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       in
         conv tm
       end
+
     val ths = time_with_size thms_size "get_clash (par)"
                 (parl eval_fn) word_prog0;
     val thm2 =
@@ -366,7 +368,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val oracles =
       to_livesets_thm
       |> rconc |> pairSyntax.dest_pair |> #1
-      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle Irc)
+      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle reg_alloc.Irc)
 
     val oracle_def = mk_abbrev"oracle" oracles;
 

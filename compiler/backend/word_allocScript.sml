@@ -1049,7 +1049,7 @@ val add_call_def = Define`
   add_call lr calls:num_set =
   union (map (λv. ()) lr) calls`
 
-val get_heu_fc_def = Define `
+val get_heu_def = Define `
   (get_heu fc (Move pri ls) (lr,calls) =
     (FOLDR add1_lhs_reg
     (FOLDR add1_rhs_reg lr (MAP SND ls))
@@ -1273,7 +1273,7 @@ val canonize_moves_def = Define`
           p1 < p2
         else y1 < y2
       else x1 < x2) can1 in
-  case can2 of [] => []
+  dtcase can2 of [] => []
   | ((p,m)::xs) => canonize_moves_aux p m 1 xs []`
 
 (* TODO: ALL of these magic numbers must be adjusted!! *)
