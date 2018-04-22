@@ -301,20 +301,22 @@ val to_livesets_def = Define`
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
      (name_num,arg_count,prog)) p in
-  let clashmovforce = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog [],get_forced c.lab_conf.asm_conf prog []) p in
-  ((reg_count,clashmovforce),c,p)`
+  let data = MAP (\(name_num,arg_count,prog).
+    let (heu_moves,spillcosts) = get_heuristics name_num prog in
+    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+  in
+    ((reg_count,data),c,p)`
 
 val from_livesets_def = Define`
-  from_livesets ((k,clashmovforce),c,p) =
+  from_livesets ((k,data),c,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
-  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmovforce,p)) in
+  let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
   let p =
-    MAP (λ(col_opt,((tree,moves,forced),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
-          let (heu_moves,spillcosts) = get_heuristics name_num prog in
           let cp =
             (case reg_alloc (if alg = 0n then Simple else IRC) spillcosts k heu_moves tree forced of
               Success col =>

@@ -7,10 +7,18 @@ val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "inferProg";
 
+val _ = monadsyntax.temp_add_monadsyntax()
+
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("return", ``st_ex_return``);
+
 val _ = hide "state";
 
 val _ = register_type ``:tag``;
 val _ = register_type ``:clash_tree``;
+val _ = register_type ``:algorithm``;
 
 (*
  *  Set up the monadic translator
@@ -37,6 +45,9 @@ val refs_manip_list = [
     ("dim", get_dim_def, set_dim_def),
     ("simp_wl", get_simp_wl_def, set_simp_wl_def),
     ("spill_wl", get_spill_wl_def, set_spill_wl_def),
+    ("freeze_wl", get_freeze_wl_def, set_freeze_wl_def),
+    ("avail_moves_wl", get_avail_moves_wl_def, set_avail_moves_wl_def),
+    ("unavail_moves_wl", get_unavail_moves_wl_def, set_unavail_moves_wl_def),
     ("stack", get_stack_def, set_stack_def)
 ];
 
@@ -44,7 +55,9 @@ val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 val farrays_manip_list = [
     ("adj_ls", get_adj_ls_def, set_adj_ls_def, adj_ls_length_def, adj_ls_sub_def, update_adj_ls_def),
     ("node_tag", get_node_tag_def, set_node_tag_def, node_tag_length_def, node_tag_sub_def, update_node_tag_def),
-    ("degrees", get_degrees_def, set_degrees_def, degrees_length_def, degrees_sub_def, update_degrees_def)
+    ("degrees", get_degrees_def, set_degrees_def, degrees_length_def, degrees_sub_def, update_degrees_def),
+    ("coalesced", get_coalesced_def, set_coalesced_def, coalesced_length_def, coalesced_sub_def, update_coalesced_def),
+    ("move_related", get_move_related_def, set_move_related_def, move_related_length_def, move_related_sub_def, update_move_related_def)
 ];
 
 val add_type_theories  = ([] : string list);
@@ -66,75 +79,135 @@ val _ = start_dynamic_init_fixed_store_translation
 (*
  * Translate the register allocator
  *)
-val _ = m_translate st_ex_FOREACH_def
-val _ = m_translate st_ex_MAP_def
-val _ = m_translate st_ex_PARTITION_def
-val _ = m_translate st_ex_FILTER_def
+val _ = m_translate st_ex_FOREACH_def;
+val _ = m_translate st_ex_MAP_def;
+val _ = m_translate st_ex_PARTITION_def;
+val _ = m_translate st_ex_FILTER_def;
 
-val _ = translate list_remap_def
-val _ = translate mk_bij_aux_def
+(* MISC stuff, for standalone translation only
 
-val _ = translate mk_bij_def
-val _ = translate is_phy_var_def
-val _ = translate sp_default_def
-val _ = translate extract_tag_def
-val _ = translate fromAList_def
+val _ = translate lookup_def;
+val _ = translate insert_def;
+val _ = translate lrnext_def;
+val _ = translate foldi_def;
+val _ = translate toAList_def;
+val _ = translate map_def;
+val _ = translate COUNT_LIST_AUX_def
+val _ = translate COUNT_LIST_compute
 
-val _ = m_translate dec_deg_def
-val _ = m_translate dec_degree_def
-val _ = m_translate add_simp_wl_def
-val _ = m_translate add_stack_def
-val _ = m_translate split_degree_def
-val _ = m_translate unspill_def
-val _ = m_translate do_simplify_def
-val _ = m_translate st_ex_list_MAX_deg_def
-val _ = m_translate do_spill_def
-val _ = m_translate do_step_def
-val _ = m_translate rpt_do_step_def
-val _ = m_translate remove_colours_def
-val _ = m_translate assign_Atemp_tag_def
-val _ = m_translate assign_Atemps_def
+*)
 
-val _ = translate tag_col_def
-val _ = translate unbound_colour_def
+val _ = translate list_remap_def;
+val _ = translate mk_bij_aux_def;
 
-val _ = m_translate assign_Stemp_tag_def
-val _ = m_translate assign_Stemps_def
-val _ = m_translate (first_match_col_def |> REWRITE_RULE [MEMBER_INTRO])
-val _ = m_translate biased_pref_def
+val _ = translate mk_bij_def;
+val _ = translate is_phy_var_def;
+val _ = translate sp_default_def;
+val _ = translate extract_tag_def;
+val _ = translate fromAList_def;
+
+val _ = m_translate dec_deg_def;
+val _ = m_translate dec_degree_def;
+val _ = m_translate add_simp_wl_def;
+val _ = m_translate add_spill_wl_def;
+val _ = m_translate add_freeze_wl_def;
+val _ = m_translate push_stack_def;
+val _ = m_translate add_unavail_moves_wl_def;
+
+val _ = m_translate split_degree_def;
+val _ = translate sort_moves_def;
+val _ = translate smerge_def;
+
+val rewrite_subs = Q.prove(`
+  (st_ex_MAP adj_ls_sub = st_ex_MAP (\v. adj_ls_sub v)) ∧
+  (st_ex_MAP node_tag_sub = st_ex_MAP (\v. node_tag_sub v)) ∧
+  (st_ex_PARTITION move_related_sub = st_ex_PARTITION (\v. move_related_sub v)) ∧
+  (st_ex_MAP degrees_sub = st_ex_MAP (\v. degrees_sub v))`,
+  metis_tac[ETA_AX]);
+
+val _ = m_translate (revive_moves_def |> REWRITE_RULE[MEMBER_INTRO,rewrite_subs]);
+
+val _ = m_translate (unspill_def |> REWRITE_RULE [rewrite_subs]);
+
+val _ = m_translate do_simplify_def;
+val _ = m_translate inc_deg_def;
+
+val _ = translate pair_rename_def;
 val _ = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO])
 val _ = m_translate list_insert_edge_def
-val _ = m_translate clique_insert_edge_def
-val _ = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO])
-val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO])
-val _ = m_translate extend_graph_def
-val _ = m_translate mk_tags_def
-val _ = m_translate init_ra_state_def
-val _ = m_translate is_Atemp_def
-val _ = m_translate init_alloc1_heu_def
-val _ = m_translate do_alloc1_def
-val _ = m_translate extract_color_def
 
-val _ = translate pri_move_insert_def
-val _ = translate undir_move_insert_def
-val _ = translate moves_to_sp_def
-val _ = translate resort_moves_def
-val _ = m_translate do_reg_alloc_def
+val _ = m_translate (do_coalesce_real_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = m_translate (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs]);
+val _ = m_translate is_Fixed_def;
+val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+val _ = m_translate st_ex_FIRST_def;
+val _ = m_translate do_coalesce_def;
+
+val _ = m_translate is_not_coalesced_def;
+val _ = m_translate reset_move_related_def;
+val _ = m_translate (do_prefreeze_def |> REWRITE_RULE [rewrite_subs]);
+val _ = m_translate do_freeze_def;
+
+val _ = translate safe_div_def;
+val _ = translate lookup_any_def;
+val _ = m_translate st_ex_list_MIN_cost_def;
+val _ = m_translate do_spill_def;
+
+val _ = m_translate do_step_def;
+val _ = m_translate rpt_do_step_def;
+val _ = m_translate remove_colours_def;
+val _ = m_translate assign_Atemp_tag_def;
+val _ = m_translate assign_Atemps_def;
+
+val _ = translate tag_col_def;
+val _ = translate unbound_colour_def;
+
+val _ = m_translate (assign_Stemp_tag_def |> REWRITE_RULE [rewrite_subs]);
+val _ = m_translate assign_Stemps_def;
+val _ = m_translate (first_match_col_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = m_translate biased_pref_def;
+val _ = m_translate clique_insert_edge_def;
+val _ = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = m_translate extend_graph_def;
+val _ = m_translate mk_tags_def;
+val _ = m_translate init_ra_state_def;
+val _ = m_translate is_Atemp_def;
+val _ = m_translate (init_alloc1_heu_def |> REWRITE_RULE [rewrite_subs]);
+val _ = m_translate do_alloc1_def;
+val _ = m_translate extract_color_def;
+
+val _ = translate pri_move_insert_def;
+val _ = translate undir_move_insert_def;
+val _ = translate moves_to_sp_def;
+val _ = translate resort_moves_def;
+val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
 (* Rewrite reg_alloc_aux before giving it to the monadic translator *)
 val reg_alloc_aux_trans_def = Q.prove(
  `∀k mtable ct forced x.
-     reg_alloc_aux k mtable ct forced x =
-     run_ira_state (do_reg_alloc k mtable ct forced x)
-       <|adj_ls := (SND(SND x),[]); node_tag := (SND(SND x),Atemp); degrees := (SND(SND x),0);
-         dim := SND(SND x); simp_wl := []; spill_wl := []; stack := []|>`,
+     reg_alloc_aux alg sc k mtable ct forced x =
+     run_ira_state (do_reg_alloc alg sc k mtable ct forced x)
+       <|adj_ls := (SND(SND x),[]);
+         node_tag := (SND(SND x),Atemp);
+         degrees := (SND(SND x),0);
+         dim := SND(SND x);
+         simp_wl := [];
+         spill_wl := [];
+         freeze_wl := [];
+         avail_moves_wl := [];
+         unavail_moves_wl := [];
+         coalesced := (SND(SND x),NONE);
+         move_related := (SND(SND x),F);
+         stack := []|>`,
  Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]);
 
-val _ = m_translate_run reg_alloc_aux_trans_def
+val _ = m_translate_run reg_alloc_aux_trans_def;
 
 (* The final function used by the compiler *)
-val _ = translate reg_alloc_def
+val _ = translate reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
@@ -144,9 +217,6 @@ val _ = export_theory();
 TODO: update the following code (comes from the non-monadic register allocator
 
 misc code to generate the unverified register allocator in SML
-
-(* This normally gets generated inside word_alloc's translation *)
-val _ = translate (clash_tree_to_spg_def |> REWRITE_RULE [MEMBER_INTRO])
 
 open ml_progLib astPP
 
@@ -158,7 +228,6 @@ val ML_code_prog =
 val prog = ML_code_prog |> concl |> strip_comb |> #2 |> el 3
 
 val _ = enable_astPP()
-
 val _ = trace("pp_avoids_symbol_merges",0)
 val t = TextIO.openOut("reg_alloc.sml")
 val _ = TextIO.output(t,term_to_string prog)

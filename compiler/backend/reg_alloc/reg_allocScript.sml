@@ -688,13 +688,16 @@ val do_freeze_def = Define`
   Picks the cheapest node in the spill worklist,
   based on spill cost / d
 *)
+val safe_div_def = Define`
+  safe_div x v = if v = 0 then 0 else x DIV v`
+
 val st_ex_list_MIN_cost_def = Define`
   (st_ex_list_MIN_cost sc [] d k v acc = return (k,acc)) ∧
   (st_ex_list_MIN_cost sc (x::xs) d k v acc =
   if x < d then
     do
       xv <- degrees_sub x;
-      cost <- return (lookup_any x sc 0n DIV xv);
+      cost <- return (safe_div (lookup_any x sc 0n) xv);
       if v > cost then
         st_ex_list_MIN_cost sc xs d x cost (k::acc)
       else
@@ -714,7 +717,7 @@ val do_spill_def = Define`
       if x >= d then return T else
       do
         xv <- degrees_sub x;
-        (y,ys) <- st_ex_list_MIN_cost sc xs d x (lookup_any x sc 0n DIV xv) [];
+        (y,ys) <- st_ex_list_MIN_cost sc xs d x (safe_div (lookup_any x sc 0n) xv) [];
         dec_deg y;
         unspill k;
         push_stack y;
@@ -722,160 +725,6 @@ val do_spill_def = Define`
         return T
       od
   od`
-
-(*
-(* TODO: if a node i is a copy from x to y, this should return the pair x, y.
- * I don't know where to get this info. *)
-val node_as_copy_def = Define`
-  node_as_copy i =
-  node_as_copy i`
-
-(* TODO: check *)
-val get_deep_alias_def = Define`
-  get_deep_alias i =
-  do
-    coals <- get_coalesced_nodes;
-    if MEM i coals then
-      do
-        n' <- alias_sub n;
-        get_deep_alias n'
-      od
-    else
-      return n
-  od`
-
-(* TODO: check *)
-
-val add_worklist_def = Define`
-  add_worklist k u =
-  do
-    u_precolored <- is_Fixed u;
-    u_mv_rl <- move_related u;
-    u_deg <- degrees_sub u;
-    if (not u_precolored andalso not u_mv_rl andalso u_deg < k) then
-      do
-        remove_freeze u;
-        add_simp_wl [u]
-      od
-    else
-      return ()
-  od`
-
-
-val is_ok_def = Define`
-  is_ok k t r =
-  do
-    d <- degrees_sub t;
-    if d then
-      return T
-    else
-      do
-        t_precolored <- is_Fixed t;
-        if t_precolored then
-          return T
-        else
-          do
-            adj_t <- adj_ls_sub t;
-            if MEM r adj_t then
-              return T
-            else
-              return F
-          od
-      od
-  od`
-
-val adjacent_def = Define`
-  adjacent n =
-  do
-    adj <- adj_ls_sub n;
-    stk <- get_stack;
-    coal <- get_coalesced_nodes;
-    st_ex_FILTER (\x. MEM x stk orelse MEM x coal) adj []
-  od`
-
-val node_moves_def = Define`
-  node_moves n =
-  do
-    xs <- move_list_sub n;
-    (* is this right? I think there may be a typo in George/Appel paper.
-     * they have an array called moveList in their specification, but elsewhere,
-     * they refer to nodeMoves as an array in the state. But nodeMoves is
-     * not included in the specification. *)
-
-    ys <- get_active_moves;
-    zs <- get_moves_wl;
-    return (FILTER (\x. MEM x ys orelse MEM x zs) xs)
-  od`
-
-
-val move_related_def = Define`
-  move_related n =
-  do
-    xs <- node_moves n;
-    return (LENGTH xs ≥ 0)
-  od`
-
-
-val conservative_def = Define`
-  conservative k acc nodes =
-  case nodes of
-     [] => return (acc < k)
-   | x::xs =>
-     do
-       deg <- degrees_sub x;
-       let acc' = if def ≥ k then acc + 1 else acc in
-       conservative k acc' xs
-     od`
-
-val remove_spill_def = Define`
-  remove_spill x =
-  do
-    spl_wl <- get_spill_wl;
-    let spl_wl' = FILTER (\y. y ≠ x) spl_wl in
-    set_spill_wl spl_wl'
-  od`
-
-val remove_freeze_def = Define`
-  remove_freeze x =
-  do
-    frz_wl <- get_freeze_wl;
-    let frz_wl' = FILTER (\y. y ≠ x) frz_wl in
-    set_freeze_wl frz_wl'
-  od`
-
-(* TODO: check *)
-val combine_def = Define`
-  combine u v =
-  do
-    (* TODO: this is dumb, we traverse the list twice! *)
-    frz_wl <- get_freeze_wl;
-    (if MEM v frz_wl then remove_freeze v else remove_spill v);
-    add_coalesced_nodes [v];
-
-    update_alias v u;
-
-    nmvs_u <- move_list_sub u;
-    nmvs_v <- move_list_sub v;
-    update_move_list u (nmvs_u ++ nmvs_v);
-
-    adj_v <- adjacent v;
-    st_ex_FOREACH adj_v
-      (\t.
-        do
-          insert_edge t u;
-          dec_degree t
-        od);
-
-    deg_u <- degrees_sub u;
-    if deg_u ≥ k andalso MEM u frz_wl then
-      do
-        remove_freeze u;
-        add_spill [u]
-      od
-    else
-      return ()
-  od`
-*)
 
 val do_step_def = Define`
   do_step sc k =

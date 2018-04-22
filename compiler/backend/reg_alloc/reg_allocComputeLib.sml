@@ -28,11 +28,31 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.dec_deg_def,
     reg_allocTheory.dec_degree_def,
     reg_allocTheory.add_simp_wl_def,
-    reg_allocTheory.add_stack_def,
+    reg_allocTheory.add_spill_wl_def,
+    reg_allocTheory.add_freeze_wl_def,
+    reg_allocTheory.push_stack_def,
+    reg_allocTheory.add_unavail_moves_wl_def,
     reg_allocTheory.split_degree_def,
+    reg_allocTheory.sort_moves_def,
+    reg_allocTheory.smerge_def,
+    reg_allocTheory.revive_moves_def,
     reg_allocTheory.unspill_def,
     reg_allocTheory.do_simplify_def,
-    reg_allocTheory.st_ex_list_MAX_deg_def,
+    reg_allocTheory.inc_deg_def,
+    reg_allocTheory.pair_rename_def,
+    reg_allocTheory.do_coalesce_real_def,
+    reg_allocTheory.bg_ok_def,
+    reg_allocTheory.is_Fixed_def,
+    reg_allocTheory.consistency_ok_def,
+    reg_allocTheory.st_ex_FIRST_def,
+    reg_allocTheory.do_coalesce_def,
+    reg_allocTheory.is_not_coalesced_def,
+    reg_allocTheory.reset_move_related_def,
+    reg_allocTheory.do_prefreeze_def,
+    reg_allocTheory.do_freeze_def,
+    reg_allocTheory.safe_div_def,
+    miscTheory.lookup_any_def,
+    reg_allocTheory.st_ex_list_MIN_cost_def,
     reg_allocTheory.do_spill_def,
     reg_allocTheory.do_step_def,
     reg_allocTheory.rpt_do_step_def,
@@ -86,6 +106,15 @@ fun dest_unit_sptree tm =
   | SOME ("sptree$BN", [t1, t2]) => Bn (dest_unit_sptree t1, dest_unit_sptree t2)
   | SOME ("sptree$BS", [t1, v, t2]) => Bs (dest_unit_sptree t1, (), dest_unit_sptree t2)
   | _ => raise ERR "dest_unit_sptree" "";
+
+(* int sptree to ML int sptree_spt*)
+fun dest_int_sptree tm =
+ case Lib.total boolSyntax.dest_strip_comb tm of
+    SOME ("sptree$LN", []) => Ln
+  | SOME ("sptree$LS", [v]) => Ls (int_of_term v)
+  | SOME ("sptree$BN", [t1, t2]) => Bn (dest_int_sptree t1, dest_int_sptree t2)
+  | SOME ("sptree$BS", [t1, v, t2]) => Bs (dest_int_sptree t1, int_of_term v, dest_int_sptree t2)
+  | _ => raise ERR "dest_int_sptree" "";
 
 (*Int ML sptree to HOL num sptree*)
 fun mk_num_sptree t =
@@ -143,12 +172,13 @@ fun dest_forced tm =
   (fn p => tup2 (map int_of_term p)) split end
 
 fun alloc_aux alg k [] n = (print"\n";[])
-|   alloc_aux alg k ([clash_tree,moves,force]::xs) n =
+|   alloc_aux alg k ([clash_tree,moves,sc,force]::xs) n =
   let val _ = print (strcat (Int.toString n) " ")
       val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves
       val force_poly = dest_forced force
-      val res = reg_alloc k moves_poly clash_tree_poly force_poly in
+      val sc_poly = dest_int_sptree sc
+      val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly in
     case res of
       Success s => s:: alloc_aux alg k xs (n+1)
     | Failure e => raise ERR "reg_alloc" "failure"
@@ -158,11 +188,14 @@ fun alloc_aux alg k [] n = (print"\n";[])
 (*Main thing to call for external allocator
   Should be passed a term of the form (k,(clashsetlist,moves) list)
 *)
+fun alg_to_str Simple = "Simple" |
+   alg_to_str Irc = "IRC";
+
 fun alloc_all alg t =
   let val (k,ls) = pairSyntax.dest_pair t
-      val _ = print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^Int.toString alg^ "\n")
-    val clash_mov_ls = map pairSyntax.strip_pair (fst(listSyntax.dest_list ls)) in
-    alloc_aux alg (int_of_term k) clash_mov_ls 0
+      val _ = print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^alg_to_str alg^ "\n")
+    val datals = map pairSyntax.strip_pair (fst(listSyntax.dest_list ls)) in
+    alloc_aux alg (int_of_term k) datals 0
   end
 
 fun get_oracle alg t =

@@ -366,7 +366,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val oracles =
       to_livesets_thm
       |> rconc |> pairSyntax.dest_pair |> #1
-      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle 3)
+      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle Irc)
 
     val oracle_def = mk_abbrev"oracle" oracles;
 
