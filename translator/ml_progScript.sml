@@ -1,6 +1,6 @@
 open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     determTheory semanticPrimitivesPropsTheory bigStepPropsTheory bigClockTheory;
+open astTheory libTheory semanticPrimitivesTheory
+     semanticPrimitivesPropsTheory evaluatePropsTheory;
 open mlstringTheory integerTheory;
 open terminationTheory;
 open namespaceTheory;
@@ -142,8 +142,10 @@ val merge_env_write_tdefs = prove(
 (* --- declarations --- *)
 
 val Decls_def = Define `
-  Decls env s1 ds env2 s2 =
-    evaluate_decs F env s1 ds (s2, Rval env2)`;
+  Decls env s1 ds env2 s2 <=>
+    s1.clock = s2.clock /\
+    ?ck1 ck2. evaluate_decs (s1 with clock := ck1) env ds =
+                            (s2 with clock := ck2, Rval env2)`;
 
 val Decls_Dtype = Q.store_thm("Decls_Dtype",
   `!env s tds env2 s2 locs.
@@ -151,55 +153,56 @@ val Decls_Dtype = Q.store_thm("Decls_Dtype",
       EVERY check_dup_ctors tds /\
       s2 = s with <| next_type_stamp := (s.next_type_stamp + LENGTH tds) |> /\
       env2 = write_tdefs s.next_type_stamp tds empty_env`,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ fs [PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
-  \\ rw [] \\ EQ_TAC \\ rw [write_tdefs_thm]);
+  SIMP_TAC std_ss [Decls_def,evaluate_decs_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
+  \\ rveq \\ fs [state_component_equality,write_tdefs_thm]);
 
 val Decls_Dexn = Q.store_thm("Decls_Dexn",
   `!env s n l env2 s2 locs.
       Decls env s [Dexn locs n l] env2 s2 <=>
       s2 = s with <| next_exn_stamp := (s.next_exn_stamp + 1) |> /\
       env2 = write_cons n (LENGTH l, ExnStamp s.next_exn_stamp) empty_env`,
-  SIMP_TAC std_ss [Decls_def,write_cons_def,empty_env_def]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ fs [PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
-  \\ rw [] \\ EQ_TAC \\ rw []
-  \\ fs [nsBind_def,nsEmpty_def,nsSing_def]);
+  SIMP_TAC std_ss [Decls_def,evaluate_decs_def,write_cons_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
+  \\ rveq \\ fs [state_component_equality,write_tdefs_thm]
+  \\ fs [nsBind_def,nsEmpty_def,nsSing_def,empty_env_def]);
 
 val Decls_Dtabbrev = Q.store_thm("Decls_Dtabbrev",
   `!env s x y z env2 s2 locs.
       Decls env s [Dtabbrev locs x y z] env2 s2 <=>
       s2 = s ∧ env2 = empty_env`,
-  fs [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
-  \\ rw [] \\ eq_tac \\ fs [empty_env_def,nsEmpty_def,nsAppend_def]);
+  fs [Decls_def,evaluate_decs_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
+  \\ rveq \\ fs [state_component_equality,empty_env_def]);
+
+val eval_rel_def = Define `
+  eval_rel s1 env e s2 x <=>
+    s1.clock = s2.clock /\
+    ?ck1 ck2.
+       evaluate (s1 with clock := ck1) env [e] =
+                (s2 with clock := ck2,Rval [x])`
 
 (* Delays the write *)
 val Decls_Dlet = Q.store_thm("Decls_Dlet",
   `!env s1 v e s2 env2 locs.
       Decls env s1 [Dlet locs (Pvar v) e] env2 s2 <=>
-      ?x. evaluate F env s1 e (s2,Rval x) /\
-          (env2 = write v x empty_env)`,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch_def, evaluate_dec_cases,combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ REPEAT STRIP_TAC
-  \\ srw_tac[QUANT_INST_ss[record_default_qp]][]
-  \\ simp[empty_env_def]
-  \\ fs[write_def,nsEmpty_def,nsBind_def] \\ eq_tac \\ rw[] \\ fs[]);
+      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env)`,
+  simp [Decls_def,evaluate_decs_def,eval_rel_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
+  THEN1
+   (FULL_CASE_TAC
+    \\ Cases_on `r` \\ fs [pat_bindings_def,ALL_DISTINCT,MEM,
+         pmatch_def,combine_dec_result_def] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq
+    \\ fs [write_def,empty_env_def] \\ asm_exists_tac \\ fs [])
+  \\ fs [pat_bindings_def,ALL_DISTINCT,MEM,
+         pmatch_def,combine_dec_result_def]
+  \\ qexists_tac `ck1` \\ qexists_tac `ck2`
+  \\ fs [write_def,empty_env_def]);
 
 val FOLDR_LEMMA = Q.prove(
   `!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-            FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
+           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
 
 (* Delays the write in build_rec_env *)
@@ -209,45 +212,32 @@ val Decls_Dletrec = Q.store_thm("Decls_Dletrec",
       (s2 = s1) /\
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
       (env2 = write_rec funs env empty_env)`,
-  SIMP_TAC std_ss [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch_def,evaluate_dec_cases,
-       combine_dec_result_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
+  simp [Decls_def,evaluate_decs_def,bool_case_eq,PULL_EXISTS]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ fs [state_component_equality,write_rec_def]
   \\ fs[write_def,write_rec_thm,empty_env_def,build_rec_env_def]
-  \\ rw[] \\ eq_tac \\ rw[] \\ fs[]
-  \\ pop_assum kall_tac
-  \\ qho_match_abbrev_tac`∃bnd. FOLDR (λ(f,x,e) env'. nsBind f (foo f) env')  _ _ = Bind bnd _`
-  \\ pop_assum kall_tac
-  \\ Induct_on`funs`\\ rw[nsEmpty_def,nsBind_def]
-  \\ pairarg_tac \\ fs[nsBind_def]);
+  \\ rpt (pop_assum kall_tac)
+  \\ qspec_tac (`Recclosure env funs`,`xx`)
+  \\ qspec_tac (`nsEmpty:env_val`,`nn`)
+  \\ Induct_on `funs` \\ fs [FORALL_PROD]
+  \\ pop_assum (assume_tac o GSYM) \\ fs []);
 
 val Decls_Dmod = Q.store_thm("Decls_Dmod",
   `Decls env1 s1 [Dmod mn ds] env2 s2 <=>
    ?s env.
       Decls env1 s1 ds env s /\ s2 = s /\
       env2 = write_mod mn env empty_env`,
-  fs [Decls_def,Decls_def,Once evaluate_dec_cases,PULL_EXISTS,
+  fs [Decls_def,Decls_def,evaluate_decs_def,PULL_EXISTS,
       combine_dec_result_def,write_mod_def,empty_env_def]
-  \\ fs [Decls_def,Decls_def,Once evaluate_dec_cases,PULL_EXISTS,
-         combine_dec_result_def,write_mod_def,empty_env_def]
-  \\ fs [``evaluate_decs x y u [] z`` |> ONCE_REWRITE_CONV [evaluate_dec_cases]
-           |> SIMP_RULE (srw_ss()) []]
-  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
-  \\ TRY (asm_exists_tac \\ fs [])
-  \\ qexists_tac`env` \\ fs[]);
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs [pair_case_eq,result_case_eq]
+  \\ rveq \\ fs [] \\ asm_exists_tac \\ fs []);
 
 val Decls_NIL = Q.store_thm("Decls_NIL",
   `!env s n l env2 s2.
       Decls env s [] env2 s2 <=>
       s2 = s ∧ env2 = empty_env`,
-  fs [Decls_def]
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate_dec_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [evaluate_dec_cases, combine_dec_result_def]
-  \\ rw [] \\ eq_tac
-  \\ fs [empty_env_def,nsEmpty_def]);
+  fs [Decls_def,evaluate_decs_def,state_component_equality,empty_env_def]
+  \\ rw [] \\ eq_tac \\ rw []);
 
 val Decls_CONS = Q.store_thm("Decls_CONS",
   `!s1 s3 env1 d ds1 ds2 env3.
@@ -256,29 +246,28 @@ val Decls_CONS = Q.store_thm("Decls_CONS",
          Decls env1 s1 [d] envA s2 /\
          Decls (merge_env envA env1) s2 ds2 envB s3 /\
          env3 = merge_env envB envA`,
-  rw[Decls_def,PULL_EXISTS]
-  \\ rw[Once evaluate_dec_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_dec_cases,SimpRHS,PULL_EXISTS]
-  \\ reverse (rw[EQ_IMP_THM])
+  rw[Decls_def,PULL_EXISTS,evaluate_decs_def]
+  \\ reverse (rw[EQ_IMP_THM]) \\ fs []
   THEN1
-   (ntac 2 (qhdtm_x_assum`evaluate_decs`mp_tac)
-    \\ rw[Once evaluate_dec_cases] >> fs[]
-    \\ fs [merge_env_def] \\ rfs []
-    \\ fs [empty_env_def,merge_env_def,extend_dec_env_def]
-    \\ fs [combine_dec_result_def]
-    \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ fs[nsAppend_def]
-    \\ qexists_tac`s2` \\ qexists_tac`new_env` \\ qexists_tac`Rval envB` \\ fs[]
-    \\ rw[] \\ EVAL_TAC)
-  \\ rw[Once evaluate_dec_cases |> CONJUNCT2,PULL_EXISTS,combine_dec_result_def]
-  \\ asm_exists_tac \\ fs[]
-  \\ CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_decs`` o fst o strip_comb)))
-  \\ Cases_on`r`>>fs[combine_dec_result_def]
-  \\ qexists_tac`a`
-  \\ fs [empty_env_def,merge_env_def,extend_dec_env_def]
-  \\ rw [sem_env_component_equality]
-  \\ Cases_on`new_env.v`
-  \\ Cases_on`a.v` \\ fs[nsAppend_def]);
+   (once_rewrite_tac [evaluate_decs_cons]
+    \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []
+    \\ first_x_assum (qspec_then `ck1'` assume_tac)
+    \\ qexists_tac `ck1+ck1'` \\ fs []
+    \\ fs [merge_env_def,extend_dec_env_def,combine_dec_result_def]
+    \\ fs [state_component_equality])
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [evaluate_decs_cons]
+  \\ fs [pair_case_eq,result_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+  \\ Cases_on `r` \\ fs [combine_dec_result_def]
+  \\ rveq \\ fs []
+  \\ qexists_tac `env1'` \\ fs []
+  \\ qexists_tac `a` \\ fs []
+  \\ qexists_tac `s1' with clock := s3.clock` \\ fs [merge_env_def]
+  \\ qexists_tac `ck1` \\ fs [state_component_equality]
+  \\ qexists_tac `s1'.clock` \\ fs [state_component_equality]
+  \\ `(s1' with clock := s1'.clock) = s1'` by fs [state_component_equality]
+  \\ fs [extend_dec_env_def]
+  \\ fs [state_component_equality]);
 
 val merge_env_empty_env = Q.store_thm("merge_env_empty_env",
   `merge_env env empty_env = env /\
@@ -441,7 +430,7 @@ val ML_code_Dletrec = Q.store_thm("ML_code_Dletrec",
 val ML_code_Dlet_var = Q.store_thm("ML_code_Dlet_var",
   `ML_code env1 s1 prog mn env2 s2 ==>
     !e x s3.
-      evaluate F (ML_code_env env1 mn env2) s2 e (s3,Rval x) ==>
+      eval_rel s2 (ML_code_env env1 mn env2) e s3 x ==>
       !n locs.
         ML_code env1 s1 (SNOC (Dlet locs (Pvar n) e) prog)
           mn (write n x env2) s3`,
@@ -458,7 +447,7 @@ val ML_code_Dlet_Fun = Q.store_thm("ML_code_Dlet_Fun",
       ML_code env1 s1 (SNOC (Dlet locs (Pvar n) (Fun v e)) prog)
         mn (write n (Closure (ML_code_env env1 mn env2) v e) env2) s2`,
   rw [] \\ match_mp_tac (ML_code_Dlet_var |> MP_CANON) \\ fs []
-  \\ fs [Once evaluate_cases]);
+  \\ fs [evaluate_def,state_component_equality,eval_rel_def]);
 
 (* lookup function definitions *)
 
