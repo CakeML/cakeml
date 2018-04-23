@@ -130,7 +130,7 @@ val SmartOp_flip_thm = prove(
       fs [SmartOp_flip_def, dest_simple_eq] >>
       fs [dest_simple_eq] >>
       fs [evaluate_def, do_app_def] >>
-      fs [case_eq_thms, pair_case_eq, bool_case_eq] >>
+      fs [case_eq_thms] >>
       rveq >> fs [] >> rveq >> fs [REVERSE] >> rveq >> fs [] >>
       intLib.COOPER_TAC
     ) >>
@@ -167,10 +167,10 @@ val SmartOp2_thm = prove(
     fs [evaluate_def, do_app_def] >>
 
     rw [case_eq_thms] >>
-    rveq >> fs [] >> rveq >> fs [REVERSE] >> rveq >> fs [] >>
     res_tac >>
-    fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_SUB_CALCULATE, integerTheory.INT_MUL_LID, integerTheory.INT_NEG_ADD, integerTheory.INT_MUL_ASSOC] >>
-    TRY intLib.COOPER_TAC
+    fs [REVERSE] >>
+    rveq >>
+    intLib.COOPER_TAC
   )
 
   \\ reverse (Cases_on `op = Equal`)
