@@ -102,4 +102,34 @@ val _ = register_exn_type ``:exn_type``
 
 val _ = (print_asts := true);
 
+(* test no_ind *)
+
+val word64_msb_thm = Q.prove(
+  `!w. word_msb (w:word64) =
+         ((w && 0x8000000000000000w) = 0x8000000000000000w)`,
+  blastLib.BBLAST_TAC);
+
+val res = translate word64_msb_thm;
+
+val res = translate (miscTheory.arith_shift_right_def
+                     |> INST_TYPE [alpha|->``:64``]
+                     |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
+                     |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]
+  \\ first_x_assum match_mp_tac \\ wordsLib.WORD_EVAL_TAC \\ rw[])
+  |> update_precondition;
+
+val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
+
+val res = translate shift_test_def;
+
 val _ = export_theory();
