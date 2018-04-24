@@ -144,17 +144,8 @@ val SmartOp2_thm = prove(
     res ≠ Rerr (Rabort Rtype_error) ==>
     evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)``,
 
-  sg `!(x:bvl$exp) env' s' res' s2'. (evaluate([x], env', s') = (Rval res', s2')) ==> (?a.  res' = [a])`
-  THEN1 (
-    rpt strip_tac
-    \\ mp_tac (GEN_ALL evaluate_IMP_LENGTH)
-    \\ strip_tac
-    \\ `LENGTH [x] = LENGTH res'` by metis_tac []
-    \\ Cases_on `res'` \\ TRY (Cases_on `t`) \\ fs []
-  )
-
-  \\ simp [SmartOp2_def]
-  \\ Cases_on `MEM op [Add; Sub; Mult]`
+  simp [SmartOp2_def] \\
+  reverse (Cases_on `op = Equal`)
   THEN1 (
     Cases_on `dest_simple x1` \\ fs [] \\
     Cases_on `dest_simple x2` \\ fs [] \\
@@ -164,20 +155,15 @@ val SmartOp2_thm = prove(
     rveq >>
     rw [case_eq_thms] >>
     qpat_x_assum `evaluate _ = _` mp_tac >>
-    fs [evaluate_def, do_app_def] >>
 
-    rw [case_eq_thms] >>
-    res_tac >>
-    fs [REVERSE] >>
-    rveq >>
+    simp [evaluate_def, do_app_def] >>
+    fsrw_tac [DNF_ss] [case_eq_thms] >>
+    rw [REVERSE] >>
+    imp_res_tac evaluate_SING  >>
+    fs [] >>
     intLib.COOPER_TAC
   )
 
-  \\ reverse (Cases_on `op = Equal`)
-  THEN1
-   (reverse (Cases_on `op`) \\ fs [] \\ every_case_tac \\ fs []
-    \\ fs [dest_simple_eq]
-    \\ fs [evaluate_def,do_app_def] \\ rw [])
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
