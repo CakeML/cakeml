@@ -1294,17 +1294,25 @@ val get_coalescecost_def = Define`
   (n * (10 * (p+1) + xcost + ycost),(x,y))`
 
 val get_heuristics_def = Define`
-  get_heuristics fc prog =
-  let (lr,calls) = get_heu fc prog (LN,LN) in
-  let moves = get_prefs prog [] in
-  let spillcosts = mapi (λk v. get_spillcost v (lookup k calls = NONE)) lr in
-  let canon_moves = canonize_moves moves in
-  let heu_moves = MAP (get_coalescecost spillcosts) canon_moves in
-  (heu_moves,spillcosts)`
+  get_heuristics alg fc prog =
+  if alg MOD 2n = 0n then
+    let (lr,calls) = get_heu fc prog (LN,LN) in
+    let moves = get_prefs prog [] in
+    let spillcosts = mapi (λk v. get_spillcost v (lookup k calls = NONE)) lr in
+    let canon_moves = canonize_moves moves in
+    let heu_moves = MAP (get_coalescecost spillcosts) canon_moves in
+    (heu_moves,spillcosts)
+  else
+    let moves = get_prefs prog [] in
+    (moves,LN)`
 
 (*
   fc is the current prog number
   alg is the allocation algorithm,
+    0: simple allocator, no spill heuristics
+    1: simple allocator + spill heuristics
+    2: IRC allocator, no spill heuristics (default)
+    3: IRC allocator + spill heuristics
   k is the number of registers
   prog is the program to be colored
   col_opt is an optional oracle colour
@@ -1316,8 +1324,8 @@ val word_alloc_def = Define`
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
-      let (heu_moves,spillcosts) = get_heuristics fc prog in
-      (dtcase reg_alloc (if alg = 0n then Simple else IRC) spillcosts k heu_moves tree forced of
+      let (heu_moves,spillcosts) = get_heuristics alg fc prog in
+      (dtcase reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))
