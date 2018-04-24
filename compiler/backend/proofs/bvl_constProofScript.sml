@@ -182,20 +182,13 @@ val SmartOp_thm = Q.store_thm("SmartOp_thm",
     res ≠ Rerr (Rabort Rtype_error) ==>
     evaluate ([SmartOp op xs],env,s) = (res,s2)`,
 
-  rpt strip_tac
-  \\ reverse (Cases_on `?x1 x2. xs = [x1;x2]`)
-  THEN1 (
-    Cases_on `xs` \\ fs [SmartOp_def]
-    \\ Cases_on `t` \\ fs [SmartOp_def]
-    \\ Cases_on `t'` \\ fs [SmartOp_def]
-  )
-  \\ fs [] \\ fs []
-  \\ simp [SmartOp_def]
-  \\ Cases_on `SmartOp_flip op x1 x2`
-  \\ Cases_on `r`
-  \\ rename1 `SmartOp_flip op x1 x2 = (op', x1', x2')`
-  \\ `evaluate ([Op op' [x1'; x2']], env, s) = (res, s2)` by metis_tac [SmartOp_flip_thm]
-  \\ rw [SmartOp2_thm]
+  simp [SmartOp_def] \\
+  every_case_tac \\
+  rename1 `Op op [x1; x2]` \\
+  Cases_on `SmartOp_flip op x1 x2` \\
+  Cases_on `r` \\
+  rename1 `SmartOp_flip op x1 x2 = (op', x1', x2')` \\
+  metis_tac [SmartOp_flip_thm, SmartOp2_thm]
 )
 
 

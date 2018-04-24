@@ -192,10 +192,12 @@ val SmartOp2_pmatch = Q.store_thm("SmartOp2_pmatch",
   simp [SmartOp2_def]);
 end
 
+
 val SmartOp_def = Define `
-  (SmartOp op [x1; x2] = SmartOp2 (SmartOp_flip op x1 x2)) /\
-  (SmartOp op xs = Op op xs)
-`
+  SmartOp op xs =
+    dtcase xs of
+    | [x1; x2] => SmartOp2 (SmartOp_flip op x1 x2)
+    | _ => Op op xs`
 
 val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",`
     !op xs. SmartOp op xs =
