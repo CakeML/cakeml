@@ -1295,7 +1295,7 @@ val get_coalescecost_def = Define`
 
 val get_heuristics_def = Define`
   get_heuristics alg fc prog =
-  if alg MOD 2n = 0n then
+  if alg MOD 2n = 1n then
     let (lr,calls) = get_heu fc prog (LN,LN) in
     let moves = get_prefs prog [] in
     let spillcosts = mapi (λk v. get_spillcost v (lookup k calls = NONE)) lr in
