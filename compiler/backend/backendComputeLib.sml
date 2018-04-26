@@ -304,6 +304,9 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def
+    ,bvl_constTheory.case_op_const_def
+    ,bvl_constTheory.SmartOp_flip_def
+    ,bvl_constTheory.SmartOp2_def
     ,bvl_constTheory.SmartOp_def
     ,bvl_constTheory.extract_def
     ,bvl_constTheory.extract_list_def
