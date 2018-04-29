@@ -119,6 +119,9 @@ val nv_rel_LIST_REL = Q.store_thm("nv_rel_LIST_REL",
   \\ PairCases_on `h` \\ Cases_on `ys` \\ fs []
   \\ PairCases_on `h` \\ fs [] \\ metis_tac []);
 
+val nv_rel_NIL = Q.store_thm("nv_rel_NIL[simp]",
+  `nv_rel ctors [] []`, rw [Once v_rel_cases]);
+
 (* This needs to be removed from the proofs outside of this theory
    (something needs to be proven in source_to_flat) *)
 val ctor_rel_def = Define `
@@ -169,20 +172,21 @@ val result_rel_thms = Q.store_thm("result_rel_thms[simp]",
    (!ctors v2 r.
      result_rel R ctors r (Rval v2) <=>
      ?v1. r = Rval v1 /\ R ctors v1 v2) /\
-   (!ctors v1 r.
-     result_rel R ctors (Rerr (Rraise v1)) r <=>
-     ?v2. r = Rerr (Rraise v2) /\ v_rel ctors v1 v2) /\
-   (!ctors v2 r.
-      result_rel R ctors r (Rerr (Rraise v2)) <=>
-      ?v1. r = Rerr (Rraise v1) /\ v_rel ctors v1 v2) /\
-   (!ctors a r.
-      result_rel R ctors (Rerr (Rabort a)) r <=>
-      r = Rerr (Rabort a)) /\
-   (!ctors a r.
-      result_rel R ctors r (Rerr (Rabort a)) <=>
-      r = Rerr (Rabort a))`,
+   (!ctors err r.
+     result_rel R ctors (Rerr err) r <=>
+       (?v1 v2.
+         err = Rraise v1 /\ r = Rerr (Rraise v2) /\
+         v_rel ctors v1 v2) \/
+       (?a.  err = Rabort a /\ r = Rerr (Rabort a))) /\
+   (!ctors err r.
+     result_rel R ctors r (Rerr err) <=>
+       (?v1 v2.
+         err = Rraise v2 /\ r = Rerr (Rraise v1) /\
+         v_rel ctors v1 v2) \/
+       (?a.  err = Rabort a /\ r = Rerr (Rabort a)))`,
   rpt conj_tac \\ ntac 2 gen_tac \\ Cases \\ rw [result_rel_def]
-  \\ Cases_on `e` \\ rw [result_rel_def, EQ_SYM_EQ]);
+  \\ Cases_on `e` \\ rw [result_rel_def]
+  \\ Cases_on `err` \\ fs [result_rel_def, EQ_SYM_EQ]);
 
 val match_rel_def = Define `
   (match_rel ctors (Match env1) (Match env2) <=> nv_rel ctors env1 env2) /\
@@ -656,7 +660,6 @@ val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
   |> dest_prod |> fst)
 
-(* TODO simplification to avoid Cases_on `Rerr...` *)
 val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
   `(!env1 ^s1 xs t1 r1.
       evaluate env1 s1 xs = (t1, r1) /\
@@ -693,21 +696,18 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
          evaluate_match env2 s2 v2
            (MAP (\(p,e). (p, HD (compile_exps ctors_pre [e]))) ps2)
            err_v2 = (t2, r2))`,
+
   ho_match_mp_tac evaluate_ind
   \\ rw [compile_exps_def, evaluate_def] \\ fs [result_rel_def]
   >-
    (simp [Once evaluate_cons]
     \\ fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs [PULL_EXISTS]
     \\ rpt (first_x_assum drule \\ rpt (disch_then drule) \\ rw [])
-    \\ fs [result_rel_thms]
-    \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
-    \\ rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [result_rel_thms])
+    \\ imp_res_tac evaluate_sing \\ fs [] \\ rw [])
   >-
    (fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs [PULL_EXISTS]
     \\ rpt (first_x_assum drule \\ rpt (disch_then drule) \\ rw [])
-    \\ fs [result_rel_thms]
-    \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
-    \\ rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [result_rel_thms])
+    \\ imp_res_tac evaluate_sing \\ fs [] \\ rw [])
   >- (* Handle *)
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
@@ -719,20 +719,19 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
     \\ fs [case_eq_thms, pair_case_eq, PULL_EXISTS]
     \\ first_x_assum drule
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ fsrw_tac [DNF_ss] [env_rel_def]
-    \\ rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [])
+    \\ fsrw_tac [DNF_ss] [env_rel_def])
   >- fs [env_rel_def]
   >-
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qpat_x_assum `_ ==> _` mp_tac
     \\ impl_keep_tac >- fs [env_rel_def]
     \\ rpt (disch_then drule) \\ rfs [] \\ fs [compile_exps_LENGTH]
-    \\ fsrw_tac [DNF_ss] [env_rel_def] \\ rw []
-    \\ rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [])
+    \\ fsrw_tac [DNF_ss] [env_rel_def] \\ rw [])
   >-
    (every_case_tac \\ fs [] \\ rw [] \\ fs [env_rel_def]
     \\ map_every imp_res_tac [nv_rel_ALOOKUP_v_rel, MEM_LIST_REL] \\ rfs [])
   >- (simp [Once v_rel_cases] \\ metis_tac [env_rel_def])
+
   >- (* App *)
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ last_x_assum drule
@@ -741,24 +740,19 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
     \\ imp_res_tac EVERY2_REVERSE
     >- metis_tac [do_opapp_thm, state_rel_def]
     >-
-     (
-      drule (GEN_ALL do_opapp_thm) \\ disch_then drule \\ rw [] \\ fs []
+     (drule (GEN_ALL do_opapp_thm) \\ disch_then drule \\ rw [] \\ fs []
       \\ sg `env_rel ctors (env1 with v := env') (env2 with v := nvs2)`
       >- (fs [env_rel_def] \\ rfs [] \\ fs [])
       \\ sg `state_rel ctors (dec_clock s') (dec_clock t2)`
       >- fs [state_rel_def, dec_clock_def]
-      \\ first_x_assum drule
-      \\ rpt (disch_then drule) \\ fs [] \\ rw []
+      \\ first_x_assum drule \\ rpt (disch_then drule) \\ fs [] \\ rw []
       \\ fs [state_rel_def])
-    >-
-     (drule (GEN_ALL do_app_thm) \\ rpt (disch_then drule) \\ rw [] \\ fs []
-      \\ Cases_on `r` \\ Cases_on `r2` \\ fs [evaluateTheory.list_result_def]
-      \\ Cases_on `e` \\ fs [])
-    \\ rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [])
+    \\ drule (GEN_ALL do_app_thm) \\ rpt (disch_then drule) \\ rw [] \\ fs []
+    \\ Cases_on `r` \\ Cases_on `r2` \\ fs [evaluateTheory.list_result_def]
+    \\ Cases_on `e` \\ fs [])
   >- (* If *)
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ TRY (rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [] \\ NO_TAC)
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
     \\ fs [do_if_def, bool_case_eq, Boolv_def] \\ rw [] \\ fs [])
@@ -766,20 +760,17 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
    (fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw []
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
-    >-
-     (last_x_assum drule \\ rpt (disch_then drule)
-      \\ disch_then match_mp_tac
-      \\ qexists_tac `F` \\ rw [add_default_def] \\ fs [bind_exn_v_def]
-      \\ metis_tac [exhaustive_exists_match, env_rel_def, exhaustive_SUBMAP])
-    \\ rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [])
+    \\ last_x_assum drule \\ rpt (disch_then drule)
+    \\ disch_then match_mp_tac
+    \\ qexists_tac `F` \\ rw [add_default_def] \\ fs [bind_exn_v_def]
+    \\ metis_tac [exhaustive_exists_match, env_rel_def, exhaustive_SUBMAP])
   >- (* Let *)
    (fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs [PULL_EXISTS]
-    \\ TRY (rename1 `Rerr rrr` \\ Cases_on `rrr` \\ fs [] \\ NO_TAC)
     \\ last_x_assum match_mp_tac
     \\ fs [env_rel_def]
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rw [] \\ fs []
-    \\ fs [libTheory.opt_bind_def] \\ CASE_TAC \\ fs []
+    \\ fs [libTheory.opt_bind_def] \\ PURE_CASE_TAC \\ fs []
     \\ simp [Once v_rel_cases])
   >- (* Letrec *)
    (rw [] \\ TRY (metis_tac [compile_exps_MAP_FST])
@@ -866,13 +857,52 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
 (* Compile declarations                                                      *)
 (* ------------------------------------------------------------------------- *)
 
-val evaluate_compile_dec = Q.store_thm("evaluate_compile_dec",
-  `T`,
-  cheat (* TODO *)
-  );
+(* TODO Both of these are still slightly off *)
+(* TODO compile_exps_evaluate needs bind_exn_v in state *)
 
-val evaluate_compile_decs = Q.store_thm("evaluate_compile_decs",
-  `T`,
+val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
+  `!dec1 env1 s1 t1 cset1 res1 ctors env2 s2 dec2 ctors_pre ctors2.
+     evaluate_dec env1 s1 dec1 = (t1, cset1, res1) /\
+     res1 <> SOME (Rabort Rtype_error) /\
+     env_rel ctors env1 env2 /\
+     state_rel ctors s1 s2 /\
+     ctors_pre SUBMAP ctors /\
+     compile_dec ctors_pre dec1 = (ctors2, dec2)
+     ==>
+     ?t2 res2.
+       state_rel ctors t1 t2 /\
+       evaluate_dec env2 s2 dec2 = (t2, cset1, res2) /\
+       (res1 = NONE ==> res2 = NONE) /\
+       (!r1. res1 = SOME r1
+             ==> ?r2. res2 = SOME r2 /\
+                      result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2))`,
+  Induct \\ rw [] \\ fs [compile_dec_def] \\ rw []
+  >- (* Dlet *)
+   (fs [evaluate_dec_def, compile_exp_def, case_eq_thms, pair_case_eq] \\ rw []
+    \\ fs [PULL_EXISTS]
+    \\ `env_rel ctors (env1 with v := []) (env2 with v := [])`
+      by (fs [env_rel_def] \\ metis_tac [])
+    \\ drule (CONJUNCT1 compile_exps_evaluate) \\ fs []
+    \\ rpt (disch_then drule) \\ rw [] \\ fs [])
+  \\ fs [evaluate_dec_def, is_fresh_exn_def, is_fresh_type_def, env_rel_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
+
+val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
+  `!decs1 env1 s1 t1 cset1 res1 ctors env2 s2 decs2 ctors_pre ctors2.
+     evaluate_decs env1 s1 decs1 = (t1, cset1, res1) /\
+     res1 <> SOME (Rabort Rtype_error) /\
+     env_rel ctors env1 env2 /\
+     state_rel ctors s1 s2 /\
+     ctors_pre SUBMAP ctors /\
+     compile_decs ctors_pre decs1 = (ctors2, decs2)
+     ==>
+     ?t2 res2.
+       state_rel ctors t1 t2 /\
+       evaluate_decs env2 s2 decs2 = (t2, cset1, res2) /\
+       (res1 = NONE ==> res2 = NONE) /\
+       (!r1. res1 = SOME r1
+             ==> ?r2. res2 = SOME r2 /\
+                      result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2))`,
   cheat (* TODO *)
   );
 
