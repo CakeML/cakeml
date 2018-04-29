@@ -16,16 +16,35 @@ val _ = tDefine "is_unconditional" `
    Induct_on`ps` >> simp[pat_size_def] >>
    rw[] >> res_tac >> simp[pat_size_def]);
 
+(* The map for exception tags is ctor_id |-> arity. *)
 val _ = Define `
-  (get_tags [] acc = SOME acc) ∧
-  (get_tags (p::ps) acc =
+  (get_exn_tags []      exns = SOME exns) /\
+  (get_exn_tags (p::ps) exns =
+    case p of
+      Pcon (SOME (cid, NONE)) pats =>
+        if EVERY is_unconditional pats then
+          let arity = LENGTH pats in
+            (case lookup cid exns of
+              SOME n =>
+                if n <> arity then NONE else
+                  get_exn_tags ps (delete cid exns)
+            | _ => NONE)
+        else
+          NONE
+    | _ => NONE)`;
+
+(* The map for datatype tags is arity |-> count. *)
+val _ = Define `
+  (get_dty_tags []      dtys = SOME dtys) ∧
+  (get_dty_tags (p::ps) dtys =
      case p of
-       Pcon (SOME (tag,t)) pats =>
+       Pcon (SOME (cid, SOME _)) pats =>
            if EVERY is_unconditional pats then
-             let a = LENGTH pats in
-             (case lookup a acc of
-                SOME tags => get_tags ps (insert a (delete tag tags) acc)
-              | _ => NONE)
+             let arity = LENGTH pats in
+               (case lookup arity dtys of
+                 SOME tags =>
+                     get_dty_tags ps (insert arity (delete cid tags) dtys)
+               | _ => NONE)
            else NONE
      | _ => NONE)`;
 
@@ -33,29 +52,31 @@ val _ = Define `
   exhaustive_match ctors ps ⇔
     EXISTS is_unconditional ps ∨
     case ps of
-      Pcon (SOME (tag,t)) pats :: _ =>
-        EVERY is_unconditional pats  /\
-        (case FLOOKUP ctors t of
-          NONE => F
-        | SOME tags =>
-            (case get_tags ps (map (\n. fromList (GENLIST (K ()) n)) tags) of
-               NONE => F
-             | SOME result => EVERY isEmpty (toList result)))
+      Pcon (SOME (tag, tyid)) pats :: _ =>
+          EVERY is_unconditional pats  /\
+          (case FLOOKUP ctors tyid of
+            NONE      => F
+          | SOME dtys =>
+              (case tyid of
+                NONE   =>
+                  (case get_exn_tags ps dtys of
+                    NONE     => F
+                  | SOME res => isEmpty res)
+              | SOME _ =>
+                  let tags = map (\n. fromList (GENLIST (K ()) n)) dtys in
+                    (case get_dty_tags ps tags of
+                      NONE     => F
+                    | SOME res => EVERY isEmpty (toList res))))
     | _ => F`
 
 val add_default_def = Define `
-  add_default tra is_handle is_exhaustive pes =
-    if is_exhaustive then
-      pes
-    else if is_handle then
-      pes ++
-        [(Pvar "x",
-          Raise (mk_cons tra 1) (Var_local (mk_cons tra 2) "x"))]
+  add_default t is_hdl is_exh ps =
+    if is_exh then
+      ps
+    else if is_hdl then
+      ps ++ [(Pvar "x", Raise (t § 1) (Var_local (t § 2) "x"))]
     else
-      pes ++
-        [(Pany,
-          Raise (mk_cons tra 1) (Con (mk_cons tra 2)
-            (SOME (bind_tag, NONE)) []))]`;
+      ps ++ [(Pany, Raise (t § 1) (Con (t § 2) (SOME (bind_tag, NONE)) []))]`;
 
 val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine"e2sz"`
   (e2sz (Raise _ e) = e2sz e + 1) ∧
@@ -64,6 +85,7 @@ val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefin
   (e2sz (Handle _ e pes) = e2sz e + p2sz pes + 4) ∧
   (e2sz (App _ op es) = l2sz es + 1) ∧
   (e2sz (Let _ x e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
+  (e2sz (If _ x1 x2 x3) = e2sz x1 + e2sz x2 + e2sz x3 + 1) /\
   (e2sz (Fun _ x e) = e2sz e + 1) ∧
   (e2sz (Con _ t es) = l2sz es + 1) ∧
   (e2sz _ = (0:num)) ∧
@@ -111,8 +133,13 @@ val compile_exps_def = tDefine "compile_exps" `
     let fs1 = MAP (\(a,b,c). (a, b, HD (compile_exps ctors [c]))) fs in
     let y   = HD (compile_exps ctors [x]) in
       [Letrec t fs1 y]) /\
+  (compile_exps ctors [If t x1 x2 x3] =
+    let y1 = HD (compile_exps ctors [x1]) in
+    let y2 = HD (compile_exps ctors [x2]) in
+    let y3 = HD (compile_exps ctors [x3]) in
+      [If t y1 y2 y3]) /\
   (compile_exps ctors [expr] = [expr])`
-  (WF_REL_TAC `measure (l2sz o SND)` \\ rw [add_default_def] \\ fs [e2sz_def]
+ (WF_REL_TAC `measure (l2sz o SND)` \\ rw [add_default_def] \\ fs [e2sz_def]
   \\ pop_assum mp_tac
   \\ TRY (pop_assum kall_tac)
   >-
@@ -140,25 +167,23 @@ val compile_exps_SING = Q.store_thm("compile_exps_SING[simp]",
 val compile_exp_def = Define `
   compile_exp ctors exp = HD (compile_exps ctors [exp])`;
 
-val compile_decs_def = Define `
-  (compile_decs ctors []         = (ctors, [])) /\
-  (compile_decs ctors (x::y::xs) =
-     let (ctor1, z1) = compile_decs ctors [x] in
-     let (ctor2, zs) = compile_decs ctor1 (y::xs) in
-       (ctor2, z1++zs)) /\
-  (compile_decs ctors [Dlet exp] =
-    (ctors, [Dlet (compile_exp ctors exp)])) /\
-  (compile_decs ctors [Dtype tid anum] =
-    (ctors |+ (SOME tid, anum), [Dtype tid anum])) /\
-  (compile_decs ctors [Dexn eid arity] =
+val compile_dec_def = Define `
+  (compile_dec ctors (Dlet exp) = (ctors, Dlet (compile_exp ctors exp))) /\
+  (compile_dec ctors (Dtype tid amap) = (ctors |+ (SOME tid, amap), Dtype tid amap)) /\
+  (compile_dec ctors (Dexn eid ar) =
     let ctor1 =
       case FLOOKUP ctors NONE of
-        NONE      => ctors |+ (NONE, insert arity 1 LN)
-      | SOME exns =>
-          case lookup arity exns of
-            NONE   => ctors |+ (NONE, insert arity 1 exns)
-          | SOME n => ctors |+ (NONE, insert arity (n+1) exns) in
-      (ctor1, [Dexn eid arity]))`
+        NONE      => ctors |+ (NONE, insert eid ar LN)
+      | SOME exns => ctors |+ (NONE, insert eid ar exns)
+    in
+      (ctor1, Dexn eid ar))`
+
+val compile_decs_def = Define `
+  (compile_decs ctors [] = (ctors, [])) /\
+  (compile_decs ctors (d::ds) =
+    let (ctor1, e)  = compile_dec  ctors d  in
+    let (ctor2, es) = compile_decs ctor1 ds in
+      (ctor2, e::es))`;
 
 val compile_def = Define`
   compile = compile_decs FEMPTY`;
