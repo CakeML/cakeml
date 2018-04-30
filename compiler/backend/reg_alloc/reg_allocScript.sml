@@ -343,12 +343,20 @@ val add_constrained_moves_def = Define`
    degree < k into the simplify or freeze worklist
    Revive all neighboring moves of these nodes
 *)
+val is_not_coalesced_def = Define`
+  is_not_coalesced d =
+  do
+    dt <- coalesced_sub d;
+    return (dt = NONE)
+  od`
+
 val split_degree_def = Define`
   split_degree d k v =
   if v < d then (* TODO: unnecessary *)
   do
     vd <- degrees_sub v;
-    return (vd < k)
+    b <- is_not_coalesced v;
+    return (vd < k ∧ b)
   od
   else
     return T`
@@ -621,12 +629,6 @@ val do_coalesce_def = Define`
   4) simplify any resulting non-move-related nodes
 
 *)
-val is_not_coalesced_def = Define`
-  is_not_coalesced d =
-  do
-    dt <- coalesced_sub d;
-    return (dt = NONE)
-  od`
 
 val reset_move_related_def = Define`
   reset_move_related ls =
@@ -719,9 +721,9 @@ val do_spill_def = Define`
         xv <- degrees_sub x;
         (y,ys) <- st_ex_list_MIN_cost sc xs d x (safe_div (lookup_any x sc 0n) xv) [];
         dec_deg y;
-        unspill k;
         push_stack y;
         set_spill_wl ys;
+        unspill k;
         return T
       od
   od`
