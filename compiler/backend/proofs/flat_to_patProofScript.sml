@@ -258,9 +258,13 @@ val evaluate_NoRun = Q.store_thm("evaluate_NoRun",
 
 (* value translation *)
 
+val compile_tag_def = Define`
+  compile_tag (SOME (tag,_)) = tag`;
+val _ = export_rewrites["compile_tag_def"];
+
 val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv l) = Litv l) ∧
-  (compile_v (Conv tag vs) = Conv tag (compile_vs vs)) ∧
+  (compile_v (Conv tag vs) = Conv (compile_tag tag) (compile_vs vs)) ∧
   (compile_v (Closure env x e) =
     Closure
       (MAP compile_v (MAP SND env))
@@ -300,7 +304,7 @@ val compile_v_NoRun_v = Q.store_thm("compile_v_NoRun_v",
   \\ res_tac \\ fs []);
 
 val compile_state_def = Define`
-  compile_state (:'c) (s:'ffi exhSem$state) :('c,'ffi) patSem$state =
+  compile_state (:'c) (s:'ffi flatSem$state) :('c,'ffi) patSem$state =
     <| clock := s.clock;
        refs := MAP (map_sv compile_v) s.refs;
        ffi := s.ffi;
@@ -324,11 +328,17 @@ val compile_state_NoRun = Q.store_thm("compile_state_NoRun",
 (* semantic functions obey translation *)
 
 val do_eq = Q.prove(
-  `(∀v1 v2. do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2)) ∧
-    (∀vs1 vs2. do_eq_list vs1 vs2 = do_eq_list (compile_vs vs1) (compile_vs vs2))`,
+  `(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒ do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2)) ∧
+    (∀vs1 vs2. do_eq_list vs1 vs2 ≠ Eq_type_error ⇒ do_eq_list vs1 vs2 = do_eq_list (compile_vs vs1) (compile_vs vs2))`,
   ho_match_mp_tac flatSemTheory.do_eq_ind >>
   simp[flatSemTheory.do_eq_def,patSemTheory.do_eq_def] >>
-  srw_tac[][] >> BasicProvers.CASE_TAC >> srw_tac[][])
+  srw_tac[][] >>
+  TRY (BasicProvers.CASE_TAC >> srw_tac[][])
+  \\ fs[] \\ rfs[]
+  \\ TRY (qpat_x_assum`Eq_val _ = X`(assume_tac o SYM) \\ fs[])
+  \\ Cases_on`cn1` \\ Cases_on`cn2`
+  \\ TRY (Cases_on`x`) \\ TRY (Cases_on`x'`)
+  \\ fs[flatSemTheory.ctor_same_type_def]);
 
 val do_opapp = Q.prove(
   `∀vs env exp.
