@@ -16,23 +16,6 @@ val _ = tDefine "is_unconditional" `
    Induct_on`ps` >> simp[pat_size_def] >>
    rw[] >> res_tac >> simp[pat_size_def]);
 
-(* The map for exception tags is ctor_id |-> arity. *)
-val _ = Define `
-  (get_exn_tags []      exns = SOME exns) /\
-  (get_exn_tags (p::ps) exns =
-    case p of
-      Pcon (SOME (cid, NONE)) pats =>
-        if EVERY is_unconditional pats then
-          let arity = LENGTH pats in
-            (case lookup cid exns of
-              SOME n =>
-                if n <> arity then NONE else
-                  get_exn_tags ps (delete cid exns)
-            | _ => NONE)
-        else
-          NONE
-    | _ => NONE)`;
-
 (* The map for datatype tags is arity |-> count. *)
 val _ = Define `
   (get_dty_tags []      dtys = SOME dtys) ∧
@@ -52,21 +35,15 @@ val _ = Define `
   exhaustive_match ctors ps ⇔
     EXISTS is_unconditional ps ∨
     case ps of
-      Pcon (SOME (tag, tyid)) pats :: _ =>
+      Pcon (SOME (tag, SOME tyid)) pats :: _ =>
           EVERY is_unconditional pats  /\
           (case FLOOKUP ctors tyid of
             NONE      => F
           | SOME dtys =>
-              (case tyid of
-                NONE   =>
-                  (case get_exn_tags ps dtys of
-                    NONE     => F
-                  | SOME res => isEmpty res)
-              | SOME _ =>
-                  let tags = map (\n. fromList (GENLIST (K ()) n)) dtys in
-                    (case get_dty_tags ps tags of
-                      NONE     => F
-                    | SOME res => EVERY isEmpty (toList res))))
+              let tags = map (\n. fromList (GENLIST (K ()) n)) dtys in
+                (case get_dty_tags ps tags of
+                  NONE     => F
+                | SOME res => EVERY isEmpty (toList res)))
     | _ => F`
 
 val add_default_def = Define `
@@ -169,14 +146,8 @@ val compile_exp_def = Define `
 
 val compile_dec_def = Define `
   (compile_dec ctors (Dlet exp) = (ctors, Dlet (compile_exp ctors exp))) /\
-  (compile_dec ctors (Dtype tid amap) = (ctors |+ (SOME tid, amap), Dtype tid amap)) /\
-  (compile_dec ctors (Dexn eid ar) =
-    let ctor1 =
-      case FLOOKUP ctors NONE of
-        NONE      => ctors |+ (NONE, insert eid ar LN)
-      | SOME exns => ctors |+ (NONE, insert eid ar exns)
-    in
-      (ctor1, Dexn eid ar))`
+  (compile_dec ctors (Dtype tid amap) = (ctors |+ (tid, amap), Dtype tid amap)) /\
+  (compile_dec ctors dec = (ctors, dec))`
 
 val compile_decs_def = Define `
   (compile_decs ctors [] = (ctors, [])) /\
