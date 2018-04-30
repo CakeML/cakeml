@@ -1753,8 +1753,7 @@ val extract_color_succeeds = Q.store_thm("extract_color_succeeds",`
   drule fromAList_toAList>>
   simp[]);
 
-(* Here are the proofs about the "heuristic steps"
-  Proofs below are TODO *)
+(* Here are the proofs about the "heuristic steps" *)
 
 (* st_ex_PARTITION is similar to st_ex_MAP in that there ought to be
    some generic way to state the following lemmas
@@ -1772,12 +1771,19 @@ val st_ex_PARTITION_split_degree = Q.prove(`
   Induct_on`atemps`>>fs[st_ex_PARTITION_def,EXISTS_PROD]>>fs msimps>>
   fs[EVERY_MEM]>>
   rw[split_degree_def]>>rfs msimps>>
-  fs[degrees_accessor,Marray_sub_def]>>
+  every_case_tac>>
+  fs[degrees_accessor,Marray_sub_def,is_not_coalesced_def]>>
+  fs msimps>>
+  rfs[]>>fs[]>>
+  every_case_tac>>fs[]>>
   first_x_assum drule>>
   fs[good_ra_state_def]>>
-  rw[]
+  rw[]>>rfs[]
   >-
     (first_x_assum(qspecl_then [`k`,`h::lss`,`lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM])
+  >-
+    (first_x_assum(qspecl_then [`k`,`lss`,`h::lss'`] assume_tac)>>fs[]>>
     metis_tac[MEM])
   >-
     (first_x_assum(qspecl_then [`k`,`lss`,`h::lss'`] assume_tac)>>fs[]>>
@@ -2214,19 +2220,20 @@ val do_spill_success = Q.prove(`
   qmatch_goalsub_abbrev_tac`st_ex_list_MIN_cost sc ls _ kk vv acc _`>>
   first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>rfs[Abbr`acc`]>>
   simp[dec_deg_def]>> simp msimps>>
-  qmatch_goalsub_abbrev_tac`unspill k ss`>>
-  qspecl_then [`k`,`ss`] mp_tac unspill_success>>
+  qmatch_goalsub_abbrev_tac`push_stack x ss`>>
+  Q.ISPECL_THEN [`[x]`,`ss`] mp_tac push_stack_success>>
   impl_tac>-
     fs[Abbr`ss`,good_ra_state_def]>>
-  rw[]>>simp[]>>
-  Q.ISPECL_THEN [`[x]`,`s'`] mp_tac push_stack_success>>
-  impl_tac>-
-    fs[Abbr`ss`]>>
-  simp[st_ex_FOREACH_def] >> simp msimps>>
+  rw[]>>fs[st_ex_FOREACH_def]>>fs msimps>>
   TOP_CASE_TAC>>fs[]>>
-  TOP_CASE_TAC>>fs[]>>rw[]>>
-  simp all_eqns>>
-  fs[Abbr`ss`,good_ra_state_def]);
+  TOP_CASE_TAC>>fs[set_spill_wl_def]>>
+  qmatch_goalsub_abbrev_tac`unspill k sss`>>
+  qspecl_then [`k`,`sss`] mp_tac unspill_success>>
+  impl_tac>-
+    fs[Abbr`sss`,Abbr`ss`,good_ra_state_def]>>
+  rw[]>>fs[]>>
+  unabbrev_all_tac>>
+  fs[good_ra_state_def]);
 
 val do_step_success = Q.prove(`
   ∀sc k s.

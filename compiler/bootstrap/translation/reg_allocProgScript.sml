@@ -114,6 +114,7 @@ val _ = m_translate add_freeze_wl_def;
 val _ = m_translate push_stack_def;
 val _ = m_translate add_unavail_moves_wl_def;
 
+val _ = m_translate is_not_coalesced_def;
 val _ = m_translate split_degree_def;
 val _ = translate sort_moves_def;
 val _ = translate smerge_def;
@@ -144,7 +145,6 @@ val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate do_coalesce_def;
 
-val _ = m_translate is_not_coalesced_def;
 val _ = m_translate reset_move_related_def;
 val _ = m_translate (do_prefreeze_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate do_freeze_def;
