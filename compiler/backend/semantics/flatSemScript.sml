@@ -51,37 +51,19 @@ val list_id_def = Define `
   list_id = 1n`;
 
 val Boolv_def = Define`
-  Boolv b = Conv (SOME (if b then 1 else 0, SOME bool_id)) []`;
-
-val nil_id_def = Define `
-  nil_id = 0n`;
-
-val cons_id_def = Define `
-  cons_id = 0n`;
-
-val bind_id_def = Define `
-  bind_id = 0n`;
-
-val chr_id_def = Define `
-  chr_id = 1n`;
-
-val div_id_def = Define `
-  div_id = 2n`;
-
-val subscript_id_def = Define `
-  subscript_id = 3n`;
+  Boolv b = Conv (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
 
 val bind_exn_v_def = Define `
-  bind_exn_v = Conv (SOME (bind_id, NONE)) []`;
+  bind_exn_v = Conv (SOME (bind_tag, NONE)) []`;
 
 val chr_exn_v_def = Define `
-  chr_exn_v = Conv (SOME (chr_id, NONE)) []`;
+  chr_exn_v = Conv (SOME (chr_tag, NONE)) []`;
 
 val div_exn_v_def = Define `
-  div_exn_v = Conv (SOME (div_id, NONE)) []`;
+  div_exn_v = Conv (SOME (div_tag, NONE)) []`;
 
 val subscript_exn_v_def = Define `
-  subscript_exn_v = Conv (SOME (subscript_id, NONE)) []`;
+  subscript_exn_v = Conv (SOME (subscript_tag, NONE)) []`;
 
 val build_rec_env_def = Define `
   build_rec_env funs cl_env add_to_env =
@@ -155,12 +137,12 @@ val do_opapp_def = Define `
 
 val v_to_list_def = Define `
   (v_to_list (Conv (SOME (cid, tid)) []) =
-   if cid = nil_id ∧ tid = SOME list_id then
+   if cid = nil_tag ∧ tid = SOME list_id then
      SOME []
    else NONE)
   ∧
   (v_to_list (Conv (SOME (cid, tid)) [v1;v2]) =
-   if cid = cons_id ∧ tid = SOME list_id then
+   if cid = cons_tag ∧ tid = SOME list_id then
      (case v_to_list v2 of
       | SOME vs => SOME (v1::vs)
       | NONE => NONE)
@@ -169,18 +151,18 @@ val v_to_list_def = Define `
   (v_to_list _ = NONE)`;
 
 val list_to_v_def = Define `
-  (list_to_v [] = Conv (SOME (nil_id, SOME list_id)) []) ∧
+  (list_to_v [] = Conv (SOME (nil_tag, SOME list_id)) []) ∧
   (list_to_v (x::xs) =
-    Conv (SOME (cons_id, SOME list_id)) [x; list_to_v xs])`;
+    Conv (SOME (cons_tag, SOME list_id)) [x; list_to_v xs])`;
 
 val v_to_char_list_def = Define `
  (v_to_char_list (Conv (SOME (cid, tid)) []) =
-  if cid = nil_id ∧ tid = SOME list_id then
+  if cid = nil_tag ∧ tid = SOME list_id then
     SOME []
   else NONE)
  ∧
  (v_to_char_list (Conv (SOME (cid, tid)) [Litv (Char c);v]) =
-  if cid = cons_id ∧ tid = SOME list_id then
+  if cid = cons_tag ∧ tid = SOME list_id then
     (case v_to_char_list v of
      | SOME cs => SOME (c::cs)
      | NONE => NONE)

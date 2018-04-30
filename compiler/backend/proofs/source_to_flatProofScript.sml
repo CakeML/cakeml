@@ -62,20 +62,20 @@ val _ = Datatype `
 
 val has_bools_def = Define `
   has_bools genv ⇔
-    FLOOKUP genv ((1n, SOME bool_id), 0n) = SOME (TypeStamp "true" bool_type_num) ∧
-    FLOOKUP genv ((0, SOME bool_id), 0n) = SOME (TypeStamp "false" bool_type_num)`;
+    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "true" bool_type_num) ∧
+    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "false" bool_type_num)`;
 
 val has_lists_def = Define `
   has_lists genv ⇔
-    FLOOKUP genv ((cons_id, SOME list_id), 2n) = SOME (TypeStamp "::" list_type_num) ∧
-    FLOOKUP genv ((nil_id, SOME list_id), 0n) = SOME (TypeStamp "nil" list_type_num)`;
+    FLOOKUP genv ((cons_tag, SOME list_id), 2n) = SOME (TypeStamp "::" list_type_num) ∧
+    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "nil" list_type_num)`;
 
 val has_exns_def = Define `
   has_exns genv ⇔
-    FLOOKUP genv ((div_id, NONE), 0n) = SOME div_stamp ∧
-    FLOOKUP genv ((chr_id, NONE), 0n) = SOME chr_stamp ∧
-    FLOOKUP genv ((subscript_id, NONE), 0n) = SOME subscript_stamp ∧
-    FLOOKUP genv ((bind_id, NONE), 0n) = SOME bind_stamp`;
+    FLOOKUP genv ((div_tag, NONE), 0n) = SOME div_stamp ∧
+    FLOOKUP genv ((chr_tag, NONE), 0n) = SOME chr_stamp ∧
+    FLOOKUP genv ((subscript_tag, NONE), 0n) = SOME subscript_stamp ∧
+    FLOOKUP genv ((bind_tag, NONE), 0n) = SOME bind_stamp`;
 
 val genv_c_ok_def = Define `
   genv_c_ok genv_c ⇔
@@ -649,10 +649,10 @@ val v_to_char_list = Q.prove (
                           genv_c_ok_def, has_lists_def] >>
   rw []
   >- (
-    `cn2 = (nil_id,SOME list_id)` by metis_tac [] >>
+    `cn2 = (nil_tag,SOME list_id)` by metis_tac [] >>
     rw [flatSemTheory.v_to_char_list_def])
   >- (
-    `cn2 = (cons_id,SOME list_id)` by metis_tac [] >>
+    `cn2 = (cons_tag,SOME list_id)` by metis_tac [] >>
     rw [flatSemTheory.v_to_char_list_def]));
 
 val v_to_list = Q.prove (
@@ -674,10 +674,10 @@ val v_to_list = Q.prove (
   full_simp_tac(srw_ss())[has_lists_def, genv_c_ok_def, v_rel_eqns, flatSemTheory.v_to_list_def] >>
   srw_tac[][]
   >- (
-    `cn2 = (nil_id,SOME list_id)` by metis_tac [] >>
+    `cn2 = (nil_tag,SOME list_id)` by metis_tac [] >>
     rw [v_to_list_def])
   >- (
-    `cn2 = (cons_id,SOME list_id)` by metis_tac [] >>
+    `cn2 = (cons_tag,SOME list_id)` by metis_tac [] >>
     rw [v_to_list_def] >>
     every_case_tac >>
     metis_tac [NOT_SOME_NONE, SOME_11]));

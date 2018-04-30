@@ -18,7 +18,7 @@ val bool_id_def = Define `
   bool_id = 0n`;
 
 val Bool_def = Define`
-  Bool t b = Con t (SOME (if b then 1 else 0, SOME bool_id)) []`;
+  Bool t b = Con t (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
 
 val _ = Datatype `
   environment =
