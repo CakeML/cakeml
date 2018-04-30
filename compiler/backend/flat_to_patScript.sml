@@ -237,6 +237,9 @@ val _ = tDefine"compile_pat"`
   (compile_pat t (Plit l) =
    App (mk_cons t 1) (Op Equality) [Var_local (mk_cons t 2) 0; Lit (mk_cons t 3) l])
   ∧
+  (compile_pat t (Pcon NONE _) =
+   Bool t F) (* should not happen *)
+  ∧
   (compile_pat t (Pcon (SOME (tag,_)) []) =
    App (mk_cons t 1) (Tag_eq tag 0) [Var_local (mk_cons t 2) 0])
   ∧
@@ -297,6 +300,11 @@ val compile_exp_def = tDefine"compile_exp" `
    Handle (mk_cons t 1) (compile_exp bvs e1) (compile_pes (mk_cons t 2) (NONE::bvs) pes))
   ∧
   (compile_exp _ (Lit t l) = Lit t l)
+  ∧
+  (compile_exp bvs (If t e1 e2 e3) =
+   sIf t (compile_exp bvs e1) (compile_exp bvs e2) (compile_exp bvs e3))
+  ∧
+  (compile_exp bvs (Con t NONE _) = Lit t (IntLit 0) (* should not happen *))
   ∧
   (compile_exp bvs (Con t (SOME (tag,_)) es) = Con t tag (compile_exps bvs es))
   ∧
