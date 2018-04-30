@@ -374,11 +374,7 @@ val v_to_list = Q.prove (
   srw_tac[][flatSemTheory.v_to_list_def] >>
   BasicProvers.EVERY_CASE_TAC >>
   full_simp_tac(srw_ss())[compile_v_def, patSemTheory.v_to_list_def] >>
-  srw_tac[][] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  full_simp_tac(srw_ss())[compile_v_def, patSemTheory.v_to_list_def] >>
-  srw_tac[][] >>
-  metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
+  srw_tac[][]);
 
 val v_to_char_list = Q.prove (
   `!v1 v2 vs1.
@@ -401,12 +397,12 @@ val list_to_v_compile = Q.store_thm("list_to_v_compile",
    v_to_list x = SOME xs /\
    v_to_list (compile_v x) = SOME (MAP compile_v xs) ==>
      list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`,
-  ho_match_mp_tac exhSemTheory.v_to_list_ind
-  \\ rw [exhSemTheory.v_to_list_def] \\ fs []
-  \\ fs [patSemTheory.list_to_v_def, exhSemTheory.list_to_v_def]
+  ho_match_mp_tac flatSemTheory.v_to_list_ind
+  \\ rw [flatSemTheory.v_to_list_def] \\ fs []
+  \\ fs [patSemTheory.list_to_v_def, flatSemTheory.list_to_v_def]
   \\ PURE_FULL_CASE_TAC \\ fs [] \\ rveq
-  \\ fs [patSemTheory.list_to_v_def, exhSemTheory.list_to_v_def,
-         patSemTheory.v_to_list_def, exhSemTheory.v_to_list_def]
+  \\ fs [patSemTheory.list_to_v_def, flatSemTheory.list_to_v_def,
+         patSemTheory.v_to_list_def, flatSemTheory.v_to_list_def]
   \\ PURE_FULL_CASE_TAC \\ fs [] \\ rveq)
 
 val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
@@ -416,7 +412,7 @@ val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
        list_to_v (MAP compile_v (xs ++ ys)) =
        compile_v (list_to_v (xs ++ ys))`,
   Induct \\ rw [patSemTheory.list_to_v_def]
-  \\ fs [exhSemTheory.list_to_v_def, patSemTheory.list_to_v_def]);
+  \\ fs [flatSemTheory.list_to_v_def, patSemTheory.list_to_v_def]);
 
 val do_app = Q.prove(
   `∀op vs s0 s0_pat env s res.
