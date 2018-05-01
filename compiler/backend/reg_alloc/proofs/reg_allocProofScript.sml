@@ -74,7 +74,7 @@ val get_eqns = [get_dim_def, get_unavail_moves_wl_def,get_avail_moves_wl_def,get
 
 val set_eqns = [set_dim_def, set_unavail_moves_wl_def,set_avail_moves_wl_def,set_simp_wl_def,set_spill_wl_def,set_freeze_wl_def,set_stack_def];
 
-val add_eqns = [add_freeze_wl_def,add_unavail_moves_wl_def];
+val add_eqns = [add_freeze_wl_def,add_unavail_moves_wl_def,add_spill_wl_def];
 
 val all_eqns = get_eqns @ set_eqns @ add_eqns @ msimps;
 
@@ -1987,10 +1987,11 @@ val st_ex_FIRST_consistency_ok_bg_ok = Q.prove(`
   Induct>>rw[st_ex_FIRST_def]>>fs msimps>>
   pairarg_tac>>fs[]>>
   drule (SPEC_ALL consistency_ok_success)>>
-  rw[]>>simp[]>>
+  rw[]>>simp[canonize_move_def,is_Fixed_def]>>simp msimps>>
   IF_CASES_TAC>>
   fs[bg_ok_def]>>fs msimps>>
   fs[good_ra_state_def]>>
+  Cases_on`EL y s.node_tag`>>fs[]>>
   pairarg_tac>>fs[]>>
   qpat_abbrev_tac`case3 = FILTER _ _`>>
   `EVERY (λv. v < LENGTH s.degrees) case1 ∧
@@ -2079,6 +2080,15 @@ val do_coalesce_success = Q.prove(`
   rw[]>>simp[]>>
   drule unspill_success>>
   disch_then(qspec_then`k` assume_tac)>>fs[]>>
+  simp[respill_def]>>simp msimps>>
+  reverse IF_CASES_TAC>>fs[]
+  >-
+    fs[good_ra_state_def]>>
+  fs all_eqns>>
+  rw[] >- metis_tac[is_subgraph_trans]>>
+  rw[] >-
+    (fs[good_ra_state_def,EVERY_FILTER]>>
+    fs[EVERY_MEM])>>
   metis_tac[is_subgraph_trans]);
 
 val st_ex_FOREACH_update_move_related = Q.prove(`
@@ -2113,7 +2123,8 @@ val reset_move_related_success = Q.prove(`
   rpt (pop_assum kall_tac)>>
   Induct>>fs[st_ex_FOREACH_def]>>fs msimps>>
   fs[ra_state_component_equality,good_ra_state_def]>>
-  fs[FORALL_PROD]>>rw[]);
+  fs[FORALL_PROD]>>rw[]>>
+  fs[is_Fixed_def]>>fs msimps);
 
 val do_prefreeze_success = Q.prove(`
   ∀s.
@@ -2270,8 +2281,45 @@ val rpt_do_step_success = Q.prove(`
   drule do_step_success>> disch_then(qspecl_then[`sc`,`k`] assume_tac)>>rfs[]>>
   metis_tac[is_subgraph_trans,do_step_success]);
 
-val do_alloc1_success = Q.prove(`
+val full_consistency_ok_success = Q.prove(`
+  ∀x y s.
   good_ra_state s ⇒
+  ∃b.
+  full_consistency_ok k x y s = (Success b,s) ∧
+  (b ⇒ x < s.dim ∧ y < s.dim)`,
+  rw[]>>simp[Once full_consistency_ok_def]>>
+  rpt(IF_CASES_TAC>>simp msimps>>simp get_eqns)>>
+  fs[is_Fixed_k_def,is_Atemp_def]>>fs msimps>>
+  EVERY_CASE_TAC>>simp msimps>>
+  fs[good_ra_state_def]);
+
+val st_ex_FILTER_full_consistency_ok = Q.prove(`
+  ∀ls acc s.
+  good_ra_state s ⇒
+  ?ts. st_ex_FILTER (λ(_,x,y). full_consistency_ok k x y) ls acc s =
+    (Success ts,s) ∧
+  EVERY (λ(p,(x,y)). x < s.dim ∧ y < s.dim ∨ MEM (p,(x,y)) acc) ts`,
+  Induct>>rw[]>>fs[st_ex_FILTER_def]>>
+  fs msimps
+  >-
+    fs[EVERY_MEM,FORALL_PROD]>>
+  Cases_on`h`>>Cases_on`r`>>
+  simp[]>>
+  drule full_consistency_ok_success>>
+  disch_then(qspecl_then [`q'`,`r'`] assume_tac)>>
+  fs[]>>
+  IF_CASES_TAC>>simp msimps>>simp get_eqns>>
+  fs[is_Fixed_def]>>fs msimps>>
+  first_x_assum(qspecl_then [`(q,q',r')::acc`,`s`] assume_tac)>>
+  rfs[]>>
+  fs[EVERY_MEM,FORALL_PROD]>>
+  rw[]>>first_x_assum drule>>fs[]>>rw[]>>
+  fs[]>>metis_tac[]);
+
+val do_alloc1_success = Q.prove(`
+  good_ra_state s ∧
+  EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) moves
+  ⇒
   ∃ls s'.
   do_alloc1 moves sc k s = (Success ls,s') ∧
   good_ra_state s' ∧
@@ -2290,6 +2338,7 @@ val do_alloc1_success = Q.prove(`
     (pop_assum mp_tac>>
     pop_assum kall_tac>>
     fs[Abbr`f`]>>
+    pop_assum kall_tac>>
     pop_assum mp_tac>>
     qid_spec_tac`s`>> Induct_on`ls`>>
     fs[st_ex_FOREACH_def]>>fs msimps>>fs[ra_state_component_equality]>>
@@ -2314,29 +2363,21 @@ val do_alloc1_success = Q.prove(`
     fs[good_ra_state_def]>>
     rw[])>>
   simp[]>>
-  `EVERY (\v. v< LENGTH s'.move_related) atemps` by fs[good_ra_state_def]>>
-  drule st_ex_FOREACH_update_move_related>>
-  disch_then(qspec_then`T` assume_tac)>>fs[]>>
-  `good_ra_state (s' with move_related := lss')` by fs[good_ra_state_def]>>
-  Q.ISPECL_THEN [`moves`] drule st_ex_FILTER_consistency_ok >>
-  disch_then (qspec_then `[]` assume_tac)>>
-  fs[]>>
-  simp all_eqns>>
-  qmatch_goalsub_abbrev_tac`_ ts ss`>>
-  Q.ISPECL_THEN [`ts`,`ss`] mp_tac  reset_move_related_success>>
+  Q.ISPECL_THEN [`moves`,`s'`] mp_tac  reset_move_related_success>>
   impl_tac>-
-    (fs[Abbr`ss`,good_ra_state_def]>>
+    (fs[good_ra_state_def]>>
     fs[EVERY_MEM,FORALL_PROD]>>
     metis_tac[])>>
-  rw[]>> simp[]>>
-  `good_ra_state (ss with move_related := mv)` by fs[good_ra_state_def,Abbr`ss`]>>
+  rw[]>>
+  fs[]>>
+  `good_ra_state (s' with move_related := mv)` by fs[good_ra_state_def]>>
   drule st_ex_PARTITION_split_degree >>
   disch_then(qspecl_then[`atemps`,`k`,`lss`,`lss`] assume_tac)>>fs[]>>
-  `EVERY (\x. x < LENGTH (ss with move_related:=mv).move_related) ts'` by
-    fs[EVERY_MEM,Abbr`lss`,Abbr`ss`]>>
+  `EVERY (\x. x < LENGTH (s' with move_related:=mv).move_related) ts` by
+    fs[EVERY_MEM,Abbr`lss`]>>
   drule st_ex_PARTITION_move_related_sub>>
   disch_then(qspecl_then [`lss`,`lss`] assume_tac)>>
-  fs[Abbr`ss`]>>simp all_eqns>>
+  fs[]>>simp all_eqns>>
   qmatch_goalsub_abbrev_tac`rpt_do_step _ _ _ ss`>>
   qspecl_then [`LENGTH atemps`,`ss`,`k`,`sc`] mp_tac rpt_do_step_success>>
   impl_tac>-
@@ -2542,7 +2583,6 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
     (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
     EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`,
   rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
-  qpat_abbrev_tac`movs = if _ then _ else _`>>
   `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
   first_x_assum(fn x => fs[x])>>
   drule mk_bij_aux_domain>>rw[]>>
@@ -2591,8 +2631,16 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   impl_tac>-
     fs[ra_state_component_equality]>>
   rw[]>>simp[]>>
+  qpat_abbrev_tac`filmov = MAP _ moves`>>
+  Q.ISPECL_THEN [`filmov`] mp_tac st_ex_FILTER_full_consistency_ok>>
+  disch_then drule>>
+  disch_then (qspec_then `[]` assume_tac)>>fs[]>>
+  qpat_abbrev_tac`actualmov = if _ then [] else ts`>>
   drule (GEN_ALL do_alloc1_success)>>
-  disch_then (qspecl_then [`sc`,`movs`,`k`] assume_tac)>>fs[]>>
+  disch_then(qspecl_then [`sc`,`actualmov`,`k`] mp_tac)>>
+  impl_tac>-
+    (unabbrev_all_tac>>rw[])>>
+  rw[]>>fs[]>>
   `no_clash s''''.adj_ls s''''.node_tag` by
     (fs[no_clash_def,has_edge_def]>>rw[]>>
     rfs[good_ra_state_def,ra_state_component_equality]>>

@@ -41,13 +41,7 @@ val _ = Datatype`
 *)
 
 (* Coloring state
-  Notes
   - Invariant: all the arrays have dimension = dim
-  - adj_ls represents the graph as an adj list
-  - node_tag is the tag for each node
-  - degrees represents the graph degree of each node.
-    it should probably be implemented as a functional min heap instead
-
 *)
 val _ = Hol_datatype `
   ra_state = <|
@@ -68,15 +62,6 @@ val _ = Hol_datatype `
      (* book keeping *)
      ; coalesced : (num option) list  (* keep track of coalesce for each node -- arr *)
      ; move_related : bool list       (* fast check if a node is still move related -- arr *)
-
-     (*
-     ; constrained_moves : num list
-     ; active_moves : num list
-     ; move_list : (num list) list
-
-     ; coalesced_nodes : num list
-     ; alias : num list
-      *)
      ; stack    : num list
      |>`;
 
@@ -96,14 +81,6 @@ val (coalesced, get_coalesced_def, set_coalesced_def) = coalesced_accessors;
 
 val move_related_accessors = el 11 accessors;
 val (move_related, get_move_related_def, set_move_related_def) = move_related_accessors;
-
-(*
-val move_list_accessors = el 12 accessors; (* ? *)
-val (move_list, get_move_list_def, set_move_list_def) = move_list_accessors
-
-val alias_accessors = el 14 accessors; (* ? *)
-val (alias, get_move_list_def, set_move_list_def) = move_list_accessors
-*)
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
@@ -129,21 +106,11 @@ val degrees_manip = el 3 arr_manip;
 val coalesced_manip = el 4 arr_manip;
 val move_related_manip = el 5 arr_manip;
 
-(*
-val move_list_manip = el 4 arr_manip;
-val alias_manip = el 5 arr_manip;
-*)
-
 val adj_ls_accessor = save_thm("adj_ls_accessor",accessor_thm adj_ls_manip);
 val node_tag_accessor = save_thm("node_tag_accessor",accessor_thm node_tag_manip);
 val degrees_accessor = save_thm("degrees_accessor",accessor_thm degrees_manip);
 val coalesced_accessor = save_thm("coalesced_accessor",accessor_thm coalesced_manip);
 val move_related_accessor = save_thm("move_related_accessor",accessor_thm move_related_manip);
-
-(*
-val move_list_accessor = save_thm("move_list_accessor",accessor_thm move_list_manip);
-val alias_accessor = save_thm("alias_accessor",accessor_thm alias_manip);
-*)
 
 (* Helper functions for defining the allocator *)
 
@@ -300,44 +267,6 @@ val add_unavail_moves_wl_def = Define`
     set_unavail_moves_wl (ls ++ swl)
   od`
 
-(*
-val add_moves_wl_def = Define`
-  add_moves_wl ls =
-  do
-    mwl <- get_moves_wl;
-    set_moves_wl (ls ++ mwl)
-  od`
-
-val add_coalesced_moves_def = Define`
-  add_coalesced_moves xs =
-  do
-    ys <- get_coalesced_moves;
-    set_coalesced_moves (xs ++ ys)
-  od`
-
-val add_coalesced_nodes_def = Define`
-  add_coalesced_nodes xs =
-  do
-    ys <- get_coalesced_nodes;
-    set_coalesced_nodes (xs ++ ys)
-  od`
-
-val add_active_moves_def = Define`
-  add_active_moves xs =
-  do
-    ys <- get_active_moves;
-    set_active_moves (xs ++ ys)
-  od`
-
-val add_constrained_moves_def = Define`
-  add_constrained_moves xs =
-  do
-    ys <- get_constrained_moves;
-    set_constrained_moves (xs ++ ys)
-  od`
-
-*)
-
 (* unspill:
    Move any vertices in the spill list that has
    degree < k into the simplify or freeze worklist
@@ -441,11 +370,20 @@ val inc_deg_def = Define`
   od`
 
 (*
+  In the allocator, we will assume that all moves
+  have the form
+
+  x:=y where x is Fixed (<k) or Atemp, and y is Atemp
+*)
+
+(*
   do coalesce for real :
   perform a coalesce of (x,y) by merging y into x
-
-  we only "pretend" to delete y from the graph
+  - this assumes y is Atemp
+  - we only "pretend" to delete y from the graph
 *)
+
+(* This is inefficient *)
 val pair_rename_def = Define`
   pair_rename x y (p,(a,b)) =
   let a = if a = y then x else a in
@@ -526,6 +464,9 @@ val bg_ok_def = Define`
     od
   od`
 
+(* An actual register
+  - implicitly, we maintain Fixed < k but don't check repeatedly
+*)
 val is_Fixed_def = Define`
   is_Fixed x =
   do
@@ -533,13 +474,21 @@ val is_Fixed_def = Define`
     return (case xt of Fixed n => T | _ => F)
   od`
 
+(* Atemp *)
+val is_Atemp_def = Define`
+  is_Atemp d =
+  do
+    dt <- node_tag_sub d;
+    return (dt = Atemp)
+  od`
+
 (*
-  We will also need consistency checks for moves.
+  Consistency check for moves
   Any moves failing this check can be directly discarded
   1) x ≠ y
   2) x,y must not already clash
-  3) if x is a phy_var, then y move_related
-  4) else both x,y move_related and y is not a phy_var
+
+  3) x,y either fixed or atemps and not both fixed
 *)
 
 val consistency_ok_def = Define`
@@ -556,18 +505,30 @@ val consistency_ok_def = Define`
       if MEM x adjy then return F
       else
       do
-        b <- is_Fixed x;
+        bx <- is_Fixed x;
+        by <- is_Fixed y;
         movrelx <- move_related_sub x;
         movrely <- move_related_sub y;
-        return ((b ∨ movrelx) ∧ movrely);
+        return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ ¬(bx ∧ by) );
       od
     od
+  od`
+
+val canonize_move_def = Define`
+  canonize_move x y =
+  do
+    by <- is_Fixed y;
+    if by then
+      return (y,x)
+    else
+      return (x,y)
   od`
 
 (*
   Picks apart the available moves worklist
   1) If we find any inconsistent ones -> throw them away
-  2) returns the first bg_ok move, that is also consistent
+  2) canonize the move to put fixed register in front
+  3) returns the first bg_ok move that is also consistent
 *)
 
 val st_ex_FIRST_def = Define`
@@ -580,6 +541,7 @@ val st_ex_FIRST_def = Define`
         st_ex_FIRST P Q ms unavail
       else
       do
+        (x,y) <- canonize_move x y;
         b2 <- Q x y;
         if b2 then
           return (SOME ((x,y),ms),unavail)
@@ -587,6 +549,23 @@ val st_ex_FIRST_def = Define`
           st_ex_FIRST P Q ms (m::unavail)
       od
     od)`
+
+val respill_def = Define`
+  respill k x =
+  do
+    xd <- degrees_sub x;
+    if xd < k then return ()
+    else
+    do
+      freeze <- get_freeze_wl;
+      if MEM x freeze then
+      do
+        add_spill_wl [x];
+        set_freeze_wl (FILTER (λy. y≠x) freeze)
+      od
+      else return ()
+    od
+  od`
 
 val do_coalesce_def = Define`
   do_coalesce k =
@@ -606,10 +585,7 @@ val do_coalesce_def = Define`
       (* coalesce y into x *)
       do_coalesce_real x y;
       unspill k;
-      (*
-        TODO: x might have high degree after coalescing, so it may
-        need to be respilled from the freeze worklist into the spill worklist!
-      *)
+      respill k x;
       return T
     od
   od`
@@ -639,8 +615,11 @@ val reset_move_related_def = Define`
     (* reset to correct values *)
     st_ex_FOREACH ls (λ(_,(x,y)).
         do
-          update_move_related x T;
-          update_move_related y T
+          (* make sure fixed are kept as NOT move_related *)
+          bx <- is_Fixed x;
+          by <- is_Fixed y;
+          update_move_related x (~bx);
+          update_move_related y (~by)
         od)
   od`
 
@@ -1109,13 +1088,6 @@ val init_ra_state_def = Define`
     mk_tags n (sp_default fa);
   od`;
 
-val is_Atemp_def = Define`
-  is_Atemp d =
-  do
-    dt <- node_tag_sub d;
-    return (dt = Atemp)
-  od`
-
 (* Initializer for the first allocation step *)
 val init_alloc1_heu_def = Define`
   init_alloc1_heu moves d k =
@@ -1128,11 +1100,8 @@ val init_alloc1_heu_def = Define`
         update_degrees i (LENGTH adjls)
       od
       );
+    (* make sure move_related is correct *)
     allocs <- st_ex_FILTER is_Atemp ds []; (* only need to allocate Atemps *)
-    (* pretend all the allocs are move related to reuse some earlier code *)
-    st_ex_FOREACH allocs (λx. update_move_related x T);
-    moves <- st_ex_FILTER (λ(_,(x,y)).consistency_ok x y) moves [];
-    set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
     (ltk,gtk) <- st_ex_PARTITION (split_degree d k) allocs [] [];
@@ -1192,7 +1161,7 @@ val moves_to_sp_def = Define`
 (*Do a consistency sort after setting up the sptree of moves*)
 val resort_moves_def = Define`
   resort_moves acc =
-  map (λls. MAP SND (QSORT (λp:num,x p',x'. p>p') ls )) acc`
+  map (λls. MAP SND (sort_moves ls)) acc`
 
 val _ = Datatype`
   algorithm = Simple | IRC`
@@ -1218,12 +1187,44 @@ val biased_pref_def = Define`
       return NONE
   od`
 
+(* very similar to consistency_ok, but for initializing *)
+val is_Fixed_k_def = Define`
+  is_Fixed_k k x =
+  do
+    xt <- node_tag_sub x;
+    return (case xt of Fixed n => n < k | _ => F)
+  od`
+
+val full_consistency_ok_def = Define`
+  full_consistency_ok k x y =
+  if x = y then
+    return F (* check 1 *)
+  else
+  do
+    d <- get_dim; (* unnecessary*)
+    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    else
+    do
+      adjy <- adj_ls_sub y; (* check 2 *)
+      if MEM x adjy then return F
+      else
+      do
+        bx <- is_Fixed_k k x;
+        by <- is_Fixed_k k y;
+        ax <- is_Atemp x;
+        ay <- is_Atemp y;
+        return ((bx ∨ ax) ∧ (by ∨ ay) ∧ ¬(bx ∧ by) );
+      od
+    od
+  od`
+
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
   do_reg_alloc alg sc k moves ct forced (ta,fa,n) =
   do
     init_ra_state ct forced (ta,fa,n);
     moves <- return (MAP  (λ(p,(x,y)). (p,(sp_default ta x),(sp_default ta y))) moves);
+    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
     ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
     assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
     assign_Stemps k;
