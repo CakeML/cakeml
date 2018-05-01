@@ -1102,6 +1102,7 @@ val init_alloc1_heu_def = Define`
       );
     (* make sure move_related is correct *)
     allocs <- st_ex_FILTER is_Atemp ds []; (* only need to allocate Atemps *)
+    set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
     (ltk,gtk) <- st_ex_PARTITION (split_degree d k) allocs [] [];
