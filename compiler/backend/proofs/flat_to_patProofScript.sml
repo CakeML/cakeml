@@ -260,7 +260,8 @@ val evaluate_NoRun = Q.store_thm("evaluate_NoRun",
 (* value translation *)
 
 val compile_tag_def = Define`
-  compile_tag (SOME (tag,_)) = tag`;
+  compile_tag (SOME (tag,_)) = tag ∧
+  compile_tag NONE = tuple_tag`;
 val _ = export_rewrites["compile_tag_def"];
 
 val compile_v_def = tDefine"compile_v"`
@@ -424,7 +425,10 @@ val do_app = Q.prove(
   srw_tac[][compile_state_def] >>
   fs[flatSemTheory.do_app_cases] >> rw[] >>
   rw[patSemTheory.do_app_def,
-     patSemTheory.prim_exn_def, flatSemTheory.prim_exn_def,
+     patSemTheory.prim_exn_def,
+     flatSemTheory.div_exn_v_def,
+     flatSemTheory.subscript_exn_v_def,
+     flatSemTheory.chr_exn_v_def,
      patSemTheory.Boolv_def, flatSemTheory.Boolv_def,
      GSYM do_eq ] >>
   rfs [store_assign_def, store_lookup_def, store_alloc_def, LET_THM, EL_MAP, LUPDATE_MAP] >>
@@ -432,9 +436,9 @@ val do_app = Q.prove(
   rfs [store_v_same_type_def, LUPDATE_MAP,map_replicate] >>
   imp_res_tac v_to_list >>
   imp_res_tac v_to_char_list >>
-  fs[vs_to_string] >>
+  fs[vs_to_string, IS_SOME_EXISTS] >>
   TRY (last_x_assum mp_tac) >>
-  TRY TOP_CASE_TAC \\ fs[] \\ rw[flatSemTheory.Boolv_def,exhSemTheory.Boolv_def]
+  TRY TOP_CASE_TAC \\ fs[] \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def]
   \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]);
 
 (* pattern compiler correctness *)
