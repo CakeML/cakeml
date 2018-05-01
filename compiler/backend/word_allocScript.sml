@@ -1301,10 +1301,10 @@ val get_heuristics_def = Define`
     let spillcosts = mapi (λk v. get_spillcost v (lookup k calls = NONE)) lr in
     let canon_moves = canonize_moves moves in
     let heu_moves = MAP (get_coalescecost spillcosts) canon_moves in
-    (heu_moves,spillcosts)
+    (heu_moves,SOME spillcosts)
   else
     let moves = get_prefs prog [] in
-    (moves,LN)`
+    (moves,NONE)`
 
 (*
   fc is the current prog number

@@ -381,6 +381,13 @@ val inc_deg_def = Define`
   perform a coalesce of (x,y) by merging y into x
   - this assumes y is Atemp
   - we only "pretend" to delete y from the graph
+  Case 1:
+  x -> v <- y, then the degree of v is reduced by 1
+  Case 2:
+  x -/-> v <- y, then the degree of x is increased by 1
+  Case 3:
+  x -> v <-/- y, no change
+  In both cases, we leave the v-y edge dangling
 *)
 
 (* This is inefficient *)
@@ -390,8 +397,16 @@ val pair_rename_def = Define`
   let b = if b = y then x else b in
   (p,(a,b))`
 
+(* An actual register *)
+val is_Fixed_def = Define`
+  is_Fixed x =
+  do
+    xt <- node_tag_sub x;
+    return (case xt of Fixed n => T | _ => F)
+  od`
+
 val do_coalesce_real_def = Define`
-  do_coalesce_real x y =
+  do_coalesce_real x y case1 case2 =
   do
     (* mark y as coalesced to x *)
     update_coalesced y (SOME x);
@@ -400,27 +415,15 @@ val do_coalesce_real_def = Define`
     set_avail_moves_wl (MAP (pair_rename x y) am);
     uam <- get_unavail_moves_wl;
     set_unavail_moves_wl (MAP (pair_rename x y) uam);
-    (* their respective edge lists *)
-    adjx <- adj_ls_sub x;
-    adjy <- adj_ls_sub y;
     (*
-      Now we need to update the degrees of adjacent edges correctly
-      Case 1:
-      x -> v <- y, then the degree of v is reduced by 1
-      Case 2:
-      x -/-> v <- y, then the degree of x is increased by 1
-      Case 3:
-      x -> v <-/- y, no change
-
-      In both cases, we leave the v-y edge dangling
+      increment degree of x by new vertices
     *)
-    let (case1,case2) = PARTITION (λv. MEM v adjx) adjy in
-    do
-      inc_deg x (LENGTH case2);
-      list_insert_edge x case2;
-      st_ex_FOREACH case1 dec_deg;
-      push_stack y
-    od
+    bx <- is_Fixed x;
+    if bx then inc_deg x (LENGTH case2) else return ();
+    (* add corresponding edges *)
+    list_insert_edge x case2;
+    st_ex_FOREACH case1 dec_deg;
+    push_stack y
   od`
 
 (* The coalesceable criterion, Briggs and George *)
@@ -439,6 +442,36 @@ val do_coalesce_real_def = Define`
   because the George check is only
   really efficient if one has a true adjacency matrix representation
 *)
+val is_Atemp_def = Define`
+  is_Atemp d =
+  do
+    dt <- node_tag_sub d;
+    return (dt = Atemp)
+  od`
+
+val is_Fixed_k_def = Define`
+  is_Fixed_k k x =
+  do
+    xt <- node_tag_sub x;
+    return (case xt of Fixed n => n < k | _ => F)
+  od`
+
+val considered_var_def = Define`
+  considered_var k x =
+  do
+    bx <- is_Atemp x;
+    fx <- is_Fixed_k k x;
+    return (bx ∨ fx)
+  od`
+
+(* Fixed vars are treated as having infinite degree *)
+val deg_or_inf_def = Define`
+  deg_or_inf k x =
+  do
+    bx <- is_Fixed_k k x;
+    if bx then return k else degrees_sub x
+  od`
+
 val bg_ok_def = Define`
   bg_ok k x y =
   do
@@ -447,39 +480,27 @@ val bg_ok_def = Define`
     (* see do_coalesce_real for the cases *)
     let (case1,case2) = PARTITION (λv. MEM v adjx) adjy in
     do
-      (* First we check the George criterion *)
-      case2degs <- st_ex_MAP degrees_sub case2;
+      (* the "true" case1 and 2s *)
+      case1 <- st_ex_FILTER (considered_var k) case1 [];
+      case2 <- st_ex_FILTER (considered_var k) case2 [];
+      (* Check the George criterion *)
+      case2degs <- st_ex_MAP (deg_or_inf k) case2;
       let c2len = LENGTH (FILTER (λx. x >= k) case2degs) in
-      if c2len = 0 then
-        return T
+      if c2len = 0 then return (SOME (case1,case2)) (* george criterion*)
       else
       let case3 = FILTER (λv. ¬MEM v adjy) adjx in
       do
-        case1degs <- st_ex_MAP degrees_sub case1;
-        case3degs <- st_ex_MAP degrees_sub case3;
+        case3 <- st_ex_FILTER (considered_var k) case3 [];
+        case1degs <- st_ex_MAP (deg_or_inf (k+1)) case1; (*k+1 is infinity here..*)
+        case3degs <- st_ex_MAP (deg_or_inf k) case3;
         c1len <- return (LENGTH (FILTER (λx. x-1 >= k) case1degs));
         c3len <- return (LENGTH (FILTER (λx. x >= k) case3degs));
-        return (c1len+c2len+c3len < k)
+        if c1len+c2len+c3len < k then
+          return (SOME(case1,case2))
+        else
+          return NONE
       od
     od
-  od`
-
-(* An actual register
-  - implicitly, we maintain Fixed < k but don't check repeatedly
-*)
-val is_Fixed_def = Define`
-  is_Fixed x =
-  do
-    xt <- node_tag_sub x;
-    return (case xt of Fixed n => T | _ => F)
-  od`
-
-(* Atemp *)
-val is_Atemp_def = Define`
-  is_Atemp d =
-  do
-    dt <- node_tag_sub d;
-    return (dt = Atemp)
   od`
 
 (*
@@ -530,7 +551,6 @@ val canonize_move_def = Define`
   2) canonize the move to put fixed register in front
   3) returns the first bg_ok move that is also consistent
 *)
-
 val st_ex_FIRST_def = Define`
   (st_ex_FIRST P Q [] unavail = return (NONE,unavail)) ∧
   (st_ex_FIRST P Q (m::ms) unavail =
@@ -542,11 +562,11 @@ val st_ex_FIRST_def = Define`
       else
       do
         (x,y) <- canonize_move x y;
-        b2 <- Q x y;
-        if b2 then
-          return (SOME ((x,y),ms),unavail)
-        else
-          st_ex_FIRST P Q ms (m::unavail)
+        optb2 <- Q x y;
+        case optb2 of
+          NONE => st_ex_FIRST P Q ms (m::unavail)
+        | SOME pr =>
+          return (SOME ((x,y),pr,ms),unavail)
       od
     od)`
 
@@ -579,11 +599,11 @@ val do_coalesce_def = Define`
           set_avail_moves_wl [];
           return F
         od
-    | SOME ((x,y),ms) =>
+    | SOME ((x,y),(case1,case2),ms) =>
     do
       set_avail_moves_wl ms;
       (* coalesce y into x *)
-      do_coalesce_real x y;
+      do_coalesce_real x y case1 case2;
       unspill k;
       respill k x;
       return T
@@ -666,8 +686,11 @@ val do_freeze_def = Define`
   od`
 
 (* spill:
-  Picks the cheapest node in the spill worklist,
-  based on spill cost / d
+  If given a spill cost,
+    picks the cheapest node in the spill worklist,
+    based on spill cost / degree
+  Otherwise,
+    picks highest degree node
 *)
 val safe_div_def = Define`
   safe_div x v = if v = 0 then 0 else x DIV v`
@@ -687,18 +710,33 @@ val st_ex_list_MIN_cost_def = Define`
   else
     st_ex_list_MIN_cost sc xs d k v acc)`
 
+val st_ex_list_MAX_deg_def = Define`
+  (st_ex_list_MAX_deg [] d k v acc = return (k,acc)) ∧
+  (st_ex_list_MAX_deg (x::xs) d k v acc =
+  if x < d then
+    do
+      xv <- degrees_sub x;
+      if v < xv then
+        st_ex_list_MAX_deg xs d x xv (k::acc)
+      else
+        st_ex_list_MAX_deg xs d k v (x::acc)
+    od
+  else
+  st_ex_list_MAX_deg xs d k v acc)`
+
 val do_spill_def = Define`
-  do_spill sc k =
+  do_spill scopt k =
   do
     spills <- get_spill_wl;
     d <- get_dim;
     case spills of
       [] => return F
     | (x::xs) =>
-      if x >= d then return T else
       do
         xv <- degrees_sub x;
-        (y,ys) <- st_ex_list_MIN_cost sc xs d x (safe_div (lookup_any x sc 0n) xv) [];
+        (y,ys) <- case scopt of
+              NONE => st_ex_list_MAX_deg xs d x xv []
+            | SOME sc => st_ex_list_MIN_cost sc xs d x (safe_div (lookup_any x sc 0n) xv) [];
         dec_deg y;
         push_stack y;
         set_spill_wl ys;
@@ -711,24 +749,24 @@ val do_step_def = Define`
   do_step sc k =
   do
     b <- do_simplify k;
-    if b then return ()
+    if b then return b
     else
     do
       b <- do_coalesce k;
-      if b then return ()
+      if b then return b
       else
       do
         b <- do_prefreeze k;
-        if b then return ()
+        if b then return b
         else
         do
           b <- do_freeze k;
           if b then
-            return ()
+            return b
           else
             do
               b <- do_spill sc k;
-              return ()
+              return b
             od
         od
       od
@@ -739,8 +777,8 @@ val rpt_do_step_def = Define`
   (rpt_do_step sc k 0 = return ()) ∧
   (rpt_do_step sc k (SUC c) =
   do
-    do_step sc k;
-    rpt_do_step sc k c
+    b <- do_step sc k;
+    if b then rpt_do_step sc k c else return ()
   od)`
 
 (*
@@ -1093,15 +1131,18 @@ val init_alloc1_heu_def = Define`
   init_alloc1_heu moves d k =
   do
     ds <- return (COUNT_LIST d);
+
+    (* make sure move_related is correct *)
+    allocs <- st_ex_FILTER is_Atemp ds []; (* only need to allocate Atemps *)
+
     st_ex_FOREACH ds (* Set the degree for each node *)
       (λi.
       do
         adjls <- adj_ls_sub i;
-        update_degrees i (LENGTH adjls)
+        fills <- st_ex_FILTER (λv. considered_var k v) adjls [];
+        update_degrees i (LENGTH fills)
       od
       );
-    (* make sure move_related is correct *)
-    allocs <- st_ex_FILTER is_Atemp ds []; (* only need to allocate Atemps *)
     set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
@@ -1175,27 +1216,17 @@ val biased_pref_def = Define`
     if n < d then
     do
       copt <- coalesced_sub n;
+      let vs = case lookup n mtable of NONE => [] | SOME vs => vs in
       (case copt of
-        NONE =>
-        (case lookup n mtable of
-          NONE => return NONE
-        | SOME vs =>
-          handle_Subscript (first_match_col ks vs) (return NONE))
+        NONE => handle_Subscript (first_match_col ks vs) (return NONE)
       | SOME v =>
-          handle_Subscript (first_match_col ks [v]) (return NONE))
+          handle_Subscript (first_match_col ks (v::vs)) (return NONE))
     od
     else
       return NONE
   od`
 
 (* very similar to consistency_ok, but for initializing *)
-val is_Fixed_k_def = Define`
-  is_Fixed_k k x =
-  do
-    xt <- node_tag_sub x;
-    return (case xt of Fixed n => n < k | _ => F)
-  od`
-
 val full_consistency_ok_def = Define`
   full_consistency_ok k x y =
   if x = y then
