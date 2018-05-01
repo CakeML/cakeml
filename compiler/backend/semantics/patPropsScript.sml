@@ -37,18 +37,11 @@ val _ = export_rewrites["evaluate_raise_rval"]
 val evaluate_length = Q.store_thm("evaluate_length",
   `∀env s ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls`,
-  ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[do_app_cases] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM,
-     semanticPrimitivesTheory.store_alloc_def,
-     semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def]
+  \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rw[] \\ fs[]
+  \\ TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[]
+  \\ rename1`list_result lr`
+  \\ Cases_on`lr` \\ fs[] \\ rw[]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -129,7 +122,7 @@ val evaluate_append = Q.store_thm("evaluate_append",
 
 val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
   `dec_clock s with clock := y = s with clock := y`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
@@ -142,7 +135,7 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def]
   >> srw_tac[][]
-  >> every_case_tac \\ fs[] \\ rw[]);
+  >> every_case_tac \\ fs[] \\ rw[] \\ rfs[]);
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app s op vs = SOME (s',r) ⇒ s'.compile = s.compile`,
@@ -175,13 +168,12 @@ val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases] >>
-  every_case_tac >>
+  rw[] \\ fs[do_app_cases] \\ rw[] \\
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  rfs[] \\
   full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 

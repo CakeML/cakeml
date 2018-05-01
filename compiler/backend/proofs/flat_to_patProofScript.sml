@@ -204,6 +204,7 @@ val do_app_NoRun = Q.store_thm("do_app_NoRun",
     \\ NO_TAC)
   \\ imp_res_tac v_to_list_NoRun \\ fs [ETA_AX]
   \\ fs [EVERY_REPLICATE]
+  \\ TRY (fs [EVERY_EL, IS_SOME_EXISTS] \\ res_tac \\ NO_TAC)
   \\ TRY
    (fs [EVERY_EL, NoRun_store_v_def]
     \\ `NoRun_store_v (Varray l)` by (res_tac \\ fs [EQ_SYM_EQ])
