@@ -2409,7 +2409,8 @@ fun apply_ind thms ind = let
                    |> all_distinct |> list_mk_conj
     val goal = mk_imp(hs,gs)
     val ind_thm = (the ind)
-                      |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
+                      |> rename_bound_vars_rule "i"
+                      (* |> SIMP_RULE std_ss [] *)
                       |> ISPECL (goals |> List.map fst)
                       |> CONV_RULE (DEPTH_CONV BETA_CONV)
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
