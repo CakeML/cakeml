@@ -140,9 +140,39 @@ val _ = m_translate list_insert_edge_def
 val _ = m_translate (do_coalesce_real_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs]);
 val _ = m_translate is_Fixed_def;
-val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+(* TODO: something in the monadic translator automatically rewrites
+  the ¬ (a ∧ b) check
+  and then fails on the original def*)
+val consistency_ok_thm = Q.prove(`
+  consistency_ok x y =
+  if x = y then
+    return F (* check 1 *)
+  else
+  do
+    d <- get_dim; (* unnecessary*)
+    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    else
+    do
+      adjy <- adj_ls_sub y; (* check 2 *)
+      if MEMBER x adjy then return F
+      else
+      do
+        bx <- is_Fixed x;
+        by <- is_Fixed y;
+        movrelx <- move_related_sub x;
+        movrely <- move_related_sub y;
+        return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ (¬bx \/ ¬by) );
+      od
+    od
+  od`,
+  fs[consistency_ok_def,MEMBER_INTRO]);
+
+val _ = m_translate consistency_ok_thm;
+val _ = m_translate canonize_move_def;
 
 val _ = m_translate st_ex_FIRST_def;
+val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate do_coalesce_def;
 
 val _ = m_translate reset_move_related_def;
@@ -182,6 +212,34 @@ val _ = translate pri_move_insert_def;
 val _ = translate undir_move_insert_def;
 val _ = translate moves_to_sp_def;
 val _ = translate resort_moves_def;
+
+val _ = m_translate is_Fixed_k_def;
+
+val full_consistency_ok_thm = Q.prove(`
+  full_consistency_ok k x y =
+  if x = y then
+    return F (* check 1 *)
+  else
+  do
+    d <- get_dim; (* unnecessary*)
+    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    else
+    do
+      adjy <- adj_ls_sub y; (* check 2 *)
+      if MEMBER x adjy then return F
+      else
+      do
+        bx <- is_Fixed_k k x;
+        by <- is_Fixed_k k y;
+        ax <- is_Atemp x;
+        ay <- is_Atemp y;
+        return ((bx ∨ ax) ∧ (by ∨ ay) ∧ (¬bx \/ ¬by) );
+      od
+    od
+  od`,
+  fs[full_consistency_ok_def,MEMBER_INTRO]);
+
+val _ = m_translate full_consistency_ok_thm;
 val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
