@@ -509,7 +509,7 @@ val pure_correct = Q.store_thm("pure_correct",
   srw_tac[][patSemTheory.evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   TRY (
-    rename1`op ≠ Op (Op Opapp)` >>
+    rename1`op ≠ (Op Opapp)` >>
     fs[patSemTheory.do_app_cases] >> rw[] >>
     rev_full_simp_tac(srw_ss())[]>>srw_tac[][] >>
     first_x_assum(qspecl_then[`env`,`s`]mp_tac)>>srw_tac[][] >>

@@ -64,6 +64,8 @@ val _ = Define `
     (op <> Asub) ∧
     (op <> (Opn Divide)) ∧
     (op <> (Opn Modulo)) ∧
+    (!n. op <> (GlobalVarAlloc n)) ∧
+    (!n. op <> (GlobalVarInit n)) ∧
     (!n. op <> FFI n)`;
 
 val _ = Define `
@@ -162,6 +164,8 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | Asub => F
   | Opn Divide => F
   | Opn Modulo => F
+  | GlobalVarAlloc _ => F
+  | GlobalVarInit _ => F
   | FFI _ => F
   | _ => T`,
   Cases_on`op`>>fs[]>>
@@ -188,6 +192,8 @@ val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
   | Asub => F
   | Opn Divide => F
   | Opn Modulo => F
+  | GlobalVarAlloc _ => F
+  | GlobalVarInit _ => F
   | FFI _ => F
   | _ => T`,
   PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
