@@ -2362,29 +2362,31 @@ val do_alloc1_success = Q.prove(`
     rw[]>>rfs[is_Atemp_def]>>fs msimps>>
     fs[good_ra_state_def]>>
     rw[])>>
-  simp[]>>
-  Q.ISPECL_THEN [`moves`,`s'`] mp_tac  reset_move_related_success>>
+  simp[set_avail_moves_wl_def]>>
+  qmatch_goalsub_abbrev_tac`_ moves ss`>>
+  Q.ISPECL_THEN [`moves`,`ss`] mp_tac  reset_move_related_success>>
   impl_tac>-
-    (fs[good_ra_state_def]>>
+    (fs[good_ra_state_def,Abbr`ss`]>>
     fs[EVERY_MEM,FORALL_PROD]>>
     metis_tac[])>>
-  rw[]>>
-  fs[]>>
-  `good_ra_state (s' with move_related := mv)` by fs[good_ra_state_def]>>
+  rw[]>> fs[]>>
+  `good_ra_state (ss with move_related := mv)` by fs[good_ra_state_def,Abbr`ss`]>>
   drule st_ex_PARTITION_split_degree >>
   disch_then(qspecl_then[`atemps`,`k`,`lss`,`lss`] assume_tac)>>fs[]>>
-  `EVERY (\x. x < LENGTH (s' with move_related:=mv).move_related) ts` by
-    fs[EVERY_MEM,Abbr`lss`]>>
+  `s'.dim = ss.dim` by fs[Abbr`ss`]>>
+  simp[]>>
+  `EVERY (\x. x < LENGTH (ss with move_related:=mv).move_related) ts` by
+    fs[EVERY_MEM,Abbr`lss`,Abbr`ss`]>>
   drule st_ex_PARTITION_move_related_sub>>
   disch_then(qspecl_then [`lss`,`lss`] assume_tac)>>
   fs[]>>simp all_eqns>>
-  qmatch_goalsub_abbrev_tac`rpt_do_step _ _ _ ss`>>
-  qspecl_then [`LENGTH atemps`,`ss`,`k`,`sc`] mp_tac rpt_do_step_success>>
+  qmatch_goalsub_abbrev_tac`rpt_do_step _ _ _ sss`>>
+  qspecl_then [`LENGTH atemps`,`sss`,`k`,`sc`] mp_tac rpt_do_step_success>>
   impl_tac>-
-    (fs[Abbr`ss`,good_ra_state_def,Abbr`lss`,EVERY_MEM]>>
+    (fs[Abbr`sss`,good_ra_state_def,Abbr`lss`,EVERY_MEM]>>
     metis_tac[])>>
   rw[]>>simp[get_stack_def]>>
-  fs[Abbr`ss`]);
+  fs[Abbr`sss`,Abbr`ss`]);
 
 val no_clash_colouring_satisfactory = Q.store_thm("no_clash_colouring_satisfactory",`
   no_clash adjls node_tag ∧
