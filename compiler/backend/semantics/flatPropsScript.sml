@@ -123,6 +123,37 @@ val pmatch_list_snoc = Q.store_thm("pmatch_list_snoc",
   Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][] >>
   BasicProvers.CASE_TAC);
 
+val pmatch_append = Q.store_thm("pmatch_append",
+  `(∀cenv s p v env n.
+      (pmatch cenv s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch cenv s p v (TAKE n env)))) ∧
+    (∀cenv s ps vs env n.
+      (pmatch_list cenv s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list cenv s ps vs (TAKE n env))))`,
+  ho_match_mp_tac pmatch_ind >>
+  srw_tac[][pmatch_def] \\ fs[]
+  >- ( BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+       BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]) >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch cenv s p v (TAKE n env)`>>full_simp_tac(srw_ss())[] >>
+  strip_tac >> res_tac >>
+  qmatch_assum_rename_tac`pmatch cenv s p v (TAKE n env) = Match env1` >>
+  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND]);
+
+val pmatch_nil = save_thm("pmatch_nil",
+  LIST_CONJ [
+    pmatch_append
+    |> CONJUNCT1
+    |> Q.SPECL[`cenv`,`s`,`p`,`v`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ,
+    pmatch_append
+    |> CONJUNCT2
+    |> Q.SPECL[`cenv`,`s`,`ps`,`vs`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ]);
+
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
   FOLDR (λ(f,x,e) env'. (f, flatSem$Recclosure env funs' f)::env') env' funs =

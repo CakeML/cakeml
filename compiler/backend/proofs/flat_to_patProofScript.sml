@@ -743,9 +743,10 @@ val compile_pat_correct = Q.prove(
            ,match_result_distinct])
 
 val compile_row_correct = Q.prove(
-  `(∀t Nbvs0 p bvs0 ^s v menv bvs1 n f.
+  `(∀t Nbvs0 p bvs0 cenv ^s v menv bvs1 n f.
       (Nbvs0 = NONE::bvs0) ∧
-      (pmatch s.refs p v [] = Match menv) ∧
+      (pmatch cenv s.refs p v [] = Match menv) ∧
+      ¬cenv.check_ctor ∧
       (compile_row t Nbvs0 p = (bvs1,n,f))
     ⇒ ∃menv4 bvs.
        EVERY NoRun_v menv4 /\
@@ -763,9 +764,10 @@ val compile_row_correct = Q.prove(
          evaluate (compile_v v::env)
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
               ffi := s.ffi; globals := genv |> [f e] = res) ∧
-   (∀t bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
-     (pmatch_list s.refs qs (TAKE k vs) [] = Match menvk) ∧
-     (pmatch_list s.refs ps (DROP k vs) [] = Match menv) ∧
+   (∀t bvsk0 nk k ps tag cenv ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
+     (pmatch_list cenv s.refs qs (TAKE k vs) [] = Match menvk) ∧
+     (pmatch_list cenv s.refs ps (DROP k vs) [] = Match menv) ∧
+      ¬cenv.check_ctor ∧
      (compile_cols t bvsk0 nk k ps = (bvs1,n1,f)) ∧
      (bvsk0 = bvsk ++ NONE::bvs0) ∧
      (k = LENGTH qs) ∧ k ≤ LENGTH vs ∧ (LENGTH bvsk = nk) ∧
@@ -789,28 +791,31 @@ val compile_row_correct = Q.prove(
               ffi := s.ffi; globals := genv |> [f e] = res)`,
   ho_match_mp_tac compile_row_ind >>
   strip_tac >- (
-    srw_tac[][pmatch_exh_def,compile_row_def] >> srw_tac[][] >>
+    srw_tac[][flatSemTheory.pmatch_def,compile_row_def] >> srw_tac[][] >>
     qexists_tac`[compile_v v]` >> srw_tac[][] >>
     fs [compile_v_NoRun_v]) >>
   strip_tac >- (
-    srw_tac[][pmatch_exh_def,compile_row_def] >> srw_tac[][] >>
+    srw_tac[][flatSemTheory.pmatch_def,compile_row_def] >> srw_tac[][] >>
     qexists_tac`[compile_v v]` >> srw_tac[][] >>
     fs [compile_v_NoRun_v]) >>
   strip_tac >- (
     srw_tac[][pmatch_flat_def,compile_row_def] >> srw_tac[][] >>
     qexists_tac`[compile_v v]` >> srw_tac[][] >>
     fs [compile_v_NoRun_v] >>
-    Cases_on`v`>>full_simp_tac(srw_ss())[pmatch_exh_def] >>
-    pop_assum mp_tac >> srw_tac[][] ) >>
+    Cases_on`v`>>full_simp_tac(srw_ss())[flatSemTheory.pmatch_def] >>
+    rpt(pop_assum mp_tac) >> srw_tac[][] ) >>
   strip_tac >- (
     srw_tac[][pmatch_flat_def,compile_row_def] >> full_simp_tac(srw_ss())[] >>
     Cases_on`v`>>full_simp_tac(srw_ss())[pmatch_flat_def] >>
     qpat_x_assum`X = Match menv`mp_tac >> srw_tac[][] >>
-    qmatch_assum_rename_tac`pmatch_list s.refs ps vs [] = Match menv` >>
+    rename1`pmatch _ _ (Pcon xx _) (Conv yy _) [] = _`
+    \\ Cases_on`xx` \\ Cases_on`yy` \\ rfs[pmatch_flat_def]
+    \\ pop_assum mp_tac \\ rw[] >>
+    qmatch_assum_rename_tac`pmatch_list cenv s.refs ps vs [] = Match menv` >>
     full_simp_tac(srw_ss())[LENGTH_NIL,pmatch_flat_def,LENGTH_NIL_SYM] >>
     Q.PAT_ABBREV_TAC`w = Conv X Y` >>
     qmatch_assum_rename_tac`Abbrev(w = Conv tag (MAP compile_v vs))` >>
-    first_x_assum(qspecl_then[`tag`,`s`,`vs`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
+    first_x_assum(qspecl_then[`tag`,`cenv`,`s`,`vs`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
     simp[] >>
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
@@ -824,8 +829,8 @@ val compile_row_correct = Q.prove(
     qpat_x_assum`X = Match menv`mp_tac >> BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     srw_tac[][] >> full_simp_tac(srw_ss())[UNCURRY,LET_THM] >> srw_tac[][] >>
-    qmatch_assum_rename_tac`pmatch s.refs p v [] = Match menv` >>
-    first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
+    qmatch_assum_rename_tac`pmatch cenv s.refs p v [] = Match menv` >>
+    first_x_assum(qspecl_then[`cenv`,`s`,`v`]mp_tac) >> simp[] >>
     Q.PAT_ABBREV_TAC`tt = compile_row _ X Y` >>
     `∃bvs1 n f. tt = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
     qunabbrev_tac`tt` >> simp[] >> srw_tac[][] >> simp[] >>
@@ -857,10 +862,10 @@ val compile_row_correct = Q.prove(
   srw_tac[][] >>
   Cases_on`DROP (LENGTH qs) vs`>>full_simp_tac(srw_ss())[pmatch_flat_def] >>
   qmatch_assum_rename_tac`DROP (LENGTH qs) vs = v::ws` >>
-  Cases_on`pmatch s.refs p v []`>>full_simp_tac(srw_ss())[] >>
-  first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
+  Cases_on`pmatch cenv s.refs p v []`>>full_simp_tac(srw_ss())[] >>
+  first_x_assum(qspecl_then[`cenv`,`s`,`v`]mp_tac) >> simp[] >>
   strip_tac >> srw_tac[][] >>
-  first_x_assum(qspecl_then[`tag`,`s`,`qs++[p]`,`vs`]mp_tac) >>
+  first_x_assum(qspecl_then[`tag`,`cenv`,`s`,`qs++[p]`,`vs`]mp_tac) >>
   Cases_on`LENGTH vs = LENGTH qs`>>full_simp_tac(srw_ss())[rich_listTheory.DROP_LENGTH_NIL_rwt] >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   full_simp_tac(srw_ss())[rich_listTheory.DROP_EL_CONS] >>
@@ -878,7 +883,7 @@ val compile_row_correct = Q.prove(
   disch_then(qspec_then`menv4 ++ menv4k`mp_tac) >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   impl_tac >- (
-    qpat_x_assum`pmatch s.refs p v menvk = X`mp_tac >>
+    qpat_x_assum`pmatch cenv s.refs p v menvk = X`mp_tac >>
     simp[Once (CONJUNCT1 flatPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >> srw_tac[][] >> simp[] >>
@@ -886,7 +891,7 @@ val compile_row_correct = Q.prove(
   qexists_tac`menv3 ++ menv4` >> simp[] >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   conj_tac >- (
-    qpat_x_assum`pmatch_list s.refs ps ww env2 = X`mp_tac >>
+    qpat_x_assum`pmatch_list cenv s.refs ps ww env2 = X`mp_tac >>
     simp[Once (CONJUNCT2 flatPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >>
@@ -943,7 +948,6 @@ val (exp_rel_rules,exp_rel_ind,exp_rel_cases) = Hol_reln`
    ⇒ exp_rel z1 z2 V (Con t tag es1) (Con t tag es2)) ∧
   ((k1 < z1 ∧ k2 < z2 ∧ V k1 k2) ∨ (z1 ≤ k1 ∧ z2 ≤ k2 ∧ (k1 = k2))
    ⇒ exp_rel z1 z2 V (Var_local t k1) (Var_local t k2)) ∧
-  (exp_rel z1 z2 V (Var_global t k) (Var_global t k)) ∧
   (exp_rel (z1+1) (z2+1) (bind V) e1 e2
    ⇒ exp_rel z1 z2 V (Fun t e1) (Fun t e2)) ∧
   (LIST_REL (exp_rel z1 z2 V) es1 es2
@@ -956,8 +960,7 @@ val (exp_rel_rules,exp_rel_ind,exp_rel_cases) = Hol_reln`
    ⇒ exp_rel z1 z2 V (Seq t e11 e12) (Seq t e21 e22)) ∧
   (LIST_REL (exp_rel (z1+(SUC(LENGTH es1))) (z2+(SUC(LENGTH es2))) (bindn (SUC (LENGTH es1)) V)) es1 es2 ∧
    exp_rel (z1+(LENGTH es1)) (z2+(LENGTH es2)) (bindn (LENGTH es1) V) e1 e2
-   ⇒ exp_rel z1 z2 V (Letrec t es1 e1) (Letrec t es2 e2)) ∧
-  (exp_rel z1 z2 V (Extend_global t n) (Extend_global t n))`;
+   ⇒ exp_rel z1 z2 V (Letrec t es1 e1) (Letrec t es2 e2))`;
 
 val exp_rel_refl = Q.store_thm("exp_rel_refl",
   `(∀e z V. (∀k. k < z ⇒ V k k) ⇒ exp_rel z z V e e) ∧
@@ -993,7 +996,6 @@ val exp_rel_mono = Q.store_thm("exp_rel_mono",
     match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
     HINT_EXISTS_TAC >> simp[] ) >>
   strip_tac >- ( srw_tac[][] >> srw_tac[][Once exp_rel_cases] ) >>
-  strip_tac >- ( srw_tac[][] >> srw_tac[][Once exp_rel_cases] ) >>
   strip_tac >- (
     srw_tac[][] >> srw_tac[][Once exp_rel_cases] >>
     first_x_assum match_mp_tac >>
@@ -1017,8 +1019,7 @@ val exp_rel_mono = Q.store_thm("exp_rel_mono",
       simp[] ) >>
     first_x_assum match_mp_tac >>
     match_mp_tac bindn_mono >>
-    simp[] ) >>
-  ( srw_tac[][] >> srw_tac[][Once exp_rel_cases] ))
+    simp[] ))
 val _ = export_mono"exp_rel_mono";
 
 val exp_rel_lit = Q.store_thm("exp_rel_lit",
@@ -1063,7 +1064,6 @@ val exp_rel_trans = Q.prove(
      srw_tac[][] >> pop_assum mp_tac >> ntac 2 (srw_tac[][Once exp_rel_cases]) >>
      simp[relationTheory.O_DEF] >> metis_tac[]) >>
    strip_tac >- ( srw_tac[][] >> pop_assum mp_tac >> ntac 2 (srw_tac[][Once exp_rel_cases]) ) >>
-   strip_tac >- ( srw_tac[][] >> pop_assum mp_tac >> ntac 2 (srw_tac[][Once exp_rel_cases]) ) >>
    strip_tac >- (
      srw_tac[][] >> pop_assum mp_tac >> ntac 2 (srw_tac[][Once exp_rel_cases]) >>
      rev_full_simp_tac(srw_ss())[EVERY2_EVERY,EVERY_MEM] >>
@@ -1074,8 +1074,7 @@ val exp_rel_trans = Q.prove(
    strip_tac >- (
      srw_tac[][] >> pop_assum mp_tac >> ntac 2 (srw_tac[][Once exp_rel_cases]) >>
      rev_full_simp_tac(srw_ss())[EVERY2_EVERY,EVERY_MEM] >>
-     full_simp_tac(srw_ss())[MEM_ZIP,PULL_EXISTS,MEM_EL] ) >>
-   strip_tac >- ( srw_tac[][] >> pop_assum mp_tac >> ntac 2 (srw_tac[][Once exp_rel_cases]) ))
+     full_simp_tac(srw_ss())[MEM_ZIP,PULL_EXISTS,MEM_EL] ) )
 val exp_rel_trans = Q.store_thm("exp_rel_trans",
   `∀z1 z2 z3 V1 V2 V3 e1 e2 e3.
       exp_rel z1 z2 V1 e1 e2 ∧
@@ -1494,7 +1493,7 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
   srw_tac[][] >>
   srw_tac[][optionTheory.OPTREL_def] >>
   Cases_on`do_app s op vs`>>srw_tac[][]>-(
-    Cases_on `op = Op (Op ListAppend)`
+    Cases_on `op = (Op ListAppend)`
     >-
      (fs [] \\ rveq
      \\ pop_assum mp_tac
@@ -1556,8 +1555,9 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     \\ imp_res_tac do_eq_list_v_rel \\ fs[]
     \\ TRY CASE_TAC \\ fs[]
     \\ fs[LIST_REL_EL_EQN,OPTREL_def]
-    \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]) >>
-  Cases_on `op = Op (Op ListAppend)`
+    \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]
+    \\ metis_tac[NOT_SOME_NONE]) >>
+  Cases_on `op = (Op ListAppend)`
   >-
    (fs [] \\ rveq
     \\ pop_assum mp_tac
@@ -1594,7 +1594,8 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     \\ TOP_CASE_TAC \\ fs[] \\ rw[] \\ NO_TAC ) >>
   fs[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,LENGTH_REPLICATE,EL_REPLICATE] >>
   res_tac >> fs[sv_rel_cases] >> rfs[] >> fs[LIST_REL_EL_EQN,EL_LUPDATE,store_v_same_type_def] >>
-  rw[EL_LUPDATE] >> rw[]);
+  rw[EL_LUPDATE] \\ rw[EL_LUPDATE,EL_APPEND_EQN,EL_REPLICATE] >> rw[]
+  \\ metis_tac[]);
 
 (* some NoRun things for exp_rel, v_rel, state_rel etc *)
 
@@ -1726,14 +1727,6 @@ val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[env_rel_def] >>
     fsrw_tac[ARITH_ss][]) >>
-  strip_tac >- (
-    rpt gen_tac >> strip_tac >>
-    srw_tac[][Once exp_rel_cases] >>
-    full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
-    full_simp_tac(srw_ss())[state_rel_def] >> srw_tac[][] >>
-    fsrw_tac[ARITH_ss][LIST_REL_EL_EQN,OPTREL_def,IS_SOME_EXISTS] >>
-    res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    metis_tac[NOT_SOME_NONE]) >>
   strip_tac >- (
     srw_tac[][Once exp_rel_cases] >>
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def] >>
@@ -1872,13 +1865,7 @@ val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
     imp_res_tac EVERY2_LENGTH >>
     srw_tac[][] >> simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
     fsrw_tac[ARITH_ss][env_rel_def] >>
-    simp[Once v_rel_cases]) >>
-  rpt gen_tac >>
-  srw_tac[][Once exp_rel_cases] >>
-  full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[state_rel_def] >>
-  match_mp_tac rich_listTheory.EVERY2_APPEND_suff >>
-  simp[] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN]);
+    simp[Once v_rel_cases]));
 
 val bvs_V_def = Define`
   bvs_V bvs1 bvs2 V ⇔
@@ -2345,6 +2332,12 @@ val compile_exp_shift = Q.store_thm("compile_exp_shift",
     metis_tac[bind_bvs_V] ) >>
   strip_tac >- ( srw_tac[][] >> simp[Once exp_rel_cases] ) >>
   strip_tac >- (
+    srw_tac[][] >>
+    match_mp_tac exp_rel_sIf >>
+    simp[Once exp_rel_cases] ) >>
+  strip_tac >- (
+    srw_tac[][] >> simp[Once exp_rel_cases] >> metis_tac[] ) >>
+  strip_tac >- (
     srw_tac[][] >> simp[Once exp_rel_cases] >> metis_tac[] ) >>
   strip_tac >- (
     srw_tac[][] >>
@@ -2367,8 +2360,6 @@ val compile_exp_shift = Q.store_thm("compile_exp_shift",
     simp[Once exp_rel_cases] >>
     full_simp_tac(srw_ss())[bvs_V_def] >>
     metis_tac[] ) >>
-  strip_tac >- (
-    srw_tac[][] >> simp[Once exp_rel_cases] ) >>
   strip_tac >- (
     srw_tac[][] >>
     simp[Once exp_rel_cases] >>
@@ -2425,7 +2416,6 @@ val compile_exp_shift = Q.store_thm("compile_exp_shift",
       metis_tac[] ) >>
     match_mp_tac bindn_bvs_V >>
     simp[] ) >>
-  strip_tac >- ( srw_tac[][] >> simp[Once exp_rel_cases] ) >>
   strip_tac >- ( srw_tac[][] >> simp[Once exp_rel_cases] ) >>
   strip_tac >- ( srw_tac[][] >> simp[Once exp_rel_cases] ) >>
   strip_tac >- ( srw_tac[][] >> simp[Once exp_rel_cases] ) >>
