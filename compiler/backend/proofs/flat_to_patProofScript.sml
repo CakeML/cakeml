@@ -630,17 +630,17 @@ val s = mk_var("s",
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_pat_correct = Q.prove(
-  `(∀t p v ^s env res env4.
-       pmatch s.refs p v env = res ∧ res ≠ Match_type_error ⇒
+  `(∀t p v cenv ^s env res env4.
+       pmatch cenv s.refs p v env = res ∧ ¬cenv.check_ctor ∧ res ≠ Match_type_error ⇒
        evaluate
          (compile_v v::env4)
          (compile_state (:'c) s)
          [compile_pat t p] =
          (compile_state (:'c) s
          ,Rval [Boolv (∃env'. res = Match env')])) ∧
-    (∀t n ps qs vs ^s env env' res env4.
-       pmatch_list s.refs qs (TAKE n vs) env = Match env' ∧
-       pmatch_list s.refs ps (DROP n vs) env = res ∧ res ≠ Match_type_error ∧
+    (∀t n ps qs vs cenv ^s env env' res env4.
+       pmatch_list cenv s.refs qs (TAKE n vs) env = Match env' ∧
+       pmatch_list cenv s.refs ps (DROP n vs) env = res ∧ ¬cenv.check_ctor ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
        evaluate
          (compile_vs vs ++ env4)
@@ -659,11 +659,20 @@ val compile_pat_correct = Q.prove(
     srw_tac[][patSemTheory.do_eq_def] >>
     metis_tac[lit_same_type_sym])
   >- (
+    Cases_on`v` \\ fs[flatSemTheory.pmatch_def]
+    \\ rename1`Conv cn l`
+    \\ Cases_on`cn` \\ fs[flatSemTheory.pmatch_def]
+    \\ fs[patSemTheory.Boolv_def] )
+  >- (
     Cases_on`v`>>full_simp_tac(srw_ss())[flatSemTheory.pmatch_def]>>pop_assum mp_tac >> srw_tac[][LENGTH_NIL_SYM] >>
     srw_tac[][patSemTheory.do_app_def,compile_state_def] >>
     srw_tac[][patSemTheory.do_eq_def] >>
     simp[flatSemTheory.pmatch_def] >>
-    full_simp_tac(srw_ss())[LENGTH_NIL])
+    full_simp_tac(srw_ss())[LENGTH_NIL]
+    \\ rename1`Conv cn l`
+    \\ Cases_on`cn` \\ fs[flatSemTheory.pmatch_def]
+    \\ Cases_on`x` \\ fs[flatSemTheory.same_ctor_def]
+    \\ rw[] \\ fs[])
   >- (
     match_mp_tac sIf_correct >>
     srw_tac[][patSemTheory.evaluate_def] >>
@@ -671,8 +680,11 @@ val compile_pat_correct = Q.prove(
     full_simp_tac(srw_ss())[patSemTheory.do_app_def,compile_state_def] >>
     Cases_on`v`>>full_simp_tac(srw_ss())[flatSemTheory.pmatch_def]>>
     simp[patSemTheory.do_if_def] >>
-    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-    TRY ( simp[evaluate_Con_nil,patSemTheory.Boolv_def] >> NO_TAC) >>
+    rename1`Conv cn l` \\ Cases_on`cn` \\ fs[flatSemTheory.pmatch_def] \\ rfs[]
+    \\ Cases_on`x` \\ fs[flatSemTheory.same_ctor_def]
+    \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
+    TRY ( simp[evaluate_Con_nil,patSemTheory.Boolv_def] >> rw[] \\ fs[]
+          \\ rfs[] \\ NO_TAC) >>
     match_mp_tac Let_Els_correct >>
     simp[LENGTH_NIL,TAKE_LENGTH_ID_rwt])
   >- (
@@ -707,24 +719,24 @@ val compile_pat_correct = Q.prove(
   Q.PAT_ABBREV_TAC`env5 = X ++ env4` >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   full_simp_tac(srw_ss())[rich_listTheory.DROP_EL_CONS] >>
-  first_x_assum(qspecl_then[`v`,`s`,`env`,`env5`]mp_tac) >>
-  Cases_on`pmatch s.refs p v env`>>full_simp_tac(srw_ss())[] >- (
+  first_x_assum(qspecl_then[`v`,`cenv`,`s`,`env`,`env5`]mp_tac) >>
+  Cases_on`pmatch cenv s.refs p v env`>>full_simp_tac(srw_ss())[] >- (
     strip_tac >>
     simp[patSemTheory.do_if_def,patPropsTheory.Boolv_disjoint] >>
     simp[patSemTheory.Boolv_def,patSemTheory.evaluate_def]) >>
   strip_tac >>
   simp[patSemTheory.do_if_def] >>
   simp[Abbr`env5`] >>
-  first_x_assum(qspecl_then[`qs++[p]`,`vs`,`s`,`env`]mp_tac) >>
+  first_x_assum(qspecl_then[`qs++[p]`,`vs`,`cenv`,`s`,`env`]mp_tac) >>
   simp[] >>
   simp[rich_listTheory.TAKE_EL_SNOC,GSYM SNOC_APPEND] >>
   simp[flatPropsTheory.pmatch_list_snoc] >>
   imp_res_tac flatPropsTheory.pmatch_any_match >>
-  qmatch_assum_rename_tac`pmatch_list s.refs qs _ env = Match env2` >>
+  qmatch_assum_rename_tac`pmatch_list cenv s.refs qs _ env = Match env2` >>
   last_x_assum(qspec_then`env2`strip_assume_tac)>>simp[]>>
-  qmatch_assum_rename_tac`pmatch s.refs p v env = Match env3`>>
-  Cases_on`pmatch_list s.refs ps ws env`>>simp[]>>
-  Cases_on`pmatch_list s.refs ps ws env3`>>full_simp_tac(srw_ss())[]>>
+  qmatch_assum_rename_tac`pmatch cenv s.refs p v env = Match env3`>>
+  Cases_on`pmatch_list cenv s.refs ps ws env`>>simp[]>>
+  Cases_on`pmatch_list cenv s.refs ps ws env3`>>full_simp_tac(srw_ss())[]>>
   metis_tac[flatPropsTheory.pmatch_any_match_error
            ,flatPropsTheory.pmatch_any_match
            ,flatPropsTheory.pmatch_any_no_match
