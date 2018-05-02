@@ -123,7 +123,9 @@ val rewrite_subs = Q.prove(`
   (st_ex_MAP adj_ls_sub = st_ex_MAP (\v. adj_ls_sub v)) ∧
   (st_ex_MAP node_tag_sub = st_ex_MAP (\v. node_tag_sub v)) ∧
   (st_ex_PARTITION move_related_sub = st_ex_PARTITION (\v. move_related_sub v)) ∧
-  (st_ex_MAP degrees_sub = st_ex_MAP (\v. degrees_sub v))`,
+  (st_ex_MAP degrees_sub = st_ex_MAP (\v. degrees_sub v)) ∧
+  (st_ex_FILTER (considered_var k) xs ys = st_ex_FILTER (\v. considered_var k v) xs ys) ∧
+  (st_ex_MAP (deg_or_inf kk) xs = st_ex_MAP (\x. deg_or_inf kk x) xs)`,
   metis_tac[ETA_AX]);
 
 val _ = m_translate (revive_moves_def |> REWRITE_RULE[MEMBER_INTRO,rewrite_subs]);
@@ -137,9 +139,16 @@ val _ = translate pair_rename_def;
 val _ = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO])
 val _ = m_translate list_insert_edge_def
 
-val _ = m_translate (do_coalesce_real_def |> REWRITE_RULE [MEMBER_INTRO]);
-val _ = m_translate (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs]);
 val _ = m_translate is_Fixed_def;
+
+val _ = m_translate (do_coalesce_real_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+val _ = m_translate is_Atemp_def;
+val _ = m_translate is_Fixed_k_def;
+val _ = m_translate deg_or_inf_def;
+val _ = m_translate considered_var_def;
+
+val _ = m_translate  (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs])
 
 (* TODO: something in the monadic translator automatically rewrites
   the ¬ (a ∧ b) check
@@ -182,9 +191,38 @@ val _ = m_translate do_freeze_def;
 val _ = translate safe_div_def;
 val _ = translate lookup_any_def;
 val _ = m_translate st_ex_list_MIN_cost_def;
+val _ = m_translate st_ex_list_MAX_deg_def;
 val _ = m_translate do_spill_def;
 
-val _ = m_translate do_step_def;
+val do_step_thm = Q.prove(`
+  do_step sc k =
+  do
+    b <- do_simplify k;
+    if b then return T
+    else
+    do
+      b <- do_coalesce k;
+      if b then return T
+      else
+      do
+        b <- do_prefreeze k;
+        if b then return T
+        else
+        do
+          b <- do_freeze k;
+          if b then return T
+          else
+            do
+              b <- do_spill sc k;
+              return b
+            od
+        od
+      od
+    od
+  od`,
+  fs[do_step_def]);
+
+val _ = m_translate do_step_thm;
 val _ = m_translate rpt_do_step_def;
 val _ = m_translate remove_colours_def;
 val _ = m_translate assign_Atemp_tag_def;
@@ -203,7 +241,6 @@ val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate extend_graph_def;
 val _ = m_translate mk_tags_def;
 val _ = m_translate init_ra_state_def;
-val _ = m_translate is_Atemp_def;
 val _ = m_translate (init_alloc1_heu_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate do_alloc1_def;
 val _ = m_translate extract_color_def;
@@ -212,8 +249,6 @@ val _ = translate pri_move_insert_def;
 val _ = translate undir_move_insert_def;
 val _ = translate moves_to_sp_def;
 val _ = translate resort_moves_def;
-
-val _ = m_translate is_Fixed_k_def;
 
 val full_consistency_ok_thm = Q.prove(`
   full_consistency_ok k x y =

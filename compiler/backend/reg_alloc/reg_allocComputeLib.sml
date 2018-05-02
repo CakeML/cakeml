@@ -177,7 +177,9 @@ fun alloc_aux alg k [] n = (print"\n";[])
       val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves
       val force_poly = dest_forced force
-      val sc_poly = dest_int_sptree sc
+      val sc_poly =
+        if optionSyntax.is_some sc then
+          SOME (dest_int_sptree (optionSyntax.dest_some sc)) else NONE
       val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly in
     case res of
       Success s => s:: alloc_aux alg k xs (n+1)
