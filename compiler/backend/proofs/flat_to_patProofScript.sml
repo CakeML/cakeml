@@ -100,8 +100,9 @@ val compile_exp_NoRun = Q.store_thm("compile_exp_NoRun",
   \\ metis_tac [compile_row_NoRun, sIf_NoRun, compile_pat_NoRun]);
 
 val compile_NoRun = Q.store_thm("compile_NoRun",
-  `NoRun (compile e)`,
-  rw [compile_def, compile_exp_NoRun]);
+  `∀decs. EVERY NoRun (compile decs)`,
+  Induct \\ simp[compile_def]
+  \\ Cases \\ rw[compile_def, compile_exp_NoRun]);
 
 val v_size_MEM = Q.prove (
   `!vs (v: patSem$v). MEM v vs ==> v_size v < v1_size vs`,

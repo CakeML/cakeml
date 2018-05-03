@@ -363,7 +363,10 @@ val compile_exp_def = tDefine"compile_exp" `
 val _ = export_rewrites["compile_exp_def"];
 
 val compile_def = Define`
-  compile = compile_exp []`;
+  compile [] = [] ∧
+  compile ((Dlet exp)::decs) =
+    compile_exp [] exp :: compile decs ∧
+  compile (_::decs) = compile decs`;
 
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,
