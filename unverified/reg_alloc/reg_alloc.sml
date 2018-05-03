@@ -1337,6 +1337,8 @@ structure reg_alloc = struct
                         end)
                         end)
                         end))))
+                  fun apply_col col ls = filter (fn (p,(x,y)) => (col x = col y)) ls
+
                     val  do_reg_alloc =
                   (fn  v32 =>
                     (fn  v33 =>
@@ -1372,6 +1374,8 @@ structure reg_alloc = struct
                                   assign_atemps v29 v14 (biased_pref (resort_moves (moves_to_sp v15 Ln)))
                                     val  v12 = assign_stemps v29
                                     val  v11 = extract_color v21
+                                    val  cols = apply_col (fn x => lookup_1 x v11) v35
+                                    val _ = print ("moves: "^Int.toString (length v35)^"\tcoalesceable: "^Int.toString (length v15) ^"\tcoalesced: "^Int.toString (length cols)^"\n")
                                  in
                                   v11
                                  end))))))))))))))
