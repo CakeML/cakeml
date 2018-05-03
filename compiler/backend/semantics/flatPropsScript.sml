@@ -847,15 +847,15 @@ val SND_SND_lemma = prove(
   PairCases_on `x` \\ fs []);
 
 val eval_sim_def = Define `
-  eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel allow_fail =
+  eval_sim ffi env1 ds1 env2 ds2 rel allow_fail =
     !k res1 s2 c1.
-      evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1 =
+      evaluate_decs env1 (initial_state ffi k) ds1 =
         (s2, c1, res1) /\
       (allow_fail \/ res1 <> SOME (Rabort Rtype_error)) /\
-      rel ds1 ds2
+      rel env1 ds1 env2 ds2
       ==>
       ?ck res2 t2 c2.
-        evaluate_decs (initial_env exh2 ctor2) (initial_state ffi (k + ck)) ds2 =
+        evaluate_decs env2 (initial_state ffi (k + ck)) ds2 =
           (t2, c2, res2) /\
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
@@ -863,11 +863,11 @@ val eval_sim_def = Define `
         (!a. res1 = SOME (Rabort a) ==> res2 = SOME (Rabort a))`;
 
 val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
-  `eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel F /\
-   semantics (ffi:'ffi ffi_state) exh1 ctor1 ds1 <> Fail ==>
-   rel ds1 ds2 ==>
-   semantics ffi exh1 ctor1 ds1 =
-   semantics ffi exh2 ctor2 ds2`,
+  `eval_sim ffi env1 ds1 env2 ds2 rel F /\
+   semantics env1 (ffi:'ffi ffi_state) ds1 <> Fail ==>
+   rel env1 ds1 env2 ds2 ==>
+   semantics env1 ffi ds1 =
+   semantics env2 ffi ds2`,
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
   \\ simp [Once semantics_def]
@@ -880,8 +880,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
     \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
     \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
     \\ fs [eval_sim_def]
-    \\ Cases_on
-      `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k') ds1`
+    \\ Cases_on `evaluate_decs env1 (initial_state ffi k') ds1`
     \\ rename1 `(q,rr)` \\ PairCases_on `rr`
     \\ `rr1 <> SOME (Rabort Rtype_error)` by metis_tac []
     \\ last_x_assum drule \\ strip_tac \\ rfs [])
@@ -892,8 +891,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
     \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
     >-
      (fs [eval_sim_def]
-      \\ Cases_on
-        `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k') ds1`
+      \\ Cases_on `evaluate_decs env1 (initial_state ffi k') ds1`
       \\ rename1 `(q,rr)` \\ PairCases_on `rr`
       \\ `rr1 <> SOME (Rabort Rtype_error)` by metis_tac []
       \\ last_x_assum drule \\ strip_tac \\ rfs [] \\ rw []
@@ -904,8 +902,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
     >-
      (
       fs [eval_sim_def]
-      \\ Cases_on
-        `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k') ds1`
+      \\ Cases_on `evaluate_decs env1 (initial_state ffi k') ds1`
       \\ rename1 `(q,rr)` \\ PairCases_on `rr`
       \\ last_x_assum drule
       \\ impl_keep_tac >- metis_tac []
@@ -924,7 +921,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-
-   (Cases_on `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1`
+   (Cases_on `evaluate_decs env1 (initial_state ffi k) ds1`
     \\ rename1 `(q,rr)` \\ PairCases_on `rr`
     \\ first_x_assum (qspec_then `k` mp_tac)
     \\ disch_then (qspecl_then [`q`,`rr1`] mp_tac)
@@ -941,7 +938,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ rw []
   >-
-   (Cases_on `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1`
+   (Cases_on `evaluate_decs env1 (initial_state ffi k) ds1`
     \\ rename1 `(q, rr)` \\ PairCases_on `rr`
     \\ last_x_assum (qspecl_then [`k`, `q`, `rr1`] mp_tac)
     \\ disch_then (qspec_then `rr0` mp_tac o CONV_RULE SWAP_FORALL_CONV)
@@ -978,7 +975,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ Cases_on `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1`
+  \\ Cases_on `evaluate_decs env1 (initial_state ffi k) ds1`
   \\ rename1 `(q,rr)` \\ PairCases_on `rr`
   \\ fs [eval_sim_def]
   \\ first_x_assum drule
@@ -995,6 +992,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
         [evaluate_decs_add_to_clock_io_events_mono,
          initial_state_with_clock, FST, ADD_SYM]);
 
+(*
 val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
   `eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel T ==>
    rel ds1 ds2 ==>
@@ -1002,6 +1000,7 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
    semantics ffi exh2 ctor2 ds2`,
   cheat (* TODO *)
   );
+*)
 
 val _ = export_theory()
 
