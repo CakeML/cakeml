@@ -762,33 +762,6 @@ val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
   \\ rw [pmatch_def, same_ctor_def, ctor_same_type_def]
   \\ metis_tac [EVERY_MEM, is_unconditional_list_thm]);
 
-(* TODO move to flatProps *)
-val pmatch_any_match = Q.store_thm ("pmatch_any_match",
-  `(∀env s p v vs vs'. pmatch env s p v vs = Match vs' ⇒
-       ∀vs. ∃vs'. pmatch env s p v vs = Match vs') ∧
-    (∀env s ps vs ws ws'. pmatch_list env s ps vs ws = Match ws' ⇒
-       ∀ws. ∃ws'. pmatch_list env s ps vs ws = Match ws')`,
-  ho_match_mp_tac pmatch_ind
-  \\ rw [pmatch_def] \\ fs []
-  \\ pop_assum mp_tac
-  \\ CASE_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
-  \\ metis_tac [semanticPrimitivesTheory.match_result_distinct]);
-
-(* TODO move to flatProps *)
-val pmatch_any_no_match = Q.store_thm("pmatch_any_no_match",
-  `(∀env s p v vs . pmatch env s p v vs = No_match ⇒
-       ∀vs. pmatch env s p v vs = No_match) ∧
-    (∀env s ps vs ws. pmatch_list env s ps vs ws = No_match ⇒
-       ∀ws. pmatch_list env s ps vs ws = No_match)`,
-  ho_match_mp_tac pmatch_ind
-  \\ rw [pmatch_def] \\ fs []
-  \\ pop_assum mp_tac
-  \\ CASE_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
-  \\ metis_tac [semanticPrimitivesTheory.match_result_distinct,
-                pmatch_any_match]);
-
 val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
   |> dest_prod |> fst)
@@ -1017,9 +990,9 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
      res1 <> SOME (Rabort Rtype_error) /\
      env_rel ctors env1 env2 /\
      state_rel ctors s1 s2 /\
-     ctors_pre SUBMAP ctors /\
-     compile_dec ctors_pre dec1 = (ctors2, dec2)
+     compile_dec ctors dec1 = (ctors2, dec2)
      ==>
+     ctors SUBMAP ctors2 /\
      ?t2 res2.
        state_rel ctors t1 t2 /\
        evaluate_dec env2 s2 dec2 = (t2, cset1, res2) /\
@@ -1035,28 +1008,52 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
       by (fs [env_rel_def] \\ metis_tac [])
     \\ drule (CONJUNCT1 compile_exps_evaluate) \\ fs []
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ fs [env_rel_def])
+    \\ first_x_assum (qspec_then `ctors` mp_tac) \\ rw [])
   \\ fs [evaluate_dec_def, is_fresh_exn_def, is_fresh_type_def, env_rel_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ cheat (* TODO *)
+  );
 
-val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
-  `!decs1 env1 s1 t1 cset1 res1 ctors env2 s2 decs2 ctors_pre ctors2.
-     evaluate_decs env1 s1 decs1 = (t1, cset1, res1) /\
+val compile_decs_evaluate_decs = Q.store_thm("compile_decs_evaluate_decs",
+  `!ds1 env1 s1 t1 c1 ctors res1 env2 s2 ctors_after ds2.
+     evaluate_decs env1 s1 ds1 = (t1, c1, res1) /\
      res1 <> SOME (Rabort Rtype_error) /\
-     ((bind_tag, NONE), 0) IN env1.c /\
      env_rel ctors env1 env2 /\
      state_rel ctors s1 s2 /\
-     ctors_pre SUBMAP ctors /\
-     compile_decs ctors_pre decs1 = (ctors2, decs2)
+     compile_decs ctors ds1 = (ctors_after, ds2)
      ==>
-     ?t2 res2.
-       state_rel ctors t1 t2 /\
-       evaluate_decs env2 s2 decs2 = (t2, cset1, res2) /\
-       (res1 = NONE ==> res2 = NONE) /\
-       (!r1. res1 = SOME r1
-             ==> ?r2. res2 = SOME r2 /\
-                      result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2))`,
+       ?res2 t2 c2.
+         state_rel ctors t1 t2 /\
+         evaluate_decs env2 s2 ds2 = (t2, c2, res2) /\
+         (res1 = NONE ==> res2 = NONE) /\
+         (!r1. res1 = SOME r1 ==>
+            ?r2. res2 = SOME r2 /\
+                 result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2))`,
   cheat (* TODO *)
   );
 
+val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
+  `eval_sim
+     (ffi:'ffi ffi_state) F T ds1 T T ds2
+     (\p1 p2. p2 = SND (compile p1)) F`,
+  rw [eval_sim_def] \\ qexists_tac `0` \\ fs []
+  \\ sg `state_rel FEMPTY (initial_state ffi k) (initial_state ffi k)`
+  >- rw [state_rel_def, initial_state_def]
+  \\ sg `env_rel FEMPTY (initial_env F T) (initial_env T T)`
+  >-
+   (rw [env_rel_def, initial_env_def]
+    \\ cheat (* TODO Bind_tag etc required *))
+  \\ rename1 `evaluate_decs env1 s1 ds1`
+  \\ rename1 `evaluate_decs env2 _`
+  \\ Cases_on `compile ds1` \\ fs [compile_def]
+  \\ drule (GEN_ALL compile_decs_evaluate_decs)
+  \\ rpt (disch_then drule) \\ rw [] \\ fs []
+  \\ fs [state_rel_def] \\ rw []);
+
+val compile_decs_semantics = save_thm ("compile_decs_semantics",
+  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
+           compile_decs_eval_sim
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
+
 val _ = export_theory();
+
