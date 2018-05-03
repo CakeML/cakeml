@@ -227,7 +227,7 @@ val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
 
 val dest_WordToInt_SOME = store_thm("dest_WordToInt_SOME",
   ``!w es x. dest_WordToInt w es = SOME x <=>
-             ?tra. es = [App tra (Op (Op (WordToInt w))) [x]]``,
+             ?tra. es = [App tra (Op (WordToInt w)) [x]]``,
   ho_match_mp_tac dest_WordToInt_ind
   \\ fs [dest_WordToInt_def]);
 
@@ -277,10 +277,6 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fs[ETA_AX,MAP_REVERSE] ) >>
   strip_tac >- (
     rw[evaluate_pat_def,evaluate_def,EL_MAP] >> rw[] >>
-    spose_not_then strip_assume_tac >> rw[] >> fs[]) >>
-  strip_tac >- (
-    rw[evaluate_pat_def,evaluate_def,do_app_def,get_global_def,compile_state_def,EL_MAP,IS_SOME_EXISTS] >>
-    rw[] >> fs[] >>
     spose_not_then strip_assume_tac >> rw[] >> fs[]) >>
   strip_tac >- (
     rw[evaluate_pat_def,evaluate_def] >> rw[ETA_AX] ) >>
