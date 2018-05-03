@@ -693,14 +693,29 @@ val evaluate_decs_def = Define`
       | (s, new_ctors', r) => (s, new_ctors' ∪ new_ctors, r))
    | (s, new_ctors, SOME e) => (s, new_ctors, SOME e))`;
 
+val initial_env_def = Define `
+  initial_env exh_pat check_ctor =
+    <| v          := []
+     ; c          := EMPTY
+     ; exh_pat    := exh_pat
+     ; check_ctor := check_ctor |>`
+
+val initial_state_def = Define `
+  initial_state ffi k =
+    <| clock   := k
+     ; refs    := []
+     ; ffi     := ffi
+     ; globals := [] |>`;
+
 val semantics_def = Define`
-  semantics env st prog =
-    if ∃k. (SND o SND) (evaluate_decs env (st with clock := k) prog) = SOME (Rabort Rtype_error)
+  semantics ffi ctor exh prog =
+    if ∃k. (SND o SND) (evaluate_decs (initial_env ctor exh) (initial_state ffi k) prog) =
+           SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome x.
-        evaluate_decs env (st with clock := k) prog = (s,x,r) ∧
+        evaluate_decs (initial_env ctor exh) (initial_state ffi k) prog = (s,x,r) ∧
         (case s.ffi.final_event of
          | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
          | SOME e => outcome = FFI_outcome e) ∧
@@ -709,7 +724,9 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (FST (evaluate_decs env (st with clock := k) prog)).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList
+             (FST (evaluate_decs (initial_env ctor exh)
+               (initial_state ffi k) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
