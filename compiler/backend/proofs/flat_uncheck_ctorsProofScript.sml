@@ -115,6 +115,45 @@ val v_rel_bool = Q.prove (
   `!v b. v_rel (Boolv b) v ⇔ v = Boolv b`,
   rw [Once v_rel_cases, Boolv_def, libTheory.the_def]);
 
+val lemma = Q.prove (
+  `(\(x,y,z). x) = FST`,
+  rw [FUN_EQ_THM] >>
+  pairarg_tac >>
+  fs []);
+
+val do_opapp_correct = Q.prove (
+  `∀vs vs'.
+     LIST_REL v_rel vs vs'
+     ⇒
+     (flatSem$do_opapp vs = NONE ⇒ do_opapp vs' = NONE) ∧
+     (!env e.
+       do_opapp vs = SOME (env,e) ⇒
+       ∃env'. LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env env' ∧
+              do_opapp vs' = SOME (env', HD (compile [e])))`,
+  rw [do_opapp_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw [] >>
+  TRY (fs [Once v_rel_cases] >> NO_TAC) >>
+  qpat_x_assum `v_rel (Recclosure _ _ _) _` mp_tac >>
+  simp [Once v_rel_cases] >>
+  CCONTR_TAC >>
+  fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  rw [] >>
+  fs [semanticPrimitivesPropsTheory.find_recfun_ALOOKUP, ALOOKUP_NONE] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs [MEM_MAP, lemma, FORALL_PROD] >>
+  TRY (pairarg_tac >> fs []) >>
+  rw [] >>
+  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  fs [] >>
+  rw []
+  >- metis_tac [FST]
+  >- metis_tac [FST] >>
+  fs [build_rec_env_merge, LIST_REL_APPEND_EQ] >>
+  fs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  cheat);
+
 val compile_exp_correct = Q.prove (
   `(∀env (s : 'a flatSem$state) es s' r s1 env'.
     evaluate env s es = (s',r) ∧
@@ -142,7 +181,9 @@ val compile_exp_correct = Q.prove (
   ho_match_mp_tac evaluate_ind >>
   rw [evaluate_def, result_rel_cases, compile_def] >>
   rw [] >>
-  TRY (fs [env_rel_cases] >> NO_TAC)
+  TRY (fs [env_rel_cases] >> NO_TAC) >>
+  TRY (split_pair_case_tac >> rw []) >>
+  TRY (split_pair_case_tac >> rw [])
   >- (
     every_case_tac >>
     fs [] >>
@@ -167,9 +208,6 @@ val compile_exp_correct = Q.prove (
     rw [] >>
     rfs [])
   >- (
-    split_pair_case_tac >>
-    rw [] >>
-    split_pair_case_tac >>
     fs [] >>
     `?e'. compile [e] = [e']` by metis_tac [compile_sing] >>
     fs [] >>
@@ -203,10 +241,6 @@ val compile_exp_correct = Q.prove (
       disch_then drule >>
       rw []))
   >- (
-    split_pair_case_tac >>
-    rw [] >>
-    split_pair_case_tac >>
-    rw [] >>
     rename1 `evaluate _ _ _ = (s1', r')` >>
     Cases_on `r'` >>
     fs [] >>
@@ -218,10 +252,6 @@ val compile_exp_correct = Q.prove (
     rw [] >>
     simp [Once v_rel_cases, libTheory.the_def])
   >- (
-    split_pair_case_tac >>
-    rw [] >>
-    split_pair_case_tac >>
-    rw [] >>
     rename1 `evaluate _ _ _ = (s1', r')` >>
     Cases_on `r'` >>
     fs [] >>
@@ -239,13 +269,49 @@ val compile_exp_correct = Q.prove (
   >- (
     simp [Once v_rel_cases] >>
     fs [env_rel_cases])
-  >- cheat
 
   >- (
-    split_pair_case_tac >>
+    fs [] >>
+    rename [`evaluate _ _ _ = (s', r')`,
+            `evaluate env1 _ (REVERSE (compile _)) = (s1', r1')`] >>
+    Cases_on `r'` >>
+    fs [] >>
     rw [] >>
-    split_pair_case_tac >>
-    rw [] >>
+    fs []
+    >- (
+      Cases_on `op = Opapp` >>
+      fs []
+      >- (
+        rename1 `do_opapp (REVERSE vs)` >>
+        Cases_on `do_opapp (REVERSE vs)` >>
+        fs [] >>
+        rw [] >>
+        split_pair_case_tac >>
+        fs [] >>
+        res_tac >>
+        fs [] >>
+        rw [] >>
+        Cases_on `s'.clock = 0` >>
+        fs [compile_reverse] >>
+        rw [] >>
+        `LIST_REL v_rel (REVERSE vs) (REVERSE v')` by metis_tac [EVERY2_REVERSE] >>
+        imp_res_tac do_opapp_correct >>
+        rw []
+        >- fs [s_rel_cases]
+        >- fs [s_rel_cases]
+        >- fs [s_rel_cases] >>
+        `env_rel (env with v := env') (env1 with v := env'')` by fs [env_rel_cases] >>
+        `s_rel (dec_clock s') (dec_clock s1')` by fs [dec_clock_def,s_rel_cases] >>
+        res_tac >>
+        rw [] >>
+        metis_tac [HD, compile_sing])
+      >- cheat)
+    >- (
+      res_tac >>
+      fs [compile_reverse] >>
+      rw []))
+
+  >- (
     rename1 `evaluate _ _ _ = (s1', r')` >>
     Cases_on `r'` >>
     fs [] >>
