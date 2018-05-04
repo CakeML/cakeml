@@ -146,7 +146,10 @@ val compile_exp_def = Define `
 
 val compile_dec_def = Define `
   (compile_dec ctors (Dlet exp) = (ctors, Dlet (compile_exp ctors exp))) /\
-  (compile_dec ctors (Dtype tid amap) = (ctors |+ (tid, amap), Dtype tid amap)) /\
+  (compile_dec ctors (Dtype tid amap) =
+    case FLOOKUP ctors tid of
+      SOME _ => (ctors, Dtype tid amap)
+    | NONE => (ctors |+ (tid, amap), Dtype tid amap)) /\
   (compile_dec ctors dec = (ctors, dec))`
 
 val compile_decs_def = Define `
@@ -156,8 +159,15 @@ val compile_decs_def = Define `
     let (ctor2, es) = compile_decs ctor1 ds in
       (ctor2, e::es))`;
 
+(* Only care about type declarations, not exceptions *)
+val init_ctors_def = Define `
+  init_ctors =
+    FEMPTY |++
+      [ (0 (* bool_id *), insert 0 2 LN)
+      ; (1 (* list_id *), insert 0 1 (insert 2 1 LN)) ]`;
+
 val compile_def = Define`
-  compile = compile_decs FEMPTY`;
+  compile = compile_decs init_ctors`;
 
 val _ = export_theory()
 
