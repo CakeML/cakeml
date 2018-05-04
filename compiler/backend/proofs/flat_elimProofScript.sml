@@ -900,9 +900,11 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
         domain (findEnvGlobals env) ⊆ domain reachable ∧
         decsClosed reachable decs
     ⇒ ∃ new_removed_state .
+        new_removed_state.ffi = new_state.ffi /\
         evaluate_decs env removed_state removed_decs = (new_removed_state, new_ctors, result)`,
     Induct_on `decs`
-    >- (rw[evaluate_decs_def, removeUnreachable_def] >> fs[evaluate_decs_def, findResultGlobals_def])
+    >- (rw[evaluate_decs_def, removeUnreachable_def] >>
+        fs[evaluate_decs_def, findResultGlobals_def, flat_state_rel_def])
     >>  fs[evaluate_decs_def, removeUnreachable_def] >> rw[] >>
         qpat_assum `flat_state_rel _ _ _` mp_tac >> SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac
         >- (fs[evaluate_decs_def] >> `∃ r . evaluate_dec env state' h = r` by simp[] >>
@@ -935,12 +937,13 @@ val flat_removal_thm = Q.store_thm ("flat_removal_thm",
         result ≠ SOME (Rabort Rtype_error) ∧ exh_pat ∧
         (roots, tree) = analyseCode decs ∧
         reachable = closure_spt roots (mk_wf_set_tree tree) ∧
-        removeUnreachable reachable decs = removed_decs 
+        removeUnreachable reachable decs = removed_decs
     ⇒ ∃ s .
+        s.ffi = new_state.ffi /\
         evaluate_decs (initial_env exh_pat check_ctor) (initial_state ffi k) removed_decs = (s, new_ctors, result)`
   ,
     rpt strip_tac >> drule flat_decs_removal_lemma >> rpt (disch_then drule) >> strip_tac >>
-    pop_assum (qspecl_then [`reachable`, `removed_decs`, `initial_state ffi k`] mp_tac) >> fs[] >> 
+    pop_assum (qspecl_then [`reachable`, `removed_decs`, `initial_state ffi k`] mp_tac) >> fs[] >>
     reverse(impl_tac) >- (rw[] >> fs[])
     >>  qspecl_then [`decs`, `roots`, `mk_wf_set_tree tree`, `tree`] mp_tac analysis_reachable_thm >>
         impl_tac >> rw[initial_env_def, initial_state_def]
@@ -950,5 +953,16 @@ val flat_removal_thm = Q.store_thm ("flat_removal_thm",
             >- (rw[SUBSET_DEF] >> qexists_tac `x` >> fs[isReachable_def])
             >- (qexists_tac `n'` >> fs[isReachable_def] >> metis_tac[transitive_RTC, transitive_def]))
 );
+
+val flat_remove_eval_sim = Q.store_thm("flat_remove_eval_sim",
+  `eval_sim ffi T T ds1 T T (removeFlatProg ds1)
+                            (\d1 d2. d2 = removeFlatProg d1) F`,
+  rw [eval_sim_def] \\ qexists_tac `0` \\ fs [removeFlatProg_def]
+  \\ pairarg_tac \\ fs []
+  \\ drule flat_removal_thm \\ rw [] \\ fs []);
+
+val flat_remove_semantics = save_thm ("flat_remove_semantics",
+  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
+           flat_remove_eval_sim |> SIMP_RULE (srw_ss()) []);
 
 val _ = export_theory();
