@@ -2960,6 +2960,100 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     first_x_assum(qspec_then`t§4`strip_assume_tac) \\
     spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
 
+val compile_evaluate_decs = Q.store_thm("compile_evaluate_decs",
+  `flatSem$evaluate_decs env st prog = res ∧ ¬env.check_ctor ∧ env.exh_pat ∧
+   SND (SND res) ≠ SOME (Rabort Rtype_error) ⇒
+   ∃res4.
+   patSem$evaluate [] (compile_state (:'c) st) (compile prog) = res4 ∧
+   state_rel (compile_state (:'c) (FST res)) (FST res4) ∧
+   OPTREL (exc_rel v_rel)
+     (OPTION_MAP (map_error_result compile_v) (SND (SND res)))
+     (case (SND res4) of Rval _ => NONE | Rerr e => SOME e)`,
+  map_every qid_spec_tac[`res`,`env`,`st`]
+  \\ Induct_on`prog`
+  >- (
+    rw[flatSemTheory.evaluate_decs_def, compile_def]
+    \\ fs[OPTREL_def, patSemTheory.evaluate_def] )
+  \\ simp[flatSemTheory.evaluate_decs_def]
+  \\ reverse Cases \\ simp[flatSemTheory.evaluate_dec_def]
+  >- (
+    rpt gen_tac \\ strip_tac \\ rfs[]
+    \\ simp[compile_def]
+    \\ qmatch_goalsub_abbrev_tac`evaluate_decs env1`
+    \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
+    \\ fs[Abbr`env1`]
+    \\ CASE_TAC
+    \\ CASE_TAC
+    \\ fs[]
+    \\ metis_tac[FST,SND] )
+  >- (
+    rpt gen_tac \\ strip_tac \\ rfs[]
+    \\ simp[compile_def]
+    \\ qmatch_goalsub_abbrev_tac`evaluate_decs env1`
+    \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
+    \\ fs[Abbr`env1`]
+    \\ CASE_TAC
+    \\ CASE_TAC
+    \\ fs[]
+    \\ metis_tac[FST,SND] )
+  \\ rpt gen_tac \\ strip_tac \\ rfs[]
+  \\ fs[compile_def]
+  \\ CASE_TAC
+  \\ split_pair_case_tac \\ fs[]
+  \\ simp[Once evaluate_cons]
+  \\ split_pair_case_tac \\ fs[]
+  \\ first_assum(mp_tac o MATCH_MP (CONJUNCT1 compile_exp_evaluate))
+  \\ simp[]
+  \\ impl_tac >- ( strip_tac \\ fs[] \\ rw[] \\ fs[] )
+  \\ split_pair_case_tac \\ fs[]
+  \\ strip_tac
+  \\ reverse CASE_TAC \\ fs[]
+  >- (
+    ntac 2 (pop_assum mp_tac)
+    \\ CASE_TAC \\ fs[]
+    >- (
+      CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[] )
+    \\ strip_tac \\ rveq
+    \\ simp[Once evaluate_cons]
+    \\ simp[OPTREL_def] )
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ rveq
+  \\ simp[Once evaluate_cons]
+  \\ split_pair_case_tac \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`evaluate_decs env1`
+  \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
+  \\ fs[Abbr`env1`]
+  \\ qmatch_asmsub_rename_tac`evaluate_decs env s1 prog`
+  \\ strip_tac
+  \\ first_x_assum(qspecl_then[`s1`,`env`]mp_tac)
+  \\ simp[]
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`SND p`
+  \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
+  \\ pop_assum(assume_tac o SYM) \\ fs[]
+  \\ drule evaluate_exp_rel
+  \\ simp[compile_NoRun, compile_state_NoRun]
+  \\ qmatch_assum_rename_tac`state_rel (_ _ s1) s2`
+  \\ disch_then(qspecl_then[`[]`,`s2`,`compile prog`]mp_tac)
+  \\ simp[CONJUNCT2 exp_rel_refl]
+  \\ strip_tac
+  \\ qhdtm_x_assum`OPTREL`mp_tac
+  \\ CASE_TAC \\ fs[OPTREL_def]
+  >- metis_tac[state_rel_trans]
+  \\ strip_tac \\ fs[]
+  \\ rveq
+  \\ metis_tac[state_rel_trans, exc_rel_v_rel_trans]);
+
 val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
   `semantics env st es ≠ Fail ⇒
    semantics
