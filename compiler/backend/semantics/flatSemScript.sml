@@ -700,15 +700,46 @@ val initial_state_def = Define `
      ; ffi     := ffi
      ; globals := [] |>`;
 
+val bool_ctors_def = Define `
+  bool_ctors =
+    { ((true_tag, SOME bool_id), 0n)
+    ; ((false_tag, SOME bool_id), 0n) }`;
+
+val list_ctors_def = Define `
+  list_ctors =
+    { ((cons_tag, SOME list_id), 2n)
+    ; ((nil_tag, SOME list_id), 0n) }`;
+
+val exn_ctors_def = Define `
+  exn_ctors =
+    { ((div_tag, NONE), 0n)
+    ; ((chr_tag, NONE), 0n)
+    ; ((subscript_tag, NONE), 0n)
+    ; ((bind_tag, NONE), 0n) }`;
+
+val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
+
+val initial_ctors_def = Define `
+   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
+
+val initial_env_def = Define `
+  initial_env exh_pat check_ctor =
+    <| v          := []
+     ; c          := initial_ctors
+     ; exh_pat    := exh_pat
+     ; check_ctor := check_ctor |>`
+
 val semantics_def = Define`
-  semantics env ffi prog =
-    if ∃k. (SND o SND) (evaluate_decs env (initial_state ffi k) prog) =
+  semantics exh_pat check_ctor ffi prog =
+    if ∃k. (SND o SND) (evaluate_decs (initial_env exh_pat check_ctor)
+                                      (initial_state ffi k) prog) =
            SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome x.
-        evaluate_decs env (initial_state ffi k) prog = (s,x,r) ∧
+        evaluate_decs (initial_env exh_pat check_ctor)
+                      (initial_state ffi k) prog = (s,x,r) ∧
         (case s.ffi.final_event of
          | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
          | SOME e => outcome = FFI_outcome e) ∧
@@ -718,7 +749,7 @@ val semantics_def = Define`
        Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs env
+             (FST (evaluate_decs (initial_env exh_pat check_ctor)
                (initial_state ffi k) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
