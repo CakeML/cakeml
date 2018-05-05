@@ -1,3 +1,12 @@
+(* TODO
+
+   * Restore ok_Conv_def (or something like it). Needs to hold after
+     the constructors have been extended.
+   * Uniqueness of type declarations? The correspondence between the
+     ctor map and the env.c set seems a bit broken as ctor_rel cannot
+     always be updated.
+*)
+
 open semanticPrimitivesTheory
 open semanticPrimitivesPropsTheory
 open preamble flatPropsTheory flatSemTheory flat_exh_matchTheory
@@ -62,6 +71,7 @@ val exhaustive_SUBMAP = Q.store_thm("exhaustive_SUBMAP",
 (* Value relations                                                           *)
 (* ------------------------------------------------------------------------- *)
 
+(*
 val ok_Conv_def = Define `
   (ok_Conv ctors (Conv (SOME (c, SOME t)) vs) <=>
     ?cs max.
@@ -86,6 +96,7 @@ val ok_ctors_def = Define `
     (!x. ok_Conv ctors (Boolv x))`;
 
 val _ = export_rewrites ["ok_ctors_def"];
+*)
 
 (* The submap is to push env-rel forward in the proofs after adding things to
    the environment. *)
@@ -97,8 +108,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      ==>
      v_rel ctors (Vectorv vs1) (Vectorv vs2)) /\
   (!ctors t v1 v2.
-     LIST_REL (v_rel ctors) v1 v2 /\
-     ok_Conv ctors (Conv t v1)
+     LIST_REL (v_rel ctors) v1 v2
      ==>
      v_rel ctors (Conv t v1) (Conv t v2)) /\
   (!ctors vs1 n x vs2 ctors_pre.
@@ -128,17 +138,15 @@ val v_rel_thms = Q.store_thm("v_rel_thms[simp]",
    (v_rel ctors (Loc n) v  <=> v = Loc n) /\
    (v_rel ctors v (Loc n)  <=> v = Loc n) /\
    (v_rel ctors (Conv t x) v <=>
-     ?y. v = Conv t y /\ LIST_REL (v_rel ctors) x y /\
-         ok_Conv ctors v) /\
+     ?y. v = Conv t y /\ LIST_REL (v_rel ctors) x y) /\
    (v_rel ctors v (Conv t x) <=>
-     ?y. v = Conv t y /\ LIST_REL (v_rel ctors) y x /\
-         ok_Conv ctors v) /\
+     ?y. v = Conv t y /\ LIST_REL (v_rel ctors) y x) /\
    (v_rel ctors (Vectorv x) v <=>
      ?y. v = Vectorv y /\ LIST_REL (v_rel ctors) x y) /\
    (v_rel ctors v (Vectorv x) <=>
      ?y. v = Vectorv y /\ LIST_REL (v_rel ctors) y x)`,
    rw [] \\ Cases_on `v` \\ rw [Once v_rel_cases, EQ_SYM_EQ]
-   \\ Cases_on `t` \\ Cases_on `o'` \\ fs [ok_Conv_def]
+   \\ Cases_on `t` \\ Cases_on `o'`
    \\ metis_tac [LIST_REL_LENGTH]);
 
 val nv_rel_LIST_REL = Q.store_thm("nv_rel_LIST_REL",
@@ -161,17 +169,17 @@ val ctor_rel_def = Define `
         NONE      => !cid arity. ((cid, SOME tyid), arity) NOTIN c
       | SOME dtys =>
           (!arity max.
-            lookup arity dtys = SOME max <=>
+            lookup arity dtys = SOME max ==>
               (!cid. ((cid, SOME tyid), arity) IN c <=> cid < max)) /\
           (!arity.
-            lookup arity dtys = NONE <=>
+            lookup arity dtys = NONE ==>
               (!cid. ((cid, SOME tyid), arity) NOTIN c))`;
 
 val env_rel_def = Define `
   env_rel ctors env1 env2 <=>
     (* Constructors *)
-    ((bind_tag, NONE), 0) IN env1.c /\
-    ok_ctors ctors /\
+    initial_ctors SUBSET env1.c /\
+    init_ctors SUBMAP ctors /\
     ctor_rel ctors env1.c /\
     (* Flags *)
     env1.check_ctor /\
@@ -403,10 +411,9 @@ val store_v_same_type_cases = Q.prove (
    (!v r. store_v_same_type r (W8array v) <=> ?v1. r = W8array v1)`,
   rpt conj_tac \\ gen_tac \\ Cases \\ rw [store_v_same_type_def]);
 
-(* TODO this is in bad shape *)
 val do_app_thm = Q.store_thm("do_app_thm",
   `do_app s1 op vs1 = SOME (t1, r1) /\
-   ok_ctors ctors /\
+   init_ctors SUBMAP ctors /\
    state_rel ctors s1 s2 /\
    LIST_REL (v_rel ctors) vs1 vs2
    ==>
@@ -414,213 +421,192 @@ val do_app_thm = Q.store_thm("do_app_thm",
      result_rel v_rel ctors r1 r2 /\
      state_rel ctors t1 t2 /\
      do_app s2 op vs2 = SOME (t2, r2)`,
-  rw [do_app_cases, case_eq_thms, PULL_EXISTS, bool_case_eq, COND_RATOR,
-      div_exn_v_def, subscript_exn_v_def, chr_exn_v_def]
-  \\ rw [] \\ fs [] \\ rw [] \\ fs [] \\ rfs [IS_SOME_EXISTS]
-  >- fs [ok_Conv_def, Boolv_def]
-  >- (imp_res_tac do_eq_thm \\ fs [Boolv_def])
-  >- fs [ok_Conv_def, Boolv_def]
+  rpt strip_tac \\ qhdtm_x_assum `do_app` mp_tac
+  \\ Cases_on `op = Opb Lt \/ op = Opb Gt \/ op = Opb Leq \/ op = Opb Geq \/
+               op = Opn Plus \/ op = Opn Minus \/ op = Opn Times \/
+               op = Opn Divide \/ op = Opn Modulo`
   >-
-   (fs [store_assign_def, store_v_same_type_cases, state_rel_def] \\ rveq
-    \\ fs [LIST_REL_EL_EQN] \\ rw [EL_LUPDATE]
-    \\ last_x_assum (qspec_then `lnum` mp_tac)
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [div_exn_v_def, opb_lookup_def, Boolv_def, Once v_rel_cases])
+  \\ Cases_on `(?sz. op = Opw sz Andw \/ op = Opw sz Orw \/ op = Opw sz Xor \/
+                    op = Opw sz Add \/ op = Opw sz Sub) \/
+               (?sz s k. op = Shift sz s k)`
+  >-
+   (fs [] \\ fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS]
+    \\ rw [] \\ fs [])
+  \\ Cases_on `op = Equality`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ imp_res_tac do_eq_thm \\ fs [] \\ rw []
+    \\ simp [Boolv_def, Once v_rel_cases])
+  \\ Cases_on `(?f. op = FP_cmp f) \/ (?f. op = FP_bop f) \/
+               (?f. op = FP_uop f)`
+  >-
+   (fs [] \\ fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS]
+    \\ rw [] \\ fs []
+    \\ simp [Boolv_def, Once v_rel_cases])
+  \\ Cases_on `op = Opapp`
+  >- (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS])
+  \\ Cases_on `op = Opassign \/ op = Opderef`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS]
+    \\ rw [] \\ fs [] \\ rw []
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+    \\ fs [store_alloc_def, store_lookup_def, store_assign_def, state_rel_def,
+           LIST_REL_EL_EQN, store_v_same_type_cases] \\ rw []
+    \\ fs [EL_LUPDATE] \\ rw [] \\ fs []
+    \\ rename1 `nnn < LENGTH _.refs`
+    \\ last_x_assum (qspec_then `nnn` mp_tac) \\ fs []
     \\ rw [Once sv_rel_cases] \\ fs [])
+  \\ Cases_on `op = Opref`
   >-
-   (fs [store_alloc_def, state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs []
-    \\ fs [EL_APPEND_EQN] \\ rw [] \\ fs []
-    \\ rename1 `nn < _`
-    \\ `nn = LENGTH s2.refs` by fs [] \\ fs [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
-    \\ rename1 `nn < _`
-    \\ last_x_assum (qspec_then `nn` mp_tac)
-    \\ rw [sv_rel_cases] \\ fs [])
-  >-
-   (fs [store_alloc_def, state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs []
-    \\ fs [EL_APPEND_EQN] \\ rw [] \\ fs []
-    \\ `n = LENGTH s2.refs` by fs [] \\ fs [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
-    \\ last_assum (qspec_then `lnum'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ metis_tac [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
-    \\ last_x_assum (qspec_then `n'''` mp_tac)
-    \\ rw [Once sv_rel_cases])
-  >-
-   (fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
-        state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS] \\ rveq
-    \\ fs [EL_LUPDATE, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ simp [EL_LUPDATE] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_x_assum (qspec_then `lnum''` mp_tac)
-    \\ rw [Once sv_rel_cases])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS] \\ rveq
-    \\ fs [OPTREL_def]
-    \\ last_assum (qspec_then `lnum''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ metis_tac [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `dst` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
-        state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `dst` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [EL_LUPDATE] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
-    \\ last_assum (qspec_then `src` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
-    \\ last_assum (qspec_then `src` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
-    \\ last_assum (qspec_then `src'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ last_assum (qspec_then `dst'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-  >-
-   (fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
-        LIST_REL_EL_EQN, state_rel_def, PULL_EXISTS]
-    \\ last_assum (qspec_then `src'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ last_assum (qspec_then `dst'` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [EL_LUPDATE] \\ rw [])
-  >- fs [Boolv_def]
-  >- metis_tac [v_rel_v_to_char_list]
-  >- metis_tac []
-  >- metis_tac [v_rel_vs_to_string, v_rel_v_to_list]
-  >- metis_tac [v_rel_v_to_list]
-  >- fs [LIST_REL_EL_EQN]
-  >- fs [LIST_REL_EL_EQN]
-  >- metis_tac [LIST_REL_EL_EQN]
-  >- fs [LIST_REL_EL_EQN]
-  >-
-   (fs [store_alloc_def, state_rel_def] \\ rveq
-    \\ reverse conj_tac >- fs [LIST_REL_EL_EQN]
-    \\ match_mp_tac EVERY2_APPEND_suff
-    \\ fs [LIST_REL_REPLICATE_same])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ last_assum (qspec_then `lnum'''` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN]
-    \\ metis_tac [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN]
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ fs [store_alloc_def, state_rel_def, LIST_REL_EL_EQN]
+    \\ rw [] \\ fs []
     \\ rename1 `nnn < _`
-    \\ last_assum (qspec_then `nnn` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN])
+    \\ rw [EL_APPEND_EQN]
+    \\ qmatch_goalsub_abbrev_tac `EL x [_]`
+    \\ `x = 0` by fs [Abbr`x`] \\ fs [])
+  \\ Cases_on `op = Aw8alloc`
   >-
-   (fs [store_lookup_def, store_lookup_def, store_v_same_type_cases,
-        store_assign_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ rename1 `nnn < _`
-    \\ last_assum (qspec_then `nnn` mp_tac)
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    >- rw [Once v_rel_cases, subscript_exn_v_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ fs [store_alloc_def, state_rel_def, LIST_REL_EL_EQN] \\ rveq \\ fs []
+    \\ rw [EL_APPEND_EQN]
+    \\ qmatch_goalsub_abbrev_tac `EL x _`
+    \\ `x = 0` by fs [Abbr`x`] \\ fs [])
+  \\ Cases_on `op = Aw8sub \/ op = Aw8length \/ op = Aw8update`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [Once v_rel_cases, subscript_exn_v_def]
+    \\ fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN] \\ rveq \\ fs []
+    \\ rename1 `EL n _ = _`
+    \\ last_assum (qspec_then `n` mp_tac)
+    \\ (impl_tac >- fs [])
     \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
+    \\ fs [store_assign_def, store_v_same_type_cases]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ rw [EL_LUPDATE])
+  \\ Cases_on `(?sz. op = WordFromInt sz) \/ (?sz. op = WordToInt sz)`
+  >- (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs [])
+  \\ Cases_on `op = CopyStrStr`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [Once v_rel_cases, subscript_exn_v_def])
+  \\ Cases_on `op = CopyStrAw8`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
+           state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ rw [Once v_rel_cases, subscript_exn_v_def]
+    \\ last_assum (qspec_then `dst` mp_tac)
+    \\ (impl_tac >- fs [])
+    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [EL_LUPDATE] \\ rw [])
+  \\ Cases_on `op = CopyAw8Str`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN] \\ rw []
+    \\ fs [PULL_EXISTS] \\ rw [Once v_rel_cases, subscript_exn_v_def]
+    \\ last_assum (qspec_then `src` mp_tac)
+    \\ (impl_tac >- fs [])
+    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
+  \\ Cases_on `op = CopyAw8Aw8`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ fs [store_lookup_def, state_rel_def, store_assign_def,
+           store_v_same_type_cases, LIST_REL_EL_EQN] \\ rw []
+    \\ fs [PULL_EXISTS] \\ rw [Once v_rel_cases, subscript_exn_v_def]
+    \\ rename1 `EL src _ = _ ws` \\ rename1 `EL dst _ = _ ds`
+    \\ last_assum (qspec_then `dst` mp_tac)
+    \\ (impl_tac >- fs [])
+    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
+    \\ last_assum (qspec_then `src` mp_tac)
+    \\ (impl_tac >- fs [])
+    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
+    \\ rw [EL_LUPDATE])
+  \\ Cases_on `op = Ord \/ op = Chr \/ op = Chopb Lt \/ op = Chopb Gt \/
+               op = Chopb Leq \/ op = Chopb Geq`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [Once v_rel_cases, chr_exn_v_def, Boolv_def, opb_lookup_def])
+  \\ Cases_on `op = Implode \/ op = Strsub \/ op = Strlen \/ op = Strcat`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [Once v_rel_cases, subscript_exn_v_def]
+    \\ metis_tac [v_rel_v_to_char_list, v_rel_vs_to_string, v_rel_v_to_list])
+  \\ Cases_on `op = VfromList \/ op = Vsub \/ op = Vlength`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [subscript_exn_v_def] \\ fs [LIST_REL_EL_EQN]
+    \\ metis_tac [v_rel_v_to_list, LIST_REL_EL_EQN])
+  \\ Cases_on `op = Aalloc`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [subscript_exn_v_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ fs [store_alloc_def, store_v_same_type_cases, state_rel_def,
+           LIST_REL_EL_EQN] \\ rw [] \\ fs []
+    \\ rw [EL_APPEND_EQN]
+    \\ qmatch_goalsub_abbrev_tac `EL x _`
+    \\ `x = 0` by fs [Abbr`x`] \\ fs []
+    \\ rw [LIST_REL_REPLICATE_same])
+  \\ Cases_on `op = Asub \/ op = Alength`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [subscript_exn_v_def]
+    \\ fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs []
+    \\ fs [PULL_EXISTS]
+    \\ rename1 `EL nnn _ = _`
+    \\ last_assum (qspec_then `nnn` mp_tac)
+    \\ (impl_tac >- fs [])
+    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [] \\ fs []
+    \\ fs [LIST_REL_EL_EQN])
+  \\ Cases_on `op = Aupdate`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rw [subscript_exn_v_def]
+    \\ fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
+           state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs []
+    \\ fs [PULL_EXISTS]
+    \\ rename1 `EL nnn _ = _`
+    \\ last_assum (qspec_then `nnn` mp_tac)
+    \\ (impl_tac >- fs [])
+    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [] \\ fs []
     \\ fs [LIST_REL_EL_EQN]
-    \\ fs [EL_LUPDATE] \\ rw [] \\ rw [EL_LUPDATE]
+    \\ rfs [] \\ rveq \\ fs []
+    \\ rw [EL_LUPDATE]
     \\ fs [LIST_REL_EL_EQN] \\ rw []
-    \\ first_x_assum (qspec_then `n'` mp_tac) \\ rw []
-    \\ fs [EL_LUPDATE] \\ rw [])
+    \\ rw [EL_LUPDATE])
+  \\ Cases_on `op = ConfigGC`
+  >- (fs [do_app_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs [])
+  \\ Cases_on `?s. op = FFI s`
   >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ rename1 `nnn < _`
+   (fs [do_app_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
+           state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    \\ rename1 `EL nnn _ = _`
     \\ last_assum (qspec_then `nnn` mp_tac)
+    \\ impl_tac >- fs []
     \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN])
+    \\ rfs [] \\ rw []
+    \\ rw [EL_LUPDATE])
+  \\ Cases_on `op = ListAppend`
   >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ rename1 `nnn < LENGTH _`
-    \\ last_assum (qspec_then `nnn` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN]
-    \\ fs [OPTREL_def]
-    \\ metis_tac [])
-  >-
-   (fs [store_lookup_def, state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-    \\ rename1 `nnn < LENGTH _`
-    \\ last_assum (qspec_then `nnn` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [LIST_REL_EL_EQN]
-    \\ fs [OPTREL_def]
-    \\ metis_tac [])
-  >-
-   (imp_res_tac v_rel_v_to_list \\ fs [] \\ rw []
-    \\ match_mp_tac v_rel_list_to_v_APPEND
-    \\ metis_tac [v_rel_list_to_v])
-  >-
-   (fs [store_lookup_def, store_assign_def, store_v_same_type_cases,
-        state_rel_def, LIST_REL_EL_EQN, OPTREL_def, PULL_EXISTS] \\ rveq \\ fs []
-    \\ rename1 `nnn < LENGTH _`
-    \\ last_assum (qspec_then `nnn` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases] \\ rw []
-    \\ fs [EL_LUPDATE] \\ rw [])
-  >-
-   (fs [state_rel_def]
-    \\ match_mp_tac EVERY2_APPEND_suff
-    \\ fs [LIST_REL_REPLICATE_same]
-    \\ rw [OPTREL_def])
-  >-
-   (fs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE, PULL_EXISTS]
-    \\ rename1 `nnn < LENGTH _`
-    \\ first_assum (qspec_then `nnn` mp_tac)
-    \\ simp_tac std_ss [Once sv_rel_cases]
-    \\ simp_tac std_ss [OPTREL_def]
-    \\ rw [] \\ rfs [] \\ fs [] \\ fs [EL_LUPDATE] \\ rw []
-    >-
-     (last_assum (qspec_then `n` mp_tac)
-      \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [])
-    \\ first_assum (qspec_then `n` mp_tac)
-    \\ simp_tac std_ss [OPTREL_def] \\ rw [])
-  \\ fs [state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
-  \\ rename1 `nnn < LENGTH _`
-  \\ first_assum (qspec_then `nnn` mp_tac)
-  \\ simp_tac std_ss [OPTREL_def] \\ rw [] \\ fs [] \\ rw []
-  \\ first_assum (qspec_then `n` mp_tac)
-  \\ simp_tac std_ss [OPTREL_def] \\ rw [])
+   (fs [do_app_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ rw []
+    \\ imp_res_tac v_rel_v_to_list \\ fs []
+    \\ metis_tac [v_rel_list_to_v, v_rel_list_to_v_APPEND])
+  \\ Cases_on `?opn. op = Opn opn` >- (fs [] \\ Cases_on `opn` \\ fs [])
+  \\ Cases_on `?opb. op = Opb opb` >- (fs [] \\ Cases_on `opb` \\ fs [])
+  \\ Cases_on `?s opw. op = Opw s opw` >- (fs [] \\ Cases_on `opw` \\ fs [])
+  \\ Cases_on `?opb. op = Chopb opb` >- (fs [] \\ Cases_on `opb` \\ fs [])
+  \\ Cases_on `op` \\ fs [] \\ rw []
+  \\ fs [do_app_def, pair_case_eq, case_eq_thms] \\ rw [] \\ fs []
+  \\ fs [state_rel_def, LIST_REL_EL_EQN] \\ rw [] \\ fs []
+  \\ fs [OPTREL_def, EL_LUPDATE, EL_APPEND_EQN] \\ rw [] \\ fs [EL_REPLICATE]
+  \\ first_x_assum (qspec_then `n` mp_tac) \\ rw [] \\ fs []);
 
 (* ------------------------------------------------------------------------- *)
 (* Compile expressions                                                       *)
@@ -733,7 +719,8 @@ val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
      env.check_ctor /\
      ctor_rel ctors env.c
      ==>
-     !refs v. ok_Conv ctors v ==> exists_match env refs ps v`,
+     (*!refs v. ok_Conv ctors v ==> exists_match env refs ps v *)
+     !refs v. exists_match env refs ps v`,
   rw [exhaustive_match_def, exists_match_def]
   >- (fs [EXISTS_MEM] \\ metis_tac [is_unconditional_thm])
   \\ every_case_tac \\ fs [get_dty_tags_def, case_eq_thms]
@@ -747,12 +734,16 @@ val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
   \\ rw [Abbr`pp`, pmatch_Pcon_No_match]
   \\ rename1 `FLOOKUP _ _ = SOME ars`
   \\ rename1 `get_dty_tags _ _ = SOME res` \\ fs []
-  \\ `((c2, SOME x), LENGTH l1) IN env.c` by
+  \\ `((c2, SOME x), LENGTH l1) IN env.c` by cheat (* TODO *)
+   (*
    (fs [ctor_rel_def]
     \\ first_x_assum (qspec_then `x` mp_tac) \\ rw []
-    \\ metis_tac [])
+    \\ metis_tac []
+    )
+   *)
   \\ map_every imp_res_tac [ctor_rel_IN, get_dty_tags_thm]
   \\ first_x_assum (qspec_then `LENGTH l1` mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ Cases_on `lookup (LENGTH l1) ars` \\ fs []
   \\ rw [lookup_insert]
   \\ fs [domain_fromList, lookup_map, SUBSET_DEF, PULL_EXISTS] \\ rfs []
   \\ fs [EVERY_MEM, MEM_toList, PULL_EXISTS] \\ rveq
@@ -766,6 +757,7 @@ val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
   |> dest_prod |> fst)
 
+(*
 val v_rel_ok_Conv = Q.prove (
   `!v1 v2 ctors. v_rel ctors v1 v2 ==> ok_Conv ctors v1`,
   Cases \\ Cases \\ rw [Once v_rel_cases, ok_Conv_def]
@@ -773,6 +765,7 @@ val v_rel_ok_Conv = Q.prove (
   \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs []
   \\ metis_tac [LIST_REL_EL_EQN]);
+*)
 
 val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
   `(!env1 ^s1 xs t1 r1.
@@ -826,7 +819,7 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
     \\ last_x_assum match_mp_tac \\ fs [add_default_def, env_rel_def]
     \\ qexists_tac `T` \\ rw []
-    \\ metis_tac [exhaustive_exists_match, exhaustive_SUBMAP, v_rel_ok_Conv])
+    \\ metis_tac [exhaustive_exists_match, exhaustive_SUBMAP]) (* , v_rel_ok_Conv]) *)
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ fs [case_eq_thms, pair_case_eq, PULL_EXISTS]
@@ -837,9 +830,10 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
   >-
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qpat_x_assum `_ ==> _` mp_tac
-    \\ impl_keep_tac >- fs [env_rel_def]
+    \\ (impl_keep_tac >- fs [env_rel_def])
     \\ rpt (disch_then drule) \\ rfs [] \\ fs [compile_exps_LENGTH]
-    \\ fsrw_tac [DNF_ss] [env_rel_def] \\ rw []
+    \\ fsrw_tac [DNF_ss] [env_rel_def] \\ rw [])
+    (*
     \\ CASE_TAC \\ fs []
     \\ CASE_TAC \\ fs []
     \\ imp_res_tac evaluate_length
@@ -848,7 +842,7 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
     \\ every_case_tac \\ fs [] \\ rw []
     >- metis_tac []
     \\ rename1 `_ = SOME cs` \\ Cases_on `lookup (LENGTH v2) cs` \\ fs []
-    \\ metis_tac [])
+    \\ metis_tac []) *)
   >-
    (every_case_tac \\ fs [] \\ rw [] \\ fs [env_rel_def]
     \\ map_every imp_res_tac [nv_rel_ALOOKUP_v_rel, MEM_LIST_REL] \\ rfs [])
@@ -885,8 +879,8 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
     \\ last_x_assum drule \\ rpt (disch_then drule)
     \\ disch_then match_mp_tac
     \\ qexists_tac `F` \\ rw [add_default_def] \\ fs [bind_exn_v_def]
-    \\ metis_tac [exhaustive_exists_match, env_rel_def, exhaustive_SUBMAP,
-                  v_rel_ok_Conv])
+    \\ metis_tac [exhaustive_exists_match, env_rel_def, exhaustive_SUBMAP])
+                  (*v_rel_ok_Conv])*)
   >- (* Let *)
    (fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs [PULL_EXISTS]
@@ -908,7 +902,8 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
    (fs [add_default_def] \\ fs [PULL_EXISTS]
     \\ rw [evaluate_def, pat_bindings_def, pmatch_def, compile_exps_def,
            exists_match_def] \\ fs [env_rel_def]
-    \\ rw [] \\ fs [] \\ EVAL_TAC)
+    \\ rw [] \\ fs [] \\ EVAL_TAC
+    \\ fs [initial_ctors_def, SUBSET_DEF] \\ rfs [])
   >- fs [exists_match_def]
   >-
    (`LIST_REL (sv_rel (v_rel ctors)) s1.refs s2.refs` by fs [state_rel_def]
@@ -981,79 +976,279 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
 (* Compile declarations                                                      *)
 (* ------------------------------------------------------------------------- *)
 
-(* TODO Both of these are still slightly off *)
-(* TODO compile_exps_evaluate needs bind_exn_v in state *)
+val compile_dec_SUBMAP = Q.prove (
+  `!dec. compile_dec ctors_pre dec = (ctors_post, dec2) ==>
+           ctors_pre SUBMAP ctors_post`,
+  Cases \\ rw [compile_dec_def, case_eq_thms] \\ fs [flookup_thm]);
+
+val compile_decs_SUBMAP = Q.prove (
+  `!decs ctors_pre ctors_post decs2.
+     compile_decs ctors_pre decs = (ctors_post, decs2) ==>
+       ctors_pre SUBMAP ctors_post`,
+  Induct \\ rw [compile_decs_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ imp_res_tac compile_dec_SUBMAP
+  \\ metis_tac [SUBMAP_TRANS]);
+
+val v_rel_SUBMAP = Q.prove (
+  `(!pre v1 v2.
+    v_rel pre v1 v2 ==>
+    !post.
+    pre SUBMAP post ==>
+    v_rel post v1 v2) /\
+   (!pre vs1 vs2.
+    nv_rel pre vs1 vs2 ==>
+    !post.
+    pre SUBMAP post ==>
+    nv_rel post vs1 vs2)`,
+  ho_match_mp_tac v_rel_ind \\ rw [] \\ fs [LIST_REL_EL_EQN]
+  \\ rw [Once v_rel_cases] \\ metis_tac [SUBMAP_TRANS]);
+
+val sv_rel_lemma = Q.prove (
+  `!R x y. (!x y. R x y ==> Q ==> P x y) ==> sv_rel R x y ==> Q ==> sv_rel P x y`,
+  ho_match_mp_tac sv_rel_ind
+  \\ rw [] \\ fs [LIST_REL_EL_EQN]);
+
+val sv_rel_v_rel_SUBMAP = Q.prove (
+  `sv_rel (v_rel pre) v1 v2 /\
+   pre SUBMAP post
+   ==>
+   sv_rel (v_rel post) v1 v2`,
+  rw [] \\ ho_match_mp_tac (GEN_ALL (MP_CANON sv_rel_lemma))
+  \\ qexists_tac `pre SUBMAP post` \\ fs []
+  \\ qexists_tac `v_rel pre` \\ rw []
+  \\ imp_res_tac v_rel_SUBMAP);
+
+val env_rel_SUBMAP = Q.prove (
+  `env_rel pre env1 env2 /\
+   pre SUBMAP post /\
+   env1.c SUBSET c1 /\
+   ctor_rel post c1
+   ==>
+   env_rel post (env1 with c := c1) (env2 with c := c1)`,
+  rw [env_rel_def]
+  \\ metis_tac [SUBSET_TRANS, SUBMAP_TRANS, v_rel_SUBMAP]);
+
+val dec_res_rel_def = Define `
+  (dec_res_rel ctors NONE NONE <=> T) /\
+  (dec_res_rel ctors (SOME r1) (SOME r2) <=>
+     result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2)) /\
+  (dec_res_rel _ _ _ <=> F)`;
+
+val dec_res_rel_thms = Q.store_thm("dec_res_rel_thms[simp]",
+  `(!ctors r. dec_res_rel ctors NONE r <=> r = NONE) /\
+   (!ctors r. dec_res_rel ctors r NONE <=> r = NONE) /\
+   (!ctors e r. dec_res_rel ctors (SOME e) r <=>
+      ?e1. r = SOME e1 /\
+           result_rel (LIST_REL o v_rel) ctors (Rerr e) (Rerr e1)) /\
+   (!ctors e r. dec_res_rel ctors r (SOME e) <=>
+      ?e1. r = SOME e1 /\
+           result_rel (LIST_REL o v_rel) ctors (Rerr e1) (Rerr e))`,
+  rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]);
+
+val compile_exps_lemma =
+  CONJUNCT1 compile_exps_evaluate
+  |> SPEC_ALL |> UNDISCH |> SPEC_ALL
+  |> Q.GENL [`ctors_pre`,`ctors`]
+  |> Q.SPECL [`ctors`,`ctors`]
+  |> SIMP_RULE (srw_ss()) []
+  |> DISCH_ALL |> GEN_ALL;
 
 val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
-  `!dec1 env1 s1 t1 cset1 res1 ctors env2 s2 dec2 ctors_pre ctors2.
-     evaluate_dec env1 s1 dec1 = (t1, cset1, res1) /\
-     res1 <> SOME (Rabort Rtype_error) /\
-     env_rel ctors env1 env2 /\
-     state_rel ctors s1 s2 /\
-     compile_dec ctors dec1 = (ctors2, dec2)
+  `!d1 env1 s1 t1 c1 r1.
+     evaluate_dec env1 s1 d1 = (t1, c1, r1) /\
+     r1 <> SOME (Rabort Rtype_error)
      ==>
-     ctors SUBMAP ctors2 /\
-     ?t2 res2.
-       state_rel ctors t1 t2 /\
-       evaluate_dec env2 s2 dec2 = (t2, cset1, res2) /\
-       (res1 = NONE ==> res2 = NONE) /\
-       (!r1. res1 = SOME r1
-             ==> ?r2. res2 = SOME r2 /\
-                      result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2))`,
-  Induct \\ rw [] \\ fs [compile_dec_def] \\ rw []
+     !ctors env2 s2.
+       env_rel ctors env1 env2 /\
+       state_rel ctors s1 s2
+       ==>
+       ?t2 r2 d2 ctors_post c2.
+         ctors SUBMAP ctors_post /\
+         compile_dec ctors d1 = (ctors_post, d2) /\
+         env_rel ctors_post (env1 with c updated_by $UNION c1)
+                            (env2 with c updated_by $UNION c2) /\
+         state_rel ctors_post t1 t2 /\
+         dec_res_rel ctors_post r1 r2 /\
+         evaluate_dec env2 s2 d2 = (t2, c2, r2) /\
+         c1 = c2`,
+  Induct \\ rw []
   >- (* Dlet *)
-   (fs [evaluate_dec_def, compile_exp_def, case_eq_thms, pair_case_eq] \\ rw []
-    \\ fs [PULL_EXISTS]
-    \\ `env_rel ctors (env1 with v := []) (env2 with v := [])`
+   (`env_rel ctors (env1 with v := []) (env2 with v := [])`
       by (fs [env_rel_def] \\ metis_tac [])
-    \\ drule (CONJUNCT1 compile_exps_evaluate) \\ fs []
+    \\ fs [compile_dec_def, evaluate_dec_def, pair_case_eq, case_eq_thms]
+    \\ rveq \\ fs [PULL_EXISTS]
+    \\ drule compile_exps_lemma \\ fs []
+    \\ rpt (disch_then drule) \\ rw []
+    \\ fs [compile_exp_def, env_rel_def]
+    \\ metis_tac [])
+  >- (* Dtype *)
+   (
+    fs [evaluate_dec_def, env_rel_def, is_fresh_type_def, compile_dec_def]
+    \\ every_case_tac \\ fs [] \\ rw []
+    \\ fs [evaluate_dec_def, is_fresh_type_def]
+    >-
+     (fs [flookup_thm]
+      \\ conj_tac >- metis_tac [SUBSET_DEF, SUBSET_UNION]
+      \\ conj_tac
+      >- (fs [SUBMAP_DEF, FAPPLY_FUPDATE_THM] \\ rw [] \\ metis_tac [])
+      \\ conj_tac
+      >-
+       (fs [ctor_rel_def] \\ rw [FLOOKUP_UPDATE]
+        \\ last_x_assum (qspec_then `n` mp_tac)
+        \\ CASE_TAC \\ fs [flookup_thm])
+      \\ conj_tac
+      >-
+       (match_mp_tac (MP_CANON (CONJUNCT2 v_rel_SUBMAP))
+        \\ qexists_tac `ctors` \\ fs [])
+      \\ fs [state_rel_def, LIST_REL_EL_EQN] \\ rw []
+      >-
+       (match_mp_tac (GEN_ALL sv_rel_v_rel_SUBMAP)
+        \\ qexists_tac `ctors` \\ fs [])
+      \\ simp [OPTREL_def]
+      \\ first_x_assum (qspec_then `n'` mp_tac) \\ rw [OPTREL_def] \\ fs []
+      \\ match_mp_tac (MP_CANON (CONJUNCT1 v_rel_SUBMAP))
+      \\ qexists_tac `ctors` \\ fs [])
+    \\ conj_tac >- metis_tac [SUBSET_DEF, SUBSET_UNION]
+    \\ fs [ctor_rel_def] \\ rw []
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ TRY
+     (last_x_assum (qspec_then `tyid` mp_tac) \\ rw []
+      \\ CCONTR_TAC \\ fs []
+      \\ NO_TAC)
+    \\ cheat (* TODO uniqueness of type ids *)
+   )
+     (* Dexn *)
+  \\ fs [evaluate_dec_def, env_rel_def, is_fresh_exn_def, compile_dec_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def]
+  \\ metis_tac [SUBSET_DEF, SUBSET_UNION]);
+
+val env_updated_by_UNION = Q.prove (
+  `env with c updated_by $UNION c1 =
+   env with c := env.c UNION c1`,
+  fs [environment_component_equality, UNION_COMM]);
+
+val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
+  `!ds1 env1 s1 t1 c1 r1.
+     evaluate_decs env1 s1 ds1 = (t1, c1, r1) /\
+     r1 <> SOME (Rabort Rtype_error)
+     ==>
+     !ctors env2 s2.
+       env_rel ctors env1 env2 /\
+       state_rel ctors s1 s2
+       ==>
+       ?t2 r2 ds2 ctors_post c2.
+         ctors SUBMAP ctors_post /\
+         compile_decs ctors ds1 = (ctors_post, ds2) /\
+         env_rel ctors_post (env1 with c updated_by $UNION c1)
+                            (env2 with c updated_by $UNION c2) /\
+         state_rel ctors_post t1 t2 /\
+         dec_res_rel ctors_post r1 r2 /\
+         evaluate_decs env2 s2 ds2 = (t2, c2, r2) /\
+         c1 = c2`,
+  Induct \\ rw []
+  >-
+   (fs [evaluate_decs_def, compile_decs_def, env_rel_def,
+        environment_component_equality] \\ rw []
+    \\ metis_tac [])
+  \\ fs [evaluate_decs_def, compile_decs_def, case_eq_thms, pair_case_eq]
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  >-
+   (drule compile_dec_evaluate \\ fs []
+    \\ rpt (disch_then drule) \\ rw []
+    \\ last_x_assum drule
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ first_x_assum (qspec_then `ctors` mp_tac) \\ rw [])
-  \\ fs [evaluate_dec_def, is_fresh_exn_def, is_fresh_type_def, env_rel_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ cheat (* TODO *)
+    \\ fs [evaluate_decs_def, env_rel_def, environment_component_equality]
+    \\ rfs [] \\ fs [AC UNION_COMM UNION_ASSOC]
+    \\ metis_tac [SUBMAP_TRANS])
+  \\ fs [evaluate_decs_def]
+  \\ drule compile_dec_evaluate \\ fs []
+  \\ rpt (disch_then drule) \\ rw [] \\ fs []
+  \\ imp_res_tac compile_decs_SUBMAP \\ fs []
+  \\ fs [env_updated_by_UNION] \\ rw []
+  >- metis_tac [SUBMAP_TRANS]
+  >-
+   (
+    fs [env_rel_def, environment_component_equality] \\ rfs []
+    \\ conj_tac >- metis_tac [SUBMAP_TRANS]
+    \\ reverse conj_tac >- metis_tac [v_rel_SUBMAP]
+    \\ fs [ctor_rel_def] \\ rw []
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ rpt (last_x_assum (qspec_then `tyid` mp_tac) \\ rw [])
+    \\ every_case_tac \\ fs []
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
+    \\ cheat (* TODO *)
+   )
+  >-
+   (fs [state_rel_def, LIST_REL_EL_EQN] \\ rw []
+    >-
+     (match_mp_tac (GEN_ALL sv_rel_v_rel_SUBMAP)
+      \\ qexists_tac `ctor1` \\ fs [])
+    \\ fs [OPTREL_def]
+    \\ first_x_assum (qspec_then `n` mp_tac) \\ rw [] \\ fs []
+    \\ metis_tac [v_rel_SUBMAP])
+  >- metis_tac [v_rel_SUBMAP]
+  >- metis_tac [SUBMAP_TRANS]
+  >-
+   (
+    fs [env_rel_def, environment_component_equality] \\ rfs []
+    \\ conj_tac >- metis_tac [SUBMAP_TRANS]
+    \\ reverse conj_tac >- metis_tac [v_rel_SUBMAP]
+    \\ fs [ctor_rel_def] \\ rw []
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ rpt (last_x_assum (qspec_then `tyid` mp_tac) \\ rw [])
+    \\ every_case_tac \\ fs []
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
+    \\ cheat (* TODO *)
+   )
+  \\ fs [state_rel_def, LIST_REL_EL_EQN] \\ rw []
+  >-
+   (match_mp_tac (GEN_ALL sv_rel_v_rel_SUBMAP)
+    \\ qexists_tac `ctor1` \\ fs [])
+  \\ fs [OPTREL_def]
+  \\ first_x_assum (qspec_then `n` mp_tac) \\ rw [] \\ fs []
+  \\ metis_tac [v_rel_SUBMAP]
   );
 
-val compile_decs_evaluate_decs = Q.store_thm("compile_decs_evaluate_decs",
-  `!ds1 env1 s1 t1 c1 ctors res1 env2 s2 ctors_after ds2.
-     evaluate_decs env1 s1 ds1 = (t1, c1, res1) /\
-     res1 <> SOME (Rabort Rtype_error) /\
-     env_rel ctors env1 env2 /\
-     state_rel ctors s1 s2 /\
-     compile_decs ctors ds1 = (ctors_after, ds2)
-     ==>
-       ?res2 t2 c2.
-         state_rel ctors t1 t2 /\
-         evaluate_decs env2 s2 ds2 = (t2, c2, res2) /\
-         (res1 = NONE ==> res2 = NONE) /\
-         (!r1. res1 = SOME r1 ==>
-            ?r2. res2 = SOME r2 /\
-                 result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2))`,
-  cheat (* TODO *)
-  );
+(* ------------------------------------------------------------------------- *)
+(* Top-level semantics theorem                                               *)
+(* ------------------------------------------------------------------------- *)
+
+val ctor_rel_initial_ctor = Q.prove (
+  `ctor_rel init_ctors (initial_env exh ctors).c`,
+  rw [ctor_rel_def, init_ctors_def, initial_env_def, flookup_fupdate_list]
+  \\ rw [] \\ rpt (pop_assum mp_tac)
+  \\ rw [lookup_insert]
+  \\ EVAL_TAC \\ fs [lookup_def]);
+
+val env_rel_init = Q.prove (
+  `env_rel init_ctors (initial_env F T) (initial_env T T)`,
+
+val state_rel_init = Q.prove (
+  `state_rel init_ctors (initial_state ffi k) (initial_state ffi k)`,
+  EVAL_TAC \\ fs []);
 
 val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
   `eval_sim
-     (ffi:'ffi ffi_state) F T ds1 T T ds2
+     (ffi:'ffi ffi_state) F T ds1 T T
+     (SND (compile ds1))
      (\p1 p2. p2 = SND (compile p1)) F`,
   rw [eval_sim_def] \\ qexists_tac `0` \\ fs []
-  \\ sg `state_rel FEMPTY (initial_state ffi k) (initial_state ffi k)`
-  >- rw [state_rel_def, initial_state_def]
-  \\ sg `env_rel FEMPTY (initial_env F T) (initial_env T T)`
-  >-
-   (rw [env_rel_def, initial_env_def]
-    \\ cheat (* TODO Bind_tag etc required *))
-  \\ rename1 `evaluate_decs env1 s1 ds1`
-  \\ rename1 `evaluate_decs env2 _`
   \\ Cases_on `compile ds1` \\ fs [compile_def]
-  \\ drule (GEN_ALL compile_decs_evaluate_decs)
-  \\ rpt (disch_then drule) \\ rw [] \\ fs []
-  \\ fs [state_rel_def] \\ rw []);
+  \\ `env_rel init_ctors (initial_env F T) (initial_env T T)`
+    by (rw [env_rel_def, ctor_rel_initial_ctor]
+        \\ EVAL_TAC \\ fs []
+        \\ fs [lookup_def] \\ rw [])
+  \\ `state_rel init_ctors (initial_state ffi k) (initial_state ffi k)`
+    by (EVAL_TAC \\ fs [])
+  \\ drule compile_decs_evaluate \\ fs []
+  \\ rpt (disch_then drule) \\ rw []
+  \\ fs [state_rel_def] \\ rw [dec_res_rel_def] \\ fs []);
 
 val compile_decs_semantics = save_thm ("compile_decs_semantics",
   MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
            compile_decs_eval_sim
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
+  |> SIMP_RULE (srw_ss()) []);
 
 val _ = export_theory();
 
