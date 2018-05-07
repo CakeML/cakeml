@@ -2,9 +2,6 @@
 
    * Restore ok_Conv_def (or something like it). Needs to hold after
      the constructors have been extended.
-   * Uniqueness of type declarations? The correspondence between the
-     ctor map and the env.c set seems a bit broken as ctor_rel cannot
-     always be updated.
 *)
 
 open semanticPrimitivesTheory
@@ -160,20 +157,14 @@ val nv_rel_LIST_REL = Q.store_thm("nv_rel_LIST_REL",
 val nv_rel_NIL = Q.store_thm("nv_rel_NIL[simp]",
   `nv_rel ctors [] []`, rw [Once v_rel_cases]);
 
-(* This needs to be removed from the proofs outside of this theory
-   (something needs to be proven in source_to_flat) *)
 val ctor_rel_def = Define `
   ctor_rel ctors (c : ((ctor_id # type_id) # num) set) <=>
-    !tyid.
-      case FLOOKUP ctors tyid of
-        NONE      => !cid arity. ((cid, SOME tyid), arity) NOTIN c
-      | SOME dtys =>
-          (!arity max.
-            lookup arity dtys = SOME max ==>
-              (!cid. ((cid, SOME tyid), arity) IN c <=> cid < max)) /\
-          (!arity.
-            lookup arity dtys = NONE ==>
-              (!cid. ((cid, SOME tyid), arity) NOTIN c))`;
+    !ty. case FLOOKUP ctors ty of
+           NONE => !id a. ((id,SOME ty),a) NOTIN c
+         | SOME tys =>
+             !a max.
+               lookup a tys = SOME max ==>
+                 !id. id < max ==> ((id,SOME ty),a) IN c`;
 
 val env_rel_def = Define `
   env_rel ctors env1 env2 <=>
@@ -686,7 +677,7 @@ val get_dty_tags_thm = Q.store_thm("get_dty_tags_thm",
   \\ rw [] \\ fs [SUBSET_DEF] \\ rw []
   \\ metis_tac []);
 
-val pmatch_Pcon_No_match = Q.store_thm("pmatch_Pcon_No_match",
+val pmatch_Pcon_No_match = Q.prove(
   `env.check_ctor /\
    EVERY is_unconditional ps
    ==>
@@ -700,18 +691,6 @@ val pmatch_Pcon_No_match = Q.store_thm("pmatch_Pcon_No_match",
   \\ PairCases_on `x` \\ fs [pmatch_def]
   \\ rw [ctor_same_type_def, same_ctor_def] \\ fs []
   \\ metis_tac [is_unconditional_list_thm]);
-
-val ctor_rel_IN = Q.prove (
-  `ctor_rel ctors c /\
-   ((cid, SOME tyid), arity) IN c /\
-   FLOOKUP ctors tyid = SOME ars
-   ==>
-     (lookup arity ars = SOME max ==> cid < max) /\
-     (lookup arity ars <> NONE)`,
-  rw [ctor_rel_def]
-  \\ last_x_assum mp_tac
-  \\ disch_then (qspec_then `tyid` mp_tac) \\ rw []
-  \\ metis_tac []);
 
 val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
   `!ctors ps env.
@@ -734,24 +713,27 @@ val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
   \\ rw [Abbr`pp`, pmatch_Pcon_No_match]
   \\ rename1 `FLOOKUP _ _ = SOME ars`
   \\ rename1 `get_dty_tags _ _ = SOME res` \\ fs []
-  \\ `((c2, SOME x), LENGTH l1) IN env.c` by cheat (* TODO *)
-   (*
-   (fs [ctor_rel_def]
-    \\ first_x_assum (qspec_then `x` mp_tac) \\ rw []
-    \\ metis_tac []
-    )
-   *)
-  \\ map_every imp_res_tac [ctor_rel_IN, get_dty_tags_thm]
+  \\ imp_res_tac get_dty_tags_thm
+  (*
   \\ first_x_assum (qspec_then `LENGTH l1` mp_tac o CONV_RULE SWAP_FORALL_CONV)
-  \\ Cases_on `lookup (LENGTH l1) ars` \\ fs []
+  \\ fs [ctor_rel_def]
+  \\ last_x_assum (qspec_then `x` assume_tac) \\ rfs []
+  \\ `!a max. lookup a ars = SOME max ==>
+        !id. id < max ==> ((id,SOME x), a) IN env.c`
+      by (rw [] \\ first_x_assum (qspec_then `a` assume_tac) \\ rfs [])
+  \\ qpat_x_assum `!x. option_CASE _ _ _` kall_tac
   \\ rw [lookup_insert]
   \\ fs [domain_fromList, lookup_map, SUBSET_DEF, PULL_EXISTS] \\ rfs []
   \\ fs [EVERY_MEM, MEM_toList, PULL_EXISTS] \\ rveq
   \\ first_x_assum (qspec_then `c2` mp_tac o PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
   \\ res_tac \\ fs [] \\ rw []
+  \\ res_tac
   \\ asm_exists_tac
   \\ rw [pmatch_def, same_ctor_def, ctor_same_type_def]
   \\ metis_tac [EVERY_MEM, is_unconditional_list_thm]);
+  *)
+  \\ cheat (* TODO ok_Conv thing *)
+  );
 
 val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
@@ -1019,15 +1001,16 @@ val sv_rel_v_rel_SUBMAP = Q.prove (
   \\ qexists_tac `v_rel pre` \\ rw []
   \\ imp_res_tac v_rel_SUBMAP);
 
-val env_rel_SUBMAP = Q.prove (
-  `env_rel pre env1 env2 /\
-   pre SUBMAP post /\
-   env1.c SUBSET c1 /\
-   ctor_rel post c1
+val state_rel_SUBMAP = Q.prove (
+  `state_rel pre s1 s2 /\
+   pre SUBMAP post
    ==>
-   env_rel post (env1 with c := c1) (env2 with c := c1)`,
-  rw [env_rel_def]
-  \\ metis_tac [SUBSET_TRANS, SUBMAP_TRANS, v_rel_SUBMAP]);
+   state_rel post s1 s2`,
+  rw [state_rel_def, LIST_REL_EL_EQN]
+  >- metis_tac [sv_rel_v_rel_SUBMAP]
+  \\ first_x_assum (qspec_then `n` mp_tac)
+  \\ rw [OPTREL_def] \\ fs []
+  \\ metis_tac [v_rel_SUBMAP]);
 
 val dec_res_rel_def = Define `
   (dec_res_rel ctors NONE NONE <=> T) /\
@@ -1054,6 +1037,38 @@ val compile_exps_lemma =
   |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL |> GEN_ALL;
 
+val compile_dec_ctor_rel = Q.store_thm("compile_dec_ctor_rel",
+  `evaluate_dec env s d1 = (t, c1, r) /\
+   r <> SOME (Rabort Rtype_error) /\
+   env.check_ctor /\
+   ctor_rel ctors_pre env.c /\
+   compile_dec ctors_pre d1 = (ctors, d2)
+   ==>
+   ctors_pre SUBMAP ctors /\
+   ctor_rel ctors (env.c UNION c1)`,
+  Cases_on `d1` \\ simp [evaluate_dec_def]
+  >- (fs [compile_dec_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
+  >-
+   (rw [] \\ fs [compile_dec_def]
+    \\ pop_assum mp_tac \\ CASE_TAC \\ fs []
+    >- (fs [flookup_thm] \\ rw [] \\ fs [])
+    \\ fs [ctor_rel_def] \\ rw []
+    >- (fs [FLOOKUP_UPDATE] \\ rw [])
+    \\ CASE_TAC \\ fs []
+    >-
+     (first_x_assum (qspec_then `ty` assume_tac) \\ rfs []
+      \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [])
+    \\ rw [] \\ fs []
+    \\ last_x_assum (qspec_then `ty` assume_tac) \\ rfs [])
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ fs [compile_dec_def, is_fresh_exn_def, ctor_rel_def]);
+
+val env_updated_by_UNION = Q.prove (
+  `env with c updated_by $UNION c1 = env with c := env.c UNION c1 /\
+   env with c updated_by $UNION c1 o $UNION c2 =
+   env with c := env.c UNION c1 UNION c2`,
+  fs [environment_component_equality, AC UNION_COMM UNION_ASSOC]);
+
 val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
   `!d1 env1 s1 t1 c1 r1.
      evaluate_dec env1 s1 d1 = (t1, c1, r1) /\
@@ -1072,7 +1087,7 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
          dec_res_rel ctors_post r1 r2 /\
          evaluate_dec env2 s2 d2 = (t2, c2, r2) /\
          c1 = c2`,
-  Induct \\ rw []
+  Cases \\ rw []
   >- (* Dlet *)
    (`env_rel ctors (env1 with v := []) (env2 with v := [])`
       by (fs [env_rel_def] \\ metis_tac [])
@@ -1083,50 +1098,30 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
     \\ fs [compile_exp_def, env_rel_def]
     \\ metis_tac [])
   >- (* Dtype *)
-   (
-    fs [evaluate_dec_def, env_rel_def, is_fresh_type_def, compile_dec_def]
-    \\ every_case_tac \\ fs [] \\ rw []
-    \\ fs [evaluate_dec_def, is_fresh_type_def]
+   (`env1.check_ctor /\ ctor_rel ctors env1.c` by fs [env_rel_def]
+    \\ Cases_on `compile_dec ctors (Dtype n s)`
+    \\ drule (GEN_ALL compile_dec_ctor_rel)
+    \\ rpt (disch_then drule) \\ strip_tac
+    \\ `init_ctors SUBMAP q` by metis_tac [SUBMAP_TRANS, env_rel_def]
+    \\ fs [env_updated_by_UNION] \\ fs [env_rel_def]
+    \\ fs [SUBSET_DEF]
+    \\ simp [RIGHT_EXISTS_AND_THM]
+    \\ conj_tac >- metis_tac [v_rel_SUBMAP]
+    \\ qhdtm_x_assum `compile_dec` mp_tac
+    \\ simp [compile_dec_def]
+    \\ reverse CASE_TAC
     >-
-     (fs [flookup_thm]
-      \\ conj_tac >- metis_tac [SUBSET_DEF, SUBSET_UNION]
-      \\ conj_tac
-      >- (fs [SUBMAP_DEF, FAPPLY_FUPDATE_THM] \\ rw [] \\ metis_tac [])
-      \\ conj_tac
-      >-
-       (fs [ctor_rel_def] \\ rw [FLOOKUP_UPDATE]
-        \\ last_x_assum (qspec_then `n` mp_tac)
-        \\ CASE_TAC \\ fs [flookup_thm])
-      \\ conj_tac
-      >-
-       (match_mp_tac (MP_CANON (CONJUNCT2 v_rel_SUBMAP))
-        \\ qexists_tac `ctors` \\ fs [])
-      \\ fs [state_rel_def, LIST_REL_EL_EQN] \\ rw []
-      >-
-       (match_mp_tac (GEN_ALL sv_rel_v_rel_SUBMAP)
-        \\ qexists_tac `ctors` \\ fs [])
-      \\ simp [OPTREL_def]
-      \\ first_x_assum (qspec_then `n'` mp_tac) \\ rw [OPTREL_def] \\ fs []
-      \\ match_mp_tac (MP_CANON (CONJUNCT1 v_rel_SUBMAP))
-      \\ qexists_tac `ctors` \\ fs [])
-    \\ conj_tac >- metis_tac [SUBSET_DEF, SUBSET_UNION]
-    \\ fs [ctor_rel_def] \\ rw []
-    \\ CASE_TAC \\ fs [] \\ rw []
-    \\ TRY
-     (last_x_assum (qspec_then `tyid` mp_tac) \\ rw []
-      \\ CCONTR_TAC \\ fs []
-      \\ NO_TAC)
-    \\ cheat (* TODO uniqueness of type ids *)
-   )
+     (rw [] \\ fs [evaluate_dec_def, is_fresh_type_def, env_rel_def]
+      \\ every_case_tac \\ fs [] \\ rw [])
+    \\ strip_tac \\ rveq
+    \\ qmatch_asmsub_abbrev_tac `ctors |+ new`
+    \\ fs [evaluate_dec_def, env_rel_def, is_fresh_type_def]
+    \\ every_case_tac \\ fs []
+    \\ metis_tac [state_rel_SUBMAP])
      (* Dexn *)
   \\ fs [evaluate_dec_def, env_rel_def, is_fresh_exn_def, compile_dec_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def, FORALL_PROD]
   \\ metis_tac [SUBSET_DEF, SUBSET_UNION]);
-
-val env_updated_by_UNION = Q.prove (
-  `env with c updated_by $UNION c1 =
-   env with c := env.c UNION c1`,
-  fs [environment_component_equality, UNION_COMM]);
 
 val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
   `!ds1 env1 s1 t1 c1 r1.
@@ -1140,8 +1135,9 @@ val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
        ?t2 r2 ds2 ctors_post c2.
          ctors SUBMAP ctors_post /\
          compile_decs ctors ds1 = (ctors_post, ds2) /\
-         env_rel ctors_post (env1 with c updated_by $UNION c1)
-                            (env2 with c updated_by $UNION c2) /\
+         (r1 = NONE ==>
+           env_rel ctors_post (env1 with c updated_by $UNION c1)
+                              (env2 with c updated_by $UNION c2)) /\
          state_rel ctors_post t1 t2 /\
          dec_res_rel ctors_post r1 r2 /\
          evaluate_decs env2 s2 ds2 = (t2, c2, r2) /\
@@ -1153,62 +1149,16 @@ val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
     \\ metis_tac [])
   \\ fs [evaluate_decs_def, compile_decs_def, case_eq_thms, pair_case_eq]
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  >-
-   (drule compile_dec_evaluate \\ fs []
-    \\ rpt (disch_then drule) \\ rw []
-    \\ last_x_assum drule
-    \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ fs [evaluate_decs_def, env_rel_def, environment_component_equality]
-    \\ rfs [] \\ fs [AC UNION_COMM UNION_ASSOC]
-    \\ metis_tac [SUBMAP_TRANS])
-  \\ fs [evaluate_decs_def]
   \\ drule compile_dec_evaluate \\ fs []
-  \\ rpt (disch_then drule) \\ rw [] \\ fs []
-  \\ imp_res_tac compile_decs_SUBMAP \\ fs []
-  \\ fs [env_updated_by_UNION] \\ rw []
-  >- metis_tac [SUBMAP_TRANS]
+  \\ rpt (disch_then drule)
   >-
-   (
-    fs [env_rel_def, environment_component_equality] \\ rfs []
+   (rw [] \\ last_x_assum drule
+    \\ rpt (disch_then drule) \\ rw [] \\ fs []
+    \\ simp [RIGHT_EXISTS_AND_THM]
     \\ conj_tac >- metis_tac [SUBMAP_TRANS]
-    \\ reverse conj_tac >- metis_tac [v_rel_SUBMAP]
-    \\ fs [ctor_rel_def] \\ rw []
-    \\ CASE_TAC \\ fs [] \\ rw []
-    \\ rpt (last_x_assum (qspec_then `tyid` mp_tac) \\ rw [])
-    \\ every_case_tac \\ fs []
-    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
-    \\ cheat (* TODO *)
-   )
-  >-
-   (fs [state_rel_def, LIST_REL_EL_EQN] \\ rw []
-    >-
-     (match_mp_tac (GEN_ALL sv_rel_v_rel_SUBMAP)
-      \\ qexists_tac `ctor1` \\ fs [])
-    \\ fs [OPTREL_def]
-    \\ first_x_assum (qspec_then `n` mp_tac) \\ rw [] \\ fs []
-    \\ metis_tac [v_rel_SUBMAP])
-  >- metis_tac [v_rel_SUBMAP]
-  >- metis_tac [SUBMAP_TRANS]
-  >-
-   (
-    fs [env_rel_def, environment_component_equality] \\ rfs []
-    \\ conj_tac >- metis_tac [SUBMAP_TRANS]
-    \\ reverse conj_tac >- metis_tac [v_rel_SUBMAP]
-    \\ fs [ctor_rel_def] \\ rw []
-    \\ CASE_TAC \\ fs [] \\ rw []
-    \\ rpt (last_x_assum (qspec_then `tyid` mp_tac) \\ rw [])
-    \\ every_case_tac \\ fs []
-    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
-    \\ cheat (* TODO *)
-   )
-  \\ fs [state_rel_def, LIST_REL_EL_EQN] \\ rw []
-  >-
-   (match_mp_tac (GEN_ALL sv_rel_v_rel_SUBMAP)
-    \\ qexists_tac `ctor1` \\ fs [])
-  \\ fs [OPTREL_def]
-  \\ first_x_assum (qspec_then `n` mp_tac) \\ rw [] \\ fs []
-  \\ metis_tac [v_rel_SUBMAP]
-  );
+    \\ fs [env_updated_by_UNION, AC UNION_ASSOC UNION_COMM, evaluate_decs_def])
+  \\ rw [] \\ fs [env_updated_by_UNION] \\ rw [] \\ fs [evaluate_decs_def]
+  \\ metis_tac [v_rel_SUBMAP, state_rel_SUBMAP, SUBMAP_TRANS, compile_decs_SUBMAP]);
 
 (* ------------------------------------------------------------------------- *)
 (* Top-level semantics theorem                                               *)
@@ -1216,17 +1166,8 @@ val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
 
 val ctor_rel_initial_ctor = Q.prove (
   `ctor_rel init_ctors (initial_env exh ctors).c`,
-  rw [ctor_rel_def, init_ctors_def, initial_env_def, flookup_fupdate_list]
-  \\ rw [] \\ rpt (pop_assum mp_tac)
-  \\ rw [lookup_insert]
-  \\ EVAL_TAC \\ fs [lookup_def]);
-
-val env_rel_init = Q.prove (
-  `env_rel init_ctors (initial_env F T) (initial_env T T)`,
-
-val state_rel_init = Q.prove (
-  `state_rel init_ctors (initial_state ffi k) (initial_state ffi k)`,
-  EVAL_TAC \\ fs []);
+  rw [ctor_rel_def, init_ctors_def, initial_env_def, flookup_fupdate_list] \\ rw []
+  \\ fs [lookup_insert] \\ every_case_tac \\ fs [lookup_def] \\ EVAL_TAC \\ rw []);
 
 val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
   `eval_sim
