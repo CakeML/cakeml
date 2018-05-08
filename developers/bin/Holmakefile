@@ -7,11 +7,11 @@ all: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake.S cake
 .PHONY: all
 
 cake-$(ARCH)-$(WORD_SIZE).tar.gz:
-	wget https://cakeml.org/cake-$(ARCH)-$(WORD_SIZE).tar.gz
+	curl -O https://cakeml.org/cake-$(ARCH)-$(WORD_SIZE).tar.gz
 
 cake.S: cake-$(ARCH)-$(WORD_SIZE).tar.gz
 	tar -xvzf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1
-	sed -i'' -e 's/.space 1024 \* 1024 \* 1000/.space 1024 \* 1024 \* 2000/g' cake.S
+	poly -q < set_heap_stack.sml
 
 cake: cake.S
 	make -f Makefile CFLAGS=-mcmodel=medium
