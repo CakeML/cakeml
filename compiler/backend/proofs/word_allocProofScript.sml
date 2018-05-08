@@ -2257,7 +2257,7 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule reg_alloc_correct>>
-  qabbrev_tac`algg = if alg = 0 then Simple else IRC`>>
+  qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
   disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
@@ -2283,10 +2283,10 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
       rfs[]>>fs[sp_default_def]>>rfs[]>>
       metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2])
   >>
-  srw_tac[][]>>
-  qexists_tac`perm'`>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[LET_THM]>>
-  FULL_CASE_TAC>>full_simp_tac(srw_ss())[]);
+  rw[]>>
+  qexists_tac`perm'`>>rw[]>>
+  fs[]>>
+  FULL_CASE_TAC>>fs[]);
 
 val apply_colour_exp_I = Q.prove(`
   ∀f exp.
@@ -7064,7 +7064,7 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   pairarg_tac>>fs[]>>
-  qabbrev_tac`algg = if alg = 0 then Simple else IRC`>>
+  qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
   drule reg_alloc_correct>>
   disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
   assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
@@ -7172,7 +7172,7 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   fs[word_alloc_def,oracle_colour_ok_def]>>
   rpt strip_tac>>
   pairarg_tac>>fs[]>>
-  qabbrev_tac`algg = if alg = 0 then Simple else IRC`>>
+  qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
   qpat_abbrev_tac`tree = get_clash_tree prog`>>
   EVERY_CASE_TAC>>fs[]>>
