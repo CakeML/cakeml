@@ -5,6 +5,11 @@ open determTheory bigClockTheory;
 
 val _ = new_theory "interp";
 val _ = monadsyntax.temp_add_monadsyntax()
+(* TODO: currently required by HOL, but should go away *)
+val _ = temp_overload_on ("monad_bind", ``state_transformer$BIND``);
+val _ = temp_overload_on ("monad_unitbind", ``state_transformer$IGNORE_BIND``);
+val _ = temp_overload_on ("return", ``state_transformer$UNIT``);
+(* -- *)
 
 val st = ``st:'ffi state``;
 
