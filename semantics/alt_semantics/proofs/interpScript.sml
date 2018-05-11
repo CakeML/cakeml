@@ -4,12 +4,6 @@ open terminationTheory;
 open determTheory bigClockTheory;
 
 val _ = new_theory "interp";
-val _ = monadsyntax.temp_add_monadsyntax()
-(* TODO: currently required by HOL, but should go away *)
-val _ = temp_overload_on ("monad_bind", ``state_transformer$BIND``);
-val _ = temp_overload_on ("monad_unitbind", ``state_transformer$IGNORE_BIND``);
-val _ = temp_overload_on ("return", ``state_transformer$UNIT``);
-(* -- *)
 
 val st = ``st:'ffi state``;
 
@@ -92,10 +86,13 @@ val set_store_def = Define `
 val dec_clock_def = Define `
 (dec_clock : (unit,'ffi) M) = (\s. if s.clock = 0 then (s, Rerr (Rabort Rtimeout_error)) else (s with clock := s.clock - 1, Rval ()))`;
 
-val _ = temp_overload_on ("monad_bind", ``result_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. result_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. result_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``result_return``);
+val _ =
+    monadsyntax.declare_monad (
+      "result_state",
+      { bind = ``result_bind``, ignorebind = NONE, unit = ``result_return``,
+        guard = NONE, choice = NONE, fail = NONE}
+    )
+val _ = monadsyntax.temp_enable_monad "result_state"
 val _ = temp_overload_on ("raise", ``result_raise``);
 
 val remove_lambda_pair = Q.prove (
