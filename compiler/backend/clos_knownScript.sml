@@ -435,10 +435,14 @@ val _ = Datatype`
   config = <| max_app : num
             ; inline_max_body_size : num
             ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
+            ; initial_inline_factor : num
             |>`;
 
 val dec_inline_factor_def = Define `
   dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
+
+val reset_inline_factor_def = Define `
+  reset_inline_factor c = c with inline_factor := c.initial_inline_factor`;
 
 val decide_inline_def = Define `
   decide_inline c fapx app_lopt app_arity =
@@ -524,16 +528,14 @@ val known_def = tDefine "known" `
          | inlD_Nothing => ([(App t loc_opt e1 (MAP FST ea2), Other)], g)
          | inlD_Annotate new_loc => ([(App t (SOME new_loc) e1 (MAP FST ea2), Other)], g)
          | inlD_LetInline body =>
-             if pure x then
-               let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2 ++ vs) g in
-               let (ebody, abody) = HD eabody
-               in
-                 ([(Let (t§0) (MAP FST ea2) (mk_Ticks t 1 (LENGTH xs) ebody), abody)],g)
-             else
-               let (eabody,_) = known (dec_inline_factor c) [body] (SNOC a1 (MAP SND ea2) ++ vs) g in
-               let (ebody, abody) = HD eabody
-               in
-                 ([(Let (t§0) (SNOC e1 (MAP FST ea2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
+             let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2) g in
+             let (ebody, abody) = HD eabody in
+               if pure x then
+                 ([(Let (t§0) (MAP FST ea2)
+                              (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)
+               else
+                 ([(Let (t§0) (SNOC e1 (MAP FST ea2))
+                              (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)) /\
   (known c [Fn t loc_opt ws_opt num_args x1] vs g =
      let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD ea1 in
