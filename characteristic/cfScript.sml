@@ -6,6 +6,7 @@ open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib
 
 val _ = new_theory "cf"
+val _ = monadsyntax.temp_disable_monadsyntax()
 
 (*------------------------------------------------------------------*)
 (* Characteristic formula for not-implemented or impossible cases *)
