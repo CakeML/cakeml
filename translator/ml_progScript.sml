@@ -182,6 +182,21 @@ val eval_rel_def = Define `
        evaluate (s1 with clock := ck1) env [e] =
                 (s2 with clock := ck2,Rval [x])`
 
+val eval_list_rel_def = Define `
+  eval_list_rel s1 env e s2 x <=>
+    s1.clock = s2.clock /\
+    ?ck1 ck2.
+       evaluate (s1 with clock := ck1) env e =
+                (s2 with clock := ck2,Rval x)`
+
+val eval_match_rel_def = Define `
+  eval_match_rel s1 env v pats err_v s2 x <=>
+    s1.clock = s2.clock /\
+    ?ck1 ck2.
+       evaluate_match
+                (s1 with clock := ck1) env v pats err_v =
+                (s2 with clock := ck2,Rval [x])`
+
 (* Delays the write *)
 val Decls_Dlet = Q.store_thm("Decls_Dlet",
   `!env s1 v e s2 env2 locs.
