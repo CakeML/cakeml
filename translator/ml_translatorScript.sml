@@ -1872,35 +1872,6 @@ val PreImp_IMP = Q.store_thm("PreImp_IMP",
   `(PRECONDITION x ==> PreImp x y) ==> PreImp x y`,
   SIMP_TAC std_ss [PreImp_def]);
 
-(*
-
-val evaluate_Ma`t = save_thm("evaluate_Mat",
-  ``evaluate c x env (Mat e pats) (xx,Rval res)``
-  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) []))
-
-val evaluate_match_Conv = save_thm("evaluate_match_Conv",
-  ``evaluate_match c env st args
-       ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
-  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
-      SIMP_CONV (srw_ss()) [pmatch_def]))
-
-val evaluate_match_rw = Q.store_thm("evaluate_match_rw",
-  `evaluate_match c env st args
-      ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
-    ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
-    case pmatch env.c st.refs (Pcon xx pats) args [] of
-    | No_match =>
-        evaluate_match c env st args pats2 errv (yyy,Rval y)
-    | Match env7 =>
-        evaluate c (env with v := (nsAppend (alist_to_ns env7) env.v)) st exp2 (yyy,Rval y)
-    | _ => F`,
-  SIMP_TAC std_ss [evaluate_match_Conv
-    |> SIMP_RULE std_ss []]
-  \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args []`
-  \\ FULL_SIMP_TAC (srw_ss()) []);
-
-*)
-
 val PreImp_LEMMA = store_thm("PreImp_LEMMA",
   ``(b1 ==> PreImp b1 b2) ==> PreImp b1 b2``,
   fs [PreImp_def,PRECONDITION_def]);
@@ -1918,6 +1889,199 @@ val prim_exn_list = let
                 |> concl |> rand |> rator |> rand |> listSyntax.dest_list
   val ys = filter (semanticPrimitivesSyntax.is_ExnStamp o rand o rand) xs
   in listSyntax.mk_list(ys, ty) end
+
+(* pattern match translation *)
+
+val Mat_cases_def = Define `
+  Mat_cases (INL (vars,x:exp)) = [(Pcon NONE (MAP Pvar vars),x)] /\
+  Mat_cases (INR ps) =
+    MAP (\(name,vars,x:exp,t:stamp).
+      (Pcon (SOME (Short name)) (MAP Pvar vars),x)) ps`;
+
+val good_cons_env_def = Define `
+  good_cons_env ps env <=>
+    EVERY (\(name,vars,x,t).
+      ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+      lookup_cons name env = SOME (LENGTH vars, t)) ps /\
+    let (name,vars,x,t1) = HD ps in
+      EVERY (\(name,vars,x,t2). same_type t1 t2) ps`
+
+val same_type_trans = prove(
+  ``same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3``,
+  Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]);
+
+val evaluate_match_MAP = prove(
+  ``!l1 xs.
+      MEM (x1,x2,x3,t1) full_ps /\ full_ps <> [] /\
+      good_cons_env full_ps env /\ set l1 SUBSET set full_ps /\
+      ~MEM t1 (MAP (SND o SND o SND) l1) ==>
+      evaluate_match (s:unit state) env
+        (Conv (SOME t1) vals)
+        (MAP (λ(name,vars,x,t). (Pcon (SOME (Short name))
+           (MAP Pvar vars),x)) l1 ++ xs) err =
+      evaluate_match s env (Conv (SOME t1) vals) xs err``,
+  Induct
+  \\ fs [FORALL_PROD,evaluate_def,pmatch_def,pat_bindings_def]
+  \\ rpt strip_tac
+  \\ fs [good_cons_env_def,lookup_cons_def]
+  \\ fs [EVERY_MEM]
+  \\ res_tac \\ fs []
+  \\ `?xx. HD full_ps = xx` by fs [] \\ PairCases_on `xx`
+  \\ fs []
+  \\ `MEM (HD full_ps) full_ps` by (Cases_on `full_ps` \\ fs [])
+  \\ rfs [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ imp_res_tac same_type_trans \\ fs []
+  \\ fs [same_ctor_def]) |> GEN_ALL;
+
+val pmatch_list_MAP_Pvar = prove(
+  ``!vars vals aux.
+      LENGTH vars = LENGTH vals ==>
+      pmatch_list env refs (MAP Pvar vars) vals aux =
+      Match (REVERSE (ZIP (vars, vals)) ++ aux)``,
+  Induct \\ Cases_on `vals` \\ fs [] \\ fs [pmatch_def]);
+
+val write_list_def = Define `
+  write_list [] (env:v sem_env) = env /\
+  write_list ((n,v)::xs) env = write_list xs (write n v env)`;
+
+val write_list_thm = prove(
+  ``!xs env.
+      write_list xs (env:v sem_env) =
+       (env with v := nsAppend (alist_to_ns (REVERSE xs)) env.v)``,
+  Induct
+  \\ fs [write_list_def,FORALL_PROD,namespaceTheory.alist_to_ns_def,
+         write_def,namespaceTheory.nsBind_def]
+  \\ rw [] \\ Cases_on `env.v`
+  \\ fs [namespaceTheory.nsBind_def,namespaceTheory.nsAppend_def]
+  \\ fs [sem_env_component_equality]);
+
+val IMP_Eval_Mat_cases = store_thm("IMP_Eval_Mat_cases",
+  ``!a (r1:'a) env exp r2 y.
+      Eval env exp (a r1) /\
+      (case y of
+       | INL (vars,exp) =>
+                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+                    (!v. a r1 v ==>
+                         ?name vals t.
+                           v = Conv NONE vals /\
+                           LENGTH vals = LENGTH vars /\
+                           Eval (write_list (ZIP (vars,vals)) env) exp r2))
+       | INR ps => ALL_DISTINCT (MAP (SND o SND o SND) ps) /\
+                   good_cons_env ps env /\
+                   (!v. a r1 v ==>
+                        ?name vals t vars exp.
+                          v = Conv (SOME t) vals /\
+                          MEM (name,vars,exp,t) ps /\
+                          LENGTH vals = LENGTH vars /\
+                          Eval (write_list (ZIP (vars,vals)) env) exp r2)) ==>
+      Eval env (Mat exp (Mat_cases y)) r2``,
+  rpt gen_tac \\ Cases_on `y`
+  THEN1
+   (Cases_on `x`
+    \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
+    \\ rpt strip_tac
+    \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+    \\ first_x_assum drule \\ strip_tac
+    \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+    \\ rveq \\ fs []
+    \\ fs [PULL_EXISTS,evaluate_def]
+    \\ drule evaluate_add_to_clock
+    \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
+    \\ qpat_x_assum `_ env [exp] = _` assume_tac
+    \\ drule evaluate_add_to_clock
+    \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
+    \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
+    \\ asm_exists_tac \\ fs [Mat_cases_def]
+    \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+    \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
+    \\ fs [state_component_equality])
+  \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
+  \\ rpt strip_tac
+  \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum drule \\ strip_tac
+  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS,evaluate_def]
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
+  \\ qpat_x_assum `_ env [exp] = _` assume_tac
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
+  \\ asm_exists_tac \\ fs [Mat_cases_def]
+  \\ drule evaluate_match_MAP
+  \\ qpat_x_assum `MEM _ y` (assume_tac o REWRITE_RULE [MEM_SPLIT])
+  \\ fs [] \\ fs [ALL_DISTINCT_APPEND]
+  \\ disch_then drule
+  \\ `set l1 ⊆ set l1 ∪ {(name,vars,exp',t)} ∪ set l2` by fs [SUBSET_DEF,IN_UNION]
+  \\ disch_then drule \\ fs []
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
+  \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+  \\ fs [good_cons_env_def,lookup_cons_def]
+  \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
+  \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
+  \\ fs [state_component_equality]);
+
+val Eval_Con_lemma = prove(
+  ``!ps refs.
+      (∀p_1 p_2. MEM (p_1,p_2) ps ⇒ Eval env p_2 p_1) ==>
+      ?ck1 ck2 refs' vals.
+        evaluate (empty_state with <|clock := ck1; refs := refs|>) env
+                 (MAP SND ps) =
+        (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,Rval vals) /\
+        LIST_REL (λ(p,x) v. p v) ps vals``,
+  Induct THEN1 fs [state_component_equality]
+  \\ fs [FORALL_PROD,Eval_def,eval_rel_def,PULL_EXISTS]
+  \\ rw [] \\ once_rewrite_tac [evaluate_cons]
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
+  \\ first_assum (qspecl_then [`p_1`,`p_2`] mp_tac)
+  \\ rewrite_tac []
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
+  \\ qpat_x_assum `_ env [p_2] = _` assume_tac
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ fs [state_component_equality]);
+
+val Eval_Con = store_thm("Eval_Con",
+  ``!ps stamp.
+      lookup_cons name env = SOME (LENGTH ps,stamp) /\
+      EVERY (\(p,x). Eval env x p) ps /\
+      (!vals.
+         LIST_REL (\(p,x) v. p v) ps vals ==>
+         q (Conv (SOME stamp) vals)) ==>
+      Eval env (Con (SOME (Short name)) (MAP SND ps)) q``,
+  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
+  \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
+  \\ fs [lookup_cons_def,build_conv_def]
+  \\ `∀p_1 p_2. MEM (p_1,p_2) (REVERSE ps) ⇒ Eval env p_2 p_1` by fs []
+  \\ drule Eval_Con_lemma
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [GSYM EVERY2_REVERSE1]);
+
+val Eval_Con_NONE = store_thm("Eval_Con_NONE",
+  ``!ps.
+      EVERY (\(p,x). Eval env x p) ps /\
+      (!vals.
+         LIST_REL (\(p,x) v. p v) ps vals ==>
+         q (Conv NONE vals)) ==>
+      Eval env (Con NONE (MAP SND ps)) q``,
+  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
+  \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
+  \\ fs [lookup_cons_def,build_conv_def]
+  \\ `∀p_1 p_2. MEM (p_1,p_2) (REVERSE ps) ⇒ Eval env p_2 p_1` by fs []
+  \\ drule Eval_Con_lemma
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [GSYM EVERY2_REVERSE1]);
 
 (* terms used by the Lib file *)
 
