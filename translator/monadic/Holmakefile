@@ -1,2 +1,2 @@
-INCLUDES = .. ../../misc ../../semantics ../../semantics/alt_semantics ../../characteristic ../../semantics/alt_semantics/proofs
+INCLUDES = .. ../../misc ../../semantics ../../characteristic ../../semantics/proofs
 OPTIONS = QUIT_ON_FAILURE
