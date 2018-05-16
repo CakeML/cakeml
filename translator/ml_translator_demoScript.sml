@@ -9,7 +9,6 @@ open ml_translatorLib ml_translatorTheory;
 
 (* --- qsort translation --- *)
 
-val res = translate listTheory.APPEND;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
@@ -48,13 +47,15 @@ val ML_QSORT_CORRECT = Q.store_thm ("ML_QSORT_CORRECT",
       (a --> a --> BOOL) ord R /\ (lookup_var "R" env = SOME R) /\
       transitive ord /\ total ord
       ==>
-      ?l' xs' refs'.
-        evaluate F env (empty_state with refs := refs)
-            (App Opapp [App Opapp [Var (Short "qsort"); Var (Short "R")]; Var (Short "xs")])
-            (empty_state with refs := refs ++ refs',Rval xs') /\
+      ?l' xs' refs' ck1 ck2.
+        evaluate (empty_state with <| clock := ck1; refs := refs |>) env
+          [App Opapp [App Opapp [Var (Short "qsort");
+             Var (Short "R")]; Var (Short "xs")]] =
+          (empty_state with <| clock := ck2; refs := refs ++ refs' |>,Rval [xs']) /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'`,
   rw [] \\ imp_res_tac Eval_Var_lemma
-  \\ imp_res_tac (DISCH_ALL (hol2deep ``QSORT R xs``)) \\ fs [Eval_def]
+  \\ imp_res_tac (DISCH_ALL (hol2deep ``QSORT R xs``))
+  \\ fs [Eval_def,ml_progTheory.eval_rel_def]
   \\ metis_tac [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]);
 
 
