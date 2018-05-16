@@ -1303,27 +1303,27 @@ val app_aw8update_def = Define `
      Q ==e> POST_F)`
 
 val app_copyaw8aw8_def = Define `
-  app_copyaw8aw8 s so l d do H Q =
+  app_copyaw8aw8 s so l d do' H Q =
     ((?ws wd F.
-        0 <= do /\ 0 <= so /\ 0 <= l /\
-        (Num do + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
+        0 <= do' /\ 0 <= so /\ 0 <= l /\
+        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
         (F * W8ARRAY s ws *
-             W8ARRAY d (TAKE (Num do) wd ⧺
+             W8ARRAY d (TAKE (Num do') wd ⧺
                         TAKE (Num l) (DROP (Num so) ws) ⧺
-                        DROP (Num do + Num l) wd)
+                        DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
      Q ==e> POST_F)`
 
 val app_copystraw8_def = Define `
-  app_copystraw8 s so l d do H Q =
+  app_copystraw8 s so l d do' H Q =
     ((?wd F.
-        0 <= do /\ 0 <= so /\ 0 <= l /\
-        (Num do + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH s /\
+        0 <= do' /\ 0 <= so /\ 0 <= l /\
+        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH s /\
         (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (TAKE (Num do) wd ⧺
+        (F * W8ARRAY d (TAKE (Num do') wd ⧺
                         MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
-                        DROP (Num do + Num l) wd)
+                        DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
      Q ==e> POST_F)`
 
@@ -1550,23 +1550,23 @@ val cf_aw8update_def = Define `
 
 val cf_copyaw8aw8_def = Define `
   cf_copyaw8aw8 xs xso xl xd xdo = \env. local (\H Q.
-    ?s so l d do.
+    ?s so l d do'.
       exp2v env xs = SOME s /\
       exp2v env xd = SOME d /\
       exp2v env xl = SOME (Litv (IntLit l)) /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
-      exp2v env xdo = SOME (Litv (IntLit do)) /\
-      app_copyaw8aw8 s so l d do H Q)`
+      exp2v env xdo = SOME (Litv (IntLit do')) /\
+      app_copyaw8aw8 s so l d do' H Q)`
 
 val cf_copystraw8_def = Define `
   cf_copystraw8 xs xso xl xd xdo = \env. local (\H Q.
-    ?s so l d do.
+    ?s so l d do'.
       exp2v env xs = SOME (Litv (StrLit s)) /\
       exp2v env xd = SOME d /\
       exp2v env xl = SOME (Litv (IntLit l)) /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
-      exp2v env xdo = SOME (Litv (IntLit do)) /\
-      app_copystraw8 s so l d do H Q)`
+      exp2v env xdo = SOME (Litv (IntLit do')) /\
+      app_copystraw8 s so l d do' H Q)`
 
 val cf_copyaw8str_def = Define `
   cf_copyaw8str xs xso xl = \env. local (\H Q.
@@ -1739,11 +1739,11 @@ val cf_def = tDefine "cf" `
              | _ => cf_bottom)
         | CopyAw8Aw8 =>
           (case args of
-             | [s; so; l; d; do] => cf_copyaw8aw8 s so l d do
+             | [s; so; l; d; do'] => cf_copyaw8aw8 s so l d do'
              | _ => cf_bottom)
         | CopyStrAw8 =>
           (case args of
-             | [s; so; l; d; do] => cf_copystraw8 s so l d do
+             | [s; so; l; d; do'] => cf_copystraw8 s so l d do'
              | _ => cf_bottom)
         | CopyAw8Str =>
           (case args of

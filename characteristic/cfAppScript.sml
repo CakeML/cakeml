@@ -229,22 +229,7 @@ val app_basic_weaken = Q.store_thm("app_basic_weaken",
      app_basic p v v1 x Q)`,
   fs [app_basic_def] \\ metis_tac []);
 
-val evaluate_list_SING = Q.prove(
-  `bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
-    bigStep$evaluate b env st exp (st', Rval v)`,
-  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
-
-val evaluate_list_raise_SING = Q.prove(
-  `bigStep$evaluate_list b env st [exp] (st', Rerr (Rraise v)) <=>
-    bigStep$evaluate b env st exp (st', Rerr (Rraise v))`,
-  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ eq_tac \\ fs [] \\ strip_tac
-  \\ pop_assum (assume_tac o
-                SIMP_RULE std_ss [Once bigStepTheory.evaluate_cases])
-  \\ fs []);
-
+(*
 val app_basic_rel = Q.store_thm("app_basic_rel",
   `app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi state).
@@ -275,6 +260,7 @@ val app_basic_rel = Q.store_thm("app_basic_rel",
    (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
+*)
 
 (* TODO: move to appropriate locations *)
 
@@ -329,21 +315,6 @@ open terminationTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
-val big_remove_clock = Q.store_thm("big_remove_clock",
-  `∀c ck env s e s' r.
-     evaluate ck env s e (s',r) ∧
-     r ≠ Rerr (Rabort Rtimeout_error)
-     ⇒
-     evaluate F env (s with clock := c) e (s' with clock := c,r)`,
-  gen_tac \\ reverse Cases
-  >- (
-    rw[] \\
-    imp_res_tac bigClockTheory.big_unclocked \\
-    `∀s. s = s with clock := s.clock` by simp[state_component_equality] \\
-    metis_tac[bigClockTheory.big_unclocked] ) \\
-  rw[bigClockTheory.big_clocked_unclocked_equiv] \\
-  metis_tac[bigClockTheory.clocked_min_counter]);
-
 val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
   (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
@@ -356,14 +327,6 @@ val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
   \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
   \\ rw[]);
-
-val big_refs_length_mono = Q.store_thm("big_refs_length_mono",
-  `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`,
-  Cases_on`ck`
-  \\ rw[funBigStepEquivTheory.functional_evaluate]
-  \\ fs[bigClockTheory.big_clocked_unclocked_equiv,funBigStepEquivTheory.functional_evaluate]
-  \\ imp_res_tac evaluate_refs_length_mono
-  \\ fs[]);
 
 val SPLIT_st2heap_length_leq = Q.store_thm("SPLIT_st2heap_length_leq",
   `SPLIT (st2heap p s') (st2heap p s, h_g) ∧
@@ -548,6 +511,7 @@ val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
   \\ match_mp_tac FILTER_ffi_has_index_in_MEM
   \\ fs [] \\ asm_exists_tac \\ fs [])
 
+(*
 val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_same",
   `evaluate F env st exp (st',Rval res) ∧
    SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
@@ -561,26 +525,7 @@ val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_sa
   \\ `LENGTH st.ffi.io_events = LENGTH st'.ffi.io_events`
         by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
   \\ metis_tac [IS_PREFIX_LENGTH_ANTI]);
-
-val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty_state",
-  `evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧ s.ffi.final_event = NONE ∧
-   t = empty_state with <| refs := s.refs |> ∧
-   t' = empty_state with <| refs := s'.refs |>
-   ⇒
-   evaluate F env t es (t',Rval r)`,
-  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
-  \\ fs[funBigStepEquivTheory.functional_evaluate]
-  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
-              INST_TYPE[beta|->oneSyntax.one_ty](
-                CONJUNCT1 evaluate_ffi_intro)))
-  \\ simp[]
-  \\ disch_then(qspec_then`empty_state with <| clock := c; refs := s.refs |>`mp_tac)
-  \\ simp[] \\ strip_tac
-  \\ `Rval [r] = list_result ((Rval r):(v,v) result)` by EVAL_TAC
-  \\ pop_assum SUBST_ALL_TAC
-  \\ fs[GSYM funBigStepEquivTheory.functional_evaluate]
-  \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
-  \\ asm_exists_tac \\ fs[]);
+*)
 
 val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
   `(Arrow a b) f v ==>
@@ -589,16 +534,13 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
       app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)`,
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
-  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
-  \\ rw []
+  \\ fs [evaluate_ck_def] \\ rw []
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
   \\ instantiate
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ simp [Once (CONJUNCT2 bigStepTheory.evaluate_cases)]
   \\ drule evaluate_empty_state_IMP \\ strip_tac
-  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
-  \\ rename1 `evaluate _ _ (st with clock := ck) _ _`
+  \\ fs [ml_progTheory.eval_rel_def]
+  \\ rename1 `evaluate (st with clock := ck) _ _ = _`
   \\ simp[POSTv_cond,PULL_EXISTS]
   \\ instantiate
   \\ fs[st2heap_clock]
@@ -619,25 +561,39 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
   \\ decide_tac);
 
 val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
-  `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒ Arrow a b f v`,
-  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1] \\
-  first_x_assum drule \\
-  fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
-  fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\
-  disch_then( qspec_then`ARB with <| refs := refs; ffi := <| final_event := NONE |> |>` mp_tac) \\
-  rw[] \\ instantiate \\
-  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\
-  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\ rw[] \\
-  drule big_remove_clock \\ rw[] \\
-  first_x_assum(qspec_then`0`strip_assume_tac) \\
-  drule SPLIT_st2heap_evaluate_ffi_same \\
-  fs[st2heap_clock] \\ strip_tac \\
-  drule SPLIT_st2heap_length_leq \\ simp[] \\
-  imp_res_tac big_refs_length_mono \\ fs[] \\
-  rw[IS_PREFIX_APPEND] \\
-  qexists_tac`l` \\
-  match_mp_tac (INST_TYPE[alpha|->beta](GEN_ALL evaluate_imp_evaluate_empty_state)) \\
-  instantiate);
+  `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒
+   Arrow a b f v`,
+  rw[app_basic_def,ml_translatorTheory.Arrow_def,
+     ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1]
+  \\ first_x_assum drule
+  \\ fs[evaluate_ck_def]
+  \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
+  \\ disch_then( qspec_then`ARB with
+        <| refs := refs; ffi := <| final_event := NONE |> |>` mp_tac)
+  \\ rw [] \\ instantiate
+  \\ rename1 `SPLIT (st2heap p st1) _`
+  \\ drule (CONJUNCT1 evaluate_ffi_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
+  \\ disch_then (qspec_then
+       `empty_state with <| clock := ck ;refs := refs |>` mp_tac) \\ fs []
+  \\ qsuff_tac `?refs1. st1.refs = refs ++ refs1 /\
+                        st1.ffi = <|final_event := NONE|>`
+  THEN1
+   (fs [ml_progTheory.eval_rel_def] \\ rw []
+    \\ qexists_tac `refs1`
+    \\ qexists_tac `ck` \\ fs [state_component_equality])
+  \\ imp_res_tac evaluate_refs_length_mono \\ fs []
+  \\ imp_res_tac evaluate_io_events_mono_imp
+  \\ fs[io_events_mono_def]
+  \\ simp [GSYM PULL_EXISTS]
+  \\ conj_asm2_tac
+  THEN1 (drule SPLIT_st2heap_length_leq \\ fs [IS_PREFIX_APPEND])
+  \\ imp_res_tac SPLIT_st2heap_ffi \\ fs []
+  \\ Cases_on`st1.ffi.final_event` \\ fs[] \\ rfs []
+  \\ qmatch_assum_rename_tac `!n. FILTER (ffi_has_index_in [n]) _ =
+                                  FILTER (ffi_has_index_in [n]) st2.io_events`
+  \\ `LENGTH st1.ffi.io_events = LENGTH st2.io_events`
+        by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
+  \\ metis_tac [IS_PREFIX_LENGTH_ANTI]);
 
 val Arrow_eq_app_basic = Q.store_thm("Arrow_eq_app_basic",
   `Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))`,
