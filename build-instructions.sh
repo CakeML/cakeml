@@ -26,7 +26,7 @@ cd HOL
 # git checkout kananaskis-11
 ## note: currently, we only aim to ensure that
 ##       CakeML branch master builds on HOL branch master
-poly < tools/smart-configure.sml
+poly --script tools/smart-configure.sml
 bin/build
 ## optionally set HOLDIR to point to the HOL installation
 # export HOLDIR=$HOME/HOL
