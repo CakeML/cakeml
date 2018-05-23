@@ -11,6 +11,10 @@ build on [PolyML 5.7](http://www.polyml.org).
 Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
 
+Building all of CakeML (including the bootstrapped compiler and its proofs)
+requires significant resources. Built copies of the compiler and resource
+usage for our regression tests are [online](https://cakeml.org/regression.cgi).
+
 The [master](../../tree/master) branch contains the latest development
 version of CakeML. See the [version2](../../tree/version2) or
 [version1](../../tree/version1) branch for previous versions.

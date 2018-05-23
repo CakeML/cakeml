@@ -34,6 +34,8 @@ bin/build
 # export PATH=$HOLDIR/bin:$PATH
 
 ## build CakeML
+## note: a full build (including the bootstrapped compiler)
+## takes a long time (~20 hours) and requires much RAM (~16 GB)
 cd
 git clone https://github.com/CakeML/cakeml
 cd cakeml
