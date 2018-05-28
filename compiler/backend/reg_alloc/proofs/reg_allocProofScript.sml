@@ -992,7 +992,7 @@ val INJ_less = Q.prove(`
   INJ f s t`,
   metis_tac[INJ_DEF,SUBSET_DEF]);
 
-val check_partial_col_success = Q.prove(`
+val check_partial_col_success = Q.store_thm("check_partial_col_success",`
   ∀ls live flive col.
   domain flive = IMAGE col (domain live) ∧
   INJ col (set ls ∪ domain live) UNIV
