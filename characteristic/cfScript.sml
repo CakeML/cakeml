@@ -1154,7 +1154,7 @@ val app_rec_of_htriple_valid = Q.prove (
           params xvs env)
         H Q ==>
      app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q`,
-  rpt strip_tac \\ irule app_rec_of_htriple_valid_aux
+  rpt strip_tac \\ irule app_rec_of_htriple_valid_aux \\ rpt conj_tac
   THEN1 (fs [letrec_pull_params_names])
   THEN1 (qexists_tac `funs` \\ fs [])
   THEN1 (instantiate \\ fs [letrec_pull_params_names])
