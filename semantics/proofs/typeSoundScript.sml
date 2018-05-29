@@ -2099,7 +2099,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >- (
        irule ctMap_ok_merge_imp
        >> simp []
-       >- (
+       >> conj_tac >- (
          irule ctMap_ok_type_defs >>
          simp [] >>
          fs [tenv_ok_def, extend_dec_tenv_def, Abbr `new_tabbrev`]) >>

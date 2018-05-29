@@ -1613,7 +1613,7 @@ val ctMap_ok_type_defs = Q.store_thm ("ctMap_ok_type_defs",
   >- rw [ctMap_ok_def, flookup_fupdate_list, FEVERY_FUPDATE_LIST, FEVERY_FEMPTY] >>
   fs [REVERSE_APPEND, FUPDATE_LIST_APPEND, fupdate2_union] >>
   irule ctMap_ok_merge_imp >>
-  simp []
+  simp [] >> conj_tac
   >- (
     simp [ctMap_ok_def, flookup_fupdate_list, FEVERY_ALL_FLOOKUP] >>
     rpt conj_tac >>
