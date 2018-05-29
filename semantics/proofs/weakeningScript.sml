@@ -707,7 +707,7 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   >> qexists_tac `decls1`
   >> qexists_tac `decls''`
   >> rw []
-  >> pop_assum irule
+  >> pop_assum irule >> rpt conj_tac
   >- metis_tac [extend_dec_tenv_ok, type_d_tenv_ok]
   >- (
     fs [weak_def]
