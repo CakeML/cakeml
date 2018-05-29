@@ -12,8 +12,9 @@ Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
 
 Building all of CakeML (including the bootstrapped compiler and its proofs)
-requires significant resources. Built copies of the compiler and resource
-usage for our regression tests are [online](https://cakeml.org/regression.cgi).
+requires significant resources. [Built copies](https://cakeml.org/download) of
+the compiler and resource usage for our
+[regression tests](https://cakeml.org/regression.cgi) are online.
 
 The [master](../../tree/master) branch contains the latest development
 version of CakeML. See the [version2](../../tree/version2) or
