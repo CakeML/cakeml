@@ -226,9 +226,9 @@ val do_app_ok_lemma = Q.prove(
     >- fs [EVERY_MEM] >>
     irule EVERY_TAKE >>
     simp []
-    >- intLib.ARITH_TAC >>
+    \\ conj_tac >- intLib.ARITH_TAC >>
     irule EVERY_DROP
-    >- intLib.ARITH_TAC >>
+    \\ conj_tac >- intLib.ARITH_TAC >>
     rw [] >>
     fs [bv_ok_def])
   THEN1

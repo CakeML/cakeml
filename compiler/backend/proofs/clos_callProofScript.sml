@@ -1512,9 +1512,9 @@ val do_app_thm = Q.prove(
     >- (
       irule EVERY_TAKE >>
       fs [LENGTH_DROP]
-      >- intLib.ARITH_TAC >>
+      \\ conj_tac >- intLib.ARITH_TAC >>
       irule EVERY_DROP
-      >- intLib.ARITH_TAC >>
+      \\ conj_tac >- intLib.ARITH_TAC >>
       fs [EVERY_MEM])
     >- (
       imp_res_tac LIST_REL_LENGTH >>

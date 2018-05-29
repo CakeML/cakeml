@@ -596,7 +596,7 @@ val do_app_ssgc = Q.store_thm(
     rw [] >>
     irule EVERY_TAKE >>
     simp []
-    >- intLib.ARITH_TAC >>
+    >> conj_tac >- intLib.ARITH_TAC >>
     irule EVERY_DROP >>
     simp []
     >- intLib.ARITH_TAC)
@@ -1205,7 +1205,7 @@ val evaluate_mk_Ticks_IMP = Q.store_thm(
   Induct_on `n` \\ rpt strip_tac
   THEN1 (fs [mk_Ticks_alt, dec_clock_def])
   \\ fs [mk_Ticks_alt] \\ res_tac
-  \\ fs [evaluate_def] 
+  \\ fs [evaluate_def]
   \\ fs [bool_case_eq, dec_clock_def, ADD1, state_component_equality]);
 
 val clos_gen_noinline_eq = Q.prove(`
@@ -1600,7 +1600,7 @@ val known_correct_approx = Q.store_thm(
         \\ `g = gdead` by (match_mp_tac known_unchanged_globals \\ goal_assum drule \\ simp [])
         \\ fs []))
     (* This next part solves both inlD_Nothing and inlD_Annotate *)
-    THEN 
+    THEN
      (rveq \\ fs [evaluate_def, bool_case_eq, pair_case_eq]
       \\ imp_res_tac unique_set_globals_subexps
       \\ `subspt g1 g2 /\ subspt g2 g`
@@ -1611,7 +1611,7 @@ val known_correct_approx = Q.store_thm(
       \\ first_x_assum drule
       \\ rpt (disch_then drule)
       \\ strip_tac
-      \\ fs [result_case_eq] \\ rveq \\ fs []    
+      \\ fs [result_case_eq] \\ rveq \\ fs []
       \\ rename1 `evaluate (MAP FST ea2, env, s1) = (Rval args, s2)`
       \\ `unique_set_globals [x] s2.compile_oracle`
          by metis_tac [unique_set_globals_evaluate]
@@ -2239,8 +2239,8 @@ val known_correct0 = Q.prove(
                        \\ fs [BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
     \\ strip_tac
     \\ `subspt g1 g'` by metis_tac [subspt_trans]
-    
-    
+
+
     (* Cases split on annotate or inline *)
     \\ Cases_on `SND limit = 0 \/ body_opt = NONE`
     THEN1
@@ -2323,7 +2323,7 @@ val known_correct0 = Q.prove(
              \\ fs [bool_case_eq] \\ metis_tac [evaluate_IMP_LENGTH])
       \\ simp [loptrel_def]
       \\ fs [pair_case_eq, bool_case_eq]*))
-    
+
     (* Inlining *)
     \\ cheat
     (*
