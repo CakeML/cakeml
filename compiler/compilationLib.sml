@@ -264,7 +264,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           mips_backend_config_def, mips_names_def,
           riscv_backend_config_def, riscv_names_def,
           x64_backend_config_def, x64_names_def,
-          data_prog_def ]
+          data_prog_def
+          ]
       ] cs
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
@@ -280,6 +281,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC BETA_CONV THENC
           REWR_CONV_BETA LET_THM THENC
+          REWR_CONV LET_THM THENC BETA_CONV THENC
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC
           PATH_CONV "rlrraraalralrarllr" eval THENC
@@ -349,6 +351,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       in
         conv tm
       end
+
     val ths = time_with_size thms_size "get_clash (par)"
                 (parl eval_fn) word_prog0;
     val thm2 =
@@ -366,7 +369,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val oracles =
       to_livesets_thm
       |> rconc |> pairSyntax.dest_pair |> #1
-      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle 3)
+      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle reg_alloc.Irc)
 
     val oracle_def = mk_abbrev"oracle" oracles;
 
@@ -389,6 +392,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       to_livesets_invariant
       |> Q.GEN`wc` |> SPEC wc
       |> Q.GENL[`c`,`p`] |> ISPECL args
+      |> CONV_RULE ((RATOR_CONV eval) THENC BETA_CONV)
       |> CONV_RULE(RAND_CONV(
            REWR_CONV LET_THM THENC
            RAND_CONV(REWR_CONV to_livesets_thm') THENC
@@ -437,7 +441,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val GENLIST_EL_ZIP_lemma = Q.prove(
       `(LENGTH l1 = n) ∧ (LENGTH l2 = n) ∧ (LENGTH oracle_list = n) ⇒
        (GENLIST (λx. f (oracle x, EL x (ZIP (l1,l2)))) n =
-        MAP3 (λa (b1,b2,b3) (c1,c2,c3). f (SOME a, ((b1,b2,b3), (c1,c2,c3)))) oracle_list l1 l2)`,
+        MAP3 (λa (b1,b2,b3,b4) (c1,c2,c3). f (SOME a, ((b1,b2,b3,b4), (c1,c2,c3)))) oracle_list l1 l2)`,
       rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,oracle_thm,UNCURRY])
       |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_oracle_list))
 
@@ -456,6 +460,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
            RAND_CONV eval THENC
            REWR_CONV_BETA LET_THM THENC
            REWR_CONV_BETA LET_THM THENC
+           REWR_CONV LET_THM THENC BETA_CONV THENC
+           REWR_CONV LET_THM THENC BETA_CONV THENC
            RAND_CONV(
              RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
              REWR_CONV MAP_GENLIST THENC
@@ -463,13 +469,11 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                REWR_CONV o_DEF THENC
                ABS_CONV(RAND_CONV BETA_CONV))) THENC
              REWR_CONV GENLIST_EL_ZIP_lemma THENC
-             PATH_CONV"lllrararaararaa" (
+             PATH_CONV"lllrarararaararaa" (
                PAIRED_BETA_CONV THENC
                PATH_CONV"llr"(
                  REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
-                 REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
-           REWR_CONV_BETA LET_THM THENC
-           REWR_CONV_BETA LET_THM))
+                 REWR_CONV_BETA(CONJUNCT2 option_case_def))))))
 
     val tm3 = compile_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand

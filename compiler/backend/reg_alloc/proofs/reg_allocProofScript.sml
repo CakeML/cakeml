@@ -25,13 +25,23 @@ val undirected_def = Define`
     has_edge adjls x y ⇒
     has_edge adjls y x`
 
-(* --- some side properties on the state --- *)
+(* ---
+  some well-formedness properties on the state.
+  this basically says that all of the arrays have the right dimensions,
+  and that the worklists always contain legal nodes
+  --- *)
+
 val good_ra_state_def = Define`
   good_ra_state s ⇔
   LENGTH s.adj_ls = s.dim ∧
   LENGTH s.node_tag = s.dim ∧
   LENGTH s.degrees = s.dim ∧
+  LENGTH s.coalesced = s.dim ∧
+  LENGTH s.move_related = s.dim ∧
   EVERY (λls. EVERY (λv. v < s.dim) ls) s.adj_ls ∧
+  EVERY (λv. v < s.dim) s.simp_wl ∧
+  EVERY (λv. v < s.dim) s.spill_wl ∧
+  EVERY (λv. v < s.dim) s.freeze_wl ∧
   undirected s.adj_ls`
 
 (* --- invariant: no two adjacent nodes have the same colour --- *)
@@ -44,12 +54,15 @@ val no_clash_def = Define`
         n = m ⇒ x = y
     | _ => T`
 
-(* Good preference oracle may only inspect, but not touch the state
-   Moreover, it must always select a member of the input list
+(*
+  Good preference oracle may only inspect, but not touch the state
+  Moreover, it must always select a member of the input list
 *)
 val good_pref_def = Define`
   good_pref pref ⇔
-  ∀n ks s. ?res.
+  ∀n ks s.
+    good_ra_state s ⇒
+    ∃res.
     pref n ks s = (Success res,s) ∧
     case res of
       NONE => T
@@ -57,8 +70,15 @@ val good_pref_def = Define`
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
-(* Success conditions *)
+val get_eqns = [get_dim_def, get_unavail_moves_wl_def,get_avail_moves_wl_def,get_simp_wl_def,get_spill_wl_def,set_spill_wl_def,get_freeze_wl_def,get_stack_def];
 
+val set_eqns = [set_dim_def, set_unavail_moves_wl_def,set_avail_moves_wl_def,set_simp_wl_def,set_spill_wl_def,set_freeze_wl_def,set_stack_def];
+
+val add_eqns = [add_freeze_wl_def,add_unavail_moves_wl_def,add_spill_wl_def];
+
+val all_eqns = get_eqns @ set_eqns @ add_eqns @ msimps;
+
+(* Success conditions *)
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
 val case_eq_thms = pair_case_eq::
   List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
@@ -74,7 +94,17 @@ val list_case_st = Q.store_thm("list_case_st",`
   (list_CASE t a b) f = (list_CASE t (a f) (λx y.b x y f))`,
   Cases>>fs[]);
 
-(* TODO: These equational lemmas one ought to be automatic *)
+(* ---
+  TODO: These lemmas should be automatically generated for each array used!
+
+  Note that they can be stated independently of the precise state invariants
+  (as shown below)
+
+  The array components we have are:
+    adj_ls, node_tag, degrees, coalesced, move_related
+  ---*)
+
+(* Rewriting lemmas for array "sub" *)
 val Msub_eqn = Q.store_thm("Msub_eqn[simp]",`
   ∀e n ls v.
   Msub e n ls =
@@ -86,16 +116,7 @@ val Msub_eqn = Q.store_thm("Msub_eqn[simp]",`
   IF_CASES_TAC>>fs[]>>
   Cases_on`n`>>fs[]);
 
-val node_tag_sub_eqn= Q.store_thm("node_tag_sub_eqn[simp]",`
-  node_tag_sub n s =
-  if n < LENGTH s.node_tag then
-    (Success (EL n s.node_tag),s)
-  else
-    (Failure (Subscript),s)`,
-  rw[node_tag_sub_def]>>
-  fs[Marray_sub_def]);
-
-val adj_ls_sub_eqn= Q.store_thm("adj_ls_sub_eqn[simp]",`
+val adj_ls_sub_eqn = Q.store_thm("adj_ls_sub_eqn[simp]",`
   adj_ls_sub n s =
   if n < LENGTH s.adj_ls then
     (Success (EL n s.adj_ls),s)
@@ -104,6 +125,41 @@ val adj_ls_sub_eqn= Q.store_thm("adj_ls_sub_eqn[simp]",`
   rw[adj_ls_sub_def]>>
   fs[Marray_sub_def]);
 
+val node_tag_sub_eqn = Q.store_thm("node_tag_sub_eqn[simp]",`
+  node_tag_sub n s =
+  if n < LENGTH s.node_tag then
+    (Success (EL n s.node_tag),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[node_tag_sub_def]>>
+  fs[Marray_sub_def]);
+
+val degrees_sub_eqn = Q.store_thm("degrees_sub_eqn[simp]",`
+  degrees_sub n s =
+  if n < LENGTH s.degrees then
+    (Success (EL n s.degrees),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[degrees_sub_def]>>
+  fs[Marray_sub_def]);
+
+val coalesced_sub_eqn = Q.store_thm("coalesced_sub[simp]",`
+  coalesced_sub n s =
+  if n < LENGTH s.coalesced then
+    (Success (EL n s.coalesced),s)
+  else
+    (Failure Subscript,s)`,
+  rw[coalesced_sub_def]>>fs[Marray_sub_def]);
+
+val move_related_sub_eqn = Q.store_thm("move_related_sub[simp]",`
+  move_related_sub n s =
+  if n < LENGTH s.move_related then
+    (Success (EL n s.move_related),s)
+  else
+    (Failure Subscript,s)`,
+  rw[move_related_sub_def]>>fs[Marray_sub_def]);
+
+(* Rewriting lemmas for array "update" *)
 val Mupdate_eqn = Q.store_thm("Mupdate_eqn[simp]",`
   ∀e x n ls.
   Mupdate e x n ls =
@@ -117,15 +173,6 @@ val Mupdate_eqn = Q.store_thm("Mupdate_eqn[simp]",`
   IF_CASES_TAC>>fs[LUPDATE_def]>>
   Cases_on`n`>>fs[LUPDATE_def]);
 
-val update_node_tag_eqn = Q.store_thm("update_node_tag_eqn[simp]",`
-  update_node_tag n t s =
-  if n < LENGTH s.node_tag then
-     (Success (),s with node_tag := LUPDATE t n s.node_tag)
-  else
-     (Failure (Subscript),s)`,
-  rw[update_node_tag_def]>>
-  fs[Marray_update_def]);
-
 val update_adj_ls_eqn = Q.store_thm("update_adj_ls_eqn[simp]",`
   update_adj_ls n t s =
   if n < LENGTH s.adj_ls then
@@ -133,6 +180,15 @@ val update_adj_ls_eqn = Q.store_thm("update_adj_ls_eqn[simp]",`
   else
      (Failure (Subscript),s)`,
   rw[update_adj_ls_def]>>
+  fs[Marray_update_def]);
+
+val update_node_tag_eqn = Q.store_thm("update_node_tag_eqn[simp]",`
+  update_node_tag n t s =
+  if n < LENGTH s.node_tag then
+     (Success (),s with node_tag := LUPDATE t n s.node_tag)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_node_tag_def]>>
   fs[Marray_update_def]);
 
 val update_degrees_eqn = Q.store_thm("update_degrees_eqn[simp]",`
@@ -144,6 +200,51 @@ val update_degrees_eqn = Q.store_thm("update_degrees_eqn[simp]",`
   rw[update_degrees_def]>>
   fs[Marray_update_def]);
 
+val update_coalesced_eqn = Q.store_thm("update_coalesced_eqn[simp]",`
+  update_coalesced n t s =
+  if n < LENGTH s.coalesced then
+     (Success (),s with coalesced := LUPDATE t n s.coalesced)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_coalesced_def]>>
+  fs[Marray_update_def]);
+
+val update_move_related_eqn = Q.store_thm("update_move_related_eqn[simp]",`
+  update_move_related n t s =
+  if n < LENGTH s.move_related then
+     (Success (),s with move_related := LUPDATE t n s.move_related)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_move_related_def]>>
+  fs[Marray_update_def]);
+
+(* --- *)
+
+(* The following are also routine theorems, but slightly more complicated.
+  TODO: can they be stated generically? *)
+
+(* This asserts, e.g. that the monadic map of (\i.node_tag_sub i) returns
+   success if the input list were all within range *)
+val st_ex_MAP_node_tag_sub = Q.store_thm("st_ex_MAP_node_tag_sub",`
+  ∀ls s.
+  EVERY (λv. v < LENGTH s.node_tag) ls ⇒
+  st_ex_MAP node_tag_sub ls s = (Success (MAP (λi. EL i s.node_tag) ls),s)`,
+  Induct>>fs[st_ex_MAP_def]>>fs msimps);
+
+val st_ex_MAP_adj_ls_sub = Q.store_thm("st_ex_MAP_adj_ls_sub",`
+  ∀ls s.
+  EVERY (λv. v < LENGTH s.adj_ls) ls ⇒
+  st_ex_MAP adj_ls_sub ls s = (Success (MAP (λi. EL i s.adj_ls) ls),s)`,
+  Induct>>fs[st_ex_MAP_def]>>fs msimps);
+
+val st_ex_MAP_degrees_sub = Q.store_thm("st_ex_MAP_degrees_sub",`
+  ∀ls s.
+  EVERY (λv. v < LENGTH s.degrees) ls ⇒
+  st_ex_MAP degrees_sub ls s = (Success (MAP (λi. EL i s.degrees) ls),s)`,
+  Induct>>fs[st_ex_MAP_def]>>fs msimps);
+(* --- *)
+
+(* --- the main (core) correctness proofs start here --- *)
 val remove_colours_frame = Q.store_thm("remove_colours_frame",`
   ∀adjs ks s res s'.
   remove_colours adjs ks s = (res,s') ⇒
@@ -273,7 +374,8 @@ val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
   >>
   qpat_abbrev_tac`ls = h::t`>>
   fs[good_pref_def]>>
-  first_x_assum(qspecl_then [`n`,`ls`,`s`] assume_tac)>>fs[]>>
+  first_x_assum(qspecl_then [`n`,`ls`,`s`] assume_tac)>>fs[good_ra_state_def]>>
+  rfs[]>>
   TOP_CASE_TAC>>fs[]>>
   simp[EL_LUPDATE,Abbr`ls`]>>
   imp_res_tac remove_colours_success>>
@@ -398,12 +500,6 @@ val unbound_colour_correct = Q.store_thm("unbound_colour_correct",`
     (first_x_assum(qspec_then`h+1` assume_tac)>>fs[])
   >>
     first_x_assum(qspec_then`k` assume_tac)>>fs[]);
-
-val st_ex_MAP_node_tag_sub = Q.store_thm("st_ex_MAP_node_tag_sub",`
-  ∀ls s.
-  EVERY (λv. v < LENGTH s.node_tag) ls ⇒
-  st_ex_MAP (\i.node_tag_sub i) ls s = (Success (MAP (λi. EL i s.node_tag) ls),s)`,
-  Induct>>fs[st_ex_MAP_def]>>fs msimps)
 
 val assign_Stemp_tag_correct = Q.store_thm("assign_Stemp_tag_correct",`
   good_ra_state s ∧
@@ -533,12 +629,13 @@ val first_match_col_correct = Q.prove(`
 val good_pref_biased_pref = Q.store_thm("good_pref_biased_pref",`
   ∀t. good_pref (biased_pref t)`,
   rw[good_pref_def,biased_pref_def]>>
-  TOP_CASE_TAC>>simp msimps>>
-  (first_match_col_correct |> SPEC_ALL |> assume_tac)>>
-  fs[]>>
-  EVERY_CASE_TAC>>fs[handle_Subscript_def]);
-
-(* -- *)
+  fs[get_dim_def]>>simp msimps>>
+  IF_CASES_TAC>>fs[good_ra_state_def]>>
+  TOP_CASE_TAC>>fs[handle_Subscript_def]>>
+  cases_on`lookup n t`>>fs[]>>
+  qmatch_goalsub_abbrev_tac`first_match_col _ ls _`>>
+  Q.ISPECL_THEN [`ls`,`ks`,`s`] assume_tac first_match_col_correct>>fs[]>>
+  EVERY_CASE_TAC>>fs[]);
 
 (* Checking that the bijection produced is correct *)
 
@@ -753,6 +850,16 @@ val is_subgraph_def = Define`
   ∀x y.
     has_edge g x y ⇒ has_edge h x y`
 
+val is_subgraph_refl= Q.store_thm("is_subgraph_refl",`
+  is_subgraph s s`,
+  rw[is_subgraph_def]);
+
+val is_subgraph_trans = Q.store_thm("is_subgraph_trans",`
+  is_subgraph s s' ∧
+  is_subgraph s' s'' ==>
+  is_subgraph s s''`,
+  rw[is_subgraph_def]);
+
 val insert_edge_succeeds = Q.store_thm("insert_edge_succeeds",`
   good_ra_state s ∧
   y < s.dim ∧
@@ -803,12 +910,6 @@ val list_insert_edge_succeeds = Q.store_thm("list_insert_edge_succeeds",`
   qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
   disch_then (qspec_then`x` strip_assume_tac)>>rfs[]>>
   rw[]>>metis_tac[]);
-
-val is_subgraph_trans = Q.store_thm("is_subgraph_trans",`
-  is_subgraph s s' ∧
-  is_subgraph s' s'' ==>
-  is_subgraph s s''`,
-  rw[is_subgraph_def]);
 
 (* From here onwards we stop characterizing s'.adj_ls exactly
    although it could be done
@@ -1649,19 +1750,61 @@ val extract_color_succeeds = Q.store_thm("extract_color_succeeds",`
   drule fromAList_toAList>>
   simp[]);
 
-(* Minimal proofs about the heuristic steps *)
+(* Here are the proofs about the "heuristic steps" *)
 
+(* st_ex_PARTITION is similar to st_ex_MAP in that there ought to be
+   some generic way to state the following lemmas
+*)
+
+(* As an example, we don't bother fully characterizing
+   st_ex_PARTITION, but merely that show it succeeds *)
 val st_ex_PARTITION_split_degree = Q.prove(`
   ∀atemps k lss lss' s.
   good_ra_state s ⇒
   ?ts fs. st_ex_PARTITION (split_degree s.dim k) atemps lss lss' s =
-    (Success (ts,fs),s)`,
+    (Success (ts,fs),s) ∧
+  EVERY (λx. MEM x (lss) ∨ MEM x atemps ) ts ∧
+  EVERY (λx. MEM x (lss') ∨ MEM x atemps ) fs`,
   Induct_on`atemps`>>fs[st_ex_PARTITION_def,EXISTS_PROD]>>fs msimps>>
+  fs[EVERY_MEM]>>
   rw[split_degree_def]>>rfs msimps>>
-  fs[degrees_accessor,Marray_sub_def]>>
+  every_case_tac>>
+  fs[degrees_accessor,Marray_sub_def,is_not_coalesced_def]>>
+  fs msimps>>
+  rfs[]>>fs[]>>
+  every_case_tac>>fs[]>>
   first_x_assum drule>>
   fs[good_ra_state_def]>>
-  rw[]);
+  rw[]>>rfs[]
+  >-
+    (first_x_assum(qspecl_then [`k`,`h::lss`,`lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM])
+  >-
+    (first_x_assum(qspecl_then [`k`,`lss`,`h::lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM])
+  >-
+    (first_x_assum(qspecl_then [`k`,`lss`,`h::lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM])
+  >>
+    (first_x_assum(qspecl_then [`k`,`h::lss`,`lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM]));
+
+val st_ex_PARTITION_move_related_sub = Q.prove(`
+  ∀atemps lss lss' s.
+  EVERY (λx. x < LENGTH s.move_related) atemps ⇒
+  ?ts fs. st_ex_PARTITION move_related_sub atemps lss lss' s =
+    (Success (ts,fs),s) ∧
+  EVERY (λx. MEM x lss ∨ MEM x atemps ) ts ∧
+  EVERY (λx. MEM x lss' ∨ MEM x atemps ) fs`,
+  Induct_on`atemps`>>fs[st_ex_PARTITION_def,EXISTS_PROD]>>fs msimps>>
+  fs[EVERY_MEM]>>rw[]>>
+  first_x_assum drule>>rw[]
+  >-
+    (first_x_assum(qspecl_then [`h::lss`,`lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM])
+  >-
+    (first_x_assum(qspecl_then [`lss`,`h::lss'`] assume_tac)>>fs[]>>
+    metis_tac[MEM]));
 
 (* This is currently more general than necessary because it doesn't
    do any coalescing (yet) *)
@@ -1698,6 +1841,18 @@ val dec_degree_success = Q.prove(`
   rfs[good_ra_state_def]>>fs[]>>
   metis_tac[]);
 
+val revive_moves_success = Q.prove(`
+  EVERY (λx. x < LENGTH s.adj_ls) ls ⇒
+  ∃s'.
+  revive_moves ls s = (Success(),s') ∧
+  s' = s with  <|
+    avail_moves_wl:=s'.avail_moves_wl;
+    unavail_moves_wl := s'.unavail_moves_wl |>`,
+  rw[revive_moves_def]>>fs msimps>>
+  drule st_ex_MAP_adj_ls_sub>>rw[]>>
+  fs get_eqns>> fs set_eqns>>
+  pairarg_tac>>fs[]);
+
 val unspill_success = Q.prove(`
   ∀k s.
   good_ra_state s ⇒
@@ -1708,13 +1863,44 @@ val unspill_success = Q.prove(`
   s.dim = s'.dim ∧
   s.node_tag = s'.node_tag`,
   rw[unspill_def]>> fs msimps>>
-  simp[get_dim_def,get_spill_wl_def]>>
+  simp get_eqns>>
   drule st_ex_PARTITION_split_degree>>
   disch_then(qspecl_then[`s.spill_wl`,`k`,`[]:num list`,`[]:num list`] assume_tac)>>
   fs[]>>
   simp[set_spill_wl_def,add_simp_wl_def]>>simp msimps>>
-  simp[get_simp_wl_def,set_simp_wl_def]>>
-  fs[good_ra_state_def,is_subgraph_def]);
+  `EVERY (λx. x < LENGTH s.adj_ls) ts` by
+    fs[good_ra_state_def,EVERY_MEM]>>
+  drule revive_moves_success>>rw[]>>simp[]>>
+  `EVERY (λx. x < LENGTH s'.move_related) ts` by
+    (pop_assum SUBST_ALL_TAC>>rw[]>>
+    fs[good_ra_state_def,EVERY_MEM])>>
+  drule st_ex_PARTITION_move_related_sub>>
+  disch_then(qspecl_then[`[]:num list`,`[]:num list`] assume_tac)>>
+  rw[]>>
+  simp all_eqns>>
+  fs[ good_ra_state_def]>>qpat_x_assum`s' = _` SUBST_ALL_TAC >> rw[]>>
+  fs[EVERY_MEM,is_subgraph_refl]);
+
+val push_stack_success = Q.prove(`
+  ∀ls s.
+  EVERY (λx. x < s.dim) ls ∧
+  good_ra_state s ⇒
+  ∃d mr st.
+  st_ex_FOREACH ls push_stack s = (Success (),
+    s with
+    <| degrees:=d; move_related:=mr;stack:=st |>)∧
+  LENGTH d = LENGTH s.degrees ∧
+  LENGTH mr = LENGTH s.move_related`,
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps
+  >- fs[ra_state_component_equality]>>
+  rw[push_stack_def]>>fs all_eqns>>
+  fs[good_ra_state_def]>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH _ _ s'`>>
+  first_x_assum(qspec_then`s'` mp_tac)>>
+  impl_tac>-
+    fs[Abbr`s'`]>>
+  rw[]>>
+  simp[Abbr`s'`,ra_state_component_equality]);
 
 val do_simplify_success = Q.prove(`
   ∀s.
@@ -1726,20 +1912,394 @@ val do_simplify_success = Q.prove(`
   s.dim = s'.dim ∧
   s.node_tag = s'.node_tag`,
   rw[do_simplify_def]>>fs msimps>>fs[get_simp_wl_def]>>
-  rw[]>- fs[is_subgraph_def]>>
+  rw[]>- fs[is_subgraph_refl]>>
   drule dec_degree_success>>
   disch_then(qspec_then`s.simp_wl` assume_tac)>>fs[]>>
-  simp([add_stack_def,get_stack_def,set_stack_def,set_simp_wl_def] @msimps)>>
+  `EVERY (λx. x < (s with degrees:=d).dim) s.simp_wl` by
+    fs[good_ra_state_def]>>
+  drule push_stack_success>>fs[good_ra_state_def]>>
+  rw[]>>simp all_eqns>>
   qmatch_goalsub_abbrev_tac`unspill k ss`>>
-  qspecl_then [`k`,`ss`] assume_tac unspill_success >> rfs[Abbr`ss`,good_ra_state_def]);
+  qspecl_then [`k`,`ss`] assume_tac unspill_success >>
+  rfs[Abbr`ss`,good_ra_state_def]);
+
+(* This basically says nothing at the moment *)
+val st_ex_FILTER_is_not_coalesced = Q.prove(`
+  ∀ls acc s.
+  EVERY (λx. x < LENGTH s.coalesced) ls ∧
+  EVERY (λx. x < LENGTH s.coalesced) acc ⇒
+  ?ts fs. st_ex_FILTER is_not_coalesced ls acc s =
+    (Success ts,s) ∧
+  EVERY (λx. x < LENGTH s.coalesced) ts`,
+  Induct>>rw[]>>fs[st_ex_FILTER_def,is_not_coalesced_def]>>
+  fs msimps>>
+  fs[good_ra_state_def]>>fs[]>>
+  IF_CASES_TAC>>fs[]>>
+  first_x_assum match_mp_tac>>fs[]);
+
+val consistency_ok_success = Q.prove(`
+  ∀x y s.
+  good_ra_state s ⇒
+  ∃b.
+  consistency_ok x y s = (Success b,s) ∧
+  (b ⇒ x < s.dim ∧ y < s.dim)`,
+  rw[]>>simp[Once consistency_ok_def]>>
+  IF_CASES_TAC>>simp msimps>>simp get_eqns>>
+  fs[is_Fixed_def]>>fs msimps>>
+  EVERY_CASE_TAC>>simp msimps>>
+  fs[good_ra_state_def]);
+
+val st_ex_FILTER_consistency_ok = Q.prove(`
+  ∀ls acc s.
+  good_ra_state s ⇒
+  ?ts. st_ex_FILTER (λ(_,x,y). consistency_ok x y) ls acc s =
+    (Success ts,s) ∧
+  EVERY (λ(p,(x,y)). x < s.dim ∧ y < s.dim ∨ MEM (p,(x,y)) acc) ts`,
+  Induct>>rw[]>>fs[st_ex_FILTER_def]>>
+  fs msimps
+  >-
+    fs[EVERY_MEM,FORALL_PROD]>>
+  Cases_on`h`>>Cases_on`r`>>
+  simp[]>>
+  drule consistency_ok_success>>
+  disch_then(qspecl_then [`q'`,`r'`] assume_tac)>>
+  fs[]>>
+  IF_CASES_TAC>>simp msimps>>simp get_eqns>>
+  fs[is_Fixed_def]>>fs msimps>>
+  first_x_assum(qspecl_then [`(q,q',r')::acc`,`s`] assume_tac)>>
+  rfs[]>>
+  fs[EVERY_MEM,FORALL_PROD]>>
+  rw[]>>first_x_assum drule>>fs[]>>rw[]>>
+  fs[]>>metis_tac[]);
+
+(* do_coalesce *)
+val st_ex_FILTER_considered_var = Q.prove(`
+  ∀ls acc s.
+  EVERY (λx. x < LENGTH s.node_tag) ls ∧
+  EVERY (λx. x < LENGTH s.node_tag) acc ⇒
+  ?ts fs. st_ex_FILTER (considered_var k) ls acc s =
+    (Success ts,s) ∧
+  EVERY (λx. x < LENGTH s.node_tag) ts`,
+  Induct>>rw[]>>fs[st_ex_FILTER_def,considered_var_def,is_Atemp_def,is_Fixed_k_def]>>
+  fs msimps>>
+  fs[good_ra_state_def]>>fs[]>>
+  IF_CASES_TAC>>fs[]);
+
+val st_ex_MAP_deg_or_inf = Q.prove(`
+  ∀ls s.
+  good_ra_state s ∧
+  EVERY (\x. x < s.dim) ls ⇒
+  ∃degs.
+  st_ex_MAP (deg_or_inf k) ls s =
+  (Success degs,s)`,
+  Induct>>fs[st_ex_MAP_def,deg_or_inf_def,is_Fixed_k_def]>>
+  simp msimps>>
+  reverse (rw[])
+  >- metis_tac[good_ra_state_def]>>
+  qmatch_goalsub_abbrev_tac`if cc then _ else _`>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (first_x_assum drule>>rw[]>>
+    simp[])
+  >>
+  first_x_assum drule>>rw[]>>
+  fs[good_ra_state_def])|>GEN_ALL;
+
+val bg_ok_success = Q.prove(`
+  good_ra_state s ∧
+  x < s.dim ∧ y < s.dim ⇒
+  ∃opt.
+  bg_ok k x y s = (Success opt, s) ∧
+  case opt of
+   NONE => T
+  | SOME (case1,case2) =>
+    EVERY (\v. v < s.dim) case1 ∧ EVERY (\v.v<s.dim) case2`,
+  rw[bg_ok_def]>>simp msimps>>
+  every_case_tac>>fs[]>>TRY(fs[good_ra_state_def]>>NO_TAC)>>
+  pairarg_tac>>fs[]>>
+  `EVERY (λx. x < LENGTH s.node_tag) case1 ∧
+   EVERY (λx. x < LENGTH s.node_tag) case2` by
+    (first_x_assum(assume_tac o SYM)>>
+    drule PERM_PARTITION>>
+    strip_tac>>
+    drule MEM_PERM>>
+    fs[EVERY_MEM,EL_MEM,good_ra_state_def]>>
+    metis_tac[MEM_EL])>>
+  drule st_ex_FILTER_considered_var>>
+  pop_assum mp_tac>>
+  drule st_ex_FILTER_considered_var>>
+  disch_then(qspec_then`[]` assume_tac)>>
+  strip_tac>>
+  disch_then(qspec_then`[]` assume_tac)>>
+  fs[]>>
+  drule st_ex_MAP_deg_or_inf>>
+  disch_then (qspecl_then[`k`,`ts'`] mp_tac)>>
+  impl_tac >- (fs[good_ra_state_def,EVERY_MEM]>>metis_tac[])>>
+  rw[]>>simp[]>>
+  IF_CASES_TAC>>simp[]
+  >-
+    (fs[good_ra_state_def,EVERY_MEM]>>metis_tac[])>>
+  qmatch_goalsub_abbrev_tac`st_ex_FILTER _ case3 _ _`>>
+  `EVERY (λx. x < LENGTH s.node_tag) case3` by
+    (fs[EVERY_MEM,EL_MEM]>>
+    rw[]>>fs[Abbr`case3`,MEM_FILTER]>>
+    fs[good_ra_state_def,EVERY_MEM]>>
+    metis_tac[MEM_EL])>>
+  drule st_ex_FILTER_considered_var>>
+  disch_then(qspec_then`[]` assume_tac)>>
+  fs[]>>
+  drule st_ex_MAP_deg_or_inf>>
+  disch_then (qspecl_then[`k+1`,`ts`] mp_tac)>>
+  impl_tac >- (fs[good_ra_state_def,EVERY_MEM]>>metis_tac[])>>
+  drule st_ex_MAP_deg_or_inf>>
+  disch_then (qspecl_then[`k`,`ts''`] mp_tac)>>
+  impl_tac >- (fs[good_ra_state_def,EVERY_MEM]>>metis_tac[])>>
+  rw[]>>simp[]>>
+  IF_CASES_TAC>>fs[good_ra_state_def,EVERY_MEM]>>
+  metis_tac[]);
+
+val canonize_move_success = Q.prove(`
+  x < s.dim ∧ y < s.dim ∧ good_ra_state s ⇒
+  ∃x2 y2.
+  canonize_move x y s = (Success(x2,y2),s) ∧
+  x2 < s.dim ∧ y2 < s.dim`,
+  rw[canonize_move_def,is_Fixed_def]>>simp msimps>>
+  fs[good_ra_state_def]>>
+  every_case_tac>>fs[]);
+
+val st_ex_FIRST_consistency_ok_bg_ok = Q.prove(`
+  ∀ls acc.
+  good_ra_state s ⇒
+  ∃ores ys.
+  st_ex_FIRST consistency_ok (bg_ok k) ls acc s =
+  (Success (ores,ys),s) ∧
+  case ores of
+    SOME((x,y),(case1,case2),rest) =>
+    x < s.dim ∧ y < s.dim ∧ EVERY (\v. v < s.dim) case1 ∧ EVERY (\v.v<s.dim) case2
+  | _ => T`,
+  Induct>>rw[st_ex_FIRST_def]>>fs msimps>>
+  pairarg_tac>>fs[]>>
+  drule (SPEC_ALL consistency_ok_success)>>
+  rw[]>>simp[]>>
+  IF_CASES_TAC>>fs[]>>
+  mp_tac canonize_move_success>>
+  rw[]>>simp[]>>
+  drule (GEN_ALL bg_ok_success)>>
+  disch_then(qspecl_then[`y2`,`x2`,`k`] assume_tac)>>rfs[]>>
+  simp[]>>
+  TOP_CASE_TAC>>fs[]);
+
+val do_coalesce_real_success = Q.prove(`
+  ∀x y case1 case2 s.
+  y < s.dim ∧
+  x < s.dim ∧
+  EVERY (\v. v < s.dim) case1 ∧
+  EVERY (\v.v<s.dim) case2 ∧
+  good_ra_state s ⇒
+  ∃s'.
+  do_coalesce_real x y case1 case2 s = (Success (),s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_coalesce_real_def]>>fs msimps>>
+  fs[good_ra_state_def]>>
+  fs[is_Fixed_def]>>
+  fs all_eqns>>
+  IF_CASES_TAC>>fs[]>>
+  simp[inc_deg_def]>> fs msimps>>
+  qmatch_goalsub_abbrev_tac`_ _ _ ss`>>
+  `good_ra_state ss` by
+    fs[good_ra_state_def,Abbr`ss`]>>
+  drule list_insert_edge_succeeds>>
+  disch_then(qspecl_then[`case2`,`x`] mp_tac)>>
+  (impl_tac>-
+    fs[Abbr`ss`])>>
+  rw[]>>simp[]>>
+  `EVERY (λv. v < s'.dim) case1` by
+    fs[ra_state_component_equality,Abbr`ss`]>>
+  drule dec_deg_success>>
+  rw[]>>simp[]>>
+  Q.ISPECL_THEN [`[y]`,`s' with degrees:=d`] mp_tac push_stack_success >>
+  (impl_tac>-
+    fs[ra_state_component_equality,good_ra_state_def,Abbr`ss`])>>
+  simp[st_ex_FOREACH_def]>>simp msimps>>
+  rw[]>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>
+  unabbrev_all_tac>>
+  ntac 7 (pop_assum mp_tac)>>
+  qpat_x_assum`good_ra_state _` mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  ntac 2 (TOP_CASE_TAC>>fs[])>>
+  fs[ra_state_component_equality,good_ra_state_def]>>
+  rw[]>>fs[]>>
+  fs[is_subgraph_def]);
+
+val do_coalesce_success = Q.prove(`
+  ∀s.
+  good_ra_state s ⇒
+  ∃s' b.
+  do_coalesce k s = (Success b,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_coalesce_def]>>fs msimps>>fs all_eqns>>
+  Q.ISPECL_THEN [`s.avail_moves_wl`] assume_tac st_ex_FIRST_consistency_ok_bg_ok>>
+  rfs[]>>
+  pop_assum (qspec_then`[]` assume_tac)>>
+  fs[]>>
+  TOP_CASE_TAC>-
+    fs[good_ra_state_def,is_subgraph_refl]>>
+  ntac 4 (TOP_CASE_TAC>>fs[])>>
+  qmatch_goalsub_abbrev_tac`_ x y case1 case2 ss`>>
+  qspecl_then [`x`,`y`,`case1`,`case2`,`ss`] mp_tac do_coalesce_real_success>>
+  fs[Abbr`ss`]>>
+  impl_tac>-
+    fs[good_ra_state_def]>>
+  rw[]>>simp[]>>
+  drule unspill_success>>
+  disch_then(qspec_then`k` assume_tac)>>fs[]>>
+  simp[respill_def]>>simp msimps>>
+  reverse IF_CASES_TAC>>fs[]
+  >-
+    fs[good_ra_state_def]>>
+  fs all_eqns>>
+  rw[] >- metis_tac[is_subgraph_trans]>>
+  rw[] >-
+    (fs[good_ra_state_def,EVERY_FILTER]>>
+    fs[EVERY_MEM])>>
+  metis_tac[is_subgraph_trans]);
+
+val st_ex_FOREACH_update_move_related = Q.prove(`
+  ∀ls s b.
+  EVERY (λv. v < LENGTH s.move_related) ls ⇒
+  ∃lss.
+  st_ex_FOREACH ls (\x. update_move_related x b) s = (Success (),s with move_related := lss) ∧
+  LENGTH lss = LENGTH s.move_related`,
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps>>
+  fs[ra_state_component_equality]>>rw[]>>
+  qmatch_goalsub_abbrev_tac`_ _ _ ss`>>
+  first_x_assum (qspec_then `ss` assume_tac)>>fs[Abbr`ss`]);
+
+val reset_move_related_success = Q.prove(`
+  ∀ls s.
+  good_ra_state s ∧
+  EVERY (λ(p,(x,y)). x < s.dim ∧ y < s.dim) ls
+  ⇒
+  ∃mv.
+  reset_move_related ls s = (Success (), s with move_related:= mv) ∧
+  LENGTH mv = s.dim`,
+  rw[reset_move_related_def]>>fs msimps>>
+  fs[get_dim_def]>>
+  `EVERY (\v. v< LENGTH s.move_related) (COUNT_LIST s.dim)` by
+    fs[EVERY_MEM,MEM_COUNT_LIST,good_ra_state_def]>>
+  drule st_ex_FOREACH_update_move_related>>
+  disch_then(qspec_then `F` assume_tac)>>
+  rw[]>>simp[]>>
+  pop_assum mp_tac>>
+  ntac 2 (last_x_assum mp_tac)>>
+  map_every qid_spec_tac [`s`,`lss`,`ls`]>>
+  rpt (pop_assum kall_tac)>>
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps>>
+  fs[ra_state_component_equality,good_ra_state_def]>>
+  fs[FORALL_PROD]>>rw[]>>
+  fs[is_Fixed_def]>>fs msimps);
+
+val do_prefreeze_success = Q.prove(`
+  ∀s.
+  good_ra_state s ⇒
+  ∃s' b.
+  do_prefreeze k s = (Success b,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_prefreeze_def]>> fs all_eqns>>
+  `EVERY (\x. x < LENGTH s.coalesced) s.freeze_wl` by
+    fs[good_ra_state_def]>>
+  drule st_ex_FILTER_is_not_coalesced>> disch_then(qspec_then`[]` assume_tac)>>
+  rfs[]>>
+  `EVERY (\x. x < LENGTH s.coalesced) s.spill_wl` by
+    fs[good_ra_state_def]>>
+  drule st_ex_FILTER_is_not_coalesced>> disch_then(qspec_then`[]` assume_tac)>>
+  rfs[]>>
+  (Q.ISPECL_THEN [`s.unavail_moves_wl`] mp_tac st_ex_FILTER_consistency_ok )>>
+  disch_then (qspecl_then [`[]`,`s with spill_wl := ts'`] assume_tac)>>
+  rfs[good_ra_state_def]>>
+  Q.ISPECL_THEN [`ts''`,`s with spill_wl := ts'`] mp_tac reset_move_related_success>>
+  impl_tac>-
+    fs[good_ra_state_def]>>
+  rw[]>>simp[]>>
+  qmatch_goalsub_abbrev_tac`_ _ _ [] [] ss`>>
+  `EVERY (λx. x < LENGTH ss.move_related) ts` by
+    fs[Abbr`ss`]>>
+  drule st_ex_PARTITION_move_related_sub>>
+  disch_then(qspecl_then[`[]:num list`,`[]:num list`] assume_tac)>>
+  rw[]>>simp all_eqns>>
+  simp[add_simp_wl_def]>>fs msimps>>fs all_eqns>>
+  qmatch_goalsub_abbrev_tac`_ _ sss`>>
+  `good_ra_state sss` by
+    (fs[good_ra_state_def,Abbr`sss`,Abbr`ss`]>>
+    fs[EVERY_MEM])>>
+  drule do_simplify_success>>
+  rw[]>>simp[]>>unabbrev_all_tac>>rfs[]>>
+  fs[good_ra_state_def]);
+
+(* do freeze *)
+val do_freeze_success = Q.prove(`
+  ∀s.
+  good_ra_state s ⇒
+  ∃s' b.
+  do_freeze k s = (Success b,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s.dim = s'.dim ∧
+  s.node_tag = s'.node_tag`,
+  rw[do_freeze_def]>> fs all_eqns>>
+  IF_CASES_TAC>- fs[is_subgraph_refl]>>
+  TOP_CASE_TAC>-fs[is_subgraph_def]>>
+  drule dec_degree_success>>
+  disch_then(qspec_then `[h]` assume_tac)>>
+  fs[st_ex_FOREACH_def]>>fs msimps>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  Q.ISPECL_THEN [`[h]`,`s with degrees:=d`] mp_tac push_stack_success>>
+  impl_tac>-
+    fs[good_ra_state_def]>>
+  rw[]>>fs[st_ex_FOREACH_def]>>fs msimps>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  qmatch_goalsub_abbrev_tac`unspill k ss`>>
+  qspecl_then [`k`,`ss`] mp_tac unspill_success>>
+  impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def]>>
+  rw[]>>fs[Abbr`ss`]);
+
+(* do spill *)
+val st_ex_list_MIN_cost_success = Q.prove(`
+  ∀ls s k v acc.
+  good_ra_state s ∧
+  EVERY (λv. v < s.dim) acc ∧
+  k < s.dim ⇒
+  ∃x y.
+  st_ex_list_MIN_cost sc ls (s.dim) k v acc s = (Success (x,y),s) ∧
+  x < s.dim ∧
+  EVERY (λv. v < s.dim) y`,
+  Induct>>fs[st_ex_list_MIN_cost_def]>>simp msimps>>rw[]>>
+  fs[degrees_accessor,Marray_sub_def]>>
+  reverse (rw[])>- fs[good_ra_state_def]>>
+  rw[]);
 
 val st_ex_list_MAX_deg_success = Q.prove(`
   ∀ls s k v acc.
   good_ra_state s ∧
+  EVERY (λv. v < s.dim) acc ∧
   k < s.dim ⇒
   ∃x y.
   st_ex_list_MAX_deg ls (s.dim) k v acc s = (Success (x,y),s) ∧
-  x < s.dim`,
+  x < s.dim ∧
+  EVERY (λv. v < s.dim) y`,
   Induct>>fs[st_ex_list_MAX_deg_def]>>simp msimps>>rw[]>>
   fs[degrees_accessor,Marray_sub_def]>>
   reverse (rw[])>- fs[good_ra_state_def]>>
@@ -1749,35 +2309,48 @@ val do_spill_success = Q.prove(`
   ∀s.
   good_ra_state s ⇒
   ∃s' b.
-  do_spill k s = (Success b,s') ∧
+  do_spill sc k s = (Success b,s') ∧
   good_ra_state s' ∧
   is_subgraph s.adj_ls s'.adj_ls ∧
   s.dim = s'.dim ∧
   s.node_tag = s'.node_tag`,
   rw[do_spill_def]>>fs msimps>>fs[get_spill_wl_def]>>fs[get_dim_def]>>
   TOP_CASE_TAC>-fs[is_subgraph_def]>>
-  IF_CASES_TAC>-fs[is_subgraph_def]>>
+  reverse IF_CASES_TAC>- fs[good_ra_state_def,is_subgraph_def]>>
   fs[degrees_accessor,Marray_sub_def]>>
-  reverse IF_CASES_TAC>-fs[good_ra_state_def]>>
-  fs[]>>
-  drule st_ex_list_MAX_deg_success>>
-  rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
-  qmatch_goalsub_abbrev_tac`st_ex_list_MAX_deg ls _ kk vv acc _`>>
-  first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>rfs[]>>
-  simp[dec_deg_def]>> simp msimps>> simp[degrees_accessor,Marray_sub_def]>>
-  qmatch_goalsub_abbrev_tac`unspill k ss`>>
-  qspecl_then [`k`,`ss`] mp_tac unspill_success>>
+  Cases_on`sc`>>fs[]>>
+  TRY(drule st_ex_list_MAX_deg_success>>
+    disch_then(qspecl_then [`t`,`h`,`EL h s.degrees`,`[]`] mp_tac)>>
+    impl_tac>-
+      fs[good_ra_state_def]>>
+    rw[]>>simp[])>>
+  TRY(qmatch_goalsub_abbrev_tac`st_ex_list_MIN_cost sc ls _ kk vv acc _`>>
+    drule st_ex_list_MIN_cost_success>>
+    rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
+    first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>
+    rfs[Abbr`acc`])>>
+  fs[good_ra_state_def]>>
+  simp[dec_deg_def]>> simp msimps>>
+  qmatch_goalsub_abbrev_tac`push_stack xx ss`>>
+  Q.ISPECL_THEN [`[xx]`,`ss`] mp_tac push_stack_success>>
+  (impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def])>>
+  rw[]>>fs[st_ex_FOREACH_def]>>fs msimps>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[set_spill_wl_def]>>
+  qmatch_goalsub_abbrev_tac`unspill k sss`>>
+  qspecl_then [`k`,`sss`] mp_tac unspill_success>>
   impl_tac>-
-    fs[Abbr`ss`,good_ra_state_def]>>
-  rw[]>>simp[add_stack_def]>>simp msimps>>
-  simp[get_stack_def,set_stack_def,set_spill_wl_def]>>
-  fs[Abbr`ss`,good_ra_state_def]);
+    fs[Abbr`sss`,Abbr`ss`,good_ra_state_def]>>
+  rw[]>>fs[]>>
+  unabbrev_all_tac>>
+  fs[good_ra_state_def]);
 
 val do_step_success = Q.prove(`
-  ∀k s.
+  ∀sc k s.
   good_ra_state s ⇒
-  ∃s'.
-  do_step k s = (Success (),s') ∧
+  ∃b s'.
+  do_step sc k s = (Success b,s') ∧
   good_ra_state s' ∧
   is_subgraph s.adj_ls s'.adj_ls ∧
   s.dim = s'.dim ∧
@@ -1785,27 +2358,70 @@ val do_step_success = Q.prove(`
   rw[do_step_def]>>fs msimps>>
   drule do_simplify_success>>rw[]>>simp[]>>
   IF_CASES_TAC>>fs[]>>
+  drule do_coalesce_success>>rw[]>>simp[]>>
+  IF_CASES_TAC>>fs[]>- metis_tac[is_subgraph_trans]>>
+  drule do_prefreeze_success>>rw[]>>simp[]>>
+  IF_CASES_TAC>>fs[]>- metis_tac[is_subgraph_trans]>>
+  drule do_freeze_success>>rw[]>>simp[]>>
+  IF_CASES_TAC>>fs[]>- metis_tac[is_subgraph_trans]>>
   drule do_spill_success>>rw[]>>simp[]>>
   metis_tac[is_subgraph_trans]);
 
 val rpt_do_step_success = Q.prove(`
-  ∀n s k.
+  ∀n s k sc.
     good_ra_state s ⇒
     ∃s'.
-      rpt_do_step k n s = (Success (),s') ∧
+      rpt_do_step sc k n s = (Success (),s') ∧
       good_ra_state s' ∧
       is_subgraph s.adj_ls s'.adj_ls ∧
       s.dim = s'.dim ∧
       s.node_tag = s'.node_tag`,
   Induct>>fs[rpt_do_step_def]>>fs msimps>-fs[is_subgraph_def]>>
   rw[]>>
-  drule do_step_success>> disch_then(qspec_then`k` assume_tac)>>rfs[]>>
+  drule do_step_success>> disch_then(qspecl_then[`sc`,`k`] assume_tac)>>rfs[]>>
   metis_tac[is_subgraph_trans,do_step_success]);
 
-val do_alloc1_success = Q.prove(`
+val full_consistency_ok_success = Q.prove(`
+  ∀x y s.
   good_ra_state s ⇒
+  ∃b.
+  full_consistency_ok k x y s = (Success b,s) ∧
+  (b ⇒ x < s.dim ∧ y < s.dim)`,
+  rw[]>>simp[Once full_consistency_ok_def]>>
+  rpt(IF_CASES_TAC>>simp msimps>>simp get_eqns)>>
+  fs[is_Fixed_k_def,is_Atemp_def]>>fs msimps>>
+  EVERY_CASE_TAC>>simp msimps>>
+  fs[good_ra_state_def]);
+
+val st_ex_FILTER_full_consistency_ok = Q.prove(`
+  ∀ls acc s.
+  good_ra_state s ⇒
+  ?ts. st_ex_FILTER (λ(_,x,y). full_consistency_ok k x y) ls acc s =
+    (Success ts,s) ∧
+  EVERY (λ(p,(x,y)). x < s.dim ∧ y < s.dim ∨ MEM (p,(x,y)) acc) ts`,
+  Induct>>rw[]>>fs[st_ex_FILTER_def]>>
+  fs msimps
+  >-
+    fs[EVERY_MEM,FORALL_PROD]>>
+  Cases_on`h`>>Cases_on`r`>>
+  simp[]>>
+  drule full_consistency_ok_success>>
+  disch_then(qspecl_then [`q'`,`r'`] assume_tac)>>
+  fs[]>>
+  IF_CASES_TAC>>simp msimps>>simp get_eqns>>
+  fs[is_Fixed_def]>>fs msimps>>
+  first_x_assum(qspecl_then [`(q,q',r')::acc`,`s`] assume_tac)>>
+  rfs[]>>
+  fs[EVERY_MEM,FORALL_PROD]>>
+  rw[]>>first_x_assum drule>>fs[]>>rw[]>>
+  fs[]>>metis_tac[]);
+
+val do_alloc1_success = Q.prove(`
+  good_ra_state s ∧
+  EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) moves
+  ⇒
   ∃ls s'.
-  do_alloc1 k s = (Success ls,s') ∧
+  do_alloc1 moves sc k s = (Success ls,s') ∧
   good_ra_state s' ∧
   is_subgraph s.adj_ls s'.adj_ls ∧
   (* This allows the coalescing phase to modify the adjacency list *)
@@ -1813,47 +2429,72 @@ val do_alloc1_success = Q.prove(`
   s'.node_tag = s.node_tag`,
   rw[do_alloc1_def]>>simp msimps>>
   simp[get_dim_def,init_alloc1_heu_def]>> simp msimps>>
-  qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls f s`>>
-  `EVERY (λv. v < s.dim) ls` by fs[Abbr`ls`,EVERY_GENLIST] >>
-  `?s'. st_ex_FOREACH ls f s = (Success (),s') ∧
-  s with degrees := s'.degrees = s' ∧
-  good_ra_state s' ∧
-  LENGTH s'.degrees = LENGTH s.degrees` by
-    (pop_assum mp_tac>>
-    pop_assum kall_tac>>
-    fs[Abbr`f`]>>
-    pop_assum mp_tac>>
-    qid_spec_tac`s`>> Induct_on`ls`>>
-    fs[st_ex_FOREACH_def]>>fs msimps>>fs[ra_state_component_equality]>>
-    reverse (rw[])>-fs[good_ra_state_def]>>
-    reverse (rw[])>-fs[good_ra_state_def]>>
-    qpat_abbrev_tac`ss = s with degrees := _`>>
-    `good_ra_state ss` by
-      fs[Abbr`ss`,good_ra_state_def]>>
-    first_x_assum drule>> fs[Abbr`ss`])>>
-  fs[ra_state_component_equality]>>
-  qmatch_goalsub_abbrev_tac`_ is_Atemp _ lss _`>>
-  `EVERY (\v. v < s'.dim) lss` by fs[Abbr`lss`]>>
-  `∃atemps. st_ex_FILTER is_Atemp ls lss s' = (Success atemps,s') ∧
-    EVERY (λv. v < s'.dim) atemps` by
+  qmatch_goalsub_abbrev_tac`_ is_Atemp ls lss s`>>
+  `EVERY (λv. v < s.dim) ls` by fs[Abbr`ls`,EVERY_MEM,MEM_COUNT_LIST] >>
+  `EVERY (\v. v < s.dim) lss` by fs[Abbr`lss`]>>
+  `∃atemps. st_ex_FILTER is_Atemp ls lss s = (Success atemps,s) ∧
+    EVERY (λv. v < s.dim) atemps` by
     (qpat_x_assum`EVERY _ ls` mp_tac>>
-    qpat_x_assum`good_ra_state s'` mp_tac>>
+    qpat_x_assum`good_ra_state s` mp_tac>>
     qpat_x_assum`EVERY _ lss` mp_tac>>
-    qid_spec_tac`lss`>>qid_spec_tac`s'`>>
+    qid_spec_tac`lss`>>qid_spec_tac`s`>>
     rpt (pop_assum kall_tac)>>
     Induct_on`ls`>>fs[st_ex_FILTER_def]>>fs msimps>>
     rw[]>>rfs[is_Atemp_def]>>fs msimps>>
     fs[good_ra_state_def]>>
     rw[])>>
   simp[]>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls f s`>>
+  `?s'. st_ex_FOREACH ls f s = (Success (),s') ∧ s with degrees := s'.degrees = s' ∧
+    good_ra_state s' ∧ LENGTH s'.degrees = LENGTH s.degrees` by
+    (
+    fs[Abbr`f`,Abbr`lss`]>>
+    ntac 3 (pop_assum kall_tac)>>
+    pop_assum mp_tac>>
+    pop_assum kall_tac>>
+    pop_assum kall_tac>>
+    pop_assum mp_tac>>
+    qid_spec_tac`s`>> Induct_on`ls`>>
+    fs[st_ex_FOREACH_def]>>fs msimps>>fs[ra_state_component_equality]>>
+    reverse (rw[])>-fs[good_ra_state_def]>>
+    qmatch_goalsub_abbrev_tac`_ _ lss acc s`>>
+    qspecl_then [`lss`,`acc`,`s`] mp_tac st_ex_FILTER_considered_var>>
+    impl_tac>-
+      (unabbrev_all_tac>>fs[good_ra_state_def]>>
+      metis_tac[EVERY_EL])>>
+    `(\v.considered_var k v) = considered_var k` by fs[FUN_EQ_THM]>>
+    rw[]>>simp[]>>
+    reverse(rw[])>- fs[good_ra_state_def]>>
+    qpat_abbrev_tac`ss = s with degrees := _`>>
+    `good_ra_state ss` by
+      fs[Abbr`ss`,good_ra_state_def]>>
+    first_x_assum drule>> fs[Abbr`ss`])>>
+  fs[ra_state_component_equality]>>
+  simp[set_avail_moves_wl_def]>>
+  qmatch_goalsub_abbrev_tac`_ moves ss`>>
+  Q.ISPECL_THEN [`moves`,`ss`] mp_tac  reset_move_related_success>>
+  impl_tac>-
+    (fs[good_ra_state_def,Abbr`ss`]>>
+    fs[EVERY_MEM,FORALL_PROD]>>
+    metis_tac[])>>
+  rw[]>> fs[]>>
+  `good_ra_state (ss with move_related := mv)` by fs[good_ra_state_def,Abbr`ss`]>>
   drule st_ex_PARTITION_split_degree >>
   disch_then(qspecl_then[`atemps`,`k`,`lss`,`lss`] assume_tac)>>fs[]>>
-  simp[set_simp_wl_def,set_spill_wl_def]>>
-  qmatch_goalsub_abbrev_tac`rpt_do_step _ _ ss`>>
-  qspecl_then [`LENGTH atemps`,`ss`,`k`] mp_tac rpt_do_step_success>>
-  impl_tac>- fs[Abbr`ss`,good_ra_state_def]>>
+  `s'.dim = ss.dim` by fs[Abbr`ss`]>>
+  simp[]>>
+  `EVERY (\x. x < LENGTH (ss with move_related:=mv).move_related) ts` by
+    fs[EVERY_MEM,Abbr`lss`,Abbr`ss`]>>
+  drule st_ex_PARTITION_move_related_sub>>
+  disch_then(qspecl_then [`lss`,`lss`] assume_tac)>>
+  fs[]>>simp all_eqns>>
+  qmatch_goalsub_abbrev_tac`rpt_do_step _ _ _ sss`>>
+  qspecl_then [`LENGTH atemps`,`sss`,`k`,`sc`] mp_tac rpt_do_step_success>>
+  impl_tac>-
+    (fs[Abbr`sss`,good_ra_state_def,Abbr`lss`,EVERY_MEM]>>
+    metis_tac[])>>
   rw[]>>simp[get_stack_def]>>
-  fs[Abbr`ss`]);
+  fs[Abbr`sss`,Abbr`ss`]);
 
 val no_clash_colouring_satisfactory = Q.store_thm("no_clash_colouring_satisfactory",`
   no_clash adjls node_tag ∧
@@ -2020,21 +2661,26 @@ val check_clash_tree_INJ = Q.store_thm("check_clash_tree_INJ",`
     first_x_assum drule>>
     disch_then drule>>
     disch_then (qspecl_then[`f`,`q`] mp_tac)>>
-    TOP_CASE_TAC>>simp[])
+    TOP_CASE_TAC>>simp[]);
 
 (* The top-most correctness theorem --
 *)
 val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
-  ∀k moves ct forced st ta fa n.
+  ∀alg sc k moves ct forced st ta fa n.
   mk_bij ct = (ta,fa,n)==>
   st.adj_ls = REPLICATE n [] ==>
   st.node_tag = REPLICATE n Atemp ==>
   st.degrees = REPLICATE n 0 ==>
   st.dim = n ==>
+  st.simp_wl = [] ==>
+  st.spill_wl = [] ==>
+  st.freeze_wl = [] ==>
+  st.coalesced = REPLICATE n NONE ==>
+  st.move_related = REPLICATE n F ==>
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol st' livein flivein.
-    do_reg_alloc k moves ct forced (ta,fa,n) st = (Success spcol,st') ∧
+    do_reg_alloc alg sc k moves ct forced (ta,fa,n) st = (Success spcol,st') ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -2095,7 +2741,16 @@ val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
   impl_tac>-
     fs[ra_state_component_equality]>>
   rw[]>>simp[]>>
-  drule do_alloc1_success>>rw[]>>simp[]>>
+  qpat_abbrev_tac`filmov = MAP _ moves`>>
+  Q.ISPECL_THEN [`filmov`] mp_tac st_ex_FILTER_full_consistency_ok>>
+  disch_then drule>>
+  disch_then (qspec_then `[]` assume_tac)>>fs[]>>
+  qpat_abbrev_tac`actualmov = if _ then [] else ts`>>
+  drule (GEN_ALL do_alloc1_success)>>
+  disch_then(qspecl_then [`sc`,`actualmov`,`k`] mp_tac)>>
+  impl_tac>-
+    (unabbrev_all_tac>>rw[])>>
+  rw[]>>fs[]>>
   `no_clash s''''.adj_ls s''''.node_tag` by
     (fs[no_clash_def,has_edge_def]>>rw[]>>
     rfs[good_ra_state_def,ra_state_component_equality]>>
@@ -2231,11 +2886,11 @@ fun first_prove_imp thms =
 (* The top-most correctness theorem --
 *)
 val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
-  ∀k moves ct forced.
+  ∀alg sc k moves ct forced.
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol livein flivein.
-    reg_alloc k moves ct forced = Success spcol ∧
+    reg_alloc alg sc k moves ct forced = Success spcol ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -2250,9 +2905,9 @@ val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
   rw[reg_alloc_def]>>
   Cases_on `mk_bij ct`>>Cases_on`r`>>rw[]>>
   rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
-  qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ st` >>
+  qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ _ _ st` >>
   qmatch_goalsub_abbrev_tac `(ta,fa,n)` >>
-  ASSUME_TAC (Q.SPECL [`k`,`moves`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
+  ASSUME_TAC (Q.SPECL [`alg`,`sc`,`k`,`moves`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
   first_x_assum drule >> rw[] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
@@ -2262,4 +2917,3 @@ val reg_alloc_correct = Q.store_thm("reg_alloc_correct",`
 (* --- --- *)
 
 val _ = export_theory ();
-

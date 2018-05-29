@@ -2459,7 +2459,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
  >- (
    `tenv_abbrev_ok (nsSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))`
      by simp [tenv_abbrev_ok_def, check_freevars_def, EVERY_MEM, EVERY_MAP]
-   >> irule extend_dec_tenv_ok
+   >> irule extend_dec_tenv_ok >> conj_tac
    >- (
      first_x_assum irule
      >> simp [tenv_abbrev_ok_def]

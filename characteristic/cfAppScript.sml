@@ -108,11 +108,13 @@ val app_wgframe = Q.store_thm ("app_wgframe",
   Induct_on `xs` THEN1 (fs [app_def]) \\ rpt strip_tac \\ rename1 `x::xs` \\
   Cases_on `xs = []`
   THEN1 (
-    fs [app_def] \\ irule local_frame_gc THEN1 (fs [app_basic_local]) \\
+    fs [app_def] \\ irule local_frame_gc \\ conj_tac
+    THEN1 fs [app_basic_local] \\
     instantiate
   )
   THEN1 (
-    fs [app_ge_2_unfold] \\ irule local_frame THEN1 (fs [app_basic_local]) \\
+    fs [app_ge_2_unfold] \\ irule local_frame \\ conj_tac
+    THEN1 (fs [app_basic_local]) \\
     instantiate \\ simp [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `r` \\
     Cases_on `r` \\ simp [POSTv_def] \\ hpull \\ hsimpl \\
     qx_gen_tac `HR` \\ strip_tac \\ qexists_tac `HR * H2` \\ hsimpl \\

@@ -722,6 +722,53 @@ val type_ds_weak_decls_only_mods = Q.store_thm ("type_ds_weak_decls_only_mods",
  >> res_tac
  >> fs [namespaceTheory.id_to_mods_def]);
 
+val weak_tenv_extend_dec_tenv = Q.store_thm ("weak_tenv_extend_dec_tenv",
+  `!tenv1 tenv2 tenv3.
+    tenv_val_ok tenv1.v ∧
+    weak_tenv tenv2 tenv3 ⇒
+    weak_tenv (extend_dec_tenv tenv1 tenv2) (extend_dec_tenv tenv1 tenv3)`,
+ rw []
+ >> drule weak_tenv_refl
+ >> fs [weak_tenv_def, extend_dec_tenv_def]
+ >> rw []
+ >> irule nsSub_nsAppend2
+ >> simp []);
+
+val type_ds_weakening = Q.store_thm ("type_ds_weakening",
+ `!uniq mn decls tenv ds decls' tenv'.
+   type_ds uniq mn decls tenv ds decls' tenv' ⇒
+   !decls'' tenv''.
+   uniq = F ∧
+   weak_decls decls'' decls ∧
+   weak_decls_other_mods mn decls'' decls ∧
+   tenv_ok tenv'' ∧
+   weak tenv'' tenv
+   ⇒
+   type_ds F mn decls'' tenv'' ds decls' tenv'`,
+  ho_match_mp_tac type_ds_ind >>
+  rw [] >>
+  rw [Once type_ds_cases] >>
+  imp_res_tac type_d_weakening >>
+  rename1 `weak_decls decls2 decls'` >>
+  first_x_assum (qspec_then `union_decls decls1 decls2` mp_tac)
+  >> rw []
+  >> qexists_tac `tenv1`
+  >> qexists_tac `tenv'`
+  >> qexists_tac `decls1`
+  >> qexists_tac `decls''`
+  >> rw []
+  >> pop_assum irule >> rpt conj_tac
+  >- metis_tac [extend_dec_tenv_ok, type_d_tenv_ok]
+  >- (
+    fs [weak_def]
+    >> rw []
+    >- rw [extend_dec_tenv_def]
+    >> irule weak_tenv_extend_dec_tenv
+    >> simp []
+    >> drule type_d_tenv_ok_helper
+    >> rw [tenv_ok_def])
+  >- metis_tac [weak_decls_union]
+  >- metis_tac [weak_decls_other_mods_union]);
  *)
 
   (*
