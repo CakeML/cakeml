@@ -131,4 +131,10 @@ val forall_v_of_pat_norest_length = Q.store_thm (
   first_assum progress
 );
 
+val BOOL_T = save_thm("BOOL_T",
+  EVAL ``BOOL T (Conv (SOME (TypeStamp "true" 0)) [])``);
+
+val BOOL_F = save_thm("BOOL_F",
+  EVAL ``BOOL F (Conv (SOME (TypeStamp "false" 0)) [])``);
+
 val _ = export_theory()

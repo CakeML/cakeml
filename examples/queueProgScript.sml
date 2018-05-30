@@ -10,14 +10,15 @@ val _ = new_theory "queueProg";
 
 val _ = translation_extends"basisProg";
 
+val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
+val _ = register_exn_type ``:exn_type``;
+
 val queue_decls = process_topdecs
    ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a
 
-    exception FullQueue
-    exception EmptyQueue
     fun enqueue q e =
       if full q then raise FullQueue
       else
@@ -39,7 +40,9 @@ val queue_decls = process_topdecs
 val _ = append_prog queue_decls;
 
 val EmptyQueue_exn_def = Define`
-  EmptyQueue_exn v = (v = Conv (SOME ("EmptyQueue", TypeExn (Short "EmptyQueue"))) [])`;
+  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v`;
+
+val EmptyQueue_exn_def = EVAL ``EmptyQueue_exn v``;
 
 val lqueue_def = Define‘
   lqueue qels f r els ⇔

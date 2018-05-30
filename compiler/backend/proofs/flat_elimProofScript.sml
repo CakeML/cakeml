@@ -911,8 +911,8 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
             PairCases_on `r` >> fs[] >> `r2 ≠ SOME (Rabort Rtype_error)` by (CCONTR_TAC >> fs[]) >>
             drule evaluate_dec_flat_state_rel >> rpt (disch_then drule) >> rw[] >> fs[] >>
             pop_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >> fs[] >>
-            `decsClosed reachable [h]` by imp_res_tac decsClosed_reduce_HD >>
-            fs[] >> Cases_on `r2` >> fs[] >> rw[] >> rveq >> EVERY_CASE_TAC >>
+            `decsClosed reachable [h]` by imp_res_tac decsClosed_reduce_HD >> fs[] >>
+            reverse(Cases_on `r2` >> fs[] >> rw[] >> rveq >> EVERY_CASE_TAC) >- fs[flat_state_rel_def] >>
             fs[] >> first_x_assum drule >> fs[] >> rveq >> strip_tac >>
             pop_assum (qspecl_then [`reachable`, `new_removed_state`] mp_tac) >> fs[] >>
             reverse(impl_tac) >- rw[] >> fs[findEnvGlobals_def] >> imp_res_tac decsClosed_reduce)

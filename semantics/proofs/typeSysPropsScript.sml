@@ -1613,7 +1613,7 @@ val ctMap_ok_type_defs = Q.store_thm ("ctMap_ok_type_defs",
   >- rw [ctMap_ok_def, flookup_fupdate_list, FEVERY_FUPDATE_LIST, FEVERY_FEMPTY] >>
   fs [REVERSE_APPEND, FUPDATE_LIST_APPEND, fupdate2_union] >>
   irule ctMap_ok_merge_imp >>
-  simp []
+  simp [] >> conj_tac
   >- (
     simp [ctMap_ok_def, flookup_fupdate_list, FEVERY_ALL_FLOOKUP] >>
     rpt conj_tac >>
@@ -2459,7 +2459,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
  >- (
    `tenv_abbrev_ok (nsSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))`
      by simp [tenv_abbrev_ok_def, check_freevars_def, EVERY_MEM, EVERY_MAP]
-   >> irule extend_dec_tenv_ok
+   >> irule extend_dec_tenv_ok >> conj_tac
    >- (
      first_x_assum irule
      >> simp [tenv_abbrev_ok_def]

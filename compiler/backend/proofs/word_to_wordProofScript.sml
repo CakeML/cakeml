@@ -40,7 +40,7 @@ val compile_single_lem = Q.store_thm("compile_single_lem",`
     qpat_abbrev_tac`p3 = FST (remove_dead p2 LN)`>>
     qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
   TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2 LN)`)>>
-  Q.ISPECL_THEN [`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
+  Q.ISPECL_THEN [`name`,`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
       srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]

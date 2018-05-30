@@ -273,6 +273,9 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def
+    ,bvl_constTheory.case_op_const_def
+    ,bvl_constTheory.SmartOp_flip_def
+    ,bvl_constTheory.SmartOp2_def
     ,bvl_constTheory.SmartOp_def
     ,bvl_constTheory.extract_def
     ,bvl_constTheory.extract_list_def
@@ -689,6 +692,24 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.apply_nummap_key_def
     ,word_allocTheory.remove_dead_def
     ,word_allocTheory.remove_dead_inst_def
+    ,word_allocTheory.add1_lhs_const_def
+    ,word_allocTheory.add1_lhs_reg_def
+    ,word_allocTheory.add1_lhs_mem_def
+    ,word_allocTheory.add1_rhs_reg_def
+    ,word_allocTheory.add1_rhs_mem_def
+    ,word_allocTheory.get_heu_inst_def
+    ,word_allocTheory.heu_max_def
+    ,word_allocTheory.heu_max_all_def
+    ,word_allocTheory.heu_merge_call_def
+    ,word_allocTheory.add_call_def
+    ,word_allocTheory.get_heuristics_def
+    ,word_allocTheory.canonize_moves_aux_def
+    ,word_allocTheory.canonize_moves_def
+    ,word_allocTheory.get_coalescecost_def
+    ,word_allocTheory.get_spillcost_def
+    ,word_allocTheory.get_heu_def
+    ,sptreeTheory.mapi_def
+    ,sptreeTheory.mapi0_def
     ]
   ,computeLib.Tys
     [ (* ---- stackLang ---- *)

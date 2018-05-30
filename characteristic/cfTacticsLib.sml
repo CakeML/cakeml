@@ -154,7 +154,7 @@ val sep_imp_instantiate_tac =
   simp [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =
-  simp [PULL_EXISTS] \\
+  simp [PULL_EXISTS,BOOL_T,BOOL_F] \\
   CHANGED_TAC (rpt (hsimpl \\ sep_imp_instantiate_tac))
   ORELSE sep_imp_instantiate_tac
 
@@ -181,21 +181,18 @@ fun xcf name st =
     val f_def = fetch_def name st
     val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
-      irule app_of_cf THENL [
-        eval_tac,
-        eval_tac,
-        simp [cf_def]
-      ]
+      irule app_of_cf THEN
+      CONJ_TAC THEN1 eval_tac THEN
+      CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
     val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
-      irule app_rec_of_cf THENL [
-        eval_tac,
+      irule app_rec_of_cf THEN
+      CONJ_TAC THEN1 eval_tac THEN
         rpt(CHANGED_TAC(simp[Once cf_def] \\ reduce_tac))\\
         CONV_TAC (
           DEPTH_CONV (
             REWR_CONV letrec_pull_params_repack THENC
             REWR_CONV (GSYM f_def)))
-      ]
     fun closure_tac (g as (_, w)) =
       let val (_, c, _, _, _) = cfAppSyntax.dest_app w in
           if is_Closure c then
@@ -374,15 +371,14 @@ fun xfun_spec qname qspec =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-  irule local_frame_gc THENL [
-    xlocal,
+  irule local_frame_gc THEN
+    CONJ_TAC THEN1 xlocal THEN
     CONSEQ_CONV_TAC (K (
       ecc_conseq_conv (
         conj1_ecc (irule_ecc H)
       )
     )) \\
     CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
-  ]
 
 fun xapply H =
   xpull_check_not_needed \\

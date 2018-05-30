@@ -1190,7 +1190,7 @@ val lookup_var_sound = Q.store_thm ("lookup_var_sound",
  >> fs []
  >- metis_tac [nsLookup_add_tenvE2]
  >- (
-   irule nsLookup_add_tenvE1
+   irule nsLookup_add_tenvE1 >> conj_tac
    >- metis_tac []
    >> fs [tenv_val_exp_ok_def]
    >> metis_tac [tveLookup_freevars])
@@ -2099,7 +2099,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >- (
        irule ctMap_ok_merge_imp
        >> simp []
-       >- (
+       >> conj_tac >- (
          irule ctMap_ok_type_defs >>
          simp [] >>
          fs [tenv_ok_def, extend_dec_tenv_def, Abbr `new_tabbrev`]) >>
@@ -2629,7 +2629,7 @@ val tops_type_sound_no_extra_checks = Q.store_thm ("tops_type_sound_no_no_extra_
        >> fs [weak_tenv_def, extend_dec_tenv_def, tenvLift_def]
        >> rw []
        >> irule nsSub_nsAppend_lift
-       >> simp [tscheme_inst2_lemma, type_ctor_long]
+       >> simp [tscheme_inst2_lemma, type_ctor_long] >> conj_tac
        >- metis_tac []
        >> irule nsSub_refl
        >> qexists_tac `\x y. T`

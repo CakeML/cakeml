@@ -5,11 +5,16 @@ CakeML is a verified implementation of a significant subset of
 Standard ML.
 
 The source and proofs for CakeML are developed in the [HOL4 theorem
-prover](http://hol-theorem-prover.org).  We use the latest development
+prover](http://hol-theorem-prover.org). We use the latest development
 version of [HOL4](https://github.com/HOL-Theorem-Prover/HOL), which we
 build on [PolyML 5.7](http://www.polyml.org).
 Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
+
+Building all of CakeML (including the bootstrapped compiler and its proofs)
+requires significant resources. [Built copies](https://cakeml.org/download) of
+the compiler and resource usage for our
+[regression tests](https://cakeml.org/regression.cgi) are online.
 
 The [master](../../tree/master) branch contains the latest development
 version of CakeML. See the [version2](../../tree/version2) or
@@ -44,8 +49,8 @@ A verified compiler for CakeML, including:
  - targets: code generation to x86, ARM, and more
 
 [developers](developers):
-This directory contains scripts for automating routine tasks, e.g. for
-running regression tests.
+This directory contains scripts for automating routine tasks, e.g., for
+generating README.md files.
 
 [documentation](documentation):
 Work-in-progress documentation regarding the CakeML language.

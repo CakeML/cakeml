@@ -245,23 +245,28 @@ in
   fun update_precondition new_pre = let
     fun update_aux (name,ml_name,tm,th,pre,module) = let
       val th1 = D th
-      val new_pre = (if is_imp (concl (SPEC_ALL new_pre))
-                     then (* case: new_pre is an induction theorem *)
-                       (MATCH_MP IMP_EQ_T (MP (D new_pre) TRUTH)
-                        handle HOL_ERR _ => new_pre)
-                     else new_pre)
+      val (new_pre,th1) =
+        (if is_imp (concl (SPEC_ALL new_pre))
+         then (* case: new_pre is an induction theorem *)
+           (((MATCH_MP IMP_EQ_T (MP (D new_pre) TRUTH)
+             handle HOL_ERR _ => new_pre)
+             |> PURE_REWRITE_RULE [GSYM CONJ_ASSOC]),
+            PURE_REWRITE_RULE [GSYM CONJ_ASSOC] th1)
+        else (new_pre,th1))
       val th2 = PURE_REWRITE_RULE [new_pre,PRECONDITION_T] th1
       in if aconv (concl th1) (concl th2)
-         then (name,ml_name,tm,th,pre,module) else let
-           val th2 = REWRITE_RULE [] th2
-           val th = remove_Eq_from_v_thm th2
-           val thm_name = name ^ "_v_thm"
-           val _ = print ("Updating " ^ thm_name ^ "\n")
-           val _ = save_thm(thm_name,th)
-           val new_pre = if can (find_term is_PRECONDITION) (concl (SPEC_ALL th))
-                         then new_pre else TRUTH
-           val th = th |> UNDISCH_ALL
-           in (name,ml_name,tm,th,new_pre,module) end end
+         then (name,ml_name,tm,th,pre,module) else
+           let
+             val th2 = REWRITE_RULE [] th2
+             val th = remove_Eq_from_v_thm th2
+             val thm_name = name ^ "_v_thm"
+             val _ = print ("Updating " ^ thm_name ^ "\n")
+             val _ = save_thm(thm_name,th)
+             val new_pre = if can (find_term is_PRECONDITION) (concl (SPEC_ALL th))
+                           then new_pre else TRUTH
+             val th = th |> UNDISCH_ALL
+           in (name,ml_name,tm,th,new_pre,module) end
+      end
     val _ = (v_thms := map update_aux (!v_thms))
     in new_pre end
   fun add_eval_thm th = let
