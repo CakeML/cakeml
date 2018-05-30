@@ -90,7 +90,7 @@ void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
     int_to_byte8(fd, &a[1]);
   }
   else
-    a[0] = 255;
+    a[0] = 1;
 }
 
 void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
