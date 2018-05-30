@@ -316,7 +316,7 @@ val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[]
   \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
-  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[n2w2_def]
+  \\ TRY (pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[n2w2_def])
   \\ rw[] \\ Cases_on`bytes` \\ fs[]
   \\ rpt(Cases_on`t` \\ fs[] \\ Cases_on`t'` \\ fs[]));
 
