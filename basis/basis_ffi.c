@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <assert.h>
 
 /* clFFI (command line) */
 
@@ -71,6 +72,7 @@ int byte8_to_int(unsigned char *b){
 /* fsFFI (file system and I/O) */
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
   int fd = open((const char *) c, O_RDONLY);
   if (0 <= fd){
     a[0] = 0;
@@ -81,6 +83,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   if (0 <= fd){
     a[0] = 0;
@@ -91,8 +94,10 @@ void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen = 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
+  assert(alen >= n + 4);
   int nread = read(fd, &a[4], n);
   if(nread < 0){
     a[0] = 1;
@@ -104,8 +109,10 @@ void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
+  assert(clen = 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
+  assert(alen >= n + 4);
   int off = byte2_to_int(&a[2]);
   int nw = write(fd, &a[4 + off], n);
   if(nw < 0){
@@ -118,6 +125,8 @@ void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
 }
 
 void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(alen >= 1);
+  assert(clen = 8);
   int fd = byte8_to_int(c);
   if (close(fd) == 0) a[0] = 0;
   else a[0] = 1;
