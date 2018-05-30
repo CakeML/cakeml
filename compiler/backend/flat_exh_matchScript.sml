@@ -147,9 +147,7 @@ val compile_exp_def = Define `
 val compile_dec_def = Define `
   (compile_dec ctors (Dlet exp) = (ctors, Dlet (compile_exp ctors exp))) /\
   (compile_dec ctors (Dtype tid amap) =
-    case FLOOKUP ctors tid of
-      SOME _ => (ctors, Dtype tid amap)
-    | NONE => (ctors |+ (tid, amap), Dtype tid amap)) /\
+     (ctors |+ (tid, amap), Dtype tid amap)) /\
   (compile_dec ctors dec = (ctors, dec))`
 
 val compile_decs_def = Define `
