@@ -519,7 +519,7 @@ val check_clash_tree_output = Q.store_thm("check_clash_tree_output", `
     )
 )
 
-val get_live_tree_correct = Q.store_thm("get_live_tree_correct",
+val get_live_tree_correct_lemma = Q.store_thm("get_live_tree_correct_lemma",
     `!f live1 flive1 live2 flive2 ct live2' flive2'.
     IMAGE f (domain live1) = domain flive1 /\ IMAGE f (domain live2) = domain flive2 ==>
     INJ f (domain live2) UNIV ==>
@@ -658,6 +658,24 @@ val get_live_tree_correct = Q.store_thm("get_live_tree_correct",
         `INJ f (domain q) UNIV` by metis_tac [check_live_tree_success] >>
         metis_tac []
     )
+)
+
+val get_live_tree_correct = Q.store_thm("get_live_tree_correct",
+    `!f live flive ct live' flive'.
+    IMAGE f (domain live) = domain flive ==>
+    INJ f (domain live) UNIV ==>
+    check_live_tree f (get_live_tree ct) live flive = SOME (live', flive') ==>
+    ?live'' flive''. check_clash_tree f ct live flive = SOME (live'', flive'')
+    `,
+    metis_tac [get_live_tree_correct_lemma, is_subset_def, SUBSET_REFL]
+)
+
+val get_live_tree_correct_LN = Q.store_thm("get_live_tree_correct_LN",
+    `!f live flive ct live' flive'.
+    check_live_tree f (get_live_tree ct) LN LN = SOME (live', flive') ==>
+    ?live'' flive''. check_clash_tree f ct LN LN = SOME (live'', flive'')
+    `,
+    rw [get_live_tree_correct]
 )
 
 val _ = export_theory ();
