@@ -13,6 +13,10 @@ val numset_list_insert_def = Define`
   (numset_list_insert [] t = t) ∧
   (numset_list_insert (x::xs) t = numset_list_insert xs (insert x () t))`
 
+val numset_list_insert_nottailrec_def = Define`
+  (numset_list_insert_nottailrec [] t = t) ∧
+  (numset_list_insert_nottailrec (x::xs) t = insert x () (numset_list_insert_nottailrec xs t))`
+
 val is_subset_def = Define`
     is_subset s1 s2 <=> (domain s1) SUBSET (domain s2)
 `
@@ -74,5 +78,43 @@ val check_live_tree_def = Define`
           check_live_tree f lt1 live2 flive2
     )`
 
+val fix_endlive_def = Define`
+    (
+      fix_endlive (StartLive l) live =
+        (StartLive l, numset_list_delete l live)
+    ) /\ (
+      fix_endlive (EndLive l) live =
+        (EndLive (FILTER (\x. lookup x live = NONE) l), numset_list_insert l live)
+    ) /\ (
+      fix_endlive (Branch lt1 lt2) live =
+        let (lt1', live1) = fix_endlive lt1 live in
+        let (lt2', live2) = fix_endlive lt2 live in
+        (Branch lt1' lt2', union live1 live2)
+    ) /\ (
+      fix_endlive (Seq lt1 lt2) live =
+        let (lt2', live2) = fix_endlive lt2 live in
+        let (lt1', live1) = fix_endlive lt1 live2 in
+        (Seq lt1' lt2', live1)
+    )
+`
+
+val check_endlive_fixed_def = Define`
+    (
+      check_endlive_fixed (StartLive l) live =
+        (T, numset_list_delete l live)
+    ) /\ (
+      check_endlive_fixed (EndLive l) live =
+        (EVERY (\x. lookup x live = NONE) l, numset_list_insert l live)
+    ) /\ (
+      check_endlive_fixed (Branch lt1 lt2) live =
+        let (r1, live1) = check_endlive_fixed lt1 live in
+        let (r2, live2) = check_endlive_fixed lt2 live in
+        (r1 /\ r2, union live1 live2)
+    ) /\ (
+      check_endlive_fixed (Seq lt1 lt2) live =
+        let (r2, live2) = check_endlive_fixed lt2 live in
+        let (r1, live1) = check_endlive_fixed lt1 live2 in
+        (r1 /\ r2, live1)
+    )`
 
 val _ = export_theory ();
