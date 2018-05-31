@@ -432,8 +432,7 @@ val _ = Datatype `
 `;
 
 val _ = Datatype`
-  config = <| max_app : num
-            ; inline_max_body_size : num
+  config = <| inline_max_body_size : num
             ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
             ; initial_inline_factor : num
             |>`;
@@ -454,7 +453,10 @@ val decide_inline_def = Define `
       | Clos loc arity body body_size =>
           if app_lopt = NONE /\ app_arity = arity then
             (if body_size < c.inline_factor * (1 + app_arity) /\
-                ~contains_closures [body] /\ closed (Fn None NONE NONE app_arity body) (* Consider moving these checks to the point of creation of Clos approximations and the val_approx_val relation. *)
+                ~contains_closures [body] /\
+                closed (Fn None NONE NONE app_arity body)
+                (* Consider moving these checks to the point where Clos approximations
+                   are created, and bake them into the val_approx_val relation. *)
                then inlD_LetInline body
                else inlD_Annotate loc)
           else inlD_Nothing
@@ -567,8 +569,7 @@ val known_ind = theorem "known_ind";
 val compile_def = Define `
   compile F max_app exp = exp /\
   compile T max_app exp =
-    let c = <| max_app := max_app
-             ; inline_max_body_size := (max_app + 1) * 8
+    let c = <| inline_max_body_size := (max_app + 1) * 8
              ; inline_factor := 8 |> in
     let (e1, _) = known c [exp] [] LN in
       FST (HD e1)`;

@@ -386,7 +386,7 @@ val mapped_globals_coupdate = Q.store_thm(
 (* Extending mapped globals *)
 
 val mglobals_extend_def = Define`
-  mglobals_extend s1 mgs s2 ⇔
+  mglobals_extend (s1:(('a, 'b) closSem$state)) mgs (s2:(('a, 'b) closSem$state)) ⇔
      mapped_globals s2 ⊆ mapped_globals s1 ∪ mgs ∧
      ∀k v. get_global k s2.globals = SOME (SOME v) ∧ k ∉ mgs ⇒
            get_global k s1.globals = SOME (SOME v)`
@@ -1088,6 +1088,47 @@ val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_appr
          \\ fs [bool_case_eq, pair_case_eq, case_eq_thms])
   \\ metis_tac [mglobals_extend_DISJOINT_state_globals_approx]);
 
+val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_approx",
+  `!args g0 a g vs (s0:('c, 'ffi) closSem$state) g' e s1 res s.
+   known_op Install args g0 = (a,g) /\
+   do_install vs s0 = (Rval e, s1) /\
+   LIST_REL val_approx_val args vs /\
+   state_globals_approx s0 g' /\
+   ssgc_free s0 /\
+   evaluate ([e], [], s1) = (res, s) ==>
+   state_globals_approx s g'`,
+
+
+  rpt strip_tac
+  \\ imp_res_tac do_install_ssgc
+  \\ drule mglobals_extend_trans
+  \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
+  \\ disch_then drule \\ strip_tac
+  \\ fs [first_n_exps_def]
+
+state_globals_approx_def
+
+  \\ match_mp_tac mglobals_extend_DISJOINT_state_globals_approx
+  \\ asm_exists_tac \\ simp []
+
+simp [state_globals_approx_def]
+
+
+hereiam
+
+
+  \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 gd s`
+  \\ `gd = SET_OF_BAG (elist_globals (first_n_exps s0.compile_oracle (n + 1)))`
+     by simp [first_n_exps_shift_seq, SET_OF_BAG_UNION]
+  \\ `DISJOINT (domain g') gd`
+     by simp [co_disjoint_globals_first_n_exps]
+  \\ `state_globals_approx s1 g'`
+     by (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
+         \\ pairarg_tac \\ fs []
+         \\ fs [bool_case_eq, pair_case_eq, case_eq_thms])
+  \\ metis_tac [mglobals_extend_DISJOINT_state_globals_approx]);
+
+
 val mk_Ticks_esgc_free = Q.store_thm(
   "mk_Ticks_esgc_free[simp]",
   `!t tc n exp. esgc_free (mk_Ticks t tc n exp) <=> esgc_free exp`,
@@ -1488,6 +1529,7 @@ val known_correct_approx = Q.store_thm(
    ==>
      state_globals_approx s g' /\
      !vs. res = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs`,
+
   ho_match_mp_tac known_ind \\ simp [known_def]
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
   \\ imp_res_tac evaluate_SING \\ rveq
@@ -1671,6 +1713,7 @@ val known_correct_approx = Q.store_thm(
     \\ impl_tac
     THEN1 metis_tac [co_disjoint_globals_first_n_exps, co_disjoint_globals_evaluate]
     \\ metis_tac [evaluate_SING])
+
   THEN1
    (say "Op"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1690,16 +1733,21 @@ val known_correct_approx = Q.store_thm(
      (fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
       \\ irule known_op_correct_approx
       \\ rpt (goal_assum drule \\ simp []))
+
+
     THEN1
      (reverse (fs [pair_case_eq, case_eq_thms])
       THEN1 (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
-           \\ pairarg_tac \\ fs []
-           \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs [])
+             \\ pairarg_tac \\ fs []
+             \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs [])
       \\ reverse conj_tac
       THEN1 (Cases_on `res` \\ fs [known_op_def]
              \\ imp_res_tac evaluate_SING
              \\ rveq \\ simp [])
       \\ rveq
+
+simp [state_globals_approx_def]
+
       \\ match_mp_tac known_op_install_correct_approx
       \\ rpt (goal_assum drule \\ simp [])
       \\ rename1 `do_install _ s1 = (_, s2)`
@@ -1708,6 +1756,7 @@ val known_correct_approx = Q.store_thm(
              \\ rpt (disch_then drule)
              \\ drule known_preserves_esgc_free \\ simp [])
       \\ metis_tac [co_disjoint_globals_evaluate]))
+
   THEN1
    (say "App"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1882,20 +1931,20 @@ val v_rel_def = tDefine "v_rel" `
      let clos = case loc_opt of
                   | NONE => REPLICATE (LENGTH funs1) Other
                   | SOME loc => clos_gen_noinline loc 0 funs1
-     in ?args2 env2 funs2 aenv.
+     in ?aenv env1a env1b args2 env2a env2b funs2.
+       if env1 = env1a ++ env1b then
+       EVERY (\(num_args, exp). fv_max (num_args + LENGTH env1a) [exp]) funs1 /\
        LIST_REL (v_rel c g) args1 args2 /\
-       LIST_REL (v_rel c g) env1 env2 /\
-       LIST_REL val_approx_val aenv env1 /\
+       LIST_REL (v_rel c g) env1a env2a /\
+       LIST_REL val_approx_val aenv env1a /\
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
-       v = Recclosure loc_opt args2 env2 funs2 i)
+       v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
   `
   (WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
    \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []);
 
 val v_rel_def = save_thm("v_rel_def[simp]",
- v_rel_def |> SIMP_RULE std_ss [] |> CONV_RULE (DEPTH_CONV ETA_CONV));
-
-(* todo try ETA_ss) *)
+  v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
 
 val v_rel_ind = theorem "v_rel_ind";
 
@@ -1952,44 +2001,11 @@ val v_rel_upd_inline_factor = Q.store_thm(
          \\ fs [LIST_REL_EL_EQN] \\ rw [] \\ metis_tac [MEM_EL])
   THEN1 (simp [f_rel_upd_inline_factor]
          \\ eq_tac \\ rw [] \\ qexists_tac `aenv`
+         \\ `env1a ++ env1b = env1a ++ env1b` by simp []
+         \\ asm_exists_tac \\ fs []
+         \\ `env2a ++ env2b = env2a ++ env2b` by simp []
+         \\ goal_assum (pop_assum o mp_then Any mp_tac)
          \\ fs [LIST_REL_EL_EQN] \\ rw [] \\ metis_tac [MEM_EL]));
-
-(*
-val v_rel_vsgc_free = Q.store_thm(
-  "v_rel_vsgc_free",
-  `!c g v1 v2. v_rel c g v1 v2 ==> (vsgc_free v1 ==> vsgc_free v2)`, cheat);
-  ho_match_mp_tac v_rel_ind \\ simp [] \\ rpt strip_tac
-  THEN1 (fs [EVERY_MEM, LIST_REL_EL_EQN] \\ metis_tac [MEM_EL])
-  THEN1 (fs [EVERY_MEM, LIST_REL_EL_EQN]
-         \\ fs [exp_rel_def]
-         \\ drule known_elglobals_dont_grow
-         \\ simp [set_globals_empty_esgc_free]
-         \\ last_x_assum (qspec_then `env1a` assume_tac)
-         \\ last_x_assum (qspec_then `env1a` assume_tac) \\ fs []
-         \\ fs [MEM_EL, PULL_EXISTS] \\ rfs []
-         \\ rpt strip_tac \\ TRY (metis_tac [])
-         cheat)
-  THEN1 (fs [EVERY_MEM, LIST_REL_EL_EQN]
-         \\ fs [elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD]
-         \\ rpt strip_tac
-         THEN1 (imp_res_tac (MEM_EL |> SPEC_ALL |> EQ_IMP_RULE |> #1 |> GSYM)
-                \\ rename1 `nn < LENGTH funs2`
-                \\ Cases_on `EL nn funs1` \\ fs []
-                \\ first_x_assum (qspec_then `nn` mp_tac) \\ simp []
-                \\ simp [f_rel_def, exp_rel_def] \\ strip_tac
-                \\ drule known_elglobals_dont_grow \\ simp []
-                \\ rename1 `known _ [ee] _ _`
-                \\ `set_globals ee = {||}` by metis_tac [MEM_EL]
-                \\ simp [set_globals_empty_esgc_free])
-         \\ metis_tac [MEM_EL]));
-
-
- val v_rel_EVERY_vsgc_free = Q.store_thm(
-  "v_rel_EVERY_vsgc_free",
-  `!vs1 vs2.
-     LIST_REL (v_rel c g) vs1 vs2 ==>
-     (EVERY vsgc_free vs1 ==> EVERY vsgc_free vs2)`,
-  Induct_on `LIST_REL` >> simp[] >> metis_tac [v_rel_vsgc_free]); *)
 
 val v_rel_Block = Q.store_thm(
   "v_rel_Block[simp]",
@@ -2073,9 +2089,17 @@ val oracle_states_subspt_alt = Q.store_thm("oracle_states_subspt_alt",
   rw [oracle_states_subspt_def]
   \\ imp_res_tac LESS_EQ_ADD_EXISTS \\ rveq \\ simp []);
 
+val oracle_states_subspt_alt_alt = Q.store_thm("oracle_states_subspt_alt_alt",
+  `!co n k g1 g2. oracle_states_subspt co /\ n <= k /\
+     g1 = (FST (FST (co n))) /\ g2 = (FST (FST (co k))) ==>
+     subspt g1 g2`,
+  metis_tac [oracle_states_subspt_alt]);
+
+
 val state_rel_def = Define `
   state_rel c g (s:(val_approx num_map#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
+    (!n. fv_max 0 [FST (SND (s.compile_oracle n))]) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     s.clock = t.clock /\ s.ffi = t.ffi /\ s.max_app = t.max_app /\
     LIST_REL (OPTREL (v_rel c g)) s.globals t.globals /\
@@ -2109,6 +2133,8 @@ val v_rel_subspt = Q.store_thm(
            qexists_tac `v_rel c g` >> simp[] >> metis_tac[MEM_EL]) >>
       fs[exp_rel_def] >> metis_tac[subspt_trans])
   >- (qexists_tac `aenv` >>
+      qexists_tac `env1a` >> simp[] >>
+      qexists_tac `env2a` >> simp[] >>
       simp[] >> rpt conj_tac >>
       TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
            simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
@@ -2125,6 +2151,16 @@ val v_rel_LIST_REL_subspt = Q.store_thm(
   `∀vs1 vs2. LIST_REL (v_rel c g) vs1 vs2 ⇒
              ∀g'. subspt g g' ⇒ LIST_REL (v_rel c g') vs1 vs2`,
   Induct_on `LIST_REL` >> simp[] >> metis_tac[v_rel_subspt]);
+
+val ref_rel_subspt = Q.store_thm("ref_rel_subspt",
+  `!c g r1 r2 g'. ref_rel c g r1 r2 /\ subspt g g' ==> ref_rel c g' r1 r2`,
+  Cases_on `r1` \\ rw [] \\ metis_tac [v_rel_LIST_REL_subspt]);
+
+val state_rel_subspt = Q.store_thm("state_rel_subspt",
+  `!c g s1 s2 g'. state_rel c g s1 s2 /\ subspt g g' ==> state_rel c g' s1 s2`,
+  rw [state_rel_def]
+  THEN1 (irule LIST_REL_mono \\ metis_tac [OPTREL_MONO, v_rel_subspt])
+  THEN1 (irule fmap_rel_mono \\ metis_tac [ref_rel_subspt]));
 
 val oracle_state_sgc_free_def = Define `
   oracle_state_sgc_free co = !n. globals_approx_sgc_free (FST (FST (co n)))`;
@@ -2270,6 +2306,7 @@ val evaluate_app_IMP_shift_seq = Q.store_thm(
      ?k. s.compile_oracle = shift_seq k s0.compile_oracle`,
   metis_tac [evaluate_app_code]);
 
+(*
 val known_correct_approx_no_extra =
   known_correct_approx
   |> SPEC_ALL |> Q.INST [`extra` |-> `[]`] |> GEN_ALL
@@ -2283,6 +2320,7 @@ val known_correct_approx_split_env =
             ,`temp`  |-> `TAKE env_len env`]
   |> GEN_ALL
   |> SIMP_RULE (srw_ss ()) [];
+*)
 
 val evaluate_app_exact_rw = Q.store_thm(
   "evaluate_app_exact_rw",
@@ -2351,16 +2389,15 @@ val nil_unique_set_globals = Q.store_thm("nil_unique_set_globals",
   simp [unique_set_globals_def]
   \\ simp [elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]);
 
-
 val say = say0 "known_correct0";
 
-(*----------------temp-------------------*)
+
 val known_correct0 = Q.prove(
   `(!xs env1full (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env1 xenv1
      env2 xenv2 t0 c g0 g g' aenv eas.
       evaluate (xs, env1full, s0) = (res1, s) /\
       known c xs aenv g0 = (eas, g) /\
-      state_rel c g' s0 t0 /\
+      state_rel c (next_g s0) s0 t0 /\
       every_Fn_vs_NONE xs /\
       co_every_Fn_vs_NONE s0.compile_oracle /\
       EVERY esgc_free xs /\ ssgc_free s0 /\
@@ -2372,7 +2409,7 @@ val known_correct0 = Q.prove(
       state_globals_approx s0 g' /\
       EVERY val_approx_sgc_free aenv /\
       fv_max (LENGTH env1) xs /\
-      LIST_REL (v_rel c g') env1 env2 /\
+      LIST_REL (v_rel c (next_g s0)) env1 env2 /\
       subspt g0 g /\ subspt g (next_g s0) /\ subspt (next_g s) g' /\
       unique_set_globals xs s0.compile_oracle /\
       co_disjoint_globals g' s0.compile_oracle /\
@@ -2380,8 +2417,8 @@ val known_correct0 = Q.prove(
       res1 <> Rerr (Rabort Rtype_error) ==>
       ?res2 t.
         evaluate (MAP FST eas, env2 ++ xenv2, t0) = (res2, t) /\
-        result_rel (LIST_REL (v_rel c g')) (v_rel c g') res1 res2 /\
-        state_rel c g' s t) /\
+        result_rel (LIST_REL (v_rel c (next_g s))) (v_rel c (next_g s)) res1 res2 /\
+        state_rel c (next_g s) s t) /\
    (!lopt1 f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s lopt2 f2 args2 t0 c g argsopt.
       evaluate_app lopt1 f1 args1 s0 = (res1, s) /\
       ssgc_free s0 /\ vsgc_free f1 /\ EVERY vsgc_free args1 /\
@@ -2391,16 +2428,16 @@ val known_correct0 = Q.prove(
       oracle_states_subspt s0.compile_oracle /\
       unique_set_globals [] s0.compile_oracle /\
       co_disjoint_globals g s0.compile_oracle /\
-      v_rel_app c g f1 f2 argsopt /\
-      LIST_REL (v_rel c g) args1 args2 /\
-      state_rel c g s0 t0 /\ state_globals_approx s0 g /\
+      v_rel_app c (next_g s0) f1 f2 argsopt /\
+      LIST_REL (v_rel c (next_g s0)) args1 args2 /\
+      state_rel c (next_g s0) s0 t0 /\ state_globals_approx s0 g /\
       loptrel f2 (LENGTH args1) lopt1 lopt2 /\
       (IS_SOME argsopt ==> argsopt = SOME args1 /\ args1 <> [] /\ ?exp env. dest_closure s0.max_app lopt1 f1 args1 = SOME (Full_app exp env [])) /\
       res1 <> Rerr (Rabort Rtype_error) ==>
       ?res2 t.
         evaluate_app lopt2 f2 args2 t0 = (res2, t) /\
-        result_rel (LIST_REL (v_rel c g)) (v_rel c g) res1 res2 /\
-        state_rel c g s t)`,
+        result_rel (LIST_REL (v_rel c (next_g s))) (v_rel c (next_g s)) res1 res2 /\
+        state_rel c (next_g s) s t)`,
 
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
@@ -2410,7 +2447,52 @@ val known_correct0 = Q.prove(
     \\ fs [known_def, evaluate_def] \\ rveq
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [])
-  THEN1 cheat (* CONS *)
+  THEN1
+   (say "CONS"
+    \\ fs [known_def, evaluate_def, pair_case_eq]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ imp_res_tac unique_set_globals_subexps \\ fs []
+    \\ patresolve `subspt g0 g` (el 3) subspt_known_elist_globals
+    \\ rpt (disch_then drule)
+    \\ impl_tac THEN1 (imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
+                       \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
+    \\ strip_tac
+    \\ rename1 `known _ [_] _ g0 = (_, g1)`
+    \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ disch_then (qspec_then `xenv2` mp_tac)
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+    THEN1 (strip_tac \\ simp [evaluate_append])
+    \\ fs [pair_case_eq] \\ rveq \\ fs []
+    \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
+       by (fs [result_case_eq] \\ rveq \\ fs []
+           \\ imp_res_tac evaluate_IMP_shift_seq
+           \\ fs [next_g_def, shift_seq_def, oracle_states_subspt_alt])
+    \\ impl_tac THEN1 metis_tac [subspt_trans]
+    \\ strip_tac \\ simp [evaluate_append]
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ patresolve `evaluate ([_], _, _) = _` hd evaluate_changed_globals_inst
+    \\ simp [] \\ strip_tac \\ fs []
+    \\ fs [unique_set_globals_shift_seq,
+           co_every_Fn_vs_NONE_shift_seq,
+           oracle_state_sgc_free_shift_seq,
+           oracle_states_subspt_shift_seq]
+    \\ patresolve `known _ [_] _ _ = _` hd known_preserves_esgc_free
+    \\ simp [] \\ strip_tac
+    \\ patresolve `evaluate ([_], _, _) = _` (el 2) known_correct_approx
+    \\ rpt (disch_then drule \\ simp [])
+    \\ impl_tac THEN1 metis_tac [subspt_trans]
+    \\ strip_tac \\ rveq \\ fs []
+    \\ rpt (disch_then drule \\ simp [])
+    \\ simp [co_disjoint_globals_shift_seq]
+    \\ `subspt g (next_g s1)` by metis_tac [subspt_trans]
+    \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac)
+    \\ impl_tac THEN1 (fs [result_case_eq] \\ rveq \\ fs []
+                       \\ metis_tac [v_rel_LIST_REL_subspt])
+    \\ strip_tac \\ simp []
+    \\ fs [result_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ metis_tac [v_rel_subspt])
   THEN1
    (say "Var"
     \\ fs [known_def] \\ rveq \\ fs []
@@ -2445,8 +2527,7 @@ val known_correct0 = Q.prove(
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
     \\ patresolve `evaluate (xs, _, _) = _` hd evaluate_changed_globals_inst
     \\ simp [] \\ strip_tac \\ fs []
-    \\ fs [co_disjoint_globals_shift_seq,
-           unique_set_globals_shift_seq,
+    \\ fs [unique_set_globals_shift_seq,
            co_every_Fn_vs_NONE_shift_seq,
            oracle_state_sgc_free_shift_seq,
            oracle_states_subspt_shift_seq]
@@ -2460,780 +2541,22 @@ val known_correct0 = Q.prove(
     \\ `subspt g (next_g s1)` by metis_tac [subspt_trans]
     \\ simp [] \\ disch_then match_mp_tac
     \\ qexists_tac `vs ++ env1`
-    \\ qexists_tac `xenv1` \\ simp []
-    \\ metis_tac [EVERY2_APPEND_suff])
-  THEN1 cheat (* Raise *)
-  THEN1 cheat (* Handle *)
-  THEN1 cheat (* Op *)
-  THEN1
-   (say "Fn"
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ fs [evaluate_def, bool_case_eq] \\ rveq
-    \\ dsimp []
-    \\ qexists_tac `aenv`
-    \\ qexists_tac `env1` \\ qexists_tac `xenv1`
-    \\ qexists_tac `env2` \\ qexists_tac `xenv2`
-    \\ simp []
-    \\ conj_tac
-    THEN1 fs [state_rel_def]
-    THEN1 (simp [exp_rel_def, EVERY_REPLICATE]
-           \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq
-           \\ qpat_x_assum `known _ _ _ _ = _`
-                           (assume_tac o
-                            ONCE_REWRITE_RULE [Q.prove (`c = c with inline_factor := c.inline_factor`,
-                                                        simp [config_component_equality])])
-           \\ goal_assum (pop_assum o mp_then Any mp_tac)
-           \\ metis_tac [subspt_trans]))
-  THEN1 cheat (* Letrec *)
-  THEN1
-   (say "App"
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ imp_res_tac unique_set_globals_subexps
-    \\ imp_res_tac known_LENGTH_EQ_E
-    \\ rename1 `known _ _ _ g0 = (_, g1)`
-    \\ rename1 `known _ _ _ g1 = (_, g2)`
-    \\ `g2 = g` by (fs [inlD_case_eq]
-                    \\ rpt (pairarg_tac \\ fs [])
-                    \\ fs [bool_case_eq])
-    \\ rveq
-    \\ patresolve `subspt g0 g` (el 3) subspt_known_elist_globals
-    \\ rpt (disch_then drule)
-    \\ impl_tac THEN1 (imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
-                       \\ fs [BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
-    \\ strip_tac
-    \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
-    \\ fs [evaluate_def]
-    \\ Cases_on `LENGTH xs > 0` \\ fs []
-    \\ fs [pair_case_eq]
-    \\ rename1 `evaluate (_, _ s0) = (_, s1)`
-    \\ `subspt (next_g s0) (next_g s1)`
-       by (simp [next_g_def]
-           \\ imp_res_tac evaluate_IMP_shift_seq
-           \\ imp_res_tac oracle_states_subspt_shift_seq
-           \\ fs [oracle_states_subspt_def, shift_seq_def]
-           \\ first_x_assum (qspecl_then [`0`, `0`] assume_tac) \\ fs [])
-    \\ `subspt (next_g s1) (next_g s)`
-       by (simp [next_g_def]
-           \\ fs [result_case_eq] \\ rveq \\ fs []
-           \\ `?k. s.compile_oracle = shift_seq k s1.compile_oracle`
-              by (reverse (fs [pair_case_eq, result_case_eq]) \\ rveq \\ fs []
-                  THEN1 (metis_tac [evaluate_IMP_shift_seq])
-                  \\ imp_res_tac evaluate_IMP_shift_seq
-                  \\ imp_res_tac evaluate_app_IMP_shift_seq
-                  \\ fs [] \\ metis_tac [ADD_SYM, ADD_ASSOC])
-           \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-           \\ imp_res_tac oracle_states_subspt_shift_seq
-           \\ fs [oracle_states_subspt_def, shift_seq_def])
-    \\ `subspt (next_g s1) g'` by metis_tac [subspt_trans]
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ disch_then (qspec_then `xenv2` mp_tac)
-    \\ impl_tac THEN1 fs [result_case_eq]  \\ strip_tac
-    \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_changed_globals_inst
-    \\ simp [] \\ strip_tac \\ fs []
-    \\ fs [co_every_Fn_vs_NONE_shift_seq,
-           oracle_states_subspt_shift_seq,
-           oracle_state_sgc_free_shift_seq,
-           unique_set_globals_shift_seq]
-    \\ patresolve `known _ _ _ g0 = _` hd known_preserves_esgc_free
-    \\ simp [] \\ strip_tac
-    \\ patresolve `evaluate (_, _, s0) = _` (el 2) known_correct_approx
-    \\ rpt (disch_then drule \\ simp [])
-    \\ impl_tac THEN1 metis_tac [subspt_trans]
-    \\ strip_tac \\ rveq \\ fs []
-    \\ reverse (fs [inlD_case_eq]) \\ rveq
-    THEN1
-     ((* inlD_LetInline *)
-      imp_res_tac decide_inline_LetInline_IMP_Clos_fv_max \\ rveq
-      \\ reverse (Cases_on `pure x1`) \\ fs []
-      \\ rpt (pairarg_tac \\ fs []) \\ rveq
-      \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
-      THEN1
-       ((* not pure *)
-        simp [evaluate_def, evaluate_append]
-        \\ fs [result_case_eq] \\ rveq \\ fs []
-        \\ fs [pair_case_eq] \\ rveq \\ fs []
-        \\ rename1 `evaluate (_, _ s1) = (_, s2)`
-        \\ `subspt (next_g s2) (next_g s)`
-           by (simp [next_g_def]
-               \\ fs [result_case_eq]
-               \\ imp_res_tac evaluate_app_IMP_shift_seq
-               \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-               \\ imp_res_tac oracle_states_subspt_shift_seq
-               \\ fs [oracle_states_subspt_def, shift_seq_def])
-        \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `xenv2` mp_tac)
-        \\ simp [co_disjoint_globals_shift_seq]
-        \\ impl_tac THEN1 (fs [result_case_eq] \\ metis_tac [subspt_trans])
-        \\ strip_tac
-        \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
-        \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals
-        \\ simp [] \\ strip_tac \\ fs []
-        \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
-        \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
-        \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `g'` mp_tac)
-        \\ simp [co_disjoint_globals_shift_seq,
-                 unique_set_globals_shift_seq]
-        \\ `subspt g g'` by metis_tac [subspt_trans]
-        \\ simp [] \\ strip_tac \\ rveq
-        \\ rename1 `known (dec_inline_factor _) [body] _ g = ([(ebody, abody)], gdead)`
-        \\ qmatch_assum_abbrev_tac `v_rel _ _ lhclos _`
-        \\ rename1 `evaluate (_, _, s0) = (Rval args, _)`
-        \\ `v_rel_app c g' lhclos (Closure (SOME m) [] ([r1] ++ env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
-           by (fs [Abbr `lhclos`, v_rel_app_def]
-               \\ qexists_tac `[]` \\ qexists_tac `[]` \\ simp []
-               \\ asm_exists_tac \\ simp []
-               \\ fs [exp_rel_def] \\ rveq
-               \\ fs [dec_inline_factor_def]
-               \\ simp [known_extra]
-               \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
-               \\ `g = gdead` by (match_mp_tac known_unchanged_globals
-                                  \\ asm_exists_tac \\ simp [])
-               \\ rveq \\ fs []
-               \\ patresolve `known _ [_] _ g1 = _` hd known_preserves_esgc_free
-               \\ simp [])
-        \\ first_x_assum drule (* inst. evaluate_app i.h. *)
-        \\ imp_res_tac nil_unique_set_globals
-        \\ simp [oracle_state_sgc_free_shift_seq,
-                 co_every_Fn_vs_NONE_shift_seq,
-                 oracle_states_subspt_shift_seq,
-                 unique_set_globals_shift_seq,
-                 co_disjoint_globals_shift_seq]
-        \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `SOME m` mp_tac)
-        \\ simp [loptrel_def]
-        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-        \\ impl_tac
-        THEN1 (fs [decide_inline_def, bool_case_eq]
-               \\ simp [NOT_NIL_EQ_LENGTH_NOT_0]
-               \\ simp [Abbr `lhclos`, dest_closure_def]
-               \\ simp [DROP_NIL]
-               \\ simp [check_loc_def]
-               \\ fs [dest_closure_def]
-               \\ cheat (* LENGTH args <= s2.max_app *))
-        \\ qmatch_goalsub_rename_tac `evaluate_app _ _ args2 t2`
-        \\ `args2 <> []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
-        \\ simp [evaluate_app_exact_rw]
-        \\ strip_tac
-        \\ `t2.clock = s2.clock` by fs [state_rel_def]
-        \\ simp [evaluate_mk_Ticks_rw]
-        \\ fs [bool_case_eq] \\ rveq \\ fs []
-        \\ `args2 ⧺ [r1] ⧺ env2 ⧺ xenv2 = args2 ⧺ r1::(env2 ⧺ xenv2)` by simp [APPEND_ASSOC]
-        \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
-        \\ metis_tac [])
-      THEN1
-       ((* pure *)
-        simp [evaluate_def, evaluate_append]
-        \\ fs [result_case_eq] \\ rveq \\ fs []
-        \\ fs [pair_case_eq] \\ rveq \\ fs []
-        \\ rename1 `evaluate (_, _ s1) = (_, s2)`
-        \\ `subspt (next_g s2) (next_g s)`
-           by (simp [next_g_def]
-               \\ fs [result_case_eq]
-               \\ imp_res_tac evaluate_app_IMP_shift_seq
-               \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-               \\ imp_res_tac oracle_states_subspt_shift_seq
-               \\ fs [oracle_states_subspt_def, shift_seq_def])
-        \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `xenv2` mp_tac)
-        \\ simp [co_disjoint_globals_shift_seq]
-        \\ impl_tac THEN1 (fs [result_case_eq] \\ metis_tac [subspt_trans])
-        \\ strip_tac
-        \\ reverse (fs [result_case_eq]) \\ rveq \\ fs [] \\ rveq
-        THEN1 (rename1 `evaluate ([x1], _, _) = (Rerr err_res, _)`
-               \\ drule (pure_correct |> GEN_ALL |> INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``])
-               \\ disch_then (qspecl_then [`s1`, `env1 ++ xenv1`] mp_tac)
-               \\ simp [] \\ strip_tac \\ Cases_on `err_res` \\ fs [])
-        \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals
-        \\ simp [] \\ strip_tac \\ fs []
-        \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
-        \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
-        \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `g'` mp_tac)
-        \\ simp [co_disjoint_globals_shift_seq,
-                 unique_set_globals_shift_seq]
-        \\ `subspt g g'` by metis_tac [subspt_trans]
-        \\ simp [] \\ strip_tac \\ rveq
-        \\ rename1 `known (dec_inline_factor _) [body] _ g = ([(ebody, abody)], gdead)`
-        \\ qmatch_assum_abbrev_tac `v_rel _ _ lhclos _`
-        \\ rename1 `evaluate (_, _, s0) = (Rval args, _)`
-        \\ `v_rel_app c g' lhclos (Closure (SOME m) [] (env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
-           by (fs [Abbr `lhclos`, v_rel_app_def]
-               \\ qexists_tac `[]` \\ qexists_tac `[]` \\ simp []
-               \\ asm_exists_tac \\ simp []
-               \\ fs [exp_rel_def] \\ rveq
-               \\ fs [dec_inline_factor_def]
-               \\ simp [known_extra]
-               \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
-               \\ `g = gdead` by (match_mp_tac known_unchanged_globals
-                                  \\ asm_exists_tac \\ simp [])
-               \\ rveq \\ fs []
-               \\ patresolve `known _ [_] _ g1 = _` hd known_preserves_esgc_free
-               \\ simp [])
-        \\ first_x_assum drule (* inst. evaluate_app i.h. *)
-        \\ imp_res_tac nil_unique_set_globals
-        \\ simp [oracle_state_sgc_free_shift_seq,
-                 co_every_Fn_vs_NONE_shift_seq,
-                 oracle_states_subspt_shift_seq,
-                 unique_set_globals_shift_seq,
-                 co_disjoint_globals_shift_seq]
-        \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `SOME m` mp_tac)
-        \\ simp [loptrel_def]
-        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-        \\ impl_tac
-        THEN1 (fs [decide_inline_def, bool_case_eq]
-               \\ simp [NOT_NIL_EQ_LENGTH_NOT_0]
-               \\ simp [Abbr `lhclos`, dest_closure_def]
-               \\ simp [DROP_NIL]
-               \\ simp [check_loc_def]
-               \\ fs [dest_closure_def]
-               \\ cheat (* LENGTH args <= s2.max_app *))
-        \\ qmatch_goalsub_rename_tac `evaluate_app _ _ args2 t2`
-        \\ `args2 <> []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
-        \\ simp [evaluate_app_exact_rw]
-        \\ strip_tac
-        \\ `t2.clock = s2.clock` by fs [state_rel_def]
-        \\ patresolve `known _ [x1] _ _ = ([e1, _], _)` hd known_preserves_pure
-        \\ simp [] \\ strip_tac
-        \\ drule (GEN_ALL pure_correct)
-        \\ disch_then (qspecl_then [`t`, `env2 ++ xenv2`] mp_tac)
-        \\ simp [] \\ strip_tac \\ rveq \\ fs []
-        \\ simp [evaluate_mk_Ticks_rw]))
-    THEN1
-     ((* inlD_Annotate *)
-      simp [evaluate_def]
-      \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
-      \\ fs [pair_case_eq]
-      \\ rename1 `evaluate ([_], _ s1) = (_, s2)`
-      \\ `subspt (next_g s2) (next_g s)`
-          by (simp [next_g_def]
-              \\ fs [result_case_eq]
-              \\ imp_res_tac evaluate_app_IMP_shift_seq
-              \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-              \\ imp_res_tac oracle_states_subspt_shift_seq
-              \\ fs [oracle_states_subspt_def, shift_seq_def])
-      \\ `subspt g (next_g s1) ∧ subspt (next_g s2) g'` by metis_tac [subspt_trans]
-      \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-      \\ simp [co_disjoint_globals_shift_seq]
-      \\ disch_then (qspec_then `xenv2` mp_tac)
-      \\ imp_res_tac known_sing_EQ_E
-      \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
-      \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
-      \\ first_x_assum match_mp_tac
-      \\ imp_res_tac nil_unique_set_globals
-      \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals_inst
-      \\ simp [] \\ strip_tac \\ fs []
-      \\ simp [co_every_Fn_vs_NONE_shift_seq,
-               oracle_states_subspt_shift_seq,
-               oracle_state_sgc_free_shift_seq,
-               co_disjoint_globals_shift_seq,
-               unique_set_globals_shift_seq]
-      \\ qexists_tac `NONE` \\ simp [v_rel_app_NONE]
-      \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
-      \\ rpt (disch_then drule \\ simp [])
-      \\ disch_then (qspec_then `g'` mp_tac)
-      \\ simp [co_disjoint_globals_shift_seq,
-               unique_set_globals_shift_seq]
-      \\ impl_tac THEN1 metis_tac [subspt_trans]
-      \\ strip_tac \\ simp []
-      \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ simp [loptrel_def]
-      \\ fs [decide_inline_def, va_case_eq, bool_case_eq]
-      \\ rveq \\ fs [] \\ rveq \\ fs []
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-      \\ rename1 `FST (EL jj fns1) = FST (EL jj fns2)`
-      \\ qpat_x_assum `LIST_REL (f_rel _ _ _) _ _` mp_tac
-      \\ simp [LIST_REL_EL_EQN] \\ disch_then (qspec_then `jj` mp_tac)
-      \\ Cases_on `EL jj fns1` \\ Cases_on `EL jj fns2`
-      \\ simp [f_rel_def])
-    THEN1
-     ((* inlD_Nothing *)
-      simp [evaluate_def]
-      \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
-      \\ fs [pair_case_eq]
-      \\ rename1 `evaluate ([_], _ s1) = (_, s2)`
-      \\ `subspt (next_g s2) (next_g s)`
-          by (simp [next_g_def]
-              \\ fs [result_case_eq]
-              \\ imp_res_tac evaluate_app_IMP_shift_seq
-              \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-              \\ imp_res_tac oracle_states_subspt_shift_seq
-              \\ fs [oracle_states_subspt_def, shift_seq_def])
-      \\ `subspt g (next_g s1) ∧ subspt (next_g s2) g'` by metis_tac [subspt_trans]
-      \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-      \\ simp [co_disjoint_globals_shift_seq]
-      \\ disch_then (qspec_then `xenv2` mp_tac)
-      \\ imp_res_tac known_sing_EQ_E
-      \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
-      \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
-      \\ first_x_assum match_mp_tac
-      \\ imp_res_tac nil_unique_set_globals
-      \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals_inst
-      \\ simp [] \\ strip_tac \\ fs []
-      \\ simp [co_every_Fn_vs_NONE_shift_seq,
-               oracle_states_subspt_shift_seq,
-               oracle_state_sgc_free_shift_seq,
-               co_disjoint_globals_shift_seq,
-               unique_set_globals_shift_seq]
-      \\ qexists_tac `NONE` \\ simp [v_rel_app_NONE]
-      \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
-      \\ rpt (disch_then drule \\ simp [])
-      \\ disch_then (qspec_then `g'` mp_tac)
-      \\ simp [co_disjoint_globals_shift_seq,
-               unique_set_globals_shift_seq]
-      \\ impl_tac THEN1 metis_tac [subspt_trans]
-      \\ simp [loptrel_def]))
-  THEN1
-   (say "Tick"
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ fs [evaluate_def, pair_case_eq]
-    \\ `t0.clock = s0.clock` by fs [state_rel_def]
-    \\ Cases_on `s0.clock = 0` \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
-    \\ first_x_assum drule \\ simp []
-    \\ disch_then match_mp_tac
-    \\ fs [dec_clock_def, state_rel_def, next_g_def]
-    \\ asm_exists_tac \\ simp []
-    \\ imp_res_tac unique_set_globals_subexps \\ simp [])
-  THEN1
-   (say "Call"
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ fs [evaluate_def, pair_case_eq]
-    \\ imp_res_tac unique_set_globals_subexps
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ disch_then (qspec_then `xenv2` mp_tac)
-    \\ rename1 `evaluate (_, _ s0) = (_, s1)`
-    \\ `subspt (next_g s1) (next_g s) /\ subspt (next_g s1) g'`
-       by (reverse conj_asm1_tac THEN1 metis_tac [subspt_trans]
-           \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, next_g_def]
-           \\ fixeqs \\ imp_res_tac evaluate_IMP_shift_seq
-           \\ simp [shift_seq_def, dec_clock_def]
-           \\ simp [oracle_states_subspt_alt])
-    \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
-    \\ rename1 `evaluate (_, _ t0) = (_, t1)`
-    \\ `s1.code = FEMPTY /\ t1.code = FEMPTY` by fs [state_rel_def]
-    \\ fs [find_code_def])
-  THEN1
-   (say "evaluate_app NIL"
-    \\ fs [evaluate_def, v_rel_app_NONE] \\ rveq \\ fs [])
-
-  THEN1
-   (say "evaluate_app CONS"
-
-    \\ fs [evaluate_def]
-    \\ fs [dec_clock_def, ADD1]
-    \\ `t0.max_app = s0.max_app /\ s0.clock = t0.clock` by fs [state_rel_def]
-    \\ fs [case_eq_thms] \\ fs [] \\ rveq
-    THEN1 ((* dest_closure returns Partial_app *)
-      imp_res_tac dest_closure_none_loc
-      \\ drule dest_closure_SOME_IMP \\ strip_tac
-      \\ fs [v_rel_app_def]
-      \\ fs [dest_closure_def] \\ rveq
-      \\ imp_res_tac LIST_REL_LENGTH
-      \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) = SOME (if b then x else y)``]
-      THEN1
-       (IF_CASES_TAC \\ fs []
-        \\ IF_CASES_TAC \\ fs [] \\ rveq
-        \\ fs [state_rel_def]
-        \\ fs [loptrel_def, check_loc_def]
-        \\ EVERY_CASE_TAC \\ fs []
-        \\ qexists_tac `aenv`
-        \\ qexists_tac `env1a` \\ simp []
-        \\ qexists_tac `env2a` \\ simp [] 
-        \\ irule EVERY2_APPEND_suff \\ simp [])
-      THEN1 cheat (* Recclosure *))
-
-    THEN1 ((* dest_closure returns Full_app *)    
-      Cases_on `argsopt` \\ fs [] \\ rveq
-
-      THEN1
-       (drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
-        \\ fs [v_rel_app_def] \\ rveq \\ fs []
-        \\ fs [dest_closure_def] \\ rveq
-        \\ imp_res_tac LIST_REL_LENGTH
-        \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) = SOME (if b then x else y)``]
-
-        THEN1
-         (IF_CASES_TAC \\ fs [] \\ rveq
-          \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
-          \\ `loc_is_ok` by (fs [Abbr `loc_is_ok`, loptrel_def, check_loc_def]
-                             \\ TRY (Cases_on `lopt2` \\ fs [])
-                             \\ TRY (Cases_on `loc` \\ fs [] \\ rveq)
-                             \\ fs [check_loc_def])
-          \\ simp [Abbr `loc_is_ok`]
-          \\ fs [bool_case_eq] \\ rveq \\ fs []
-          THEN1 fs [state_rel_def]
-          \\ fs [pair_case_eq]
-          \\ rfs [SUB_SUB]
-          \\ first_x_assum drule
-          \\ fs [exp_rel_def]
-          \\ rename1 `known _ _ _ g0 = (_, g1)`
-          \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
-                           \\ asm_exists_tac \\ simp [])
-          \\ disch_then drule
-          \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
-          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1 ++ _, state1)`
-          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2 ++ extra2, state2)`
-          \\ `LIST_REL (v_rel c g) fullenv1 fullenv2`
-             by (simp [Abbr `fullenv1`, Abbr `fullenv2`]
-                 \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                 \\ irule EVERY2_TAKE
-                 \\ irule EVERY2_APPEND_suff \\ simp [])
-          \\ disch_then (pop_assum o mp_then Any mp_tac) \\ simp []
-          \\ `state_rel c g state1 state2`
-             by (fs [Abbr `state1`, Abbr `state2`, state_rel_def])
-          \\ disch_then drule
-          \\ disch_then (qspec_then `extra2` mp_tac) \\ simp []
-          \\ simp [set_globals_empty_esgc_free]
-          \\ simp [EVERY_REVERSE, EVERY_TAKE]
-          \\ simp [set_globals_empty_unique_set_globals]
-          \\ rename1 `evaluate (_, _, state1) = (_, s1)`
-          \\ rveq
-          \\ `subspt (next_g state1) (next_g s1) /\ subspt (next_g s1) (next_g s)`
-             by (fs [Abbr `state1`]
-                 \\ simp [next_g_def]
-                 \\ fs [result_case_eq] \\ rveq
-                 \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
-                 \\ imp_res_tac evaluate_app_IMP_shift_seq
-                 \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-                 \\ imp_res_tac oracle_states_subspt_shift_seq
-                 \\ simp [shift_seq_def, oracle_states_subspt_alt])
-          \\ fs [Abbr `fullenv1`]
-          \\ impl_tac
-          THEN1
-           (rpt conj_tac
-            THEN1 (irule EVERY2_APPEND_suff \\ simp []
-                   \\ simp [LIST_REL_EL_EQN, EL_REPLICATE])        
-            THEN1 cheat (* subspt g0 (next_g s0) *)
-            THEN1 metis_tac [subspt_trans] (* subspt (next_g s1) g *)
-            THEN1 fs [result_case_eq])
-          \\ strip_tac \\ fs []
-          \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
-          \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
-          \\ reverse (Cases_on `lopt1 = lopt2`)
-          THEN1
-           (fs [loptrel_def]
-            \\ Cases_on `lopt2` \\ fs []
-            \\ Cases_on `loc` \\ fs [] \\ rveq \\ fs []
-            \\ rename1 `evaluate_app lopt1 f1' _ _ = _`
-            \\ qmatch_assum_abbrev_tac `evaluate_app lopt1 f1' next_args1 _ = _`
-            \\ qmatch_goalsub_abbrev_tac `evaluate_app _ _ next_args2 _ = _`
-            \\ `next_args1 = []` by fs [Abbr `next_args1`, DROP_NIL]
-            \\ `next_args2 = []` by fs [Abbr `next_args2`, DROP_NIL]
-            \\ fs [Abbr `next_args1`, Abbr `next_args2`]
-            \\ rveq \\ simp [])
-          \\ first_x_assum match_mp_tac
-          \\ qexists_tac `NONE` \\ simp []
-          \\ patresolve `evaluate (_, _, state1) = _` hd evaluate_changed_globals
-          \\ patresolve `evaluate (_, _, state1) = _` (el 2) known_correct_approx
-          \\ unabbrev_all_tac
-          \\ rpt (disch_then drule \\ simp [])
-          \\ disch_then (qspec_then `g` mp_tac)
-          \\ simp [set_globals_empty_unique_set_globals]
-          \\ simp [set_globals_empty_esgc_free]
-          \\ simp [EVERY_REVERSE, EVERY_TAKE]
-          \\ impl_tac THEN1 (irule EVERY2_APPEND_suff \\ simp []
-                             \\ simp [LIST_REL_EL_EQN, EL_REPLICATE])
-          \\ strip_tac \\ strip_tac
-          \\ simp [EVERY_DROP, EVERY_REVERSE]
-          \\ simp [oracle_state_sgc_free_shift_seq,
-                   co_every_Fn_vs_NONE_shift_seq,
-                   oracle_states_subspt_shift_seq,
-                   co_disjoint_globals_shift_seq,
-                   unique_set_globals_shift_seq]
-          \\ simp [v_rel_app_NONE]
-          \\ conj_tac THEN1 (irule EVERY2_DROP 
-                             \\ irule EVERY2_APPEND_suff \\ simp [])
-          \\ simp [loptrel_def])
-        THEN1 cheat (* Recclosure *))
-
-      THEN1 ((* ISSOME argsopt *)
-        dsimp [] \\ disj2_tac
-        \\ fs [bool_case_eq] \\ rveq \\ fs []
-        THEN1
-         ((* Rtimeout_error *)
-          drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
-          \\ fs [v_rel_app_def] \\ rveq \\ fs []
-          \\ fs [dest_closure_def] \\ rveq \\ fs []
-          \\ imp_res_tac LIST_REL_LENGTH
-          \\ TRY (rpt (pairarg_tac \\ fs [])
-                  \\ rename1 `LIST_REL (f_rel _ _ _) funs1 funs2`
-                  \\ rename1 `EL i funs1 = (num_args1, _)`
-                  \\ rename1 `EL i funs2 = (num_args2, _)`
-                  \\ `num_args1 = num_args2`
-                     by (fs [NOT_LESS_EQUAL, LIST_REL_EL_EQN]
-                         \\ first_x_assum (qpat_assum `i < _` o mp_then (Pos hd) mp_tac)
-                         \\ simp [f_rel_def]))
-          \\ fs [bool_case_eq] \\ rveq
-          \\ qexists_tac `t0 with clock := 0`
-          \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL]
-          \\ fs [DROP_NIL, NOT_LESS, ADD1, GREATER_EQ]
-          \\ imp_res_tac LESS_EQUAL_ANTISYM \\ fs []
-          \\ fs [state_rel_def]
-          \\ Cases_on `lopt1 = lopt2`
-          \\ fs [loptrel_def]
-          \\ Cases_on `lopt2` \\ fs []
-          \\ Cases_on `loc` \\ fs [] \\ rveq
-          \\ fs [check_loc_def])
-        \\ drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
-        \\ fs [v_rel_app_def] \\ rveq \\ fs []
-        \\ fs [dest_closure_def] \\ rveq
-        \\ imp_res_tac LIST_REL_LENGTH
-        THEN1
-         (IF_CASES_TAC \\ fs [] \\ rveq
-          \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
-          \\ `loc_is_ok` by (fs [Abbr `loc_is_ok`, loptrel_def, check_loc_def]
-                             \\ TRY (Cases_on `lopt2` \\ fs [])
-                             \\ TRY (Cases_on `loc` \\ fs [] \\ rveq)
-                             \\ fs [check_loc_def])
-          \\ simp [Abbr `loc_is_ok`]
-          \\ fs [pair_case_eq]
-          \\ first_x_assum drule
-          \\ fs [exp_rel_def]
-          \\ rename1 `known _ _ _ g0 = (_, g1)`
-          \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
-                           \\ asm_exists_tac \\ simp [])
-          \\ disch_then drule
-          \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
-          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1 ++ _, state1)`
-          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2 ++ extra2, state2)`
-          \\ `LIST_REL (v_rel c g) fullenv1 fullenv2`
-             by (simp [Abbr `fullenv1`, Abbr `fullenv2`]
-                 \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                 \\ irule EVERY2_TAKE
-                 \\ irule EVERY2_APPEND_suff \\ simp [])
-          \\ disch_then (pop_assum o mp_then Any mp_tac) \\ simp []
-          \\ `num_args = LENGTH ys + 1` by fs [DROP_NIL]
-          \\ `state_rel c g state1 state2`
-             by (fs [Abbr `state1`, Abbr `state2`, state_rel_def, DROP_NIL])
-          \\ disch_then drule \\ simp []
-          \\ simp [set_globals_empty_esgc_free]
-          \\ simp [EVERY_REVERSE, EVERY_TAKE]
-          \\ simp [set_globals_empty_unique_set_globals]
-          \\ fs [Abbr `fullenv1`]
-          \\ simp [TAKE_LENGTH_ID_rwt]
-          \\ disch_then (qspec_then `extra2` mp_tac)
-          \\ impl_tac
-          THEN1
-           (rpt conj_tac
-            THEN1 (simp [TAKE_LENGTH_ID_rwt]
-                   \\ irule EVERY2_APPEND_suff \\ simp [])
-            THEN1 cheat (* subspt g1 (next_g state1) *)
-            THEN1 fs [result_case_eq, list_case_eq] (* subpst (next_g s1) g *)
-            THEN1 fs [result_case_eq])
-          \\ strip_tac
-          \\ fs [result_case_eq] \\ rveq \\ fs []
-          \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
-          \\ simp [DROP_LENGTH_TOO_LONG])
-        THEN1
-         (rpt (pairarg_tac \\ fs [])
-          \\ fs [bool_case_eq] \\ rveq
-          \\ rename1 `LIST_REL (f_rel _ _ _) funs1 funs2`
-          \\ rename1 `EL i funs1 = (num_args1, exp1)`
-          \\ rename1 `EL i funs2 = (num_args2, exp2)`
-          \\ `num_args1 = num_args2`
-             by (fs [NOT_LESS_EQUAL, LIST_REL_EL_EQN]
-                 \\ first_x_assum (qpat_assum `i < _` o mp_then (Pos hd) mp_tac)
-                 \\ simp [f_rel_def])
-          \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
-          \\ `loc_is_ok`
-             by (fs [Abbr `loc_is_ok`, loptrel_def]
-                 \\ TRY (Cases_on `lopt2` \\ fs [])
-                 \\ TRY (Cases_on `loc` \\ fs [] \\ rveq)
-                 \\ fs [check_loc_def, DROP_NIL])
-          \\ simp [Abbr `loc_is_ok`]
-          \\ fs [pair_case_eq]
-          \\ first_x_assum drule
-          \\ qmatch_asmsub_abbrev_tac `f_rel _ aenvcase`
-          \\ `f_rel c aenvcase g (EL i funs1) (EL i funs2)` by fs [LIST_REL_EL_EQN]
-          \\ rfs [] \\ fs [f_rel_def, exp_rel_def]
-          \\ rename1 `known _ _ _ g0 = (_, g1)`
-          \\ `MEM (EL i funs1) funs1` by simp [EL_MEM]
-          \\ pop_assum mp_tac \\ simp [] \\ strip_tac
-          \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
-                           \\ asm_exists_tac \\ simp []
-                           \\ fs [elglobals_EQ_EMPTY]
-                           \\ first_x_assum irule
-                           \\ simp [MEM_MAP]
-                           \\ qexists_tac `EL i funs1` \\ simp [])
-          \\ rveq
-          \\ disch_then drule
-          \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
-          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1, state1)`
-          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2, state2)`
-          \\ `LIST_REL (v_rel c g) fullenv1 fullenv2`
-             by (simp [Abbr `fullenv1`, Abbr `fullenv2`]
-                 \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                 THEN1 (irule EVERY2_TAKE
-                        \\ irule EVERY2_APPEND_suff \\ simp [])
-                 \\ fs [LIST_REL_GENLIST] \\ rw []
-                 \\ asm_exists_tac \\ simp [])
-          \\ disch_then drule \\ simp []
-          \\ `state_rel c g state1 state2`
-             by (fs [Abbr `state1`, Abbr `state2`, state_rel_def]
-                 \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL])
-          \\ disch_then drule \\ simp []
-          \\ simp [EVERY_REVERSE, EVERY_TAKE, EVERY_GENLIST]
-          \\ `set_globals exp1 = {||}`
-             by (fs [elglobals_EQ_EMPTY]
-                 \\ first_x_assum irule \\ simp [MEM_MAP]
-                 \\ qexists_tac `EL i funs1` \\ simp [])
-          \\ simp [set_globals_empty_esgc_free]
-          \\ simp [set_globals_empty_unique_set_globals]
-          \\ impl_tac
-          THEN1
-           (rpt conj_tac
-            THEN1 (fs [EVERY_MEM, FORALL_PROD] \\ metis_tac [])
-            THEN1 cheat
-            THEN1 cheat
-            THEN1 (simp [Abbr `fullenv1`, Abbr `aenvcase`]
-                   \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                   THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
-                   \\ Cases_on `loc` \\ simp []
-                   THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
-                   THEN1 simp [clos_gen_noinline_eq, LIST_REL_EL_EQN])
-            THEN1 cheat
-            THEN1 fs [result_case_eq])
-          \\ strip_tac
-          \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
-          \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []           
-          \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
-          \\ simp [DROP_LENGTH_TOO_LONG]))))
-
-
-
-
-(*----------------real-------------------*)
-val known_correct0 = Q.prove(
-  `(!xs env1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env2 t0 c g0 g g' aenv eas env_len.
-      evaluate (xs, env1, s0) = (res1, s) /\
-      
-      known c xs aenv g0 = (eas, g) /\
-      state_rel c g' s0 t0 /\
-      every_Fn_vs_NONE xs /\
-      co_every_Fn_vs_NONE s0.compile_oracle /\
-      EVERY esgc_free xs /\ ssgc_free s0 /\
-      EVERY vsgc_free env1 /\
-      oracle_states_subspt s0.compile_oracle /\
-      subspt g0 g /\ subspt g (next_g s0) /\ subspt (next_g s) g' /\
-      LIST_REL val_approx_val aenv (TAKE env_len env1) /\
-      oracle_state_sgc_free s0.compile_oracle /\
-      globals_approx_sgc_free g0 /\
-      state_globals_approx s0 g' /\
-      EVERY val_approx_sgc_free aenv /\
-      fv_max env_len xs /\
-      env_rel c g' env_len aenv env1 env2 /\
-      unique_set_globals xs s0.compile_oracle /\
-      co_disjoint_globals g' s0.compile_oracle /\
-      res1 <> Rerr (Rabort Rtype_error) ==>
-      ?res2 t.
-        evaluate (MAP FST eas, env2, t0) = (res2, t) /\
-        result_rel (LIST_REL (v_rel c g')) (v_rel c g') res1 res2 /\
-        state_rel c g' s t) /\
-   (!lopt1 f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s lopt2 f2 args2 t0 c g argsopt.
-      evaluate_app lopt1 f1 args1 s0 = (res1, s) /\
-      ssgc_free s0 /\ vsgc_free f1 /\ EVERY vsgc_free args1 /\
-      subspt (next_g s) g /\
-      oracle_state_sgc_free s0.compile_oracle /\
-      co_every_Fn_vs_NONE s0.compile_oracle /\
-      oracle_states_subspt s0.compile_oracle /\
-      unique_set_globals [] s0.compile_oracle /\
-      co_disjoint_globals g s0.compile_oracle /\
-      v_rel_app c g f1 f2 argsopt /\
-      LIST_REL (v_rel c g) args1 args2 /\
-      state_rel c g s0 t0 /\ state_globals_approx s0 g /\
-      loptrel f2 (LENGTH args1) lopt1 lopt2 /\
-      (IS_SOME argsopt ==> argsopt = SOME args1 /\ args1 <> [] /\ ?exp env. dest_closure s0.max_app lopt1 f1 args1 = SOME (Full_app exp env [])) /\
-      res1 <> Rerr (Rabort Rtype_error) ==>
-      ?res2 t.
-        evaluate_app lopt2 f2 args2 t0 = (res2, t) /\
-        result_rel (LIST_REL (v_rel c g)) (v_rel c g) res1 res2 /\
-        state_rel c g s t)`,
-
-  ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
-                   |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
-  \\ rpt strip_tac \\ fs [fv_max_rw]
-  THEN1
-   (say "NIL"
-    \\ fs [known_def, evaluate_def] \\ rveq
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ simp [])
-  THEN1 cheat
-(*  THEN1
-   (say "CONS"
-    \\ fs [known_def, evaluate_def, pair_case_eq]
-    \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ imp_res_tac unique_set_globals_subexps \\ fs []
-    \\ patresolve `subspt g0 g` (el 3) subspt_known_elist_globals
-    \\ rpt (disch_then drule)
-    \\ impl_tac THEN1 (imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
-                       \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
-    \\ strip_tac
-    \\ rename1 `known _ [_] _ g0 = (_, g1)`
-    \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
-    THEN1 (strip_tac \\ simp [evaluate_append])
-    \\ fs [pair_case_eq] \\ rveq \\ fs []
-    \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
-       by (simp [next_g_def]
-           \\ fs [result_case_eq] \\ rveq \\ fs []
-           \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-           \\ imp_res_tac oracle_states_subspt_shift_seq
-           \\ fs [oracle_states_subspt_def, shift_seq_def]
-           \\ first_x_assum (qspecl_then [`0`, `0`] assume_tac) \\ fs [])
-    \\ impl_tac THEN1 metis_tac [subspt_trans]
-    \\ strip_tac \\ simp [evaluate_append]
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ patresolve `evaluate ([_], _, _) = _` hd evaluate_changed_globals_inst
-    \\ simp [] \\ strip_tac \\ fs []
-    \\ fs [co_disjoint_globals_shift_seq,
-           unique_set_globals_shift_seq,
-           co_every_Fn_vs_NONE_shift_seq,
-           oracle_state_sgc_free_shift_seq]
-    \\ patresolve `known _ [_] _ _ = _` hd known_preserves_esgc_free
-    \\ simp [] \\ strip_tac
-    \\ patresolve `evaluate ([_], _, _) = _` (el 2) known_correct_approx_no_extra
-    \\ rpt (disch_then drule \\ simp [])
-    \\ impl_tac THEN1 metis_tac [subspt_trans]
-    \\ strip_tac \\ rveq \\ fs []
-    \\ simp [oracle_states_subspt_shift_seq]
-    \\ `subspt g (next_g s1)` by metis_tac [subspt_trans]
-    \\ fs [result_case_eq] \\ rveq \\ fs []
-    \\ strip_tac \\ simp []
-    \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq \\ fs []) *)
-  THEN1
-   (say "Var"
-    \\ fs [known_def] \\ rveq \\ fs []
-    \\ fs [evaluate_def] \\ rveq
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ fs [env_rel_def, LIST_REL_EL_EQN] \\ rveq \\ fs []
-    \\ rfs [EL_TAKE])
-    (* fs [env_rel_def, Once fv1_def, fv_def] *)
-  THEN1
-   (say "If"
-    \\ cheat)
-
-  THEN1
-   (say "Let"
-    \\ cheat)
-
+    \\ qexists_tac `xenv1`
+    \\ qexists_tac `g'`
+    \\ simp [co_disjoint_globals_shift_seq]
+    \\ metis_tac [EVERY2_APPEND_suff, v_rel_LIST_REL_subspt])
   THEN1
    (say "Raise"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, pair_case_eq, result_case_eq]
     \\ rveq \\ fs []
     \\ imp_res_tac unique_set_globals_subexps
-    \\ first_x_assum drule
-    \\ rpt (disch_then drule \\ simp [])
-    \\ strip_tac
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ disch_then (qspec_then `xenv2` strip_assume_tac)
     \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq
     \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
     \\ imp_res_tac evaluate_SING \\ rveq \\ fs [])
-  THEN1
-   (say "Handle"
-    \\ cheat)
+  THEN1 cheat (* Handle *)
   THEN1
    (say "Op"
     \\ fs [known_def, evaluate_def]
@@ -3249,6 +2572,7 @@ val known_correct0 = Q.prove(
     \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
     \\ rename [`isGlobal opn`, `gO_destApx apx`]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ disch_then (qspec_then `xenv2` mp_tac)
     \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
     THEN1 (strip_tac \\ rveq \\ fs []
            \\ Cases_on `opn` \\ simp [isGlobal_def, evaluate_def]
@@ -3269,10 +2593,8 @@ val known_correct0 = Q.prove(
                   \\ imp_res_tac do_install_IMP_shift_seq
                   \\ patresolve `evaluate ([_], _, _) = _` hd evaluate_IMP_shift_seq \\ strip_tac
                   \\ fs [] \\ metis_tac [])
-           \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-           \\ imp_res_tac oracle_states_subspt_shift_seq
-           \\ fs [oracle_states_subspt_def, shift_seq_def]
-           \\ first_x_assum (qspecl_then [`0`, `0`] assume_tac) \\ fs [])
+           \\ imp_res_tac evaluate_IMP_shift_seq
+           \\ simp [shift_seq_def, oracle_states_subspt_alt])
     \\ impl_tac THEN1 metis_tac [subspt_trans]
     \\ strip_tac
     \\ Cases_on `opn = Install` \\ fs []
@@ -3317,11 +2639,14 @@ val known_correct0 = Q.prove(
       \\ fs []
       \\ Cases_on `s1.clock = 0` \\ fs []
       THEN1 (fs [result_case_eq] \\ rveq \\ fs []
-             \\ fs [state_rel_def]
-             \\ simp [shift_seq_def, FUPDATE_LIST]
-             \\ simp [FUN_EQ_THM, state_co_def])
+             \\ fs [state_rel_def, shift_seq_def, next_g_def]
+             \\ simp [FUPDATE_LIST, FUN_EQ_THM, state_co_def]
+             \\ conj_tac
+             THEN1 (irule LIST_REL_mono \\ metis_tac [OPTREL_MONO, v_rel_subspt])
+             \\ irule fmap_rel_mono \\ metis_tac [ref_rel_subspt])
       \\ rveq \\ fs []
-      \\ `?apx gg. known (reset_inline_factor c)  [exp1] [] (next_g s1) = ([(r0, apx)], next_g (s1 with compile_oracle := shift_seq 1 s1.compile_oracle))`
+      \\ `?apx gg. known (reset_inline_factor c) [exp1] [] (next_g s1) =
+                   ([(r0, apx)], next_g (s1 with compile_oracle := shift_seq 1 s1.compile_oracle))`
          by (fs [state_rel_def] \\ rfs []
              \\ fs [shift_seq_def, state_cc_def]
              \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -3334,38 +2659,49 @@ val known_correct0 = Q.prove(
              \\ simp [next_g_def])
       \\ fs [reset_inline_factor_def]
       \\ first_x_assum drule
-      \\ simp [v_rel_upd_inline_factor,
-               state_rel_upd_inline_factor]
+      \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
       \\ disch_then match_mp_tac
+      \\ qexists_tac `g'`
       \\ simp []
-      \\ conj_tac THEN1 fs [state_rel_def, shift_seq_def, FUPDATE_LIST, FUN_EQ_THM, state_co_def]
       \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_IMP_shift_seq
       \\ strip_tac \\ fs []
+      \\ rename1 `s1.compile_oracle = shift_seq kk s0.compile_oracle`
+      \\ conj_tac
+      THEN1
+       (fs [state_rel_def, shift_seq_def, next_g_def]
+        \\ qmatch_asmsub_abbrev_tac `LIST_REL (OPTREL (v_rel _ g_have)) _ _`
+        \\ qmatch_goalsub_abbrev_tac `LIST_REL (OPTREL (v_rel _ g_want)) _ _`
+        \\ `subspt g_have g_want`
+           by (drule oracle_states_subspt_alt
+               \\ disch_then (qspecl_then [`kk`, `kk + 1`] mp_tac)
+               \\ simp [])
+        \\ simp [Abbr `g_want`, Abbr `g_have`]
+        \\ simp [FUPDATE_LIST, FUN_EQ_THM, state_co_def]
+        \\ conj_tac
+        THEN1 (irule LIST_REL_mono \\ metis_tac [OPTREL_MONO, v_rel_subspt])
+        \\ irule fmap_rel_mono \\ metis_tac [ref_rel_subspt])
       \\ simp [oracle_states_subspt_shift_seq,
                co_every_Fn_vs_NONE_shift_seq,
                oracle_state_sgc_free_shift_seq,
                co_disjoint_globals_shift_seq]
       \\ `every_Fn_vs_NONE [exp1]` by (fs [co_every_Fn_vs_NONE_def, shift_seq_def] \\ metis_tac [SND])
       \\ `esgc_free exp1` by (fs [ssgc_free_def, shift_seq_def, shift_seq_def] \\ metis_tac [SND])
+      \\ `fv_max 0 [exp1]` by (fs [state_rel_def] \\ metis_tac [SND, FST])
       \\ simp []
       \\ conj_tac
       THEN1 (patresolve `evaluate (_, _, s0) = _` hd evaluate_changed_globals \\ simp []
              \\ strip_tac \\ fs [ssgc_free_def, shift_seq_def, FUPDATE_LIST] \\ metis_tac [])
-      \\ rename1 `s1.compile_oracle = shift_seq kk s0.compile_oracle`
-      \\ conj_tac
-      THEN1 (fs [oracle_states_subspt_def, next_g_def, shift_seq_def]
-             \\ metis_tac [FST, ADD_SYM])
-      \\ conj_tac
-      THEN1 (fs [oracle_states_subspt_def, next_g_def, shift_seq_def])
       \\ conj_tac
       THEN1 (`next_g s1 = FST (FST (s0.compile_oracle kk))` by fs [next_g_def, shift_seq_def]
              \\ fs [oracle_state_sgc_free_def])
-      \\ `fv_max 0 [exp1]` by cheat (* TODO: Ask Magnus *)
-      \\ simp []
       \\ conj_tac
-      THEN1 (patresolve `evaluate (_, _, s0) = _` (el 2) known_correct_approx_no_extra
+      THEN1 (patresolve `evaluate (_, _, s0) = _` (el 2) known_correct_approx
              \\ rpt (disch_then drule \\ simp [])
              \\ metis_tac [subspt_trans])
+      \\ conj_tac
+      THEN1 simp [next_g_def, shift_seq_def, oracle_states_subspt_alt]
+      \\ conj_tac
+      THEN1 simp [next_g_def, shift_seq_def, oracle_states_subspt_alt]
       THEN1 (qpat_x_assum `unique_set_globals _ s0.compile_oracle` mp_tac
              \\ `exp1 = FST (SND ((shift_seq kk s0.compile_oracle) 0))` by fs [shift_seq_def]
              \\ pop_assum mp_tac
@@ -3418,29 +2754,17 @@ val known_correct0 = Q.prove(
       \\ impl_tac THEN1 metis_tac [EVERY2_REVERSE]
       \\ fs [case_eq_thms, pair_case_eq]
       \\ rveq \\ fs []
-      \\ strip_tac \\ fs []))
-(* THEN1
-   (say "Fn"
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ fs [evaluate_def, bool_case_eq] \\ rveq
-    \\ dsimp []
-    \\ qexists_tac `REPLICATE num_args Other ++ aenv` \\ simp []
-    \\ conj_tac
-    THEN1 fs [state_rel_def]
-    THEN1 (simp [exp_rel_def, EVERY_REPLICATE]
-           \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq
-           \\ qpat_x_assum `known _ _ _ _ = _`
-                           (assume_tac o
-                            ONCE_REWRITE_RULE [Q.prove (`c = c with inline_factor := c.inline_factor`,
-                                                        simp [config_component_equality])])
-           \\ goal_assum (pop_assum o mp_then Any mp_tac)
-           \\ metis_tac [subspt_trans]))*)
+      \\ strip_tac \\ fs []
+      \\ metis_tac [v_rel_subspt, state_rel_subspt]))
   THEN1
    (say "Fn"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, bool_case_eq] \\ rveq
     \\ dsimp []
-    \\ qexists_tac `aenv` \\ simp []
+    \\ qexists_tac `aenv`
+    \\ qexists_tac `env1` \\ qexists_tac `xenv1`
+    \\ qexists_tac `env2` \\ qexists_tac `xenv2`
+    \\ simp []
     \\ conj_tac
     THEN1 fs [state_rel_def]
     THEN1 (simp [exp_rel_def, EVERY_REPLICATE]
@@ -3451,16 +2775,7 @@ val known_correct0 = Q.prove(
                                                         simp [config_component_equality])])
            \\ goal_assum (pop_assum o mp_then Any mp_tac)
            \\ metis_tac [subspt_trans]))
-  THEN1
-   (say "Letrec"
-    \\ cheat)
-
-  (* Skip to evaluate_app CONS *)
-  THEN1 cheat
-  THEN1 cheat
-  THEN1 cheat
-  THEN1 cheat
-
+  THEN1 cheat (* Letrec *)
 
   THEN1
    (say "App"
@@ -3530,17 +2845,16 @@ val known_correct0 = Q.prove(
         \\ fs [result_case_eq] \\ rveq \\ fs []
         \\ fs [pair_case_eq] \\ rveq \\ fs []
         \\ rename1 `evaluate (_, _ s1) = (_, s2)`
-        \\ `subspt (next_g s2) (next_g s)`
-           by (simp [next_g_def]
-               \\ fs [result_case_eq]
+        \\ `subspt (next_g s1) (next_g s2) /\ subspt (next_g s2) (next_g s)`
+           by (fs [result_case_eq]
                \\ imp_res_tac evaluate_app_IMP_shift_seq
-               \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-               \\ imp_res_tac oracle_states_subspt_shift_seq
-               \\ fs [oracle_states_subspt_def, shift_seq_def])
+               \\ imp_res_tac evaluate_IMP_shift_seq
+               \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `xenv2` mp_tac)
+        \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac)
         \\ simp [co_disjoint_globals_shift_seq]
-        \\ impl_tac THEN1 (fs [result_case_eq] \\ metis_tac [subspt_trans])
+        \\ impl_tac THEN1 (fs [result_case_eq]
+                           \\ metis_tac [v_rel_LIST_REL_subspt, subspt_trans])
         \\ strip_tac
         \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
         \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals
@@ -3556,19 +2870,18 @@ val known_correct0 = Q.prove(
         \\ rename1 `known (dec_inline_factor _) [body] _ g = ([(ebody, abody)], gdead)`
         \\ qmatch_assum_abbrev_tac `v_rel _ _ lhclos _`
         \\ rename1 `evaluate (_, _, s0) = (Rval args, _)`
-        \\ `v_rel_app c g' lhclos (Closure (SOME m) [] ([r1] ++ env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
+        \\ `v_rel_app c (next_g s2) lhclos (Closure (SOME m) [] ([r1] ++ env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
            by (fs [Abbr `lhclos`, v_rel_app_def]
                \\ qexists_tac `[]` \\ qexists_tac `[]` \\ simp []
                \\ asm_exists_tac \\ simp []
                \\ fs [exp_rel_def] \\ rveq
                \\ fs [dec_inline_factor_def]
-               \\ simp [known_extra]
                \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
+               \\ patresolve `known _ [_] _ g1 = _` hd known_preserves_esgc_free
+               \\ simp [] \\ strip_tac
                \\ `g = gdead` by (match_mp_tac known_unchanged_globals
                                   \\ asm_exists_tac \\ simp [])
-               \\ rveq \\ fs []
-               \\ patresolve `known _ [_] _ g1 = _` hd known_preserves_esgc_free
-               \\ simp [])
+               \\ rveq \\ metis_tac [subspt_trans])
         \\ first_x_assum drule (* inst. evaluate_app i.h. *)
         \\ imp_res_tac nil_unique_set_globals
         \\ simp [oracle_state_sgc_free_shift_seq,
@@ -3576,6 +2889,8 @@ val known_correct0 = Q.prove(
                  oracle_states_subspt_shift_seq,
                  unique_set_globals_shift_seq,
                  co_disjoint_globals_shift_seq]
+        \\ patresolve `LIST_REL _ args _` hd v_rel_LIST_REL_subspt
+        \\ disch_then (qspec_then `next_g s2` mp_tac) \\ simp [] \\ strip_tac
         \\ rpt (disch_then drule \\ simp [])
         \\ disch_then (qspec_then `SOME m` mp_tac)
         \\ simp [loptrel_def]
@@ -3587,7 +2902,9 @@ val known_correct0 = Q.prove(
                \\ simp [DROP_NIL]
                \\ simp [check_loc_def]
                \\ fs [dest_closure_def]
-               \\ cheat (* LENGTH args <= s2.max_app *))
+               \\ spose_not_then assume_tac
+               \\ Cases_on `args = []` \\ simp []
+               \\ fs [evaluate_app_rw, dest_closure_def, check_loc_def])
         \\ qmatch_goalsub_rename_tac `evaluate_app _ _ args2 t2`
         \\ `args2 <> []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
         \\ simp [evaluate_app_exact_rw]
@@ -3595,7 +2912,6 @@ val known_correct0 = Q.prove(
         \\ `t2.clock = s2.clock` by fs [state_rel_def]
         \\ simp [evaluate_mk_Ticks_rw]
         \\ fs [bool_case_eq] \\ rveq \\ fs []
-        \\ `args2 ⧺ [r1] ⧺ env2 ⧺ xenv2 = args2 ⧺ r1::(env2 ⧺ xenv2)` by simp [APPEND_ASSOC]
         \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
         \\ metis_tac [])
       THEN1
@@ -3604,17 +2920,16 @@ val known_correct0 = Q.prove(
         \\ fs [result_case_eq] \\ rveq \\ fs []
         \\ fs [pair_case_eq] \\ rveq \\ fs []
         \\ rename1 `evaluate (_, _ s1) = (_, s2)`
-        \\ `subspt (next_g s2) (next_g s)`
-           by (simp [next_g_def]
-               \\ fs [result_case_eq]
+        \\ `subspt (next_g s1) (next_g s2) /\ subspt (next_g s2) (next_g s)`
+           by (fs [result_case_eq]
                \\ imp_res_tac evaluate_app_IMP_shift_seq
-               \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-               \\ imp_res_tac oracle_states_subspt_shift_seq
-               \\ fs [oracle_states_subspt_def, shift_seq_def])
+               \\ imp_res_tac evaluate_IMP_shift_seq
+               \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `xenv2` mp_tac)
+        \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac)
         \\ simp [co_disjoint_globals_shift_seq]
-        \\ impl_tac THEN1 (fs [result_case_eq] \\ metis_tac [subspt_trans])
+        \\ impl_tac THEN1 (fs [result_case_eq]
+                           \\ metis_tac [v_rel_LIST_REL_subspt, subspt_trans])
         \\ strip_tac
         \\ reverse (fs [result_case_eq]) \\ rveq \\ fs [] \\ rveq
         THEN1 (rename1 `evaluate ([x1], _, _) = (Rerr err_res, _)`
@@ -3634,19 +2949,18 @@ val known_correct0 = Q.prove(
         \\ rename1 `known (dec_inline_factor _) [body] _ g = ([(ebody, abody)], gdead)`
         \\ qmatch_assum_abbrev_tac `v_rel _ _ lhclos _`
         \\ rename1 `evaluate (_, _, s0) = (Rval args, _)`
-        \\ `v_rel_app c g' lhclos (Closure (SOME m) [] (env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
+        \\ `v_rel_app c (next_g s2) lhclos (Closure (SOME m) [] (env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
            by (fs [Abbr `lhclos`, v_rel_app_def]
                \\ qexists_tac `[]` \\ qexists_tac `[]` \\ simp []
                \\ asm_exists_tac \\ simp []
                \\ fs [exp_rel_def] \\ rveq
                \\ fs [dec_inline_factor_def]
-               \\ simp [known_extra]
                \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
+               \\ patresolve `known _ [_] _ g1 = _` hd known_preserves_esgc_free
+               \\ simp [] \\ strip_tac
                \\ `g = gdead` by (match_mp_tac known_unchanged_globals
                                   \\ asm_exists_tac \\ simp [])
-               \\ rveq \\ fs []
-               \\ patresolve `known _ [_] _ g1 = _` hd known_preserves_esgc_free
-               \\ simp [])
+               \\ rveq \\ metis_tac [subspt_trans])
         \\ first_x_assum drule (* inst. evaluate_app i.h. *)
         \\ imp_res_tac nil_unique_set_globals
         \\ simp [oracle_state_sgc_free_shift_seq,
@@ -3654,6 +2968,8 @@ val known_correct0 = Q.prove(
                  oracle_states_subspt_shift_seq,
                  unique_set_globals_shift_seq,
                  co_disjoint_globals_shift_seq]
+        \\ patresolve `LIST_REL _ args _` hd v_rel_LIST_REL_subspt
+        \\ disch_then (qspec_then `next_g s2` mp_tac) \\ simp [] \\ strip_tac
         \\ rpt (disch_then drule \\ simp [])
         \\ disch_then (qspec_then `SOME m` mp_tac)
         \\ simp [loptrel_def]
@@ -3665,7 +2981,9 @@ val known_correct0 = Q.prove(
                \\ simp [DROP_NIL]
                \\ simp [check_loc_def]
                \\ fs [dest_closure_def]
-               \\ cheat (* LENGTH args <= s2.max_app *))
+               \\ spose_not_then assume_tac
+               \\ Cases_on `args = []` \\ simp []
+               \\ fs [evaluate_app_rw, dest_closure_def, check_loc_def])
         \\ qmatch_goalsub_rename_tac `evaluate_app _ _ args2 t2`
         \\ `args2 <> []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
         \\ simp [evaluate_app_exact_rw]
@@ -3683,30 +3001,32 @@ val known_correct0 = Q.prove(
       \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
       \\ fs [pair_case_eq]
       \\ rename1 `evaluate ([_], _ s1) = (_, s2)`
-      \\ `subspt (next_g s2) (next_g s)`
-          by (simp [next_g_def]
-              \\ fs [result_case_eq]
+      \\ `subspt (next_g s1) (next_g s2) /\ subspt (next_g s2) (next_g s)`
+          by (fs [result_case_eq]
               \\ imp_res_tac evaluate_app_IMP_shift_seq
-              \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-              \\ imp_res_tac oracle_states_subspt_shift_seq
-              \\ fs [oracle_states_subspt_def, shift_seq_def])
+              \\ imp_res_tac evaluate_IMP_shift_seq
+              \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
       \\ `subspt g (next_g s1) ∧ subspt (next_g s2) g'` by metis_tac [subspt_trans]
       \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
       \\ simp [co_disjoint_globals_shift_seq]
-      \\ disch_then (qspec_then `xenv2` mp_tac)
+      \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac)
+      \\ impl_tac THEN1 (fs [result_case_eq]
+                         \\ metis_tac [v_rel_LIST_REL_subspt, subspt_trans])
+      \\ strip_tac
       \\ imp_res_tac known_sing_EQ_E
-      \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
+      \\ fs [result_case_eq] \\ rveq \\ fs []
       \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
       \\ first_x_assum match_mp_tac
       \\ imp_res_tac nil_unique_set_globals
       \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals_inst
       \\ simp [] \\ strip_tac \\ fs []
+      \\ qexists_tac `g'`
+      \\ qexists_tac `NONE` \\ simp [v_rel_app_NONE]
       \\ simp [co_every_Fn_vs_NONE_shift_seq,
+               co_disjoint_globals_shift_seq,
                oracle_states_subspt_shift_seq,
                oracle_state_sgc_free_shift_seq,
-               co_disjoint_globals_shift_seq,
                unique_set_globals_shift_seq]
-      \\ qexists_tac `NONE` \\ simp [v_rel_app_NONE]
       \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
       \\ rpt (disch_then drule \\ simp [])
       \\ disch_then (qspec_then `g'` mp_tac)
@@ -3714,6 +3034,7 @@ val known_correct0 = Q.prove(
                unique_set_globals_shift_seq]
       \\ impl_tac THEN1 metis_tac [subspt_trans]
       \\ strip_tac \\ simp []
+      \\ conj_tac THEN1 metis_tac [v_rel_LIST_REL_subspt]
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ simp [loptrel_def]
       \\ fs [decide_inline_def, va_case_eq, bool_case_eq]
@@ -3730,37 +3051,41 @@ val known_correct0 = Q.prove(
       \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
       \\ fs [pair_case_eq]
       \\ rename1 `evaluate ([_], _ s1) = (_, s2)`
-      \\ `subspt (next_g s2) (next_g s)`
-          by (simp [next_g_def]
-              \\ fs [result_case_eq]
+      \\ `subspt (next_g s1) (next_g s2) /\ subspt (next_g s2) (next_g s)`
+          by (fs [result_case_eq]
               \\ imp_res_tac evaluate_app_IMP_shift_seq
-              \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-              \\ imp_res_tac oracle_states_subspt_shift_seq
-              \\ fs [oracle_states_subspt_def, shift_seq_def])
+              \\ imp_res_tac evaluate_IMP_shift_seq
+              \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
       \\ `subspt g (next_g s1) ∧ subspt (next_g s2) g'` by metis_tac [subspt_trans]
       \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
       \\ simp [co_disjoint_globals_shift_seq]
-      \\ disch_then (qspec_then `xenv2` mp_tac)
+      \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac)
+      \\ impl_tac THEN1 (fs [result_case_eq]
+                         \\ metis_tac [v_rel_LIST_REL_subspt, subspt_trans])
+      \\ strip_tac
       \\ imp_res_tac known_sing_EQ_E
-      \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
+      \\ fs [result_case_eq] \\ rveq \\ fs []
       \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
       \\ first_x_assum match_mp_tac
       \\ imp_res_tac nil_unique_set_globals
       \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals_inst
       \\ simp [] \\ strip_tac \\ fs []
+      \\ qexists_tac `g'` \\ qexists_tac `NONE` \\ simp [v_rel_app_NONE]
       \\ simp [co_every_Fn_vs_NONE_shift_seq,
                oracle_states_subspt_shift_seq,
                oracle_state_sgc_free_shift_seq,
                co_disjoint_globals_shift_seq,
                unique_set_globals_shift_seq]
-      \\ qexists_tac `NONE` \\ simp [v_rel_app_NONE]
+      \\ simp [loptrel_def]
       \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
       \\ rpt (disch_then drule \\ simp [])
       \\ disch_then (qspec_then `g'` mp_tac)
       \\ simp [co_disjoint_globals_shift_seq,
                unique_set_globals_shift_seq]
       \\ impl_tac THEN1 metis_tac [subspt_trans]
-      \\ simp [loptrel_def]))
+      \\ strip_tac \\ simp []
+      \\ metis_tac [v_rel_LIST_REL_subspt]))
+
   THEN1
    (say "Tick"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -3772,29 +3097,31 @@ val known_correct0 = Q.prove(
     \\ disch_then match_mp_tac
     \\ fs [dec_clock_def, state_rel_def, next_g_def]
     \\ asm_exists_tac \\ simp []
+    \\ asm_exists_tac \\ simp []
     \\ imp_res_tac unique_set_globals_subexps \\ simp [])
-
   THEN1
    (say "Call"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
     \\ imp_res_tac unique_set_globals_subexps
-    \\ first_x_assum drule
-    \\ rpt (disch_then drule \\ simp [])
-    \\ cheat
-    (*
-    \\ strip_tac \\ fs []
-    \\ rename1 `state_rel _ _ sss t`
-    \\ `sss.code = FEMPTY /\ t.code = FEMPTY` by fs [state_rel_def]
-    \\ fs [find_code_def]
-    \\ fs [result_case_eq]
-    \\ rveq \\ fs []*))
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ disch_then (qspec_then `xenv2` mp_tac)
+    \\ rename1 `evaluate (_, _ s0) = (_, s1)`
+    \\ `subspt (next_g s1) (next_g s) /\ subspt (next_g s1) g'`
+       by (reverse conj_asm1_tac THEN1 metis_tac [subspt_trans]
+           \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, next_g_def]
+           \\ fixeqs \\ imp_res_tac evaluate_IMP_shift_seq
+           \\ simp [shift_seq_def, dec_clock_def]
+           \\ simp [oracle_states_subspt_alt])
+    \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
+    \\ rename1 `evaluate (_, _ t0) = (_, t1)`
+    \\ `s1.code = FEMPTY /\ t1.code = FEMPTY` by fs [state_rel_def]
+    \\ fs [find_code_def])
   THEN1
    (say "evaluate_app NIL"
-    \\ fs [evaluate_def] \\ rveq \\ fs [])
+    \\ fs [evaluate_def, v_rel_app_NONE] \\ rveq \\ fs [])
   THEN1
    (say "evaluate_app CONS"
-
     \\ fs [evaluate_def]
     \\ fs [dec_clock_def, ADD1]
     \\ `t0.max_app = s0.max_app /\ s0.clock = t0.clock` by fs [state_rel_def]
@@ -3811,22 +3138,20 @@ val known_correct0 = Q.prove(
         \\ IF_CASES_TAC \\ fs [] \\ rveq
         \\ fs [state_rel_def]
         \\ fs [loptrel_def, check_loc_def]
-        \\ EVERY_CASE_TAC \\ fs []
-        \\ qexists_tac `aenv` \\ simp [] 
-        \\ rveq \\ simp []
+        \\ EVERY_CASE_TAC \\ fs [next_g_def]
+        \\ qexists_tac `aenv`
+        \\ qexists_tac `env1a` \\ simp []
+        \\ qexists_tac `env2a` \\ simp [] 
         \\ irule EVERY2_APPEND_suff \\ simp [])
       THEN1 cheat (* Recclosure *))
-
     THEN1 ((* dest_closure returns Full_app *)    
       Cases_on `argsopt` \\ fs [] \\ rveq
-
       THEN1
        (drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
         \\ fs [v_rel_app_def] \\ rveq \\ fs []
         \\ fs [dest_closure_def] \\ rveq
         \\ imp_res_tac LIST_REL_LENGTH
         \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) = SOME (if b then x else y)``]
-
         THEN1
          (IF_CASES_TAC \\ fs [] \\ rveq
           \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
@@ -3836,7 +3161,7 @@ val known_correct0 = Q.prove(
                              \\ fs [check_loc_def])
           \\ simp [Abbr `loc_is_ok`]
           \\ fs [bool_case_eq] \\ rveq \\ fs []
-          THEN1 fs [state_rel_def]
+          THEN1 fs [state_rel_def, next_g_def]
           \\ fs [pair_case_eq]
           \\ rfs [SUB_SUB]
           \\ first_x_assum drule
@@ -3846,47 +3171,37 @@ val known_correct0 = Q.prove(
                            \\ asm_exists_tac \\ simp [])
           \\ disch_then drule
           \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
-          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1, state1)`
-          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2, state2)`
-          \\ `LIST_REL (v_rel c g) fullenv1 fullenv2`
-             by (simp [Abbr `fullenv1`, Abbr `fullenv2`]
+          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1 ++ _, state1)`
+          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2 ++ extra2, state2)`
+          \\ `LIST_REL (v_rel c (next_g state1)) fullenv1 fullenv2`
+             by (unabbrev_all_tac \\ fs [next_g_def]
                  \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
                  \\ irule EVERY2_TAKE
                  \\ irule EVERY2_APPEND_suff \\ simp [])
-          \\ disch_then drule \\ simp []
-          \\ `state_rel c g state1 state2`
-             by (fs [Abbr `state1`, Abbr `state2`, state_rel_def])
-          \\ disch_then drule \\ simp []
+          \\ disch_then (pop_assum o mp_then Any mp_tac) \\ simp []
+          \\ `state_rel c (next_g state1) state1 state2`
+             by (fs [Abbr `state1`, Abbr `state2`, state_rel_def, next_g_def])
+          \\ disch_then drule
+          \\ disch_then (qspecl_then [`extra2`, `g`] mp_tac) \\ simp []
           \\ simp [set_globals_empty_esgc_free]
           \\ simp [EVERY_REVERSE, EVERY_TAKE]
-
-          \\ `fv_max (num_args + LENGTH env2) [e]`
-             by (
-
-                 cheat)
-
           \\ simp [set_globals_empty_unique_set_globals]
           \\ rename1 `evaluate (_, _, state1) = (_, s1)`
           \\ rveq
-          \\ `subspt (next_g state1) (next_g s1)`
-             by (fs [Abbr `state1`]
-                 \\ simp [next_g_def]
-                 \\ fs [result_case_eq] \\ rveq
+          \\ `subspt (next_g state1) (next_g s1) /\ subspt (next_g s1) (next_g s)`
+             by (fs [Abbr `state1`, result_case_eq] \\ rveq
                  \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
                  \\ imp_res_tac evaluate_app_IMP_shift_seq
                  \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
-                 \\ imp_res_tac oracle_states_subspt_shift_seq
-                 \\ simp [shift_seq_def]
-                 \\ irule oracle_states_subspt_alt \\ simp [])
-          \\ simp []
+                 \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
+          \\ fs [Abbr `fullenv1`]
           \\ impl_tac
           THEN1
            (rpt conj_tac
-            THEN1 cheat (* subspt g0 (next_g s0) *)
-            THEN1 cheat (* subspt (next_g s0) g *)
-            THEN1 (simp [Abbr `fullenv1`]
-                   \\ irule EVERY2_APPEND_suff \\ simp []
-                   \\ simp [LIST_REL_EL_EQN, EL_REPLICATE])
+            THEN1 (irule EVERY2_APPEND_suff \\ simp []
+                   \\ simp [LIST_REL_EL_EQN, EL_REPLICATE])        
+            THEN1 fs [Abbr `state1`, next_g_def] (* subspt g0 (next_g s0) *)
+            THEN1 metis_tac [subspt_trans] (* subspt (next_g s1) g *)
             THEN1 fs [result_case_eq])
           \\ strip_tac \\ fs []
           \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
@@ -3904,15 +3219,16 @@ val known_correct0 = Q.prove(
             \\ fs [Abbr `next_args1`, Abbr `next_args2`]
             \\ rveq \\ simp [])
           \\ first_x_assum match_mp_tac
-          \\ qexists_tac `NONE` \\ simp []
+          \\ qexists_tac `g` \\ qexists_tac `NONE` \\ simp []
           \\ patresolve `evaluate (_, _, state1) = _` hd evaluate_changed_globals
-          \\ patresolve `evaluate (_, _, state1) = _` (el 2) known_correct_approx_no_extra
+          \\ patresolve `evaluate (_, _, state1) = _` (el 2) known_correct_approx
           \\ unabbrev_all_tac
           \\ rpt (disch_then drule \\ simp [])
           \\ disch_then (qspec_then `g` mp_tac)
-          \\ simp [set_globals_empty_esgc_free]
           \\ simp [set_globals_empty_unique_set_globals]
+          \\ simp [set_globals_empty_esgc_free]
           \\ simp [EVERY_REVERSE, EVERY_TAKE]
+          \\ `subspt g0 g` by (fs [next_g_def] \\ metis_tac [subspt_trans]) \\ simp []
           \\ impl_tac THEN1 (irule EVERY2_APPEND_suff \\ simp []
                              \\ simp [LIST_REL_EL_EQN, EL_REPLICATE])
           \\ strip_tac \\ strip_tac
@@ -3922,16 +3238,19 @@ val known_correct0 = Q.prove(
                    oracle_states_subspt_shift_seq,
                    co_disjoint_globals_shift_seq,
                    unique_set_globals_shift_seq]
+          \\ simp [loptrel_def]
           \\ simp [v_rel_app_NONE]
-          \\ conj_tac THEN1 (irule EVERY2_DROP 
-                             \\ irule EVERY2_APPEND_suff \\ simp [])
-          \\ simp [loptrel_def])
+          \\ irule EVERY2_DROP 
+          \\ irule EVERY2_APPEND_suff
+          \\ fs [next_g_def]
+          \\ metis_tac [v_rel_LIST_REL_subspt, v_rel_subspt])
         THEN1 cheat (* Recclosure *))
       THEN1 ((* ISSOME argsopt *)
         dsimp [] \\ disj2_tac
         \\ fs [bool_case_eq] \\ rveq \\ fs []
         THEN1
-         (drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
+         ((* Rtimeout_error *)
+          drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
           \\ fs [v_rel_app_def] \\ rveq \\ fs []
           \\ fs [dest_closure_def] \\ rveq \\ fs []
           \\ imp_res_tac LIST_REL_LENGTH
@@ -3948,137 +3267,205 @@ val known_correct0 = Q.prove(
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL]
           \\ fs [DROP_NIL, NOT_LESS, ADD1, GREATER_EQ]
           \\ imp_res_tac LESS_EQUAL_ANTISYM \\ fs []
-          \\ fs [state_rel_def]
+          \\ fs [state_rel_def, next_g_def]
           \\ Cases_on `lopt1 = lopt2`
           \\ fs [loptrel_def]
           \\ Cases_on `lopt2` \\ fs []
           \\ Cases_on `loc` \\ fs [] \\ rveq
           \\ fs [check_loc_def])
+        \\ drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
+        \\ fs [v_rel_app_def] \\ rveq \\ fs []
+        \\ fs [dest_closure_def] \\ rveq
+        \\ imp_res_tac LIST_REL_LENGTH
         THEN1
-         (drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
-          \\ fs [v_rel_app_def] \\ rveq \\ fs []
-          \\ fs [dest_closure_def] \\ rveq
-          \\ imp_res_tac LIST_REL_LENGTH
-          THEN1
-           (IF_CASES_TAC \\ fs [] \\ rveq
-            \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
-            \\ `loc_is_ok` by (fs [Abbr `loc_is_ok`, loptrel_def, check_loc_def]
+         (IF_CASES_TAC \\ fs [] \\ rveq
+          \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
+          \\ `loc_is_ok` by (fs [Abbr `loc_is_ok`, loptrel_def, check_loc_def]
                              \\ TRY (Cases_on `lopt2` \\ fs [])
                              \\ TRY (Cases_on `loc` \\ fs [] \\ rveq)
                              \\ fs [check_loc_def])
-            \\ simp [Abbr `loc_is_ok`]
-            \\ fs [pair_case_eq]
-            \\ first_x_assum drule
-            \\ fs [exp_rel_def]
-            \\ rename1 `known _ _ _ g0 = (_, g1)`
-            \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
-                             \\ asm_exists_tac \\ simp [])
-            \\ disch_then drule
-            \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
-            \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1, state1)`
-            \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2, state2)`
-            \\ `LIST_REL (v_rel c g) fullenv1 fullenv2`
-               by (simp [Abbr `fullenv1`, Abbr `fullenv2`]
-                   \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                   \\ irule EVERY2_TAKE
-                   \\ irule EVERY2_APPEND_suff \\ simp [])
-            \\ disch_then drule \\ simp []
-            \\ `num_args = LENGTH ys + 1` by fs [DROP_NIL]
-            \\ `state_rel c g state1 state2`
-               by (fs [Abbr `state1`, Abbr `state2`, state_rel_def, DROP_NIL])
-            \\ disch_then drule \\ simp []
-            \\ simp [set_globals_empty_esgc_free]
-            \\ simp [EVERY_REVERSE, EVERY_TAKE]
-            \\ simp [set_globals_empty_unique_set_globals]
-            \\ impl_tac
-            THEN1
-             (rpt conj_tac
-              THEN1 cheat
-              THEN1 cheat
-              THEN1 (unabbrev_all_tac \\ rveq \\ fs []
-                     \\ simp [TAKE_LENGTH_ID_rwt]
-                     \\ irule EVERY2_APPEND_suff \\ simp [])
-              THEN1 cheat
-              THEN1 fs [result_case_eq])
-            \\ strip_tac
-            \\ fs [result_case_eq] \\ rveq \\ fs []
-            \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
-            \\ simp [DROP_LENGTH_TOO_LONG])
-          THEN1
-           (rpt (pairarg_tac \\ fs [])
-            \\ fs [bool_case_eq] \\ rveq
-            \\ rename1 `LIST_REL (f_rel _ _ _) funs1 funs2`
-            \\ rename1 `EL i funs1 = (num_args1, exp1)`
-            \\ rename1 `EL i funs2 = (num_args2, exp2)`
-            \\ `num_args1 = num_args2`
-               by (fs [NOT_LESS_EQUAL, LIST_REL_EL_EQN]
-                   \\ first_x_assum (qpat_assum `i < _` o mp_then (Pos hd) mp_tac)
-                   \\ simp [f_rel_def])
-            \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
-            \\ `loc_is_ok`
-               by (fs [Abbr `loc_is_ok`, loptrel_def]
-                   \\ TRY (Cases_on `lopt2` \\ fs [])
-                   \\ TRY (Cases_on `loc` \\ fs [] \\ rveq)
-                   \\ fs [check_loc_def, DROP_NIL])
-            \\ simp [Abbr `loc_is_ok`]
-            \\ fs [pair_case_eq]
-            \\ first_x_assum drule
-            \\ qmatch_asmsub_abbrev_tac `f_rel _ aenvcase`
-            \\ `f_rel c aenvcase g (EL i funs1) (EL i funs2)` by fs [LIST_REL_EL_EQN]
-            \\ rfs [] \\ fs [f_rel_def, exp_rel_def]
-            \\ rename1 `known _ _ _ g0 = (_, g1)`
-            \\ `MEM (EL i funs1) funs1` by simp [EL_MEM]
-            \\ pop_assum mp_tac \\ simp [] \\ strip_tac
-            \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
-                             \\ asm_exists_tac \\ simp []
-                             \\ fs [elglobals_EQ_EMPTY]
-                             \\ first_x_assum irule
-                             \\ simp [MEM_MAP]
-                             \\ qexists_tac `EL i funs1` \\ simp [])
-            \\ rveq
-            \\ disch_then drule
-            \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
-            \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1, state1)`
-            \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2, state2)`
-            \\ `LIST_REL (v_rel c g) fullenv1 fullenv2`
-               by (simp [Abbr `fullenv1`, Abbr `fullenv2`]
-                   \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                   THEN1 (irule EVERY2_TAKE
-                          \\ irule EVERY2_APPEND_suff \\ simp [])
-                   \\ fs [LIST_REL_GENLIST] \\ rw []
-                   \\ asm_exists_tac \\ simp [])
-            \\ disch_then drule \\ simp []
-            \\ `state_rel c g state1 state2`
-               by (fs [Abbr `state1`, Abbr `state2`, state_rel_def]
-                   \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL])
-            \\ disch_then drule \\ simp []
-            \\ simp [EVERY_REVERSE, EVERY_TAKE, EVERY_GENLIST]
-            \\ `set_globals exp1 = {||}`
-               by (fs [elglobals_EQ_EMPTY]
-                   \\ first_x_assum irule \\ simp [MEM_MAP]
-                   \\ qexists_tac `EL i funs1` \\ simp [])
-            \\ simp [set_globals_empty_esgc_free]
-            \\ simp [set_globals_empty_unique_set_globals]
-            \\ impl_tac
-            THEN1
-             (rpt conj_tac
-              THEN1 (fs [EVERY_MEM, FORALL_PROD] \\ metis_tac [])
-              THEN1 cheat
-              THEN1 cheat
-              THEN1 (simp [Abbr `fullenv1`, Abbr `aenvcase`]
-                     \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
-                     THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
-                     \\ Cases_on `loc` \\ simp []
-                     THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
-                     THEN1 simp [clos_gen_noinline_eq, LIST_REL_EL_EQN])
-              THEN1 cheat
-              THEN1 fs [result_case_eq])
-            \\ strip_tac
-            \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
-            \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []           
-            \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
-            \\ simp [DROP_LENGTH_TOO_LONG]))))
+          \\ simp [Abbr `loc_is_ok`]
+          \\ fs [pair_case_eq]
+          \\ first_x_assum drule
+          \\ fs [exp_rel_def]
+          \\ rename1 `known _ _ _ g0 = (_, g1)`
+          \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
+                           \\ asm_exists_tac \\ simp [])
+          \\ disch_then drule
+          \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
+          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1 ++ _, state1)`
+          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2 ++ extra2, state2)`
+          \\ `LIST_REL (v_rel c (next_g state1)) fullenv1 fullenv2`
+             by (unabbrev_all_tac \\ fs [next_g_def]
+                 \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
+                 \\ irule EVERY2_TAKE
+                 \\ irule EVERY2_APPEND_suff \\ simp [])
+          \\ disch_then (pop_assum o mp_then Any mp_tac) \\ simp []
+          \\ `num_args = LENGTH ys + 1` by fs [DROP_NIL]
+          \\ `state_rel c (next_g state1) state1 state2`
+             by (fs [Abbr `state1`, Abbr `state2`, next_g_def, state_rel_def, DROP_NIL])
+          \\ disch_then drule \\ simp []
+          \\ disch_then (qspecl_then [`extra2`, `g`] mp_tac)
+          \\ simp [set_globals_empty_esgc_free]
+          \\ simp [EVERY_REVERSE, EVERY_TAKE]
+          \\ simp [set_globals_empty_unique_set_globals]
+          \\ `subspt g1 (next_g state1)` by (fs [Abbr `state1`, next_g_def])
+          \\ `s1 = s` by fs [case_eq_thms] \\ simp []
+          \\ fs [Abbr `fullenv1`]
+          \\ simp [TAKE_LENGTH_ID_rwt]
+          \\ impl_tac THEN1 (fs [result_case_eq] \\ metis_tac [EVERY2_APPEND_suff])
+          \\ strip_tac
+          \\ fs [result_case_eq] \\ rveq \\ fs []
+          \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
+          \\ simp [DROP_LENGTH_TOO_LONG])
+        THEN1
+         (rpt (pairarg_tac \\ fs [])
+          \\ fs [bool_case_eq] \\ rveq
+          \\ rename1 `LIST_REL (f_rel _ _ _) funs1 funs2`
+          \\ rename1 `EL i funs1 = (num_args1, exp1)`
+          \\ rename1 `EL i funs2 = (num_args2, exp2)`
+          \\ `num_args1 = num_args2`
+             by (fs [NOT_LESS_EQUAL, LIST_REL_EL_EQN]
+                 \\ first_x_assum (qpat_assum `i < _` o mp_then (Pos hd) mp_tac)
+                 \\ simp [f_rel_def])
+          \\ qpat_abbrev_tac `loc_is_ok = check_loc _ lopt2 _ _ _ _`
+          \\ `loc_is_ok`
+             by (fs [Abbr `loc_is_ok`, loptrel_def]
+                 \\ TRY (Cases_on `lopt2` \\ fs [])
+                 \\ TRY (Cases_on `loc` \\ fs [] \\ rveq)
+                 \\ fs [check_loc_def, DROP_NIL])
+          \\ simp [Abbr `loc_is_ok`]
+          \\ fs [pair_case_eq]
+          \\ first_x_assum drule
+          \\ qmatch_asmsub_abbrev_tac `f_rel _ aenvcase`
+          \\ `f_rel c aenvcase (next_g s0) (EL i funs1) (EL i funs2)` by fs [LIST_REL_EL_EQN]
+          \\ rfs [] \\ fs [f_rel_def, exp_rel_def]
+          \\ rename1 `known _ _ _ g0 = (_, g1)`
+          \\ `MEM (EL i funs1) funs1` by simp [EL_MEM]
+          \\ pop_assum mp_tac \\ simp [] \\ strip_tac
+          \\ `g0 = g1` by (match_mp_tac known_unchanged_globals
+                           \\ asm_exists_tac \\ simp []
+                           \\ fs [elglobals_EQ_EMPTY]
+                           \\ first_x_assum irule
+                           \\ simp [MEM_MAP]
+                           \\ qexists_tac `EL i funs1` \\ simp [])
+          \\ rveq
+          \\ disch_then drule
+          \\ simp [v_rel_upd_inline_factor, state_rel_upd_inline_factor]
+          \\ qmatch_asmsub_abbrev_tac `evaluate (_, fullenv1 ++ _, state1)`
+          \\ qmatch_goalsub_abbrev_tac `evaluate (_, fullenv2 ++ extra2, state2)`
+          \\ `LIST_REL (v_rel c (next_g state1)) fullenv1 fullenv2`
+             by (unabbrev_all_tac \\ fs [next_g_def]
+                 \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
+                 THEN1 (irule EVERY2_TAKE
+                        \\ irule EVERY2_APPEND_suff \\ simp [])
+                 THEN1 (fs [LIST_REL_GENLIST] \\ rw []
+                        \\ `env1a ++ env1b = env1a ++ env1b` by simp []
+                        \\ rpt (asm_exists_tac \\ simp [])))
+          \\ disch_then (pop_assum o mp_then Any mp_tac)
+          \\ `state_rel c (next_g state1) state1 state2`
+             by (fs [Abbr `state1`, Abbr `state2`, state_rel_def, next_g_def]
+                 \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL])
+          \\ disch_then drule \\ simp []
+          \\ disch_then (qspecl_then [`extra2`, `g`] mp_tac)
+          \\ simp [EVERY_REVERSE, EVERY_TAKE, EVERY_GENLIST]
+          \\ `set_globals exp1 = {||}`
+             by (fs [elglobals_EQ_EMPTY]
+                 \\ first_x_assum irule \\ simp [MEM_MAP]
+                 \\ qexists_tac `EL i funs1` \\ simp [])
+          \\ simp [set_globals_empty_esgc_free, set_globals_empty_unique_set_globals]
+          \\ `s1 = s` by fs [case_eq_thms] \\ simp []
+          \\ `every_Fn_vs_NONE [exp1]` by (fs [EVERY_MEM, FORALL_PROD] \\ metis_tac [])
+          \\ `fv_max (LENGTH fullenv1) [exp1]`
+             by (fs [Abbr `fullenv1`, EVERY_MEM, FORALL_PROD]
+                 \\ irule fv_max_less
+                 \\ qexists_tac `num_args1 + LENGTH env2a` \\ simp [])
+          \\ `LIST_REL val_approx_val (REPLICATE num_args1 Other ⧺ aenvcase) fullenv1`
+             by (simp [Abbr `fullenv1`, Abbr `aenvcase`]
+                 \\ rpt (irule EVERY2_APPEND_suff \\ simp [])
+                 THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
+                 \\ Cases_on `loc` \\ simp []
+                 THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
+                 \\ simp [clos_gen_noinline_eq, LIST_REL_EL_EQN])
+          \\ simp []
+          \\ unabbrev_all_tac
+          \\ fs [next_g_def]
+          \\ impl_tac THEN1 fs [result_case_eq]
+          \\ strip_tac
+          \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
+          \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []
+          \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
+          \\ simp [DROP_LENGTH_TOO_LONG])))));
 
-);
+
+val semantics_known = Q.store_thm("semantics_known",
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
+     (state_cc (compile_inc c) cc) xs <> Fail ==>
+   (!n. SND (SND (co n)) = []) /\
+   (!n. fv_max 0 [FST (SND (co n))]) /\
+   (!n exp aux.
+      SND (co n) = (exp,aux) ==>
+      esgc_free exp /\ elist_globals (MAP (SND o SND) aux) = {||}) /\
+   every_Fn_vs_NONE xs /\
+   co_every_Fn_vs_NONE co /\
+   oracle_states_subspt co /\
+   oracle_state_sgc_free co /\
+   unique_set_globals xs co /\
+   EVERY esgc_free xs /\
+   fv_max 0 xs /\
+   FST (FST (co 0)) = g /\
+   known c xs [] LN = (eas, g) ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     (state_co (compile_inc c) co) cc (MAP FST eas) =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (state_cc (compile_inc c) cc) xs`,
+
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ drule (CONJUNCT1 known_correct0)
+  \\ simp []
+  \\ disch_then drule
+  \\ disch_then (qspec_then `[]` mp_tac)
+  \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
+                               (state_co (compile_inc c) co) cc k` mp_tac)
+  \\ rename1 `evaluate (xs, _, _) = (res1, s2)`
+  \\ disch_then (qspec_then `next_g s2` mp_tac)
+  \\ impl_tac
+
+  THEN1
+   (fs [state_rel_def, initial_state_def, fmap_rel_def]
+    \\ simp [globals_approx_sgc_free_def, lookup_def]
+    \\ simp [state_globals_approx_def, get_global_def]
+    \\ simp [ssgc_free_def] \\ conj_tac THEN1 metis_tac []
+    \\ simp [next_g_def]
+
+    \\ simp [co_disjoint_globals_def]
+    \\ gen_tac
+
+    \\ `` known_changed_globals
+
+    \\ fs [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
+
+    \\ `subspt (FST (FST (co 0))) (next_g s2)`
+       by (imp_res_tac evaluate_IMP_shift_seq
+           \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
+
+    \\ 
+
+    \\ cheat)
+
+  \\ strip_tac
+  \\ qexists_tac `0` \\ simp []
+  \\ fs [state_rel_def]
+  \\ Cases_on `res1` \\ fs []
+  \\ Cases_on `e` \\ fs [])
+
 
 val _ = export_theory();
+
+
+pat_conj_tac =
+  (
+
+:tactic
