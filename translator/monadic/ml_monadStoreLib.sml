@@ -616,7 +616,7 @@ in
         \\ CONV_TAC ((RAND_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV[append_empty]))
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
         \\ irule eliminate_substore_thm
-        \\ TRY(irule store2heap_aux_decompose_store1)
+        \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.map snd refs_trans_results)
@@ -626,7 +626,7 @@ in
         check_rarray
         \\ PURE_REWRITE_TAC[APPEND]
         \\ PURE_ONCE_REWRITE_TAC[cons_to_append]
-        \\ TRY(irule store2heap_aux_decompose_store1)
+        \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC
@@ -639,7 +639,7 @@ in
         check_farray
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, APPEND]
         \\ irule eliminate_substore_thm
-        \\ TRY(irule store2heap_aux_decompose_store2)
+        \\ TRY(irule store2heap_aux_decompose_store2 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.concat(List.map (fn (_, x) => [x])
