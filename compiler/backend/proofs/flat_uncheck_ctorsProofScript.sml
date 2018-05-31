@@ -154,6 +154,115 @@ val do_opapp_correct = Q.prove (
   fs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
   cheat);
 
+val s_rel_store_assign = Q.prove (
+  `s_rel s1 s1' ∧
+   v_rel v v' ∧
+   store_assign l (Refv v) s1.refs = SOME v1 ⇒
+   ∃v1'. store_assign l (Refv v') s1'.refs = SOME v1'`,
+  rw [semanticPrimitivesTheory.store_assign_def, s_rel_cases]
+  >- metis_tac [LIST_REL_LENGTH] >>
+  fs [semanticPrimitivesTheory.store_v_same_type_def, LIST_REL_EL_EQN] >>
+  every_case_tac >>
+  fs [] >>
+  rw [] >>
+  res_tac >>
+  fs [sv_rel_cases] >>
+  rw [] >>
+  fs []);
+
+val s_rel_store_alloc = Q.prove (
+  `s_rel s1 s1' ∧
+   v_rel v v' ∧
+   store_alloc (Refv v) s1.refs = (s,n) ⇒
+   ∃s' n'. store_alloc (Refv v') s1'.refs = (s',n')`,
+  rw [semanticPrimitivesTheory.store_alloc_def, s_rel_cases]);
+
+val s_rel_store_alloc = Q.prove (
+  `s_rel s1 s1' ∧
+   sv_rel sv sv' ∧
+   store_alloc sv s1.refs = (s,n) ⇒
+   ∃s' n'. store_alloc sv' s1'.refs = (s',n')`,
+  rw [sv_rel_cases, semanticPrimitivesTheory.store_alloc_def, s_rel_cases]);
+
+val s_rel_store_lookup = Q.prove (
+  `s_rel s1 s1' ∧
+   store_lookup n s1.refs = SOME sv ⇒
+   ∃sv'. store_lookup n s1'.refs = SOME sv' ∧ sv_rel sv sv'`,
+  rw [semanticPrimitivesTheory.store_lookup_def, s_rel_cases] >>
+  fs [LIST_REL_EL_EQN] >>
+  res_tac >>
+  fs [sv_rel_cases] >>
+  fs []);
+
+val v_rel_eqn = Q.prove (
+ `(!lit v. v_rel (flatSem$Litv lit) v ⇔ v = Litv lit) ∧
+  (!lit v. v_rel v (flatSem$Litv lit) ⇔ v = Litv lit) ∧
+  (!loc l. v_rel (Loc loc) l ⇔ l = Loc loc) ∧
+  (!loc l. v_rel l (Loc loc) ⇔ l = Loc loc) ∧
+  (!vs v. v_rel (Vectorv vs) v ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs vs') ∧
+  (!vs v. v_rel v (Vectorv vs) ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs' vs)`,
+  rw [] >>
+  ONCE_REWRITE_TAC [v_rel_cases] >>
+  rw []);
+
+val do_app_correct = Q.prove (
+  `∀s1 s1' s2 op vs vs' r.
+     LIST_REL v_rel vs vs' ∧
+     s_rel s1 s1' ∧
+     do_app s1 op vs = SOME (s2,r) ⇒
+     ∃r' s2'. do_app s1' op vs' = SOME (s2', r')`,
+  rw [do_app_cases] >>
+  fs [] >>
+  rw [] >>
+  fs [v_rel_eqn] >>
+  TRY (
+    imp_res_tac s_rel_store_lookup >>
+    fs [sv_rel_cases] >>
+    NO_TAC)
+  >- cheat
+  >- metis_tac [s_rel_store_assign]
+  >- metis_tac [sv_rel_cases, s_rel_store_alloc]
+  >- metis_tac [sv_rel_cases, s_rel_store_alloc]
+  >- (
+    imp_res_tac s_rel_store_lookup >>
+    fs [sv_rel_cases] >>
+    metis_tac [])
+  >- cheat
+  >- (
+    imp_res_tac s_rel_store_lookup >>
+    fs [sv_rel_cases] >>
+    metis_tac [])
+  >- cheat
+  >- cheat
+  >- cheat
+  >- metis_tac []
+  >- cheat
+  >- cheat
+  >- metis_tac []
+  >- metis_tac []
+  >- metis_tac []
+  >- cheat
+  >- (
+    imp_res_tac s_rel_store_lookup >>
+    fs [sv_rel_cases] >>
+    metis_tac [])
+  >- (
+    imp_res_tac s_rel_store_lookup >>
+    fs [sv_rel_cases] >>
+    metis_tac [])
+  >- (
+    imp_res_tac s_rel_store_lookup >>
+    fs [sv_rel_cases] >>
+    metis_tac [])
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat);
+
 val compile_exp_correct = Q.prove (
   `(∀env (s : 'a flatSem$state) es s' r s1 env'.
     evaluate env s es = (s',r) ∧
@@ -269,7 +378,6 @@ val compile_exp_correct = Q.prove (
   >- (
     simp [Once v_rel_cases] >>
     fs [env_rel_cases])
-
   >- (
     fs [] >>
     rename [`evaluate _ _ _ = (s', r')`,
@@ -305,7 +413,8 @@ val compile_exp_correct = Q.prove (
         res_tac >>
         rw [] >>
         metis_tac [HD, compile_sing])
-      >- cheat)
+      >- (
+        cheat)
     >- (
       res_tac >>
       fs [compile_reverse] >>
