@@ -229,10 +229,61 @@ val _ = temp_tight_equality();
 val mk_graph_SUCCESS = Q.store_thm("mk_graph_SUCCESS",`
   ∃res.
     (mk_graph d s = (Success ():(unit,state_exn) exc,res)) ∧
-    d*d ≤ LENGTH res.adj_mat`,
+    d*d ≤ LENGTH res.adj_mat ∧ res.dim = d`,
   fs[mk_graph_def]>>
   fs(msimps)>>
   fs [alloc_adj_mat_def,set_dim_def,Marray_alloc_def,LENGTH_REPLICATE]);
+
+val set_weight_SUCCESS = Q.store_thm("set_weight_SUCCESS",
+  `j + i * s.dim < LENGTH s.adj_mat ⇒
+   ∃r. set_weight i j k s = (Success (), r) ∧
+       LENGTH r.adj_mat = LENGTH s.adj_mat ∧
+       r.dim = s.dim`,
+  rw[set_weight_def, reind_def, get_dim_def, st_ex_return_def]
+  \\ rw msimps
+  \\ rw[fetch"-""update_adj_mat_def"]
+  \\ rw[ml_monadBaseTheory.Marray_update_def]
+  \\ rw[ml_monadBaseTheory.Mupdate_eq]);
+
+val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
+  `∀d s. d ≤ s.dim ∧ s.dim * s.dim ≤ LENGTH s.adj_mat ⇒
+   ∃r. init_diag d s = (Success (), r) ∧
+       LENGTH r.adj_mat = LENGTH s.adj_mat ∧
+       r.dim = s.dim`,
+  simp[init_diag_def]
+  \\ qmatch_goalsub_abbrev_tac`st_ex_FOR _ _ f`
+  \\ Q.SPEC_TAC(`0n`,`n`)
+  \\ qunabbrev_tac`f`
+  \\ Induct_on`d-(n:num)`
+  \\ rw[]
+  >- rw[Once st_ex_FOR_def, st_ex_return_def]
+  \\ rw[Once st_ex_FOR_def]
+  \\ Cases_on`d` \\ fs[]
+  \\ qmatch_assum_rename_tac`SUC d ≤ s.dim`
+  \\ `v = d - n` by decide_tac \\ rveq
+  \\ `n < s.dim` by decide_tac
+  \\ `∃m. 0 < m ∧ n + m = s.dim` by (
+        IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1
+        \\ fs[] )
+  \\ `n = s.dim - m` by simp[]
+  \\ `n + n * s.dim < s.dim * s.dim` by (
+    simp[LEFT_SUB_DISTRIB]
+    \\ `m * s.dim ≤ s.dim * s.dim` by simp[]
+    \\ `m * s.dim ≤ s.dim ** 2` by metis_tac[TWO,EXP,ONE,MULT_CLAUSES]
+    \\ simp[]
+    \\ `0 < s.dim` by simp[]
+    \\ IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1
+    THEN simp[] )
+  \\ qpat_x_assum`n = _` kall_tac
+  \\ `s.dim * s.dim = s.dim ** 2` by metis_tac[TWO,EXP,ONE,MULT_CLAUSES]
+  \\ `n + n * s.dim < LENGTH s.adj_mat` by decide_tac
+  \\ drule (GEN_ALL set_weight_SUCCESS)
+  \\ disch_then(qspec_then`0`strip_assume_tac)
+  \\ simp[st_ex_bind_def]
+  \\ first_x_assum(qspecl_then[`SUC d`,`n + 1`]mp_tac)
+  \\ simp[]
+  \\ disch_then(qspec_then`r`mp_tac)
+  \\ simp[] );
 
 (* Prove that the algorithm is always successful (?) *)
 val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
@@ -243,14 +294,17 @@ val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
   simp[do_floyd_def,init_g_def]>>
   simp msimps>>
   TOP_CASE_TAC >>
-  reverse TOP_CASE_TAC
-  >-
-    (qmatch_asmsub_abbrev_tac`mk_graph d s`>>
-    assume_tac mk_graph_SUCCESS>>
-    fs[]>>fs[])
-  >>
-  TOP_CASE_TAC>>
-  cheat);
+  qmatch_asmsub_abbrev_tac`mk_graph d s`>>
+  assume_tac mk_graph_SUCCESS>>
+  fs[] \\ fs[]
+  \\ rveq \\ fs[]
+  \\ fs[init_from_ls_def]
+  \\ fs[get_dim_def]
+  \\ simp msimps
+  \\ qspecl_then[`r.dim`,`r`]mp_tac init_diag_SUCCESS
+  \\ simp[] \\ strip_tac
+  \\ simp[]
+  \\ cheat);
 
 val res = m_translate mk_graph_def;
 val res = m_translate reind_def;
