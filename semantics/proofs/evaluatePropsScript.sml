@@ -887,11 +887,11 @@ val evaluate_set_clock_lemma = Q.prove(
     \\ fs [] \\ rfs [] \\ asm_exists_tac \\ fs [dec_clock_def]));
 
 val evaluate_set_clock = store_thm("evaluate_set_clock",
-  ``!(s:'ffi state) env exp s1 res.
-      evaluate s env [exp] = (s1,res) /\
+  ``!(s:'ffi state) env exps s1 res.
+      evaluate s env exps = (s1,res) /\
       res <> Rerr (Rabort Rtimeout_error) ==>
-      !ck. ?ck1. evaluate (s with clock := ck1) env [exp] =
-                 (s1 with clock := ck,res)``,
+      !ck. ?ck1. evaluate (s with clock := ck1) env exps =
+                   (s1 with clock := ck,res)``,
   metis_tac [evaluate_set_clock_lemma]);
 
 val _ = export_theory();
