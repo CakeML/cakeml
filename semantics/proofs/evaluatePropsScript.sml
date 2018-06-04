@@ -856,4 +856,42 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ TOP_CASE_TAC \\ fs[]
     \\ rw[state_component_equality] ));
 
+val evaluate_set_clock_lemma = Q.prove(
+  `(!(s:'ffi state) env es ck1 s' r extra.
+    evaluate s env es = (s',r) ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ⇒
+    ?ck0. evaluate (s with clock := ck0) env es = (s' with clock := ck1,r)) ∧
+   (!(s:'ffi state) env v pes err_v ck1 s' r extra.
+    evaluate_match s env v pes err_v = (s', r) ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ⇒
+    ?ck0. evaluate_match (s with clock := ck0) env v pes err_v =
+            (s' with clock := ck1,r))`,
+  ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
+  \\ TRY (fs [state_component_equality] \\ NO_TAC)
+  \\ fs [pair_case_eq,result_case_eq,error_result_case_eq,
+         option_case_eq,bool_case_eq,exp_or_val_case_eq,match_result_case_eq]
+  \\ rveq \\ fs []
+  \\ TRY (fs [state_component_equality] \\ NO_TAC)
+  \\ simp [PULL_EXISTS]
+  \\ TRY (
+    last_x_assum (qspec_then `ck1` strip_assume_tac)
+    \\ last_x_assum (qspec_then `ck0` strip_assume_tac)
+    \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+  \\ TRY (
+    last_x_assum (qspec_then `ck1` strip_assume_tac)
+    \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+  THEN1
+   (qpat_x_assum `_ = evaluate _ _ _` (assume_tac o GSYM) \\ fs []
+    \\ last_x_assum (qspec_then `ck1` strip_assume_tac)
+    \\ last_x_assum (qspec_then `ck0+1` strip_assume_tac)
+    \\ fs [] \\ rfs [] \\ asm_exists_tac \\ fs [dec_clock_def]));
+
+val evaluate_set_clock = store_thm("evaluate_set_clock",
+  ``!(s:'ffi state) env exp s1 res.
+      evaluate s env [exp] = (s1,res) /\
+      res <> Rerr (Rabort Rtimeout_error) ==>
+      !ck. ?ck1. evaluate (s with clock := ck1) env [exp] =
+                 (s1 with clock := ck,res)``,
+  metis_tac [evaluate_set_clock_lemma]);
+
 val _ = export_theory();
