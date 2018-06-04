@@ -1,9 +1,9 @@
 open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
+open astTheory libTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory AC_Sort
-open determTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
+open ml_monadBaseTheory ml_monad_translatorBaseTheory
 open cfStoreTheory cfTheory cfTacticsLib packLib;
 open preamble;
 
@@ -20,32 +20,32 @@ val _ = temp_overload_on ("CONTAINER", ``ml_translator$CONTAINER``);
 val _ = hide "state";
 
 val GC_ABSORB_L = Q.prove(`!A B s. (A * B * GC) s ==> (A * GC) s`,
-rw[]
-\\ fs[GSYM STAR_ASSOC]
-\\ fs[Once STAR_def]
-\\ qexists_tac `u`
-\\ qexists_tac `v`
-\\ fs[SAT_GC]);
+  rw[]
+  \\ fs[GSYM STAR_ASSOC]
+  \\ fs[Once STAR_def]
+  \\ qexists_tac `u`
+  \\ qexists_tac `v`
+  \\ fs[SAT_GC]);
 
 val GC_ABSORB_R = Q.prove(`!A B s. (A * GC * B) s ==> (A * GC) s`,
-rw[]
-\\ `A * GC * B = A * B * GC` by metis_tac[STAR_COMM, STAR_ASSOC]
-\\ POP_ASSUM(fn x => fs[x])
-\\ IMP_RES_TAC GC_ABSORB_L);
+  rw[]
+  \\ `A * GC * B = A * B * GC` by metis_tac[STAR_COMM, STAR_ASSOC]
+  \\ POP_ASSUM(fn x => fs[x])
+  \\ IMP_RES_TAC GC_ABSORB_L);
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
 val REF_EXISTS_LOC = Q.prove(`(rv ~~> v * H) s ==> ?l. rv = Loc l`,
-rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT]);
+  rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT]);
 
 val ARRAY_EXISTS_LOC  = Q.prove(`(ARRAY rv v * H) s ==> ?l. rv = Loc l`,
-rw[STAR_def, SEP_EXISTS_THM, SEP_CLAUSES, REF_def, ARRAY_def, cond_def]);
+  rw[STAR_def, SEP_EXISTS_THM, SEP_CLAUSES, REF_def, ARRAY_def, cond_def]);
 
 val UNIQUE_CELLS = Q.prove(
-`!p s. !l xv xv' H H'. (l ~~>> xv * H) (st2heap p s) /\ (l ~~>> xv' * H') (st2heap p s) ==> xv' = xv`,
-rw[] >>
-IMP_RES_TAC st2heap_CELL_MEM >>
-IMP_RES_TAC store2heap_IN_unique_key);
+  `!p s. !l xv xv' H H'. (l ~~>> xv * H) (st2heap p s) /\ (l ~~>> xv' * H') (st2heap p s) ==> xv' = xv`,
+  rw[] >>
+  IMP_RES_TAC st2heap_CELL_MEM >>
+  IMP_RES_TAC store2heap_IN_unique_key);
 
 (* Should be moved *)
 fun list_dest f tm =
@@ -107,13 +107,6 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (***)
 
-(* COPY/PASTE from ml_monadStoreScript *)
-fun evaluate_unique_result_tac (g as (asl, w)) = let
-    val asl = List.map ASSUME asl
-    val uniques = mapfilter (MATCH_MP evaluate_unique_result) asl
-in simp uniques g end;
-(* End of COPY/PASTE from ml_monadStoreScript *)
-
 (*
  * Definition of EvalM
  * `ro`: references only
@@ -121,9 +114,11 @@ in simp uniques g end;
 
 val EvalM_def = Define `
   EvalM ro env st exp P H <=>
-    !(s:'ffi state). REFS_PRED H st s  ==>
-    ?s2 res st2. evaluate F env s exp (s2,res) /\
-    P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)`;
+    !(s:'ffi state).
+      REFS_PRED H st s ==>
+      ?s2 res st2 ck.
+        evaluate (s with clock := ck) env [exp] = (s2,res) /\
+        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)`;
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
@@ -131,9 +126,9 @@ val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 val MONAD_def = Define `
   MONAD (a:'a->v->bool) (b: 'b->v->bool) (x:('refs, 'a, 'b) M)
                                     (state1:'refs)
-                                    (state2:'refs,res: (v,v) result) =
+                                    (state2:'refs,res: (v list,v) result) =
     case (x state1, res) of
-      ((Success y, st), Rval v) => (st = state2) /\ a y v
+      ((Success y, st), Rval [v]) => (st = state2) /\ a y v
     | ((Failure e, st), Rerr (Rraise v)) => (st = state2) /\
                                               b e v
     | _ => F`
@@ -143,54 +138,87 @@ val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 (* return *)
 val EvalM_return = Q.store_thm("EvalM_return",
   `!H b. Eval env exp (a x) ==>
-    EvalM ro env st exp (MONAD a b (ex_return x)) ^H`,
-  rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def] \\
-  first_x_assum(qspec_then`s.refs`strip_assume_tac)
-  \\ IMP_RES_TAC (evaluate_empty_state_IMP) \\
-  asm_exists_tac \\ simp[] \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\
-  fs[REFS_PRED_FRAME_append]);
+         EvalM ro env st exp (MONAD a b (ex_return x)) ^H`,
+  rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def]
+  \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
+  \\ imp_res_tac (evaluate_empty_state_IMP)
+  \\ fs [eval_rel_def,PULL_EXISTS]
+  \\ drule evaluate_set_clock \\ simp []
+  \\ disch_then (qspec_then `s.clock` mp_tac)
+  \\ strip_tac \\ fs []
+  \\ asm_exists_tac \\ simp []
+  \\ `(s with <|clock := s.clock; refs := s.refs ⧺ refs'|>) =
+      (s with <|refs := s.refs ⧺ refs'|>)` by fs [state_component_equality]
+  \\ fs [REFS_PRED_FRAME_append]);
 
 (* bind *)
 val EvalM_bind = Q.store_thm("EvalM_bind",
-  `(a1 ==> EvalM ro env st e1 (MONAD b c (x:('refs, 'b, 'c) M)) (H:('refs -> hprop) # 'ffi ffi_proj)) /\
-   (!z v. b z v ==> a2 z ==> EvalM ro (write name v env) (SND (x st)) e2 (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
+  `(a1 ==> EvalM ro env st e1 (MONAD b c (x:('refs, 'b, 'c) M))
+             (H:('refs -> hprop) # 'ffi ffi_proj)) /\
+   (!z v. b z v ==> a2 z ==>
+      EvalM ro (write name v env) (SND (x st)) e2
+        (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
    (a1 /\ !z. (CONTAINER(FST(x st) = Success z) ==> a2 z)) ==>
    EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H`,
-  rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[] \\
-  rw[Once evaluate_cases] \\
-  last_x_assum drule \\ rw[] \\
-  evaluate_unique_result_tac \\
-  IMP_RES_TAC REFS_PRED_FRAME_imp \\
-  fs[write_def, namespaceTheory.nsOptBind_def, with_same_refs] \\
-  reverse(Cases_on`x st` \\ Cases_on`q` \\ Cases_on `res` \\ fs[] \\ rw[])
-  >-(Cases_on `e` \\ fs[st_ex_bind_def])
-  \\ fs[st_ex_bind_def] \\
-  last_x_assum drule \\ rw[] \\
-  first_x_assum drule \\ rw[] \\
-  fs[with_same_refs] \\ evaluate_unique_result_tac \\
-  Cases_on `f a' r` \\ Cases_on `res'` \\ Cases_on `q` \\ fs[] \\ rw[] \\
-  IMP_RES_TAC REFS_PRED_FRAME_trans \\
-  Cases_on `e` \\ fs[]);
+  rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
+  \\ last_x_assum drule \\ rw[]
+  \\ IMP_RES_TAC REFS_PRED_FRAME_imp
+  \\ Cases_on `x st` \\ fs []
+  \\ rename1 `x st = (succ,new_state)`
+  \\ simp [evaluate_def,pair_case_eq,PULL_EXISTS]
+  \\ reverse (Cases_on `succ`) \\ fs []
+  THEN1
+   (Cases_on `res` \\ fs[] \\ rw [] \\ Cases_on `e`
+    \\ fs [st_ex_bind_def] \\ rveq \\ asm_exists_tac \\ fs [])
+  \\ fs[st_ex_bind_def]
+  \\ Cases_on `res` \\ fs []
+  \\ drule evaluate_sing \\ strip_tac \\ rveq \\ fs []
+  \\ last_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ Cases_on `f a' new_state` \\ fs []
+  \\ drule evaluate_set_clock
+  \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
+  \\ disch_then (qspec_then `s2'.clock` mp_tac)
+  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [] \\ EVERY_CASE_TAC \\ fs [])
+  \\ strip_tac \\ fs [] \\ pop_assum mp_tac
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `ck1` mp_tac)
+  \\ rpt strip_tac \\ fs []
+  \\ asm_exists_tac \\ fs [write_def,namespaceTheory.nsOptBind_def]
+  \\ Cases_on `q` \\ fs []
+  \\ `(s2' with clock := s2'.clock) = s2'` by fs [state_component_equality]
+  \\ Cases_on `res'` \\ fs []
+  \\ TRY (Cases_on `e`) \\ fs []
+  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
+  \\ IMP_RES_TAC REFS_PRED_FRAME_trans);
 
 (* lift ro refinement invariants *)
 
 val _ = type_abbrev("H",``:'a -> 'refs ->
-                                 'refs # (v,v) result -> bool``);
+                                 'refs # (v list,v) result -> bool``);
 
 val PURE_def = Define `
-  PURE a (x:'a) (st1:'refs) (st2,res:(v,v) result) =
-    ?v:v. (res = Rval v) /\ (st1 = st2) /\ a x v`;
+  PURE a (x:'a) (st1:'refs) (st2,res:(v list,v) result) =
+    ?v:v. (res = Rval [v]) /\ (st1 = st2) /\ a x v`;
 
 val EqSt_def = Define `
-EqSt abs st = \x st1 (st2, res). st = st1 /\ abs x st1 (st2, res)`;
+  EqSt abs st = \x st1 (st2, res). st = st1 /\ abs x st1 (st2, res)`;
+
+val state_update_clock_id = store_thm("state_update_clock_id[simp]",
+  ``(s with <|clock := s.clock; refs := refs'|>) =
+    s with <| refs := refs'|>``,
+  fs [state_component_equality]);
 
 val Eval_IMP_PURE = Q.store_thm("Eval_IMP_PURE",
   `!H env exp P x. Eval env exp (P x) ==> EvalM ro env st exp (PURE P x) ^H`,
   rw[Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
-  \\ IMP_RES_TAC (evaluate_empty_state_IMP)
-  \\ fs[]
-  \\ metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append]);
+  \\ imp_res_tac evaluate_empty_state_IMP
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `s.clock` mp_tac)
+  \\ strip_tac \\ fs [] \\ asm_exists_tac
+  \\ fs [REFS_PRED_FRAME_append]);
 
 val Eval_IMP_PURE_EvalM_T = Q.store_thm("Eval_IMP_PURE_EvalM_T",
   `!H env exp P x. Eval env exp (P x) ==> EvalM T env st exp (PURE P x) ^H`,
@@ -200,161 +228,118 @@ val Eval_IMP_PURE_EvalM_T = Q.store_thm("Eval_IMP_PURE_EvalM_T",
 
 val ArrowP_def = Define `
   ArrowP ro H (a:('a, 'refs) H) b f c =
-     !x st1 s1 st2 (res:(v,v) result).
+     !x st1 s1 st2 (res:(v list,v) result).
        a x st1 (st2,res) /\ REFS_PRED H st1 s1 ==>
        ?v env exp.
-       (st2 = st1) /\
-       (res = Rval v) /\ do_opapp [c;v] = SOME (env,exp) /\
-       !junk. ?st3 s3 res3.
-         evaluate F env (s1 with refs := s1.refs ++ junk) exp (s3,res3) /\
-         b (f x) st1 (st3,res3) /\
-         REFS_PRED_FRAME ro H (st1, s1) (st3, s3)`;
+         (st2 = st1) /\
+         (res = Rval [v]) /\ do_opapp [c;v] = SOME (env,exp) /\
+         !junk. ?st3 s3 res3 ck.
+           evaluate (s1 with <| refs := s1.refs ++ junk ; clock := ck |>)
+             env [exp] = (s3,res3) /\
+           b (f x) st1 (st3,res3) /\
+           REFS_PRED_FRAME ro H (st1, s1) (st3, s3)`;
 
 val ArrowM_def = Define `
   ArrowM ro H (a:('a, 'refs) H) (b:('b, 'refs) H) =
      PURE (ArrowP ro H a b) : ('a -> 'b, 'refs) H`;
 
-val evaluate_list_cases = let
-  val lemma = evaluate_cases |> CONJUNCTS |> el 2
-  in CONJ (``evaluate_list a5 a6 a7 [] (a9,Rval a10)``
-           |> SIMP_CONV (srw_ss()) [Once lemma])
-          (``evaluate_list a5 a6 a7 (x::xs) (a9,Rval a10)``
-           |> SIMP_CONV (srw_ss()) [Once lemma]) end
+val EvalM_Arrow_tac =
+  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS,evaluate_def,
+     pair_case_eq,result_case_eq,PULL_EXISTS,EqSt_def,Eq_def]
+  \\ first_x_assum drule \\ strip_tac
+  \\ drule REFS_PRED_FRAME_imp
+  \\ disch_then drule \\ strip_tac
+  \\ first_x_assum drule \\ strip_tac
+  \\ first_x_assum drule
+  \\ `REFS_PRED H st s2'` by metis_tac [REFS_PRED_FRAME_imp]
+  \\ disch_then drule \\ strip_tac
+  \\ imp_res_tac REFS_PRED_FRAME_trans
+  \\ qpat_x_assum `!x. _` mp_tac
+  \\ qpat_x_assum `!x. _` (qspec_then `[]` strip_assume_tac)
+  \\ disch_then kall_tac
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ imp_res_tac REFS_PRED_FRAME_trans
+  \\ asm_exists_tac \\ fs []
+  \\ qpat_x_assum `evaluate _ _ [x1] = _` assume_tac
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `ck''+1` mp_tac) \\ strip_tac
+  \\ qpat_x_assum `evaluate _ _ [x2] = _` assume_tac
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `ck1` mp_tac) \\ strip_tac
+  \\ asm_exists_tac
+  \\ `(s2' with <|clock := ck''; refs := s2'.refs|>) =
+      s2' with <|clock := ck''|>` by fs [state_component_equality]
+  \\ fs [dec_clock_def];
 
 val EvalM_ArrowM = Q.store_thm("EvalM_ArrowM",
-  `EvalM ro env st x1 ((ArrowM ro H (PURE a) b) f) H ==>
+   `EvalM ro env st x1 ((ArrowM ro H (PURE a) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
     EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`,
-  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
-  \\ first_x_assum drule \\ rw[]
-  \\ srw_tac[DNF_ss][] \\ disj1_tac
-  \\ evaluate_unique_result_tac
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ last_x_assum drule \\ rw[]
-  \\ evaluate_unique_result_tac
-  \\ first_x_assum drule \\ rw[]
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum (qspec_then `[]` STRIP_ASSUME_TAC) \\ fs[]
-  \\ fs[with_same_refs]
-  \\ evaluate_unique_result_tac
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  EvalM_Arrow_tac);
 
 val EvalM_ArrowM_EqSt = Q.store_thm("EvalM_ArrowM_EqSt",
-  `EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE a) st) b) f) H ==>
+   `EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE a) st) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
     EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`,
-  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
-  \\ first_x_assum drule \\ rw[]
-  \\ srw_tac[DNF_ss][] \\ disj1_tac
-  \\ evaluate_unique_result_tac
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ last_x_assum drule \\ rw[]
-  \\ evaluate_unique_result_tac
-  \\ fs[EqSt_def]
-  \\ `PURE a x st (st,Rval v)` by fs[PURE_def]
-  \\ first_x_assum drule \\ rw[]
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum (qspec_then `[]` STRIP_ASSUME_TAC) \\ fs[]
-  \\ fs[with_same_refs]
-  \\ evaluate_unique_result_tac
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  EvalM_Arrow_tac);
 
 val EvalM_ArrowM_Eq = Q.store_thm("EvalM_ArrowM_Eq",
-  `EvalM ro env st x1 ((ArrowM ro H (PURE (Eq a x)) b) f) H ==>
+   `EvalM ro env st x1 ((ArrowM ro H (PURE (Eq a x)) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
     EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`,
-  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
-  \\ first_x_assum drule \\ rw[]
-  \\ srw_tac[DNF_ss][] \\ disj1_tac
-  \\ evaluate_unique_result_tac
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ last_x_assum drule \\ rw[]
-  \\ evaluate_unique_result_tac
-  \\ fs[Eq_def]
-  \\ first_x_assum drule \\ rw[]
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum (qspec_then `[]` STRIP_ASSUME_TAC) \\ fs[]
-  \\ fs[with_same_refs]
-  \\ evaluate_unique_result_tac
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  EvalM_Arrow_tac);
 
 val EvalM_ArrowM_EqSt_Eq = Q.store_thm("EvalM_ArrowM_EqSt_Eq",
   `EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE (Eq a x)) st) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
     EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`,
-  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
-  \\ first_x_assum drule \\ rw[]
-  \\ srw_tac[DNF_ss][] \\ disj1_tac
-  \\ evaluate_unique_result_tac
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ last_x_assum drule \\ rw[]
-  \\ evaluate_unique_result_tac
-  \\ fs[EqSt_def,Eq_def,PURE_def]
-  \\ first_x_assum (qspecl_then [`x`,`s2'`,`st`,`Rval v`] assume_tac)
-  \\ fs[]
-  \\ first_x_assum drule \\ rw[]
-  \\ drule REFS_PRED_FRAME_imp
-  \\ disch_then drule \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum (qspec_then `[]` STRIP_ASSUME_TAC) \\ fs[]
-  \\ fs[with_same_refs]
-  \\ evaluate_unique_result_tac
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  EvalM_Arrow_tac);
 
 val EvalM_Fun = Q.store_thm("EvalM_Fun",
   `(!v x. a x v ==> EvalM ro (write name v env) n_st body (b (f x)) H) ==>
     EvalM ro env st (Fun name body) (ArrowM ro H (EqSt (PURE a) n_st) b f) ^H`,
-  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,REFS_PRED_FRAME_same]
-  \\ rw[state_component_equality, REFS_PRED_FRAME_append]
-  \\ rw[do_opapp_def,GSYM write_def]
-  \\ fs[EqSt_def, PURE_def] \\ rw[]
-  \\ last_x_assum drule \\ rw[]
-  \\ drule REFS_PRED_append \\ rw[]
-  \\ qpat_assum `!x.P` drule
-  \\ disch_then strip_assume_tac
-  \\ evaluate_unique_result_tac
-  \\ qexists_tac `st2'` \\ fs[]
+  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def,evaluate_def,
+     EqSt_def,PULL_EXISTS] \\ fs [PULL_FORALL]
+  \\ qexists_tac `s.clock`
+  \\ `(s with clock := s.clock) = s` by simp [state_component_equality]
+  \\ fs [REFS_PRED_FRAME_same] \\ rw []
+  \\ fs [do_opapp_def,GSYM PULL_FORALL] \\ simp [PULL_EXISTS]
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ `REFS_PRED H n_st (s1 with refs := s1.refs ++ junk)` by
+        (drule REFS_PRED_append \\ rw[])
+  \\ disch_then drule
+  \\ strip_tac \\ fs [write_def]
+  \\ asm_exists_tac \\ fs []
+  \\ asm_exists_tac \\ fs []
   \\ drule REFS_PRED_FRAME_remove_junk \\ fs[]);
 
 val EvalM_Fun_Var_intro = Q.store_thm("EvalM_Fun_Var_intro",
   `EvalM ro cl_env st (Fun n exp) (PURE P f) H ==>
    ∀name. LOOKUP_VAR name env (Closure cl_env n exp) ==>
-   EvalM ro env st (Var (Short name)) (PURE P f) ^H`,
-  rw[EvalM_def, PURE_def, LOOKUP_VAR_def]
-  \\ rw[Once evaluate_cases]
-  \\ fs[lookup_var_def]
-  \\ last_x_assum drule \\ rw[REFS_PRED_FRAME_same]
-  \\ fs[Once evaluate_cases]
-  \\ rw[]);
+          EvalM ro env st (Var (Short name)) (PURE P f) ^H`,
+  fs[EvalM_def, PURE_def, LOOKUP_VAR_def, evaluate_def,
+     PULL_EXISTS, lookup_var_def]);
 
 val EvalM_Fun_Eq = Q.store_thm("EvalM_Fun_Eq",
   `(!v. a x v ==> EvalM ro (write name v env) n_st body (b (f x)) H) ==>
-    EvalM ro env st (Fun name body) ((ArrowM ro H (EqSt (PURE (Eq a x)) n_st) b) f) ^H`,
-  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,REFS_PRED_FRAME_same]
-  \\ fs[EqSt_def, PURE_def] \\ rw[]
-  \\ rw[do_opapp_def,GSYM write_def]
-  \\ drule REFS_PRED_append \\ rw[]
-  \\ last_x_assum drule \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ evaluate_unique_result_tac
-  \\ qexists_tac `st2'` \\ fs[]
+   EvalM ro env st (Fun name body)
+     ((ArrowM ro H (EqSt (PURE (Eq a x)) n_st) b) f) ^H`,
+  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def, evaluate_def,EqSt_def]
+  \\ qexists_tac `s.clock` \\ fs []
+  \\ `(s with clock := s.clock) = s` by simp [state_component_equality]
+  \\ fs [REFS_PRED_FRAME_same,PULL_EXISTS] \\ rw []
+  \\ fs [do_opapp_def,GSYM PULL_FORALL] \\ simp [PULL_EXISTS] \\ rw []
+  \\ first_x_assum drule
+  \\ `REFS_PRED H n_st (s1 with refs := s1.refs ++ junk)` by
+        (drule REFS_PRED_append \\ rw[])
+  \\ disch_then drule
+  \\ strip_tac \\ fs [write_def]
+  \\ asm_exists_tac \\ fs []
+  \\ asm_exists_tac \\ fs []
   \\ drule REFS_PRED_FRAME_remove_junk \\ fs[]);
+
 
 (* More proofs *)
 
