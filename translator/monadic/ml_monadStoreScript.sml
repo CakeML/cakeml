@@ -1,7 +1,7 @@
 (* This file defines theorems and lemma used in the ml_monadStoreLib *)
 
-open preamble bigStepTheory semanticPrimitivesTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
+open preamble evaluateTheory semanticPrimitivesTheory
+open set_sepTheory cfTheory cfStoreTheory cfTacticsLib terminationTheory
 open cfHeapsBaseTheory cfAppTheory ml_monad_translatorBaseTheory
 open packLib
 
@@ -9,37 +9,33 @@ val _ = new_theory "ml_monadStore"
 
 val HCOND_EXTRACT = save_thm("HCOND_EXTRACT", cfLetAutoTheory.HCOND_EXTRACT);
 
-val SEP_EXISTS_SEPARATE = save_thm("SEP_EXISTS_SEPARATE", List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL);
-val SEP_EXISTS_INWARD = save_thm("SEP_EXISTS_INWARD", List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL);
+val SEP_EXISTS_SEPARATE = save_thm("SEP_EXISTS_SEPARATE",
+  List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL);
 
-fun evaluate_unique_result_tac (g as (asl, w)) = let
-    val asl = List.map ASSUME asl
-    val uniques = mapfilter (MATCH_MP evaluate_unique_result) asl
-in simp uniques g end;
+val SEP_EXISTS_INWARD = save_thm("SEP_EXISTS_INWARD",
+  List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL);
 
 val ALLOCATE_ARRAY_evaluate = Q.store_thm("ALLOCATE_ARRAY_evaluate",
-`!env s n xname xv.
- (nsLookup env.v (Short xname) = SOME xv) ==>
- evaluate F env s (App Aalloc [Lit (IntLit &n); Var (Short xname)])
- (s with refs := s.refs ++ [Varray (REPLICATE n xv)], Rval (Loc (LENGTH s.refs)))`,
-rw[]
-\\ ntac 6 (rw[Once evaluate_cases])
-\\ rw[state_component_equality]
-\\ rw[do_app_def, store_alloc_def]);
+  `!env s n xname xv.
+    (nsLookup env.v (Short xname) = SOME xv) ==>
+    evaluate s env [App Aalloc [Lit (IntLit &n); Var (Short xname)]] =
+      (s with refs := s.refs ++ [Varray (REPLICATE n xv)],
+       Rval [Loc (LENGTH s.refs)])`,
+  rw[evaluate_def, do_app_def, store_alloc_def]
+  \\ rw[state_component_equality]);
 
 val ALLOCATE_EMPTY_RARRAY_evaluate = Q.store_thm("ALLOCATE_EMPTY_RARRAY_evaluate",
-`!env s. evaluate F env s (App Opref [App AallocEmpty [Con NONE []]])
-(s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))], Rval (Loc (LENGTH s.refs + 1)))`,
-rw[]
-\\ ntac 10 (rw[Once evaluate_cases])
-\\ rw[do_opapp_def, do_con_check_def, build_conv_def, do_app_def, store_alloc_def]
-\\ rw[state_component_equality]);
+  `!env s.
+     evaluate s env [App Opref [App AallocEmpty [Con NONE []]]] =
+       (s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))],
+        Rval [Loc (LENGTH s.refs + 1)])`,
+  rw[evaluate_def, do_app_def, do_opapp_def, do_con_check_def, build_conv_def,
+     store_alloc_def,state_component_equality]);
 
 val LIST_REL_REPLICATE = Q.store_thm("LIST_REL_REPLICATE",
- `!n TYPE x v. TYPE x v ==> LIST_REL TYPE (REPLICATE n x) (REPLICATE n v)`,
- rw[]
- \\ Cases_on `n`
- >> metis_tac[LIST_REL_REPLICATE_same]);
+  `!n TYPE x v. TYPE x v ==> LIST_REL TYPE (REPLICATE n x) (REPLICATE n v)`,
+  rw[] \\ Cases_on `n`
+  \\ metis_tac[LIST_REL_REPLICATE_same]);
 
 val GC_INWARDS = Q.store_thm("GC_INWARDS",
   `GC * A = A * GC`, SIMP_TAC std_ss [STAR_COMM]);
@@ -48,11 +44,11 @@ val GC_DUPLICATE_0 = Q.store_thm("GC_DUPLICATE_0",
   `H * GC = H * GC * GC`, rw[GSYM STAR_ASSOC, GC_STAR_GC]);
 
 val GC_DUPLICATE_1 = Q.store_thm("GC_DUPLICATE_1",
- `A * (B * GC * C) = A * GC * (B * GC * C)`,
-  SIMP_TAC std_ss [GSYM STAR_ASSOC, GC_INWARDS, GC_STAR_GC]);
+  `A * (B * GC * C) = A * GC * (B * GC * C)`,
+   SIMP_TAC std_ss [GSYM STAR_ASSOC, GC_INWARDS, GC_STAR_GC]);
 
 val GC_DUPLICATE_2 = Q.store_thm("GC_DUPLICATE_2",
- `A * (B * GC) = A * GC * (B * GC)`,
+  `A * (B * GC) = A * GC * (B * GC)`,
   ASSUME_TAC (Thm.INST [``C : hprop`` |-> ``emp : hprop``] GC_DUPLICATE_1)
   \\ FULL_SIMP_TAC std_ss [GSYM STAR_ASSOC, SEP_CLAUSES])
 
