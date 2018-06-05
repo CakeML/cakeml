@@ -28,9 +28,10 @@ val wordcount = process_topdecs`
 val _ = append_prog wordcount;
 
 val wordcount_spec = Q.store_thm("wordcount_spec",
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+  `hasFreeFD fs ∧
    cl = [pname; fname] ∧
-   contents = THE (ALOOKUP fs.files (File fname))
+   ALOOKUP fs.file_inode fname = SOME ino ∧
+   ALOOKUP fs.files (File ino) = SOME contents
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
      [uv] (STDIO fs * COMMANDLINE cl)
@@ -43,6 +44,7 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
                 * COMMANDLINE cl)`,
   simp [concat_def] \\
   strip_tac \\
+  `inFS_fname fs fname` by fs[inFS_fname_def] >>
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- xsimpl \\
@@ -91,19 +93,14 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]);
 
 val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
-   cl = [pname; fname] ∧
-   contents = THE (ALOOKUP fs.files (File fname))
-   ⇒
-   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
+  `whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
    ((=)
      (add_stdout fs
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                 strlit " ";
                 mlint$toString (&(LENGTH (splitlines contents)));
                 strlit "\n"])))`,
-  disch_then assume_tac
-  \\ simp[whole_prog_spec_def]
+  simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
@@ -116,8 +113,9 @@ val wordcount_prog_def = mk_abbrev"wordcount_prog" prog_tm;
 
 val wordcount_semantics = save_thm("wordcount_semantics",
   sem_thm |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
-  |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL
-  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH]
+  |> SIMP_RULE (srw_ss()) []
+  );
 
 val _ = export_theory();

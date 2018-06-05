@@ -6,17 +6,19 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 (* Logical model of filesystem and I/O streams *)
 
-val _ = Datatype` inode = IOStream mlstring | File mlstring`
+(* regular files and unnamed streams *)
+val _ = Datatype` inode = UStream mlstring | File mlstring`
 
 val _ = overload_on("isFile",``λinode. ∃fnm. inode = File fnm``);
 
-(* files: a list of file names and their content.
+(* files: a list of inodes names and their content.
 *  infds: descriptor * (filename * position)
 *  numchars: stream of num modeling the nondeterministic output of read and
 *    write *)
 
 val _ = Datatype`
   IO_fs = <| files : (inode # char list) list ;
+             inode_tbl : (mlstring # mlstring) list;
              infds : (num # (inode # num)) list;
              numchars : num llist |>`
 
@@ -52,8 +54,9 @@ val openFile_def = Define`
      in
        do
           assert (fd <= maxFD) ;
-          ALOOKUP fsys.files (File fnm);
-          return (fd, fsys with infds := (nextFD fsys, (File fnm, pos)) :: fsys.infds)
+          iname <- ALOOKUP fsys.inode_tbl fnm;
+          ALOOKUP fsys.files (File iname);
+          return (fd, fsys with infds := (nextFD fsys, (File iname, pos)) :: fsys.infds)
        od
 `;
 
@@ -70,9 +73,10 @@ val openFile_truncate_def = Define`
     let fd = nextFD fsys in
       do
         assert (fd <= maxFD) ;
-        ALOOKUP fsys.files (File fnm);
-        return (fd, (fsys with infds := (nextFD fsys, (File fnm, 0)) :: fsys.infds)
-                          with files updated_by (ALIST_FUPDKEY (File fnm) (\x."")))
+        iname <- ALOOKUP fsys.inode_tbl fnm;
+        ALOOKUP fsys.files (File iname);
+        return (fd, (fsys with infds := (nextFD fsys, (File iname, 0)) :: fsys.infds)
+                          with files updated_by (ALIST_FUPDKEY (File iname) (\x."")))
       od `;
 
 (* checks if a descriptor index is in infds *)
@@ -274,7 +278,7 @@ val ffi_close_def = Define`
 (* Packaging up the model as an ffi_part *)
 
 val encode_inode_def = Define`
-  (encode_inode (IOStream s) = Cons (Num 0) ((Str o explode) s)) /\
+  (encode_inode (UStream s) = Cons (Num 0) ((Str o explode) s)) /\
   encode_inode (File s) = Cons (Num 1) ((Str o explode) s)`;
 
 val encode_files_def = Define`
@@ -284,12 +288,13 @@ val encode_fds_def = Define`
   encode_fds fds =
      encode_list (encode_pair Num (encode_pair encode_inode Num)) fds`;
 
+val encode_inode_tbl_def = Define`
+  encode_inode_tbl fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs`;
+
 val encode_def = zDefine`
   encode fs = cfFFIType$Cons
-                (cfFFIType$Cons
-                  (encode_files fs.files)
-                  (encode_fds fs.infds))
-                (Stream fs.numchars)`
+                (cfFFIType$Cons (encode_files fs.files) (encode_fds fs.infds))
+                (cfFFIType$Cons (encode_inode_tbl fs.inode_tbl) (Stream fs.numchars))`
 
 val encode_inode_11 = store_thm("encode_inode_11[simp]",
   ``!x y. encode_inode x = encode_inode y <=> x = y``,
@@ -306,6 +311,12 @@ val encode_fds_11 = store_thm("encode_fds_11[simp]",
   rw [] \\ eq_tac \\ rw [encode_fds_def]
   \\ drule encode_list_11
   \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
+
+val encode_files_11 = store_thm("encode_inode_tbl_11[simp]",
+  ``!xs ys. encode_inode_tbl xs = encode_inode_tbl ys <=> xs = ys``,
+  rw [] \\ eq_tac \\ rw [encode_inode_tbl_def]
+  \\ drule encode_list_11
+  \\ fs [encode_pair_def,FORALL_PROD]);
 
 val encode_11 = store_thm("encode_11[simp]",
   ``!x y. encode x = encode y <=> x = y``,

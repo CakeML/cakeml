@@ -68,7 +68,8 @@ val STDIO_bumpFD = Q.store_thm("STDIO_bumpFD[simp]",
 val UNIQUE_STDIO = Q.store_thm("UNIQUE_STDIO",
 `!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (STDIO fs1 * H1) s /\
                                       (STDIO fs2 * H2) s ==>
-              (fs1.infds = fs2.infds /\ fs1.files = fs2.files)`,
+              (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\
+               fs1.inode_tbl = fs2.inode_tbl)`,
   rw[STDIO_def,STD_streams_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
@@ -77,7 +78,7 @@ val UNIQUE_STDIO = Q.store_thm("UNIQUE_STDIO",
 (* weak injection theorem *)
 val STDIO_HPROP_INJ = Q.store_thm("STDIO_HPROP_INJ[hprop_inj]",
 `HPROP_INJ (STDIO fs1) (STDIO fs2)
-           (fs1.infds = fs2.infds /\ fs1.files = fs2.files)`,
+           (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.inode_tbl = fs2.inode_tbl)`,
   rw[HPROP_INJ_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM,
      HCOND_EXTRACT] >>
   EQ_TAC >> rpt DISCH_TAC
@@ -160,8 +161,8 @@ val EndOfFile_UNICITY = Q.store_thm("EndOfFile_UNICITY[xlet_auto_match]",
 
 val stdo_def = Define`
   stdo fd name fs out =
-    (ALOOKUP fs.infds fd = SOME(IOStream(strlit name),strlen out) /\
-     ALOOKUP fs.files (IOStream(strlit name)) = SOME (explode out))`;
+    (ALOOKUP fs.infds fd = SOME(UStream(strlit name),strlen out) /\
+     ALOOKUP fs.files (UStream(strlit name)) = SOME (explode out))`;
 
 val _ = overload_on("stdout",``stdo 1 "stdout"``);
 val _ = overload_on("stderr",``stdo 2 "stderr"``);
@@ -183,6 +184,14 @@ val up_stdo_numchars = Q.store_thm("up_stdo_numchars[simp]",
   `(up_stdo fd fs x).numchars = fs.numchars`,
   rw[up_stdo_def,fsupdate_def]
   \\ CASE_TAC \\ CASE_TAC \\ rw[]);
+
+val fsupdate_inode_tbl = Q.store_thm("fsupdate_inode_tbl",
+ `(fsupdate fs fd k pos c).inode_tbl = fs.inode_tbl`,
+ fs[fsupdate_def] >> NTAC 2 CASE_TAC >>fs[]);
+
+val up_stdo_inode_tbl = Q.store_thm("up_stdo_inode_tbl",
+ `(up_stdo fd fs x).inode_tbl = fs.inode_tbl`,
+ fs[up_stdo_def,fsupdate_def] >> NTAC 2 CASE_TAC >>fs[]);
 
 val up_stdo_with_numchars = Q.store_thm("up_stdo_with_numchars",
   `up_stdo fd (fs with numchars := ns) x =
@@ -254,7 +263,7 @@ val add_stdo_MAP_FST_files = Q.store_thm("add_stdo_MAP_FST_files[simp]",
 
 val inFS_fname_add_stdo = Q.store_thm("inFS_fname_add_stdo[simp]",
   `inFS_fname (add_stdo fd nm fs out) = inFS_fname fs`,
-  rw[inFS_fname_def,FUN_EQ_THM]);
+  rw[inFS_fname_def,FUN_EQ_THM] >> EVAL_TAC >> EVERY_CASE_TAC >> rw[]);
 
 val STD_streams_stdout = Q.store_thm("STD_streams_stdout",
   `STD_streams fs ⇒ ∃out. stdout fs out`,
@@ -344,7 +353,7 @@ val linesFD_add_stderr = Q.store_thm("linesFD_add_stderr",
 val up_stdo_forwardFD = Q.store_thm("up_stdo_forwardFD",
   `fd ≠ fd' ⇒ up_stdo fd' (forwardFD fs fd n) out = forwardFD (up_stdo fd' fs out) fd n`,
   rw[forwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
-  \\ CASE_TAC \\ CASE_TAC \\ rw[]
+  \\ CASE_TAC \\ CASE_TAC \\ rw[] \\ fs[IO_fs_component_equality]
   \\ match_mp_tac ALIST_FUPDKEY_comm \\ rw[]);
 
 val up_stdout_fastForwardFD = Q.store_thm("up_stdout_fastForwardFD",
@@ -460,8 +469,8 @@ val FILTER_File_add_stderr = Q.store_thm("FILTER_File_add_stderr",
   metis_tac[STD_streams_stderr,FILTER_File_add_stdo]);
 
 val stdin_def = Define
-`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(IOStream(strlit"stdin"),pos) /\
-                     ALOOKUP fs.files (IOStream(strlit"stdin"))= SOME inp)`
+`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),pos) /\
+                     ALOOKUP fs.files (UStream(strlit"stdin"))= SOME inp)`
 
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
@@ -542,18 +551,19 @@ val openIn_spec = Q.store_thm(
        (POST
           (\fdv. &(FD (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
-                  inFS_fname fs (File s)) *
+                  inFS_fname fs s) *
                 IOFS (openFileFS s fs 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * IOFS fs))`,
   xcf "TextIO.openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
+  REVERSE (Cases_on`consistentFS fs`) >-(xpull >> fs[wfFS_def]) >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs` >>
   rpt(xlet_auto >- xsimpl) >>
   qmatch_goalsub_abbrev_tac`W8ARRAY _ fd0` >>
   qmatch_goalsub_rename_tac`W8ARRAY loc fd0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
-  Cases_on `inFS_fname fs (File s)`
+  Cases_on `inFS_fname fs s`
   >- (xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < maxFD /\
               validFD (nextFD fs) (openFileFS s fs 0)) *
@@ -574,13 +584,11 @@ val openIn_spec = Q.store_thm(
              getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
              LENGTH_explode,REPLICATE_compute,LUPDATE_compute,explode_implode] >>
-        `∃content. ALOOKUP fs.files (File s) = SOME content`
-          by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
-              metis_tac[]) >>
-             (* fs[DROP_LENGTH_TOO_LONG,LENGTH_REPLICATE] *)
+        imp_res_tac inFS_fname_ALOOKUP_EXISTS >>
         imp_res_tac nextFD_ltX >>
         csimp[openFileFS_def, openFile_def, validFD_def] >>
-        fs[STRING_TYPE_def]) >>
+        fs[STRING_TYPE_def]
+        ) >>
     xlet_auto >- xsimpl >>
     xlet_auto >- xsimpl >>
     xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R >> fs[])
@@ -627,9 +635,9 @@ val openIn_STDIO_spec = Q.store_thm(
        (POST
           (\fdv. &(FD (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
-                  inFS_fname fs (File s)) *
+                  inFS_fname fs s) *
                 STDIO (openFileFS s fs 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs))`,
  rw[STDIO_def] >> xpull >> xapp_spec openIn_spec >>
  map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
  xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
@@ -1008,6 +1016,7 @@ val output_spec = Q.store_thm("output_spec",
   qexists_tac`x' + k` >> fs[insert_atI_def] >>
   qmatch_goalsub_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
   `fs1 = fs2` suffices_by xsimpl >> fs[Abbr`fs1`,Abbr`fs2`] >>
+  fs[IO_fs_component_equality] >>
   reverse conj_tac >- (
     reverse conj_tac >- (
       fs[LDROP_ADD] \\
@@ -1361,8 +1370,9 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,
-        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,
-        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def] >>
+        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,consistentFS_def,
+        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def]
+     >-(metis_tac[]) >>
      cases_on`fs'.numchars` >> fs[LDROP_1,NOT_LFINITE_DROP_LFINITE] >>
      cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs` >>
      qmatch_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
@@ -1383,8 +1393,9 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,
-        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,
-        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def] >>
+        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,consistentFS_def,
+        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def]
+     >-(metis_tac[]) >>
      cases_on`fs'.numchars` >> fs[LDROP_1,NOT_LFINITE_DROP_LFINITE] >>
      cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs` >>
      qmatch_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
@@ -1829,17 +1840,17 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
      [fv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs (File f) then
-               SOME(all_lines fs (File f))
+            (if inFS_fname fs f then
+               SOME(all_lines fs f)
              else NONE) sv
              * STDIO fs)`,
   xcf"TextIO.inputLinesFrom"(get_ml_prog_state())
   \\ reverse(xhandle`POST
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-         (if inFS_fname fs (File f)
-          then SOME(all_lines fs (File f))
+         (if inFS_fname fs f
+          then SOME(all_lines fs f)
           else NONE) v * STDIO fs)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
   >- (xcases \\ fs[BadFileName_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
       \\ xcon \\ xsimpl \\ fs[ml_translatorTheory.OPTION_TYPE_def])
@@ -1847,6 +1858,9 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ `CARD (set (MAP FST fs.infds)) < maxFD` by fs[]
   \\ reverse(Cases_on`STD_streams fs`)
   >- ( fs[STDIO_def] \\ xpull )
+  \\ reverse(Cases_on`consistentFS fs`)
+  >- (fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
+      \\ fs[consistentFS_def] \\ res_tac)
   \\ xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- (
     xsimpl
@@ -1857,14 +1871,16 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
     xsimpl
     \\ rw[inFS_fname_numchars]
     \\ qexists_tac`ll` \\ xsimpl )
-  \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
+  \\ imp_res_tac inFS_fname_def
+  \\ rw[]
+  \\ drule (Q.SPEC `f` ALOOKUP_inFS_fname_openFileFS_nextFD)
   \\ imp_res_tac nextFD_ltX
   \\ disch_then(qspec_then`0`mp_tac) \\ rw[]
   \\ qmatch_assum_abbrev_tac`validFD fd fso`
   \\ `∃c. get_file_content fso fd = SOME (c,0)`
   by (
     fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_files]
-    \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[] )
+    \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[] \\ rw[])
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fsob`
   \\ qspecl_then[`fd`,`fsob`,`fdv`]mp_tac close_STDIO_spec
@@ -1886,13 +1902,13 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ `fs' = fs` suffices_by ( rw[] \\ xsimpl)
   \\ unabbrev_all_tac
   \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
-          libTheory.the_def, openFileFS_numchars,
+          libTheory.the_def, openFileFS_numchars,openFileFS_inode_tbl,
           IO_fs_component_equality,openFileFS_files]);
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =
-    (\fs. (Success (if inFS_fname fs (File f) then
-                      SOME(all_lines fs (File f))
+    (\fs. (Success (if inFS_fname fs f then
+                      SOME(all_lines fs f)
                     else NONE), fs))`;
 
 val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
@@ -1905,6 +1921,8 @@ val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
   ho_match_mp_tac EvalM_from_app
   \\ conj_tac >- rw [inputLinesFrom_def]
   \\ rw [MONAD_IO_def]
+  \\ REVERSE(Cases_on`consistentFS s`)
+  >-(fs[STDIO_def, IOFS_def,wfFS_def,consistentFS_def] >> xpull >> res_tac)
   \\ xpull
   \\ fs [SEP_CLAUSES]
   \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
@@ -1912,7 +1930,9 @@ val EvalM_inputLinesFrom = Q.store_thm("EvalM_inputLinesFrom",
   \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
   \\ rfs [inputLinesFrom_def]
   \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+  \\ xsimpl
+  );
+
 
 val inputAll_spec = Q.store_thm("inputAll_spec",
   `FD fd fdv ∧
