@@ -33,7 +33,7 @@ Theorem splitwords_concat_space
 Theorem splitwords_all_lines
   `FLAT (MAP splitwords (all_lines fs fname)) =
    splitwords (implode (THE (ALOOKUP fs.inode_tbl
-                         (File (THE(ALOOKUP fs.file_inode fname))))))`
+                         (File (THE(ALOOKUP fs.files fname))))))`
   `isSpace #"\n"` by EVAL_TAC \\
   rw[all_lines_def,lines_of_def,MAP_MAP_o,o_DEF,
      GSYM mlstringTheory.str_def,splitwords_concat_space] \\

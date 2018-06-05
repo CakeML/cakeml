@@ -95,7 +95,7 @@ val wordcount_precond_def = Define`
     case cl of
       [_; fname] =>
         hasFreeFD fs ∧
-        ALOOKUP fs.file_inode fname = SOME ino ∧
+        ALOOKUP fs.files fname = SOME ino ∧
         ALOOKUP fs.inode_tbl (File ino) = SOME contents
         fs' = fs
     | _ =>
