@@ -243,7 +243,7 @@ val valid_sort_result_def = Define`
     if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) (TL cl) then
       let (lines, fs) =
         if LENGTH cl ≤ 1 then
-          (lines_of (implode (THE(ALOOKUP init_fs.files (UStream(strlit"stdin"))))),
+          (lines_of (implode (THE(ALOOKUP init_fs.inode_tbl (UStream(strlit"stdin"))))),
            fastForwardFD init_fs 0)
         else
           (FLAT (MAP (all_lines init_fs) (TL cl)), init_fs)
@@ -312,11 +312,11 @@ Theorem sort_spec
   xmatch >>
   qabbrev_tac `fnames = TL cl` >>
   qabbrev_tac `lines = if LENGTH cl ≤ 1 then
-    lines_of (implode (THE (ALOOKUP fs.files (UStream (strlit "stdin")))))
+    lines_of (implode (THE (ALOOKUP fs.inode_tbl (UStream (strlit "stdin")))))
     else FLAT (MAP (all_lines fs) fnames)` >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
   fs[wfcl_def] >>
-  reverse(Cases_on`MEM (UStream(strlit"stdin")) (MAP FST fs.files)`)
+  reverse(Cases_on`MEM (UStream(strlit"stdin")) (MAP FST fs.inode_tbl)`)
   >- (
     fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
     \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]

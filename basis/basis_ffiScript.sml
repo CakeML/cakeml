@@ -228,8 +228,8 @@ Theorem extract_stdo_extract_fs
     \\ simp[fsupdate_numchars]
     \\ simp[fsupdate_def]
     \\ rw[IO_fs_component_equality]
-    \\ qpat_assum`ALOOKUP fs.files _ = _`mp_tac
-    \\ qpat_assum`fs.files = _`SUBST1_TAC
+    \\ qpat_assum`ALOOKUP fs.inode_tbl _ = _`mp_tac
+    \\ qpat_assum`fs.inode_tbl = _`SUBST1_TAC
     \\ simp[ALIST_FUPDKEY_ALOOKUP] )
   \\ Cases
   \\ rw[extract_fs_def,extract_stdo_def]

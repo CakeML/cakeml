@@ -71,7 +71,7 @@ Theorem STDIO_bumpFD[simp]
 Theorem UNIQUE_STDIO
 `!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (STDIO fs1 * H1) s /\
                                       (STDIO fs2 * H2) s ==>
-              (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.maxFD = fs2.maxFD /\ fs1.inode_tbl = fs2.inode_tbl)`
+              (fs1.infds = fs2.infds /\ fs1.inode_tbl = fs2.inode_tbl /\ fs1.maxFD = fs2.maxFD /\ fs1.files = fs2.files)`
   (rw[STDIO_def,STD_streams_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
@@ -80,7 +80,7 @@ Theorem UNIQUE_STDIO
 (* weak injection theorem *)
 Theorem STDIO_HPROP_INJ[hprop_inj]
 `HPROP_INJ (STDIO fs1) (STDIO fs2)
-           (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.maxFD = fs2.maxFD /\ fs1.inode_tbl = fs2.inode_tbl)`
+           (fs1.infds = fs2.infds /\ fs1.inode_tbl = fs2.inode_tbl /\ fs1.maxFD = fs2.maxFD /\ fs1.files = fs2.files)`
   (rw[HPROP_INJ_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM,
      HCOND_EXTRACT] >>
   EQ_TAC >> rpt DISCH_TAC
@@ -160,7 +160,7 @@ Theorem EndOfFile_UNICITY[xlet_auto_match]
 val stdo_def = Define`
   stdo fd name fs out =
     (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
-     ALOOKUP fs.files (UStream(strlit name)) = SOME (explode out))`;
+     ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))`;
 
 val _ = overload_on("stdout",``stdo 1 "stdout"``);
 val _ = overload_on("stderr",``stdo 2 "stderr"``);
@@ -183,12 +183,12 @@ Theorem up_stdo_numchars[simp]
   (rw[up_stdo_def,fsupdate_def]
   \\ CASE_TAC \\ CASE_TAC \\ rw[]);
 
-Theorem fsupdate_inode_tbl[simp]
- `(fsupdate fs fd k pos c).inode_tbl = fs.inode_tbl`
+Theorem fsupdate_files[simp]
+ `(fsupdate fs fd k pos c).files = fs.files`
  (fs[fsupdate_def] >> NTAC 2 CASE_TAC >>fs[]);
 
-Theorem up_stdo_inode_tbl[simp]
- `(up_stdo fd fs x).inode_tbl = fs.inode_tbl`
+Theorem up_stdo_files[simp]
+ `(up_stdo fd fs x).files = fs.files`
  (fs[up_stdo_def,fsupdate_def] >> NTAC 2 CASE_TAC >>fs[]);
 
 Theorem up_stdo_maxFD[simp]
@@ -264,8 +264,8 @@ Theorem up_stdo_MAP_FST_files[simp]
   `MAP FST (up_stdo fd fs out).files = MAP FST fs.files`
   (rw[up_stdo_def]);
 
-Theorem add_stdo_MAP_FST_files[simp]
-  `MAP FST (add_stdo fd nm fs out).files = MAP FST fs.files`
+Theorem add_stdo_MAP_FST_inode_tbl[simp]
+  `MAP FST (add_stdo fd nm fs out).inode_tbl = MAP FST fs.inode_tbl`
   (rw[add_stdo_def]);
 
 Theorem inFS_fname_add_stdo[simp]
@@ -395,7 +395,7 @@ Theorem up_stdout_fastForwardFD
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP] )
   \\ fs[] \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` >- (
+  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` >- (
     fs[libTheory.the_def,fsupdate_def]
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP]
@@ -418,7 +418,7 @@ Theorem up_stderr_fastForwardFD
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP] )
   \\ fs[] \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` >- (
+  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` >- (
     fs[libTheory.the_def,fsupdate_def]
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP]
@@ -442,7 +442,7 @@ Theorem stdo_fastForwardFD
   (rw[stdo_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
   \\ fs[ALIST_FUPDKEY_ALOOKUP] \\ rw[]
   \\ CASE_TAC);
 
@@ -476,31 +476,30 @@ Theorem add_stderr_fastForwardFD
 
 Theorem FILTER_File_add_stdo
   `stdo fd nm fs init ⇒
-   FILTER (isFile o FST) (add_stdo fd nm fs out).files = FILTER (isFile o FST) fs.files`
+   FILTER (isFile o FST) (add_stdo fd nm fs out).inode_tbl = FILTER (isFile o FST) fs.inode_tbl`
   (rw[add_stdo_def,up_stdo_def,fsupdate_def]
   \\ CASE_TAC \\ CASE_TAC \\ fs[]
   \\ match_mp_tac FILTER_EL_EQ \\ simp[]
   \\ qmatch_assum_rename_tac`_ = SOME (k,_)`
   \\ qx_gen_tac`n`
   \\ simp[GSYM AND_IMP_INTRO] \\ strip_tac
-  \\ reverse(Cases_on`FST (EL n fs.files) = k`)
+  \\ reverse(Cases_on`FST (EL n fs.inode_tbl) = k`)
   >- simp[EL_ALIST_FUPDKEY_unchanged]
   \\ simp[FST_EL_ALIST_FUPDKEY,GSYM AND_IMP_INTRO]
   \\ fs[stdo_def]);
 
 Theorem FILTER_File_add_stdout
   `STD_streams fs ⇒
-   FILTER (isFile o FST) (add_stdout fs out).files = FILTER (isFile o FST) fs.files`
+   FILTER (isFile o FST) (add_stdout fs out).inode_tbl = FILTER (isFile o FST) fs.inode_tbl`
   (metis_tac[STD_streams_stdout,FILTER_File_add_stdo]);
 
 Theorem FILTER_File_add_stderr
   `STD_streams fs ⇒
-   FILTER (isFile o FST) (add_stderr fs out).files = FILTER (isFile o FST) fs.files`
+   FILTER (isFile o FST) (add_stderr fs out).inode_tbl = FILTER (isFile o FST) fs.inode_tbl`
   (metis_tac[STD_streams_stderr,FILTER_File_add_stdo]);
 
 val stdin_def = Define
 `stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
-                     ALOOKUP fs.files (UStream(strlit"stdin"))= SOME inp)`
 
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
@@ -1977,7 +1976,7 @@ Theorem inputLinesFrom_spec
   \\ qmatch_assum_abbrev_tac`validFD fd fso`
   \\ `∃c. get_file_content fso fd = SOME (c,0)`
   by (
-    fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_files]
+    fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_inode_tbl]
     \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[] )
   \\ `get_mode fso fd = SOME ReadMode`
   by ( simp[Abbr`fso`, openFileFS_def, get_mode_def] )
@@ -2011,15 +2010,15 @@ Theorem inputLinesFrom_spec
   \\ fs[all_lines_def,lines_of_def]
   \\ fs[get_file_content_def]
   \\ pairarg_tac \\ fs[]
-  \\ fs[Abbr`fso`,openFileFS_files]
+  \\ fs[Abbr`fso`,openFileFS_inode_tbl]
   \\ rveq \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ first_x_assum(qspec_then`ReadMode`mp_tac) \\ strip_tac \\ fs[]
   \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
   \\ unabbrev_all_tac
   \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
-          libTheory.the_def, openFileFS_numchars,openFileFS_inode_tbl,
-          IO_fs_component_equality,openFileFS_files]);
+          libTheory.the_def, openFileFS_numchars,openFileFS_files,
+          IO_fs_component_equality,openFileFS_inode_tbl]);
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =

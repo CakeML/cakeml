@@ -96,11 +96,11 @@ val wordcount_precond_def = Define`
       [_; fname] =>
         hasFreeFD fs ∧
         ALOOKUP fs.file_inode fname = SOME ino ∧
-        ALOOKUP fs.files (File ino) = SOME contents
+        ALOOKUP fs.inode_tbl (File ino) = SOME contents
         fs' = fs
     | _ =>
       ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0) ∧
-      ALOOKUP fs.files (UStream (strlit"stdin")) = SOME contents ∧
+      ALOOKUP fs.inode_tbl (UStream (strlit"stdin")) = SOME contents ∧
       fs' = fastForwardFD fs 0`;
 
 Theorem wordcount_precond_numchars

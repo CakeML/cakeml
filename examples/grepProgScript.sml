@@ -670,10 +670,10 @@ val _ = temp_overload_on("adderr",``combin$C add_stderr``);
 
 val grep_sem_file_def = Define`
   grep_sem_file L filename fs =
-    case ALOOKUP fs.inode_tbl filename of
+    case ALOOKUP fs.files filename of
     | NONE => adderr (notfound_string filename) fs
     | SOME ino =>
-        case ALOOKUP fs.files (File ino) of
+        case ALOOKUP fs.inode_tbl (File ino) of
         | SOME contents =>
         addout
           (concat
@@ -731,15 +731,15 @@ Theorem consistentFS_grep_sem_file[simp]
     consistentFS (grep_sem_file L fls fn fs)`,
  (rw[grep_sem_file_def,consistentFS_def]
   \\ rpt CASE_TAC
-  \\ fs[up_stdo_inode_tbl,add_stdo_def] \\
+  \\ fs[up_stdo_files,add_stdo_def] \\
   res_tac >> fs[ALOOKUP_NONE]);
 
 Theorem grep_sem_file_lemma
   `consistentFS fs /\ STD_streams fs ⇒
    let fs' = FOLDL (λa f. grep_sem_file L fls f o a) I ls fs in
      STD_streams fs'∧ consistentFS fs' ∧ (hasFreeFD fs ⇒ hasFreeFD fs') ∧
-     FILTER (isFile o FST) fs'.files = FILTER (isFile o FST) fs.files ∧
-     fs'.inode_tbl = fs.inode_tbl`
+     FILTER (isFile o FST) fs'.inode_tbl = FILTER (isFile o FST) fs.inode_tbl ∧
+     fs'.files = fs.files`
   (simp[]
   \\ qid_spec_tac`fs`
   \\ qid_spec_tac`ls`
@@ -859,12 +859,12 @@ Theorem grep_spec
   \\ simp[Abbr`a0`]
   \\ xmatch
   \\ rename1`parse_regexp _ = SOME r`
-  \\ qabbrev_tac`fcs = fs.files`
+  \\ qabbrev_tac`fcs = fs.inode_tbl`
   \\ xfun_spec`appthis`
      `∀f fv fs'.
       FILENAME f fv ∧ hasFreeFD fs' ∧ consistentFS fs' ∧
-      FILTER (isFile o FST) fcs = FILTER (isFile o FST) fs.files ∧
-      fs'.inode_tbl = fs.inode_tbl ⇒
+      FILTER (isFile o FST) fcs = FILTER (isFile o FST) fs.inode_tbl ∧
+      fs'.files = fs.files ⇒
       app p appthis [fv] (STDIO fs')
         (POSTv v. &UNIT_TYPE () v
                   * STDIO (grep_sem_file (regexp_lang r) fcs f fs'))`
@@ -876,7 +876,7 @@ Theorem grep_spec
     \\ instantiate
     \\ xsimpl
     \\ simp[grep_sem_file_def]
-    \\ `ALOOKUP fcs (File f) = ALOOKUP fs'.files (File f)`
+    \\ `ALOOKUP fcs (File f) = ALOOKUP fs'.inode_tbl (File f)`
     by (
       first_x_assum(mp_tac o Q.AP_TERM`ALOOKUP`)
       \\ disch_then(mp_tac o C Q.AP_THM`File f`)

@@ -40,7 +40,7 @@ val compiler_output_def = Define `
 val get_file_contents_def = Define `
   get_file_contents fs fname =
     if inFS_fname fs (File fname) then
-      case ALOOKUP fs.files (File fname) of
+      case ALOOKUP fs.inode_tbl (File fname) of
       | NONE => NONE
       | SOME s => SOME (implode s)
     else NONE`

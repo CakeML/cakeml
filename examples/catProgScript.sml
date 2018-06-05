@@ -46,8 +46,8 @@ Theorem do_onefile_spec
        (POST
          (\u. SEP_EXISTS content ino.
               &UNIT_TYPE () u *
-              &(ALOOKUP fs.inode_tbl fnm = SOME ino) *
-              &(ALOOKUP fs.files (File ino) = SOME content) *
+              &(ALOOKUP fs.files fnm = SOME ino) *
+              &(ALOOKUP fs.inode_tbl (File ino) = SOME content) *
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs fnm) *
@@ -151,7 +151,7 @@ Theorem do_onefile_spec
 
 val file_contents_def = Define `
   file_contents fnm fs =
-    implode (THE (ALOOKUP fs.files (File (THE (ALOOKUP fs.inode_tbl fnm)))))`
+    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
 
 Theorem file_contents_add_stdout
   `STD_streams fs ⇒
@@ -231,8 +231,8 @@ Theorem cat1_spec
   (xcf "cat1" (get_ml_prog_state()) >>
   xhandle `POST
              (\u. SEP_EXISTS content ino. &UNIT_TYPE () u *
-               &(ALOOKUP fs.inode_tbl fnm = SOME ino) *
-               &(ALOOKUP fs.files (File ino) = SOME content) *
+               &(ALOOKUP fs.files fnm = SOME ino) *
+               &(ALOOKUP fs.inode_tbl (File ino) = SOME content) *
                STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs fnm) *
                STDIO fs)

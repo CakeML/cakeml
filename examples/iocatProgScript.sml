@@ -24,7 +24,7 @@ Theorem pipe_2048_spec
   FD fd1 fd1v /\ FD fd2 fd2v /\
   ALOOKUP fs.infds fd1 = SOME(fnm1,ReadMode,pos1) /\
   ALOOKUP fs.infds fd2 = SOME(fnm2,WriteMode,LENGTH c2) /\
-  ALOOKUP fs.files fnm1 = SOME c1 /\ ALOOKUP fs.files fnm2 = SOME c2 /\
+  ALOOKUP fs.inode_tbl fnm1 = SOME c1 /\ ALOOKUP fs.inode_tbl fnm2 = SOME c2 /\
   fnm1 ≠ UStream(strlit "stdout") ∧ fnm1 ≠ UStream(strlit "stderr")
   ==>
   app (p:'ffi ffi_proj) ^(fetch_v "pipe_2048" (st())) [fd1v;fd2v]
@@ -112,7 +112,7 @@ Theorem do_onefile_spec
   `∀content pos fnm fd fdv fs out.
       FD fd fdv /\
       ALOOKUP fs.infds fd = SOME (fnm,ReadMode,pos) /\
-      ALOOKUP fs.files fnm = SOME content /\
+      ALOOKUP fs.inode_tbl fnm = SOME content /\
       fnm <> UStream(strlit "stdout") /\ fnm <> UStream(strlit "stderr") /\
       pos <= STRLEN content /\
       fd <> 1 /\ fd <> 2 /\ stdout fs out ⇒
@@ -155,7 +155,7 @@ Theorem do_onefile_spec
 (* TODO: move *)
 val file_contents_def = Define `
   file_contents fnm fs =
-    implode (THE (ALOOKUP fs.files (File (THE (ALOOKUP fs.inode_tbl fnm)))))`
+    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
 (* -- *)
 
 val catfiles_string_def = Define`
@@ -190,14 +190,14 @@ val cat_spec0 = Q.prove(
   `nextFD fs <> 0 /\ nextFD fs <> 1 /\ nextFD fs <> 2`
     by(metis_tac[STD_streams_def,ALOOKUP_MEM,nextFD_NOT_MEM]) >>
   `∃out. ALOOKUP fs.infds 1 = SOME (UStream(strlit "stdout"),WriteMode,STRLEN out) ∧
-         ALOOKUP fs.files (UStream(strlit "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
+         ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
   `ALOOKUP (openFileFS h fs ReadMode 0).infds 1 = SOME (UStream(strlit "stdout"),WriteMode,STRLEN out)`
     by(fs[openFileFS_def] >> CASE_TAC >> fs[] >> CASE_TAC >> fs[openFile_def] >>
        `r.infds = (nextFD fs,File h,ReadMode,0) :: fs.infds` by fs[IO_fs_component_equality] >>
        fs[] >> CASE_TAC >> metis_tac[nextFD_NOT_MEM]) >>
   xlet_auto_spec (SOME(Q.SPECL[`content`,`0`, `File ino`,`nextFD fs`, `wv`,
                                `openFileFS h fs ReadMode 0`,`implode out`] do_onefile_spec))
-  >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_files,stdo_def] >>
+  >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_inode_tbl,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   drule (Q.SPECL [`h`, `0`] ALOOKUP_inFS_fname_openFileFS_nextFD) >> rw[] >>
@@ -215,7 +215,7 @@ val cat_spec0 = Q.prove(
   conj_tac >- (
     fs[up_stdo_def] >>
     `!ls fs0. EVERY (inFS_fname fs0) ls ⇔
-              EVERY (\s. s ∈ FDOM (alist_to_fmap fs0.inode_tbl)) ls`
+              EVERY (\s. s ∈ FDOM (alist_to_fmap fs0.files)) ls`
        by(Induct >> rw[inFS_fname_def]) >> fs[] >>
     rw[] >>
     fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,A_DELKEY_nextFD_openFileFS,
@@ -224,12 +224,12 @@ val cat_spec0 = Q.prove(
   \\ `fs' = up_stdout fs (implode (out ++ content))`
   by (
     fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
-       openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,openFileFS_inode_tbl,
+       openFileFS_numchars,openFileFS_inode_tbl,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,
        ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_ALIST_FUPDKEY_comm,
        A_DELKEY_nextFD_openFileFS,ALIST_FUPDKEY_unchanged] ) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
-  qmatch_goalsub_abbrev_tac`ALOOKUP fs'.files _` \\
-  `fs'.files = ALIST_FUPDKEY (UStream (strlit "stdout")) (λ_. out++content) fs.files` by (
+  qmatch_goalsub_abbrev_tac`ALOOKUP fs'.inode_tbl _` \\
+  `fs'.inode_tbl = ALIST_FUPDKEY (UStream (strlit "stdout")) (λ_. out++content) fs.inode_tbl` by (
     fs[Abbr`fs'`,up_stdo_def,fsupdate_def,ALOOKUP_inFS_fname_openFileFS_nextFD,
        ALIST_FUPDKEY_ALOOKUP,K_DEF,ALIST_FUPDKEY_unchanged]) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
@@ -238,7 +238,7 @@ val cat_spec0 = Q.prove(
   qmatch_goalsub_abbrev_tac`_::(MAP f' _)` \\
   `f = f'` by (
     rw[Abbr`f`,Abbr`f'`,FUN_EQ_THM]
-    \\ CASE_TAC \\ fs[up_stdo_inode_tbl,fsupdate_inode_tbl,openFileFS_inode_tbl]
+    \\ CASE_TAC \\ fs[up_stdo_files,fsupdate_files,openFileFS_files]
     ) \\
   qunabbrev_tac`f` \\
   pop_assum SUBST_ALL_TAC \\

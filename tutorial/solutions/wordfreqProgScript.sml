@@ -257,7 +257,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (*ex *)
   `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
    cl = [pname; fname] ∧
-   contents = implode (THE (ALOOKUP fs.files (File fname)))
+   contents = implode (THE (ALOOKUP fs.foobar (File fname)))
 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
      [uv] (COMMANDLINE cl * STDIO fs)
@@ -342,7 +342,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 Theorem wordfreq_whole_prog_spec
   `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
    cl = [pname; fname] ∧
-   contents = implode (THE (ALOOKUP fs.files (File fname)))
+   contents = implode (THE (ALOOKUP fs.foobar (File fname)))
    ⇒
    whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs NONE
          ((=) (add_stdout fs (wordfreq_output_spec contents)))`
