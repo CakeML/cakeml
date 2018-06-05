@@ -17,8 +17,8 @@ val _ = overload_on("isFile",``λinode. ∃fnm. inode = File fnm``);
 *    write *)
 
 val _ = Datatype`
-  IO_fs = <| files : (inode # char list) list ;
-             inode_tbl : (mlstring # mlstring) list;
+  IO_fs = <| inode_tbl : (inode # char list) list ;
+             files : (mlstring # mlstring) list;
              infds : (num # (inode # num)) list;
              numchars : num llist |>`
 
@@ -32,7 +32,7 @@ val get_file_content_def = Define`
     get_file_content fs fd =
       do
         (fnm, off) <- ALOOKUP fs.infds fd ;
-        c <- ALOOKUP fs.files fnm;
+        c <- ALOOKUP fs.inode_tbl fnm;
         return (c, off)
       od`
 
@@ -54,8 +54,8 @@ val openFile_def = Define`
      in
        do
           assert (fd <= maxFD) ;
-          iname <- ALOOKUP fsys.inode_tbl fnm;
-          ALOOKUP fsys.files (File iname);
+          iname <- ALOOKUP fsys.files fnm;
+          ALOOKUP fsys.inode_tbl (File iname);
           return (fd, fsys with infds := (nextFD fsys, (File iname, pos)) :: fsys.infds)
        od
 `;
@@ -73,10 +73,10 @@ val openFile_truncate_def = Define`
     let fd = nextFD fsys in
       do
         assert (fd <= maxFD) ;
-        iname <- ALOOKUP fsys.inode_tbl fnm;
-        ALOOKUP fsys.files (File iname);
+        iname <- ALOOKUP fsys.files fnm;
+        ALOOKUP fsys.inode_tbl (File iname);
         return (fd, (fsys with infds := (nextFD fsys, (File iname, 0)) :: fsys.infds)
-                          with files updated_by (ALIST_FUPDKEY (File iname) (\x."")))
+                          with inode_tbl updated_by (ALIST_FUPDKEY (File iname) (\x."")))
       od `;
 
 (* checks if a descriptor index is in infds *)
@@ -94,7 +94,7 @@ val read_def = Define`
   read fd fs n =
     do
       (fnm, off) <- ALOOKUP fs.infds fd ;
-      content <- ALOOKUP fs.files fnm ;
+      content <- ALOOKUP fs.inode_tbl fnm ;
       strm <- LHD fs.numchars;
       let k = MIN n (MIN (LENGTH content - off) (SUC strm)) in
       return (TAKE k (DROP off content), bumpFD fd fs k)
@@ -105,7 +105,7 @@ val read_def = Define`
 val fsupdate_def = Define`
   fsupdate fs fd k pos content =
     case ALOOKUP fs.infds fd of NONE => fs | SOME (fnm,_) =>
-    (fs with <| files := ALIST_FUPDKEY fnm (K content) fs.files;
+    (fs with <| inode_tbl := ALIST_FUPDKEY fnm (K content) fs.inode_tbl;
                 numchars := THE (LDROP k fs.numchars);
                 infds := (ALIST_FUPDKEY fd (I ## (K pos))) fs.infds|>)`;
 
@@ -118,7 +118,7 @@ val write_def = Define`
   write fd n chars fs =
     do
       (fnm, off) <- ALOOKUP fs.infds fd ;
-      content <- ALOOKUP fs.files fnm ;
+      content <- ALOOKUP fs.inode_tbl fnm ;
       assert(n <= LENGTH chars);
       assert(fs.numchars <> [||]);
       strm <- LHD fs.numchars;
@@ -175,7 +175,7 @@ val ffi_open_in_def = Define`
     od`;
 
 (* open append:
-      contents <- ALOOKUP fs.files (implode fname);
+      contents <- ALOOKUP fs.inode_tbl (implode fname);
       (fd, fs') <- openFile (implode fname) fs (LENGTH contents);
 *)
 
@@ -281,28 +281,28 @@ val encode_inode_def = Define`
   (encode_inode (UStream s) = Cons (Num 0) ((Str o explode) s)) /\
   encode_inode (File s) = Cons (Num 1) ((Str o explode) s)`;
 
-val encode_files_def = Define`
-  encode_files fs = encode_list (encode_pair encode_inode Str) fs`;
+val encode_inode_tbl_def = Define`
+  encode_inode_tbl tbl = encode_list (encode_pair encode_inode Str) tbl`;
 
 val encode_fds_def = Define`
   encode_fds fds =
      encode_list (encode_pair Num (encode_pair encode_inode Num)) fds`;
 
-val encode_inode_tbl_def = Define`
-  encode_inode_tbl fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs`;
+val encode_files_def = Define`
+  encode_files fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs`;
 
 val encode_def = zDefine`
   encode fs = cfFFIType$Cons
-                (cfFFIType$Cons (encode_files fs.files) (encode_fds fs.infds))
-                (cfFFIType$Cons (encode_inode_tbl fs.inode_tbl) (Stream fs.numchars))`
+                (cfFFIType$Cons (encode_inode_tbl fs.inode_tbl) (encode_fds fs.infds))
+                (cfFFIType$Cons (encode_files fs.files) (Stream fs.numchars))`
 
 val encode_inode_11 = store_thm("encode_inode_11[simp]",
   ``!x y. encode_inode x = encode_inode y <=> x = y``,
   Cases \\ Cases_on `y` \\ fs [encode_inode_def,explode_11]);
 
-val encode_files_11 = store_thm("encode_files_11[simp]",
-  ``!xs ys. encode_files xs = encode_files ys <=> xs = ys``,
-  rw [] \\ eq_tac \\ rw [encode_files_def]
+val encode_inode_tbl_11 = store_thm("encode_inode_tbl_11[simp]",
+  ``!xs ys. encode_inode_tbl xs = encode_inode_tbl ys <=> xs = ys``,
+  rw [] \\ eq_tac \\ rw [encode_inode_tbl_def]
   \\ drule encode_list_11
   \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
 
@@ -312,9 +312,9 @@ val encode_fds_11 = store_thm("encode_fds_11[simp]",
   \\ drule encode_list_11
   \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
 
-val encode_files_11 = store_thm("encode_inode_tbl_11[simp]",
-  ``!xs ys. encode_inode_tbl xs = encode_inode_tbl ys <=> xs = ys``,
-  rw [] \\ eq_tac \\ rw [encode_inode_tbl_def]
+val encode_files_11 = store_thm("encode_files_11[simp]",
+  ``!xs ys. encode_files xs = encode_files ys <=> xs = ys``,
+  rw [] \\ eq_tac \\ rw [encode_files_def]
   \\ drule encode_list_11
   \\ fs [encode_pair_def,FORALL_PROD]);
 

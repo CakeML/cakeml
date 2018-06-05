@@ -32,7 +32,7 @@ val splitwords_concat_space = Q.store_thm("splitwords_concat_space",
 
 val splitwords_all_lines = Q.store_thm("splitwords_all_lines",
   `FLAT (MAP splitwords (all_lines fs fname)) =
-   splitwords (implode (THE (ALOOKUP fs.files
+   splitwords (implode (THE (ALOOKUP fs.inode_tbl
                          (File (THE(ALOOKUP fs.file_inode fname))))))`,
   `isSpace #"\n"` by EVAL_TAC \\
   rw[all_lines_def,lines_of_def,MAP_MAP_o,o_DEF,
