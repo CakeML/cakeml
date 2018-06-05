@@ -71,7 +71,7 @@ Theorem STDIO_bumpFD[simp]
 Theorem UNIQUE_STDIO
 `!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (STDIO fs1 * H1) s /\
                                       (STDIO fs2 * H2) s ==>
-              (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.maxFD = fs2.maxFD)`
+              (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.maxFD = fs2.maxFD /\ fs1.inode_tbl = fs2.inode_tbl)`
   (rw[STDIO_def,STD_streams_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
@@ -80,7 +80,7 @@ Theorem UNIQUE_STDIO
 (* weak injection theorem *)
 Theorem STDIO_HPROP_INJ[hprop_inj]
 `HPROP_INJ (STDIO fs1) (STDIO fs2)
-           (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.maxFD = fs2.maxFD)`
+           (fs1.infds = fs2.infds /\ fs1.files = fs2.files /\ fs1.maxFD = fs2.maxFD /\ fs1.inode_tbl = fs2.inode_tbl)`
   (rw[HPROP_INJ_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM,
      HCOND_EXTRACT] >>
   EQ_TAC >> rpt DISCH_TAC
@@ -159,8 +159,8 @@ Theorem EndOfFile_UNICITY[xlet_auto_match]
 
 val stdo_def = Define`
   stdo fd name fs out =
-    (ALOOKUP fs.infds fd = SOME(IOStream(strlit name),WriteMode,strlen out) /\
-     ALOOKUP fs.files (IOStream(strlit name)) = SOME (explode out))`;
+    (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
+     ALOOKUP fs.files (UStream(strlit name)) = SOME (explode out))`;
 
 val _ = overload_on("stdout",``stdo 1 "stdout"``);
 val _ = overload_on("stderr",``stdo 2 "stderr"``);
@@ -182,6 +182,14 @@ Theorem up_stdo_numchars[simp]
   `(up_stdo fd fs x).numchars = fs.numchars`
   (rw[up_stdo_def,fsupdate_def]
   \\ CASE_TAC \\ CASE_TAC \\ rw[]);
+
+Theorem fsupdate_inode_tbl[simp]
+ `(fsupdate fs fd k pos c).inode_tbl = fs.inode_tbl`
+ (fs[fsupdate_def] >> NTAC 2 CASE_TAC >>fs[]);
+
+Theorem up_stdo_inode_tbl[simp]
+ `(up_stdo fd fs x).inode_tbl = fs.inode_tbl`
+ (fs[up_stdo_def,fsupdate_def] >> NTAC 2 CASE_TAC >>fs[]);
 
 Theorem up_stdo_maxFD[simp]
   `(up_stdo fd fs x).maxFD = fs.maxFD`
@@ -262,7 +270,7 @@ Theorem add_stdo_MAP_FST_files[simp]
 
 Theorem inFS_fname_add_stdo[simp]
   `inFS_fname (add_stdo fd nm fs out) = inFS_fname fs`
-  (rw[inFS_fname_def,FUN_EQ_THM]);
+  (rw[inFS_fname_def,FUN_EQ_THM] >> EVAL_TAC >> EVERY_CASE_TAC >> rw[]);
 
 Theorem STD_streams_stdout
   `STD_streams fs ⇒ ∃out. stdout fs out`
@@ -370,6 +378,7 @@ Theorem linesFD_add_stderr
    linesFD (add_stderr fs err) fd = linesFD fs fd`
   (rw[linesFD_def,get_file_content_add_stderr]);
 
+<<<<<<< HEAD
 Theorem up_stdo_forwardFD
   `fd ≠ fd' ⇒ up_stdo fd' (forwardFD fs fd n) out = forwardFD (up_stdo fd' fs out) fd n`
   (rw[forwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
@@ -490,8 +499,8 @@ Theorem FILTER_File_add_stderr
   (metis_tac[STD_streams_stderr,FILTER_File_add_stdo]);
 
 val stdin_def = Define
-`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(IOStream(strlit"stdin"),ReadMode,pos) /\
-                     ALOOKUP fs.files (IOStream(strlit"stdin"))= SOME inp)`
+`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
+                     ALOOKUP fs.files (UStream(strlit"stdin"))= SOME inp)`
 
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
@@ -571,19 +580,20 @@ Theorem openIn_spec
        (POST
           (\fdv. &(FD (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
-                  inFS_fname fs (File s)) *
+                  inFS_fname fs s) *
                 IOFS (openFileFS s fs ReadMode 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs)
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * IOFS fs)
           (\n c b. &F))`
   (xcf "TextIO.openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
+  REVERSE (Cases_on`consistentFS fs`) >-(xpull >> fs[wfFS_def]) >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs` >>
   rpt(xlet_auto >- xsimpl) >>
   qmatch_goalsub_abbrev_tac`W8ARRAY _ fd0` >>
   qmatch_goalsub_rename_tac`W8ARRAY loc fd0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
-  Cases_on `inFS_fname fs (File s)`
+  Cases_on `inFS_fname fs s`
   >- (xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < fs.maxFD /\
               validFD (nextFD fs) (openFileFS s fs ReadMode 0)) *
@@ -604,10 +614,7 @@ Theorem openIn_spec
              getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
              LENGTH_explode,REPLICATE_compute,LUPDATE_compute,explode_implode] >>
-        `∃content. ALOOKUP fs.files (File s) = SOME content`
-          by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
-              metis_tac[]) >>
-             (* fs[DROP_LENGTH_TOO_LONG,LENGTH_REPLICATE] *)
+        imp_res_tac inFS_fname_ALOOKUP_EXISTS >>
         imp_res_tac nextFD_ltX >>
         csimp[openFileFS_def, openFile_def, validFD_def] >>
         fs[STRING_TYPE_def] \\ xsimpl) >>
@@ -656,9 +663,9 @@ Theorem openIn_STDIO_spec
        (POST
           (\fdv. &(FD (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
-                  inFS_fname fs (File s)) *
+                  inFS_fname fs s) *
                 STDIO (openFileFS s fs ReadMode 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs)
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs)
           (\n c b. &F))`
  (rw[STDIO_def] >> xpull >> xapp_spec openIn_spec >>
  map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
@@ -1448,8 +1455,9 @@ Theorem input_IOFS_spec
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,
-        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,
-        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def] >>
+        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,consistentFS_def,
+        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def]
+     >-(metis_tac[]) >>
      cases_on`fs'.numchars` >> fs[LDROP_1,NOT_LFINITE_DROP_LFINITE] >>
      cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs` >>
      qmatch_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
@@ -1470,8 +1478,9 @@ Theorem input_IOFS_spec
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,
-        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,
-        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def] >>
+        validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,consistentFS_def,
+        ALIST_FUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def]
+     >-(metis_tac[]) >>
      cases_on`fs'.numchars` >> fs[LDROP_1,NOT_LFINITE_DROP_LFINITE] >>
      cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs` >>
      qmatch_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
@@ -1929,17 +1938,17 @@ Theorem inputLinesFrom_spec
      [fv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs (File f) then
-               SOME(all_lines fs (File f))
+            (if inFS_fname fs f then
+               SOME(all_lines fs f)
              else NONE) sv
              * STDIO fs)`
   (xcf"TextIO.inputLinesFrom"(get_ml_prog_state())
   \\ reverse(xhandle`POST
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-         (if inFS_fname fs (File f)
-          then SOME(all_lines fs (File f))
+         (if inFS_fname fs f
+          then SOME(all_lines fs f)
           else NONE) v * STDIO fs)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)
        (λn c b. &F)`)
   >- (xcases \\ fs[BadFileName_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
@@ -1948,6 +1957,9 @@ Theorem inputLinesFrom_spec
   \\ `CARD (set (MAP FST fs.infds)) < fs.maxFD` by fs[]
   \\ reverse(Cases_on`STD_streams fs`)
   >- ( fs[STDIO_def] \\ xpull )
+  \\ reverse(Cases_on`consistentFS fs`)
+  >- (fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
+      \\ fs[consistentFS_def] \\ res_tac)
   \\ xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- (
     xsimpl
@@ -2006,13 +2018,13 @@ Theorem inputLinesFrom_spec
   \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
   \\ unabbrev_all_tac
   \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
-          libTheory.the_def, openFileFS_numchars,
+          libTheory.the_def, openFileFS_numchars,openFileFS_inode_tbl,
           IO_fs_component_equality,openFileFS_files]);
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =
-    (\fs. (Success (if inFS_fname fs (File f) then
-                      SOME(all_lines fs (File f))
+    (\fs. (Success (if inFS_fname fs f then
+                      SOME(all_lines fs f)
                     else NONE), fs))`;
 
 Theorem EvalM_inputLinesFrom
@@ -2025,6 +2037,8 @@ Theorem EvalM_inputLinesFrom
   (ho_match_mp_tac EvalM_from_app
   \\ conj_tac >- rw [inputLinesFrom_def]
   \\ rw [MONAD_IO_def]
+  \\ REVERSE(Cases_on`consistentFS s`)
+  >-(fs[STDIO_def, IOFS_def,wfFS_def,consistentFS_def] >> xpull >> res_tac)
   \\ xpull
   \\ fs [SEP_CLAUSES]
   \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])

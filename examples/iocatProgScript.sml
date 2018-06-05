@@ -25,7 +25,7 @@ Theorem pipe_2048_spec
   ALOOKUP fs.infds fd1 = SOME(fnm1,ReadMode,pos1) /\
   ALOOKUP fs.infds fd2 = SOME(fnm2,WriteMode,LENGTH c2) /\
   ALOOKUP fs.files fnm1 = SOME c1 /\ ALOOKUP fs.files fnm2 = SOME c2 /\
-  fnm1 ≠ IOStream(strlit "stdout") ∧ fnm1 ≠ IOStream(strlit "stderr")
+  fnm1 ≠ UStream(strlit "stdout") ∧ fnm1 ≠ UStream(strlit "stderr")
   ==>
   app (p:'ffi ffi_proj) ^(fetch_v "pipe_2048" (st())) [fd1v;fd2v]
        (STDIO fs)
@@ -57,8 +57,9 @@ Theorem pipe_2048_spec
         `fs with numchars := THE (LTL ll) =
          (fs with numchars := ll) with numchars := THE (LTL ll)` by fs[] >>
          first_x_assum (fn thm => PURE_REWRITE_TAC[thm]) >>
-        fs[wfFS_def,liveFS_def,live_numchars_def] >>
+        fs[wfFS_def,liveFS_def,live_numchars_def,consistentFS_def] >>
         cases_on`ll` >> imp_res_tac always_thm >> fs[] >>
+        (strip_tac >- rfs[]) >>
         qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2 * GC` >>
         `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
         cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd,
@@ -76,7 +77,6 @@ Theorem pipe_2048_spec
   qexists_tac`THE (LDROP k (THE (LTL ll)))` >> rw[Abbr`fs'`]
   >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate >> conj_tac
      >-(irule wfFS_fsupdate >> conj_tac
-        >-(fs[wfFS_def] >> imp_res_tac NOT_LFINITE_DROP_LFINITE >>
            cases_on`ll` >> fs[liveFS_def,live_numchars_def,always_DROP] >>
            imp_res_tac NOT_LFINITE_DROP >> first_x_assum(assume_tac o Q.SPEC`k`)  >>
            strip_tac >-(fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE) >>
@@ -113,7 +113,7 @@ Theorem do_onefile_spec
       FD fd fdv /\
       ALOOKUP fs.infds fd = SOME (fnm,ReadMode,pos) /\
       ALOOKUP fs.files fnm = SOME content /\
-      fnm <> IOStream(strlit "stdout") /\ fnm <> IOStream(strlit "stderr") /\
+      fnm <> UStream(strlit "stdout") /\ fnm <> UStream(strlit "stderr") /\
       pos <= STRLEN content /\
       fd <> 1 /\ fd <> 2 /\ stdout fs out ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (st())) [fdv]
@@ -154,18 +154,19 @@ Theorem do_onefile_spec
 
 (* TODO: move *)
 val file_contents_def = Define `
-  file_contents fnm fs = implode (THE (ALOOKUP fs.files fnm))`
+  file_contents fnm fs =
+    implode (THE (ALOOKUP fs.files (File (THE (ALOOKUP fs.inode_tbl fnm)))))`
 (* -- *)
 
 val catfiles_string_def = Define`
   catfiles_string fs fns =
-    concat (MAP (λfnm. file_contents (File fnm) fs) fns)
+    concat (MAP (λfnm. file_contents fnm fs) fns)
 `;
 
 val cat_spec0 = Q.prove(
   `∀fns fnsv fs.
      LIST_TYPE FILENAME fns fnsv ∧
-     EVERY ((inFS_fname fs) o File) fns ∧
+     EVERY (inFS_fname fs) fns ∧
      hasFreeFD fs
     ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
@@ -175,28 +176,31 @@ val cat_spec0 = Q.prove(
           STDIO (add_stdout fs (catfiles_string fs fns)))`,
   Induct >> rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def] >>
-  (cases_on `¬ STD_streams fs` >- (fs[STDIO_def] >> xpull) >> fs[])
+  (cases_on `¬ STD_streams fs` >- (fs[STDIO_def] >> xpull) >> fs[]) >>
+  (reverse(Cases_on`consistentFS fs`)
+    >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac))
   >- (xmatch >> xcon >>
       imp_res_tac STD_streams_stdout \\
       fs[catfiles_string_def,get_file_content_def] >>
       imp_res_tac add_stdo_nil \\ xsimpl) >>
   fs[FILENAME_def] >>
-  xmatch >> progress inFS_fname_ALOOKUP_EXISTS >>
+  xmatch >> progress (GEN_ALL inFS_fname_ALOOKUP_EXISTS) >>
   xlet_auto_spec(SOME(Q.SPECL[`h`,`v2_1`,`fs` ] openIn_STDIO_spec)) >>
   xsimpl >> imp_res_tac nextFD_ltX >> rfs[] >>
   `nextFD fs <> 0 /\ nextFD fs <> 1 /\ nextFD fs <> 2`
     by(metis_tac[STD_streams_def,ALOOKUP_MEM,nextFD_NOT_MEM]) >>
-  `∃out. ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"),WriteMode,STRLEN out) ∧
-         ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
-  `ALOOKUP (openFileFS h fs ReadMode 0).infds 1 = SOME (IOStream(strlit "stdout"),WriteMode,STRLEN out)`
+  `∃out. ALOOKUP fs.infds 1 = SOME (UStream(strlit "stdout"),WriteMode,STRLEN out) ∧
+         ALOOKUP fs.files (UStream(strlit "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
+  `ALOOKUP (openFileFS h fs ReadMode 0).infds 1 = SOME (UStream(strlit "stdout"),WriteMode,STRLEN out)`
     by(fs[openFileFS_def] >> CASE_TAC >> fs[] >> CASE_TAC >> fs[openFile_def] >>
        `r.infds = (nextFD fs,File h,ReadMode,0) :: fs.infds` by fs[IO_fs_component_equality] >>
        fs[] >> CASE_TAC >> metis_tac[nextFD_NOT_MEM]) >>
-  xlet_auto_spec (SOME(Q.SPECL[`content`,`0`, `File h`,`nextFD fs`, `wv`,
+  xlet_auto_spec (SOME(Q.SPECL[`content`,`0`, `File ino`,`nextFD fs`, `wv`,
                                `openFileFS h fs ReadMode 0`,`implode out`] do_onefile_spec))
   >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_files,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
+  drule (Q.SPECL [`h`, `0`] ALOOKUP_inFS_fname_openFileFS_nextFD) >> rw[] >>
   xlet_auto_spec (SOME (Q.SPECL[`nextFD fs`,`fs'`] close_STDIO_spec))
   >- xsimpl
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
@@ -210,8 +214,8 @@ val cat_spec0 = Q.prove(
   simp[Abbr`fs'`,catfiles_string_def, file_contents_def] >> xsimpl >>
   conj_tac >- (
     fs[up_stdo_def] >>
-    `!ls fs0. EVERY ((inFS_fname fs0) o File) ls <=>
-              EVERY (\s. File s ∈ FDOM (alist_to_fmap fs0.files)) ls`
+    `!ls fs0. EVERY (inFS_fname fs0) ls ⇔
+              EVERY (\s. s ∈ FDOM (alist_to_fmap fs0.inode_tbl)) ls`
        by(Induct >> rw[inFS_fname_def]) >> fs[] >>
     rw[] >>
     fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,A_DELKEY_nextFD_openFileFS,
@@ -220,12 +224,12 @@ val cat_spec0 = Q.prove(
   \\ `fs' = up_stdout fs (implode (out ++ content))`
   by (
     fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
-       openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,
+       openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,openFileFS_inode_tbl,
        ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_ALIST_FUPDKEY_comm,
        A_DELKEY_nextFD_openFileFS,ALIST_FUPDKEY_unchanged] ) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   qmatch_goalsub_abbrev_tac`ALOOKUP fs'.files _` \\
-  `fs'.files = ALIST_FUPDKEY (IOStream (strlit "stdout")) (λ_. out++content) fs.files` by (
+  `fs'.files = ALIST_FUPDKEY (UStream (strlit "stdout")) (λ_. out++content) fs.files` by (
     fs[Abbr`fs'`,up_stdo_def,fsupdate_def,ALOOKUP_inFS_fname_openFileFS_nextFD,
        ALIST_FUPDKEY_ALOOKUP,K_DEF,ALIST_FUPDKEY_unchanged]) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
@@ -234,7 +238,8 @@ val cat_spec0 = Q.prove(
   qmatch_goalsub_abbrev_tac`_::(MAP f' _)` \\
   `f = f'` by (
     rw[Abbr`f`,Abbr`f'`,FUN_EQ_THM]
-    \\ CASE_TAC ) \\
+    \\ CASE_TAC \\ fs[up_stdo_inode_tbl,fsupdate_inode_tbl,openFileFS_inode_tbl]
+    ) \\
   qunabbrev_tac`f` \\
   pop_assum SUBST_ALL_TAC \\
   `up_stdout fs (implode (out ++ content)) = add_stdout fs (implode content)`  by (
@@ -257,7 +262,7 @@ val cat_main = process_topdecs`
 val _ = append_prog cat_main;
 
 Theorem cat_main_spec
-  `EVERY ((inFS_fname fs) o File) (TL cl) ∧ hasFreeFD fs
+  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main" (st())) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl )
@@ -283,7 +288,7 @@ Theorem cat_main_spec
 val st = st();
 
 Theorem cat_whole_prog_spec
-  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
+  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))`
   (disch_then assume_tac

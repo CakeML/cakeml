@@ -44,27 +44,30 @@ Theorem do_onefile_spec
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (get_ml_prog_state())) [fnv]
        (STDIO fs)
        (POST
-         (\u. SEP_EXISTS content.
+         (\u. SEP_EXISTS content ino.
               &UNIT_TYPE () u *
-              &(ALOOKUP fs.files (File fnm) = SOME content) *
+              &(ALOOKUP fs.inode_tbl fnm = SOME ino) *
+              &(ALOOKUP fs.files (File ino) = SOME content) *
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
-              &(~inFS_fname fs (File fnm)) *
+              &(~inFS_fname fs fnm) *
               STDIO fs)
          (\n c b. &F))`
   (rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
-  xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
+  reverse(Cases_on`consistentFS fs`)
+  >-(fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull \\ fs[consistentFS_def] \\ res_tac)
+  \\ xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
   >- xsimpl
   >- xsimpl
   \\ imp_res_tac nextFD_ltX
-  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-  \\ rfs[]
-  \\ pop_assum(qspec_then`0`strip_assume_tac)
   \\ imp_res_tac STD_streams_nextFD
-  \\ qabbrev_tac`fd = nextFD fs` \\
-  progress inFS_fname_ALOOKUP_EXISTS >>
+  \\ qabbrev_tac`fd = nextFD fs`
+  \\ progress (Q.GEN`fname` inFS_fname_ALOOKUP_EXISTS)
+  \\ drule (Q.SPEC `fnm` ALOOKUP_inFS_fname_openFileFS_nextFD)
+  \\ rw[]
+  \\ pop_assum(qspec_then`0`strip_assume_tac) \\
   xfun_spec `recurse`
     `!m n fs00 uv.
        UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
@@ -137,7 +140,7 @@ Theorem do_onefile_spec
       \\ simp[get_mode_def]) >>
   (* calling close *)
   xapp_spec close_STDIO_spec >>
-  xsimpl >> instantiate >>
+  xsimpl >> instantiate >> rfs[] >>
   qmatch_goalsub_abbrev_tac`STDIO fs0` >>
   CONV_TAC SWAP_EXISTS_CONV >>
   qexists_tac`fs0` \\ xsimpl \\
@@ -147,7 +150,8 @@ Theorem do_onefile_spec
   simp[validFileFD_def]);
 
 val file_contents_def = Define `
-  file_contents fnm fs = implode (THE (ALOOKUP fs.files (File fnm)))`
+  file_contents fnm fs =
+    implode (THE (ALOOKUP fs.files (File (THE (ALOOKUP fs.inode_tbl fnm)))))`
 
 Theorem file_contents_add_stdout
   `STD_streams fs ⇒
@@ -166,7 +170,7 @@ val catfiles_string_def = Define`
 val cat_spec0 = Q.prove(
   `∀fns fnsv fs.
      LIST_TYPE FILENAME fns fnsv ∧
-     EVERY (inFS_fname fs o File) fns ∧
+     EVERY (inFS_fname fs) fns ∧
      hasFreeFD fs
     ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
@@ -181,7 +185,9 @@ val cat_spec0 = Q.prove(
   >- (xmatch >> xret >> simp[catfiles_string_def, file_contents_def] >>
       imp_res_tac STD_streams_stdout >>
       imp_res_tac add_stdo_nil >> xsimpl) >>
-  xmatch >>
+  reverse(Cases_on`consistentFS fs`)
+  >-(fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull \\ fs[consistentFS_def] \\ res_tac)
+  >> xmatch >>
   progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME (SPEC_ALL do_onefile_spec))
   >- xsimpl
@@ -211,7 +217,7 @@ val _ = process_topdecs `
 
 val catfile_string_def = Define `
   catfile_string fs fnm =
-    if inFS_fname fs (File fnm) then file_contents fnm fs
+    if inFS_fname fs fnm then file_contents fnm fs
     else (strlit"")`
 
 Theorem cat1_spec
@@ -224,10 +230,11 @@ Theorem cat1_spec
           STDIO (add_stdout fs (catfile_string fs fnm)))`
   (xcf "cat1" (get_ml_prog_state()) >>
   xhandle `POST
-             (\u. SEP_EXISTS content. &UNIT_TYPE () u *
-               &(ALOOKUP fs.files (File fnm) = SOME content) *
+             (\u. SEP_EXISTS content ino. &UNIT_TYPE () u *
+               &(ALOOKUP fs.inode_tbl fnm = SOME ino) *
+               &(ALOOKUP fs.files (File ino) = SOME content) *
                STDIO (add_stdout fs (implode content)))
-             (\e. &BadFileName_exn e * &(~inFS_fname fs (File fnm)) *
+             (\e. &BadFileName_exn e * &(~inFS_fname fs fnm) *
                STDIO fs)
              (\n c b. &F)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
@@ -250,7 +257,7 @@ val _ = append_prog cat_main;
 val st = get_ml_prog_state();
 
 Theorem cat_main_spec
-  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs
+  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
@@ -275,7 +282,7 @@ Theorem cat_main_spec
   \\ fs[validArg_def,EVERY_MEM]);
 
 Theorem cat_whole_prog_spec
-  `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
+  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))`
   (disch_then assume_tac

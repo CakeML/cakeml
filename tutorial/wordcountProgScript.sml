@@ -95,11 +95,12 @@ val wordcount_precond_def = Define`
     case cl of
       [_; fname] =>
         hasFreeFD fs ∧
-        ALOOKUP fs.files (File fname) = SOME contents ∧
+        ALOOKUP fs.file_inode fname = SOME ino ∧
+        ALOOKUP fs.files (File ino) = SOME contents
         fs' = fs
     | _ =>
-      ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0) ∧
-      ALOOKUP fs.files (IOStream (strlit"stdin")) = SOME contents ∧
+      ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0) ∧
+      ALOOKUP fs.files (UStream (strlit"stdin")) = SOME contents ∧
       fs' = fastForwardFD fs 0`;
 
 Theorem wordcount_precond_numchars
@@ -121,6 +122,7 @@ Theorem wordcount_spec
                 * COMMANDLINE cl)`
   (simp [concat_def] \\
   strip_tac \\
+  `inFS_fname fs fname` by fs[inFS_fname_def] >>
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- xsimpl \\
@@ -255,8 +257,8 @@ val wordcount_prog_def = mk_abbrev"wordcount_prog" prog_tm;
 
 val wordcount_semantics = save_thm("wordcount_semantics",
   sem_thm |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
-  |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL
-  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH]
+  |> SIMP_RULE (srw_ss()) []);
 
 val _ = export_theory();
