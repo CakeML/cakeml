@@ -245,6 +245,25 @@ val set_weight_SUCCESS = Q.store_thm("set_weight_SUCCESS",
   \\ rw[ml_monadBaseTheory.Marray_update_def]
   \\ rw[ml_monadBaseTheory.Mupdate_eq]);
 
+val lemma = Q.store_thm("lemma",
+  `∀i j d l. i < d ∧ j < d ∧ d * d ≤ l ⇒ (j:num) + i * d < l`,
+  rw[]
+  \\ qpat_x_assum`i < d` assume_tac
+  \\ `∃m. 0 < m ∧ i + m = d` by (
+        IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1
+        \\ fs[] )
+  \\ `i = d - m` by simp[]
+  \\ `j + i * d < d * d` by (
+    simp[LEFT_SUB_DISTRIB]
+    \\ `m * d ≤ d * d` by simp[]
+    \\ `m * d ≤ d ** 2` by metis_tac[TWO,EXP,ONE,MULT_CLAUSES]
+    \\ simp[]
+    \\ `0 < d` by simp[]
+    \\ qpat_x_assum`j < d` assume_tac
+    \\ IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1 THEN simp[] )
+  \\ pop_assum mp_tac
+  \\ simp[]);
+
 val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
   `∀d s. d ≤ s.dim ∧ s.dim * s.dim ≤ LENGTH s.adj_mat ⇒
    ∃r. init_diag d s = (Success (), r) ∧
@@ -262,21 +281,8 @@ val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
   \\ qmatch_assum_rename_tac`SUC d ≤ s.dim`
   \\ `v = d - n` by decide_tac \\ rveq
   \\ `n < s.dim` by decide_tac
-  \\ `∃m. 0 < m ∧ n + m = s.dim` by (
-        IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1
-        \\ fs[] )
-  \\ `n = s.dim - m` by simp[]
-  \\ `n + n * s.dim < s.dim * s.dim` by (
-    simp[LEFT_SUB_DISTRIB]
-    \\ `m * s.dim ≤ s.dim * s.dim` by simp[]
-    \\ `m * s.dim ≤ s.dim ** 2` by metis_tac[TWO,EXP,ONE,MULT_CLAUSES]
-    \\ simp[]
-    \\ `0 < s.dim` by simp[]
-    \\ IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1
-    THEN simp[] )
-  \\ qpat_x_assum`n = _` kall_tac
-  \\ `s.dim * s.dim = s.dim ** 2` by metis_tac[TWO,EXP,ONE,MULT_CLAUSES]
-  \\ `n + n * s.dim < LENGTH s.adj_mat` by decide_tac
+  \\ qspecl_then[`n`,`n`,`s.dim`,`LENGTH s.adj_mat`]mp_tac lemma
+  \\ impl_tac >- simp[] \\ strip_tac
   \\ drule (GEN_ALL set_weight_SUCCESS)
   \\ disch_then(qspec_then`0`strip_assume_tac)
   \\ simp[st_ex_bind_def]
@@ -288,8 +294,8 @@ val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
 (* Prove that the algorithm is always successful (?) *)
 val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
   EVERY (λ (i,j,w). i < d ∧ j < d) ls ⇒
-  ∃res.
-  do_floyd d ls init_g = (Success (),res)`,
+    ∃res.
+    do_floyd d ls init_g = (Success (),res)`,
   rw[]>>
   simp[do_floyd_def,init_g_def]>>
   simp msimps>>
@@ -303,6 +309,31 @@ val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
   \\ simp msimps
   \\ qspecl_then[`r.dim`,`r`]mp_tac init_diag_SUCCESS
   \\ simp[] \\ strip_tac
+  \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls f s0`
+  \\ `∃s1. st_ex_FOREACH ls f s0 = (Success (), s1) ∧
+           s1.dim = s0.dim ∧ LENGTH s1.adj_mat = LENGTH s0.adj_mat`
+  by (
+    qpat_x_assum`s0.dim = _`(assume_tac o SYM) \\ fs[]
+    \\ qpat_x_assum`LENGTH s0.adj_mat = _`(assume_tac o SYM) \\ fs[]
+    \\ qpat_x_assum`EVERY _ _`mp_tac
+    \\ qpat_x_assum`_ ≤ _`mp_tac
+    \\ qid_spec_tac`s0`
+    \\ qunabbrev_tac`f`
+    \\ rpt(pop_assum kall_tac)
+    \\ Induct_on`ls`
+    \\ simp[st_ex_FOREACH_def]
+    >- rw[st_ex_return_def]
+    \\ simp msimps
+    \\ rpt gen_tac \\ pairarg_tac
+    \\ rw[]
+    \\ qspecl_then[`i`,`j`,`s0.dim`,`LENGTH s0.adj_mat`]mp_tac lemma
+    \\ impl_tac >- simp[] \\ strip_tac
+    \\ drule (GEN_ALL set_weight_SUCCESS)
+    \\ disch_then(qspec_then`w`strip_assume_tac)
+    \\ simp[]
+    \\ first_x_assum(qspec_then`r`mp_tac)
+    \\ simp[] )
   \\ simp[]
   \\ cheat);
 
