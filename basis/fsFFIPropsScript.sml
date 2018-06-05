@@ -1090,6 +1090,7 @@ Theorem STD_streams_fastForwardFD
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[EXISTS_PROD] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma] );
 
+<<<<<<< HEAD
 val get_mode_def = Define`
   get_mode fs fd =
     OPTION_MAP (FST o SND) (ALOOKUP fs.infds fd)`;
@@ -1119,5 +1120,14 @@ Theorem STD_streams_get_mode
    (get_mode fs 2 = SOME WriteMode)`
   (rw[STD_streams_def, get_mode_def, EXISTS_PROD]
   \\ metis_tac[]);
+
+val _ = overload_on("hard_link",
+       ``λfs fn1 fn2. ∃ino.  ALOOKUP fs.files fn1 = SOME ino ∧
+                             ALOOKUP fs.files fn2 = SOME ino``);
+val pipe_def = Define`
+  pipe fs (fdin, fdout) c =
+    (∃ ino ipos. ALOOKUP fs.infds fdin = SOME (UStream ino, ipos) ∧
+            ALOOKUP fs.infds fdout = SOME (UStream ino, LENGTH c) ∧
+            ALOOKUP fs.inode_tbl (UStream ino) = SOME c)`
 
 val _ = export_theory();
