@@ -30,7 +30,7 @@ val _ = append_prog wordcount;
 val wordcount_spec = Q.store_thm("wordcount_spec",
   `hasFreeFD fs ∧
    cl = [pname; fname] ∧
-   ALOOKUP fs.file_inode fname = SOME ino ∧
+   ALOOKUP fs.files fname = SOME ino ∧
    ALOOKUP fs.inode_tbl (File ino) = SOME contents
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
