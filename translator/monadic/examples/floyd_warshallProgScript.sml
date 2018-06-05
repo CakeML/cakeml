@@ -229,7 +229,7 @@ val _ = temp_tight_equality();
 val mk_graph_SUCCESS = Q.store_thm("mk_graph_SUCCESS",`
   ∃res.
     (mk_graph d s = (Success ():(unit,state_exn) exc,res)) ∧
-    d*d ≤ LENGTH res.adj_mat ∧ res.dim = d`,
+    d*d = LENGTH res.adj_mat ∧ res.dim = d`,
   fs[mk_graph_def]>>
   fs(msimps)>>
   fs [alloc_adj_mat_def,set_dim_def,Marray_alloc_def,LENGTH_REPLICATE]);
@@ -291,6 +291,125 @@ val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
   \\ disch_then(qspec_then`r`mp_tac)
   \\ simp[] );
 
+val adj_mat_sub_def = fetch "-" "adj_mat_sub_def"
+
+val Msub_eqn = Q.store_thm("Msub_eqn[simp]",`
+  ∀e n ls v.
+  Msub e n ls =
+  if n < LENGTH ls then Success (EL n ls)
+                   else Failure e`,
+  ho_match_mp_tac Msub_ind>>rw[]>>
+  simp[Once Msub_def]>>
+  Cases_on`ls`>>fs[]>>
+  IF_CASES_TAC>>fs[]>>
+  Cases_on`n`>>fs[]);
+
+val adj_mat_sub_SUCCESS = Q.prove(`
+  ∀s. i < s.dim ∧ j < s.dim ∧
+  LENGTH s.adj_mat = s.dim * s.dim ⇒
+  ∃v.
+  adj_mat_sub (i + j *s.dim) s = (Success v, s)`,
+  rw[]>> drule lemma>>
+  disch_then (qspec_then `i` assume_tac)>>rfs[]>>
+  rw[adj_mat_sub_def,Marray_sub_def]);
+
+val update_adj_mat_def = fetch "-" "update_adj_mat_def"
+
+val Mupdate_eqn = Q.store_thm("Mupdate_eqn[simp]",`
+  ∀e x n ls.
+  Mupdate e x n ls =
+  if n < LENGTH ls then
+    Success (LUPDATE x n ls)
+  else
+    Failure e`,
+  ho_match_mp_tac Mupdate_ind>>rw[]>>
+  simp[Once Mupdate_def]>>
+  Cases_on`ls`>>fs[]>>
+  IF_CASES_TAC>>fs[LUPDATE_def]>>
+  Cases_on`n`>>fs[LUPDATE_def]);
+
+val update_adj_mat_SUCCESS = Q.prove(`
+  ∀s.
+    i < s.dim ∧ j < s.dim ∧
+    LENGTH s.adj_mat = s.dim * s.dim ⇒
+  ∃res.
+  update_adj_mat (j + i *s.dim) v s = (Success (), res) ∧
+  res.dim = s.dim ∧
+  LENGTH res.adj_mat = res.dim * res.dim`,
+  rw[update_adj_mat_def]>>
+  fs[Marray_update_def]>>
+  qspecl_then [`i`,`j`] mp_tac lemma>>
+  rpt (disch_then drule)>>fs[]);
+
+val relax_SUCCESS = Q.prove(`
+  i < s.dim ∧
+  k < s.dim ∧
+  j < s.dim ∧
+  LENGTH s.adj_mat = s.dim * s.dim ⇒
+  ∃res.
+  relax i k j s = (Success (),res) ∧
+  res.dim = s.dim ∧
+  LENGTH res.adj_mat = res.dim * res.dim`,
+  rw[]>>
+  fs[relax_def,st_ex_bind_def,get_weight_def,reind_def,get_dim_def,st_ex_return_def,set_weight_def]>>
+  imp_res_tac adj_mat_sub_SUCCESS>>rfs[]>>
+  every_case_tac>>fs[]>>
+  imp_res_tac update_adj_mat_SUCCESS>>rfs[]);
+
+val floyd_warshall_SUCCESS_j = Q.prove(`
+  ∀j s.
+  i < s.dim ∧
+  k < s.dim ∧
+  LENGTH s.adj_mat = s.dim * s.dim
+  ⇒
+  ∃res.
+  st_ex_FOR j s.dim (\j. relax i k j) s = (Success (),res) ∧
+  res.dim = s.dim ∧
+  LENGTH res.adj_mat = res.dim * s.dim`,
+  Induct_on`s.dim-j`
+  >-
+    rw[Once st_ex_FOR_def,st_ex_return_def]
+  >>
+    rw[Once st_ex_FOR_def,st_ex_bind_def]>>
+    `j < s.dim` by fs[]>>
+    assume_tac relax_SUCCESS>>rfs[]>>
+    first_x_assum(qspecl_then[`res`,`j+1`] assume_tac)>>rfs[]);
+
+val floyd_warshall_SUCCESS_i = Q.prove(`
+  ∀i s.
+  k < s.dim ∧
+  LENGTH s.adj_mat = s.dim * s.dim
+  ⇒
+  ∃res.
+  st_ex_FOR i s.dim (\i. st_ex_FOR 0 s.dim (\j. relax i k j)) s = (Success (),res) ∧
+  res.dim = s.dim ∧
+  LENGTH res.adj_mat = res.dim * s.dim`,
+  Induct_on`s.dim-i`
+  >-
+    rw[Once st_ex_FOR_def,st_ex_return_def]
+  >>
+    rw[Once st_ex_FOR_def,st_ex_bind_def]>>
+    `i < s.dim` by fs[]>>
+    imp_res_tac (floyd_warshall_SUCCESS_j |> Q.SPEC `0n`) >>rfs[]>>
+    first_x_assum(qspecl_then[`res''`,`i+1`] assume_tac)>>rfs[]);
+
+val floyd_warshall_SUCCESS_k = Q.prove(`
+  ∀k s.
+  LENGTH s.adj_mat = s.dim * s.dim ⇒
+  ∃res.
+  st_ex_FOR k s.dim
+  (λk. st_ex_FOR 0 s.dim (λi. st_ex_FOR 0 s.dim (λj. relax i k j))) s =
+  (Success (),res) ∧
+  res.dim = s.dim ∧
+  LENGTH res.adj_mat = res.dim * res.dim`,
+  Induct_on`s.dim-k`>-
+    rw[Once st_ex_FOR_def,st_ex_return_def]
+  >>
+    rw[Once st_ex_FOR_def,st_ex_bind_def]>>
+    `k < s.dim` by fs[]>>
+    imp_res_tac (floyd_warshall_SUCCESS_i |> Q.SPEC `0n`) >>rfs[]>>
+    first_x_assum(qspecl_then[`res`,`k+1`] assume_tac)>>rfs[]);
+
 (* Prove that the algorithm is always successful (?) *)
 val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
   EVERY (λ (i,j,w). i < d ∧ j < d) ls ⇒
@@ -317,7 +436,7 @@ val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
     qpat_x_assum`s0.dim = _`(assume_tac o SYM) \\ fs[]
     \\ qpat_x_assum`LENGTH s0.adj_mat = _`(assume_tac o SYM) \\ fs[]
     \\ qpat_x_assum`EVERY _ _`mp_tac
-    \\ qpat_x_assum`_ ≤ _`mp_tac
+    \\ qpat_x_assum`s0.dim**2 = _`mp_tac
     \\ qid_spec_tac`s0`
     \\ qunabbrev_tac`f`
     \\ rpt(pop_assum kall_tac)
@@ -335,7 +454,9 @@ val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
     \\ first_x_assum(qspec_then`r`mp_tac)
     \\ simp[] )
   \\ simp[]
-  \\ cheat);
+  \\ simp[floyd_warshall_def]
+  \\ `LENGTH s1.adj_mat = s1.dim * s1.dim` by fs[]
+  \\ metis_tac[floyd_warshall_SUCCESS_k]);
 
 val res = m_translate mk_graph_def;
 val res = m_translate reind_def;
