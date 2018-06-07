@@ -365,7 +365,7 @@ val up_stdout_fastForwardFD = Q.store_thm("up_stdout_fastForwardFD",
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP] )
   \\ fs[] \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` >- (
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` >- (
     fs[libTheory.the_def,fsupdate_def]
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP]
@@ -388,7 +388,7 @@ val up_stderr_fastForwardFD = Q.store_thm("up_stderr_fastForwardFD",
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP] )
   \\ fs[] \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` >- (
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` >- (
     fs[libTheory.the_def,fsupdate_def]
     \\ CASE_TAC \\ fs[libTheory.the_def]
     \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP]
@@ -412,7 +412,7 @@ val stdo_fastForwardFD = Q.store_thm("stdo_fastForwardFD",
   rw[stdo_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[ALIST_FUPDKEY_ALOOKUP] \\ rw[]
   \\ CASE_TAC);
 
@@ -1413,7 +1413,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   xlet_auto >- xsimpl >>
   `MEM fd (MAP FST fs'.infds)` by
      (fs[get_file_content_def] >> pairarg_tac >> fs[ALOOKUP_MEM,MEM_MAP] >>
-      qexists_tac`fd,(fnm, pos'')` >> fs[ALOOKUP_MEM]) >>
+      qexists_tac`fd,(ino, pos'')` >> fs[ALOOKUP_MEM]) >>
   xif
   >-(xvar >> xsimpl >> qexists_tac`1` >>
      fs[eof_def] >> pairarg_tac >> fs[get_file_content_def] >>

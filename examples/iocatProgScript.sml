@@ -16,13 +16,13 @@ val _ = process_topdecs`
 
 (* to ensure preserving standard STREAMS, fd1 cannot be a std output *)
 val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
- `!fs fd1 fd2 fnm1 fnm2 fd1v fd2v pos1 c1 c2.
-  fd1 <> fd2 /\ fnm1 <> fnm2 /\
+ `!fs fd1 fd2 ino1 ino2 fd1v fd2v pos1 c1 c2.
+  fd1 <> fd2 /\ ino1 <> ino2 /\
   FD fd1 fd1v /\ FD fd2 fd2v /\
-  ALOOKUP fs.infds fd1 = SOME(fnm1,pos1) /\
-  ALOOKUP fs.infds fd2 = SOME(fnm2,LENGTH c2) /\
-  ALOOKUP fs.inode_tbl fnm1 = SOME c1 /\ ALOOKUP fs.inode_tbl fnm2 = SOME c2 /\
-  fnm1 ≠ UStream(strlit "stdout") ∧ fnm1 ≠ UStream(strlit "stderr")
+  ALOOKUP fs.infds fd1 = SOME(ino1,pos1) /\
+  ALOOKUP fs.infds fd2 = SOME(ino2,LENGTH c2) /\
+  ALOOKUP fs.inode_tbl ino1 = SOME c1 /\ ALOOKUP fs.inode_tbl ino2 = SOME c2 /\
+  ino1 ≠ UStream(strlit "stdout") ∧ ino1 ≠ UStream(strlit "stderr")
   ==>
   app (p:'ffi ffi_proj) ^(fetch_v "pipe_2048" (st())) [fd1v;fd2v]
        (STDIO fs)
@@ -80,8 +80,8 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
            strip_tac >-(fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE) >>
            irule always_DROP >> imp_res_tac always_thm >>
            fs[always_DROP])
-        >-(fs[MEM_MAP] >> qexists_tac`(fd1,(fnm'',off''))` >> rfs[FST,ALOOKUP_MEM]))
-     >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(fnm',STRLEN c2))` >>
+        >-(fs[MEM_MAP] >> qexists_tac`(fd1,(ino'',off''))` >> rfs[FST,ALOOKUP_MEM]))
+     >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(ino',STRLEN c2))` >>
         fs[ALOOKUP_MEM,FST]))
   >-(irule STD_streams_fsupdate
      >-(irule STD_streams_fsupdate >> rw[] >> metis_tac[STD_streams_def,PAIR,FST,SND,SOME_11])
@@ -108,11 +108,11 @@ val _ = process_topdecs `
 
 val do_onefile_spec = Q.store_thm(
   "do_onefile_spec",
-  `∀content pos fnm fd fdv fs out.
+  `∀content pos ino fd fdv fs out.
       FD fd fdv /\
-      ALOOKUP fs.infds fd = SOME (fnm,pos) /\
-      ALOOKUP fs.inode_tbl fnm = SOME content /\
-      fnm <> UStream(strlit "stdout") /\ fnm <> UStream(strlit "stderr") /\
+      ALOOKUP fs.infds fd = SOME (ino,pos) /\
+      ALOOKUP fs.inode_tbl ino = SOME content /\
+      ino <> UStream(strlit "stdout") /\ ino <> UStream(strlit "stderr") /\
       pos <= STRLEN content /\
       fd <> 1 /\ fd <> 2 /\ stdout fs out ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (st())) [fdv]
@@ -204,7 +204,7 @@ val cat_spec0 = Q.prove(
   drule (Q.SPECL [`h`, `0`] ALOOKUP_inFS_fname_openFileFS_nextFD) >> rw[] >>
   xlet_auto_spec (SOME (Q.SPECL[`nextFD fs`,`fs'`] close_STDIO_spec))
   >- xsimpl
-  >- xsimpl >>
+  >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def]) >>
   xapp >> xsimpl >> simp[Abbr`fs'`] >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   map_every qexists_tac [`GC`,`fs'`] >>
@@ -214,8 +214,8 @@ val cat_spec0 = Q.prove(
        A_DELKEY_nextFD_openFileFS, A_DELKEY_ALIST_FUPDKEY_comm,
        ALOOKUP_inFS_fname_openFileFS_nextFD,openFileFS_files] >>
     `!ls fs0. EVERY (inFS_fname fs0) ls ⇔
-              EVERY (\s. s ∈ FDOM (alist_to_fmap fs0.files)) ls`
-              by cheat >>
+              EVERY (\s. ?ino. MEM (s, ino) fs0.files) ls`
+       by( Induct >> rw[inFS_fname_def,ALOOKUP_EXISTS_IFF]) >>
               fs[openFileFS_files]
 (*       by(Induct >> rw[inFS_fname_def]) >> fs[] >> *)
        ) >>

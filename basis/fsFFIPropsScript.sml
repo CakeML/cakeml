@@ -141,8 +141,8 @@ val wfFS_def = Define`
   wfFS fs =
     ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
          fd <= maxFD ∧
-         ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
-                   fnm ∈ FDOM (alist_to_fmap fs.inode_tbl))∧
+         ∃ino off. ALOOKUP fs.infds fd = SOME (ino,off) ∧
+                   ino ∈ FDOM (alist_to_fmap fs.inode_tbl))∧
      consistentFS fs ∧ liveFS fs)
 `;
 
@@ -202,8 +202,8 @@ val wfFS_bumpFD = Q.store_thm(
 val eof_def = Define`
   eof fd fsys =
     do
-      (fnm,pos) <- ALOOKUP fsys.infds fd ;
-      contents <- ALOOKUP fsys.inode_tbl fnm ;
+      (ino,pos) <- ALOOKUP fsys.infds fd ;
+      contents <- ALOOKUP fsys.inode_tbl ino ;
       return (LENGTH contents <= pos)
     od
 `;
@@ -342,8 +342,8 @@ val ffi_close_length = Q.store_thm("ffi_close_length",
 val fastForwardFD_def = Define`
   fastForwardFD fs fd =
     the fs (do
-      (fnm,off) <- ALOOKUP fs.infds fd;
-      content <- ALOOKUP fs.inode_tbl fnm;
+      (ino, off) <- ALOOKUP fs.infds fd;
+      content <- ALOOKUP fs.inode_tbl ino;
       SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## MAX (LENGTH content)))
     od)`;
 
@@ -352,7 +352,7 @@ val validFD_fastForwardFD = Q.store_thm("validFD_fastForwardFD[simp]",
   rw[validFD_def,fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 val fastForwardFD_inode_tbl = Q.store_thm("fastForwardFD_inode_tbl[simp]",
@@ -360,7 +360,7 @@ val fastForwardFD_inode_tbl = Q.store_thm("fastForwardFD_inode_tbl[simp]",
   EVAL_TAC
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 val A_DELKEY_fastForwardFD_elim = Q.store_thm("A_DELKEY_fastForwardFD_elim[simp]",
@@ -368,7 +368,7 @@ val A_DELKEY_fastForwardFD_elim = Q.store_thm("A_DELKEY_fastForwardFD_elim[simp]
   rw[fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
@@ -377,7 +377,7 @@ val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]
   rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality,A_DELKEY_I])
 
 val fastForwardFD_0 = Q.store_thm("fastForwardFD_0",
@@ -386,7 +386,7 @@ val fastForwardFD_0 = Q.store_thm("fastForwardFD_0",
   rw[fastForwardFD_def,get_file_content_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality]
   \\ match_mp_tac ALIST_FUPDKEY_unchanged
   \\ rw[] \\ rw[PAIR_MAP_THM]
@@ -397,14 +397,14 @@ val fastForwardFD_with_numchars = Q.store_thm("fastForwardFD_with_numchars",
   rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
 
 val fastForwardFD_numchars = Q.store_thm("fastForwardFD_numchars[simp]",
   `(fastForwardFD fs fd).numchars = fs.numchars`,
   rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
 
 (* fsupdate *)
 
@@ -527,7 +527,7 @@ val get_file_content_bumpFD = Q.store_thm("get_file_content_bumpFD[simp]",
  \\ CASE_TAC \\ fs[]
  \\ pairarg_tac \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
- \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[]);
+ \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]);
 
 (* liveFS *)
 
@@ -667,7 +667,7 @@ val get_file_content_forwardFD = Q.store_thm("get_file_content_forwardFD[simp]",
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]);
 
 val bumpFD_forwardFD = Q.store_thm("bumpFD_forwardFD",
   `bumpFD fd fs n = forwardFD fs fd n with numchars := THE (LTL fs.numchars)`,
@@ -1027,13 +1027,13 @@ val STD_streams_fastForwardFD = Q.store_thm("STD_streams_fastForwardFD",
   rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ EQ_TAC \\ rw[STD_streams_def,option_case_eq,ALIST_FUPDKEY_ALOOKUP,PAIR_MAP] \\ rw[]
   >- (
-    qmatch_assum_rename_tac`ALOOKUP _ fnm = SOME r` \\
+    qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
     qexists_tac`if fd = 0 then off else inp` \\ rw[] \\
     metis_tac[SOME_11,PAIR,FST,SND,lemma] ) \\
-  qmatch_assum_rename_tac`ALOOKUP _ fnm = SOME r` \\
+  qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma] );
 
