@@ -143,8 +143,8 @@ val wfFS_def = Define`
   wfFS fs =
     ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
          fd <= fs.maxFD ∧
-         ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
-                   fnm ∈ FDOM (alist_to_fmap fs.inode_tbl))∧
+         ∃fnm off. ALOOKUP fs.infds fd = SOME (ino,off) ∧
+                   ino ∈ FDOM (alist_to_fmap fs.inode_tbl))∧
      consistentFS fs ∧ liveFS fs)
 `;
 
@@ -201,8 +201,8 @@ Theorem wfFS_bumpFD[simp]
 val eof_def = Define`
   eof fd fsys =
     do
-      (fnm,md,pos) <- ALOOKUP fsys.infds fd ;
-      contents <- ALOOKUP fsys.inode_tbl fnm ;
+      (ino,md,pos) <- ALOOKUP fsys.infds fd ;
+      contents <- ALOOKUP fsys.inode_tbl ino ;
       return (LENGTH contents <= pos)
     od
 `;
@@ -337,8 +337,8 @@ Theorem ffi_close_length
 val fastForwardFD_def = Define`
   fastForwardFD fs fd =
     the fs (do
-      (fnm,md,off) <- ALOOKUP fs.infds fd;
-      content <- ALOOKUP fs.inode_tbl fnm;
+      (ino,md,off) <- ALOOKUP fs.infds fd;
+      content <- ALOOKUP fs.inode_tbl ino;
       SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## I ## MAX (LENGTH content)))
     od)`;
 
@@ -347,7 +347,7 @@ Theorem validFD_fastForwardFD[simp]
   (rw[validFD_def,fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 <<<<<<< HEAD
@@ -367,7 +367,7 @@ Theorem fastForwardFD_files[simp]
   (EVAL_TAC
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 Theorem A_DELKEY_fastForwardFD_elim[simp]
@@ -375,7 +375,7 @@ Theorem A_DELKEY_fastForwardFD_elim[simp]
   (rw[fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 Theorem fastForwardFD_A_DELKEY_same[simp]
@@ -384,7 +384,7 @@ Theorem fastForwardFD_A_DELKEY_same[simp]
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality,A_DELKEY_I])
 
 Theorem fastForwardFD_0
@@ -393,7 +393,7 @@ Theorem fastForwardFD_0
   (rw[fastForwardFD_def,get_file_content_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality]
   \\ match_mp_tac ALIST_FUPDKEY_unchanged
   \\ rw[] \\ rw[PAIR_MAP_THM]
@@ -404,7 +404,7 @@ Theorem fastForwardFD_with_numchars
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
 
 Theorem fastForwardFD_numchars[simp]
   `(fastForwardFD fs fd).numchars = fs.numchars`
@@ -418,7 +418,7 @@ Theorem fastForwardFD_maxFD[simp]
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
 
 (* fsupdate *)
 
@@ -563,7 +563,7 @@ Theorem get_file_content_bumpFD[simp]
  \\ CASE_TAC \\ fs[]
  \\ pairarg_tac \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
- \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[]);
+ \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]);
 
 (* liveFS *)
 
@@ -716,7 +716,7 @@ Theorem get_file_content_forwardFD[simp]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]);
 
 Theorem bumpFD_forwardFD
   `bumpFD fd fs n = forwardFD fs fd n with numchars := THE (LTL fs.numchars)`
@@ -1080,13 +1080,13 @@ Theorem STD_streams_fastForwardFD
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ EQ_TAC \\ rw[STD_streams_def,option_case_eq,ALIST_FUPDKEY_ALOOKUP,PAIR_MAP] \\ rw[]
   >- (
-    qmatch_assum_rename_tac`ALOOKUP _ fnm = SOME r` \\
+    qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
     qexists_tac`if fd = 0 then off else inp` \\ rw[] \\
     metis_tac[SOME_11,PAIR,FST,SND,lemma] ) \\
-  qmatch_assum_rename_tac`ALOOKUP _ fnm = SOME r` \\
+  qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[EXISTS_PROD] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma] );
 

@@ -44,8 +44,8 @@ Theorem with_same_numchars
 val get_file_content_def = Define`
     get_file_content fs fd =
       do
-        (fnm, md, off) <- ALOOKUP fs.infds fd ;
-        c <- ALOOKUP fs.inode_tbl fnm;
+        (ino, md, off) <- ALOOKUP fs.infds fd ;
+        c <- ALOOKUP fs.inode_tbl ino;
         return (c, off)
       od`
 
@@ -100,9 +100,9 @@ val bumpFD_def = Define`
 val read_def = Define`
   read fd fs n =
     do
-      (fnm, md, off) <- ALOOKUP fs.infds fd ;
+      (ino, md, off) <- ALOOKUP fs.infds fd ;
       assert (md = ReadMode) ;
-      content <- ALOOKUP fs.inode_tbl fnm ;
+      content <- ALOOKUP fs.inode_tbl ino ;
       strm <- LHD fs.numchars;
       let k = MIN n (MIN (LENGTH content - off) (SUC strm)) in
       return (TAKE k (DROP off content), bumpFD fd fs k)
@@ -125,9 +125,9 @@ val fsupdate_def = Define`
 val write_def = Define`
   write fd n chars fs =
     do
-      (fnm, md, off) <- ALOOKUP fs.infds fd ;
+      (ino, md, off) <- ALOOKUP fs.infds fd ;
       assert(md = WriteMode) ;
-      content <- ALOOKUP fs.inode_tbl fnm ;
+      content <- ALOOKUP fs.inode_tbl ino ;
       assert(n <= LENGTH chars);
       assert(fs.numchars <> [||]);
       strm <- LHD fs.numchars;

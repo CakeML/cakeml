@@ -19,12 +19,12 @@ val _ = process_topdecs`
 
 (* to ensure preserving standard STREAMS, fd1 cannot be a std output *)
 Theorem pipe_2048_spec
- `!fs fd1 fd2 fnm1 fnm2 fd1v fd2v pos1 c1 c2.
-  fd1 <> fd2 /\ fnm1 <> fnm2 /\
+ `!fs fd1 fd2 ino1 ino2 fd1v fd2v pos1 c1 c2.
+  fd1 <> fd2 /\ ino11 <> ino12 /\
   FD fd1 fd1v /\ FD fd2 fd2v /\
   ALOOKUP fs.infds fd1 = SOME(fnm1,ReadMode,pos1) /\
   ALOOKUP fs.infds fd2 = SOME(fnm2,WriteMode,LENGTH c2) /\
-  ALOOKUP fs.inode_tbl fnm1 = SOME c1 /\ ALOOKUP fs.inode_tbl fnm2 = SOME c2 /\
+  ALOOKUP fs.inode_tbl ino11 = SOME c1 /\ ALOOKUP fs.inode_tbl ino12 = SOME c2 /\
   fnm1 ≠ UStream(strlit "stdout") ∧ fnm1 ≠ UStream(strlit "stderr")
   ==>
   app (p:'ffi ffi_proj) ^(fetch_v "pipe_2048" (st())) [fd1v;fd2v]
@@ -82,8 +82,8 @@ Theorem pipe_2048_spec
            strip_tac >-(fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE) >>
            irule always_DROP >> imp_res_tac always_thm >>
            fs[always_DROP])
-        >-(fs[MEM_MAP] >> qexists_tac`(fd1,(fnm'',ReadMode,off''))` >> rfs[FST,ALOOKUP_MEM]))
-     >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(fnm',WriteMode,STRLEN c2))` >>
+        >-(fs[MEM_MAP] >> qexists_tac`(fd1,(ino'',ReadMode,off''))` >> rfs[FST,ALOOKUP_MEM]))
+     >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(ino',WriteMode,STRLEN c2))` >>
         fs[ALOOKUP_MEM,FST]))
   >-(irule STD_streams_fsupdate >> conj_tac
      >-(irule STD_streams_fsupdate >> rw[] >> metis_tac[STD_streams_def,PAIR,FST,SND,SOME_11])
@@ -111,8 +111,8 @@ val _ = process_topdecs `
 Theorem do_onefile_spec
   `∀content pos fnm fd fdv fs out.
       FD fd fdv /\
-      ALOOKUP fs.infds fd = SOME (fnm,ReadMode,pos) /\
-      ALOOKUP fs.inode_tbl fnm = SOME content /\
+      ALOOKUP fs.infds fd = SOME (ino,ReadMode,pos) /\
+      ALOOKUP fs.inode_tbl ino = SOME content /\
       fnm <> UStream(strlit "stdout") /\ fnm <> UStream(strlit "stderr") /\
       pos <= STRLEN content /\
       fd <> 1 /\ fd <> 2 /\ stdout fs out ⇒

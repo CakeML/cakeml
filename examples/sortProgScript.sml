@@ -391,7 +391,7 @@ Theorem sort_spec
       rw[STD_streams_get_mode] \\
       fs[get_file_content_def,all_lines_def,lines_of_def,Abbr`lines`] \\
       pairarg_tac \\ fs[] \\
-      `fnm = UStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
+      `ino = UStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
       rw[] \\
       fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF]
       )
