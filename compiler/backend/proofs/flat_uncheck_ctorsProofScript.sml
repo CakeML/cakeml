@@ -152,7 +152,9 @@ val do_opapp_correct = Q.prove (
   >- metis_tac [FST] >>
   fs [build_rec_env_merge, LIST_REL_APPEND_EQ] >>
   fs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  cheat);
+  qpat_x_assum`¬_`mp_tac
+  \\ simp[Once v_rel_cases]
+  \\ simp[LIST_REL_EL_EQN,UNCURRY]);
 
 val s_rel_store_assign = Q.prove (
   `s_rel s1 s1' ∧
