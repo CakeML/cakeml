@@ -43,22 +43,10 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
     ⇒
     v_rel (Vectorv vs) (Vectorv vs'))`;
 
-val (sv_rel_rules, sv_rel_ind, sv_rel_cases) = Hol_reln `
-  (!v v'.
-    v_rel v v'
-    ⇒
-    sv_rel (Refv v) (Refv v')) ∧
-  (!w.
-    sv_rel (W8array w) (W8array w)) ∧
-  (!vs vs'.
-    LIST_REL v_rel vs vs'
-    ⇒
-    sv_rel (Varray vs) (Varray vs'))`;
-
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!s s'.
     s.clock = s'.clock ∧
-    LIST_REL sv_rel s.refs s'.refs ∧
+    LIST_REL (sv_rel v_rel) s.refs s'.refs ∧
     s.ffi = s'.ffi ∧
     LIST_REL (OPTION_REL v_rel) s.globals s'.globals
     ⇒
@@ -72,18 +60,6 @@ val (env_rel_rules, env_rel_ind, env_rel_cases) = Hol_reln `
     ~env'.check_ctor
     ⇒
     env_rel env env')`;
-
-val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
-  (∀v v'.
-    f v v'
-    ⇒
-    result_rel f (Rval v) (Rval v')) ∧
-  (∀v v'.
-    v_rel v v'
-    ⇒
-    result_rel f (Rerr (Rraise v)) (Rerr (Rraise v'))) ∧
-  (!a.
-    result_rel f (Rerr (Rabort a)) (Rerr (Rabort a)))`;
 
 val alookup_env_rel = Q.prove (
   `!env env' n x.
@@ -111,7 +87,7 @@ val alookup_env_rel = Q.prove (
   first_x_assum (qspec_then `env' with v := t'` mp_tac) >>
   rw [env_rel_cases]);
 
-val v_rel_bool = Q.prove (
+val v_rel_bool = Q.store_thm("v_rel_bool[simp]",
   `!v b. v_rel (Boolv b) v ⇔ v = Boolv b`,
   rw [Once v_rel_cases, Boolv_def, libTheory.the_def]);
 
@@ -160,15 +136,14 @@ val s_rel_store_assign = Q.prove (
   `s_rel s1 s1' ∧
    v_rel v v' ∧
    store_assign l (Refv v) s1.refs = SOME v1 ⇒
-   ∃v1'. store_assign l (Refv v') s1'.refs = SOME v1'`,
+   ∃v1'. store_assign l (Refv v') s1'.refs = SOME v1' ∧
+         s_rel (s1 with refs := v1) (s1' with refs := v1')`,
   rw [semanticPrimitivesTheory.store_assign_def, s_rel_cases]
   >- metis_tac [LIST_REL_LENGTH] >>
-  fs [semanticPrimitivesTheory.store_v_same_type_def, LIST_REL_EL_EQN] >>
-  every_case_tac >>
-  fs [] >>
-  rw [] >>
+  fs [semanticPrimitivesTheory.store_v_same_type_def, LIST_REL_EL_EQN, EL_LUPDATE] >>
+  rw[] \\ every_case_tac >> fs [] >> rw [] >>
   res_tac >>
-  fs [sv_rel_cases] >>
+  fs[semanticPrimitivesPropsTheory.sv_rel_cases] >>
   rw [] >>
   fs []);
 
@@ -181,22 +156,22 @@ val s_rel_store_alloc = Q.prove (
 
 val s_rel_store_alloc = Q.prove (
   `s_rel s1 s1' ∧
-   sv_rel sv sv' ∧
+   sv_rel v_rel sv sv' ∧
    store_alloc sv s1.refs = (s,n) ⇒
    ∃s' n'. store_alloc sv' s1'.refs = (s',n')`,
-  rw [sv_rel_cases, semanticPrimitivesTheory.store_alloc_def, s_rel_cases]);
+  rw [semanticPrimitivesPropsTheory.sv_rel_cases, semanticPrimitivesTheory.store_alloc_def, s_rel_cases]);
 
 val s_rel_store_lookup = Q.prove (
   `s_rel s1 s1' ∧
    store_lookup n s1.refs = SOME sv ⇒
-   ∃sv'. store_lookup n s1'.refs = SOME sv' ∧ sv_rel sv sv'`,
+   ∃sv'. store_lookup n s1'.refs = SOME sv' ∧ sv_rel v_rel sv sv'`,
   rw [semanticPrimitivesTheory.store_lookup_def, s_rel_cases] >>
   fs [LIST_REL_EL_EQN] >>
   res_tac >>
-  fs [sv_rel_cases] >>
+  fs [semanticPrimitivesPropsTheory.sv_rel_cases] >>
   fs []);
 
-val v_rel_eqn = Q.prove (
+val v_rel_eqn = Q.store_thm("v_rel_eqn[simp]",
  `(!lit v. v_rel (flatSem$Litv lit) v ⇔ v = Litv lit) ∧
   (!lit v. v_rel v (flatSem$Litv lit) ⇔ v = Litv lit) ∧
   (!loc l. v_rel (Loc loc) l ⇔ l = Loc loc) ∧
@@ -212,14 +187,22 @@ val do_app_correct = Q.prove (
      LIST_REL v_rel vs vs' ∧
      s_rel s1 s1' ∧
      do_app s1 op vs = SOME (s2,r) ⇒
-     ∃r' s2'. do_app s1' op vs' = SOME (s2', r')`,
+     ∃r' s2'. do_app s1' op vs' = SOME (s2', r') ∧
+              s_rel s2 s2' ∧
+              result_rel v_rel v_rel r r'`,
   rw [do_app_cases] >>
   fs [] >>
   rw [] >>
-  fs [v_rel_eqn] >>
+  TRY (
+    qmatch_rename_tac`v_rel _ _`
+    \\ EVAL_TAC
+    \\ rw[Once v_rel_cases]
+    \\ EVAL_TAC
+    \\ rw[] \\ NO_TAC )
+  \\ fs [PULL_EXISTS] >>
   TRY (
     imp_res_tac s_rel_store_lookup >>
-    fs [sv_rel_cases] >>
+    fs [semanticPrimitivesPropsTheory.sv_rel_cases] >>
     NO_TAC)
   >- cheat
   >- metis_tac [s_rel_store_assign]
