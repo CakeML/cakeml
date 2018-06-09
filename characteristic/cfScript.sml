@@ -193,16 +193,13 @@ val app_one_naryClosure = Q.store_thm ("app_one_naryClosure",
      ns <> [] ==> xs <> [] ==>
      app (p:'ffi ffi_proj) (naryClosure env (n::ns) body) (x::xs) H Q ==>
      app (p:'ffi ffi_proj) (naryClosure (env with v := nsBind n x env.v) ns body) xs H Q`,
-  cheat
-(*
   rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
   rename1 `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
   Cases_on `xs` THENL [all_tac, rename1 `_::_::x''::xs`] \\
-
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
   Cases_on `r` \\ fs [POSTv_def, cond_def] \\
-  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
+  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2, evaluate_to_res_def] \\
   qpat_x_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
   fs [] \\ qpat_x_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
   fs [evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
@@ -212,35 +209,29 @@ val app_one_naryClosure = Q.store_thm ("app_one_naryClosure",
   rename1 `SPLIT3 (st2heap _ st') (h_f', h_k UNION h_g, h_g')` \\
   `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f', h_k, h_g UNION h_g')`
     by SPLIT_TAC \\
-  simp [PULL_EXISTS] \\ instantiate
-*)
-);
+  simp [PULL_EXISTS] \\ instantiate);
 
 val curried_naryClosure = Q.store_thm ("curried_naryClosure",
   `!env len ns body.
      ns <> [] ==> len = LENGTH ns ==>
      curried (p:'ffi ffi_proj) len (naryClosure env ns body)`,
-  cheat (*
   Induct_on `ns` \\ fs [naryClosure_def, naryFun_def] \\ Cases_on `ns`
-  THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def])
-  THEN1 (
-    rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
-    rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
-    fs [emp_def, cond_def, do_opapp_def, POSTv_def] \\
-    rename1 `SPLIT (st2heap _ st) ({}, h_k)` \\
-    `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, h_k, {})` by SPLIT_TAC \\
-    instantiate \\ rename1 `nsBind n x  _` \\
-    first_x_assum (qspecl_then [`env with v := nsBind n x env.v`, `body`]
-      assume_tac) \\
-    qmatch_assum_abbrev_tac `curried _ _ v` \\ qexists_tac `Val v` \\
-    qunabbrev_tac `v` \\ fs [] \\
-    fs [evaluate_ck_def, terminationTheory.evaluate_def] \\
-    fs [LENGTH_CONS, PULL_EXISTS] \\
-    qexists_tac `st.clock` \\ fs [with_clock_self] \\
-    fs [GSYM naryFun_def, GSYM naryClosure_def] \\ rpt strip_tac \\
-    irule app_one_naryClosure \\ fs []
-  ) *)
-);
+  THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def]) \\
+  rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
+  rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
+  fs [emp_def, cond_def, do_opapp_def, POSTv_def,evaluate_to_res_def] \\
+  rename1 `SPLIT (st2heap _ st) ({}, h_k)` \\
+  `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, h_k, {})` by SPLIT_TAC \\
+  instantiate \\ rename1 `nsBind n x  _` \\
+  first_x_assum (qspecl_then [`env with v := nsBind n x env.v`, `body`]
+    assume_tac) \\
+  qmatch_assum_abbrev_tac `curried _ _ v` \\ qexists_tac `Val v` \\
+  qunabbrev_tac `v` \\ fs [] \\
+  fs [evaluate_ck_def, terminationTheory.evaluate_def] \\
+  fs [LENGTH_CONS, PULL_EXISTS] \\
+  qexists_tac `st.clock` \\ fs [with_clock_self] \\
+  fs [GSYM naryFun_def, GSYM naryClosure_def] \\ rpt strip_tac \\
+  irule app_one_naryClosure \\ fs []);
 
 (* [naryRecclosure] *)
 val naryRecclosure_def = Define `
@@ -262,8 +253,7 @@ val do_opapp_naryRecclosure = Q.store_thm ("do_opapp_naryRecclosure",
       exp = naryFun ns body))`,
   rpt strip_tac \\ progress find_recfun_letrec_pull_params \\
   fs [naryRecclosure_def, do_opapp_def, letrec_pull_params_cancel] \\
-  eq_tac \\ every_case_tac \\ fs []
-);
+  eq_tac \\ every_case_tac \\ fs []);
 
 val app_one_naryRecclosure = Q.store_thm ("app_one_naryRecclosure",
   `!funs f n ns body x xs env H Q.
@@ -274,12 +264,12 @@ val app_one_naryRecclosure = Q.store_thm ("app_one_naryRecclosure",
         (naryClosure
           (env with v := nsBind n x (build_rec_env funs env env.v))
           ns body) xs H Q)`,
-  cheat (*
   rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
   rename1 `SOME (n::n'::ns, _)` \\ rename1 `app _ _ (x::x'::xs)` \\
   Cases_on `xs` THENL [all_tac, rename1 `_::_::x''::xs`] \\
   fs [app_def, naryClosure_def, naryFun_def] \\
-  fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
+  fs [app_basic_def,evaluate_to_res_def] \\
+  rpt strip_tac \\ first_x_assum progress \\
   Cases_on `r` \\ fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
   progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
   fs [naryFun_def, evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
@@ -288,8 +278,7 @@ val app_one_naryRecclosure = Q.store_thm ("app_one_naryRecclosure",
   rename1 `SPLIT3 (st2heap _ st') (h_f', h_k UNION h_g, h_g')` \\
   `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f', h_k, h_g UNION h_g')`
     by SPLIT_TAC \\
-  simp [PULL_EXISTS] \\ instantiate *)
-);
+  simp [PULL_EXISTS] \\ instantiate);
 
 val curried_naryRecclosure = Q.store_thm ("curried_naryRecclosure",
   `!env funs f len ns body.
@@ -297,32 +286,25 @@ val curried_naryRecclosure = Q.store_thm ("curried_naryRecclosure",
      find_recfun f (letrec_pull_params funs) = SOME (ns, body) ==>
      len = LENGTH ns ==>
      curried (p:'ffi ffi_proj) len (naryRecclosure env (letrec_pull_params funs) f)`,
-  cheat
-  (*
   rpt strip_tac \\ Cases_on `ns` \\ fs []
   THEN1 (
     fs [curried_def, semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] \\
     progress ALOOKUP_MEM \\ progress letrec_pull_params_nonnil_params \\ fs []
-  )
-  THEN1 (
-    rename1 `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
-    rename1 `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
-    fs [POSTv_def, emp_def, cond_def] \\
-    progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
-    Q.LIST_EXISTS_TAC [
-      `Val (naryClosure (env with v := nsBind n x (build_rec_env funs env env.v))
-                        (n'::ns) body)`,
-      `{}`, `{}`, `st`, `st.clock`
-    ] \\ simp [] \\ rpt strip_tac
-    THEN1 SPLIT_TAC
-    THEN1 (irule curried_naryClosure \\ fs [])
-    THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac [])
-    THEN1 (
-      fs [naryFun_def, naryClosure_def] \\
-      fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self]
-    )
-  ) *)
-);
+  ) \\
+  rename1 `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
+  rename1 `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
+  fs [POSTv_def, emp_def, cond_def, evaluate_to_res_def] \\
+  progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
+  Q.LIST_EXISTS_TAC [
+    `Val (naryClosure (env with v := nsBind n x (build_rec_env funs env env.v))
+                      (n'::ns) body)`,
+    `{}`, `{}`, `st`] \\ simp [] \\ rpt strip_tac
+  THEN1 SPLIT_TAC
+  THEN1 (irule curried_naryClosure \\ fs [])
+  THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac []) \\
+  qexists_tac `st.clock` \\
+  fs [naryFun_def, naryClosure_def] \\
+  fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self]);
 
 val letrec_pull_params_repack = Q.store_thm ("letrec_pull_params_repack",
   `!funs f env.
@@ -331,8 +313,7 @@ val letrec_pull_params_repack = Q.store_thm ("letrec_pull_params_repack",
   Induct \\ rpt strip_tac \\ fs [naryRecclosure_def, letrec_pull_params_def] \\
   rename1 `ftuple::_` \\ PairCases_on `ftuple` \\ rename1 `(f,n,body)` \\
   fs [letrec_pull_params_def] \\ every_case_tac \\ fs [naryFun_def] \\
-  fs [Fun_params_Fun_body_repack]
-);
+  fs [Fun_params_Fun_body_repack]);
 
 (** Extending environments *)
 
@@ -1067,8 +1048,7 @@ val app_basic_of_htriple_valid = Q.prove (
     htriple_valid (p:'ffi ffi_proj) body env H Q ==>
     app_basic (p:'ffi ffi_proj) clos x H Q`,
   fs [app_basic_def, htriple_valid_def] \\ rpt strip_tac \\
-  first_x_assum progress \\ instantiate \\ SPLIT_TAC
-);
+  first_x_assum progress \\ instantiate \\ SPLIT_TAC);
 
 val app_of_htriple_valid = Q.prove (
   `!ns xvs env body H Q.
@@ -1076,20 +1056,17 @@ val app_of_htriple_valid = Q.prove (
      LENGTH ns = LENGTH xvs ==>
      htriple_valid (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
      app (p:'ffi ffi_proj) (naryClosure env ns body) xvs H Q`,
-
   Induct \\ rpt strip_tac \\ fs [naryClosure_def, LENGTH_CONS] \\ rw [] \\
   rename1 `extend_env (n::ns) (xv::xvs) _` \\
   Cases_on `ns` \\ fs [LENGTH_NIL, LENGTH_CONS, PULL_EXISTS] \\ rw [] \\
   fs [extend_env_def, extend_env_v_def, naryFun_def, app_def]
-  THEN1 (irule app_basic_of_htriple_valid \\ fs [do_opapp_def])
-  THEN1 (
-    fs [app_basic_def] \\ rpt strip_tac \\ fs [do_opapp_def] \\
-    fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
-    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
-    fs [evaluate_ck_def, terminationTheory.evaluate_def, st2heap_clock] \\
-    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]
-  )
-);
+  THEN1 (irule app_basic_of_htriple_valid \\ fs [do_opapp_def]) \\
+  fs [app_basic_def] \\ rpt strip_tac \\ fs [do_opapp_def] \\
+  fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
+  Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_res_def] \\
+  fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
+  fs [evaluate_ck_def, terminationTheory.evaluate_def, st2heap_clock] \\
+  progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]);
 
 val app_rec_of_htriple_valid_aux = Q.prove (
   `!f body params xvs funs naryfuns env H Q fvs.
@@ -1103,7 +1080,6 @@ val app_rec_of_htriple_valid_aux = Q.prove (
        H Q ==>
      fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns ==>
      app (p:'ffi ffi_proj) (naryRecclosure env naryfuns f) xvs H Q`,
-
   Cases_on `params` \\ rpt strip_tac \\ rw [] \\
   fs [LENGTH_CONS] \\ rfs [] \\ qpat_x_assum `xvs = _` (K all_tac) \\
   rename1 `extend_env_rec _ _ (n::params) (xv::xvs) _` \\
@@ -1114,31 +1090,28 @@ val app_rec_of_htriple_valid_aux = Q.prove (
     irule app_basic_of_htriple_valid \\
     progress_then (fs o sing) do_opapp_naryRecclosure \\
     fs [naryFun_def, letrec_pull_params_names, build_rec_env_zip]
-  )
-  THEN1 (
-    rw [] \\ rename1 `extend_env_v (n'::params) (xv'::xvs) _` \\
-    fs [app_basic_def] \\ rpt strip_tac \\
-    progress_then (fs o sing) do_opapp_naryRecclosure \\
-    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
-    fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
-    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-    (* fixme *)
-    qexists_tac `naryClosure
-      (env with v := nsBind n xv (nsAppend (alist_to_ns (ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
-        MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
-            (letrec_pull_params funs)))) env.v))
-      (n'::params) body` \\
-    qexists_tac `st.clock` \\
-    strip_tac
-    THEN1 (irule app_of_htriple_valid \\ fs [extend_env_def])
-    THEN1 (
-      fs [naryFun_def, naryClosure_def] \\
-      fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self] \\
-      fs [letrec_pull_params_cancel, letrec_pull_params_names] \\
-      fs [build_rec_env_zip]
-    )
-  )
-);
+  ) \\
+  rw [] \\ rename1 `extend_env_v (n'::params) (xv'::xvs) _` \\
+  fs [app_basic_def] \\ rpt strip_tac \\
+  progress_then (fs o sing) do_opapp_naryRecclosure \\
+  Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_res_def] \\
+  fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
+  progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+  (* fixme *)
+  qexists_tac `naryClosure
+    (env with v := nsBind n xv (nsAppend (alist_to_ns (ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
+      MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
+          (letrec_pull_params funs)))) env.v))
+    (n'::params) body` \\
+  qexists_tac `st.clock` \\
+  rpt strip_tac \\
+  fs [letrec_pull_params_names |> Q.SPEC `x` |> Q.ISPECL [`I:'a->'a`]
+      |> SIMP_RULE std_ss []]
+  THEN1 (irule app_of_htriple_valid \\ fs [extend_env_def]) \\
+  fs [naryFun_def, naryClosure_def] \\
+  fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self] \\
+  fs [letrec_pull_params_cancel, letrec_pull_params_names] \\
+  fs [build_rec_env_zip]);
 
 val app_rec_of_htriple_valid = Q.prove (
   `!f params body funs xvs env H Q.
@@ -1156,8 +1129,7 @@ val app_rec_of_htriple_valid = Q.prove (
   rpt strip_tac \\ irule app_rec_of_htriple_valid_aux \\ rpt conj_tac
   THEN1 (fs [letrec_pull_params_names])
   THEN1 (qexists_tac `funs` \\ fs [])
-  THEN1 (instantiate \\ fs [letrec_pull_params_names])
-);
+  THEN1 (instantiate \\ fs [letrec_pull_params_names]));
 
 (*------------------------------------------------------------------*)
 (* Lemmas used in the soundness proof of FFI *)
