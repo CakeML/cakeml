@@ -188,6 +188,10 @@ val with_clock_self_eq = Q.prove(
   `!ck. (s with clock := ck) = s <=> ck = s.clock`,
   fs [state_component_equality]);
 
+val evaluate_to_heap_with_clock = prove(
+  ``evaluate_to_heap (st with clock := ck) = evaluate_to_heap st``,
+  fs [evaluate_to_heap_def,FUN_EQ_THM,evaluate_ck_def]);
+
 val app_one_naryClosure = Q.store_thm ("app_one_naryClosure",
   `!env n ns x xs body H Q.
      ns <> [] ==> xs <> [] ==>
@@ -199,17 +203,22 @@ val app_one_naryClosure = Q.store_thm ("app_one_naryClosure",
   fs [app_def, naryClosure_def, naryFun_def] \\
   fs [app_basic_def] \\ rpt strip_tac \\ first_x_assum progress \\
   Cases_on `r` \\ fs [POSTv_def, cond_def] \\
-  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2, evaluate_to_res_def] \\
+  pop_assum mp_tac \\
+  simp [Once evaluate_to_heap_def] \\
+  strip_tac \\ rveq \\ fs [] \\
+  fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2, PULL_EXISTS] \\
   qpat_x_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
   fs [] \\ qpat_x_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
   fs [evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
   fs [do_opapp_def] \\
   progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
-  fs [with_clock_with_clock] \\
-  rename1 `SPLIT3 (st2heap _ st') (h_f', h_k UNION h_g, h_g')` \\
-  `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f', h_k, h_g UNION h_g')`
+  once_rewrite_tac [CONJ_COMM] \\
+  asm_exists_tac \\ fs [evaluate_to_heap_with_clock] \\
+  asm_exists_tac \\ fs [evaluate_to_heap_with_clock] \\
+  rename1 `SPLIT3 heap1 (h_f', h_k UNION h_g, h_g')` \\
+  `SPLIT3 heap1 (h_f', h_k, h_g UNION h_g')`
     by SPLIT_TAC \\
-  simp [PULL_EXISTS] \\ instantiate);
+  asm_exists_tac \\ fs []);
 
 val curried_naryClosure = Q.store_thm ("curried_naryClosure",
   `!env len ns body.
@@ -219,7 +228,7 @@ val curried_naryClosure = Q.store_thm ("curried_naryClosure",
   THEN1 (once_rewrite_tac [ONE] \\ fs [Once curried_def]) \\
   rpt strip_tac \\ fs [naryClosure_def, naryFun_def] \\
   rw [Once curried_def] \\ fs [app_basic_def] \\ rpt strip_tac \\
-  fs [emp_def, cond_def, do_opapp_def, POSTv_def,evaluate_to_res_def] \\
+  fs [emp_def, cond_def, do_opapp_def, POSTv_def,evaluate_to_heap_def] \\
   rename1 `SPLIT (st2heap _ st) ({}, h_k)` \\
   `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, h_k, {})` by SPLIT_TAC \\
   instantiate \\ rename1 `nsBind n x  _` \\
@@ -268,17 +277,22 @@ val app_one_naryRecclosure = Q.store_thm ("app_one_naryRecclosure",
   rename1 `SOME (n::n'::ns, _)` \\ rename1 `app _ _ (x::x'::xs)` \\
   Cases_on `xs` THENL [all_tac, rename1 `_::_::x''::xs`] \\
   fs [app_def, naryClosure_def, naryFun_def] \\
-  fs [app_basic_def,evaluate_to_res_def] \\
+  fs [app_basic_def] \\
   rpt strip_tac \\ first_x_assum progress \\
   Cases_on `r` \\ fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2] \\
+  pop_assum mp_tac \\
+  simp [Once evaluate_to_heap_def] \\ rw [] \\ rveq \\ fs [] \\
   progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
   fs [naryFun_def, evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
   fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
-  fs [with_clock_with_clock] \\
-  rename1 `SPLIT3 (st2heap _ st') (h_f', h_k UNION h_g, h_g')` \\
-  `SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h_f', h_k, h_g UNION h_g')`
+  fs [evaluate_to_heap_with_clock] \\
+  once_rewrite_tac [CONJ_COMM] \\
+  asm_exists_tac \\ fs [evaluate_to_heap_with_clock] \\
+  asm_exists_tac \\ fs [evaluate_to_heap_with_clock] \\
+  rename1 `SPLIT3 heap1 (h_f', h_k UNION h_g, h_g')` \\
+  `SPLIT3 heap1 (h_f', h_k, h_g UNION h_g')`
     by SPLIT_TAC \\
-  simp [PULL_EXISTS] \\ instantiate);
+  asm_exists_tac \\ fs []);
 
 val curried_naryRecclosure = Q.store_thm ("curried_naryRecclosure",
   `!env funs f len ns body.
@@ -293,16 +307,16 @@ val curried_naryRecclosure = Q.store_thm ("curried_naryRecclosure",
   ) \\
   rename1 `n::ns` \\ Cases_on `ns` \\ fs [Once curried_def] \\
   rename1 `n::n'::ns` \\ strip_tac \\ fs [app_basic_def] \\ rpt strip_tac \\
-  fs [POSTv_def, emp_def, cond_def, evaluate_to_res_def] \\
+  fs [POSTv_def, emp_def, cond_def, evaluate_to_heap_def] \\
   progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
-  Q.LIST_EXISTS_TAC [
+  qexists_tac
     `Val (naryClosure (env with v := nsBind n x (build_rec_env funs env env.v))
-                      (n'::ns) body)`,
-    `{}`, `{}`, `st`] \\ simp [] \\ rpt strip_tac
+                      (n'::ns) body)` \\
+  simp [PULL_EXISTS] \\
+  Q.LIST_EXISTS_TAC [`{}`, `st.clock`, `st`] \\ simp [] \\ rpt strip_tac
   THEN1 SPLIT_TAC
   THEN1 (irule curried_naryClosure \\ fs [])
   THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac []) \\
-  qexists_tac `st.clock` \\
   fs [naryFun_def, naryClosure_def] \\
   fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self]);
 
@@ -970,9 +984,9 @@ val htriple_valid_def = Define `
     !st h_i h_k.
       SPLIT (st2heap p st) (h_i, h_k) ==>
       H h_i ==>
-      ?r st' h_f h_g.
-        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
-        Q r h_f /\ evaluate_to_res st env e st' r`;
+      ?r h_f h_g heap.
+        SPLIT3 heap (h_f, h_k, h_g) /\ Q r h_f /\
+        evaluate_to_heap st env e p heap r`;
 
 (* Not used, but interesting: app_basic as an instance of htriple_valid *)
 val app_basic_iff_htriple_valid = Q.store_thm("app_basic_iff_htriple_valid",
@@ -1023,9 +1037,8 @@ val sound_local = Q.store_thm ("sound_local",
   `DISJOINT h'_f h'_k` by SPLIT_TAC \\
   `?h_f h''_g. Q r h_f /\ H_g h''_g /\ SPLIT (h'_f UNION h'_k) (h_f, h''_g)` by
     metis_tac [star_split] \\
-  Q.LIST_EXISTS_TAC [`r`, `st'`, `h_f`, `h'_g UNION h''_g`] \\ fs [] \\
-  SPLIT_TAC
-);
+  Q.LIST_EXISTS_TAC [`r`, `h_f`, `h'_g UNION h''_g`, `heap`] \\ fs [] \\
+  SPLIT_TAC);
 
 val sound_false = Q.store_thm ("sound_false",
   `!e. sound (p:'ffi ffi_proj) e (\env H Q. F)`,
@@ -1063,7 +1076,7 @@ val app_of_htriple_valid = Q.prove (
   THEN1 (irule app_basic_of_htriple_valid \\ fs [do_opapp_def]) \\
   fs [app_basic_def] \\ rpt strip_tac \\ fs [do_opapp_def] \\
   fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
-  Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_res_def] \\
+  Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_heap_def] \\
   fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
   fs [evaluate_ck_def, terminationTheory.evaluate_def, st2heap_clock] \\
   progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]);
@@ -1094,7 +1107,7 @@ val app_rec_of_htriple_valid_aux = Q.prove (
   rw [] \\ rename1 `extend_env_v (n'::params) (xv'::xvs) _` \\
   fs [app_basic_def] \\ rpt strip_tac \\
   progress_then (fs o sing) do_opapp_naryRecclosure \\
-  Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_res_def] \\
+  Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_heap_def] \\
   fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
   progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
   (* fixme *)

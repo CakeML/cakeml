@@ -22,33 +22,41 @@ val io_prefix_def = Define `
     (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
     s1.ffi.io_events ≼ s2.ffi.io_events`;
 
-val evaluate_to_res_def = Define `
-  evaluate_to_res st env exp st' (r:res) <=>
+val io2heap_def = Define `
+  io2heap (io_events : io_event llist) =
+    (* type of heap needs to be tweaked before this function can be defined *)
+    ARB:heap`;
+
+val evaluate_to_heap_def = Define `
+  evaluate_to_heap st env exp p heap (r:res) <=>
     case r of
-    | Val v => (∃ck. evaluate_ck ck st env [exp] = (st', Rval [v]))
-    | Exn e => (∃ck. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)))
-    | Div =>   ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num).
+    | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
+                         st2heap p st' = heap)
+    | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
+                         st2heap p st' = heap)
+    | Div =>   ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num) io'.
+                 (* the heap is a representation of the final io_events *)
+                 io2heap io' = heap /\
                  (* clocks increase *)
                  (∀i. cks i < cks (i+1)) /\
                  (* all clocks in the sequence produce timeout and a state in sts *)
                  (∀i. evaluate_ck (cks i) st env [exp] =
                         (sts i, Rerr (Rabort Rtimeout_error))) /\
-                 (* REMOVE: relation rel relates each state in the sts sequence *)
-                 (* REMOVE: (!i. rel (sts i) (sts (i+1))) /\ *)
                  (* the limit state st' approximates all states in the sequence *)
-                 (∀i. io_prefix (sts i) st') /\
-                 (* if there is a maximal io_event list, then st' <= to it *)
-                 ∀j. (∀i. io_prefix (sts i) (sts j)) ==> io_prefix st' (sts j)`
+                 (∀i. LPREFIX (fromList (sts i).ffi.io_events) io') /\
+                 (* if there is a maximal io_event list, then io' is that list *)
+                 ∀j. (∀i. (sts i).ffi.io_events ≼ (sts j).ffi.io_events) ==>
+                     io' = fromList (sts j).ffi.io_events`
 
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
-    !(h_i: heap) (h_k: heap) (st: 'ffi state).
+    !(h_i: heap) (h_k: heap) (st: 'ffi semanticPrimitives$state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state).
-        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
+      ?env exp (r: res) (h_f: heap) (h_g: heap) heap.
+        SPLIT3 heap (h_f, h_k, h_g) /\
         do_opapp [f;x] = SOME (env, exp) /\
-        Q r h_f /\ evaluate_to_res st env exp st' r`;
+        Q r h_f /\ evaluate_to_heap st env exp p heap r`;
 
 val app_basic_local = Q.prove (
   `!f x. is_local (app_basic p f x)`,
@@ -614,7 +622,7 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
   \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list,
-         evaluate_to_res_def]
+         evaluate_to_heap_def]
   \\ rw []
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
@@ -645,7 +653,7 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
 
 val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
   `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒ Arrow a b f v`,
-  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1,evaluate_to_res_def] \\
+  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1,evaluate_to_heap_def] \\
   first_x_assum drule \\
   fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
   fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\
