@@ -17,18 +17,31 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 val evaluate_ck_def = Define `
   evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
 
+val evaluate_to_res_def = Define `
+  evaluate_to_res st env exp st' (r:res) <=>
+    case r of
+    | Val v => (?ck. evaluate_ck ck st env [exp] = (st', Rval [v]))
+    | Exn e => (?ck. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)))
+    | Div =>   ?rel (sts: num->'ffi state) (cks: num->num).
+                 (* clocks increase *)
+                 (!i. cks i < cks (i+1)) /\
+                 (* all clocks in the sequence produce timeout and a state in sts *)
+                 (!i. evaluate_ck (cks i) st env [exp] =
+                        (sts i, Rerr (Rabort Rtimeout_error))) /\
+                 (* relation rel relates each state in the sts sequence *)
+                 (!i. rel (sts i) (sts (i+1))) /\
+                 (* the limit state st' approximates all states in the sequence *)
+                 (!i. rel (sts i) st')`
+
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state) ck.
+      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state).
         SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
-        Q r h_f /\
         do_opapp [f;x] = SOME (env, exp) /\
-        case r of
-          | Val v => evaluate_ck ck st env [exp] = (st', Rval [v])
-          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
+        Q r h_f /\ evaluate_to_res st env exp st' r`;
 
 val app_basic_local = Q.prove (
   `!f x. is_local (app_basic p f x)`,
@@ -108,12 +121,12 @@ val app_wgframe = Q.store_thm ("app_wgframe",
   Induct_on `xs` THEN1 (fs [app_def]) \\ rpt strip_tac \\ rename1 `x::xs` \\
   Cases_on `xs = []`
   THEN1 (
-    fs [app_def] \\ irule local_frame_gc \\ conj_tac
+    fs [app_def] \\ irule local_frame_gc \\ rpt conj_tac
     THEN1 fs [app_basic_local] \\
     instantiate
   )
   THEN1 (
-    fs [app_ge_2_unfold] \\ irule local_frame \\ conj_tac
+    fs [app_ge_2_unfold] \\ irule local_frame \\ rpt conj_tac
     THEN1 (fs [app_basic_local]) \\
     instantiate \\ simp [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `r` \\
     Cases_on `r` \\ simp [POSTv_def] \\ hpull \\ hsimpl \\
@@ -247,6 +260,7 @@ val evaluate_list_raise_SING = Q.prove(
                 SIMP_RULE std_ss [Once bigStepTheory.evaluate_cases])
   \\ fs []);
 
+(*
 val app_basic_rel = Q.store_thm("app_basic_rel",
   `app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi state).
@@ -277,6 +291,7 @@ val app_basic_rel = Q.store_thm("app_basic_rel",
    (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
+*)
 
 (* TODO: move to appropriate locations *)
 
@@ -591,7 +606,8 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
       app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)`,
   fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
-  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
+  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list,
+         evaluate_to_res_def]
   \\ rw []
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
@@ -622,7 +638,7 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
 
 val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
   `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒ Arrow a b f v`,
-  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1] \\
+  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1,evaluate_to_res_def] \\
   first_x_assum drule \\
   fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
   fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\

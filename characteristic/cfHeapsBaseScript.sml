@@ -51,7 +51,8 @@ val _ = type_abbrev("hprop", ``:heap -> bool``)
 
 val _ = Datatype `
   res = Val v
-      | Exn v`
+      | Exn v
+      | Div `
 
 val _ = type_abbrev("ffi_proj",
   ``: ('ffi -> (string |-> ffi)) #
@@ -106,19 +107,29 @@ val POSTv_def = new_binder_definition("POSTv_def",
   ``($POSTv) (Qv: v -> hprop) =
       \r. case r of
             | Val v => Qv v
-            | Exn e => cond F``)
+            | Exn e => cond F
+            | Div   => cond F``)
 
 val POSTe_def = new_binder_definition("POSTe_def",
   ``($POSTe) (Qe: v -> hprop) =
       \r. case r of
             | Val v => cond F
-            | Exn e => Qe e``)
+            | Exn e => Qe e
+            | Div   => cond F``)
 
 val POST_def = Define `
   POST (Qv: v -> hprop) (Qe: v -> hprop) = \r.
     case r of
      | Val v => Qv v
-     | Exn e => Qe e`
+     | Exn e => Qe e
+     | Div   => cond F`
+
+val POSTD_def = Define `
+  POSTD (Qv: v -> hprop) (Qe: v -> hprop) Qd = \r.
+    case r of
+     | Val v => Qv v
+     | Exn e => Qe e
+     | Div   => Qd`
 
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
@@ -440,7 +451,8 @@ val SEP_IMPPOST_unfold = Q.store_thm ("SEP_IMPPOST_unfold",
   `!Q1 Q2.
       (Q1 ==+> Q2) <=>
       (!v. Q1 (Val v) ==>> Q2 (Val v)) /\
-      (!v. Q1 (Exn v) ==>> Q2 (Exn v))`,
+      (!v. Q1 (Exn v) ==>> Q2 (Exn v)) /\
+      (!v. Q1 Div     ==>> Q2 Div)`,
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ fs [SEP_IMPPOST_def] \\
   Cases \\ fs []
 );
@@ -543,6 +555,11 @@ val POST_Exn = Q.store_thm ("POST_Exn[simp]",
   `!Qv Qe v. POST Qv Qe (Exn v) = Qe v`,
   fs [POST_def]
 );
+
+val POSTD_eq_POST = Q.store_thm ("POSTD_eq_POST[simp]",
+  `!Qv Qe. POSTD Qv Qe (cond F) = POST Qv Qe`,
+  fs [POST_def,POSTD_def] \\ rw [] \\ fs [FUN_EQ_THM]
+  \\ Cases \\ fs []);
 
 (* other lemmas about POSTv *)
 
