@@ -17,21 +17,28 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 val evaluate_ck_def = Define `
   evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
 
+val io_prefix_def = Define `
+  io_prefix (s1:'ffi semanticPrimitives$state) (s2:'ffi semanticPrimitives$state) ⇔
+    (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
+    s1.ffi.io_events ≼ s2.ffi.io_events`;
+
 val evaluate_to_res_def = Define `
   evaluate_to_res st env exp st' (r:res) <=>
     case r of
-    | Val v => (?ck. evaluate_ck ck st env [exp] = (st', Rval [v]))
-    | Exn e => (?ck. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)))
-    | Div =>   ?rel (sts: num->'ffi state) (cks: num->num).
+    | Val v => (∃ck. evaluate_ck ck st env [exp] = (st', Rval [v]))
+    | Exn e => (∃ck. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)))
+    | Div =>   ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num).
                  (* clocks increase *)
-                 (!i. cks i < cks (i+1)) /\
+                 (∀i. cks i < cks (i+1)) /\
                  (* all clocks in the sequence produce timeout and a state in sts *)
-                 (!i. evaluate_ck (cks i) st env [exp] =
+                 (∀i. evaluate_ck (cks i) st env [exp] =
                         (sts i, Rerr (Rabort Rtimeout_error))) /\
-                 (* relation rel relates each state in the sts sequence *)
-                 (!i. rel (sts i) (sts (i+1))) /\
+                 (* REMOVE: relation rel relates each state in the sts sequence *)
+                 (* REMOVE: (!i. rel (sts i) (sts (i+1))) /\ *)
                  (* the limit state st' approximates all states in the sequence *)
-                 (!i. rel (sts i) st')`
+                 (∀i. io_prefix (sts i) st') /\
+                 (* if there is a maximal io_event list, then st' <= to it *)
+                 ∀j. (∀i. io_prefix (sts i) (sts j)) ==> io_prefix st' (sts j)`
 
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
