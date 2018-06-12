@@ -174,6 +174,9 @@ val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
 val Boolv_11 = Q.store_thm("Boolv_11[simp]",`Boolv b1 = Boolv b2 ⇔ (b1 = b2)`,srw_tac[][Boolv_def]);
 *)
 
+val Unitv_simp = save_thm("Unitv_simp[simp]",
+  CONJ (EVAL``Unitv T``) (EVAL ``Unitv F``));
+
 val evaluate_length = Q.store_thm("evaluate_length",
   `(∀env (s:'ffi flatSem$state) ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls) ∧
@@ -259,16 +262,16 @@ val evaluate_decs_append_err = Q.store_thm ("evaluate_decs_append_err",
   metis_tac [PAIR_EQ]);
 
 val do_app_add_to_clock = Q.prove (
-  `do_app s op es = SOME (t, r)
+  `do_app cc s op es = SOME (t, r)
    ==>
-   do_app (s with clock := s.clock + k) op es =
+   do_app cc (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)`,
   rw [do_app_cases]);
 
 val do_app_add_to_clock_NONE = Q.prove (
-  `do_app s op es = NONE
+  `do_app cc s op es = NONE
    ==>
-   do_app (s with clock := s.clock + k) op es = NONE`,
+   do_app cc (s with clock := s.clock + k) op es = NONE`,
   Cases_on `op` \\ rw [do_app_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
@@ -367,7 +370,7 @@ val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
 *)
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
-  `do_app (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
+  `do_app cc (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ t.ffi = s.ffi)`,
   rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]

@@ -733,7 +733,7 @@ val do_app = Q.prove (
        SND s2 = s2_i1.ffi ∧
        s1_i1.globals = s2_i1.globals ∧
        result_rel v_rel genv r r_i1 ∧
-       do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
+       do_app T s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
@@ -1724,6 +1724,7 @@ val compile_exp_correct' = Q.prove (
       Cases_on `op` >>
       simp [] >>
       fs []) >>
+    `env_i1.check_ctor` by fs[env_all_rel_cases] \\ fs[] >>
     rw [] >>
     imp_res_tac do_app_const >>
     rw []
@@ -2311,7 +2312,7 @@ val env_c_update = Q.prove (
 val evaluate_recfuns = Q.prove (
   `!env s funs idx t1 t2.
     (∀n. idx.vidx ≤ n ∧ n < LENGTH s.globals ⇒ EL n s.globals = NONE) ∧
-    LENGTH funs + idx.vidx ≤ LENGTH s.globals
+    LENGTH funs + idx.vidx ≤ LENGTH s.globals ∧ env.check_ctor
     ⇒
     flatSem$evaluate_decs env s
       (MAPi (\i (f, x, e).
@@ -2340,7 +2341,7 @@ val evaluate_recfuns = Q.prove (
   >- rw [EL_LUPDATE] >>
   simp [] >>
   strip_tac >>
-  fs [combinTheory.o_DEF, ADD1] >>
+  fs [combinTheory.o_DEF, ADD1, Unitv_def] >>
   rw [state_component_equality] >>
   qmatch_abbrev_tac `l1 = l2` >>
   `LENGTH l1 = LENGTH l2` by
@@ -3183,10 +3184,11 @@ val compile_decs_correct' = Q.prove (
       `LENGTH funs = LENGTH cfuns`
       by rw [Abbr`cfuns`, compile_funs_map] >>
       fs [] >>
+      `env1.check_ctor` by fs[Abbr`env1`] >>
       imp_res_tac evaluate_recfuns >>
       fs [] >>
-      qmatch_assum_abbrev_tac `∀t2 t1 env.
-         evaluate_decs env _
+      qmatch_assum_abbrev_tac `∀t2 t1.
+         evaluate_decs env1 _
            (MAPi
               (λi (f,x,e).
                  Dlet

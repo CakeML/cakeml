@@ -53,6 +53,9 @@ val list_id_def = Define `
 val Boolv_def = Define`
   Boolv b = Conv (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
 
+val Unitv_def = Define`
+  Unitv check_ctor = Conv (if check_ctor then NONE else SOME (0,NONE)) []`;
+
 val bind_exn_v_def = Define `
   bind_exn_v = Conv (SOME (bind_tag, NONE)) []`;
 
@@ -179,7 +182,7 @@ val vs_to_string_def = Define`
   (vs_to_string _ = NONE)`;
 
 val do_app_def = Define `
-  do_app s op (vs:flatSem$v list) =
+  do_app check_ctor s op (vs:flatSem$v list) =
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
@@ -208,7 +211,7 @@ val do_app_def = Define `
      | Eq_val b => SOME (s, Rval (Boolv b)))
   | (Opassign, [Loc lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
-     | SOME s' => SOME (s with refs := s', Rval (Conv NONE []))
+     | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor))
      | NONE => NONE)
   | (Opref, [v]) =>
     let (s',n) = (store_alloc (Refv v) s.refs) in
@@ -254,7 +257,7 @@ val do_app_def = Define `
            else
              (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
               | NONE => NONE
-              | SOME s' => SOME (s with refs := s', Rval (Conv NONE [])))
+              | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
      | _ => NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME (s, Rval (Litv (do_word_from_int wz i)))
@@ -275,7 +278,7 @@ val do_app_def = Define `
             NONE => SOME (s, Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
-              SOME s' =>  SOME (s with refs := s', Rval (Conv NONE []))
+              SOME s' =>  SOME (s with refs := s', Rval (Unitv check_ctor))
             | _ => NONE))
       | _ => NONE)
   | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
@@ -294,7 +297,7 @@ val do_app_def = Define `
           NONE => SOME (s, Rerr (Rraise subscript_exn_v))
         | SOME ws =>
             (case store_assign dst (W8array ws) s.refs of
-              SOME s' => SOME (s with refs := s', Rval (Conv NONE []))
+              SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor))
             | _ => NONE))
     | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
@@ -384,28 +387,28 @@ val do_app_def = Define `
          else
            (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
             | NONE => NONE
-            | SOME s' => SOME (s with refs := s', Rval (Conv NONE [])))
+            | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
      | _ => NONE)
   | (ListAppend, [x1; x2]) =>
     (case (v_to_list x1, v_to_list x2) of
      | (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-       SOME (s, Rval (Conv NONE []))
+       SOME (s, Rval (Unitv check_ctor))
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
         | (t', ws') =>
           (case store_assign lnum (W8array ws') s.refs of
-           | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval (Conv NONE []))
+           | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval (Unitv check_ctor))
            | NONE => NONE))
      | _ => NONE)
   | (GlobalVarAlloc n, []) =>
-    SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Conv NONE []))
+    SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Unitv check_ctor))
   | (GlobalVarInit n, [v]) =>
     if n < LENGTH s.globals ∧ IS_NONE (EL n s.globals) then
-      SOME (s with globals := LUPDATE (SOME v) n s.globals, Rval (Conv NONE []))
+      SOME (s with globals := LUPDATE (SOME v) n s.globals, Rval (Unitv check_ctor))
     else
       NONE
   | (GlobalVarLookup n, []) =>
@@ -545,7 +548,7 @@ val evaluate_def = tDefine "evaluate"`
               evaluate (env with v := env') (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
-       (case (do_app s op (REVERSE vs)) of
+       (case (do_app env.check_ctor s op (REVERSE vs)) of
         | NONE => (s, Rerr (Rabort Rtype_error))
         | SOME (s',r) => (s', list_result r))
    | res => res) ∧
@@ -621,13 +624,13 @@ val pair_lam_lem = Q.prove (
  srw_tac[][]);
 
 val do_app_cases = save_thm ("do_app_cases",
-``do_app st op vs = SOME (st',v)`` |>
+``do_app cc st op vs = SOME (st',v)`` |>
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
 val do_app_const = Q.store_thm ("do_app_const",
-  `do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock`,
+  `do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock`,
   rw [do_app_cases] >>
   rw [] >>
   rfs []);
