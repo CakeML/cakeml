@@ -272,6 +272,13 @@ val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
   \\ fs [list_to_v_def, ok_ctor_def]
   \\ metis_tac []);
 
+val v_rel_Unitv = Q.store_thm("v_rel_Unitv[simp]",
+  `v_rel ctors (Unitv cc) (Unitv cc)`,
+  EVAL_TAC
+  \\ rw[v_rel_cases]
+  \\ EVAL_TAC
+  \\ rw[]);
+
 val nv_rel_ALOOKUP_v_rel = Q.store_thm("nv_rel_ALOOKUP_v_rel",
   `!xs ys ctors n x.
      nv_rel ctors xs ys /\
@@ -397,7 +404,7 @@ val store_v_same_type_cases = Q.prove (
   rpt conj_tac \\ gen_tac \\ Cases \\ rw [store_v_same_type_def]);
 
 val do_app_thm = Q.store_thm("do_app_thm",
-  `do_app s1 op vs1 = SOME (t1, r1) /\
+  `do_app cc s1 op vs1 = SOME (t1, r1) /\
    init_ctors SUBMAP ctors /\
    state_rel ctors s1 s2 /\
    LIST_REL (v_rel ctors) vs1 vs2
@@ -405,7 +412,7 @@ val do_app_thm = Q.store_thm("do_app_thm",
    ?t2 r2.
      result_rel v_rel ctors r1 r2 /\
      state_rel ctors t1 t2 /\
-     do_app s2 op vs2 = SOME (t2, r2)`,
+     do_app cc s2 op vs2 = SOME (t2, r2)`,
   rpt strip_tac \\ qhdtm_x_assum `do_app` mp_tac
   \\ Cases_on `op = Opb Lt \/ op = Opb Gt \/ op = Opb Leq \/ op = Opb Geq \/
                op = Opn Plus \/ op = Opn Minus \/ op = Opn Times \/
