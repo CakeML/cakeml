@@ -285,13 +285,17 @@ val findVglobals_list_to_v_APPEND = Q.store_thm("findVglobals_list_to_v_APPEND",
     metis_tac[findVglobals_list_to_v]
 );
 
+val findVglobals_Unitv = Q.store_thm("findVglobals_Unitv[simp]",
+  `findVglobals (Unitv cc) = LN`,
+  EVAL_TAC);
+
 val do_app_SOME_flat_state_rel = Q.store_thm("do_app_SOME_flat_state_rel",
     `∀ reachable state removed_state op l new_state result new_removed_state.
         flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧
         domain(findVglobalsL l) ⊆ domain reachable ∧ domain (findLookups (App tra op [])) ⊆ domain reachable
-        ⇒ do_app state op l = SOME (new_state, result) ∧ result ≠ Rerr (Rabort Rtype_error)
+        ⇒ do_app cc state op l = SOME (new_state, result) ∧ result ≠ Rerr (Rabort Rtype_error)
             ⇒ ∃ new_removed_state . flat_state_rel reachable new_state new_removed_state ∧
-                do_app removed_state op l = SOME (new_removed_state, result) ∧
+                do_app cc removed_state op l = SOME (new_removed_state, result) ∧
                 domain (findSemPrimResGlobals (list_result result)) ⊆ domain reachable`,
 
     rw[] >> qpat_x_assum `flat_state_rel _ _ _` mp_tac >> simp[Once flat_state_rel_def] >> strip_tac >>
@@ -498,9 +502,9 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm("evaluate_sing_keep
                         domain (findLookupsL (MAP (SND o SND) l0))` by metis_tac[findVglobals_MAP_Recclosure] >>
                         fs[SUBSET_DEF, EXTENSION] >> metis_tac[]))
                 )
-            >- (Cases_on `do_app q op (REVERSE a)` >> fs[] >> PairCases_on `x` >> fs[] >> rveq >>
-                drule do_app_SOME_flat_state_rel >>  fs[findLookups_def] >> disch_then drule >> strip_tac >>
-                pop_assum (qspecl_then [`REVERSE a`, `new_state`, `x1`] mp_tac) >> simp[Once findVglobalsL_REVERSE] >>
+            >- (Cases_on `do_app env.check_ctor q op (REVERSE a)` >> fs[] >> PairCases_on `x` >> fs[] >> rveq >>
+                drule (GEN_ALL do_app_SOME_flat_state_rel) >>  fs[findLookups_def] >> disch_then drule >> strip_tac >>
+                pop_assum (qspecl_then [`env.check_ctor`, `REVERSE a`, `new_state`, `x1`] mp_tac) >> simp[Once findVglobalsL_REVERSE] >>
                 fs[] >> strip_tac >>
                 `domain (case dest_GlobalVarLookup op of NONE => LN | SOME n => insert n () LN) ⊆ domain reachable`
                     by (Cases_on `dest_GlobalVarLookup op` >> fs[]) >> fs[findSemPrimResGlobals_def] >> rfs[]))
