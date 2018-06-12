@@ -1077,7 +1077,6 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
         rw [SUBSET_DEF] >>
         Cases_on `MEM x l` >> fs [SUBSET_DEF]
     )
-
     (* EndLive *)
     THEN1 (
         Cases_on `check_partial_col f l live flive` >> fs [] >>
@@ -1095,7 +1094,6 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
           fs [lookup_NONE_domain]
         )
     )
-
     (* Branch *)
     THEN1 (
         Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
@@ -1127,7 +1125,6 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
             fs [SUBSET_DEF]
         )
     )
-
     (* Seq *)
     THEN1 (
         Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
@@ -1150,6 +1147,70 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
         `?flivein'. check_live_tree f lt (get_live_backward lt' liveout') flivein = SOME (get_live_backward lt (get_live_backward lt' liveout'), flivein')` by metis_tac [] >>
         rw []
     )
+)
+
+val fix_domination_fixes_domination = Q.store_thm("fix_domination_fixes_domination",
+    `!lt. domain (get_live_backward (fix_domination lt) LN) = EMPTY`,
+    rw [get_live_backward_def, fix_domination_def, domain_numset_list_delete] >>
+    rw [EXTENSION, MEM_MAP, MEM_toAList, EXISTS_PROD, domain_lookup]
+)
+
+val fix_domination_check_live_tree = Q.store_thm("fix_domination_check_live_tree",
+    `!f lt liveout fliveout.
+    check_live_tree f (fix_domination lt) LN LN = SOME (liveout, fliveout) ==>
+    ?liveout' fliveout'. check_live_tree f lt LN LN = SOME (liveout', fliveout')`,
+
+    rw [check_live_tree_def, fix_domination_def] >>
+    Cases_on `check_live_tree f lt LN LN` >> fs [] >>
+    Cases_on `x` >> fs []
+)
+
+val fix_domination_check_endlive_fixed = Q.store_thm("fix_domination_check_endlive_fixed",
+    `!lt liveout.
+    check_endlive_fixed lt LN = (T, liveout) ==>
+    ?liveout'. check_endlive_fixed (fix_domination lt) LN = (T, liveout')`,
+    rw [check_endlive_fixed_def, fix_domination_def]
+)
+
+val fix_live_tree_fixes_everything = Q.store_thm("fix_live_tree_fixes_everything",
+    `!lt.
+    is_subset (get_live_backward (fix_live_tree lt) LN) LN /\
+    ?liveout. check_endlive_fixed (fix_live_tree lt) LN = (T, liveout)`,
+
+    rw [is_subset_def, fix_live_tree_def]
+    THEN1 rw [fix_domination_fixes_domination]
+    THEN1 (
+        Cases_on `fix_endlive lt LN` >> fs [] >>
+        metis_tac [fix_domination_check_endlive_fixed, check_endlive_fixed_fix_endlive]
+    )
+)
+
+val fix_live_tree_check_live_tree = Q.store_thm("fix_live_tree_check_live_tree",
+    `!f lt liveout fliveout.
+    check_live_tree f (fix_live_tree lt) LN LN = SOME (liveout, fliveout) ==>
+    ?liveout' fliveout'. check_live_tree f lt LN LN = SOME (liveout', fliveout')`,
+
+    rw [fix_live_tree_def] >>
+    Cases_on `fix_endlive lt LN` >> fs [] >>
+    `?a b. check_live_tree f q LN LN = SOME (a, b)` by metis_tac [fix_domination_check_live_tree] >>
+    qspecl_then [`lt`, `q`, `LN`, `r`, `LN`, `LN`, `a`, `b`, `f`] assume_tac fix_endlive_check_live_tree >>
+    fs [] >>
+    metis_tac []
+)
+
+val fix_live_tree_check_live_tree_forward_backward = Q.store_thm("fix_live_tree_check_live_tree_forward_backward",
+    `!f lt liveout fliveout.
+    check_live_tree_forward f (fix_live_tree lt) LN LN = SOME (liveout, fliveout) ==>
+    ?livein flivein. check_live_tree f lt LN LN = SOME (livein, flivein)`,
+
+    rw [] >>
+    sg `?livein flivein. check_live_tree f (fix_live_tree lt) LN LN = SOME (livein, flivein)` THEN1 (
+      `is_subset (get_live_backward (fix_live_tree lt) LN) (LN:num_set) /\ ?bla. check_endlive_fixed (fix_live_tree lt) LN = (T, bla)` by rw [fix_live_tree_fixes_everything] >>
+      qspecl_then [`f`, `LN`, `LN`, `fix_live_tree lt`, `liveout`, `fliveout`, `LN`, `LN`, `bla`] assume_tac check_live_tree_forward_backward >>
+      fs [] >>
+      metis_tac []
+    ) >>
+    metis_tac [fix_live_tree_check_live_tree]
 )
 
 val _ = export_theory ();

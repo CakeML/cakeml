@@ -163,5 +163,16 @@ val get_live_backward_def = Define`
         get_live_backward lt1 (get_live_backward lt2 live)
     )`
 
+val fix_domination_def = Define`
+    fix_domination lt =
+        let live = get_live_backward lt LN in
+        if live = LN then lt
+        else Seq (StartLive (MAP FST (toAList live))) lt
+`
+
+val fix_live_tree_def = Define`
+    fix_live_tree lt = fix_domination (FST (fix_endlive lt LN))
+`
+
 
 val _ = export_theory ();
