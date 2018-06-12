@@ -383,6 +383,13 @@ val do_app_def = Define `
                  SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
                | NONE => NONE))
         | _ => NONE)
+    | (Op (GlobalVarAlloc n), []) =>
+      SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Conv tuple_tag []))
+    | (Op (GlobalVarLookup n), []) =>
+      if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals) then
+        SOME (s, Rval (THE (EL n s.globals)))
+      else
+        NONE
     | (Op ListAppend, [x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
           (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
@@ -552,8 +559,9 @@ val evaluate_ind = theorem"evaluate_ind"
 
 val do_app_clock = Q.store_thm("do_app_clock",
   `patSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock`,
-  rpt strip_tac THEN fs[do_app_cases] >> every_case_tac >>
-  fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def] >> rw[]);
+  rpt strip_tac THEN fs[do_app_cases] >> rw[] \\
+  fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
+  \\ rw[] \\ rfs[]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)`,

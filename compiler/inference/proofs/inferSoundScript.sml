@@ -705,7 +705,7 @@ val check_tscheme_inst_sound = Q.store_thm ("check_tscheme_inst_sound",
     irule check_t_to_check_freevars >>
     irule t_walkstar_check >>
     simp [check_t_def, FDOM_FUPDATE_LIST]
-    >- (
+    >> conj_tac >- (
       fs [check_s_def, fdom_fupdate_list2] >>
       rw [] >>
       rw [FUPDATE_LIST_APPLY_NOT_MEM] >>
@@ -959,7 +959,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
     >- (
       irule weak_tenv_ienv_to_tenv >>
       fs [env_rel_def]
-      >- metis_tac [infer_ds_check] >>
+      >> conj_tac >- metis_tac [infer_ds_check] >>
       drule infer_ds_check >>
       rw [] >>
       drule check_specs_check >>

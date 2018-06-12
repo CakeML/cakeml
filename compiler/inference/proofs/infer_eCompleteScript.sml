@@ -900,6 +900,35 @@ t = convert_t (t_walkstar s' t')`,
     fs[convert_t_def,t_walkstar_eqn,t_walk_eqn]>>
     metis_tac[check_freevars_empty_convert_unconvert_id])
   >> TRY1
+    (* ... ->list*)
+    (
+    qexists_tac`Infer_Tapp [Infer_Tuvar st.next_uvar] Tlist_num` >>
+    fs[pure_add_constraints_combine]>>
+    rename1`Tapp [t1] Tlist_num` >>
+    extend_uvar_tac`t1`>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    `pure_add_constraints s' ls s'` by
+      (match_mp_tac pure_add_constraints_ignore >>
+      fs[Abbr`ls`]>>
+      simp[t_walkstar_eqn1]>>
+      metis_tac[t_walkstar_no_vars,t_walkstar_SUBMAP])>>
+    pure_add_constraints_combine_tac [`st`,`constraints'`,`s'`]>>
+    fs[pure_add_constraints_append]>>
+    Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar+1; next_id := st.next_id |>` >>fs[]>>
+    Q.EXISTS_TAC`si`>>
+    Q.EXISTS_TAC`constraints'`>>
+    Q.SPECL_THEN [`n`,`si`,`s'`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+    rfs[]>>
+    rw[]
+    >-
+      metis_tac[t_compat_trans]
+    >-
+      metis_tac[pure_add_constraints_success]
+    >>
+      `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+      fs[t_walkstar_eqn,t_walk_eqn,convert_t_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
+  >> TRY1
     (rename1`Tapp [t1] Tvector_num` >>
     extend_uvar_tac `t1`>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
@@ -1845,9 +1874,6 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     (* The unconversion of the deBruijn specs *)
     qabbrev_tac`unargs = MAP unconvert_t targs`>>
     first_x_assum (qspec_then`unargs` mp_tac)>>
-    impl_tac>-
-      (fs[Abbr`unargs`,EVERY_MAP,EVERY_MEM]>>rw[]>>
-      metis_tac[check_freevars_to_check_t])>>
     impl_tac>-
       (fs[Abbr`unargs`,EVERY_MAP,EVERY_MEM]>>rw[]>>
       metis_tac[check_freevars_to_check_t])>>

@@ -28,7 +28,7 @@ val compile_single_def = Define`
   let rm_prog = FST(remove_dead ssa_prog LN) in
   let prog = if two_reg_arith then three_to_two_reg rm_prog
                               else rm_prog in
-  let reg_prog = word_alloc c alg reg_count prog col_opt in
+  let reg_prog = word_alloc name_num c alg reg_count prog col_opt in
     (name_num,arg_count,reg_prog)`
 
 val full_compile_single_def = Define`
@@ -65,7 +65,7 @@ val compile_alt = Q.store_thm("compile_alt",`
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
     let two_ps = if two_reg_arith then MAP three_to_two_reg dead_ps else dead_ps in
     let _ = empty_ffi (strlit "finished: word_two_reg") in
-    let reg_ps = MAP2 (λc p. word_alloc asm_conf alg reg_count p c) n_oracles two_ps in
+    let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,two_ps)) in
     let _ = empty_ffi (strlit "finished: word_alloc") in
     let rmt_ps = MAP remove_must_terminate reg_ps in
     let _ = empty_ffi (strlit "finished: word_remove") in

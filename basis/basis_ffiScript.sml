@@ -332,8 +332,6 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
      ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec fv cl fs Q ==>
-     no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_mods /\
-     no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_types ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ (COMMANDLINE cl * STDIO fs) h1)
    ==>
    ∃io_events fs'.

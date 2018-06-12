@@ -646,7 +646,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      first_x_assum drule
      >> disch_then irule
      >> simp []
-     >- (
+     >> conj_tac >- (
        fs [ienv_ok_def, ienv_val_ok_def]
        >> irule nsAll_nsBind
        >> simp [check_t_def]
@@ -656,7 +656,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
        >> pairarg_tac
        >> fs []
        >> metis_tac [check_t_more3])
-     >- (
+     >> conj_tac >- (
        irule env_rel_sound_extend0
        >> fs [sub_completion_def, check_t_def, SUBSET_DEF])
      >- metis_tac []))
@@ -671,8 +671,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      irule check_t_to_check_freevars >>
      irule (CONJUNCT1 check_t_walkstar) >>
      simp []
-     >- fs [sub_completion_def]
-     >- metis_tac [sub_completion_wfs, infer_e_wfs] >>
+     >> conj_tac >- fs [sub_completion_def]
+     >> conj_tac >- metis_tac [sub_completion_wfs, infer_e_wfs] >>
      imp_res_tac constrain_op_check_t >>
      drule (CONJUNCT1 (CONJUNCT2 infer_e_check_t)) >>
      simp [] >>
@@ -853,24 +853,24 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> first_x_assum drule
    >> disch_then irule
    >> simp []
-   >- (
+   >> conj_tac >- (
      fs [ienv_ok_def, ienv_val_ok_def]
      >> irule nsAll_nsOptBind
      >> simp []
-     >- metis_tac [option_nchotomy]
+     >> conj_tac >- metis_tac [option_nchotomy]
      >> irule nsAll_mono
      >> HINT_EXISTS_TAC
      >> rw []
      >> pairarg_tac
      >> fs []
      >> metis_tac [check_t_more4, infer_e_next_uvar_mono])
-   >- (
+   >> conj_tac >- (
      Cases_on `x`
      >> fs [namespaceTheory.nsOptBind_def, opt_bind_name_def]
      >> irule env_rel_sound_extend0
      >> fs [check_t_def, SUBSET_DEF]
-     >- fs [sub_completion_def]
-     >- metis_tac [sub_completion_wfs]
+     >> conj_tac >- fs [sub_completion_def]
+     >> conj_tac >- metis_tac [sub_completion_wfs]
      >> fs [sub_completion_def]
      >> metis_tac [check_t_more5, check_t_more2, DECIDE ``x+0n = x``])
    >- (
@@ -907,7 +907,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                  by (fs [ienv_ok_def, ienv_val_ok_def] >>
                      irule nsAll_nsAppend >>
                      simp []
-                     >- rw [check_env_letrec_lem, Abbr `bindings`]
+                     >> conj_tac >- rw [check_env_letrec_lem, Abbr `bindings`]
                      >> metis_tac [check_env_more, DECIDE ``x ≤ y+x:num``])
    >> first_x_assum drule
    >> asm_simp_tac (srw_ss()) []
@@ -1036,7 +1036,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
              fs [ienv_ok_def, ienv_val_ok_def]
              >> irule nsAll_nsAppend
              >> simp []
-             >- (
+             >> conj_tac >- (
                irule nsAll_alist_to_ns
                >> simp [EVERY_MAP, EVERY_MEM]
                >> rw []

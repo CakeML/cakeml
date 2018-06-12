@@ -11,11 +11,9 @@ open Redblackmap AC_Sort Satisfy
 open ml_translatorLib
 
 (* COPY/PASTE from basisFunctionsLib *)
-fun derive_eval_thm v_name e = let
+fun derive_eval_thm for_eval v_name e = let
   val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
+  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val lemma = goal
     |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
@@ -26,7 +24,7 @@ fun derive_eval_thm v_name e = let
                     simp_tac bool_ss [])
                  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
   val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev true v_name v_tm
+  val v_def = define_abbrev for_eval v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 (* end of COPY/PASTE from basisFunctionsLib *)
 
@@ -67,7 +65,7 @@ val empty_v_list = get_term "empty_v_list"
 val empty_v_store = get_term "empty_v_store"
 val empty_alpha_list = get_term "empty_alpha_list"
 val nsLookup_env_short_term = get_term "nsLookup_env_short"
-val prim_exn_Subscript = get_term "prim_exn Subscript"
+val Conv_Subscript = get_term "Conv_Subscript"
 
 fun mk_get_refs state = let
     val ffi_ty = type_of state |> dest_type |> snd |> hd
@@ -246,7 +244,9 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
           val init_name = concl def |> dest_eq |> fst |> dest_const |> fst
           val init_name = stringLib.fromMLstring init_name
           val e = mk_opref_expr init_name
-          val _ = ml_prog_update (add_Dlet (derive_eval_thm name e) name [])
+	  val eval_thm = REWRITE_RULE [ML_code_env_def]
+				      (derive_eval_thm false name e)
+          val _ = ml_prog_update (add_Dlet eval_thm name [])
           val ref_def = DB.fetch (current_theory()) (name ^ "_def")
         in
           (value_def, ref_def)
@@ -616,7 +616,7 @@ in
         \\ CONV_TAC ((RAND_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV[append_empty]))
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
         \\ irule eliminate_substore_thm
-        \\ TRY(irule store2heap_aux_decompose_store1)
+        \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.map snd refs_trans_results)
@@ -626,7 +626,7 @@ in
         check_rarray
         \\ PURE_REWRITE_TAC[APPEND]
         \\ PURE_ONCE_REWRITE_TAC[cons_to_append]
-        \\ TRY(irule store2heap_aux_decompose_store1)
+        \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC
@@ -639,7 +639,7 @@ in
         check_farray
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, APPEND]
         \\ irule eliminate_substore_thm
-        \\ TRY(irule store2heap_aux_decompose_store2)
+        \\ TRY(irule store2heap_aux_decompose_store2 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.concat(List.map (fn (_, x) => [x])
@@ -908,7 +908,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the sub exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[sub_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th
@@ -936,7 +936,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the update exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[update_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th
@@ -1027,7 +1027,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the sub exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[sub_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th
@@ -1055,7 +1055,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the update exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[update_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th

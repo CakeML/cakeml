@@ -813,7 +813,7 @@ val partition_spec = Q.store_thm ("partition_spec",
       disch_then irule >>
       simp [GSYM ZIP_APPEND, PERM_APPEND_IFF, GSYM lupdate_zip] >>
       simp [GSYM EL_ZIP] >>
-      irule perm_swap
+      irule perm_swap >> conj_tac
       >- metis_tac [LENGTH_ZIP] >>
       simp [LENGTH_ZIP])
     (* The pointers have crossed, stop *)
@@ -1075,7 +1075,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     >- (
       (* Show that we meet partition's assumptions *)
       xapp >>
-      xsimpl
+      xsimpl >> conj_tac
       >- (
         UNABBREV_ALL_TAC >>
         `LENGTH elems2 > 1` by metis_tac [LIST_REL_LENGTH] >>

@@ -1428,7 +1428,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
    >> first_x_assum irule
    >> irule nsAll_nsAppend
    >> simp []
-   >- (
+   >> conj_tac >- (
      irule check_env_letrec_lem
      >> simp [])
    >> irule check_env_more
@@ -1570,8 +1570,8 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> rw []
    >> first_x_assum irule
    >> simp [check_t_def]
-   >- metis_tac [infer_e_wfs]
-   >- metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
+   >> conj_tac >- metis_tac [infer_e_wfs]
+   >> conj_tac >- metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
    >- metis_tac [check_t_more4, infer_e_next_uvar_mono, infer_e_check_t, ienv_ok_def])
  >- (
    pairarg_tac
@@ -1591,8 +1591,8 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> simp []
    >> disch_then irule
    >> simp []
-   >- metis_tac [infer_e_wfs]
-   >- (
+   >> conj_tac >- metis_tac [infer_e_wfs]
+   >> conj_tac >- (
      drule (List.nth (CONJUNCTS infer_e_check_t, 1))
      >> rfs [ienv_ok_def]
      >> fs [EVERY_MEM]
@@ -1627,7 +1627,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    first_x_assum drule
    >> simp []
    >> disch_then irule
-   >- (
+   >> conj_tac >- (
      fs [ienv_ok_def, ienv_val_ok_def]
      >> irule nsAll_nsBind
      >> simp [check_t_def]
@@ -1660,10 +1660,10 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> fs [ienv_ok_def]
    >> rw [check_t_def]
    >> first_x_assum irule
-   >- metis_tac [t_unify_wfs]
-   >- (
+   >> conj_tac >- metis_tac [t_unify_wfs]
+   >> conj_tac >- (
      first_x_assum irule
-     >- (
+     >> conj_tac >- (
        first_x_assum irule
        >> rw []
        >> metis_tac [ienv_ok_more, ienv_ok_def])
@@ -1693,12 +1693,12 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> fs [ienv_ok_def]
    >> rw [check_t_def]
    >> first_x_assum irule
-   >- metis_tac [t_unify_wfs]
-   >- (
+   >> conj_tac >- metis_tac [t_unify_wfs]
+   >> conj_tac >- (
      first_x_assum irule
      >> simp []
-     >- metis_tac [t_unify_wfs]
-     >- metis_tac [ienv_ok_more, ienv_ok_def]
+     >> conj_tac >- metis_tac [t_unify_wfs]
+     >> conj_tac >- metis_tac [ienv_ok_more, ienv_ok_def]
      >- (
        first_x_assum irule
        >> rw []
@@ -1772,10 +1772,10 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
      >> rw [])
    >> drule pure_add_constraints_check_s
    >> disch_then irule
-   >- (
+   >> conj_tac >- (
      drule (List.nth (CONJUNCTS infer_e_wfs, 3))
      >> rw [])
-   >- (
+   >> conj_tac >- (
      fs [EVERY_MEM, LENGTH_COUNT_LIST, LENGTH_MAP, MEM_ZIP]
      >> rw []
      >> rw [EL_MAP, LENGTH_COUNT_LIST, check_t_def]
@@ -1796,7 +1796,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> simp []
    >> disch_then irule
    >> simp []
-   >- (
+   >> conj_tac >- (
      drule (CONJUNCT1 infer_e_check_t)
      >> fs [ienv_ok_def]
      >> metis_tac [check_t_more2, DECIDE ``y + 0n = y``])
@@ -1839,7 +1839,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
      by (
        fs [ienv_ok_def, ienv_val_ok_def, Abbr `bindings2`]
        >> irule nsAll_nsAppend
-       >- (
+       >> conj_tac >- (
          irule nsAll_alist_to_ns
          >> fs [EVERY_MAP, EVERY_MEM]
          >> rw []
@@ -1871,13 +1871,12 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> simp []
    >> disch_then irule
    >> simp []
-   >- metis_tac [ienv_ok_more]
-   >- (
+   >> conj_tac >- metis_tac [ienv_ok_more]
+   >> conj_tac >- (
      fs [Abbr `bindings2`]
      >> first_x_assum drule
      >> simp [ienv_ok_def])
-   >- metis_tac [check_t_more4]
-   >- metis_tac [check_t_more4])
+   >> metis_tac [check_t_more4])
  >- (
    first_x_assum drule
    >> first_x_assum drule
@@ -1895,10 +1894,10 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
        >> fs []
        >> metis_tac [check_t_more3])
    >> first_x_assum irule
-   >- (
+   >> conj_tac >- (
      drule (CONJUNCT1 infer_e_wfs)
      >> rw [])
-   >- (
+   >> conj_tac >- (
      drule (CONJUNCT1 infer_e_next_uvar_mono)
      >> rw []
      >> metis_tac [ienv_ok_more, DECIDE ``x ≤ x+1n``])
@@ -2286,7 +2285,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
        fs [ienv_ok_def, Abbr `bindings`, ienv_val_ok_def]
        >> irule nsAll_nsAppend
        >> simp []
-       >- metis_tac [check_env_letrec_lem2]
+       >> conj_tac >- metis_tac [check_env_letrec_lem2]
        >> irule nsAll_mono
        >> HINT_EXISTS_TAC
        >> rw []
@@ -2561,7 +2560,7 @@ val check_specs_check = Q.store_thm ("check_specs_check",
    rw []
    >> first_x_assum irule
    >> simp []
-   >- metis_tac []
+   >> conj_tac >- metis_tac []
    >> fs [ienv_ok_def, check_exn_tenv_def, typeSoundInvariantsTheory.tenv_ctor_ok_def]
    >> irule nsAll_nsBind
    >> fs [EVERY_MAP, EVERY_MEM]

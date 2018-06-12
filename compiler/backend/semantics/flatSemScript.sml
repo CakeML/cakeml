@@ -51,37 +51,19 @@ val list_id_def = Define `
   list_id = 1n`;
 
 val Boolv_def = Define`
-  Boolv b = Conv (SOME (if b then 1 else 0, SOME bool_id)) []`;
-
-val nil_id_def = Define `
-  nil_id = 0n`;
-
-val cons_id_def = Define `
-  cons_id = 0n`;
-
-val bind_id_def = Define `
-  bind_id = 0n`;
-
-val chr_id_def = Define `
-  chr_id = 1n`;
-
-val div_id_def = Define `
-  div_id = 2n`;
-
-val subscript_id_def = Define `
-  subscript_id = 3n`;
+  Boolv b = Conv (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
 
 val bind_exn_v_def = Define `
-  bind_exn_v = Conv (SOME (bind_id, NONE)) []`;
+  bind_exn_v = Conv (SOME (bind_tag, NONE)) []`;
 
 val chr_exn_v_def = Define `
-  chr_exn_v = Conv (SOME (chr_id, NONE)) []`;
+  chr_exn_v = Conv (SOME (chr_tag, NONE)) []`;
 
 val div_exn_v_def = Define `
-  div_exn_v = Conv (SOME (div_id, NONE)) []`;
+  div_exn_v = Conv (SOME (div_tag, NONE)) []`;
 
 val subscript_exn_v_def = Define `
-  subscript_exn_v = Conv (SOME (subscript_id, NONE)) []`;
+  subscript_exn_v = Conv (SOME (subscript_tag, NONE)) []`;
 
 val build_rec_env_def = Define `
   build_rec_env funs cl_env add_to_env =
@@ -155,12 +137,12 @@ val do_opapp_def = Define `
 
 val v_to_list_def = Define `
   (v_to_list (Conv (SOME (cid, tid)) []) =
-   if cid = nil_id ∧ tid = SOME list_id then
+   if cid = nil_tag ∧ tid = SOME list_id then
      SOME []
    else NONE)
   ∧
   (v_to_list (Conv (SOME (cid, tid)) [v1;v2]) =
-   if cid = cons_id ∧ tid = SOME list_id then
+   if cid = cons_tag ∧ tid = SOME list_id then
      (case v_to_list v2 of
       | SOME vs => SOME (v1::vs)
       | NONE => NONE)
@@ -169,18 +151,18 @@ val v_to_list_def = Define `
   (v_to_list _ = NONE)`;
 
 val list_to_v_def = Define `
-  (list_to_v [] = Conv (SOME (nil_id, SOME list_id)) []) ∧
+  (list_to_v [] = Conv (SOME (nil_tag, SOME list_id)) []) ∧
   (list_to_v (x::xs) =
-    Conv (SOME (cons_id, SOME list_id)) [x; list_to_v xs])`;
+    Conv (SOME (cons_tag, SOME list_id)) [x; list_to_v xs])`;
 
 val v_to_char_list_def = Define `
  (v_to_char_list (Conv (SOME (cid, tid)) []) =
-  if cid = nil_id ∧ tid = SOME list_id then
+  if cid = nil_tag ∧ tid = SOME list_id then
     SOME []
   else NONE)
  ∧
  (v_to_char_list (Conv (SOME (cid, tid)) [Litv (Char c);v]) =
-  if cid = cons_id ∧ tid = SOME list_id then
+  if cid = cons_tag ∧ tid = SOME list_id then
     (case v_to_char_list v of
      | SOME cs => SOME (c::cs)
      | NONE => NONE)
@@ -619,8 +601,15 @@ val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
 val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
 val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
+
+val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def };
+val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def }
+
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
+  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
+   eq_v_thms, wz_thms, result_thms, err_thms])
+
+val case_eq_thms = save_thm ("case_eq_thms", eqs)
 
 val pair_case_eq = Q.prove (
 `pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
@@ -704,14 +693,53 @@ val evaluate_decs_def = Define`
       | (s, new_ctors', r) => (s, new_ctors' ∪ new_ctors, r))
    | (s, new_ctors, SOME e) => (s, new_ctors, SOME e))`;
 
+val initial_state_def = Define `
+  initial_state ffi k =
+    <| clock   := k
+     ; refs    := []
+     ; ffi     := ffi
+     ; globals := [] |>`;
+
+val bool_ctors_def = Define `
+  bool_ctors =
+    { ((true_tag, SOME bool_id), 0n)
+    ; ((false_tag, SOME bool_id), 0n) }`;
+
+val list_ctors_def = Define `
+  list_ctors =
+    { ((cons_tag, SOME list_id), 2n)
+    ; ((nil_tag, SOME list_id), 0n) }`;
+
+val exn_ctors_def = Define `
+  exn_ctors =
+    { ((div_tag, NONE), 0n)
+    ; ((chr_tag, NONE), 0n)
+    ; ((subscript_tag, NONE), 0n)
+    ; ((bind_tag, NONE), 0n) }`;
+
+val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
+
+val initial_ctors_def = Define `
+   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
+
+val initial_env_def = Define `
+  initial_env exh_pat check_ctor =
+    <| v          := []
+     ; c          := initial_ctors
+     ; exh_pat    := exh_pat
+     ; check_ctor := check_ctor |>`
+
 val semantics_def = Define`
-  semantics env st prog =
-    if ∃k. (SND o SND) (evaluate_decs env (st with clock := k) prog) = SOME (Rabort Rtype_error)
+  semantics exh_pat check_ctor ffi prog =
+    if ∃k. (SND o SND) (evaluate_decs (initial_env exh_pat check_ctor)
+                                      (initial_state ffi k) prog) =
+           SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome x.
-        evaluate_decs env (st with clock := k) prog = (s,x,r) ∧
+        evaluate_decs (initial_env exh_pat check_ctor)
+                      (initial_state ffi k) prog = (s,x,r) ∧
         (case s.ffi.final_event of
          | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
          | SOME e => outcome = FFI_outcome e) ∧
@@ -720,7 +748,9 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (FST (evaluate_decs env (st with clock := k) prog)).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList
+             (FST (evaluate_decs (initial_env exh_pat check_ctor)
+               (initial_state ffi k) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",

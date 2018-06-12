@@ -117,6 +117,7 @@ val rarray_exact_thm = Q.store_thm("rarray_exact_thm",
   \\ `[Varray av; Refv (Loc l')] = [Varray av] ++ [Refv (Loc l')]` by fs[]
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
   \\ irule store2heap_aux_decompose_store1
+  \\ conj_tac
   >-(rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
   \\ rw[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
 
@@ -163,6 +164,10 @@ val H_STAR_empty = Q.store_thm("H_STAR_empty",
 val H_STAR_TRUE = Q.store_thm("H_STAR_TRUE",
 `(H * &T = H) /\ (&T * H = H)`, fs[SEP_CLAUSES]);
 
+(* Information about the subscript exceptions *)
+val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
+(* val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand *)
+
 (* Terms used by the ml_monadStore *)
 val parsed_terms = save_thm("parsed_terms",
   pack_list (pack_pair pack_string pack_term)
@@ -181,7 +186,7 @@ val parsed_terms = save_thm("parsed_terms",
      ("empty_v_store",``[] : v store``),
      ("empty_alpha_list",``[] : 'a list``),
      ("nsLookup_env_short", ``\(env : v sem_env) name. nsLookup env.v (Short name)``),
-     ("prim_exn Subscript", ``prim_exn "Subscript"``)
+     ("Conv_Subscript", Conv_Subscript)
     ]);
 
 (* Types used by the ml_monadStore *)

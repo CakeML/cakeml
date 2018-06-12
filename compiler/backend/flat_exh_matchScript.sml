@@ -1,96 +1,68 @@
-open preamble flatLangTheory flat_reorder_matchTheory
-open backend_commonTheory
+open preamble flatLangTheory flat_reorder_matchTheory backend_commonTheory
 
 val _ = numLib.prefer_num()
 
 val _ = new_theory"flat_exh_match"
 
-(*
-(* The translation only detects the following patterns:
- *   - A single variable, (), or ref variable
- *   - A list of patterns, each of which is a constructor applied to variables.
- *)
-
-val _ = tDefine"is_unconditional"`
+val _ = tDefine "is_unconditional" `
   is_unconditional p ⇔
-  case p of
-  | conLang$Pvar _ => T
-  | conLang$Pany => T
-  | Pcon NONE ps => EVERY is_unconditional ps
-  | Pref p => is_unconditional p
-  | _ => F`
-  (WF_REL_TAC`measure pat_size` >> gen_tac >>
-   Induct_on`ps` >> simp[conLangTheory.pat_size_def] >>
-   rw[] >> res_tac >> simp[conLangTheory.pat_size_def]);
+    case p of
+      Pcon NONE ps => EVERY is_unconditional ps
+    | Pvar _       => T
+    | Pany         => T
+    | Pref p       => is_unconditional p
+    | _            => F`
+  (WF_REL_TAC `measure pat_size` >> gen_tac >>
+   Induct_on`ps` >> simp[pat_size_def] >>
+   rw[] >> res_tac >> simp[pat_size_def]);
+
+(* The map for datatype tags is arity |-> count. *)
+val _ = Define `
+  (get_dty_tags []      dtys = SOME dtys) ∧
+  (get_dty_tags (p::ps) dtys =
+     case p of
+       Pcon (SOME (cid, SOME _)) pats =>
+           if EVERY is_unconditional pats then
+             let arity = LENGTH pats in
+               (case lookup arity dtys of
+                 SOME tags =>
+                     get_dty_tags ps (insert arity (delete cid tags) dtys)
+               | _ => NONE)
+           else NONE
+     | _ => NONE)`;
 
 val _ = Define `
-  (get_tags [] acc = SOME acc)
-  ∧
-  (get_tags (p::ps) acc =
-   case p of
-   | Pcon (SOME (tag,_)) ps' =>
-     if EVERY is_unconditional ps' then
-       let a = (LENGTH ps') in
-       (case lookup a acc of
-        | SOME tags =>
-            get_tags ps (insert a (delete tag tags) acc)
-        | NONE => NONE)
-     else NONE
-   | _ => NONE)`;
-
-val _ = Define `
-  (exhaustive_match exh ps ⇔
-   EXISTS is_unconditional ps ∨
-   (case ps of
-    | Pcon (SOME (tag,TypeStamp t)) ps'::_ =>
-      EVERY is_unconditional ps' ∧
-      (case FLOOKUP exh t of
-       | NONE => F
-       | SOME tags =>
-         (case get_tags ps (map (λn. fromList (GENLIST (K ()) n)) tags) of
-          | NONE => F
-          | SOME result => EVERY isEmpty (toList result)))
-    | _ => F))`;
+  exhaustive_match ctors ps ⇔
+    EXISTS is_unconditional ps ∨
+    case ps of
+      Pcon (SOME (tag, SOME tyid)) pats :: _ =>
+          EVERY is_unconditional pats  /\
+          (case FLOOKUP ctors tyid of
+            NONE      => F
+          | SOME dtys =>
+              let tags = map (\n. fromList (GENLIST (K ()) n)) dtys in
+                (case get_dty_tags ps tags of
+                  NONE     => F
+                | SOME res => EVERY isEmpty (toList res)))
+    | _ => F`
 
 val add_default_def = Define `
-  (add_default tra is_handle is_exh (pes:(conLang$pat#conLang$exp)list) =
-   if is_exh then
-     pes
-   else if is_handle then
-     pes ++ [(Pvar "x", Raise (mk_cons tra 1) (Var_local (mk_cons tra 2) "x"))]
-   else
-     pes ++ [(Pany, Raise (mk_cons tra 1) (Con (mk_cons tra 2) (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
-
-val _ = tDefine"compile_pat"`
-  (compile_pat (Pvar x) = Pvar x)
-  ∧
-  (compile_pat Pany = Pany)
-  ∧
-  (compile_pat (Plit l) = Plit l)
-  ∧
-  (compile_pat (Pcon NONE ps) =
-   Pcon tuple_tag (MAP compile_pat ps))
-  ∧
-  (compile_pat (Pcon (SOME (tag,_)) ps) =
-   Pcon tag (MAP compile_pat ps))
-  ∧
-  (compile_pat (Pref p) =
-   Pref (compile_pat p))`
-  (WF_REL_TAC `measure pat_size` >>
-   srw_tac [ARITH_ss] [conLangTheory.pat_size_def] >>
-   Induct_on `ps` >>
-   srw_tac [ARITH_ss] [conLangTheory.pat_size_def] >>
-   srw_tac [ARITH_ss] [conLangTheory.pat_size_def] >>
-   res_tac >>
-   decide_tac);
+  add_default t is_hdl is_exh ps =
+    if is_exh then
+      ps
+    else if is_hdl then
+      ps ++ [(Pvar "x", Raise (t § 1) (Var_local (t § 2) "x"))]
+    else
+      ps ++ [(Pany, Raise (t § 1) (Con (t § 2) (SOME (bind_tag, NONE)) []))]`;
 
 val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine"e2sz"`
-  (e2sz (conLang$Raise _ e) = e2sz e + 1) ∧
+  (e2sz (Raise _ e) = e2sz e + 1) ∧
   (e2sz (Letrec _ funs e) = e2sz e + f2sz funs + 1) ∧
   (e2sz (Mat _ e pes) = e2sz e + p2sz pes + 4) ∧
   (e2sz (Handle _ e pes) = e2sz e + p2sz pes + 4) ∧
   (e2sz (App _ op es) = l2sz es + 1) ∧
   (e2sz (Let _ x e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
+  (e2sz (If _ x1 x2 x3) = e2sz x1 + e2sz x2 + e2sz x3 + 1) /\
   (e2sz (Fun _ x e) = e2sz e + 1) ∧
   (e2sz (Con _ t es) = l2sz es + 1) ∧
   (e2sz _ = (0:num)) ∧
@@ -106,90 +78,94 @@ val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefin
     | INR (INR (INL (pes))) => exp3_size pes
     | INR (INR (INR (funs))) => exp1_size funs)`)
 
-val p2sz_append = Q.prove(
-  `∀p1 p2. p2sz (p1++p2) = p2sz p1 + p2sz p2`,
-  Induct >> simp[e2sz_def] >>
-  Cases >> simp[e2sz_def])
-
-val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp exh (Raise t e) =
-   Raise t (compile_exp exh e))
-  ∧
-  (compile_exp exh (Handle t e pes) =
-   Handle t (compile_exp exh e)
-     (compile_pes exh (add_default t T (exhaustive_match exh (MAP FST pes)) pes)))
-  ∧
-  (compile_exp exh (Lit t l) =
-   Lit t l)
-  ∧
-  (compile_exp exh (Con t NONE es) =
-   Con t tuple_tag (compile_exps exh es))
-  ∧
-  (compile_exp exh (Con t (SOME (tag,_)) es) =
-   Con t tag (compile_exps exh es))
-  ∧
-  (compile_exp exh (Var_local t x) =
-   Var_local t x)
-  ∧
-  (compile_exp exh (Var_global t x) =
-   Var_global t x)
-  ∧
-  (compile_exp exh (Fun t x e) =
-   Fun t x (compile_exp exh e))
-  ∧
-  (compile_exp exh (App t op es) =
-   App t op (compile_exps exh es))
-  ∧
-  (compile_exp exh (Mat t e pes) =
-   Mat t (compile_exp exh e)
-     (compile_pes exh (add_default t F (exhaustive_match exh (MAP FST pes)) pes)))
-  ∧
-  (compile_exp exh (Let t x e1 e2) =
-   Let t x (compile_exp exh e1) (compile_exp exh e2))
-  ∧
-  (compile_exp exh (Letrec t funs e) =
-   Letrec t (compile_funs exh funs)
-     (compile_exp exh e))
-  ∧
-  (compile_exp exh (Extend_global t n) =
-   Extend_global t n)
-  ∧
-  (compile_exps exh [] = [])
-  ∧
-  (compile_exps exh (e::es) =
-   compile_exp exh e :: compile_exps exh es)
-  ∧
-  (compile_pes exh [] = [])
-  ∧
-  (compile_pes exh ((p,e)::pes) =
-   (compile_pat p, compile_exp exh e) :: compile_pes exh pes)
-  ∧
-  (compile_funs exh [] = [])
-  ∧
-  (compile_funs exh ((f,x,e)::funs) =
-   (f,x,compile_exp exh e) :: compile_funs exh funs)`
-  (WF_REL_TAC `inv_image $< (\x. case x of
-     | INL (_,e) => e2sz e
-     | INR (INL (_,es)) => l2sz es
-     | INR (INR (INL (_,pes))) => p2sz pes
-     | INR (INR (INR (_,funs))) => f2sz funs)` >>
-   simp[e2sz_def] >>
-   rw[add_default_def] >>
-   simp[p2sz_append,e2sz_def])
+val compile_exps_def = tDefine "compile_exps" `
+  (compile_exps ctors [] = []) /\
+  (compile_exps ctors (x::y::xs) =
+    HD (compile_exps ctors [x]) :: compile_exps ctors (y::xs)) /\
+  (compile_exps ctors [Raise t x] =
+    let y = HD (compile_exps ctors [x]) in
+      [Raise t y]) /\
+  (compile_exps ctors [Handle t x ps] =
+    let y   = HD (compile_exps ctors [x]) in
+    let ps1 = add_default t T (exhaustive_match ctors (MAP FST ps)) ps in
+    let ps2 = MAP (\(p,e). (p, HD (compile_exps ctors [e]))) ps1 in
+      [Handle t y ps2]) /\
+  (compile_exps ctors [Con t ts xs] = [Con t ts (compile_exps ctors xs)]) /\
+  (compile_exps ctors [Fun t vs x] =
+    let y = HD (compile_exps ctors [x]) in
+      [Fun t vs y]) /\
+  (compile_exps ctors [App t op xs] =
+    let ys = compile_exps ctors xs in
+      [App t op ys]) /\
+  (compile_exps ctors [Mat t x ps] =
+    let y   = HD (compile_exps ctors [x]) in
+    let ps1 = add_default t F (exhaustive_match ctors (MAP FST ps)) ps in
+    let ps2 = MAP (\(p,e). (p, HD (compile_exps ctors [e]))) ps1 in
+      [Mat t y ps2]) /\
+  (compile_exps ctors [Let t v x1 x2] =
+    let y1 = HD (compile_exps ctors [x1]) in
+    let y2 = HD (compile_exps ctors [x2]) in
+      [Let t v y1 y2]) /\
+  (compile_exps ctors [Letrec t fs x] =
+    let fs1 = MAP (\(a,b,c). (a, b, HD (compile_exps ctors [c]))) fs in
+    let y   = HD (compile_exps ctors [x]) in
+      [Letrec t fs1 y]) /\
+  (compile_exps ctors [If t x1 x2 x3] =
+    let y1 = HD (compile_exps ctors [x1]) in
+    let y2 = HD (compile_exps ctors [x2]) in
+    let y3 = HD (compile_exps ctors [x3]) in
+      [If t y1 y2 y3]) /\
+  (compile_exps ctors [expr] = [expr])`
+ (WF_REL_TAC `measure (l2sz o SND)` \\ rw [add_default_def] \\ fs [e2sz_def]
+  \\ pop_assum mp_tac
+  \\ TRY (pop_assum kall_tac)
+  >-
+   (map_every qid_spec_tac [`a`,`b`,`c`,`fs`]
+    \\ Induct \\ rw [] \\ fs [e2sz_def]
+    \\ PairCases_on `h`
+    \\ res_tac \\ fs [e2sz_def])
+  \\ map_every qid_spec_tac [`p`,`e`,`ps`]
+  \\ Induct \\ rw [] \\ fs [exp_size_def]
+  \\ TRY (PairCases_on `h`)
+  \\ res_tac \\ fs [e2sz_def]);
 
 val _ = map delete_const ["e2sz","p2sz","l2sz","f2sz","e2sz_UNION"]
 val _ = delete_binding "e2sz_ind"
 
-val compile_funs_map = Q.store_thm("compile_funs_map",
-  `compile_funs exh ls = MAP (λ(x,y,z). (x,y,compile_exp exh z)) ls`,
-  Induct_on`ls`>>simp[compile_exp_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[compile_exp_def]);
+val compile_exps_LENGTH = Q.store_thm("compile_exps_LENGTH",
+  `!ctors xs. LENGTH (compile_exps ctors xs) = LENGTH xs`,
+  ho_match_mp_tac (theorem "compile_exps_ind") \\ rw [compile_exps_def]);
 
-val compile_exps_map = Q.store_thm ("compile_exps_map",
-  `!exh es. compile_exps exh es = MAP (compile_exp exh) es`,
-  Induct_on `es` >>
-  rw [compile_exp_def]);
+val compile_exps_SING = Q.store_thm("compile_exps_SING[simp]",
+  `compile_exps ctors [x] <> []`,
+  strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [compile_exps_LENGTH]);
+
+val compile_exp_def = Define `
+  compile_exp ctors exp = HD (compile_exps ctors [exp])`;
+
+val compile_dec_def = Define `
+  (compile_dec ctors (Dlet exp) = (ctors, Dlet (compile_exp ctors exp))) /\
+  (compile_dec ctors (Dtype tid amap) =
+     (ctors |+ (tid, amap), Dtype tid amap)) /\
+  (compile_dec ctors dec = (ctors, dec))`
+
+val compile_decs_def = Define `
+  (compile_decs ctors [] = (ctors, [])) /\
+  (compile_decs ctors (d::ds) =
+    let (ctor1, e)  = compile_dec  ctors d  in
+    let (ctor2, es) = compile_decs ctor1 ds in
+      (ctor2, e::es))`;
+
+(* Only care about type declarations, not exceptions *)
+val init_ctors_def = Define `
+  init_ctors =
+    FEMPTY |++
+      [ (0 (* bool_id *), insert 0 2 LN)
+      ; (1 (* list_id *), insert 0 1 (insert 2 1 LN)) ]`;
 
 val compile_def = Define`
-  compile exh e = HD (exh_reorder$compile [dec_to_exh$compile_exp exh e])`;
-  *)
+  compile = compile_decs init_ctors`;
+
 val _ = export_theory()
+
