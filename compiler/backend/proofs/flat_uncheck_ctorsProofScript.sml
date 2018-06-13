@@ -196,6 +196,25 @@ val v_rel_eqn = Q.store_thm("v_rel_eqn[simp]",
   ONCE_REWRITE_TAC [v_rel_cases] >>
   rw [libTheory.the_def]);
 
+val do_eq_correct = Q.store_thm("do_eq_correct",
+  `(∀a c b d e.
+    v_rel a b ∧ v_rel c d ∧
+    do_eq a c = Eq_val e ⇒
+    do_eq b d = Eq_val e) ∧
+   (∀a c b d e.
+    LIST_REL v_rel a b ∧ LIST_REL v_rel c d ∧
+    do_eq_list a c = Eq_val e ⇒
+    do_eq_list b d = Eq_val e)`,
+  ho_match_mp_tac do_eq_ind
+  \\ rw[do_eq_def] \\ fs[do_eq_def] \\ rw[]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs[case_eq_thms, bool_case_eq] \\ rw[] \\ fs[]
+  \\ fs[Once v_rel_cases, do_eq_def]
+  \\ rw[]
+  \\ Cases_on`cn1` \\ TRY(Cases_on`cn2`) \\ fs[libTheory.the_def, ctor_same_type_def]
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs[] \\ rfs[]
+  \\ cheat (* this looks false *));
+
 val do_app_correct = Q.prove (
   `∀s1 s1' s2 op vs vs' r.
      LIST_REL v_rel vs vs' ∧
@@ -219,7 +238,7 @@ val do_app_correct = Q.prove (
     fs [semanticPrimitivesPropsTheory.sv_rel_cases] >>
     NO_TAC)
   >> TRY ( fsrw_tac[DNF_ss][] >> fs[LIST_REL_EL_EQN] >> NO_TAC)
-  >- cheat (* do_eq *)
+  >- (imp_res_tac do_eq_correct \\ fs[])
   >- metis_tac [s_rel_store_assign]
   >- metis_tac [semanticPrimitivesPropsTheory.sv_rel_cases, s_rel_store_alloc]
   >- (
