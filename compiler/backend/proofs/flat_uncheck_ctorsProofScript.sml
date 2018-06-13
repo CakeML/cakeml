@@ -3,6 +3,8 @@ open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
 val _ = new_theory "flat_uncheck_ctorsProof";
 
+(* TODO: move? *)
+
 val compile_append = Q.prove (
   `!es es2. compile (es ++ es2) = compile es ++ compile es2`,
   Induct >>
@@ -19,6 +21,13 @@ val compile_reverse = Q.prove (
   `!es. compile (REVERSE es) = REVERSE (compile es)`,
   ho_match_mp_tac compile_ind >>
   rw [compile_def, compile_append]);
+
+val compile_HD_sing = Q.store_thm("compile_HD_sing",
+  `[HD (compile [e])] = compile [e]`,
+  qspec_then`e`strip_assume_tac compile_sing
+  \\ fs[]);
+
+(* -- *)
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!lit.
@@ -178,11 +187,12 @@ val v_rel_eqn = Q.store_thm("v_rel_eqn[simp]",
   (!lit v. v_rel v (flatSem$Litv lit) ⇔ v = Litv lit) ∧
   (v_rel (Conv NONE []) (Conv (SOME (0,NONE)) [])) ∧
   (v_rel subscript_exn_v subscript_exn_v) ∧
+  (v_rel bind_exn_v bind_exn_v) ∧
   (!loc l. v_rel (Loc loc) l ⇔ l = Loc loc) ∧
   (!loc l. v_rel l (Loc loc) ⇔ l = Loc loc) ∧
   (!vs v. v_rel (Vectorv vs) v ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs vs') ∧
   (!vs v. v_rel v (Vectorv vs) ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs' vs)`,
-  rw [flatSemTheory.subscript_exn_v_def] >>
+  rw [flatSemTheory.subscript_exn_v_def, flatSemTheory.bind_exn_v_def] >>
   ONCE_REWRITE_TAC [v_rel_cases] >>
   rw [libTheory.the_def]);
 
@@ -316,7 +326,7 @@ val compile_exp_correct = Q.prove (
     s_rel s s1
     ⇒
     ?s1' r1.
-      result_rel (LIST_REL v_rel) r r1 ∧
+      result_rel (LIST_REL v_rel) v_rel r r1 ∧
       s_rel s' s1' ∧
       evaluate env' s1 (compile es) = (s1', r1)) ∧
    (∀env (s : 'a flatSem$state) v pes err_v s' r s1 env' err_v1 v1.
@@ -328,12 +338,11 @@ val compile_exp_correct = Q.prove (
     v_rel err_v err_v1
     ⇒
     ?s1' r1.
-      result_rel (LIST_REL v_rel) r r1 ∧
+      result_rel (LIST_REL v_rel) v_rel r r1 ∧
       s_rel s' s1' ∧
       evaluate_match env' s1 v1 (MAP (λ(p,e'). (p,HD (compile [e']))) pes) err_v1 = (s1', r1))`,
-
   ho_match_mp_tac evaluate_ind >>
-  rw [evaluate_def, result_rel_cases, compile_def] >>
+  rw [evaluate_def, compile_def] >>
   rw [] >>
   TRY (fs [env_rel_cases] >> NO_TAC) >>
   TRY (split_pair_case_tac >> rw []) >>
@@ -350,7 +359,6 @@ val compile_exp_correct = Q.prove (
     rw [] >>
     res_tac >>
     fs [])
-  >- rw [Once v_rel_cases]
   >- (
     every_case_tac >>
     fs [] >>
@@ -459,12 +467,26 @@ val compile_exp_correct = Q.prove (
         rw [] >>
         metis_tac [HD, compile_sing])
       >- (
-        cheat)
+        first_x_assum drule
+        \\ disch_then drule
+        \\ strip_tac
+        \\ rveq \\ fs[]
+        \\ qpat_x_assum`_ = (_, r)`mp_tac
+        \\ TOP_CASE_TAC \\ strip_tac \\ fs[pair_case_eq]
+        \\ imp_res_tac EVERY2_REVERSE
+        \\ drule do_app_correct
+        \\ disch_then drule
+        \\ rveq
+        \\ fs[env_rel_cases] \\ rfs[]
+        \\ disch_then drule
+        \\ strip_tac
+        \\ goal_assum (first_assum o mp_then Any mp_tac)
+        \\ fs[compile_reverse]
+        \\ rveq \\ fs[]))
     >- (
       res_tac >>
       fs [compile_reverse] >>
       rw []))
-
   >- (
     rename1 `evaluate _ _ _ = (s1', r')` >>
     Cases_on `r'` >>
@@ -496,12 +518,41 @@ val compile_exp_correct = Q.prove (
       fs [] >>
       rw [] >>
       rfs []))
+  >- (
+    every_case_tac >>
+    fs [] >>
+    imp_res_tac evaluate_sing >>
+    rw [] >>
+    `?e'. compile [e] = [e']` by metis_tac [compile_sing] >>
+    res_tac >>
+    fs [] >>
+    rw [] >>
+    rfs [] >>
+    metis_tac[v_rel_eqn] )
+  >- (
+    reverse(fsrw_tac[DNF_ss][case_eq_thms, compile_HD_sing] \\ rveq \\ fs[])
+    \\ first_x_assum drule \\ disch_then drule
+    \\ strip_tac \\ fs[] \\ rveq
+    >- metis_tac[]
+    \\ fs[]
+    \\ first_x_assum match_mp_tac
+    \\ fs[env_rel_cases, libTheory.opt_bind_def]
+    \\ CASE_TAC \\ fs[]
+    \\ imp_res_tac evaluate_sing \\ fs[] )
+  >- (
+    fs[compile_HD_sing]
+    \\ first_x_assum match_mp_tac
+    \\ fs[env_rel_cases]
+    \\ fs[build_rec_env_merge]
+    \\ match_mp_tac EVERY2_APPEND_suff
+    \\ fs[MAP_MAP_o, o_DEF, UNCURRY, EVERY2_MAP]
+    \\ simp[Once v_rel_cases]
+    \\ fs[EVERY2_refl] )
+  >- fs[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+  >- (
+    cheat (* pmatch *)
+  ));
 
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat);
+(* TODO: compile_decs_correct *)
 
 val _ = export_theory ();
-
