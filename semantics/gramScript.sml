@@ -151,7 +151,7 @@ val cmlG_def = mk_grammar_def ginfo
        |  "exception" Dconstructor
        | TypeAbbrevDec ;
  Decls ::= Decl Decls | ";" Decls | ;
- LetDec ::= "val" V "=" E | "fun" AndFDecls ;
+ LetDec ::= "val" Pattern "=" E | "fun" AndFDecls ;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)

@@ -349,7 +349,7 @@ val E_OK0 = Q.store_thm(
   >- (rw[])
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
-  >- (erule strip_assume_tac (n V_OK) >> std)
+  >- (erule strip_assume_tac (n Pattern_OK) >> std)
   >- (dsimp[] >>
       map_every (erule strip_assume_tac o n) [V_OK, PbaseList1_OK] >>
       asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std))

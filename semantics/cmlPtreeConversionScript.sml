@@ -843,6 +843,14 @@ val bind_loc_def = Define`
   bind_loc e l = Lannot e l
 `
 
+val letFromPat_def = Define‘
+  letFromPat p rhs body =
+    dtcase p of
+      Pany => Let NONE rhs body
+    | Pvar v => Let (SOME v) rhs body
+    | _ => Mat rhs [(p,body)]
+’;
+
 local
   val ptree_Expr_quotation = `
   ptree_Expr ent (Lf _) = NONE ∧
@@ -890,7 +898,7 @@ local
               eseq <- ptree_Eseq ept;
               e <- Eseq_encode eseq;
               SOME(FOLDR (λdf acc. dtcase df of
-                                       INL (v,e0) => Let (SOME v) e0 acc
+                                       INL (p,e0) => letFromPat p e0 acc
                                      | INR fds => Letrec fds acc)
                          e
                          letdecs)
@@ -1161,12 +1169,12 @@ local
                 fds <- ptree_AndFDecls andfdecls_pt;
                 SOME (INR fds)
               od
-            | [valtok; v_pt; eqtok; e_pt] =>
+            | [valtok; p_pt; eqtok; e_pt] =>
               do
                 assert(tokcheckl [valtok;eqtok] [ValT; EqualsT]);
-                v <- ptree_V v_pt;
+                p <- ptree_Pattern nPattern p_pt;
                 e <- ptree_Expr nE e_pt;
-                SOME (INL(v,e))
+                SOME (INL(p,e))
               od
             | _ => NONE) ∧
   (ptree_PEs (Lf _) = NONE) ∧
