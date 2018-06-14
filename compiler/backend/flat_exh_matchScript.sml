@@ -1,4 +1,4 @@
-open preamble flatLangTheory flat_reorder_matchTheory backend_commonTheory
+open preamble flatLangTheory backend_commonTheory
 
 val _ = numLib.prefer_num()
 
