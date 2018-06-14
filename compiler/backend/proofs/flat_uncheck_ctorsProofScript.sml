@@ -401,6 +401,71 @@ val do_app_correct = Q.prove (
     \\ res_tac \\ fs[OPTREL_def] \\ rfs[]
     \\ rw[] \\ fs[]));
 
+val pmatch_correct = Q.store_thm("pmatch_correct",
+  `(∀env1 refs1 p v1 acc1 env2 refs2 v2 acc2.
+    env_rel env1 env2 ∧
+    LIST_REL (sv_rel v_rel) refs1 refs2 ∧
+    v_rel v1 v2 ∧
+    LIST_REL v_rel (MAP SND acc1) (MAP SND acc2) ∧
+    MAP FST acc1 = MAP FST acc2 ∧
+    pmatch env1 refs1 p v1 acc1 ≠ Match_type_error
+    ⇒
+    case pmatch env1 refs1 p v1 acc1 of
+    | Match res1 => ∃res2.
+        pmatch env2 refs2 p v2 acc2 = Match res2 ∧
+        LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
+        MAP FST res1 = MAP FST res2
+    | r => pmatch env2 refs2 p v2 acc2 = r) ∧
+   (∀env1 refs1 p v1 acc1 env2 refs2 v2 acc2.
+    env_rel env1 env2 ∧
+    LIST_REL (sv_rel v_rel) refs1 refs2 ∧
+    LIST_REL v_rel v1 v2 ∧
+    LIST_REL v_rel (MAP SND acc1) (MAP SND acc2) ∧
+    MAP FST acc1 = MAP FST acc2 ∧
+    pmatch_list env1 refs1 p v1 acc1 ≠ Match_type_error
+    ⇒
+    case pmatch_list env1 refs1 p v1 acc1 of
+    | Match res1 => ∃res2.
+        pmatch_list env2 refs2 p v2 acc2 = Match res2 ∧
+        LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
+        MAP FST res1 = MAP FST res2
+    | r => pmatch_list env2 refs2 p v2 acc2 = r)`,
+  ho_match_mp_tac pmatch_ind
+  \\ rw[pmatch_def]
+  \\ TRY (
+    qpat_x_assum`v_rel (Conv _ _) _`mp_tac
+    \\ rw[Once v_rel_cases, libTheory.the_def] )
+  >- (
+    fs[pmatch_def, env_rel_cases] \\ rfs[]
+    \\ fs[flatSemTheory.same_ctor_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
+  >- (
+    fs[pmatch_def, env_rel_cases] \\ rfs[]
+    \\ fs[flatSemTheory.same_ctor_def]
+    \\ rename1`ctor_same_type (SOME c1) (SOME c2)`
+    \\ Cases_on`c1` \\ Cases_on `c2`
+    \\ fs[flatSemTheory.ctor_same_type_def]
+    \\ rw[]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
+  >- cheat (* looks false *)
+  >- (
+    fs[case_eq_thms]
+    \\ Cases_on`store_lookup lnum refs1` \\ fs[]
+    \\ Cases_on`x` \\ fs[]
+    \\ `∃b. store_lookup lnum refs2 = SOME (Refv b) ∧ v_rel a b`
+    by (
+      fs[semanticPrimitivesTheory.store_lookup_def, LIST_REL_EL_EQN]
+      \\ metis_tac[semanticPrimitivesPropsTheory.sv_rel_cases,
+                   semanticPrimitivesTheory.store_v_distinct,
+                   semanticPrimitivesTheory.store_v_11] )
+    \\ simp[] )
+  >- (
+    pop_assum mp_tac
+    \\ TOP_CASE_TAC \\ fs[pmatch_def]
+    \\ strip_tac \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ res_tac \\ fs[] ));
+
 val compile_exp_correct = Q.prove (
   `(∀env (s : 'a flatSem$state) es s' r s1 env'.
     evaluate env s es = (s',r) ∧
@@ -633,8 +698,20 @@ val compile_exp_correct = Q.prove (
     \\ fs[EVERY2_refl] )
   >- fs[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
   >- (
-    cheat (* pmatch *)
-  ));
+    drule(CONJUNCT1 pmatch_correct)
+    \\ qpat_assum`s_rel _ _`(strip_assume_tac o SIMP_RULE std_ss [s_rel_cases])
+    \\ disch_then drule
+    \\ disch_then(qspecl_then[`p`,`v`,`[]`]mp_tac)
+    \\ disch_then drule \\ fs[]
+    \\ impl_tac >- (strip_tac \\ fs[])
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rfs[]
+    \\ fs[compile_HD_sing]
+    \\ first_x_assum match_mp_tac
+    \\ fs[env_rel_cases]
+    \\ match_mp_tac EVERY2_APPEND_suff
+    \\ fs[]
+    \\ fs[LIST_REL_EL_EQN,Once LIST_EQ_REWRITE,UNCURRY,EL_MAP]));
 
 (* TODO: compile_decs_correct *)
 
