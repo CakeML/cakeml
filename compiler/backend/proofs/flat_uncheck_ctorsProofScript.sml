@@ -215,6 +215,40 @@ val do_eq_correct = Q.store_thm("do_eq_correct",
   \\ imp_res_tac LIST_REL_LENGTH \\ fs[] \\ rfs[]
   \\ cheat (* this looks false *));
 
+val v_to_char_list_v_rel = Q.store_thm("v_to_char_list_v_rel",
+  `∀x y ls. v_rel x y ∧ v_to_char_list x = SOME ls ⇒ v_to_char_list y = SOME ls`,
+  recInduct v_to_char_list_ind
+  \\ rw[v_to_char_list_def]
+  >- fs[Once v_rel_cases, v_to_char_list_def, libTheory.the_def]
+  \\ qhdtm_x_assum`v_rel`mp_tac
+  \\ rw[Once v_rel_cases, v_to_char_list_def, libTheory.the_def]
+  \\ rw[v_to_char_list_def]
+  \\ fs[case_eq_thms]
+  \\ metis_tac[]);
+
+val v_to_list_v_rel = Q.store_thm("v_to_list_v_rel",
+  `∀x y ls. v_rel x y ∧ v_to_list x = SOME ls ⇒ ∃ls'. v_to_list y = SOME ls' ∧ LIST_REL v_rel ls ls'`,
+  recInduct v_to_list_ind
+  \\ rw[v_to_list_def]
+  \\ qhdtm_x_assum`v_rel`mp_tac
+  \\ rw[Once v_rel_cases, v_to_list_def, libTheory.the_def]
+  \\ rw[ v_to_list_def]
+  \\ fs[case_eq_thms]
+  \\ rw[PULL_EXISTS]);
+
+val vs_to_string_v_rel = Q.store_thm("vs_to_string_v_rel",
+  `∀vs ws str. LIST_REL v_rel vs ws ∧ vs_to_string vs = SOME str ⇒ vs_to_string ws = SOME str`,
+  recInduct vs_to_string_ind
+  \\ rw[vs_to_string_def]
+  \\ rw[vs_to_string_def]
+  \\ fs[case_eq_thms] \\ rw[]);
+
+val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
+  `∀x y. LIST_REL v_rel x y ⇒ v_rel (list_to_v x) (list_to_v y)`,
+  Induct \\ rw[list_to_v_def]
+  \\ rw[Once v_rel_cases, libTheory.the_def]
+  \\ fs[PULL_EXISTS, list_to_v_def]);
+
 val do_app_correct = Q.prove (
   `∀s1 s1' s2 op vs vs' r.
      LIST_REL v_rel vs vs' ∧
@@ -261,11 +295,29 @@ val do_app_correct = Q.prove (
     imp_res_tac s_rel_store_lookup >>
     fs [semanticPrimitivesPropsTheory.sv_rel_cases] >>
     fsrw_tac[DNF_ss][] )
-  >- cheat (* copy_array *)
-  >- cheat (* copy_array *)
-  >- cheat (* v_to_char_list *)
-  >- cheat (* v_to_list, vs_to_string *)
-  >- cheat (* v_to_list *)
+  >- (
+    fs[semanticPrimitivesTheory.store_lookup_def,
+       semanticPrimitivesTheory.store_assign_def,
+       s_rel_cases]
+    \\ fs[LIST_REL_EL_EQN,EL_LUPDATE]
+    \\ res_tac
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases] \\ fs[]
+    \\ rw[semanticPrimitivesTheory.store_v_same_type_def, EL_LUPDATE])
+  >- (
+    fs[semanticPrimitivesTheory.store_lookup_def,
+       semanticPrimitivesTheory.store_assign_def,
+       s_rel_cases]
+    \\ fs[LIST_REL_EL_EQN,EL_LUPDATE]
+    \\ res_tac
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases] \\ fs[]
+    \\ rw[semanticPrimitivesTheory.store_v_same_type_def, EL_LUPDATE]
+  )
+  >- metis_tac[v_to_char_list_v_rel]
+  >- (
+    imp_res_tac v_to_list_v_rel
+    \\ fs[] \\ rw[]
+    \\ metis_tac[vs_to_string_v_rel])
+  >- metis_tac[v_to_list_v_rel]
   >- (
     fs[semanticPrimitivesTheory.store_alloc_def]
     \\ fs[s_rel_cases]
@@ -312,8 +364,20 @@ val do_app_correct = Q.prove (
     \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
     \\ fs[semanticPrimitivesTheory.store_lookup_def]
     \\ rw[] \\ fs[LIST_REL_EL_EQN] )
-  >- cheat (* v_to_list *)
-  >- cheat (* call_FFI *)
+  >- (
+    imp_res_tac v_to_list_v_rel
+    \\ fs[] \\ rw[]
+    \\ match_mp_tac v_rel_list_to_v
+    \\ fs[EVERY2_APPEND_suff])
+  >- (
+    fs[semanticPrimitivesTheory.store_lookup_def, s_rel_cases,
+       semanticPrimitivesTheory.store_assign_def, LIST_REL_EL_EQN]
+    \\ rw[EL_LUPDATE]
+    \\ res_tac
+    \\ qpat_x_assum`EL _ _ = _`assume_tac
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
+    \\ rfs[]
+    \\ rw[] )
   >- (
     fs[s_rel_cases]
     \\ match_mp_tac EVERY2_APPEND_suff
