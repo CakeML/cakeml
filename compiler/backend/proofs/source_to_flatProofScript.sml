@@ -3521,7 +3521,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
         ?err_i1.
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))`,
-  rw [compile_def] >>
+  rw [compile_def, glob_alloc_def] >>
   pairarg_tac >>
   fs [] >>
   rw [evaluate_decs_def, evaluate_dec_def, evaluate_def, do_app_def] >>
@@ -3743,5 +3743,36 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ metis_tac[evaluatePropsTheory.evaluate_decs_ffi_mono_clock,
                evaluatePropsTheory.io_events_mono_def,
                LESS_EQ_CASES,FST]);
+
+(* - connect semantics theorems of flat-to-flat passes --------------------- *)
+
+open flat_uncheck_ctorsProofTheory flat_elimProofTheory
+     flat_exh_matchProofTheory flat_reorder_matchProofTheory
+
+val compile_flat_correct = Q.store_thm("compile_flat_correct",
+  `precondition s env c /\
+   semantics F T s.ffi prog <> Fail
+   ==>
+   semantics F T s.ffi prog = semantics T F s.ffi (compile_flat prog)`,
+  rw [compile_flat_def]
+  \\ `!ffi prog. semantics T T ffi prog =
+      semantics T F ffi (flat_uncheck_ctors$compile_decs prog)`
+    by cheat (* TODO flat_uncheck_ctors semantics proof *)
+  \\ `semantics F T s.ffi prog = semantics T T s.ffi (SND (compile prog))`
+    suffices_by metis_tac [flat_elimProofTheory.flat_remove_semantics,
+                           flat_reorder_matchProofTheory.compile_decs_semantics]
+  \\ match_mp_tac flat_exh_matchProofTheory.compile_decs_semantics \\ fs []
+  \\ cheat (* TODO prove that type declarations are all distinct and that
+              the things that come from init_ctors are not declared in the
+              program (these things are in the global env). *));
+
+val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
+  `precondition s env c ⇒
+   ¬semantics_prog s env prog Fail ⇒
+   semantics_prog s env prog (semantics T F s.ffi (SND (compile_prog c prog)))`,
+  rw [compile_prog_def] \\ pairarg_tac \\ fs []
+  \\ imp_res_tac compile_correct \\ rfs []
+  \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
+  \\ metis_tac [compile_flat_correct])
 
 val _ = export_theory ();
