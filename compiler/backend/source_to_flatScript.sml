@@ -1,4 +1,6 @@
 open preamble astTheory terminationTheory flatLangTheory;
+open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
+     flat_reorder_matchTheory
 
 val _ = numLib.prefer_num();
 
@@ -336,11 +338,29 @@ val empty_config_def = Define`
   empty_config =
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>; mod_env := empty_env |>`;
 
+val compile_flat_def = Define `
+  compile_flat = flat_reorder_match$compile_decs
+               o flat_uncheck_ctors$compile_decs
+               o flat_elim$removeFlatProg
+               o SND o flat_exh_match$compile`;
+
+val glob_alloc_def = Define `
+  glob_alloc next c =
+    Dlet
+      (Let om_tra NONE
+        (App om_tra
+          (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
+        (flatLang$Con om_tra NONE []))`;
+
 val compile_def = Define`
   compile c p =
     let (_,next,e,p') = compile_decs 1n c.next c.mod_env p in
-    (<| next := next; mod_env := e |>,
-     Dlet (Let om_tra NONE (App om_tra (GlobalVarAlloc (next.vidx - c.next.vidx)) []) (flatLang$Con om_tra NONE []))
-     :: p')`;
+    (<| next := next; mod_env := e |>, glob_alloc next c :: p')`;
+
+val compile_prog_def = Define `
+  compile_prog c p =
+    let (c', p') = compile c p in
+    (c', compile_flat p')`;
 
 val _ = export_theory();
+
