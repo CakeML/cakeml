@@ -2,10 +2,9 @@ open preamble flat_reorder_matchTheory flatSemTheory flatPropsTheory
 
 val _ = new_theory "flat_reorder_matchProof";
 
-(* TODO: move *)
-
-infixr $;
-fun (f $ x) = f x
+val _ = temp_bring_to_front_overload
+          "compile"
+          {Name = "compile", Thy = "flat_reorder_match"};
 
 val list_result_map_result = Q.store_thm("list_result_map_result",
   `list_result (map_result f g r) = map_result (MAP f) g (list_result r)`,
@@ -159,48 +158,17 @@ val is_const_con_pat_bindings_empty = Q.store_thm("is_const_con_pat_bindings_emp
     `is_const_con x ==> pat_bindings x a = a`,
     rw [is_const_con_thm] \\ EVAL_TAC)
 
-fun hd_compile_sing_tac (goal as (asl,w)) =
-    let
-       val t = find_term (can (match_term ``HD (flat_reorder_match$compile [e])``)) w;
-       val e_term =  rand $ rator $ rand $ rand t;
-       in
-        strip_assume_tac $ SPEC e_term compile_sing
-    end
-    goal
-
-fun app_compile_sing_tac (goal as (asl,w)) =
-    let
-        val t = find_term (can (match_term
-            ``(evaluate env s (flat_reorder_match$compile [e1] ++ flat_reorder_match$compile (e2::es)))``)) w;
-        val app_term = rand $ t;
-        val e1_term = rand $ rator $ rand $ rand $ rator app_term;
-        val e2_term = rand $ rator $ rand $ rand app_term;
-        in
-                (
-                 rw [Once compile_cons, SimpR ``$++``]
-                 THEN rw [Once compile_cons, SimpR ``CONS``]
-                 THEN (strip_assume_tac $ SPEC e1_term compile_sing)
-                 THEN (strip_assume_tac $ SPEC e2_term compile_sing)
-                )
-                goal
-    end
-
 val compile_append = Q.store_thm ("compile_append",
   `! x h. compile (x ++ h) = (compile x) ++ (compile h)`,
-  Induct_on `x`
-  \\ fs []
-  \\ rw [Once compile_cons]
-  \\ hd_compile_sing_tac
+  Induct_on `x` \\ fs [] \\ rw [Once compile_cons]
+  \\ qspec_then `h` strip_assume_tac compile_sing \\ fs []
   \\ rw [Once compile_cons])
 
 val compile_reverse = Q.store_thm ("compile_reverse",
   `! x. REVERSE (compile x) = compile (REVERSE x)`,
-  Induct
-  \\ fs []
-  \\ rw [Once compile_cons]
-  \\ hd_compile_sing_tac
-  \\ rw [EQ_SYM_EQ, REVERSE_DEF]
-  \\ rw [compile_append])
+  Induct \\ fs [] \\ rw [Once compile_cons]
+  \\ qspec_then `h` strip_assume_tac compile_sing \\ fs []
+  \\ rw [EQ_SYM_EQ, REVERSE_DEF, compile_append]);
 
 (* alternative characterisation of pattern matching *)
 
@@ -429,11 +397,15 @@ val const_cons_fst_find_match = Q.store_thm("const_cons_fst_find_match",
 (* semantic auxiliaries respect transformation of values *)
 
 val pmatch_compile = Q.store_thm("pmatch_compile",
-  `(! env refs p err_v acc.
-      pmatch env (MAP compile_store_v refs) p (compile_v err_v) (compile_env acc) =
-      map_match (compile_env) (pmatch env refs p err_v acc)) /\
+  `(!env refs p err_v acc.
+     pmatch (env with v := compile_env env.v)
+            (MAP compile_store_v refs) p
+            (compile_v err_v) (compile_env acc) =
+     map_match (compile_env) (pmatch env refs p err_v acc)) /\
    (! env refs ps vs acc.
-      pmatch_list env (MAP compile_store_v refs) ps (MAP compile_v vs) (compile_env acc) =
+      pmatch_list (env with v := compile_env env.v)
+                  (MAP compile_store_v refs) ps
+                  (MAP compile_v vs) (compile_env acc) =
       map_match (compile_env) (pmatch_list env refs ps vs acc)) `,
   ho_match_mp_tac pmatch_ind \\ rw [pmatch_def]
   >- (fs [ETA_AX])
@@ -456,7 +428,9 @@ val pmatch_compile_nil = pmatch_compile |> CONJUNCT1
     |> SIMP_RULE (srw_ss())[]
 
 val find_match_compile = Q.store_thm("find_match_compile",
-  `find_match env (MAP compile_store_v refs) (compile_v v) (MAP (I ## f) pes) =
+  `find_match (env with v := compile_env env.v)
+              (MAP compile_store_v refs)
+              (compile_v v) (MAP (I ## f) pes) =
    map_match (compile_env ## f) (find_match env refs v pes)`,
    Induct_on `pes`
    \\ fs [find_match_def]
@@ -465,8 +439,9 @@ val find_match_compile = Q.store_thm("find_match_compile",
    \\ every_case_tac \\ fs [])
 
 val find_match_imp_compile = Q.store_thm("find_match_imp_compile",
-  `find_match s.refs v pes = Match (env',e) ==>
-   find_match (compile_state s).refs (compile_v v)
+  `find_match env s.refs v pes = Match (env',e) ==>
+   find_match (env with v := compile_env env.v)
+              (compile_state s).refs (compile_v v)
        (MAP (\(p,e). (p,HD(compile[e]))) pes) =
            Match (compile_env env', HD(compile[e]))`,
   strip_tac \\
@@ -525,203 +500,220 @@ val list_to_v_compile = Q.store_thm("list_to_v_compile",
   Induct \\ rw [compile_v_def, list_to_v_def]);
 
 val do_app_compile = Q.store_thm("do_app_compile[simp]",
-  `do_app (compile_state s) op (MAP compile_v as) =
-   OPTION_MAP (λ(s,r). (compile_state s, map_result compile_v compile_v r)) (do_app s op as)`,
-  Cases_on `op = Op ListAppend`
+  `do_app cc (compile_state s) op (MAP compile_v as) =
+   OPTION_MAP (λ(s,r). (compile_state s, map_result compile_v compile_v r))
+              (do_app cc s op as)`,
+  Cases_on `op = ListAppend`
   >-
-   (Cases_on `do_app s op as`
-    \\ fs [] \\ rveq
+   (Cases_on `do_app cc s op as` \\ fs [] \\ rveq
     \\ pop_assum mp_tac
-    \\ simp [do_app_def]
-    \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
+    \\ simp [do_app_def] \\ fs [case_eq_thms] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rveq
     \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND])
-  \\ Cases_on`do_app s op as`
-  \\ pop_assum (strip_assume_tac o SIMP_RULE(srw_ss())[do_app_cases,do_app_cases_none])
-  \\ rw[]
+  \\ Cases_on `do_app cc s op as` \\ Cases_on `op`
+  \\ pop_assum mp_tac
   \\ fs[do_app_def,
         semanticPrimitivesTheory.store_assign_def,
         semanticPrimitivesTheory.store_alloc_def,
         semanticPrimitivesTheory.store_lookup_def,
         EL_MAP,compile_store_v_def]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ EVAL_TAC
-  \\ rfs[EL_MAP,semanticPrimitivesTheory.store_v_same_type_def,
-         LUPDATE_MAP,compile_store_v_def,map_replicate]
-  \\ every_case_tac \\ fs[compile_store_v_def]);
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ rfs[EL_MAP,semanticPrimitivesTheory.store_v_same_type_def]
+  \\ every_case_tac \\ fs [compile_store_v_def]
+  \\ rw [EL_MAP, METIS_PROVE [] ``a \/ b <=> ~a ==> b``, ELIM_UNCURRY]
+  \\ fs [] \\ EVAL_TAC
+  \\ fs [LUPDATE_MAP,compile_store_v_def,map_replicate, IS_SOME_EXISTS]);
 
 (* main results *)
 
-val compile_evaluate = Q.store_thm( "compile_evaluate",
+val compile_evaluate = Q.store_thm("compile_evaluate",
   `(!env ^s es s1 r1.
-      (evaluate env s es = (s1, r1)) /\
-      r1 <> Rerr (Rabort Rtype_error) ==>
-      (evaluate (compile_env env) (compile_state s) (compile es) =
-          (compile_state s1, map_result (MAP compile_v) compile_v r1)
-          ))
-     /\
-      (!(env:(tvarN, flatSem$v) alist) ^s (err_v:flatSem$v) (pes:(pat,flatLang$exp)alist) s1 r1.
-          evaluate_match env ^s err_v pes = (s1,r1) /\
-          r1 <> Rerr (Rabort Rtype_error) ==>
-              evaluate_match (compile_env env) (compile_state s) (compile_v err_v)
-                  (MAP (\(p,e). (p,HD(compile[e]))) pes) =
-                   (compile_state s1, map_result (MAP compile_v) compile_v r1))`,
-          (*find_match s.refs err_v pes = res /\
-          res <> Match_type_error
-              ==> find_match (compile_state s).refs (compile_v err_v) pes =
-              map_match (\(env,e). (compile_env env, HD (compile [e]))) res)`,*)
-    ho_match_mp_tac evaluate_ind
-    \\ rw [compile_def]
-    \\ fs [evaluate_def]
-    \\ rw []
-    \\ fs [MAP_FST_MAP_triple]
-    >- (
-        every_case_tac
-        \\ fs []
-        \\ rfs []
-        \\ app_compile_sing_tac
-        \\ fs []
-        \\ rfs []
-        \\ rfs [Once compile_cons]
-        \\ imp_res_tac evaluate_sing
-        \\ rw []
-        \\ fs []
-        \\ rfs [Once evaluate_def]
-       )
-   >- (
-       hd_compile_sing_tac
-       \\ every_case_tac \\ fs [] \\ rw [] \\ rfs []
-       \\ imp_res_tac evaluate_sing \\ fs []
-   )
-   >- (
-      hd_compile_sing_tac
-      \\ every_case_tac \\ fs [] \\ rw [] \\ rfs []
-      \\ qmatch_assum_rename_tac `evaluate_match env s' v pes = _`
-      \\ Cases_on `!env. find_match s'.refs v pes <> Match env `
-      \\ imp_res_tac evaluate_match_find_match_none \\ fs[]
-      \\ Cases_on `env'`
-      \\ first_x_assum (CHANGED_TAC o (SUBST1_TAC o SYM))
-      \\ qmatch_assum_rename_tac`_ = Match (env',e')`
-      \\ `find_match s'.refs v (const_cons_fst pes) = Match (env',e')`
-      by metis_tac[const_cons_fst_find_match,
-                   semanticPrimitivesTheory.match_result_distinct]
-      \\ imp_res_tac find_match_imp_compile
-      \\ imp_res_tac evaluate_match_find_match_some
-      \\ fs []
-   )
-   (*10 left*)
-   >- (
-      every_case_tac \\ fs [] \\ rw [] \\ rfs []
-      \\ rfs [compile_reverse]
-      \\ rw [MAP_REVERSE]
-      \\ fs [ETA_AX]
-   )
-   >- (
-      every_case_tac \\ fs [ALOOKUP_compile_env]
-   )
-   (* 8 subgoals *)
-   >- (
-      rfs [EL_MAP]
-      \\ fs [IS_SOME_EXISTS]
-   )
-   >- (
-      fs [EL_MAP]
-      \\ rfs []
-   )
-   (*6 left*)
-   >- (
-      (*the app case*)
-      every_case_tac  \\ fs [compile_reverse] \\ rfs [] \\ rw[] \\
-      fs[GSYM MAP_REVERSE,dec_clock_compile_state] \\ rw[] \\
-      TRY(hd_compile_sing_tac \\ fs[]) \\
-      fs[list_result_map_result]
-      )
-   >- (
-      hd_compile_sing_tac
-      \\ every_case_tac \\ fs [] \\ rw [] \\ rfs []
-      \\ imp_res_tac evaluate_sing \\ fs []
-      \\ qmatch_assum_rename_tac `evaluate_match env s' v pes = _`
-      \\ Cases_on `!env. find_match s'.refs v pes <> Match env `
-      \\ imp_res_tac evaluate_match_find_match_none \\ fs[]
-      \\ Cases_on `env'`
-      \\ rw []
-      \\ first_x_assum (CHANGED_TAC o (SUBST1_TAC o SYM))
-      \\ qmatch_assum_rename_tac`_ = Match (env',e')`
-      \\ `find_match s'.refs v (const_cons_fst pes) = Match (env',e')`
-      by metis_tac[const_cons_fst_find_match,
-                   semanticPrimitivesTheory.match_result_distinct]
-      \\ imp_res_tac find_match_imp_compile
-      \\ imp_res_tac evaluate_match_find_match_some
-      \\ fs []
-   )
-   >- (
-       hd_compile_sing_tac
-       \\ every_case_tac \\ fs [] \\ rw []
-       \\ rfs []
-       \\ imp_res_tac evaluate_sing \\ fs []
-       \\ rfs []
-       \\ fs [libTheory.opt_bind_def]
-       \\ CASE_TAC \\ fs[]
-       \\ hd_compile_sing_tac
-       \\ imp_res_tac evaluate_sing \\ fs []
-   )
-   >- (
-     fs[build_rec_env_merge,MAP_MAP_o,o_DEF,UNCURRY] \\
-     `∃e'. compile [e] = [e']` by METIS_TAC[compile_sing] \\
-     fs[]
-   )
-   >- (
-     fs[compile_state_def,MAP_GENLIST]
-     )
-   >-(
-     fs [pmatch_compile]
-     \\ every_case_tac \\ fs []
-     \\ hd_compile_sing_tac \\ fs []
-     \\ rfs []
-    )
-);
+     evaluate env s es = (s1, r1) /\
+     r1 <> Rerr (Rabort Rtype_error) /\
+     env.exh_pat /\
+     ~env.check_ctor
+     ==>
+     evaluate (env with v := compile_env env.v)
+              (compile_state s)
+              (compile es) =
+       (compile_state s1, map_result (MAP compile_v) compile_v r1)) /\
+   (!env ^s v pes err_v s1 r1.
+     evaluate_match env ^s v pes err_v = (s1,r1) /\
+     r1 <> Rerr (Rabort Rtype_error) /\
+     env.exh_pat /\
+     ~env.check_ctor
+     ==>
+     evaluate_match (env with v := compile_env env.v)
+                    (compile_state s)
+                    (compile_v v)
+                    (MAP (\(p,e). (p,HD(compile[e]))) pes)
+                    (compile_v err_v) =
+       (compile_state s1, map_result (MAP compile_v) compile_v r1))`,
+  ho_match_mp_tac evaluate_ind
+  \\ rw [compile_def] \\ fs [evaluate_def] \\ rw []
+  \\ fs [MAP_FST_MAP_triple]
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
+    \\ once_rewrite_tac [evaluate_append] \\ fs []
+    \\ imp_res_tac evaluate_sing \\ fs [])
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
+    \\ imp_res_tac evaluate_sing \\ fs [])
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
+    \\ qmatch_asmsub_rename_tac `(compile_state s2, _)`
+    \\ `?m. find_match env s2.refs v pes = Match m`
+      by (CCONTR_TAC \\ fs []
+          \\ imp_res_tac evaluate_match_find_match_none \\ fs [])
+    \\ PairCases_on `m`
+    \\ first_x_assum (CHANGED_TAC o (SUBST1_TAC o SYM))
+    \\ qmatch_assum_rename_tac`_ = Match (env1,e1)`
+    \\ `find_match env s2.refs v (const_cons_fst pes) = Match (env1, e1)`
+      by metis_tac [const_cons_fst_find_match,
+                    semanticPrimitivesTheory.match_result_distinct]
+    \\ imp_res_tac find_match_imp_compile
+    \\ imp_res_tac evaluate_match_find_match_some \\ fs [])
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX])
+  >- (every_case_tac \\ fs [ALOOKUP_compile_env, PULL_EXISTS])
+  >-
+   (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
+    \\ fs [compile_reverse, PULL_EXISTS, GSYM MAP_REVERSE]
+    \\ fs [list_result_map_result]
+    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
+    \\ qspec_then `e` strip_assume_tac compile_sing
+    \\ fs [dec_clock_compile_state]
+    \\ rfs [] \\ fs [])
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ qspec_then `e1` strip_assume_tac compile_sing \\ fs []
+    \\ imp_res_tac evaluate_sing \\ rw [] \\ fs []
+    \\ fs [do_if_def]
+    \\ rfs [case_eq_thms, bool_case_eq]
+    \\ rw [] \\ fs [compile_v_def, Boolv_def]
+    \\ qspec_then `e` strip_assume_tac compile_sing \\ fs [])
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
+    \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
+    \\ qmatch_asmsub_rename_tac `(compile_state s2, _)`
+    \\ `?m. find_match env s2.refs x0 pes = Match m`
+      by (CCONTR_TAC \\ fs []
+          \\ imp_res_tac evaluate_match_find_match_none \\ fs [])
+    \\ PairCases_on `m`
+    \\ first_x_assum (CHANGED_TAC o (SUBST1_TAC o SYM))
+    \\ qmatch_assum_rename_tac`_ = Match (env1,e1)`
+    \\ `find_match env s2.refs x0 (const_cons_fst pes) = Match (env1, e1)`
+      by metis_tac [const_cons_fst_find_match,
+                    semanticPrimitivesTheory.match_result_distinct]
+    \\ imp_res_tac find_match_imp_compile
+    \\ imp_res_tac evaluate_match_find_match_some \\ fs [])
+  >-
+   (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ qspec_then `e1` strip_assume_tac compile_sing \\ fs []
+    \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
+    \\ qspec_then `e2` strip_assume_tac compile_sing \\ fs []
+    \\ qpat_x_assum `evaluate _ _ [e2] = _` mp_tac
+    \\ `env with v updated_by opt_bind n x0 =
+        env with v := opt_bind n x0 env.v`
+      by fs [environment_component_equality]
+    \\ pop_assum SUBST1_TAC
+    \\ fs [libTheory.opt_bind_def]
+    \\ PURE_CASE_TAC \\ fs [])
+  >-
+   (fs [build_rec_env_merge, MAP_MAP_o, o_DEF, UNCURRY]
+    \\ qspec_then `e` strip_assume_tac compile_sing \\ fs [])
+  \\ fs [pmatch_compile_nil]
+  \\ every_case_tac \\ fs [] \\ rfs []
+  \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []);
 
-val compile_evaluate_rwt = Q.store_thm("compile_evaluate_rwt",
-  `SND (evaluate env st es) ≠ Rerr (Rabort Rtype_error) ⇒
-   evaluate (compile_env env) (compile_state st) (compile es) =
-     (compile_state ## map_result (MAP compile_v) compile_v) (evaluate env st es)`,
-  Cases_on`evaluate env st es` \\ rw[] \\ imp_res_tac compile_evaluate);
+val _ = temp_bring_to_front_overload "compile_decs"
+          { Name = "compile_decs", Thy = "flat_reorder_match" };
 
-val compile_semantics = Q.store_thm("compile_semantics",
-  `semantics env (st:'ffi flatSem$state) es ≠ Fail ⇒
-   semantics (compile_env env) (compile_state st) (compile es) = semantics env st es`,
-  simp[semantics_def,compile_state_with_clock] \\
-  IF_CASES_TAC \\ fs[compile_evaluate_rwt] \\
-  DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[] \\
-  DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[] \\
-  fs[PAIR_MAP] \\ rveq \\ fs[]
-  \\ TRY ( qexists_tac`k` \\ simp[] \\ CASE_TAC \\ fs[] )
-  \\ TRY (
-    first_x_assum(qspec_then`k`mp_tac) \\ simp[]
-    \\ spose_not_then strip_assume_tac \\ fs[]
-    \\ NO_TAC)
-  \\ qmatch_goalsub_abbrev_tac`FST p`
-  \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
-  \\ pop_assum (assume_tac o SYM)
-  \\ qmatch_assum_rename_tac`evaluate _ (st with clock := k1) _ = (s,r)`
-  \\ qmatch_assum_rename_tac`evaluate _ (st with clock := k2) _ = (s',r')`
-  \\ qspecl_then[`k1`,`k2`]strip_assume_tac LESS_EQ_CASES
-  \\ rpt(pop_assum mp_tac)
-  \\ map_every qid_spec_tac [`k1`,`k2`,`s`,`r`,`s'`,`r'`,`outcome`,`outcome'`]
-     THEN_LT USE_SG_THEN (fn th => metis_tac[th]) 1 2
-  \\ rpt gen_tac \\ rpt(disch_then strip_assume_tac)
-  \\ fs[LESS_EQ_EXISTS] \\ rveq
-  \\ qmatch_asmsub_rename_tac`st with clock := kk + p`
-  \\ qspecl_then[`env`,`st with clock := kk`,`es`,`p`]strip_assume_tac
-       (CONJUNCT1 evaluate_add_to_clock_io_events_mono)
-  \\ rfs[]
-  \\ every_case_tac \\ fs[]
-  \\ qspecl_then[`p`,`env`,`st with clock := kk`,`es`]mp_tac
-       (Q.GEN`extra`(CONJUNCT1 evaluate_add_to_clock))
-  \\ fs[]
-  \\ CCONTR_TAC \\ fs[]);
+val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
+  `!d env s t c r.
+     evaluate_dec env s d = (t, c, r) /\
+     env.exh_pat /\
+     ~env.check_ctor /\
+     r <> SOME (Rabort Rtype_error)
+     ==>
+     ?r2.
+       evaluate_dec (env with v := compile_env env.v)
+                    (compile_state s)
+                    (HD (compile_decs [d])) =
+         (compile_state t, c, r2) /\
+       (r = NONE ==> r2 = NONE) /\
+       (!a. r = SOME (Rraise a) ==> r2 = SOME (Rraise (compile_v a))) /\
+       (r = SOME (Rabort Rtimeout_error) ==> r2 = r)`,
+  Cases \\ rw [evaluate_dec_def]
+  \\ fs [evaluate_dec_def, compile_decs_def]
+  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
+  \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
+  \\ qispl_then [`env with v := []`,`s`] mp_tac (CONJUNCT1 compile_evaluate)
+  \\ disch_then drule
+  \\ rw [evaluate_dec_def]);
+
+val compile_decs_CONS = Q.store_thm("compile_decs_CONS",
+  `compile_decs (d::ds) = compile_decs [d] ++ compile_decs ds`,
+  rw [compile_decs_def] \\ every_case_tac \\ fs []);
+
+val compile_decs_SING = Q.store_thm("compile_decs_SING",
+  `!y. ?x. compile_decs [y] = [x]`,
+  Cases \\ rw [compile_decs_def] \\ fs []);
+
+val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
+  `!ds env s t c r.
+     evaluate_decs env s ds = (t, c, r) /\
+     env.exh_pat /\
+     ~env.check_ctor /\
+     r <> SOME (Rabort Rtype_error)
+     ==>
+     ?r2.
+       evaluate_decs (env with v := compile_env env.v)
+                     (compile_state s)
+                     (compile_decs ds) =
+         (compile_state t, c, r2) /\
+       (r = NONE ==> r2 = NONE) /\
+       (!a. r = SOME (Rraise a) ==> r2 = SOME (Rraise (compile_v a))) /\
+       (r = SOME (Rabort Rtimeout_error) ==> r2 = r)`,
+  Induct >- rw [evaluate_decs_def, compile_decs_def] \\ rw []
+  \\ fs [evaluate_decs_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
+  \\ once_rewrite_tac [compile_decs_CONS]
+  \\ drule compile_dec_evaluate \\ rw [] \\ fs []
+  \\ qspec_then `h` strip_assume_tac compile_decs_SING \\ fs []
+  >- (last_x_assum drule \\ rw [evaluate_decs_def] \\ fs [])
+  \\ simp [evaluate_decs_def]
+  \\ every_case_tac \\ fs []
+  \\ Cases_on `e` \\ Cases_on `a` \\ fs []);
+
+val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
+  `eval_sim
+     (ffi:'ffi ffi_state) T F ds1 T F
+     (compile_decs ds1)
+     (\p1 p2. p2 = compile_decs p1) F`,
+  rw [eval_sim_def]
+  \\ qexists_tac `0`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ Q.LIST_EXISTS_TAC [`c1`,`compile_state s2`]
+  \\ drule compile_decs_evaluate
+  \\ impl_tac >- fs [initial_env_def] \\ rw []
+  \\ qexists_tac `r2`
+  \\ fs [initial_state_def, initial_env_def, environment_component_equality,
+         state_component_equality, compile_state_def]
+  \\ rw [] \\ Cases_on `a` \\ fs []);
+
+val compile_decs_semantics = save_thm ("compile_decs_semantics",
+  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
+           compile_decs_eval_sim
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
 
 (* syntactic results *)
+
+(* TODO these are not available:
 
 val _ = bring_to_front_overload"elist_globals"{Thy="flatProps",Name="elist_globals"};
 
@@ -813,5 +805,6 @@ val compile_sub_bag = Q.store_thm("compile_sub_bag",
 val compile_distinct_globals = Q.store_thm("compile_distinct_globals",
   `BAG_ALL_DISTINCT (elist_globals es) ⇒ BAG_ALL_DISTINCT (elist_globals (compile es))`,
   METIS_TAC[compile_sub_bag,BAG_ALL_DISTINCT_SUB]);
+*)
 
 val () = export_theory();
