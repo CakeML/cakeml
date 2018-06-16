@@ -1,9 +1,4 @@
-open preamble backendComputeLib sptreeTheory wordLangTheory reachabilityTheory
-
-val _ = add_backend_compset computeLib.the_compset;
-
-val m = Hol_pp.print_apropos;
-val f = DB.find;
+open preamble sptreeTheory wordLangTheory reachabilityTheory
 
 val _ = new_theory "word_elim";
 
@@ -11,12 +6,12 @@ val _ = new_theory "word_elim";
 (******************************************************** FIND LOCATIONS/REFERENCES *********************************************************)
 
 val findWordLoc_def = Define `
-    (findWordLoc (name:num, _, _) = name) 
+    (findWordLoc (name:num, _, _) = name)
 `
 
 val findWordRef_def = Define `
     (findWordRef (MustTerminate p) = findWordRef p) ∧
-    (findWordRef (Call ret target _ handler) = union 
+    (findWordRef (Call ret target _ handler) = union
         (case target of | NONE => LN | SOME n => (insert n () LN))
             (union
                 (case ret of | NONE => LN | SOME (_,_,ret_handler,l1,_) => insert l1 () (findWordRef (ret_handler)))
@@ -24,10 +19,10 @@ val findWordRef_def = Define `
     ) ∧
     (findWordRef (Seq p1 p2) = union (findWordRef p1) (findWordRef p2)) ∧
     (findWordRef (If _ _ _ p1 p2) = union (findWordRef p1) (findWordRef p2)) ∧
-    (findWordRef (LocValue _ n) = insert n () LN) ∧  
+    (findWordRef (LocValue _ n) = insert n () LN) ∧
     (findWordRef _ = LN)
 `
-    
+
 val findWordRef_ind = theorem "findWordRef_ind";
 
 val wf_findWordRef = Q.store_thm("wf_findWordRef",
@@ -37,7 +32,7 @@ val wf_findWordRef = Q.store_thm("wf_findWordRef",
     >- (Cases_on `ret` >> Cases_on `handler` >> fs[wf_union, wf_def] >>
         PairCases_on `x` >> fs[] >> TRY(PairCases_on `x'`) >> fs[wf_union, wf_insert])
     >- (Cases_on `ret` >> Cases_on `handler` >> fs[wf_union, wf_insert, wf_def] >>
-        PairCases_on `x'` >> fs[wf_union, wf_insert, wf_def] >> PairCases_on `x''` >> 
+        PairCases_on `x'` >> fs[wf_union, wf_insert, wf_def] >> PairCases_on `x''` >>
         fs[wf_insert, wf_union, wf_def])
 );
 
@@ -45,7 +40,7 @@ val wf_findWordRef = Q.store_thm("wf_findWordRef",
 (******************************************************** CODE ANALYSIS *********************************************************)
 
 val analyseWordCode_def = Define`
-    (analyseWordCode [] = LN:num_set num_map) ∧ 
+    (analyseWordCode [] = LN:num_set num_map) ∧
     (analyseWordCode ((n, args, prog)::t) = insert n (findWordRef prog) (analyseWordCode t))
 `
 
@@ -72,7 +67,7 @@ val removeWordCode_thm = Q.store_thm("removeWordCode_thm",
 );
 
 val removeWordCode_thm = Q.store_thm("removeWordCode_thm",
-    `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l) 
+    `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l)
     ⇒ ∀ v . (n ∈ domain reachable ∧ MEM (n, v) l ⇔ MEM (n, v) (removeWordCode reachable l))`,
     rw[] >> EQ_TAC >> rw[]
     >- (Induct_on `l` >> rw[] >> fs[removeWordCode_def] >> fs[domain_lookup] >> Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
@@ -92,14 +87,14 @@ val removeWordProg_def = Define `
 (******************************************************** REACHABILITY *********************************************************)
 
 val analyseWordCode_reachable_thm = Q.store_thm("analyseWordCode_reachable_thm",
-    `∀ (code : (ctor_id, ctor_id # α prog) alist) t start n tree. analyseWordCode code = t ∧  start = insert n () (LN:num_set) ∧ 
+    `∀ (code : (num, num # α prog) alist) t start n tree. analyseWordCode code = t ∧  start = insert n () (LN:num_set) ∧
         domain start ⊆ domain tree ∧ tree = mk_wf_set_tree t
-    ⇒ domain (closure_spt start tree) = 
-        {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`,   
-    rw[] >> fs[domain_insert] >> 
-    qspecl_then [`mk_wf_set_tree (analyseWordCode code)`, `insert n () LN`] mp_tac closure_spt_thm >>  
+    ⇒ domain (closure_spt start tree) =
+        {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`,
+    rw[] >> fs[domain_insert] >>
+    qspecl_then [`mk_wf_set_tree (analyseWordCode code)`, `insert n () LN`] mp_tac closure_spt_thm >>
     `wf_set_tree(mk_wf_set_tree (analyseWordCode code))` by metis_tac[mk_wf_set_tree_thm] >> rw[] >>
-    rw[wf_insert, wf_def] 
+    rw[wf_insert, wf_def]
 );
 
 
