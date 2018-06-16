@@ -411,21 +411,18 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
        (IS_SOME ((FST (evaluate_match env s pes v err_v)).ffi.final_event) ⇒
          (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi =
          (FST (evaluate_match env s pes v err_v)).ffi))`,
-  ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
-  \\ every_case_tac \\ fs [] \\ rfs []
-  \\ imp_res_tac evaluate_add_to_clock \\ fs [] \\ rw [] \\ fs [] \\ rw []
-  \\ imp_res_tac evaluate_io_events_mono \\ fs [] \\ rw []
-  \\ imp_res_tac do_app_add_to_clock_NONE \\ fs [] \\ rfs []
+  ho_match_mp_tac evaluate_ind \\ rw [evaluate_def] \\ fs []
+  \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rfs []
+  \\ map_every imp_res_tac [evaluate_add_to_clock,
+                            evaluate_io_events_mono,
+                            do_app_add_to_clock_NONE,
+                            do_app_add_to_clock]
   \\ fs [dec_clock_def]
-  \\ cheat (* TODO *)
-  (*
-  \\ metis_tac
-         [IS_PREFIX_TRANS, FST, PAIR,
-          evaluate_io_events_mono,
-          with_clock_ffi,
-          do_app_io_events_mono]
-  *)
-  );
+  \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
+                evaluate_io_events_mono,
+                with_clock_ffi,
+                do_app_io_events_mono]);
 
 val evaluate_dec_io_events_mono = Q.store_thm("evaluate_dec_io_events_mono",
   `∀z x y.
@@ -474,11 +471,9 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
          [`pp`,`ee`,`ss`,`extra`] mp_tac
          evaluate_dec_add_to_clock_io_events_mono
   \\ rw [] \\ fs []
-  \\ imp_res_tac evaluate_add_to_clock \\ fs []
+  \\ imp_res_tac evaluate_dec_add_to_clock \\ fs []
   \\ imp_res_tac evaluate_decs_io_events_mono \\ fs []
-  \\ rveq \\ fs []
-  \\ cheat (* TODO *)
-  );
+  \\ metis_tac [IS_PREFIX_TRANS, FST]);
 
 (*
 val evaluate_prompt_io_events_mono = Q.store_thm("evaluate_prompt_io_events_mono",
@@ -906,13 +901,47 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
     \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
     >-
      (
-      fs [eval_sim_def]
-      \\ Cases_on
-           `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k') ds1`
-      \\ rename1 `(q,rr)` \\ PairCases_on `rr`
-      \\ last_x_assum drule
-      \\ impl_keep_tac >- metis_tac []
-      \\ strip_tac \\ rfs [] \\ rveq
+      Cases_on `s.ffi.final_event` \\ fs []
+      >-
+       (
+        Cases_on `s'.ffi.final_event` \\ fs []
+        >-
+         (fs [eval_sim_def] \\ rveq
+          \\ first_x_assum drule
+          \\ impl_keep_tac >- metis_tac [] \\ rw []
+          \\ `r <> SOME (Rabort Rtimeout_error)` by (Cases_on `r` \\ fs [])
+          \\ qispl_then [`s`] mp_tac
+            (GEN_ALL evaluate_decs_add_to_clock_initial_state)
+          \\ rpt (disch_then drule)
+          \\ disch_then (qspec_then `k' + ck` assume_tac)
+          \\ qpat_x_assum `evaluate_decs _ (_ _ k') ds2 = _` assume_tac
+          \\ `r' <> SOME (Rabort Rtimeout_error)` by (Cases_on `r'` \\ fs [])
+          \\ qispl_then [`s'`] mp_tac
+            (GEN_ALL evaluate_decs_add_to_clock_initial_state)
+          \\ rpt (disch_then drule)
+          \\ disch_then (qspec_then `k + ck` assume_tac)
+          \\ qpat_x_assum `evaluate_decs _ (_ _ (ck + k)) _ = _` assume_tac
+          \\ `res2 <> SOME (Rabort Rtimeout_error)`
+            by (Cases_on `res2` \\ fs [] \\ Cases_on `x` \\ fs []
+                \\ Cases_on `a` \\ fs []
+                \\ Cases_on `r` \\ fs [] \\ Cases_on `x` \\ fs [])
+          \\ qispl_then [`t2`] mp_tac
+            (GEN_ALL evaluate_decs_add_to_clock_initial_state)
+          \\ rpt (disch_then drule)
+          \\ disch_then (qspec_then `k'` strip_assume_tac) \\ rfs []
+          \\ rw []
+          \\ rev_full_simp_tac std_ss [ADD_ASSOC]
+          \\ fs [state_component_equality])
+        \\ fs [eval_sim_def] \\ rveq
+        \\ first_x_assum drule
+        \\ impl_keep_tac >- metis_tac []
+        \\ CCONTR_TAC \\ fs []
+        \\ `res2 <> SOME (Rabort Rtimeout_error)`
+          by (Cases_on `r` \\ Cases_on `res2` \\ fs []
+              \\ rename1 `xx <> _ Rtype_error`
+              \\ Cases_on `xx` \\ fs [])
+        \\ cheat (* TODO *)
+       )
       \\ cheat (* TODO *)
      )
     \\ fs [eval_sim_def]
@@ -997,16 +1026,6 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
   \\ metis_tac
         [evaluate_decs_add_to_clock_io_events_mono,
          initial_state_with_clock, FST, ADD_SYM]);
-
-(*
-val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
-  `eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel T ==>
-   rel ds1 ds2 ==>
-   semantics ffi exh1 ctor1 ds1 =
-   semantics ffi exh2 ctor2 ds2`,
-  cheat (* TODO *)
-  );
-*)
 
 val _ = export_theory()
 
