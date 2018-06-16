@@ -1790,7 +1790,8 @@ val compile_exp_correct' = Q.prove (
       simp [evaluate_def, do_if_def, Boolv_def] >>
       rw [] >>
       fs [genv_c_ok_def, has_bools_def, Bool_def, evaluate_def, do_app_def,
-          Boolv_def, opb_lookup_def, state_component_equality] >>
+          Boolv_def, opb_lookup_def, state_component_equality,
+          backend_commonTheory.bool_to_tag_def ] >>
       rw [] >>
       fs [env_all_rel_cases] >>
       rw [] >>
