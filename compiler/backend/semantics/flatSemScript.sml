@@ -1,5 +1,4 @@
 open preamble flatLangTheory;
-open source_to_flatTheory;
 open semanticPrimitivesPropsTheory;
 
 val _ = new_theory "flatSem";
