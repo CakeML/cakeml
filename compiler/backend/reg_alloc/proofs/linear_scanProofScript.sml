@@ -959,61 +959,75 @@ val check_endlive_fixed_fix_endlive = Q.store_thm("check_endlive_fixed_fix_endli
     rw [check_endlive_fixed_def]
 )
 
+val check_partial_col_numset_list_insert = Q.store_thm("check_partial_col_numset_list_insert",
+    `!f s fs s' fs' l.
+    check_partial_col f l s fs = SOME (s', fs') ==>
+    s' = numset_list_insert l s`,
+    Induct_on `l` >>
+    rw [check_partial_col_def, numset_list_insert_def] >>
+    Cases_on `lookup h s` >> fs [] >>
+    Cases_on `lookup (f h) fs` >> fs [] >>
+    metis_tac [lookup_insert_id]
+)
+
+
 val check_live_tree_forward_output = Q.store_thm("check_live_tree_forward_output", `
-    !lt live flive live' flive' f.
+    !lt live flive live' flive' f live''.
     domain flive = IMAGE f (domain live) /\
     INJ f (domain live) UNIV /\
+    check_endlive_fixed_forward lt live = (T, live'') /\
     check_live_tree_forward f lt live flive = SOME (live',flive') ==>
     domain flive' = IMAGE f (domain live') /\
-    INJ f (domain live') UNIV`,
+    INJ f (domain live') UNIV /\
+    live'' = live' `,
 
     Induct_on `lt`
     (* StartLive *)
     THEN1 (
-      rw [check_live_tree_forward_def]
+      rw [check_live_tree_forward_def, check_endlive_fixed_forward_def]
       THEN1 metis_tac [check_partial_col_IMAGE]
       THEN1 metis_tac [check_partial_col_success_INJ]
+      THEN1 metis_tac [check_partial_col_numset_list_insert]
     )
     (* EndLive *)
     THEN1 (
-      rw [check_live_tree_forward_def] >>
-      Cases_on `check_partial_col f l live flive` >> fs [] >>
-      Cases_on `x` >> fs []
+      simp [check_live_tree_forward_def, check_endlive_fixed_forward_def] >>
+      rpt gen_tac >> strip_tac >>
+      `set l SUBSET domain live` by fs [SUBSET_DEF, domain_lookup, EVERY_MEM] >>
+      `domain live = set l UNION domain live` by (rw [EXTENSION] >> Cases_on `MEM x l` >> fs [SUBSET_DEF]) >>
+      `?a b. check_partial_col f l live flive = SOME (a, b)` by metis_tac [check_partial_col_success] >>
+      strip_tac
       THEN1 metis_tac [numset_list_delete_IMAGE]
       THEN1 (
-        `domain live' SUBSET domain live` by metis_tac [domain_numset_list_delete, DIFF_SUBSET] >>
+        `domain (numset_list_delete l live) SUBSET domain live` by metis_tac [domain_numset_list_delete, DIFF_SUBSET] >>
         metis_tac [INJ_SUBSET, UNIV_SUBSET]
       )
     )
     (* Branch *)
     THEN1 (
-      rw [check_live_tree_forward_def] >>
+      simp [check_live_tree_forward_def, check_endlive_fixed_forward_def] >>
+      rpt gen_tac >> strip_tac >>
+      NTAC 2 (pairarg_tac >> fs []) >> rveq >>
       Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
       Cases_on `x` >> fs [] >>
       Cases_on `check_live_tree_forward f lt' live flive` >> fs [] >>
-      Cases_on `x` >> fs []
-      THEN1 (
-        metis_tac [check_partial_col_IMAGE]
-      )
-      THEN1 (
-        `INJ f (domain q) UNIV` by metis_tac [] >>
-        `domain r = IMAGE f (domain q)` by metis_tac [check_partial_col_IMAGE] >>
-        metis_tac [check_partial_col_success_INJ]
-      )
+      Cases_on `x` >> fs [] >>
+      `domain r = IMAGE f (domain q) /\ INJ f (domain q) UNIV` by metis_tac [] >>
+      rpt strip_tac
+      THEN1 metis_tac [check_partial_col_IMAGE]
+      THEN1 metis_tac [check_partial_col_success_INJ]
+      THEN1 metis_tac [check_partial_col_numset_list_insert]
     )
     (* Seq *)
     THEN1 (
-      rw [check_live_tree_forward_def] >>
+      simp [check_live_tree_forward_def, check_endlive_fixed_forward_def] >>
+      rpt gen_tac >> strip_tac >>
+      NTAC 2 (pairarg_tac >> fs []) >> rveq >>
       Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
       Cases_on `x` >> fs [] >>
-      `domain r = IMAGE f (domain q)` by metis_tac []
-      THEN1 (
-        metis_tac []
-      )
-      THEN1 (
-        `INJ f (domain q) UNIV` by metis_tac [] >>
-        metis_tac []
-      )
+      `domain r = IMAGE f (domain q) /\ INJ f (domain q) UNIV /\ q = live1` by metis_tac [] >>
+      rpt strip_tac >>
+      metis_tac []
     )
 )
 
@@ -1025,16 +1039,95 @@ val exists_IMAGE_f = Q.store_thm("exists_IMAGE_f",
     rw [domain_lookup]
 )
 
-val check_partial_col_numset_list_insert = Q.store_thm("check_partial_col_numset_list_insert",
-    `!f s fs s' fs' l.
-    check_partial_col f l s fs = SOME (s', fs') ==>
-    s' = numset_list_insert l s`,
-    Induct_on `l` >>
-    rw [check_partial_col_def, numset_list_insert_def] >>
-    Cases_on `lookup h s` >> fs [] >>
-    Cases_on `lookup (f h) fs` >> fs [] >>
-    metis_tac [lookup_insert_id]
+val check_endlive_fixed_forward_eq_check_live_tree_forward = Q.store_thm("check_endlive_fixed_forward_eq_check_live_tree_forward",
+    `!lt live flive liveout1 fliveout1 liveout2 b.
+    check_live_tree_forward f lt live flive = SOME (liveout1, fliveout1) /\
+    check_endlive_fixed_forward lt live = (b, liveout2) ==>
+    liveout1 = liveout2`,
+
+    Induct_on `lt` >>
+    rw [check_endlive_fixed_forward_def, check_live_tree_forward_def]
+    (* StartLive *)
+    THEN1 metis_tac [check_partial_col_numset_list_insert]
+    (* Branch *)
+    THEN1 (
+      NTAC 2 (pairarg_tac >> fs []) >>
+      Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
+      Cases_on `x` >> fs [] >>
+      Cases_on `check_live_tree_forward f lt' live flive` >> fs [] >>
+      Cases_on `x` >> fs [] >>
+      metis_tac [check_partial_col_numset_list_insert]
+    )
+    (* Seq *)
+    THEN1 (
+      NTAC 2 (pairarg_tac >> fs []) >>
+      Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
+      Cases_on `x` >> fs [] >>
+      metis_tac [check_partial_col_numset_list_insert]
+    )
 )
+
+val check_endlive_fixed_backward_forward = Q.store_thm("check_endlive_fixed_backward_forward",
+    `!live lt liveout liveout'.
+    check_endlive_fixed lt live = (T, liveout) /\
+    is_subset liveout liveout' ==>
+    ?livein. check_endlive_fixed_forward lt liveout' = (T, livein) /\
+    is_subset live livein`,
+
+    Induct_on `lt` >>
+    simp [check_endlive_fixed_def, check_endlive_fixed_forward_def]
+
+    (* StartLive *)
+    THEN1 (
+      rw [is_subset_def, domain_numset_list_delete, domain_numset_list_insert] >>
+      fs [SUBSET_DEF] >>
+      rw [] >>
+      Cases_on `MEM x l` >> fs []
+    )
+
+    (* EndLive *)
+    THEN1 (
+      rw [domain_lookup]
+      THEN1 (
+        fs [is_subset_def, domain_numset_list_insert, SUBSET_DEF, EVERY_MEM] >>
+        rw [] >>
+        `?y. lookup x liveout' = SOME y` by metis_tac [domain_lookup] >>
+        Cases_on `y` >> simp []
+      )
+      THEN1 (
+        fs [is_subset_def, domain_numset_list_delete, domain_numset_list_insert, SUBSET_DEF, EVERY_MEM] >>
+        strip_tac >> CCONTR_TAC >> fs [] >>
+        `lookup x live = NONE` by rw [] >>
+        fs [lookup_NONE_domain]
+      )
+    )
+
+    (* Branch *)
+    THEN1 (
+      rw [] >>
+      NTAC 4 (pairarg_tac >> fs []) >> rveq >>
+      `domain live1' UNION domain live2' SUBSET domain liveout'` by fs [is_subset_def, domain_numset_list_insert, branch_domain] >>
+      `is_subset live1' liveout'` by fs [is_subset_def] >>
+      `is_subset live2' liveout'` by fs [is_subset_def] >>
+      `?livein1. check_endlive_fixed_forward lt liveout' = (T, livein1) /\ is_subset live livein1` by metis_tac [] >>
+      `?livein2. check_endlive_fixed_forward lt' liveout' = (T, livein2) /\ is_subset live livein2` by metis_tac [] >>
+      fs [] >> rveq >>
+      fs [is_subset_def, domain_numset_list_insert, branch_domain] >>
+      `domain live1 SUBSET domain live1 UNION domain live2` by fs [] >>
+      metis_tac [SUBSET_TRANS]
+    )
+
+    (* Seq *)
+    THEN1 (
+      rw [] >>
+      NTAC 4 (pairarg_tac >> fs []) >> rveq >>
+      `?livein1. check_endlive_fixed_forward lt liveout' = (T, livein1) /\ is_subset live2' livein1` by metis_tac [] >>
+      fs [] >> rveq >>
+      `?livein2. check_endlive_fixed_forward lt' live1 = (T, livein2) /\ is_subset live livein2` by metis_tac [] >>
+      fs [] >> rveq >> rw []
+    )
+)
+
 
 val check_endlive_fixed_eq_get_live_backward = Q.store_thm("check_endlive_fixed_eq_get_live_backward",
     `!lt live liveout b.
@@ -1061,7 +1154,6 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
 
     Induct_on `lt` >>
     rw [check_live_tree_forward_def, check_live_tree_def, check_endlive_fixed_def, get_live_backward_def]
-
     (* StartLive *)
     THEN1 (
         `domain liveout = set l UNION domain live` by metis_tac [check_partial_col_domain, FST] >>
@@ -1079,9 +1171,6 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
     )
     (* EndLive *)
     THEN1 (
-        Cases_on `check_partial_col f l live flive` >> fs [] >>
-        Cases_on `x` >> fs [] >>
-
         `INJ f (set l UNION domain liveout') UNIV` by metis_tac [INJ_SUBSET, UNIV_SUBSET, is_subset_def, domain_numset_list_insert] >>
         `?a b. check_partial_col f l liveout' fliveout' = SOME (a, b)` by metis_tac [check_partial_col_success] >>
         rw []
@@ -1107,12 +1196,15 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
         rw [] >>
         qabbrev_tac `a = get_live_backward lt liveout'` >>
         qabbrev_tac `b = get_live_backward lt' liveout'` >>
+        `a = live1 /\ b = live2` by metis_tac [check_endlive_fixed_eq_get_live_backward] >>
+        rveq >>
         sg `INJ f (set (MAP FST (toAList (difference b a))) UNION domain a) UNIV` THEN1 (
             simp [branch_domain] >>
             `(domain a UNION domain b) SUBSET domain live` by fs [] >>
             metis_tac [INJ_SUBSET, UNIV_SUBSET]
         ) >>
         sg `domain flivein = IMAGE f (domain a)` THEN1 (
+          `?z. check_endlive_fixed_forward lt live = (T, z)` by metis_tac [check_endlive_fixed_backward_forward, is_subset_def] >>
           `INJ f (domain q) UNIV` by metis_tac [check_live_tree_forward_output] >>
           `INJ f (domain liveout') UNIV` by metis_tac [is_subset_def, INJ_SUBSET, UNIV_SUBSET] >>
           metis_tac [check_live_tree_success]
@@ -1130,21 +1222,26 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
         Cases_on `check_live_tree_forward f lt live flive` >> fs [] >>
         Cases_on `x` >> fs [] >>
         NTAC 2 (pairarg_tac >> fs []) >> rveq >>
-        `domain r = IMAGE f (domain q) /\ INJ f (domain q) UNIV` by metis_tac [check_live_tree_forward_output] >>
-        `live2 = get_live_backward lt' liveout'` by fs [check_endlive_fixed_eq_get_live_backward] >>
-        sg `is_subset (get_live_backward lt' liveout') q` THEN1 (
-          `?(fmiddle:num_set). domain fmiddle = IMAGE f (domain (get_live_backward lt' liveout'))` by simp [exists_IMAGE_f] >>
-          last_x_assum (qspecl_then [`f`, `live`, `flive`, `q`, `r`, `get_live_backward lt' liveout'`, `fmiddle`, `bla`] assume_tac) >>
+        qabbrev_tac `a = get_live_backward lt' liveout'` >>
+        qabbrev_tac `b = get_live_backward lt a` >>
+        `live2 = a /\ bla = b` by metis_tac [check_endlive_fixed_eq_get_live_backward] >>
+        rveq >>
+        sg `is_subset a q` THEN1 (
+          `?(fmiddle:num_set). domain fmiddle = IMAGE f (domain a)` by simp [exists_IMAGE_f] >>
+          last_x_assum (qspecl_then [`f`, `live`, `flive`, `q`, `r`, `a`, `fmiddle`, `b`] assume_tac) >>
           metis_tac []
         ) >>
-        `?flivein. check_live_tree f lt' liveout' fliveout' = SOME (get_live_backward lt' liveout',flivein) /\ is_subset liveout' liveout` by metis_tac [] >>
-        sg `domain flivein = IMAGE f (domain (get_live_backward lt' liveout'))` THEN1 (
+        `?z. check_endlive_fixed_forward lt live = (T, z)` by metis_tac [check_endlive_fixed_backward_forward] >>
+        `domain r = IMAGE f (domain q) /\ INJ f (domain q) UNIV` by metis_tac [check_live_tree_forward_output] >>
+        `?flivein. check_live_tree f lt' liveout' fliveout' = SOME (a,flivein) /\ is_subset liveout' liveout` by metis_tac [] >>
+        sg `domain flivein = IMAGE f (domain a)` THEN1 (
+          `?z. check_endlive_fixed_forward lt' q = (T, z)` by metis_tac [check_endlive_fixed_backward_forward] >>
           `INJ f (domain liveout) UNIV` by metis_tac [check_live_tree_forward_output] >>
           `INJ f (domain liveout') UNIV` by (fs [is_subset_def] >> metis_tac [INJ_SUBSET, UNIV_SUBSET]) >>
           metis_tac [check_live_tree_success]
         ) >>
-        last_x_assum (qspecl_then [`f`, `live`, `flive`, `q`, `r`, `get_live_backward lt' liveout'`, `flivein`, `bla`] assume_tac) >>
-        `?flivein'. check_live_tree f lt (get_live_backward lt' liveout') flivein = SOME (get_live_backward lt (get_live_backward lt' liveout'), flivein')` by metis_tac [] >>
+        last_x_assum (qspecl_then [`f`, `live`, `flive`, `q`, `r`, `a`, `flivein`, `b`] assume_tac) >>
+        `?flivein'. check_live_tree f lt a flivein = SOME (get_live_backward lt a, flivein')` by metis_tac [] >>
         rw []
     )
 )

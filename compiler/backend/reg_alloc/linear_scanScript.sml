@@ -117,15 +117,32 @@ val check_endlive_fixed_def = Define`
         (r1 /\ r2, live1)
     )`
 
+val check_endlive_fixed_forward_def = Define`
+    (
+      check_endlive_fixed_forward (StartLive l) live =
+        (T, numset_list_insert l live)
+    ) /\ (
+      check_endlive_fixed_forward (EndLive l) live =
+        (EVERY (\x. lookup x live = SOME ()) l, numset_list_delete l live)
+    ) /\ (
+      check_endlive_fixed_forward (Branch lt1 lt2) live =
+        let (r1, live1) = check_endlive_fixed_forward lt1 live in
+        let (r2, live2) = check_endlive_fixed_forward lt2 live in
+        (r1 /\ r2, numset_list_insert (MAP FST (toAList (difference live2 live1))) live1)
+    ) /\ (
+      check_endlive_fixed_forward (Seq lt1 lt2) live =
+        let (r1, live1) = check_endlive_fixed_forward lt1 live in
+        let (r2, live2) = check_endlive_fixed_forward lt2 live1 in
+        (r1 /\ r2, live2)
+    )`
+
+
 val check_live_tree_forward_def = Define`
     (
       check_live_tree_forward f (StartLive l) live flive =
         check_partial_col f l live flive
     ) /\ (
       check_live_tree_forward f (EndLive l) live flive =
-        case check_partial_col f l live flive of
-        | NONE => NONE
-        | SOME _ =>
         let live_out = numset_list_delete l live in
         let flive_out = numset_list_delete (MAP f l) flive in
         SOME (live_out, flive_out)
