@@ -1,4 +1,4 @@
-open preamble backendComputeLib sptreeTheory flatLangTheory reachabilityTheory flat_elimTheory flatSemTheory flatPropsTheory
+open preamble sptreeTheory flatLangTheory reachabilityTheory flat_elimTheory flatSemTheory flatPropsTheory
 
 val m = Hol_pp.print_apropos;
 val f = print_find;
