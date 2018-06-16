@@ -135,6 +135,6 @@ val bool_id_def = Define `
   bool_id = 0n`;
 
 val Bool_def = Define`
-  Bool t b = Con t (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
+  Bool t b = Con t (SOME (backend_common$bool_to_tag b, SOME bool_id)) []`;
 
 val _ = export_theory ();
