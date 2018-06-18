@@ -885,8 +885,7 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
     \\ last_x_assum drule \\ strip_tac \\ rfs [])
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
   >-
-   (
-    simp [semantics_def]
+   (simp [semantics_def]
     \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
     >-
      (fs [eval_sim_def]
@@ -900,11 +899,9 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
       \\ Cases_on `x` \\ fs [])
     \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
     >-
-     (
-      Cases_on `s.ffi.final_event` \\ fs []
+     (Cases_on `s.ffi.final_event` \\ fs []
       >-
-       (
-        Cases_on `s'.ffi.final_event` \\ fs []
+       (Cases_on `s'.ffi.final_event` \\ fs []
         >-
          (fs [eval_sim_def] \\ rveq
           \\ first_x_assum drule
@@ -935,15 +932,44 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
         \\ fs [eval_sim_def] \\ rveq
         \\ first_x_assum drule
         \\ impl_keep_tac >- metis_tac []
-        \\ CCONTR_TAC \\ fs []
+        \\ strip_tac \\ fs []
         \\ `res2 <> SOME (Rabort Rtimeout_error)`
           by (Cases_on `r` \\ Cases_on `res2` \\ fs []
               \\ rename1 `xx <> _ Rtype_error`
               \\ Cases_on `xx` \\ fs [])
-        \\ cheat (* TODO *)
-       )
-      \\ cheat (* TODO *)
-     )
+        \\ qispl_then [`t2`] mp_tac
+          (GEN_ALL evaluate_decs_add_to_clock_initial_state)
+        \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then `k'` assume_tac) \\ fs []
+        \\ qpat_x_assum `_ = (s',_,_)` assume_tac
+        \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
+        \\ disch_then (qspec_then `ck + k` strip_assume_tac)
+        \\ rfs [] \\ fs [])
+      \\ Cases_on `s'.ffi.final_event` \\ fs []
+      >-
+       (fs [eval_sim_def] \\ rveq
+        \\ first_x_assum drule
+        \\ impl_keep_tac >- metis_tac []
+        \\ strip_tac \\ fs []
+        \\ `r' <> SOME (Rabort Rtimeout_error)` by metis_tac []
+        \\ qispl_then [`s'`] mp_tac
+          (GEN_ALL evaluate_decs_add_to_clock_initial_state)
+        \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then `ck + k` assume_tac) \\ fs []
+        \\ qpat_x_assum `_ = (t2,_,_)` assume_tac
+        \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
+        \\ disch_then (qspec_then `k'` strip_assume_tac)
+        \\ rfs [] \\ fs [])
+      \\ fs [eval_sim_def] \\ rveq
+      \\ first_x_assum drule
+      \\ impl_keep_tac >- metis_tac []
+      \\ strip_tac \\ fs []
+      \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
+      \\ disch_then (qspec_then `k'` strip_assume_tac)
+      \\ qhdtm_x_assum `evaluate_decs` mp_tac
+      \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
+      \\ disch_then (qspec_then `ck + k` strip_assume_tac)
+      \\ rfs [] \\ fs [])
     \\ fs [eval_sim_def]
     \\ last_x_assum drule
     \\ impl_tac >- metis_tac []
