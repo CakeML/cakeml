@@ -48,11 +48,11 @@ let Bindv = Conv (Just("Bind",TypeExn(Short"Bind"))) []
 type abort =
   | Rtype_error
   | Rtimeout_error
+  | Rffi_error of final_event
 
 type error_result 'a =
   | Rraise of 'a (* Should only be a value of type exn *)
   | Rabort of abort
-  | Rffi_error of final_event  
 
 type result 'a 'b =
   | Rval of 'a
