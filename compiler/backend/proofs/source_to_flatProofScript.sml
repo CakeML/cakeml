@@ -3576,6 +3576,8 @@ val invariant_change_clock = Q.store_thm("invariant_change_clock",
    invariant genv env (st1 with clock := k) (st2 with clock := k)`,
   srw_tac[][invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases])
 
+(* TODO initial_ctors ⊆ FDOM genv.c could do and that follows
+   from genv_c_ok *)
 val precondition_def = Define`
   precondition s1 env1 conf  ⇔
     ?genv.
@@ -3866,7 +3868,20 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     suffices_by (rw []\\ fs [])
   \\ match_mp_tac compile_flat_correct \\ fs []
   \\ rw [EVERY_MEM, is_new_type_def]
-  \\ cheat (* TODO *)
-  );
+  \\ strip_tac
+  \\ `tid <> 0 ==> tid = 1`
+    by fs [flat_exh_matchTheory.init_ctors_def, FDOM_FUPDATE_LIST]
+  \\ `c.next.tidx > 1`
+    by (fs [precondition_def, invariant_def]
+        \\ qhdtm_x_assum `genv_c_ok` mp_tac
+        \\ qpat_x_assum `!x.!y.!z._ ==> _` mp_tac
+        \\ qpat_x_assum `FDOM _ = _` mp_tac
+        \\ EVAL_TAC \\ fs [flookup_thm] \\ rw []
+        \\ CCONTR_TAC \\ fs [])
+  \\ fs [compile_def]
+  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ imp_res_tac compile_decs_tidx_thm \\ fs [glob_alloc_def]
+  \\ fs [EVERY_MEM]
+  \\ res_tac \\ fs []);
 
 val _ = export_theory ();
