@@ -16,7 +16,10 @@ val _ = new_theory "ffi"
 * represented by the type variable 'ffi. *)
 
 val _ = Hol_datatype `
- oracle_result = Oracle_return of 'ffi => word8 list | Oracle_diverge | Oracle_fail`;
+  ffi_outcome = FFI_failed | FFI_diverged`;
+                   
+val _ = Hol_datatype `
+ oracle_result = Oracle_return of 'ffi => word8 list | Oracle_final of ffi_outcome`;
 
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> word8 list -> word8 list -> 'ffi oracle_result``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``);
@@ -28,19 +31,13 @@ val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``)
 val _ = Hol_datatype `
  io_event = IO_event of string => word8 list => ( (word8 # word8)list)`;
 
-
-val _ = Hol_datatype `
- ffi_outcome = FFI_diverged | FFI_failed`;
-
 val _ = Hol_datatype `
  final_event = Final_event of string => word8 list => word8 list => ffi_outcome`;
-
 
 val _ = Hol_datatype `
 (*  'ffi *) ffi_state =
 <| oracle      : 'ffi oracle
  ; ffi_state   : 'ffi
- ; final_event :  final_event option
  ; io_events   : io_event list
  |>`;
 
@@ -50,35 +47,35 @@ val _ = Define `
  (initial_ffi_state oc ffi=
  (<| oracle      := oc
  ; ffi_state   := ffi
- ; final_event := NONE
  ; io_events   := ([])
  |>))`;
 
+val _ = Hol_datatype `
+  (* 'ffi *) ffi_result = FFI_return of 'ffi ffi_state => word8 list | FFI_final of final_event`
 
-(*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * list word8*)
+(*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * ffi_result*)
 val _ = Define `
  (call_FFI st s conf bytes=  
- (if (st.final_event = NONE) /\ ~ (s = "") then
+ (if ~ (s = "") then
     (case st.oracle s st.ffi_state conf bytes of
       Oracle_return ffi' bytes' =>
-        if LENGTH bytes' = LENGTH bytes then
-          (( st with<| ffi_state := ffi'
+       if LENGTH bytes' = LENGTH bytes then
+          (FFI_return
+             ( st with<| ffi_state := ffi'
                     ; io_events :=                        
 (st.io_events ++
                           [IO_event s conf (ZIP (bytes, bytes'))])
-            |>), bytes')
-        else (( st with<| final_event := (SOME (Final_event s conf bytes FFI_failed)) |>), bytes)
-    | Oracle_diverge =>
-          (( st with<| final_event := (SOME (Final_event s conf bytes FFI_diverged)) |>), bytes)
-    | Oracle_fail =>
-        (( st with<| final_event := (SOME (Final_event s conf bytes FFI_failed)) |>), bytes)
+              |>)
+             bytes')
+        else FFI_final(Final_event s conf bytes FFI_failed)
+    | Oracle_final outcome =>
+          FFI_final(Final_event s conf bytes outcome)
     )
-  else (st, bytes)))`;
+  else FFI_return st bytes))`;
 
 
 val _ = Hol_datatype `
  outcome = Success | Resource_limit_hit | FFI_outcome of final_event`;
-
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -108,8 +105,8 @@ val _ = Define `
     SOME (IO_event s' conf' bytes2) =>
       if (s = s') /\ (MAP FST bytes2 = input) /\ (conf = conf') then
         Oracle_return (THE (LTL io_trace)) (MAP SND bytes2)
-      else Oracle_fail
-  | _ => Oracle_fail
+      else Oracle_final FFI_failed
+  | _ => Oracle_final FFI_failed
   )))`;
 
 val _ = export_theory()
