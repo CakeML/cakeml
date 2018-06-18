@@ -6,7 +6,7 @@ val _ = new_theory "flat_uncheck_ctorsProof";
 (* TODO: move? *)
 
 val compile_append = Q.prove (
-  `!es es2. compile (es ++ es2) = compile es ++ compile es2`,
+  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`,
   Induct >>
   rw [compile_def] >>
   Cases_on `es` >>
@@ -18,12 +18,12 @@ val compile_append = Q.prove (
   rw [compile_def]);
 
 val compile_reverse = Q.prove (
-  `!es. compile (REVERSE es) = REVERSE (compile es)`,
+  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`,
   ho_match_mp_tac compile_ind >>
   rw [compile_def, compile_append]);
 
 val compile_HD_sing = Q.store_thm("compile_HD_sing",
-  `[HD (compile [e])] = compile [e]`,
+  `[HD (compile [e])] = compile [e:flatLang$exp]`,
   qspec_then`e`strip_assume_tac compile_sing
   \\ fs[]);
 
