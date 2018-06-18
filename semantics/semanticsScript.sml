@@ -41,9 +41,8 @@ val semantics_prog_def = Define `
     (if ffi.final_event = NONE then
        (r ≠ Rerr (Rabort Rtimeout_error)) ∧ outcome = Success
      else outcome = FFI_outcome (THE ffi.final_event)) ∧
-    (io_list = ffi.io_events)) ∧
-  (!k ffi.
-    evaluate_prog_with_clock st env k prog ≠ (ffi, Rerr (Rabort Rtype_error)))) ∧
+    (io_list = ffi.io_events) ∧
+    (r ≠ Rerr (Rabort Rtype_error)))) ∧
 (semantics_prog st env prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.
@@ -58,9 +57,11 @@ val semantics_prog_def = Define `
        UNIV)
      io_trace) ∧
 (semantics_prog st env prog Fail ⇔
-  (* there is a clock for which evaluation produces a runtime type error *)
+  (* there is a clock for which evaluation produces a runtime type error before the final event *)
   ∃k.
-    SND(evaluate_prog_with_clock st env k prog) = Rerr (Rabort Rtype_error))`;
+    SND(evaluate_prog_with_clock st env k prog) = Rerr (Rabort Rtype_error)
+    /\ (FST(evaluate_prog_with_clock st env k prog)).final_event = NONE)
+ `;
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
