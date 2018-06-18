@@ -3750,8 +3750,98 @@ val compile_correct = Q.store_thm("compile_correct",
 open flat_uncheck_ctorsProofTheory flat_elimProofTheory
      flat_exh_matchProofTheory flat_reorder_matchProofTheory
 
+(* TODO move to flat_exh_matchProofTheory *)
+val get_tdecs_thm = Q.store_thm("get_tdecs_thm",
+  `!xs.
+     get_tdecs xs =
+       MAP (\d. case d of Dtype t s => t)
+           (FILTER (\d. ?t s. d = Dtype t s) xs)`,
+  Induct \\ rw [get_tdecs_def] \\ fs []
+  \\ Cases_on `h` \\ fs []);
+
+(* TODO move to flat_exh_matchProofTheory *)
+val get_tdecs_APPEND = Q.store_thm("get_tdecs_APPEND",
+  `get_tdecs (xs ++ ys) = get_tdecs xs ++ get_tdecs ys`,
+  Induct_on `xs` \\ rw [get_tdecs_def]
+  \\ every_case_tac \\ fs []);
+
+(* TODO move to flat_exh_matchProofTheory *)
+val get_tdecs_MEM = Q.store_thm("get_tdecs_MEM",
+  `!xs. MEM t (get_tdecs xs) <=> ?s. MEM (Dtype t s) xs`,
+  Induct \\ rw [get_tdecs_def]
+  \\ Cases_on `h` \\ fs []
+  \\ metis_tac []);
+
+(* TODO move *)
+val FILTER3_T = Q.store_thm ("FILTER3_T",
+  `FILTER (\(x,y,z). T) xs = xs`,
+  Induct_on `xs` \\ rw [] \\ fs [ELIM_UNCURRY]);
+
+(* source_to_flat$compile_decs always generates fresh type identifiers,
+   so they must be unique. *)
+val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
+  `!n1 next1 env1 ds1 n2 next2 env2 ds2.
+   compile_decs n1 next1 env1 ds1 = (n2, next2, env2, ds2)
+   ==>
+   ALL_DISTINCT (get_tdecs ds2) /\
+   EVERY (\d. !t s. d = Dtype t s ==> next1.tidx <= t /\ t < next2.tidx) ds2 /\
+   (next1.tidx = next2.tidx <=> get_tdecs ds2 = [])`,
+  ho_match_mp_tac compile_decs_ind
+  \\ rw [compile_decs_def] \\ fs [get_tdecs_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ fs [get_tdecs_APPEND, ALL_DISTINCT_APPEND]
+  \\ TRY (EVAL_TAC \\ NO_TAC)
+  \\ TRY (fs [get_tdecs_thm, MAPi_enumerate_MAP, FILTER_MAP, MAP_MAP_o,
+              o_DEF, UNCURRY] \\ NO_TAC)
+  \\ TRY (fs [EVERY_MEM, MEM_MAPi, UNCURRY] \\ rw [] \\ NO_TAC)
+  \\ TRY
+   (fs [EVERY_MEM] \\ rw [] \\ fs []
+    \\ res_tac \\ fs []
+    \\ imp_res_tac compile_decs_num_bindings \\ fs []
+    \\ NO_TAC)
+  >-
+   (fs [get_tdecs_thm, MAPi_enumerate_MAP, MAP_MAP_o, FILTER_MAP, o_DEF,
+        LAMBDA_PROD, FILTER3_T]
+    \\ fs [MAP_enumerate_MAPi]
+    \\ rename1 `_ + x`
+    \\ map_every qid_spec_tac [`x`, `type_def`]
+    \\ Induct \\ rw []
+    \\ fs [o_DEF, ADD1]
+    >- (strip_tac \\ fs [MEM_MAPi, ELIM_UNCURRY])
+    \\ first_x_assum (qspec_then `x + 1` assume_tac)
+    \\ once_rewrite_tac [DECIDE ``x + (n + 1) = n + (x + 1n)``] \\ fs [])
+  >-
+   (rw [EVERY_MEM, MEM_MAPi, ELIM_UNCURRY]
+    \\ fs [])
+  >-
+   (Cases_on `type_def`
+    \\ fs [get_tdecs_def, ELIM_UNCURRY])
+  >-
+   (rw [] \\ strip_tac
+    \\ fs [EVERY_MEM]
+    \\ imp_res_tac get_tdecs_MEM \\ fs []
+    \\ res_tac \\ fs [])
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ simp [get_tdecs_thm, FILTER_EQ_NIL, EVERY_MEM]
+  \\ rw []
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ `next1.tidx <> next1'.tidx`
+    by (strip_tac \\ rfs [] \\ fs []
+        \\ imp_res_tac get_tdecs_MEM
+        \\ rfs [])
+  \\ imp_res_tac compile_decs_num_bindings \\ fs []);
+
+val compile_tidx_thm = Q.store_thm("compile_tidx_thm",
+  `compile c1 ds1 = (c2, ds2) ==> ALL_DISTINCT (get_tdecs ds2)`,
+  rw [compile_def]
+  \\ pairarg_tac \\ fs []
+  \\ imp_res_tac compile_decs_tidx_thm \\ fs [] \\ rveq
+  \\ fs [glob_alloc_def, get_tdecs_def]);
+
 val compile_flat_correct = Q.store_thm("compile_flat_correct",
   `precondition s env c /\
+   EVERY (is_new_type init_ctors) prog /\
+   ALL_DISTINCT (get_tdecs prog) /\
    semantics F T s.ffi prog <> Fail
    ==>
    semantics F T s.ffi prog = semantics T F s.ffi (compile_flat prog)`,
@@ -3762,18 +3852,21 @@ val compile_flat_correct = Q.store_thm("compile_flat_correct",
   \\ `semantics F T s.ffi prog = semantics T T s.ffi (SND (compile prog))`
     suffices_by metis_tac [flat_elimProofTheory.flat_remove_semantics,
                            flat_reorder_matchProofTheory.compile_decs_semantics]
-  \\ match_mp_tac flat_exh_matchProofTheory.compile_decs_semantics \\ fs []
-  \\ cheat (* TODO prove that type declarations are all distinct and that
-              the things that come from init_ctors are not declared in the
-              program (these things are in the global env). *));
+  \\ match_mp_tac flat_exh_matchProofTheory.compile_decs_semantics \\ fs []);
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `precondition s env c ⇒
    ¬semantics_prog s env prog Fail ⇒
    semantics_prog s env prog (semantics T F s.ffi (SND (compile_prog c prog)))`,
   rw [compile_prog_def] \\ pairarg_tac \\ fs []
+  \\ imp_res_tac compile_tidx_thm
   \\ imp_res_tac compile_correct \\ rfs []
   \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
-  \\ metis_tac [compile_flat_correct])
+  \\ `semantics F T s.ffi p' = semantics T F s.ffi (compile_flat p')`
+    suffices_by (rw []\\ fs [])
+  \\ match_mp_tac compile_flat_correct \\ fs []
+  \\ rw [EVERY_MEM, is_new_type_def]
+  \\ cheat (* TODO *)
+  );
 
 val _ = export_theory ();
