@@ -26,7 +26,7 @@ val compile_def = tDefine "compile" `
   (compile [Fun t v e] = [Fun t v (HD (compile [e]))]) /\
   (compile [App t op es] = [App t op (compile es)]) /\
   (compile [If t e1 e2 e3] = [If t (HD (compile [e1])) (HD (compile [e2])) (HD (compile [e3]))]) ∧
-  (compile [Mat t e pes] =  [Mat t (HD (compile [e])) (MAP (λ(p,e). (p,HD (compile [e]))) pes)]) /\
+  (compile [Mat t e pes] =  [Mat t (HD (compile [e])) (MAP (λ(p,e). (compile_pat p,HD (compile [e]))) pes)]) /\
   (compile [Let t vo e1 e2] = [Let t vo (HD (compile [e1])) (HD (compile [e2]))]) /\
   (compile [Letrec t funs e] =
       [Letrec t (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
