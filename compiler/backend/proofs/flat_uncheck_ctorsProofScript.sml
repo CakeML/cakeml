@@ -3,6 +3,14 @@ open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
 val _ = new_theory "flat_uncheck_ctorsProof";
 
+val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
+`!(p:flatLang$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`,
+  ho_match_mp_tac compile_pat_ind >>
+  simp [compile_pat_def, astTheory.pat_bindings_def, pat_bindings_def] >>
+  induct_on `ps` >>
+  rw [] >>
+  fs [pat_bindings_def,astTheory.pat_bindings_def, PULL_FORALL]);
+
 (* TODO: move? *)
 
 val compile_append = Q.prove (
@@ -412,10 +420,10 @@ val pmatch_correct = Q.store_thm("pmatch_correct",
     ⇒
     case pmatch env1 refs1 p v1 acc1 of
     | Match res1 => ∃res2.
-        pmatch env2 refs2 p v2 acc2 = Match res2 ∧
+        pmatch env2 refs2 (compile_pat p) v2 acc2 = Match res2 ∧
         LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
         MAP FST res1 = MAP FST res2
-    | r => pmatch env2 refs2 p v2 acc2 = r) ∧
+    | r => pmatch env2 refs2 (compile_pat p) v2 acc2 = r) ∧
    (∀env1 refs1 p v1 acc1 env2 refs2 v2 acc2.
     env_rel env1 env2 ∧
     LIST_REL (sv_rel v_rel) refs1 refs2 ∧
@@ -426,19 +434,20 @@ val pmatch_correct = Q.store_thm("pmatch_correct",
     ⇒
     case pmatch_list env1 refs1 p v1 acc1 of
     | Match res1 => ∃res2.
-        pmatch_list env2 refs2 p v2 acc2 = Match res2 ∧
+        pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = Match res2 ∧
         LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
         MAP FST res1 = MAP FST res2
-    | r => pmatch_list env2 refs2 p v2 acc2 = r)`,
+    | r => pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = r)`,
   ho_match_mp_tac pmatch_ind
-  \\ rw[pmatch_def]
+  \\ rw[pmatch_def, compile_pat_def, libTheory.the_def]
   \\ TRY (
     qpat_x_assum`v_rel (Conv _ _) _`mp_tac
     \\ rw[Once v_rel_cases, libTheory.the_def] )
   >- (
     fs[pmatch_def, env_rel_cases] \\ rfs[]
     \\ fs[flatSemTheory.same_ctor_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] >>
+    simp [ETA_THM])
   >- (
     fs[pmatch_def, env_rel_cases] \\ rfs[]
     \\ fs[flatSemTheory.same_ctor_def]
@@ -447,7 +456,12 @@ val pmatch_correct = Q.store_thm("pmatch_correct",
     \\ fs[flatSemTheory.ctor_same_type_def]
     \\ rw[]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
-  >- cheat (* looks false *)
+  >- (
+    every_case_tac >>
+    fs [pmatch_def] >>
+    rw [ETA_THM] >>
+    fs [env_rel_cases, same_ctor_def] >>
+    metis_tac [LIST_REL_LENGTH])
   >- (
     fs[case_eq_thms]
     \\ Cases_on`store_lookup lnum refs1` \\ fs[]
@@ -488,7 +502,7 @@ val compile_exp_correct = Q.prove (
     ?s1' r1.
       result_rel (LIST_REL v_rel) v_rel r r1 ∧
       s_rel s' s1' ∧
-      evaluate_match env' s1 v1 (MAP (λ(p,e'). (p,HD (compile [e']))) pes) err_v1 = (s1', r1))`,
+      evaluate_match env' s1 v1 (MAP (λ(p,e'). (compile_pat p,HD (compile [e']))) pes) err_v1 = (s1', r1))`,
   ho_match_mp_tac evaluate_ind >>
   rw [evaluate_def, compile_def] >>
   rw [] >>

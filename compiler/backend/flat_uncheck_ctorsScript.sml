@@ -19,7 +19,8 @@ val compile_pat_def = tDefine "compile_pat" `
 val compile_def = tDefine "compile" `
   (compile [] = []) /\
   (compile [Raise t e] = [Raise t (HD (compile [e]))]) /\
-  (compile [Handle t e pes] =  [Handle t (HD (compile [e])) (MAP (λ(p,e). (p,HD (compile [e]))) pes)]) /\
+  (compile [Handle t e pes] =
+    [Handle t (HD (compile [e])) (MAP (λ(p,e). (compile_pat p,HD (compile [e]))) pes)]) /\
   (compile [Lit t l] = [Lit t l]) /\
   (compile [Con t tag es] = [Con t (SOME (the (0,NONE) tag)) (compile es)] ) /\
   (compile [Var_local t v] = [Var_local t v]) /\
