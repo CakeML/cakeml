@@ -285,7 +285,7 @@ val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
   rw[store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
 
 val FFI_full_NOT_IN_store2heap = Q.store_thm("FFI_full_NOT_IN_store2heap",
-  `FFI_full x1 x2 ∉ store2heap refs`,
+  `FFI_full x1 ∉ store2heap refs`,
   rw[store2heap_def,FFI_full_NOT_IN_store2heap_aux]);
 
 val FFI_split_NOT_IN_store2heap = Q.store_thm("FFI_split_NOT_IN_store2heap",
@@ -357,7 +357,8 @@ val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
   \\ fs[dec_clock_def]
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
   \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
-  \\ rw[]);
+  \\ rw[]
+  \\ every_case_tac >> fs[] >> rveq >> fs[]);
 
 val big_refs_length_mono = Q.store_thm("big_refs_length_mono",
   `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`,
@@ -394,7 +395,7 @@ val forall_cases = Q.prove(
   `(!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
                   (P FFI_split) /\
                   (!x3 x4 x2 x1. P (FFI_part x1 x2 x3 x4)) /\
-                  (!x1 x2. P (FFI_full x1 x2))`,
+                  (!x1. P (FFI_full x1))`,
   EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []);
 
 val SPLIT_UNION_IMP_SUBSET = Q.prove(
@@ -494,7 +495,6 @@ val FFI_part_11 = Q.prove(
 
 val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
   `SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
-   st'.ffi.final_event = st.ffi.final_event /\
    !n. FILTER (ffi_has_index_in [n]) st'.ffi.io_events =
        FILTER (ffi_has_index_in [n]) st.ffi.io_events`,
   PairCases_on `p` \\ strip_tac
@@ -515,10 +515,11 @@ val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
   \\ fs [Mem_NOT_IN_ffi2heap]
   \\ reverse (Cases_on `parts_ok st.ffi (p0,p1)`) \\ fs [] THEN1
    (fs [ffi2heap_def]
-    \\ first_x_assum (qspecl_then [`st.ffi.final_event`,`st.ffi.io_events`] mp_tac)
+    \\ first_x_assum (qspecl_then [`st.ffi.io_events`] mp_tac)
     \\ fs [])
-  \\ conj_tac THEN1 fs [parts_ok_def] \\ rw []
-  \\ ntac 2 (qpat_x_assum `!x1 x2. _ <=> _` kall_tac)
+  \\ rw []
+  \\ qpat_x_assum `!x1 x2. _ <=> _` kall_tac
+  \\ qpat_x_assum `!x1. _ <=> _` kall_tac  
   \\ qpat_x_assum `_ <=> _` kall_tac
   \\ `∀x3 x4 x2 x1.
         FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) st'.ffi ⇔
@@ -559,13 +560,12 @@ val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_sa
   \\ fs[funBigStepEquivTheory.functional_evaluate]
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ fs[io_events_mono_def]
-  \\ Cases_on`st.ffi.final_event` \\ fs[] \\ rfs []
   \\ `LENGTH st.ffi.io_events = LENGTH st'.ffi.io_events`
         by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
   \\ metis_tac [IS_PREFIX_LENGTH_ANTI]);
 
 val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty_state",
-  `evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧ s.ffi.final_event = NONE ∧
+  `evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧
    t = empty_state with <| refs := s.refs |> ∧
    t' = empty_state with <| refs := s'.refs |>
    ⇒
@@ -626,7 +626,7 @@ val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
   first_x_assum drule \\
   fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
   fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\
-  disch_then( qspec_then`ARB with <| refs := refs; ffi := <| final_event := NONE |> |>` mp_tac) \\
+  disch_then( qspec_then`ARB with <| refs := refs |>` mp_tac) \\
   rw[] \\ instantiate \\
   fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\
   fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\ rw[] \\
