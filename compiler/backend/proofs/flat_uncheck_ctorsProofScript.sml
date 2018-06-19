@@ -40,10 +40,10 @@ val compile_HD_sing = Q.store_thm("compile_HD_sing",
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!lit.
     v_rel (flatSem$Litv lit) (flatSem$Litv lit)) ∧
-  (!cn vs vs' t.
+  (!cn vs vs'.
     LIST_REL v_rel vs vs'
     ⇒
-    v_rel (flatSem$Conv cn vs) (flatSem$Conv (SOME (the (0,t) cn)) vs')) ∧
+    v_rel (flatSem$Conv cn vs) (flatSem$Conv (SOME (the (0,NONE) cn)) vs')) ∧
   (!env x e env'.
     LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env env'
     ⇒
@@ -220,8 +220,7 @@ val do_eq_correct = Q.store_thm("do_eq_correct",
   \\ fs[Once v_rel_cases, do_eq_def]
   \\ rw[]
   \\ Cases_on`cn1` \\ TRY(Cases_on`cn2`) \\ fs[libTheory.the_def, ctor_same_type_def]
-  \\ imp_res_tac LIST_REL_LENGTH \\ fs[] \\ rfs[]
-  \\ cheat (* this looks false *));
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs[] \\ rfs[]);
 
 val v_to_char_list_v_rel = Q.store_thm("v_to_char_list_v_rel",
   `∀x y ls. v_rel x y ∧ v_to_char_list x = SOME ls ⇒ v_to_char_list y = SOME ls`,
