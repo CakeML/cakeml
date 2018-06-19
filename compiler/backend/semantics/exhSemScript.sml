@@ -437,7 +437,8 @@ val do_app_def = Define `
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
-        | (t', ws') =>
+        | FFI_final outcome => SOME (s, Rerr (Rabort (Rffi_error outcome)))
+        | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
            | SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
            | NONE => NONE))
@@ -453,8 +454,9 @@ val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
 val sv_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def }
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def}
+val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
+  [op_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms, ffi_result_thms])
 
 val do_app_cases = save_thm("do_app_cases",
   ``exhSem$do_app s op vs = SOME x`` |>
@@ -613,9 +615,10 @@ val semantics_def = Define`
     case some res.
       ∃k s r outcome.
         evaluate env (st with clock := k) es = (s,r) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
+        (case r of
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | Rerr (Rabort _) => F
+         | _ => outcome = Success) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
      | NONE =>

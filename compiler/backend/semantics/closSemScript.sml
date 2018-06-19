@@ -328,10 +328,12 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray f ws) =>
            (case call_FFI s.ffi n conf ws of
-            | (ffi',ws') =>
+            | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray f ws')
-                              ; ffi   := ffi'|>))
+                              ; ffi   := ffi'|>)
+            | FFI_final outcome =>
+                Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
@@ -700,9 +702,10 @@ val semantics_def = Define`
       case some res.
         ∃k r s outcome.
           evaluate (es,[],st k) = (r,s) ∧
-          (case s.ffi.final_event of
-           | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-           | SOME e => outcome = FFI_outcome e) ∧
+          (case r of
+           | Rerr (Rabort Rtimeout_error) => F
+           | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+           | _ => outcome = Success) ∧
           res = Terminate outcome s.ffi.io_events
       of SOME res => res
        | NONE =>

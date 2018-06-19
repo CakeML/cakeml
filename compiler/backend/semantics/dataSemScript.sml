@@ -342,9 +342,9 @@ val semantics_def = Define`
     case some res.
       ∃k s r outcome.
         evaluate (p,init k) = (SOME r,s) ∧
-        (case (s.ffi.final_event,r) of
-         | (SOME e,_) => outcome = FFI_outcome e
-         | (_,Rval _) => outcome = Success
+        (case r of
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | Rval _ => outcome = Success
          | _ => F) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res

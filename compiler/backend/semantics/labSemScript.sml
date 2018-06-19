@@ -451,17 +451,19 @@ val evaluate_def = tDefine "evaluate" `
                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.mem s.mem_domain s.be),
                 loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME bytes2, SOME new_pc) =>
-              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
-              let new_io_regs = shift_seq 1 s.io_regs in
-              let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
-                evaluate (s with <|
-                                 mem := new_m ;
-                                 ffi := new_ffi ;
-                                 io_regs := new_io_regs ;
-                                 regs := (\a. get_reg_value (s.io_regs 0 a)
-                                                (s.regs a) Word);
-                                 pc := new_pc ;
-                                 clock := s.clock - 1 |>)
+             (case call_FFI s.ffi ffi_index bytes bytes2 of
+              | FFI_final outcome => (Halt (FFI_outcome outcome),s)
+              | FFI_return new_ffi new_bytes =>
+                  let new_io_regs = shift_seq 1 s.io_regs in
+                  let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
+                    evaluate (s with <|
+                                   mem := new_m ;
+                                   ffi := new_ffi ;
+                                   io_regs := new_io_regs ;
+                                   regs := (\a. get_reg_value (s.io_regs 0 a)
+                                                  (s.regs a) Word);
+                                   pc := new_pc ;
+                                   clock := s.clock - 1 |>))
           | _ => (Error,s))
         | _ => (Error,s))
     | _ => (Error,s)`
@@ -475,11 +477,8 @@ val semantics_def = Define `
   if ∃k. FST(evaluate (s with clock := k)) = Error then Fail
   else
     case some res.
-      ∃k t r outcome.
-        evaluate (s with clock := k) = (r,t) ∧
-        (case t.ffi.final_event of
-         | SOME e => outcome = FFI_outcome e
-         | _ => r = Halt outcome) ∧
+      ∃k t outcome.
+        evaluate (s with clock := k) = (Halt outcome,t) ∧
         res = Terminate outcome t.ffi.io_events
       of
     | SOME res => res
