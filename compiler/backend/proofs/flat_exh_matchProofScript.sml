@@ -1011,30 +1011,24 @@ val compile_exps_lemma =
   |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL |> GEN_ALL;
 
-val get_tdecs_def = Define `
-  (get_tdecs [] = []) /\
-  (get_tdecs (d::ds) =
-    case d of
-      Dtype t _ => t::get_tdecs ds
-    | _ => get_tdecs ds)`
+(* --- HERE --- *)
 
-val get_tdecs_lemma = Q.prove (
-  `!ds n s. MEM (Dtype n s) ds ==> MEM n (get_tdecs ds)`,
-  Induct \\ rw [get_tdecs_def]
-  \\ every_case_tac \\ fs [] \\ metis_tac []);
+val get_tdecs_def = Define `
+  get_tdecs xs =
+    MAP (\d. case d of Dtype t s => t)
+      (FILTER (\d. ?t s. d = Dtype t s) xs)`;
+
+val get_tdecs_APPEND = Q.store_thm("get_tdecs_APPEND",
+  `get_tdecs (xs ++ ys) = get_tdecs xs ++ get_tdecs ys`,
+  rw [get_tdecs_def, FILTER_APPEND]);
+
+val get_tdecs_MEM = Q.store_thm("get_tdecs_MEM",
+  `MEM t (get_tdecs xs) <=> ?s. MEM (Dtype t s) xs`,
+  rw [get_tdecs_def, MEM_MAP, MEM_FILTER, PULL_EXISTS]);
 
 val is_new_type_def = Define `
   is_new_type ctors decl <=>
     !tid s. decl = Dtype tid s ==> tid NOTIN FDOM ctors`;
-
-val compile_dec_SUBMAP = Q.prove (
-  `!dec.
-     is_new_type ctors_pre dec /\
-     compile_dec ctors_pre dec = (ctors_post, dec2)
-     ==>
-     ctors_pre SUBMAP ctors_post`,
-  Cases \\ rw [compile_dec_def, case_eq_thms] \\ fs [flookup_thm]
-  \\ fs [is_new_type_def]);
 
 val compile_decs_SUBMAP = Q.prove (
   `!decs ctors_pre ctors_post decs2.
@@ -1045,19 +1039,18 @@ val compile_decs_SUBMAP = Q.prove (
      ctors_pre SUBMAP ctors_post`,
   Induct \\ rw [compile_decs_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ imp_res_tac compile_dec_SUBMAP
-  \\ last_x_assum (qspecl_then [`ctor1`,`ctor2`,`es`] mp_tac)
-  \\ reverse impl_tac \\ fs [] >- (rw [] \\ metis_tac [SUBMAP_TRANS])
-  \\ fs [EVERY_MEM]
-  \\ reverse conj_tac >- (fs [get_tdecs_def] \\ Cases_on `h` \\ fs [])
-  \\ rw []
-  \\ first_x_assum drule \\ rw []
-  \\ rename1 `is_new_type ctors_pre d2`
-  \\ rename1 `compile_dec ctors_pre d1`
-  \\ Cases_on `d1` \\ Cases_on `d2` \\ fs [compile_dec_def]
-  \\ rw [] \\ fs [is_new_type_def, get_tdecs_def]
-  \\ CCONTR_TAC \\ fs [] \\ rw []
-  \\ metis_tac [get_tdecs_lemma]);
+  \\ `ALL_DISTINCT (get_tdecs decs) /\
+      ctors_pre SUBMAP ctor1 /\
+      EVERY (is_new_type ctor1) decs`
+    by (rename1 `compile_dec _ dec`
+        \\ Cases_on `dec` \\ fs [compile_dec_def] \\ rw []
+        \\ fs [is_new_type_def, EVERY_MEM] \\ rw []
+        \\ imp_res_tac get_tdecs_MEM
+        \\ fs [get_tdecs_def]
+        \\ every_case_tac \\ fs []
+        \\ strip_tac \\ fs []
+        \\ metis_tac [])
+  \\ metis_tac [SUBMAP_TRANS]);
 
 val compile_dec_ctor_rel = Q.store_thm("compile_dec_ctor_rel",
   `evaluate_dec env s d1 = (t, c1, r) /\
@@ -1079,13 +1072,6 @@ val compile_dec_ctor_rel = Q.store_thm("compile_dec_ctor_rel",
     \\ `ty <> n` by metis_tac [flookup_thm] \\ fs [NOT_EQ_FAPPLY])
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [compile_dec_def, is_fresh_exn_def, ctor_rel_def]);
-
-val compile_decs_get_tdecs = Q.store_thm("compile_decs_get_tdecs",
-  `!ds ctors. get_tdecs ds = get_tdecs (SND (compile_decs ctors ds))`,
-  Induct \\ rw [get_tdecs_def, compile_decs_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ every_case_tac \\ fs [get_tdecs_def, compile_dec_def] \\ rw []
-  \\ metis_tac [SND]);
 
 val env_updated_by_UNION = Q.prove (
   `env with c updated_by $UNION c1 = env with c := env.c UNION c1 /\
@@ -1178,7 +1164,7 @@ val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
         \\ first_x_assum drule \\ fs [is_new_type_def] \\ rw []
         \\ fs [get_tdecs_def]
         \\ Cases_on `h` \\ fs [compile_dec_def] \\ rw [] \\ fs []
-        \\ metis_tac [get_tdecs_lemma])
+        \\ metis_tac [get_tdecs_MEM, get_tdecs_def])
   \\ `ALL_DISTINCT (get_tdecs ds1)` by (Cases_on `h` \\ fs [get_tdecs_def])
   >-
    (last_x_assum drule
