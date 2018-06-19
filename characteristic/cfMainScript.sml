@@ -100,8 +100,7 @@ val prog_to_semantics_prog = Q.prove(
     `!init_env inp prog st c r env2 s2.
     no_dup_mods prog inp.defined_mods /\
     no_dup_top_types prog inp.defined_types /\
-    Prog init_env inp prog env2 s2 /\
-    s2.ffi.final_event = NONE (*This will comes from FFI_outcomes*) ==>
+    Prog init_env inp prog env2 s2 ==>
     (semantics_prog  inp init_env prog (Terminate Success s2.ffi.io_events))`,
     rw[ml_progTheory.Prog_def] \\
     `evaluate_whole_prog F init_env' inp prog (s2,Rval env2)` by simp[bigStepTheory.evaluate_whole_prog_def]
@@ -145,27 +144,14 @@ val call_main_thm2 = Q.store_thm("call_main_thm2",
     call_FFI_rel^* st1.ffi st3.ffi`,
   rw[]
   \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3 /\ C st1 st3`
-  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3 /\ C st1 st3`
+  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 /\ B st3 /\ C st1 st3`
   suffices_by metis_tac[prog_to_semantics_prog]
-  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3`
+  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 /\ B st3`
   suffices_by metis_tac[ml_progTheory.Prog_def, evaluate_prog_RTC_call_FFI_rel]
   \\ simp[Abbr`A`,Abbr`B`]
   \\ drule (GEN_ALL call_main_thm1)
   \\ rpt (disch_then drule)
-  \\ simp[] \\ strip_tac
-  \\ asm_exists_tac \\ simp[]
-  \\ reverse conj_tac >- metis_tac[]
-  \\ Cases_on `parts_ok st3.ffi (proj1, proj2)`
-  >-(`st3.ffi.final_event = NONE` by fs[cfStoreTheory.parts_ok_def]
-    \\ imp_res_tac prog_to_semantics_prog \\ rfs[])
-  \\ fs[ml_progTheory.Prog_def]
-  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.ffi2heap_def,cfHeapsBaseTheory.SPLIT3_def]
-  \\ `h3 <> {}` by metis_tac[FFI_part_hprop_def,MEMBER_NOT_EMPTY]
-  \\ fs[FFI_part_hprop_def]
-  \\ first_x_assum drule \\ strip_tac
-  \\ fs[EXTENSION]
-  \\ last_x_assum(qspec_then`FFI_part s u ns us`mp_tac)
-  \\ simp[FFI_part_NOT_IN_store2heap]
+  \\ simp[]
 );
 
 val _ = export_theory()
