@@ -313,10 +313,12 @@ val do_app_def = Define `
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
-            | (ffi',ws') =>
+            | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
-                              ; ffi  := ffi'|>))
+                              ; ffi   := ffi'|>)
+            | FFI_final outcome =>
+                Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
@@ -464,10 +466,12 @@ val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
 val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
 val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def };
+val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
 val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
 val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
 val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_eq_thm
-  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms]))
+  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms,
+   ffi_result_thms]))
   |> curry save_thm"case_eq_thms";
 
 val do_app_const = Q.store_thm("do_app_const",
@@ -535,9 +539,10 @@ val semantics_def = Define`
     case some res.
       ∃k s r outcome.
         evaluate (es,[],init k) = (r,s) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
+        (case r of
+         | Rerr (Rabort Rtimeout_error) => F
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | _ => outcome = Success) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
      | NONE =>
