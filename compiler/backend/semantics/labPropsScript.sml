@@ -270,22 +270,7 @@ val get_byte_set_byte_diff = Q.store_thm("get_byte_set_byte_diff",
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
   [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,``:'a asm``,
-   ``:'a word_loc``,``:'a list``,``:'a sec``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
-
-val evaluate_pres_final_event = Q.store_thm("evaluate_pres_final_event",
-  `!s1.
-      (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi`,
-  completeInduct_on `s1.clock`
-  \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
-  \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
-  \\ Cases_on `s1.clock = 0` \\ fs []
-  \\ `0 < s1.clock` by decide_tac
-  \\ simp[case_eq_thms]\\ rw[]
-  \\ TRY(pairarg_tac \\ fs[case_eq_thms])
-  \\ TRY( qpat_x_assum`(res,s2) = _` (assume_tac o SYM))
-  \\ fs [AND_IMP_INTRO]
-  \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
-  \\ rfs [call_FFI_def] \\ fs[] \\ res_tac \\ fs []);
+   ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events`,
@@ -327,10 +312,7 @@ val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀s.
    (SND(evaluate s)).ffi.io_events ≼
-   (SND(evaluate (s with clock := s.clock + extra))).ffi.io_events ∧
-   (IS_SOME((SND(evaluate s)).ffi.final_event) ⇒
-    (SND(evaluate (s with clock := s.clock + extra))).ffi =
-    (SND(evaluate s)).ffi)`,
+   (SND(evaluate (s with clock := s.clock + extra))).ffi.io_events`,
   ho_match_mp_tac evaluate_ind >>
   rpt gen_tac >> strip_tac >>
   CONV_TAC(DEPTH_CONV(REWR_CONV evaluate_def)) >>
@@ -344,25 +326,16 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     TRY(pairarg_tac >> fs[]) >>
     every_case_tac >> fs[] >>
     TRY
-    (conj_tac >- (
-       qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
+      (qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
        Cases_on`evaluate s1` >>
        drule (GEN_ALL evaluate_io_events_mono) >>
        unabbrev_all_tac >> simp[] >> EVAL_TAC >>
-       simp[asm_inst_consts] ) >>
-     qmatch_abbrev_tac`IS_SOME s0.ffi.final_event ⇒ ((SND (evaluate s1)).ffi = _)` >>
-     Cases_on`evaluate s1` >>
-     drule(GEN_ALL evaluate_pres_final_event) >>
-     unabbrev_all_tac >> simp[] >> EVAL_TAC >>
-     simp[asm_inst_consts,IS_SOME_EXISTS] >> rw[] >>
-     first_x_assum match_mp_tac >> simp[]) >>
-    (fn g => (subterm split_uncurry_arg_tac (#2 g) g)) >>
+       simp[asm_inst_consts] >> NO_TAC) >>
     simp[] >>
     fs[call_FFI_def] >>
-    qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events ∧ _` >>
+    qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
     Cases_on`evaluate s1` >>
     drule (GEN_ALL evaluate_io_events_mono) >>
-    drule (GEN_ALL evaluate_pres_final_event) >>
     unabbrev_all_tac >> fs[] >>
     every_case_tac >> fs[] >> rw[] >>
     fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] ) >>
@@ -374,9 +347,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   every_case_tac >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-  (fn g => (subterm split_uncurry_arg_tac (#2 g) g)) >>
-  simp[] >> fs[call_FFI_def]);
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[]);
 
 val align_dm_def = Define `
   align_dm (s:('a,'c,'ffi) labSem$state) =
