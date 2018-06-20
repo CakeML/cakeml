@@ -47,7 +47,7 @@ val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
   [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``
-  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).clock = z.clock ∧
@@ -472,9 +472,7 @@ val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
      every_case_tac>>fs[state_component_equality])
   >- tac
   >- tac
-  >- (tac>>fs[cut_env_def]>>
-     pairarg_tac>>
-     fs[state_component_equality]>>rveq>>fs[])
+  >- (tac>>fs[cut_env_def]>> rveq >> fs [])
   >>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 5 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -525,8 +523,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events ∧
-    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+    s1.ffi.io_events ≼ s2.ffi.io_events`,
   recInduct evaluate_ind >> ntac 5 strip_tac >>
   rpt conj_tac >>
   rpt gen_tac >>
@@ -555,10 +552,7 @@ val with_clock_ffi = Q.store_thm("with_clock_ffi",
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
-    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events ∧
-    (IS_SOME((SND(evaluate(exps,s))).ffi.final_event) ⇒
-     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi =
-     (SND(evaluate(exps,s))).ffi)`,
+    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
@@ -2401,7 +2395,9 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-    fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[]));
+    fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[case_eq_thms] >>
+    rveq >> fs[case_eq_thms,state_component_equality] >>
+    cheat (* TODO: fix this! *)));
 
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =

@@ -367,7 +367,8 @@ val do_app_err = Q.store_thm("do_app_err",
      (op ≠ Equal ⇒ ∃a. e = Rabort a)`,
   Cases >>
   srw_tac[][do_app_def,case_eq_thms] >>
-  fs[case_eq_thms,bool_case_eq,pair_case_eq] >> rw[]);
+  fs[case_eq_thms,bool_case_eq,pair_case_eq] >> rw[]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
 
 val Boolv_11 = Q.store_thm("Boolv_11[simp]",`closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
