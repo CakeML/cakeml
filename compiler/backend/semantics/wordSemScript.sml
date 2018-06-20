@@ -772,7 +772,8 @@ val evaluate_def = tDefine "evaluate" `
                of
           | SOME bytes,SOME bytes2 =>
              (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),s)
+              | FFI_final outcome => (SOME (FinalFFI outcome),
+                                      call_env [] s with stack := [])
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;

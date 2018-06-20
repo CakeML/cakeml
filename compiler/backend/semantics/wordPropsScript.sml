@@ -1093,6 +1093,10 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
   !c s.
       case evaluate (c,s) of
       | (SOME Error,s1) => T
+      | (SOME (FinalFFI e),s1) => s1.stack = [] /\ s1.locals = LN /\
+                             (!xs. s_val_eq s.stack xs ==>
+                                   evaluate(c,s with stack := xs) =
+                                        (SOME (FinalFFI e), s1))
       | (SOME TimeOut,s1) => s1.stack = [] /\ s1.locals = LN /\
                              (!xs. s_val_eq s.stack xs ==>
                                    evaluate(c,s with stack := xs) =
@@ -1346,9 +1350,8 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     metis_tac[s_key_eq_refl])
   >-(*FFI*)
    (full_simp_tac(srw_ss())[evaluate_def]>>
-    every_case_tac>>rename[`call_FFI s.ffi ffi_index conf bytes`]>>
-    Cases_on`call_FFI s.ffi ffi_index conf bytes`>>full_simp_tac(srw_ss())[LET_THM]>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[get_var_def]>>
+    every_case_tac >> fs [state_component_equality]>>
+    TRY (fs [call_env_def] \\ EVAL_TAC \\ NO_TAC) >>
     metis_tac[s_key_eq_refl])
   >-(*Call*)
   (full_simp_tac(srw_ss())[evaluate_def]>>
@@ -1909,7 +1912,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
     fs[case_eq_thms,state_component_equality]
   >- (*FFI*)
     (qexists_tac`perm`>>
-    full_simp_tac(srw_ss())[get_var_perm]>>
+    full_simp_tac(srw_ss())[get_var_perm,call_env_def]>>
     every_case_tac>>
     TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
         Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
@@ -2388,7 +2391,7 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     (qpat_x_assum `A = (res,rst)` mp_tac>> ntac 5 full_case_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
-    full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[call_env_def]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
@@ -2396,8 +2399,7 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[case_eq_thms] >>
-    rveq >> fs[case_eq_thms,state_component_equality] >>
-    cheat (* TODO: fix this! *)));
+    rveq >> fs[case_eq_thms,state_component_equality]));
 
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
