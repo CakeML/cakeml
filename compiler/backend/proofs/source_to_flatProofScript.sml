@@ -4,6 +4,12 @@ open source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory;
 
 val _ = new_theory "source_to_flatProof";
 
+val grammar_ancestry =
+  ["source_to_flat","flatProps","namespaceProps",
+   "semantics","semanticPrimitivesProps","ffi","lprefix_lub",
+   "backend_common","misc"];
+val _ = set_grammar_ancestry grammar_ancestry;
+
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
   induct_on `es` >>
@@ -3501,7 +3507,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
     r ≠ Rerr (Rabort Rtype_error) ∧
     invariant genv idx s s_i1 ∧
     global_env_inv genv comp_map {} env ∧
-    source_to_flat$compile <| next := idx; mod_env := comp_map |> ds = (next', ds_i1) ∧
+    source_to_flat$compile_prog <| next := idx; mod_env := comp_map |> ds = (next', ds_i1) ∧
     idx.vidx ≤ LENGTH genv.v
     ⇒
     ?(s'_i1:'a flatSem$state) genv' cenv' r_i1.
@@ -3522,7 +3528,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
         ?err_i1.
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))`,
-  rw [compile_def, glob_alloc_def] >>
+  rw [compile_prog_def, glob_alloc_def] >>
   pairarg_tac >>
   fs [] >>
   rw [evaluate_decs_def, evaluate_dec_def, evaluate_def, do_app_def] >>
@@ -3752,6 +3758,11 @@ val compile_prog_correct = Q.store_thm("compile_prog_correct",
 open flat_uncheck_ctorsProofTheory flat_elimProofTheory
      flat_exh_matchProofTheory flat_reorder_matchProofTheory
 
+val _ = set_grammar_ancestry
+  (["flat_uncheck_ctorsProof", "flat_elimProof",
+    "flat_exh_matchProof", "flat_reorder_matchProof"]
+   @ grammar_ancestry);
+
 (* TODO move *)
 val FILTER_T = Q.store_thm ("FILTER_T",
   `FILTER (\x. T) xs = xs`,
@@ -3795,12 +3806,11 @@ val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
   \\ eq_tac \\ rw [] \\ fs []);
 
 val compile_flat_correct = Q.store_thm("compile_flat_correct",
-  `precondition s env c /\
-   EVERY (is_new_type init_ctors) prog /\
+  `EVERY (is_new_type init_ctors) prog /\
    ALL_DISTINCT (get_tdecs prog) /\
-   semantics F T s.ffi prog <> Fail
+   semantics F T ffi prog <> Fail
    ==>
-   semantics F T s.ffi prog = semantics T F s.ffi (compile_flat prog)`,
+   semantics F T ffi prog = semantics T F ffi (compile_flat prog)`,
   rw [compile_flat_def]
   \\ metis_tac [flat_uncheck_ctorsProofTheory.compile_decs_semantics,
                 flat_elimProofTheory.flat_remove_semantics,
@@ -3808,16 +3818,16 @@ val compile_flat_correct = Q.store_thm("compile_flat_correct",
                 flat_exh_matchProofTheory.compile_decs_semantics]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `precondition s env c ⇒
+  `source_to_flatProof$precondition s env c ⇒
    ¬semantics_prog s env prog Fail ⇒
    semantics_prog s env prog (semantics T F s.ffi (SND (compile c prog)))`,
   rw [compile_def] \\ pairarg_tac \\ fs []
-  \\ imp_res_tac compile_correct \\ rfs []
+  \\ imp_res_tac compile_prog_correct \\ rfs []
   \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
   \\ `semantics F T s.ffi p' = semantics T F s.ffi (compile_flat p')`
     suffices_by (rw []\\ fs [])
   \\ match_mp_tac compile_flat_correct \\ fs []
-  \\ fs [compile_def]
+  \\ fs [compile_prog_def]
   \\ pairarg_tac \\ fs [] \\ rveq
   \\ imp_res_tac compile_decs_tidx_thm
   \\ fs [glob_alloc_def, get_tdecs_def]
@@ -3828,7 +3838,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     by fs [flat_exh_matchTheory.init_ctors_def, FDOM_FUPDATE_LIST]
   \\ `c.next.tidx > 1`
     by (fs [precondition_def, invariant_def]
-        \\ qhdtm_x_assum `genv_c_ok` mp_tac
+        \\ qhdtm_x_assum `source_to_flatProof$genv_c_ok` mp_tac
         \\ qpat_x_assum `!x.!y.!z._ ==> _` mp_tac
         \\ qpat_x_assum `FDOM _ = _` mp_tac
         \\ EVAL_TAC \\ fs [flookup_thm] \\ rw []
