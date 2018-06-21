@@ -839,4 +839,29 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
     every_case_tac >>
     fs []));
 
+val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
+  `eval_sim
+     (ffi:'ffi ffi_state) T T ds1 T F
+     (compile_decs ds1)
+     (\p1 p2. p2 = compile_decs p1) F`,
+  rw [eval_sim_def]
+  \\ qexists_tac `0`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ drule compile_decs_correct >>
+  simp [] >>
+  disch_then (qspecl_then [`initial_state ffi k`,
+               ` <| v := []; c := initial_ctors; exh_pat := T; check_ctor := F |>`]
+               mp_tac) >>
+  impl_tac
+  >- fs [initial_env_def, env_rel_cases, initial_state_def, s_rel_cases]
+  \\ rw [initial_env_def] >>
+  rw [] >>
+  fs [s_rel_cases]) ;
+
+val compile_decs_semantics = save_thm ("compile_decs_semantics",
+  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
+           compile_decs_eval_sim
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
+
 val _ = export_theory ();
