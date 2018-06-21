@@ -95,7 +95,9 @@ val do_app_with_locals = Q.prove(
   rpt (every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_locals] >> srw_tac[][] >> full_simp_tac(srw_ss())[]));
 
 val do_app_err = Q.store_thm("do_app_err",
-  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)`,
+  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                             \/
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
   srw_tac[][do_app_def,do_install_def]
   THEN1 (rpt (every_case_tac \\ fs [] \\ pairarg_tac \\ fs [])) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -524,12 +526,15 @@ val evaluate_locals = Q.store_thm("evaluate_locals",
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
       \\ reverse(Cases_on `do_app op x s`) \\ full_simp_tac(srw_ss())[] >- (
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
-           Cases_on`a`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+           fs [do_app_def,do_space_def,bvi_to_dataTheory.op_space_reset_def] >>
            full_simp_tac(srw_ss())[do_app_def,do_space_def,data_to_bvi_ignore,
               bvi_to_data_space_locals,
               data_spaceTheory.op_space_req_def,
               bvi_to_dataTheory.op_space_reset_def] >>
-           BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[])
+           BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]
+           \\ TRY (Cases_on `a`) \\ fs [call_env_def]
+           \\ qexists_tac `s2.locals` \\ fs [locals_ok_def]
+           \\ rw [] \\ fs [state_component_equality])
       \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[set_var_def]
       \\ Q.EXISTS_TAC `insert dest q l`
@@ -654,12 +659,14 @@ val jump_exc_IMP = Q.store_thm("jump_exc_IMP",
   \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]);
 
 val do_app_Rerr = Q.store_thm("do_app_Rerr",
-  `dataSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error`,
+  `dataSem$do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                             \/
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
   rw[dataSemTheory.do_app_def,dataSemTheory.do_install_def]
   \\ every_case_tac \\ fs[]
   \\ rpt (pairarg_tac \\ fs [])
   \\ every_case_tac \\ fs[]
-  \\ imp_res_tac bviPropsTheory.do_app_err);
+  \\ imp_res_tac bviPropsTheory.do_app_err \\ fs []);
 
 val do_app_change_clock = Q.store_thm("do_app_change_clock",
   `(do_app op args s1 = Rval (res,s2)) ==>
@@ -726,7 +733,17 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
     rpt var_eq_tac >> full_simp_tac(srw_ss())[state_component_equality] >>
     imp_res_tac do_app_const >> full_simp_tac(srw_ss())[] >>
     imp_res_tac do_app_Rerr >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`s.clock`mp_tac) >> simp[])
+    TRY (first_x_assum(qspec_then`s.clock`mp_tac)) >> simp[] >>
+    fs [do_app_def,option_case_eq,bviPropsTheory.case_eq_thms,call_env_def,
+        dataSemTheory.do_space_def,bvi_to_dataTheory.op_requires_names_def] >>
+    imp_res_tac do_app_Rerr \\ fs [] \\ rveq \\ fs [] >>
+    fs [do_app_def,option_case_eq,bviPropsTheory.case_eq_thms,call_env_def,
+        dataSemTheory.do_space_def,bvi_to_dataTheory.op_requires_names_def,
+        data_to_bvi_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
+        bviSemTheory.bvi_to_bvl_def,bvlSemTheory.do_app_def,
+        data_spaceTheory.op_space_req_def]
+    \\ fs [] \\ rveq \\ fs []
+    \\ fs [] \\ rveq \\ fs [])
   >- ( EVAL_TAC >> simp[state_component_equality] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> EVAL_TAC )
   >- (
@@ -767,8 +784,7 @@ val cut_state_opt_const = Q.store_thm("cut_state_opt_const",
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app x y z = Rval (a,b) ⇒
-   z.ffi.io_events ≼ b.ffi.io_events ∧
-   (IS_SOME z.ffi.final_event ⇒ b.ffi = z.ffi)`,
+   z.ffi.io_events ≼ b.ffi.io_events`,
   Cases_on `x = Install` THEN1
    (fs [do_app_def,do_install_def]
     \\ every_case_tac \\ fs []
@@ -818,8 +834,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events ∧
-    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+    s1.ffi.io_events ≼ s2.ffi.io_events`,
   recInduct evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])>>
@@ -836,10 +851,7 @@ val with_clock_ffi = Q.store_thm("with_clock_ffi",
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
-    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events ∧
-    (IS_SOME((SND(evaluate(exps,s))).ffi.final_event) ⇒
-     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi =
-     (SND(evaluate(exps,s))).ffi)`,
+    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
