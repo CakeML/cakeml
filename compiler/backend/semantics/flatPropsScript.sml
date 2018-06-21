@@ -308,7 +308,8 @@ val evaluate_dec_add_to_clock = Q.prove(
   Cases \\ rw [evaluate_dec_def]
   \\ fs [case_eq_thms, pair_case_eq]
   \\ imp_res_tac evaluate_add_to_clock \\ fs []
-  \\ rw [] \\ rfs []);
+  \\ rw [] \\ rfs [] >>
+  fs []);
 
 val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
   `∀decs env s s' c r.

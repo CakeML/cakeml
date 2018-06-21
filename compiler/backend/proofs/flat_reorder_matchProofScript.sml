@@ -654,7 +654,10 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
   \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
   \\ qispl_then [`env with v := []`,`s`] mp_tac (CONJUNCT1 compile_evaluate)
   \\ disch_then drule
-  \\ rw [evaluate_dec_def]);
+  \\ rw [evaluate_dec_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw []);
 
 val compile_decs_CONS = Q.store_thm("compile_decs_CONS",
   `compile_decs (d::ds) = compile_decs [d] ++ compile_decs ds`,

@@ -664,8 +664,11 @@ val is_fresh_exn_def = Define `
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet e) =
    case evaluate (env with v := []) s [e] of
-   | (s, Rval [Conv NONE []]) => (s, {}, NONE)
-   | (s, Rval _) => (s, {}, SOME (Rabort Rtype_error))
+   | (s, Rval x) =>
+     if x = [Unitv env.check_ctor] then
+       (s, {}, NONE)
+     else
+       (s, {}, SOME (Rabort Rtype_error))
    | (s, Rerr e) => (s, {}, SOME e)) ∧
   (evaluate_dec env s (Dtype id ctors) =
     if env.check_ctor then

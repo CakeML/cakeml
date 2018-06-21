@@ -726,6 +726,117 @@ val compile_exp_correct = Q.prove (
     \\ fs[]
     \\ fs[LIST_REL_EL_EQN,Once LIST_EQ_REWRITE,UNCURRY,EL_MAP]));
 
-(* TODO: compile_decs_correct *)
+val dec_res_rel_def = Define `
+  (dec_res_rel NONE NONE <=> T) /\
+  (dec_res_rel (SOME r1) (SOME r2) <=>
+     result_rel (LIST_REL v_rel) v_rel (Rerr r1) (Rerr r2)) /\
+  (dec_res_rel _ _ <=> F)`;
+
+val dec_res_rel_thms = Q.store_thm("dec_res_rel_thms[simp]",
+  `(!r. dec_res_rel NONE r <=> r = NONE) /\
+   (!r. dec_res_rel r NONE <=> r = NONE) /\
+   (!e r. dec_res_rel (SOME e) r <=>
+      ?e1. r = SOME e1 /\
+           result_rel (LIST_REL v_rel) v_rel (Rerr e) (Rerr e1)) /\
+   (!e r. dec_res_rel r (SOME e) <=>
+      ?e1. r = SOME e1 /\
+           result_rel (LIST_REL v_rel) v_rel (Rerr e1) (Rerr e))`,
+  rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]);
+
+val compile_dec_correct = Q.store_thm ("compile_dec_correct",
+  `∀env (s : 'a flatSem$state) d s' r s1 env'.
+    evaluate_dec env s d = (s',c,r) ∧
+    r ≠ SOME (Rabort Rtype_error) ∧
+    env_rel env env' ∧
+    s_rel s s1
+    ⇒
+    ?s1' r1.
+      dec_res_rel r r1 ∧
+      s_rel s' s1' ∧
+      evaluate_decs env' s1 (compile_decs [d]) = (s1', {}, r1)`,
+  Cases_on `d` >>
+  simp [evaluate_decs_def, evaluate_dec_def, compile_decs_def] >>
+  rpt gen_tac
+  >- (
+    ntac 2 TOP_CASE_TAC >>
+    fs []
+    >| [TOP_CASE_TAC, all_tac] >>
+    rw [] >>
+    drule (List.nth (CONJUNCTS compile_exp_correct, 0)) >>
+    rw [] >>
+    `env_rel (env with v := []) (env' with v := [])` by fs [env_rel_cases] >>
+    first_x_assum drule >>
+    disch_then drule >>
+    rw [] >>
+    `?e'. compile [e] = [e']` by metis_tac [compile_sing] >>
+    fs [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    fs [Once v_rel_cases, libTheory.the_def] >>
+    rw [] >>
+    fs [Unitv_def, env_rel_cases] >>
+    rw [] >>
+    fs [] >>
+    rfs [libTheory.the_def]) >>
+  rw [] >>
+  rw []);
+
+val lemma = Q.prove (
+  `!x. (x with c updated_by $UNION ∅) = x`,
+  rw [environment_component_equality]);
+
+val compile_decs_correct = Q.store_thm ("compile_decs_correct",
+  `∀env (s : 'a flatSem$state) ds s' r s1 env' c.
+    evaluate_decs env s ds = (s',c,r) ∧
+    r ≠ SOME (Rabort Rtype_error) ∧
+    env_rel env env' ∧
+    s_rel s s1
+    ⇒
+    ?s1' r1.
+      dec_res_rel r r1 ∧
+      s_rel s' s1' ∧
+      evaluate_decs env' s1 (compile_decs ds) = (s1', {}, r1)`,
+  Induct_on `ds` >>
+  rw [evaluate_decs_def, compile_decs_def] >>
+  rw [] >>
+  split_pair_case_tac >>
+  fs [] >>
+  drule compile_dec_correct >>
+  every_case_tac >>
+  fs []
+  >- (
+    disch_then drule >>
+    disch_then drule >>
+    rw [] >>
+    `env_rel (env with c updated_by $UNION new_ctors)
+        (env' with c updated_by $UNION {})`
+    by fs [env_rel_cases] >>
+    first_x_assum drule >>
+    simp [] >>
+    disch_then drule >>
+    disch_then drule >>
+    rw [] >>
+    qexists_tac `s1'` >>
+    qexists_tac `r1` >>
+    rw [] >>
+    Cases_on `h` >>
+    fs [compile_decs_def, evaluate_decs_def] >>
+    every_case_tac >>
+    fs [lemma] >>
+    rw [])
+  >- (
+    rveq >>
+    fs [] >>
+    disch_then drule >>
+    disch_then drule >>
+    rw [] >>
+    qexists_tac `s1''` >>
+    qexists_tac `SOME e1` >>
+    rw [] >>
+    Cases_on `h` >>
+    fs [compile_decs_def, evaluate_decs_def] >>
+    every_case_tac >>
+    fs []));
 
 val _ = export_theory ();

@@ -1107,6 +1107,7 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
     \\ drule compile_exps_lemma \\ fs []
     \\ rpt (disch_then drule) \\ rw []
     \\ fs [compile_exp_def, env_rel_def]
+    \\ every_case_tac \\ fs [] \\ rw []
     \\ metis_tac [])
   >- (* Dtype *)
    (`env1.check_ctor /\ ctor_rel ctors env1.c` by fs [env_rel_def]
