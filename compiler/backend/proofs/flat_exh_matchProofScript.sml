@@ -8,6 +8,8 @@ val _ = new_theory "flat_exh_matchProof"
 (* Compile lemmas                                                            *)
 (* ------------------------------------------------------------------------- *)
 
+val _ = set_grammar_ancestry["flat_exh_match","flatSem","flatProps","ffi","misc"];
+
 val compile_exps_SING_HD = Q.store_thm("compile_exps_SING_HD[simp]",
   `[HD (compile_exps exh [x])] = compile_exps exh [x]`,
   Cases_on `compile_exps exh [x]`
@@ -173,7 +175,7 @@ val state_rel_def = Define `
     s1.clock = s2.clock /\
     LIST_REL (sv_rel (v_rel ctors)) s1.refs s2.refs /\
     s1.ffi = s2.ffi /\
-    LIST_REL (OPTION_REL (v_rel ctors)) s1.globals s2.globals`;
+    LIST_REL (OPTREL (v_rel ctors)) s1.globals s2.globals`;
 
 val result_rel_def = Define `
   (result_rel R ctors (Rval v1) (Rval v2) <=>
