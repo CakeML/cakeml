@@ -346,14 +346,14 @@ val glob_alloc_def = Define `
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
         (flatLang$Con om_tra NONE []))`;
 
-val compile_def = Define`
-  compile c p =
+val compile_prog_def = Define`
+  compile_prog c p =
     let (_,next,e,p') = compile_decs 1n c.next c.mod_env p in
     (<| next := next; mod_env := e |>, glob_alloc next c :: p')`;
 
-val compile_prog_def = Define `
-  compile_prog c p =
-    let (c', p') = compile c p in
+val compile_def = Define `
+  compile c p =
+    let (c', p') = compile_prog c p in
     (c', compile_flat p')`;
 
 val _ = export_theory();

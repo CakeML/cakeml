@@ -208,7 +208,7 @@ val calls_def = tDefine "calls" `
 
 val compile_def = Define `
   compile F x = (x,[]) /\
-  compile T x = let (xs,g) = calls [x] (LN,[]) in (HD xs,SND g)`
+  compile T x = let (xs,g) = calls x (LN,[]) in (xs,SND g)`
 
 val calls_length = Q.store_thm("calls_length",
   `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs`,
@@ -227,7 +227,7 @@ val selftest = let
   val f = ``Fn None (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
   val g = ``Fn None (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
   val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (Const 5) []]]``
-  val let_let = ``Let None [^f] (Let None [^g] ^f_g_5)``
+  val let_let = ``[Let None [^f] (Let None [^g] ^f_g_5)]``
   (* compiler evaluation *)
   val tm = EVAL ``compile T ^let_let`` |> concl
   val n = tm |> find_terms (aconv ``closLang$Call``) |> length

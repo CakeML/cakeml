@@ -3590,10 +3590,10 @@ val SND_eq = Q.prove(
   `SND x = y ⇔ ∃a. x = (a,y)`,
   Cases_on`x`\\rw[]);
 
-val compile_correct = Q.store_thm("compile_correct",
+val compile_prog_correct = Q.store_thm("compile_prog_correct",
   `precondition s1 env1 c ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
-   semantics_prog s1 env1 prog (semantics F T s1.ffi (SND (compile c prog)))`,
+   semantics_prog s1 env1 prog (semantics F T s1.ffi (SND (compile_prog c prog)))`,
   rw[semantics_prog_def,SND_eq,precondition_def]
   \\ simp[flatSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[SND_eq]
@@ -3616,9 +3616,9 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs[]
     \\ asm_exists_tac
     \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile e _ = _`
-    \\ qexists_tac `SND (compile e prog)`
-    \\ qexists_tac `FST (compile e prog)`
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ qexists_tac `SND (compile_prog e prog)`
+    \\ qexists_tac `FST (compile_prog e prog)`
     \\ rw []
     \\ `c = e` by (UNABBREV_ALL_TAC >> rw [config_component_equality])
     \\ fs []
@@ -3643,9 +3643,9 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp []
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile e _ = _`
-    \\ disch_then (qspecl_then [ `SND (compile e prog)`
-                               , `FST (compile e prog)`] mp_tac)
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
+                               , `FST (compile_prog e prog)`] mp_tac)
     \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
     \\ `env2' = initial_env F T`
@@ -3677,9 +3677,9 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile e _ = _`
-    \\ disch_then (qspecl_then [ `SND (compile e prog)`
-                               , `FST (compile e prog)`] mp_tac)
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
+                               , `FST (compile_prog e prog)`] mp_tac)
     \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
     \\ `env2' = initial_env F T`
@@ -3720,9 +3720,9 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile e _ = _`
-    \\ disch_then (qspecl_then [ `SND (compile e prog)`
-                               , `FST (compile e prog)`] mp_tac)
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
+                               , `FST (compile_prog e prog)`] mp_tac)
     \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
     \\ `e = c`  by (UNABBREV_ALL_TAC >> rw [config_component_equality])
     \\ fs [initial_state_def] \\ rfs []
@@ -3807,11 +3807,11 @@ val compile_flat_correct = Q.store_thm("compile_flat_correct",
                 flat_reorder_matchProofTheory.compile_decs_semantics,
                 flat_exh_matchProofTheory.compile_decs_semantics]);
 
-val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
+val compile_semantics = Q.store_thm("compile_semantics",
   `precondition s env c ⇒
    ¬semantics_prog s env prog Fail ⇒
-   semantics_prog s env prog (semantics T F s.ffi (SND (compile_prog c prog)))`,
-  rw [compile_prog_def] \\ pairarg_tac \\ fs []
+   semantics_prog s env prog (semantics T F s.ffi (SND (compile c prog)))`,
+  rw [compile_def] \\ pairarg_tac \\ fs []
   \\ imp_res_tac compile_correct \\ rfs []
   \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
   \\ `semantics F T s.ffi p' = semantics T F s.ffi (compile_flat p')`

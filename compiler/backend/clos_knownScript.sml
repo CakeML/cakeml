@@ -563,13 +563,13 @@ val known_def = tDefine "known" `
 val known_ind = theorem "known_ind";
 
 val compile_def = Define `
-  compile F max_app exp = exp /\
-  compile T max_app exp =
+  compile F max_app exps = exps /\
+  compile T max_app exps =
     let c = <| max_app := max_app
              ; inline_max_body_size := (max_app + 1) * 8
              ; inline_factor := 8 |> in
-    let (e1, _) = known c [exp] [] LN in
-      FST (HD e1)`;
+    let (es, _) = known c exps [] LN in
+      MAP FST es`;
 
 val known_LENGTH = Q.store_thm(
   "known_LENGTH",

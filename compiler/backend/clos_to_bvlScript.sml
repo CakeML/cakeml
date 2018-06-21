@@ -534,13 +534,13 @@ val code_sort_def = tDefine "code_sort" `
   decide_tac);
 
 val compile_def = Define`
-  compile c e =
-    let es = clos_mti$compile c.do_mti c.max_app [e] in
+  compile c es =
+    let es = clos_mti$compile c.do_mti c.max_app es in
     let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 3) es in
     let c = c with next_loc := n in
-    let e = clos_known$compile c.do_known c.max_app (HD es) in
-    let (e,aux) = clos_call$compile c.do_call e in
-    let prog = (3,0,e) :: aux in
+    let es = clos_known$compile c.do_known c.max_app es in
+    let (es,aux) = clos_call$compile c.do_call es in
+    let prog = MAP (λe. (3,0,e)) (* TODO: daisy-chain these instead *) es ++ aux in
     let c = c with start := num_stubs c.max_app + 1 in
     let prog = clos_annotate$compile prog in
     let prog = (num_stubs c.max_app+1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
