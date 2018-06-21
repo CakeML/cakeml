@@ -3802,13 +3802,10 @@ val compile_flat_correct = Q.store_thm("compile_flat_correct",
    ==>
    semantics F T s.ffi prog = semantics T F s.ffi (compile_flat prog)`,
   rw [compile_flat_def]
-  \\ `!ffi prog. semantics T T ffi prog =
-      semantics T F ffi (flat_uncheck_ctors$compile_decs prog)`
-    by cheat (* TODO flat_uncheck_ctors semantics proof *)
-  \\ `semantics F T s.ffi prog = semantics T T s.ffi (SND (compile prog))`
-    suffices_by metis_tac [flat_elimProofTheory.flat_remove_semantics,
-                           flat_reorder_matchProofTheory.compile_decs_semantics]
-  \\ match_mp_tac flat_exh_matchProofTheory.compile_decs_semantics \\ fs []);
+  \\ metis_tac [flat_uncheck_ctorsProofTheory.compile_decs_semantics,
+                flat_elimProofTheory.flat_remove_semantics,
+                flat_reorder_matchProofTheory.compile_decs_semantics,
+                flat_exh_matchProofTheory.compile_decs_semantics]);
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `precondition s env c ⇒
