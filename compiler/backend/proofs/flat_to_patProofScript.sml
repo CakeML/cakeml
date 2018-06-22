@@ -433,7 +433,7 @@ val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
 
 val do_app = Q.prove(
   `∀op vs s0 s0_pat env s res.
-     do_app s0 op vs = SOME (s,res)
+     do_app b s0 op vs = SOME (s,res)
      ⇒
      do_app (compile_state (:'c) s0) (Op op) (compile_vs vs) =
        SOME (compile_state (:'c) s,map_result compile_v compile_v res)`,
@@ -451,9 +451,10 @@ val do_app = Q.prove(
   rfs [store_v_same_type_def, LUPDATE_MAP,map_replicate] >>
   imp_res_tac v_to_list >>
   imp_res_tac v_to_char_list >>
-  fs[vs_to_string, IS_SOME_EXISTS] >>
+  fs[vs_to_string, IS_SOME_EXISTS, flatSemTheory.Unitv_def] >>
   TRY (last_x_assum mp_tac) >>
-  TRY TOP_CASE_TAC \\ fs[] \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def]
+  TRY TOP_CASE_TAC \\ fs[]
+  \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def, backend_commonTheory.tuple_tag_def]
   \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]);
 
 (* pattern compiler correctness *)
@@ -2674,7 +2675,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
       metis_tac[state_rel_trans,result_rel_LIST_v_v_rel_trans]) >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    strip_tac >> full_simp_tac(srw_ss())[] >>
+    strip_tac >> full_simp_tac(srw_ss())[] >> rfs[] >>
     full_simp_tac(srw_ss())[compile_exps_reverse] >>
     imp_res_tac do_app >>
     first_assum(strip_assume_tac o MATCH_MP do_app_v_rel o MATCH_MP EVERY2_REVERSE) >>
@@ -3023,18 +3024,14 @@ val compile_evaluate_decs = Q.store_thm("compile_evaluate_decs",
   \\ ntac 2 (pop_assum mp_tac)
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
   \\ strip_tac \\ rveq
+  \\ TOP_CASE_TAC \\ fs[]
   \\ simp[Once evaluate_cons]
-  \\ split_pair_case_tac \\ fs[]
+  \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`evaluate_decs env1`
   \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
   \\ fs[Abbr`env1`]
   \\ qmatch_asmsub_rename_tac`evaluate_decs env s1 prog`
-  \\ strip_tac
   \\ first_x_assum(qspecl_then[`s1`,`env`]mp_tac)
   \\ simp[]
   \\ strip_tac
