@@ -282,7 +282,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     rw[evaluate_pat_def,evaluate_def] >> rw[ETA_AX] ) >>
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def] >>
-    Cases_on`op=Op(Op Opapp)`>>fs[] >- (
+    Cases_on`op=(Op Opapp)`>>fs[] >- (
       split_pair_case_tac >> fs[] >>
       qmatch_assum_rename_tac `_ = (s1,r1)` >>
       reverse(Cases_on`r1`)>>fs[] >- (
@@ -343,10 +343,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>
         rw[] >> fs[] ) >>
-      qmatch_assum_rename_tac`op ≠ Op Opapp` >>
-      reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX] >>
       qmatch_assum_rename_tac`op ≠ Opapp` >>
-      Cases_on`op`>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >>
+      (Cases_on`op`)>>fs[evaluate_def,ETA_AX] >>
       TRY ( qmatch_goalsub_rename_tac`Opn op` >> Cases_on`op`) >>
       TRY ( qmatch_goalsub_rename_tac`Opb op` >> Cases_on`op`) >>
       TRY ( qmatch_goalsub_rename_tac`Chopb op` >> Cases_on`op`) >>
@@ -378,7 +376,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
         fs[do_app_def])) >>
-    Cases_on `op = Op (Op ListAppend)`
+    Cases_on `op = (Op ListAppend)`
     >-
      (rw []
       \\ fs [do_app_cases, SWAP_REVERSE_SYM] \\ rw []
@@ -531,7 +529,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ Cases_on `wl` \\ fs [semanticPrimitivesPropsTheory.do_shift_def]
       \\ qpat_x_assum `_ = w` (fn thm => rw [GSYM thm])) >>
     TRY (
-      rename1 `Op (Op (WordFromInt ws55))`
+      rename1 `(Op (WordFromInt ws55))`
       \\ Cases_on `ws55` \\ fs [compile_v_def]
       \\ TOP_CASE_TAC \\ fs [dest_WordToInt_SOME] \\ rveq \\ fs []
       \\ fs[evaluate_def,do_app_def,integer_wordTheory.w2n_i2w,
