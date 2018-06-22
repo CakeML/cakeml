@@ -80,8 +80,8 @@ val add_backend_compset = computeLib.extend_compset
 
   ,computeLib.Defs
     [ (* ---- source_to_flat ---- *)
-     source_to_flatTheory.bool_id_def
-    ,source_to_flatTheory.Bool_def
+     flatLangTheory.bool_id_def
+    ,flatLangTheory.Bool_def
     ,source_to_flatTheory.compile_pat_def
     ,source_to_flatTheory.pat_tups_def
     ,source_to_flatTheory.astOp_to_flatOp_def
