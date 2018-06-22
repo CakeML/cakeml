@@ -1,10 +1,7 @@
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
-     source_to_modProofTheory
-     mod_to_conProofTheory
-     con_to_decProofTheory
-     dec_to_exhProofTheory
-     exh_to_patProofTheory
+     source_to_flatProofTheory
+     flat_to_patProofTheory
      pat_to_closProofTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
@@ -281,7 +278,6 @@ val prim_config = prim_config_eq |> concl |> lhs
 val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = ^prim_config.source_conf ∧
-    c.mod_conf = ^prim_config.mod_conf ∧
     0 < c.clos_conf.max_app ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
@@ -409,6 +405,8 @@ val _ = temp_overload_on("bvi_tailrec_compile_prog",``bvi_tailrec$compile_prog``
 val _ = temp_overload_on("bvi_to_data_compile_prog",``bvi_to_data$compile_prog``);
 val _ = temp_overload_on("bvl_to_bvi_compile_prog",``bvl_to_bvi$compile_prog``);
 
+(*
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -420,30 +418,59 @@ val compile_correct = Q.store_thm("compile_correct",
   srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.ffi_names = SOME mc.ffi_names` by fs[installed_def] >>
-  drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
+  drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_flatProofTheory.compile_semantics)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
   qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
-  `∃s2 env2 gtagenv.
-     precondition s env c.source_conf s2 env2 ∧
-     nsDomMod env2.c = {[]} ∧
-     s2.globals = [] ∧
-     s2.ffi = ffi ∧
-     s2.refs = [] ∧
-     s2.defined_types = s.defined_types ∧
-     (* s2.defined_mods = s.defined_mods ∧ *)
-     envC_tagged env2.c (prim_config:'a backend$config).mod_conf.tag_env gtagenv ∧
-     exhaustive_env_correct (prim_config:'a backend$config).mod_conf.exh_ctors_env gtagenv ∧
-     gtagenv_wf gtagenv ∧
-     next_inv s.defined_types
-       (prim_config:'a backend$config).mod_conf.next_exception gtagenv` by (
-    simp[source_to_modProofTheory.precondition_def] >>
+  `precondition s env c.source_conf` by (
+    simp[source_to_flatProofTheory.precondition_def] >>
     simp[Abbr`env`,Abbr`s`] >>
     srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
-    rw[source_to_modProofTheory.invariant_def] >>
-    rw[source_to_modProofTheory.s_rel_cases] >>
+    rw[source_to_flatProofTheory.invariant_def] >>
+    rw[source_to_flatProofTheory.genv_c_ok_def] >>
+    rw[source_to_flatProofTheory.s_rel_cases] >>
+    rw[flatSemTheory.initial_state_def] >>
+    rw[prim_config_eq] >>
+    rw[Once source_to_flatProofTheory.v_rel_cases] >>
+    rw[nsLookup_Bind_v_some,PULL_EXISTS] \\
+    (fn g as (asl,w) =>
+      let
+        val (genv_c,tm) = dest_exists w
+        val tm = tm |> strip_conj |> el 10 |> strip_forall |> #2
+        val (tms1, tm) = dest_imp tm
+        val tms2 = tm |> dest_exists |> #2 |> strip_conj |> el 1
+        fun get_arity_stamp (tm1,tm2,acc) =
+          let
+            val (eq, data, rest1) = dest_cond tm1
+            val data = optionSyntax.dest_some data
+            val (arity, stamp) = pairSyntax.dest_pair data
+            val (_, data, rest2) = dest_cond tm2
+            val cn = optionSyntax.dest_some data
+          in
+            get_arity_stamp
+              (rest1, rest2,
+               pairSyntax.mk_pair(
+                 pairSyntax.mk_pair(cn, arity),subst[rhs eq |-> lhs eq]stamp)
+               ::acc)
+          end handle HOL_ERR _ => (tm,acc)
+        val (_,acc) = get_arity_stamp (lhs tms1, lhs tms2, [])
+      in
+        exists_tac (
+          finite_mapSyntax.list_mk_fupdate(
+            finite_mapSyntax.mk_fempty(finite_mapSyntax.dest_fmap_ty (type_of genv_c)),
+            acc)
+        )
+      end g)
+    \\ simp[IN_FRANGE, DOMSUB_FAPPLY_THM]
+    \\ EVAL_TAC
+    \\ rw[] \\ EVAL_TAC
+    \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[]
+
+    f"has_bools"
+    f"initial_ctors"
+    f"initial_state_def"
     (* TODO: Not sure why these got broken *)
-    rw[Once source_to_modProofTheory.v_rel_cases] >>
+    rw[Once source_to_flatProofTheory.v_rel_cases] >>
     simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
       (rw[]>>Cases_on`x`>>fs[namespaceTheory.nsLookup_def])>>
     rw[Once prim_config_eq] >>
@@ -1136,5 +1163,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
   \\ asm_exists_tac \\ simp[]);
   *)
+
+*)
 
 val _ = export_theory();
