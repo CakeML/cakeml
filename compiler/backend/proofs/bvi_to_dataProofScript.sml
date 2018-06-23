@@ -411,7 +411,18 @@ val compile_correct = Q.prove(
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
           (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC)
     \\ reverse(Cases_on `do_app op (REVERSE a) r`) \\ full_simp_tac(srw_ss())[] >- (
-         imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[] )
+         imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[] >> 
+         rveq >> IF_CASES_TAC >>
+         fs[dataSemTheory.evaluate_def,iAssign_def,op_requires_names_def,
+            cut_state_opt_def,cut_state_def,cut_env_def] >>
+         fs[bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+            do_space_def,dataSemTheory.do_app_def,op_space_reset_def,data_spaceTheory.op_space_req_def] >>
+         rpt(PURE_CASE_TAC >> fs[] >> rveq) >>
+         fs[data_to_bvi_refs] >>
+         fs[state_rel_def] >>
+         rfs[] >> fs[data_to_bvi_ffi] >>
+         fs[data_to_bvi_ffi] >>
+         fs[call_env_def] )
     \\ PairCases_on `a'` \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
     \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF,evaluate_def,iAssign_def]
@@ -1244,8 +1255,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       simp[bviPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
-      Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-        Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
+      Cases_on`r`>>full_simp_tac(srw_ss())[]>-(
+        Cases_on`r'`>>full_simp_tac(srw_ss())[]>-(
           unabbrev_all_tac >>
           drule compile_prog_evaluate >>
           impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1259,9 +1270,6 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
           qhdtm_x_assum`dataSem$evaluate`mp_tac >>
           drule dataPropsTheory.evaluate_add_clock >>
           simp[GSYM PULL_FORALL] >>
-          impl_tac >- (
-            full_simp_tac(srw_ss())[] >> strip_tac >>
-            full_simp_tac(srw_ss())[] ) >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
           ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
           full_simp_tac(srw_ss())[state_component_equality] >>
@@ -1277,10 +1285,11 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         qhdtm_x_assum`bviSem$evaluate`mp_tac >>
         drule bviPropsTheory.evaluate_add_clock >>
         simp[GSYM PULL_FORALL] >>
-        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         disch_then(qspec_then`k'`mp_tac)>>simp[inc_clock_def] >>
         ntac 2 strip_tac >> rveq >>
-        fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
+        fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
+        every_case_tac >> fs[] >>
+        rpt(first_x_assum (qspec_then `k'` assume_tac)) >> rfs[]) >>
       first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
       unabbrev_all_tac >>
       drule compile_prog_evaluate >>
@@ -1289,15 +1298,18 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
       strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][] >>
-      reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
-        full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
+      reverse(Cases_on`r'`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
+        full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
+        every_case_tac >> fs[] >>
+        rpt(first_x_assum (qspec_then `k'` assume_tac)) >> rfs[]) >>
       qhdtm_x_assum`dataSem$evaluate`mp_tac >>
       drule dataPropsTheory.evaluate_add_clock >>
-      simp[GSYM PULL_FORALL] >> impl_tac
-      >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      simp[GSYM PULL_FORALL] >>
       disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>
       ntac 2 strip_tac >> rveq >>
-      fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
+      fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
+      every_case_tac >> fs[] >>
+      rpt(first_x_assum (qspec_then `k` assume_tac)) >> rfs[] ) >>
     drule compile_prog_evaluate >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
