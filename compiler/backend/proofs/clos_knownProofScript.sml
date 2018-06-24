@@ -467,7 +467,10 @@ val known_op_correct_approx = Q.store_thm("known_op_correct_approx",
     \\ rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals`
     \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
   THEN1
-   (rveq \\ fs [LIST_REL_EL_EQN]));
+   (rveq \\ fs [LIST_REL_EL_EQN])
+  THEN1
+   (rveq \\ PURE_FULL_CASE_TAC \\ fs[] \\ rveq \\ fs[state_globals_approx_def]
+    \\ metis_tac[]));
 
 val ssgc_free_co_shift_seq = Q.store_thm(
   "ssgc_free_co_shift_seq",
@@ -640,7 +643,16 @@ val do_app_ssgc = Q.store_thm(
       >- metis_tac[]
       >- metis_tac[]
       >- metis_tac[])
-  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
+  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
+      rpt strip_tac >> PURE_FULL_CASE_TAC >> fs [] >> rveq
+      >- simp[vsgc_free_def]
+      >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
+      >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
+      >- (first_x_assum match_mp_tac >> fs[])
+      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
+      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
+      >- simp[]
+      >- simp[])
   >> dsimp[]);
 
 val EVERY_lookup_vars = Q.store_thm(
