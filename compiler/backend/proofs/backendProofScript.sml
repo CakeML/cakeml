@@ -405,8 +405,6 @@ val _ = temp_overload_on("bvi_tailrec_compile_prog",``bvi_tailrec$compile_prog``
 val _ = temp_overload_on("bvi_to_data_compile_prog",``bvi_to_data$compile_prog``);
 val _ = temp_overload_on("bvl_to_bvi_compile_prog",``bvl_to_bvi$compile_prog``);
 
-(*
-
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -464,7 +462,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp[IN_FRANGE, DOMSUB_FAPPLY_THM]
     \\ EVAL_TAC \\ rw[] \\ EVAL_TAC
     \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[])
-  disch_then drule >> strip_tac >>
+  \\ disch_then drule >> strip_tac >>
   pairarg_tac \\ fs[] >>
   qhdtm_x_assum`from_flat`mp_tac >>
   srw_tac[][from_flat_def] >>
@@ -475,32 +473,32 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
-  drule (GEN_ALL flat_to_patProofTheory.compile_semantics) >>
-  disch_then(qspec_then`s.clock`(strip_assume_tac o SYM)) (* TODO: choose clock *)
+  drule (GEN_ALL (INST_TYPE[alpha|->``:(num # num # closLang$exp)``]
+    flat_to_patProofTheory.compile_semantics)) >>
+  disch_then(qspecl_then[`TODO_clock`,`TODO_compile`](strip_assume_tac o SYM)) >>
   fs[] >>
-  cheat);
-  (*
-  (exh_to_patProofTheory.compile_exp_semantics
-   |> Q.GENL[`env`,`st`,`es`]
-   |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
-  simp[Abbr`es3`,Abbr`env3`] >>
-  fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
-  disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
+  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] st3 es3 }` >>
   (pat_to_closProofTheory.compile_semantics
-   |> Q.GENL[`env`,`st`,`es`,`max_app`]
-   |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
-  simp[Abbr`env3`,Abbr`es3`] >>
-  first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
-  fs[pat_to_closProofTheory.compile_state_def,Abbr`st3`] >>
+   |> Q.GENL[`cc`,`st`,`es`,`max_app`]
+   |> qispl_then[`TODO_compile`,`st3`,`es3`]mp_tac) >>
+  simp[Abbr`es3`] >>
+  disch_then drule >>
+  impl_tac >- (
+    fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def]
+    \\ EVAL_TAC )
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics [] st3 [e3] }` >>
+  qunabbrev_tac`st3` >>
+  simp[flat_to_patProofTheory.compile_state_def] >>
+  simp[flatSemTheory.initial_state_def] >>
+  cheat)
+  (*
+  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ st3 [e3] }` >>
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
   pairarg_tac \\ fs[] \\ strip_tac \\
@@ -1038,7 +1036,5 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
   \\ asm_exists_tac \\ simp[]);
   *)
-
-*)
 
 val _ = export_theory();
