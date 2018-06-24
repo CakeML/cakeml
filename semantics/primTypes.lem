@@ -15,8 +15,7 @@ let prim_types_program =
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
    Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];
-   Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Atvar "'a"]);])];]
+   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];]
 
 val add_to_sem_env :
   forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> list dec -> maybe (state 'ffi * sem_env v)

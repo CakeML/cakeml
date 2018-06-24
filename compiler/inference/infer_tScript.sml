@@ -32,8 +32,6 @@ val type_ident_to_string_def = Define `
     implode "<int>"
   else if ti = Tlist_num then
     implode "<list>"
-  else if ti = Toption_num then
-    implode "<option>"
   else if ti = Tref_num then
     implode "<ref>"
   else if ti = Tstring_num then

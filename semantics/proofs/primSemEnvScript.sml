@@ -35,16 +35,14 @@ val prim_tenv_def = Define`
            ("false", ([],[], Tbool_num));
            ("true", ([],[], Tbool_num));
            ("nil", (["'a"],[],Tlist_num));
-           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
-           ("NONE", (["'a"],[],Toption_num));
-           ("SOME", (["'a"],[Tvar "'a"], Toption_num))]);
+           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]);
        v := nsEmpty;
        t := nsEmpty|>`;
 
 val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   `!type_ids sem_st prim_env.
    (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
-   DISJOINT type_ids {Tlist_num; Tbool_num; Toption_num; Texn_num}
+   DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
    ⇒
    ?ctMap.
      type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv`,
@@ -57,9 +55,7 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
       (TypeStamp "nil" list_type_num, (["'a"],[],Tlist_num));
       (TypeStamp "::" list_type_num, (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
       (TypeStamp "true" bool_type_num, ([],[], Tbool_num));
-      (TypeStamp "false" bool_type_num, ([],[], Tbool_num));
-      (TypeStamp "SOME" option_type_num, (["'a"],[Tvar "'a"], Toption_num));
-      (TypeStamp "NONE" option_type_num, (["'a"],[],Toption_num))]` >>
+      (TypeStamp "false" bool_type_num, ([],[], Tbool_num))]` >>
   rw []
   >- (
     simp [tenv_ok_def, tenv_ctor_ok_def] >>
@@ -74,7 +70,7 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
     rw [FEVERY_FUPDATE, check_freevars_def, FEVERY_FEMPTY])
   >- (
     rw [consistent_ctMap_def] >>
-    fs [FDOM_FUPDATE_LIST, option_type_num_def, bool_type_num_def,
+    fs [FDOM_FUPDATE_LIST, bool_type_num_def,
         list_type_num_def, subscript_stamp_def, chr_stamp_def, div_stamp_def,
         bind_stamp_def] >>
     simp [DISJOINT_DEF, EXTENSION, IN_FRANGE_FLOOKUP, FLOOKUP_o_f,
@@ -90,7 +86,7 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
     rpt (
       irule nsAll2_nsBind >>
       rw [type_ctor_def, flookup_fupdate_list, bind_stamp_def, div_stamp_def,
-          chr_stamp_def, subscript_stamp_def, option_type_num_def,
+          chr_stamp_def, subscript_stamp_def,
           bool_type_num_def, list_type_num_def]))
   >- simp [type_s_def, store_lookup_def]);
 

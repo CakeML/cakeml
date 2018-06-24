@@ -5,6 +5,9 @@ val _ = new_theory "basisProg"
 
 val _ = translation_extends"PrettyPrinterProg";
 
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "option" (Atapp [Atvar "'a"] (Long "Option"(Short "option")))`` I);
+
 val print_eval_thm = derive_eval_thm true "print" ``Var(Long"TextIO"(Short"print"))``
 val () = ml_prog_update (add_Dlet print_eval_thm "print" [])
 

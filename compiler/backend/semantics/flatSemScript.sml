@@ -49,9 +49,6 @@ val _ = Datatype`
 val list_id_def = Define `
   list_id = 1n`;
 
-val option_id_def = Define`
-  option_id = 2n`;
-
 val Boolv_def = Define`
   Boolv b = Conv (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
 
@@ -718,11 +715,6 @@ val list_ctors_def = Define `
     { ((cons_tag, SOME list_id), 2n)
     ; ((nil_tag, SOME list_id), 0n) }`;
 
-val option_ctors_def = Define`
-  option_ctors =
-    { ((none_tag, SOME option_id), 0n)
-    ; ((some_tag, SOME option_id), 1n) }`;
-
 val exn_ctors_def = Define `
   exn_ctors =
     { ((div_tag, NONE), 0n)
@@ -730,10 +722,10 @@ val exn_ctors_def = Define `
     ; ((subscript_tag, NONE), 0n)
     ; ((bind_tag, NONE), 0n) }`;
 
-val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "option_ctors_def", "exn_ctors_def"];
+val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 
 val initial_ctors_def = Define `
-   initial_ctors = bool_ctors UNION list_ctors UNION option_ctors UNION exn_ctors`;
+   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
 val initial_env_def = Define `
   initial_env exh_pat check_ctor =
