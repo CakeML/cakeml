@@ -346,34 +346,21 @@ val tscheme_inst_to_approx = Q.store_thm ("tscheme_inst_to_approx",
   drule (GEN_ALL (CONJUNCT1 infer_deBruijn_subst_twice)) >>
   rw [MAP_MAP_o, combinTheory.o_DEF]);
 
-(* Rename type identifiers with a function *)
-val type_ident_rename_def = tDefine"type_ident_rename"`
-  (type_ident_rename f (Tapp ts tn) = Tapp (MAP (type_ident_rename f) ts) (f tn)) ∧
-  (type_ident_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
-
-(* f is used to remap the type identifiers
-  TODO: is it better to map inferencer envs into type system or vice versa? *)
 val env_rel_sound_def = Define `
-  env_rel_sound f s ienv tenv tenvE ⇔
-    ienv.inf_t = nsMap (λ(ls,t). (ls, type_ident_rename f t)) tenv.t ∧
-    ienv.inf_c = nsMap (λ(ls,ts,tid). (ls, MAP (type_ident_rename f) ts, f tid)) tenv.c ∧
+  env_rel_sound s ienv tenv tenvE ⇔
+    ienv.inf_t = tenv.t ∧
+    ienv.inf_c = tenv.c ∧
     !x ts.
       nsLookup ienv.inf_v x = SOME ts
       ⇒
       ?tvs' t'.
         check_freevars (tvs' + num_tvs tenvE) [] t' ∧
         lookup_var x tenvE tenv = SOME (tvs', t') ∧
-        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t (type_ident_rename f t'))`;
+        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')`;
 
 val env_rel_sound_lookup_none = Q.store_thm ("env_rel_sound_lookup_none",
-  `!ienv tenv f s tenvE id.
-    env_rel_sound f s ienv tenv tenvE ∧
+  `!ienv tenv s tenvE id.
+    env_rel_sound s ienv tenv tenvE ∧
     lookup_var id tenvE tenv = NONE
     ⇒
     nsLookup ienv.inf_v id = NONE`,
@@ -389,13 +376,13 @@ val env_rel_sound_lookup_none = Q.store_thm ("env_rel_sound_lookup_none",
   fs []);
 
 val env_rel_sound_lookup_some = Q.store_thm ("env_rel_sound_lookup_some",
-  `!id ts f s ienv tenv tenvE.
-    nsLookup ienv.inf_v id = SOME ts ∧ env_rel_sound f s ienv tenv tenvE
+  `!id ts s ienv tenv tenvE.
+    nsLookup ienv.inf_v id = SOME ts ∧ env_rel_sound s ienv tenv tenvE
     ⇒
     ?tvs' t'.
       check_freevars (tvs' + num_tvs tenvE) [] t' ∧
       lookup_var id tenvE tenv = SOME (tvs',t') ∧
-      tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t (type_ident_rename f t'))`,
+      tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')`,
  rw [env_rel_sound_def]);
 
 val db_subst_infer_subst_swap3 = Q.store_thm ("db_subst_infer_subst_swap3",
@@ -438,11 +425,11 @@ val tscheme_approx_weakening = Q.store_thm ("tscheme_approx_weakening",
  >> metis_tac [t_walkstar_idempotent, t_walkstar_SUBMAP]);
 
 val env_rel_sound_extend_tvs = Q.store_thm ("env_rel_sound_extend_tvs",
-  `!f s ienv tenv bindings tvs.
+  `!s ienv tenv bindings tvs.
     t_wfs s ∧
-    env_rel_sound f s ienv tenv Empty
+    env_rel_sound s ienv tenv Empty
     ⇒
-    env_rel_sound f s ienv tenv (bind_tvar tvs Empty)`,
+    env_rel_sound s ienv tenv (bind_tvar tvs Empty)`,
  rw [env_rel_sound_def]
  >> first_x_assum drule
  >> simp [bind_tvar_def, lookup_var_def, lookup_varE_def, tveLookup_def]
@@ -459,7 +446,6 @@ val tscheme_approx0 = Q.store_thm ("tscheme_approx0",
   `!tvs s t. t_wfs s ⇒ tscheme_approx tvs s (0, t) (0, t_walkstar s t)`,
  rw [tscheme_approx_def, LENGTH_NIL, infer_deBruijn_subst_id, t_walkstar_idempotent]);
 
-(* TODO
 val env_rel_sound_extend0 = Q.store_thm ("env_rel_sound_extend0",
   `!s x t ienv tenv tenvE.
     env_rel_sound s ienv tenv tenvE ∧
@@ -579,7 +565,6 @@ val env_rel_e_sound_letrec_merge0 = Q.store_thm ("env_rel_e_sound_letrec_merge0"
   >> rw []
   >> ONCE_REWRITE_TAC [DECIDE ``n + (x + 1) = x + (n + 1n)``]
   >> metis_tac []);
-*)
 
 val env_rel_complete_def = Define `
   env_rel_complete s ienv tenv tenvE ⇔
@@ -610,10 +595,10 @@ val env_rel_complete_lookup_none = Q.store_thm ("env_rel_complete_lookup_none",
   metis_tac [option_nchotomy, pair_CASES]);
 
 val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
-`!f s ienv tenv tenvE.
-  t_wfs s ∧ ienv_ok {} ienv ∧ env_rel_sound f FEMPTY ienv tenv tenvE
+`!s ienv tenv tenvE.
+  t_wfs s ∧ ienv_ok {} ienv ∧ env_rel_sound FEMPTY ienv tenv tenvE
   ⇒
-  env_rel_sound f s ienv tenv tenvE`,
+  env_rel_sound s ienv tenv tenvE`,
  rw [env_rel_sound_def]
  >> first_x_assum drule
  >> rw []
@@ -629,12 +614,12 @@ val env_rel_e_sound_empty_to = Q.store_thm ("env_rel_e_sound_empty_to",
 
 (* Environment relation at infer_d and above *)
 val env_rel_def = Define`
- env_rel f tenv ienv ⇔
+ env_rel tenv ienv ⇔
   ienv_ok {} ienv ∧
   tenv_ok tenv ∧
   (* To rule out 1 env with an empty module and the other without that module at all *)
   (!x. nsLookupMod ienv.inf_v x = NONE ⇔ nsLookupMod tenv.v x = NONE) ∧
-  env_rel_sound f FEMPTY ienv tenv Empty ∧
+  env_rel_sound FEMPTY ienv tenv Empty ∧
   env_rel_complete FEMPTY ienv tenv Empty`;
 
 val lookup_varE_empty = Q.store_thm ("lookup_varE_empty[simp]",
@@ -642,13 +627,12 @@ val lookup_varE_empty = Q.store_thm ("lookup_varE_empty[simp]",
     rw [lookup_varE_def, tveLookup_def] >>
     every_case_tac);
 
-(* TODO: just one function for both env_rels? *)
 val env_rel_extend = Q.store_thm ("env_rel_extend",
-  `!f tenv1 ienv1 tenv2 ienv2.
-    env_rel f tenv1 ienv1 ∧
-    env_rel f tenv2 ienv2
+  `!tenv1 ienv1 tenv2 ienv2.
+    env_rel tenv1 ienv1 ∧
+    env_rel tenv2 ienv2
     ⇒
-    env_rel f (extend_dec_tenv tenv1 tenv2) (extend_dec_ienv ienv1 ienv2)`,
+    env_rel (extend_dec_tenv tenv1 tenv2) (extend_dec_ienv ienv1 ienv2)`,
   rpt gen_tac >>
   simp [env_rel_def] >>
   strip_tac >>
@@ -664,9 +648,9 @@ val env_rel_extend = Q.store_thm ("env_rel_extend",
   conj_tac
   >- (
     conj_tac
-    >- fs [env_rel_sound_def,nsMap_nsAppend] >>
+    >- fs [env_rel_sound_def] >>
     conj_tac
-    >- fs [env_rel_sound_def,nsMap_nsAppend] >>
+    >- fs [env_rel_sound_def] >>
     rw []
     >- (
       fs [env_rel_sound_def] >>
@@ -705,7 +689,6 @@ val env_rel_extend = Q.store_thm ("env_rel_extend",
         by (
           irule env_rel_sound_lookup_none >>
           rw [lookup_var_def, lookup_varE_def] >>
-          qexists_tac `f` >>
           qexists_tac `FEMPTY` >>
           qexists_tac `tenv1` >>
           qexists_tac `Empty` >>
@@ -721,7 +704,7 @@ val env_rel_extend = Q.store_thm ("env_rel_extend",
       simp [])));
 
 val env_rel_empty = Q.store_thm ("env_rel_empty[simp]",
-  `env_rel f <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
+  `env_rel <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
            <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>`,
   rw [env_rel_def, ienv_ok_def, ienv_val_ok_def, env_rel_sound_def,
       lookup_var_def, env_rel_complete_def] >>
@@ -780,9 +763,8 @@ val ienv_to_tenv_lift = Q.store_thm ("ienv_to_tenv_lift",
   rw [ienv_to_tenv_def, ienvLift_def, tenvLift_def, nsLift_nsMap]);
 *)
 
-(*
 val env_rel_ienv_to_tenv = Q.store_thm ("env_rel_ienv_to_tenv",
-  `!ienv. ienv_ok {} ienv ⇒ env_rel f (ienv_to_tenv ienv) ienv`,
+  `!ienv. ienv_ok {} ienv ⇒ env_rel (ienv_to_tenv ienv) ienv`,
   rw [env_rel_def, ienv_to_tenv_def]
   >- (
     fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_ok_def,
@@ -833,7 +815,6 @@ val env_rel_ienv_to_tenv = Q.store_thm ("env_rel_ienv_to_tenv",
     >- metis_tac [check_t_to_check_freevars] >>
     drule check_t_empty_unconvert_convert_id >>
     rw [tscheme_approx_refl]));
-*)
 
 val tenv_to_ienv_def = Define `
   tenv_to_ienv tenv =
@@ -847,7 +828,6 @@ val tenv_to_ienv_extend = Q.store_thm ("tenv_to_ienv_extend",
     extend_dec_ienv (tenv_to_ienv tenv2) (tenv_to_ienv tenv1)`,
   rw [tenv_to_ienv_def, extend_dec_tenv_def, extend_dec_ienv_def, nsMap_nsAppend]);
 
-(*
 val env_rel_tenv_to_ienv = Q.store_thm ("env_rel_tenv_to_ienv",
   `!tenv. tenv_ok tenv ⇒ env_rel tenv (tenv_to_ienv tenv)`,
   rw [env_rel_def, tenv_to_ienv_def]
@@ -895,7 +875,6 @@ val env_rel_tenv_to_ienv = Q.store_thm ("env_rel_tenv_to_ienv",
     disch_then drule >>
     simp [] >>
     metis_tac []));
-*)
 
 (*
 val tenv_to_ienv_lift = Q.store_thm ("tenv_to_ienv_lift",
