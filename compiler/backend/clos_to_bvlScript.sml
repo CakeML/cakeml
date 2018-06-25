@@ -16,6 +16,48 @@ val _ = set_grammar_ancestry [
   "bvl_jump"
 ]
 
+
+(* This pass puts all of the code into a table of first-order, closed,
+ * multi-argument functions. The table is indexed by natural numbers, and each
+ * entry is a pair of a number (the function's arity) and a BVL expression
+ * (the function's body).
+ *
+ * The table has the following layout.
+ *
+ * Entry i in the range 0 to max_app - 1 (inclusive):
+ *   generic application of a closure to i+1 arguments. Takes i+2 arguments
+ *   (the arguments and the closure). The closure might expect more or less
+ *   than i+1 arguments, and this code would then allocate a partial application
+ *   closure, or make repeated applications.
+ *
+ * Entries in the range max_app to max_app + (max_app * (max_app - 1) DIV 2) - 1 (inclusive) :
+ *   code to fully apply a partially applied closure wrapper.
+ *   For a closure expecting tot number of arguments, which has already been
+ *   given prev number of arguments, the wrapper is in location
+ *   max_app + tot * (tot - 1) DIV 2 + prev
+ *   and takes tot - prev + 1 arguments
+ *
+ * The next 3 entries are not used, and should be removed.
+ *
+ * The next entry is used as padding to ensure that the next number is even.
+ *
+ * The total number of entries to this point is defined as (num_stubs max_app),
+ * and it is always even.
+ *
+ * The next entry is at num_stubs+1 and initialises a global variable that
+ * contains a jump table used by the generic application stubs (0 argument).
+ * It then call the function in the table at num_stubs+3, which is where the
+ * 0 argument function representing the main expression is.
+ *
+ * All subsequent entries at odd numbers are the bodies of functions in the
+ * program, with one extra argument for the closure value to be passed in to
+ * them. The even entries are the bodies of the functions that have no free
+ * variables, and so they don't have any extra arguments. Their correcponding
+ * odd entries just indirect to the even ones. (clos_call)
+ *
+ * *)
+
+
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
