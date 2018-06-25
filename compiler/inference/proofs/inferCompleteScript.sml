@@ -8,6 +8,8 @@ open infer_eSoundTheory;
 open infer_eCompleteTheory;
 open type_eDetermTheory envRelTheory namespacePropsTheory;
 
+open type_dCanonTheory;
+
 val _ = new_theory "inferComplete";
 
 (* TODO move. n.b. something like this is defined elsewhere (Abbrev_intro)
@@ -333,25 +335,29 @@ val env_rel_complete_bind = Q.prove(`
   match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]);
 
 val infer_d_complete = Q.store_thm ("infer_d_complete",
-  `(!d tenv ids tenv' ienv st1.
-    type_d T tenv d ids tenv' ∧
-    env_rel tenv ienv
+  `(!d n tenv ids tenv' ienv st1.
+    type_d_canon n tenv d ids tenv' ∧
+    env_rel tenv ienv ∧
+    st1.next_id = n
     ⇒
     ?ienv' st2.
       env_rel tenv' ienv' ∧
+      st2.next_id = st1.next_id + ids ∧
       infer_d ienv d st1 = (Success ienv', st2)) ∧
-   (!ds tenv ids tenv' ienv st1.
-    type_ds T tenv ds ids tenv' ∧
-    env_rel tenv ienv
+   (!ds n tenv ids tenv' ienv st1.
+    type_ds_canon n tenv ds ids tenv' ∧
+    env_rel tenv ienv ∧
+    st1.next_id = n
     ⇒
     ?ienv' st2.
       env_rel tenv' ienv' ∧
-      infer_ds ienv d st1 = (Success ienv', st2))`,
+      st2.next_id = st1.next_id + ids ∧
+      infer_ds ienv ds st1 = (Success ienv', st2))`,
   Induct>>
   rw [] >>
-  imp_res_tac type_d_tenv_ok_helper >>
-  rw [] >>
-  fs[Once type_d_cases]>>rw[]
+  (* imp_res_tac type_d_tenv_ok_helper >> *)
+  qpat_x_assum`_ _ _ _ _ tenv'` mp_tac>>
+  simp[Once type_d_canon_cases]>>rw[]
   >- ( (* Let poly *)
     cheat)
     (* rw [infer_d_def, success_eqns] >>
@@ -946,6 +952,20 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]))
     >-
       metis_tac[LENGTH_MAP]*)
+  >- ( (* Dtype *)
+    rw [infer_d_def, success_eqns,n_fresh_id_def]
+    >- (
+      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+      `ienv' = tenv_to_ienv tenv'`
+        by (
+          unabbrev_all_tac >>
+          rw [tenv_to_ienv_def] >>
+          fs [env_rel_def, env_rel_complete_def]) >>
+      rw [] >>
+      irule env_rel_tenv_to_ienv >>
+      cheat (* needs tenv_ok_helper for type_d_canon *)
+      )>>
+    fs[env_rel_def,env_rel_sound_def])
   >- ( (* Dtabbrev *)
     rw [infer_d_def,success_eqns]
     >- (
@@ -957,8 +977,8 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           fs [env_rel_def, env_rel_complete_def]) >>
       rw [] >>
       irule env_rel_tenv_to_ienv >>
-      first_x_assum irule >>
-      fs [env_rel_def])
+      cheat (* needs tenv_ok_helper for type_d_canon *)
+      )
     >- fs [env_rel_def, env_rel_sound_def])
   >- ( (* Dexn *)
     rw [infer_d_def, success_eqns]
@@ -972,66 +992,32 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           metis_tac []) >>
       rw [] >>
       irule env_rel_tenv_to_ienv >>
-      first_x_assum irule >>
-      fs [env_rel_def])
+      cheat (* needs tenv_ok_helper for type_d_canon *)
+      )
     >- fs [env_rel_def, env_rel_sound_def])
+  >- ( (* Dmod*)
+    rw[infer_d_def,success_eqns]>>
+    first_x_assum drule>>
+    disch_then drule>>
+    disch_then (qspec_then`st1` assume_tac)>>rfs[]>>
+    match_mp_tac env_rel_lift>>
+    fs[])
+  >-
+    rw[infer_d_def,success_eqns]
+  >>
+    rw[infer_d_def,success_eqns]>>
+    last_x_assum drule>>disch_then drule>>
+    disch_then (qspec_then`st1` assume_tac)>>rfs[]>>
+    qpat_x_assum`_ = _` (assume_tac o SYM)>>
+    fs[]>>last_x_assum drule>>
+    drule env_rel_extend>>
+    last_x_assum assume_tac>>
+    disch_then drule>> strip_tac>>
+    disch_then drule>> rw[]>>
+    fs[]>>
+    metis_tac[env_rel_extend]);
 
-  >- ( (* Dtype *)
-    rw [infer_d_def, success_eqns]
-    >- rw [convert_decls_def, empty_inf_decls_def]
-    >- (
-      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
-      `ienv' = tenv_to_ienv tenv'`
-        by (
-          unabbrev_all_tac >>
-          rw [tenv_to_ienv_def] >>
-          fs [env_rel_def, env_rel_complete_def]) >>
-      rw [] >>
-      irule env_rel_tenv_to_ienv >>
-      first_x_assum irule >>
-      fs [env_rel_def])
-    >- fs [env_rel_def, env_rel_sound_def]
-    >- (
-      rw [EVERY_MAP, EVERY_MEM] >>
-      pairarg_tac >>
-      rw [] >>
-      fs [convert_decls_def, DISJOINT_DEF, EXTENSION] >>
-      first_x_assum (qspec_then `mk_id mn tn` mp_tac) >>
-      rw [MEM_MAP] >>
-      first_x_assum (qspec_then `(tvs,tn,ctors)` mp_tac) >>
-      rw []))
-    );
-
-val infer_ds_complete = Q.store_thm ("infer_ds_complete",
-  `!x mn decls tenv ds decls' tenv'.
-    type_ds x mn decls tenv ds decls' tenv' ⇒
-    !idecls ienv st1.
-      env_rel tenv ienv ∧
-      decls = convert_decls idecls ∧
-      x = T
-      ⇒
-      ?idecls' ienv' st2.
-        decls' = convert_decls idecls' ∧
-        env_rel tenv' ienv' ∧
-        infer_ds mn idecls ienv ds st1 = (Success (idecls',ienv'), st2)`,
-  ho_match_mp_tac type_ds_ind >>
-  rw [infer_ds_def, success_eqns]
-  >- simp [empty_decls_def, empty_inf_decls_def, convert_decls_def] >>
-  drule infer_d_complete >>
-  disch_then drule >>
-  disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
-  rw [] >>
-  rw [] >>
-  fs [GSYM convert_append_decls] >>
-  first_x_assum (qspec_then `append_decls idecls' idecls` mp_tac) >>
-  simp [] >>
-  disch_then (qspecl_then [`extend_dec_ienv ienv' ienv`, `st2`] mp_tac) >>
-  impl_tac
-  >- (irule env_rel_extend >> simp []) >>
-  rw [] >>
-  rw [success_eqns, convert_append_decls] >>
-  metis_tac [env_rel_extend]);
-
+(*
 val check_specs_complete = Q.store_thm ("check_specs_complete",
   `!mn tenvT specs decls tenv.
     type_specs mn tenvT specs decls tenv ⇒
@@ -1357,82 +1343,5 @@ val check_weak_decls_complete = Q.store_thm ("check_weak_decls_complete",
   rw [weak_decls_def, check_weak_decls_def, convert_decls_def, SUBSET_DEF,
       list_subset_def, list_set_eq_def] >>
   fs [EVERY_MEM]);
-
-val infer_top_complete = Q.store_thm ("infer_top_complete",
-  `!decls tenv ienv top st1 decls' tenv' idecls.
-    type_top T decls tenv top decls' tenv' ∧
-    env_rel tenv ienv ∧
-    decls = convert_decls idecls
-    ⇒
-    ?idecls' ienv' st2.
-      decls' = convert_decls idecls' ∧
-      env_rel tenv' ienv' ∧
-      infer_top idecls ienv top st1 = (Success (idecls',ienv'), st2)`,
-  rw [type_top_cases] >>
-  rw [infer_top_def, success_eqns]
-  >- (
-    drule infer_d_complete >>
-    disch_then drule >>
-    disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
-    rw [] >>
-    qexists_tac `idecls'` >>
-    rw [success_eqns]) >>
-  drule infer_ds_complete >>
-  disch_then drule >>
-  disch_then (qspecl_then [`idecls`, `st1`] mp_tac) >>
-  rw [] >>
-  rw [success_eqns] >>
-  fs [check_signature_def, typeSystemTheory.check_signature_cases,
-      success_eqns]
-  >- (
-    fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION] >>
-    metis_tac [env_rel_lift])
-  >- (
-    drule (INST_TYPE [``:'a`` |-> ``:(num |-> infer_t) infer_st``] check_specs_complete) >>
-    `ienv.inf_t = tenv.t` by fs [env_rel_def, ienv_ok_def, env_rel_sound_def] >>
-    simp [GSYM PULL_FORALL] >>
-    impl_tac
-    >- fs [env_rel_def, ienv_ok_def] >>
-    disch_then (qspecl_then [`st2`, `empty_inf_decls`, `<|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty|>`] mp_tac) >>
-    rw [] >>
-    rw [success_eqns]
-    >- simp [GSYM INSERT_SING_UNION, union_decls_def, convert_decls_def]
-    >- (
-      simp [extend_dec_ienv_empty] >>
-      metis_tac [env_rel_lift])
-    >- fs [convert_decls_def]
-    >- (
-      simp [extend_dec_ienv_empty] >>
-      metis_tac [check_weak_ienv_complete])
-    >- metis_tac [check_weak_decls_complete]));
-
-val infer_prog_complete = Q.store_thm ("infer_prog_complete",
-  `!x decls tenv prog decls' tenv'.
-    type_prog x decls tenv prog decls' tenv' ⇒
-    !st1 idecls ienv.
-    env_rel tenv ienv ∧
-    decls = convert_decls idecls ∧
-    x = T
-    ⇒
-    ?idecls' ienv' st2.
-      decls' = convert_decls idecls' ∧
-      env_rel tenv' ienv' ∧
-      infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2)`,
-  ho_match_mp_tac type_prog_ind >>
-  rw [infer_prog_def, success_eqns]
-  >- rw [convert_decls_def, empty_decls_def, empty_inf_decls_def] >>
-  drule infer_top_complete >>
-  disch_then drule >>
-  disch_then (qspecl_then [`st1`, `idecls`] mp_tac) >>
-  rw [] >>
-  rw [success_eqns] >>
-  `env_rel (extend_dec_tenv tenv1 tenv) (extend_dec_ienv ienv' ienv)`
-    by metis_tac [env_rel_extend] >>
-  first_x_assum drule >>
-  simp [GSYM convert_append_decls] >>
-  disch_then (qspecl_then [`st2`, `append_decls idecls' idecls`] mp_tac) >>
-  rw [] >>
-  rw [success_eqns, convert_append_decls] >>
-  metis_tac [env_rel_extend]);
-
+*)
 val _ = export_theory ();
