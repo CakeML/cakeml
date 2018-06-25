@@ -1026,9 +1026,6 @@ val state_rel_def = Define `
       lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
     compile_oracle_inv s.max_app s.code s.compile s.compile_oracle
                                  t.code t.compile t.compile_oracle ∧
-    (lookup (equality_location s.max_app) t.code = SOME (equality_code s.max_app)) ∧
-    (lookup (block_equality_location s.max_app) t.code = SOME (block_equality_code s.max_app)) ∧
-    (lookup (ToList_location s.max_app) t.code = SOME (ToList_code s.max_app)) ∧
     (!name arity c.
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?aux1 c2 aux2.
@@ -4715,14 +4712,10 @@ val init_code_ok = Q.store_thm ("init_code_ok",
    (!tot n.
       tot < max_app ∧ n < tot ⇒
         lookup (partial_app_fn_location max_app tot n) (init_code max_app) =
-          SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
-   (lookup (equality_location max_app) (init_code max_app) = SOME (equality_code max_app)) ∧
-   (lookup (block_equality_location max_app) (init_code max_app) = SOME (block_equality_code max_app)) ∧
-   (lookup (ToList_location max_app) (init_code max_app) = SOME (ToList_code max_app))`,
+          SOME (tot - n + 1, generate_partial_app_closure_fn tot n))`,
   srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def,
             generic_app_fn_location_def]
   >- decide_tac
-  >- simp[EL_APPEND1, GSYM ADD1]
   >- (
     srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle] >>
     simp [ADD1] >>
@@ -4734,25 +4727,9 @@ val init_code_ok = Q.store_thm ("init_code_ok",
       `max_app ≤ max_app + (n + tot * (tot − 1) DIV 2)` by decide_tac >>
       ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
       simp[EL_APPEND2] >>
-      rw [triangle_el])
-  >- simp [triangle_table_size, equality_location_def, ADD1]
-  >- (
-    simp_tac (srw_ss()) [GSYM ADD_ASSOC, equality_location_def] >>
-    simp_tac (srw_ss()) [DECIDE ``!x. 1 + x = SUC x``] >>
-    simp[triangle_table_size, EL_APPEND2,equality_location_def])
-  >- simp [triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
-  >- (
-    simp_tac (srw_ss()) [GSYM ADD_ASSOC, block_equality_location_def] >>
-    simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[EL_APPEND2,block_equality_location_def,equality_location_def, triangle_table_size])
-  >- simp [ToList_location_def, triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
-  >- (
-    simp_tac (srw_ss()) [GSYM ADD_ASSOC, ToList_location_def] >>
-    simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[triangle_table_size, block_equality_location_def,equality_location_def, EL_APPEND2] >>
-    simp [ADD1]));
+      rw [triangle_el_no_suff]));
 
-val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
+ val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`,
   simp[init_code_def,num_stubs_def,domain_fromList,LENGTH_FLAT,MAP_GENLIST,o_DEF]
   \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]
@@ -4836,11 +4813,13 @@ val fromAList_code_sort = Q.store_thm("fromAList_code_sort",
   rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
   \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
 
+(*
 val even_stubs3 = Q.prove (
   `!max_app. EVEN (num_stubs max_app + 3)`,
   Induct_on `max_app` >>
   rw [num_stubs_def, EVEN_ADD, EVEN, GSYM EVEN_MOD2] >>
   metis_tac []);
+  *)
 
 val _ = overload_on("code_loc'",``λe. code_locs [e]``);
 

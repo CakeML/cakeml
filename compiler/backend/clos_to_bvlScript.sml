@@ -37,23 +37,21 @@ val _ = set_grammar_ancestry [
  *   max_app + tot * (tot - 1) DIV 2 + prev
  *   and takes tot - prev + 1 arguments
  *
- * The next 3 entries are not used, and should be removed.
+ * The next entry initialises a global variable that contains a jump table used
+ * by the generic application stubs (0 argument).
  *
- * The next entry is used as padding to ensure that the next number is even.
+ * The num_stubs function gives the total number of these functions.
  *
- * The total number of entries to this point is defined as (num_stubs max_app),
- * and it is always even.
+ * Starting at index num_stubs, there are 0 argument functions that evaluate
+ * each expression that should be evaluated, and then call the next function.
  *
- * The next entry is at num_stubs+1 and initialises a global variable that
- * contains a jump table used by the generic application stubs (0 argument).
- * It then call the function in the table at num_stubs+3, which is where the
- * 0 argument function representing the main expression is.
- *
- * All subsequent entries at odd numbers are the bodies of functions in the
- * program, with one extra argument for the closure value to be passed in to
- * them. The even entries are the bodies of the functions that have no free
- * variables, and so they don't have any extra arguments. Their correcponding
- * odd entries just indirect to the even ones. (clos_call)
+ * Following these functions, at even numbers there are the bodies of
+ * functions in the program, with one extra argument for the closure value to be
+ * passed in to them. The odd entries are the bodies of the functions that have
+ * no free variables, and so they don't have any extra arguments. Their
+ * correcponding odd entries just indirect to the even ones. (clos_call)
+ * One entry might be skipped in between the expressions and the source-level
+ * function bodies to get the alignment right.
  *
  * *)
 
@@ -195,11 +193,7 @@ val num_stubs_def = Define `
   num_stubs max_app =
     (* generic apps *)         max_app
     (* partial apps *)       + max_app * (max_app - 1) DIV 2
-    (* equality of values *) + 1n
-    (* equality of blocks *) + 1
-    (* ToList *)             + 1
-    (* Padding, there must be an odd number of stubs. *)
-       + (if (max_app + max_app * (max_app - 1) DIV 2 + 3) MOD 2 = 0 then 1 else 0)`;
+    + 1 (* code to install a jump table in global 0 *) `;
 
 val generic_app_fn_location_def = Define `
   generic_app_fn_location n = n`;
@@ -214,15 +208,6 @@ val partial_app_fn_location_code_def = Define `
      (Op Add [prev_exp;
         Op Div [mk_const 2;
           Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]])`;
-
-val equality_location_def = Define`
-  equality_location (max_app:num) = max_app + max_app * (max_app - 1) DIV 2`;
-
-val block_equality_location_def = Define`
-  block_equality_location max_app = equality_location max_app + 1`;
-
-val ToList_location_def = Define`
-  ToList_location max_app = block_equality_location max_app + 1`;
 
 val mk_cl_call_def = Define `
   mk_cl_call cl args =
@@ -292,34 +277,10 @@ val generate_partial_app_closure_fn_def = Define `
          [Var 0] ++
          [mk_el (Var 0) (mk_const 0)]))`;
 
-val ToList_code_def = Define`
-  (* 3 arguments: block containing list, index of last converted element, accumulator *)
-  ToList_code max_app = (3:num,
-    If (Op Equal [Var 1; mk_const 0]) (Var 2)
-      (Let [Op Sub [mk_const 1; Var 1]]
-        (Call 0 (SOME (ToList_location max_app))
-         [Var 1; Var 0; Op (Cons cons_tag)
-                           [Var 3; mk_el (Var 1) (Var 0)]])))`;
-
 val check_closure_def = Define`
   check_closure v e =
     If (Op (TagEq closure_tag) [Var v]) (Bool T)
       (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)`;
-
-val equality_code_def = Define`
-  equality_code (max_app:num) = (2:num,Var 0)`;
-
-val block_equality_code_def = Define`
-  (* 4 arguments: block1, block2, length, index to check*)
-  block_equality_code max_app = (4:num,
-    If (Op Equal [Var 3; Var 2])
-       (Bool T)
-       (If (Call 0 (SOME (equality_location max_app))
-              [mk_el (Var 0) (Var 3);
-               mk_el (Var 1) (Var 3)])
-           (Call 0 (SOME (block_equality_location max_app))
-              [Var 0; Var 1; Var 2; (Op Add [Var 3; mk_const 1])])
-           (Bool F)))`;
 
 val init_code_def = Define `
   init_code max_app =
@@ -331,13 +292,10 @@ val init_code_def = Define `
              GENLIST
                (\prev. (tot - prev + 1, generate_partial_app_closure_fn tot prev))
                tot)
-           max_app) ++
-       [equality_code max_app;
-        block_equality_code max_app;
-        ToList_code max_app])`;
+           max_app))`;
 
 val init_globals_def = Define `
-  init_globals max_app =
+  init_globals max_app start_loc =
     Let [Op AllocGlobal []]
     (Let
       [Op (SetGlobal partial_app_label_table_loc)
@@ -350,7 +308,7 @@ val init_globals_def = Define `
                   tot)
               max_app)))]]
       (* Expect the real start of the program in code location 3 *)
-      (Call 0 (SOME (num_stubs max_app + 3)) []))`;
+      (Call 0 (SOME start_loc) []))`;
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [] aux = ([],aux)) /\
@@ -379,11 +337,6 @@ val compile_exps_def = tDefine "compile_exps" `
      ([if op = Install then
          Call 0 NONE [Op Install c1]
        else
-       (* if op = Equal then
-         TODO: remove everything related to the equality stubs
-         TODO: also remove everything related to the ToList stubs
-         Call 0 (SOME (equality_location max_app)) c1
-       else *)
          Op (compile_op op) c1]
      ,aux1)) /\
   (compile_exps max_app [App t loc_opt x1 xs2] aux =
@@ -575,18 +528,33 @@ val code_sort_def = tDefine "code_sort" `
   \\ drule code_split_NULL \\ fs [] \\ full_simp_tac std_ss [GSYM LENGTH_NIL] >>
   decide_tac);
 
+val chain_exps = Define `
+  (chain_exps i [] = []) ∧
+  (chain_exps i [e] = [(i, 0n, e)]) ∧
+  (chain_exps i (e::es) =
+    (i, 0,
+     closLang$Let ARB [e] (closLang$Call ARB 0 (i + 1n) [])) :: chain_exps (i + 1) es)`;
+
 val compile_def = Define`
   compile c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
-    let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 3) es in
-    let c = c with next_loc := n in
+    (* Add space for functions to call the expressions *)
+    let loc = c.next_loc + LENGTH es in
+    (* Padding *)
+    let loc = if loc MOD 2 = 0 then loc else loc + 1 in
+    let (n,es) = renumber_code_locs_list loc es in
     let es = clos_known$compile c.do_known c.max_app es in
     let (es,aux) = clos_call$compile c.do_call es in
-    let prog = MAP (λe. (3,0,e)) (* TODO: daisy-chain these instead *) es ++ aux in
-    let c = c with start := num_stubs c.max_app + 1 in
+    let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-    let prog = (num_stubs c.max_app+1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
+    let prog =
+      (num_stubs c.max_app,0,
+       init_globals c.max_app (num_stubs c.max_app + c.next_loc))
+      :: compile_prog c.max_app prog
+    in
     let prog = toAList (init_code c.max_app) ++ prog in
+    let c = c with start := num_stubs c.max_app - 1 in
+    let c = c with next_loc := n in
       (c,code_sort prog)`;
 
 val _ = export_theory()
