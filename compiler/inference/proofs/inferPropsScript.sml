@@ -2639,11 +2639,14 @@ val check_specs_check = Q.store_thm ("check_specs_check",
    >> irule nsAll_nsBind
    >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]));
 
+*)
+
 val ienv_ok_lift = Q.store_thm ("ienv_ok_lift",
-  `!mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (ienvLift mn ienv)`,
- rw [ienvLift_def, ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
+  `!mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (lift_ienv mn ienv)`,
+ rw [lift_ienv_def, ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
      typeSoundInvariantsTheory.tenv_abbrev_ok_def]);
 
+(*
 val infer_top_invariant = Q.store_thm ("infer_top_invariant",
 `!decls1 ienv top st1 decls' ienv' st2.
   infer_top decls1 ienv top st1 = (Success (decls', ienv'), st2) ∧
