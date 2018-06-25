@@ -346,10 +346,10 @@ val tscheme_inst_to_approx = Q.store_thm ("tscheme_inst_to_approx",
   drule (GEN_ALL (CONJUNCT1 infer_deBruijn_subst_twice)) >>
   rw [MAP_MAP_o, combinTheory.o_DEF]);
 
-(* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
-  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
+(* Rename type identifiers with a function *)
+val type_ident_rename_def = tDefine"type_ident_rename"`
+  (type_ident_rename f (Tapp ts tn) = Tapp (MAP (type_ident_rename f) ts) (f tn)) ∧
+  (type_ident_rename f t = t)`
   (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
   rw [] >>
   induct_on `ts` >>
@@ -357,34 +357,19 @@ val ts_tid_rename_def = tDefine"ts_tid_rename"`
   res_tac >>
   decide_tac);
 
-(* Rename (inferencer) type identifiers with a function *)
-val inf_tid_rename_def = tDefine"inf_tid_rename"`
-  (inf_tid_rename f (Infer_Tapp ts tn) = Infer_Tapp (MAP (inf_tid_rename f) ts) (f tn)) ∧
-  (inf_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). infer_t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [infer_tTheory.infer_t_size_def] >>
-  res_tac >>
-  decide_tac);
-
 (* f is used to remap the type identifiers
-  TODO: is it better to map inferencer envs into type system or vice versa?
-  For soundness, it seems reasonable to want to map things produced by
-  the inferencer into the type system, which is what this currently does.
-*)
+  TODO: is it better to map inferencer envs into type system or vice versa? *)
 val env_rel_sound_def = Define `
   env_rel_sound f s ienv tenv tenvE ⇔
-    nsMap (λ(ls,t). (ls, ts_tid_rename f t)) ienv.inf_t = tenv.t ∧
-    nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) ienv.inf_c = tenv.c ∧
+    ienv.inf_t = nsMap (λ(ls,t). (ls, type_ident_rename f t)) tenv.t ∧
+    ienv.inf_c = nsMap (λ(ls,ts,tid). (ls, MAP (type_ident_rename f) ts, f tid)) tenv.c ∧
     !x ts.
       nsLookup ienv.inf_v x = SOME ts
       ⇒
       ?tvs' t'.
         check_freevars (tvs' + num_tvs tenvE) [] t' ∧
         lookup_var x tenvE tenv = SOME (tvs', t') ∧
-        tscheme_approx (num_tvs tenvE) s
-          (FST ts, inf_tid_rename f (SND ts)) (tvs', unconvert_t t')`;
+        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t (type_ident_rename f t'))`;
 
 val env_rel_sound_lookup_none = Q.store_thm ("env_rel_sound_lookup_none",
   `!ienv tenv f s tenvE id.
@@ -410,8 +395,7 @@ val env_rel_sound_lookup_some = Q.store_thm ("env_rel_sound_lookup_some",
     ?tvs' t'.
       check_freevars (tvs' + num_tvs tenvE) [] t' ∧
       lookup_var id tenvE tenv = SOME (tvs',t') ∧
-      tscheme_approx (num_tvs tenvE) s
-        (FST ts, inf_tid_rename f (SND ts)) (tvs', unconvert_t t')`,
+      tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t (type_ident_rename f t'))`,
  rw [env_rel_sound_def]);
 
 val db_subst_infer_subst_swap3 = Q.store_thm ("db_subst_infer_subst_swap3",

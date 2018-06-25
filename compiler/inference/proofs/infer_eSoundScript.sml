@@ -404,7 +404,7 @@ val binop_tac =
  imp_res_tac sub_completion_apply >>
  imp_res_tac t_unify_wfs >>
  imp_res_tac sub_completion_wfs >>
- fsrw_tac[] [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def, ts_tid_rename_def,good_rename_def, prim_type_nums_def] >>
+ fsrw_tac[] [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def, type_ident_rename_def,good_rename_def, prim_type_nums_def] >>
  srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def,word_tc_cases] >>
  metis_tac [MAP, infer_e_next_uvar_mono, check_env_more, word_size_nchotomy];
 
@@ -447,34 +447,11 @@ val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar"
  >> disch_then drule
  >> simp [EL_MAP]);
 
-val check_freevars_ts_tid_rename = Q.store_thm("check_freevars_ts_tid_rename[simp]",`
+val check_freevars_type_ident_rename = Q.store_thm("check_freevars_type_ident_rename[simp]",`
   ∀tvs ls t.
-  check_freevars tvs ls (ts_tid_rename f t) ⇔ check_freevars tvs ls t`,
+  check_freevars tvs ls (type_ident_rename f t) ⇔ check_freevars tvs ls t`,
   ho_match_mp_tac check_freevars_ind>>
-  rw[check_freevars_def,ts_tid_rename_def,EVERY_MAP,EVERY_MEM]);
-
-val check_t_inf_tid_rename = Q.store_thm("check_t_inf_tid_rename[simp]",`
-  ∀n m t f.
-  check_t n m (inf_tid_rename f t) <=>
-  check_t n m t`,
-  ho_match_mp_tac check_t_ind>>
-  rw[check_t_def,inf_tid_rename_def,EVERY_MAP,EVERY_MEM]);
-
-val infer_deBruijn_subst_inf_tid_rename = Q.prove(`
-  ∀f t ls v.
-  infer_deBruijn_subst
-   (MAP (λn. Infer_Tuvar (n+v)) ls)
-   (inf_tid_rename f t) =
-  inf_tid_rename f
-    (infer_deBruijn_subst (MAP (λn. Infer_Tuvar (n+v)) ls) t)`,
-  ho_match_mp_tac inf_tid_rename_ind>>
-  rw[infer_deBruijn_subst_def,inf_tid_rename_def]>>
-  fs[EL_MAP,inf_tid_rename_def,MAP_MAP_o,MAP_EQ_f]);
-
-val t_walkstar_inf_tid_rename = Q.prove(`
-  ∀s t f.
-  t_walkstar s (inf_tid_rename f t) =
-  inf_tid_rename (t_walkstar s t)`
+  rw[check_freevars_def,type_ident_rename_def,EVERY_MAP,EVERY_MEM]);
 
 val infer_e_sound = Q.store_thm ("infer_e_sound",
 `(!l ienv e st st' f tenv tenvE t extra_constraints s.
@@ -485,7 +462,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     t_wfs st.subst ∧
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s
     ⇒
-    type_e tenv tenvE e (ts_tid_rename f (convert_t (t_walkstar s t)))) ∧
+    type_e tenv tenvE e (type_ident_rename f (convert_t (t_walkstar s t)))) ∧
  (!l ienv es st st' f tenv tenvE ts extra_constraints s.
     infer_es l ienv es st = (Success ts, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
@@ -494,7 +471,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     t_wfs st.subst ∧
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s
     ⇒
-    type_es tenv tenvE es (MAP (ts_tid_rename f o convert_t o t_walkstar s) ts)) ∧
+    type_es tenv tenvE es (MAP (type_ident_rename f o convert_t o t_walkstar s) ts)) ∧
  (!l ienv pes t1 t2 st st' f tenv tenvE extra_constraints s.
     infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
@@ -504,8 +481,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_pes (num_tvs tenvE) 0 tenv tenvE pes
-      (ts_tid_rename f (convert_t (t_walkstar s t1)))
-      (ts_tid_rename f (convert_t (t_walkstar s t2)))) ∧
+      (type_ident_rename f (convert_t (t_walkstar s t1)))
+      (type_ident_rename f (convert_t (t_walkstar s t2)))) ∧
  (!l ienv funs st st' f tenv tenvE extra_constraints s ts.
     infer_funs l ienv funs st = (Success ts, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
@@ -515,7 +492,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s ∧
     ALL_DISTINCT (MAP FST funs)
     ⇒
-    type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (ts_tid_rename f o convert_t o t_walkstar s) t)) funs ts))`,
+    type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (type_ident_rename f o convert_t o t_walkstar s) t)) funs ts))`,
   ho_match_mp_tac infer_e_ind >>
   rw [infer_e_def, success_eqns, remove_pair_lem] >>
   rw [check_t_def] >>
@@ -537,7 +514,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     fs [] >>
     rw [] >>
     imp_res_tac sub_completion_wfs >>
-    fs [t_walkstar_eqn1, convert_t_def, Texn_def, ts_tid_rename_def] >>
+    fs [t_walkstar_eqn1, convert_t_def, Texn_def, type_ident_rename_def] >>
     rfs [good_rename_def,prim_type_nums_def])
   >- (
     Cases_on `pes` >>
@@ -562,14 +539,14 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      `st.next_uvar ≤ st''.next_uvar` by metis_tac [infer_e_next_uvar_mono] >>
      `type_pes (num_tvs tenvE) 0 tenv tenvE pes
-       (ts_tid_rename f (convert_t (t_walkstar s (Infer_Tapp [] Texn_num))))
-       (ts_tid_rename f (convert_t (t_walkstar s t)))` by
+       (type_ident_rename f (convert_t (t_walkstar s (Infer_Tapp [] Texn_num))))
+       (type_ident_rename f (convert_t (t_walkstar s t)))` by
        metis_tac [ienv_ok_more] >>
      fs [type_pes_def, RES_FORALL] >>
      pop_assum (mp_tac o Q.SPEC `(p,e')`) >>
      rw [Texn_def] >>
      imp_res_tac sub_completion_wfs >>
-     fs [t_walkstar_eqn1, convert_t_def, Texn_def, good_rename_def, prim_type_nums_def, ts_tid_rename_def] >>
+     fs [t_walkstar_eqn1, convert_t_def, Texn_def, good_rename_def, prim_type_nums_def, type_ident_rename_def] >>
      metis_tac [])
   >- (* Lit int *)
     binop_tac
@@ -581,7 +558,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     binop_tac
   >- (* Lit word64 *)
     binop_tac
-  >- ( (* Var *)
+  >- cheat
+  (* (* Var *)
     drule env_rel_sound_lookup_some
     >> disch_then drule
     >> rw []
@@ -591,7 +569,6 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     >> drule tscheme_approx_thm
     >> var_eq_tac
     >> disch_then drule
-    (* This choice might need "inf_tid_rename f o" in front *)
     >> disch_then
       (qspec_then `MAP (t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` mp_tac)
     >> simp [LENGTH_COUNT_LIST, EVERY_MAP, every_count_list, check_t_def]
@@ -603,22 +580,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     >> simp [EVERY_MAP]
     >> conj_tac
     >- (
-      pop_assum (mp_tac o Q.AP_TERM`convert_t`)>>
-      dep_rewrite.DEP_REWRITE_TAC [db_subst_infer_subst_swap3]>>
-      CONJ_TAC >- metis_tac[]>>
-      disch_then sym_sub_tac>>
-      simp[infer_deBruijn_subst_walkstar]>>
-      simp[infer_deBruijn_subst_inf_tid_rename]>>
-      (*
-        PROBLEM:
-        inf_tid_rename does NOT commute with t_walkstar
-        because the t_walkstar can introduce new Tapps.
-        Similarly both *_tid_renames do not commute with the substs
-
-        Possible solution is to move inf_tid_rename underneath tscheme_approx
-        so that it is applied after the walkstar...
-      *)
-      cheat)
+      rfs [infer_deBruijn_subst_walkstar]
+      >> metis_tac [db_subst_infer_subst_swap3])
     >- (
       fs [EVERY_MEM, sub_completion_def]
       >> rw []
@@ -630,7 +593,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      `?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
      `t_wfs s` by metis_tac [sub_completion_wfs, infer_e_wfs, pure_add_constraints_wfs] >>
      rw [t_walkstar_eqn1, convert_t_def, Tref_def]>>
-     fs[ts_tid_rename_def,prim_type_nums_def,good_rename_def] >>
+     fs[type_ident_rename_def,prim_type_nums_def,good_rename_def] >>
      metis_tac [MAP_MAP_o])
   >- cheat
   (* (* Con *)
@@ -746,7 +709,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     >> imp_res_tac sub_completion_wfs
     >> `t_wfs s` by metis_tac []
     >> rw [t_walkstar_eqn1, convert_t_def]
-    >> fs[ts_tid_rename_def,good_rename_def])
+    >> fs[type_ident_rename_def,good_rename_def])
  >- ( (* Log *)
    imp_res_tac (CONJUNCT1 infer_e_wfs)
    >> fs []
@@ -780,7 +743,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> first_x_assum drule
    >> imp_res_tac sub_completion_apply
    >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> simp [t_walkstar_eqn1, convert_t_def,ts_tid_rename_def]
+   >> simp [t_walkstar_eqn1, convert_t_def,type_ident_rename_def]
    >> fs[good_rename_def]
    >> metis_tac[])
   >- ( (* If *)
@@ -816,7 +779,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> first_x_assum drule
    >> imp_res_tac sub_completion_apply
    >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> simp [t_walkstar_eqn1, convert_t_def,ts_tid_rename_def]
+   >> simp [t_walkstar_eqn1, convert_t_def,type_ident_rename_def]
    >> fs[good_rename_def]
    >> metis_tac[])
   >- (* If *)
@@ -832,7 +795,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     imp_res_tac sub_completion_apply >>
     `t_wfs s` by metis_tac [sub_completion_wfs] >>
     fs [t_walkstar_eqn, t_walk_eqn, convert_t_def]>>
-    fs[good_rename_def,ts_tid_rename_def])
+    fs[good_rename_def,type_ident_rename_def])
   >- (* If *)
     (`t_wfs (st'' with subst := s').subst`
                by (rw [] >>
@@ -856,7 +819,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                      decide_tac) >>
       `?ts. sub_completion (num_tvs tenvE) st'''''.next_uvar st'''''.subst ts s`
                 by metis_tac [sub_completion_unify2] >>
-      `type_e tenv tenvE e'' (ts_tid_rename f (convert_t (t_walkstar s t3)))`
+      `type_e tenv tenvE e'' (type_ident_rename f (convert_t (t_walkstar s t3)))`
         by (
           first_x_assum irule >>
           simp [] >>
