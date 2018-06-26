@@ -1,10 +1,7 @@
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
-     source_to_modProofTheory
-     mod_to_conProofTheory
-     con_to_decProofTheory
-     dec_to_exhProofTheory
-     exh_to_patProofTheory
+     source_to_flatProofTheory
+     flat_to_patProofTheory
      pat_to_closProofTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
@@ -281,7 +278,6 @@ val prim_config = prim_config_eq |> concl |> lhs
 val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = ^prim_config.source_conf ∧
-    c.mod_conf = ^prim_config.mod_conf ∧
     0 < c.clos_conf.max_app ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
@@ -420,85 +416,56 @@ val compile_correct = Q.store_thm("compile_correct",
   srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.ffi_names = SOME mc.ffi_names` by fs[installed_def] >>
-  drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
+  drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_flatProofTheory.compile_semantics)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
   qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
-  `∃s2 env2 gtagenv.
-     precondition s env c.source_conf s2 env2 ∧
-     nsDomMod env2.c = {[]} ∧
-     s2.globals = [] ∧
-     s2.ffi = ffi ∧
-     s2.refs = [] ∧
-     s2.defined_types = s.defined_types ∧
-     (* s2.defined_mods = s.defined_mods ∧ *)
-     envC_tagged env2.c (prim_config:'a backend$config).mod_conf.tag_env gtagenv ∧
-     exhaustive_env_correct (prim_config:'a backend$config).mod_conf.exh_ctors_env gtagenv ∧
-     gtagenv_wf gtagenv ∧
-     next_inv s.defined_types
-       (prim_config:'a backend$config).mod_conf.next_exception gtagenv` by (
-    simp[source_to_modProofTheory.precondition_def] >>
+  `precondition s env c.source_conf` by (
+    simp[source_to_flatProofTheory.precondition_def] >>
     simp[Abbr`env`,Abbr`s`] >>
     srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
-    rw[source_to_modProofTheory.invariant_def] >>
-    rw[source_to_modProofTheory.s_rel_cases] >>
-    (* TODO: Not sure why these got broken *)
-    rw[Once source_to_modProofTheory.v_rel_cases] >>
-    simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
-      (rw[]>>Cases_on`x`>>fs[namespaceTheory.nsLookup_def])>>
-    rw[Once prim_config_eq] >>
-    simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
-      (rw[namespaceTheory.nsDomMod_def,EXTENSION,GSPECIFICATION,PULL_EXISTS]>>
-      simp[EXISTS_PROD]>>Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])>>
-    rw[envC_tagged_def, mod_to_conTheory.lookup_tag_env_def,PULL_EXISTS] >>
-    CONV_TAC(PATH_CONV"blrbbblr"EVAL) >>
-    rw[prim_config_eq,option_fold_def] >>
-    CONV_TAC(PATH_CONV"blrbbbrbblr"EVAL) >>
+    rw[source_to_flatProofTheory.invariant_def] >>
+    rw[source_to_flatProofTheory.genv_c_ok_def] >>
+    rw[source_to_flatProofTheory.s_rel_cases] >>
+    rw[flatSemTheory.initial_state_def] >>
+    rw[prim_config_eq] >>
+    rw[Once source_to_flatProofTheory.v_rel_cases] >>
+    rw[nsLookup_Bind_v_some,PULL_EXISTS] \\
     (fn g as (asl,w) =>
       let
-        val tms = w |> dest_exists |> #2
-                    |> dest_conj |> #1
-                    |> strip_forall |> #2
-                    |> dest_imp |> #2
-                    |> strip_exists |> #2
-                    |> funpow 2 (rand o rator)
-                    |> lhs |> funpow 2 (rand o rator)
-        val (ls,ty) = listSyntax.dest_list tms
-        val (ty1,ty2) = pairSyntax.dest_prod ty
-        val (ty2,ty3) = pairSyntax.dest_prod ty2
-        val (ty3,ty4) = pairSyntax.dest_prod ty3
-        val ty1 = pairSyntax.mk_prod(ty1,ty4)
-        val ty2 = pairSyntax.mk_prod (ty3,ty2)
-        fun fix_pair tm =
-          let val ls = pairSyntax.strip_pair tm
-          in pairSyntax.mk_pair(pairSyntax.mk_pair(el 1 ls, el 4 ls),
-                                pairSyntax.mk_pair(el 3 ls, el 2 ls))
+        val (genv_c,tm) = dest_exists w
+        val tm = tm |> strip_conj |> el 10 |> strip_forall |> #2
+        val (tms1, tm) = dest_imp tm
+        val tms2 = tm |> dest_exists |> #2 |> strip_conj |> el 1
+        fun get_data (tm,acc) =
+          let
+            val (eq, data, rest) = dest_cond tm
+          in
+            get_data (rest, (lhs eq, subst[rhs eq |-> lhs eq](optionSyntax.dest_some data))::acc)
+          end handle HOL_ERR _ => acc
+        val d1 = get_data (lhs tms1,[])
+        val d2 = get_data (lhs tms2,[])
+        fun get_pair (k,cn) =
+          let
+            val (arity, stamp) = pairSyntax.dest_pair (assoc k d1)
+          in
+            pairSyntax.mk_pair(pairSyntax.mk_pair(cn, arity), stamp)
           end
-        val ls = map fix_pair ls
-        val fm = finite_mapSyntax.list_mk_fupdate
-                  (finite_mapSyntax.mk_fempty (ty1,ty2), ls)
-      in exists_tac fm end g) >>
-    conj_tac
-    >- (
-      Cases \\ simp[nsLookup_Bind_v_some,FLOOKUP_UPDATE,namespaceTheory.id_to_n_def] >>
-      rpt ( IF_CASES_TAC \\ fs[] \\ rveq \\ fs[] )) >>
-    conj_tac >- (
-      simp[exhaustive_env_correct_def,IN_FRANGE,FLOOKUP_UPDATE,PULL_EXISTS] >>
-      srw_tac[DNF_ss][] >>
-      EVAL_TAC >>
-      pop_assum mp_tac >> rw[] >>
-      EVAL_TAC >>
-      simp[PULL_EXISTS]) >>
-    conj_tac >- (
-      EVAL_TAC >> rw[] >> fs[semanticPrimitivesTheory.same_tid_def,namespaceTheory.id_to_n_def] ) >>
-    simp[next_inv_def,PULL_EXISTS] >>
-    simp[FLOOKUP_UPDATE] >>
-    rw[] >> EVAL_TAC >>
-    srw_tac[QUANT_INST_ss[std_qp]][]) >>
-  disch_then drule >> strip_tac >>
+        val al = map get_pair d2
+      in
+        exists_tac (
+          finite_mapSyntax.list_mk_fupdate(
+            finite_mapSyntax.mk_fempty(finite_mapSyntax.dest_fmap_ty (type_of genv_c)),
+            al)
+        )
+      end g)
+    \\ simp[IN_FRANGE, DOMSUB_FAPPLY_THM]
+    \\ EVAL_TAC \\ rw[] \\ EVAL_TAC
+    \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[])
+  \\ disch_then drule >> strip_tac >>
   pairarg_tac \\ fs[] >>
-  qhdtm_x_assum`from_mod`mp_tac >>
-  srw_tac[][from_mod_def,mod_to_conTheory.compile_def] >>
+  qhdtm_x_assum`from_flat`mp_tac >>
+  srw_tac[][from_flat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_assum_abbrev_tac`semantics_prog s env prog sem2` >>
   `sem2 ≠ Fail` by metis_tac[] >>
@@ -506,99 +473,32 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
-  drule (GEN_ALL mod_to_conProofTheory.compile_prog_semantics) >>
-  fs[] >> rveq >>
-  simp[AND_IMP_INTRO] >> simp[Once CONJ_COMM] >>
-  disch_then drule >>
-  simp[mod_to_conProofTheory.invariant_def,
-       mod_to_conTheory.get_exh_def,
-       mod_to_conTheory.get_tagenv_def] >>
-  simp[mod_to_conProofTheory.s_rel_cases] >>
-  CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
-  simp[mod_to_conProofTheory.cenv_inv_def] >>
-  disch_then(qspec_then`gtagenv`mp_tac)>>
-  impl_tac >- ( fs[] >> rw[Abbr`s`,prim_config_eq] ) >>
-  strip_tac >>
-  pop_assum(assume_tac o SYM) >> simp[] >>
-  qmatch_assum_rename_tac`from_con ccon _ = _` \\
-  qunabbrev_tac`ccon`>>
-  qhdtm_x_assum`from_con`mp_tac >>
-  srw_tac[][from_con_def] >>
-  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  rfs[] >> fs[] >>
-  qpat_x_assum`Fail ≠ _`(assume_tac o GSYM) >>
-  drule(GEN_ALL(MATCH_MP SWAP_IMP (REWRITE_RULE[GSYM AND_IMP_INTRO]con_to_decProofTheory.compile_semantics))) >>
-  simp[] >>
-  impl_tac >- (
-    qhdtm_x_assum`mod_to_con$compile_prog`mp_tac >>
-    simp[prim_config_eq] >> EVAL_TAC >>
-    `semantics env2 s2 p ≠ Fail` by simp[] >>
-    pop_assum mp_tac >>
-    simp_tac(srw_ss())[modSemTheory.semantics_def] >>
-    IF_CASES_TAC >> simp[] >> disch_then kall_tac >>
-    pop_assum mp_tac >>
-    simp[modSemTheory.evaluate_prog_def] >>
-    BasicProvers.TOP_CASE_TAC >> simp[] >> strip_tac >> fs[] >>
-    `¬MEM "option" (prog_to_top_types p)` by (
-      fs[modSemTheory.no_dup_top_types_def,IN_DISJOINT,MEM_MAP] >>
-      fs[Abbr`s`] >> metis_tac[] ) >>
-    strip_tac >>
-    match_mp_tac compile_prog_exh_unchanged >>
-    asm_exists_tac >> simp[] >>
-    qmatch_assum_abbrev_tac`compile_prog st p = _` >>
-    qexists_tac`st`>>simp[Abbr`st`,mod_to_conTheory.get_exh_def] >>
-    simp[FLOOKUP_UPDATE]) >>
-  disch_then(strip_assume_tac o SYM) >> fs[] >>
-  qhdtm_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
-  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qhdtm_x_assum`con_to_dec$compile`mp_tac >>
-  qmatch_assum_rename_tac`compile _ _ = (cc,_)` >>
-  `cc.next_global = 0` by (
-    fs[source_to_modTheory.compile_def,LET_THM] >>
-    pairarg_tac >> fs[] >>
-    rveq >> simp[prim_config_eq] ) >> fs[] >>
-  strip_tac >> fs[] >>
-  qmatch_assum_rename_tac`from_exh c3 _ = _` >>
-  qunabbrev_tac`c3`>>fs[] >>
-  qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 [e3] }` >>
-  (dec_to_exhProofTheory.compile_semantics
-    |> Q.GENL[`env`,`st`,`e`,`envh`,`sth`]
-    |> qispl_then[`env3`,`st3`,`e3`]mp_tac) >>
-  simp[Abbr`env3`] >>
-  simp[Once dec_to_exhProofTheory.v_rel_cases] >>
-  simp[dec_to_exhProofTheory.state_rel_def] >>
-  fs[Abbr`st3`,con_to_decProofTheory.compile_state_def] >>
-  CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
-  simp[Abbr`e3`] >>
-  disch_then(strip_assume_tac o SYM) >> fs[] >>
-  qhdtm_x_assum`from_exh`mp_tac >>
-  srw_tac[][from_exh_def] >>
-  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  fs[exh_to_patTheory.compile_def] >>
-  qmatch_abbrev_tac`_ ⊆ _ { exhSem$semantics env3 st3 es3 }` >>
-  cheat);
-  (*
-  (exh_to_patProofTheory.compile_exp_semantics
-   |> Q.GENL[`env`,`st`,`es`]
-   |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
-  simp[Abbr`es3`,Abbr`env3`] >>
-  fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
-  disch_then(strip_assume_tac o SYM) >> fs[] >>
+  drule (GEN_ALL (INST_TYPE[alpha|->``:(num # num # closLang$exp)``]
+    flat_to_patProofTheory.compile_semantics)) >>
+  disch_then(qspecl_then[`TODO_clock`,`TODO_compile`](strip_assume_tac o SYM)) >>
+  fs[] >>
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
+  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] st3 es3 }` >>
   (pat_to_closProofTheory.compile_semantics
-   |> Q.GENL[`env`,`st`,`es`,`max_app`]
-   |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
-  simp[Abbr`env3`,Abbr`es3`] >>
-  first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
-  fs[pat_to_closProofTheory.compile_state_def,Abbr`st3`] >>
+   |> Q.GENL[`cc`,`st`,`es`,`max_app`]
+   |> qispl_then[`TODO_compile`,`st3`,`es3`]mp_tac) >>
+  simp[Abbr`es3`] >>
+  disch_then drule >>
+  impl_tac >- (
+    fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def]
+    \\ EVAL_TAC )
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics [] st3 [e3] }` >>
+  qunabbrev_tac`st3` >>
+  simp[flat_to_patProofTheory.compile_state_def] >>
+  simp[flatSemTheory.initial_state_def] >>
+  cheat)
+  (*
+  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ st3 [e3] }` >>
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
   pairarg_tac \\ fs[] \\ strip_tac \\

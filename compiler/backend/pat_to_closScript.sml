@@ -219,9 +219,15 @@ val compile_def = tDefine"compile" `
     Op tra ConfigGC (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (FFI n)) es) =
     Op tra (FFI n) (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op (GlobalVarAlloc n)) es) =
+    Let (tra§0) (REVERSE (MAP compile es))
+      (Let (tra§1) (REPLICATE n (Op (tra§2) AllocGlobal []))
+         (Op (tra§3) (Cons tuple_tag) []))) ∧
   (compile (App tra (Op (GlobalVarInit n)) es) =
     Let (tra§0) [Op (tra§1) (SetGlobal n) (REVERSE (MAP compile es))]
       (Op (tra§2) (Cons tuple_tag) [])) ∧
+  (compile (App tra (Op (GlobalVarLookup n)) es) =
+    Op tra (Global n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op ListAppend) es) =
     Op tra ListAppend (REVERSE (MAP compile es))) ∧
   (compile (App tra (Tag_eq n l) es) =

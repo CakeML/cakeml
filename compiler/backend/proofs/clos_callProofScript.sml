@@ -3639,16 +3639,16 @@ val opt_result_rel_def = Define`
 
 val compile_correct = Q.store_thm("compile_correct",
   `∀b e1 s1 s2 r1 t1 e2 code.
-    evaluate ([e1],[],s1) = (r1,t1) ∧
+    evaluate (e1,[],s1) = (r1,t1) ∧
     r1 ≠ Rerr (Rabort Rtype_error) ∧
-    every_Fn_SOME [e1] ∧ every_Fn_vs_NONE [e1] ∧
-    ALL_DISTINCT (code_locs [e1]) ∧
+    every_Fn_SOME e1 ∧ every_Fn_vs_NONE e1 ∧
+    ALL_DISTINCT (code_locs e1) ∧
     opt_init_state_rel b s1 s2 ∧
     compile b e1 = (e2,code) ∧
     code_includes code s2.code
     ⇒
     ∃ck r2 t2 g1 l1.
-    evaluate ([e2],[],s2 with clock := ck + s2.clock) = (r2,t2) ∧
+    evaluate (e2,[],s2 with clock := ck + s2.clock) = (r2,t2) ∧
     opt_result_rel b r1 r2 ∧
     opt_state_rel b t1 t2`,
   Cases \\ rw[compile_def,opt_state_rel_def,opt_init_state_rel_def,opt_result_rel_def] \\ rw[]
@@ -3694,7 +3694,6 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ asm_exists_tac \\ fs[]
     \\ asm_exists_tac \\ fs[] )
   \\ fs[]
-  \\ imp_res_tac calls_sing \\ rveq \\ fs[]
   \\ asm_exists_tac \\ fs[]
   \\ metis_tac[]);
 

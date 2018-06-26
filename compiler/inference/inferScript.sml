@@ -835,9 +835,14 @@ val infer_prog_def = Define `
   od)`;
   *)
 
+(* The starting Id should be greater than Tlist_num :: (Tbool_num :: prim_type_nums) *)
+val start_type_id_def = Define`
+  start_type_id =
+    ^(EVAL``(FOLDR MAX 0 (Tlist_num :: (Tbool_num :: prim_type_nums)))+1`` |> rconc)`
+
 val infertype_prog_def = Define`
   infertype_prog ienv prog =
-    dtcase FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := 0 |>)) of
+    dtcase FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
     | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
     | Failure x => Failure x`;
 

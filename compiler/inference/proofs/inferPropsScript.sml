@@ -2258,21 +2258,52 @@ val check_env_letrec_lem2 = Q.prove (
  >> Q.SPECL_THEN [`LENGTH funs`, `funs`, `0n`] mp_tac check_env_letrec_lem
  >> simp []);
 
-(* TODO
+val ienv_ok_extend_dec_ienv = Q.store_thm ("ienv_ok_extend_dec_ienv",
+  `!e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)`,
+ rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
+     typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
+ >> metis_tac [nsAll_nsAppend]);
+
 val infer_d_check = Q.store_thm ("infer_d_check",
-`!mn decls1 ienv d st1 st2 decls' ienv'.
-  infer_d mn decls1 ienv d st1 = (Success (decls',ienv'), st2) ∧
+`(!d ienv st1 st2 ienv'.
+  infer_d ienv d st1 = (Success ienv', st2) ∧
   ienv_ok {} ienv
   ⇒
-  ienv_ok {} ienv'`,
- cases_on `d`
- >> rpt gen_tac
- >> strip_tac
- >> fs [infer_d_def, success_eqns]
- >> rpt (pairarg_tac >> fs [success_eqns])
- >> fs [init_state_def]
- >> rw []
- >> strip_assume_tac init_infer_state_wfs
+  ienv_ok {} ienv') ∧
+ (!ds ienv st1 st2 ienv'.
+  infer_ds ienv ds st1 = (Success ienv', st2) ∧
+  ienv_ok {} ienv
+  ⇒
+  ienv_ok {} ienv')`,
+ Induct>>rw[]>>
+ fs [infer_d_def, success_eqns]>>
+ rpt (pairarg_tac >> fs [success_eqns])>>
+ fs [init_state_def]>> rw[]>>
+ strip_assume_tac init_infer_state_wfs
+ >- cheat
+ >- cheat
+ >- cheat
+ >- cheat
+ >- (
+   rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
+   >> irule check_freevars_type_name_subst
+   >> fs [ienv_ok_def])
+ >- (
+   fs [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
+       EVERY_MAP, EVERY_MEM, MEM_MAP]
+   >> rw []
+   >> irule check_freevars_type_name_subst
+   >> fs [EVERY_MEM])
+ >- (
+  fs[ienv_ok_def,lift_ienv_def]>>
+  cheat)
+ >- fs[ienv_ok_def,ienv_val_ok_def]
+ >>
+   match_mp_tac ienv_ok_extend_dec_ienv>>
+   rpt (first_x_assum drule)>> rw[]>>
+   metis_tac[ienv_ok_extend_dec_ienv]);
+
+(*
  >- let_tac
  >- let_tac
  >- (
@@ -2358,37 +2389,64 @@ val infer_d_check = Q.store_thm ("infer_d_check",
    >> rw []
    >> irule check_freevars_type_name_subst
    >> fs [check_exn_tenv_def, EVERY_MEM]));
-
 *)
 
-val ienv_ok_extend_dec_ienv = Q.store_thm ("ienv_ok_extend_dec_ienv",
-  `!e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)`,
- rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
-     typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
- >> metis_tac [nsAll_nsAppend]);
-
-(*
-val infer_ds_check = Q.store_thm ("infer_ds_check",
-  `!mn decls ienv ds st1 st2 decls' ienv'.
-    infer_ds mn decls ienv ds st1 = (Success (decls', ienv'), st2) ∧
-    ienv_ok {} ienv
+val infer_p_next_id_const = Q.store_thm ("infer_p_next_id_const",
+`(!l cenv p st t env st'.
+    (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
-    ienv_ok {} ienv'`,
- induct_on `ds` >>
- rw [infer_ds_def, success_eqns]
- >- rw [ienv_ok_def, ienv_val_ok_def]
- >> rpt (pairarg_tac >> fs [])
- >> rw []
- >> fs [success_eqns]
- >> rpt (pairarg_tac >> fs [])
- >> rw []
- >> fs [success_eqns]
- >> rw []
- >> drule infer_d_check
- >> first_x_assum drule
- >> rw []
- >> metis_tac [ienv_ok_extend_dec_ienv]);
-*)
+    st.next_id = st'.next_id) ∧
+ (!l cenv ps st ts env st'.
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
+    ⇒
+    st.next_id = st'.next_id)`,
+ho_match_mp_tac infer_p_ind >>
+rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
+fs[]>> res_tac >>
+fs []);
+
+val infer_e_next_id_const = Q.store_thm ("infer_e_next_id_const",
+`(!l ienv e st st' t.
+    (infer_e l ienv e st = (Success t, st'))
+    ⇒
+    st.next_id = st'.next_id) ∧
+ (!l ienv es st st' ts.
+    (infer_es l ienv es st = (Success ts, st'))
+    ⇒
+    st.next_id = st'.next_id) ∧
+ (!l ienv pes t1 t2 st st'.
+    (infer_pes l ienv pes t1 t2 st = (Success (), st'))
+    ⇒
+    st.next_id = st'.next_id) ∧
+ (!l ienv funs st st' ts.
+    (infer_funs l ienv funs st = (Success ts, st'))
+    ⇒
+    st.next_id = st'.next_id)`,
+ho_match_mp_tac infer_e_ind >>
+rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
+rw [] >>
+res_tac >>
+fs [] >>
+every_case_tac >>
+fs [success_eqns] >>
+metis_tac [infer_p_next_id_const,pair_CASES]);
+
+val infer_d_next_id_mono = Q.store_thm ("infer_d_next_id_mono",
+`(!d ienv st t st'.
+  infer_d ienv d st = (Success t, st') ⇒
+  st.next_id ≤ st'.next_id) ∧
+ (!ds ienv st ts st'.
+  (infer_ds ienv ds st = (Success ts, st') ⇒
+  st.next_id ≤ st'.next_id))`,
+  Induct>>rw[]>>
+  fs [infer_d_def, success_eqns]>>
+  rpt (pairarg_tac >> fs [success_eqns])>>
+  fs[init_state_def,init_infer_state_def]>>
+  rw[]>>
+  imp_res_tac infer_e_next_id_const>>
+  imp_res_tac infer_p_next_id_const>>fs[]
+  >- (fs[n_fresh_id_def]>>rw[])>>
+  metis_tac[LESS_EQ_TRANS]);
 
 val count_list_one = Q.prove (
 `COUNT_LIST 1 = [0]`,
@@ -2581,11 +2639,14 @@ val check_specs_check = Q.store_thm ("check_specs_check",
    >> irule nsAll_nsBind
    >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]));
 
+*)
+
 val ienv_ok_lift = Q.store_thm ("ienv_ok_lift",
-  `!mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (ienvLift mn ienv)`,
- rw [ienvLift_def, ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
+  `!mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (lift_ienv mn ienv)`,
+ rw [lift_ienv_def, ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
      typeSoundInvariantsTheory.tenv_abbrev_ok_def]);
 
+(*
 val infer_top_invariant = Q.store_thm ("infer_top_invariant",
 `!decls1 ienv top st1 decls' ienv' st2.
   infer_top decls1 ienv top st1 = (Success (decls', ienv'), st2) ∧

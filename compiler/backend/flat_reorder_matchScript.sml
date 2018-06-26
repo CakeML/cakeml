@@ -122,4 +122,12 @@ val compile_cons = Q.store_thm ("compile_cons",
   \\ rw [compile_def]
   \\ METIS_TAC [compile_sing, HD])
 
+val compile_decs_def = Define `
+  (compile_decs [] = []) /\
+  (compile_decs (d::ds) =
+    case d of
+      Dlet e => Dlet (HD (compile [e]))::compile_decs ds
+    | _ => d::compile_decs ds)`;
+
 val () = export_theory();
+

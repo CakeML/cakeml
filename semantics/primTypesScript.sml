@@ -26,8 +26,7 @@ val _ = Define `
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
    Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])];
-   Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Atvar "'a"]) ])] ]))`;
+   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])] ]))`;
 
 
 (*val add_to_sem_env :

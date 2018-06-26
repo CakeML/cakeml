@@ -1026,9 +1026,6 @@ val state_rel_def = Define `
       lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
     compile_oracle_inv s.max_app s.code s.compile s.compile_oracle
                                  t.code t.compile t.compile_oracle ∧
-    (lookup (equality_location s.max_app) t.code = SOME (equality_code s.max_app)) ∧
-    (lookup (block_equality_location s.max_app) t.code = SOME (block_equality_code s.max_app)) ∧
-    (lookup (ToList_location s.max_app) t.code = SOME (ToList_code s.max_app)) ∧
     (!name arity c.
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?aux1 c2 aux2.
@@ -4715,14 +4712,10 @@ val init_code_ok = Q.store_thm ("init_code_ok",
    (!tot n.
       tot < max_app ∧ n < tot ⇒
         lookup (partial_app_fn_location max_app tot n) (init_code max_app) =
-          SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
-   (lookup (equality_location max_app) (init_code max_app) = SOME (equality_code max_app)) ∧
-   (lookup (block_equality_location max_app) (init_code max_app) = SOME (block_equality_code max_app)) ∧
-   (lookup (ToList_location max_app) (init_code max_app) = SOME (ToList_code max_app))`,
+          SOME (tot - n + 1, generate_partial_app_closure_fn tot n))`,
   srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def,
             generic_app_fn_location_def]
   >- decide_tac
-  >- simp[EL_APPEND1, GSYM ADD1]
   >- (
     srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle] >>
     simp [ADD1] >>
@@ -4734,25 +4727,9 @@ val init_code_ok = Q.store_thm ("init_code_ok",
       `max_app ≤ max_app + (n + tot * (tot − 1) DIV 2)` by decide_tac >>
       ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
       simp[EL_APPEND2] >>
-      rw [triangle_el])
-  >- simp [triangle_table_size, equality_location_def, ADD1]
-  >- (
-    simp_tac (srw_ss()) [GSYM ADD_ASSOC, equality_location_def] >>
-    simp_tac (srw_ss()) [DECIDE ``!x. 1 + x = SUC x``] >>
-    simp[triangle_table_size, EL_APPEND2,equality_location_def])
-  >- simp [triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
-  >- (
-    simp_tac (srw_ss()) [GSYM ADD_ASSOC, block_equality_location_def] >>
-    simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[EL_APPEND2,block_equality_location_def,equality_location_def, triangle_table_size])
-  >- simp [ToList_location_def, triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
-  >- (
-    simp_tac (srw_ss()) [GSYM ADD_ASSOC, ToList_location_def] >>
-    simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[triangle_table_size, block_equality_location_def,equality_location_def, EL_APPEND2] >>
-    simp [ADD1]));
+      rw [triangle_el_no_suff]));
 
-val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
+ val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`,
   simp[init_code_def,num_stubs_def,domain_fromList,LENGTH_FLAT,MAP_GENLIST,o_DEF]
   \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]
@@ -4836,139 +4813,136 @@ val fromAList_code_sort = Q.store_thm("fromAList_code_sort",
   rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
   \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
 
+(*
 val even_stubs3 = Q.prove (
   `!max_app. EVEN (num_stubs max_app + 3)`,
   Induct_on `max_app` >>
   rw [num_stubs_def, EVEN_ADD, EVEN, GSYM EVEN_MOD2] >>
   metis_tac []);
+  *)
 
 val _ = overload_on("code_loc'",``λe. code_locs [e]``);
 
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
-  cheat);
-(*
-  srw_tac[][compile_def] >>
-  full_simp_tac(srw_ss())[compile_def,LET_THM] >>
-  rpt(first_assum(split_uncurry_arg_tac o lhs o concl)>>full_simp_tac(srw_ss())[]) >>
-  srw_tac[][ALL_DISTINCT_code_sort]>>
-  simp[compile_prog_code_locs]>>
-  simp[ALL_DISTINCT_APPEND] >>
-  `∃z. clos_mti$compile c.do_mti c.max_app [e] = [z]` by (
-    Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
-    metis_tac[clos_mtiTheory.intro_multi_sing]) >>
-  `∃z. es = [z]` by (
-    metis_tac
-      [clos_numberTheory.renumber_code_locs_length, SING_HD, SND, LENGTH, ONE]) >>
-  (* init_code has distinct stubs*)
-  CONJ_TAC>- (
-    CONJ_TAC>- simp[init_code_def,ALL_DISTINCT_MAP_FST_toAList]>>
-    simp[MEM_MAP,toAList_domain,FORALL_PROD]>>CCONTR_TAC>>fs[]>>
-    imp_res_tac domain_init_code_lt_num_stubs>>
-    fs[]) >>
+  rw [compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw [ALL_DISTINCT_code_sort]
+  \\ simp [compile_prog_code_locs, ALL_DISTINCT_APPEND]
+  (* init_code has distinct stubs *)
+  \\ conj_tac
+  >-
+   (conj_tac >- simp [init_code_def, ALL_DISTINCT_MAP_FST_toAList]
+    \\ simp [MEM_MAP, toAList_domain, FORALL_PROD]
+    \\ strip_tac
+    \\ imp_res_tac domain_init_code_lt_num_stubs \\ fs [])
   (* Properties of the rest of the code *)
-  qmatch_goalsub_abbrev_tac`MAP f (clos_annotate$compile ls')`>>
-  qho_match_abbrev_tac`P (compile ls')` >>
-  (* remove annotate *)
-  `P ls'` suffices_by (
-    simp[clos_annotateTheory.compile_def,Abbr`P`]
-    \\ qunabbrev_tac`f`
-    \\ rpt(pop_assum kall_tac)
+  \\ qmatch_goalsub_abbrev_tac `MAP f (clos_annotate$compile ls')`
+  \\ qho_match_abbrev_tac `P (compile ls')`
+  (* Remove annotate *)
+  \\ qsuff_tac `P ls'`
+  >-
+   (simp [clos_annotateTheory.compile_def, Abbr`P`]
+    \\ qunabbrev_tac `f`
+    \\ rpt (pop_assum kall_tac)
     \\ strip_tac
     \\ conj_tac
-    >- (
-      fs[ALL_DISTINCT_FLAT,EL_MAP,MEM_MAP,PULL_EXISTS,UNCURRY,MAP_REVERSE]
-      \\ conj_tac >- (
-        rpt gen_tac \\ strip_tac
-        \\ first_x_assum drule \\ strip_tac
-        \\ conj_tac
-        >- ( metis_tac[clos_annotateProofTheory.annotate_code_locs,SUBSET_DEF,clos_annotateTheory.annotate_def,clos_annotateTheory.HD_FST_alt_free,clos_annotateTheory.HD_shift] )
-        \\ match_mp_tac ALL_DISTINCT_MAP_INJ \\ simp[]
-        \\ metis_tac[clos_annotateProofTheory.annotate_code_locs,ALL_DISTINCT_MAP,clos_annotateTheory.annotate_def,clos_annotateTheory.HD_FST_alt_free,clos_annotateTheory.HD_shift] )
-      \\ rpt gen_tac \\ strip_tac \\ gen_tac
-      \\ strip_tac
-      >- (
-        qpat_x_assum`i < j`assume_tac
-        \\ first_x_assum drule \\ simp[]
-        \\ disch_then(qspec_then`e`mp_tac) \\ simp[]
-        \\ metis_tac[clos_annotateProofTheory.annotate_code_locs,SUBSET_DEF,clos_annotateTheory.annotate_def,clos_annotateTheory.HD_FST_alt_free,clos_annotateTheory.HD_shift] )
-      \\ qpat_x_assum`i < j`assume_tac
-      \\ first_x_assum drule \\ simp[]
-      \\ disch_then(qspec_then`e`mp_tac) \\ simp[]
-      \\ metis_tac[clos_annotateProofTheory.annotate_code_locs,SUBSET_DEF,clos_annotateTheory.annotate_def,clos_annotateTheory.HD_FST_alt_free,clos_annotateTheory.HD_shift] )
-    \\ rpt gen_tac
-    \\ strip_tac
-    >- (
-      first_x_assum(qspec_then`e`mp_tac) \\ simp[]
-      \\ fs[MEM_FLAT,MEM_MAP,PULL_EXISTS,UNCURRY]
-      \\ metis_tac[clos_annotateProofTheory.annotate_code_locs,SUBSET_DEF,clos_annotateTheory.annotate_def,clos_annotateTheory.HD_FST_alt_free,clos_annotateTheory.HD_shift] )
-    \\ first_x_assum(qspec_then`e`mp_tac) \\ simp[]
-    \\ fs[MEM_FLAT,MEM_MAP,PULL_EXISTS,UNCURRY]
-    \\ metis_tac[clos_annotateProofTheory.annotate_code_locs,SUBSET_DEF,clos_annotateTheory.annotate_def,clos_annotateTheory.HD_FST_alt_free,clos_annotateTheory.HD_shift] )
-  \\ simp[Abbr`P`] >>
-  fs[]>>
-  simp[Once (METIS_PROVE [] `` (B ⇒ C) ⇔ (¬C ⇒ ¬B)``)]>>
-  (* Rewrite and simplify the condition*)
-  qabbrev_tac`lss = MAP FST ls' ++ FLAT (MAP (code_loc' o SND o SND) ls')` >>
-  qsuff_tac`ALL_DISTINCT lss ∧ ∀e. MEM e lss ⇒ e > 1`
+    >-
+     (fs [ALL_DISTINCT_FLAT, EL_MAP, MEM_MAP, PULL_EXISTS, UNCURRY, MAP_REVERSE]
+      \\ conj_tac
+      >-
+       (rw [] \\ first_assum drule \\ rw []
+        >- metis_tac [clos_annotateProofTheory.annotate_code_locs,
+                      clos_annotateTheory.annotate_def,
+                      clos_annotateTheory.HD_FST_alt_free,
+                      clos_annotateTheory.HD_shift,
+                      SUBSET_DEF]
+        \\ match_mp_tac ALL_DISTINCT_MAP_INJ \\ simp []
+        \\ metis_tac [clos_annotateProofTheory.annotate_code_locs,
+                      clos_annotateTheory.annotate_def,
+                      clos_annotateTheory.HD_FST_alt_free,
+                      clos_annotateTheory.HD_shift,
+                      ALL_DISTINCT_MAP])
+      \\ rpt gen_tac \\ strip_tac \\ gen_tac \\ strip_tac
+      \\ qpat_x_assum `i < j` assume_tac
+      \\ first_x_assum drule \\ simp []
+      \\ disch_then (qspec_then `e` mp_tac) \\ simp []
+      \\ metis_tac [clos_annotateProofTheory.annotate_code_locs,
+                    clos_annotateProofTheory.annotate_code_locs,
+                    clos_annotateTheory.annotate_def,
+                    clos_annotateTheory.HD_FST_alt_free,
+                    clos_annotateTheory.HD_shift,
+                    SUBSET_DEF])
+    \\ gen_tac \\ strip_tac
+    \\ first_x_assum (qspec_then `e` mp_tac) \\ simp []
+    \\ fs [MEM_FLAT, MEM_MAP, PULL_EXISTS, UNCURRY]
+    \\ metis_tac [clos_annotateProofTheory.annotate_code_locs,
+                  clos_annotateTheory.annotate_def,
+                  clos_annotateTheory.HD_FST_alt_free,
+                  clos_annotateTheory.HD_shift,
+                  SUBSET_DEF])
+  \\ fs [Abbr `P`]
+  \\ simp [Once MONO_NOT_EQ]
+  (* Rewrite and simplify the condition *)
+  \\ qabbrev_tac `lss = MAP FST ls' ++ FLAT (MAP (code_loc' o SND o SND) ls')`
+  \\ qsuff_tac `ALL_DISTINCT lss /\  !e. MEM e lss ==> e > 1`
   >-
-    (fs[Abbr`f`,Abbr`lss`]>>rpt(pop_assum kall_tac)>>Induct_on`ls'`
+   (fs [Abbr `f`, Abbr `lss`]
+    \\ rpt (pop_assum kall_tac)
+    \\ Induct_on `ls'`
+    >- (EVAL_TAC \\ fs [])
+    \\ fs [FORALL_PROD, toAList_domain, MEM_MAP, MEM_FLAT] \\ rw []
     >-
-      (EVAL_TAC>>fs[])
-    >>
-    fs[FORALL_PROD,toAList_domain,MEM_MAP,MEM_FLAT]>>
-    rw[]
+     (fs [MEM_FLAT, MEM_MAP, FORALL_PROD]
+      \\ CCONTR_TAC \\ fs []
+      \\ rfs [MEM_MAP]
+      \\ metis_tac [])
     >-
-      (fs[MEM_FLAT,MEM_MAP,FORALL_PROD]>>CCONTR_TAC>>fs[]>>
-      rfs[MEM_MAP]>>metis_tac[])
+     (fs [ALL_DISTINCT_APPEND]
+      \\ conj_tac >- fs [ALL_DISTINCT_MAP_INJ]
+      \\ fs [MEM_FLAT, MEM_MAP, FORALL_PROD]
+      \\ CCONTR_TAC \\ fs []
+      \\ rfs [MEM_MAP]
+      \\ metis_tac [FST])
     >-
-      (fs[ALL_DISTINCT_APPEND]>>
-      CONJ_TAC>-
-        fs[ALL_DISTINCT_MAP_INJ]>>
-      fs[MEM_FLAT,MEM_MAP,FORALL_PROD]>>CCONTR_TAC>>fs[]>>
-      rfs[MEM_MAP]>>
-      metis_tac[FST])
+     (strip_tac
+      \\ fs [MEM_MAP]
+      \\ imp_res_tac domain_init_code_lt_num_stubs \\ fs [])
     >-
-      (CCONTR_TAC>>fs[MEM_MAP]>>
-      imp_res_tac domain_init_code_lt_num_stubs>>
-      fs[])
+     (fs [MEM_MAP]
+      >- (first_x_assum (qspec_then `p_1` mp_tac) \\ fs [EXISTS_PROD])
+      \\ first_x_assum (qspec_then `y` mp_tac) \\ fs [EXISTS_PROD, PULL_EXISTS]
+      \\ impl_tac \\ fs []
+      \\ metis_tac [])
     >-
-      (fs[MEM_MAP]
-      >-
-        (first_x_assum(qspec_then`p_1` mp_tac)>>fs[EXISTS_PROD])
-      >>
-        (first_x_assum(qspec_then`y` mp_tac)>>fs[EXISTS_PROD,PULL_EXISTS]>>
-        impl_tac>-
-          metis_tac[]>>
-        fs[]))
+     (PairCases_on `y`
+      \\ strip_tac
+      \\ fs [MEM_MAP]
+      \\ imp_res_tac domain_init_code_lt_num_stubs \\ fs [])
+    \\ PairCases_on `y` \\ fs [MEM_MAP]
     >-
-      (PairCases_on`y`>>CCONTR_TAC>>fs[MEM_MAP]>>
-      imp_res_tac domain_init_code_lt_num_stubs>>
-      fs[MEM_MAP])
-    >-
-      (PairCases_on`y`>>fs[MEM_MAP]
-      >-
-        (first_x_assum(qspec_then`y0` mp_tac)>>
-        impl_tac>- metis_tac[FST]>>
-        simp[])
-      >>
-        fs[MEM_MAP]>>
-        first_x_assum(qspec_then`y` mp_tac)>>
-        impl_tac>-
-          metis_tac[SND]>>
-        simp[]))
-  >>
-  fs[Abbr`lss`]>>
-   (* Rewrite away FLAT *)
-  `FLAT (MAP (code_loc' o SND o SND) ls') = code_locs (MAP (SND o SND) ls')` by
-    (rpt (pop_assum kall_tac)>>Induct_on`ls'`>- EVAL_TAC>>
-    fs[FORALL_PROD] >>
-    simp[Once code_locs_cons,SimpRHS])>>
-  pop_assum SUBST1_TAC>>
-  qmatch_assum_abbrev_tac`compile _ ls = (_,aux)`>>
-  simp[ALL_DISTINCT_APPEND,Abbr`ls'`,Abbr`f`] >>
-  once_rewrite_tac[code_locs_cons] >>
-  simp[ALL_DISTINCT_APPEND] >>
+     (first_x_assum (qspec_then `y0` mp_tac)
+      \\ impl_tac \\ fs []
+      \\ metis_tac [FST])
+    \\ first_x_assum (qspec_then `y` mp_tac)
+    \\ impl_tac \\ fs []
+    \\ metis_tac [SND])
+  \\ fs [Abbr `lss`]
+  (* Rewrite away FLAT *)
+  \\ `FLAT (MAP (code_loc' o SND o SND) ls') = code_locs (MAP (SND o SND) ls')`
+    by (rpt (pop_assum kall_tac)
+        \\ Induct_on `ls'` >- EVAL_TAC
+        \\ fs [FORALL_PROD]
+        \\ simp [Once code_locs_cons, SimpRHS])
+  \\ pop_assum SUBST1_TAC
+  \\ qmatch_assum_abbrev_tac `compile _ ls = (_, aux)`
+  \\ simp [ALL_DISTINCT_APPEND, Abbr `ls'`,Abbr `f`]
+  \\ once_rewrite_tac [code_locs_append]
+  \\ simp [ALL_DISTINCT_APPEND]
+  \\ cheat (* TODO complete daisy-chaining out of clos_call *)
+  );
+
+  (*
   (* Stuff for clos_call *)
   qsuff_tac`ALL_DISTINCT (code_loc' ls) ∧
             set (code_loc' ls) ⊆ EVEN ∧

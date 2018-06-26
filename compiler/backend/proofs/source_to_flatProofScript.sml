@@ -4,6 +4,12 @@ open source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory;
 
 val _ = new_theory "source_to_flatProof";
 
+val grammar_ancestry =
+  ["source_to_flat","flatProps","namespaceProps",
+   "semantics","semanticPrimitivesProps","ffi","lprefix_lub",
+   "backend_common","misc"];
+val _ = set_grammar_ancestry grammar_ancestry;
+
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
   induct_on `es` >>
@@ -733,7 +739,7 @@ val do_app = Q.prove (
        SND s2 = s2_i1.ffi ∧
        s1_i1.globals = s2_i1.globals ∧
        result_rel v_rel genv r r_i1 ∧
-       do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
+       do_app T s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
@@ -1724,6 +1730,7 @@ val compile_exp_correct' = Q.prove (
       Cases_on `op` >>
       simp [] >>
       fs []) >>
+    `env_i1.check_ctor` by fs[env_all_rel_cases] \\ fs[] >>
     rw [] >>
     imp_res_tac do_app_const >>
     rw []
@@ -1789,7 +1796,8 @@ val compile_exp_correct' = Q.prove (
       simp [evaluate_def, do_if_def, Boolv_def] >>
       rw [] >>
       fs [genv_c_ok_def, has_bools_def, Bool_def, evaluate_def, do_app_def,
-          Boolv_def, opb_lookup_def, state_component_equality] >>
+          Boolv_def, opb_lookup_def, state_component_equality,
+          backend_commonTheory.bool_to_tag_def ] >>
       rw [] >>
       fs [env_all_rel_cases] >>
       rw [] >>
@@ -2311,7 +2319,7 @@ val env_c_update = Q.prove (
 val evaluate_recfuns = Q.prove (
   `!env s funs idx t1 t2.
     (∀n. idx.vidx ≤ n ∧ n < LENGTH s.globals ⇒ EL n s.globals = NONE) ∧
-    LENGTH funs + idx.vidx ≤ LENGTH s.globals
+    LENGTH funs + idx.vidx ≤ LENGTH s.globals ∧ env.check_ctor
     ⇒
     flatSem$evaluate_decs env s
       (MAPi (\i (f, x, e).
@@ -2340,7 +2348,7 @@ val evaluate_recfuns = Q.prove (
   >- rw [EL_LUPDATE] >>
   simp [] >>
   strip_tac >>
-  fs [combinTheory.o_DEF, ADD1] >>
+  fs [combinTheory.o_DEF, ADD1, Unitv_def] >>
   rw [state_component_equality] >>
   qmatch_abbrev_tac `l1 = l2` >>
   `LENGTH l1 = LENGTH l2` by
@@ -3183,10 +3191,11 @@ val compile_decs_correct' = Q.prove (
       `LENGTH funs = LENGTH cfuns`
       by rw [Abbr`cfuns`, compile_funs_map] >>
       fs [] >>
+      `env1.check_ctor` by fs[Abbr`env1`] >>
       imp_res_tac evaluate_recfuns >>
       fs [] >>
-      qmatch_assum_abbrev_tac `∀t2 t1 env.
-         evaluate_decs env _
+      qmatch_assum_abbrev_tac `∀t2 t1.
+         evaluate_decs env1 _
            (MAPi
               (λi (f,x,e).
                  Dlet
@@ -3498,7 +3507,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
     r ≠ Rerr (Rabort Rtype_error) ∧
     invariant genv idx s s_i1 ∧
     global_env_inv genv comp_map {} env ∧
-    source_to_flat$compile <| next := idx; mod_env := comp_map |> ds = (next', ds_i1) ∧
+    source_to_flat$compile_prog <| next := idx; mod_env := comp_map |> ds = (next', ds_i1) ∧
     idx.vidx ≤ LENGTH genv.v
     ⇒
     ?(s'_i1:'a flatSem$state) genv' cenv' r_i1.
@@ -3519,7 +3528,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
         ?err_i1.
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))`,
-  rw [compile_def] >>
+  rw [compile_prog_def, glob_alloc_def] >>
   pairarg_tac >>
   fs [] >>
   rw [evaluate_decs_def, evaluate_dec_def, evaluate_def, do_app_def] >>
@@ -3573,26 +3582,24 @@ val invariant_change_clock = Q.store_thm("invariant_change_clock",
    invariant genv env (st1 with clock := k) (st2 with clock := k)`,
   srw_tac[][invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases])
 
+(* TODO initial_ctors ⊆ FDOM genv.c could do and that follows
+   from genv_c_ok *)
 val precondition_def = Define`
-  precondition s1 env1 conf s2 env2 ⇔
+  precondition s1 env1 conf  ⇔
     ?genv.
-      invariant genv conf.next s1 s2 ∧
+      invariant genv conf.next s1 (initial_state s1.ffi s1.clock) ∧
       global_env_inv genv conf.mod_env {} env1 ∧
       conf.next.vidx ≤ LENGTH genv.v ∧
-      env2.c = FDOM genv.c ∧
-      env2.v = [] ∧
-      env2.exh_pat = F ∧
-      env2.check_ctor = T`;
+      FDOM genv.c = initial_ctors`;
 
 val SND_eq = Q.prove(
   `SND x = y ⇔ ∃a. x = (a,y)`,
   Cases_on`x`\\rw[]);
 
-  (*
-val compile_correct = Q.store_thm("compile_correct",
-  `precondition s1 env1 c s2 env2 ⇒
+val compile_prog_correct = Q.store_thm("compile_prog_correct",
+  `precondition s1 env1 c ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
-   semantics_prog s1 env1 prog (semantics env2 s2 (SND (compile c prog)))`,
+   semantics_prog s1 env1 prog (semantics F T s1.ffi (SND (compile_prog c prog)))`,
   rw[semantics_prog_def,SND_eq,precondition_def]
   \\ simp[flatSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[SND_eq]
@@ -3604,28 +3611,27 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ spose_not_then strip_assume_tac \\ fs[]
     \\ fs[evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ fs[] \\ rw[]
-    \\ drule (GEN_ALL compile_correct)
-    \\ imp_res_tac invariant_change_clock
+    \\ drule (GEN_ALL compile_decs_correct)
+    \\ imp_res_tac  invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
     \\ fs[]
     \\ asm_exists_tac \\ fs[]
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = env2`
-    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ `env2' = initial_env F T`
+       by (rw[environment_component_equality,initial_env_def,Abbr `env2'`])
     \\ fs[]
-    \\ asm_exists_tac \\ fs[] >>
-    qmatch_goalsub_abbrev_tac `compile e _ = _` >>
-    qexists_tac `SND (compile e prog)` >>
-    qexists_tac `FST (compile e prog)` >>
-    rw [] >>
-    `c = e` by cheat >>
-    fs [] >>
-    CCONTR_TAC >>
-    fs []
-    \\ Cases_on`r`\\fs[result_rel_cases] >>
-    rw [])
-  >- );
-    (*
+    \\ asm_exists_tac
+    \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ qexists_tac `SND (compile_prog e prog)`
+    \\ qexists_tac `FST (compile_prog e prog)`
+    \\ rw []
+    \\ `c = e` by (UNABBREV_ALL_TAC >> rw [config_component_equality])
+    \\ fs []
+    \\ CCONTR_TAC
+    \\ Cases_on`r`
+    \\ fs[result_rel_cases,initial_state_def]
+    \\ rw [])
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
   \\ conj_tac
   >- (
@@ -3633,25 +3639,33 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs[evaluate_prog_with_clock_def]
     \\ qexists_tac`k`
     \\ pairarg_tac \\ fs[]
-    \\ drule (GEN_ALL compile_correct)
+    \\ `r' ≠ Rerr (Rabort Rtype_error)`
+       by (first_x_assum(qspecl_then[`k`,`st'.ffi`]strip_assume_tac)
+          \\ rfs [])
+    \\ drule (GEN_ALL compile_decs_correct)
     \\ imp_res_tac invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
-    \\ fs[] >>
-    `r' ≠ Rerr (Rabort Rtype_error)` by cheat >>
-    simp []
+    \\ fs[]
+    \\ simp []
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
-    \\ impl_tac
-    >- ( rpt(first_x_assum(qspec_then`k`mp_tac))\\fs[] )
-    \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_prog env2'`
-    \\ `env2' = env2`
-    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
+                               , `FST (compile_prog e prog)`] mp_tac)
+    \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
+    \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
+    \\ `env2' = initial_env F T`
+       by (rw[environment_component_equality,initial_env_def,Abbr `env2'`])
     \\ strip_tac
     \\ fs[invariant_def,s_rel_cases]
     \\ rveq \\ fs[]
+    \\ `e = c` by (UNABBREV_ALL_TAC >> rw [config_component_equality])
+    \\ fs [initial_state_def] \\ rfs []
     \\ every_case_tac \\ fs[]
     \\ rw[]
-    \\ strip_tac \\ fs[result_rel_cases] )
+    \\ fs[result_rel_cases]
+    \\ Cases_on `r' = Rerr (Rabort Rtimeout_error)`
+    \\ fs [])
   \\ rw[]
   \\ simp[semantics_prog_def]
   \\ conj_tac
@@ -3659,20 +3673,29 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[]
     \\ fs[evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ fs[]
-    \\ drule (GEN_ALL compile_correct)
+    \\ drule (GEN_ALL compile_decs_correct)
     \\ imp_res_tac invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
     \\ fs[]
+    \\ `r ≠ Rerr (Rabort Rtype_error)`
+       by (first_x_assum(qspecl_then[`k`,`st'.ffi`]strip_assume_tac)
+          \\ rfs [])
     \\ disch_then drule \\ fs[]
-    \\ impl_tac
-    >- ( rpt(first_x_assum(qspec_then`k`mp_tac))\\fs[] )
-    \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_prog env2'`
-    \\ `env2' = env2`
-    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ disch_then drule \\ fs[]
+    \\ disch_then drule \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
+                               , `FST (compile_prog e prog)`] mp_tac)
+    \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
+    \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
+    \\ `env2' = initial_env F T`
+    by ( unabbrev_all_tac \\ rw[environment_component_equality,initial_env_def])
     \\ strip_tac
     \\ first_x_assum(qspec_then`k`mp_tac)
     \\ rveq \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ `e = c`  by (UNABBREV_ALL_TAC >> rw [config_component_equality])
+    \\ fs [initial_state_def] \\ rfs []
+    \\ every_case_tac \\ fs[]
     \\ strip_tac \\ fs[]
     \\ rveq
     \\ fs[result_rel_cases]
@@ -3680,7 +3703,8 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ last_x_assum(qspec_then`k`mp_tac)
     \\ simp[]
     \\ Cases_on`r`\\fs[]
-    \\ Cases_on`a`\\fs[])
+    \\ Cases_on`a`\\fs[]
+    \\ fs[invariant_def,s_rel_cases])
   \\ qmatch_abbrev_tac`lprefix_lub l1 (build_lprefix_lub l2)`
   \\ `l2 = l1`
   by (
@@ -3692,21 +3716,29 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ gen_tac
     \\ pairarg_tac \\ fs[]
     \\ AP_TERM_TAC
-    \\ drule (GEN_ALL compile_correct)
-    \\ spectv "n" `1`
+    \\ drule (GEN_ALL compile_decs_correct)
     \\ imp_res_tac invariant_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
     \\ fs[]
+    \\ `r ≠ Rerr (Rabort Rtype_error)`
+       by (first_x_assum(qspecl_then[`k`,`st'.ffi`]strip_assume_tac)
+          \\ rfs [])
     \\ disch_then drule \\ fs[]
-    \\ impl_tac
-    >- ( rpt(first_x_assum(qspec_then`k`mp_tac))\\fs[] )
-    \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_prog env2'`
-    \\ `env2' = env2`
-    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ disch_then drule \\ fs[]
+    \\ disch_then drule \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
+    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
+                               , `FST (compile_prog e prog)`] mp_tac)
+    \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
+    \\ `e = c`  by (UNABBREV_ALL_TAC >> rw [config_component_equality])
+    \\ fs [initial_state_def] \\ rfs []
+    \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
+    \\ `env2' = initial_env F T`
+    by ( unabbrev_all_tac \\ rw[environment_component_equality,initial_env_def])
     \\ rveq
     \\ strip_tac
     \\ fs[]
-    \\ fs[s_rel_cases] )
+    \\ rfs[invariant_def,s_rel_cases,initial_state_def])
   \\ fs[Abbr`l1`,Abbr`l2`]
   \\ match_mp_tac build_lprefix_lub_thm
   \\ Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF]
@@ -3717,9 +3749,101 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[evaluatePropsTheory.evaluate_prog_ffi_mono_clock,
+  \\ metis_tac[evaluatePropsTheory.evaluate_decs_ffi_mono_clock,
                evaluatePropsTheory.io_events_mono_def,
                LESS_EQ_CASES,FST]);
-               *)
-               *)
+
+(* - connect semantics theorems of flat-to-flat passes --------------------- *)
+
+open flat_uncheck_ctorsProofTheory flat_elimProofTheory
+     flat_exh_matchProofTheory flat_reorder_matchProofTheory
+
+val _ = set_grammar_ancestry
+  (["flat_uncheck_ctorsProof", "flat_elimProof",
+    "flat_exh_matchProof", "flat_reorder_matchProof"]
+   @ grammar_ancestry);
+
+(* TODO move *)
+val FILTER_T = Q.store_thm ("FILTER_T",
+  `FILTER (\x. T) xs = xs`,
+  Induct_on `xs` \\ rw [] \\ fs []);
+
+(* source_to_flat$compile_decs always generates fresh type identifiers,
+   so they must be unique. *)
+val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
+  `!n1 next1 env1 ds1 n2 next2 env2 ds2.
+   compile_decs n1 next1 env1 ds1 = (n2, next2, env2, ds2)
+   ==>
+   ALL_DISTINCT (get_tdecs ds2) /\
+   EVERY (\d. !t s. d = Dtype t s ==> next1.tidx <= t /\ t < next2.tidx) ds2 /\
+   (next1.tidx = next2.tidx <=> get_tdecs ds2 = [])`,
+  ho_match_mp_tac compile_decs_ind
+  \\ rw [compile_decs_def] \\ fs [get_tdecs_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ fs [FILTER_APPEND, ALL_DISTINCT_APPEND, compile_exp_def,
+         MAPi_enumerate_MAP, FILTER_MAP, MAP_MAP_o, o_DEF, UNCURRY,
+         EVERY_MEM, MEM_MAPi] \\ rw []
+  \\ fs [FILTER_T, MAP_enumerate_MAPi, LAMBDA_PROD]
+  >-
+   (rename1 `_ + x`
+    \\ map_every qid_spec_tac [`x`,`type_def`]
+    \\ Induct \\ rw [MEM_MAPi]
+    \\ fs [ELIM_UNCURRY, o_DEF, ADD1]
+    \\ first_x_assum (qspec_then `x + 1` assume_tac)
+    \\ once_rewrite_tac [DECIDE ``x + (n + 1) = n + (x + 1n)``] \\ fs [])
+  >-
+   (rename1 `_ + x`
+    \\ map_every qid_spec_tac [`x`,`type_def`]
+    \\ Induct \\ rw [miscTheory.enumerate_def])
+  \\ fs [GSYM get_tdecs_def]
+  \\ imp_res_tac get_tdecs_MEM \\ fs []
+  \\ res_tac \\ fs []
+  \\ imp_res_tac compile_decs_num_bindings \\ fs []
+  >-
+   (strip_tac
+    \\ imp_res_tac get_tdecs_MEM \\ fs []
+    \\ res_tac \\ fs [])
+  \\ eq_tac \\ rw [] \\ fs []);
+
+val compile_flat_correct = Q.store_thm("compile_flat_correct",
+  `EVERY (is_new_type init_ctors) prog /\
+   ALL_DISTINCT (get_tdecs prog) /\
+   semantics F T ffi prog <> Fail
+   ==>
+   semantics F T ffi prog = semantics T F ffi (compile_flat prog)`,
+  rw [compile_flat_def]
+  \\ metis_tac [flat_uncheck_ctorsProofTheory.compile_decs_semantics,
+                flat_elimProofTheory.flat_remove_semantics,
+                flat_reorder_matchProofTheory.compile_decs_semantics,
+                flat_exh_matchProofTheory.compile_decs_semantics]);
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `source_to_flatProof$precondition s env c ⇒
+   ¬semantics_prog s env prog Fail ⇒
+   semantics_prog s env prog (semantics T F s.ffi (SND (compile c prog)))`,
+  rw [compile_def] \\ pairarg_tac \\ fs []
+  \\ imp_res_tac compile_prog_correct \\ rfs []
+  \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
+  \\ `semantics F T s.ffi p' = semantics T F s.ffi (compile_flat p')`
+    suffices_by (rw []\\ fs [])
+  \\ match_mp_tac compile_flat_correct \\ fs []
+  \\ fs [compile_prog_def]
+  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ imp_res_tac compile_decs_tidx_thm
+  \\ fs [glob_alloc_def, get_tdecs_def]
+  \\ fs [GSYM glob_alloc_def, GSYM get_tdecs_def]
+  \\ rw [EVERY_MEM, is_new_type_def]
+  \\ strip_tac
+  \\ `tid <> 0 ==> tid = 1`
+    by fs [flat_exh_matchTheory.init_ctors_def, FDOM_FUPDATE_LIST]
+  \\ `c.next.tidx > 1`
+    by (fs [precondition_def, invariant_def]
+        \\ qhdtm_x_assum `source_to_flatProof$genv_c_ok` mp_tac
+        \\ qpat_x_assum `!x.!y.!z._ ==> _` mp_tac
+        \\ qpat_x_assum `FDOM _ = _` mp_tac
+        \\ EVAL_TAC \\ fs [flookup_thm] \\ rw []
+        \\ CCONTR_TAC \\ fs [])
+  \\ fs [glob_alloc_def, EVERY_MEM]
+  \\ res_tac \\ fs []);
+
 val _ = export_theory ();

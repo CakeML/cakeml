@@ -28,7 +28,6 @@ structure semanticPrimitivesSyntax = struct
   val div_exn_v = prim_mk_const{Thy="semanticPrimitives",Name="div_exn_v"};
   val div_stamp = prim_mk_const{Thy="semanticPrimitives",Name="div_stamp"};
   val list_type_num = prim_mk_const{Thy="semanticPrimitives",Name="list_type_num"};
-  val option_type_num = prim_mk_const{Thy="semanticPrimitives",Name="option_type_num"};
   val sub_exn_v = prim_mk_const{Thy="semanticPrimitives",Name="sub_exn_v"};
   val subscript_stamp = prim_mk_const{Thy="semanticPrimitives",Name="subscript_stamp"};
   fun mk_environment ty = mk_thy_type{Thy="semanticPrimitives",Tyop="sem_env",Args=[ty]};

@@ -1,9 +1,4 @@
-open preamble backendComputeLib sptreeTheory flatLangTheory reachabilityTheory
-
-val _ = add_backend_compset computeLib.the_compset;
-
-val m = Hol_pp.print_apropos;
-val f = print_find;
+open preamble sptreeTheory flatLangTheory reachabilityTheory
 
 val _ = new_theory "flat_elim";
 
@@ -15,7 +10,7 @@ val _ = new_theory "flat_elim";
     env_with_closure : alist_to_ns (alloc_defs n next_vidx fun_names)
         (where we call compile_decs n next env decs_list)
         =>  alloc_defs : num -> num -> tvarN list -> (tvarN, exp) alist     (where tvarN = string)
-            alist_to_ns : (tvarN, exp) alist -> (tvarN, tvarN, exp) namespace 
+            alist_to_ns : (tvarN, exp) alist -> (tvarN, tvarN, exp) namespace
 
     Dlet locs p e => env_with_closure, Dlet (Mat _ (compile_exp _ env e) [(compile_pat env p, make_varls ...)])
     Dletrec locs [(f,x,e)] => env_with_closure, Dlet (App _ (GlobalVarInit _) [compile_exp _ env (Letrec [(f,x,e)] (Var _))]
@@ -32,7 +27,7 @@ val _ = new_theory "flat_elim";
 (* isHidden exp = T means there is no direct execution of GlobalVarLookup *)
 val isHidden_def = tDefine "isHidden" `
     (isHidden (Raise t e) = isHidden e) ∧                                       (* raise exception *)
-    (isHidden (Handle t e pes) = F) ∧                                           (* exception handler *) 
+    (isHidden (Handle t e pes) = F) ∧                                           (* exception handler *)
     (isHidden (Lit t l) = T) ∧                                                  (* literal *)
     (isHidden (Con t id_option es) = EVERY isHidden es) ∧                       (* constructor *)
     (isHidden (Var_local t str) = T) ∧                                          (* local var *)
@@ -47,8 +42,8 @@ val isHidden_def = tDefine "isHidden" `
     (isHidden _ = F)
 `
     (
-        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> 
-        Induct_on `es` >> rw[exp_size_def] >> fs[] 
+        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >>
+        Induct_on `es` >> rw[exp_size_def] >> fs[]
     );
 
 val isHidden_ind = theorem "isHidden_ind";
@@ -57,14 +52,14 @@ val isHidden_ind = theorem "isHidden_ind";
 val isPure_def = tDefine "isPure" `
     (isPure (Handle t e pes) = isPure e) ∧
     (isPure (Lit t l) = T) ∧
-    (isPure (Con t id_option es) = EVERY isPure es) ∧ 
+    (isPure (Con t id_option es) = EVERY isPure es) ∧
     (isPure (Var_local t str) = T) ∧
-    (isPure (Fun t name body) = T) ∧ 
+    (isPure (Fun t name body) = T) ∧
     (isPure (App t (GlobalVarInit g) es) = EVERY isPure es) ∧
 (*    (isPure (App t (GlobalVarLookup g) es) = EVERY isPure es) ∧ *)
     (isPure (If t e1 e2 e3) = (isPure e1 ∧ isPure e2 ∧ isPure e3)) ∧
     (isPure (Mat t e1 pes) = (isPure e1 ∧ EVERY isPure (MAP SND pes))) ∧
-    (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧ 
+    (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧
     (isPure (Letrec t funs e) = isPure e) ∧
     (isPure _ = F)
 `
@@ -76,7 +71,7 @@ val isPure_def = tDefine "isPure" `
  );
 
 val isPure_ind = theorem "isPure_ind";
-            
+
 val isPure_EVERY_aconv = Q.store_thm ("isPure_EVERY_aconv",
     `∀ es . EVERY (λ a . isPure a) es = EVERY isPure es`,
     Induct >> fs[]
@@ -86,7 +81,7 @@ val isPure_EVERY_aconv = Q.store_thm ("isPure_EVERY_aconv",
 (**************************** DEST_GLOBALVARINIT/DEST_GLOBALVARLOOOKUP *****************************)
 
 val dest_GlobalVarInit_def = Define `
-    dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧ 
+    dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧
     dest_GlobalVarInit _ = NONE
 `
 
@@ -101,8 +96,8 @@ val dest_GlobalVarLookup_def = Define `
 
 val exp_size_map_snd = Q.store_thm("exp_size_map_snd",
     `∀ p_es . exp6_size (MAP SND p_es) ≤ exp3_size p_es`,
-    Induct >> rw[exp_size_def] >> 
-    Cases_on `exp6_size (MAP SND p_es) = exp3_size p_es` >> 
+    Induct >> rw[exp_size_def] >>
+    Cases_on `exp6_size (MAP SND p_es) = exp3_size p_es` >>
     `exp_size (SND h) ≤ exp5_size h` by (Cases_on `h` >> rw[exp_size_def]) >> rw[]
 );
 
@@ -110,7 +105,7 @@ val exp_size_map_snd_snd = Q.store_thm("exp_size_map_snd_snd",
     `∀ vv_es . exp6_size (MAP (λ x . SND (SND x)) vv_es) ≤ exp1_size vv_es`,
     Induct >> rw[exp_size_def] >>
     Cases_on `exp6_size (MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
-    `exp_size (SND (SND h)) ≤ exp2_size h` by 
+    `exp_size (SND (SND h)) ≤ exp2_size h` by
         (Cases_on `h` >> Cases_on `r` >> rw[exp_size_def]) >> rw[]
 );
 
@@ -126,12 +121,12 @@ val findLoc_def = tDefine "findLoc" `
     (findLoc (App _ op es) = (case (dest_GlobalVarInit op) of
         | SOME n => (insert n () (findLocL es))
         | NONE => findLocL es)) ∧
-    (findLoc (If _ ei1 ei2 ei3) = union (findLoc ei1) (union (findLoc ei2) (findLoc ei3))) ∧ 
-    (findLoc (Mat _ em p_es) = union (findLoc em) (findLocL (MAP SND p_es))) ∧ 
-    (findLoc (Let _ _ el1 el2) = union (findLoc el1) (findLoc el2)) ∧ 
-    (findLoc (Letrec _ vv_es elr1) = union (findLocL (MAP (SND o SND) vv_es)) (findLoc elr1)) ∧ 
+    (findLoc (If _ ei1 ei2 ei3) = union (findLoc ei1) (union (findLoc ei2) (findLoc ei3))) ∧
+    (findLoc (Mat _ em p_es) = union (findLoc em) (findLocL (MAP SND p_es))) ∧
+    (findLoc (Let _ _ el1 el2) = union (findLoc el1) (findLoc el2)) ∧
+    (findLoc (Letrec _ vv_es elr1) = union (findLocL (MAP (SND o SND) vv_es)) (findLoc elr1)) ∧
     (findLocL [] = LN) ∧
-    (findLocL (e::es) = union (findLoc e) (findLocL es))`  
+    (findLocL (e::es) = union (findLoc e) (findLocL es))`
     (
         WF_REL_TAC `measure (λ e . case e of
             | INL x => exp_size x
@@ -172,11 +167,11 @@ val wf_findLoc = Q.store_thm("wf_findLoc",
 (******** FINDLOOKUPS ********)
 
 val findLookups_def = tDefine "findLookups" `
-    (findLookups (Raise _ er) = findLookups er) ∧ 
+    (findLookups (Raise _ er) = findLookups er) ∧
     (findLookups (Handle _ eh p_es) = union (findLookups eh) (findLookupsL (MAP SND p_es))) ∧
-    (findLookups (Lit _ _) = LN) ∧ 
+    (findLookups (Lit _ _) = LN) ∧
     (findLookups (Con _ _ es) = findLookupsL es) ∧
-    (findLookups (Var_local _ _) = LN) ∧ 
+    (findLookups (Var_local _ _) = LN) ∧
     (findLookups (Fun _ _ ef) = findLookups ef) ∧
     (findLookups (App _ op es) = (case (dest_GlobalVarLookup op) of
         | SOME n => (insert n () (findLookupsL es))
@@ -184,13 +179,13 @@ val findLookups_def = tDefine "findLookups" `
     (findLookups (If _ ei1 ei2 ei3) = union (findLookups ei1) (union (findLookups ei2) (findLookups ei3))) ∧
     (findLookups (Mat _ em p_es) = union (findLookups em) (findLookupsL (MAP SND p_es))) ∧
     (findLookups (Let _ _ el1 el2) = union (findLookups el1) (findLookups el2)) ∧
-    (findLookups (Letrec _ vv_es elr1) =  union (findLookupsL (MAP (SND o SND) vv_es)) (findLookups elr1)) ∧ 
-    (findLookupsL [] = LN) ∧ 
+    (findLookups (Letrec _ vv_es elr1) =  union (findLookupsL (MAP (SND o SND) vv_es)) (findLookups elr1)) ∧
+    (findLookupsL [] = LN) ∧
     (findLookupsL (e::es) = union (findLookups e) (findLookupsL es))
 `
     (
-        WF_REL_TAC `measure (λ e . case e of 
-                | INL x => exp_size x 
+        WF_REL_TAC `measure (λ e . case e of
+                | INL x => exp_size x
                 | INR (y:flatLang$exp list) => flatLang$exp6_size y)` >> rw[exp_size_def]
         >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
             Cases_on `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
@@ -242,7 +237,7 @@ val findLookupsL_REVERSE = Q.store_thm("findLookupsL_REVERSE",
 
 val findLoc_EVERY_isEmpty = Q.store_thm("findLoc_EVERY_isEmpty",
     `∀ l reachable:num_set . EVERY (λ e . isEmpty (inter (findLoc e) reachable)) l ⇔ isEmpty (inter (findLocL l) reachable)`,
-    Induct >- fs[Once findLoc_def, inter_def] >> fs[EVERY_DEF] >> rw[] >> EQ_TAC >> rw[] >> 
+    Induct >- fs[Once findLoc_def, inter_def] >> fs[EVERY_DEF] >> rw[] >> EQ_TAC >> rw[] >>
         qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >> fs[inter_union_empty]
 );
 
@@ -251,7 +246,7 @@ val findLoc_EVERY_isEmpty = Q.store_thm("findLoc_EVERY_isEmpty",
 val analyseExp_def = Define `
     analyseExp e = let locs = (findLoc e) in let lookups = (findLookups e) in
         if isPure e then (
-            if (isHidden e) then (LN, map (K lookups) locs) 
+            if (isHidden e) then (LN, map (K lookups) locs)
             else (locs, map (K lookups) locs)
         ) else (
             (union locs lookups, (map (K LN) (union locs lookups)))
@@ -260,7 +255,7 @@ val analyseExp_def = Define `
 
 val wf_analyseExp = Q.store_thm("wf_analyseExp",
     `∀ e roots tree . analyseExp e = (roots, tree) ⇒ (wf roots) ∧ (wf tree)`,
-    simp[analyseExp_def] >> rw[] >> 
+    simp[analyseExp_def] >> rw[] >>
     metis_tac[wf_def, wf_map, wf_union, wf_findLoc, wf_findLookups_wf_findLookupsL]
 );
 
@@ -270,22 +265,22 @@ val analyseExp_domain = Q.store_thm("analyseExp_domain",
 );
 
 val analyseCode_def = Define `
-    analyseCode [] = (LN, LN) ∧ 
-    analyseCode ((Dlet e)::cs) = codeAnalysis_union (analyseExp e) (analyseCode cs) ∧ 
+    analyseCode [] = (LN, LN) ∧
+    analyseCode ((Dlet e)::cs) = codeAnalysis_union (analyseExp e) (analyseCode cs) ∧
     analyseCode (_::cs) = analyseCode cs
-` 
+`
 
 val analyseCode_thm = Q.store_thm("analyseCode_thm",
-    `∀ code root tree . analyseCode code = (root, tree) 
+    `∀ code root tree . analyseCode code = (root, tree)
     ⇒ (wf root) ∧ (domain root ⊆ domain tree)`,
-    Induct 
+    Induct
     >-(rw[analyseCode_def] >> rw[wf_def])
     >> Cases_on `h` >> simp[analyseCode_def] >> Cases_on `analyseExp e` >>
        Cases_on `analyseCode code` >>
        first_x_assum (qspecl_then [`q'`, `r'`] mp_tac) >> simp[] >>
        qspecl_then [`e`, `q`, `r`] mp_tac wf_analyseExp >> simp[] >> rw[]
        >- imp_res_tac wf_codeAnalysis_union
-       >> qspecl_then [`e`, `q`, `r`] mp_tac analyseExp_domain >> rw[] >> 
+       >> qspecl_then [`e`, `q`, `r`] mp_tac analyseExp_domain >> rw[] >>
           imp_res_tac domain_codeAnalysis_union
 );
 
@@ -293,11 +288,11 @@ val analyseCode_thm = Q.store_thm("analyseCode_thm",
 (******************************************************** CODE REMOVAL *********************************************************)
 
 val keep_def = Define `
-    (keep reachable (Dlet e) = 
+    (keep reachable (Dlet e) =
         (* if none of the global variables that e may assign to are in
-           the reachable set, then e is candidate for removal - if any are in, then keep e 
+           the reachable set, then e is candidate for removal - if any are in, then keep e
             -> however if e is not pure (can have side-effects), then it must be kept *)
-        if isEmpty (inter (findLoc e) reachable) then (¬ (isPure e)) else T) ∧ 
+        if isEmpty (inter (findLoc e) reachable) then (¬ (isPure e)) else T) ∧
     (keep reachable _ = T) (* not a Dlet, will be Dtype/Dexn so keep *)
 `
 
@@ -323,11 +318,11 @@ val removeFlatProg_def = Define `
 (******************************************************** REACHABILITY *********************************************************)
 
 val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
-   `∀ (compiled : dec list) start tree t . ((start, t) = analyseCode compiled) ∧ 
+   `∀ (compiled : dec list) start tree t . ((start, t) = analyseCode compiled) ∧
         (tree = mk_wf_set_tree t)
-    ⇒ domain (closure_spt start tree) = {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`   
-    , 
-    rw[] >> qspecl_then [`mk_wf_set_tree t`, `start`] mp_tac closure_spt_thm >> rw[] >> 
+    ⇒ domain (closure_spt start tree) = {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`
+    ,
+    rw[] >> qspecl_then [`mk_wf_set_tree t`, `start`] mp_tac closure_spt_thm >> rw[] >>
     `wf_set_tree(mk_wf_set_tree t)` by metis_tac[mk_wf_set_tree_thm] >>
     qspecl_then [`compiled`, `start`, `t`] mp_tac analyseCode_thm >>
     qspec_then `t` mp_tac mk_wf_set_tree_domain >> rw[] >> metis_tac[SUBSET_TRANS]
@@ -335,9 +330,9 @@ val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
 
 
 (******************************************************** TESTING *********************************************************)
-
+(*
 val flat_compile_def = Define `
-    flat_compile c p = 
+    flat_compile c p =
         let (c',p) = source_to_flat$compile c p in p
 `
 
@@ -350,8 +345,8 @@ val input = ``
      Dlet ^l (* gl1 *) (Pvar "f") (Fun "x" (Var (Short "five"))); (* f = λ x . five *)
      Dlet ^l (* gl2 *) (Pvar "g") (Fun "y" (Var (Short "y"))); (* g = λ y . y *)
      Dletrec ^l (* gl3 *) [("foo","i",App Opapp [Var (Short "f"); Lit (IntLit 0)])];
-        (* foo = λ i . f 0 *) 
-     Dletrec ^l 
+        (* foo = λ i . f 0 *)
+     Dletrec ^l
        [("bar1","i",App Opapp [Var (Short "bar2"); Lit (IntLit 0)]); (*gl4*)
         ("bar2","i",App Opapp [Var (Short "bar1"); Lit (IntLit 0)])]; (*gl5*)
             (* bar1 = λ i . bar2 0  ∧  bar2 = λ i . bar1 0 *)
@@ -372,7 +367,7 @@ val test_analyse_tree_def = Define `
 `
 
 val test_analyse_closure_def = Define `
-    test_analyse_closure code = 
+    test_analyse_closure code =
         let (roots, tree) = analyseCode (test_compile code) in
         (closure_spt roots tree)
 `
@@ -387,7 +382,7 @@ val test_analyse_removal_def = Define `
 
 val test_code = EVAL ``test_compile ^input``;
 val test_result = EVAL ``test_analyse_removal ^input``;
-
+*)
 
 (*
     Overall:
@@ -404,12 +399,12 @@ val test_result = EVAL ``test_analyse_removal ^input``;
     Dlet (Let _ NONE (App _ (GlobalVarAlloc 7) []) (Con _ NONE [])); --> what does this do?
 
     GL0 ***** Match 5 => "five", stored in gl0 *****
-    Dlet (Mat _ (Lit _ (IntLit 5)) 
+    Dlet (Mat _ (Lit _ (IntLit 5))
         [(Pvar "five", App _ (GlobalVarInit 0) [Var_local _ "five"])]
     );
 
     GL1 ****** Match (λ x . lookup gl0) => "f", stored in gl1 (gl0 contains "five" = 5) *****
-    Dlet (Mat _ (Fun _ "x" (App _ (GlobalVarLookup 0) [])) 
+    Dlet (Mat _ (Fun _ "x" (App _ (GlobalVarLookup 0) []))
         [(Pvar "f",  App _ (GlobalVarInit 1) [Var_local _ "f"])]
     );
 
@@ -419,18 +414,18 @@ val test_result = EVAL ``test_analyse_removal ^input``;
     );
 
     GL3 ***** gl3 := (letrec "foo" = λ i . (lookup gl1) 0)   --> i.e foo = (fn i => "f" 0) *****
-    Dlet (App _ (GlobalVarInit 3) 
-        [Letrec _ 
+    Dlet (App _ (GlobalVarInit 3)
+        [Letrec _
             [( "foo","i", App _ Opapp [App _ (GlobalVarLookup 1) [];  Lit _ (IntLit 0)] )]
             (Var_local _ "foo")
-        ]    
+        ]
     );
 
     GL4 ***** gl4 := (λ i . (lookup gl5) 0)  --> i.e. gl4 := ("bar1" = "bar2" 0) *****
-    Dlet (App _ (GlobalVarInit 4) [Fun _ "i" 
-        (App _ Opapp [App _ (GlobalVarLookup 5) []; Lit _ (IntLit 0)])  
+    Dlet (App _ (GlobalVarInit 4) [Fun _ "i"
+        (App _ Opapp [App _ (GlobalVarLookup 5) []; Lit _ (IntLit 0)])
     ] );
-    
+
     GL5 ***** gl5 := (λ i . (lookup gl4) 0)  --> i.e. gl5 := ("bar1" = "bar2" 0) *****
     Dlet (App _ (GlobalVarInit 5) [Fun _ "i"
         (App _ Opapp [App _ (GlobalVarLookup 4) []; Lit _ (IntLit 0)])
@@ -440,7 +435,7 @@ val test_result = EVAL ``test_analyse_removal ^input``;
     Dlet (Mat _ (App _ Opapp [App _ (GlobalVarLookup 1) []; Lit _ (IntLit 0)])
         [( Pvar "main", App _ (GlobalVarInit 6) [Var_local _ "main"] )]
     )
-    
+
     GL7 ***** gl7 := (letrec "foobar" = λ x . foobar 0)   --> i.e foobar = (fn x => foobar 0) *****
     Dlet (Mat _ (App _ Opapp [App _ (GlobalVarLookup 1) []; Lit _ (IntLit 0)])
         [( Pvar "main", App _ (GlobalVarInit 6) [Var_local _ "main"] )]
