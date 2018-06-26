@@ -59,7 +59,7 @@ fun derive_eval_thm for_eval v_name e = let
            |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
+    |> (NCONV 50 (SIMP_CONV (srw_ss()) [terminationTheory.evaluate_def,
             PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
   val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
                     rpt strip_tac \\ rveq \\
