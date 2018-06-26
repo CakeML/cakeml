@@ -2113,24 +2113,29 @@ val EvalM_R_Marray_alloc = Q.store_thm("EvalM_R_Marray_alloc",
    EvalM ro env st (App Opassign [Var (Short vname); App Aalloc [nexp; xexp]])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_alloc set_arr n x))
    ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`,
-  rw[EvalM_def] \\ cheat (*
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases]
-  \\ rw[Once evaluate_cases]
+  \\ rw[evaluate_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
-  \\ first_x_assum(fn x => simp[MATCH_MP evaluate_unique_result x])
-  \\ rw[Once evaluate_cases]
-  \\ first_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
-  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
-  \\ fs[]
-  \\ first_x_assum(fn x => simp[MATCH_MP evaluate_unique_result x])
-  \\ rw[Once evaluate_cases]
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`(*if n < LENGTH av then s.clock else*) k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
   \\ rw[do_app_def]
   \\ rw[store_alloc_def]
   \\ rw[with_same_ffi]
-  \\ rw[Once evaluate_cases]
   \\ qpat_x_assum `REFS_PRED H1 st s` (fn x => PURE_REWRITE_RULE[REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ fs[Once (GSYM with_same_refs)]
@@ -2142,9 +2147,6 @@ val EvalM_R_Marray_alloc = Q.store_thm("EvalM_R_Marray_alloc",
   \\ fs[]
   \\ Q.PAT_ABBREV_TAC `loc = LENGTH junk + L`
   \\ Q.PAT_ABBREV_TAC `srefs = A ++ [Varray X]`
-  \\ qexists_tac `s with refs := LUPDATE (Refv (Loc loc)) l srefs`
-  \\ qexists_tac `Rval (Conv NONE [])`
-  \\ fs[state_component_equality]
   \\ fs[MONAD_def, Marray_alloc_def]
   \\ rw[REFS_PRED_FRAME_def, state_component_equality]
   \\ fs[RARRAY_def, RARRAY_REL_def, SEP_EXISTS_THM, SEP_CLAUSES]
@@ -2153,7 +2155,7 @@ val EvalM_R_Marray_alloc = Q.store_thm("EvalM_R_Marray_alloc",
   \\ qpat_x_assum `Abbrev X` (fn x => fs[PURE_REWRITE_RULE[markerTheory.Abbrev_def] x])
   \\ imp_res_tac st2heap_REF_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
-  \\ fs[with_same_refs]
+  \\ fs[with_same_refs, with_same_ffi]
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
   \\ fs[LUPDATE_APPEND1]
   \\ rw[GSYM STAR_ASSOC]
@@ -2167,7 +2169,7 @@ val EvalM_R_Marray_alloc = Q.store_thm("EvalM_R_Marray_alloc",
   \\ fs[STATE_SPLIT_REFS]
   \\ simp[ARRAY_def, store2heap_aux_def, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT, cell_def, one_def]
   \\ simp[LIST_REL_REPLICATE_same]
-  \\ rw[STAR_ASSOC, Once STAR_COMM]
+  \\ simp[STAR_ASSOC, Once STAR_COMM]
   \\ EXTRACT_PURE_FACTS_TAC
   \\ sg `(Loc l ~~> arv' * H st * F' * GC) (st2heap p s)`
   >-(fs[GSYM STAR_ASSOC]
@@ -2182,7 +2184,7 @@ val EvalM_R_Marray_alloc = Q.store_thm("EvalM_R_Marray_alloc",
   \\ fs[Once (GSYM with_same_refs)]
   \\ first_x_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ pop_assum(qspec_then `refs' ++ refs''` ASSUME_TAC)
-  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC] *));
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]);
 
 (* Fixed-size arrays *)
 val EvalM_F_Marray_length = Q.store_thm("EvalM_F_Marray_length",
