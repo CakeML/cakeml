@@ -2217,7 +2217,7 @@ val EvalM_F_Marray_sub_subscript = Q.store_thm("EvalM_F_Marray_sub_subscript",
    EvalM ro env st (App Asub [Var (Short vname); nexp])
    ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
    ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`,
-  rw[EvalM_def] \\ cheat (*
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_x_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
@@ -2228,30 +2228,24 @@ val EvalM_F_Marray_sub_subscript = Q.store_thm("EvalM_F_Marray_sub_subscript",
   \\ imp_res_tac LIST_REL_LENGTH
   \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
-  \\ evaluate_unique_result_tac
-  \\ rw[Once evaluate_cases]
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ rw[evaluate_def]
   \\ first_x_assum (fn x => MATCH_MP do_app_Asub_ARRAY x |> ASSUME_TAC)
   \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
   \\ Cases_on `n < LENGTH av`
   >-(fs[]
-     \\ fs[MONAD_def, Marray_sub_def]
-     \\ qexists_tac `s with refs := s.refs ++ refs'`
-     \\ qexists_tac `Rval (EL n av)`
-     \\ fs[state_component_equality]
-     \\ fs[Msub_eq]
-     \\ fs[LIST_REL_EL_EQN]
-     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]
-     \\ rw[Once evaluate_cases]
-     \\ evaluate_unique_result_tac
-     \\ ntac 3 (rw[Once evaluate_cases]))
-  \\ rw[Once evaluate_cases, with_same_ffi]
-  \\ qexists_tac `s with refs := s.refs ++ refs'`
-  \\ qexists_tac `Rerr (Rraise ^Conv_Subscript)`
+     \\ fs[MONAD_def, Marray_sub_def, Msub_eq]
+     \\ fs[LIST_REL_EL_EQN, with_same_ffi]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ rw[with_same_ffi]
   \\ qexists_tac `st`
-  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append]
-  \\ evaluate_unique_result_tac
-  \\ ntac 3 (rw[Once evaluate_cases])
-  \\ fs[with_same_ffi] *));
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append]);
 
 val EvalM_F_Marray_sub_handle = Q.store_thm("EvalM_F_Marray_sub_handle",
   `!vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
