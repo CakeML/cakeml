@@ -535,26 +535,38 @@ val chain_exps = Define `
     (i, 0,
      closLang$Let ARB [e] (closLang$Call ARB 0 (i + 1n) [])) :: chain_exps (i + 1) es)`;
 
-val compile_def = Define`
-  compile c es =
+(* c.max_app must be the same each time this is called *)
+val compile_common_def = Define `
+  compile_common c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
     (* Add space for functions to call the expressions *)
     let loc = c.next_loc + LENGTH es in
-    (* Padding *)
+    (* Alignment padding *)
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
     let es = clos_known$compile c.do_known c.max_app es in
     let (es,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
+    let prog = compile_prog c.max_app prog in
+      (c.next_loc + num_stubs c.max_app,
+       c with next_loc := n,
+       prog)`;
+
+val compile_inc_def = Define `
+  compile_inc c es =
+    let (s, c, prog) = compile_common c es in
+      (c with start := s, code_sort prog)`;
+
+val compile_def = Define `
+  compile c es =
+    let (s, c, prog) = compile_common c es in
     let prog =
-      (num_stubs c.max_app,0,
-       init_globals c.max_app (num_stubs c.max_app + c.next_loc))
-      :: compile_prog c.max_app prog
+      toAList (init_code c.max_app) ++
+      (num_stubs c.max_app - 1, 0n, init_globals c.max_app s) ::
+      prog
     in
-    let prog = toAList (init_code c.max_app) ++ prog in
     let c = c with start := num_stubs c.max_app - 1 in
-    let c = c with next_loc := n in
       (c,code_sort prog)`;
 
 val _ = export_theory()
