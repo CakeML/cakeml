@@ -2415,7 +2415,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
 
-  THEN1 cheat (* (
+  THEN1 (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
       (* FFI *)
@@ -2794,7 +2794,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
       SPLIT_TAC
     )
-  ) *)
+  )
 
   THEN1 (
     (* Log *)
