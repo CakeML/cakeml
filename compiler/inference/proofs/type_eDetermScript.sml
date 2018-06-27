@@ -422,11 +422,9 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
         (imp_res_tac pure_add_constraints_apply>>
         unabbrev_all_tac>>
         fs[MAP_EQ_f,FORALL_PROD,MEM_MAP]>>
-        ntac 2 (pop_assum kall_tac)>>
-        pop_assum (qspecl_then [`Infer_Tuvar n'`,`Infer_Tapp [] Tint_num`] mp_tac)>>
-        pop_assum (qspecl_then [`Infer_Tuvar n'`,`Infer_Tapp [] Tbool_num`] mp_tac)>>
-        ntac 4 (pop_assum kall_tac)>>
-        fs[t_walkstar_eqn,t_walk_eqn])>>
+        fsrw_tac[DNF_ss][] >>
+        res_tac >>
+        fs[t_walkstar_eqn, t_walk_eqn])>>
       fs[]>>EVAL_TAC)>>
     rw[]>>pop_assum kall_tac>>
     pop_assum (qspec_then `t_walkstar s tt` assume_tac)>>rfs[]>>
