@@ -435,7 +435,6 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    strip_tac>>
    fs[sub_completion_def]>>
    imp_res_tac pure_add_constraints_apply>>
-   pop_assum kall_tac>>
    fs[Abbr`constraints`]>>
    rfs[GSYM MAP_MAP_o,MAP_ZIP,LENGTH_COUNT_LIST]>>
    rw[Once type_d_cases] >>
@@ -452,7 +451,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        (match_mp_tac LIST_EQ>>fs[LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>rw[]>>
        pairarg_tac>>fs[])
      >>
-       ntac 2 (pop_assum mp_tac)>>simp[LIST_EQ_REWRITE]>>
+       ntac 3 (pop_assum mp_tac)>>simp[LIST_EQ_REWRITE]>>
        fs[LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>rw[]>>
        pairarg_tac>>fs[])>>
    fs[]>>rw[]
@@ -552,17 +551,13 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      `t = convert_t (t_walkstar s' (Infer_Tuvar n))` by
        (rfs[EL_MAP,MAP_MAP_o]>>
        qpat_x_assum`MAP SND bindings' = _` mp_tac>>
-       cheat
-       (*
        qpat_x_assum`_ = MAP (t_walkstar st'''''.subst) _` mp_tac>>
-       disch_then(qspec_then`n`mp_tac) >>
-       rw[]>>
-       pop_assum(qspec_then`n` mp_tac)>>
-       pop_assum(qspec_then`n` mp_tac)>>
-       simp[EL_MAP,EL_COUNT_LIST]>>rw[]>>
-       metis_tac[pure_add_constraints_success,t_compat_def]
-       *)
-       )>>
+       simp[LIST_EQ_REWRITE, LENGTH_COUNT_LIST] >>
+       disch_then(qspec_then`n`mp_tac) \\ simp[EL_MAP, LENGTH_COUNT_LIST, EL_COUNT_LIST]
+       \\ strip_tac
+       \\ disch_then(qspec_then`n`mp_tac)
+       \\ rw[]
+       \\ metis_tac[pure_add_constraints_success,t_compat_def])>>
      simp[]>>
      AP_TERM_TAC>>
      Q.ISPECL_THEN [`s'`,`s`,`subst'`,`_`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
