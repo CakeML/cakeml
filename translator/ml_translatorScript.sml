@@ -1200,48 +1200,6 @@ val PAIR_TYPE_SIMP = Q.prove(
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
 
-(* option definition *)
-(* TODO: Apparently, the variable names need to be of a specific form...*)
-val OPTION_TYPE_def = Define `
-  (!a x_2 v.
-     OPTION_TYPE a (SOME x_2) v <=>
-     ?v2_1.
-       v = Conv (SOME (TypeStamp "SOME" 2)) [v2_1] /\
-       a x_2 v2_1) /\
-  !a v.
-     OPTION_TYPE a NONE v <=>
-     v = Conv (SOME ((TypeStamp "NONE" 2))) []`
-
-val OPTION_TYPE_SIMP = Q.prove(
-  `!x. CONTAINER OPTION_TYPE
-              (\y v. if x = SOME y then p y v else ARB) x =
-           OPTION_TYPE (p:('a -> v -> bool)) x`,
-  Cases>>FULL_SIMP_TAC std_ss [FUN_EQ_THM,OPTION_TYPE_def,DISJ_ASSOC,CONTAINER_def])
-  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
-  |> curry save_thm "OPTION_TYPE_SIMP";
-
-(*
-val SUM_TYPE_def = Define `
-  (∀a b x_2 v.
-      SUM_TYPE a b (INR x_2) v ⇔
-      ∃v2_1.
-        v = Conv (SOME ("Inr",TypeId (Short "sum"))) [v2_1] ∧
-        b x_2 v2_1) ∧
-   ∀a b x_1 v.
-     SUM_TYPE a b (INL x_1) v ⇔
-     ∃v1_1.
-       v = Conv (SOME ("Inl",TypeId (Short "sum"))) [v1_1] ∧ a x_1 v1_1`
-
-val SUM_TYPE_SIMP = Q.prove(`
-  !x. CONTAINER SUM_TYPE
-    (\y v. if x = INL y then a y v else ARB)
-    (\y v. if x = INR y then b y v else ARB) x =
-    SUM_TYPE (a:'a ->v -> bool) (b:'b ->v -> bool) x`,
-  Cases>>rw[CONTAINER_def,FUN_EQ_THM,SUM_TYPE_def])
-  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
-  |> curry save_thm "SUM_TYPE_SIMP";
-*)
-
 (* characters *)
 
 val Eval_Ord = Q.store_thm("Eval_Ord",
