@@ -103,16 +103,6 @@ val set_ids_same = Q.store_thm("set_ids_same[simp]",
   `set_ids x x = {}`,
   rw[set_ids_eq]);
 
-val t_wfs_FEMPTY = Q.store_thm("t_wfs_FEMPTY[simp]",
-  `t_wfs FEMPTY`,
-  rw[t_wfs_eqn]
-  \\ EVAL_TAC
-  \\ rw[relationTheory.WF_DEF, substTheory.vR_def]);
-
-val t_wfs_init_infer_state = Q.store_thm("t_wfs_init_infer_state[simp]",
-  `t_wfs (init_infer_state s).subst`,
-  rw[init_infer_state_def]);
-
 val infer_d_sound = Q.store_thm ("infer_d_sound",
   `(!d tenv ienv st1 st2 ienv'.
     infer_d ienv d st1 = (Success ienv', st2) ∧

@@ -2205,6 +2205,19 @@ val init_infer_state_next_uvar = Q.store_thm ("init_infer_state_next_uvar[simp]"
   `(init_infer_state st).next_uvar = 0`,
  rw [init_infer_state_def]);
 
+val init_infer_state_subst = Q.store_thm("init_infer_state_subst[simp]",
+  `(init_infer_state st).subst = FEMPTY`,
+  EVAL_TAC);
+
+val t_wfs_FEMPTY = Q.store_thm("t_wfs_FEMPTY[simp]",
+  `t_wfs FEMPTY`,
+  rw[t_wfs_eqn]
+  \\ EVAL_TAC
+  \\ rw[relationTheory.WF_DEF, substTheory.vR_def]);
+
+val t_wfs_init_infer_state = Q.store_thm("t_wfs_init_infer_state[simp]",
+  `t_wfs (init_infer_state s).subst`, rw[]);
+
 val let_tac =
    drule (CONJUNCT1 infer_e_check_t)
    >> drule (CONJUNCT1 infer_e_check_s)
@@ -2280,35 +2293,12 @@ val infer_d_check = Q.store_thm ("infer_d_check",
  rpt (pairarg_tac >> fs [success_eqns])>>
  fs [init_state_def]>> rw[]>>
  strip_assume_tac init_infer_state_wfs
- >- cheat
- >- cheat
- >- cheat
- >- cheat
- >- (
-   rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-   >> irule check_freevars_type_name_subst
-   >> fs [ienv_ok_def])
- >- (
-   fs [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
-       EVERY_MAP, EVERY_MEM, MEM_MAP]
-   >> rw []
-   >> irule check_freevars_type_name_subst
-   >> fs [EVERY_MEM])
- >- (
-  fs[ienv_ok_def,lift_ienv_def]>>
-  cheat)
- >- fs[ienv_ok_def,ienv_val_ok_def]
- >>
-   match_mp_tac ienv_ok_extend_dec_ienv>>
-   rpt (first_x_assum drule)>> rw[]>>
-   metis_tac[ienv_ok_extend_dec_ienv]);
-
-(*
- >- let_tac
- >- let_tac
+ >- ( fs[] \\ let_tac )
+ >- ( fs[] \\ let_tac )
  >- (
    qmatch_assum_abbrev_tac
      `infer_funs _ (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
+   >> rename1 `init_infer_state s0`
    >> rename1 `infer_funs _ _ funs _ = (Success funs_ts, st1)`
    >> rename1 `pure_add_constraints _ _ st2.subst`
    >> `ienv_ok (count (LENGTH funs)) (ienv with inf_v := nsAppend bindings ienv.inf_v)`
@@ -2323,7 +2313,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
        >> pairarg_tac
        >> fs []
        >> metis_tac [check_t_more4, COUNT_ZERO, DECIDE ``0n≤ x``])
-   >> `check_s 0 (count (LENGTH funs)) init_infer_state.subst`
+   >> `check_s 0 (count (LENGTH funs)) (init_infer_state s0).subst`
      by rw [init_infer_state_def, check_s_def]
    >> drule (List.nth (CONJUNCTS infer_e_check_t, 3))
    >> drule (List.nth (CONJUNCTS infer_e_wfs, 3))
@@ -2367,6 +2357,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
    simp [ienv_ok_def]
    >> conj_tac
    >- rw [ienv_val_ok_def]
+   \\ fs[n_fresh_id_def] \\ rveq \\ fs[]
    >> conj_asm2_tac
    >- (
      irule check_ctor_tenv_ok
@@ -2375,7 +2366,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
      >> simp [])
    >> fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
    >> irule nsAll_alist_to_ns
-   >> rw [EVERY_MAP, EVERY_MEM]
+   >> rw [EVERY_MAP, EVERY_MEM, MAP2_ZIP, ZIP_GENLIST, MAP_GENLIST, MEM_GENLIST]
    >> rpt (pairarg_tac >> fs [])
    >> fs []
    >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
@@ -2388,8 +2379,17 @@ val infer_d_check = Q.store_thm ("infer_d_check",
        EVERY_MAP, EVERY_MEM, MEM_MAP]
    >> rw []
    >> irule check_freevars_type_name_subst
-   >> fs [check_exn_tenv_def, EVERY_MEM]));
-*)
+   >> fs [EVERY_MEM])
+ >- (
+  fs[ienv_ok_def,lift_ienv_def,ienv_val_ok_def,
+     typeSoundInvariantsTheory.tenv_ctor_ok_def,
+     typeSoundInvariantsTheory.tenv_abbrev_ok_def]
+  \\ metis_tac[])
+ >- fs[ienv_ok_def,ienv_val_ok_def]
+ >>
+   match_mp_tac ienv_ok_extend_dec_ienv>>
+   rpt (first_x_assum drule)>> rw[]>>
+   metis_tac[ienv_ok_extend_dec_ienv]);
 
 val infer_p_next_id_const = Q.store_thm ("infer_p_next_id_const",
 `(!l cenv p st t env st'.
