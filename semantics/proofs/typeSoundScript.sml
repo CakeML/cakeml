@@ -2305,7 +2305,13 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      rw [] >>
      rename [`store_type_extension _ tenvS1`] >>
      qexists_tac `tenvS1` >>
-     rw []
+     rw [] >>
+     (* This won't be true once signatures start doing things *)
+     `tenv'' = tenv_sig`
+     by (
+       fs [check_sig_def] >>
+       every_case_tac >>
+       fs [])
      >- (
        fs [type_all_env_def, tenvLift_def] >>
        irule nsAll2_mono >>
@@ -2342,8 +2348,20 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      first_x_assum drule >>
      disch_then drule >>
      rw []))
-   >- ( (* case signature *)
-   fs [Once type_d_cases]));
+ >- ( (* case signature *)
+   fs [Once type_d_cases] >>
+   qexists_tac `ctMap` >>
+   qexists_tac `tenvS` >>
+   rw [type_all_env_def]
+   >- metis_tac [weakCT_refl]
+   >- metis_tac [store_type_extension_refl] >>
+   fs [type_sound_invariant_def] >>
+   rw []
+   >- (
+     irule extend_dec_tenv_ok >>
+     rw [] >>
+     rw [tenv_ok_def]) >>
+   fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]));
 
 val decs_type_sound = Q.store_thm ("decs_type_sound",
  `∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.

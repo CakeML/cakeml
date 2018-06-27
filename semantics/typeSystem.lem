@@ -160,18 +160,21 @@ declare termination_argument tveLookup = automatic
 type tenv_abbrev = namespace modN typeN (list tvarN * t)
 type tenv_ctor = namespace modN conN (list tvarN * list t * type_ident)
 type tenv_val = namespace modN varN (nat * t)
+type tenv_sig = namespace modN sigN (list spec)
 
 type type_env =
   <| v : tenv_val
    ; c : tenv_ctor
    ; t : tenv_abbrev
+   ; s : tenv_sig
    |>
 
 val extend_dec_tenv : type_env -> type_env -> type_env
 let extend_dec_tenv tenv' tenv =
   <| v = nsAppend tenv'.v tenv.v;
      c = nsAppend tenv'.c tenv.c;
-     t = nsAppend tenv'.t tenv.t |>
+     t = nsAppend tenv'.t tenv.t;
+     s = nsAppend tenv'.s tenv.s |>
 
 val lookup_varE : id modN varN -> tenv_val_exp -> maybe (nat * t)
 let lookup_varE id tenvE =
@@ -701,7 +704,21 @@ let tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl) =
     deBruijn_subst 0 subst t_impl = t_spec
 
 let tenvLift mn tenv =
-  <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t; |>
+  <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t;
+     s = nsLift mn tenv.s |>
+
+
+val check_sig : type_env -> maybe (id modN sigN) -> type_env -> maybe type_env
+let check_sig tenv sn_opt tenv_mod =
+  match sn_opt with
+  | Nothing -> Just tenv_mod
+  | Just sn ->
+    match nsLookup tenv.s sn with
+    | Nothing -> Nothing
+    (* TODO: actually check signature *)
+    | Just sps -> Just tenv_mod
+    end
+  end
 
 indreln [type_d : bool -> type_env -> dec -> set nat -> type_env -> bool] and
         [type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool]
@@ -719,7 +736,7 @@ type_e tenv (bind_tvar tvs Empty) e t &&
 ==>
 type_d extra_checks tenv (Dlet locs p e)
   {}
-  <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
+  <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty; s = nsEmpty |>
 
 and
 
@@ -734,7 +751,7 @@ type_p 0 tenv p t bindings &&
 type_e tenv Empty e t
 ==>
 type_d extra_checks tenv (Dlet locs p e)
-  {} <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty |>
+  {} <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty; s = nsEmpty |>
 
 and
 
@@ -746,7 +763,7 @@ type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings &&
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
 type_d extra_checks tenv (Dletrec locs funs)
-  {} <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
+  {} <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty; s = nsEmpty |>
 
 and
 
@@ -763,7 +780,7 @@ tenvT = alist_to_ns (Lib.map2
 ==>
 type_d extra_checks tenv (Dtype locs tdefs)
   (Set.fromList type_identities)
-  <| v = nsEmpty; c = build_ctor_tenv (nsAppend tenvT tenv.t) tdefs type_identities; t = tenvT |>
+  <| v = nsEmpty; c = build_ctor_tenv (nsAppend tenvT tenv.t) tdefs type_identities; t = tenvT; s = nsEmpty |>
 
 and
 
@@ -774,7 +791,7 @@ List.allDistinct tvs
 ==>
 type_d extra_checks tenv (Dtabbrev locs tvs tn t)
   {}
-  <| v = nsEmpty; c = nsEmpty; t = nsSing tn (tvs,type_name_subst tenv.t t) |>
+  <| v = nsEmpty; c = nsEmpty; t = nsSing tn (tvs,type_name_subst tenv.t t); s = nsEmpty |>
 
 and
 
@@ -786,16 +803,28 @@ type_d extra_checks tenv (Dexn locs cn ts)
   {}
   <| v = nsEmpty;
      c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, Texn_num);
-     t = nsEmpty |>
+     t = nsEmpty;
+     s = nsEmpty |>
 
 and
 
-dmod : forall extra_checks tenv mn ds decls tenv'.
-type_ds extra_checks tenv ds decls tenv'
+dmod : forall extra_checks tenv mn ds decls tenv' tenv_sig sn_opt.
+type_ds extra_checks tenv ds decls tenv' &&
+check_sig tenv sn_opt tenv' = Just tenv_sig
 ==>
-type_d extra_checks tenv (Dmod mn Nothing ds) decls (tenvLift mn tenv')
+type_d extra_checks tenv (Dmod mn sn_opt ds) decls (tenvLift mn tenv_sig)
 
-(* TODO: cases for signatures *)
+and
+
+dsig : forall extra_checks tenv sn sps.
+true
+==>
+type_d extra_checks tenv (Dsig sn sps) {}
+  <| v = nsEmpty;
+     c = nsEmpty;
+     t = nsEmpty;
+     s = nsSing sn sps |>
+
 and
 
 empty : forall extra_checks tenv.
@@ -803,7 +832,7 @@ true
 ==>
 type_ds extra_checks tenv []
   {}
-  <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
+  <| v = nsEmpty; c = nsEmpty; t = nsEmpty; s = nsEmpty |>
 
 and
 

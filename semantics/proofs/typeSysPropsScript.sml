@@ -36,7 +36,7 @@ val _ = export_rewrites [
 
 val unchanged_tenv = Q.store_thm ("unchanged_tenv[simp]",
  `!(tenv : type_env).
-  <| v := tenv.v; c := tenv.c; t := tenv.t |> = tenv`,
+  <| v := tenv.v; c := tenv.c; t := tenv.t; s:= tenv.s |> = tenv`,
  rw [type_env_component_equality]);
 
  (*
@@ -83,7 +83,7 @@ val tenv_abbrev_ok_nsEmpty = Q.store_thm ("tenv_abbrev_ok_nsEmpty[simp]",
  rw [tenv_abbrev_ok_def]);
 
 val tenv_ok_empty = Q.store_thm ("tenv_ok_empty[simp]",
-  `tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>`,
+  `tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty; s := nsEmpty |>`,
  rw [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]);
 
 val type_pes_def = Define `
@@ -2135,6 +2135,17 @@ val extend_dec_tenv_ok = Q.store_thm ("extend_dec_tenv_ok",
  >> irule nsAll_nsAppend
  >> simp []);
 
+val check_sig_tenv_ok = Q.store_thm ("check_sig_tenv_ok",
+  `!tenv tenv' sn_opt tenv_sig.
+   tenv_ok tenv ∧
+   tenv_ok tenv' ∧
+   check_sig tenv sn_opt tenv' = SOME tenv_sig
+   ⇒
+   tenv_ok tenv_sig`,
+  rw [check_sig_def] >>
+  every_case_tac >>
+  rw []);
+
 val type_d_tenv_ok_helper = Q.store_thm ("type_d_tenv_ok_helper",
  `(∀check tenv d tdecs tenv'.
    type_d check tenv d tdecs tenv' ⇒
@@ -2219,6 +2230,9 @@ val type_d_tenv_ok_helper = Q.store_thm ("type_d_tenv_ok_helper",
    >> rw []
    >> irule check_freevars_type_name_subst
    >> simp [tenv_abbrev_ok_def])
+ >- (
+   `tenv_ok tenv_sig` by metis_tac [check_sig_tenv_ok] >>
+   fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def])
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
  >- metis_tac [extend_dec_tenv_ok]);
 
@@ -2253,7 +2267,7 @@ val type_d_mod = Q.store_thm ("type_d_mod",
 val type_ds_empty = Q.store_thm ("type_ds_empty[simp]",
  `!check tenv decls r.
   type_ds check tenv [] decls r ⇔
-  decls = {} ∧ r = <| v := nsEmpty; c:= nsEmpty; t := nsEmpty |>`,
+  decls = {} ∧ r = <| v := nsEmpty; c:= nsEmpty; t := nsEmpty; s := nsEmpty |>`,
  rw [Once type_d_cases]);
 
 val type_ds_sing = Q.store_thm ("type_ds_sing[simp]",

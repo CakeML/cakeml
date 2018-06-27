@@ -170,7 +170,7 @@ val weak_tenvM_lookup = Q.prove (
 
 val weak_def = Define `
 weak tenv' tenv ⇔
-  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv`;
+  tenv'.s = tenv.s ∧ tenv'.t = tenv.t ∧ weak_tenv tenv' tenv`;
 
 val type_p_weakening = Q.store_thm ("type_p_weakening",
 `(!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
@@ -579,6 +579,17 @@ val weak_tenv_extend_dec_tenv = Q.store_thm ("weak_tenv_extend_dec_tenv",
  >> irule nsSub_nsAppend2
  >> simp []);
 
+val check_sig_weakening = Q.store_thm ("check_sig_weakening",
+  `!tenv1 tenv2 tenv tenv_sig sn_opt.
+   check_sig tenv2 sn_opt tenv = SOME tenv_sig ∧
+   weak tenv1 tenv2
+   ⇒
+   check_sig tenv1 sn_opt tenv = SOME tenv_sig`,
+  rw [check_sig_def] >>
+  every_case_tac >>
+  fs [weak_def] >>
+  rfs []);
+
 val type_d_weakening = Q.store_thm ("type_d_weakening",
 `(!check tenv d decls tenv'.
   type_d check tenv d decls tenv' ⇒
@@ -620,9 +631,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
  >- fs [weak_def]
  >- fs [weak_def]
  >- fs [weak_def]
- >- (
-   fs [weak_def, DISJOINT_DEF, (*weak_decls_other_mods_def,*) EXTENSION]
-   >> metis_tac [])
+ >- metis_tac [check_sig_weakening]
  >- (
   qexists_tac `tenv'`
   >> qexists_tac `tenv''`
@@ -634,6 +643,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
   >> conj_tac >- metis_tac [extend_dec_tenv_ok, type_d_tenv_ok] >>
   fs [weak_def]
   >> rw []
+  >- rw [extend_dec_tenv_def]
   >- rw [extend_dec_tenv_def]
   >> irule weak_tenv_extend_dec_tenv
   >> simp [] >>
