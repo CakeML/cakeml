@@ -156,7 +156,7 @@ fun read_byte fd =
 ` |> append_prog
 
 val _ = (append_prog o process_topdecs)`
-  fun input1 fd = SOME (Char.chr(Word8.toInt(read_byte fd))) handle EndOfFile => NONE`
+  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte fd))) handle EndOfFile => None`
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
@@ -196,13 +196,13 @@ val () = (append_prog o process_topdecs)`
             val c = read_byte fd
             val u = Word8Array.update arr i c
           in
-            if c = nl then SOME (Word8Array.substring arr 0 (i+1))
+            if c = nl then Some (Word8Array.substring arr 0 (i+1))
             else inputLine_aux arr (i+1)
           end
           handle EndOfFile =>
-            if i = 0 then NONE
+            if i = 0 then None
             else (Word8Array.update arr i nl;
-                  SOME (Word8Array.substring arr 0 (i+1)))
+                  Some (Word8Array.substring arr 0 (i+1)))
         else inputLine_aux (extend_array arr) i
       in inputLine_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
 
@@ -280,8 +280,8 @@ fun inputLine fd lbuf =
 val _ = (append_prog o process_topdecs) `
   fun inputLines fd =
     case inputLine fd of
-        NONE => []
-      | SOME l => l::inputLines fd`;
+        None => []
+      | Some l => l::inputLines fd`;
 
 val _ = (append_prog o process_topdecs) `
   fun inputLinesFrom fname =
@@ -289,8 +289,8 @@ val _ = (append_prog o process_topdecs) `
       val fd = openIn fname
       val lines = inputLines fd
     in
-      close fd; SOME lines
-    end handle BadFileName => NONE`;
+      close fd; Some lines
+    end handle BadFileName => None`;
 
 (* read everything (same semantics as SML's TextIO.inputAll) *)
 val () = (append_prog o process_topdecs)`
