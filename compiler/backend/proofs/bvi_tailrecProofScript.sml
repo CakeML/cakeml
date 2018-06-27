@@ -2082,8 +2082,8 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
        \\ qspecl_then [`exps`,`[]`,`st`] mp_tac (INST_TYPE[alpha|->``:num#'a``]evaluate_add_to_clock_io_events_mono)
        \\ simp [inc_clock_def, Abbr`sopt`, Abbr`st`]
        \\ ntac 2 strip_tac
-       \\ Cases_on `s.ffi.final_event` \\ fs [] >- (
-         Cases_on `s'.ffi.final_event` \\ fs [] >- (
+       \\ Cases_on `r` \\ fs [] >- (
+         Cases_on `r'` \\ fs [] >- (
            unabbrev_all_tac
            \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
            \\ rpt(disch_then drule)
@@ -2120,13 +2120,13 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
          \\ strip_tac \\ fs[]
          \\ first_x_assum(qspec_then`k`mp_tac)
          \\ simp[] \\ strip_tac
-         \\ Cases_on`r` \\ fs[]
-         \\ ntac 3 (qhdtm_x_assum `evaluate` mp_tac)
-         \\ drule evaluate_add_clock
-         \\ simp[]
-         \\ disch_then(qspec_then`k'`mp_tac)
-         \\ simp[inc_clock_def] \\ rw[]
-         \\ imp_res_tac state_rel_const \\ fs[])
+         \\ qpat_x_assum `evaluate _ = (Rval _, _)` assume_tac
+         \\ drule evaluate_add_clock \\ disch_then(qspec_then `k'` mp_tac)
+         \\ impl_tac >- simp[]
+         \\ qpat_x_assum `evaluate _ = (Rerr _, _)` assume_tac
+         \\ drule evaluate_add_clock \\ disch_then(qspec_then `k` mp_tac)
+         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
+         \\ simp[inc_clock_def])
        \\ qpat_x_assum `∀extra._` mp_tac
        \\ first_x_assum (qspec_then `k'` assume_tac)
        \\ first_assum (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl)
@@ -2142,22 +2142,15 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
          \\ spose_not_then assume_tac \\ rveq \\ fs []
          \\ fs[])
        \\ strip_tac \\ rveq \\ fs []
-       \\ reverse (Cases_on `s'.ffi.final_event`) \\ fs [] \\ rfs []
-       >-
-         (first_x_assum (qspec_then `k` mp_tac)
-         \\ fs [ADD1]
-         \\ strip_tac
-         \\ imp_res_tac state_rel_const
-         \\ fs [] \\ rfs []
-         \\ rw[] \\ fs[])
-       \\ ntac 2 (qhdtm_x_assum `evaluate` mp_tac)
-       \\ drule (GEN_ALL evaluate_add_clock)
-       \\ disch_then (qspec_then `k` mp_tac)
-       \\ impl_tac >- (strip_tac \\ fs [])
-       \\ simp [inc_clock_def]
-       \\ ntac 3 strip_tac \\ rveq
-       \\ imp_res_tac state_rel_const
-       \\ fs[] \\ rfs[])
+       \\ qpat_x_assum `evaluate _ = (Rerr _, _)` assume_tac
+       \\ drule evaluate_add_clock \\ disch_then(qspec_then `k'` mp_tac)
+       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
+       \\ qpat_x_assum `evaluate _ = (r', _)` assume_tac
+       \\ drule evaluate_add_clock \\ disch_then(qspec_then `k` mp_tac)
+       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
+       \\ rpt strip_tac \\ fs[inc_clock_def] \\ rveq
+       \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+       \\ fs[state_rel_def])
      \\ first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
      \\ drule (GEN_ALL evaluate_compile_prog)
      \\ ntac 3 (disch_then drule) \\ simp []
@@ -2169,6 +2162,7 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
      \\ strip_tac
      \\ asm_exists_tac
      \\ imp_res_tac state_rel_const \\ fs[]
+     \\ TOP_CASE_TAC \\ fs[]
      \\ TOP_CASE_TAC \\ fs[]
      \\ TOP_CASE_TAC \\ fs[])
    \\ strip_tac
@@ -2202,11 +2196,7 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
       \\ rpt(first_x_assum(qspec_then`k`mp_tac))\\ simp[] )
     \\ strip_tac
     \\ qmatch_assum_rename_tac `state_rel rr _`
-    \\ reverse (Cases_on `rr.ffi.final_event`) >- (
-      first_x_assum(qspec_then`k`mp_tac) \\ simp[] )
-    \\ disch_then(qspec_then`k`mp_tac)
-    \\ strip_tac \\ rfs[] \\ rveq \\ fs[]
-    \\ imp_res_tac state_rel_const \\ fs[])
+    \\ fs[] \\ rveq \\ metis_tac[])
   \\ strip_tac
   \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
   \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
