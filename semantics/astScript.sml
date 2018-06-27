@@ -38,6 +38,9 @@ val _ = Hol_datatype `
  shift = Lsl | Lsr | Asr | Ror`;
 
 
+(* Signature names *)
+val _ = type_abbrev( "sigN" , ``: string``);
+
 (* Module names *)
 val _ = type_abbrev( "modN" , ``: string``);
 
@@ -185,6 +188,24 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # ast_t list) list) list``);
 
+(* Specifications
+   For giving the signature of a module *)
+val _ = Hol_datatype `
+ spec =
+  (* Values *)
+    Sval of varN => ast_t
+  (* Type definitions *)
+  | Stype of type_def
+  (* Type abbreviations *)
+  | Stabbrev of tvarN list => typeN => ast_t
+  (* Opaque (abstract) types *)
+  | Stype_opq of tvarN list => typeN
+  (* Exceptions *)
+  | Sexn of conN => ast_t list
+  (* Nested modules *)
+  | Smod of modN => (modN, sigN) id`;
+
+
 (* Declarations *)
 val _ = Hol_datatype `
  dec =
@@ -202,22 +223,11 @@ val _ = Hol_datatype `
   | Dtabbrev of locs => tvarN list => typeN => ast_t
   (* New exceptions *)
   | Dexn of locs => conN => ast_t list
-  | Dmod of modN => dec list`;
+  (* Modules, with an optional signature *)
+  | Dmod of modN =>  ( (modN, sigN)id)option => dec list
+  (* Signatures *)
+  | Dsig of sigN => spec list`;
 
-
-(*
-(* Specifications
-   For giving the signature of a module *)
-type spec =
-  | Sval of varN * ast_t
-  | Stype of type_def
-  | Stabbrev of list tvarN * typeN * ast_t
-  | Stype_opq of list tvarN * typeN
-  | Sexn of conN * list ast_t
-
-type specs = list spec
-
-*)
 
 (* Accumulates the bindings of a pattern *)
 (*val pat_bindings : pat -> list varN -> list varN*)

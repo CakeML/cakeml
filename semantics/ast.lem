@@ -17,6 +17,9 @@ type opb = Lt | Gt | Leq | Geq
 type opw = Andw | Orw | Xor | Add | Sub
 type shift = Lsl | Lsr | Asr | Ror
 
+(* Signature names *)
+type sigN = string
+
 (* Module names *)
 type modN = string
 
@@ -152,6 +155,22 @@ type exp =
 
 type type_def = list (list tvarN * typeN * list (conN * list ast_t))
 
+(* Specifications
+   For giving the signature of a module *)
+type spec =
+  (* Values *)
+  | Sval of varN * ast_t
+  (* Type definitions *)
+  | Stype of type_def
+  (* Type abbreviations *)
+  | Stabbrev of list tvarN * typeN * ast_t
+  (* Opaque (abstract) types *)
+  | Stype_opq of list tvarN * typeN
+  (* Exceptions *)
+  | Sexn of conN * list ast_t
+  (* Nested modules *)
+  | Smod of modN * id modN sigN
+
 (* Declarations *)
 type dec =
   (* Top-level bindings
@@ -168,21 +187,10 @@ type dec =
   | Dtabbrev of locs * list tvarN * typeN * ast_t
   (* New exceptions *)
   | Dexn of locs * conN * list ast_t
-  | Dmod of modN * list dec
-
-(*
-(* Specifications
-   For giving the signature of a module *)
-type spec =
-  | Sval of varN * ast_t
-  | Stype of type_def
-  | Stabbrev of list tvarN * typeN * ast_t
-  | Stype_opq of list tvarN * typeN
-  | Sexn of conN * list ast_t
-
-type specs = list spec
-
-*)
+  (* Modules, with an optional signature *)
+  | Dmod of modN * maybe (id modN sigN) * list dec
+  (* Signatures *)
+  | Dsig of sigN * list spec
 
 (* Accumulates the bindings of a pattern *)
 val pat_bindings : pat -> list varN -> list varN

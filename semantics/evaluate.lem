@@ -201,7 +201,7 @@ evaluate_decs st env [Dexn locs cn ts] =
   (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,
    Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp) |>)
 and
-evaluate_decs st env [Dmod mn ds] =
+evaluate_decs st env [Dmod mn _ ds] =
   match evaluate_decs st env ds with
   | (st', r) ->
       (st',
@@ -210,3 +210,6 @@ evaluate_decs st env [Dmod mn ds] =
        | Rerr err -> Rerr err
        end)
   end
+and
+evaluate_decs st env [Dsig _ _] =
+  (st, Rval <| v = nsEmpty; c = nsEmpty |>)

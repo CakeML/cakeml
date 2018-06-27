@@ -437,17 +437,24 @@ evaluate_dec ck env s (Dexn locs cn ts)
 
 and
 
-dmod1 : forall ck s1 s2 env ds mn new_env.
+dmod1 : forall ck s1 s2 env ds mn new_env s.
 evaluate_decs ck env s1 ds (s2, Rval new_env)
 ==>
-evaluate_dec ck env s1 (Dmod mn ds) (s2, Rval <| v = nsLift mn new_env.v; c = nsLift mn new_env.c |>)
+evaluate_dec ck env s1 (Dmod mn s ds) (s2, Rval <| v = nsLift mn new_env.v; c = nsLift mn new_env.c |>)
 
 and
 
-dmod2 : forall ck s1 s2 env ds mn err.
+dmod2 : forall ck s1 s2 env ds mn err s.
 evaluate_decs ck env s1 ds (s2, Rerr err)
 ==>
-evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err)
+evaluate_dec ck env s1 (Dmod mn s ds) (s2, Rerr err)
+
+and
+
+dsig : forall ck env s sps sn.
+true
+==>
+evaluate_dec ck env s (Dsig sn sps) (s, Rval <| v = nsEmpty; c = nsEmpty |>)
 
 and
 
@@ -534,10 +541,10 @@ dec_diverges env st (Dlet locs p e)
 
 and
 
-dmod : forall st env ds mn.
+dmod : forall st env ds mn sn.
 decs_diverges env st ds
 ==>
-dec_diverges env st (Dmod mn ds)
+dec_diverges env st (Dmod mn sn ds)
 
 and
 

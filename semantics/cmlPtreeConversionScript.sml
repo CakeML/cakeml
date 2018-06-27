@@ -1426,7 +1426,8 @@ val ptree_Structure_def = Define`
                              | _ => NONE;
                              *)
             ds <- ptree_Decls ds_pt;
-            SOME(Dmod sname (*asc*) ds)
+            (* TODO: handle signatures *)
+            SOME(Dmod sname NONE ds)
           od
         | _ => NONE
 `

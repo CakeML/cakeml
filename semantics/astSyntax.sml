@@ -111,7 +111,6 @@ structure astSyntax = struct
   val (Atfun_tm,mk_Atfun,dest_Atfun,is_Atfun) = s "Atfun";
   val (Con_tm,mk_Con,dest_Con,is_Con) = s "Con";
   val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec";
-  val (Dmod_tm,mk_Dmod,dest_Dmod,is_Dmod) = s "Dmod";
   val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype";
   val (Fun_tm,mk_Fun,dest_Fun,is_Fun) = s "Fun";
   val (Handle_tm,mk_Handle,dest_Handle,is_Handle) = s "Handle";
@@ -127,6 +126,7 @@ structure astSyntax = struct
   (* three-argument functions *)
   val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn";
   val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet";
+  val (Dmod_tm,mk_Dmod,dest_Dmod,is_Dmod) = s "Dmod";
   val (If_tm,mk_If,dest_If,is_If) = s "If";
   val (Let_tm,mk_Let,dest_Let,is_Let) = s "Let";
   val (Log_tm,mk_Log,dest_Log,is_Log) = s "Log";

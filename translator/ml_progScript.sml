@@ -238,7 +238,7 @@ val Decls_Dletrec = Q.store_thm("Decls_Dletrec",
   \\ pop_assum (assume_tac o GSYM) \\ fs []);
 
 val Decls_Dmod = Q.store_thm("Decls_Dmod",
-  `Decls env1 s1 [Dmod mn ds] env2 s2 <=>
+  `Decls env1 s1 [Dmod mn sn ds] env2 s2 <=>
    ?s env.
       Decls env1 s1 ds env s /\ s2 = s /\
       env2 = write_mod mn env empty_env`,
@@ -371,7 +371,7 @@ val ML_code_new_module = Q.store_thm("ML_code_new_module",
 val ML_code_close_module = Q.store_thm("ML_code_close_module",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
 (* ∀sigs. *)
-      ML_code env1 s1 (SNOC (Dmod mn (* sigs *) prog) ds) NONE
+      ML_code env1 s1 (SNOC (Dmod mn NONE prog) ds) NONE
         (write_mod mn env2 env) s2`,
   fs [ML_code_def] \\ rw [] \\ fs [SNOC_APPEND,Decls_APPEND]
   \\ asm_exists_tac \\ fs [Decls_Dmod,PULL_EXISTS]

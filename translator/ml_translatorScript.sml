@@ -1705,10 +1705,11 @@ val type_names_eq = Q.prove(
                 case d of
                   Dlet _ v6 v7 => []
                 | Dletrec _ v8 => []
-                | Dmod _ ds => []
+                | Dmod _ _ ds => []
                 | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
-                | Dexn _ v10 v11 => []) ds))) ++ names`,
+                | Dexn _ v10 v11 => []
+                | Dsig _ _ => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
 

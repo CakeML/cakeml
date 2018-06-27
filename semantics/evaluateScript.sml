@@ -218,7 +218,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
    Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>))
 /\
-(evaluate_decs st env [Dmod mn ds]=  
+(evaluate_decs st env [Dmod mn _ ds]=  
  ((case evaluate_decs st env ds of
     (st', r) =>
       (st',
@@ -226,7 +226,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
          Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
        | Rerr err => Rerr err
        ))
-  )))`;
+  )))
+/\
+(evaluate_decs st env [Dsig _ _]= 
+  (st, Rval <| v := nsEmpty; c := nsEmpty |>))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
 val _ = export_theory()

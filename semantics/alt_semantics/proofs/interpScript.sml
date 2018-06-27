@@ -341,12 +341,14 @@ val run_eval_dec_def = Define `
 (run_eval_dec env ^st (Dexn _ cn ts) =
   (st with next_exn_stamp := st.next_exn_stamp + 1,
    Rval <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>)) ∧
-(run_eval_dec env st (Dmod mn ds) =
+(run_eval_dec env st (Dmod mn sn ds) =
   case run_eval_decs env st ds of
     (st', Rval env') =>
       (st',  Rval <| v := nsLift mn env'.v; c := nsLift mn env'.c |>)
   | (st', Rerr err) =>
        (st', Rerr err)) ∧
+(run_eval_dec env st (Dsig sn sps) =
+  (st, Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_decs env st [] = (st,  Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_decs env st (d::ds) =
   case run_eval_dec env st d of

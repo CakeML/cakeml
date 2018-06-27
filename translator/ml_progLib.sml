@@ -276,7 +276,7 @@ fun add_dec dec_tm pick_name s =
     val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
     in add_Dlet_Fun loc v_tm w body v_name s end
   else if is_Dmod dec_tm then let
-    val (name,(*spec,*)decs) = dest_Dmod dec_tm
+    val (name,sig_name,decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
     val name_str = stringSyntax.fromHOLstring name
     val s = open_module name_str s handle HOL_ERR _ =>

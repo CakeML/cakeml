@@ -2288,7 +2288,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
  >- ( (* Case module *)
-   qpat_x_assum `type_d _ _ (Dmod _ _) _ _` mp_tac >>
+   qpat_x_assum `type_d _ _ (Dmod _ _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>
    split_pair_case_tac >>
    fs [] >>
@@ -2341,7 +2341,9 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
    >- (
      first_x_assum drule >>
      disch_then drule >>
-     rw [])));
+     rw []))
+   >- ( (* case signature *)
+   fs [Once type_d_cases]));
 
 val decs_type_sound = Q.store_thm ("decs_type_sound",
  `∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.

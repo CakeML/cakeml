@@ -334,15 +334,20 @@ evaluate_dec ck env s (Dexn locs cn ts)
     (( s with<| next_exn_stamp := (s.next_exn_stamp +( 1 : num)) |>),
      Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp s.next_exn_stamp)) |>))
 
-/\ (! ck s1 s2 env ds mn new_env.
+/\ (! ck s1 s2 env ds mn new_env s.
 (evaluate_decs ck env s1 ds (s2, Rval new_env))
 ==>
-evaluate_dec ck env s1 (Dmod mn ds) (s2, Rval <| v := (nsLift mn new_env.v); c := (nsLift mn new_env.c) |>))
+evaluate_dec ck env s1 (Dmod mn s ds) (s2, Rval <| v := (nsLift mn new_env.v); c := (nsLift mn new_env.c) |>))
 
-/\ (! ck s1 s2 env ds mn err.
+/\ (! ck s1 s2 env ds mn err s.
 (evaluate_decs ck env s1 ds (s2, Rerr err))
 ==>
-evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err))
+evaluate_dec ck env s1 (Dmod mn s ds) (s2, Rerr err))
+
+/\ (! ck env s sps sn.
+T
+==>
+evaluate_dec ck env s (Dsig sn sps) (s, Rval <| v := nsEmpty; c := nsEmpty |>))
 
 /\ (! ck env s.
 T
@@ -418,10 +423,10 @@ val _ = Hol_reln ` (! env st locs p e.
 ==>
 dec_diverges env st (Dlet locs p e))
 
-/\ (! st env ds mn.
+/\ (! st env ds mn sn.
 (decs_diverges env st ds)
 ==>
-dec_diverges env st (Dmod mn ds))
+dec_diverges env st (Dmod mn sn ds))
 
 /\ (! st env d ds.
 (dec_diverges env st d)
