@@ -81,7 +81,6 @@ and
 check_freevars_ast tvs (Atapp ts tn) =
   List.all (check_freevars_ast tvs) ts
 
-
 (* Simultaneous substitution of types for type variables in a type *)
 val type_subst : Map.map tvarN t -> t -> t
 let rec

@@ -170,6 +170,8 @@ type spec =
   | Sexn of conN * list ast_t
   (* Nested modules *)
   | Smod of modN * id modN sigN
+  (* Nested signatures *)
+  | Ssig of sigN * list spec
 
 (* Declarations *)
 type dec =

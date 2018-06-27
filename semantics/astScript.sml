@@ -203,7 +203,9 @@ val _ = Hol_datatype `
   (* Exceptions *)
   | Sexn of conN => ast_t list
   (* Nested modules *)
-  | Smod of modN => (modN, sigN) id`;
+  | Smod of modN => (modN, sigN) id
+  (* Nested signatures *)
+  | Ssig of sigN => spec list`;
 
 
 (* Declarations *)

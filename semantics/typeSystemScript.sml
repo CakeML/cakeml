@@ -157,7 +157,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_freevars_ast_defn;
 
-
 (* Simultaneous substitution of types for type variables in a type *)
 (*val type_subst : Map.map tvarN t -> t -> t*)
  val type_subst_defn = Defn.Hol_multi_defns `
