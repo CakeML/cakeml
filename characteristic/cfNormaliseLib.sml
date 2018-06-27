@@ -371,6 +371,23 @@ in
   protect true e
 end
 
+fun strip_annot_decl d =
+  if is_Dlet d then let
+    val (locs, pat, exp) = dest_Dlet d
+    val pat' = strip_annot_pat pat
+    val exp' = strip_annot_exp exp
+  in mk_Dlet (locs, pat', exp') end
+  else if is_Dletrec d then let
+    val (locs, funs) = dest_Dletrec d
+    val funs' = strip_annot_funs funs
+  in mk_Dletrec (locs, funs') end
+  else d
+
+fun strip_annot_prog p_tm = let
+  val (p, p_ty) = listSyntax.dest_list p_tm
+  val p' = List.map strip_annot_decl p
+in listSyntax.mk_list (p', p_ty) end
+
 fun normalise_exp e =
   norm_exp (mk_names_generator ()) (strip_annot_exp e)
 
