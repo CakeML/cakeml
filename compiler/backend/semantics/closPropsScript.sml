@@ -747,6 +747,13 @@ val do_app_cases_type_error = save_thm ("do_app_cases_type_error",
    SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
 
+val do_app_cases_ffi_error = save_thm ("do_app_cases_ffi_error",
+``do_app op vs s = Rerr (Rabort(Rffi_error f))`` |>
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
+   ALL_CONV));
+
 val dest_closure_none_loc = Q.store_thm ("dest_closure_none_loc",
 `!max_app l cl vs v e env rest.
   (dest_closure max_app l cl vs = SOME (Partial_app v) ⇒ l = NONE) ∧
