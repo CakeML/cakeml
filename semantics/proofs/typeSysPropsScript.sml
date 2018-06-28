@@ -2146,6 +2146,33 @@ val check_sig_tenv_ok = Q.store_thm ("check_sig_tenv_ok",
   every_case_tac >>
   rw []);
 
+val type_tdefs_tenv_ok = Q.store_thm ("type_tdefs_tenv_ok",
+  `!tenv tdef tids tenv'.
+    type_tdefs tenv tdef tids = SOME tenv' ∧
+    tenv_ok tenv
+    ⇒
+    tenv_ok tenv'`,
+  rw [type_tdefs_def] >>
+  fs [tenv_ok_def, tenv_abbrev_ok_def] >>
+  rw []
+  >- (
+    irule check_ctor_tenv_ok >>
+    rw []
+    >> simp [tenv_abbrev_ok_def]
+    >> irule nsAll_nsAppend
+    >> simp []
+    >> irule nsAll_alist_to_ns
+    >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
+    >> rw []
+    >> rpt (pairarg_tac >> fs [])
+    >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
+  >- (
+    irule nsAll_alist_to_ns
+    >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
+    >> rw []
+    >> rpt (pairarg_tac >> fs [])
+    >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]));
+
 val type_d_tenv_ok_helper = Q.store_thm ("type_d_tenv_ok_helper",
  `(∀check tenv d tdecs tenv'.
    type_d check tenv d tdecs tenv' ⇒
@@ -2200,26 +2227,7 @@ val type_d_tenv_ok_helper = Q.store_thm ("type_d_tenv_ok_helper",
    >> irule tenv_val_exp_ok_bvl_funs
    >> simp [tenv_val_exp_ok_def]
    >> metis_tac [])
- >- (
-   fs [tenv_ok_def, tenv_abbrev_ok_def] >>
-   rw []
-   >- (
-     irule check_ctor_tenv_ok >>
-     rw []
-     >> simp [tenv_abbrev_ok_def]
-     >> irule nsAll_nsAppend
-     >> simp []
-     >> irule nsAll_alist_to_ns
-     >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
-     >> rw []
-     >> rpt (pairarg_tac >> fs [])
-     >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
-   >- (
-     irule nsAll_alist_to_ns
-     >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
-     >> rw []
-     >> rpt (pairarg_tac >> fs [])
-     >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]))
+ >- metis_tac [type_tdefs_tenv_ok]
  >- (
    fs [tenv_ok_def, tenv_abbrev_ok_def] >>
    irule check_freevars_type_name_subst

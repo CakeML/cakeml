@@ -590,6 +590,14 @@ val check_sig_weakening = Q.store_thm ("check_sig_weakening",
   fs [weak_def] >>
   rfs []);
 
+val type_defs_weakening = Q.store_thm ("type_defs_weakening",
+  `!tenv tdef tids tenv' tenv''.
+    type_tdefs tenv tdef tids = SOME tenv' ∧
+    weak tenv'' tenv
+    ⇒
+    type_tdefs tenv'' tdef tids = SOME tenv'`,
+ rw [type_tdefs_def, weak_def, DISJOINT_DEF, EXTENSION]);
+
 val type_d_weakening = Q.store_thm ("type_d_weakening",
 `(!check tenv d decls tenv'.
   type_d check tenv d decls tenv' ⇒
@@ -614,19 +622,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
  >- metis_tac[LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
- >- (
-  qexists_tac `type_identities` >>
-  fs [weak_def, DISJOINT_DEF(*, weak_decls_other_mods_def*), EXTENSION] (*
-  >> rw [MEM_MAP]
-  >> CCONTR_TAC
-  >> fs []
-  >> rw []
-  >> pairarg_tac
-  >> fs []
-  >> first_x_assum drule
-  >> rw []
-  >> fs [weak_decls_def, SUBSET_DEF, MEM_MAP, FORALL_PROD]
-  >> metis_tac []*))
+ >- metis_tac [type_defs_weakening]
  >- fs [weak_def]
  >- fs [weak_def]
  >- fs [weak_def]

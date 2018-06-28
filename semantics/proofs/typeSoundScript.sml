@@ -2026,7 +2026,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
    >> metis_tac [type_funs_distinct])
  >- ( (* case type definition *)
    drule type_d_tenv_ok
-   >> fs [Once type_d_cases]
+   >> fs [Once type_d_cases, type_tdefs_def]
    >> rw [extend_dec_env_def]
    >> fs [type_sound_invariant_def]
    >> qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _`
@@ -2169,7 +2169,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
  >- ( (* case type def not distinct *)
-   fs [Once type_d_cases] >>
+   fs [Once type_d_cases, type_tdefs_def] >>
    rw [] >>
    drule check_ctor_tenv_dups >>
    rw [])
