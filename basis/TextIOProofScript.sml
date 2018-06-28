@@ -1263,7 +1263,7 @@ val input1_spec = Q.store_thm("input1_spec",
     \\ xlet_auto \\ xsimpl
     \\ xlet_auto \\ xsimpl
     \\ xcon \\ xsimpl
-    \\ fs[ORD_BOUND,CHR_ORD] )
+    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def] )
   \\ xsimpl
   \\ xcases
   \\ xsimpl
@@ -1271,7 +1271,7 @@ val input1_spec = Q.store_thm("input1_spec",
   \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
   \\ xcon
   \\ xsimpl
-  \\ fs[]);
+  \\ fs[std_preludeTheory.OPTION_TYPE_def]);
 
 val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   `!fd fdv fs content pos off offv.
@@ -1540,7 +1540,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
       \\ instantiate
       \\ xcon
       \\ xsimpl
-      \\ fs[])
+      \\ fs[std_preludeTheory.OPTION_TYPE_def])
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xapp
@@ -1615,7 +1615,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
           |> GEN_ALL |> SIMP_RULE std_ss []
           |> imp_res_tac)
       \\ fs[] \\ rveq
-      \\ fs[implode_def,STRING_TYPE_def]
+      \\ fs[std_preludeTheory.OPTION_TYPE_def,implode_def,STRING_TYPE_def]
       \\ simp[STDIO_numchars]
       \\ xsimpl
       \\ fs[TAKE_LENGTH_ID_rwt] \\ rveq
@@ -1661,7 +1661,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
       \\ xcon
       >- (
         xsimpl
-        \\ fs[implode_def,STRING_TYPE_def,ORD_BOUND]
+        \\ fs[std_preludeTheory.OPTION_TYPE_def,implode_def,STRING_TYPE_def,ORD_BOUND]
         \\ qhdtm_x_assum`SPLITP`assume_tac
         \\ qispl_then[`(=)#"\n"`,`pp-pos`,`DROP pos content`]mp_tac SPLITP_TAKE_DROP
         \\ simp[EL_DROP]
@@ -1771,7 +1771,7 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
     \\ xcf"TextIO.inputLines"(get_ml_prog_state())
     \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
     \\ xlet_auto >- xsimpl
-    \\ rfs[lineFD_def]
+    \\ rfs[std_preludeTheory.OPTION_TYPE_def,lineFD_def]
     \\ xmatch
     \\ xcon
     \\ simp[lineForwardFD_def,fastForwardFD_0]
@@ -1787,7 +1787,7 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
   \\ `pos < LENGTH content`
   by ( CCONTR_TAC \\ fs[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL] )
   \\ fs[DROP_DROP_T]
-  \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def] \\ rveq
+  \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch
   \\ fs[lineForwardFD_def]
   \\ imp_res_tac splitlines_CONS_FST_SPLITP \\ rfs[] \\ rveq
@@ -1840,7 +1840,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
        (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
   >- (xcases \\ fs[BadFileName_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
-      \\ xcon \\ xsimpl \\ fs[])
+      \\ xcon \\ xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def])
   >- xsimpl
   \\ `CARD (set (MAP FST fs.infds)) < maxFD` by fs[]
   \\ reverse(Cases_on`STD_streams fs`)
@@ -1881,7 +1881,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ fs[Abbr`fso`,openFileFS_files]
   \\ rveq \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-  \\ `fs' = fs` suffices_by ( rw[] \\ xsimpl)
+  \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
   \\ unabbrev_all_tac
   \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
           libTheory.the_def, openFileFS_numchars,

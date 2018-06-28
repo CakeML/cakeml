@@ -9,7 +9,6 @@ sig
     val append_decs       : term -> unit
     val append_prog       : term -> unit
     val prove_ref_spec    : string -> goal -> goal list * (thm list -> thm)
-    val derive_eval_thm   : bool -> string -> term ->  thm
     val process_topdecs   : string quotation -> term
 
 end
