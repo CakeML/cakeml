@@ -307,9 +307,11 @@ val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [Dexn locs cn ts] =
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>, [Dexn next.eidx (LENGTH ts)])) ∧
-  (compile_decs n next env [Dmod mn ds] =
+  (compile_decs n next env [Dmod mn _ ds] =
      let (n', next', new_env, ds') = compile_decs n next env ds in
        (n', next', (lift_env mn new_env), ds')) ∧
+  (compile_decs n next env [Dsig _ _] =
+     (n, next, empty_env, [])) ∧
   (compile_decs n next env [] =
     (n, next, empty_env, [])) ∧
   (compile_decs n next env (d::ds) =

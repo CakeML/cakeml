@@ -3499,7 +3499,13 @@ val compile_decs_correct' = Q.prove (
       CASE_TAC >>
       rw [] >>
       fs [])
-    >- rw []));
+    >- rw [])
+  >- ( (* Signature *)
+    rw [evaluate_decs_def] >>
+    qexists_tac `genv` >>
+    rw [env_domain_eq_def, empty_env_def]
+    >- metis_tac [subglobals_refl] >>
+    simp [Once v_rel_cases]));
 
 val compile_decs_correct = Q.store_thm ("compile_decs_correct",
   `!s env ds s' r comp_map s_i1 idx ds_i1 next' genv.
