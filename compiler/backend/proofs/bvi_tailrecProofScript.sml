@@ -2082,75 +2082,21 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
        \\ qspecl_then [`exps`,`[]`,`st`] mp_tac (INST_TYPE[alpha|->``:num#'a``]evaluate_add_to_clock_io_events_mono)
        \\ simp [inc_clock_def, Abbr`sopt`, Abbr`st`]
        \\ ntac 2 strip_tac
-       \\ Cases_on `r` \\ fs [] >- (
-         Cases_on `r'` \\ fs [] >- (
-           unabbrev_all_tac
-           \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
-           \\ rpt(disch_then drule)
-           \\ impl_tac
-           >- (spose_not_then strip_assume_tac \\ fs []
-               \\ fs [evaluate_def]
-               \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
-           \\ strip_tac
-           \\ drule evaluate_add_clock
-           \\ CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL]))
-           \\ impl_tac
-           >- (every_case_tac \\ fs [])
-           \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
-           \\ qpat_x_assum`_ = (r',s')`assume_tac
-           \\ drule evaluate_add_clock
-           \\ CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL]))
-           \\ impl_tac
-           >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
-           \\ disch_then (qspec_then `k` mp_tac) \\ simp [inc_clock_def]
-           \\ ntac 2 strip_tac \\ rveq \\ fs []
-           \\ imp_res_tac state_rel_const
-           \\ fs [state_component_equality]
-           \\ every_case_tac \\ fs [])
-         \\ qpat_x_assum `∀extra._` mp_tac
-         \\ first_x_assum (qspec_then `k'` assume_tac)
-         \\ first_assum (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl)
-         \\ strip_tac \\ fs []
-         \\ unabbrev_all_tac
-         \\ drule (GEN_ALL evaluate_compile_prog)
-         \\ ntac 3 (disch_then drule)
-         \\ impl_tac >- (
-          rpt(first_x_assum(qspec_then`k+k'`mp_tac))
-          \\ rw[] \\ strip_tac \\ fs[])
-         \\ strip_tac \\ fs[]
-         \\ first_x_assum(qspec_then`k`mp_tac)
-         \\ simp[] \\ strip_tac
-         \\ qpat_x_assum `evaluate _ = (Rval _, _)` assume_tac
-         \\ drule evaluate_add_clock \\ disch_then(qspec_then `k'` mp_tac)
-         \\ impl_tac >- simp[]
-         \\ qpat_x_assum `evaluate _ = (Rerr _, _)` assume_tac
-         \\ drule evaluate_add_clock \\ disch_then(qspec_then `k` mp_tac)
-         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
-         \\ simp[inc_clock_def])
-       \\ qpat_x_assum `∀extra._` mp_tac
-       \\ first_x_assum (qspec_then `k'` assume_tac)
-       \\ first_assum (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl)
-       \\ fs []
-       \\ unabbrev_all_tac
-       \\ strip_tac
+       \\ qpat_x_assum `evaluate _ = (r',s')` assume_tac
+       \\ drule bviPropsTheory.evaluate_add_clock
+       \\ disch_then(qspec_then `k` mp_tac)
+       \\ impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
+       \\ qpat_x_assum `evaluate _ = (r,s)` assume_tac
+       \\ drule bviPropsTheory.evaluate_add_clock
+       \\ disch_then(qspec_then `k'` mp_tac)
+       \\ impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
+       \\ simp[inc_clock_def] >> ntac 2 strip_tac
        \\ drule (GEN_ALL evaluate_compile_prog)
-       \\ ntac 3 (disch_then drule)
-       \\ impl_tac
-       >-
-         (rpt(last_x_assum (qspec_then `k + k'` mp_tac))
-         \\ fs [] \\ strip_tac
-         \\ spose_not_then assume_tac \\ rveq \\ fs []
-         \\ fs[])
-       \\ strip_tac \\ rveq \\ fs []
-       \\ qpat_x_assum `evaluate _ = (Rerr _, _)` assume_tac
-       \\ drule evaluate_add_clock \\ disch_then(qspec_then `k'` mp_tac)
-       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
-       \\ qpat_x_assum `evaluate _ = (r', _)` assume_tac
-       \\ drule evaluate_add_clock \\ disch_then(qspec_then `k` mp_tac)
-       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
-       \\ rpt strip_tac \\ fs[inc_clock_def] \\ rveq
-       \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-       \\ fs[state_rel_def])
+       \\ rpt(disch_then drule)
+       \\ unabbrev_all_tac \\ disch_then drule
+       \\ impl_tac >- (rpt(PURE_FULL_CASE_TAC >> fs[]))
+       \\ strip_tac
+       \\ rpt(PURE_FULL_CASE_TAC >> fs[state_rel_def,state_component_equality]))
      \\ first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
      \\ drule (GEN_ALL evaluate_compile_prog)
      \\ ntac 3 (disch_then drule) \\ simp []
@@ -2173,12 +2119,14 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
      \\ strip_tac \\ rfs[]
      \\ drule (GEN_ALL evaluate_compile_prog)
      \\ rveq \\ disch_then drule
-     \\ qmatch_asmsub_abbrev_tac`FST p ≠ Rerr _`
-     \\ Cases_on`p` \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
      \\ disch_then drule
-     \\ disch_then drule
-     \\ impl_tac >- (strip_tac \\ fs[])
-     \\ strip_tac \\ fs[] \\ rfs[])
+     \\ first_x_assum (qspec_then `k` assume_tac)
+     \\ qmatch_asmsub_abbrev_tac`FST(evaluate p)`
+     \\ Cases_on`evaluate p` \\ pop_assum(assume_tac o SIMP_RULE std_ss [markerTheory.Abbrev_def])
+     \\ unabbrev_all_tac \\ disch_then drule
+     \\ impl_tac >- (fs[] >> every_case_tac >> fs[])
+     \\ strip_tac
+     \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[])
    \\ DEEP_INTRO_TAC some_intro \\ simp []
    \\ conj_tac >- (
     spose_not_then assume_tac \\ rw []
