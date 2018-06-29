@@ -81,7 +81,7 @@ val REGEXP_REGEXP_TYPE_types_match = Q.prove(
   `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ types_match b d`,
   ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
   rw[REGEXP_REGEXP_TYPE_def] \\
-  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] \\ rw[] \\
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     qhdtm_x_assum`LIST_TYPE`mp_tac >>
@@ -90,11 +90,11 @@ val REGEXP_REGEXP_TYPE_types_match = Q.prove(
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >- (
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
     qx_gen_tac`p` >>
     gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def] >>
+    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
             EqualityType_def]);
