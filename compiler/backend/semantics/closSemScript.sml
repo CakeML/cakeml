@@ -326,11 +326,11 @@ val do_app_def = Define `
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray f ws) =>
+         | SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n conf ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray f ws')
+                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))

@@ -645,14 +645,11 @@ val do_app_ssgc = Q.store_thm(
       >- metis_tac[])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac >> PURE_FULL_CASE_TAC >> fs [] >> rveq
-      >- simp[vsgc_free_def]
-      >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
+      >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])      
       >- (first_x_assum match_mp_tac >> fs[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
-      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
-      >- simp[]
-      >- simp[])
+      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
   >> dsimp[]);
 
 val EVERY_lookup_vars = Q.store_thm(
