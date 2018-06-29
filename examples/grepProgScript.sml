@@ -634,8 +634,8 @@ val grep = process_topdecs`
      | [_] => TextIO.output TextIO.stdErr usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
-         NONE => TextIO.output TextIO.stdErr (parse_failure_string regexp)
-       | SOME r =>
+         None => TextIO.output TextIO.stdErr (parse_failure_string regexp)
+       | Some r =>
            (* abandoning this approach for now ...
          let
            (* TODO: this would be nicer as:
