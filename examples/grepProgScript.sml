@@ -409,8 +409,8 @@ val parse_regexp_side = Q.prove(
 
 val print_matching_lines = process_topdecs`
   fun print_matching_lines match prefix fd =
-    case TextIO.inputLine fd of NONE => ()
-    | SOME ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
+    case TextIO.inputLine fd of None => ()
+    | Some ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 

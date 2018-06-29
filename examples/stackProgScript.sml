@@ -31,7 +31,7 @@ val stack_decls = process_topdecs
 
     fun pop q =
       case !q of
-        (a,i) => if i = 0 then raise EmptyStack
+        (a,i) => if i = 0 then raise Emptystack
                  else let val x = Array.sub a (i-1) in (q := (a, i-1); x) end’;
 
 val _ = append_prog stack_decls;
