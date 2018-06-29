@@ -270,9 +270,13 @@ val set_tids_mono = Q.prove(`
 
 val set_tids_tenv_mono = Q.prove(`
   set_tids_tenv tids tenv ∧ tids ⊆ tids' ⇒
-  set_tids_tenv tids' tenv'`,
+  set_tids_tenv tids' tenv`,
   fs[set_tids_tenv_def]>>rw[]>>
-  cheat);
+  irule nsAll_mono
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ rw[]
+  \\ pairarg_tac \\ fs[EVERY_MEM,SUBSET_DEF]
+  \\ metis_tac[set_tids_mono,SUBSET_DEF]);
 
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
