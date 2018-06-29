@@ -432,7 +432,7 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
     \\ xcf"print_matching_lines"(get_ml_prog_state())
     \\ xlet_auto >- xsimpl
-    \\ rfs[linesFD_nil_lineFD_NONE,ml_translatorTheory.OPTION_TYPE_def]
+    \\ rfs[linesFD_nil_lineFD_NONE,OPTION_TYPE_def]
     \\ xmatch
     \\ xcon
     \\ fs[lineFD_NONE_lineForwardFD_fastForwardFD]
@@ -445,7 +445,7 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ xcf"print_matching_lines"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ Cases_on`lineFD fs fd` \\ fs[GSYM linesFD_nil_lineFD_NONE]
-  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ fs[OPTION_TYPE_def]
   \\ xmatch
   \\ rename1`lineFD _ _ = SOME ln`
   \\ rveq
