@@ -791,7 +791,7 @@ val semantics_def = Define `
   let prog = Call NONE (INL start) NONE in
   if ∃k. let res = FST (evaluate (prog, s with clock := k)) in
            res <> SOME TimeOut /\ res <> SOME (Result (Loc 1 0)) /\
-           !w. res <> SOME (Halt (Word w))
+           (!w. res <> SOME (Halt (Word w))) /\ !f. res <> SOME (FinalFFI f)
   then Fail
   else
     case some res.
