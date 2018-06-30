@@ -496,10 +496,24 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     CONJ_TAC>- (
       match_mp_tac nsAll_alist_to_ns>>
       simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
-      (* this should be a property of bindings by type_p *)
+      (* TODO: this looks false.. *)
       cheat)>>
     simp[prim_tids_def, Once type_d_canon_cases]>>
-    simp[remap_tenv_def]>>
+    simp[Once remap_tenv_def,tenv_add_tvs_def]>>
+    drule type_p_ts_tid_rename>>rw[]>>
+    first_x_assum drule>>
+    qmatch_goalsub_abbrev_tac`type_p tvs _ _ t2 bindings2`>>
+    strip_tac>>
+    qexists_tac`tvs`>>qexists_tac`t2`>>qexists_tac`bindings2`>>
+    unabbrev_all_tac>>fs[]>>
+    CONJ_TAC>-
+      simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
+    CONJ_TAC>- (
+      drule type_e_ts_tid_rename>> rw[]>>
+      first_x_assum drule>>
+      rw[bind_tvar_def,remap_tenvE_def])>>
+    rw[]>>
+    (* construct the inverse back into the original type system *)
     cheat)
   >- ((* Dlet mono *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
@@ -507,14 +521,25 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     CONJ_TAC >- (
       match_mp_tac nsAll_alist_to_ns>>
       simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
-      cheat)>>
+      (* TODO: this looks false.. *)
+      )>>
     simp[prim_tids_def, Once type_d_canon_cases]>>
     simp[Once remap_tenv_def]>>
     qexists_tac`ts_tid_rename f t`>>
     qexists_tac`MAP (\n,t. (n,ts_tid_rename f t)) bindings`>>
     CONJ_TAC >-
       simp[tenv_add_tvs_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
-    cheat)
+    CONJ_TAC>- (
+      fs[type_pe_determ_def]>>rw[]>>
+      first_x_assum drule>>simp[]>>
+      (* seems nasty
+        f is injective, so one should be able to construct the necessary
+        partial inverses? *)
+      cheat)>>
+    drule type_e_ts_tid_rename>>
+    strip_tac>> first_x_assum drule>>
+    simp[remap_tenvE_def]>>
+    metis_tac[type_p_ts_tid_rename])
   >- ((* Dletrec *)
     cheat )
   >- ((* Dtype - important! try and finish this first *)
