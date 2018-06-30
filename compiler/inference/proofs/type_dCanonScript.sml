@@ -341,23 +341,66 @@ val type_op_ts_tid_rename = Q.store_thm("type_op_ts_tid_rename",`
   fs[typeSysPropsTheory.type_op_cases,ts_tid_rename_def]>>
   fs[good_remap_def,prim_type_nums_def]);
 
-(* TODO: tenvE needs some rename as well, but there's no MAP defined for tenv_val_exp at the moment *)
+val remap_tenvE_def = Define`
+  (remap_tenvE f Empty = Empty) ∧
+  (remap_tenvE f (Bind_tvar n e) = Bind_tvar n (remap_tenvE f e)) ∧
+  (remap_tenvE f (Bind_name s n t e) = Bind_name s n (ts_tid_rename f t) (remap_tenvE f e))`
+
+val num_tvs_remap_tenvE = Q.prove(`
+  ∀tenvE. num_tvs (remap_tenvE f tenvE) = num_tvs tenvE`,
+  Induct>>fs[remap_tenvE_def]);
+
+val remap_tenvE_bind_var_list = Q.prove(`
+  ∀n env tenvE.
+  remap_tenvE f (bind_var_list n env tenvE) =
+  bind_var_list n (MAP (λ(n,t). (n, ts_tid_rename f t)) env) (remap_tenvE f tenvE)`,
+  ho_match_mp_tac bind_var_list_ind>>
+  fs[bind_var_list_def,remap_tenvE_def]>>
+  rw[]);
+
+val deBruijn_inc_ts_tid_rename = Q.prove(`
+  ∀skip n t.
+  ts_tid_rename f (deBruijn_inc skip n t) =
+  deBruijn_inc skip n (ts_tid_rename f t)`,
+  ho_match_mp_tac deBruijn_inc_ind>>
+  rw[deBruijn_inc_def,ts_tid_rename_def,MAP_MAP_o]>>
+  fs[MAP_EQ_f]);
+
+val lookup_varE_remap_tenvE = Q.prove(`
+  ∀n tenvE.
+  lookup_varE n (remap_tenvE f tenvE)
+  = lift (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)`,
+  fs[lookup_varE_def]>>Cases>>fs[]>>
+  qabbrev_tac`n=0n`>>
+  pop_assum kall_tac>>qid_spec_tac`n`>>
+  Induct_on`tenvE`>>fs[remap_tenvE_def,tveLookup_def]>>rw[]>>
+  fs[deBruijn_inc_ts_tid_rename]);
+
+val ts_tid_rename_deBruijn_subst = Q.prove(`
+  ∀n targs t.
+  ts_tid_rename f (deBruijn_subst n targs t) =
+  deBruijn_subst n (MAP (ts_tid_rename f) targs) (ts_tid_rename f t)`,
+  ho_match_mp_tac deBruijn_subst_ind>>rw[]>>
+  rw[ts_tid_rename_def,deBruijn_subst_def]>>
+  fs[EL_MAP,MAP_MAP_o]>>
+  fs[MAP_EQ_f]);
+
 val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
   good_remap f ⇒
   (∀tenv tenvE e t.
     type_e tenv tenvE e t ⇒
-    type_e (remap_tenv f tenv) tenvE e (ts_tid_rename f t)) ∧
+    type_e (remap_tenv f tenv) (remap_tenvE f tenvE) e (ts_tid_rename f t)) ∧
   (∀tenv tenvE es ts.
     type_es tenv tenvE es ts ⇒
-    type_es (remap_tenv f tenv) tenvE es (MAP (ts_tid_rename f) ts)) ∧
+    type_es (remap_tenv f tenv) (remap_tenvE f tenvE) es (MAP (ts_tid_rename f) ts)) ∧
   (∀tenv tenvE funs env.
     type_funs tenv tenvE funs env ⇒
-    type_funs (remap_tenv f tenv) tenvE funs (MAP (λ(n,t). (n, ts_tid_rename f t)) env))`,
+    type_funs (remap_tenv f tenv) (remap_tenvE f tenvE) funs (MAP (λ(n,t). (n, ts_tid_rename f t)) env))`,
   strip_tac>>
   ho_match_mp_tac type_e_strongind>>
   rw[]>>
   simp[Once type_e_cases,ts_tid_rename_def]>>
-  fs[check_freevars_ts_tid_rename]>>
+  fs[check_freevars_ts_tid_rename,num_tvs_remap_tenvE]>>
   TRY(
     fs[good_remap_def,prim_type_nums_def]>>
     fs[ts_tid_rename_def]>>
@@ -366,8 +409,7 @@ val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
   >-
     (* pes *)
     cheat
-  >-
-    (
+  >- (
     fs[MAP_MAP_o,o_DEF,ts_tid_rename_type_subst]>>
     fs[remap_tenv_def,nsLookup_nsMap]>>
     CONJ_TAC>-
@@ -378,31 +420,33 @@ val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
     fs[good_remap_def,prim_type_nums_def]>>metis_tac[ETA_AX])
   >- (
     fs[lookup_var_def,remap_tenv_def]>>
-    TOP_CASE_TAC>>fs[nsLookup_nsMap]>>
-    (* TODO: what to do if dB subst introduces a new identifier??
-        also, tenvE case
-        -- possibly fine*)
-    cheat)
+    pop_assum mp_tac>>
+    TOP_CASE_TAC>>rw[nsLookup_nsMap]>>
+    fs[lookup_varE_remap_tenvE]>>
+    simp[ts_tid_rename_deBruijn_subst]>>
+    qexists_tac`MAP (ts_tid_rename f) targs`>>fs[EVERY_MAP,EVERY_MEM]>>
+    metis_tac[check_freevars_ts_tid_rename])
   >-
-    (* tenvE *)
-    cheat
+    fs[remap_tenvE_def,good_remap_def,prim_type_nums_def]
   >-
     metis_tac[type_op_ts_tid_rename]
   >-
     (HINT_EXISTS_TAC>>fs[]>>
     (* pes *)
     cheat)
-  >-
-    (* tenvE *)
-    cheat
-  >-
-    cheat
+  >- (
+    fs[opt_bind_name_def]>>TOP_CASE_TAC>>fs[remap_tenvE_def]>>
+    metis_tac[])
+  >- (
+    fs[remap_tenvE_bind_var_list]>>
+    metis_tac[])
   >- (
     fs[remap_tenv_def,ts_tid_rename_type_name_subst]>>
     fs[GSYM check_type_names_ts_tid_rename]>>
     metis_tac[ts_tid_rename_type_name_subst])
   >>
-    cheat);
+    fs[check_freevars_def,check_freevars_ts_tid_rename,remap_tenvE_def,ALOOKUP_MAP]>>
+    fs[good_remap_def,prim_type_nums_def]);
 
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
