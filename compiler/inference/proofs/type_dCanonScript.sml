@@ -198,6 +198,20 @@ val set_tids_type_subst = Q.prove(`
   >-
     fs[EVERY_MAP,EVERY_MEM]);
 
+val MEM_ZIP2 = Q.prove(`
+  ∀l1 l2 x.
+  MEM x (ZIP (l1,l2)) ⇒
+  ∃n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ x = (EL n l1,EL n l2)`,
+  Induct>>fs[ZIP_def]>>
+  Cases_on`l2`>>fs[ZIP_def]>>
+  rw[]
+  >-
+    (qexists_tac`0n`>>fs[])
+  >>
+    first_x_assum drule>>
+    rw[]>>
+    qexists_tac`SUC n`>>fs[]);
+
 val set_tids_type_name_subst = Q.prove(`
   ∀tenvt t tids.
   prim_tids T tids ∧
@@ -217,7 +231,10 @@ val set_tids_type_name_subst = Q.prove(`
       CONJ_TAC
       >- (
         match_mp_tac FEVERY_alist_to_fmap>>fs[EVERY_MEM,MEM_ZIP]>>
-        cheat) (* annoying ZIP*)
+        rw[]>>
+        imp_res_tac MEM_ZIP2>>
+        fs[EL_MAP]>>
+        metis_tac[MEM_EL])
       >>
         drule nsLookup_nsAll >> disch_then drule>>
         simp[]);
@@ -277,6 +294,43 @@ val set_tids_tenv_mono = Q.prove(`
   \\ rw[]
   \\ pairarg_tac \\ fs[EVERY_MEM,SUBSET_DEF]
   \\ metis_tac[set_tids_mono,SUBSET_DEF]);
+
+val check_freevars_ts_tid_rename = Q.prove(`
+  ∀ts ls t.
+  check_freevars ts ls (ts_tid_rename f t) ⇔
+  check_freevars ts ls t`,
+  ho_match_mp_tac check_freevars_ind>>
+  fs[ts_tid_rename_def,check_freevars_def,EVERY_MAP,EVERY_MEM]);
+
+val type_p_ts_tid_rename = Q.store_thm("type_p_ts_tid_rename",`
+  good_remap f ⇒
+  (∀tvs tenv p t bindings.
+  type_p tvs tenv p t bindings ⇒
+  type_p tvs (remap_tenv f tenv) p (ts_tid_rename f t)
+    (MAP (λn,t. (n,ts_tid_rename f t)) bindings)) ∧
+  (∀tvs tenv ps ts bindings.
+  type_ps tvs tenv ps ts bindings ⇒
+  type_ps tvs (remap_tenv f tenv) ps (MAP (ts_tid_rename f) ts)
+    (MAP (λn,t. (n,ts_tid_rename f t)) bindings))`,
+  strip_tac>>
+  ho_match_mp_tac type_p_strongind>>
+  rw[]>>
+  simp[Once type_p_cases,check_freevars_ts_tid_rename,ts_tid_rename_def]>>
+  TRY(fs[good_remap_def,prim_type_nums_def]>>NO_TAC)
+  >- (
+    fs[MAP_MAP_o,o_DEF,ts_tid_rename_type_subst]>>
+    fs[remap_tenv_def,nsLookup_nsMap]>>
+    CONJ_TAC>-
+      fs[EVERY_MAP,EVERY_MEM,check_freevars_ts_tid_rename]>>
+    simp[MAP_MAP_o,o_DEF]>>
+    fs[GSYM alist_to_fmap_MAP_values,ZIP_MAP,LAMBDA_PROD])
+  >- (
+    fs[good_remap_def,prim_type_nums_def]>>metis_tac[ETA_AX])
+  >- (
+    fs[ts_tid_rename_type_name_subst,remap_tenv_def,GSYM check_type_names_ts_tid_rename]>>
+    metis_tac[ts_tid_rename_type_name_subst])
+  >>
+    metis_tac[]);
 
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
