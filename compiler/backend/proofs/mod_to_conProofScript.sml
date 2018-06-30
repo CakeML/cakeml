@@ -2841,75 +2841,27 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       simp[Abbr`bs`,Abbr`ss`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
-      Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-        Cases_on`s''.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-          unabbrev_all_tac >>
-          drule compile_prog_evaluate >>
-          imp_res_tac invariant_with_clock >>
-          pop_assum(qspec_then`k`strip_assume_tac) >>
-          simp[] >>
-          PairCases_on`tagenv_st`>>
-          disch_then drule >>
-          PairCases_on`tagenv_st'` >>
-          simp[] >>
-          strip_tac >>
-          drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
-          simp[RIGHT_FORALL_IMP_THM] >>
-          impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases]) >>
-          disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          qhdtm_x_assum`conSem$evaluate_prog`mp_tac >>
-          drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
-          simp[] >>
-          disch_then(qspec_then`k`mp_tac)>>simp[]>>
-          ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-          fsrw_tac[ARITH_ss][get_exh_def] >>
-          full_simp_tac(srw_ss())[conSemTheory.state_component_equality,OPTREL_def,result_rel_cases,s_rel_cases] >> rev_full_simp_tac(srw_ss())[]) >>
-        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-        unabbrev_all_tac >>
-        drule compile_prog_evaluate >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-        impl_tac >- (
-          last_x_assum(qspec_then`k+k'`mp_tac)>>
-          fsrw_tac[ARITH_ss][]) >>
-        imp_res_tac invariant_with_clock >>
-        pop_assum(qspec_then`k'+k`strip_assume_tac) >>
-        PairCases_on`tagenv_st`>>
-        disch_then drule >>
-        PairCases_on`tagenv_st'` >>
-        simp[] >> spose_not_then strip_assume_tac >>
-        qhdtm_x_assum`modSem$evaluate_prog`mp_tac >>
-        drule (GEN_ALL modPropsTheory.evaluate_prog_add_to_clock) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-        disch_then(qspec_then`k'`mp_tac)>>simp[] >>
-        strip_tac >>
-        spose_not_then strip_assume_tac >>
-        rveq >>
-        fsrw_tac[ARITH_ss][s_rel_cases,get_exh_def] >> rev_full_simp_tac(srw_ss())[]) >>
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
       unabbrev_all_tac >>
       drule compile_prog_evaluate >>
-      CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-      impl_tac >- (
-        last_x_assum(qspec_then`k+k'`mp_tac)>>
-        fsrw_tac[ARITH_ss][]) >>
+      `r <> SOME (Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
+      simp[] >>
       imp_res_tac invariant_with_clock >>
-      pop_assum(qspec_then`k'+k`strip_assume_tac) >>
+      pop_assum(qspec_then`k`strip_assume_tac) >>
+      simp[] >>
       PairCases_on`tagenv_st`>>
       disch_then drule >>
       PairCases_on`tagenv_st'` >>
-      simp[] >> strip_tac >>
-      full_simp_tac(srw_ss())[] >> rveq >>
-      reverse(Cases_on`s''.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
-        fsrw_tac[ARITH_ss][get_exh_def] >> full_simp_tac(srw_ss())[s_rel_cases] >> rev_full_simp_tac(srw_ss())[]) >>
-      qhdtm_x_assum`conSem$evaluate_prog`mp_tac >>
-      drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
-      CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-      impl_tac >- full_simp_tac(srw_ss())[] >>
-      disch_then(qspec_then`k`mp_tac)>>simp[] >>
-      rpt strip_tac >> spose_not_then strip_assume_tac >> rveq >>
-      fsrw_tac[ARITH_ss][get_exh_def,s_rel_cases,conSemTheory.state_component_equality] >>
-      rev_full_simp_tac(srw_ss())[]) >>
+      simp[] >>
+      strip_tac >>
+      dxrule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
+      disch_then(qspec_then `k'` mp_tac) >>
+      impl_tac >- (CCONTR_TAC >> fs[OPTREL_def] >> rveq >> fs[result_rel_cases]) >>
+      dxrule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
+      disch_then(qspec_then `k` mp_tac) >>
+      impl_tac >- (CCONTR_TAC >> fs[]) >>
+      simp[get_exh_def] >> rpt strip_tac >> rveq >>
+      rpt(PURE_FULL_CASE_TAC >> fs[]) >>
+      fs[OPTREL_def,result_rel_cases,conSemTheory.state_component_equality,s_rel_cases]) >>
     drule compile_prog_evaluate >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     last_x_assum(qspec_then`k`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
@@ -2924,7 +2876,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     full_simp_tac(srw_ss())[s_rel_cases] >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
     spose_not_then strip_assume_tac >>
-    full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases]) >>
+    full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases] >>
+    rveq >> fs[]) >>
   srw_tac[][] >>
   simp[conSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
@@ -2960,7 +2913,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     full_simp_tac(srw_ss())[s_rel_cases] >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
     spose_not_then strip_assume_tac >>
-    full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases]) >>
+    full_simp_tac(srw_ss())[OPTREL_def,result_rel_cases] >>
+    rveq >> fs[] ) >>
   rpt strip_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>
