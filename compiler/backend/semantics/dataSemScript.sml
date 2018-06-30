@@ -335,7 +335,7 @@ val semantics_def = Define`
   let p = Call NONE (SOME start) [] NONE in
   let init = initial_state init_ffi code coracle cc in
     if ∃k. case FST(evaluate (p,init k)) of
-             | SOME (Rerr e) => e ≠ Rabort Rtimeout_error
+             | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
       then Fail
     else
