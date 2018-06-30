@@ -332,6 +332,78 @@ val type_p_ts_tid_rename = Q.store_thm("type_p_ts_tid_rename",`
   >>
     metis_tac[]);
 
+val type_op_ts_tid_rename = Q.store_thm("type_op_ts_tid_rename",`
+  good_remap f ⇒
+  ∀op ts t.
+  type_op op ts t ⇒
+  type_op op (MAP (ts_tid_rename f) ts) (ts_tid_rename f t)`,
+  rw[]>>
+  fs[typeSysPropsTheory.type_op_cases,ts_tid_rename_def]>>
+  fs[good_remap_def,prim_type_nums_def]);
+
+(* TODO: tenvE needs some rename as well, but there's no MAP defined for tenv_val_exp at the moment *)
+val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
+  good_remap f ⇒
+  (∀tenv tenvE e t.
+    type_e tenv tenvE e t ⇒
+    type_e (remap_tenv f tenv) tenvE e (ts_tid_rename f t)) ∧
+  (∀tenv tenvE es ts.
+    type_es tenv tenvE es ts ⇒
+    type_es (remap_tenv f tenv) tenvE es (MAP (ts_tid_rename f) ts)) ∧
+  (∀tenv tenvE funs env.
+    type_funs tenv tenvE funs env ⇒
+    type_funs (remap_tenv f tenv) tenvE funs (MAP (λ(n,t). (n, ts_tid_rename f t)) env))`,
+  strip_tac>>
+  ho_match_mp_tac type_e_strongind>>
+  rw[]>>
+  simp[Once type_e_cases,ts_tid_rename_def]>>
+  fs[check_freevars_ts_tid_rename]>>
+  TRY(
+    fs[good_remap_def,prim_type_nums_def]>>
+    fs[ts_tid_rename_def]>>
+    rfs[]>>
+    NO_TAC)
+  >-
+    (* pes *)
+    cheat
+  >-
+    (
+    fs[MAP_MAP_o,o_DEF,ts_tid_rename_type_subst]>>
+    fs[remap_tenv_def,nsLookup_nsMap]>>
+    CONJ_TAC>-
+      fs[EVERY_MAP,EVERY_MEM,check_freevars_ts_tid_rename]>>
+    simp[MAP_MAP_o,o_DEF]>>
+    fs[GSYM alist_to_fmap_MAP_values,ZIP_MAP,LAMBDA_PROD])
+  >- (
+    fs[good_remap_def,prim_type_nums_def]>>metis_tac[ETA_AX])
+  >- (
+    fs[lookup_var_def,remap_tenv_def]>>
+    TOP_CASE_TAC>>fs[nsLookup_nsMap]>>
+    (* TODO: what to do if dB subst introduces a new identifier??
+        also, tenvE case
+        -- possibly fine*)
+    cheat)
+  >-
+    (* tenvE *)
+    cheat
+  >-
+    metis_tac[type_op_ts_tid_rename]
+  >-
+    (HINT_EXISTS_TAC>>fs[]>>
+    (* pes *)
+    cheat)
+  >-
+    (* tenvE *)
+    cheat
+  >-
+    cheat
+  >- (
+    fs[remap_tenv_def,ts_tid_rename_type_name_subst]>>
+    fs[GSYM check_type_names_ts_tid_rename]>>
+    metis_tac[ts_tid_rename_type_name_subst])
+  >>
+    cheat);
+
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
   f,g are maps from the identifiers used in type_d into the ones
