@@ -9916,7 +9916,8 @@ val th = Q.store_thm("assign_FFI",
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ match_mp_tac memory_rel_Unit
     \\ DEP_REWRITE_TAC[FUPDATE_ELIM]
-    \\ fs[FLOOKUP_DEF,ffiTheory.call_FFI_def])
+    \\ fs[FLOOKUP_DEF,ffiTheory.call_FFI_def]
+    \\ metis_tac[memory_rel_zero_space])
   \\ pop_assum (SUBST_ALL_TAC o EQF_INTRO)
   \\ rewrite_tac[]
   \\ eval_tac
@@ -10022,8 +10023,11 @@ val th = Q.store_thm("assign_FFI",
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ match_mp_tac memory_rel_Unit \\ fs[]
     \\ match_mp_tac (MP_CANON (GEN_ALL memory_rel_rearrange))
-    \\ last_assum(part_match_exists_tac rand o concl)
-    \\ simp[] \\ rw[] \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac `memory_rel _ _ _ _ _ _ _ (join_env a1 a2 ++ a3)`
+    \\ qexists_tac `join_env a1 a2 ++ a3`
+    \\ reverse conj_tac >- metis_tac[memory_rel_zero_space]
+    \\ rpt strip_tac >> unabbrev_all_tac >>
+    \\ fs[MEM_APPEND]
     \\ fs[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
     \\ metis_tac[])
   \\ eval_tac
@@ -10134,6 +10138,7 @@ val th = Q.store_thm("assign_FFI",
                                                pairTheory.ELIM_UNCURRY]
                                        memory_rel_Unit)
             >> fs[]
+            >> rename1 `call_FFI _ _ _ l'' = FFI_return _ r'`
             >> `LENGTH r' = LENGTH l''`
             by (
              qhdtm_x_assum`call_FFI`mp_tac
@@ -10232,6 +10237,8 @@ val th = Q.store_thm("assign_FFI",
             \\ metis_tac[] )
           \\ first_x_assum(qspec_then`LENGTH l''`mp_tac)
           \\ simp[Abbr `vars`] \\ strip_tac
+          \\ match_mp_tac(GEN_ALL memory_rel_zero_space)
+          \\ qexists_tac `x.space`
           \\ drule0 memory_rel_tl \\ match_mp_tac memory_rel_rearrange
           \\ simp[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
           \\ rw[] \\ rw[] \\ metis_tac[])
