@@ -10375,7 +10375,6 @@ val assign_FFI_final = Q.store_thm("assign_FFI_final",
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tttt.store = t.store` by simp[Abbr`tttt`]
   \\ simp[]
-(*  \\ IF_CASES_TAC >- ( fs[shift_def] )*)
   \\ simp[]
   \\ qpat_abbrev_tac`ttttt = t with locals := _`
   \\ `get_var (adjust_var e1) ttttt = get_var (adjust_var e1) t`
@@ -10417,7 +10416,7 @@ val assign_FFI_final = Q.store_thm("assign_FFI_final",
   \\ simp[lookup_insert]
   \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
   \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
-  \\ IF_CASES_TAC (* here *)
+  \\ IF_CASES_TAC
      >- (fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,cut_env_def]
          >> Cases_on `domain x' ⊆ domain s.locals` >> fs[]
          >> fs[domain_fromAList,MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY,adjust_var_def,

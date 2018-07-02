@@ -5053,8 +5053,6 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `read_bytearray c2' (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
     \\ full_simp_tac(srw_ss())[]
-(*    \\ qmatch_assum_rename_tac
-         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`*)
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
     \\ qmatch_asmsub_abbrev_tac `loc_to_pc a1 a2 a3`
     \\ Cases_on `loc_to_pc a1 a2 a3` >- fs[]
@@ -5161,7 +5159,7 @@ val compile_correct = Q.prove(
         \\ metis_tac[find_index_is_MEM] )
       >> fs[shift_interfer_def]
       >> rfs[] >> rveq >> fs[])
-    \\ full_simp_tac(srw_ss())[] (* here *)
+    \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
          `call_FFI s1.ffi s x x' = FFI_return new_ffi new_bytes`
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
