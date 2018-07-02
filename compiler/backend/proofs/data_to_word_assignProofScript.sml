@@ -10026,7 +10026,7 @@ val th = Q.store_thm("assign_FFI",
     \\ qmatch_asmsub_abbrev_tac `memory_rel _ _ _ _ _ _ _ (join_env a1 a2 ++ a3)`
     \\ qexists_tac `join_env a1 a2 ++ a3`
     \\ reverse conj_tac >- metis_tac[memory_rel_zero_space]
-    \\ rpt strip_tac >> unabbrev_all_tac >>
+    \\ rpt strip_tac >> unabbrev_all_tac
     \\ fs[MEM_APPEND]
     \\ fs[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
     \\ metis_tac[])
