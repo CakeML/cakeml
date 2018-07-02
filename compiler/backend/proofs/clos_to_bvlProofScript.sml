@@ -4823,6 +4823,14 @@ val even_stubs3 = Q.prove (
 
 val _ = overload_on("code_loc'",``λe. code_locs [e]``);
 
+val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs",
+  `∀i ls. MAP FST (chain_exps i ls) = MAP ((+)i) (COUNT_LIST (LENGTH ls))`,
+  recInduct chain_exps_ind
+  \\ rw[chain_exps_def, COUNT_LIST_def, MAP_MAP_o, o_DEF]
+  >- (EVAL_TAC \\ rw[])
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[FUN_EQ_THM]);
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   rw [compile_def]
