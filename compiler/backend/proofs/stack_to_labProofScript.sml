@@ -1864,7 +1864,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         pairarg_tac >> fs[code_installed_def] >>
         imp_res_tac code_installed_append_imp >> fs[] ) >>
       strip_tac >>
-      finish_tac >>
+      finish_tac
       )
     >- (
       rename1`SOME (Exception w)` >> Cases_on`w` \\ fs[] >>
