@@ -4831,6 +4831,13 @@ val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs",
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ rw[FUN_EQ_THM]);
 
+val chain_exps_body_code_locs = Q.store_thm("chain_exps_body_code_locs[simp]",
+  `∀n es. code_locs (MAP (SND o SND) (chain_exps n es)) = code_locs es`,
+  recInduct chain_exps_ind
+  \\ rw[chain_exps_def]
+  \\ rw[Once code_locs_cons]
+  \\ rw[code_locs_def]);
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   rw [compile_def]
