@@ -113,13 +113,6 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
-(* TODO: move to eg. dataProps *)
-
-val empty_ffi_no_abort = Q.prove(`do_app (FFI "") x' x <> Rerr (Rabort (Rffi_error x''))`,
-  fs[do_app_def,do_space_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
-     bvlSemTheory.do_app_def,ffiTheory.call_FFI_def] >>
-  rpt(PURE_FULL_CASE_TAC >> fs[]));
-                                 
 val data_compile_correct = Q.store_thm("data_compile_correct",
   `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
