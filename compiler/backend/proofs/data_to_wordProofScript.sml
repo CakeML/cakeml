@@ -113,6 +113,13 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
+(* TODO: move to eg. dataProps *)
+
+val empty_ffi_no_abort = Q.prove(`do_app (FFI "") x' x <> Rerr (Rabort (Rffi_error x''))`,
+  fs[do_app_def,do_space_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
+     bvlSemTheory.do_app_def,ffiTheory.call_FFI_def] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[]));
+                                 
 val data_compile_correct = Q.store_thm("data_compile_correct",
   `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -123,8 +130,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       ?t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events ∧
-           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
@@ -138,6 +144,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
                 LASTN (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
                 !i. state_rel c l5 l6 (set_var i v s1)
                        (set_var (adjust_var i) w t1) [] ll)
+         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
@@ -163,7 +170,11 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `cut_state_opt names_opt s` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `get_vars args x.locals` \\ full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `do_app op x' x`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (imp_res_tac do_app_Rerr \\ srw_tac[][])
+    THEN1 (imp_res_tac do_app_Rerr \\ srw_tac[][] \\
+           imp_res_tac assign_FFI_final \\
+           first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac) \\
+           asm_exists_tac >> fs[] >> rpt strip_tac >> fs[] >>
+           imp_res_tac cut_state_opt_const \\ fs[state_rel_def])
     \\ Cases_on `a`
     \\ drule (GEN_ALL assign_thm) \\ full_simp_tac(srw_ss())[]
     \\ rpt (disch_then drule)
@@ -277,7 +288,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `q'' = NONE`) \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `q''` \\ full_simp_tac(srw_ss())[]
-           \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e` \\ full_simp_tac(srw_ss())[])
+           \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e` \\ full_simp_tac(srw_ss())[] \\ PURE_TOP_CASE_TAC >> fs[])
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
@@ -390,11 +401,13 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
         \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
         \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp]
-        \\ sg `LENGTH r'.stack < LENGTH locs`
-        \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
         \\ `LENGTH locs = LENGTH s.stack` by
            (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
-        \\ imp_res_tac eval_exc_stack_shorter)
+        \\ TRY(rename1 `Rraise`
+               \\ `LENGTH r'.stack < LENGTH locs`
+                 by(imp_res_tac eval_exc_stack_shorter \\ fs[]))
+        \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
+        \\ every_case_tac \\ fs[])
       \\ Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
       \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
@@ -426,8 +439,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
-      \\ sg `r'.ffi.io_events ≼ s1.ffi.io_events ∧
-          (IS_SOME t1.ffi.final_event ⇒ r'.ffi = s1.ffi)`
+      \\ sg `r'.ffi.io_events ≼ s1.ffi.io_events`
       \\ TRY (imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
@@ -441,7 +453,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
       \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[])
     \\ reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][])
+    THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ every_case_tac \\ fs[])
     \\ full_simp_tac(srw_ss())[mk_loc_jump_exc]
     \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
     \\ qpat_x_assum `!x y z.bbb` (K ALL_TAC)
@@ -479,14 +491,14 @@ val compile_correct_lemma = Q.store_thm("compile_correct_lemma",
       ?t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events ∧
-           (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
         | NONE => (res1 = NONE)
         | SOME (Rval v) => t1.ffi = s1.ffi /\
                            ?w. (res1 = SOME (Result (Loc l1 l2) w))
         | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+        | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   rpt strip_tac
   \\ drule data_compile_correct \\ full_simp_tac(srw_ss())[]
@@ -524,14 +536,14 @@ val compile_correct = Q.store_thm("compile_correct",
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
            (inc_clock ck t)) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events ∧
-           (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => (res1 = NONE)
          | SOME (Rval v) => t1.ffi = s1.ffi /\
                             ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
@@ -645,72 +657,20 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       srw_tac[][extend_with_resource_limit_def] >> full_simp_tac(srw_ss())[] >>
-      Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
-        Cases_on`r'`>>full_simp_tac(srw_ss())[] >> rveq >>
-        drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
-        disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
-        drule(compile_correct)>>simp[]>>
-        drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
-        disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
-        disch_then drule>>
-        simp[comp_def]>>strip_tac>>
-        `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-         (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
-           qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
-           Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
-           full_simp_tac(srw_ss())[inc_clock_def,Abbr`tt`] >>
-           disch_then(qspec_then`k+ck`mp_tac)>>simp[]>>
-           fsrw_tac[ARITH_ss][] ) >>
-        Cases_on`r = SOME TimeOut` >- (
-          every_case_tac >> full_simp_tac(srw_ss())[]>>
-          Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
-        qhdtm_x_assum`wordSem$evaluate`mp_tac >>
-        drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
-        simp[] >>
-        disch_then(qspec_then`ck+k`mp_tac) >>
-        simp[inc_clock_def] >> ntac 2 strip_tac >>
-        rveq >> full_simp_tac(srw_ss())[] >>
-        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
-      `∃r s'.
-        evaluate
-          (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) co cc (k + k')) = (r,s') ∧
-        s'.ffi = s.ffi` by (
-          srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-          metis_tac[dataPropsTheory.evaluate_add_clock_io_events_mono,SND,
-                    initial_state_with_simp,IS_SOME_EXISTS,initial_state_simp]) >>
-      drule compile_correct >> simp[] >>
-      simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-      impl_tac >- (
-        last_x_assum(qspec_then`k+k'`mp_tac)>>srw_tac[][]>>
-        strip_tac>>full_simp_tac(srw_ss())[])>>
+      `r' <> Rerr(Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
+      `r' <> Rerr(Rabort Rtimeout_error)` by(CCONTR_TAC >> fs[]) >>
+      drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
+      disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
+      drule(compile_correct)>>simp[]>>
       drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
-      disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
-      disch_then drule>>
-      simp[comp_def]>>strip_tac>>
-      `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-       (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
-        qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
-        Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
-        full_simp_tac(srw_ss())[inc_clock_def,Abbr`tt`] >>
-        disch_then(qspec_then`k+ck`mp_tac)>>simp[]>>
-        fsrw_tac[ARITH_ss][] ) >>
-      reverse(Cases_on`t'.ffi.final_event`)>>full_simp_tac(srw_ss())[] >- (
-        Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>>
-        full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-        every_case_tac>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-        rveq>>full_simp_tac(srw_ss())[]>>
-        last_x_assum(qspec_then`k+k'`mp_tac) >> simp[]) >>
-      Cases_on`r`>>full_simp_tac(srw_ss())[]>>
-      qhdtm_x_assum`wordSem$evaluate`mp_tac >>
-      drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
-      simp[RIGHT_FORALL_IMP_THM] >>
-      impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-      disch_then(qspec_then`k+ck`mp_tac) >>
-      fsrw_tac[ARITH_ss][inc_clock_def]>> srw_tac[][] >>
-      every_case_tac>>full_simp_tac(srw_ss())[]>>rveq>>rev_full_simp_tac(srw_ss())[]>>
-      full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]) >>
+      disch_then(qspec_then `k+k'` assume_tac)>>disch_then drule>>
+      simp[inc_clock_def]>>strip_tac>>
+      qpat_x_assum `evaluate _ = (r,_)` assume_tac>>
+      dxrule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
+      disch_then(qspec_then `ck+k` mp_tac)>>
+      impl_tac>-(CCONTR_TAC>>fs[])>>
+      simp[inc_clock_def]>>strip_tac>>
+      rpt(PURE_FULL_CASE_TAC>>fs[]>>rveq>>fs[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -763,8 +723,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
-    `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-     (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
+    `t'.ffi.io_events ≼ t1.ffi.io_events` by (
       qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
       Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
       full_simp_tac(srw_ss())[inc_clock_def,Abbr`tt`] >>
@@ -852,8 +811,9 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
     strip_tac >> full_simp_tac(srw_ss())[] >>
     rveq >>
-    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) ) >>
-    (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
+    every_case_tac >> fs[]) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
