@@ -1756,7 +1756,6 @@ val known_correct_approx = Q.store_thm(
     \\ fs [evaluate_def, bool_case_eq] \\ rveq
     \\ fs [any_el_ALT] \\ fs [fv_max_rw, EL_APPEND1, LIST_REL_EL_EQN]
     \\ fs [simply_true_def])
-
   THEN1
    (say "If"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1804,7 +1803,6 @@ val known_correct_approx = Q.store_thm(
     \\ imp_res_tac evaluate_IMP_shift_seq \\ simp [oracle_states_subspt_shift_seq]
     \\ Cases_on `res` \\ fs [] \\ strip_tac \\ rveq \\ fs []
     \\ metis_tac [val_approx_val_merge_I])
-
   THEN1
    (say "Let"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1816,26 +1814,33 @@ val known_correct_approx = Q.store_thm(
            \\ rpt (goal_assum drule \\ simp [])
            \\ fs [unique_set_globals_def,
                   BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+    \\ fs [evaluate_def, pair_case_eq]
+    \\ rename1 `Let tr _ _` (* For some reason the trace gets named s0 *)
+    \\ rename1 `evaluate (_, _, s0) = (_, s1)`
+    \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
+       by (fs [result_case_eq] \\ rveq \\ fs []
+           \\ imp_res_tac evaluate_IMP_shift_seq
+           \\ fs [next_g_def, shift_seq_def, oracle_states_subspt_alt])
     \\ `subspt g1 g'` by metis_tac [subspt_trans]
     \\ fs [fv_max_rw]
-    \\ fs [evaluate_def, pair_case_eq]
-    \\ first_x_assum drule \\ rpt (disch_then drule)
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ impl_tac THEN1 metis_tac [subspt_trans]
     \\ fs [result_case_eq] \\ rveq \\ fs [] \\ strip_tac
     \\ patresolve `unique_set_globals [_] _` hd unique_set_globals_evaluate
     \\ disch_then drule \\ strip_tac
-    \\ rename1 `Let tr _ _` (* for some reason the trace of Let is called s0 at this point *)
-    \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
+    \\ rename1 `Rval vs`
     \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
        by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
            \\ rpt (disch_then drule \\ simp []))
     \\ first_x_assum drule
-    \\ imp_res_tac evaluate_code \\ simp [oracle_states_subspt_shift_seq]
+    \\ imp_res_tac evaluate_IMP_shift_seq
+    \\ simp [oracle_states_subspt_shift_seq]
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
     \\ disch_then match_mp_tac
     \\ qexists_tac `vs ++ env` \\ simp []
     \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
-    \\ simp [] \\ strip_tac \\ fs [] 
-    \\ irule EVERY2_APPEND_suff \\ simp [])
+    \\ simp [] \\ strip_tac \\ fs []
+    \\ metis_tac [subspt_trans, EVERY2_APPEND_suff])
   THEN1
    (say "Raise"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1857,10 +1862,16 @@ val known_correct_approx = Q.store_thm(
            \\ rpt (asm_exists_tac \\ simp [])
            \\ fs [unique_set_globals_def,
                   BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+    \\ rename1 `evaluate (_, _, s0) = (_, s1)`
+    \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
+       by (fs [case_eq_thms] \\ rveq \\ fs []
+           \\ imp_res_tac evaluate_IMP_shift_seq
+           \\ fs [next_g_def, shift_seq_def, oracle_states_subspt_alt])
     \\ `subspt g1 g'` by metis_tac [subspt_trans]
     \\ fs [fv_max_rw]
-    \\ first_x_assum drule \\ rpt (disch_then drule) 
-    \\ fs [case_eq_thms] \\ rveq \\ fs [] 
+    \\ first_x_assum drule \\ rpt (disch_then drule)
+    \\ `subspt g1 (next_g s0) ∧ subspt (next_g s1) g'` by metis_tac [subspt_trans]
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ strip_tac \\ fs [] THEN1 (fs [val_approx_val_merge_I] \\ metis_tac [])
     \\ rename1 `evaluate (_,_,s0) = (Rerr (Rraise v), s1)`
     \\ `unique_set_globals [x2] s1.compile_oracle`
@@ -1871,8 +1882,9 @@ val known_correct_approx = Q.store_thm(
        by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
            \\ rpt (disch_then drule \\ simp []))
     \\ first_x_assum drule
-    \\ imp_res_tac evaluate_code \\ simp [oracle_states_subspt_shift_seq]
+    \\ imp_res_tac evaluate_IMP_shift_seq \\ simp [oracle_states_subspt_shift_seq]
     \\ disch_then (qspecl_then [`g'`, `[v] ++ env`] mp_tac)
+    \\ `subspt g (next_g s1)` by metis_tac [subspt_trans]
     \\ simp [] \\ rpt (disch_then drule) \\ strip_tac
     \\ Cases_on `res`
     \\ fs [val_approx_val_merge_I]
@@ -1887,18 +1899,28 @@ val known_correct_approx = Q.store_thm(
        by (match_mp_tac subspt_known_op_elist_globals
            \\ rpt (goal_assum drule)
            \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
-    \\ `subspt g1 g'` by metis_tac [subspt_trans]
     \\ fs [evaluate_def, pair_case_eq]
+    \\ rename1 `evaluate (_, _, s0) = (_, s1)`
+    \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
+       by (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rveq \\ fs []
+           \\ imp_res_tac evaluate_IMP_shift_seq
+           \\ imp_res_tac do_install_IMP_shift_seq
+           \\ imp_res_tac do_app_const
+           \\ fs [next_g_def, shift_seq_def, oracle_states_subspt_alt])
+    \\ `subspt g1 g'` by metis_tac [subspt_trans]
     \\ fs [fv_max_rw]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ impl_tac THEN1 metis_tac [subspt_trans]
     \\ strip_tac
-    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs [] THEN1 metis_tac []  
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs [] THEN1 metis_tac []
     \\ reverse (Cases_on `opn = Install`) \\ fs []
     THEN1
-     (fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
+     (fs [result_case_eq, pair_case_eq] \\ rveq \\ fs []
       \\ asm_exists_tac \\ simp []
       \\ irule known_op_correct_approx
-      \\ rpt (goal_assum drule \\ simp []))
+      \\ rpt (goal_assum drule \\ simp [])
+      \\ metis_tac [subspt_trans])
+
     \\ rename1 `evaluate (_, _, s0) = (_, s1)`
     \\ reverse (fs [pair_case_eq, case_eq_thms])
     THEN1
