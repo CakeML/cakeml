@@ -69,8 +69,7 @@ val _ = Hol_datatype `
  abort =
     Rtype_error
   | Rtimeout_error
-  | Rffi_error of final_event
-`;
+  | Rffi_error of final_event`;
 
 
 val _ = Hol_datatype `
@@ -803,13 +802,13 @@ val _ = Define `
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             (case call_FFI t n (MAP (\ c .  n2w(ORD c)) (EXPLODE conf)) ws of
-               FFI_return t' ws' =>
-                (case store_assign lnum (W8array ws') s of
-                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
-                | NONE => NONE
-                )
-             | FFI_final outcome =>
-                SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
+              FFI_return t' ws' =>
+               (case store_assign lnum (W8array ws') s of
+                 SOME s' => SOME ((s', t'), Rval (Conv NONE []))
+               | NONE => NONE
+               )
+            | FFI_final outcome =>
+               SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
             )
         | _ => NONE
         )
