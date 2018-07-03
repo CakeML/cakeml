@@ -29,16 +29,15 @@ val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi
 let initial_ffi_state oc ffi =
 <| oracle      = oc
  ; ffi_state   = ffi
- ; final_event = Nothing
  ; io_events   = []
  |>
 
 type ffi_result 'ffi = FFI_return of ffi_state 'ffi * list word8 | FFI_final of final_event
 
-val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * ffi_result
+val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi
 let call_FFI st s conf bytes =
   if s <> "" then
-    st.oracle s st.ffi_state conf bytes with
+    match st.oracle s st.ffi_state conf bytes with
     | Oracle_return ffi' bytes' ->
         if length bytes' = length bytes then
           (FFI_return
@@ -52,9 +51,9 @@ let call_FFI st s conf bytes =
     | Oracle_final outcome ->
           FFI_final(Final_event s conf bytes outcome)
     end
-  else (st, bytes)
+  else FFI_return st bytes
 
-type outcome 'ffi = Success | Resource_limit_hit | FFI_outcome of final_event 'ffi
+type outcome = Success | Resource_limit_hit | FFI_outcome of final_event
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -67,7 +66,7 @@ type behaviour 'ffi =
     (* Terminating executions can only perform a finite number of
        FFI calls. The execution can be terminated by a non-returning
        FFI call. *)
-  | Terminate of outcome 'ffi * list io_event
+  | Terminate of outcome * list io_event
     (* Failure is a behaviour which we prove cannot occur for any
        well-typed program. *)
   | Fail

@@ -50,7 +50,7 @@ val _ = Define `
 
 (*val exit : oracle_function simpleIO*)
 val _ = Define `
- (exit st conf input=  Oracle_final FFI_diverged)`;
+ (exit st conf input=  (Oracle_final FFI_diverged))`;
 
 
 (*val simpleIO_oracle : oracle simpleIO*)
