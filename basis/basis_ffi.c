@@ -112,8 +112,8 @@ void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
   assert(clen = 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
-  assert(alen >= n + 4);
   int off = byte2_to_int(&a[2]);
+  assert(alen >= n + off + 4);
   int nw = write(fd, &a[4 + off], n);
   if(nw < 0){
       a[0] = 1;
