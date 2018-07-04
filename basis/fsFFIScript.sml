@@ -236,8 +236,8 @@ val ffi_write_def = Define`
        assert(LENGTH conf = 8);
        fd <- SOME(w82n conf);
        n <- SOME(w22n [n1; n0]);
-       assert(LENGTH tll >= n);
        off <- SOME(w22n [off1; off0]);
+       assert(LENGTH tll >= n + off);
        do
          (nw, fs') <- write fd n (MAP (CHR o w2n) (DROP off tll)) fs;
          (* return ok code and number of bytes written *)
