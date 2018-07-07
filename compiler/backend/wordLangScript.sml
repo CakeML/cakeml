@@ -7,20 +7,12 @@ val _ = new_theory "wordLang";
 val _ = Parse.type_abbrev("shift",``:ast$shift``);
 
 val _ = Datatype `
-  num_exp = Nat num
-          | Add num_exp num_exp
-          | Sub num_exp num_exp
-          | Div2 num_exp
-          | Exp2 num_exp
-          | WordWidth ('a word)`
-
-val _ = Datatype `
   exp = Const ('a word)
       | Var num
       | Lookup store_name
       | Load exp
       | Op binop (exp list)
-      | Shift shift exp ('a num_exp)`
+      | Shift shift exp num`
 
 val MEM_IMP_exp_size = Q.store_thm("MEM_IMP_exp_size",
   `!xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)`,
@@ -70,7 +62,7 @@ val every_var_exp_def = tDefine "every_var_exp" `
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
-  (every_var_exp P (Shift sh exp nexp) = every_var_exp P exp) ∧
+  (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
   (every_var_exp P expr = T)`
 (WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
@@ -179,7 +171,7 @@ val max_var_exp_def = tDefine "max_var_exp" `
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
   (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
-  (max_var_exp (Shift sh exp nexp) = max_var_exp exp) ∧
+  (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
   (max_var_exp exp = 0:num)`
 (WF_REL_TAC `measure (exp_size ARB )`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
@@ -253,15 +245,6 @@ val max_var_def = Define `
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var p = 0)`;
-
-(*Moved from wordSem, because we use them to simplify constant expressions in word_inst*)
-val num_exp_def = Define `
-  (num_exp (Nat n) = n) /\
-  (num_exp (Add x y) = num_exp x + num_exp y) /\
-  (num_exp (Sub x y) = num_exp x - num_exp y) /\
-  (num_exp (Div2 x) = num_exp x DIV 2) /\
-  (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
-  (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
 
 val word_op_def = Define `
   word_op op (ws:('a word) list) =

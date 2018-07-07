@@ -290,6 +290,7 @@ val to_livesets_def = Define`
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
   let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
   let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
+  let alg = word_conf.reg_alg in
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
@@ -301,22 +302,24 @@ val to_livesets_def = Define`
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
      (name_num,arg_count,prog)) p in
-  let clashmovforce = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog [],get_forced c.lab_conf.asm_conf prog []) p in
-  ((reg_count,clashmovforce),c,p)`
+  let data = MAP (\(name_num,arg_count,prog).
+    let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
+    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+  in
+    ((reg_count,data),c,p)`
 
 val from_livesets_def = Define`
-  from_livesets ((k,clashmovforce),c,p) =
+  from_livesets ((k,data),c,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
-  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmovforce,p)) in
+  let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
   let p =
-    MAP (λ(col_opt,((tree,moves,forced),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
-          let moves = get_prefs prog [] in
           let cp =
-            (case reg_alloc k moves tree forced of
+            (case reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
               Success col =>
                 (apply_colour (total_colour col) prog)
             | Failure _ => prog (*cannot happen*)) in
@@ -369,6 +372,7 @@ val compile_oracle = Q.store_thm("compile_oracle",`
   BasicProvers.EVERY_CASE_TAC>>fs[]);
 
 val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
+  wc.reg_alg = c.word_to_word_conf.reg_alg ⇒
   to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
     (rcm,c with word_to_word_conf:=wc,p)`,
@@ -383,7 +387,7 @@ val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
      to_con_def,
      to_mod_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
-  rpt(rfs[]>>fs[]))
+  rpt(rfs[]>>fs[]));
 
 val to_data_change_config = Q.store_thm("to_data_change_config",
   `to_data c1 prog = (c1',prog') ⇒

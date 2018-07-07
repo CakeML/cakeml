@@ -239,13 +239,13 @@ val const_fp_exp_def = tDefine "const_fp_exp" `
 			| SOME w => Const w
 		        | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
-  (const_fp_exp (Shift sh e ne) cs =
+  (const_fp_exp (Shift sh e n) cs =
      let const_fp_exp_e = const_fp_exp e cs in
        dtcase const_fp_exp_e of
-         | Const c => (dtcase word_sh sh c (num_exp ne) of
+         | Const c => (dtcase word_sh sh c n of
                         | SOME w => Const w
-                        | _ => Shift sh (Const c) ne)
-         | _ => Shift sh e ne) /\
+                        | _ => Shift sh (Const c) n)
+         | _ => Shift sh e n) /\
   (const_fp_exp e _ = e)`
 
   (WF_REL_TAC `measure (exp_size (\x.0) o FST)` \\ conj_tac

@@ -11,6 +11,10 @@ A list of paths to files that are considered to be the (non-theory) outputs of
 a successful build. As with rebuild-excludes and build-sequence, these are
 paths relative to the root directory.
 
+[bin](bin):
+This directory represents a stage in the build sequence where the latest
+available cake binary is downloaded to perform testing and bootstrapping.
+
 [build-sequence](build-sequence):
 The regression test runs through this list of directories.
 

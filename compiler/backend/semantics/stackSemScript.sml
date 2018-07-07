@@ -122,10 +122,10 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Op op wexps) =
      let ws = MAP (word_exp s) wexps in
        if EVERY IS_SOME ws then word_op op (MAP THE ws) else NONE) /\
-  (word_exp s (Shift sh wexp nexp) =
+  (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | NONE => NONE
-     | SOME w => word_sh sh w (num_exp nexp))`
+     | SOME w => word_sh sh w n)`
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
@@ -266,7 +266,7 @@ val inst_def = Define `
                                       | Imm w => Const w]) s
     | Arith (Shift sh r1 r2 n) =>
         assign r1
-          (Shift sh (Var r2) (Nat n)) s
+          (Shift sh (Var r2) n) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of

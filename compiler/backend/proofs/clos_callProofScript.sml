@@ -5,6 +5,10 @@ open preamble match_goal dep_rewrite
 
 val _ = new_theory"clos_callProof";
 
+(* TODO These are the same. Put in closLang? *)
+val _ = temp_bring_to_front_overload "free" {Name="free", Thy="clos_call"};
+val _ = temp_bring_to_front_overload "closed" {Name="closed", Thy="clos_call"};
+
 (* TODO: move *)
 
 val MEM_REPLICATE_EQ = Q.store_thm("MEM_REPLICATE_EQ",
@@ -1508,9 +1512,9 @@ val do_app_thm = Q.prove(
     >- (
       irule EVERY_TAKE >>
       fs [LENGTH_DROP]
-      >- intLib.ARITH_TAC >>
+      \\ conj_tac >- intLib.ARITH_TAC >>
       irule EVERY_DROP
-      >- intLib.ARITH_TAC >>
+      \\ conj_tac >- intLib.ARITH_TAC >>
       fs [EVERY_MEM])
     >- (
       imp_res_tac LIST_REL_LENGTH >>

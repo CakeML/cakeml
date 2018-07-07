@@ -44,9 +44,9 @@ val wfFS_def = Define `
   wfFS fs <=> fsFFIProps$wfFS fs ∧ STD_streams fs`;
 
 val x64_installed_def = Define `
-  x64_installed (c,d,conf) ffi mc ms <=>
+  x64_installed (c,d,conf) cbspace data_sp ffi mc ms <=>
     is_x64_machine_config mc ∧
-    backendProof$installed c d conf.ffi_names ffi
+    backendProof$installed c cbspace d data_sp conf.ffi_names ffi
       (heap_regs x64_backend_config.stack_conf.reg_names) mc ms`
 
 (* -- *)
@@ -54,7 +54,7 @@ val x64_installed_def = Define `
 val wordfreq_compiled_thm = store_thm("wordfreq_compiled_thm",
   ``wfcl [pname; fname] ∧ wfFS fs ∧ hasFreeFD fs ∧
     (get_file_contents fs fname = SOME file_contents) ∧
-    x64_installed compiler_output (basis_ffi [pname; fname] fs) mc ms ⇒
+    x64_installed compiler_output cbspace data_sp (basis_ffi [pname; fname] fs) mc ms ⇒
     ∃io_events ascii_output.
       machine_sem mc (basis_ffi [pname; fname] fs) ms ⊆
       extend_with_resource_limit {Terminate Success io_events} ∧

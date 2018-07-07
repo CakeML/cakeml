@@ -78,5 +78,4 @@ val assign_spec = Q.store_thm ("assign_spec",
        (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`,
   prove_ref_spec "op :=");
 
-
 val _ = export_theory ()

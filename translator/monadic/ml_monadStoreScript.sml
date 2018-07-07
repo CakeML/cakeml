@@ -121,6 +121,7 @@ val rarray_exact_thm = Q.store_thm("rarray_exact_thm",
   \\ `[Varray av; Refv (Loc l')] = [Varray av] ++ [Refv (Loc l')]` by fs[]
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
   \\ irule store2heap_aux_decompose_store1
+  \\ conj_tac
   >-(rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
   \\ rw[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
 
