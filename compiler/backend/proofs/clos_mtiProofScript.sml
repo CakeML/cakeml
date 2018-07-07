@@ -744,11 +744,11 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ fs [state_rel_def,FUPDATE_LIST,pure_co_def,FUN_EQ_THM]
       \\ metis_tac [FST,SND])
     \\ Cases_on `res1` \\ fs []
-    \\ `LIST_REL (v_rel s1.max_app) (REVERSE a) (REVERSE vs)` by
-           (match_mp_tac EVERY2_REVERSE \\ fs [])
     \\ imp_res_tac evaluate_const \\ fs []
     \\ drule (GEN_ALL do_app_lemma)
     \\ imp_res_tac evaluate_const \\ fs []
+    \\ `LIST_REL (v_rel s1.max_app) (REVERSE a) (REVERSE vs)` by
+           (match_mp_tac EVERY2_REVERSE \\ fs [])
     \\ disch_then drule
     \\ disch_then (qspec_then `opp` mp_tac) \\ fs []
     \\ rw [] \\ fs []
@@ -1037,7 +1037,6 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
      (unabbrev_all_tac
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
-      \\ match_mp_tac EVERY2_REVERSE
       \\ match_mp_tac EVERY2_TAKE
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
       \\ match_mp_tac EVERY2_REVERSE \\ fs [])
@@ -1137,7 +1136,6 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
       \\ reverse conj_tac
       THEN1 (fs [LIST_REL_GENLIST] \\ simp [])
-      \\ match_mp_tac EVERY2_REVERSE
       \\ match_mp_tac EVERY2_TAKE
       \\ match_mp_tac EVERY2_REVERSE \\ fs [])
     \\ first_x_assum drule
@@ -1151,9 +1149,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ drule evaluate_SING \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ `s1.max_app = s2.max_app` by (imp_res_tac evaluate_const \\ fs [])
     \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
-    \\ match_mp_tac EVERY2_REVERSE
-    \\ match_mp_tac EVERY2_DROP
-    \\ match_mp_tac EVERY2_REVERSE \\ fs [])
+    \\ match_mp_tac EVERY2_DROP \\ fs [])
   THEN1
    (IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS,ADD1]
     \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
@@ -1188,10 +1184,8 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
-      \\ match_mp_tac EVERY2_REVERSE
       \\ match_mp_tac EVERY2_TAKE
-      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
-      \\ match_mp_tac EVERY2_REVERSE \\ fs [])
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs [])
     \\ first_x_assum drule
     \\ disch_then (qspec_then `[e1]` mp_tac)
     \\ fs [EVAL ``(dec_clock n s).max_app``]
@@ -1204,10 +1198,8 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ `s1.max_app = s2.max_app` by (imp_res_tac evaluate_const \\ fs [])
     \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
     \\ fs [Abbr `xxs`,Abbr`vvs`]
-    \\ match_mp_tac EVERY2_REVERSE
-    \\ match_mp_tac EVERY2_DROP
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
-    \\ match_mp_tac EVERY2_REVERSE \\ fs []));
+    \\ match_mp_tac EVERY2_DROP \\ fs []
+    \\ match_mp_tac EVERY2_APPEND_suff \\ fs []));
 
 val intro_multi_correct = store_thm("intro_multi_correct",
   ``!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t2 t1.
@@ -1367,7 +1359,7 @@ val intro1_pat = ``intro_multi max_app [e]``
 fun intro_sing th =
   case gen_find_term
          (fn (bvs,t) => if can (match_term intro1_pat) t andalso
-                           null (intersect bvs (free_vars t))
+                           null (op_intersect aconv bvs (free_vars t))
                         then SOME t
                         else NONE)
                      (concl th)

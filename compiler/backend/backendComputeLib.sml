@@ -179,12 +179,14 @@ val add_backend_compset = computeLib.extend_compset
     ,``:closLang$op``
     ,``:clos_known$val_approx``
     ,``:clos_known$globalOpt``
+    ,``:clos_known$inliningDecision``
+    ,``:clos_known$config``
     ]
   ,computeLib.Defs
     [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
-    ,pat_to_closTheory.compile_def
+    ,pat_to_closTheory.dest_WordToInt_def
     ,pat_to_closTheory.CopyByteStr_def
     ,pat_to_closTheory.CopyByteAw8_def
     ,pat_to_closTheory.vector_tag_def
@@ -204,7 +206,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.closed_def
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
-    ,clos_callTheory.calls_def
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_def_compute
     ,clos_callTheory.GENLIST_Var_def
@@ -218,14 +219,24 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.no_overlap_def_compute
     ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
+    ,clos_knownTheory.get_size_sc_aux_def
+    ,clos_knownTheory.get_size_sc_def
+    ,clos_knownTheory.get_size_aux_def
+    ,clos_knownTheory.get_size_def
+    ,clos_knownTheory.free_def
+    ,clos_knownTheory.closed_def
+    ,clos_knownTheory.contains_closures_def
+    ,clos_knownTheory.decide_inline_def
     ,clos_knownTheory.merge_def
-    ,clos_knownTheory.compile_def
-    ,clos_knownTheory.dest_Clos_def
-    ,clos_knownTheory.known_def
     ,clos_knownTheory.known_op_def
+    ,clos_knownTheory.clos_gen_noinline_def
     ,clos_knownTheory.isGlobal_def
     ,clos_knownTheory.gO_destApx_def
-    ,clos_knownTheory.clos_gen_def
+    ,clos_knownTheory.mk_Ticks_def
+    ,clos_knownTheory.dec_inline_factor_def
+    ,clos_knownTheory.known_def
+    ,clos_knownTheory.compile_def
+    ,clos_knownTheory.clos_approx_def
     ]
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
@@ -236,6 +247,9 @@ val add_backend_compset = computeLib.extend_compset
      backend_commonTheory.closure_tag_def
     ,backend_commonTheory.clos_tag_shift_def
     ,backend_commonTheory.partial_app_tag_def
+    ,backend_commonTheory.bool_to_tag_def
+    ,bvlTheory.mk_tick_def
+    ,bvlTheory.Bool_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
@@ -253,7 +267,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.partial_app_label_table_loc_def
     ,clos_to_bvlTheory.partial_app_fn_location_code_def
     ,clos_to_bvlTheory.init_globals_def
-    ,bvlTheory.mk_tick_def
     ,clos_to_bvlTheory.mk_cl_call_def
     ,clos_to_bvlTheory.ToList_location_def
     ,clos_to_bvlTheory.block_equality_location_def
@@ -269,24 +282,25 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_label_def
     ,clos_to_bvlTheory.compile_op_def
     ,clos_to_bvlTheory.mk_const_def
-    ,bvlTheory.Bool_def
-    ,backend_commonTheory.bool_to_tag_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
     ,clos_to_bvlTheory.code_split_def
     ,clos_to_bvlTheory.code_sort_def
       (* ---- bvl_inline ---- *)
-    ,bvl_inlineTheory.inline_def
+    ,bvl_inlineTheory.tick_inline_def
     ,bvl_inlineTheory.is_small_aux_def
     ,bvl_inlineTheory.is_small_def
     ,bvl_inlineTheory.is_rec_def
+    ,bvl_inlineTheory.must_inline_def
+    ,bvl_inlineTheory.tick_inline_all_def
+    ,bvl_inlineTheory.tick_compile_prog_def
+    ,bvl_inlineTheory.remove_ticks_def
     ,bvl_inlineTheory.var_list_def
     ,bvl_inlineTheory.dest_op_def
     ,bvl_inlineTheory.let_op_def
     ,bvl_inlineTheory.let_op_sing_def
-    ,bvl_inlineTheory.must_inline_def
-    ,bvl_inlineTheory.inline_all_def
     ,bvl_inlineTheory.optimise_def
+    ,bvl_inlineTheory.compile_inc_def
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def
@@ -355,10 +369,9 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- bvi_tailrec ---- *)
     ,bvi_tailrecTheory.dummy_def
     ,bvi_tailrecTheory.small_int_def
-    ,bvi_tailrecTheory.is_arith_op_def
-    ,bvi_tailrecTheory.is_const_def
-    ,bvi_tailrecTheory.is_num_rel_def
     ,bvi_tailrecTheory.is_rec_def
+    ,bvi_tailrecTheory.is_const_def
+    ,bvi_tailrecTheory.op_type_def
     ,bvi_tailrecTheory.to_op_def
     ,bvi_tailrecTheory.from_op_def
     ,bvi_tailrecTheory.op_eq_def
@@ -367,17 +380,29 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.index_of_def
     ,bvi_tailrecTheory.args_from_def
     ,bvi_tailrecTheory.get_bin_args_def
+    ,bvi_tailrecTheory.opbinargs_def
     ,bvi_tailrecTheory.try_update_def
-    ,bvi_tailrecTheory.no_err_def
-    ,bvi_tailrecTheory.is_rec_or_rec_binop_def
-    ,bvi_tailrecTheory.assoc_swap_def
-    ,bvi_tailrecTheory.rewrite_op_def
+    ,bvi_tailrecTheory.is_arith_def
+    ,bvi_tailrecTheory.is_rel_def
+    ,bvi_tailrecTheory.term_ok_int_def
+    ,bvi_tailrecTheory.term_ok_any_def
+    ,bvi_tailrecTheory.term_ok_def
+    ,bvi_tailrecTheory.rotate_def
+    ,bvi_tailrecTheory.do_assocr_def
+    ,bvi_tailrecTheory.assocr_def
+    ,bvi_tailrecTheory.do_comml_def
+    ,bvi_tailrecTheory.check_op_def
     ,bvi_tailrecTheory.decide_ty_def
     ,bvi_tailrecTheory.LAST1_def
+    ,bvi_tailrecTheory.update_context_def
+    ,bvi_tailrecTheory.arg_ty_def
+    ,bvi_tailrecTheory.op_ty_def
     ,bvi_tailrecTheory.scan_expr_def
+    ,bvi_tailrecTheory.comml_def
     ,bvi_tailrecTheory.push_call_def
-    ,bvi_tailrecTheory.mk_tailcall_def
     ,bvi_tailrecTheory.rewrite_def
+    ,bvi_tailrecTheory.has_rec_def
+    ,bvi_tailrecTheory.has_rec1_def
     ,bvi_tailrecTheory.check_exp_def
     ,bvi_tailrecTheory.let_wrap_def
     ,bvi_tailrecTheory.mk_aux_call_def
@@ -449,7 +474,6 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.tag_mask_def
     ,data_to_wordTheory.encode_header_def
     ,data_to_wordTheory.list_Seq_def
-    ,wordLangTheory.shift_def
     ,data_to_wordTheory.StoreEach_def
     ,data_to_wordTheory.small_shift_length_def
     ,data_to_wordTheory.shift_length_def
@@ -479,6 +503,14 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv1_location_eq
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
+    ,data_to_wordTheory.Dummy_location_eq
+    ,data_to_wordTheory.Install_location_eq
+    ,data_to_wordTheory.InstallCode_location_eq
+    ,data_to_wordTheory.InstallData_location_eq
+    ,data_to_wordTheory.Append_location_eq
+    ,data_to_wordTheory.AppendMainLoop_location_eq
+    ,data_to_wordTheory.AppendLenLoop_location_eq
+    ,data_to_wordTheory.AppendFastLoop_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.ByteCopy_location_eq
     ,data_to_wordTheory.ByteCopyAdd_location_eq
@@ -486,6 +518,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.ByteCopyNew_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.get_gen_size_def
+    ,data_to_wordTheory.SilentFFI_def
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.WriteLastByte_aux_def
@@ -504,6 +537,13 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.Mul_code_def
     ,data_to_wordTheory.Div_code_def
     ,data_to_wordTheory.Mod_code_def
+    ,data_to_wordTheory.Install_code_def
+    ,data_to_wordTheory.InstallCode_code_def
+    ,data_to_wordTheory.InstallData_code_def
+    ,data_to_wordTheory.Append_code_def
+    ,data_to_wordTheory.AppendMainLoop_code_def
+    ,data_to_wordTheory.AppendLenLoop_code_def
+    ,data_to_wordTheory.AppendFastLoop_code_def
     ,data_to_wordTheory.Compare1_code_def
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def
@@ -520,6 +560,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.WriteWord64_on_32_def
+    ,data_to_wordTheory.WriteWord32_on_32_def
     ,data_to_wordTheory.WordOp64_on_32_def
     ,data_to_wordTheory.WordShift64_on_32_def
     ,data_to_wordTheory.ShiftVar_def
@@ -658,6 +699,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
     ,word_allocTheory.setup_ssa_def
+    ,word_allocTheory.total_colour_def
     ,word_allocTheory.oracle_colour_ok_def
     ,word_allocTheory.every_even_colour_def
     ,word_allocTheory.check_colouring_ok_alt_def
@@ -696,7 +738,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
-    ,stackLangTheory.word_shift_def
+    ,backend_commonTheory.word_shift_def
     ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
       (* ---- word_to_stack ---- *)

@@ -3,7 +3,7 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
-open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+open optionTheory combinTheory dep_rewrite listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -36,19 +36,6 @@ val SUBSET_IMP = Q.store_thm("SUBSET_IMP",
   `s SUBSET t ==> (x IN s ==> x IN t)`,
   fs[pred_setTheory.SUBSET_DEF]);
 
-val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
-
-val fmap_rel_FLOOKUP_imp = Q.store_thm("fmap_rel_FLOOKUP_imp",
-  `fmap_rel R f1 f2 ⇒
-   (FLOOKUP f1 k = NONE ⇒ FLOOKUP f2 k = NONE) ∧
-   (FLOOKUP f1 k = SOME v1 ⇒ ∃v2. FLOOKUP f2 k = SOME v2 ∧ R v1 v2)`,
-  rw[fmap_rel_OPTREL_FLOOKUP,OPTREL_def]
-  \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]);
-
-val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
-val oHD_thm = Q.store_thm("oHD_thm[simp]",
-  `oHD [] = NONE ∧ oHD (h::t) = SOME h`,
-  rw[oHD_def]);
 val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
 
 val revdroprev = Q.store_thm("revdroprev",
@@ -111,38 +98,12 @@ val SUM_SET_IN_LT = Q.store_thm("SUM_SET_IN_LT",
   `!s x y. FINITE s /\ x IN s /\ y < x ==> y < SUM_SET s`,
   metis_tac[SUM_SET_IN_LE,LESS_LESS_EQ_TRANS]);
 
-val BIJ_IMP_11 = Q.store_thm("BIJ_IMP_11",
-  `BIJ f UNIV UNIV ==> !x y. (f x = f y) = (x = y)`,
-  full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF] \\ metis_tac []);
-
 val BIJ_support = Q.store_thm("BIJ_support",
   `∀f s' s. BIJ f s' s' ∧ s' ⊆ s ∧ (∀x. x ∉ s' ⇒ f x = x) ⇒ BIJ f s s`,
   rw[BIJ_IFF_INV,SUBSET_DEF]
   >- metis_tac[]
   \\ qexists_tac`λx. if x ∈ s' then g x else x`
   \\ rw[] \\ metis_tac[]);
-
-val FINITE_SURJ = Q.store_thm("FINITE_SURJ",
-  `FINITE s ∧ SURJ f s t ⇒ FINITE t`,
-  rw[]
-  \\ imp_res_tac SURJ_INJ_INV
-  \\ imp_res_tac FINITE_INJ);
-
-val SURJ_CARD = Q.store_thm("SURJ_CARD",
-  `∀f s t. SURJ f s t ∧ FINITE s ⇒ CARD t ≤ CARD s`,
-  rw[]
-  \\ imp_res_tac SURJ_INJ_INV
-  \\ imp_res_tac INJ_CARD);
-
-val FINITE_SURJ_BIJ = Q.store_thm("FINITE_SURJ_BIJ",
-  `FINITE s ∧ SURJ f s t ∧ CARD t = CARD s ⇒ BIJ f s t`,
-  rw[BIJ_DEF,INJ_DEF] >- fs[SURJ_DEF]
-  \\ CCONTR_TAC
-  \\ `SURJ f (s DELETE x) t` by (fs[SURJ_DEF] \\ metis_tac[])
-  \\ `FINITE (s DELETE x)` by metis_tac[FINITE_DELETE]
-  \\ imp_res_tac SURJ_CARD
-  \\ rfs[CARD_DELETE]
-  \\ Cases_on`CARD s` \\ rfs[CARD_EQ_0] \\ fs[]);
 
 val CARD_IMAGE_ID_BIJ = Q.store_thm("CARD_IMAGE_ID_BIJ",
   `∀s. FINITE s ⇒ (∀x. x ∈ s ⇒ f x ∈ s) ∧ CARD (IMAGE f s) = CARD s ⇒ BIJ f s s`,
@@ -165,52 +126,19 @@ val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
   gen_tac >> Induct >> simp[] >>
   Cases >> simp[] >> srw_tac[][]);
 
-val FST_EQ_EQUIV = Q.store_thm("FST_EQ_EQUIV",
-  `(FST x = y) <=> ?z. x = (y,z)`,
-  Cases_on `x` \\ full_simp_tac(srw_ss())[]);
-
 val map_fromAList = Q.store_thm("map_fromAList",
   `map f (fromAList ls) = fromAList (MAP (λ(k,v). (k, f v)) ls)`,
   Induct_on`ls` >> simp[fromAList_def] >>
   Cases >> simp[fromAList_def] >>
   simp[wf_fromAList,map_insert])
 
-val LLOOKUP_def = Define `
-  (LLOOKUP [] n = NONE) /\
-  (LLOOKUP (x::xs) n = if n = 0 then SOME x else LLOOKUP xs (n-1:num))`;
-
-val LLOOKUP_EQ_EL = Q.store_thm("LLOOKUP_EQ_EL",
-  `!xs n y. LLOOKUP xs n = SOME y <=> n < LENGTH xs /\ (y = EL n xs)`,
-  Induct \\ fs [LLOOKUP_def] \\ rw [] THEN1 metis_tac []
-  \\ Cases_on `n` \\ fs [ADD1] \\ eq_tac \\ rw []);
-
-val LLOOKUP_THM = Q.store_thm("LLOOKUP_THM",
-  `!xs n. LLOOKUP xs n = if n < LENGTH xs then SOME (EL n xs) else NONE`,
-  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def] \\ srw_tac[][] THEN1 decide_tac
-  \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ decide_tac);
-
-val LLOOKUP_DROP = Q.store_thm("LLOOKUP_DROP",
-  `(LLOOKUP (DROP f xs) n = LLOOKUP xs (f + n))`,
-  Cases_on `DROP f xs = []` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[DROP_NIL]
-  \\ full_simp_tac(srw_ss())[LLOOKUP_THM] THEN1 decide_tac
-  \\ `f + n < LENGTH xs <=> n < LENGTH xs - f` by decide_tac \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ ONCE_REWRITE_TAC [ADD_COMM]
-  \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
-
-val LLOOKUP_TAKE_IMP = Q.store_thm("LLOOKUP_TAKE_IMP",
-  `(LLOOKUP (TAKE f xs) n = SOME x) ==>
-    (LLOOKUP xs n = SOME x)`,
-  simp[LLOOKUP_THM,LENGTH_TAKE_EQ] >>
-  srw_tac[ARITH_ss][]
-  \\ match_mp_tac (GSYM EL_TAKE)
-  \\ fsrw_tac[ARITH_ss][]);
-
-val LLOOKUP_LUPDATE = Q.store_thm("LLOOKUP_LUPDATE",
-  `!xs i n x. LLOOKUP (LUPDATE x i xs) n =
-               if i <> n then LLOOKUP xs n else
-               if i < LENGTH xs then SOME x else NONE`,
-  Induct \\ fs[LLOOKUP_def,LUPDATE_def]
-  \\ Cases_on `i` \\ rw[LLOOKUP_def,LUPDATE_def] \\ fs[]);
+val _ = overload_on ("LLOOKUP", “λl n. oEL n l”)
+val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
+val LLOOKUP_EQ_EL    = save_thm("LLOOKUP_EQ_EL", listTheory.oEL_EQ_EL);
+val LLOOKUP_THM      = save_thm("LLOOKUP_THM", listTheory.oEL_THM);
+val LLOOOKUP_DROP    = save_thm("LLOOKUP_DROP", listTheory.oEL_DROP);
+val LLOOKUP_TAKE_IMP = save_thm("LLOOKUP_TAKE_IMP", listTheory.oEL_TAKE_E);
+val LLOOKUP_LUPDATE  = save_thm("LLOOKUP_LUPDATE", listTheory.oEL_LUPDATE);
 
 val _ = Datatype `
   app_list = List ('a list) | Append app_list app_list | Nil`
@@ -271,36 +199,6 @@ val ZIP_GENLIST1 = Q.store_thm("ZIP_GENLIST1",
   `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`,
   Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]);
 
-val MAP2i_def = Define`
-  (MAP2i f [] [] = []) /\
-  (MAP2i f (h1::t1) (h2::t2) = f 0 h1 h2::MAP2i (f o SUC) t1 t2)`;
-val _ = export_rewrites["MAP2i_def"];
-
-val MAP2i_ind = theorem"MAP2i_ind";
-
-val LENGTH_MAP2i = Q.store_thm("LENGTH_MAP2i[simp]",
-  `∀f l1 l2. LENGTH l1 = LENGTH l2 ⇒ LENGTH (MAP2i f l1 l2) = LENGTH l2`,
-  ho_match_mp_tac MAP2i_ind \\ rw[]);
-
-val EL_MAP2i = Q.store_thm("EL_MAP2i",
-  `∀f l1 l2 n. n < LENGTH l1 ∧ n < LENGTH l2 ⇒
-    EL n (MAP2i f l1 l2) = f n (EL n l1) (EL n l2)`,
-  ho_match_mp_tac MAP2i_ind \\ rw[]
-  \\ Cases_on`n` \\ fs[]);
-
-val LENGTH_MAP2_MIN = Q.store_thm ("LENGTH_MAP2_MIN",
-  `∀xs ys.
-     LENGTH (MAP2 f xs ys) = MIN (LENGTH xs) (LENGTH ys)`,
-  Induct \\ rw []
-  \\ Cases_on `ys` \\ fs [MIN_DEF] \\ EVAL_TAC);
-
-val EL_MAP2 = Q.store_thm("EL_MAP2",
-  `∀ts tt n.
-    n < MIN (LENGTH ts) (LENGTH tt) ⇒
-      EL n (MAP2 f ts tt) = f (EL n ts) (EL n tt)`,
-  Induct \\ rw []
-  \\ Cases_on `tt` \\ Cases_on `n` \\ fs []);
-
 val MAP3_def = Define`
   (MAP3 f [] [] [] = []) /\
   (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
@@ -317,6 +215,11 @@ val EL_MAP3 = Q.store_thm("EL_MAP3",
     EL n (MAP3 f l1 l2 l3) = f (EL n l1) (EL n l2) (EL n l3)`,
   ho_match_mp_tac MAP3_ind \\ rw[]
   \\ Cases_on`n` \\ fs[]);
+
+val MAP_REVERSE_STEP = Q.store_thm("MAP_REVERSE_STEP",
+  `∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))`,
+  recInduct SNOC_INDUCT
+  \\ rw [FRONT_APPEND]);
 
 val LENGTH_TAKE_EQ_MIN = Q.store_thm("LENGTH_TAKE_EQ_MIN",
   `!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)`,
@@ -340,37 +243,17 @@ val INJ_EXTEND = Q.store_thm("INJ_EXTEND",
 
 val MEM_LIST_REL = Q.store_thm("MEM_LIST_REL",
   `!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y`,
-  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-  \\ RES_TAC \\ METIS_TAC []);
+  simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
 
 val LIST_REL_MEM = Q.store_thm("LIST_REL_MEM",
   `!xs ys P. LIST_REL P xs ys <=>
               LIST_REL (\x y. MEM x xs /\ MEM y ys ==> P x y) xs ys`,
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ METIS_TAC [MEM_EL]);
 
-val LIST_REL_REVERSE_EQ =
-  IMP_ANTISYM_RULE
-    (EVERY2_REVERSE |> SPEC_ALL)
-    (EVERY2_REVERSE |> Q.SPECL[`R`,`REVERSE l1`,`REVERSE l2`]
-                    |> SIMP_RULE std_ss [REVERSE_REVERSE])
-  |> SYM |> curry save_thm"LIST_REL_REVERSE_EQ";
-
 val LIST_REL_GENLIST_I = Q.store_thm("LIST_REL_GENLIST_I",
   `!xs. LIST_REL P (GENLIST I (LENGTH xs)) xs =
          !n. n < LENGTH xs ==> P n (EL n xs)`,
-  HO_MATCH_MP_TAC SNOC_INDUCT
-  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,GENLIST,SNOC_APPEND]
-  \\ FULL_SIMP_TAC std_ss [LIST_REL_APPEND_SING]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC THEN1
-   (Cases_on `n < LENGTH xs`
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1]
-    \\ `n = LENGTH xs` by DECIDE_TAC
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD])
-  THEN1 (`n < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
-    \\ POP_ASSUM MP_TAC \\ Q.PAT_X_ASSUM `!x.bb` (K ALL_TAC)
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1])
-  \\ POP_ASSUM (MP_TAC o Q.SPEC `LENGTH xs`)
-  \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD]);
+  simp[LIST_REL_EL_EQN]);
 
 val LIST_REL_lookup_fromList = Q.store_thm("LIST_REL_lookup_fromList",
   `LIST_REL (\v x. lookup v (fromList args) = SOME x)
@@ -378,57 +261,27 @@ val LIST_REL_lookup_fromList = Q.store_thm("LIST_REL_lookup_fromList",
   SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
 
 val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
-  `(LIST_REL R (SNOC x xs) yys ⇔ ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
-   (LIST_REL R xxs (SNOC y ys) ⇔ ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`,
-  rw[LIST_REL_EL_EQN,EQ_IMP_THM] \\ fs[]
-  >- (
-    Q.ISPEC_THEN`yys`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
-    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
-    \\ first_x_assum(qspec_then`LENGTH xs`mp_tac)\\simp[EL_LENGTH_SNOC] )
-  >- (
-    last_x_assum (assume_tac o SYM)
-    \\ Cases_on`n = LENGTH xs`
-    \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
-  >- (
-    Q.ISPEC_THEN`xxs`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
-    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
-    \\ last_x_assum (assume_tac o SYM)
-    \\ first_x_assum(qspec_then`LENGTH ys`mp_tac)\\simp[EL_LENGTH_SNOC] )
-  \\ Cases_on`n = LENGTH xs`
-  \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
+  `(LIST_REL R (SNOC x xs) yys ⇔
+      ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
+   (LIST_REL R xxs (SNOC y ys) ⇔
+      ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`,
+  simp[EQ_IMP_THM, PULL_EXISTS, SNOC_APPEND] >> rpt strip_tac
+  >- (imp_res_tac LIST_REL_SPLIT1 >> fs[])
+  >- (imp_res_tac LIST_REL_SPLIT2 >> fs[]));
 
 val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
   `l1 <> [] /\ l2 <> [] ==>
-    (LIST_REL A l1 l2 <=> LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
-  map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
-  [`l1`,`l2`]);
-
-val LIST_REL_SPLIT1 = store_thm("LIST_REL_SPLIT1",
-  ``!xs1 zs.
-      LIST_REL P (xs1 ++ xs2) zs ==>
-      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P xs1 ys1 /\
-                  LIST_REL P xs2 ys2``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
-
-val LIST_REL_SPLIT2 = store_thm("LIST_REL_SPLIT2",
-  ``!xs1 zs.
-      LIST_REL P zs (xs1 ++ xs2) ==>
-      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P ys1 xs1 /\
-                  LIST_REL P ys2 xs2``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+    (LIST_REL A l1 l2 <=>
+     LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
+  map_every
+    (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES >>
+             fs[LIST_REL_SNOC])
+    [`l1`,`l2`]);
 
 val LIST_REL_APPEND_EQ = Q.store_thm("LIST_REL_APPEND_EQ",
-  `LENGTH x1 = LENGTH x2 ⇒ (LIST_REL R (x1 ++ y1) (x2 ++ y2) = (LIST_REL R x1 x2 /\ LIST_REL R y1 y2))`,
-  rw[EQ_IMP_THM]
-  \\ imp_res_tac LIST_REL_APPEND_IMP
-  \\ match_mp_tac EVERY2_APPEND_suff
-  \\ rw[]);
+  `LENGTH x1 = LENGTH x2 ⇒
+   (LIST_REL R (x1 ++ y1) (x2 ++ y2) <=> LIST_REL R x1 x2 /\ LIST_REL R y1 y2)`,
+  metis_tac[LIST_REL_APPEND_IMP, EVERY2_LENGTH, EVERY2_APPEND_suff]);
 
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
@@ -1120,9 +973,11 @@ val OPTREL_SOME = Q.store_thm("OPTREL_SOME",
     srw_tac[][optionTheory.OPTREL_def])
 
 val LIST_REL_O = Q.store_thm("LIST_REL_O",
-  `∀R1 R2 l1 l2. LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2`,
+  `∀R1 R2 l1 l2.
+     LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2`,
   rpt gen_tac >>
-  simp[EVERY2_EVERY,EVERY_MEM,EQ_IMP_THM,GSYM AND_IMP_INTRO,MEM_ZIP,PULL_EXISTS,O_DEF] >>
+  simp[EVERY2_EVERY,EVERY_MEM,EQ_IMP_THM,GSYM AND_IMP_INTRO,MEM_ZIP,PULL_EXISTS,
+       O_DEF] >>
   srw_tac[][] >- (
     full_simp_tac(srw_ss())[GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] >>
     qexists_tac`GENLIST f (LENGTH l2)` >>
@@ -2249,16 +2104,6 @@ val GSPEC_o = Q.store_thm(
   `GSPEC f o g = { x | ∃y. (g x, T) = f y }`,
   simp[FUN_EQ_THM, GSPECIFICATION]);
 
-val LIST_RELi_APPEND_I = Q.store_thm(
-  "LIST_RELi_APPEND_I",
-  `LIST_RELi R l1 l2 ∧ LIST_RELi (R o ((+) (LENGTH l1))) m1 m2 ⇒
-   LIST_RELi R (l1 ++ m1) (l2 ++ m2)`,
-  simp[LIST_RELi_EL_EQN] >> rpt strip_tac >>
-  rename1 `i < LENGTH l2 + LENGTH m2` >> Cases_on `i < LENGTH l2`
-  >- simp[EL_APPEND1]
-  >- (simp[EL_APPEND2] >> first_x_assum (qspec_then `i - LENGTH l2` mp_tac) >>
-      simp[]))
-
 val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
   `NULL (l1 ++ l2) ⇔ NULL l1 ∧ NULL l2`,
   simp[NULL_LENGTH]);
@@ -2567,6 +2412,36 @@ val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
    (∀v. ALOOKUP l k = SOME v ⇒ f1 v = f2 v) ⇒
    ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
   ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
+
+val FILTER_EL_EQ = Q.store_thm("FILTER_EL_EQ",
+  `∀l1 l2. LENGTH l1 = LENGTH l2 ∧
+   (∀n. n < LENGTH l1 ∧ (P (EL n l1) ∨ P (EL n l2)) ⇒ (EL n l1 = EL n l2))
+   ⇒
+   FILTER P l1 = FILTER P l2`,
+  Induct \\ rw[] \\ Cases_on`l2` \\ fs[]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ simp_tac (srw_ss())[] \\ simp[]
+  \\ rw[] \\ fs[]
+  \\ first_x_assum match_mp_tac \\ rw[]
+  \\ first_x_assum(qspec_then`SUC n`mp_tac) \\ rw[]);
+
+val LENGTH_ALIST_FUPDKEY = Q.store_thm("LENGTH_ALIST_FUPDKEY[simp]",
+  `∀ls. LENGTH (ALIST_FUPDKEY k f ls) = LENGTH ls`,
+  Induct \\ simp[ALIST_FUPDKEY_def]
+  \\ Cases \\ rw[ALIST_FUPDKEY_def]);
+
+val FST_EL_ALIST_FUPDKEY = Q.store_thm("FST_EL_ALIST_FUPDKEY",
+  `∀n. n < LENGTH ls ⇒ FST (EL n (ALIST_FUPDKEY k f ls)) = FST (EL n ls)`,
+  Induct_on`ls` \\ simp[]
+  \\ Cases \\ rw[ALIST_FUPDKEY_def]
+  \\ Cases_on`n` \\ fs[]);
+
+val EL_ALIST_FUPDKEY_unchanged = Q.store_thm("EL_ALIST_FUPDKEY_unchanged",
+  `∀n. n < LENGTH ls ∧ FST (EL n ls) ≠ k ⇒ EL n (ALIST_FUPDKEY k f ls) = EL n ls`,
+  Induct_on`ls` \\ simp[]
+  \\ Cases \\ simp[ALIST_FUPDKEY_def]
+  \\ Cases \\ simp[]
+  \\ IF_CASES_TAC \\ rveq \\ rw[]);
 
 val A_DELKEY_def = Define`
   A_DELKEY k alist = FILTER (λp. FST p <> k) alist
@@ -2902,6 +2777,15 @@ val splitlines_eq_nil = Q.store_thm("splitlines_eq_nil[simp]",
   >- ( imp_res_tac FIELDS_next \\ fs[] )
   \\ fs[LENGTH_NIL]);
 
+val splitlines_CONS_FST_SPLITP = Q.store_thm("splitlines_CONS_FST_SPLITP",
+  `splitlines ls = ln::lns ⇒ FST (SPLITP ($= #"\n") ls) = ln`,
+  rw[splitlines_def]
+  \\ Cases_on`ls` \\ fs[FIELDS_def]
+  \\ TRY pairarg_tac \\ fs[] \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ]
+  \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
+  \\ Cases_on`y` \\ fs[]);
+
 val DIV_EQ_0 = Q.store_thm("DIV_EQ_0",
   `1 < b ==> ((n DIV b = 0) = (n < b))`,
   metis_tac[numposrepTheory.DIV_0_IMP_LT,LESS_DIV_EQ_ZERO]);
@@ -3085,11 +2969,47 @@ val always_DROP = Q.store_thm("always_DROP",
   Induct_on`k` >> Cases_on`ll` >> fs[always_thm,LDROP] >>
   rw[] >> imp_res_tac always_thm >> fs[]);
 
-(* TODO: move *)
 val LDROP_1 = Q.store_thm("LDROP_1",
   `LDROP (1: num) (h:::t) = SOME t`,
   `LDROP (SUC 0) (h:::t) = SOME t` by fs[LDROP] >>
   metis_tac[arithmeticTheory.ONE]);
+
+val LDROP_NONE_LFINITE = Q.store_thm("LDROP_NONE_LFINITE",
+  `LDROP k l = NONE ⇒ LFINITE l`,
+  metis_tac[NOT_LFINITE_DROP,NOT_SOME_NONE]);
+
+val LDROP_LDROP = Q.store_thm("LDROP_LDROP",
+  `!ll k1 k2. ¬ LFINITE ll ==>
+    THE (LDROP k2 (THE (LDROP k1 ll))) =
+    THE (LDROP k1 (THE (LDROP k2 ll)))`,
+    rw[] >>
+    `LDROP (k1+k2) ll = LDROP (k2 + k1) ll` by fs[] >>
+    fs[LDROP_ADD] >>
+    NTAC 2 (full_case_tac >- imp_res_tac LDROP_NONE_LFINITE) >> fs[])
+
+val TAKE_TAKE_MIN = Q.store_thm("TAKE_TAKE_MIN",
+  `!m n. TAKE n (TAKE m l) = TAKE (MIN n m) l`,
+  Induct_on`l` >> rw[] >>
+  Cases_on`m` >> Cases_on`n` >> fs[MIN_DEF] >> CASE_TAC >> fs[]);
+
+val SPLITP_TAKE_DROP = Q.store_thm("SPLITP_TAKE_DROP",
+ `!P i l. EVERY ($~ ∘ P) (TAKE i l) ==>
+  P (EL i l) ==>
+  SPLITP P l = (TAKE i l, DROP i l)`,
+  Induct_on`l` >> rw[SPLITP] >> Cases_on`i` >> fs[] >>
+  res_tac >> fs[FST,SND]);
+
+val SND_SPLITP_DROP = Q.store_thm("SND_SPLITP_DROP",
+ `!P n l. EVERY ($~ o P) (TAKE n l) ==>
+   SND (SPLITP P (DROP n l)) = SND (SPLITP P l)`,
+ Induct_on`n` >> rw[SPLITP] >> Cases_on`l` >> fs[SPLITP]);
+
+val FST_SPLITP_DROP = Q.store_thm("FST_SPLITP_DROP",
+ `!P n l. EVERY ($~ o P) (TAKE n l) ==>
+   FST (SPLITP P l) = (TAKE n l) ++ FST (SPLITP P (DROP n l))`,
+ Induct_on`n` >> rw[SPLITP] >> Cases_on`l` >>
+ PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
+ fs[SPLITP]);
 
 (* computes the next position for which P holds *)
 val Lnext_def = tDefine "Lnext" `
@@ -3111,6 +3031,9 @@ val Lnext_def = tDefine "Lnext" `
   >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
   Cases_on`B(P,ll)` >-(metis_tac[]) >>
   qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
+
+val Lnext_pos_def = Define`
+  Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
 
 val OPTION_CHOICE_EQUALS_OPTION = Q.store_thm("OPTION_CHOICE_EQUALS_OPTION",
   `!(x:'a option) y z. (OPTION_CHOICE x y = SOME z) <=>
@@ -3167,5 +3090,159 @@ val DISJOINT_FEVERY_FUNION = Q.store_thm("DISJOINT_FEVERY_FUNION",
 val EVERY_FLAT = Q.store_thm("EVERY_FLAT",
   `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`,
   rw[EVERY_MEM,MEM_FLAT,PULL_EXISTS] \\ metis_tac[]);
+
+val SUM_MAP_K = Q.store_thm("SUM_MAP_K",
+  `∀f ls c. (∀x. f x = c) ⇒ SUM (MAP f ls) = LENGTH ls * c`,
+  rw[] \\ Induct_on`ls` \\ rw[MULT_SUC]);
+
+val LAST_FLAT = Q.store_thm("LAST_FLAT",
+  `∀ls. ~NULL (FLAT ls) ==> (LAST (FLAT ls) = LAST (LAST (FILTER ($~ o NULL) ls)))`,
+  ho_match_mp_tac SNOC_INDUCT \\ rw[]
+  \\ fs[FLAT_SNOC,FILTER_SNOC]
+  \\ Cases_on`x` \\ fs[]);
+
+val TOKENS_FRONT = Q.store_thm("TOKENS_FRONT",
+  `¬NULL ls ∧ P (LAST ls) ⇒
+   TOKENS P (FRONT ls) = TOKENS P ls`,
+  Induct_on`ls` \\ rw[]
+  \\ Cases_on`ls` \\ fs[]
+  >- rw[TOKENS_def,SPLITP]
+  \\ rw[TOKENS_def]
+  \\ pairarg_tac
+  \\ simp[Once SPLITP]
+  \\ CASE_TAC \\ fs[NULL_EQ]
+  >- (
+    imp_res_tac SPLITP_NIL_IMP
+    \\ fs[] )
+  \\ imp_res_tac SPLITP_JOIN
+  \\ Cases_on`l` \\ fs[] \\ rveq
+  \\ imp_res_tac SPLITP_IMP
+  \\ CASE_TAC \\ fs[]
+  \\ qmatch_goalsub_rename_tac`SPLITP P (x::xs)`
+  \\ `∃y ys. x::xs = SNOC y ys` by metis_tac[SNOC_CASES,list_distinct]
+  \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC] \\ rveq
+  \\ qmatch_goalsub_rename_tac`SPLITP P (SNOC y (w ++ z))`
+  \\ Cases_on`NULL z` \\ fs[NULL_EQ]
+  >- (
+    simp[SPLITP_APPEND]
+    \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
+    \\ simp[SPLITP,TOKENS_def] )
+  \\ Cases_on`z` \\ fs[]
+  \\ simp[SPLITP_APPEND]
+  \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
+  \\ simp[SPLITP,TOKENS_def]
+  \\ simp[TOKENS_APPEND,TOKENS_NIL]);
+
+val TOKENS_unchanged = Q.store_thm("TOKENS_unchanged",
+  `EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]`,
+  Induct_on`ls` \\ rw[TOKENS_def] \\ fs[]
+  \\ pairarg_tac \\ fs[NULL_EQ]
+  \\ imp_res_tac SPLITP_JOIN
+  \\ Cases_on`r=[]` \\ fs[]
+  >- ( imp_res_tac SPLITP_NIL_IMP \\ rveq \\ fs[TOKENS_NIL] )
+  \\ rw[]
+  >- (
+    imp_res_tac SPLITP_NIL_IMP
+    \\ rfs[] \\ rveq \\ fs[] )
+  \\ imp_res_tac SPLITP_IMP
+  \\ rfs[NULL_EQ]
+  \\ fs[EVERY_MEM]
+  \\ `MEM (HD r) (l ++ r)` by (Cases_on`r` \\ fs[])
+  \\ Cases_on`MEM (HD r) l` \\ fs[] >- metis_tac[]
+  \\ `MEM (HD r) (h::ls)` by metis_tac[MEM_APPEND]
+  \\ fs[] \\ rw[] \\ metis_tac[]);
+
+val TOKENS_FLAT_MAP_SNOC = Q.store_thm("TOKENS_FLAT_MAP_SNOC",
+  `EVERY (EVERY ((<>) x)) ls ∧ EVERY ($~ o NULL) ls ==>
+   TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls`,
+  Induct_on`ls` \\ rw[TOKENS_NIL]
+  \\ Q.ISPEC_THEN`x`(mp_tac o GSYM) CONS_APPEND
+  \\ rewrite_tac[GSYM APPEND_ASSOC]
+  \\ disch_then(rewrite_tac o mlibUseful.sing)
+  \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
+  \\ DEP_REWRITE_TAC[TOKENS_unchanged]
+  \\ fs[EVERY_MEM]);
+
+(* insert a string (l1) at specified index (n) in a list (l2) *)
+val insert_atI_def = Define`
+  insert_atI l1 n l2 =
+    TAKE n l2 ++ l1 ++ DROP (n + LENGTH l1) l2
+`;
+
+val insert_atI_NIL = Q.store_thm(
+  "insert_atI_NIL",
+  `∀n l.insert_atI [] n l = l`,
+  simp[insert_atI_def]);
+
+val insert_atI_CONS = Q.store_thm(
+  "insert_atI_CONS",
+  `∀n l h t.
+     n + LENGTH t < LENGTH l ==>
+     insert_atI (h::t) n l = LUPDATE h n (insert_atI t (n + 1) l)`,
+  simp[insert_atI_def] >> Induct_on `n`
+  >- (Cases_on `l` >> simp[ADD1, LUPDATE_def]) >>
+  Cases_on `l` >> simp[ADD1] >> fs[ADD1] >>
+  simp[GSYM ADD1, LUPDATE_def]);
+
+val LENGTH_insert_atI = Q.store_thm(
+  "LENGTH_insert_atI",
+  `p + LENGTH l1 <= LENGTH l2 ⇒ LENGTH (insert_atI l1 p l2) = LENGTH l2`,
+  simp[insert_atI_def]);
+
+val insert_atI_app = Q.store_thm("insert_atI_app",
+  `∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
+     insert_atI (c1 ++ c2) n l =
+     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)`,
+  Induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]);
+
+val insert_atI_end = Q.store_thm("insert_atI_end",
+  `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
+  simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
+
+val insert_atI_insert_atI = Q.store_thm("insert_atI_insert_atI",
+  `pos2 = pos1 + LENGTH c1 ==>
+    insert_atI c2 pos2 (insert_atI c1 pos1 l) = insert_atI (c1 ++ c2) pos1 l`,
+    rw[insert_atI_def,TAKE_SUM,TAKE_APPEND,LENGTH_TAKE_EQ,LENGTH_DROP,
+       GSYM DROP_DROP_T,DROP_LENGTH_TOO_LONG,DROP_LENGTH_NIL_rwt]
+    >> fs[DROP_LENGTH_NIL_rwt,LENGTH_TAKE,DROP_APPEND1,TAKE_APPEND,TAKE_TAKE,
+       DROP_DROP_T,DROP_APPEND2,TAKE_LENGTH_TOO_LONG,TAKE_SUM,LENGTH_DROP]);
+
+val LUPDATE_insert_commute = Q.store_thm(
+  "LUPDATE_insert_commute",
+  `∀ws pos1 pos2 a w.
+     pos2 < pos1 ∧ pos1 + LENGTH ws <= LENGTH a ⇒
+     insert_atI ws pos1 (LUPDATE w pos2 a) =
+       LUPDATE w pos2 (insert_atI ws pos1 a)`,
+  Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
+
+val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
+ `!k1 k2 f1 f2 l. k1 <> k2 ==>
+  ALIST_FUPDKEY k2 f2 (ALIST_FUPDKEY k1 f1 l) =
+  ALIST_FUPDKEY k1 f1 (ALIST_FUPDKEY k2 f2 l)`,
+  Induct_on`l` >> rw[] >> fs[ALIST_FUPDKEY_def] >>
+  Cases_on`h`>> fs[ALIST_FUPDKEY_def] >>
+  CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
+  CASE_TAC >> fs[ALIST_FUPDKEY_def]);
+
+val A_DELKEY_ALIST_FUPDKEY_comm = Q.store_thm("A_DELKEY_ALIST_FUPDKEY_comm",
+  `!ls f x y. x <> y ==>
+  A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`,
+  Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
+  Cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
+
+val LESS_EQ_LENGTH = Q.store_thm("LESS_EQ_LENGTH",
+  `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`,
+  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
+  \\ srw_tac [] [ADD1]);
+
+val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
+  `!xs k. k < LENGTH xs ==>
+           ?ys1 y ys2. (xs = ys1 ++ y::ys2) /\ (LENGTH ys1 = k)`,
+  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
+  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
+  \\ srw_tac [] [ADD1]);
 
 val _ = export_theory()

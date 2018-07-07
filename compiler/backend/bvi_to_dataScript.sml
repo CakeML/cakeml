@@ -18,11 +18,13 @@ val op_space_reset_def = Define `
   (op_space_reset Greater = T) /\
   (op_space_reset GreaterEq = T) /\
   (op_space_reset Equal = T) /\
+  (op_space_reset ListAppend = T) /\
   (op_space_reset (FromList _) = T) /\
   (op_space_reset RefArray = T) /\
   (op_space_reset (RefByte _) = T) /\
   (op_space_reset (ConsExtend _) = T) /\
   (op_space_reset (CopyByte new_flag) = new_flag) /\
+  (op_space_reset ConfigGC = T) /\
   (op_space_reset _ = F)`;
 
 val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
@@ -38,11 +40,13 @@ val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
     | Greater => T
     | GreaterEq => T
     | Equal => T
+    | ListAppend => T
     | FromList _ => T
     | RefArray => T
     | RefByte _ => T
     | ConsExtend _ => T
     | CopyByte new_flag => new_flag
+    | ConfigGC => T
     | _ => F`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)

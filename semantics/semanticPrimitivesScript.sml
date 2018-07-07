@@ -411,6 +411,13 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_list_defn;
 
+(*val list_to_v : list v -> v*)
+ val list_to_v_defn = Defn.Hol_multi_defns `
+ (list_to_v []=  (Conv (SOME ("nil", TypeId (Short "list"))) []))
+/\ (list_to_v (x::xs)=  (Conv (SOME ("::", TypeId (Short "list"))) [x; list_to_v xs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) list_to_v_defn;
+
 (*val v_to_char_list : v -> maybe (list char)*)
  val v_to_char_list_defn = Defn.Hol_multi_defns `
  (v_to_char_list (Conv (SOME (cn, TypeId (Short tn))) [])=  
@@ -549,7 +556,12 @@ val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_stat
 val _ = Define `
  (do_app ((s: v store),(t: 'ffi ffi_state)) op vs=  
  ((case (op, vs) of
-      (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+      (ListAppend, [x1; x2]) =>
+      (case (v_to_list x1, v_to_list x2) of
+          (SOME xs, SOME ys) => SOME ((s,t), Rval (list_to_v (xs ++ ys)))
+        | _ => NONE
+      )
+    | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
           SOME ((s,t), Rerr (Rraise (prim_exn "Div")))
         else
@@ -783,6 +795,8 @@ val _ = Define `
                   )
         | _ => NONE
       )
+    | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
+        SOME ((s,t), Rval (Conv NONE []))
     | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>

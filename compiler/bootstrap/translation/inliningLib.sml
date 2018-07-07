@@ -77,4 +77,21 @@ struct
 
   val bconv = bconv_gen false (fn t => false)
 
+  val spec64 = INST_TYPE[alpha|->``:64``]
+
+  val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
+
+  val spec32 = INST_TYPE[alpha|->``:32``]
+
+  val conv32_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec32 o SPEC_ALL
+
+  (* word_concat *)
+  val wc_simp = CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w,LET_THM]
+  (* word_extract *)
+  val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
+
+  val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
+  val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
+
+
 end

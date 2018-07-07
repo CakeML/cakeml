@@ -1,11 +1,12 @@
 open preamble
-     to_target64ProgTheory compilerTheory
+     mipsProgTheory compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory
+open cfLib basis
 
 val _ = new_theory"compiler64Prog";
 
-val _ = translation_extends "to_target64Prog";
+val _ = translation_extends "mipsProg";
 
 val () = Globals.max_print_depth := 15;
 
@@ -17,7 +18,7 @@ val max_heap_limit_64_def = Define`
   max_heap_limit_64 c =
     ^(spec64 data_to_wordTheory.max_heap_limit_def
       |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[wordLangTheory.shift_def]
+      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
       |> concl |> rhs)`;
 
 val res = translate max_heap_limit_64_def
@@ -55,15 +56,7 @@ val def = spec64 backendTheory.compile_def
 
 val res = translate def
 
-val def = spec64 compilerTheory.compile_def
-
-val _ = translate compilerTheory.locs_to_string_def;
-val res = translate def
-
-val res = translate basisProgTheory.basis_def
-
-val res = translate inferTheory.init_config_def;
-
+(* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
    should probably be moved up to to_dataProg or something*)
 val res = translate all_bytes_eq
@@ -106,37 +99,200 @@ val res = translate newl_strlit_def;
 val res = translate comma_cat_def;
 
 val res = translate words_line_def;
-(* -- *)
 
 val res = translate (spec64 word_to_string_def);
+(* -- *)
 
-(* Compiler interface in compilerTheory *)
+(* compilerTheory *)
+
+val def = spec64 compilerTheory.compile_def
+
+val _ = translate compilerTheory.locs_to_string_def;
+val res = translate def
+
+val res = translate basisProgTheory.basis_def
+
+val res = translate inferTheory.init_config_def;
+
+(* Compiler interface in compilerTheory
+  TODO: some of these should be moved up, see comment above on exportScript
+*)
 val res = translate error_to_str_def;
 
+val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
-val res = translate find_parse_def;
-
-val res = translate comma_tokens_def;
+val res = translate find_str_def;
+val res = translate find_bool_def;
+val res = translate find_num_def;
+val res = translate get_err_str_def;
 
 val res = translate parse_num_list_def;
-
+val res = translate comma_tokens_def;
 val res = translate parse_nums_def;
 
-val res = translate find_parse_nums_def;
+val res = translate parse_clos_conf_def;
+val res = translate parse_bvl_conf_def;
+val res = translate parse_wtw_conf_def;
+val res = translate parse_gc_def;
+val res = translate parse_data_conf_def;
+val res = translate parse_stack_conf_def;
 
-val r = translate (extend_with_args_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def]);
 
-val r = translate (parse_heap_stack_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def])
+(* Translations for each 64-bit target
+  Note: ffi_asm is translated multiple times...
+*)
 
-val r = format_compiler_result_def
+(* x64 *)
+val res = translate x64_configTheory.x64_names_def;
+val res = translate export_x64Theory.ffi_asm_def;
+val res = translate export_x64Theory.x64_export_def;
+val res = translate
+  (x64_configTheory.x64_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* riscv *)
+val res = translate riscv_configTheory.riscv_names_def;
+val res = translate export_riscvTheory.ffi_asm_def;
+val res = translate export_riscvTheory.riscv_export_def;
+val res = translate
+  (riscv_configTheory.riscv_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* mips *)
+val res = translate mips_configTheory.mips_names_def;
+val res = translate export_mipsTheory.ffi_asm_def;
+val res = translate export_mipsTheory.mips_export_def;
+val res = translate
+  (mips_configTheory.mips_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* arm8 *)
+val res = translate arm8_configTheory.arm8_names_def;
+val res = translate export_arm8Theory.ffi_asm_def;
+val res = translate export_arm8Theory.arm8_export_def;
+val res = translate
+  (arm8_configTheory.arm8_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* Rest of the translation *)
+val res = translate (extend_conf_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
+val res = translate parse_target_64_def;
+
+val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`heap`,`stack`,`c`]
         |> Q.ISPECL[`bytes:word8 list`,`heap:num`,`stack:num`,`c:'a lab_to_target$config`]
         |> spec64
         |> translate;
 
-val r = translate (compile_to_bytes_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate compile_64_def;
+
+val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate print_option_def
+val res = translate current_build_info_str_def
+
+val main = process_topdecs`
+  fun main u =
+    let
+      val cl = CommandLine.arguments ()
+    in
+      if compiler_has_version_flag cl then
+        print compiler_current_build_info_str
+      else
+        case compiler_compile_64 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
+          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e)
+    end`;
+
+val res = append_prog main;
+
+val st = get_ml_prog_state()
+
+val main_spec = Q.store_thm("main_spec",
+  `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
+     [Conv NONE []] (STDIO fs * COMMANDLINE cl)
+     (POSTv uv.
+       &UNIT_TYPE () uv
+       * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
+       * COMMANDLINE cl)`,
+  xcf "main" st
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto
+  >- (
+    (* TODO: xlet_auto: why doesn't xsimpl work here on its own? *)
+    CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl`
+    \\ xsimpl )
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  (* TODO: it would be nice if this followed more directly.
+           either (or both):
+             - make STD_streams assert "stdin" is in the files
+             - make wfFS separate from wfFS, so STDIO fs will imply wfFS fs *)
+  \\ reverse(Cases_on`∃inp pos. stdin fs inp pos`)
+  >- (
+    fs[STDIO_def,IOFS_def] \\ xpull \\ fs[stdin_def]
+    \\ `F` suffices_by fs[]
+    \\ fs[wfFS_def,STD_streams_def,MEM_MAP,Once EXISTS_PROD,PULL_EXISTS]
+    \\ fs[EXISTS_PROD]
+    \\ metis_tac[ALOOKUP_FAILS,ALOOKUP_MEM,NOT_SOME_NONE,SOME_11,PAIR_EQ,option_CASES] )
+  \\ fs[get_stdin_def]
+  \\ SELECT_ELIM_TAC
+  \\ simp[FORALL_PROD,EXISTS_PROD]
+  \\ conj_tac >- metis_tac[] \\ rw[]
+  \\ imp_res_tac stdin_11 \\ rw[]
+  \\ imp_res_tac stdin_get_file_content
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  >- (
+    simp[full_compile_64_def]
+    \\ xapp
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `current_build_info_str`
+    \\ fs [compilerTheory.current_build_info_str_def,
+           fetch "-" "compiler_current_build_info_str_v_thm"]
+    \\ xsimpl
+    \\ rename1 `add_stdout _ (strlit string)`
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`fs`
+    \\ xsimpl)
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ fs [full_compile_64_def]
+  \\ pairarg_tac
+  \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ xapp_spec output_stderr_spec
+  \\ xsimpl
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
+  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+  \\ qexists_tac`fs'` \\ xsimpl
+  \\ instantiate
+  \\ xsimpl);
+
+val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
+  `whole_prog_spec ^(fetch_v "main" st) cl fs
+    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`,
+  simp[whole_prog_spec_def,UNCURRY]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ reverse conj_tac >-
+    rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
+       GSYM fastForwardFD_with_numchars,
+       GSYM add_stdo_with_numchars, with_same_numchars]
+  \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
+  \\ xsimpl);
+
+val (semantics_thm,prog_tm) = whole_prog_thm st "main" main_whole_prog_spec;
+
+val compiler64_prog_def = Define`compiler64_prog = ^prog_tm`;
+
+val semantics_compiler64_prog =
+  semantics_thm
+  |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> curry save_thm "semantics_compiler64_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
-
 val _ = export_theory();

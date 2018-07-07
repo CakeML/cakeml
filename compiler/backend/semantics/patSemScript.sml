@@ -95,6 +95,10 @@ val _ = Define `
   ∧
   (v_to_list _ = NONE)`;
 
+val list_to_v_def = Define `
+  list_to_v []      = Conv nil_tag [] /\
+  list_to_v (x::xs) = Conv cons_tag [x; list_to_v xs]`
+
 val _ = Define `
   (v_to_char_list (Conv tag []) =
    if tag = nil_tag then
@@ -273,7 +277,6 @@ val do_app_def = Define `
                 SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag []))
               | _ => NONE))
       | _ => NONE)
-
     | (Op (Op Ord), [Litv (Char c)]) =>
           SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Op (Op Chr), [Litv (IntLit i)]) =>
@@ -369,6 +372,8 @@ val do_app_def = Define `
                   )
         | _ => NONE
       )
+    | (Op (Op ConfigGC), [Litv (IntLit n1); Litv (IntLit n2)]) =>
+         SOME (s, Rval (Conv tuple_tag []))
     | (Op (Op (FFI n)), [Litv (StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
@@ -377,6 +382,10 @@ val do_app_def = Define `
                (case store_assign lnum (W8array ws') s.refs of
                  SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
                | NONE => NONE))
+        | _ => NONE)
+    | (Op (Op ListAppend), [x1;x2]) =>
+        (case (v_to_list x1, v_to_list x2) of
+          (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
         | _ => NONE)
     | (Tag_eq n l, [Conv tag vs]) =>
         SOME (s, Rval (Boolv (tag = n ∧ LENGTH vs = l)))

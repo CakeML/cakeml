@@ -297,14 +297,17 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   Cases_on`x`>>fs[] >- (
     every_case_tac >> rw[] >> fs[] >>
     fs[inc_pc_def,dec_clock_def,asm_inst_consts] ) >>
-  Cases_on`a`>>fs[] >>
-  every_case_tac >> rw[] >> fs[] >>
+  Cases_on`a`>>fs[case_eq_thms] >> rw[] >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def] >>
-  pairarg_tac >> fs[] >>
+  TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[] \\
   fs[call_FFI_def] >>
   every_case_tac >> fs[] >> rfs[] >>
   rpt var_eq_tac >> fs[] >>
-  fs[IS_PREFIX_APPEND]);
+  fs[IS_PREFIX_APPEND]
+  \\ Cases_on `s1.compile_oracle 0` \\ fs []
+  \\ fs[case_eq_thms] \\ rveq \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []);
 
 val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
   `!s res r k.
@@ -362,7 +365,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     drule (GEN_ALL evaluate_pres_final_event) >>
     unabbrev_all_tac >> fs[] >>
     every_case_tac >> fs[] >> rw[] >>
-    fs[IS_PREFIX_APPEND] ) >>
+    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] ) >>
   fs[asm_fetch_def] >>
   Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
   Cases_on`x`>>fs[] >>

@@ -404,6 +404,40 @@ val vs_to_string = Q.prove(
   \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
   \\ rw[vs_to_string_def]);
 
+(* HERE *)
+
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!x xs y ys.
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys /\
+     v_rel genv x y ==>
+       v_rel genv (list_to_v xs) (list_to_v ys)`,
+  ho_match_mp_tac terminationTheory.v_to_list_ind
+  \\ rw [v_to_list_def, terminationTheory.v_to_list_def]
+  >-
+   (fs [semanticPrimitivesTheory.list_to_v_def, Once v_rel_cases]
+    \\ fs [v_to_list_def]
+    \\ rw [list_to_v_def])
+  \\ FULL_CASE_TAC \\ fs [] \\ rw []
+  \\ fs [semanticPrimitivesTheory.list_to_v_def]
+  \\ qpat_x_assum `v_rel _ _ _` mp_tac
+  \\ rw [Once v_rel_cases]
+  \\ fs [v_to_list_def]
+  \\ FULL_CASE_TAC \\ fs [] \\ rw []
+  \\ simp [list_to_v_def, Once v_rel_cases]
+  \\ res_tac);
+
+val list_to_v_v_rel_APPEND = Q.store_thm("list_to_v_v_rel_APPEND",
+  `!x1 x2 y1 y2.
+     v_rel genv (list_to_v x1) (list_to_v x2) /\
+     v_rel genv (list_to_v y1) (list_to_v y2) ==>
+       v_rel genv (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct
+  \\ simp [Once v_rel_cases, list_to_v_def, semanticPrimitivesTheory.list_to_v_def]
+  \\ Induct_on `x2`
+  \\ rw [list_to_v_def, semanticPrimitivesTheory.list_to_v_def]
+  \\ simp [Once v_rel_cases]);
+
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -420,8 +454,23 @@ val do_app = Q.prove (
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
+  Cases_on `op = ListAppend`
+  >-
+   (simp [astOp_to_modOp_def]
+    \\ rw [semanticPrimitivesPropsTheory.do_app_cases,
+           semanticPrimitivesTheory.prim_exn_def,
+           modSemTheory.do_app_def,
+           modSemTheory.prim_exn_def]
+    \\ fs [v_rel_eqns, result_rel_cases, PULL_EXISTS,
+           semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]
+    \\ imp_res_tac v_to_list \\ fs [] \\ rveq
+    \\ metis_tac [list_to_v_v_rel, list_to_v_v_rel_APPEND]) >>
+  Cases_on `op = ConfigGC` >-
+     (simp [astOp_to_modOp_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def]) >>
   Cases_on `op` >>
-  simp [astOp_to_modOp_def]
+  fs [astOp_to_modOp_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
@@ -1236,11 +1285,11 @@ val compile_exp_correct' = Q.prove (
     strip_tac >> rveq >>
     drule do_app >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[] >>
-    imp_res_tac EVERY2_REVERSE >>
     imp_res_tac evaluate_globals >>
     pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     ONCE_REWRITE_TAC[CONJ_COMM] >>
+    imp_res_tac EVERY2_REVERSE >>
     disch_then drule >>
     full_simp_tac(srw_ss())[s_rel_cases] >>
     CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[pair_default_qp])[])) >>

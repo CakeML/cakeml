@@ -432,7 +432,7 @@ val inst_def = Define `
       case fp64_to_int roundTiesToEven f of
         NONE => NONE
       | SOME i =>
-        let w = i2w i : 'a word in
+        let w = i2w i : word32 in
         if w2i w = i then
           (if dimindex(:'a) = 64 then
              SOME (set_fp_var d1 (w2w w) s)
@@ -448,7 +448,7 @@ val inst_def = Define `
       if dimindex(:'a) = 64 then
         case get_fp_var d2 s of
         | SOME f =>
-          let i =  w2i f in
+          let i =  w2i ((31 >< 0) f : word32) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
       else

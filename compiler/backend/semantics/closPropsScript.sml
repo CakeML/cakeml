@@ -519,10 +519,8 @@ val evaluate_code_ind =
 
 val evaluate_code_lemma = prove(
   evaluate_code_ind |> concl |> rand,
-  cheat) (*
-  MATCH_MP_TAC evaluate_code_ind
-  \\ rw[]
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[]
+  MATCH_MP_TAC evaluate_code_ind \\ rw[]
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[] \\ rw []
   \\ every_case_tac \\ fs[] \\ rfs[shift_seq_def,FUN_EQ_THM]
   \\ fs[dec_clock_def]
   \\ TRY(qexists_tac`0` \\ simp[FUPDATE_LIST_THM] \\ NO_TAC)
@@ -552,13 +550,41 @@ val evaluate_code_lemma = prove(
     qexists_tac`nn` \\
     imp_res_tac do_app_const \\
     fs[] \\ NO_TAC)
-  \\ qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
-  \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
-  \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
-  \\ qexists_tac`z+1+y`
-  \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
-  \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
-  \\ metis_tac[]) *)
+  \\ TRY
+   (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
+    \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
+    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+    \\ qexists_tac`z+1+y`
+    \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
+    \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
+    \\ metis_tac[])
+  >-
+   (fs [do_install_def]
+    \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
+    \\ rw [] \\ fs [shift_seq_def]
+    \\ qmatch_goalsub_rename_tac `nn + _`
+    \\ qexists_tac `nn+1` \\ fs []
+    \\ once_rewrite_tac [ADD_COMM]
+    \\ fs [GENLIST_APPEND] \\ rfs []
+    \\ last_x_assum (qspec_then `0` (assume_tac o GSYM)) \\ fs []
+    \\ fs [FUPDATE_LIST_APPEND, ALL_DISTINCT_APPEND, IN_DISJOINT]
+    \\ rfs []
+    \\ fs [FDOM_FUPDATE_LIST]
+    \\ metis_tac [])
+  \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
+  \\ qexists_tac `n1+n2+n3` \\ fs []
+  \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`
+  >- fsrw_tac [ETA_ss] [GSYM FUN_EQ_THM]
+  \\ fs []
+  \\ rfs []
+  \\ sg `GENLIST r'.compile_oracle n3 = GENLIST (\x. s.compile_oracle (n1 + (n2 + x))) n3`
+  >- (fsrw_tac [ETA_ss] [GSYM FUN_EQ_THM] \\ fs [])
+  \\ fs []
+  \\ once_rewrite_tac [ADD_ASSOC]
+  \\ once_rewrite_tac [ADD_COMM]
+  \\ fs [GSYM FUPDATE_LIST_APPEND, GENLIST_APPEND, ALL_DISTINCT_APPEND,
+         IN_DISJOINT, FDOM_FUPDATE_LIST]
+  \\ metis_tac [])
   |> SIMP_RULE std_ss [FORALL_PROD];
 
 val evaluate_code = Q.store_thm("evaluate_code",
@@ -570,6 +596,17 @@ val evaluate_code = Q.store_thm("evaluate_code",
           DISJOINT (FDOM s.code) (set (MAP FST ls))`,
   REPEAT STRIP_TAC
   \\ (evaluate_code_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
+  \\ fs[]);
+
+val evaluate_app_code = Q.store_thm("evaluate_app_code",
+  `(evaluate_app lopt f args s = (res,s1)) ==>
+      ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
+          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          s1.code = s.code |++ ls ∧
+          ALL_DISTINCT (MAP FST ls) ∧
+          DISJOINT (FDOM s.code) (set (MAP FST ls))`,
+  REPEAT STRIP_TAC
+  \\ (evaluate_code_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`lopt`,`f`,`args`,`s`] mp_tac)
   \\ fs[]);
 
 val evaluate_mono = Q.store_thm("evaluate_mono",
@@ -1788,6 +1825,56 @@ val refs_ffi_lemma = prove(
     ((s with refs := refs') with ffi := ffi')``,
   fs []);
 
+val simple_val_rel_list = Q.store_thm("simple_val_rel_list",
+  `!x x1 xs vr.
+     simple_val_rel vr /\
+     vr x x1 /\
+     v_to_list x1 = SOME xs
+     ==>
+     ?xs1.
+     vr (list_to_v xs1) (list_to_v xs) /\
+     v_to_list x = SOME xs1`,
+   recInduct v_to_list_ind \\ rw []
+   \\ fs [v_to_list_def, list_to_v_def]
+   \\ rfs [simple_val_rel_alt] \\ rw [] \\ rfs []
+   \\ Cases_on `x1` \\ fs [] \\ rfs [] \\ rw []
+   \\ fs [v_to_list_def, list_to_v_def] \\ rw []
+   \\ fs [v_to_list_def, list_to_v_def] \\ rw []
+   \\ fs [case_eq_thms] \\ rw []
+   \\ Cases_on `y'` \\ fs [v_to_list_def] \\ rfs [] \\ fs [] \\ rw []
+   \\ fs [list_to_v_def, PULL_EXISTS]
+   \\ first_x_assum drule
+   \\ rpt (disch_then drule \\ fs []) \\ rw []
+   \\ metis_tac []);
+
+val simple_val_rel_APPEND = Q.store_thm("simple_val_rel_APPEND",
+  `!xs1 ys1 xs2 ys2 vr.
+   simple_val_rel vr /\
+   vr (list_to_v xs1) (list_to_v xs2) /\
+   vr (list_to_v ys1) (list_to_v ys2)
+   ==>
+   vr (list_to_v (xs1++ys1)) (list_to_v (xs2++ys2))`,
+  Induct \\ rw []
+  \\ rfs [simple_val_rel_alt]
+  \\ fs [list_to_v_def]
+  \\ Cases_on `xs2` \\ rfs [list_to_v_def]
+  \\ first_x_assum drule
+  \\ fs [PULL_EXISTS]
+  \\ metis_tac []);
+
+val vr_list_NONE = Q.store_thm("vr_list_NONE",
+  `!x x1 vr.
+   simple_val_rel vr /\
+   vr x x1 /\
+   v_to_list x1 = NONE ==>
+   v_to_list x = NONE`,
+  recInduct v_to_list_ind \\ rw []
+  \\ Cases_on `x1` \\ rfs [simple_val_rel_alt]
+  \\ fs [v_to_list_def] \\ rw [] \\ fs [v_to_list_def, case_eq_thms]
+  \\ TRY (first_x_assum drule)
+  \\ rpt (disch_then drule \\ fs [])
+  \\ rw [] \\ metis_tac [isClos_def]);
+
 val _ = print "The following proof is slow due to Rerr cases.\n"
 val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
   ``simple_val_rel vr /\ simple_state_rel vr sr ==>
@@ -1799,21 +1886,28 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                             do_app opp xs s = Rval (x,s1)``,
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `opp = ListAppend`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ pop_assum mp_tac
+    \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
+    \\ TRY CASE_TAC \\ fs [] \\ rw []
+    \\ metis_tac [simple_val_rel_list, simple_val_rel_APPEND, vr_list_NONE])
   \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
                opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
                opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
                (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
-               (?f. opp = FP_bop f) \/ opp = WordToInt \/
+               (?f. opp = FP_bop f) \/ opp = WordToInt \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
                (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
+               (?b. opp = WordFromWord b) \/
                (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
     \\ strip_tac \\ rveq
     \\ drule v_rel_to_list_ByteVector
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
@@ -2050,6 +2144,7 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
           \\ first_x_assum drule \\ fs []
           \\ strip_tac
           \\ drule evaluate_add_clock
+          \\ simp [GSYM PULL_FORALL]
           \\ impl_tac
           THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
           \\ fs []
@@ -2057,8 +2152,7 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+          \\ simp [GSYM PULL_FORALL]
           \\ disch_then (qspec_then `ck+k` mp_tac) \\ fs []
           \\ asm_simp_tac std_ss [ADD_ASSOC]
           \\ fs [state_component_equality])
@@ -2066,8 +2160,8 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
         \\ first_x_assum drule \\ fs []
         \\ CCONTR_TAC \\ fs []
         \\ drule evaluate_add_clock
-        \\ impl_tac
-        THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+        \\ `res2 ≠ Rerr (Rabort Rtimeout_error)`
+               by (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
         \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
         \\ CCONTR_TAC \\ fs []
         \\ first_x_assum (qspec_then `ck+k` mp_tac) \\ fs []
@@ -2252,6 +2346,7 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
           \\ first_x_assum drule \\ fs []
           \\ strip_tac
           \\ drule evaluate_add_clock
+          \\ simp [GSYM PULL_FORALL]
           \\ impl_tac
           THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
           \\ fs []
@@ -2259,8 +2354,7 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ qpat_x_assum `evaluate _ = _` kall_tac
           \\ drule evaluate_add_clock
-          \\ impl_tac
-          THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+          \\ simp [GSYM PULL_FORALL]
           \\ disch_then (qspec_then `ck+k` mp_tac) \\ fs []
           \\ asm_simp_tac std_ss [ADD_ASSOC]
           \\ fs [state_component_equality])
@@ -2268,8 +2362,8 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
         \\ first_x_assum drule \\ fs []
         \\ CCONTR_TAC \\ fs []
         \\ drule evaluate_add_clock
-        \\ impl_tac
-        THEN1 (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
+        \\ `res2 ≠ Rerr (Rabort Rtimeout_error)`
+             by (fs [FST_EQ_LEMMA] \\ strip_tac \\ fs [])
         \\ disch_then (qspec_then `k'` mp_tac) \\ simp []
         \\ CCONTR_TAC \\ fs []
         \\ first_x_assum (qspec_then `ck+k` mp_tac) \\ fs []

@@ -405,6 +405,13 @@ val do_app_lemma = store_thm("do_app_lemma",
   \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
   \\ metis_tac []);
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.
+     LIST_REL (v_rel app) xs ys ==> v_rel app (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
+
 val do_app = Q.prove(
   `state_rel s1 s2 ∧
     LIST_REL (v_rel s1.max_app) x1 x2 ⇒
@@ -494,11 +501,10 @@ val do_install = Q.prove(
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ IF_CASES_TAC \\ fs[]
-  >- (
-    IF_CASES_TAC \\ fs[]
-    \\ fs[state_rel_def,state_co_def,ignore_table_def]
-    \\ pairarg_tac \\ fs[]
-    \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] ));
+  \\ IF_CASES_TAC \\ fs[]
+  \\ fs[state_rel_def,state_co_def,ignore_table_def]
+  \\ pairarg_tac \\ fs[]
+  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] );
 
 (* compiler correctness *)
 
@@ -649,10 +655,10 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
       \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
-      \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
       \\ imp_res_tac state_rel_max_app
       \\ imp_res_tac evaluate_const
       \\ drule (GEN_ALL do_install) \\ fs[]
+      \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
       \\ disch_then drule
       \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
       \\ TRY (strip_tac \\ fs[])
@@ -665,11 +671,11 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac EVERY2_REVERSE >> pop_assum kall_tac >>
     `s.max_app = s2'.max_app` by (
       imp_res_tac state_rel_max_app >>
       imp_res_tac evaluate_const >>
       fs[]) >> fs[] >>
+    imp_res_tac EVERY2_REVERSE >> pop_assum kall_tac >>
     first_assum(fn th1 => first_assum(fn th2 => mp_tac (MATCH_MP do_app (CONJ th1 th2)))) >>
     strip_tac >>
     last_x_assum mp_tac >>

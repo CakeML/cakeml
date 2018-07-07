@@ -283,26 +283,6 @@ val REFL_correct = Q.store_thm("REFL_correct",
   imp_res_tac termsem_equation >>
   rw[boolean_def])
 
-val TRANS_correct = Q.store_thm("TRANS_correct",
-  `is_set_theory ^mem ⇒
-    ∀thy h1 h2 l m1 m2 r.
-      (thy,h1) |= l === m1 ∧ (thy,h2) |= m2 === r ∧ ACONV m1 m2
-      ⇒ (thy,term_union h1 h2) |= l === r`,
-  strip_tac >>
-  rw[] >> match_mp_tac (UNDISCH binary_inference_rule) >>
-  map_every qexists_tac[`l === m1`,`m2 === r`] >>
-  fs[entails_def] >>
-  imp_res_tac theory_ok_sig >>
-  conj_asm1_tac >- (
-    fs[EQUATION_HAS_TYPE_BOOL] >>
-    metis_tac[ACONV_TYPE] ) >>
-  conj_asm1_tac >- (
-    fs[term_ok_equation,EQUATION_HAS_TYPE_BOOL] ) >>
-  rw[] >>
-  imp_res_tac termsem_equation >>
-  rfs[boolean_eq_true] >> fs[term_ok_equation] >>
-  metis_tac[termsem_aconv,ACONV_SYM,term_ok_welltyped])
-
 val proves_sound = Q.store_thm("proves_sound",
   `is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c`,
   strip_tac >> match_mp_tac proves_ind >>
@@ -315,7 +295,6 @@ val proves_sound = Q.store_thm("proves_sound",
   conj_tac >- metis_tac[INST_TYPE_correct] >>
   conj_tac >- metis_tac[MK_COMB_correct] >>
   conj_tac >- metis_tac[REFL_correct] >>
-  conj_tac >- metis_tac[TRANS_correct] >>
   rw[entails_def,theory_ok_def,models_def])
 
 val _ = export_theory()

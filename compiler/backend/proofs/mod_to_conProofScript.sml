@@ -664,6 +664,10 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
     ⇒
     s_rel gtagenv s s')`;
 
+val s_rel_dec_clock = Q.store_thm("s_rel_dec_clock",
+  `s_rel gtagenv s1 s2 ⇒ s_rel gtagenv (dec_clock s1) (dec_clock s2)`,
+  rw[s_rel_cases] \\ EVAL_TAC \\ rw[]);
+
 val match_result_rel_def = Define
   `(match_result_rel gtagenv (Match env) (Match env_i2) ⇔
      env_rel gtagenv env env_i2) ∧
@@ -932,6 +936,23 @@ val tac =
   full_simp_tac(srw_ss())[Boolv] >>
   TRY (full_simp_tac(srw_ss())[gtagenv_wf_def, has_exns_def] >> NO_TAC);
 
+val v_rel_l2v_APPEND = Q.store_thm("v_rel_l2v_APPEND",
+  `!x1 y1 x2 y2.
+     v_rel tagenv (list_to_v x1) (list_to_v x2) /\
+     v_rel tagenv (list_to_v y1) (list_to_v y2) ==>
+       v_rel tagenv (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct \\ Induct_on `x2`
+  \\ rw [list_to_v_def, conSemTheory.list_to_v_def, v_rel_eqns]);
+
+val v_rel_l2v = Q.store_thm("v_rel_l2v",
+  `!x y.
+   gtagenv_wf tagenv /\
+   vs_rel tagenv x y ==>
+     v_rel tagenv (list_to_v x) (list_to_v y)`,
+  Induct \\ rw [list_to_v_def, conSemTheory.list_to_v_def, v_rel_eqns]
+  \\ fs [gtagenv_wf_def, has_lists_def, conSemTheory.list_to_v_def]
+  \\ res_tac \\ fs []);
+
 val do_app = Q.prove (
   `!gtagenv s1 s2 op vs r s1_i2 vs_i2.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -948,13 +969,20 @@ val do_app = Q.prove (
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i2` >>
+  Cases_on `op = ListAppend`
+  >-
+   (rw [] \\ tac
+    \\ imp_res_tac v_to_list \\ fs []
+    \\ rfs [] \\ rw []
+    \\ metis_tac [v_rel_l2v, v_rel_l2v_APPEND]) >>
+  Cases_on `op = ConfigGC` THEN1 tac >>
   cases_on `op` >>
   srw_tac[][]
   >- tac
   >- tac
   >- tac
   >- tac
-  >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >> 
+  >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>
       cases_on `t` >>
@@ -1020,14 +1048,10 @@ val do_app = Q.prove (
       TRY (cases_on `t'`) >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       srw_tac[][]
-(*<<<<<<< HEAD
-      >> (every_case_tac >>
-=======*)
       >- (every_case_tac \\ fs[Once v_rel_cases] \\ rw[]
           \\ TRY (every_case_tac) \\ fs [conSemTheory.do_app_def] \\ rw[]
           \\ full_simp_tac (srw_ss()) [conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def, has_exns_def, gtagenv_wf_def])
       >- (every_case_tac >>
-(*>>>>>>> origin*)
           imp_res_tac v_to_list >>
           srw_tac[][conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def] >>
           srw_tac[][]))
@@ -1377,27 +1401,37 @@ val compile_exp_correct = Q.prove (
      (
     full_simp_tac(srw_ss())[compile_exps_map,MAP_REVERSE] >>
     Cases_on`op=Opapp`>>full_simp_tac(srw_ss())[] >- (
-      every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-      disch_then(fn th => first_assum(mp_tac o MATCH_MP(th))) >> strip_tac >> full_simp_tac(srw_ss())[] >>
-      rpt var_eq_tac >> full_simp_tac(srw_ss())[result_rel_eqns] >>
-      full_simp_tac(srw_ss())[vs_rel_list_rel] >> imp_res_tac EVERY2_REVERSE >>
-      imp_res_tac do_opapp >> full_simp_tac(srw_ss())[vs_rel_list_rel] >>
-      res_tac >> full_simp_tac(srw_ss())[] >>
-      rpt var_eq_tac >> full_simp_tac(srw_ss())[result_rel_cases] >>
-      full_simp_tac(srw_ss())[s_rel_cases] >>
-      full_simp_tac(srw_ss())[modSemTheory.dec_clock_def,conSemTheory.dec_clock_def] ) >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP(th))) >> strip_tac >> full_simp_tac(srw_ss())[] >>
-    rpt var_eq_tac >> full_simp_tac(srw_ss())[result_rel_eqns] >>
-    full_simp_tac(srw_ss())[vs_rel_list_rel] >> imp_res_tac EVERY2_REVERSE >>
-    `gtagenv_wf gtagenv` by full_simp_tac(srw_ss())[env_all_rel_cases, cenv_inv_def] >>
-    imp_res_tac do_app >> rev_full_simp_tac(srw_ss())[vs_rel_list_rel] >>
-    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    res_tac >> full_simp_tac(srw_ss())[s_rel_cases] >>
-    res_tac >> rev_full_simp_tac(srw_ss())[s_rel_cases] >>
-    full_simp_tac(srw_ss())[result_rel_cases,vs_rel_list_rel] )
+      fs[pair_case_eq,
+         prove_case_eq_thm{nchotomy=option_nchotomy,case_def=option_case_def},
+         prove_case_eq_thm{nchotomy=result_nchotomy,case_def=result_case_def}]
+      \\ rveq \\ fs[bool_case_eq] \\ rveq
+      \\ fs[result_rel_eqns]
+      \\ TRY (qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[])
+      \\ first_x_assum drule \\ disch_then drule \\ rw[]
+      \\ rpt ( asm_exists_tac \\ fs[] )
+      \\ TRY (fs[result_rel_cases] \\ NO_TAC)
+      \\ imp_res_tac do_opapp \\ fs[vs_rel_list_rel]
+      \\ imp_res_tac EVERY2_REVERSE
+      \\ last_x_assum drule \\ rw[] \\ rw[]
+      \\ TRY (fs[s_rel_cases] \\ NO_TAC)
+      \\ last_x_assum drule \\ rw[]
+      \\ imp_res_tac s_rel_dec_clock
+      \\ first_x_assum drule \\ rw[]
+      \\ asm_exists_tac \\ rw[]
+      \\ asm_exists_tac \\ rw[]
+      \\ fs[s_rel_cases]) >>
+    last_x_assum (fn th => mp_tac th \\ impl_tac >- (strip_tac \\ fs[]))
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ rw[] \\ rw[]
+    \\ `gtagenv_wf gtagenv` by full_simp_tac(srw_ss())[env_all_rel_cases, cenv_inv_def]
+    \\ every_case_tac \\ fs[] \\ rveq \\ TRY(fs[result_rel_cases] \\ NO_TAC)
+    \\ fs[result_rel_eqns,vs_rel_list_rel]
+    \\ drule do_app \\ fsrw_tac[QUANT_INST_ss[pair_default_qp]][vs_rel_list_rel,s_rel_cases]
+    \\ disch_then drule
+    \\ imp_res_tac EVERY2_REVERSE
+    \\ disch_then drule \\ rw[]
+    \\ fs[result_rel_cases,vs_rel_list_rel])
   >- (* If *)
    (
     rev_full_simp_tac(srw_ss())[modSemTheory.do_if_def] >>

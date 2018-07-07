@@ -249,6 +249,12 @@ val ALOOKUP_compile = Q.store_thm("ALOOKUP_compile",
 
 (* semantic functions respect relation *)
 
+val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
+  `!xs ys.  LIST_REL v_rel xs ys ==> v_rel (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
+  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
+
 val v_to_list = Q.prove(
   `!h h'.
       v_rel h h' ==>
@@ -1061,11 +1067,9 @@ val shift_correct = Q.prove(
              ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
         \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
         THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs[]
         \\ MATCH_MP_TAC EVERY2_TAKE
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs[])
       \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
       \\ reverse (Cases_on `q`) \\ full_simp_tac(srw_ss())[]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
@@ -1076,10 +1080,9 @@ val shift_correct = Q.prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
       \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
       \\ reverse conj_tac >- fs[dec_clock_def]
-      \\ MATCH_MP_TAC EVERY2_REVERSE
       \\ MATCH_MP_TAC EVERY2_DROP
-      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-      \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
+      \\ full_simp_tac(srw_ss())[])
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ Cases_on `EL n cs'` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
@@ -1129,10 +1132,8 @@ val shift_correct = Q.prove(
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
       \\ REPEAT STRIP_TAC THEN1
        (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE
         \\ MATCH_MP_TAC EVERY2_TAKE
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[LIST_REL_GENLIST]
       \\ full_simp_tac(srw_ss())[v_rel_simp] \\ REPEAT STRIP_TAC
       \\ full_simp_tac(srw_ss())[])
@@ -1146,10 +1147,9 @@ val shift_correct = Q.prove(
     \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
     \\ code_tac \\ full_simp_tac(srw_ss())[dec_clock_def]
-    \\ MATCH_MP_TAC EVERY2_REVERSE
     \\ MATCH_MP_TAC EVERY2_DROP
-    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
-    \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[]));
+    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
+    \\ full_simp_tac(srw_ss())[]));
 
 val env_set_default = Q.prove(
   `x SUBSET env_ok 0 0 LN [] env'`,

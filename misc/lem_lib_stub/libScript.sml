@@ -23,11 +23,6 @@ val _ = new_theory "lib"
 
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 
-(*val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a*)
- val _ = Define `
- (num_fold f a n=  (if n =( 0 : num) then a else num_fold f (f a) (n -( 1 : num))))`;
-
-
  val _ = Define `
  (the _ (SOME x)=  x) /\ (the x NONE=  x)`;
 
@@ -71,6 +66,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (* TODO: proper support for lazy lists *)
 
 (*open import {hol} `llistTheory`*)
+(*open import {isabelle} `Coinductive.Coinductive_List`*)
 (*type llist 'a*)
 (*val lhd : forall 'a. llist 'a -> maybe 'a*)
 (*val ltl : forall 'a. llist 'a -> maybe (llist 'a)*)

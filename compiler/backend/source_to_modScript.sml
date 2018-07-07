@@ -86,6 +86,8 @@ val astOp_to_modOp_def = Define `
   | Asub => modLang$Asub
   | Alength => modLang$Alength
   | Aupdate => modLang$Aupdate
+  | ListAppend => modLang$ListAppend
+  | ConfigGC => modLang$ConfigGC
   | FFI string => modLang$FFI string`;
 
 (* The traces are passed along without being split for most expressions, since we

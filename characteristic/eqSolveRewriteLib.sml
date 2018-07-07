@@ -1,7 +1,7 @@
 structure eqSolveRewriteLib :> eqSolveRewriteLib =
 struct
 
-open HolKernel boolLib KernelTypes Conv helperLib
+open HolKernel boolLib Conv helperLib
 (* TODO: helperLib is used for list_dest - it should be added to HOL more prominently *)
 
 fun xor x y = (x orelse y) andalso (not (x andalso y));

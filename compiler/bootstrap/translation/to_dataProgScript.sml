@@ -54,21 +54,9 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 (* TODO:
-   these things are a discrepancy between HOL's standard libraries and
+   this is a discrepancy between HOL's standard libraries and
    mllist. probably the compiler should be using the mllist versions? *)
-
-val res = translate ZIP;
 val res = translate EL;
-
-val list_zip_side_def = theorem"list_zip_side_def";
-
-val list_zip_side = Q.prove(
-  `∀p. list_zip_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
-  gen_tac \\ PairCases_on`p`
-  \\ qid_spec_tac`p1` \\ Induct_on`p0`
-  \\ rw[Once list_zip_side_def,LENGTH_NIL_SYM]
-  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
-
 val list_el_side = Q.prove(
   `!n xs. list_el_side n xs = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
@@ -390,26 +378,10 @@ TODO: make this not have to be explicitly translated, probably by renaming it to
 *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
 
-val clos_number_renumber_code_locs_list_side = Q.prove(`
-  (∀a b. clos_number_renumber_code_locs_list_side a b ⇔ T) ∧
-  (∀a b. clos_number_renumber_code_locs_side a b ⇔ T)`,
-  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind>>rw[]>>
-  simp[Once (fetch"-" "clos_number_renumber_code_locs_list_side_def")]>>
-  metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
-
 (* known *)
 (*val _ = patternMatchesLib.ENABLE_PMATCH_CASES();*)
 
 val _ = translate clos_knownTheory.merge_alt
-
-val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
-
-val clos_known_merge_side = Q.prove(`
-  ∀a b. clos_known_merge_side a b ⇔ T`,
-  EVAL_TAC \\
-  recInduct clos_knownTheory.merge_tup_ind \\
-  rw[] \\
-  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
 
 val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
@@ -432,7 +404,7 @@ val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
-  fs[clos_known_merge_side]>>rw[]>>
+  fs[]>>rw[]>>
   intLib.COOPER_TAC) |> update_precondition;
 
 (*
@@ -447,17 +419,32 @@ val clos_known_known_op_side = Q.prove(`
   intLib.COOPER_TAC))
 *)
 
+val r = translate (clos_knownTheory.dec_depth_def |> SIMP_RULE (srw_ss()) [PAIR_MAP, FUN_EQ_THM, FORALL_PROD])
+
+val r = translate clos_knownTheory.free_def
+
+val clos_known_free_side = Q.store_thm("clos_known_free_side",
+  `!x. clos_known_free_side x`,
+  ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
+  \\ `!xs ys l. free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
+   (ho_match_mp_tac clos_knownTheory.free_ind
+    \\ rw [] \\ fs [clos_knownTheory.free_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rw [])
+  \\ `!x l. free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
+  \\ once_rewrite_tac [fetch "-" "clos_known_free_side_def"] \\ fs []
+  \\ rw [] \\ fs [] \\ metis_tac []) |> update_precondition;
+
 val r = translate (clos_knownTheory.known_def)
 
 val clos_known_known_side = Q.prove(`
-  ∀a b c. clos_known_known_side a b c ⇔ T`,
-  ho_match_mp_tac clos_knownTheory.known_ind>>
-  `∀z a b c. known [z] a b ≠ ([],c)` by
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
-    fs[])>>
-  rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
-  metis_tac[FST,PAIR]) |> update_precondition
+  ∀a b c d. clos_known_known_side a b c d ⇔ T`,
+  ho_match_mp_tac clos_knownTheory.known_ind
+  \\ `∀z a b c d e. known a [z] b c ≠ ([],d)` by
+   (CCONTR_TAC \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[])
+  \\ rw [] \\ simp [Once (fetch "-" "clos_known_known_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
 
 val r = translate clos_knownTheory.compile_def
 
@@ -490,12 +477,7 @@ val clos_call_calls_side = Q.prove(`
   TRY(metis_tac[])>>
   ntac 2 strip_tac>>
   simp[LAMBDA_PROD]>> rw[fetch "-" "clos_call_closed_side_def",clos_call_free_side]
-  >-
-    metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]
-  >>
-    simp[GSYM LAMBDA_PROD]>>rw[]
-    >- (imp_res_tac clos_callTheory.calls_length>>fs[])
-    >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
+  >> rw[GSYM LAMBDA_PROD]) |> update_precondition
 
 val r = translate clos_callTheory.compile_def
 
@@ -735,17 +717,32 @@ val bvl_handle_compile_side = Q.prove(`
   rw[]>>fs[]>>
   metis_tac[])|>update_precondition
 
-val _ = translate (bvl_inlineTheory.inline_def)
+val r = translate (bvl_inlineTheory.tick_inline_def)
 
-val bvl_inline_inline_side = Q.prove(`
-  ∀x y. bvl_inline_inline_side x y ⇔ T`,
-  ho_match_mp_tac bvl_inlineTheory.inline_ind>>
-  `∀a b. bvl_inline$inline a [b] ≠ []` by
-    (CCONTR_TAC>>fs[]>>
-    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-    simp[bvl_inlineTheory.LENGTH_inline])>>
-  rw[]>>
-  simp[Once (fetch "-" "bvl_inline_inline_side_def")])|>update_precondition
+val bvl_inline_tick_inline_side = Q.prove (
+  `!a0 a1. bvl_inline_tick_inline_side a0 a1 <=> T`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_ind
+  \\ `!a x. LENGTH (tick_inline a x) = LENGTH x` by
+   (ho_match_mp_tac bvl_inlineTheory.tick_inline_ind \\ rw []
+    \\ fs [bvl_inlineTheory.tick_inline_def]
+    \\ every_case_tac \\ fs [])
+  \\ `!a x. tick_inline a [x] <> []` by
+   (CCONTR_TAC \\ fs [] \\ last_x_assum (qspecl_then [`a`,`[x]`] assume_tac) \\ rfs [])
+  \\ rw [] \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_side_def"] \\ fs [])
+  |> update_precondition;
+
+val r = translate bvl_inlineTheory.tick_inline_all_def
+
+val bvl_inline_tick_inline_all_side = Q.prove (
+  `!a0 a1 a2 a3. bvl_inline_tick_inline_all_side a0 a1 a2 a3 <=> T`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_all_ind
+  \\ `!(x:(num # bvl$exp) num_map) y. tick_inline x [y] <> []` by
+   (CCONTR_TAC \\ fs []
+    \\ Q.ISPECL_THEN [`x`,`[y]`] assume_tac bvl_inlineTheory.LENGTH_tick_inline
+    \\ rfs [])
+  \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_all_side_def"] \\ fs [])
+  |> update_precondition;
 
 val _ = translate (bvl_constTheory.compile_def)
 
@@ -892,64 +889,54 @@ val bvi_let_compile_side = Q.prove(`
 
 val _ = translate(bvi_letTheory.compile_exp_def);
 
-val _ = translate bvi_tailrecTheory.scan_expr_def
+(* ------------------------------------------------------------------------- *)
+(* bvi_tailrec: Some PMATCH versions are translated 'manually'               *)
+(* ------------------------------------------------------------------------- *)
 
-val bvi_tailrec_scan_expr_side = Q.prove (
-  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2 <=> T`,
-  ho_match_mp_tac bvi_tailrecTheory.scan_expr_ind \\ rw []
-  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")]
-  \\ PURE_FULL_CASE_TAC \\ fs [])
-  |> update_precondition
+val r = translate bvi_tailrecTheory.is_rec_PMATCH
+val r = translate bvi_tailrecTheory.is_const_PMATCH
+val r = translate bvi_tailrecTheory.from_op_PMATCH
+val r = translate bvi_tailrecTheory.op_eq_PMATCH
+val r = translate bvi_tailrecTheory.index_of_PMATCH
+val r = translate bvi_tailrecTheory.args_from_PMATCH
+val r = translate bvi_tailrecTheory.get_bin_args_PMATCH
+val r = translate bvi_tailrecTheory.is_arith_PMATCH
+val r = translate bvi_tailrecTheory.is_rel_PMATCH
+val r = translate bvi_tailrecTheory.term_ok_int_def
 
-val rewrite_alt_def = Define `
-  rewrite_alt loc next op acc ts x =
-    case x of
-      Var n => (F, Var n)
-    | If xi xt xe =>
-        let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
-        let (rt, yt) = rewrite_alt loc next op acc ti xt in
-        let (re, ye) = rewrite_alt loc next op acc ti xe in
-        let zt = if rt then yt else apply_op op xt (Var acc) in
-        let ze = if re then ye else apply_op op xe (Var acc) in
-          (rt ∨ re, If xi zt ze)
-    | Let xs x =>
-        let ys = scan_expr ts loc xs in
-        let tt = MAP (FST o SND) ys in
-        let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
-        let (r, y) = rewrite_alt loc next op (acc + LENGTH xs) (tt ++ tr) x in
-          (r, Let xs y)
-    | Tick x =>
-        let (r, y) = rewrite_alt loc next op acc ts x in (r, Tick y)
-    | Raise x => (F, Raise x)
-    | exp =>
-        case rewrite_op ts op loc exp of
-          (F, _)    => (F, apply_op op exp (Var acc))
-        | (T, exp1) =>
-          case get_bin_args exp1 of
-            NONE => (F, apply_op op exp (Var acc))
-          | SOME (call, exp2) =>
-              (T, push_call next op acc exp2 (args_from call))`;
+(*val r = translate bvi_tailrecTheory.term_ok_any_PMATCH (* auto_prove failed for ind *)*)
+val r = translate bvi_tailrecTheory.term_ok_any_def
+val r = translate bvi_tailrecTheory.assocr_PMATCH
+val r = translate bvi_tailrecTheory.decide_ty_PMATCH
+val r = translate bvi_tailrecTheory.arg_ty_PMATCH
+val r = translate bvi_tailrecTheory.op_ty_PMATCH
 
-val _ = translate rewrite_alt_def
+val r = translate bvi_tailrecTheory.scan_expr_def
 
-val rewrite_alt_side = Q.prove (
-  `!a0 a1 a2 a3 a4 a5. to_dataprog_rewrite_alt_side a0 a1 a2 a3 a4 a5 <=> T`,
-  ho_match_mp_tac (theorem "rewrite_alt_ind") \\ rw []
-  \\ once_rewrite_tac [fetch "-" "to_dataprog_rewrite_alt_side_def"]
-  \\ rw []
-  \\ PURE_FULL_CASE_TAC \\ fs []) |> update_precondition
+val bvi_tailrec_scan_expr_side = Q.store_thm("bvi_tailrec_scan_expr_side",
+  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`,
+  recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvi_tailrec_scan_expr_side_def"] \\ fs []
+  \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
-val rewrite_alt_lem = Q.prove (
-  `!loc next op acc ts x.
-     bvi_tailrec$rewrite (loc,next,op,acc,ts) x =
-     rewrite_alt loc next op acc ts x`,
-  ho_match_mp_tac (fetch "-" "rewrite_alt_ind") \\ rw []
-  \\ once_rewrite_tac [rewrite_alt_def]
-  \\ CASE_TAC
-  \\ fs [bvi_tailrecTheory.rewrite_def]
-  \\ rpt (pairarg_tac \\ fs []));
+(*val r = translate bvi_tailrecTheory.comml_PMATCH (* prove_evalPatBind failed *)*)
+val r = translate bvi_tailrecTheory.comml_def
 
-val _ = translate rewrite_alt_lem
+val bvi_tailrec_comml_side = Q.store_thm("bvi_tailrec_comml_side",
+  `!v23 v24 v25. bvi_tailrec_comml_side v23 v24 v25`,
+  recInduct bvi_tailrecTheory.comml_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvi_tailrec_comml_side_def"] \\ fs []
+  \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
+
+val r = translate bvi_tailrecTheory.rewrite_PMATCH
+
+val bvi_tailrec_rewrite_side = Q.store_thm("bvi_tailrec_rewrite_side",
+  `!v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`,
+  recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvi_tailrec_rewrite_side_def"] \\ fs []
+  \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
+
+val r = translate bvi_tailrecTheory.has_rec_def
 
 val _ = translate(bvi_tailrecTheory.compile_prog_def);
 

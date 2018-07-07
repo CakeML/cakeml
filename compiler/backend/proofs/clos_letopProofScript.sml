@@ -225,14 +225,10 @@ val dest_closure_SOME_Full_app = store_thm("dest_closure_SOME_Full_app",
           \\ strip_tac \\ rveq \\ fs []
           \\ conj_tac
           THEN1 (ntac 2 (irule EVERY2_APPEND_suff \\ simp [])
-                 \\ irule EVERY2_REVERSE
                  \\ irule EVERY2_TAKE
-                 \\ irule EVERY2_APPEND_suff \\ simp []
-                 \\ irule EVERY2_REVERSE \\ simp [])
-          \\ irule EVERY2_REVERSE
+                 \\ irule EVERY2_APPEND_suff \\ simp [])
           \\ irule EVERY2_DROP
-          \\ irule EVERY2_APPEND_suff \\ simp []
-          \\ irule EVERY2_REVERSE \\ simp [])
+          \\ irule EVERY2_APPEND_suff \\ simp [])
    \\ rename1 `LIST_REL f_rel fns1 fns2`
    \\ simp [dest_closure_def]
    \\ ntac 2 (pairarg_tac \\ simp [])
@@ -248,14 +244,10 @@ val dest_closure_SOME_Full_app = store_thm("dest_closure_SOME_Full_app",
    THEN1 (irule EVERY2_APPEND_suff \\ simp []
           \\ irule EVERY2_APPEND_suff \\ simp [LIST_REL_GENLIST]
           \\ irule EVERY2_APPEND_suff \\ simp []
-          \\ irule EVERY2_REVERSE
           \\ irule EVERY2_TAKE
-          \\ irule EVERY2_APPEND_suff \\ simp []
-          \\ irule EVERY2_REVERSE \\ simp [])
-   \\ irule EVERY2_REVERSE
+          \\ irule EVERY2_APPEND_suff \\ simp [])
    \\ irule EVERY2_DROP
-   \\ irule EVERY2_APPEND_suff \\ simp []
-   \\ irule EVERY2_REVERSE \\ simp [])
+   \\ irule EVERY2_APPEND_suff \\ simp []);
 
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>

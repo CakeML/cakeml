@@ -1,9 +1,9 @@
 open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib mllistProgTheory
+open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
 
 val _ = new_theory "LazyPairingHeap"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 80 *)
 

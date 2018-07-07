@@ -58,7 +58,7 @@ val _ = Define `
 (*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * list word8*)
 val _ = Define `
  (call_FFI st s conf bytes=  
- (if st.final_event = NONE then
+ (if (st.final_event = NONE) /\ ~ (s = "") then
     (case st.oracle s st.ffi_state conf bytes of
       Oracle_return ffi' bytes' =>
         if LENGTH bytes' = LENGTH bytes then

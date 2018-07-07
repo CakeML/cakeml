@@ -5,7 +5,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory;
+     gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
@@ -302,7 +302,7 @@ val get_real_addr_lemma = Q.store_thm("get_real_addr_lemma",
   \\ eval_tac \\ fs [] \\ rw []
   \\ eval_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
-  \\ rfs [shift_def] \\ fs []);
+  \\ rfs [backend_commonTheory.word_shift_def] \\ fs []);
 
 val memory_rel_lookup = Q.store_thm("memory_rel_lookup",
   `memory_rel c be refs s st m dm
@@ -857,7 +857,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
   \\ fs [GSYM wordSemTheory.set_var_def]
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `set_var 1 (Word w1)` \\ rveq
-  \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AllocVar _ _,t4)` \\ rveq
+  \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AllocVar _ _ _,t4)` \\ rveq
   \\ `state_rel c l1 l2 s t4 [] locs` by
    (unabbrev_all_tac
     \\ fs [wordSemTheory.set_var_def,state_rel_insert_1,state_rel_set_store_Temp]

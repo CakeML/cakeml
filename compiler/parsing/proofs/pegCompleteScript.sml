@@ -1,12 +1,6 @@
-open HolKernel boolLib bossLib
-
-open pred_setTheory
-open pegTheory cmlPEGTheory gramTheory grammarTheory gramPropsTheory
-open lcsymtacs boolSimps
 open preamble
-open mp_then
-
-open pegSoundTheory
+     pegTheory grammarTheory pegSoundTheory
+     gramTheory gramPropsTheory cmlPEGTheory
 
 val _ = new_theory "pegComplete"
 val _ = set_grammar_ancestry ["pegSound"]

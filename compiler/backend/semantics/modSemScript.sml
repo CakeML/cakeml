@@ -140,6 +140,11 @@ val v_to_list_def = Define `
   ∧
   (v_to_list _ = NONE)`;
 
+val list_to_v_def = Define `
+  list_to_v []      = Conv (SOME ("nil", TypeId (Short "list"))) [] /\
+  list_to_v (x::xs) = Conv (SOME ("::", TypeId (Short "list"))) [x; list_to_v xs]
+  `;
+
 val v_to_char_list_def = Define `
  (v_to_char_list (Conv (SOME (cn, TypeId (Short tn))) []) =
   if (cn = "nil") ∧ (tn = "list") then
@@ -166,6 +171,11 @@ val vs_to_string_def = Define`
 val do_app_def = Define `
   do_app (s,t) op (vs:modSem$v list) =
   case (op, vs) of
+    (ListAppend, [x1; x2]) =>
+      (case (v_to_list x1, v_to_list x2) of
+         (SOME xs, SOME ys) =>
+           SOME ((s, t), Rval (list_to_v (xs ++ ys)))
+       | _ => NONE)
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
       SOME ((s,t), Rerr (Rraise (prim_exn "Div")))
@@ -371,6 +381,8 @@ val do_app_def = Define `
             | NONE => NONE
             | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
      | _ => NONE)
+  | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+       SOME ((s,t), Rval (Conv NONE []))
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
