@@ -9,10 +9,50 @@ val extract_labels_def = Define`
   (extract_labels (x::xs) = extract_labels xs)`
 val _ = export_rewrites["extract_labels_def"];
 
+val extract_labels_ind = theorem"extract_labels_ind";
+
 val extract_labels_append = Q.store_thm("extract_labels_append",`
   ∀A B.
   extract_labels (A++B) = extract_labels A ++ extract_labels B`,
   Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
+
+val labs_of_def = Define`
+  labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
+  labs_of (Jump (Lab n1 n2)) = {(n1,n2)} ∧
+  labs_of (JumpCmp _ _ _ (Lab n1 n2)) = {(n1,n2)} ∧
+  labs_of _ = {}`;
+val _ = export_rewrites["labs_of_def"];
+
+val line_get_labels_def = Define`
+  line_get_labels (LabAsm a _ _ _) = labs_of a ∧
+  line_get_labels _ = {}`;
+
+val sec_get_labels_def = Define`
+  sec_get_labels (Section _ lines) =
+    BIGUNION (IMAGE line_get_labels (set lines))`;
+
+val get_labels_def = Define`
+  get_labels code = BIGUNION (IMAGE sec_get_labels (set code))`;
+
+val line_get_code_labels_def = Define`
+  line_get_code_labels (Label _ l _) = {l} ∧
+  line_get_code_labels _ = {}`;
+val _ = export_rewrites["line_get_code_labels_def"];
+
+val sec_get_code_labels_def = Define`
+  sec_get_code_labels (Section n1 lines) =
+    (n1,0) INSERT
+    IMAGE (λn2. (n1,n2)) (BIGUNION (IMAGE line_get_code_labels (set lines)))`;
+
+val get_code_labels_def = Define`
+  get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))`;
+
+val get_code_labels_nil = Q.store_thm("get_code_labels_nil[simp]",
+  `get_code_labels [] = {}`, EVAL_TAC \\ rw[]);
+
+val get_code_labels_cons = Q.store_thm("get_code_labels_cons",
+  `get_code_labels (s::secs) = sec_get_code_labels s ∪ get_code_labels secs`,
+  rw[get_code_labels_def]);
 
 val sec_ends_with_label_def = Define`
   sec_ends_with_label (Section _ ls) ⇔
@@ -692,5 +732,27 @@ val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
    n1' = n1 ∧ n2 ≠ 0`,
   Induct_on`lines` \\ simp[]
   \\ Cases \\ rw[] \\ fs[]);
+
+val line_get_code_labels_extract_labels = Q.store_thm("line_get_code_labels_extract_labels",
+  `∀l.
+   BIGUNION (IMAGE line_get_code_labels (set l)) =
+   IMAGE SND (set (extract_labels l))`,
+  recInduct extract_labels_ind
+  \\ rw[extract_labels_def]
+  \\ rw[EXTENSION]);
+
+val get_code_labels_extract_labels = Q.store_thm("get_code_labels_extract_labels",
+  `∀code.
+   EVERY sec_labels_ok code ⇒
+   get_code_labels code =
+   IMAGE (λs. (Section_num s, 0)) (set code) ∪
+   set (FLAT (MAP (extract_labels o Section_lines) code))`,
+  Induct \\ simp[get_code_labels_cons] \\ Cases
+  \\ rw[sec_get_code_labels_def, LIST_TO_SET_FLAT]
+  \\ rw[line_get_code_labels_extract_labels]
+  \\ rw[UNION_ASSOC]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EXISTS_PROD, FORALL_PROD]
+  \\ metis_tac[sec_label_ok_extract_labels]);
 
 val _ = export_theory();
