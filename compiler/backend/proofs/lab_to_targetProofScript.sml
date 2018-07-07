@@ -3530,6 +3530,48 @@ val _ = export_rewrites["sec_labs_exist_def"];
 
 val _ = overload_on("all_labs_exist",``λlabs code. EVERY (sec_labs_exist labs) code``);
 
+(* labs_exist preservation *)
+
+val labs_exist_add_nop = Q.store_thm("labs_exist_add_nop[simp]",
+  `∀nop aux.
+   EVERY (line_labs_exist labs) (add_nop nop aux) ⇔
+   EVERY (line_labs_exist labs) aux`,
+  recInduct add_nop_ind
+  \\ rw[add_nop_def]);
+
+val labs_exist_pad_section = Q.store_thm("labs_exist_pad_section",
+  `∀nop ls acc.
+   EVERY (line_labs_exist labs) (pad_section nop ls acc) ⇔
+   EVERY (line_labs_exist labs) ls ∧ EVERY (line_labs_exist labs) acc`,
+  recInduct pad_section_ind
+  \\ rw[pad_section_def, EVERY_REVERSE]
+  \\ rw[EQ_IMP_THM] \\ fs[]);
+
+val all_labs_exist_pad_code = Q.store_thm("all_labs_exist_pad_code[simp]",
+  `∀nop code. all_labs_exist labs (pad_code nop code) ⇔ all_labs_exist labs code`,
+  recInduct pad_code_ind
+  \\ rw[pad_code_def, labs_exist_pad_section]);
+
+val enc_lines_again_line_labs_exist = Q.store_thm("enc_lines_again_line_labs_exist",
+  `∀labs ffis pos enc lines acc ok res ok' k.
+   enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
+   EVERY (line_labs_exist labs') acc ∧
+   EVERY (line_labs_exist labs') lines ⇒
+   EVERY (line_labs_exist labs') res`,
+  recInduct enc_lines_again_ind
+  \\ rw[enc_lines_again_def]
+  \\ rw[EVERY_REVERSE]);
+
+val enc_secs_again_all_labs_exist = Q.store_thm("enc_secs_again_all_labs_exist",
+  `∀pos ffis labs enc ls res ok k.
+    enc_secs_again pos ffis labs enc ls = (res,ok) ∧ all_labs_exist labs' ls ⇒
+    all_labs_exist labs' res`,
+  recInduct enc_secs_again_ind
+  \\ rw[enc_secs_again_def] \\ rw[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ match_mp_tac enc_lines_again_line_labs_exist
+  \\ asm_exists_tac \\ fs[]);
+
 (* invariant: labels aligned at even positions *)
 
 val even_labels_def = Define`
@@ -4285,7 +4327,10 @@ val remove_labels_loop_thm = Q.prove(
                    pad_code_ends_with_label,all_enc_with_nop_label_zero]
       \\ match_mp_tac label_zero_pos_ok_even_labels \\ fs[]
       \\ match_mp_tac all_lab_len_pos_ok_pad_code \\ fs[])
-    \\ conj_tac >- cheat (* need to prove all labs exist *)
+    \\ conj_tac >- (
+      match_mp_tac enc_secs_again_all_labs_exist
+      \\ asm_exists_tac \\ simp[]
+      \\ cheat (* need to prove all labs exist *))
     \\ match_mp_tac offset_ok_pad_code \\ fs[]
     \\ metis_tac[enc_secs_again_offset_ok])
   \\ conj_asm1_tac
