@@ -797,7 +797,7 @@ val value_ind =
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`
 
-(* TODO closProps? *)
+(* TODO: move to closProps *)
 val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
   `!(x: closSem$v) y xs ys.
      v_to_list x = SOME xs /\
@@ -816,6 +816,15 @@ val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
   \\ rfs []
   \\ res_tac
   \\ fs [list_to_v_def])
+
+val dec_clock_compile_oracle = Q.store_thm("dec_clock_compile_oracle[simp]",
+  `(closSem$dec_clock n s).compile_oracle = s.compile_oracle`,
+  EVAL_TAC);
+
+val dec_clock_compile = Q.store_thm("dec_clock_compile[simp]",
+  `(closSem$dec_clock n s).compile = s.compile`,
+  EVAL_TAC);
+(* -- *)
 
 val do_app_ssgc = Q.store_thm(
   "do_app_ssgc",
@@ -1601,7 +1610,6 @@ val known_preserves_fv_max = Q.store_thm(
     \\ fs [EVERY_MEM]
     \\ first_x_assum drule \\ simp []));
 
-(*
 val known_extra = Q.store_thm(
   "known_extra",
   `!c xs aenv g0 extra1 extra2.
@@ -1619,7 +1627,6 @@ val known_extra = Q.store_thm(
          \\ simp [MAP_EQ_f, PULL_FORALL, FORALL_PROD]
          \\ rpt strip_tac \\ fs [EVERY_MEM]
          \\ res_tac \\ fs []));
-*)
 
 val oracle_states_subspt_def = Define `
   oracle_states_subspt co <=> !(n:num) k. subspt (FST (FST (co n))) (FST (FST (co (n + k))))
@@ -1662,8 +1669,6 @@ val next_g_def = Define `
 val simply_true_def = Define `simply_true x = T`;
 
 val say = say0 "known_correct_approx";
-
-(*
 
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
@@ -1962,47 +1967,41 @@ val known_correct_approx = Q.store_thm(
     \\ conj_tac THEN1 fs [oracle_state_sgc_free_def]
     \\ fs [state_compile_inc_def]
     \\ metis_tac [])
-
-
   THEN1
-   (say "Tick"
+   (say "Fn"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
-    \\ fs [evaluate_def, pair_case_eq]
-    \\ Cases_on `s0.clock = 0` \\ fs [] \\ rveq \\ fs []
-    \\ fs [fv_max_rw]
-    \\ first_x_assum (qpat_assum `evaluate _ = _` o mp_then Any match_mp_tac)
-    \\ fs [dec_clock_def])
-
+    \\ fs [evaluate_def, case_eq_thms, bool_case_eq, simply_true_def] \\ rveq \\ fs[]
+    \\ CASE_TAC \\ fs[fv_max_rw]
+    \\ fs[clos_approx_def]
+    \\ CASE_TAC \\ fs[])
   THEN1
-   (say "Call"
+   (say "Letrec"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ fs [evaluate_def, pair_case_eq]
+    \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
+    \\ imp_res_tac unique_set_globals_subexps
+    \\ fs [evaluate_def, bool_case_eq]
+    \\ fs [Once option_case_eq] \\ rveq \\ fs []
+    >|[fs[simply_true_def], fs[], fs[simply_true_def]]
+    \\ rename1 `_ = SOME fvs`
+    \\ `LENGTH fvs = LENGTH fns` by (fs [case_eq_thms] \\ rveq \\ fs [LENGTH_GENLIST])
+    \\ `EVERY vsgc_free fvs` by (fs [case_eq_thms] \\ rveq \\ simp [EVERY_GENLIST]
+                                 \\ rw [] \\ match_mp_tac EVERY_lookup_vars
+                                 \\ goal_assum (qpat_x_assum `lookup_vars _ _ = _` o mp_then Any mp_tac)
+                                 \\ simp [])
     \\ fs [fv_max_rw]
-    \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
-    \\ fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rveq \\ fs []
-    \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
-    \\ fixeqs
-    \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
-    \\ simp [] \\ strip_tac
-    \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
-       by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
-           \\ rpt (disch_then drule \\ simp []))
-    \\ rename1 `find_code _ _ _ = SOME (args, exp)`
-    \\ `set_globals exp = {||} /\ EVERY vsgc_free args`
-       by (fs [find_code_def, case_eq_thms, pair_case_eq]
-           \\ metis_tac [ssgc_free_def])
-    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
-    \\ simp [dec_clock_def, set_globals_empty_esgc_free] \\ strip_tac
-    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
-    \\ simp [dec_clock_def, set_globals_empty_esgc_free]
-    \\ drule mglobals_extend_DISJOINT_state_globals_approx
-    \\ disch_then drule
-    \\ impl_tac
-    THEN1 metis_tac [co_disjoint_globals_first_n_exps, co_disjoint_globals_evaluate]
-    \\ metis_tac [evaluate_SING])
+    \\ fs[option_case_eq] \\ rveq \\ fs[]
+    \\ first_x_assum drule \\ simp []
+    \\ simp [clos_gen_noinline_eq, REPLICATE_GENLIST]
+    \\ Cases_on `loc` \\ fs []
+    \\ disch_then match_mp_tac
+    \\ simp [EVERY_GENLIST]
+    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`extra` \\ fs[]
+    \\ irule EVERY2_APPEND_suff \\ simp []
+    \\ fs [case_eq_thms] \\ rveq \\ simp [LIST_REL_GENLIST])
 
-  THEN1
+  THEN1 cheat
+  (*
    (say "App"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ rename1 `known _ [x1] _ g1 = _`
@@ -2099,39 +2098,56 @@ val known_correct_approx = Q.store_thm(
       \\ qmatch_asmsub_abbrev_tac `mglobals_extend _ gd _`
       \\ `DISJOINT (domain g') gd` by metis_tac [co_disjoint_globals_first_n_exps]
       \\ metis_tac [mglobals_extend_DISJOINT_state_globals_approx]))
+  *)
+
   THEN1
-   (say "Fn"
+   (say "Tick"
     \\ rpt (pairarg_tac \\ fs [])
     \\ fs [evaluate_def, bool_case_eq] \\ rveq
-    \\ Cases_on `loc_opt`
-    \\ fs [case_eq_thms] \\ rveq
-    \\ fs [clos_approx_def]
-    \\ CASE_TAC \\ simp [])
-  THEN1
-   (say "Letrec"
-    \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
-    \\ imp_res_tac unique_set_globals_subexps
-    \\ fs [evaluate_def, bool_case_eq]
-    \\ fs [Once option_case_eq] \\ rveq \\ fs []
-    \\ rename1 `_ = SOME fvs`
-    \\ `LENGTH fvs = LENGTH fns` by (fs [case_eq_thms] \\ rveq \\ fs [LENGTH_GENLIST])
-    \\ `EVERY vsgc_free fvs` by (fs [case_eq_thms] \\ rveq \\ simp [EVERY_GENLIST]
-                                 \\ rw [] \\ match_mp_tac EVERY_lookup_vars
-                                 \\ goal_assum (qpat_x_assum `lookup_vars _ _ = _` o mp_then Any mp_tac)
-                                 \\ simp [])
-    \\ fs [fv_max_rw]
-    \\ first_x_assum drule \\ simp []
-    \\ simp [clos_gen_noinline_eq, REPLICATE_GENLIST]
-    \\ Cases_on `loc_opt` \\ fs []
+    >- fs[simply_true_def]
+    \\ qpat_x_assum`(res,s) = _`(assume_tac o SYM) \\ fs[]
+    \\ first_x_assum drule
+    \\ fs[fv_max_rw]
+    \\ imp_res_tac known_sing_EQ_E \\ fs[]
     \\ disch_then match_mp_tac
-    \\ simp [EVERY_GENLIST]
-    \\ irule EVERY2_APPEND_suff \\ simp []
-    \\ fs [case_eq_thms] \\ rveq \\ simp [LIST_REL_GENLIST]));
+    \\ asm_exists_tac
+    \\ fs[]
+    \\ fs[state_compile_inc_def]
+    \\ fs[next_g_def]
+    \\ metis_tac[])
 
+  THEN1 cheat
+  (*
+   (say "Call"
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ fs [evaluate_def, pair_case_eq]
+    \\ fs [fv_max_rw]
+    \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
+    \\ fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rveq \\ fs []
+    \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
+    \\ fixeqs
+    \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
+    \\ simp [] \\ strip_tac
+    \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
+       by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
+           \\ rpt (disch_then drule \\ simp []))
+    \\ rename1 `find_code _ _ _ = SOME (args, exp)`
+    \\ `set_globals exp = {||} /\ EVERY vsgc_free args`
+       by (fs [find_code_def, case_eq_thms, pair_case_eq]
+           \\ metis_tac [ssgc_free_def])
+    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
+    \\ simp [dec_clock_def, set_globals_empty_esgc_free] \\ strip_tac
+    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
+    \\ simp [dec_clock_def, set_globals_empty_esgc_free]
+    \\ drule mglobals_extend_DISJOINT_state_globals_approx
+    \\ disch_then drule
+    \\ impl_tac
+    THEN1 metis_tac [co_disjoint_globals_first_n_exps, co_disjoint_globals_evaluate]
+    \\ metis_tac [evaluate_SING])
+  *)
+);
 
-
-
+(*
 (* old *)
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
@@ -4019,5 +4035,3 @@ val semantics_known = Q.store_thm("semantics_known",
 *)
 
 val _ = export_theory();
-
-
