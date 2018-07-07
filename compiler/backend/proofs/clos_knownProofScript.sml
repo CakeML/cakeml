@@ -1238,8 +1238,6 @@ val mk_Ticks_set_globals = Q.store_thm(
   `!t tc n exp. set_globals (mk_Ticks t tc n exp) = set_globals exp`,
   Induct_on `n` \\ simp [mk_Ticks_alt]);
 
-
-(*
 val mglobals_extend_DISJOINT_state_globals_approx = Q.store_thm(
   "mglobals_extend_DISJOINT_state_globals_approx",
   `!s1 gd s2 g.
@@ -1258,10 +1256,7 @@ val mglobals_extend_DISJOINT_state_globals_approx = Q.store_thm(
   THEN1 (fs [state_globals_approx_def] \\ metis_tac [])
   THEN1 (`k ∉ domain g` by fs [Once DISJOINT_SYM, DISJOINT_ALT]
          \\ fs [domain_lookup]));
-*)
 
-
-(*
 val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_approx",
   `!args g0 a g vs (s0:('c, 'ffi) closSem$state) g' e s1 res s.
    known_op Install args g0 = (a,g) /\
@@ -1286,7 +1281,6 @@ val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_appr
          \\ pairarg_tac \\ fs []
          \\ fs [bool_case_eq, pair_case_eq, case_eq_thms])
   \\ metis_tac [mglobals_extend_DISJOINT_state_globals_approx]);
-*)
 
 val disjoint_globals_oracle_def = Define `disjoint_globals_oracle s0 =
 !n. DISJOINT (mapped_globals s0) (SET_OF_BAG (set_globals (FST (SND (s0.compile_oracle n)))))`;
@@ -1309,7 +1303,6 @@ val disjoint_globals_oracle_first_n_exps = Q.store_thm(
     \\ fs [SNOC_APPEND, elist_globals_append]
     \\ fs [SET_OF_BAG_UNION, DISJOINT_SYM]));
 
-(*
 val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_approx",
   `!args g0 a g vs (s0:('c, 'ffi) closSem$state) g' e s1 res s.
    known_op Install args g0 = (a,g) /\
@@ -1320,48 +1313,19 @@ val known_op_install_correct_approx = Q.store_thm("known_op_install_correct_appr
    ssgc_free s0 /\
    evaluate ([e], [], s1) = (res, s) ⇒
    state_globals_approx s g'`,
-
   rpt gen_tac \\ strip_tac
-
   \\ imp_res_tac do_install_ssgc
   \\ drule mglobals_extend_trans
   \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
   \\ disch_then drule \\ strip_tac
-
   \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 gd s`
   \\ `gd = SET_OF_BAG (elist_globals (first_n_exps s0.compile_oracle (n + 1)))`
      by simp [first_n_exps_shift_seq, SET_OF_BAG_UNION]
-
-  \\ fs [disjoint_globals_oracle_first_n_exps]
-
-  \\
-
-fs [unique_set_globals_def]
-
-  \\ fs [first_n_exps_def]
-
-state_globals_approx_def
-
+  \\ fs [Abbr`gd`,disjoint_globals_oracle_first_n_exps]
   \\ match_mp_tac mglobals_extend_DISJOINT_state_globals_approx
   \\ asm_exists_tac \\ simp []
-
-simp [state_globals_approx_def]
-
-
-hereiam
-
-
-  \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 gd s`
-  \\ `gd = SET_OF_BAG (elist_globals (first_n_exps s0.compile_oracle (n + 1)))`
-     by simp [first_n_exps_shift_seq, SET_OF_BAG_UNION]
-  \\ `DISJOINT (domain g') gd`
-     by simp [co_disjoint_globals_first_n_exps]
-  \\ `state_globals_approx s1 g'`
-     by (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
-         \\ pairarg_tac \\ fs []
-         \\ fs [bool_case_eq, pair_case_eq, case_eq_thms])
-  \\ metis_tac [mglobals_extend_DISJOINT_state_globals_approx]);
-*)
+  \\ match_mp_tac co_disjoint_globals_first_n_exps
+  \\ fs[]);
 
 val mk_Ticks_esgc_free = Q.store_thm(
   "mk_Ticks_esgc_free[simp]",
