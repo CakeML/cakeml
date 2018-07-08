@@ -651,9 +651,10 @@ val compile_inc_def = Define `
 
 val state_compile_inc_def = Define `
   state_compile_inc c s <=>
+    s.code = FEMPTY /\
     (?comp. s.compile = state_cc (compile_inc c) comp) /\
-    (!n. fv_max 0 [FST (SND (s.compile_oracle n))])
-`;
+    (!n. fv_max 0 [FST (SND (s.compile_oracle n))] /\
+         SND (SND (s.compile_oracle n)) = [])`;
 
 val state_compile_inc_clock_upd = Q.store_thm(
   "state_compile_inc_clock_upd[simp]",
@@ -670,12 +671,6 @@ val state_compile_inc_refs_upd = Q.store_thm(
 val state_compile_inc_ffi_upd = Q.store_thm(
   "state_compile_inc_ffi_upd[simp]",
   `state_compile_inc c (s with ffi updated_by f) <=>
-   state_compile_inc c s`,
-  simp[state_compile_inc_def]);
-
-val state_compile_inc_code_upd = Q.store_thm(
-  "state_compile_inc_code_upd[simp]",
-  `state_compile_inc c (s with code updated_by f) <=>
    state_compile_inc c s`,
   simp[state_compile_inc_def]);
 
@@ -1661,8 +1656,59 @@ val oracle_state_sgc_free_shift_seq =
   rpt strip_tac \\ fs [oracle_state_sgc_free_def, shift_seq_def])
 
 val next_g_def = Define `
-  next_g (s:(val_approx num_map#'c,'ffi) closSem$state) = FST (FST (s.compile_oracle 0n))
-`;
+  next_g (s:(val_approx num_map#'c,'ffi) closSem$state) =
+    FST (FST (s.compile_oracle 0n))`;
+
+val evaluate_state_compile_inc = store_thm("evaluate_state_compile_inc",
+  ``(!xs_env_s0 xs env (s0:(val_approx num_map # 'c,'ffi) closSem$state) res s1.
+      xs_env_s0 = (xs,env,s0) /\
+      evaluate (xs,env,s0) = (res,s1) /\
+      state_compile_inc c s0 ==>
+      state_compile_inc c s1) /\
+    (!a1 a2 a3 (s0:(val_approx num_map # 'c,'ffi) closSem$state) res s1.
+      evaluate_app a1 a2 a3 s0 = (res,s1) /\
+      state_compile_inc c s0 ==>
+      state_compile_inc c s1)``,
+  ho_match_mp_tac evaluate_ind \\ rpt strip_tac
+  \\ fs [] \\ rveq
+  \\ fs [evaluate_def] \\ rveq \\ fs []
+  \\ fs [pair_case_eq,result_case_eq,bool_case_eq,do_install_def,
+         semanticPrimitivesTheory.error_result_case_eq,option_case_eq]
+  \\ rveq \\ fs [] \\ fixeqs \\ res_tac
+  THEN1
+   (pairarg_tac \\ fs []
+    \\ fs [pair_case_eq,result_case_eq,bool_case_eq,do_install_def,list_case_eq,
+           semanticPrimitivesTheory.error_result_case_eq,option_case_eq,
+           app_kind_case_eq]
+    \\ rveq \\ fs [] \\ fixeqs \\ res_tac
+    \\ fs [state_compile_inc_def,shift_seq_def]
+    \\ `aux = []` by metis_tac [SND,FUPDATE_LIST]
+    \\ fs [FUPDATE_LIST] \\ metis_tac [])
+  THEN1
+   (pairarg_tac \\ fs []
+    \\ fs [pair_case_eq,result_case_eq,bool_case_eq,do_install_def,list_case_eq,
+           semanticPrimitivesTheory.error_result_case_eq,option_case_eq,
+           app_kind_case_eq]
+    \\ rveq \\ fs [] \\ fixeqs \\ res_tac
+    \\ fs [state_compile_inc_def,shift_seq_def]
+    \\ `aux = []` by metis_tac [SND,FUPDATE_LIST]
+    \\ fs [FUPDATE_LIST] \\ metis_tac [])
+  THEN1
+   (imp_res_tac do_app_const
+    \\ fs [state_compile_inc_def,dec_clock_def] \\ metis_tac [])
+  THEN1
+   (imp_res_tac do_app_const
+    \\ fs [state_compile_inc_def,dec_clock_def] \\ metis_tac [])
+  THEN1
+   (imp_res_tac do_app_const
+    \\ fs [state_compile_inc_def,dec_clock_def] \\ metis_tac [])
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ simp_tac std_ss
+       [pair_case_eq,result_case_eq,bool_case_eq,do_install_def,list_case_eq,
+        semanticPrimitivesTheory.error_result_case_eq,option_case_eq,
+        app_kind_case_eq]
+  \\ rpt strip_tac \\ rveq \\ fs []
+  \\ fs [dec_clock_def]);
 
 (* This is used with an existential to stop the simplifier from attempting
    to solve the goal and ultimately backtracking for minutes. *)
@@ -1690,8 +1736,7 @@ val known_correct_approx = Q.store_thm(
      ?dummy. simply_true dummy /\ state_globals_approx s g' /\
      state_compile_inc c s /\
      !vs. res = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs) /\
-  (!lopt f args (s0:(val_approx num_map#'c,'ffi) closSem$state) res s. evaluate_app lopt f args s0 = (res, s) ==> T)`
-
+  (!lopt f args (s0:(val_approx num_map#'c,'ffi) closSem$state) res s. evaluate_app lopt f args s0 = (res, s) ==> T)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
@@ -1916,8 +1961,11 @@ val known_correct_approx = Q.store_thm(
       \\ fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
       \\ pairarg_tac \\ fs []
       \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs []
-      \\ `state_compile_inc c (s1 with code := s1.code |++ aux)` by simp []
-      \\ drule state_compile_inc_shift_seq \\ simp [])
+      \\ drule state_compile_inc_shift_seq \\ simp []
+      \\ simp [state_compile_inc_def]
+      \\ fs [PULL_FORALL]
+      \\ disch_then (qspecl_then [`0`,`0`] strip_assume_tac)
+      \\ fs [] \\ rfs [FUPDATE_LIST])
     \\ rveq \\ drule do_install_ssgc \\ simp []
     \\ `ssgc_free s1` by (patresolve `evaluate (_, _, s0) = (_, s1)` hd evaluate_changed_globals \\ simp [])
     \\ simp [] \\ strip_tac
@@ -1925,6 +1973,7 @@ val known_correct_approx = Q.store_thm(
     \\ pairarg_tac \\ fs []
     \\ fs [bool_case_eq, option_case_eq, pair_case_eq] \\ rveq
     \\ fs [known_op_def] \\ rveq \\ simp []
+    \\ `aux = []` by (fs [state_compile_inc_def] \\ metis_tac [SND])
     \\ `?exp apx gin gout. known (reset_inline_factor c) [e] [] gin = ([(exp, apx)], gout) /\
         FST (FST (s1.compile_oracle 0)) = gin /\
         FST (FST (s1.compile_oracle 1)) = gout`
@@ -1965,7 +2014,7 @@ val known_correct_approx = Q.store_thm(
     \\ qpat_x_assum `_ = (cfg, _, _)` kall_tac
     \\ fs [oracle_states_subspt_alt]
     \\ conj_tac THEN1 fs [oracle_state_sgc_free_def]
-    \\ fs [state_compile_inc_def]
+    \\ fs [state_compile_inc_def,FUPDATE_LIST]
     \\ metis_tac [])
   THEN1
    (say "Fn"
@@ -2113,39 +2162,21 @@ val known_correct_approx = Q.store_thm(
     \\ asm_exists_tac
     \\ fs[]
     \\ fs[state_compile_inc_def]
-    \\ fs[next_g_def]
+    \\ fs[next_g_def,dec_clock_def]
     \\ metis_tac[])
-
-  THEN1 cheat
-  (*
+  THEN1
    (say "Call"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
     \\ fs [fv_max_rw]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
-    \\ fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rveq \\ fs []
+    \\ pop_assum (qspec_then `extra` assume_tac) \\ rfs []
+    \\ reverse (Cases_on `v3`) \\ fs [] \\ rveq \\ fs []
     \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
-    \\ fixeqs
-    \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
-    \\ simp [] \\ strip_tac
-    \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
-       by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
-           \\ rpt (disch_then drule \\ simp []))
-    \\ rename1 `find_code _ _ _ = SOME (args, exp)`
-    \\ `set_globals exp = {||} /\ EVERY vsgc_free args`
-       by (fs [find_code_def, case_eq_thms, pair_case_eq]
-           \\ metis_tac [ssgc_free_def])
-    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
-    \\ simp [dec_clock_def, set_globals_empty_esgc_free] \\ strip_tac
-    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
-    \\ simp [dec_clock_def, set_globals_empty_esgc_free]
-    \\ drule mglobals_extend_DISJOINT_state_globals_approx
-    \\ disch_then drule
-    \\ impl_tac
-    THEN1 metis_tac [co_disjoint_globals_first_n_exps, co_disjoint_globals_evaluate]
-    \\ metis_tac [evaluate_SING])
-  *)
-);
+    \\ qsuff_tac `find_code dest vs s1.code = NONE`
+    THEN1 (rw [] \\ fs [] \\ rveq \\ fs [] \\ rfs [simply_true_def])
+    \\ imp_res_tac evaluate_state_compile_inc
+    \\ fs [state_compile_inc_def,find_code_def]));
 
 (*
 (* old *)
