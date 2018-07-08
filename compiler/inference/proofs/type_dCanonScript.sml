@@ -406,9 +406,17 @@ val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
     fs[ts_tid_rename_def]>>
     rfs[]>>
     NO_TAC)
-  >-
-    (* pes *)
-    cheat
+  >- ( (* pes *)
+    fs[remap_tenvE_bind_var_list]
+    \\ fs[RES_FORALL,FORALL_PROD]
+    \\ rw[]
+    \\ first_x_assum drule
+    \\ strip_tac \\ rw[]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ imp_res_tac(CONJUNCT1(UNDISCH type_p_ts_tid_rename))
+    \\ fs[ts_tid_rename_def]
+    \\ fs[good_remap_def,prim_type_nums_def]
+    \\ rfs[])
   >- (
     fs[MAP_MAP_o,o_DEF,ts_tid_rename_type_subst]>>
     fs[remap_tenv_def,nsLookup_nsMap]>>
@@ -432,8 +440,11 @@ val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
     metis_tac[type_op_ts_tid_rename]
   >-
     (HINT_EXISTS_TAC>>fs[]>>
-    (* pes *)
-    cheat)
+     fs[remap_tenvE_bind_var_list, FORALL_PROD, RES_FORALL]
+     \\ rw[]
+     \\ first_x_assum drule \\ strip_tac \\ rw[]
+     \\ imp_res_tac type_p_ts_tid_rename
+     \\ asm_exists_tac \\ rw[])
   >- (
     fs[opt_bind_name_def]>>TOP_CASE_TAC>>fs[remap_tenvE_def]>>
     metis_tac[])
