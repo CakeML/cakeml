@@ -3698,6 +3698,57 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ asm_exists_tac \\ fs[]
   \\ metis_tac[]);
 
+val semantics_calls = Q.store_thm("semantics_calls",
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc [x] <> Fail ==>
+   compile b x = (y,aux) /\ every_Fn_SOME [x] ∧ every_Fn_vs_NONE [x] /\
+   ALL_DISTINCT (code_locs [x]) ==>
+   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co cc [y] =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc [x]`,
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ Cases_on `~b:bool`
+  \\ fs [compile_def]
+  \\ rveq \\ fs [FUPDATE_LIST]
+  THEN1 (qexists_tac `0:num` \\ fs [])
+  \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac calls_sing \\ rveq \\ fs []
+  \\ drule (calls_correct |> SIMP_RULE std_ss [] |> CONJUNCT1)
+  \\ rpt (disch_then drule) \\ fs [EVAL ``wfg (LN,[])``]
+  \\ disch_then (qspecl_then [`[]`,
+      `initial_state ffi max_app (FOLDL $|+ FEMPTY (SND g)) co cc k`,
+      `set (code_locs [x]) DIFF domain (FST g)`,`g`] mp_tac)
+  \\ simp []
+  \\ `wfg g` by
+   (match_mp_tac calls_wfg
+    \\ asm_exists_tac \\ fs []
+    \\ EVAL_TAC \\ fs [])
+  \\ impl_tac THEN1
+   (fs [subg_def] \\ reverse (rpt conj_tac)
+    THEN1 (fs [IN_DISJOINT,IN_DIFF] \\ metis_tac [])
+    THEN1 (match_mp_tac calls_ALL_DISTINCT
+           \\ asm_exists_tac \\ fs [])
+    \\ fs [wfv_state_def,initial_state_def,FEVERY_DEF])
+  \\ strip_tac
+  \\ pop_assum mp_tac \\ impl_tac
+  THEN1
+   (fs [env_rel_def,state_rel_def,initial_state_def,code_includes_def]
+    \\ rewrite_tac [GSYM FUPDATE_LIST]
+    \\ rpt strip_tac
+    \\ match_mp_tac mem_to_flookup
+    \\ fs [ALOOKUP_MEM]
+    \\ match_mp_tac calls_ALL_DISTINCT
+    \\ asm_exists_tac \\ fs [])
+  \\ qmatch_goalsub_abbrev_tac `([y],[],s4)`
+  \\ strip_tac
+  \\ qexists_tac `ck` \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `([y],[],s5)`
+  \\ `s4 = s5` by (unabbrev_all_tac \\ fs [initial_state_def])
+  \\ rveq \\ fs []
+  \\ fs [state_rel_def]
+  \\ Cases_on `res1` \\ fs []
+  \\ Cases_on `e` \\ fs []);
+
 (* Preservation of some label properties
   every_Fn_SOME xs ∧ every_Fn_vs_NONE xs
 *)
