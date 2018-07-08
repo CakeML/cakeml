@@ -3996,7 +3996,7 @@ val known_correct0 = Q.prove(
           \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
           \\ simp [DROP_LENGTH_TOO_LONG])))));
-
+*)
 
 (* I believe this to be the final statement. /abxy *)
 val semantics_known = Q.store_thm("semantics_known",
@@ -4020,6 +4020,7 @@ val semantics_known = Q.store_thm("semantics_known",
      (state_co (compile_inc c) co) cc (MAP FST eas) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (state_cc (compile_inc c) cc) xs`,
+(*
 
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -4061,8 +4062,7 @@ val semantics_known = Q.store_thm("semantics_known",
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs [])
-
-
 *)
+cheat);
 
 val _ = export_theory();
