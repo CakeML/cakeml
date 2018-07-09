@@ -237,6 +237,13 @@ val set_tids_def = tDefine "set_tids"`
   res_tac >>
   decide_tac)
 
+val set_tids_ts_tid_rename = Q.store_thm("set_tids_ts_tid_rename",
+  `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, set_tids_def]
+  \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
+  \\ metis_tac[IN_IMAGE]);
+
 val set_tids_subset_def = Define`
   set_tids_subset tids t <=> set_tids t ⊆ tids`
 
