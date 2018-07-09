@@ -404,7 +404,7 @@ val remap_tenv_extend_dec_tenv = Q.prove(`
   extend_dec_tenv (remap_tenv f t) (remap_tenv f t')`,
   fs[remap_tenv_def,extend_dec_tenv_def,nsMap_nsAppend]);
 
-(* slow proof *)
+(* slow proof
 val INJ_extend_bij = Q.prove(`
   DISJOINT tids ids ∧
   INJ f tids (count n) ∧
@@ -417,6 +417,20 @@ val INJ_extend_bij = Q.prove(`
   EVERY_CASE_TAC>>fs[]>>
   rpt (first_x_assum drule)>>fs[]>>
   metis_tac[]);
+ *)
+
+val BIJ_extend_bij = Q.prove(`
+  DISJOINT tids ids ∧
+  BIJ f tids (count n) ∧
+  BIJ g ids (count (CARD ids)) ⇒
+  BIJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))`,
+  rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
+  \\ strip_tac
+  \\ rewrite_tac[IN_UNION, count_add, IN_IMAGE]
+  \\ reverse conj_tac >- metis_tac[]
+  \\ conj_tac >- metis_tac[]
+  \\ rw[]
+  \\ rpt (first_x_assum drule)>>fs[]);
 
 val set_tids_ind = fetch "-" "set_tids_ind";
 
@@ -871,14 +885,14 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
   (* Over-approximation of the tids in tenv *)
   set_tids_tenv tids tenv ∧
   (* f injects all of the tids already used in tenv into the canonical system *)
-  INJ f tids (count n) ∧
+  BIJ f tids (count n) ∧
   (* tids contains at least the primitive type numbers and f is identity on them *)
   prim_tids T tids ∧ good_remap f ⇒
   ∃g.
     (* This is actually a property of the type system *)
     set_tids_tenv (tids ∪ ids) tenv' ∧ prim_tids F ids ∧ FINITE ids ∧
     (* This forces g to extend the injection on f *)
-    INJ g ids (count (CARD ids)) ∧
+    BIJ g ids (count (CARD ids)) ∧
     type_d_canon n (remap_tenv f tenv) d (CARD ids)
       (remap_tenv (extend_bij f g ids n) tenv')) ∧
 (∀extra_checks tenv ds ids tenv'.
@@ -887,11 +901,11 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
   extra_checks = T ∧
   DISJOINT ids tids ∧
   set_tids_tenv tids tenv ∧
-  INJ f tids (count n) ∧
+  BIJ f tids (count n) ∧
   prim_tids T tids ∧ good_remap f ⇒
   ∃g.
     set_tids_tenv (tids ∪ ids) tenv' ∧ prim_tids F ids ∧ FINITE ids ∧
-    INJ g ids (count (CARD ids)) ∧
+    BIJ g ids (count (CARD ids)) ∧
     type_ds_canon n (remap_tenv f tenv) ds (CARD ids)
       (remap_tenv (extend_bij f g ids n) tenv'))`,
   ho_match_mp_tac type_d_strongind>>
@@ -1066,7 +1080,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
     CONJ_TAC >- (
-      match_mp_tac set_tids_type_name_subst>>
+      match_mp_tac set_tids_subset_type_name_subst>>
       fs[set_tids_tenv_def])>>
     simp[Once type_d_canon_cases, prim_tids_def]>>
     CONJ_TAC>- (
@@ -1079,7 +1093,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     simp[set_tids_tenv_def]>>
     CONJ_TAC >- (
       fs[EVERY_MAP,EVERY_MEM]>>rw[]
-      >- (match_mp_tac set_tids_type_name_subst>>fs[set_tids_tenv_def])>>
+      >- (match_mp_tac set_tids_subset_type_name_subst>>fs[set_tids_tenv_def])>>
       fs[prim_tids_def,prim_type_nums_def])>>
     CONJ_TAC >- fs[prim_tids_def,prim_type_nums_def]>>
     simp[Once type_d_canon_cases, prim_tids_def,remap_tenv_def,nsSing_def,nsMap_def]>>
@@ -1106,7 +1120,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       match_mp_tac set_tids_tenv_extend_dec_tenv>>fs[]>>
       match_mp_tac (GEN_ALL set_tids_tenv_mono)>>
       asm_exists_tac>>fs[])>>
-    match_mp_tac INJ_extend_bij>>fs[DISJOINT_SYM])>>
+    match_mp_tac BIJ_extend_bij>>fs[DISJOINT_SYM])>>
   rw[]>>
   qexists_tac `extend_bij g g' ids' (CARD ids)`>>
   rw[]
@@ -1121,7 +1135,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     (`CARD (ids ∪ ids') = CARD ids' + CARD ids` by
       (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])>>
     simp[]>>
-    match_mp_tac INJ_extend_bij>>
+    match_mp_tac BIJ_extend_bij>>
     fs[])
   >>
   qexists_tac`(remap_tenv (extend_bij f g ids n) tenv')`>>
