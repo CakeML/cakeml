@@ -237,49 +237,6 @@ val set_tids_def = tDefine "set_tids"`
   res_tac >>
   decide_tac)
 
-val sing_renum_def = Define`
-  sing_renum m n = λx. if x = m then n else x`
-
-(* duplicated in envRelScript *)
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`;
-
-val sing_renum_NOT_tscheme_approx = Q.prove(`
-  ∀t.
-  m ∈ set_tids t ∧
-  m ≠ n ⇒
-  ∀tvs tvs'.
-  ¬tscheme_inst (tvs,ts_tid_rename (sing_renum m n) t) (tvs',t) ∧
-  ¬tscheme_inst (tvs',t) (tvs,ts_tid_rename (sing_renum m n) t)`,
-  ho_match_mp_tac t_ind>>rw[]>>
-  fs[set_tids_def,ts_tid_rename_def,sing_renum_def]>>
-  rw[]>>
-  simp[tscheme_inst_def,deBruijn_subst_def]>>
-  fs[EVERY_MEM,MEM_MAP]
-  >- (
-    rw[]
-    \\ CCONTR_TAC \\ fs[MAP_EQ_f, EVERY_MEM]
-    \\ last_x_assum mp_tac \\ rw[]
-    \\ asm_exists_tac \\ simp[]
-    \\ fsrw_tac[DNF_ss][tscheme_inst_def]
-    \\ disj1_tac
-    \\ fs[check_freevars_def,EVERY_MEM]
-    \\ metis_tac[])
-  >> (
-    rw[]
-    \\ CCONTR_TAC \\ fs[MAP_EQ_f, EVERY_MEM]
-    \\ last_x_assum mp_tac \\ rw[]
-    \\ asm_exists_tac \\ simp[]
-    \\ fsrw_tac[DNF_ss][tscheme_inst_def]
-    \\ disj2_tac
-    \\ fs[check_freevars_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MAP_MAP_o,MAP_EQ_ID]
-    \\ metis_tac[]));
-
 val set_tids_subset_def = Define`
   set_tids_subset tids t <=> set_tids t ⊆ tids`
 
@@ -478,6 +435,67 @@ val check_freevars_ts_tid_rename = Q.prove(`
   check_freevars ts ls t`,
   ho_match_mp_tac check_freevars_ind>>
   fs[ts_tid_rename_def,check_freevars_def,EVERY_MAP,EVERY_MEM]);
+
+val sing_renum_def = Define`
+  sing_renum m n = λx. if x = m then n else x`
+
+(* duplicated in envRelScript *)
+val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`;
+
+val sing_renum_NOT_tscheme_inst = Q.prove(`
+  ∀t.
+  m ∈ set_tids t ∧
+  m ≠ n ⇒
+  ∀tvs tvs'.
+  ¬tscheme_inst (tvs,ts_tid_rename (sing_renum m n) t) (tvs',t) ∧
+  ¬tscheme_inst (tvs',t) (tvs,ts_tid_rename (sing_renum m n) t)`,
+  ho_match_mp_tac t_ind>>rw[]>>
+  fs[set_tids_def,ts_tid_rename_def,sing_renum_def]>>
+  rw[]>>
+  simp[tscheme_inst_def,deBruijn_subst_def]>>
+  fs[EVERY_MEM,MEM_MAP]
+  >- (
+    rw[]
+    \\ CCONTR_TAC \\ fs[MAP_EQ_f, EVERY_MEM]
+    \\ last_x_assum mp_tac \\ rw[]
+    \\ asm_exists_tac \\ simp[]
+    \\ fsrw_tac[DNF_ss][tscheme_inst_def]
+    \\ disj1_tac
+    \\ fs[check_freevars_def,EVERY_MEM]
+    \\ metis_tac[])
+  >> (
+    rw[]
+    \\ CCONTR_TAC \\ fs[MAP_EQ_f, EVERY_MEM]
+    \\ last_x_assum mp_tac \\ rw[]
+    \\ asm_exists_tac \\ simp[]
+    \\ fsrw_tac[DNF_ss][tscheme_inst_def]
+    \\ disj2_tac
+    \\ fs[check_freevars_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MAP_MAP_o,MAP_EQ_ID]
+    \\ metis_tac[]));
+
+val sing_renum_NOTIN_ID = Q.prove(`
+  ∀t.
+  m ∉ set_tids t ⇒
+  ts_tid_rename (sing_renum m n) t = t`,
+  ho_match_mp_tac t_ind>>rw[]>>
+  fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
+  fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
+  metis_tac[]);
+
+(* TODO: this is only true up to equivalence on tenvs *)
+val sing_renum_NOTIN_tenv_ID = Q.prove(`
+  set_tids_tenv tids tenv ∧
+  m ∉ tids ⇒
+  tenv_equiv (remap_tenv (sing_renum m n) tenv) (tenv)`,
+  rw[remap_tenv_def,type_env_component_equality]>>
+  fs[set_tids_tenv_def,set_tids_subset_def,tenv_equiv_def]>>
+  cheat);
 
 val type_p_ts_tid_rename = Q.store_thm("type_p_ts_tid_rename",`
   good_remap f ⇒
@@ -744,6 +762,47 @@ val remap_tenv_LINVI = Q.store_thm("remap_tenv_LINVI",
      set_tids_tenv_def]
 *)
 
+val type_p_ts_tid_rename_sing_renum = Q.prove(`
+  m ∉ tids ∧ prim_tids T tids ∧
+  type_p tvs tenv p t bindings ∧
+  set_tids_tenv tids tenv
+  ⇒
+  type_p tvs tenv p (ts_tid_rename (sing_renum m n) t)
+  (MAP (λ(nn,t). (nn,ts_tid_rename (sing_renum m n) t)) bindings)`,
+  rw[]>>
+  `good_remap (sing_renum m n)` by
+    (fs[good_remap_def,sing_renum_def]>>
+    fs[prim_tids_def]>>
+    rw[] >> fs[] >>
+    simp[MAP_EQ_ID]>>
+    fs[prim_type_nums_def]>>
+    rw[]>>fs[])>>
+  drule type_p_ts_tid_rename>>
+  strip_tac>> first_x_assum drule>>
+  drule sing_renum_NOTIN_tenv_ID>>
+  simp[]>>rw[]>>
+  metis_tac[type_p_tenv_equiv]);
+
+val type_e_ts_tid_rename_sing_renum = Q.prove(`
+  m ∉ tids ∧ prim_tids T tids ∧
+  type_e tenv tenvE e t ∧
+  set_tids_tenv tids tenv
+  ⇒
+  type_e tenv (remap_tenvE (sing_renum m n) tenvE) e (ts_tid_rename (sing_renum m n) t)`,
+  rw[]>>
+  `good_remap (sing_renum m n)` by
+    (fs[good_remap_def,sing_renum_def]>>
+    fs[prim_tids_def]>>
+    rw[] >> fs[] >>
+    simp[MAP_EQ_ID]>>
+    fs[prim_type_nums_def]>>
+    rw[]>>fs[])>>
+  drule type_e_ts_tid_rename>>
+  strip_tac>> first_x_assum drule>>
+  drule sing_renum_NOTIN_tenv_ID>>
+  simp[]>>rw[]>>
+  metis_tac[type_e_tenv_equiv]);
+
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
   f,g are maps from the identifiers used in type_d into the ones
@@ -792,8 +851,30 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     CONJ_TAC>- (
       match_mp_tac nsAll_alist_to_ns>>
       simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
-      (* TODO: this looks false.. *)
-      cheat)>>
+      CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF]>>
+      drule (GEN_ALL type_p_ts_tid_rename_sing_renum)>>
+      rpt (disch_then drule)>>
+      disch_then(qspec_then`x+1` mp_tac)>>
+      impl_tac>-
+        fs[set_tids_tenv_def,set_tids_subset_def,SUBSET_DEF]>>
+      strip_tac>>
+      first_x_assum drule>>
+      drule (GEN_ALL type_e_ts_tid_rename_sing_renum)>>
+      rpt(disch_then drule)>>
+      disch_then (qspec_then `x+1` mp_tac)>>
+      impl_tac>-
+        fs[set_tids_tenv_def,set_tids_subset_def,SUBSET_DEF]>>
+      qmatch_goalsub_abbrev_tac`type_e _ tenvEE _ _`>>
+      `tenvEE = (bind_tvar tvs Empty)` by
+        rw[Abbr`tenvEE`,bind_tvar_def,remap_tenvE_def]>>
+      pop_assum SUBST_ALL_TAC>>simp[]>>
+      rw[LIST_REL_EL_EQN]>>
+      fs[MEM_EL]>>
+      asm_exists_tac>>
+      fs[EL_MAP]>>
+      qpat_x_assum`(_,_)=_` sym_sub_tac>>fs[]>>
+      `x ≠ x+1` by fs[]>>
+      metis_tac[sing_renum_NOT_tscheme_inst])>>
     simp[prim_tids_def, Once type_d_canon_cases]>>
     simp[Once remap_tenv_def,tenv_add_tvs_def]>>
     drule type_p_ts_tid_rename>>rw[]>>
