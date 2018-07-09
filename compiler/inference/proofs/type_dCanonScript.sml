@@ -3,6 +3,90 @@ open terminationTheory namespacePropsTheory;
 
 val _ = new_theory "type_dCanon"
 
+(* TODO: move *)
+
+val nsMap_compose = Q.store_thm("nsMap_compose",
+  `∀g e f. nsMap f (nsMap g e) = nsMap (f o g) e`,
+  recInduct nsMap_ind
+  \\ rw[nsMap_def, MAP_MAP_o, o_DEF, FORALL_PROD, EXISTS_PROD, LAMBDA_PROD, MAP_EQ_f]
+  \\ metis_tac[]);
+
+val nsMap_I = Q.store_thm("nsMap_I[simp]",
+  `∀ns. nsMap I ns = ns`,
+  `∀ns f. f = I ⇒ nsMap f ns = ns` suffices_by rw[]
+  \\ CONV_TAC SWAP_FORALL_CONV
+  \\ recInduct nsMap_ind
+  \\ rw[nsMap_def, MAP_EQ_ID, UNCURRY, FORALL_PROD]
+  \\ res_tac);
+
+(* not true because of alist shadowing
+val nsMap_eq_id = Q.store_thm("nsMap_eq_id",
+  `∀f x. nsMap f x = x ⇔ nsAll (λi x. f x = x) x`,
+  recInduct nsMap_ind
+  \\ rw[nsMap_def, nsAll_def, MAP_EQ_ID, UNCURRY]
+  \\ rw[EQ_IMP_THM]
+  >- (
+    Cases_on`i` \\ fs[nsLookup_def, option_case_eq]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ res_tac \\ fs[]
+    \\ metis_tac[] )
+  >- (
+    first_x_assum(qspec_then`Short x`mp_tac)
+*)
+
+val tenv_equiv_def = Define
+  `tenv_equiv tenv1 tenv2 ⇔
+     nsAll2 (λi v1 v2. v1 = v2) tenv1.t tenv2.t ∧
+     nsAll2 (λi v1 v2. v1 = v2) tenv1.c tenv2.c ∧
+     nsAll2 (λi v1 v2. v1 = v2) tenv1.v tenv2.v`;
+
+val check_type_names_tenv_equiv = Q.store_thm("check_type_names_tenv_equiv",
+  `∀t1 t t2.
+   nsAll2 (λi v1 v2. v1 = v2) t1 t2 ∧
+   check_type_names t1 t ⇒
+   check_type_names t2 t`,
+  recInduct check_type_names_ind
+  \\ rw[check_type_names_def]
+  \\ fs[EVERY_MEM, option_case_NONE_F]
+  \\ imp_res_tac nsAll2_nsLookup1 \\ fs[]);
+
+val type_name_subst_tenv_equiv = Q.store_thm("type_name_subst_tenv_equiv",
+  `∀t1 t t2.
+    nsAll2 (λi v1 v2. v1 = v2) t1 t2 ⇒
+    type_name_subst t1 t = type_name_subst t2 t`,
+  recInduct type_name_subst_ind
+  \\ rw[type_name_subst_def, MAP_EQ_f]
+  \\ CASE_TAC
+  \\ imp_res_tac nsAll2_nsLookup_none \\ fs[MAP_EQ_f]
+  \\ imp_res_tac nsAll2_nsLookup1 \\ fs[]
+  \\ CASE_TAC
+  \\ AP_THM_TAC
+  \\ ntac 4 AP_TERM_TAC
+  \\ rw[MAP_EQ_f]);
+
+val type_p_tenv_equiv = Q.store_thm("type_p_tenv_equiv",
+  `(∀tvs tenv1 p t bindings.
+     type_p tvs tenv1 p t bindings ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
+     type_p tvs tenv2 p t bindings) ∧
+   (∀tvs tenv1 ps ts bindings.
+     type_ps tvs tenv1 ps ts bindings ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
+     type_ps tvs tenv2 ps ts bindings)`,
+  ho_match_mp_tac type_p_ind
+  \\ rw[]
+  \\ rw[Once type_p_cases]
+  \\ first_x_assum drule \\ rw[]
+  \\ TRY(first_x_assum drule \\ rw[])
+  \\ fs[tenv_equiv_def]
+  \\ imp_res_tac nsAll2_nsLookup1 \\ fs[] \\ rw[]
+  \\ imp_res_tac type_name_subst_tenv_equiv
+  \\ imp_res_tac check_type_names_tenv_equiv
+  \\ fs[]
+  \\ metis_tac[]);
+
+(* -- *)
+
 (* A "canonical" version of type_d that produces the type identifiers
   in ascending order.
   It also drops the extra_checks argument so it corresponds to type_d T,
@@ -96,6 +180,8 @@ val ts_tid_rename_def = tDefine"ts_tid_rename"`
   rw [t_size_def] >>
   res_tac >>
   decide_tac);
+
+val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
 
 val remap_tenv_def = Define`
   remap_tenv f tenv =
@@ -358,6 +444,10 @@ val remap_tenvE_bind_var_list = Q.prove(`
   fs[bind_var_list_def,remap_tenvE_def]>>
   rw[]);
 
+val remap_tenvE_bind_tvar = Q.store_thm("remap_tenvE_bind_tvar",
+  `remap_tenvE f (bind_tvar tvs e) = bind_tvar tvs (remap_tenvE f e)`,
+  rw[bind_tvar_def, remap_tenvE_def]);
+
 val deBruijn_inc_ts_tid_rename = Q.prove(`
   ∀skip n t.
   ts_tid_rename f (deBruijn_inc skip n t) =
@@ -459,6 +549,91 @@ val type_e_ts_tid_rename = Q.store_thm("type_e_ts_tid_rename",`
     fs[check_freevars_def,check_freevars_ts_tid_rename,remap_tenvE_def,ALOOKUP_MAP]>>
     fs[good_remap_def,prim_type_nums_def]);
 
+val good_remap_LINV = Q.store_thm("good_remap_LINV",
+  `good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINV f s o f)`,
+  rw[good_remap_def, prim_tids_def, MAP_EQ_ID, EVERY_MEM]
+  \\ res_tac
+  \\ imp_res_tac LINV_DEF);
+
+val ts_tid_rename_LINV = Q.store_thm("ts_tid_rename_LINV",
+  `∀f x. INJ f s t ∧ set_tids s x ⇒ ts_tid_rename (LINV f s) (ts_tid_rename f x) = x`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, MAP_EQ_ID]
+  >- fs[EVERY_MEM]
+  \\ imp_res_tac LINV_DEF);
+
+val remap_tenv_LINV = Q.store_thm("remap_tenv_LINV",
+  `INJ f s t ∧ set_tids_tenv s tenv ⇒
+   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv`,
+  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
+     nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
+  \\ fs[UNCURRY, set_tids_tenv_def]
+  \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
+  \\ fs[MAP_MAP_o, o_DEF]
+  \\ imp_res_tac ts_tid_rename_LINV \\ fs[]
+  \\ imp_res_tac LINV_DEF \\ fs[EVERY_MEM]
+  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]);
+
+val LINVI_def = Define`
+  LINVI f s y = case LINV_OPT f s y of SOME x => x | NONE => f y`;
+
+val good_remap_LINVI = Q.store_thm("good_remap_LINVI",
+  `good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINVI f s)`,
+  rw[good_remap_def, prim_tids_def, LINVI_def, MAP_EQ_ID]
+  \\ drule INJ_LINV_OPT
+  \\ CASE_TAC \\ rw[]
+  \\ fs[EVERY_MEM]
+  \\ metis_tac[INJ_DEF]);
+
+val INJ_LINVI = Q.store_thm("INJ_LINVI",
+  `INJ f s t ∧ x ∈ s ⇒ LINVI f s (f x) = x`,
+  rw[LINVI_def]
+  \\ CASE_TAC
+  \\ imp_res_tac INJ_LINV_OPT \\ rw[]
+  \\ metis_tac[INJ_DEF, NOT_NONE_SOME]);
+
+val ts_tid_rename_LINVI = Q.store_thm("ts_tid_rename_LINVI",
+  `∀f x. INJ f s t ∧ set_tids s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, MAP_EQ_ID]
+  >- fs[EVERY_MEM]
+  \\ rw[LINVI_def]
+  \\ imp_res_tac INJ_LINV_OPT
+  \\ CASE_TAC \\ fs[]
+  \\ metis_tac[INJ_DEF]);
+
+val remap_tenv_LINVI = Q.store_thm("remap_tenv_LINVI",
+  `INJ f s t ∧ set_tids_tenv s tenv ⇒
+   tenv_equiv (remap_tenv (LINVI f s) (remap_tenv f tenv)) tenv`,
+  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
+     nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
+  \\ fs[UNCURRY, set_tids_tenv_def]
+  \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
+  \\ fs[MAP_MAP_o, o_DEF]
+  \\ imp_res_tac ts_tid_rename_LINVI \\ fs[]
+  \\ imp_res_tac INJ_LINVI \\ fs[EVERY_MEM]
+  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]);
+
+val ts_tid_rename_compose = Q.store_thm("ts_tid_rename_compose",
+  `∀g t f. ts_tid_rename f (ts_tid_rename g t) = ts_tid_rename (f o g) t`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, MAP_MAP_o, o_DEF, MAP_EQ_f]);
+
+val remap_tenv_compose = Q.store_thm("remap_tenv_compose",
+  `remap_tenv f (remap_tenv g tenv) = remap_tenv (f o g) tenv`,
+  srw_tac[ETA_ss]
+    [remap_tenv_def, nsMap_compose, ts_tid_rename_compose,
+     o_DEF, UNCURRY, LAMBDA_PROD, MAP_MAP_o]);
+
+(* probably not be true because of shadows...
+val remap_tenv_LINVI = Q.store_thm("remap_tenv_LINVI",
+  `INJ f s t ∧ set_tids_tenv s tenv ⇒
+   remap_tenv (LINVI f s) (remap_tenv f tenv) = tenv`,
+  rw[remap_tenv_def, type_env_component_equality,
+     nsMap_compose, o_DEF, UNCURRY, MAP_MAP_o,
+     set_tids_tenv_def]
+*)
+
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
   f,g are maps from the identifiers used in type_d into the ones
@@ -524,8 +699,31 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       first_x_assum drule>>
       rw[bind_tvar_def,remap_tenvE_def])>>
     rw[]>>
+    imp_res_tac remap_tenv_LINVI >>
+    pop_assum(qspec_then`tenv`mp_tac) >>
+    impl_tac >- simp[set_tids_tenv_def] >>
+    strip_tac >>
+    fs[remap_tenv_compose] >>
+    imp_res_tac good_remap_LINVI >>
+    drule (GEN_ALL type_p_ts_tid_rename) >>
+    disch_then (qspecl_then[`tvs''`]mp_tac o CONJUNCT1)
+    \\ disch_then drule
+    \\ fs[remap_tenv_compose]
+    \\ strip_tac
+    \\ drule (CONJUNCT1 type_p_tenv_equiv)
+    \\ disch_then drule
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ drule (GEN_ALL type_e_ts_tid_rename)
+    \\ disch_then (drule o CONJUNCT1)
+    \\ fs[remap_tenv_compose, remap_tenvE_bind_tvar]
+    \\ simp[Once remap_tenvE_def]
+    \\ strip_tac
+    \\ impl_tac >- cheat (* type_e_tenv_equiv *)
+    \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+
     (* construct the inverse back into the original type system *)
-    cheat)
+    \\ cheat)
   >- ((* Dlet mono *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
     qexists_tac`f`>>simp[]>>
