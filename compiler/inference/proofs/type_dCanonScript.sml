@@ -483,8 +483,8 @@ val sing_renum_NOT_tscheme_inst = Q.prove(`
     \\ fs[check_freevars_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MAP_MAP_o,MAP_EQ_ID]
     \\ metis_tac[]));
 
-val sing_renum_NOTIN_ID = Q.prove(`
-  ∀t.
+val sing_renum_NOTIN_ID = Q.store_thm("sing_renum_NOTIN_ID",
+  `∀t.
   m ∉ set_tids t ⇒
   ts_tid_rename (sing_renum m n) t = t`,
   ho_match_mp_tac t_ind>>rw[]>>
@@ -493,13 +493,21 @@ val sing_renum_NOTIN_ID = Q.prove(`
   metis_tac[]);
 
 (* TODO: this is only true up to equivalence on tenvs *)
-val sing_renum_NOTIN_tenv_ID = Q.prove(`
-  set_tids_tenv tids tenv ∧
+val sing_renum_NOTIN_tenv_ID = Q.store_thm("sing_renum_NOTIN_tenv_ID",
+  `set_tids_tenv tids tenv ∧
   m ∉ tids ⇒
   tenv_equiv (remap_tenv (sing_renum m n) tenv) (tenv)`,
   rw[remap_tenv_def,type_env_component_equality]>>
   fs[set_tids_tenv_def,set_tids_subset_def,tenv_equiv_def]>>
-  cheat);
+  rw[nsAll2_def, nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
+  \\ imp_res_tac nsLookup_nsAll \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[MAP_EQ_ID] \\ fs[EVERY_MEM]
+  \\ TRY (
+    match_mp_tac sing_renum_NOTIN_ID ORELSE match_mp_tac (GSYM sing_renum_NOTIN_ID)
+    \\ CCONTR_TAC \\ fs[SUBSET_DEF]
+    \\ metis_tac[])
+  \\ rw[sing_renum_def] \\ fs[]);
 
 val type_p_ts_tid_rename = Q.store_thm("type_p_ts_tid_rename",`
   good_remap f ⇒
@@ -961,7 +969,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ rw[ts_tid_rename_eq_id]
     \\ match_mp_tac (GEN_ALL LINVI_RINV)
     \\ asm_exists_tac \\ simp[]
-    
+
     \\ CCONTR_TAC \\ fs[]
 
     (* construct the inverse back into the original type system *)
