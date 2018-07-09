@@ -228,21 +228,67 @@ val remap_tenv_def = Define`
 
 (* All type ids in a type belonging to a set *)
 val set_tids_def = tDefine "set_tids"`
-  (set_tids tids (Tapp ts tn) ⇔ tn ∈ tids ∧ EVERY (set_tids tids) ts) ∧
-  (set_tids tids _ ⇔ T)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
+  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
+  (set_tids _ = {})`
+  (WF_REL_TAC `measure t_size` >>
   rw [] >>
   induct_on `ts` >>
   rw [t_size_def] >>
   res_tac >>
   decide_tac)
 
+val sing_renum_def = Define`
+  sing_renum m n = λx. if x = m then n else x`
+
+(* duplicated in envRelScript *)
+val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`;
+
+val sing_renum_NOT_tscheme_approx = Q.prove(`
+  ∀t.
+  m ∈ set_tids t ∧
+  m ≠ n ⇒
+  ∀tvs tvs'.
+  ¬tscheme_inst (tvs,ts_tid_rename (sing_renum m n) t) (tvs',t) ∧
+  ¬tscheme_inst (tvs',t) (tvs,ts_tid_rename (sing_renum m n) t)`,
+  ho_match_mp_tac t_ind>>rw[]>>
+  fs[set_tids_def,ts_tid_rename_def,sing_renum_def]>>
+  rw[]>>
+  simp[tscheme_inst_def,deBruijn_subst_def]>>
+  fs[EVERY_MEM,MEM_MAP]
+  >- (
+    rw[]
+    \\ CCONTR_TAC \\ fs[MAP_EQ_f, EVERY_MEM]
+    \\ last_x_assum mp_tac \\ rw[]
+    \\ asm_exists_tac \\ simp[]
+    \\ fsrw_tac[DNF_ss][tscheme_inst_def]
+    \\ disj1_tac
+    \\ fs[check_freevars_def,EVERY_MEM]
+    \\ metis_tac[])
+  >> (
+    rw[]
+    \\ CCONTR_TAC \\ fs[MAP_EQ_f, EVERY_MEM]
+    \\ last_x_assum mp_tac \\ rw[]
+    \\ asm_exists_tac \\ simp[]
+    \\ fsrw_tac[DNF_ss][tscheme_inst_def]
+    \\ disj2_tac
+    \\ fs[check_freevars_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MAP_MAP_o,MAP_EQ_ID]
+    \\ metis_tac[]));
+
+val set_tids_subset_def = Define`
+  set_tids_subset tids t <=> set_tids t ⊆ tids`
+
 (* all the tids used in a tenv *)
 val set_tids_tenv_def = Define`
   set_tids_tenv tids tenv ⇔
-  nsAll (λi (ls,t). set_tids tids t) tenv.t ∧
-  nsAll (λi (ls,ts,tid). EVERY (set_tids tids) ts ∧ tid ∈ tids) tenv.c ∧
-  nsAll (λi (n,t). set_tids tids t) tenv.v`
+  nsAll (λi (ls,t). set_tids_subset tids t) tenv.t ∧
+  nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
+  nsAll (λi (n,t). set_tids_subset tids t) tenv.v`
 
 (* The remapping must be identity on these numbers *)
 val good_remap_def = Define`
@@ -305,19 +351,25 @@ val prim_tids_def = Define`
   prim_tids contain tids ⇔
     EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
 
-val set_tids_type_subst = Q.prove(`
+val set_tids_subset_type_subst = Q.prove(`
   ∀s t tids.
-  FEVERY (set_tids tids o SND) s ∧
-  set_tids tids t ⇒
-  set_tids tids (type_subst s t)`,
+  FEVERY (set_tids_subset tids o SND) s ∧
+  set_tids_subset tids t ⇒
+  set_tids_subset tids (type_subst s t)`,
   ho_match_mp_tac type_subst_ind>>
   rw[type_subst_def,set_tids_def]
   >- (
-    TOP_CASE_TAC>>fs[set_tids_def]>>
+    TOP_CASE_TAC>>
+    fs[set_tids_def]>>
     drule (GEN_ALL FEVERY_FLOOKUP)>>fs[]>>
     metis_tac[])
-  >-
-    fs[EVERY_MAP,EVERY_MEM]);
+  >- (
+    fs[set_tids_subset_def,set_tids_def]>>
+    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>rw[]>>
+    last_x_assum drule>>
+    disch_then drule>>
+    disch_then match_mp_tac>>
+    metis_tac[]));
 
 val MEM_ZIP2 = Q.prove(`
   ∀l1 l2 x.
@@ -333,22 +385,27 @@ val MEM_ZIP2 = Q.prove(`
     rw[]>>
     qexists_tac`SUC n`>>fs[]);
 
-val set_tids_type_name_subst = Q.prove(`
+val set_tids_subset_type_name_subst = Q.prove(`
   ∀tenvt t tids.
   prim_tids T tids ∧
-  nsAll (λi (ls,t). set_tids tids t) tenvt ==>
-  set_tids tids (type_name_subst tenvt t)`,
+  nsAll (λi (ls,t). set_tids_subset tids t) tenvt ==>
+  set_tids_subset tids (type_name_subst tenvt t)`,
   ho_match_mp_tac type_name_subst_ind>>
-  rw[set_tids_def,type_name_subst_def]
+  rw[set_tids_def,type_name_subst_def,set_tids_subset_def]
   >- fs[prim_tids_def,prim_type_nums_def]
-  >- fs[EVERY_MAP,EVERY_MEM]
+  >- (
+     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
+     metis_tac[])
   >- fs[prim_tids_def,prim_type_nums_def]
   >>
     TOP_CASE_TAC>>fs[set_tids_def,EVERY_MAP,EVERY_MEM]
-    >- fs[prim_tids_def,prim_type_nums_def]
+    >- (
+      CONJ_TAC>- fs[prim_tids_def,prim_type_nums_def]>>
+      fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
+      metis_tac[])
     >>
-      TOP_CASE_TAC>>fs[]>>
-      match_mp_tac set_tids_type_subst>>
+      TOP_CASE_TAC>>fs[GSYM set_tids_subset_def]>>
+      match_mp_tac set_tids_subset_type_subst>>
       CONJ_TAC
       >- (
         match_mp_tac FEVERY_alist_to_fmap>>fs[EVERY_MEM,MEM_ZIP]>>
@@ -401,8 +458,8 @@ val set_tids_ind = fetch "-" "set_tids_ind";
 
 val set_tids_mono = Q.prove(`
   ∀tids t tids'.
-  set_tids tids t ∧ tids ⊆ tids' ⇒
-  set_tids tids' t`,
+  set_tids_subset tids t ∧ tids ⊆ tids' ⇒
+  set_tids_subset tids' t`,
   ho_match_mp_tac set_tids_ind>>
   rw[set_tids_def,SUBSET_DEF,EVERY_MEM]);
 
@@ -591,7 +648,7 @@ val good_remap_LINV = Q.store_thm("good_remap_LINV",
   \\ imp_res_tac LINV_DEF);
 
 val ts_tid_rename_LINV = Q.store_thm("ts_tid_rename_LINV",
-  `∀f x. INJ f s t ∧ set_tids s x ⇒ ts_tid_rename (LINV f s) (ts_tid_rename f x) = x`,
+  `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINV f s) (ts_tid_rename f x) = x`,
   recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, MAP_EQ_ID]
   >- fs[EVERY_MEM]
@@ -628,7 +685,7 @@ val INJ_LINVI = Q.store_thm("INJ_LINVI",
   \\ metis_tac[INJ_DEF, NOT_NONE_SOME]);
 
 val ts_tid_rename_LINVI = Q.store_thm("ts_tid_rename_LINVI",
-  `∀f x. INJ f s t ∧ set_tids s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`,
+  `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`,
   recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, MAP_EQ_ID]
   >- fs[EVERY_MEM]
