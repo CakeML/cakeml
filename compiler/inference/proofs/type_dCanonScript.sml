@@ -404,22 +404,22 @@ val remap_tenv_extend_dec_tenv = Q.prove(`
   extend_dec_tenv (remap_tenv f t) (remap_tenv f t')`,
   fs[remap_tenv_def,extend_dec_tenv_def,nsMap_nsAppend]);
 
-(* slow proof
-val INJ_extend_bij = Q.prove(`
+val INJ_extend_bij = Q.store_thm("INJ_extend_bij",`
   DISJOINT tids ids ∧
   INJ f tids (count n) ∧
   INJ g ids (count (CARD ids)) ⇒
   INJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))`,
-  rw[INJ_DEF,extend_bij_def]>>rw[]
-  >- (last_x_assum drule>>fs[])>>
-  rfs[]>>
-  fs[IN_DISJOINT]>>
-  EVERY_CASE_TAC>>fs[]>>
-  rpt (first_x_assum drule)>>fs[]>>
-  metis_tac[]);
- *)
+  rewrite_tac[INJ_DEF,extend_bij_def,IN_DISJOINT,IN_COUNT,IN_UNION]
+  \\ rpt strip_tac
+  \\ res_tac
+  \\ rpt (pop_assum mp_tac)
+  \\ rewrite_tac[]
+  \\ rpt IF_CASES_TAC
+  \\ rpt strip_tac
+  \\ full_simp_tac bool_ss []
+  \\ fs[]);
 
-val BIJ_extend_bij = Q.prove(`
+val BIJ_extend_bij = Q.store_thm("BIJ_extend_bij",`
   DISJOINT tids ids ∧
   BIJ f tids (count n) ∧
   BIJ g ids (count (CARD ids)) ⇒
