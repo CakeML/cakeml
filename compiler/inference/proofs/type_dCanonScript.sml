@@ -50,6 +50,15 @@ val check_type_names_tenv_equiv = Q.store_thm("check_type_names_tenv_equiv",
   \\ fs[EVERY_MEM, option_case_NONE_F]
   \\ imp_res_tac nsAll2_nsLookup1 \\ fs[]);
 
+val lookup_var_tenv_equiv = Q.store_thm("lookup_var_tenv_equiv",
+  `tenv_equiv tenv1 tenv2 ⇒ lookup_var n bvs tenv1 = lookup_var n bvs tenv2`,
+  rw[tenv_equiv_def, lookup_var_def, lookup_varE_def]
+  \\ every_case_tac \\ fs[]
+  \\ (fn g as (asl,w) => Cases_on[ANTIQUOTE(lhs w)] g)
+  \\ imp_res_tac nsAll2_nsLookup_none
+  \\ imp_res_tac nsAll2_nsLookup1
+  \\ fs[]);
+
 val type_name_subst_tenv_equiv = Q.store_thm("type_name_subst_tenv_equiv",
   `∀t1 t t2.
     nsAll2 (λi v1 v2. v1 = v2) t1 t2 ⇒
@@ -84,6 +93,32 @@ val type_p_tenv_equiv = Q.store_thm("type_p_tenv_equiv",
   \\ imp_res_tac check_type_names_tenv_equiv
   \\ fs[]
   \\ metis_tac[]);
+
+val type_e_tenv_equiv = Q.store_thm("type_e_tenv_equiv",
+  `(∀tenv1 bvs e t.
+     type_e tenv1 bvs e t ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
+     type_e tenv2 bvs e t) ∧
+   (∀tenv1 bvs es ts.
+     type_es tenv1 bvs es ts ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
+     type_es tenv2 bvs es ts) ∧
+   (∀tenv1 bvs funs ts.
+     type_funs tenv1 bvs funs ts ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
+     type_funs tenv2 bvs funs ts)`,
+  ho_match_mp_tac type_e_ind
+  \\ rw[]
+  \\ rw[Once type_e_cases]
+  \\ TRY(first_x_assum drule \\ rw[])
+  \\ fs[RES_FORALL, FORALL_PROD] \\ rw[]
+  \\ res_tac
+  \\ imp_res_tac type_p_tenv_equiv
+  \\ imp_res_tac lookup_var_tenv_equiv
+  \\ fs[tenv_equiv_def]
+  \\ imp_res_tac nsAll2_nsLookup1 \\ fs[] \\ rw[]
+  \\ metis_tac[type_p_tenv_equiv, tenv_equiv_def,
+               type_name_subst_tenv_equiv, check_type_names_tenv_equiv]);
 
 (* -- *)
 
@@ -719,8 +754,17 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ fs[remap_tenv_compose, remap_tenvE_bind_tvar]
     \\ simp[Once remap_tenvE_def]
     \\ strip_tac
-    \\ impl_tac >- cheat (* type_e_tenv_equiv *)
+    \\ impl_tac >- metis_tac[type_e_tenv_equiv]
     \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+    \\ simp[EVERY2_MAP]
+    \\ rw[LIST_REL_EL_EQN] \\ rfs[]
+    \\ first_x_assum drule
+    \\ simp[tscheme_inst_def]
+    \\ simp[GSYM deBruijn_inc_ts_tid_rename, check_freevars_ts_tid_rename]
+    \\ strip_tac
+    \\ qexists_tac`MAP (ts_tid_rename f) subst`
+    \\ srw_tac[ETA_ss][EVERY_MAP, check_freevars_ts_tid_rename]
+    \\ simp[GSYM ts_tid_rename_deBruijn_subst, ts_tid_rename_compose]
 
     (* construct the inverse back into the original type system *)
     \\ cheat)
