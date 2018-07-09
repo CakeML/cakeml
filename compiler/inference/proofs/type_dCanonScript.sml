@@ -721,6 +721,27 @@ val remap_tenv_LINV = Q.store_thm("remap_tenv_LINV",
 val LINVI_def = Define`
   LINVI f s y = case LINV_OPT f s y of SOME x => x | NONE => f y`;
 
+val remap_tenv_LINV = Q.store_thm("remap_tenv_LINV",
+  `BIJ f s t ∧ set_tids_tenv s tenv ⇒
+   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv`,
+  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
+     nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
+  \\ fs[UNCURRY, set_tids_tenv_def]
+  \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
+  \\ fs[MAP_MAP_o, o_DEF]
+  \\ imp_res_tac BIJ_DEF
+  \\ imp_res_tac ts_tid_rename_LINV \\ fs[]
+  \\ imp_res_tac BIJ_LINV_INV \\ fs[EVERY_MEM]
+  \\ imp_res_tac LINV_DEF \\ fs[]
+  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]);
+
+val good_remap_BIJ = Q.store_thm("good_remap_BIJ",
+  `good_remap f ∧ prim_tids T s ∧ BIJ f s t ⇒ good_remap (LINV f s)`,
+  rw[good_remap_def, prim_tids_def, MAP_EQ_ID, EVERY_MEM]
+  \\ imp_res_tac BIJ_LINV_BIJ
+  \\ imp_res_tac BIJ_DEF
+  \\ metis_tac[BIJ_LINV_INV, INJ_DEF]);
+
 val good_remap_LINVI = Q.store_thm("good_remap_LINVI",
   `good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINVI f s)`,
   rw[good_remap_def, prim_tids_def, LINVI_def, MAP_EQ_ID]
@@ -939,8 +960,8 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     (* Dlet poly *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
     qexists_tac`f`>>simp[]>>
-    CONJ_TAC>- (
-      match_mp_tac nsAll_alist_to_ns>>
+    DEP_REWRITE_TAC[nsAll_alist_to_ns] >>
+    CONJ_ASM1_TAC>- (
       simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
       CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF]>>
       drule (GEN_ALL type_p_ts_tid_rename_sing_renum)>>
@@ -981,11 +1002,43 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       first_x_assum drule>>
       rw[bind_tvar_def,remap_tenvE_def])>>
     rw[]>>
-    imp_res_tac remap_tenv_LINVI >>
+    (* BIJ version
+    imp_res_tac remap_tenv_LINV >>
     pop_assum(qspec_then`tenv`mp_tac) >>
     impl_tac >- simp[set_tids_tenv_def] >>
     strip_tac >>
     fs[remap_tenv_compose] >>
+    imp_res_tac good_remap_BIJ >>
+    drule (GEN_ALL type_p_ts_tid_rename) >>
+    disch_then (qspecl_then[`tvs''`]mp_tac o CONJUNCT1)
+    \\ disch_then drule
+    \\ fs[remap_tenv_compose]
+    \\ strip_tac
+    \\ drule (CONJUNCT1 type_p_tenv_equiv)
+    \\ disch_then drule
+    \\ strip_tac
+    \\ first_assum drule
+    \\ drule (GEN_ALL type_e_ts_tid_rename)
+    \\ disch_then (drule o CONJUNCT1)
+    \\ fs[remap_tenv_compose, remap_tenvE_bind_tvar]
+    \\ simp[Once remap_tenvE_def]
+    \\ strip_tac
+    \\ impl_tac >- metis_tac[type_e_tenv_equiv]
+    \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+    \\ simp[EVERY2_MAP]
+    \\ rw[LIST_REL_EL_EQN] \\ rfs[]
+    \\ first_x_assum drule
+    \\ simp[tscheme_inst_def]
+    \\ simp[GSYM deBruijn_inc_ts_tid_rename, check_freevars_ts_tid_rename]
+    \\ strip_tac
+    \\ qexists_tac`MAP (ts_tid_rename f) subst`
+    \\ srw_tac[ETA_ss][EVERY_MAP, check_freevars_ts_tid_rename]
+    \\ simp[GSYM ts_tid_rename_deBruijn_subst, ts_tid_rename_compose]
+    \\ rw[ts_tid_rename_eq_id]
+    \\ match_mp_tac (MP_CANON BIJ_LINV_INV)
+    \\ asm_exists_tac \\ simp[]
+    *)
+    (* INJ version
     imp_res_tac good_remap_LINVI >>
     drule (GEN_ALL type_p_ts_tid_rename) >>
     disch_then (qspecl_then[`tvs''`]mp_tac o CONJUNCT1)
@@ -995,7 +1048,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ drule (CONJUNCT1 type_p_tenv_equiv)
     \\ disch_then drule
     \\ strip_tac
-    \\ first_x_assum drule
+    \\ first_assum drule
     \\ drule (GEN_ALL type_e_ts_tid_rename)
     \\ disch_then (drule o CONJUNCT1)
     \\ fs[remap_tenv_compose, remap_tenvE_bind_tvar]
@@ -1015,11 +1068,25 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ rw[ts_tid_rename_eq_id]
     \\ match_mp_tac (GEN_ALL LINVI_RINV)
     \\ asm_exists_tac \\ simp[]
-
-    \\ CCONTR_TAC \\ fs[]
+    \\ `x < n` suffices_by PROVE_TAC[BIJ_LINV_INV, IN_COUNT, BIJ_LINV_BIJ, BIJ_DEF, INJ_DEF]
+    *)
+    (*
+    \\ qmatch_asmsub_abbrev_tac`type_p tvs tenv p t`
+    \\ first_assum(mp_tac o Q.AP_TERM`set_tids`)
+    \\ simp_tac (srw_ss()) [set_tids_ts_tid_rename]
+    \\ disch_then (assume_tac o SYM)
+    \\ qmatch_asmsub_abbrev_tac`IMAGE _ _ = tids'`
+    \\ `LINVI f tids x ∈ tids'` by (fs[EXTENSION] \\  metis_tac[])
+    \\ fs[EVERY_MEM,MEM_MAP, PULL_EXISTS, FORALL_PROD]
+    \\ qmatch_asmsub_rename_tac`EL m bindings`
+    \\ first_x_assum(qspecl_then[`FST(EL m bindings)`,`SND (EL m bindings)`]mp_tac)
+    \\ impl_tac >- (simp[MEM_EL] \\ metis_tac[])
+    \\ simp[set_tids_subset_def]
+    \\ fs[Abbr`tids'`]
+    *)
 
     (* construct the inverse back into the original type system *)
-    \\ cheat)
+    cheat)
   >- ((* Dlet mono *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
     qexists_tac`f`>>simp[]>>
@@ -1051,7 +1118,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       strip_tac>>fs[]>>
       `x ≠ x+1` by fs[]>>
       metis_tac[sing_renum_NOT_tscheme_inst]
-      (* TODO: this looks false.. *)
     )>>
     simp[prim_tids_def, Once type_d_canon_cases]>>
     simp[Once remap_tenv_def]>>
@@ -1062,9 +1128,43 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     CONJ_TAC>- (
       fs[type_pe_determ_def]>>rw[]>>
       first_x_assum drule>>simp[]>>
-      (* seems nasty
-        f is injective, so one should be able to construct the necessary
-        partial inverses? *)
+      imp_res_tac BIJ_DEF >>
+      imp_res_tac good_remap_LINVI >>
+      drule (GEN_ALL type_p_ts_tid_rename) >>
+      disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+      \\ disch_then(fn th =>
+          qspec_then`t1`mp_tac th >>
+          qspec_then`t2`mp_tac th)
+      \\ disch_then drule \\ strip_tac
+      \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+      \\ disch_then drule \\ strip_tac
+      \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+      \\ drule (GEN_ALL type_e_ts_tid_rename)
+      \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+      \\ disch_then(fn th =>
+          qspec_then`t1`mp_tac th >>
+          qspec_then`t2`mp_tac th)
+      \\ disch_then drule \\ strip_tac
+      \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+      \\ disch_then drule \\ strip_tac
+      \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+      \\ drule remap_tenv_LINVI
+      \\ impl_tac >- rw[set_tids_tenv_def]
+      \\ strip_tac
+      \\ ntac 4 (first_x_assum drule)
+      \\ simp[remap_tenvE_def]
+      \\ ntac 5 strip_tac
+      \\ qhdtm_x_assum`type_p`mp_tac
+      \\ first_assum drule
+      \\ impl_tac >- rw[] \\ strip_tac
+      \\ strip_tac
+      \\ first_x_assum drule
+      \\ impl_tac >- rw[] \\ strip_tac
+      \\ rw[]
+      \\ first_assum(mp_then Any match_mp_tac INJ_MAP_EQ)
+      \\ simp[INJ_DEF, FORALL_PROD]
+      \\
+      (* need to know tenv{1,2} are in tids? *)
       cheat)>>
     drule type_e_ts_tid_rename>>
     strip_tac>> first_x_assum drule>>
