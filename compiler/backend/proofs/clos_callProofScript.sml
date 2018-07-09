@@ -1537,7 +1537,8 @@ val code_inv_def = Define `
   code_inv (s_code:num |-> num # closLang$exp) s_cc s_co t_code t_cc t_co <=>
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
-    t_co = state_co compile_inc s_co
+    t_co = state_co compile_inc s_co /\
+    (∀k. SND (SND (s_co k)) = [])
     (* needs more .. *)`
 
 val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
@@ -3620,7 +3621,7 @@ val semantics_calls = Q.store_thm("semantics_calls",
   \\ drule (calls_correct |> SIMP_RULE std_ss [] |> CONJUNCT1)
   \\ rpt (disch_then drule) \\ fs [EVAL ``wfg (LN,[])``]
   \\ disch_then (qspecl_then [`[]`,
-      `initial_state ffi max_app (FOLDL $|+ FEMPTY (SND g)) co cc k`,
+      `initial_state ffi max_app (FOLDL $|+ FEMPTY (SND g)) co1 cc1 k`,
       `set (code_locs [x]) DIFF domain (FST g)`,`g`] mp_tac)
   \\ simp []
   \\ `wfg g` by
@@ -3632,7 +3633,7 @@ val semantics_calls = Q.store_thm("semantics_calls",
     THEN1 (fs [IN_DISJOINT,IN_DIFF] \\ metis_tac [])
     THEN1 (match_mp_tac calls_ALL_DISTINCT
            \\ asm_exists_tac \\ fs [])
-    \\ fs [wfv_state_def,initial_state_def,FEVERY_DEF])
+    \\ fs [wfv_state_def,initial_state_def,FEVERY_DEF,code_inv_def])
   \\ strip_tac
   \\ pop_assum mp_tac \\ impl_tac
   THEN1
