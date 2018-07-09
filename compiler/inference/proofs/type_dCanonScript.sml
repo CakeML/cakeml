@@ -685,6 +685,15 @@ val INJ_LINVI = Q.store_thm("INJ_LINVI",
   \\ imp_res_tac INJ_LINV_OPT \\ rw[]
   \\ metis_tac[INJ_DEF, NOT_NONE_SOME]);
 
+val LINVI_RINV = Q.store_thm("LINVI_RINV",
+  `INJ f s t ∧ (∃x. x ∈ s ∧ f x = y) ⇒
+   f (LINVI f s y) = y`,
+  rw[LINVI_def]
+  \\ drule INJ_LINV_OPT
+  \\ disch_then(qspec_then`f x`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ CASE_TAC \\ rw[]
+  \\ metis_tac[INJ_DEF]);
+
 val ts_tid_rename_LINVI = Q.store_thm("ts_tid_rename_LINVI",
   `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`,
   recInduct ts_tid_rename_ind
@@ -718,6 +727,13 @@ val remap_tenv_compose = Q.store_thm("remap_tenv_compose",
   srw_tac[ETA_ss]
     [remap_tenv_def, nsMap_compose, ts_tid_rename_compose,
      o_DEF, UNCURRY, LAMBDA_PROD, MAP_MAP_o]);
+
+val ts_tid_rename_eq_id = Q.store_thm("ts_tid_rename_eq_id",
+  `∀f t. (ts_tid_rename f t = t ⇔ ∀x. x ∈ set_tids t ⇒ f x = x)`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, set_tids_def, MAP_EQ_ID, MEM_MAP]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ metis_tac[]);
 
 (* probably not be true because of shadows...
 val remap_tenv_LINVI = Q.store_thm("remap_tenv_LINVI",
@@ -824,6 +840,9 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ qexists_tac`MAP (ts_tid_rename f) subst`
     \\ srw_tac[ETA_ss][EVERY_MAP, check_freevars_ts_tid_rename]
     \\ simp[GSYM ts_tid_rename_deBruijn_subst, ts_tid_rename_compose]
+    \\ rw[ts_tid_rename_eq_id]
+    \\ match_mp_tac (GEN_ALL LINVI_RINV)
+    \\ asm_exists_tac \\ simp[]
 
     (* construct the inverse back into the original type system *)
     \\ cheat)
