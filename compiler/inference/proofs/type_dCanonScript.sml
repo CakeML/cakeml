@@ -869,6 +869,31 @@ val type_pe_bindings_tids = Q.prove(`
   `x ≠ x+1` by fs[]>>
   metis_tac[sing_renum_NOT_tscheme_inst]);
 
+val build_ctor_tenv_type_identities = Q.store_thm("build_ctor_tenv_type_identities",`
+  ∀tenvt xs type_identities tids.
+  prim_tids T tids ∧
+  nsAll (λi (ls,t). set_tids_subset (tids ∪ set type_identities) t) tenvt ∧
+  LENGTH xs = LENGTH type_identities ⇒
+  nsAll ((λi (ls,ts,tid).
+    EVERY (λt. set_tids_subset (tids ∪ set type_identities) t) ts ∧
+    (tid ∈ tids ∨ MEM tid type_identities)))
+    (build_ctor_tenv tenvt xs type_identities)`,
+  ho_match_mp_tac build_ctor_tenv_ind>>rw[build_ctor_tenv_def]>>
+  match_mp_tac nsAll_nsAppend>>fs[]>>
+  CONJ_TAC>- (
+    first_x_assum(qspec_then`id INSERT tids` mp_tac)>>
+    `(id INSERT tids) ∪ set type_identities = tids ∪ (id INSERT set type_identities)` by
+      (rw[EXTENSION]>>
+      metis_tac[])>>
+    impl_tac>-
+      fs[prim_tids_def,prim_type_nums_def]>>
+    fs[METIS_PROVE [] ``(P ∨ Q) ∨ R ⇔ Q ∨ P ∨ R``])>>
+  match_mp_tac nsAll_alist_to_ns>>
+  fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM,LAMBDA_PROD,FORALL_PROD,MEM_MAP,PULL_EXISTS,PULL_FORALL]>>
+  rw[]>>
+  match_mp_tac set_tids_subset_type_name_subst>>
+  fs[prim_tids_def,prim_type_nums_def]);
+
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
   f,g are maps from the identifiers used in type_d into the ones
@@ -1053,28 +1078,58 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       rw[set_tids_tenv_def]
       >- (
         match_mp_tac nsAll_alist_to_ns>>
-        simp[MAP2_MAP,EVERY_MAP,EVERY_MEM,MEM_MAP,EXISTS_PROD,MEM_ZIP,FORALL_PROD,PULL_EXISTS,set_tids_def]>>
-        metis_tac[MEM_EL])
+        simp[MAP2_MAP,EVERY_MAP,EVERY_MEM,MEM_MAP,EXISTS_PROD,MEM_ZIP,FORALL_PROD,PULL_EXISTS,set_tids_def,set_tids_subset_def]>>
+        rw[MEM_EL]>- metis_tac[]>>
+        simp[SUBSET_DEF,PULL_EXISTS,MEM_MAP,set_tids_def])
       >>
-        cheat)>>
-    CONJ_TAC>- fs[prim_tids_def,prim_type_nums_def]>>
-    (* the injection maps each type_identity to its position in list *)
-    qexists_tac
-    `λv. case ALOOKUP (ZIP(type_identities,COUNT_LIST (LENGTH type_identities))) v of
-      SOME t => t | NONE => 0`>>
-    rw[]
-    >-
-      (simp[INJ_DEF]>>rw[]>>
-      cheat)
-    >>
-    simp[Once type_d_canon_cases]>>
-    fs[ALL_DISTINCT_CARD_LIST_TO_SET]>>
-    CONJ_TAC >-
-      cheat>>
-    SIMP_TAC std_ss [CONJ_ASSOC]>>
-    CONJ_TAC >- (
-      fs[prim_tids_def,INJ_DEF,good_remap_def,prim_type_nums_def]>>
+        match_mp_tac build_ctor_tenv_type_identities>>
+        fs[]>>
+        match_mp_tac nsAll_nsAppend>>
+        CONJ_TAC>- (
+          match_mp_tac nsAll_alist_to_ns>>
+          fs[EVERY_MEM,MAP2_MAP,MEM_MAP,MEM_ZIP,PULL_EXISTS]>>
+          rw[]>>
+          rpt(pairarg_tac>>fs[])>>rw[]>>
+          simp[set_tids_subset_def,set_tids_def,MAP_MAP_o,o_DEF,SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
+          metis_tac[MEM_EL])>>
+        fs[set_tids_tenv_def]>>
+        (* monotonicty *)
+        qpat_x_assum`nsAll _ tenv.t` mp_tac>>
+        match_mp_tac nsAll_mono>>
+        simp[FORALL_PROD]>>
+        rw[]>> match_mp_tac set_tids_subset_mono>>
+        asm_exists_tac>>fs[])>>
+    CONJ_TAC>- (
+      fs[prim_tids_def,DISJOINT_DEF,EVERY_MEM,EXTENSION]>>
       metis_tac[])>>
+    simp[Once type_d_canon_cases]>>
+    drule ALL_DISTINCT_CARD_LIST_TO_SET>>
+    simp[]>>rw[]>>
+    (* all of these look plausible
+      witness for g is function mapping list element to its position in list
+    *)
+    qabbrev_tac`g = THE o (ALOOKUP (ZIP (type_identities, COUNT_LIST (LENGTH tdefs))))`>>
+    qexists_tac`g`>>
+    CONJ_TAC >-
+      (* BIJ or INJ? *)
+      cheat>>
+    CONJ_TAC >- (
+      rw[remap_tenv_def]>- cheat>>
+      simp[MAP2_MAP,MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,EL_ZIP,LAMBDA_PROD]>>
+      rw[]>>
+      rpt(pairarg_tac>>fs[])>>rw[]>>
+      simp[ts_tid_rename_def,MAP_EQ_ID,MEM_MAP,PULL_EXISTS]>>
+      simp[extend_bij_def,EL_MEM,Abbr`g`]>>
+      (* defining property of g *)
+      cheat)>>
+    (* Otherwise count n is not big enough to form *)
+    CONJ_TAC>- (
+      fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
+      metis_tac[])>>
+    CONJ_TAC>- (
+      fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
+      metis_tac[])>>
+    CONJ_TAC >- cheat>>
     cheat)
   >- ( (* Dtabbrev - sanity check *)
     qexists_tac`f`>>
