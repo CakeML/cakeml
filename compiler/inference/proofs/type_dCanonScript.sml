@@ -456,12 +456,11 @@ val INJ_extend_bij = Q.prove(`
 
 val set_tids_ind = fetch "-" "set_tids_ind";
 
-val set_tids_mono = Q.prove(`
-  ∀tids t tids'.
+val set_tids_subset_mono = Q.store_thm("set_tids_subset_mono",
+  `∀tids t tids'.
   set_tids_subset tids t ∧ tids ⊆ tids' ⇒
   set_tids_subset tids' t`,
-  ho_match_mp_tac set_tids_ind>>
-  rw[set_tids_def,SUBSET_DEF,EVERY_MEM]);
+  rw[set_tids_subset_def, SUBSET_DEF]);
 
 val set_tids_tenv_mono = Q.prove(`
   set_tids_tenv tids tenv ∧ tids ⊆ tids' ⇒
@@ -471,7 +470,7 @@ val set_tids_tenv_mono = Q.prove(`
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ rw[]
   \\ pairarg_tac \\ fs[EVERY_MEM,SUBSET_DEF]
-  \\ metis_tac[set_tids_mono,SUBSET_DEF]);
+  \\ metis_tac[set_tids_subset_mono,SUBSET_DEF]);
 
 val check_freevars_ts_tid_rename = Q.prove(`
   ∀ts ls t.
@@ -650,9 +649,11 @@ val good_remap_LINV = Q.store_thm("good_remap_LINV",
 val ts_tid_rename_LINV = Q.store_thm("ts_tid_rename_LINV",
   `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINV f s) (ts_tid_rename f x) = x`,
   recInduct ts_tid_rename_ind
-  \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, MAP_EQ_ID]
-  >- fs[EVERY_MEM]
-  \\ imp_res_tac LINV_DEF);
+  \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_subset_def, SUBSET_DEF, MAP_EQ_ID]
+  \\ fs[set_tids_def, PULL_EXISTS, MEM_MAP]
+  >- (fs[EVERY_MEM] \\ metis_tac[])
+  \\ imp_res_tac LINV_DEF
+  \\ metis_tac[]);
 
 val remap_tenv_LINV = Q.store_thm("remap_tenv_LINV",
   `INJ f s t ∧ set_tids_tenv s tenv ⇒
@@ -687,8 +688,9 @@ val INJ_LINVI = Q.store_thm("INJ_LINVI",
 val ts_tid_rename_LINVI = Q.store_thm("ts_tid_rename_LINVI",
   `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`,
   recInduct ts_tid_rename_ind
-  \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, MAP_EQ_ID]
-  >- fs[EVERY_MEM]
+  \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, set_tids_subset_def, MAP_EQ_ID]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  >- metis_tac[]
   \\ rw[LINVI_def]
   \\ imp_res_tac INJ_LINV_OPT
   \\ CASE_TAC \\ fs[]
