@@ -35,6 +35,20 @@ val check_ctor_tenv_change_tenvT = Q.store_thm("check_ctor_tenv_change_tenvT",
   \\ fs[EVERY_MEM, UNCURRY, MEM_FLAT, MEM_MAP, PULL_EXISTS]
   \\ metis_tac[]);
 
+val check_ctor_tenv_EVERY = Q.store_thm("check_ctor_tenv_EVERY",
+  `∀tenvT tds.
+     check_ctor_tenv tenvT tds ⇔
+     EVERY check_dup_ctors tds ∧
+     EVERY (ALL_DISTINCT o FST) tds ∧
+     EVERY (λ(tvs,tn,ctors).
+       EVERY (λ(cn,ts). EVERY (check_freevars_ast tvs) ts ∧
+                        EVERY (check_type_names tenvT) ts) ctors) tds ∧
+    ALL_DISTINCT (MAP (FST o SND) tds)`,
+  recInduct check_ctor_tenv_ind
+  \\ rw[check_ctor_tenv_def,LAMBDA_PROD]
+  \\ rw[EQ_IMP_THM]
+  \\ fs[MEM_MAP,EXISTS_PROD]);
+
 val build_ctor_tenv_FOLDR = Q.store_thm("build_ctor_tenv_FOLDR",
   `∀tenvT tds ids.
      LENGTH tds = LENGTH ids ⇒
@@ -1360,7 +1374,19 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
           \\ res_tac
           \\ fs[IN_DISJOINT]
           \\ metis_tac[] )
-        \\ cheat
+        \\ conj_tac
+        >- (
+          simp[Abbr`fg`]
+          \\ fs[extend_bij_def, good_remap_def, MAP_EQ_ID, IN_DISJOINT]
+          \\ metis_tac[] )
+        \\ simp[Abbr`ns1`]
+        \\ fs[check_ctor_tenv_EVERY,EVERY_MEM]
+        \\ first_x_assum(qspec_then`EL x tdefs`mp_tac)
+        \\ impl_tac >- metis_tac[MEM_EL]
+        \\ simp[UNCURRY]
+        \\ srw_tac[DNF_ss][]
+        \\ first_x_assum irule
+        \\ metis_tac[MEM_EL])
       ) \\
       simp[MAP2_MAP,MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,EL_ZIP,LAMBDA_PROD]>>
       rw[]>>
