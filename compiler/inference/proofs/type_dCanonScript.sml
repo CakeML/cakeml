@@ -35,6 +35,35 @@ val check_ctor_tenv_change_tenvT = Q.store_thm("check_ctor_tenv_change_tenvT",
   \\ fs[EVERY_MEM, UNCURRY, MEM_FLAT, MEM_MAP, PULL_EXISTS]
   \\ metis_tac[]);
 
+val build_ctor_tenv_FOLDR = Q.store_thm("build_ctor_tenv_FOLDR",
+  `∀tenvT tds ids.
+     LENGTH tds = LENGTH ids ⇒
+     build_ctor_tenv tenvT tds ids =
+       FOLDR (combin$C nsAppend) (alist_to_ns [])
+       (MAP (alist_to_ns o REVERSE)
+          (MAP2 (λ(tvs,tn,ctors) id. (MAP (λ(cn,ts). (cn,tvs,MAP (type_name_subst tenvT) ts,id)) ctors))
+              tds ids))`,
+  recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]);
+
+val build_ctor_tenv_FOLDL = Q.store_thm("build_ctor_tenv_FOLDL",
+  `∀tenvT tds ids.
+     LENGTH tds = LENGTH ids ⇒
+     build_ctor_tenv tenvT tds ids =
+       FOLDL nsAppend (alist_to_ns [])
+       (REVERSE
+       (MAP (alist_to_ns o REVERSE)
+          (MAP2 (λ(tvs,tn,ctors) id. (MAP (λ(cn,ts). (cn,tvs,MAP (type_name_subst tenvT) ts,id)) ctors))
+              tds ids)))`,
+  simp[FOLDL_FOLDR_REVERSE]
+  \\ recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]);
+
+val nsMap_FOLDL_nsAppend = Q.store_thm("nsMap_FOLDL_nsAppend",
+  `∀ls ns. nsMap f (FOLDL nsAppend ns ls) =
+   FOLDL nsAppend (nsMap f ns) (MAP (nsMap f) ls)`,
+  Induct \\ rw[] \\ rw[nsMap_nsAppend]);
+
 (* not true because of alist shadowing
 val nsMap_eq_id = Q.store_thm("nsMap_eq_id",
   `∀f x. nsMap f x = x ⇔ nsAll (λi x. f x = x) x`,
@@ -137,7 +166,7 @@ val type_e_tenv_equiv = Q.store_thm("type_e_tenv_equiv",
                type_name_subst_tenv_equiv, check_type_names_tenv_equiv]);
 
 val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
-  `∀g ga h tenvT tds ids.
+  `∀ga g h tenvT tds ids.
   LENGTH tds = LENGTH ids
   ∧ (∀x. MEM x (MAP SND (FLAT (MAP (SND o SND) tds))) ⇒
          MAP (type_name_subst tenvT) (ga x) = (g (MAP (type_name_subst tenvT) x)))
@@ -1130,7 +1159,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ simp[set_tids_subset_def]
     \\ fs[Abbr`tids'`]
     *)
-
     (* construct the inverse back into the original type system *)
     cheat)
   >- ((* Dlet mono *)
@@ -1260,7 +1288,19 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       (* BIJ or INJ? *)
       cheat>>
     CONJ_TAC >- (
-      rw[remap_tenv_def]>- cheat>>
+      rw[remap_tenv_def]>- (
+        qmatch_goalsub_abbrev_tac`MAP2 ff`
+        \\ qmatch_goalsub_abbrev_tac`nsAppend ns1`
+        \\ qmatch_goalsub_abbrev_tac`ts_tid_rename fg`
+        \\ qmatch_goalsub_abbrev_tac`_ = build_ctor_tenv (nsAppend ns2 _) _ tids'`
+        \\ `LENGTH tids' = LENGTH tdefs` by simp[Abbr`tids'`]
+        \\ simp[build_ctor_tenv_FOLDL, MAP2_MAP, GSYM MAP_REVERSE, nsMap_FOLDL_nsAppend]
+        \\ AP_TERM_TAC
+        \\ simp[MAP_MAP_o,MAP_REVERSE]
+        \\ simp[o_DEF,UNCURRY,MAP_REVERSE]
+        \\ simp[LIST_EQ_REWRITE,EL_MAP,EL_ZIP,UNCURRY]
+        \\ cheat
+      ) \\
       simp[MAP2_MAP,MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,EL_ZIP,LAMBDA_PROD]>>
       rw[]>>
       rpt(pairarg_tac>>fs[])>>rw[]>>
