@@ -398,17 +398,13 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           metis_tac[infer_e_next_uvar_mono,infer_p_next_uvar_mono])>>
       fs[env_rel_def]>>rw[]
       >-
-        (*Recover the check_t property directly from infer_d_check*)
         (imp_res_tac infer_d_check >>
-        pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
-        disch_then(qspec_then`Dlet locs p e` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
-        rfs[guard_def]>>
-        `MAP FST new_bindings = pat_bindings p []` by
-          (imp_res_tac type_p_pat_bindings>>
-          fs[convert_env_def,MAP_MAP_o]>>
-          pop_assum sym_sub_tac>>
-          simp[MAP_EQ_f]>>fs[FORALL_PROD])>>
-        fs[]>>rfs[success_eqns])
+        pop_assum kall_tac>>
+        pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d","st1"]))))>>
+        disch_then(qspecl_then[`Dlet l p e`,`st1`] assume_tac)>>
+        fs[infer_d_def,success_eqns,init_state_def])
+      >-
+        cheat
       >-
         (fs[namespaceTheory.alist_to_ns_def]>>
         Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
@@ -462,9 +458,11 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           imp_res_tac infer_p_wfs>>
           fs[init_infer_state_def,t_wfs_def])>>
         pop_assum SUBST_ALL_TAC>>
-        res_tac>>
-        pop_assum kall_tac>>
+        first_x_assum drule>> simp[]>>
+        impl_tac >-
+          cheat>>
         fs[LIST_REL_EL_EQN]>>
+        strip_tac>>
         pop_assum (qspec_then`n` assume_tac)>>
         rfs[MAP_MAP_o,EL_MAP,convert_env_def]>>
         pairarg_tac>>fs[]>>
