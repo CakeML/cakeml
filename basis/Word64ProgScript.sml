@@ -1,5 +1,5 @@
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     CharProgTheory wordsTheory
+     CharProgTheory
 
 val _ = new_theory "Word64Prog";
 
