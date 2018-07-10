@@ -5,6 +5,10 @@ val _ = new_theory "type_dCanon"
 
 (* TODO: move *)
 
+val FOLDR_MAX_0_list_max = Q.store_thm("FOLDR_MAX_0_list_max",
+  `∀ls. FOLDR MAX 0 ls = list_max ls`,
+  Induct \\ rw[list_max_def] \\ rw[MAX_DEF]);
+
 val nsMap_compose = Q.store_thm("nsMap_compose",
   `∀g e f. nsMap f (nsMap g e) = nsMap (f o g) e`,
   recInduct nsMap_ind
@@ -1234,7 +1238,16 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     CONJ_TAC>- (
       fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
       metis_tac[])>>
-    CONJ_TAC >- cheat>>
+    CONJ_TAC >- (
+      rw[FOLDR_MAX_0_list_max]
+      \\ fs[good_remap_def]
+      \\ DEEP_INTRO_TAC list_max_intro
+      \\ conj_tac
+      >- (
+        fs[BIJ_DEF,prim_tids_def,INJ_DEF]
+        \\ res_tac \\ simp[] )
+      \\ fs[prim_tids_def,EVERY_MEM,BIJ_DEF,INJ_DEF,MAP_EQ_ID]
+      \\ metis_tac[]) >>
     cheat)
   >- ( (* Dtabbrev - sanity check *)
     qexists_tac`f`>>
