@@ -1220,8 +1220,13 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       rpt(pairarg_tac>>fs[])>>rw[]>>
       simp[ts_tid_rename_def,MAP_EQ_ID,MEM_MAP,PULL_EXISTS]>>
       simp[extend_bij_def,EL_MEM,Abbr`g`]>>
-      (* defining property of g *)
-      cheat)>>
+      qmatch_goalsub_abbrev_tac`ALOOKUP al y`
+      \\ Cases_on`ALOOKUP al y` \\ fs[]
+      >- (
+        rfs[LENGTH_COUNT_LIST, ALOOKUP_ZIP_FAIL, Abbr`y`, Abbr`al`]
+        \\ metis_tac[MEM_EL] )
+      \\ qispl_then[`al`,`x`]mp_tac ALOOKUP_ALL_DISTINCT_EL
+      \\ simp[Abbr`al`,LENGTH_ZIP,LENGTH_COUNT_LIST,MAP_ZIP,EL_ZIP,EL_COUNT_LIST])>>
     (* Otherwise count n is not big enough to form *)
     CONJ_TAC>- (
       fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
