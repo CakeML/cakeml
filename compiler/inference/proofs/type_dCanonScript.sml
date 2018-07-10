@@ -23,6 +23,18 @@ val nsMap_I = Q.store_thm("nsMap_I[simp]",
   \\ rw[nsMap_def, MAP_EQ_ID, UNCURRY, FORALL_PROD]
   \\ res_tac);
 
+val check_ctor_tenv_change_tenvT = Q.store_thm("check_ctor_tenv_change_tenvT",
+  `∀tenvT1 env tenvT2.
+   EVERY (λ(cn,ts). EVERY (check_type_names tenvT1) ts ⇒
+                    EVERY (check_type_names tenvT2) ts)
+         (FLAT (MAP (SND o SND) env)) ∧
+   check_ctor_tenv tenvT1 env ⇒
+   check_ctor_tenv tenvT2 env`,
+  recInduct check_ctor_tenv_ind
+  \\ rw[check_ctor_tenv_def]
+  \\ fs[EVERY_MEM, UNCURRY, MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  \\ metis_tac[]);
+
 (* not true because of alist shadowing
 val nsMap_eq_id = Q.store_thm("nsMap_eq_id",
   `∀f x. nsMap f x = x ⇔ nsAll (λi x. f x = x) x`,
@@ -123,6 +135,28 @@ val type_e_tenv_equiv = Q.store_thm("type_e_tenv_equiv",
   \\ imp_res_tac nsAll2_nsLookup1 \\ fs[] \\ rw[]
   \\ metis_tac[type_p_tenv_equiv, tenv_equiv_def,
                type_name_subst_tenv_equiv, check_type_names_tenv_equiv]);
+
+val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
+  `∀g ga h tenvT tds ids.
+  LENGTH tds = LENGTH ids
+  ∧ (∀x. MEM x (MAP SND (FLAT (MAP (SND o SND) tds))) ⇒
+         MAP (type_name_subst tenvT) (ga x) = (g (MAP (type_name_subst tenvT) x)))
+  ⇒
+  nsMap (λ(tvs,ts,tid). (tvs, g ts, h tid)) (build_ctor_tenv tenvT tds ids) =
+  build_ctor_tenv tenvT (MAP (I ## I ## MAP (I ## ga)) tds) (MAP h ids)`,
+  ntac 3 gen_tac
+  \\ recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]
+  \\ rw[nsMap_nsAppend, MAP_REVERSE, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ rw[MAP_EQ_f]
+  \\ pairarg_tac \\ fs[]
+  \\ match_mp_tac EQ_SYM
+  \\ first_x_assum irule
+  \\ rw[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]);
 
 (* -- *)
 
@@ -466,6 +500,14 @@ val sing_renum_def = Define`
 
 (* duplicated in envRelScript *)
 val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`;
+
+val ast_t_ind = ast_t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
   |> CONJUNCT1
@@ -1247,8 +1289,60 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
         fs[BIJ_DEF,prim_tids_def,INJ_DEF]
         \\ res_tac \\ simp[] )
       \\ fs[prim_tids_def,EVERY_MEM,BIJ_DEF,INJ_DEF,MAP_EQ_ID]
-      \\ metis_tac[]) >>
-    cheat)
+      \\ metis_tac[])
+    \\ first_assum (mp_then Any match_mp_tac check_ctor_tenv_change_tenvT)
+    \\ simp[EVERY_FLAT, remap_tenv_def, EVERY_MAP, LAMBDA_PROD]
+    \\ rw[EVERY_MEM, FORALL_PROD, MAP2_MAP]
+    \\ res_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac`e`
+    \\ ho_match_mp_tac ast_t_ind
+    \\ rw[check_type_names_def]
+    \\ TRY( fs[EVERY_MEM] \\ NO_TAC)
+    \\ CASE_TAC
+    >- (
+      fs[nsLookup_nsAppend_none, option_case_NONE_F, nsLookup_nsAppend_some,
+         nsLookup_alist_to_ns_some, nsLookup_alist_to_ns_none, nsLookup_nsMap]
+      \\ rfs[ALOOKUP_FAILS]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ rfs[MEM_MAP,MEM_ZIP,EL_GENLIST,EXISTS_PROD]
+      \\ TRY (
+        qmatch_asmsub_rename_tac`p1 ≠[]`
+        \\ Cases_on`p1` \\ rfs[nsLookupMod_alist_to_ns] )
+      \\ metis_tac[] )
+    \\ fs[option_case_NONE_F]
+    \\ qhdtm_x_assum`nsLookup`mp_tac
+    \\ qhdtm_x_assum`nsLookup`mp_tac
+    \\ simp[nsLookup_nsAppend_some, PULL_EXISTS,
+            nsLookup_alist_to_ns_some,
+            nsLookup_alist_to_ns_none,
+            nsLookup_nsMap]
+    \\ rw[]
+    \\ rfs[ALOOKUP_FAILS]
+    \\ TRY (rw[] \\ pairarg_tac \\ fs[] \\ NO_TAC)
+    \\ TRY (
+      fs[ALOOKUP_LEAST_EL]
+      \\ rw[]
+      \\ fs[MAP_MAP_o]
+      \\ qmatch_goalsub_abbrev_tac `MAP ff (ZIP _)`
+      \\ `ff = (FST o SND) o FST` by simp[Abbr`ff`,FUN_EQ_THM, UNCURRY]
+      \\ qunabbrev_tac`ff` \\ pop_assum SUBST_ALL_TAC
+      \\ rfs[MAP_ZIP] \\ rw[]
+      \\ qhdtm_x_assum`pair_CASE`mp_tac
+      \\ numLib.LEAST_ELIM_TAC
+      \\ conj_tac >- metis_tac[MEM_EL]
+      \\ qx_gen_tac`m` \\ strip_tac
+      \\ `m < LENGTH tdefs` by (
+        CCONTR_TAC \\ fs[NOT_LESS, MEM_EL]
+        \\ qmatch_asmsub_rename_tac`k < LENGTH tdefs`
+        \\ `k  < m` by fs[]
+        \\ metis_tac[] )
+      \\ simp[EL_MAP, EL_ZIP, UNCURRY]
+      \\ NO_TAC)
+    \\ TRY (
+      imp_res_tac ALOOKUP_MEM
+      \\ rfs[MEM_MAP,MEM_ZIP,EL_GENLIST,EXISTS_PROD]
+      \\ metis_tac[] ))
   >- ( (* Dtabbrev - sanity check *)
     qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
