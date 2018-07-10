@@ -1270,7 +1270,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     metis_tac[type_p_ts_tid_rename])
   >- ((* Dletrec *)
     cheat )
-  >- ((* Dtype - important! try and finish this first *)
+  >- ((* Dtype *)
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >- (
       rw[set_tids_tenv_def]
@@ -1303,9 +1303,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     simp[Once type_d_canon_cases]>>
     drule ALL_DISTINCT_CARD_LIST_TO_SET>>
     simp[]>>rw[]>>
-    (* all of these look plausible
-      witness for g is function mapping list element to its position in list
-    *)
     qabbrev_tac`g = THE o (ALOOKUP (ZIP (type_identities, COUNT_LIST (LENGTH tdefs))))`>>
     qexists_tac`g`>>
     CONJ_TAC >-
@@ -1389,8 +1386,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
         \\ simp[UNCURRY]
         \\ srw_tac[DNF_ss][]
         \\ first_x_assum irule
-        \\ metis_tac[MEM_EL])
-      ) \\
+        \\ metis_tac[MEM_EL]) \\
       simp[MAP2_MAP,MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,EL_ZIP,LAMBDA_PROD]>>
       rw[]>>
       rpt(pairarg_tac>>fs[])>>rw[]>>
@@ -1473,7 +1469,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       imp_res_tac ALOOKUP_MEM
       \\ rfs[MEM_MAP,MEM_ZIP,EL_GENLIST,EXISTS_PROD]
       \\ metis_tac[] ))
-  >- ( (* Dtabbrev - sanity check *)
+  >- ( (* Dtabbrev *)
     qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
     CONJ_TAC >- (
@@ -1485,7 +1481,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       dep_rewrite.DEP_REWRITE_TAC [ts_tid_rename_type_name_subst]>>fs[])>>
     fs[remap_tenv_def]>>
     metis_tac[check_type_names_ts_tid_rename,ts_tid_rename_type_name_subst])
-  >- ( (* Dexn - sanity check *)
+  >- ( (* Dexn *)
     qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
     CONJ_TAC >- (
@@ -1494,7 +1490,9 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       fs[prim_tids_def,prim_type_nums_def])>>
     CONJ_TAC >- fs[prim_tids_def,prim_type_nums_def]>>
     simp[Once type_d_canon_cases, prim_tids_def,remap_tenv_def,nsSing_def,nsMap_def]>>
-    cheat)
+    fs[EVERY_MEM]
+    \\ simp[MAP_MAP_o, MAP_EQ_f, ts_tid_rename_type_name_subst, GSYM check_type_names_ts_tid_rename]
+    \\ fs[good_remap_def, prim_type_nums_def])
   >- ( (* Dmod *)
     first_x_assum drule>>
     rpt (disch_then drule) >> rw[]>>
