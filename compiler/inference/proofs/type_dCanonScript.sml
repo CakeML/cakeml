@@ -882,6 +882,13 @@ val ts_tid_rename_eq_id = Q.store_thm("ts_tid_rename_eq_id",
   \\ rw[EQ_IMP_THM] \\ rw[]
   \\ metis_tac[]);
 
+val ts_tid_rename_eq_f = Q.store_thm("ts_tid_rename_eq_f",
+  `∀f t g. (ts_tid_rename f t = ts_tid_rename g t ⇔ ∀x. x ∈ set_tids t ⇒ f x = g x)`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, set_tids_def, MAP_EQ_f, MEM_MAP]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ metis_tac[]);
+
 (* probably not be true because of shadows...
 val remap_tenv_LINVI = Q.store_thm("remap_tenv_LINVI",
   `INJ f s t ∧ set_tids_tenv s tenv ⇒
@@ -1299,6 +1306,60 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
         \\ simp[MAP_MAP_o,MAP_REVERSE]
         \\ simp[o_DEF,UNCURRY,MAP_REVERSE]
         \\ simp[LIST_EQ_REWRITE,EL_MAP,EL_ZIP,UNCURRY]
+        \\ gen_tac \\ strip_tac
+        \\ gen_tac \\ strip_tac
+        \\ reverse conj_tac
+        >- (
+          simp[Abbr`fg`,extend_bij_def]
+          \\ reverse IF_CASES_TAC >- metis_tac[MEM_EL]
+          \\ simp[Abbr`tids'`]
+          \\ simp[Abbr`g`]
+          \\ qmatch_goalsub_abbrev_tac`ALOOKUP al k`
+          \\ qispl_then[`al`,`x`]mp_tac ALOOKUP_ALL_DISTINCT_EL
+          \\ simp[Abbr`al`,LENGTH_COUNT_LIST,MAP_ZIP,EL_ZIP,EL_COUNT_LIST] )
+        \\ gen_tac \\ strip_tac
+        \\ DEP_REWRITE_TAC[ts_tid_rename_type_name_subst]
+        \\ reverse conj_tac
+        >- (
+          simp[nsMap_nsAppend]
+          \\ simp[nsMap_alist_to_ns, Abbr`ns1`]
+          \\ simp[Abbr`ns2`]
+          \\ srw_tac[ETA_ss][MAP2_MAP,MAP_MAP_o,o_DEF,Abbr`ff`,UNCURRY,
+                             LAMBDA_PROD,ts_tid_rename_def]
+          \\ qmatch_goalsub_abbrev_tac`alist_to_ns al1`
+          \\ match_mp_tac EQ_SYM
+          \\ qmatch_goalsub_abbrev_tac`alist_to_ns al2`
+          \\ `al1 = al2`
+          by (
+            simp[Abbr`al1`,Abbr`al2`]
+            \\ simp[LIST_EQ_REWRITE,EL_MAP,EL_ZIP,UNCURRY]
+            \\ simp[Abbr`tids'`,Abbr`fg`]
+            \\ simp[extend_bij_def]
+            \\ qx_gen_tac`z` \\ strip_tac
+            \\ reverse IF_CASES_TAC >- metis_tac[MEM_EL]
+            \\ simp[Abbr`g`]
+            \\ qmatch_goalsub_abbrev_tac`ALOOKUP al k`
+            \\ qispl_then[`al`,`z`]mp_tac ALOOKUP_ALL_DISTINCT_EL
+            \\ simp[Abbr`al`,LENGTH_COUNT_LIST,MAP_ZIP,EL_ZIP,EL_COUNT_LIST] )
+          \\ match_mp_tac type_name_subst_tenv_equiv
+          \\ match_mp_tac nsAll2_nsAppend
+          \\ conj_tac
+          >- (
+            rw[nsAll2_def]
+            \\ irule nsSub_refl
+            \\ rw[]
+            \\ rw[nsAll_def]
+            \\ qexists_tac`K(K T)` \\ rw[] )
+          \\ simp[nsAll2_def, nsSub_def, nsLookup_nsMap,
+                  PULL_EXISTS, nsLookupMod_nsMap, FORALL_PROD,
+                  ts_tid_rename_eq_f]
+          \\ fs[set_tids_tenv_def, nsAll_def, FORALL_PROD,
+                set_tids_subset_def, SUBSET_DEF, Abbr`fg`]
+          \\ simp[extend_bij_def]
+          \\ rw[] \\ rw[]
+          \\ res_tac
+          \\ fs[IN_DISJOINT]
+          \\ metis_tac[] )
         \\ cheat
       ) \\
       simp[MAP2_MAP,MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,EL_ZIP,LAMBDA_PROD]>>
