@@ -359,29 +359,25 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
   qpat_x_assum`_ _ _ _ _ tenv'` mp_tac>>
   simp[Once type_d_canon_cases]>>rw[]
   >- ( (* Let poly *)
-    cheat)
-    (* rw [infer_d_def, success_eqns] >>
+    rw[infer_d_def,success_eqns,init_state_def] >>
     `ienv_ok {} ienv` by fs [env_rel_def] >>
     `env_rel_complete FEMPTY ienv tenv Empty` by fs [env_rel_def] >>
     imp_res_tac env_rel_complete_bind>>
     pop_assum (qspec_then`tvs` assume_tac)>>
     drule (GEN_ALL infer_pe_complete) >>
     rpt (disch_then drule) >>
-    disch_then (qspec_then `SOME locs` mp_tac) >>
+    disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
     rw [] >>
-    qexists_tac `empty_inf_decls` >>
     simp [init_state_def, success_eqns] >>
     pairarg_tac >>
     fs[success_eqns]>>
-    CONJ_TAC >-
-    simp [empty_decls_def, convert_decls_def, empty_inf_decls_def]>>
     CONJ_ASM2_TAC
     >-
       (* the subcompletion of s corresponding to generalise_list *)
       (drule generalise_complete>>
       disch_then(qspec_then`st'.next_uvar` mp_tac)>>fs[]>>
       impl_keep_tac>-
-        (`t_wfs init_infer_state.subst` by (EVAL_TAC>>fs[t_wfs_def])>>
+        (`t_wfs (init_infer_state st1).subst` by (EVAL_TAC>>fs[t_wfs_def])>>
         imp_res_tac infer_e_wfs>>
         imp_res_tac infer_p_wfs>>
         imp_res_tac infer_e_check_t>>
@@ -632,9 +628,11 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           rw[]>>
           metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]))
     >-
-      (imp_res_tac infer_p_bindings>>
+      (imp_res_tac infer_e_next_id_const>>
+      imp_res_tac infer_p_next_id_const>>
+      imp_res_tac infer_p_bindings>>
       pop_assum(qspec_then`[]` mp_tac)>>
-      fs[]>>metis_tac[]) *)
+      fs[init_infer_state_def]>>metis_tac[]))
   >- ( (* Let mono *)
     cheat)
     (*

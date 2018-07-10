@@ -189,6 +189,55 @@ val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
 
 (* -- *)
 
+(* Rename (type_system) type identifiers with a function *)
+val ts_tid_rename_def = tDefine"ts_tid_rename"`
+  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
+  (ts_tid_rename f t = t)`
+  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac);
+
+val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
+
+val remap_tenv_def = Define`
+  remap_tenv f tenv =
+  <|
+    t := nsMap (λ(ls,t). (ls, ts_tid_rename f t)) tenv.t;
+    c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
+    v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
+   |>`
+
+(* All type ids in a type belonging to a set *)
+val set_tids_def = tDefine "set_tids"`
+  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
+  (set_tids _ = {})`
+  (WF_REL_TAC `measure t_size` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac)
+
+val set_tids_ts_tid_rename = Q.store_thm("set_tids_ts_tid_rename",
+  `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, set_tids_def]
+  \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
+  \\ metis_tac[IN_IMAGE]);
+
+val set_tids_subset_def = Define`
+  set_tids_subset tids t <=> set_tids t ⊆ tids`
+
+(* all the tids used in a tenv *)
+val set_tids_tenv_def = Define`
+  set_tids_tenv tids tenv ⇔
+  nsAll (λi (ls,t). set_tids_subset tids t) tenv.t ∧
+  nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
+  nsAll (λi (n,t). set_tids_subset tids t) tenv.v`
+
 (* A "canonical" version of type_d that produces the type identifiers
   in ascending order.
   It also drops the extra_checks argument so it corresponds to type_d T,
@@ -204,7 +253,9 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
   type_e tenv (bind_tvar tvs Empty) e t /\
   (! tvs' bindings' t'.
   (type_p tvs' tenv p t' bindings' /\
-      type_e tenv (bind_tvar tvs' Empty) e t') ==>
+  type_e tenv (bind_tvar tvs' Empty) e t' ∧
+  EVERY (λ(k,t).  set_tids_subset (count n) t) bindings'
+  ) ==>
         EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings))))
   ==>
   type_d_canon n tenv (Dlet locs p e)
@@ -271,55 +322,6 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
   ==>
   type_ds_canon n tenv (d::ds)
     (decls1 + decls2) (extend_dec_tenv tenv2 tenv1))`;
-
-(* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
-  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
-
-val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
-
-val remap_tenv_def = Define`
-  remap_tenv f tenv =
-  <|
-    t := nsMap (λ(ls,t). (ls, ts_tid_rename f t)) tenv.t;
-    c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
-    v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
-   |>`
-
-(* All type ids in a type belonging to a set *)
-val set_tids_def = tDefine "set_tids"`
-  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
-  (set_tids _ = {})`
-  (WF_REL_TAC `measure t_size` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac)
-
-val set_tids_ts_tid_rename = Q.store_thm("set_tids_ts_tid_rename",
-  `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`,
-  recInduct ts_tid_rename_ind
-  \\ rw[ts_tid_rename_def, set_tids_def]
-  \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
-  \\ metis_tac[IN_IMAGE]);
-
-val set_tids_subset_def = Define`
-  set_tids_subset tids t <=> set_tids t ⊆ tids`
-
-(* all the tids used in a tenv *)
-val set_tids_tenv_def = Define`
-  set_tids_tenv tids tenv ⇔
-  nsAll (λi (ls,t). set_tids_subset tids t) tenv.t ∧
-  nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
-  nsAll (λi (n,t). set_tids_subset tids t) tenv.v`
 
 (* The remapping must be identity on these numbers *)
 val good_remap_def = Define`
@@ -1077,7 +1079,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       first_x_assum drule>>
       rw[bind_tvar_def,remap_tenvE_def])>>
     rw[]>>
-    (* BIJ version
+    (* BIJ version *)
     imp_res_tac remap_tenv_LINV >>
     pop_assum(qspec_then`tenv`mp_tac) >>
     impl_tac >- simp[set_tids_tenv_def] >>
@@ -1112,7 +1114,10 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ rw[ts_tid_rename_eq_id]
     \\ match_mp_tac (MP_CANON BIJ_LINV_INV)
     \\ asm_exists_tac \\ simp[]
-    *)
+    \\ qpat_x_assum`EVERY _ bindings''` mp_tac
+    \\ simp[EVERY_MEM,MEM_EL, PULL_EXISTS, set_tids_tenv_mono,EL_MAP]
+    \\ disch_then drule \\ pairarg_tac \\ fs[]
+    \\ rw[set_tids_subset_def,SUBSET_DEF])
     (* INJ version
     imp_res_tac good_remap_LINVI >>
     drule (GEN_ALL type_p_ts_tid_rename) >>
@@ -1159,8 +1164,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ simp[set_tids_subset_def]
     \\ fs[Abbr`tids'`]
     *)
-    (* construct the inverse back into the original type system *)
-    cheat)
   >- ((* Dlet mono *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
     qexists_tac`f`>>simp[]>>
