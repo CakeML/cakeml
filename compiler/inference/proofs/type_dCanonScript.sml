@@ -500,13 +500,11 @@ val extend_bij_id = Q.store_thm("extend_bij_id[simp]",`
   (extend_bij f f {} n = f)`,
   rw[extend_bij_def,FUN_EQ_THM]);
 
-(*
 val extend_bij_compose = Q.store_thm("extend_bij_compose",
    `extend_bij (extend_bij f g ids n) h jds (n + m) =
     extend_bij f (extend_bij g h jds m) (ids ∪ jds) n`,
   rw[extend_bij_def,FUN_EQ_THM]
   \\ rw[] \\ fs[]);
-*)
 
 (* needs monotonicity of set_tids_tenv *)
 val set_tids_tenv_extend_dec_tenv = Q.prove(`
@@ -1541,7 +1539,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
         rfs[LENGTH_COUNT_LIST, ALOOKUP_ZIP_FAIL, Abbr`y`, Abbr`al`]
         \\ metis_tac[MEM_EL] )
       \\ qispl_then[`al`,`x`]mp_tac ALOOKUP_ALL_DISTINCT_EL
-      \\ simp[Abbr`al`,LENGTH_ZIP,LENGTH_COUNT_LIST,MAP_ZIP,EL_ZIP,EL_COUNT_LIST])>>
+      \\ simp[Abbr`al`,LENGTH_ZIP,LENGTH_COUNT_LIST,MAP_ZIP,EL_ZIP,EL_COUNT_LIST])
     (* Otherwise count n is not big enough to form *)
     \\ first_assum (mp_then Any match_mp_tac check_ctor_tenv_change_tenvT)
     \\ simp[EVERY_FLAT, remap_tenv_def, EVERY_MAP, LAMBDA_PROD]
@@ -1564,7 +1562,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
         qmatch_asmsub_rename_tac`p1 ≠[]`
         \\ Cases_on`p1` \\ rfs[nsLookupMod_alist_to_ns] )
       \\ metis_tac[NOT_SOME_NONE] )
-
     \\ fs[option_case_NONE_F]
     \\ qhdtm_x_assum`nsLookup`mp_tac
     \\ qhdtm_x_assum`nsLookup`mp_tac
@@ -1572,9 +1569,14 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
             nsLookup_alist_to_ns_some,
             nsLookup_alist_to_ns_none,
             nsLookup_nsMap]
+    \\ fs[tenv_equiv_def,nsAll2_def,nsSub_def,remap_tenv_def,
+          nsLookup_nsMap,nsLookupMod_nsMap]
     \\ rw[]
     \\ rfs[ALOOKUP_FAILS]
-    \\ TRY (rw[] \\ pairarg_tac \\ fs[] \\ NO_TAC)
+    \\ TRY (
+      res_tac
+      \\ rw[] \\ pairarg_tac \\ fs[]
+      \\ rw[] \\ fs[] \\ NO_TAC)
     \\ TRY (
       fs[ALOOKUP_LEAST_EL]
       \\ rw[]
@@ -1601,26 +1603,40 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
   >- ( (* Dtabbrev *)
     qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
+    simp[Once type_d_canon_cases, prim_tids_def]>>
     CONJ_TAC >- (
       match_mp_tac set_tids_subset_type_name_subst>>
       fs[set_tids_tenv_def])>>
-    simp[Once type_d_canon_cases, prim_tids_def]>>
-    CONJ_TAC>- (
+    reverse CONJ_TAC>- (
       fs[remap_tenv_def]>>
-      dep_rewrite.DEP_REWRITE_TAC [ts_tid_rename_type_name_subst]>>fs[])>>
-    fs[remap_tenv_def]>>
-    metis_tac[check_type_names_ts_tid_rename,ts_tid_rename_type_name_subst])
+      dep_rewrite.DEP_REWRITE_TAC [ts_tid_rename_type_name_subst]
+      >> fs[]
+      \\ fs[tenv_equiv_def]
+      \\ match_mp_tac type_name_subst_tenv_equiv
+      \\ fs[])>>
+    fs[remap_tenv_def,tenv_equiv_def]>>
+    metis_tac[check_type_names_ts_tid_rename,
+              check_type_names_tenv_equiv,
+              ts_tid_rename_type_name_subst])
   >- ( (* Dexn *)
     qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
+    simp[Once type_d_canon_cases, prim_tids_def,remap_tenv_def,nsSing_def,nsMap_def]>>
     CONJ_TAC >- (
       fs[EVERY_MAP,EVERY_MEM]>>rw[]
       >- (match_mp_tac set_tids_subset_type_name_subst>>fs[set_tids_tenv_def])>>
       fs[prim_tids_def,prim_type_nums_def])>>
     CONJ_TAC >- fs[prim_tids_def,prim_type_nums_def]>>
-    simp[Once type_d_canon_cases, prim_tids_def,remap_tenv_def,nsSing_def,nsMap_def]>>
-    fs[EVERY_MEM]
-    \\ simp[MAP_MAP_o, MAP_EQ_f, ts_tid_rename_type_name_subst, GSYM check_type_names_ts_tid_rename]
+    conj_asm1_tac >- (
+      fs[EVERY_MEM, tenv_equiv_def]
+      \\ imp_res_tac check_type_names_tenv_equiv
+      \\ fs[remap_tenv_def, GSYM check_type_names_ts_tid_rename] )
+    \\ qmatch_goalsub_abbrev_tac`tenv_equiv t1 t2`
+    \\ `t1 = t2 ` suffices_by rw[]
+    \\ rw[Abbr`t1`,Abbr`t2`]
+    \\ fs[MAP_MAP_o, MAP_EQ_f, ts_tid_rename_type_name_subst,
+         remap_tenv_def, tenv_equiv_def,
+         type_name_subst_tenv_equiv, EVERY_MEM]
     \\ fs[good_remap_def, prim_type_nums_def])
   >- ( (* Dmod *)
     first_x_assum drule>>
@@ -1635,13 +1651,13 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
   >- simp[set_tids_tenv_def,Once type_d_canon_cases,remap_tenv_def, prim_tids_def]
   >> (*type_ds *)
   last_x_assum drule>> fs[]>>
-  disch_then drule>> rw[]>>
+  disch_then drule>> simp[] >>
+  disch_then drule>> rw[] >>
   simp[Once type_d_canon_cases]>>
   first_x_assum (qspecl_then
     [`tids ∪ ids`,`extend_bij f g ids n`,`CARD ids + n`] mp_tac)>>
-    (*
-    [`tids ∪ ids`,`extend_bij f g tids ids n`,`CARD ids + n`] mp_tac)>>
-    *)
+  simp[GSYM AND_IMP_INTRO, RIGHT_FORALL_IMP_THM]
+  \\ simp[AND_IMP_INTRO]
   impl_tac >- (
     fs[good_remap_extend_bij,prim_tids_def,prim_type_nums_def]>>
     rfs[DISJOINT_SYM]>>
@@ -1650,8 +1666,26 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       match_mp_tac (GEN_ALL set_tids_tenv_mono)>>
       asm_exists_tac>>fs[])>>
     match_mp_tac BIJ_extend_bij>>fs[DISJOINT_SYM])>>
-  rw[]>>
+  simp[PULL_EXISTS] >>
+  disch_then(qspec_then`extend_dec_tenv mapped_tenv' mapped_tenv`mp_tac)
+  \\ impl_tac >- (
+    fs[tenv_equiv_def,remap_tenv_extend_dec_tenv]
+    \\ fs[extend_dec_tenv_def]
+    \\ DEP_REWRITE_TAC[nsAll2_nsAppend]
+    \\ fs[]
+    \\ fs[nsAll2_def,remap_tenv_def,nsSub_def,nsLookup_nsMap,nsLookupMod_nsMap,
+          PULL_EXISTS, FORALL_PROD, EXISTS_PROD]
+    \\ fs[set_tids_tenv_def, set_tids_subset_def, nsAll_def, FORALL_PROD]
+    \\ rw[] \\ res_tac \\ rw[]
+    \\ fs[ts_tid_rename_eq_f, extend_bij_def, SUBSET_DEF, IN_DISJOINT,
+          MAP_EQ_f, EVERY_MEM]
+    \\ metis_tac[] )
+  \\ rw[]>>
   qexists_tac `extend_bij g g' (*ids*) ids' (CARD ids)`>>
+  rw[] >>
+  goal_assum(first_assum o mp_then Any mp_tac) >>
+  fs[] \\
+  goal_assum(first_assum o mp_then Any mp_tac) >>
   rw[]
   >- (
     match_mp_tac set_tids_tenv_extend_dec_tenv>>fs[]>>
@@ -1666,28 +1700,18 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     simp[]>>
     match_mp_tac BIJ_extend_bij>>
     fs[])
+  >- (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])
   >>
   simp[remap_tenv_extend_dec_tenv]
-  \\ qmatch_goalsub_abbrev_tac`extend_dec_tenv tenv2 tenv1 = _`
-  \\ qexists_tac`tenv1` \\ qexists_tac`tenv2` \\
-  qexists_tac`CARD ids`>>
-  qexists_tac`CARD ids'`>>
-  simp[]
-  \\ conj_tac >- (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])
-  (*
-  \\ conj_tac
-  >- (
-    qmatch_asmsub_abbrev_tac`type_d_canon n _ _ _ tenv1'`
-    \\ `tenv1 = tenv1'` suffices_by rw[]
-    \\ unabbrev_all_tac
-    \\ AP_THM_TAC
-    \\ AP_TERM_TAC
-    \\ rw[extend_bij_def,FUN_EQ_THM]
-    \\ fs[IN_DISJOINT]
-    \\ rw[] \\ fs[]
-    >- metis_tac[]
-    >- metis_tac[]
-*)
-  \\ cheat);
+  \\ fs[extend_bij_compose]
+  \\ fs[extend_dec_tenv_def,tenv_equiv_def]
+  \\ DEP_REWRITE_TAC[nsAll2_nsAppend] \\ fs[]
+  \\ fs[nsAll2_def,remap_tenv_def,nsSub_def,nsLookup_nsMap,nsLookupMod_nsMap,
+        PULL_EXISTS, FORALL_PROD, EXISTS_PROD]
+  \\ fs[set_tids_tenv_def, set_tids_subset_def, nsAll_def, FORALL_PROD]
+  \\ rw[] \\ res_tac \\ rw[]
+  \\ fs[ts_tid_rename_eq_f, extend_bij_def, SUBSET_DEF, IN_DISJOINT,
+        MAP_EQ_f, EVERY_MEM]
+  \\ metis_tac[]);
 
 val _ = export_theory();
