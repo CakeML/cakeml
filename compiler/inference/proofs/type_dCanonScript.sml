@@ -6,6 +6,14 @@ val _ = new_theory "type_dCanon"
 
 (* TODO: move *)
 
+val INJ_MAP_EQ_2 = Q.store_thm("INJ_MAP_EQ_2",
+  `∀f l1 l2.
+   (∀x y. x ∈ set l1 ∧ y ∈ set l2 ∧ f x = f y ⇒ x = y) ∧
+   MAP f l1 = MAP f l2 ⇒
+   l1 = l2`,
+  gen_tac \\ Induct \\ rw[]
+  \\ Cases_on`l2` \\ pop_assum mp_tac \\ rw[]);
+
 val FOLDR_MAX_0_list_max = Q.store_thm("FOLDR_MAX_0_list_max",
   `∀ls. FOLDR MAX 0 ls = list_max ls`,
   Induct \\ rw[list_max_def] \\ rw[MAX_DEF]);
@@ -395,6 +403,21 @@ val extend_bij_def = Define`
   else
     f v`
 
+(*
+val extend_bij_def = Define`
+  extend_bij (f:type_ident->type_ident) g tids ids n v =
+  if v ∈ tids then
+    f v
+  else if v ∈ ids then
+    n + g v
+  else
+    v`
+*)
+
+val prim_tids_def = Define`
+  prim_tids contain tids ⇔
+    EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
+
 val set_tids_subset_type_subst = Q.prove(`
   ∀s t tids.
   FEVERY (set_tids_subset tids o SND) s ∧
@@ -466,6 +489,14 @@ val extend_bij_id = Q.store_thm("extend_bij_id[simp]",`
   (extend_bij f f {} n = f)`,
   rw[extend_bij_def,FUN_EQ_THM]);
 
+(*
+val extend_bij_compose = Q.store_thm("extend_bij_compose",
+   `extend_bij (extend_bij f g ids n) h jds (n + m) =
+    extend_bij f (extend_bij g h jds m) (ids ∪ jds) n`,
+  rw[extend_bij_def,FUN_EQ_THM]
+  \\ rw[] \\ fs[]);
+*)
+
 (* needs monotonicity of set_tids_tenv *)
 val set_tids_tenv_extend_dec_tenv = Q.prove(`
   ∀s t s' t'.
@@ -479,11 +510,37 @@ val good_remap_extend_bij = Q.prove(`
   good_remap (extend_bij f g ids n)`,
   rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]);
 
+(*
+val good_remap_extend_bij = Q.prove(`
+  good_remap f ∧ prim_tids T tids ⇒
+  good_remap (extend_bij f g tids n)`,
+  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]);
+
+val good_remap_extend_bij = Q.prove(`
+  good_remap f ∧ prim_tids T tids ⇒
+  good_remap (extend_bij f g tids ids n)`,
+  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]);
+*)
+
 val remap_tenv_extend_dec_tenv = Q.prove(`
   remap_tenv f (extend_dec_tenv t t') =
   extend_dec_tenv (remap_tenv f t) (remap_tenv f t')`,
   fs[remap_tenv_def,extend_dec_tenv_def,nsMap_nsAppend]);
 
+val BIJ_extend_bij = Q.store_thm("BIJ_extend_bij",`
+  DISJOINT tids ids ∧
+  BIJ f tids (count n) ∧
+  BIJ g ids (count (CARD ids)) ⇒
+  BIJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))`,
+  rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
+  \\ strip_tac
+  \\ rewrite_tac[IN_UNION, count_add, IN_IMAGE]
+  \\ reverse conj_tac >- metis_tac[]
+  \\ conj_tac >- metis_tac[]
+  \\ rw[]
+  \\ rpt (first_x_assum drule)>>fs[]);
+
+(*
 val INJ_extend_bij = Q.store_thm("INJ_extend_bij",`
   DISJOINT tids ids ∧
   INJ f tids (count n) ∧
@@ -503,7 +560,7 @@ val BIJ_extend_bij = Q.store_thm("BIJ_extend_bij",`
   DISJOINT tids ids ∧
   BIJ f tids (count n) ∧
   BIJ g ids (count (CARD ids)) ⇒
-  BIJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))`,
+  BIJ (extend_bij f g tids ids n) (tids ∪ ids) (count (n + CARD ids))`,
   rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
   \\ strip_tac
   \\ rewrite_tac[IN_UNION, count_add, IN_IMAGE]
@@ -511,6 +568,7 @@ val BIJ_extend_bij = Q.store_thm("BIJ_extend_bij",`
   \\ conj_tac >- metis_tac[]
   \\ rw[]
   \\ rpt (first_x_assum drule)>>fs[]);
+*)
 
 val set_tids_ind = fetch "-" "set_tids_ind";
 
@@ -902,6 +960,27 @@ val ts_tid_rename_eq_f = Q.store_thm("ts_tid_rename_eq_f",
   \\ rw[EQ_IMP_THM] \\ rw[]
   \\ metis_tac[]);
 
+val inj_ts_tid_rename_eq = Q.store_thm("inj_ts_tid_rename_eq",
+  `∀f t1 t2.
+    (∀x y.
+      x ∈ set_tids t1 ∧ y ∈ set_tids t2 ∧
+      f x = f y ⇒ x = y) ∧
+    (ts_tid_rename f t1 = ts_tid_rename f t2 )
+    ⇒ t1 = t2`,
+  recInduct ts_tid_rename_ind
+  \\ rewrite_tac[ts_tid_rename_def, set_tids_def, NOT_IN_EMPTY, IN_INSERT]
+  \\ rpt strip_tac \\ Cases_on`t2`
+  \\ pop_assum mp_tac \\ rewrite_tac[ts_tid_rename_def]
+  \\ simp_tac(srw_ss())[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac[set_tids_def, IN_INSERT, IN_BIGUNION, MEM_MAP]
+  \\ simp_tac(pure_ss++ETA_ss)[PULL_EXISTS]
+  \\ CONV_TAC(DEPTH_CONV BETA_CONV)
+  \\ ntac 2 strip_tac
+  \\ reverse conj_tac >- metis_tac[]
+  \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
+  \\ metis_tac[]);
+
 (* probably not be true because of shadows...
 val remap_tenv_LINVI = Q.store_thm("remap_tenv_LINVI",
   `INJ f s t ∧ set_tids_tenv s tenv ⇒
@@ -1009,6 +1088,18 @@ val build_ctor_tenv_type_identities = Q.store_thm("build_ctor_tenv_type_identiti
   rw[]>>
   match_mp_tac set_tids_subset_type_name_subst>>
   fs[prim_tids_def,prim_type_nums_def]);
+
+(*
+val type_d_canon_tenv_equiv = Q.store_thm("type_d_canon_tenv_equiv",
+  `(∀x t d c v. type_d_canon x t d c v ⇒
+      ∀v2. tenv_equiv v v2 ⇒ type_d_canon x t d c v2) ∧
+   (∀x t d c v. type_ds_canon x t d c v ⇒
+      ∀v2. tenv_equiv v v2 ⇒ type_ds_canon x t d c v2)`,
+  ho_match_mp_tac type_d_canon_ind
+  \\ rw[]
+  \\ rw[Once type_d_canon_cases]
+  type_d_canon_rules
+*)
 
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
@@ -1256,11 +1347,14 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       \\ first_x_assum drule
       \\ impl_tac >- rw[] \\ strip_tac
       \\ rw[]
-      \\ first_assum(mp_then Any match_mp_tac INJ_MAP_EQ)
-      \\ simp[INJ_DEF, FORALL_PROD]
-      \\
-      (* need to know tenv{1,2} are in tids? *)
-      cheat)>>
+      \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
+      \\ simp[FORALL_PROD]
+      \\ rw[]
+      \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
+      \\ rw[]
+      \\ `x ∈ IMAGE f tids ∧ y ∈ IMAGE f tids` suffices_by (
+        rw[] \\ metis_tac[LINVI_RINV] )
+      \\ cheat)>>
     drule type_e_ts_tid_rename>>
     strip_tac>> first_x_assum drule>>
     simp[remap_tenvE_def]>>
@@ -1499,12 +1593,15 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     qexists_tac`remap_tenv (extend_bij f g ids n) tenv'`>>
     fs[remap_tenv_def,tenvLift_def,namespacePropsTheory.nsLift_nsMap])
   >- simp[set_tids_tenv_def,Once type_d_canon_cases,remap_tenv_def, prim_tids_def]
-  >> (*type_ds -- this MUST go through inductively *)
+  >> (*type_ds *)
   last_x_assum drule>> fs[]>>
   disch_then drule>> rw[]>>
   simp[Once type_d_canon_cases]>>
   first_x_assum (qspecl_then
     [`tids ∪ ids`,`extend_bij f g ids n`,`CARD ids + n`] mp_tac)>>
+    (*
+    [`tids ∪ ids`,`extend_bij f g tids ids n`,`CARD ids + n`] mp_tac)>>
+    *)
   impl_tac >- (
     fs[good_remap_extend_bij,prim_tids_def,prim_type_nums_def]>>
     rfs[DISJOINT_SYM]>>
@@ -1514,7 +1611,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       asm_exists_tac>>fs[])>>
     match_mp_tac BIJ_extend_bij>>fs[DISJOINT_SYM])>>
   rw[]>>
-  qexists_tac `extend_bij g g' ids' (CARD ids)`>>
+  qexists_tac `extend_bij g g' (*ids*) ids' (CARD ids)`>>
   rw[]
   >- (
     match_mp_tac set_tids_tenv_extend_dec_tenv>>fs[]>>
@@ -1530,20 +1627,27 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     match_mp_tac BIJ_extend_bij>>
     fs[])
   >>
-  qexists_tac`(remap_tenv (extend_bij f g ids n) tenv')`>>
-  qexists_tac` (remap_tenv (extend_bij (extend_bij f g ids n) g' ids' (n + CARD ids)) tenv'')`>>
+  simp[remap_tenv_extend_dec_tenv]
+  \\ qmatch_goalsub_abbrev_tac`extend_dec_tenv tenv2 tenv1 = _`
+  \\ qexists_tac`tenv1` \\ qexists_tac`tenv2` \\
   qexists_tac`CARD ids`>>
   qexists_tac`CARD ids'`>>
-  rw[]
-  >- (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])
-  >-
-    (simp[remap_tenv_extend_dec_tenv]>>
-    cheat)
-  >>
-  fs[remap_tenv_extend_dec_tenv]>>
-  (* true thanks to disjointness *)
-  `remap_tenv (extend_bij f g ids n) tenv =
-    remap_tenv f tenv` by cheat>>
-  fs[]);
+  simp[]
+  \\ conj_tac >- (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])
+  (*
+  \\ conj_tac
+  >- (
+    qmatch_asmsub_abbrev_tac`type_d_canon n _ _ _ tenv1'`
+    \\ `tenv1 = tenv1'` suffices_by rw[]
+    \\ unabbrev_all_tac
+    \\ AP_THM_TAC
+    \\ AP_TERM_TAC
+    \\ rw[extend_bij_def,FUN_EQ_THM]
+    \\ fs[IN_DISJOINT]
+    \\ rw[] \\ fs[]
+    >- metis_tac[]
+    >- metis_tac[]
+*)
+  \\ cheat);
 
 val _ = export_theory();
