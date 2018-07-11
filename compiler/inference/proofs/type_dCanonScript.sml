@@ -225,6 +225,16 @@ val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
   \\ rw[MEM_MAP,EXISTS_PROD]
   \\ metis_tac[]);
 
+val type_pe_determ_tenv_equiv = Q.store_thm("type_pe_determ_tenv_equiv",
+  `type_pe_determ t1 x y z ∧
+   tenv_equiv t1 t2 ⇒
+   type_pe_determ t2 x y z`,
+  rw[type_pe_determ_def]
+  \\ imp_res_tac tenv_equiv_sym
+  \\ imp_res_tac type_p_tenv_equiv
+  \\ imp_res_tac type_e_tenv_equiv
+  \\ res_tac);
+
 (* -- *)
 
 (* Rename (type_system) type identifiers with a function *)
@@ -513,6 +523,16 @@ val set_tids_tenv_extend_dec_tenv = Q.prove(`
   set_tids_tenv (s' ∪ s) t ⇒
   set_tids_tenv (s' ∪ s) (extend_dec_tenv t' t)`,
   rw[extend_dec_tenv_def,set_tids_tenv_def,nsAll_nsAppend]);
+
+val set_tids_tenv_remap = Q.store_thm("set_tids_tenv_remap",
+  `set_tids_tenv tids tenv ⇒
+   set_tids_tenv (IMAGE f tids) (remap_tenv f tenv)`,
+  rw[set_tids_tenv_def, remap_tenv_def, nsAll_nsMap, set_tids_subset_def,
+     UNCURRY, set_tids_ts_tid_rename, EVERY_MAP]
+  \\ fs[LAMBDA_PROD]
+  \\ first_assum(mp_then Any match_mp_tac nsAll_mono)
+  \\ simp[FORALL_PROD, EVERY_MEM]
+  \\ metis_tac[]);
 
 val good_remap_extend_bij = Q.prove(`
   good_remap f ∧ prim_tids F ids ⇒
@@ -920,6 +940,20 @@ val LINVI_RINV = Q.store_thm("LINVI_RINV",
   \\ disch_then(qspec_then`f x`mp_tac o CONV_RULE SWAP_FORALL_CONV)
   \\ CASE_TAC \\ rw[]
   \\ metis_tac[INJ_DEF]);
+
+(*
+val BIJ_LINVI_RINV = Q.store_thm("BIJ_LINVI_RINV",
+  `BIJ f s t ∧ LINVI f s y ∈ s ⇒
+   f (LINVI f s y) = y`,
+  rw[LINVI_def, LINV_OPT_def] \\ fs[]
+  ff"bij""inv"
+  f"LINV_OPT"
+  \\ imp_res_tac
+  \\ drule INJ_LINV_OPT
+  \\ disch_then(qspec_then`f x`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ CASE_TAC \\ rw[]
+  \\ metis_tac[INJ_DEF]);
+*)
 
 val ts_tid_rename_LINVI = Q.store_thm("ts_tid_rename_LINVI",
   `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`,
@@ -1337,50 +1371,136 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       metis_tac[type_p_ts_tid_rename,
                 type_p_tenv_equiv,
                 type_e_tenv_equiv] )
-    \\ cheat (*
-      fs[type_pe_determ_def]>>rw[]>>
-      first_x_assum drule>>simp[]>>
-      imp_res_tac BIJ_DEF >>
-      imp_res_tac good_remap_LINVI >>
-      drule (GEN_ALL type_p_ts_tid_rename) >>
-      disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
-      \\ disch_then(fn th =>
-          qspec_then`t1`mp_tac th >>
-          qspec_then`t2`mp_tac th)
-      \\ disch_then drule \\ strip_tac
-      \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
-      \\ disch_then drule \\ strip_tac
-      \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
-      \\ drule (GEN_ALL type_e_ts_tid_rename)
-      \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
-      \\ disch_then(fn th =>
-          qspec_then`t1`mp_tac th >>
-          qspec_then`t2`mp_tac th)
-      \\ disch_then drule \\ strip_tac
-      \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
-      \\ disch_then drule \\ strip_tac
-      \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
-      \\ drule remap_tenv_LINVI
-      \\ impl_tac >- rw[set_tids_tenv_def]
-      \\ strip_tac
-      \\ ntac 4 (first_x_assum drule)
-      \\ simp[remap_tenvE_def]
-      \\ ntac 5 strip_tac
-      \\ qhdtm_x_assum`type_p`mp_tac
-      \\ first_assum drule
-      \\ impl_tac >- rw[] \\ strip_tac
-      \\ strip_tac
-      \\ first_x_assum drule
-      \\ impl_tac >- rw[] \\ strip_tac
-      \\ rw[]
-      \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
-      \\ simp[FORALL_PROD]
-      \\ rw[]
-      \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
-      \\ rw[]
-      \\ `x ∈ IMAGE f tids ∧ y ∈ IMAGE f tids` suffices_by (
-        rw[] \\ metis_tac[LINVI_RINV] )
-      \\ cheat*)
+    \\ match_mp_tac (GEN_ALL type_pe_determ_tenv_equiv)
+    \\ goal_assum (first_assum o mp_then (Pos(el 2)) mp_tac)
+    \\ fs[type_pe_determ_def]>>rw[]>>
+    first_x_assum drule>>simp[]>>
+    imp_res_tac good_remap_BIJ >>
+    drule (GEN_ALL type_p_ts_tid_rename) >>
+    disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+    \\ disch_then(fn th =>
+        qspec_then`t1`mp_tac th >>
+        qspec_then`t2`mp_tac th)
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+    \\ drule (GEN_ALL type_e_ts_tid_rename)
+    \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+    \\ disch_then(fn th =>
+        qspec_then`t1`mp_tac th >>
+        qspec_then`t2`mp_tac th)
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+    \\ drule remap_tenv_LINV
+    \\ impl_tac >- rw[set_tids_tenv_def]
+    \\ strip_tac
+    \\ ntac 4 (first_x_assum drule)
+    \\ simp[remap_tenvE_def]
+    \\ ntac 5 strip_tac
+    \\ qhdtm_x_assum`type_p`mp_tac
+    \\ first_assum drule
+    \\ impl_tac >- rw[] \\ strip_tac
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ impl_tac >- rw[] \\ strip_tac
+    \\ rw[]
+    \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
+    \\ simp[FORALL_PROD]
+    \\ rw[]
+    \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
+    \\ rw[]
+    \\ `x ∈ count n ∧ y ∈ count n` suffices_by PROVE_TAC[BIJ_LINV_INV]
+    \\ qpat_x_assum`type_p _ _ _ _ tenv1`assume_tac
+    \\ first_assum(mp_then Any mp_tac (GEN_ALL type_pe_bindings_tids))
+    \\ simp[]
+    \\ disch_then(first_assum o mp_then (Pos(el 3)) mp_tac) (* TODO: Pat`type_e` doesn't work *)
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ simp[set_tids_subset_def, SUBSET_DEF]
+    \\ simp[MAP_MAP_o, o_DEF, UNCURRY, EVERY2_MAP, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+    \\ `set_tids_tenv tids tenv` by rw[set_tids_tenv_def]
+    \\ drule set_tids_tenv_remap \\ strip_tac
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ imp_res_tac BIJ_IMAGE
+    \\ pop_assum (assume_tac o SYM)
+    \\ asm_rewrite_tac[]
+    \\ simp[GSYM AND_IMP_INTRO, RIGHT_FORALL_IMP_THM]
+    \\ impl_keep_tac >- (
+      pop_assum(assume_tac o SYM) \\ fs[]
+      \\ fs[prim_tids_def,good_remap_def,EVERY_MEM,MAP_EQ_ID]
+      \\ metis_tac[] )
+    \\ simp[AND_IMP_INTRO, GSYM CONJ_ASSOC]
+    \\ cheat
+
+    (* INJ version
+    imp_res_tac BIJ_DEF >>
+    imp_res_tac good_remap_LINVI >>
+    drule (GEN_ALL type_p_ts_tid_rename) >>
+    disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+    \\ disch_then(fn th =>
+        qspec_then`t1`mp_tac th >>
+        qspec_then`t2`mp_tac th)
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+    \\ drule (GEN_ALL type_e_ts_tid_rename)
+    \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+    \\ disch_then(fn th =>
+        qspec_then`t1`mp_tac th >>
+        qspec_then`t2`mp_tac th)
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+    \\ disch_then drule \\ strip_tac
+    \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+    \\ drule remap_tenv_LINVI
+    \\ impl_tac >- rw[set_tids_tenv_def]
+    \\ strip_tac
+    \\ ntac 4 (first_x_assum drule)
+    \\ simp[remap_tenvE_def]
+    \\ ntac 5 strip_tac
+    \\ qhdtm_x_assum`type_p`mp_tac
+    \\ first_assum drule
+    \\ impl_tac >- rw[] \\ strip_tac
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ impl_tac >- rw[] \\ strip_tac
+    \\ rw[]
+    \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
+    \\ simp[FORALL_PROD]
+    \\ rw[]
+    \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
+    \\ rw[]
+    \\ `x ∈ IMAGE f tids ∧ y ∈ IMAGE f tids` suffices_by (
+      rw[] \\ metis_tac[LINVI_RINV] )
+    \\ drule (GEN_ALL type_pe_bindings_tids)
+    \\ simp[set_tids_tenv_def]
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ disch_then drule
+    (*
+    \\ qhdtm_x_assum`type_p`mp_tac
+    \\ disch_then(fn th => mp_tac th \\ qhdtm_x_assum`type_p`mp_tac \\ drule th)
+    \\ ntac 2 strip_tac
+    *)
+    \\ disch_then drule \\ fs[]
+    \\ disch_then drule
+    \\ simp[MAP_MAP_o, o_DEF, UNCURRY, EVERY2_MAP, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ simp[set_tids_subset_def, set_tids_ts_tid_rename]
+    \\ simp[SUBSET_DEF, PULL_EXISTS, PULL_FORALL, AND_IMP_INTRO]
+    \\ simp[FORALL_AND_THM]
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ impl_tac >- cheat
+    \\ strip_tac
+    \\ simp[GSYM CONJ_ASSOC]
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ ???
+    *)
+
     )
   >- ((* Dletrec *)
     cheat )
