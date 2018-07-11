@@ -1,5 +1,6 @@
 open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open terminationTheory namespacePropsTheory;
+open inferPropsTheory
 
 val _ = new_theory "type_dCanon"
 
@@ -393,10 +394,6 @@ val extend_bij_def = Define`
     n + g v
   else
     f v`
-
-val prim_tids_def = Define`
-  prim_tids contain tids ⇔
-    EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
 
 val set_tids_subset_type_subst = Q.prove(`
   ∀s t tids.

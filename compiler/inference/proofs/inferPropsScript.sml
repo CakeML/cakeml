@@ -2,6 +2,8 @@ open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
+val _ = new_theory "inferProps";
+
 val every_zip_split = Q.prove (
   `!l1 l2 P Q.
     LENGTH l1 = LENGTH l2 ⇒
@@ -15,8 +17,6 @@ val every_zip_split = Q.prove (
 val o_f_id = Q.prove (
 `!m. (\x.x) o_f m = m`,
 rw [fmap_EXT]);
-
-val _ = new_theory "inferProps";
 
 val fevery_to_drestrict = Q.prove (
 `!P m s.
@@ -541,14 +541,14 @@ val success_eqns =
 
 val _ = save_thm ("success_eqns", success_eqns);
 
-(* ---------- Simple structural properties ---------- *)
-
 val remove_pair_lem = Q.store_thm ("remove_pair_lem",
 `(!f v. (\(x,y). f x y) v = f (FST v) (SND v)) ∧
  (!f v. (\(x,y,z). f x y z) v = f (FST v) (FST (SND v)) (SND (SND v)))`,
 rw [] >>
 PairCases_on `v` >>
 rw []);
+
+(* ---------- Simple structural properties ---------- *)
 
 val infer_funs_length = Q.store_thm ("infer_funs_length",
 `!l ienv funs ts st1 st2.
@@ -2896,5 +2896,108 @@ val infer_deBruijn_subst_infer_subst_walkstar = Q.store_thm("infer_deBruijn_subs
   reverse IF_CASES_TAC
   >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
   >> REFL_TAC));
+
+(* Properties about inferencer type identifiers *)
+val inf_set_tids_def = tDefine "inf_set_tids"`
+  (inf_set_tids (Infer_Tapp ts tn) = tn INSERT (BIGUNION (set (MAP inf_set_tids ts)))) ∧
+  (inf_set_tids _ = {})`
+  (WF_REL_TAC `measure infer_t_size` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [infer_tTheory.infer_t_size_def] >>
+  res_tac >>
+  decide_tac)
+
+val inf_set_tids_subset_def = Define`
+  inf_set_tids_subset tids t <=> inf_set_tids t ⊆ tids`
+
+val unconvert_t_def = tDefine "unconvert_t" `
+(unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
+(unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc)`
+(wf_rel_tac `measure t_size` >>
+ rw [] >>
+ induct_on `ts` >>
+ rw [t_size_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) []);
+
+val unconvert_t_ind = theorem"unconvert_t_ind"
+
+(* all the tids used in a tenv *)
+val inf_set_tids_ienv_def = Define`
+  inf_set_tids_ienv tids (ienv:inf_env) ⇔
+  nsAll (λi (ls,t). inf_set_tids_subset tids (unconvert_t t)) ienv.inf_t ∧
+  nsAll (λi (ls,ts,tid). EVERY (λt. inf_set_tids_subset tids (unconvert_t t)) ts ∧ tid ∈ tids) ienv.inf_c ∧
+  nsAll (λi (n,t). inf_set_tids_subset tids t) ienv.inf_v`
+
+val inf_set_tids_subst_def = Define`
+  inf_set_tids_subst tids subst ⇔
+  !t. t ∈ FRANGE subst ⇒ inf_set_tids_subset tids t`
+
+val prim_tids_def = Define`
+  prim_tids contain tids ⇔
+    EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
+
+val t_unify_set_tids = Q.prove(`
+  (∀s t1 t2. t_wfs s ==>
+  ∀s'.
+  inf_set_tids_subst tids s ∧
+  inf_set_tids_subset tids t1 ∧
+  inf_set_tids_subset tids t2 ∧
+  t_unify s t1 t2 = SOME s' ⇒
+  inf_set_tids_subst tids s') ∧
+  (∀s ts1 ts2. t_wfs s ==>
+  ∀s'.
+  inf_set_tids_subst tids s ∧
+  EVERY (inf_set_tids_subset tids) ts1 ∧
+  EVERY (inf_set_tids_subset tids) ts2 ∧
+  ts_unify s ts1 ts2 = SOME s' ⇒
+  inf_set_tids_subst tids s')`,
+  ho_match_mp_tac t_unify_strongind>>
+  rw[t_unify_eqn]>>
+  every_case_tac>>fs[t_ext_s_check_eqn]>>rw[]>>
+  cheat);
+
+(* needs t_wfs *)
+val infer_p_inf_set_tids = Q.store_thm("infer_p_inf_set_tids",`
+  (!l cenv p st t env st' x.
+    (infer_p l cenv p st = (Success (t,env), st'))
+    ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ subst_tids_tenv tids st.subst
+    ⇒
+    inf_set_tids_subset tids t ∧
+    EVERY (inf_set_tids_subset tids o SND) env ∧
+    subst_tids_tenv tids st'.subst) ∧
+  (!l cenv ps st ts env st' x.
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
+    ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ subst_tids_tenv tids st.subst
+    ⇒
+    EVERY (inf_set_tids_subset tids) ts ∧
+    EVERY (inf_set_tids_subset tids o SND) env ∧
+    subst_tids_tenv tids st'.subst)`,
+  ho_match_mp_tac infer_p_ind >>
+  rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem] >>
+  simp[inf_set_tids_subset_def,inf_set_tids_def]>>
+  TRY(fs[prim_tids_def,prim_type_nums_def]>> NO_TAC)>>
+  TRY(
+    rename1`infer_ps _ _ _ _ = (Success vv,_)`>>
+    Cases_on`vv`>> first_x_assum drule)>>
+    TRY(Cases_on`v''`>> first_x_assum drule)>>
+  TRY(
+    first_x_assum drule ORELSE
+    (rename1`infer_p _ _ _ _ = (Success vv,_)`>>
+    Cases_on`vv`>> first_x_assum drule)>>
+    TRY(Cases_on`v''`>> first_x_assum drule))>>
+  simp[SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
+  rw[]>>
+  TRY(fs[prim_tids_def,prim_type_nums_def]>> NO_TAC)>>
+  fs[inf_set_tids_def]>>
+  fs[inf_set_tids_ienv_def,namespaceTheory.nsAll_def]>>
+  TRY(first_x_assum drule>>PairCases_on`v'`>>fs[])>>
+  TRY(metis_tac[])
+  >-
+    cheat
+  >-
+    cheat);
 
 val _ = export_theory ();

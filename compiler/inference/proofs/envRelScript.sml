@@ -160,17 +160,6 @@ val deBruijn_subst_convert = Q.store_thm("deBruijn_subst_convert",`
   >>
     fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f]);
 
-val unconvert_t_def = tDefine "unconvert_t" `
-(unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
-(unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc)`
-(wf_rel_tac `measure t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [t_size_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
-
-val unconvert_t_ind = theorem"unconvert_t_ind"
-
 val check_freevars_empty_convert_unconvert_id = Q.store_thm("check_freevars_empty_convert_unconvert_id",
 `!t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t`,
   ho_match_mp_tac unconvert_t_ind>>
