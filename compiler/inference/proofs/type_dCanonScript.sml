@@ -339,7 +339,9 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
 (!n tenv funs bindings tvs locs.
   (type_funs tenv (bind_var_list(( 0 : num)) bindings (bind_tvar tvs Empty)) funs bindings /\
   (! tvs' bindings'.
-      type_funs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
+      type_funs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' /\
+      EVERY (λ(k,t).  set_tids_subset (count n) t) bindings'
+      ==>
         EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings))))
   ==>
   type_d_canon n tenv (Dletrec locs funs)
@@ -1539,9 +1541,26 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ drule (last(CONJUNCTS type_e_tenv_equiv))
     \\ disch_then drule
     \\ strip_tac
+    \\ first_assum drule
+    \\ simp_tac(srw_ss())[MAP_MAP_o,o_DEF,UNCURRY]
+    \\ `LENGTH bindings = LENGTH funs ∧ LENGTH bindings' = LENGTH funs`
+    by metis_tac[LENGTH_MAP, typeSysPropsTheory.type_funs_MAP_FST]
+    \\ simp[LIST_REL_EL_EQN,EL_MAP]
+    \\ rw[]
     \\ first_x_assum drule
-    \\ simp[MAP_MAP_o,o_DEF,UNCURRY]
-    \\ cheat )
+    \\ simp[tscheme_inst_def]
+    \\ simp[GSYM deBruijn_inc_ts_tid_rename, check_freevars_ts_tid_rename]
+    \\ strip_tac
+    \\ qexists_tac`MAP (ts_tid_rename f) subst`
+    \\ srw_tac[ETA_ss][EVERY_MAP, check_freevars_ts_tid_rename]
+    \\ simp[GSYM ts_tid_rename_deBruijn_subst, ts_tid_rename_compose]
+    \\ rw[ts_tid_rename_eq_id]
+    \\ match_mp_tac (MP_CANON BIJ_LINV_INV)
+    \\ asm_exists_tac \\ simp[]
+    \\ qpat_x_assum`EVERY _ bindings'` mp_tac
+    \\ simp[EVERY_MEM,MEM_EL, PULL_EXISTS, set_tids_tenv_mono,EL_MAP]
+    \\ disch_then drule \\ pairarg_tac \\ fs[]
+    \\ rw[set_tids_subset_def,SUBSET_DEF])
   >- ((* Dtype *)
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >- (
