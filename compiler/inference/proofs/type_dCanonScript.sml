@@ -1527,8 +1527,22 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ last_assum(mp_then Any mp_tac type_funs_bindings_tids)
     \\ impl_tac >- rw[]
     \\ simp[o_DEF] \\ strip_tac
-    \\ simp[]
     \\ simp[remap_tenv_def,MAP_MAP_o,o_DEF,UNCURRY]
+    \\ rw[]
+    \\ drule (last(CONJUNCTS type_e_tenv_equiv))
+    \\ imp_res_tac tenv_equiv_sym
+    \\ disch_then drule
+    \\ strip_tac
+    \\ imp_res_tac good_remap_BIJ
+    \\ drule type_e_ts_tid_rename
+    \\ disch_then(drule o last o CONJUNCTS)
+    \\ rw[remap_tenvE_bind_var_list, remap_tenvE_bind_tvar, remap_tenvE_def]
+    \\ imp_res_tac remap_tenv_LINV
+    \\ drule (last(CONJUNCTS type_e_tenv_equiv))
+    \\ disch_then drule
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ simp[MAP_MAP_o,o_DEF,UNCURRY]
     \\ cheat )
   >- ((* Dtype *)
     simp[GSYM PULL_EXISTS]>>
