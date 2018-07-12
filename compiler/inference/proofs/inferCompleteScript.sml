@@ -956,8 +956,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     \\ conj_tac >-
       (fs[namespaceTheory.alist_to_ns_def]>>
       Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
-    \\ cheat
-    (*
     \\ conj_tac >-
       (* Soundness direction:
          Because the type system chooses a MGU (assumption 4),
@@ -968,7 +966,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       rw[env_rel_sound_def]>>
       simp[lookup_var_def]>>
       fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP]>>
-      imp_res_tac generalise_list_length>>fs[]>>
       imp_res_tac ALOOKUP_MEM>>
       rfs[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP]>>
       rw[]>>pairarg_tac>>fs[]>>rw[]>>
@@ -1021,9 +1018,14 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         >>
           metis_tac[pure_add_constraints_append])>>
       strip_tac>>fs[LIST_REL_EL_EQN]>>
-      res_tac>> pop_assum kall_tac>>
-      pop_assum (qspec_then`n` assume_tac)>>
-      fs[MAP2_MAP]>>
+      first_x_assum drule >> simp[]
+      \\ impl_tac
+      >- (
+        fs[EVERY_MAP,MAP2_MAP,UNCURRY,set_tids_subset_def]
+        \\ simp[EVERY_MEM,MEM_ZIP,FORALL_PROD,PULL_EXISTS]
+        \\ cheat (* infer_funs created tids *) )
+      \\ strip_tac
+      \\ pop_assum (qspec_then`n` assume_tac)>>
       rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
       pairarg_tac>>fs[]>>
       pairarg_tac>>fs[]>>
@@ -1042,9 +1044,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         fs[sub_completion_def]>>
         fs[SUBSET_DEF])>>
       metis_tac[check_t_to_check_freevars,check_t_empty_unconvert_convert_id])
-    \\ conj_tac >-
-      (simp[env_rel_complete_def,lookup_var_def]>>
-      ntac 4 strip_tac>>
+    \\ cheat
+    (*
+    \\ (
+      simp[env_rel_complete_def,lookup_var_def,PULL_EXISTS]>>
       fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP,convert_env_def,MAP2_MAP,LENGTH_COUNT_LIST]>>
       imp_res_tac ALOOKUP_MEM>>
       fs[MEM_EL]>>
@@ -1164,7 +1167,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         >>
         rw[]>>
         metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
-    *)
+        *)
     )
   >- ( (* Dtype *)
     rw [infer_d_def, success_eqns,n_fresh_id_def]
