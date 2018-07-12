@@ -1328,7 +1328,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
   >- (
     (* Dlet poly *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
-    qexists_tac`f`>>simp[]>>
     DEP_REWRITE_TAC[nsAll_alist_to_ns] >>
     CONJ_ASM1_TAC>- (
       simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]>>
@@ -1466,7 +1465,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     *)
   >- ((* Dlet mono *)
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
-    qexists_tac`f`>>simp[]>>
     simp[prim_tids_def, Once type_d_canon_cases, PULL_EXISTS]>>
     qexists_tac`ts_tid_rename f t`>>
     qexists_tac`MAP (\n,t. (n,ts_tid_rename f t)) bindings`>>
@@ -1779,7 +1777,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       \\ rfs[MEM_MAP,MEM_ZIP,EL_GENLIST,EXISTS_PROD]
       \\ metis_tac[NOT_NONE_SOME] ))
   >- ( (* Dtabbrev *)
-    qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
     simp[Once type_d_canon_cases, prim_tids_def]>>
     CONJ_TAC >- (
@@ -1797,7 +1794,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
               check_type_names_tenv_equiv,
               ts_tid_rename_type_name_subst])
   >- ( (* Dexn *)
-    qexists_tac`f`>>
     simp[set_tids_tenv_def]>>
     simp[Once type_d_canon_cases, prim_tids_def,remap_tenv_def,nsSing_def,nsMap_def]>>
     CONJ_TAC >- (
