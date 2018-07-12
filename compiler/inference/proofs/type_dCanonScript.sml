@@ -1505,9 +1505,27 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     simp[]>>rw[]>>
     qabbrev_tac`g = THE o (ALOOKUP (ZIP (type_identities, COUNT_LIST (LENGTH tdefs))))`>>
     qexists_tac`g`>>
-    CONJ_TAC >-
-      (* BIJ or INJ? *)
-      cheat>>
+    CONJ_TAC >- (
+      simp[BIJ_IFF_INV]
+      \\ qmatch_asmsub_abbrev_tac`g = THE o ALOOKUP al`
+      \\ `∀n. n < LENGTH type_identities ⇒
+              ALOOKUP al (EL n type_identities) = SOME n`
+      by (
+        qx_gen_tac`m`
+        \\ rw[]
+        \\ `EL m type_identities = FST (EL m al)` by simp[Abbr`al`,EL_ZIP,LENGTH_COUNT_LIST]
+        \\ rw[]
+        \\ DEP_REWRITE_TAC[ALOOKUP_ALL_DISTINCT_EL]
+        \\ simp[Abbr`al`,LENGTH_ZIP,LENGTH_COUNT_LIST,MAP_ZIP]
+        \\ metis_tac[EL_ZIP,LENGTH_COUNT_LIST,EL_COUNT_LIST,SND] )
+      \\ conj_tac >- (
+        rw[Abbr`g`,MEM_EL]
+        \\ metis_tac[THE_DEF] )
+      \\ qexists_tac`λn. EL n type_identities`
+      \\ simp[]
+      \\ conj_tac >- metis_tac[MEM_EL]
+      \\ rw[MEM_EL,Abbr`g`]
+      \\ metis_tac[THE_DEF]) \\
     CONJ_TAC>- (
       fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
       metis_tac[])>>
