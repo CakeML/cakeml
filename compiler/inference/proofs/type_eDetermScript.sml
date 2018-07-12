@@ -460,6 +460,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs ((init_infer_state ss) with next_uvar:= (init_infer_state ss).next_uvar + LENGTH funs) =
     (Success funs_ts,st) ∧
   st.next_uvar = st'.next_uvar ∧
+  st.next_id = st'.next_id ∧
   pure_add_constraints st.subst
     (ZIP (MAP (λn. Infer_Tuvar ((init_infer_state ss).next_uvar + n))
               (COUNT_LIST (LENGTH funs)),funs_ts)) st'.subst ∧
@@ -605,7 +606,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   (* And break it upwe compose the constraints *)
   fs[pure_add_constraints_append]>>
   (* The thing in the middle is the desired unification *)
-  qexists_tac`<|next_uvar:=st'.next_uvar;subst:=s2''|>`>>
+  qexists_tac`<|next_uvar:=st'.next_uvar;subst:=s2'';next_id:=st'.next_id|>`>>
   fs[]>>
   qexists_tac`constraints'`>>qexists_tac`si'`>>
   simp[]>>
