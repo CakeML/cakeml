@@ -89,17 +89,17 @@ val var_word_asr_thm = store_thm("var_word_asr_thm[simp]",
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs []));
 
-val _ = (next_ml_names := ["lsl"]);
+val _ = (next_ml_names := ["<<"]);
 val _ = translate var_word_lsl_def;
 
-val _ = (next_ml_names := ["lsr"]);
+val _ = (next_ml_names := [">>"]);
 val _ = translate var_word_lsr_def;
 
-val _ = (next_ml_names := ["asr"]);
+val _ = (next_ml_names := ["~>>"]);
 val _ = translate var_word_asr_def;
 
 val sigs = module_signatures ["fromInt", "toInt", "andb",
-  "orb", "xorb", "notb", "+", "-", "lsl", "lsr", "asr"];
+  "orb", "xorb", "notb", "+", "-", "<<", ">>", "~>>"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
 
