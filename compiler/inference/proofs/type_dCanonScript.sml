@@ -286,6 +286,15 @@ val set_tids_tenv_def = Define`
   nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
   nsAll (λi (n,t). set_tids_subset tids t) tenv.v`
 
+val type_pe_determ_canon_def = Define`
+  type_pe_determ_canon n tenv tenvE p e ⇔
+  ∀t1 tenv1 t2 tenv2.
+    type_p 0 tenv p t1 tenv1 ∧ type_e tenv tenvE e t1 ∧
+    EVERY (λ(k,t).  set_tids_subset (count n) t) tenv1 ∧
+    type_p 0 tenv p t2 tenv2 ∧ type_e tenv tenvE e t2 ∧
+    EVERY (λ(k,t).  set_tids_subset (count n) t) tenv2
+    ⇒ tenv1 = tenv2`;
+
 (* A "canonical" version of type_d that produces the type identifiers
   in ascending order.
   It also drops the extra_checks argument so it corresponds to type_d T,
@@ -310,7 +319,7 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
     0
     <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>) ∧
 (!n tenv p e t bindings locs.
-  ((~ (is_value e) /\ type_pe_determ tenv Empty p e) /\
+  ((~ (is_value e) /\ type_pe_determ_canon n tenv Empty p e) /\
   ALL_DISTINCT (pat_bindings p []) /\
   type_p(( 0 : num)) tenv p t bindings /\
   type_e tenv Empty e t)
@@ -683,6 +692,13 @@ val sing_renum_NOTIN_ID = Q.store_thm("sing_renum_NOTIN_ID",
   `∀t.
   m ∉ set_tids t ⇒
   ts_tid_rename (sing_renum m n) t = t`,
+  ho_match_mp_tac t_ind>>rw[]>>
+  fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
+  fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
+  metis_tac[]);
+
+val sing_renum_IN_NOT_ID = Q.store_thm("sing_renum_IN_NOT_ID",
+  `∀t.  m ∈ set_tids t ∧ m ≠ n ⇒ ts_tid_rename (sing_renum m n) t ≠ t`,
   ho_match_mp_tac t_ind>>rw[]>>
   fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
   fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
@@ -1107,6 +1123,88 @@ val type_pe_bindings_tids = Q.prove(`
   `x ≠ x+1` by fs[]>>
   metis_tac[sing_renum_NOT_tscheme_inst]);
 
+val type_pe_bindings_tids_0 = Q.store_thm("type_pe_bindings_tids_0",`
+   prim_tids T tids ∧
+   set_tids_tenv tids tenv ∧
+   type_p 0 tenv p t bindings ∧
+   type_e tenv Empty e t ∧
+   type_pe_determ tenv Empty p e ⇒
+   ∀p_1 p_2. MEM (p_1,p_2) bindings ⇒ set_tids_subset tids p_2`,
+  CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF]>>
+  drule (GEN_ALL type_p_ts_tid_rename_sing_renum)>>
+  rpt (disch_then drule)>>
+  disch_then(qspec_then`x+1` mp_tac)>>
+  strip_tac>>
+  drule (GEN_ALL type_e_ts_tid_rename_sing_renum)>>
+  rpt(disch_then drule)>>
+  disch_then (qspec_then `x+1` mp_tac)>>
+  fs[remap_tenvE_def,type_pe_determ_def] >>
+  strip_tac >>
+  res_tac >>
+  fs[MAP_EQ_ID] >>
+  res_tac >>
+  pairarg_tac \\ fs[] \\ rw[]
+  \\ `x ≠ x+1` by fs[]>>
+  metis_tac[sing_renum_IN_NOT_ID]);
+
+(*
+val type_pe_determ_remap = Q.store_thm("type_pe_determ_remap",
+  `type_pe_determ tenv Empty p e ∧
+   good_remap f ∧
+   prim_tids T tids ∧
+   BIJ f tids (count n) ∧
+   set_tids_tenv tids tenv
+   ⇒
+   type_pe_determ (remap_tenv f tenv) Empty p e`,
+  rw[]
+  \\ drule (GEN_ALL type_pe_bindings_tids_0)
+  \\ disch_then (first_assum o mp_then Any mp_tac)
+  \\ disch_then (first_assum o mp_then Any mp_tac)
+  \\ strip_tac
+  \\ fs[type_pe_determ_def] \\ rw[]
+  \\ imp_res_tac good_remap_BIJ >>
+  drule (GEN_ALL type_p_ts_tid_rename) >>
+  disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+  \\ disch_then(fn th =>
+      qspec_then`t1`mp_tac th >>
+      qspec_then`t2`mp_tac th)
+  \\ disch_then drule \\ strip_tac
+  \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+  \\ disch_then drule \\ strip_tac
+  \\ drule(CONJUNCT1 type_p_tenv_equiv) \\ strip_tac
+  \\ drule (GEN_ALL type_e_ts_tid_rename)
+  \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
+  \\ disch_then(fn th =>
+      qspec_then`t1`mp_tac th >>
+      qspec_then`t2`mp_tac th)
+  \\ disch_then drule \\ strip_tac
+  \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+  \\ disch_then drule \\ strip_tac
+  \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
+  \\ drule remap_tenv_LINV
+  \\ impl_tac >- rw[]
+  \\ strip_tac
+  \\ ntac 4 (first_x_assum drule)
+  \\ rw[remap_tenvE_def]
+  \\ res_tac \\ fs[] \\ rw[]
+  \\ match_mp_tac EQ_SYM
+  \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
+  \\ simp[FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
+  \\ rw[]
+  \\ fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS,set_tids_subset_def,set_tids_ts_tid_rename]
+
+  \\ imp_res_tac BIJ_IMAGE
+  \\ imp_res_tac BIJ_LINV_BIJ
+  \\ `tids = IMAGE (LINV f tids) (count n)` by (
+        imp_res_tac BIJ_DEF \\ fs[IMAGE_SURJ] )
+  \\ `LINV f tids x ∈ tids ∧ LINV f tids y ∈ tids` by metis_tac[SUBSET_DEF, IN_IMAGE]
+  \\ `∃z. z ∈ count n ∧ LINV f tids z = LINV f tids x` by metis_tac[IN_IMAGE]
+  \\ `LINV f tids y = LINV f tids z` by metis_tac[]
+  \\ `f (LINV f tids x) = z ∧ f (LINV f tids y) = z` by metis_tac[BIJ_LINV_INV]
+*)
+
 val build_ctor_tenv_type_identities = Q.store_thm("build_ctor_tenv_type_identities",`
   ∀tenvt xs type_identities tids.
   prim_tids T tids ∧
@@ -1328,6 +1426,10 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ fs[Abbr`tids'`]
     *)
   >- ((* Dlet mono *)
+    cheat
+    (*
+    drule type_pe_bindings_tids_0 \\ rw[] \\
+
     fs[set_tids_tenv_def,tenv_add_tvs_def]>>
     qexists_tac`f`>>simp[]>>
     simp[prim_tids_def, Once type_d_canon_cases, PULL_EXISTS]>>
@@ -1373,6 +1475,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
                 type_e_tenv_equiv] )
     \\ match_mp_tac (GEN_ALL type_pe_determ_tenv_equiv)
     \\ goal_assum (first_assum o mp_then (Pos(el 2)) mp_tac)
+
     \\ fs[type_pe_determ_def]>>rw[]>>
     first_x_assum drule>>simp[]>>
     imp_res_tac good_remap_BIJ >>
@@ -1410,11 +1513,25 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
     \\ simp[FORALL_PROD]
     \\ rw[]
+    \\ fs[MEM_MAP,PULL_EXISTS,UNCURRY,FORALL_PROD,set_tids_subset_def,set_tids_ts_tid_rename]
     \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
     \\ rw[]
+    \\ imp_res_tac BIJ_IMAGE
+    \\ imp_res_tac BIJ_LINV_BIJ
+    \\ `tids = IMAGE (LINV f tids) (count n)` by (
+          imp_res_tac BIJ_DEF \\ fs[IMAGE_SURJ] )
+    \\ `LINV f tids x ∈ tids ∧ LINV f tids y ∈ tids` by metis_tac[SUBSET_DEF, IN_IMAGE]
+    \\ `∃z. z ∈ count n ∧ LINV f tids z = LINV f tids x` by metis_tac[IN_IMAGE]
+    \\ `LINV f tids y = LINV f tids z` by metis_tac[]
+    \\ `f (LINV f tids x) = z ∧ f (LINV f tids y) = z` by metis_tac[BIJ_LINV_INV]
+
+    \\ `∃y'. y' ∈ count n ∧ LINV f tids y' = LINV f tids y` by metis_tac[IN_IMAGE]
     \\ `x ∈ count n ∧ y ∈ count n` suffices_by PROVE_TAC[BIJ_LINV_INV]
+    ff"image""inv"
+    f"linv_opt"
+
     \\ qpat_x_assum`type_p _ _ _ _ tenv1`assume_tac
-    \\ first_assum(mp_then Any mp_tac (GEN_ALL type_pe_bindings_tids))
+    \\ first_assum(mp_then Any mp_tac (GEN_ALL type_pe_bindings_tids_0))
     \\ simp[]
     \\ disch_then(first_assum o mp_then (Pos(el 3)) mp_tac) (* TODO: Pat`type_e` doesn't work *)
     \\ disch_then(first_assum o mp_then Any mp_tac)
@@ -1423,7 +1540,6 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ `set_tids_tenv tids tenv` by rw[set_tids_tenv_def]
     \\ drule set_tids_tenv_remap \\ strip_tac
     \\ disch_then(first_assum o mp_then Any mp_tac)
-    \\ imp_res_tac BIJ_IMAGE
     \\ pop_assum (assume_tac o SYM)
     \\ asm_rewrite_tac[]
     \\ simp[GSYM AND_IMP_INTRO, RIGHT_FORALL_IMP_THM]
@@ -1432,7 +1548,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
       \\ fs[prim_tids_def,good_remap_def,EVERY_MEM,MAP_EQ_ID]
       \\ metis_tac[] )
     \\ simp[AND_IMP_INTRO, GSYM CONJ_ASSOC]
-    \\ cheat
+    \\ simp[tscheme_inst_def, deBruijn_subst_nothing]
 
     (* INJ version
     imp_res_tac BIJ_DEF >>
@@ -1499,6 +1615,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ ???
+    *)
     *)
 
     )
@@ -1778,7 +1895,7 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     [`tids ∪ ids`,`extend_bij f g ids n`,`CARD ids + n`] mp_tac)>>
   simp[GSYM AND_IMP_INTRO, RIGHT_FORALL_IMP_THM]
   \\ simp[AND_IMP_INTRO]
-  impl_tac >- (
+  \\ impl_tac >- (
     fs[good_remap_extend_bij,prim_tids_def,prim_type_nums_def]>>
     rfs[DISJOINT_SYM]>>
     CONJ_TAC>-(
