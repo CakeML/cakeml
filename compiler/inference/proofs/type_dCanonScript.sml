@@ -526,7 +526,7 @@ val set_tids_subset_type_name_subst = Q.prove(`
 
 val extend_bij_id = Q.store_thm("extend_bij_id[simp]",`
   (extend_bij f f s 0 = f) ∧
-  (extend_bij f f {} n = f)`,
+  (extend_bij f g {} n = f)`,
   rw[extend_bij_def,FUN_EQ_THM]);
 
 val extend_bij_compose = Q.store_thm("extend_bij_compose",
@@ -1100,6 +1100,27 @@ val type_e_ts_tid_rename_sing_renum = Q.prove(`
   simp[]>>rw[]>>
   metis_tac[type_e_tenv_equiv]);
 
+val type_funs_ts_tid_rename_sing_renum = Q.store_thm("type_funs_ts_tid_rename_sing_renum",`
+  m ∉ tids ∧ prim_tids T tids ∧
+  type_funs tenv tenvE funs res ∧
+  set_tids_tenv tids tenv
+  ⇒
+  type_funs tenv (remap_tenvE (sing_renum m n) tenvE) funs
+    (MAP (λ(z,t). (z, ts_tid_rename (sing_renum m n) t)) res)`,
+  rw[]>>
+  `good_remap (sing_renum m n)` by
+    (fs[good_remap_def,sing_renum_def]>>
+    fs[prim_tids_def]>>
+    rw[] >> fs[] >>
+    simp[MAP_EQ_ID]>>
+    fs[prim_type_nums_def]>>
+    rw[]>>fs[])>>
+  drule type_e_ts_tid_rename>>
+  strip_tac>> first_x_assum drule>>
+  drule sing_renum_NOTIN_tenv_ID>>
+  simp[]>>rw[]>>
+  metis_tac[type_e_tenv_equiv]);
+
 val type_pe_bindings_tids = Q.prove(`
   prim_tids T tids ∧
   set_tids_tenv tids tenv ∧
@@ -1130,6 +1151,29 @@ val type_pe_bindings_tids = Q.prove(`
   asm_exists_tac>>
   fs[EL_MAP]>>
   qpat_x_assum`(_,_)=_` sym_sub_tac>>fs[]>>
+  `x ≠ x+1` by fs[]>>
+  metis_tac[sing_renum_NOT_tscheme_inst]);
+
+val type_funs_bindings_tids = Q.store_thm("type_funs_bindings_tids",
+  `type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings ∧
+   set_tids_tenv tids tenv ∧ prim_tids T tids ∧
+   (∀tvs' bindings'.
+     type_funs tenv (bind_var_list 0 bindings' (bind_tvar tvs' Empty)) funs bindings' ⇒
+     LIST_REL tscheme_inst (MAP (λx. (tvs', SND x)) bindings')
+       (MAP (λx. (tvs, SND x)) bindings))
+   ⇒
+   EVERY (set_tids_subset tids o SND) bindings`,
+  CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF,EXISTS_MEM]>>
+  drule (GEN_ALL type_funs_ts_tid_rename_sing_renum)>>
+  rpt (disch_then drule)>>
+  disch_then(qspec_then`x+1` mp_tac)>>
+  strip_tac
+  \\ fs[remap_tenvE_bind_var_list, remap_tenvE_bind_tvar, remap_tenvE_def]
+  \\ first_x_assum drule
+  \\ rw[LIST_REL_EL_EQN]>>
+  fs[MEM_EL]>>
+  asm_exists_tac>>
+  fs[EL_MAP,UNCURRY]>>
   `x ≠ x+1` by fs[]>>
   metis_tac[sing_renum_NOT_tscheme_inst]);
 
@@ -1469,7 +1513,23 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
     \\ match_mp_tac type_pe_determ_remap
     \\ rw[set_tids_tenv_def])
   >- ((* Dletrec *)
-    cheat )
+    rw[Once type_d_canon_cases, PULL_EXISTS, prim_tids_def, set_tids_tenv_def]
+    \\ drule type_e_ts_tid_rename
+    \\ disch_then (drule o last o CONJUNCTS)
+    \\ strip_tac
+    \\ drule (last(CONJUNCTS type_e_tenv_equiv))
+    \\ disch_then drule
+    \\ rw[remap_tenvE_bind_var_list, remap_tenvE_bind_tvar, remap_tenvE_def]
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ DEP_REWRITE_TAC[nsAll_alist_to_ns]
+    \\ simp[tenv_add_tvs_def, EVERY_MAP, UNCURRY]
+    \\ fs[tenv_add_tvs_def, MAP_MAP_o, o_DEF, UNCURRY]
+    \\ last_assum(mp_then Any mp_tac type_funs_bindings_tids)
+    \\ impl_tac >- rw[]
+    \\ simp[o_DEF] \\ strip_tac
+    \\ simp[]
+    \\ simp[remap_tenv_def,MAP_MAP_o,o_DEF,UNCURRY]
+    \\ cheat )
   >- ((* Dtype *)
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >- (
