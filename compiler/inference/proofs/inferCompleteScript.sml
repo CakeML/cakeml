@@ -611,7 +611,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         disch_then(qspecl_then[`Dlet l p e`,`st1`] assume_tac)>>
         fs[infer_d_def,success_eqns,init_state_def])
       >-
-        cheat
+        cheat (* tenv_ok_helper *)
       >-
         (fs[namespaceTheory.alist_to_ns_def]>>
         Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
@@ -667,7 +667,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         pop_assum SUBST_ALL_TAC>>
         first_x_assum drule>> simp[]>>
         impl_tac >-
-          cheat>>
+          cheat>> (* infer_p bindings are within range? *)
         fs[LIST_REL_EL_EQN]>>
         strip_tac>>
         pop_assum (qspec_then`n` assume_tac)>>
@@ -891,11 +891,11 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       imp_res_tac infer_p_next_id_const>>
       fs[init_infer_state_def]))
   >- ( (* Letrec *)
-    cheat)
-    (* rw[infer_d_def,success_eqns,init_state_def]>>
+    qmatch_goalsub_rename_tac`Dletrec locs funs` >>
+    rw[infer_d_def,success_eqns,init_state_def]>>
     `ienv_ok {} ienv` by fs[env_rel_def]>>
     drule (GEN_ALL infer_funs_complete)>>
-    disch_then (qspecl_then [`tvs`, `tenv`, `SOME locs`, `funs`, `bindings`] mp_tac) >>
+    disch_then (qspecl_then [`tvs`, `tenv`, `st1`, `SOME locs`, `funs`, `bindings`] mp_tac) >>
     fs[]>>
     impl_tac>-
       fs[env_rel_def]>>
@@ -906,259 +906,266 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     simp[PULL_EXISTS]>>
     CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>
     qexists_tac`st'`>>simp[]>>
-    pairarg_tac>>fs[success_eqns]>>rw[]
-    >-
-      (EVAL_TAC>>fs[])
-    >-
-      (drule generalise_complete>>
-      disch_then(qspec_then`st'.next_uvar` mp_tac)>>fs[]>>
-      `t_wfs init_infer_state.subst` by (EVAL_TAC>>fs[t_wfs_def])>>
-      `t_wfs st.subst` by
-        (imp_res_tac infer_e_wfs>>
-        fs[])>>
-      impl_keep_tac>-
-        (rfs[]>>rw[]
+    pairarg_tac>>fs[success_eqns] >>
+    drule generalise_complete>>
+    disch_then(qspec_then`st'.next_uvar` mp_tac)>>fs[]>>
+    `t_wfs st.subst` by
+      (imp_res_tac infer_e_wfs>>
+      fs[])>>
+    impl_keep_tac>-
+      (rfs[]>>rw[]
+      >-
+        metis_tac[pure_add_constraints_success]
+      >>
+        imp_res_tac infer_e_next_uvar_mono>>fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST,check_t_def])>>
+    fs[env_rel_def]>> strip_tac>>
+    `LENGTH funs_ts = LENGTH funs` by metis_tac[LENGTH_MAP]>>
+    `MAP (t_walkstar last_sub) funs_ts = ts'` by
+      (simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_COUNT_LIST]>>rw[]>>
+      match_mp_tac sub_completion_apply>>
+      qpat_assum`t_wfs st'.subst` (match_exists_tac o concl)>>fs[]>>
+      rw[GSYM PULL_EXISTS]
+      >-
+        (imp_res_tac pure_add_constraints_apply>>
+        pop_assum mp_tac>>
+        simp[Once LIST_EQ_REWRITE]>>
+        disch_then(qspec_then`x` assume_tac)>>rfs[LENGTH_COUNT_LIST,EL_MAP,EL_ZIP,EL_COUNT_LIST])
+      >>
+        metis_tac[])>>
+    simp[GSYM CONJ_ASSOC]
+    \\ conj_tac
+    >- (
+      imp_res_tac (CONJUNCT1 infer_d_check)
+      \\ pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))
+      \\ disch_then(qspec_then`Dletrec locs funs` mp_tac)
+      \\ simp[Once infer_d_def,success_eqns,Once init_state_def,LENGTH_COUNT_LIST,PULL_EXISTS]
+      \\ disch_then match_mp_tac
+      \\ asm_exists_tac \\ simp[]
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ simp[success_eqns] )
+    \\ conj_tac
+    >- (
+      simp[typeSoundInvariantsTheory.tenv_ok_def,
+           typeSoundInvariantsTheory.tenv_val_ok_def]
+      \\ match_mp_tac nsAll_alist_to_ns
+      \\ simp[tenv_add_tvs_def,EVERY_MAP,UNCURRY]
+      \\ simp[EVERY_MEM, MEM_EL, PULL_EXISTS]
+      \\ qx_gen_tac`n` \\ strip_tac
+      \\ drule ALOOKUP_ALL_DISTINCT_EL \\ rw[]
+      \\ res_tac \\ fs[] )
+    \\ conj_tac >-
+      (fs[namespaceTheory.alist_to_ns_def]>>
+      Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
+    \\ cheat
+    (*
+    \\ conj_tac >-
+      (* Soundness direction:
+         Because the type system chooses a MGU (assumption 4),
+         we show that the inferred (and generalised) type is sound, and so the type system
+         must generalise it
+      *)
+      (
+      rw[env_rel_sound_def]>>
+      simp[lookup_var_def]>>
+      fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP]>>
+      imp_res_tac generalise_list_length>>fs[]>>
+      imp_res_tac ALOOKUP_MEM>>
+      rfs[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP]>>
+      rw[]>>pairarg_tac>>fs[]>>rw[]>>
+      `n < LENGTH bindings ∧ f = FST (EL n bindings) ` by
+        (qpat_x_assum`MAP FST A = B` mp_tac>>
+        simp[Once LIST_EQ_REWRITE,EL_MAP]>>
+        metis_tac[EL_MAP,LENGTH_MAP,FST])>>
+      pop_assum SUBST1_TAC>>
+      simp[ALOOKUP_ALL_DISTINCT_EL]>>
+      drule (infer_e_sound |> CONJUNCTS |> el 4)>>
+      disch_then(qspecl_then[`tenv`,`bind_var_list 0 (MAP2 (λ(x,y,z) t. (x,(convert_t ∘ t_walkstar last_sub) t)) funs funs_ts) (bind_tvar num_gen Empty)`] mp_tac)>>
+      qmatch_asmsub_abbrev_tac`pure_add_constraints st.subst c1 st'.subst`>>
+      disch_then(qspecl_then[`c1++ec1`,`last_sub`] mp_tac)>>
+      impl_tac>-
+        (fs[sub_completion_def]>>rw[]
         >-
-          metis_tac[pure_add_constraints_success]
-        >>
-          imp_res_tac infer_e_next_uvar_mono>>fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST,check_t_def])>>
-      fs[env_rel_def]>> strip_tac>>
-      `LENGTH funs_ts = LENGTH funs` by metis_tac[LENGTH_MAP]>>
-      `MAP (t_walkstar last_sub) funs_ts = ts'` by
-        (simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_COUNT_LIST]>>rw[]>>
-        match_mp_tac sub_completion_apply>>
-        qpat_assum`t_wfs st'.subst` (match_exists_tac o concl)>>fs[]>>
-        rw[GSYM PULL_EXISTS]
+          (fs[ienv_ok_def,ienv_val_ok_def]>>
+          match_mp_tac nsAll_nsAppend>>
+          rw[]
+          >-
+           (match_mp_tac nsAll_alist_to_ns>>
+           fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_ZIP,LENGTH_COUNT_LIST]>>rw[]>>
+           simp[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST,check_t_def])
+          >>
+            irule nsAll_mono>>
+            HINT_EXISTS_TAC>>
+            simp[FORALL_PROD]>>
+            metis_tac[check_t_more])
         >-
-          (imp_res_tac pure_add_constraints_apply>>
-          pop_assum kall_tac>>
-          pop_assum mp_tac>>
-          simp[Once LIST_EQ_REWRITE]>>
-          disch_then(qspec_then`x` assume_tac)>>rfs[LENGTH_COUNT_LIST,EL_MAP,EL_ZIP,EL_COUNT_LIST])
+          (drule (env_rel_e_sound_letrec_merge0|>INST_TYPE [alpha|->``:tvarN``,beta|->``:exp``])>>
+          simp[MAP2_MAP,LENGTH_COUNT_LIST]>>
+          disch_then(qspecl_then[`funs`,`ienv`,`tenv`,`bind_tvar num_gen Empty`,`0n`] mp_tac)>>
+          fs[sub_completion_def,SUBSET_DEF]>>impl_tac
+          >-
+            (rw[]
+            >-
+              (imp_res_tac infer_e_next_uvar_mono>>fs[])
+            >>
+              match_mp_tac env_rel_sound_extend_tvs>>fs[]>>
+              match_mp_tac env_rel_e_sound_empty_to>>fs[])
+          >>
+          qpat_abbrev_tac `A = MAP _ _`>>
+          qpat_abbrev_tac `ls1 = MAP _ _`>>
+          qpat_abbrev_tac `ls2 = MAP _ _`>>
+          `ls1=ls2` by
+            (unabbrev_all_tac>>
+            fs[LIST_EQ_REWRITE,LENGTH_ZIP,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>rw[]>>
+            pairarg_tac>>fs[EL_COUNT_LIST])>>
+          fs[])
         >>
-          metis_tac[])>>
+          metis_tac[pure_add_constraints_append])>>
+      strip_tac>>fs[LIST_REL_EL_EQN]>>
+      res_tac>> pop_assum kall_tac>>
+      pop_assum (qspec_then`n` assume_tac)>>
+      fs[MAP2_MAP]>>
+      rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+      pairarg_tac>>fs[]>>
+      pairarg_tac>>fs[]>>
+      `t_walkstar last_sub (Infer_Tuvar n) = t_walkstar last_sub t'` by
+        (fs[Once LIST_EQ_REWRITE]>>
+        first_x_assum(qspec_then`n` kall_tac)>>
+        first_x_assum(qspec_then`n` assume_tac)>>
+        rfs[EL_MAP,EL_COUNT_LIST,EL_ZIP]>>fs[])>>
+      imp_res_tac ALOOKUP_ALL_DISTINCT_EL >>res_tac>>fs[]>>
+      Cases_on`EL n bindings`>>fs[]>>
+      imp_res_tac tscheme_inst_to_approx>>
+      rveq>>fs[]>>
+      `check_t num_gen {} (t_walkstar last_sub t')` by
+        (imp_res_tac infer_e_next_uvar_mono>>
+        rpt (qpat_x_assum`A=B` sym_sub_tac)>>
+        fs[sub_completion_def]>>
+        fs[SUBSET_DEF])>>
+      metis_tac[check_t_to_check_freevars,check_t_empty_unconvert_convert_id])
+    \\ conj_tac >-
+      (simp[env_rel_complete_def,lookup_var_def]>>
+      ntac 4 strip_tac>>
+      fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP,convert_env_def,MAP2_MAP,LENGTH_COUNT_LIST]>>
+      imp_res_tac ALOOKUP_MEM>>
+      fs[MEM_EL]>>
+      pop_assum (assume_tac o SYM)>>
+      qpat_abbrev_tac`lss = MAP f (ZIP(A,B))`>>
+      `MAP FST lss = MAP FST funs` by
+        (fs[Abbr`lss`]>>simp[Once LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>rw[]
+        >-
+          metis_tac[LENGTH_MAP]
+        >>
+          qpat_x_assum`A = MAP FST bindings` sym_sub_tac>>
+          fs[EL_MAP,LENGTH_COUNT_LIST,EL_ZIP,EL_COUNT_LIST]>>pairarg_tac>>fs[])>>
+      `x' = FST (EL n lss) ∧ ALL_DISTINCT (MAP FST lss) ∧ n < LENGTH lss` by
+        (
+        CONJ_ASM2_TAC>>rw[Abbr`lss`]
+        >-
+          (fs[EL_MAP,LENGTH_ZIP,LENGTH_COUNT_LIST,EL_ZIP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+          pairarg_tac>>fs[]>>
+          qpat_x_assum`MAP FST funs = A` mp_tac>>
+          simp[Once LIST_EQ_REWRITE]>>rw[]>>rfs[EL_MAP,LENGTH_MAP]>>
+          metis_tac[FST])
+        >>
+          simp[LENGTH_COUNT_LIST]>>metis_tac[LENGTH_MAP])>>
+      simp[ALOOKUP_ALL_DISTINCT_EL]>>
+      fs[Abbr`lss`,EL_ZIP,EL_MAP,LENGTH_COUNT_LIST]>>
       rw[]
       >-
-        (*Recover the check_t property directly from infer_d_check*)
-        (imp_res_tac infer_d_check >>
-        pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
-        disch_then(qspec_then`Dletrec locs funs` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
-        rfs[guard_def,LENGTH_COUNT_LIST]>>
-        pop_assum match_mp_tac>>
-        CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>
-        qexists_tac`st'`>>fs[success_eqns]>>
-        metis_tac[LENGTH_MAP])
-      >-
-        (fs[namespaceTheory.alist_to_ns_def]>>
-        Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
-      >-
-        (* Soundness direction:
-           Because the type system chooses a MGU (assumption 4),
-           we show that the inferred (and generalised) type is sound, and so the type system
-           must generalise it
-        *)
-        (
-        rw[env_rel_sound_def]>>
-        simp[lookup_var_def]>>
-        fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP]>>
-        imp_res_tac generalise_list_length>>fs[]>>
-        imp_res_tac ALOOKUP_MEM>>
-        rfs[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP]>>
-        rw[]>>pairarg_tac>>fs[]>>rw[]>>
-        `n < LENGTH bindings ∧ f = FST (EL n bindings) ` by
-          (qpat_x_assum`MAP FST A = B` mp_tac>>
-          simp[Once LIST_EQ_REWRITE,EL_MAP]>>
-          metis_tac[EL_MAP,LENGTH_MAP,FST])>>
-        pop_assum SUBST1_TAC>>
-        simp[ALOOKUP_ALL_DISTINCT_EL]>>
-        drule (infer_e_sound |> CONJUNCTS |> el 4)>>
-        disch_then(qspecl_then[`tenv`,`bind_var_list 0 (MAP2 (λ(x,y,z) t. (x,(convert_t ∘ t_walkstar last_sub) t)) funs funs_ts) (bind_tvar num_gen Empty)`] mp_tac)>>
-        qmatch_asmsub_abbrev_tac`pure_add_constraints st.subst c1 st'.subst`>>
-        disch_then(qspecl_then[`c1++ec1`,`last_sub`] mp_tac)>>
+        (fs[EVERY_EL]>>
+        first_x_assum(qspec_then`n` kall_tac)>>
+        first_x_assum(qspec_then`n` assume_tac)>>
+        rfs[]>>
+        metis_tac[check_t_to_check_freevars])
+      >>
+        simp[EL_COUNT_LIST]>>
+        pairarg_tac>>fs[]>>
+        `check_t num_gen {} (t_walkstar last_sub (Infer_Tuvar n))` by
+          (fs[sub_completion_def]>>
+          imp_res_tac infer_e_next_uvar_mono>>fs[SUBSET_DEF])>>
+        imp_res_tac check_t_empty_unconvert_convert_id>>
+        pop_assum (SUBST1_TAC o SYM)>>
+        match_mp_tac tscheme_inst_to_approx>>
+        fs[tscheme_inst_def]>>
+        (* rest of this follows the same proof as infer_d_sound *)
+        imp_res_tac generalise_subst>>
+        fs[]>>
+        (* Rewrite last_sub back into an infer_subst *)
+        `t_walkstar last_sub (Infer_Tuvar n) = infer_subst s' (t_walkstar st'.subst (Infer_Tuvar n))` by
+           (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
+           pop_assum(qspec_then`n` assume_tac)>>
+           rfs[EL_COUNT_LIST])>>
+        fs[sub_completion_def]>>
+        qmatch_asmsub_abbrev_tac`generalise_list _ _ _ (MAP _ uvars)`>>
+        Q.ISPECL_THEN [`tvs`,`s`] mp_tac (GEN_ALL generalise_subst_exist)>>
         impl_tac>-
-          (fs[sub_completion_def]>>rw[]
-          >-
-            (fs[ienv_ok_def,ienv_val_ok_def]>>
-            match_mp_tac nsAll_nsAppend>>
-            rw[]
-            >-
-             (match_mp_tac nsAll_alist_to_ns>>
-             fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_ZIP,LENGTH_COUNT_LIST]>>rw[]>>
-             simp[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST,check_t_def])
-            >>
-              irule nsAll_mono>>
-              HINT_EXISTS_TAC>>
-              simp[FORALL_PROD]>>
-              metis_tac[check_t_more])
-          >-
-            (drule (env_rel_e_sound_letrec_merge0|>INST_TYPE [alpha|->``:tvarN``,beta|->``:exp``])>>
-            simp[MAP2_MAP,LENGTH_COUNT_LIST]>>
-            disch_then(qspecl_then[`funs`,`ienv`,`tenv`,`bind_tvar num_gen Empty`,`0n`] mp_tac)>>
-            fs[sub_completion_def,SUBSET_DEF]>>impl_tac
-            >-
-              (rw[]
-              >-
-                (imp_res_tac infer_e_next_uvar_mono>>fs[])
-              >>
-                match_mp_tac env_rel_sound_extend_tvs>>fs[]>>
-                match_mp_tac env_rel_e_sound_empty_to>>fs[])
-            >>
-            qpat_abbrev_tac `A = MAP _ _`>>
-            qpat_abbrev_tac `ls1 = MAP _ _`>>
-            qpat_abbrev_tac `ls2 = MAP _ _`>>
-            `ls1=ls2` by
-              (unabbrev_all_tac>>
-              fs[LIST_EQ_REWRITE,LENGTH_ZIP,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]>>rw[]>>
-              pairarg_tac>>fs[EL_COUNT_LIST])>>
-            fs[])
-          >>
-            metis_tac[pure_add_constraints_append])>>
-        strip_tac>>fs[LIST_REL_EL_EQN]>>
-        res_tac>> pop_assum kall_tac>>
-        pop_assum (qspec_then`n` assume_tac)>>
-        fs[MAP2_MAP]>>
-        rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
-        pairarg_tac>>fs[]>>
-        pairarg_tac>>fs[]>>
-        `t_walkstar last_sub (Infer_Tuvar n) = t_walkstar last_sub t'` by
-          (fs[Once LIST_EQ_REWRITE]>>
-          first_x_assum(qspec_then`n` kall_tac)>>
-          first_x_assum(qspec_then`n` assume_tac)>>
-          rfs[EL_MAP,EL_COUNT_LIST,EL_ZIP]>>fs[])>>
-        imp_res_tac ALOOKUP_ALL_DISTINCT_EL >>res_tac>>fs[]>>
-        Cases_on`EL n bindings`>>fs[]>>
-        imp_res_tac tscheme_inst_to_approx>>
-        rveq>>fs[]>>
-        `check_t num_gen {} (t_walkstar last_sub t')` by
-          (imp_res_tac infer_e_next_uvar_mono>>
-          rpt (qpat_x_assum`A=B` sym_sub_tac)>>
-          fs[sub_completion_def]>>
-          fs[SUBSET_DEF])>>
-        metis_tac[check_t_to_check_freevars,check_t_empty_unconvert_convert_id])
-      >-
-        (simp[env_rel_complete_def,lookup_var_def]>>
-        ntac 4 strip_tac>>
-        fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP,convert_env_def,MAP2_MAP,LENGTH_COUNT_LIST]>>
-        imp_res_tac ALOOKUP_MEM>>
-        fs[MEM_EL]>>
-        pop_assum (assume_tac o SYM)>>
-        qpat_abbrev_tac`lss = MAP f (ZIP(A,B))`>>
-        `MAP FST lss = MAP FST funs` by
-          (fs[Abbr`lss`]>>simp[Once LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>rw[]
-          >-
-            metis_tac[LENGTH_MAP]
-          >>
-            qpat_x_assum`A = MAP FST bindings` sym_sub_tac>>
-            fs[EL_MAP,LENGTH_COUNT_LIST,EL_ZIP,EL_COUNT_LIST]>>pairarg_tac>>fs[])>>
-        `x' = FST (EL n lss) ∧ ALL_DISTINCT (MAP FST lss) ∧ n < LENGTH lss` by
-          (
-          CONJ_ASM2_TAC>>rw[Abbr`lss`]
-          >-
-            (fs[EL_MAP,LENGTH_ZIP,LENGTH_COUNT_LIST,EL_ZIP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
-            pairarg_tac>>fs[]>>
-            qpat_x_assum`MAP FST funs = A` mp_tac>>
-            simp[Once LIST_EQ_REWRITE]>>rw[]>>rfs[EL_MAP,LENGTH_MAP]>>
-            metis_tac[FST])
-          >>
-            simp[LENGTH_COUNT_LIST]>>metis_tac[LENGTH_MAP])>>
-        simp[ALOOKUP_ALL_DISTINCT_EL]>>
-        fs[Abbr`lss`,EL_ZIP,EL_MAP,LENGTH_COUNT_LIST]>>
-        rw[]
+          (fs[]>>
+          metis_tac[pure_add_constraints_success])>>
+        rw[]>>
+        (* This produces the appropriate substitution mentioned above *)
+        pop_assum (qspecl_then[`MAP (t_walkstar st'.subst) uvars`,`[]`,`FEMPTY`,`num_gen`,`s'`,`MAP (t_walkstar last_sub) uvars`] mp_tac)>>
+        fs[]>>
+        impl_keep_tac
         >-
-          (fs[EVERY_EL]>>
+          (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+          fs[GSYM FORALL_AND_THM]>>fs[GSYM IMP_CONJ_THM]>>
+          ntac 2 strip_tac>>
+          CONJ_ASM2_TAC
+          >-
+            metis_tac[check_t_t_vars]
+          >>
+          match_mp_tac t_walkstar_check>> fs[]>>
+          last_x_assum (qspec_then `y` assume_tac)>>rfs[]>>
+          reverse CONJ_TAC>-
+           (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
+           HINT_EXISTS_TAC>>
+           fs[])>>
+          match_mp_tac (check_s_more3 |> MP_CANON)>>
+          qexists_tac `count st'.next_uvar`>>
+          fs[])
+        >>
+        rw[]>>
+        (* Pick the substitution, except turn it into deBruijn vars *)
+        qexists_tac`MAP convert_t subst'`>>fs[]>>
+        CONJ_ASM1_TAC>-
+          metis_tac[check_t_to_check_freevars]>>
+        CONJ_TAC>-
+          (fs[EVERY_MAP,EVERY_MEM]>>
+          metis_tac[check_t_to_check_freevars])>>
+        imp_res_tac deBruijn_subst_convert>>
+        pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
+        `t = convert_t (t_walkstar s (Infer_Tuvar n))` by
+          (qpat_x_assum`MAP SND A = B` mp_tac>>
+          simp[Once LIST_EQ_REWRITE]>>
+          rw[]>>
+          pop_assum (qspec_then`n` assume_tac)>>rfs[EL_MAP]>>
+          AP_TERM_TAC>>
+          `pure_add_constraints st.subst ((ZIP(uvars,funs_ts))++constr) s` by
+            metis_tac[pure_add_constraints_append,pure_add_constraints_success]>>
+          imp_res_tac pure_add_constraints_apply>>
+          fs[Abbr`uvars`,MAP_APPEND,MAP_ZIP,Once LIST_EQ_REWRITE]>>
           first_x_assum(qspec_then`n` kall_tac)>>
           first_x_assum(qspec_then`n` assume_tac)>>
-          rfs[]>>
-          metis_tac[check_t_to_check_freevars])
+          rfs[EL_APPEND1,EL_MAP,EL_ZIP,EL_COUNT_LIST])>>
+        pop_assum SUBST_ALL_TAC>>
+        AP_TERM_TAC>>
+        Q.ISPECL_THEN [`s`,`s'`,`subst'`,`_`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
+        impl_tac>-
+          (fs[SUBSET_DEF]>>
+          rw[]>>
+          fs[IN_FRANGE]>>
+          metis_tac[pure_add_constraints_wfs])>>
+        rw[]>>
+        pop_assum kall_tac>>
+        pop_assum(qspec_then `t_walkstar st'.subst (Infer_Tuvar n)` mp_tac)>>
+        impl_tac>-
+          (fs[Abbr`uvars`,EVERY_MEM,MEM_MAP,MEM_COUNT_LIST,PULL_EXISTS,SUBSET_DEF]>>
+          metis_tac[])
         >>
-          simp[EL_COUNT_LIST]>>
-          pairarg_tac>>fs[]>>
-          `check_t num_gen {} (t_walkstar last_sub (Infer_Tuvar n))` by
-            (fs[sub_completion_def]>>
-            imp_res_tac infer_e_next_uvar_mono>>fs[SUBSET_DEF])>>
-          imp_res_tac check_t_empty_unconvert_convert_id>>
-          pop_assum (SUBST1_TAC o SYM)>>
-          match_mp_tac tscheme_inst_to_approx>>
-          fs[tscheme_inst_def]>>
-          (* rest of this follows the same proof as infer_d_sound *)
-          imp_res_tac generalise_subst>>
-          fs[]>>
-          (* Rewrite last_sub back into an infer_subst *)
-          `t_walkstar last_sub (Infer_Tuvar n) = infer_subst s' (t_walkstar st'.subst (Infer_Tuvar n))` by
-             (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
-             pop_assum(qspec_then`n` assume_tac)>>
-             rfs[EL_COUNT_LIST])>>
-          fs[sub_completion_def]>>
-          qmatch_asmsub_abbrev_tac`generalise_list _ _ _ (MAP _ uvars)`>>
-          Q.ISPECL_THEN [`tvs`,`s`] mp_tac (GEN_ALL generalise_subst_exist)>>
-          impl_tac>-
-            (fs[]>>
-            metis_tac[pure_add_constraints_success])>>
-          rw[]>>
-          (* This produces the appropriate substitution mentioned above *)
-          pop_assum (qspecl_then[`MAP (t_walkstar st'.subst) uvars`,`[]`,`FEMPTY`,`num_gen`,`s'`,`MAP (t_walkstar last_sub) uvars`] mp_tac)>>
-          fs[]>>
-          impl_keep_tac
-          >-
-            (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-            fs[GSYM FORALL_AND_THM]>>fs[GSYM IMP_CONJ_THM]>>
-            ntac 2 strip_tac>>
-            CONJ_ASM2_TAC
-            >-
-              metis_tac[check_t_t_vars]
-            >>
-            match_mp_tac t_walkstar_check>> fs[]>>
-            last_x_assum (qspec_then `y` assume_tac)>>rfs[]>>
-            reverse CONJ_TAC>-
-             (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
-             HINT_EXISTS_TAC>>
-             fs[])>>
-            match_mp_tac (check_s_more3 |> MP_CANON)>>
-            qexists_tac `count st'.next_uvar`>>
-            fs[])
-          >>
-          rw[]>>
-          (* Pick the substitution, except turn it into deBruijn vars *)
-          qexists_tac`MAP convert_t subst'`>>fs[]>>
-          CONJ_ASM1_TAC>-
-            metis_tac[check_t_to_check_freevars]>>
-          CONJ_TAC>-
-            (fs[EVERY_MAP,EVERY_MEM]>>
-            metis_tac[check_t_to_check_freevars])>>
-          imp_res_tac deBruijn_subst_convert>>
-          pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
-          `t = convert_t (t_walkstar s (Infer_Tuvar n))` by
-            (qpat_x_assum`MAP SND A = B` mp_tac>>
-            simp[Once LIST_EQ_REWRITE]>>
-            rw[]>>
-            pop_assum (qspec_then`n` assume_tac)>>rfs[EL_MAP]>>
-            AP_TERM_TAC>>
-            `pure_add_constraints st.subst ((ZIP(uvars,funs_ts))++constr) s` by
-              metis_tac[pure_add_constraints_append,pure_add_constraints_success]>>
-            imp_res_tac pure_add_constraints_apply>>
-            fs[Abbr`uvars`,MAP_APPEND,MAP_ZIP,Once LIST_EQ_REWRITE]>>
-            first_x_assum(qspec_then`n` kall_tac)>>
-            first_x_assum(qspec_then`n` assume_tac)>>
-            rfs[EL_APPEND1,EL_MAP,EL_ZIP,EL_COUNT_LIST])>>
-          pop_assum SUBST_ALL_TAC>>
-          AP_TERM_TAC>>
-          Q.ISPECL_THEN [`s`,`s'`,`subst'`,`_`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
-          impl_tac>-
-            (fs[SUBSET_DEF]>>
-            rw[]>>
-            fs[IN_FRANGE]>>
-            metis_tac[pure_add_constraints_wfs])>>
-          rw[]>>
-          pop_assum kall_tac>>
-          pop_assum(qspec_then `t_walkstar st'.subst (Infer_Tuvar n)` mp_tac)>>
-          impl_tac>-
-            (fs[Abbr`uvars`,EVERY_MEM,MEM_MAP,MEM_COUNT_LIST,PULL_EXISTS,SUBSET_DEF]>>
-            metis_tac[])
-          >>
-          rw[]>>
-          metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success]))
-    >-
-      metis_tac[LENGTH_MAP]*)
+        rw[]>>
+        metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
+    *)
+    )
   >- ( (* Dtype *)
     rw [infer_d_def, success_eqns,n_fresh_id_def]
     >- (
