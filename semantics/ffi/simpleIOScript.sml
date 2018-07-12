@@ -21,7 +21,7 @@ val _ = Hol_datatype `
 val _ = Define `
  (isEof st conf input=  
  ((case input of
-    [] => Oracle_fail
+    [] => Oracle_final FFI_failed
   | x::xs => Oracle_return st ((if st.input = LNIL then n2w (( 1 : num)) else n2w (( 0 : num)))::xs)
   )))`;
 
@@ -30,11 +30,11 @@ val _ = Define `
 val _ = Define `
  (getChar st conf input=  
  ((case input of
-    [] => Oracle_fail
+    [] => Oracle_final FFI_failed
   | x::xs =>
       (case LHD st.input of
         SOME y => Oracle_return (( st with<| input := (THE (LTL st.input)) |>)) (y::xs)
-      | _ => Oracle_fail
+      | _ => Oracle_final FFI_failed
       )
   )))`;
 
@@ -43,14 +43,14 @@ val _ = Define `
 val _ = Define `
  (putChar st conf input=  
  ((case input of
-    [] => Oracle_fail
+    [] => Oracle_final FFI_failed
   | x::_ => Oracle_return (( st with<| output := (LCONS x st.output) |>)) input
   )))`;
 
 
 (*val exit : oracle_function simpleIO*)
 val _ = Define `
- (exit st conf input=  Oracle_diverge)`;
+ (exit st conf input=  (Oracle_final FFI_diverged))`;
 
 
 (*val simpleIO_oracle : oracle simpleIO*)
@@ -65,7 +65,7 @@ val _ = Define `
   else if s = "exit" then
     exit st conf input
   else
-    Oracle_fail))`;
+    Oracle_final FFI_failed))`;
 
 val _ = export_theory()
 

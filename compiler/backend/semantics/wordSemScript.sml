@@ -129,6 +129,7 @@ val _ = Datatype `
          | Exception ('w word_loc) ('w word_loc)
          | TimeOut
          | NotEnoughSpace
+         | FinalFFI final_event
          | Error `
 
 val isResult_def = Define `
@@ -770,11 +771,14 @@ val evaluate_def = tDefine "evaluate" `
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
-              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
-              let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
-                (NONE, s with <| memory := new_m ;
-                                 locals := env ;
-                                 ffi := new_ffi |>)
+             (case call_FFI s.ffi ffi_index bytes bytes2 of
+              | FFI_final outcome => (SOME (FinalFFI outcome),
+                                      call_env [] s with stack := [])
+              | FFI_return new_ffi new_bytes =>
+                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
+                  (NONE, s with <| memory := new_m ;
+                                   locals := env ;
+                                   ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
   (evaluate (Call ret dest args handler,s) =
@@ -925,10 +929,10 @@ val semantics_def = Define `
     case some res.
       ∃k t r outcome.
         evaluate (prog, s with clock := k) = (r,t) ∧
-        (case (t.ffi.final_event,r) of
-         | (SOME e,_) => outcome = FFI_outcome e
-         | (_,SOME (Result _ _)) => outcome = Success
-         | (_,SOME NotEnoughSpace) => outcome = Resource_limit_hit
+        (case r of
+         | (SOME (FinalFFI e)) => outcome = FFI_outcome e
+         | (SOME (Result _ _)) => outcome = Success
+         | (SOME NotEnoughSpace) => outcome = Resource_limit_hit
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events
       of

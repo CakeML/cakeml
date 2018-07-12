@@ -66,13 +66,16 @@ val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
 val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy,
                     case_def = semanticPrimitivesTheory.result_case_def };
+val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy,
+                        case_def = ffiTheory.ffi_result_case_def };
 
 val pair_case_elim = prove(
   ``pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y``,
   Cases_on`p` \\ rw[]);
 
 val elims = List.map prove_case_elim_thm [
-  list_thms, option_thms, result_thms ] |> cons pair_case_elim |> LIST_CONJ
+  list_thms, option_thms, result_thms, ffi_result_thms ]
+  |> cons pair_case_elim |> LIST_CONJ
   |> curry save_thm "case_elim_thms";
 val case_elim_thms = elims;
 
@@ -352,7 +355,9 @@ val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
   METIS_TAC[SND,evaluate_global_mono_lemma]);
 
 val do_app_err = Q.store_thm("do_app_err",
-  `do_app op a s = Rerr e ⇒ e = Rabort Rtype_error`,
+  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                             \/
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
   rw[bviSemTheory.do_app_def,case_eq_thms,pair_case_eq] >>
   imp_res_tac bvlPropsTheory.do_app_err >>
   fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
@@ -505,14 +510,12 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
 
 val do_app_aux_io_events_mono = Q.store_thm("do_app_aux_io_events_mono",
   `do_app_aux op vs s = SOME (SOME (x,y)) ⇒
-   s.ffi.io_events ≼ y.ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ y.ffi = s.ffi)`,
+   s.ffi.io_events ≼ y.ffi.io_events`,
   rw[do_app_aux_def,case_eq_thms] \\ rw[]);
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app op vs s1 = Rval (x,s2) ⇒
-   s1.ffi.io_events ≼ s2.ffi.io_events ∧
-   (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+   s1.ffi.io_events ≼ s2.ffi.io_events`,
   rw[do_app_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def]
   \\ imp_res_tac bvlPropsTheory.do_app_io_events_mono \\ fs[]
@@ -524,8 +527,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps env s1 res s2.
     evaluate (exps,env,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events ∧
-    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+    s1.ffi.io_events ≼ s2.ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -559,15 +561,11 @@ val inc_clock_eq_0 = Q.store_thm("inc_clock_eq_0[simp]",
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `∀exps env s extra.
     (SND(evaluate(exps,env,s))).ffi.io_events ≼
-    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events ∧
-    (IS_SOME((SND(evaluate(exps,env,s))).ffi.final_event) ⇒
-     (SND(evaluate(exps,env,inc_clock extra s))).ffi =
-     (SND(evaluate(exps,env,s))).ffi)`,
+    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
     rename1`Boolv T` >>
-    qmatch_assum_rename_tac`IS_SOME _.ffi.final_event` >>
     ntac 4 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     ntac 2 (TRY (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>

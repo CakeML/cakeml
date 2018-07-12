@@ -4657,13 +4657,11 @@ val find_ffi_names_append = Q.prove(`
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error) /\
-     s1.ffi.final_event = NONE /\
      backend_correct mc_conf.target /\
      state_rel (mc_conf,code2,labs,p) s1 t1 ms1 ==>
      ?k t2 ms2.
        (evaluate mc_conf s1.ffi (s1.clock + k) ms1 =
-          ((case s2.ffi.final_event of NONE => res
-            | SOME e => Halt (FFI_outcome e)),
+          (res,
            ms2,s2.ffi))`,
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
@@ -4703,7 +4701,6 @@ val compile_correct = Q.prove(
             `(asm jj (t1.pc + n2w (LENGTH (bytes':word8 list))) t1)`,`ms2`])
        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
         (unabbrev_all_tac \\ rpt strip_tac \\ full_simp_tac(srw_ss())[asm_def]
-         THEN1 (full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,asm_inst_consts])
          THEN1 (full_simp_tac(srw_ss())[shift_interfer_def])
          \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
          \\ match_mp_tac state_rel_shift_interfer
@@ -5056,12 +5053,10 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `read_bytearray c2' (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
     \\ full_simp_tac(srw_ss())[]
-(*    \\ qmatch_assum_rename_tac
-         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`*)
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
-    \\ Cases_on `call_FFI s1.ffi s x x'` \\ full_simp_tac(srw_ss())[]
-    \\ qmatch_assum_rename_tac
-         `call_FFI s1.ffi s x x' = (new_ffi,new_bytes)`
+    \\ qmatch_asmsub_abbrev_tac `loc_to_pc a1 a2 a3`
+    \\ Cases_on `loc_to_pc a1 a2 a3` >- fs[]
+    \\ unabbrev_all_tac \\ fs[]
     \\ mp_tac (Q.GEN `name` IMP_bytes_in_memory_CallFFI) \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
@@ -5139,23 +5134,34 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac read_bytearray_state_rel \\ full_simp_tac(srw_ss())[]
-    \\ reverse(Cases_on `new_ffi.final_event = NONE`) THEN1
-     (imp_res_tac evaluate_pres_final_event \\ full_simp_tac(srw_ss())[]
-      \\ rev_full_simp_tac(srw_ss())[]
-      \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ rpt strip_tac
+    \\ reverse(Cases_on `call_FFI s1.ffi s x x'`) THEN1
+     (FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ rpt strip_tac
+      \\ fs[] \\ rveq \\ fs[]
       \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
       \\ once_rewrite_tac [targetSemTheory.evaluate_def]
-      \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[shift_interfer_def,LET_DEF,apply_oracle_def]
-      \\ BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]
-      >> `list_subset (find_ffi_names s1.code) mc_conf.ffi_names ` by fs[state_rel_def]
+      \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def])
+      \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def])
+      \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def])
+      \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def])
+      \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def] \\ rfs[])
+      \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def] \\ rfs[])
+      \\ simp[]
+      \\ simp[shift_interfer_def]
       >> `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
         match_mp_tac EL_get_ffi_index_MEM
         \\ imp_res_tac has_io_name_find_index
         \\ fs[list_subset_def,EVERY_MEM]
         \\ metis_tac[find_index_is_MEM] )
-      >> fs [])
+      >> fs[shift_interfer_def]
+      >> rfs[] >> rveq >> fs[])
     \\ full_simp_tac(srw_ss())[]
+    \\ qmatch_assum_rename_tac
+         `call_FFI s1.ffi s x x' = FFI_return new_ffi new_bytes`
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
@@ -5218,6 +5224,7 @@ val compile_correct = Q.prove(
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock + k`mp_tac) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
     \\ Q.LIST_EXISTS_TAC [`ms2'`] \\ full_simp_tac(srw_ss())[]
+    \\ fs[]
     \\ simp_tac std_ss [Once evaluate_def]
     \\ full_simp_tac(srw_ss())[shift_interfer_def]
     \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC]
@@ -5556,7 +5563,6 @@ val compile_correct = Q.prove(
 
 val init_ok_def = Define `
   init_ok (mc_conf, p) s ms <=>
-    s.ffi.final_event = NONE /\
     ?code2 labs t1.
       state_rel (mc_conf,code2,labs,p) s t1 ms`;
 
@@ -5575,8 +5581,6 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   >- (
     qx_gen_tac`ffi`>>strip_tac>> full_simp_tac(srw_ss())[]
     \\ drule compile_correct \\ full_simp_tac(srw_ss())[]
-    \\ `r ≠ Error` by (Cases_on`r`>>every_case_tac>>
-                    full_simp_tac(srw_ss())[]>>metis_tac[FST]) >> simp[]
     \\ disch_then drule
     \\ imp_res_tac state_rel_clock
     \\ pop_assum (qspec_then `k` assume_tac)
@@ -5616,7 +5620,6 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
       first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
       strip_tac >>
       spose_not_then strip_assume_tac >>
-      Cases_on`r.ffi.final_event`>>full_simp_tac(srw_ss())[]>>
       Cases_on`q`>>full_simp_tac(srw_ss())[]>>
       `∃x y z. evaluate mc_conf s1.ffi k ms = (x,y,z)` by metis_tac[PAIR] >>
       `x = TimeOut` by (
@@ -5682,8 +5685,7 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
     rpt gen_tac >>
     drule (GEN_ALL evaluate_add_clock) >> simp[] >>
     disch_then kall_tac >>
-    first_x_assum(qspec_then`k`mp_tac) >> simp[] >>
-    Cases_on`r.ffi.final_event`>>full_simp_tac(srw_ss())[])
+    first_x_assum(qspec_then`k`mp_tac) >> simp[])
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
   \\ last_x_assum (qspec_then `k` mp_tac) \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `evaluate (s1 with clock := k)` \\ full_simp_tac(srw_ss())[]
@@ -5839,7 +5841,6 @@ val good_init_state_def = Define `
     t m dm
     io_regs cc_regs
     <=>
-    ffi.final_event = NONE /\
     target_state_rel mc_conf.target t ms /\
     target_configured t mc_conf ∧
 
@@ -5967,7 +5968,6 @@ val semantics_make_init = save_thm("semantics_make_init",
        compile_lab (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
        cbspace coracle`
   |> SIMP_RULE std_ss [make_init_simp]
-  |> UNDISCH
   |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
@@ -6074,8 +6074,7 @@ val semantics_compile_lemma = Q.prove(
   match_mp_tac (GEN_ALL semantics_make_init)>>
   fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
   fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS]>>
-  conj_tac >- fs[good_init_state_def] >>
-  conj_tac >- fs[mc_conf_ok_def] >>
+  conj_tac >- fs[mc_conf_ok_def] >>  
   conj_tac >- (
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>

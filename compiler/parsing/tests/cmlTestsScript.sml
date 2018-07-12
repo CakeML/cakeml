@@ -126,6 +126,32 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+         "let val _ = print \"foo\"\
+            \ val z = 10\
+            \ val (x,y) = g z\
+            \ fun h x = x + 1\
+         \ in x + y end"
+ (SOME ``Let NONE (App Opapp [V "print"; Lit (StrLit "foo")])
+           (Let (SOME "z") (Lit (IntLit 10))
+              (Mat (App Opapp [V "g"; V "z"])
+                   [(Pcon NONE [Pvar "x"; Pvar "y"],
+                     Letrec [("h", "x",
+                              vbinop (Short "+") (V "x") (Lit (IntLit 1)))]
+                            (vbinop (Short "+") (V "x") (V "y")))]))``)
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+         "let val (x,y) = g z\
+            \ val [h] = f a\
+         \ in x + y * h end"
+ (SOME ``Mat (App Opapp [V "g"; V "z"])
+             [(Pcon NONE [Pvar "x"; Pvar "y"],
+               Mat (App Opapp [V "f"; V "a"])
+                   [(Pcon (SOME (Short "::"))
+                          [Pvar "h"; Pcon (SOME (Short "nil")) []],
+                     vbinop (Short "+") (V "x")
+                            (vbinop (Short "*") (V "y") (V "h")))])]``)
+
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wx3"
           (SOME ``Tdec (Dlet locs (Pvar "w") (Lit (Word64 3w)))``)
 

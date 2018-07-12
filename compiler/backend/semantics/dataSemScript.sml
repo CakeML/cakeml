@@ -184,7 +184,7 @@ val evaluate_def = tDefine "evaluate" `
        (case get_vars args s.locals of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),s)
+                      | Rerr e => (SOME (Rerr e),call_env [] s with stack := [])
                       | Rval (v,s) =>
                         (NONE, set_var dest v s)))) /\
   (evaluate (Tick,s) =
@@ -335,16 +335,16 @@ val semantics_def = Define`
   let p = Call NONE (SOME start) [] NONE in
   let init = initial_state init_ffi code coracle cc in
     if ∃k. case FST(evaluate (p,init k)) of
-             | SOME (Rerr e) => e ≠ Rabort Rtimeout_error
+             | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
       then Fail
     else
     case some res.
       ∃k s r outcome.
         evaluate (p,init k) = (SOME r,s) ∧
-        (case (s.ffi.final_event,r) of
-         | (SOME e,_) => outcome = FFI_outcome e
-         | (_,Rval _) => outcome = Success
+        (case r of
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | Rval _ => outcome = Success
          | _ => F) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res

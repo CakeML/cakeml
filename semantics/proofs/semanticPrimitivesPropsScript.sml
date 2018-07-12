@@ -370,10 +370,12 @@ val do_app_NONE_ffi = Q.store_thm("do_app_NONE_ffi",
   \\ every_case_tac \\ fs[]
   \\ TRY pairarg_tac \\ fs[]
   \\ fs[store_assign_def,store_v_same_type_def]
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[]
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]);
 
 val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
-  `do_app (refs,ffi) op args = SOME ((refs',ffi),r) ∧ ffi.final_event = NONE ⇒
+  `do_app (refs,ffi) op args = SOME ((refs',ffi),r)
+   ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome))) ⇒
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)`,
   rw[]
   \\ fs[do_app_cases]
@@ -381,7 +383,7 @@ val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
   \\ fs[ffiTheory.call_FFI_def]
   \\ every_case_tac \\ fs[]
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
-  \\ rfs[]);
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]);
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.

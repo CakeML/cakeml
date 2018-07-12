@@ -1322,7 +1322,7 @@ val evaluate_apply_colour = Q.store_thm("evaluate_apply_colour",
       srw_tac[][]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       Cases_on`call_FFI st.ffi s x'' x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
-      srw_tac[][]>>
+      srw_tac[][]>>simp[call_env_def]>>
       metis_tac[domain_lookup]));
 
 (* TODO: get_clash_sets, made redundant by clash tree *)
@@ -2755,7 +2755,10 @@ val evaluate_remove_dead = Q.store_thm("evaluate_remove_dead",
       qexists_tac`st`>>fs[]>>
       fs[strong_locals_rel_def])>>
     fs[state_component_equality,strong_locals_rel_def]>>
-    rpt strip_tac >> rveq >> fs[state_component_equality]));
+    rpt strip_tac >> rveq >> fs[state_component_equality]>>
+    rveq>>fs[]>>
+    rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
+    simp[call_env_def]));
 (*SSA Proof*)
 
 val size_tac = impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)
@@ -5878,7 +5881,6 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     Cases_on`cut_env s0 st.locals`>>full_simp_tac(srw_ss())[]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
     FULL_CASE_TAC>>fs[LET_THM]>>
-    Cases_on`call_FFI st.ffi s x'' x'`>>full_simp_tac(srw_ss())[]>>
     Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`] mp_tac list_next_var_rename_move_preserve>>
     impl_keep_tac>-
       (srw_tac[][word_state_eq_rel_def]
@@ -5900,6 +5902,7 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     `get_vars [cptr1; clen1; cptr2; clen2] rcst = SOME [Word c';Word c;Word c''';Word c'']` by
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[get_vars_def]>>
       imp_res_tac ssa_locals_rel_get_var>>full_simp_tac(srw_ss())[get_var_def])>>
+(*    rename1 `_ = FFI_return ff _` >>*)
     qabbrev_tac`f = option_lookup ssa'`>>
     Q.ISPECL_THEN [`ls`,`ssa`,`na+2`,`mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props>>
     `is_stack_var (na+2)` by full_simp_tac(srw_ss())[is_alloc_var_flip]>>
@@ -5935,8 +5938,10 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
         srw_tac[][is_phy_var_def])>>
     srw_tac[][]>>
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
+    reverse(Cases_on`call_FFI st.ffi s x'' x'`)>>full_simp_tac(srw_ss())[]
+    >- fs[call_env_def] >>
     qpat_abbrev_tac`mem = write_bytearray A B C D E`>>
-    qabbrev_tac`rst = st with <|locals := x;memory:=mem;ffi:=q|>`>>
+    qabbrev_tac`rst = st with <|locals := x;memory:=mem;ffi:=f'|>`>>
     qpat_abbrev_tac`rcstt = rcst with <|locals := A;memory:=B;ffi:=D|>`>>
     `domain ssa_cut = domain x` by
       (full_simp_tac(srw_ss())[EXTENSION,Abbr`ssa_cut`,domain_inter]>>

@@ -48,6 +48,7 @@ let Bindv = Conv (Just("Bind",TypeExn(Short"Bind"))) []
 type abort =
   | Rtype_error
   | Rtimeout_error
+  | Rffi_error of final_event
 
 type error_result 'a =
   | Rraise of 'a (* Should only be a value of type exn *)
@@ -698,11 +699,13 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         match store_lookup lnum s with
         | Just (W8array ws) ->
             match call_FFI t n (List.map (fun c -> word8FromNat(String_extra.ord c)) (toCharList conf)) ws with
-            | (t', ws') ->
+            | FFI_return t' ws' ->
                match store_assign lnum (W8array ws') s with
                | Just s' -> Just ((s', t'), Rval (Conv Nothing []))
                | Nothing -> Nothing
                end
+            | FFI_final outcome ->
+               Just ((s, t), Rerr (Rabort (Rffi_error outcome)))
             end
         | _ -> Nothing
         end
