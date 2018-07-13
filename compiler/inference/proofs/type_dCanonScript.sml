@@ -1,6 +1,6 @@
 open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open terminationTheory namespacePropsTheory;
-open inferPropsTheory
+open typeSysPropsTheory typeSoundInvariantsTheory inferPropsTheory
 
 val _ = new_theory "type_dCanon"
 
@@ -1796,5 +1796,93 @@ val type_d_type_d_canon = Q.store_thm("type_d_type_d_canon",`
   \\ fs[ts_tid_rename_eq_f, extend_bij_def, SUBSET_DEF, IN_DISJOINT,
         MAP_EQ_f, EVERY_MEM]
   \\ metis_tac[]);
+
+(* n.b. proof almost entirely copied from type_d_tenv_ok_helper *)
+val type_d_canon_tenv_ok = Q.store_thm ("type_d_canon_tenv_ok",
+ `(∀check tenv d tdecs tenv'.
+   type_d_canon check tenv d tdecs tenv' ⇒
+   tenv_ok tenv
+   ⇒
+   tenv_ok tenv') ∧
+  (∀check tenv d tdecs tenv'.
+   type_ds_canon check tenv d tdecs tenv' ⇒
+   tenv_ok tenv
+   ⇒
+   tenv_ok tenv')`,
+ ho_match_mp_tac type_d_canon_ind >>
+ rw [tenv_ctor_ok_def, tenvLift_def]
+ >- (
+   fs [tenv_ok_def] >>
+   drule (CONJUNCT1 type_p_freevars)
+   >> rw [tenv_val_ok_def]
+   >> irule nsAll_alist_to_ns
+   >> fs [EVERY_MEM]
+   >> rw []
+   >> pairarg_tac
+   >> fs []
+   >> pairarg_tac
+   >> fs [tenv_add_tvs_def, MEM_MAP]
+   >> pairarg_tac
+   >> fs []
+   >> rw []
+   >> metis_tac [SND])
+ >- (
+   fs [tenv_ok_def] >>
+   drule (CONJUNCT1 type_p_freevars)
+   >> rw [tenv_val_ok_def]
+   >> irule nsAll_alist_to_ns
+   >> fs [EVERY_MEM]
+   >> rw []
+   >> pairarg_tac
+   >> fs []
+   >> pairarg_tac
+   >> fs [tenv_add_tvs_def, MEM_MAP]
+   >> pairarg_tac
+   >> fs []
+   >> rw []
+   >> metis_tac [SND])
+ >- (
+   fs [tenv_ok_def] >>
+   rw [tenv_val_ok_def]
+   >> irule nsAll_alist_to_ns
+   >> simp [tenv_add_tvs_def, EVERY_MAP]
+   >> drule (List.nth (CONJUNCTS type_e_freevars, 2))
+   >> simp [tenv_val_exp_ok_def, EVERY_MAP, LAMBDA_PROD]
+   >> disch_then irule
+   >> irule tenv_val_exp_ok_bvl_funs
+   >> simp [tenv_val_exp_ok_def]
+   >> metis_tac [])
+ >- (
+   fs [tenv_ok_def, tenv_abbrev_ok_def] >>
+   rw []
+   >- (
+     irule check_ctor_tenv_ok >>
+     rw []
+     >> simp [tenv_abbrev_ok_def]
+     >> irule nsAll_nsAppend
+     >> simp []
+     >> irule nsAll_alist_to_ns
+     >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
+     >> rw []
+     >> rpt (pairarg_tac >> fs [])
+     >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
+   >- (
+     irule nsAll_alist_to_ns
+     >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
+     >> rw []
+     >> rpt (pairarg_tac >> fs [])
+     >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]))
+ >- (
+   fs [tenv_ok_def, tenv_abbrev_ok_def] >>
+   irule check_freevars_type_name_subst
+   >> simp [tenv_abbrev_ok_def])
+ >- (
+   fs [tenv_ok_def, tenv_ctor_ok_def] >>
+   fs [EVERY_MAP, EVERY_MEM]
+   >> rw []
+   >> irule check_freevars_type_name_subst
+   >> simp [tenv_abbrev_ok_def])
+ >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
+ >- metis_tac [extend_dec_tenv_ok]);
 
 val _ = export_theory();

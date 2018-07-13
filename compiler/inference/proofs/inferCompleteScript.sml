@@ -562,7 +562,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       infer_ds ienv ds st1 = (Success ienv', st2))`,
   Induct>>
   rw [] >>
-  (* imp_res_tac type_d_tenv_ok_helper >> *)
+  imp_res_tac type_d_canon_tenv_ok >>
   qpat_x_assum`_ _ _ _ _ tenv'` mp_tac>>
   simp[Once type_d_canon_cases]>>rw[]
   >- ( (* Let poly *)
@@ -605,13 +605,11 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           metis_tac[infer_e_next_uvar_mono,infer_p_next_uvar_mono])>>
       fs[env_rel_def]>>rw[]
       >-
-        (imp_res_tac infer_d_check >>
-        pop_assum kall_tac>>
-        pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d","st1"]))))>>
-        disch_then(qspecl_then[`Dlet l p e`,`st1`] assume_tac)>>
-        fs[infer_d_def,success_eqns,init_state_def])
-      >-
-        cheat (* tenv_ok_helper *)
+         (imp_res_tac infer_d_check >>
+         pop_assum kall_tac>>
+         pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d","st1"]))))>>
+         disch_then(qspecl_then[`Dlet l p e`,`st1`] assume_tac)>>
+         fs[infer_d_def,success_eqns,init_state_def])
       >-
         (fs[namespaceTheory.alist_to_ns_def]>>
         Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
@@ -882,8 +880,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       rw [] >>
       irule env_rel_tenv_to_ienv >>
       unabbrev_all_tac >>
-      rw [typeSoundInvariantsTheory.tenv_ok_def] >>
-      (* tenv_ok_helper *) cheat
+      rw [typeSoundInvariantsTheory.tenv_ok_def]
       )
     >- (
       imp_res_tac infer_e_next_id_const>>
@@ -942,16 +939,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       \\ asm_exists_tac \\ simp[]
       \\ goal_assum(first_assum o mp_then Any mp_tac)
       \\ simp[success_eqns] )
-    \\ conj_tac
-    >- (
-      simp[typeSoundInvariantsTheory.tenv_ok_def,
-           typeSoundInvariantsTheory.tenv_val_ok_def]
-      \\ match_mp_tac nsAll_alist_to_ns
-      \\ simp[tenv_add_tvs_def,EVERY_MAP,UNCURRY]
-      \\ simp[EVERY_MEM, MEM_EL, PULL_EXISTS]
-      \\ qx_gen_tac`n` \\ strip_tac
-      \\ drule ALOOKUP_ALL_DISTINCT_EL \\ rw[]
-      \\ res_tac \\ fs[] )
     \\ conj_tac >-
       (fs[namespaceTheory.alist_to_ns_def]>>
       Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
@@ -1174,8 +1161,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           fs [env_rel_def, env_rel_complete_def]) >>
       rw [] >>
       irule env_rel_tenv_to_ienv >>
-      cheat (* needs tenv_ok_helper for type_d_canon *)
-      )>>
+      fs[env_rel_def])>>
     fs[env_rel_def,env_rel_sound_def])
   >- ( (* Dtabbrev *)
     rw [infer_d_def,success_eqns]
@@ -1188,7 +1174,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           fs [env_rel_def, env_rel_complete_def]) >>
       rw [] >>
       irule env_rel_tenv_to_ienv >>
-      cheat (* needs tenv_ok_helper for type_d_canon *)
+      fs[env_rel_def]
       )
     >- fs [env_rel_def, env_rel_sound_def])
   >- ( (* Dexn *)
@@ -1203,7 +1189,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           metis_tac []) >>
       rw [] >>
       irule env_rel_tenv_to_ienv >>
-      cheat (* needs tenv_ok_helper for type_d_canon *)
+      fs[env_rel_def]
       )
     >- fs [env_rel_def, env_rel_sound_def])
   >- ( (* Dmod*)
