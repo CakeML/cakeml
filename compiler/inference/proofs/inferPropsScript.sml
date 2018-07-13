@@ -3218,6 +3218,27 @@ val infer_p_inf_set_tids = Q.store_thm("infer_p_inf_set_tids",`
     \\ res_tac
     \\ fs[inf_set_tids_unconvert]);
 
+val constrain_op_set_tids = Q.store_thm("constrain_op_set_tids",
+  `constrain_op l op ts st = (Success t, st') ∧
+   EVERY (inf_set_tids_subset tids) ts ∧
+   inf_set_tids_subst tids st.subst ∧
+   t_wfs st.subst ∧ prim_tids T tids
+   ⇒
+   inf_set_tids_subset tids t ∧ inf_set_tids_subst tids st'.subst`,
+  simp[constrain_op_success,success_eqns]
+  \\ strip_tac \\ rveq
+  \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
+  \\ rpt(conj_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]))
+  \\ TRY(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]\\NO_TAC)
+  \\ imp_res_tac t_unify_wfs
+  \\ rpt(t_unify_set_tids |> CONJUNCT1 |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO]
+         |> first_x_assum o mp_then(Pat`t_unify`)mp_tac)
+  \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
+  \\ rpt (
+    (impl_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])
+                  \\fs[prim_tids_def,prim_type_nums_def]))
+    \\ strip_tac \\ fs[]));
+
 val hide_def = Define`hide x = x`;
 
 val infer_e_inf_set_tids = Q.store_thm("infer_e_inf_set_tids",`
@@ -3316,7 +3337,9 @@ val infer_e_inf_set_tids = Q.store_thm("infer_e_inf_set_tids",`
     \\ fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_COUNT_LIST,
           inf_set_tids_def,inf_set_tids_unconvert]
     \\ metis_tac[])
-  >- ( cheat (* constrain_op *) )
+  >- (
+    drule constrain_op_set_tids
+    \\ simp[inf_set_tids_subset_def] )
   >- (
     irule (CONJUNCT1 t_unify_set_tids)
     \\ rw[inf_set_tids_subset_def]
