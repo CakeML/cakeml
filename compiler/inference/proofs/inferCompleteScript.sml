@@ -883,8 +883,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       irule env_rel_tenv_to_ienv >>
       unabbrev_all_tac >>
       rw [typeSoundInvariantsTheory.tenv_ok_def] >>
-      (* tenv_ok_helper *)
-      cheat
+      (* tenv_ok_helper *) cheat
       )
     >- (
       imp_res_tac infer_e_next_id_const>>
@@ -956,6 +955,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     \\ conj_tac >-
       (fs[namespaceTheory.alist_to_ns_def]>>
       Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
+    \\ imp_res_tac infer_e_next_id_const \\ fs[init_infer_state_def]
     \\ conj_tac >-
       (* Soundness direction:
          Because the type system chooses a MGU (assumption 4),
@@ -1044,11 +1044,11 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         fs[sub_completion_def]>>
         fs[SUBSET_DEF])>>
       metis_tac[check_t_to_check_freevars,check_t_empty_unconvert_convert_id])
-    \\ cheat
-    (*
     \\ (
       simp[env_rel_complete_def,lookup_var_def,PULL_EXISTS]>>
-      fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP,convert_env_def,MAP2_MAP,LENGTH_COUNT_LIST]>>
+      fs[nsLookup_alist_to_ns_some,tenv_add_tvs_def,ALOOKUP_MAP,
+         convert_env_def,MAP2_MAP,LENGTH_COUNT_LIST,PULL_EXISTS]>>
+      ntac 3 strip_tac >>
       imp_res_tac ALOOKUP_MEM>>
       fs[MEM_EL]>>
       pop_assum (assume_tac o SYM)>>
@@ -1072,17 +1072,12 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         >>
           simp[LENGTH_COUNT_LIST]>>metis_tac[LENGTH_MAP])>>
       simp[ALOOKUP_ALL_DISTINCT_EL]>>
-      fs[Abbr`lss`,EL_ZIP,EL_MAP,LENGTH_COUNT_LIST]>>
+      fs[Abbr`lss`,EL_ZIP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+      pairarg_tac \\ fs[] \\
       rw[]
-      >-
-        (fs[EVERY_EL]>>
-        first_x_assum(qspec_then`n` kall_tac)>>
-        first_x_assum(qspec_then`n` assume_tac)>>
-        rfs[]>>
-        metis_tac[check_t_to_check_freevars])
+      \\ res_tac \\ fs[]
+      \\ asm_exists_tac \\ fs[]
       >>
-        simp[EL_COUNT_LIST]>>
-        pairarg_tac>>fs[]>>
         `check_t num_gen {} (t_walkstar last_sub (Infer_Tuvar n))` by
           (fs[sub_completion_def]>>
           imp_res_tac infer_e_next_uvar_mono>>fs[SUBSET_DEF])>>
@@ -1137,12 +1132,12 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           metis_tac[check_t_to_check_freevars])>>
         imp_res_tac deBruijn_subst_convert>>
         pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
-        `t = convert_t (t_walkstar s (Infer_Tuvar n))` by
+        `Tapp [t1; t2] Tfn_num = convert_t (t_walkstar s (Infer_Tuvar n))` by
           (qpat_x_assum`MAP SND A = B` mp_tac>>
           simp[Once LIST_EQ_REWRITE]>>
           rw[]>>
           pop_assum (qspec_then`n` assume_tac)>>rfs[EL_MAP]>>
-          AP_TERM_TAC>>
+          AP_TERM_TAC >>
           `pure_add_constraints st.subst ((ZIP(uvars,funs_ts))++constr) s` by
             metis_tac[pure_add_constraints_append,pure_add_constraints_success]>>
           imp_res_tac pure_add_constraints_apply>>
@@ -1167,7 +1162,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         >>
         rw[]>>
         metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
-        *)
     )
   >- ( (* Dtype *)
     rw [infer_d_def, success_eqns,n_fresh_id_def]
