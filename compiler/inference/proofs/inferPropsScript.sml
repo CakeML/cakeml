@@ -2937,25 +2937,57 @@ val prim_tids_def = Define`
   prim_tids contain tids ⇔
     EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
 
-val t_unify_set_tids = Q.prove(`
-  (∀s t1 t2. t_wfs s ==>
-  ∀s'.
-  inf_set_tids_subst tids s ∧
-  inf_set_tids_subset tids t1 ∧
-  inf_set_tids_subset tids t2 ∧
-  t_unify s t1 t2 = SOME s' ⇒
-  inf_set_tids_subst tids s') ∧
-  (∀s ts1 ts2. t_wfs s ==>
-  ∀s'.
-  inf_set_tids_subst tids s ∧
-  EVERY (inf_set_tids_subset tids) ts1 ∧
-  EVERY (inf_set_tids_subset tids) ts2 ∧
-  ts_unify s ts1 ts2 = SOME s' ⇒
-  inf_set_tids_subst tids s')`,
+val t_vwalk_set_tids = Q.store_thm("t_vwalk_set_tids",
+  `∀s.  t_wfs s ⇒
+   ∀v. inf_set_tids_subst tids s
+   ⇒
+   inf_set_tids (t_vwalk s v) ⊆ tids`,
+  ntac 2 strip_tac
+  \\ recInduct(t_vwalk_ind)
+  \\ rw[] \\ fs[]
+  \\ rw[Once t_vwalk_eqn]
+  \\ CASE_TAC \\ fs[inf_set_tids_def]
+  \\ CASE_TAC \\ fs[inf_set_tids_def]
+  \\ fs[inf_set_tids_subst_def, FRANGE_FLOOKUP, PULL_EXISTS, inf_set_tids_subset_def]
+  \\ res_tac \\ fs[inf_set_tids_def]);
+
+val t_walk_set_tids = Q.store_thm("t_walk_set_tids",
+  `∀s t t'.
+   t_wfs s ∧
+   inf_set_tids_subst tids s ∧
+   inf_set_tids_subset tids t ∧
+   t_walk s t = t' ⇒
+   inf_set_tids_subset tids t'`,
+  Cases_on`t`
+  \\ rw[t_walk_eqn]
+  \\ fs[inf_set_tids_subset_def]
+  \\ metis_tac[t_vwalk_set_tids]);
+
+val t_unify_set_tids = Q.store_thm("t_unify_set_tids",`
+   (∀s t1 t2. t_wfs s ==>
+   ∀s'.
+   inf_set_tids_subst tids s ∧
+   inf_set_tids_subset tids t1 ∧
+   inf_set_tids_subset tids t2 ∧
+   t_unify s t1 t2 = SOME s' ⇒
+   inf_set_tids_subst tids s') ∧
+   (∀s ts1 ts2. t_wfs s ==>
+   ∀s'.
+   inf_set_tids_subst tids s ∧
+   EVERY (inf_set_tids_subset tids) ts1 ∧
+   EVERY (inf_set_tids_subset tids) ts2 ∧
+   ts_unify s ts1 ts2 = SOME s' ⇒
+   inf_set_tids_subst tids s')`,
   ho_match_mp_tac t_unify_strongind>>
   rw[t_unify_eqn]>>
   every_case_tac>>fs[t_ext_s_check_eqn]>>rw[]>>
-  cheat);
+  TRY (
+    Cases_on`ts1` \\ Cases_on`ts2` \\ fs[ts_unify_def, CaseEq"option"] \\ NO_TAC )
+  \\ imp_res_tac t_walk_set_tids >>
+  rfs[inf_set_tids_subst_def, FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_UPDATE]
+  \\ rw[] \\ res_tac
+  \\ fs[inf_set_tids_subset_def, inf_set_tids_def, SUBSET_DEF, PULL_EXISTS, MEM_MAP, EVERY_MEM]
+  \\ metis_tac[]);
 
 (* needs t_wfs *)
 val infer_p_inf_set_tids = Q.store_thm("infer_p_inf_set_tids",`
