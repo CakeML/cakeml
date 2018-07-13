@@ -3014,6 +3014,15 @@ val inf_set_tids_infer_type_subst_SUBSET = Q.store_thm("inf_set_tids_infer_type_
   \\ imp_res_tac ALOOKUP_MEM
   \\ metis_tac[SND]);
 
+val inf_set_tids_infer_deBruijn_subst_SUBSET = Q.store_thm("inf_set_tids_infer_deBruijn_subst_SUBSET",
+  `∀subst t.
+   inf_set_tids (infer_deBruijn_subst subst t) ⊆
+   inf_set_tids t ∪ BIGUNION (IMAGE inf_set_tids (set subst))`,
+  recInduct infer_deBruijn_subst_ind
+  \\ rw[infer_deBruijn_subst_def, inf_set_tids_def,
+        SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  \\ metis_tac[MEM_EL]);
+
 val inf_set_tids_unconvert = Q.store_thm("inf_set_tids_unconvert",
   `∀t. inf_set_tids (unconvert_t t) = set_tids t`,
   recInduct set_tids_ind
@@ -3208,5 +3217,195 @@ val infer_p_inf_set_tids = Q.store_thm("infer_p_inf_set_tids",`
     \\ pairarg_tac \\ fs[]
     \\ res_tac
     \\ fs[inf_set_tids_unconvert]);
+
+val hide_def = Define`hide x = x`;
+
+val infer_e_inf_set_tids = Q.store_thm("infer_e_inf_set_tids",`
+  (!l cenv p st t st'.
+    (infer_e l cenv p st = (Success t, st'))
+    ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
+    ∧ t_wfs st.subst
+    ⇒
+    inf_set_tids_subset tids t ∧
+    inf_set_tids_subst tids st'.subst) ∧
+  (!l cenv ps st ts st'.
+    (infer_es l cenv ps st = (Success ts, st'))
+    ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
+    ∧ t_wfs st.subst
+    ⇒
+    EVERY (inf_set_tids_subset tids) ts ∧
+    inf_set_tids_subst tids st'.subst) ∧
+  (!l cenv ps t1 t2 st st'.
+    (infer_pes l cenv ps t1 t2 st = (Success (), st'))
+    ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
+    ∧ inf_set_tids_subset tids t1
+    ∧ inf_set_tids_subset tids t2
+    ∧ t_wfs st.subst
+    ⇒
+    inf_set_tids_subst tids st'.subst) ∧
+  (!l cenv funs st ts st'.
+    (infer_funs l cenv funs st = (Success ts, st'))
+    ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
+    ∧ t_wfs st.subst
+    ⇒
+    EVERY (inf_set_tids_subset tids) ts ∧
+    inf_set_tids_subst tids st'.subst)`,
+  Q.ISPEC_THEN`EVERY _ _ ∧ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def)
+  \\ Q.ISPEC_THEN`inf_set_tids_subset _ _ ∧ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def)
+  \\ ho_match_mp_tac infer_e_ind >>
+  rw [pat_bindings_def, infer_e_def, success_eqns, remove_pair_lem] >>
+  fs[inf_set_tids_subset_def,inf_set_tids_def]>>
+  TRY(fs[prim_tids_def,prim_type_nums_def,hide_def]>> NO_TAC)>>
+  rpt(first_x_assum drule) >> rw[] >>
+  fs[hide_def] >>
+  imp_res_tac infer_e_wfs
+  \\ rpt(qpat_x_assum`∀x. _`kall_tac)
+  \\ imp_res_tac t_unify_wfs
+  \\ rpt(qpat_x_assum`∀x. _`kall_tac)
+  \\ fs[GSYM CONJ_ASSOC]
+  \\ rfs[] \\ fs[]
+  \\ TRY(
+    irule (CONJUNCT1 t_unify_set_tids)
+    \\ rw[inf_set_tids_subset_def]
+    \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
+    \\ simp[]
+    \\ simp[inf_set_tids_def]
+    \\ TRY(fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC))
+  \\ rpt(conj_tac >- (fs[prim_tids_def,prim_type_nums_def]))
+  \\ TRY(fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC)
+  \\ TRY (
+    match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``infer_deBruijn_subst`` inf_set_tids_infer_deBruijn_subst_SUBSET assume_tac
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[inf_set_tids_ienv_def]
+    \\ imp_res_tac nsLookup_nsAll
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[inf_set_tids_subset_def]
+    \\ fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_COUNT_LIST,inf_set_tids_def]
+    \\ NO_TAC)
+  \\ TRY (
+    rfs[inf_set_tids_ienv_def]
+    \\ first_x_assum match_mp_tac
+    \\ match_mp_tac nsAll_nsBind
+    \\ fs[inf_set_tids_subset_def,inf_set_tids_def]
+    \\ NO_TAC)
+  \\ TRY (
+    fs[EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,
+       AND_IMP_INTRO,CONJ_COMM,inf_set_tids_subset_def]
+    \\ NO_TAC)
+  >- (
+    first_assum (mp_then (Pat`pure_add_constraints`)mp_tac pure_add_constraints_set_tids)
+    \\ simp[MAP_ZIP,LENGTH_COUNT_LIST,MAP_MAP_o,o_DEF,inf_set_tids_def]
+    \\ rfs[inf_set_tids_ienv_def]
+    \\ imp_res_tac nsLookup_nsAll
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ simp[SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+    \\ disch_then match_mp_tac
+    \\ simp[EVERY_MAP]
+    \\ fs[EVERY_MEM]
+    \\ rw[]
+    \\ fs[inf_set_tids_subset_def]
+    \\ match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``infer_type_subst`` inf_set_tids_infer_type_subst_SUBSET assume_tac
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[MAP_ZIP,LENGTH_COUNT_LIST]
+    \\ fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_COUNT_LIST,
+          inf_set_tids_def,inf_set_tids_unconvert]
+    \\ metis_tac[])
+  >- ( cheat (* constrain_op *) )
+  >- (
+    irule (CONJUNCT1 t_unify_set_tids)
+    \\ rw[inf_set_tids_subset_def]
+    \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
+    \\ simp[]
+    \\ simp[inf_set_tids_def]
+    \\ conj_tac >- (fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC)
+    \\ irule (CONJUNCT1 t_unify_set_tids)
+    \\ rw[inf_set_tids_subset_def]
+    \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
+    \\ simp[]
+    \\ simp[inf_set_tids_def]
+    \\ fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC )
+  >- (
+    rpt(t_unify_set_tids |> CONJUNCT1 |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO]
+        |> first_x_assum o mp_then(Pat`t_unify`)mp_tac)
+    \\ simp[inf_set_tids_subset_def,inf_set_tids_def]
+    \\ impl_tac >- fs[prim_tids_def,prim_type_nums_def]
+    \\ strip_tac \\ fs[] )
+  >- ( fs[inf_set_tids_def] )
+  >- (
+    first_x_assum match_mp_tac
+    \\ fs[inf_set_tids_ienv_def]
+    \\ match_mp_tac nsAll_nsOptBind
+    \\ fs[]
+    \\ Cases_on`x` \\ fs[]
+    \\ fs[inf_set_tids_subset_def] )
+  >- (
+    first_x_assum match_mp_tac
+    \\ imp_res_tac pure_add_constraints_wfs \\ fs[]
+    \\ conj_asm1_tac
+    >- (
+      fs[inf_set_tids_ienv_def]
+      \\ match_mp_tac nsAll_nsAppend
+      \\ fs[]
+      \\ match_mp_tac nsAll_alist_to_ns
+      \\ fs[EVERY_MAP,MAP2_MAP,MAP_MAP_o,LENGTH_COUNT_LIST,
+            inf_set_tids_subset_def,UNCURRY]
+      \\ fs[EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS,inf_set_tids_def] )
+    \\ fs[]
+    \\ irule pure_add_constraints_set_tids
+    \\ goal_assum(first_assum o mp_then (Pat`pure_add_constraints`) mp_tac)
+    \\ simp[MAP_ZIP,LENGTH_COUNT_LIST]
+    \\ simp[EVERY_MAP,inf_set_tids_subset_def,inf_set_tids_def] )
+  >- (
+    match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``infer_type_subst`` inf_set_tids_infer_type_subst_SUBSET assume_tac
+    \\ asm_exists_tac
+    \\ rw[]
+    \\ fs[inf_set_tids_ienv_def]
+    \\ simp[GSYM set_tids_subset_def]
+    \\ match_mp_tac set_tids_subset_type_name_subst
+    \\ fs[inf_set_tids_unconvert,inf_set_tids_subset_def,set_tids_subset_def] )
+  >- (
+    first_x_assum match_mp_tac >>
+    rpt(t_unify_set_tids |> CONJUNCT1 |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO]
+        |> first_x_assum o mp_then(Pat`t_unify`)mp_tac)
+    \\ simp[inf_set_tids_subset_def,inf_set_tids_def]
+    \\ rename1`infer_p _ _ _ _ = (Success pp,_)`
+    \\ Cases_on`pp`
+    \\ imp_res_tac infer_p_wfs
+    \\ fs[]
+    \\ rpt strip_tac
+    \\ first_x_assum irule
+    \\ first_x_assum irule
+    \\ conj_tac
+    >- (
+      fs[inf_set_tids_ienv_def]
+      \\ match_mp_tac nsAll_nsAppend
+      \\ fs[]
+      \\ match_mp_tac nsAll_alist_to_ns
+      \\ fs[inf_set_tids_subset_def,EVERY_MAP,UNCURRY]
+      \\ imp_res_tac infer_p_inf_set_tids
+      \\ rfs[o_DEF,inf_set_tids_subset_def,inf_set_tids_ienv_def] )
+    \\ first_x_assum irule
+    \\ imp_res_tac infer_p_inf_set_tids
+    \\ rfs[inf_set_tids_subset_def] )
+  >- (
+    conj_tac >- (
+      fsrw_tac[DNF_ss][]
+      \\ first_x_assum match_mp_tac
+      \\ fs[inf_set_tids_ienv_def]
+      \\ match_mp_tac nsAll_nsBind
+      \\  fs[inf_set_tids_subset_def, inf_set_tids_def] )
+    \\ first_x_assum irule
+    \\ fsrw_tac[DNF_ss][]
+    \\ first_x_assum match_mp_tac
+    \\ fs[inf_set_tids_ienv_def]
+    \\ match_mp_tac nsAll_nsBind
+    \\ fs[inf_set_tids_subset_def, inf_set_tids_def] ))
 
 val _ = export_theory ();
