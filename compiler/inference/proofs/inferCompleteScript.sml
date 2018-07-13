@@ -545,7 +545,8 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
   `(!d n tenv ids tenv' ienv st1.
     type_d_canon n tenv d ids tenv' ∧
     env_rel tenv ienv ∧
-    st1.next_id = n
+    inf_set_tids_ienv (count n) ienv ∧
+    st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
       env_rel tenv' ienv' ∧
@@ -554,7 +555,8 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
    (!ds n tenv ids tenv' ienv st1.
     type_ds_canon n tenv ds ids tenv' ∧
     env_rel tenv ienv ∧
-    st1.next_id = n
+    inf_set_tids_ienv (count n) ienv ∧
+    st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
       env_rel tenv' ienv' ∧
@@ -664,8 +666,17 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           fs[init_infer_state_def,t_wfs_def])>>
         pop_assum SUBST_ALL_TAC>>
         first_x_assum drule>> simp[]>>
-        impl_tac >-
-          cheat>> (* infer_p bindings are within range? *)
+        impl_tac >- (
+          drule (GEN_ALL (CONJUNCT1 infer_p_inf_set_tids))
+          \\ drule (CONJUNCT1 infer_e_wfs)
+          \\ simp[] \\ strip_tac
+          \\ simp[convert_env_def, EVERY_MAP, UNCURRY]
+          \\ qmatch_goalsub_abbrev_tac`set_tids_subset tids`
+          \\ disch_then(qspec_then`tids`mp_tac)
+          \\ impl_tac >- cheat
+          \\ fs[EVERY_MEM]
+          \\ cheat (* strengthen generalise_complete *)
+        ) >>
         fs[LIST_REL_EL_EQN]>>
         strip_tac>>
         pop_assum (qspec_then`n` assume_tac)>>
@@ -1010,7 +1021,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       >- (
         fs[EVERY_MAP,MAP2_MAP,UNCURRY,set_tids_subset_def]
         \\ simp[EVERY_MEM,MEM_ZIP,FORALL_PROD,PULL_EXISTS]
-        \\ cheat (* infer_funs created tids *) )
+        \\ cheat (* infer_e_inf_set_tids, generalise_complete *) )
       \\ strip_tac
       \\ pop_assum (qspec_then`n` assume_tac)>>
       rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
@@ -1210,7 +1221,9 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     drule env_rel_extend>>
     last_x_assum assume_tac>>
     disch_then drule>> strip_tac>>
-    disch_then drule>> rw[]>>
+    disch_then drule>> simp[]
+    \\ impl_tac >- cheat (* need to strengthen induction? *)
+    \\ rw[] >>
     fs[]>>
     metis_tac[env_rel_extend]);
 
