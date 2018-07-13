@@ -237,48 +237,6 @@ val type_pe_determ_tenv_equiv = Q.store_thm("type_pe_determ_tenv_equiv",
 
 (* -- *)
 
-(* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
-  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
-
-val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
-
-val remap_tenv_def = Define`
-  remap_tenv f tenv =
-  <|
-    t := nsMap (λ(ls,t). (ls, ts_tid_rename f t)) tenv.t;
-    c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
-    v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
-   |>`
-
-(* All type ids in a type belonging to a set *)
-val set_tids_def = tDefine "set_tids"`
-  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
-  (set_tids _ = {})`
-  (WF_REL_TAC `measure t_size` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac)
-
-val set_tids_ts_tid_rename = Q.store_thm("set_tids_ts_tid_rename",
-  `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`,
-  recInduct ts_tid_rename_ind
-  \\ rw[ts_tid_rename_def, set_tids_def]
-  \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
-  \\ metis_tac[IN_IMAGE]);
-
-val set_tids_subset_def = Define`
-  set_tids_subset tids t <=> set_tids t ⊆ tids`
-
 (* all the tids used in a tenv *)
 val set_tids_tenv_def = Define`
   set_tids_tenv tids tenv ⇔
@@ -460,72 +418,6 @@ val extend_bij_def = Define`
     v`
 *)
 
-val set_tids_subset_type_subst = Q.prove(`
-  ∀s t tids.
-  FEVERY (set_tids_subset tids o SND) s ∧
-  set_tids_subset tids t ⇒
-  set_tids_subset tids (type_subst s t)`,
-  ho_match_mp_tac type_subst_ind>>
-  rw[type_subst_def,set_tids_def]
-  >- (
-    TOP_CASE_TAC>>
-    fs[set_tids_def]>>
-    drule (GEN_ALL FEVERY_FLOOKUP)>>fs[]>>
-    metis_tac[])
-  >- (
-    fs[set_tids_subset_def,set_tids_def]>>
-    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>rw[]>>
-    last_x_assum drule>>
-    disch_then drule>>
-    disch_then match_mp_tac>>
-    metis_tac[]));
-
-val MEM_ZIP2 = Q.prove(`
-  ∀l1 l2 x.
-  MEM x (ZIP (l1,l2)) ⇒
-  ∃n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ x = (EL n l1,EL n l2)`,
-  Induct>>fs[ZIP_def]>>
-  Cases_on`l2`>>fs[ZIP_def]>>
-  rw[]
-  >-
-    (qexists_tac`0n`>>fs[])
-  >>
-    first_x_assum drule>>
-    rw[]>>
-    qexists_tac`SUC n`>>fs[]);
-
-val set_tids_subset_type_name_subst = Q.prove(`
-  ∀tenvt t tids.
-  prim_tids T tids ∧
-  nsAll (λi (ls,t). set_tids_subset tids t) tenvt ==>
-  set_tids_subset tids (type_name_subst tenvt t)`,
-  ho_match_mp_tac type_name_subst_ind>>
-  rw[set_tids_def,type_name_subst_def,set_tids_subset_def]
-  >- fs[prim_tids_def,prim_type_nums_def]
-  >- (
-     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
-     metis_tac[])
-  >- fs[prim_tids_def,prim_type_nums_def]
-  >>
-    TOP_CASE_TAC>>fs[set_tids_def,EVERY_MAP,EVERY_MEM]
-    >- (
-      CONJ_TAC>- fs[prim_tids_def,prim_type_nums_def]>>
-      fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
-      metis_tac[])
-    >>
-      TOP_CASE_TAC>>fs[GSYM set_tids_subset_def]>>
-      match_mp_tac set_tids_subset_type_subst>>
-      CONJ_TAC
-      >- (
-        match_mp_tac FEVERY_alist_to_fmap>>fs[EVERY_MEM,MEM_ZIP]>>
-        rw[]>>
-        imp_res_tac MEM_ZIP2>>
-        fs[EL_MAP]>>
-        metis_tac[MEM_EL])
-      >>
-        drule nsLookup_nsAll >> disch_then drule>>
-        simp[]);
-
 val extend_bij_id = Q.store_thm("extend_bij_id[simp]",`
   (extend_bij f f s 0 = f) ∧
   (extend_bij f g {} n = f)`,
@@ -619,8 +511,6 @@ val BIJ_extend_bij = Q.store_thm("BIJ_extend_bij",`
   \\ rw[]
   \\ rpt (first_x_assum drule)>>fs[]);
 *)
-
-val set_tids_ind = fetch "-" "set_tids_ind";
 
 val set_tids_subset_mono = Q.store_thm("set_tids_subset_mono",
   `∀tids t tids'.
