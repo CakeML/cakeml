@@ -3633,4 +3633,26 @@ val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
       first_x_assum drule>>fs[]>>
       disch_then drule>>fs[]));
 
+val infer_d_wfs = Q.store_thm("infer_d_wfs",
+  `(∀d ienv st ienv' st'.
+     infer_d ienv d st = (Success ienv', st') ∧
+     t_wfs st.subst
+     ⇒
+     t_wfs st'.subst) ∧
+  (∀ds ienv st ienv' st'.
+     infer_ds ienv ds st = (Success ienv', st') ∧
+     t_wfs st.subst
+     ⇒
+     t_wfs st'.subst)`,
+  Induct
+  \\ rw[infer_d_def, success_eqns, init_state_def]
+  \\ rpt(pairarg_tac \\ fs[success_eqns])
+  \\ rw[]
+  \\ imp_res_tac infer_e_wfs \\ fs[]
+  \\ imp_res_tac infer_p_wfs \\ fs[]
+  \\ imp_res_tac t_unify_wfs \\ fs[]
+  \\ imp_res_tac pure_add_constraints_wfs
+  \\ fs[n_fresh_id_def] \\ rw[]
+  \\ metis_tac[]);
+
 val _ = export_theory ();
