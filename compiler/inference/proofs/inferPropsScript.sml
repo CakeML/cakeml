@@ -2041,6 +2041,163 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 rw []);
 
+(* Rename (type_system) type identifiers with a function *)
+val ts_tid_rename_def = tDefine"ts_tid_rename"`
+  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
+  (ts_tid_rename f t = t)`
+  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac);
+
+val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
+
+(* All type ids in a type belonging to a set *)
+val set_tids_def = tDefine "set_tids"`
+  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
+  (set_tids _ = {})`
+  (WF_REL_TAC `measure t_size` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac)
+
+val set_tids_ind = theorem"set_tids_ind";
+
+val set_tids_ts_tid_rename = Q.store_thm("set_tids_ts_tid_rename",
+  `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`,
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, set_tids_def]
+  \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
+  \\ metis_tac[IN_IMAGE]);
+
+val set_tids_subset_def = Define`
+  set_tids_subset tids t <=> set_tids t ⊆ tids`
+
+val set_tids_subset_type_subst = Q.store_thm("set_tids_subset_type_subst",`
+  ∀s t tids.
+  FEVERY (set_tids_subset tids o SND) s ∧
+  set_tids_subset tids t ⇒
+  set_tids_subset tids (type_subst s t)`,
+  ho_match_mp_tac type_subst_ind>>
+  rw[type_subst_def,set_tids_def]
+  >- (
+    TOP_CASE_TAC>>
+    fs[set_tids_def]>>
+    drule (GEN_ALL FEVERY_FLOOKUP)>>fs[]>>
+    metis_tac[])
+  >- (
+    fs[set_tids_subset_def,set_tids_def]>>
+    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>rw[]>>
+    last_x_assum drule>>
+    disch_then drule>>
+    disch_then match_mp_tac>>
+    metis_tac[]));
+
+val unconvert_t_def = tDefine "unconvert_t" `
+(unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
+(unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc) ∧
+(unconvert_t (Tvar v) = Infer_Tuvar ARB)
+`
+(wf_rel_tac `measure t_size` >>
+ rw [] >>
+ induct_on `ts` >>
+ rw [t_size_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) []);
+
+val unconvert_t_ind = theorem"unconvert_t_ind"
+
+(* Properties about inferencer type identifiers *)
+val inf_set_tids_def = tDefine "inf_set_tids"`
+  (inf_set_tids (Infer_Tapp ts tn) = tn INSERT (BIGUNION (set (MAP inf_set_tids ts)))) ∧
+  (inf_set_tids _ = {})`
+  (WF_REL_TAC `measure infer_t_size` >>
+  rw [] >>
+  induct_on `ts` >>
+  rw [infer_tTheory.infer_t_size_def] >>
+  res_tac >>
+  decide_tac)
+
+val inf_set_tids_subset_def = Define`
+  inf_set_tids_subset tids t <=> inf_set_tids t ⊆ tids`
+
+val inf_set_tids_infer_type_subst_SUBSET = Q.store_thm("inf_set_tids_infer_type_subst_SUBSET",
+  `∀subst t.
+   inf_set_tids (infer_type_subst subst t) ⊆
+   set_tids t ∪ BIGUNION (IMAGE inf_set_tids (set (MAP SND subst)))`,
+  recInduct infer_type_subst_ind
+  \\ rw[infer_type_subst_def, set_tids_def, inf_set_tids_def,
+        SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  \\ TRY FULL_CASE_TAC \\ fs[inf_set_tids_def]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ metis_tac[SND]);
+
+val inf_set_tids_infer_deBruijn_subst_SUBSET = Q.store_thm("inf_set_tids_infer_deBruijn_subst_SUBSET",
+  `∀subst t.
+   inf_set_tids (infer_deBruijn_subst subst t) ⊆
+   inf_set_tids t ∪ BIGUNION (IMAGE inf_set_tids (set subst))`,
+  recInduct infer_deBruijn_subst_ind
+  \\ rw[infer_deBruijn_subst_def, inf_set_tids_def,
+        SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  \\ metis_tac[MEM_EL]);
+
+val inf_set_tids_unconvert = Q.store_thm("inf_set_tids_unconvert",
+  `∀t. inf_set_tids (unconvert_t t) = set_tids t`,
+  recInduct set_tids_ind
+  \\ rw[unconvert_t_def, inf_set_tids_def, set_tids_def]
+  \\ rw[Once EXTENSION,MEM_MAP,PULL_EXISTS,EQ_IMP_THM]
+  \\ metis_tac[EXTENSION]);
+
+(* all the tids used in a tenv *)
+val inf_set_tids_ienv_def = Define`
+  inf_set_tids_ienv tids (ienv:inf_env) ⇔
+  nsAll (λi (ls,t). inf_set_tids_subset tids (unconvert_t t)) ienv.inf_t ∧
+  nsAll (λi (ls,ts,tid). EVERY (λt. inf_set_tids_subset tids (unconvert_t t)) ts ∧ tid ∈ tids) ienv.inf_c ∧
+  nsAll (λi (n,t). inf_set_tids_subset tids t) ienv.inf_v`
+
+val inf_set_tids_subst_def = Define`
+  inf_set_tids_subst tids subst ⇔
+  !t. t ∈ FRANGE subst ⇒ inf_set_tids_subset tids t`
+
+val prim_tids_def = Define`
+  prim_tids contain tids ⇔
+    EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
+
+val set_tids_subset_type_name_subst = Q.store_thm("set_tids_subset_type_name_subst",`
+  ∀tenvt t tids.
+  prim_tids T tids ∧
+  nsAll (λi (ls,t). set_tids_subset tids t) tenvt ==>
+  set_tids_subset tids (type_name_subst tenvt t)`,
+  ho_match_mp_tac type_name_subst_ind>>
+  rw[set_tids_def,type_name_subst_def,set_tids_subset_def]
+  >- fs[prim_tids_def,prim_type_nums_def]
+  >- (
+     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
+     metis_tac[])
+  >- fs[prim_tids_def,prim_type_nums_def]
+  >>
+    TOP_CASE_TAC>>fs[set_tids_def,EVERY_MAP,EVERY_MEM]
+    >- (
+      CONJ_TAC>- fs[prim_tids_def,prim_type_nums_def]>>
+      fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
+      metis_tac[])
+    >>
+      TOP_CASE_TAC>>fs[GSYM set_tids_subset_def]>>
+      match_mp_tac set_tids_subset_type_subst>>
+      CONJ_TAC
+      >- (
+        match_mp_tac FEVERY_alist_to_fmap>>fs[EVERY_MEM,MEM_ZIP]>>
+        rw[]>>
+        imp_res_tac MEM_ZIP2>>
+        fs[EL_MAP]>>
+        metis_tac[MEM_EL])
+      >>
+        drule nsLookup_nsAll >> disch_then drule>>
+        simp[]);
+
 val generalise_complete = Q.store_thm ("generalise_complete",
 `!n s l tvs s' ts next_uvar.
   generalise_list 0 n FEMPTY (MAP (t_walkstar s) l) = (tvs,s',ts) ∧
@@ -2051,7 +2208,8 @@ val generalise_complete = Q.store_thm ("generalise_complete",
   ?ec1 last_sub.
     (ts = MAP (t_walkstar last_sub) l) ∧
     t_wfs last_sub ∧
-    sub_completion (tvs + n) next_uvar s ec1 last_sub`,
+    sub_completion (tvs + n) next_uvar s ec1 last_sub ∧
+    (TC_unit ∈ tids ∧ inf_set_tids_subst tids s ⇒ inf_set_tids_subst tids last_sub)`,
   rw [] >>
   imp_res_tac generalise_subst_empty >>
   rw [sub_completion_def] >>
@@ -2214,7 +2372,27 @@ val generalise_complete = Q.store_thm ("generalise_complete",
             fs [FLOOKUP_DEF] >>
             metis_tac [check_t_def],
         fs [check_s_def, FLOOKUP_DEF] >>
-            metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]]]);
+            metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]],
+   simp[inf_set_tids_subst_def, IN_FRANGE_FLOOKUP, PULL_EXISTS, flookup_fupdate_list]
+   \\ qpat_x_assum`FEMPTY |++ _ = _`mp_tac
+   \\ simp[FUPDATE_LIST_alist_to_fmap]
+   \\ disch_then(mp_tac o Q.AP_TERM`FLOOKUP`) \\ simp[]
+   \\ simp[FLOOKUP_FUN_FMAP]
+   \\ strip_tac \\ rpt gen_tac
+   \\ IF_CASES_TAC \\ simp[]
+   >- (
+     rw[inf_set_tids_subset_def]
+     \\ rw[inf_set_tids_def] )
+   \\ reverse CASE_TAC
+   >- (
+     rw[]
+     \\ imp_res_tac ALOOKUP_MEM
+     \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+     \\ EVAL_TAC )
+   \\ rw[]
+   \\ qhdtm_x_assum`inf_set_tids_subst`mp_tac
+   \\ simp[inf_set_tids_subst_def,IN_FRANGE_FLOOKUP,PULL_EXISTS]
+   \\ metis_tac[]]);
 
 val init_infer_state_wfs = Q.prove (
   `t_wfs (init_infer_state st).subst ∧
@@ -2917,19 +3095,6 @@ val infer_deBruijn_subst_infer_subst_walkstar = Q.store_thm("infer_deBruijn_subs
   >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
   >> REFL_TAC));
 
-(* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
-  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
-
-val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
-
 val remap_tenv_def = Define`
   remap_tenv f tenv =
   <|
@@ -2937,150 +3102,6 @@ val remap_tenv_def = Define`
     c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
     v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
    |>`
-
-(* All type ids in a type belonging to a set *)
-val set_tids_def = tDefine "set_tids"`
-  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
-  (set_tids _ = {})`
-  (WF_REL_TAC `measure t_size` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac)
-
-val set_tids_ind = theorem"set_tids_ind";
-
-val set_tids_ts_tid_rename = Q.store_thm("set_tids_ts_tid_rename",
-  `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`,
-  recInduct ts_tid_rename_ind
-  \\ rw[ts_tid_rename_def, set_tids_def]
-  \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
-  \\ metis_tac[IN_IMAGE]);
-
-val set_tids_subset_def = Define`
-  set_tids_subset tids t <=> set_tids t ⊆ tids`
-
-val set_tids_subset_type_subst = Q.store_thm("set_tids_subset_type_subst",`
-  ∀s t tids.
-  FEVERY (set_tids_subset tids o SND) s ∧
-  set_tids_subset tids t ⇒
-  set_tids_subset tids (type_subst s t)`,
-  ho_match_mp_tac type_subst_ind>>
-  rw[type_subst_def,set_tids_def]
-  >- (
-    TOP_CASE_TAC>>
-    fs[set_tids_def]>>
-    drule (GEN_ALL FEVERY_FLOOKUP)>>fs[]>>
-    metis_tac[])
-  >- (
-    fs[set_tids_subset_def,set_tids_def]>>
-    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>rw[]>>
-    last_x_assum drule>>
-    disch_then drule>>
-    disch_then match_mp_tac>>
-    metis_tac[]));
-
-(* Properties about inferencer type identifiers *)
-val inf_set_tids_def = tDefine "inf_set_tids"`
-  (inf_set_tids (Infer_Tapp ts tn) = tn INSERT (BIGUNION (set (MAP inf_set_tids ts)))) ∧
-  (inf_set_tids _ = {})`
-  (WF_REL_TAC `measure infer_t_size` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [infer_tTheory.infer_t_size_def] >>
-  res_tac >>
-  decide_tac)
-
-val inf_set_tids_subset_def = Define`
-  inf_set_tids_subset tids t <=> inf_set_tids t ⊆ tids`
-
-val unconvert_t_def = tDefine "unconvert_t" `
-(unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
-(unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc) ∧
-(unconvert_t (Tvar v) = Infer_Tuvar ARB)
-`
-(wf_rel_tac `measure t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [t_size_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
-
-val unconvert_t_ind = theorem"unconvert_t_ind"
-
-val inf_set_tids_infer_type_subst_SUBSET = Q.store_thm("inf_set_tids_infer_type_subst_SUBSET",
-  `∀subst t.
-   inf_set_tids (infer_type_subst subst t) ⊆
-   set_tids t ∪ BIGUNION (IMAGE inf_set_tids (set (MAP SND subst)))`,
-  recInduct infer_type_subst_ind
-  \\ rw[infer_type_subst_def, set_tids_def, inf_set_tids_def,
-        SUBSET_DEF, PULL_EXISTS, MEM_MAP]
-  \\ TRY FULL_CASE_TAC \\ fs[inf_set_tids_def]
-  \\ imp_res_tac ALOOKUP_MEM
-  \\ metis_tac[SND]);
-
-val inf_set_tids_infer_deBruijn_subst_SUBSET = Q.store_thm("inf_set_tids_infer_deBruijn_subst_SUBSET",
-  `∀subst t.
-   inf_set_tids (infer_deBruijn_subst subst t) ⊆
-   inf_set_tids t ∪ BIGUNION (IMAGE inf_set_tids (set subst))`,
-  recInduct infer_deBruijn_subst_ind
-  \\ rw[infer_deBruijn_subst_def, inf_set_tids_def,
-        SUBSET_DEF, PULL_EXISTS, MEM_MAP]
-  \\ metis_tac[MEM_EL]);
-
-val inf_set_tids_unconvert = Q.store_thm("inf_set_tids_unconvert",
-  `∀t. inf_set_tids (unconvert_t t) = set_tids t`,
-  recInduct set_tids_ind
-  \\ rw[unconvert_t_def, inf_set_tids_def, set_tids_def]
-  \\ rw[Once EXTENSION,MEM_MAP,PULL_EXISTS,EQ_IMP_THM]
-  \\ metis_tac[EXTENSION]);
-
-(* all the tids used in a tenv *)
-val inf_set_tids_ienv_def = Define`
-  inf_set_tids_ienv tids (ienv:inf_env) ⇔
-  nsAll (λi (ls,t). inf_set_tids_subset tids (unconvert_t t)) ienv.inf_t ∧
-  nsAll (λi (ls,ts,tid). EVERY (λt. inf_set_tids_subset tids (unconvert_t t)) ts ∧ tid ∈ tids) ienv.inf_c ∧
-  nsAll (λi (n,t). inf_set_tids_subset tids t) ienv.inf_v`
-
-val inf_set_tids_subst_def = Define`
-  inf_set_tids_subst tids subst ⇔
-  !t. t ∈ FRANGE subst ⇒ inf_set_tids_subset tids t`
-
-val prim_tids_def = Define`
-  prim_tids contain tids ⇔
-    EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
-
-val set_tids_subset_type_name_subst = Q.store_thm("set_tids_subset_type_name_subst",`
-  ∀tenvt t tids.
-  prim_tids T tids ∧
-  nsAll (λi (ls,t). set_tids_subset tids t) tenvt ==>
-  set_tids_subset tids (type_name_subst tenvt t)`,
-  ho_match_mp_tac type_name_subst_ind>>
-  rw[set_tids_def,type_name_subst_def,set_tids_subset_def]
-  >- fs[prim_tids_def,prim_type_nums_def]
-  >- (
-     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
-     metis_tac[])
-  >- fs[prim_tids_def,prim_type_nums_def]
-  >>
-    TOP_CASE_TAC>>fs[set_tids_def,EVERY_MAP,EVERY_MEM]
-    >- (
-      CONJ_TAC>- fs[prim_tids_def,prim_type_nums_def]>>
-      fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>
-      metis_tac[])
-    >>
-      TOP_CASE_TAC>>fs[GSYM set_tids_subset_def]>>
-      match_mp_tac set_tids_subset_type_subst>>
-      CONJ_TAC
-      >- (
-        match_mp_tac FEVERY_alist_to_fmap>>fs[EVERY_MEM,MEM_ZIP]>>
-        rw[]>>
-        imp_res_tac MEM_ZIP2>>
-        fs[EL_MAP]>>
-        metis_tac[MEM_EL])
-      >>
-        drule nsLookup_nsAll >> disch_then drule>>
-        simp[]);
 
 val t_vwalk_set_tids = Q.store_thm("t_vwalk_set_tids",
   `∀s.  t_wfs s ⇒

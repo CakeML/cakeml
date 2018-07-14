@@ -185,18 +185,6 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
  fs [t_compat_def] >>
  metis_tac [t_walkstar_no_vars]);
 
-val generalise_complete_lem = Q.prove (
-`∀n s t tvs s' t' tvs next_uvar.
-  t_wfs s ∧ check_s 0 (count next_uvar) s ∧
-  check_t 0 (count next_uvar) t ∧
-  generalise 0 n FEMPTY (t_walkstar s t) = (tvs,s',t') ⇒
-  ∃ec1 last_sub.
-    t' = t_walkstar last_sub t ∧ t_wfs last_sub ∧
-    sub_completion (tvs + n) next_uvar s ec1 last_sub`,
- rw [] >>
- mp_tac (Q.SPECL [`n`, `s`, `[t]`] generalise_complete) >>
- rw [generalise_def, LET_THM]);
-
 val t_vars_check_t = Q.prove(`
   (∀t.
   ¬check_t 0 {} t ∧

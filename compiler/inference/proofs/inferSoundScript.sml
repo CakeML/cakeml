@@ -163,8 +163,9 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
           sub_completion tvs st1'.next_uvar s ec1 last_sub`
      by (
        `tvs = tvs +0 ` by DECIDE_TAC>>pop_assum SUBST1_TAC>>
-       match_mp_tac generalise_complete>>fs[]>>
-       fs [LAMBDA_PROD, EVERY_MAP]) >>
+       drule generalise_complete>>fs[]>>
+       fs[LAMBDA_PROD, EVERY_MAP] >>
+       metis_tac[]) >>
     drule sub_completion_unify2 >>
     disch_then drule >>
     strip_tac >>

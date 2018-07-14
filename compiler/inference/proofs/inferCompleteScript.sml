@@ -349,15 +349,16 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
   tenv_inv FEMPTY ienv.inf_v tenv.v ∧*)
   env_rel_sound FEMPTY ienv tenv Empty ∧
   ienv_ok {} ienv ∧
+  start_type_id ≤ ss.next_id ∧
+  inf_set_tids_ienv (count ss.next_id) ienv ∧
   infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
   infer_p loc ienv p st = (Success (t', new_bindings), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ_canon ss.next_id tenv Empty p e
   ⇒
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings`,
-  cheat);
  (* TODO: move proof to appropriate file where type_pe_determ_canon is visible
-    NOTE: it needs more assumptions on ienv
+    NOTE: it needs more assumptions on ienv *)
  rw [type_pe_determ_canon_def] >>
  `t_wfs (init_infer_state ss).subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
@@ -484,8 +485,40 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
  `convert_t (t_walkstar s1 t') = convert_t (t_walkstar s1 t)` by (
    fs[t_compat_def] >> metis_tac[] ) >>
  simp[]>>
- impl_tac >-
-   cheat>>
+ impl_tac >- (
+   imp_res_tac infer_p_inf_set_tids \\ fs[]
+   \\ fs[convert_env_def,EVERY_MAP, UNCURRY, set_tids_subset_def]
+   \\ simp[EVERY_MEM, GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
+   \\ ntac 2 strip_tac
+   \\ DEP_REWRITE_TAC[GSYM inf_set_tids_unconvert]
+   \\ DEP_REWRITE_TAC[check_t_empty_unconvert_convert_id]
+   \\ conj_tac >- ( cheat (* 37, 30, 32 *) )
+   \\ first_assum(mp_then (Pos last) mp_tac (GEN_ALL (CONJUNCT1 t_unify_set_tids)))
+   \\ simp[]
+   \\ disch_then(qspec_then`count ss.next_id`mp_tac)
+   \\ impl_tac
+   >- (
+     imp_res_tac infer_p_inf_set_tids \\ fs[]
+     \\ imp_res_tac infer_e_inf_set_tids \\ fs[]
+     \\ rw[] \\ first_x_assum irule \\ fs[]
+     \\ fs[start_type_id_prim_tids_count])
+   \\ strip_tac
+   \\ last_x_assum(mp_then (Pos last) mp_tac (GEN_ALL pure_add_constraints_set_tids))
+   \\ last_x_assum(mp_then (Pos last) mp_tac (GEN_ALL pure_add_constraints_set_tids))
+   \\ simp[EVERY_MAP]
+   \\ disch_then(qspec_then`count ss.next_id`mp_tac)
+   \\ impl_tac >- (
+     simp[EVERY_MAP,Abbr`inst2`,inf_set_tids_subset_def,inf_set_tids_def]
+     \\ EVAL_TAC \\ fs[start_type_id_def] )
+   \\ strip_tac
+   \\ disch_then(qspec_then`count ss.next_id`mp_tac)
+   \\ impl_tac >- (
+     simp[EVERY_MAP,Abbr`inst1`,inf_set_tids_subset_def,inf_set_tids_def]
+     \\ EVAL_TAC \\ fs[start_type_id_def] )
+   \\ strip_tac
+   \\ simp[GSYM inf_set_tids_subset_def]
+   \\ conj_tac \\ irule (SIMP_RULE std_ss [] t_walkstar_set_tids)
+   \\ cheat) \\
  fs[convert_env_def]>>
  spose_not_then strip_assume_tac >>
  fs[EXISTS_MEM,EXISTS_PROD] >>
@@ -539,7 +572,6 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
     (fs[EXTENSION,SUBSET_DEF]>>metis_tac[])>>
   fs[]>>rfs[]>>
   metis_tac[check_t_empty_unconvert_convert_id]);
-*)
 
 val infer_d_complete = Q.store_thm ("infer_d_complete",
   `(!d n tenv ids tenv' ienv st1.
@@ -583,8 +615,9 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     CONJ_ASM2_TAC
     >-
       (* the subcompletion of s corresponding to generalise_list *)
-      (drule generalise_complete>>
-      disch_then(qspec_then`st'.next_uvar` mp_tac)>>fs[]>>
+      (drule (GEN_ALL generalise_complete)>>
+      disch_then(qspecl_then[`st'.next_uvar`,`Tbool_num`,`count st'.next_id`]mp_tac o
+                 CONV_RULE(RESORT_FORALL_CONV(List.rev)))>>fs[]>>
       impl_keep_tac>-
         (`t_wfs (init_infer_state st1).subst` by (EVAL_TAC>>fs[t_wfs_def])>>
         imp_res_tac infer_e_wfs>>
@@ -684,8 +717,22 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           \\ simp[set_tids_subset_def]
           \\ simp[GSYM inf_set_tids_unconvert]
           \\ DEP_REWRITE_TAC[check_t_empty_unconvert_convert_id]
-          \\ cheat (* strengthen generalise_complete *)
-        ) >>
+          \\ conj_tac
+          >- (
+            fs[sub_completion_def]
+            (* 26, 29, 30, t_walkstar_check *)
+            \\ cheat )
+          \\ match_mp_tac (SIMP_RULE(srw_ss())[inf_set_tids_subset_def]t_walkstar_set_tids)
+          \\ fs[inf_set_tids_subset_def]
+          \\ first_x_assum match_mp_tac
+          \\ conj_tac >- ( EVAL_TAC \\ fs[start_type_id_def] )
+          \\ irule (CONJUNCT1 t_unify_set_tids)
+          \\ goal_assum(first_assum o mp_then (Pat`t_unify`)mp_tac)
+          \\ `prim_tids T tids` by metis_tac[start_type_id_prim_tids_count]
+          \\ imp_res_tac infer_e_inf_set_tids \\ fs[]
+          \\ imp_res_tac infer_p_inf_set_tids \\ fs[]
+          \\ imp_res_tac infer_e_wfs \\ fs[]
+          \\ imp_res_tac infer_p_wfs \\ fs[]) >>
         fs[LIST_REL_EL_EQN]>>
         strip_tac>>
         pop_assum (qspec_then`n` assume_tac)>>
