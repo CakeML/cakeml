@@ -19,6 +19,11 @@ val MEM_ZIP2 = Q.store_thm("MEM_ZIP2",`
     rw[]>>
     qexists_tac`SUC n`>>fs[]);
 
+val LIST_REL_inv_image_MAP = Q.store_thm("LIST_REL_inv_image_MAP",
+  `LIST_REL (inv_image R f) l1 l2 = LIST_REL R (MAP f l1) (MAP f l2)`,
+  rw[LIST_REL_EL_EQN, EQ_IMP_THM, EL_MAP]
+  \\ metis_tac[EL_MAP]);
+
 val every_zip_split = Q.prove (
   `!l1 l2 P Q.
     LENGTH l1 = LENGTH l2 ⇒
@@ -3103,6 +3108,28 @@ val t_walk_set_tids = Q.store_thm("t_walk_set_tids",
   \\ fs[inf_set_tids_subset_def]
   \\ metis_tac[t_vwalk_set_tids]);
 
+val t_walkstar_set_tids = Q.store_thm("t_walkstar_set_tids",
+  `∀s t t'.
+   t_wfs s ∧
+   inf_set_tids_subst tids s ∧
+   inf_set_tids_subset tids t ∧
+   t_walkstar s t = t' ⇒
+   inf_set_tids_subset tids t'`,
+  gen_tac
+  \\ simp[GSYM AND_IMP_INTRO, GSYM PULL_FORALL]
+  \\ strip_tac
+  \\ simp[AND_IMP_INTRO, PULL_FORALL]
+  \\ recInduct (UNDISCH (SPEC_ALL t_walkstar_ind))
+  \\ rw[]
+  \\ rw[Once t_walkstar_eqn]
+  \\ CASE_TAC \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
+  \\ drule t_walk_set_tids
+  \\ fs[inf_set_tids_subset_def]
+  \\ disch_then drule
+  \\ fs[inf_set_tids_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  \\ metis_tac[]);
+
 val t_unify_set_tids = Q.store_thm("t_unify_set_tids",`
    (∀s t1 t2. t_wfs s ==>
    ∀s'.
@@ -3430,5 +3457,117 @@ val infer_e_inf_set_tids = Q.store_thm("infer_e_inf_set_tids",`
     \\ fs[inf_set_tids_ienv_def]
     \\ match_mp_tac nsAll_nsBind
     \\ fs[inf_set_tids_subset_def, inf_set_tids_def] ))
+
+val generalise_inf_set_tids = Q.store_thm("generalise_inf_set_tids",
+  `(∀d a b c e f g. generalise a b c d = (e,f,g) ⇒
+                    inf_set_tids g = inf_set_tids d) ∧
+   (∀d a b c e f g. generalise_list a b c d = (e,f,g) ⇒
+                    EVERY2 (inv_image $= inf_set_tids) d g)`,
+  Induct
+  \\ rw[generalise_def, inf_set_tids_def]
+  \\ rw[inf_set_tids_def]
+  \\ every_case_tac \\ rw[] \\ fs[inf_set_tids_def]
+  \\ pairarg_tac \\ fs[] \\ rw[inf_set_tids_def]
+  \\ TRY(pairarg_tac \\ fs[]) \\ rw[]
+  \\ res_tac \\ fs[]
+  \\ AP_TERM_TAC
+  \\ fs[LIST_REL_EL_EQN, EXTENSION,MEM_MAP,PULL_EXISTS,MEM_EL]
+  \\ metis_tac[]);
+
+val start_type_id_prim_tids_count = Q.store_thm("start_type_id_prim_tids_count",
+  `start_type_id ≤ n ⇒ prim_tids T(count n)`,
+  rw[prim_tids_def,prim_type_nums_def,start_type_id_def]
+  \\ EVAL_TAC \\ fs[]);
+
+val inf_set_tids_subst_FEMPTY = Q.store_thm("inf_set_tids_subst_FEMPTY[simp]",
+  `inf_set_tids_subst tids FEMPTY`,
+  EVAL_TAC \\ rw[]);
+
+val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
+  `(∀d ienv st ienv' st'.
+     infer_d ienv d st = (Success ienv', st') ∧
+     start_type_id ≤ st.next_id ∧
+     t_wfs st.subst ∧
+     inf_set_tids_subst (count st.next_id) st.subst ∧
+     inf_set_tids_ienv (count st.next_id) ienv
+     ⇒
+     inf_set_tids_ienv (count st'.next_id) ienv') ∧
+  (∀ds ienv st ienv' st'.
+     infer_ds ienv ds st = (Success ienv', st') ∧
+     start_type_id ≤ st.next_id ∧
+     t_wfs st.subst ∧
+     inf_set_tids_subst (count st.next_id) st.subst ∧
+     inf_set_tids_ienv (count st.next_id) ienv
+     ⇒
+     inf_set_tids_ienv (count st'.next_id) ienv')`,
+  Induct
+  \\ rw[infer_d_def, success_eqns]
+  \\ rpt(pairarg_tac \\ fs[success_eqns]) \\ rw[]
+  \\ rpt(first_x_assum drule \\ rw[])
+  \\ imp_res_tac generalise_list_length
+  \\ imp_res_tac start_type_id_prim_tids_count
+  \\ fs[inf_set_tids_ienv_def, ZIP_MAP, MAP_MAP_o, o_DEF]
+  \\ fs[inf_set_tids_subset_def, inf_set_tids_unconvert, LENGTH_COUNT_LIST]
+  \\ fs[GSYM set_tids_subset_def]
+  \\ TRY (
+    match_mp_tac nsAll_alist_to_ns
+    \\ simp[EVERY_MAP,every_zip_snd]
+    \\ imp_res_tac generalise_inf_set_tids
+    \\ fs[LIST_REL_inv_image_MAP, quotient_listTheory.LIST_REL_EQ]
+    \\ simp[GSYM (Q.ISPEC`inf_set_tids`(CONV_RULE SWAP_FORALL_CONV EVERY_MAP))]
+    \\ pop_assum(assume_tac o SYM)
+    \\ simp[]
+    \\ simp[EVERY_MAP]
+    \\ drule(GEN_ALL(CONJUNCT1 infer_p_inf_set_tids))
+    \\ disch_then drule
+    \\ simp[inf_set_tids_ienv_def,inf_set_tids_subset_def,inf_set_tids_unconvert,GSYM set_tids_subset_def]
+    \\ drule(GEN_ALL(CONJUNCT1 infer_e_inf_set_tids))
+    \\ disch_then drule
+    \\ simp[inf_set_tids_ienv_def,inf_set_tids_subset_def,inf_set_tids_unconvert,GSYM set_tids_subset_def]
+    \\ fs[init_state_def] \\ rveq \\ fs[]
+    \\ strip_tac
+    \\ drule(GEN_ALL(CONJUNCT1 infer_e_wfs))
+    \\ fs[] \\ rw[]
+    \\ drule(GEN_ALL(CONJUNCT1 infer_p_wfs))
+    \\ disch_then drule \\ strip_tac
+    \\ drule(GEN_ALL(CONJUNCT1 t_unify_set_tids))
+    \\ disch_then drule
+    \\ fs[inf_set_tids_subset_def]
+    \\ disch_then(first_assum o mp_then (Pat`t_unify`)mp_tac)
+    \\ fs[] \\ strip_tac
+    \\ drule(GEN_ALL(t_unify_wfs))
+    \\ disch_then drule \\ strip_tac
+    \\ drule (GEN_ALL t_walkstar_set_tids)
+    \\ disch_then drule
+    \\ fs[inf_set_tids_subset_def]
+    \\ fs[EVERY_MEM] \\ rw[]
+    \\ res_tac
+    \\ fs[inf_set_tids_subset_def]
+    \\ res_tac
+    \\ imp_res_tac infer_e_next_id_const
+    \\ imp_res_tac infer_p_next_id_const
+    \\ fs[init_infer_state_def] )
+  >- (
+    match_mp_tac nsAll_alist_to_ns
+    \\ simp[MAP2_MAP, UNCURRY, EVERY_MAP]
+    \\ simp[every_zip_snd]
+    \\ imp_res_tac generalise_inf_set_tids
+    \\ fs[LIST_REL_inv_image_MAP, quotient_listTheory.LIST_REL_EQ]
+    \\ simp[GSYM (Q.ISPEC`inf_set_tids`(CONV_RULE SWAP_FORALL_CONV EVERY_MAP))]
+    \\ pop_assum(assume_tac o SYM)
+    \\ simp[]
+    \\ simp[EVERY_MAP]
+    \\ cheat )
+  >- cheat
+  >- (
+    match_mp_tac set_tids_subset_type_name_subst
+    \\ fs[] )
+  >- (
+    fs[EVERY_MAP, set_tids_subset_type_name_subst]
+    \\ fs[start_type_id_def] \\ EVAL_TAC \\ fs[] )
+  >- ( fs[lift_ienv_def] )
+  >- (
+    rfs[]
+    \\ cheat ));
 
 val _ = export_theory ();
