@@ -58,30 +58,6 @@ val check_ctor_tenv_EVERY = Q.store_thm("check_ctor_tenv_EVERY",
   \\ rw[EQ_IMP_THM]
   \\ fs[MEM_MAP,EXISTS_PROD]);
 
-val build_ctor_tenv_FOLDR = Q.store_thm("build_ctor_tenv_FOLDR",
-  `∀tenvT tds ids.
-     LENGTH tds = LENGTH ids ⇒
-     build_ctor_tenv tenvT tds ids =
-       FOLDR (combin$C nsAppend) (alist_to_ns [])
-       (MAP (alist_to_ns o REVERSE)
-          (MAP2 (λ(tvs,tn,ctors) id. (MAP (λ(cn,ts). (cn,tvs,MAP (type_name_subst tenvT) ts,id)) ctors))
-              tds ids))`,
-  recInduct build_ctor_tenv_ind
-  \\ rw[build_ctor_tenv_def]);
-
-val build_ctor_tenv_FOLDL = Q.store_thm("build_ctor_tenv_FOLDL",
-  `∀tenvT tds ids.
-     LENGTH tds = LENGTH ids ⇒
-     build_ctor_tenv tenvT tds ids =
-       FOLDL nsAppend (alist_to_ns [])
-       (REVERSE
-       (MAP (alist_to_ns o REVERSE)
-          (MAP2 (λ(tvs,tn,ctors) id. (MAP (λ(cn,ts). (cn,tvs,MAP (type_name_subst tenvT) ts,id)) ctors))
-              tds ids)))`,
-  simp[FOLDL_FOLDR_REVERSE]
-  \\ recInduct build_ctor_tenv_ind
-  \\ rw[build_ctor_tenv_def]);
-
 val nsMap_FOLDL_nsAppend = Q.store_thm("nsMap_FOLDL_nsAppend",
   `∀ls ns. nsMap f (FOLDL nsAppend ns ls) =
    FOLDL nsAppend (nsMap f ns) (MAP (nsMap f) ls)`,

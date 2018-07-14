@@ -3511,6 +3511,30 @@ val inf_set_tids_subst_FEMPTY = Q.store_thm("inf_set_tids_subst_FEMPTY[simp]",
   `inf_set_tids_subst tids FEMPTY`,
   EVAL_TAC \\ rw[]);
 
+val build_ctor_tenv_FOLDR = Q.store_thm("build_ctor_tenv_FOLDR",
+  `∀tenvT tds ids.
+     LENGTH tds = LENGTH ids ⇒
+     build_ctor_tenv tenvT tds ids =
+       FOLDR (combin$C nsAppend) (alist_to_ns [])
+       (MAP (alist_to_ns o REVERSE)
+          (MAP2 (λ(tvs,tn,ctors) id. (MAP (λ(cn,ts). (cn,tvs,MAP (type_name_subst tenvT) ts,id)) ctors))
+              tds ids))`,
+  recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]);
+
+val build_ctor_tenv_FOLDL = Q.store_thm("build_ctor_tenv_FOLDL",
+  `∀tenvT tds ids.
+     LENGTH tds = LENGTH ids ⇒
+     build_ctor_tenv tenvT tds ids =
+       FOLDL nsAppend (alist_to_ns [])
+       (REVERSE
+       (MAP (alist_to_ns o REVERSE)
+          (MAP2 (λ(tvs,tn,ctors) id. (MAP (λ(cn,ts). (cn,tvs,MAP (type_name_subst tenvT) ts,id)) ctors))
+              tds ids)))`,
+  simp[FOLDL_FOLDR_REVERSE]
+  \\ recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]);
+
 val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
   `(∀d ienv st ienv' st'.
      infer_d ienv d st = (Success ienv', st') ∧
@@ -3585,7 +3609,29 @@ val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
     \\ rw[GSYM inf_set_tids_subset_def]
     \\ match_mp_tac (t_walkstar_set_tids|> SIMP_RULE std_ss [])
     \\ simp[inf_set_tids_subset_def,inf_set_tids_def]
-    \\ cheat )
+    \\ imp_res_tac infer_e_wfs
+    \\ imp_res_tac pure_add_constraints_wfs
+    \\ fs[init_state_def,init_infer_state_def] \\ rw[] \\ rfs[]
+    \\ irule pure_add_constraints_set_tids
+    \\ goal_assum(first_assum o mp_then (Pat`pure_add_constraints`) mp_tac)
+    \\ simp[MAP_ZIP,LENGTH_COUNT_LIST]
+    \\ simp[EVERY_MAP,inf_set_tids_subset_def,inf_set_tids_def]
+    \\ match_mp_tac (el 4 (CONJUNCTS infer_e_inf_set_tids) |> SIMP_RULE std_ss [AND_IMP_INTRO] )
+    \\ asm_exists_tac \\ fs[]
+    \\ imp_res_tac infer_e_next_id_const
+    \\ CONJ_TAC >-
+      fs[prim_tids_def,prim_type_nums_def]
+    \\ fs[inf_set_tids_ienv_def]
+    \\ rw[] >>
+    TRY(match_mp_tac nsAll_nsAppend >> rw[] ) >>
+    TRY(qpat_x_assum`_ _ ienv.inf_t` mp_tac>>  match_mp_tac nsAll_mono)>>
+    TRY(qpat_x_assum`_ _ ienv.inf_c` mp_tac>>  match_mp_tac nsAll_mono)>>
+    TRY(qpat_x_assum`_ _ ienv.inf_v` mp_tac>>  match_mp_tac nsAll_mono)>>
+    fs[inf_set_tids_unconvert,inf_set_tids_subset_def,set_tids_subset_def]>>
+    match_mp_tac nsAll_alist_to_ns >>
+    simp[MAP2_MAP,LENGTH_COUNT_LIST,EVERY_MAP,EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_ZIP]>>
+    rw[]>> rpt (pairarg_tac >> fs[])>> rw[]>>
+    simp[EL_MAP,LENGTH_COUNT_LIST,inf_set_tids_def])
   >- (
     rw[]
     >- (
@@ -3595,7 +3641,9 @@ val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
       rpt(pairarg_tac>>fs[])>>rw[]>>
       simp[set_tids_subset_def,set_tids_def,SUBSET_DEF,MEM_MAP]>>rw[]>>
       fs[set_tids_def])
-    >> cheat)
+    >>
+      fs[n_fresh_id_def] >> rw[]>>
+      cheat)
   >- (
     match_mp_tac set_tids_subset_type_name_subst
     \\ fs[] )
