@@ -3535,6 +3535,19 @@ val build_ctor_tenv_FOLDL = Q.store_thm("build_ctor_tenv_FOLDL",
   \\ recInduct build_ctor_tenv_ind
   \\ rw[build_ctor_tenv_def]);
 
+val nsMap_FOLDL_nsAppend = Q.store_thm("nsMap_FOLDL_nsAppend",
+  `∀ls ns. nsMap f (FOLDL nsAppend ns ls) =
+   FOLDL nsAppend (nsMap f ns) (MAP (nsMap f) ls)`,
+  Induct \\ rw[] \\ rw[nsMap_nsAppend]);
+
+val nsAll_FOLDL_nsAppend = Q.store_thm("nsAll_FOLDL_nsAppend",
+  `∀ls ns.
+   nsAll P ns ∧ EVERY (nsAll P) ls
+   ⇒ nsAll P (FOLDL nsAppend ns ls)`,
+  Induct \\ rw[]
+  \\ first_x_assum match_mp_tac \\ fs[]
+  \\ match_mp_tac nsAll_nsAppend \\ fs[]);
+
 val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
   `(∀d ienv st ienv' st'.
      infer_d ienv d st = (Success ienv', st') ∧
@@ -3643,7 +3656,30 @@ val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
       fs[set_tids_def])
     >>
       fs[n_fresh_id_def] >> rw[]>>
-      cheat)
+      simp[build_ctor_tenv_FOLDL]
+      \\ match_mp_tac nsAll_FOLDL_nsAppend
+      \\ simp[EVERY_REVERSE]
+      \\ simp[MAP_MAP_o, o_DEF, UNCURRY, MAP2_MAP, EVERY_MAP]
+      \\ simp[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_GENLIST]
+      \\ rw[]
+      \\ match_mp_tac nsAll_alist_to_ns
+      \\ simp[EVERY_REVERSE, EVERY_MAP, UNCURRY, MEM_MAP, PULL_EXISTS]
+      \\ simp[EVERY_MEM] \\ rw[]
+      \\ match_mp_tac set_tids_subset_type_name_subst
+      \\ conj_tac
+      >- simp[start_type_id_prim_tids_count]
+      \\ match_mp_tac nsAll_nsAppend
+      \\ conj_tac
+      >- (
+        match_mp_tac nsAll_alist_to_ns
+        \\ simp[EVERY_MAP, UNCURRY, set_tids_subset_def, set_tids_def, MAP_MAP_o, o_DEF]
+        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, every_zip_snd, EVERY_GENLIST] )
+      \\ irule nsAll_mono
+      \\ HINT_EXISTS_TAC
+      \\ simp[set_tids_subset_def, SUBSET_DEF, UNCURRY]
+      \\ rw[]
+      \\ res_tac
+      \\ rw[] )
   >- (
     match_mp_tac set_tids_subset_type_name_subst
     \\ fs[] )

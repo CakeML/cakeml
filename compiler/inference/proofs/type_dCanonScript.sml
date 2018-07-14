@@ -58,11 +58,6 @@ val check_ctor_tenv_EVERY = Q.store_thm("check_ctor_tenv_EVERY",
   \\ rw[EQ_IMP_THM]
   \\ fs[MEM_MAP,EXISTS_PROD]);
 
-val nsMap_FOLDL_nsAppend = Q.store_thm("nsMap_FOLDL_nsAppend",
-  `∀ls ns. nsMap f (FOLDL nsAppend ns ls) =
-   FOLDL nsAppend (nsMap f ns) (MAP (nsMap f) ls)`,
-  Induct \\ rw[] \\ rw[nsMap_nsAppend]);
-
 (* not true because of alist shadowing
 val nsMap_eq_id = Q.store_thm("nsMap_eq_id",
   `∀f x. nsMap f x = x ⇔ nsAll (λi x. f x = x) x`,
