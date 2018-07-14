@@ -546,10 +546,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     type_d_canon n tenv d ids tenv' ∧
     env_rel tenv ienv ∧
     inf_set_tids_ienv (count n) ienv ∧
-    (*
-    t_wfs st1.subst ∧
-    inf_set_tids_subst (count n) st1.subst ∧
-    *)
     st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
@@ -560,10 +556,6 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     type_ds_canon n tenv ds ids tenv' ∧
     env_rel tenv ienv ∧
     inf_set_tids_ienv (count n) ienv ∧
-    (*
-    t_wfs st1.subst ∧
-    inf_set_tids_subst (count n) st1.subst ∧
-    *)
     st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
@@ -1035,7 +1027,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       >- (
         fs[EVERY_MAP,MAP2_MAP,UNCURRY,set_tids_subset_def]
         \\ simp[EVERY_MEM,MEM_ZIP,FORALL_PROD,PULL_EXISTS]
-        \\ cheat (* infer_e_inf_set_tids, generalise_complete *) )
+        \\ simp[GSYM inf_set_tids_unconvert]
+        \\ rw[]
+        \\ DEP_REWRITE_TAC[check_t_empty_unconvert_convert_id]
+        \\ cheat (* generalise_complete *) )
       \\ strip_tac
       \\ pop_assum (qspec_then`n` assume_tac)>>
       rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
