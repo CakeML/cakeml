@@ -546,6 +546,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     type_d_canon n tenv d ids tenv' ∧
     env_rel tenv ienv ∧
     inf_set_tids_ienv (count n) ienv ∧
+    t_wfs st1.subst ∧
     st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
@@ -556,6 +557,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     type_ds_canon n tenv ds ids tenv' ∧
     env_rel tenv ienv ∧
     inf_set_tids_ienv (count n) ienv ∧
+    t_wfs st1.subst ∧
     st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
@@ -673,8 +675,17 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           \\ simp[convert_env_def, EVERY_MAP, UNCURRY]
           \\ qmatch_goalsub_abbrev_tac`set_tids_subset tids`
           \\ disch_then(qspec_then`tids`mp_tac)
-          \\ impl_tac >- cheat
+          \\ impl_tac >- (
+            fs[Abbr`tids`,start_type_id_prim_tids_count]
+            \\ drule(GEN_ALL(CONJUNCT1 infer_e_inf_set_tids))
+            \\ srw_tac[DNF_ss][]
+            \\ first_x_assum match_mp_tac
+            \\ simp[start_type_id_prim_tids_count] )
           \\ fs[EVERY_MEM]
+          \\ rpt strip_tac
+          \\ simp[set_tids_subset_def]
+          \\ simp[GSYM inf_set_tids_unconvert]
+          \\ DEP_REWRITE_TAC[check_t_empty_unconvert_convert_id]
           \\ cheat (* strengthen generalise_complete *)
         ) >>
         fs[LIST_REL_EL_EQN]>>
@@ -687,7 +698,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         rveq>>fs[]>>
         `check_t num_tvs' {} (t_walkstar last_sub t''')` by
           (imp_res_tac (CONJUNCT1 check_t_less)>>
-          pop_assum kall_tac>>
+          ntac 2 (pop_assum kall_tac)>>
           fs[sub_completion_def]>>
           pop_assum(qspecl_then [`count st'.next_uvar`,`t'''`] mp_tac)>>
           impl_tac>-
@@ -735,7 +746,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           (* copied proof from soundness dir *)
           `check_t num_tvs' {} (t_walkstar last_sub t''')` by
             (imp_res_tac (CONJUNCT1 check_t_less)>>
-            pop_assum kall_tac>>
+            ntac 2 (pop_assum kall_tac)>>
             fs[sub_completion_def]>>
             pop_assum(qspecl_then [`count st'.next_uvar`,`t'''`] mp_tac)>>
             impl_tac>-
@@ -934,7 +945,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
       rw[GSYM PULL_EXISTS]
       >-
         (imp_res_tac pure_add_constraints_apply>>
-        pop_assum mp_tac>>
+        qpat_x_assum`MAP _ _ = _` mp_tac>>
         simp[Once LIST_EQ_REWRITE]>>
         disch_then(qspec_then`x` assume_tac)>>rfs[LENGTH_COUNT_LIST,EL_MAP,EL_ZIP,EL_COUNT_LIST])
       >>
@@ -1222,7 +1233,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     last_x_assum assume_tac>>
     disch_then drule>> strip_tac>>
     disch_then drule>> simp[]
-    \\ impl_tac >- cheat (* need to strengthen induction? *)
+    \\ impl_tac >- (
+      drule(CONJUNCT1 infer_d_inf_set_tids)
+      \\ fs[]
+      \\ cheat (* strengthen induction *) )
     \\ rw[] >>
     fs[]>>
     metis_tac[env_rel_extend]);
