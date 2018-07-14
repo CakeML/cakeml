@@ -1,7 +1,7 @@
 structure ml_monadStoreLib :> ml_monadStoreLib = struct
 
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
+open astTheory libTheory evaluateTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open packLib
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
@@ -16,7 +16,7 @@ fun derive_eval_thm for_eval v_name e = let
   val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
+    |> (NCONV 50 (SIMP_CONV (srw_ss()) [evaluate_def,
             PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
   val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
                     rpt strip_tac \\ rveq \\

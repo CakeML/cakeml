@@ -2488,7 +2488,7 @@ val RARRAY2D_def = Define `
 (* translation of cases and cons terms *)
 
 val IMP_EvalM_Mat_cases = store_thm("IMP_EvalM_Mat_cases",
-  ``!a (r1:'a) env exp r2 y.
+  ``!st a (r1:'b) env exp r2 y.
       Eval env exp (a r1) /\
       (case y of
        | INL (vars,exp) =>

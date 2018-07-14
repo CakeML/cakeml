@@ -1,7 +1,7 @@
 structure ml_monad_translatorLib :> ml_monad_translatorLib = struct
 
 open preamble
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory
+open astTheory libTheory semanticPrimitivesTheory evaluateTheory
      ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
      ml_monad_translatorTheory
@@ -783,38 +783,6 @@ in zip raise_specs handle_specs end;
   val ty = (repeat rator tm) |> type_of |> domain
   val _ = set_goal([],goal)
 *)
-local
-  val IF_T = ml_monad_translatorTheory.IF_T
-  val IF_F = ml_monad_translatorTheory.IF_F
-  val evaluate_Mat = (get_term "eval Mat")
-    |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])
-  val evaluate_match_Conv = (get_term "eval_match Pcon")
-    |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
-       SIMP_CONV (srw_ss()) [pmatch_def])
-
-  (* COPY/PASTE from ml_monadStoreScript *)
-  fun evaluate_unique_result_tac (g as (asl, w)) = let
-      val asl = List.map ASSUME asl
-      val uniques = mapfilter (MATCH_MP evaluate_unique_result) asl
-  in simp uniques g end;
-  (* End of COPY/PASTE from ml_monadStoreScript *)
-
-  (* TODO: make that tactic work *)
-  val pick_evaluate_assumption = let
-    val rewrite_conjs =
-	((PURE_REWRITE_CONV[CONJ_ASSOC]) THENC
-         (PURE_REWRITE_CONV [Once CONJ_COMM]) THENC
-	 (PURE_REWRITE_CONV[GSYM CONJ_ASSOC]) THENC
-	 (PURE_REWRITE_CONV[CONJ_ASSOC]))
-    val conjs_to_imps = PURE_REWRITE_CONV [GSYM AND_IMP_INTRO]
-    val final_conv = ((STRIP_QUANT_CONV o RATOR_CONV) rewrite_conjs)
-			 THENC conjs_to_imps
-    val rewrite_rule = CONV_RULE final_conv
-    val thm_tac = (fn x => drule (rewrite_rule x))
-    (* the thm_tac does not work *)
-  in (first_x_assum thm_tac \\ rpt (disch_then drule) \\ disch_then strip_assume_tac) end
-
-in
 fun derive_case_of ty = let
   (* TODO : clean that *)
   fun smart_full_name_of_type ty =
@@ -883,61 +851,70 @@ fun derive_case_of ty = let
   val z3 = map_tl Eval_to_EvalM hyps |> list_mk_conj
   val z4 = Eval_to_EvalM x4
   val goal = mk_imp(x1,mk_imp(x2,mk_imp(z3,z4)))
-  val x_var = tryfind (fn x => if fst(dest_var x) = "x" then x else failwith "") (free_vars goal)
-  val init_tac =
-        PURE_REWRITE_TAC [CONTAINER_def]
-        \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (ISPEC x_var case_th)
-  (* TODO: this tactic is not safe *)
-  (* TODO: replace the rw and fs tactics and remove the quotations *)
-  val case_tac =
-        Q.PAT_X_ASSUM `b0 ==> Eval env exp something`
-           (MP_TAC o REWRITE_RULE [TAG_def,inv_def,Eval_def])
-        \\ FULL_SIMP_TAC (srw_ss()) []
-        \\ REPEAT STRIP_TAC
-        \\ NTAC 2 (POP_ASSUM MP_TAC)
-        \\ POP_ASSUM (STRIP_ASSUME_TAC o remove_primes o
-             SPEC_ALL o REWRITE_RULE [TAG_def,inv_def,EvalM_def])
-        \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
-        \\ FULL_SIMP_TAC std_ss [EvalM_def,PULL_FORALL] \\ REPEAT STRIP_TAC
-        \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-        \\ SIMP_TAC (std_ss ++ DNF_ss) [] \\ disj1_tac
-        (* TODO : replace this quote *)
-        \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
-        \\ drule evaluate_empty_state_IMP
-        \\ strip_tac \\ asm_exists_tac
-        \\ ASM_SIMP_TAC std_ss []
-        (* Rewrite the evaluate_pmatch *)
-	\\ fs[lookup_cons_def]
-	\\ (rpt o CHANGED_TAC)
-	    (rw[Once evaluate_match_Conv]
-               \\ rw[pmatch_def,pat_bindings_def,write_def,
-              lookup_cons_def (*,same_tid_def *) ,namespaceTheory.id_to_n_def,same_ctor_def])
-	\\ fs[same_type_def]
-	\\ IMP_RES_TAC REFS_PRED_append
-	(* TODO: replace this quote *)
-	\\ first_x_assum (qspec_then `refs'` assume_tac)
-	(* Prove the evaluate assumption *)
-        (* TODO: do that in a smarter manner *)
-        \\ rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
-	\\ fs[write_def]
-	\\ evaluate_unique_result_tac
-	(* Finish the proof *)
-	\\ TRY asm_exists_tac \\ simp[]
-	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[]
-	(*pick_evaluate_assumption
-	\\ fs[write_def]
-	\\ evaluate_unique_result_tac
-	(* Finish the proof *)
-	\\ TRY asm_exists_tac \\ simp[]
-	\\ drule REFS_PRED_FRAME_remove_junk \\ simp[] *)
+  val tys = IMP_EvalM_Mat_cases |> SPEC_ALL |> concl |> rand |> rator
+              |> rator |> rand |> rand |> rand |> type_of |> dest_type |> snd
+  fun get_inr_el tm = let
+    val exp2 = tm |> rand
+    val vars = tm |> rator |> rand |> rand |> rand
+    val cname = tm |> rator |> rand |> rator |> rand |> rand |> rand
+    val stamp = inv_def |> concl |> find_term
+                  (fn tm => aconv (tm |> rator |> rand) cname
+                            handle HOL_ERR _ => false)
+    in list_mk_pair [cname, vars, exp2, stamp] end
+  val rw1_tm = goal |> rand |> rand |> rand |> rand |> rator
+                    |> rator |> rand |> rand
+  val y = let
+    val xs = map get_inr_el (rw1_tm |> listSyntax.dest_list |> fst)
+    val xs = listSyntax.mk_list(xs,type_of (hd xs))
+    in sumSyntax.mk_inr(xs,hd tys) end
+    handle HOL_ERR _ => let
+    val exp2 = rw1_tm |> rator |> rand |> rand
+    val ys = rw1_tm |> rator |> rand |> rator |> rand |> rand
+                    |> listSyntax.dest_list |> fst |> map rand
+    val x = mk_pair(listSyntax.mk_list(ys,string_ty),exp2)
+    in sumSyntax.mk_inl(x,el 2 tys) end
+  val f = Mat_cases_def |> CONJUNCT1 |> concl |> dest_eq |> fst |> rator
+  val mat_cases = mk_comb(f,y)
+  val new_goal = subst [rw1_tm |-> mat_cases] goal
+  val x = goal |> rand |> rand |> rator |> rand |> rator |> rand |> rand
+               |> rand |> rator
+  val st_var = goal |> rand |> rand |> rand |> rand |> rator
+                    |> rator |> rator |> rand
+  val Mat_lemma = ISPECL [st_var,x] IMP_EvalM_Mat_cases
+  val is_simple_case = name = "PAIR_TYPE" orelse name = "UNIT_TYPE"
+  val input_var = goal |> rand |> rand |> rator |> rand |> rator |> rand |> rand
+                  |> rand |> rand
 (*
-  val _ = set_goal([],goal)
+  set_goal([],new_goal)
 *)
-  val tac = init_tac THEN case_tac
-  val case_lemma = prove(goal,tac)
-  val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
+  val case_lemma = auto_prove "case-of-proof" (new_goal,
+    rpt strip_tac
+    \\ match_mp_tac Mat_lemma
+    \\ full_simp_tac std_ss [GSYM PULL_FORALL]
+    \\ asm_exists_tac
+    \\ conj_tac THEN1 asm_rewrite_tac []
+    \\ rewrite_tac [sumTheory.sum_case_def]
+    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+    \\ rewrite_tac [pair_case_def]
+    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+    \\ (if is_simple_case then all_tac else (conj_tac THEN1 EVAL_TAC))
+    \\ conj_tac THEN1
+     (asm_simp_tac std_ss [good_cons_env_def,EVERY_DEF,LENGTH,
+        HD,LET_THM,pat_bindings_def,MAP]
+      \\ once_rewrite_tac [GSYM ALL_DISTINCT_REVERSE]
+      \\ asm_simp_tac std_ss [REVERSE_DEF,APPEND] \\ EVAL_TAC)
+    \\ Cases_on `^input_var` \\ rewrite_tac [inv_def]
+    \\ rpt strip_tac \\ rveq
+    \\ simp_tac std_ss [v_11,MEM,stamp_11,CONS_11,ZIP,
+         ml_translatorTheory.write_list_def,
+         stringTheory.CHR_11,LENGTH,NOT_NIL_CONS,NOT_CONS_NIL,PULL_EXISTS]
+    \\ simp_tac (srw_ss()) []
+    \\ rpt (pop_assum mp_tac) \\ rewrite_tac [TAG_def,CONTAINER_def]
+    \\ simp_tac (srw_ss()) []
+    \\ rpt strip_tac
+    \\ first_x_assum match_mp_tac \\ fs [])
+  val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def,Mat_cases_def,MAP]
+                     |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
   val case_lemma = GEN H_var case_lemma
   in case_lemma end
   handle HOL_ERR _ =>
@@ -955,7 +932,6 @@ fun get_general_type ty =
       val ty_args = List.map mk_vartype ty_names
   in mk_type(ty_cons, ty_args) end
   else ty
-end
 
 (*
 val ty = ``:'c list``
