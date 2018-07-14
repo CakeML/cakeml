@@ -1864,16 +1864,16 @@ val good_cons_env_def = Define `
     let (name,vars,x,t1) = HD ps in
       EVERY (\(name,vars,x,t2). same_type t1 t2) ps`
 
-val same_type_trans = prove(
+val same_type_trans = store_thm("same_type_trans",
   ``same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3``,
   Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]);
 
-val evaluate_match_MAP = prove(
+val evaluate_match_MAP = store_thm("evaluate_match_MAP",
   ``!l1 xs.
       MEM (x1,x2,x3,t1) full_ps /\ full_ps <> [] /\
       good_cons_env full_ps env /\ set l1 SUBSET set full_ps /\
       ~MEM t1 (MAP (SND o SND o SND) l1) ==>
-      evaluate_match (s:unit state) env
+      evaluate_match (s:'ffi state) env
         (Conv (SOME t1) vals)
         (MAP (λ(name,vars,x,t). (Pcon (SOME (Short name))
            (MAP Pvar vars),x)) l1 ++ xs) err =
@@ -1892,7 +1892,7 @@ val evaluate_match_MAP = prove(
   \\ imp_res_tac same_type_trans \\ fs []
   \\ fs [same_ctor_def]) |> GEN_ALL;
 
-val pmatch_list_MAP_Pvar = prove(
+val pmatch_list_MAP_Pvar = store_thm("pmatch_list_MAP_Pvar",
   ``!vars vals aux.
       LENGTH vars = LENGTH vals ==>
       pmatch_list env refs (MAP Pvar vars) vals aux =
@@ -1903,7 +1903,7 @@ val write_list_def = Define `
   write_list [] (env:v sem_env) = env /\
   write_list ((n,v)::xs) env = write_list xs (write n v env)`;
 
-val write_list_thm = prove(
+val write_list_thm = store_thm("write_list_thm",
   ``!xs env.
       write_list xs (env:v sem_env) =
        (env with v := nsAppend (alist_to_ns (REVERSE xs)) env.v)``,
@@ -1968,7 +1968,7 @@ val IMP_Eval_Mat_cases = store_thm("IMP_Eval_Mat_cases",
   \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
   \\ asm_exists_tac \\ fs [Mat_cases_def]
-  \\ drule evaluate_match_MAP
+  \\ drule (evaluate_match_MAP |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ qpat_x_assum `MEM _ y` (assume_tac o REWRITE_RULE [MEM_SPLIT])
   \\ fs [] \\ fs [ALL_DISTINCT_APPEND]
   \\ disch_then drule
