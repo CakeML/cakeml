@@ -546,7 +546,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     type_d_canon n tenv d ids tenv' ∧
     env_rel tenv ienv ∧
     inf_set_tids_ienv (count n) ienv ∧
+    (*
     t_wfs st1.subst ∧
+    inf_set_tids_subst (count n) st1.subst ∧
+    *)
     st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
@@ -557,7 +560,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     type_ds_canon n tenv ds ids tenv' ∧
     env_rel tenv ienv ∧
     inf_set_tids_ienv (count n) ienv ∧
+    (*
     t_wfs st1.subst ∧
+    inf_set_tids_subst (count n) st1.subst ∧
+    *)
     st1.next_id = n ∧ start_type_id ≤ n
     ⇒
     ?ienv' st2.
@@ -697,14 +703,13 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         imp_res_tac tscheme_inst_to_approx>>
         rveq>>fs[]>>
         `check_t num_tvs' {} (t_walkstar last_sub t''')` by
-          (imp_res_tac (CONJUNCT1 check_t_less)>>
-          ntac 2 (pop_assum kall_tac)>>
-          fs[sub_completion_def]>>
-          pop_assum(qspecl_then [`count st'.next_uvar`,`t'''`] mp_tac)>>
+          (qspec_then`last_sub`drule(Q.GENL[`s`,`uvars`,`n`](CONJUNCT1 check_t_less))>> rw[] \\
+          fs[sub_completion_def, PULL_FORALL]>>
+          pop_assum(qspecl_then [`count st'.next_uvar`,`num_tvs'`,`t'''`] mp_tac)>>
           impl_tac>-
             (fs[EVERY_EL,EL_MAP]>>
             qpat_x_assum`!n''. n'' < A ⇒ B` (qspec_then `n` assume_tac)>>rfs[])>>
-          disch_then(qspec_then`num_tvs'` assume_tac)>>rfs[]>>
+          rfs[]>>
           `count st'.next_uvar ∩ COMPL(FDOM last_sub) = {}` by
             (fs[EXTENSION]>>
             rw[]>>
@@ -745,14 +750,12 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         >>
           (* copied proof from soundness dir *)
           `check_t num_tvs' {} (t_walkstar last_sub t''')` by
-            (imp_res_tac (CONJUNCT1 check_t_less)>>
-            ntac 2 (pop_assum kall_tac)>>
-            fs[sub_completion_def]>>
-            pop_assum(qspecl_then [`count st'.next_uvar`,`t'''`] mp_tac)>>
+            (qspec_then`last_sub`drule(Q.GENL[`s`,`uvars`,`n`](CONJUNCT1 check_t_less))>> rw[] \\
+            fs[sub_completion_def, PULL_FORALL]>>
+            pop_assum(qspecl_then [`count st'.next_uvar`,`num_tvs'`,`t'''`] mp_tac)>>
             impl_tac>-
               (fs[EVERY_EL,EL_MAP]>>
               qpat_x_assum`!n''. n'' < A ⇒ B` (qspec_then `n` assume_tac)>>rfs[])>>
-            disch_then(qspec_then`num_tvs'` assume_tac)>>rfs[]>>
             `count st'.next_uvar ∩ COMPL(FDOM last_sub) = {}` by
               (fs[EXTENSION]>>
               rw[]>>
@@ -1236,7 +1239,31 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     \\ impl_tac >- (
       drule(CONJUNCT1 infer_d_inf_set_tids)
       \\ fs[]
-      \\ cheat (* strengthen induction *) )
+      \\ strip_tac
+      \\ fs[inf_set_tids_ienv_def]
+      \\ fs[extend_dec_ienv_def]
+      \\ qpat_x_assum`_ =  st2.next_id`(assume_tac o SYM)
+      \\ conj_tac
+      >- (
+        match_mp_tac nsAll_nsAppend \\ fs[]
+        \\ fs[inf_set_tids_unconvert,inf_set_tids_subset_def]
+        \\ irule nsAll_mono
+        \\ goal_assum(first_assum o mp_then Any mp_tac)
+        \\ rw[SUBSET_DEF, UNCURRY]
+        \\ res_tac \\ rw[] )
+      \\ conj_tac
+      >- (
+        match_mp_tac nsAll_nsAppend \\ fs[]
+        \\ irule nsAll_mono
+        \\ goal_assum(first_assum o mp_then Any mp_tac)
+        \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
+        \\ fs[EVERY_MEM]
+        \\ rw[] \\ res_tac \\ fs[] )
+      \\ match_mp_tac nsAll_nsAppend \\ fs[]
+      \\ irule nsAll_mono
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
+      \\ rw[] \\ res_tac \\ fs[] )
     \\ rw[] >>
     fs[]>>
     metis_tac[env_rel_extend]);
