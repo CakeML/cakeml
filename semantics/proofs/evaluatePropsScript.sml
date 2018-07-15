@@ -651,9 +651,7 @@ val option_CASE_fst_cong = Q.prove(
    (c, option_CASE r f (λb. g b))`,
   Cases_on`r` \\ fs[]);
 
-  (*
 val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged;
-*)
 
 val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
   (∀(s:'a state) env e s' r.
@@ -688,7 +686,6 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
     \\ fs[]
-    (*
     \\ TOP_CASE_TAC \\ fs[]
     \\ qmatch_assum_abbrev_tac`evaluate t1 _ (_::_) = _`
     \\ rfs[]
@@ -725,7 +722,12 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     >- fs[state_component_equality]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ TOP_CASE_TAC
-    \\ fs[option_CASE_fst_cong,result_CASE_fst_cong] )
+    \\ fs[option_CASE_fst_cong,result_CASE_fst_cong]
+    \\ rw[]
+    \\ rfs[]
+    \\ pop_assum mp_tac
+    \\ impl_tac >- (every_case_tac \\ fs[])
+    \\ rw[])
   >- (
     rfs[evaluate_def]
     \\ TOP_CASE_TAC \\ fs[]
