@@ -378,10 +378,11 @@ val do_app_def = Define `
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
             (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
-              (t', ws') =>
+             | FFI_return t' ws' =>
                (case store_assign lnum (W8array ws') s.refs of
                  SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
-               | NONE => NONE))
+               | NONE => NONE)
+             | FFI_final outcome => SOME (s, Rerr (Rabort (Rffi_error outcome))))
         | _ => NONE)
     | (Op (GlobalVarAlloc n), []) =>
       SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Conv tuple_tag []))
@@ -432,9 +433,10 @@ val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_cas
 val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def}
 val error_result_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def}
 val abort_thms = { nchotomy = semanticPrimitivesTheory.abort_nchotomy, case_def = semanticPrimitivesTheory.abort_case_def}
+val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
 val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, flatop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms, result_thms, error_result_thms, abort_thms, eq_result_thms])
+  [op_thms, flatop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms, result_thms, error_result_thms, abort_thms, eq_result_thms, ffi_result_thms])
 
 val case_eq_thms = save_thm("case_eq_thms",eqs);
 
@@ -593,9 +595,10 @@ val semantics_def = Define`
     case some res.
       ∃k s r outcome.
         evaluate env (st with clock := k) es = (s,r) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
+        (case r of
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | Rerr (Rabort _) => F
+         | _ => outcome = Success) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
      | NONE =>

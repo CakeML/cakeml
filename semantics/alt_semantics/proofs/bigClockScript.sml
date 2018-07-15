@@ -35,7 +35,8 @@ val big_unclocked_unchanged = Q.prove (
      SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
      s.clock = (FST r1).clock)`,
  ho_match_mp_tac evaluate_ind >>
- rw [] >> fs[do_app_cases] >> rw [] >> fs []);
+ rw [] >> fs[do_app_cases] >> rw [] >> fs [] >>
+ every_case_tac >> fs[] >> rveq >> fs[]);
 
 val lemma = Q.prove (
 `((s with clock := c) with <| refs := r; ffi := io |>) =
@@ -475,7 +476,8 @@ val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
   rw [] >>
   fs[do_app_cases] >>
   rw [] >>
-  fs []);
+  fs [] >>
+  every_case_tac >> fs[] >> rveq >> fs[]);
 
 val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_equiv_timeout",
   `!s env e.

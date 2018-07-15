@@ -594,8 +594,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
       spose_not_then strip_assume_tac >>
       drule (UNDISCH compile_evaluate) >>
       impl_tac >- ( rw[] >> strip_tac >> fs[] ) >>
-      strip_tac >> fs[compile_state_def,initial_state_def]
-      >> rfs[] \\ fs[]) >>
+      strip_tac >> fs[compile_state_def,initial_state_def] >>
+      rfs[] \\ fs[]) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       rw[] >>
@@ -606,62 +606,25 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[Abbr`ss`,Abbr`bp`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
-      Cases_on`s.ffi.final_event`>>fs[]>-(
-        Cases_on`s'.ffi.final_event`>>fs[]>-(
-          unabbrev_all_tac >>
-          drule (UNDISCH compile_evaluate) >>
-          impl_tac >- fs[] >>
-          strip_tac >>
-          drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
-          simp[] >>
-          disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          qhdtm_x_assum`closSem$evaluate`mp_tac >>
-          drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
-          simp[] >>
-          disch_then(qspec_then`k`mp_tac)>>simp[]>>
-          ntac 3 strip_tac >> rveq >> fs[] >>
-          rfs[initial_state_def,compile_state_def] \\
-          fs[state_component_equality] ) >>
-        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
-        unabbrev_all_tac >>
-        drule (UNDISCH compile_evaluate) >>
-        impl_tac >- (
-          last_x_assum(qspec_then`k+k'`mp_tac)>>
-          rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
-        strip_tac >>
-        qhdtm_x_assum`patSem$evaluate`mp_tac >>
-        drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
-        simp[] >>
-        disch_then(qspec_then`k'`mp_tac)>>simp[] >>
-        strip_tac >> spose_not_then strip_assume_tac >>
-        rfs[initial_state_def,compile_state_def] \\
-        rveq \\ fs[] \\ rfs[]) >>
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
-      unabbrev_all_tac >>
+      drule(GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
+      disch_then(qspec_then `k` mp_tac) >>
+      impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[]) >>
+      drule(GEN_ALL(SIMP_RULE std_ss [] patPropsTheory.evaluate_add_to_clock)) >>
+      disch_then(qspec_then `k'` mp_tac) >>
+      impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[]) >>
+      ntac 2 strip_tac >> fs[] >>
       drule (UNDISCH compile_evaluate) >>
-      simp[] >>
-      impl_tac >- (
-        last_x_assum(qspec_then`k+k'`mp_tac)>>
-        rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
-      strip_tac >> rveq >>
-      fsrw_tac[ARITH_ss][] >>
-      rfs[initial_state_def,compile_state_def] >>
-      reverse(Cases_on`s'.ffi.final_event`)>>fs[]>>rfs[]>>
-      qhdtm_x_assum`closSem$evaluate`mp_tac >>
-      drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
-      simp[] >>
-      disch_then(qspec_then`k`mp_tac)>>simp[] >>
-      rpt strip_tac >> spose_not_then strip_assume_tac >>
-      rveq >> fsrw_tac[ARITH_ss][] >>
-      fs[state_component_equality]) >>
+      impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[]) >>
+      strip_tac >> unabbrev_all_tac >> fs[] >>
+      fs[compile_state_def,initial_state_def] >> rfs[] >>
+      fs[state_component_equality] >> rpt(PURE_FULL_CASE_TAC >> fs[])) >>
     drule (UNDISCH compile_evaluate) >> simp[] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
       fs[] >> rpt strip_tac >> fs[] ) >>
     strip_tac >>
     rfs[initial_state_def,compile_state_def] >>
-    asm_exists_tac >> simp[] >>
-    asm_exists_tac >> simp[]) >>
+    asm_exists_tac >> simp[] >> rpt(PURE_FULL_CASE_TAC >> fs[])) >>
   strip_tac >>
   simp[closSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >- (
@@ -671,8 +634,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     pop_assum(assume_tac o SYM) >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH compile_evaluate))) >>
     rw[compile_state_with_clock] >>
-    strip_tac >> fs[initial_state_def,compile_state_def]
-    \\ rfs[] \\ fs[]) >>
+    strip_tac >> fs[initial_state_def,compile_state_def] >>
+    rfs[] \\ fs[]) >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     spose_not_then strip_assume_tac >>
@@ -685,7 +648,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     last_x_assum(qspec_then`k`mp_tac) >>
     simp[] >>
     rfs[initial_state_def,compile_state_def] >> fs[] >>
-    asm_exists_tac >> fs[]) >>
+    rpt(PURE_FULL_CASE_TAC >> fs[])) >>
   strip_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>

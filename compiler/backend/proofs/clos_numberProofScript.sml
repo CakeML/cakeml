@@ -429,7 +429,8 @@ val do_app = Q.prove(
   \\ Cases_on `err` \\ fs []
   \\ qpat_x_assum `_ = Rerr (Rraise _)` mp_tac
   \\ simp [do_app_cases_err]
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+  \\ every_case_tac \\ fs[]);
 
 val v_to_bytes = Q.prove(
   `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
@@ -666,7 +667,8 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ Cases_on `err` \\ fs []
       \\ imp_res_tac do_install_not_Rraise \\ fs []
       \\ rename1 `aa = Rtimeout_error ==> _`
-      \\ Cases_on `aa` \\ fs []) >>
+      \\ Cases_on `aa` \\ fs []
+      \\ imp_res_tac do_install_not_Rffi_error \\ fs[]) >>
     srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>

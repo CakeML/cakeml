@@ -1372,7 +1372,11 @@ val wfv_v2l = Q.store_thm("wfv_v2l",
 val do_app_thm = Q.prove(
   `case do_app op (REVERSE a) (r:('c,'ffi) closSem$state) of
       Rerr (Rraise _) => F
-    | Rerr (Rabort e) => (e = Rtype_error)
+    | Rerr (Rabort e) =>
+      (e = Rtype_error \/
+       (?f. e = Rffi_error f
+            /\ (LIST_REL (v_rel g1 l1) a v /\ state_rel g1 l1 r t
+            ==> do_app op (REVERSE v) t = Rerr(Rabort (Rffi_error f)))))
     | Rval (w,s) =>
        (wfv_state g1 l1 r /\ EVERY (wfv g1 l1) a ==>
         wfv_state g1 l1 s /\ wfv g1 l1 w) /\
@@ -1404,6 +1408,7 @@ val do_app_thm = Q.prove(
     \\ fs [do_app_cases_val] \\ rveq
     \\ fs [do_app_cases_err] \\ rveq
     \\ fs [do_app_cases_timeout] \\ rveq
+    \\ fs [do_app_cases_ffi_error] \\ rveq    
     \\ rw [] \\ fs [Unit_def,PULL_EXISTS,v_rel_def])
   \\ Cases_on `op = ConcatByteVec` THEN1 (
     rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
@@ -2279,8 +2284,23 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs []
     \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
     THEN1
-     (rw [] \\ mp_tac do_app_thm \\ fs []
-      \\ every_case_tac \\ fs [])
+     (rw []
+      >- (mp_tac do_app_thm \\ fs []
+          \\ every_case_tac \\ fs [])
+      >- (first_x_assum (qspecl_then [`env2`,`t0`] mp_tac)
+          \\ impl_tac
+          >- (fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+              \\ ntac 2 strip_tac
+              \\ first_x_assum match_mp_tac
+              \\ pop_assum mp_tac
+              \\ fs [EXISTS_MAP,fv_exists]
+              \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+              \\ EVAL_TAC \\ fs [fv_exists])
+          \\ strip_tac \\ qexists_tac `ck`
+          \\ simp[]
+          \\ qmatch_goalsub_abbrev_tac `do_app _ (REVERSE a1) a2`
+          \\ qspecl_then [`a1`] mp_tac (Q.GENL [`v`] do_app_thm)
+          \\ unabbrev_all_tac \\ rpt strip_tac \\ rfs[] \\ every_case_tac \\ fs[]))
     \\ rename1 `do_app op (REVERSE a) r = Rval z`
     \\ PairCases_on `z` \\ fs [] \\ rveq
     \\ mp_tac (Q.GENL [`t`,`v`] do_app_thm) \\ fs [] \\ rpt strip_tac

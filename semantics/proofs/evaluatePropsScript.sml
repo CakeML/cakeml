@@ -7,18 +7,17 @@ open semanticPrimitivesPropsTheory;
 val _ = new_theory"evaluateProps"
 
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
-  `(call_FFI st index conf x = (new_st,new_bytes)) ==>
+  `(call_FFI st index conf x = FFI_return new_st new_bytes) ==>
     (LENGTH x = LENGTH new_bytes)`,
   fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]);
 
 val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = (s2,t)`;
+  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t`;
 
 val io_events_mono_def = Define`
   io_events_mono s1 s2 ⇔
     s1.io_events ≼ s2.io_events ∧
-    (IS_SOME s1.final_event ⇒ s2 = s1) ∧
-    (s2.final_event = NONE ∧ s2.io_events = s1.io_events ⇒ s2 = s1)`;
+    (s2.io_events = s1.io_events ⇒ s2 = s1)`;
 
 val io_events_mono_refl = Q.store_thm("io_events_mono_refl[simp]",
   `io_events_mono ffi ffi`,
@@ -33,8 +32,6 @@ val io_events_mono_trans = Q.store_thm("io_events_mono_trans",
 val io_events_mono_antisym = Q.store_thm("io_events_mono_antisym",
   `io_events_mono s1 s2 ∧ io_events_mono s2 s1 ⇒ s1 = s2`,
   rw[io_events_mono_def]
-  \\ Cases_on`s1.final_event` \\ rfs[]
-  \\ Cases_on`s2.final_event` \\ rfs[]
   \\ imp_res_tac IS_PREFIX_ANTISYM
   \\ rfs[]);
 
@@ -52,8 +49,10 @@ val do_app_call_FFI_rel = Q.store_thm("do_app_call_FFI_rel",
   `do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    call_FFI_rel^* ffi ffi'`,
   srw_tac[][do_app_cases] >> rw[] >>
-  match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >>
-  metis_tac[]);
+  FULL_CASE_TAC
+  >- (match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
+      >> fs[] >> metis_tac[])
+  >- fs[]);
 
 val evaluate_call_FFI_rel = Q.store_thm("evaluate_call_FFI_rel",
   `(∀(s:'ffi state) e exp.
@@ -659,7 +658,8 @@ val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged;
 val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
   (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ∧
-     s'.ffi = s.ffi ∧ s.ffi.final_event = NONE
+     s'.ffi = s.ffi ∧
+     (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
      ⇒
      ∀(t:'b state).
        t.clock = s.clock ∧ t.refs = s.refs
@@ -667,7 +667,8 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
        evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs |>, r)) ∧
   (∀(s:'a state) env v pes errv s' r.
      evaluate_match s env v pes errv = (s',r) ∧
-     s'.ffi = s.ffi ∧ s.ffi.final_event = NONE
+     s'.ffi = s.ffi ∧
+     (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
      ⇒
      ∀(t:'b state).
        t.clock = s.clock ∧ t.refs = s.refs
@@ -693,12 +694,13 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ rfs[]
     \\ first_x_assum(qspec_then`t1`mp_tac)
     \\ simp[Abbr`t1`]
-    \\ imp_res_tac evaluate_state_const \\ fs[]*) )
+    \\ imp_res_tac evaluate_state_const \\ fs[]
+    \\ every_case_tac >> fs[])
   >- (
     rfs[evaluate_def] \\ rw[state_component_equality] )
   >- (
     rfs[evaluate_def]
-    \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
+    \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[] \\ fs[]
     \\ first_x_assum(qspec_then`t`mp_tac) \\ fs[] )
   >- (
     rfs[evaluate_def]

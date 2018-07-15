@@ -259,14 +259,15 @@ val semantics_def = Define`
   let es = [bvi$Call 0 (SOME start) [] NONE] in
   let init = initial_state init_ffi code co cc in
     if ∃k e. FST (evaluate (es,[],init k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
+       ∧ (!f. e ≠ Rabort (Rffi_error f))
       then Fail
     else
     case some res.
       ∃k s r outcome.
         evaluate (es,[],init k) = (r,s) ∧
-        (case (s.ffi.final_event,r) of
-         | (SOME e,_) => outcome = FFI_outcome e
-         | (_,Rval _) => outcome = Success
+        (case r of
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | Rval _ => outcome = Success
          | _ => F) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
