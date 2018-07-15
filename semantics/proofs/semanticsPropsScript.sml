@@ -38,7 +38,7 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
   conj_tac >- (
     strip_tac >> fs[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac)) >>
-    Cases_on`evaluate_prog_with_clock s e k p`>>simp[]>> 
+    Cases_on`evaluate_prog_with_clock s e k p`>>simp[]>>
     Cases_on`r`>>simp[]>>
     Cases_on`e'`>>simp[]>>
     Cases_on`a`>>simp[]) >>
@@ -55,7 +55,7 @@ val tac1 =
               PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR,LESS_OR_EQ]
 
 val tac2 = every_case_tac >> rfs[] >> first_x_assum (qspec_then `k` assume_tac) >> rfs[]
-             
+
 val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
   `∀s e p b b'.
     semantics_prog s e p b ∧
@@ -91,7 +91,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     >> fs []
     >> rpt var_eq_tac
     >> pop_assum mp_tac
-    >> drule evaluate_prog_clock_determ
+    >> drule evaluate_decs_clock_determ
     >> ntac 2 DISCH_TAC
     >> first_x_assum drule
     >> simp []
@@ -106,7 +106,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     >> fs []
     >> rpt var_eq_tac
     >> pop_assum mp_tac
-    >> drule evaluate_prog_clock_determ
+    >> drule evaluate_decs_clock_determ
     >> ntac 2 DISCH_TAC
     >> first_x_assum drule
     >> simp []
