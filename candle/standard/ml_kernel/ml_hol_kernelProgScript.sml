@@ -242,6 +242,13 @@ val res = translate rev_assocd_def;
 val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
+
+val raconv_side = Q.store_thm("raconv_side",
+  `!x y z. raconv_side x y z`,
+  ho_match_mp_tac holKernelTheory.raconv_ind
+  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
+  |> update_precondition;
+
 val res = translate aconv_def;
 val res = translate holKernelPmatchTheory.is_var_def;
 val res = translate holKernelPmatchTheory.is_const_def;
