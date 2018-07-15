@@ -334,6 +334,7 @@ val env_rel_complete_bind = Q.prove(`
   res_tac>>fs[]>> TRY(metis_tac[])>>
   match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]);
 
+ (* TODO: move *)
 val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
 `!loc ienv p e st st' t t' new_bindings s.
   ALL_DISTINCT (MAP FST new_bindings) ∧
@@ -357,8 +358,6 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
   type_pe_determ_canon ss.next_id tenv Empty p e
   ⇒
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings`,
- (* TODO: move proof to appropriate file where type_pe_determ_canon is visible
-    NOTE: it needs more assumptions on ienv *)
  rw [type_pe_determ_canon_def] >>
  `t_wfs (init_infer_state ss).subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
@@ -492,7 +491,31 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
    \\ ntac 2 strip_tac
    \\ DEP_REWRITE_TAC[GSYM inf_set_tids_unconvert]
    \\ DEP_REWRITE_TAC[check_t_empty_unconvert_convert_id]
-   \\ conj_tac >- ( cheat (* 37, 30, 32 *) )
+   \\ conj_tac >- (
+     fs[EVERY_MEM]
+     \\ res_tac
+     \\ pairarg_tac \\ fs[]
+     \\ conj_tac \\ qexists_tac`0` \\ irule t_walkstar_check
+     \\ fs[]
+     \\ (conj_tac >- (
+           irule check_s_more3
+           \\ asm_exists_tac \\ fs[]
+           \\ irule pure_add_constraints_check_s
+           \\ goal_assum(first_assum o mp_then(Pos last) mp_tac)
+           \\ simp[GSYM CONJ_ASSOC]
+           \\ conj_tac
+           >- (
+             irule (CONJUNCT1 check_t_more5)
+             \\ asm_exists_tac \\ fs[] )
+           \\ reverse conj_tac
+           >- (
+             irule(CONJUNCT1 infer_p_check_s)
+             \\ goal_assum(first_assum o mp_then(Pat`infer_p`) mp_tac)
+             \\ fs[] )
+           \\ simp[EVERY_MEM,Abbr`inst1`,Abbr`inst2`]
+           \\ simp[MEM_MAP,PULL_EXISTS, check_t_def] ))
+     \\ irule (CONJUNCT1 check_t_more5)
+     \\ asm_exists_tac \\ fs[])
    \\ first_assum(mp_then (Pos last) mp_tac (GEN_ALL (CONJUNCT1 t_unify_set_tids)))
    \\ simp[]
    \\ disch_then(qspec_then`count ss.next_id`mp_tac)
@@ -517,7 +540,7 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
      \\ EVAL_TAC \\ fs[start_type_id_def] )
    \\ strip_tac
    \\ simp[GSYM inf_set_tids_subset_def]
-   \\ conj_tac \\ irule (SIMP_RULE std_ss [] t_walkstar_set_tids)
+   \\ conj_tac \\ irule (SIMP_RULE std_ss [] t_walkstar_set_tids) \\ fs[]
    \\ cheat) \\
  fs[convert_env_def]>>
  spose_not_then strip_assume_tac >>

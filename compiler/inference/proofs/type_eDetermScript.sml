@@ -185,7 +185,7 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
  fs [t_compat_def] >>
  metis_tac [t_walkstar_no_vars]);
 
-val t_vars_check_t = Q.prove(`
+val t_vars_check_t = Q.store_thm("t_vars_check_t",`
   (∀t.
   ¬check_t 0 {} t ∧
   check_t 0 s t ⇒
@@ -202,7 +202,7 @@ val t_vars_check_t = Q.prove(`
   fs[MEM_MAP]>>
   metis_tac[]);
 
-val t_walkstar_diff = Q.prove(`
+val t_walkstar_diff = Q.store_thm("t_walkstar_diff",`
   t_wfs s1 ∧ t_wfs s2 ∧
   (t_walkstar s1 (Infer_Tuvar n) ≠ t_walkstar s2 (Infer_Tuvar n))
   ⇒
@@ -225,7 +225,8 @@ val env_rel_sound_weaken = Q.prove(
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>
-  qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL;
+  qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
+  |> curry save_thm "env_rel_sound_weaken";
 
 val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
 `!loc ienv p e st st' t t' new_bindings s.
