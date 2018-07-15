@@ -690,8 +690,8 @@ val getTms_thm = Q.store_thm("getTms_thm",
   \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm] \\ fs []
   \\ TRY (rename1 `getVar _ _ = (_ v,_)` \\ PairCases_on `v`)
   \\ TRY (metis_tac [])
-  \\ irule mk_var_thm >- (asm_exists_tac \\ fs [])
-  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm] \\ fs []);
+  \\ irule mk_var_thm \\ fs []
+  \\ asm_exists_tac \\ fs []);
 
 val map_getTms_thm = Q.store_thm("map_getTms_thm",
   `!xs refs res refs'.
@@ -726,9 +726,8 @@ val getNvs_thm = Q.store_thm("getNvs_thm",
   \\ map_every imp_res_tac [getPair_thm, getName_thm, getVar_thm] \\ fs []
   \\ TRY (rename1 `getVar _ _ = (_ v,_)` \\ PairCases_on `v`)
   \\ TRY (metis_tac [])
-  \\ irule mk_var_thm
-  \\ TRY (asm_exists_tac \\ fs [])
-  \\ map_every imp_res_tac [getPair_thm, getName_thm, getVar_thm] \\ fs []);
+  \\ irule mk_var_thm \\ fs []
+  \\ asm_exists_tac \\ fs []);
 
 val map_getNvs_thm = Q.store_thm("map_getNvs_thm",
   `!xs refs res refs'.
@@ -973,7 +972,8 @@ val readLine_thm = Q.store_thm("readLine_thm",
       \\ rw []
       \\ NO_TAC)
     \\ qexists_tac `[d]` \\ fs []
-    \\ irule push_push_thm \\ fs [OBJ_def] >- metis_tac []
+    \\ irule push_push_thm \\ fs [OBJ_def]
+    \\ fsrw_tac [ETA_ss] []
     \\ irule READER_STATE_CONS_EXTEND \\ fs []
     \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
