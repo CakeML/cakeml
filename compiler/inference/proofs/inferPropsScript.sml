@@ -2209,7 +2209,8 @@ val generalise_complete = Q.store_thm ("generalise_complete",
     (ts = MAP (t_walkstar last_sub) l) ∧
     t_wfs last_sub ∧
     sub_completion (tvs + n) next_uvar s ec1 last_sub ∧
-    (TC_unit ∈ tids ∧ inf_set_tids_subst tids s ⇒ inf_set_tids_subst tids last_sub)`,
+    (TC_unit ∈ tids ∧ inf_set_tids_subst tids s ⇒ inf_set_tids_subst tids last_sub)
+    (* ∧ EVERY (check_t tvs (count ???)) (MAP FST ec1 ++ MAP SND ec1)*)`,
   rw [] >>
   imp_res_tac generalise_subst_empty >>
   rw [sub_completion_def] >>
@@ -2301,8 +2302,8 @@ val generalise_complete = Q.store_thm ("generalise_complete",
   qexists_tac `(MAP (\(uv,tv). (Infer_Tuvar uv, Infer_Tvar_db tv)) ts) ++
                (MAP (\(uv,t). (Infer_Tuvar uv, t)) ts2)` >>
   qexists_tac `s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts) |++ ts2` >>
-  rw [] >|
-  [rw [MAP_EQ_f, MAP_MAP_o] >>
+  conj_tac >-
+  (rw [MAP_EQ_f, MAP_MAP_o] >>
        `DISJOINT (FDOM s) (FDOM (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts))`
                  by (fs [DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST, map_fst] >>
                      metis_tac []) >>
@@ -2320,7 +2321,11 @@ val generalise_complete = Q.store_thm ("generalise_complete",
        `DISJOINT (FDOM (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) (FDOM (FEMPTY |++ ts2))`
                   by (rw [FDOM_FUPDATE_LIST, map_fst] >>
                       fs [FDOM_FUPDATE_LIST]) >>
-       metis_tac [no_vars_extend_subst],
+       metis_tac [no_vars_extend_subst])
+  \\ conj_tac >- rw[]
+  \\ simp[GSYM CONJ_ASSOC]
+  \\ conj_tac >- (
+   rw[] \\
    `MAP (λ(uv,tv). (Infer_Tuvar uv,Infer_Tvar_db tv)) ts ++ MAP (λ(uv,t). (Infer_Tuvar uv,t)) ts2
     =
     MAP (λ(uv,t). (Infer_Tuvar uv, t)) (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts ++ ts2)`
@@ -2352,7 +2357,9 @@ val generalise_complete = Q.store_thm ("generalise_complete",
             rw [FLOOKUP_FUN_FMAP],
         fs [DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST] >>
             rw [map_fst] >>
-            metis_tac []],
+            metis_tac []])
+  \\ conj_tac >- (
+   rw[] \\
    ONCE_REWRITE_TAC [GSYM COUNT_ZERO] >>
        match_mp_tac t_walkstar_check >>
        rw [check_t_def, check_s_def] >>
@@ -2372,27 +2379,29 @@ val generalise_complete = Q.store_thm ("generalise_complete",
             fs [FLOOKUP_DEF] >>
             metis_tac [check_t_def],
         fs [check_s_def, FLOOKUP_DEF] >>
-            metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]],
-   simp[inf_set_tids_subst_def, IN_FRANGE_FLOOKUP, PULL_EXISTS, flookup_fupdate_list]
-   \\ qpat_x_assum`FEMPTY |++ _ = _`mp_tac
-   \\ simp[FUPDATE_LIST_alist_to_fmap]
-   \\ disch_then(mp_tac o Q.AP_TERM`FLOOKUP`) \\ simp[]
-   \\ simp[FLOOKUP_FUN_FMAP]
-   \\ strip_tac \\ rpt gen_tac
-   \\ IF_CASES_TAC \\ simp[]
-   >- (
-     rw[inf_set_tids_subset_def]
-     \\ rw[inf_set_tids_def] )
-   \\ reverse CASE_TAC
-   >- (
-     rw[]
-     \\ imp_res_tac ALOOKUP_MEM
-     \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
-     \\ EVAL_TAC )
-   \\ rw[]
-   \\ qhdtm_x_assum`inf_set_tids_subst`mp_tac
-   \\ simp[inf_set_tids_subst_def,IN_FRANGE_FLOOKUP,PULL_EXISTS]
-   \\ metis_tac[]]);
+            metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]])
+   \\ (*conj_tac >-*) (
+     rw[] \\
+     simp[inf_set_tids_subst_def, IN_FRANGE_FLOOKUP, PULL_EXISTS, flookup_fupdate_list]
+     \\ qpat_x_assum`FEMPTY |++ _ = _`mp_tac
+     \\ simp[FUPDATE_LIST_alist_to_fmap]
+     \\ disch_then(mp_tac o Q.AP_TERM`FLOOKUP`) \\ simp[]
+     \\ simp[FLOOKUP_FUN_FMAP]
+     \\ strip_tac \\ rpt gen_tac
+     \\ IF_CASES_TAC \\ simp[]
+     >- (
+       rw[inf_set_tids_subset_def]
+       \\ rw[inf_set_tids_def] )
+     \\ reverse CASE_TAC
+     >- (
+       rw[]
+       \\ imp_res_tac ALOOKUP_MEM
+       \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+       \\ EVAL_TAC )
+     \\ rw[]
+     \\ qhdtm_x_assum`inf_set_tids_subst`mp_tac
+     \\ simp[inf_set_tids_subst_def,IN_FRANGE_FLOOKUP,PULL_EXISTS]
+     \\ metis_tac[]));
 
 val init_infer_state_wfs = Q.prove (
   `t_wfs (init_infer_state st).subst ∧
