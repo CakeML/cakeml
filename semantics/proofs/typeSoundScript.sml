@@ -966,12 +966,13 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    rw [do_app_cases, PULL_EXISTS] >>
    res_tac >>
    rw []
-   >> `?ffi' ws'. call_FFI ffi n (MAP (λc. n2w (ORD c)) (EXPLODE s)) ws = (ffi', ws')` by metis_tac [pair_CASES]
+   >> reverse TOP_CASE_TAC
+   >- metis_tac[store_type_extension_refl]
    >> simp []
-   >> `type_sv ctMap tenvS (W8array ws') W8array_t` by rw [type_sv_def]
+   >> `type_sv ctMap tenvS (W8array l) W8array_t` by rw [type_sv_def]
    >> drule store_assign_type_sound
    >> rpt (disch_then drule)
-   >> rw []
+   >> rw [] \\ rw[]
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
  >> TRY ( (* list append *)
@@ -2367,6 +2368,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
        type_v 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env ctMap' tenvS' {} tenv
      | Rerr (Rabort Rtype_error) => F
+     | Rerr (Rabort (Rffi_error _)) => T
      | Rerr (Rabort Rtimeout_error) => T`,
   rw [] >>
   imp_res_tac type_d_check_uniq >>
