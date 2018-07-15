@@ -1001,8 +1001,9 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>
     qexists_tac`st'`>>simp[]>>
     pairarg_tac>>fs[success_eqns] >>
-    drule generalise_complete>>
-    disch_then(qspec_then`st'.next_uvar` mp_tac)>>fs[]>>
+    drule (GEN_ALL generalise_complete)>>
+    disch_then(qspecl_then[`st'.next_uvar`,`Tbool_num`,`count st'.next_id`]mp_tac o
+               CONV_RULE(RESORT_FORALL_CONV(List.rev)))>>fs[]>>
     `t_wfs st.subst` by
       (imp_res_tac infer_e_wfs>>
       fs[])>>
@@ -1111,7 +1112,37 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         \\ simp[GSYM inf_set_tids_unconvert]
         \\ rw[]
         \\ DEP_REWRITE_TAC[check_t_empty_unconvert_convert_id]
-        \\ cheat (* generalise_complete *) )
+        \\ qpat_x_assum`MAP _ _ = MAP _ _`mp_tac
+        \\ simp[LIST_EQ_REWRITE, EL_MAP, LENGTH_COUNT_LIST, EL_COUNT_LIST]
+        \\ strip_tac
+        \\ fs[sub_completion_def]
+        \\ conj_tac
+        >- (
+          qexists_tac`num_gen`
+          \\ first_x_assum irule
+          \\ fs[SUBSET_DEF]
+          \\ first_x_assum irule
+          \\ fs[]
+          \\ imp_res_tac infer_e_next_uvar_mono \\ fs[] )
+        \\ match_mp_tac (SIMP_RULE(srw_ss())[inf_set_tids_subset_def]t_walkstar_set_tids)
+        \\ fs[inf_set_tids_def]
+        \\ first_x_assum irule
+        \\ fs[]
+        \\ conj_tac >- (fs[start_type_id_def,Tbool_num_def])
+        \\ irule pure_add_constraints_set_tids
+        \\ goal_assum(first_assum o mp_then (Pos last) mp_tac)
+        \\ simp[Abbr`c1`, MAP_ZIP, LENGTH_COUNT_LIST]
+        \\ simp[EVERY_MAP, inf_set_tids_subset_def, inf_set_tids_def]
+        \\ drule (GEN_ALL(last(CONJUNCTS infer_e_inf_set_tids)))
+        \\ fs[]
+        \\ disch_then match_mp_tac
+        \\ fs[start_type_id_prim_tids_count]
+        \\ fs[inf_set_tids_ienv_def]
+        \\ match_mp_tac nsAll_nsAppend
+        \\ fs[]
+        \\ match_mp_tac nsAll_alist_to_ns
+        \\ fs[EVERY_MAP, UNCURRY, every_zip_snd, LENGTH_COUNT_LIST]
+        \\ fs[inf_set_tids_subset_def, inf_set_tids_def])
       \\ strip_tac
       \\ pop_assum (qspec_then`n` assume_tac)>>
       rfs[MAP2_MAP,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
