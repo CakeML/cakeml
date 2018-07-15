@@ -540,8 +540,12 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
      \\ EVAL_TAC \\ fs[start_type_id_def] )
    \\ strip_tac
    \\ simp[GSYM inf_set_tids_subset_def]
+   \\ fs[EVERY_MEM, PULL_FORALL, AND_IMP_INTRO, GSYM CONJ_ASSOC]
    \\ conj_tac \\ irule (SIMP_RULE std_ss [] t_walkstar_set_tids) \\ fs[]
-   \\ cheat) \\
+   \\ first_x_assum irule \\ fs[start_type_id_prim_tids_count]
+   \\ (infer_e_inf_set_tids |> CONJUNCT1 |> GEN_ALL |> drule)
+   \\ disch_then(first_assum o mp_then(Pat`inf_set_tids_ienv`)mp_tac)
+   \\ fs[start_type_id_prim_tids_count]) \\
  fs[convert_env_def]>>
  spose_not_then strip_assume_tac >>
  fs[EXISTS_MEM,EXISTS_PROD] >>
