@@ -119,7 +119,7 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
               (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
   \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
-  \\ fs [EVAL ``empty_state.ffi.final_event``] \\ fs [empty_state_def]
+  \\ fs [empty_state_def]
   \\ strip_tac \\ asm_exists_tac \\ fs []);
 
 val Eval_Arrow = Q.store_thm("Eval_Arrow",
