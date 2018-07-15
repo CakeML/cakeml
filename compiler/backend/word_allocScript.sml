@@ -307,6 +307,31 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
+  (ssa_cc_trans (Install ptr len dptr dlen numset) ssa na =
+    let ls = MAP FST (toAList numset) in
+    let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
+    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let ptr' = option_lookup ssa' ptr in
+    let len' = option_lookup ssa' len in
+    let dptr' = option_lookup ssa' dptr in
+    let dlen' = option_lookup ssa' dlen in
+    let ssa_cut = inter ssa' numset in
+    let (ptr'',ssa'',na'') = next_var_rename ptr ssa_cut (na'+2) in
+    let (ret_mov,ssa''',na''') =
+      list_next_var_rename_move ssa'' na'' ls in
+    let prog = (Seq (stack_mov)
+               (Seq (Move 0 [(2,ptr');(4,len')])
+               (Seq (Install 2 4 dptr' dlen' stack_set)
+               (Seq (Move 0 [(ptr'',2)]) ret_mov)))) in
+    (prog,ssa''',na''')) ∧
+  (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = option_lookup ssa r2 in
+    (CodeBufferWrite r1' r2',ssa,na)) ∧
+  (ssa_cc_trans (DataBufferWrite r1 r2) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = option_lookup ssa r2 in
+    (DataBufferWrite r1' r2',ssa,na)) ∧
   (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -439,6 +464,12 @@ val apply_colour_def = Define `
   (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
+  (apply_colour f (Install r1 r2 r3 r4 numset) =
+    Install (f r1) (f r2) (f r3) (f r4) (apply_nummap_key f numset)) ∧
+  (apply_colour f (CodeBufferWrite r1 r2) =
+    CodeBufferWrite (f r1) (f r2)) ∧
+  (apply_colour f (DataBufferWrite r1 r2) =
+    DataBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧
   (apply_colour f (LocValue r l1) =
@@ -574,6 +605,12 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (Install r1 r2 r3 r4 numset) live =
+    list_insert [r1;r2;r3;r4] numset) ∧
+  (get_live (CodeBufferWrite r1 r2) live =
+    list_insert [r1;r2] live) ∧
+  (get_live (DataBufferWrite r1 r2) live =
+    list_insert [r1;r2] live) ∧
   (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
    insert ptr1 () (insert len1 ()
      (insert ptr2 () (insert len2 () numset)))) ∧
@@ -692,6 +729,7 @@ val get_writes_def = Define`
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
+  (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
 val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
@@ -702,6 +740,7 @@ val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
     | Assign num exp => insert num () LN
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
+    | Install r1 _ _ _ _ => insert r1 () LN
     | prog => LN`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -805,6 +844,12 @@ val get_clash_tree_def = Define`
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
+  (get_clash_tree (Install r1 r2 r3 r4 numset) =
+    Seq (Delta [] [r4;r3;r2;r1]) (Seq (Set numset) (Delta [r1] []))) ∧
+  (get_clash_tree (CodeBufferWrite r1 r2) =
+    Delta [] [r2;r1]) ∧
+  (get_clash_tree (DataBufferWrite r1 r2) =
+    Delta [] [r2;r1]) ∧
   (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
@@ -829,7 +874,9 @@ val get_clash_tree_def = Define`
           else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
         Branch (SOME live_set) ret_tree handler_tree)`
 
-(* Preference edges *)
+(* Preference edges
+  The allocator tries hard to coalesce these edges
+*)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
   (get_prefs (MustTerminate s1) acc =
@@ -870,9 +917,189 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
   >> rpt strip_tac >> fs[Once get_prefs_def]
   >> every_case_tac >> metis_tac[pair_CASES]));
 
-(* Forced edges for certain instructions
-  At the moment this really only ever occurs for AddCarry, AddOverflow, SubOverflow
+(*
+  For each var, we collect 5 tuples indicating the number of
+  instructions in which it is involved in:
+    (lhs const,lhs reg,lhs memory, rhs reg, rhs memory)
+
+  Currently, this just treats FP as a "reg" instruction
+
+  This is meant to be small and quick to compute, because it has to be applied
+  to the entire program just before register allocation, which can be huge.
+
 *)
+
+val _ = type_abbrev ("heu_data",``:num#num#num#num#num``);
+
+val add1_lhs_const_def = Define`
+  add1_lhs_const x (t: (heu_data num_map)) =
+  dtcase lookup x t of NONE =>
+    insert x (1,0,0,0,0) t
+  | SOME (const,reg,mem,rreg,rmem) =>
+    insert x (const+1n,reg,mem,rreg,rmem) t`
+
+val add1_lhs_reg_def = Define`
+  add1_lhs_reg x (t: (heu_data num_map)) =
+  dtcase lookup x t of NONE =>
+    insert x (0,1,0,0,0) t
+  | SOME (const,reg,mem,rreg,rmem) =>
+    insert x (const,reg+1,mem,rreg,rmem) t`
+
+val add1_lhs_mem_def = Define`
+  add1_lhs_mem x (t: (heu_data num_map)) =
+  dtcase lookup x t of NONE =>
+    insert x (0,0,1,0,0) t
+  | SOME (const,reg,mem,rreg,rmem) =>
+    insert x (const,reg,mem+1,rreg,rmem) t`
+
+val add1_rhs_reg_def = Define`
+  add1_rhs_reg x (t: (heu_data num_map)) =
+  dtcase lookup x t of NONE =>
+    insert x (0,0,0,1,0) t
+  | SOME (const,reg,mem,rreg,rmem) =>
+    insert x (const,reg,mem,rreg+1,rmem) t`
+
+val add1_rhs_mem_def = Define`
+  add1_rhs_mem x (t: (heu_data num_map)) =
+  dtcase lookup x t of NONE =>
+    insert x (0,0,0,0,1) t
+  | SOME (const,reg,mem,rreg,rmem) =>
+    insert x (const,reg,mem,rreg,rmem+1) t`
+
+val get_heu_inst_def = Define`
+  (get_heu_inst Skip tup = tup) ∧
+  (get_heu_inst (Const reg w) lr =
+    (add1_lhs_const reg lr)) ∧
+  (get_heu_inst (Arith (Binop bop r1 r2 ri)) lr =
+    (dtcase ri of
+      Reg r3 => (* r1 := r2 op r3*)
+        (add1_lhs_reg r1
+        (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))
+    | _ =>
+        (add1_lhs_reg r1
+        (add1_rhs_reg r2 lr)))) ∧
+  (get_heu_inst (Arith (Shift shift r1 r2 n)) lr =
+     (add1_lhs_reg r1
+     (add1_rhs_reg r2 lr))) ∧
+  (get_heu_inst (Arith (Div r1 r2 r3)) lr =
+     (add1_lhs_reg r1
+     (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))) ∧
+  (get_heu_inst (Arith (AddCarry r1 r2 r3 r4)) lr =
+    (*r1,r4 := r2,r3,r4 *)
+     (add1_lhs_reg r4 (add1_lhs_reg r1
+     (add1_rhs_reg r4 (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))))) ∧
+  (get_heu_inst (Arith (AddOverflow r1 r2 r3 r4)) lr =
+    (*r1,r4 := r2,r3 *)
+     (add1_lhs_reg r4 (add1_lhs_reg r1
+     (add1_rhs_reg r3 (add1_rhs_reg r2 lr))))) ∧
+  (get_heu_inst (Arith (SubOverflow r1 r2 r3 r4)) lr =
+    (*r1,r4 := r2,r3 *)
+     (add1_lhs_reg r4 (add1_lhs_reg r1
+     (add1_rhs_reg r3 (add1_rhs_reg r2 lr))))) ∧
+  (get_heu_inst (Arith (LongMul r1 r2 r3 r4)) lr =
+    (*r1,r2 := r3,r4 *)
+     (add1_lhs_reg r2 (add1_lhs_reg r1
+     (add1_rhs_reg r4 (add1_rhs_reg r3 lr))))) ∧
+  (get_heu_inst (Arith (LongDiv r1 r2 r3 r4 r5)) lr =
+    (*r1,r2 := r3,r4,r5 *)
+     (add1_lhs_reg r2 (add1_lhs_reg r1
+     (add1_rhs_reg r5 (add1_rhs_reg r4 (add1_rhs_reg r3 lr)))))) ∧
+  (get_heu_inst (Mem Load r (Addr a w)) lr =
+     (add1_lhs_mem r lr)) ∧
+  (get_heu_inst (Mem Store r (Addr a w)) lr =
+     (add1_rhs_mem r lr)) ∧
+  (get_heu_inst (Mem Load8 r (Addr a w)) lr =
+     (add1_lhs_mem r lr)) ∧
+  (get_heu_inst (Mem Store8 r (Addr a w)) lr =
+     (add1_rhs_mem r lr)) ∧
+  (get_heu_inst (FP (FPLess r f1 f2)) lr =
+     (add1_lhs_reg r lr)) ∧
+  (get_heu_inst (FP (FPLessEqual r f1 f2)) lr =
+     (add1_lhs_reg r lr)) ∧
+  (get_heu_inst (FP (FPEqual r f1 f2)) lr =
+     (add1_lhs_reg r lr)) ∧
+  (get_heu_inst (FP (FPMovToReg r1 r2 d):'a inst) lr =
+     (add1_lhs_reg r2 (add1_lhs_reg r1 lr))) ∧
+  (get_heu_inst (FP (FPMovFromReg d r1 r2)) lr =
+     (add1_rhs_reg r2 (add1_rhs_reg r1 lr))) ∧
+  (*Catchall -- for future instructions to be added, and all other FP *)
+  (get_heu_inst x lr = lr)`
+
+(* For Ifs, as a heuristic we take the max over branching paths *)
+val heu_max_def = Define`
+  heu_max (c1,r1,m1,rr1,rm1) (c2,r2,m2,rr2,rm2) =
+    (MAX c1 c2, MAX r1 r2, MAX m1 m2,MAX rr1 rr2, MAX rm1 rm2)`
+
+val heu_max_all_def = Define`
+  heu_max_all t1 t2 =
+  let t1r = difference t1 t2 in (*everything in t1 not already in t2*)
+  union
+  t1r
+  (mapi (λk v.
+    dtcase lookup k t1 of
+      NONE => v
+    | SOME v' => heu_max v v') t2)`
+
+val heu_merge_call_def = Define`
+  heu_merge_call (t1:num_set) t2 =
+  union t1 t2`
+
+(* We use "lr" to approximate any new vars not already tracked in calls *)
+val add_call_def = Define`
+  add_call lr calls:num_set =
+  union (map (λv. ()) lr) calls`
+
+val get_heu_def = Define `
+  (get_heu fc (Move pri ls) (lr,calls) =
+    (FOLDR add1_lhs_reg
+    (FOLDR add1_rhs_reg lr (MAP SND ls))
+    (MAP FST ls) ,calls)) ∧
+  (get_heu fc (Inst i) (lr,calls) = (get_heu_inst i lr,calls)) ∧
+  (get_heu fc (Get num store) (lr,calls) =
+    (add1_lhs_mem num lr,calls)) ∧
+  (get_heu fc (Set _ exp) (lr,calls) =
+    (dtcase exp of (Var r) =>
+       (add1_rhs_mem r lr,calls)
+    | _ => (lr,calls))) ∧ (* General Set exp ignored *)
+  (get_heu fc (LocValue r l1) (lr,calls) =
+    (add1_lhs_reg r lr,calls)) ∧
+  (get_heu fc (Seq s1 s2) lr = get_heu fc s2 (get_heu fc s1 lr)) ∧
+  (get_heu fc (MustTerminate s1) lr = get_heu fc s1 lr) ∧
+  (get_heu fc (If cmp r1 ri e2 e3) lr =
+    let (lr2,calls2) = get_heu fc e2 lr in
+    let (lr3,calls3) = get_heu fc e3 lr in
+    let lr = heu_max_all lr2 lr3 in
+    let calls = heu_merge_call (calls2:num_set) calls3 in
+    ((dtcase ri of
+      Reg r2 => add1_rhs_reg r1 (add1_rhs_reg r2 lr)
+    | _ =>
+      add1_rhs_reg r1 lr),calls)) ∧
+  (get_heu fc (Call NONE dest args h) (lr,calls) =
+    dtcase dest of
+      NONE => (lr,calls)
+    | SOME p =>
+      if p = fc then (lr,add_call lr calls)
+      else (lr,calls)
+    ) ∧
+  (get_heu fc (Call (SOME (_,_,e2,_,_)) dest args h) (lr,calls) =
+    let calls =
+      dtcase dest of NONE => calls
+      | SOME p =>
+        if p = fc then (add_call lr calls)
+        else calls in
+    let (lr2,calls2) = (get_heu fc e2 (lr,calls)) in
+    dtcase h of
+      NONE => (lr2,calls)
+    | SOME (_,e3,_,_) =>
+      let (lr3,calls3) = get_heu fc e3 (lr,calls) in
+      (heu_max_all lr2 lr3, heu_merge_call calls2 calls3)) ∧
+  (* The remaining ones are exps, or otherwise unimportant from the
+  pov of register allocation, since all their temps are already forced into
+  specific registers
+  Omitted: Skip, Assign, Store, FFI, Alloc, Raise, Tick, Call NONE*)
+  (get_heu fc f lrc = lrc)`
+
+(* Forced edges for certain instructions *)
 val get_forced_def = Define`
   (get_forced (c:'a asm_config) ((Inst i):'a prog) acc =
     dtcase i of
@@ -976,7 +1203,7 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
   >> fs[get_forced_def]
   >> every_case_tac
   >> fs[]
-  >> metis_tac[pair_CASES])
+  >> metis_tac[pair_CASES]);
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`
@@ -1015,19 +1242,90 @@ val oracle_colour_ok_def = Define`
          NONE
      else NONE`
 
-(*alg is the allocation algorithm,
+(* Returns
+  1) a lookup table
+    v -> "spill cost"
+  2) the move list, with associated priorities
+
+  For now, the spill cost metric is just 6 magic numbers
+*)
+(*
+  Canonize by flipping moves (all move x<=y)
+  Filter some obviously impossible ones out
+  Then QSORT them by lexicographic order, and count
+  returns (num, maxpriority, (x,y))
+*)
+val canonize_moves_aux_def = Define`
+  (canonize_moves_aux curp curm ctr [] acc = (ctr,curp,curm)::acc) ∧
+  (canonize_moves_aux curp curm ctr ((p,m)::xs) acc =
+    if curm = m then
+      canonize_moves_aux (MAX curp p) m (ctr+1n) xs acc
+    else
+      canonize_moves_aux p m 1 xs ((ctr,curp,curm)::acc))`
+
+val canonize_moves_def = Define`
+  canonize_moves ls =
+  let can1 = MAP (λ(p:num,(x:num,y:num)). if (x<=y) then (p,(x,y)) else (p,(y,x))) ls in
+  let can2 = QSORT
+    (λ(p1,(x1,y1)) (p2,(x2,y2)).
+      if x1 = x2 then
+        if y1 = y2 then
+          p1 < p2
+        else y1 < y2
+      else x1 < x2) can1 in
+  dtcase can2 of [] => []
+  | ((p,m)::xs) => canonize_moves_aux p m 1 xs []`
+
+(* TODO: ALL of these magic numbers must be adjusted!! *)
+
+val get_spillcost_def = Define`
+  get_spillcost (c,lr,lm,rr,rm) istail =
+  (c + 2*lr + 4*lm + 2*rr + 4 * rm) *
+  if istail then 5 else 1n`
+
+(*
+  Prioritize moves that happen a lot, and have high max priority
+  also give some weight to the spill cost of their endpoints
+*)
+val get_coalescecost_def = Define`
+  get_coalescecost spillcost (n,p,(x,y))=
+  let xcost = if lookup x spillcost = NONE then 0 else 1 in
+  let ycost = if lookup y spillcost = NONE then 0 else 1n in
+  (n * (10 * (p+1) + xcost + ycost),(x,y))`
+
+val get_heuristics_def = Define`
+  get_heuristics alg fc prog =
+  if alg MOD 2n = 1n then
+    let (lr,calls) = get_heu fc prog (LN,LN) in
+    let moves = get_prefs prog [] in
+    let spillcosts = mapi (λk v. get_spillcost v (lookup k calls = NONE)) lr in
+    let canon_moves = canonize_moves moves in
+    let heu_moves = MAP (get_coalescecost spillcosts) canon_moves in
+    (heu_moves,SOME spillcosts)
+  else
+    let moves = get_prefs prog [] in
+    (moves,NONE)`
+
+(*
+  fc is the current prog number
+  alg is the allocation algorithm,
+    0: simple allocator, no spill heuristics
+    1: simple allocator + spill heuristics
+    2: IRC allocator, no spill heuristics (default)
+    3: IRC allocator + spill heuristics
   k is the number of registers
   prog is the program to be colored
-  col_opt is an optional oracle colour*)
+  col_opt is an optional oracle colour
+*)
 val word_alloc_def = Define`
-  word_alloc c (alg:num) k prog col_opt =
+  word_alloc fc c alg k prog col_opt =
   let tree = get_clash_tree prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
-      let moves = get_prefs prog [] in
-      (dtcase reg_alloc k moves tree forced of
+      let (heu_moves,spillcosts) = get_heuristics alg fc prog in
+      (dtcase reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))

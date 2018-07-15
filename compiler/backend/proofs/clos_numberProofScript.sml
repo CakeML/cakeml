@@ -1,13 +1,15 @@
-open preamble closLangTheory clos_numberTheory closSemTheory closPropsTheory;
+open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 
 val _ = new_theory"clos_numberProof";
 
-(* properties of renumber_code_locs *)
+(* TODO: move *)
 val option_case_eq = Q.prove(
   `(option_CASE opt n s = v) ⇔
       (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)`,
   Cases_on `opt` >> simp[EQ_SYM_EQ]);
+(* -- *)
 
+(* properties of renumber_code_locs *)
 
 fun tac (g as (asl,w)) =
   let
@@ -151,25 +153,28 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
    ⇒
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))`
 
-val code_rel_def = Define`
-  code_rel max_app (a1,e1) (a2,e2) ⇔
-    (a1 = a2) ∧ ¬contains_App_SOME max_app [e1] ∧
-    ∃n. e2 = SND (renumber_code_locs n e1)`
-
 val state_rel_def = Define `
-  state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
+  state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
+    s.compile = state_cc (ignore_table renumber_code_locs) t.compile /\
+    t.compile_oracle = state_co (ignore_table renumber_code_locs) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
-    fmap_rel (code_rel s.max_app) s.code t.code`
+    (∀n. SND (SND (s.compile_oracle n )) = [] ∧
+         ¬contains_App_SOME s.max_app [FST(SND(s.compile_oracle n))]) /\
+    s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
   `!s t. state_rel s t ⇒ s.max_app = t.max_app`,
    srw_tac[][state_rel_def]);
 
-val state_rel_clock = Q.prove (
+val state_rel_with_clock = Q.prove (
   `!s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)`,
    srw_tac[][state_rel_def] \\ rfs[]);
+
+val state_rel_clock = Q.prove(
+  `state_rel s t ⇒ s.clock = t.clock`,
+  rw[state_rel_def]);
 
 val state_rel_globals = Q.prove(
   `state_rel s t ⇒
@@ -181,6 +186,10 @@ val state_rel_refs = Q.prove(
     fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs`,
   srw_tac[][state_rel_def])
 
+val state_rel_code = Q.prove(
+  `state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY`,
+  rw[state_rel_def]);
+
 val v_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
   in map f [``v_rel max_app (Number x) y``,
@@ -191,6 +200,7 @@ val v_rel_simp = let
             ``v_rel max_app (Closure n a l narg x) y``,
             ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
             ``v_rel max_app y (Number x)``,
+            ``v_rel max_app y (Word64 n)``,
             ``v_rel max_app y (Block n l)``,
             ``v_rel max_app y (ByteVector ws)``,
             ``v_rel max_app y (RefPtr x)``,
@@ -358,22 +368,49 @@ val v_to_list = Q.prove(
   first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
   full_simp_tac(srw_ss())[optionTheory.OPTREL_def])
 
+val do_app_inst =
+  simple_val_rel_do_app
+  |> Q.INST [`vr`|->`v_rel s.max_app`]
+  |> INST_TYPE [``:'a``|->``:num # 'a``,``:'c``|->``:'a``]
+  |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`]
+  |> SIMP_RULE std_ss []
+
+val do_app_lemma = store_thm("do_app_lemma",
+  ``state_rel s t ∧ LIST_REL (v_rel s.max_app) xs ys ⇒
+    case do_app opp xs s of
+      Rval (x,s1) =>
+        ∃y t1.
+          v_rel s.max_app x y ∧
+          (s1.max_app = s.max_app ∧ state_rel s1 t1) ∧
+          do_app opp ys t = Rval (y,t1)
+    | Rerr err1 =>
+        ∃err2.
+          do_app opp ys t = Rerr err2 ∧
+          exc_rel (v_rel s.max_app) err1 err2``,
+  match_mp_tac do_app_inst
+  \\ conj_tac THEN1
+   (fs [simple_val_rel_def]
+    \\ once_rewrite_tac [v_rel_cases] \\ fs []
+    \\ rw [] \\ fs [])
+  \\ fs [simple_state_rel_def,state_rel_def] \\ rw []
+  \\ fs [FLOOKUP_DEF,fmap_rel_def] \\ TRY (rfs [] \\ NO_TAC)
+  THEN1
+   (`ref_rel (v_rel r.max_app) (r.refs ' ptr) (t.refs ' ptr)` by fs[]
+    \\ rpt (qpat_x_assum `!x._` kall_tac)
+    \\ rfs [] \\ Cases_on `r.refs ' ptr` \\ fs [ref_rel_def])
+  THEN1
+   (`ref_rel (v_rel r.max_app) (r.refs ' ptr) (t.refs ' ptr)` by fs[]
+    \\ rpt (qpat_x_assum `!x._` kall_tac)
+    \\ rfs [] \\ Cases_on `r.refs ' ptr` \\ fs [ref_rel_def])
+  \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
+  \\ metis_tac []);
+
 val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
   `!xs ys.
      LIST_REL (v_rel app) xs ys ==> v_rel app (list_to_v xs) (list_to_v ys)`,
   Induct
   >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
-
-val do_eq = Q.prove(
-  `∀x1 y1. v_rel max_app x1 y1 ⇒
-      ∀x2 y2. v_rel max_app x2 y2 ⇒ (do_eq x1 x2 = do_eq y1 y2)`,
-  ho_match_mp_tac v_rel_ind >> srw_tac[][] >>
-  Cases_on`x2`>>full_simp_tac(srw_ss())[v_rel_simp]>>TRY(full_simp_tac(srw_ss())[do_eq_def]>>NO_TAC)>> srw_tac[][] >>
-  simp[do_eq_def] >>
-  imp_res_tac LIST_REL_LENGTH >> srw_tac[][] >>
-  match_mp_tac do_eq_list_rel >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[LIST_REL_EL_EQN,EL_ZIP])
 
 val do_app = Q.prove(
   `state_rel s1 s2 ∧
@@ -384,260 +421,91 @@ val do_app = Q.prove(
     (∀v1 w1. do_app op x1 s1 = Rval(v1,w1) ⇒
              ∃v2 w2. do_app op x2 s2 = Rval(v2,w2) ∧
                      v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)`,
-  strip_tac >>
-  Cases_on `op = ListAppend`
-  >-
-   (rw []
-    \\ fs [do_app_def, case_eq_thms, pair_case_eq] \\ fs [] \\ rw []
-    \\ imp_res_tac v_to_list \\ rfs [OPTREL_def]
-    \\ match_mp_tac list_to_v_v_rel
-    \\ fs [EVERY2_APPEND_suff])
-  \\ Cases_on `?tag. op = ConsExtend tag`
-  >- (
-    rw [do_app_cases_val]
-    >- (
-      Cases_on `err` >>
-      fs [do_app_cases_err] >>
-      fs [] >>
-      Cases_on `a` >>
-      fs [do_app_cases_timeout] >>
-      fs [] >>
-      pop_assum mp_tac >>
-      simp [Once do_app_cases_type_error] >>
-      rw [] >>
-      rw [do_app_def] >>
-      fs [v_rel_cases] >>
-      rw [] >>
-      fs [] >>
-      rw [] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      intLib.ARITH_TAC)
-    >- (
-      fs [] >>
-      rw [] >>
-      fs [v_rel_cases] >>
-      rw [PULL_EXISTS] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      metis_tac [EVERY2_APPEND_suff, EVERY2_TAKE, EVERY2_DROP])) >>
-  simp[do_app_def] >>
-  Cases_on`op`>>simp[v_rel_simp]>>
-  Cases_on`x1`>>full_simp_tac(srw_ss())[v_rel_simp] >>
-  rpt BasicProvers.VAR_EQ_TAC
-  (* GetGlobal *)
-  >- (
-    simp[get_global_def] >>
-    imp_res_tac state_rel_globals >>
-    every_case_tac >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def] >>
-    res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] )
-  (* SetGlobal *)
-  >- (
-    simp[get_global_def] >>
-    imp_res_tac state_rel_globals >>
-    every_case_tac >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def] >>
-    res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[state_rel_def] >>
-    match_mp_tac EVERY2_LUPDATE_same >>
-    simp[OPTREL_def])
-  (* AllocGlobal *)
-  >- ( full_simp_tac(srw_ss())[state_rel_def] >> simp[OPTREL_def])
-  (* El *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    rpt var_eq_tac >>
-    srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[] )
-  (* LengthBlock *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
-  (* LengthArray *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
-    simp[LIST_REL_EL_EQN] )
-  (* LengthByteArray *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
-  (* AllocByteArray *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    srw_tac[][] >> simp[v_rel_simp] >>
-    imp_res_tac state_rel_refs >- full_simp_tac(srw_ss())[fmap_rel_def] >>
-    `FDOM s1.refs = FDOM s2.refs` by full_simp_tac(srw_ss())[fmap_rel_def] >>
-    full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
-    full_simp_tac(srw_ss())[OPTREL_def,FLOOKUP_UPDATE] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] )
-  (* AllocArray *)
-  >- (
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    srw_tac[][] >> simp[v_rel_simp] >>
-    imp_res_tac state_rel_refs >- full_simp_tac(srw_ss())[fmap_rel_def] >>
-    `FDOM s1.refs = FDOM s2.refs` by full_simp_tac(srw_ss())[fmap_rel_def] >>
-    full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
-    full_simp_tac(srw_ss())[OPTREL_def,FLOOKUP_UPDATE] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    simp[LIST_REL_REPLICATE_same])
-  (* SubByteArray *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac state_rel_refs >>
-    rpt var_eq_tac >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
-    metis_tac[])
-  (* UpdateByteArray *)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    rpt var_eq_tac >>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
-    simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
-    simp[OPTREL_def] )
-  (* ConcatByteVec *)
-  >- (
-    Cases_on`t` \\ fs[]
-    \\ rename1`v_rel _ v1 v2`
-    \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS]
-    \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS,v_rel_simp]
-    \\ Cases_on`v_to_list v1` \\ fs[] \\ Cases_on`v_to_list v2` \\ fs[]
-    \\ imp_res_tac v_to_list \\ fs[OPTREL_def] \\ fs[] \\ rveq
-    \\ rename1`LIST_REL _ l1 l2`
-    \\ reverse(Cases_on`∃ws. l1 = MAP ByteVector ws` \\ fs[])
-    >- (
-      spose_not_then strip_assume_tac
-      \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_simp]
-      \\ metis_tac[EL_MAP,v_rel_simp] )
-    \\ `l2 = MAP ByteVector ws`
-    by (
-      fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE] \\
-      metis_tac[EL_MAP,v_rel_simp] )
-    \\ fs[]
-    \\ rw[]
-    \\ qexists_tac`ws` \\ rw[]
-    \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF])
-  (* CopyByte *)
-  >- (
-    rw[] \\ fs[case_eq_thms,bool_case_eq] \\ rw[] \\ fs[v_rel_simp] \\
-    imp_res_tac state_rel_refs \\
-    imp_res_tac fmap_rel_FLOOKUP_imp \\ fs[] \\
-    fs[state_rel_def,fmap_rel_FUPDATE_same])
-  >- (
-    Cases_on`t` >> fsrw_tac[][v_rel_simp]>>
-    imp_res_tac v_to_list >>
-    every_case_tac >> full_simp_tac(srw_ss())[OPTREL_def] >>
-    simp[v_rel_simp] )
-  (* FromListByte *)
-  >- (
-    every_case_tac \\ fs[v_rel_simp]
-    \\ rpt(qpat_x_assum`$some _ = _`mp_tac)
-    \\ rpt(DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[]
-    \\ imp_res_tac v_to_list \\ rfs[OPTREL_def]
-    \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[EL_MAP,v_rel_simp]
-    \\ fs[EVERY_MEM,EXISTS_MEM]
-    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ,v_rel_simp])
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
-  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[] )
-  >- (
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
-    imp_res_tac LIST_REL_LENGTH >> fs [] >>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
-  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
-  >- (
-    full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> srw_tac[][] )
-  >- (
-    full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> srw_tac[][] )
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac state_rel_max_app >> fs[] >>
-    first_x_assum match_mp_tac >> intLib.COOPER_TAC)
-  >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE] >>
-    srw_tac[][] >> match_mp_tac EVERY2_LUPDATE_same >>
-    full_simp_tac(srw_ss())[] >> last_x_assum(qspec_then`k`mp_tac) >> simp[] )
-  >- (
-    Cases_on`y`\\fs[v_rel_simp]
-    \\ Cases_on`t`\\fs[v_rel_simp]
-    \\ Cases_on`h`\\fs[v_rel_simp]
-    \\ rveq
-    \\ imp_res_tac state_rel_refs
-    \\ fs[fmap_rel_OPTREL_FLOOKUP]
-    \\ first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]
-    \\ every_case_tac \\ fs[OPTREL_def]
-    \\ rveq\\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE]
-    \\ rw[] \\ rfs[] \\ fs[v_rel_simp] \\ rename [`FLOOKUP _ k = _`]
-    \\ rpt(first_x_assum(qspec_then `k` assume_tac))
-    \\ rfs[] >> fs[] )
-  >- (
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac do_eq >> simp[] >>
-    every_case_tac >> simp[v_rel_simp] )
-  >> (
-    TRY(Cases_on`w`)\\fs[]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
-    TRY(Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp])>>
-    TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
-    imp_res_tac LIST_REL_LENGTH >> fs [] >>
-    imp_res_tac state_rel_refs >>
-    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
-    simp[LIST_REL_EL_EQN] ));
+  rpt strip_tac
+  \\ drule (GEN_ALL do_app_lemma)
+  \\ disch_then drule
+  \\ disch_then (qspec_then `op` mp_tac) \\ fs []
+  \\ rw [] \\ fs []
+  \\ Cases_on `err` \\ fs []
+  \\ qpat_x_assum `_ = Rerr (Rraise _)` mp_tac
+  \\ simp [do_app_cases_err]
+  \\ strip_tac \\ fs []
+  \\ every_case_tac \\ fs[]);
+
+val v_to_bytes = Q.prove(
+  `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
+  rw[v_to_bytes_def]
+  \\ imp_res_tac v_to_list
+  \\ fs[OPTREL_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[] \\ fs[]
+  \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
+  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rw[]
+  >- ( qexists_tac`x` \\ simp[EL_MAP] )
+  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
+  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+
+val v_to_words = Q.prove(
+  `v_rel m v w ⇒ v_to_words v = v_to_words w`,
+  rw[v_to_words_def]
+  \\ imp_res_tac v_to_list
+  \\ fs[OPTREL_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[] \\ fs[]
+  \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
+  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rw[]
+  >- ( qexists_tac`x` \\ simp[EL_MAP] )
+  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
+  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+
+val do_install = Q.prove(
+  `state_rel s1 s2 ∧
+   LIST_REL (v_rel s1.max_app) x1 x2 ⇒
+   (∀err t. do_install x1 s1 = (Rerr (Rabort Rtimeout_error),t) ⇒
+            ?t'. do_install x2 s2 = (Rerr (Rabort Rtimeout_error),t') /\
+                 state_rel t t') ∧
+   (∀e1 t1. do_install x1 s1 = (Rval e1,t1) ⇒
+     ∃e2 t2. do_install x2 s2 = (Rval e2,t2) ∧
+             ¬contains_App_SOME t1.max_app [e1] ∧ t1.max_app = s1.max_app ∧
+             e2 = SND (renumber_code_locs (FST(FST(s1.compile_oracle 0))) e1) ∧
+             state_rel t1 t2)`,
+  strip_tac
+  \\ `∃res. do_install x1 s1 = res` by fs[]
+  \\ fs[do_install_def,case_eq_thms] \\ rveq \\ fs[]
+  \\ imp_res_tac v_to_bytes \\ fs[]
+  \\ imp_res_tac v_to_words \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac state_rel_code \\ fs[]
+  \\ imp_res_tac state_rel_max_app \\ fs[]
+  \\ imp_res_tac state_rel_clock \\ fs[]
+  \\ fs[shift_seq_def]
+  \\ `s2.compile_oracle = state_co (ignore_table renumber_code_locs) s1.compile_oracle` by fs[state_rel_def]
+  \\ `s1.compile = state_cc (ignore_table renumber_code_locs) s2.compile` by fs[state_rel_def]
+  \\ fs[]
+  \\ qpat_x_assum`state_co _ _ _ = _`mp_tac
+  \\ simp[Once state_co_def]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac \\ rveq
+  \\ imp_res_tac ignore_table_imp \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[state_cc_def]
+  \\ CASE_TAC \\ fs[]
+  \\ split_pair_case_tac \\ fs[] \\ rveq
+  \\ simp[FST_state_co]
+  \\ split_pair_case_tac \\ fs[] \\ rveq
+  \\ split_pair_case_tac \\ fs[] \\ rveq
+  \\ IF_CASES_TAC \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ fs[state_rel_def,state_co_def,ignore_table_def]
+  \\ pairarg_tac \\ fs[]
+  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] );
 
 (* compiler correctness *)
 
@@ -657,10 +525,18 @@ val lookup_vars_SOME_related_env = Q.store_thm(
   dsimp[option_case_eq] >> reverse conj_tac >- metis_tac[] >>
   simp[LIST_REL_EL_EQN]);
 
+val do_install_Rabort = prove(
+  ``closSem$do_install xs s2 = (Rerr (Rabort a),s3) ==>
+    a = Rtype_error \/ a = Rtimeout_error``,
+  rw [do_install_def]
+  \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
+  \\ pairarg_tac \\ fs []
+  \\ fs [do_install_def,case_eq_thms,pair_case_eq,bool_case_eq]);
+
 val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
-  `(!tmp xs env (s1:'ffi closSem$state) env' t1 res s2 n.
+  `(!tmp xs env (s1:(num#'c,'ffi) closSem$state) env' t1 res s2 n.
      tmp = (xs,env,s1) ∧
-     (evaluate (xs,env,s1) = (res,s2)) ⇒
+     (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) ⇒
      ¬contains_App_SOME s1.max_app xs ∧
      LIST_REL (v_rel s1.max_app) env env' ∧
      state_rel s1 t1 ==>
@@ -668,8 +544,8 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         (evaluate (SND(renumber_code_locs_list n xs),env',t1) = (res',t2)) /\
         result_rel (LIST_REL (v_rel s1.max_app)) (v_rel s1.max_app) res res' /\
         state_rel s2 t2) ∧
-   (!loc f args (s:'ffi closSem$state) res s2 f' args' t1.
-       evaluate_app loc f args s = (res,s2) ⇒
+   (!loc f args (s:(num#'c,'ffi) closSem$state) res s2 f' args' t1.
+       evaluate_app loc f args s = (res,s2) /\ res <> Rerr (Rabort Rtype_error) ⇒
        v_rel s.max_app f f' ∧
        loc = NONE ∧
        LIST_REL (v_rel s.max_app) args args' ∧
@@ -689,33 +565,41 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[evaluate_def]
-    \\ `?r1 s1. evaluate ([x],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,contains_App_SOME_def] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
-    Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    `?r2 s2. evaluate (y::xs,env,s1) = (r2,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_const >> fs[] >>
-    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    disch_then(fn th => first_x_assum(qspec_then`q`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
-    Cases_on `r2` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[])
+    \\ `?r1 s1. evaluate ([x],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs[]
+    \\ fs[renumber_code_locs_def,LET_THM,contains_App_SOME_def]
+    \\ reverse (fs [case_eq_thms]) \\ rveq \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ disch_then (qspec_then `n` mp_tac) \\ rw [] \\ fs []
+    \\ Cases_on `evaluate (y::xs,env,s1)` \\ fs []
+    \\ rename1 `_ = (res4,t5)`
+    \\ `res4 ≠ Rerr (Rabort Rtype_error)` by (strip_tac \\ fs [])
+    \\ imp_res_tac evaluate_const \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ disch_then (qspec_then `q` mp_tac) \\ rw [] \\ fs []
+    \\ reverse (Cases_on `res4`) \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_SING \\ fs [])
   THEN1 (* Var *)
    (srw_tac[][renumber_code_locs_def] >>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-    full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][])
+    full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][] >> fs [] \\ rw [])
   THEN1 (* If *)
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
-    `?r1 s1. evaluate ([x1],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
+    `?r1 s1. evaluate ([x1],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ fs[]
+    \\ `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
+    disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >>
+    rev_full_simp_tac(srw_ss())[] >>
     imp_res_tac evaluate_const >>
-    Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[v_rel_simp] >> srw_tac[][] >>
+    Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[] >>
+    imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[v_rel_simp] >> srw_tac[][] >>
     TRY (
       first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
       disch_then(fn th => first_x_assum(qspec_then`q`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
@@ -732,6 +616,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
     rename1`evaluate(xs,env,s)` \\
     `?r1 s1. evaluate (xs,env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
+    `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     imp_res_tac evaluate_const >>
@@ -743,6 +628,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     \\ `?r1 s1. evaluate ([x1],env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
     tac >> full_simp_tac(srw_ss())[] >>
+    `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -751,6 +637,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY]
     \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
+    `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
@@ -761,7 +648,28 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY]
     \\ `?r1 s2. evaluate (xs,env,s) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
-    tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
+    tac >> full_simp_tac(srw_ss())[] >>
+    Cases_on`op = Install` >- (
+      fs[]
+      \\ first_x_assum drule
+      \\ disch_then drule
+      \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
+      \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
+      \\ imp_res_tac state_rel_max_app
+      \\ imp_res_tac evaluate_const
+      \\ drule (GEN_ALL do_install) \\ fs[]
+      \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
+      \\ disch_then drule
+      \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
+      \\ TRY (strip_tac \\ fs[])
+      \\ imp_res_tac do_install_Rabort \\ fs []
+      \\ Cases_on `err` \\ fs []
+      \\ imp_res_tac do_install_not_Rraise \\ fs []
+      \\ rename1 `aa = Rtimeout_error ==> _`
+      \\ Cases_on `aa` \\ fs []
+      \\ imp_res_tac do_install_not_Rffi_error \\ fs[]) >>
+    srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -814,8 +722,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     full_simp_tac(srw_ss())[EVERY_ZIP, MAP_ZIP] >>
     reverse (srw_tac[][]) >>
     full_simp_tac (bool_ss) []
-    >- (srw_tac[][] >> srw_tac[][])
-    >- srw_tac[][] >>
+    >- (srw_tac[][] >> srw_tac[][]) >>
     full_simp_tac(srw_ss())[combinTheory.o_DEF, EVERY_MAP, LAMBDA_PROD] >>
     full_simp_tac(srw_ss())[build_recc_def,clos_env_def] >> reverse(srw_tac[][]) >>
     full_simp_tac(srw_ss())[contains_App_SOME_def] >> srw_tac[][] >>
@@ -851,6 +758,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     first_assum(split_pair_case0_tac o lhs o concl) >>
     full_simp_tac(srw_ss())[contains_App_SOME_def] >>
+    `v3 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) >> fs [] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`q`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`evaluate (args,env,s) = (v2,_)` >>
@@ -858,6 +766,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     first_assum(split_pair_case0_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
     imp_res_tac state_rel_max_app >> fs[] >>
     imp_res_tac evaluate_const >> fs[] >>
+    `v2 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) >> fs [] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`evaluate (_,env,_) = (v2',_)` >>
@@ -881,6 +790,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
     `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
+    `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) >> fs [] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -889,24 +799,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
       srw_tac[][] ) >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac LIST_REL_LENGTH >>
-    `s2'.clock = t2.clock` by full_simp_tac(srw_ss())[state_rel_def] >>
-    `∃x. FLOOKUP s2'.code dest = SOME x ∧ code_rel s2'.max_app x (q,r)` by (
-      full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FLOOKUP_DEF] >>
-      METIS_TAC[] ) >>
-    Cases_on`x`>>full_simp_tac(srw_ss())[code_rel_def] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]
-      >- ( match_mp_tac state_rel_clock \\ rw[] ) >>
-      fs[dec_clock_def] >>
-      imp_res_tac state_rel_max_app >> fs[] >>
-      imp_res_tac evaluate_const >> fs[] >>
-      first_x_assum MATCH_MP_TAC >>
-      simp[] >>
-      full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] ) >>
-    srw_tac[][])
+    rfs[state_rel_def])
   THEN1 (* App empty *)
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
@@ -915,9 +808,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     Cases_on `dest_closure s.max_app NONE f (z::zs)` >>
     imp_res_tac state_rel_max_app >>
     full_simp_tac(srw_ss())[] >>
-    srw_tac[][]
-    >- (imp_res_tac dest_closure_v_rel_none >>
-        srw_tac[][]) >>
+    srw_tac[][] >>
     `s.clock = t1.clock` by full_simp_tac(srw_ss())[state_rel_def] >>
     imp_res_tac EVERY2_LENGTH >>
     Cases_on `x` >>
@@ -927,37 +818,37 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         srw_tac[][] >>
         full_simp_tac(srw_ss())[] >>
         srw_tac[][ dec_clock_def] >>
-        metis_tac [state_rel_clock])
-    >- (`∃args1' args2' n.
-           dest_closure t1.max_app NONE f' (y::ys) =
-           SOME (Full_app (SND (renumber_code_locs n e)) args1' args2') ∧
-           ~contains_App_SOME t1.max_app [e] ∧
-           LIST_REL (v_rel t1.max_app) l args1' ∧ LIST_REL (v_rel t1.max_app) l0 args2'`
-                     by (
-               imp_res_tac dest_closure_v_rel_full >>
-               full_simp_tac(srw_ss())[PULL_EXISTS] >> prove_tac[]) >>
-        simp [] >>
-        imp_res_tac EVERY2_LENGTH >>
-        full_simp_tac(srw_ss())[] >>
-        srw_tac[][] >>
-        full_simp_tac(srw_ss())[]
-        >- metis_tac [state_rel_clock] >>
-        Cases_on `evaluate ([e],l,dec_clock (SUC (LENGTH ys) − LENGTH args2') s)` >>
-        srw_tac[][] >>
-        full_simp_tac(srw_ss())[] >>
-        Cases_on `q` >>
-        full_simp_tac(srw_ss())[] >>
-        srw_tac[][] >>
-        first_x_assum (qspecl_then [`args1'`, `dec_clock (SUC (LENGTH ys) - LENGTH (args2')) t1`,
-                                    `n`] mp_tac) >>
-        srw_tac[][] >>
-        full_simp_tac(srw_ss())[dec_clock_def] >>
-        rev_full_simp_tac(srw_ss())[state_rel_clock] >>
-        full_simp_tac(srw_ss())[renumber_code_locs_def, LET_THM, helper] >>
-        BasicProvers.EVERY_CASE_TAC >>
-        full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-        imp_res_tac state_rel_max_app >>
-        imp_res_tac evaluate_const >> fs[])));
+        metis_tac [state_rel_with_clock]) >>
+    `∃args1' args2' n.
+       dest_closure t1.max_app NONE f' (y::ys) =
+       SOME (Full_app (SND (renumber_code_locs n e)) args1' args2') ∧
+       ~contains_App_SOME t1.max_app [e] ∧
+       LIST_REL (v_rel t1.max_app) l args1' ∧ LIST_REL (v_rel t1.max_app) l0 args2'`
+                 by (
+           imp_res_tac dest_closure_v_rel_full >>
+           full_simp_tac(srw_ss())[PULL_EXISTS] >> prove_tac[]) >>
+    simp [] >>
+    imp_res_tac EVERY2_LENGTH >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[]
+    >- metis_tac [state_rel_with_clock] >>
+    Cases_on `evaluate ([e],l,dec_clock (SUC (LENGTH ys) − LENGTH args2') s)` >>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[] >>
+    Cases_on `q` >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][] >>
+    first_x_assum (qspecl_then [`args1'`, `dec_clock (SUC (LENGTH ys) - LENGTH (args2')) t1`,
+                                `n`] mp_tac) >>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[dec_clock_def] >>
+    rev_full_simp_tac(srw_ss())[state_rel_with_clock] >>
+    full_simp_tac(srw_ss())[renumber_code_locs_def, LET_THM, helper] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    imp_res_tac state_rel_max_app >>
+    imp_res_tac evaluate_const >> fs[]));
 
 val renumber_code_locs_every_Fn_SOME = Q.store_thm("renumber_code_locs_every_Fn_SOME",
   `(∀n es. every_Fn_SOME (SND (renumber_code_locs_list n es))) ∧
@@ -1031,5 +922,38 @@ val renumber_code_locs_esgc_free = Q.store_thm(
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
       simp[]));
+
+(* preservation of observable semantics *)
+
+val semantics_number = Q.store_thm ("semantics_number",
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
+     (state_cc (ignore_table renumber_code_locs) cc) xs <> Fail ==>
+   ¬contains_App_SOME max_app xs /\
+   (∀n.
+      SND (SND (co n)) = [] ∧
+      ¬contains_App_SOME max_app [FST (SND (co n))]) ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     (state_co (ignore_table renumber_code_locs) co) cc
+        (SND (renumber_code_locs_list n xs)) =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (state_cc (ignore_table renumber_code_locs) cc) xs`
+  ,
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ drule (renumber_code_locs_correct
+       |> CONJUNCT1 |> SIMP_RULE std_ss [])
+  \\ simp []
+  \\ qabbrev_tac `ff = initial_state ffi max_app FEMPTY
+       (state_co (ignore_table renumber_code_locs) co) cc`
+  \\ disch_then (qspec_then `ff k` mp_tac)
+  \\ qunabbrev_tac `ff`
+  \\ disch_then (qspec_then `n` mp_tac)
+  \\ impl_tac THEN1 (fs [state_rel_def,initial_state_def])
+  \\ strip_tac
+  \\ qexists_tac `0` \\ fs []
+  \\ fs [state_rel_def]
+  \\ Cases_on `res1` \\ fs []
+  \\ Cases_on `e` \\ fs []);
 
 val _ = export_theory();

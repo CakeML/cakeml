@@ -9,7 +9,7 @@ fun remove_tyabbrev s =
   let
     val _ = Parse.temp_set_grammars(type_grammar.remove_abbreviation(Parse.type_grammar())s,Parse.term_grammar())
     val q = String.concat["val ",ct,"_grammars = (type_grammar.remove_abbreviation(#1 ",ct,"_grammars)\"",s,"\",#2 ",ct,"_grammars);"]
-    val _ = adjoin_to_theory{sig_ps=NONE, struct_ps=SOME(fn pp => PP.add_string pp q)}
+    val _ = adjoin_to_theory{sig_ps=NONE, struct_ps=SOME(fn _ => PP.add_string q)}
   in () end
 end
 val _ = remove_tyabbrev"reln"

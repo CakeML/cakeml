@@ -70,8 +70,8 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
   fs[get_file_content_def] >> rpt(pairarg_tac >> fs[]) >>
   xsimpl >> rw[] >> instantiate >> rfs[eof_def] >>
   qexists_tac`THE (LDROP k (THE (LTL ll)))` >> rw[Abbr`fs'`]
-  >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate
-     >-(irule wfFS_fsupdate
+  >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate >> conj_tac
+     >-(irule wfFS_fsupdate >> conj_tac
         >-(fs[wfFS_def] >> imp_res_tac NOT_LFINITE_DROP_LFINITE >>
            cases_on`ll` >> fs[liveFS_def,live_numchars_def,always_DROP] >>
            imp_res_tac NOT_LFINITE_DROP >> first_x_assum(assume_tac o Q.SPEC`k`)  >>
@@ -81,7 +81,7 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
         >-(fs[MEM_MAP] >> qexists_tac`(fd1,(fnm'',off''))` >> rfs[FST,ALOOKUP_MEM]))
      >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(fnm',STRLEN c2))` >>
         fs[ALOOKUP_MEM,FST]))
-  >-(irule STD_streams_fsupdate
+  >-(irule STD_streams_fsupdate >> conj_tac
      >-(irule STD_streams_fsupdate >> rw[] >> metis_tac[STD_streams_def,PAIR,FST,SND,SOME_11])
      >> fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP]) >>
   qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2 * GC` >>

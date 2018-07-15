@@ -129,7 +129,7 @@ int hasT = 0;
 void cml_exit(int arg) {
   #ifdef DEBUG_FFI
   {
-    printf("GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+    fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
   }
   #endif
   exit(arg);

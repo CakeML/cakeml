@@ -5,7 +5,9 @@ open import Lib
 (* An oracle says how to perform an ffi call based on its internal state,
 * represented by the type variable 'ffi. *)
 
-type oracle_result 'ffi = Oracle_return of 'ffi * list word8 | Oracle_diverge | Oracle_fail
+type ffi_outcome = FFI_failed | FFI_diverged
+
+type oracle_result 'ffi = Oracle_return of 'ffi * list word8 | Oracle_final of ffi_outcome
 type oracle_function 'ffi = 'ffi -> list word8 -> list word8 -> oracle_result 'ffi
 type oracle 'ffi = string -> oracle_function 'ffi
 
@@ -15,13 +17,11 @@ type oracle 'ffi = string -> oracle_function 'ffi
 
 type io_event = IO_event of string * list word8 * (list (word8 * word8))
 
-type ffi_outcome = FFI_diverged | FFI_failed
 type final_event = Final_event of string * list word8 * list word8 * ffi_outcome
 
 type ffi_state 'ffi =
 <| oracle      : oracle 'ffi
  ; ffi_state   : 'ffi
- ; final_event : maybe final_event
  ; io_events   : list io_event
  |>
 
@@ -29,35 +29,36 @@ val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi
 let initial_ffi_state oc ffi =
 <| oracle      = oc
  ; ffi_state   = ffi
- ; final_event = Nothing
  ; io_events   = []
  |>
 
-val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * list word8
+type ffi_result 'ffi = FFI_return of ffi_state 'ffi * list word8 | FFI_final of final_event
+
+val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi
 let call_FFI st s conf bytes =
-  if st.final_event = Nothing && s <> "" then
+  if s <> "" then
     match st.oracle s st.ffi_state conf bytes with
     | Oracle_return ffi' bytes' ->
         if length bytes' = length bytes then
-          (<| st with ffi_state = ffi'
+          (FFI_return
+            <| st with ffi_state = ffi'
                     ; io_events =
                         st.io_events ++
                           [IO_event s conf (zipSameLength bytes bytes')]
-            |>, bytes')
-        else (<| st with final_event = Just (Final_event s conf bytes FFI_failed) |>, bytes)
-    | Oracle_diverge ->
-          (<| st with final_event = Just (Final_event s conf bytes FFI_diverged) |>, bytes)
-    | Oracle_fail ->
-        (<| st with final_event = Just (Final_event s conf bytes FFI_failed) |>, bytes)
+            |>
+            bytes')
+        else FFI_final(Final_event s conf bytes FFI_failed)
+    | Oracle_final outcome ->
+          FFI_final(Final_event s conf bytes outcome)
     end
-  else (st, bytes)
+  else FFI_return st bytes
 
 type outcome = Success | Resource_limit_hit | FFI_outcome of final_event
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
    events are valid I/O events for this behaviour. *)
-type  behaviour =
+type behaviour 'ffi =
     (* There cannot be any non-returning FFI calls in a diverging
        exeuction. The list of I/O events can be finite or infinite,
        hence the llist (lazy list) type. *)
@@ -79,6 +80,6 @@ let trace_oracle s io_trace conf input =
   | Just (IO_event s' conf' bytes2) ->
       if (s = s') && (map fst bytes2 = input) && (conf = conf') then
         Oracle_return (fromJust (ltl io_trace)) (map snd bytes2)
-      else Oracle_fail
-  | _ -> Oracle_fail
+      else Oracle_final FFI_failed
+  | _ -> Oracle_final FFI_failed
   end

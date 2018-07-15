@@ -95,7 +95,7 @@ val _ = enable_astPP()
 
 val _ = set_trace "pp_avoids_symbol_merges" 0
 
-val f = TextIO.openOut("kernel.ml.txt")
+val f = TextIO.openOut("kernel_ml.txt")
 
 fun appthis tm = let
   val () = TextIO.output(f,term_to_string tm)

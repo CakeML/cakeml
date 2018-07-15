@@ -152,6 +152,8 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`k1`mp_tac) >> simp[] ) >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  IF_CASES_TAC >> fs[] \\
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
@@ -161,54 +163,47 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `∀mc_conf ffi k ms.
-   ffi.io_events ≼ (SND(SND(evaluate mc_conf ffi k ms))).io_events ∧
-   (IS_SOME ffi.final_event ⇒
-    (SND(SND(evaluate mc_conf ffi k ms))) = ffi)`,
+     ffi.io_events ≼ (SND(SND(evaluate mc_conf ffi k ms))).io_events`,
   ho_match_mp_tac evaluate_ind >>
   rpt gen_tac >> strip_tac >>
   simp[Once evaluate_def] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-    simp[Once evaluate_def] ) >>
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY(simp[Once evaluate_def]>>NO_TAC) >>
-  simp[Once evaluate_def,SimpR``$/\``,apply_oracle_def] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>  
-  (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[call_FFI_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[call_FFI_def] >> every_case_tac >>
+  full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND]);
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀mc_conf ffi k ms k'.
    k ≤ k' ⇒
-   (SND(SND(evaluate mc_conf ffi k ms))).io_events ≼ (SND(SND(evaluate mc_conf ffi k' ms))).io_events ∧
-   (IS_SOME((SND(SND(evaluate mc_conf ffi k ms))).final_event) ⇒
-    (SND(SND(evaluate mc_conf ffi k' ms))) = (SND(SND(evaluate mc_conf ffi k ms))))`,
+   (SND(SND(evaluate mc_conf ffi k ms))).io_events ≼
+   (SND(SND(evaluate mc_conf ffi k' ms))).io_events`,
   ho_match_mp_tac evaluate_ind >>
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >>
   simp_tac(srw_ss())[Once evaluate_def] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-    simp[Once evaluate_def,SimpR``$/\``] >>
-    simp[Once evaluate_def,SimpRHS,SimpR``$/\``] >>
-    METIS_TAC[evaluate_io_events_mono] ) >>
-  simp[apply_oracle_def] >>
-  qpat_abbrev_tac`hide = (SND(SND _))` >>
-  Q.ISPECL_THEN[`ms`,`mc_conf`,`k`,`ffi`](fn th => CONV_TAC(DEPTH_CONV(REWR_CONV th)))evaluate_def >>
-  simp[] >>
-  simp[Abbr`hide`] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-    first_x_assum match_mp_tac >> simp[] ) >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>  
-  (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  first_x_assum match_mp_tac >> simp[]);
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[]
+  >- METIS_TAC[evaluate_io_events_mono] >>
+  BasicProvers.TOP_CASE_TAC >> fs [] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs [] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs [] >>
+  full_simp_tac(srw_ss())[apply_oracle_def] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs [] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs [] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs [] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs []
+  \\ `k ≤ k' + 1` by decide_tac
+  \\ res_tac
+  \\ CONV_TAC (RAND_CONV (SIMP_CONV std_ss [Once evaluate_def]))
+  \\ fs [apply_oracle_def]
+  \\ METIS_TAC[evaluate_io_events_mono]);
 
 val _ = export_theory();

@@ -9,6 +9,9 @@
 .HOLMK
 .hollogs
 
+# TacticToe
+*Script_ttt.sml
+
 # Generated assembly
 *.S
 

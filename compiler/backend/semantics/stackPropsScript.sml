@@ -2,6 +2,19 @@ open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
 
+(* TODO: move *)
+
+val FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM = Q.store_thm("FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM",
+  `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`,
+  qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
+  res_tac \\ fs[] \\ Cases_on`x` \\ fs[]);
+(* -- *)
+
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
+  [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``, ``:'a reg_imm``
+  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).ffi = z.ffi ∧
    (set_store x y z).clock = z.clock ∧
@@ -12,7 +25,11 @@ val set_store_const = Q.store_thm("set_store_const[simp]",
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
    (set_store x y z).mdomain = z.mdomain ∧
-   (set_store x y z).bitmaps = z.bitmaps`,
+   (set_store x y z).bitmaps = z.bitmaps ∧
+   (set_store x y z).data_buffer = z.data_buffer ∧
+   (set_store x y z).code_buffer = z.code_buffer ∧
+   (set_store x y z).compile = z.compile ∧
+   (set_store x y z).compile_oracle = z.compile_oracle`,
   EVAL_TAC);
 
 val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
@@ -30,6 +47,8 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
    (set_var x y z).gc_fun = z.gc_fun ∧
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
+   (set_var x y z).compile = z.compile ∧
+   (set_var x y z).compile_oracle = z.compile_oracle ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space`,
   EVAL_TAC);
@@ -53,7 +72,11 @@ val empty_env_const = Q.store_thm("empty_env_const[simp]",
    (empty_env z).be = z.be ∧
    (empty_env z).gc_fun = z.gc_fun ∧
    (empty_env z).mdomain = z.mdomain ∧
-   (empty_env z).bitmaps = z.bitmaps`,
+   (empty_env z).bitmaps = z.bitmaps ∧
+   (empty_env z).data_buffer = z.data_buffer ∧
+   (empty_env z).code_buffer = z.code_buffer ∧
+   (empty_env z).compile = z.compile ∧
+   (empty_env z).compile_oracle = z.compile_oracle`,
   EVAL_TAC)
 
 val empty_env_with_const = Q.store_thm("empty_env_with_const[simp]",
@@ -70,7 +93,11 @@ val alloc_const = Q.store_thm("alloc_const",
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
-    t.bitmaps = s.bitmaps`,
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile ∧
+    t.data_buffer = s.data_buffer ∧
+    t.code_buffer = s.code_buffer ∧
+    t.compile_oracle = s.compile_oracle`,
   srw_tac[][alloc_def,gc_def,LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -116,7 +143,9 @@ val inst_const = Q.store_thm("inst_const",
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
-    t.bitmaps = s.bitmaps`,
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile ∧
+    t.compile_oracle = s.compile_oracle`,
   Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[set_fp_var_def,set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
@@ -140,7 +169,9 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
    (dec_clock z).mdomain = z.mdomain ∧
-   (dec_clock z).bitmaps = z.bitmaps`,
+   (dec_clock z).bitmaps = z.bitmaps ∧
+   (dec_clock z).compile = z.compile ∧
+   (dec_clock z).compile_oracle = z.compile_oracle`,
   EVAL_TAC);
 
 val evaluate_consts = Q.store_thm("evaluate_consts",
@@ -149,11 +180,10 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
       s1.use_alloc = s.use_alloc /\
       s1.use_store = s.use_store /\
       s1.use_stack = s.use_stack /\
-      s1.code = s.code /\
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
       s1.mdomain = s.mdomain /\
-      s1.bitmaps = s.bitmaps`,
+      s1.compile = s.compile`,
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
@@ -163,14 +193,103 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
     (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
-    (pairarg_tac >> simp[])));
+    (pairarg_tac >> simp[]))>>
+  (every_case_tac>>fs[]>>rw[]));
+
+val evaluate_code_bitmaps = Q.store_thm("evaluate_code_bitmaps",
+  `∀c s r s1.
+   evaluate (c,s) = (r,s1) ⇒
+   ∃n.
+    s1.compile_oracle = shift_seq n s.compile_oracle ∧
+    s1.code = FOLDL union s.code (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
+    s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def] >>
+  TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+  TRY(
+    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    imp_res_tac alloc_const \\ imp_res_tac inst_const \\
+    qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
+  (* Seq *)
+  >- (
+    pairarg_tac \\ fs[] \\
+    every_case_tac \\ fs[] \\
+    fs[shift_seq_def] \\
+    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qexists_tac`w` \\ simp[] \\
+    simp[Abbr`w`] \\
+    once_rewrite_tac[ADD_COMM] \\
+    simp[GENLIST_APPEND] \\
+    simp[FOLDL_APPEND] \\
+    rw[] \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
+    simp[FUN_EQ_THM] )
+  (* If *)
+  >- (
+    fs[case_eq_thms] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    fs[] \\
+    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
+    metis_tac[] )
+  (* While *)
+  >- (
+    fs[case_eq_thms] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    pairarg_tac \\ fs[] \\
+    fs[case_eq_thms] \\ fs[]
+    >- metis_tac[]
+    >- metis_tac[] \\
+    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
+    fs[shift_seq_def] \\
+    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qexists_tac`w` \\ simp[] \\
+    simp[Abbr`w`] \\
+    once_rewrite_tac[ADD_COMM] \\
+    simp[GENLIST_APPEND] \\
+    simp[FOLDL_APPEND] \\
+    rw[] \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
+    simp[FUN_EQ_THM] )
+  (* Call *)
+  >- (
+    fs[case_eq_thms] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    rfs[] \\
+    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
+    fs[shift_seq_def] \\
+    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qexists_tac`w` \\ simp[] \\
+    simp[Abbr`w`] \\
+    once_rewrite_tac[ADD_COMM] \\
+    simp[GENLIST_APPEND] \\
+    simp[FOLDL_APPEND] \\
+    rw[] \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
+    simp[FUN_EQ_THM] )
+  (* Install *)
+  >- (
+    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    pairarg_tac \\ fs[] \\
+    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def]));
+
+val evaluate_mono = Q.store_thm("evaluate_mono",`
+  ∀c s r s1.
+  evaluate (c,s) = (r,s1) ⇒
+  isPREFIX s.bitmaps s1.bitmaps ∧
+  subspt s.code s1.code`,
+  rw[] \\
+  imp_res_tac evaluate_code_bitmaps \\
+  rw[] \\
+  metis_tac[subspt_FOLDL_union]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events ∧
-    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+    s1.ffi.io_events ≼ s2.ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
@@ -244,6 +363,15 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ fs[] \\ rfs[]
     \\ fsrw_tac[ARITH_ss][dec_clock_def] ) >>
+  TRY (
+    rename1 `buffer_flush _ _ _` >>
+    qpat_x_assum`_ = (_,_)` mp_tac>>
+    TOP_CASE_TAC>>fs[get_var_def]>-
+      (rw[]>>fs[])>>
+    ntac 11 (TOP_CASE_TAC>>fs[])>>
+    pairarg_tac>>fs[]>>
+    ntac 5 (TOP_CASE_TAC>>fs[])>>
+    rw[]>>fs[])>>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   TRY BasicProvers.TOP_CASE_TAC \\ fs[get_var_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
@@ -262,10 +390,8 @@ val with_clock_ffi = Q.store_thm("with_clock_ffi",
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀e s.
-     (SND(evaluate(e,s))).ffi.io_events ≼ (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events ∧
-     (IS_SOME((SND(evaluate(e,s))).ffi.final_event) ⇒
-      (SND(evaluate(e,s with clock := s.clock + extra))).ffi =
-      (SND(evaluate(e,s))).ffi)`,
+     (SND(evaluate(e,s))).ffi.io_events ≼
+     (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
   TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
@@ -301,6 +427,10 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
     every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
     rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
+  TRY(
+    rename1 `buffer_flush _ _ _ = _`>>
+    pairarg_tac>>fs[]>>
+    every_case_tac >> fs[get_var_def])>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
 
 val clock_neutral_def = Define `
@@ -444,9 +574,11 @@ val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
   \\ every_case_tac \\ fs []
   \\ metis_tac []);
 
+(* TODO: This is not updated for Install, CBW and DBW *)
 (* asm_ok out of stack_names *)
 val stack_asm_ok_def = Define`
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ r1 < c.reg_count ∧ r2 < c.reg_count ∧ ¬MEM r1 c.avoid_regs ∧ ¬MEM r2 c.avoid_regs) ∧
   (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
   (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
@@ -553,6 +685,8 @@ val inst_name_def = Define`
 
 val stack_asm_name_def = Define`
   (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c (CodeBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
+  (stack_asm_name c (DataBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
   (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
   (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
@@ -684,6 +818,12 @@ val reg_bound_def = Define `
       | SOME (y,r,_,_) => reg_bound y k /\ r < k
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
+  (reg_bound (Install ptr len dptr dlen ret) k ⇔
+    ptr < k ∧ len < k ∧ dptr < k ∧ dlen < k ∧ ret < k) ∧
+  (reg_bound (CodeBufferWrite r1 r2) k ⇔
+    r1 < k ∧ r2 < k) ∧
+  (reg_bound (DataBufferWrite r1 r2) k ⇔
+    r1 < k ∧ r2 < k) ∧
   (reg_bound (BitmapLoad r v) k <=> r < k /\ v < k) /\
   (reg_bound (Inst i) k <=> reg_bound_inst i k) /\
   (reg_bound (StackStore r _) k <=> r < k) /\
@@ -695,7 +835,7 @@ val reg_bound_def = Define `
   (reg_bound (StackStoreAny r r2) k <=> r < k /\ r2 < k) /\
   (reg_bound _ k <=> T)`
 
-(* Finally, stack_to_lab requires correct arguments for Call/FFI calls *)
+(* Finally, stack_to_lab requires correct arguments for Call/FFI/Install calls *)
 val call_args_def = Define `
   (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
@@ -713,6 +853,8 @@ val call_args_def = Define `
       | SOME (y,r,_,_) => call_args y ptr len ptr2 len2 ret /\ r = ret
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T)) /\
+  (call_args (Install ptr' len' _ _ ret') ptr len ptr2 len2 ret <=>
+     ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ptr2 len2 ret <=> T)`
 
 val _ = export_theory();

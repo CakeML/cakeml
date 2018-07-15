@@ -69,11 +69,11 @@ val _ = Define `
 val _ = Define `
   (pure_op (Op (Op op)) ⇔ pure_op_op op)
   ∧
-  (pure_op (Op (Init_global_var _)) ⇔ F)
-  ∧
   (pure_op (Tag_eq _ _) ⇔ T)
   ∧
-  (pure_op (El _) ⇔ T)`;
+  (pure_op (El _) ⇔ T)
+  ∧
+  (pure_op _ ⇔ F)`;
 
 val pure_def = Define `
   (pure (Raise _ _) ⇔ F)

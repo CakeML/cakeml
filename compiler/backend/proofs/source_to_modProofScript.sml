@@ -719,14 +719,15 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] >>
       imp_res_tac LIST_REL_LENGTH >>
       srw_tac[][] >>
-      every_case_tac >>
+      rpt(PURE_FULL_CASE_TAC >> fs[]) >>
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
       res_tac >>
       srw_tac[][] >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][] >>
-      full_simp_tac(srw_ss())[]));
+      full_simp_tac(srw_ss())[] >>
+      simp[v_rel_eqns]));
 
 val find_recfun = Q.prove (
   `!x funs e var_map y t.
@@ -2660,7 +2661,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ rveq \\ fs[]
     \\ every_case_tac \\ fs[]
     \\ rw[]
-    \\ strip_tac \\ fs[result_rel_cases] )
+    \\ fs[result_rel_cases] )
   \\ rw[]
   \\ simp[semantics_prog_def]
   \\ conj_tac
@@ -2690,7 +2691,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ last_x_assum(qspec_then`k`mp_tac)
     \\ simp[]
     \\ Cases_on`r`\\fs[]
-    \\ Cases_on`a`\\fs[])
+    \\ rpt(PURE_FULL_CASE_TAC \\ fs[]))
   \\ qmatch_abbrev_tac`lprefix_lub l1 (build_lprefix_lub l2)`
   \\ `l2 = l1`
   by (

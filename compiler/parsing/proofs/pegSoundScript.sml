@@ -613,7 +613,8 @@ val peg_sound = Q.store_thm(
   >- (print_tac "nLetDec" >>
       rpt strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> fs[]
       >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
-          asm_match`peg_eval cmlPEG (i1,nt (mkNT nV) I) (SOME(equalsT::i2,r))` >>
+          asm_match
+            `peg_eval cmlPEG (i1,nt (mkNT nPattern) I) (SOME(equalsT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
           first_assum (erule strip_assume_tac) >> rveq >> simp[] >>
           `LENGTH (equalsT::i2) ≤ LENGTH i1`

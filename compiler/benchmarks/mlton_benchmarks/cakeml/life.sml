@@ -1,6 +1,6 @@
 structure Main =
   struct
-
+    fun append x y = x @ y
     fun map f ls = case ls of
         [] => []
       | (a::x) => f a :: map f x
@@ -50,8 +50,8 @@ structure Main =
 
     fun lexordset ls = case ls of
       [] => []
-    | (a::x) => List.append (lexordset (filter (lexless a) x))
-                (List.append [a] (lexordset (filter (lexgreater a) x)))
+    | (a::x) => append (lexordset (filter (lexless a) x))
+                (append [a] (lexordset (filter (lexgreater a) x)))
     and lexless(a1:int,b1:int)(a2,b2) =
          if a2<a1 then true else if a2=a1 then b2<b1 else false
     and lexgreater pr1 pr2 = lexless pr2 pr1
@@ -85,7 +85,7 @@ structure Main =
             val survivors = filter (fn x => twoorthree (liveneighbours x)) living
             val newnbrlist = collect (fn x => filter (fn y => not (isalive y)) (neighbours x)) living
             val newborn = occurs3 newnbrlist
-         in mkgen (List.append survivors newborn) end
+         in mkgen (append survivors newborn) end
 
     fun neighbours (i,j) = [(i-1,j-1),(i-1,j),(i-1,j+1),
                             (i,j-1),(i,j+1),
@@ -120,7 +120,7 @@ structure Main =
         in (0,0)::(1,0):: f 0
        end
 
-    val genB = mkgen(List.append (at glider (2,2)) (List.append (at bail (2,12))
+    val genB = mkgen(append (at glider (2,2)) (append (at bail (2,12))
                      (at (rotate (barberpole 4)) (5,20))))
 
     fun nthgen g i = case i of 0 => g | _ => nthgen (mk_nextgen_fn neighbours g) (i-1)

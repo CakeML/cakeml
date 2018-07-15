@@ -28,4 +28,5 @@ Compare
 Map
 CommandLine
 TextIO
+PrettyPrinter
 basis

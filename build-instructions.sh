@@ -26,7 +26,7 @@ cd HOL
 # git checkout kananaskis-11
 ## note: currently, we only aim to ensure that
 ##       CakeML branch master builds on HOL branch master
-poly < tools/smart-configure.sml
+poly --script tools/smart-configure.sml
 bin/build
 ## optionally set HOLDIR to point to the HOL installation
 # export HOLDIR=$HOME/HOL
@@ -34,6 +34,8 @@ bin/build
 # export PATH=$HOLDIR/bin:$PATH
 
 ## build CakeML
+## note: a full build (including the bootstrapped compiler)
+## takes a long time (~20 hours) and requires much RAM (~16 GB)
 cd
 git clone https://github.com/CakeML/cakeml
 cd cakeml

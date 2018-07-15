@@ -15,6 +15,7 @@ val _ = set_grammar_ancestry ["conLang"]
 val _ = Datatype`
   op =
    | Op (conLang$op)
+   | Run (* TODO: will eventually be inherited from earlier languages via Op *)
    | Tag_eq num num
    | El num`;
 

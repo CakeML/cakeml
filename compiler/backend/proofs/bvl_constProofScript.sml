@@ -3,28 +3,28 @@ open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
 val _ = new_theory"bvl_constProof";
 
 val v_rel_def = Define `
-  v_rel (:'a) a x y xs ys =
+  v_rel (:'c) (:'ffi) a x y xs ys =
     case a of
     | Var n => LLOOKUP ys n = SOME x
-    | Op _ _ => !(s:'a bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
+    | Op _ _ => !(s:('c,'ffi) bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
     | _ => F`;
 
 val env_rel_def = Define `
-  (env_rel (:'a) [] e1 e2 = (e1 = e2)) /\
-  (env_rel (:'a) (NONE::rest) (x::e1) (y::e2) <=>
-     (x = y) /\ env_rel (:'a) rest e1 e2) /\
-  (env_rel (:'a) (SOME a::rest) (x::e1) (y::e2) <=>
-     v_rel (:'a) a x y (x::e1) (y::e2) /\ env_rel (:'a) rest e1 e2) /\
-  (env_rel _ _ _ _ = F)`
+  (env_rel (:'c) (:'ffi) [] e1 e2 = (e1 = e2)) /\
+  (env_rel (:'c) (:'ffi) (NONE::rest) (x::e1) (y::e2) <=>
+     (x = y) /\ env_rel (:'c) (:'ffi) rest e1 e2) /\
+  (env_rel (:'c) (:'ffi) (SOME a::rest) (x::e1) (y::e2) <=>
+     v_rel (:'c) (:'ffi) a x y (x::e1) (y::e2) /\ env_rel (:'c) (:'ffi) rest e1 e2) /\
+  (env_rel _ _ _ _ _ = F)`
 
 val env_rel_length = Q.store_thm("env_rel_length",
-  `!ax env env2. env_rel (:α) ax env env2 ==> LENGTH env2 = LENGTH env`,
+  `!ax env env2. env_rel (:'c) (:'ffi) ax env env2 ==> LENGTH env2 = LENGTH env`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def]);
 
 val env_rel_LLOOKUP_NONE = Q.prove(
   `!ax env env2 n.
-      env_rel (:α) ax env env2 /\
+      env_rel (:'c) (:'ffi) ax env env2 /\
       (LLOOKUP ax n = NONE \/ LLOOKUP ax n = SOME NONE) ==>
       EL n env2 = EL n env`,
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
@@ -33,9 +33,9 @@ val env_rel_LLOOKUP_NONE = Q.prove(
 
 val env_rel_LOOKUP_SOME = Q.prove(
   `!env env2 ax x n.
-      env_rel (:α) ax env env2 /\
+      env_rel (:'c) (:'ffi) ax env env2 /\
       LLOOKUP ax n = SOME (SOME x) ==>
-      v_rel (:'a) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
+      v_rel (:'c) (:'ffi) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
   Induct \\ Cases_on `env2` \\ Cases_on `ax` \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [env_rel_def] \\ res_tac \\ fs []
   \\ Cases_on `n` \\ fs [env_rel_def]
@@ -67,10 +67,10 @@ val evaluate_delete_var_Rerr = Q.prove(
 
 val evaluate_delete_var_Rval = Q.prove(
   `!xs env2 s a r ax env.
-      evaluate (xs,env2,s:'a bvlSem$state) = (Rval a,r) /\
-      env_rel (:'a) ax env env2 ==>
+      evaluate (xs,env2,s:('c,'ffi) bvlSem$state) = (Rval a,r) /\
+      env_rel (:'c) (:'ffi) ax env env2 ==>
       ?b. evaluate (MAP delete_var xs,env2,s) = (Rval b,r) /\
-          env_rel (:'a) (extract_list xs ++ ax) (a ++ env) (b ++ env2)`,
+          env_rel (:'c) (:'ffi) (extract_list xs ++ ax) (a ++ env) (b ++ env2)`,
   Induct \\ fs [env_rel_def,extract_list_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ Cases_on `evaluate ([h],env2,s)` \\ fs []
@@ -109,19 +109,61 @@ val dest_simple_eq = prove(
   \\ Cases_on `o'` \\ fs [dest_simple_def,NULL_EQ]
   \\ eq_tac \\ rw [] \\ rw []);
 
-val SmartOp_thm = Q.store_thm("SmartOp_thm",
-  `evaluate ([Op op xs],env,s) = (res,s2) /\
+val case_op_const_eq = prove(
+  ``case_op_const exp = SOME x <=>
+  (?op x1 n2. x = (op, x1, n2) /\ (exp = Op op [x1; Op (Const n2) []]))``,
+  Cases_on `exp` \\ fs [case_op_const_def, NULL_EQ] \\
+  every_case_tac \\
+  eq_tac \\ rw []
+)
+
+val SmartOp_flip_thm = prove(
+    ``(op', x1', x2') = SmartOp_flip op x1 x2 /\
+    evaluate ([Op op [x1; x2]], env, s) = (res, s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([SmartOp op xs],env,s) = (res,s2)`,
-  full_simp_tac std_ss [SmartOp_def]
-  \\ reverse (Cases_on `op = Equal`)
-  THEN1
-   (reverse (Cases_on `op`) \\ fs [] \\ every_case_tac \\ fs []
-    \\ fs [dest_simple_eq]
-    \\ fs [evaluate_def,do_app_def] \\ rw [])
-  \\ reverse (Cases_on `?x1 x2. xs = [x2;x1]`)
-  THEN1
-   (Cases_on `xs` \\ fs [] \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs [])
+    evaluate ([Op op' [x1'; x2']], env, s) = (res, s2)``,
+
+    rpt strip_tac \\
+    Cases_on `MEM op [Add; Sub; Mult]` THEN1 (
+      Cases_on `op` \\ fs [] \\
+      Cases_on `dest_simple x1` \\
+      fs [SmartOp_flip_def, dest_simple_eq] \\
+      fs [dest_simple_eq] \\
+      fs [evaluate_def, do_app_def] \\
+      fs [case_eq_thms] \\
+      rveq \\ fs [] \\ rveq \\ fs [REVERSE] \\ rveq \\ fs [] \\
+      intLib.COOPER_TAC
+    ) \\
+    Cases_on `op` \\
+    Cases_on `dest_simple x1` \\
+    fs [SmartOp_flip_def]
+)
+
+val SmartOp2_thm = prove(
+  ``evaluate ([Op op [x1;x2]],env,s) = (res,s2) /\
+    res ≠ Rerr (Rabort Rtype_error) ==>
+    evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)``,
+
+  simp [SmartOp2_def] \\
+  reverse (Cases_on `op = Equal`)
+  THEN1 (
+    Cases_on `dest_simple x1` \\ fs [] \\
+    Cases_on `dest_simple x2` \\ fs [] \\
+    Cases_on `case_op_const x1` \\ fs [] \\
+    Cases_on `case_op_const x2` \\ fs [] \\
+    fs [dest_simple_eq, case_op_const_eq] \\
+    rveq \\
+    rw [case_eq_thms] \\
+    qpat_x_assum `evaluate _ = _` mp_tac \\
+
+    simp [evaluate_def, do_app_def] \\
+    fsrw_tac [DNF_ss] [case_eq_thms] \\
+    rw [REVERSE] \\
+    imp_res_tac evaluate_SING  \\
+    fs [] \\
+    intLib.COOPER_TAC
+  )
+
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
@@ -134,10 +176,26 @@ val SmartOp_thm = Q.store_thm("SmartOp_thm",
   \\ rw [] \\ fs []
   \\ eq_tac \\ fs []);
 
+
+val SmartOp_thm = Q.store_thm("SmartOp_thm",
+  `evaluate ([Op op xs],env,s) = (res,s2) /\
+    res ≠ Rerr (Rabort Rtype_error) ==>
+    evaluate ([SmartOp op xs],env,s) = (res,s2)`,
+
+  simp [SmartOp_def] \\
+  every_case_tac \\
+  rename1 `Op op [x1; x2]` \\
+  Cases_on `SmartOp_flip op x1 x2` \\
+  Cases_on `r` \\
+  rename1 `SmartOp_flip op x1 x2 = (op', x1', x2')` \\
+  metis_tac [SmartOp_flip_thm, SmartOp2_thm]
+)
+
+
 val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
-  `!xs env1 (s1:'a bvlSem$state) ax env2 res s2 ys.
+  `!xs env1 (s1:('c,'ffi) bvlSem$state) ax env2 res s2 ys.
       (evaluate (xs,env1,s1) = (res,s2)) /\
-      env_rel (:'a) ax env1 env2 /\
+      env_rel (:'c) (:'ffi) ax env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
       (evaluate (compile ax xs,env2,s1) = (res,s2))`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC

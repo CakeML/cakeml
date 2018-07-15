@@ -188,7 +188,7 @@ val if_eq_b2w = prove(
   Cases_on `b` \\ EVAL_TAC);
 
 val LongDiv1_thm = store_thm("LongDiv1_thm",
-  ``!k n1 n2 m i1 i2 (t2:('a,'ffi) wordSem$state)
+  ``!k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
         r1 r2 m1 is1 c:data_to_word$config.
       single_div_loop (n2w k,[n1;n2],m,[i1;i2]) = (m1,is1) /\
       lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
@@ -293,7 +293,7 @@ val LongDiv1_thm = store_thm("LongDiv1_thm",
 val get_real_addr_lemma = Q.store_thm("get_real_addr_lemma",
   `shift_length c < dimindex (:'a) /\
     good_dimindex (:'a) /\
-    get_var v t = SOME (Word ptr_w) /\
+    get_var v (t:('a,'c,'ffi) wordSem$state) = SOME (Word ptr_w) /\
     get_real_addr c t.store ptr_w = SOME x ==>
     word_exp t (real_addr c v) = SOME (Word (x:'a word))`,
   fs [get_real_addr_def] \\ every_case_tac \\ fs []
@@ -315,7 +315,7 @@ val memory_rel_lookup = Q.store_thm("memory_rel_lookup",
 
 val evaluate_AddNumSize = store_thm("evaluate_AddNumSize",
   ``!src c l1 l2 s t locs i w.
-      state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
       get_var src s.locals = SOME (Number i) ==>
       evaluate (AddNumSize c src,set_var 1 (Word w) t) =
         (NONE,set_var 1 (Word (w +
@@ -372,7 +372,7 @@ val evaluate_AddNumSize = store_thm("evaluate_AddNumSize",
 
 val AnyHeader_thm = store_thm("AnyHeader_thm",
   ``!t1 t2 t3 r.
-      state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
       get_var r s.locals = SOME (Number i) /\
       ALL_DISTINCT [t1;t2;t3] ==>
       ?a2 a3 temp.
@@ -524,11 +524,12 @@ val state_rel_set_store_Temp = store_thm("state_rel_set_store_Temp",
     state_rel c l1 l2 s t vs locs``,
   fs [state_rel_def,wordSemTheory.set_store_def]
   \\ rw [] \\ eq_tac \\ rw []
-  \\ fs [heap_in_memory_store_def,PULL_EXISTS,FLOOKUP_UPDATE,FAPPLY_FUPDATE_THM]
+  \\ fs [heap_in_memory_store_def,PULL_EXISTS,FLOOKUP_UPDATE,
+         FAPPLY_FUPDATE_THM,code_oracle_rel_def]
   \\ rpt (asm_exists_tac \\ fs []) \\ metis_tac []);
 
 val state_rel_IMP_num_size_limit = store_thm("state_rel_IMP_num_size_limit",
-  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_var k s.locals = SOME (Number i) ==>
     LENGTH (SND (i2mw i):'a word list) < dimword (:'a) DIV 16``,
   rpt strip_tac
@@ -587,7 +588,7 @@ val IMP_LESS_MustTerminate_limit = Q.store_thm("IMP_LESS_MustTerminate_limit[sim
   rewrite_tac [wordSemTheory.MustTerminate_limit_def] \\ decide_tac);
 
 val evaluate_LongDiv_code = store_thm("evaluate_LongDiv_code",
-  ``!(t:('a,'ffi) wordSem$state) l1 l2 c w x1 x2 y d1 m1.
+  ``!(t:('a,'c,'ffi) wordSem$state) l1 l2 c w x1 x2 y d1 m1.
       single_div_pre x1 x2 y /\
       single_div x1 x2 y = (d1,m1:'a word) /\
       lookup LongDiv1_location t.code = SOME (7,LongDiv1_code c) /\
@@ -631,8 +632,8 @@ val evaluate_LongDiv_code = store_thm("evaluate_LongDiv_code",
          wordSemTheory.state_component_equality,fromAList_def]);
 
 val div_code_assum_thm = store_thm("div_code_assum_thm",
-  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs ==>
-    div_code_assum (:'ffi) t.code``,
+  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
+    div_code_assum (:'ffi) (:'c) t.code``,
   fs [DivCode_def,div_code_assum_def,eq_eval] \\ rpt strip_tac
   \\ fs [state_rel_thm,code_rel_def,stubs_def]
   \\ fs [EVAL ``LongDiv_location``,div_location_def]
@@ -721,12 +722,12 @@ val Replicate_code_thm = Q.store_thm("Replicate_code_thm",
   `!n a r m1 a1 a2 a3 a4 a5.
       lookup Replicate_location r.code = SOME (5,Replicate_code) /\
       store_list (a + bytes_in_word) (REPLICATE n v)
-        (r:('a,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
+        (r:('a,'c,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
       get_var a1 r = SOME (Loc l1 l2) /\
       get_var a2 r = SOME (Word a) /\
       get_var a3 r = SOME v /\
       get_var a4 r = SOME (Word (n2w (4 * n))) /\
-      get_var a5 (r:('a,'ffi) wordSem$state) = SOME ret_val /\
+      get_var a5 (r:('a,'c,'ffi) wordSem$state) = SOME ret_val /\
       4 * n < dimword (:'a) /\
       n < r.clock ==>
       evaluate (Call NONE (SOME Replicate_location) [a1;a2;a3;a4;a5] NONE,r) =
@@ -758,11 +759,11 @@ val Replicate_code_alt_thm = Q.store_thm("Replicate_code_alt_thm",
   `!n a r m1 a1 a2 a3 a4 a5 var.
       lookup Replicate_location r.code = SOME (5,Replicate_code) /\
       store_list (a + bytes_in_word) (REPLICATE n v)
-        (r:('a,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
+        (r:('a,'c,'ffi) wordSem$state).memory r.mdomain = SOME m1 /\
       get_var a2 r = SOME (Word a) /\
       get_var a3 r = SOME v /\
       get_var a4 r = SOME (Word (n2w (4 * n))) /\
-      get_var 0 (r:('a,'ffi) wordSem$state) = SOME ret_val /\
+      get_var 0 (r:('a,'c,'ffi) wordSem$state) = SOME ret_val /\
       4 * n < dimword (:'a) /\
       n < r.clock ==>
       evaluate (Call (SOME (0,fromList [()],Skip,l1,l2))
@@ -816,9 +817,11 @@ val Replicate_code_alt_thm = Q.store_thm("Replicate_code_alt_thm",
   \\ fs [wordSemTheory.state_component_equality]
   \\ fs [fromAList_def,insert_shadow]);
 
+val s = ``s:('c,'ffi)dataSem$state``
+
 val AnyArith_thm = Q.store_thm("AnyArith_thm",
   `∀op_index i j v t s r2 r1 locs l2 l1 c.
-     state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+     state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
      get_vars [0;1;2] s.locals = SOME [Number i; Number j; Number (& op_index)] /\
      t.clock = MustTerminate_limit (:'a) - 2 /\ t.termdep <> 0 /\
      lookup 6 t.locals = SOME (Word (n2w (4 * op_index))) /\
@@ -1033,7 +1036,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
      \\ qunabbrev_tac `w1` \\ fs [word_mul_n2w,word_add_n2w]
      \\ conj_tac THEN1
        (unabbrev_all_tac
-        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def])
+        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def] \\ rfs [])
      \\ `s0.clock = t.clock` by
        (unabbrev_all_tac
         \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def,state_rel_def])
@@ -1051,11 +1054,9 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ `t9.code = t.code /\ t9.termdep = t.termdep /\
       t9.mdomain = t.mdomain /\ t9.be = t.be` by
    (imp_res_tac wordSemTheory.evaluate_clock
-    \\ imp_res_tac evaluate_code_gc_fun_const
-    \\ imp_res_tac evaluate_mdomain_const
-    \\ imp_res_tac evaluate_be_const
     \\ unabbrev_all_tac
-    \\ fs [wordSemTheory.set_store_def])
+    \\ fs [wordSemTheory.set_store_def]
+    \\ imp_res_tac evaluate_consts \\ fs [])
   \\ `FLOOKUP t9.store (Temp 29w) = SOME
         (Word (curr + bytes_in_word * n2w (heap_length ha)))` by
      (qunabbrev_tac `t9` \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE]
@@ -1100,7 +1101,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ qspecl_then [`i`,`j`,`1`,`my_frame`,`REPLICATE (LENGTH xs) 0w`,`t3`,
           `Loc AnyArith_location 2`,`Bignum_location`,`t3.clock`,
           `get_iop op_index`] mp_tac
-       (evaluate_mc_iop |> INST_TYPE [``:'c``|->``:'ffi``])
+       (evaluate_mc_iop |> INST_TYPE [``:'d``|->``:'ffi``])
   \\ asm_rewrite_tac [] \\ simp_tac std_ss [AND_IMP_INTRO]
   \\ impl_tac THEN1
    (simp [LENGTH_REPLICATE]
@@ -1118,7 +1119,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ fs [] \\ `t3.code = t.code /\ t3.termdep = t.termdep` by
      (qunabbrev_tac `t3` \\ fs [wordSemTheory.push_env_def]
       \\ pairarg_tac \\ fs [] \\ NO_TAC) \\ fs []
-    \\ `div_code_assum (:'ffi) t.code` by metis_tac [div_code_assum_thm]
+    \\ `div_code_assum (:'ffi) (:'c) t.code` by metis_tac [div_code_assum_thm]
     \\ `get_var 0 t3 = SOME (Loc AnyArith_location 2)` by
           (qunabbrev_tac `t3` \\ fs [wordSemTheory.get_var_def] \\ NO_TAC)
     \\ simp []
@@ -1391,8 +1392,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ rw [] \\ simp_tac std_ss [GSYM LENGTH_NIL] \\ intLib.COOPER_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `t2.be = s1.be` by
-   (imp_res_tac evaluate_be_const
-    \\ unabbrev_all_tac
+   (imp_res_tac evaluate_consts
+    \\ rfs [] \\ unabbrev_all_tac
     \\ fs [wordSemTheory.set_store_def] \\ asm_rewrite_tac []
     \\ qpat_x_assum `state_rel _ _ _ _ _` mp_tac
     \\ rewrite_tac [word_bignumProofTheory.state_rel_def]
@@ -1427,6 +1428,10 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE,TempOut_def]
     \\ qunabbrev_tac `s0` \\ full_simp_tac (srw_ss()) []
     \\ rpt strip_tac
+    THEN1
+     (qpat_x_assum `code_oracle_rel _ s_compile s_compile_oracle t_store t_compile
+                      t_compile_oracle t_code_buffer t_data_buffer` mp_tac
+      \\ simp [code_oracle_rel_def,FLOOKUP_UPDATE])
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ imp_res_tac small_int_0
@@ -1720,7 +1725,7 @@ val MAP_FST_EQ_IMP_IS_SOME_ALOOKUP = Q.store_thm("MAP_FST_EQ_IMP_IS_SOME_ALOOKUP
 
 val eval_Call_Arith = store_thm("eval_Call_Arith",
   ``!index r.
-      state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
       names_opt ≠ NONE /\ 1 < t.termdep /\
       get_vars [a1; a2] x.locals = SOME [Number i1; Number i2] /\
       cut_state_opt names_opt s = SOME x /\
@@ -1785,6 +1790,7 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a)-1)
         (t with <| clock := MustTerminate_limit(:'a)-1; termdep := t.termdep - 1 |>)
           [] locs` by (fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `dataSem$get_vars [a1; a2] s.locals = SOME [Number i1; Number i2]` by
     (fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs [cut_env_def]
@@ -1824,7 +1830,7 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
   \\ `domain t2.locals = domain y` by
    (qspecl_then [`AnyArith_code c`,`t4`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
-            |> INST_TYPE [``:'b``|->``:'ffi``])
+            |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def,wordSemTheory.dec_clock_def]
     \\ Cases_on `r''.stack` \\ fs [] \\ Cases_on `h` \\ fs []
     \\ rename1 `r2.stack = StackFrame ns opt::t'`
@@ -1836,7 +1842,7 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
     \\ rw [] \\ drule env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) \\ fs []
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]

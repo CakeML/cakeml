@@ -1,0 +1,17 @@
+INCLUDES = 
+OPTIONS = QUIT_ON_FAILURE
+ARCH=x64
+WORD_SIZE=64
+
+all: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake.S cake
+.PHONY: all
+
+cake-$(ARCH)-$(WORD_SIZE).tar.gz:
+	curl -O https://cakeml.org/cake-$(ARCH)-$(WORD_SIZE).tar.gz
+
+cake.S: cake-$(ARCH)-$(WORD_SIZE).tar.gz
+	tar -xvzf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1
+	poly -q < set_heap_stack.sml
+
+cake: cake.S
+	make -f Makefile CFLAGS=-mcmodel=medium

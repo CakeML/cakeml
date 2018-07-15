@@ -44,7 +44,7 @@ val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
             | FFI_split
             | FFI_part ffi ffi_next (string list) (io_event list)
-            | FFI_full (final_event option) (io_event list)`
+            | FFI_full (io_event list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)

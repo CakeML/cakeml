@@ -530,8 +530,10 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, cons_id) = let
 				       |> snd |> rhs
 	val (state_var1, case_tm1) = dest_abs handle_fun_def_rhs
 	val case_tm0 = dest_comb case_tm1 |> fst
-	val ([res_var, state_var2], case_tm2) = dest_comb case_tm1
-			|> snd |> strip_abs
+	val (res_var_state_var2, case_tm2) = dest_comb case_tm1
+                                             |> snd |> strip_abs
+        val (res_var, state_var2) = (el 1 res_var_state_var2,
+                                     el 2 res_var_state_var2)
 	val case_tm3 = rator case_tm2
 	val alt_x2_tm = rand case_tm2
 	val (e_var,alt_x2_tm) = dest_abs alt_x2_tm
@@ -2437,7 +2439,8 @@ fun apply_ind thms ind = let
                    |> all_distinct |> list_mk_conj
     val goal = mk_imp(hs,gs)
     val ind_thm = (the ind)
-                      |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
+                      |> rename_bound_vars_rule "i"
+                      (* |> SIMP_RULE std_ss [] *)
                       |> ISPECL (goals |> List.map fst)
                       |> CONV_RULE (DEPTH_CONV BETA_CONV)
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
