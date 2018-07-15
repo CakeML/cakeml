@@ -44,7 +44,8 @@ val renumber_code_locs_imp_inc = Q.store_thm("renumber_code_locs_imp_inc",
     (renumber_code_locs n e = (z,v) ⇒ n ≤ z)`,
   metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc])
 
-val renumber_code_locs_list_length = Q.prove(
+val renumber_code_locs_list_length = Q.store_thm(
+  "renumber_code_locs_list_length",
   `∀ls n x y. renumber_code_locs_list n ls = (x,y) ⇒ LENGTH y = LENGTH ls`,
   Induct >> simp[renumber_code_locs_def,LENGTH_NIL] >> srw_tac[][] >>
   Cases_on`renumber_code_locs n h`>>full_simp_tac(srw_ss())[]>>
@@ -114,6 +115,19 @@ val renumber_code_locs_distinct = Q.store_thm("renumber_code_locs_distinct",
   match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT)) >>
   qexists_tac`$<` >> simp[] >>
   simp[relationTheory.irreflexive_def])
+
+val renumber_code_locs_list_distinct = Q.store_thm(
+  "renumber_code_locs_list_distinct",
+  `!n es.
+     ALL_DISTINCT (code_locs (SND (renumber_code_locs_list n es))) /\
+     EVERY ($<= n) (code_locs (SND (renumber_code_locs_list n es))) /\
+     EVERY ($> (FST (renumber_code_locs_list n es)))
+           (code_locs (SND (renumber_code_locs_list n es)))`,
+  rw []
+  \\ qspecl_then [`n`,`es`] strip_assume_tac
+         (CONJUNCT1 renumber_code_locs_distinct_lemma) \\ fs []
+  \\ match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT))
+  \\ qexists_tac `$<` \\ simp [relationTheory.irreflexive_def]);
 
 val renumber_code_locs_list_els = Q.prove(
   `∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
