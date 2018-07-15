@@ -174,7 +174,7 @@ val do_app_io_events_mono = Q.prove(
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,IS_SOME_EXISTS] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
