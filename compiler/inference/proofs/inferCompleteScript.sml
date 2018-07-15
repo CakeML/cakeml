@@ -747,8 +747,15 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
           \\ conj_tac
           >- (
             fs[sub_completion_def]
-            (* 26, 29, 30, t_walkstar_check *)
-            \\ cheat )
+            \\ qexists_tac`num_tvs'`
+            \\ irule (CONJUNCT1 check_t_walkstar)
+            \\ fs[]
+            \\ fs[UNCURRY,MEM_MAP,PULL_EXISTS]
+            \\ res_tac
+            \\ imp_res_tac check_t_more2 \\ fs[]
+            \\ pop_assum(qspec_then`num_tvs'`assume_tac)
+            \\ irule (CONJUNCT1 check_t_more5)
+            \\ HINT_EXISTS_TAC \\ fs[] )
           \\ match_mp_tac (SIMP_RULE(srw_ss())[inf_set_tids_subset_def]t_walkstar_set_tids)
           \\ fs[inf_set_tids_subset_def]
           \\ first_x_assum match_mp_tac
