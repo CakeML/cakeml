@@ -1035,6 +1035,14 @@ fun init_translation (monad_translation_params : monadic_translation_parameters)
             compute_dynamic_refs_bindings all_access_specs else [])
 in () end;
 
+(*
+
+val add_type_theories = [];
+val store_pinv_opt = NONE;
+val extra_hprop = NONE;
+
+*)
+
 (* user-initialisation functions *)
 fun start_static_init_fixed_store_translation refs_init_list
                                               rarrays_init_list

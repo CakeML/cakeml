@@ -1,6 +1,6 @@
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
-open terminationTheory ml_progLib ml_progTheory
+open astTheory libTheory evaluateTheory semanticPrimitivesTheory
+open terminationTheory ml_progLib ml_progTheory terminationTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
@@ -60,10 +60,10 @@ val LIST_TYPE_11 = Q.prove(
           types_match v1 v2 /\ ((v1 = v2) <=> (x1 = x2))) /\
     LIST_TYPE P ts v1 /\ LIST_TYPE P us v2 ==>
     types_match v1 v2 /\ ((v1 = v2) = (ts = us))`,
-  STRIP_TAC \\ Induct \\ Cases_on `us` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def,types_match_def,ctor_same_type_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,types_match_def,ctor_same_type_def]
-  \\ METIS_TAC []);
+  strip_tac \\ Induct \\ Cases_on `us` \\ fs []
+  \\ simp [LIST_TYPE_def,types_match_def,ctor_same_type_def]
+  \\ fs [PULL_EXISTS,types_match_def,ctor_same_type_def,same_type_def]
+  \\ metis_tac []);
 
 val CHAR_IMP_no_closures = Q.prove(
   `CHAR x v ==> no_closures v`,
@@ -96,12 +96,12 @@ val EqualityType_TYPE = Q.prove(
   \\ HO_MATCH_MP_TAC type_ind \\ reverse STRIP_TAC THEN1
    (REPEAT STRIP_TAC
     \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def,same_type_def]
     \\ ASSUME_TAC STRING_TYPE_lemma
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
   \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
   \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def,same_type_def]
   \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
        (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
   \\ STRIP_TAC THEN1
@@ -120,7 +120,7 @@ val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
 (* Initialize the translation *)
 val init_type_constants_def = Define `
-init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
 
 val init_term_constants_def = Define `
   init_term_constants = [(strlit"=",
@@ -147,7 +147,6 @@ val refs_init_list = [
 
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
-
 
 val raise_functions = [raise_Fail_def, raise_Clash_def];
 val handle_functions = [handle_Fail_def, handle_Clash_def];
@@ -398,7 +397,14 @@ val def = inst_def |> m_translate
 val def = mk_eq_def |> m_translate
 val def = REFL_def |> m_translate
 val def = holKernelPmatchTheory.TRANS_def |> m_translate
-val def = holKernelPmatchTheory.MK_COMB_def |> m_translate
+(*
+val tm =
+  holKernelPmatchTheory.MK_COMB_def
+  |> concl |> rand
+
+m2deep tm
+*)
+val def = holKernelPmatchTheory.MK_COMB_def |> m_translate  (* FAILS *)
 val def = holKernelPmatchTheory.ABS_def |> m_translate
 val def = holKernelPmatchTheory.BETA_def |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate

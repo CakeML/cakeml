@@ -16,14 +16,18 @@ fun derive_eval_thm for_eval v_name e = let
   val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [evaluate_def,
+    |> (NCONV 50 (SIMP_CONV (srw_ss()) [evaluate_def,ml_progTheory.eval_rel_alt,
             PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
   val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
                     rpt strip_tac \\ rveq \\
                     match_mp_tac (#2(EQ_IMP_RULE lemma)) \\
-                    simp_tac bool_ss [])
-                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  val v_tm = v_thm |> concl |> rand |> rand |> rand
+                    simp_tac bool_ss [] \\
+                    fs [state_component_equality])
+                 |> GEN_ALL |> SIMP_RULE std_ss [GSYM PULL_EXISTS]
+                            |> SIMP_RULE std_ss [PULL_EXISTS]
+                            |> SIMP_RULE (srw_ss()) [PULL_EXISTS]
+                            |> SPEC_ALL
+  val v_tm = v_thm |> concl |> rand
   val v_def = define_abbrev for_eval v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 (* end of COPY/PASTE from basisFunctionsLib *)
@@ -236,6 +240,12 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
   let
       val initial_state = get_state(get_ml_prog_state())
       val initial_store = EVAL (mk_get_refs initial_state) |> concl |> rhs
+
+(*
+val (name, def) = hd ref_name_def_pairs
+val for_eval = false
+val v_name = name
+*)
 
       (* Allocate the references *)
       fun create_ref (name, def) =
