@@ -90,11 +90,15 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
           bool_type_num_def, list_type_num_def]))
   >- simp [type_s_def, store_lookup_def]);
 
+val prim_type_ids_def = Define`
+  prim_type_ids = set (Tlist_num :: Tbool_num :: prim_type_nums)`;
+
 (* TODO: rename semantics and call semantics_init semantics instead? *)
 val semantics_init_def = Define`
   semantics_init ffi =
     semantics <| sem_st := FST(THE (prim_sem_env ffi));
                  sem_env := SND(THE (prim_sem_env ffi));
-                 tenv := prim_tenv |>`;
+                 tenv := prim_tenv;
+                 type_ids := prim_type_ids |>`;
 
 val _ = export_theory ();
