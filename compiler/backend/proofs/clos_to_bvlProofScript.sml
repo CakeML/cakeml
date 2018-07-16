@@ -4991,9 +4991,9 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   \\ drule clos_callProofTheory.calls_ALL_DISTINCT \\ fs []
   \\ strip_tac
   \\ imp_res_tac clos_callTheory.calls_length \\ rfs []
-  \\ fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
-  \\ cheat (* TODO *)
-  );
+  \\ fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD, Abbr `N`]
+  \\ rw [] \\ strip_tac \\ res_tac \\ res_tac \\ fs [] \\ rw []
+  \\ fs [IN_DEF, EVEN]);
 
 (* TODO prove and move *)
 val SUM_COUNT_LIST = Q.store_thm("SUM_COUNT_LIST",
@@ -5183,7 +5183,7 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
       \\ drule bvlPropsTheory.evaluate_add_clock
       \\ disch_then (qspec_then `k'` mp_tac)
       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
-      \\ qpat_x_assum `evaluate _ = (_,s')` assume_tac      
+      \\ qpat_x_assum `evaluate _ = (_,s')` assume_tac
       \\ drule bvlPropsTheory.evaluate_add_clock
       \\ disch_then (qspec_then `ck + k` mp_tac)
       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
