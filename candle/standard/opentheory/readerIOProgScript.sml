@@ -240,69 +240,6 @@ val EvalM_readline_wrap = Q.prove (
   cheat (* TODO *)
   );
 
-(* old theorem:
-  strip_tac \\ pop_assum mp_tac
-  \\ sg `EvalM F env st (App Opapp [Var (Short "readline_wrap"); lv])
-           (ArrowM F (HOL_STORE,p) (PURE READER_STATE_TYPE)
-             (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE)
-               (readLine_wrap ln)) (HOL_STORE,p)`
-  >-
-   (rw [Eval_def, EvalM_def, REFS_PRED_def, STAR_def] \\ fs [Eval_def]
-    \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
-    \\ rw [ArrowM_def, PURE_def, PULL_EXISTS]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ rw [Once evaluate_cases, PULL_EXISTS]
-    \\ ntac 3 (rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS])
-    \\ mp_tac (GEN_ALL evaluate_empty_state_IMP)
-    \\ disch_then (qspecl_then[`res`,`s with refs:=s.refs++junk`] mp_tac) \\ fs []
-    \\ disch_then drule
-    \\ qpat_x_assum `evaluate _ _ _ lv _` kall_tac \\ rw [] \\ fs []
-    \\ asm_exists_tac \\ fs []
-    \\ mp_tac (GEN_ALL (theorem "readline_wrap_v_thm"))
-    \\ disch_then (qspec_then `p` mp_tac)
-    \\ simp [Once ArrowP_def, Once PURE_def, PULL_EXISTS, REFS_PRED_def, STAR_def]
-    \\ rpt (disch_then drule)
-    \\ disch_then (qspec_then `junk++refs'` strip_assume_tac)
-    \\ first_x_assum (qspec_then `[]` strip_assume_tac)
-    \\ CONV_TAC (RESORT_EXISTS_CONV rev)
-    \\ qexists_tac `readline_wrap_v` \\ fs []
-    \\ fs [ArrowM_def, PURE_def] \\ rw []
-    \\ fs [semanticPrimitivesTheory.state_component_equality]
-    \\ rw [] \\ fs []
-    \\ rw [Once evaluate_cases]
-    \\ asm_exists_tac \\ fs [])
-  \\ fs [EvalM_def] \\ rw []
-  \\ fs [Eval_def]
-  \\ first_x_assum (qspec_then `s.refs++junk` strip_assume_tac)
-  \\ fs []
-  \\ first_x_assum drule
-  \\ disch_then (qspec_then `junk++refs'` strip_assume_tac)
-  \\ fs [ArrowM_def, PURE_def] \\ rw []
-  \\ fs [ArrowP_def]
-  \\ fs [PURE_def, PULL_EXISTS, Eval_def]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ disch_then (qspec_then `junk'` strip_assume_tac)
-  \\ first_x_assum (qspec_then `[]` strip_assume_tac)
-  \\ fs [semanticPrimitivesTheory.state_component_equality] \\ rw []
-  \\ Q.LIST_EXISTS_TAC [`s3`,`res3`,`st3`] \\ fs []
-  \\ rw [Once evaluate_cases, PULL_EXISTS]
-  \\ ntac 3 (rw [Once (el 2 (CONJUNCTS evaluate_cases)), PULL_EXISTS])
-  \\ fs [MONAD_def]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ TRY
-   (fs [readLine_wrap_def, st_ex_bind_def, st_ex_return_def,
-        holKernelTheory.handle_Fail_def]
-    \\ every_case_tac \\ fs []
-    \\ NO_TAC)
-  \\ mp_tac (GEN_ALL evaluate_empty_state_IMP)
-  \\ disch_then (qspecl_then [`res`,`s with refs:=s.refs++junk`] mp_tac) \\ fs []
-  \\ disch_then drule
-  \\ rw [] \\ fs []
-  \\ asm_exists_tac \\ fs []
-  \\ asm_exists_tac \\ fs []);
-*)
-
 val EvalM_holrefs_readline_wrap = Q.prove (
  `nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v /\
   Eval env lv (STRING_TYPE ln) /\
@@ -380,8 +317,7 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
   \\ Cases_on `reader_main st.stdio st.holrefs (TL st.cl)`
   \\ imp_res_tac readMain_correct \\ fs []
   \\ qpat_x_assum `_ = init_refs` (assume_tac o GSYM) \\ fs []
-  \\ xsimpl
-  \\ imp_res_tac readMain_COMMANDLINE_pres \\ fs [] \\ xsimpl);
+  \\ xsimpl);
 
 (* ------------------------------------------------------------------------- *)
 (* whole_prog_spec                                                           *)
@@ -421,9 +357,9 @@ val semantics_readerIO_prog =
   sem_thm
   |> REWRITE_RULE[GSYM readerIO_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> CONV_RULE(LAND_CONV EVAL)
-  |> SIMP_RULE (srw_ss())[AND_IMP_INTRO,STD_streams_reader_main,GSYM CONJ_ASSOC]
+  |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+  |> REWRITE_RULE [METIS_PROVE [] ``p ==> p ==> q <=> p ==> q``]
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_readerIO_prog";
 
 val _ = export_theory ();
