@@ -91,8 +91,6 @@ val _ = enable_astPP()
 
 val _ = set_trace "pp_avoids_symbol_merges" 0
 
-(*
-
 val f = TextIO.openOut("kernel_ml.txt")
 
 fun appthis tm = let
@@ -103,8 +101,6 @@ in () end
 val _ = app appthis (fst(listSyntax.dest_list decls))
 
 val _ = TextIO.closeOut f
-
-*)
 
 val _ = disable_astPP()
 
