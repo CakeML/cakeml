@@ -488,7 +488,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then drule >>
   impl_tac >- (
     fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def]
-    \\ EVAL_TAC )
+    \\ EVAL_TAC ) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
