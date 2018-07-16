@@ -11,6 +11,7 @@ val _ = new_theory"compilerProof";
 val config_ok_def = Define`
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧
+    inf_set_tids_ienv prim_type_ids cc.inferencer_config ∧ (* TODO: ok? *)
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
@@ -200,7 +201,27 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ disch_then match_mp_tac
   \\ fs[initial_condition_def,config_ok_def]
   \\ Cases_on`THE (prim_sem_env ffi)` \\ fs[]
-  \\ reverse conj_tac >- cheat
+  \\ reverse conj_tac >- (
+    conj_asm1_tac >- (
+      EVAL_TAC
+      \\ rewrite_tac[SUBSET_DEF]
+      \\ EVAL_TAC
+      \\ strip_tac
+      \\ strip_tac \\ rveq \\ EVAL_TAC )
+    \\ conj_tac
+    >- (
+      EVAL_TAC
+      \\ rpt conj_tac \\ Cases \\ EVAL_TAC \\ rewrite_tac[]
+      \\ gen_tac
+      \\ pairarg_tac
+      \\ rveq
+      \\ EVAL_TAC
+      \\ rewrite_tac[bool_case_eq, SOME_11, PAIR_EQ]
+      \\ rewrite_tac[CONV_RULE (LAND_CONV SYM_CONV) bool_case_eq, SOME_11, PAIR_EQ]
+      \\ strip_tac \\ rveq \\ EVAL_TAC
+      >- rw[]
+      \\ fs[] )
+    \\ fs[])
   \\ match_mp_tac prim_type_sound_invariants
   \\ simp[]);
 
