@@ -397,14 +397,14 @@ val def = inst_def |> m_translate
 val def = mk_eq_def |> m_translate
 val def = REFL_def |> m_translate
 val def = holKernelPmatchTheory.TRANS_def |> m_translate
-(*
-val tm =
-  holKernelPmatchTheory.MK_COMB_def
-  |> concl |> rand
 
-m2deep tm
-*)
-val def = holKernelPmatchTheory.MK_COMB_def |> m_translate  (* FAILS *)
+val MK_COMB_lemma = prove(
+  ``MK_COMB x = case x of (Sequent asl1 c1,Sequent asl2 c2) =>
+                  MK_COMB (Sequent asl1 c1,Sequent asl2 c2)``,
+  every_case_tac)
+  |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
+
+val def = MK_COMB_lemma |> m_translate
 val def = holKernelPmatchTheory.ABS_def |> m_translate
 val def = holKernelPmatchTheory.BETA_def |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
