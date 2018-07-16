@@ -4995,10 +4995,22 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   \\ rw [] \\ strip_tac \\ res_tac \\ res_tac \\ fs [] \\ rw []
   \\ fs [IN_DEF, EVEN]);
 
-(* TODO prove and move *)
-val SUM_COUNT_LIST = Q.store_thm("SUM_COUNT_LIST",
-  `!n. SUM (COUNT_LIST n) = (n * (n - 1)) DIV 2`,
-  cheat);
+(* TODO move *)
+val SUM_MAP_COUNT_LIST = Q.store_thm("SUM_MAP_COUNT_LIST",
+  `!n k. SUM (MAP ($+ k) (COUNT_LIST n)) = (n * (2 * k + n - 1)) DIV 2`,
+  Induct \\ rw [COUNT_LIST_def]
+  \\ `!xs. MAP SUC xs = MAP ($+ 1) xs` by (Induct \\ rw [])
+  \\ pop_assum (qspec_then `COUNT_LIST n` SUBST1_TAC)
+  \\ pop_assum (qspec_then `k + 1` mp_tac)
+  \\ simp [MAP_MAP_o, o_DEF]
+  \\ `$+ (k + 1) = \x. k + (x + 1)` by fs [FUN_EQ_THM]
+  \\ pop_assum SUBST1_TAC \\ rw [ADD1]
+  \\ fs [LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
+  \\ metis_tac [ADD_DIV_ADD_DIV, MULT_COMM, DECIDE ``0n < 2``]);
+
+(* TODO move *)
+val SUM_COUNT_LIST = save_thm("SUM_COUNT_LIST",
+  SUM_MAP_COUNT_LIST |> Q.SPECL [`n`,`0`] |> SIMP_RULE (srw_ss()) []);
 
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
@@ -5019,8 +5031,16 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
       by (AP_THM_TAC \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]) \\ fs []
     \\ fs [GSYM COUNT_LIST_GENLIST]
     \\ fs [SUM_COUNT_LIST, num_stubs_def])
-  \\ simp [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
-  \\ strip_tac
+  \\ rw [MEM_MAP]
+  \\ CCONTR_TAC \\ fs []
+  \\ fs [compile_common_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ qmatch_asmsub_abbrev_tac `MEM z (compile_prog _ X)`
+  \\ `MEM (FST z) (MAP FST (compile_prog c.max_app X))`
+    by (fs [MEM_MAP] \\ metis_tac [])
+  \\ fs [compile_prog_code_locs]
+  \\ fs [MEM_toAList, MEM_FLAT, MEM_MAP, UNCURRY] \\ rw [] \\ fs [MEM_MAP]
+  \\ unabbrev_all_tac
   \\ cheat  (* TODO *)
   );
 
