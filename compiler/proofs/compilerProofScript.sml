@@ -19,7 +19,9 @@ val config_ok_def = Define`
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
-    (?ctMap. type_sound_invariant st.sem_st st.sem_env ctMap FEMPTY {} st.tenv) ∧
+    (?ctMap.
+      type_sound_invariant st.sem_st st.sem_env ctMap FEMPTY {} st.tenv ∧
+      FRANGE ((SND o SND) o_f ctMap) ⊆ st.type_ids (* TODO: is this OK? *)) ∧
     env_rel st.tenv cc.inferencer_config ∧
     (* TODO: are these consistent (with the rest)? necessary? *)
     st.type_ids = count start_type_id ∧
@@ -160,7 +162,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp [AC CONJ_COMM CONJ_ASSOC]
   \\ disch_then (match_mp_tac o MP_CANON)
   \\ simp [RIGHT_EXISTS_AND_THM]
-  \\ fs[can_type_prog_def] >>
+  \\ fs[can_type_prog_def]
   \\ reverse conj_tac >- metis_tac[]
   \\ strip_tac
   \\ drule semantics_type_sound
@@ -171,8 +173,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ qexists_tac`FEMPTY` \\ fs[]
   \\ reverse conj_tac >- metis_tac[]
   \\ fs[IN_DISJOINT]
-  \\ CCONTR_TAC \\ fs[]
-  \\ cheat (* type sound invariants *));
+  \\ CCONTR_TAC \\ fs[SUBSET_DEF] \\ rfs[]
+  \\ metis_tac[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
@@ -197,8 +199,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ fs[Abbr`st`]
   \\ disch_then match_mp_tac
   \\ fs[initial_condition_def,config_ok_def]
-  \\ qpat_x_assum`prim_tdecs = _`(SUBST1_TAC o SYM)
-  \\ Cases_on`THE (prim_sem_env ffi)`
+  \\ Cases_on`THE (prim_sem_env ffi)` \\ fs[]
+  \\ reverse conj_tac >- cheat
   \\ match_mp_tac prim_type_sound_invariants
   \\ simp[]);
 
