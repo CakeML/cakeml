@@ -27,7 +27,6 @@ val arm6_names_def = save_thm("arm6_names_def",
   CONV_RULE (RAND_CONV EVAL) arm6_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)
-val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
@@ -39,7 +38,6 @@ val arm6_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm6_config;
 val arm6_backend_config_def = Define`
   arm6_backend_config =
              <|source_conf:=^(source_conf);
-               mod_conf:=^(mod_conf);
                clos_conf:=^(clos_conf);
                bvl_conf:=^(bvl_conf);
                data_conf:=^(arm6_data_conf);
