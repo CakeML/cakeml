@@ -12,6 +12,24 @@ open type_dCanonTheory;
 
 val _ = new_theory "inferComplete";
 
+(* TODO: move *)
+val I_PERMUTES = Q.store_thm("I_PERMUTES[simp]",
+  `I PERMUTES s`, rw[BIJ_DEF, INJ_DEF, SURJ_DEF]);
+
+val ts_tid_rename_I = Q.store_thm("ts_tid_rename_I[simp]",
+  `ts_tid_rename I = I`,
+  simp[FUN_EQ_THM]
+  \\ ho_match_mp_tac t_ind
+  \\ rw[ts_tid_rename_def, MAP_EQ_ID, EVERY_MEM]);
+
+val remap_tenv_I = Q.store_thm("remap_tenv_I[simp]",
+  `remap_tenv I = I`,
+  rw[FUN_EQ_THM, remap_tenv_def, type_env_component_equality]
+  \\ qmatch_goalsub_abbrev_tac`nsMap I'`
+  \\ `I' = I` by simp[Abbr`I'`, UNCURRY, FUN_EQ_THM]
+  \\ rw[]);
+(* -- *)
+
 (* TODO move. n.b. something like this is defined elsewhere (Abbrev_intro)
 fun Abbrev_wrap eqth =
     EQ_MP (SYM (Thm.SPEC (concl eqth) markerTheory.Abbrev_def)) eqth
@@ -600,7 +618,7 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
   fs[]>>rfs[]>>
   metis_tac[check_t_empty_unconvert_convert_id]);
 
-val infer_d_complete = Q.store_thm ("infer_d_complete",
+val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
   `(!d n tenv ids tenv' ienv st1.
     type_d_canon n tenv d ids tenv' ∧
     env_rel tenv ienv ∧
@@ -1374,6 +1392,74 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     \\ rw[] >>
     fs[]>>
     metis_tac[env_rel_extend]);
+
+val infer_ds_complete = Q.store_thm("infer_ds_complete",
+  `type_ds T tenv ds ids tenv' ∧
+   env_rel tenv ienv ∧
+   (* do you need both of these? *)
+   inf_set_tids_ienv (count st1.next_id) ienv ∧
+   set_tids_tenv (count st1.next_id) tenv ∧
+   DISJOINT ids (count st1.next_id) ∧
+   start_type_id ≤ st1.next_id
+   ⇒
+   ∃g mapped_tenv' ienv' st2.
+     infer_ds ienv ds st1 = (Success ienv', st2) ∧
+     (*
+     BIJ g (count st1.next_id ∪ count ids) (count (st1.next_id + ids)) ∧
+     *)
+     tenv_equiv (remap_tenv g tenv') mapped_tenv' ∧
+     env_rel mapped_tenv' ienv' ∧
+     st2.next_id = st1.next_id + CARD ids`,
+  rw[]
+  \\ drule(CONJUNCT2 type_d_type_d_canon)
+  \\ simp[]
+  \\ disch_then drule
+  \\ disch_then(qspecl_then[`I`,`st1.next_id`]mp_tac)
+  \\ simp[start_type_id_prim_tids_count, good_remap_def]
+  \\ disch_then (qspec_then`tenv`mp_tac)
+  (*
+  \\ impl_tac
+  >- (
+    fs[]
+    \\ fs[inf_set_tids_ienv_def, set_tids_tenv_def]
+    \\ fs[inf_set_tids_subset_def, set_tids_subset_def]
+    \\ fs[inf_set_tids_unconvert]
+    \\ fs[env_rel_def, env_rel_complete_def] \\ rfs[]
+    \\ fs[namespaceTheory.nsAll_def,lookup_var_def,lookup_varE_def,FORALL_PROD]
+    \\ rw[]
+    \\ res_tac
+    \\ res_tac
+    \\ fs[tscheme_approx_def] \\ rw[]
+    \\ fs[t_walkstar_FEMPTY]
+    \\ drule (CONJUNCT1 infer_deBruijn_subst_id2)
+    \\ simp[GSYM inf_set_tids_unconvert]
+    \\ first_x_assum match_mp_tac
+    \\ qexists_tac`i` \\ simp[]
+    \\ pop_assum(qspec_then`GENLIST Infer_Tvar_db p_1`mp_tac)
+    \\ simp[infer_deBruijn_subst_id2]
+    \\ cheat )
+  *)
+  \\ rw[]
+  \\ drule (CONJUNCT2 infer_d_complete_canon)
+  \\ disch_then drule \\ fs[]
+  \\ disch_then(qspec_then`st1`mp_tac)
+  \\ simp[]
+  (*
+  \\ impl_tac
+  >- (
+    fs[inf_set_tids_ienv_def, set_tids_tenv_def]
+    \\ fs[inf_set_tids_subset_def, set_tids_subset_def]
+    \\ fs[inf_set_tids_unconvert]
+    \\ fs[env_rel_def, env_rel_complete_def] \\ rfs[]
+    \\ fs[namespaceTheory.nsAll_def,lookup_var_def,lookup_varE_def,FORALL_PROD]
+    \\ rw[]
+  *)
+  \\ rw[] \\ asm_exists_tac \\ fs[]
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  (*
+  \\ imp_res_tac DISJOINT_SYM
+  \\ drule (GEN_ALL BIJ_extend_bij) \\ fs[]*));
 
 (*
 val check_specs_complete = Q.store_thm ("check_specs_complete",

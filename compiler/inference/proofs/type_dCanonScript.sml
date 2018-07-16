@@ -516,7 +516,8 @@ val t_ind = t_induction
   |> CONJUNCT1
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`;
+  |> Q.GEN`P`
+  |> curry save_thm "t_ind";
 
 val ast_t_ind = ast_t_induction
   |> Q.SPECL[`P`,`EVERY P`]
