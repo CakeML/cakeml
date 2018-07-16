@@ -159,6 +159,13 @@ fun get_rarrays_manip_funs (l : (string * thm * thm * thm * thm * thm * thm * th
 fun get_farrays_manip_funs (l : (string * (int * thm) * thm * thm * thm * thm * thm) list) =
   List.map (fn (x1, _, x2, x3, x4, x5, x6) => (x1, x2, x3, x4, x5, x6)) l;
 
+(*
+
+val v_name = name
+val value_def = def
+
+*)
+
 fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
@@ -180,24 +187,31 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val th = SIMP_RULE pure_ss [GSYM array_v_def] th
     val res_pair = rand(concl th)
     val res_pair_eq = EVAL res_pair
-    val th = SIMP_RULE pure_ss [res_pair_eq] th
+    val res_pair2 = rand(rator(concl th))
+    val res_pair2_eq = EVAL res_pair2
+    val th = SIMP_RULE pure_ss [res_pair_eq,res_pair2_eq] th
 
     (* Abbreviate the array location *)
-    val array_loc = concl th |> rand |> dest_pair |> fst |> rand |> rator |> rand |> rand |> rand |>
-        rator |> rand |> rand
+    val array_loc = concl th |> rator |> rand |> rand |> rator
+                    |> rand |> rand |> rand |> listSyntax.dest_cons |> fst
     val array_loc_def = define_abbrev false array_loc_name array_loc
-    val th = SIMP_RULE pure_ss [GSYM array_loc_def] th
+    val th = PURE_REWRITE_RULE [GSYM array_loc_def] th
 
     (* Abbreviate the reference location *)
-    val res = concl th |> rand |> dest_pair |> snd |> rand
+    val res = concl th |> rand
     val ref_var = mk_var(ref_name, v_ty)
     val ref_def = Define `^ref_var = ^res`
     val th = SIMP_RULE pure_ss [GSYM ref_def] th
 in (array_v_thm, array_loc_def, ref_def, th) end;
 
+(*
+val init_value_def = def
+*)
+
 fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
-    val init_value_v_thm = translate init_value_def
     val init_value_name = concl init_value_def |> lhs |> dest_const |> fst
+    val _ = (next_ml_names := init_value_name::(!next_ml_names))
+    val init_value_v_thm = translate init_value_def
 
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
@@ -209,13 +223,14 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val th = MATCH_MP th lookup_assum
 
     (* Abbreviate the constants and simplify the theorem *)
-    val array_v = concl th |> rand |> rator |> rand |> rator |> rand |> rand |> rand |> rator |> rand |> rand
-    val array_v_name = find_const_name (name ^ "_v")
-    val array_v_abbrev = define_abbrev false array_v_name array_v
-    val th = SIMP_RULE pure_ss [GSYM array_v_abbrev] th
     val th = CONV_RULE (RAND_CONV computeLib.EVAL_CONV) th
+    val array_v = concl th |> rator |> rand |> rator |> rand |> rand |> rand
+                           |> listSyntax.dest_cons |> fst |> rand
+    val array_v_name = find_const_name (name ^ "_v")
+    val array_v_def = define_abbrev false array_v_name array_v
+    val th = SIMP_RULE pure_ss [GSYM array_v_def] th
 
-    val array_loc = concl th |> rand |> dest_pair |> snd |> rand
+    val array_loc = concl th |> rand
     val array_loc_name = find_const_name (name ^ "_loc")
     val array_loc_def = define_abbrev false array_loc_name array_loc
     val th = SIMP_RULE pure_ss [GSYM array_loc_def] th
@@ -225,7 +240,8 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val init_v_th = MATCH_MP (SPEC (numSyntax.term_of_int n) LIST_REL_REPLICATE) init_value_v_thm
     val init_array = concl init_v_th |> rator |> rand
     val array_abbrev = define_abbrev false init_name init_array
-    val init_v_th = PURE_REWRITE_RULE [GSYM array_abbrev, GSYM array_v_abbrev] init_v_th
+    val init_v_th = PURE_REWRITE_RULE
+                      [GSYM array_abbrev, GSYM array_v_def] init_v_th
     val _ = save_thm (init_name ^"_v_thm", init_v_th)
     val _ = print ("Saved theorem: " ^init_name ^"_v_thm")
 in (init_v_th, array_loc_def, th) end;
@@ -264,6 +280,10 @@ val v_name = name
       val ref_name_def_pairs = List.map (fn (n, d, _, _) => (n, d)) refs_init_list
       val refs_trans_results = List.map create_ref ref_name_def_pairs
 
+(*
+val (name, def) = hd rarray_name_def_pairs
+*)
+
       (* Allocate the resizable arrays *)
       fun create_rarray (name, def) =
         let
@@ -278,6 +298,10 @@ val v_name = name
 
       val rarray_name_def_pairs = List.map (fn (n, d, _, _, _, _, _, _) => (n, d)) rarrays_init_list
       val rarrays_trans_results = List.map create_rarray rarray_name_def_pairs
+
+(*
+val (name, (n, def)) = hd farray_name_def_pairs
+*)
 
       (* Allocate the fixed size arrays *)
       fun create_farray (name, (n, def)) =

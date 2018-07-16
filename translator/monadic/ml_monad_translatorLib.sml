@@ -864,13 +864,13 @@ fun derive_case_of ty = let
   val rw1_tm = goal |> rand |> rand |> rand |> rand |> rator
                     |> rator |> rand |> rand
   val y = let
-    val xs = map get_inr_el (rw1_tm |> listSyntax.dest_list |> fst)
+    val xs = List.map get_inr_el (rw1_tm |> listSyntax.dest_list |> fst)
     val xs = listSyntax.mk_list(xs,type_of (hd xs))
     in sumSyntax.mk_inr(xs,hd tys) end
     handle HOL_ERR _ => let
     val exp2 = rw1_tm |> rator |> rand |> rand
     val ys = rw1_tm |> rator |> rand |> rator |> rand |> rand
-                    |> listSyntax.dest_list |> fst |> map rand
+                    |> listSyntax.dest_list |> fst |> List.map rand
     val x = mk_pair(listSyntax.mk_list(ys,string_ty),exp2)
     in sumSyntax.mk_inl(x,el 2 tys) end
   val f = Mat_cases_def |> CONJUNCT1 |> concl |> dest_eq |> fst |> rator
@@ -883,7 +883,7 @@ fun derive_case_of ty = let
   val Mat_lemma = ISPECL [st_var,x] IMP_EvalM_Mat_cases
   val is_simple_case = name = "PAIR_TYPE" orelse name = "UNIT_TYPE"
   val input_var = goal |> rand |> rand |> rator |> rand |> rator |> rand |> rand
-                  |> rand |> rand
+                       |> rand |> rand
 (*
   set_goal([],new_goal)
 *)
@@ -1990,7 +1990,7 @@ fun m2deep tm =
 
       (* val _ = print_tm_msg "access function\n" tm DEBUG *)
       val (pat,spec) = first (fn (pat,_) => can (match_term pat) tm) (!access_patterns)
-      val ii = map (fn v => v |-> genvar (type_of v)) (free_vars pat)
+      val ii = List.map (fn v => v |-> genvar (type_of v)) (free_vars pat)
       val (pat,spec) = (subst ii pat, INST ii spec)
 
       (* Substitute the parameters, and link the parameters to their expressions *)
@@ -2009,7 +2009,7 @@ fun m2deep tm =
                                        (Redblackmap.mkDict Term.compare) params_exps_pairs
 
       (* Translate the parameters *)
-      val args = tms |> map (fn {redex = v, residue = x} => x)
+      val args = tms |> List.map (fn {redex = v, residue = x} => x)
       val args_evals = List.map hol2deep args
 
       (* Substitute the translated expressions of the parameters *)
@@ -2549,7 +2549,7 @@ fun update_precondition new_pre = let
       val new_pre = if can (find_term is_PRECONDITION) (concl (SPEC_ALL (DISCH_ALL th)))
                     then new_pre else TRUTH
      in (name,ml_name,tm,th,new_pre,module) end end
-  val _ = (v_thms := map update_aux (!v_thms))
+  val _ = (v_thms := List.map update_aux (!v_thms))
   val _ = (dynamic_v_thms := Net.map update_aux (!dynamic_v_thms))
 in new_pre end
 
