@@ -2354,7 +2354,9 @@ fun mutual_to_single_line_def def = let
   val goals = map fst gs
   val lemma = ISPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
-  val _ = not (can (find_term is_arb) goal) orelse failwith "requires precondition"
+  val _ = if can (find_term is_arb) (concl def) then true else
+            not (can (find_term is_arb) goal) orelse
+            failwith "mutual_to_single_line_def: requires precondition"
   val lemma1 = prove(goal,
     REPEAT STRIP_TAC THEN CONV_TAC (DEPTH_CONV BETA_CONV)
     THEN CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [def]))
