@@ -2077,6 +2077,9 @@ val translator_terms = save_thm("translator_terms",
      ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
      ("no_closure_pat",``!x v. p x v ==> no_closures v``),
      ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
-     ("prim_exn_list",prim_exn_list)]);
+     ("prim_exn_list",prim_exn_list),
+     ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
+              (\y v. if x = SOME y then p y v else ARB) x =
+           (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]);
 
 val _ = export_theory();

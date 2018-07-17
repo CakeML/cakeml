@@ -142,4 +142,19 @@ val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
 
 val res = translate test_def;
 
+(* tricky datatype *)
+
+val _ = register_type ``:'a option``;
+val _ = register_type ``:'a list``;
+val _ = register_type ``:('a # 'b)``;
+
+val _ = Datatype `
+  tt = A1
+     | B1 tt
+     | C1 (tt option)
+     | D1 (tt list)
+     | E1 (tt # tt)`
+
+val _ = register_type ``:tt``;
+
 val _ = export_theory();

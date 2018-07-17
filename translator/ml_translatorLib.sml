@@ -921,7 +921,14 @@ fun define_ref_inv is_exn_type tys = let
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
   val _ = map reg_type ys
-  val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP]
+  val opt_extra_rw = let
+    val OPTION_TYPE = get_type_inv (type_of (optionSyntax.mk_none alpha)) |> rator
+    val goal = get_term "OPTION_TYPE_SIMP" |> ASSUME |> ISPEC OPTION_TYPE |> concl
+    val OPTION_TYPE_SIMP = auto_prove "OPTION_TYPE_SIMP" (goal,
+      Cases \\ fs [CONTAINER_def,FUN_EQ_THM] \\ EVAL_TAC \\ simp [])
+      |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
+    in [OPTION_TYPE_SIMP] end handle HOL_ERR _ => []
+  val rw_lemmas = LIST_CONJ ([LIST_TYPE_SIMP,PAIR_TYPE_SIMP] @ opt_extra_rw)
   val stamp = if is_exn_type then get_next_exn_stamp (get_ml_prog_state ())
                              else get_next_type_stamp (get_ml_prog_state ())
   fun get_def_tm () = let
