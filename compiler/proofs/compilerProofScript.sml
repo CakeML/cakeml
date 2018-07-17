@@ -222,7 +222,7 @@ val compile_correct = Q.store_thm("compile_correct",
       >- rw[]
       \\ fs[] )
     \\ fs[])
-  \\ match_mp_tac prim_type_sound_invariants
+  \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
   \\ simp[]);
 
 val _ = export_theory();
