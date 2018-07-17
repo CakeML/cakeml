@@ -5019,30 +5019,28 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   \\ rw [ALL_DISTINCT_code_sort]
   \\ simp [compile_prog_code_locs, ALL_DISTINCT_APPEND]
   \\ imp_res_tac compile_common_distinct_locs \\ fs []
-  (* init_code has distinct stubs *)
-  \\ conj_tac
-  >-
-   (conj_tac >- simp [init_code_def, ALL_DISTINCT_MAP_FST_toAList]
-    \\ simp [MEM_MAP, toAList_domain, FORALL_PROD]
-    \\ strip_tac
-    \\ fs [init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
-    \\ qmatch_asmsub_abbrev_tac `GENLIST _ n`
-    \\ `GENLIST (\tot. tot) n = GENLIST I n`
-      by (AP_THM_TAC \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]) \\ fs []
-    \\ fs [GSYM COUNT_LIST_GENLIST]
-    \\ fs [SUM_COUNT_LIST, num_stubs_def])
-  \\ rw [MEM_MAP]
-  \\ CCONTR_TAC \\ fs []
+  \\ simp [init_code_def, MEM_MAP, toAList_domain, FORALL_PROD, num_stubs_def,
+           ALL_DISTINCT_MAP_FST_toAList, domain_fromList, LENGTH_FLAT,
+           MAP_GENLIST, o_DEF, GSYM COUNT_LIST_GENLIST, SUM_COUNT_LIST,
+           METIS_PROVE [FUN_EQ_THM] ``GENLIST (\x.x) = GENLIST I``]
+  \\ simp [EVAL ``num_stubs c''.max_app - 1``
+           |> SIMP_RULE (srw_ss()) [ADD1] |> GSYM, GSYM LESS_OR_EQ]
   \\ fs [compile_common_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ qmatch_asmsub_abbrev_tac `MEM z (compile_prog _ X)`
-  \\ `MEM (FST z) (MAP FST (compile_prog c.max_app X))`
-    by (fs [MEM_MAP] \\ metis_tac [])
-  \\ fs [compile_prog_code_locs]
-  \\ fs [MEM_toAList, MEM_FLAT, MEM_MAP, UNCURRY] \\ rw [] \\ fs [MEM_MAP]
-  \\ unabbrev_all_tac
-  \\ cheat  (* TODO *)
-  );
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ simp [num_stubs_def]
+  \\ rw [EVAL ``num_stubs c.max_app - 1``
+         |> SIMP_RULE (srw_ss()) [ADD1] |> GSYM]
+  \\ qmatch_goalsub_abbrev_tac `MEM (x,y,z) (clos_to_bvl$compile_prog m ls)`
+  \\ `~MEM x (MAP FST (compile_prog m ls))`
+    suffices_by rw [MEM_MAP, FORALL_PROD]
+  \\ simp [compile_prog_code_locs]
+  \\ rw [MEM_FLAT, MEM_MAP, FORALL_PROD, PULL_FORALL]
+  \\ simp [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
+  \\ rw [] \\ fs []
+  \\ conj_tac >- fs [LESS_OR_EQ, num_stubs_def]
+  \\ fs [MAP_REVERSE, MEM_MAP, FORALL_PROD]
+  \\ rw [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
+  \\ fs [LESS_OR_EQ, num_stubs_def]);
 
 (* Initial state *)
 val clos_init_def = Define`
