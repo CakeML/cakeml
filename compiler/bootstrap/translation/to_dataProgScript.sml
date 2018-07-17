@@ -483,12 +483,6 @@ val clos_known_known_side = Q.prove(`
 
 val r = translate clos_knownTheory.compile_def
 
-val clos_known_compile_side = Q.prove(
-  `∀x y z. clos_known_compile_side x y z ⇔ T`,
-  EVAL_TAC \\ rw[] \\ strip_tac \\
-  imp_res_tac clos_knownTheory.known_sing_EQ_E \\
-  fs[]) |> update_precondition;
-
 (* call *)
 
 val r = translate (clos_callTheory.calls_def)
@@ -515,12 +509,6 @@ val clos_call_calls_side = Q.prove(`
   >> rw[GSYM LAMBDA_PROD]) |> update_precondition
 
 val r = translate clos_callTheory.compile_def
-
-val clos_call_compile_side = Q.prove(
-  `∀x y. clos_call_compile_side x y = T`,
-  EVAL_TAC \\ rw[] \\ strip_tac \\
-  imp_res_tac clos_callTheory.calls_sing \\
-  fs[]) |> update_precondition;
 
 (* shift *)
 val r = translate (clos_annotateTheory.shift_def)
@@ -590,6 +578,8 @@ val EqualityType_OPTION_TYPE_LIST_TYPE_NUM =
 
 val CLOSLANG_EXP_TYPE_def = theorem"CLOSLANG_EXP_TYPE_def";
 val CLOSLANG_EXP_TYPE_ind = theorem"CLOSLANG_EXP_TYPE_ind";
+
+val OPTION_TYPE_def = std_preludeTheory.OPTION_TYPE_def;
 
 val CLOSLANG_EXP_TYPE_no_closures = Q.prove(
   `!a b. CLOSLANG_EXP_TYPE a b ==> no_closures b`,
@@ -713,11 +703,11 @@ val CLOSLANG_EXP_TYPE_types_match = Q.prove(
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >- (
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
     qx_gen_tac`p` >>
     gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def] >>
+    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
     TRY (
       PairCases_on `h` \\ PairCases_on `p` \\
       fsrw_tac [DNF_ss] [PAIR_TYPE_def] \\ rw [] \\
@@ -725,6 +715,7 @@ val CLOSLANG_EXP_TYPE_types_match = Q.prove(
       res_tac \\
       metis_tac [EqualityType_def, EqualityType_NUM] ) >>
     PROVE_TAC[EqualityType_def] ) >>
+  simp [semanticPrimitivesTheory.same_type_def] >>
   metis_tac[EqualityType_NUM,
             EqualityType_CLOSLANG_OP_TYPE,
             EqualityType_OPTION_TYPE_NUM,
@@ -759,11 +750,14 @@ val BVL_EXP_TYPE_no_closures = Q.prove(
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_def]);
 
+val _ = save_thm("same_type_def[simp]",
+  semanticPrimitivesTheory.same_type_def);
+
 val BVL_EXP_TYPE_types_match = Q.prove(
   `∀a b c d. BVL_EXP_TYPE a b ∧ BVL_EXP_TYPE c d ⇒ types_match b d`,
   ho_match_mp_tac BVL_EXP_TYPE_ind \\
   rw[BVL_EXP_TYPE_def] \\
-  Cases_on`c` \\ fs[BVL_EXP_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+  Cases_on`c` \\ fs[BVL_EXP_TYPE_def,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] \\ rw[] \\
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     qhdtm_x_assum`LIST_TYPE`mp_tac >>
@@ -875,23 +869,10 @@ val clos_to_bvl_compile_prog_side = Q.prove(`
 val clos_to_bvl_compile_side = Q.prove(`
   ∀x y. clos_to_bvl_compile_side x y ⇔ T`,
   rw[Once (fetch "-" "clos_to_bvl_compile_side_def"),
-  Once (fetch "-" "clos_call_compile_side_def"),
-  Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),
-  Once (fetch "-" "clos_known_compile_side_def")]
-  >-
-    (EVAL_TAC>>simp[bvl_jump_jumplist_side])
-  >-
-    simp[clos_to_bvl_compile_exps_side]
-  >-
-    simp[clos_to_bvl_compile_prog_side]
-  >>
-    `∃z. compile x.do_mti x.max_app [y] = [z]` by
-      (Cases_on`x.do_mti`>>fs[clos_mtiTheory.compile_def]>>
-      metis_tac[clos_mtiTheory.intro_multi_sing])>>
-    ntac 2 (pop_assum mp_tac)>>
-    specl_args_of_then ``renumber_code_locs_list`` (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
-    rw[]>>fs[]>>
-    fs[LENGTH_EQ_NUM_compute]) |> update_precondition
+     Once (fetch "-" "clos_to_bvl_compile_prog_side_def")]
+  \\ EVAL_TAC>>simp[bvl_jump_jumplist_side]
+  \\ simp[clos_to_bvl_compile_exps_side]
+  \\ simp[clos_to_bvl_compile_prog_side]) |> update_precondition
 
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
