@@ -1,9 +1,10 @@
 open preamble
      compilerTheory
      semanticsTheory targetSemTheory
-     evaluatePropsTheory typeSoundTheory
+     evaluatePropsTheory typeSoundTheory typeSoundInvariantsTheory
      pegSoundTheory pegCompleteTheory
-     inferSoundTheory inferCompleteTheory
+     inferTheory inferSoundTheory inferCompleteTheory
+     inferPropsTheory envRelTheory
      backendProofTheory
 
 val _ = new_theory"compilerProof";
@@ -193,7 +194,7 @@ val compile_correct = Q.store_thm("compile_correct",
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,
-  rw[primSemEnvTheory.semantics_init_def]
+  rw[semantics_init_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
   \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[primSemEnvTheory.prim_sem_env_eq]
   \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen
@@ -224,5 +225,30 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs[])
   \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
   \\ simp[]);
+
+val type_config_ok = Q.store_thm ("type_config_ok",
+  `env_rel prim_tenv infer$init_config ∧
+   inf_set_tids_ienv prim_type_ids infer$init_config`,
+  rw [env_rel_def, inf_set_tids_ienv_def, ienv_ok_def, ienv_val_ok_def,
+      tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def, env_rel_sound_def,
+      env_rel_complete_def, init_config_def, primTypesTheory.prim_tenv_def,
+      typeSystemTheory.lookup_var_def]
+  >- (
+    rpt (
+      irule namespacePropsTheory.nsAll_nsBind >>
+      rw [terminationTheory.check_freevars_def]))
+  >- (
+    rpt (
+      irule namespacePropsTheory.nsAll_nsBind >>
+      rw [terminationTheory.check_freevars_def]))
+  >- (
+    Cases_on `x` >>
+    rw [namespaceTheory.nsLookupMod_def])
+  >- (
+    simp [primTypesTheory.prim_type_ids_def, inf_set_tids_subset_def] >>
+    rpt (
+      irule namespacePropsTheory.nsAll_nsBind >>
+      rw [unconvert_t_def, inf_set_tids_def]) >>
+    rw [typeSystemTheory.prim_type_nums_def]));
 
 val _ = export_theory();

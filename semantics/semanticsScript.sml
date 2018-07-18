@@ -1,6 +1,7 @@
 open preamble;
 open lexer_funTheory
 open cmlPtreeConversionTheory;  (* TODO: should be included in termination *)
+open primTypesTheory;
 open terminationTheory;
 
 val _ = new_theory "semantics";
@@ -75,5 +76,12 @@ val semantics_def = Define`
     if can_type_prog state (prelude ++ prog)
     then Execute (semantics_prog state.sem_st state.sem_env (prelude ++ prog))
     else IllTyped`;
+
+val semantics_init_def = Define`
+  semantics_init ffi =
+    semantics <| sem_st := FST(THE (prim_sem_env ffi));
+                 sem_env := SND(THE (prim_sem_env ffi));
+                 tenv := prim_tenv;
+                 type_ids := prim_type_ids |>`;
 
 val _ = export_theory();

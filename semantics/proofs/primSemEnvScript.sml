@@ -25,23 +25,6 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
         val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
         in TRANS (TRANS pth th1) th end));
 
-val prim_tenv_def = Define`
-  prim_tenv =
-    <| c := alist_to_ns (REVERSE
-          [("Bind", ([],[],Texn_num));
-           ("Chr", ([],[],Texn_num));
-           ("Div", ([],[],Texn_num));
-           ("Subscript", ([],[],Texn_num));
-           ("false", ([],[], Tbool_num));
-           ("true", ([],[], Tbool_num));
-           ("nil", (["'a"],[],Tlist_num));
-           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]);
-       v := nsEmpty;
-       t := nsEmpty|>`;
-
-val prim_type_ids_def = Define`
-  prim_type_ids = set (Tlist_num :: Tbool_num :: prim_type_nums)`;
-
 val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   `!type_ids sem_st prim_env.
    (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
@@ -101,13 +84,5 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
     \\ EVAL_TAC
     \\ rpt strip_tac \\ rveq
     \\ EVAL_TAC));
-
-(* TODO: rename semantics and call semantics_init semantics instead? *)
-val semantics_init_def = Define`
-  semantics_init ffi =
-    semantics <| sem_st := FST(THE (prim_sem_env ffi));
-                 sem_env := SND(THE (prim_sem_env ffi));
-                 tenv := prim_tenv;
-                 type_ids := prim_type_ids |>`;
 
 val _ = export_theory ();
