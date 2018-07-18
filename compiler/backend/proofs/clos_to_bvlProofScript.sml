@@ -5306,15 +5306,10 @@ val init_code_def = Define `
        n < max_app ⇒
        lookup (generic_app_fn_location n) code2 =
        SOME (n + 2,generate_generic_app max_app n)) ∧
-    (∀tot n.
-       tot < max_app ∧ n < tot ⇒
-       lookup (partial_app_fn_location max_app tot n) code2 =
-       SOME (tot + 1 − n,generate_partial_app_closure_fn tot n)) ∧
-    lookup (equality_location max_app) code2 =
-    SOME (equality_code max_app) ∧
-    lookup (block_equality_location max_app) code2 =
-    SOME (block_equality_code max_app) ∧
-    lookup (ToList_location max_app) code2 = SOME (ToList_code max_app) ∧
+    (∀tot prev.
+       tot < max_app ∧ prev < tot ⇒
+       lookup (partial_app_fn_location max_app tot prev) code2 =
+       SOME (tot + 1 − prev,generate_partial_app_closure_fn tot prev)) ∧
     ∀name arity c.
       FLOOKUP code1 name = SOME (arity,c) ⇒
       ∃aux1 c2 aux2.
@@ -5330,9 +5325,12 @@ val compile_exps_semantics = store_thm("compile_exps_semantics",
     FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 /\
     compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 /\
     code_installed aux code2 /\
-    lookup start code2 = SOME (0,init_globals max_app) /\
-    lookup (num_stubs max_app + 3) code2 = SOME (0,HD ys) /\
-    init_code code1 code2 max_app /\ LENGTH ys = 1
+    lookup start code2 = SOME (0, init_globals max_app (num_stubs max_app)) /\
+    (∀i. i < LENGTH ys ⇒ lookup (num_stubs max_app + i) code2 =
+         SOME (0, if i + 1 < LENGTH ys
+                     then Let [EL i ys] (Call 0 (SOME (num_stubs max_app + i + 1)) [])
+                     else EL i ys)) /\
+    init_code code1 code2 max_app ∧ 0 < LENGTH ys
     ==>
     bvlSem$semantics ffi code2 co2 cc2 start =
     closSem$semantics ffi max_app code1 co1 cc1 es1``,
