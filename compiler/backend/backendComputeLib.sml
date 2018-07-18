@@ -4,25 +4,8 @@ struct
 local
 
 open HolKernel boolLib bossLib computeLib
-open source_to_flatTheory
-open flat_exh_matchTheory
-open flat_reorder_matchTheory
-open patLangTheory flat_to_patTheory
-open closLangTheory pat_to_closTheory
-open clos_mtiTheory
-open clos_numberTheory
-open clos_callTheory
-open clos_annotateTheory
-open clos_knownTheory
-open bvlTheory clos_to_bvlTheory
-open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory bvi_tailrecTheory
-open dataLangTheory bvi_to_dataTheory data_simpTheory data_liveTheory data_spaceTheory
-open wordLangTheory data_to_wordTheory word_instTheory word_allocTheory word_removeTheory
-open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
-open labLangTheory stack_to_labTheory lab_filterTheory
-open asmTheory backendTheory
 open semanticsComputeLib reg_allocComputeLib
-
+open backendTheory
 
 structure Parse = struct
   open Parse
@@ -88,6 +71,8 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- flat_elim ---- *)
   ,computeLib.Defs
     (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="reachability"}))
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``

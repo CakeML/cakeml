@@ -1,15 +1,11 @@
 open preamble
 
-(* TODO: this file should be tided up and probably moved *)
-
-val m = Hol_pp.print_apropos;
-val f = DB.find;
+(* TODO: this file needs to be tided up and moved
+         e.g., under a subdirectory (reachability) (analogous to reg_alloc/parmove)
+         the definitions and proofs should also be split
+*)
 
 val _ = new_theory "reachability";
-
-
-
-
 
 (******************************************************** GENERAL SPTREE LEMMAS *********************************************************)
 
