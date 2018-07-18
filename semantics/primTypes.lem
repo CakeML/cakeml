@@ -31,3 +31,20 @@ let prim_sem_env ffi =
     (<| clock = 0; ffi = ffi; refs = []; next_type_stamp = 0; next_exn_stamp = 0 |>,
      <| v = nsEmpty; c = nsEmpty |>)
         prim_types_program
+
+open import TypeSystem
+
+let prim_tenv =
+    <| c = alist_to_ns (List.reverse
+          [("Bind", ([],[],Texn_num));
+           ("Chr", ([],[],Texn_num));
+           ("Div", ([],[],Texn_num));
+           ("Subscript", ([],[],Texn_num));
+           ("false", ([],[], Tbool_num));
+           ("true", ([],[], Tbool_num));
+           ("nil", (["'a"],[],Tlist_num));
+           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]);
+       v = nsEmpty;
+       t = nsEmpty|>
+
+let prim_type_ids = Set.fromList (Tlist_num :: Tbool_num :: prim_type_nums)

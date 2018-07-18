@@ -25,27 +25,14 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
         val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
         in TRANS (TRANS pth th1) th end));
 
-val prim_tenv_def = Define`
-  prim_tenv =
-    <| c := alist_to_ns (REVERSE
-          [("Bind", ([],[],Texn_num));
-           ("Chr", ([],[],Texn_num));
-           ("Div", ([],[],Texn_num));
-           ("Subscript", ([],[],Texn_num));
-           ("false", ([],[], Tbool_num));
-           ("true", ([],[], Tbool_num));
-           ("nil", (["'a"],[],Tlist_num));
-           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]);
-       v := nsEmpty;
-       t := nsEmpty|>`;
-
 val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
   `!type_ids sem_st prim_env.
    (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
    DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
    ⇒
    ?ctMap.
-     type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv`,
+     type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv ∧
+     FRANGE ((SND o SND) o_f ctMap) ⊆ prim_type_ids`,
   rw[type_sound_invariant_def, prim_sem_env_eq, prim_tenv_def] >>
   qexists_tac`FEMPTY |++ REVERSE [
       (bind_stamp, ([],[],Texn_num));
@@ -88,13 +75,14 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
       rw [type_ctor_def, flookup_fupdate_list, bind_stamp_def, div_stamp_def,
           chr_stamp_def, subscript_stamp_def,
           bool_type_num_def, list_type_num_def]))
-  >- simp [type_s_def, store_lookup_def]);
-
-(* TODO: rename semantics and call semantics_init semantics instead? *)
-val semantics_init_def = Define`
-  semantics_init ffi =
-    semantics <| sem_st := FST(THE (prim_sem_env ffi));
-                 sem_env := SND(THE (prim_sem_env ffi));
-                 tenv := prim_tenv |>`;
+  >- simp [type_s_def, store_lookup_def]
+  >- (
+    simp[SUBSET_DEF]
+    \\ ho_match_mp_tac IN_FRANGE_o_f_suff
+    \\ ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff
+    \\ simp[]
+    \\ EVAL_TAC
+    \\ rpt strip_tac \\ rveq
+    \\ EVAL_TAC));
 
 val _ = export_theory ();

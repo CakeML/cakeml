@@ -67,55 +67,93 @@ val list_el_side = Q.prove(
 val res = translate listTheory.TAKE_def;
 val res = translate listTheory.DROP_def;
 
-val res = translate (source_to_modTheory.compile_exp_def);
+val res = translate source_to_flatTheory.compile_prog_def;
 
-val source_to_mod_compile_exp_side_def = theorem"source_to_mod_compile_exp_side_def"
-val source_to_mod_compile_exp_side = Q.prove(
-  `(∀x y z. source_to_mod_compile_exp_side x y z ⇔ T) ∧
-   (∀x y z. source_to_mod_compile_exps_side x y z ⇔ T) ∧
-   (∀x y z. source_to_mod_compile_pes_side x y z ⇔ T) ∧
-   (∀x y z. source_to_mod_compile_funs_side x y z ⇔ T)`,
-  ho_match_mp_tac source_to_modTheory.compile_exp_ind \\ rw[]
-  \\ rw[Once source_to_mod_compile_exp_side_def]
-  \\ rw[definition"source_to_mod_astop_to_modop_side_def"])
-  |> CONJUNCTS
-  |> map update_precondition;
+(* flat_reorder_match *)
 
-val _ = translate (source_to_modTheory.compile_def);
+val res = translate flat_reorder_matchTheory.compile_def;
 
-val _ = translate (mod_to_conTheory.compile_def);
+val side_def = fetch "-" "flat_reorder_match_compile_side_def"
 
-val r = translate con_to_decTheory.compile_decs_def;
-val con_to_dec_compile_decs_side_def = theorem"con_to_dec_compile_decs_side_def";
-val con_to_dec_compile_decs_side = Q.prove(
-  `∀x y z. con_to_dec_compile_decs_side x y z ⇔ T`,
-  Induct_on`z` \\ rw[Once con_to_dec_compile_decs_side_def])
+val flat_reorder_match_compile_side_simp = prove(
+  ``!x. flat_reorder_match_compile_side x = T``,
+  ho_match_mp_tac flat_reorder_matchTheory.compile_ind
+  \\ rw []
+  \\ once_rewrite_tac [side_def]
+  \\ simp [FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs [])
   |> update_precondition;
 
-val r = translate (con_to_decTheory.compile_def);
+val res = translate flat_reorder_matchTheory.compile_decs_def;
 
-val r = translate (exh_reorderTheory.compile_def);
+val side_def = fetch "-" "flat_reorder_match_compile_decs_side_def"
 
-val exh_reorder_compile_side_def = theorem"exh_reorder_compile_side_def"
-val exh_reorder_compile_side = Q.prove(`
-  ∀x. exh_reorder_compile_side x ⇔ T`,
-  recInduct exh_reorderTheory.compile_ind>>
-  rw[]>>
-  rw[Once exh_reorder_compile_side_def]>>
-  TRY(first_x_assum match_mp_tac \\ rw[]) \\
-  TRY(asm_exists_tac \\ rw[]) \\
-  fs[Once exh_reorderTheory.compile_cons])|>update_precondition;
-
-val r = translate (dec_to_exhTheory.compile_def);
-
-val dec_to_exh_compile_side_def = definition"dec_to_exh_compile_side_def";
-val dec_to_exh_compile_side = Q.prove(
-  `∀x y. dec_to_exh_compile_side x y ⇔ T`,
-  rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
+val flat_reorder_match_compile_decs_side_simp = prove(
+  ``!x. flat_reorder_match_compile_decs_side x = T``,
+  Induct THEN1 fs [side_def]
+  \\ Cases
+  \\ once_rewrite_tac [side_def]
+  \\ once_rewrite_tac [side_def] \\ fs [])
   |> update_precondition;
 
-val r = translate (exh_to_patTheory.pure_op_op_pmatch);
-val r = translate (exh_to_patTheory.compile_def);
+(* flat_uncheck_ctors *)
+
+val res = translate flat_uncheck_ctorsTheory.compile_def;
+
+val side_def = fetch "-" "flat_uncheck_ctors_compile_side_def"
+
+val flat_uncheck_ctors_compile_side_simp = prove(
+  ``!x. flat_uncheck_ctors_compile_side x = T``,
+  ho_match_mp_tac flat_uncheck_ctorsTheory.compile_ind
+  \\ rw []
+  \\ once_rewrite_tac [side_def]
+  \\ simp [FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs [])
+  |> update_precondition;
+
+val res = translate flat_uncheck_ctorsTheory.compile_decs_def;
+
+val side_def = fetch "-" "flat_uncheck_ctors_compile_decs_side_def"
+
+val flat_uncheck_ctors_compile_decs_side_simp = prove(
+  ``!x. flat_uncheck_ctors_compile_decs_side x = T``,
+  Induct THEN1 fs [side_def]
+  \\ Cases
+  \\ once_rewrite_tac [side_def]
+  \\ once_rewrite_tac [side_def] \\ fs [])
+  |> update_precondition;
+
+(* flat_exh_match *)
+
+val res = translate flat_exh_matchTheory.compile_exps_def;
+
+val side_def = fetch "-" "flat_exh_match_compile_exps_side_def"
+
+val flat_exh_match_compile_exps_side_simp = prove(
+  ``!y x. flat_exh_match_compile_exps_side y x = T``,
+  ho_match_mp_tac flat_exh_matchTheory.compile_exps_ind
+  \\ rw []
+  \\ once_rewrite_tac [side_def]
+  \\ simp [FORALL_PROD,TRUE_def,FALSE_def]
+  \\ rw [] \\ res_tac \\ fs [])
+  |> update_precondition;
+
+val res = translate flat_exh_matchTheory.compile_decs_def;
+
+(* flat_elim *)
+
+val res = translate flat_elimTheory.removeFlatProg_def;
+
+(* source_to_flat *)
+
+val res = translate source_to_flatTheory.compile_flat_def;
+
+val res = translate source_to_flatTheory.compile_def;
+
+(* flat_to_pat *)
+
+val res = translate flat_to_patTheory.compile_def;
+
 
 local
   val ths = ml_translatorLib.eq_lemmas();
@@ -132,6 +170,20 @@ val EqualityType_WORD = find_equality_type_thm``WORD``
 
 val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
   |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
+
+val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
+  |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]
+
+val EqualityType_PAIR_TYPE_NUM_OPTION_TYPE_NUM =
+  find_equality_type_thm``PAIR_TYPE NUM (OPTION_TYPE NUM)``
+  |> Q.GEN`b` |> Q.ISPEC`NUM`
+  |> Q.GEN`c` |> Q.ISPEC`OPTION_TYPE NUM`
+  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_OPTION_TYPE_NUM]
+
+val EqualityType_OPTION_TYPE_PAIR_TYPE_NUM_OPTION_TYPE_NUM =
+  find_equality_type_thm``OPTION_TYPE (PAIR_TYPE NUM (OPTION_TYPE NUM))``
+  |> Q.GEN`a` |> Q.ISPEC`PAIR_TYPE NUM (OPTION_TYPE NUM)`
+  |> SIMP_RULE std_ss [EqualityType_PAIR_TYPE_NUM_OPTION_TYPE_NUM]
 
 val EqualityType_AST_LIT_TYPE = find_equality_type_thm``AST_LIT_TYPE``
   |> SIMP_RULE std_ss [EqualityType_CHAR,EqualityType_LIST_TYPE_CHAR,
@@ -153,34 +205,22 @@ val EqualityType_FPSEM_FP_BOP_TYPE = find_equality_type_thm ``FPSEM_FP_BOP_TYPE`
 val EqualityType_FPSEM_FP_UOP_TYPE = find_equality_type_thm ``FPSEM_FP_UOP_TYPE``
 val EqualityType_FPSEM_FP_CMP_TYPE = find_equality_type_thm ``FPSEM_FP_CMP_TYPE``
 
-val EqualityType_MODLANG_OP_TYPE = find_equality_type_thm``MODLANG_OP_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,
-                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
-                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_LIST_TYPE_CHAR,
-                       EqualityType_FPSEM_FP_BOP_TYPE,
-                       EqualityType_FPSEM_FP_UOP_TYPE,
-                       EqualityType_FPSEM_FP_CMP_TYPE
-                       ]
-
-val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
-
-val EqualityType_PATLANG_OP_TYPE = find_equality_type_thm``PATLANG_OP_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_CONLANG_OP_TYPE]
-
 val EqualityType_BACKEND_COMMON_TRA_TYPE = find_equality_type_thm``BACKEND_COMMON_TRA_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM]
 
+val EqualityType_FLATLANG_OP_TYPE = find_equality_type_thm``FLATLANG_OP_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM, EqualityType_AST_OPN_TYPE, EqualityType_AST_OPB_TYPE, EqualityType_AST_OPW_TYPE, EqualityType_LIST_TYPE_CHAR, EqualityType_FPSEM_FP_BOP_TYPE, EqualityType_FPSEM_FP_UOP_TYPE, EqualityType_FPSEM_FP_CMP_TYPE, EqualityType_AST_SHIFT_TYPE, EqualityType_AST_WORD_SIZE_TYPE]
+
+val EqualityType_PATLANG_OP_TYPE = find_equality_type_thm``PATLANG_OP_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_FLATLANG_OP_TYPE]
+
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def
 
-val EXHLANG_PAT_TYPE_def = theorem"EXHLANG_PAT_TYPE_def";
-val EXHLANG_PAT_TYPE_ind = theorem"EXHLANG_PAT_TYPE_ind";
+val FLATLANG_PAT_TYPE_def = theorem"FLATLANG_PAT_TYPE_def";
+val FLATLANG_PAT_TYPE_ind = theorem"FLATLANG_PAT_TYPE_ind";
 
-val EXHLANG_PAT_TYPE_no_closures = Q.prove(
-  `∀a b. EXHLANG_PAT_TYPE a b ⇒ no_closures b`,
-  ho_match_mp_tac EXHLANG_PAT_TYPE_ind
-  \\ rw[EXHLANG_PAT_TYPE_def]
+val FLATLANG_PAT_TYPE_no_closures = Q.prove(
+  `∀a b. FLATLANG_PAT_TYPE a b ⇒ no_closures b`,
+  ho_match_mp_tac FLATLANG_PAT_TYPE_ind
+  \\ rw[FLATLANG_PAT_TYPE_def]
   \\ rw[no_closures_def]
   \\ TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
@@ -194,15 +234,17 @@ val EXHLANG_PAT_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_OPTION_TYPE_PAIR_TYPE_NUM_OPTION_TYPE_NUM,
             EqualityType_AST_LIT_TYPE,
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
-val EXHLANG_PAT_TYPE_types_match = Q.prove(
-  `∀a b c d. EXHLANG_PAT_TYPE a b ∧ EXHLANG_PAT_TYPE c d ⇒ types_match b d`,
-  ho_match_mp_tac EXHLANG_PAT_TYPE_ind \\
-  rw[EXHLANG_PAT_TYPE_def] \\
-  Cases_on`c` \\ fs[EXHLANG_PAT_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+val FLATLANG_PAT_TYPE_types_match = Q.prove(
+  `∀a b c d. FLATLANG_PAT_TYPE a b ∧ FLATLANG_PAT_TYPE c d ⇒ types_match b d`,
+  ho_match_mp_tac FLATLANG_PAT_TYPE_ind \\
+  rw[FLATLANG_PAT_TYPE_def] \\
+  Cases_on`c` \\ fs[FLATLANG_PAT_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+  simp [semanticPrimitivesTheory.same_type_def] >>
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     qhdtm_x_assum`LIST_TYPE`mp_tac >>
@@ -212,21 +254,22 @@ val EXHLANG_PAT_TYPE_types_match = Q.prove(
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
     qx_gen_tac`p` >>
     gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def] >>
+    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_OPTION_TYPE_PAIR_TYPE_NUM_OPTION_TYPE_NUM,
             EqualityType_AST_LIT_TYPE,
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
-val EXHLANG_PAT_TYPE_11 = Q.prove(
-  `∀a b c d. EXHLANG_PAT_TYPE a b ∧ EXHLANG_PAT_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  ho_match_mp_tac EXHLANG_PAT_TYPE_ind \\
-  rw[EXHLANG_PAT_TYPE_def] \\
-  Cases_on`c` \\ fs[EXHLANG_PAT_TYPE_def] \\ rw[EQ_IMP_THM] \\
+val FLATLANG_PAT_TYPE_11 = Q.prove(
+  `∀a b c d. FLATLANG_PAT_TYPE a b ∧ FLATLANG_PAT_TYPE c d ⇒ (a = c ⇔ b = d)`,
+  ho_match_mp_tac FLATLANG_PAT_TYPE_ind \\
+  rw[FLATLANG_PAT_TYPE_def] \\
+  Cases_on`c` \\ fs[FLATLANG_PAT_TYPE_def] \\ rw[EQ_IMP_THM] \\
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x y1` >>
     qhdtm_x_assum`LIST_TYPE`mp_tac >>
@@ -251,15 +294,10 @@ val EXHLANG_PAT_TYPE_11 = Q.prove(
     gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_OPTION_TYPE_PAIR_TYPE_NUM_OPTION_TYPE_NUM,
             EqualityType_AST_LIT_TYPE,
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
-
-val EqualityType_EXHLANG_PAT_TYPE = Q.store_thm("EqualityType_EXHLANG_PAT_TYPE",
-  `EqualityType EXHLANG_PAT_TYPE`,
-  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,
-    EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
-  |> store_eq_thm
 
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
 val PATLANG_EXP_TYPE_ind = theorem"PATLANG_EXP_TYPE_ind";
@@ -280,11 +318,10 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_OPTION_TYPE_PAIR_TYPE_NUM_OPTION_TYPE_NUM,
             EqualityType_BACKEND_COMMON_TRA_TYPE,
-            EqualityType_MODLANG_OP_TYPE,
-            EqualityType_CONLANG_OP_TYPE,
-            EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
+            EqualityType_PATLANG_OP_TYPE,
             EqualityType_def]);
 
 val PATLANG_EXP_TYPE_types_match = Q.prove(
@@ -301,15 +338,14 @@ val PATLANG_EXP_TYPE_types_match = Q.prove(
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
     Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
     qx_gen_tac`p` >>
     gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def] >>
+    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
+  simp [semanticPrimitivesTheory.same_type_def] >>
   metis_tac[EqualityType_NUM,
             EqualityType_BACKEND_COMMON_TRA_TYPE,
-            EqualityType_MODLANG_OP_TYPE,
-            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -344,10 +380,8 @@ val PATLANG_EXP_TYPE_11 = Q.prove(
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
             EqualityType_BACKEND_COMMON_TRA_TYPE,
-            EqualityType_MODLANG_OP_TYPE,
-            EqualityType_CONLANG_OP_TYPE,
-            EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
+            EqualityType_PATLANG_OP_TYPE,
             EqualityType_def]);
 
 val EqualityType_PATLANG_EXP_TYPE = Q.prove(
@@ -449,12 +483,6 @@ val clos_known_known_side = Q.prove(`
 
 val r = translate clos_knownTheory.compile_def
 
-val clos_known_compile_side = Q.prove(
-  `∀x y z. clos_known_compile_side x y z ⇔ T`,
-  EVAL_TAC \\ rw[] \\ strip_tac \\
-  imp_res_tac clos_knownTheory.known_sing_EQ_E \\
-  fs[]) |> update_precondition;
-
 (* call *)
 
 val r = translate (clos_callTheory.calls_def)
@@ -481,12 +509,6 @@ val clos_call_calls_side = Q.prove(`
   >> rw[GSYM LAMBDA_PROD]) |> update_precondition
 
 val r = translate clos_callTheory.compile_def
-
-val clos_call_compile_side = Q.prove(
-  `∀x y. clos_call_compile_side x y = T`,
-  EVAL_TAC \\ rw[] \\ strip_tac \\
-  imp_res_tac clos_callTheory.calls_sing \\
-  fs[]) |> update_precondition;
 
 (* shift *)
 val r = translate (clos_annotateTheory.shift_def)
@@ -556,6 +578,8 @@ val EqualityType_OPTION_TYPE_LIST_TYPE_NUM =
 
 val CLOSLANG_EXP_TYPE_def = theorem"CLOSLANG_EXP_TYPE_def";
 val CLOSLANG_EXP_TYPE_ind = theorem"CLOSLANG_EXP_TYPE_ind";
+
+val OPTION_TYPE_def = std_preludeTheory.OPTION_TYPE_def;
 
 val CLOSLANG_EXP_TYPE_no_closures = Q.prove(
   `!a b. CLOSLANG_EXP_TYPE a b ==> no_closures b`,
@@ -679,11 +703,11 @@ val CLOSLANG_EXP_TYPE_types_match = Q.prove(
     last_x_assum mp_tac >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >- (
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
     qx_gen_tac`p` >>
     gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def] >>
+    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
     TRY (
       PairCases_on `h` \\ PairCases_on `p` \\
       fsrw_tac [DNF_ss] [PAIR_TYPE_def] \\ rw [] \\
@@ -691,6 +715,7 @@ val CLOSLANG_EXP_TYPE_types_match = Q.prove(
       res_tac \\
       metis_tac [EqualityType_def, EqualityType_NUM] ) >>
     PROVE_TAC[EqualityType_def] ) >>
+  simp [semanticPrimitivesTheory.same_type_def] >>
   metis_tac[EqualityType_NUM,
             EqualityType_CLOSLANG_OP_TYPE,
             EqualityType_OPTION_TYPE_NUM,
@@ -725,11 +750,14 @@ val BVL_EXP_TYPE_no_closures = Q.prove(
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_def]);
 
+val _ = save_thm("same_type_def[simp]",
+  semanticPrimitivesTheory.same_type_def);
+
 val BVL_EXP_TYPE_types_match = Q.prove(
   `∀a b c d. BVL_EXP_TYPE a b ∧ BVL_EXP_TYPE c d ⇒ types_match b d`,
   ho_match_mp_tac BVL_EXP_TYPE_ind \\
   rw[BVL_EXP_TYPE_def] \\
-  Cases_on`c` \\ fs[BVL_EXP_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+  Cases_on`c` \\ fs[BVL_EXP_TYPE_def,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] \\ rw[] \\
   TRY (
     qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
     qhdtm_x_assum`LIST_TYPE`mp_tac >>
@@ -841,23 +869,10 @@ val clos_to_bvl_compile_prog_side = Q.prove(`
 val clos_to_bvl_compile_side = Q.prove(`
   ∀x y. clos_to_bvl_compile_side x y ⇔ T`,
   rw[Once (fetch "-" "clos_to_bvl_compile_side_def"),
-  Once (fetch "-" "clos_call_compile_side_def"),
-  Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),
-  Once (fetch "-" "clos_known_compile_side_def")]
-  >-
-    (EVAL_TAC>>simp[bvl_jump_jumplist_side])
-  >-
-    simp[clos_to_bvl_compile_exps_side]
-  >-
-    simp[clos_to_bvl_compile_prog_side]
-  >>
-    `∃z. compile x.do_mti x.max_app [y] = [z]` by
-      (Cases_on`x.do_mti`>>fs[clos_mtiTheory.compile_def]>>
-      metis_tac[clos_mtiTheory.intro_multi_sing])>>
-    ntac 2 (pop_assum mp_tac)>>
-    specl_args_of_then ``renumber_code_locs_list`` (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
-    rw[]>>fs[]>>
-    fs[LENGTH_EQ_NUM_compute]) |> update_precondition
+     Once (fetch "-" "clos_to_bvl_compile_prog_side_def")]
+  \\ EVAL_TAC>>simp[bvl_jump_jumplist_side]
+  \\ simp[clos_to_bvl_compile_exps_side]
+  \\ simp[clos_to_bvl_compile_prog_side]) |> update_precondition
 
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 

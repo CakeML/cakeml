@@ -18,19 +18,19 @@ val SEP_EXISTS_INWARD = save_thm("SEP_EXISTS_INWARD",
 val ALLOCATE_ARRAY_evaluate = Q.store_thm("ALLOCATE_ARRAY_evaluate",
   `!env s n xname xv.
     (nsLookup env.v (Short xname) = SOME xv) ==>
-    evaluate s env [App Aalloc [Lit (IntLit &n); Var (Short xname)]] =
-      (s with refs := s.refs ++ [Varray (REPLICATE n xv)],
-       Rval [Loc (LENGTH s.refs)])`,
-  rw[evaluate_def, do_app_def, store_alloc_def]
+    eval_rel s env (App Aalloc [Lit (IntLit &n); Var (Short xname)])
+      (s with refs := s.refs ++ [Varray (REPLICATE n xv)])
+      (Loc (LENGTH s.refs))`,
+  rw[evaluate_def, do_app_def, store_alloc_def, ml_progTheory.eval_rel_def]
   \\ rw[state_component_equality]);
 
 val ALLOCATE_EMPTY_RARRAY_evaluate = Q.store_thm("ALLOCATE_EMPTY_RARRAY_evaluate",
   `!env s.
-     evaluate s env [App Opref [App AallocEmpty [Con NONE []]]] =
-       (s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))],
-        Rval [Loc (LENGTH s.refs + 1)])`,
+     eval_rel s env (App Opref [App AallocEmpty [Con NONE []]])
+       (s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))])
+       (Loc (LENGTH s.refs + 1))`,
   rw[evaluate_def, do_app_def, do_opapp_def, do_con_check_def, build_conv_def,
-     store_alloc_def,state_component_equality]);
+     store_alloc_def,state_component_equality, ml_progTheory.eval_rel_def]);
 
 val LIST_REL_REPLICATE = Q.store_thm("LIST_REL_REPLICATE",
   `!n TYPE x v. TYPE x v ==> LIST_REL TYPE (REPLICATE n x) (REPLICATE n v)`,

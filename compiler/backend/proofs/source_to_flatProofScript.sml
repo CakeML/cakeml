@@ -1005,18 +1005,15 @@ val do_app = Q.prove (
     rw [])
   >- ((* FFI *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
-      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      srw_tac[][] >>
-      every_case_tac >>
-      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
-      res_tac >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[]));
+      fs[v_rel_eqns] \\ rw[] \\
+      fs[store_lookup_def, LIST_REL_EL_EQN] \\ fs[] \\ rfs[] \\
+      res_tac \\
+      qpat_x_assum`EL _ _ = _`assume_tac \\ fs[] \\
+      qhdtm_x_assum`sv_rel`mp_tac \\
+      simp[Once sv_rel_cases] \\ rw[] \\
+      fs[IMPLODE_EXPLODE_I] \\
+      CASE_TAC \\ fs[store_assign_def,store_v_same_type_def,EL_LUPDATE] \\ rfs[] \\ rw[EL_LUPDATE]
+      \\ rw[sv_rel_cases, result_rel_cases, v_rel_eqns]));
 
 val find_recfun = Q.prove (
   `!x funs e comp_map y t.
@@ -3702,15 +3699,13 @@ val compile_prog_correct = Q.store_thm("compile_prog_correct",
     \\ `e = c`  by (UNABBREV_ALL_TAC >> rw [config_component_equality])
     \\ fs [initial_state_def] \\ rfs []
     \\ every_case_tac \\ fs[]
-    \\ strip_tac \\ fs[]
+    \\ CCONTR_TAC \\ fs[]
     \\ rveq
     \\ fs[result_rel_cases]
     \\ fs[s_rel_cases]
     \\ last_x_assum(qspec_then`k`mp_tac)
     \\ simp[]
-    \\ Cases_on`r`\\fs[]
-    \\ Cases_on`a`\\fs[]
-    \\ fs[invariant_def,s_rel_cases])
+    \\ Cases_on`r`\\fs[])
   \\ qmatch_abbrev_tac`lprefix_lub l1 (build_lprefix_lub l2)`
   \\ `l2 = l1`
   by (

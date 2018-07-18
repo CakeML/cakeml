@@ -654,6 +654,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    case r of
    | Rval v => type_v 0 ctMap tenvS' v t
    | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+   | Rerr (Rabort(Rffi_error _)) => T
    | Rerr (Rabort _) => F`,
   rw [type_op_cases, good_ctMap_def] >>
   fs [] >>
@@ -965,12 +966,13 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    rw [do_app_cases, PULL_EXISTS] >>
    res_tac >>
    rw []
-   >> `?ffi' ws'. call_FFI ffi n (MAP (λc. n2w (ORD c)) (EXPLODE s)) ws = (ffi', ws')` by metis_tac [pair_CASES]
+   >> reverse TOP_CASE_TAC
+   >- metis_tac[store_type_extension_refl]
    >> simp []
-   >> `type_sv ctMap tenvS (W8array ws') W8array_t` by rw [type_sv_def]
+   >> `type_sv ctMap tenvS (W8array l) W8array_t` by rw [type_sv_def]
    >> drule store_assign_type_sound
    >> rpt (disch_then drule)
-   >> rw []
+   >> rw [] \\ rw[]
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
  >> TRY ( (* list append *)
@@ -1215,6 +1217,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
          | Rval vs => LIST_REL (type_v tvs ctMap tenvS') vs ts
          | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
          | Rerr (Rabort Rtimeout_error) => T
+         | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F) ∧
  (!(s:'ffi semanticPrimitives$state) env v pes err_v r s' tenv tenvE t1 t2 tvs tenvS.
     evaluate_match s env v pes err_v = (s', r) ∧
@@ -1235,6 +1238,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
          | Rval vs => type_v tvs ctMap tenvS' (HD vs) t2
          | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
          | Rerr (Rabort Rtimeout_error) => T
+         | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F)`,
  ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, GSYM CONJ_ASSOC, good_ctMap_def]
@@ -1459,6 +1463,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> Cases_on `err_v`
        >> fs []
        >> rw []
+       >> every_case_tac
        >> metis_tac [store_type_extension_trans]))
    >- (
      rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
@@ -1895,7 +1900,8 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
        type_v 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env ctMap' tenvS' {} tenv
      | Rerr (Rabort Rtype_error) => F
-     | Rerr (Rabort Rtimeout_error) => T`,
+     | Rerr (Rabort Rtimeout_error) => T
+     | Rerr (Rabort(Rffi_error _)) => T`,
  ho_match_mp_tac evaluate_decs_ind
  >> rw [evaluate_decs_def]
  >> rw []
@@ -2382,6 +2388,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
        type_v 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env ctMap' tenvS' {} tenv
      | Rerr (Rabort Rtype_error) => F
+     | Rerr (Rabort (Rffi_error _)) => T
      | Rerr (Rabort Rtimeout_error) => T`,
   rw [] >>
   imp_res_tac type_d_check_uniq >>
@@ -2431,6 +2438,7 @@ val tops_type_sound_no_extra_checks = Q.store_thm ("tops_type_sound_no_no_extra_
        type_v 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
+     | Rerr (Rabort(Rffi_error _)) => T
      | Rerr (Rabort Rtimeout_error) => T`,
  ho_match_mp_tac evaluate_tops_ind
  >> rw [evaluate_tops_def]
@@ -2738,6 +2746,7 @@ val tops_type_sound = Q.store_thm ("tops_type_sound",
        type_v 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
+     | Rerr (Rabort(Rffi_error _)) => T
      | Rerr (Rabort Rtimeout_error) => T`,
  rpt strip_tac
  >> irule tops_type_sound_no_extra_checks
@@ -2763,6 +2772,7 @@ val prog_type_sound = Q.store_thm ("prog_type_sound",
        type_v 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
+     | Rerr (Rabort(Rffi_error _)) => T
      | Rerr (Rabort Rtimeout_error) => T`,
  REWRITE_TAC [evaluate_prog_def]
  >> rpt strip_tac

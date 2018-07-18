@@ -119,7 +119,7 @@ val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
               (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
   \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
-  \\ fs [EVAL ``empty_state.ffi.final_event``] \\ fs [empty_state_def]
+  \\ fs [empty_state_def]
   \\ strip_tac \\ asm_exists_tac \\ fs []);
 
 val Eval_Arrow = Q.store_thm("Eval_Arrow",
@@ -1200,48 +1200,6 @@ val PAIR_TYPE_SIMP = Q.prove(
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
 
-(* option definition *)
-(* TODO: Apparently, the variable names need to be of a specific form...*)
-val OPTION_TYPE_def = Define `
-  (!a x_2 v.
-     OPTION_TYPE a (SOME x_2) v <=>
-     ?v2_1.
-       v = Conv (SOME (TypeStamp "SOME" 2)) [v2_1] /\
-       a x_2 v2_1) /\
-  !a v.
-     OPTION_TYPE a NONE v <=>
-     v = Conv (SOME ((TypeStamp "NONE" 2))) []`
-
-val OPTION_TYPE_SIMP = Q.prove(
-  `!x. CONTAINER OPTION_TYPE
-              (\y v. if x = SOME y then p y v else ARB) x =
-           OPTION_TYPE (p:('a -> v -> bool)) x`,
-  Cases>>FULL_SIMP_TAC std_ss [FUN_EQ_THM,OPTION_TYPE_def,DISJ_ASSOC,CONTAINER_def])
-  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
-  |> curry save_thm "OPTION_TYPE_SIMP";
-
-(*
-val SUM_TYPE_def = Define `
-  (∀a b x_2 v.
-      SUM_TYPE a b (INR x_2) v ⇔
-      ∃v2_1.
-        v = Conv (SOME ("Inr",TypeId (Short "sum"))) [v2_1] ∧
-        b x_2 v2_1) ∧
-   ∀a b x_1 v.
-     SUM_TYPE a b (INL x_1) v ⇔
-     ∃v1_1.
-       v = Conv (SOME ("Inl",TypeId (Short "sum"))) [v1_1] ∧ a x_1 v1_1`
-
-val SUM_TYPE_SIMP = Q.prove(`
-  !x. CONTAINER SUM_TYPE
-    (\y v. if x = INL y then a y v else ARB)
-    (\y v. if x = INR y then b y v else ARB) x =
-    SUM_TYPE (a:'a ->v -> bool) (b:'b ->v -> bool) x`,
-  Cases>>rw[CONTAINER_def,FUN_EQ_THM,SUM_TYPE_def])
-  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
-  |> curry save_thm "SUM_TYPE_SIMP";
-*)
-
 (* characters *)
 
 val Eval_Ord = Q.store_thm("Eval_Ord",
@@ -1907,16 +1865,16 @@ val good_cons_env_def = Define `
     let (name,vars,x,t1) = HD ps in
       EVERY (\(name,vars,x,t2). same_type t1 t2) ps`
 
-val same_type_trans = prove(
+val same_type_trans = store_thm("same_type_trans",
   ``same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3``,
   Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]);
 
-val evaluate_match_MAP = prove(
+val evaluate_match_MAP = store_thm("evaluate_match_MAP",
   ``!l1 xs.
       MEM (x1,x2,x3,t1) full_ps /\ full_ps <> [] /\
       good_cons_env full_ps env /\ set l1 SUBSET set full_ps /\
       ~MEM t1 (MAP (SND o SND o SND) l1) ==>
-      evaluate_match (s:unit state) env
+      evaluate_match (s:'ffi state) env
         (Conv (SOME t1) vals)
         (MAP (λ(name,vars,x,t). (Pcon (SOME (Short name))
            (MAP Pvar vars),x)) l1 ++ xs) err =
@@ -1935,7 +1893,7 @@ val evaluate_match_MAP = prove(
   \\ imp_res_tac same_type_trans \\ fs []
   \\ fs [same_ctor_def]) |> GEN_ALL;
 
-val pmatch_list_MAP_Pvar = prove(
+val pmatch_list_MAP_Pvar = store_thm("pmatch_list_MAP_Pvar",
   ``!vars vals aux.
       LENGTH vars = LENGTH vals ==>
       pmatch_list env refs (MAP Pvar vars) vals aux =
@@ -1946,7 +1904,7 @@ val write_list_def = Define `
   write_list [] (env:v sem_env) = env /\
   write_list ((n,v)::xs) env = write_list xs (write n v env)`;
 
-val write_list_thm = prove(
+val write_list_thm = store_thm("write_list_thm",
   ``!xs env.
       write_list xs (env:v sem_env) =
        (env with v := nsAppend (alist_to_ns (REVERSE xs)) env.v)``,
@@ -2011,7 +1969,7 @@ val IMP_Eval_Mat_cases = store_thm("IMP_Eval_Mat_cases",
   \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
   \\ asm_exists_tac \\ fs [Mat_cases_def]
-  \\ drule evaluate_match_MAP
+  \\ drule (evaluate_match_MAP |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ qpat_x_assum `MEM _ y` (assume_tac o REWRITE_RULE [MEM_SPLIT])
   \\ fs [] \\ fs [ALL_DISTINCT_APPEND]
   \\ disch_then drule
@@ -2120,6 +2078,9 @@ val translator_terms = save_thm("translator_terms",
      ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
      ("no_closure_pat",``!x v. p x v ==> no_closures v``),
      ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
-     ("prim_exn_list",prim_exn_list)]);
+     ("prim_exn_list",prim_exn_list),
+     ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
+              (\y v. if x = SOME y then p y v else ARB) x =
+           (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]);
 
 val _ = export_theory();

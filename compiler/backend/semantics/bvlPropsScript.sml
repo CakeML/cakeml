@@ -18,8 +18,10 @@ val dec_clock_with_code = Q.store_thm("dec_clock_with_code[simp]",
   `bvlSem$dec_clock n (s with code := c) = dec_clock n s with code := c`,
   EVAL_TAC );
 
-val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
-val case_eq_thms = CONJ (prove_case_eq_thm v_thms) closSemTheory.case_eq_thms
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val case_eq_thms = LIST_CONJ (closSemTheory.case_eq_thms::
+                              map (prove_case_eq_thm o get_thms)
+  [``:v``,``:'a ffi_result``])
 val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
 val _ = save_thm ("case_eq_thms", case_eq_thms);
@@ -150,7 +152,9 @@ val find_code_EVERY_IMP = Q.store_thm("find_code_EVERY_IMP",
   \\ FULL_SIMP_TAC std_ss [GSYM SNOC_APPEND,FRONT_SNOC]);
 
 val do_app_err = Q.store_thm("do_app_err",
-  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)`,
+  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                             \/
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
   rw [do_app_cases_err,do_install_def,UNCURRY] >> fs []
   \\ every_case_tac \\ fs []);
 
@@ -480,8 +484,7 @@ val evaluate_add_clock_initial_state = store_thm("evaluate_add_clock_initial_sta
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app op vs s1 = Rval (x,s2) ⇒
-   s1.ffi.io_events ≼ s2.ffi.io_events ∧
-   (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+   s1.ffi.io_events ≼ s2.ffi.io_events`,
   rw [do_app_cases_val] >>
   fs[ffiTheory.call_FFI_def,case_eq_thms] >>
   every_case_tac \\ fs[] \\ rw[] \\ rfs[do_install_def,UNCURRY] >>
@@ -491,8 +494,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps env s1 res s2.
     evaluate (exps,env,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events ∧
-    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+    s1.ffi.io_events ≼ s2.ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -524,15 +526,11 @@ val dec_clock_inc_clock = Q.prove(
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `∀exps env s extra.
     (SND(evaluate(exps,env,s))).ffi.io_events ≼
-    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events ∧
-    (IS_SOME((SND(evaluate(exps,env,s))).ffi.final_event) ⇒
-     (SND(evaluate(exps,env,inc_clock extra s))).ffi =
-     (SND(evaluate(exps,env,s))).ffi)`,
+    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
     rename1`Boolv T` >>
-    qmatch_assum_rename_tac`IS_SOME _.ffi.final_event` >>
     ntac 4 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     ntac 2 (TRY (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>

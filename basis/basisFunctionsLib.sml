@@ -53,21 +53,4 @@ fun prove_ref_spec op_name =
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
 
-fun derive_eval_thm for_eval v_name e = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
-           |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
-  val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
-  val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [terminationTheory.evaluate_def,
-            PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
-  val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
-                    rpt strip_tac \\ rveq \\
-                    match_mp_tac (#2(EQ_IMP_RULE lemma)) \\
-                    simp_tac bool_ss [])
-                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev for_eval v_name v_tm
-  in v_thm |> REWRITE_RULE [GSYM v_def] end
-
 end

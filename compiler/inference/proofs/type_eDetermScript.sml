@@ -185,19 +185,7 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
  fs [t_compat_def] >>
  metis_tac [t_walkstar_no_vars]);
 
-val generalise_complete_lem = Q.prove (
-`∀n s t tvs s' t' tvs next_uvar.
-  t_wfs s ∧ check_s 0 (count next_uvar) s ∧
-  check_t 0 (count next_uvar) t ∧
-  generalise 0 n FEMPTY (t_walkstar s t) = (tvs,s',t') ⇒
-  ∃ec1 last_sub.
-    t' = t_walkstar last_sub t ∧ t_wfs last_sub ∧
-    sub_completion (tvs + n) next_uvar s ec1 last_sub`,
- rw [] >>
- mp_tac (Q.SPECL [`n`, `s`, `[t]`] generalise_complete) >>
- rw [generalise_def, LET_THM]);
-
-val t_vars_check_t = Q.prove(`
+val t_vars_check_t = Q.store_thm("t_vars_check_t",`
   (∀t.
   ¬check_t 0 {} t ∧
   check_t 0 s t ⇒
@@ -214,7 +202,7 @@ val t_vars_check_t = Q.prove(`
   fs[MEM_MAP]>>
   metis_tac[]);
 
-val t_walkstar_diff = Q.prove(`
+val t_walkstar_diff = Q.store_thm("t_walkstar_diff",`
   t_wfs s1 ∧ t_wfs s2 ∧
   (t_walkstar s1 (Infer_Tuvar n) ≠ t_walkstar s2 (Infer_Tuvar n))
   ⇒
@@ -237,7 +225,8 @@ val env_rel_sound_weaken = Q.prove(
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>
-  qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL;
+  qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
+  |> curry save_thm "env_rel_sound_weaken";
 
 val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
 `!loc ienv p e st st' t t' new_bindings s.
@@ -460,6 +449,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs ((init_infer_state ss) with next_uvar:= (init_infer_state ss).next_uvar + LENGTH funs) =
     (Success funs_ts,st) ∧
   st.next_uvar = st'.next_uvar ∧
+  st.next_id = st'.next_id ∧
   pure_add_constraints st.subst
     (ZIP (MAP (λn. Infer_Tuvar ((init_infer_state ss).next_uvar + n))
               (COUNT_LIST (LENGTH funs)),funs_ts)) st'.subst ∧
@@ -605,7 +595,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   (* And break it upwe compose the constraints *)
   fs[pure_add_constraints_append]>>
   (* The thing in the middle is the desired unification *)
-  qexists_tac`<|next_uvar:=st'.next_uvar;subst:=s2''|>`>>
+  qexists_tac`<|next_uvar:=st'.next_uvar;subst:=s2'';next_id:=st'.next_id|>`>>
   fs[]>>
   qexists_tac`constraints'`>>qexists_tac`si'`>>
   simp[]>>

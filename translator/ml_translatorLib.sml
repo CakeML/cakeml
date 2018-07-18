@@ -921,7 +921,14 @@ fun define_ref_inv is_exn_type tys = let
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
   val _ = map reg_type ys
-  val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP]
+  val opt_extra_rw = let
+    val OPTION_TYPE = get_type_inv (type_of (optionSyntax.mk_none alpha)) |> rator
+    val goal = get_term "OPTION_TYPE_SIMP" |> ASSUME |> ISPEC OPTION_TYPE |> concl
+    val OPTION_TYPE_SIMP = auto_prove "OPTION_TYPE_SIMP" (goal,
+      Cases \\ fs [CONTAINER_def,FUN_EQ_THM] \\ EVAL_TAC \\ simp [])
+      |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
+    in [OPTION_TYPE_SIMP] end handle HOL_ERR _ => []
+  val rw_lemmas = LIST_CONJ ([LIST_TYPE_SIMP,PAIR_TYPE_SIMP] @ opt_extra_rw)
   val stamp = if is_exn_type then get_next_exn_stamp (get_ml_prog_state ())
                              else get_next_type_stamp (get_ml_prog_state ())
   fun get_def_tm () = let
@@ -1618,7 +1625,7 @@ fun inst_cons_thm tm hol2deep = let
                 handle HOL_ERR _ => []
   val xs = args res
   val ss = fst (match_term res tm)
-  val ys = map (fn x => hol2deep (subst ss x)) xs
+  val ys = map (fn x => remove_primes (hol2deep (subst ss x))) xs
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
   in MATCH_MP th (UNDISCH_ALL th1)
      handle HOL_ERR _ => raise UnableToTranslate tm end
@@ -1704,7 +1711,9 @@ fun inst_case_thm tm hol2deep = let
                   (LIST_UNBETA_CONV (rev bs))) lemma
     val lemma = GENL vs lemma
     val _ = can (match_term tm) (concl lemma) orelse failwith("sat_hyp failed")
-    in lemma end handle HOL_ERR _ => (print_term tm; last_fail := tm; fail())
+    in lemma |> remove_primes end
+      handle HOL_ERR _ => (print_term tm; last_fail := tm; fail())
+           | UnableToTranslate t => (last_fail := tm; raise UnableToTranslate t)
   fun sat_hyps tm = if is_conj tm then let
     val (x,y) = dest_conj tm
     in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
@@ -2352,7 +2361,9 @@ fun mutual_to_single_line_def def = let
   val goals = map fst gs
   val lemma = ISPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
-  val _ = not (can (find_term is_arb) goal) orelse failwith "requires precondition"
+  val _ = if can (find_term is_arb) (concl def) then true else
+            not (can (find_term is_arb) goal) orelse
+            failwith "mutual_to_single_line_def: requires precondition"
   val lemma1 = prove(goal,
     REPEAT STRIP_TAC THEN CONV_TAC (DEPTH_CONV BETA_CONV)
     THEN CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [def]))
@@ -3097,8 +3108,8 @@ fun hol2deep tm =
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
-    val thf = hol2deep f
-    val thx = hol2deep x
+    val thf = hol2deep f |> remove_primes
+    val thx = hol2deep x |> remove_primes
     val thx = force_remove_fix thx
     val result = MATCH_MP (MATCH_MP Eval_Arrow thf) thx handle HOL_ERR _ =>
                  MY_MATCH_MP (MATCH_MP Eval_Arrow thf) (MATCH_MP Eval_Eq thx)

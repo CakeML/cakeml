@@ -372,8 +372,7 @@ val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app cc (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
-   s.ffi.io_events ≼ t.ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ t.ffi = s.ffi)`,
+   s.ffi.io_events ≼ t.ffi.io_events`,
   rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
   \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
@@ -384,11 +383,9 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `(∀env (s:'ffi flatSem$state) es.
-      s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events ∧
-      (IS_SOME s.ffi.final_event ⇒ (FST (evaluate env s es)).ffi = s.ffi)) ∧
+      s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events) ∧
    (∀env (s:'ffi flatSem$state) pes v err_v.
-      s.ffi.io_events ≼ (FST (evaluate_match env s pes v err_v)).ffi.io_events ∧
-      (IS_SOME s.ffi.final_event ⇒ (FST (evaluate_match env s pes v err_v)).ffi = s.ffi))`,
+      s.ffi.io_events ≼ (FST (evaluate_match env s pes v err_v)).ffi.io_events)`,
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
   \\ every_case_tac \\ fs [] \\ rfs []
   \\ fs [dec_clock_def]
@@ -402,16 +399,10 @@ val with_clock_ffi = Q.store_thm("with_clock_ffi",
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀env (s:'ffi flatSem$state) es extra.
        (FST (evaluate env s es)).ffi.io_events ≼
-       (FST (evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
-       (IS_SOME ((FST (evaluate env s es)).ffi.final_event) ⇒
-         (FST (evaluate env (s with clock := s.clock + extra) es)).ffi =
-         (FST (evaluate env s es)).ffi)) ∧
+       (FST (evaluate env (s with clock := s.clock + extra) es)).ffi.io_events) ∧
    (∀env (s:'ffi flatSem$state) pes v err_v extra.
        (FST (evaluate_match env s pes v err_v)).ffi.io_events ≼
-       (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events ∧
-       (IS_SOME ((FST (evaluate_match env s pes v err_v)).ffi.final_event) ⇒
-         (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi =
-         (FST (evaluate_match env s pes v err_v)).ffi))`,
+       (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events)`,
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def] \\ fs []
   \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rfs []
   \\ map_every imp_res_tac [evaluate_add_to_clock,
@@ -427,18 +418,14 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
 
 val evaluate_dec_io_events_mono = Q.store_thm("evaluate_dec_io_events_mono",
   `∀z x y.
-     y.ffi.io_events ≼ (FST (evaluate_dec x y z)).ffi.io_events ∧
-     (IS_SOME y.ffi.final_event ⇒ (FST (evaluate_dec x y z)).ffi = y.ffi)`,
+     y.ffi.io_events ≼ (FST (evaluate_dec x y z)).ffi.io_events`,
   Cases \\ rw [evaluate_dec_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]);
 
 val evaluate_dec_add_to_clock_io_events_mono = Q.store_thm("evaluate_dec_add_to_clock_io_events_mono",
   `∀prog env (s:'ffi flatSem$state) extra.
    (FST (evaluate_dec env s prog)).ffi.io_events ≼
-   (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
-   (IS_SOME ((FST (evaluate_dec env s prog)).ffi.final_event) ⇒
-     (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi =
-     (FST (evaluate_dec env s prog)).ffi)`,
+   (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi.io_events`,
   Cases \\ rw [evaluate_dec_def] \\ fs []
   \\ split_pair_case_tac \\ fs []
   \\ split_pair_case_tac \\ fs []
@@ -451,8 +438,7 @@ val evaluate_dec_add_to_clock_io_events_mono = Q.store_thm("evaluate_dec_add_to_
 
 val evaluate_decs_io_events_mono = Q.store_thm("evaluate_decs_io_events_mono",
   `∀prog env s s' x y. evaluate_decs env s prog = (s',x,y) ⇒
-   s.ffi.io_events ≼ s'.ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+   s.ffi.io_events ≼ s'.ffi.io_events`,
   Induct \\ rw [evaluate_decs_def]
   \\ every_case_tac \\ fs [] \\ rw []
   \\ res_tac \\ fs []
@@ -461,10 +447,7 @@ val evaluate_decs_io_events_mono = Q.store_thm("evaluate_decs_io_events_mono",
 val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_to_clock_io_events_mono",
   `∀prog env s extra.
    (FST (evaluate_decs env s prog)).ffi.io_events ≼
-   (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
-   (IS_SOME ((FST (evaluate_decs env s prog)).ffi.final_event) ⇒
-     (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi =
-     (FST (evaluate_decs env s prog)).ffi)`,
+   (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi.io_events`,
   Induct \\ rw [evaluate_decs_def] \\ every_case_tac \\ fs []
   \\ qmatch_assum_abbrev_tac
          `evaluate_dec ee (ss with clock := extra + _) pp = _`
@@ -826,9 +809,7 @@ val evaluate_decs_add_to_clock_initial_state = Q.prove(
 val evaluate_decs_add_to_clock_initial_state_io_events_mono = Q.prove (
   `evaluate_decs env (initial_state ffi k) prog = (s',c,r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs env (initial_state ffi (k+ck)) prog)).ffi.io_events ∧
-   (IS_SOME (s'.ffi.final_event) ⇒
-     s'.ffi = (FST (evaluate_decs env (initial_state ffi (k+ck)) prog)).ffi)`,
+   (FST (evaluate_decs env (initial_state ffi (k+ck)) prog)).ffi.io_events`,
   rw [initial_state_def]
   \\ qmatch_assum_abbrev_tac `evaluate_decs _ s1 _ = _`
   \\ qispl_then
@@ -885,101 +866,46 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
     \\ `rr1 <> SOME (Rabort Rtype_error)` by metis_tac []
     \\ last_x_assum drule \\ strip_tac \\ rfs [])
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
-  >-
-   (simp [semantics_def]
-    \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
-    >-
-     (fs [eval_sim_def]
-      \\ Cases_on
-           `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k') ds1`
-      \\ rename1 `(q,rr)` \\ PairCases_on `rr`
-      \\ `rr1 <> SOME (Rabort Rtype_error)` by metis_tac []
-      \\ last_x_assum drule \\ strip_tac \\ rfs [] \\ rw []
-      \\ imp_res_tac evaluate_decs_add_to_clock_initial_state \\ fs [] \\ rveq \\ fs []
-      \\ Cases_on `rr1` \\ fs []
-      \\ Cases_on `x` \\ fs [])
-    \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
-    >-
-     (Cases_on `s.ffi.final_event` \\ fs []
-      >-
-       (Cases_on `s'.ffi.final_event` \\ fs []
-        >-
-         (fs [eval_sim_def] \\ rveq
-          \\ first_x_assum drule
-          \\ impl_keep_tac >- metis_tac [] \\ rw []
-          \\ `r <> SOME (Rabort Rtimeout_error)` by (Cases_on `r` \\ fs [])
-          \\ qispl_then [`s`] mp_tac
-            (GEN_ALL evaluate_decs_add_to_clock_initial_state)
-          \\ rpt (disch_then drule)
-          \\ disch_then (qspec_then `k' + ck` assume_tac)
-          \\ qpat_x_assum `evaluate_decs _ (_ _ k') ds2 = _` assume_tac
-          \\ `r' <> SOME (Rabort Rtimeout_error)` by (Cases_on `r'` \\ fs [])
-          \\ qispl_then [`s'`] mp_tac
-            (GEN_ALL evaluate_decs_add_to_clock_initial_state)
-          \\ rpt (disch_then drule)
-          \\ disch_then (qspec_then `k + ck` assume_tac)
-          \\ qpat_x_assum `evaluate_decs _ (_ _ (ck + k)) _ = _` assume_tac
-          \\ `res2 <> SOME (Rabort Rtimeout_error)`
-            by (Cases_on `res2` \\ fs [] \\ Cases_on `x` \\ fs []
-                \\ Cases_on `a` \\ fs []
-                \\ Cases_on `r` \\ fs [] \\ Cases_on `x` \\ fs [])
-          \\ qispl_then [`t2`] mp_tac
-            (GEN_ALL evaluate_decs_add_to_clock_initial_state)
-          \\ rpt (disch_then drule)
-          \\ disch_then (qspec_then `k'` strip_assume_tac) \\ rfs []
-          \\ rw []
-          \\ rev_full_simp_tac std_ss [ADD_ASSOC]
-          \\ fs [state_component_equality])
-        \\ fs [eval_sim_def] \\ rveq
-        \\ first_x_assum drule
-        \\ impl_keep_tac >- metis_tac []
-        \\ strip_tac \\ fs []
-        \\ `res2 <> SOME (Rabort Rtimeout_error)`
-          by (Cases_on `r` \\ Cases_on `res2` \\ fs []
-              \\ rename1 `xx <> _ Rtype_error`
-              \\ Cases_on `xx` \\ fs [])
-        \\ qispl_then [`t2`] mp_tac
-          (GEN_ALL evaluate_decs_add_to_clock_initial_state)
-        \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then `k'` assume_tac) \\ fs []
-        \\ qpat_x_assum `_ = (s',_,_)` assume_tac
-        \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
-        \\ disch_then (qspec_then `ck + k` strip_assume_tac)
-        \\ rfs [] \\ fs [])
-      \\ Cases_on `s'.ffi.final_event` \\ fs []
-      >-
-       (fs [eval_sim_def] \\ rveq
-        \\ first_x_assum drule
-        \\ impl_keep_tac >- metis_tac []
-        \\ strip_tac \\ fs []
-        \\ `r' <> SOME (Rabort Rtimeout_error)` by metis_tac []
-        \\ qispl_then [`s'`] mp_tac
-          (GEN_ALL evaluate_decs_add_to_clock_initial_state)
-        \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then `ck + k` assume_tac) \\ fs []
-        \\ qpat_x_assum `_ = (t2,_,_)` assume_tac
-        \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
-        \\ disch_then (qspec_then `k'` strip_assume_tac)
-        \\ rfs [] \\ fs [])
-      \\ fs [eval_sim_def] \\ rveq
+  >- (
+    simp[semantics_def, SND_SND_lemma]
+    \\ IF_CASES_TAC \\ fs[]
+    >- (
+      fs[eval_sim_def]
       \\ first_x_assum drule
-      \\ impl_keep_tac >- metis_tac []
-      \\ strip_tac \\ fs []
-      \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
-      \\ disch_then (qspec_then `k'` strip_assume_tac)
-      \\ qhdtm_x_assum `evaluate_decs` mp_tac
-      \\ drule (GEN_ALL evaluate_decs_add_to_clock_initial_state_io_events_mono)
-      \\ disch_then (qspec_then `ck + k` strip_assume_tac)
-      \\ rfs [] \\ fs [])
-    \\ fs [eval_sim_def]
-    \\ last_x_assum drule
-    \\ impl_tac >- metis_tac []
-    \\ rw [] \\ fs []
-    \\ asm_exists_tac \\ fs []
-    \\ every_case_tac \\ fs []
-    \\ rw []
-    \\ Cases_on `r` \\ fs []
-    \\ Cases_on `x` \\ fs [])
+      \\ impl_tac >- (strip_tac \\ fs[])
+      \\ strip_tac
+      \\ imp_res_tac evaluate_decs_add_to_clock_initial_state
+      \\ fs[]
+      \\ first_x_assum(qspec_then`ck+k`mp_tac)
+      \\ simp[]
+      \\ Cases_on`res2` \\ Cases_on`r` \\ fs[]
+      \\ TRY(rpt(first_x_assum(qspec_then`k'`mp_tac)) \\ simp[] \\ NO_TAC)
+      \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+      \\ TRY(rpt(first_x_assum(qspec_then`k'`mp_tac)) \\ simp[] \\ NO_TAC))
+    \\ DEEP_INTRO_TAC some_intro \\ fs []
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ fs[eval_sim_def]
+      \\ first_x_assum drule
+      \\ impl_tac >- (strip_tac \\ fs[])
+      \\ strip_tac
+      \\ imp_res_tac evaluate_decs_add_to_clock_initial_state
+      \\ fs[]
+      \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- (strip_tac \\ fs[]) \\ strip_tac)
+      \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- (strip_tac \\ fs[]) \\ strip_tac)
+      \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- (every_case_tac \\ fs[]) \\ strip_tac)
+      \\ first_x_assum(qspec_then`k'`mp_tac) \\ fs[]
+      \\ first_x_assum(qspec_then`ck+k`mp_tac) \\ fs[]
+      \\ ntac 2 strip_tac
+      \\ rveq \\ fs[state_component_equality]
+      \\ every_case_tac \\ fs[])
+    \\ fs[eval_sim_def]
+    \\ first_x_assum drule
+    \\ impl_tac >- (strip_tac \\ fs[])
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs[]
+    \\ every_case_tac \\ fs[] )
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-

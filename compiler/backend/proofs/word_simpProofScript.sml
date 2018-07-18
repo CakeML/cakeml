@@ -881,7 +881,7 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
 
   >- (** FFI **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
-  every_case_tac \\ fs [] \\ pairarg_tac \\
+  every_case_tac \\ fs [] \\
   fs [cut_env_def, get_var_def, lookup_inter] \\
   every_case_tac \\ fs [] \\ res_tac \\ rw [lookup_inter])
 

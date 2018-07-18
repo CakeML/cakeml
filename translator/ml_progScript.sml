@@ -182,6 +182,17 @@ val eval_rel_def = Define `
        evaluate (s1 with clock := ck1) env [e] =
                 (s2 with clock := ck2,Rval [x])`
 
+val eval_rel_alt = store_thm("eval_rel_alt",
+  ``eval_rel s1 env e s2 x <=>
+    s2.clock = s1.clock ∧
+    ∃ck. evaluate (s1 with clock := ck) env [e] = (s2,Rval [x])``,
+  reverse eq_tac \\ rw [] \\ fs [eval_rel_def]
+  THEN1 (qexists_tac `ck` \\ fs [state_component_equality])
+  \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `s2.clock` strip_assume_tac)
+  \\ rename [`evaluate (s1 with clock := ck) env [e]`]
+  \\ qexists_tac `ck` \\ fs [state_component_equality]);
+
 val eval_list_rel_def = Define `
   eval_list_rel s1 env e s2 x <=>
     s1.clock = s2.clock /\

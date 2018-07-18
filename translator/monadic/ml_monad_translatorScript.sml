@@ -2485,6 +2485,96 @@ val RARRAY2D_def = Define `
 
 (* TODO: implement support for n-dimensional arrays? *)
 
+(* translation of cases and cons terms *)
+
+val IMP_EvalM_Mat_cases = store_thm("IMP_EvalM_Mat_cases",
+  ``!st a (r1:'b) env exp r2 y.
+      Eval env exp (a r1) /\
+      (case y of
+       | INL (vars,exp) =>
+                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+                    (!v. a r1 v ==>
+                         ?name vals t.
+                           v = Conv NONE vals /\
+                           LENGTH vals = LENGTH vars /\
+                           EvalM ro (write_list (ZIP (vars,vals)) env) st exp r2 ^H))
+       | INR ps => ALL_DISTINCT (MAP (SND o SND o SND) ps) /\
+                   good_cons_env ps env /\
+                   (!v. a r1 v ==>
+                        ?name vals t vars exp.
+                          v = Conv (SOME t) vals /\
+                          MEM (name,vars,exp,t) ps /\
+                          LENGTH vals = LENGTH vars /\
+                          EvalM ro (write_list (ZIP (vars,vals)) env) st exp r2 H))
+      ==>
+      EvalM ro env st (Mat exp (Mat_cases y)) r2 H``,
+  rpt gen_tac \\ Cases_on `y`
+  THEN1
+   (Cases_on `x`
+    \\ fs [EvalM_def,EXISTS_MEM,EXISTS_PROD,Eval_def]
+    \\ rpt strip_tac
+    \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+    \\ first_x_assum drule \\ strip_tac
+    \\ rveq \\ fs []
+    \\ `REFS_PRED_FRAME ro H (st,s) (st,s with refs := s.refs ⧺ refs')` by
+          fs [REFS_PRED_FRAME_append]
+    \\ drule REFS_PRED_FRAME_imp
+    \\ disch_then drule \\ strip_tac
+    \\ first_x_assum drule
+    \\ strip_tac
+    \\ imp_res_tac evaluate_empty_state_IMP
+    \\ fs [eval_rel_def]
+    \\ drule evaluate_set_clock \\ fs []
+    \\ disch_then (qspec_then `ck` strip_assume_tac)
+    \\ rename [`evaluate (s with clock := ck5)`]
+    \\ fs [evaluate_def]
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs []
+    \\ qexists_tac `s2`
+    \\ qexists_tac `ck5` \\ fs []
+    \\ imp_res_tac REFS_PRED_FRAME_trans
+    \\ fs [Mat_cases_def]
+    \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+    \\ drule pmatch_list_MAP_Pvar
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+    \\ fs [GSYM write_list_thm])
+  \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,EvalM_def]
+  \\ rpt strip_tac
+  \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum drule \\ strip_tac
+  \\ `REFS_PRED_FRAME ro H (st,s) (st,s with refs := s.refs ⧺ refs')` by
+        fs [REFS_PRED_FRAME_append]
+  \\ drule REFS_PRED_FRAME_imp
+  \\ disch_then drule \\ strip_tac
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ imp_res_tac evaluate_empty_state_IMP
+  \\ fs [eval_rel_def]
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `ck` strip_assume_tac)
+  \\ rename [`evaluate (s with clock := ck5)`]
+  \\ fs [evaluate_def]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ qexists_tac `s2`
+  \\ qexists_tac `ck5` \\ fs []
+  \\ conj_tac THEN1 (imp_res_tac REFS_PRED_FRAME_trans)
+  \\ fs [Mat_cases_def]
+  \\ drule (evaluate_match_MAP |> GEN_ALL)
+  \\ qpat_x_assum `MEM _ y` (assume_tac o REWRITE_RULE [MEM_SPLIT])
+  \\ fs [] \\ fs [ALL_DISTINCT_APPEND]
+  \\ `set l1 ⊆ set l1 ∪ {(name,vars,exp',t)} ∪ set l2` by fs [SUBSET_DEF,IN_UNION]
+  \\ disch_then drule \\ fs []
+  \\ disch_then drule \\ fs []
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
+  \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+  \\ fs [good_cons_env_def,lookup_cons_def]
+  \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
+  \\ drule pmatch_list_MAP_Pvar
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+  \\ fs [GSYM write_list_thm]);
+
 (*
  * Run
  *)

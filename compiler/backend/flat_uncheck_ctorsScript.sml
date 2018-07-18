@@ -67,6 +67,11 @@ val compile_sing = Q.store_thm ("compile_sing",
 
 val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
 
+val compile_not_nil = Q.store_thm("compile_not_nil[simp]",
+  `compile [x] <> []`,
+  strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [compile_length]);
+
 val compile_cons = Q.store_thm ("compile_cons",
   `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`,
   rw []
@@ -80,4 +85,3 @@ val compile_decs = Define `
   (compile_decs (_::ds) = compile_decs ds)`;
 
 val _ = export_theory();
-

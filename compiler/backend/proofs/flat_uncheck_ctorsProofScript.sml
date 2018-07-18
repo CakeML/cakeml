@@ -386,6 +386,12 @@ val do_app_correct = Q.prove (
     \\ rfs[]
     \\ rw[] )
   >- (
+    imp_res_tac s_rel_store_lookup
+    \\ fs[s_rel_cases]
+    \\ rveq \\ fs[]
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
+    \\ rfs[])
+  >- (
     fs[s_rel_cases]
     \\ match_mp_tac EVERY2_APPEND_suff
     \\ fs[LIST_REL_REPLICATE_same, OPTREL_def] )

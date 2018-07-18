@@ -645,9 +645,7 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
                     (compile_state s)
                     (HD (compile_decs [d])) =
          (compile_state t, c, r2) /\
-       (r = NONE ==> r2 = NONE) /\
-       (!a. r = SOME (Rraise a) ==> r2 = SOME (Rraise (compile_v a))) /\
-       (r = SOME (Rabort Rtimeout_error) ==> r2 = r)`,
+       r2 = OPTION_MAP (map_error_result compile_v) r`,
   Cases \\ rw [evaluate_dec_def]
   \\ fs [evaluate_dec_def, compile_decs_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
@@ -679,10 +677,8 @@ val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
                      (compile_state s)
                      (compile_decs ds) =
          (compile_state t, c, r2) /\
-       (r = NONE ==> r2 = NONE) /\
-       (!a. r = SOME (Rraise a) ==> r2 = SOME (Rraise (compile_v a))) /\
-       (r = SOME (Rabort Rtimeout_error) ==> r2 = r)`,
-  Induct >- rw [evaluate_decs_def, compile_decs_def] \\ rw []
+         r2 = OPTION_MAP (map_error_result compile_v) r`,
+  Induct >- (rw [evaluate_decs_def, compile_decs_def] \\ rw []) \\ rw[]
   \\ fs [evaluate_decs_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ once_rewrite_tac [compile_decs_CONS]
   \\ drule compile_dec_evaluate \\ rw [] \\ fs []
@@ -703,10 +699,7 @@ val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
   \\ Q.LIST_EXISTS_TAC [`c1`,`compile_state s2`]
   \\ drule compile_decs_evaluate
   \\ impl_tac >- fs [initial_env_def] \\ rw []
-  \\ qexists_tac `r2`
-  \\ fs [initial_state_def, initial_env_def, environment_component_equality,
-         state_component_equality, compile_state_def]
-  \\ rw [] \\ Cases_on `a` \\ fs []);
+  \\ fs[initial_env_def, initial_state_def, compile_state_def]);
 
 val compile_decs_semantics = save_thm ("compile_decs_semantics",
   MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)

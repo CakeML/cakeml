@@ -20,7 +20,7 @@ val queue_decls = process_topdecs
       case !q of (a,f,r,c) => c = Array.length a
 
     fun enqueue q e =
-      if full q then raise FullQueue
+      if full q then raise Fullqueue
       else
         case !q of
           (a,f,r,c) =>
@@ -30,7 +30,7 @@ val queue_decls = process_topdecs
     fun dequeue q =
       case !q of
         (a,f,r,c) =>
-           if c = 0 then raise EmptyQueue
+           if c = 0 then raise Emptyqueue
            else let val e = Array.sub a f
                 in
                   q := (a, (f + 1) mod Array.length a, r, c - 1);

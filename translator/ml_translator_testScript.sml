@@ -133,4 +133,28 @@ val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
 
 val res = translate shift_test_def;
 
+(* Translation failure with primes *)
+val _ = Datatype` idrec = <|v : num; f : 'a|>`;
+
+val _ = Datatype` t = V num | F 'a | D t t`;
+
+val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
+
+val res = translate test_def;
+
+(* tricky datatype *)
+
+val _ = register_type ``:'a option``;
+val _ = register_type ``:'a list``;
+val _ = register_type ``:('a # 'b)``;
+
+val _ = Datatype `
+  tt = A1
+     | B1 tt
+     | C1 (tt option)
+     | D1 (tt list)
+     | E1 (tt # tt)`
+
+val _ = register_type ``:tt``;
+
 val _ = export_theory();

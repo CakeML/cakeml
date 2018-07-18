@@ -3088,75 +3088,37 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[Abbr`bs`,Abbr`ss`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
-      Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-        Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-          unabbrev_all_tac >>
-          drule compile_evaluate_decs >>
-          impl_tac >- (fs[] \\ EVAL_TAC) \\
-          strip_tac >>
-          Cases_on`res4` >>
-          drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
-          simp[RIGHT_FORALL_IMP_THM] >>
-          impl_tac >- (
-            strip_tac \\ fs[OPTREL_def]
-            \\ qpat_x_assum`Rabort _ = _`(assume_tac o SYM)
-            \\ fs[map_error_result_Rtype_error] ) \\
-          disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          qhdtm_x_assum`patSem$evaluate`mp_tac >>
-          drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
-          simp[] >>
-          disch_then(qspec_then`k`mp_tac)>>simp[]>>
-          ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[compile_state_with_clock, flatSemTheory.initial_state_def] >>
-          fsrw_tac[ARITH_ss][] >>
-          full_simp_tac(srw_ss())[patSemTheory.state_component_equality] >>
-          full_simp_tac(srw_ss())[state_rel_def,compile_state_def]) >>
-        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-        unabbrev_all_tac >>
-        drule compile_evaluate_decs >>
-        impl_tac >- (
-          last_x_assum(qspec_then`k+k'`mp_tac)>>
-          fs[flatSemTheory.initial_state_def] \\ EVAL_TAC ) \\
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
-        strip_tac >>
-        qhdtm_x_assum`flatSem$evaluate_decs`mp_tac >>
-        drule (GEN_ALL (ONCE_REWRITE_RULE[CONJ_COMM] flatPropsTheory.evaluate_decs_add_to_clock)) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-        disch_then(qspec_then`k'`mp_tac)>>simp[] >>
-        strip_tac >>
-        spose_not_then strip_assume_tac >>
-        rveq >>
-        fsrw_tac[ARITH_ss][state_rel_def,compile_state_def,flatSemTheory.initial_state_def] >> rfs[]) \\
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-      unabbrev_all_tac >>
-      drule compile_evaluate_decs >>
-      simp[] >>
+      first_assum(mp_then (Pos last) mp_tac (GEN_ALL(flatPropsTheory.evaluate_decs_add_to_clock))) >>
+      disch_then(qspec_then `k'` mp_tac) >>
+      impl_tac >- (every_case_tac >> fs[]) >>
+      strip_tac \\
+      first_assum (mp_then Any mp_tac (GEN_ALL patPropsTheory.evaluate_add_to_clock)) >>
+      simp[]
+      \\ disch_then(qspec_then `k` mp_tac) >>
+      impl_tac >- (every_case_tac >> fs[]) >>
+      strip_tac >>
+      drule (compile_evaluate_decs) >>
       impl_tac >- (
-        last_x_assum(qspec_then`k+k'`mp_tac)>>
-        fs[flatSemTheory.initial_state_def] \\ EVAL_TAC ) \\
-      strip_tac >> rveq >>
-      fsrw_tac[ARITH_ss][compile_state_with_clock,flatSemTheory.initial_state_def] >>
-      reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
-        full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[compile_state_def,state_rel_def] >> full_simp_tac(srw_ss())[]) >>
-      drule (GEN_ALL(patPropsTheory.evaluate_add_to_clock)) >>
-      CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-      impl_tac >- full_simp_tac(srw_ss())[] >>
-      disch_then(qspec_then`k`mp_tac)>>simp[] >>
-      rpt strip_tac >>
-      fsrw_tac[ARITH_ss][state_rel_def,compile_state_def] >> rfs[]) \\
-    drule compile_evaluate_decs >> simp[] >>
-    impl_tac >- (
-      last_x_assum(qspec_then`k`mp_tac)>>
-      fs[] \\ EVAL_TAC) \\
+        unabbrev_all_tac \\ EVAL_TAC
+        \\ every_case_tac \\ fs[] )
+      \\ strip_tac >> unabbrev_all_tac
+      \\ fs[flatSemTheory.initial_state_def, compile_state_def]
+      \\ rveq \\ fs[] \\ rfs[]
+      \\ fs[OPTREL_def,CaseEq"semanticPrimitives$result"] \\ rveq \\ fs[]
+      \\ fs[state_rel_def,result_rel_def]
+      \\ every_case_tac \\ fs[]) >>
+    drule (compile_evaluate_decs) >> simp[] >>
+    impl_tac >- ( EVAL_TAC \\ strip_tac\\ fs[]) \\
     strip_tac >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     full_simp_tac(srw_ss())[state_rel_def,compile_state_def,flatSemTheory.initial_state_def] >>
     qexists_tac`k`>>simp[] >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    spose_not_then strip_assume_tac >> fs[OPTREL_SOME] \\
-    qpat_x_assum`Rabort _ = _`(assume_tac o SYM) \\
-    fs[map_error_result_Rtype_error] ) \\
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    fs[OPTREL_def]
+    \\ Cases_on`z` \\ rveq \\ fs[]
+    \\ rveq \\ fs[]
+    \\ CASE_TAC \\ fs[]) >>
   strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
@@ -3184,10 +3146,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
     spose_not_then strip_assume_tac >>
     full_simp_tac(srw_ss())[state_rel_def,compile_state_def] >>
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-    Cases_on`r'` \\ fs[] \\
-    CASE_TAC >> fs[] \\
-    spose_not_then strip_assume_tac >> fs[OPTREL_SOME] \\
-    Cases_on`r` \\ fs[] ) \\
+    Cases_on`r'` >>
+    fs[OPTREL_def]
+    \\ rveq
+    \\ CASE_TAC \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ every_case_tac \\ fs[]) >>
   strip_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>

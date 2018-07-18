@@ -846,11 +846,21 @@ val infertype_prog_def = Define`
     | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
     | Failure x => Failure x`;
 
+    (*
 val conf = ``<| inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>``
 
 val init_config = Define`
   init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program``
                  |> concl |> rand |> rand)`
+                 *)
+
+
+val init_config = Define`
+  init_config : inf_env =
+    <| inf_c := primTypes$prim_tenv.c;
+       inf_v := nsEmpty;
+       inf_t := nsEmpty|>`;
+
 
 (*
 val Infer_Tfn_def = Define `

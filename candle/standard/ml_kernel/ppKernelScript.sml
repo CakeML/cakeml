@@ -3,7 +3,7 @@ open ml_translatorLib ml_monad_translatorTheory ml_hol_kernelProgTheory astPP
 
 val _ = new_theory"ppKernel"
 
-val pat = ``Tmod "Kernel" _ _``
+val pat = ``Dmod "Kernel" _``
 val decls = ml_hol_kernelProgTheory.candle_code_def |> concl |> rand
             |> find_term (can (match_term pat)) |> rand
 
@@ -101,5 +101,7 @@ in () end
 val _ = app appthis (fst(listSyntax.dest_list decls))
 
 val _ = TextIO.closeOut f
+
+val _ = disable_astPP()
 
 val _ = export_theory()

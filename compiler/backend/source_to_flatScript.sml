@@ -90,7 +90,9 @@ val astOp_to_flatOp_def = Define `
   | Aupdate => flatLang$Aupdate
   | ListAppend => flatLang$ListAppend
   | ConfigGC => flatLang$ConfigGC
-  | FFI string => flatLang$FFI string`;
+  | FFI string => flatLang$FFI string
+  (* default element *)
+  | _ => flatLang$ConfigGC`;
 
 (* The traces are passed along without being split for most expressions, since we
  * expect Lannots to appear around every expression. *)
@@ -359,4 +361,3 @@ val compile_def = Define `
     (c', compile_flat p')`;
 
 val _ = export_theory();
-

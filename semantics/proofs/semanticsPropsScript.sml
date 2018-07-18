@@ -22,13 +22,21 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
   >- metis_tac[semantics_prog_def] >> full_simp_tac(srw_ss())[] >>
   Cases_on`∃k ffi r.
     evaluate_prog_with_clock s e k p = (ffi,r) ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
-    (ffi.final_event = NONE ⇒ r ≠ Rerr (Rabort Rtimeout_error))`
-  >- metis_tac[semantics_prog_def,SND] >> full_simp_tac(srw_ss())[] >>
+    (r ≠ Rerr (Rabort Rtype_error)) ∧
+    (r ≠ Rerr (Rabort Rtimeout_error))`
+  >- (fs[semantics_prog_def]
+      >> qexists_tac `Terminate
+                      (case r of
+                      | Rerr(Rabort(Rffi_error outcome)) => FFI_outcome outcome
+                      | _ => Success) ffi.io_events`
+      >> simp[semantics_prog_def] >> asm_exists_tac
+      >> Cases_on `r` >> simp[]
+      >> TOP_CASE_TAC >> simp[]
+      >> TOP_CASE_TAC >> fs[]) >>
   qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e k p)).io_events) UNIV))` >>
   simp[semantics_prog_def] >>
   conj_tac >- (
-    strip_tac >>
+    strip_tac >> fs[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac)) >>
     Cases_on`evaluate_prog_with_clock s e k p`>>simp[]>>
     Cases_on`r`>>simp[]>>
@@ -46,6 +54,8 @@ val tac1 =
               semanticPrimitivesTheory.abort_distinct,pair_CASES,FST,THE_DEF,
               PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR,LESS_OR_EQ]
 
+val tac2 = every_case_tac >> rfs[] >> first_x_assum (qspec_then `k` assume_tac) >> rfs[]
+
 val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
   `∀s e p b b'.
     semantics_prog s e p b ∧
@@ -56,8 +66,37 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
   >> Cases_on `b'`
   >> fs [semantics_prog_def]
   >- metis_tac[unique_lprefix_lub]
-  >- tac1
-  >- tac1
+  >- tac2
+  >- (tac2 >> tac1)
+  >- tac2
+  >- (
+    fs [evaluate_prog_with_clock_def]
+    >> pairarg_tac
+    >> fs []
+    >> pairarg_tac
+    >> fs []
+    >> rpt var_eq_tac
+    >> pop_assum mp_tac
+    >> drule evaluate_decs_clock_determ
+    >> ntac 2 DISCH_TAC
+    >> first_x_assum drule
+    >> simp []
+    >> every_case_tac
+    >> fs [semanticPrimitivesTheory.state_component_equality])
+  >- (
+    fs [evaluate_prog_with_clock_def]
+    >> pairarg_tac
+    >> fs []
+    >> pairarg_tac
+    >> fs []
+    >> rpt var_eq_tac
+    >> pop_assum mp_tac
+    >> drule evaluate_decs_clock_determ
+    >> ntac 2 DISCH_TAC
+    >> first_x_assum drule
+    >> simp []
+    >> every_case_tac
+    >> fs [semanticPrimitivesTheory.state_component_equality])
   >- tac1
   >- (
     fs [evaluate_prog_with_clock_def]
@@ -72,11 +111,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     >> first_x_assum drule
     >> simp []
     >> every_case_tac
-    >> fs [semanticPrimitivesTheory.state_component_equality]
-    >> tac1)
-  >- tac1
-  >- tac1
-  >- tac1);
+    >> fs [semanticPrimitivesTheory.state_component_equality]));
 
 val semantics_prog_Terminate_not_Fail = Q.store_thm("semantics_prog_Terminate_not_Fail",
   `semantics_prog s e p (Terminate x y) ⇒

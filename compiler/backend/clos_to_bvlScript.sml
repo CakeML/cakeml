@@ -533,7 +533,7 @@ val chain_exps = Define `
   (chain_exps i [e] = [(i, 0n, e)]) ∧
   (chain_exps i (e::es) =
     (i, 0,
-     closLang$Let ARB [e] (closLang$Call ARB 0 (i + 1n) [])) :: chain_exps (i + 1) es)`;
+     closLang$Let None [e] (closLang$Call None 0 (i + 1n) [])) :: chain_exps (i + 1) es)`;
 
 (* c.max_app must be the same each time this is called *)
 val compile_common_def = Define `

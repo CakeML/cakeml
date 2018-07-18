@@ -438,7 +438,7 @@ val cmlPEG_def = zDefine`
                         seql [tokeq LparT; pnt nPatternList; tokeq RparT]
                              (bindNT nPtuple)]);
               (mkNT nLetDec,
-               choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT; pnt nE]
+               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
                              (bindNT nLetDec);
                         seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec)]);
               (mkNT nLetDecs,

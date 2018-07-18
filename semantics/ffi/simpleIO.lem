@@ -8,30 +8,30 @@ type simpleIO = <| input : llist word8; output : llist word8 |>
 val isEof : oracle_function simpleIO
 let isEof st conf input =
   match input with
-  | [] -> Oracle_fail
+  | [] -> Oracle_final FFI_failed
   | x::xs -> Oracle_return st ((if st.input = lnil then 1 else 0)::xs)
   end
 
 val getChar : oracle_function simpleIO
 let getChar st conf input =
   match input with
-  | [] -> Oracle_fail
+  | [] -> Oracle_final FFI_failed
   | x::xs ->
       match lhd st.input with
       | Just y -> Oracle_return (<| st with input = fromJust (ltl st.input) |>) (y::xs)
-      | _ -> Oracle_fail
+      | _ -> Oracle_final FFI_failed
       end
   end
 
 val putChar : oracle_function simpleIO
 let putChar st conf input =
   match input with
-  | [] -> Oracle_fail
+  | [] -> Oracle_final FFI_failed
   | x::_ -> Oracle_return (<| st with output = lcons x st.output |>) input
   end
 
 val exit : oracle_function simpleIO
-let exit st conf input = Oracle_diverge
+let exit st conf input = Oracle_final FFI_diverged
 
 val simpleIO_oracle : oracle simpleIO
 let simpleIO_oracle s st conf input =
@@ -44,4 +44,4 @@ let simpleIO_oracle s st conf input =
   else if s = "exit" then
     exit st conf input
   else
-    Oracle_fail
+    Oracle_final FFI_failed

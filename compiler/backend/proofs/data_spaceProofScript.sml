@@ -54,13 +54,7 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[] \\ reverse(Cases_on `do_app op x s`)
       \\ full_simp_tac(srw_ss())[] >- (
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
-           Cases_on`a`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-           full_simp_tac(srw_ss())[do_app_def,do_space_def,op_space_req_def,
-              data_to_bvi_ignore,bvi_to_data_space_locals,
-              bvi_to_dataTheory.op_space_reset_def] >>
-           rpt var_eq_tac >>
-           simp[call_env_def,state_component_equality] >>
-           simp[locals_ok_def,lookup_fromList])
+           fs [EVAL ``op_requires_names (FFI i)``])
       \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[set_var_def]
       \\ Q.EXISTS_TAC `insert dest q l`
@@ -175,7 +169,9 @@ val evaluate_compile = Q.prove(
         \\ SRW_TAC [] []
         \\ reverse(Cases_on `do_app o' x'' (s with locals := x')`)
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >- (
-             imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]>>srw_tac[][])
+             imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
+             full_simp_tac(srw_ss())[]>>srw_tac[][]
+             \\ fs [call_env_def] \\ qexists_tac `fromList []` \\ fs [locals_ok_def])
         \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
@@ -197,7 +193,8 @@ val evaluate_compile = Q.prove(
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
       \\ reverse (Cases_on `do_app o' x s`) \\ full_simp_tac(srw_ss())[] THEN1
        (IMP_RES_TAC do_app_err \\ full_simp_tac(srw_ss())[]
-        \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+        \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+        \\ fs [EVAL ``¬op_requires_names (FFI i)``])
       \\ Cases_on `a`
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ NTAC 2 (Q.PAT_X_ASSUM `!xx.bbb` (K ALL_TAC))
