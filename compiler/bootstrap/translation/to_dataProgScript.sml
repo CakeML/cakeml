@@ -1086,12 +1086,12 @@ val _ = translate(bvi_letTheory.compile_exp_def);
 (* bvi_tailrec: Some PMATCH versions are translated 'manually'               *)
 (* ------------------------------------------------------------------------- *)
 
-val r = translate bvi_tailrecTheory.is_rec_PMATCH
+val r = translate bvi_tailrecTheory.is_rec_def (*PMATCH*)
 val r = translate bvi_tailrecTheory.is_const_PMATCH
 val r = translate bvi_tailrecTheory.from_op_PMATCH
 val r = translate bvi_tailrecTheory.op_eq_PMATCH
 val r = translate bvi_tailrecTheory.index_of_PMATCH
-val r = translate bvi_tailrecTheory.args_from_PMATCH
+val r = translate bvi_tailrecTheory.args_from_def (* PMATCH *)
 val r = translate bvi_tailrecTheory.get_bin_args_PMATCH
 val r = translate bvi_tailrecTheory.is_arith_PMATCH
 val r = translate bvi_tailrecTheory.is_rel_PMATCH
