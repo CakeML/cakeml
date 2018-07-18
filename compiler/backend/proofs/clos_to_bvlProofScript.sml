@@ -316,6 +316,10 @@ val list_CASE_same = Q.store_thm("list_CASE_same",
   `list_CASE ls (P []) (λx y. P (x::y)) = P ls`,
   Cases_on`ls` \\ simp[]);
 
+val with_same_clock = Q.store_thm("with_same_clock[simp]",
+  `(st:('a,'b) bvlSem$state) with clock := st.clock = st`,
+  rw[bvlSemTheory.state_component_equality]);
+
 (* -- *)
 
 (* correctness of partial/over application *)
@@ -5299,7 +5303,6 @@ val IMP_semantics_eq = Q.store_thm ("IMP_semantics_eq",
          initial_state_with_clock_bvl,
          initial_state_with_clock,SND,ADD_SYM]);
 
-(*
 val init_code_def = Define `
   init_code code1 code2 max_app <=>
     (∀n.
@@ -5317,20 +5320,76 @@ val init_code_def = Define `
         lookup (name + num_stubs max_app) code2 = SOME (arity,c2) ∧
         code_installed aux2 code2`
 
+val chain_installed_def = Define`
+  chain_installed start es code ⇔
+    (∀i. i < LENGTH es ⇒ lookup (start + i) code =
+         SOME (0n, if i + 1 < LENGTH es
+                     then Let [EL i es] (Call 0 (SOME (start + i + 1)) [])
+                     else EL i es))`;
+
+val chain_installed_cons = Q.store_thm("chain_installed_cons",
+  `chain_installed start (e::es) code ⇔
+   lookup start code = SOME (0, if es = [] then e else Let [e] (Call 0 (SOME (start+1)) [])) ∧
+   chain_installed (start+1) es code`,
+  rw[chain_installed_def,ADD1,EQ_IMP_THM]
+  >- (pop_assum(qspec_then`0`mp_tac) \\ rw[] \\ fs[])
+  >- ( first_x_assum(qspec_then`i+1`mp_tac) \\ rw[EL_CONS,PRE_SUB1] )
+  >- ( Cases_on`i` \\ fs[ADD1] \\ rw[] \\ fs[] ));
+
+val chain_installed_subspt = Q.store_thm("chain_installed_subspt",
+  `∀start es code code'.
+   chain_installed start es code ∧ subspt code code' ⇒
+   chain_installed start es code'`,
+  Induct_on`es`
+  \\ rw[chain_installed_def]
+  \\ res_tac
+  \\ imp_res_tac subspt_lookup);
+
+val chain_installed_thm = Q.store_thm("chain_installed_thm",
+  `∀es start st res st'.
+   chain_installed start es st.code ∧
+   evaluate (es,[],st) = (res,st') ∧
+   0 < LENGTH es
+   ⇒
+   ∃e k res1 st1.
+   lookup start st.code = SOME (0,e) ∧
+   evaluate ([e],[],st with clock := st.clock + k) = (res1,st1) ∧
+   result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi`,
+  Induct >- rw[]
+  \\ rw[chain_installed_cons]
+  >- ( qexists_tac`0` \\ rw[] )
+  \\ rw[evaluate_def, find_code_def]
+  \\ qhdtm_x_assum`evaluate`mp_tac
+  \\ simp[Once evaluate_CONS]
+  \\ simp[pair_case_eq] \\ strip_tac
+  \\ Cases_on`evaluate (es,[],s2)` \\ fs[ADD1]
+  \\ rename1`evaluate ([h],_,_) = (res1,_)`
+  \\ Cases_on`res1 = Rerr(Rabort(Rtimeout_error))` \\ fs[]
+  >- ( rveq \\ fs[] \\ qexists_tac`0` \\ simp[] )
+  \\ imp_res_tac evaluate_mono
+  \\ imp_res_tac chain_installed_subspt
+  \\ first_x_assum(first_assum o mp_then (Pat`evaluate`) mp_tac)
+  \\ disch_then drule
+  \\ impl_tac >- (CCONTR_TAC \\ fs[])
+  \\ strip_tac
+  \\ qexists_tac`k+1`
+  \\ first_x_assum(mp_then Any drule evaluate_add_clock)
+  \\ rw[inc_clock_def, dec_clock_def]
+  \\ CASE_TAC \\ fs[] \\ rveq \\ fs[]
+  \\ rename1`result_rel _ _ tres`
+  \\ Cases_on`tres` \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]);
+
 val compile_exps_semantics = store_thm("compile_exps_semantics",
   ``closSem$semantics ffi max_app code1 co1 cc1 es1 <> Fail ==>
-    compile_exps max_app es1 [] = (ys,aux) /\ every_Fn_SOME es1 /\
-    FEVERY (λp. every_Fn_SOME [SND (SND p)]) code1 ∧
-    every_Fn_vs_SOME es1 ∧
-    FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 /\
+    compile_exps max_app es1 [] = (ys,aux) /\
+    every_Fn_SOME es1 /\ FEVERY (λp. every_Fn_SOME [SND (SND p)]) code1 ∧
+    every_Fn_vs_SOME es1 ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 /\
     compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 /\
-    code_installed aux code2 /\
+    0 < LENGTH ys ∧
+    init_code code1 code2 max_app ∧
     lookup start code2 = SOME (0, init_globals max_app (num_stubs max_app)) /\
-    (∀i. i < LENGTH ys ⇒ lookup (num_stubs max_app + i) code2 =
-         SOME (0, if i + 1 < LENGTH ys
-                     then Let [EL i ys] (Call 0 (SOME (num_stubs max_app + i + 1)) [])
-                     else EL i ys)) /\
-    init_code code1 code2 max_app ∧ 0 < LENGTH ys
+    chain_installed (num_stubs max_app) ys code2 ∧
+    code_installed aux code2
     ==>
     bvlSem$semantics ffi code2 co2 cc2 start =
     closSem$semantics ffi max_app code1 co1 cc1 es1``,
@@ -5352,7 +5411,12 @@ val compile_exps_semantics = store_thm("compile_exps_semantics",
     \\ metis_tac [init_code_def])
   \\ strip_tac
   \\ fs [EVAL ``(initial_state ffi max_app code1 co1 cc1 k).clock``]
-  \\ qexists_tac `ck+2` \\ fs []
+  \\ qmatch_assum_abbrev_tac`evaluate (_,[],st2) = (_,t2)`
+  \\ `st2.code = code2` by (simp[Abbr`st2`] \\ EVAL_TAC) \\ rveq
+  \\ drule chain_installed_thm
+  \\ simp[]
+  \\ disch_then(qx_choosel_then[`e`,`k2`]strip_assume_tac)
+  \\ qexists_tac `ck+2+k2` \\ fs []
   \\ simp [evaluate_def,find_code_def,init_globals_def,do_app_def,
          EVAL ``(dec_clock 1 (initial_state ffi code2 co2 cc2 k)).globals``]
   \\ qmatch_goalsub_abbrev_tac `([Unit],tt)`
@@ -5372,13 +5436,11 @@ val compile_exps_semantics = store_thm("compile_exps_semantics",
   \\ fs [EVAL ``LUPDATE x partial_app_label_table_loc [NONE]``]
   \\ fs [LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs []
-  \\ Cases_on `res1` \\ fs [] \\ fs [state_rel_def]
-  \\ Cases_on `e` \\ fs [] \\ fs [state_rel_def]);
-*)
-
-
-
-
+  \\ reverse conj_tac >- fs[state_rel_def]
+  \\ rpt(qhdtm_x_assum`result_rel`mp_tac)
+  \\ rpt(pop_assum kall_tac)
+  \\ Cases_on `res1` \\ Cases_on `res1'` \\ rw[]
+  \\ Cases_on `e` \\ Cases_on `e'` \\ fs[] \\ rw[]);
 
 (* -- old --
 
