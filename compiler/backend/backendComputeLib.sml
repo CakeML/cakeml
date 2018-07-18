@@ -84,14 +84,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
 
   ,computeLib.Defs
-    [ (* ---- flat_reorder_match ---- *)
-     flat_reorder_matchTheory.is_const_con_def
-    ,flat_reorder_matchTheory.isPvar_def
-    ,flat_reorder_matchTheory.isPcon_def
-    ,flat_reorder_matchTheory.const_cons_sep_def
-    ,flat_reorder_matchTheory.const_cons_fst_def
-    ,flat_reorder_matchTheory.compile_def
-    ]
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_reorder_match"}))
 
   ,computeLib.Defs
     (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_exh_match"}))
@@ -104,24 +97,24 @@ val add_backend_compset = computeLib.extend_compset
      ``:patLang$exp``
     ,``:patLang$op``
     ]
-(*
-      (* ---- exh_to_pat ---- *)
+
+      (* ---- flat_to_pat ---- *)
   ,computeLib.Defs
-    [exh_to_patTheory.Bool_def
-    ,exh_to_patTheory.isBool_def
-    ,exh_to_patTheory.sIf_def
-    ,exh_to_patTheory.pure_op_op_eqn
-    ,exh_to_patTheory.pure_op_def
-    ,exh_to_patTheory.pure_def
-    ,exh_to_patTheory.ground_def
-    ,exh_to_patTheory.sLet_def
-    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
-    ,exh_to_patTheory.compile_pat_def
-    ,exh_to_patTheory.compile_row_def
-    ,exh_to_patTheory.compile_exp_def
-    ,exh_to_patTheory.compile_def
+    [flat_to_patTheory.Bool_def
+    ,flat_to_patTheory.isBool_def
+    ,flat_to_patTheory.sIf_def
+    ,flat_to_patTheory.pure_op_op_eqn (* could put this in the compute set and avoid listing explicitly *)
+    ,flat_to_patTheory.pure_op_def
+    ,flat_to_patTheory.pure_def
+    ,flat_to_patTheory.ground_def
+    ,flat_to_patTheory.sLet_def
+    ,flat_to_patTheory.Let_Els_def_compute
+    ,flat_to_patTheory.compile_pat_def
+    ,flat_to_patTheory.compile_row_def
+    ,flat_to_patTheory.compile_exp_def
+    ,flat_to_patTheory.compile_def
     ]
-*)
+
   ,computeLib.Tys
     [ (* ---- closLang ---- *)
      ``:closLang$exp``
@@ -202,6 +195,9 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
+    ,clos_to_bvlTheory.chain_exps_def
+    ,clos_to_bvlTheory.compile_common_def
+    ,clos_to_bvlTheory.compile_inc_def
     ,clos_to_bvlTheory.compile_def
     ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
