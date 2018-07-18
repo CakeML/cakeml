@@ -45,7 +45,7 @@ val add_backend_compset = computeLib.extend_compset
     ,``:stack_to_lab$config``
     ,``:'a lab_to_target$config``
     ,``:'a asm_config``
-    (* ,``:'a backend$config`` *)
+    ,``:'a backend$config``
     ]
 
   ,computeLib.Defs
@@ -82,22 +82,12 @@ val add_backend_compset = computeLib.extend_compset
     [ (* ---- source_to_flat ---- *)
      flatLangTheory.bool_id_def
     ,flatLangTheory.Bool_def
-    ,source_to_flatTheory.compile_pat_def
-    ,source_to_flatTheory.pat_tups_def
-    ,source_to_flatTheory.astOp_to_flatOp_def
-    ,source_to_flatTheory.compile_exp_def
-    ,source_to_flatTheory.om_tra_def
-    ,source_to_flatTheory.alloc_defs_def
-    ,source_to_flatTheory.make_varls_def
-    ,source_to_flatTheory.empty_env_def
-    ,source_to_flatTheory.extend_env_def
-    ,source_to_flatTheory.lift_env_def
-    ,source_to_flatTheory.lookup_inc_def
-    ,source_to_flatTheory.alloc_tags_def
-    ,source_to_flatTheory.compile_decs_def
-    ,source_to_flatTheory.empty_config_def
-    ,source_to_flatTheory.compile_def
     ]
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="source_to_flat"}))
+      (* ---- flat_elim ---- *)
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -117,6 +107,12 @@ val add_backend_compset = computeLib.extend_compset
     ,flat_reorder_matchTheory.const_cons_fst_def
     ,flat_reorder_matchTheory.compile_def
     ]
+
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_exh_match"}))
+
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_uncheck_ctors"}))
 
   ,computeLib.Tys
     [ (* ---- patLang ---- *)
@@ -878,40 +874,9 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.sec_length_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
-(*
-      (* ---- Everything in backend theory ---- *)
-    ,backendTheory.attach_bitmaps_def
-    ,backendTheory.to_mod_def
-    ,backendTheory.to_target_def
-    ,backendTheory.from_source_def
-    ,backendTheory.from_mod_def
-    ,backendTheory.from_con_def
-    ,backendTheory.from_dec_def
-    ,backendTheory.from_exh_def
-    ,backendTheory.from_pat_def
-    ,backendTheory.from_clos_def
-    ,backendTheory.from_bvl_def
-    ,backendTheory.from_bvi_def
-    ,backendTheory.from_data_def
-    ,backendTheory.from_word_def
-    ,backendTheory.from_stack_def
-    ,backendTheory.from_lab_def
-    ,backendTheory.compile_def
-    ,backendTheory.to_pat_def
-    ,backendTheory.to_lab_def
-    ,backendTheory.to_stack_def
-    ,backendTheory.to_word_def
-    ,backendTheory.to_data_def
-    ,backendTheory.to_bvi_def
-    ,backendTheory.to_bvl_def
-    ,backendTheory.to_clos_def
-    ,backendTheory.to_exh_def
-    ,backendTheory.to_con_def
-    ,backendTheory.to_dec_def
-    ,backendTheory.to_livesets_def
-    ,backendTheory.from_livesets_def
-    ,backendTheory.prim_config_def *)
     ]
+      (* ---- Everything in backend theory ---- *)
+  ,computeLib.Defs (List.map #2 (ThmSetData.theory_data{settype="compute",thy="backend"}))
   ,computeLib.Tys
     [
      ``:architecture``
