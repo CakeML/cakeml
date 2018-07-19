@@ -1396,7 +1396,7 @@ val wfv_v2l = Q.store_thm("wfv_v2l",
   \\ qexists_tac `Block cons_tag [h; Block n l']`
   \\ fs [wfv_def, v_to_list_def]);
 
-val do_app_thm = Q.prove(
+val do_app_thm = Q.store_thm("do_app_thm",
   `case do_app op (REVERSE a) (r:(calls_state # 'c,'ffi) closSem$state) of
       Rerr (Rraise _) => F
     | Rerr (Rabort e) =>
@@ -1413,8 +1413,12 @@ val do_app_thm = Q.prove(
   reverse CASE_TAC THEN1
    (pop_assum mp_tac
     \\ Cases_on `op` \\ Cases_on `REVERSE a`
-    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq]
-    \\ strip_tac \\ rveq \\ fs [])
+    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi_result"]
+    \\ strip_tac \\ rveq \\ fs []
+    \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
+    \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq
+    \\ imp_res_tac state_rel_flookup_refs \\ fs[]
+    \\ fs[state_rel_def])
   \\ rename1 `_ = _ b`
   \\ PairCases_on `b` \\ fs []
   \\ reverse strip_tac
@@ -1613,7 +1617,6 @@ val calls_correct = Q.store_thm("calls_correct",
      code_inv s.code s.compile s.compile_oracle
               t.code t.compile t.compile_oracle ∧
      result_rel (LIST_REL (v_rel g l)) (v_rel g l) res res'))`,
-
   ho_match_mp_tac evaluate_ind
   \\ conj_tac >- (
     rw[]
@@ -2125,9 +2128,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [evaluate_def])
   (* Op *)
   \\ conj_tac
-
  >- (
-
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
@@ -2151,8 +2152,18 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ reverse (Cases_on `op = Install`) THEN1
      (fs [] \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
       THEN1
-       (rw [] \\ mp_tac do_app_thm \\ fs []
-        \\ every_case_tac \\ fs [])
+       (rveq \\ mp_tac do_app_thm \\ fs []
+        \\ every_case_tac \\ fs []
+        \\ strip_tac \\ fs[] \\ rw[]
+        \\ first_x_assum(first_assum o mp_then(Pat`code_inv`)mp_tac)
+        \\ simp[]
+        \\ disch_then(qspec_then`env2`mp_tac)
+        \\ impl_tac
+        >- fsrw_tac[ETA_ss][env_rel_def, fv1_thm, EXISTS_MAP, fv_exists]
+        \\ strip_tac \\ fs[]
+        \\ qexists_tac`ck` \\ simp[] \\ rw[]
+        \\ cheat (* note: above may not be correct *)
+        )
       \\ rename1 `do_app op (REVERSE a) r = Rval z`
       \\ PairCases_on `z` \\ fs [] \\ rveq
       \\ mp_tac (Q.GENL [`t`,`v`] do_app_thm) \\ fs [] \\ rpt strip_tac
@@ -2198,7 +2209,6 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rpt (disch_then drule) \\ strip_tac \\ fs []
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
       \\ fs [state_rel_def])
-
     \\ cheat)
   (* Fn *)
   \\ conj_tac >- (
@@ -3608,24 +3618,23 @@ val compile_correct = Q.store_thm("compile_correct",
 *)
 
 val semantics_calls = Q.store_thm("semantics_calls",
-  `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc [x] <> Fail ==>
-   compile T x = (y,aux) /\ every_Fn_SOME [x] ∧ every_Fn_vs_NONE [x] /\
-   ALL_DISTINCT (code_locs [x]) /\
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
+   compile T x = (y,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
+   ALL_DISTINCT (code_locs x) /\
    code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
-   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 [y] =
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc [x]`,
+   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x`,
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ fs [compile_def]
   \\ rveq \\ fs [FUPDATE_LIST]
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
-  \\ imp_res_tac calls_sing \\ rveq \\ fs []
   \\ drule (calls_correct |> SIMP_RULE std_ss [] |> CONJUNCT1)
   \\ rpt (disch_then drule) \\ fs [EVAL ``wfg (LN,[])``]
   \\ disch_then (qspecl_then [`[]`,
       `initial_state ffi max_app (FOLDL $|+ FEMPTY (SND g)) co1 cc1 k`,
-      `set (code_locs [x]) DIFF domain (FST g)`,`g`] mp_tac)
+      `set (code_locs x) DIFF domain (FST g)`,`g`] mp_tac)
   \\ simp []
   \\ `wfg g` by
    (match_mp_tac calls_wfg
@@ -3647,10 +3656,10 @@ val semantics_calls = Q.store_thm("semantics_calls",
     \\ fs [ALOOKUP_MEM]
     \\ match_mp_tac calls_ALL_DISTINCT
     \\ asm_exists_tac \\ fs [])
-  \\ qmatch_goalsub_abbrev_tac `([y],[],s4)`
+  \\ qmatch_goalsub_abbrev_tac `(y,[],s4)`
   \\ strip_tac
   \\ qexists_tac `ck` \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `([y],[],s5)`
+  \\ qmatch_goalsub_abbrev_tac `(y,[],s5)`
   \\ `s4 = s5` by (unabbrev_all_tac \\ fs [initial_state_def])
   \\ rveq \\ fs []
   \\ fs [state_rel_def]
