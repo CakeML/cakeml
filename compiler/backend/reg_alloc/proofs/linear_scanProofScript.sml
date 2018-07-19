@@ -1140,6 +1140,52 @@ val check_endlive_fixed_eq_get_live_backward = Q.store_thm("check_endlive_fixed_
     res_tac >> fs []
 )
 
+val check_partial_col_numset_list_insert = Q.store_thm("check_partial_col_numset_list_insert",
+    `!f l live flive liveout fliveout.
+    check_partial_col f l live flive = SOME (liveout, fliveout) ==>
+    liveout = numset_list_insert l live`,
+
+    Induct_on `l` >>
+    rw [numset_list_insert_def, check_partial_col_def] >>
+    Cases_on `lookup h live` >> fs []
+    THEN1 (
+      Cases_on `lookup (f h) flive` >> fs [] >>
+      res_tac
+    )
+    THEN1 (
+        `live = insert h () live` by rw [lookup_insert_id] >>
+        metis_tac []
+    )
+)
+
+val check_live_tree_eq_get_live_backward = Q.store_thm("check_live_tree_eq_get_live_backward",
+    `!f lt live flive liveout fliveout.
+    check_live_tree f lt live flive = SOME (liveout, fliveout) ==>
+    liveout = get_live_backward lt live`,
+
+    Induct_on `lt` >>
+    rw [check_live_tree_def, get_live_backward_def]
+    (* StartLive *)
+    THEN1 (
+        every_case_tac >> fs []
+    )
+    (* EndLive *)
+    THEN1 (
+        metis_tac [check_partial_col_numset_list_insert]
+    )
+    (* Branch *)
+    THEN1 (
+        every_case_tac >> fs [] >>
+        res_tac >>
+        metis_tac [check_partial_col_numset_list_insert]
+    )
+    (* Seq *)
+    THEN1 (
+        every_case_tac >> fs [] >>
+        res_tac >>
+        metis_tac []
+    )
+)
 
 val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_backward",
     `!f live flive lt liveout fliveout liveout' fliveout' bla.
@@ -1308,6 +1354,1404 @@ val fix_live_tree_check_live_tree_forward_backward = Q.store_thm("fix_live_tree_
       metis_tac []
     ) >>
     metis_tac [fix_live_tree_check_live_tree]
+)
+
+val check_live_tree_forward_eq_get_live_forward = Q.store_thm("check_live_tree_forward_eq_get_live_forward",
+    `!f lt live flive liveout fliveout.
+    check_live_tree_forward f lt live flive = SOME (liveout, fliveout) ==>
+    liveout = get_live_forward lt live`,
+
+    Induct_on `lt` >>
+    rw [check_live_tree_forward_def, get_live_forward_def] >>
+    every_case_tac >> fs [] >>
+    metis_tac [check_partial_col_numset_list_insert]
+)
+
+val check_endlive_fixed_forward_eq_get_live_forward = Q.store_thm("check_endlive_fixed_forward_eq_get_live_forward",
+    `!lt live liveout b.
+    check_endlive_fixed_forward lt live = (b, liveout) ==>
+    liveout = get_live_forward lt live`,
+
+    Induct_on `lt` >>
+    rw [check_endlive_fixed_forward_def, get_live_forward_def] >>
+    TRY (NTAC 2 (pairarg_tac >> fs [])) >>
+    metis_tac [check_partial_col_numset_list_insert]
+)
+
+val size_of_live_tree_positive = Q.store_thm("size_of_live_tree_positive",
+    `!lt. 0 <= size_of_live_tree lt`,
+    Induct_on `lt` >> rw [size_of_live_tree_def]
+)
+
+val check_number_property_strong_monotone_weak = Q.store_thm("check_number_property_strong_monotone_weak",
+    `!P Q lt n live.
+    (!n' live'. P n' live' ==> Q n' live') /\
+    check_number_property_strong P lt n live ==>
+    check_number_property_strong Q lt n live`,
+
+    Induct_on `lt` >>
+    rw [check_number_property_strong_def] >>
+    res_tac >> simp []
+)
+
+
+val check_number_property_strong_monotone = Q.store_thm("check_number_property_strong_monotone",
+    `!P Q lt n live.
+    (!n' live'. (n - size_of_live_tree lt) <= n' /\ P n' live' ==> Q n' live') /\
+    check_number_property_strong P lt n live ==>
+    check_number_property_strong Q lt n live`,
+
+    Induct_on `lt` >>
+    simp [check_number_property_strong_def, size_of_live_tree_def]
+    (* Branch & Seq *)
+    >> (
+      rw []
+      THEN1 (
+        `!n' live'. n - size_of_live_tree lt' - size_of_live_tree lt <= n' /\ P n' live' ==> Q n' live'` by (
+          rw [] >>
+          `n - (size_of_live_tree lt + size_of_live_tree lt') <= n'` by intLib.COOPER_TAC >>
+          rw []
+        ) >>
+        metis_tac []
+      )
+      THEN1 (
+        `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+        `(!n' live'. n - size_of_live_tree lt' <= n' /\ P n' live' ==> Q n' live')` by (
+            rw [] >>
+            `n - (size_of_live_tree lt + size_of_live_tree lt') <= n'` by intLib.COOPER_TAC >>
+            rw []
+        ) >>
+        metis_tac []
+      )
+    )
+)
+
+val check_number_property_strong_end = Q.store_thm("check_number_property_strong_end",
+    `!P lt n live.
+    check_number_property_strong P lt n live ==>
+    P (n - size_of_live_tree lt) (get_live_backward lt live)`,
+
+    Induct_on `lt` >>
+    rw [check_number_property_strong_def, get_live_backward_def, size_of_live_tree_def] >>
+    (* Seq *)
+    res_tac >>
+    `n - size_of_live_tree lt' - size_of_live_tree lt = n - (size_of_live_tree lt + size_of_live_tree lt')` by intLib.COOPER_TAC >>
+    metis_tac []
+)
+
+val check_number_property_monotone_weak = Q.store_thm("check_number_property_monotone_weak",
+    `!P Q lt n live.
+    (!n' live'. P n' live' ==> Q n' live') /\
+    check_number_property P lt n live ==>
+    check_number_property Q lt n live`,
+
+    Induct_on `lt` >>
+    rw [check_number_property_def] >>
+    res_tac >> simp []
+)
+
+
+val lookup_numset_list_add_if = Q.store_thm("lookup_numset_list_add_if",
+    `!r l v s.
+    lookup r (numset_list_add_if l v s P) =
+        if MEM r l then
+          case lookup r s of
+          | (SOME vr) =>
+            if P v vr then SOME v
+            else SOME vr
+          | NONE =>
+            SOME v
+        else
+          lookup r s
+    `,
+
+    Induct_on `l` >>
+    simp [numset_list_add_if_def] >>
+    rpt gen_tac >>
+    Cases_on `lookup h s` >> fs []
+    THEN1 (
+        Cases_on `MEM r l` >> fs [] >>
+        rw [lookup_insert]
+    ) >>
+    Cases_on `r = h` >> fs [] >> rveq
+    THEN1 (
+        Cases_on `P v x` >> fs []
+    ) >>
+    Cases_on `P v x` >> fs [] >>
+    simp [lookup_insert]
+)
+
+
+val lookup_numset_list_add_if_lt = Q.store_thm("lookup_numset_list_add_if_lt",
+    `!r l v s.
+    lookup r (numset_list_add_if_lt l v s) =
+        if MEM r l then
+          case lookup r s of
+          | (SOME vr) =>
+            if v <= vr then SOME v
+            else SOME vr
+          | NONE =>
+            SOME v
+        else
+          lookup r s
+    `,
+    simp [numset_list_add_if_lt_def] >>
+    rw [lookup_numset_list_add_if]
+)
+
+val lookup_numset_list_add_if_gt = Q.store_thm("lookup_numset_list_add_if_gt",
+    `!r l v s.
+    lookup r (numset_list_add_if_gt l v s) =
+        if MEM r l then
+          case lookup r s of
+          | (SOME vr) =>
+            if vr <= v then SOME v
+            else SOME vr
+          | NONE =>
+            SOME v
+        else
+          lookup r s
+    `,
+    simp [numset_list_add_if_gt_def] >>
+    rw [lookup_numset_list_add_if]
+)
+
+val domain_numset_list_add_if = Q.store_thm("domain_numset_list_add_if",
+    `!l v s P. domain (numset_list_add_if l v s P) = set l UNION domain s`,
+    Induct_on `l` >>
+    rw [numset_list_add_if_def] >>
+    Cases_on `lookup h s`
+    THEN1 (
+        rw [EXTENSION] >>
+        metis_tac []
+    )
+    THEN1 (
+        `h IN domain s` by rw [domain_lookup] >>
+        rw [EXTENSION] >>
+        metis_tac []
+    )
+)
+
+val domain_numset_list_add_if_lt = Q.store_thm("domain_numset_list_add_if_lt",
+    `!l v s. domain (numset_list_add_if_lt l v s) = set l UNION domain s`,
+    rw [numset_list_add_if_lt_def, domain_numset_list_add_if]
+)
+
+val domain_numset_list_add_if_gt = Q.store_thm("domain_numset_list_add_if_gt",
+    `!l v s. domain (numset_list_add_if_gt l v s) = set l UNION domain s`,
+    rw [numset_list_add_if_gt_def, domain_numset_list_add_if]
+)
+
+val lookup_numset_list_delete = Q.store_thm("lookup_numset_list_delete",
+    `!l s x. lookup x (numset_list_delete l s) = if MEM x l then NONE else lookup x s`,
+    Induct_on `l` >>
+    rw [numset_list_delete_def, lookup_delete] >>
+    fs []
+)
+
+val get_intervals_nout = Q.store_thm("get_intervals_nout",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
+    n_out = n_in - (size_of_live_tree lt)`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_def, size_of_live_tree_def] >>
+    rpt (pairarg_tac >> fs []) >>
+    `n_out = n2 - (size_of_live_tree lt)` by metis_tac [] >>
+    `n2 = n_in - (size_of_live_tree lt')` by metis_tac [] >>
+    intLib.COOPER_TAC
+)
+
+val get_intervals_withlive_nout = Q.store_thm("get_intervals_withlive_nout",
+    `!lt n_in beg_in end_in n_out beg_out end_out live.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live ==>
+    n_out = n_in - (size_of_live_tree lt)`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_withlive_def, size_of_live_tree_def] >>
+    rpt (pairarg_tac >> fs []) >>
+    `n_out = n2 - (size_of_live_tree lt)` by metis_tac [] >>
+    `n2 = n_in - (size_of_live_tree lt')` by metis_tac [] >>
+    rveq >> intLib.COOPER_TAC
+)
+
+
+val get_intervals_intend_augment = Q.store_thm("get_intervals_intend_augment",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
+    !r v. lookup r end_in = SOME v ==> (?v'. lookup r end_out = SOME v' /\ v <= v')`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_def]
+    (* StartLive *)
+    THEN1 (
+        rw [lookup_numset_list_add_if_gt]
+    )
+    (* EndLive *)
+    THEN1 (
+        rw [lookup_numset_list_add_if_gt]
+    ) >>
+    (* Branch & Seq *)
+    rpt (pairarg_tac >> fs []) >>
+    `?v'. lookup r int_end2 = SOME v' /\ v <= v'` by metis_tac [] >>
+    `?v''. lookup r end_out = SOME v'' /\ v' <= v''` by metis_tac [] >>
+    rw [] >>
+    intLib.COOPER_TAC
+)
+
+val check_number_property_intend = Q.store_thm("check_number_property_intend",
+    `!end_out lt n_in live_in.
+    check_number_property (\n (live : num_set). !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) lt n_in live_in ==>
+    !r. r IN domain (get_live_backward lt live_in) ==> ?v. lookup r end_out = SOME v /\ n_in-(size_of_live_tree lt) <= v`,
+
+    Induct_on `lt` >>
+    rw [check_number_property_def, get_live_backward_def, size_of_live_tree_def]
+    (* StartLive *)
+    THEN1 (
+        res_tac >>
+        rw [] >>
+        intLib.COOPER_TAC
+    )
+    (* EndLive *)
+    THEN1 (
+        res_tac >>
+        rw [] >>
+        intLib.COOPER_TAC
+    )
+    (* Branch *)
+    THEN1 (
+        fs [branch_domain, domain_numset_list_insert] >>
+        res_tac >> rw [] >>
+        `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+        intLib.COOPER_TAC
+    )
+    (* Seq *)
+    THEN1 (
+        res_tac >> rw [] >>
+        intLib.COOPER_TAC
+    )
+)
+
+val get_intervals_live_less_end = Q.store_thm("get_intervals_live_less_end",
+    `!lt n_in beg_in end_in live_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in /\
+    (!r. r IN domain live_in ==> ?v. lookup r end_in = SOME v /\ n_in <= v) ==>
+    check_number_property (\n (live : num_set). !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) lt n_in live_in`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_def, check_number_property_def] >>
+    rpt gen_tac >> strip_tac >> rveq
+    (* StartLive *)
+    THEN1 (
+        rw [domain_numset_list_delete, lookup_numset_list_add_if_gt]
+    )
+    (* EndLive *)
+    THEN1 (
+        rw [domain_numset_list_insert, lookup_numset_list_add_if_gt] >>
+        every_case_tac >> rw [] >> intLib.COOPER_TAC
+    ) >>
+    (* Common Branch & Seq proof *)
+    rpt (pairarg_tac >> fs []) >>
+    `n2 = n_in - (size_of_live_tree lt') /\ n_out = n2 - (size_of_live_tree lt)` by metis_tac [get_intervals_nout] >>
+    `check_number_property (\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v) lt' n_in live_in` by metis_tac [] >>
+    `check_number_property (\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) lt' n_in live_in` by (
+        sg `!n' (live' : num_set). (\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v) n' live' ==> (\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) n' live'` THEN1 (
+            rw [] >>
+            `?v. lookup r int_end2 = SOME v /\ n'+1 <= v` by rw [] >>
+            `?v'. lookup r end_out = SOME v' /\ v <= v'` by metis_tac [get_intervals_intend_augment] >>
+            rw [] >> intLib.COOPER_TAC
+        ) >>
+        qspecl_then [`\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v`, `\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_monotone_weak >>
+        rw []
+    ) >>
+    `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+    simp []
+    (* Branch *)
+    THEN1 (
+        sg `!r. r IN domain live_in ==> ?v. lookup r int_end2 = SOME v /\ n2 <= v` THEN1 (
+            rw [] >>
+            `?v. lookup r end_in = SOME v /\ n_in <= v` by rw [] >>
+            `?v'. lookup r int_end2 = SOME v' /\ v <= v'` by metis_tac [get_intervals_intend_augment] >>
+            rw [] >>
+            intLib.COOPER_TAC
+        ) >>
+        metis_tac []
+    )
+    (* Seq *)
+    THEN1 (
+        `!r. r IN domain (get_live_backward lt' live_in) ==> ?v. lookup r int_end2 = SOME v /\ n_in - size_of_live_tree lt' <= v` by metis_tac [check_number_property_intend] >>
+        metis_tac []
+    )
+)
+
+val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_intbeg_reduce",
+    `!lt n_in beg_in end_in n_out beg_out end_out live.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live /\
+    (!r v. lookup r beg_in = SOME v ==> n_in <= v) ==>
+    (!r. option_CASE (lookup r beg_out) n_out (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\
+    (!r v. lookup r beg_out = SOME v ==> n_out <= v)`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_withlive_def] >>
+    rpt gen_tac >> strip_tac
+    (* StartLive *)
+    THEN1 (
+        rpt strip_tac >>
+        fs [lookup_numset_list_add_if_lt] >>
+        rw [] >>
+        every_case_tac >>
+        res_tac >>
+        rw [] >>
+        intLib.COOPER_TAC
+    )
+    (* EndLive *)
+    THEN1 (
+        rpt strip_tac >>
+        fs [lookup_numset_list_delete] >>
+        rw [] >>
+        every_case_tac >>
+        res_tac >>
+        rw [] >>
+        intLib.COOPER_TAC
+    )
+    (* Branch *)
+    THEN1 (
+      rpt (pairarg_tac >> fs []) >>
+      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
+      qabbrev_tac `listlive = (MAP FST (toAList live))` >>
+      `!r v. lookup r (numset_list_delete listlive int_beg2) = SOME v ==> n2 <= v` by (rw [lookup_numset_list_delete] >> res_tac) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r (numset_list_delete listlive int_beg2)) n2 (\x.x)) /\ (!r v. lookup r (numset_list_delete listlive int_beg2) = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      fs [lookup_numset_list_delete] >>
+      `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
+      `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
+      `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+      rpt strip_tac
+      THEN1 (
+          rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+          rpt CASE_TAC >>
+          Cases_on `lookup r int_beg1` >> Cases_on `lookup r int_beg2` >>
+          Cases_on `MEM r listlive` >>
+          rfs [] >> fs [] >> rw [] >>
+          rpt (qpat_x_assum `MEM _ _` kall_tac) >>
+          rpt (qpat_x_assum `lookup _ _ = _` kall_tac) >>
+          intLib.COOPER_TAC
+      )
+      THEN1 res_tac
+    )
+    (* Seq*)
+    THEN1 (
+      rpt (pairarg_tac >> fs []) >>
+      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r beg_in = SOME v ==> n_in <= v) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r int_beg2) n2 (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      simp [lookup_numset_list_delete] >>
+      `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
+      `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
+      `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+      rpt strip_tac
+      THEN1 (
+          rpt CASE_TAC >>
+          rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+          rfs [] >> rw [] >>
+          intLib.COOPER_TAC
+      )
+      THEN1 res_tac
+    )
+)
+
+val get_intervals_withlive_intbeg_nout = Q.store_thm("get_intervals_withlive_intbeg_nout",
+    `!lt n_in beg_in end_in n_out beg_out end_out live.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live /\
+    (!r v. lookup r beg_in = SOME v ==> n_in <= v) ==>
+    (!r v. lookup r beg_out = SOME v ==> n_out <= v)`,
+    metis_tac [get_intervals_withlive_intbeg_reduce]
+)
+
+val get_intervals_intbeg_nout = Q.store_thm("get_intervals_intbeg_nout",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in /\
+    (!r v. lookup r beg_in = SOME v ==> n_in <= v) ==>
+    (!r v. lookup r beg_out = SOME v ==> n_out <= v)`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_def]
+    (* StartLive *)
+    THEN1 (
+        fs [lookup_numset_list_add_if_lt] >>
+        every_case_tac >>
+        res_tac >>
+        intLib.COOPER_TAC
+    )
+    (* EndLive *)
+    THEN1 (
+        fs [lookup_numset_list_delete] >>
+        res_tac >>
+        intLib.COOPER_TAC
+    ) >>
+    (* Branch & Seq*)
+    rpt (pairarg_tac >> fs []) >>
+    `!r v. lookup r int_beg2 = SOME v ==> n2 <= v` by metis_tac [] >>
+    `!r v. lookup r beg_out = SOME v ==> n_out <= v` by metis_tac [] >>
+    res_tac
+)
+
+
+val get_intervals_withlive_live_intbeg = Q.store_thm("get_intervals_withlive_live_intbeg",
+    `!lt n_in beg_in end_in live n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live /\
+    (!r. r IN domain live ==> r NOTIN domain beg_in) ==>
+    (!r. r IN domain (get_live_backward lt live) ==> r NOTIN domain beg_out)`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_withlive_def, get_live_backward_def]
+    (* StartLive *)
+    THEN1 fs [domain_numset_list_delete, domain_numset_list_add_if_lt]
+    (* EndLive *)
+    THEN1 fs [domain_numset_list_delete, domain_numset_list_insert]
+    (* Branch *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        simp [domain_numset_list_delete, MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+        fs [domain_numset_list_insert, branch_domain] >>
+        `!s. lookup r s = SOME () <=> r IN domain s` by rw [domain_lookup] >>
+        simp [] >>
+        fs [domain_numset_list_insert, branch_domain, domain_union]
+    )
+    (* Seq *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `!r. r IN domain (get_live_backward lt' live) ==> r NOTIN domain int_beg2` by (res_tac >> metis_tac []) >>
+        res_tac >>
+        metis_tac []
+    )
+)
+
+val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_beg_less_live",
+    `!lt n_in beg_in end_in live_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live_in /\
+    (!r v. lookup r beg_in = SOME v ==> n_in <= v) /\
+    (!r. r IN domain live_in ==> r NOTIN domain beg_in) ==>
+    check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) lt n_in live_in`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_withlive_def, get_live_backward_def, check_number_property_strong_def] >>
+    rpt (gen_tac ORELSE disch_tac)
+    (* StartLive *)
+    THEN1 (
+        fs [domain_numset_list_delete, lookup_numset_list_add_if_lt] >>
+        `lookup r beg_in = NONE` by rw [lookup_NONE_domain] >>
+        fs []
+    )
+    (* EndLive *)
+    THEN1 (
+        fs [domain_numset_list_insert, lookup_numset_list_delete] >>
+        `lookup r beg_in = NONE` by rw [lookup_NONE_domain] >>
+        fs []
+    )
+
+    (* Branch *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r int_beg2) n2 (\x.x) <= n) lt' n_in live_in` by metis_tac [] >>
+        `!r. r IN domain live_in ==> r NOTIN domain (numset_list_delete (MAP FST (toAList live_in)) int_beg2)` by (rw [domain_numset_list_delete, MEM_MAP, EXISTS_PROD, MEM_toAList] >> fs [domain_lookup]) >>
+        `!r v. lookup r (numset_list_delete (MAP FST (toAList live_in)) int_beg2) = SOME v ==> n2 <= v` by (rw [lookup_numset_list_delete] >> metis_tac [get_intervals_withlive_intbeg_nout]) >>
+        `!r v. lookup r int_beg1 = SOME v ==> n1 <= v` by metis_tac [get_intervals_withlive_intbeg_nout] >>
+        `check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r int_beg1) n1 (\x.x) <= n) lt n2 live_in` by metis_tac [] >>
+        `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
+        `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
+        `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+        fs [] >>
+        `set (MAP FST (toAList (union (get_live_backward lt live_in) (get_live_backward lt' live_in)))) = domain (get_live_backward lt live_in) UNION domain (get_live_backward lt' live_in)` by (
+            rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup, lookup_union] >>
+            every_case_tac >> rw []
+        ) >>
+        qabbrev_tac `list_union = MAP FST (toAList (union (get_live_backward lt live_in) (get_live_backward lt' live_in)))` >>
+        rpt strip_tac
+        THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+            rw [lookup_numset_list_delete] >>
+            rpt CASE_TAC >>
+            first_x_assum (qspec_then `r` assume_tac) >>
+            rfs [] >> intLib.COOPER_TAC
+          ) >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          metis_tac []
+        )
+        THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+            rw [lookup_numset_list_delete] >>
+            rpt CASE_TAC
+            THEN1 intLib.COOPER_TAC
+            THEN1 intLib.COOPER_TAC >>
+            `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r (numset_list_delete (MAP FST (toAList live_in)) int_beg2)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+            rpt (last_x_assum (qspec_then `r` assume_tac)) >>
+            rfs [lookup_numset_list_delete] >>
+            Cases_on `MEM r (MAP FST (toAList live_in))` >> fs []
+            THEN1 intLib.COOPER_TAC >>
+            Cases_on `lookup r int_beg2` >> fs [] >>
+            intLib.COOPER_TAC
+          ) >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          metis_tac []
+        )
+        THEN1 (
+          fs [domain_numset_list_insert, branch_domain, lookup_numset_list_delete] >>
+          rw [size_of_live_tree_def] >>
+          intLib.COOPER_TAC
+        )
+    )
+
+    (* Seq *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r int_beg2) n2 (\x.x) <= n) lt' n_in live_in` by metis_tac [] >>
+        `!r v. lookup r int_beg2 = SOME v ==> n2 <= v` by (rw [lookup_numset_list_delete] >> metis_tac [get_intervals_withlive_intbeg_nout]) >>
+        `!r v. lookup r int_beg2 = SOME v ==> n2 <= v` by metis_tac [get_intervals_withlive_intbeg_nout] >>
+        `!r. r IN domain (get_live_backward lt' live_in) ==> r NOTIN domain int_beg2` by metis_tac [get_intervals_withlive_live_intbeg] >>
+        `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
+        `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
+        `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+        rpt strip_tac
+        THEN1 metis_tac []
+        THEN1 (
+          fs [] >>
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+              rw [] >>
+              `!r. option_CASE (lookup r beg_out) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+              rpt (last_x_assum (qspec_then `r` assume_tac)) >> rfs [] >>
+              Cases_on `lookup r beg_out` >> fs []
+              THEN1 intLib.COOPER_TAC >>
+              Cases_on `lookup r int_beg2` >> rfs [] >>
+              intLib.COOPER_TAC
+          ) >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          metis_tac []
+        )
+    )
+)
+
+val get_intervals_withlive_n_eq_get_intervals_n = Q.store_thm("get_intervals_withlive_n_eq_get_intervals_n",
+    `!lt n beg end beg' end' n1 beg1 end1 n2 beg2 end2 live.
+    (n1, beg1, end1) = get_intervals lt n beg end /\
+    (n2, beg2, end2) = get_intervals_withlive lt n beg' end' live ==>
+    n1 = n2`,
+    Induct_on `lt` >>
+    rw [get_intervals_def, get_intervals_withlive_def] >>
+    rpt (pairarg_tac >> fs []) >>
+    metis_tac []
+)
+
+val get_intervals_withlive_end_eq_get_intervals_end = Q.store_thm("get_intervals_withlive_end_eq_get_intervals_end",
+    `!lt n beg beg' end n1 beg1 end1 n2 beg2 end2 live.
+    (n1, beg1, end1) = get_intervals lt n beg end /\
+    (n2, beg2, end2) = get_intervals_withlive lt n beg' end live ==>
+    end1 = end2`,
+    Induct_on `lt` >>
+    rw [get_intervals_def, get_intervals_withlive_def] >>
+    rpt (pairarg_tac >> fs []) >>
+    `n2' = n2''` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >> rveq >>
+    metis_tac []
+)
+
+val get_intervals_withlive_beg_eq_get_intervals_beg_when_some = Q.store_thm("get_intervals_withlive_beg_eq_get_intervals_beg_when_some",
+    `!lt n beg beg' end n1 beg1 end1 n2 beg2 end2 live.
+    (n1, beg1, end1) = get_intervals lt n beg end /\
+    (n2, beg2, end2) = get_intervals_withlive lt n beg' end live /\
+    (!r v. lookup r beg = SOME v ==> n <= v) /\
+    (!r v. lookup r beg' = SOME v ==> n <= v) /\
+    (!r v1 v2. lookup r beg = SOME v1 /\ lookup r beg' = SOME v2 ==> v1 = v2)
+    ==>
+    !r v1 v2. lookup r beg1 = SOME v1 /\ lookup r beg2 = SOME v2 ==> v1 = v2`,
+
+    Induct_on `lt` >>
+    REWRITE_TAC [get_intervals_def, get_intervals_withlive_def, LET_THM] >>
+    rpt gen_tac >> strip_tac
+    (* StartLive *)
+    THEN1 (
+        rw [] >>
+        fs [lookup_numset_list_add_if_lt] >>
+        every_case_tac >>
+        fs [] >>
+        res_tac >>
+        intLib.COOPER_TAC
+    )
+    (* EndLive *)
+    THEN1 (
+        rw [] >>
+        fs [lookup_numset_list_delete] >>
+        res_tac
+    ) >>
+    (* Common Branch & Seq proof *)
+    rpt (pairarg_tac >> fs []) >>
+    `n2'' = n2'` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >>
+    `int_end2 = int_end2'` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
+    rveq >>
+    `!r v. lookup r int_beg2' = SOME v ==> n2' <= v` by metis_tac [get_intervals_intbeg_nout] >>
+    `!r v. lookup r int_beg2 = SOME v ==> n2' <= v` by metis_tac [get_intervals_withlive_intbeg_nout] >>
+    `!r v1 v2. lookup r int_beg2' = SOME v1 /\ lookup r int_beg2 = SOME v2 ==> v1 = v2` by (
+        first_x_assum (qspecl_then [`n`, `beg`, `beg'`, `end`, `n2'`, `int_beg2'`, `int_end2`, `n2'`, `int_beg2`, `int_end2`, `live`] assume_tac) >>
+        res_tac >>
+        metis_tac []
+    )
+    (* Branch *)
+    THEN1 (
+        qabbrev_tac `l1 = MAP FST (toAList live)` >>
+        qabbrev_tac `l2 = MAP FST (toAList (union (get_live_backward lt live) (get_live_backward lt' live)))` >>
+        `!r v1 v2. lookup r int_beg2' = SOME v1 /\ lookup r (numset_list_delete l1 int_beg2) = SOME v2 ==> v1 = v2` by (
+            simp [lookup_numset_list_delete] >> rpt strip_tac >>
+            metis_tac []
+        ) >>
+        `!r v1 v2. lookup r beg1 = SOME v1 /\ lookup r int_beg1 = SOME v2 ==> v1 = v2` by (
+            `!r v. lookup r (numset_list_delete l1 int_beg2) = SOME v ==> n2' <= v` by (rw [lookup_numset_list_delete] >> res_tac) >>
+            rveq >>
+            last_x_assum (qspecl_then [`n2'`, `int_beg2'`, `numset_list_delete l1 int_beg2`, `int_end2`, `n1`, `beg1`, `end1`, `n1'`, `int_beg1`, `end2`, `live`] assume_tac) >>
+            rpt strip_tac >>
+            res_tac >>
+            metis_tac []
+        ) >>
+        REWRITE_TAC [lookup_numset_list_delete] >>
+        rpt strip_tac >>
+        Cases_on `MEM r l2` >> fs [] >>
+        res_tac
+    )
+    (* Seq *)
+    THEN1 (
+        last_x_assum (qspecl_then [`n2'`, `int_beg2'`, `int_beg2`, `int_end2`, `n1`, `beg1`, `end1`, `n1'`, `beg2`, `end2`, `get_live_backward lt' live`] assume_tac) >>
+        res_tac >>
+        metis_tac []
+    )
+)
+
+val get_intervals_withlive_beg_subset_get_intervals_beg = Q.store_thm("get_intervals_withlive_beg_subset_get_intervals_beg",
+    `!lt n beg_in1 beg_in2 end n1 beg_out1 end1 n2 beg_out2 end2 live.
+    (n1, beg_out1, end1) = get_intervals_withlive lt n beg_in1 end live /\
+    (n2, beg_out2, end2) = get_intervals lt n beg_in2 end /\
+    domain beg_in1 SUBSET domain beg_in2 ==>
+    domain beg_out1 SUBSET domain beg_out2`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_withlive_def, get_intervals_def]
+    (* StartLive *)
+    THEN1 (
+        rw [domain_numset_list_add_if_lt] >>
+        fs [SUBSET_DEF]
+    )
+    (* EndLive *)
+    THEN1 (
+        rw [domain_numset_list_delete] >>
+        fs [SUBSET_DEF]
+    )
+    (* Common Branch & Seq *)
+    >>
+    rpt (pairarg_tac >> fs []) >>
+    `n2'' = n2'` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >>
+    rveq >>
+    `int_end2' = int_end2` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
+    rveq >>
+    `domain int_beg2' SUBSET domain int_beg2` by metis_tac []
+    (* Branch *)
+    THEN1 (
+        `domain (numset_list_delete (MAP FST (toAList live)) int_beg2') SUBSET domain int_beg2` by (rw [domain_numset_list_delete] >> fs [SUBSET_DEF]) >>
+        `domain int_beg1 SUBSET domain beg_out2` by metis_tac [] >>
+        rw [domain_numset_list_delete] >>
+        fs [SUBSET_DEF]
+    )
+    (* Seq *)
+    THEN1 (
+        metis_tac []
+    )
+)
+
+val get_intervals_beg_subset_registers = Q.store_thm("get_intervals_beg_subset_registers",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
+    domain beg_out SUBSET (domain beg_in UNION (live_tree_registers lt))`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_def, live_tree_registers_def]
+    THEN1 rw [domain_numset_list_add_if_lt]
+    THEN1 rw [domain_numset_list_delete]
+    >>
+    rpt (pairarg_tac >> fs []) >>
+    `domain int_beg2 SUBSET (domain beg_in UNION (live_tree_registers lt'))` by metis_tac [] >>
+    `domain beg_out SUBSET (domain int_beg2 UNION (live_tree_registers lt))` by metis_tac [] >>
+    fs [SUBSET_DEF] >>
+    metis_tac []
+)
+
+(* TODO: remove me *)
+val get_intervals_withlive_beg_subset_registers = Q.store_thm("get_intervals_withlive_beg_subset_registers",
+    `!lt n_in beg_in end_in live n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live ==>
+    domain beg_out SUBSET (domain beg_in UNION (live_tree_registers lt))`,
+
+    rw [] >>
+    `?x. x = get_intervals lt n_in beg_in end_in` by rw [] >>
+    PairCases_on `x` >>
+    `domain beg_in SUBSET domain beg_in` by rw [] >>
+    `domain beg_out SUBSET domain x1` by metis_tac [get_intervals_withlive_beg_subset_get_intervals_beg] >>
+    `domain x1 SUBSET (domain beg_in UNION (live_tree_registers lt))` by metis_tac [get_intervals_beg_subset_registers] >>
+    fs [SUBSET_DEF]
+)
+
+val set_MAP_FST_toAList = Q.store_thm("set_MAP_FST_toAList",
+    `!s. set (MAP FST (toAList s)) = domain s`,
+    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
+)
+
+val get_intervals_withlive_beg_monotone = Q.store_thm("get_intervals_withlive_beg_monotone",
+    `!lt n beg end live n' beg' end' (s : int num_map) n1 beg1 end1 n2 beg2 end2.
+    (n1, beg1, end1) = get_intervals_withlive lt n beg end live /\
+    (n2, beg2, end2) = get_intervals_withlive lt n' beg' end' live /\
+    domain beg' = domain beg UNION domain s ==>
+    ?(s' : int num_map). domain beg2 = domain beg1 UNION domain s' /\ domain s' SUBSET domain s`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_withlive_def]
+
+    THEN1 (
+        rw [domain_numset_list_add_if_lt, domain_union] >>
+        qexists_tac `s` >>
+        rw [SUBSET_DEF, EXTENSION] >>
+        eq_tac >> rw [] >> rw []
+    )
+
+    THEN1 (
+        rw [domain_numset_list_delete, domain_union] >>
+        qexists_tac `numset_list_delete l s` >>
+        rw [EXTENSION, SUBSET_DEF, domain_numset_list_delete] >>
+        eq_tac >> rw [] >> rw []
+    )
+
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `?(s' : int num_map). domain int_beg2 = domain int_beg2' UNION domain s' /\ domain s' SUBSET domain s` by metis_tac [] >>
+        sg `domain (numset_list_delete (MAP FST (toAList live)) int_beg2) = domain (numset_list_delete (MAP FST (toAList live)) int_beg2') UNION domain (difference s' live)` THEN1 (
+            rw [domain_numset_list_delete, set_MAP_FST_toAList, domain_difference] >>
+            rw [EXTENSION] >> eq_tac >> rw [] >> rw []
+        ) >>
+        `domain (difference s' live) SUBSET domain s'` by rw [domain_difference, SUBSET_DEF] >>
+        qabbrev_tac `s'' = difference s' live` >>
+        `?(s''' : int num_map). domain int_beg1 = domain int_beg1' UNION domain s''' /\ domain s''' SUBSET domain s''` by metis_tac [] >>
+        qexists_tac `difference s''' (union (get_live_backward lt live) (get_live_backward lt' live))` >>
+        rw [domain_numset_list_delete, set_MAP_FST_toAList, domain_union, domain_difference]
+        THEN1 (
+          rw [EXTENSION] >>
+          eq_tac >> rw [] >> rw []
+        )
+        THEN1 (
+            fs [SUBSET_DEF]
+        )
+    )
+
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `?(s' : int num_map). domain int_beg2 = domain int_beg2' UNION domain s' /\ domain s' SUBSET domain s` by metis_tac [] >>
+        `?(s'' : int num_map). domain int_beg1 = domain int_beg1' UNION domain s'' /\ domain s'' SUBSET domain s'` by metis_tac [] >>
+        qexists_tac `s''` >>
+        rw [] >>
+        fs [SUBSET_DEF]
+    )
+)
+
+val get_intervals_withlive_registers_subset_beg = Q.store_thm("get_intervals_withlive_registers_subset_beg",
+    `!lt n_in beg_in end_in n_out beg_out end_out live_in.
+    domain end_in SUBSET domain beg_in UNION domain live_in /\
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live_in ==>
+    domain end_out SUBSET domain beg_out UNION domain (get_live_backward lt live_in)`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_withlive_def, get_live_backward_def, live_tree_registers_def]
+
+    (* StartLive *)
+    THEN1 (
+        rw [domain_numset_list_add_if_lt, domain_numset_list_delete, domain_numset_list_add_if_gt] >>
+        fs [SUBSET_DEF] >>
+        metis_tac []
+    )
+
+    (* EndLive *)
+    THEN1 (
+        rw [domain_numset_list_insert, domain_numset_list_delete, domain_numset_list_add_if_gt] >>
+        fs [SUBSET_DEF] >>
+        metis_tac []
+    )
+
+    (* Branch *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `domain int_end2 SUBSET domain int_beg2 UNION domain (get_live_backward lt' live_in)` by metis_tac [] >>
+        sg `?n1' int_beg1' int_end1'. (n1', int_beg1', int_end1') = get_intervals_withlive lt n2 (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) int_end2 live_in` THEN1 (
+            `?x. x = get_intervals_withlive lt n2 (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) int_end2 live_in` by rw [] >>
+            PairCases_on `x` >>
+            metis_tac []
+        ) >>
+        `int_end1' = int_end1` by (`?x. x = get_intervals lt n2 LN int_end2` by rw [] >> PairCases_on `x` >> metis_tac [get_intervals_withlive_end_eq_get_intervals_end]) >>
+        rveq >>
+        sg `domain int_end2 SUBSET domain (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) UNION domain live_in` THEN1 (
+            rw [domain_union, domain_numset_list_delete, set_MAP_FST_toAList, domain_difference, SUBSET_DEF] >>
+            metis_tac []
+        ) >>
+        `domain end_out SUBSET domain int_beg1' UNION domain (get_live_backward lt live_in)` by metis_tac [] >>
+        sg `?(setunion : int num_map). domain int_beg1' = domain int_beg1 UNION domain setunion /\ domain setunion SUBSET domain (difference int_end2 int_beg2)` THEN1 (
+            `domain (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) = domain (numset_list_delete (MAP FST (toAList live_in)) int_beg2) UNION domain (difference int_end2 int_beg2)` by rw [domain_union] >>
+            metis_tac [get_intervals_withlive_beg_monotone]
+        ) >>
+        fs [domain_numset_list_insert, branch_domain] >>
+        fs [domain_numset_list_delete, set_MAP_FST_toAList, domain_union, domain_difference] >>
+        fs [SUBSET_DEF] >>
+        rw [] >>
+        Cases_on `x IN domain (get_live_backward lt' live_in)` >> fs [] >>
+        Cases_on `x IN domain (get_live_backward lt live_in)` >> fs [] >>
+        rpt (first_x_assum (qspec_then `x` assume_tac)) >>
+        `(x IN domain int_beg1 \/ x IN domain setunion) \/ x IN domain (get_live_backward lt live_in)` by rw [] >>
+        `x IN domain int_end2 /\ x NOTIN domain int_beg2` by rw [] >>
+        `x IN domain int_beg2 \/ x IN domain (get_live_backward lt' live_in)` by rw []
+    )
+
+    (* Seq *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `domain int_end2 SUBSET domain int_beg2 UNION domain (get_live_backward lt' live_in)` by metis_tac [] >>
+        metis_tac []
+    )
+)
+
+val get_intervals_withlive_live_tree_registers_subset_endout = Q.store_thm("get_intervals_withlive_live_tree_registers_subset_endout",
+    `!lt n_in beg_in end_in live_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live_in /\
+    domain live_in SUBSET domain end_in ==>
+    domain end_in UNION live_tree_registers lt UNION domain (get_live_backward lt live_in) SUBSET domain end_out`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_withlive_def, live_tree_registers_def, get_live_backward_def] >>
+    rpt (gen_tac ORELSE disch_tac)
+
+    (* StartLive *)
+    THEN1 (
+        fs [domain_numset_list_delete, domain_numset_list_add_if_gt, SUBSET_DEF]
+    )
+
+    (* EndLive *)
+    THEN1 (
+        fs [domain_numset_list_insert, domain_numset_list_add_if_gt, SUBSET_DEF] >>
+        rw [] >> rw []
+    )
+
+    (* Branch *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        simp [domain_numset_list_insert, branch_domain] >>
+        `domain end_in UNION live_tree_registers lt' UNION domain (get_live_backward lt' live_in) SUBSET domain int_end2` by (fs [] >> metis_tac []) >>
+        `domain live_in SUBSET domain int_end2` by fs [SUBSET_DEF] >>
+        `domain int_end2 UNION live_tree_registers lt UNION domain (get_live_backward lt live_in) SUBSET domain int_end1` by (fs [] >> metis_tac []) >>
+        fs [SUBSET_DEF]
+    )
+
+    (* Seq *)
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `domain end_in UNION live_tree_registers lt' UNION domain (get_live_backward lt' live_in) SUBSET domain int_end2` by (fs [] >> metis_tac []) >>
+        `domain int_end2 UNION live_tree_registers lt UNION domain (get_live_backward lt (get_live_backward lt' live_in)) SUBSET domain int_end1` by (fs [] >> metis_tac []) >>
+        fs [SUBSET_DEF]
+    )
+)
+
+val get_intervals_domain_eq_live_tree_registers = Q.store_thm("get_intervals_domain_eq_live_tree_registers",
+    `!lt n beg end.
+    (n, beg, end) = get_intervals (fix_domination lt) 0 LN LN ==>
+    domain beg = live_tree_registers (fix_domination lt) /\
+    domain end = live_tree_registers (fix_domination lt)`,
+
+    rpt (gen_tac ORELSE disch_tac) >>
+    `domain (get_live_backward (fix_domination lt) LN) = EMPTY` by rw [fix_domination_fixes_domination] >>
+    sg `?n' beg' end'. (n', beg', end') = get_intervals_withlive (fix_domination lt) 0 LN LN LN` THEN1 (
+      `?x. x = get_intervals_withlive (fix_domination lt) 0 LN LN LN` by rw [] >>
+      PairCases_on `x` >> metis_tac []
+    ) >>
+    qabbrev_tac `lt' = fix_domination lt` >>
+    `end = end'` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
+    rveq >>
+    `domain (LN : int num_map) SUBSET domain (LN : num_set)` by rw [domain_empty] >>
+    `domain (LN : int num_map) SUBSET domain (LN : int num_map)` by rw [domain_empty] >>
+    imp_res_tac get_intervals_withlive_live_tree_registers_subset_endout >>
+    imp_res_tac get_intervals_withlive_registers_subset_beg >>
+    imp_res_tac get_intervals_withlive_beg_subset_get_intervals_beg >>
+    imp_res_tac get_intervals_beg_subset_registers >>
+    rfs [] >>
+    fs [SUBSET_DEF, EXTENSION] >>
+    rw [] >> eq_tac >> rw []
+)
+
+val get_intervals_withlive_domain_eq_live_tree_registers = Q.store_thm("get_intervals_withlive_domain_eq_live_tree_registers",
+    `!lt n beg end.
+    (n, beg, end) = get_intervals_withlive (fix_domination lt) 0 LN LN LN ==>
+    domain beg = live_tree_registers (fix_domination lt) /\
+    domain end = live_tree_registers (fix_domination lt)`,
+
+    rpt (gen_tac ORELSE disch_tac) >>
+    `domain (get_live_backward (fix_domination lt) LN) = EMPTY` by rw [fix_domination_fixes_domination] >>
+    sg `?n' beg' end'. (n', beg', end') = get_intervals (fix_domination lt) 0 LN LN` THEN1 (
+      `?x. x = get_intervals (fix_domination lt) 0 LN LN` by rw [] >>
+      PairCases_on `x` >> metis_tac []
+    ) >>
+    qabbrev_tac `lt' = fix_domination lt` >>
+    `end = end'` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
+    rveq >>
+    `domain (LN : int num_map) SUBSET domain (LN : num_set)` by rw [domain_empty] >>
+    `domain (LN : int num_map) SUBSET domain (LN : int num_map)` by rw [domain_empty] >>
+    imp_res_tac get_intervals_withlive_live_tree_registers_subset_endout >>
+    imp_res_tac get_intervals_withlive_registers_subset_beg >>
+    imp_res_tac get_intervals_withlive_beg_subset_get_intervals_beg >>
+    imp_res_tac get_intervals_beg_subset_registers >>
+    rfs [] >>
+    fs [SUBSET_DEF, EXTENSION] >>
+    rw [] >> eq_tac >> rw []
+)
+
+val get_intervals_withlive_beg_eq_get_intervals_beg = Q.store_thm("get_intervals_withlive_beg_eq_get_intervals_beg",
+    `!lt n beg end n' beg' end'.
+    (n, beg, end) = get_intervals_withlive (fix_domination lt) 0 LN LN LN /\
+    (n', beg', end') = get_intervals (fix_domination lt) 0 LN LN ==>
+    !r. lookup r beg = lookup r beg'`,
+
+    rw [] >>
+    imp_res_tac get_intervals_withlive_domain_eq_live_tree_registers >>
+    imp_res_tac get_intervals_domain_eq_live_tree_registers >>
+    `domain beg = domain beg'` by rw [] >>
+    `!r (v:int). lookup r LN = SOME v ==> 0 <= v` by rw [lookup_def, NOT_SOME_NONE] >>
+    `!r (v1:int) (v2:int). lookup r LN = SOME v1 /\ lookup r LN = SOME v2 ==> v1 = v2` by rw [lookup_def, NOT_SOME_NONE] >>
+    imp_res_tac get_intervals_withlive_beg_eq_get_intervals_beg_when_some >>
+    Cases_on `lookup r beg` >>
+    Cases_on `lookup r beg'`
+    THEN1 simp []
+    THEN1 metis_tac [domain_lookup]
+    THEN1 metis_tac [domain_lookup]
+    THEN1 metis_tac []
+)
+
+val get_intervals_end_increase = Q.store_thm("get_intervals_end_increase",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
+    domain end_in SUBSET domain end_out`,
+
+    Induct_on `lt` >>
+    rw [get_intervals_def]
+    (* StartLive *)
+    THEN1 rw [domain_numset_list_add_if_gt]
+    (* EndLive *)
+    THEN1 rw [domain_numset_list_add_if_gt]
+    (* Branch & Seq *)
+    >>
+    rpt (pairarg_tac >> fs []) >>
+    `domain end_in SUBSET domain int_end2` by metis_tac [] >>
+    `domain int_end2 SUBSET domain end_out` by metis_tac [] >>
+    fs [SUBSET_DEF]
+)
+
+val check_number_property_subset_endout = Q.store_thm("check_number_property_subset_endout",
+    `!lt n_in beg_in end_in live_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in /\
+    domain live_in SUBSET domain end_in ==>
+    check_number_property_strong (\n (live:num_set). domain live SUBSET domain end_out) lt n_in live_in`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_def, check_number_property_strong_def] >>
+    rpt (gen_tac ORELSE disch_tac)
+
+    (* StartLive *)
+    THEN1 (
+        fs [domain_numset_list_delete, domain_numset_list_add_if_gt, SUBSET_DEF]
+    )
+
+    (* EndLive *)
+    THEN1 (
+        fs [domain_numset_list_insert, domain_numset_list_add_if_gt, SUBSET_DEF] >>
+        rw [] >> rw []
+    )
+
+    (* Common Branch & Seq *)
+    >> (
+        rpt (pairarg_tac >> fs []) >>
+        `check_number_property_strong (\n (live:num_set). domain live SUBSET domain int_end2) lt' n_in live_in` by metis_tac [] >>
+        `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_nout] >>
+        `domain end_in SUBSET domain int_end2` by metis_tac [get_intervals_end_increase] >>
+        `domain int_end2 SUBSET domain end_out` by metis_tac [get_intervals_end_increase] >>
+        `!n (live:num_set). domain live SUBSET domain int_end2 ==> domain live SUBSET domain end_out` by (rw [] >> fs [SUBSET_DEF]) >>
+        qspecl_then [`\n (live:num_set). domain live SUBSET domain int_end2`, `\n (live:num_set). domain live SUBSET domain end_out`] assume_tac check_number_property_strong_monotone_weak
+    )
+
+    (* Branch *)
+    THEN1 (
+        `domain live_in SUBSET domain int_end2` by fs [SUBSET_DEF] >>
+        `check_number_property_strong (\n (live:num_set). domain live SUBSET domain end_out) lt (n_in - size_of_live_tree lt') live_in` by metis_tac [] >>
+        `check_number_property_strong (\n (live:num_set). domain live SUBSET domain end_out) lt' n_in live_in` by rw [] >>
+        imp_res_tac check_number_property_strong_end >>
+        fs [] >>
+        rw [get_live_backward_def, domain_numset_list_insert, branch_domain]
+    )
+
+    (* Seq *)
+    THEN1 (
+        sg `?n2' int_beg2' int_end2'. (n2', int_beg2', int_end2') = get_intervals_withlive lt' n_in beg_in end_in live_in` THEN1 (
+            `?x. x = get_intervals_withlive lt' n_in beg_in end_in live_in` by rw [] >>
+            PairCases_on `x` >>
+            metis_tac []
+        ) >>
+        `int_end2 = int_end2'` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
+        rveq >>
+        imp_res_tac get_intervals_withlive_live_tree_registers_subset_endout >> fs [] >>
+        metis_tac []
+    )
+)
+
+val get_intervals_beg_less_live = Q.store_thm("get_intervals_beg_less_live",
+    `!lt live_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals (fix_domination lt) 0 LN LN ==>
+    check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) (fix_domination lt) 0 LN`,
+
+    rw [] >>
+    sg `?n_out' beg_out' end_out'. (n_out', beg_out', end_out') = get_intervals_withlive (fix_domination lt) 0 LN LN LN` THEN1 (
+        `?x. x = get_intervals_withlive (fix_domination lt) 0 LN LN LN` by rw [] >>
+        PairCases_on `x` >>
+        metis_tac []
+    ) >>
+    `!r v. lookup r (LN : int num_map) = SOME v ==> 0 <= v` by rw [lookup_def] >>
+    `!r. r IN domain (LN : num_set) ==> r NOTIN domain (LN : int num_map)` by rw [domain_def] >>
+    imp_res_tac get_intervals_withlive_beg_less_live >>
+    imp_res_tac get_intervals_withlive_beg_eq_get_intervals_beg >>
+    `n_out = n_out'` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >>
+    rveq >>
+    `(\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) = (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n)` by rw [EXTENSION] >>
+    qabbrev_tac `P = \n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n` >>
+    qabbrev_tac `Q = \n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n` >>
+    rw []
+)
+
+val get_intervals_intbeg_reduce = Q.store_thm("get_intervals_intbeg_reduce",
+    `!lt n_in beg_in end_in n_out beg_out end_out live.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in /\
+    (!r v. lookup r beg_in = SOME v ==> n_in <= v) ==>
+    (!r. option_CASE (lookup r beg_out) n_out (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\
+    (!r v. lookup r beg_out = SOME v ==> n_out <= v)`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_def] >>
+    rpt gen_tac >> strip_tac
+    (* StartLive *)
+    THEN1 (
+        rpt strip_tac >>
+        fs [lookup_numset_list_add_if_lt] >>
+        rw [] >>
+        every_case_tac >>
+        res_tac >>
+        rw [] >>
+        intLib.COOPER_TAC
+    )
+    (* EndLive *)
+    THEN1 (
+        rpt strip_tac >>
+        fs [lookup_numset_list_delete] >>
+        rw [] >>
+        every_case_tac >>
+        res_tac >>
+        rw [] >>
+        intLib.COOPER_TAC
+    )
+    (* Branch & Seq *)
+    >> (
+      rpt (pairarg_tac >> fs []) >>
+      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r beg_out) n_out (\x.x) <= option_CASE (lookup r int_beg2) n2 (\x.x)) /\ (!r v. lookup r beg_out = SOME v ==> n_out <= v)` by (res_tac >> metis_tac []) >>
+      rw []
+      THEN1 (
+        rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+        intLib.COOPER_TAC
+      )
+      THEN1 (
+        rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+        rpt (first_x_assum (qspec_then `v` assume_tac)) >>
+        fs []
+      )
+    )
+)
+
+val check_startlive_prop_monotone = Q.store_thm("check_startlive_prop_monotone",
+    `!lt beg ndef end beg' ndef' end' n_in.
+    (!r. option_CASE (lookup r beg') ndef' (\x.x) <= option_CASE (lookup r beg) ndef (\x.x)) /\
+    (!r v. lookup r end = SOME v ==> (?v'. lookup r end' = SOME v' /\ v <= v')) /\
+    check_startlive_prop lt n_in beg end ndef ==>
+    check_startlive_prop lt n_in beg' end' ndef'`,
+
+    Induct_on `lt` >>
+    rw [check_startlive_prop_def] >>
+    (
+      CASE_TAC ORELSE res_tac >>
+      rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+      rfs [] >>
+      intLib.COOPER_TAC
+    )
+)
+
+val check_startlive_prop_augment_ndef = Q.store_thm("check_startlive_prop_augment_ndef",
+    `!lt n_in beg_out end_out ndef.
+    check_startlive_prop lt n_in beg_out end_out ndef /\
+    ndef  <= ndef' /\
+    ndef' <= n_in - size_of_live_tree lt==>
+    check_startlive_prop lt n_in beg_out end_out ndef'`,
+
+    Induct_on `lt` >>
+    simp [check_startlive_prop_def, size_of_live_tree_def] >>
+    rpt gen_tac >> strip_tac
+    (* StartLive *)
+    THEN1 (
+        rw [] >>
+        res_tac >>
+        CASE_TAC >> fs [] >>
+        intLib.COOPER_TAC
+    )
+    (* Branch & Seq *)
+    >> (
+        `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+        `ndef' <= (n_in - size_of_live_tree lt') - size_of_live_tree lt` by intLib.COOPER_TAC >>
+        `ndef' <= n_in - size_of_live_tree lt'` by intLib.COOPER_TAC >>
+        metis_tac []
+    )
+)
+
+val get_intervals_check_startlive_prop = Q.store_thm("get_intervals_check_startlive_prop",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in /\
+    (!r v. lookup r beg_in = SOME v ==> n_in <= v) ==>
+    check_startlive_prop lt n_in beg_out end_out n_out`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_def, check_startlive_prop_def] >>
+    rpt (gen_tac ORELSE disch_tac)
+    (* StartLive *)
+    THEN1 (
+        rw [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt] >>
+        every_case_tac >>
+        intLib.COOPER_TAC
+    )
+    (* Branch & Seq *)
+    >> (
+        rpt (pairarg_tac >> fs []) >>
+        `check_startlive_prop lt' n_in int_beg2 int_end2 n2` by metis_tac [] >>
+        `!r v. lookup r int_beg2 = SOME v ==> n2 <= v` by metis_tac [get_intervals_intbeg_reduce] >>
+        `check_startlive_prop lt n2  beg_out end_out n_out` by metis_tac [] >>
+        `!r v. lookup r int_end2 = SOME v ==> ?v'. lookup r end_out = SOME v' /\ v <= v'` by metis_tac [get_intervals_intend_augment] >>
+        `!r. option_CASE (lookup r beg_out) n_out (\x.x) <= option_CASE (lookup r int_beg2) n2 (\x.x)` by metis_tac [get_intervals_intbeg_reduce] >>
+        `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_nout] >>
+        rveq >>
+        rw [] >>
+        metis_tac [check_startlive_prop_monotone]
+    )
+)
+
+
+
+
+val exists_point_inside_interval_interval_intersect = Q.store_thm("exists_point_inside_interval_interval_intersect",
+    `!l1 r1 l2 r2 v.
+    point_inside_interval (l1, r1) v  /\ point_inside_interval (l2, r2) v ==>
+    interval_intersect (l1, r1) (l2, r2)`,
+    rw [point_inside_interval_def, interval_intersect_def] >>
+    Cases_on `l1` >>
+    Cases_on `l2` >>
+    Cases_on `r1` >>
+    Cases_on `r2` >>
+    fs [opt_compare_def] >>
+    intLib.COOPER_TAC
+)
+
+(*
+val interval_intersect_exists_point_inside_interval = Q.store_thm("interval_intersect_exists_point_inside_interval",
+    `!l1 r1 l2 r2 n.
+    l1 <= n /\ opt_compare r1 (SOME n) /\
+    l2 <= n /\ opt_compare r2 (SOME n) /\
+    opt_compare (SOME l1) r1 /\ opt_compare (SOME l2) r2 /\
+    interval_intersect (SOME l1, r1) (SOME l2, r2) ==>
+    ?v. point_inside_interval (SOME l1, r1) v  /\ point_inside_interval (SOME l2, r2) v /\ v <= n`,
+    rw [interval_intersect_def, point_inside_interval_def] >>
+    `l1 <= l2 \/ l2 <= l1` by intLib.COOPER_TAC
+    THEN1 (qexists_tac `l2` >> rw [opt_compare_def])
+    THEN1 (qexists_tac `l1` >> rw [opt_compare_def])
+)
+*)
+
+val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_live_tree_lemma",
+    `!lt n_in beg_out end_out f live flive.
+    check_startlive_prop lt n_in beg_out end_out (n_in - size_of_live_tree lt) /\
+    check_number_property_strong (\n (live' : num_set). !r. r IN domain live' ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) lt n_in live  /\
+    check_number_property (\n (live' : num_set). !r. r IN domain live' ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) lt n_in live /\
+    check_number_property_strong (\n (live' : num_set). domain live' SUBSET domain end_out) lt n_in live /\
+    domain beg_out = domain end_out /\
+    live_tree_registers lt SUBSET domain end_out /\
+    check_intervals f beg_out end_out /\
+    domain flive = IMAGE f (domain live) /\
+    INJ f (domain live) UNIV ==>
+    ?liveout fliveout. check_live_tree f lt live flive = SOME (liveout, fliveout)`,
+
+    Induct_on `lt` >>
+    rw [check_number_property_def, check_number_property_strong_def, check_live_tree_def, check_startlive_prop_def, live_tree_registers_def]
+
+    (* StartLive *)
+    THEN1 (
+        fs [check_intervals_def] >>
+        sg `!r. MEM r l ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+            rw [] >>
+            `option_CASE (lookup r beg_out) (n_in - size_of_live_tree (StartLive l)) (\x.x) <= n_in /\ ?ve. lookup r end_out = SOME ve /\ n_in <= ve` by rw [] >>
+            `r IN domain beg_out` by fs [SUBSET_DEF] >>
+            `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
+            fs [] >>
+            rw [point_inside_interval_def, opt_compare_def]
+        ) >>
+        sg `!r. r IN domain (numset_list_delete l live) ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+            rw [] >>
+            res_tac >>
+            `r IN domain beg_out` by fs [SUBSET_DEF] >>
+            `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
+            fs [] >>
+            rw [point_inside_interval_def, opt_compare_def] >>
+            intLib.COOPER_TAC
+        ) >>
+        sg `!r. r IN set l UNION domain live ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+            rpt (gen_tac ORELSE disch_tac) >>
+            `MEM r l \/ r IN domain (numset_list_delete l live)` by fs [domain_numset_list_delete] >>
+            rw []
+        ) >>
+        sg `set l UNION domain live SUBSET domain beg_out` THEN1 (
+            REWRITE_TAC [SUBSET_DEF] >>
+            rpt strip_tac >>
+            `x IN set l \/ x IN domain (numset_list_delete l live)` by fs [domain_numset_list_delete] >>
+            fs [SUBSET_DEF]
+        ) >>
+        sg `INJ f (set l UNION domain live) UNIV` THEN1 (
+            REWRITE_TAC [INJ_DEF] >>
+            strip_tac
+            THEN1 rw [] >>
+            rpt strip_tac >>
+            res_tac >>
+            `x IN domain beg_out /\ y IN domain beg_out` by fs [SUBSET_DEF] >>
+            imp_res_tac exists_point_inside_interval_interval_intersect >>
+            rw []
+        ) >>
+        imp_res_tac check_partial_col_success >>
+        rw []
+    )
+
+    (* EndLive *)
+    THEN1 (
+        fs [check_intervals_def, domain_numset_list_insert] >>
+        sg `!r. MEM r l \/ r IN domain live ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+            rpt (gen_tac ORELSE disch_tac) >>
+            `option_CASE (lookup r beg_out) n_out (\x.x) <= n_in - 1` by fs [] >>
+            `?ve. lookup r end_out = SOME ve /\ n_in <= ve` by fs [] >>
+            `r IN domain beg_out` by fs [SUBSET_DEF] >>
+            `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
+            fs [] >>
+            rw [point_inside_interval_def, opt_compare_def] >>
+            intLib.COOPER_TAC
+        ) >>
+        sg `INJ f (set l UNION domain live) UNIV` THEN1 (
+            REWRITE_TAC [INJ_DEF] >>
+            strip_tac
+            THEN1 rw [] >>
+            rpt strip_tac >>
+            `point_inside_interval (lookup x beg_out, lookup x end_out) n_in` by fs [] >>
+            `point_inside_interval (lookup y beg_out, lookup y end_out) n_in` by fs [] >>
+            `x IN domain beg_out /\ y IN domain end_out` by fs [SUBSET_DEF] >>
+            imp_res_tac exists_point_inside_interval_interval_intersect >>
+            rw []
+        ) >>
+        imp_res_tac check_partial_col_success >>
+        rw []
+    )
+
+    (* Branch *)
+    THEN1 (
+        sg `?live2 flive2. check_live_tree f lt' live flive = SOME (live2, flive2)` THEN1 (
+            `n_in - size_of_live_tree lt' <= n_in - size_of_live_tree lt'` by intLib.COOPER_TAC >>
+            `0 <= size_of_live_tree lt` by rw [size_of_live_tree_positive] >>
+            `n_in - size_of_live_tree (Branch lt lt') <= n_in - size_of_live_tree lt'` by (rw [size_of_live_tree_def] >> intLib.COOPER_TAC) >>
+            `check_startlive_prop lt' n_in beg_out end_out (n_in - size_of_live_tree lt')` by metis_tac [check_startlive_prop_augment_ndef] >>
+            metis_tac []
+        ) >>
+        sg `?live1 flive1. check_live_tree f lt live flive = SOME (live1, flive1)` THEN1 (
+            `n_in - size_of_live_tree (Branch lt lt') = n_in - size_of_live_tree lt' - size_of_live_tree lt` by (rw [size_of_live_tree_def] >> intLib.COOPER_TAC) >>
+            metis_tac []
+        ) >>
+        rw [] >>
+        `live2 = get_live_backward lt' live` by metis_tac [check_live_tree_eq_get_live_backward] >>
+        `live1 = get_live_backward lt live` by metis_tac [check_live_tree_eq_get_live_backward] >>
+        `domain flive1 = IMAGE f (domain live1)` by metis_tac [check_live_tree_success] >>
+        rveq >>
+        fs [get_live_backward_def, domain_numset_list_insert, branch_domain, size_of_live_tree_def] >>
+        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==> point_inside_interval (lookup r beg_out, lookup r end_out) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
+            imp_res_tac check_number_property_intend >>
+            rw [] >>
+            res_tac >>
+            `n_in - size_of_live_tree lt' - size_of_live_tree lt = n_in - (size_of_live_tree lt + size_of_live_tree lt')` by intLib.COOPER_TAC >>
+            `r IN domain beg_out` by fs [SUBSET_DEF] >>
+            `?vb. lookup r beg_out = SOME vb` by fs [domain_lookup] >>
+            fs [point_inside_interval_def, opt_compare_def] >>
+            `0 <= size_of_live_tree lt` by rw [size_of_live_tree_positive] >>
+            intLib.COOPER_TAC
+        ) >>
+        sg `INJ f (domain (get_live_backward lt live) UNION domain (get_live_backward lt' live)) UNIV` THEN1 (
+            REWRITE_TAC [INJ_DEF] >>
+            strip_tac
+            THEN1 rw [] >>
+            rpt strip_tac >>
+            `point_inside_interval (lookup x beg_out, lookup x end_out) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` by fs [] >>
+            `point_inside_interval (lookup y beg_out, lookup y end_out) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` by fs [] >>
+            `x IN domain beg_out /\ y IN domain beg_out` by fs [SUBSET_DEF] >>
+            imp_res_tac exists_point_inside_interval_interval_intersect >>
+            fs [check_intervals_def]
+        ) >>
+        `INJ f (set (MAP FST (toAList (difference (get_live_backward lt' live) (get_live_backward lt live)))) UNION (domain (get_live_backward lt live))) UNIV` by rw [branch_domain] >>
+        metis_tac [check_partial_col_success]
+    )
+
+    (* Seq *)
+    THEN1 (
+        sg `?live2 flive2. check_live_tree f lt' live flive = SOME (live2, flive2)` THEN1 (
+            `n_in - size_of_live_tree lt' <= n_in - size_of_live_tree lt'` by intLib.COOPER_TAC >>
+            `0 <= size_of_live_tree lt` by rw [size_of_live_tree_positive] >>
+            `n_in - size_of_live_tree (Seq lt lt') <= n_in - size_of_live_tree lt'` by (rw [size_of_live_tree_def] >> intLib.COOPER_TAC) >>
+            `check_startlive_prop lt' n_in beg_out end_out (n_in - size_of_live_tree lt')` by metis_tac [check_startlive_prop_augment_ndef] >>
+            metis_tac []
+        ) >>
+        sg `?live1 flive1. check_live_tree f lt live2 flive2 = SOME (live1, flive1)` THEN1 (
+            `live2 = get_live_backward lt' live` by metis_tac [check_live_tree_eq_get_live_backward] >>
+            `domain flive2 = IMAGE f (domain live2) /\ INJ f (domain live2) UNIV` by metis_tac [check_live_tree_success] >>
+            `n_in - size_of_live_tree (Seq lt lt') = n_in - size_of_live_tree lt' - size_of_live_tree lt` by (rw [size_of_live_tree_def] >> intLib.COOPER_TAC) >>
+            metis_tac []
+        ) >>
+        rw []
+    )
+)
+
+val check_intervals_check_live_tree = Q.store_thm("check_intervals_check_live_tree",
+    `!lt n_out beg_out end_out f.
+    (n_out, beg_out, end_out) = get_intervals (fix_domination lt) 0 LN LN /\
+    check_intervals f beg_out end_out ==>
+    ?liveout fliveout. check_live_tree f (fix_domination lt) LN LN = SOME (liveout, fliveout)`,
+
+    rw [] >>
+    imp_res_tac get_intervals_check_startlive_prop >>
+    imp_res_tac get_intervals_beg_less_live >>
+    imp_res_tac get_intervals_live_less_end >>
+    imp_res_tac check_number_property_subset_endout >>
+    rpt (first_x_assum (qspec_then `LN` assume_tac)) >>
+    fs [lookup_def] >>
+    imp_res_tac get_intervals_domain_eq_live_tree_registers >>
+    `domain beg_out = domain end_out` by simp [] >>
+    `live_tree_registers (fix_domination lt) SUBSET domain end_out` by simp [SUBSET_DEF] >>
+    `domain (LN : num_set) = IMAGE f (domain (LN : num_set))` by rw [] >>
+    `INJ f (domain (LN : num_set)) UNIV` by rw [] >>
+    imp_res_tac get_intervals_nout >>
+    metis_tac [check_intervals_check_live_tree_lemma]
 )
 
 val _ = export_theory ();

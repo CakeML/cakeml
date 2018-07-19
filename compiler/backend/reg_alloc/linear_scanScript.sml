@@ -180,6 +180,24 @@ val get_live_backward_def = Define`
         get_live_backward lt1 (get_live_backward lt2 live)
     )`
 
+val get_live_forward_def = Define`
+    (
+      get_live_forward (StartLive l) live =
+        numset_list_insert l live
+    ) /\ (
+      get_live_forward (EndLive l) live =
+        numset_list_delete l live
+    ) /\ (
+      get_live_forward (Branch lt1 lt2) live =
+        let live1 = get_live_forward lt1 live in
+        let live2 = get_live_forward lt2 live in
+        numset_list_insert (MAP FST (toAList (difference live2 live1))) live1
+    ) /\ (
+      get_live_forward (Seq lt1 lt2) live =
+        let live1 = get_live_forward lt1 live in
+        get_live_forward lt2 (get_live_forward lt1 live)
+    )`
+
 val fix_domination_def = Define`
     fix_domination lt =
         let live = get_live_backward lt LN in
@@ -191,5 +209,181 @@ val fix_live_tree_def = Define`
     fix_live_tree lt = fix_domination (FST (fix_endlive lt LN))
 `
 
+val numset_list_add_if_def = Define`
+    (
+      numset_list_add_if [] (v:int) s P = s
+    ) /\ (
+      numset_list_add_if (x::xs) v s P =
+        case lookup x s of
+        | (SOME v') =>
+            if P v v' then numset_list_add_if xs v (insert x v s) P
+            else numset_list_add_if xs v s P
+        | NONE =>
+            numset_list_add_if xs v (insert x v s) P
+    )
+`
+
+val numset_list_add_if_lt_def = Define`
+    numset_list_add_if_lt l (v:int) s = numset_list_add_if l v s $<=
+`
+
+val numset_list_add_if_gt_def = Define`
+    numset_list_add_if_gt l (v:int) s = numset_list_add_if l v s (\a b. b <= a)
+`
+
+val size_of_live_tree_def = Define`
+    (
+      size_of_live_tree (StartLive l) =
+        1 : int
+    ) /\ (
+      size_of_live_tree (EndLive l) =
+        1 : int
+    ) /\ (
+      size_of_live_tree (Branch lt1 lt2) =
+        size_of_live_tree lt1 + size_of_live_tree lt2
+    ) /\ (
+      size_of_live_tree (Seq lt1 lt2) =
+        size_of_live_tree lt1 + size_of_live_tree lt2
+    )
+`
+
+val get_intervals_def = Define`
+    (
+      get_intervals (StartLive l) (n : int) int_beg int_end =
+        (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
+    ) /\ (
+      get_intervals (EndLive l) (n : int) int_beg int_end =
+        (n-1, numset_list_delete l int_beg, numset_list_add_if_gt l n int_end)
+    ) /\ (
+      get_intervals (Branch lt1 lt2) (n : int) int_beg int_end =
+        let (n2, int_beg2, int_end2) = get_intervals lt2 n int_beg int_end in
+        get_intervals lt1 n2 int_beg2 int_end2
+    ) /\ (
+      get_intervals (Seq lt1 lt2) (n : int) int_beg int_end =
+        let (n2, int_beg2, int_end2) = get_intervals lt2 n int_beg int_end in
+        get_intervals lt1 n2 int_beg2 int_end2
+    )
+`
+
+(* compute the same thing as `get_intervals` (as says the `get_intervals_withlive_beg_eq_get_intervals_beg` theorem), but has better invariants for the proofs *)
+val get_intervals_withlive_def = Define`
+    (
+      get_intervals_withlive (StartLive l) (n : int) int_beg int_end live =
+        (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
+    ) /\ (
+      get_intervals_withlive (EndLive l) (n : int) int_beg int_end live =
+        (n-1, numset_list_delete l int_beg, numset_list_add_if_gt l n int_end)
+    ) /\ (
+      get_intervals_withlive (Branch lt1 lt2) (n : int) int_beg int_end live =
+        let (n2, int_beg2, int_end2) = get_intervals_withlive lt2 n int_beg int_end live in
+        let (n1, int_beg1, int_end1) = get_intervals_withlive lt1 n2 (numset_list_delete (MAP FST (toAList live)) int_beg2) int_end2 live in
+        (n1, numset_list_delete (MAP FST (toAList (union (get_live_backward lt1 live) (get_live_backward lt2 live)))) int_beg1, int_end1)
+    ) /\ (
+      get_intervals_withlive (Seq lt1 lt2) (n : int) int_beg int_end live =
+        let (n2, int_beg2, int_end2) = get_intervals_withlive lt2 n int_beg int_end live in
+        let (n1, int_beg1, int_end1) = get_intervals_withlive lt1 n2 int_beg2 int_end2 (get_live_backward lt2 live) in
+        (n1, int_beg1, int_end1)
+    )
+`
+
+val check_number_property_def = Define`
+  (
+    check_number_property (P : int -> num_set -> bool) (StartLive l) n live =
+        let n_out = n-1 in
+        let live_out = numset_list_delete l live in
+        P n_out live_out
+  ) /\ (
+    check_number_property P (EndLive l) n live =
+        let n_out = n-1 in
+        let live_out = numset_list_insert l live in
+        P n_out live_out
+  ) /\ (
+    check_number_property P (Branch lt1 lt2) n live =
+        let r2 = check_number_property P lt2 n live in
+        let r1 = check_number_property P lt1 (n-(size_of_live_tree lt2)) live in
+        r1 /\ r2
+  ) /\ (
+    check_number_property P (Seq lt1 lt2) n live =
+        let r2 = check_number_property P lt2 n live in
+        let r1 = check_number_property P lt1 (n-size_of_live_tree lt2) (get_live_backward lt2 live) in
+        r1 /\ r2
+  )
+`
+
+val check_number_property_strong_def = Define`
+  (
+    check_number_property_strong (P : int -> num_set -> bool) (StartLive l) n live =
+        let n_out = n-1 in
+        let live_out = numset_list_delete l live in
+        P n_out live_out
+  ) /\ (
+    check_number_property_strong P (EndLive l) n live =
+        let n_out = n-1 in
+        let live_out = numset_list_insert l live in
+        P n_out live_out
+  ) /\ (
+    check_number_property_strong P (Branch lt1 lt2) n live =
+        let r2 = check_number_property_strong P lt2 n live in
+        let r1 = check_number_property_strong P lt1 (n-(size_of_live_tree lt2)) live in
+        r1 /\ r2 /\ P (n - (size_of_live_tree (Branch lt1 lt2))) (get_live_backward (Branch lt1 lt2) live)
+  ) /\ (
+    check_number_property_strong P (Seq lt1 lt2) n live =
+        let r2 = check_number_property_strong P lt2 n live in
+        let r1 = check_number_property_strong P lt1 (n-size_of_live_tree lt2) (get_live_backward lt2 live) in
+        r1 /\ r2
+  )
+`
+
+val check_startlive_prop_def = Define`
+  (
+    check_startlive_prop (StartLive l) n beg end ndef =
+        !r. MEM r l ==> (option_CASE (lookup r beg) ndef (\x.x) <= n /\
+                        (?v. lookup r end = SOME v /\ n <= v))
+  ) /\ (
+    check_startlive_prop (EndLive l) n beg end ndef =
+        T
+  ) /\ (
+    check_startlive_prop (Branch lt1 lt2) n beg end ndef =
+        let r2 = check_startlive_prop lt2 n beg end ndef in
+        let r1 = check_startlive_prop lt1 (n-(size_of_live_tree lt2)) beg end ndef in
+        r1 /\ r2
+  ) /\ (
+    check_startlive_prop (Seq lt1 lt2) n beg end ndef =
+        let r2 = check_startlive_prop lt2 n beg end ndef in
+        let r1 = check_startlive_prop lt1 (n-size_of_live_tree lt2) beg end ndef in
+        r1 /\ r2
+  )`
+
+val live_tree_registers_def = Define`
+    (live_tree_registers (StartLive l) = set l) /\
+    (live_tree_registers (EndLive l) = EMPTY) /\
+    (live_tree_registers (Branch lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2) /\
+    (live_tree_registers (Seq lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2)
+`
+
+val opt_compare_def = Define`
+    (
+        opt_compare (SOME (n1:int)) (SOME (n2:int)) = (n1 <= n2)
+    ) /\ (
+        opt_compare _ _ = T
+    )
+`
+
+val interval_intersect_def = Define`
+    interval_intersect (l1, r1) (l2, r2) = (opt_compare l1 r2 /\ opt_compare l2 r1)
+`
+
+val point_inside_interval_def = Define`
+    point_inside_interval (l, r) n = (opt_compare l (SOME n) /\ opt_compare (SOME n) r)
+`
+
+val check_intervals_def = Define`
+    check_intervals f int_beg int_end = !r1 r2.
+      r1 IN domain int_beg /\ r2 IN domain int_beg /\
+      interval_intersect (lookup r1 int_beg, lookup r1 int_end) (lookup r2 int_beg, lookup r2 int_end) /\
+      f r1 = f r2
+      ==>
+      r1 = r2
+`
 
 val _ = export_theory ();
