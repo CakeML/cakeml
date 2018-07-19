@@ -253,7 +253,7 @@ val get_intervals_def = Define`
         (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
     ) /\ (
       get_intervals (EndLive l) (n : int) int_beg int_end =
-        (n-1, numset_list_delete l int_beg, numset_list_add_if_gt l n int_end)
+        (n-1, int_beg, numset_list_add_if_gt l n int_end)
     ) /\ (
       get_intervals (Branch lt1 lt2) (n : int) int_beg int_end =
         let (n2, int_beg2, int_end2) = get_intervals lt2 n int_beg int_end in

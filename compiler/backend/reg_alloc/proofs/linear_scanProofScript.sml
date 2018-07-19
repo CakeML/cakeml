@@ -2069,28 +2069,12 @@ val get_intervals_beg_subset_registers = Q.store_thm("get_intervals_beg_subset_r
     Induct_on `lt` >>
     rw [get_intervals_def, live_tree_registers_def]
     THEN1 rw [domain_numset_list_add_if_lt]
-    THEN1 rw [domain_numset_list_delete]
     >>
     rpt (pairarg_tac >> fs []) >>
     `domain int_beg2 SUBSET (domain beg_in UNION (live_tree_registers lt'))` by metis_tac [] >>
     `domain beg_out SUBSET (domain int_beg2 UNION (live_tree_registers lt))` by metis_tac [] >>
     fs [SUBSET_DEF] >>
     metis_tac []
-)
-
-(* TODO: remove me *)
-val get_intervals_withlive_beg_subset_registers = Q.store_thm("get_intervals_withlive_beg_subset_registers",
-    `!lt n_in beg_in end_in live n_out beg_out end_out.
-    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live ==>
-    domain beg_out SUBSET (domain beg_in UNION (live_tree_registers lt))`,
-
-    rw [] >>
-    `?x. x = get_intervals lt n_in beg_in end_in` by rw [] >>
-    PairCases_on `x` >>
-    `domain beg_in SUBSET domain beg_in` by rw [] >>
-    `domain beg_out SUBSET domain x1` by metis_tac [get_intervals_withlive_beg_subset_get_intervals_beg] >>
-    `domain x1 SUBSET (domain beg_in UNION (live_tree_registers lt))` by metis_tac [get_intervals_beg_subset_registers] >>
-    fs [SUBSET_DEF]
 )
 
 val set_MAP_FST_toAList = Q.store_thm("set_MAP_FST_toAList",
@@ -2563,21 +2547,6 @@ val exists_point_inside_interval_interval_intersect = Q.store_thm("exists_point_
     fs [opt_compare_def] >>
     intLib.COOPER_TAC
 )
-
-(*
-val interval_intersect_exists_point_inside_interval = Q.store_thm("interval_intersect_exists_point_inside_interval",
-    `!l1 r1 l2 r2 n.
-    l1 <= n /\ opt_compare r1 (SOME n) /\
-    l2 <= n /\ opt_compare r2 (SOME n) /\
-    opt_compare (SOME l1) r1 /\ opt_compare (SOME l2) r2 /\
-    interval_intersect (SOME l1, r1) (SOME l2, r2) ==>
-    ?v. point_inside_interval (SOME l1, r1) v  /\ point_inside_interval (SOME l2, r2) v /\ v <= n`,
-    rw [interval_intersect_def, point_inside_interval_def] >>
-    `l1 <= l2 \/ l2 <= l1` by intLib.COOPER_TAC
-    THEN1 (qexists_tac `l2` >> rw [opt_compare_def])
-    THEN1 (qexists_tac `l1` >> rw [opt_compare_def])
-)
-*)
 
 val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_live_tree_lemma",
     `!lt n_in beg_out end_out f live flive.
