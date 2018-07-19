@@ -1287,6 +1287,7 @@ fun find_equality_types asl eqTypeThms =
               let
                   val proved_subgoals = List.map prove_EqualityType intermEqTypes
                   val proved_thm = List.foldl (fn (hyp, th) => MP th hyp) th proved_subgoals
+                  val proved_thm = assert (List.null o hyp) proved_thm
               in
                   proved_thm
               end
