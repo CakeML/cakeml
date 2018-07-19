@@ -203,7 +203,8 @@ val st = get_ml_prog_state();
 val diff_whole_prog_spec = Q.store_thm("diff_whole_prog_spec",
   `hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"diff"st) cl fs ((=) (diff_sem cl fs))`,
-  rw[whole_prog_spec_def]
+  strip_tac
+  \\ rw[whole_prog_spec_def]
   \\ qexists_tac`diff_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[diff_sem_def,GSYM add_stdo_with_numchars,with_same_numchars] )
