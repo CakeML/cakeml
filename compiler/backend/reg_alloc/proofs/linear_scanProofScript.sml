@@ -1718,10 +1718,9 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
     THEN1 (
       rpt (pairarg_tac >> fs []) >>
       `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
-      qabbrev_tac `listlive = (MAP FST (toAList live))` >>
-      `!r v. lookup r (numset_list_delete listlive int_beg2) = SOME v ==> n2 <= v` by (rw [lookup_numset_list_delete] >> res_tac) >>
-      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r (numset_list_delete listlive int_beg2)) n2 (\x.x)) /\ (!r v. lookup r (numset_list_delete listlive int_beg2) = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
-      fs [lookup_numset_list_delete] >>
+      `!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v` by (rw [lookup_difference] >> res_tac) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r (difference int_beg2 live)) n2 (\x.x)) /\ (!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      fs [lookup_difference] >>
       `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
       `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
       `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
@@ -1730,9 +1729,8 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
           rpt (first_x_assum (qspec_then `r` assume_tac)) >>
           rpt CASE_TAC >>
           Cases_on `lookup r int_beg1` >> Cases_on `lookup r int_beg2` >>
-          Cases_on `MEM r listlive` >>
+          Cases_on `lookup r live` >>
           rfs [] >> fs [] >> rw [] >>
-          rpt (qpat_x_assum `MEM _ _` kall_tac) >>
           rpt (qpat_x_assum `lookup _ _ = _` kall_tac) >>
           intLib.COOPER_TAC
       )
@@ -1810,7 +1808,7 @@ val get_intervals_withlive_live_intbeg = Q.store_thm("get_intervals_withlive_liv
     (* Branch *)
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
-        simp [domain_numset_list_delete, MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+        simp [domain_difference] >>
         fs [domain_numset_list_insert, branch_domain] >>
         `!s. lookup r s = SOME () <=> r IN domain s` by rw [domain_lookup] >>
         simp [] >>
@@ -1852,52 +1850,61 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
         `check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r int_beg2) n2 (\x.x) <= n) lt' n_in live_in` by metis_tac [] >>
-        `!r. r IN domain live_in ==> r NOTIN domain (numset_list_delete (MAP FST (toAList live_in)) int_beg2)` by (rw [domain_numset_list_delete, MEM_MAP, EXISTS_PROD, MEM_toAList] >> fs [domain_lookup]) >>
-        `!r v. lookup r (numset_list_delete (MAP FST (toAList live_in)) int_beg2) = SOME v ==> n2 <= v` by (rw [lookup_numset_list_delete] >> metis_tac [get_intervals_withlive_intbeg_nout]) >>
+        `!r. r IN domain live_in ==> r NOTIN domain (difference int_beg2 live_in)` by (rw [domain_difference] >> fs [domain_lookup]) >>
+        `!r v. lookup r (difference int_beg2 live_in) = SOME v ==> n2 <= v` by (rw [lookup_difference] >> metis_tac [get_intervals_withlive_intbeg_nout]) >>
         `!r v. lookup r int_beg1 = SOME v ==> n1 <= v` by metis_tac [get_intervals_withlive_intbeg_nout] >>
         `check_number_property_strong (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r int_beg1) n1 (\x.x) <= n) lt n2 live_in` by metis_tac [] >>
         `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
         `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
         `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
         fs [] >>
-        `set (MAP FST (toAList (union (get_live_backward lt live_in) (get_live_backward lt' live_in)))) = domain (get_live_backward lt live_in) UNION domain (get_live_backward lt' live_in)` by (
-            rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup, lookup_union] >>
-            every_case_tac >> rw []
-        ) >>
-        qabbrev_tac `list_union = MAP FST (toAList (union (get_live_backward lt live_in) (get_live_backward lt' live_in)))` >>
+        `domain (union (get_live_backward lt live_in) (get_live_backward lt' live_in)) = domain (get_live_backward lt live_in) UNION domain (get_live_backward lt' live_in)` by rw [domain_union] >>
+        qabbrev_tac `set_union = union (get_live_backward lt live_in) (get_live_backward lt' live_in)` >>
         rpt strip_tac
         THEN1 (
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
-            rw [lookup_numset_list_delete] >>
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+            rw [lookup_difference] >>
             rpt CASE_TAC >>
             first_x_assum (qspec_then `r` assume_tac) >>
             rfs [] >> intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`] assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
         THEN1 (
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
-            rw [lookup_numset_list_delete] >>
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+            rw [lookup_difference] >>
             rpt CASE_TAC
             THEN1 intLib.COOPER_TAC
-            THEN1 intLib.COOPER_TAC >>
-            `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r (numset_list_delete (MAP FST (toAList live_in)) int_beg2)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
-            rpt (last_x_assum (qspec_then `r` assume_tac)) >>
-            rfs [lookup_numset_list_delete] >>
-            Cases_on `MEM r (MAP FST (toAList live_in))` >> fs []
-            THEN1 intLib.COOPER_TAC >>
-            Cases_on `lookup r int_beg2` >> fs [] >>
-            intLib.COOPER_TAC
+            THEN1 (
+              `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r (difference int_beg2 live_in)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+              rpt (last_x_assum (qspec_then `r` assume_tac)) >>
+              rfs [lookup_difference] >>
+              Cases_on `lookup r live_in` >> fs []
+              THEN1 intLib.COOPER_TAC >>
+              Cases_on `lookup r int_beg2` >> fs [] >>
+              intLib.COOPER_TAC
+            )
+            THEN1 intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (numset_list_delete list_union int_beg1)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
         THEN1 (
-          fs [domain_numset_list_insert, branch_domain, lookup_numset_list_delete] >>
-          rw [size_of_live_tree_def] >>
-          intLib.COOPER_TAC
+          fs [domain_numset_list_insert, branch_domain, lookup_difference] >>
+          (
+            rw [size_of_live_tree_def]
+            THEN1 (
+              CASE_TAC
+              THEN1 intLib.COOPER_TAC
+              THEN1 (
+                `r NOTIN domain set_union` by fs [lookup_NONE_domain] >>
+                rfs []
+              )
+            )
+            THEN1 intLib.COOPER_TAC
         )
+      )
     )
 
     (* Seq *)
@@ -1994,23 +2001,21 @@ val get_intervals_withlive_beg_eq_get_intervals_beg_when_some = Q.store_thm("get
     )
     (* Branch *)
     THEN1 (
-        qabbrev_tac `l1 = MAP FST (toAList live)` >>
-        qabbrev_tac `l2 = MAP FST (toAList (union (get_live_backward lt live) (get_live_backward lt' live)))` >>
-        `!r v1 v2. lookup r int_beg2' = SOME v1 /\ lookup r (numset_list_delete l1 int_beg2) = SOME v2 ==> v1 = v2` by (
-            simp [lookup_numset_list_delete] >> rpt strip_tac >>
+        `!r v1 v2. lookup r int_beg2' = SOME v1 /\ lookup r (difference int_beg2 live) = SOME v2 ==> v1 = v2` by (
+            simp [lookup_difference] >> rpt strip_tac >>
             metis_tac []
         ) >>
         `!r v1 v2. lookup r beg1 = SOME v1 /\ lookup r int_beg1 = SOME v2 ==> v1 = v2` by (
-            `!r v. lookup r (numset_list_delete l1 int_beg2) = SOME v ==> n2' <= v` by (rw [lookup_numset_list_delete] >> res_tac) >>
+            `!r v. lookup r (difference int_beg2 live) = SOME v ==> n2' <= v` by (rw [lookup_difference] >> res_tac) >>
             rveq >>
-            last_x_assum (qspecl_then [`n2'`, `int_beg2'`, `numset_list_delete l1 int_beg2`, `int_end2`, `n1`, `beg1`, `end1`, `n1'`, `int_beg1`, `end2`, `live`] assume_tac) >>
+            last_x_assum (qspecl_then [`n2'`, `int_beg2'`, `difference int_beg2 live`, `int_end2`, `n1`, `beg1`, `end1`, `n1'`, `int_beg1`, `end2`, `live`] assume_tac) >>
             rpt strip_tac >>
             res_tac >>
             metis_tac []
         ) >>
-        REWRITE_TAC [lookup_numset_list_delete] >>
+        REWRITE_TAC [lookup_difference] >>
         rpt strip_tac >>
-        Cases_on `MEM r l2` >> fs [] >>
+        Cases_on `lookup r (union (get_live_backward lt live) (get_live_backward lt' live))` >> fs [] >>
         res_tac
     )
     (* Seq *)
@@ -2050,9 +2055,9 @@ val get_intervals_withlive_beg_subset_get_intervals_beg = Q.store_thm("get_inter
     `domain int_beg2' SUBSET domain int_beg2` by metis_tac []
     (* Branch *)
     THEN1 (
-        `domain (numset_list_delete (MAP FST (toAList live)) int_beg2') SUBSET domain int_beg2` by (rw [domain_numset_list_delete] >> fs [SUBSET_DEF]) >>
+        `domain (difference int_beg2' live) SUBSET domain int_beg2` by (rw [domain_difference] >> fs [SUBSET_DEF]) >>
         `domain int_beg1 SUBSET domain beg_out2` by metis_tac [] >>
-        rw [domain_numset_list_delete] >>
+        rw [domain_difference] >>
         fs [SUBSET_DEF]
     )
     (* Seq *)
@@ -2077,11 +2082,6 @@ val get_intervals_beg_subset_registers = Q.store_thm("get_intervals_beg_subset_r
     metis_tac []
 )
 
-val set_MAP_FST_toAList = Q.store_thm("set_MAP_FST_toAList",
-    `!s. set (MAP FST (toAList s)) = domain s`,
-    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
-)
-
 val get_intervals_withlive_beg_monotone = Q.store_thm("get_intervals_withlive_beg_monotone",
     `!lt n beg end live n' beg' end' (s : int num_map) n1 beg1 end1 n2 beg2 end2.
     (n1, beg1, end1) = get_intervals_withlive lt n beg end live /\
@@ -2091,33 +2091,33 @@ val get_intervals_withlive_beg_monotone = Q.store_thm("get_intervals_withlive_be
 
     Induct_on `lt` >>
     rw [get_intervals_withlive_def]
-
+    (* StartLive *)
     THEN1 (
         rw [domain_numset_list_add_if_lt, domain_union] >>
         qexists_tac `s` >>
         rw [SUBSET_DEF, EXTENSION] >>
         eq_tac >> rw [] >> rw []
     )
-
+    (* EndLive *)
     THEN1 (
         rw [domain_numset_list_delete, domain_union] >>
         qexists_tac `numset_list_delete l s` >>
         rw [EXTENSION, SUBSET_DEF, domain_numset_list_delete] >>
         eq_tac >> rw [] >> rw []
     )
-
+    (* Branch *)
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
         `?(s' : int num_map). domain int_beg2 = domain int_beg2' UNION domain s' /\ domain s' SUBSET domain s` by metis_tac [] >>
-        sg `domain (numset_list_delete (MAP FST (toAList live)) int_beg2) = domain (numset_list_delete (MAP FST (toAList live)) int_beg2') UNION domain (difference s' live)` THEN1 (
-            rw [domain_numset_list_delete, set_MAP_FST_toAList, domain_difference] >>
+        sg `domain (difference int_beg2 live) = domain (difference int_beg2' live) UNION domain (difference s' live)` THEN1 (
+            rw [domain_difference] >>
             rw [EXTENSION] >> eq_tac >> rw [] >> rw []
         ) >>
         `domain (difference s' live) SUBSET domain s'` by rw [domain_difference, SUBSET_DEF] >>
         qabbrev_tac `s'' = difference s' live` >>
         `?(s''' : int num_map). domain int_beg1 = domain int_beg1' UNION domain s''' /\ domain s''' SUBSET domain s''` by metis_tac [] >>
         qexists_tac `difference s''' (union (get_live_backward lt live) (get_live_backward lt' live))` >>
-        rw [domain_numset_list_delete, set_MAP_FST_toAList, domain_union, domain_difference]
+        rw [domain_difference]
         THEN1 (
           rw [EXTENSION] >>
           eq_tac >> rw [] >> rw []
@@ -2126,7 +2126,7 @@ val get_intervals_withlive_beg_monotone = Q.store_thm("get_intervals_withlive_be
             fs [SUBSET_DEF]
         )
     )
-
+    (* Seq *)
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
         `?(s' : int num_map). domain int_beg2 = domain int_beg2' UNION domain s' /\ domain s' SUBSET domain s` by metis_tac [] >>
@@ -2164,24 +2164,24 @@ val get_intervals_withlive_registers_subset_beg = Q.store_thm("get_intervals_wit
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
         `domain int_end2 SUBSET domain int_beg2 UNION domain (get_live_backward lt' live_in)` by metis_tac [] >>
-        sg `?n1' int_beg1' int_end1'. (n1', int_beg1', int_end1') = get_intervals_withlive lt n2 (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) int_end2 live_in` THEN1 (
-            `?x. x = get_intervals_withlive lt n2 (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) int_end2 live_in` by rw [] >>
+        sg `?n1' int_beg1' int_end1'. (n1', int_beg1', int_end1') = get_intervals_withlive lt n2 (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) int_end2 live_in` THEN1 (
+            `?x. x = get_intervals_withlive lt n2 (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) int_end2 live_in` by rw [] >>
             PairCases_on `x` >>
             metis_tac []
         ) >>
         `int_end1' = int_end1` by (`?x. x = get_intervals lt n2 LN int_end2` by rw [] >> PairCases_on `x` >> metis_tac [get_intervals_withlive_end_eq_get_intervals_end]) >>
         rveq >>
-        sg `domain int_end2 SUBSET domain (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) UNION domain live_in` THEN1 (
-            rw [domain_union, domain_numset_list_delete, set_MAP_FST_toAList, domain_difference, SUBSET_DEF] >>
+        sg `domain int_end2 SUBSET domain (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) UNION domain live_in` THEN1 (
+            rw [domain_union, domain_difference, SUBSET_DEF] >>
             metis_tac []
         ) >>
         `domain end_out SUBSET domain int_beg1' UNION domain (get_live_backward lt live_in)` by metis_tac [] >>
         sg `?(setunion : int num_map). domain int_beg1' = domain int_beg1 UNION domain setunion /\ domain setunion SUBSET domain (difference int_end2 int_beg2)` THEN1 (
-            `domain (union (numset_list_delete (MAP FST (toAList live_in)) int_beg2) (difference int_end2 int_beg2)) = domain (numset_list_delete (MAP FST (toAList live_in)) int_beg2) UNION domain (difference int_end2 int_beg2)` by rw [domain_union] >>
+            `domain (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) = domain (difference int_beg2 live_in) UNION domain (difference int_end2 int_beg2)` by rw [domain_union] >>
             metis_tac [get_intervals_withlive_beg_monotone]
         ) >>
         fs [domain_numset_list_insert, branch_domain] >>
-        fs [domain_numset_list_delete, set_MAP_FST_toAList, domain_union, domain_difference] >>
+        fs [domain_union, domain_difference] >>
         fs [SUBSET_DEF] >>
         rw [] >>
         Cases_on `x IN domain (get_live_backward lt' live_in)` >> fs [] >>
@@ -2531,9 +2531,6 @@ val get_intervals_check_startlive_prop = Q.store_thm("get_intervals_check_startl
         metis_tac [check_startlive_prop_monotone]
     )
 )
-
-
-
 
 val exists_point_inside_interval_interval_intersect = Q.store_thm("exists_point_inside_interval_interval_intersect",
     `!l1 r1 l2 r2 v.

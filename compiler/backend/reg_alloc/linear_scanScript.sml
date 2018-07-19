@@ -265,7 +265,8 @@ val get_intervals_def = Define`
     )
 `
 
-(* compute the same thing as `get_intervals` (as says the `get_intervals_withlive_beg_eq_get_intervals_beg` theorem), but has better invariants for the proofs *)
+(* compute the same thing as `get_intervals` (as says the `get_intervals_withlive_beg_eq_get_intervals_beg` theorem),
+ * but has the following invariant: !r. r IN domain live ==> r NOTIN domain beg_in (as stated by the `get_intervals_withlive_live_intbeg` theorem *)
 val get_intervals_withlive_def = Define`
     (
       get_intervals_withlive (StartLive l) (n : int) int_beg int_end live =
@@ -276,8 +277,8 @@ val get_intervals_withlive_def = Define`
     ) /\ (
       get_intervals_withlive (Branch lt1 lt2) (n : int) int_beg int_end live =
         let (n2, int_beg2, int_end2) = get_intervals_withlive lt2 n int_beg int_end live in
-        let (n1, int_beg1, int_end1) = get_intervals_withlive lt1 n2 (numset_list_delete (MAP FST (toAList live)) int_beg2) int_end2 live in
-        (n1, numset_list_delete (MAP FST (toAList (union (get_live_backward lt1 live) (get_live_backward lt2 live)))) int_beg1, int_end1)
+        let (n1, int_beg1, int_end1) = get_intervals_withlive lt1 n2 (difference int_beg2 live) int_end2 live in
+        (n1, difference int_beg1 (union (get_live_backward lt1 live) (get_live_backward lt2 live)), int_end1)
     ) /\ (
       get_intervals_withlive (Seq lt1 lt2) (n : int) int_beg int_end live =
         let (n2, int_beg2, int_end2) = get_intervals_withlive lt2 n int_beg int_end live in
