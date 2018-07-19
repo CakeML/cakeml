@@ -4,6 +4,271 @@ struct
 open preamble ml_progLib cfTacticsLib ml_translatorTheory
      eqSolveRewriteLib Satisfy cfLetAutoTheory
 
+(*********************************************************************************
+ *
+ * Theorems, conversions, solvers used by the xlet_auto tactic
+ * these appear first so they can be skipped easily for debugging
+   in which case use these instead:
+
+START REFS
+
+val get_frame_thms = cfLetAutoLib.get_frame_thms
+val get_equality_type_thms = cfLetAutoLib.get_equality_type_thms
+val get_RI_defs = cfLetAutoLib.get_RI_defs
+val get_expand_thms = cfLetAutoLib.get_expand_thms
+val get_retract_thms = cfLetAutoLib.get_retract_thms
+val get_intro_rewrite_thms = cfLetAutoLib.get_intro_rewrite_thms
+val get_rewrite_thms = cfLetAutoLib.get_rewrite_thms
+val get_default_simpset = cfLetAutoLib.get_default_simpset
+ *
+ *********************************************************************************)
+
+(* Auxiliary function for the exporters *)
+fun mk_export_f f (thy_name : string) (named_thms : (string * thm) list) =
+  f (List.map snd named_thms);
+
+(* Theorems used to compute the frame *)
+val FRAME_THMS = ref [REF_HPROP_INJ,
+                      ARRAY_HPROP_INJ,
+                      W8ARRAY_HPROP_INJ
+                     ];
+
+fun add_frame_thms thms = FRAME_THMS := (thms  @ !FRAME_THMS);
+fun get_frame_thms () = !FRAME_THMS;
+
+val {mk,dest,export} = ThmSetData.new_exporter "hprop_inj"
+                                               (mk_export_f add_frame_thms);
+
+fun export_frame_thms slist = List.app export slist;
+
+(* Refinement invariants: definitions *)
+val RI_DEFSL = ref ([] : thm list);
+fun add_RI_defs defs = (RI_DEFSL := defs @ !RI_DEFSL);
+fun get_RI_defs uv = !RI_DEFSL;
+
+(* Theorem generation *)
+fun generate_expand_retract_thms ri_defs =
+  let
+      val ri_l = List.map (fn x => SPEC_ALL x |> concl |> dest_eq |> fst) ri_defs
+      fun inst_ri ri =
+        let
+            val ty = dest_type (type_of ri) |> snd |> List.hd
+            val v = mk_var ("v", ty)
+            val v' = variant (free_vars ri) v
+        in
+            mk_comb (ri, v')
+        end
+        handle HOL_ERR _ => ri
+             | Empty => ri
+      val inst_ri_l = List.map inst_ri ri_l
+      val expandThms = List.map (GEN_ALL o (SIMP_CONV (srw_ss()) (ri_defs @ !RI_DEFSL))) inst_ri_l
+      val retractThms = List.map GSYM expandThms
+  in
+      (expandThms, retractThms)
+  end;
+
+(* Theorems to expand or retract the definitions of refinement invariants*)
+val RI_EXPAND_THMSL = ref ([UNIT_TYPE_EXPAND] : thm list);
+val RI_RETRACT_THMSL = ref ([UNIT_TYPE_RETRACT] : thm list);
+fun add_expand_retract_thms expandThms retractThms =
+  (RI_EXPAND_THMSL := expandThms @ !RI_EXPAND_THMSL;
+   RI_RETRACT_THMSL := retractThms @ !RI_RETRACT_THMSL);
+
+fun get_expand_thms () = !RI_EXPAND_THMSL;
+fun get_retract_thms () = !RI_RETRACT_THMSL;
+
+val EXPAND_TAC = FULL_SIMP_TAC (srw_ss()) (get_expand_thms());
+val RETRACT_TAC = FULL_SIMP_TAC (srw_ss()) (get_retract_thms());
+val REWRITE_RI_TAC = EXPAND_TAC THEN RETRACT_TAC;
+
+(* List of equality types *)
+val EQUALITY_TYPE_THMS = ref ([] : thm list);
+
+fun add_equality_type_thms thms =
+  (EQUALITY_TYPE_THMS := (List.concat (List.map CONJUNCTS thms))
+                         @ !EQUALITY_TYPE_THMS);
+fun get_equality_type_thms () = !EQUALITY_TYPE_THMS;
+
+(* Unicity theorems *)
+val INTRO_RW_THMS = ref ([NUM_INT_EQ, LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT, EQTYPE_UNICITY_R, EQTYPE_UNICITY_L]);
+
+fun add_intro_rewrite_thms thms = (INTRO_RW_THMS := thms @ !INTRO_RW_THMS);
+fun get_intro_rewrite_thms () = !INTRO_RW_THMS;
+
+(* Automatic generation of theorems *)
+fun generate_RI_unicity_thms eq_type_thms =
+  let
+      fun get_ref_inv th = concl th |> dest_comb |> snd
+      fun get_types ref_inv =
+        let
+            fun two_el [x,y] = (x,y)
+              | two_el _     = failwith "get_types"
+            val (t1,t') = type_of ref_inv |> dest_type |> snd |> two_el
+            val (t2, _) = dest_type t' |> snd |> two_el
+        in
+            (t1, t2)
+        end
+      fun gen_left_rule eq_type_thm =
+        let
+            val ref_inv = get_ref_inv eq_type_thm
+            val (t1, t2) = get_types ref_inv
+            val th1 = Thm.INST_TYPE [alpha |-> t1, beta |-> t2] EQTYPE_UNICITY_L
+            val th2 = SPEC ref_inv th1
+            val (x1, x2, y) = (mk_var("x1", t1), mk_var("x2", t1), mk_var("y", t2))
+            val th3 = SPECL [x1, x2, y] th2
+            val th4 = MP th3 eq_type_thm
+            val th5 = GEN_ALL th4
+        in
+            th5
+        end
+      fun gen_right_rule eq_type_thm =
+        let
+            val ref_inv = get_ref_inv eq_type_thm
+            val (t1, t2) = get_types ref_inv
+            val th1 = Thm.INST_TYPE [alpha |-> t1, beta |-> t2] EQTYPE_UNICITY_R
+            val th2 = SPEC ref_inv th1
+            val (x, y1, y2) = (mk_var("x", t1), mk_var("y1", t2), mk_var("y2", t2))
+            val th3 = SPECL [x, y1, y2] th2
+            val th4 = MP th3 eq_type_thm
+            val th5 = GEN_ALL th4
+        in
+            th5
+        end
+      val eq_type_thms = List.concat(List.map CONJUNCTS eq_type_thms)
+      val left_rules = List.map gen_left_rule eq_type_thms
+      val right_rules = List.map gen_right_rule eq_type_thms
+  in
+      List.concat [left_rules, right_rules]
+  end;
+
+fun export_equality_type_thms_aux thms =
+  let
+      val thms = List.map (CONV_RULE (PURE_REWRITE_CONV [satTheory.AND_IMP])) thms
+      (* val unicity_thms = generate_RI_unicity_thms thms *)
+  in
+      add_equality_type_thms thms
+      (* ; add_intro_rewrite_thms unicity_thms *)
+  end;
+
+val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
+                        (mk_export_f export_equality_type_thms_aux);
+
+fun export_equality_type_thms slist = List.app export slist;
+
+val _ = export_equality_type_thms_aux [EqualityType_NUM_BOOL,
+                                       EqualityType_LIST_TYPE,
+                                       EqualityType_PAIR_TYPE];
+
+(* Basic rewrite theorems *)
+val RW_THMS = ref [(* Handle the int_of_num operator *)
+                    integerTheory.INT_ADD,
+                    INT_OF_NUM_TIMES,
+                    INT_OF_NUM_LE,
+                    INT_OF_NUM_LESS,
+                    INT_OF_NUM_GE,
+                    INT_OF_NUM_GREAT,
+                    INT_OF_NUM_EQ,
+                    INT_OF_NUM_SUBS,
+                    INT_OF_NUM_SUBS_2,
+
+                    (* Handle lists *)
+                    LENGTH_NIL,
+                    LENGTH_NIL_SYM,
+                    REPLICATE_APPEND_DECOMPOSE,
+                    REPLICATE_APPEND_DECOMPOSE_SYM,
+                    LIST_REL_DECOMPOSE_RIGHT,
+                    LIST_REL_DECOMPOSE_LEFT,
+                    LENGTH_REPLICATE,
+                    TAKE_LENGTH_ID,
+                    DROP_nil,
+                    DROP_LENGTH_TOO_LONG,
+                    NULL_EQ,
+                    (* REPLICATE *)
+                    (* REPLICATE_PLUS_ONE *)
+
+                    (*mlbasicsProgTheory.not_def*)
+
+                    (* Arithmetic equations simplification *)
+                    NUM_EQ_SIMP1,
+                    NUM_EQ_SIMP2,
+                    NUM_EQ_SIMP3,
+                    NUM_EQ_SIMP4,
+                    NUM_EQ_SIMP5,
+                    NUM_EQ_SIMP6,
+                    NUM_EQ_SIMP7,
+                    NUM_EQ_SIMP8,
+                    NUM_EQ_SIMP9,
+                    NUM_EQ_SIMP10,
+                    NUM_EQ_SIMP11,
+                    NUM_EQ_SIMP12,
+                    MIN_DEF
+                   ];
+fun add_rewrite_thms thms = (RW_THMS := thms @ !RW_THMS);
+fun get_rewrite_thms () = !RW_THMS;
+
+(* Default simpset *)
+val DEF_SIMPSET = ref pure_ss;
+val _ = (DEF_SIMPSET := srw_ss());
+
+(* TODO: Find a way to export that - like with ThmSetData.new_exporter *)
+fun add_simp_frag sf = (DEF_SIMPSET := ((!DEF_SIMPSET) ++ sf));
+fun get_default_simpset () = !DEF_SIMPSET;
+
+fun add_refinement_invariants ri_defs =
+  let
+      val (expandThms, retractThms) = generate_expand_retract_thms ri_defs
+      val invertDefs = List.map GSYM ri_defs
+  in
+      add_RI_defs ri_defs;
+      add_expand_retract_thms (expandThms @ ri_defs) (invertDefs @ retractThms)
+  end;
+
+val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
+                                (mk_export_f add_refinement_invariants);
+
+fun export_refinement_invariants slist = List.app export slist;
+
+(* Don't put UNIT_TYPE in here and use UNIT_TYPE_EXPAND and UNIT_TYPE_RETRACT instead - because of the nature of the unit type, the automatically generated retract rule for UNIT_TYPE introduces a new variable: !u v. v = Conv NONE [] <=> UNIT_TYPE u v *)
+val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, STRING_TYPE_def];
+
+fun add_match_thms thms =
+  let
+      (* Partition the theorems between the rewrite theorems and the intro rewrite ones *)
+      fun is_intro_rw t =
+        let
+            val (vars, t') = strip_forall t
+            val (imps, t'') = strip_imp t'
+        in
+            case (vars, imps) of
+                ([], []) =>
+                (let
+                    val (leq, req) = dest_eq t''
+                    val lvars = HOLset.addList (empty_varset, free_vars leq)
+                    val rvars = HOLset.addList (empty_varset, free_vars req)
+                in
+                    not (HOLset.isSubset (rvars, lvars))
+                end
+                 handle HOL_ERR _ => false)
+              | _ => is_intro_rw t''
+        end
+
+      val (intro_rws, rws) = List.partition (is_intro_rw o concl) thms
+  in
+      add_intro_rewrite_thms intro_rws;
+      add_rewrite_thms rws
+  end;
+
+val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
+                                               (mk_export_f add_match_thms);
+
+fun export_match_thms slist = List.app export slist;
+
+(* END REFS *)
+
+(* Store the last iteration of the manipulated app_spec for debugging purposes, if xlet_auto fails *)
+val debug_app_spec = ref (REFL T)
+fun debug_get_app_spec () = !debug_app_spec
+fun debug_set_app_spec app_spec = (debug_app_spec := app_spec)
 (* TODO: move *)
 (* set_sep syntax *)
 val (sep_imp_tm,mk_sep_imp,dest_sep_imp,is_sep_imp) = syntax_fns2 "set_sep" "SEP_IMP";
@@ -642,257 +907,6 @@ fun rename_post_variables ri_thms asl post_condition =
       mk_post_condition (v_o', vpred_o', e_o', epred_o')
   end
   handle HOL_ERR _ => raise (ERR "rename_post_variables" "");
-
-(*********************************************************************************
- *
- * Theorems, conversions, solvers used by the xlet_auto tactic
- *
- *********************************************************************************)
-
-(* Auxiliary function for the exporters *)
-fun mk_export_f f (thy_name : string) (named_thms : (string * thm) list) =
-  f (List.map snd named_thms);
-
-(* Theorems used to compute the frame *)
-val FRAME_THMS = ref [REF_HPROP_INJ,
-                      ARRAY_HPROP_INJ,
-                      W8ARRAY_HPROP_INJ
-                     ];
-
-fun add_frame_thms thms = FRAME_THMS := (thms  @ !FRAME_THMS);
-fun get_frame_thms () = !FRAME_THMS;
-
-val {mk,dest,export} = ThmSetData.new_exporter "hprop_inj"
-                                               (mk_export_f add_frame_thms);
-
-fun export_frame_thms slist = List.app export slist;
-
-(* Refinement invariants: definitions *)
-val RI_DEFSL = ref ([] : thm list);
-fun add_RI_defs defs = (RI_DEFSL := defs @ !RI_DEFSL);
-fun get_RI_defs uv = !RI_DEFSL;
-
-(* Theorem generation *)
-fun generate_expand_retract_thms ri_defs =
-  let
-      val ri_l = List.map (fn x => SPEC_ALL x |> concl |> dest_eq |> fst) ri_defs
-      fun inst_ri ri =
-        let
-            val ty = dest_type (type_of ri) |> snd |> List.hd
-            val v = mk_var ("v", ty)
-            val v' = variant (free_vars ri) v
-        in
-            mk_comb (ri, v')
-        end
-        handle HOL_ERR _ => ri
-             | Empty => ri
-      val inst_ri_l = List.map inst_ri ri_l
-      val expandThms = List.map (GEN_ALL o (SIMP_CONV (srw_ss()) (ri_defs @ !RI_DEFSL))) inst_ri_l
-      val retractThms = List.map GSYM expandThms
-  in
-      (expandThms, retractThms)
-  end;
-
-(* Theorems to expand or retract the definitions of refinement invariants*)
-val RI_EXPAND_THMSL = ref ([UNIT_TYPE_EXPAND] : thm list);
-val RI_RETRACT_THMSL = ref ([UNIT_TYPE_RETRACT] : thm list);
-fun add_expand_retract_thms expandThms retractThms =
-  (RI_EXPAND_THMSL := expandThms @ !RI_EXPAND_THMSL;
-   RI_RETRACT_THMSL := retractThms @ !RI_RETRACT_THMSL);
-
-fun get_expand_thms () = !RI_EXPAND_THMSL;
-fun get_retract_thms () = !RI_RETRACT_THMSL;
-
-val EXPAND_TAC = FULL_SIMP_TAC (srw_ss()) (get_expand_thms());
-val RETRACT_TAC = FULL_SIMP_TAC (srw_ss()) (get_retract_thms());
-val REWRITE_RI_TAC = EXPAND_TAC THEN RETRACT_TAC;
-
-(* List of equality types *)
-val EQUALITY_TYPE_THMS = ref ([] : thm list);
-
-fun add_equality_type_thms thms =
-  (EQUALITY_TYPE_THMS := (List.concat (List.map CONJUNCTS thms))
-                         @ !EQUALITY_TYPE_THMS);
-fun get_equality_type_thms () = !EQUALITY_TYPE_THMS;
-
-(* Unicity theorems *)
-val INTRO_RW_THMS = ref ([NUM_INT_EQ, LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT, EQTYPE_UNICITY_R, EQTYPE_UNICITY_L]);
-
-fun add_intro_rewrite_thms thms = (INTRO_RW_THMS := thms @ !INTRO_RW_THMS);
-fun get_intro_rewrite_thms () = !INTRO_RW_THMS;
-
-(* Automatic generation of theorems *)
-fun generate_RI_unicity_thms eq_type_thms =
-  let
-      fun get_ref_inv th = concl th |> dest_comb |> snd
-      fun get_types ref_inv =
-        let
-            fun two_el [x,y] = (x,y)
-              | two_el _     = failwith "get_types"
-            val (t1,t') = type_of ref_inv |> dest_type |> snd |> two_el
-            val (t2, _) = dest_type t' |> snd |> two_el
-        in
-            (t1, t2)
-        end
-      fun gen_left_rule eq_type_thm =
-        let
-            val ref_inv = get_ref_inv eq_type_thm
-            val (t1, t2) = get_types ref_inv
-            val th1 = Thm.INST_TYPE [alpha |-> t1, beta |-> t2] EQTYPE_UNICITY_L
-            val th2 = SPEC ref_inv th1
-            val (x1, x2, y) = (mk_var("x1", t1), mk_var("x2", t1), mk_var("y", t2))
-            val th3 = SPECL [x1, x2, y] th2
-            val th4 = MP th3 eq_type_thm
-            val th5 = GEN_ALL th4
-        in
-            th5
-        end
-      fun gen_right_rule eq_type_thm =
-        let
-            val ref_inv = get_ref_inv eq_type_thm
-            val (t1, t2) = get_types ref_inv
-            val th1 = Thm.INST_TYPE [alpha |-> t1, beta |-> t2] EQTYPE_UNICITY_R
-            val th2 = SPEC ref_inv th1
-            val (x, y1, y2) = (mk_var("x", t1), mk_var("y1", t2), mk_var("y2", t2))
-            val th3 = SPECL [x, y1, y2] th2
-            val th4 = MP th3 eq_type_thm
-            val th5 = GEN_ALL th4
-        in
-            th5
-        end
-      val eq_type_thms = List.concat(List.map CONJUNCTS eq_type_thms)
-      val left_rules = List.map gen_left_rule eq_type_thms
-      val right_rules = List.map gen_right_rule eq_type_thms
-  in
-      List.concat [left_rules, right_rules]
-  end;
-
-fun export_equality_type_thms_aux thms =
-  let
-      val thms = List.map (CONV_RULE (PURE_REWRITE_CONV [satTheory.AND_IMP])) thms
-      (* val unicity_thms = generate_RI_unicity_thms thms *)
-  in
-      add_equality_type_thms thms
-      (* ; add_intro_rewrite_thms unicity_thms *)
-  end;
-
-val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
-                        (mk_export_f export_equality_type_thms_aux);
-
-fun export_equality_type_thms slist = List.app export slist;
-
-val _ = export_equality_type_thms_aux [EqualityType_NUM_BOOL,
-                                       EqualityType_LIST_TYPE,
-                                       EqualityType_PAIR_TYPE];
-
-(* Basic rewrite theorems *)
-val RW_THMS = ref [(* Handle the int_of_num operator *)
-                    integerTheory.INT_ADD,
-                    INT_OF_NUM_TIMES,
-                    INT_OF_NUM_LE,
-                    INT_OF_NUM_LESS,
-                    INT_OF_NUM_GE,
-                    INT_OF_NUM_GREAT,
-                    INT_OF_NUM_EQ,
-                    INT_OF_NUM_SUBS,
-                    INT_OF_NUM_SUBS_2,
-
-                    (* Handle lists *)
-                    LENGTH_NIL,
-                    LENGTH_NIL_SYM,
-                    REPLICATE_APPEND_DECOMPOSE,
-                    REPLICATE_APPEND_DECOMPOSE_SYM,
-                    LIST_REL_DECOMPOSE_RIGHT,
-                    LIST_REL_DECOMPOSE_LEFT,
-                    LENGTH_REPLICATE,
-                    TAKE_LENGTH_ID,
-                    DROP_nil,
-                    DROP_LENGTH_TOO_LONG,
-                    NULL_EQ,
-                    (* REPLICATE *)
-                    (* REPLICATE_PLUS_ONE *)
-
-                    (*mlbasicsProgTheory.not_def*)
-
-                    (* Arithmetic equations simplification *)
-                    NUM_EQ_SIMP1,
-                    NUM_EQ_SIMP2,
-                    NUM_EQ_SIMP3,
-                    NUM_EQ_SIMP4,
-                    NUM_EQ_SIMP5,
-                    NUM_EQ_SIMP6,
-                    NUM_EQ_SIMP7,
-                    NUM_EQ_SIMP8,
-                    NUM_EQ_SIMP9,
-                    NUM_EQ_SIMP10,
-                    NUM_EQ_SIMP11,
-                    NUM_EQ_SIMP12,
-                    MIN_DEF
-                   ];
-fun add_rewrite_thms thms = (RW_THMS := thms @ !RW_THMS);
-fun get_rewrite_thms () = !RW_THMS;
-
-(* Default simpset *)
-val DEF_SIMPSET = ref pure_ss;
-val _ = (DEF_SIMPSET := srw_ss());
-
-(* TODO: Find a way to export that - like with ThmSetData.new_exporter *)
-fun add_simp_frag sf = (DEF_SIMPSET := ((!DEF_SIMPSET) ++ sf));
-fun get_default_simpset () = !DEF_SIMPSET;
-
-fun add_refinement_invariants ri_defs =
-  let
-      val (expandThms, retractThms) = generate_expand_retract_thms ri_defs
-      val invertDefs = List.map GSYM ri_defs
-  in
-      add_RI_defs ri_defs;
-      add_expand_retract_thms (expandThms @ ri_defs) (invertDefs @ retractThms)
-  end;
-
-val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
-                                (mk_export_f add_refinement_invariants);
-
-fun export_refinement_invariants slist = List.app export slist;
-
-(* Don't put UNIT_TYPE in here and use UNIT_TYPE_EXPAND and UNIT_TYPE_RETRACT instead - because of the nature of the unit type, the automatically generated retract rule for UNIT_TYPE introduces a new variable: !u v. v = Conv NONE [] <=> UNIT_TYPE u v *)
-val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, STRING_TYPE_def];
-
-fun add_match_thms thms =
-  let
-      (* Partition the theorems between the rewrite theorems and the intro rewrite ones *)
-      fun is_intro_rw t =
-        let
-            val (vars, t') = strip_forall t
-            val (imps, t'') = strip_imp t'
-        in
-            case (vars, imps) of
-                ([], []) =>
-                (let
-                    val (leq, req) = dest_eq t''
-                    val lvars = HOLset.addList (empty_varset, free_vars leq)
-                    val rvars = HOLset.addList (empty_varset, free_vars req)
-                in
-                    not (HOLset.isSubset (rvars, lvars))
-                end
-                 handle HOL_ERR _ => false)
-              | _ => is_intro_rw t''
-        end
-
-      val (intro_rws, rws) = List.partition (is_intro_rw o concl) thms
-  in
-      add_intro_rewrite_thms intro_rws;
-      add_rewrite_thms rws
-  end;
-
-val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
-                                               (mk_export_f add_match_thms);
-
-fun export_match_thms slist = List.app export slist;
-
-(* Store the last iteration of the manipulated app_spec for debugging purposes, if xlet_auto fails *)
-val debug_app_spec = ref (REFL T)
-fun debug_get_app_spec () = !debug_app_spec
-fun debug_set_app_spec app_spec = (debug_app_spec := app_spec)
 
 (************************************************************************************
  *
