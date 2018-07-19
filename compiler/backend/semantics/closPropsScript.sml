@@ -599,6 +599,17 @@ val evaluate_code = Q.store_thm("evaluate_code",
   \\ (evaluate_code_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
   \\ fs[]);
 
+val evaluate_app_code = Q.store_thm("evaluate_app_code",
+  `(evaluate_app lopt f args s = (res,s1)) ==>
+      ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
+          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          s1.code = s.code |++ ls ∧
+          ALL_DISTINCT (MAP FST ls) ∧
+          DISJOINT (FDOM s.code) (set (MAP FST ls))`,
+  REPEAT STRIP_TAC
+  \\ (evaluate_code_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`lopt`,`f`,`args`,`s`] mp_tac)
+  \\ fs[]);
+
 val evaluate_mono = Q.store_thm("evaluate_mono",
   `!xs env s1 vs s2.
      (evaluate (xs,env,s1) = (vs,s2)) ==>

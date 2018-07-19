@@ -432,13 +432,16 @@ val _ = Datatype `
 `;
 
 val _ = Datatype`
-  config = <| max_app : num
-            ; inline_max_body_size : num
-            ; inline_factor : num
+  config = <| inline_max_body_size : num
+            ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
+            ; initial_inline_factor : num
             |>`;
 
 val dec_inline_factor_def = Define `
   dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
+
+val reset_inline_factor_def = Define `
+  reset_inline_factor c = c with inline_factor := c.initial_inline_factor`;
 
 val decide_inline_def = Define `
   decide_inline c fapx app_lopt app_arity =
@@ -450,7 +453,10 @@ val decide_inline_def = Define `
       | Clos loc arity body body_size =>
           if app_lopt = NONE /\ app_arity = arity then
             (if body_size < c.inline_factor * (1 + app_arity) /\
-                ~contains_closures [body] /\ closed (Fn None NONE NONE app_arity body)
+                ~contains_closures [body] /\
+                closed (Fn None NONE NONE app_arity body)
+                (* Consider moving these checks to the point where Clos approximations
+                   are created, and bake them into the val_approx_val relation. *)
                then inlD_LetInline body
                else inlD_Annotate loc)
           else inlD_Nothing
@@ -524,16 +530,14 @@ val known_def = tDefine "known" `
          | inlD_Nothing => ([(App t loc_opt e1 (MAP FST ea2), Other)], g)
          | inlD_Annotate new_loc => ([(App t (SOME new_loc) e1 (MAP FST ea2), Other)], g)
          | inlD_LetInline body =>
-             if pure x then
-               let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2 ++ vs) g in
-               let (ebody, abody) = HD eabody
-               in
-                 ([(Let (t§0) (MAP FST ea2) (mk_Ticks t 1 (LENGTH xs) ebody), abody)],g)
-             else
-               let (eabody,_) = known (dec_inline_factor c) [body] (SNOC a1 (MAP SND ea2) ++ vs) g in
-               let (ebody, abody) = HD eabody
-               in
-                 ([(Let (t§0) (SNOC e1 (MAP FST ea2)) (mk_Ticks t 1 (LENGTH xs) ebody),abody)],g)) /\
+             let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2) g in
+             let (ebody, abody) = HD eabody in
+               if pure x then
+                 ([(Let (t§0) (MAP FST ea2)
+                              (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)
+               else
+                 ([(Let (t§0) (SNOC e1 (MAP FST ea2))
+                              (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)) /\
   (known c [Fn t loc_opt ws_opt num_args x1] vs g =
      let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD ea1 in
@@ -565,8 +569,7 @@ val known_ind = theorem "known_ind";
 val compile_def = Define `
   compile F max_app exps = exps /\
   compile T max_app exps =
-    let c = <| max_app := max_app
-             ; inline_max_body_size := (max_app + 1) * 8
+    let c = <| inline_max_body_size := (max_app + 1) * 8
              ; inline_factor := 8 |> in
     let (es, _) = known c exps [] LN in
       MAP FST es`;
