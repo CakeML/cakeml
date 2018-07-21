@@ -582,8 +582,8 @@ val res = translate inter_p_lemma1;
 val infer_p_side_def = theorem"infer_p_side_def";
 
 val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
-  `(!l cenv p st. t_wfs st.subst ⇒ infer_p_1_side l cenv p st) ∧
-   (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_1_side l cenv ps st)`,
+  `(!l cenv p st. t_wfs st.subst ⇒ infer_p_side l cenv p st) ∧
+   (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_side l cenv ps st)`,
   ho_match_mp_tac infer_p_ind >>
   rw [] >>
   rw [Once infer_p_side_def] >>
