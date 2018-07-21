@@ -48,10 +48,10 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-fun prove (goal,tac) = let
-  val (rest,validation) = tac ([],goal)
+fun auto_prove_asms name ((asms,goal),tac) = let
+  val (rest,validation) = tac (asms,goal)
   in if length rest = 0 then validation [] else let
-  in failwith "prove failed" end end
+  in failwith ("auto_prove_asms failed for " ^ name) end end
 
 fun auto_prove proof_name (goal,tac:tactic) = let
   val (rest,validation) = tac ([],goal) handle Empty => fail()
@@ -738,7 +738,7 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
     val tm = list_mk_exists(rev (free_vars new_x), mk_eq(x_var,new_x))
     in tm :: mk_lines xs end
   val goal = mk_forall(x_var,list_mk_disj (rev (mk_lines xs)))
-  val lemma = prove(goal,
+  val lemma = auto_prove "get_nchotomy_of" (goal,
     STRIP_TAC \\ STRIP_ASSUME_TAC (ISPEC x_var case_th)
     \\ FULL_SIMP_TAC (srw_ss()) [])
   in lemma end
@@ -807,7 +807,7 @@ fun derive_record_specific_thms ty = let
     val rhs = mk_comb(mk_comb(inst i case_tm,v),f)
     val lhs = mk_comb(a,v)
     val goal = mk_forall(v,mk_eq(lhs,rhs))
-    val lemma = prove(goal,Cases THEN SRW_TAC [] [])
+    val lemma = auto_prove "prove_accessor_eq" (goal,Cases THEN SRW_TAC [] [])
     in lemma end
   val a_lemmas = map prove_accessor_eq (zip access_funs xs)
   fun prove_updates_eq (a,x) = let
@@ -826,7 +826,7 @@ fun derive_record_specific_thms ty = let
     val lhs = mk_comb(mk_comb(a,g),v)
     val goal = mk_forall(v,mk_forall(g,mk_eq(lhs,rhs)))
     val tac = Cases THEN SRW_TAC [] [DB.fetch thy_name (ty_name ^ "_fn_updates")]
-    in prove(goal,tac) end
+    in auto_prove "prove_updates_eq" (goal,tac) end
   val b_lemmas = map prove_updates_eq (zip update_funs xs)
   val rtype = type_of tm
   val {Args,Thy,Tyop} = dest_thy_type rtype
@@ -850,7 +850,7 @@ fun derive_record_specific_thms ty = let
   val s = match_type (type_of tm2) rtype
   val tm2 = inst s tm2
   val goal = mk_eq(tm2,tm)
-  val rw_lemma = prove(goal,SRW_TAC []
+  val rw_lemma = auto_prove "rw_lemma" (goal,SRW_TAC []
     [DB.fetch thy_name (ty_name ^ "_component_equality")])
   val rw_lemmas =
     if length(TypeBase.fields_of ty) > 1
@@ -1752,7 +1752,7 @@ local
     if aconv (snd (dest_pabs (rand tm))) T then let
       val t = combinSyntax.mk_K(T,fst (dest_pabs (rand tm))) |> rator
       val goal = mk_eq(rand tm,t)
-      val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
+      val lemma = auto_prove "PMATCH_ROW_K_T_INTRO_CONV" (goal,fs [FUN_EQ_THM,FORALL_PROD])
       in (RAND_CONV (fn tm => lemma)) tm end
     else NO_CONV tm
 in
@@ -1817,7 +1817,7 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
     end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
-  val th = TAC_PROOF((asms,goal),
+  val th = auto_prove_asms "prove_EvalPatRel" ((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
     POP_ASSUM MP_TAC >>
@@ -1911,7 +1911,7 @@ fun prove_EvalPatBind goal hol2deep = let
   (*
     set_goal([],new_goal)
   *)
-  val th = TAC_PROOF (([],new_goal),
+  val th = auto_prove "prove_EvalPatBind" (new_goal,
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
     \\ full_simp_tac std_ss [FORALL_PROD] \\ REPEAT STRIP_TAC
     \\ (MATCH_MP_TAC (D res) ORELSE
@@ -2034,7 +2034,7 @@ local
   fun K_T_intro_conv tm = let
     val goal = combinSyntax.mk_K(T,fst (dest_pabs tm)) |> rator
     val goal = mk_eq(tm,goal)
-    val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD,TRUE_def])
+    val lemma = auto_prove "K_T_intro_conv" (goal, fs [FUN_EQ_THM,FORALL_PROD,TRUE_def])
     in lemma end handle HOL_ERR _ => NO_CONV tm
   val BINOP1_CONV = RATOR_CONV o RAND_CONV
   (* pabs_intro_conv: \x. case x of (x,y,z) => ... ---> \(x,y,z). ... *)
@@ -2048,7 +2048,7 @@ local
     val (y1,y2) = dest_pabs y
     val i = fst (match_term x1 y1)
     val goal = mk_eq(x,mk_pabs(y1,subst i x2))
-    val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
+    val lemma = auto_prove "fix_pmatch_row_names" (goal, fs [FUN_EQ_THM,FORALL_PROD])
     in ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K lemma)) tm end
     handle HOL_ERR _ => (print_term tm; NO_CONV tm)
   fun pmatch_row_preprocess_conv tm =
@@ -2117,7 +2117,7 @@ fun single_line_def def = let
       val pre_tm = pattern_complete def vs
       in pre_tm end
   val goal = mk_imp(pre_tm,goal)
-  val lemma = (* auto_prove "single_line_def-1" *) prove(goal,
+  val lemma = auto_prove "single_line_def-1" (goal,
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,GSYM rw]
     \\ REPEAT STRIP_TAC
     \\ CONV_TAC (BINOP_CONV (REWR_CONV (GSYM CONTAINER_def)))
@@ -2166,7 +2166,7 @@ fun single_line_def def = let
   val goal = subst (map (fn v => v |-> oneSyntax.one_tm) vs) goal
   val goal = subst [mk_comb(c1,oneSyntax.one_tm)|->const] goal
   val goal = mk_imp(pre_tm,goal)
-  val lemma = (* auto_prove "single_line_def-2" *) prove(goal,
+  val lemma = auto_prove "single_line_def-2" (goal,
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
     \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
@@ -2190,7 +2190,7 @@ fun remove_pair_abs def = let
     val v = hd (rev (free_vars p)) |> dest_var |> fst
     val v = mk_var(v,type_of p)
     val goal = mk_eq(subst [p|->v] lhs,mk_comb(pairSyntax.mk_pabs(p,rhs),v))
-    val lemma = prove(goal,
+    val lemma = auto_prove "delete_pair_arg" (goal,
       SPEC_TAC (v,v) \\ FULL_SIMP_TAC std_ss [FORALL_PROD]
       \\ SIMP_TAC std_ss [Once def]);
     in delete_pair_arg lemma end handle HOL_ERR _ => def
@@ -2237,7 +2237,7 @@ fun split_let_and_conv tm = let
   val b2 = subst (map (fn (x,y,_) => x |-> y) ys) b
   val tm2 = foldr (fn ((x,y,z),b) => pairSyntax.mk_anylet([(y,z)],b)) b2 ys
   val goal = mk_eq(tm,tm2)
-  val lemma = prove(goal, REWRITE_TAC [LET_THM] (* potentially bad *)
+  val lemma = auto_prove"split_let_and_conv" (goal, REWRITE_TAC [LET_THM] (* potentially bad *)
                           THEN CONV_TAC (DEPTH_CONV BETA_CONV)
                           THEN REWRITE_TAC [])
   in lemma end handle HOL_ERR _ => NO_CONV tm;
@@ -2309,7 +2309,7 @@ fun get_induction_for_def def = let
   val goal1 = ind |> concl |> dest_imp |> snd
   val goal2 = list_mk_conj (map (fst o snd) res)
   val goal = mk_imp(goal1,goal2)
-  val lemma = prove(goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
+  val lemma = auto_prove "get_induction_for" (goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
   val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
             |> GENL (map fst res)
   in ind end handle HOL_ERR _ =>
@@ -2364,7 +2364,7 @@ fun mutual_to_single_line_def def = let
   val _ = if can (find_term is_arb) (concl def) then true else
             not (can (find_term is_arb) goal) orelse
             failwith "mutual_to_single_line_def: requires precondition"
-  val lemma1 = prove(goal,
+  val lemma1 = auto_prove "mutual_to_single_line_def" (goal,
     REPEAT STRIP_TAC THEN CONV_TAC (DEPTH_CONV BETA_CONV)
     THEN CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [def]))
     THEN SIMP_TAC (srw_ss()) [])
@@ -3126,7 +3126,7 @@ fun hol2deep tm =
                       mk_Eval(env_tm,
                               astSyntax.mk_Raise(get_term "bind"),
                               mk_comb(inv,tm)))
-    val result = prove(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
+    val result = auto_prove"hol2deep"(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
     in check_inv "arb" tm result end
   else raise (UnableToTranslate tm)
 
