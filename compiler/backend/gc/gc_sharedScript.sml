@@ -522,4 +522,37 @@ val gc_related_def = Define `
       (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\
       !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f`;
 
+(* an edge in the heap *)
+
+val gc_edge_def = Define `
+  gc_edge heap x y <=>
+    ?xs l d t. (heap_lookup x heap = SOME (DataElement xs l d)) /\
+               MEM (Pointer y t) xs`;
+
+val reachable_addresses_def = Define `
+  reachable_addresses roots heap y =
+    ?t x. MEM (Pointer x t) roots /\ RTC (gc_edge heap) x y`
+
+val heap_addresses_LESS_heap_length = store_thm("heap_addresses_LESS_heap_length",
+  ``∀heap n k. k ∈ heap_addresses n heap ⇒ k < n + heap_length heap``,
+  Induct \\ fs [heap_addresses_def,heap_length_def]
+  \\ rw [] THEN1 (Cases_on `h` \\ fs [el_length_def])
+  \\ res_tac \\ fs []);
+
+val heap_addresses_LESS = store_thm("heap_addresses_LESS",
+  ``∀heap n k. k ∈ heap_addresses n heap ==> n <= k``,
+  Induct \\ fs [heap_addresses_def,heap_length_def]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []);
+
+val FINITE_heap_addresses = store_thm("FINITE_heap_addresses",
+  ``!xs n. FINITE (heap_addresses n xs)``,
+  Induct \\ fs [heap_addresses_def]);
+
+val CARD_heap_addresses = store_thm("CARD_heap_addresses",
+  ``!xs n. CARD (heap_addresses n xs) = LENGTH xs``,
+  Induct \\ fs [heap_addresses_def]
+  \\ fs [CARD_INSERT,FINITE_heap_addresses]
+  \\ rw [] \\ imp_res_tac heap_addresses_LESS \\ fs []
+  \\ Cases_on `h` \\ fs [el_length_def]);
+
 val _ = export_theory();
