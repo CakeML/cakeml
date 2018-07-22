@@ -435,7 +435,23 @@ val _ = Datatype`
   config = <| inline_max_body_size : num
             ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
             ; initial_inline_factor : num
+            ; val_approx_spt : val_approx spt (* TODO: this could replace the explicit g argument in known_def *)
             |>`;
+
+val default_inline_factor_def = Define`default_inline_factor = 8n`;
+val default_max_body_size_def = Define`
+  default_max_body_size max_app inline_factor = (max_app + 1n) * inline_factor`;
+
+val mk_config_def = Define`
+  mk_config max_body_size inline_factor = <|
+      inline_max_body_size := max_body_size
+    ; inline_factor := inline_factor
+    ; initial_inline_factor := inline_factor
+    ; val_approx_spt := LN
+  |>`;
+
+val default_config_def = Define`
+  default_config max_app = mk_config (default_max_body_size max_app default_inline_factor) default_inline_factor`;
 
 val dec_inline_factor_def = Define `
   dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
@@ -566,14 +582,6 @@ val known_def = tDefine "known" `
 
 val known_ind = theorem "known_ind";
 
-val compile_def = Define `
-  compile F max_app exps = exps /\
-  compile T max_app exps =
-    let c = <| inline_max_body_size := (max_app + 1) * 8
-             ; inline_factor := 8 |> in
-    let (es, _) = known c exps [] LN in
-      MAP FST es`;
-
 val known_LENGTH = Q.store_thm(
   "known_LENGTH",
   `∀limit es vs g. LENGTH (FST (known limit es vs g)) = LENGTH es`,
@@ -600,6 +608,11 @@ val known_sing_EQ_E = Q.store_thm(
   `∀limit e vs g0 all g. known limit [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
   metis_tac[PAIR_EQ, known_sing]);
 
+val compile_def = Define `
+  compile NONE exps = (NONE, exps) /\
+  compile (SOME c) exps =
+    let (es, g) = known c exps [] c.val_approx_spt in
+      (SOME (c with val_approx_spt := g), MAP FST es)`;
 
 (*
 

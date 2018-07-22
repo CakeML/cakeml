@@ -474,7 +474,7 @@ val _ = Datatype`
   config = <| next_loc : num
             ; start : num
             ; do_mti : bool
-            ; do_known : bool
+            ; known_conf : clos_known$config option
             ; do_call : bool
             ; max_app : num
             |>`;
@@ -484,7 +484,7 @@ val default_config_def = Define`
     next_loc := 0;
     start := 1;
     do_mti := T;
-    do_known := T;
+    known_conf := SOME (clos_known$default_config 10);
     do_call := T;
     max_app := 10 |>`;
 
@@ -544,13 +544,13 @@ val compile_common_def = Define `
     (* Alignment padding *)
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
-    let es = clos_known$compile c.do_known c.max_app es in
+    let (kc, es) = clos_known$compile c.known_conf es in
     let (es,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
     let prog = compile_prog c.max_app prog in
       (c.next_loc + num_stubs c.max_app,
-       c with next_loc := n,
+       c with <| next_loc := n; known_conf := kc |>,
        prog)`;
 
 val compile_inc_def = Define `
