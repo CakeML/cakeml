@@ -864,7 +864,7 @@ val do_app_ssgc = Q.store_thm(
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac >> PURE_FULL_CASE_TAC >> fs [] >> rveq
       >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
-      >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])      
+      >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
@@ -1833,7 +1833,7 @@ val known_correct_approx = Q.store_thm(
     \\ fs [evaluate_def, pair_case_eq]
     \\ fs [fv_max_rw]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
-    \\ fs [result_case_eq] \\ rveq \\ fs [] 
+    \\ fs [result_case_eq] \\ rveq \\ fs []
     \\ reverse (Cases_on `opn = Install`) \\ fs []
     THEN1
      (fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
@@ -1865,7 +1865,7 @@ val known_correct_approx = Q.store_thm(
     \\ rename1 `known _ [x1] _ g1 = _`
     \\ fs [fv_max_rw]
     \\ reverse (fs [inlD_case_eq])
-    THEN1 
+    THEN1
      ((* inlD_LetInline *)
       Cases_on `pure x1` \\ fs []
       (* both the pure and non-pure cases are solved by the following script *)
@@ -1895,7 +1895,7 @@ val known_correct_approx = Q.store_thm(
       \\ `vs <> []` by simp [NOT_NIL_EQ_LENGTH_NOT_0]
       \\ fs [evaluate_app_rw]
       \\ fs [dest_closure_def, check_loc_def]
-      \\ fs [case_eq_thms] \\ rveq \\ fs []      
+      \\ fs [case_eq_thms] \\ rveq \\ fs []
       \\ fs [bool_case_eq] \\ rveq \\ fs []
       \\ fs [pair_case_eq]
       \\ patresolve  `known _ _ _ g1 = _` hd known_preserves_esgc_free
@@ -2850,7 +2850,7 @@ val known_correct0 = Q.prove(
            oracle_state_sgc_free_shift_seq,
            unique_set_globals_shift_seq]
     \\ patresolve `known _ _ _ g0 = _` hd known_preserves_esgc_free
-    \\ simp [] \\ strip_tac  
+    \\ simp [] \\ strip_tac
     \\ reverse (fs [inlD_case_eq]) \\ rveq
 
     THEN1
@@ -3483,5 +3483,11 @@ val semantics_known = Q.store_thm("semantics_known",
   \\ Cases_on `e` \\ fs [])
 *)
 cheat);
+
+val code_locs_mk_Ticks = Q.store_thm("code_locs_mk_Ticks[simp]",
+  `∀a b c d. code_loc' (mk_Ticks a b c d) = code_loc' d`,
+  recInduct mk_Ticks_ind \\ rw[]
+  \\ rw[Once mk_Ticks_def]
+  \\ rw[code_locs_def]);
 
 val _ = export_theory();
