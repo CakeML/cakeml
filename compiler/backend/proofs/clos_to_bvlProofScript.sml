@@ -4945,8 +4945,11 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   \\ simp [ALL_DISTINCT_APPEND]
   \\ qmatch_asmsub_abbrev_tac `renumber_code_locs_list N XS`
   (* clos_known *)
-  \\ `code_locs ls = code_locs es` by cheat (* TODO clos_known *)
-  \\ `LENGTH ls = LENGTH es` by cheat (* TODO clos_known *)
+  \\ `is_subseq (code_locs es) (code_locs ls)`
+    by metis_tac[clos_knownProofTheory.compile_code_locs]
+  \\ `LENGTH ls = LENGTH es` by metis_tac[clos_knownProofTheory.compile_LENGTH]
+  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[SUBSET_DEF,clos_knownProofTheory.is_subseq_MEM]
+  \\ `ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs ls)` by metis_tac[clos_knownProofTheory.is_subseq_ALL_DISTINCT]
   (* clos_number *)
   \\ `ALL_DISTINCT (code_locs ls) /\
       set (code_locs ls) SUBSET EVEN /\
@@ -4959,13 +4962,14 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
         \\ fs [Abbr `N`, Abbr `XS`] \\ rfs [GSYM EVEN_MOD2]
         \\ qpat_x_assum `EVEN _ ==> _` mp_tac
         \\ impl_tac >- rw [GSYM ADD1, GSYM ADD_SUC, EVEN]
-        \\ rw [SUBSET_DEF] \\ simp [IN_DEF]
-        \\ fs [EVERY_MEM])
+        \\ fs[SUBSET_DEF]
+        \\ simp[SimpR``$==>``,IN_DEF]
+        \\ rw[] \\ fs [EVERY_MEM])
   \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_length
   (* chain_exps *)
-  \\ `EVERY ($<= c.next_loc) (MAP FST (chain_exps c.next_loc es')) /\
-      EVERY ($> (c.next_loc + LENGTH es'))
-            (MAP FST (chain_exps c.next_loc es'))`
+  \\ `EVERY ($<= c.next_loc) (MAP FST (chain_exps c.next_loc es'')) /\
+      EVERY ($> (c.next_loc + LENGTH es''))
+            (MAP FST (chain_exps c.next_loc es''))`
     by fs [chain_exps_LE, chain_exps_GT]
   (* clos_call *)
   \\ reverse (Cases_on `c.do_call`) \\ fs [clos_callTheory.compile_def]
@@ -4985,8 +4989,9 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   \\ strip_tac
   \\ imp_res_tac clos_callTheory.calls_length \\ rfs []
   \\ fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD, Abbr `N`]
+  \\ fs [SIMP_CONV(srw_ss())[IN_DEF]``x ∈ EVEN``]
   \\ rw [] \\ strip_tac \\ res_tac \\ res_tac \\ fs [] \\ rw []
-  \\ fs [IN_DEF, EVEN]);
+  \\ fs[EVEN] \\ every_case_tac \\ fs[GSYM EVEN_MOD2]);
 
 (* TODO move *)
 val SUM_MAP_COUNT_LIST = Q.store_thm("SUM_MAP_COUNT_LIST",

@@ -1,11 +1,90 @@
 open preamble backendPropsTheory
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
-open bagTheory
-open mp_then
-open closLangTheory
-open db_varsTheory
+     closLangTheory db_varsTheory
 
 val _ = new_theory "clos_knownProof";
+
+(* TODO: move *)
+val is_subseq_def = Define`
+  (is_subseq ls [] ⇔ T) ∧
+  (is_subseq [] (x::xs) ⇔ F) ∧
+  (is_subseq (y::ys) (x::xs) ⇔
+   (x = y ∧ is_subseq ys xs) ∨
+   (is_subseq ys (x::xs)))`;
+
+val is_subseq_ind = theorem"is_subseq_ind";
+
+val is_subseq_refl = Q.store_thm("is_subseq_refl[simp]",
+  `∀ls. is_subseq ls ls`, Induct \\ rw[is_subseq_def]);
+
+val is_subseq_nil = Q.store_thm("is_subseq_nil[simp]",
+  `is_subseq [] ls ⇔ ls = []`,
+  Cases_on`ls` \\ rw[is_subseq_def]);
+
+val is_subseq_cons = Q.store_thm("is_subseq_cons",
+  `∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (x::l1) l2`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def]);
+
+val is_subseq_snoc = Q.store_thm("is_subseq_snoc",
+  `∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (SNOC x l1) l2`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def] \\ fs[]);
+
+val is_subseq_append1 = Q.store_thm("is_subseq_append1",
+  `∀l3 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l3 ++ l1) l2`,
+  Induct
+  \\ rw[is_subseq_def] \\ fs[]
+  \\ metis_tac[is_subseq_cons]);
+
+val is_subseq_append2 = Q.store_thm("is_subseq_append2",
+  `∀l4 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l1 ++ l4) l2`,
+  ho_match_mp_tac SNOC_INDUCT
+  \\ rw[is_subseq_def] \\ fs[]
+  \\ metis_tac[is_subseq_snoc, SNOC_APPEND, APPEND_ASSOC]);
+
+val is_subseq_IS_SUBLIST = Q.store_thm("is_subseq_IS_SUBLIST",
+  `is_subseq l1 l2 ∧ IS_SUBLIST l3 l1 ⇒ is_subseq l3 l2`,
+  rw[IS_SUBLIST_APPEND]
+  \\ metis_tac[is_subseq_append1, is_subseq_append2]);
+
+val is_subseq_MEM = Q.store_thm("is_subseq_MEM",
+  `∀l1 l2 x. is_subseq l1 l2 ∧ MEM x l2 ⇒ MEM x l1`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def]
+  \\ metis_tac[]);
+
+val IS_PREFIX_is_subseq = Q.store_thm("IS_PREFIX_is_subseq",
+  `∀l1 l2. IS_PREFIX l1 l2 ⇒ is_subseq l1 l2`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def]
+  \\ fs[IS_PREFIX_NIL]);
+
+val IS_SUBLIST_is_subseq = Q.store_thm("IS_SUBLIST_is_subseq",
+  `∀l1 l2. IS_SUBLIST l1 l2 ⇒ is_subseq l1 l2`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def, IS_SUBLIST]
+  \\ simp[IS_PREFIX_is_subseq]);
+
+val is_subseq_ALL_DISTINCT = Q.store_thm("is_subseq_ALL_DISTINCT",
+  `∀l1 l2. ALL_DISTINCT l1 ∧ is_subseq l1 l2 ⇒ ALL_DISTINCT l2`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def] \\ fs[] \\ rfs[]
+  \\ metis_tac[is_subseq_MEM]);
+
+val is_subseq_append_suff = Q.store_thm("is_subseq_append_suff",
+  `∀l1 l3 l2 l4.
+   is_subseq l1 l3 ∧ is_subseq l2 l4 ⇒
+   is_subseq (l1 ++ l2) (l3 ++ l4)`,
+  recInduct is_subseq_ind
+  \\ rw[is_subseq_def]
+  \\ metis_tac[is_subseq_append1]);
+
+val is_subseq_FLAT_suff = Q.store_thm("is_subseq_FLAT_suff",
+  `∀ls1 ls2. LIST_REL is_subseq ls1 ls2 ⇒ is_subseq (FLAT ls1) (FLAT ls2)`,
+  ho_match_mp_tac LIST_REL_ind
+  \\ rw[is_subseq_append_suff]);
+(* -- *)
 
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
@@ -1523,7 +1602,7 @@ val decide_inline_LetInline_IMP_Clos_fv_max = Q.store_thm(
 val fv_max_less = Q.store_thm(
   "fv_max_less",
   `!m n xs. fv_max m xs /\ m <= n ==> fv_max n xs`,
-  simp [fv_max_def] \\ rw [] \\ res_tac \\ fs [])
+  simp [fv_max_def] \\ rw [] \\ res_tac \\ fs []);
 
 val known_preserves_fv_max = Q.store_thm(
   "known_preserves_fv_max",
@@ -1550,6 +1629,7 @@ val known_preserves_fv_max = Q.store_thm(
     \\ imp_res_tac decide_inline_LetInline_IMP_Clos_fv_max
     \\ fs [bool_case_eq, fv_max_rw] \\ rveq
     \\ res_tac
+    \\ qspec_then`MAP FST ea2`(fn th => rw[th])(Q.GEN`t`fv_max_cons)
     \\ match_mp_tac fv_max_less
     \\ asm_exists_tac \\ simp [])
   THEN1
@@ -3485,9 +3565,72 @@ val semantics_known = Q.store_thm("semantics_known",
 cheat);
 
 val code_locs_mk_Ticks = Q.store_thm("code_locs_mk_Ticks[simp]",
-  `∀a b c d. code_loc' (mk_Ticks a b c d) = code_loc' d`,
+  `∀a b c d. code_locs [mk_Ticks a b c d] = code_locs [d]`,
   recInduct mk_Ticks_ind \\ rw[]
   \\ rw[Once mk_Ticks_def]
   \\ rw[code_locs_def]);
+
+val contains_closures_code_locs = Q.store_thm("contains_closures_code_locs",
+  `∀es. ¬contains_closures es ⇒ code_locs es = []`,
+  recInduct contains_closures_ind
+  \\ rw[contains_closures_def]
+  \\ rw[code_locs_def]);
+
+val code_locs_decide_inline = Q.store_thm("code_locs_decide_inline",
+  `decide_inline a b c d = inlD_LetInline e ⇒ code_locs [e] = []`,
+  rw[decide_inline_def]
+  \\ fs[CaseEq"val_approx",bool_case_eq]
+  \\ rveq
+  \\ imp_res_tac contains_closures_code_locs);
+
+val known_code_locs = Q.store_thm("known_code_locs",
+  `∀x es ys z es' z'.
+    known x es ys z = (es',z') ⇒
+    is_subseq (code_locs es) (code_locs (MAP FST es'))`,
+  recInduct known_ind
+  \\ rw[known_def] \\ rw[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ rw[code_locs_append]
+  \\ imp_res_tac known_LENGTH_EQ_E \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rw[] \\ fs[]
+  \\ TRY(fs[code_locs_def, is_subseq_append_suff] \\ NO_TAC) \\ rw[]
+  \\ every_case_tac \\ fs[code_locs_def, is_subseq_append_suff] \\ rw[code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[code_locs_def, code_locs_append, is_subseq_append_suff]
+  \\ TRY (
+    CHANGED_TAC(imp_res_tac code_locs_decide_inline)
+    \\ imp_res_tac known_LENGTH_EQ_E
+    \\ fs[LENGTH_EQ_NUM_compute]
+    \\ rw[] \\ fs[] \\ rw[]
+    \\ fs[is_subseq_append1]
+    \\ qspec_then`MAP FST ea2`(fn th => rw[th])(Q.SPEC`x`code_locs_cons)
+    \\ fs[is_subseq_append_suff]
+    \\ NO_TAC)
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY, code_locs_map]
+  \\ match_mp_tac is_subseq_append_suff \\ fs[]
+  \\ match_mp_tac is_subseq_append_suff \\ fs[]
+  \\ match_mp_tac is_subseq_FLAT_suff \\ fs[]
+  \\ fs[EVERY2_MAP]
+  \\ irule EVERY2_refl
+  \\ simp[MAP_EQ_f, FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ simp[GSYM FST_pair]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ imp_res_tac known_LENGTH_EQ_E
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rveq \\ fs[]);
+
+val compile_code_locs = Q.store_thm("compile_code_locs",
+  `compile kc es = (kc', es') ⇒ is_subseq (code_locs es) (code_locs es')`,
+  Cases_on`kc`
+  \\ rw[compile_def]
+  \\ pairarg_tac \\ fs[]
+  \\ metis_tac[known_code_locs]);
+
+val compile_LENGTH = Q.store_thm("compile_LENGTH",
+  `clos_known$compile kc es = (kc', es') ⇒ LENGTH es' = LENGTH es`,
+  Cases_on`kc` \\ rw[compile_def]
+  \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ imp_res_tac known_LENGTH_EQ_E);
 
 val _ = export_theory();

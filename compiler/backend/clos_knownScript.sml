@@ -529,12 +529,12 @@ val known_def = tDefine "known" `
      let (ea1,g) = known c xs vs g in
      let (a,g) = known_op op (REVERSE (MAP SND ea1)) g in
      let e =
-         if isGlobal op then
+         (if isGlobal op then
            dtcase gO_destApx a of
-             | gO_None => Op t op (MAP FST ea1)
-             | gO_Int i => Op t (Const i) []
-             | gO_NullTuple tag => Op t (Cons tag) []
-         else Op t op (MAP FST ea1)
+             | gO_None => Op t op
+             | gO_Int i => Op t (Const i)
+             | gO_NullTuple tag => Op t (Cons tag)
+          else Op t op) (MAP FST ea1)
      in
        ([(e,a)],g)) /\
   (known c [App t loc_opt x xs] vs g =
@@ -552,7 +552,7 @@ val known_def = tDefine "known" `
                  ([(Let (t§0) (MAP FST ea2)
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)
                else
-                 ([(Let (t§0) (SNOC e1 (MAP FST ea2))
+                 ([(Let (t§0) (CONS e1 (MAP FST ea2))
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)) /\
   (known c [Fn t loc_opt ws_opt num_args x1] vs g =
      let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
