@@ -952,6 +952,73 @@ val sexpdec_def = tDefine"sexpdec"`
    \\ rw[LENGTH_EQ_NUM_compute] \\ fs[]
    \\ metis_tac[sxMEM_sizelt,dstrip_sexp_size,MEM,LESS_TRANS]);
 
+(* translator friendly version for bootstrapping *)
+val sexpdec_alt_def = tDefine"sexpdec_alt"`
+  (sexpdec_alt s =
+    case dstrip_sexp s of
+    | NONE => NONE
+    | SOME (nm,args) =>
+      if nm = "Dlet" ∧ LENGTH args = 3 then
+          (lift Dlet (sexplocn (HD args)) <*>
+                       (sexppat_alt (EL 1 args)) <*>
+                       (sexpexp_alt (EL 2 args))) else
+      if nm = "Dletrec" ∧ LENGTH args = 2 then
+            (lift2 Dletrec (sexplocn (HD args))
+                           (sexpfuns  (EL 1 args))) else
+      if nm = "Dtype" ∧ LENGTH args = 2 then
+            (lift2 Dtype (sexplocn (HD args)) (sexptype_def (EL 1 args))) else
+      if nm = "Dtabbrev" ∧ LENGTH args = 4 then
+            (lift Dtabbrev (sexplocn (EL 0 args)) <*>
+                           (sexplist odestSEXSTR (EL 1 args)) <*>
+                           (odestSEXSTR (EL 2 args)) <*>
+                           (sexptype_alt (EL 3 args))) else
+      if nm = "Dexn" ∧ LENGTH args = 3 then
+            (lift Dexn (sexplocn (EL 0 args)) <*>
+                       (odestSEXSTR (EL 1 args)) <*>
+                       (sexptype_list (EL 2 args))) else
+      if nm = "Dmod" ∧ LENGTH args = 2 then
+            (lift2 Dmod (odestSEXSTR (EL 0 args))
+                        (sexpdec_list (EL 1 args))) else NONE) ∧
+   (sexpdec_list s =
+      case s of
+      | SX_SYM nm => if nm = "nil" then SOME [] else NONE
+      | SX_CONS a d =>
+        (case sexpdec_alt a of
+         | NONE => NONE
+         | SOME h =>
+         case sexpdec_list d of
+         | NONE => NONE
+         | SOME t => SOME (h::t))
+      | _ => NONE)`
+  (wf_rel_tac`inv_image (measure sexp_size)
+    (λx. case x of
+         | INL y => y
+         | INR y => y)` \\ rw[] \\
+   imp_res_tac dstrip_sexp_size \\
+   fs[LENGTH_EQ_NUM_compute]);
+
+val sexpdec_alt_ind = theorem"sexpdec_alt_ind";
+
+val sexpdec_alt_intro = Q.store_thm("sexpdec_alt_intro",
+  `(∀s. sexpdec s = sexpdec_alt s) ∧
+  (∀s. sexplist sexpdec s = sexpdec_list s)`,
+  ho_match_mp_tac sexpdec_alt_ind \\ rw[]
+  >- (
+    rw[Once sexpdec_def,Once sexpdec_alt_def,sexppat_alt_intro1,sexpexp_alt_intro1,sexptype_alt_intro1]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rw[] \\ rfs[] \\ fsrw_tac[ETA_ss][] )
+  >- (
+    rw[Once sexplist_def,Once (CONJUNCT2 sexpdec_alt_def)] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] ));
+
+val sexpdec_alt_intro1 = Q.store_thm("sexpdec_alt_intro1",
+  `sexpdec = sexpdec_alt ∧
+   sexplist sexpdec = sexpdec_list`,
+  rw[FUN_EQ_THM,sexpdec_alt_intro]);
+
 (* now the reverse: toSexp *)
 
 val listsexp_def = Define`

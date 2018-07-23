@@ -193,6 +193,7 @@ val r = fromSexpTheory.sexptype_def_def
 
 val r = translate optionTheory.OPTION_APPLY_def;
 
+(*
 val r = fromSexpTheory.sexpspec_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert,sexptype_alt_intro1]
         |> translate;
@@ -201,6 +202,7 @@ val sexpspec_side = Q.prove(
   `∀x. sexpspec_side x = T`,
   EVAL_TAC \\ rw[] \\ strip_tac \\ fs[])
   |> update_precondition;
+*)
 
 val r = fromSexpTheory.sexpopt_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
@@ -244,23 +246,15 @@ val sexpexp_alt_side = Q.prove(
   rw[Once(theorem"sexpexp_alt_side_def")])
   |> update_precondition;
 
-val r = fromSexpTheory.sexpdec_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert,
-                             sexptype_alt_intro1,sexppat_alt_intro1,sexpexp_alt_intro1]
-        |> translate;
+val r = translate fromSexpTheory.sexpdec_alt_def
 
-val sexpdec_side = Q.prove(
-  `∀x. sexpdec_side x = T`,
-  EVAL_TAC \\ rw[] \\ strip_tac \\ fs[])
-  |> update_precondition;
-
-val r = fromSexpTheory.sexptop_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-
-val sexptop_side = Q.prove(
-  `∀x. sexptop_side x = T`,
-  EVAL_TAC \\ rw[] \\ strip_tac \\ fs[])
+val sexpdec_alt_side = Q.prove(
+  `(∀x. sexpdec_alt_side x = T) ∧
+   (∀x. sexpdec_list_side x = T)`,
+  ho_match_mp_tac sexpdec_alt_ind
+  \\ rw[]
+  \\ rw[Once(fetch"-""sexpdec_alt_side_def")]
+  \\ fs[LENGTH_EQ_NUM_compute])
   |> update_precondition;
 
 val _ = export_theory();
