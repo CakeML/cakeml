@@ -5539,7 +5539,6 @@ val semantics_CURRY_I = Q.store_thm("semantics_CURRY_I",
   \\ imp_res_tac CURRY_I_rel_def);
 (* -- *)
 
-(*
 val semantics_kcompile = Q.store_thm("semantics_kcompile",
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    (cc1 = state_cc (case known_conf of SOME kcfg => (clos_knownProof$compile_inc kcfg) | _ => CURRY I) cc) ∧
@@ -5558,7 +5557,10 @@ val semantics_kcompile = Q.store_thm("semantics_kcompile",
    semantics ffi max_app FEMPTY co cc1 xs`,
   strip_tac
   \\ Cases_on`known_conf` \\ fs[clos_knownTheory.compile_def]
-*)
+  >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ irule clos_knownProofTheory.semantics_known
+  \\ fs[] \\ metis_tac[]);
 
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
