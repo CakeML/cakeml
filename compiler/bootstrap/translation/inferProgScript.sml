@@ -1,11 +1,11 @@
 open preamble
-     parserProgTheory inferTheory
+     reg_allocProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
 
 val _ = new_theory "inferProg"
 
-val _ = translation_extends "parserProg";
+val _ = translation_extends "reg_allocProg";
 
 (* translator setup *)
 
