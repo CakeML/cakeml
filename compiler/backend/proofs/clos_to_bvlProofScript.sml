@@ -5425,28 +5425,41 @@ val do_install_CURRY_I = Q.store_thm("do_install_CURRY_I",
   \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]);
 
+val LIST_REL_eq = store_thm("LIST_REL_eq",
+  ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []);
+
+val LIST_REL_OPT_REL_eq = store_thm("LIST_REL_OPT_REL_eq",
+  ``!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
+
+val do_app_lemma_simp = prove(
+  ``(exc_rel $= err1 err2 <=> err1 = err2) /\
+    LIST_REL $= xs xs /\
+    simple_state_rel $= CURRY_I_rel /\
+    simple_val_rel $=``,
+  rw [] \\ fs [LIST_REL_eq,simple_state_rel_def,CURRY_I_rel_def]
+  THEN1
+   (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
+    \\ eq_tac \\ rw [])
+  \\ fs [simple_val_rel_def] \\ fs [LIST_REL_eq,LIST_REL_OPT_REL_eq]);
+
+val do_app_lemma =
+  simple_val_rel_do_app
+  |> Q.GENL [`vr`,`sr`]
+  |> ISPEC ``(=):closSem$v -> closSem$v -> bool``
+  |> ISPEC ``CURRY_I_rel``
+  |> Q.INST [`opp`|->`op`,`s`|->`s1`,`t`|->`s2`,`ys`|->`xs`]
+  |> SIMP_RULE std_ss [do_app_lemma_simp]
+
 val do_app_CURRY_I_Rerr = Q.store_thm("do_app_CURRY_I_Rerr",
   `∀op xs s1 s2 r.
     do_app op xs s1 = Rerr r ∧
     CURRY_I_rel s1 s2 ⇒
     do_app op xs s2 = Rerr r`,
-  rw[] \\ imp_res_tac closPropsTheory.do_app_err
-  \\ Cases_on`op = Equal`
-  >- (
-    fs[closSemTheory.do_app_def,CaseEq"list"]
-    \\ CASE_TAC \\ fs[] )
-  \\ fs[] \\ rveq
-  \\ Cases_on`a` \\ fs[do_app_never_timesout]
-  \\ TRY (
-    fs[do_app_cases_ffi_error] \\ rveq \\ fs[]
-    \\ fs[CaseEq"ffi_result"]
-    \\ imp_res_tac CURRY_I_rel_def \\ fs[]
-    \\ NO_TAC)
-  \\ imp_res_tac CURRY_I_rel_def
-  \\ Cases_on`op`
-  \\ fs[closSemTheory.do_app_def,CaseEq"list",CaseEq"option",CaseEq"closSem$v",CaseEq"ref"]
-  \\ rveq \\ fs[bool_case_eq]
-  \\ fs[CaseEq"closSem$v",CaseEq"option",CaseEq"ref",CaseEq"bool",CaseEq"ffi_result",CaseEq"word_size",CaseEq"prod"]);
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
 
 val do_app_CURRY_I_Rval = Q.store_thm("do_app_CURRY_I_Rval",
   `∀op xs s1 s2 r z1.
@@ -5455,11 +5468,8 @@ val do_app_CURRY_I_Rval = Q.store_thm("do_app_CURRY_I_Rval",
     ∃z2.
     do_app op xs s2 = Rval (r,z2) ∧
     CURRY_I_rel z1 z2`,
-  rw[closPropsTheory.do_app_cases_val]
-  \\ imp_res_tac CURRY_I_rel_def \\ fs[]
-  \\ fs[CURRY_I_rel_def]
-  \\ fs[CaseEq"ffi_result"]
-  \\ rveq \\ fs[]);
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
 
 val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
   `(∀p x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
