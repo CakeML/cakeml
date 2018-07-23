@@ -1,4 +1,4 @@
-open preamble
+open preamble parserProgTheory
      reg_allocProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory

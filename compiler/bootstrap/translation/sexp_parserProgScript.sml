@@ -174,9 +174,11 @@ val sexpid_side = Q.prove(
   rw[Once(theorem"sexpid_side_def")])
 |> update_precondition;
 
+(*
 val r = fromSexpTheory.sexptctor_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
+*)
 
 val sexptype_alt_def = tDefine"sexptype_alt"`
  (sexptype_alt s =
