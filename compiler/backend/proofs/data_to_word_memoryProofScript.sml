@@ -626,7 +626,9 @@ val full_gc_thm = Q.store_thm("full_gc_thm",
   \\ reverse conj_tac THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
     \\ qexists_tac `heap` \\ full_simp_tac std_ss []
-    \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+    \\ rw [] \\ fs [] \\ res_tac \\ fs []
+    \\ fs [reachable_addresses_def,IN_DEF]
+    \\ asm_exists_tac \\ fs [])
   \\ conj_tac THEN1
    (qpat_x_assum `full_gc (roots,heap,limit) = xxx` (ASSUME_TAC o GSYM)
     \\ imp_res_tac full_gc_ok \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
@@ -782,7 +784,8 @@ val gen_gc_thm = Q.store_thm("gen_gc_thm",
   \\ reverse (rpt conj_tac) THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
     \\ qexists_tac `heap` \\ full_simp_tac std_ss []
-    \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+    \\ rw [] \\ fs [] \\ res_tac \\ fs []
+    \\ fs [reachable_addresses_def,IN_DEF] \\ asm_exists_tac \\ fs [])
   THEN1
    (fs [unused_space_inv_def] \\ fs [heap_expand_def]
     \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
