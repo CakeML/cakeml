@@ -5373,6 +5373,7 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
   \\ rename1`result_rel _ _ tres`
   \\ Cases_on`tres` \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]);
 
+(* TODO: move to clos_mtiProof and rename according to conventions *)
 val semantics_mti = Q.store_thm("semantics_mti",
   `semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    cc1 = (if do_mti then pure_cc (clos_mtiProof$compile_inc max_app) else I) cc ∧
@@ -5539,6 +5540,7 @@ val semantics_CURRY_I = Q.store_thm("semantics_CURRY_I",
   \\ imp_res_tac CURRY_I_rel_def);
 (* -- *)
 
+(* TODO: move to clos_knownProof and rename according to conventions *)
 val semantics_kcompile = Q.store_thm("semantics_kcompile",
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    (cc1 = state_cc (case known_conf of SOME kcfg => (clos_knownProof$compile_inc kcfg) | _ => CURRY I) cc) ∧
@@ -5562,10 +5564,44 @@ val semantics_kcompile = Q.store_thm("semantics_kcompile",
   \\ irule clos_knownProofTheory.semantics_known
   \\ fs[] \\ metis_tac[]);
 
+(* TODO: move to clos_callProof and rename according to conventions *)
+val semantics_ccompile = Q.store_thm("semantics_ccompile",
+  `semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
+   clos_call$compile do_call x = (y,aux) ∧
+   (if do_call then
+    every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧
+    ALL_DISTINCT (code_locs x) ∧
+    code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1
+    else cc = state_cc (CURRY I) cc1 ∧
+         co1 = state_co (CURRY I) co) ⇒
+   semantics ffi max_app (FEMPTY |++ aux) co1 cc1 y
+   =
+   semantics ffi max_app FEMPTY co cc x`,
+  reverse(Cases_on`do_call`)
+  \\ rw[clos_callTheory.compile_def]
+  \\ fs[FUPDATE_LIST_THM]
+  >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
+  \\ irule clos_callProofTheory.semantics_calls
+  \\ fs[clos_callTheory.compile_def]);
+
+(* TODO: move to clos_annotate(Proof) *)
+val compile_append = Q.store_thm("compile_append",
+  `clos_annotate$compile (p1 ++ p2) = compile p1 ++ compile p2`,
+  rw[clos_annotateTheory.compile_def]);
+
+val compile_prog_append = Q.store_thm("compile_prog_append",
+  `∀max_app l1 l2.
+     compile_prog max_app (l1 ++ l2) =
+     compile_prog max_app l1 ++ compile_prog max_app l2`,
+  recInduct compile_prog_ind
+  \\ rw[compile_prog_def]
+  \\ pairarg_tac \\ fs[]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
-      (state_cc (clos_knownProof$compile_inc kcfg) cc)))) ∧
+      (state_cc (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
+        (state_cc (if c.do_call then compile_inc else CURRY I) cc))))) ∧
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 cc1 es1 ≠ Fail ∧
    compile_common c es1 = (start, c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ syntax_ok es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ syntax_ok [FST(SND(co1 n))])) ∧
@@ -5597,7 +5633,26 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ simp[]
     \\ rw[backendPropsTheory.pure_co_def, clos_mtiProofTheory.compile_inc_def] )
   \\ disch_then(assume_tac o SYM) \\ fs[]
-  (* make a simplified semantics_known for clos_known$compile *)
+  \\ drule (GEN_ALL semantics_kcompile)
+  \\ disch_then(qspec_then`kc`mp_tac)
+  \\ disch_then(qspec_then`c.known_conf`mp_tac)
+  \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`state_cc _ cc0`
+  \\ disch_then(qspec_then`cc0`mp_tac) \\ fs[]
+  \\ impl_tac >- cheat (* add assumptions *)
+  \\ disch_then(assume_tac o SYM) \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ qmatch_assum_abbrev_tac`semantics ffi max_app FEMPTY co cc0 x <> Fail`
+  \\ drule (GEN_ALL semantics_ccompile)
+  \\ disch_then drule
+  \\ disch_then(qspec_then`state_co (if c.do_call then compile_inc else CURRY I) co`mp_tac)
+  \\ disch_then(qspec_then`cc`mp_tac)
+  \\ impl_tac
+  >- (
+    rw[] \\ fs[Abbr`cc0`, clos_callProofTheory.code_inv_def]
+    \\ cheat (* add assumptions *) )
+  \\ disch_then(assume_tac o SYM) \\ fs[]
+  \\ simp[compile_append, compile_prog_append]
   \\ cheat);
 
 (*
@@ -5615,6 +5670,8 @@ clos_to_bvlTheory.compile_common_def;
 
 type_of``closSem$semantics``
 remove_type_abbrev"ctor_id"
+
+temp_overload_on("acompile",``clos_annotate$compile``);
 
 val compile_exps_semantics = store_thm("compile_exps_semantics",
   ``closSem$semantics ffi max_app code1 co1 cc1 es1 <> Fail ==>
