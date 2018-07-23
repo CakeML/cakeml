@@ -5385,7 +5385,7 @@ val semantics_mti = Q.store_thm("semantics_mti",
   \\ irule clos_mtiProofTheory.semantics_intro_multi
   \\ fs[]);
 
-(*
+(* TODO: move to closProps? *)
 val CURRY_I_rel_def = Define`
   CURRY_I_rel s1 s2 ⇔
     s1.globals = s2.globals ∧
@@ -5398,7 +5398,7 @@ val CURRY_I_rel_def = Define`
     s1.max_app = s2.max_app`;
 
 val do_install_CURRY_I = Q.store_thm("do_install_CURRY_I",
-  `do_install xs z1 = (r,s1) ∧
+  `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
    CURRY_I_rel z1 z2 ⇒
    ∃s2.
      do_install xs z2 = (r,s2) ∧
@@ -5422,12 +5422,49 @@ val do_install_CURRY_I = Q.store_thm("do_install_CURRY_I",
   \\ pairarg_tac \\ fs[]
   \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
-  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]);
+
+val do_app_CURRY_I_Rerr = Q.store_thm("do_app_CURRY_I_Rerr",
+  `∀op xs s1 s2 r.
+    do_app op xs s1 = Rerr r ∧
+    CURRY_I_rel s1 s2 ⇒
+    do_app op xs s2 = Rerr r`,
+  rw[] \\ imp_res_tac closPropsTheory.do_app_err
+  \\ Cases_on`op = Equal`
+  >- (
+    fs[closSemTheory.do_app_def,CaseEq"list"]
+    \\ CASE_TAC \\ fs[] )
+  \\ fs[] \\ rveq
+  \\ Cases_on`a` \\ fs[do_app_never_timesout]
+  \\ TRY (
+    fs[do_app_cases_ffi_error] \\ rveq \\ fs[]
+    \\ fs[CaseEq"ffi_result"]
+    \\ imp_res_tac CURRY_I_rel_def \\ fs[]
+    \\ NO_TAC)
+  \\ imp_res_tac CURRY_I_rel_def
+  \\ Cases_on`op`
+  \\ fs[closSemTheory.do_app_def,CaseEq"list",CaseEq"option",CaseEq"closSem$v",CaseEq"ref"]
+  \\ rveq \\ fs[bool_case_eq]
+  \\ fs[CaseEq"closSem$v",CaseEq"option",CaseEq"ref",CaseEq"bool",CaseEq"ffi_result",CaseEq"word_size",CaseEq"prod"]);
+
+val do_app_CURRY_I_Rval = Q.store_thm("do_app_CURRY_I_Rval",
+  `∀op xs s1 s2 r z1.
+    do_app op xs s1 = Rval (r,z1) ∧
+    CURRY_I_rel s1 s2 ⇒
+    ∃z2.
+    do_app op xs s2 = Rval (r,z2) ∧
+    CURRY_I_rel z1 z2`,
+  rw[closPropsTheory.do_app_cases_val]
+  \\ imp_res_tac CURRY_I_rel_def \\ fs[]
+  \\ fs[CURRY_I_rel_def]
+  \\ fs[CaseEq"ffi_result"]
+  \\ rveq \\ fs[]);
 
 val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
   `(∀p x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
     p = (x,y,z1) ∧
     closSem$evaluate (x,y,z1) = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
     CURRY_I_rel z1 z2
     ⇒
     ∃s2.
@@ -5435,11 +5472,12 @@ val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
     CURRY_I_rel s1 s2) ∧
    (∀w x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
     evaluate_app w x y z1 = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
     CURRY_I_rel z1 z2
     ⇒
     ∃s2.
     evaluate_app w x y z2 = (r,s2) ∧
-    CURRY_I_rel s1 s2)`
+    CURRY_I_rel s1 s2)`,
   ho_match_mp_tac closSemTheory.evaluate_ind
   \\ rw[closSemTheory.evaluate_def]
   \\ TRY (
@@ -5466,6 +5504,18 @@ val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
   \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS] \\ fs[]
   \\ rveq \\ fs[]
   \\ res_tac \\ fs[]
+  \\ Cases_on`op = Install`
+  \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+  \\ rveq \\ fs[]
+  \\ TRY (
+    drule (GEN_ALL do_install_CURRY_I)
+    \\ simp[]
+    \\ disch_then drule
+    \\ rw[] \\ fs[]
+    \\ NO_TAC )
+  \\ imp_res_tac do_app_CURRY_I_Rval
+  \\ fs[]
+  \\ imp_res_tac do_app_CURRY_I_Rerr);
 
 val semantics_CURRY_I = Q.store_thm("semantics_CURRY_I",
   `semantics ffi max_app code co (state_cc (CURRY I) cc) es ≠ Fail ⇒
@@ -5475,7 +5525,19 @@ val semantics_CURRY_I = Q.store_thm("semantics_CURRY_I",
   \\ irule closPropsTheory.IMP_semantics_eq
   \\ rw[closPropsTheory.eval_sim_def]
   \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))` \\ rw[]
-*)
+  \\ imp_res_tac(CONJUNCT1 evaluate_CURRY_I)
+  \\ fs[PULL_FORALL,PULL_EXISTS]
+  \\ qexists_tac`0` \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`(es,[],sz)`
+  \\ last_x_assum(qspec_then`sz`mp_tac)
+  \\ impl_tac
+  >- (
+    simp[CURRY_I_rel_def]
+    \\ simp[Abbr`sz`]
+    \\ EVAL_TAC )
+  \\ strip_tac \\ fs[]
+  \\ imp_res_tac CURRY_I_rel_def);
+(* -- *)
 
 (*
 val semantics_kcompile = Q.store_thm("semantics_kcompile",
