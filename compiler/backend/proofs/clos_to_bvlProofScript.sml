@@ -5385,6 +5385,119 @@ val semantics_mti = Q.store_thm("semantics_mti",
   \\ irule clos_mtiProofTheory.semantics_intro_multi
   \\ fs[]);
 
+(*
+val CURRY_I_rel_def = Define`
+  CURRY_I_rel s1 s2 ⇔
+    s1.globals = s2.globals ∧
+    s1.refs = s2.refs ∧
+    s1.ffi = s2.ffi ∧
+    s1.clock = s2.clock ∧
+    s1.compile = state_cc (CURRY I) s2.compile ∧
+    s2.compile_oracle = state_co (CURRY I) s1.compile_oracle ∧
+    s1.code = s2.code ∧
+    s1.max_app = s2.max_app`;
+
+val do_install_CURRY_I = Q.store_thm("do_install_CURRY_I",
+  `do_install xs z1 = (r,s1) ∧
+   CURRY_I_rel z1 z2 ⇒
+   ∃s2.
+     do_install xs z2 = (r,s2) ∧
+     CURRY_I_rel s1 s2`,
+  rw[closSemTheory.do_install_def]
+  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac CURRY_I_rel_def
+  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ IF_CASES_TAC \\ fs[] \\ fs[]
+  \\ TRY (fs[CURRY_I_rel_def] \\ rveq \\ fs[] \\ NO_TAC)
+  \\ fs[FUN_EQ_THM, FORALL_PROD]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ fs[shift_seq_def]
+  \\ pairarg_tac \\ fs[]
+  \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
+  \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
+  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+
+val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
+  `(∀p x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    p = (x,y,z1) ∧
+    closSem$evaluate (x,y,z1) = (r,s1) ∧
+    CURRY_I_rel z1 z2
+    ⇒
+    ∃s2.
+    closSem$evaluate (x,y,z2) = (r,s2) ∧
+    CURRY_I_rel s1 s2) ∧
+   (∀w x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    evaluate_app w x y z1 = (r,s1) ∧
+    CURRY_I_rel z1 z2
+    ⇒
+    ∃s2.
+    evaluate_app w x y z2 = (r,s2) ∧
+    CURRY_I_rel s1 s2)`
+  ho_match_mp_tac closSemTheory.evaluate_ind
+  \\ rw[closSemTheory.evaluate_def]
+  \\ TRY (
+       fs[closSemTheory.evaluate_def,
+          bool_case_eq,
+          CaseEq"prod", CaseEq"option", CaseEq"list",
+          CaseEq"semanticPrimitives$result",
+          CaseEq"app_kind",
+          CaseEq"error_result"]
+    \\ rw[]
+    \\ fs[PULL_EXISTS]
+    \\ res_tac \\ fs[]
+    \\ rpt(qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[])
+    \\ res_tac \\ fs[]
+    \\ fs[CURRY_I_rel_def, CaseEq"prod", CaseEq"option",
+          bool_case_eq, PULL_EXISTS]
+    \\ rveq \\ fs[closSemTheory.dec_clock_def] \\ rfs[]
+    \\ fsrw_tac[DNF_ss][]
+    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
+    \\ TRY(last_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`] \\ strip_tac \\ fs[] \\ NO_TAC)
+    \\ TRY(first_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`] \\ strip_tac \\ fs[] \\ NO_TAC)
+    \\ NO_TAC)
+    (* only Install and do_app *)
+  \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS] \\ fs[]
+  \\ rveq \\ fs[]
+  \\ res_tac \\ fs[]
+
+val semantics_CURRY_I = Q.store_thm("semantics_CURRY_I",
+  `semantics ffi max_app code co (state_cc (CURRY I) cc) es ≠ Fail ⇒
+   semantics ffi max_app code (state_co (CURRY I) co) cc es =
+   semantics ffi max_app code co (state_cc (CURRY I) cc) es`,
+  rw[semantics_def]
+  \\ irule closPropsTheory.IMP_semantics_eq
+  \\ rw[closPropsTheory.eval_sim_def]
+  \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))` \\ rw[]
+*)
+
+(*
+val semantics_kcompile = Q.store_thm("semantics_kcompile",
+  `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
+   (cc1 = state_cc (case known_conf of SOME kcfg => (clos_knownProof$compile_inc kcfg) | _ => CURRY I) cc) ∧
+   (co1 = state_co (case known_conf of SOME kcfg => (clos_knownProof$compile_inc kcfg) | _ => CURRY I) co) ∧
+   (clos_known$compile known_conf xs = (known_conf', es)) ∧
+   (IS_SOME known_conf ⇒
+      (∀n. SND(SND(co n)) = [] ∧ fv_max 0 [FST (SND (co n))]) ∧
+      (∀n exp aux. SND (co n) = (exp,aux) ⇒ esgc_free exp ∧ elist_globals (MAP (SND o SND) aux) = {||}) ∧
+      every_Fn_vs_NONE xs ∧ co_every_Fn_vs_NONE co ∧ oracle_states_subspt co ∧
+      oracle_state_sgc_free co ∧ unique_set_globals xs co ∧
+      EVERY esgc_free xs ∧ fv_max 0 xs ∧
+      (THE known_conf).val_approx_spt = LN ∧
+      FST (FST (co 0)) = (THE known_conf').val_approx_spt)
+   ⇒
+   semantics ffi max_app FEMPTY co1 cc es =
+   semantics ffi max_app FEMPTY co cc1 xs`,
+  strip_tac
+  \\ Cases_on`known_conf` \\ fs[clos_knownTheory.compile_def]
+*)
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
