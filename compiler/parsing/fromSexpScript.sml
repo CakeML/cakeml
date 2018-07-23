@@ -5,6 +5,11 @@ val _ = new_theory "fromSexp";
 val _ = set_grammar_ancestry ["simpleSexp", "ast", "location","fpSem"]
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
+(* TODO: this is duplicated in parserProgTheory *)
+val monad_unitbind_assert = Q.prove(
+  `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+
 (* TODO: move*)
 
 (* cf. similar TODO in cmlPtreeConversionScript.sml *)
@@ -393,6 +398,57 @@ val sexptype_def = tDefine "sexptype" `
    \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
    \\ metis_tac[sxMEM_sizelt,dstrip_sexp_size,MEM,LESS_TRANS]);
 
+(* translator friendly version for bootstrapping *)
+val sexptype_alt_def = tDefine"sexptype_alt"`
+ (sexptype_alt s =
+    case dstrip_sexp s of
+    | NONE => NONE
+    | SOME (nm,args) =>
+      if nm = "Atvar" ∧ LENGTH args = 1 then
+        OPTION_MAP Atvar (odestSEXSTR (EL 0 args))
+      else if nm = "Atfun" ∧ LENGTH args = 2 then
+        OPTION_MAP2 Atfun (sexptype_alt (EL 0 args)) (sexptype_alt (EL 1 args))
+      else if nm = "Attup" ∧ LENGTH args = 1 then
+        OPTION_MAP Attup (sexptype_list (EL 0 args))
+      else if nm = "Atapp" ∧ LENGTH args = 2 then
+        OPTION_MAP2 Atapp (sexptype_list (EL 0 args)) (sexpid odestSEXSTR (EL 1 args))
+      else NONE) ∧
+ (sexptype_list s =
+    case s of
+    | SX_SYM nm => if nm = "nil" then SOME [] else NONE
+    | SX_CONS a d =>
+      (case sexptype_alt a of
+       | NONE => NONE
+       | SOME h =>
+       case sexptype_list d of
+       | NONE => NONE
+       | SOME t => SOME (h::t))
+    | _ => NONE)`
+  (wf_rel_tac`inv_image (measure sexp_size) (λx. case x of INL y => y | INR y => y)` \\ rw[] \\
+   imp_res_tac dstrip_sexp_size \\
+   fs[LENGTH_EQ_NUM_compute]);
+
+val sexptype_alt_ind = theorem"sexptype_alt_ind";
+
+val sexptype_alt_intro = Q.store_thm("sexptype_alt_intro",
+  `(∀s. sexptype s = sexptype_alt s) ∧ (∀s. sexptype_list s = sexplist sexptype s)`,
+  ho_match_mp_tac sexptype_alt_ind \\ rw[]
+  >- (
+    rw[Once sexptype_alt_def,Once sexptype_def] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    simp[monad_unitbind_assert] \\
+    srw_tac[ETA_ss][] )
+  >- (
+    rw[Once sexplist_def,Once (CONJUNCT2 sexptype_alt_def)] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] ));
+
+val sexptype_alt_intro1 = Q.store_thm("sexptype_alt_intro1",
+  `sexptype = sexptype_alt ∧ sexplist sexptype = sexptype_list`,
+  rw[FUN_EQ_THM,sexptype_alt_intro]);
+
 val sexplit_def = Define`
   sexplit s =
     lift (IntLit o (&)) (odestSXNUM s) ++
@@ -449,6 +505,61 @@ val sexppat_def = tDefine "sexppat" `
                 EL ]
    >- metis_tac[rich_listTheory.EL_MEM, DECIDE ``0n < 1``, listTheory.EL,
                 dstrip_sexp_size])
+
+(* translator friendly version for bootstrapping *)
+val sexppat_alt_def = tDefine"sexppat_alt"`
+ (sexppat_alt s =
+    OPTION_MAP Pvar (odestSEXSTR s) ++
+    case dstrip_sexp s of
+    | NONE => NONE
+    | SOME (nm,args) =>
+      if nm = "Pany" ∧ LENGTH args = 0 then
+        SOME Pany
+      else if nm = "Plit" ∧ LENGTH args = 1 then
+        OPTION_MAP Plit (sexplit (EL 0 args))
+      else if nm = "Pcon" ∧ LENGTH args = 2 then
+        OPTION_MAP2 Pcon (sexpopt (sexpid odestSEXSTR) (EL 0 args))
+          (sexppat_list (EL 1 args))
+      else if nm = "Pref" ∧ LENGTH args = 1 then
+        OPTION_MAP Pref (sexppat_alt (EL 0 args))
+      else if nm = "Ptannot" ∧ LENGTH args = 2 then
+        OPTION_MAP2 Ptannot (sexppat_alt (EL 0 args)) (sexptype_alt (EL 1 args))
+      else NONE) ∧
+ (sexppat_list s =
+    case s of
+    | SX_SYM nm => if nm = "nil" then SOME [] else NONE
+    | SX_CONS a d =>
+      (case sexppat_alt a of
+       | NONE => NONE
+       | SOME h =>
+       case sexppat_list d of
+       | NONE => NONE
+       | SOME t => SOME (h::t))
+    | _ => NONE)`
+  (wf_rel_tac`inv_image (measure sexp_size) (λx. case x of INL y => y | INR y => y)` \\ rw[] \\
+   imp_res_tac dstrip_sexp_size \\
+   fs[LENGTH_EQ_NUM_compute]);
+
+val sexppat_alt_ind = theorem"sexppat_alt_ind";
+
+val sexppat_alt_intro = Q.store_thm("sexppat_alt_intro",
+  `(∀s. sexppat s = sexppat_alt s) ∧ (∀s. sexppat_list s = sexplist sexppat s)`,
+  ho_match_mp_tac sexppat_alt_ind \\ rw[]
+  >- (
+    rw[Once sexppat_alt_def,Once sexppat_def] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    simp[monad_unitbind_assert] \\
+    srw_tac[ETA_ss][sexptype_alt_intro1] )
+  >- (
+    rw[Once sexplist_def,Once (CONJUNCT2 sexppat_alt_def)] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] ));
+
+val sexppat_alt_intro1 = Q.store_thm("sexppat_alt_intro1",
+  `sexppat = sexppat_alt ∧ sexplist sexppat = sexppat_list`,
+  rw[FUN_EQ_THM,sexppat_alt_intro]);
 
 val sexpop_def = Define`
   (sexpop (SX_SYM s) =
@@ -625,6 +736,183 @@ val sexpexp_def = tDefine "sexpexp" `
    >> metis_tac[rich_listTheory.EL_MEM, listTheory.EL,
                 DECIDE ``1n < 2 ∧ 0n < 2 ∧ 0n < 1 ∧ 2n < 3 ∧ 0n < 3 ∧ 1n < 3``,
                 dstrip_sexp_size, sxMEM_sizelt, arithmeticTheory.LESS_TRANS])
+
+(* translator friendly version for bootstrapping *)
+val sexpexp_alt_def = tDefine"sexpexp_alt"`
+  (sexpexp_alt s =
+     case dstrip_sexp s of
+     | NONE => NONE
+     | SOME (nm,args) =>
+          if nm = "Raise" ∧ LENGTH args = 1 then
+             lift Raise (sexpexp_alt (EL 0 args)) else
+          if nm = "Handle" ∧ LENGTH args = 2 then
+             OPTION_MAP2 Handle (sexpexp_alt (EL 0 args))
+               (sexppes (EL 1 args)) else
+          if nm = "Lit" ∧ LENGTH args = 1 then
+             lift Lit (sexplit (EL 0 args))
+           else
+          if nm = "Con" ∧ LENGTH args = 2 then
+             OPTION_MAP2 Con (sexpopt (sexpid odestSEXSTR) (EL 0 args))
+               (sexpexp_list (EL 1 args))
+           else
+          if nm = "Var" ∧ LENGTH args = 1 then
+             lift Var (sexpid odestSEXSTR (EL 0 args))
+           else
+          if nm = "Fun" ∧ LENGTH args = 2 then
+             OPTION_MAP2 Fun (odestSEXSTR (EL 0 args))
+               (sexpexp_alt (EL 1 args))
+           else
+          if nm = "App" ∧ LENGTH args = 2 then
+             OPTION_MAP2 App (sexpop (EL 0 args))
+               (sexpexp_list  (EL 1 args))
+           else
+          if nm = "Log" ∧ LENGTH args = 3 then
+             lift Log (sexplop (EL 0 args)) <*> sexpexp_alt (EL 1 args) <*>
+             sexpexp_alt (EL 2 args)
+           else
+          if nm = "If" ∧ LENGTH args = 3 then
+             lift If (sexpexp_alt (EL 0 args)) <*> sexpexp_alt (EL 1 args) <*>
+             sexpexp_alt (EL 2 args)
+           else
+          if nm = "Mat" ∧ LENGTH args = 2 then
+             OPTION_MAP2 Mat (sexpexp_alt (EL 0 args))
+               (sexppes (EL 1 args))
+           else
+          if nm = "Let" ∧ LENGTH args = 3 then
+             lift Let (sexpopt odestSEXSTR (EL 0 args)) <*>
+             sexpexp_alt (EL 1 args) <*> sexpexp_alt (EL 2 args)
+           else
+          if nm = "Letrec" ∧ LENGTH args = 2 then
+             OPTION_MAP2 Letrec
+               (sexpfuns (EL 0 args))
+               (sexpexp_alt (EL 1 args))
+           else
+          if nm = "Tannot" ∧ LENGTH args = 2 then
+             OPTION_MAP2 Tannot (sexpexp_alt (EL 0 args))
+               (sexptype_alt (EL 1 args))
+           else
+          if nm = "Lannot" ∧ LENGTH args = 2 then
+            OPTION_MAP2 Lannot (sexpexp_alt (EL 0 args))
+              (sexplocn (EL 1 args))
+          else NONE) ∧
+   (sexpexp_list s =
+      case s of
+      | SX_SYM nm => if nm = "nil" then SOME [] else NONE
+      | SX_CONS a d =>
+        (case sexpexp_alt a of
+         | NONE => NONE
+         | SOME h =>
+         case sexpexp_list d of
+         | NONE => NONE
+         | SOME t => SOME (h::t))
+      | _ => NONE) ∧
+  (sexppes s =
+   case s of
+   | SX_SYM nm => if nm = "nil" then SOME [] else NONE
+   | SX_CONS a d =>
+     (case sexppatexp a of
+      | NONE => NONE
+      | SOME h =>
+      case sexppes d of
+      | NONE => NONE
+      | SOME t => SOME (h::t))
+   | _ => NONE) ∧
+  (sexpfuns s =
+   case s of
+   | SX_SYM nm => if nm = "nil" then SOME [] else NONE
+   | SX_CONS a d =>
+     (case sexpfun a of
+      | NONE => NONE
+      | SOME h =>
+      case sexpfuns d of
+      | NONE => NONE
+      | SOME t => SOME (h::t))
+   | _ => NONE) ∧
+   (sexppatexp s =
+    case s of
+    | SX_CONS a d =>
+      (case (sexppat_alt a, sexpexp_alt d) of
+      | (SOME p, SOME e) => SOME (p,e)
+      | _ => NONE)
+    | _ => NONE) ∧
+   (sexpfun s =
+     case s of
+     | SX_CONS a d =>
+       (case d of
+       | SX_CONS b d =>
+       (case (odestSEXSTR a, odestSEXSTR b, sexpexp_alt d) of
+        | (SOME x, SOME y, SOME z) => SOME (x,y,z)
+        | _ => NONE)
+      | _ => NONE)
+    | _ => NONE)`
+  (wf_rel_tac`inv_image (measure sexp_size)
+    (λx. case x of
+         | INL y => y
+         | INR (INL y) => y
+         | INR (INR (INL y)) => y
+         | INR (INR (INR (INL y))) => y
+         | INR (INR (INR (INR (INL y)))) => y
+         | INR (INR (INR (INR (INR y)))) => y)` \\ rw[] \\
+   imp_res_tac dstrip_sexp_size \\
+   fs[LENGTH_EQ_NUM_compute]);
+
+val sexpexp_alt_ind = theorem"sexpexp_alt_ind";
+
+val sexpexp_alt_intro = Q.store_thm("sexpexp_alt_intro",
+  `(∀s. sexpexp s = sexpexp_alt s) ∧
+  (∀s. sexplist sexpexp s = sexpexp_list s) ∧
+  (∀s. sexplist (sexppair sexppat sexpexp) s = sexppes s) ∧
+  (∀s. sexplist (sexppair odestSEXSTR (sexppair odestSEXSTR sexpexp)) s = sexpfuns s) ∧
+  (∀s. sexppair sexppat sexpexp s = sexppatexp s) ∧
+  (∀s. sexppair odestSEXSTR (sexppair odestSEXSTR sexpexp) s = sexpfun s)`,
+  ho_match_mp_tac sexpexp_alt_ind \\ rw[]
+  >- (
+    rw[Once sexpexp_alt_def,Once sexpexp_def] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    simp[monad_unitbind_assert] \\
+    rpt (
+    IF_CASES_TAC >- (
+      pop_assum strip_assume_tac \\ rveq \\
+      full_simp_tac std_ss []
+      \\ fsrw_tac[ETA_ss][sexptype_alt_intro1] ) \\
+    simp[] ) )
+  >- (
+    rw[Once sexplist_def,Once (CONJUNCT2 sexpexp_alt_def)] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] )
+  >- (
+    rw[Once sexplist_def,Once (CONJUNCT1 (CONJUNCT2 (CONJUNCT2 sexpexp_alt_def)))] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] )
+  >- (
+    rw[Once sexplist_def,Once (CONJUNCT1 (funpow 3 CONJUNCT2 sexpexp_alt_def))] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] )
+  >- (
+    rw[Once sexplist_def,
+       sexppair_def,
+       Once (CONJUNCT1 (funpow 4 CONJUNCT2 sexpexp_alt_def))] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[sexppat_alt_intro1] \\
+    TOP_CASE_TAC \\ fs[] )
+  >- (
+    rw[Once sexplist_def,
+       sexppair_def,
+       Once (funpow 5 CONJUNCT2 sexpexp_alt_def)] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[sexppat_alt_intro1] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[]));
+
+val sexpexp_alt_intro1 = Q.store_thm("sexpexp_alt_intro1",
+  `sexpexp = sexpexp_alt ∧
+   sexplist (sexppair odestSEXSTR (sexppair odestSEXSTR sexpexp)) = sexpfuns`,
+  rw[FUN_EQ_THM,sexpexp_alt_intro]);
 
 val sexptype_def_def = Define`
   sexptype_def =
