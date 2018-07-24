@@ -1325,7 +1325,6 @@ val ptree_OptTypEqn_def = Define`
         | _ => NONE
 `
 
-(*
 val ptree_SpecLine_def = Define`
   ptree_SpecLine (Lf _) = NONE ∧
   ptree_SpecLine (Nd nt args) =
@@ -1335,29 +1334,29 @@ val ptree_SpecLine_def = Define`
           [td_pt] =>
           do
             td <- ptree_TypeDec td_pt;
-            SOME(Stype td)
+            SOME () (* (Stype td) *)
           od
         | [exntok; dcon_pt] =>
           do
             assert (tokcheck exntok ExceptionT);
             (nm,tys) <- ptree_Dconstructor dcon_pt;
-            SOME(Sexn nm tys)
+            SOME() (* (Sexn nm tys) *)
           od
         | [typetok; tynm_pt; opteqn_pt] =>
           do
             assert(tokcheck typetok TypeT);
             (vs,nm) <- ptree_TypeName tynm_pt;
             opteqn <- ptree_OptTypEqn opteqn_pt;
-            SOME(dtcase opteqn of
+            SOME() (* (dtcase opteqn of
                      NONE => Stype_opq vs nm
-                   | SOME ty => Stabbrev vs nm ty)
+                   | SOME ty => Stabbrev vs nm ty) *)
           od
         | [valtok; vname_pt; coltok; type_pt] =>
           do
             assert(tokcheckl [valtok;coltok] [ValT; ColonT]);
             vname <- ptree_V vname_pt;
             ty <- ptree_Type nType type_pt;
-            SOME(Sval vname ty)
+            SOME() (* (Sval vname ty)*)
           od
         | _ => NONE
 `
@@ -1368,14 +1367,14 @@ val ptree_SpeclineList_def = Define`
     if FST nt <> mkNT nSpecLineList then NONE
     else
       dtcase args of
-          [] => SOME []
+          [] => SOME () (* [] *)
         | [sl_pt; sll_pt] =>
           if tokcheck sl_pt SemicolonT then ptree_SpeclineList sll_pt
           else
             do
               sl <- ptree_SpecLine sl_pt;
               sll <- ptree_SpeclineList sll_pt;
-              SOME(sl::sll)
+              SOME () (* (sl::sll) *)
             od
         | _ => NONE
 `
@@ -1394,7 +1393,6 @@ val ptree_SignatureValue_def = Define`
         | _ => NONE
 `;
 
-*)
 val ptree_StructName_def = Define`
   ptree_StructName (Lf _) = NONE ∧
   ptree_StructName (Nd nm args) =
@@ -1411,12 +1409,11 @@ val ptree_Structure_def = Define`
     if FST nt <> mkNT nStructure then NONE
     else
       dtcase args of
-          [structuretok; sname_pt; (*asc_opt;*) eqtok; structtok; ds_pt; endtok] =>
+          [structuretok; sname_pt; asc_opt; eqtok; structtok; ds_pt; endtok] =>
           do
             assert(tokcheckl [structtok; structuretok; eqtok;   endtok]
                              [StructT;   StructureT;   EqualsT; EndT]);
             sname <- ptree_StructName sname_pt;
-            (*
             asc <- dtcase asc_opt of
                        Lf _ => NONE
                      | Nd nt args =>
@@ -1432,7 +1429,6 @@ val ptree_Structure_def = Define`
                                  SOME (SOME sigv)
                                od
                              | _ => NONE;
-                             *)
             ds <- ptree_Decls ds_pt;
             SOME(Dmod sname (*asc*) ds)
           od

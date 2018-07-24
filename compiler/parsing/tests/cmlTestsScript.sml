@@ -283,8 +283,8 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "SOME ()"
                    (SOME ``Con (SOME (Short "SOME")) [Con NONE []]``)
 
 val _ = parsetest0 ``nSpecLine`` ``ptree_SpecLine`` "type 'a foo = 'a list"
-                   (SOME ``Stabbrev ["'a"] "foo"
-                             (Atapp [Atvar "'a"] (Short "list"))``)
+                   (SOME ``() (* Stabbrev ["'a"] "foo"
+                             (Atapp [Atvar "'a"] (Short "list")) *)``)
 
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "type 'a foo = 'a list"
                    (SOME ``Dtabbrev locs ["'a"] "foo"
@@ -469,18 +469,18 @@ val _ = parsetest0 “nDecl” “ptree_Decl”
           "datatype 'a Tree = Lf1 | Nd ('a Tree) 'a ('a Tree) | Lf2 int"
           (SOME “Dtype _ [(["'a"], "Tree",
                            [("Lf1", []);
-                            ("Nd", [Atapp [Atvar "'a"] (SOME (Short "Tree"));
+                            ("Nd", [Atapp [Atvar "'a"] (Short "Tree");
                                     Atvar "'a";
-                                    Atapp [Atvar "'a"] (SOME (Short "Tree"))]);
-                            ("Lf2", [Atapp [] (SOME (Short "int"))])])]”)
+                                    Atapp [Atvar "'a"] (Short "Tree")]);
+                            ("Lf2", [Atapp [] (Short "int")])])]”)
 val _ = parsetest0 “nDecl” “ptree_Decl”
           "datatype 'a Tree = Lf1 | Nd of ('a Tree * 'a * 'a Tree) | Lf2 of int"
           (SOME “Dtype _ [(["'a"], "Tree",
                            [("Lf1", []);
-                            ("Nd", [Atapp [Atvar "'a"] (SOME (Short "Tree"));
+                            ("Nd", [Atapp [Atvar "'a"] (Short "Tree");
                                     Atvar "'a";
-                                    Atapp [Atvar "'a"] (SOME (Short "Tree"))]);
-                            ("Lf2", [Atapp [] (SOME (Short "int"))])])]”)
+                                    Atapp [Atvar "'a"] (Short "Tree")]);
+                            ("Lf2", [Atapp [] (Short "int")])])]”)
 val _ = parsetest ``nDecls`` elab_decls "val x = f()"
 val _ = parsetest ``nDecls`` elab_decls "val () = f x"
 val _ = parsetest0 ``nDecls`` “ptree_Decls” "val x = ref false;"
