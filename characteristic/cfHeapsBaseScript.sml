@@ -117,6 +117,13 @@ val POSTe_def = new_binder_definition("POSTe_def",
             | Exn e => Qe e
             | Div   => cond F``)
 
+val POSTd_def = new_binder_definition("POSTd_def",
+  ``($POSTd) (Qd: hprop) =
+      \r. case r of
+            | Val v => cond F
+            | Exn e => cond F
+            | Div   => Qd``)
+
 val POST_def = Define `
   POST (Qv: v -> hprop) (Qe: v -> hprop) = \r.
     case r of
