@@ -207,7 +207,8 @@ val st = get_ml_prog_state();
 val patch_whole_prog_spec = Q.store_thm("patch_whole_prog_spec",
   `hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"patch"st) cl fs ((=) (patch_sem cl fs))`,
-  rw[whole_prog_spec_def]
+  strip_tac
+  \\ rw[whole_prog_spec_def]
   \\ qexists_tac`patch_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[patch_sem_def,GSYM add_stdo_with_numchars,with_same_numchars]

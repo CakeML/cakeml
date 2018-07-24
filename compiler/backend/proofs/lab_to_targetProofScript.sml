@@ -247,6 +247,20 @@ val lab_lookup_IMP = Q.prove(
   full_simp_tac(srw_ss())[lab_lookup_def,find_pos_def,lookup_any_def]
   \\ BasicProvers.EVERY_CASE_TAC);
 
+val labs_domain_def = Define`
+  labs_domain labs = { (n1, n2) | lab_lookup n1 n2 labs ≠ NONE }`;
+
+val labs_domain_LN = Q.store_thm("labs_domain_LN[simp]",
+  `labs_domain LN = {}`,
+  EVAL_TAC \\ rw[lookup_def]);
+
+val labs_domain_insert = Q.store_thm("labs_domain_insert",
+  `k ∉ domain labs ⇒
+   labs_domain (insert k s labs) = IMAGE (λn2. (k,n2)) (domain s) ∪ labs_domain labs`,
+  rw[labs_domain_def,lab_lookup_def, lookup_insert, EXTENSION, EQ_IMP_THM]
+  \\ fs[case_eq_thms] \\ fs[domain_lookup]
+  \\ metis_tac[NOT_SOME_NONE,option_CASES]);
+
 val has_odd_inst_def = Define `
   (has_odd_inst [] = F) /\
   (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
@@ -258,6 +272,8 @@ val line_similar_def = Define `
   (line_similar (Asm b bytes l) (Asm b' bytes' l') <=> (b = b')) /\
   (line_similar (LabAsm a w bytes l) (LabAsm a' w' bytes' l') <=> (a = a')) /\
   (line_similar _ _ <=> F)`
+
+val line_similar_ind = theorem"line_similar_ind";
 
 val code_similar_def = Define `
   (code_similar [] [] = T) /\
@@ -504,6 +520,7 @@ val good_code_def = Define`
    ALL_DISTINCT (MAP Section_num code) /\
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
    DISJOINT (domain labs) (set (MAP Section_num code)) ∧
+   get_labels code ⊆ get_code_labels code ∪ labs_domain labs ∧
    all_enc_ok_pre c code`;
 
 
@@ -3511,24 +3528,143 @@ val offset_ok_pad_code = Q.store_thm("offset_ok_pad_code",
 
 (* invariant: referenced labels exist *)
 
-val labs_of_def = Define`
-  labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
-  labs_of (Jump (Lab n1 n2)) = {(n1,n2)} ∧
-  labs_of (JumpCmp _ _ _ (Lab n1 n2)) = {(n1,n2)} ∧
-  labs_of _ = {}`;
-
 val line_labs_exist_def = Define`
   (line_labs_exist labs (LabAsm a _ _ _) ⇔
     ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
   (line_labs_exist _ _ ⇔ T)`;
 
-val _ = export_rewrites["labs_of_def","line_labs_exist_def"];
+val line_labs_exist_ind = theorem "line_labs_exist_ind";
+
+val _ = export_rewrites["line_labs_exist_def"];
 
 val sec_labs_exist_def = Define`
   sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls`;
 val _ = export_rewrites["sec_labs_exist_def"];
 
 val _ = overload_on("all_labs_exist",``λlabs code. EVERY (sec_labs_exist labs) code``);
+
+(* labs_exist preservation *)
+
+val line_similar_line_labs_exist = Q.store_thm("line_similar_line_labs_exist",
+  `∀l1 l2. line_similar l1 l2 ⇒ (line_labs_exist labs l1 ⇔ line_labs_exist labs l2)`,
+  recInduct line_similar_ind
+  \\ rw[line_similar_def]);
+
+val code_similar_all_labs_exist = Q.store_thm("code_similar_all_labs_exist",
+  `∀c1 c2. code_similar c1 c2 ⇒ (all_labs_exist labs c1 ⇔ all_labs_exist labs c2)`,
+  recInduct code_similar_ind
+  \\ rw[code_similar_def]
+  \\ fs[LIST_REL_EL_EQN, EVERY_MEM, MEM_EL]
+  \\ metis_tac[line_similar_line_labs_exist]);
+
+val all_labs_exist_pad_code = Q.store_thm("all_labs_exist_pad_code[simp]",
+  `∀nop code. all_labs_exist labs (pad_code nop code) ⇔ all_labs_exist labs code`,
+  metis_tac[code_similar_pad_code, code_similar_all_labs_exist, code_similar_refl]);
+
+val enc_lines_again_line_labs_exist = Q.store_thm("enc_lines_again_line_labs_exist",
+  `∀labs ffis pos enc lines acc ok res ok' k.
+   enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
+   EVERY (line_labs_exist labs') acc ∧
+   EVERY (line_labs_exist labs') lines ⇒
+   EVERY (line_labs_exist labs') res`,
+  recInduct enc_lines_again_ind
+  \\ rw[enc_lines_again_def]
+  \\ rw[EVERY_REVERSE]);
+
+val enc_secs_again_all_labs_exist = Q.store_thm("enc_secs_again_all_labs_exist",
+  `∀pos ffis labs enc ls res ok k.
+    enc_secs_again pos ffis labs enc ls = (res,ok) ∧ all_labs_exist labs' ls ⇒
+    all_labs_exist labs' res`,
+  recInduct enc_secs_again_ind
+  \\ rw[enc_secs_again_def] \\ rw[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ match_mp_tac enc_lines_again_line_labs_exist
+  \\ asm_exists_tac \\ fs[]);
+
+val upd_lab_len_all_labs_exist = Q.store_thm("upd_lab_len_all_labs_exist",
+  `∀pos code. all_labs_exist labs (upd_lab_len pos code) ⇔ all_labs_exist labs code`,
+  metis_tac[code_similar_upd_lab_len, code_similar_all_labs_exist, code_similar_refl]);
+
+(* establishing labs_exist *)
+
+val line_similar_line_get_code_labels = Q.store_thm("line_similar_line_get_code_labels",
+  `∀l1 l2. line_similar l1 l2 ⇒ line_get_code_labels l1 = line_get_code_labels l2`,
+  recInduct line_similar_ind
+  \\ rw[line_similar_def]);
+
+val code_similar_get_code_labels = Q.store_thm("code_similar_get_code_labels",
+  `∀c1 c2. code_similar c1 c2 ⇒ get_code_labels c1 = get_code_labels c2`,
+  recInduct code_similar_ind
+  \\ rw[code_similar_def, get_code_labels_cons]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[sec_get_code_labels_def]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ fs[Once EXTENSION,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS]
+  \\ metis_tac[line_similar_line_get_code_labels]);
+
+val line_labs_exist_get_labels = Q.store_thm("line_labs_exist_get_labels",
+  `∀labs line. line_labs_exist labs line ⇔ line_get_labels line ⊆ labs_domain labs`,
+  recInduct line_labs_exist_ind
+  \\ rw[line_labs_exist_def, line_get_labels_def, labs_domain_def, SUBSET_DEF, FORALL_PROD]);
+
+val sec_labs_exist_get_labels = Q.store_thm("sec_labs_exist_get_labels",
+  `∀labs sec. sec_labs_exist labs sec ⇔ sec_get_labels sec ⊆ labs_domain labs`,
+  Cases_on`sec`
+  \\ rw[sec_labs_exist_def, sec_get_labels_def, line_labs_exist_get_labels,
+        EVERY_MEM, SUBSET_DEF, PULL_EXISTS]
+  \\ metis_tac[]);
+
+val all_labs_exist_get_labels = Q.store_thm("all_labs_exist_get_labels",
+  `all_labs_exist labs code ⇔ get_labels code ⊆ labs_domain labs`,
+  rw[EVERY_MEM, sec_labs_exist_get_labels, get_labels_def,
+     SUBSET_DEF, PULL_EXISTS]
+  \\ metis_tac[]);
+
+val line_similar_line_get_labels = Q.store_thm("line_similar_line_get_labels",
+  `∀l1 l2. line_similar l1 l2 ⇒ (line_get_labels l1 = line_get_labels l2)`,
+  recInduct line_similar_ind
+  \\ rw[line_similar_def, line_get_labels_def]);
+
+val code_similar_get_labels = Q.store_thm("code_similar_get_labels",
+  `∀c1 c2. code_similar c1 c2 ⇒ get_labels c1 = get_labels c2`,
+  recInduct code_similar_ind
+  \\ rw[code_similar_def, get_labels_def, sec_get_labels_def]
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[Once EXTENSION, PULL_EXISTS]
+  \\ fs[LIST_REL_EL_EQN, MEM_EL]
+  \\ metis_tac[line_similar_line_get_labels]);
+
+val get_labels_upd_lab_len = Q.store_thm("get_labels_upd_lab_len[simp]",
+  `get_labels (upd_lab_len pos code) = get_labels code`,
+  metis_tac[code_similar_get_labels, code_similar_upd_lab_len, code_similar_refl]);
+
+val section_labels_line_get_code_labels = Q.store_thm("section_labels_line_get_code_labels",
+  `∀pos lines aux new_pos labs. section_labels pos lines aux = (new_pos, labs) ⇒
+   0 INSERT set (MAP FST labs) = 0 INSERT set (MAP FST aux) ∪ BIGUNION (IMAGE line_get_code_labels (set lines))`,
+  recInduct section_labels_ind
+  \\ rw[section_labels_def]
+  \\ rw[EXTENSION]
+  \\ metis_tac[]);
+
+val labs_domain_compute_labels_alt = Q.store_thm("labs_domain_compute_labels_alt",
+  `∀pos code labs.
+     ALL_DISTINCT (MAP Section_num code) ∧
+     DISJOINT (domain labs) (set (MAP Section_num code)) ⇒
+     labs_domain (compute_labels_alt pos code labs) =
+     get_code_labels code ∪ labs_domain labs`,
+  recInduct compute_labels_alt_ind
+  \\ rw[compute_labels_alt_def]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[labs_domain_insert, domain_fromAList]
+  \\ simp[get_code_labels_cons]
+  \\ fs[sec_get_code_labels_def]
+  \\ imp_res_tac section_labels_line_get_code_labels
+  \\ fs[UNION_ASSOC]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[UNION_COMM]
+  \\ AP_TERM_TAC
+  \\ fs[Once EXTENSION,PULL_EXISTS, FORALL_PROD]
+  \\ metis_tac[]);
 
 (* invariant: labels aligned at even positions *)
 
@@ -4172,6 +4308,7 @@ val remove_labels_loop_thm = Q.prove(
     ALL_DISTINCT (MAP Section_num code) ∧
     EVERY (ALL_DISTINCT o extract_labels o Section_lines) code ∧
     DISJOINT (domain init_labs) (set (MAP Section_num code)) ∧
+    get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
     all_enc_ok_pre c code ∧ (* new loop invariant *)
     all_encd0 c.encode code ∧
     enc_ok c ∧
@@ -4207,6 +4344,7 @@ val remove_labels_loop_thm = Q.prove(
       >- (fs[GSYM ALL_EL_MAP]
           \\ metis_tac[enc_secs_again_IMP_similar,code_similar_extract_labels])
       >- (metis_tac[code_similar_MAP_Section_num,enc_secs_again_IMP_similar])
+      >- (metis_tac[code_similar_get_labels, code_similar_get_code_labels, enc_secs_again_IMP_similar])
       >- (match_mp_tac enc_secs_again_all_enc_ok_pre>>metis_tac[])
       >- (match_mp_tac enc_secs_again_encd0 \\ metis_tac[] ))
     >> simp[] >> strip_tac >> fs []
@@ -4285,7 +4423,21 @@ val remove_labels_loop_thm = Q.prove(
                    pad_code_ends_with_label,all_enc_with_nop_label_zero]
       \\ match_mp_tac label_zero_pos_ok_even_labels \\ fs[]
       \\ match_mp_tac all_lab_len_pos_ok_pad_code \\ fs[])
-    \\ conj_tac >- cheat (* need to prove all labs exist *)
+    \\ conj_tac >- (
+      match_mp_tac enc_secs_again_all_labs_exist
+      \\ asm_exists_tac \\ simp[]
+      \\ rw[all_labs_exist_get_labels]
+      \\ `MAP Section_num code2 = MAP Section_num code`
+      by metis_tac[code_similar_MAP_Section_num,
+                   enc_secs_again_IMP_similar,
+                   code_similar_upd_lab_len]
+      \\ qspecl_then[`init_pos`,`code2`,`init_labs`]mp_tac labs_domain_compute_labels_alt
+      \\ impl_tac >- metis_tac[]
+      \\ simp[] \\ disch_then kall_tac
+      \\ qspecl_then[`code2`,`code1`]mp_tac code_similar_get_code_labels
+      \\ impl_tac >- metis_tac[code_similar_upd_lab_len,code_similar_refl]
+      \\ rw[] \\ simp[Abbr`code2`]
+      \\ metis_tac[enc_secs_again_IMP_similar, code_similar_get_code_labels, code_similar_get_labels])
     \\ match_mp_tac offset_ok_pad_code \\ fs[]
     \\ metis_tac[enc_secs_again_offset_ok])
   \\ conj_asm1_tac
@@ -4379,6 +4531,7 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
    ALL_DISTINCT (MAP Section_num code) /\
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
    DISJOINT (domain init_labs) (set (MAP Section_num code)) ∧
+   get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
    all_enc_ok_pre conf code /\
    EVEN init_pos ∧
    (!l1 l2. OPTION_EVERY EVEN (lab_lookup l1 l2 init_labs)) ==>
@@ -4410,8 +4563,9 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
       \\ metis_tac[code_similar_enc_sec_list,code_similar_refl,
                    code_similar_extract_labels])
     >>
-       metis_tac[code_similar_enc_sec_list,code_similar_MAP_Section_num,code_similar_refl]
-      )
+       metis_tac[code_similar_enc_sec_list,code_similar_MAP_Section_num,
+                 code_similar_get_code_labels, code_similar_get_labels,
+                 code_similar_refl])
   >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]
   >> rw [] >> res_tac);
 
@@ -6011,6 +6165,31 @@ val filter_skip_extract_labels = Q.store_thm("filter_skip_extract_labels[simp]",
   Induct_on`l` \\ fs[] \\
   Cases \\ fs[lab_filterTheory.not_skip_def] \\
   every_case_tac \\ fs[]);
+
+val get_code_labels_filter_skip = Q.store_thm("get_code_labels_filter_skip[simp]",
+  `∀code. get_code_labels (filter_skip code) = get_code_labels code`,
+  recInduct lab_filterTheory.filter_skip_ind
+  \\ rw[lab_filterTheory.filter_skip_def, get_code_labels_cons]
+  \\ rw[sec_get_code_labels_def, LIST_TO_SET_FILTER]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+  >- metis_tac[]
+  \\ asm_exists_tac \\ rw[]
+  \\ fs[lab_filterTheory.not_skip_def]
+  \\ CASE_TAC \\ fs[]);
+
+val get_labels_filter_skip = Q.store_thm("get_labels_filter_skip[simp]",
+  `∀code. get_labels (filter_skip code) = get_labels code`,
+  recInduct lab_filterTheory.filter_skip_ind
+  \\ rw[lab_filterTheory.filter_skip_def, get_labels_def]
+  \\ rw[sec_get_labels_def, LIST_TO_SET_FILTER]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+  >- metis_tac[]
+  \\ asm_exists_tac \\ rw[]
+  \\ fs[lab_filterTheory.not_skip_def]
+  \\ CASE_TAC \\ fs[line_get_labels_def]);
 
 val implements_intro_gen = Q.store_thm("implements_intro_gen",
   `(b /\ x <> Fail ==> y = {x}) ==> b ==> implements y {x}`,
