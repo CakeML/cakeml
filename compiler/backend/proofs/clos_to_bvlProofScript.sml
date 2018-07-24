@@ -24,6 +24,33 @@ val _ = temp_overload_on ("kcompile", ``clos_known$compile``)
 
 (* TODO: move? *)
 
+val union_insert_LN = Q.store_thm("union_insert_LN",
+  `∀x y t2. union (insert x y LN) t2 = insert x y t2`,
+  recInduct insert_ind
+  \\ rw[]
+  \\ rw[Once insert_def]
+  \\ rw[Once insert_def,SimpRHS]
+  \\ rw[union_def]);
+
+val fromAList_append = Q.store_thm("fromAList_append",
+  `∀l1 l2. fromAList (l1 ++ l2) = union (fromAList l1) (fromAList l2)`,
+  recInduct fromAList_ind
+  \\ rw[fromAList_def]
+  \\ rw[Once insert_union]
+  \\ rw[union_assoc]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ rw[union_insert_LN]);
+
+val LIST_REL_eq = store_thm("LIST_REL_eq",
+  ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []);
+
+val LIST_REL_OPT_REL_eq = store_thm("LIST_REL_OPT_REL_eq",
+  ``!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
+
 val MEM_ALOOKUP = store_thm("MEM_ALOOKUP",
   ``!xs x v.
       ALL_DISTINCT (MAP FST xs) ==>
@@ -5315,60 +5342,62 @@ val init_code_def = Define `
         code_installed aux2 code2`
 
 val chain_installed_def = Define`
-  chain_installed start es code ⇔
-    (∀i. i < LENGTH es ⇒ lookup (start + i) code =
-         SOME (0n, if i + 1 < LENGTH es
-                     then Let [EL i es] (Call 0 (SOME (start + i + 1)) [])
+  chain_installed start (es:closLang$exp list) code ⇔
+    (∀i. i < LENGTH es ⇒ closSem$find_code (start + i) ([]:closSem$v list) code =
+         SOME ([], if i + 1 < LENGTH es
+                     then Let None [EL i es] (Call None 0 (start + i + 1) [])
                      else EL i es))`;
 
 val chain_installed_cons = Q.store_thm("chain_installed_cons",
   `chain_installed start (e::es) code ⇔
-   lookup start code = SOME (0, if es = [] then e else Let [e] (Call 0 (SOME (start+1)) [])) ∧
+   find_code start ([]:closSem$v list) code = SOME ([], if es = [] then e else Let None [e] (Call None 0 (start+1) [])) ∧
    chain_installed (start+1) es code`,
   rw[chain_installed_def,ADD1,EQ_IMP_THM]
   >- (pop_assum(qspec_then`0`mp_tac) \\ rw[] \\ fs[])
   >- ( first_x_assum(qspec_then`i+1`mp_tac) \\ rw[EL_CONS,PRE_SUB1] )
   >- ( Cases_on`i` \\ fs[ADD1] \\ rw[] \\ fs[] ));
 
-val chain_installed_subspt = Q.store_thm("chain_installed_subspt",
+val chain_installed_SUBMAP = Q.store_thm("chain_installed_SUBMAP",
   `∀start es code code'.
-   chain_installed start es code ∧ subspt code code' ⇒
+   chain_installed start es code ∧ code ⊑ code' ⇒
    chain_installed start es code'`,
   Induct_on`es`
   \\ rw[chain_installed_def]
   \\ res_tac
-  \\ imp_res_tac subspt_lookup);
+  \\ fs[closSemTheory.find_code_def,CaseEq"option",CaseEq"prod"]
+  \\ imp_res_tac FLOOKUP_SUBMAP);
 
 val chain_installed_thm = Q.store_thm("chain_installed_thm",
   `∀es start st res st'.
    chain_installed start es st.code ∧
-   evaluate (es,[],st) = (res,st') ∧
+   closSem$evaluate (es,[],st) = (res,st') ∧
    0 < LENGTH es
    ⇒
    ∃e k res1 st1.
-   lookup start st.code = SOME (0,e) ∧
-   evaluate ([e],[],st with clock := st.clock + k) = (res1,st1) ∧
+   find_code start ([]:closSem$v list) st.code = SOME ([],e) ∧
+   closSem$evaluate ([e],[],st with clock := st.clock + k) = (res1,st1) ∧
    result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi`,
   Induct >- rw[]
   \\ rw[chain_installed_cons]
   >- ( qexists_tac`0` \\ rw[] )
-  \\ rw[evaluate_def, find_code_def]
+  \\ rw[closSemTheory.evaluate_def]
   \\ qhdtm_x_assum`evaluate`mp_tac
-  \\ simp[Once evaluate_CONS]
+  \\ simp[Once closPropsTheory.evaluate_CONS]
   \\ simp[pair_case_eq] \\ strip_tac
   \\ Cases_on`evaluate (es,[],s2)` \\ fs[ADD1]
   \\ rename1`evaluate ([h],_,_) = (res1,_)`
   \\ Cases_on`res1 = Rerr(Rabort(Rtimeout_error))` \\ fs[]
   >- ( rveq \\ fs[] \\ qexists_tac`0` \\ simp[] )
-  \\ imp_res_tac evaluate_mono
-  \\ imp_res_tac chain_installed_subspt
-  \\ first_x_assum(first_assum o mp_then (Pat`evaluate`) mp_tac)
+  \\ imp_res_tac closPropsTheory.evaluate_mono
+  \\ imp_res_tac chain_installed_SUBMAP
+  \\ first_x_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
   \\ disch_then drule
   \\ impl_tac >- (CCONTR_TAC \\ fs[])
   \\ strip_tac
   \\ qexists_tac`k+1`
-  \\ first_x_assum(mp_then Any drule evaluate_add_clock)
-  \\ rw[inc_clock_def, dec_clock_def]
+  \\ first_x_assum(mp_then Any drule closPropsTheory.evaluate_add_clock)
+  \\ disch_then(qspec_then`k+1`mp_tac) \\ rw[]
+  \\ fs[closSemTheory.dec_clock_def]
   \\ CASE_TAC \\ fs[] \\ rveq \\ fs[]
   \\ rename1`result_rel _ _ tres`
   \\ Cases_on`tres` \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]);
@@ -5424,15 +5453,6 @@ val do_install_CURRY_I = Q.store_thm("do_install_CURRY_I",
   \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]);
-
-val LIST_REL_eq = store_thm("LIST_REL_eq",
-  ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
-  Induct \\ Cases_on `ys` \\ fs []);
-
-val LIST_REL_OPT_REL_eq = store_thm("LIST_REL_OPT_REL_eq",
-  ``!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)``,
-  Induct \\ Cases_on `ys` \\ fs []
-  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
 
 val do_app_lemma_simp = prove(
   ``(exc_rel $= err1 err2 <=> err1 = err2) /\
@@ -5594,6 +5614,17 @@ val semantics_ccompile = Q.store_thm("semantics_ccompile",
   \\ irule clos_callProofTheory.semantics_calls
   \\ fs[clos_callTheory.compile_def]);
 
+val ccompile_ALL_DISTINCT = Q.store_thm("ccompile_ALL_DISTINCT",
+  `clos_call$compile do_call x = (y,aux) ∧
+   ALL_DISTINCT (code_locs x)
+  ⇒
+   ALL_DISTINCT (MAP FST aux)`,
+  Cases_on`do_call` \\ rw[clos_callTheory.compile_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ drule clos_callProofTheory.calls_ALL_DISTINCT
+  \\ rw[]);
+(* -- *)
+
 (* TODO: move to clos_annotate(Proof) *)
 val compile_append = Q.store_thm("compile_append",
   `clos_annotate$compile (p1 ++ p2) = compile p1 ++ compile p2`,
@@ -5607,11 +5638,25 @@ val compile_prog_append = Q.store_thm("compile_prog_append",
   \\ rw[compile_prog_def]
   \\ pairarg_tac \\ fs[]);
 
+val chain_installed_chain_exps = Q.store_thm("chain_installed_chain_exps",
+  `∀start es. chain_installed start es (alist_to_fmap (chain_exps start es))`,
+  recInduct chain_exps_ind
+  \\ rw[chain_exps_def, chain_installed_def]
+  >- rw[closSemTheory.find_code_def, FLOOKUP_UPDATE]
+  \\ qmatch_assum_rename_tac`z < _`
+  \\ Cases_on`z=0` \\ fs[]
+  >- ( rw[closSemTheory.find_code_def, FLOOKUP_UPDATE] )
+  \\ first_x_assum(qspec_then`z-1`mp_tac)
+  \\ fs[ADD1]
+  \\ rw[closSemTheory.find_code_def, FLOOKUP_UPDATE] \\ fs[]
+  \\ fs[EL_CONS, PRE_SUB1]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
       (state_cc (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
-        (state_cc (if c.do_call then compile_inc else CURRY I) cc))))) ∧
+        (state_cc (if c.do_call then compile_inc else CURRY I)
+          (pure_cc clos_annotateProof$compile_inc cc)))))) ∧
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 cc1 es1 ≠ Fail ∧
    compile_common c es1 = (start, c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ syntax_ok es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ syntax_ok [FST(SND(co1 n))])) ∧
@@ -5656,13 +5701,35 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ drule (GEN_ALL semantics_ccompile)
   \\ disch_then drule
   \\ disch_then(qspec_then`state_co (if c.do_call then compile_inc else CURRY I) co`mp_tac)
-  \\ disch_then(qspec_then`cc`mp_tac)
+  \\ qunabbrev_tac`cc0`
+  \\ qmatch_goalsub_abbrev_tac`state_cc _ cc0 = state_cc _ _`
+  \\ disch_then(qspec_then`cc0`mp_tac)
   \\ impl_tac
   >- (
     rw[] \\ fs[Abbr`cc0`, clos_callProofTheory.code_inv_def]
     \\ cheat (* add assumptions *) )
   \\ disch_then(assume_tac o SYM) \\ fs[]
-  \\ simp[compile_append, compile_prog_append]
+  \\ fs[FUPDATE_LIST_alist_to_fmap]
+  \\ drule ccompile_ALL_DISTINCT
+  \\ impl_tac >- cheat (* add assumptions *)
+  \\ strip_tac
+  \\ fs[ALL_DISTINCT_alist_to_fmap_REVERSE]
+  \\ fs[Abbr`cc0`]
+  \\ drule clos_annotateProofTheory.semantics_annotate
+  \\ impl_tac >- cheat (* add assumptions *)
+  \\ disch_then(assume_tac o SYM) \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`chain_exps start xps`
+  \\ `chain_installed start xps (alist_to_fmap (chain_exps start xps ++ aux))`
+  by (
+    match_mp_tac chain_installed_SUBMAP
+    \\ qspecl_then[`start`,`xps`]assume_tac chain_installed_chain_exps
+    \\ goal_assum(first_x_assum o mp_then Any mp_tac)
+    \\ simp[]
+    \\ irule SUBMAP_FUNION
+    \\ simp[] )
+  (*
+  chain_installed_thm --> make a semantics theorem for this
+  *)
   \\ cheat);
 
 (*
@@ -5675,6 +5742,8 @@ clos_callProofTheory.semantics_calls
 clos_annotateProofTheory.semantics_annotate
 
 chain_installed_thm
+compile_prog_def
+chain_installed_def
 
 clos_to_bvlTheory.compile_common_def;
 
