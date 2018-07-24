@@ -1864,6 +1864,13 @@ fun prove_EvalPatBind goal hol2deep = let
   val vs = filter (fn tm => not (tmem (rand (rand tm)) ws)) vs' |> op_mk_set aconv
   val new_goal = goal |> subst [mk_var("e",astSyntax.exp_ty)|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
+  val OPTION_TYPE_SIMP = let
+    val OPTION_TYPE = get_type_inv (type_of (optionSyntax.mk_none alpha)) |> rator
+    val goal = get_term "OPTION_TYPE_SIMP" |> ASSUME |> ISPEC OPTION_TYPE |> concl
+    val OPTION_TYPE_SIMP = auto_prove "OPTION_TYPE_SIMP" (goal,
+      Cases \\ fs [CONTAINER_def,FUN_EQ_THM] \\ EVAL_TAC \\ simp [])
+      |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
+    in OPTION_TYPE_SIMP end handle HOL_ERR _ => TRUTH
   fun tac (asms,goal) = let
     fun is_TYPE tm = let
       val (args,ret) = strip_fun(type_of tm)
@@ -1882,9 +1889,9 @@ fun prove_EvalPatBind goal hol2deep = let
     REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ REWRITE_TAC [GSYM PAIR_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+    \\ REWRITE_TAC [GSYM PAIR_TYPE_SIMP, GSYM LIST_TYPE_SIMP, GSYM OPTION_TYPE_SIMP]
     \\ Ho_Rewrite.REWRITE_TAC [GSYM LIST_TYPE_SIMP']
-    \\ REWRITE_TAC ([GSYM PAIR_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+    \\ REWRITE_TAC ([GSYM PAIR_TYPE_SIMP, GSYM LIST_TYPE_SIMP, GSYM OPTION_TYPE_SIMP]
                       |> map (REWRITE_RULE [CONTAINER_def]))
     \\ Ho_Rewrite.REWRITE_TAC ([GSYM LIST_TYPE_SIMP'] |> map (REWRITE_RULE [CONTAINER_def]))
     \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]@thms)
