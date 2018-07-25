@@ -5919,6 +5919,65 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
   \\ simp[]
   \\ metis_tac[]);
 
+val ALOOKUP_compile_prog = Q.store_thm("ALOOKUP_compile_prog",
+  `∀max_app prog n a e.
+   ALOOKUP prog n = SOME (a,e) ∧ ¬MEM n (code_locs (MAP (SND o SND) prog))
+   ⇒
+   ALOOKUP (compile_prog max_app prog) (n + num_stubs max_app) =
+     SOME (a, HD(FST(compile_exps max_app [e] [])))`,
+  recInduct compile_prog_ind
+  \\ rw[compile_prog_def]
+  \\ pairarg_tac \\ fs[]
+  \\ reverse(fs[CaseEq"bool"] \\ rw[])
+  >- (
+    first_x_assum drule
+    \\ rw[ALOOKUP_APPEND]
+    \\ reverse CASE_TAC
+    >- (
+      imp_res_tac ALOOKUP_MEM
+      \\ fs[MEM_MAP] \\ rw[] )
+    \\ CASE_TAC
+    >- (
+      first_x_assum match_mp_tac
+      \\ fs[Once code_locs_cons] )
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ qspec_then`[]`mp_tac(CONV_RULE(RESORT_FORALL_CONV(sort_vars["aux"]))compile_exps_code_locs)
+    \\ simp[]
+    \\ disch_then drule
+    \\ disch_then(assume_tac o Q.AP_TERM`combin$C MEM`)
+    \\ fs[MEM_MAP,FUN_EQ_THM]
+    \\ fsrw_tac[DNF_ss][EQ_IMP_THM]
+    \\ first_x_assum drule
+    \\ simp[]
+    \\ rw[]
+    \\ fs[Once code_locs_cons] \\ fs[]
+    \\ fs[code_locs_def] )
+  \\ imp_res_tac compile_exps_SING \\ fs[]);
+
+(*
+val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
+  `semantics ffi max_app (alist_to_fmap prog) co cc (annotate 0 [e]) ≠ Fail ∧
+   ALOOKUP prog start = SOME (0,e) ∧ ¬MEM start (code_locs (MAP (SND o SND) prog))
+   ⇒
+   semantics ffi (fromAList (compile_prog max_app prog)) co2 cc2 (start + num_stubs max_app) =
+   semantics ffi max_app (alist_to_fmap prog) co cc (annotate 0 [e])`,
+  rw[]
+  \\ irule (GEN_ALL IMP_semantics_eq)
+  \\ simp[]
+  \\ rw[eval_sim_def]
+  \\ rw[bvlSemTheory.evaluate_def, bvlSemTheory.find_code_def, lookup_fromAList]
+  \\ drule ALOOKUP_compile_prog
+  \\ disch_then(qspec_then`max_app`mp_tac) \\ rw[]
+  \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))`
+  \\ rw[]
+  \\ Cases_on`compile_exps max_app [e] []`
+  \\ imp_res_tac compile_exps_SING \\ fs[]
+
+  CONJUNCT1 compile_exps_correct
+  clos_annotateProofTheory.annotate_correct
+  eval_sim_def
+*)
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
