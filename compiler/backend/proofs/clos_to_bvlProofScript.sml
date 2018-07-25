@@ -5570,7 +5570,8 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
    ∃k res1 st1.
    find_code start ([]:closSem$v list) st.code = SOME ([],e) ∧
    closSem$evaluate ([e],[],st with <| clock := st.clock + k |>) = (res1,st1) ∧
-   result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi`,
+   result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi ∧
+   (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])`,
   Induct >- rw[]
   \\ rw[chain_installed_cons]
   >- (
@@ -5585,7 +5586,7 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
   \\ Cases_on`evaluate (es,[],s2)` \\ fs[ADD1]
   \\ rename1`evaluate ([h],_,_) = (res1,_)`
   \\ Cases_on`res1 = Rerr(Rabort(Rtimeout_error))` \\ fs[]
-  >- ( rveq \\ fs[] \\ qexists_tac`0` \\ simp[] )
+  >- ( rveq \\ fs[] \\ qexists_tac`0` \\ simp[] \\ simp[Once every_Fn_vs_NONE_EVERY])
   \\ imp_res_tac closPropsTheory.evaluate_mono
   \\ imp_res_tac chain_installed_SUBMAP
   \\ first_x_assum(qspec_then`start+1`strip_assume_tac)
@@ -5597,6 +5598,7 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
   \\ first_x_assum(mp_then Any drule closPropsTheory.evaluate_add_clock)
   \\ disch_then(qspec_then`k+1`mp_tac) \\ rw[]
   \\ fs[closSemTheory.dec_clock_def]
+  \\ simp[Once every_Fn_vs_NONE_EVERY]
   \\ CASE_TAC \\ fs[] \\ rveq \\ fs[]
   \\ rename1`result_rel _ _ tres`
   \\ Cases_on`tres` \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]);
@@ -5850,6 +5852,72 @@ val chain_installed_chain_exps = Q.store_thm("chain_installed_chain_exps",
   \\ rw[closSemTheory.find_code_def, FLOOKUP_UPDATE] \\ fs[]
   \\ fs[EL_CONS, PRE_SUB1]);
 
+val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
+  `semantics ffi max_app code co cc es ≠ Fail ∧ es ≠ [] ∧
+   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
+   (∀n. DISJOINT (FDOM code) (set (MAP FST (SND (SND (co n))))) ∧
+        DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
+        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n))))))
+  ⇒
+   ∃e.
+   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e] =
+   semantics ffi max_app code co cc es ∧
+   (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])`,
+  rw[]
+  \\`∃e.  eval_sim ffi max_app code co cc es (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e]
+            (K (K (K (K (K (K (K (K T)))))))) F ∧
+          (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])`
+  by (
+    rw[closPropsTheory.eval_sim_def]
+    \\ qspecl_then[`es`,`start`]strip_assume_tac
+       (chain_installed_thm |> INST_TYPE [alpha|->beta,beta|->alpha])
+    \\ qexists_tac`e`
+    \\ reverse conj_tac
+    >- (
+      first_x_assum(qspec_then`ARB with code := alist_to_fmap(chain_exps start es)`mp_tac)
+      \\ simp[chain_installed_chain_exps]
+      \\ srw_tac[QI_ss][]
+      \\ Cases_on`LENGTH es` \\ fs[] )
+    \\ rw[]
+    \\ first_assum(mp_then(Pat`closSem$evaluate`)mp_tac (CONJUNCT1 evaluate_code_SUBMAP))
+    \\ simp[]
+    \\ qmatch_goalsub_abbrev_tac`([e],_,ss2 _)`
+    \\ disch_then(qspec_then`ss2 k`mp_tac)
+    \\ impl_tac
+    >- (
+      simp[Abbr`ss2`,SUBMAP_rel_def,closSemTheory.state_component_equality,closSemTheory.initial_state_def]
+      \\ simp[MAP_FST_chain_exps]
+      \\ conj_tac
+      >- (
+        irule SUBMAP_FUNION
+        \\ simp[FDOM_alist_to_fmap, MAP_FST_chain_exps]
+        \\ simp[LIST_TO_SET_MAP, COUNT_LIST_COUNT]
+        \\ fs[DISJOINT_SYM] )
+      \\ fs[LIST_TO_SET_MAP, COUNT_LIST_COUNT] )
+    \\ strip_tac
+    \\ first_x_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[]
+    \\ impl_tac
+    >- (
+      reverse conj_tac >- ( CCONTR_TAC \\ fs[] )
+      \\ fs[Abbr`ss2`, closSemTheory.initial_state_def]
+      \\ match_mp_tac chain_installed_SUBMAP
+      \\ qexists_tac`alist_to_fmap (chain_exps start es)`
+      \\ simp[chain_installed_chain_exps]
+      \\ irule SUBMAP_FUNION \\ fs[] )
+    \\ strip_tac
+    \\ `(ss2 k).clock = k` by simp[Abbr`ss2`,closSemTheory.initial_state_def]
+    \\ qexists_tac`k'`
+    \\ fs[]
+    \\ `ss2 k with clock := k + k' = ss2 (k + k')` by simp[Abbr`ss2`,closSemTheory.initial_state_def]
+    \\ fs[]
+    \\ fs[SUBMAP_rel_def, closSemTheory.state_component_equality]
+    \\ Cases_on`res1'` \\ fs[]
+    \\ Cases_on`e'` \\ fs[] )
+  \\ drule (GEN_ALL closPropsTheory.IMP_semantics_eq)
+  \\ simp[]
+  \\ metis_tac[]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
@@ -5914,22 +5982,22 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ strip_tac
   \\ fs[ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ fs[Abbr`cc0`]
-  \\ drule clos_annotateProofTheory.semantics_annotate
-  \\ impl_tac >- cheat (* add assumptions *)
-  \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`chain_exps start xps`
-  \\ `chain_installed start xps (alist_to_fmap (chain_exps start xps ++ aux))`
-  by (
-    match_mp_tac chain_installed_SUBMAP
-    \\ qspecl_then[`start`,`xps`]assume_tac chain_installed_chain_exps
-    \\ goal_assum(first_x_assum o mp_then Any mp_tac)
-    \\ simp[]
-    \\ irule SUBMAP_FUNION
-    \\ simp[] )
-  (*
-  chain_installed_thm --> make a semantics theorem for this
-  *)
-  \\ cheat);
+  \\ drule chain_exps_semantics
+  \\ impl_tac
+  >- ( fs[] \\ cheat (* add assumptions *) )
+  \\ strip_tac
+  \\ first_x_assum(assume_tac o SYM) \\ fs[]
+  \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
+  \\ drule clos_annotateProofTheory.semantics_annotate
+  \\ impl_tac >- (
+    conj_tac
+    >- (
+      first_x_assum match_mp_tac
+      \\ cheat (* add assumptions *) )
+    \\ cheat (* add assumptions *) )
+  \\ disch_then(strip_assume_tac o SYM) \\ fs[]
+  \\ cheat (* compile_prog semantics *));
 
 (*
 clos_mtiProofTheory.semantics_intro_multi
