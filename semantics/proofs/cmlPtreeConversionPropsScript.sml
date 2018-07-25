@@ -39,6 +39,16 @@ val tyname_inverted = Q.store_thm(
   rename [‘Long m j’] >> Cases_on ‘j’ >>
   simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def]);
 
+val tyname_validptree = Q.store_thm(
+  "tyname_validptree",
+  ‘∀id. user_expressible_tyname id ⇒
+          valid_ptree cmlG (tyname_to_AST id) ∧
+          ptree_head (tyname_to_AST id) = NN nTyOp’,
+  Cases >> simp[tyname_to_AST_def, cmlG_FDOM, cmlG_applied] >>
+  rename [‘Long m j’] >> Cases_on ‘j’ >>
+  simp[tyname_to_AST_def, cmlG_applied, cmlG_FDOM]);
+
+
 val user_expressible_type_def = tDefine "user_expressible_type" ‘
   (user_expressible_type (Tvar _) ⇔ T) ∧
   (user_expressible_type (Tvar_db _) ⇔ F) ∧
@@ -135,47 +145,68 @@ val destTyvarPT_tyname_to_AST = Q.store_thm(
 val types_inverted = Q.store_thm(
   "types_inverted",
   ‘(∀ty.
-     user_expressible_type ty ⇒ ptree_Type nType (type_to_AST ty) = SOME ty) ∧
+     user_expressible_type ty ⇒
+       ptree_Type nType (type_to_AST ty) = SOME ty ∧
+       valid_ptree cmlG (type_to_AST ty) ∧
+       ptree_head (type_to_AST ty) = NN nType) ∧
    (∀tys.
      EVERY user_expressible_type tys ∧ tys ≠ [] ⇒
-     ptree_TypeList1 (typel_to_AST tys) = SOME tys) ∧
+       ptree_TypeList1 (typel_to_AST tys) = SOME tys ∧
+       valid_ptree cmlG (typel_to_AST tys) ∧
+       ptree_head (typel_to_AST tys) = NN nTypeList1) ∧
    (∀tys.
      EVERY user_expressible_type tys ∧ tys ≠ [] ⇒
-     ptree_PType (typel_to_AST_PType tys) = SOME tys)’,
+       ptree_PType (typel_to_AST_PType tys) = SOME tys ∧
+       valid_ptree cmlG (typel_to_AST_PType tys) ∧
+       ptree_head (typel_to_AST_PType tys) = NN nPType)’,
   ho_match_mp_tac (theorem "type_to_AST_ind") >>
   rpt conj_tac >> simp[]
-  >- simp[ptree_Type_def, type_to_AST_def, tuplify_def]
-  >- (rpt strip_tac >>
+  >- simp[ptree_Type_def, type_to_AST_def, tuplify_def, cmlG_FDOM, cmlG_applied]
+  >- (rpt gen_tac >> ntac 2 strip_tac >>
       rename [‘Tapp args tycon’] >> Cases_on ‘tycon’ >>
       fs[]
       >- (simp[type_to_AST_def] >> Cases_on ‘args’ >> simp[]
           >- simp[Ntimes ptree_Type_def 5, tuplify_def,
-                  destTyvarPT_tyname_to_AST, tyname_inverted] >>
+                  destTyvarPT_tyname_to_AST, tyname_inverted,
+                  tyname_validptree, cmlG_applied, cmlG_FDOM] >>
           fs[] >>
           rename [‘tl = []’] >> Cases_on ‘tl’
-          >- simp[ptree_Type_def, tuplify_def,
-                  destTyvarPT_tyname_to_AST, tyname_inverted,
-                  tokcheck_def] >>
+          >- (simp[ptree_Type_def, tuplify_def,
+                   destTyvarPT_tyname_to_AST, tyname_inverted,
+                   tokcheck_def, cmlG_FDOM, cmlG_applied, tyname_validptree] >>
+              dsimp[tyname_validptree, cmlG_applied, cmlG_FDOM]) >>
           fs[] >>
-          simp[Ntimes ptree_Type_def 6, tokcheck_def] >>
-          simp[tyname_inverted] >> dsimp[tuplify_def] >>
-          first_x_assum irule >>
-          full_simp_tac (srw_ss() ++ ETA_ss) [])
+          simp[Ntimes ptree_Type_def 6, tokcheck_def, cmlG_FDOM,
+               cmlG_applied] >>
+          dsimp[tyname_inverted, tuplify_def, tyname_validptree,
+                cmlG_applied, cmlG_FDOM])
       >- (simp[type_to_AST_def] >> fs[] >>
-          simp[ptree_Type_def, tokcheck_def, tuplify_def, astTheory.Tfn_def])
+          dsimp[ptree_Type_def, tokcheck_def, tuplify_def, astTheory.Tfn_def,
+                cmlG_FDOM, cmlG_applied])
       >- (rename [‘Tapp args TC_tup’] >>
           simp[type_to_AST_def, Ntimes ptree_Type_def 1] >>
           ‘args ≠ []’ by (strip_tac >> fs[]) >> fs[] >>
+          simp[cmlG_applied, cmlG_FDOM] >>
           ‘∃x y xs. args = x::y::xs’
             by (Cases_on ‘args’ >> fs[] >> rename [‘2 ≤ SUC (LENGTH rest)’] >>
                 Cases_on ‘rest’ >> fs[]) >>
           simp[tuplify_def]))
-  >- (simp[Once ptree_Type_def] >> simp[type_to_AST_def])
+  >- (simp[Once ptree_Type_def] >>
+      simp[type_to_AST_def, cmlG_FDOM, cmlG_applied])
   >- (simp[type_to_AST_def] >> rpt strip_tac >> fs[] >>
-      simp[ptree_Type_def, tokcheck_def])
-  >- (simp[type_to_AST_def] >> simp[ptree_Type_def, tokcheck_def])
+      simp[ptree_Type_def, tokcheck_def, cmlG_applied, cmlG_FDOM])
+  >- (simp[type_to_AST_def] >>
+      dsimp[ptree_Type_def, tokcheck_def, cmlG_applied, cmlG_FDOM])
   >- (simp[type_to_AST_def] >> rpt strip_tac >>
-      simp[Ntimes ptree_Type_def 6, tokcheck_def]));
+      dsimp[Ntimes ptree_Type_def 6, tokcheck_def,
+            cmlG_FDOM, cmlG_applied]));
+
+val type_to_AST_injection = Q.store_thm(
+  "type_to_AST_injection",
+  ‘INJ type_to_AST
+       { t | user_expressible_type t }
+       { ast | valid_ptree cmlG ast ∧ ptree_head ast = NN nType }’,
+  simp[INJ_DEF] >> metis_tac[types_inverted, SOME_11]);
 
 val ptree_head_TOK = Q.store_thm(
   "ptree_head_TOK",
