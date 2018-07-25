@@ -5570,8 +5570,8 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
    ∃k res1 st1.
    find_code start ([]:closSem$v list) st.code = SOME ([],e) ∧
    closSem$evaluate ([e],[],st with <| clock := st.clock + k |>) = (res1,st1) ∧
-   result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi ∧
-   (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])`,
+   result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi (*∧
+   (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])*)`,
   Induct >- rw[]
   \\ rw[chain_installed_cons]
   >- (
@@ -5862,11 +5862,11 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
    ∃e.
    semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e] =
    semantics ffi max_app code co cc es ∧
-   (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])`,
+   ALOOKUP (chain_exps start es) start = SOME (0,e)`,
   rw[]
   \\`∃e.  eval_sim ffi max_app code co cc es (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e]
             (K (K (K (K (K (K (K (K T)))))))) F ∧
-          (every_Fn_vs_NONE es ⇒ every_Fn_vs_NONE [e])`
+          (ALOOKUP (chain_exps start es) start  = SOME (0,e))`
   by (
     rw[closPropsTheory.eval_sim_def]
     \\ qspecl_then[`es`,`start`]strip_assume_tac
@@ -5877,7 +5877,8 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
       first_x_assum(qspec_then`ARB with code := alist_to_fmap(chain_exps start es)`mp_tac)
       \\ simp[chain_installed_chain_exps]
       \\ srw_tac[QI_ss][]
-      \\ Cases_on`LENGTH es` \\ fs[] )
+      \\ Cases_on`LENGTH es` \\ fs[]
+      \\ fs[closSemTheory.find_code_def, CaseEq"option", CaseEq"prod"])
     \\ rw[]
     \\ first_assum(mp_then(Pat`closSem$evaluate`)mp_tac (CONJUNCT1 evaluate_code_SUBMAP))
     \\ simp[]
@@ -5987,15 +5988,10 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ impl_tac
   >- ( fs[] \\ cheat (* add assumptions *) )
   \\ strip_tac
-  \\ first_x_assum(assume_tac o SYM) \\ fs[]
+  \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
   \\ drule clos_annotateProofTheory.semantics_annotate
-  \\ impl_tac >- (
-    conj_tac
-    >- (
-      first_x_assum match_mp_tac
-      \\ cheat (* add assumptions *) )
-    \\ cheat (* add assumptions *) )
+  \\ impl_tac >- ( cheat (* add assumptions *) )
   \\ disch_then(strip_assume_tac o SYM) \\ fs[]
   \\ cheat (* compile_prog semantics *));
 
