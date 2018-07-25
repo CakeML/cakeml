@@ -555,4 +555,113 @@ val CARD_heap_addresses = store_thm("CARD_heap_addresses",
   \\ rw [] \\ imp_res_tac heap_addresses_LESS \\ fs []
   \\ Cases_on `h` \\ fs [el_length_def]);
 
+val heap_filter_aux_def = Define `
+  (heap_filter_aux n P [] = []) /\
+  (heap_filter_aux n P (x::xs) =
+     (if n IN P then [x] else []) ++ heap_filter_aux (n + el_length x) P xs)`;
+
+val heap_filter_def = Define `
+  heap_filter = heap_filter_aux 0`;
+
+val heap_filter_EMPTY = store_thm("heap_filter_EMPTY",
+  ``!heap. heap_filter ∅ heap = []``,
+  fs [heap_filter_def] \\ qspec_tac (`0n`,`n`)
+  \\ Induct_on `heap` \\ fs [heap_filter_aux_def]);
+
+val heap_length_heap_filter_INSERT = prove(
+  ``!heap.
+      ~(e IN s) ==>
+      (heap_length (heap_filter (e INSERT s) heap) =
+       heap_length (heap_filter {e} heap) + heap_length (heap_filter s heap))``,
+  fs [heap_filter_def]
+  \\ qspec_tac (`0n`,`n:num`)
+  \\ Induct_on `heap` \\ fs [heap_filter_aux_def,heap_length_def]
+  \\ rpt strip_tac \\ fs [SUM_APPEND] \\ rw [] \\ fs []);
+
+val heap_filter_aux_ADD_SING = prove(
+  ``!k n e heap.
+      heap_filter_aux (k+n) {e+n} heap = heap_filter_aux k {e} heap``,
+  Induct_on `heap`
+  \\ fs [heap_filter_aux_def] \\ rw []
+  \\ first_x_assum (qspecl_then [`k+el_length h`,`n`,`e`] mp_tac)
+  \\ fs []) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
+
+val heap_filter_aux_SING_ZERO = prove(
+  ``!heap n. 0 < n ==> (heap_filter_aux n {0} heap = [])``,
+  Induct \\ fs [heap_filter_aux_def]);
+
+val heap_lookup_IMP_heap_filter = prove(
+  ``!heap e x. (heap_lookup e heap = SOME x) ==> (heap_filter {e} heap = [x])``,
+  Induct \\ fs [heap_lookup_def] \\ rw []
+  \\ fs [heap_filter_def,heap_filter_aux_def]
+  \\ fs [NOT_LESS]
+  THEN1
+   (match_mp_tac heap_filter_aux_SING_ZERO
+    \\ Cases_on `h` \\ EVAL_TAC \\ fs [])
+  \\ fs [LESS_EQ_EXISTS] \\ rveq \\ fs []
+  \\ fs [heap_filter_aux_ADD_SING]);
+
+val heap_length_heap_filter_eq = store_thm("heap_length_heap_filter_eq",
+  ``!s t f heap heap2.
+      BIJ f s t /\ FINITE s /\ FINITE t /\
+      (!i. i IN s ==>
+           ?xs xs2 l d d.
+             (heap_lookup i heap = SOME (DataElement xs l d)) /\
+             (heap_lookup (f i) heap2 = SOME (DataElement xs2 l d))) ==>
+      (heap_length (heap_filter t heap2) = heap_length (heap_filter s heap))``,
+  strip_tac
+  \\ Cases_on `FINITE s` \\ fs []
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`s`,`s`)
+  \\ ho_match_mp_tac FINITE_INDUCT \\ rw [heap_filter_EMPTY]
+  \\ fs [BIJ_INSERT] \\ rfs []
+  \\ `~(f e IN (t DELETE f e)) /\ FINITE (t DELETE f e)` by fs []
+  \\ `t = f e INSERT (t DELETE f e)` by (fs [EXTENSION] \\ metis_tac [])
+  \\ qabbrev_tac `t1 = t DELETE f e` \\ pop_assum kall_tac
+  \\ rveq \\ fs []
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ simp [Once heap_length_heap_filter_INSERT]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ simp [Once heap_length_heap_filter_INSERT]
+  \\ match_mp_tac (DECIDE ``(m1=n1)/\(m2=n2) ==> (m1+m2=n1+n2:num)``)
+  \\ conj_tac
+  THEN1 (first_x_assum match_mp_tac \\ asm_exists_tac \\ fs [])
+  \\ first_x_assum (qspec_then `e` mp_tac) \\ fs []
+  \\ strip_tac \\ fs []
+  \\ imp_res_tac heap_lookup_IMP_heap_filter
+  \\ fs [] \\ EVAL_TAC);
+
+val heap_length_heap_filter_aux = prove(
+  ``!n heap x.
+       heap_length (heap_filter_aux n (x UNION heap_addresses n heap) heap) =
+       heap_length heap``,
+  Induct_on `heap`
+  \\ fs [heap_length_def,heap_filter_aux_def]
+  \\ fs [heap_addresses_def] \\ rw []
+  \\ first_x_assum (qspecl_then [`n + el_length h`,`n INSERT x`] (assume_tac o GSYM))
+  \\ fs []
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ fs []);
+
+val heap_length_heap_filter = store_thm("heap_length_heap_filter",
+  ``!heap.
+      heap_length (heap_filter (heap_addresses 0 heap) heap) =
+      heap_length heap``,
+  fs [heap_filter_def]
+  \\ metis_tac [heap_length_heap_filter_aux,UNION_EMPTY]);
+
+val heap_filter_aux_APPEND = store_thm("heap_filter_aux_APPEND",
+  ``!xs ys n s.
+      heap_filter_aux n s (xs ++ ys) =
+      heap_filter_aux n s xs ++ heap_filter_aux (n + heap_length xs) s ys``,
+  Induct \\ fs [heap_filter_aux_def,heap_length_def]);
+
+val heap_filter_aux_heap_addresses_UNION = store_thm(
+   "heap_filter_aux_heap_addresses_UNION",
+  ``!xs n s. heap_filter_aux n (heap_addresses n xs UNION s) xs = xs``,
+  Induct \\ fs [heap_filter_aux_def,heap_addresses_def] \\ rw []
+  \\ `(n INSERT heap_addresses (n + el_length h) xs) ∪ s =
+      heap_addresses (n + el_length h) xs ∪ (n INSERT s)` by
+        (fs [EXTENSION] \\ metis_tac []) \\ fs []);
+
 val _ = export_theory();

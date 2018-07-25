@@ -441,7 +441,7 @@ val full_gc_related = Q.store_thm("full_gc_related",
       (full_gc (roots:'a heap_address list,heap,limit) =
          (ADDR_MAP (FAPPLY f) roots,heap2,a2,T)) /\
       (FDOM f = reachable_addresses roots heap) /\
-      (LENGTH heap2 = CARD (reachable_addresses roots heap)) /\
+      (heap_length heap2 = heap_length (heap_filter (FDOM f) heap)) /\
       gc_related f heap (heap2 ++ heap_expand (limit - a2))`,
   strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss []
   \\ rpt strip_tac \\ full_simp_tac std_ss []
@@ -476,11 +476,12 @@ val full_gc_related = Q.store_thm("full_gc_related",
     \\ first_x_assum drule
     \\ metis_tac [heap_addresses_LESS_heap_length,ADD_0,ADD_COMM])
   \\ strip_tac THEN1
-   (pop_assum (fn th => rewrite_tac [GSYM th])
-    \\ `CARD (FDOM (heap_map 0 heap3)) = CARD (heap_addresses 0 (heap2 ⧺ []))` by
-     (match_mp_tac FINITE_BIJ_CARD \\ fs [BIJ_DEF]
-      \\ asm_exists_tac \\ fs [])
-    \\ fs [CARD_heap_addresses])
+   (simp [Once (GSYM heap_length_heap_filter)]
+    \\ match_mp_tac (GEN_ALL heap_length_heap_filter_eq)
+    \\ fs [FLOOKUP_DEF,BIJ_DEF] \\ asm_exists_tac \\ fs []
+    \\ fs [FINITE_heap_addresses]
+    \\ conj_tac THEN1 (metis_tac [FDOM_FINITE])
+    \\ rw [] \\ res_tac \\ fs [])
   \\ strip_tac THEN1
    (full_simp_tac (srw_ss()) [INJ_DEF] \\ rpt strip_tac
     \\ `(FLOOKUP (heap_map 0 heap3) x = SOME (heap_map1 heap3 x))` by full_simp_tac (srw_ss()) [FLOOKUP_DEF,heap_map1_def]

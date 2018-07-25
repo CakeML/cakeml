@@ -1692,12 +1692,6 @@ val heap_lookup_EXTEND = store_thm("heap_lookup_EXTEND",
                 (heap_lookup n (xs ++ ys) = SOME x)``,
   Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def] \\ SRW_TAC [] []);
 
-val CARD_LEMMA = prove(
-  ``(n = CARD s) /\ FINITE s /\
-    (m = CARD t) /\ FINITE t /\ DISJOINT s t ==>
-    (n + m = CARD (s UNION t))``,
-  rw [] \\ imp_res_tac CARD_UNION \\ rfs [DISJOINT_DEF]);
-
 val gen_gc_related = store_thm("gen_gc_related",
   ``!conf roots heap.
     roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
@@ -1705,7 +1699,8 @@ val gen_gc_related = store_thm("gen_gc_related",
       (gen_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state)) /\
       (FDOM f = reachable_addresses roots heap) /\
-      (LENGTH state.h1 + LENGTH state.r1 = CARD (reachable_addresses roots heap)) /\
+      (heap_length (state.h1 ++ state.r1) =
+       heap_length (heap_filter (FDOM f) heap)) /\
       gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)``,
   rpt strip_tac
   \\ drule gen_gc_thm
@@ -1742,18 +1737,31 @@ val gen_gc_related = store_thm("gen_gc_related",
     \\ rfs [heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand]
     \\ rfs [] \\ fs [] \\ fs [heap_expand_def,heap_lookup_def])
   \\ strip_tac THEN1
-   (pop_assum (fn th => rewrite_tac [GSYM th])
-    \\ `CARD (FDOM (heap_map 0 state.heap)) =
-        CARD (heap_addresses 0 state.h1 ∪
-              heap_addresses (state.a + state.n) state.r1)` by
-     (match_mp_tac FINITE_BIJ_CARD \\ fs [BIJ_DEF]
-      \\ asm_exists_tac \\ fs [])
-    \\ fs [CARD_heap_addresses]
-    \\ match_mp_tac CARD_LEMMA
-    \\ fs [CARD_heap_addresses,FINITE_heap_addresses]
-    \\ fs [IN_DISJOINT]
-    \\ CCONTR_TAC \\ fs []
-    \\ imp_res_tac IN_heap_addresses_LESS \\ fs [])
+   (qsuff_tac `heap_length (state.h1 ⧺ state.r1) =
+       heap_length (heap_filter (heap_addresses 0 state.h1 ∪
+              heap_addresses (state.a + state.n) state.r1)
+           (state.h1 ++ heap_expand state.n ++ state.r1))`
+    THEN1
+     (fs [] \\ strip_tac
+      \\ match_mp_tac (GEN_ALL heap_length_heap_filter_eq)
+      \\ fs [FLOOKUP_DEF,BIJ_DEF] \\ asm_exists_tac \\ fs []
+      \\ fs [FINITE_heap_addresses]
+      \\ conj_tac THEN1 (metis_tac [FDOM_FINITE])
+      \\ rw [] \\ res_tac \\ fs [])
+    \\ qpat_x_assum `_ = state.a` (assume_tac o GSYM) \\ fs []
+    \\ fs [heap_filter_def]
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ rewrite_tac [heap_filter_aux_APPEND,ADD_CLAUSES,
+         heap_filter_aux_heap_addresses_UNION]
+    \\ fs [heap_length_heap_expand]
+    \\ rewrite_tac [heap_filter_aux_APPEND,ADD_CLAUSES,
+         heap_filter_aux_heap_addresses_UNION]
+    \\ fs [heap_length_APPEND,DECIDE ``(n=n+k:num)<=>(k=0)``]
+    \\ rw [heap_expand_def] \\ fs [heap_filter_aux_def]
+    \\ rw [heap_length_def,el_length_def]
+    \\ imp_res_tac IN_heap_addresses_LESS \\ fs [heap_length_def]
+    \\ once_rewrite_tac [UNION_COMM]
+    \\ rewrite_tac [GSYM heap_length_def,heap_filter_aux_heap_addresses_UNION])
   \\ pop_assum kall_tac
   \\ rpt strip_tac
   >-
