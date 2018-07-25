@@ -42,6 +42,23 @@ val fromAList_append = Q.store_thm("fromAList_append",
   \\ AP_TERM_TAC
   \\ rw[union_insert_LN]);
 
+val SUBMAP_FLOOKUP_EQN = Q.store_thm("SUBMAP_FLOOKUP_EQN",
+  `f ⊑ g ⇔ (∀x y. FLOOKUP f x = SOME y ⇒ FLOOKUP g x = SOME y)`,
+  rw[SUBMAP_DEF,FLOOKUP_DEF] \\ METIS_TAC[]);
+
+val SUBMAP_mono_FUPDATE_LIST = Q.store_thm("SUBMAP_mono_FUPDATE_LIST",
+  `∀ls f g.
+   DRESTRICT f (COMPL (set (MAP FST ls))) ⊑
+   DRESTRICT g (COMPL (set (MAP FST ls)))
+   ⇒ f |++ ls ⊑ g |++ ls`,
+  Induct \\ rw[FUPDATE_LIST_THM, DRESTRICT_UNIV]
+  \\ first_x_assum MATCH_MP_TAC
+  \\ Cases_on`h`
+  \\ fs[SUBMAP_FLOOKUP_EQN]
+  \\ rw[] \\ fs[FLOOKUP_DRESTRICT, FLOOKUP_UPDATE]
+  \\ rw[] \\ fs[]
+  \\ METIS_TAC[]);
+
 val LIST_REL_eq = store_thm("LIST_REL_eq",
   ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
   Induct \\ Cases_on `ys` \\ fs []);
@@ -4865,7 +4882,7 @@ val even_stubs3 = Q.prove (
 
 val _ = overload_on("code_loc'",``λe. code_locs [e]``);
 
-val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs",
+val MAP_FST_chain_exps = Q.store_thm("MAP_FST_chain_exps",
   `∀i ls. MAP FST (chain_exps i ls) = MAP ((+)i) (COUNT_LIST (LENGTH ls))`,
   recInduct chain_exps_ind
   \\ rw[chain_exps_def, COUNT_LIST_def, MAP_MAP_o, o_DEF]
@@ -4873,7 +4890,7 @@ val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs",
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ rw[FUN_EQ_THM]);
 
-val chain_exps_body_code_locs = Q.store_thm("chain_exps_body_code_locs[simp]",
+val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs[simp]",
   `∀n es. code_locs (MAP (SND o SND) (chain_exps n es)) = code_locs es`,
   recInduct chain_exps_ind
   \\ rw[chain_exps_def]
@@ -4882,7 +4899,7 @@ val chain_exps_body_code_locs = Q.store_thm("chain_exps_body_code_locs[simp]",
 
 val chain_exps_ALL_DISTINCT = Q.store_thm ("chain_exps_ALL_DISTINCT[simp]",
   `ALL_DISTINCT (MAP FST (chain_exps i ls))`,
-  fs [chain_exps_code_locs]
+  fs [MAP_FST_chain_exps]
   \\ match_mp_tac ALL_DISTINCT_MAP_INJ
   \\ fs [all_distinct_count_list]);
 
@@ -5367,19 +5384,200 @@ val chain_installed_SUBMAP = Q.store_thm("chain_installed_SUBMAP",
   \\ fs[closSemTheory.find_code_def,CaseEq"option",CaseEq"prod"]
   \\ imp_res_tac FLOOKUP_SUBMAP);
 
+(* TODO: move to closProps *)
+
+val find_code_SUBMAP = Q.store_thm("find_code_SUBMAP",
+  `find_code dest vs code1 = SOME p ∧ code1 ⊑ code2 ⇒
+   find_code dest vs code2 = SOME p`,
+  rw[closSemTheory.find_code_def, CaseEq"option", pair_case_eq]
+  \\ imp_res_tac FLOOKUP_SUBMAP);
+
+val SUBMAP_rel_def = Define`
+  SUBMAP_rel z1 z2 ⇔
+    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code ∧
+    (∀n. DISJOINT (FDOM z2.code) (set (MAP FST (SND (SND (z1.compile_oracle n))))) ∧
+         (∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (z1.compile_oracle m))))) (set (MAP FST (SND (SND (z1.compile_oracle n)))))))`;
+
+val find_code_SUBMAP_rel = Q.store_thm("find_code_SUBMAP_rel",
+  `find_code dest vs s1.code = SOME p ∧ SUBMAP_rel s1 s2 ⇒
+   find_code dest vs s2.code = SOME p`,
+  rw[SUBMAP_rel_def]
+  \\ imp_res_tac find_code_SUBMAP);
+
+val do_install_SUBMAP = Q.store_thm("do_install_SUBMAP",
+  `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
+   SUBMAP_rel z1 z2 ⇒
+   ∃s2.
+     do_install xs z2 = (r,s2) ∧
+     SUBMAP_rel s1 s2`,
+  rw[closSemTheory.do_install_def]
+  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac SUBMAP_rel_def
+  \\ imp_res_tac closSemTheory.state_component_equality
+  \\ fs[] \\ rveq
+  \\ reverse IF_CASES_TAC \\ fs[] \\ fs[]
+  >- ( last_x_assum(qspec_then`0`mp_tac) \\ simp[] )
+  \\ fs[bool_case_eq,CaseEq"option",CaseEq"prod"]
+  \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality,shift_seq_def]
+  \\ rveq \\ fs[]
+  \\ (
+    conj_tac >- (
+      irule SUBMAP_mono_FUPDATE_LIST
+      \\ fs[SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT] ))
+  \\ gen_tac
+  \\ first_x_assum(qspec_then`n+1`mp_tac)
+  \\ fs[IN_DISJOINT, FDOM_FUPDATE_LIST]
+  \\ CCONTR_TAC \\ fs[]
+  \\ first_x_assum(qspec_then`0`mp_tac) \\ simp[]
+  \\ metis_tac[]);
+
+val do_app_lemma_simp = prove(
+  ``(exc_rel $= err1 err2 <=> err1 = err2) /\
+    LIST_REL $= xs xs /\
+    simple_state_rel $= SUBMAP_rel /\
+    simple_val_rel $=``,
+  rw [] \\ fs [LIST_REL_eq,simple_state_rel_def]
+  THEN1
+   (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
+    \\ eq_tac \\ rw [])
+  \\ fs [LIST_REL_eq,LIST_REL_OPT_REL_eq,simple_val_rel_def]
+  \\ fs[SUBMAP_rel_def, closSemTheory.state_component_equality]
+  \\ metis_tac[]);
+
+val do_app_lemma =
+  simple_val_rel_do_app
+  |> Q.GENL [`vr`,`sr`]
+  |> ISPEC ``(=):closSem$v -> closSem$v -> bool``
+  |> ISPEC ``SUBMAP_rel``
+  |> Q.INST [`opp`|->`op`,`s`|->`s1`,`t`|->`s2`,`ys`|->`xs`]
+  |> SIMP_RULE std_ss [do_app_lemma_simp]
+
+val do_app_SUBMAP_Rerr = Q.store_thm("do_app_SUBMAP_Rerr",
+  `∀op xs s1 s2 r.
+    do_app op xs s1 = Rerr r ∧
+    SUBMAP_rel s1 s2 ⇒
+    do_app op xs s2 = Rerr r`,
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
+
+val do_app_SUBMAP_Rval = Q.store_thm("do_app_SUBMAP_Rval",
+  `∀op xs s1 s2 r z1.
+    do_app op xs s1 = Rval (r,z1) ∧
+    SUBMAP_rel s1 s2 ⇒
+    ∃z2.
+    do_app op xs s2 = Rval (r,z2) ∧
+    SUBMAP_rel z1 z2`,
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
+
+val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
+  `(∀p x y (z1:('c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    p = (x,y,z1) ∧
+    closSem$evaluate (x,y,z1) = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    SUBMAP_rel z1 z2
+    ⇒
+    ∃s2.
+    closSem$evaluate (x,y,z2) = (r,s2) ∧
+    SUBMAP_rel s1 s2) ∧
+   (∀w x y (z1:('c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    evaluate_app w x y z1 = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    SUBMAP_rel z1 z2
+    ⇒
+    ∃s2.
+    evaluate_app w x y z2 = (r,s2) ∧
+    SUBMAP_rel s1 s2)`,
+  ho_match_mp_tac closSemTheory.evaluate_ind
+  \\ rw[closSemTheory.evaluate_def]
+  \\ TRY (
+    rename1`dest_closure`
+    \\ imp_res_tac SUBMAP_rel_def
+    \\ imp_res_tac closSemTheory.state_component_equality
+    \\ fs[CaseEq"option",CaseEq"app_kind",CaseEq"bool",closSemTheory.dec_clock_def]
+    \\ rveq \\ res_tac \\ fs[]
+    \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality] \\ rw[] \\ rfs[]
+    \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",CaseEq"list",PULL_EXISTS]
+    \\ rveq \\ fsrw_tac[DNF_ss][] \\ rfs[]
+    \\ fs[GSYM CONJ_ASSOC]
+    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
+    \\ fs[AND_IMP_INTRO]
+    \\ last_x_assum(qspec_then`ss`(fn th => mp_tac th \\ impl_tac >- fs[Abbr`ss`]))
+    \\ strip_tac \\ fs[] \\ NO_TAC )
+  \\ TRY (
+       fs[closSemTheory.evaluate_def,
+          bool_case_eq,
+          CaseEq"prod", CaseEq"option", CaseEq"list",
+          CaseEq"semanticPrimitives$result",
+          CaseEq"app_kind",
+          CaseEq"error_result",
+          closSemTheory.dec_clock_def]
+    \\ rw[]
+    \\ fs[PULL_EXISTS]
+    \\ TRY (fs[closSemTheory.state_component_equality,SUBMAP_rel_def] \\
+            HINT_EXISTS_TAC \\ fs[] \\ NO_TAC)
+    \\ res_tac \\ fs[]
+    \\ rpt(qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[])
+    \\ res_tac \\ fs[]
+    \\ fs[CaseEq"prod", CaseEq"option", bool_case_eq, PULL_EXISTS]
+    \\ rveq \\ fs[] \\ rfs[]
+    \\ fsrw_tac[DNF_ss][]
+    \\ imp_res_tac find_code_SUBMAP_rel \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
+    \\ TRY(last_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`]
+           \\ strip_tac \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality]
+           \\ rfs[]
+           \\ HINT_EXISTS_TAC \\ fs[]
+           \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+           \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
+           \\ fs[closSemTheory.state_component_equality]
+           \\ NO_TAC)
+    \\ TRY(first_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`]
+           \\ strip_tac \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality]
+           \\ rfs[]
+           \\ HINT_EXISTS_TAC \\ fs[]
+           \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+           \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
+           \\ fs[closSemTheory.state_component_equality]
+           \\ NO_TAC)
+    \\ NO_TAC)
+    (* only Install and do_app *)
+  \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS] \\ fs[]
+  \\ rveq \\ fs[] \\ res_tac \\ fs[]
+  \\ Cases_on`op = Install`
+  \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+  \\ rveq \\ fs[]
+  \\ TRY (
+    drule (GEN_ALL do_install_SUBMAP)
+    \\ simp[]
+    \\ disch_then drule
+    \\ rw[] \\ fs[]
+    \\ NO_TAC )
+  \\ imp_res_tac do_app_SUBMAP_Rval
+  \\ fs[]
+  \\ imp_res_tac do_app_SUBMAP_Rerr);
+
+(* -- *)
+
 val chain_installed_thm = Q.store_thm("chain_installed_thm",
-  `∀es start st res st'.
+  `∀es start. ∃e. ∀st code res st'.
    chain_installed start es st.code ∧
    closSem$evaluate (es,[],st) = (res,st') ∧
    0 < LENGTH es
    ⇒
-   ∃e k res1 st1.
+   ∃k res1 st1.
    find_code start ([]:closSem$v list) st.code = SOME ([],e) ∧
-   closSem$evaluate ([e],[],st with clock := st.clock + k) = (res1,st1) ∧
+   closSem$evaluate ([e],[],st with <| clock := st.clock + k |>) = (res1,st1) ∧
    result_rel (λx y. T) (λx y. T) res1 res ∧ st'.ffi = st1.ffi`,
   Induct >- rw[]
   \\ rw[chain_installed_cons]
-  >- ( qexists_tac`0` \\ rw[] )
+  >- (
+    qexists_tac`h` \\ rw[]
+    \\ qexists_tac`0` \\ rw[] )
+  \\ qmatch_goalsub_abbrev_tac`ee = _`
+  \\ qexists_tac`ee` \\ rw[Abbr`ee`]
   \\ rw[closSemTheory.evaluate_def]
   \\ qhdtm_x_assum`evaluate`mp_tac
   \\ simp[Once closPropsTheory.evaluate_CONS]
@@ -5390,8 +5588,9 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
   >- ( rveq \\ fs[] \\ qexists_tac`0` \\ simp[] )
   \\ imp_res_tac closPropsTheory.evaluate_mono
   \\ imp_res_tac chain_installed_SUBMAP
+  \\ first_x_assum(qspec_then`start+1`strip_assume_tac)
   \\ first_x_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
-  \\ disch_then drule
+  \\ simp[]
   \\ impl_tac >- (CCONTR_TAC \\ fs[])
   \\ strip_tac
   \\ qexists_tac`k+1`
