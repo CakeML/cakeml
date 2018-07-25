@@ -299,6 +299,12 @@ val FLATLANG_PAT_TYPE_11 = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
+val EqualityType_FLATLANG_PAT_TYPE = Q.prove(
+  `EqualityType FLATLANG_PAT_TYPE`,
+  metis_tac[EqualityType_def,FLATLANG_PAT_TYPE_no_closures,
+            FLATLANG_PAT_TYPE_types_match,FLATLANG_PAT_TYPE_11])
+  |> store_eq_thm;
+
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
 val PATLANG_EXP_TYPE_ind = theorem"PATLANG_EXP_TYPE_ind";
 
