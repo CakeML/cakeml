@@ -14,11 +14,93 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "word" (Atapp [] (Short "word8"))`` I);
 
+(* to/from int *)
 val _ = trans "fromInt" `n2w:num->word8`
 val _ = trans "toInt" `w2n:word8->num`
-val _ = trans "andb" `word_and:word8->word8->word8`;
 
-val sigs = module_signatures ["fromInt", "toInt", "andb"];
+(* bitwise operations *)
+val _ = trans "andb" `word_and:word8->word8->word8`;
+val _ = trans "orb" `word_or:word8->word8->word8`;
+val _ = trans "xorb" `word_xor:word8->word8->word8`;
+
+val word_1comp_eq = prove(
+  ``word_1comp w = word_xor w 0xFFw:word8``,
+  fs []);
+
+val _ = (next_ml_names := ["notb"]);
+val _ = translate word_1comp_eq
+
+(* arithmetic *)
+val _ = trans "+" `word_add:word8->word8->word8`;
+val _ = trans "-" `word_sub:word8->word8->word8`;
+
+(* shifts *)
+
+val var_word_lsl_def = Define `
+  var_word_lsl (w:word8) (n:num) =
+    if n < 8 then
+    if n < 4 then
+      if n < 2 then if n < 1 then w else w << 1
+      else if n < 3 then w << 2
+      else w << 3
+    else if n < 6 then if n < 5 then w << 4 else w << 5
+    else if n < 7 then w << 6
+    else w << 7 else 0w`
+
+val var_word_lsl_thm = store_thm("var_word_lsl_thm[simp]",
+  ``var_word_lsl w n = word_lsl w n``,
+  ntac 32 (
+    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD]))
+  \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs []));
+
+val var_word_lsr_def = Define `
+  var_word_lsr (w:word8) (n:num) =
+    if n < 8 then
+    if n < 4 then
+      if n < 2 then if n < 1 then w else w >>> 1
+      else if n < 3 then w >>> 2
+      else w >>> 3
+    else if n < 6 then if n < 5 then w >>> 4 else w >>> 5
+    else if n < 7 then w >>> 6
+    else w >>> 7 else 0w`
+
+val var_word_lsr_thm = store_thm("var_word_lsr_thm[simp]",
+  ``var_word_lsr w n = word_lsr w n``,
+  ntac 32 (
+    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD]))
+  \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs []));
+
+val var_word_asr_def = Define `
+  var_word_asr (w:word8) (n:num) =
+    if n < 8 then
+    if n < 4 then
+      if n < 2 then if n < 1 then w else w >> 1
+      else if n < 3 then w >> 2
+      else w >> 3
+    else if n < 6 then if n < 5 then w >> 4 else w >> 5
+    else if n < 7 then w >> 6
+    else w >> 7 else w >> 8`
+
+val var_word_asr_thm = store_thm("var_word_asr_thm[simp]",
+  ``var_word_asr w n = word_asr w n``,
+  ntac 32 (
+    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
+  \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs []));
+
+val _ = (next_ml_names := ["<<"]);
+val _ = translate var_word_lsl_def;
+
+val _ = (next_ml_names := [">>"]);
+val _ = translate var_word_lsr_def;
+
+val _ = (next_ml_names := ["~>>"]);
+val _ = translate var_word_asr_def;
+
+val sigs = module_signatures ["fromInt", "toInt", "andb",
+  "orb", "xorb", "notb", "+", "-", "<<", ">>", "~>>"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
 
