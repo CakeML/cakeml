@@ -548,23 +548,21 @@ val compile_common_def = Define `
     let (es,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-    let prog = compile_prog c.max_app prog in
-      (c.next_loc + num_stubs c.max_app,
-       c with <| next_loc := n; known_conf := kc |>,
+      (c with <| start := c.next_loc; next_loc := n; known_conf := kc |>,
        prog)`;
 
 val compile_inc_def = Define `
   compile_inc c es =
-    let (s, c, prog) = compile_common c es in
-      (c with start := s, code_sort prog)`;
+    let (c, prog) = compile_common c es in
+      (c, code_sort (compile_prog c.max_app prog))`;
 
 val compile_def = Define `
   compile c es =
-    let (s, c, prog) = compile_common c es in
+    let (c, prog) = compile_common c es in
     let prog =
       toAList (init_code c.max_app) ++
-      (num_stubs c.max_app - 1, 0n, init_globals c.max_app s) ::
-      prog
+      (num_stubs c.max_app - 1, 0n, init_globals c.max_app c.start) ::
+      (compile_prog c.max_app prog)
     in
     let c = c with start := num_stubs c.max_app - 1 in
       (c,code_sort prog)`;
