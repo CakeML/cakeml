@@ -1,4 +1,4 @@
-open preamble sptreeTheory reg_allocTheory
+open preamble sptreeTheory mergesortTheory reg_allocTheory mergesortTheory sortingTheory
 
 val _ = new_theory "linear_scan"
 
@@ -385,6 +385,214 @@ val check_intervals_def = Define`
       f r1 = f r2
       ==>
       r1 = r2
+`
+
+
+val _ = Datatype `
+  linear_scan_state =
+    <| colors : num num_map
+     ; active: (num # num) list (* interval end # reg *)
+     ; colorpool: num list
+     ; colornum: num
+     ; colormax: num
+     ; phyregs: num_set
+     ; stacknum: num
+     |>`
+
+val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
+    remove_inactive_intervals beg st =
+        if st.active = [] then st
+        else
+          let (e,r) = HD st.active in
+          if e < beg then
+            let st' = st with
+              <| active    updated_by TL
+               ; colorpool updated_by (\l. (THE (lookup r st.colors))::l)
+               |> in
+            remove_inactive_intervals beg st'
+          else
+            st
+`(
+    WF_REL_TAC `measure (\(_,st). LENGTH (st.active))` >>
+    rw [] >>
+    `LENGTH st.active <> 0` by rw [LENGTH_NIL] >>
+    rw [LENGTH_TL]
+);
+
+val add_active_interval_def = Define `
+  (
+    add_active_interval v [] = [v]
+  ) /\ (
+    add_active_interval (v1 : num#num) (v2::tail) =
+        if FST v1 <= FST v2 then
+            v1::v2::tail
+        else
+            v2::(add_active_interval v1 tail)
+  )
+`
+
+val find_color_in_list_def = Define`
+  (
+    find_color_in_list [] forbidden = NONE
+  ) /\ (
+    find_color_in_list (r::rs) forbidden =
+        if lookup r forbidden = NONE then
+          SOME r
+        else
+          find_color_in_list rs forbidden
+  )`
+
+val find_color_in_colornum_def = tDefine "find_color_in_colornum" `
+    find_color_in_colornum st forbidden =
+        if st.colormax <= st.colornum then
+          (st, NONE)
+        else
+          let reg = st.colornum in
+          let st' = st with
+            <| colorpool updated_by (\l. reg::l)
+             ; colornum  updated_by ($+1)
+             |> in
+          if lookup reg forbidden = NONE then
+            (st', SOME reg)
+          else
+            find_color_in_colornum st' forbidden
+`(
+    WF_REL_TAC `measure (\(st, _). st.colormax - st.colornum)` >>
+    rw []
+);
+
+val find_color_def = Define`
+    find_color st forbidden =
+        case find_color_in_list st.colorpool forbidden of
+        | SOME reg => (st, SOME reg)
+        | NONE => find_color_in_colornum st forbidden
+`
+
+val spill_register_def = Define`
+    spill_register st reg =
+        st with
+          <| colors   updated_by (insert reg st.stacknum)
+           ; stacknum updated_by $+1
+           |>
+`
+
+val spill_new_register_def = Define`
+    spill_new_register st reg rend =
+      (spill_register st reg) with
+        <| active updated_by add_active_interval (rend, reg)
+         |>
+`
+
+val color_new_register_def = Define`
+    color_new_register st reg col rend =
+      st with
+        <| colors    updated_by (insert reg col)
+         ; active    updated_by add_active_interval (rend, reg)
+         ; colorpool updated_by FILTER ($<> col)
+         |>
+`
+
+val find_spill_def = Define`
+    find_spill st reg rend force =
+        if NULL (st.active) then
+          spill_new_register st reg rend
+        else
+          let (lastend, lastreg) = LAST st.active in
+          if force \/ rend < lastend then
+            let lastcolor = THE (lookup lastreg st.colors) in
+            let st' = color_new_register st reg lastcolor rend in
+            let st'' = spill_register st' lastreg in
+            st'' with active updated_by FRONT
+          else
+            spill_new_register st reg rend
+`
+
+val linear_reg_alloc_step_aux_def = Define`
+    linear_reg_alloc_step_aux st forbidden prefered reg rend force =
+      case find_color_in_list prefered forbidden of
+      | SOME col => color_new_register st reg col rend
+      | NONE => (
+        case find_color st forbidden of
+        | (st', SOME col) => color_new_register st' reg col rend
+        | (st', NONE) => find_spill st' reg rend force
+      )
+`
+
+val list_apply_partial_fun_def = Define`
+  list_apply_partial_fun s l =
+      MAP THE (FILTER ($<> NONE) (MAP (\r. lookup r s) l))
+`
+
+val linear_reg_alloc_step_def = Define`
+    linear_reg_alloc_step int_beg int_end forced moves st reg =
+      let rend = THE (lookup reg int_end) in
+      if is_stack_var reg then
+        spill_new_register st reg rend
+      else
+        let forced_forbidden = fromAList (MAP (\c. (c,())) (list_apply_partial_fun st.colors (option_CASE (lookup reg forced) [] (\x.x)))) in
+        if is_phy_var reg then
+          if reg <= 2*(st.colormax) then
+            let forbidden = union st.phyregs forced_forbidden in
+            let st' = linear_reg_alloc_step_aux st forbidden [] reg rend T in
+            st' with phyregs updated_by (insert (THE (lookup reg st'.colors)) ())
+          else
+            spill_new_register st reg rend
+        else
+          let moves_prefered = list_apply_partial_fun st.colors (option_CASE (lookup reg moves) [] (\x.x)) in
+          linear_reg_alloc_step_aux st forced_forbidden moves_prefered reg rend F
+`
+
+val linear_reg_alloc_pass1_initial_state_def = Define`
+    linear_reg_alloc_pass1_initial_state k =
+      <| colors    := LN
+       ; active    := []
+       ; colorpool := []
+       ; colornum  := 0
+       ; colormax  := k
+       ; phyregs   := LN
+       ; stacknum  := k
+       |>`
+
+val linear_reg_alloc_pass2_initial_state_def = Define`
+    linear_reg_alloc_pass2_initial_state k n =
+      <| colors    := LN
+       ; active    := []
+       ; colorpool := []
+       ; colornum  := k
+       ; colormax  := k+n
+       ; phyregs   := LN
+       ; stacknum  := 0
+       |>`
+
+val find_reg_exchange_def = Define`
+  (
+    find_reg_exchange [] colors exch invexch = (exch, invexch)
+  ) /\ (
+    find_reg_exchange (r::rs) colors exch invexch =
+        let col1 = THE (lookup r colors) in
+        let fcol1 = r DIV 2 in
+        let col2 = option_CASE (lookup fcol1 invexch) fcol1 (\x.x) in
+        let fcol2 = option_CASE (lookup col1 exch) col1 (\x.x) in
+        find_reg_exchange rs colors (insert col1 fcol1 (insert col2 fcol2 exch)) (insert fcol1 col1 (insert fcol2 col2 invexch))
+  )`
+
+val apply_reg_exchange_def = Define`
+    apply_reg_exchange phyregs colors =
+        let (exch, invexch) = find_reg_exchange phyregs colors LN LN in
+        map (\c. option_CASE (lookup c exch) c (\x.x)) colors
+`
+
+val linear_reg_alloc_def = Define`
+    linear_reg_alloc int_beg int_end k forced moves =
+        let reglist = mergesort (\r1 r2. THE (lookup r1 int_beg) <= THE (lookup r2 int_beg)) (MAP FST (toAList int_beg)) in
+        let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
+        let st_end_pass1 = FOLDL (linear_reg_alloc_step int_beg int_end LN LN) st_init_pass1 reglist in
+        let stacklist = FILTER (\r. k <= THE (lookup r st_end_pass1.colors)) reglist in
+        let st_init_pass2 = linear_reg_alloc_pass2_initial_state k (LENGTH stacklist) in
+        let st_end_pass2 = FOLDL (linear_reg_alloc_step int_beg int_end LN LN) st_init_pass2 stacklist in
+        let colors = union st_end_pass2.colors st_end_pass1.colors in
+        let phyregs = FILTER is_phy_var reglist in
+        apply_reg_exchange phyregs colors
 `
 
 val _ = export_theory ();
