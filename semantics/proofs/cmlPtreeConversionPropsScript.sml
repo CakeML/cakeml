@@ -304,7 +304,7 @@ val Type_OK0 = Q.store_thm(
   simp[Once ptree_Type_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, tokcheck_def]
   >- metis_tac[tuplify_OK]
-  >- (dsimp[astTheory.Tfn_def] >> metis_tac[tuplify_OK])
+  >- (dsimp[] >> metis_tac[tuplify_OK])
   >- (dsimp[] >> metis_tac[TyOp_OK])
   >- metis_tac[]
   >- (rename1 `ptree_head pt'` >>
