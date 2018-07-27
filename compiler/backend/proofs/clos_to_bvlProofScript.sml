@@ -6044,18 +6044,25 @@ val semantics_nil = Q.store_thm("semantics_nil[simp]",
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[] \\ EVAL_TAC);
 
-val compile_common_semantics = Q.store_thm("compile_common_semantics",
-  `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
+(* TODO: move *)
+val compile_nil = Q.store_thm("compile_nil[simp]",
+  `clos_mti$compile do_mti max_app [] = []`,
+  Cases_on`do_mti` \\ EVAL_TAC);
+
+val compile_inc_def = Define`
+  compile_inc c cc =
+  ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
       (state_cc (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
-        (state_cc (if c.do_call then compile_inc else CURRY I)
-          (pure_cc clos_annotateProof$compile_inc cc)))))) ∧
-   closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 cc1 es1 ≠ Fail ∧
+        (state_cc (if c.do_call then clos_callProof$compile_inc else CURRY I)
+          (pure_cc clos_annotateProof$compile_inc cc)))))`;
+
+val compile_common_semantics = Q.store_thm("compile_common_semantics",
+  `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ syntax_ok es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ syntax_ok [FST(SND(co1 n))])) ∧
    (IS_SOME c.known_conf ⇒ (THE c.known_conf).val_approx_spt = LN) ∧
-   (¬contains_App_SOME c.max_app es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ ¬contains_App_SOME c.max_app [FST(SND(co1 n))])) (*∧
-   compile_oracle_inv c.max_app FEMPTY cc1 co1 (fromAList code2) cc2 co2 co*)
+   (¬contains_App_SOME c.max_app es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ ¬contains_App_SOME c.max_app [FST(SND(co1 n))]))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co compile_inc o
@@ -6065,8 +6072,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
            (state_co (ignore_table renumber_code_locs)
              ((if c.do_mti then pure_co (compile_inc c.max_app) else I) o co1))))
      cc (if es1 = [] then [] else [Call None 0 c'.start []]) =
-   closSem$semantics ffi c.max_app FEMPTY co1 cc1 es1 (*∧
-   ALOOKUP code2 c'.start = SOME (0, e)*)`,
+   closSem$semantics ffi c.max_app FEMPTY co1 (compile_inc c cc) es1`,
   Cases_on`es1 = []` >- ( strip_tac \\ fs[] )
   \\ simp[compile_common_def]
   \\ rpt(pairarg_tac \\ fs[])
@@ -6075,10 +6081,12 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ strip_tac \\ rveq
   \\ drule (GEN_ALL semantics_mti)
   \\ disch_then(qspec_then`c.do_mti`mp_tac) \\ fs[]
-  \\ qmatch_assum_abbrev_tac`Abbrev(cc1 = _ ccc)`
+  \\ simp[Once compile_inc_def]
+  \\ qmatch_goalsub_abbrev_tac`(_ ccc = _)`
   \\ disch_then(qspec_then`ccc`mp_tac) \\ fs[]
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ qunabbrev_tac`ccc`
+  \\ fs[compile_inc_def]
   \\ drule clos_numberProofTheory.semantics_number
   \\ fs[]
   \\ impl_tac
@@ -6216,6 +6224,33 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   \\ fs[state_rel_def]
   \\ Cases_on`res1` \\ fs[]
   \\ Cases_on`e` \\ fs[]);
+
+val compile_semantics = store_thm("compile_semantics",
+  ``semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co (compile_inc c cc) es ≠ Fail ∧
+    compile c es = (c', prog)
+    ⇒
+    semantics ffi (fromAList prog) co2 cc2 c'.start =
+    semantics ffi c.max_app FEMPTY co (compile_inc c cc) es`` |> inst[beta|->alpha],
+  strip_tac
+  \\ imp_res_tac compile_all_distinct_locs
+  \\ fs[compile_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ DEP_REWRITE_TAC[fromAList_code_sort]
+  \\ fs[ALL_DISTINCT_code_sort]
+  \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
+  \\ simp[]
+  \\ impl_tac >- cheat (* add assumptions *)
+  \\ disch_then(assume_tac o SYM) \\ fs[]
+  \\ Cases_on`es=[]` \\ fs[]
+  >- (
+    qhdtm_x_assum`compile_common`mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ simp[]
+    \\ simp[clos_numberTheory.renumber_code_locs_def]
+    \\ cheat (* chain exps should produce something on empty *) )
+  \\ irule compile_prog_semantics
+  \\ simp[lookup_fromAList]
+  \\ cheat);
 
 (*
 clos_mtiProofTheory.semantics_intro_multi
