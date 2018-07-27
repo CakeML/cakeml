@@ -118,11 +118,11 @@ val POSTe_def = new_binder_definition("POSTe_def",
             | Div   => cond F``)
 
 val POSTd_def = Define `
-  POSTd (Qd: hprop) = \r.
+  POSTd (Hd: hprop) = \r.
     case r of
      | Val v => cond F
      | Exn e => cond F
-     | Div   => Qd`
+     | Div   => Hd`
 
 val POST_def = Define `
   POST (Qv: v -> hprop) (Qe: v -> hprop) = \r.
@@ -132,11 +132,11 @@ val POST_def = Define `
      | Div   => cond F`
 
 val POSTD_def = Define `
-  POSTD (Qv: v -> hprop) (Qe: v -> hprop) (Qd: hprop) = \r.
+  POSTD (Qv: v -> hprop) (Qe: v -> hprop) (Hd: hprop) = \r.
     case r of
      | Val v => Qv v
      | Exn e => Qe e
-     | Div   => Qd`
+     | Div   => Hd`
 
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
@@ -531,7 +531,7 @@ val hsimpl_gc = Q.store_thm ("hsimpl_gc",
 )
 
 (*------------------------------------------------------------------*)
-(* Automatic rewrites for POSTv/POSTe/POST *)
+(* Automatic rewrites for POSTv/POSTe/POSTd/POST/POSTD *)
 
 val POSTv_Val = Q.store_thm ("POSTv_Val[simp]",
   `!Qv v. $POSTv Qv (Val v) = Qv v`,
@@ -540,6 +540,11 @@ val POSTv_Val = Q.store_thm ("POSTv_Val[simp]",
 
 val POSTv_Exn = Q.store_thm ("POSTv_Exn[simp]",
   `!Qv v. $POSTv Qv (Exn v) = &F`,
+  fs [POSTv_def]
+);
+
+val POSTv_Div = Q.store_thm ("POSTv_Div[simp]",
+  `!Qv. $POSTv Qv Div = &F`,
   fs [POSTv_def]
 );
 
@@ -553,6 +558,26 @@ val POSTe_Exn = Q.store_thm ("POSTe_Exn[simp]",
   fs [POSTe_def]
 );
 
+val POSTe_Div = Q.store_thm ("POSTe_Div[simp]",
+  `!Qe. $POSTe Qe Div = &F`,
+  fs [POSTe_def]
+);
+
+val POSTd_Val = Q.store_thm ("POSTd_Val[simp]",
+  `!Hd v. POSTd Hd (Val v) = &F`,
+  fs [POSTd_def]
+);
+
+val POSTd_Exn = Q.store_thm ("POSTd_Exn[simp]",
+  `!Hd v. POSTd Hd (Exn v) = &F`,
+  fs [POSTd_def]
+);
+
+val POSTd_Div = Q.store_thm ("POSTd_Div[simp]",
+  `!Hd. POSTd Hd Div = Hd`,
+  fs [POSTd_def]
+);
+
 val POST_Val = Q.store_thm ("POST_Val[simp]",
   `!Qv Qe v. POST Qv Qe (Val v) = Qv v`,
   fs [POST_def]
@@ -563,10 +588,32 @@ val POST_Exn = Q.store_thm ("POST_Exn[simp]",
   fs [POST_def]
 );
 
+val POST_Div = Q.store_thm ("POST_Div[simp]",
+  `!Qv Qe. POST Qv Qe Div = &F`,
+  fs [POST_def]
+);
+
+val POSTD_Val = Q.store_thm ("POSTD_Val[simp]",
+  `!Qv Qe Hd v. POSTD Qv Qe Hd (Val v) = Qv v`,
+  fs [POSTD_def]
+);
+
+val POSTD_Exn = Q.store_thm ("POSTD_Exn[simp]",
+  `!Qv Qe Hd v. POSTD Qv Qe Hd (Exn v) = Qe v`,
+  fs [POSTD_def]
+);
+
+val POSTD_Div = Q.store_thm ("POSTD_Div[simp]",
+  `!Qv Qe Hd. POSTD Qv Qe Hd Div = Hd`,
+  fs [POSTD_def]
+);
+
+(* is this one superfluous now? *)
+
 val POSTD_eq_POST = Q.store_thm ("POSTD_eq_POST[simp]",
   `!Qv Qe. POSTD Qv Qe (cond F) = POST Qv Qe`,
-  fs [POST_def,POSTD_def] \\ rw [] \\ fs [FUN_EQ_THM]
-  \\ Cases \\ fs []);
+  fs [POST_def,POSTD_def]
+);
 
 (* other lemmas about POSTv *)
 
