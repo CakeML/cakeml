@@ -6142,49 +6142,80 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
          clos_annotateTheory.HD_shift,
          clos_annotateTheory.HD_FST_alt_free] *));
 
-(*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
-  `semantics ffi max_app code1 co1 cc1 [Call None 0 start []] ≠ Fail ∧
-   state_rel f
-     (initial_state ffi max_app code1 co1 cc1 ARB)
-     (initial_state ffi code2 co2 cc2 ARB) ∧
+  `semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 [Call None 0 start []] ≠ Fail ∧
+   (∀name arity c.
+     FLOOKUP code1 name = SOME (arity,c) ⇒
+     ∃aux1 c2 aux2.
+       compile_exps max_app [c] aux1 = ([c2],aux2) ∧
+       lookup (name + num_stubs max_app) code2 = SOME (arity,c2) ∧
+       code_installed aux2 code2) ∧
    clos_to_bvl$compile_prog max_app prog1 = prog2 ∧
    init_code code1 code2 max_app ∧
-   lookup nsm1 code2 = SOME (0, init_globals max_app start) /\
+   FEVERY (λp. every_Fn_SOME [SND (SND p)]) code1 ∧
+   FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 ∧
+   lookup nsm1 code2 = SOME (0, init_globals max_app (num_stubs max_app + start)) /\
+   compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 ∧
    code_installed prog2 code2
    ⇒
-   bvlSem$semantics ffi code2 co2 cc2 nsm1 =
-   closSem$semantics ffi max_app code1 co1 cc1 [Call None 0 start []]`,
+   bvlSem$semantics ffi code2 (co2 : num -> 'c # (num # num # bvl$exp) list) cc2 nsm1 =
+   closSem$semantics ffi max_app code1 (co1 : num -> 'c # closLang$exp # (num # num # closLang$exp) list) cc1 [Call None 0 start []]`,
   rw[]
   \\ irule (GEN_ALL IMP_semantics_eq)
   \\ simp[]
   \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))`
   \\ rw[eval_sim_def]
   \\ rw[bvlSemTheory.evaluate_def, bvlSemTheory.find_code_def, lookup_fromAList]
-  \\ rw[init_globals_def]
   \\ fs[closSemTheory.evaluate_def]
-  \\ drule (CONJUNCT1 compile_exps_correct |> SIMP_RULE std_ss [])
-  state_rel_def
-  \\ rw[bvlSemTheory.evaluate_def]
-
-  \\ drule ALOOKUP_compile_prog_main
-  \\ disch_then(qspec_then`max_app`mp_tac) \\ rw[]
-  \\ rw[]
-  \\ Cases_on`compile_exps max_app [e] []`
-  \\ imp_res_tac compile_exps_SING \\ fs[]
-  \\ first_assum(mp_then (Pat`closSem$evaluate`) mp_tac (CONJUNCT1 compile_exps_correct))
+  \\ fs[pair_case_eq, CaseEq"option"] \\ rveq
+  \\ fs[bool_case_eq]
+  >- (
+    fs[closSemTheory.initial_state_def]
+    \\ qexists_tac`0` \\ simp[] )
+  \\ rw[init_globals_def]
+  \\ rw[bvlSemTheory.evaluate_def, bvlSemTheory.do_app_def]
+  \\ fs[bvlSemTheory.dec_clock_def]
+  \\ Q.ISPECL_THEN[`max_app`,`max_app`,`initial_state ffi code2 co2 cc2 kk with globals := [NONE]`]
+        (mp_tac o Q.GEN`kk`)evaluate_init
+  \\ simp[GSYM PULL_FORALL]
+  \\ impl_tac
+  >- ( simp[domain_lookup] \\ metis_tac[init_code_def] )
   \\ simp[]
+  \\ disch_then kall_tac
+  \\ simp[Once get_global_def]
+  \\ simp[partial_app_label_table_loc_def]
+  \\ simp[GSYM global_table_def]
+  \\ simp[LUPDATE_def]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc k).code``]
+  \\ fs[closSemTheory.find_code_def, CaseEq"option", CaseEq"prod"]
+  \\ first_assum drule \\ strip_tac
+  \\ simp[bvlSemTheory.find_code_def]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc k).clock``]
+  \\ qpat_x_assum`(_ ,_) = _`(assume_tac o SYM)
+  \\ drule (CONJUNCT1 compile_exps_correct |> SIMP_RULE std_ss [] |> INST_TYPE[gamma|->beta])
+  \\ simp[closSemTheory.dec_clock_def]
   \\ disch_then drule
-  \\ simp[Once closSemTheory.initial_state_def]
-  \\ simp[Once closSemTheory.initial_state_def]
-  \\ disch_then(qspec_then`[]`mp_tac o CONV_RULE(SWAP_FORALL_CONV))
+  \\ rveq
+  \\ disch_then(qspec_then`[]`mp_tac o CONV_RULE SWAP_FORALL_CONV)
   \\ simp[env_rel_def]
-  \\ qmatch_goalsub_abbrev_tac`dec_clock 1 (t1 _)`
-  \\ disch_then(qspec_then`t1 k`mp_tac)
-  \\ simp[Abbr`t1`]
-  \\ imp_res_tac ALOOKUP_compile_prog_aux \\ fs[]
-  \\ simp[state_rel_def]
-*)
+  \\ fs[EVAL``(initial_state ffi max_app code co cc k).code``]
+  \\ imp_res_tac FEVERY_FLOOKUP \\ fs[]
+  \\ fs[EVAL``(initial_state ffi max_app code co cc k).clock``]
+  \\ disch_then(qspec_then`initial_state ffi code2 co2 cc2 k with globals := [SOME (global_table max_app)]`mp_tac)
+  \\ fs[EVAL``(initial_state ffi code co cc k).code``]
+  \\ disch_then(qspec_then`FEMPTY`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[state_rel_def, closSemTheory.initial_state_def, bvlSemTheory.initial_state_def]
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ metis_tac[init_code_def])
+  \\ strip_tac
+  \\ qexists_tac`ck+1`
+  \\ fs[]
+  \\ fs[state_rel_def]
+  \\ Cases_on`res1` \\ fs[]
+  \\ Cases_on`e` \\ fs[]);
 
 (*
 clos_mtiProofTheory.semantics_intro_multi
