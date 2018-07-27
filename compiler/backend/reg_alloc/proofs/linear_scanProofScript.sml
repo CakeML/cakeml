@@ -2720,4 +2720,141 @@ val check_intervals_check_live_tree = Q.store_thm("check_intervals_check_live_tr
     metis_tac [check_intervals_check_live_tree_lemma]
 )
 
+val lookup_default_id_def = Define`
+    lookup_default_id s x = option_CASE (lookup x s) x (\x.x)
+`
+
+val find_reg_exchange_step_def = Define`
+    find_reg_exchange_step colors r (exch, invexch) =
+        let col1 = THE (lookup r colors) in
+        let fcol1 = r DIV 2 in
+        let col2 = lookup_default_id invexch fcol1 in
+        let fcol2 = lookup_default_id exch col1 in
+        (insert col1 fcol1 (insert col2 fcol2 exch), insert fcol1 col1 (insert fcol2 col2 invexch))
+`
+
+val find_reg_exchange_FOLDL = Q.store_thm("find_reg_exchange_FOLDL",
+    `!l colors exch invexch.
+    find_reg_exchange l colors exch invexch = FOLDL (\a b. find_reg_exchange_step colors b a) (exch, invexch) l`,
+    Induct_on `l` >>
+    rw [FOLDL, find_reg_exchange_def, find_reg_exchange_step_def, lookup_default_id_def]
+)
+
+val lookup_default_id_insert = Q.store_thm("lookup_default_id_insert",
+    `!s k1 k2 v.
+    lookup_default_id (insert k2 v s) k1 = if k1 = k2 then v else lookup_default_id s k1`,
+    rw [lookup_default_id_def, lookup_insert]
+)
+
+val find_reg_exchange_FOLDR_correct = Q.store_thm("find_reg_exchange_FOLDR_correct",
+    `!l colors exch invexch.
+    ALL_DISTINCT (MAP (\r. THE (lookup r colors)) l) /\
+    (!r. MEM r l ==> is_phy_var r) /\
+    (exch, invexch) = FOLDR (\a b. find_reg_exchange_step colors a b) (LN, LN) l ==>
+    ((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\
+    !r. MEM r l ==> lookup_default_id exch (THE (lookup r colors)) = r DIV 2 `,
+
+    Induct_on `l` >>
+    simp [FOLDR, FUN_EQ_THM] >>
+    rpt gen_tac >> TRY strip_tac
+
+    THEN1 (
+        every_case_tac >>
+        fs [lookup_def, lookup_default_id_def]
+    ) >>
+
+    `?x. x = FOLDR (\a b. find_reg_exchange_step colors a b) (LN : num num_map, LN : num num_map) l` by rw [] >>
+    PairCases_on `x` >>
+    rename1 `(exch1, invexch1) = FOLDR _ _ _` >>
+    `(exch, invexch) = find_reg_exchange_step colors h (exch1, invexch1)` by metis_tac [] >>
+    qpat_x_assum `(exch, invexch) = _ _ _ (FOLDR _ _ _)` kall_tac >>
+    res_tac >>
+
+    fs [find_reg_exchange_step_def] >>
+    `?col1. THE (lookup h colors) = col1` by rw [] >>
+    `?fcol1. h DIV 2 = fcol1` by rw [] >>
+    `?col2. lookup_default_id invexch1 fcol1 = col2` by rw [] >>
+    `?fcol2. lookup_default_id exch1 col1 = fcol2` by rw [] >>
+    strip_tac
+
+    THEN1 (
+        rw [lookup_default_id_insert] >>
+        every_case_tac >>
+        fs [FUN_EQ_THM] >>
+        metis_tac []
+    )
+    THEN1 (
+        rw [lookup_default_id_insert]
+        THEN1 (
+          fs [MEM_MAP] >>
+          metis_tac []
+        )
+        THEN1 (
+          res_tac >>
+          `lookup_default_id exch1 (THE (lookup r colors)) = h DIV 2` by (fs [FUN_EQ_THM] >> metis_tac []) >>
+          `r DIV 2 = h DIV 2` by rw [] >>
+          `is_phy_var h` by rw [] >>
+          fs [is_phy_var_def] >>
+          `r = h` by intLib.COOPER_TAC >>
+          rw []
+        )
+        THEN1 (
+          rw [lookup_default_id_insert]
+        )
+    )
+)
+
+val find_reg_exchange_correct = Q.store_thm("find_reg_exchange_correct",
+    `!l colors exch invexch.
+    ALL_DISTINCT (MAP (\r. THE (lookup r colors)) l) /\
+    (!r. MEM r l ==> is_phy_var r) /\
+    (exch, invexch) = find_reg_exchange l colors LN LN ==>
+    ((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\
+    !r. MEM r l ==> lookup_default_id exch (THE (lookup r colors)) = r DIV 2 `,
+
+    simp [find_reg_exchange_FOLDL, GSYM FOLDR_REVERSE] >>
+    rpt gen_tac >> strip_tac >>
+    `REVERSE (REVERSE l) = l` by rw [REVERSE_REVERSE] >>
+    qabbrev_tac `l' = REVERSE l` >>
+    rveq >>
+    fs [MEM_REVERSE, MAP_REVERSE] >>
+    metis_tac [find_reg_exchange_FOLDR_correct]
+)
+
+val apply_reg_exchange_correct = Q.store_thm("apply_reg_exchange_correct",
+    `!l colors.
+    ALL_DISTINCT (MAP (\r. THE (lookup r colors)) l) /\
+    (!r. MEM r l ==> is_phy_var r) /\
+    set l SUBSET domain colors /\
+    colorsout = apply_reg_exchange l colors ==>
+    domain colorsout = domain colors /\
+    (!r1 r2. lookup r1 colorsout = lookup r2 colorsout ==> lookup r1 colors = lookup r2 colors) /\
+    !r. MEM r l ==> lookup r colorsout = SOME (r DIV 2)`,
+
+    rpt gen_tac >> strip_tac >>
+    fs [apply_reg_exchange_def] >>
+    pairarg_tac >> fs [] >>
+
+    `((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\ !r. MEM r l ==> lookup_default_id exch (THE (lookup r colors)) = r DIV 2` by metis_tac [find_reg_exchange_correct] >>
+    simp [GSYM lookup_default_id_def] >>
+    rw []
+
+    THEN1 (
+        rw [domain_map]
+    )
+    THEN1 (
+        fs [lookup_map] >>
+        Cases_on `lookup r1 colors` >> Cases_on `lookup r2 colors` >> fs [] >>
+        fs [FUN_EQ_THM] >>
+        metis_tac []
+    )
+    THEN1 (
+        res_tac >>
+        `r IN domain colors` by fs [SUBSET_DEF] >>
+        `?c. lookup r colors = SOME c` by fs [domain_lookup] >>
+        simp [lookup_map] >>
+        fs [THE_DEF]
+    )
+)
+
 val _ = export_theory ();
