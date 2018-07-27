@@ -401,13 +401,11 @@ val compile_exps_def = tDefine "compile_exps" `
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
-val compile_prog_def = Define `
-  (compile_prog max_app [] = []) /\
-  (compile_prog max_app ((n,args,e)::xs) =
-     let (new_e,aux) = compile_exps max_app [e] [] in
-       (* with this approach the supporting functions (aux) are
-          close the expressions (new_e) that refers to them *)
-       MAP (\e. (n + (num_stubs max_app),args,e)) new_e ++ aux ++ compile_prog max_app xs)`
+val compile_prog_def = Define`
+  compile_prog max_app prog =
+    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
+      MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
+        prog new_exps ++ aux`;
 
 val pair_lem1 = Q.prove (
   `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
