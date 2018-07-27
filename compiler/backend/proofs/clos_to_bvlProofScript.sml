@@ -5999,6 +5999,16 @@ val ALOOKUP_compile_prog_aux = Q.store_thm("ALOOKUP_compile_prog_aux",
   \\ metis_tac[IS_SUBLIST_APPEND, APPEND_ASSOC]);
 *)
 
+(* TODO: move *)
+val SND_state_co = Q.store_thm("SND_state_co",
+  `SND (state_co f co n) = SND (f (FST(FST(co n))) (SND(co n)))`,
+  EVAL_TAC \\ pairarg_tac \\ fs[] \\ rw[UNCURRY]);
+
+(* TODO: move *)
+val SND_SND_ignore_table = Q.store_thm("SND_SND_ignore_table",
+  `SND (SND (ignore_table f st p)) = SND p`,
+  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `Abbrev(cc1 = ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
@@ -6008,6 +6018,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 cc1 es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ syntax_ok es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ syntax_ok [FST(SND(co1 n))])) ∧
+   (IS_SOME c.known_conf ⇒ (THE c.known_conf).val_approx_spt = LN) ∧
    (¬contains_App_SOME c.max_app es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ ¬contains_App_SOME c.max_app [FST(SND(co1 n))])) (*∧
    compile_oracle_inv c.max_app FEMPTY cc1 co1 (fromAList code2) cc2 co2 co*)
    ⇒
@@ -6050,7 +6061,11 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`state_cc _ cc0`
   \\ disch_then(qspec_then`cc0`mp_tac) \\ fs[]
-  \\ impl_tac >- cheat (* add assumptions *)
+  \\ impl_tac >- (
+    strip_tac
+    \\ simp[SND_state_co, SND_SND_ignore_table,
+           backendPropsTheory.FST_state_co]
+    \\ cheat (* add assumptions *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ qmatch_assum_abbrev_tac`semantics ffi max_app FEMPTY co cc0 x <> Fail`
   \\ drule (GEN_ALL semantics_ccompile)
@@ -6092,16 +6107,14 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
 
 (*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
-  `semantics ffi max_app code1 co1 cc1 [e] ≠ Fail ∧
-   compile_prog max_app prog1 = prog2 ∧
+  `semantics ffi max_app code1 co1 cc1 [e1] ≠ Fail ∧
+   clos_to_bvl$compile_prog max_app prog1 = prog2 ∧
    init_code code1 code2 max_app ∧
    lookup start code2 = SOME (0, init_globals max_app main) /\
-   code_installed prog2 code2 ∧
-   ALOOKUP code2 main = SOME (0,
-
+   code_installed prog2 code2
    ⇒
-   semantics ffi code2 co2 cc2 start =
-   semantics ffi max_app code co cc es`,
+   bvlSem$semantics ffi code2 co2 cc2 start =
+   closSem$semantics ffi max_app code1 co1 cc1 prog1`,
 
     (*
     chain_installed (num_stubs max_app) ys code2 ∧
