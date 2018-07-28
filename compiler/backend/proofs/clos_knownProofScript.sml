@@ -3785,4 +3785,28 @@ val compile_LENGTH = Q.store_thm("compile_LENGTH",
   \\ pairarg_tac \\ fs[] \\ rw[]
   \\ imp_res_tac known_LENGTH_EQ_E);
 
+(* TODO: move to clos_knownProof and rename according to conventions *)
+val semantics_compile = Q.store_thm("semantics_compile",
+  `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
+   (cc1 = state_cc (case known_conf of SOME kcfg => (compile_inc kcfg) | _ => CURRY I) cc) ∧
+   (co1 = state_co (case known_conf of SOME kcfg => (compile_inc kcfg) | _ => CURRY I) co) ∧
+   (compile known_conf xs = (known_conf', es)) ∧
+   (IS_SOME known_conf ⇒
+      (∀n. SND(SND(co n)) = [] ∧ fv_max 0 [FST (SND (co n))]) ∧
+      (∀n exp aux. SND (co n) = (exp,aux) ⇒ esgc_free exp ∧ elist_globals (MAP (SND o SND) aux) = {||}) ∧
+      every_Fn_vs_NONE xs ∧ co_every_Fn_vs_NONE co ∧
+      oracle_state_sgc_free co ∧ unique_set_globals xs co ∧
+      EVERY esgc_free xs ∧ fv_max 0 xs ∧
+      (THE known_conf).val_approx_spt = LN ∧
+      FST (FST (co 0)) = (THE known_conf').val_approx_spt)
+   ⇒
+   semantics ffi max_app FEMPTY co1 cc es =
+   semantics ffi max_app FEMPTY co cc1 xs`,
+  strip_tac
+  \\ Cases_on`known_conf` \\ fs[compile_def]
+  >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ irule semantics_known
+  \\ fs[] \\ metis_tac[]);
+
 val _ = export_theory();

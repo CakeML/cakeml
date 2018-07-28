@@ -162,6 +162,10 @@ val compile_inc_def = Define `
   compile_inc max_app (e,es) =
     (HD (intro_multi max_app [e]), [])`
 
+val SND_compile_inc = Q.store_thm("SND_compile_inc[simp]",
+  `SND (compile_inc max_app p) = []`,
+  Cases_on`p` \\ EVAL_TAC);
+
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = [] /\
@@ -1463,5 +1467,17 @@ val semantics_intro_multi = Q.store_thm ("semantics_intro_multi",
   \\ fs [] \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs []);
+
+val semantics_compile = Q.store_thm("semantics_compile",
+  `semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
+   cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
+   co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
+   (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ syntax_ok [FST (SND (co n))]) ∧ 1 ≤ max_app ∧ syntax_ok xs) ⇒
+   semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =
+   semantics ffi max_app FEMPTY co cc1 xs`,
+  strip_tac
+  \\ Cases_on`do_mti` \\ fs[compile_def]
+  \\ irule semantics_intro_multi
+  \\ fs[]);
 
 val _ = export_theory();

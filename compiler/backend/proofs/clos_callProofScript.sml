@@ -11,6 +11,8 @@ val _ = temp_bring_to_front_overload "closed" {Name="closed", Thy="clos_call"};
 
 (* TODO: move *)
 
+val _ = temp_bring_to_front_overload "compile" {Name="compile", Thy="clos_call"};
+
 val MEM_REPLICATE_EQ = Q.store_thm("MEM_REPLICATE_EQ",
   `!n x y. MEM x (REPLICATE n y) <=> x = y /\ n <> 0`,
   Induct \\ fs [REPLICATE] \\ rw [] \\ eq_tac \\ rw []);
@@ -466,6 +468,16 @@ val calls_ALL_DISTINCT = Q.store_thm("calls_ALL_DISTINCT",
   \\ fs[MAP_FST_code_list,MEM_GENLIST,PULL_EXISTS]
   \\ rfs[GSYM ADD1]
   \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``]);
+
+val compile_ALL_DISTINCT = Q.store_thm("compile_ALL_DISTINCT",
+  `compile do_call x = (y,aux) ∧
+   ALL_DISTINCT (code_locs x)
+  ⇒
+   ALL_DISTINCT (MAP FST aux)`,
+  Cases_on`do_call` \\ rw[compile_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ drule calls_ALL_DISTINCT
+  \\ rw[]);
 
 val calls_subg = Q.store_thm("calls_subg",
   `∀xs g0 ys g.
@@ -3665,6 +3677,25 @@ val semantics_calls = Q.store_thm("semantics_calls",
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs []);
+
+val semantics_compile = Q.store_thm("semantics_compile",
+  `semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
+   compile do_call x = (y,aux) ∧
+   (if do_call then
+    every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧
+    ALL_DISTINCT (code_locs x) ∧
+    code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1
+    else cc = state_cc (CURRY I) cc1 ∧
+         co1 = state_co (CURRY I) co) ⇒
+   semantics ffi max_app (FEMPTY |++ aux) co1 cc1 y
+   =
+   semantics ffi max_app FEMPTY co cc x`,
+  reverse(Cases_on`do_call`)
+  \\ rw[compile_def]
+  \\ fs[FUPDATE_LIST_THM]
+  >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
+  \\ irule semantics_calls
+  \\ fs[compile_def]);
 
 (* Preservation of some label properties
   every_Fn_SOME xs ∧ every_Fn_vs_NONE xs

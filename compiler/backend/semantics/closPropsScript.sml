@@ -1,4 +1,4 @@
-open preamble closLangTheory closSemTheory
+open preamble closLangTheory closSemTheory backendPropsTheory
 
 val _ = new_theory"closProps"
 
@@ -1621,6 +1621,14 @@ val ignore_table_imp = Q.store_thm("ignore_table_imp",
   Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ rw[] \\ rw[]);
 
+val SND_SND_ignore_table = Q.store_thm("SND_SND_ignore_table",
+  `SND (SND (ignore_table f st p)) = SND p`,
+  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]);
+
+val FST_SND_ignore_table = Q.store_thm("FST_SND_ignore_table",
+  `FST (SND (ignore_table f st p)) = SND (f st (FST p))`,
+  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]);
+
 (* generic do_app compile proof *)
 
 val LIST_REL_MAP = store_thm("LIST_REL_MAP",
@@ -2418,5 +2426,164 @@ val IMP_semantics_eq_no_fail = Q.store_thm ("IMP_semantics_eq_no_fail",
   \\ metis_tac
         [evaluate_add_to_clock_io_events_mono,
          initial_state_with_clock,SND,ADD_SYM]);
+
+val CURRY_I_rel_def = Define`
+  CURRY_I_rel s1 s2 ⇔
+    s1.globals = s2.globals ∧
+    s1.refs = s2.refs ∧
+    s1.ffi = s2.ffi ∧
+    s1.clock = s2.clock ∧
+    s1.compile = state_cc (CURRY I) s2.compile ∧
+    s2.compile_oracle = state_co (CURRY I) s1.compile_oracle ∧
+    s1.code = s2.code ∧
+    s1.max_app = s2.max_app`;
+
+val do_install_CURRY_I = Q.store_thm("do_install_CURRY_I",
+  `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
+   CURRY_I_rel z1 z2 ⇒
+   ∃s2.
+     do_install xs z2 = (r,s2) ∧
+     CURRY_I_rel s1 s2`,
+  rw[closSemTheory.do_install_def]
+  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac CURRY_I_rel_def
+  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ IF_CASES_TAC \\ fs[] \\ fs[]
+  \\ TRY (fs[CURRY_I_rel_def] \\ rveq \\ fs[] \\ NO_TAC)
+  \\ fs[FUN_EQ_THM, FORALL_PROD]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ fs[shift_seq_def]
+  \\ pairarg_tac \\ fs[]
+  \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
+  \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
+  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]);
+
+val do_app_lemma_simp = prove(
+  ``(exc_rel $= err1 err2 <=> err1 = err2) /\
+    LIST_REL $= xs xs /\
+    simple_state_rel $= CURRY_I_rel /\
+    simple_val_rel $=``,
+  rw [] \\ fs [LIST_REL_eq,simple_state_rel_def,CURRY_I_rel_def]
+  THEN1
+   (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
+    \\ eq_tac \\ rw [])
+  \\ fs [simple_val_rel_def] \\ fs [LIST_REL_eq,LIST_REL_OPT_REL_eq]);
+
+val do_app_lemma =
+  simple_val_rel_do_app
+  |> Q.GENL [`vr`,`sr`]
+  |> ISPEC ``(=):closSem$v -> closSem$v -> bool``
+  |> ISPEC ``CURRY_I_rel``
+  |> Q.INST [`opp`|->`op`,`s`|->`s1`,`t`|->`s2`,`ys`|->`xs`]
+  |> SIMP_RULE std_ss [do_app_lemma_simp]
+
+val do_app_CURRY_I_Rerr = Q.store_thm("do_app_CURRY_I_Rerr",
+  `∀op xs s1 s2 r.
+    do_app op xs s1 = Rerr r ∧
+    CURRY_I_rel s1 s2 ⇒
+    do_app op xs s2 = Rerr r`,
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
+
+val do_app_CURRY_I_Rval = Q.store_thm("do_app_CURRY_I_Rval",
+  `∀op xs s1 s2 r z1.
+    do_app op xs s1 = Rval (r,z1) ∧
+    CURRY_I_rel s1 s2 ⇒
+    ∃z2.
+    do_app op xs s2 = Rval (r,z2) ∧
+    CURRY_I_rel z1 z2`,
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
+
+val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
+  `(∀p x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    p = (x,y,z1) ∧
+    closSem$evaluate (x,y,z1) = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    CURRY_I_rel z1 z2
+    ⇒
+    ∃s2.
+    closSem$evaluate (x,y,z2) = (r,s2) ∧
+    CURRY_I_rel s1 s2) ∧
+   (∀w x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    evaluate_app w x y z1 = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    CURRY_I_rel z1 z2
+    ⇒
+    ∃s2.
+    evaluate_app w x y z2 = (r,s2) ∧
+    CURRY_I_rel s1 s2)`,
+  ho_match_mp_tac closSemTheory.evaluate_ind
+  \\ rw[closSemTheory.evaluate_def]
+  \\ TRY (
+       fs[closSemTheory.evaluate_def,
+          bool_case_eq,
+          CaseEq"prod", CaseEq"option", CaseEq"list",
+          CaseEq"semanticPrimitives$result",
+          CaseEq"app_kind",
+          CaseEq"error_result"]
+    \\ rw[]
+    \\ fs[PULL_EXISTS]
+    \\ res_tac \\ fs[]
+    \\ rpt(qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[])
+    \\ res_tac \\ fs[]
+    \\ fs[CURRY_I_rel_def, CaseEq"prod", CaseEq"option",
+          bool_case_eq, PULL_EXISTS]
+    \\ rveq \\ fs[closSemTheory.dec_clock_def] \\ rfs[]
+    \\ fsrw_tac[DNF_ss][]
+    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
+    \\ TRY(last_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`] \\ strip_tac \\ fs[] \\ NO_TAC)
+    \\ TRY(first_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`] \\ strip_tac \\ fs[] \\ NO_TAC)
+    \\ NO_TAC)
+    (* only Install and do_app *)
+  \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS] \\ fs[]
+  \\ rveq \\ fs[]
+  \\ res_tac \\ fs[]
+  \\ Cases_on`op = Install`
+  \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+  \\ rveq \\ fs[]
+  \\ TRY (
+    drule (GEN_ALL do_install_CURRY_I)
+    \\ simp[]
+    \\ disch_then drule
+    \\ rw[] \\ fs[]
+    \\ NO_TAC )
+  \\ imp_res_tac do_app_CURRY_I_Rval
+  \\ fs[]
+  \\ imp_res_tac do_app_CURRY_I_Rerr);
+
+val semantics_CURRY_I = Q.store_thm("semantics_CURRY_I",
+  `semantics ffi max_app code co (state_cc (CURRY I) cc) es ≠ Fail ⇒
+   semantics ffi max_app code (state_co (CURRY I) co) cc es =
+   semantics ffi max_app code co (state_cc (CURRY I) cc) es`,
+  rw[]
+  \\ irule IMP_semantics_eq
+  \\ rw[eval_sim_def]
+  \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))` \\ rw[]
+  \\ imp_res_tac(CONJUNCT1 evaluate_CURRY_I)
+  \\ fs[PULL_FORALL,PULL_EXISTS]
+  \\ qexists_tac`0` \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`(es,[],sz)`
+  \\ last_x_assum(qspec_then`sz`mp_tac)
+  \\ impl_tac
+  >- (
+    simp[CURRY_I_rel_def]
+    \\ simp[Abbr`sz`]
+    \\ EVAL_TAC )
+  \\ strip_tac \\ fs[]
+  \\ imp_res_tac CURRY_I_rel_def);
+
+val semantics_nil = Q.store_thm("semantics_nil[simp]",
+  `semantics ffi maxapp code co cc [] = Terminate Success ffi.io_events`,
+  rw[semantics_def, evaluate_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[] \\ EVAL_TAC);
 
 val _ = export_theory();
