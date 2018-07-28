@@ -2815,13 +2815,14 @@ val code_installed_insert = store_thm("code_installed_insert",
   \\ rveq \\ fs [] \\ rfs []);
 
 val code_installed_fromAList = store_thm("code_installed_fromAList",
-  ``ALL_DISTINCT (MAP FST aux) ==>
-    code_installed aux (fromAList (aux ++ xs))``,
+  ``ALL_DISTINCT (MAP FST ls) ∧ IS_SUBLIST ls aux ==>
+    code_installed aux (fromAList ls)``,
   fs [code_installed_def,EVERY_MEM,FORALL_PROD] \\ rw []
   \\ fs [lookup_fromAList]
-  \\ fs [ALOOKUP_APPEND]
-  \\ fs [case_eq_thms]
-  \\ imp_res_tac MEM_ALOOKUP \\ fs []);
+  \\ fs [ALOOKUP_APPEND, IS_SUBLIST_APPEND]
+  \\ fs [case_eq_thms, ALL_DISTINCT_APPEND, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+  \\ imp_res_tac MEM_ALOOKUP \\ fs []
+  \\ metis_tac[pair_CASES,option_CASES]);
 
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
@@ -6052,11 +6053,32 @@ val compile_semantics = store_thm("compile_semantics",
   \\ fs[ALL_DISTINCT_code_sort]
   \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
   \\ simp[]
-  \\ impl_tac >- cheat (* add assumptions *)
+  \\ impl_tac >- cheat (* add assumptions, after proving cheats in compile_common_semantics *)
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
-  \\ cheat);
+  \\ conj_tac >- cheat (* prove ALOOKUP_compile_common *)
+  \\ conj_tac
+  >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
+  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
+  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
+  \\ `c''.max_app = c.max_app` by cheat (* compile_common max_app *)
+  \\ conj_tac
+  >- (
+    qexists_tac`prog'`
+    \\ irule code_installed_fromAList
+    \\ fs[]
+    \\ fs[IS_SUBLIST_APPEND]
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`[]` \\ fs[] )
+  \\ conj_tac
+  >- (
+    rw[init_code_def,fromAList_append,lookup_union]
+    \\ rw[lookup_fromAList, ALOOKUP_toAList]
+    \\ `0 < c.max_app` by fs[]
+    \\ imp_res_tac init_code_ok \\ fs[]
+    \\ cheat (* ALOOKUP_compile_common *) )
+  \\ cheat (* oracle syntax ok *));
 
 (*
 val () = temp_overload_on("acompile",``clos_annotate$compile``);

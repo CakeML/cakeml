@@ -549,17 +549,12 @@ val compile_common_def = Define `
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc |>,
        prog)`;
 
-val compile_inc_def = Define `
-  compile_inc c es =
-    let (c, prog) = compile_common c es in
-      (c, code_sort (compile_prog c.max_app prog))`;
-
 val compile_def = Define `
   compile c es =
     let (c, prog) = compile_common c es in
     let prog =
       toAList (init_code c.max_app) ++
-      (num_stubs c.max_app - 1, 0n, init_globals c.max_app c.start) ::
+      (num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start)) ::
       (compile_prog c.max_app prog)
     in
     let c = c with start := num_stubs c.max_app - 1 in

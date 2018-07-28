@@ -197,7 +197,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.default_config_def
     ,clos_to_bvlTheory.chain_exps_def
     ,clos_to_bvlTheory.compile_common_def
-    ,clos_to_bvlTheory.compile_inc_def
     ,clos_to_bvlTheory.compile_def
     ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
