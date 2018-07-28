@@ -6057,12 +6057,11 @@ val compile_semantics = store_thm("compile_semantics",
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
-  \\ conj_tac >- cheat (* prove ALOOKUP_compile_common *)
-  \\ conj_tac
-  >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
-  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
-  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
   \\ `c''.max_app = c.max_app` by cheat (* compile_common max_app *)
+  \\ conj_tac >- cheat (* prove ALOOKUP_compile_common *)
+  \\ conj_tac >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
+  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
+  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
   \\ conj_tac
   >- (
     qexists_tac`prog'`
@@ -6075,7 +6074,7 @@ val compile_semantics = store_thm("compile_semantics",
   >- (
     rw[init_code_def,fromAList_append,lookup_union]
     \\ rw[lookup_fromAList, ALOOKUP_toAList]
-    \\ `0 < c.max_app` by fs[]
+    \\ TRY(`0 < c.max_app` by fs[])
     \\ imp_res_tac init_code_ok \\ fs[]
     \\ cheat (* ALOOKUP_compile_common *) )
   \\ cheat (* oracle syntax ok *));
