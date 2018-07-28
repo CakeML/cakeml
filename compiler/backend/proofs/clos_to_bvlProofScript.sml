@@ -5823,6 +5823,14 @@ val compile_inc_def = Define`
           (pure_cc clos_annotateProof$compile_inc cc)))))`;
 
 (* TODO: move *)
+
+val make_even_def = Define`
+  make_even n = if EVEN n then n else n+1`;
+
+val mcompile_length = Q.store_thm("mcompile_length[simp]",
+  `LENGTH (clos_mti$compile do_mti max_app es) = LENGTH es`,
+  Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]);
+
 val every_Fn_SOME_APPEND = Q.store_thm("every_Fn_SOME_APPEND[simp]",
   `every_Fn_SOME (l1 ++ l2) ⇔ every_Fn_SOME l1 ∧ every_Fn_SOME l2`,
   once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]);
@@ -5874,7 +5882,12 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧ (∀n. clos_mtiProof$syntax_ok [FST(SND(co1 n))])) ∧
-   (IS_SOME c.known_conf ⇒ (THE c.known_conf).val_approx_spt = LN) ∧
+   (IS_SOME c.known_conf ⇒
+     (THE c.known_conf).val_approx_spt = LN	∧
+     FST (SND (FST (co1 0))) = SND
+       (known (THE c.known_conf)
+         (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app es1)))
+           [] LN)) ∧
    (¬contains_App_SOME c.max_app es1 ∧ (∀n. SND (SND (co1 n)) = [] ∧ ¬contains_App_SOME c.max_app [FST(SND(co1 n))]))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
@@ -5921,6 +5934,17 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ simp[backendPropsTheory.SND_state_co, SND_SND_ignore_table,
            backendPropsTheory.FST_state_co,
            FST_SND_ignore_table]
+    \\ reverse conj_tac
+    >- (
+      fs[IS_SOME_EXISTS] \\ fs[clos_knownTheory.compile_def]
+      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+      \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n'`
+      \\ `n' = n`
+      by (
+        unabbrev_all_tac
+        \\ simp[make_even_def,EVEN_MOD2] )
+      \\ fs[Abbr`n'`,Abbr`n`] \\ rfs[] \\ fs[]
+      \\ rw[] )
     \\ cheat (* add assumptions *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ qmatch_assum_abbrev_tac`semantics ffi max_app FEMPTY co cc0 x <> Fail`
