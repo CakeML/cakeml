@@ -1,6 +1,6 @@
-open preamble backendPropsTheory
+open preamble local open bagLib in end
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
-     closLangTheory db_varsTheory
+     closLangTheory db_varsTheory backendPropsTheory
 
 val _ = new_theory "clos_knownProof";
 
@@ -3660,7 +3660,9 @@ val semantics_known = Q.store_thm("semantics_known",
       esgc_free exp /\ elist_globals (MAP (SND o SND) aux) = {||}) /\
    every_Fn_vs_NONE xs /\
    co_every_Fn_vs_NONE co /\
+   (*
    oracle_states_subspt co /\
+   *)
    oracle_state_sgc_free co /\
    unique_set_globals xs co /\
    EVERY esgc_free xs /\
@@ -3785,18 +3787,28 @@ val compile_LENGTH = Q.store_thm("compile_LENGTH",
   \\ pairarg_tac \\ fs[] \\ rw[]
   \\ imp_res_tac known_LENGTH_EQ_E);
 
-(* TODO: move to clos_knownProof and rename according to conventions *)
+val syntax_ok_def = Define`
+  syntax_ok xs ⇔
+    every_Fn_vs_NONE xs ∧
+    EVERY esgc_free xs ∧
+    fv_max 0 xs`;
+
+val syntax_oracle_ok_def = Define`
+  syntax_oracle_ok xs co ⇔
+    syntax_ok xs ∧
+    co_every_Fn_vs_NONE co ∧
+    oracle_state_sgc_free co ∧
+    unique_set_globals xs co ∧
+    (∀n. SND(SND(co n)) = [] ∧
+         syntax_ok [FST (SND (co n))])`;
+
 val semantics_compile = Q.store_thm("semantics_compile",
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    (cc1 = state_cc (case known_conf of SOME kcfg => (compile_inc kcfg) | _ => CURRY I) cc) ∧
    (co1 = state_co (case known_conf of SOME kcfg => (compile_inc kcfg) | _ => CURRY I) co) ∧
    (compile known_conf xs = (known_conf', es)) ∧
    (IS_SOME known_conf ⇒
-      (∀n. SND(SND(co n)) = [] ∧ fv_max 0 [FST (SND (co n))]) ∧
-      (∀n exp aux. SND (co n) = (exp,aux) ⇒ esgc_free exp ∧ elist_globals (MAP (SND o SND) aux) = {||}) ∧
-      every_Fn_vs_NONE xs ∧ co_every_Fn_vs_NONE co ∧
-      oracle_state_sgc_free co ∧ unique_set_globals xs co ∧
-      EVERY esgc_free xs ∧ fv_max 0 xs ∧
+      syntax_oracle_ok xs co ∧
       (THE known_conf).val_approx_spt = LN ∧
       FST (FST (co 0)) = (THE known_conf').val_approx_spt)
    ⇒
@@ -3807,6 +3819,10 @@ val semantics_compile = Q.store_thm("semantics_compile",
   >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ irule semantics_known
-  \\ fs[] \\ metis_tac[]);
+  \\ fs[syntax_ok_def,syntax_oracle_ok_def]
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`n`mp_tac)
+  \\ simp[]);
 
 val _ = export_theory();
