@@ -527,7 +527,7 @@ val code_sort_def = tDefine "code_sort" `
   decide_tac);
 
 val chain_exps = Define `
-  (chain_exps i [] = []) ∧
+  (chain_exps i [] = [(i, 0n, Op None (Const 0) [])]) ∧
   (chain_exps i [e] = [(i, 0n, e)]) ∧
   (chain_exps i (e::es) =
     (i, 0,

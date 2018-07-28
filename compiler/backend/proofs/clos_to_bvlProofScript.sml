@@ -4914,7 +4914,7 @@ val even_stubs3 = Q.prove (
 val _ = overload_on("code_loc'",``λe. code_locs [e]``);
 
 val MAP_FST_chain_exps = Q.store_thm("MAP_FST_chain_exps",
-  `∀i ls. MAP FST (chain_exps i ls) = MAP ((+)i) (COUNT_LIST (LENGTH ls))`,
+  `∀i ls. ls <> [] ==> (MAP FST (chain_exps i ls) = MAP ((+)i) (COUNT_LIST (LENGTH ls)))`,
   recInduct chain_exps_ind
   \\ rw[chain_exps_def, COUNT_LIST_def, MAP_MAP_o, o_DEF]
   >- (EVAL_TAC \\ rw[])
@@ -4930,7 +4930,9 @@ val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs[simp]",
 
 val chain_exps_ALL_DISTINCT = Q.store_thm ("chain_exps_ALL_DISTINCT[simp]",
   `ALL_DISTINCT (MAP FST (chain_exps i ls))`,
-  fs [MAP_FST_chain_exps]
+  Cases_on`ls=[]`
+  >- (rw[chain_exps_def])
+  \\ fs [MAP_FST_chain_exps]
   \\ match_mp_tac ALL_DISTINCT_MAP_INJ
   \\ fs [all_distinct_count_list]);
 
@@ -4942,11 +4944,26 @@ val chain_exps_LE = Q.store_thm("chain_exps_LE",
   \\ res_tac \\ fs []);
 
 val chain_exps_GT = Q.store_thm("chain_exps_GT",
-  `!n xs. EVERY ($> (n + LENGTH xs)) (MAP FST (chain_exps n xs))`,
+  `!n xs. xs <> [] ==> EVERY ($> (n + LENGTH xs)) (MAP FST (chain_exps n xs))`,
   ho_match_mp_tac chain_exps_ind \\ rw [chain_exps_def]
   \\ fs [EVERY_MEM, MEM_MAP] \\ rw []
   \\ fs [PULL_EXISTS]
   \\ res_tac \\ fs []);
+
+(* TODO: move *)
+val ccompile_LENGTH = Q.store_thm("ccompile_LENGTH",
+  `clos_call$compile x y = (a,b) ⇒ LENGTH y = LENGTH a`,
+  Cases_on`x` \\ rw[clos_callTheory.compile_def]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac clos_callTheory.calls_length
+  \\ rw[]);
+
+val ccompile_nil = Q.store_thm("ccompile_nil",
+  `clos_call$compile x [] = (a,b) ⇒ a =[] ∧ b = []`,
+  Cases_on`x` \\ rw[clos_callTheory.compile_def]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[clos_callTheory.calls_def]
+  \\ rw[]);
 
 val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   `compile_common c e = (c', p) ==> ALL_DISTINCT (MAP FST p ++ code_locs (MAP (SND o SND) p))`,
@@ -5029,9 +5046,15 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_length
   (* chain_exps *)
   \\ `EVERY ($<= c.next_loc) (MAP FST (chain_exps c.next_loc es'')) /\
+      (es'' <> [] ==>
       EVERY ($> (c.next_loc + LENGTH es''))
-            (MAP FST (chain_exps c.next_loc es''))`
+            (MAP FST (chain_exps c.next_loc es'')))`
     by fs [chain_exps_LE, chain_exps_GT]
+  \\ Cases_on`es'' = []`
+  >- (
+    fs[code_locs_def, chain_exps_def]
+    \\ imp_res_tac ccompile_LENGTH \\ fs[]
+    \\ imp_res_tac ccompile_nil \\ fs[code_locs_def] )
   (* clos_call *)
   \\ reverse (Cases_on `c.do_call`) \\ fs [clos_callTheory.compile_def]
   \\ rveq \\ rfs [code_locs_def]
@@ -5877,7 +5900,7 @@ val chain_installed_chain_exps = Q.store_thm("chain_installed_chain_exps",
   \\ fs[EL_CONS, PRE_SUB1]);
 
 val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
-  `semantics ffi max_app code co cc es ≠ Fail ∧ es ≠ [] ∧
+  `semantics ffi max_app code co cc es ≠ Fail ∧ (* es ≠ [] ∧*)
    DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
    (∀n. DISJOINT (FDOM code) (set (MAP FST (SND (SND (co n))))) ∧
         DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
@@ -5888,6 +5911,15 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
    semantics ffi max_app code co cc es ∧
    ALOOKUP (chain_exps start es) start = SOME (0,e)`,
   rw[]
+  \\ reverse(Cases_on`0 < LENGTH es`)
+  >- (
+    fs[chain_exps_def]
+    \\ rw[closSemTheory.semantics_def]
+    \\ fs[closSemTheory.evaluate_def]
+    \\ fs[closSemTheory.do_app_def]
+    \\ DEEP_INTRO_TAC some_intro \\ rw[]
+    \\ DEEP_INTRO_TAC some_intro \\ rw[]
+    \\ EVAL_TAC )
   \\`∃e.  eval_sim ffi max_app code co cc es (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e]
             (K (K (K (K (K (K (K (K T)))))))) F ∧
           (ALOOKUP (chain_exps start es) start  = SOME (0,e))`
@@ -5911,6 +5943,7 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
     \\ impl_tac
     >- (
       simp[Abbr`ss2`,SUBMAP_rel_def,closSemTheory.state_component_equality,closSemTheory.initial_state_def]
+      \\ `es <> []` by (strip_tac \\ fs[])
       \\ simp[MAP_FST_chain_exps]
       \\ conj_tac
       >- (
@@ -5924,8 +5957,7 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
     \\ simp[]
     \\ impl_tac
     >- (
-      reverse conj_tac >- ( CCONTR_TAC \\ fs[] )
-      \\ fs[Abbr`ss2`, closSemTheory.initial_state_def]
+      fs[Abbr`ss2`, closSemTheory.initial_state_def]
       \\ match_mp_tac chain_installed_SUBMAP
       \\ qexists_tac`alist_to_fmap (chain_exps start es)`
       \\ simp[chain_installed_chain_exps]
@@ -5950,11 +5982,13 @@ val chain_exps_semantics_call = Q.store_thm("chain_exps_semantics_call",
         DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
         ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n))))))
   ⇒
-   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc (if es = [] then [] else [Call None 0 start []]) =
+   semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc ([Call None 0 start []]) =
    semantics ffi max_app code co cc es`,
   rw[]
+  (*
   >- (
     rw[closSemTheory.semantics_def, closSemTheory.evaluate_def, chain_exps_def] )
+  *)
   \\ drule chain_exps_semantics
   \\ simp[] \\ strip_tac
   \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
@@ -6071,10 +6105,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
          (case c.known_conf of NONE => CURRY I | SOME kcfg => compile_inc kcfg)
            (state_co (ignore_table renumber_code_locs)
              ((if c.do_mti then pure_co (compile_inc c.max_app) else I) o co1))))
-     cc (if es1 = [] then [] else [Call None 0 c'.start []]) =
+     cc ([Call None 0 c'.start []]) =
    closSem$semantics ffi c.max_app FEMPTY co1 (compile_inc c cc) es1`,
-  Cases_on`es1 = []` >- ( strip_tac \\ fs[] )
-  \\ simp[compile_common_def]
+  simp[compile_common_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ qmatch_asmsub_rename_tac`renumber_code_locs_list _ _ = (k,_)`
   \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n`
@@ -6241,13 +6274,6 @@ val compile_semantics = store_thm("compile_semantics",
   \\ simp[]
   \\ impl_tac >- cheat (* add assumptions *)
   \\ disch_then(assume_tac o SYM) \\ fs[]
-  \\ Cases_on`es=[]` \\ fs[]
-  >- (
-    qhdtm_x_assum`compile_common`mp_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ simp[]
-    \\ simp[clos_numberTheory.renumber_code_locs_def]
-    \\ cheat (* chain exps should produce something on empty *) )
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
   \\ cheat);
