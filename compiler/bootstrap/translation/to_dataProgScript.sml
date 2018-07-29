@@ -875,8 +875,13 @@ val clos_to_bvl_compile_prog_side = Q.prove(`
 val clos_to_bvl_compile_side = Q.prove(`
   clos_to_bvl_compile_side v10 v11 = T`,
   fs [fetch "-" "clos_to_bvl_compile_side_def"]
-  \\ fs [clos_to_bvl_compile_exps_side])
- |> update_precondition;
+  \\ fs [clos_to_bvl_compile_exps_side,
+         clos_to_bvl_compile_prog_side,
+         fetch "-" "clos_to_bvl_init_code_side_def",
+         fetch "-" "clos_to_bvl_generate_generic_app_side_def",
+         fetch "-" "bvl_jump_jump_side_def",
+         bvl_jump_jumplist_side])
+  |> update_precondition;
 
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
