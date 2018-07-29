@@ -867,18 +867,16 @@ val clos_to_bvl_compile_exps_side = Q.prove(`
   CCONTR_TAC>>fs[]) |> update_precondition;
 
 val clos_to_bvl_compile_prog_side = Q.prove(`
-  ∀max_app x. clos_to_bvl_compile_prog_side max_app x ⇔ T`,
-  ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
-  simp[Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),clos_to_bvl_compile_exps_side])
-  |> update_precondition;
+  clos_to_bvl_compile_prog_side v10 v11 = T`,
+  fs [fetch "-" "clos_to_bvl_compile_prog_side_def"]
+  \\ fs [clos_to_bvl_compile_exps_side])
+ |> update_precondition;
 
 val clos_to_bvl_compile_side = Q.prove(`
-  ∀x y. clos_to_bvl_compile_side x y ⇔ T`,
-  rw[Once (fetch "-" "clos_to_bvl_compile_side_def"),
-     Once (fetch "-" "clos_to_bvl_compile_prog_side_def")]
-  \\ EVAL_TAC>>simp[bvl_jump_jumplist_side]
-  \\ simp[clos_to_bvl_compile_exps_side]
-  \\ simp[clos_to_bvl_compile_prog_side]) |> update_precondition
+  clos_to_bvl_compile_side v10 v11 = T`,
+  fs [fetch "-" "clos_to_bvl_compile_side_def"]
+  \\ fs [clos_to_bvl_compile_exps_side])
+ |> update_precondition;
 
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
