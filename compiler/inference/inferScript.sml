@@ -680,15 +680,24 @@ val infer_d_def = Define `
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs) (implode "Bad type definition");
+     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs)
+                 (concat (implode "Bad type definition in one of the following " ::
+                          MAP (implode o FST o SND) tdefs));
      return <| inf_v := nsEmpty;
                inf_c := build_ctor_tenv ienvT2 tdefs tids;
                inf_t := ienvT1 |>
   od) ∧
 (infer_d ienv (Dtabbrev locs tvs tn t) =
-  do () <- guard (ALL_DISTINCT tvs) (SOME locs) (implode "Duplicate type variables");
-     () <- guard (check_freevars_ast tvs t ∧ check_type_names ienv.inf_t t) (SOME locs)
-                 (implode "Bad type definition");
+  do () <- guard (ALL_DISTINCT tvs) (SOME locs)
+                 (concat
+                   [implode "Duplicate type variable bindings in type abbreviation ";
+                    implode tn]);
+     () <- guard (check_freevars_ast tvs t) (SOME locs)
+                 (concat [implode "Unbound type variable in type abbreviation ";
+                          implode tn]);
+     () <- guard (check_type_names ienv.inf_t t) (SOME locs)
+                 (concat [implode "Reference to unknown type in type abbreviation ";
+                          implode tn]);
      return <| inf_v := nsEmpty;
                inf_c := nsEmpty;
                inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>
