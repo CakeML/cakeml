@@ -4,6 +4,13 @@ local open bvlSemTheory bvlPropsTheory bviSemTheory in end;
 val _ = new_theory"dataSem";
 
 val _ = Datatype `
+  v = Number int              (* integer *)
+    | Word64 word64
+    | Block num num (v list)  (* cons block: timestamp, tag and payload *)
+    | CodePtr num             (* code pointer *)
+    | RefPtr num              (* pointer to ref cell *)`;
+
+val _ = Datatype `
   stack = Env (bvlSem$v num_map)
         | Exc (bvlSem$v num_map) num`;
 
