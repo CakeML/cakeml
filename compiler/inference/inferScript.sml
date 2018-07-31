@@ -868,7 +868,7 @@ val init_config = Define`
   init_config : inf_env =
     <| inf_c := primTypes$prim_tenv.c;
        inf_v := nsEmpty;
-       inf_t := nsEmpty|>`;
+       inf_t := primTypes$prim_tenv.t|>`;
 
 
 (*

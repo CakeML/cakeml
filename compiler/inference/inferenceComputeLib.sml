@@ -2,7 +2,7 @@ structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib lcsymtacs
   open infer_tTheory inferTheory
 
-  val (Success_tm,mk_Success,dest_Success,is_Success) = syntax_fns1 "ml_monadBase" "Success"
+  (* val (Success_tm,mk_Success,dest_Success,is_Success) = syntax_fns1 "ml_monadBase" "Success" *)
 
   val add_inference_compset = computeLib.extend_compset
   [computeLib.Defs
