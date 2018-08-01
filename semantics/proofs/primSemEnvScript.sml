@@ -45,7 +45,8 @@ val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
       (TypeStamp "false" bool_type_num, ([],[], Tbool_num))]` >>
   rw []
   >- (
-    simp [tenv_ok_def, tenv_ctor_ok_def] >>
+    simp [tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]>>
+    rw[] >>
     rpt (
       irule nsAll_nsBind >>
       rw [check_freevars_def]))
