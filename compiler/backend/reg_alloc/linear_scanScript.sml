@@ -374,26 +374,18 @@ val live_tree_registers_def = Define`
     (live_tree_registers (Seq lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2)
 `
 
-val opt_compare_def = Define`
-    (
-        opt_compare (SOME (n1:int)) (SOME (n2:int)) = (n1 <= n2)
-    ) /\ (
-        opt_compare _ _ = T
-    )
-`
-
 val interval_intersect_def = Define`
-    interval_intersect (l1, r1) (l2, r2) = (opt_compare l1 r2 /\ opt_compare l2 r1)
+    interval_intersect (l1:int, r1:int) (l2, r2) = (l1 <= r2 /\ l2 <= r1)
 `
 
 val point_inside_interval_def = Define`
-    point_inside_interval (l, r) n = (opt_compare l (SOME n) /\ opt_compare (SOME n) r)
+    point_inside_interval (l:int, r:int) n = (l <= n /\ n <= r)
 `
 
 val check_intervals_def = Define`
     check_intervals f int_beg int_end = !r1 r2.
       r1 IN domain int_beg /\ r2 IN domain int_beg /\
-      interval_intersect (lookup r1 int_beg, lookup r1 int_end) (lookup r2 int_beg, lookup r2 int_end) /\
+      interval_intersect (THE (lookup r1 int_beg), THE (lookup r1 int_end)) (THE (lookup r2 int_beg), THE (lookup r2 int_end)) /\
       f r1 = f r2
       ==>
       r1 = r2

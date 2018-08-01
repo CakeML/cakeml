@@ -2538,11 +2538,6 @@ val exists_point_inside_interval_interval_intersect = Q.store_thm("exists_point_
     point_inside_interval (l1, r1) v  /\ point_inside_interval (l2, r2) v ==>
     interval_intersect (l1, r1) (l2, r2)`,
     rw [point_inside_interval_def, interval_intersect_def] >>
-    Cases_on `l1` >>
-    Cases_on `l2` >>
-    Cases_on `r1` >>
-    Cases_on `r2` >>
-    fs [opt_compare_def] >>
     intLib.COOPER_TAC
 )
 
@@ -2565,24 +2560,24 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
     (* StartLive *)
     THEN1 (
         fs [check_intervals_def] >>
-        sg `!r. MEM r l ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+        sg `!r. MEM r l ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) n_in` THEN1 (
             rw [] >>
             `option_CASE (lookup r beg_out) (n_in - size_of_live_tree (StartLive l)) (\x.x) <= n_in /\ ?ve. lookup r end_out = SOME ve /\ n_in <= ve` by rw [] >>
             `r IN domain beg_out` by fs [SUBSET_DEF] >>
             `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
             fs [] >>
-            rw [point_inside_interval_def, opt_compare_def]
+            rw [point_inside_interval_def]
         ) >>
-        sg `!r. r IN domain (numset_list_delete l live) ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+        sg `!r. r IN domain (numset_list_delete l live) ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) n_in` THEN1 (
             rw [] >>
             res_tac >>
             `r IN domain beg_out` by fs [SUBSET_DEF] >>
             `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
             fs [] >>
-            rw [point_inside_interval_def, opt_compare_def] >>
+            rw [point_inside_interval_def] >>
             intLib.COOPER_TAC
         ) >>
-        sg `!r. r IN set l UNION domain live ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+        sg `!r. r IN set l UNION domain live ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) n_in` THEN1 (
             rpt (gen_tac ORELSE disch_tac) >>
             `MEM r l \/ r IN domain (numset_list_delete l live)` by fs [domain_numset_list_delete] >>
             rw []
@@ -2610,14 +2605,14 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
     (* EndLive *)
     THEN1 (
         fs [check_intervals_def, domain_numset_list_insert] >>
-        sg `!r. MEM r l \/ r IN domain live ==> point_inside_interval (lookup r beg_out, lookup r end_out) n_in` THEN1 (
+        sg `!r. MEM r l \/ r IN domain live ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) n_in` THEN1 (
             rpt (gen_tac ORELSE disch_tac) >>
             `option_CASE (lookup r beg_out) n_out (\x.x) <= n_in - 1` by fs [] >>
             `?ve. lookup r end_out = SOME ve /\ n_in <= ve` by fs [] >>
             `r IN domain beg_out` by fs [SUBSET_DEF] >>
             `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
             fs [] >>
-            rw [point_inside_interval_def, opt_compare_def] >>
+            rw [point_inside_interval_def] >>
             intLib.COOPER_TAC
         ) >>
         sg `INJ f (set l UNION domain live) UNIV` THEN1 (
@@ -2625,8 +2620,8 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
             strip_tac
             THEN1 rw [] >>
             rpt strip_tac >>
-            `point_inside_interval (lookup x beg_out, lookup x end_out) n_in` by fs [] >>
-            `point_inside_interval (lookup y beg_out, lookup y end_out) n_in` by fs [] >>
+            `point_inside_interval (THE (lookup x beg_out), THE (lookup x end_out)) n_in` by fs [] >>
+            `point_inside_interval (THE (lookup y beg_out), THE (lookup y end_out)) n_in` by fs [] >>
             `x IN domain beg_out /\ y IN domain end_out` by fs [SUBSET_DEF] >>
             imp_res_tac exists_point_inside_interval_interval_intersect >>
             rw []
@@ -2654,14 +2649,14 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
         `domain flive1 = IMAGE f (domain live1)` by metis_tac [check_live_tree_success] >>
         rveq >>
         fs [get_live_backward_def, domain_numset_list_insert, branch_domain, size_of_live_tree_def] >>
-        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==> point_inside_interval (lookup r beg_out, lookup r end_out) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
+        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
             imp_res_tac check_number_property_intend >>
             rw [] >>
             res_tac >>
             `n_in - size_of_live_tree lt' - size_of_live_tree lt = n_in - (size_of_live_tree lt + size_of_live_tree lt')` by intLib.COOPER_TAC >>
             `r IN domain beg_out` by fs [SUBSET_DEF] >>
             `?vb. lookup r beg_out = SOME vb` by fs [domain_lookup] >>
-            fs [point_inside_interval_def, opt_compare_def] >>
+            fs [point_inside_interval_def] >>
             `0 <= size_of_live_tree lt` by rw [size_of_live_tree_positive] >>
             intLib.COOPER_TAC
         ) >>
@@ -2670,8 +2665,8 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
             strip_tac
             THEN1 rw [] >>
             rpt strip_tac >>
-            `point_inside_interval (lookup x beg_out, lookup x end_out) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` by fs [] >>
-            `point_inside_interval (lookup y beg_out, lookup y end_out) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` by fs [] >>
+            `point_inside_interval (THE (lookup x beg_out), THE (lookup x end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` by fs [] >>
+            `point_inside_interval (THE (lookup y beg_out), THE (lookup y end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` by fs [] >>
             `x IN domain beg_out /\ y IN domain beg_out` by fs [SUBSET_DEF] >>
             imp_res_tac exists_point_inside_interval_interval_intersect >>
             fs [check_intervals_def]
