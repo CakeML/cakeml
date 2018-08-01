@@ -1,4 +1,5 @@
 open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory
+open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "linear_scanProof"
 
@@ -2724,20 +2725,42 @@ val lookup_default_id_def = Define`
     lookup_default_id s x = option_CASE (lookup x s) x (\x.x)
 `
 
+val colors_sub_eqn = Q.store_thm("colors_sub_eqn[simp]",`
+  colors_sub n s =
+  if n < LENGTH s.colors then
+    (Success (EL n s.colors),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[colors_sub_def]>>
+  fs[Marray_sub_def]);
+
+val update_colors_eqn = Q.store_thm("update_colors_eqn[simp]",`
+  update_colors n t s =
+  if n < LENGTH s.colors then
+     (Success (),s with colors := LUPDATE t n s.colors)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_colors_def]>>
+  fs[Marray_update_def]);
+
 val find_reg_exchange_step_def = Define`
     find_reg_exchange_step colors r (exch, invexch) =
-        let col1 = THE (lookup r colors) in
+        let col1 = EL r colors in
         let fcol1 = r DIV 2 in
         let col2 = lookup_default_id invexch fcol1 in
         let fcol2 = lookup_default_id exch col1 in
         (insert col1 fcol1 (insert col2 fcol2 exch), insert fcol1 col1 (insert fcol2 col2 invexch))
 `
 
+val msimps = [st_ex_bind_def,st_ex_return_def];
+
 val find_reg_exchange_FOLDL = Q.store_thm("find_reg_exchange_FOLDL",
-    `!l colors exch invexch.
-    find_reg_exchange l colors exch invexch = FOLDL (\a b. find_reg_exchange_step colors b a) (exch, invexch) l`,
+    `!l colors exch invexch sth.
+    (!r. MEM r l ==> r < LENGTH sth.colors) ==>
+    find_reg_exchange l exch invexch sth = (Success (FOLDL (\a b. find_reg_exchange_step sth.colors b a) (exch, invexch) l), sth)`,
     Induct_on `l` >>
-    rw [FOLDL, find_reg_exchange_def, find_reg_exchange_step_def, lookup_default_id_def]
+    rw [FOLDL, find_reg_exchange_def, find_reg_exchange_step_def, lookup_default_id_def] >>
+    rw msimps
 )
 
 val lookup_default_id_insert = Q.store_thm("lookup_default_id_insert",
@@ -2748,11 +2771,11 @@ val lookup_default_id_insert = Q.store_thm("lookup_default_id_insert",
 
 val find_reg_exchange_FOLDR_correct = Q.store_thm("find_reg_exchange_FOLDR_correct",
     `!l colors exch invexch.
-    ALL_DISTINCT (MAP (\r. THE (lookup r colors)) l) /\
+    ALL_DISTINCT (MAP (\r. EL r colors) l) /\
     (!r. MEM r l ==> is_phy_var r) /\
     (exch, invexch) = FOLDR (\a b. find_reg_exchange_step colors a b) (LN, LN) l ==>
     ((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\
-    !r. MEM r l ==> lookup_default_id exch (THE (lookup r colors)) = r DIV 2 `,
+    !r. MEM r l ==> lookup_default_id exch (EL r colors) = r DIV 2 `,
 
     Induct_on `l` >>
     simp [FOLDR, FUN_EQ_THM] >>
@@ -2768,10 +2791,11 @@ val find_reg_exchange_FOLDR_correct = Q.store_thm("find_reg_exchange_FOLDR_corre
     rename1 `(exch1, invexch1) = FOLDR _ _ _` >>
     `(exch, invexch) = find_reg_exchange_step colors h (exch1, invexch1)` by metis_tac [] >>
     qpat_x_assum `(exch, invexch) = _ _ _ (FOLDR _ _ _)` kall_tac >>
-    res_tac >>
+
+    `((lookup_default_id exch1) o (lookup_default_id invexch1) = (\x.x) /\ (lookup_default_id invexch1) o (lookup_default_id exch1) = (\x.x)) /\ !r. MEM r l ==> lookup_default_id exch1 (EL r colors) = r DIV 2` by metis_tac [] >>
 
     fs [find_reg_exchange_step_def] >>
-    `?col1. THE (lookup h colors) = col1` by rw [] >>
+    `?col1. EL h colors = col1` by rw [] >>
     `?fcol1. h DIV 2 = fcol1` by rw [] >>
     `?col2. lookup_default_id invexch1 fcol1 = col2` by rw [] >>
     `?fcol2. lookup_default_id exch1 col1 = fcol2` by rw [] >>
@@ -2791,7 +2815,7 @@ val find_reg_exchange_FOLDR_correct = Q.store_thm("find_reg_exchange_FOLDR_corre
         )
         THEN1 (
           res_tac >>
-          `lookup_default_id exch1 (THE (lookup r colors)) = h DIV 2` by (fs [FUN_EQ_THM] >> metis_tac []) >>
+          `lookup_default_id exch1 (EL r colors) = h DIV 2` by (fs [FUN_EQ_THM] >> metis_tac []) >>
           `r DIV 2 = h DIV 2` by rw [] >>
           `is_phy_var h` by rw [] >>
           fs [is_phy_var_def] >>
@@ -2805,15 +2829,21 @@ val find_reg_exchange_FOLDR_correct = Q.store_thm("find_reg_exchange_FOLDR_corre
 )
 
 val find_reg_exchange_correct = Q.store_thm("find_reg_exchange_correct",
-    `!l colors exch invexch.
-    ALL_DISTINCT (MAP (\r. THE (lookup r colors)) l) /\
+    `!l sth.
+    ALL_DISTINCT (MAP (\r. EL r sth.colors) l) /\
     (!r. MEM r l ==> is_phy_var r) /\
-    (exch, invexch) = find_reg_exchange l colors LN LN ==>
+    (!r. MEM r l ==> r < LENGTH sth.colors) ==>
+    ?exch invexch. find_reg_exchange l LN LN sth = (Success (exch, invexch), sth) /\
     ((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\
-    !r. MEM r l ==> lookup_default_id exch (THE (lookup r colors)) = r DIV 2 `,
+    !r. MEM r l ==> lookup_default_id exch (EL r sth.colors) = r DIV 2`,
 
     simp [find_reg_exchange_FOLDL, GSYM FOLDR_REVERSE] >>
     rpt gen_tac >> strip_tac >>
+    `?x. x = FOLDR (\b a. find_reg_exchange_step sth.colors b a) (LN, LN) (REVERSE l)` by rw [] >>
+    PairCases_on `x` >>
+    qexists_tac `x0` >>
+    qexists_tac `x1` >>
+
     `REVERSE (REVERSE l) = l` by rw [REVERSE_REVERSE] >>
     qabbrev_tac `l' = REVERSE l` >>
     rveq >>
@@ -2821,40 +2851,76 @@ val find_reg_exchange_correct = Q.store_thm("find_reg_exchange_correct",
     metis_tac [find_reg_exchange_FOLDR_correct]
 )
 
+val MAP_colors_eq_lemma = Q.store_thm("MAP_colors_eq_lemma",
+    `!sth n f.
+    n <= LENGTH sth.colors ==>
+    ?sthout. (Success (), sthout) = MAP_colors f n sth /\
+    LENGTH sth.colors = LENGTH sthout.colors /\
+    (!n'. n' < n ==> EL n' sthout.colors = f (EL n' sth.colors)) /\
+    (!n'. n <= n' ==> EL n' sthout.colors = EL n' sth.colors)`,
+
+    Induct_on `n` >>
+    rw [MAP_colors_def] >> rw msimps >>
+    `?sth'. sth' = <| colors := LUPDATE (f (EL n sth.colors)) n sth.colors |>` by rw [] >>
+    `n <= LENGTH sth'.colors` by rw [] >>
+    `LENGTH sth'.colors = LENGTH sth.colors` by rw [] >>
+    res_tac >>
+    first_x_assum (qspec_then `f` assume_tac) >> fs [] >>
+    qexists_tac `sthout` >>
+    rw []
+    THEN1 (
+        `n' <= n` by rw [] >>
+        Cases_on `n' = n`
+        THEN1 (
+            `n <= n'` by rw [] >>
+            res_tac >>
+            rw [EL_LUPDATE]
+        )
+        THEN1 (
+            `n' < n` by rw [] >>
+            res_tac >>
+            rw [EL_LUPDATE]
+        )
+    )
+    THEN1 (
+        `n <= n'` by rw [] >>
+        res_tac >>
+        rw [EL_LUPDATE]
+    )
+)
+
+val MAP_colors_eq = Q.store_thm("MAP_colors_eq",
+    `!sth f.
+    ?sthout. (Success (), sthout) = MAP_colors f (LENGTH sth.colors) sth /\
+    (!n. n < LENGTH sth.colors ==> EL n sthout.colors = f (EL n sth.colors)) /\
+    LENGTH sth.colors = LENGTH sthout.colors`,
+    rw [] >>
+    `LENGTH sth.colors <= LENGTH sth.colors` by rw [] >>
+    metis_tac [MAP_colors_eq_lemma]
+)
+
 val apply_reg_exchange_correct = Q.store_thm("apply_reg_exchange_correct",
-    `!l colors.
-    ALL_DISTINCT (MAP (\r. THE (lookup r colors)) l) /\
+    `!l sth.
+    ALL_DISTINCT (MAP (\r. EL r sth.colors) l) /\
     (!r. MEM r l ==> is_phy_var r) /\
-    set l SUBSET domain colors /\
-    colorsout = apply_reg_exchange l colors ==>
-    domain colorsout = domain colors /\
-    (!r1 r2. lookup r1 colorsout = lookup r2 colorsout ==> lookup r1 colors = lookup r2 colors) /\
-    !r. MEM r l ==> lookup r colorsout = SOME (r DIV 2)`,
+    (!r. MEM r l ==> r < LENGTH sth.colors) ==>
+    ?sthout. (Success (), sthout) = apply_reg_exchange l sth /\
+    LENGTH sthout.colors = LENGTH sth.colors /\
+    (!r1 r2. r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors ==> EL r1 sthout.colors = EL r2 sthout.colors ==> EL r1 sth.colors = EL r2 sth.colors) /\
+    !r. MEM r l ==> EL r sthout.colors = r DIV 2`,
 
     rpt gen_tac >> strip_tac >>
     fs [apply_reg_exchange_def] >>
-    pairarg_tac >> fs [] >>
-
-    `((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\ !r. MEM r l ==> lookup_default_id exch (THE (lookup r colors)) = r DIV 2` by metis_tac [find_reg_exchange_correct] >>
+    fs msimps >>
+    drule find_reg_exchange_correct >>
+    strip_tac >> rfs [] >>
+    simp [colors_length_def, Marray_length_def] >>
     simp [GSYM lookup_default_id_def] >>
-    rw []
-
-    THEN1 (
-        rw [domain_map]
-    )
-    THEN1 (
-        fs [lookup_map] >>
-        Cases_on `lookup r1 colors` >> Cases_on `lookup r2 colors` >> fs [] >>
-        fs [FUN_EQ_THM] >>
-        metis_tac []
-    )
-    THEN1 (
-        res_tac >>
-        `r IN domain colors` by fs [SUBSET_DEF] >>
-        `?c. lookup r colors = SOME c` by fs [domain_lookup] >>
-        simp [lookup_map] >>
-        fs [THE_DEF]
-    )
+    qspecl_then [`sth`, `\c. lookup_default_id exch c`] assume_tac MAP_colors_eq >> fs [] >>
+    qexists_tac `sthout` >>
+    rw [] >>
+    fs [FUN_EQ_THM] >>
+    metis_tac []
 )
 
 val _ = export_theory ();
