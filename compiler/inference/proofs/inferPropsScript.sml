@@ -552,6 +552,32 @@ val check_dups_success = Q.store_thm ("check_dups_success",
   rw [check_dups_def, st_ex_return_def, failwith_def] >>
   metis_tac []);
 
+val check_type_definition_success = Q.store_thm ("check_type_definition_success",
+  `!l tenvT tds s r s'.
+    check_type_definition l tenvT tds s = (Success r, s')
+    ⇔
+    s' = s ∧ check_ctor_tenv tenvT tds`,
+  cheat);
+
+  (*
+  Induct_on `tds` >>
+  rw [] >>
+  fs [check_ctor_tenv_def, check_type_definition_def, st_ex_bind_def, check_ctors_def] >>
+  every_case_tac >>
+  fs [check_dups_success, st_ex_return_def, check_type_definition_def] >>
+  fs [check_dups_def, st_ex_return_def, st_ex_bind_def]
+  >- metis_tac []
+  >- (
+    PairCases_on `h` >>
+    fs [check_ctors_def, check_ctor_tenv_def, st_ex_bind_def, check_dup_ctors_thm] >>
+    every_case_tac >>
+    fs [check_dups_success] >>
+    rw [] >>
+    PairCases_on `r` >>
+    fs [check_ctor_types_def]
+    *)
+
+
 val option_case_eq = Q.prove (
 `!opt f g v st st'.
   ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
@@ -564,7 +590,7 @@ val success_eqns =
   LIST_CONJ [st_ex_return_success, st_ex_bind_success, fresh_uvar_success,
              apply_subst_success, add_constraint_success, lookup_st_ex_success,
              n_fresh_uvar_success, failwith_success, add_constraints_success,
-             oneTheory.one,
+             oneTheory.one, check_type_definition_success,
              get_next_uvar_success, apply_subst_list_success, guard_success,
              read_def, option_case_eq, check_dups_success];
 

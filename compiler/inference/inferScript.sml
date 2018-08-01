@@ -240,6 +240,46 @@ val check_dups_def = Define `
      else
        check_dups l f t)`;
 
+val check_ctor_types_def = Define `
+  (check_ctor_types l tenvT tvs [] = return ()) ∧
+  (check_ctor_types l tenvT tvs ((cn,ts)::ctors) =
+    do
+      type_name_check_subst_list l
+            (\tv. concat [implode "Unbound type variable "; implode tv;
+                          implode " in type definition with constructor ";
+                          implode cn])
+            tenvT tvs ts;
+      check_ctor_types l tenvT tvs ctors
+    od)`;
+
+val check_ctors_def = Define `
+  (check_ctors l tenvT [] = return ()) ∧
+  (check_ctors l tenvT ((tvs,tn,ctors)::tds) =
+    do
+      check_dups l
+                 (\n. concat [implode "Duplicate constructor "; implode n;
+                              implode " in the definition of type ";
+                              implode tn])
+                 (MAP FST ctors);
+      check_dups l
+                 (\n. concat [implode "Duplicate type variable binding "; implode n;
+                              implode " in the definition of type ";
+                              implode tn])
+                 tvs;
+      check_ctor_types l tenvT tvs ctors;
+      check_ctors l tenvT tds;
+    od)`;
+
+val check_type_definition_def = Define `
+  check_type_definition l tenvT tds =
+    do
+      check_dups l
+                 (\n. concat [implode "Duplicate type constructor "; implode n;
+                              implode " in a mutually recursive type definition"])
+                 (MAP (FST o SND) tds);
+      check_ctors l tenvT tds;
+    od`;
+
 val infer_p_def = tDefine "infer_p" `
 (infer_p l ienv (Pvar n) =
   do t <- fresh_uvar;
@@ -802,9 +842,7 @@ val infer_d_def = Define `
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs)
-                 (concat (implode "Bad type definition in one of the following " ::
-                          MAP (implode o FST o SND) tdefs));
+     check_type_definition (SOME locs) ienvT2 tdefs;
      return <| inf_v := nsEmpty;
                inf_c := build_ctor_tenv ienvT2 tdefs tids;
                inf_t := ienvT1 |>
