@@ -1632,6 +1632,7 @@ val calls_correct = Q.store_thm("calls_correct",
      code_inv s.code s.compile s.compile_oracle
               t.code t.compile t.compile_oracle ∧
      result_rel (LIST_REL (v_rel g l)) (v_rel g l) res res'))`,
+
   ho_match_mp_tac evaluate_ind
   \\ conj_tac >- (
     rw[]
@@ -2143,7 +2144,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [evaluate_def])
   (* Op *)
   \\ conj_tac
- >- (
+
+  >- (
+
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
@@ -2167,8 +2170,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ reverse (Cases_on `op = Install`) THEN1
      (fs [] \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
       THEN1
-       (rveq \\ mp_tac do_app_thm \\ fs []
-        \\ every_case_tac \\ fs []
+       (rveq \\ mp_tac (Q.GENL [`v`,`t`] do_app_thm) \\ fs []
+        \\ Cases_on `e` \\ fs [] \\ strip_tac \\ rveq \\ fs []
+        \\ rename [`_ = Rerr (Rabort aa)`] \\ Cases_on `aa` \\ fs []
         \\ strip_tac \\ fs[] \\ rw[]
         \\ first_x_assum(first_assum o mp_then(Pat`code_inv`)mp_tac)
         \\ simp[]
@@ -2176,9 +2180,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ impl_tac
         >- fsrw_tac[ETA_ss][env_rel_def, fv1_thm, EXISTS_MAP, fv_exists]
         \\ strip_tac \\ fs[]
-        \\ qexists_tac`ck` \\ simp[] \\ rw[]
-        \\ cheat (* note: above may not be correct *)
-        )
+        \\ qexists_tac`ck` \\ simp[] \\ rw[])
       \\ rename1 `do_app op (REVERSE a) r = Rval z`
       \\ PairCases_on `z` \\ fs [] \\ rveq
       \\ mp_tac (Q.GENL [`t`,`v`] do_app_thm) \\ fs [] \\ rpt strip_tac
