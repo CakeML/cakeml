@@ -667,6 +667,10 @@ val fastForwardFD_forwardFD = Q.store_thm("fastForwardFD_forwardFD",
   \\ match_mp_tac ALIST_FUPDKEY_eq
   \\ simp[MAX_DEF]);
 
+val forwardFD_A_DELKEY_same = Q.store_thm("forwardFD_A_DELKEY_same",
+  `forwardFD fs fd n with infds updated_by A_DELKEY fd = fs with infds updated_by A_DELKEY fd`,
+  rw[forwardFD_def,IO_fs_component_equality]);
+
 (* lineFD: the next line *)
 
 val lineFD_def = Define`

@@ -28,6 +28,29 @@ val encode_list_11 = store_thm("encode_list_11",
       xs = ys``,
   Induct \\ Cases_on `ys` \\ fs [encode_list_def] \\ rw [] \\ fs []);
 
+val encode_option_def = Define`
+  encode_option e NONE = List [] ∧
+  encode_option e (SOME x) = List [e x]`;
+
+val encode_option_11 = Q.store_thm("encode_option_11",
+  `∀x y. encode_option f x = encode_option f y ∧ (∀x y. f x = f y ⇔ x = y) ⇒ x = y`,
+  Cases \\ Cases \\ rw[encode_option_def] \\ metis_tac[]);
+
+val encode_bool_def = Define
+  `encode_bool F = Num 0 ∧
+   encode_bool T = Num 1`;
+
+val encode_bool_11 = Q.store_thm("encode_bool_11[simp]",
+  `∀x y. encode_bool x = encode_bool y ⇔ x = y`,
+  Cases \\ Cases \\ rw[encode_bool_def]);
+
+val encode_int_def = Define`
+  encode_int i = Cons (encode_bool (0 ≤ i)) (Num(Num(ABS i)))`;
+
+val encode_int_11 = Q.store_thm("encode_int_11[simp]",
+  `∀x y. encode_int x = encode_int y ⇔ x = y`,
+  Cases \\ Cases \\ rw[encode_int_def]);
+
 (* make an ffi_next function from base functions and encode/decode *)
 val mk_ffi_next_def = Define`
   mk_ffi_next (encode,decode,ls) name conf bytes s =
