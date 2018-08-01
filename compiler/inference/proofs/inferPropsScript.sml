@@ -543,6 +543,15 @@ val guard_success = Q.prove (
 rw [guard_def, st_ex_return_def, failwith_def] >>
 metis_tac []);
 
+val check_dups_success = Q.store_thm ("check_dups_success",
+  `!l f ls s r s'.
+    check_dups l f ls s = (Success r, s')
+    ⇔
+    s' = s ∧ ALL_DISTINCT ls`,
+  Induct_on `ls` >>
+  rw [check_dups_def, st_ex_return_def, failwith_def] >>
+  metis_tac []);
+
 val option_case_eq = Q.prove (
 `!opt f g v st st'.
   ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
@@ -557,7 +566,7 @@ val success_eqns =
              n_fresh_uvar_success, failwith_success, add_constraints_success,
              oneTheory.one,
              get_next_uvar_success, apply_subst_list_success, guard_success,
-             read_def, option_case_eq];
+             read_def, option_case_eq, check_dups_success];
 
 val _ = save_thm ("success_eqns", success_eqns);
 

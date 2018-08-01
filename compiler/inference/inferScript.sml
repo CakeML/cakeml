@@ -232,6 +232,14 @@ val type_name_check_subst_def = Define `
       return (t'::ts');
     od)`;
 
+val check_dups_def = Define `
+  (check_dups l f [] = return ()) ∧
+  (check_dups l f (h::t) =
+     if MEM h t then
+       failwith l (f h)
+     else
+       check_dups l f t)`;
+
 val infer_p_def = tDefine "infer_p" `
 (infer_p l ienv (Pvar n) =
   do t <- fresh_uvar;
@@ -688,7 +696,10 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
   *)
 (infer_e l ienv (Letrec funs e) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) l (implode "Duplicate function name");
+  do
+    check_dups l (\n. concat [implode "Duplicate function name "; implode n;
+                              implode " in mutually recursive function definition"])
+                 (MAP FST funs);
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
      funs_ts <- infer_funs l (ienv with inf_v:=env') funs;
@@ -718,7 +729,9 @@ val infer_e_def = tDefine "infer_e" `
    return ()) ∧
 (infer_pes l ienv ((p,e)::pes) t1 t2 =
   do (t1', env') <- infer_p l ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) l (implode "Duplicate pattern variable");
+    check_dups l (\n. concat [implode "Duplicate variable "; implode n;
+                              implode " in pattern"])
+              (MAP FST env');
      () <- add_constraint l t1 t1';
      t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
      () <- add_constraint l t2 t2';
@@ -756,7 +769,9 @@ val infer_d_def = Define `
      n <- get_next_uvar;
      t1 <- infer_e (SOME locs) ienv e;
      (t2,env') <- infer_p (SOME locs) ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) (SOME locs) (implode "Duplicate pattern variable");
+     check_dups (SOME locs) (\n. concat [implode "Duplicate variable "; implode n;
+                                  implode " in the left-hand side of a definition"])
+                (MAP FST env');
      () <- add_constraint (SOME locs) t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
@@ -766,7 +781,10 @@ val infer_d_def = Define `
                inf_t := nsEmpty |>
   od) ∧
 (infer_d ienv (Dletrec locs funs) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) (implode "Duplicate function name");
+  do
+    check_dups (SOME locs) (\n. concat [implode "Duplicate function name "; implode n;
+                                        implode " a mutually recursive function definition"])
+               (MAP FST funs);
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
@@ -792,10 +810,11 @@ val infer_d_def = Define `
                inf_t := ienvT1 |>
   od) ∧
 (infer_d ienv (Dtabbrev locs tvs tn t) =
-  do () <- guard (ALL_DISTINCT tvs) (SOME locs)
-                 (concat
-                   [implode "Duplicate type variable bindings in type abbreviation ";
-                    implode tn]);
+  do
+    check_dups (SOME locs) (\n. concat [implode "Duplicate type variable bindings for ";
+                                        implode n; implode " in type abbreviation ";
+                                        implode tn])
+              tvs;
      t' <- type_name_check_subst (SOME locs)
             (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
                           implode tn])

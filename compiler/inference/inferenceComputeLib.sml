@@ -9,6 +9,7 @@ structure inferenceComputeLib = struct
     [id_to_string_def
     ,op_to_string_def
     ,type_name_check_subst_def
+    ,check_dups_def
     ,inf_type_to_string_def
     ,infer_d_def
     ,infer_e_def
