@@ -11,16 +11,16 @@ val _ = Datatype `
     | RefPtr num              (* pointer to ref cell *)`;
 
 val _ = Datatype `
-  stack = Env (bvlSem$v num_map)
-        | Exc (bvlSem$v num_map) num`;
+  stack = Env (v num_map)
+        | Exc (v num_map) num`;
 
 val _ = Datatype `
   state =
-    <| locals  : bvlSem$v num_map
+    <| locals  : v num_map
      ; stack   : stack list
      ; global  : num option
      ; handler : num
-     ; refs    : num |-> bvlSem$v ref
+     ; refs    : num |-> v ref
      ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list
      ; clock   : num
