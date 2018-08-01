@@ -30,20 +30,6 @@ val _ = Datatype `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
-val data_to_bvi_def = Define `
-  data_to_bvi ^s =
-    <| refs := s.refs
-     ; clock := s.clock
-     ; code := map (K ARB) s.code
-     ; ffi := s.ffi
-     ; global := s.global |> : ('c,'ffi) bviSem$state`;
-
-val bvi_to_data_def = Define `
-  (bvi_to_data:('c,'ffi) bviSem$state->('c,'ffi) dataSem$state->('c,'ffi) dataSem$state) s t =
-    t with <| refs := s.refs
-            ; clock := s.clock
-            ; ffi := s.ffi
-            ; global := s.global |>`;
 
 val add_space_def = Define `
   add_space ^s k = s with space := k`;
