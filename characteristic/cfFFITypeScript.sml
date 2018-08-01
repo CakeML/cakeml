@@ -249,6 +249,10 @@ val destInner_def = new_specification("destInner_def",["destInner"],prove(``
                   Stream_def,Fun_def,ffi_app_def]));
 val _ = export_rewrites ["destInner_def"];
 
+val dest_iStr_def = Define`
+  dest_iStr (iStr s) = s`;
+val _ = export_rewrites ["dest_iStr_def"];
+
 (* clean up *)
 
 val _ = map delete_binding ["ffi_app_def","Num_def","Str_def",
