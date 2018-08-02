@@ -16,11 +16,11 @@ translator
 compiler/parsing
 characteristic
 
-# basis library
-basis
-
 # monadic translator
 translator/monadic
+
+# basis library
+basis
 
 # compiler
 compiler/inference
