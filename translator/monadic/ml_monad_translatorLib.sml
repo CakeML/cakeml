@@ -10,6 +10,8 @@ open cfTacticsLib
 open Net List packLib stringSimps
 open ml_monadStoreLib
 
+val map = List.map;
+
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term)
              ml_monad_translatorTheory.parsed_terms

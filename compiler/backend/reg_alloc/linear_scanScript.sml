@@ -1,6 +1,7 @@
 open preamble sptreeTheory reg_allocTheory
 open mergesortTheory sortingTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
+open ml_monad_translatorLib ml_translatorTheory;
 
 val _ = new_theory "linear_scan"
 
@@ -413,8 +414,10 @@ val colors_accessors = el 1 accessors;
 
 val (colors,get_colors_def,set_colors_def) = colors_accessors;
 
+(*
 val _ = Hol_datatype`
   state_exn = Fail of string | Subscript`;
+*)
 
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:linear_scan_hidden_state``;
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
@@ -430,6 +433,10 @@ val colors_manip = el 1 arr_manip;
 
 val colors_accessor = save_thm("colors_accessor",accessor_thm colors_manip);
 
+val colors_length_def = fetch "-" "colors_length_def";
+val colors_sub_def    = fetch "-" "colors_sub_def";
+val update_colors_def = fetch "-" "update_colors_def";
+
 val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
     remove_inactive_intervals beg st =
         if st.active = [] then return st
@@ -439,7 +446,7 @@ val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
             do
               col <- colors_sub r;
               let st' = st with
-                <| active    updated_by TL
+                <| active    := TL st.active
                  ; colorpool updated_by (\l. col::l)
                  |> in
               remove_inactive_intervals beg st'
@@ -711,5 +718,120 @@ val linear_reg_alloc_aux_def = Define`
           apply_reg_exchange phyregs;
         od
 `
+
+(* === translation (TODO: move to bootstrap translation) === *)
+
+(* TODO: remove when moved to bootstrap *)
+val _ = register_type ``:'a num_map``;
+val _ = register_type ``:'a list``;
+
+(*
+ *  Set up the monadic translator
+ *)
+
+(* The record types used for the monadic state and exceptions *)
+val state_type = ``:linear_scan_hidden_state``
+val exn_type   = ``:state_exn``;
+val _          = register_exn_type exn_type;
+
+val STATE_EXN_TYPE_def = theorem "REG_ALLOC_STATE_EXN_TYPE_def"
+val exn_ri_def         = STATE_EXN_TYPE_def;
+val store_hprop_name   = "LINEAR_SCAN_HIDDEN_STATE";
+
+(* Accessor functions are defined (and used) previously together
+   with exceptions, etc. *)
+
+val exn_functions = [
+    (raise_Fail_def, handle_Fail_def),
+    (raise_Subscript_def, handle_Subscript_def)
+];
+
+val refs_manip_list = [] : (string * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val farrays_manip_list = [
+    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def)
+];
+
+val add_type_theories  = ([] : string list);
+val store_pinv_def_opt = NONE : thm option;
+
+(* Initialization *)
+
+val _ = start_dynamic_init_fixed_store_translation
+	    refs_manip_list
+	    rarrays_manip_list
+	    farrays_manip_list
+	    store_hprop_name
+	    state_type
+	    exn_ri_def
+	    [] (* exn_functions *)
+	    add_type_theories
+	    store_pinv_def_opt
+
+(* Translate basics -- TODO: remove in bootstrap *)
+
+val res = translate NULL
+val res = translate FILTER
+val res = translate EVEN
+val res = translate FST
+val res = translate SND
+val res = translate HD;
+val res = translate TL;
+val res = translate K_DEF;
+val res = translate LAST_DEF;
+val res = translate FRONT_DEF;
+
+val hd_side = prove(
+  ``hd_side x <=> x <> []``,
+  Cases_on `x` \\ fs [fetch "-" "hd_side_def"])
+  |> update_precondition;
+
+val tl_side = prove(
+  ``tl_side x <=> x <> []``,
+  Cases_on `x` \\ fs [fetch "-" "tl_side_def"])
+  |> update_precondition;
+
+val last_side = prove(
+  ``!x. last_side x <=> x <> []``,
+  Induct \\ simp [Once (fetch "-" "last_side_def")])
+  |> update_precondition;
+
+val front_side = prove(
+  ``!x. front_side x <=> x <> []``,
+  Induct \\ simp [Once (fetch "-" "front_side_def")])
+  |> update_precondition;
+
+val res = translate lookup_def
+val res = translate insert_def
+
+(* Translate linear scan register allocator *)
+
+val res = m_translate spill_register_def
+val res = m_translate MAP_colors_def
+val res = m_translate st_ex_FOLDL_def
+
+val res = m_translate remove_inactive_intervals_def (* problem: HD, TL, =[] *)
+
+val res = translate linear_reg_alloc_pass1_initial_state_def
+val res = translate linear_reg_alloc_pass2_initial_state_def
+val res = translate add_active_interval_def
+val res = translate find_color_in_list_def
+val res = translate find_color_in_colornum_def
+val res = translate find_color_def
+val res = m_translate spill_new_register_def
+val res = m_translate color_new_register_def
+
+val res = m_translate find_spill_def (* problem: FRONT unprovable *)
+
+val res = m_translate linear_reg_alloc_step_aux_def
+val res = m_translate linear_reg_alloc_step_pass1_def (* bad: THE *)
+val res = m_translate linear_reg_alloc_step_pass2_def (* bad: THE *)
+val res = m_translate find_reg_exchange_def
+val res = m_translate apply_reg_exchange_def
+
+(*
+val res = m_translate edges_to_adjlist_def (* bad: THE *)
+val res = m_translate linear_reg_alloc_aux_def (* bad: THE *)
+*)
 
 val _ = export_theory ();
