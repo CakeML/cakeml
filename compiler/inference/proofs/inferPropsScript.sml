@@ -552,31 +552,103 @@ val check_dups_success = Q.store_thm ("check_dups_success",
   rw [check_dups_def, st_ex_return_def, failwith_def] >>
   metis_tac []);
 
+val type_name_check_subst_success = Q.store_thm ("type_name_check_subst_success",
+  `(!t l f tenvT tvs r (s:'a) s'.
+    type_name_check_subst l f tenvT tvs t s = (Success r, s')
+    ⇔
+    s = s' ∧ r = type_name_subst tenvT t ∧
+    check_freevars_ast tvs t ∧ check_type_names tenvT t) ∧
+   (!ts l f tenvT tvs r (s:'a) s'.
+    type_name_check_subst_list l f tenvT tvs ts s = (Success r, s')
+    ⇔
+    s = s' ∧ r = MAP (type_name_subst tenvT) ts ∧
+    EVERY (check_freevars_ast tvs) ts ∧ EVERY (check_type_names tenvT) ts)`,
+ Induct >>
+ rw [type_name_check_subst_def, st_ex_bind_def, guard_def, st_ex_return_def,
+     check_freevars_ast_def, check_type_names_def, failwith_def,
+     type_name_subst_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ TRY pairarg_tac >>
+ fs [] >>
+ every_case_tac >>
+ fs [lookup_st_ex_success, lookup_st_ex_def] >>
+ metis_tac [exc_distinct, PAIR_EQ, NOT_EVERY]);
+
+val check_ctor_types_success = Q.store_thm ("check_ctor_types_success",
+  `!l tenvT tvs ts s s'.
+   check_ctor_types l tenvT tvs ts s = (Success (),s') ⇔
+   s = s' ∧
+   EVERY (λ(cn,ts).  EVERY (check_freevars_ast tvs) ts ∧
+   EVERY (check_type_names tenvT) ts) ts`,
+  Induct_on `ts` >>
+  rw [check_ctor_types_def, st_ex_return_def] >>
+  PairCases_on `h` >>
+  rw [check_ctor_types_def, st_ex_bind_def] >>
+  every_case_tac >>
+  fs [type_name_check_subst_success] >>
+  CCONTR_TAC >>
+  fs [combinTheory.o_DEF] >>
+  metis_tac [exc_distinct, PAIR_EQ, type_name_check_subst_success]);
+
+val check_ctors_success = Q.store_thm ("check_ctors_success",
+ `!l tenvT tds s s'.
+   ALL_DISTINCT (MAP (FST o SND) tds) ⇒
+   (check_ctors l tenvT tds s = (Success (),s') ⇔
+    s' = s ∧ check_ctor_tenv tenvT tds)`,
+  Induct_on `tds` >>
+  rw [] >>
+  TRY (PairCases_on `h`) >>
+  fs [check_ctor_tenv_def, check_type_definition_def, st_ex_bind_def,
+      check_ctors_def, st_ex_return_def, check_dup_ctors_thm]
+  >- metis_tac [] >>
+  every_case_tac >>
+  fs [check_dups_success, st_ex_return_def, check_type_definition_def,
+      check_ctor_types_success] >>
+  fs [check_dups_def, st_ex_return_def, st_ex_bind_def, LAMBDA_PROD,
+      combinTheory.o_DEF] >>
+  CCONTR_TAC >>
+  fs [combinTheory.o_DEF, ETA_THM] >>
+  rw [] >>
+  TRY (
+    Induct_on `h2` >>
+    fs [check_dups_def, st_ex_return_def] >>
+    rw [] >>
+    NO_TAC)
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]
+  >- (
+    Induct_on `h2` >>
+    fs [] >>
+    rw [check_ctor_types_def, st_ex_return_def] >>
+    PairCases_on `h` >>
+    fs [check_ctor_types_def, st_ex_return_def, st_ex_bind_def] >>
+    every_case_tac >>
+    fs [type_name_check_subst_success] >>
+    rw [] >>
+    metis_tac [NOT_EVERY, exc_distinct, PAIR_EQ, type_name_check_subst_success])
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]);
+
 val check_type_definition_success = Q.store_thm ("check_type_definition_success",
   `!l tenvT tds s r s'.
     check_type_definition l tenvT tds s = (Success r, s')
     ⇔
     s' = s ∧ check_ctor_tenv tenvT tds`,
-  cheat);
-
-  (*
-  Induct_on `tds` >>
-  rw [] >>
-  fs [check_ctor_tenv_def, check_type_definition_def, st_ex_bind_def, check_ctors_def] >>
-  every_case_tac >>
-  fs [check_dups_success, st_ex_return_def, check_type_definition_def] >>
-  fs [check_dups_def, st_ex_return_def, st_ex_bind_def]
-  >- metis_tac []
-  >- (
-    PairCases_on `h` >>
-    fs [check_ctors_def, check_ctor_tenv_def, st_ex_bind_def, check_dup_ctors_thm] >>
-    every_case_tac >>
-    fs [check_dups_success] >>
-    rw [] >>
-    PairCases_on `r` >>
-    fs [check_ctor_types_def]
-    *)
-
+ rw [check_type_definition_def, st_ex_bind_def] >>
+ every_case_tac >>
+ fs [check_dups_success]
+ >- metis_tac [check_ctors_success] >>
+ `~ALL_DISTINCT (MAP (FST ∘ SND) tds)`
+ by metis_tac [exc_distinct, PAIR_EQ, check_dups_success] >>
+ pop_assum mp_tac >>
+ pop_assum kall_tac >>
+ Induct_on `tds` >>
+ rw [] >>
+ PairCases_on `h` >>
+ rw [check_ctor_tenv_def] >>
+ fs [LAMBDA_PROD, combinTheory.o_DEF]);
 
 val option_case_eq = Q.prove (
 `!opt f g v st st'.
