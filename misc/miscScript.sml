@@ -241,6 +241,15 @@ val INJ_EXTEND = Q.store_thm("INJ_EXTEND",
     INJ ((x =+ y) b) (x INSERT s) (y INSERT t)`,
   full_simp_tac(srw_ss())[INJ_DEF,combinTheory.APPLY_UPDATE_THM] \\ METIS_TAC []);
 
+val LIST_REL_eq = store_thm("LIST_REL_eq",
+  ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []);
+
+val LIST_REL_OPT_REL_eq = store_thm("LIST_REL_OPT_REL_eq",
+  ``!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
+
 val MEM_LIST_REL = Q.store_thm("MEM_LIST_REL",
   `!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y`,
   simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);

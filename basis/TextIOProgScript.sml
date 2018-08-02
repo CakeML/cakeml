@@ -16,20 +16,42 @@ val _ = process_topdecs `
   exception EndOfFile
 ` |> append_prog
 
+fun get_exn_conv name =
+  EVAL ``lookup_cons ^name ^(get_env (get_ml_prog_state ()))``
+  |> concl |> rand |> rand |> rand
+
+val BadFileName = get_exn_conv ``"BadFileName"``
+val InvalidFD = get_exn_conv ``"InvalidFD"``
+val EndOfFile = get_exn_conv ``"EndOfFile"``
+
 val BadFileName_exn_def = Define `
-  BadFileName_exn v =
-    (v = Conv (SOME ("BadFileName", TypeExn (Long "TextIO" (Short "BadFileName")))) [])`
+  BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])`
 
 val InvalidFD_exn_def = Define `
-  InvalidFD_exn v =
-    (v = Conv (SOME ("InvalidFD", TypeExn (Long "TextIO" (Short "InvalidFD")))) [])`
+  InvalidFD_exn v = (v = Conv (SOME ^InvalidFD) [])`
 
 val EndOfFile_exn_def = Define `
-  EndOfFile_exn v =
-    (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
+  EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
-val eval_thm = derive_eval_thm false "iobuff_loc" iobuff_e;
+val eval_thm = let
+  val th = get_ml_prog_state () |> get_thm
+  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
+           |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
+  val th = th |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["e","s3"]))
+              |> SPEC iobuff_e
+  val st = th |> SPEC_ALL |> concl |> dest_imp |> #1 |> strip_comb |> #2 |> el 1
+  val new_st = ``^st with refs := ^st.refs ++ [W8array (REPLICATE 2052 0w)]``
+  val goal = th |> SPEC new_st |> SPEC_ALL |> concl |> dest_imp |> fst
+  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
+  val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
+    rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
+    \\ asm_simp_tac bool_ss [])
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
+  val v_def = define_abbrev false "iobuff_loc" v_tm
+  in v_thm |> REWRITE_RULE [GSYM v_def] end
+
 val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
 
 (* stdin, stdout, stderr *)
@@ -134,7 +156,7 @@ fun read_byte fd =
 ` |> append_prog
 
 val _ = (append_prog o process_topdecs)`
-  fun input1 fd = SOME (Char.chr(Word8.toInt(read_byte fd))) handle EndOfFile => NONE`
+  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte fd))) handle EndOfFile => None`
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
@@ -174,13 +196,13 @@ val () = (append_prog o process_topdecs)`
             val c = read_byte fd
             val u = Word8Array.update arr i c
           in
-            if c = nl then SOME (Word8Array.substring arr 0 (i+1))
+            if c = nl then Some (Word8Array.substring arr 0 (i+1))
             else inputLine_aux arr (i+1)
           end
           handle EndOfFile =>
-            if i = 0 then NONE
+            if i = 0 then None
             else (Word8Array.update arr i nl;
-                  SOME (Word8Array.substring arr 0 (i+1)))
+                  Some (Word8Array.substring arr 0 (i+1)))
         else inputLine_aux (extend_array arr) i
       in inputLine_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
 
@@ -258,8 +280,8 @@ fun inputLine fd lbuf =
 val _ = (append_prog o process_topdecs) `
   fun inputLines fd =
     case inputLine fd of
-        NONE => []
-      | SOME l => l::inputLines fd`;
+        None => []
+      | Some l => l::inputLines fd`;
 
 val _ = (append_prog o process_topdecs) `
   fun inputLinesFrom fname =
@@ -267,8 +289,8 @@ val _ = (append_prog o process_topdecs) `
       val fd = openIn fname
       val lines = inputLines fd
     in
-      close fd; SOME lines
-    end handle BadFileName => NONE`;
+      close fd; Some lines
+    end handle BadFileName => None`;
 
 (* read everything (same semantics as SML's TextIO.inputAll) *)
 val () = (append_prog o process_topdecs)`

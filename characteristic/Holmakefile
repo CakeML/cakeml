@@ -1,4 +1,4 @@
-INCLUDES = ../misc ../semantics ../semantics/alt_semantics/proofs ../basis/pure ../translator $(HOLDIR)/examples/machine-code/hoare-triple ../compiler/parsing
+INCLUDES = ../misc ../semantics ../basis/pure ../translator $(HOLDIR)/examples/machine-code/hoare-triple ../compiler/parsing
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -15,13 +15,11 @@ all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
 PRE_BARE_THYS1 = astTheory tokensTheory semanticPrimitivesTheory astPP
-PRE_BARE_THYS3 = determTheory bigClockTheory
 
 BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
-BARE_THYS3 =  $(patsubst %,../semantics/alt_semantics/proofs/%,$(PRE_BARE_THYS3))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS3)) $(PARENTHEAP)
+DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1)
 endif

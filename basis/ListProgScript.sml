@@ -10,7 +10,8 @@ val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
 
-val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
 
 val result = translate LENGTH;
 val r = translate NULL;

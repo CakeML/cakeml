@@ -11,7 +11,8 @@ val _ = ml_prog_update (open_module "Word64");
 
 val () = generate_sigs := true;
 
-val _ = append_dec ``Dtabbrev unknown_loc [] "word" (Tapp [] TC_word64)``;
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "word" (Atapp [] (Short "word64"))`` I);
 
 (* to/from int *)
 val _ = trans "fromInt" `n2w:num->word64`
