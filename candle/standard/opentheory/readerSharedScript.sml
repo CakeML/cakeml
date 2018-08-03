@@ -184,7 +184,7 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
-    rw[REF_def,SEP_EXISTS_THM,EVAL``the_context``,cond_STAR,
+    rw[REF_def,SEP_EXISTS_THM,the_context_def,cond_STAR,
        ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
     \\ rw[cond_def]
     \\ qexists_tac`init_context_v`
@@ -196,7 +196,7 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
-    rw[REF_def,SEP_EXISTS_THM,EVAL``the_axioms``,cond_STAR,
+    rw[REF_def,SEP_EXISTS_THM,the_axioms_def,cond_STAR,
        ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
     \\ rw[cond_def]
     \\ qexists_tac`init_axioms_v`
@@ -208,14 +208,14 @@ val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
-    rw[REF_def,SEP_EXISTS_THM,EVAL``the_term_constants``,cond_STAR,
+    rw[REF_def,SEP_EXISTS_THM,the_term_constants_def,cond_STAR,
        ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
     \\ rw[cond_def]
     \\ qexists_tac`init_term_constants_v`
     \\ simp[init_term_constants_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC ) \\
-  rw[REF_def,SEP_EXISTS_THM,EVAL``the_type_constants``,cond_STAR,
+  rw[REF_def,SEP_EXISTS_THM,the_type_constants_def,cond_STAR,
      ml_monad_translatorBaseTheory.CELL_HPROP_SAT_EQ,ADD1]
   \\ rw[cond_def]
   \\ qexists_tac`init_type_constants_v`
