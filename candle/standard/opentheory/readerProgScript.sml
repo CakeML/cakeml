@@ -76,8 +76,8 @@ val process_line_spec = Q.store_thm("process_line_spec",
 val _ = (append_prog o process_topdecs) `
   fun process_lines ins st0 =
     case TextIO.inputLine ins of
-      NONE => TextIO.print (msg_success st0)
-    | SOME ln =>
+      None => TextIO.print (msg_success st0)
+    | Some ln =>
       (case process_line st0 ln of
          Inl st1 => process_lines ins (next_line st1)
        | Inr e => TextIO.output TextIO.stdErr (line_fail st0 e))`;

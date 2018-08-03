@@ -3,7 +3,7 @@ open preamble basis
      TextIOProofTheory CommandLineProofTheory
      readerSharedTheory readerIOTheory reader_initTheory
      ml_translatorTheory ml_monad_translatorTheory ml_monad_translatorBaseTheory
-     bigStepTheory ml_monadBaseTheory
+     ml_monadBaseTheory
      ml_monad_translatorLib
      cfMonadLib
      readerIOProofTheory reader_initTheory
