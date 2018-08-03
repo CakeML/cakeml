@@ -598,6 +598,38 @@ val nonbuiltin_ctxt = Define`
   nonbuiltin_ctxt = FILTER (\x. MEM x init_ctxt)
 `;
 
+(* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
+ * \sigma by combinations of built-in types. 
+ * This corresponds to   types^\bullet : term -> type set  in the publication *)
+val allTypes'_def = Define `
+  (allTypes' (Tyapp (strlit "fun") tys) = tys)
+  /\ (allTypes' (Tyapp (strlit "bool") []) = [])
+  /\ (allTypes' (Tyapp a b) = [(Tyapp a b)])
+  /\ (allTypes' (Tyvar _) = [])
+`;
+
+(* extend allTypes' to terms *)
+val allTypes_def = Define `
+  (allTypes (Var _ ty) = allTypes' ty)
+  /\ (allTypes (Const _ ty) = allTypes' ty)
+  /\ (allTypes (Comb a b) = ((allTypes a) ++ (allTypes b)))
+  /\ (allTypes (Abs a b) = ((allTypes a) ++ (allTypes b)))
+`;
+
+(* allCInsts(t) -- the smallest set of non-built-in constants that can produce
+ * the term t by abstraction, combination and adding variables.
+ * A constant instance is built-in  iff  its is among the init_ctxt.
+ * This corresponds to  consts^\bullet : term -> CInst set  in the publication *)
+val allCInsts_def = Define `
+  (allCInsts (Var _ _) = [])
+  (* no built-in constant is polymorphically defined *)
+  /\ (allCInsts (Const c (Tyvar name)) = [(Const c (Tyvar name))])
+  /\ (allCInsts (Const c (Tyapp name tys)) =
+      (if MEM (NewConst c (Tyapp name tys)) builtin_const then [] else [(Const c (Tyapp name tys))]))
+  /\ (allCInsts (Comb a b) = allCInsts a ++ allCInsts b)
+  /\ (allCInsts (Abs _ a) = allCInsts a)
+`;
+
 (* Principles for extending the context *)
 
 val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
