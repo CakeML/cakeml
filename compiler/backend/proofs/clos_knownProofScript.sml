@@ -211,7 +211,7 @@ val unique_set_globals_subexps = Q.store_thm("unique_set_globals_subexps",
   (unique_set_globals [Handle t x1 x2] co ==>
      unique_set_globals [x1] co /\ unique_set_globals [x2] co) /\
   (unique_set_globals [Op t opn xs] co ==>
-     unique_set_globals xs co) /\
+     unique_set_globals xs co (* /\ !n. BAG_ALL_DISTINCT (op_gbag opn ⊎ (elist_globals (first_n_exps co n)))*)) /\
   (unique_set_globals [Fn t loc_opt vsopt num_args x1] co ==>
      unique_set_globals [x1] co) /\
   (unique_set_globals [Letrec t loc_opt vsopt fns x1] co ==>
@@ -369,6 +369,7 @@ val evaluate_app_IMP_shift_seq = Q.store_thm(
      ?k. s.compile_oracle = shift_seq k s0.compile_oracle`,
   metis_tac [evaluate_app_code]);
 
+(*
 (* STRONG *)
 val state_globals_approx_def = Define `
   state_globals_approx s g ⇔
@@ -390,6 +391,7 @@ val state_approx_subspt = Q.store_thm(
    state_globals_approx s g2`,
   simp [subspt_def, state_globals_approx_def, domain_lookup, PULL_EXISTS]
   \\ metis_tac []);
+*)
 
 (* WEAK *)
 (*
@@ -400,14 +402,12 @@ val state_globals_approx_def = Define `
       !a. lookup k g = SOME a ==> val_approx_val a v`;
 *)
 
-(*
-val state_globals_approx_def = Define `
-  state_globals_approx s g ⇔
-    !k a.
-      lookup k g = SOME a ==>
-      ?v. get_globals k s.globals = SOME (SOME v) /\ val_approx_val a v`;
-*)
 
+val state_globals_approx_def = Define `
+  state_globals_approx s g <=>
+    !k v a.
+      get_global k s.globals = SOME (SOME v) /\ lookup k g = SOME a ==> val_approx_val a v
+`;
 
 val state_globals_approx_clock_fupd = Q.store_thm(
   "state_globals_approx_clock_fupd[simp]",
@@ -701,6 +701,10 @@ val compile_inc_def = Define `
   compile_inc c g (e,xs) =
     let (ea, g') = known (reset_inline_factor c) [e] [] g in (g', FST (HD ea), xs)`;
 
+(*
+
+Only works with STRONG sga
+
 val known_op_correct_approx = Q.store_thm(
   "known_op_correct_approx",
   `!opn args g0 a g vs s0 v s g'.
@@ -727,6 +731,7 @@ val known_op_correct_approx = Q.store_thm(
           `nn - LENGTH ss.globals = 0` by simp[] >>
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
+*)
 
 (* This version makes sense but doesn't work with Install
 
@@ -810,6 +815,42 @@ val known_op_correct_approx = Q.store_thm(
  
 
 *)
+
+
+val known_op_correct_approx = Q.store_thm(
+  "known_op_correct_approx",
+  `!opn args g0 a g vs s0 v s.
+   known_op opn args g0 = (a, g) /\ do_app opn vs s0 = Rval (v, s) /\
+   LIST_REL val_approx_val args vs /\ state_globals_approx s0 g0 ==>
+     state_globals_approx s g /\ val_approx_val a v`,
+  rpt gen_tac
+  \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `opn`
+  \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
+           pair_case_eq]
+  \\ rpt strip_tac \\ rveq \\ fs[]  
+  THEN1
+   (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
+  THEN1
+   (fs [state_globals_approx_def] \\ rw []
+    \\ fs [lookup_insert, get_global_def, EL_LUPDATE]
+    \\ fs [bool_case_eq] \\ rveq \\ fs []
+    \\ metis_tac [])
+  THEN1
+   (fs [state_globals_approx_def] \\ rw []
+    \\ fs [lookup_insert, get_global_def, EL_LUPDATE, bool_case_eq] \\ rveq \\ fs []
+    THEN1 (first_x_assum (qspecl_then [`k`, `v`, `merge other a'`] assume_tac)
+           \\ fs [] \\ metis_tac [val_approx_val_merge_I])
+    THEN1 metis_tac [])
+  THEN1
+   (fs [state_globals_approx_def, get_global_def,
+        EL_APPEND_EQN, bool_case_eq]
+    \\ rw [] THEN1 (metis_tac [])
+    \\ rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals`
+    \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
+  THEN1
+   (rveq \\ fs [LIST_REL_EL_EQN]));
+
 
 
 
@@ -1320,7 +1361,9 @@ val gapprox_disjoint_def = Define `
   gapprox_disjoint g xs <=> DISJOINT (domain g) (SET_OF_BAG (elist_globals xs))`;
 
 val gapprox_disjoint_rw = Q.store_thm("gapprox_disjoint_rw",
- `(gapprox_disjoint g [Op tr opn xs] <=>
+ `(gapprox_disjoint g (x::y::xs) <=>
+     gapprox_disjoint g [x] /\ gapprox_disjoint g (y::xs)) /\
+  (gapprox_disjoint g [Op tr opn xs] <=>
      gapprox_disjoint g xs /\ DISJOINT (domain g) (SET_OF_BAG (op_gbag opn)))`,
  simp [gapprox_disjoint_def, SET_OF_BAG_UNION, DISJOINT_SYM, AC CONJ_ASSOC CONJ_COMM])
 
@@ -1736,24 +1779,134 @@ val next_g_def = Define `
   next_g (s:(val_approx num_map#'c,'ffi) closSem$state) =
     FST (FST (s.compile_oracle 0n))`;
 
+(**)
+
+val mglobals_disjoint_def = Define `
+  mglobals_disjoint s xs <=> DISJOINT (mapped_globals s) (SET_OF_BAG (elist_globals xs))`;
+
+val mglobals_disjoint_rw = Q.store_thm("mglobals_disjoint_rw",
+ `(mglobals_disjoint s (x::y::xs) <=>
+     mglobals_disjoint s [x] /\ mglobals_disjoint s (y::xs)) /\
+  (mglobals_disjoint s [Raise tr x] <=>
+     mglobals_disjoint s [x]) /\
+  (mglobals_disjoint s [Tick tr x] <=>
+     mglobals_disjoint s [x]) /\
+  (mglobals_disjoint s [Op tr opn xs] <=>
+     mglobals_disjoint s xs /\ DISJOINT (mapped_globals s) (SET_OF_BAG (op_gbag opn))) /\
+  (mglobals_disjoint s [App tr lopt x1 xs] <=>
+     mglobals_disjoint s [x1] /\ mglobals_disjoint s xs)`,
+ simp [mglobals_disjoint_def, SET_OF_BAG_UNION, DISJOINT_SYM, AC CONJ_ASSOC CONJ_COMM])
+
+(**)
+
+val known_changed_globals_cases = Q.store_thm("known_changed_globals_cases",
+  `!c xs aenv g0 alist g.
+     known c xs aenv g0 = (alist,g) ==>
+     !k a. lookup k g = SOME a ==> lookup k g0 = SOME a \/ k ∈ SET_OF_BAG (elist_globals xs)`,
+  rw [] \\ drule known_changed_globals \\ strip_tac
+  \\ fs [domain_lookup, PULL_EXISTS] \\ metis_tac []);
+
+val known_op_changed_globals_cases = Q.store_thm("known_op_changed_globals_cases",
+  `!opn aenv g0 ea g.
+     known_op opn aenv g0 = (ea,g) ==>
+     !k a. lookup k g = SOME a ==> lookup k g0 = SOME a \/ k ∈ SET_OF_BAG (op_gbag opn)`,
+  rw [] \\ drule known_op_changed_globals \\ strip_tac
+  \\ fs [domain_lookup, PULL_EXISTS] \\ metis_tac []);
+
+
+val state_globals_approx_known_mglobals_disjoint = Q.store_thm(
+  "state_globals_approx_known_mglobals_disjoint",
+  `known c xs aenv g0 = (eas, g) /\
+   mglobals_disjoint s xs /\
+   state_globals_approx s g0 ==>
+   state_globals_approx s g`,
+   rw [] \\ simp [state_globals_approx_def] \\ rw []
+   \\ drule known_changed_globals_cases
+   \\ disch_then drule \\ strip_tac
+   THEN1 metis_tac [state_globals_approx_def]
+   \\ fs [mglobals_disjoint_def, mapped_globals_def, DISJOINT_ALT, PULL_EXISTS]
+   \\ metis_tac []);
+
+val mglobals_disjoint_evaluate = Q.store_thm("mglobals_disjoint_evaluate",
+  `!s0 xs ys env res s.
+   evaluate (ys, env, s0) = (res, s) /\
+   ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free ys /\
+   unique_set_globals (xs ++ ys) s0.compile_oracle /\
+   mglobals_disjoint s0 xs ==>
+   mglobals_disjoint s xs`,
+  rw [mglobals_disjoint_def, mapped_globals_def, DISJOINT_ALT, PULL_EXISTS]
+  \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
+  \\ fs [mglobals_extend_def, mapped_globals_def]
+  \\ first_x_assum drule \\ strip_tac
+  \\ spose_not_then assume_tac
+  \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, elist_globals_append]
+  \\ metis_tac [BAG_DISJOINT_BAG_IN])
+
+val state_globals_approx_evaluate = Q.store_thm("state_globals_approx_evaluate",
+  `evaluate (xs,env,s0) = (res, s) /\
+   known c ys aenv g0 = (eas, g) /\
+   ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free xs /\
+   mglobals_disjoint s0 ys /\
+   unique_set_globals (xs ++ ys) s0.compile_oracle /\
+   state_globals_approx s g0 ==>
+   state_globals_approx s g`,
+   rw [state_globals_approx_def]
+   \\ drule known_changed_globals_cases
+   \\ disch_then drule \\ strip_tac
+   THEN1 (metis_tac [state_globals_approx_def])
+   \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
+   \\ fs [mglobals_extend_def]
+   \\ first_x_assum drule
+   \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append,
+                          BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN]
+                      \\ metis_tac [])
+   \\ strip_tac
+   \\ fs [mglobals_disjoint_def, DISJOINT_ALT, mapped_globals_def, PULL_EXISTS]
+   \\ metis_tac []);
+
+val state_globals_approx_known_op_evaluate = Q.store_thm(
+  "state_globals_approx_known_op_evaluate",
+  `evaluate (xs,env,s0) = (res, s) /\
+   known_op opn aargs g0 = (ea, g) /\
+   ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free xs /\
+   DISJOINT (mapped_globals s0) (SET_OF_BAG (op_gbag opn)) /\
+   unique_set_globals [Op tr opn xs] s0.compile_oracle /\
+   state_globals_approx s g0 ==>
+   state_globals_approx s g`,
+   rw [state_globals_approx_def]
+   \\ drule known_op_changed_globals_cases
+   \\ disch_then drule \\ strip_tac
+   THEN1 (metis_tac [state_globals_approx_def])
+   \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
+   \\ fs [mglobals_extend_def]
+   \\ first_x_assum drule
+   \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append,
+                          BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN]
+                      \\ metis_tac [])
+   \\ strip_tac
+   \\ fs [mglobals_disjoint_def, DISJOINT_ALT, mapped_globals_def, PULL_EXISTS]
+   \\ metis_tac []);
 
 val say = say0 "known_correct_approx";
 
 val known_correct_approx = Q.store_thm(
   "known_correct_approx",
-  `!c xs aenv g0 eas g env extra (s0:(val_approx num_map#'c,'ffi) closSem$state) res s.
-   known c xs aenv g0 = (eas,g) /\
+  `!c xs aenv g0 eas g env extra s0:((val_approx num_map#'c,'ffi) closSem$state) res s.
+   known c xs aenv g0 = (eas, g) /\
    evaluate (xs, env ++ extra, s0) = (res, s) /\
    fv_max (LENGTH env) xs /\
    unique_set_globals xs s0.compile_oracle /\
    LIST_REL val_approx_val aenv env /\
-   state_globals_approx s0 (next_g s0) /\
-   subspt g0 g /\ subspt g (next_g s0) /\
-   oracle_gapprox_subspt s0.compile_oracle /\
+   state_globals_approx s0 g0 /\
+   (* gapprox_disjoint g0 xs /\ *)
+   mglobals_disjoint s0 xs /\
+   (* oracle_gapprox_disjoint g0 s0.compile_oracle /\ *)
+   (* subspt g0 g /\ subspt g g' /\ *)
+   (* oracle_gapprox_subspt s0.compile_oracle /\ *)
    ssgc_free s0 /\ EVERY vsgc_free (env ++ extra) /\ EVERY esgc_free xs /\
    EVERY val_approx_sgc_free aenv /\ globals_approx_sgc_free g0
    ==>
-     state_globals_approx s (next_g s) /\
+     state_globals_approx s g /\
      !vs. res = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs`,
 
 
@@ -1768,16 +1921,12 @@ val known_correct_approx = Q.store_thm(
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ rename1 `known _ _ _ g0 = (_, g1)`
     \\ fs [evaluate_def, pair_case_eq]
-    \\ fs [fv_max_rw]
-    \\ `subspt g0 g1 /\ subspt g1 g`
-       by (match_mp_tac subspt_known_elist_globals
-           \\ rpt (goal_assum drule)
-           \\ fs [unique_set_globals_def, elist_globals_append,
-                  BAG_ALL_DISTINCT_BAG_UNION])
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ impl_tac THEN1 metis_tac [subspt_trans] \\ strip_tac
-    \\ fs [result_case_eq] \\ rveq \\ fs []
-    \\ imp_res_tac oracle_gapprox_subspt_evaluate \\ simp []
+    \\ fs [fv_max_rw, gapprox_disjoint_rw, mglobals_disjoint_rw]
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp []) \\ strip_tac
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+    THEN1
+     (irule state_globals_approx_evaluate
+      \\ rpt (goal_assum drule \\ simp []))
     \\ fs [pair_case_eq]
     \\ patresolve `unique_set_globals (_::_) _` hd unique_set_globals_evaluate
     \\ disch_then drule \\ simp [] \\ strip_tac
@@ -1788,11 +1937,13 @@ val known_correct_approx = Q.store_thm(
     \\ `ssgc_free s1`
        by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
            \\ rpt (disch_then drule \\ simp []))
-    \\ `subspt (next_g s0) (next_g s1)`
-       by (simp [next_g_def]
-           \\ imp_res_tac evaluate_IMP_shift_seq
-           \\ simp [shift_seq_def, oracle_gapprox_subspt_alt])
-    \\ impl_tac THEN1 metis_tac [subspt_trans]
+    \\ simp []
+    \\ impl_tac
+    THEN1
+     (match_mp_tac mglobals_disjoint_evaluate
+      \\ rpt (goal_assum drule) \\ simp []
+      \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
+             elist_globals_append, BAG_DISJOINT_SYM])
     \\ strip_tac
     \\ imp_res_tac known_sing_EQ_E
     \\ fs [result_case_eq] \\ rveq \\ fs [])
@@ -1874,20 +2025,21 @@ val known_correct_approx = Q.store_thm(
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
-    \\ fs [fv_max_rw]
-    \\ first_x_assum drule \\ rpt (disch_then drule)
+    \\ fs [fv_max_rw, mglobals_disjoint_rw]
+    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
     \\ fs [case_eq_thms] \\ rveq \\ fs [])
   THEN1
    (say "Tick"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
+    \\ fs [fv_max_rw, mglobals_disjoint_rw]
     \\ Cases_on `s0.clock = 0` \\ fs [] \\ rveq \\ fs []
-    \\ fs [fv_max_rw]
+    THEN1 metis_tac [state_globals_approx_known_mglobals_disjoint]
     \\ first_x_assum (qpat_assum `evaluate _ = _` o mp_then Any match_mp_tac)
-    \\ fs [dec_clock_def, next_g_def])
+    \\ fs [dec_clock_def, next_g_def, mglobals_disjoint_def])
   THEN1
-   (say "Handle"
+   (say "Handle" \\ cheat (*
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
     \\ rename1 `known limit [x1] _ g0 = ([(e1,a1)], g1)`
@@ -1920,7 +2072,7 @@ val known_correct_approx = Q.store_thm(
     \\ impl_tac THEN1 metis_tac [subspt_trans, oracle_gapprox_subspt_evaluate]
     \\ strip_tac
     \\ Cases_on `res`
-    \\ fs [val_approx_val_merge_I])
+    \\ fs [val_approx_val_merge_I]*))
   THEN1
    (say "Call"  \\ cheat (*
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1956,37 +2108,26 @@ val known_correct_approx = Q.store_thm(
     \\ rename1 `[Op _ opn _]`
     \\ fs [evaluate_def, pair_case_eq]
     \\ rename1 `evaluate _ = (_, s1)`
-    \\ fs [fv_max_rw, gapprox_disjoint_rw]
-    \\ `subspt g0 g1 /\ subspt g1 g`
-       by (match_mp_tac subspt_known_op_elist_globals
-           \\ rpt (goal_assum drule)
-           \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
-    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
-    THEN1 (first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-           \\ metis_tac [subspt_trans])
-    \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
-       by (simp [next_g_def]
-           \\ fs [bool_case_eq, result_case_eq, pair_case_eq] \\ rveq \\ fs []
-           \\ imp_res_tac evaluate_IMP_shift_seq
-           \\ imp_res_tac do_install_IMP_shift_seq
-           \\ imp_res_tac do_app_const
-           \\ simp [shift_seq_def, oracle_gapprox_subspt_alt])
+    \\ fs [fv_max_rw, mglobals_disjoint_rw]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ impl_tac THEN1 metis_tac [subspt_trans]
     \\ strip_tac
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+    THEN1
+     (irule state_globals_approx_known_op_evaluate
+      \\ rpt (goal_assum drule \\ simp []))
     \\ reverse (Cases_on `opn = Install`) \\ fs []
     THEN1
      (fs [result_case_eq, pair_case_eq] \\ rveq \\ fs []
-      \\ irule known_op_correct_approx
-      \\ rpt (goal_assum drule \\ simp [])
-      \\ metis_tac [subspt_trans, state_approx_subspt (**)])
+      THEN1 (irule known_op_correct_approx
+             \\ rpt (goal_assum drule \\ simp []))
+      \\ irule state_globals_approx_known_op_evaluate
+      \\ rpt (goal_assum drule \\ simp []))
+    \\ fs [known_op_def] \\ rveq \\ fs []
     \\ reverse (fs [result_case_eq, pair_case_eq]) \\ rveq \\ fs []
     THEN1
      (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
       \\ pairarg_tac \\ fs []
-      \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs []
-      \\ metis_tac [state_approx_subspt(**)])
-    \\ fs [known_op_def] \\ rveq \\ fs []
+      \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs [])
     \\ reverse conj_tac THEN1 metis_tac [evaluate_SING]
     \\ rename1 `do_install _ _ = (_, s2)`
     \\ `?n. s.compile_oracle = shift_seq n s1.compile_oracle /\
@@ -1999,28 +2140,36 @@ val known_correct_approx = Q.store_thm(
            \\ last_assum (mp_then (Pos hd) mp_tac mglobals_extend_trans)
            \\ disch_then drule
            \\ fs [first_n_exps_shift_seq, SET_OF_BAG_UNION])
-
-    \\ cheat)
+    \\ `oracle_gapprox_disjoint g s1.compile_oracle` by cheat
+    \\ rw [state_globals_approx_def]
+    \\ imp_res_tac oracle_gapprox_disjoint_first_n_exps
+    \\ pop_assum (qspec_then `n` assume_tac)
+    \\ fs [gapprox_disjoint_def, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+    \\ pop_assum drule \\ strip_tac
+    \\ fs [mglobals_extend_def]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ metis_tac [state_globals_approx_def])
 
   THEN1
    (say "App"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ rename1 `known _ [x1] _ g1 = _`
-    \\ fs [fv_max_rw]
+    \\ fs [fv_max_rw, mglobals_disjoint_rw]
     \\ reverse (fs [inlD_case_eq])
+    \\ cheat (*
+
     THEN1
      ((* inlD_LetInline *)
       Cases_on `pure x1` \\ fs []
-      (* both the pure and non-pure cases are solved by the following script *)
-      \\ rpt (pairarg_tac \\ fs []) \\ rveq
-      \\ rename1 `known _ [x1] _ g1 = (_, g)`
-      \\ `subspt g0 g1 /\ subspt g1 g`
-           by (match_mp_tac subspt_known_elist_globals
-               \\ rpt (goal_assum drule)
-               \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
-      \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
-      \\ fs [evaluate_def, pair_case_eq, bool_case_eq]
-      \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
+
+      THEN1
+       (rpt (pairarg_tac \\ fs []) \\ rveq
+        \\ rename1 `known _ [x1] _ g1 = (_, g)`
+
+        \\ reverse (fs [evaluate_def, bool_case_eq, pair_case_eq]) \\ rveq
+        THEN1 metis_tac [state_globals_approx_known_mglobals_disjoint]
+        \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
+
       \\ fs [result_case_eq] \\ rveq \\ fs []
       \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
       \\ fs [pair_case_eq]
@@ -2110,7 +2259,8 @@ val known_correct_approx = Q.store_thm(
       \\ cheat (* Similar situation as the goal in the Install case.
                   HAVE: state_globals_approx s2 (next_g s2)
                   NEED: state_globals_approx s (next_g s) 
-                  Globals updated by exprs from the compile_oracle. *)))
+                  Globals updated by exprs from the compile_oracle. *))*))
+
   THEN1
    (say "Fn"
     \\ rpt (pairarg_tac \\ fs [])
