@@ -575,6 +575,29 @@ val orth_ci_def = Define `
 `;
 val _ = Parse.temp_overload_on("#", ``$orth_ci``)
 
+(* Initial theory context *)
+
+val init_ctxt_def = Define`
+  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+              ;NewType (strlit "bool") 0
+              ;NewType (strlit "fun") 2]`
+
+(* all built-in constants and types
+ * A type is built-in  iff  its type constructor is.*)
+val builtin_types = Define`
+  builtin_types =
+    MAP (\(NewType ty ar). (ty, ar))
+    (FILTER (\x. case x of NewType _ _ => T | _ => F) init_ctxt)
+`;
+val builtin_const = Define`
+  builtin_const =
+    FILTER (\x. case x of NewConst _ _ => T | _ => F) init_ctxt
+`;
+
+val nonbuiltin_ctxt = Define`
+  nonbuiltin_ctxt = FILTER (\x. MEM x init_ctxt)
+`;
+
 (* Principles for extending the context *)
 
 val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
@@ -621,11 +644,5 @@ val extends_def = Define`
   extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)`
 val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 
-(* Initial theory context *)
-
-val init_ctxt_def = Define`
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
-              ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]`
 
 val _ = export_theory()
