@@ -154,7 +154,7 @@ val sep_imp_instantiate_tac =
   simp [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =
-  simp [PULL_EXISTS] \\
+  simp [PULL_EXISTS,BOOL_T,BOOL_F] \\
   CHANGED_TAC (rpt (hsimpl \\ sep_imp_instantiate_tac))
   ORELSE sep_imp_instantiate_tac
 

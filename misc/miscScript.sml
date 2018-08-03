@@ -241,6 +241,15 @@ val INJ_EXTEND = Q.store_thm("INJ_EXTEND",
     INJ ((x =+ y) b) (x INSERT s) (y INSERT t)`,
   full_simp_tac(srw_ss())[INJ_DEF,combinTheory.APPLY_UPDATE_THM] \\ METIS_TAC []);
 
+val LIST_REL_eq = store_thm("LIST_REL_eq",
+  ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []);
+
+val LIST_REL_OPT_REL_eq = store_thm("LIST_REL_OPT_REL_eq",
+  ``!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
+
 val MEM_LIST_REL = Q.store_thm("MEM_LIST_REL",
   `!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y`,
   simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
@@ -1796,6 +1805,30 @@ val lookup_vars_def = Define `
        | NONE => NONE
      else NONE)`
 
+val TAKE_GENLIST = Q.store_thm("TAKE_GENLIST",
+  `TAKE n (GENLIST f m) = GENLIST f (MIN n m)`,
+  rw[LIST_EQ_REWRITE, LENGTH_TAKE_EQ, MIN_DEF, EL_TAKE]);
+
+val DROP_GENLIST = Q.store_thm("DROP_GENLIST",
+  `DROP n (GENLIST f m) = GENLIST (f o ((+)n)) (m-n)`,
+  rw[LIST_EQ_REWRITE,EL_DROP]);
+
+val num_to_dec_string_nil = Q.store_thm("num_to_dec_string_nil",
+  `¬(num_to_dec_string n = [])`,
+  rw[ASCIInumbersTheory.num_to_dec_string_def]
+  \\ rw[ASCIInumbersTheory.n2s_def]
+  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.LENGTH_n2l
+  \\ rw[] \\ CCONTR_TAC \\ fs[]);
+
+val isDigit_HEX = Q.store_thm("isDigit_HEX",
+  `∀n. n < 10 ⇒ isDigit (HEX n)`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ simp[]
+  \\ strip_tac \\ var_eq_tac
+  \\ EVAL_TAC);
+
 val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
   `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`,
   REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
@@ -1803,6 +1836,18 @@ val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
   \\ CONV_TAC(LAND_CONV EVAL)
   \\ strip_tac \\ var_eq_tac
   \\ EVAL_TAC);
+
+val EVERY_isDigit_num_to_dec_string = Q.store_thm("EVERY_isDigit_num_to_dec_string",
+  `∀n. EVERY isDigit (num_to_dec_string n)`,
+  rw[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def]
+  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
+  \\ simp[EVERY_MEM]
+  \\ gen_tac\\ strip_tac
+  \\ match_mp_tac isDigit_HEX
+  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.n2l_BOUND
+  \\ rw[EVERY_MEM]
+  \\ res_tac
+  \\ decide_tac);
 
 val EVERY_isHexDigit_num_to_hex_string = Q.store_thm("EVERY_isHexDigit_num_to_hex_string",
   `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`,
@@ -2140,6 +2185,16 @@ val splitAtPki_change_predicate = Q.store_thm("splitAtPki_change_predicate",
   \\ simp[FUN_EQ_THM]
   \\ metis_tac[]);
 
+val SPLITP_splitAtPki = Q.store_thm("SPLITP_splitAtPki",
+  `SPLITP P = splitAtPki (λi x. P x) $,`,
+  simp[FUN_EQ_THM]
+  \\ Induct
+  \\ simp[SPLITP,splitAtPki_def]
+  \\ rw[o_DEF]
+  \\ qho_match_abbrev_tac`f (splitAtPki (λi x. P x) $, x) = _`
+  \\ CONV_TAC(LAND_CONV(REWRITE_CONV[splitAtPki_push]))
+  \\ simp[Abbr`f`]);
+
 val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
   `FST o (f ## g) = f o FST ∧
    SND o (f ## g) = g o SND`,
@@ -2223,6 +2278,13 @@ val SPLITP_LENGTH = Q.store_thm("SPLITP_LENGTH",
     Induct \\ rw[SPLITP, LENGTH]
 );
 
+val EVERY_TOKENS = Q.store_thm("EVERY_TOKENS",
+  `∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)`,
+  recInduct TOKENS_ind
+  \\ rw[TOKENS_def]
+  \\ pairarg_tac \\ fs[NULL_EQ]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ imp_res_tac SPLITP_IMP);
 
 val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
   `∀P l1 x l2.

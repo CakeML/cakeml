@@ -32,7 +32,7 @@ val _ = new_theory "unify";
 
 val _ = Hol_datatype `
 atom =
-    TC_tag of tctor
+    TC_tag of type_ident
   | DB_tag of num
   | Tapp_tag
   | Null_tag`;
@@ -505,7 +505,7 @@ THEN1
      rw [Once unify_def, option_map_case] >>
      rw [Once unify_def])
 THEN1
-(cases_on `t_vwalk s n` >>
+(cases_on `t_vwalk s n'` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
      rw [ts_unify_thm, decode_left_inverse, decode_left_inverse_I,

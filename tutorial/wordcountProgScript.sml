@@ -22,7 +22,7 @@ val res = translate wc_lines_def;
 val wordcount = process_topdecs`
   fun wordcount u =
     case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
-    of SOME lines =>
+    of Some lines =>
       (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
        TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
 val _ = append_prog wordcount;

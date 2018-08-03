@@ -1,7 +1,7 @@
-open preamble conLangTheory;
+open preamble flatLangTheory;
 
 val _ = new_theory "patLang"
-val _ = set_grammar_ancestry ["conLang"]
+val _ = set_grammar_ancestry ["flatLang"]
 
 (* Removes pattern-matching and variable names. Follows exhLang.
  *
@@ -14,7 +14,7 @@ val _ = set_grammar_ancestry ["conLang"]
 
 val _ = Datatype`
   op =
-   | Op (conLang$op)
+   | Op (flatLang$op)
    | Run (* TODO: will eventually be inherited from earlier languages via Op *)
    | Tag_eq num num
    | El num`;
@@ -26,14 +26,12 @@ val _ = Datatype`
    | Lit tra lit
    | Con tra num (exp list)
    | Var_local tra num
-   | Var_global tra num
    | Fun tra exp
    | App tra op (exp list)
    | If tra exp exp exp
    | Let tra exp exp
    | Seq tra exp exp
-   | Letrec tra (exp list) exp
-   | Extend_global tra num`;
+   | Letrec tra (exp list) exp`;
 
 (*TODO: Verify that the introduction of traces wont mess exp_sizes *)
 val exp_size_def = definition"exp_size_def";

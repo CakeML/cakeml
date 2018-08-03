@@ -23,7 +23,6 @@ val _ = overload_on (
 
 val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
-val _ = overload_on ("SOME", ``TC_name``)
 val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
 val _ = overload_on ("V", ``λvnm. Var (Short vnm)``)
 val _ = overload_on ("Pc", ``λcnm. Pcon (SOME (Short cnm))``)
@@ -153,20 +152,20 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                             (vbinop (Short "*") (V "y") (V "h")))])]``)
 
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wx3"
-          (SOME ``Tdec (Dlet locs (Pvar "w") (Lit (Word64 3w)))``)
+          (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "#(read) byte_array"
           (SOME ``App (FFI "read") [Var (Short "byte_array")]``)
 
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wxf"
-          (SOME ``Tdec (Dlet locs (Pvar "w") (Lit (Word64 15w)))``)
+          (SOME ``Dlet locs (Pvar "w") (Lit (Word64 15w))``)
 
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0w3"
-          (SOME ``Tdec (Dlet locs (Pvar "w") (Lit (Word64 3w)))``)
+          (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
 
 val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern`` "(x:int) :: _"
           (SOME ``Pcon (SOME (Short "::")) [
-                     Ptannot (Pvar "x") (Tapp [] (TC_name (Short "int")));
+                     Ptannot (Pvar "x") (Atapp [] (Short "int"));
                      Pany]``)
 
 val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern``
@@ -174,17 +173,17 @@ val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern``
           (SOME ``Pcon NONE [
                      Pany;
                      Ptannot (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "y"])
-                             (Tapp [Tapp [] (TC_name (Short "int"))]
-                                   (TC_name (Short "list")));
+                             (Atapp [Atapp [] (Short "int")]
+                                    (Short "list"));
                      Pvar "z"]``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "x : int"
-          (SOME ``Tannot (Var (Short "x")) (Tapp [] (TC_name (Short "int")))``)
+          (SOME ``Tannot (Var (Short "x")) (Atapp [] (Short "int"))``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x : int) + 3"
           (SOME ``vbinop (Short "+")
                          (Tannot (Var (Short "x"))
-                                 (Tapp [] (TC_name (Short "int"))))
+                                 (Atapp [] (Short "int")))
                          (Lit (IntLit 3))``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
@@ -192,37 +191,36 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
 
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
           "val x = 10"
-          (SOME ``Tdec (Dlet locs (Pvar "x") (Lit (IntLit 10)))``)
+          (SOME ``Dlet locs (Pvar "x") (Lit (IntLit 10))``)
 
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
           "val x = 10"
-          (SOME ``[Tdec (Dlet locs (Pvar "x") (Lit (IntLit 10)))]``)
+          (SOME ``[Dlet locs (Pvar "x") (Lit (IntLit 10))]``)
 
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
           "val x = 10 val y = 20; print (x + y); val z = 30"
-          (SOME ``[Tdec (Dlet locs1 (Pvar "x") (Lit (IntLit 10)));
-                   Tdec (Dlet locs2 (Pvar "y") (Lit (IntLit 20)));
-                   Tdec
-                     (Dlet locs3 (Pvar "it")
+          (SOME ``[Dlet locs1 (Pvar "x") (Lit (IntLit 10));
+                   Dlet locs2 (Pvar "y") (Lit (IntLit 20));
+                   Dlet locs3 (Pvar "it")
                            (App Opapp
                                 [Var (Short "print");
                                  vbinop (Short "+")
                                         (Var (Short "x"))
-                                        (Var (Short "y"))]));
-                   Tdec (Dlet locs4 (Pvar "z") (Lit (IntLit 30)))]``)
+                                        (Var (Short "y"))]);
+                   Dlet locs4 (Pvar "z") (Lit (IntLit 30))]``)
 
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
           "; ; val x = 10"
-          (SOME ``[Tdec (Dlet locs (Pvar "x") (Lit (IntLit 10)))]``)
+          (SOME ``[Dlet locs (Pvar "x") (Lit (IntLit 10))]``)
 
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
           "; ; val x = 10;"
-          (SOME ``[Tdec (Dlet locs (Pvar "x") (Lit (IntLit 10)))]``)
+          (SOME ``[Dlet locs (Pvar "x") (Lit (IntLit 10))]``)
 
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "; ; "
-                   (SOME ``[] : top list``)
+                   (SOME ``[] : dec list``)
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs`` ""
-                   (SOME ``[] : top list``)
+                   (SOME ``[] : dec list``)
 
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn x => x"
@@ -285,12 +283,12 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "SOME ()"
                    (SOME ``Con (SOME (Short "SOME")) [Con NONE []]``)
 
 val _ = parsetest0 ``nSpecLine`` ``ptree_SpecLine`` "type 'a foo = 'a list"
-                   (SOME ``Stabbrev ["'a"] "foo"
-                             (Tapp [Tvar "'a"] (TC_name (Short "list")))``)
+                   (SOME ``() (* Stabbrev ["'a"] "foo"
+                             (Atapp [Atvar "'a"] (Short "list")) *)``)
 
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "type 'a foo = 'a list"
                    (SOME ``Dtabbrev locs ["'a"] "foo"
-                             (Tapp [Tvar "'a"] (TC_name (Short "list")))``)
+                             (Atapp [Atvar "'a"] (Short "list"))``)
 
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val h::List.nil = [3]"
           (SOME ``Dlet locs
@@ -351,11 +349,11 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
                                   (Con (SOME (Short "true")) [])``)
 
 val _ = tytest0 "'a * bool"
-                ``Tapp [Tvar "'a"; Tapp [] (TC_name (Short "bool"))] TC_tup``
+                ``Atapp [Atvar "'a"; Atapp [] (Short "bool")] TC_tup``
 val _ = tytest0 "'a * bool * 'c"
-                ``Tapp [Tvar "'a";
-                        Tapp [] (TC_name (Short "bool"));
-                        Tvar "'c"] TC_tup``
+                ``Atapp [Atvar "'a";
+                         Atapp [] (Short "bool");
+                         Atvar "'c"] TC_tup``
 val _ = tytest "'a * bool -> 'a"
 val _ = tytest "'a * (bool * 'c)"
 val _ = tytest "(bool * int)"
@@ -363,11 +361,11 @@ val _ = tytest "(bool list * int) * bool"
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Foo"
                    (SOME ``Dexn locs "Foo" []``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int"
-                   (SOME ``Dexn locs "Bar" [Tapp [] (TC_name (Short "int"))]``)
+                   (SOME ``Dexn locs "Bar" [Atapp [] (Short "int")]``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int * int"
                    (SOME ``Dexn locs "Bar"
-                             [Tapp [] (SOME (Short "int"));
-                              Tapp [] (SOME (Short "int"))]``);
+                             [Atapp [] (Short "int");
+                              Atapp [] (Short "int")]``);
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a"
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a * bool"
 val _ = parsetest ``nPatternList`` ``ptree_Plist`` "x,y"
@@ -393,13 +391,12 @@ val _ = tytest "'a"
 val _ = tytest "'a -> bool"
 val _ = tytest "'a -> bool -> foo"
 val _ = tytest "('a)"
-val _ = tytest0 "('a)list" ``Tapp [Tvar "'a"] (SOME(Short "list"))``
+val _ = tytest0 "('a)list" ``Atapp [Atvar "'a"] (Short "list")``
 val _ = tytest "('a->bool)list"
 val _ = tytest "'a->bool list"
 val _ = tytest "('a->bool)->bool"
 val _ = tytest0 "('a,foo)bar"
-                ``Tapp [Tvar "'a"; Tapp [] (SOME(Short "foo"))]
-                           (SOME (Short "bar"))``
+                ``Atapp [Atvar "'a"; Atapp [] (Short "foo")] (Short "bar")``
 val _ = tytest "('a) list list"
 val _ = tytest "('a,'b) foo list"
 val _ = tytest "'a list"
@@ -421,7 +418,7 @@ val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
       (SOME ``Tmod "s"
           (SOME [Stype_opq ["'a"] "t";
                  Stype_opq ["'b"; "'c"] "u";
-                 Sval "z" (Tapp [Tvar "'a"] (SOME (Short "t")))])
+                 Sval "z" (Atapp [Atvar "'a"] (SOME (Short "t")))])
           []``)
 *)
 
@@ -472,18 +469,18 @@ val _ = parsetest0 “nDecl” “ptree_Decl”
           "datatype 'a Tree = Lf1 | Nd ('a Tree) 'a ('a Tree) | Lf2 int"
           (SOME “Dtype _ [(["'a"], "Tree",
                            [("Lf1", []);
-                            ("Nd", [Tapp [Tvar "'a"] (SOME (Short "Tree"));
-                                    Tvar "'a";
-                                    Tapp [Tvar "'a"] (SOME (Short "Tree"))]);
-                            ("Lf2", [Tapp [] (SOME (Short "int"))])])]”)
+                            ("Nd", [Atapp [Atvar "'a"] (Short "Tree");
+                                    Atvar "'a";
+                                    Atapp [Atvar "'a"] (Short "Tree")]);
+                            ("Lf2", [Atapp [] (Short "int")])])]”)
 val _ = parsetest0 “nDecl” “ptree_Decl”
           "datatype 'a Tree = Lf1 | Nd of ('a Tree * 'a * 'a Tree) | Lf2 of int"
           (SOME “Dtype _ [(["'a"], "Tree",
                            [("Lf1", []);
-                            ("Nd", [Tapp [Tvar "'a"] (SOME (Short "Tree"));
-                                    Tvar "'a";
-                                    Tapp [Tvar "'a"] (SOME (Short "Tree"))]);
-                            ("Lf2", [Tapp [] (SOME (Short "int"))])])]”)
+                            ("Nd", [Atapp [Atvar "'a"] (Short "Tree");
+                                    Atvar "'a";
+                                    Atapp [Atvar "'a"] (Short "Tree")]);
+                            ("Lf2", [Atapp [] (Short "int")])])]”)
 val _ = parsetest ``nDecls`` elab_decls "val x = f()"
 val _ = parsetest ``nDecls`` elab_decls "val () = f x"
 val _ = parsetest0 ``nDecls`` “ptree_Decls” "val x = ref false;"
@@ -495,8 +492,8 @@ val _ = parsetest0 ``nDecls`` “ptree_Decls” "val ref y = f z"
 val _ = parsetest0 “nDecl” “ptree_Decl” "val x = (y : int ref)"
                    (SOME “Dlet someloc (Pvar "x")
                            (Tannot (V "y")
-                             (Tapp [Tapp [] (TC_name (Short "int"))]
-                                   (TC_name (Short "ref"))))”)
+                             (Atapp [Atapp [] (Short "int")]
+                                    (Short "ref")))”)
 val _ = parsetest0 “nE” “ptree_Expr nE” "op ref" (SOME “V "ref"”);
 val _ = parsetest0 “nE” “ptree_Expr nE” "ref" (SOME “V "ref"”);
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"

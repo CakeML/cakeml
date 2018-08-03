@@ -245,4 +245,7 @@ val compile_def = Define`
   compile F max_app exps = exps /\
   compile T max_app exps = intro_multi max_app exps`
 
+val compile_nil = Q.store_thm("compile_nil[simp]",
+  `compile do_mti max_app [] = []`, Cases_on`do_mti` \\ EVAL_TAC);
+
 val _ = export_theory()

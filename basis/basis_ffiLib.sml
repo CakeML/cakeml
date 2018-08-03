@@ -6,7 +6,7 @@ structure basis_ffiLib :> basis_ffiLib =
 struct
 
 open preamble
-open ml_progLib basis_ffiTheory semanticsLib helperLib set_sepTheory cfHeapsBaseTheory
+open ml_progLib basis_ffiTheory semanticsLib set_sepTheory cfHeapsBaseTheory
      CommandLineProofTheory TextIOProofTheory
 
 fun ERR f s = mk_HOL_ERR"basis_ffiLib" f s;
@@ -110,15 +110,6 @@ fun whole_prog_thm st name spec =
     val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
     val prog_rewrite = EVAL prog_with_snoc (* TODO: this is too slow for large progs *)
     val th = PURE_REWRITE_RULE[prog_rewrite] th
-    val (mods_tm,types_tm) = th |> concl |> dest_imp |> #1 |> dest_conj
-    val mods_thm =
-      mods_tm |> (RAND_CONV EVAL THENC no_dup_mods_conv)
-      |> EQT_ELIM handle HOL_ERR _ => raise(call_ERR "duplicate modules")
-    val types_thm =
-      types_tm |> (RAND_CONV EVAL THENC no_dup_top_types_conv)
-      |> EQT_ELIM handle HOL_ERR _ => raise(call_ERR "duplicate top types")
-    val th = MATCH_MP th (CONJ mods_thm types_thm)
-    val th = th |> SIMP_RULE std_ss [SEP_CLAUSES]
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1
     val st = split |> rator |> rand
@@ -126,6 +117,11 @@ fun whole_prog_thm st name spec =
     val SPLIT_thm = SPLIT_thm |> DISCH_ALL |> SIMP_RULE (srw_ss()) [] |> UNDISCH_ALL
     val th = PART_MATCH_A (#1 o dest_imp) th (concl SPLIT_thm)
     val th = MATCH_MP th SPLIT_thm
+    val th = DISCH_ALL th
+             |> REWRITE_RULE [AND_IMP_INTRO]
+             |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss [LENGTH]))
+             |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+             |> UNDISCH_ALL
   in (th,rhs(concl prog_rewrite)) end;
 
 end

@@ -550,6 +550,11 @@ val nsAll_nsLift = Q.store_thm ("nsAll_nsLift[simp]",
  >> every_case_tac
  >> fs []);
 
+val nsAll_nsAppend_left = Q.store_thm ("nsAll_nsAppend_left",
+  `!P n1 n2. nsAll P (nsAppend n1 n2) ⇒ nsAll P n1`,
+  rw [nsAll_def] >>
+  fs [nsLookup_nsAppend_some]);
+
 (* -------------- nsSub ---------------- *)
 
 val nsSub_conj = Q.store_thm ("nsSub_conj",

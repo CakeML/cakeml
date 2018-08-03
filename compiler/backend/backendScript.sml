@@ -1,9 +1,6 @@
 open preamble
-     source_to_modTheory
-     mod_to_conTheory
-     con_to_decTheory
-     dec_to_exhTheory
-     exh_to_patTheory
+     source_to_flatTheory
+     flat_to_patTheory
      pat_to_closTheory
      clos_to_bvlTheory
      bvl_to_bviTheory
@@ -19,8 +16,7 @@ open jsonLangTheory presLangTheory
 val _ = new_theory"backend";
 
 val _ = Datatype`config =
-  <| source_conf : source_to_mod$config
-   ; mod_conf : mod_to_con$config
+  <| source_conf : source_to_flat$config
    ; clos_conf : clos_to_bvl$config
    ; bvl_conf : bvl_to_bvi$config
    ; data_conf : data_to_word$config
@@ -38,22 +34,14 @@ val attach_bitmaps_def = Define `
 
 val compile_def = Define`
   compile c p =
-    let (c',p) = source_to_mod$compile c.source_conf p in
+    let (c',p) = source_to_flat$compile c.source_conf p in
+    let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
-    let _ = empty_ffi (strlit "finished: source_to_mod") in
-    let (c',p) = mod_to_con$compile c.mod_conf p in
-    let c = c with mod_conf := c' in
-    let _ = empty_ffi (strlit "finished: mod_to_con") in
-    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
-    let c = c with source_conf updated_by (λc. c with next_global := n) in
-    let _ = empty_ffi (strlit "finished: con_to_dec") in
-    let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
-    let _ = empty_ffi (strlit "finished: dec_to_exh") in
-    let e = exh_to_pat$compile e in
-    let _ = empty_ffi (strlit "finished: exh_to_pat") in
-    let e = pat_to_clos$compile e in
+    let p = flat_to_pat$compile p in
+    let _ = empty_ffi (strlit "finished: flat_to_pat") in
+    let p = MAP pat_to_clos$compile p in
     let _ = empty_ffi (strlit "finished: pat_to_clos") in
-    let (c',p) = clos_to_bvl$compile c.clos_conf e in
+    let (c',p) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
     let _ = empty_ffi (strlit "finished: clos_to_bvl") in
     let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
@@ -78,48 +66,28 @@ val compile_def = Define`
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       res`;
 
-val to_mod_def = Define`
-  to_mod c p =
-    let (c',p) = source_to_mod$compile c.source_conf p in
+val to_flat_def = Define`
+  to_flat c p =
+    let (c',p) = source_to_flat$compile c.source_conf p in
     let c = c with source_conf := c' in
     (c,p)`;
 
-val to_con_def = Define`
-  to_con c p =
-  let (c,p) = to_mod c p in
-  let (c',p) = mod_to_con$compile c.mod_conf p in
-  let c = c with mod_conf := c' in
-  (c,p)`;
-
-val to_dec_def = Define`
-  to_dec c p =
-  let (c,p) = to_con c p in
-  let (n,e) = con_to_dec$compile c.source_conf.next_global p in
-  let c = c with source_conf updated_by (λc. c with next_global := n) in
-  (c,e)`;
-
-val to_exh_def = Define`
-  to_exh c p =
-  let (c,e) = to_dec c p in
-  let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
-  (c,e)`;
-
 val to_pat_def = Define`
   to_pat c p =
-  let (c,e) = to_exh c p in
-  let e = exh_to_pat$compile e in
-  (c,e)`;
+  let (c,p) = to_flat c p in
+  let p = flat_to_pat$compile p in
+  (c,p)`;
 
 val to_clos_def = Define`
   to_clos c p =
-  let (c,e) = to_pat c p in
-  let e = pat_to_clos$compile e in
-  (c,e)`;
+  let (c,p) = to_pat c p in
+  let p = MAP pat_to_clos$compile p in
+  (c,p)`;
 
 val to_bvl_def = Define`
   to_bvl c p =
-  let (c,e) = to_clos c p in
-  let (c',p) = clos_to_bvl$compile c.clos_conf e in
+  let (c,p) = to_clos c p in
+  let (c',p) = clos_to_bvl$compile c.clos_conf p in
   let c = c with clos_conf := c' in
   (c,p)`;
 
@@ -178,16 +146,13 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
      to_bvl_def,
      to_clos_def,
      to_pat_def,
-     to_exh_def,
-     to_dec_def,
-     to_con_def,
-     to_mod_def] >>
+     to_flat_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
 
 val prim_config_def = Define`
   prim_config =
-    FST (to_dec <| source_conf := empty_config; mod_conf := empty_config |> (prim_types_program))`;
+    FST (to_flat <| source_conf := empty_config |> (prim_types_program))`;
 
 val from_lab_def = Define`
   from_lab c p =
@@ -233,37 +198,20 @@ val from_clos_def = Define`
   from_bvl c p`;
 
 val from_pat_def = Define`
-  from_pat c e =
-  let e = pat_to_clos$compile e in
-  from_clos c e`;
+  from_pat c p =
+  let p = MAP pat_to_clos$compile p in
+  from_clos c p`;
 
-val from_exh_def = Define`
-  from_exh c e =
-  let e = exh_to_pat$compile e in
-  from_pat c e`;
-
-val from_dec_def = Define`
-  from_dec c e =
-  let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
-  from_exh c e`;
-
-val from_con_def = Define`
-  from_con c p =
-  let (n,e) = con_to_dec$compile c.source_conf.next_global p in
-  let c = c with source_conf updated_by (λc. c with next_global := n) in
-  from_dec c e`;
-
-val from_mod_def = Define`
-  from_mod c p =
-  let (c',p) = mod_to_con$compile c.mod_conf p in
-  let c = c with mod_conf := c' in
-  from_con c p`;
+val from_flat_def = Define`
+  from_flat c p =
+  let p = flat_to_pat$compile p in
+  from_pat c p`;
 
 val from_source_def = Define`
   from_source c p =
-  let (c',p) = source_to_mod$compile c.source_conf p in
+  let (c',p) = source_to_flat$compile c.source_conf p in
   let c = c with source_conf := c' in
-  from_mod c p`;
+  from_flat c p`;
 
 val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
   `compile = from_source`,
@@ -277,10 +225,7 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
      from_bvl_def,
      from_clos_def,
      from_pat_def,
-     from_exh_def,
-     from_dec_def,
-     from_con_def,
-     from_mod_def] >>
+     from_flat_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
 
@@ -336,10 +281,7 @@ val compile_oracle = Q.store_thm("compile_oracle",`
      to_bvl_def,
      to_clos_def,
      to_pat_def,
-     to_exh_def,
-     to_dec_def,
-     to_con_def,
-     to_mod_def,to_livesets_def] >>
+     to_flat_def,to_livesets_def] >>
   fs[compile_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
@@ -382,44 +324,40 @@ val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
      to_bvl_def,
      to_clos_def,
      to_pat_def,
-     to_exh_def,
-     to_dec_def,
-     to_con_def,
-     to_mod_def,to_livesets_def] >>
+     to_flat_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[]));
 
 val to_data_change_config = Q.store_thm("to_data_change_config",
   `to_data c1 prog = (c1',prog') ⇒
    c2.source_conf = c1.source_conf ∧
-   c2.mod_conf = c1.mod_conf ∧
    c2.clos_conf = c1.clos_conf ∧
    c2.bvl_conf = c1.bvl_conf
    ⇒
    to_data c2 prog =
      (c2 with <| source_conf := c1'.source_conf;
-                 mod_conf := c1'.mod_conf;
                  clos_conf := c1'.clos_conf;
                  bvl_conf := c1'.bvl_conf |>,
       prog')`,
-  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_exh_def,to_dec_def,to_con_def,to_mod_def]
+  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_flat_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
   \\ simp[config_component_equality]);
 
+(*
 val compile_explorer_def = Define`
   compile_explorer c p =
     let res = [] in
     (* initial languages *)
-    let (c',p) = source_to_mod$compile c.source_conf p in
-    let res = mod_to_json p::res in
+    let (c',p) = source_to_flat$compile c.source_conf p in
+    let res = flat_to_json p::res in
     let c = c with source_conf := c' in
-    let (c',p) = mod_to_con$compile c.mod_conf p in
+    let (c',p) = flat_to_con$compile c.flat_conf p in
     let res = con_to_json p::res in
-    let c = c with mod_conf := c' in
+    let c = c with flat_conf := c' in
     let (n,e) = con_to_dec$compile c.source_conf.next_global p in
     let res = dec_to_json e::res in
     let c = c with source_conf updated_by (λc. c with next_global := n) in
-    let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
+    let e = dec_to_exh$compile c.flat_conf.exh_ctors_env e in
     let res = exh_to_json e::res in
     let e = exh_to_pat$compile e in
     let res = pat_to_json e::res in
@@ -440,5 +378,6 @@ val compile_explorer_def = Define`
     let prog = clos_annotate$compile prog in
     let res = clos_to_json_table "-annotate" prog::res in
       json_to_string (Array (REVERSE res))`;
+*)
 
 val _ = export_theory();

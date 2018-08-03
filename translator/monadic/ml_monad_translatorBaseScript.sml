@@ -1,9 +1,9 @@
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
+open astTheory libTheory semanticPrimitivesTheory evaluateTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
-open determTheory ml_monadBaseTheory
+open ml_monadBaseTheory
 open cfStoreTheory cfTheory cfTacticsLib
 
 val _ = new_theory "ml_monad_translatorBase";
@@ -30,16 +30,6 @@ val with_same_ffi = Q.store_thm("with_same_ffi",
 val with_same_clock = Q.store_thm("with_same_clock",
   `(s with clock := s.clock) = s`,
   simp[state_component_equality]);
-
-val evaluate_unique_result = Q.store_thm("evaluate_unique_result",
-  `!expr env s s1 s2 res1 res2. evaluate F env s expr (s1, res1) ==>
-  (evaluate F env s expr (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
-  rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
-
-val evaluate_list_unique_result = Q.store_thm("evaluate_list_unique_result",
-  `!exprs env s s1 s2 res1 res2. evaluate_list F env s exprs (s1, res1) ==>
-  (evaluate_list F env s exprs (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
-  rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
 
 (* REF_REL *)
 val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
@@ -540,6 +530,7 @@ val STATE_UPDATE_HPROP_ARRAY = Q.store_thm("STATE_UPDATE_HPROP_ARRAY",
   irule STATE_UPDATE_HPROP_CELL >>
   instantiate);
 
+(*
 val evaluate_empty_state_IMP_junk = Q.store_thm("evaluate_empty_state_IMP_junk",
   `!junk refs' env s exp x.
      evaluate F env (empty_state with refs := s.refs ++ junk) exp
@@ -551,6 +542,7 @@ val evaluate_empty_state_IMP_junk = Q.store_thm("evaluate_empty_state_IMP_junk",
   Thm.INST_TYPE [``:'ffi`` |-> ``:'a``] evaluate_empty_state_IMP |>
   Thm.INST[``s:'a state`` |-> ``(s:'a state) with refs := s.refs ++ junk``])
   \\ fs[]);
+*)
 
 (* Fixed-size arrays *)
 val ARRAY_REL = Define `
