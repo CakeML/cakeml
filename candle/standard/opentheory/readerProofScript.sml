@@ -618,7 +618,9 @@ val map_getTys_thm = Q.store_thm("map_getTys_thm",
   Induct \\ rw [] \\ pop_assum mp_tac
   \\ rw [Once map_def, st_ex_bind_def, st_ex_return_def] \\ fs []
   \\ fs [case_eq_thms] \\ rw []
-  \\ imp_res_tac getTys_thm \\ fs [] \\ metis_tac []);
+  \\ imp_res_tac getTys_thm \\ fs []
+  \\ rename1 `xx = _ ==> _` \\ PairCases_on `xx` \\ fs []
+  \\ metis_tac []);
 
 val getTms_thm = Q.store_thm("getTms_thm",
   `STATE defs refs /\
