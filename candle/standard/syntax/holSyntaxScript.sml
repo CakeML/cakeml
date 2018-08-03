@@ -562,6 +562,19 @@ val _ = export_rewrites["types_of_upd_def","consts_of_upd_def","axexts_of_upd_de
   (* Now we can recover the theory associated with a context *)
 val _ = Parse.overload_on("thyof",``λctxt:update list. (sigof ctxt, axsof ctxt)``)
 
+(* Orthogonality criterion for constant instance and type definitions *)
+val orth_ty_def = Define `
+  orth_ty (ty1 :type) (ty2 :type) = ~((is_instance ty1 ty2) \/ (is_instance ty2 ty1))
+`;
+val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
+val _ = Parse.temp_overload_on("#", ``$orth_ty``)
+
+(* orthogonality for constant instances *)
+val orth_ci_def = Define `
+  orth_ci ((Const c ty1) : term) ((Const d ty2) :term) = ((~(c = d)) \/ (ty1 # ty2))
+`;
+val _ = Parse.temp_overload_on("#", ``$orth_ci``)
+
 (* Principles for extending the context *)
 
 val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
