@@ -155,7 +155,7 @@ fun read_comment_from_script filename = let
 fun read_comment_from_raw filename = let
   val f = open_textfile filename
   in let
-    (* read the first line, ignore a shebang line *)
+    (* read lines until blank line *)
     fun read_rest () =
       case TextIO.inputLine(f) of
         NONE => []
@@ -202,7 +202,7 @@ fun isError (Error _) = true | isError _ = false;
 fun create_summary filenames_and_paths = let
   val filenames = sort (fn s1 => fn s2 => s1 <= s2) filenames_and_paths
   val filenames = distinct filenames
-  (* remove lem generated scrit files *)
+  (* remove lem generated script files *)
   fun is_lem_generated filename =
     if String.isSuffix "Script.sml" filename then let
       val str = String.substring(filename,0,String.size(filename)-10)
@@ -268,5 +268,3 @@ fun main () = let
   val dirs = all_nondot_subdirs ()
   val _ = create_summary (args @ dirs)
   in () end;
-
-val filenames_and_paths = ["../lib.lem", "../libScript.sml"]
