@@ -5878,6 +5878,97 @@ val kcompile_syntax_ok = Q.store_thm("kcompile_syntax_ok",
 *)
 (*--*)
 
+val renumber_code_locs_fv1 = Q.store_thm("renumber_code_locs_fv1",
+  `(∀n es v. LIST_REL (λe1 e2. ∀v. fv1 v e1 ⇔ fv1 v e2) (SND (renumber_code_locs_list n es)) es) ∧
+   (∀n e v. fv1 v (SND (renumber_code_locs n e)) ⇔ fv1 v (e))`,
+  HO_MATCH_MP_TAC clos_numberTheory.renumber_code_locs_ind
+  \\ rw[clos_numberTheory.renumber_code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[fv1_thm]
+  \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_length
+  \\ fs[]
+  \\ TRY(fs[fv_exists, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN, PULL_EXISTS] \\ metis_tac[])
+  \\ fs[EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN, PULL_EXISTS, UNCURRY, EL_MAP]
+  \\ rw[EQ_IMP_THM] \\ rfs[EL_ZIP, EL_MAP]
+  >- metis_tac[]
+  \\ disj1_tac
+  \\ asm_exists_tac
+  \\ simp[EL_ZIP, EL_MAP]);
+
+val renumber_code_locs_list_fv = Q.store_thm("renumber_code_locs_list_fv",
+  `renumber_code_locs_list n es = (k,es') ⇒ fv x es' = fv x es`,
+  qspecl_then[`n`,`es`]mp_tac(CONJUNCT1 renumber_code_locs_fv1)
+  \\ rw[]
+  \\ rw[fv_exists, EXISTS_MEM, MEM_EL]
+  \\ fs[LIST_REL_EL_EQN, PULL_EXISTS]
+  \\ metis_tac[]);
+
+val syntax_ok_renumber_code_locs_list = Q.store_thm("syntax_ok_renumber_code_locs_list",
+  `∀k es. clos_knownProof$syntax_ok es ⇒ clos_knownProof$syntax_ok (SND (renumber_code_locs_list k es))`,
+  rw[clos_knownProofTheory.syntax_ok_def]
+  \\ qspecl_then[`k`,`es`]mp_tac (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE)
+  \\ simp[] \\ strip_tac
+  \\ Cases_on`renumber_code_locs_list k es`
+  \\ qspecl_then[`k`,`es`]mp_tac (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_esgc_free)
+  \\ simp[] \\ strip_tac
+  \\ imp_res_tac renumber_code_locs_list_fv
+  \\ fs[clos_knownProofTheory.fv_max_def]);
+
+val syntax_ok_renumber_code_locs = Q.store_thm("syntax_ok_renumber_code_locs",
+  `∀k e. clos_knownProof$syntax_ok [e] ⇒ clos_knownProof$syntax_ok [SND (renumber_code_locs k e)]`,
+  rw[clos_knownProofTheory.syntax_ok_def]
+  \\ qspecl_then[`k`,`e`]mp_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE)
+  \\ simp[] \\ strip_tac
+  >- (
+    Cases_on`renumber_code_locs k e`
+    \\ qspecl_then[`k`,`e`]mp_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_esgc_free)
+    \\ simp[] \\ strip_tac)
+  \\ fs[renumber_code_locs_fv,clos_knownProofTheory.fv_max_def]);
+
+val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber_code_locs",
+  `renumber_code_locs_list n es1 = (k,es2) ∧
+   clos_knownProof$syntax_ok es1 ∧
+   co_every_Fn_vs_NONE co1 ∧
+   BAG_ALL_DISTINCT (elist_globals es1) ∧ (* TODO: <-- this assumption needs work *)
+   (∀n. SND (SND (co1 n)) = [] ∧ clos_knownProof$syntax_ok [FST (SND (co1 n))] ∧
+        globals_approx_sgc_free (FST (SND (FST (co1 n)))))
+  ⇒
+   syntax_oracle_ok es2 (state_co (ignore_table renumber_code_locs) co1)`,
+  simp[clos_knownProofTheory.syntax_oracle_ok_def]
+  \\ strip_tac
+  \\ simp[backendPropsTheory.SND_state_co]
+  \\ conj_asm1_tac
+  >- metis_tac[syntax_ok_renumber_code_locs_list,SND]
+  \\ conj_asm1_tac
+  >- (
+    fs[clos_knownProofTheory.co_every_Fn_vs_NONE_def,
+       backendPropsTheory.SND_state_co]
+    \\ rpt gen_tac
+    \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]FST_SND_ignore_table) mp_tac
+    \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]SND_SND_ignore_table) mp_tac
+    \\ ntac 3 strip_tac \\ fs[] \\ rveq
+    \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
+    \\ metis_tac[PAIR] )
+  \\ reverse conj_asm2_tac
+  >- (
+    reverse conj_asm2_tac
+    >- (
+      qx_gen_tac`m`
+      \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]FST_SND_ignore_table) mp_tac
+      \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]SND_SND_ignore_table) mp_tac
+      \\ simp[]
+      \\ ntac 2 strip_tac
+      \\ qspecl_then[`FST(FST (co1 m))`,`FST (SND (co1 m))`]mp_tac syntax_ok_renumber_code_locs
+      \\ simp[] )
+    \\ simp[clos_knownProofTheory.unique_set_globals_def]
+    \\ simp[clos_knownProofTheory.first_n_exps_def, o_DEF,
+            backendPropsTheory.SND_state_co,
+            FST_SND_ignore_table]
+    \\ fs[SND_SND_ignore_table, FST_SND_ignore_table]
+    \\ cheat )
+  \\ simp[clos_knownProofTheory.oracle_state_sgc_free_def,
+         backendPropsTheory.FST_state_co]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
@@ -5945,6 +6036,8 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ simp[make_even_def,EVEN_MOD2] )
       \\ fs[Abbr`n'`,Abbr`n`] \\ rfs[] \\ fs[]
       \\ rw[] )
+    \\ match_mp_tac (GEN_ALL syntax_oracle_ok_renumber_code_locs)
+    \\ asm_exists_tac \\ fs[]
     \\ cheat (* add assumptions *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ qmatch_assum_abbrev_tac`semantics ffi max_app FEMPTY co cc0 x <> Fail`
