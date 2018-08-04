@@ -34,9 +34,6 @@ fun take_while p [] = []
 
 fun drop_chars n str = Substring.string (Substring.triml n (Substring.full str));
 
-val start_comment = "(*"
-val end_comment = "*)"
-
 fun check_length all_lines = let
   val _ = length all_lines <= MAX_LINE_COUNT orelse
           fail ("first comment must be at most " ^ Int.toString MAX_LINE_COUNT ^ " lines long")
@@ -68,9 +65,9 @@ fun sort P = (* copied from HOL *)
       srt o (map (fn x => [x]))
    end
 
-(* Reading a comment from an SML file *)
+(* Reading a block comment (from an SML or C file) *)
 
-fun read_comment_from_sml filename = let
+fun read_block_comment start_comment end_comment filename = let
   val f = open_textfile filename
   in let
     (* check that first line is comment *)
@@ -117,6 +114,9 @@ fun read_comment_from_sml filename = let
     val _ = check_length_and_width all_lines
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
+
+val read_comment_from_sml = read_block_comment "(*" "*)";
+val read_comment_from_c = read_block_comment "/*" "*/";
 
 (* Reading a comment from a shell-script file *)
 
@@ -220,6 +220,9 @@ fun create_summary filenames_and_paths = let
      else if String.isSuffix ".sml" filename orelse
              String.isSuffix ".lem" filename then
        TitleAndContent (filename,read_comment_from_sml filename)
+     else if String.isSuffix ".c" filename orelse
+             String.isSuffix ".css" filename then
+       TitleAndContent (filename,read_comment_from_c filename)
      else if String.isSuffix ".sh" filename then
        TitleAndContent (filename,read_comment_from_script filename)
      else
