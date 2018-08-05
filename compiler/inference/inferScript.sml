@@ -591,8 +591,9 @@ constrain_op l op ts =
           return (Infer_Tapp [] Ttup_num)
        od
    | _ =>
-       let (ops, args) = op_to_string op in
-         failwith l (concat [implode "Primitive "; ops; implode " given ";
+         failwith l (
+         let (ops, args) = op_to_string op in
+           concat [implode "Primitive "; ops; implode " given ";
                              toString (&LENGTH ts); implode " arguments, but expects ";
                              toString (&args)])`;
 
