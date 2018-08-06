@@ -2801,7 +2801,8 @@ val known_correct0 = Q.prove(
         evaluate (MAP FST eas, env2 ++ xenv2, t0) = (res2, t) /\
         result_rel (LIST_REL (v_rel c)) (v_rel c) res1 res2 /\
         state_rel c s t /\
-        state_globals_approx s (next_g s)) /\
+        state_globals_approx s (next_g s) /\
+        oracle_gapprox_disjoint (next_g s) s.compile_oracle) /\
    (!lopt1 f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s lopt2 f2 args2 t0 c g argsopt.
       evaluate_app lopt1 f1 args1 s0 = (res1, s) /\
       v_rel_app c f1 f2 argsopt /\
@@ -2830,7 +2831,6 @@ val known_correct0 = Q.prove(
     \\ fs [known_def, evaluate_def] \\ rveq
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [])
-
   THEN1
    (say "CONS"
     \\ fs [known_def, evaluate_def, pair_case_eq]
@@ -2857,19 +2857,11 @@ val known_correct0 = Q.prove(
     \\ strip_tac
     (**)
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-
-
-    \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac) \\ rveq \\ fs []
-
-    \\ impl_tac
-    THEN1 (conj_tac THEN1 metis_tac [v_rel_LIST_REL_subspt]
-           \\ fs [result_case_eq] \\ rveq \\ fs []
-           \\ metis_tac [subspt_trans])
-    \\ strip_tac \\ rveq \\ fs []
+    \\ disch_then (qspec_then `xenv2` mp_tac)
     \\ fs [result_case_eq] \\ rveq \\ fs []
-    \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ metis_tac [v_rel_subspt])
-
+    \\ strip_tac \\ fs [] \\ rveq
+    \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_SING \\ rveq \\ fs [])
   THEN1
    (say "Var"
     \\ fs [known_def] \\ rveq \\ fs []
