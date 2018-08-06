@@ -3250,7 +3250,37 @@ val init_ctxt_wf = Q.store_thm("init_ctxt_wf",
       >> rw[]
       >> Cases_on `x` >> Cases_on `y` >> Cases_on `z`
       >> rw[subst_clos_def,dependency_cases]));
-    
+
+(* Properties of dependency and orthogonality  *)
+val dependency_simps = Q.store_thm("dependency_simps[simp]",
+  `dependency (NewAxiom prop::ctxt) = dependency ctxt
+    /\ dependency (NewType name arity::ctxt) = dependency ctxt
+    /\ dependency (NewConst name ty::ctxt) = dependency ctxt`,
+  rpt conj_tac
+  >> qmatch_goalsub_abbrev_tac `a1 = a2`
+  >> `!x y. a1 x y = a2 x y` suffices_by metis_tac[]
+  >> unabbrev_all_tac
+  >- (rw[dependency_cases])
+  >- (rw[dependency_cases])  
+  >- (rw[dependency_cases]))
+
+val orth_ctxt_simps = Q.store_thm("orth_ctxt_simps[simp]",
+  `orth_ctxt (NewAxiom prop::ctxt) = orth_ctxt ctxt
+   /\ orth_ctxt (NewConst name ty::ctxt) = orth_ctxt ctxt
+   /\ orth_ctxt (NewType name arity::ctxt) = orth_ctxt ctxt`,
+  rpt conj_tac
+  >- (rw[orth_ctxt_def])
+  >- (rw[orth_ctxt_def])      
+  >- (rw[orth_ctxt_def]));
+                                  
+(* updates preserve well-formedness *)
+val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
+  `!ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)`,
+  rw[updates_cases]
+  \\ fs[wf_ctxt_def]
+  >- (cheat)
+  >- (cheat));
+
 (* recover constant definition as a special case of specification *)
 
 val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
