@@ -634,7 +634,7 @@ val allCInsts_def = Define `
 (* dependency ctxt u v -- true iff there is a direct definitional dependency from
  * u to v, where u and v are non-built-in (type/const)defs.
  * This corresponds to \rightsquigarrow in the publication *)
-val (dependency_def,dependence_ind,dependency_cases) = Hol_reln
+val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
   `
   (!ctxt c1 c2 cl name ty cdefn prop.
        MEM (ConstSpec cl prop) ctxt /\
@@ -671,6 +671,19 @@ val (dependency_def,dependence_ind,dependency_cases) = Hol_reln
        dependency ctxt (INR c) (INL t1))
   `
 
+(* Type-substitutive closure of a relation.
+ * Corresponds to \uparrow in the publication *)
+val subst_clos_def = Define `
+  subst_clos R = (\x y. (?x' y' sigma. x = TYPE_SUBST sigma x' /\ y = TYPE_SUBST sigma y'
+                     /\ R x' y'))
+ `
+
+(* A terminating relation is a relation such that there is no infinite sequence
+ *   x_0 R x_1 R x_2 R ... 
+ * of related elements *)
+val terminating_def = Define `
+ terminating R = ¬?x. !n. ?y. (NRC R (SUC n) x y)
+ `
 
 (* Principles for extending the context *)
 
