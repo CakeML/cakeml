@@ -1437,12 +1437,21 @@ val elist_globals_empty = Q.store_thm(
         !e. MEM e es ==> set_globals e = {||}`,
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
 
+(*
 val clos_gen_noinline_val_approx_sgc_free = Q.store_thm(
   "clos_gen_noinline_val_approx_sgc_free",
   `!n i fns. elist_globals (MAP SND fns) = {||} ==>
                EVERY val_approx_sgc_free (clos_gen_noinline n i fns)`,
   ho_match_mp_tac clos_gen_noinline_ind
   \\ rw [] \\ fs [clos_gen_noinline_def, clos_approx_def]);
+*)
+
+val clos_gen_noinline_val_approx_sgc_free = Q.store_thm(
+  "clos_gen_noinline_val_approx_sgc_free",
+  `!n i fns. EVERY val_approx_sgc_free (clos_gen_noinline n i fns)`,
+  ho_match_mp_tac clos_gen_noinline_ind
+  \\ rw [] \\ fs [clos_gen_noinline_def]);
+
 
 val loptrel_def = Define`
   loptrel fv numargs lopt1 lopt2 ⇔
@@ -1591,8 +1600,9 @@ val evaluate_mk_Ticks_IMP = Q.store_thm(
   \\ fs [evaluate_def]
   \\ fs [bool_case_eq, dec_clock_def, ADD1, state_component_equality]);
 
-val clos_gen_noinline_eq = Q.prove(`
-  !n c fns.
+val clos_gen_noinline_eq = Q.store_thm(
+  "clos_gen_noinline_eq",
+  `!n c fns.
   clos_gen_noinline n c fns =
   GENLIST (λi. ClosNoInline (2 * (i+c) + n) (FST (EL i fns))) (LENGTH fns)`,
   Induct_on`fns`>>fs[FORALL_PROD,clos_gen_noinline_def,GENLIST_CONS]>>rw[]>>
@@ -2783,9 +2793,123 @@ val oracle_gapprox_disjoint_subspt = Q.store_thm("oracle_gapprox_disjoint_subspt
   \\ fs [subspt_def, domain_lookup]);
 
 
+val num_map_subspt_BAG_OF_SET_domain = Q.store_thm("num_map_subspt_BAG_OF_SET_domain",
+  `!sp1 sp2. subspt sp1 sp2 ==> BAG_OF_SET (domain sp1) ≤ BAG_OF_SET (domain sp2)`,
+  rw [] \\ imp_res_tac subspt_lookup
+  \\ rw [SUB_BAG] \\ fs [BAG_INN, BAG_OF_SET]
+  \\ IF_CASES_TAC \\ fs [domain_lookup]
+  THEN1 (Cases_on `lookup x sp1` \\ fs [])
+  \\ Cases_on `lookup x sp2` \\ fs []
+  \\ Cases_on `lookup x sp1` \\ fs []
+  \\ res_tac \\ fs []);
+
+val BAG_DISJOINT_SUB_BAG = Q.store_thm("BAG_DISJOINT_SUB_BAG",
+  `!b1 b2 b3. b1 ≤ b2 /\ BAG_DISJOINT b2 b3 ==> BAG_DISJOINT b1 b3`,
+  rw [BAG_DISJOINT_BAG_IN] \\ metis_tac [SUB_BAG, BAG_IN]);
 
 
+val decide_inline_inlD_LetInline_sgc_free = Q.store_thm(
+  "decide_inline_inlD_LetInline_sgc_free",
+  `!c a lopt n body. decide_inline c a lopt n = inlD_LetInline body /\ val_approx_sgc_free a ==> set_globals body = {||}`,
+  rw [] \\ fs [decide_inline_def, va_case_eq, bool_case_eq]
+  \\ rveq \\ fs []);
 
+val known_op_subspt = Q.store_thm("known_op_subspt",
+  `!opn aargs g0 a g.
+     known_op opn aargs g0 = (a, g) /\
+     BAG_DISJOINT (BAG_OF_SET (domain g0)) (op_gbag opn) ==>
+     BAG_OF_SET (domain g) ≤ BAG_OF_SET (domain g0) ⊎ op_gbag opn /\
+     subspt g0 g`,
+  Cases_on `opn` \\ fs [known_op_def]
+  \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
+  THEN1 fs [bool_case_eq, option_case_eq]
+  THEN1
+   (fs [list_case_eq, option_case_eq] \\ rveq
+    \\ fs [BAG_DISJOINT, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+    \\ fs [op_gbag_def]
+    \\ reverse conj_tac
+    THEN1 (rw [subspt_lookup, lookup_insert] \\ rw [] \\ fs [])
+    \\ rw [SUB_BAG, BAG_INN, BAG_OF_SET]
+    \\ Cases_on `x = n ∨ x ∈ domain g0` \\ fs [] \\ rveq
+    \\ fs [BAG_UNION, BAG_INSERT, domain_lookup])
+  THEN1 fs [list_case_eq, va_case_eq, bool_case_eq]);
+
+val known_subspt = Q.store_thm("known_subspt",
+  `!c xs aenv g0 eas g.
+     known c xs aenv g0 = (eas, g) /\
+     EVERY esgc_free xs /\ EVERY val_approx_sgc_free aenv /\ globals_approx_sgc_free g0 /\
+     BAG_ALL_DISTINCT (BAG_OF_SET (domain g0) ⊎ elist_globals xs) ==>
+     BAG_OF_SET (domain g) ≤ BAG_OF_SET (domain g0) ⊎ elist_globals xs /\
+     subspt g0 g`,
+  ho_match_mp_tac known_ind
+  \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
+  \\ fs [known_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [BAG_ALL_DISTINCT_BAG_UNION]
+  THEN1
+   (rename1 `known _ _ _ g0 = (_, g1)`
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ patresolve `BAG_OF_SET (domain g1) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `elist_globals (y::xs)` mp_tac) \\ simp [] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] []
+    \\ metis_tac [subspt_trans])
+  THEN1
+   (rename1 `known _ _ _ g0 = (_, g1)` \\ rename1 `known _ _ _ g1 = (_, g2)`
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ patresolve `BAG_OF_SET (domain g1) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `elist_globals [x2; x3]` mp_tac) \\ simp [] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] []
+    \\ patresolve `BAG_OF_SET (domain g2) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `elist_globals [x3]` mp_tac) \\ simp [] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] []
+    \\ metis_tac [subspt_trans])
+  THEN1
+   (rename1 `known _ _ _ g0 = (_, g1)`
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ patresolve `BAG_OF_SET (domain g1) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `elist_globals [x2]` mp_tac) \\ simp [] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] [BAG_DISJOINT_SYM]
+    \\ metis_tac [subspt_trans])
+  THEN1
+   (rename1 `known _ _ _ g0 = (_, g1)`
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ patresolve `BAG_OF_SET (domain g1) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `elist_globals [x2]` mp_tac) \\ simp [] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] [BAG_DISJOINT_SYM]
+    \\ metis_tac [subspt_trans])
+  THEN1
+   (rename1 `known _ _ _ g0 = (_, g1)`
+    \\ patresolve `BAG_OF_SET (domain g1) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `op_gbag op` mp_tac) \\ fs [BAG_DISJOINT_SYM] \\ strip_tac
+    \\ drule known_op_subspt \\ fs [BAG_DISJOINT_SYM] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] [BAG_DISJOINT_SYM]
+    \\ metis_tac [subspt_trans])
+  THEN1
+   (rename1 `known _ _ _ g0 = (_, g1)` \\ rename1 `known _ _ _ g1 = (_, g2)`
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ patresolve `BAG_OF_SET (domain g1) ≤ _` hd BAG_DISJOINT_SUB_BAG \\ simp []
+    \\ disch_then (qspec_then `elist_globals [x]` mp_tac) \\ simp [] \\ strip_tac
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] [BAG_DISJOINT_SYM]
+    \\ fs [inlD_case_eq] \\ rveq
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] [BAG_DISJOINT_SYM]
+    THEN1 metis_tac [subspt_trans]
+    THEN1 metis_tac [subspt_trans]
+    \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs [] \\ rveq
+    \\ last_x_assum (mp_then (Pos hd) mp_tac known_preserves_esgc_free) \\ simp [] \\ strip_tac
+    \\ drule decide_inline_inlD_LetInline_sgc_free \\ simp [] \\ strip_tac
+    \\ imp_res_tac set_globals_empty_esgc_free
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ fs [bool_case_eq]
+    \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] []
+    \\ metis_tac [subspt_trans])
+  THEN1
+   (imp_res_tac set_globals_empty_esgc_free
+    \\ fs [EVERY_REPLICATE])
+  THEN1
+   (last_x_assum irule \\ CASE_TAC
+    THEN1 simp [EVERY_REPLICATE]
+    \\ simp [clos_gen_noinline_eq, EVERY_GENLIST]));
 
 val say = say0 "known_correct0";
 
