@@ -3238,6 +3238,19 @@ val is_std_sig_extends = Q.store_thm("is_std_sig_extends",
   fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
   metis_tac[] )
 
+(* init_ctxt well-formed *)
+                                    
+val init_ctxt_wf = Q.store_thm("init_ctxt_wf",
+  `wf_ctxt init_ctxt`,
+  simp[wf_ctxt_def]
+  \\ conj_tac
+  >- rw[init_ctxt_def,orth_ctxt_def]
+  >- (rw[terminating_def,init_ctxt_def,orth_ctxt_def]
+      >> qexists_tac `SUC 0` >> PURE_REWRITE_TAC[NRC]
+      >> rw[]
+      >> Cases_on `x` >> Cases_on `y` >> Cases_on `z`
+      >> rw[subst_clos_def,dependency_cases]));
+    
 (* recover constant definition as a special case of specification *)
 
 val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
