@@ -1906,19 +1906,16 @@ val elist_globals_first_n_exps_lemma = Q.store_thm("elist_globals_first_n_exps_l
   \\ fs [MEM_SPLIT, elist_globals_append]);
 
 
-val oracle_gapprox_disjoint_lemma  = Q.store_thm(
-  "oracle_gapprox_disjoint_lemma",
-  `!xs env s0 res s c aenv g0 eas g.
-     evaluate (xs,env,s0) = (res,s) /\
+val oracle_gapprox_disjoint_shift_seq_unique_set_globals = Q.store_thm(
+  "oracle_gapprox_disjoint_shift_seq_unique_set_globals",
+  `!c xs aenv g0 eas g s0 k.
      known c xs aenv g0 = (eas, g) /\
      unique_set_globals xs s0.compile_oracle /\
-(*   (!n. BAG_DISJOINT (elist_globals xs) (elist_globals (first_n_exps s0.compile_oracle n))) /\ *)
-   oracle_gapprox_disjoint g0 s0.compile_oracle ==>
-   oracle_gapprox_disjoint g s.compile_oracle`,
+     oracle_gapprox_disjoint g0 s0.compile_oracle ==>
+     oracle_gapprox_disjoint g (shift_seq k s0.compile_oracle)`,
    rw []
    \\ rw [oracle_gapprox_disjoint_def, gapprox_disjoint_def,
        DISJOINT_ALT, domain_lookup, PULL_EXISTS]
-   \\ imp_res_tac evaluate_IMP_shift_seq
    \\ drule known_changed_globals_cases
    \\ disch_then drule \\ reverse strip_tac
    THEN1
@@ -1931,6 +1928,26 @@ val oracle_gapprox_disjoint_lemma  = Q.store_thm(
      \\ metis_tac [])
    \\ fs [oracle_gapprox_disjoint_def, gapprox_disjoint_def, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
    \\ res_tac \\ simp [shift_seq_def]);
+
+
+(* essentially a duplicate of the above  *)
+val oracle_gapprox_disjoint_lemma  = Q.store_thm(
+  "oracle_gapprox_disjoint_lemma",
+  `!xs env s0 res s c aenv g0 eas g.
+     evaluate (xs,env,s0) = (res,s) /\
+     known c xs aenv g0 = (eas, g) /\
+     unique_set_globals xs s0.compile_oracle /\
+     oracle_gapprox_disjoint g0 s0.compile_oracle ==>
+     oracle_gapprox_disjoint g s.compile_oracle`,
+   rw [] \\ imp_res_tac evaluate_IMP_shift_seq
+   \\ metis_tac [oracle_gapprox_disjoint_shift_seq_unique_set_globals]);
+
+(*
+val mglobals_disjoint_set_globals_empty = Q.store_thm(
+  "mglobals_disjoint_set_globals_empty",
+  `!x s. set_globals x = {||} ==> mglobals_disjoint s [x]`,
+  simp [mglobals_disjoint_def]);
+*)
 
 
 val say = say0 "known_correct_approx";
@@ -2146,7 +2163,6 @@ val known_correct_approx = Q.store_thm(
     \\ impl_tac
     THEN1 metis_tac [co_disjoint_globals_first_n_exps, co_disjoint_globals_evaluate]
     \\ metis_tac [evaluate_SING] *))
-
   THEN1
    (say "Op"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -2204,35 +2220,41 @@ val known_correct_approx = Q.store_thm(
     \\ rename1 `known _ [x1] _ g1 = _`
     \\ fs [fv_max_rw, mglobals_disjoint_rw]
     \\ reverse (fs [inlD_case_eq])
-    \\ cheat (*
 
     THEN1
      ((* inlD_LetInline *)
       Cases_on `pure x1` \\ fs []
 
-      THEN1
+      (* This solve both the pure and the non-pure case *)
+      THEN
        (rpt (pairarg_tac \\ fs []) \\ rveq
         \\ rename1 `known _ [x1] _ g1 = (_, g)`
-
+        \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
         \\ reverse (fs [evaluate_def, bool_case_eq, pair_case_eq]) \\ rveq
         THEN1 metis_tac [state_globals_approx_known_mglobals_disjoint]
         \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
+        \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+        THEN1
+         (irule state_globals_approx_evaluate
+          \\ rpt (goal_assum drule \\ simp [])
+          \\ fs [unique_set_globals_def, elist_globals_append,
+                 BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+        \\ fs [pair_case_eq]
+        \\ `unique_set_globals [x1] s1.compile_oracle` by metis_tac [unique_set_globals_evaluate]
+        \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_changed_globals \\ simp [] \\ strip_tac
+        \\ patresolve  `known _ _ _ g0 = _` hd known_preserves_esgc_free
+        \\ simp [] \\ strip_tac
+        \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+        \\ patresolve `evaluate (_, _, s0) = _` hd oracle_gapprox_disjoint_lemma
+        \\ rpt (disch_then drule \\ simp []) \\ strip_tac (* disch_then kall_tac instead? *)
+        \\ `mglobals_disjoint s1 [x1]`
+           by (match_mp_tac mglobals_disjoint_evaluate
+               \\ rpt (goal_assum drule) \\ simp []
+               \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
+                      elist_globals_append, BAG_DISJOINT_SYM])
+        \\ simp [] \\ strip_tac
+        \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
 
-      \\ fs [result_case_eq] \\ rveq \\ fs []
-      \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
-      \\ fs [pair_case_eq]
-      \\ `unique_set_globals [x1] s1.compile_oracle` by metis_tac [unique_set_globals_evaluate]
-      \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_changed_globals \\ simp [] \\ strip_tac
-      \\ patresolve  `known _ _ _ g0 = _` hd known_preserves_esgc_free
-      \\ simp [] \\ strip_tac
-      \\ `subspt (next_g s0) (next_g s1) /\ subspt g (next_g s1)`
-         by (reverse conj_asm1_tac THEN1 metis_tac [subspt_trans]
-             \\ simp [next_g_def]
-             \\ imp_res_tac evaluate_IMP_shift_seq
-             \\ simp [shift_seq_def, oracle_gapprox_subspt_alt])
-      \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-      \\ simp [oracle_gapprox_subspt_shift_seq] \\ strip_tac
-      \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
       \\ imp_res_tac decide_inline_LetInline_IMP_Clos_fv_max
       \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ rename1 `evaluate (xs,_,s0) = (Rval vs, s1)`
@@ -2256,12 +2278,22 @@ val known_correct_approx = Q.store_thm(
       \\ rename1 `evaluate (_,_, dec_clock _ _) = (rr, ss)`
       \\ `rr = res /\ ss = s` by (fs [case_eq_thms] \\ rveq \\ fs []) \\ rveq
       \\ imp_res_tac set_globals_empty_esgc_free \\ simp []
+
       \\ first_x_assum match_mp_tac
       \\ goal_assum drule \\ simp []
+
       \\ simp [dec_clock_def]
       \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals
       \\ simp [] \\ strip_tac
-      \\ fs [next_g_def, oracle_gapprox_subspt_shift_seq]
+
+      \\ simp [mglobals_disjoint_def]
+
+
+      \\ patresolve `evaluate (_, _, s1) = _` hd oracle_gapprox_disjoint_lemma
+      \\ rpt (disch_then drule \\ simp []))
+
+
+      \\ fs [next_g_def]
       \\ irule subspt_trans \\ goal_assum drule
       \\ simp [shift_seq_def, oracle_gapprox_subspt_alt])
     THEN
