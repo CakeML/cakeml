@@ -6555,9 +6555,32 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   \\ Cases_on`res1` \\ fs[]
   \\ Cases_on`e` \\ fs[]);
 
+val syntax_oracle_ok_def = Define`
+  syntax_oracle_ok c es co ⇔
+    (c.do_mti ⇒
+      1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
+      (∀n. clos_mtiProof$syntax_ok [FST(SND(co n))])) ∧
+    (IS_SOME c.known_conf ⇒
+       (THE c.known_conf).val_approx_spt = LN ∧
+       FST(SND(FST(co 0))) =
+       SND (known (THE c.known_conf)
+         (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
+           (compile c.do_mti c.max_app es))) [] LN)) ∧
+    (∀n.
+      SND (SND (co n)) = [] ∧
+      globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
+      BAG_ALL_DISTINCT
+        (BAG_UNION (elist_globals es)
+                   (elist_globals (GENLIST (FST o SND o co) n))) ∧
+      ¬contains_App_SOME c.max_app [FST (SND (co n))] ∧
+      clos_knownProof$syntax_ok [FST (SND (co n))]) ∧
+    ¬contains_App_SOME c.max_app es ∧
+    clos_knownProof$syntax_ok es`;
+
 val compile_semantics = store_thm("compile_semantics",
   ``semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co (compile_inc c cc) es ≠ Fail ∧
-    compile c es = (c', prog)
+    compile c es = (c', prog) ∧
+    syntax_oracle_ok c es co
     ⇒
     semantics ffi (fromAList prog) co2 cc2 c'.start =
     semantics ffi c.max_app FEMPTY co (compile_inc c cc) es`` |> inst[beta|->alpha],
@@ -6569,7 +6592,9 @@ val compile_semantics = store_thm("compile_semantics",
   \\ fs[ALL_DISTINCT_code_sort]
   \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
   \\ simp[]
-  \\ impl_tac >- cheat (* add assumptions, after proving cheats in compile_common_semantics *)
+  \\ impl_tac >- (
+    fs[syntax_oracle_ok_def]
+    \\ fs[BAG_ALL_DISTINCT_BAG_UNION] )
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
