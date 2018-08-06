@@ -5946,9 +5946,19 @@ val known_every_Fn_SOME = Q.store_thm("known_every_Fn_SOME",
   >- (
     rw[clos_knownTheory.clos_approx_def]
     \\ CASE_TAC \\ fs[] )
-  >- cheat
-  >- cheat
-  >- cheat);
+  \\ `!(xs:(num,closLang$exp) alist) n x.
+        EVERY val_approx_every_Fn_SOME (clos_gen_noinline x n xs)`
+    by (Induct \\ rw [clos_knownTheory.clos_gen_noinline_def]
+        \\ PairCases_on `h`
+        \\ rw [clos_knownTheory.clos_gen_noinline_def])
+  \\ fs [Once every_Fn_SOME_EVERY]
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ fs [MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ rename1 `known c [pp] qq`
+  \\ Cases_on `known c [pp] qq g`
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
 
 val val_approx_every_Fn_vs_NONE_def = tDefine"val_approx_every_Fn_vs_NONE"`
   (val_approx_every_Fn_vs_NONE (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_vs_NONE vs) ∧
@@ -6042,9 +6052,22 @@ val known_every_Fn_vs_NONE = Q.store_thm("known_every_Fn_vs_NONE",
     rw[clos_knownTheory.clos_approx_def]
     \\ TOP_CASE_TAC \\ fs[]
     \\ TOP_CASE_TAC \\ fs[] )
-  >- cheat
-  >- cheat
-  >- cheat);
+  \\ `!(xs:(num,closLang$exp) alist) n x.
+        EVERY val_approx_every_Fn_vs_NONE (clos_gen_noinline x n xs)`
+    by (Induct \\ rw [clos_knownTheory.clos_gen_noinline_def]
+        \\ PairCases_on `h`
+        \\ rw [clos_knownTheory.clos_gen_noinline_def])
+  \\ last_x_assum mp_tac
+  \\ (impl_tac >- (PURE_TOP_CASE_TAC \\ fs [EVERY_REPLICATE])) \\ rw []
+  \\ Cases_on `loc_opt` \\ fs []
+  \\ fs [Once every_Fn_vs_NONE_EVERY]
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ fs [MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ first_x_assum drule \\ fs [clos_callProofTheory.MEM_REPLICATE_EQ] \\ rw []
+  \\ rename1 `known c [pp] qq`
+  \\ Cases_on `known c [pp] qq g`
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
 
 val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   `clos_callProof$syntax_ok es  ∧
