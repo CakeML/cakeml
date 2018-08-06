@@ -6402,31 +6402,29 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
   \\ drule clos_callProofTheory.compile_ALL_DISTINCT
-  \\ impl_tac >- cheat (* add assumptions *)
+  \\ impl_tac >- (
+    imp_res_tac clos_knownProofTheory.compile_code_locs
+    \\ qhdtm_x_assum`renumber_code_locs_list`mp_tac
+    \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
+    \\ ntac 2 strip_tac \\ fs[]
+    \\ imp_res_tac clos_knownProofTheory.is_subseq_ALL_DISTINCT)
   \\ strip_tac
   \\ fs[ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ fs[Abbr`cc0`]
   \\ qmatch_goalsub_abbrev_tac`chain_exps start xps`
   \\ drule chain_exps_semantics_call
   \\ impl_tac
-  >- ( fs[] \\ cheat (* add assumptions *) )
+  >- ( fs[backendPropsTheory.SND_state_co] \\ cheat (* distinct code locs? *))
   \\ strip_tac
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
   \\ drule clos_annotateProofTheory.semantics_annotate
-  \\ impl_tac >- ( cheat (* add assumptions *) )
+  \\ impl_tac >- (
+    fs[backendPropsTheory.SND_state_co]
+    \\ cheat (* every_Fn_vs_NONE chain_exps and clos_callProofTheory.calls_preserves_every_Fn_vs_NONE *))
   \\ disch_then(strip_assume_tac o SYM) \\ fs[]
-  \\ `xps <> []` by cheat \\ fs[]
   \\ AP_TERM_TAC
-  \\ EVAL_TAC
-  (*
-  \\ simp[Once clos_annotateTheory.compile_def]
-  \\ Q.ISPECL_THEN[`λ(args,exp). (args,HD(annotate args[exp]))`,`chain_exps start xps`]mp_tac ALOOKUP_MAP
-  \\ simp[ALOOKUP_APPEND, LAMBDA_PROD]
-  \\ disch_then kall_tac
-  \\ metis_tac[clos_annotateTheory.annotate_def,
-         clos_annotateTheory.HD_shift,
-         clos_annotateTheory.HD_FST_alt_free] *));
+  \\ EVAL_TAC);
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 [Call None 0 start []] ≠ Fail ∧
