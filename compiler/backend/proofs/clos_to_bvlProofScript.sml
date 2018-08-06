@@ -6282,6 +6282,24 @@ val set_globals_HD_intro_multi = Q.store_thm("set_globals_HD_intro_multi",
   \\ rewrite_tac[clos_mtiProofTheory.HD_intro_multi]
   \\ fs[]);
 
+val renumber_code_locs_list_csyntax_ok = Q.store_thm("renumber_code_locs_list_csyntax_ok",
+  `renumber_code_locs_list n es = (k,es') ∧
+   every_Fn_vs_NONE es
+   ⇒
+   clos_callProof$syntax_ok es'`,
+  specl_args_of_then``renumber_code_locs_list``
+    clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
+  \\ specl_args_of_then``renumber_code_locs_list``
+      (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_SOME) mp_tac
+  \\ specl_args_of_then``renumber_code_locs_list``
+      (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE) mp_tac
+  \\ rw[clos_callProofTheory.syntax_ok_def] \\ fs[]);
+
+val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE[simp]",
+  `every_Fn_vs_NONE (clos_mti$compile do_mti max_app es) ⇔
+   every_Fn_vs_NONE es`,
+  Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
@@ -6417,7 +6435,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ goal_assum(first_assum o mp_then Any mp_tac)
       \\ reverse conj_tac
       >- fs[globals_approx_every_Fn_SOME_def,globals_approx_every_Fn_vs_NONE_def,lookup_def]
-      \\ cheat (* push through clos_number *) )
+      \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
+      \\ asm_exists_tac \\ fs[]
+      \\ fs[clos_knownProofTheory.syntax_ok_def])
     \\ qx_gen_tac`m`
     \\ TOP_CASE_TAC \\ fs[SND_SND_ignore_table] >- rw[]
     \\ simp[kcompile_inc_uncurry, SND_SND_ignore_table]
