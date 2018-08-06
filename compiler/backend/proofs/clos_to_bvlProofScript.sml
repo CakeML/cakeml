@@ -6327,7 +6327,6 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
      BAG_ALL_DISTINCT (elist_globals (GENLIST (FST o SND o co1) n)) ∧
      BAG_DISJOINT (elist_globals es1) (elist_globals (GENLIST (FST o SND o co1) n)) ∧
-     every_Fn_vs_NONE [FST(SND(co1 n))] ∧
      ¬contains_App_SOME c.max_app [FST(SND(co1 n))] ∧
      clos_knownProof$syntax_ok [FST(SND(co1 n))]))
    ⇒
@@ -6397,14 +6396,15 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ qx_gen_tac`m`
         \\ rpt gen_tac \\ strip_tac
         \\ first_x_assum(qspec_then`m`mp_tac)
-        \\ rw[] )
+        \\ rw[]
+        \\ fs[clos_knownProofTheory.syntax_ok_def])
       \\ simp[clos_knownProofTheory.co_every_Fn_vs_NONE_def]
       \\ qx_gen_tac`m`
       \\ Cases_on`co1 m`
       \\ Cases_on`r`
       \\ simp[clos_mtiProofTheory.compile_inc_def]
       \\ first_x_assum(qspec_then`m`mp_tac)
-      \\ simp[] )
+      \\ fs[clos_knownProofTheory.syntax_ok_def] )
     \\ conj_tac >- simp[compile_elist_globals]
     \\ qx_gen_tac`m`
     \\ conj_tac >- rw[]
