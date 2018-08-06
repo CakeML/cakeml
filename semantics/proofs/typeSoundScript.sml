@@ -1096,6 +1096,7 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
      >> imp_res_tac same_ctor_and_same_tid >>
      fs [] >>
      metis_tac [])
+   >- (fs [same_ctor_def] >> rveq >> imp_res_tac LIST_REL_LENGTH >> fs [])
    >- (
      fs [ctMap_ok_def] >>
      metis_tac []))
