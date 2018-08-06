@@ -2405,46 +2405,45 @@ val known_correct_approx = Q.store_thm(
 (* code relation *)
 
 val exp_rel_def = Define `
-  exp_rel c aenv g' e1 e2 <=>
+  exp_rel c aenv e1 e2 <=>
     ?g0 g apx k.
-      subspt g g' /\
       EVERY val_approx_sgc_free aenv /\
       globals_approx_sgc_free g0 /\
       known (c with inline_factor := k) [e1] aenv g0 = ([(e2, apx)], g)`;
 
 val exp_rel_dec_inline_factor =
   Q.store_thm("exp_rel_dec_inline_factor[simp]",
-  `exp_rel (dec_inline_factor c) aenv g e1 e2 <=> exp_rel c aenv g e1 e2`,
+  `exp_rel (dec_inline_factor c) aenv e1 e2 <=> exp_rel c aenv e1 e2`,
   simp [exp_rel_def, dec_inline_factor_def]);
 
 (* value relation *)
 
 val f_rel_def = Define `
-  f_rel c aenv g (n1, e1) (n2, e2) <=>
-     n1 = n2 /\ exp_rel c (REPLICATE n1 Other ++ aenv) g e1 e2`;
+  f_rel c aenv (n1, e1) (n2, e2) <=>
+     n1 = n2 /\ exp_rel c (REPLICATE n1 Other ++ aenv) e1 e2`;
 
 val v1_size_append = Q.store_thm("v1_size_append",
   `!xs ys. closSem$v1_size (xs ++ ys) = v1_size xs + v1_size ys`,
   Induct \\ fs [closSemTheory.v_size_def]);
 
 val v_rel_def = tDefine "v_rel" `
-  (v_rel c g (Number i) v <=> v = Number i) /\
-  (v_rel c g (Word64 w) v <=> v = Word64 w) /\
-  (v_rel c g (ByteVector ws) v <=> v = ByteVector ws) /\
-  (v_rel c g (RefPtr n) v <=> v = RefPtr n) /\
-  (v_rel c g (Block n xs) v <=>
-     ?ys. v = Block n ys /\ LIST_REL (v_rel c g) xs ys) /\
-  (v_rel c g (Closure loc_opt args1 env1 num_args e1) v <=>
+  (v_rel c (Number i) v <=> v = Number i) /\
+  (v_rel c (Word64 w) v <=> v = Word64 w) /\
+  (v_rel c (ByteVector ws) v <=> v = ByteVector ws) /\
+  (v_rel c (RefPtr n) v <=> v = RefPtr n) /\
+  (v_rel c (Block n xs) v <=>
+     ?ys. v = Block n ys /\ LIST_REL (v_rel c) xs ys) /\
+  (v_rel c (Closure loc_opt args1 env1 num_args e1) v <=>
      every_Fn_vs_NONE [e1] /\
      ?aenv env1a env1b args2 env2a env2b e2.
        if env1 = env1a ++ env1b then
        fv_max (num_args + LENGTH env1a) [e1] /\
-       LIST_REL (v_rel c g) args1 args2 /\
-       LIST_REL (v_rel c g) env1a env2a /\
+       LIST_REL (v_rel c) args1 args2 /\
+       LIST_REL (v_rel c) env1a env2a /\
        LIST_REL val_approx_val aenv env1a /\
-       exp_rel c (REPLICATE num_args Other ++ aenv) g e1 e2 /\
+       exp_rel c (REPLICATE num_args Other ++ aenv) e1 e2 /\
        v = Closure loc_opt args2 (env2a ++ env2b) num_args e2 else F) /\
-  (v_rel c g (Recclosure loc_opt args1 env1 funs1 i) v <=>
+  (v_rel c (Recclosure loc_opt args1 env1 funs1 i) v <=>
      EVERY (\(n, e). every_Fn_vs_NONE [e]) funs1 /\
      let clos = case loc_opt of
                   | NONE => REPLICATE (LENGTH funs1) Other
@@ -2452,13 +2451,13 @@ val v_rel_def = tDefine "v_rel" `
      in ?aenv env1a env1b args2 env2a env2b funs2.
        if env1 = env1a ++ env1b then
        EVERY (\(num_args, exp). fv_max (num_args + LENGTH env1a) [exp]) funs1 /\
-       LIST_REL (v_rel c g) args1 args2 /\
-       LIST_REL (v_rel c g) env1a env2a /\
+       LIST_REL (v_rel c) args1 args2 /\
+       LIST_REL (v_rel c) env1a env2a /\
        LIST_REL val_approx_val aenv env1a /\
-       LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
+       LIST_REL (f_rel c (clos ++ aenv)) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
   `
-  (WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
+  (WF_REL_TAC `measure (v_size o FST o SND)` \\ simp [v1_size_append, v_size_def]
    \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []);
 
 val v_rel_def = save_thm("v_rel_def[simp]",
@@ -2467,31 +2466,31 @@ val v_rel_def = save_thm("v_rel_def[simp]",
 val v_rel_ind = theorem "v_rel_ind";
 
 val v_rel_app_def = Define `
-  (v_rel_app c g (Number i) v args1 <=> v_rel c g (Number i) v) /\
-  (v_rel_app c g (Word64 w) v args1 <=> v_rel c g (Word64 w) v) /\
-  (v_rel_app c g (ByteVector ws) v args1 <=> v_rel c g (ByteVector ws) v) /\
-  (v_rel_app c g (RefPtr n) v args1 <=> v_rel c g (RefPtr n) v) /\
-  (v_rel_app c g (Block n xs) v args1 <=> v_rel c g (Block n xs) v) /\
-  (v_rel_app c g (Closure loc_opt pargs1 env1 num_args e1) v args1 <=>
+  (v_rel_app c (Number i) v args1 <=> v_rel c (Number i) v) /\
+  (v_rel_app c (Word64 w) v args1 <=> v_rel c (Word64 w) v) /\
+  (v_rel_app c (ByteVector ws) v args1 <=> v_rel c (ByteVector ws) v) /\
+  (v_rel_app c (RefPtr n) v args1 <=> v_rel c (RefPtr n) v) /\
+  (v_rel_app c (Block n xs) v args1 <=> v_rel c (Block n xs) v) /\
+  (v_rel_app c (Closure loc_opt pargs1 env1 num_args e1) v args1 <=>
      every_Fn_vs_NONE [e1] /\
      ?aenv env1a env1b pargs2 env2a env2b e2 aargs.
        env1 = env1a ++ env1b /\
        fv_max (num_args + LENGTH env1a) [e1] /\
-       LIST_REL (v_rel c g) pargs1 pargs2 /\
-       LIST_REL (v_rel c g) env1a env2a /\
+       LIST_REL (v_rel c) pargs1 pargs2 /\
+       LIST_REL (v_rel c) env1a env2a /\
        LIST_REL val_approx_val aenv env1a /\
        (case args1 of
          | NONE => aargs = REPLICATE num_args Other
          | SOME args1' => LIST_REL val_approx_val aargs args1' /\
                           pargs1 = []) /\
-       exp_rel c (aargs ++ aenv) g e1 e2 /\
+       exp_rel c (aargs ++ aenv) e1 e2 /\
        v = Closure loc_opt pargs2 (env2a ++ env2b) num_args e2) /\
-  (v_rel_app c g (Recclosure loc_opt pargs1 env1 funs1 i) v args1 <=>
-     v_rel c g (Recclosure loc_opt pargs1 env1 funs1 i) v)`;
+  (v_rel_app c (Recclosure loc_opt pargs1 env1 funs1 i) v args1 <=>
+     v_rel c (Recclosure loc_opt pargs1 env1 funs1 i) v)`;
 
 val v_rel_app_NONE = Q.store_thm(
   "v_rel_app_NONE",
-  `v_rel_app c g v1 v2 NONE = v_rel c g v1 v2`,
+  `v_rel_app c v1 v2 NONE = v_rel c v1 v2`,
   Cases_on `v1` \\ simp [v_rel_app_def] \\ metis_tac []);
 
 val exp_rel_upd_inline_factor = Q.store_thm(
@@ -2527,24 +2526,24 @@ val v_rel_upd_inline_factor = Q.store_thm(
 
 val v_rel_Block = Q.store_thm(
   "v_rel_Block[simp]",
-  `v_rel c g x (Block n ys) <=>
-     ?xs. x = Block n xs /\ LIST_REL (v_rel c g) xs ys`,
+  `v_rel c x (Block n ys) <=>
+     ?xs. x = Block n xs /\ LIST_REL (v_rel c) xs ys`,
   Cases_on `x` \\ fs [v_rel_def] \\ eq_tac \\ rw [] \\ metis_tac []);
 
 val v_rel_Boolv = Q.store_thm(
   "v_rel_Boolv[simp]",
-  `(v_rel c g (Boolv b) v ⇔ v = Boolv b) ∧
-   (v_rel c g v (Boolv b) ⇔ v = Boolv b)`,
+  `(v_rel c (Boolv b) v ⇔ v = Boolv b) ∧
+   (v_rel c v (Boolv b) ⇔ v = Boolv b)`,
   simp [closSemTheory.Boolv_def] >> Cases_on `v` >> simp[] >> metis_tac[]);
 
 val v_rel_Unit = Q.store_thm(
   "v_rel_Unit[simp]",
-  `(v_rel c g Unit v ⇔ v = Unit) ∧ (v_rel c g v Unit ⇔ v = Unit)`,
+  `(v_rel c Unit v ⇔ v = Unit) ∧ (v_rel c v Unit ⇔ v = Unit)`,
   simp[Unit_def] >> Cases_on `v` >> simp[] >> metis_tac[])
 
 val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!x y c g.
-      v_rel c g x y ==>
+  ``!x y c.
+      v_rel c x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
            (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
@@ -2556,12 +2555,12 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
   \\ Cases_on `h` \\ fs []);
 
 val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel c g x y ==> v_to_bytes y = v_to_bytes x``,
+  ``v_rel c x y ==> v_to_bytes y = v_to_bytes x``,
   rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
 
 val v_rel_IMP_v_to_words_lemma = prove(
-  ``!x y c g.
-      v_rel c g x y ==>
+  ``!x y c.
+      v_rel c x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
            (v_to_list y = SOME (MAP Word64 ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
@@ -2573,35 +2572,34 @@ val v_rel_IMP_v_to_words_lemma = prove(
   \\ Cases_on `h` \\ fs []);
 
 val v_rel_IMP_v_to_words = prove(
-  ``v_rel c g x y ==> v_to_words y = v_to_words x``,
+  ``v_rel c x y ==> v_to_words y = v_to_words x``,
   rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
 
 (* state relation *)
 
 val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
-  (!b bs. ref_rel c g (ByteArray b bs) (ByteArray b bs)) /\
+  (!b bs. ref_rel c (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
-    LIST_REL (v_rel c g) xs ys ==>
-    ref_rel c g (ValueArray xs) (ValueArray ys))`;
+    LIST_REL (v_rel c) xs ys ==>
+    ref_rel c (ValueArray xs) (ValueArray ys))`;
 
 val ref_rel_simps = save_thm("ref_rel_simps[simp]",LIST_CONJ [
-  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ValueArray vs) x``,
-  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray b bs) x``])
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c (ValueArray vs) x``,
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c (ByteArray b bs) x``])
 
 val ref_rel_upd_inline_factor = Q.store_thm(
   "ref_rel_upd_inline_factor",
   `ref_rel (c with inline_factor := k) = ref_rel c`,
   simp [FUN_EQ_THM, ref_rel_cases, v_rel_upd_inline_factor]);
 
-
 val state_rel_def = Define `
-  state_rel c g (s:(val_approx num_map#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
+  state_rel c (s:(val_approx num_map#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     (!n. fv_max 0 [FST (SND (s.compile_oracle n))]) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     s.clock = t.clock /\ s.ffi = t.ffi /\ s.max_app = t.max_app /\
-    LIST_REL (OPTREL (v_rel c g)) s.globals t.globals /\
-    fmap_rel (ref_rel c g) s.refs t.refs /\
+    LIST_REL (OPTREL (v_rel c)) s.globals t.globals /\
+    fmap_rel (ref_rel c) s.refs t.refs /\
     s.compile = state_cc (compile_inc c) t.compile  /\
     t.compile_oracle = state_co (compile_inc c) s.compile_oracle
 `;
@@ -2615,52 +2613,7 @@ val state_rel_upd_inline_factor = Q.store_thm(
   \\ simp [state_cc_def, state_co_def, LAMBDA_PROD,
            compile_inc_def, reset_inline_factor_def])
 
-val v_rel_subspt = Q.store_thm(
-  "v_rel_subspt",
-  `!c g v1 v2 g'. v_rel c g v1 v2 ∧ subspt g g' ⇒ v_rel c g' v1 v2`,
-  ho_match_mp_tac v_rel_ind >> simp[PULL_EXISTS] >> rpt strip_tac
-  >- (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
-      simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >> qexists_tac `v_rel c g` >>
-      simp[] >> metis_tac[MEM_EL])
-  >- (qexists_tac `aenv` >>
-      qexists_tac `env1a` >> simp[] >>
-      qexists_tac `env2a` >> simp[] >>
-      rpt conj_tac >>
-      TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
-           simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
-           qexists_tac `v_rel c g` >> simp[] >> metis_tac[MEM_EL]) >>
-      fs[exp_rel_def] >> metis_tac[subspt_trans])
-  >- (qexists_tac `aenv` >>
-      qexists_tac `env1a` >> simp[] >>
-      qexists_tac `env2a` >> simp[] >>
-      simp[] >> rpt conj_tac >>
-      TRY (irule EVERY2_MEM_MONO >> imp_res_tac LIST_REL_LENGTH >>
-           simp[FORALL_PROD, MEM_ZIP, PULL_EXISTS] >>
-           qexists_tac `v_rel c g` >> simp[] >> metis_tac[MEM_EL]) >>
-      qpat_x_assum `LIST_REL (f_rel _ _ _) _ _` mp_tac >> simp[LIST_REL_EL_EQN] >>
-      rpt strip_tac >> fs[] >> rfs[] >> rpt (pairarg_tac >> fs[]) >>
-      rename1 `nn < LENGTH _` >> first_x_assum (qspec_then `nn` mp_tac) >>
-      rename1 `f_rel _ _ _ (EL nn fns1) (EL nn fns2)` >>
-      Cases_on `EL nn fns1` >> Cases_on `EL nn fns2` >>
-      simp[] >> simp[f_rel_def, exp_rel_def] >> metis_tac[subspt_trans]));
-
-val v_rel_LIST_REL_subspt = Q.store_thm(
-  "v_rel_LIST_REL_subspt",
-  `∀vs1 vs2. LIST_REL (v_rel c g) vs1 vs2 ⇒
-             ∀g'. subspt g g' ⇒ LIST_REL (v_rel c g') vs1 vs2`,
-  Induct_on `LIST_REL` >> simp[] >> metis_tac[v_rel_subspt]);
-
-val ref_rel_subspt = Q.store_thm("ref_rel_subspt",
-  `!c g r1 r2 g'. ref_rel c g r1 r2 /\ subspt g g' ==> ref_rel c g' r1 r2`,
-  Cases_on `r1` \\ rw [] \\ metis_tac [v_rel_LIST_REL_subspt]);
-
-val state_rel_subspt = Q.store_thm("state_rel_subspt",
-  `!c g s1 s2 g'. state_rel c g s1 s2 /\ subspt g g' ==> state_rel c g' s1 s2`,
-  rw [state_rel_def]
-  THEN1 (irule LIST_REL_mono \\ metis_tac [OPTREL_MONO, v_rel_subspt])
-  THEN1 (irule fmap_rel_mono \\ metis_tac [ref_rel_subspt]));
-
-val evaluate_changed_globals_inst = INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``] evaluate_changed_globals
+(* val evaluate_changed_globals_inst = INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``] evaluate_changed_globals *)
 
 val co_every_Fn_vs_NONE_def = Define `
   co_every_Fn_vs_NONE co =
@@ -2675,7 +2628,7 @@ val co_every_Fn_vs_NONE_shift_seq =
   rpt strip_tac \\ fs [co_every_Fn_vs_NONE_def, shift_seq_def] \\ metis_tac [])
 
 val state_rel_co_set_globals = Q.store_thm("state_rel_co_set_globals",
-  `state_rel c g s t /\ ssgc_free s /\ oracle_state_sgc_free s.compile_oracle ==>
+  `state_rel c s t /\ ssgc_free s /\ oracle_state_sgc_free s.compile_oracle ==>
      set_globals (FST (SND (t.compile_oracle n))) <= set_globals (FST (SND (s.compile_oracle n)))`,
   strip_tac \\ fs [state_rel_def]
   \\ fs [state_co_def]
@@ -2694,7 +2647,7 @@ val state_rel_co_set_globals = Q.store_thm("state_rel_co_set_globals",
   \\ qpat_x_assum `!n e a. _` (qspec_then `nn` mp_tac) \\ simp []);
 
 val state_rel_first_n_exps = Q.store_thm("state_rel_first_n_exps",
-  `state_rel c g s t /\ ssgc_free s /\ oracle_state_sgc_free s.compile_oracle ==>
+  `state_rel c s t /\ ssgc_free s /\ oracle_state_sgc_free s.compile_oracle ==>
      elist_globals (first_n_exps t.compile_oracle n) <= elist_globals (first_n_exps s.compile_oracle n)`,
   strip_tac
   \\ imp_res_tac state_rel_co_set_globals
@@ -2704,7 +2657,7 @@ val state_rel_first_n_exps = Q.store_thm("state_rel_first_n_exps",
   \\ simp [SUB_BAG_UNION]);
 
 val state_rel_unique_set_globals = Q.store_thm("state_rel_unique_set_globals",
-  `!xs. state_rel c g s t /\ ssgc_free s /\ oracle_state_sgc_free s.compile_oracle /\
+  `!xs. state_rel c s t /\ ssgc_free s /\ oracle_state_sgc_free s.compile_oracle /\
    unique_set_globals xs s.compile_oracle ==> unique_set_globals xs t.compile_oracle`,
   rpt strip_tac
   \\ imp_res_tac state_rel_first_n_exps
@@ -2717,22 +2670,22 @@ val state_rel_unique_set_globals = Q.store_thm("state_rel_unique_set_globals",
   \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
 
 val state_rel_get_global_IMP = Q.store_thm("state_rel_get_global_IMP",
-  `!c g s t n v1. state_rel c g s t /\ get_global n s.globals = SOME (SOME v1) ==>
-   ?v2. get_global n t.globals = SOME (SOME v2) /\ v_rel c g v1 v2`,
+  `!c s t n v1. state_rel c s t /\ get_global n s.globals = SOME (SOME v1) ==>
+   ?v2. get_global n t.globals = SOME (SOME v2) /\ v_rel c v1 v2`,
   rw [state_rel_def, get_global_def, LIST_REL_EL_EQN]
   \\ metis_tac [OPTREL_SOME]);
 
 val do_app_lemma = Q.prove(
-  `!c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
+  `!c s t xs ys opp. state_rel c s t /\ LIST_REL (v_rel c) xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
-                            exc_rel (v_rel c g) err1 err2
-      | Rval (x, s1) => ?y t1. v_rel c g x y /\ state_rel c g s1 t1 /\
+                            exc_rel (v_rel c) err1 err2
+      | Rval (x, s1) => ?y t1. v_rel c x y /\ state_rel c s1 t1 /\
                                do_app opp ys t = Rval (y, t1)`,
   rpt gen_tac
   \\ match_mp_tac simple_val_rel_do_app
   \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw []
-                     \\ rename1 `v_rel _ _ xx _`
+                     \\ rename1 `v_rel _ xx _`
                      \\ Cases_on `xx` \\ fs [v_rel_def]
                      \\ metis_tac [])
   \\ fs [simple_state_rel_def, state_rel_def]
@@ -2825,7 +2778,7 @@ val known_correct0 = Q.prove(
      env2 xenv2 t0 c g0 g aenv eas.
       evaluate (xs, env1full, s0) = (res1, s) /\
       known c xs aenv g0 = (eas, g) /\
-      state_rel c (next_g s0) s0 t0 /\
+      state_rel c s0 t0 /\
       every_Fn_vs_NONE xs /\
       co_every_Fn_vs_NONE s0.compile_oracle /\
       EVERY esgc_free xs /\ ssgc_free s0 /\
@@ -2836,38 +2789,34 @@ val known_correct0 = Q.prove(
       state_globals_approx s0 (next_g s0) /\
       EVERY val_approx_sgc_free aenv /\
       fv_max (LENGTH env1) xs /\
-      LIST_REL (v_rel c (next_g s0)) env1 env2 /\
-      subspt g0 g /\ subspt g (next_g s0)/\
-      oracle_gapprox_subspt s0.compile_oracle /\
+      LIST_REL (v_rel c) env1 env2 /\
       unique_set_globals xs s0.compile_oracle /\
       env1full = env1 ++ xenv1 /\
       res1 <> Rerr (Rabort Rtype_error) ==>
       ?res2 t.
         evaluate (MAP FST eas, env2 ++ xenv2, t0) = (res2, t) /\
-        result_rel (LIST_REL (v_rel c (next_g s))) (v_rel c (next_g s)) res1 res2 /\
-        state_rel c (next_g s) s t /\
-        state_globals_approx s (next_g s) /\
-        (!vs. res1 = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs)) /\
+        result_rel (LIST_REL (v_rel c)) (v_rel c) res1 res2 /\
+        state_rel c s t /\
+        state_globals_approx s (next_g s)) /\
    (!lopt1 f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s lopt2 f2 args2 t0 c g argsopt.
       evaluate_app lopt1 f1 args1 s0 = (res1, s) /\
-      v_rel_app c (next_g s0) f1 f2 argsopt /\
+      v_rel_app c f1 f2 argsopt /\
       ssgc_free s0 /\ vsgc_free f1 /\ EVERY vsgc_free args1 /\
       oracle_gapprox_subspt s0.compile_oracle /\
       oracle_state_sgc_free s0.compile_oracle /\
       co_every_Fn_vs_NONE s0.compile_oracle /\
       unique_set_globals [] s0.compile_oracle /\
-      LIST_REL (v_rel c (next_g s0)) args1 args2 /\
-      state_rel c (next_g s0) s0 t0 /\
+      LIST_REL (v_rel c) args1 args2 /\
+      state_rel c s0 t0 /\
       state_globals_approx s0 (next_g s0) /\
       loptrel f2 (LENGTH args1) lopt1 lopt2 /\
       (IS_SOME argsopt ==> argsopt = SOME args1 /\ args1 <> [] /\ ?exp env. dest_closure s0.max_app lopt1 f1 args1 = SOME (Full_app exp env [])) /\
       res1 <> Rerr (Rabort Rtype_error) ==>
       ?res2 t.
         evaluate_app lopt2 f2 args2 t0 = (res2, t) /\
-        result_rel (LIST_REL (v_rel c (next_g s))) (v_rel c (next_g s)) res1 res2 /\
-        state_rel c (next_g s) s t /\
-        state_globals_approx s (next_g s) (* /\
-        (!v. res1 = Rval [v] ==> val_approx_val ??? v) *))`,
+        result_rel (LIST_REL (v_rel c)) (v_rel c) res1 res2 /\
+        state_rel c s t /\
+        state_globals_approx s (next_g s))`,
 
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
