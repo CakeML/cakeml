@@ -3272,13 +3272,43 @@ val orth_ctxt_simps = Q.store_thm("orth_ctxt_simps[simp]",
   >- (rw[orth_ctxt_def])
   >- (rw[orth_ctxt_def])      
   >- (rw[orth_ctxt_def]));
-                                  
+
+(* TODO: lemmas that should maybe go elsewhere *)
+val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
+  rw[MEM_MAP] >> metis_tac[FST]);
+
+val MEM_const_list = Q.prove(
+  `!cl prop name trm ctxt. MEM (ConstSpec cl prop) ctxt /\ MEM(name,trm) cl ==>
+   MEM name (MAP FST (const_list ctxt))`,
+  Induct_on `ctxt` \\ fs[]
+  \\ Cases \\ rw[] \\ fs[consts_of_upd_def]
+  \\ imp_res_tac MEM_PAIR_FST \\ fs[MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY]
+  \\ metis_tac[]);
+
 (* updates preserve well-formedness *)
 val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
   `!ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)`,
   rw[updates_cases]
   \\ fs[wf_ctxt_def]
-  >- (cheat)
+  >- (conj_tac
+      >- (fs[orth_ctxt_def] \\ rpt strip_tac
+          \\ rveq \\ fs[]
+          \\ TRY(rw[orth_ci_def] \\ NO_TAC)
+          >- (`name1 ≠ name2` suffices_by rw[orth_ci_def]
+              \\ CCONTR_TAC \\ fs[] \\ imp_res_tac ALOOKUP_ALL_DISTINCT_MEM
+              \\ rveq \\ fs[])
+          >- (`name1 ≠ name2` suffices_by rw[orth_ci_def]
+              \\ CCONTR_TAC \\ fs[]
+              \\ imp_res_tac MEM_PAIR_FST
+              \\ first_x_assum drule \\ strip_tac
+              \\ fs[] \\ imp_res_tac MEM_const_list)
+          >- (`name1 ≠ name2` suffices_by rw[orth_ci_def]
+              \\ CCONTR_TAC \\ fs[]
+              \\ imp_res_tac MEM_PAIR_FST
+              \\ first_x_assum drule \\ strip_tac
+              \\ fs[] \\ imp_res_tac MEM_const_list)
+          >> (first_x_assum ho_match_mp_tac >> metis_tac[]))
+      >- (cheat))
   >- (cheat));
 
 (* recover constant definition as a special case of specification *)
