@@ -575,6 +575,7 @@ val orth_ci_def = Define `
 `;
 val _ = Parse.temp_overload_on("#", ``$orth_ci``)
 
+
 (* Initial theory context *)
 
 val init_ctxt_def = Define`
@@ -629,6 +630,47 @@ val allCInsts_def = Define `
   /\ (allCInsts (Comb a b) = allCInsts a ++ allCInsts b)
   /\ (allCInsts (Abs _ a) = allCInsts a)
 `;
+
+(* dependency ctxt u v -- true iff there is a direct definitional dependency from
+ * u to v, where u and v are non-built-in (type/const)defs.
+ * This corresponds to \rightsquigarrow in the publication *)
+val (dependency_def,dependence_ind,dependency_cases) = Hol_reln
+  `
+  (!ctxt c1 c2 cl name ty cdefn prop.
+       MEM (ConstSpec cl prop) ctxt /\
+       c1 = Const name ty /\
+       MEM (name,cdefn) cl /\
+       cdefn has_type ty /\
+       MEM c2 (allCInsts cdefn)
+       ==>
+       dependency ctxt (INR c1) (INR c2)) /\
+  (!ctxt c t cl prop.
+       MEM (ConstSpec cl prop) ctxt /\
+       c1 = Const name ty /\
+       MEM (name,cdefn) cl /\
+       cdefn has_type ty /\
+       MEM t (allTypes cdefn)
+       ==>
+       dependency ctxt (INR c) (INL t)) /\
+  (!ctxt t1 t2 name pred abs rep tyargs.
+       MEM (TypeDefn name pred abs rep) ctxt
+       /\ MEM t2 (allTypes pred)
+       /\ t1 = Tyapp name tyargs
+       ==>
+       dependency ctxt (INL t1) (INL t2)) /\
+  (!ctxt t c name pred abs rep tyargs.
+       MEM (TypeDefn name pred abs rep) ctxt
+       /\ MEM c (allCInsts pred)
+       /\ t = Tyapp name tyargs
+       ==>
+       dependency ctxt (INL t) (INR c)) /\
+  (!ctxt c t1 t2.
+       c has_type t2
+       /\ MEM t1 (allTypes' t2)
+       ==>
+       dependency ctxt (INR c) (INL t1))
+  `
+
 
 (* Principles for extending the context *)
 
