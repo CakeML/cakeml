@@ -674,9 +674,16 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
 (* Type-substitutive closure of a relation.
  * Corresponds to \uparrow in the publication *)
 val subst_clos_def = Define `
-  subst_clos R = (\x y. (?x' y' sigma. x = TYPE_SUBST sigma x' /\ y = TYPE_SUBST sigma y'
-                     /\ R x' y'))
- `
+  (subst_clos R (INL t1) (INL t2) =
+    (?t1' t2' sigma. t1 = TYPE_SUBST sigma t1' /\ t2 = TYPE_SUBST sigma t2' /\ R (INL t1') (INL t2'))) /\
+  (subst_clos R (INL t) (INR c) =
+   (?t' c' sigma. t = TYPE_SUBST sigma t' /\ c = INST sigma c' /\ R (INL t') (INR c')))
+ /\
+  (subst_clos R (INR c) (INL t) =
+   (?t' c' sigma. t = TYPE_SUBST sigma t' /\ c = INST sigma c' /\ R (INR c') (INL t')))
+ /\
+  (subst_clos R (INR c1) (INR c2) =
+   (?c1' c2' sigma. c1 = INST sigma c1' /\ c2 = INST sigma c2' /\ R (INR c1') (INR c2')))`
 
 (* A terminating relation is a relation such that there is no infinite sequence
  *   x_0 R x_1 R x_2 R ... 
@@ -684,6 +691,35 @@ val subst_clos_def = Define `
 val terminating_def = Define `
  terminating R = ¬?x. !n. ?y. (NRC R (SUC n) x y)
  `
+
+(* A context is orthogonal if the LHS of all
+ * (type,const) definitions are pairwise orthogonal.
+ *)
+val orth_ctxt_def = Define `
+  orth_ctxt ctxt = 
+  ((!cl1 cl2 prop1 prop2 name1 name2 trm1 trm2.
+    MEM (ConstSpec cl1 prop1) ctxt  
+    /\ MEM (ConstSpec cl2 prop2) ctxt
+    /\ MEM (name1,trm1) cl1
+    /\ MEM (name2,trm2) cl2
+    /\ (name1,trm1) ≠ (name2,trm2) ==> 
+       (Const name1 (typeof trm1)) # (Const name2 (typeof trm2))) /\
+   (!name1 name2 pred1 pred2 abs1 abs2 rep1 rep2.
+    MEM (TypeDefn name1 pred1 abs1 rep1) ctxt  
+    /\ MEM (TypeDefn name2 pred2 abs2 rep2) ctxt
+    /\ (name1,pred1,abs1,rep1) ≠ (name2,pred2,abs2,rep2) ==> 
+       Tyapp name1 (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred1)))))
+       # Tyapp name2 (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred2)))))
+   ))
+`
+
+(* A well-formed context is orthogonal, and the substitution closure
+   of its dependency relation is terminating.
+ *)
+val wf_ctxt_def = Define `
+  wf_ctxt ctxt = 
+  (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
+  `
 
 (* Principles for extending the context *)
 
