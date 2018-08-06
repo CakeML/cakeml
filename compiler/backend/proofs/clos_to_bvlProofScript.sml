@@ -6300,6 +6300,17 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE[simp]",
    every_Fn_vs_NONE es`,
   Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def]);
 
+val compile_code_locs_ALL_DISTINCT = Q.store_thm("compile_code_locs_ALL_DISTINCT",
+  `clos_call$compile do_call es = (xs,aux) ∧
+   ALL_DISTINCT (code_locs es)
+  ⇒
+   ALL_DISTINCT (code_locs xs ++ code_locs (MAP (SND o SND) aux))`,
+  Cases_on`do_call` \\ rw[clos_callTheory.compile_def]
+  \\ rw[] \\ fs[code_locs_def]
+  \\ pairarg_tac \\ fs[]
+  \\ drule clos_callProofTheory.calls_code_locs_ALL_DISTINCT
+  \\ rw[code_locs_def]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
