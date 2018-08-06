@@ -172,6 +172,10 @@ val first_n_exps_shift_seq = Q.store_thm("first_n_exps_shift_seq",
   \\ fs [GENLIST]
   \\ fs [shift_seq_def])
 
+val MEM_first_n_exps = Q.store_thm("MEM_first_n_exps",
+  `!k n. k < n ==> !co. MEM (FST (SND (co k))) (first_n_exps co n)`,
+  rw [first_n_exps_def, MEM_GENLIST] \\ metis_tac []);
+
 (* All globals set in the program and in code returned by
    the compile oracle are unique. *)
 val unique_set_globals_def = Define `
@@ -198,6 +202,7 @@ val unique_set_globals_evaluate = Q.store_thm(
 val BAG_DISJOINT_SYM = Q.prove(
   `!b1 b2. BAG_DISJOINT b1 b2 <=> BAG_DISJOINT b2 b1`,
   simp [BAG_DISJOINT, DISJOINT_SYM]);
+
 
 val unique_set_globals_subexps = Q.store_thm("unique_set_globals_subexps",
  `(unique_set_globals (x1::x2::xs) co ==>
@@ -746,7 +751,7 @@ val known_op_correct_approx = Q.store_thm(
   \\ Cases_on `opn`
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
-  \\ rpt strip_tac \\ rveq \\ fs[]  
+  \\ rpt strip_tac \\ rveq \\ fs[]
   THEN1
    (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
   THEN1
@@ -812,7 +817,7 @@ val known_op_correct_approx = Q.store_thm(
     \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
   THEN1
    (rveq \\ fs [LIST_REL_EL_EQN]));
- 
+
 
 *)
 
@@ -828,7 +833,7 @@ val known_op_correct_approx = Q.store_thm(
   \\ Cases_on `opn`
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
-  \\ rpt strip_tac \\ rveq \\ fs[]  
+  \\ rpt strip_tac \\ rveq \\ fs[]
   THEN1
    (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
   THEN1
@@ -1386,15 +1391,20 @@ val oracle_gapprox_disjoint_evaluate = Q.store_thm(
 
 val oracle_gapprox_disjoint_first_n_exps = Q.store_thm(
   "oracle_gapprox_disjoint_first_n_exps",
-  `!g co. oracle_gapprox_disjoint g co ==>
+  `!g co. oracle_gapprox_disjoint g co <=>
      !n. gapprox_disjoint g (first_n_exps co n)`,
   rpt gen_tac
   \\ simp [first_n_exps_def, oracle_gapprox_disjoint_def, gapprox_disjoint_def]
-  \\ strip_tac
-  \\ Induct \\ simp []
-  \\ simp [GENLIST, SNOC_APPEND, elist_globals_append,
-           SET_OF_BAG_UNION]
-  \\ simp [DISJOINT_SYM]);
+  \\ eq_tac
+  THEN1
+   (strip_tac
+    \\ Induct \\ simp []
+    \\ simp [GENLIST, SNOC_APPEND, elist_globals_append,
+             SET_OF_BAG_UNION]
+    \\ simp [DISJOINT_SYM])
+  \\ rw []
+  \\ pop_assum (qspec_then `SUC n` assume_tac)
+  \\ fs [GENLIST, SNOC_APPEND, elist_globals_append, SET_OF_BAG_UNION, DISJOINT_SYM]);
 
 val mk_Ticks_esgc_free = Q.store_thm(
   "mk_Ticks_esgc_free[simp]",
@@ -1887,6 +1897,42 @@ val state_globals_approx_known_op_evaluate = Q.store_thm(
    \\ fs [mglobals_disjoint_def, DISJOINT_ALT, mapped_globals_def, PULL_EXISTS]
    \\ metis_tac []);
 
+
+val elist_globals_first_n_exps_lemma = Q.store_thm("elist_globals_first_n_exps_lemma",
+  `!i k co. i ⋲ set_globals (FST (SND (co k))) ==>
+         !n. k < n ==> i ⋲ elist_globals (first_n_exps co n)`,
+  rw []
+  \\ `MEM (FST (SND (co k))) (first_n_exps co n)` by metis_tac [MEM_first_n_exps]
+  \\ fs [MEM_SPLIT, elist_globals_append]);
+
+
+val oracle_gapprox_disjoint_lemma  = Q.store_thm(
+  "oracle_gapprox_disjoint_lemma",
+  `!xs env s0 res s c aenv g0 eas g.
+     evaluate (xs,env,s0) = (res,s) /\
+     known c xs aenv g0 = (eas, g) /\
+     unique_set_globals xs s0.compile_oracle /\
+(*   (!n. BAG_DISJOINT (elist_globals xs) (elist_globals (first_n_exps s0.compile_oracle n))) /\ *)
+   oracle_gapprox_disjoint g0 s0.compile_oracle ==>
+   oracle_gapprox_disjoint g s.compile_oracle`,
+   rw []
+   \\ rw [oracle_gapprox_disjoint_def, gapprox_disjoint_def,
+       DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+   \\ imp_res_tac evaluate_IMP_shift_seq
+   \\ drule known_changed_globals_cases
+   \\ disch_then drule \\ reverse strip_tac
+   THEN1
+    (fs [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
+     \\ fs [BAG_DISJOINT_BAG_IN]
+     \\ simp [shift_seq_def]
+     \\ spose_not_then assume_tac
+     \\ drule elist_globals_first_n_exps_lemma
+     \\ disch_then (qspec_then `k + n + 1` mp_tac) \\ simp []
+     \\ metis_tac [])
+   \\ fs [oracle_gapprox_disjoint_def, gapprox_disjoint_def, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+   \\ res_tac \\ simp [shift_seq_def]);
+
+
 val say = say0 "known_correct_approx";
 
 val known_correct_approx = Q.store_thm(
@@ -1898,11 +1944,8 @@ val known_correct_approx = Q.store_thm(
    unique_set_globals xs s0.compile_oracle /\
    LIST_REL val_approx_val aenv env /\
    state_globals_approx s0 g0 /\
-   (* gapprox_disjoint g0 xs /\ *)
    mglobals_disjoint s0 xs /\
-   (* oracle_gapprox_disjoint g0 s0.compile_oracle /\ *)
-   (* subspt g0 g /\ subspt g g' /\ *)
-   (* oracle_gapprox_subspt s0.compile_oracle /\ *)
+   oracle_gapprox_disjoint g0 s0.compile_oracle /\
    ssgc_free s0 /\ EVERY vsgc_free (env ++ extra) /\ EVERY esgc_free xs /\
    EVERY val_approx_sgc_free aenv /\ globals_approx_sgc_free g0
    ==>
@@ -1917,11 +1960,13 @@ val known_correct_approx = Q.store_thm(
   THEN1
    (say "NIL" \\ fs [evaluate_def] \\ rveq \\ fs [])
   THEN1
-   (say "CONS" 
+   (say "CONS"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ rename1 `known _ _ _ g0 = (_, g1)`
     \\ fs [evaluate_def, pair_case_eq]
-    \\ fs [fv_max_rw, gapprox_disjoint_rw, mglobals_disjoint_rw]
+    \\ drule oracle_gapprox_disjoint_lemma
+    \\ rpt (disch_then drule \\ simp []) \\ strip_tac
+    \\ fs [fv_max_rw, mglobals_disjoint_rw]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp []) \\ strip_tac
     \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
     THEN1
@@ -1938,6 +1983,7 @@ val known_correct_approx = Q.store_thm(
        by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
            \\ rpt (disch_then drule \\ simp []))
     \\ simp []
+    \\ imp_res_tac oracle_gapprox_disjoint_evaluate
     \\ impl_tac
     THEN1
      (match_mp_tac mglobals_disjoint_evaluate
@@ -2140,10 +2186,12 @@ val known_correct_approx = Q.store_thm(
            \\ last_assum (mp_then (Pos hd) mp_tac mglobals_extend_trans)
            \\ disch_then drule
            \\ fs [first_n_exps_shift_seq, SET_OF_BAG_UNION])
-    \\ `oracle_gapprox_disjoint g s1.compile_oracle` by cheat
+    \\ `oracle_gapprox_disjoint g s1.compile_oracle`
+       by (irule oracle_gapprox_disjoint_lemma
+           \\ rpt (goal_assum drule \\ simp []))
+    \\ pop_assum mp_tac \\ simp [oracle_gapprox_disjoint_first_n_exps]
     \\ rw [state_globals_approx_def]
-    \\ imp_res_tac oracle_gapprox_disjoint_first_n_exps
-    \\ pop_assum (qspec_then `n` assume_tac)
+    \\ first_x_assum (qspec_then `n` assume_tac)
     \\ fs [gapprox_disjoint_def, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
     \\ pop_assum drule \\ strip_tac
     \\ fs [mglobals_extend_def]
@@ -2258,7 +2306,7 @@ val known_correct_approx = Q.store_thm(
       \\ drule evaluate_app_changed_globals \\ simp [] \\ strip_tac
       \\ cheat (* Similar situation as the goal in the Install case.
                   HAVE: state_globals_approx s2 (next_g s2)
-                  NEED: state_globals_approx s (next_g s) 
+                  NEED: state_globals_approx s (next_g s)
                   Globals updated by exprs from the compile_oracle. *))*))
 
   THEN1
@@ -2372,7 +2420,7 @@ val v_rel_app_def = Define `
        LIST_REL val_approx_val aenv env1a /\
        (case args1 of
          | NONE => aargs = REPLICATE num_args Other
-	 | SOME args1' => LIST_REL val_approx_val aargs args1' /\
+         | SOME args1' => LIST_REL val_approx_val aargs args1' /\
                           pargs1 = []) /\
        exp_rel c (aargs ++ aenv) g e1 e2 /\
        v = Closure loc_opt pargs2 (env2a ++ env2b) num_args e2) /\
@@ -3127,7 +3175,7 @@ val known_correct0 = Q.prove(
            oracle_state_sgc_free_shift_seq,
            unique_set_globals_shift_seq]
     \\ patresolve `known _ _ _ g0 = _` hd known_preserves_esgc_free
-    \\ simp [] \\ strip_tac  
+    \\ simp [] \\ strip_tac
     \\ reverse (fs [inlD_case_eq]) \\ rveq
 (*
     \\ `subspt (next_g s0) (next_g s1) /\ subspt (next_g s1) (next_g s)`
