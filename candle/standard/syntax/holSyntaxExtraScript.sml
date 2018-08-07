@@ -3393,7 +3393,45 @@ val finite_ordered_IMP_terminating = Q.store_thm("finite_ordered_IMP_terminating
   >> `FINITE (IMAGE FST (rel_to_reln R))` by(metis_tac[IMAGE_FINITE])
   >> drule CARD_SUBSET >> disch_then drule >> strip_tac
   >> fs[]);
-  
+
+(* normalisation of type variable names *)
+val normalise_tyvars_def = Define `normalise_tyvars ty =
+  let tvs = tyvars ty;
+      ntvs = GENLIST (λn. Tyvar(strlit(REPLICATE (SUC n) #"a"))) (LENGTH tvs);
+  in
+    TYPE_SUBST (ZIP(ntvs,MAP Tyvar tvs)) ty`
+
+val normalise_tvars_def = Define `normalise_tvars tm =
+  let tvs = tvars tm;
+      ntvs = GENLIST (λn. Tyvar(strlit(REPLICATE (SUC n) #"a"))) (LENGTH tvs);
+  in
+    INST (ZIP(ntvs,MAP Tyvar tvs)) tm`
+
+(* Quotient of a relation under type variable name normalisation*)
+val normalise_rel_def = Define
+  `normalise_rel R = (λx y. ?x' y'. R x' y' /\
+                         x = (normalise_tyvars ⧺ normalise_tvars) x' /\
+                         y = (normalise_tyvars ⧺ normalise_tvars) y')`
+
+val terminating_normalise_rel = Q.store_thm("terminating_normalise_rel",
+  `terminating(normalise_rel R) ==> terminating R`,
+  rw[terminating_def,normalise_rel_def]
+  >> first_x_assum(qspec_then `(normalise_tyvars ⧺ normalise_tvars) x` strip_assume_tac)
+  >> qexists_tac `n`
+  >> strip_tac
+  >> first_x_assum(qspec_then `(normalise_tyvars ⧺ normalise_tvars) y` mp_tac)
+  >> simp[GSYM MONO_NOT_EQ]
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`y`,`x`]
+  >> Induct_on `n`
+  >- (rw[] >> metis_tac[])
+  >- (PURE_ONCE_REWRITE_TAC[NRC]
+      >> rw[PULL_EXISTS] >> asm_exists_tac
+      >> rw[]));
+
+val finite_normalise_clos = Q.store_thm("finite_normalise_clos",
+  `FINITE(rel_to_reln R) ==> FINITE(rel_to_reln(normalise_rel(subst_clos R)))`,
+  cheat);
+
 (* updates preserve well-formedness *)
 val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
   `!ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)`,
