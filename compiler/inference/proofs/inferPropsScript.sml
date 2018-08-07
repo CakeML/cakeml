@@ -667,8 +667,7 @@ val success_eqns =
              read_def, option_case_eq, check_dups_success,
              type_name_check_subst_success,
              check_ctor_types_success,
-             check_ctors_success, check_type_definition_success
-             ];
+             check_ctors_success];
 
 val _ = save_thm ("success_eqns", success_eqns);
 
