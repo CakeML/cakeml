@@ -3293,6 +3293,107 @@ val MEM_type_list = Q.prove(
   \\ imp_res_tac MEM_PAIR_FST \\ fs[MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY]
   \\ metis_tac[]);
 
+val NRC_TC_IMP_NRC = Q.store_thm("NRC_TC_IMP_NRC",
+  `!R n x y. NRC (R⁺) n x y ==> ?n'. NRC R n' x y /\ n' >= n`,
+  Induct_on `n`
+  >- (rw[] >> qexists_tac `0` >> rw[])
+  >- (rw[NRC] >> fs[TC_eq_NRC]
+      >> first_x_assum drule >> strip_tac
+      >> Q.REFINE_EXISTS_TAC `_ + _`
+      >> rw[NRC_ADD_EQN,PULL_EXISTS]
+      >> asm_exists_tac >> rw[]
+      >> asm_exists_tac >> rw[]));
+
+val NRC_TC_EQ_NRC = Q.store_thm("NRC_TC_EQ_NRC",
+  `!R n x y. NRC (R⁺) (SUC n) x y = ?n'. (NRC R (SUC n') x y /\ n <= n')`,
+  Induct_on `n` >- fs[TC_eq_NRC]
+  >> rw[Once NRC]
+  >> rw[EQ_IMP_THM]
+  >- (fs[TC_eq_NRC] >> Q.REFINE_EXISTS_TAC `_ + _`
+      >> rw[Once SUC_ADD_SYM]
+      >> rw[NRC_ADD_EQN,PULL_EXISTS]
+      >> asm_exists_tac >> rw[]
+      >> asm_exists_tac >> rw[])
+  >> Cases_on `n'` >> fs[NRC]
+  >> fs[PULL_EXISTS] >> metis_tac [TC_RULES]);
+
+(* properties of terminating relationships *)
+val terminating_TC = Q.store_thm("terminating_TC",
+  `!R. terminating(TC R) ==> terminating R`,
+  rw[terminating_def] >> pop_assum(qspec_then `x` assume_tac)
+  >> fs[NRC_TC_EQ_NRC]
+  >> qexists_tac `n`
+  >> strip_tac >> pop_assum(qspecl_then [`y`,`n`] assume_tac)
+  >> fs[]);
+
+val LRC_IMP_NRC = Q.prove(`LRC R l x y ==> NRC R (LENGTH l) x y`,
+  metis_tac[NRC_LRC]);
+
+val EXTEND_RTC_TC' = Q.prove(`∀R x y z. R^* x y ∧ R y z ⇒ R⁺ x z`,
+  rw[] \\ imp_res_tac RTC_TC_RC \\ fs[RC_DEF] \\ metis_tac[TC_RULES]);
+
+val transitive_superreln_incl_TC = Q.prove(
+  `!x y. R⁺ x y ==> !R'. rel_to_reln R ⊆ rel_to_reln R' /\ transitive R' ==> R' x y`,
+  ho_match_mp_tac TC_INDUCT \\ rpt strip_tac
+  >- fs[rel_to_reln_def,SUBSET_DEF,PULL_EXISTS]
+  \\ rpt(first_x_assum drule \\ disch_then drule \\ strip_tac)
+  \\ metis_tac[transitive_def]);
+
+val LRC_rhs_rel = Q.prove(
+ `!R l x y. LRC R l x y ==> EVERY (λe. ?e'. R e e' ) l`,
+ Induct_on `l` >> rw[LRC_def] >> metis_tac[]);
+
+val transitive_antisym_LRC_ALL_DISTINCT = Q.prove(
+  `!R R' l x y. rel_to_reln R ⊆ rel_to_reln R'
+   /\ (!x y. R' x y ==> ¬R' y x)
+   /\ transitive R'
+   /\ LRC R l x y
+   ==> ALL_DISTINCT(l ++ [y])`,
+  Induct_on `l` >- rw[]
+  >> rpt strip_tac
+  >> `ALL_DISTINCT(l ++ [y])`
+       by(first_x_assum match_mp_tac >> asm_exists_tac >> fs[LRC_def] >> metis_tac[])
+  >> fs[] >> CCONTR_TAC >> fs[]
+  >- (drule(GEN_ALL LRC_MEM_right) >> disch_then drule \\ strip_tac
+      >> drule LRC_IMP_NRC \\ strip_tac
+      >> dxrule NRC_RTC \\ strip_tac
+      >> drule EXTEND_RTC_TC' >> disch_then drule \\ strip_tac
+      \\ drule transitive_superreln_incl_TC
+      \\ metis_tac[LRC_def])
+  >> rveq
+  >> drule(LRC_IMP_NRC) \\ strip_tac
+  >> fs[]
+  >> imp_res_tac TC_eq_NRC
+  >> drule transitive_superreln_incl_TC
+  >> metis_tac[LRC_def])
+
+val finite_ordered_IMP_terminating = Q.store_thm("finite_ordered_IMP_terminating",
+  `(!x y. R' x y ==> ¬R' y x)
+   /\ transitive R' /\ rel_to_reln R ⊆ rel_to_reln R'
+   /\ FINITE(rel_to_reln R)
+   ==> terminating R`,
+  rw[terminating_def]
+  >> CCONTR_TAC >> fs[]
+  >> first_x_assum(qspec_then `CARD(rel_to_reln R)` assume_tac)
+  >> fs[]
+  >> imp_res_tac TC_eq_NRC
+  >> fs[NRC_LRC]
+  >> drule transitive_antisym_LRC_ALL_DISTINCT
+  >> rpt(disch_then drule)
+  >> strip_tac
+  >> drule LRC_rhs_rel \\ strip_tac
+  >> fs[EVERY_MEM]
+  >> `set ls ⊆ (IMAGE FST (rel_to_reln R))`
+     by(fs[SUBSET_DEF] \\ rpt strip_tac
+        \\ fs[rel_to_reln_def,PULL_EXISTS])
+  >> `CARD (IMAGE FST (rel_to_reln R)) <= CARD(rel_to_reln R)`
+      by(metis_tac[CARD_IMAGE])
+  >> fs[ALL_DISTINCT_APPEND]
+  >> imp_res_tac ALL_DISTINCT_CARD_LIST_TO_SET
+  >> `FINITE (IMAGE FST (rel_to_reln R))` by(metis_tac[IMAGE_FINITE])
+  >> drule CARD_SUBSET >> disch_then drule >> strip_tac
+  >> fs[]);
+  
 (* updates preserve well-formedness *)
 val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
   `!ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)`,
@@ -3315,7 +3416,7 @@ val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
               \\ imp_res_tac MEM_PAIR_FST
               \\ first_x_assum drule \\ strip_tac
               \\ fs[] \\ imp_res_tac MEM_const_list)
-          >> (first_x_assum ho_match_mp_tac >> metis_tac[]))
+          \\ (first_x_assum ho_match_mp_tac \\ metis_tac[]))
       >- (cheat))
   >- (conj_tac
       >- (fs[orth_ctxt_def] \\ rpt strip_tac
@@ -3327,7 +3428,7 @@ val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
                  \\ imp_res_tac MEM_PAIR_FST
                  \\ first_x_assum drule \\ strip_tac
                  \\ fs[] \\ imp_res_tac MEM_type_list \\ NO_TAC)
-          \\ first_x_assum ho_match_mp_tac >> metis_tac[])
+          \\ first_x_assum ho_match_mp_tac \\ metis_tac[])
       >- (cheat)
      ));
 
