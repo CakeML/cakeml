@@ -805,6 +805,7 @@ val _ = start_dynamic_init_fixed_store_translation
 (* Translate basics -- TODO: remove in bootstrap *)
 
 val res = translate NULL
+val res = translate MAP
 val res = translate FILTER
 val res = translate EVEN
 val res = translate FST
@@ -838,18 +839,28 @@ val front_side = prove(
 
 val res = translate lookup_def
 val res = translate insert_def
+val res = translate union_def
 val res = translate is_stack_var_def
 val res = translate is_phy_var_def
-val res = m_translate st_ex_MAP_def
-val res = translate pair_CASE_def
+val res = translate fromAList_def;
 
 (* Translate linear scan register allocator *)
 
-val res = m_translate spill_register_def
-val res = m_translate MAP_colors_def
-val res = m_translate st_ex_FOLDL_def
+val map_colors_sub_def = Define `
+  (map_colors_sub [] = return []) ∧
+  (map_colors_sub (x::xs) =
+     do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
 
-val res = m_translate remove_inactive_intervals_def
+val map_colors_sub_eq = store_thm("map_colors_sub_eq",
+  ``map_colors_sub = st_ex_MAP colors_sub``,
+  once_rewrite_tac [FUN_EQ_THM]
+  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
+
+val res = m_translate spill_register_def;
+val res = m_translate MAP_colors_def;
+val res = m_translate st_ex_FOLDL_def;
+val res = m_translate map_colors_sub_def;
+val res = m_translate remove_inactive_intervals_def;
 
 val res = translate linear_reg_alloc_pass1_initial_state_def
 val res = translate linear_reg_alloc_pass2_initial_state_def
@@ -858,12 +869,15 @@ val res = translate find_color_in_list_def
 val res = translate find_color_in_colornum_def
 val res = translate find_color_def
 val res = m_translate color_register_def
-
-val res = m_translate find_spill_def (* problem: FRONT unprovable *)
-
+val res = m_translate find_last_stealable_def;
+val res = m_translate find_spill_def;
 val res = m_translate linear_reg_alloc_step_aux_def
-val res = m_translate linear_reg_alloc_step_pass1_def
-val res = m_translate linear_reg_alloc_step_pass2_def
+
+val res = m_translate (linear_reg_alloc_step_pass1_def
+                       |> REWRITE_RULE [GSYM map_colors_sub_eq]);
+val res = m_translate (linear_reg_alloc_step_pass2_def
+                       |> REWRITE_RULE [GSYM map_colors_sub_eq]);
+
 val res = m_translate find_reg_exchange_def
 val res = m_translate apply_reg_exchange_def
 
