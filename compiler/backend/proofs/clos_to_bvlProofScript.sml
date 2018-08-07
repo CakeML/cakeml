@@ -6619,6 +6619,12 @@ val syntax_oracle_ok_def = Define`
     ¬contains_App_SOME c.max_app es ∧
     clos_knownProof$syntax_ok es`;
 
+val compile_common_max_app = Q.store_thm("compile_common_max_app",
+  `compile_common c es = (c',es') ⇒ c'.max_app = c.max_app`,
+  simp[compile_common_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ strip_tac \\ rveq \\ fs[]);
+
 val compile_semantics = store_thm("compile_semantics",
   ``semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co (compile_inc c cc) es ≠ Fail ∧
     compile c es = (c', prog) ∧
@@ -6640,7 +6646,7 @@ val compile_semantics = store_thm("compile_semantics",
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
-  \\ `c''.max_app = c.max_app` by cheat (* compile_common max_app *)
+  \\ `c''.max_app = c.max_app` by imp_res_tac compile_common_max_app
   \\ conj_tac >- cheat (* prove ALOOKUP_compile_common *)
   \\ conj_tac >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
   \\ conj_tac >- cheat (* syntax_ok for compile_common *)
