@@ -2,7 +2,6 @@ open preamble sptreeTheory reg_allocTheory libTheory
 open mergesortTheory sortingTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
 open ml_monad_translatorLib ml_translatorTheory;
-open libTheory
 
 val _ = new_theory "linear_scan"
 
@@ -505,7 +504,7 @@ val find_color_in_colornum_def = tDefine "find_color_in_colornum" `
 val find_color_def = Define`
     find_color st forbidden =
         case find_color_in_list st.colorpool forbidden of
-        | SOME reg => (st, SOME reg)
+        | SOME col => (st, SOME col)
         | NONE => find_color_in_colornum st forbidden
 `
 
@@ -530,20 +529,45 @@ val color_register_def = Define`
       od
 `
 
-val find_spill_def = Define`
-    find_spill st reg rend force =
-        if NULL (st.active) then
-          spill_register st reg
-        else
-          let (lastend, lastreg) = LAST st.active in
-          if force \/ rend < lastend then
+val find_last_stealable_def = Define`
+  (
+    find_last_stealable [] forbidden =
+        return NONE
+  ) /\ (
+    find_last_stealable (x::xs) forbidden =
+      do
+        recursion <- find_last_stealable xs forbidden;
+        case recursion of
+        | SOME (steal, rest) => return (SOME (steal, x::rest))
+        | NONE => (
             do
-              lastcolor <- colors_sub lastreg;
-              st' <- color_register (st with active updated_by FRONT) reg lastcolor rend;
-              spill_register st' lastreg;
+              xcol <- colors_sub (SND x);
+              if ~(is_phy_var (SND x)) /\ (lookup xcol forbidden = NONE) then
+                return (SOME (x, xs))
+              else
+                return NONE
+            od
+        )
+      od
+  )
+`
+
+val find_spill_def = Define`
+    find_spill st forbidden reg rend force =
+      do
+        stealable <- find_last_stealable st.active forbidden;
+        case stealable of
+        | NONE => spill_register st reg
+        | SOME ((stealend, stealreg), newactive) =>
+          if force \/ rend < stealend then
+            do
+              stealcolor <- colors_sub stealreg;
+              st' <- color_register (st with active := newactive) reg stealcolor rend;
+              spill_register st' stealreg;
             od
           else
             spill_register st reg
+      od
 `
 
 val linear_reg_alloc_step_aux_def = Define`
@@ -553,7 +577,7 @@ val linear_reg_alloc_step_aux_def = Define`
       | NONE => (
         case find_color st forbidden of
         | (st', SOME col) => color_register st' reg col rend
-        | (st', NONE) => find_spill st' reg rend force
+        | (st', NONE) => find_spill st' forbidden reg rend force
       )
 `
 
@@ -570,7 +594,7 @@ val linear_reg_alloc_step_pass1_def = Define`
             forced_forbidden_list <- st_ex_MAP colors_sub (option_CASE (lookup reg forced) [] (\x.x));
             let forced_forbidden = fromAList (MAP (\c. (c,())) forced_forbidden_list) in
             if is_phy_var reg then
-              if reg <= 2*(st'.colormax) then
+              if reg < 2*(st'.colormax) then
                 let forbidden = union st'.phyregs forced_forbidden in
                 do
                   st'' <- linear_reg_alloc_step_aux st' forbidden [] reg rend T;
@@ -677,12 +701,25 @@ val st_ex_FOLDL_def = Define`
       od
   )`
 
+(* like st_ex_FILTER, but preserve the order *)
+val st_ex_FILTER_good_def = Define`
+  (
+    st_ex_FILTER_good P [] = return []
+  ) /\ (
+    st_ex_FILTER_good P (x::xs) =
+      do
+        Px <- P x;
+        filter_xs <- st_ex_FILTER_good P xs;
+        return (x::filter_xs)
+      od
+  )`
+
 val edges_to_adjlist_def = Define`
   (
     edges_to_adjlist [] (int_beg : int num_map) acc = acc
   ) /\ (
     edges_to_adjlist ((a,b)::abs) int_beg acc =
-      if the 0 (lookup a int_beg) <= the 0 (lookup b int_beg) then
+      if ($<= LEX $<=) (the 0 (lookup a int_beg), a) (the 0 (lookup b int_beg), b) then
         case lookup b acc of
         | SOME l => edges_to_adjlist abs int_beg (insert b (a::l) acc)
         | NONE => edges_to_adjlist abs int_beg (insert b [a] acc)
@@ -697,19 +734,21 @@ val linear_reg_alloc_aux_def = Define`
     linear_reg_alloc_aux int_beg int_end k forced moves =
         let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves moves)) int_beg LN in
         let forced_adjlist = edges_to_adjlist forced int_beg LN in
-        let reglist = mergesort (\r1 r2. the 0 (lookup r1 int_beg) <= the 0 (lookup r2 int_beg)) (MAP FST (toAList int_beg)) in
+        let reglist = mergesort (\r1 r2. ($<= LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) (MAP FST (toAList int_beg)) in
+        let phyregs = FILTER is_phy_var reglist in
+        let phyphyregs = FILTER (\r. r < 2*k) phyregs in
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
         do
           st_end_pass1 <- st_ex_FOLDL (linear_reg_alloc_step_pass1 int_beg int_end forced_adjlist moves_adjlist) st_init_pass1 reglist;
-          stacklist <- st_ex_FILTER (\r.
+          apply_reg_exchange phyphyregs;
+          stacklist <- st_ex_FILTER_good (\r.
             do
               col <- colors_sub r;
-              return (k <= col);
+              return (is_stack_var r \/ k <= col);
             od
-          ) reglist [];
+          ) reglist;
           st_init_pass2 <- return (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist));
-          st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist moves_adjlist) st_init_pass2 (REVERSE stacklist);
-          phyregs <- return (FILTER is_phy_var reglist);
+          st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist moves_adjlist) st_init_pass2 stacklist;
           apply_reg_exchange phyregs;
         od
 `
