@@ -3285,6 +3285,14 @@ val MEM_const_list = Q.prove(
   \\ imp_res_tac MEM_PAIR_FST \\ fs[MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY]
   \\ metis_tac[]);
 
+val MEM_type_list = Q.prove(
+  `!name pred abs rep ctxt. MEM (TypeDefn name pred abs rep) ctxt ==>
+   MEM name (MAP FST (type_list ctxt))`,
+  Induct_on `ctxt` \\ fs[]
+  \\ Cases \\ rw[] \\ fs[consts_of_upd_def]
+  \\ imp_res_tac MEM_PAIR_FST \\ fs[MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY]
+  \\ metis_tac[]);
+
 (* updates preserve well-formedness *)
 val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
   `!ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)`,
@@ -3309,7 +3317,19 @@ val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
               \\ fs[] \\ imp_res_tac MEM_const_list)
           >> (first_x_assum ho_match_mp_tac >> metis_tac[]))
       >- (cheat))
-  >- (cheat));
+  >- (conj_tac
+      >- (fs[orth_ctxt_def] \\ rpt strip_tac
+          \\ rveq \\ fs[]
+          \\ TRY(rw[orth_ty_def] \\ NO_TAC)
+          \\ TRY(qmatch_goalsub_abbrev_tac `orth_ty (Tyapp namel _) (Tyapp namer _)`
+                 \\ `namel ≠ namer` suffices_by rw[orth_ty_def]
+                 \\ CCONTR_TAC \\ fs[]
+                 \\ imp_res_tac MEM_PAIR_FST
+                 \\ first_x_assum drule \\ strip_tac
+                 \\ fs[] \\ imp_res_tac MEM_type_list \\ NO_TAC)
+          \\ first_x_assum ho_match_mp_tac >> metis_tac[])
+      >- (cheat)
+     ));
 
 (* recover constant definition as a special case of specification *)
 
