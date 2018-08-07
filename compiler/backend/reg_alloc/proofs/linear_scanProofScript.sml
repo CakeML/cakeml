@@ -3,6 +3,8 @@ open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "linear_scanProof"
 
+val _ = disable_tyabbrev_printing "type_ident"
+
 val is_subset_compute_eq = Q.store_thm("is_subset_compute_eq",
     `!s1 s2. is_subset_compute s1 s2 <=>
     !x. (?y1. lookup x s1 = SOME y1) ==> (?y2. lookup x s2 = SOME y2)`,
@@ -2297,7 +2299,7 @@ val get_intervals_withlive_beg_eq_get_intervals_beg = Q.store_thm("get_intervals
     `!lt n beg end n' beg' end'.
     (n, beg, end) = get_intervals_withlive (fix_domination lt) 0 LN LN LN /\
     (n', beg', end') = get_intervals (fix_domination lt) 0 LN LN ==>
-    !r. lookup r beg = lookup r beg'`,
+    !(r:num). lookup r beg = lookup r beg'`,
 
     rw [] >>
     imp_res_tac get_intervals_withlive_domain_eq_live_tree_registers >>
