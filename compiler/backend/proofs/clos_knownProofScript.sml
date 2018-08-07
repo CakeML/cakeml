@@ -1975,7 +1975,7 @@ val known_correct_approx = Q.store_thm(
     \\ fs [any_el_ALT] \\ fs [fv_max_rw, EL_APPEND1, LIST_REL_EL_EQN])
 
   THEN1
-   (say "If" 
+   (say "If"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
     \\ rename1 `known _ [x1] _ g0 = ([(e1,a1)], g1)`
@@ -3860,6 +3860,69 @@ val code_locs_decide_inline = Q.store_thm("code_locs_decide_inline",
   \\ fs[CaseEq"val_approx",bool_case_eq]
   \\ rveq
   \\ imp_res_tac contains_closures_code_locs);
+
+val MONOID_BAG_UNION_EMPTY_BAG = Q.store_thm("MONOID_BAG_UNION_EMPTY_BAG",
+  `MONOID $⊎ {||}`,
+  simp [MONOID_DEF, RIGHT_ID_DEF, LEFT_ID_DEF, ASSOC_DEF, ASSOC_BAG_UNION]);
+
+val bag_of_list_def = Define `bag_of_list = FOLDL $⊎ {||} o MAP EL_BAG`;
+
+val bag_of_list_append = Q.store_thm("bag_of_list_append",
+  `!xs ys. bag_of_list (xs ++ ys) = bag_of_list xs ⊎ bag_of_list ys`,
+  simp [bag_of_list_def, FOLDL_APPEND]
+  \\ irule COMM_MONOID_FOLDL
+  \\ simp [COMM_DEF, COMM_BAG_UNION, MONOID_BAG_UNION_EMPTY_BAG]);
+
+(*
+val bag_of_list_FLAT = Q.store_thm("bag_of_list_FLAT",
+  `!l. bag_of_list (FLAT l) = FOLDL $⊎ {||} (MAP bag_of_list l)`,
+  simp [bag_of_list_def, MAP_FLAT, GSYM MAP_MAP_o]
+  \\ irule ASSOC_FOLDL_FLAT \\ simp [ASSOC_DEF, ASSOC_BAG_UNION, RIGHT_ID_DEF]);
+*)
+
+val bag_of_list_sub_bag_FLAT_suff = Q.store_thm("bag_of_list_sub_bag_FLAT_suff",
+  `!ls1 ls2. LIST_REL (\l1 l2. bag_of_list l1 ≤ bag_of_list l2) ls1 ls2 ==>
+     bag_of_list (FLAT ls1) ≤ bag_of_list (FLAT ls2)`,
+  ho_match_mp_tac LIST_REL_ind
+  \\ srw_tac [bagLib.SBAG_SOLVE_ss] [bag_of_list_append]);
+
+val known_code_locs_bag = Q.store_thm("known_code_locs_bag",
+  `!c xs aenv g0 eas g.
+     known c xs aenv g0 = (eas, g) ==>
+     bag_of_list (code_locs (MAP FST eas)) ≤ bag_of_list (code_locs xs)`,
+  recInduct known_ind
+  \\ rw[known_def] \\ rw[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ imp_res_tac known_sing_EQ_E \\ rw []
+  \\ fs [code_locs_def, code_locs_append, bag_of_list_append]
+  \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
+  THEN1 (simp [Once code_locs_cons, code_locs_append, bag_of_list_append]
+         \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
+  THEN1 (qpat_abbrev_tac `gooblygook = gO_destApx _`
+         \\ Cases_on `gooblygook` \\ simp [code_locs_def])
+  THEN1 (fs [inlD_case_eq] \\ rw []
+         \\ fs [code_locs_def, code_locs_append, bag_of_list_append]
+         \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
+         \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+         \\ imp_res_tac code_locs_decide_inline
+         \\ imp_res_tac known_sing_EQ_E
+         \\ fs [bool_case_eq] \\ rw []
+         \\ simp [code_locs_def, code_locs_append, bag_of_list_append]
+         \\ fs [bag_of_list_def]
+         \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY, code_locs_map]
+  \\ irule (el 7 (CONJUNCTS SUB_BAG_UNION)) \\ simp []
+  \\ irule bag_of_list_sub_bag_FLAT_suff
+  \\ fs[EVERY2_MAP]
+  \\ irule EVERY2_refl
+  \\ simp[MAP_EQ_f, FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ simp[GSYM FST_pair]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ imp_res_tac known_LENGTH_EQ_E
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rveq \\ fs[]);
 
 val known_code_locs = Q.store_thm("known_code_locs",
   `∀x es ys z es' z'.
