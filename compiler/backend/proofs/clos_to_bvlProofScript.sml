@@ -5839,6 +5839,10 @@ val every_Fn_vs_NONE_APPEND = Q.store_thm("every_Fn_vs_NONE_APPEND[simp]",
   `every_Fn_vs_NONE (l1 ++ l2) ⇔ every_Fn_vs_NONE l1 ∧ every_Fn_vs_NONE l2`,
   once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]);
 
+val every_Fn_vs_SOME_APPEND = Q.store_thm("every_Fn_vs_SOME_APPEND[simp]",
+  `every_Fn_vs_SOME (l1 ++ l2) ⇔ every_Fn_vs_SOME l1 ∧ every_Fn_vs_SOME l2`,
+  once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]);
+
 val every_Fn_SOME_mk_Ticks = Q.store_thm("every_Fn_SOME_mk_Ticks",
   `∀t tc n e. every_Fn_SOME [e] ⇒ every_Fn_SOME [mk_Ticks t tc n e]`,
   recInduct clos_knownTheory.mk_Ticks_ind
@@ -6619,11 +6623,62 @@ val syntax_oracle_ok_def = Define`
     ¬contains_App_SOME c.max_app es ∧
     clos_knownProof$syntax_ok es`;
 
+val HD_annotate_SING = Q.store_thm("HD_annotate_SING",
+  `[HD (annotate x [y])] = annotate x [y]`,
+  rw[clos_annotateTheory.annotate_def]
+  \\ once_rewrite_tac[GSYM clos_annotateTheory.HD_FST_alt_free]
+  \\ rw[clos_annotateTheory.HD_shift]);
+
+val compile_every_Fn_SOME = Q.store_thm("compile_every_Fn_SOME",
+  `every_Fn_SOME (MAP (SND o SND) es) ⇒
+   every_Fn_SOME (MAP (SND o SND) (clos_annotate$compile es))`,
+  rw[clos_annotateTheory.compile_def, Once every_Fn_SOME_EVERY]
+  \\ fs[Once every_Fn_SOME_EVERY]
+  \\ fs[EVERY_MAP, UNCURRY]
+  \\ fs[EVERY_MEM] \\ rw[HD_annotate_SING]
+  \\ irule clos_annotateProofTheory.every_Fn_SOME_annotate
+  \\ res_tac);
+
+val compile_every_Fn_vs_SOME = Q.store_thm("compile_every_Fn_vs_SOME",
+  `every_Fn_vs_SOME (MAP (SND o SND) es) ⇒
+   every_Fn_vs_SOME (MAP (SND o SND) (clos_annotate$compile es))`,
+  rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
+  \\ fs[Once every_Fn_vs_SOME_EVERY]
+  \\ fs[EVERY_MAP, UNCURRY]
+  \\ fs[EVERY_MEM] \\ rw[HD_annotate_SING]);
+
 val compile_common_max_app = Q.store_thm("compile_common_max_app",
   `compile_common c es = (c',es') ⇒ c'.max_app = c.max_app`,
   simp[compile_common_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ strip_tac \\ rveq \\ fs[]);
+
+val chain_exps_every_Fn_SOME = Q.store_thm("chain_exps_every_Fn_SOME",
+  `∀x y. every_Fn_SOME (MAP (SND o SND) (chain_exps x y)) ⇔ every_Fn_SOME y`,
+  recInduct chain_exps_ind
+  \\ rw[chain_exps_def]
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ fs [every_Fn_SOME_APPEND]);
+
+val chain_exps_every_Fn_vs_SOME = Q.store_thm("chain_exps_every_Fn_vs_SOME",
+  `∀x y. every_Fn_vs_SOME (MAP (SND o SND) (chain_exps x y)) ⇔ every_Fn_vs_SOME y`,
+  recInduct chain_exps_ind
+  \\ rw[chain_exps_def]
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ fs []);
+
+val ccompile_every_Fn_SOME = Q.store_thm("ccompile_every_Fn_SOME",
+  `every_Fn_SOME es ∧
+   clos_call$compile do_call es = (es',aux)
+   ⇒
+   every_Fn_SOME es' ∧
+   every_Fn_SOME (MAP (SND o SND) aux)`,
+  Cases_on`do_call` \\ rw[clos_callTheory.compile_def] \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac clos_callProofTheory.calls_preserves_every_Fn_SOME
+  \\ fs[] \\ rveq \\ fs[]);
 
 val compile_semantics = store_thm("compile_semantics",
   ``semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co (compile_inc c cc) es ≠ Fail ∧
@@ -6649,8 +6704,31 @@ val compile_semantics = store_thm("compile_semantics",
   \\ `c''.max_app = c.max_app` by imp_res_tac compile_common_max_app
   \\ conj_tac >- cheat (* prove ALOOKUP_compile_common *)
   \\ conj_tac >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
-  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
-  \\ conj_tac >- cheat (* syntax_ok for compile_common *)
+  \\ simp[Once CONJ_ASSOC]
+  \\ conj_tac >- (
+    fs[compile_common_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ fs[syntax_oracle_ok_def]
+    \\ first_assum(mp_then Any mp_tac kcompile_csyntax_ok)
+    \\ simp[globals_approx_every_Fn_SOME_def, globals_approx_every_Fn_vs_NONE_def, lookup_def]
+    \\ impl_tac
+    >- (
+      irule renumber_code_locs_list_csyntax_ok
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ fs[clos_knownProofTheory.syntax_ok_def] )
+    \\ strip_tac
+    \\ conj_tac \\ irule FEVERY_alist_to_fmap
+    >- (
+      simp[GSYM every_Fn_SOME_EVERY
+              |> Q.SPEC`MAP (SND o SND) ls`
+              |> SIMP_RULE (srw_ss()) [EVERY_MAP]]
+      \\ rveq
+      \\ irule compile_every_Fn_SOME
+      \\ simp[chain_exps_every_Fn_SOME]
+      \\ irule ccompile_every_Fn_SOME
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ fs[clos_callProofTheory.syntax_ok_def] )
+    >- cheat (* this looks like a problem... *))
   \\ conj_tac
   >- (
     qexists_tac`prog'`
