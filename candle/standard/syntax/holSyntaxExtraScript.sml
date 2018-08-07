@@ -3012,6 +3012,21 @@ val proveHyp = Q.store_thm("proveHyp",
   TRY(fs[EVERY_MEM]>>NO_TAC) >>
   metis_tac[MEM_term_union,hypset_ok_term_union,hypset_ok_term_remove,ACONV_REFL])
 
+
+(* dependency relation *)
+
+val DEPENDENCY_IMP1 = Q.store_thm(
+  "DEPENDENCY_IMP1",
+  `!x y ctxt. dependency ctxt x y ==> MEM (x,y) (thy_dependency ctxt)`,
+  rw[dependency_cases,thy_dependency_def]
+  >> rw[MEM_FLAT,MEM_MAP,PULL_EXISTS]
+  >> asm_exists_tac
+  >> rw[MEM_FLAT,MEM_MAP]
+  >> rw[PULL_EXISTS]
+  >> asm_exists_tac
+  >> rw[MEM_MAP,WELLTYPED_LEMMA]
+);
+
 (* extension is transitive *)
 
 val extends_trans = Q.store_thm("extends_trans",
