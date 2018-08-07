@@ -549,10 +549,13 @@ val known_def = tDefine "known" `
              let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2) g in
              let (ebody, abody) = HD eabody in
                if pure x then
+                 (* We don't have to evaluate x *)
                  ([(Let (t§0) (MAP FST ea2)
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)
                else
-                 ([(Let (t§0) (CONS e1 (MAP FST ea2))
+                 (* We need to evaluate x for its side-effects,
+                    but we must do so after evaluating the args. *)
+                 ([(Let (t§0) (SNOC e1 (MAP FST ea2))
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)) /\
   (known c [Fn t loc_opt ws_opt num_args x1] vs g =
      let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
