@@ -3199,7 +3199,7 @@ val known_correct0 = Q.prove(
       \\ strip_tac \\ fs []
       \\ metis_tac [v_rel_subspt, state_rel_subspt])*))
   THEN1
-   (say "Fn" \\ cheat (*
+   (say "Fn"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, bool_case_eq] \\ rveq
     \\ dsimp []
@@ -3216,7 +3216,8 @@ val known_correct0 = Q.prove(
                             ONCE_REWRITE_RULE [Q.prove (`c = c with inline_factor := c.inline_factor`,
                                                         simp [config_component_equality])])
            \\ goal_assum (pop_assum o mp_then Any mp_tac)
-           \\ metis_tac [subspt_trans]) *))
+           \\ simp [])
+
   THEN1 cheat (* Letrec *)
 
   THEN1
