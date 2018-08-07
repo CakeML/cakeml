@@ -664,7 +664,11 @@ val success_eqns =
              n_fresh_uvar_success, failwith_success, add_constraints_success,
              oneTheory.one, check_type_definition_success,
              get_next_uvar_success, apply_subst_list_success, guard_success,
-             read_def, option_case_eq, check_dups_success];
+             read_def, option_case_eq, check_dups_success,
+             type_name_check_subst_success,
+             check_ctor_types_success,
+             check_ctors_success, check_type_definition_success
+             ];
 
 val _ = save_thm ("success_eqns", success_eqns);
 
@@ -870,9 +874,7 @@ rw [] >>
 res_tac >>
 fs [] >>
 every_case_tac >>
-fs [success_eqns] >|
-[`st'' = st'''` by metis_tac [type_name_check_subst_state],
- all_tac] >>
+fs [success_eqns]>>
 metis_tac [infer_p_next_uvar_mono, arithmeticTheory.LESS_EQ_TRANS,
            pair_CASES,type_name_check_subst_state,
            DECIDE ``!(x:num) y. x ≤ x + y``,
@@ -1395,12 +1397,7 @@ val type_name_check_subst_comp_thm = Q.store_thm ("type_name_check_subst_comp_th
       type_name_subst_def, success_eqns] >>
   fs [check_freevars_ast_def] >>
   TRY pairarg_tac >>
-  fs [success_eqns] >>
-  rw []
-  >- metis_tac [] >>
-  every_case_tac >>
-  fs [success_eqns] >>
-  metis_tac []);
+  fs [success_eqns]);
 
 val infer_p_check_s = Q.store_thm ("infer_p_check_s",
   `(!l ienv p st t env st' tvs.
@@ -1453,11 +1450,10 @@ val infer_p_check_s = Q.store_thm ("infer_p_check_s",
  >- (PairCases_on `v'` >>
      metis_tac [check_s_more2, infer_p_next_uvar_mono])
  >- (
-   `st'' = st'''` by metis_tac [type_name_check_subst_state] >>
    irule t_unify_check_s >>
    qexists_tac `st''.subst` >>
    qexists_tac `t'` >>
-   qexists_tac `(infer_type_subst [] t'')` >>
+   qexists_tac `(infer_type_subst []  (type_name_subst ienv.inf_t t))` >>
    rw [] >>
    fs []
    >- metis_tac [infer_p_wfs]
