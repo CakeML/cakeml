@@ -2123,6 +2123,14 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\ disch_then drule
   \\ fs []
   \\ strip_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ `!ptr u. MEM (Pointer ptr u) gen_roots ==> ptr IN FDOM f` by
+       (fs [reachable_addresses_def,IN_DEF]
+        \\ metis_tac [RTC_RULES])
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum kall_tac
+  \\ ntac 2 strip_tac
   \\ qexists_tac `new_f f conf heap`
   \\ fs [to_gen_heap_list_def]
   \\ rveq

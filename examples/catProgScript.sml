@@ -9,8 +9,8 @@ val _ = process_topdecs `
     let
       val fd = TextIO.openIn fname
       fun recurse () =
-        case TextIO.input1 fd of NONE => ()
-        | SOME c => (TextIO.output1 TextIO.stdOut c; recurse())
+        case TextIO.input1 fd of None => ()
+        | Some c => (TextIO.output1 TextIO.stdOut c; recurse())
     in
       recurse () ;
       TextIO.close fd

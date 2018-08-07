@@ -37,18 +37,11 @@ val _ = export_rewrites["evaluate_raise_rval"]
 val evaluate_length = Q.store_thm("evaluate_length",
   `∀env s ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls`,
-  ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[do_app_cases] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM,
-     semanticPrimitivesTheory.store_alloc_def,
-     semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def]
+  \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rw[] \\ fs[]
+  \\ TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[]
+  \\ rename1`list_result lr`
+  \\ Cases_on`lr` \\ fs[] \\ rw[]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -129,7 +122,7 @@ val evaluate_append = Q.store_thm("evaluate_append",
 
 val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
   `dec_clock s with clock := y = s with clock := y`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
@@ -142,7 +135,7 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def]
   >> srw_tac[][]
-  >> every_case_tac \\ fs[] \\ rw[]);
+  >> every_case_tac \\ fs[] \\ rw[] \\ rfs[]);
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app s op vs = SOME (s',r) ⇒ s'.compile = s.compile`,
@@ -173,8 +166,7 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
 
 val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
-   s.ffi.io_events ≼ s'.ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+   s.ffi.io_events ≼ s'.ffi.io_events`,
   srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,
@@ -182,20 +174,18 @@ val do_app_io_events_mono = Q.prove(
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,IS_SOME_EXISTS] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
-  `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ (FST (evaluate env s es)).ffi = s.ffi)`,
+  `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]);
 
 val evaluate_io_events_mono_imp = Q.prove(
   `evaluate env s es = (s',r) ⇒
-    s.ffi.io_events ≼ s'.ffi.io_events ∧
-    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+    s.ffi.io_events ≼ s'.ffi.io_events`,
   metis_tac[evaluate_io_events_mono,FST])
 
 val with_clock_ffi = Q.prove(
@@ -205,10 +195,7 @@ val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `∀env s es.
     (FST(evaluate env s es)).ffi.io_events ≼
-    (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
-    (IS_SOME((FST(evaluate env s es)).ffi.final_event) ⇒
-     (FST(evaluate env (s with clock := s.clock + extra) es)).ffi
-     = ((FST(evaluate env s es)).ffi))`,
+    (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -278,7 +265,7 @@ open bagTheory
 
 (* finding the InitGlobal operations *)
 val op_gbag_def = Define`
-  op_gbag (Op (Init_global_var n)) = BAG_INSERT n {||} ∧
+  op_gbag (Op (GlobalVarInit n)) = BAG_INSERT n {||} ∧
   op_gbag _ = {||}
 `;
 

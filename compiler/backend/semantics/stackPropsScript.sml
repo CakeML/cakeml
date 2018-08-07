@@ -13,7 +13,7 @@ val FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM = Q.store_thm("FOLDL_OPTION_CHOICE_EQ_SO
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
   [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``, ``:'a reg_imm``
-  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).ffi = z.ffi ∧
@@ -273,13 +273,7 @@ val evaluate_code_bitmaps = Q.store_thm("evaluate_code_bitmaps",
     pairarg_tac \\ fs[] \\
     fs[case_eq_thms,empty_env_def]>>rw[]>>
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def])
-  (* FFI *)
-  >- (
-    fs[case_eq_thms] >> rw[] \\
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    pairarg_tac \\ fs[] \\ rw[] \\
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)));
+    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def]));
 
 val evaluate_mono = Q.store_thm("evaluate_mono",`
   ∀c s r s1.
@@ -295,8 +289,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events ∧
-    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+    s1.ffi.io_events ≼ s2.ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
@@ -397,10 +390,8 @@ val with_clock_ffi = Q.store_thm("with_clock_ffi",
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀e s.
-     (SND(evaluate(e,s))).ffi.io_events ≼ (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events ∧
-     (IS_SOME((SND(evaluate(e,s))).ffi.final_event) ⇒
-      (SND(evaluate(e,s with clock := s.clock + extra))).ffi =
-      (SND(evaluate(e,s))).ffi)`,
+     (SND(evaluate(e,s))).ffi.io_events ≼
+     (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events`,
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
   TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>

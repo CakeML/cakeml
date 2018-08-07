@@ -70,7 +70,7 @@ val LESS_LENGTH_IMP_APPEND = Q.store_thm("LESS_LENGTH_IMP_APPEND",
   \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]);
 
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
-  `(call_FFI s i conf xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
+  `(call_FFI s i conf xs = FFI_return n ys) ==> (LENGTH ys = LENGTH xs)`,
   srw_tac[][ffiTheory.call_FFI_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -1143,6 +1143,7 @@ val comp_correct = Q.prove(
              (case r of
                | SOME (Halt _) => t2.ffi = s2.ffi
                | SOME TimeOut => t2.ffi = s2.ffi
+               | SOME (FinalFFI _) => t2.ffi = s2.ffi
                | _ =>  (state_rel jump off k s2 t2))`,
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (full_simp_tac(srw_ss())[comp_def,evaluate_def] \\ rpt var_eq_tac \\ qexists_tac`0` \\ full_simp_tac(srw_ss())[])
@@ -1438,6 +1439,21 @@ val comp_correct = Q.prove(
       \\ disch_then(qspec_then`ck2`mp_tac)
       \\ simp[] \\ ntac 2 strip_tac
       \\ qexists_tac`ck' + ck2` \\  simp[] )
+    \\ Cases_on`∃f. res = FinalFFI f` \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ fs[]
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
+      \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
+      >- (
+        simp[Abbr`ss`,dec_clock_def]
+        \\ match_mp_tac state_rel_with_clock
+        \\ match_mp_tac state_rel_set_var
+        \\ simp[] )
+      \\ first_x_assum drule
+      \\ simp[]
+      \\ strip_tac
+      \\ fs[dec_clock_def]
+      \\ qexists_tac`ck'`\\simp[] )
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
@@ -1608,7 +1624,7 @@ val comp_correct = Q.prove(
     \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
     \\ imp_res_tac read_bytearray_IMP_read_bytearray \\ full_simp_tac(srw_ss())[]
     \\ pop_assum kall_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[LET_THM]
-    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[]
     \\ `t1.ffi = s.ffi` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[markerTheory.Abbrev_def] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT]
@@ -1961,43 +1977,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
     conj_tac >- (
       srw_tac[][] >>
-      Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>-(
-        qmatch_assum_abbrev_tac`evaluate (e,ss) = (SOME TimeOut,_)` >>
-        qspecl_then[`k''`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
-        simp[Abbr`ss`] >>
-        (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
-        simp[] >> strip_tac >>
-        drule comp_correct >>
-        drule (GEN_ALL state_rel_with_clock)
-        \\ disch_then(qspec_then`k'+k''`strip_assume_tac)
-        \\ ONCE_REWRITE_TAC[CONJ_COMM]
-        \\ simp[Once(GSYM AND_IMP_INTRO)]
-        \\ disch_then drule
-        \\ simp[AND_IMP_INTRO] >>
-        impl_tac >- (
-          simp[Abbr`e`,reg_bound_def] >>
-          rpt(first_x_assum(qspec_then`k'+k''`mp_tac))>>srw_tac[][] ) >>
-        simp[Abbr`e`,comp_def] >>
-        strip_tac >>
-        Cases_on`t.ffi.final_event`\\full_simp_tac(srw_ss())[]>>
-        Cases_on`t'.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
-          rveq
-          \\ `t2.ffi = r''.ffi` by (every_case_tac \\ full_simp_tac(srw_ss())[state_rel_def])
-          \\ ntac 2 (qhdtm_x_assum`evaluate`mp_tac) >>
-          drule (GEN_ALL evaluate_add_clock) >>
-          disch_then(qspec_then`ck+k'`mp_tac) >>
-          simp[] >>
-          impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-          simp[] >> ntac 3 strip_tac >>
-          rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-        qhdtm_x_assum`evaluate`mp_tac >>
-        qmatch_assum_abbrev_tac`evaluate (e,ss) = (_,t')` >>
-        qspecl_then[`ck+k'`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
-        simp[Abbr`ss`] >>
-        ntac 2 strip_tac >> full_simp_tac(srw_ss())[] >>
-        `t2.ffi = r''.ffi` by (every_case_tac \\ full_simp_tac(srw_ss())[state_rel_def])
-        \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-        \\ simp[extend_with_resource_limit_def]) >>
+      Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[] >>
       qhdtm_x_assum`evaluate`mp_tac >>
       drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`k''`mp_tac) >>
@@ -2017,18 +1997,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[Abbr`ss`] >> strip_tac >>
       drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`ck+k'`mp_tac) >>
-      simp[] >>
-      Cases_on`t'.ffi.final_event`>>full_simp_tac(srw_ss())[]>- (
-        first_x_assum(qspec_then`k''`mp_tac)
-        \\ simp[]
-        \\ strip_tac \\ full_simp_tac(srw_ss())[]
-        \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ rveq \\ full_simp_tac(srw_ss())[]
-        \\ `t.ffi = t'.ffi` by full_simp_tac(srw_ss())[state_rel_def]
-        \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
-        \\ simp[extend_with_resource_limit_def] ) >>
-      `t.ffi = t'.ffi` by
-        (BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[state_rel_def] ) >>
-      full_simp_tac(srw_ss())[extend_with_resource_limit_def] ) >>
+      simp[] >> strip_tac >> fs[] >>
+      first_x_assum(qspec_then`k''`mp_tac) >>
+      simp[] >> strip_tac >> fs[extend_with_resource_limit_def,state_rel_def]) >>
     strip_tac >>
     drule comp_correct >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO,reg_bound_def] >>
@@ -2065,7 +2036,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ strip_tac
     \\ first_x_assum(qspec_then`k'`mp_tac)
     \\ simp[]
-    \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ ntac 2 (qhdtm_x_assum`evaluate`mp_tac)
@@ -2106,9 +2076,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ disch_then(qspec_then`ck`mp_tac)
     \\ simp[Abbr`ss`] \\ strip_tac
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on`t.ffi.final_event` \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-    \\ Cases_on`r = TimeOut` \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_add_clock \\ rev_full_simp_tac(srw_ss())[]
     \\ first_x_assum(qspec_then`ck`mp_tac)
     \\ simp[])
@@ -2867,7 +2836,6 @@ val init_pre_def = Define `
   init_pre gen_gc max_heap bitmaps data_sp k start s <=>
     lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap k)
                                 (Call NONE (INL start) NONE)) /\
-    (* TODO: remove: *) s.ffi.final_event = NONE /\
     init_code_pre k bitmaps data_sp s`
 
 val evaluate_init_code = Q.store_thm("evaluate_init_code",
@@ -3065,7 +3033,7 @@ val discharge_these_def = Define`
 
 val propagate_these_def = Define`
   propagate_these s (bitmaps:'a word list) data_sp ⇔
-  good_dimindex(:'a) /\ s.ffi.final_event = NONE /\
+  good_dimindex(:'a) /\
   ∃ptr2 ptr3 ptr4 bitmap_ptr.
        FLOOKUP s.regs 2 = SOME (Word ptr2) ∧
        FLOOKUP s.regs 3 = SOME (Word ptr3) ∧

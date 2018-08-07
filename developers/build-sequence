@@ -16,11 +16,11 @@ translator
 compiler/parsing
 characteristic
 
-# basis library
-basis
-
 # monadic translator
 translator/monadic
+
+# basis library
+basis
 
 # compiler
 compiler/inference
@@ -80,6 +80,7 @@ compiler/benchmarks
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
+compiler/inference/tests
 
 # compiler translation
 compiler/bootstrap/translation

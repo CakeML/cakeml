@@ -14,43 +14,42 @@ val basis_ffi_oracle_def = Define `
      if name = "write" then
        case ffi_write conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "read" then
        case ffi_read conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "get_arg_count" then
        case ffi_get_arg_count conf bytes cls of
        | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "get_arg_length" then
        case ffi_get_arg_length conf bytes cls of
        | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "get_arg" then
        case ffi_get_arg conf bytes cls of
        | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "open_in" then
        case ffi_open_in conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "open_out" then
        case ffi_open_out conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
+       | _ => Oracle_final FFI_failed else
      if name = "close" then
        case ffi_close conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
-       | _ => Oracle_fail else
-     Oracle_fail`
+       | _ => Oracle_final FFI_failed else
+     Oracle_final FFI_failed`
 
 (* standard streams are initialized *)
 val basis_ffi_def = Define `
   basis_ffi cl fs =
     <| oracle := basis_ffi_oracle
      ; ffi_state := (cl, fs)
-     ; final_event := NONE
      ; io_events := [] |>`;
 
 val basis_proj1_def = Define `
@@ -250,7 +249,7 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
   \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
-  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
+(*  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []*)
   \\ Cases_on `n = ""` \\ fs [] THEN1 (rveq \\ fs [])
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
@@ -315,7 +314,7 @@ val STDIO_precond = Q.prove(
   st.io_events  *)
 
 fun mk_main_call s =
-  ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+  ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
@@ -332,8 +331,6 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
      ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec fv cl fs Q ==>
-     no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_mods /\
-     no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi cl fs)).defined_types ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ (COMMANDLINE cl * STDIO fs) h1)
    ==>
    ∃io_events fs'.

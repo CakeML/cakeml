@@ -1,7 +1,7 @@
-open preamble exhLangTheory patLangTheory
+open preamble flatLangTheory patLangTheory
 open backend_commonTheory
 
-val _ = new_theory"exh_to_pat"
+val _ = new_theory"flat_to_pat"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val Bool_def = Define `
@@ -64,10 +64,12 @@ val _ = Define `
     (op <> Asub) ∧
     (op <> (Opn Divide)) ∧
     (op <> (Opn Modulo)) ∧
+    (!n. op <> (GlobalVarAlloc n)) ∧
+    (!n. op <> (GlobalVarInit n)) ∧
     (!n. op <> FFI n)`;
 
 val _ = Define `
-  (pure_op (Op (Op op)) ⇔ pure_op_op op)
+  (pure_op (Op op) ⇔ pure_op_op op)
   ∧
   (pure_op (Tag_eq _ _) ⇔ T)
   ∧
@@ -86,8 +88,6 @@ val pure_def = Define `
   ∧
   (pure (Var_local _ _) ⇔ T)
   ∧
-  (pure (Var_global _ _) ⇔ T)
-  ∧
   (pure (Fun _ _) ⇔ T)
   ∧
   (pure (App _ op es) ⇔ pure_list es ∧ pure_op op)
@@ -99,8 +99,6 @@ val pure_def = Define `
   (pure (Seq _ e1 e2) ⇔ pure e1 ∧ pure e2)
   ∧
   (pure (Letrec _ _ e) ⇔ pure e)
-  ∧
-  (pure (Extend_global _ _) ⇔ F)
   ∧
   (pure_list [] ⇔ T)
   ∧
@@ -122,8 +120,6 @@ val ground_def = Define `
   ∧
   (ground n (Var_local _ k) ⇔ k < n)
   ∧
-  (ground _ (Var_global _ _) ⇔ T)
-  ∧
   (ground _ (Fun _ _) ⇔ F)
   ∧
   (ground n (App _ _ es) ⇔ ground_list n es)
@@ -135,8 +131,6 @@ val ground_def = Define `
   (ground n (Seq _ e1 e2) ⇔ ground n e1 ∧ ground n e2)
   ∧
   (ground _ (Letrec _ _ _) ⇔ F)
-  ∧
-  (ground _ (Extend_global _ _) ⇔ T)
   ∧
   (ground_list _ [] ⇔ T)
   ∧
@@ -170,6 +164,8 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | Asub => F
   | Opn Divide => F
   | Opn Modulo => F
+  | GlobalVarAlloc _ => F
+  | GlobalVarInit _ => F
   | FFI _ => F
   | _ => T`,
   Cases_on`op`>>fs[]>>
@@ -196,6 +192,8 @@ val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
   | Asub => F
   | Opn Divide => F
   | Opn Modulo => F
+  | GlobalVarAlloc _ => F
+  | GlobalVarInit _ => F
   | FFI _ => F
   | _ => T`,
   PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
@@ -243,18 +241,21 @@ val _ = tDefine"compile_pat"`
    Bool t T)
   ∧
   (compile_pat t (Plit l) =
-   App (mk_cons t 1) (Op (Op Equality)) [Var_local (mk_cons t 2) 0; Lit (mk_cons t 3) l])
+   App (mk_cons t 1) (Op Equality) [Var_local (mk_cons t 2) 0; Lit (mk_cons t 3) l])
   ∧
-  (compile_pat t (Pcon tag []) =
+  (compile_pat t (Pcon NONE _) =
+   Bool t F) (* should not happen *)
+  ∧
+  (compile_pat t (Pcon (SOME (tag,_)) []) =
    App (mk_cons t 1) (Tag_eq tag 0) [Var_local (mk_cons t 2) 0])
   ∧
-  (compile_pat t (Pcon tag ps) =
+  (compile_pat t (Pcon (SOME (tag,_)) ps) =
    sIf (mk_cons t 1) (App (mk_cons t 2) (Tag_eq tag (LENGTH ps)) [Var_local (mk_cons t 3) 0])
      (Let_Els (mk_cons t 4) 0 (LENGTH ps) (compile_pats (mk_cons t 5) 0 ps))
      (Bool (mk_cons t 6) F))
   ∧
   (compile_pat t (Pref p) =
-   sLet (mk_cons t 1) (App (mk_cons t 2) (Op (Op Opderef)) [Var_local (mk_cons t 3) 0])
+   sLet (mk_cons t 1) (App (mk_cons t 2) (Op Opderef) [Var_local (mk_cons t 3) 0])
      (compile_pat (mk_cons t 4) p))
   ∧
 (* return an expression that evaluates to whether all the m patterns match the
@@ -283,7 +284,7 @@ val _ = tDefine"compile_row"`
   ∧
   (compile_row t bvs (Pref p) =
    let (bvs,m,f) = (compile_row (mk_cons t 1) (NONE::bvs) p) in
-   (bvs,(1+m), (λe. sLet (mk_cons t 2) (App (mk_cons t 3) (Op (Op Opderef)) [Var_local (mk_cons t 4) 0]) (f e)))) ∧
+   (bvs,(1+m), (λe. sLet (mk_cons t 2) (App (mk_cons t 3) (Op Opderef) [Var_local (mk_cons t 4) 0]) (f e)))) ∧
   (compile_row _ bvs _ = (bvs, 0, I)) (* should not happen *)
   ∧
   (compile_cols _ bvs _ _ [] = (bvs, 0, I))
@@ -306,14 +307,17 @@ val compile_exp_def = tDefine"compile_exp" `
   ∧
   (compile_exp _ (Lit t l) = Lit t l)
   ∧
-  (compile_exp bvs (Con t tag es) = Con t tag (compile_exps bvs es))
+  (compile_exp bvs (If t e1 e2 e3) =
+   sIf t (compile_exp bvs e1) (compile_exp bvs e2) (compile_exp bvs e3))
+  ∧
+  (compile_exp bvs (Con t NONE _) = Lit t (IntLit 0) (* should not happen *))
+  ∧
+  (compile_exp bvs (Con t (SOME (tag,_)) es) = Con t tag (compile_exps bvs es))
   ∧
   (compile_exp bvs (Var_local t x) =
    (dtcase find_index (SOME x) bvs 0 of
     | SOME k => Var_local t k
     | NONE => Lit t (IntLit 0) (* should not happen *)))
-  ∧
-  (compile_exp _ (Var_global t n) = Var_global t n)
   ∧
   (compile_exp bvs (Fun t x e) = Fun t (compile_exp (SOME x::bvs) e))
   ∧
@@ -331,8 +335,6 @@ val compile_exp_def = tDefine"compile_exp" `
   (compile_exp bvs (Letrec t funs e) =
    let bvs = (MAP (SOME o FST) funs) ++ bvs in
    Letrec t (compile_funs bvs funs) (compile_exp bvs e))
-  ∧
-  (compile_exp _ (Extend_global t n) = Extend_global t n)
   ∧
   (compile_exps _ [] = [])
   ∧
@@ -361,7 +363,10 @@ val compile_exp_def = tDefine"compile_exp" `
 val _ = export_rewrites["compile_exp_def"];
 
 val compile_def = Define`
-  compile = compile_exp []`;
+  compile [] = [] ∧
+  compile ((Dlet exp)::decs) =
+    compile_exp [] exp :: compile decs ∧
+  compile (_::decs) = compile decs`;
 
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,

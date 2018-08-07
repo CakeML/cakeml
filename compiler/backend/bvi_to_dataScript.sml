@@ -25,6 +25,7 @@ val op_space_reset_def = Define `
   (op_space_reset (ConsExtend _) = T) /\
   (op_space_reset (CopyByte new_flag) = new_flag) /\
   (op_space_reset ConfigGC = T) /\
+  (op_space_reset (FFI _) = T) /\
   (op_space_reset _ = F)`;
 
 val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
@@ -47,6 +48,7 @@ val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
     | ConsExtend _ => T
     | CopyByte new_flag => new_flag
     | ConfigGC => T
+    | FFI _ => T
     | _ => F`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)

@@ -1,4 +1,4 @@
-INCLUDES = ../../../misc ../../../semantics ../../../semantics/alt_semantics ../../../translator ../monadic ../../../characteristic ../../../basis ../../../translator/monadic
+INCLUDES = ../../../misc ../../../semantics ../../../translator ../monadic ../../../characteristic ../../../basis ../../../basis/pure ../../../translator/monadic
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
