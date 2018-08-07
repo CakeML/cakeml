@@ -1769,7 +1769,8 @@ val known_op_changed_globals_cases = Q.store_thm("known_op_changed_globals_cases
 
 val state_globals_approx_known_mglobals_disjoint = Q.store_thm(
   "state_globals_approx_known_mglobals_disjoint",
-  `known c xs aenv g0 = (eas, g) /\
+  `!c xs aenv g0 eas g s.
+   known c xs aenv g0 = (eas, g) /\
    mglobals_disjoint s xs /\
    state_globals_approx s g0 ==>
    state_globals_approx s g`,
@@ -1821,7 +1822,8 @@ val state_globals_approx_disjoint_extends = Q.store_thm("state_globals_approx_di
    \\ metis_tac []);
 
 val state_globals_approx_evaluate = Q.store_thm("state_globals_approx_evaluate",
-  `evaluate (xs,env,s0) = (res, s) /\
+  `!xs env s0 res s c ys aenv g0 eas g.
+   evaluate (xs,env,s0) = (res, s) /\
    known c ys aenv g0 = (eas, g) /\
    ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free xs /\
    mglobals_disjoint s0 ys /\
@@ -1973,7 +1975,6 @@ val known_correct_approx = Q.store_thm(
    (say "Var"
     \\ fs [evaluate_def, bool_case_eq] \\ rveq
     \\ fs [any_el_ALT] \\ fs [fv_max_rw, EL_APPEND1, LIST_REL_EL_EQN])
-
   THEN1
    (say "If"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -2008,14 +2009,55 @@ val known_correct_approx = Q.store_thm(
       \\ goal_assum (qpat_x_assum `evaluate _ = _` o mp_then Any mp_tac)
       \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM]
       \\ simp [mglobals_disjoint_rw])
-    THEN1 cheat
-    THEN1 cheat
-    (*\\ rename1 `evaluate ([x_taken_branch], _, s1) = (res, s)`
-    \\ patresolve `unique_set_globals [x_taken_branch] _` hd unique_set_globals_evaluate
-    \\ disch_then drule \\ simp [] \\ strip_tac
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-    \\ Cases_on `res` \\ fs [] \\ strip_tac \\ rveq \\ fs []
-    \\ metis_tac [val_approx_val_merge_I]*))
+    THEN1
+     (first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+      \\ `unique_set_globals [x3] s1.compile_oracle`
+         by (irule unique_set_globals_evaluate \\ goal_assum drule
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
+      \\ `mglobals_disjoint s1 [x3]`
+         by (match_mp_tac mglobals_disjoint_evaluate
+             \\ rpt (goal_assum drule) \\ simp []
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+      \\ `state_globals_approx s1 g2`
+         by (match_mp_tac state_globals_approx_evaluate
+             \\ rpt (goal_assum drule \\ simp [])
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
+      \\ `oracle_gapprox_disjoint g2 s1.compile_oracle`
+         by (imp_res_tac evaluate_IMP_shift_seq \\ simp []
+             \\ irule oracle_gapprox_disjoint_shift_seq_unique_set_globals
+             \\ `?eaunused. known c [x1; x2] aenv g0 = (eaunused, g2)` by simp [known_def]
+             \\ rpt (goal_assum drule \\ simp [])
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
+      \\ simp [] \\ strip_tac
+      \\ Cases_on `res` \\ fs []
+      \\ metis_tac [val_approx_val_merge_I])
+    THEN1
+     (first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+      \\ `unique_set_globals [x2] s1.compile_oracle`
+         by (irule unique_set_globals_evaluate \\ goal_assum drule
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
+      \\ `mglobals_disjoint s1 [x2]`
+         by (match_mp_tac mglobals_disjoint_evaluate
+             \\ rpt (goal_assum drule) \\ simp []
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+      \\ `oracle_gapprox_disjoint g1 s1.compile_oracle`
+         by (imp_res_tac evaluate_IMP_shift_seq \\ simp []
+             \\ irule oracle_gapprox_disjoint_shift_seq_unique_set_globals
+             \\ `?eaunused. known c [x1; x2] aenv g0 = (eaunused, g2)` by simp [known_def]
+             \\ rpt (goal_assum drule \\ simp []))
+      \\ simp [] \\ strip_tac
+      \\ reverse conj_tac
+      THEN1 (Cases_on `res` \\ fs [] \\ metis_tac [val_approx_val_merge_I])
+      \\ match_mp_tac state_globals_approx_evaluate
+      \\ rpt (goal_assum drule \\ simp [])
+      \\ `mglobals_disjoint s1 [x3]`
+         by (match_mp_tac mglobals_disjoint_evaluate
+             \\ rpt (goal_assum drule) \\ simp []
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+      \\ `unique_set_globals [x2; x3] s1.compile_oracle`
+         by (irule unique_set_globals_evaluate \\ goal_assum drule
+             \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
+      \\ simp []))
   THEN1
    (say "Let" \\ cheat (*
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
