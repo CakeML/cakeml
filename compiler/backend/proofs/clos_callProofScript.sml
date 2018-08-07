@@ -1565,11 +1565,13 @@ val code_inv_def = Define `
     (* needs more .. *)`
 
 val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
-  ``code_inv r.code r.compile r.compile_oracle t.code t.compile
-           t.compile_oracle /\
+  ``code_inv r.code r.compile r.compile_oracle t.code t.compile t.compile_oracle /\
     state_rel g1 l1 r t /\
     r.compile cfg (exp',aux) =
-      SOME (bytes,data,FST (shift_seq 1 r.compile_oracle 0)) /\
+        SOME (bytes,data,FST (shift_seq 1 r.compile_oracle 0)) /\
+    DISJOINT (FDOM r.code) (set (MAP FST aux)) /\
+    ALL_DISTINCT (MAP FST aux) /\
+    r.compile_oracle 0 = (cfg,exp',aux) /\
     t.compile_oracle 0 = (cfg',progs) ==>
     DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) ∧
     ALL_DISTINCT (MAP FST (SND progs)) /\
@@ -1585,7 +1587,32 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
         code := t.code |++ aux1|>) ∧
     code_inv (r.code |++ aux) r.compile (shift_seq 1 r.compile_oracle)
       (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle)``,
-  cheat) |> GEN_ALL;
+  Cases_on `calls [exp'] g1` \\ fs []
+  \\ imp_res_tac calls_sing \\ rveq \\ fs []
+  \\ PairCases_on `progs` \\ fs [] \\ strip_tac
+  \\ fs [code_inv_def] \\ rfs []
+  \\ pop_assum mp_tac
+  \\ simp [Once state_co_def] \\ fs []
+  \\ qpat_x_assum `_ = SOME _` mp_tac
+  \\ simp [Once state_cc_def] \\ fs []
+  \\ `FST cfg = g1` by cheat
+  \\ PairCases_on `cfg` \\ fs []
+  \\ simp [Once compile_inc_def] \\ fs [] \\ rveq \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ rename [`t.compile cfg2 (output,[]) = SOME xx`]
+  \\ PairCases_on `xx` \\ fs []
+  \\ fs [shift_seq_def] \\ rveq \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [compile_inc_def]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ simp [Once state_co_def] \\ fs []
+  \\ Cases_on `r.compile_oracle 1` \\ fs []
+  \\ rveq \\ fs []
+  \\ rename [`r.compile_oracle 1 = ((r1,xx2),r2)`]
+  \\ Cases_on `r2` \\ fs [compile_inc_def]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+  \\ `aux = []` by (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
+  \\ fs [FUPDATE_LIST,state_co_def,state_rel_def]) |> GEN_ALL;
 
 (* compiler correctness *)
 
@@ -2201,10 +2228,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [pair_case_eq]
     \\ rveq \\ fs []
     \\ qpat_x_assum `do_install _ r = _` mp_tac
+    \\ Cases_on `v = Rerr (Rabort Rtype_error)` \\ fs []
     \\ simp [Once do_install_def]
     \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq,bool_case_eq]
-    \\ Cases_on `v = Rerr (Rabort Rtype_error)` \\ fs []
-    \\ simp [PULL_EXISTS]
     \\ pairarg_tac
     \\ fs [SWAP_REVERSE_SYM,bool_case_eq,option_case_eq,pair_case_eq,PULL_EXISTS]
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
@@ -2226,6 +2252,21 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rpt (disch_then drule) \\ strip_tac \\ fs []
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
       \\ fs [state_rel_def])
+
+    (*
+
+    \\ drule code_rel_state_rel_install
+    \\ strip_tac \\ fs [] \\ rveq \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ imp_res_tac v_to_bytes_thm
+    \\ imp_res_tac v_to_words_thm
+    \\ fs [] \\ rveq \\ fs []
+    \\ fs [do_install_def]
+    \\ pairarg_tac \\ fs []
+    \\ drule code_rel_state_rel_install
+
+    *)
+
     \\ cheat)
   (* Fn *)
   \\ conj_tac >- (

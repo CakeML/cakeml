@@ -18,42 +18,21 @@ exception ReadmeExn of string;
 
 fun fail str = raise ReadmeExn str;
 
-fun every p [] = true
-  | every p (x::xs) = p x andalso every p xs
+fun every_char p str = List.all p (explode str);
 
-fun every_char p str = every p (explode str);
+fun exists_char p str = List.exists p (explode str);
 
-fun exists p [] = false
-  | exists p (x::xs) = p x orelse exists p xs
-
-fun exists_char p str = exists p (explode str);
-
-fun mem x [] = false
-  | mem x (y::ys) = (x = y) orelse mem x ys
+fun equal x y = x = y
 
 fun distinct [] = []
   | distinct (x::xs) = x :: distinct (List.filter (fn y => x <> y) xs)
 
-fun is_alphanum c =
-  (#"a" <= c andalso c <= #"z") orelse
-  (#"A" <= c andalso c <= #"Z") orelse
-  (#"0" <= c andalso c <= #"9");
-
-fun is_blank c =
-  (c = #" ") orelse (c = #"\n") orelse (c = #"\r") orelse (c = #"\t");
-
-val is_blank_line = every_char is_blank;
+val is_blank_line = every_char Char.isSpace;
 
 fun take_while p [] = []
   | take_while p (x::xs) = if p x then x :: take_while p xs else [];
 
-fun drop n [] = []
-  | drop n (x::xs) = if n <= 0 then x::xs else drop (n-1) xs
-
-fun drop_chars n str = implode (drop n (explode str));
-
-val start_comment = "(*"
-val end_comment = "*)"
+fun drop_chars n str = Substring.string (Substring.triml n (Substring.full str));
 
 fun check_length all_lines = let
   val _ = length all_lines <= MAX_LINE_COUNT orelse
@@ -61,7 +40,7 @@ fun check_length all_lines = let
   in () end
 
 fun check_width all_lines = let
-  val _ = every (fn line => String.size line <= MAX_CHAR_COUNT_PER_LINE) all_lines orelse
+  val _ = List.all (fn line => String.size line <= MAX_CHAR_COUNT_PER_LINE) all_lines orelse
           fail ("one or more lines exceed the line length limit of " ^ Int.toString MAX_CHAR_COUNT_PER_LINE ^ " characters")
   in () end
 
@@ -86,9 +65,9 @@ fun sort P = (* copied from HOL *)
       srt o (map (fn x => [x]))
    end
 
-(* Reading a comment from an SML file *)
+(* Reading a block comment (from an SML or C file) *)
 
-fun read_comment_from_sml filename = let
+fun read_block_comment start_comment end_comment filename = let
   val f = open_textfile filename
   in let
     (* check that first line is comment *)
@@ -96,8 +75,8 @@ fun read_comment_from_sml filename = let
     val hd_line = (case TextIO.inputLine(f) of
                      NONE => comm_fail ()
                    | SOME line => line);
-    val _ = String.isPrefix ("("^"*") hd_line orelse comm_fail ()
-    val _ = every_char (not o is_alphanum) hd_line orelse
+    val _ = String.isPrefix start_comment hd_line orelse comm_fail ()
+    val _ = every_char (not o Char.isAlphaNum) hd_line orelse
               fail "first line must not contain alpha numberic chars"
     val _ = not (String.isSubstring end_comment hd_line) orelse
               fail ("first line must not contain " ^ end_comment)
@@ -105,18 +84,18 @@ fun read_comment_from_sml filename = let
     val fst_line = (case TextIO.inputLine(f) of
                       NONE => fail "unable to read content of comment"
                     | SOME line =>
-                        if every_char is_blank line then
+                        if is_blank_line line then
                           (case TextIO.inputLine(f) of
                              NONE => fail "unable to read content of comment"
                            | SOME line => line)
                         else line);
     val _ = not (is_blank_line fst_line) orelse
             fail "first content line must not be blank"
-    val _ = exists_char is_alphanum fst_line orelse
+    val _ = exists_char Char.isAlphaNum fst_line orelse
             fail "first content line does not have alphanumeric chars"
     val _ = not (String.isSubstring end_comment fst_line) orelse
               fail ("first content line must not contain " ^ end_comment)
-    val blank_prefix = implode (take_while (fn c => c = #" ") (explode fst_line))
+    val blank_prefix = implode (take_while (equal #" ") (explode fst_line))
     (* read rest of comment content *)
     fun read_rest () =
       case TextIO.inputLine(f) of
@@ -124,7 +103,7 @@ fun read_comment_from_sml filename = let
       | SOME line =>
           if is_blank_line line then []
           else if String.isSubstring end_comment line then
-            (if exists_char is_alphanum line then
+            (if exists_char Char.isAlphaNum line then
                fail "first comment must end on line without alphanumeric chars"
              else [])
           else if String.isPrefix blank_prefix line then
@@ -135,6 +114,9 @@ fun read_comment_from_sml filename = let
     val _ = check_length_and_width all_lines
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
+
+val read_comment_from_sml = read_block_comment "(*" "*)";
+val read_comment_from_c = read_block_comment "/*" "*/";
 
 (* Reading a comment from a shell-script file *)
 
@@ -173,14 +155,14 @@ fun read_comment_from_script filename = let
 fun read_comment_from_raw filename = let
   val f = open_textfile filename
   in let
-    (* read the first line, ignore a shebang line *)
+    (* read lines until blank line *)
     fun read_rest () =
       case TextIO.inputLine(f) of
         NONE => []
       | SOME line => if is_blank_line line then [] else line :: read_rest ()
     val all_lines = read_rest ()
     val _ = all_lines <> [] orelse fail "no content on first line"
-    val _ = exists_char is_alphanum (hd all_lines) orelse
+    val _ = exists_char Char.isAlphaNum (hd all_lines) orelse
             fail "first line must contain alphanumeric chars"
     val _ = not (String.isPrefix " " (hd all_lines)) orelse
             fail "first line must not start with a blank"
@@ -220,11 +202,11 @@ fun isError (Error _) = true | isError _ = false;
 fun create_summary filenames_and_paths = let
   val filenames = sort (fn s1 => fn s2 => s1 <= s2) filenames_and_paths
   val filenames = distinct filenames
-  (* remove lem generated scrit files *)
+  (* remove lem generated script files *)
   fun is_lem_generated filename =
     if String.isSuffix "Script.sml" filename then let
       val str = String.substring(filename,0,String.size(filename)-10)
-      in mem (str ^ ".lem") filenames end
+      in List.exists (equal (str ^ ".lem")) filenames end
     else false
   val filenames = List.filter (not o is_lem_generated) filenames
   (* read what needs to come first in the output *)
@@ -238,6 +220,9 @@ fun create_summary filenames_and_paths = let
      else if String.isSuffix ".sml" filename orelse
              String.isSuffix ".lem" filename then
        TitleAndContent (filename,read_comment_from_sml filename)
+     else if String.isSuffix ".c" filename orelse
+             String.isSuffix ".css" filename then
+       TitleAndContent (filename,read_comment_from_c filename)
      else if String.isSuffix ".sh" filename then
        TitleAndContent (filename,read_comment_from_script filename)
      else
@@ -247,7 +232,7 @@ fun create_summary filenames_and_paths = let
     handle ReadmeExn msg => Error (filename,msg)
   val output = header :: map do_filename filenames
   (* check and report errors *)
-  val _ = if exists isError output then let
+  val _ = if List.exists isError output then let
             val _ = print ("ERROR! readme_gen.sml cannot produce " ^
                            OUTPUT_FILENAME ^ " due to:\n")
             fun print_err (Error (name,msg)) =
@@ -286,5 +271,3 @@ fun main () = let
   val dirs = all_nondot_subdirs ()
   val _ = create_summary (args @ dirs)
   in () end;
-
-val filenames_and_paths = ["../lib.lem", "../libScript.sml"]
