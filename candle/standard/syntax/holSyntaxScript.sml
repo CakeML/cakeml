@@ -405,9 +405,9 @@ val alpha_lt_def = Define`
 val hypset_ok_def = Define`
   hypset_ok ls ⇔ SORTED alpha_lt ls`
 
-(* A theory is a signature together with a set of axioms. It is well-formed if
-   the types of the constants are all ok, the axioms are all ok terms of type
-   bool, and the signature is standard. *)
+(* A theory is a signature together with a set of (definitional) axioms. It is
+   well-formed if the types of the constants are all ok, the definitional axioms
+   are all orthogonal (terms of type bool), and the signature is standard. *)
 
 val _ = Parse.type_abbrev("thy",``:sig # term set``)
 val _ = Parse.overload_on("sigof",``FST:thy->sig``)
@@ -423,6 +423,7 @@ val is_std_sig_def = Define`
     FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
     FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))`
 
+(* Note that this theory is not necessarily definitional *)
 val theory_ok_def = Define`
   theory_ok (thy:thy) ⇔
     (∀ty. ty ∈ FRANGE (tmsof thy) ⇒ type_ok (tysof thy) ty) ∧
@@ -562,6 +563,8 @@ val _ = export_rewrites["types_of_upd_def","consts_of_upd_def","axexts_of_upd_de
   (* Now we can recover the theory associated with a context *)
 val _ = Parse.overload_on("thyof",``λctxt:update list. (sigof ctxt, axsof ctxt)``)
 
+
+
 (* Orthogonality criterion for constant instance and type definitions *)
 val orth_ty_def = Define `
   orth_ty (ty1 :type) (ty2 :type) = ~((is_instance ty1 ty2) \/ (is_instance ty2 ty1))
@@ -585,17 +588,16 @@ val init_ctxt_def = Define`
 
 (* all built-in constants and types
  * A type is built-in  iff  its type constructor is.*)
-val builtin_types = Define`
+val builtin_types_def = Define`
   builtin_types =
-    MAP (\(NewType ty ar). (ty, ar))
-    (FILTER (\x. case x of NewType _ _ => T | _ => F) init_ctxt)
+    FLAT (MAP (\x. case x of NewType name ty => [(name,ty)] | _ => []) init_ctxt)
 `;
-val builtin_const = Define`
+val builtin_const_def = Define`
   builtin_const =
     FILTER (\x. case x of NewConst _ _ => T | _ => F) init_ctxt
 `;
 
-val nonbuiltin_ctxt = Define`
+val nonbuiltin_ctxt_def = Define`
   nonbuiltin_ctxt = FILTER (\x. MEM x init_ctxt)
 `;
 
@@ -646,29 +648,30 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
        dependency ctxt (INR c1) (INR c2)) /\
   (!ctxt c t cl prop.
        MEM (ConstSpec cl prop) ctxt /\
-       c1 = Const name ty /\
+       c = Const name ty /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
        MEM t (allTypes cdefn)
        ==>
        dependency ctxt (INR c) (INL t)) /\
-  (!ctxt t1 t2 name pred abs rep tyargs.
+  (!ctxt t1 t2 name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM t2 (allTypes pred)
-       /\ t1 = Tyapp name tyargs
+       /\ t1 = Tyapp name (MAP Tyvar (tvars pred))
        ==>
        dependency ctxt (INL t1) (INL t2)) /\
-  (!ctxt t c name pred abs rep tyargs.
+  (!ctxt t c name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM c (allCInsts pred)
-       /\ t = Tyapp name tyargs
+       /\ t = Tyapp name (MAP Tyvar (tvars pred))
        ==>
        dependency ctxt (INL t) (INR c)) /\
-  (!ctxt c t1 t2.
-       c has_type t2
+  (!ctxt name t1 t2.
+       ~ (MEM name ["bool";"fun"]) (* non-built-ins *)
        /\ MEM t1 (allTypes' t2)
+       /\ MEM (NewConst (strlit name) t2) ctxt
        ==>
-       dependency ctxt (INR c) (INL t1))
+       dependency ctxt (INR (Const (strlit name) t2)) (INL t1))
   `
 
 (* Type-substitutive closure of a relation.
@@ -720,6 +723,36 @@ val wf_ctxt_def = Define `
   wf_ctxt ctxt = 
   (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
   `
+(* The dependency relation of a theory
+ * types are INL and constants are INR *)
+val thy_dependency_def = Define`
+  thy_dependency = FLAT o MAP (\x.
+    case x of
+        (TypeDefn name t _ _ ) =>
+          let ty = INL (Tyapp name (MAP Tyvar (tvars t))) in
+          MAP (\v. (ty, INR v)) (allCInsts t)
+          ++ MAP (\v. (ty, INL v)) (allTypes t)
+        | (ConstSpec cl _) =>
+          FLAT (MAP (\(cname,t).
+            let constant = INR (Const cname (typeof t))
+            in
+              (case typeof t of
+                    Tyvar _ => []
+                  | Tyapp name tys =>
+                      if MEM name (MAP strlit ["bool";"fun"]) (* non-built-ins *)
+                      then [] else [(constant, INL (typeof t))]
+              )
+              ++ MAP (\subtype. (constant,INL subtype)) (allTypes t)
+              ++ MAP (\subconstant. (constant,INR subconstant)) (allCInsts t)
+            ) cl)
+      | (NewConst name ty) =>
+          if ~ MEM name (MAP strlit ["bool";"fun"])
+          then MAP (\ty2.  (INR (Const name ty),INL ty2)) (allTypes' ty)
+          else []
+      | _ => []
+  )
+`
+
 
 (* Principles for extending the context *)
 
