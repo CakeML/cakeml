@@ -36,6 +36,8 @@ val _ = Datatype `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
+val vs = ``(vs:dataSem$v list)``
+
 
 val add_space_def = Define `
   add_space ^s k = s with space := k`;
@@ -128,17 +130,16 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
-(* TODO: vs uses bvl$v *)
 val list_to_v_def = Define `
   list_to_v [] = Block 0 nil_tag [] /\
   list_to_v (v::vs) = Block 0 cons_tag [v; list_to_v vs]`;
 
 val do_app_aux_def = Define `
-  do_app_aux op vs ^s =
+  do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
     | (Const i,xs) => if small_enough_int i then
-                        Rval (Number i, s)
+                        Rval (Number i : v, s)
                       else Rerr(Rabort Rtype_error)
     | (Label l,xs) => (case xs of
                        | [] => if l IN domain s.code then
@@ -153,14 +154,14 @@ val do_app_aux_def = Define `
          | _ => Rerr(Rabort Rtype_error))
     | (SetGlobalsPtr,xs) =>
         (case xs of
-         | [RefPtr p] => Rval (Unit, s with global := SOME p)
+         | [RefPtr p] => Rval (Unit 0, s with global := SOME p)
          | _ => Rerr(Rabort Rtype_error))
     | (FromList n, xs) =>
         (case xs of
          | [len;lv] =>
             (case v_to_list lv of
              | SOME vs => if len = Number (& (LENGTH vs))
-                          then Rval (Block n vs, s)
+                          then Rval (Block 0 n vs, s)
                           else Rerr(Rabort Rtype_error)
              | _ => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
@@ -181,21 +182,21 @@ val do_app_aux_def = Define `
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
-    | (Cons tag,xs) => Rval (Block tag xs, s)
-    | (ConsExtend tag,Block _ xs'::Number lower::Number len::Number tot::xs) =>
+    | (Cons tag,xs) => Rval (Block 0 tag xs, s)
+    | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Rerr(Rabort Rtype_error)
         else
-          Rval (Block tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
+          Rval (Block _ tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
     | (ConsExtend tag,_) => Rerr(Rabort Rtype_error)
-    | (El,[Block tag xs;Number i]) =>
+    | (El,[Block _ tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Rerr(Rabort Rtype_error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys),s)
          | _ => Rerr(Rabort Rtype_error))
-    | (LengthBlock,[Block tag xs]) =>
+    | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
@@ -225,7 +226,7 @@ val do_app_aux_def = Define `
          | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
-               Rval (Unit, s with refs := s.refs |+
+               Rval (Unit 0, s with refs := s.refs |+
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
@@ -233,20 +234,20 @@ val do_app_aux_def = Define `
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
-            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds))
+            | SOME ds => Rval (Unit 0, s with refs := s.refs |+ (dst, ByteArray fl ds))
             | NONE => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
-    | (TagEq n,[Block tag xs]) =>
-        Rval (Boolv (tag = n), s)
-    | (TagLenEq n l,[Block tag xs]) =>
-        Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
+    | (TagEq n,[Block _ tag xs]) =>
+        Rval (Boolv 0 (tag = n), s)
+    | (TagLenEq n l,[Block _ tag xs]) =>
+        Rval (Boolv 0 (tag = n ∧ LENGTH xs = l),s)
     | (EqualInt i,[x1]) =>
         (case x1 of
-         | Number j => Rval (Boolv (i = j), s)
+         | Number j => Rval (Boolv 0 (i = j), s)
          | _ => Rerr(Rabort Rtype_error))
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
-         | Eq_val b => Rval (Boolv b, s)
+         | Eq_val b => Rval (Boolv 0 b, s)
          | _ => Rerr(Rabort Rtype_error))
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
@@ -262,7 +263,7 @@ val do_app_aux_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (Unit, s with refs := s.refs |+
+             then Rval (Unit 0, s with refs := s.refs |+
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
@@ -274,13 +275,13 @@ val do_app_aux_def = Define `
     | (Mod,[Number n1; Number n2]) =>
          if n2 = 0 then Rerr(Rabort Rtype_error) else Rval (Number (n1 % n2),s)
     | (Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
+         Rval (Boolv 0 (n1 < n2),s)
     | (LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
+         Rval (Boolv 0 (n1 <= n2),s)
     | (Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
+         Rval (Boolv 0 (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
+         Rval (Boolv 0 (n1 >= n2),s)
     | (WordOp W8 opw,[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Rerr(Rabort Rtype_error)
@@ -308,7 +309,7 @@ val do_app_aux_def = Define `
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
             | FFI_return ffi' ws' =>
-                Rval (Unit,
+                Rval (Unit 0,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
@@ -323,20 +324,20 @@ val do_app_aux_def = Define `
          | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
          | _ => Rerr(Rabort Rtype_error))
     | (FP_cmp cmp, ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
+        (case ws of                        (* time-stamp? *)
+         | [Word64 w1; Word64 w2] => (Rval (Boolv 0 (fp_cmp cmp w1 w2),s))
          | _ => Rerr(Rabort Rtype_error))
     | (BoundsCheckBlock,xs) =>
         (case xs of
-         | [Block tag ys; Number i] =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
+         | [Block _ tag ys; Number i] =>
+               Rval (Boolv 0 (0 <= i /\ i < & LENGTH ys),s)
          | _ => Rerr(Rabort Rtype_error))
     | (BoundsCheckByte loose,xs) =>
         (case xs of
          | [RefPtr ptr; Number i] =>
           (case FLOOKUP s.refs ptr of
            | SOME (ByteArray _ ws) =>
-               Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
+               Rval (Boolv 0 (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
     | (BoundsCheckArray,xs) =>
@@ -344,15 +345,15 @@ val do_app_aux_def = Define `
          | [RefPtr ptr; Number i] =>
           (case FLOOKUP s.refs ptr of
            | SOME (ValueArray ws) =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+               Rval (Boolv 0 (0 <= i /\ i < & LENGTH ws),s)
            | _ => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
     | (LessConstSmall n,xs) =>
         (case xs of
          | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
-                         then Rval (Boolv (i < &n),s) else Rerr(Rabort Rtype_error)
+                         then Rval (Boolv 0 (i < &n),s) else Rerr(Rabort Rtype_error)
          | _ => Rerr(Rabort Rtype_error))
-    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ConfigGC,[Number _; Number _]) => (Rval (Unit 0, s))
     | _ => Rerr(Rabort Rtype_error)`;
 
 
