@@ -73,6 +73,24 @@ val typeof_def = Define`
   (typeof (Abs v t) = Fun (typeof v) (typeof t))`
 val _ = export_rewrites["typeof_def"]
 
+val is_fun_def = Define `
+  (is_fun (Tyapp name tys) = ((name = strlit "fun") /\ (LENGTH tys = 2)))
+  /\ (is_fun _ = F)
+`
+(* check if a term is well-formed *)
+val wellformed_compute_def = Define `
+  (wellformed_compute (Var n ty) = T)
+  /\ (wellformed_compute (Const n ty) = T)
+  /\ (wellformed_compute (Comb s t) =
+    (wellformed_compute s
+    /\ wellformed_compute t
+    /\ is_fun (typeof s)
+    /\ (domain (typeof s) = typeof t))
+  )
+  /\ (wellformed_compute (Abs (Var x ty) t) = wellformed_compute t)
+  /\ (wellformed_compute (Abs _ _) = F)
+  `
+
 (* Auxiliary relation used to define alpha-equivalence. This relation is
    parameterised by the lists of variables bound above the terms. *)
 

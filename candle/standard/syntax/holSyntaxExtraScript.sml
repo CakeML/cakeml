@@ -112,6 +112,25 @@ val WELLTYPED_CLAUSES = Q.store_thm("WELLTYPED_CLAUSES",
   metis_tac[WELLTYPED,WELLTYPED_LEMMA])
 val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
+(* wellformed_compute acutally also checks the syntax (through the has_type relation) *)
+val WELLFORMED_COMPUTE_EQUIV = Q.store_thm(
+  "WELLFORMED_COMPUTE_EQUIV",
+  `!t. welltyped t = wellformed_compute t`,
+  Induct
+  >> rw[welltyped_def,wellformed_compute_def]
+  >> fs[welltyped_def]
+  >> Cases_on `typeof t`
+  >> rw[is_fun_def,domain_raw]
+  >- (
+    PURE_FULL_CASE_TAC
+    >> rw[GSYM PULL_EXISTS]
+    >> rw[quantHeuristicsTheory.LIST_LENGTH_1]
+    >> fs[AC CONJ_ASSOC CONJ_COMM]
+  )
+  >> Cases_on `t`
+  >> rw[wellformed_compute_def]
+)
+
 (* Alpha-equivalence *)
 
 val RACONV = Q.store_thm("RACONV",
