@@ -563,16 +563,30 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
+val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
+val ref_thms = { nchotomy = closSemTheory.ref_nchotomy, case_def = closSemTheory.ref_case_def };
+val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
+val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
+val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
+val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_eq_thm
+  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms,
+   ffi_result_thms]))
+  |> curry save_thm"case_eq_thms";
+
 val do_app_clock = Q.store_thm("do_app_clock",
   `(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock`,
-  SIMP_TAC std_ss [do_app_def,do_space_def,consume_space_def,do_install_def]
-  \\ IF_CASES_TAC
-  THEN1 (
-    every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[])
-  \\ IMP_RES_TAC bviSemTheory.do_app_const \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def] \\ SRW_TAC [] []);
+  rw[ do_app_def
+    , do_app_aux_def
+    , do_space_def
+    , consume_space_def
+    , do_install_def
+    , case_eq_thms
+    , PULL_EXISTS
+    ,UNCURRY]
+ \\ rw[]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
 `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
