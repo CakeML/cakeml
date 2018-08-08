@@ -10,6 +10,12 @@ val _ = Datatype `
     | CodePtr num             (* code pointer *)
     | RefPtr num              (* pointer to ref cell *)`;
 
+val Boolv_def = Define`
+  Boolv ts b = Block ts (bool_to_tag b) []`
+
+val Unit_def = Define`
+  Unit ts = Block ts (tuple_tag) []`
+
 val _ = Datatype `
   stack = Env (v num_map)
         | Exc (v num_map) num`;
@@ -62,6 +68,41 @@ val v_to_bytes_def = Define `
 val v_to_words_def = Define `
   v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
 
+val do_eq_def = tDefine"do_eq"`
+  (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
+  (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
+  (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
+  (do_eq _ (Number _) _ = Eq_type_error) ∧
+  (do_eq _ _ (Number _) = Eq_type_error) ∧
+  (do_eq _ (Word64 w1) (Word64 w2) = (Eq_val (w1 = w2))) ∧
+  (do_eq _ (Word64 _) _ = Eq_type_error) ∧
+  (do_eq _ _ (Word64 _) = Eq_type_error) ∧
+  (do_eq refs (RefPtr n1) (RefPtr n2) =
+    case (FLOOKUP refs n1, FLOOKUP refs n2) of
+      (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
+        => Eq_val (bs1 = bs2)
+    | (SOME (ByteArray T bs1), _) => Eq_type_error
+    | (_, SOME (ByteArray T bs2)) => Eq_type_error
+    | _ => Eq_val (n1 = n2)) ∧
+  (do_eq _ (RefPtr _) _ = Eq_type_error) ∧
+  (do_eq _ _ (RefPtr _) = Eq_type_error) ∧
+  (* TODO: How time-stamps impact equality between blocks? *)
+  (do_eq refs (Block _ t1 l1) (Block _ t2 l2) =
+   if isClos t1 l1 \/ isClos t2 l2
+   then if isClos t1 l1 /\ isClos t2 l2 then Eq_val T else Eq_type_error
+   else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
+        then do_eq_list refs l1 l2
+        else Eq_val F) ∧
+  (do_eq_list _ [] [] = Eq_val T) ∧
+  (do_eq_list refs (v1::vs1) (v2::vs2) =
+   case do_eq refs v1 v2 of
+   | Eq_val T => do_eq_list refs vs1 vs2
+   | Eq_val F => Eq_val F
+   | bad => bad) ∧
+  (do_eq_list _ _ _ = Eq_val F)`
+  (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
+val _ = export_rewrites["do_eq_def"];
+
 val do_install_def = Define `
   do_install vs ^s =
       (case vs of
@@ -88,6 +129,10 @@ val do_install_def = Define `
        | _ => Rerr(Rabort Rtype_error))`;
 
 (* TODO: vs uses bvl$v *)
+val list_to_v_def = Define `
+  list_to_v [] = Block 0 nil_tag [] /\
+  list_to_v (v::vs) = Block 0 cons_tag [v; list_to_v vs]`;
+
 val do_app_aux_def = Define `
   do_app_aux op vs ^s =
     case (op,vs) of
