@@ -604,10 +604,13 @@ val nonbuiltin_ctxt_def = Define`
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types. 
  * This corresponds to   types^\bullet : term -> type set  in the publication *)
-val allTypes'_def = Define `
-  (allTypes' (Tyapp (strlit "fun") tys) = tys)
-  /\ (allTypes' (Tyapp (strlit "bool") []) = [])
-  /\ (allTypes' (Tyapp a b) = [(Tyapp a b)])
+val allTypes'_defn = Hol_defn "allTypes'" `
+  (allTypes' (Tyapp s tys) =
+     case s of
+       strlit "fun" => FLAT (MAP allTypes' tys)
+     | strlit "bool" => [] (* tys = [] *)
+     | _ => [(Tyapp s tys)]
+  )
   /\ (allTypes' (Tyvar _) = [])
 `;
 
