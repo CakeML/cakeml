@@ -5935,7 +5935,7 @@ val known_every_Fn_SOME = Q.store_thm("known_every_Fn_SOME",
     \\ pairarg_tac \\ fs[]
     \\ pairarg_tac \\ fs[]
     \\ CASE_TAC \\ fs[]
-    \\ TRY(reverse conj_tac >- fs[Once every_Fn_SOME_EVERY])
+    \\ TRY(reverse conj_tac >- fs[Once every_Fn_SOME_EVERY, EVERY_SNOC])
     \\ match_mp_tac every_Fn_SOME_mk_Ticks
     \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
     \\ fs[] \\ rveq
@@ -6043,7 +6043,7 @@ val known_every_Fn_vs_NONE = Q.store_thm("known_every_Fn_vs_NONE",
     \\ pairarg_tac \\ fs[]
     \\ pairarg_tac \\ fs[]
     \\ CASE_TAC \\ fs[]
-    \\ TRY(reverse conj_tac >- fs[Once every_Fn_vs_NONE_EVERY])
+    \\ TRY(reverse conj_tac >- fs[Once every_Fn_vs_NONE_EVERY, EVERY_SNOC])
     \\ match_mp_tac every_Fn_vs_NONE_mk_Ticks
     \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
     \\ fs[] \\ rveq
