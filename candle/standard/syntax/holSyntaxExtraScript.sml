@@ -3543,9 +3543,108 @@ val terminating_normalise_rel = Q.store_thm("terminating_normalise_rel",
       >> rw[PULL_EXISTS] >> asm_exists_tac
       >> rw[]));
 
-val finite_normalise_clos = Q.store_thm("finite_normalise_clos",
+val subst_clos_disj = Q.store_thm("subst_clos_disj",
+  `subst_clos(λx y. R1 x y \/ R2 x y) = (λx y. (subst_clos R1) x y \/ (subst_clos R2) x y)`,
+  qmatch_goalsub_abbrev_tac `a1 = a2`
+  >> `!u v. a1 u v = a2 u v` suffices_by metis_tac[]
+  >> unabbrev_all_tac >> Cases >> Cases
+  >> EQ_TAC >> fs[subst_clos_def] >> rw[]
+  >> metis_tac[]);
+
+val normalise_rel_disj = Q.store_thm("normalise_rel_disj",
+  `normalise_rel(λx y. R1 x y \/ R2 x y) = (λx y. (normalise_rel R1) x y \/ (normalise_rel R2) x y)`,
+  qmatch_goalsub_abbrev_tac `a1 = a2`
+  >> `!u v. a1 u v = a2 u v` suffices_by metis_tac[]
+  >> unabbrev_all_tac >> Cases >> Cases
+  >> EQ_TAC >> fs[normalise_rel_def] >> rw[]
+  >> metis_tac[]);
+
+val subst_clos_empty = Q.store_thm("subst_clos_empty",
+  `subst_clos (λx y. F) = (λx y. F)`,
+  `!u v. subst_clos (λx y. F) u v = (λx y. F) u v` suffices_by metis_tac[]
+  \\ Cases >> Cases >> rw[subst_clos_def]);
+
+val finite_split =
+REWRITE_RULE [UNION_DEF,IN_DEF] FINITE_UNION |> CONV_RULE(DEPTH_CONV BETA_CONV)
+
+val rel_set_union = Q.prove(
+  `!R R'. {(x,y) | R x y ∨ R' x y} = {(x,y) | R x y} ∪ {(x,y) | R' x y}`,
+  rw[ELIM_UNCURRY] >> rw[UNION_DEF]);
+
+val types_of_type_def = tDefine "types_of_type" `
+  types_of_type (Tyvar t) = [Tyvar t]
+  /\ types_of_type (Tyapp t tys) = Tyapp t tys::FLAT(MAP types_of_type tys)`
+  (wf_rel_tac `measure type_size`
+   >> rw[MEM_SPLIT] >> rw[type1_size_append,type_size_def])
+
+val types_of_rel = Define `
+  types_of_rel R =
+    {t | (?t' e. (R e (INL t') \/ R (INL t') e) /\ MEM t (types_of_type t'))
+          \/ (?c e. (R e (INR c) \/ R (INR c) e) /\ MEM t (types_of_type(typeof c)))}
+  `
+  
+val bounded_subst_def = Define `
+bounded_subst tvs R sigma = (set(MAP FST sigma) ⊆ set(MAP Tyvar tvs) /\
+                             ALL_DISTINCT(MAP FST sigma) /\
+                             EVERY (λt. t IN (types_of_rel R)) (MAP SND sigma))`
+
+val bounded_subst_clos_def = Define `
+  (bounded_subst_clos R (INL t1) (INL t2) =
+    (?t1' t2' sigma. t1 = TYPE_SUBST sigma t1' /\ t2 = TYPE_SUBST sigma t2' /\ R (INL t1') (INL t2') /\ bounded_subst (tyvars t1' ++ tyvars t2') R sigma)) /\
+  (bounded_subst_clos R (INL t) (INR c) =
+   (?t' c' sigma. t = TYPE_SUBST sigma t' /\ c = INST sigma c' /\ R (INL t') (INR c') /\ bounded_subst (tyvars t' ++ tyvars(typeof c')) R sigma))
+ /\
+  (bounded_subst_clos R (INR c) (INL t) =
+   (?t' c' sigma. t = TYPE_SUBST sigma t' /\ c = INST sigma c' /\ R (INR c') (INL t') /\ bounded_subst (tyvars t' ++ tyvars(typeof c')) R sigma))
+ /\
+  (bounded_subst_clos R (INR c1) (INR c2) =
+   (?c1' c2' sigma. c1 = INST sigma c1' /\ c2 = INST sigma c2' /\ R (INR c1') (INR c2') /\ bounded_subst (tyvars(typeof c1') ++ tyvars(typeof c2')) R sigma))`
+
+val bounded_subst_clos_empty = Q.store_thm("bounded_subst_clos_empty",
+  `bounded_subst_clos (λx y. F) = (λx y. F)`,
+  `!u v. bounded_subst_clos (λx y. F) u v = (λx y. F) u v` suffices_by metis_tac[]
+  \\ Cases >> Cases >> rw[bounded_subst_clos_def]);
+
+val bounded_subst_clos_IMP_subst_clos = Q.store_thm("bounded_subst_clos_IMP_subst_clos",
+  `!R u v. bounded_subst_clos R u v ==> subst_clos R u v`,
+  strip_tac >> Cases >> Cases >> rw[subst_clos_def,bounded_subst_clos_def]
+  >> metis_tac[]);
+
+val finite_bounded_subst_clos = Q.store_thm("finite_bounded_subst_clos",
+  `FINITE(rel_to_reln R) ==> FINITE(rel_to_reln(bounded_subst_clos R))`,
+  rpt strip_tac >> qmatch_asmsub_abbrev_tac `FINITE a1`
+  >> pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+  >> W (curry Q.SPEC_TAC) `R` >> pop_assum mp_tac
+  >> W (curry Q.SPEC_TAC) `a1`
+  >> ho_match_mp_tac FINITE_INDUCT
+  >> rpt strip_tac
+  >- (fs[rel_to_reln_swap,reln_to_rel_def] >> rveq
+      >> simp[rel_to_reln_def,bounded_subst_clos_empty])
+  >> fs[rel_to_reln_swap,reln_to_rel_def] >> rveq
+  >> simp[subst_clos_disj]
+  >> fs[rel_to_reln_def,rel_set_union]
+  >> CONV_TAC(DEPTH_CONV ETA_CONV)
+  >> fs[]
+  >> Cases_on `e` >> fs[] >> metis_tac[finite_normalise_singleton,rel_to_reln_def]);
+
+(* not true!
+ val finite_normalise_clos = Q.store_thm("finite_normalise_clos",
   `FINITE(rel_to_reln R) ==> FINITE(rel_to_reln(normalise_rel(subst_clos R)))`,
-  cheat);
+  rpt strip_tac >> qmatch_asmsub_abbrev_tac `FINITE a1`
+  >> pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+  >> W (curry Q.SPEC_TAC) `R` >> pop_assum mp_tac
+  >> W (curry Q.SPEC_TAC) `a1`
+  >> ho_match_mp_tac FINITE_INDUCT
+  >> rpt strip_tac
+  >- (fs[rel_to_reln_swap,reln_to_rel_def] >> rveq
+      >> simp[rel_to_reln_def,normalise_rel_def,subst_clos_empty])
+  >> fs[rel_to_reln_swap,reln_to_rel_def] >> rveq
+  >> simp[subst_clos_disj,normalise_rel_disj]
+  >> fs[rel_to_reln_def,rel_set_union]
+  >> CONV_TAC(DEPTH_CONV ETA_CONV)
+  >> fs[]
+  >> Cases_on `e` >> fs[] >> metis_tac[finite_normalise_singleton,rel_to_reln_def]);
+*)
 
 (* updates preserve well-formedness *)
 val update_ctxt_wf = Q.store_thm("update_ctxt_wf",
