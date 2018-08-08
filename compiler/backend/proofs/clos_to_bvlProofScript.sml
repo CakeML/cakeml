@@ -6640,12 +6640,10 @@ val compile_every_Fn_SOME = Q.store_thm("compile_every_Fn_SOME",
   \\ res_tac);
 
 val compile_every_Fn_vs_SOME = Q.store_thm("compile_every_Fn_vs_SOME",
-  `every_Fn_vs_SOME (MAP (SND o SND) es) ⇒
-   every_Fn_vs_SOME (MAP (SND o SND) (clos_annotate$compile es))`,
+  `every_Fn_vs_SOME (MAP (SND o SND) (clos_annotate$compile es))`,
   rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
-  \\ fs[Once every_Fn_vs_SOME_EVERY]
   \\ fs[EVERY_MAP, UNCURRY]
-  \\ fs[EVERY_MEM] \\ rw[HD_annotate_SING]);
+  \\ rw[EVERY_MEM, HD_annotate_SING]);
 
 val compile_common_max_app = Q.store_thm("compile_common_max_app",
   `compile_common c es = (c',es') ⇒ c'.max_app = c.max_app`,
@@ -6728,7 +6726,12 @@ val compile_semantics = store_thm("compile_semantics",
       \\ irule ccompile_every_Fn_SOME
       \\ goal_assum(first_assum o mp_then Any mp_tac)
       \\ fs[clos_callProofTheory.syntax_ok_def] )
-    >- cheat (* this looks like a problem... *))
+    >- (
+      simp[GSYM every_Fn_vs_SOME_EVERY
+              |> Q.SPEC`MAP (SND o SND) ls`
+              |> SIMP_RULE (srw_ss()) [EVERY_MAP]]
+      \\ rveq
+      \\ simp[compile_every_Fn_vs_SOME] ))
   \\ conj_tac
   >- (
     qexists_tac`prog'`
