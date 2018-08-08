@@ -3052,14 +3052,61 @@ val (allTypes'_def, allTypes'_ind) = Defn.tprove (
 
 val DEPENDENCY_IMP1 = Q.store_thm(
   "DEPENDENCY_IMP1",
-  `!x y ctxt. dependency ctxt x y ==> MEM (x,y) (thy_dependency ctxt)`,
-  rw[dependency_cases,thy_dependency_def]
+  `!x y ctxt. dependency ctxt x y ==> MEM (x,y) (dependency_compute ctxt)`,
+  rw[dependency_cases,dependency_compute_def]
   >> rw[MEM_FLAT,MEM_MAP,PULL_EXISTS]
   >> asm_exists_tac
   >> rw[MEM_FLAT,MEM_MAP]
   >> rw[PULL_EXISTS]
   >> asm_exists_tac
-  >> rw[MEM_MAP,WELLTYPED_LEMMA]
+  >> rw[MEM_MAP]
+  >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),welltyped_def]
+  >> rw[WELLTYPED_LEMMA]
+);
+
+val DEPENDENCY_IMP2 = Q.store_thm(
+  "DEPENDENCY_IMP2",
+  `!x y ctxt. MEM (x,y) (dependency_compute ctxt) ==> dependency ctxt x y`,
+  rw[dependency_cases,dependency_compute_def,theory_ok_def]
+  >> fs[MEM_MAP,MEM_FLAT]
+  >> rveq
+  >> PURE_FULL_CASE_TAC
+  >> fs[MEM_MAP,MEM_FLAT]
+  (* 4 subgoals *)
+  >- (
+    rveq
+    >> pairarg_tac
+    >> fs[]
+    >> Cases_on `wellformed_compute t'`
+    >- (
+      fs[COND_RAND,MEM_MAP]
+      >> TRY DISJ1_TAC
+      >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
+      >> TRY asm_exists_tac
+      >> EXISTS_TAC ``t':term``
+      >> rw[]
+    )
+    >> fs[GSYM (SPEC ``t':term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
+  )
+  >- (
+    EXISTS_TAC ``t:term``
+    >> EXISTS_TAC ``m0:mlstring``
+    >> EXISTS_TAC ``m1:mlstring``
+    >> rw[]
+  )
+  >- (
+    EXISTS_TAC ``t:term``
+    >> EXISTS_TAC ``m0:mlstring``
+    >> EXISTS_TAC ``m1:mlstring``
+    >> rw[]
+  )
+  >> fs[COND_RAND,MEM_MAP]
+);
+
+val DEPENDENCY_EQUIV = Q.store_thm(
+  "DEPENDENCY_EQUIV",
+  `!x y ctxt. MEM (x,y) (dependency_compute ctxt) = dependency ctxt x y`,
+  EQ_TAC >> rw[DEPENDENCY_IMP1,DEPENDENCY_IMP2]
 );
 
 (* extension is transitive *)
