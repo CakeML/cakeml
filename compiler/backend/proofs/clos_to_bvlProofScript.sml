@@ -6280,6 +6280,14 @@ val kcompile_inc_uncurry = Q.store_thm("kcompile_inc_uncurry",
   Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ simp[]);
 
+val ccompile_inc_uncurry = Q.store_thm("ccompile_inc_uncurry",
+  `clos_callProof$compile_inc g p =
+     (SND (calls [FST p] g),
+      HD (FST (calls [FST p] g)),
+      [])`,
+  Cases_on`p` \\ EVAL_TAC
+  \\ pairarg_tac \\ simp[]);
+
 val elist_globals_sing = Q.store_thm("elist_globals_sing",
   `elist_globals [x] = set_globals x`,
   rw[elist_globals_FOLDR]);
@@ -6344,6 +6352,12 @@ val calls_compile_csyntax_ok = Q.store_thm("calls_compile_csyntax_ok",
   \\ imp_res_tac clos_callProofTheory.calls_preserves_every_Fn_vs_NONE
   \\ fs []);
 
+val HD_FST_calls = Q.store_thm("HD_FST_calls",
+  `[HD (FST (calls [x] y))] = FST (calls [x] y)`,
+  Cases_on`calls [x] y`
+  \\ imp_res_tac clos_callTheory.calls_sing
+  \\ fs[]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
@@ -6361,7 +6375,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      BAG_ALL_DISTINCT (elist_globals (GENLIST (FST o SND o co1) n)) ∧
      BAG_DISJOINT (elist_globals es1) (elist_globals (GENLIST (FST o SND o co1) n)) ∧
      ¬contains_App_SOME c.max_app [FST(SND(co1 n))] ∧
-     clos_knownProof$syntax_ok [FST(SND(co1 n))]))
+     clos_knownProof$syntax_ok [FST(SND(co1 n))] ∧
+     every_Fn_vs_NONE (MAP (SND o SND) (SND (FST (SND (SND (FST (co1 n))))))) ∧
+     globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n))))))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co compile_inc o
@@ -6521,7 +6537,34 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
       \\ goal_assum (last_assum o mp_then Any mp_tac) \\ fs [])
     \\ qx_gen_tac `m`
-    \\ cheat (* swamp of incremental compilers *))
+    \\ simp[Abbr`co`,backendPropsTheory.FST_state_co,
+            backendPropsTheory.SND_state_co]
+    \\ reverse conj_tac
+    >- (
+      rw[compile_inc_uncurry, kcompile_inc_uncurry, ccompile_inc_uncurry]
+      \\ CASE_TAC \\ rw[compile_inc_uncurry, kcompile_inc_uncurry, ccompile_inc_uncurry]
+      \\ simp[SND_SND_ignore_table] )
+    \\ fs[clos_knownProofTheory.syntax_ok_def]
+    \\ rw[] \\ CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, compile_inc_uncurry]
+    \\ fs[HD_FST_calls, FST_SND_ignore_table, clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
+    \\ TRY (
+      (clos_callProofTheory.calls_preserves_every_Fn_vs_NONE
+        |> SPEC_ALL |> UNDISCH |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+      \\ qmatch_goalsub_abbrev_tac`calls xs g0`
+      \\ Cases_on`calls xs g0` \\ simp[]
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ map_every qunabbrev_tac [`xs`,`g0`]
+      \\ fs[] )
+    \\ fs[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
+    \\ TRY (
+      specl_args_of_then``known``known_every_Fn_vs_NONE mp_tac
+      \\ simp[compile_inc_uncurry]
+      \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
+      \\ qmatch_goalsub_abbrev_tac`known aa [bb] [] dd`
+      \\ Cases_on`known aa [bb] [] dd`
+      \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+      \\ fs[] ))
   \\ disch_then(strip_assume_tac o SYM) \\ fs[]
   \\ AP_TERM_TAC
   \\ EVAL_TAC);
@@ -6619,7 +6662,9 @@ val syntax_oracle_ok_def = Define`
         (BAG_UNION (elist_globals es)
                    (elist_globals (GENLIST (FST o SND o co) n))) ∧
       ¬contains_App_SOME c.max_app [FST (SND (co n))] ∧
-      clos_knownProof$syntax_ok [FST (SND (co n))]) ∧
+      clos_knownProof$syntax_ok [FST (SND (co n))] ∧
+      every_Fn_vs_NONE (MAP (SND o SND) (SND (FST (SND (SND (FST (co n))))))) ∧
+      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n))))) ∧
     ¬contains_App_SOME c.max_app es ∧
     clos_knownProof$syntax_ok es`;
 
