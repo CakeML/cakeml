@@ -450,6 +450,23 @@ val push_env_clock = Q.prove(
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
+val find_code_def = Define `
+  (find_code (SOME p) args code =
+     case lookup p code of
+     | NONE => NONE
+     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+                                                  else NONE) /\
+  (find_code NONE args code =
+     if args = [] then NONE else
+       case LAST args of
+       | CodePtr loc =>
+           (case sptree$lookup loc code of
+            | NONE => NONE
+            | SOME (arity,exp) => if LENGTH args = arity + 1
+                                  then SOME (FRONT args,exp)
+                                  else NONE)
+       | other => NONE)`
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
@@ -491,8 +508,9 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (If n c1 c2,s) =
      case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME x => if x = Boolv T then evaluate (c1,s) else
-                 if x = Boolv F then evaluate (c2,s) else
+                        (* time-stamp? *)
+     | SOME x => if x = Boolv 0 T then evaluate (c1,s) else
+                 if x = Boolv 0 F then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of
