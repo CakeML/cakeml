@@ -3423,6 +3423,24 @@ val terminating_TC = Q.store_thm("terminating_TC",
   >> strip_tac >> pop_assum(qspecl_then [`y`,`n`] assume_tac)
   >> fs[]);
 
+val terminating_TC' = Q.store_thm("terminating_TC'",
+  `!R. terminating R ==> terminating(TC R)`,
+  rw[terminating_def] >> first_assum(qspec_then `x` assume_tac)
+  >> fs[NRC_TC_EQ_NRC]
+  >> qexists_tac `n`
+  >> rpt strip_tac >> Cases_on `n ≤ n''` >> fs[]
+  >> `?m. SUC n'' = (SUC n) + m` by intLib.COOPER_TAC
+  >> pop_assum (fn thm => PURE_ONCE_REWRITE_TAC[thm])
+  >> PURE_REWRITE_TAC [NRC_ADD_EQN]
+  >> metis_tac[]);
+
+val terminating_RTC = Q.store_thm("terminating_RTC",
+  `!R. terminating(RTC R) ==> F`,
+  rw[terminating_def] >> qexists_tac `ARB` >> strip_tac
+  >> qexists_tac `ARB`
+  >> Induct_on `n` >> rpt strip_tac
+  >> fs[NRC,PULL_EXISTS] >> metis_tac[RTC_REFL]);
+
 val LRC_IMP_NRC = Q.prove(`LRC R l x y ==> NRC R (LENGTH l) x y`,
   metis_tac[NRC_LRC]);
 
