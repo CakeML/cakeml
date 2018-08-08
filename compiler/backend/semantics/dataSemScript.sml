@@ -44,6 +44,24 @@ val do_space_def = Define `
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
+val v_to_list_def = Define`
+  (v_to_list (Block ts tag []) =
+     if tag = nil_tag then SOME [] else NONE) ∧
+  (v_to_list (Block ts tag [h;bt]) =
+     if tag = cons_tag then
+       (case v_to_list bt of
+        | SOME t => SOME (h::t)
+        | _ => NONE )
+     else NONE) ∧
+  (v_to_list _ = NONE)`
+
+val v_to_bytes_def = Define `
+  v_to_bytes lv = some ns:word8 list.
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+
+val v_to_words_def = Define `
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+
 val do_install_def = Define `
   do_install vs ^s =
       (case vs of
