@@ -619,6 +619,15 @@ val nonbuiltin_ctxt_def = Define`
   nonbuiltin_ctxt = FILTER (\x. MEM x init_ctxt)
 `;
 
+
+val is_builtin_name_def = Define`
+  (is_builtin_name m = MEM m (MAP strlit ["bool";"fun"]))
+`
+val is_builtin_type_def = Define`
+  (is_builtin_type (Tyvar _) = F)
+  /\ (is_builtin_type (Tyapp m ty) = is_builtin_name m)
+`
+
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types. 
  * This corresponds to   types^\bullet : term -> type set  in the publication *)
@@ -688,12 +697,36 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
        ==>
        dependency ctxt (INL t) (INR c)) /\
   (!ctxt name t1 t2.
-       ~ (MEM name ["bool";"fun"]) (* non-built-ins *)
+       ~ (is_builtin_name name)
        /\ MEM t1 (allTypes' t2)
-       /\ MEM (NewConst (strlit name) t2) ctxt
+       /\ MEM (NewConst name t2) ctxt
        ==>
-       dependency ctxt (INR (Const (strlit name) t2)) (INL t1))
+       dependency ctxt (INR (Const name t2)) (INL t1))
   `
+
+(* The computable version of the dependency relation
+ * types are INL and constants are INR *)
+val dependency_compute_def = Define`
+  dependency_compute = FLAT o MAP (\x.
+    case x of
+        (TypeDefn name t _ _ ) =>
+          let ty = INL (Tyapp name (MAP Tyvar (tvars t))) in
+          MAP (\v. (ty, INR v)) (allCInsts t)
+          ++ MAP (\v. (ty, INL v)) (allTypes t)
+        | (ConstSpec cl _) =>
+          FLAT (MAP (\(cname,t).
+            if ~ wellformed_compute t then [] else
+            let constant = INR (Const cname (typeof t))
+            in
+              MAP (\subtype. (constant,INL subtype)) (allTypes t)
+              ++ MAP (\subconstant. (constant,INR subconstant)) (allCInsts t)
+            ) cl)
+      | (NewConst name ty) =>
+          if is_builtin_name name then []
+          else MAP (\t1. (INR (Const name ty), INL t1)) (allTypes' ty)
+      | _ => []
+  )
+`
 
 (* Type-substitutive closure of a relation.
  * Corresponds to \uparrow in the publication *)
@@ -744,36 +777,6 @@ val wf_ctxt_def = Define `
   wf_ctxt ctxt = 
   (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
   `
-(* The dependency relation of a theory
- * types are INL and constants are INR *)
-val thy_dependency_def = Define`
-  thy_dependency = FLAT o MAP (\x.
-    case x of
-        (TypeDefn name t _ _ ) =>
-          let ty = INL (Tyapp name (MAP Tyvar (tvars t))) in
-          MAP (\v. (ty, INR v)) (allCInsts t)
-          ++ MAP (\v. (ty, INL v)) (allTypes t)
-        | (ConstSpec cl _) =>
-          FLAT (MAP (\(cname,t).
-            let constant = INR (Const cname (typeof t))
-            in
-              (case typeof t of
-                    Tyvar _ => []
-                  | Tyapp name tys =>
-                      if MEM name (MAP strlit ["bool";"fun"]) (* non-built-ins *)
-                      then [] else [(constant, INL (typeof t))]
-              )
-              ++ MAP (\subtype. (constant,INL subtype)) (allTypes t)
-              ++ MAP (\subconstant. (constant,INR subconstant)) (allCInsts t)
-            ) cl)
-      | (NewConst name ty) =>
-          if ~ MEM name (MAP strlit ["bool";"fun"])
-          then MAP (\ty2.  (INR (Const name ty),INL ty2)) (allTypes' ty)
-          else []
-      | _ => []
-  )
-`
-
 
 (* Principles for extending the context *)
 
