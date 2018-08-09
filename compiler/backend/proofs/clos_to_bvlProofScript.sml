@@ -57,12 +57,6 @@ val fromAList_append = Q.store_thm("fromAList_append",
   \\ AP_TERM_TAC
   \\ rw[union_insert_LN]);
 
-val code_installed_union1 = Q.store_thm("code_installed_union1",
-  `code_installed aux t1 ⇒ code_installed aux (union t1 t2)`,
-  rw[code_installed_def,lookup_union,EVERY_MEM]
-  \\ pairarg_tac \\ fs[]
-  \\ res_tac \\ fs[]);
-
 val SUBMAP_FLOOKUP_EQN = Q.store_thm("SUBMAP_FLOOKUP_EQN",
   `f ⊑ g ⇔ (∀x y. FLOOKUP f x = SOME y ⇒ FLOOKUP g x = SOME y)`,
   rw[SUBMAP_DEF,FLOOKUP_DEF] \\ METIS_TAC[]);
@@ -2808,6 +2802,12 @@ val code_installed_union = store_thm("code_installed_union",
   \\ first_x_assum match_mp_tac
   \\ fs [MEM_MAP,EXISTS_PROD]
   \\ asm_exists_tac \\ fs []);
+
+val code_installed_union1 = Q.store_thm("code_installed_union1",
+  `code_installed aux t1 ⇒ code_installed aux (union t1 t2)`,
+  rw[code_installed_def,lookup_union,EVERY_MEM]
+  \\ pairarg_tac \\ fs[]
+  \\ res_tac \\ fs[]);
 
 val code_installed_insert = store_thm("code_installed_insert",
   ``code_installed aux t /\ ~(MEM x (MAP FST aux)) ==>
@@ -5820,8 +5820,8 @@ val ALOOKUP_compile_prog_aux = Q.store_thm("ALOOKUP_compile_prog_aux",
   \\ metis_tac[IS_SUBLIST_APPEND, APPEND_ASSOC]);
 *)
 
-val compile_inc_def = Define`
-  compile_inc c cc =
+val compile_common_inc_def = Define`
+  compile_common_inc c cc =
   ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
     (state_cc (ignore_table renumber_code_locs)
       (state_cc (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
@@ -6274,7 +6274,7 @@ val compile_elist_globals = Q.store_thm("compile_elist_globals",
   Cases_on`do_mti` \\ EVAL_TAC
   \\ rw[clos_mtiProofTheory.intro_multi_preserves_elist_globals]);
 
-val compile_inc_uncurry = Q.store_thm("compile_inc_uncurry",
+val mcompile_inc_uncurry = Q.store_thm("mcompile_inc_uncurry",
   `clos_mtiProof$compile_inc max_app p = (HD (intro_multi max_app [FST p]),[])`,
   Cases_on`p` \\ EVAL_TAC);
 
@@ -6293,6 +6293,10 @@ val ccompile_inc_uncurry = Q.store_thm("ccompile_inc_uncurry",
       [])`,
   Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ simp[]);
+
+val compile_inc_uncurry = Q.store_thm("compile_inc_uncurry",
+  `compile_inc max_app p = compile_prog max_app ((extract_name (FST p),0,FST p)::SND p)`,
+  Cases_on`p` \\ EVAL_TAC);
 
 val elist_globals_sing = Q.store_thm("elist_globals_sing",
   `elist_globals [x] = set_globals x`,
@@ -6365,7 +6369,7 @@ val HD_FST_calls = Q.store_thm("HD_FST_calls",
   \\ fs[]);
 
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
-  `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_inc c cc) es1 ≠ Fail ∧
+  `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_common_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧ (∀n. clos_mtiProof$syntax_ok [FST(SND(co1 n))])) ∧
    (IS_SOME c.known_conf ⇒
@@ -6393,7 +6397,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
            (state_co (ignore_table renumber_code_locs)
              ((if c.do_mti then pure_co (compile_inc c.max_app) else I) o co1))))
      cc ([Call None 0 c'.start []]) =
-   closSem$semantics ffi c.max_app FEMPTY co1 (compile_inc c cc) es1`,
+   closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) es1`,
   simp[compile_common_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ qmatch_asmsub_rename_tac`renumber_code_locs_list _ _ = (k,_)`
@@ -6401,12 +6405,12 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ strip_tac \\ rveq
   \\ drule (GEN_ALL clos_mtiProofTheory.semantics_compile)
   \\ disch_then(qspec_then`c.do_mti`mp_tac) \\ fs[]
-  \\ simp[Once compile_inc_def]
+  \\ simp[Once compile_common_inc_def]
   \\ qmatch_goalsub_abbrev_tac`(_ ccc = _)`
   \\ disch_then(qspec_then`ccc`mp_tac) \\ fs[]
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ qunabbrev_tac`ccc`
-  \\ fs[compile_inc_def]
+  \\ fs[compile_common_inc_def]
   \\ drule clos_numberProofTheory.semantics_number
   \\ fs[]
   \\ impl_tac
@@ -6474,12 +6478,12 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ conj_tac
     >- (
       rw[]
-      \\ fs[o_DEF, compile_inc_uncurry]
+      \\ fs[o_DEF, mcompile_inc_uncurry]
       \\ fs[elist_globals_FOLDR, MAP_GENLIST, o_DEF]
       \\ fs[set_globals_HD_intro_multi] )
     >- (
       rw[clos_mtiTheory.compile_def, clos_mtiProofTheory.intro_multi_preserves_elist_globals]
-      \\ fs[o_DEF, compile_inc_uncurry]
+      \\ fs[o_DEF, mcompile_inc_uncurry]
       \\ fs[elist_globals_FOLDR, MAP_GENLIST, o_DEF]
       \\ fs[set_globals_HD_intro_multi] ))
   \\ disch_then(assume_tac o SYM) \\ fs[]
@@ -6547,11 +6551,11 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
             backendPropsTheory.SND_state_co]
     \\ reverse conj_tac
     >- (
-      rw[compile_inc_uncurry, kcompile_inc_uncurry, ccompile_inc_uncurry]
-      \\ CASE_TAC \\ rw[compile_inc_uncurry, kcompile_inc_uncurry, ccompile_inc_uncurry]
+      rw[mcompile_inc_uncurry, kcompile_inc_uncurry, ccompile_inc_uncurry]
+      \\ CASE_TAC \\ rw[mcompile_inc_uncurry, kcompile_inc_uncurry, ccompile_inc_uncurry]
       \\ simp[SND_SND_ignore_table] )
     \\ fs[clos_knownProofTheory.syntax_ok_def]
-    \\ rw[] \\ CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, compile_inc_uncurry]
+    \\ rw[] \\ CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, mcompile_inc_uncurry]
     \\ fs[HD_FST_calls, FST_SND_ignore_table, clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
     \\ TRY (
       (clos_callProofTheory.calls_preserves_every_Fn_vs_NONE
@@ -6565,7 +6569,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ fs[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
     \\ TRY (
       specl_args_of_then``known``known_every_Fn_vs_NONE mp_tac
-      \\ simp[compile_inc_uncurry]
+      \\ simp[mcompile_inc_uncurry]
       \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
       \\ qmatch_goalsub_abbrev_tac`known aa [bb] [] dd`
       \\ Cases_on`known aa [bb] [] dd`
@@ -6828,13 +6832,21 @@ val ALOOKUP_compile_common = Q.store_thm("ALOOKUP_compile_common",
   \\ rw[] \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[] \\ rw[]
   \\ metis_tac[]);
 
-val compile_semantics = store_thm("compile_semantics",
-  ``semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co (compile_inc c cc) es ≠ Fail ∧
-    compile c es = (c', prog) ∧
-    syntax_oracle_ok c es co
-    ⇒
-    semantics ffi (fromAList prog) co2 cc2 c'.start =
-    semantics ffi c.max_app FEMPTY co (compile_inc c cc) es`` |> inst[beta|->alpha],
+val compile_semantics = Q.store_thm("compile_semantics",
+  `semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
+     (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
+   compile c es = (c', prog) ∧
+   syntax_oracle_ok c es co
+   ⇒
+   semantics ffi (fromAList prog)
+     (pure_co (compile_inc c.max_app) o pure_co compile_inc o
+      state_co (if c.do_call then compile_inc else CURRY I)
+        (state_co (case c.known_conf of NONE => CURRY I | SOME kcfg => compile_inc kcfg)
+          (state_co (ignore_table renumber_code_locs)
+            ((if c.do_mti then pure_co (compile_inc c.max_app) else I) o co))))
+       cc c'.start =
+   semantics ffi c.max_app FEMPTY co
+     (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es`,
   strip_tac
   \\ imp_res_tac compile_all_distinct_locs
   \\ fs[compile_def]
@@ -6941,6 +6953,7 @@ val compile_semantics = store_thm("compile_semantics",
     \\ res_tac
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
+  \\ simp[compile_oracle_inv_def]
   \\ cheat (* oracle syntax ok *));
 
 (*
