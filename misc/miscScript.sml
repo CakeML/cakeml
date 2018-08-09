@@ -548,6 +548,10 @@ val ZIP_MAP_FST_SND_EQ = Q.store_thm("ZIP_MAP_FST_SND_EQ",
   `∀ls. ZIP (MAP FST ls,MAP SND ls) = ls`,
   Induct>>full_simp_tac(srw_ss())[])
 
+val MAP_FST_I_PAIR_MAP = store_thm("MAP_FST_I_PAIR_MAP[simp]",
+  ``!xs. MAP FST (MAP (I ## f) xs) = MAP FST xs``,
+  Induct \\ fs [FORALL_PROD]);
+
 val zlookup_def = Define `
   zlookup m k = case lookup k m of NONE => 0n | SOME k => k`;
 
@@ -3344,5 +3348,10 @@ val EVEN_SUB = Q.store_thm("EVEN_SUB",
 val ODD_SUB = Q.store_thm("ODD_SUB",
   `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`,
   rw[ODD_EVEN,EVEN_SUB]);
+
+val FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM = Q.store_thm("FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM",
+  `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`,
+  qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
+  res_tac \\ fs[] \\ Cases_on`x` \\ fs[]);
 
 val _ = export_theory()

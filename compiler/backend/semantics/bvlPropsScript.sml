@@ -5,11 +5,6 @@ val _ = new_theory"bvlProps";
 
 val s = ``(s:('c,'ffi) bvlSem$state)``
 
-(* TODO: move to misc *)
-val MAP_FST_I_PAIR_MAP = store_thm("MAP_FST_I_PAIR_MAP[simp]",
-  ``!xs. MAP FST (MAP (I ## f) xs) = MAP FST xs``,
-  Induct \\ fs [FORALL_PROD]);
-
 val with_same_code = Q.store_thm("with_same_code[simp]",
   `^s with code := s.code = s`,
   srw_tac[][bvlSemTheory.state_component_equality])
