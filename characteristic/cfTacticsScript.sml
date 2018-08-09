@@ -87,12 +87,12 @@ val UNIT_Conv = Q.store_thm ("UNIT_Conv[simp]",
 )
 
 val BOOL_T_Conv = Q.store_thm ("BOOL_T_Conv[simp]",
-  `BOOL T (Conv (SOME ("true", TypeId (Short "bool"))) []) = T`,
+  `BOOL T (Conv (SOME (TypeStamp "true" bool_type_num)) []) = T`,
   fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 )
 
 val BOOL_F_Conv = Q.store_thm ("BOOL_F_Conv[simp]",
-  `BOOL F (Conv (SOME ("false", TypeId (Short "bool"))) []) = T`,
+  `BOOL F (Conv (SOME (TypeStamp "false" bool_type_num)) []) = T`,
   fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 )
 
@@ -130,5 +130,11 @@ val forall_v_of_pat_norest_length = Q.store_thm (
   progress v_of_pat_norest_wildcards_count \\
   first_assum progress
 );
+
+val BOOL_T = save_thm("BOOL_T",
+  EVAL ``BOOL T (Conv (SOME (TypeStamp "true" 0)) [])``);
+
+val BOOL_F = save_thm("BOOL_F",
+  EVAL ``BOOL F (Conv (SOME (TypeStamp "false" 0)) [])``);
 
 val _ = export_theory()

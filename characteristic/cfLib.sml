@@ -7,5 +7,6 @@ structure cfLib = struct
     cfHeapsBaseTheory cfHeapsTheory
     cfTacticsBaseLib cfTacticsLib
     cfLetAutoTheory cfLetAutoLib
+    cfNormaliseLib
     cfMainTheory
 end

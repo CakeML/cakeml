@@ -335,4 +335,78 @@ val fromString_thm = Q.store_thm("fromString_thm",
 val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
   fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
 
+val fromString_toString_Num = Q.store_thm("fromString_toString_Num",
+  `0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n`,
+  strip_tac
+  \\ DEP_REWRITE_TAC[fromString_thm]
+  \\ qspec_then`Num n`assume_tac EVERY_isDigit_num_to_dec_string
+  \\ Cases_on`num_to_dec_string (Num n)` \\ fs[num_to_dec_string_nil]
+  \\ rw[]
+  \\ TRY ( qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC \\ NO_TAC )
+  \\ mp_tac ASCIInumbersTheory.num_dec_string
+  \\ simp[FUN_EQ_THM]
+  \\ disch_then(qspec_then`Num n`mp_tac)
+  \\ simp[]
+  \\ simp[integerTheory.INT_OF_NUM]);
+
+val fromChar_IS_SOME_IFF = Q.store_thm("fromChar_IS_SOME_IFF",
+  `IS_SOME (fromChar c) ⇔ isDigit c`,
+  simp[fromChar_def]
+  \\ rpt(IF_CASES_TAC  \\ rveq >- EVAL_TAC)
+  \\ rw[]
+  \\ EVAL_TAC
+  \\ Cases_on`c`
+  \\ simp[]
+  \\ fs[]);
+
+val fromChars_range_IS_SOME_IFF = Q.store_thm("fromChars_range_IS_SOME_IFF",
+  `∀s x y. (x + y ≤ strlen s) ⇒ (IS_SOME (fromChars_range x y s) ⇔ EVERY isDigit (TAKE y (DROP x (explode s))))`,
+  Induct_on`y`
+  \\ rw[fromChars_range_def]
+  \\ fs[IS_SOME_EXISTS] \\ rw[]
+  \\ fs[PULL_EXISTS]
+  \\ fs[EQ_IMP_THM]
+  \\ fsrw_tac[DNF_ss][]
+  \\ rw[] \\ res_tac
+  \\ Cases_on`x < LENGTH (explode s)` \\ fs[DROP_LENGTH_TOO_LONG]
+  \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]
+  \\ TRY (
+    qx_gen_tac`m`
+    \\ strip_tac
+    \\ Cases_on`m =y` \\ fs[] \\ rw[]
+    \\ Cases_on`s` \\ fs[]
+    \\ metis_tac[fromChar_IS_SOME_IFF, IS_SOME_EXISTS, ADD_COMM])
+  \\ Cases_on`s` \\ fs[]
+  \\ fs[PULL_FORALL]
+  \\ first_x_assum(qspecl_then[`strlit s'`,`x`]mp_tac)
+  \\ simp[] \\ strip_tac \\ fs[]
+  \\ simp[GSYM IS_SOME_EXISTS]
+  \\ simp[fromChar_IS_SOME_IFF]
+  \\ first_x_assum(qspec_then`y`mp_tac)
+  \\ simp[]);
+
+val fromChars_IS_SOME_IFF = Q.store_thm("fromChars_IS_SOME_IFF",
+  `∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))`,
+  recInduct fromChars_ind
+  \\ rw[fromChars_def]
+  \\ fs[fromChars_range_IS_SOME_IFF]
+  \\ fs[IS_SOME_EXISTS, PULL_EXISTS]
+  \\ fs[EQ_IMP_THM] \\ fs[PULL_EXISTS]
+  \\ rw[] \\ fs[]
+  >- (
+    qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
+    \\ simp[]
+    \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_TAKE,EL_DROP]
+    \\ rw[]
+    \\ Cases_on`n < SUC v2 - padLen_DEC` \\ fs[]
+    \\ first_x_assum(qspec_then`n + padLen_DEC - SUC v2`mp_tac)
+    \\ simp[] )
+  \\ qpat_x_assum`_ ⇒ _`mp_tac
+  \\ impl_tac
+  >- ( fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE] )
+  \\ strip_tac \\ fs[]
+  \\ qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
+  \\ simp[IS_SOME_EXISTS]
+  \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]);
+
 val _ = export_theory();

@@ -18,12 +18,13 @@ val list_type_v_to_list = Q.store_thm ("list_type_v_to_list",
     LIST_TYPE A l v ⇒
     ?l'. v_to_list v = SOME l' ∧ LIST_REL A l l'`,
   Induct_on `l` >>
-  rw [LIST_TYPE_def, terminationTheory.v_to_list_def] >>
+  rw [LIST_TYPE_def, terminationTheory.v_to_list_def]
+  >- EVAL_TAC >>
   rw [terminationTheory.v_to_list_def] >>
   first_x_assum drule >>
   rw [] >>
   every_case_tac >>
-  rw []);
+  rw [] >> EVAL_TAC);
 
 val string_list_uniq = Q.store_thm ("string_list_uniq",
   `!l1 l2.
@@ -87,8 +88,8 @@ val get_file_contents = process_topdecs `
   (* Note: this is an accumulating version of TextIO.inputLines *)
   fun get_file_contents fd acc =
     case TextIO.inputLine fd of
-      NONE => acc
-    | SOME l => get_file_contents fd (l::acc);
+      None => acc
+    | Some l => get_file_contents fd (l::acc);
 
   fun get_files_contents files acc =
     case files of

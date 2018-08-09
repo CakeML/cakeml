@@ -110,7 +110,7 @@ val res = translate compute_wordfreq_output_def;
 val wordfreq = process_topdecs`
   fun wordfreq u =
     case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
-    of SOME lines =>
+    of Some lines =>
       TextIO.print_list (compute_wordfreq_output lines)`;
 
 val () = append_prog wordfreq;

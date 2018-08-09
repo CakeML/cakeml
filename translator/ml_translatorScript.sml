@@ -3,23 +3,19 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open integerTheory
-     astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     semanticPrimitivesPropsTheory bigStepPropsTheory
-     bigClockTheory determTheory
-     mlvectorTheory mlstringTheory ml_progTheory packLib;
+open integerTheory ml_progTheory
+     astTheory libTheory semanticPrimitivesTheory
+     semanticPrimitivesPropsTheory evaluatePropsTheory;
+open mlvectorTheory mlstringTheory packLib;
 open integer_wordSyntax
 open terminationTheory
-local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end;
+local open integer_wordSyntax in end;
 open preamble;
 
 val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val evaluate_ind = bigStepTheory.evaluate_ind;
-
-val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="bigStep"};
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (* Definitions *)
@@ -29,16 +25,16 @@ val empty_state_def = Define`
     clock := 0;
     refs := empty_store;
     (* force the ffi state to unit
-       the translator does not currently support ffi *)
+       the monadic translator must be used for FFI calls *)
     ffi := initial_ffi_state ARB ();
-    defined_types := {};
-    defined_mods := {}|>`;
+    next_type_stamp := 0;
+    next_exn_stamp := 0|>`;
 
 val Eval_def = Define `
   Eval env exp P =
     !refs. ?res refs'.
-      evaluate F env (empty_state with refs := refs) exp
-        (empty_state with refs := refs ++ refs',Rval res) /\
+      eval_rel (empty_state with refs := refs) env exp
+               (empty_state with refs := refs ++ refs') res /\
       P (res:v)`;
 
 val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
@@ -46,8 +42,8 @@ val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
     !v. P v ==>
       !refs. ?env exp refs' u.
         do_opapp [cl;v] = SOME (env,exp) /\
-        evaluate F env (empty_state with refs := refs) exp
-          (empty_state with refs := refs++refs',Rval u) /\
+        eval_rel (empty_state with refs := refs) env exp
+                 (empty_state with refs := refs++refs') u /\
         Q u`;
 
 val Arrow_def = Define `
@@ -101,152 +97,168 @@ val PreImpEval_def = Define`
 
 (* Theorems *)
 
-val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
-  `evaluate F env (empty_state with refs := s.refs) exp (empty_state with refs := s.refs ++ refs',Rval x) ⇒
-   evaluate F env (s:'ffi state) exp (s with refs := s.refs ++ refs',Rval x)`,
-  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
-  \\ fs[funBigStepEquivTheory.functional_evaluate]
-  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
-              INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``](
-                CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro)))
-  \\ simp[]
-  \\ disch_then(qspec_then`s with clock := c`mp_tac)
-  \\ impl_tac >- EVAL_TAC
-  \\ simp[] \\ strip_tac
-  \\ `Rval [x] = list_result ((Rval x):(v,v) result)` by EVAL_TAC
-  \\ pop_assum SUBST_ALL_TAC
-  \\ fs[GSYM funBigStepEquivTheory.functional_evaluate]
-  \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
-  \\ asm_exists_tac \\ fs[]);
+local
+  val Eval_lemma = prove(
+    ``∀env exp P.
+        Eval env exp P ⇔
+         ∀refs.
+             ∃ck1 res refs' ck2.
+                 evaluate (empty_state with <|clock := ck1; refs := refs|>)
+                   env [exp] =
+                 (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,
+                  Rval [res]) ∧ P res``,
+     metis_tac [Eval_def |> SIMP_RULE (srw_ss()) [eval_rel_def,PULL_EXISTS]]);
+in
+  val Eval_rw = CONJ evaluate_def Eval_lemma
+end;
 
-val evaluate_11_Rval = Q.store_thm("evaluate_11_Rval",
-  `evaluate b env s exp (s1,Rval res1) ==>
-    evaluate b env s exp (s2,Rval res2) ==> (res1 = res2)`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC big_exp_determ
-  \\ FULL_SIMP_TAC (srw_ss()) []);
+val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
+  `eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs ++ refs') x ⇒
+   eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x`,
+  rw [eval_rel_def]
+  \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
+              (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
+  \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
+  \\ fs [empty_state_def]
+  \\ strip_tac \\ asm_exists_tac \\ fs []);
 
 val Eval_Arrow = Q.store_thm("Eval_Arrow",
-  `Eval env x1 ((a --> b) f) ==>
+   `Eval env x1 ((a --> b) f) ==>
     Eval env x2 (a x) ==>
     Eval env (App Opapp [x1;x2]) (b (f x))`,
-  rw[Eval_def,Arrow_def,AppReturns_def] \\
-  rw[Once evaluate_cases] \\
-  ntac 3 (rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]) \\
-  METIS_TAC[APPEND_ASSOC]);
+  rw[Eval_rw,Arrow_def,AppReturns_def]
+  \\ pop_assum (qspec_then `refs` strip_assume_tac) \\ fs []
+  \\ drule evaluate_add_to_clock
+  \\ first_x_assum (qspec_then `refs ++ refs'` strip_assume_tac) \\ fs []
+  \\ drule evaluate_add_to_clock
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs ++ refs' ++ refs''` strip_assume_tac)
+  \\ fs [eval_rel_def]
+  \\ disch_then (qspec_then `ck2+1+ck1''` strip_assume_tac)
+  \\ disch_then (qspec_then `ck1'+1+ck1''` strip_assume_tac) \\ fs []
+  \\ qexists_tac `ck1+ck1'+1+ck1''` \\ fs []
+  \\ fs [evaluateTheory.dec_clock_def,eval_rel_def]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ drule evaluate_add_to_clock \\ fs []
+  \\ fs [empty_state_def,state_component_equality]);
 
 val Eval_Fun = Q.store_thm("Eval_Fun",
   `(!v x. a x v ==> Eval (write name v env) body (b ((f:'a->'b) x))) ==>
     Eval env (Fun name body) ((a --> b) f)`,
-  rw[Eval_def,Arrow_def,AppReturns_def] \\
-  rw[Once evaluate_cases,state_component_equality]
-  \\ FULL_SIMP_TAC (srw_ss()) [AppReturns_def,do_opapp_def,write_def]
-  \\ metis_tac[]);
+  rw[Eval_rw,Arrow_def,AppReturns_def]
+  \\ fs [empty_state_def,state_component_equality]
+  \\ rw [] \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ fs [do_opapp_def,eval_rel_def,PULL_EXISTS]
+  \\ metis_tac [write_def]);
 
 val Eval_Fun_Eq = Q.store_thm("Eval_Fun_Eq",
   `(!v. a x v ==> Eval (write name v env) body (b (f x))) ==>
     Eval env (Fun name body) ((Eq a x --> b) f)`,
-  rw[Eval_def,Arrow_def,AppReturns_def] \\
-  rw[Once evaluate_cases,state_component_equality]
-  \\ FULL_SIMP_TAC (srw_ss()) [AppReturns_def,do_opapp_def,write_def]
-  \\ METIS_TAC[Eq_def]);
+  rw[Eval_rw,Arrow_def,AppReturns_def]
+  \\ fs [empty_state_def,state_component_equality,Eq_def]
+  \\ rw [] \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ fs [do_opapp_def,eval_rel_def,PULL_EXISTS]
+  \\ metis_tac [write_def]);
 
 val And_IMP_Eq = Q.store_thm("And_IMP_Eq",
   `Eval env exp ((And a P --> b) f) ==>
     (P x ==> Eval env exp ((Eq a x --> b) f))`,
-  FULL_SIMP_TAC std_ss [Eval_def,Arrow_def,AppReturns_def,And_def,Eq_def]
-  \\ METIS_TAC []);
+  fs [Eval_rw,Arrow_def,AppReturns_def,And_def,Eq_def] \\ metis_tac []);
 
 val Eq_IMP_And = Q.store_thm("Eq_IMP_And",
   `(!x. P x ==> Eval env (Fun name exp) ((Eq a x --> b) f)) ==>
     Eval env (Fun name exp) ((And a P --> b) f)`,
-  simp[Eval_def,Arrow_def,AppReturns_def,And_def,Eq_def]
-  \\ ntac 2 (rw[Once evaluate_cases])
+  simp[Eval_rw,Arrow_def,AppReturns_def,And_def,Eq_def]
   \\ fs[state_component_equality]);
 
 val Eval_Fun_And = Q.store_thm("Eval_Fun_And",
   `(!v x. P x ==> a x v ==> Eval (write name v env) body (b (f x))) ==>
     Eval env (Fun name body) ((And a P --> b) f)`,
-  FULL_SIMP_TAC std_ss [GSYM And_def,AND_IMP_INTRO]
-  \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC Eval_Fun \\ ASM_SIMP_TAC std_ss []);
+  fs [GSYM And_def,AND_IMP_INTRO]
+  \\ rw [] \\ match_mp_tac Eval_Fun \\ simp []);
 
 val Eval_Let = Q.store_thm("Eval_Let",
   `Eval env exp (a res) /\
     (!v. a res v ==> Eval (write name v env) body (b (f res))) ==>
     Eval env (Let (SOME name) exp body) (b (LET f res))`,
-  rw[Eval_def,write_def] \\
-  rw[Once evaluate_cases,PULL_EXISTS,namespaceTheory.nsOptBind_def] \\
-  metis_tac[APPEND_ASSOC]);
+  rw[Eval_rw,write_def]
+  \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs++refs'` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck2` strip_assume_tac)
+  \\ disch_then (qspec_then `ck1'` strip_assume_tac)
+  \\ fs [] \\ qexists_tac `ck1+ck1'`
+  \\ fs [namespaceTheory.nsOptBind_def]
+  \\ fs [empty_state_def,state_component_equality]);
 
 val Eval_Var_Short = Q.store_thm("Eval_Var_Short",
   `P v ==> !name env.
                (nsLookup env.v (Short name) = SOME v) ==>
                Eval env (Var (Short name)) P`,
-  fs [Eval_def,Once evaluate_cases,state_component_equality]);
+  fs [Eval_rw,state_component_equality]);
 
 (*TODO: Single level mdule *)
 val Eval_Var_Long = Q.store_thm("Eval_Var_Long",
   `P v ==> !m name env.
                (nsLookup env.v (Long m (Short name)) = SOME v) ==>
                Eval env (Var (Long m (Short name))) P`,
-  fs [Eval_def,Once evaluate_cases,state_component_equality]);
+  fs [Eval_rw,state_component_equality]);
 
 val Eval_Var_SWAP_ENV = Q.store_thm("Eval_Var_SWAP_ENV",
   `!env1.
       Eval env1 (Var (Short name)) P /\
       (lookup_var name env = lookup_var name env1) ==>
       Eval env (Var (Short name)) P`,
-  FULL_SIMP_TAC std_ss [FORALL_PROD,lookup_var_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]);
+  fs [FORALL_PROD,lookup_var_def,Eval_rw]);
 
 val LOOKUP_VAR_def = Define `
   LOOKUP_VAR name env x = (lookup_var name env = SOME x)`;
 
 val LOOKUP_VAR_THM = Q.store_thm("LOOKUP_VAR_THM",
   `LOOKUP_VAR name env x ==> Eval env (Var (Short name)) ($= x)`,
-  FULL_SIMP_TAC std_ss [FORALL_PROD,lookup_var_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def,LOOKUP_VAR_def,
-    lookup_var_def,state_component_equality]);
+  fs [FORALL_PROD,lookup_var_def,Eval_rw,LOOKUP_VAR_def]
+  \\ fs [state_component_equality]);
 
 val LOOKUP_VAR_SIMP = Q.store_thm("LOOKUP_VAR_SIMP",
   `LOOKUP_VAR name (write x v  env) y =
     if x = name then (v = y) else LOOKUP_VAR name env y`,
-  ASM_SIMP_TAC std_ss [LOOKUP_VAR_def,write_def,lookup_var_def] \\ SRW_TAC [] []);
+  simp [LOOKUP_VAR_def,write_def,lookup_var_def] \\ rw []);
 
 val Eval_Val_INT = Q.store_thm("Eval_Val_INT",
   `!n. Eval env (Lit (IntLit n)) (INT n)`,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,NUM_def,INT_def,Eval_def,state_component_equality]);
+  simp [Eval_rw,state_component_equality,INT_def]);
 
 val Eval_Val_NUM = Q.store_thm("Eval_Val_NUM",
   `!n. Eval env (Lit (IntLit (&n))) (NUM n)`,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,NUM_def,INT_def,Eval_def,state_component_equality]);
+  simp [Eval_rw,state_component_equality,INT_def,NUM_def]);
 
 val Eval_Val_UNIT = Q.store_thm("Eval_Val_UNIT",
   `Eval env (Con NONE []) (UNIT_TYPE ())`,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,UNIT_TYPE_def,Eval_def,
-     build_conv_def,do_con_check_def] \\ fs [Once evaluate_cases,state_component_equality]);
+  simp [Eval_rw,state_component_equality,UNIT_TYPE_def]
+  \\ fs [EVAL ``do_con_check env.c NONE 0``,state_component_equality,
+         EVAL ``build_conv env.c NONE []``]);
 
 val Eval_Val_BOOL_T = Q.store_thm("Eval_Val_BOOL_T",
   `Eval env (App (Opb Leq) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL T)`,
-  NTAC 5 (SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def,
-    do_con_check_def,build_conv_def]) \\ fs [PULL_EXISTS]
-  \\ fs [do_app_def] \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ EVAL_TAC \\ fs[]);
+  fs [Eval_rw,do_app_def,empty_state_def,state_component_equality]
+  \\ EVAL_TAC);
 
 val Eval_Val_BOOL_F = Q.store_thm("Eval_Val_BOOL_F",
   `Eval env (App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL F)`,
-  NTAC 5 (SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def,
-    do_con_check_def,build_conv_def]) \\ fs [PULL_EXISTS]
-  \\ fs [do_app_def] \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ EVAL_TAC \\ fs[]);
+  fs [Eval_rw,do_app_def,empty_state_def,state_component_equality]
+  \\ EVAL_TAC);
 
 val Eval_Val_CHAR = Q.store_thm("Eval_Val_CHAR",
   `!c. Eval env (Lit (Char c)) (CHAR c)`,
-  SIMP_TAC (srw_ss()) [CHAR_def,Eval_def,Once evaluate_cases,state_component_equality])
+  fs [Eval_rw,empty_state_def,state_component_equality,CHAR_def]);
 
 val Eval_Val_STRING = Q.store_thm("Eval_Val_STRING",
   `!s. Eval env (Lit (StrLit s)) (STRING_TYPE (strlit s))`,
-  SIMP_TAC (srw_ss()) [STRING_TYPE_def,Eval_def,Once evaluate_cases,state_component_equality])
+  fs [Eval_rw,empty_state_def,state_component_equality,STRING_TYPE_def]);
 
 val Eval_Val_WORD = Q.store_thm("Eval_Val_WORD",
   `!w:'a word.
@@ -255,7 +267,7 @@ val Eval_Val_WORD = Q.store_thm("Eval_Val_WORD",
                    then Word8 (w2w w << (8-dimindex(:'a)))
                    else Word64 (w2w w << (64-dimindex(:'a)))))
              (WORD w)`,
-  SIMP_TAC (srw_ss()) [WORD_def,Eval_def,Once evaluate_cases,state_component_equality])
+  simp [WORD_def,Eval_rw,state_component_equality]);
 
 (* Equality *)
 
@@ -297,7 +309,7 @@ val Eq_lemma = Q.prove(
   \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
 
 val EqualityType_NUM_BOOL = Q.store_thm("EqualityType_NUM_BOOL",
-  `EqualityType NUM /\ EqualityType INT /\
+  ` EqualityType NUM /\ EqualityType INT /\
     EqualityType BOOL /\ EqualityType WORD /\
     EqualityType CHAR /\ EqualityType STRING_TYPE /\
     EqualityType UNIT_TYPE`,
@@ -345,21 +357,27 @@ val empty_state_with_refs_eq = Q.prove(
   rw[state_component_equality,EQ_IMP_THM]);
 
 val empty_state_with_ffi_elim = Q.prove(
-  `empty_state with <| refs := r; ffi := empty_state.ffi |> =
-   empty_state with refs := r`,
+   `empty_state with <| refs := r; ffi := empty_state.ffi |> =
+    empty_state with refs := r`,
   rw[state_component_equality]);
 
+val Eval2_tac =
+  first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ first_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck2` strip_assume_tac)
+  \\ disch_then (qspec_then `ck1'` strip_assume_tac)
+  \\ fs [] \\ qexists_tac `ck1+ck1'` \\ fs [];
+
 val Eval_Equality = Q.store_thm("Eval_Equality",
-  `Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+   `Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
     Eval env (App Equality [x1;x2]) (BOOL (y1 = y2))`,
-  SIMP_TAC std_ss [Eval_def,BOOL_def] \\ SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
-  \\ fs[PULL_EXISTS,empty_state_with_refs_eq]
-  \\ fs[do_app_cases,empty_state_with_ffi_elim]
-  \\ metis_tac[do_eq_succeeds,APPEND_ASSOC]);
+  simp [Eval_rw,BOOL_def] \\ rw []
+  \\ Eval2_tac
+  \\ fs [do_app_def] \\ imp_res_tac do_eq_succeeds \\ fs []
+  \\ rw[state_component_equality]);
 
 (* booleans *)
 
@@ -369,11 +387,18 @@ val Eval_Or = Q.store_thm("Eval_Or",
    ==>
    (a1 /\ (~CONTAINER b1 ==> a2) ==>
     Eval env (Log Or x1 x2) (BOOL (b1 \/ b2)))`,
-  rw[Eval_def,BOOL_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ Cases_on `b1` \\ fs [CONTAINER_def]
-  THEN1 ( metis_tac[EVAL``do_log Or (Boolv T) x``,EVAL``Boolv T``] )
-  \\ metis_tac[EVAL``do_log Or (Boolv F) x``,APPEND_ASSOC]);
+  Cases_on `b1`
+  \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
+  THEN1
+   (pop_assum kall_tac
+    \\ pop_assum (qspec_then `refs` strip_assume_tac)
+    \\ qexists_tac `ck1`
+    \\ fs [EVAL``do_log Or (Boolv T) x``]
+    \\ fs [EVAL``Boolv T``,state_component_equality])
+  \\ last_x_assum assume_tac
+  \\ Eval2_tac
+  \\ fs [EVAL``do_log Or (Boolv F) x``]
+  \\ fs [EVAL``Boolv F``,state_component_equality]);
 
 val Eval_And = Q.store_thm("Eval_And",
   `(a1 ==> Eval env x1 (BOOL b1)) /\
@@ -381,11 +406,18 @@ val Eval_And = Q.store_thm("Eval_And",
    ==>
    (a1 /\ (CONTAINER b1 ==> a2) ==>
     Eval env (Log And x1 x2) (BOOL (b1 /\ b2)))`,
-  rw[Eval_def,BOOL_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ Cases_on `b1` \\ fs [CONTAINER_def]
-  THEN1 ( metis_tac[EVAL``do_log And (Boolv T) x``,APPEND_ASSOC] )
-  \\ metis_tac[EVAL``do_log And (Boolv F) x``,EVAL``Boolv F``]);
+  reverse (Cases_on `b1`)
+  \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
+  THEN1
+   (pop_assum kall_tac
+    \\ pop_assum (qspec_then `refs` strip_assume_tac)
+    \\ qexists_tac `ck1`
+    \\ fs [EVAL``do_log And (Boolv F) x``]
+    \\ fs [EVAL``Boolv F``,state_component_equality])
+  \\ last_x_assum assume_tac
+  \\ Eval2_tac
+  \\ fs [EVAL``do_log And (Boolv T) x``]
+  \\ fs [EVAL``Boolv F``,state_component_equality]);
 
 val Eval_If = Q.store_thm("Eval_If",
   `(a1 ==> Eval env x1 (BOOL b1)) /\
@@ -394,43 +426,48 @@ val Eval_If = Q.store_thm("Eval_If",
    ==>
    (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
     Eval env (If x1 x2 x3) (a (if b1 then b2 else b3)))`,
-  rw[Eval_def,BOOL_def,CONTAINER_def] \\ fs[]
-  \\ rw[Once evaluate_cases]
-  \\ metis_tac[EVAL``do_if (Boolv T) x y``,EVAL``do_if (Boolv F) x y``,APPEND_ASSOC]);
+  rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
+  \\ qpat_x_assum `_ ==> _` kall_tac
+  \\ last_x_assum assume_tac
+  \\ Eval2_tac
+  \\ fs [EVAL``do_if (Boolv T) x y``,EVAL``do_if (Boolv F) x y``,
+         state_component_equality]);
 
 val Eval_Bool_Not = Q.store_thm("Eval_Bool_Not",
-  `Eval env x1 (BOOL b1) ==>
+   `Eval env x1 (BOOL b1) ==>
     Eval env (App Equality
       [x1; App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]]) (BOOL (~b1))`,
-  rw[Eval_def,BOOL_def]
-  \\ rw[Once evaluate_cases,empty_state_with_refs_eq,PULL_EXISTS]
-  \\ ntac 8 (rw[Once evaluate_cases,PULL_EXISTS])
-  \\ rw[do_app_cases,PULL_EXISTS,opb_lookup_def]
-  \\ rw[Once(CONJUNCT2 evaluate_cases),empty_state_with_ffi_elim]
-  \\ Cases_on`b1`
-  \\ metis_tac[EVAL``do_eq (Boolv T) (Boolv F)``,EVAL``do_eq (Boolv F) (Boolv F)``]);
+  rw[Eval_rw,BOOL_def,do_app_def,opb_lookup_def]
+  \\ pop_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1` \\ fs [empty_state_def]
+  \\ Cases_on `b1` \\ fs []
+  \\ fs [EVAL``do_eq (Boolv T) (Boolv F)``,EVAL``do_eq (Boolv F) (Boolv F)``]);
 
 val Eval_Implies = Q.store_thm("Eval_Implies",
-  `Eval env x1 (BOOL b1) ==>
+   `Eval env x1 (BOOL b1) ==>
     Eval env x2 (BOOL b2) ==>
     Eval env (If x1 x2 (App (Opb Leq) [Lit (IntLit 0); Lit (IntLit 0)]))
       (BOOL (b1 ==> b2))`,
-  REPEAT STRIP_TAC
-  \\ PURE_REWRITE_TAC [METIS_PROVE [] ``(b1 ==> b2) <=> (if b1 then b2 else T)``]
-  \\ MATCH_MP_TAC (MP_CANON Eval_If |> GEN_ALL)
-  \\ REPEAT (Q.EXISTS_TAC `T`) \\ fs [Eval_Val_BOOL_T]);
+  reverse (Cases_on `b1`)
+  \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
+  THEN1
+   (last_assum (qspec_then `refs` strip_assume_tac)
+    \\ qexists_tac `ck1` \\ fs [EVAL ``do_if (Boolv F) x2 x1``]
+    \\ fs [Eval_rw,do_app_def,state_component_equality] \\ EVAL_TAC)
+  \\ last_x_assum assume_tac \\ Eval2_tac
+  \\ fs [EVAL ``do_if (Boolv T) x2 x1``,state_component_equality]);
 
 (* misc *)
 
 val Eval_Var_SIMP = Q.store_thm("Eval_Var_SIMP",
   `Eval (write x v env) (Var (Short y)) p =
       if x = y then p v else Eval env (Var (Short y)) p`,
-  ASM_SIMP_TAC (srw_ss()) [LOOKUP_VAR_def,write_def,lookup_var_def,Eval_def,Once evaluate_cases]
-  \\ SRW_TAC [] [] \\ SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases,state_component_equality]);
+  simp [LOOKUP_VAR_def,write_def,lookup_var_def,Eval_rw]
+  \\ rw [] \\ fs [state_component_equality]);
 
 val Eval_Eq = Q.store_thm("Eval_Eq",
   `Eval env exp (a x) ==> Eval env exp ((Eq a x) x)`,
-  SIMP_TAC std_ss [Eval_def,Eq_def]);
+  simp [Eval_def,Eq_def]);
 
 val FUN_FORALL = new_binder_definition("FUN_FORALL",
   ``($FUN_FORALL) = \(abs:'a->'b->v->bool) a v. !y. abs y a v``);
@@ -442,11 +479,26 @@ val FUN_FORALL_INTRO = Q.store_thm("FUN_FORALL_INTRO",
   `(!x. p x f v) ==> (FUN_FORALL x. p x) f v`,
   fs [FUN_FORALL]);
 
+val eval_rel_11 = store_thm("eval_rel_11",
+  ``eval_rel s1 env e s2 x2 /\ eval_rel s1 env e s3 x3 ==>
+    s2 = s3 /\ x2 = x3``,
+  rw [eval_rel_def]
+  \\ drule evaluate_add_to_clock
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck1'` strip_assume_tac)
+  \\ strip_tac
+  \\ disch_then (qspec_then `ck1` strip_assume_tac)
+  \\ fs [state_component_equality]);
+
 val Eval_FUN_FORALL = Q.store_thm("Eval_FUN_FORALL",
   `(!x. Eval env exp ((p x) f)) ==>
     Eval env exp ((FUN_FORALL x. p x) f)`,
   rw[Eval_def,FUN_FORALL]
-  \\ METIS_TAC[evaluate_11_Rval]);
+  \\ first_assum (qspecl_then [`ARB`,`refs`] strip_assume_tac)
+  \\ asm_exists_tac \\ fs [] \\ rw []
+  \\ first_assum (qspecl_then [`y`,`refs`] strip_assume_tac)
+  \\ imp_res_tac eval_rel_11 \\ fs []);
 
 val Eval_FUN_FORALL_EQ = Q.store_thm("Eval_FUN_FORALL_EQ",
   `(!x. Eval env exp ((p x) f)) =
@@ -456,8 +508,8 @@ val Eval_FUN_FORALL_EQ = Q.store_thm("Eval_FUN_FORALL_EQ",
 
 val FUN_FORALL_PUSH1 = Q.prove(
   `(FUN_FORALL x. a --> (b x)) = (a --> FUN_FORALL x. b x)`,
-  rw[Arrow_def,FUN_EQ_THM,AppReturns_def,FUN_FORALL]
-  \\ METIS_TAC[evaluate_11_Rval,PAIR_EQ,result_11,SOME_11]) |> GEN_ALL;
+  rw [Arrow_def,FUN_EQ_THM,AppReturns_def,FUN_FORALL]
+  \\ METIS_TAC[eval_rel_11,PAIR_EQ,result_11,SOME_11]) |> GEN_ALL;
 
 val FUN_FORALL_PUSH2 = Q.prove(
   `(FUN_FORALL x. (a x) --> b) = ((FUN_EXISTS x. a x) --> b)`,
@@ -481,12 +533,11 @@ val Eval_Recclosure_ALT = Q.store_thm("Eval_Recclosure_ALT",
       Eval env (Var (Short fname)) ((Eq a n --> b) f)`,
   rw[write_rec_thm,write_def]
   \\ IMP_RES_TAC LOOKUP_VAR_THM
-  \\ fs[Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
-  \\ POP_ASSUM MP_TAC
-  \\ rw[Once evaluate_cases,state_component_equality]
-  \\ rw[Once evaluate_cases,state_component_equality]
+  \\ fs[Eval_rw,Arrow_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `nsLookup env.v (Short fname)` \\ fs [state_component_equality]
+  \\ rveq
   \\ rw[AppReturns_def,Eq_def,do_opapp_def,PULL_EXISTS]
-  \\ fs[build_rec_env_def,FOLDR]
+  \\ fs[build_rec_env_def,FOLDR,eval_rel_def]
   \\ METIS_TAC[APPEND_ASSOC]);
 
 val Eval_Recclosure = Q.store_thm("Eval_Recclosure",
@@ -505,27 +556,25 @@ val Eval_Eq_Recclosure = Q.store_thm("Eval_Eq_Recclosure",
   `LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
     (P f (Recclosure x1 x2 x3) =
      Eval env (Var (Short name)) (P f))`,
-  ASM_SIMP_TAC std_ss [Eval_Var_SIMP,Eval_def,LOOKUP_VAR_def,lookup_var_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,state_component_equality]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC);
+  simp [Eval_Var_SIMP,Eval_rw,LOOKUP_VAR_def,lookup_var_def]
+  \\ simp [state_component_equality]);
 
 val Eval_Eq_Fun = Q.store_thm("Eval_Eq_Fun",
   `Eval env (Fun v x) p ==>
     !env2. Eval env2 (Var name) ($= (Closure env v x)) ==>
            Eval env2 (Var name) p`,
-  SIMP_TAC std_ss [Eval_Var_SIMP,Eval_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,state_component_equality]);
+  simp [Eval_Var_SIMP,Eval_rw] \\ rw []
+  \\ Cases_on `nsLookup env2.v name` \\ fs []
+  \\ fs [state_component_equality]);
 
 val Eval_WEAKEN = Q.store_thm("Eval_WEAKEN",
   `Eval env exp P ==> (!v. P v ==> Q v) ==> Eval env exp Q`,
-  SIMP_TAC std_ss [Eval_def] \\ METIS_TAC []);
+  simp [Eval_def] \\ metis_tac []);
 
 val Eval_CONST = Q.store_thm("Eval_CONST",
   `(!v. P v = (v = x)) ==>
     Eval env (Var name) ($= x) ==> Eval env (Var name) P`,
-  SIMP_TAC std_ss [Eval_def]);
+  simp [Eval_def]);
 
 (* arithmetic for integers *)
 
@@ -535,11 +584,9 @@ val Eval_Opn = Q.prove(
         Eval env x2 (INT n2) ==>
         PRECONDITION (((f = Divide) \/ (f = Modulo)) ==> ~(n2 = 0)) ==>
         Eval env (App (Opn f) [x1;x2]) (INT (opn_lookup f n1 n2))`,
-  rw[Eval_def,INT_def,PRECONDITION_def]
-  \\ rw[Once evaluate_cases,empty_state_with_refs_eq,PULL_EXISTS]
-  \\ ntac 3 (rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS])
-  \\ rw[do_app_cases,PULL_EXISTS]
-  \\ METIS_TAC[empty_state_with_ffi_elim,APPEND_ASSOC]);
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs [state_component_equality]);
 
 local
   fun f name q =
@@ -558,11 +605,9 @@ val Eval_Opb = Q.prove(
         Eval env x1 (INT n1) ==>
         Eval env x2 (INT n2) ==>
         Eval env (App (Opb f) [x1;x2]) (BOOL (opb_lookup f n1 n2))`,
-  rw[Eval_def,INT_def,BOOL_def]
-  \\ rw[Once evaluate_cases,empty_state_with_refs_eq,PULL_EXISTS]
-  \\ ntac 3 (rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS])
-  \\ rw[do_app_cases,PULL_EXISTS]
-  \\ METIS_TAC[empty_state_with_ffi_elim,APPEND_ASSOC]);
+  rw[Eval_rw,INT_def,PRECONDITION_def,BOOL_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs [state_component_equality]);
 
 local
   fun f name q = let
@@ -643,13 +688,10 @@ val Eval_o_int_of_num = Q.store_thm("Eval_o_int_of_num",
 val Eval_int_negate = Q.store_thm("Eval_int_negate",
   `Eval env x1 (INT i) ==>
    Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))`,
-  rw[Eval_def] >> rw[Once evaluate_cases] >>
-  rw[empty_state_with_refs_eq,PULL_EXISTS] >>
-  rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases)])) >>
-  rw[PULL_EXISTS] >>
-  rw[Q.SPECL[`F`,`x`,`y`,`Lit l`](CONJUNCT1 evaluate_cases)] >>
-  rw[do_app_cases,PULL_EXISTS,opn_lookup_def,empty_state_with_ffi_elim] >>
-  fs[INT_def])
+  rw[Eval_rw]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1`
+  \\ fs [do_app_def,INT_def,state_component_equality,opn_lookup_def]);
 
 (* arithmetic for num *)
 
@@ -760,37 +802,27 @@ val Eval_NUM_EQ_0 = Q.store_thm("Eval_NUM_EQ_0",
 
 val tac =
   qmatch_goalsub_abbrev_tac`Opw wx`
-  \\ rw[Eval_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs[]
-  \\ first_x_assum(qspec_then`refs++refs'`strip_assume_tac)
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ fs[] \\ asm_exists_tac
-  \\ fs[WORD_def,Abbr`wx`]
+  \\ rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def]
+  \\ rw [] \\ fs [WORD_def,Abbr`wx`,state_component_equality]
   \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
-  \\ rw[] \\ fs [GSYM WORD_w2w_OVER_BITWISE]
+  \\ fs [GSYM WORD_w2w_OVER_BITWISE]
 
 val Eval_word_and = Q.store_thm("Eval_word_and",
-  `Eval env x1 (WORD (w1:'a word)) /\
+   `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Andw) [x1;x2])
       (WORD (word_and w1 w2))`,
   tac);
 
 val Eval_word_or = Q.store_thm("Eval_word_or",
-  `Eval env x1 (WORD (w1:'a word)) /\
+   `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Orw) [x1;x2])
       (WORD (word_or w1 w2))`,
   tac);
 
 val Eval_word_xor = Q.store_thm("Eval_word_xor",
-  `Eval env x1 (WORD (w1:'a word)) /\
+   `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Xor) [x1;x2])
       (WORD (word_xor w1 w2))`,
@@ -823,7 +855,7 @@ val Eval_word_add_lemma = Q.prove(
   \\ rw [EXP_ADD,dimword_def,MOD_COMMON_FACTOR_ANY]);
 
 val Eval_word_add = Q.store_thm("Eval_word_add",
-  `Eval env x1 (WORD (w1:'a word)) /\
+   `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Add) [x1;x2])
       (WORD (word_add w1 w2))`,
@@ -846,7 +878,7 @@ val Eval_word_sub_lemma = Q.prove(
   \\ fs [Once (GSYM MOD_PLUS)]);
 
 val Eval_word_sub = Q.store_thm("Eval_word_sub",
-  `Eval env x1 (WORD (w1:'a word)) /\
+   `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Sub) [x1;x2])
       (WORD (word_sub w1 w2))`,
@@ -881,7 +913,7 @@ val w2n_w2w_64 = Q.prove(
   \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
 
 val Eval_w2n = Q.store_thm("Eval_w2n",
-  `Eval env x1 (WORD (w:'a word)) ==>
+   `Eval env x1 (WORD (w:'a word)) ==>
     Eval env
       (if dimindex (:'a) = 8 then
          App (WordToInt W8) [x1]
@@ -892,30 +924,11 @@ val Eval_w2n = Q.store_thm("Eval_w2n",
        else
          App (WordToInt W64) [App (Shift W64 Lsr (64 - dimindex (:'a))) [x1]])
       (NUM (w2n w))`,
-  rw[Eval_def,WORD_def] \\ fs []
-  \\ TRY (* takes care of = 8 and = 64 cases *)
-   (rw[Once evaluate_cases,PULL_EXISTS]
-    \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-    \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-    \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-    \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-    \\ asm_exists_tac \\ fs[]
-    \\ fs [do_app_def,NUM_def,INT_def,w2w_def]
-    \\ assume_tac w2n_lt \\ rfs [dimword_def])
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs []
-  \\ fs [do_app_def]
+  rw[Eval_rw,WORD_def] \\ fs []
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1`
+  \\ fs [do_app_def,state_component_equality,NUM_def,INT_def]
+  \\ TRY (fs [w2w_def] \\ assume_tac w2n_lt \\ rfs [dimword_def] \\ NO_TAC)
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
 local
@@ -949,7 +962,7 @@ in
 end;
 
 val Eval_i2w = Q.store_thm("Eval_i2w",
-  `dimindex (:'a) <= 64 ==>
+   `dimindex (:'a) <= 64 ==>
     Eval env x1 (INT n) ==>
     Eval env
       (if dimindex (:'a) = 8 then
@@ -961,31 +974,14 @@ val Eval_i2w = Q.store_thm("Eval_i2w",
        else
          App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
       (WORD ((i2w n):'a word))`,
-  rw[Eval_def,WORD_def] \\ fs [] \\ rfs []
-  \\ TRY (* takes care of = 8 and = 64 cases *)
-   (rw[Once evaluate_cases,PULL_EXISTS]
-    \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-    \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-    \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-    \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-    \\ asm_exists_tac \\ fs[]
-    \\ fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def]
+  rw[Eval_rw,WORD_def] \\ fs [] \\ rfs []
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1` \\ fs [do_app_def,INT_def]
+  \\ fs [state_component_equality]
+  \\ TRY
+   (fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def]
     \\ rw [] \\ fs [dimword_def]
     \\ fs [wordsTheory.word_2comp_n2w,dimword_def] \\ NO_TAC)
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs []
-  \\ fs [do_app_def,NUM_def,INT_def]
   \\ fs [shift8_lookup_def,shift64_lookup_def,
          w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w]
   \\ rw []
@@ -1000,7 +996,7 @@ val Eval_i2w = Q.store_thm("Eval_i2w",
   \\ match_mp_tac MOD_MINUS \\ fs []);
 
 val Eval_n2w = Q.store_thm("Eval_n2w",
-  `dimindex (:'a) <= 64 ==>
+   `dimindex (:'a) <= 64 ==>
     Eval env x1 (NUM n) ==>
     Eval env
       (if dimindex (:'a) = 8 then
@@ -1016,7 +1012,7 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   \\ fs [integer_wordTheory.i2w_def]);
 
 val Eval_w2w = Q.store_thm("Eval_w2w",
-  `dimindex (:'a) <= 64 /\ dimindex (:'b) <= 64 ==>
+   `dimindex (:'a) <= 64 /\ dimindex (:'b) <= 64 ==>
     Eval env x1 (WORD (w:'b word)) ==>
     Eval env
       (if (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) then
@@ -1038,13 +1034,9 @@ val Eval_w2w = Q.store_thm("Eval_w2w",
    (Cases_on `dimindex (:'a) ≤ 8` \\ fs []
     \\ IF_CASES_TAC
     \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac
+    \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac
     \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-    \\ once_rewrite_tac [evaluate_cases] \\ fs []
-    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
-    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-    \\ asm_exists_tac \\ fs []
-    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ qexists_tac `ck1` \\ fs []
     \\ fs [empty_state_def]
     \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
     \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
@@ -1055,14 +1047,10 @@ val Eval_w2w = Q.store_thm("Eval_w2w",
   \\ IF_CASES_TAC \\ fs [] \\ rw []
   THEN1
    (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac \\ rfs []
+    \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
     \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-    \\ ntac 8 (once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS])
-    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
-    \\ asm_exists_tac \\ fs []
-    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-    \\ fs [empty_state_def]
-    \\ simp [do_app_def]
+    \\ qexists_tac `ck1` \\ fs []
+    \\ simp [do_app_def,empty_state_def]
     \\ fs [shift64_lookup_def,shift8_lookup_def]
     \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
     \\ rpt strip_tac
@@ -1074,14 +1062,10 @@ val Eval_w2w = Q.store_thm("Eval_w2w",
     \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``])
   THEN1
    (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac \\ rfs []
+    \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
     \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-    \\ ntac 8 (once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS])
-    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
-    \\ asm_exists_tac \\ fs []
-    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-    \\ fs [empty_state_def]
-    \\ simp [do_app_def]
+    \\ qexists_tac `ck1` \\ fs []
+    \\ simp [do_app_def,empty_state_def]
     \\ fs [shift64_lookup_def,shift8_lookup_def]
     \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]));
 
@@ -1090,14 +1074,9 @@ val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
       Eval env x1 (WORD (w1:'a word)) ==>
       Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Lsl n) [x1])
         (WORD (word_lsl w1 n))`,
-  rw[Eval_def,WORD_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs[]
+  rw[Eval_rw,WORD_def]
+  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_lsl_def,fcpTheory.FCP_BETA,w2w] \\ rw []
@@ -1113,31 +1092,13 @@ val Eval_word_lsr = Q.store_thm("Eval_word_lsr",
                   else
                     App (Shift w Lsl k) [App (Shift w Lsr (n+k)) [x1]])
         (WORD (word_lsr w1 n))`,
-  rw[Eval_def,WORD_def]
-  \\ TRY (* takes care of = 8 and = 64 cases *)
-   (rw[Once evaluate_cases,PULL_EXISTS]
-    \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-    \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-    \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-    \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-    \\ asm_exists_tac \\ fs[]
-    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+  rw[Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ TRY
+   (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
     \\ fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
     \\ eq_tac \\ rfs [w2w] \\ rw [] \\ rfs [w2w] \\ NO_TAC)
-  \\ fs []
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs[]
   \\ fs [LESS_EQ_EXISTS,do_app_def]
   \\ fs [shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_lsr_def,word_lsl_def,fcpTheory.FCP_BETA,w2w]
@@ -1157,31 +1118,13 @@ val Eval_word_asr = Q.store_thm("Eval_word_asr",
                   else
                     App (Shift w Lsl k) [App (Shift w Asr (n+k)) [x1]])
         (WORD (word_asr w1 n))`,
-  rw[Eval_def,WORD_def]
+  rw[Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ TRY (* takes care of = 8 and = 64 cases *)
-   (rw[Once evaluate_cases,PULL_EXISTS]
-    \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-    \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-    \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-    \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-    \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-    \\ asm_exists_tac \\ fs []
-    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+   (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
     \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
     \\ fs [word_msb_def] \\ rfs [w2w] \\ rw [] \\ rfs [w2w] \\ NO_TAC)
-  \\ fs []
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs []
   \\ fs [LESS_EQ_EXISTS,do_app_def]
   \\ fs [shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_asr_def,word_lsl_def,fcpTheory.FCP_BETA,w2w]
@@ -1198,14 +1141,9 @@ val Eval_word_ror = Q.store_thm("Eval_word_ror",
         (WORD (word_ror w1 n))`,
   Cases_on `dimindex (:'a) = 8` \\ fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ fs []
-  \\ rw[Eval_def,WORD_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
-  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
-  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ fs[]
+  \\ rw[Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []);
@@ -1216,11 +1154,11 @@ val LIST_TYPE_def = Define `
   (!a x_2 x_1 v.
      LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
-       v = Conv (SOME ("::",TypeId (Short "list"))) [v2_1; v2_2] /\
+       v = Conv (SOME (TypeStamp "::" 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   !a v.
      LIST_TYPE a [] v <=>
-     v = Conv (SOME ("nil",TypeId (Short "list"))) []`
+     v = Conv (SOME (TypeStamp "nil" 1)) []`
 
 val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
@@ -1257,157 +1195,108 @@ val PAIR_TYPE_def = Define `
 
 val PAIR_TYPE_SIMP = Q.prove(
   `!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
-                            (\y v. if y = SND x then b y v else ARB) x =
+                           (\y v. if y = SND x then b y v else ARB) x =
         PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x`,
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
 
-(* option definition *)
-(* TODO: Apparently, the variable names need to be of a specific form...*)
-val OPTION_TYPE_def = Define `
-  (!a x_2 v.
-     OPTION_TYPE a (SOME x_2) v <=>
-     ?v2_1.
-       v = Conv (SOME ("SOME",TypeId (Short "option"))) [v2_1] /\
-       a x_2 v2_1) /\
-  !a v.
-     OPTION_TYPE a NONE v <=>
-     v = Conv (SOME ("NONE",TypeId (Short "option"))) []`
-
-val OPTION_TYPE_SIMP = Q.prove(
-  `!x. CONTAINER OPTION_TYPE
-              (\y v. if x = SOME y then p y v else ARB) x =
-           OPTION_TYPE (p:('a -> v -> bool)) x`,
-  Cases>>FULL_SIMP_TAC std_ss [FUN_EQ_THM,OPTION_TYPE_def,DISJ_ASSOC,CONTAINER_def])
-  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
-  |> curry save_thm "OPTION_TYPE_SIMP";
-
-val SUM_TYPE_def = Define `
-  (∀a b x_2 v.
-      SUM_TYPE a b (INR x_2) v ⇔
-      ∃v2_1.
-        v = Conv (SOME ("Inr",TypeId (Short "sum"))) [v2_1] ∧
-        b x_2 v2_1) ∧
-   ∀a b x_1 v.
-     SUM_TYPE a b (INL x_1) v ⇔
-     ∃v1_1.
-       v = Conv (SOME ("Inl",TypeId (Short "sum"))) [v1_1] ∧ a x_1 v1_1`
-
-val SUM_TYPE_SIMP = Q.prove(`
-  !x. CONTAINER SUM_TYPE
-    (\y v. if x = INL y then a y v else ARB)
-    (\y v. if x = INR y then b y v else ARB) x =
-    SUM_TYPE (a:'a ->v -> bool) (b:'b ->v -> bool) x`,
-  Cases>>rw[CONTAINER_def,FUN_EQ_THM,SUM_TYPE_def])
-  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
-  |> curry save_thm "SUM_TYPE_SIMP";
-
 (* characters *)
 
 val Eval_Ord = Q.store_thm("Eval_Ord",
-  `Eval env x (CHAR c) ==>
+   `Eval env x (CHAR c) ==>
     Eval env (App Ord [x]) (NUM (ORD c))`,
-  rw[Eval_def] >>
-  rw[Once evaluate_cases,empty_state_with_refs_eq,PULL_EXISTS] >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
-  rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim] >>
-  fs[CHAR_def,NUM_def,INT_def] >>
-  metis_tac[ORD_11])
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]);
 
 val Eval_Chr = Q.store_thm("Eval_Chr",
-  `Eval env x (NUM n) ==>
+   `Eval env x (NUM n) ==>
     n < 256 ==>
     Eval env (App Chr [x]) (CHAR (CHR n))`,
-  rw[Eval_def] >>
-  rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
-  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
-  rw[do_app_cases,PULL_EXISTS] >>
-  fs[CHAR_def,NUM_def,INT_def] >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) >>
-  asm_exists_tac >> fs[] >>
-  simp[integerTheory.INT_ABS_NUM] >>
-  srw_tac[DNF_ss][] >>
-  intLib.COOPER_TAC)
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ simp[integerTheory.INT_ABS_NUM]
+  \\ srw_tac[DNF_ss][]
+  \\ intLib.COOPER_TAC)
 
 val Boolv_11 = Q.store_thm("Boolv_11",
   `(Boolv b1 = Boolv b2) <=> (b1 = b2)`,
   Cases_on `b1` \\ Cases_on `b2` \\ EVAL_TAC);
 
 val tac =
-  rw[Eval_def] >>
-  rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
-  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
-  rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases),PULL_EXISTS])) >>
-  rw[do_app_cases,PULL_EXISTS] >> fs[CHAR_def] >>
-  rw[BOOL_def,opb_lookup_def,Boolv_11]
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def]
+  \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
+  \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
 
 val Eval_char_lt = Q.store_thm("Eval_char_lt",
   `!c1 c2.
-        Eval env x1 (CHAR c1) ==>
-        Eval env x2 (CHAR c2) ==>
-        Eval env (App (Chopb Lt) [x1;x2]) (BOOL (c1 < c2))`,
-  tac >> rw[stringTheory.char_lt_def] >>
-  metis_tac[APPEND_ASSOC])
+      Eval env x1 (CHAR c1) ==>
+      Eval env x2 (CHAR c2) ==>
+      Eval env (App (Chopb Lt) [x1;x2]) (BOOL (c1 < c2))`,
+  tac \\ rw[stringTheory.char_lt_def]
+  \\ metis_tac[APPEND_ASSOC]);
 
 val Eval_char_le = Q.store_thm("Eval_char_le",
   `!c1 c2.
-        Eval env x1 (CHAR c1) ==>
-        Eval env x2 (CHAR c2) ==>
-        Eval env (App (Chopb Leq) [x1;x2]) (BOOL (c1 ≤ c2))`,
-  tac >> rw[stringTheory.char_le_def] >>
-  metis_tac[APPEND_ASSOC])
+      Eval env x1 (CHAR c1) ==>
+      Eval env x2 (CHAR c2) ==>
+      Eval env (App (Chopb Leq) [x1;x2]) (BOOL (c1 ≤ c2))`,
+  tac \\ rw[stringTheory.char_le_def]
+  \\ metis_tac[APPEND_ASSOC]);
 
 val Eval_char_gt = Q.store_thm("Eval_char_gt",
   `!c1 c2.
-        Eval env x1 (CHAR c1) ==>
-        Eval env x2 (CHAR c2) ==>
-        Eval env (App (Chopb Gt) [x1;x2]) (BOOL (c1 > c2))`,
-  tac >> rw[stringTheory.char_gt_def,int_gt,GREATER_DEF] >>
-  metis_tac[APPEND_ASSOC])
+      Eval env x1 (CHAR c1) ==>
+      Eval env x2 (CHAR c2) ==>
+      Eval env (App (Chopb Gt) [x1;x2]) (BOOL (c1 > c2))`,
+  tac \\ rw[stringTheory.char_gt_def,int_gt,GREATER_DEF]
+  \\ metis_tac[APPEND_ASSOC]);
 
 val Eval_char_ge = Q.store_thm("Eval_char_ge",
   `!c1 c2.
-        Eval env x1 (CHAR c1) ==>
-        Eval env x2 (CHAR c2) ==>
-        Eval env (App (Chopb Geq) [x1;x2]) (BOOL (c1 ≥ c2))`,
-  tac >> rw[stringTheory.char_ge_def,int_ge,GREATER_EQ]
-  >> metis_tac[APPEND_ASSOC])
+      Eval env x1 (CHAR c1) ==>
+      Eval env x2 (CHAR c2) ==>
+      Eval env (App (Chopb Geq) [x1;x2]) (BOOL (c1 ≥ c2))`,
+  tac \\ rw[stringTheory.char_ge_def,int_ge,GREATER_EQ]
+  \\ metis_tac[APPEND_ASSOC]);
 
 (* strings *)
 
 val LIST_TYPE_CHAR_v_to_char_list = Q.store_thm("LIST_TYPE_CHAR_v_to_char_list",
   `∀l v. LIST_TYPE CHAR l v ⇒ v_to_char_list v = SOME l`,
-  Induct >>
-  simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def])
+  Induct
+  \\ simp[LIST_TYPE_def,v_to_char_list_def,PULL_EXISTS,CHAR_def]
+  \\ EVAL_TAC \\ simp []);
 
-val tac =
-  rw[Eval_def] >>
-  rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS] >>
-  rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim] >>
-  fs[STRING_TYPE_def,mlstringTheory.implode_def]
+val tac1 =
+  rw[Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
+  \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+
+val tac2 =
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def]
+  \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
+  \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
+  \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
 
 val Eval_implode = Q.store_thm("Eval_implode",
   `!env x1 l.
       Eval env x1 (LIST_TYPE CHAR l) ==>
       Eval env (App Implode [x1]) (STRING_TYPE (implode l))`,
-  tac >>
-  metis_tac[LIST_TYPE_CHAR_v_to_char_list,
-            stringTheory.IMPLODE_EXPLODE_I])
+  tac1 \\ fs [option_case_eq,pair_case_eq]
+  \\ metis_tac[LIST_TYPE_CHAR_v_to_char_list,
+               stringTheory.IMPLODE_EXPLODE_I]);
 
 val Eval_strlen = Q.store_thm("Eval_strlen",
   `!env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
       Eval env (App Strlen [x1]) (NUM (strlen s))`,
-  Cases_on`s` >> tac >>
-  fs[NUM_def,INT_def,mlstringTheory.strlen_def] >>
-  metis_tac[])
+  Cases_on`s` \\ tac1
+  \\ fs[NUM_def,INT_def,mlstringTheory.strlen_def]
+  \\ metis_tac[]);
 
 val Eval_strsub = Q.store_thm("Eval_strsub",
   `!env x1 x2 s n.
@@ -1415,42 +1304,26 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
       Eval env x2 (NUM n) ==>
       n < strlen s ==>
       Eval env (App Strsub [x1; x2]) (CHAR (strsub s n))`,
-  rw[Eval_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ rw[]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases)]
-  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
-  \\ srw_tac[DNF_ss][] \\ rpt disj2_tac
-  \\ rw[empty_state_with_ffi_elim]
-  \\ Cases_on`s` >> fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
-  \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
-  \\ metis_tac[strsub_def,mlstringTheory.implode_def,APPEND_ASSOC]);
+  tac2 \\ Cases_on `s` \\ fs [STRING_TYPE_def,NUM_def,INT_def]
+  \\ fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]);
 
 val Eval_concat = Q.store_thm("Eval_concat",
   `∀env x ls.
      Eval env x (LIST_TYPE STRING_TYPE ls) ==>
      Eval env (App Strcat [x]) (STRING_TYPE (concat ls))`,
-  rw[Eval_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once (CONJUNCT2 evaluate_cases)]
-  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ rw[]
+  tac1 \\ fs [option_case_eq,pair_case_eq,PULL_EXISTS]
   \\ qhdtm_x_assum`evaluate`kall_tac
   \\ pop_assum mp_tac
   \\ qid_spec_tac`res`
   \\ Induct_on`ls`
   \\ rw[LIST_TYPE_def,v_to_list_def,vs_to_string_def,STRING_TYPE_def]
-  \\ rw[v_to_list_def]
+  THEN1 EVAL_TAC
+  \\ fs[v_to_list_def,LIST_TYPE_def]
   \\ first_x_assum drule \\ rw[]
   \\ rename1`concat (s::ls)`
   \\ Cases_on`s` \\ fs[STRING_TYPE_def]
   \\ rw[vs_to_string_def]
-  \\ fs[concat_def,STRING_TYPE_def]);
+  \\ fs[concat_def,STRING_TYPE_def] \\ EVAL_TAC);
 
 val Eval_substring = Q.store_thm("Eval_substring",
   `∀env x1 x2 x3 len off st.
@@ -1459,21 +1332,22 @@ val Eval_substring = Q.store_thm("Eval_substring",
     Eval env x3 (NUM len) ==>
       off + len <= strlen st ==>
     Eval env (App CopyStrStr [x1; x2; x3]) (STRING_TYPE (substring st off len))`,
-  rw[Eval_def]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ asm_exists_tac \\ rw[]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ first_x_assum(qspec_then`refs++refs'`strip_assume_tac)
-  \\ asm_exists_tac \\ rw[]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ first_x_assum(qspec_then`refs++refs'++refs''`strip_assume_tac)
-  \\ asm_exists_tac \\ rw[]
-  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
-  \\ rw[state_component_equality]
-  \\ rw[do_app_def]
-  \\ Cases_on`st` \\ fs[STRING_TYPE_def]
+  fs [Eval_rw] \\ rw []
+  \\ rw[Eval_rw,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspec_then `refs++refs'` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspec_then `refs++refs'++refs''` mp_tac) \\ strip_tac
+  \\ drule evaluate_add_to_clock
+  \\ qpat_x_assum `evaulate _ _ _ = _` kall_tac \\ fs []
+  \\ drule evaluate_add_to_clock
+  \\ qpat_x_assum `evaulate _ _ _ = _` kall_tac \\ fs []
+  \\ drule evaluate_add_to_clock
+  \\ qpat_x_assum `evaulate _ _ _ = _` kall_tac \\ fs []
+  \\ disch_then (qspec_then `ck1' + ck1''` assume_tac)
+  \\ disch_then (qspec_then `ck2 + ck1''` assume_tac)
+  \\ disch_then (qspec_then `ck2 + ck2'` assume_tac)
+  \\ qexists_tac `ck1+ck1'+ck1''` \\ fs [do_app_def]
+  \\ Cases_on`st` \\ fs[STRING_TYPE_def,empty_state_def]
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
         substring_def,SEG_TAKE_BUTFISTN,STRING_TYPE_def]);
@@ -1490,61 +1364,32 @@ val Eval_sub = Q.store_thm("Eval_sub",
      Eval env x2 (NUM n) ==>
      n < length v ==>
      Eval env (App Vsub [x1; x2]) (a (sub v n))`,
-  rw [Eval_def] >>
-  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) >>
-  asm_exists_tac >> fs[] >>
-  first_x_assum(qspec_then`refs++refs'`strip_assume_tac) >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
-  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
-  asm_exists_tac >> fs[] >>
-  rw [do_app_cases,PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
-  rw [] >>
-  fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
-  fs [LIST_REL_EL_EQN]);
+  tac2
+  \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
+  \\ rw []
+  \\ fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def]
+  \\ fs [LIST_REL_EL_EQN]);
 
 val Eval_vector = Q.store_thm("Eval_vector",
  `!env x1 a l.
      Eval env x1 (LIST_TYPE a l) ==>
      Eval env (App VfromList [x1]) (VECTOR_TYPE a (Vector l))`,
-  rw [Eval_def] >>
-  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
-  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
-  asm_exists_tac >> fs[] >>
-  rw [do_app_cases] >>
-  rw [PULL_EXISTS] >>
-  fs [VECTOR_TYPE_def] >>
-  pop_assum mp_tac >>
-  pop_assum (fn _ => all_tac) >>
-  Q.SPEC_TAC (`res`, `res`) >>
-  Induct_on `l` >>
-  rw [] >>
-  fs [LIST_TYPE_def, v_to_list_def, PULL_EXISTS] >>
-  BasicProvers.FULL_CASE_TAC >>
-  fs [] >>
-  metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
+  tac1 \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ Q.SPEC_TAC (`res`, `res`)
+  \\ Induct_on `l` \\ rw []
+  \\ fs [LIST_TYPE_def, v_to_list_def, PULL_EXISTS]
+  THEN1 (EVAL_TAC \\ fs [])
+  \\ fs [bool_case_eq,option_case_eq,pair_case_eq,PULL_EXISTS]
+  \\ fs [EVAL ``list_type_num``,VECTOR_TYPE_def]);
 
 val Eval_length = Q.store_thm("Eval_length",
   `!env x1 x2 a n v.
       Eval env x1 (VECTOR_TYPE a v) ==>
       Eval env (App Vlength [x1]) (NUM (length v))`,
-  rw [Eval_def] >>
-  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
-  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
-  asm_exists_tac >> fs[] >>
-  rw [do_app_cases] >>
-  rw [PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
-  rw [] >>
-  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
+  tac1 \\ Cases_on `v`
+  \\ fs [bool_case_eq,option_case_eq,pair_case_eq,PULL_EXISTS,
+         VECTOR_TYPE_def,NUM_def,INT_def,length_def]);
 
 val list_to_v_LIST_TYPE = Q.store_thm("list_to_v_LIST_TYPE",
   `!xs v ys.
@@ -1565,33 +1410,21 @@ val list_to_v_LIST_TYPE_APPEND = Q.store_thm("list_to_v_LIST_TYPE_APPEND",
      LIST_TYPE a x (list_to_v xs) /\
      LIST_TYPE a y (list_to_v ys) ==>
        LIST_TYPE a (x ++ y) (list_to_v (xs ++ ys))`,
-  Induct \\ Induct_on `ys` \\ EVAL_TAC \\ rw []
-  \\ Cases_on `x` \\ Cases_on `y` \\ fs [list_to_v_def, LIST_TYPE_def]);
+  Induct \\ EVAL_TAC \\ rw []
+  \\ Cases_on `x` \\ fs [list_to_v_def, LIST_TYPE_def]);
 
 val v_to_list_LIST_TYPE = Q.store_thm("v_to_list_LIST_TYPE",
   `!x v.
      LIST_TYPE a x v ==> ?xs. v_to_list v = SOME xs`,
   Induct \\ EVAL_TAC \\ rw [] \\ fs [v_to_list_def]
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs [] \\ EVAL_TAC);
 
 val Eval_ListAppend = Q.store_thm("Eval_ListAppend",
   `!env x1 x2 a l1 l2.
      Eval env x2 (LIST_TYPE a l1) ==>
      Eval env x1 (LIST_TYPE a l2) ==>
-      Eval env (App ListAppend [x2;x1]) (LIST_TYPE a (l1 ++ l2))`,
-  rw [Eval_def]
-  \\ rw [Once evaluate_cases, PULL_EXISTS, empty_state_with_refs_eq]
-  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))), PULL_EXISTS])
-  \\ rename1 `_ with refs := rfs1`
-  \\ first_x_assum (qspec_then `rfs1` strip_assume_tac) \\ rename1 `(_,Rval r1)`
-  \\ rename1 `rfs1 ++ rfs2`
-  \\ first_x_assum (qspec_then `rfs1++rfs2` strip_assume_tac) \\ rename1 `(_,Rval r2)`
-  \\ CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["ffi"]))
-  \\ qexists_tac `empty_state.ffi` \\ simp [empty_state_with_ffi_elim]
-  \\ rw [do_app_cases, PULL_EXISTS]
-  \\ rename1 `_ ++ _ ++ rfs3`
-  \\ qexists_tac `rfs2++rfs3` \\ fs [APPEND_ASSOC]
-  \\ rpt (asm_exists_tac \\ fs [])
+     Eval env (App ListAppend [x2;x1]) (LIST_TYPE a (l1 ++ l2))`,
+  tac2 \\ fs [option_case_eq,PULL_EXISTS]
   \\ imp_res_tac v_to_list_LIST_TYPE \\ fs []
   \\ metis_tac [list_to_v_LIST_TYPE, list_to_v_LIST_TYPE_APPEND]);
 
@@ -1599,51 +1432,26 @@ val Eval_length = Q.store_thm("Eval_length",
   `!env x1 x2 a n v.
       Eval env x1 (VECTOR_TYPE a v) ==>
       Eval env (App Vlength [x1]) (NUM (length v))`,
-  rw [Eval_def] >>
-  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
-  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
-  asm_exists_tac >> fs[] >>
-  rw [do_app_cases] >>
-  rw [PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
-  rw [] >>
-  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
+  tac1 \\ fs []
+  \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
+  \\ rw [] \\ fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
 val force_gc_to_run_def = Define `
   force_gc_to_run (i1:int) (i2:int) = ()`;
 
 val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
-  `Eval env x1 (INT i1) ==>
-   Eval env x2 (INT i2) ==>
-   Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))`,
-  rw [Eval_def] >>
-  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
-  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
-  first_x_assum(qspec_then`refs`strip_assume_tac) >>
-  asm_exists_tac >> fs [] >>
-  first_x_assum(qspec_then`refs ++ refs'`strip_assume_tac) >>
-  qexists_tac `Conv NONE []` >>
-  qexists_tac `refs' ⧺ refs''` >>
-  qexists_tac `refs ++ refs' ⧺ refs''` >>
-  fs [empty_state_def] >>
-  asm_exists_tac >> fs [] >>
-  fs [do_app_def,INT_def,UNIT_TYPE_def]);
+   `Eval env x1 (INT i1) ==>
+    Eval env x2 (INT i2) ==>
+    Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))`,
+  tac2 \\ fs [do_app_def,INT_def,UNIT_TYPE_def]);
 
 val Eval_empty_ffi = Q.store_thm("Eval_empty_ffi",
   `Eval env x (STRING_TYPE s) ==>
    Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
      (UNIT_TYPE (empty_ffi s))`,
-  rw [Eval_def]
-  \\ ntac 8 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
-  \\ fs [do_app_def,store_alloc_def]
-  \\ ntac 1 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
-  \\ pop_assum (qspec_then `refs ⧺ [W8array []]` mp_tac)
-  \\ fs [empty_state_def]
-  \\ strip_tac \\ asm_exists_tac \\ fs []
-  \\ ntac 1 (rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq])
+  rw[Eval_rw,WORD_def] \\ fs [store_alloc_def,do_app_def]
+  \\ first_x_assum (qspec_then `refs ++ [W8array []]` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ Cases_on `s` \\ fs [STRING_TYPE_def]
   \\ rveq \\ fs [store_lookup_def]
   \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
@@ -1660,6 +1468,7 @@ val IMP_PreImp = Q.store_thm("IMP_PreImp",
   `!b1 b2 b3. (b1 /\ b2 ==> b3) ==> b1 ==> PreImp b2 b3`,
   REPEAT Cases \\ EVAL_TAC);
 
+(*
 val evaluate_list_SIMP = Q.store_thm("evaluate_list_SIMP",
   `(evaluate_list F env s [] (s',Rval ([])) = (s = s')) /\
     (evaluate_list F env s (x::xs) (s',Rval ((y::ys))) <=>
@@ -1667,6 +1476,7 @@ val evaluate_list_SIMP = Q.store_thm("evaluate_list_SIMP",
      evaluate_list F env s'' xs (s',Rval (ys)))`,
   REPEAT STRIP_TAC \\ SIMP_TAC std_ss [Once evaluate_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [EQ_IMP_THM]);
+*)
 
 val UNCURRY1 = Q.prove(
   `!f. UNCURRY f = \x. case x of (x,y) => f x y`,
@@ -1725,7 +1535,7 @@ val lookup_cons_write = Q.store_thm("lookup_cons_write",
   \\ fs [write_rec_thm,write_def,lookup_cons_def]);
 
 val DISJOINT_set_SIMP = Q.store_thm("DISJOINT_set_SIMP",
-  `(DISJOINT (set []) s <=> T) /\
+   `(DISJOINT (set []) s <=> T) /\
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
   REPEAT STRIP_TAC THEN1 (SRW_TAC [] []) \\ Cases_on `x IN s` \\ fs []);
 
@@ -1853,15 +1663,12 @@ val type_names_eq = Q.prove(
                 case d of
                   Dlet _ v6 v7 => []
                 | Dletrec _ v8 => []
+                | Dmod _ ds => []
                 | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
                 | Dexn _ v10 v11 => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
-
-val no_dup_types_eval = Q.prove(
-  `!ds. no_dup_types ds = ALL_DISTINCT (type_names ds [])`,
-  fs [no_dup_types_def,type_names_eq,decs_to_types_def,ALL_DISTINCT_FLAT_REVERSE]);
 
 val lookup_APPEND = Q.prove(
   `!xs ys n. ~(MEM n (MAP FST ys)) ==>
@@ -1887,27 +1694,21 @@ val PULL_EXISTS_EXTRA = Q.store_thm("PULL_EXISTS_EXTRA",
   `(Q ==> ?x. P x) <=> ?x. Q ==> P x`,
   metis_tac []);
 
-val evaluate_Fun = Q.prove(
-  `evaluate F env s (Fun n exp) (s',Rval r) <=> r = Closure env n exp ∧ s' = s`,
-  fs [Once evaluate_cases] \\ fs[EQ_IMP_THM]);
-
 val Eval_Fun_rw = Q.store_thm("Eval_Fun_rw",
   `Eval env (Fun n exp) P <=> P (Closure env n exp)`,
-  rw[Eval_def,evaluate_Fun,EQ_IMP_THM]
-  >- METIS_TAC[]
-  \\ rw[state_component_equality]);
+  rw[Eval_rw,EQ_IMP_THM,empty_state_def]);
 
 val evaluate_Var = Q.prove(
-  `evaluate F env s (Var (Short n)) (s',Rval r) <=>
+   `eval_rel s env (Var (Short n)) s' r <=>
     ?v. lookup_var n env = SOME r ∧ s' = s`,
-  fs [Once evaluate_cases] \\ EVAL_TAC \\ fs[EQ_IMP_THM]);
+  fs [eval_rel_def,evaluate_def,lookup_var_def,option_case_eq,
+      state_component_equality] \\ rw [] \\ eq_tac \\ rw []);
 
 val Eval_Var = Q.store_thm("Eval_Var",
   `Eval env (Var (Short n)) P <=>
    ?v. lookup_var n env = SOME v /\ P v`,
   rw[Eval_def,evaluate_Var,EQ_IMP_THM]
-  >- METIS_TAC[]
-  \\ rw[state_component_equality]);
+  \\ rw[state_component_equality] \\ metis_tac []);
 
 val Eval_Fun_Var_intro = Q.store_thm("Eval_Fun_Var_intro",
   `Eval cl_env (Fun n exp) P ==>
@@ -1926,20 +1727,20 @@ val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
 val Eval_constant = Q.store_thm("Eval_constant",
   `!refs. Eval env exp P ==>
-      ?v refs'. evaluate F env (empty_state with refs := refs) exp (empty_state with refs := refs ++ refs', Rval v)`,
-  rw[Eval_def] \\
-  first_x_assum(qspec_then`refs`strip_assume_tac)
-  \\ METIS_TAC[]);
+      ?v refs'. eval_rel (empty_state with refs := refs) env exp
+                         (empty_state with refs := refs ++ refs') v`,
+  rw[Eval_def]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ fs []);
 
 val Eval_evaluate_IMP = Q.store_thm("Eval_evaluate_IMP",
-  `Eval env exp P /\
-    evaluate F env s exp (s', Rval v) ==>
+   `Eval env exp P /\
+    eval_rel s env exp s' v ==>
     P v`,
   fs [Eval_def] \\ rw []
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
   \\ imp_res_tac evaluate_empty_state_IMP
-  \\ imp_res_tac evaluate_11_Rval
-  \\ fs[]);
+  \\ imp_res_tac eval_rel_11 \\ fs []);
 
 val pair_CASE_UNCURRY = Q.store_thm("pair_CASE_UNCURRY",
   `!x y. pair_CASE x y = UNCURRY y x`,
@@ -2029,31 +1830,6 @@ val PreImp_IMP = Q.store_thm("PreImp_IMP",
   `(PRECONDITION x ==> PreImp x y) ==> PreImp x y`,
   SIMP_TAC std_ss [PreImp_def]);
 
-val evaluate_Mat = save_thm("evaluate_Mat",
-  ``evaluate c x env (Mat e pats) (xx,Rval res)``
-  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) []))
-
-val evaluate_match_Conv = save_thm("evaluate_match_Conv",
-  ``evaluate_match c env st args
-       ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
-  |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
-      SIMP_CONV (srw_ss()) [pmatch_def]))
-
-val evaluate_match_rw = Q.store_thm("evaluate_match_rw",
-  `evaluate_match c env st args
-      ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
-    ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
-    case pmatch env.c st.refs (Pcon xx pats) args [] of
-    | No_match =>
-        evaluate_match c env st args pats2 errv (yyy,Rval y)
-    | Match env7 =>
-        evaluate c (env with v := (nsAppend (alist_to_ns env7) env.v)) st exp2 (yyy,Rval y)
-    | _ => F`,
-  SIMP_TAC std_ss [evaluate_match_Conv
-    |> SIMP_RULE std_ss []]
-  \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args []`
-  \\ FULL_SIMP_TAC (srw_ss()) []);
-
 val PreImp_LEMMA = store_thm("PreImp_LEMMA",
   ``(b1 ==> PreImp b1 b2) ==> PreImp b1 b2``,
   fs [PreImp_def,PRECONDITION_def]);
@@ -2064,6 +1840,206 @@ val SUC_SUB1_LEMMA = save_thm("SUC_SUB1_LEMMA",
 val LENGTH_EQ_SUC_IMP = store_thm("LENGTH_EQ_SUC_IMP",
   ``LENGTH xs = SUC n ==> xs <> []``,
   Cases_on `xs` \\ fs []);
+
+val prim_exn_list = let
+  val tm = primSemEnvTheory.prim_sem_env_eq |> concl |> rand |> rand |> rand
+  val (xs,ty) = ``^tm.c`` |> SIMP_CONV (srw_ss()) []
+                |> concl |> rand |> rator |> rand |> listSyntax.dest_list
+  val ys = filter (semanticPrimitivesSyntax.is_ExnStamp o rand o rand) xs
+  in listSyntax.mk_list(ys, ty) end
+
+(* pattern match translation *)
+
+val Mat_cases_def = Define `
+  Mat_cases (INL (vars,x:exp)) = [(Pcon NONE (MAP Pvar vars),x)] /\
+  Mat_cases (INR ps) =
+    MAP (\(name,vars,x:exp,t:stamp).
+      (Pcon (SOME (Short name)) (MAP Pvar vars),x)) ps`;
+
+val good_cons_env_def = Define `
+  good_cons_env ps env <=>
+    EVERY (\(name,vars,x,t).
+      ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+      lookup_cons name env = SOME (LENGTH vars, t)) ps /\
+    let (name,vars,x,t1) = HD ps in
+      EVERY (\(name,vars,x,t2). same_type t1 t2) ps`
+
+val same_type_trans = store_thm("same_type_trans",
+  ``same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3``,
+  Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]);
+
+val evaluate_match_MAP = store_thm("evaluate_match_MAP",
+  ``!l1 xs.
+      MEM (x1,x2,x3,t1) full_ps /\ full_ps <> [] /\
+      good_cons_env full_ps env /\ set l1 SUBSET set full_ps /\
+      ~MEM t1 (MAP (SND o SND o SND) l1) ==>
+      evaluate_match (s:'ffi state) env
+        (Conv (SOME t1) vals)
+        (MAP (λ(name,vars,x,t). (Pcon (SOME (Short name))
+           (MAP Pvar vars),x)) l1 ++ xs) err =
+      evaluate_match s env (Conv (SOME t1) vals) xs err``,
+  Induct
+  \\ fs [FORALL_PROD,evaluate_def,pmatch_def,pat_bindings_def]
+  \\ rpt strip_tac
+  \\ fs [good_cons_env_def,lookup_cons_def]
+  \\ fs [EVERY_MEM]
+  \\ res_tac \\ fs []
+  \\ `?xx. HD full_ps = xx` by fs [] \\ PairCases_on `xx`
+  \\ fs []
+  \\ `MEM (HD full_ps) full_ps` by (Cases_on `full_ps` \\ fs [])
+  \\ rfs [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ imp_res_tac same_type_trans \\ fs []
+  \\ fs [same_ctor_def]) |> GEN_ALL;
+
+val pmatch_list_MAP_Pvar = store_thm("pmatch_list_MAP_Pvar",
+  ``!vars vals aux.
+      LENGTH vars = LENGTH vals ==>
+      pmatch_list env refs (MAP Pvar vars) vals aux =
+      Match (REVERSE (ZIP (vars, vals)) ++ aux)``,
+  Induct \\ Cases_on `vals` \\ fs [] \\ fs [pmatch_def]);
+
+val write_list_def = Define `
+  write_list [] (env:v sem_env) = env /\
+  write_list ((n,v)::xs) env = write_list xs (write n v env)`;
+
+val write_list_thm = store_thm("write_list_thm",
+  ``!xs env.
+      write_list xs (env:v sem_env) =
+       (env with v := nsAppend (alist_to_ns (REVERSE xs)) env.v)``,
+  Induct
+  \\ fs [write_list_def,FORALL_PROD,namespaceTheory.alist_to_ns_def,
+         write_def,namespaceTheory.nsBind_def]
+  \\ rw [] \\ Cases_on `env.v`
+  \\ fs [namespaceTheory.nsBind_def,namespaceTheory.nsAppend_def]
+  \\ fs [sem_env_component_equality]);
+
+val IMP_Eval_Mat_cases = store_thm("IMP_Eval_Mat_cases",
+  ``!a (r1:'a) env exp r2 y.
+      Eval env exp (a r1) /\
+      (case y of
+       | INL (vars,exp) =>
+                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+                    (!v. a r1 v ==>
+                         ?name vals t.
+                           v = Conv NONE vals /\
+                           LENGTH vals = LENGTH vars /\
+                           Eval (write_list (ZIP (vars,vals)) env) exp r2))
+       | INR ps => ALL_DISTINCT (MAP (SND o SND o SND) ps) /\
+                   good_cons_env ps env /\
+                   (!v. a r1 v ==>
+                        ?name vals t vars exp.
+                          v = Conv (SOME t) vals /\
+                          MEM (name,vars,exp,t) ps /\
+                          LENGTH vals = LENGTH vars /\
+                          Eval (write_list (ZIP (vars,vals)) env) exp r2)) ==>
+      Eval env (Mat exp (Mat_cases y)) r2``,
+  rpt gen_tac \\ Cases_on `y`
+  THEN1
+   (Cases_on `x`
+    \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
+    \\ rpt strip_tac
+    \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+    \\ first_x_assum drule \\ strip_tac
+    \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+    \\ rveq \\ fs []
+    \\ fs [PULL_EXISTS,evaluate_def]
+    \\ drule evaluate_add_to_clock
+    \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
+    \\ qpat_x_assum `_ env [exp] = _` assume_tac
+    \\ drule evaluate_add_to_clock
+    \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
+    \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
+    \\ asm_exists_tac \\ fs [Mat_cases_def]
+    \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+    \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
+    \\ fs [state_component_equality])
+  \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
+  \\ rpt strip_tac
+  \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum drule \\ strip_tac
+  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS,evaluate_def]
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
+  \\ qpat_x_assum `_ env [exp] = _` assume_tac
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
+  \\ asm_exists_tac \\ fs [Mat_cases_def]
+  \\ drule (evaluate_match_MAP |> INST_TYPE [``:'ffi``|->``:unit``])
+  \\ qpat_x_assum `MEM _ y` (assume_tac o REWRITE_RULE [MEM_SPLIT])
+  \\ fs [] \\ fs [ALL_DISTINCT_APPEND]
+  \\ disch_then drule
+  \\ `set l1 ⊆ set l1 ∪ {(name,vars,exp',t)} ∪ set l2` by fs [SUBSET_DEF,IN_UNION]
+  \\ disch_then drule \\ fs []
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
+  \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+  \\ fs [good_cons_env_def,lookup_cons_def]
+  \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
+  \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
+  \\ fs [state_component_equality]);
+
+val Eval_Con_lemma = prove(
+  ``!ps refs.
+      (∀p_1 p_2. MEM (p_1,p_2) ps ⇒ Eval env p_2 p_1) ==>
+      ?ck1 ck2 refs' vals.
+        evaluate (empty_state with <|clock := ck1; refs := refs|>) env
+                 (MAP SND ps) =
+        (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,Rval vals) /\
+        LIST_REL (λ(p,x) v. p v) ps vals``,
+  Induct THEN1 fs [state_component_equality]
+  \\ fs [FORALL_PROD,Eval_def,eval_rel_def,PULL_EXISTS]
+  \\ rw [] \\ once_rewrite_tac [evaluate_cons]
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
+  \\ first_assum (qspecl_then [`p_1`,`p_2`] mp_tac)
+  \\ rewrite_tac []
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
+  \\ qpat_x_assum `_ env [p_2] = _` assume_tac
+  \\ drule evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ fs [state_component_equality]);
+
+val Eval_Con = store_thm("Eval_Con",
+  ``!ps stamp.
+      lookup_cons name env = SOME (LENGTH ps,stamp) /\
+      EVERY (\(p,x). Eval env x p) ps /\
+      (!vals.
+         LIST_REL (\(p,x) v. p v) ps vals ==>
+         q (Conv (SOME stamp) vals)) ==>
+      Eval env (Con (SOME (Short name)) (MAP SND ps)) q``,
+  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
+  \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
+  \\ fs [lookup_cons_def,build_conv_def]
+  \\ `∀p_1 p_2. MEM (p_1,p_2) (REVERSE ps) ⇒ Eval env p_2 p_1` by fs []
+  \\ drule Eval_Con_lemma
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [GSYM EVERY2_REVERSE1]);
+
+val Eval_Con_NONE = store_thm("Eval_Con_NONE",
+  ``!ps.
+      EVERY (\(p,x). Eval env x p) ps /\
+      (!vals.
+         LIST_REL (\(p,x) v. p v) ps vals ==>
+         q (Conv NONE vals)) ==>
+      Eval env (Con NONE (MAP SND ps)) q``,
+  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
+  \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
+  \\ fs [lookup_cons_def,build_conv_def]
+  \\ `∀p_1 p_2. MEM (p_1,p_2) (REVERSE ps) ⇒ Eval env p_2 p_1` by fs []
+  \\ drule Eval_Con_lemma
+  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [GSYM EVERY2_REVERSE1]);
 
 (* terms used by the Lib file *)
 
@@ -2092,14 +2068,18 @@ val translator_terms = save_thm("translator_terms",
      ("PMATCH_ROW",``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``),
      ("PMATCH_ROW_T",``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``),
      ("PMATCH",``PMATCH x (l :('a -> 'b option) list)``),
-     ("evaluate_pat",``evaluate _ _ _ _ _``),
+     ("evaluate_pat",``evaluate _ _ _``),
      ("PreImp_Eval",``PreImp _ (Eval _ _ _)``),
      ("nsLookup_pat",``nsLookup env name``),
      ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
      ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
      ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
      ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
-     ("no_closure_pat",``∀x v. p x v ⇒ no_closures v``),
-     ("types_match_pat",``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``)]);
+     ("no_closure_pat",``!x v. p x v ==> no_closures v``),
+     ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
+     ("prim_exn_list",prim_exn_list),
+     ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
+              (\y v. if x = SOME y then p y v else ARB) x =
+           (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]);
 
 val _ = export_theory();

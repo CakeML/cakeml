@@ -148,48 +148,6 @@ val known_better_definedg = Q.store_thm(
       metis_tac[better_definedg_trans, known_op_better_definedg]) >>
   metis_tac[better_definedg_trans, known_op_better_definedg]);
 
-val val_approx_val_def = tDefine "val_approx_val" `
-  (val_approx_val (ClosNoInline m n) v ⇔
-     (∃env b. v = Closure (SOME m) [] env n b) ∨
-     (∃base env fs j.
-        v = Recclosure (SOME base) [] env fs j ∧
-        m = base + 2*j ∧ j < LENGTH fs ∧
-        n = FST (EL j fs))) ∧
-  (val_approx_val (Clos m n b s) v ⇔
-     (∃env. v = Closure (SOME m) [] env n b)) ∧
-  (val_approx_val (Tuple tg vas) v ⇔
-     ∃vs. v = Block tg vs ∧ LIST_REL (λv va. val_approx_val v va) vas vs) ∧
-  (val_approx_val Impossible v ⇔ F) ∧
-  (val_approx_val (Int i) v ⇔ v = Number i) ∧
-  (val_approx_val Other v ⇔ T)
-` (WF_REL_TAC `measure (val_approx_size o FST)` >> simp[] >> Induct >>
-   dsimp[val_approx_size_def] >> rpt strip_tac
-   >- (rename1 `val_approx1_size vvs` >> Induct_on `vvs` >>
-       dsimp[val_approx_size_def] >> rpt strip_tac >> res_tac >> simp[]) >>
-   res_tac >> simp[])
-
-val val_approx_val_def = save_thm(
-  "val_approx_val_def[simp]",
-  val_approx_val_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []);
-
-val val_approx_val_merge_I = Q.store_thm(
-  "val_approx_val_merge_I",
-  `∀a1 v a2.
-     val_approx_val a1 v ∨ val_approx_val a2 v ⇒
-     val_approx_val (merge a1 a2) v`,
-  ho_match_mp_tac (theorem "val_approx_val_ind") >>
-  simp[] >> rpt strip_tac >> Cases_on `a2` >> simp[] >> fs[] >> rw[] >>
-  fs[LIST_REL_EL_EQN, LENGTH_MAP2, MAP2_MAP, EL_MAP, EL_ZIP] >>
-  metis_tac[MEM_EL])
-
-val val_approx_better_approx = Q.store_thm(
-  "val_approx_better_approx",
-  `∀a1 v a2.
-     a1 ◁ a2 ∧ val_approx_val a1 v ⇒ val_approx_val a2 v`,
-  ho_match_mp_tac (theorem "val_approx_val_ind") >> dsimp[] >> rpt gen_tac >>
-  rename1 `Tuple _ a2s ◁ apx2` >>
-  Cases_on `apx2` >> dsimp[] >> simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
-
 val mk_Ticks_alt = Q.store_thm("mk_Ticks_alt",
   `(!t tc e. mk_Ticks t tc 0 e = e) /\
    (!t tc n e. mk_Ticks t tc (SUC n) e = mk_Ticks t (tc + 1) n (Tick (t§tc) e))`,

@@ -131,11 +131,13 @@ fun clean (ML_code (ss,envs,vs,th)) = let
   val conv = (RATOR_CONV o RAND_CONV)
   val name = "auto_env"
   val (th,new_envs) = cond_env_abbrev dest conv name th
+  val th = REWRITE_RULE [ML_code_env_def] th
   in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
 
 (* --- *)
 
 val unknown_loc = locationTheory.unknown_loc_def |> concl |> dest_eq |> fst;
+val loc = unknown_loc;
 
 val init_state =
   ML_code ([SPEC_ALL init_state_def],[init_env_def],[],ML_code_NIL);
@@ -144,60 +146,59 @@ fun open_module mn_str (ML_code (ss,envs,vs,th)) =
   ML_code
     (ss,envs,vs,
      MATCH_MP ML_code_new_module th
-     |> SPEC (stringSyntax.fromMLstring mn_str)
-     |> prove_assum_by_eval)
+     |> SPEC (stringSyntax.fromMLstring mn_str))
   handle HOL_ERR _ => failwith("open_module failed for " ^ thm_to_string th)
 
 fun close_module sig_opt (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_close_module th
-  val v = th |> concl |> dest_forall |> fst
-  val sig_tm = mk_const("NONE",type_of v) (* TODO: remove *)
-             (* (case sig_opt of
+(*val v = th |> concl |> dest_forall |> fst
+  val sig_tm = (case sig_opt of
                   NONE => mk_const("NONE",type_of v)
-                | SOME tm => optionSyntax.mk_some(tm)) *)
-  val th = SPEC sig_tm th
+                | SOME tm => optionSyntax.mk_some(tm))
+  val th = SPEC sig_tm th *)
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
 val tds_tm = ``[]:type_def``
 *)
 
-fun add_Dtype tds_tm (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_NONE_Dtype th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dtype th
-  val th = SPECL [tds_tm,unknown_loc] th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-            (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+fun add_Dtype loc tds_tm (ML_code (ss,envs,vs,th)) = let
+  val th = MATCH_MP ML_code_Dtype th
+  val th = SPECL [tds_tm,loc] th |> prove_assum_by_eval
+  val tm = th |> concl |> rator |> rand |> rator |> rator |> rand
+  val th = th |> CONV_RULE ((* (RATOR_CONV o RAND_CONV) *)
+            (REWRITE_CONV [EVAL tm] THENC
+             SIMP_CONV std_ss [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                               write_conses_def,ML_code_env_def,LENGTH,
+                               semanticPrimitivesTheory.build_constrs_def,
                                APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
+val loc = unknown_loc
 val n_tm = ``"bar"``
-val l_tm = ``[]:t list``
+val l_tm = ``[]:ast_t list``
 *)
 
-fun add_Dexn n_tm l_tm (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_NONE_Dexn th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dexn th
-  val th = SPECL [n_tm,l_tm,unknown_loc] th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-            (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+fun add_Dexn loc n_tm l_tm (ML_code (ss,envs,vs,th)) = let
+  val th = MATCH_MP ML_code_Dexn th
+  val th = SPECL [n_tm,l_tm,loc] th
+  val tm = th |> concl |> rand |> rator |> rand |> rand |> rator |> rand
+  val th = th |> CONV_RULE ((* (RATOR_CONV o RAND_CONV) *)
+            (REWRITE_CONV [EVAL tm] THENC
+             SIMP_CONV std_ss [MAP,ML_code_env_def,
+                               FLAT,FOLDR,REVERSE_DEF,
                                APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
-fun add_Dtabbrev l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_NONE_Dtabbrev th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dtabbrev th
-  val th = SPECL [l1_tm,l2_tm,l3_tm,unknown_loc] th
+fun add_Dtabbrev loc l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
+  val th = MATCH_MP ML_code_Dtabbrev th
+  val th = SPECL [l1_tm,l2_tm,l3_tm,loc] th
   in clean (ML_code (ss,envs,vs,th)) end
 
 fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dlet_var th
+  val th = MATCH_MP ML_code_Dlet_var th
+           |> REWRITE_RULE [ML_code_env_def]
   val th = MATCH_MP th eval_thm
            handle HOL_ERR _ => failwith "add_Dlet eval_thm does not match"
   val th = th |> SPECL [stringSyntax.fromMLstring var_str,unknown_loc]
@@ -208,11 +209,10 @@ val (ML_code (ss,envs,vs,th)) = s
 val (n,v,exp) = (v_tm,w,body)
 *)
 
-fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_NONE_Dlet_Fun th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dlet_Fun th
-  val th = SPECL [n,v,exp,unknown_loc] th
+fun add_Dlet_Fun loc n v exp v_name (ML_code (ss,envs,vs,th)) = let
+  val th = MATCH_MP ML_code_Dlet_Fun th
+           |> REWRITE_RULE [ML_code_env_def]
+  val th = SPECL [n,v,exp,loc] th
   val tm = th |> concl |> rator |> rand |> rator |> rand
   val v_def = define_abbrev false v_name tm
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
@@ -226,11 +226,10 @@ val Recclosure_pat =
   |> dest_exists |> snd
   |> dest_exists |> snd |> rand
 
-fun add_Dletrec funs v_names (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_NONE_Dletrec th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dletrec th
-  val th = SPECL [funs,unknown_loc] th |> prove_assum_by_eval
+fun add_Dletrec loc funs v_names (ML_code (ss,envs,vs,th)) = let
+  val th = MATCH_MP ML_code_Dletrec th
+           |> REWRITE_RULE [ML_code_env_def]
+  val th = SPECL [funs,loc] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
                   (SIMP_CONV std_ss [write_rec_def,FOLDR,
                     semanticPrimitivesTheory.build_rec_env_def]))
@@ -252,40 +251,32 @@ val dec_tm = dec1_tm
 
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
-    val (_,x1,x2) = dest_Dexn dec_tm
-    in add_Dexn x1 x2 s end
+    val (loc,x1,x2) = dest_Dexn dec_tm
+    in add_Dexn loc x1 x2 s end
   else if is_Dtype dec_tm then let
-    val (_,x1) = dest_Dtype dec_tm
-    in add_Dtype x1 s end
+    val (loc,x1) = dest_Dtype dec_tm
+    in add_Dtype loc x1 s end
   else if is_Dtabbrev dec_tm then let
-    val (_,x1,x2,x3) = dest_Dtabbrev dec_tm
-    in add_Dtabbrev x1 x2 x3 s end
+    val (loc,x1,x2,x3) = dest_Dtabbrev dec_tm
+    in add_Dtabbrev loc x1 x2 x3 s end
   else if is_Dletrec dec_tm then let
-    val (_,x1) = dest_Dletrec dec_tm
+    val (loc,x1) = dest_Dletrec dec_tm
     val prefix = get_mod_prefix s
     fun f str = prefix ^ pick_name str ^ "_v"
     val xs = listSyntax.dest_list x1 |> fst
                |> map (f o stringSyntax.fromHOLstring o rand o rator)
-    in add_Dletrec x1 xs s end
+    in add_Dletrec loc x1 xs s end
   else if is_Dlet dec_tm
           andalso is_Fun (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
-    val (_,p,f) = dest_Dlet dec_tm
+    val (loc,p,f) = dest_Dlet dec_tm
     val v_tm = dest_Pvar p
     val (w,body) = dest_Fun f
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
-    in add_Dlet_Fun v_tm w body v_name s end
-  else failwith("add_dec does not support this shape: " ^ term_to_string dec_tm);
-
-fun add_top pick_name top_tm s =
-  if is_Tdec top_tm then
-    add_dec (dest_Tdec top_tm) pick_name s
-    handle HOL_ERR e =>
-    failwith ("add_top: failed to add " ^ term_to_string top_tm ^ "\n " ^
-                             #message e)
-  else let
-    val (name,spec,decs) = dest_Tmod top_tm
+    in add_Dlet_Fun loc v_tm w body v_name s end
+  else if is_Dmod dec_tm then let
+    val (name,(*spec,*)decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
     val name_str = stringSyntax.fromHOLstring name
     val s = open_module name_str s handle HOL_ERR _ =>
@@ -298,12 +289,13 @@ fun add_top pick_name top_tm s =
                              #message e)
            in each ds s end
     val s = each ds s
-    val spec = SOME (optionSyntax.dest_some spec)
-               handle HOL_ERR _ => NONE
+    val spec = (* SOME (optionSyntax.dest_some spec)
+                  handle HOL_ERR _ => *) NONE
     val s = close_module spec s handle HOL_ERR e =>
             failwith ("add_top: failed to close module " ^ name_str ^ "\n " ^
                              #message e)
     in s end
+  else failwith("add_dec does not support this shape: " ^ term_to_string dec_tm);
 
 fun remove_snocs (ML_code (ss,envs,vs,th)) = let
   val th = th |> PURE_REWRITE_RULE [listTheory.SNOC_APPEND]
@@ -316,17 +308,30 @@ fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 
 fun get_env s = let
   val th = get_thm s
-  val th = MATCH_MP ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ML_code_SOME_Dlet_var th
+  val th = MATCH_MP ML_code_Dlet_var th
+  val th = REWRITE_RULE [ML_code_env_def] th
   in th |> SPEC_ALL |> concl |> dest_imp |> fst
         |> rator |> rator |> rator |> rand end
 
 fun get_state s = get_thm s |> concl |> rand
 
+fun get_next_type_stamp s =
+  semanticPrimitivesTheory.state_component_equality
+  |> ISPEC (get_state s)
+  |> SPEC (get_state s)
+  |> concl |> rand |> rand |> rand |> rand |> rator |> rand |> rand
+  |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
+
+fun get_next_exn_stamp s =
+  semanticPrimitivesTheory.state_component_equality
+  |> ISPEC (get_state s)
+  |> SPEC (get_state s)
+  |> concl |> rand |> rand |> rand |> rand |> rand |> rand
+  |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
+
 fun add_prog prog_tm pick_name s = let
   val ts = fst (listSyntax.dest_list prog_tm)
-  in remove_snocs (foldl (fn (x,y) => add_top pick_name x y) s ts) end
+  in remove_snocs (foldl (fn (x,y) => add_dec x pick_name y) s ts) end
 
 fun pack_ml_prog_state (ML_code (ss,envs,vs,th)) =
   pack_4tuple (pack_list pack_thm) (pack_list pack_thm)
@@ -370,16 +375,15 @@ fun pick_name str =
   if str = "~>>" then "asr" else str (* name is fine *)
 
 (*
+
 val s = init_state
-val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
-val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
-val prog_tm = ``[Tdec ^dec1_tm; Tdec ^dec2_tm]``
+val dec1_tm = ``Dlet (ARB 1) (Pvar "f") (Fun "x" (Var (Short "x")))``
+val dec2_tm = ``Dlet (ARB 2) (Pvar "g") (Fun "x" (Var (Short "x")))``
+val prog_tm = ``[^dec1_tm; ^dec2_tm]``
 
 val s = (add_prog prog_tm pick_name init_state)
 
-val th = get_env s1
-
-val env = th |> concl |> rator |> rand |> EVAL
+val th = get_env s
 
 *)
 
