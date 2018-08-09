@@ -473,32 +473,42 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
-  drule (GEN_ALL (INST_TYPE[alpha|->``:(num # num # closLang$exp)``]
-    flat_to_patProofTheory.compile_semantics)) >>
-  disch_then(qspecl_then[`TODO_clock`,`TODO_compile`](strip_assume_tac o SYM)) >>
+  (flat_to_patProofTheory.compile_semantics
+   |> Q.GEN`cc`
+   |> INST_TYPE[alpha|->``:(num # num # closLang$exp)``]
+   |> (
+     ``compile_common_inc c.clos_conf
+         (pure_cc (compile_inc c.clos_conf.max_app)
+           (full_cc c.bvl_conf
+             (pure_cc compile_prog TODO_cc)))``
+     |> inst[beta|->``:word8 list``, gamma|->``:word64 list``, delta|->alpha, ``:'e`` |->alpha]
+     |> ISPEC)
+   |> Q.GEN`k0`
+   |>  drule)
+  \\ disch_then(qspecl_then[`TODO_clock`](strip_assume_tac o SYM)) >>
   fs[] >>
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] st3 es3 }` >>
+  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] (st4 cc3 st3) es3 }` >>
   (pat_to_closProofTheory.compile_semantics
    |> Q.GENL[`cc`,`st`,`es`,`max_app`]
-   |> qispl_then[`TODO_compile`,`st3`,`es3`]mp_tac) >>
+   |> qispl_then[`cc3`,`st4 cc3 st3`,`es3`]mp_tac) >>
   simp[Abbr`es3`] >>
   disch_then drule >>
   impl_tac >- (
-    fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def]
+    fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def, Abbr`st4`]
     \\ EVAL_TAC ) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qunabbrev_tac`st3` >>
+  qunabbrev_tac`st4` >>
   simp[flat_to_patProofTheory.compile_state_def] >>
-  simp[flatSemTheory.initial_state_def] >>
-  cheat)
+  simp[Abbr`st3`,flatSemTheory.initial_state_def] >>
+  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ co3 cc3 e3 }` >>
+  cheat);
   (*
-  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ st3 [e3] }` >>
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
   pairarg_tac \\ fs[] \\ strip_tac \\
