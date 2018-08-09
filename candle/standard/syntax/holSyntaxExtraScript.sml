@@ -3351,14 +3351,12 @@ val init_ctxt_wf = Q.store_thm("init_ctxt_wf",
 (* Properties of dependency and orthogonality  *)
 val dependency_simps = Q.store_thm("dependency_simps[simp]",
   `dependency (NewAxiom prop::ctxt) = dependency ctxt
-    /\ dependency (NewType name arity::ctxt) = dependency ctxt
-    /\ dependency (NewConst name ty::ctxt) = dependency ctxt`,
+    /\ dependency (NewType name arity::ctxt) = dependency ctxt`,
   rpt conj_tac
   >> qmatch_goalsub_abbrev_tac `a1 = a2`
   >> `!x y. a1 x y = a2 x y` suffices_by metis_tac[]
   >> unabbrev_all_tac
   >- (rw[dependency_cases])
-  >- (rw[dependency_cases])  
   >- (rw[dependency_cases]))
 
 val orth_ctxt_simps = Q.store_thm("orth_ctxt_simps[simp]",
