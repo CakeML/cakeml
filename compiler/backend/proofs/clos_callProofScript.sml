@@ -2480,10 +2480,10 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ metis_tac[] )
       \\ fs[fv1_thm]
       \\ strip_tac
+      \\ qpat_x_assum `!x:num. _` kall_tac
       \\ first_x_assum(qspec_then`a - LENGTH fns`mp_tac)
-      \\ simp[]
-      \\ impl_tac
-      \\ cheat (* this used to be solved by CASE_TAC // fs [] *))
+      \\ impl_tac THEN1 fs [fv1_thm]
+      \\ fs [])
     \\ simp [AND_IMP_INTRO]
     \\ impl_tac >- (FULL_CASE_TAC \\ fs[])
     \\ strip_tac
