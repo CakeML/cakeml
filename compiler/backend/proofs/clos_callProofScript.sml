@@ -2714,62 +2714,29 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ TOP_CASE_TAC \\ fs []
       \\ TOP_CASE_TAC \\ fs []
       \\ imp_res_tac evaluate_SING \\ rveq \\ fs [])
-    \\ cheat (* -- rest should be updated *)
-(*
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac
-    >- (
-      imp_res_tac evaluate_mono \\ fs[]
-      \\ fs[SUBSET_DEF] )
-    \\ strip_tac
     \\ simp[evaluate_append]
     \\ imp_res_tac calls_length
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2,evaluate_GENLIST_Var_tra]
     \\ rveq \\ fs[]
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       rw[] \\ fs[]
       \\ simp[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM]
-      \\ strip_tac \\ fs[] \\ rfs[]
-      \\ `code_includes (SND g') t0.code` by metis_tac[code_includes_subg]
-      \\ fs[] \\ rfs[]
-      \\ imp_res_tac evaluate_mono \\ fs[]
-      \\ imp_res_tac code_includes_SUBMAP \\ fs[]
-      \\ qpat_x_assum`_ ⇒ _`mp_tac
-      \\ impl_tac
-      >- (
-        fsrw_tac[ETA_ss][env_rel_def,fv1_thm,EXISTS_MAP]
-        \\ metis_tac[] )
-      \\ strip_tac \\ fs[]
       \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[])
     \\ strip_tac \\ fs[]
     \\ simp[evaluate_GENLIST_Var_tra]
-    \\ imp_res_tac evaluate_length_imp \\ fs[]
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
-    \\ rfs[] \\ rveq
+    \\ drule evaluate_SING \\ strip_tac \\ rveq \\ fs []
+    \\ fs [] \\ rfs [] \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ rpt(disch_then drule)
     \\ simp[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM,FORALL_AND_THM]
     \\ strip_tac
-    \\ strip_tac \\ fs[] \\ rfs[]
-    \\ `code_includes (SND g') t0.code` by metis_tac[code_includes_subg]
-    \\ fs[]
-    \\ imp_res_tac evaluate_mono \\ fs[]
-    \\ imp_res_tac code_includes_SUBMAP \\ fs[]
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_keep_tac
-    >- (
-      fsrw_tac[ETA_ss][env_rel_def,fv1_thm]
-      \\ metis_tac[] )
-    \\ strip_tac \\ rveq \\ fs[]
-    \\ first_x_assum drule
-    \\ rpt (disch_then drule)
-    \\ strip_tac \\ fs[]
-    \\ imp_res_tac evaluate_length_imp \\ fs[] \\ rw[]
     \\ qmatch_assum_rename_tac`LIST_REL (v_rel g1 l1) ev1 ev2`
     \\ Cases_on`ev1 = []` \\ fs[]
+    \\ fs[evaluate_app_rw]
+    \\ Cases_on`ev2 = []` \\ fs[]
     \\ fs[evaluate_app_rw]
     \\ qpat_x_assum`_ = (res,_)`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -2778,8 +2745,6 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ disch_then drule
     \\ impl_tac >- rw[]
     \\ strip_tac \\ fs[]
-    \\ Cases_on`ev2 = []` \\ fs[]
-    \\ fs[evaluate_app_rw]
     \\ qpat_x_assum`_ _ _ _ = (_,_)`mp_tac
     \\ imp_res_tac state_rel_clock \\ fs[]
     \\ imp_res_tac state_rel_max_app \\ fs[]
@@ -2797,22 +2762,21 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ rfs[wfg_def,GSYM ADD1] )
       \\ rpt(first_x_assum drule)
       \\ simp[] )
-    \\ rfs[]
+    \\ strip_tac \\ rfs[]
     \\ imp_res_tac code_includes_ALOOKUP \\ fs[]
     \\ IF_CASES_TAC \\ fs[]
     >- (
       strip_tac \\ rveq
-      \\ strip_tac \\ rveq
       \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[find_code_def]
       \\ imp_res_tac evaluate_mono
-      \\ fs [SUBMAP_DEF,FLOOKUP_DEF])
+      \\ fs [SUBMAP_DEF,FLOOKUP_DEF]
+      \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+      \\ fs [state_rel_def])
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ simp[Once dec_clock_def]
-    \\ simp[evaluate_def,evaluate_GENLIST_Var_tra]
-    \\ simp[find_code_def]
-    \\ simp[Once dec_clock_def]
-    \\ simp[Once dec_clock_def]
+    \\ simp[evaluate_def,evaluate_GENLIST_Var_tra,TAKE_APPEND1,find_code_def]
     \\ `FLOOKUP t'.code (x + 1) = FLOOKUP t.code (x + 1)` by
       (imp_res_tac evaluate_mono \\ fs [SUBMAP_DEF,FLOOKUP_DEF]) \\ fs[]
     \\ IF_CASES_TAC
@@ -2822,32 +2786,21 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[] \\ strip_tac
       \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
       \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
-      \\ qexists_tac`ck+ck'` \\ simp[])
-    \\ fs[NOT_LESS,NOT_LESS_EQUAL]
-    \\ strip_tac
-    \\ fs[dec_clock_def,TAKE_APPEND1]
-    \\ IF_CASES_TAC \\ fs[]
-    >- (
-      strip_tac \\ rveq \\ fs[]
-      \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
-      \\ disch_then(qspec_then`ck'`mp_tac) \\ simp[] \\ strip_tac
       \\ qexists_tac`ck+ck'` \\ simp[]
-      \\ match_mp_tac state_rel_with_clock
-      \\ metis_tac[state_rel_subg] )
-    \\ fs[NOT_LESS]
-    \\ strip_tac
+      \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [])
+    \\ fs[NOT_LESS,NOT_LESS_EQUAL,dec_clock_def]
+    \\ rpt strip_tac
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+    \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
     \\ qpat_x_assum`evaluate(es,env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
     \\ disch_then(qspec_then`ck''+ck'`mp_tac) \\ simp[] \\ strip_tac
     \\ qexists_tac`ck+ck'+ck''` \\ simp[]
     \\ qpat_x_assum`evaluate([_],env2,_) = _`(mp_tac o MATCH_MP evaluate_add_clock)
     \\ disch_then(qspec_then`ck''`mp_tac) \\ simp[] \\ strip_tac
-    \\ simp[TAKE_APPEND1]
-    \\ ntac 2 (pop_assum kall_tac)
-    \\ ntac 2 (qpat_x_assum`_ = (_,_)`mp_tac)
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[] *))
+    \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,TAKE_APPEND1] \\ fs []
+    \\ rpt (qpat_x_assum`_ = (_,_)` (assume_tac o GSYM)) \\ fs []
+    \\ ntac 2 (TOP_CASE_TAC \\ fs [])
+    \\ drule evaluate_SING \\ strip_tac \\ fs [])
   (* Tick *)
   \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rpt strip_tac
