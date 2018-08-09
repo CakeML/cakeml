@@ -57,6 +57,12 @@ val fromAList_append = Q.store_thm("fromAList_append",
   \\ AP_TERM_TAC
   \\ rw[union_insert_LN]);
 
+val code_installed_union1 = Q.store_thm("code_installed_union1",
+  `code_installed aux t1 ⇒ code_installed aux (union t1 t2)`,
+  rw[code_installed_def,lookup_union,EVERY_MEM]
+  \\ pairarg_tac \\ fs[]
+  \\ res_tac \\ fs[]);
+
 val SUBMAP_FLOOKUP_EQN = Q.store_thm("SUBMAP_FLOOKUP_EQN",
   `f ⊑ g ⇔ (∀x y. FLOOKUP f x = SOME y ⇒ FLOOKUP g x = SOME y)`,
   rw[SUBMAP_DEF,FLOOKUP_DEF] \\ METIS_TAC[]);
@@ -6723,6 +6729,105 @@ val ccompile_every_Fn_SOME = Q.store_thm("ccompile_every_Fn_SOME",
   \\ imp_res_tac clos_callProofTheory.calls_preserves_every_Fn_SOME
   \\ fs[] \\ rveq \\ fs[]);
 
+(* TODO: move *)
+val ALOOKUP_MAP_FST_INJ_SOME = Q.store_thm("ALOOKUP_MAP_FST_INJ_SOME",
+  `∀ls x y.
+    ALOOKUP ls x = SOME y ∧ (∀x'. IS_SOME (ALOOKUP ls x') ∧ f x' = f x ⇒ x = x') ⇒
+    ALOOKUP (MAP (f ## g) ls) (f x) = SOME (g y)`,
+  Induct \\ simp[]
+  \\ Cases \\ rw[]
+  >- metis_tac[IS_SOME_EXISTS]
+  \\ first_x_assum irule
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ rw[]);
+
+val ALOOKUP_lemma = Q.prove(
+  `∀l1 l2 n k v.
+    (EL n l1 = (k,v)) ∧
+    ALL_DISTINCT (MAP FST l1) ∧
+    n < LENGTH l1 ∧ LENGTH l2 = LENGTH l1
+    ⇒
+  ALOOKUP (MAP2 (λ(loc,args,_) exp. (loc + (m:num),args,exp)) l1 l2) (k + m) = SOME (FST v, EL n l2)`,
+  Induct \\ rw[]
+  \\ Cases_on`l2` \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ IF_CASES_TAC
+  >- (
+    fs[]
+    \\ reverse(Cases_on`n`) \\ fs[]
+    >- (
+      fs[MEM_MAP, PULL_EXISTS, Once EXISTS_PROD, MEM_EL]
+      \\ metis_tac[] )
+    \\ rw[] )
+  \\ Cases_on`n` \\ fs[]);
+
+val ALOOKUP_compile_common = Q.store_thm("ALOOKUP_compile_common",
+  `compile_common c es = (c', prog) ∧
+   ALOOKUP prog name = SOME (arity, exp) ⇒
+   ∃aux1 exp2 aux2.
+     compile_exps c.max_app [exp] aux1 = ([exp2], aux2) ∧
+     ALOOKUP (compile_prog c.max_app prog) (name + num_stubs c.max_app) =
+       SOME (arity, exp2) ∧
+     code_installed aux2 (fromAList (compile_prog c.max_app prog))`,
+  strip_tac
+  \\ imp_res_tac compile_common_distinct_locs
+  \\ fs[compile_common_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[]
+  \\ fs[compile_prog_def]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[GSYM MAP_MAP_o]
+  \\ first_assum(mp_then Any mp_tac compile_exps_EL)
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ pop_assum (strip_assume_tac o SIMP_RULE (srw_ss()) [MEM_EL])
+  \\ simp[]
+  \\ disch_then(first_assum o mp_then Any mp_tac)
+  \\ simp[EL_MAP]
+  \\ pop_assum(assume_tac o SYM) \\ fs[]
+  \\ strip_tac
+  \\ asm_exists_tac \\ fs[]
+  \\ imp_res_tac compile_exps_LENGTH \\ fs[]
+  \\ Q.ISPEC_THEN`new_exps`(drule o GEN_ALL)(CONV_RULE SWAP_FORALL_CONV ALOOKUP_lemma)
+  \\ disch_then(qspecl_then[`new_exps`,`num_stubs c.max_app`]mp_tac)
+  \\ simp[]
+  \\ impl_keep_tac >- fs[ALL_DISTINCT_APPEND]
+  \\ rw[ALOOKUP_APPEND]
+  \\ simp[fromAList_append]
+  \\ match_mp_tac code_installed_union
+  \\ qhdtm_x_assum`compile_exps`mp_tac
+  \\ qhdtm_x_assum`compile_exps`mp_tac
+  \\ specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac
+  \\ ntac 2 strip_tac \\ fs[]
+  \\ `ALL_DISTINCT (MAP FST aux')`
+  by (
+    simp[MAP_REVERSE]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ fs[ALL_DISTINCT_APPEND] )
+  \\ strip_tac
+  \\ conj_tac
+  >- (
+    match_mp_tac code_installed_fromAList_strong
+    \\ fs[] )
+  \\ simp[domain_fromAList]
+  \\ rewrite_tac[Once DISJOINT_SYM]
+  \\ match_mp_tac DISJOINT_SUBSET
+  \\ qexists_tac`set (MAP FST aux')`
+  \\ reverse conj_tac
+  >- ( metis_tac[IS_SUBLIST_MEM, SUBSET_DEF, MEM_MAP] )
+  \\ simp[MAP_REVERSE]
+  \\ simp[MAP2_MAP,MAP_MAP_o,o_DEF,UNCURRY]
+  \\ qho_match_abbrev_tac`DISJOINT (set (MAP (λx. f (FST x)) _)) _`
+  \\ simp[GSYM o_DEF, MAP_ZIP]
+  \\ fs[Abbr`f`]
+  \\ qho_match_abbrev_tac`DISJOINT (set (MAP (λx. f (FST x)) _)) _`
+  \\ simp[GSYM o_DEF, GSYM MAP_MAP_o]
+  \\ fs[MAP_MAP_o]
+  \\ fs[GSYM MAP_MAP_o,Abbr`f`]
+  \\ fs[IN_DISJOINT,ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
+  \\ rw[] \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[] \\ rw[]
+  \\ metis_tac[]);
+
 val compile_semantics = store_thm("compile_semantics",
   ``semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co (compile_inc c cc) es ≠ Fail ∧
     compile c es = (c', prog) ∧
@@ -6745,7 +6850,28 @@ val compile_semantics = store_thm("compile_semantics",
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
   \\ `c''.max_app = c.max_app` by imp_res_tac compile_common_max_app
-  \\ conj_tac >- cheat (* prove ALOOKUP_compile_common *)
+  \\ conj_tac >- (
+    rpt gen_tac \\ strip_tac
+    \\ drule (GEN_ALL ALOOKUP_compile_common)
+    \\ disch_then drule \\ strip_tac
+    \\ asm_exists_tac \\ fs[]
+    \\ conj_tac
+    >- (
+      simp[ALOOKUP_APPEND]
+      \\ simp[CaseEq"option"]
+      \\ disj1_tac
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,EXISTS_PROD,ALOOKUP_FAILS,FORALL_PROD]
+      \\ metis_tac[] )
+    \\ simp[fromAList_append]
+    \\ match_mp_tac code_installed_union
+    \\ fs[ALL_DISTINCT_APPEND,IN_DISJOINT,domain_union,domain_fromAList]
+    \\ fs[code_installed_def, lookup_fromAList]
+    \\ fs[EVERY_MEM, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD]
+    \\ CCONTR_TAC \\ fs[]
+    \\ res_tac
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ metis_tac[] )
   \\ conj_tac >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
   \\ simp[Once CONJ_ASSOC]
   \\ conj_tac >- (
