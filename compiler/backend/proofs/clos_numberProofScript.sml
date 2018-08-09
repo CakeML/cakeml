@@ -2,13 +2,6 @@ open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory 
 
 val _ = new_theory"clos_numberProof";
 
-(* TODO: move *)
-val option_case_eq = Q.prove(
-  `(option_CASE opt n s = v) ⇔
-      (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)`,
-  Cases_on `opt` >> simp[EQ_SYM_EQ]);
-(* -- *)
-
 (* properties of renumber_code_locs *)
 
 fun tac (g as (asl,w)) =
@@ -536,7 +529,7 @@ val lookup_vars_SOME_related_env = Q.store_thm(
    lookup_vars vs e2 = SOME e2' ⇒ LIST_REL (v_rel max_app) e1' e2'`,
   map_every qid_spec_tac [`e2'`, `e1'`, `e2`, `e1`, `vs`] >> Induct >>
   simp[lookup_vars_def] >>
-  dsimp[option_case_eq] >> reverse conj_tac >- metis_tac[] >>
+  dsimp[CaseEq"option"] >> reverse conj_tac >- metis_tac[] >>
   simp[LIST_REL_EL_EQN]);
 
 val do_install_Rabort = prove(

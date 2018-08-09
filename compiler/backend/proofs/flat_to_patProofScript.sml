@@ -11,24 +11,6 @@ val _ = Parse.hide"U";
 
 val pmatch_flat_def = flatSemTheory.pmatch_def
 
-(* TODO: Move to HOL *)
-val BAG_ALL_DISTINCT_LT = Q.prove(`
-  ∀s t.
-  s ≤ t ∧
-  BAG_ALL_DISTINCT t ⇒
-  BAG_ALL_DISTINCT s`,
-  fs[bagTheory.BAG_ALL_DISTINCT,bagTheory.SUB_BAG,bagTheory.BAG_INN]>>
-  rw[]>>
-  CCONTR_TAC>>
-  `s e ≥ 2` by fs[]>>
-  res_tac>>
-  first_x_assum(qspec_then`e` assume_tac)>>
-  DECIDE_TAC);
-
-(* Get rid of Run ops everywhere to rid the proof of cheats.       *)
-(* Prove that NoRun holds for everything that goes out of exh,     *)
-(* and that everything pat->pat preserves it.                      *)
-
 val NoRun_def = tDefine "NoRun" `
   (NoRun (Raise t e)      <=> NoRun e) /\
   (NoRun (Handle t e1 e2) <=> NoRun e1 /\ NoRun e2) /\
@@ -3336,7 +3318,7 @@ val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
        BAG_ALL_DISTINCT (set_globals (compile_exp [] e))`,
   rw[]>>
-  match_mp_tac BAG_ALL_DISTINCT_LT>>
+  match_mp_tac BAG_ALL_DISTINCT_SUB_BAG >>
   HINT_EXISTS_TAC>>fs[set_globals_eq])
 *)
 

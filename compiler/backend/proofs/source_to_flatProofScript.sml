@@ -3758,11 +3758,6 @@ val _ = set_grammar_ancestry
     "flat_exh_matchProof", "flat_reorder_matchProof"]
    @ grammar_ancestry);
 
-(* TODO move *)
-val FILTER_T = Q.store_thm ("FILTER_T",
-  `FILTER (\x. T) xs = xs`,
-  Induct_on `xs` \\ rw [] \\ fs []);
-
 (* source_to_flat$compile_decs always generates fresh type identifiers,
    so they must be unique. *)
 val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
@@ -3778,7 +3773,7 @@ val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
   \\ fs [FILTER_APPEND, ALL_DISTINCT_APPEND, compile_exp_def,
          MAPi_enumerate_MAP, FILTER_MAP, MAP_MAP_o, o_DEF, UNCURRY,
          EVERY_MEM, MEM_MAPi] \\ rw []
-  \\ fs [FILTER_T, MAP_enumerate_MAPi, LAMBDA_PROD]
+  \\ fs [MAP_enumerate_MAPi, LAMBDA_PROD]
   >-
    (rename1 `_ + x`
     \\ map_every qid_spec_tac [`x`,`type_def`]

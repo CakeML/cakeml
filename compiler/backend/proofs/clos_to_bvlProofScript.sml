@@ -20,80 +20,7 @@ val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
 
-val _ = temp_overload_on ("kcompile", ``clos_known$compile``)
-
 (* TODO: move? *)
-
-val SUM_MAP_COUNT_LIST = Q.store_thm("SUM_MAP_COUNT_LIST",
-  `!n k. SUM (MAP ($+ k) (COUNT_LIST n)) = (n * (2 * k + n - 1)) DIV 2`,
-  Induct \\ rw [COUNT_LIST_def]
-  \\ `!xs. MAP SUC xs = MAP ($+ 1) xs` by (Induct \\ rw [])
-  \\ pop_assum (qspec_then `COUNT_LIST n` SUBST1_TAC)
-  \\ pop_assum (qspec_then `k + 1` mp_tac)
-  \\ simp [MAP_MAP_o, o_DEF]
-  \\ `$+ (k + 1) = \x. k + (x + 1)` by fs [FUN_EQ_THM]
-  \\ pop_assum SUBST1_TAC \\ rw [ADD1]
-  \\ fs [LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
-  \\ metis_tac [ADD_DIV_ADD_DIV, MULT_COMM, DECIDE ``0n < 2``]);
-
-val SUM_COUNT_LIST = save_thm("SUM_COUNT_LIST",
-  SUM_MAP_COUNT_LIST |> Q.SPECL [`n`,`0`] |> SIMP_RULE (srw_ss()) []);
-
-val union_insert_LN = Q.store_thm("union_insert_LN",
-  `∀x y t2. union (insert x y LN) t2 = insert x y t2`,
-  recInduct insert_ind
-  \\ rw[]
-  \\ rw[Once insert_def]
-  \\ rw[Once insert_def,SimpRHS]
-  \\ rw[union_def]);
-
-val fromAList_append = Q.store_thm("fromAList_append",
-  `∀l1 l2. fromAList (l1 ++ l2) = union (fromAList l1) (fromAList l2)`,
-  recInduct fromAList_ind
-  \\ rw[fromAList_def]
-  \\ rw[Once insert_union]
-  \\ rw[union_assoc]
-  \\ AP_THM_TAC
-  \\ AP_TERM_TAC
-  \\ rw[union_insert_LN]);
-
-val SUBMAP_FLOOKUP_EQN = Q.store_thm("SUBMAP_FLOOKUP_EQN",
-  `f ⊑ g ⇔ (∀x y. FLOOKUP f x = SOME y ⇒ FLOOKUP g x = SOME y)`,
-  rw[SUBMAP_DEF,FLOOKUP_DEF] \\ METIS_TAC[]);
-
-val SUBMAP_mono_FUPDATE_LIST = Q.store_thm("SUBMAP_mono_FUPDATE_LIST",
-  `∀ls f g.
-   DRESTRICT f (COMPL (set (MAP FST ls))) ⊑
-   DRESTRICT g (COMPL (set (MAP FST ls)))
-   ⇒ f |++ ls ⊑ g |++ ls`,
-  Induct \\ rw[FUPDATE_LIST_THM, DRESTRICT_UNIV]
-  \\ first_x_assum MATCH_MP_TAC
-  \\ Cases_on`h`
-  \\ fs[SUBMAP_FLOOKUP_EQN]
-  \\ rw[] \\ fs[FLOOKUP_DRESTRICT, FLOOKUP_UPDATE]
-  \\ rw[] \\ fs[]
-  \\ METIS_TAC[]);
-
-val MEM_ALOOKUP = store_thm("MEM_ALOOKUP",
-  ``!xs x v.
-      ALL_DISTINCT (MAP FST xs) ==>
-      (MEM (x,v) xs <=> ALOOKUP xs x = SOME v)``,
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ res_tac \\ eq_tac \\ rw [] \\ rfs []
-  \\ imp_res_tac ALOOKUP_MEM
-  \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []);
-
-val ARITH_TAC = intLib.ARITH_TAC;
-
-val drop_lupdate = Q.store_thm ("drop_lupdate",
-  `!n x m l. n ≤ m ⇒ DROP n (LUPDATE x m l) = LUPDATE x (m - n) (DROP n l)`,
-  rw [LIST_EQ_REWRITE, EL_DROP, EL_LUPDATE] >>
-  rw [] >>
-  fs []);
-
-val SUM_REPLICATE = Q.store_thm("SUM_REPLICATE",
-  `∀n m. SUM (REPLICATE n m) = n * m`,
-  Induct \\ simp[REPLICATE,ADD1]);
 
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
 
@@ -109,14 +36,6 @@ val EVERY_ZIP_GENLIST = Q.prove(
     \\ `i < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC \\ METIS_TAC [])
   \\ `LENGTH xs < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
   \\ full_simp_tac(srw_ss())[SNOC_APPEND,EL_LENGTH_APPEND]);
-
-val EVEN_SUB = Q.store_thm("EVEN_SUB",
-  `∀m n. m ≤ n ⇒ (EVEN (n - m) ⇔ (EVEN n <=> EVEN m))`,
-  Induct \\ simp[] \\ Cases \\ simp[EVEN]);
-
-val ODD_SUB = Q.store_thm("ODD_SUB",
-  `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`,
-  rw[ODD_EVEN,EVEN_SUB]);
 
 val IS_SUBLIST_MEM = Q.prove(`
   ∀ls ls' x.
@@ -237,6 +156,8 @@ val less_rectangle = Q.prove (
 val less_rectangle2 = Q.prove (
   `!(x:num) y m n. m < x ∧ n < y ⇒ m + n * x< x * y`,
   metis_tac [less_rectangle, ADD_COMM, MULT_COMM]);
+
+val ARITH_TAC = intLib.ARITH_TAC;
 
 val sum_genlist_triangle_help = Q.prove (
   `!x. SUM (GENLIST (\y. y) (x+1)) = x * (x + 1) DIV 2`,
@@ -1534,7 +1455,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def] >>
     rw []
     >- (
-      fs [num_added_globals_def, drop_lupdate] >>
+      fs [num_added_globals_def, DROP_LUPDATE] >>
       MATCH_MP_TAC EVERY2_LUPDATE_same >>
       rev_full_simp_tac(srw_ss())[OPTREL_def] )
     >- fs [get_global_def, HD_LUPDATE]
