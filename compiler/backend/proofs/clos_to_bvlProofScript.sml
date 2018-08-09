@@ -6286,6 +6286,10 @@ val kcompile_inc_uncurry = Q.store_thm("kcompile_inc_uncurry",
   Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ simp[]);
 
+val acompile_inc_uncurry = Q.store_thm("acompile_inc_uncurry",
+  `clos_annotateProof$compile_inc p = (HD (annotate 0 [FST p]), compile (SND p))`,
+  Cases_on`p` \\ rw[clos_annotateProofTheory.compile_inc_def]);
+
 val ccompile_inc_uncurry = Q.store_thm("ccompile_inc_uncurry",
   `clos_callProof$compile_inc g p =
      (SND (calls [FST p] g),
@@ -6954,256 +6958,39 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
   \\ simp[compile_oracle_inv_def]
+  \\ simp[GSYM FORALL_AND_THM]
+  \\ gen_tac
+  \\ qmatch_goalsub_abbrev_tac`ff pp = (_,_)`
+  \\ qho_match_abbrev_tac`
+    (∀cfg ps. ff pp = (cfg,ps) ⇒ P ps) ∧ R ∧
+    (∀cfg e ps. pp = (cfg,e,ps) ⇒ Q e ps)`
+  \\ `P (SND (ff pp)) ∧ R ∧ Q (FST(SND pp)) (SND(SND pp))` suffices_by metis_tac[PAIR,PAIR_EQ]
+  \\ qunabbrev_tac`P` \\ qunabbrev_tac`Q`
+  \\ simp[Abbr`ff`, compile_inc_uncurry]
+  \\ `SND(SND pp) = []`
+  by (
+    simp[Abbr`pp`, acompile_inc_uncurry,backendPropsTheory.SND_state_co,backendPropsTheory.FST_state_co]
+    \\ simp[clos_annotateTheory.compile_def]
+    \\ rw[ccompile_inc_uncurry]
+    \\ CASE_TAC \\ simp[SND_SND_ignore_table, kcompile_inc_uncurry]
+    \\ fs[syntax_oracle_ok_def])
+  \\ fs[]
+  \\ simp[compile_prog_code_locs,Abbr`R`]
+  \\ simp[MAP_REVERSE]
   \\ cheat (* oracle syntax ok *));
 
 (*
 val () = temp_overload_on("acompile",``clos_annotate$compile``);
+val () = temp_overload_on("mcompile",``clos_mti$compile``);
+val () = temp_overload_on("kcompile",``clos_known$compile``);
+val () = temp_overload_on("ccompile",``clos_call$compile``);
+val () = temp_overload_on("acompile_inc",``clos_annotateProof$compile_inc``);
+val () = temp_overload_on("mcompile_inc",``clos_mtiProof$compile_inc``);
+val () = temp_overload_on("kcompile_inc",``clos_knownProof$compile_inc``);
+val () = temp_overload_on("ccompile_inc",``clos_callProof$compile_inc``);
 val () = temp_overload_on("msyntax_ok",``clos_mtiProof$syntax_ok``);
 val () = temp_overload_on("ksyntax_ok",``clos_knownProof$syntax_ok``);
 val () = temp_overload_on("csyntax_ok",``clos_callProof$syntax_ok``);
-
-val compile_semantics = Q.store_thm("compile_semantics",
-  `¬contains_App_SOME c.max_app [e] ∧ every_Fn_vs_NONE [e] ∧ esgc_free e ∧
-   BAG_ALL_DISTINCT (set_globals e) ∧
-   compile c e = (c',p) ∧
-   0 < c.max_app ∧
-   clos_init c.max_app (s:'ffi closSem$state) ∧
-   semantics [] s [e] ≠ Fail
-   ⇒
-   semantics s.ffi (fromAList p) (anything:num->'c#(num#num#bvl$exp)list) youwant c'.start =
-   semantics [] s [e]`,
-  rpt strip_tac >> qpat_x_assum `closSem$semantics _ _ _ ≠ Fail` mp_tac >>
-  simp[closSemTheory.semantics_def] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
-    gen_tac >> strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-    simp[bvlSemTheory.semantics_def] >>
-    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-      first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
-      drule bvlPropsTheory.evaluate_add_clock >>
-      CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL])) >>
-      impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
-      qhdtm_x_assum`closSem$evaluate`kall_tac >>
-      last_assum(qspec_then`k'`mp_tac)>>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
-      drule (GEN_ALL compile_evaluate) >> fs[] >>
-      disch_then drule >>
-      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-      disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
-      first_x_assum(qspec_then`ck`mp_tac) >>
-      simp[inc_clock_def] >>
-      strip_tac >> rveq >>
-      spose_not_then strip_assume_tac >>
-      imp_res_tac full_result_rel_abort ) >>
-    DEEP_INTRO_TAC some_intro >> simp[] >>
-    conj_tac >- (
-      gen_tac >> strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-      qmatch_assum_abbrev_tac`closSem$evaluate (bxps,[],bs) = _` >>
-      qmatch_assum_abbrev_tac`bvlSem$evaluate (exps,[],ss) = _` >>
-      qspecl_then[`(bxps,[],bs)`](mp_tac o Q.GEN`extra`) (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono) >>
-      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->gamma,beta|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
-      simp[bvlPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
-      ntac 2 strip_tac >>
-      Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
-        Cases_on`s''.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-          unabbrev_all_tac >>
-          drule (GEN_ALL compile_evaluate) >> fs[] >>
-          rpt(disch_then drule) >>
-          disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
-          drule bvlPropsTheory.evaluate_add_clock >>
-          simp[GSYM PULL_FORALL] >>
-          impl_tac >- (
-            PROVE_TAC[FST,full_result_rel_abort] ) >>
-          disch_then(qspec_then`k'`mp_tac)>>simp[bvlPropsTheory.inc_clock_def]>>
-          qhdtm_x_assum`bvlSem$evaluate`mp_tac >>
-          drule bvlPropsTheory.evaluate_add_clock >>
-          simp[] >>
-          disch_then(qspec_then`ck+k`mp_tac)>>simp[bvlPropsTheory.inc_clock_def]>>
-          ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[state_component_equality] >>
-          metis_tac[full_result_rel_ffi]) >>
-        first_x_assum(qspec_then`k'`strip_assume_tac) >>
-        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-        unabbrev_all_tac >>
-        drule (GEN_ALL compile_evaluate) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-        disch_then drule >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-        REWRITE_TAC[AND_IMP_INTRO] >>
-        impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
-        rpt (disch_then drule)>>
-        disch_then(qspecl_then[`youwant`,`anything`]mp_tac) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[LET_THM])) >> strip_tac >>
-        qhdtm_x_assum`closSem$evaluate`mp_tac >>
-        drule (Q.GEN`extra`(SIMP_RULE std_ss [] (CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-        disch_then(qspec_then`k'`mp_tac)>>
-        first_x_assum(qspec_then`ck+k`mp_tac)>>simp[] >>
-        fsrw_tac[ARITH_ss][] >>
-        rpt strip_tac >> spose_not_then strip_assume_tac >>
-        rveq >> fsrw_tac[ARITH_ss][state_rel_def] >>
-        `q ≠ Rerr(Rabort Rtype_error)` by metis_tac[] >>
-        imp_res_tac full_result_rel_ffi >> full_simp_tac(srw_ss())[]) >>
-      first_x_assum(qspec_then`k'`strip_assume_tac) >>
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-      unabbrev_all_tac >>
-      drule (GEN_ALL compile_evaluate) >>
-      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      disch_then drule >>
-      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-      impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-<<<<<<< HEAD
-      rpt(disch_then drule) >>
-      disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
-      rveq >>
-=======
-      strip_tac >> rveq >>
->>>>>>> origin/master
-      fsrw_tac[ARITH_ss][] >>
-      reverse(Cases_on`s''.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
-        first_x_assum(qspec_then`ck+k`mp_tac) >>
-        fsrw_tac[ARITH_ss][ADD1] >> strip_tac >>
-        full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
-        imp_res_tac full_result_rel_ffi >>
-        full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-      qhdtm_x_assum`bvlSem$evaluate`mp_tac >>
-      drule bvlPropsTheory.evaluate_add_clock >>
-      CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL])) >>
-      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-      disch_then(qspec_then`ck+k`mp_tac)>>simp[bvlPropsTheory.inc_clock_def] >>
-      fsrw_tac[ARITH_ss][ADD1] >>
-      strip_tac >> spose_not_then strip_assume_tac >> rveq >>
-      fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
-      imp_res_tac full_result_rel_ffi >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    drule (GEN_ALL compile_evaluate) >> fs[] >>
-    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    disch_then drule >>
-    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-    impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-    rpt(disch_then drule) >>
-    disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
-    qexists_tac`ck + k` >> simp[] >>
-    imp_res_tac full_result_rel_ffi >>
-    CASE_TAC >> full_simp_tac(srw_ss())[] >> rpt strip_tac >>
-    PROVE_TAC[full_result_rel_abort]) >>
-  strip_tac >>
-  simp[bvlSemTheory.semantics_def] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-    last_x_assum(qspec_then`k`strip_assume_tac) >>
-    qmatch_assum_abbrev_tac`FST q ≠ _` >>
-    Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
-    pop_assum(assume_tac o SYM) >>
-    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
-    simp[GSYM PULL_FORALL] >>
-    rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
-    map_every qexists_tac[`youwant`,`anything`] >>
-    spose_not_then strip_assume_tac >>
-    qmatch_assum_abbrev_tac`FST q = _` >>
-    Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
-    pop_assum(assume_tac o SYM) >>
-    imp_res_tac evaluate_add_clock >> rev_full_simp_tac(srw_ss())[] >>
-    first_x_assum(qspec_then`ck`mp_tac) >>
-    simp[inc_clock_def] >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac full_result_rel_abort) >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
-    spose_not_then strip_assume_tac >>
-    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    last_x_assum(qspec_then`k`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
-    strip_tac >>
-    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
-    simp[] >> fs[] >>
-    rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
-    map_every qexists_tac[`youwant`,`anything`] >>
-    spose_not_then strip_assume_tac >>
-    last_x_assum(qspec_then`k`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
-    reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[] >- (
-      qhdtm_x_assum`bvlSem$evaluate`mp_tac >>
-      qmatch_assum_abbrev_tac`bvlSem$evaluate (exps,[],ss) = _` >>
-      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->gamma,beta|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
-      disch_then(qspec_then`ck`mp_tac)>>
-      fsrw_tac[ARITH_ss][ADD1,bvlPropsTheory.inc_clock_def,Abbr`ss`] >>
-      rpt strip_tac >> full_simp_tac(srw_ss())[] >>
-      imp_res_tac full_result_rel_ffi >> full_simp_tac(srw_ss())[]) >>
-    qhdtm_x_assum`bvlSem$evaluate`mp_tac >>
-    drule bvlPropsTheory.evaluate_add_clock >>
-    CONV_TAC (LAND_CONV (SIMP_CONV bool_ss [GSYM PULL_FORALL])) >>
-    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-    disch_then(qspec_then`ck`mp_tac) >>
-    simp[bvlPropsTheory.inc_clock_def] >>
-    fsrw_tac[ARITH_ss][ADD1] >>
-    rpt strip_tac >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac full_result_rel_ffi >>
-    spose_not_then strip_assume_tac >>
-    full_simp_tac(srw_ss())[state_component_equality] >> rveq >> full_simp_tac(srw_ss())[] >>
-    Cases_on`a`>>full_simp_tac(srw_ss())[]>>
-    imp_res_tac full_result_rel_timeout >> full_simp_tac(srw_ss())[]) >>
-  strip_tac >>
-  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
-  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
-    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
-  conj_asm1_tac >- (
-    UNABBREV_ALL_TAC >>
-    conj_tac >>
-    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
-    REWRITE_TAC[IMAGE_COMPOSE] >>
-    match_mp_tac prefix_chain_lprefix_chain >>
-    simp[prefix_chain_def,PULL_EXISTS] >>
-    qx_genl_tac[`k1`,`k2`] >>
-    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-    metis_tac[
-      LESS_EQ_EXISTS, initial_state_with_simp,
-      closPropsTheory.evaluate_add_to_clock_io_events_mono
-        |> CONJUNCT1 |> CONV_RULE(RESORT_FORALL_CONV List.rev)
-        |> Q.SPEC`s with clock := k` |> SIMP_RULE (srw_ss())[],
-      bvlPropsTheory.evaluate_add_to_clock_io_events_mono
-        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-        |> Q.SPEC`s with clock := k`
-        |> SIMP_RULE (srw_ss())[bvlPropsTheory.inc_clock_def]]) >>
-  simp[equiv_lprefix_chain_thm] >>
-  unabbrev_all_tac >> simp[PULL_EXISTS] >>
-  ntac 2 (pop_assum kall_tac) >>
-  simp[LNTH_fromList,PULL_EXISTS] >>
-  simp[GSYM FORALL_AND_THM] >>
-  rpt gen_tac >>
-  reverse conj_tac >>
-  strip_tac >>
-  fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >> srw_tac[][] >>
-  (compile_evaluate
-   |> Q.GEN`s` |> Q.SPEC`s with clock := k`
-   |> GEN_ALL |> SIMP_RULE(srw_ss()++QUANT_INST_ss[pair_default_qp])[]
-   |> Q.SPECL[`youwant`,`s`,`k`,`e`,`c`,`anything`] |> mp_tac) >>
-  (impl_tac >- ( simp[] )) >>
-  srw_tac[][] >> fs[] >>
-  qmatch_assum_abbrev_tac`full_result_rel c p1 p2` >>
-  Cases_on`p1`>>Cases_on`p2`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >> rveq >>
-  pop_assum(mp_tac o SYM) >> strip_tac >> full_simp_tac(srw_ss())[] >>
-  qmatch_assum_rename_tac`full_result_rel c (a1,b1) (a2,b2)` >>
-  `b1.ffi = b2.ffi` by (
-    metis_tac[FST,full_result_rel_abort,full_result_rel_ffi,
-              semanticPrimitivesTheory.result_11,
-              semanticPrimitivesTheory.error_result_11,
-              semanticPrimitivesTheory.abort_distinct])
-  >- ( qexists_tac`k+ck` >> fs[] ) >>
-  qexists_tac`k` >> fs[] >>
-  qmatch_assum_abbrev_tac`n < (LENGTH (_ ffi))` >>
-  `ffi.io_events ≼ b2.ffi.io_events` by (
-    qunabbrev_tac`ffi` >>
-    metis_tac[
-      initial_state_with_simp,
-      bvlPropsTheory.evaluate_add_to_clock_io_events_mono
-        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-        |> Q.SPEC`s with clock := k`
-        |> SIMP_RULE(srw_ss())[bvlPropsTheory.inc_clock_def],
-      SND,ADD_SYM]) >>
-  full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 *)
 
 val _ = export_theory();
