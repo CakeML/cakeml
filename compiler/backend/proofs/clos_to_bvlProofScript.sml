@@ -6917,7 +6917,30 @@ val compile_semantics = store_thm("compile_semantics",
     \\ rw[lookup_fromAList, ALOOKUP_toAList]
     \\ TRY(`0 < c.max_app` by fs[])
     \\ imp_res_tac init_code_ok \\ fs[]
-    \\ cheat (* ALOOKUP_compile_common *) )
+    \\ drule (GEN_ALL ALOOKUP_compile_common)
+    \\ disch_then drule
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs[]
+    >- (
+      reverse CASE_TAC
+        >- (
+          fs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,MEM_toAList,EXISTS_PROD]
+          \\ metis_tac[PAIR] )
+      \\ `0 < num_stubs c.max_app` by (EVAL_TAC \\ simp[])
+      \\ `F` by decide_tac )
+    \\ reverse CASE_TAC
+    >- (
+      fs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,MEM_toAList,EXISTS_PROD]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ metis_tac[PAIR] )
+    \\ match_mp_tac code_installed_union
+    \\ fs[ALL_DISTINCT_APPEND,IN_DISJOINT,domain_union,domain_fromAList]
+    \\ fs[code_installed_def, lookup_fromAList]
+    \\ fs[EVERY_MEM, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD]
+    \\ CCONTR_TAC \\ fs[]
+    \\ res_tac
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ metis_tac[] )
   \\ cheat (* oracle syntax ok *));
 
 (*
