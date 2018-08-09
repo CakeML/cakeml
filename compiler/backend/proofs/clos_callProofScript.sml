@@ -3067,7 +3067,9 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ qmatch_assum_rename_tac`LIST_REL _ rest1 rest2`
   \\ first_x_assum(qspecl_then[`g1`,`l1`]mp_tac o
         CONV_RULE(RESORT_FORALL_CONV List.rev))
-  \\ `EVERY (wfv g1 l1) args` by cheat (* true? *)
+  \\ last_assum (mp_then (Pos hd) mp_tac (GEN_ALL dest_closure_full_wfv))
+  \\ disch_then drule \\ impl_tac THEN1 fs []
+  \\ strip_tac
   \\ ((fn g as (asl,w) =>
       let
         val (fa,_) = dest_imp w
@@ -3090,6 +3092,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs[wfv_state_def,dec_clock_def] ))
   \\ simp[]
   \\ qmatch_asmsub_abbrev_tac`COND b`
+  \\ rveq \\ fs []
 
   \\ cheat (* proof needs updating from this point onwards *)
 
