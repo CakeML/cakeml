@@ -6598,6 +6598,8 @@ val syntax_oracle_ok_def = Define`
                    (elist_globals (GENLIST (FST o SND o co) n))) ∧
       ¬contains_App_SOME c.max_app [FST (SND (co n))] ∧
       clos_knownProof$syntax_ok [FST (SND (co n))] ∧
+      every_Fn_SOME (MAP (SND o SND) (SND (FST (SND (SND (FST (co n))))))) ∧
+      globals_approx_every_Fn_SOME (FST (SND (FST (co n)))) ∧
       every_Fn_vs_NONE (MAP (SND o SND) (SND (FST (SND (SND (FST (co n))))))) ∧
       globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n))))) ∧
     ¬contains_App_SOME c.max_app es ∧
@@ -6898,7 +6900,39 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ fs[]
   \\ simp[compile_prog_code_locs,Abbr`R`]
   \\ simp[MAP_REVERSE]
-  \\ cheat (* oracle syntax ok *));
+  \\ simp[MEM_MAP]
+  \\ simp[CONJ_ASSOC]
+  \\ reverse conj_asm2_tac
+  >- (
+    simp[Abbr`pp`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ simp[acompile_inc_uncurry, HD_annotate_SING] )
+  \\ fs[syntax_oracle_ok_def]
+  \\ reverse conj_asm2_tac
+  >- (
+    simp[Abbr`pp`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ simp[acompile_inc_uncurry, HD_annotate_SING]
+    \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_annotate
+    \\ rw[ccompile_inc_uncurry, HD_FST_calls]
+    \\ TRY (
+      qmatch_goalsub_abbrev_tac`calls xx yy`
+      \\ Cases_on`calls xx yy`
+      \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
+      \\ rw[Abbr`xx`,Abbr`yy`]
+      \\ fsrw_tac[DNF_ss][]
+      \\ first_x_assum match_mp_tac )
+    \\ CASE_TAC
+    \\ fs[FST_SND_ignore_table, kcompile_inc_uncurry,
+          clos_numberProofTheory.renumber_code_locs_every_Fn_SOME]
+    \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+    \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_SOME
+    \\ Cases_on`known aa bb ccc dd`
+    \\ qunabbrev_tac`bb`
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ strip_tac
+    \\ fsrw_tac[DNF_ss][]
+    \\ first_x_assum match_mp_tac
+    \\ fs[Abbr`ccc`,Abbr`dd`, clos_numberProofTheory.renumber_code_locs_every_Fn_SOME] )
+  \\ cheat (* oracle distinct code locs *));
 
 (*
 val () = temp_overload_on("acompile",``clos_annotate$compile``);
