@@ -678,31 +678,30 @@ val compile_semantics = Q.store_thm("compile_semantics",
   DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[] \\
   DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[] \\
   fs[PAIR_MAP] \\ rveq \\ fs[]
-  \\ TRY ( qexists_tac`k` \\ simp[] \\ CASE_TAC \\ fs[] )
-  \\ TRY (
+  \\ TRY ( qexists_tac`k` \\ simp[] \\ every_case_tac \\ fs[] \\ rveq \\ fs[] )
+  \\ TRY (qmatch_goalsub_abbrev_tac `F` \\
     first_x_assum(qspec_then`k`mp_tac) \\ simp[]
     \\ spose_not_then strip_assume_tac \\ fs[]
-    \\ NO_TAC)
+    \\ qmatch_asmsub_abbrev_tac `SND a1`
+    \\ first_x_assum(qspecl_then [`FST a1`,`SND a1`,`outcome`] assume_tac)
+    \\ unabbrev_all_tac
+    \\ every_case_tac \\ fs[] \\ rveq \\ fs[] \\ metis_tac[PAIR])
   \\ qmatch_goalsub_abbrev_tac`FST p`
   \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
   \\ pop_assum (assume_tac o SYM)
   \\ qmatch_assum_rename_tac`evaluate _ (st with clock := k1) _ = (s,r)`
   \\ qmatch_assum_rename_tac`evaluate _ (st with clock := k2) _ = (s',r')`
-  \\ qspecl_then[`k1`,`k2`]strip_assume_tac LESS_EQ_CASES
-  \\ rpt(pop_assum mp_tac)
-  \\ map_every qid_spec_tac [`k1`,`k2`,`s`,`r`,`s'`,`r'`,`outcome`,`outcome'`]
-     THEN_LT USE_SG_THEN (fn th => metis_tac[th]) 1 2
-  \\ rpt gen_tac \\ rpt(disch_then strip_assume_tac)
-  \\ fs[LESS_EQ_EXISTS] \\ rveq
-  \\ qmatch_asmsub_rename_tac`st with clock := kk + p`
-  \\ qspecl_then[`env`,`st with clock := kk`,`es`,`p`]strip_assume_tac
-       (CONJUNCT1 evaluate_add_to_clock_io_events_mono)
-  \\ rfs[]
-  \\ every_case_tac \\ fs[]
-  \\ qspecl_then[`p`,`env`,`st with clock := kk`,`es`]mp_tac
-       (Q.GEN`extra`(CONJUNCT1 evaluate_add_to_clock))
-  \\ fs[]
-  \\ CCONTR_TAC \\ fs[]);
+  \\ qpat_x_assum `evaluate _ _ _ = (s,r)` assume_tac
+  \\ drule (GEN_ALL(CONJUNCT1 evaluate_add_to_clock))
+  \\ disch_then (qspec_then `k2` mp_tac)
+  \\ impl_tac >- (every_case_tac \\ fs[])
+  \\ strip_tac
+  \\ qpat_x_assum `evaluate _ _ _ = (s',r')` assume_tac
+  \\ drule (GEN_ALL(CONJUNCT1 evaluate_add_to_clock))
+  \\ disch_then (qspec_then `k1` mp_tac)
+  \\ impl_tac >- (Cases_on `r'` \\ fs[] \\ Cases_on `e` \\ fs[] \\ Cases_on `a` \\ fs[])
+  \\ strip_tac \\ fs[] \\ rveq
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[state_component_equality]);
 
 (* syntactic results *)
 

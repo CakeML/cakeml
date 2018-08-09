@@ -138,6 +138,7 @@ val v_rel_simp = let
             ``v_rel y (ByteVector ws)``,
             ``v_rel y (RefPtr x)``,
             ``v_rel y (Closure n l v x w)``,
+            ``v_rel y (Word64 n)``,
             ``v_rel y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
   |> curry save_thm "v_rel_simp";
 
@@ -320,7 +321,7 @@ val v_rel_Number = prove(
 val do_app_err_thm = Q.prove(
   `state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    do_app op xs s1 = Rerr err /\ (err <> Rabort Rtype_error) ==>
-     ?w. (do_app op ys t1 = Rerr w) /\
+     ?w. do_app op ys t1 = Rerr w /\
           exc_rel v_rel err w`,
   srw_tac[][] >>
   imp_res_tac do_app_err >> fsrw_tac[][] >>
@@ -328,7 +329,14 @@ val do_app_err_thm = Q.prove(
   THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
   \\ Cases_on `err` \\ fs []
   \\ fs [do_app_cases_err]
-  \\ Cases_on `a` \\ fs []);
+  \\ Cases_on `a` \\ fs []
+  \\ imp_res_tac do_app_ffi_error_IMP
+  \\ fs[do_app_def]
+  \\ rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[v_rel_simp]
+         \\ rveq >> fs[] >> fs[v_rel_simp])
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[])
+  \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
+  \\ rveq \\ rfs[]);
 
 val v_to_bytes = Q.store_thm("v_to_bytes",
   `v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)`,

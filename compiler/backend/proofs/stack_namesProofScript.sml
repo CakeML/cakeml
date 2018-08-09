@@ -364,8 +364,7 @@ val comp_correct = Q.prove(
     simp[Once rename_state_def] >>
     fs[LET_THM] >>
     simp[EVAL``(rename_state c f s).ffi``] >>
-    pairarg_tac >> fs[] >> rveq >>
-    simp[rename_state_def,state_component_equality] >>
+    fs[] >> rveq >> fs[rename_state_def,state_component_equality] >>
     dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
     metis_tac[BIJ_DEF])
   THEN1 (

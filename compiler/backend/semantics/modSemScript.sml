@@ -387,7 +387,8 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
        (case call_FFI t n (MAP (λc. n2w(ORD c)) conf) ws of
-        | (t', ws') =>
+        | FFI_final outcome => SOME ((s,t), Rerr (Rabort (Rffi_error outcome)))
+        | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))
            | NONE => NONE))
@@ -717,9 +718,10 @@ val semantics_def = Define`
     case some res.
       ∃k s r outcome.
         evaluate_prog env (st with clock := k) prog = (s,r) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
+        (case r of
+         | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | SOME (Rabort _) => F
+         | _ => outcome = Success) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
      | NONE =>

@@ -2918,60 +2918,18 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
       simp[Abbr`bs`,Abbr`ss`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
       disch_then(qspec_then`k'`strip_assume_tac) >>
-      Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-        Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
-          unabbrev_all_tac >>
-          drule (CONJUNCT1 compile_exp_evaluate) >>
-          impl_tac >- full_simp_tac(srw_ss())[] >>
-          strip_tac >>
-          Cases_on`ress4` >>
-          drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
-          simp[RIGHT_FORALL_IMP_THM] >>
-          impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-          disch_then(qspec_then`k'`mp_tac)>>simp[]>>
-          qhdtm_x_assum`patSem$evaluate`mp_tac >>
-          drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
-          simp[] >>
-          disch_then(qspec_then`k`mp_tac)>>simp[]>>
-          ntac 3 strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[compile_state_with_clock] >>
-          fsrw_tac[ARITH_ss][] >>
-          full_simp_tac(srw_ss())[patSemTheory.state_component_equality] >>
-          full_simp_tac(srw_ss())[state_rel_def,compile_state_def]) >>
-        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-        unabbrev_all_tac >>
-        drule (CONJUNCT1 compile_exp_evaluate) >>
-        impl_tac >- (
-          last_x_assum(qspec_then`k+k'`mp_tac)>>
-          rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[EXISTS_PROD])) >>
-        strip_tac >>
-        qhdtm_x_assum`exhSem$evaluate`mp_tac >>
-        drule (GEN_ALL (CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
-        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-        impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-        disch_then(qspec_then`k'`mp_tac)>>simp[] >>
-        strip_tac >>
-        spose_not_then strip_assume_tac >>
-        rveq >>
-        fsrw_tac[ARITH_ss][state_rel_def,compile_state_def] >> rev_full_simp_tac(srw_ss())[]) >>
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
-      unabbrev_all_tac >>
+      drule (GEN_ALL(CONJUNCT1 exhPropsTheory.evaluate_add_to_clock)) >>
+      disch_then(qspec_then `k'` mp_tac) >>
+      impl_tac >- (every_case_tac >> fs[]) >>
+      drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
+      disch_then(qspec_then `k` mp_tac) >>      
+      impl_tac >- (every_case_tac >> fs[]) >>
+      ntac 2 strip_tac >>
       drule (CONJUNCT1 compile_exp_evaluate) >>
-      simp[] >>
-      impl_tac >- (
-        last_x_assum(qspec_then`k+k'`mp_tac)>>
-        rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] ) >>
-      strip_tac >> rveq >>
-      fsrw_tac[ARITH_ss][compile_state_with_clock] >>
-      reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
-        full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[compile_state_def,state_rel_def] >> full_simp_tac(srw_ss())[]) >>
-      drule (GEN_ALL(patPropsTheory.evaluate_add_to_clock)) >>
-      CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
-      impl_tac >- full_simp_tac(srw_ss())[] >>
-      disch_then(qspec_then`k`mp_tac)>>simp[] >>
-      rpt strip_tac >>
-      fsrw_tac[ARITH_ss][state_rel_def,compile_state_def] >> rev_full_simp_tac(srw_ss())[]) >>
+      impl_tac >- (every_case_tac >> fs[]) >>
+      strip_tac >> unabbrev_all_tac >>
+      fs[compile_state_def] >> rveq >>
+      every_case_tac >> fs[state_rel_def,result_rel_def]) >>
     drule (CONJUNCT1 compile_exp_evaluate) >> simp[] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
@@ -2981,7 +2939,8 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
     full_simp_tac(srw_ss())[state_rel_def,compile_state_def] >>
     qexists_tac`k`>>simp[] >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]) >>
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> fs[] >> rveq >> fs[]) >>
   strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
@@ -3003,7 +2962,7 @@ val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
     spose_not_then strip_assume_tac >>
     full_simp_tac(srw_ss())[state_rel_def,compile_state_def] >>
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
     spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]) >>
   strip_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>

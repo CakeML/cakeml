@@ -167,7 +167,8 @@ val is_final_def = Define `
     (r3start <= ptr /\ ptr < r3end)`;
 
 val gc_inv_def = Define `
-  gc_inv conf state heap0 =
+  gc_inv conf state (heap0:('a, 'b) heap_element list)
+                    (roots0:'a heap_address list) =
     let heap' = state.h1 ++ state.h2 ++
                 heap_expand state.n ++
                 state.r4 ++ state.r3 ++ state.r2 ++ state.r1 in
@@ -203,6 +204,7 @@ val gc_inv_def = Define `
                    then ADDR_MAP (heap_map1 state.heap) xs
                    else xs)
                  l d)) /\
+        reachable_addresses roots0 heap0 i /\
         !ptr d.
           MEM (Pointer ptr d) xs /\ is_final conf state j ==>
           ptr IN FDOM (heap_map 0 state.heap)`;
@@ -320,8 +322,10 @@ val heaps_similar_lemma = prove(
 
 val gc_move_thm = store_thm("gc_move_thm",
   ``!x state.
-       gc_inv conf state heap0 /\
-       (!ptr u. (x = Pointer ptr u) ==> isSomeDataOrForward (heap_lookup ptr state.heap)) ==>
+       gc_inv conf state heap0 roots0 /\
+       (!ptr u. (x = Pointer ptr u) ==>
+                isSomeDataOrForward (heap_lookup ptr state.heap) /\
+                reachable_addresses roots0 heap0 ptr) ==>
        ?state'.
          (gc_move conf state x =
          (ADDR_APPLY (heap_map1 state'.heap) x,state')) /\
@@ -329,7 +333,7 @@ val gc_move_thm = store_thm("gc_move_thm",
          (!ptr. isSomeDataOrForward (heap_lookup ptr state.heap) =
                 isSomeDataOrForward (heap_lookup ptr state'.heap)) /\
          ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
-         gc_inv conf state' heap0``,
+         gc_inv conf state' heap0 roots0``,
   Cases_on `x`
   \\ fs [gc_move_def,ADDR_APPLY_def]
   \\ rpt strip_tac
@@ -738,9 +742,10 @@ val gc_move_ALT = store_thm("gc_move_ALT",
 
 val gc_move_list_thm = prove(
   ``!xs state.
-    gc_inv conf state heap0 /\
+    gc_inv conf state heap0 roots0 /\
     (!ptr u. MEM (Pointer ptr u) (xs:'a heap_address list) ==>
-             isSomeDataOrForward (heap_lookup ptr state.heap)) ==>
+             isSomeDataOrForward (heap_lookup ptr state.heap) /\
+             reachable_addresses roots0 heap0 ptr) ==>
     ?state'.
       (gc_move_list conf state xs =
         (ADDR_MAP (heap_map1 state'.heap) xs,state')) /\
@@ -748,7 +753,7 @@ val gc_move_list_thm = prove(
       (!ptr. isSomeDataOrForward (heap_lookup ptr state.heap) =
              isSomeDataOrForward (heap_lookup ptr state'.heap)) /\
       ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
-      gc_inv conf state' heap0``,
+      gc_inv conf state' heap0 roots0``,
   Induct
   THEN1 fs [gc_move_list_def,ADDR_MAP_def,MEM,SUBMAP_REFL]
   \\ fs [MEM,gc_move_list_def,LET_THM]
@@ -761,7 +766,8 @@ val gc_move_list_thm = prove(
   \\ rpt strip_tac
   \\ rfs []
   \\ `∀ptr u. MEM (Pointer ptr u) xs ==>
-              isSomeDataOrForward (heap_lookup ptr state'.heap)` by
+              isSomeDataOrForward (heap_lookup ptr state'.heap) /\
+             reachable_addresses roots0 heap0 ptr` by
     (rpt strip_tac
     \\ metis_tac [])
   \\ res_tac
@@ -860,7 +866,7 @@ val heap_lookup_IMP_heap_addresses_GEN = prove(
 (* in gc_inv or prove lemma here *)
 val pointers_ok = prove(
   ``!state xs l d ptr u.
-      gc_inv conf state heap0 /\
+      gc_inv conf state heap0 roots0 /\
       (MEM (DataElement xs l d) state.h2 \/ MEM (DataElement xs l d) state.r2) /\
       MEM (Pointer ptr u) xs ==>
       isSomeDataOrForward (heap_lookup ptr state.heap)``,
@@ -906,14 +912,26 @@ val pointers_ok = prove(
   \\ `isSomeDataElement (heap_lookup ptr heap0)` by metis_tac [heap_lookup_IMP_MEM]
   \\ imp_res_tac heaps_similar_lemma \\ fs []);
 
+val IMP_reachable_addresses = store_thm("IMP_reachable_addresses",
+  ``!i ptr u xs l d.
+      reachable_addresses roots0 heap0 i /\ MEM (Pointer ptr u) xs /\
+      (heap_lookup i heap0 = SOME (DataElement xs l d)) ==>
+      reachable_addresses roots0 heap0 ptr``,
+  fs [reachable_addresses_def] \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ once_rewrite_tac [RTC_CASES_RTC_TWICE]
+  \\ asm_exists_tac \\ fs []
+  \\ match_mp_tac RTC_SINGLE
+  \\ fs [gc_edge_def]
+  \\ asm_exists_tac \\ fs []);
+
 val gc_move_data_thm = store_thm("gc_move_data_thm",
   ``!conf state.
-      gc_inv conf state heap0 /\
+      gc_inv conf state heap0 roots0 /\
       (state.r3 = []) /\ (state.r2 = []) ==>
       ?state'.
         (gc_move_data conf state = state') /\
         ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
-        gc_inv conf state' heap0 /\
+        gc_inv conf state' heap0 roots0 /\
         (state'.h2 = []) /\ (state'.r3 = []) /\ (state'.r2 = [])``,
   recInduct (theorem "gc_move_data_ind")
   \\ rpt strip_tac
@@ -934,15 +952,32 @@ val gc_move_data_thm = store_thm("gc_move_data_thm",
   \\ fs []
   \\ pairarg_tac \\ fs []
   \\ qpat_x_assum `_ ==> _` mp_tac
-  \\ `∀ptr u. MEM (Pointer ptr u) l ⇒ isSomeDataOrForward (heap_lookup ptr state.heap)` by (drule pointers_ok
-     \\ fs []
-     \\ metis_tac [])
+  \\ `∀ptr u. MEM (Pointer ptr u) l ⇒
+        isSomeDataOrForward (heap_lookup ptr state.heap) ∧
+        reachable_addresses roots0 heap0 ptr` by
+       (drule pointers_ok \\ rw [] \\ fs [] THEN1 metis_tac []
+        \\ rpt strip_tac \\ qpat_x_assum `!x1 x2 x3. bbb` kall_tac
+        \\ full_simp_tac std_ss [gc_inv_def,LET_THM]
+        \\ `?i. FLOOKUP (heap_map 0 state.heap) i = SOME (heap_length state.h1)` by
+         (full_simp_tac std_ss [FLOOKUP_DEF,BIJ_DEF,SURJ_DEF,heap_map1_def,LET_DEF]
+          \\ qpat_x_assum `!xx.bbb` kall_tac
+          \\ fs [heap_addresses_APPEND,heap_addresses_def])
+        \\ first_x_assum drule
+        \\ `~(is_final conf state (heap_length state.h1))` by
+             (fs [is_final_def,heap_length_APPEND]
+              \\ fs [heap_length_def,el_length_def])
+        \\ fs [] \\ strip_tac
+        \\ match_mp_tac IMP_reachable_addresses \\ asm_exists_tac \\ fs []
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ full_simp_tac std_ss [heap_lookup_APPEND,heap_length_def,
+             el_length_def,SUM,MAP] \\ fs []
+        \\ rfs [heap_lookup_def] \\ rveq \\ fs [] \\ asm_exists_tac \\ fs [])
   \\ reverse impl_tac
   >- (fs []
      \\ strip_tac
      \\ qsuff_tac `heap_map 0 state.heap ⊑ heap_map 0 state'.heap`
      >- metis_tac [SUBMAP_TRANS]
-     \\ qpat_x_assum `gc_inv _ _ _` kall_tac
+     \\ qpat_x_assum `gc_inv _ _ _ _` kall_tac
      \\ drule gc_move_list_thm
      \\ disch_then (qspec_then `l` mp_tac)
      \\ fs []
@@ -953,7 +988,7 @@ val gc_move_data_thm = store_thm("gc_move_data_thm",
   \\ fs []
   \\ impl_tac \\ fs []
   \\ strip_tac
-  \\ qpat_x_assum `gc_inv conf state heap0` kall_tac
+  \\ qpat_x_assum `gc_inv conf state heap0 roots0` kall_tac
   \\ drule gc_move_list_IMP
   \\ strip_tac
   \\ fs [gc_inv_def]
@@ -1022,20 +1057,23 @@ val gc_move_data_thm = store_thm("gc_move_data_thm",
 
 val gc_move_refs_lemma = store_thm("gc_move_refs_lemma",
   ``!state l n b xs' t state'.
-      gc_inv conf state heap0 /\
+      gc_inv conf state heap0 roots0 /\
       (state.r2 = DataElement l n b::t) /\
       (gc_move_list conf state l = (xs',state')) /\
       (∀ptr u. MEM (Pointer ptr u) l ⇒
-        isSomeDataOrForward (heap_lookup ptr state.heap))
+        isSomeDataOrForward (heap_lookup ptr state.heap) /\
+        reachable_addresses roots0 heap0 ptr)
       ==>
-      gc_inv conf (state' with <|r3 := state'.r3 ++ [DataElement xs' n b]; r2 := t|>) heap0``,
+      gc_inv conf
+        (state' with <|r3 := state'.r3 ++ [DataElement xs' n b]; r2 := t|>)
+        heap0 roots0``,
   rpt strip_tac
   \\ drule gc_move_list_thm
   \\ disch_then (qspec_then `l` mp_tac)
   \\ fs []
   \\ impl_tac \\ fs []
   \\ strip_tac
-  \\ qpat_x_assum `gc_inv conf state heap0` kall_tac
+  \\ qpat_x_assum `gc_inv conf state heap0 roots0` kall_tac
   \\ drule gc_move_list_IMP
   \\ strip_tac
   \\ fs []
@@ -1114,11 +1152,11 @@ val gc_move_refs_lemma = store_thm("gc_move_refs_lemma",
 
 val gc_move_refs_thm = store_thm("gc_move_refs_thm",
   ``!conf state.
-      gc_inv conf state heap0 ==>
+      gc_inv conf state heap0 roots0 ==>
       ?state'.
         (gc_move_refs conf state = state') /\
         ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
-        gc_inv conf state' heap0 /\
+        gc_inv conf state' heap0 roots0 /\
         (state'.r3 = []) /\ (state'.r2 = []) /\
         (0 < heap_length state.r3 ==> heap_length state.r1 < heap_length state'.r1)``,
   recInduct (theorem "gc_move_refs_ind")
@@ -1141,7 +1179,31 @@ val gc_move_refs_thm = store_thm("gc_move_refs_thm",
   >- fs [gc_inv_def,isDataElement_def]
   \\ pairarg_tac \\ fs []
   \\ qpat_x_assum `_ ==> _` mp_tac
-  \\ `∀ptr u. MEM (Pointer ptr u) l ⇒ isSomeDataOrForward (heap_lookup ptr state.heap)` by (drule pointers_ok \\ fs [] \\ metis_tac [])
+  \\ `∀ptr u. MEM (Pointer ptr u) l ⇒
+         isSomeDataOrForward (heap_lookup ptr state.heap) /\
+         reachable_addresses roots0 heap0 ptr` by
+       (drule pointers_ok \\ rw [] \\ fs [] THEN1 metis_tac []
+        \\ rpt strip_tac \\ qpat_x_assum `!x1 x2 x3. bbb` kall_tac
+        \\ full_simp_tac std_ss [gc_inv_def,LET_THM]
+        \\ `?i. FLOOKUP (heap_map 0 state.heap) i =
+                SOME (state.a + state.n + heap_length (state.r4 ++ state.r3))` by
+         (full_simp_tac std_ss [FLOOKUP_DEF,BIJ_DEF,SURJ_DEF,heap_map1_def,LET_DEF]
+          \\ qpat_x_assum `!xx.bbb` kall_tac
+          \\ fs [heap_addresses_APPEND,heap_addresses_def])
+        \\ first_x_assum drule
+        \\ qabbrev_tac `kk = (state.a + state.n + heap_length (state.r4 ⧺ state.r3))`
+        \\ `~(is_final conf state kk)` by
+             (fs [is_final_def,heap_length_APPEND,Abbr`kk`]
+              \\ fs [heap_length_def,el_length_def])
+        \\ fs [] \\ strip_tac
+        \\ match_mp_tac IMP_reachable_addresses \\ asm_exists_tac \\ fs []
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,heap_length_APPEND]
+        \\ full_simp_tac std_ss [heap_lookup_APPEND,heap_length_def,
+             el_length_def,SUM,MAP,Abbr`kk`]
+        \\ full_simp_tac std_ss [GSYM heap_length_def,heap_length_heap_expand]
+        \\ ntac 2 (pop_assum mp_tac) \\ fs []
+        \\ rfs [heap_lookup_def] \\ rveq \\ fs []
+        \\ rw [] \\ asm_exists_tac \\ fs [])
   \\ reverse impl_tac
   >- (fs []
      \\ `0 < heap_length (state'.r3 ++ [DataElement xs' n b])` by fs [heap_length_APPEND,heap_length_def,el_length_def]
@@ -1166,18 +1228,18 @@ val gc_move_refs_thm = store_thm("gc_move_refs_thm",
 
 val gc_move_list_heap_length = prove(
   ``!conf state state' xs ys.
-  (gc_move_list conf state xs = (ys,state')) ==>
-  (heap_length state.h1 <= heap_length state'.h1) /\
-  (heap_length state.r1 <= heap_length state'.r1)``,
+      (gc_move_list conf state xs = (ys,state')) ==>
+      (heap_length state.h1 <= heap_length state'.h1) /\
+      (heap_length state.r1 <= heap_length state'.r1)``,
   ntac 6 strip_tac
   \\ drule gc_move_list_IMP
   \\ fs []);
 
 val gc_move_data_heap_length = prove(
   ``!conf state state'.
-    Abbrev (state' = gc_move_data conf state) ==>
-    heap_length state.h1 <= heap_length state'.h1 ∧
-    heap_length state.r1 <= heap_length state'.r1``,
+      Abbrev (state' = gc_move_data conf state) ==>
+      heap_length state.h1 <= heap_length state'.h1 ∧
+      heap_length state.r1 <= heap_length state'.r1``,
   rewrite_tac [markerTheory.Abbrev_def]
   \\ recInduct (theorem "gc_move_data_ind")
   \\ ntac 4 strip_tac
@@ -1195,9 +1257,9 @@ val gc_move_data_heap_length = prove(
 
 val gc_move_refs_heap_length = prove(
   ``!conf state state'.
-    (gc_move_refs conf state = state') ==>
-    heap_length state.h1 <= heap_length state'.h1 ∧
-    heap_length state.r1 <= heap_length state'.r1``,
+      (gc_move_refs conf state = state') ==>
+      heap_length state.h1 <= heap_length state'.h1 ∧
+      heap_length state.r1 <= heap_length state'.r1``,
   recInduct (theorem "gc_move_refs_ind")
   \\ ntac 4 strip_tac
   \\ disch_then (mp_tac o GSYM)
@@ -1211,8 +1273,9 @@ val gc_move_refs_heap_length = prove(
 
 val gc_move_loop_gc_inv = prove(
   ``!conf state h t.
-    gc_inv conf state heap0 /\ (state.r2 = []) /\ (state.r4 = h::t) /\ (state.r3 = []) ==>
-    gc_inv conf (state with <|r2 := h::t; r4 := []|>) heap0``,
+      gc_inv conf state heap0 roots0 /\ (state.r2 = []) /\ (state.r4 = h::t) /\
+      (state.r3 = []) ==>
+      gc_inv conf (state with <|r2 := h::t; r4 := []|>) heap0 roots0``,
   rpt strip_tac
   \\ fs [gc_inv_def]
   \\ strip_tac
@@ -1229,15 +1292,38 @@ val gc_move_loop_gc_inv = prove(
   \\ `is_final conf state j = is_final conf (state with <|r4 := []; r2 := h::t|>) j` by fs [is_final_def,heap_length_def]
   \\ fs [] \\ fs []);
 
+val reachable_addresses_gc_inv_r4 = prove(
+  ``gc_inv conf state heap roots0 /\
+    (state.r4 = DataElement l n b::t) /\ MEM (Pointer ptr u) l ==>
+    reachable_addresses roots0 heap ptr``,
+  rw [gc_inv_def] \\ fs []
+  \\ `?i. FLOOKUP (heap_map 0 state.heap) i = SOME (state.a + state.n)` by
+   (full_simp_tac std_ss [FLOOKUP_DEF,BIJ_DEF,SURJ_DEF,heap_map1_def,LET_DEF]
+    \\ qpat_x_assum `!xx.bbb` kall_tac
+    \\ fs [heap_addresses_APPEND,heap_addresses_def])
+  \\ first_x_assum drule
+  \\ `~(is_final conf state (state.a + state.n))` by
+       (fs [is_final_def,heap_length_APPEND]
+        \\ fs [heap_length_def,el_length_def])
+  \\ fs [] \\ strip_tac
+  \\ match_mp_tac IMP_reachable_addresses \\ asm_exists_tac \\ fs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,heap_length_APPEND]
+  \\ full_simp_tac std_ss [heap_lookup_APPEND,heap_length_def,
+       el_length_def,SUM,MAP]
+  \\ full_simp_tac std_ss [GSYM heap_length_def,heap_length_heap_expand]
+  \\ ntac 2 (pop_assum mp_tac) \\ fs []
+  \\ rfs [heap_lookup_def] \\ rveq \\ fs []
+  \\ rw [] \\ asm_exists_tac \\ fs []);
+
 val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   ``!conf state clock.
       conf.limit <= clock + heap_length state.h1 + heap_length state.r1 /\
       (state.r2 = []) /\ (state.r3 = []) /\
-      gc_inv conf state heap ==>
+      gc_inv conf state heap roots0 ==>
         ?state'.
           (gc_move_loop conf state clock = state') /\
           ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
-          gc_inv conf state' heap /\
+          gc_inv conf state' heap roots0 /\
           (state'.h2 = []) /\
           (state'.r4 = []) /\
           (state'.r3 = []) /\
@@ -1260,13 +1346,13 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
      >- (rpt strip_tac \\ fs []
         \\ qsuff_tac `heap_map 0 state.heap ⊑ heap_map 0 (gc_move_data conf state).heap`
         >- metis_tac [SUBMAP_TRANS]
-        \\ qpat_x_assum `gc_inv _ _ _` kall_tac
+        \\ qpat_x_assum `gc_inv _ _ _ _` kall_tac
         \\ drule gc_move_data_thm
         \\ rpt strip_tac
         \\ fs [])
      \\ drule gc_move_data_thm
      \\ rpt strip_tac \\ rfs []
-     \\ qpat_x_assum `gc_inv _ _ _` mp_tac
+     \\ qpat_x_assum `gc_inv _ _ _ _` mp_tac
      \\ once_rewrite_tac [gc_move_data_def]
      \\ simp []
      \\ IF_CASES_TAC
@@ -1298,11 +1384,12 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   \\ reverse impl_tac
   >- (rpt strip_tac \\ fs []
      \\ `heap_map 0 state.heap ⊑
-         heap_map 0 (state with <|r4 := []; r2 := h::t|>).heap` by fs [gc_state_component_equality]
+         heap_map 0 (state with <|r4 := []; r2 := h::t|>).heap` by
+            fs [gc_state_component_equality]
      \\ qsuff_tac `heap_map 0 (state with <|r4 := []; r2 := h::t|>).heap ⊑
-                  heap_map 0 (gc_move_refs conf (state with <|r4 := []; r2 := h::t|>)).heap`
+                   heap_map 0 (gc_move_refs conf (state with <|r4 := []; r2 := h::t|>)).heap`
      >- metis_tac [SUBMAP_TRANS]
-     \\ qpat_x_assum `gc_inv _ _ _` kall_tac
+     \\ qpat_x_assum `gc_inv _ _ _ _` kall_tac
      \\ drule gc_move_refs_thm
      \\ rpt strip_tac
      \\ fs [])
@@ -1323,8 +1410,8 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   \\ fs []
   \\ rpt var_eq_tac
   \\ Cases_on `h` \\ fs []
-  \\ qpat_x_assum `gc_inv conf state' heap` kall_tac
-  \\ qpat_x_assum `gc_inv _ _ _` mp_tac
+  \\ qpat_x_assum `gc_inv conf state' heap _` kall_tac
+  \\ qpat_x_assum `gc_inv _ _ _ _` mp_tac
   >- (simp [gc_inv_def] \\ strip_tac
      \\ fs [isDataElement_def])
   >- (simp [gc_inv_def] \\ strip_tac
@@ -1338,7 +1425,7 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
      \\ strip_tac
      \\ unabbrev_all_tac
      \\ fs [gc_state_component_equality])
-  \\ qsuff_tac `gc_inv conf state1 heap`
+  \\ qsuff_tac `gc_inv conf state1 heap roots0`
   >- (strip_tac
      \\ drule gc_move_refs_thm
      \\ fs []
@@ -1351,11 +1438,11 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   \\ disch_then (qspec_then `l` mp_tac)
   \\ impl_tac
   >- (drule pointers_ok
-     \\ fs []
-     \\ metis_tac [])
+     \\ fs [] \\ rw [] THEN1 metis_tac []
+     \\ imp_res_tac reachable_addresses_gc_inv_r4 \\ fs [])
   \\ fs []
   \\ strip_tac
-  \\ qpat_x_assum `gc_inv _ _ _` kall_tac
+  \\ qpat_x_assum `gc_inv _ _ _ _` kall_tac
   \\ drule (gc_move_list_IMP)
   \\ disch_then (mp_tac o GSYM)
   \\ unabbrev_all_tac
@@ -1363,14 +1450,16 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
   \\ drule gc_move_refs_lemma
   \\ disch_then (qspecl_then [`l`,`n`,`b`,`xs'`,`t`,`state''`] mp_tac)
   \\ simp [gc_state_component_equality]
-  \\ `∀ptr u. MEM (Pointer ptr u) l ⇒ isSomeDataOrForward (heap_lookup ptr state''.heap)` by (drule pointers_ok \\ fs [] \\ metis_tac [])
-  \\ disch_then drule
-  \\ fs []);
+  \\ disch_then match_mp_tac
+  \\ rw []
+  \\ drule pointers_ok
+  \\ fs [] \\ rw [] THEN1 metis_tac []
+  \\ imp_res_tac reachable_addresses_gc_inv_r4 \\ fs []);
 
 val gc_inv_init = store_thm("gc_inv_init",
   ``heap_ok heap conf.limit ==>
     gc_inv conf (empty_state with <| heap := heap; n := conf.limit;
-                                     ok := (heap_length heap = conf.limit) |>) heap``,
+                                     ok := (heap_length heap = conf.limit) |>) heap roots``,
   fs [heap_ok_def,gc_inv_def,empty_state_def,LET_THM]
   \\ rw []
   >- fs [FILTER_LEMMA]
@@ -1389,22 +1478,25 @@ val gen_gc_thm = store_thm("gen_gc_thm",
       (gen_gc conf (roots,heap) =
       (ADDR_MAP (heap_map1 state.heap) roots,state)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM (heap_map 0 state.heap)) /\
-      gc_inv conf state heap /\
+      gc_inv conf state heap roots /\
       (state.h2 = []) /\
       (state.r4 = []) /\
       (state.r3 = []) /\
       (state.r2 = [])``,
   rpt strip_tac
   \\ imp_res_tac gc_inv_init
+  \\ first_x_assum (qspec_then `roots` assume_tac)
   \\ fs [gen_gc_def]
   \\ pairarg_tac \\ fs []
   \\ drule gc_move_list_thm
   \\ disch_then (qspec_then `roots` mp_tac)
   \\ impl_tac
-  >- (fs [roots_ok_def,isSomeDataOrForward_def] \\ metis_tac [])
+  >- (fs [roots_ok_def,isSomeDataOrForward_def,reachable_addresses_def]
+      \\ metis_tac [RTC_RULES])
   \\ strip_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
-  \\ qispl_then [`conf`,`state`,`conf.limit`] mp_tac gc_move_loop_thm
+  \\ qispl_then [`conf`,`state`,`conf.limit`] mp_tac (gc_move_loop_thm
+          |> Q.INST [`roots0`|->`roots`])
   \\ drule gc_move_list_IMP
   \\ simp [empty_state_def,gc_state_component_equality]
   \\ disch_then (mp_tac o GSYM)
@@ -1606,7 +1698,9 @@ val gen_gc_related = store_thm("gen_gc_related",
     ?state f.
       (gen_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state)) /\
-      (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
+      (FDOM f = reachable_addresses roots heap) /\
+      (heap_length (state.h1 ++ state.r1) =
+       heap_length (heap_filter (FDOM f) heap)) /\
       gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)``,
   rpt strip_tac
   \\ drule gen_gc_thm
@@ -1616,8 +1710,60 @@ val gen_gc_related = store_thm("gen_gc_related",
   \\ `(FAPPLY (heap_map 0 state.heap)) = heap_map1 state.heap` by fs [heap_map1_def,FUN_EQ_THM]
   \\ fs []
   \\ fs [gc_related_def,gc_inv_def,BIJ_DEF]
+  \\ conj_asm1_tac
+  THEN1
+   (fs [EXTENSION] \\ rpt strip_tac
+    \\ CONV_TAC (RAND_CONV (REWRITE_CONV [IN_DEF]))
+    \\ rw [] \\ eq_tac \\ rw []
+    THEN1 (fs [FLOOKUP_DEF] \\ metis_tac [])
+    \\ fs [reachable_addresses_def]
+    \\ rename [`RTC _ a1 a2`]
+    \\ `a1 ∈ FDOM (heap_map 0 state.heap)` by res_tac
+    \\ pop_assum mp_tac \\ pop_assum mp_tac
+    \\ qspec_tac (`a2`,`a2`)
+    \\ qspec_tac (`a1`,`a1`)
+    \\ ho_match_mp_tac RTC_INDUCT
+    \\ fs [] \\ rw []
+    \\ first_x_assum match_mp_tac
+    \\ fs [FLOOKUP_DEF]
+    \\ fs [gc_edge_def]
+    \\ pop_assum mp_tac
+    \\ rename [`b1 IN _ ==> b2 IN _`]
+    \\ strip_tac
+    \\ qpat_x_assum `!i. _ => _` drule
+    \\ fs [] \\ strip_tac \\ first_x_assum irule
+    \\ fs [is_final_def] \\ CCONTR_TAC
+    \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ rfs [heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand]
+    \\ rfs [] \\ fs [] \\ fs [heap_expand_def,heap_lookup_def])
+  \\ strip_tac THEN1
+   (qsuff_tac `heap_length (state.h1 ⧺ state.r1) =
+       heap_length (heap_filter (heap_addresses 0 state.h1 ∪
+              heap_addresses (state.a + state.n) state.r1)
+           (state.h1 ++ heap_expand state.n ++ state.r1))`
+    THEN1
+     (fs [] \\ strip_tac
+      \\ match_mp_tac (GEN_ALL heap_length_heap_filter_eq)
+      \\ fs [FLOOKUP_DEF,BIJ_DEF] \\ asm_exists_tac \\ fs []
+      \\ fs [FINITE_heap_addresses]
+      \\ conj_tac THEN1 (metis_tac [FDOM_FINITE])
+      \\ rw [] \\ res_tac \\ fs [])
+    \\ qpat_x_assum `_ = state.a` (assume_tac o GSYM) \\ fs []
+    \\ fs [heap_filter_def]
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ rewrite_tac [heap_filter_aux_APPEND,ADD_CLAUSES,
+         heap_filter_aux_heap_addresses_UNION]
+    \\ fs [heap_length_heap_expand]
+    \\ rewrite_tac [heap_filter_aux_APPEND,ADD_CLAUSES,
+         heap_filter_aux_heap_addresses_UNION]
+    \\ fs [heap_length_APPEND,DECIDE ``(n=n+k:num)<=>(k=0)``]
+    \\ rw [heap_expand_def] \\ fs [heap_filter_aux_def]
+    \\ rw [heap_length_def,el_length_def]
+    \\ imp_res_tac IN_heap_addresses_LESS \\ fs [heap_length_def]
+    \\ once_rewrite_tac [UNION_COMM]
+    \\ rewrite_tac [GSYM heap_length_def,heap_filter_aux_heap_addresses_UNION])
+  \\ pop_assum kall_tac
   \\ rpt strip_tac
-  >- metis_tac []
   >-
     (fs [INJ_DEF]
     \\ rpt strip_tac

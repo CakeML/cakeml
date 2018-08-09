@@ -117,20 +117,17 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app s op vs = SOME(s',r) ⇒
-   s.ffi.io_events ≼ s'.ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+   s.ffi.io_events ≼ s'.ffi.io_events`,
   srw_tac[][do_app_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac conPropsTheory.do_app_io_events_mono);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `(∀env (s:'ffi decSem$state) es s' r.
       evaluate env s es = (s',r) ⇒
-      s.ffi.io_events ≼ s'.ffi.io_events ∧
-      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)) ∧
+      s.ffi.io_events ≼ s'.ffi.io_events) ∧
    (∀env (s:'ffi decSem$state) pes v err_v s' r.
       evaluate_match env s pes v err_v = (s',r) ⇒
-      s.ffi.io_events ≼ s'.ffi.io_events ∧
-      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi))`,
+      s.ffi.io_events ≼ s'.ffi.io_events)`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
   imp_res_tac do_app_io_events_mono >> full_simp_tac(srw_ss())[] >>
@@ -142,16 +139,10 @@ val with_clock_ffi = Q.prove(
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀env (s:'ffi decSem$state) es extra.
        (FST(evaluate env s es)).ffi.io_events ≼
-       (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
-       (IS_SOME((FST(evaluate env s es)).ffi.final_event) ⇒
-        (FST(evaluate env (s with clock := s.clock + extra) es)).ffi =
-        (FST(evaluate env s es)).ffi)) ∧
+       (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events) ∧
    (∀env (s:'ffi decSem$state) pes v err_v extra.
        (FST(evaluate_match env s pes v err_v)).ffi.io_events ≼
-       (FST(evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events ∧
-       (IS_SOME((FST(evaluate_match env s pes v err_v)).ffi.final_event) ⇒
-        (FST(evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi =
-        (FST(evaluate_match env s pes v err_v)).ffi))`,
+       (FST(evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events)`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>

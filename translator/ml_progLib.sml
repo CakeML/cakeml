@@ -364,7 +364,10 @@ fun pick_name str =
   if str = "!" then "deref" else
   if str = ":=" then "assign" else
   if str = "@" then "append" else
-  if str = "^" then "strcat" else str (* name is fine *)
+  if str = "^" then "strcat" else
+  if str = "<<" then "lsl" else
+  if str = ">>" then "lsr" else
+  if str = "~>>" then "asr" else str (* name is fine *)
 
 (*
 val s = init_state

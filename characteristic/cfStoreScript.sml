@@ -22,7 +22,6 @@ val ffi_has_index_in_def = Define `
 
 val parts_ok_def = Define `
   parts_ok st ((proj,parts):'ffi ffi_proj) <=>
-    st.final_event = NONE /\
     ALL_DISTINCT (FLAT (MAP FST parts)) /\
     EVERY (ffi_has_index_in (FLAT (MAP FST parts))) st.io_events /\
     (!ns u.
@@ -45,7 +44,7 @@ val ffi2heap_def = Define `
         ts = FILTER (ffi_has_index_in ns) st.io_events /\
         !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s }
     else
-      { FFI_full st.final_event st.io_events }`;
+      { FFI_full st.io_events }`;
 
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
@@ -140,13 +139,13 @@ val FFI_part_NOT_IN_store2heap_aux = Q.store_thm("FFI_part_NOT_IN_store2heap_aux
   Induct_on `s` \\ fs [store2heap_aux_def]);
 
 val FFI_full_NOT_IN_store2heap_aux = Q.store_thm("FFI_full_NOT_IN_store2heap_aux",
-  `∀n s. FFI_full x1 x2 ∉ store2heap_aux n s`,
+  `∀n s. FFI_full x1 ∉ store2heap_aux n s`,
   Induct_on `s` \\ fs [store2heap_aux_def]);
 
 val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
   `!s. ~(FFI_split ∈ store2heap s) /\
         ~(FFI_part x1 x2 x3 x4 ∈ store2heap s) /\
-        ~(FFI_full y1 y2 ∈ store2heap s)`,
+        ~(FFI_full y2 ∈ store2heap s)`,
   fs [store2heap_def,FFI_part_NOT_IN_store2heap_aux,
       FFI_full_NOT_IN_store2heap_aux,FFI_split_NOT_IN_store2heap_aux]);
 

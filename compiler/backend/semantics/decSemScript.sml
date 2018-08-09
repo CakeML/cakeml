@@ -160,9 +160,10 @@ val semantics_def = Define`
     case some res.
       ∃k s r outcome.
         evaluate env (st with clock := k) es = (s,r) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
+        (case r of
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | Rerr (Rabort _) => F
+         | _ => outcome = Success) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
      | NONE =>
