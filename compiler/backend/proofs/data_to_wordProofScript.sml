@@ -853,7 +853,7 @@ val compile_semantics = Q.store_thm("compile_semantics",`
    code_rel c (fromAList prog) x1 ∧
    (* Explicitly instantiate code_oracle_rel at the intermediate state *)
    cc = (λcfg.
-        lift (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+        OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
         MAP (compile_part c)) ∧
    Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
    (∀n. EVERY (λ(n,_). data_num_stubs ≤ n) (SND (co n))) ∧

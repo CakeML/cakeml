@@ -53,10 +53,11 @@ val word_exp_set_var_ShiftVar_lemma = store_thm("word_exp_set_var_ShiftVar_lemma
   ``word_exp t (ShiftVar sow v n) =
     case lookup v t.locals of
     | SOME (Word w) =>
-        lift Word (case sow of Lsl => SOME (w << n)
-                             | Lsr => SOME (w >>> n)
-                             | Asr => SOME (w >> n)
-                             | Ror => SOME (word_ror w n))
+        OPTION_MAP Word
+          (case sow of Lsl => SOME (w << n)
+                     | Lsr => SOME (w >>> n)
+                     | Asr => SOME (w >> n)
+                     | Ror => SOME (word_ror w n))
     | _ => FAIL (word_exp t (ShiftVar sow v n)) "lookup failed"``,
   Cases_on `lookup v t.locals` \\ fs [] \\ rw [FAIL_DEF]
   \\ fs [ShiftVar_def]
