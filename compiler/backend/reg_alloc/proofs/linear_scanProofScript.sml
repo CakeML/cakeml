@@ -466,7 +466,7 @@ val check_live_tree_success = Q.store_thm("check_live_tree_success", `
 
     Induct_on `lt`
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
       rw [check_live_tree_def] >>
       Cases_on `check_partial_col f l live flive` >> fs [] >>
@@ -479,7 +479,7 @@ val check_live_tree_success = Q.store_thm("check_live_tree_success", `
         metis_tac [INJ_SUBSET, UNIV_SUBSET]
       )
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
       rw [check_live_tree_def]
       THEN1 (
@@ -825,7 +825,7 @@ val check_live_tree_same_domain = Q.store_thm("check_live_tree_same_domain",
     Induct_on `lt` >>
     rw [check_live_tree_def]
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         Cases_on `check_partial_col f l live1 flive1` >> fs [] >>
         Cases_on `x` >> fs [] >>
@@ -833,7 +833,7 @@ val check_live_tree_same_domain = Q.store_thm("check_live_tree_same_domain",
         rw [domain_numset_list_delete]
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         metis_tac [check_partial_col_same_domain]
     )
@@ -884,7 +884,7 @@ val fix_endlive_check_live_tree = Q.store_thm("fix_endlive_check_live_tree",
 
     Induct_on `lt`
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [fix_endlive_def, check_live_tree_def] >> fs [check_live_tree_def] >>
         Cases_on `check_partial_col f l live2 flive2` >> fs [] >>
@@ -892,7 +892,7 @@ val fix_endlive_check_live_tree = Q.store_thm("fix_endlive_check_live_tree",
         fs [domain_numset_list_delete]
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [fix_endlive_def, check_live_tree_def] >> fs [check_live_tree_def] >>
         `?live2out flive2out. check_partial_col f l live2 flive2 = SOME (live2out, flive2out) /\ domain live2out = domain live2out'` by metis_tac [check_partial_col_FILTER_NONE] >>
@@ -956,11 +956,11 @@ val check_endlive_fixed_fix_endlive = Q.store_thm("check_endlive_fixed_fix_endli
 
     Induct_on `lt` >>
     rw [fix_endlive_def, check_endlive_fixed_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
       rw [check_endlive_fixed_def]
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
       rw [check_endlive_fixed_def]
       THEN1 simp [EVERY_FILTER]
@@ -995,14 +995,14 @@ val check_live_tree_forward_output = Q.store_thm("check_live_tree_forward_output
     live'' = live' `,
 
     Induct_on `lt`
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
       rw [check_live_tree_forward_def, check_endlive_fixed_forward_def]
       THEN1 metis_tac [check_partial_col_IMAGE]
       THEN1 metis_tac [check_partial_col_success_INJ]
       THEN1 metis_tac [check_partial_col_numset_list_insert]
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
       simp [check_live_tree_forward_def, check_endlive_fixed_forward_def] >>
       rpt gen_tac >> strip_tac >>
@@ -1060,7 +1060,7 @@ val check_endlive_fixed_forward_eq_check_live_tree_forward = Q.store_thm("check_
 
     Induct_on `lt` >>
     rw [check_endlive_fixed_forward_def, check_live_tree_forward_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 metis_tac [check_partial_col_numset_list_insert]
     (* Branch *)
     THEN1 (
@@ -1090,7 +1090,7 @@ val check_endlive_fixed_backward_forward = Q.store_thm("check_endlive_fixed_back
     Induct_on `lt` >>
     simp [check_endlive_fixed_def, check_endlive_fixed_forward_def]
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
       rw [is_subset_def, domain_numset_list_delete, domain_numset_list_insert] >>
       fs [SUBSET_DEF] >>
@@ -1098,7 +1098,7 @@ val check_endlive_fixed_backward_forward = Q.store_thm("check_endlive_fixed_back
       Cases_on `MEM x l` >> fs []
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
       rw [domain_lookup]
       THEN1 (
@@ -1178,11 +1178,11 @@ val check_live_tree_eq_get_live_backward = Q.store_thm("check_live_tree_eq_get_l
 
     Induct_on `lt` >>
     rw [check_live_tree_def, get_live_backward_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         every_case_tac >> fs []
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         metis_tac [check_partial_col_numset_list_insert]
     )
@@ -1213,7 +1213,7 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
 
     Induct_on `lt` >>
     rw [check_live_tree_forward_def, check_live_tree_def, check_endlive_fixed_def, get_live_backward_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         `domain liveout = set l UNION domain live` by metis_tac [check_partial_col_domain, FST] >>
         `INJ f (domain liveout) UNIV` by metis_tac [check_partial_col_success_INJ] >>
@@ -1228,7 +1228,7 @@ val check_live_tree_forward_backward = Q.store_thm("check_live_tree_forward_back
         rw [SUBSET_DEF] >>
         Cases_on `MEM x l` >> fs [SUBSET_DEF]
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         `INJ f (set l UNION domain liveout') UNIV` by metis_tac [INJ_SUBSET, UNIV_SUBSET, is_subset_def, domain_numset_list_insert] >>
         `?a b. check_partial_col f l liveout' fliveout' = SOME (a, b)` by metis_tac [check_partial_col_success] >>
@@ -1596,11 +1596,11 @@ val get_intervals_intend_augment = Q.store_thm("get_intervals_intend_augment",
 
     Induct_on `lt` >>
     rw [get_intervals_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [lookup_numset_list_add_if_gt]
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [lookup_numset_list_add_if_gt]
     ) >>
@@ -1619,13 +1619,13 @@ val check_number_property_intend = Q.store_thm("check_number_property_intend",
 
     Induct_on `lt` >>
     rw [check_number_property_def, get_live_backward_def, size_of_live_tree_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         res_tac >>
         rw [] >>
         intLib.COOPER_TAC
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         res_tac >>
         rw [] >>
@@ -1654,11 +1654,11 @@ val get_intervals_live_less_end = Q.store_thm("get_intervals_live_less_end",
     Induct_on `lt` >>
     simp [get_intervals_def, check_number_property_def] >>
     rpt gen_tac >> strip_tac >> rveq
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [domain_numset_list_delete, lookup_numset_list_add_if_gt]
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [domain_numset_list_insert, lookup_numset_list_add_if_gt] >>
         every_case_tac >> rw [] >> intLib.COOPER_TAC
@@ -1707,7 +1707,7 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
     Induct_on `lt` >>
     simp [get_intervals_withlive_def] >>
     rpt gen_tac >> strip_tac
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rpt strip_tac >>
         fs [lookup_numset_list_add_if_lt] >>
@@ -1717,7 +1717,7 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
         rw [] >>
         intLib.COOPER_TAC
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rpt strip_tac >>
         fs [lookup_numset_list_delete] >>
@@ -1785,14 +1785,14 @@ val get_intervals_intbeg_nout = Q.store_thm("get_intervals_intbeg_nout",
 
     Induct_on `lt` >>
     rw [get_intervals_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         fs [lookup_numset_list_add_if_lt] >>
         every_case_tac >>
         res_tac >>
         intLib.COOPER_TAC
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         fs [lookup_numset_list_delete] >>
         res_tac >>
@@ -1814,9 +1814,9 @@ val get_intervals_withlive_live_intbeg = Q.store_thm("get_intervals_withlive_liv
 
     Induct_on `lt` >>
     rw [get_intervals_withlive_def, get_live_backward_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 fs [domain_numset_list_delete, domain_numset_list_add_if_lt]
-    (* EndLive *)
+    (* Reads *)
     THEN1 fs [domain_numset_list_delete, domain_numset_list_insert]
     (* Branch *)
     THEN1 (
@@ -1846,13 +1846,13 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
     Induct_on `lt` >>
     simp [get_intervals_withlive_def, get_live_backward_def, check_number_property_strong_def] >>
     rpt (gen_tac ORELSE disch_tac)
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         fs [domain_numset_list_delete, lookup_numset_list_add_if_lt] >>
         `lookup r beg_in = NONE` by rw [lookup_NONE_domain] >>
         fs []
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         fs [domain_numset_list_insert, lookup_numset_list_delete] >>
         `lookup r beg_in = NONE` by rw [lookup_NONE_domain] >>
@@ -1985,7 +1985,7 @@ val get_intervals_withlive_beg_eq_get_intervals_beg_when_some = Q.store_thm("get
     Induct_on `lt` >>
     REWRITE_TAC [get_intervals_def, get_intervals_withlive_def, LET_THM] >>
     rpt gen_tac >> strip_tac
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [] >>
         fs [lookup_numset_list_add_if_lt] >>
@@ -1994,7 +1994,7 @@ val get_intervals_withlive_beg_eq_get_intervals_beg_when_some = Q.store_thm("get
         res_tac >>
         intLib.COOPER_TAC
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [] >>
         fs [lookup_numset_list_delete] >>
@@ -2048,12 +2048,12 @@ val get_intervals_withlive_beg_subset_get_intervals_beg = Q.store_thm("get_inter
 
     Induct_on `lt` >>
     rw [get_intervals_withlive_def, get_intervals_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [domain_numset_list_add_if_lt] >>
         fs [SUBSET_DEF]
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [domain_numset_list_delete] >>
         fs [SUBSET_DEF]
@@ -2104,14 +2104,14 @@ val get_intervals_withlive_beg_monotone = Q.store_thm("get_intervals_withlive_be
 
     Induct_on `lt` >>
     rw [get_intervals_withlive_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [domain_numset_list_add_if_lt, domain_union] >>
         qexists_tac `s` >>
         rw [SUBSET_DEF, EXTENSION] >>
         eq_tac >> rw [] >> rw []
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [domain_numset_list_delete, domain_union] >>
         qexists_tac `numset_list_delete l s` >>
@@ -2159,14 +2159,14 @@ val get_intervals_withlive_registers_subset_beg = Q.store_thm("get_intervals_wit
     Induct_on `lt` >>
     rw [get_intervals_withlive_def, get_live_backward_def, live_tree_registers_def]
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [domain_numset_list_add_if_lt, domain_numset_list_delete, domain_numset_list_add_if_gt] >>
         fs [SUBSET_DEF] >>
         metis_tac []
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rw [domain_numset_list_insert, domain_numset_list_delete, domain_numset_list_add_if_gt] >>
         fs [SUBSET_DEF] >>
@@ -2223,12 +2223,12 @@ val get_intervals_withlive_live_tree_registers_subset_endout = Q.store_thm("get_
     simp [get_intervals_withlive_def, live_tree_registers_def, get_live_backward_def] >>
     rpt (gen_tac ORELSE disch_tac)
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         fs [domain_numset_list_delete, domain_numset_list_add_if_gt, SUBSET_DEF]
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         fs [domain_numset_list_insert, domain_numset_list_add_if_gt, SUBSET_DEF] >>
         rw [] >> rw []
@@ -2333,9 +2333,9 @@ val get_intervals_end_increase = Q.store_thm("get_intervals_end_increase",
 
     Induct_on `lt` >>
     rw [get_intervals_def]
-    (* StartLive *)
+    (* Writes *)
     THEN1 rw [domain_numset_list_add_if_gt]
-    (* EndLive *)
+    (* Reads *)
     THEN1 rw [domain_numset_list_add_if_gt]
     (* Branch & Seq *)
     >>
@@ -2355,12 +2355,12 @@ val check_number_property_subset_endout = Q.store_thm("check_number_property_sub
     simp [get_intervals_def, check_number_property_strong_def] >>
     rpt (gen_tac ORELSE disch_tac)
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         fs [domain_numset_list_delete, domain_numset_list_add_if_gt, SUBSET_DEF]
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         fs [domain_numset_list_insert, domain_numset_list_add_if_gt, SUBSET_DEF] >>
         rw [] >> rw []
@@ -2434,7 +2434,7 @@ val get_intervals_intbeg_reduce = Q.store_thm("get_intervals_intbeg_reduce",
     Induct_on `lt` >>
     simp [get_intervals_def] >>
     rpt gen_tac >> strip_tac
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rpt strip_tac >>
         fs [lookup_numset_list_add_if_lt] >>
@@ -2444,7 +2444,7 @@ val get_intervals_intbeg_reduce = Q.store_thm("get_intervals_intbeg_reduce",
         rw [] >>
         intLib.COOPER_TAC
     )
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         rpt strip_tac >>
         fs [lookup_numset_list_delete] >>
@@ -2499,7 +2499,7 @@ val check_startlive_prop_augment_ndef = Q.store_thm("check_startlive_prop_augmen
     Induct_on `lt` >>
     simp [check_startlive_prop_def, size_of_live_tree_def] >>
     rpt gen_tac >> strip_tac
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [] >>
         res_tac >>
@@ -2524,7 +2524,7 @@ val get_intervals_check_startlive_prop = Q.store_thm("get_intervals_check_startl
     Induct_on `lt` >>
     simp [get_intervals_def, check_startlive_prop_def] >>
     rpt (gen_tac ORELSE disch_tac)
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         rw [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt] >>
         every_case_tac >>
@@ -2569,12 +2569,12 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
     Induct_on `lt` >>
     rw [check_number_property_def, check_number_property_strong_def, check_live_tree_def, check_startlive_prop_def, live_tree_registers_def]
 
-    (* StartLive *)
+    (* Writes *)
     THEN1 (
         fs [check_intervals_def] >>
         sg `!r. MEM r l ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) n_in` THEN1 (
             rw [] >>
-            `option_CASE (lookup r beg_out) (n_in - size_of_live_tree (StartLive l)) (\x.x) <= n_in /\ ?ve. lookup r end_out = SOME ve /\ n_in <= ve` by rw [] >>
+            `option_CASE (lookup r beg_out) (n_in - size_of_live_tree (Writes l)) (\x.x) <= n_in /\ ?ve. lookup r end_out = SOME ve /\ n_in <= ve` by rw [] >>
             `r IN domain beg_out` by fs [SUBSET_DEF] >>
             `?vb. lookup r beg_out = SOME vb` by rfs [domain_lookup] >>
             fs [] >>
@@ -2614,7 +2614,7 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
         rw []
     )
 
-    (* EndLive *)
+    (* Reads *)
     THEN1 (
         fs [check_intervals_def, domain_numset_list_insert] >>
         sg `!r. MEM r l \/ r IN domain live ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) n_in` THEN1 (

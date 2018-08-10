@@ -19,8 +19,8 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 val _ = hide "state";
 
 val _ = Datatype`
-  live_tree = StartLive (num list)
-            | EndLive (num list)
+  live_tree = Writes (num list)
+            | Reads (num list)
             | Branch live_tree live_tree
             | Seq live_tree live_tree`
 
@@ -44,11 +44,11 @@ val is_subset_compute_def = Define`
 val get_live_tree_def = Define`
     (
       get_live_tree (reg_alloc$Delta wr rd) =
-        Seq (EndLive rd) (StartLive wr)
+        Seq (Reads rd) (Writes wr)
     ) /\ (
       get_live_tree (reg_alloc$Set cutset) =
         let cutlist = MAP FST (toAList cutset) in
-        EndLive cutlist
+        Reads cutlist
     ) /\ (
       get_live_tree (reg_alloc$Branch optcutset ct1 ct2) =
         let lt1 = get_live_tree ct1 in
@@ -56,7 +56,7 @@ val get_live_tree_def = Define`
         case optcutset of
         | SOME cutset =>
             let cutlist = MAP FST (toAList cutset) in
-            Seq (EndLive cutlist) (Branch lt1 lt2)
+            Seq (Reads cutlist) (Branch lt1 lt2)
         | NONE => (Branch lt1 lt2)
     ) /\ (
       get_live_tree (reg_alloc$Seq ct1 ct2) =
@@ -67,7 +67,7 @@ val get_live_tree_def = Define`
 
 val check_live_tree_def = Define`
     (
-      check_live_tree f (StartLive l) live flive =
+      check_live_tree f (Writes l) live flive =
         case check_partial_col f l live flive of
         | NONE => NONE
         | SOME _ =>
@@ -75,7 +75,7 @@ val check_live_tree_def = Define`
         let flive_out = numset_list_delete (MAP f l) flive in
         SOME (live_out, flive_out)
     ) /\ (
-      check_live_tree f (EndLive l) live flive =
+      check_live_tree f (Reads l) live flive =
         check_partial_col f l live flive
     ) /\ (
       check_live_tree f (Branch lt1 lt2) live flive =
@@ -96,11 +96,11 @@ val check_live_tree_def = Define`
 
 val fix_endlive_def = Define`
     (
-      fix_endlive (StartLive l) live =
-        (StartLive l, numset_list_delete l live)
+      fix_endlive (Writes l) live =
+        (Writes l, numset_list_delete l live)
     ) /\ (
-      fix_endlive (EndLive l) live =
-        (EndLive (FILTER (\x. lookup x live = NONE) l), numset_list_insert l live)
+      fix_endlive (Reads l) live =
+        (Reads (FILTER (\x. lookup x live = NONE) l), numset_list_insert l live)
     ) /\ (
       fix_endlive (Branch lt1 lt2) live =
         let (lt1', live1) = fix_endlive lt1 live in
@@ -116,10 +116,10 @@ val fix_endlive_def = Define`
 
 val check_endlive_fixed_def = Define`
     (
-      check_endlive_fixed (StartLive l) live =
+      check_endlive_fixed (Writes l) live =
         (T, numset_list_delete l live)
     ) /\ (
-      check_endlive_fixed (EndLive l) live =
+      check_endlive_fixed (Reads l) live =
         (EVERY (\x. lookup x live = NONE) l, numset_list_insert l live)
     ) /\ (
       check_endlive_fixed (Branch lt1 lt2) live =
@@ -135,10 +135,10 @@ val check_endlive_fixed_def = Define`
 
 val check_endlive_fixed_forward_def = Define`
     (
-      check_endlive_fixed_forward (StartLive l) live =
+      check_endlive_fixed_forward (Writes l) live =
         (T, numset_list_insert l live)
     ) /\ (
-      check_endlive_fixed_forward (EndLive l) live =
+      check_endlive_fixed_forward (Reads l) live =
         (EVERY (\x. lookup x live = SOME ()) l, numset_list_delete l live)
     ) /\ (
       check_endlive_fixed_forward (Branch lt1 lt2) live =
@@ -155,10 +155,10 @@ val check_endlive_fixed_forward_def = Define`
 
 val check_live_tree_forward_def = Define`
     (
-      check_live_tree_forward f (StartLive l) live flive =
+      check_live_tree_forward f (Writes l) live flive =
         check_partial_col f l live flive
     ) /\ (
-      check_live_tree_forward f (EndLive l) live flive =
+      check_live_tree_forward f (Reads l) live flive =
         let live_out = numset_list_delete l live in
         let flive_out = numset_list_delete (MAP f l) flive in
         SOME (live_out, flive_out)
@@ -181,10 +181,10 @@ val check_live_tree_forward_def = Define`
 
 val get_live_backward_def = Define`
     (
-      get_live_backward (StartLive l) live =
+      get_live_backward (Writes l) live =
         numset_list_delete l live
     ) /\ (
-      get_live_backward (EndLive l) live =
+      get_live_backward (Reads l) live =
         numset_list_insert l live
     ) /\ (
       get_live_backward (Branch lt1 lt2) live =
@@ -198,10 +198,10 @@ val get_live_backward_def = Define`
 
 val get_live_forward_def = Define`
     (
-      get_live_forward (StartLive l) live =
+      get_live_forward (Writes l) live =
         numset_list_insert l live
     ) /\ (
-      get_live_forward (EndLive l) live =
+      get_live_forward (Reads l) live =
         numset_list_delete l live
     ) /\ (
       get_live_forward (Branch lt1 lt2) live =
@@ -218,7 +218,7 @@ val fix_domination_def = Define`
     fix_domination lt =
         let live = get_live_backward lt LN in
         if live = LN then lt
-        else Seq (StartLive (MAP FST (toAList live))) lt
+        else Seq (Writes (MAP FST (toAList live))) lt
 `
 
 val fix_live_tree_def = Define`
@@ -249,10 +249,10 @@ val numset_list_add_if_gt_def = Define`
 
 val size_of_live_tree_def = Define`
     (
-      size_of_live_tree (StartLive l) =
+      size_of_live_tree (Writes l) =
         1 : int
     ) /\ (
-      size_of_live_tree (EndLive l) =
+      size_of_live_tree (Reads l) =
         1 : int
     ) /\ (
       size_of_live_tree (Branch lt1 lt2) =
@@ -265,10 +265,10 @@ val size_of_live_tree_def = Define`
 
 val get_intervals_def = Define`
     (
-      get_intervals (StartLive l) (n : int) int_beg int_end =
+      get_intervals (Writes l) (n : int) int_beg int_end =
         (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
     ) /\ (
-      get_intervals (EndLive l) (n : int) int_beg int_end =
+      get_intervals (Reads l) (n : int) int_beg int_end =
         (n-1, int_beg, numset_list_add_if_gt l n int_end)
     ) /\ (
       get_intervals (Branch lt1 lt2) (n : int) int_beg int_end =
@@ -285,10 +285,10 @@ val get_intervals_def = Define`
  * but has the following invariant: !r. r IN domain live ==> r NOTIN domain beg_in (as stated by the `get_intervals_withlive_live_intbeg` theorem *)
 val get_intervals_withlive_def = Define`
     (
-      get_intervals_withlive (StartLive l) (n : int) int_beg int_end live =
+      get_intervals_withlive (Writes l) (n : int) int_beg int_end live =
         (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
     ) /\ (
-      get_intervals_withlive (EndLive l) (n : int) int_beg int_end live =
+      get_intervals_withlive (Reads l) (n : int) int_beg int_end live =
         (n-1, numset_list_delete l int_beg, numset_list_add_if_gt l n int_end)
     ) /\ (
       get_intervals_withlive (Branch lt1 lt2) (n : int) int_beg int_end live =
@@ -305,12 +305,12 @@ val get_intervals_withlive_def = Define`
 
 val check_number_property_def = Define`
   (
-    check_number_property (P : int -> num_set -> bool) (StartLive l) n live =
+    check_number_property (P : int -> num_set -> bool) (Writes l) n live =
         let n_out = n-1 in
         let live_out = numset_list_delete l live in
         P n_out live_out
   ) /\ (
-    check_number_property P (EndLive l) n live =
+    check_number_property P (Reads l) n live =
         let n_out = n-1 in
         let live_out = numset_list_insert l live in
         P n_out live_out
@@ -329,12 +329,12 @@ val check_number_property_def = Define`
 
 val check_number_property_strong_def = Define`
   (
-    check_number_property_strong (P : int -> num_set -> bool) (StartLive l) n live =
+    check_number_property_strong (P : int -> num_set -> bool) (Writes l) n live =
         let n_out = n-1 in
         let live_out = numset_list_delete l live in
         P n_out live_out
   ) /\ (
-    check_number_property_strong P (EndLive l) n live =
+    check_number_property_strong P (Reads l) n live =
         let n_out = n-1 in
         let live_out = numset_list_insert l live in
         P n_out live_out
@@ -353,11 +353,11 @@ val check_number_property_strong_def = Define`
 
 val check_startlive_prop_def = Define`
   (
-    check_startlive_prop (StartLive l) n beg end ndef =
+    check_startlive_prop (Writes l) n beg end ndef =
         !r. MEM r l ==> (option_CASE (lookup r beg) ndef (\x.x) <= n /\
                         (?v. lookup r end = SOME v /\ n <= v))
   ) /\ (
-    check_startlive_prop (EndLive l) n beg end ndef =
+    check_startlive_prop (Reads l) n beg end ndef =
         T
   ) /\ (
     check_startlive_prop (Branch lt1 lt2) n beg end ndef =
@@ -372,8 +372,8 @@ val check_startlive_prop_def = Define`
   )`
 
 val live_tree_registers_def = Define`
-    (live_tree_registers (StartLive l) = set l) /\
-    (live_tree_registers (EndLive l) = EMPTY) /\
+    (live_tree_registers (Writes l) = set l) /\
+    (live_tree_registers (Reads l) = EMPTY) /\
     (live_tree_registers (Branch lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2) /\
     (live_tree_registers (Seq lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2)
 `
