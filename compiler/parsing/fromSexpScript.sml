@@ -14,13 +14,6 @@ val monad_unitbind_assert = Q.prove(
 
 (* cf. similar TODO in cmlPtreeConversionScript.sml *)
 val _ = temp_overload_on ("lift", ``OPTION_MAP``)
-
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
-                                        "option.OPTION_IGNORE_BIND_def",
-                                        "option.OPTION_GUARD_def",
-                                        "option.OPTION_CHOICE_def",
-                                        "option.OPTION_MAP2_DEF"]
-
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 (* -- *)
 
