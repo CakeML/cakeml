@@ -6759,6 +6759,61 @@ val ALOOKUP_compile_common = Q.store_thm("ALOOKUP_compile_common",
   \\ rw[] \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[] \\ rw[]
   \\ metis_tac[]);
 
+val set_code_locs_FST_calls_SUBSET = Q.store_thm("set_code_locs_FST_calls_SUBSET",
+  `∀x y. set (code_locs (FST (calls x y))) ⊆
+         set (code_locs x) ∪ set (code_locs (MAP (SND o SND) (SND y)))`,
+  rw[] \\ Cases_on`calls x y`
+  \\ imp_res_tac clos_callProofTheory.calls_code_locs_MEM
+  \\ fs[SUBSET_DEF]);
+
+(* TODO: move *)
+val bag_of_list_thm = Q.store_thm("bag_of_list_thm",
+  `bag_of_list [] = {||} ∧
+   (∀x xs. bag_of_list (x::xs) = BAG_INSERT x (bag_of_list xs))`,
+  conj_tac >- EVAL_TAC
+  \\ rewrite_tac[clos_knownProofTheory.bag_of_list_def, o_DEF]
+  \\ simp_tac bool_ss []
+  \\ qmatch_goalsub_abbrev_tac`FOLDL f`
+  \\ ntac 2 gen_tac
+  \\ `COMM f` by (rw[Abbr`f`,COMM_DEF,COMM_BAG_UNION])
+  \\ `ASSOC f` by (rw[Abbr`f`,ASSOC_DEF,ASSOC_BAG_UNION])
+  \\ drule (GSYM COMM_ASSOC_FOLDL_REVERSE)
+  \\ disch_then drule
+  \\ disch_then(CONV_TAC o LAND_CONV o REWR_CONV)
+  \\ rw[FOLDL_APPEND,Abbr`f`]
+  \\ rw[COMM_ASSOC_FOLDL_REVERSE]
+  \\ rw[BAG_INSERT_UNION, COMM_BAG_UNION]);
+
+val IN_bag_of_list_MEM = Q.store_thm("IN_bag_of_list_MEM",
+  `∀l. x <: bag_of_list l ⇒ MEM x l`,
+  Induct \\ rw[bag_of_list_thm] \\ fs[]);
+
+val bag_of_list_SUB_BAG_SUBSET = Q.store_thm("bag_of_list_SUB_BAG_SUBSET",
+  `∀l1 l2. bag_of_list l1 ≤ bag_of_list l2 ⇒ set l1 ⊆ set l2`,
+  Induct \\ rw[bag_of_list_thm]
+  \\ imp_res_tac BAG_INSERT_SUB_BAG_E
+  \\ imp_res_tac IN_bag_of_list_MEM \\ fs[]);
+
+val IN_between = Q.store_thm("IN_between",
+  `x ∈ between y z ⇔ y ≤ x ∧ x < z`,
+  rw[IN_DEF] \\ EVAL_TAC);
+
+val renumber_code_locs_sing = Q.store_thm("renumber_code_locs_sing",
+  `(∀n es n' es'.
+      LENGTH es = 1 ⇒
+      (renumber_code_locs_list n es = (n',es') ⇔
+       LENGTH es' = 1 ∧
+       renumber_code_locs n (HD es) = (n', HD es'))) ∧
+   (∀n e n' e'.
+     renumber_code_locs n e = (n',e') ⇔
+     renumber_code_locs_list n [e] = (n',[e']))`,
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind
+  \\ rw[clos_numberTheory.renumber_code_locs_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rw[EQ_IMP_THM] \\ rw[]);
+(* -- *)
+
 val compile_semantics = Q.store_thm("compile_semantics",
   `semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
@@ -6932,6 +6987,62 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ fsrw_tac[DNF_ss][]
     \\ first_x_assum match_mp_tac
     \\ fs[Abbr`ccc`,Abbr`dd`, clos_numberProofTheory.renumber_code_locs_every_Fn_SOME] )
+  \\ `set (code_locs [FST (SND pp)]) ⊆
+      between (FST(FST (co n)))
+        (FST (renumber_code_locs_list (FST (FST (co n)))
+                ((if c.do_mti then intro_multi c.max_app else I) [FST (SND (co n))]))) ∪
+      (*set (code_locs [FST(SND(co n))]) ∪ *)
+      set (code_locs (MAP (SND o SND) (SND (FST (SND (SND (FST (co n))))))))`
+  by (
+    simp[Abbr`pp`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ simp[acompile_inc_uncurry, HD_annotate_SING]
+    \\ match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``annotate``clos_annotateProofTheory.annotate_code_locs(assume_tac o CONJUNCT1)
+    \\ asm_exists_tac \\ fs[] \\ pop_assum kall_tac
+    \\ qmatch_goalsub_abbrev_tac`FST (ff (co n))`
+    \\ `FST (ff (co n)) = FST (co n)` by ( rw[Abbr`ff`] ) \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac`SND (gg (FST (SND (FST (co n)))) b)`
+    \\ Cases_on`c.do_call` \\ simp[ccompile_inc_uncurry, HD_FST_calls]
+    \\ TRY (
+      specl_args_of_then``calls``set_code_locs_FST_calls_SUBSET mp_tac
+      \\ strip_tac \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ fs[]
+      \\ pop_assum kall_tac )
+    \\ pop_assum kall_tac
+    THEN_LT USE_SG_THEN ACCEPT_TAC 2 1
+    \\ simp[Abbr`gg`]
+
+    \\ reverse CASE_TAC \\ fs[Abbr`b`, kcompile_inc_uncurry, FST_SND_ignore_table]
+    \\ TRY (
+      qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_code_locs_bag
+      \\ Cases_on`known aa bb ccc dd` \\ simp[]
+      \\ strip_tac
+      \\ imp_res_tac bag_of_list_SUB_BAG_SUBSET
+      \\ map_every qunabbrev_tac[`aa`,`bb`,`ccc`,`dd`]
+      \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+      \\ pop_assum SUBST_ALL_TAC
+      \\ pop_assum mp_tac \\ simp[]
+      \\ strip_tac
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ simp[]
+      \\ ntac 3 (pop_assum kall_tac))
+    \\ simp[Abbr`ff`]
+    \\ rpt(pop_assum kall_tac)
+    THEN_LT USE_SG_THEN ACCEPT_TAC 2 1
+    \\ qmatch_goalsub_abbrev_tac`renumber_code_locs nn ee`
+    \\ Cases_on`renumber_code_locs nn ee`
+    \\ unabbrev_all_tac
+    \\ fs[CONJUNCT2 renumber_code_locs_sing]
+    \\ qmatch_goalsub_abbrev_tac`renumber_code_locs_list nn ee`
+    \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list nn ee'`
+    \\ `ee' = ee` by ( simp[Abbr`ee`,Abbr`ee'`] \\ rw[mcompile_inc_uncurry] )
+    \\ fs[Abbr`ee'`]
+    \\ qspecl_then[`nn`,`ee`]mp_tac clos_numberProofTheory.renumber_code_locs_list_distinct
+    \\ simp[SUBSET_DEF,IN_between,EVERY_MEM,Abbr`nn`]
+    \\ rw[]
+    \\ res_tac
+    \\ rw[] )
   \\ cheat (* oracle distinct code locs *));
 
 (*
