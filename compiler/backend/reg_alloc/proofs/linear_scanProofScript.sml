@@ -2955,7 +2955,7 @@ val apply_reg_exchange_correct = Q.store_thm("apply_reg_exchange_correct",
     (!r1 r2. r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors ==> EL r1 sthout.colors = EL r2 sthout.colors ==> EL r1 sth.colors = EL r2 sth.colors) /\
     (!r. MEM r l ==> EL r sthout.colors = r DIV 2) /\
     ((!r. MEM r l ==> (k <= EL r sth.colors <=> k <= r DIV 2)) ==>
-        (!r. r < LENGTH sth.colors ==> id (k <= EL r sth.colors <=> k <= EL r sthout.colors)))`,
+    (!r. r < LENGTH sth.colors ==> id (k <= EL r sth.colors <=> k <= EL r sthout.colors)))`,
 
     rpt gen_tac >> strip_tac >>
     fs [apply_reg_exchange_def] >>
@@ -2988,6 +2988,7 @@ val good_linear_scan_state_def = Define`
         EVERY (\r. r < LENGTH sth.colors) l /\
         EVERY (\r. EL r sth.colors < st.stacknum) l /\
         domain st.phyregs = { EL r sth.colors | r | MEM r l /\ is_phy_var r /\ EL r sth.colors < st.colormax } /\
+        ALL_DISTINCT (MAP (\r. EL r sth.colors) (FILTER is_phy_var l)) /\
         EVERY (\c. c < st.colornum) st.colorpool /\
         EVERY (\e,r. EL r sth.colors < st.colornum) st.active /\
         st.colornum <= st.colormax /\
@@ -3353,9 +3354,9 @@ val ALL_DISTINCT_IS_SPARSE_SUBLIST = Q.store_thm("ALL_DISTINCT_IS_SPARSE_SUBLIST
     )
 )
 
-val spill_register_FILTER_invariants = Q.store_thm("spill_register_FILTER_invariants",
+val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER_invariants_hidden",
     `!int_beg int_end st sth l pos forced reg.
-    (~(is_phy_var reg) \/ ~(MEM reg l)) /\
+    id (~(is_phy_var reg) \/ ~(MEM reg l)) /\
     good_linear_scan_state int_beg int_end st sth l pos forced /\
     reg < LENGTH sth.colors /\
     the 0 (lookup reg int_beg) <= pos ==>
@@ -3363,69 +3364,96 @@ val spill_register_FILTER_invariants = Q.store_thm("spill_register_FILTER_invari
     good_linear_scan_state int_beg int_end stout sthout (reg::l) pos forced`,
 
     rw [spill_register_def] >> rw msimps >>
-    fs [good_linear_scan_state_def] >> (
+    fs [good_linear_scan_state_def] >>
+    rpt strip_tac
+    THEN1 (
+        rw [update_color_active_colors_same] >>
+        metis_tac [FILTER_IS_SPARSE_SUBLIST, MAP_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND, ALL_DISTINCT_IS_SPARSE_SUBLIST]
+    )
+    THEN1 rw [EL_LUPDATE]
+    THEN1 (
+        fs [EVERY_MEM, FORALL_PROD] >>
+        rw [EL_LUPDATE] >>
+        `EL r sth.colors < st.stacknum` by rw [] >>
         rw []
+    )
+    THEN1 (
+        rw [EXTENSION] >>
+        eq_tac >>
+        rw [] >>
+        qexists_tac `r` >>
+        rw [EL_LUPDATE] >>
+        fs [EL_LUPDATE, id_def]
+    )
+    THEN1 (
+        `!r. MEM r l ==> EL r sth.colors < st.stacknum` by fs [EVERY_MEM] >>
+        rpt (qpat_x_assum `EVERY _ _` kall_tac) >>
+        rpt (qpat_x_assum `!x x. _` kall_tac) >>
+        rpt (qpat_x_assum `domain _ = _` kall_tac) >>
+        sg `MAP (\r. EL r (LUPDATE st.stacknum reg sth.colors)) (FILTER is_phy_var l) = MAP (\r. EL r sth.colors) (FILTER is_phy_var l)` THEN1 (
+            rpt (qpat_x_assum `ALL_DISTINCT _` kall_tac) >>
+            fs [id_def] >>
+            Induct_on `l` >>
+            rfs [EL_LUPDATE] >> rw [] >>
+            every_case_tac >>
+            res_tac
+        ) >>
+        rw [] >>
+        rpt (qpat_x_assum `ALL_DISTINCT _` kall_tac) >>
+        rpt (qpat_x_assum `MAP _ _ =  _` kall_tac) >>
+        rpt (qpat_x_assum `id _` kall_tac) >>
+        simp [EL_LUPDATE] >>
+        Induct_on `l` >> rw [] >>
+        `EL h sth.colors < st.stacknum` by rw [] >>
+        rw []
+    )
+    THEN1 (
+        fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
+        metis_tac []
+    )
+    THEN1 fs [EL_LUPDATE]
+    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 fs [MEM_FILTER]
+    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 rw []
+    THEN1 metis_tac [forced_update_stack_color_lemma]
+    THEN1 metis_tac [forced_update_stack_color_lemma]
+    THEN1 (
+        fs [EL_LUPDATE] >>
+        Cases_on `r1 = reg /\ reg < LENGTH sth.colors` >>
+        Cases_on `r2 = reg /\ reg < LENGTH sth.colors` >>
+        fs [EVERY_MEM] >>
+        TRY (`EL r2 sth.colors < st.stacknum` by rw []) >>
+        TRY (`EL r1 sth.colors < st.stacknum` by rw []) >>
+        rw []
+    )
+    THEN1 metis_tac [transitive_less_FST, SORTED_FILTER]
+    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (
+        fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
+        metis_tac []
+    )
+    THEN1 (
+        fs [EVERY_MEM, FORALL_PROD] >>
+        RW_TAC bool_ss [EL_LUPDATE] >>
+        rename1 `MEM (r1, r2) forced`
         THEN1 (
-            rw [update_color_active_colors_same] >>
-            metis_tac [FILTER_IS_SPARSE_SUBLIST, MAP_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND, ALL_DISTINCT_IS_SPARSE_SUBLIST]
-        )
-        THEN1 rw [EL_LUPDATE]
-        THEN1 (
-            fs [EVERY_MEM, FORALL_PROD] >>
-            rw [EL_LUPDATE] >>
-            `EL r sth.colors < st.stacknum` by rw [] >>
+            Cases_on `MEM r2 l` >> fs [] >>
+            `EL r2 sth.colors < st.stacknum` by rw [] >>
             rw []
         )
         THEN1 (
-            rw [EXTENSION] >>
-            eq_tac >>
-            rw [] >>
-            qexists_tac `r` >>
-            rw [EL_LUPDATE] >>
-            fs [EL_LUPDATE]
-        )
-        THEN1 (
-            fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
-            metis_tac []
-        )
-        THEN1 fs [EL_LUPDATE]
-        THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-        THEN1 fs [MEM_FILTER]
-        THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-        THEN1 metis_tac [forced_update_stack_color_lemma]
-        THEN1 metis_tac [forced_update_stack_color_lemma]
-        THEN1 (
-            fs [EL_LUPDATE] >>
-            Cases_on `r1 = reg /\ reg < LENGTH sth.colors` >>
-            Cases_on `r2 = reg /\ reg < LENGTH sth.colors` >>
-            fs [EVERY_MEM] >>
-            TRY (`EL r2 sth.colors < st.stacknum` by rw []) >>
-            TRY (`EL r1 sth.colors < st.stacknum` by rw []) >>
+            Cases_on `MEM r1 l` >> fs [] >>
+            `EL r1 sth.colors < st.stacknum` by rw [] >>
             rw []
-        )
-        THEN1 metis_tac [transitive_less_FST, SORTED_FILTER]
-        THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-        THEN1 (
-            fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
-            metis_tac []
-        )
-        THEN1 (
-            fs [EVERY_MEM, FORALL_PROD] >>
-            RW_TAC bool_ss [EL_LUPDATE] >>
-            rename1 `MEM (r1, r2) forced`
-            THEN1 (
-                Cases_on `MEM r2 l` >> fs [] >>
-                `EL r2 sth.colors < st.stacknum` by rw [] >>
-                rw []
-            )
-            THEN1 (
-                Cases_on `MEM r1 l` >> fs [] >>
-                `EL r1 sth.colors < st.stacknum` by rw [] >>
-                rw []
-            )
         )
     )
 )
+
+val spill_register_FILTER_invariants =
+  spill_register_FILTER_invariants_hidden
+  |> REWRITE_RULE [id_def]
+  |> curry save_thm "spill_register_FILTER_invariants"
 
 val FILTER_MEM_active = Q.store_thm("FILTER_MEM_active",
     `!(reg:num) l. (!(e:int). ~(MEM (e,reg) l)) ==> FILTER (\e,r. r <> reg) l = l`,
@@ -3550,7 +3578,8 @@ val state_invariants_remove_head = Q.store_thm("state_invariants_remove_head",
     rw [] >>
     `!r. r = reg \/ MEM r l <=> MEM r l` by metis_tac [] >>
     rw [good_linear_scan_state_def] >>
-    fs [good_linear_scan_state_def]
+    fs [good_linear_scan_state_def] >>
+    every_case_tac >> fs []
 )
 
 val find_last_stealable_success = Q.store_thm("find_last_stealable_success",
@@ -3627,12 +3656,12 @@ val color_register_eq = Q.store_thm("color_register_eq",
     simp [linear_scan_state_component_equality]
 )
 
-
 val color_register_invariants = Q.store_thm("color_register_invariants",
     `!int_beg int_end st sth l pos forced reg col forbidden.
     good_linear_scan_state int_beg int_end st sth l pos forced /\
     forbidden_is_from_map_color_forced forced l sth.colors reg forbidden /\
     col NOTIN domain forbidden /\
+    (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
     ~MEM col (st.colorpool ++ MAP (\(e,r). EL r sth.colors) st.active) /\
     the 0 (lookup reg int_beg) = pos /\
     the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) /\
@@ -3700,6 +3729,26 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
       THEN1 (
         eq_tac >> rw [] >> metis_tac []
       )
+    )
+    THEN1 (
+        rw []
+        THEN1 (
+          simp [EL_LUPDATE] >>
+          `col NOTIN domain st.phyregs` by metis_tac [SUBSET_DEF] >>
+          qpat_x_assum `col NOTIN domain st.phyregs` mp_tac >>
+          once_rewrite_tac [METIS_PROVE [] ``!a b. a ==> b <=> ~b ==> ~a``] >>
+          rw [MEM_MAP, MEM_FILTER] >>
+          Cases_on `r = reg` >> fs [] >>
+          qexists_tac `r` >> rw []
+        ) >> (
+          sg `MAP (\r. EL r (LUPDATE col reg sth.colors)) (FILTER is_phy_var l) = MAP (\r. EL r sth.colors) (FILTER is_phy_var l)` THEN1 (
+              qpat_x_assum `~MEM reg l` mp_tac >>
+              rpt (first_x_assum kall_tac) >>
+              Induct_on `l` >>
+              fs [EL_LUPDATE] >> rw []
+          ) >>
+          simp []
+        )
     )
     THEN1 (
       imp_res_tac add_active_interval_output >> fs [] >>
@@ -3799,6 +3848,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     good_linear_scan_state int_beg int_end st sth l pos forced /\
     reg < LENGTH sth.colors /\
     forbidden_is_from_map_color_forced forced l sth.colors reg forbidden /\
+    (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
     the 0 (lookup reg int_end) = rend /\
     the 0 (lookup reg int_beg) = pos /\
     the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) ==>
