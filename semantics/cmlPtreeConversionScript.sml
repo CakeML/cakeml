@@ -89,10 +89,7 @@ val mpop_namedscope_def = Define`
    ---------------------------------------------------------------------- *)
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-
-val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 val _ = overload_on ("lift", ``option$OPTION_MAP``)
-(* -- *)
 
 val ifM_def = Define`
   ifM bM tM eM =

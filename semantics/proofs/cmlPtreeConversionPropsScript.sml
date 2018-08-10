@@ -7,8 +7,7 @@ open gramPropsTheory
 val _ = new_theory "cmlPtreeConversionProps";
 val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
 
-val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
-(* " *)
+val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* a function for mapping types back to ASTs, used to check that the
    conversion functions are doing something reasonable *)

@@ -14,7 +14,6 @@ val monad_unitbind_assert = Q.prove(
 
 (* cf. similar TODO in cmlPtreeConversionScript.sml *)
 val _ = temp_overload_on ("lift", ``OPTION_MAP``)
-val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 (* -- *)
 
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
