@@ -1,4 +1,4 @@
-INCLUDES = ../misc ../semantics ../semantics/proofs ../basis/pure
+INCLUDES = ../misc ../semantics ../semantics/proofs ../basis/pure ../semantics/alt_semantics/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
