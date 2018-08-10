@@ -564,7 +564,7 @@ val PTbase_OK = Q.store_thm(
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
   simp[ptree_PTbase_def, tokcheck_def]
   >- (erule strip_assume_tac (n TyOp_OK) >> simp[] >>
-      rename [‘destTyvarPT pt’] >> Cases_on ‘lift Atvar (destTyvarPT pt)’ >>
+      rename [‘destTyvarPT pt’] >> Cases_on ‘OPTION_MAP Atvar (destTyvarPT pt)’ >>
       simp[]) >>
   metis_tac[Type_OK]);
 
