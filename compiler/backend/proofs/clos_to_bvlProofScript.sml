@@ -7011,7 +7011,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ pop_assum kall_tac
     THEN_LT USE_SG_THEN ACCEPT_TAC 2 1
     \\ simp[Abbr`gg`]
-
     \\ reverse CASE_TAC \\ fs[Abbr`b`, kcompile_inc_uncurry, FST_SND_ignore_table]
     \\ TRY (
       qmatch_goalsub_abbrev_tac`known aa bb ccc dd`

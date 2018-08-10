@@ -33,10 +33,6 @@ val EVERY_FST_SND = Q.store_thm("EVERY_FST_SND",
   rw[EVERY_MEM,MEM_MAP,UNCURRY,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
   \\ metis_tac[]);
 
-val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
-  `pair_CASE p f = a ⇔ ∃x y. p = (x,y) ∧ f x y = a`,
-  Cases_on`p`>>rw[]);
-
 val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
   `BIJ bij UNIV UNIV ==>
     FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
@@ -507,19 +503,50 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[flat_to_patProofTheory.compile_state_def] >>
   simp[Abbr`st3`,flatSemTheory.initial_state_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ co3 cc3 e3 }` >>
-  cheat);
-  (*
+  qmatch_asmsub_abbrev_tac`compile_common_inc cf (pure_cc (compile_inc _) cc)`
+  \\ Q.ISPECL_THEN[`co3`,`cc`,`e3`,`s.ffi`,`cf`]mp_tac
+       (Q.GENL[`co`,`cc`,`es`,`ffi`,`c`,`c'`,`prog`]clos_to_bvlProofTheory.compile_semantics)
+  \\ simp[]
+  \\ impl_keep_tac
+  >- (
+    conj_tac
+    >- (
+      fs[flat_to_patProofTheory.compile_state_def,
+         flatSemTheory.initial_state_def] )
+    \\ simp[Abbr`cf`,Abbr`co3`]
+    \\ cheat (* oracle needs to be instantiated, amongst other things *) )
+  \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
   pairarg_tac \\ fs[] \\ strip_tac \\
-  qhdtm_x_assum`from_bvi`mp_tac >>
-  rw[from_bvi_def] >>
+  fs[from_bvi_def] \\
+  drule (GEN_ALL bvl_to_bviProofTheory.compile_semantics)
+  \\ disch_then(qspec_then`s.ffi`mp_tac)
+  \\ qunabbrev_tac`cc`
+  \\ qmatch_goalsub_abbrev_tac`semantics _ _ co (full_cc _ cc) _`
+  \\ disch_then(qspecl_then[`co`,`cc`]mp_tac)
+  \\ fs[Abbr`c''''`]
+  \\ impl_tac
+  >- (
+    simp[CONJ_ASSOC]
+    \\ reverse conj_tac
+    >- cheat (* clos_to_bvl compile ALL_DISTINCT locs *)
+    \\ cheat (* oracle *) )
+  \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
+  qunabbrev_tac`cc`
+  \\ (bvi_to_dataProofTheory.compile_prog_semantics
+      |> SIMP_RULE std_ss [GSYM backendPropsTheory.pure_cc_def |> SIMP_RULE std_ss [LET_THM]]
+      |> drule)
+  \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qmatch_assum_abbrev_tac `from_data c4 p4 = _` \\
   qhdtm_x_assum`from_data`mp_tac
   \\ simp[from_data_def]
   \\ pairarg_tac \\ fs[]
   \\ strip_tac
   \\ rename1`compile _ _ _ p4 = (col,p5)` \\
+  cheat);
+  (*
+  data_to_wordProofTheory.compile_semantics
   qhdtm_x_assum`from_word`mp_tac \\
   simp[from_word_def] \\ pairarg_tac \\ fs[] \\ strip_tac \\
   qmatch_assum_rename_tac`compile _ p5 = (c6,p6)` \\
