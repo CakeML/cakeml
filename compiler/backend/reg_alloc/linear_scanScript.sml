@@ -94,91 +94,6 @@ val check_live_tree_def = Define`
           check_live_tree f lt1 live2 flive2
     )`
 
-val fix_endlive_def = Define`
-    (
-      fix_endlive (Writes l) live =
-        (Writes l, numset_list_delete l live)
-    ) /\ (
-      fix_endlive (Reads l) live =
-        (Reads (FILTER (\x. lookup x live = NONE) l), numset_list_insert l live)
-    ) /\ (
-      fix_endlive (Branch lt1 lt2) live =
-        let (lt1', live1) = fix_endlive lt1 live in
-        let (lt2', live2) = fix_endlive lt2 live in
-        (Branch lt1' lt2', numset_list_insert (MAP FST (toAList (difference live2 live1))) live1)
-    ) /\ (
-      fix_endlive (Seq lt1 lt2) live =
-        let (lt2', live2) = fix_endlive lt2 live in
-        let (lt1', live1) = fix_endlive lt1 live2 in
-        (Seq lt1' lt2', live1)
-    )
-`
-
-val check_endlive_fixed_def = Define`
-    (
-      check_endlive_fixed (Writes l) live =
-        (T, numset_list_delete l live)
-    ) /\ (
-      check_endlive_fixed (Reads l) live =
-        (EVERY (\x. lookup x live = NONE) l, numset_list_insert l live)
-    ) /\ (
-      check_endlive_fixed (Branch lt1 lt2) live =
-        let (r1, live1) = check_endlive_fixed lt1 live in
-        let (r2, live2) = check_endlive_fixed lt2 live in
-        (r1 /\ r2, numset_list_insert (MAP FST (toAList (difference live2 live1))) live1)
-    ) /\ (
-      check_endlive_fixed (Seq lt1 lt2) live =
-        let (r2, live2) = check_endlive_fixed lt2 live in
-        let (r1, live1) = check_endlive_fixed lt1 live2 in
-        (r1 /\ r2, live1)
-    )`
-
-val check_endlive_fixed_forward_def = Define`
-    (
-      check_endlive_fixed_forward (Writes l) live =
-        (T, numset_list_insert l live)
-    ) /\ (
-      check_endlive_fixed_forward (Reads l) live =
-        (EVERY (\x. lookup x live = SOME ()) l, numset_list_delete l live)
-    ) /\ (
-      check_endlive_fixed_forward (Branch lt1 lt2) live =
-        let (r1, live1) = check_endlive_fixed_forward lt1 live in
-        let (r2, live2) = check_endlive_fixed_forward lt2 live in
-        (r1 /\ r2, numset_list_insert (MAP FST (toAList (difference live2 live1))) live1)
-    ) /\ (
-      check_endlive_fixed_forward (Seq lt1 lt2) live =
-        let (r1, live1) = check_endlive_fixed_forward lt1 live in
-        let (r2, live2) = check_endlive_fixed_forward lt2 live1 in
-        (r1 /\ r2, live2)
-    )`
-
-
-val check_live_tree_forward_def = Define`
-    (
-      check_live_tree_forward f (Writes l) live flive =
-        check_partial_col f l live flive
-    ) /\ (
-      check_live_tree_forward f (Reads l) live flive =
-        let live_out = numset_list_delete l live in
-        let flive_out = numset_list_delete (MAP f l) flive in
-        SOME (live_out, flive_out)
-    ) /\ (
-      check_live_tree_forward f (Branch lt1 lt2) live flive =
-        case check_live_tree_forward f lt1 live flive of
-        | NONE => NONE
-        | SOME (live1, flive1) =>
-        case check_live_tree_forward f lt2 live flive of
-        | NONE => NONE
-        | SOME (live2, flive2) =>
-        check_partial_col f (MAP FST (toAList (difference live2 live1))) live1 flive1
-    ) /\ (
-      check_live_tree_forward f (Seq lt1 lt2) live flive =
-        case check_live_tree_forward f lt1 live flive of
-        | NONE => NONE
-        | SOME (live1, flive1) =>
-          check_live_tree_forward f lt2 live1 flive1
-    )`
-
 val get_live_backward_def = Define`
     (
       get_live_backward (Writes l) live =
@@ -196,33 +111,11 @@ val get_live_backward_def = Define`
         get_live_backward lt1 (get_live_backward lt2 live)
     )`
 
-val get_live_forward_def = Define`
-    (
-      get_live_forward (Writes l) live =
-        numset_list_insert l live
-    ) /\ (
-      get_live_forward (Reads l) live =
-        numset_list_delete l live
-    ) /\ (
-      get_live_forward (Branch lt1 lt2) live =
-        let live1 = get_live_forward lt1 live in
-        let live2 = get_live_forward lt2 live in
-        numset_list_insert (MAP FST (toAList (difference live2 live1))) live1
-    ) /\ (
-      get_live_forward (Seq lt1 lt2) live =
-        let live1 = get_live_forward lt1 live in
-        get_live_forward lt2 (get_live_forward lt1 live)
-    )`
-
 val fix_domination_def = Define`
     fix_domination lt =
         let live = get_live_backward lt LN in
         if live = LN then lt
         else Seq (Writes (MAP FST (toAList live))) lt
-`
-
-val fix_live_tree_def = Define`
-    fix_live_tree lt = fix_domination (FST (fix_endlive lt LN))
 `
 
 val numset_list_add_if_def = Define`
