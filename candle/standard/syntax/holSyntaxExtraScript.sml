@@ -3106,7 +3106,7 @@ val DEPENDENCY_IMP2 = Q.store_thm(
 val DEPENDENCY_EQUIV = Q.store_thm(
   "DEPENDENCY_EQUIV",
   `!x y ctxt. MEM (x,y) (dependency_compute ctxt) = dependency ctxt x y`,
-  EQ_TAC >> rw[DEPENDENCY_IMP1,DEPENDENCY_IMP2]
+  rpt GEN_TAC >> EQ_TAC >> rw[DEPENDENCY_IMP1,DEPENDENCY_IMP2]
 );
 
 (* extension is transitive *)
@@ -3365,7 +3365,7 @@ val orth_ctxt_simps = Q.store_thm("orth_ctxt_simps[simp]",
    /\ orth_ctxt (NewType name arity::ctxt) = orth_ctxt ctxt`,
   rpt conj_tac
   >- (rw[orth_ctxt_def])
-  >- (rw[orth_ctxt_def])      
+  >- (rw[orth_ctxt_def])
   >- (rw[orth_ctxt_def]));
 
 (* TODO: lemmas that should maybe go elsewhere *)
@@ -3580,7 +3580,7 @@ val types_of_rel = Define `
     {t | (?t' e. (R e (INL t') \/ R (INL t') e) /\ MEM t (types_of_type t'))
           \/ (?c e. (R e (INR c) \/ R (INR c) e) /\ MEM t (types_of_type(typeof c)))}
   `
-  
+
 val bounded_subst_def = Define `
 bounded_subst tvs R sigma = (set(MAP FST sigma) ⊆ set(MAP Tyvar tvs) /\
                              ALL_DISTINCT(MAP FST sigma) /\

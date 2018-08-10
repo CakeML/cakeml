@@ -279,7 +279,7 @@ val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
   (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
 (type_rec_tac "SND")
 val _ = export_rewrites["TYPE_SUBST_def"]
-val _ = Parse.overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
+val _ = Parse.temp_overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
 
 (* Substitution for term variables in a term. *)
 
@@ -629,7 +629,7 @@ val is_builtin_type_def = Define`
 `
 
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
- * \sigma by combinations of built-in types. 
+ * \sigma by combinations of built-in types.
  * This corresponds to   types^\bullet : term -> type set  in the publication *)
 val allTypes'_defn = Hol_defn "allTypes'" `
   (allTypes' (Tyapp s tys) =
@@ -668,22 +668,20 @@ val allCInsts_def = Define `
  * This corresponds to \rightsquigarrow in the publication *)
 val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
   `
-  (!ctxt c1 c2 cl name ty cdefn prop.
+  (!ctxt c cl name ty cdefn prop.
        MEM (ConstSpec cl prop) ctxt /\
-       c1 = Const name ty /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
-       MEM c2 (allCInsts cdefn)
+       MEM c (allCInsts cdefn)
        ==>
-       dependency ctxt (INR c1) (INR c2)) /\
-  (!ctxt c t cl prop.
+       dependency ctxt (INR (Const name ty)) (INR c)) /\
+  (!ctxt t cl prop.
        MEM (ConstSpec cl prop) ctxt /\
-       c = Const name ty /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
        MEM t (allTypes cdefn)
        ==>
-       dependency ctxt (INR c) (INL t)) /\
+       dependency ctxt (INR (Const name ty)) (INL t)) /\
   (!ctxt t1 t2 name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM t2 (allTypes pred)
@@ -728,6 +726,17 @@ val dependency_compute_def = Define`
   )
 `
 
+(* exclude declared only constants from the dependency relation *)
+val (dependency1_def,dependency1_ind,dependency1_cases) = Hol_reln`
+  !ctxt x y.
+  ~(?name ty.
+    ISL y /\ x = INR (Const name ty)
+    /\ MEM (NewConst name ty) ctxt
+  )
+  /\ dependency ctxt x y
+  ==> dependency1 ctxt x y
+`;
+
 (* Type-substitutive closure of a relation.
  * Corresponds to \uparrow in the publication *)
 val subst_clos_def = Define `
@@ -742,8 +751,21 @@ val subst_clos_def = Define `
   (subst_clos R (INR c1) (INR c2) =
    (?c1' c2' sigma. c1 = INST sigma c1' /\ c2 = INST sigma c2' /\ R (INR c1') (INR c2')))`
 
+(* The monotonicity criterion of a relation on type+term says that if xRy then
+ * all of y's type variables have to occur in x *)
+val monotone_def = Define`
+  monotone R =
+    !x y. R x y ==>
+    let tys_x = if ISL x then tyvars (OUTL x) else tvars (OUTR x)
+    in let tys_y = if ISL y then tyvars (OUTL y) else tvars (OUTR y)
+    in list_subset tys_x tys_y
+  `;
+
+(* overload is_instance to terms: c is an instance of c0  if  (is_instance c0 c) *)
+val _ = Parse.temp_overload_on("is_instance",``λc0 c. ∃sigma. c = INST sigma c0``)
+
 (* A terminating relation is a relation such that there is no infinite sequence
- *   x_0 R x_1 R x_2 R ... 
+ *   x_0 R x_1 R x_2 R ...
  * of related elements *)
 val terminating_def = Define `
  terminating R = ¬?x. !n. ?y. (NRC R (SUC n) x y)
@@ -753,18 +775,18 @@ val terminating_def = Define `
  * (type,const) definitions are pairwise orthogonal.
  *)
 val orth_ctxt_def = Define `
-  orth_ctxt ctxt = 
+  orth_ctxt ctxt =
   ((!cl1 cl2 prop1 prop2 name1 name2 trm1 trm2.
-    MEM (ConstSpec cl1 prop1) ctxt  
+    MEM (ConstSpec cl1 prop1) ctxt
     /\ MEM (ConstSpec cl2 prop2) ctxt
     /\ MEM (name1,trm1) cl1
     /\ MEM (name2,trm2) cl2
-    /\ (name1,trm1) ≠ (name2,trm2) ==> 
+    /\ (name1,trm1) ≠ (name2,trm2) ==>
        (Const name1 (typeof trm1)) # (Const name2 (typeof trm2))) /\
    (!name1 name2 pred1 pred2 abs1 abs2 rep1 rep2.
-    MEM (TypeDefn name1 pred1 abs1 rep1) ctxt  
+    MEM (TypeDefn name1 pred1 abs1 rep1) ctxt
     /\ MEM (TypeDefn name2 pred2 abs2 rep2) ctxt
-    /\ (name1,pred1,abs1,rep1) ≠ (name2,pred2,abs2,rep2) ==> 
+    /\ (name1,pred1,abs1,rep1) ≠ (name2,pred2,abs2,rep2) ==>
        Tyapp name1 (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred1)))))
        # Tyapp name2 (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred2)))))
    ))
@@ -774,7 +796,7 @@ val orth_ctxt_def = Define `
    of its dependency relation is terminating.
  *)
 val wf_ctxt_def = Define `
-  wf_ctxt ctxt = 
+  wf_ctxt ctxt =
   (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
   `
 
