@@ -2993,6 +2993,7 @@ val good_linear_scan_state_def = Define`
         EVERY (\e,r. EL r sth.colors < st.colornum) st.active /\
         st.colornum <= st.colormax /\
         st.colormax <= st.stacknum /\
+        EVERY (\r. EL r sth.colors < st.colormax ==> EL r sth.colors < st.colornum) l /\
         EVERY (\r. the 0 (lookup r int_beg) <= pos) l /\
         EVERY (\r. ((pos <= the 0 (lookup r int_end) /\ EL r sth.colors < st.colormax) ==> (MEM (the 0 (lookup r int_end), r) st.active))) l /\
         EVERY (\r. ((MEM (the 0 (lookup r int_end), r) st.active) ==> (pos <= 1 + the 0 (lookup r int_end)))) l /\
@@ -3172,6 +3173,7 @@ val find_color_in_list_output = Q.store_thm("find_color_in_list_output",
 val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_invariants",
     `!st forbidden int_beg int_end sth l pos forced.
     good_linear_scan_state int_beg int_end st sth l pos forced /\
+    domain forbidden SUBSET {EL r sth.colors | r | MEM r l} /\
     find_color_in_colornum st forbidden = (stout, SOME col) ==>
     good_linear_scan_state int_beg int_end (stout with colorpool updated_by (\l. col::l)) sth l pos forced /\
     st.colornum <= col /\ col < stout.colornum /\
@@ -3179,57 +3181,35 @@ val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_inva
     col NOTIN domain forbidden /\
     stout.active = st.active`,
 
-    recInduct find_color_in_colornum_ind >>
-    rpt gen_tac >> strip_tac >>
-    once_rewrite_tac [find_color_in_colornum_def] >>
-    rpt gen_tac >> strip_tac >>
-    Cases_on `st.colormax <= st.colornum` >> fs [] >>
-    Cases_on `lookup st.colornum forbidden` >> fs []
-
+    rw [find_color_in_colornum_def] >> rw []
     THEN1 (
       fs [good_linear_scan_state_def] >>
       rveq >>
       fs [EVERY_MEM, FORALL_PROD] >> rw []
       THEN1 (
         CCONTR_TAC >> fs [] >>
-        res_tac >>
-        intLib.COOPER_TAC
+        res_tac >> intLib.COOPER_TAC
       )
       THEN1 (
         CCONTR_TAC >> fs [MEM_MAP, EXISTS_PROD] >>
-        res_tac >>
-        intLib.COOPER_TAC
+        res_tac >> intLib.COOPER_TAC
       ) >>
       fs [lookup_NONE_domain] >>
-      res_tac >>
-      intLib.COOPER_TAC
+      res_tac >> intLib.COOPER_TAC
     )
     THEN1 (
-      sg `good_linear_scan_state int_beg int_end (st with <| colorpool updated_by (\l. st.colornum::l); colornum updated_by $+ 1 |>) sth l pos forced` THEN1 (
-        qpat_x_assum `!x x x x x x. _ ==> _` kall_tac >>
-        fs [good_linear_scan_state_def] >>
-        fs [EVERY_MEM, FORALL_PROD] >> rw []
-        THEN1 (
-          CCONTR_TAC >> fs [] >>
-          res_tac >>
-          intLib.COOPER_TAC
-        )
-        THEN1 (
-          CCONTR_TAC >> fs [MEM_MAP, EXISTS_PROD] >>
-          res_tac >>
-          intLib.COOPER_TAC
-        ) >>
-        res_tac >>
-        intLib.COOPER_TAC
-      ) >>
-      res_tac >>
-      rw []
+      CCONTR_TAC >> fs [good_linear_scan_state_def] >>
+      `st.colornum IN {EL r sth.colors | r | MEM r l}` by fs [SUBSET_DEF] >>
+      fs [EVERY_MEM] >>
+      rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+      rfs []
     )
 )
 
 val find_color_invariants = Q.store_thm("find_color_invariants",
     `!st forbidden stout col int_beg int_end sth l pos forced.
     good_linear_scan_state int_beg int_end st sth l pos forced /\
+    domain forbidden SUBSET {EL r sth.colors | r | MEM r l} /\
     find_color st forbidden = (stout, SOME col) ==>
     good_linear_scan_state int_beg int_end (stout with colorpool updated_by (\l. col::l)) sth l pos forced /\
     col < stout.colornum /\
@@ -3412,8 +3392,10 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         metis_tac []
     )
     THEN1 fs [EL_LUPDATE]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 fs [EL_LUPDATE, EVERY_MEM]
     THEN1 fs [MEM_FILTER]
+    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
     THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
     THEN1 rw []
     THEN1 metis_tac [forced_update_stack_color_lemma]
@@ -3756,6 +3738,11 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
       rw [EL_LUPDATE] >>
       fs [EVERY_MEM, FORALL_PROD] >>
       metis_tac []
+    )
+    THEN1 fs [EL_LUPDATE, EVERY_MEM]
+    THEN1 (
+        fs [EL_LUPDATE, EVERY_MEM] >>
+        rw []
     )
     THEN1 (
       imp_res_tac add_active_interval_output >> fs [] >>

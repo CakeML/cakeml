@@ -487,21 +487,13 @@ val find_color_in_list_def = Define`
           | SOME (col, rest) => SOME (col, r::rest)
   )`
 
-val find_color_in_colornum_def = tDefine "find_color_in_colornum" `
+val find_color_in_colornum_def = Define`
     find_color_in_colornum st forbidden =
         if st.colormax <= st.colornum then
           (st, NONE)
         else
-          let reg = st.colornum in
-          let st' = st with colornum  updated_by ($+1) in
-          if lookup reg forbidden = NONE then
-            (st', SOME reg)
-          else
-            find_color_in_colornum (st' with colorpool updated_by (\l.  reg::l)) forbidden
-`(
-    WF_REL_TAC `measure (\(st, _). st.colormax - st.colornum)` >>
-    rw []
-);
+          (st with colornum  updated_by ($+1), SOME st.colornum)
+`
 
 val find_color_def = Define`
     find_color st forbidden =
