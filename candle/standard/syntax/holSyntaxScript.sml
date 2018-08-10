@@ -585,7 +585,7 @@ val _ = Parse.overload_on("thyof",``λctxt:update list. (sigof ctxt, axsof ctxt)
 
 (* Orthogonality criterion for constant instance and type definitions *)
 val orth_ty_def = Define `
-  orth_ty (ty1 :type) (ty2 :type) = ~((is_instance ty1 ty2) \/ (is_instance ty2 ty1))
+  orth_ty (ty1 :type) (ty2 :type) = ~(?ty. (is_instance ty1 ty) /\ (is_instance ty2 ty))
 `;
 val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
 val _ = Parse.temp_overload_on("#", ``$orth_ty``)
