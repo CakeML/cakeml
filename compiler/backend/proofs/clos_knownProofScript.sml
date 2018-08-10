@@ -3185,7 +3185,6 @@ val known_correct0 = Q.prove(
           \\ rpt (pairarg_tac \\ fs []) \\ rw []
           \\ goal_assum drule \\ simp []
           \\ metis_tac [nil_unique_set_globals, unique_set_globals_evaluate]))
-
       \\ rveq \\ fs []
       \\ `?apx gg. known (reset_inline_factor c) [exp1] [] (next_g s1) =
                    ([(r0, apx)], next_g (s1 with compile_oracle := shift_seq 1 s1.compile_oracle))`
@@ -3217,12 +3216,15 @@ val known_correct0 = Q.prove(
       \\ `esgc_free exp1` by (fs [ssgc_free_def, shift_seq_def, shift_seq_def] \\ metis_tac [SND])
       \\ `fv_max 0 [exp1]` by (fs [state_rel_def] \\ metis_tac [SND, FST])
       \\ simp []
-
       \\ conj_tac
       THEN1 (fs [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
              \\ metis_tac [FST, SND])
       \\ conj_tac
-      THEN1 cheat (* oracle_gapprox_disjoint *)
+      THEN1 (qpat_assum `oracle_gapprox_disjoint (next_g s1) _`
+                        (mp_then Any mp_tac oracle_gapprox_disjoint_Install)
+             \\ simp [] \\ disch_then drule
+             \\ simp [next_g_def] \\ disch_then irule
+             \\ metis_tac [nil_unique_set_globals, unique_set_globals_shift_seq])
       \\ conj_tac
       THEN1 (fs [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def, shift_seq_def])
       \\ conj_tac
