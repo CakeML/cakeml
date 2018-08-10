@@ -10,11 +10,9 @@ val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
-(* TODO: move*)
-
-(* cf. similar TODO in cmlPtreeConversionScript.sml *)
 val _ = temp_overload_on ("lift", ``OPTION_MAP``)
-(* -- *)
+
+(* TODO: move*)
 
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
@@ -102,7 +100,8 @@ val dec_ind =
   |> SIMP_RULE list_ss []
   |> UNDISCH_ALL |> CONJUNCT1
   |> DISCH_ALL |> Q.GEN`P`
-(* -- *)
+
+(* end TODO *)
 
 val encode_control_def = Define`
   (encode_control "" = "") ∧
