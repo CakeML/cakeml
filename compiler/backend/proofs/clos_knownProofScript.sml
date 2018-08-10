@@ -3232,9 +3232,14 @@ val known_correct0 = Q.prove(
       THEN1 (`next_g s1 = FST (FST (s0.compile_oracle kk))` by fs [next_g_def, shift_seq_def]
              \\ fs [oracle_state_sgc_free_def])
       \\ conj_tac
-      THEN1 cheat (*(patresolve `evaluate (_, _, s0) = _` (el 2) known_correct_approx
+      THEN1 (patresolve `evaluate (_, _, s0) = _` (el 2) known_correct_approx
              \\ rpt (disch_then drule \\ simp [])
-             \\ metis_tac [subspt_trans])*)
+             \\ impl_tac THEN1 metis_tac [state_globals_approx_subspt, oracle_gapprox_disjoint_subspt]
+             \\ simp [] \\ strip_tac
+             \\ irule state_globals_approx_known_mglobals_disjoint
+             \\ fs [next_g_def] \\ goal_assum drule \\ simp []
+             \\ fs [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
+             \\ metis_tac [FST, SND])
       \\ conj_tac
       THEN1 cheat (* simp [next_g_def, shift_seq_def, oracle_states_subspt_alt]*)
       \\ conj_tac
