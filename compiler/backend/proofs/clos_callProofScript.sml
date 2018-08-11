@@ -1623,6 +1623,17 @@ val LENGTH_ZIP_MIN = store_thm("LENGTH_ZIP_MIN", (* TODO: move *)
   Induct \\ fs [LENGTH,ZIP_def]
   \\ Cases_on `ys` \\ fs [LENGTH,ZIP_def] \\ fs [MIN_DEF]);
 
+val env_rel_env_exists = store_thm("env_rel_env_exists",
+  ``!vars. EVERY (wfv g1 l1) env ==>
+           ?env5. env_rel (v_rel g1 l1) env env5 0 vars /\
+                  LENGTH env5 = LENGTH env``,
+  strip_tac \\ Induct_on `env`
+  THEN1 (fs [env_rel_def] \\ metis_tac [])
+  \\ rw [] \\ res_tac \\ fs []
+  \\ imp_res_tac v_rel_exists
+  \\ qexists_tac `v2::env5`
+  \\ fs [env_rel_def]);
+
 (* compiler correctness *)
 
 val t0 = ``t0:('c,'ffi) closSem$state``;
@@ -2600,21 +2611,21 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rfs[wfg_def,SUBSET_DEF,PULL_EXISTS]
       \\ metis_tac[])
     \\ strip_tac \\ fs[]
-    \\ `env_rel (v_rel g1 l1) env env2 0 (MAP (λx. (0,x)) e1)` by cheat
-    \\ disch_then(qspecl_then[`env2`,`t`]mp_tac)
-    \\ disch_then(qspecl_then[`l1`,`g1`]mp_tac)
-    \\ `set (code_locs [x1]) DIFF domain (FST g) ⊆ l1` by fs [SUBSET_DEF]
-    \\ `code_includes (SND g) t.code` by
-         (imp_res_tac evaluate_mono \\ fs[]
-          \\ fs[env_rel_def,fv1_thm]
-          \\ metis_tac[code_includes_SUBMAP])
-    \\ fs []
-    \\ strip_tac \\ rveq
     \\ qpat_x_assum`_ = (ys,_)`mp_tac
     \\ qmatch_goalsub_abbrev_tac`COND b`
-    \\ reverse IF_CASES_TAC \\ fs[]
-    >- (
-      strip_tac \\ rveq
+    \\ reverse IF_CASES_TAC \\ fs[] >- (
+      `env_rel (v_rel g1 l1) env env2 0 (MAP (λx. (0,x)) e1)` by
+         (first_x_assum match_mp_tac \\ fs [markerTheory.Abbrev_def])
+      \\ strip_tac
+      \\ disch_then(qspecl_then[`env2`,`t`]mp_tac)
+      \\ disch_then(qspecl_then[`l1`,`g1`]mp_tac)
+      \\ `set (code_locs [x1]) DIFF domain (FST g) ⊆ l1` by fs [SUBSET_DEF]
+      \\ `code_includes (SND g) t.code` by
+           (imp_res_tac evaluate_mono \\ fs[]
+            \\ fs[env_rel_def,fv1_thm]
+            \\ metis_tac[code_includes_SUBMAP])
+      \\ fs []
+      \\ strip_tac \\ rveq
       \\ simp[evaluate_def]
       \\ imp_res_tac calls_length
       \\ simp[]
@@ -2658,7 +2669,18 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]
     \\ simp[evaluate_def]
     >- (
-      drule (Q.GEN`s`pure_correct |> INST_TYPE [``:'c``|->``:calls_state # 'c``])
+      `?env5. env_rel (v_rel g1 l1) env env5 0 (MAP (λx. (0,x)) e1)` by
+          metis_tac [env_rel_env_exists]
+      \\ disch_then(qspecl_then[`env5`,`t`]mp_tac)
+      \\ disch_then(qspecl_then[`l1`,`g1`]mp_tac)
+      \\ `set (code_locs [x1]) DIFF domain (FST g) ⊆ l1` by fs [SUBSET_DEF]
+      \\ `code_includes (SND g) t.code` by
+           (imp_res_tac evaluate_mono \\ fs[]
+            \\ fs[env_rel_def,fv1_thm]
+            \\ metis_tac[code_includes_SUBMAP])
+      \\ fs []
+      \\ strip_tac \\ rveq
+      \\ drule (Q.GEN`s`pure_correct |> INST_TYPE [``:'c``|->``:calls_state # 'c``])
       \\ disch_then(qspec_then`r`mp_tac)
       \\ simp[]
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -2735,6 +2757,16 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ TOP_CASE_TAC \\ fs []
       \\ TOP_CASE_TAC \\ fs []
       \\ imp_res_tac evaluate_SING \\ rveq \\ fs [])
+    \\ `env_rel (v_rel g1 l1) env env2 0 (MAP (λx. (0,x)) e1)` by fs []
+    \\ disch_then(qspecl_then[`env2`,`t`]mp_tac)
+    \\ disch_then(qspecl_then[`l1`,`g1`]mp_tac)
+    \\ `set (code_locs [x1]) DIFF domain (FST g) ⊆ l1` by fs [SUBSET_DEF]
+    \\ `code_includes (SND g) t.code` by
+         (imp_res_tac evaluate_mono \\ fs[]
+          \\ fs[env_rel_def,fv1_thm]
+          \\ metis_tac[code_includes_SUBMAP])
+    \\ fs []
+    \\ strip_tac \\ rveq
     \\ simp[evaluate_append]
     \\ imp_res_tac calls_length
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2,evaluate_GENLIST_Var_tra]
