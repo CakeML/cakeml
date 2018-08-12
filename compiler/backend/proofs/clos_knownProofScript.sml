@@ -2909,7 +2909,6 @@ val state_oracle_mglobals_disjoint_evaluate_suff = Q.store_thm(
          \\ cheat (* should follow from !n. BAG_ALL_DISTINCT (elist_globals (first_n_exps s0.compile_oracle n)) and
                      x ⋲ elist_globals (first_n_exps s0.compile_oracle n') *)));
 
-
 val say = say0 "known_correct0";
 
 val known_correct0 = Q.prove(
@@ -3116,7 +3115,6 @@ val known_correct0 = Q.prove(
        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
            \\ goal_assum drule \\ simp [])
     \\ Cases_on `opn = Install` \\ fs []
-
     THEN1
      (drule EVERY2_REVERSE \\ strip_tac
       \\ rename1 `evaluate (_, _, s0) = (Rval vs1, _)`
@@ -3264,8 +3262,6 @@ val known_correct0 = Q.prove(
              THEN1 (pop_assum (qspec_then `n + 1` assume_tac)
                     \\ fs [first_n_exps_shift_seq, first_n_exps_def,
                            BAG_ALL_DISTINCT_BAG_UNION])))
-
-    \\ cheat (*
     \\ Cases_on `isGlobal opn /\ gO_destApx apx <> gO_None`
     THEN1
      (fs []
@@ -3274,35 +3270,49 @@ val known_correct0 = Q.prove(
       \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
       \\ imp_res_tac known_LENGTH_EQ_E \\ fs [LENGTH_NIL_SYM] \\ rveq
       \\ fs [evaluate_def, do_app_def] \\ rveq \\ fs []
-      \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq
+      \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ rename1 `lookup nn gg`
       \\ Cases_on `lookup nn gg` \\ fs [] \\ rveq
-      \\ fs [state_globals_approx_def, subspt_def]
-      \\ qmatch_asmsub_abbrev_tac `lookup nn gg = SOME apx`
-      \\ `lookup nn g' = SOME apx` by metis_tac [domain_lookup]
-      \\ drule state_rel_get_global_IMP
-      \\ disch_then drule \\ strip_tac
-      \\ res_tac
-      \\ unabbrev_all_tac
+      \\ `state_globals_approx s gg` by metis_tac [state_globals_approx_subspt]
+      \\ imp_res_tac subspt_lookup \\ fs []
+      \\ fs [state_globals_approx_def] \\ res_tac
       \\ fs [])
+
     THEN1
-     (rename1 `Op tr opn (MAP FST ea1)`
-      \\ qmatch_goalsub_abbrev_tac `evaluate ([opexp],_,_)`
-      \\ `opexp = Op tr opn (MAP FST ea1)`
-         by (Cases_on `isGlobal opn` \\ fs [] \\ rfs [])
-      \\ pop_assum SUBST_ALL_TAC
-      \\ qpat_x_assum `~(_ /\  _)` kall_tac
+     (fs []
       \\ simp [evaluate_def]
       \\ qmatch_asmsub_abbrev_tac `do_app _ vvs _`
       \\ qmatch_goalsub_abbrev_tac `do_app _ wws _`
       \\ drule do_app_lemma
       \\ disch_then (qspecl_then [`vvs`, `wws`, `opn`] mp_tac)
-      \\ impl_tac THEN1 metis_tac [EVERY2_REVERSE]
+      \\ `LIST_REL (v_rel c) vvs wws` by metis_tac [EVERY2_REVERSE]
       \\ fs [case_eq_thms, pair_case_eq]
       \\ rveq \\ fs []
       \\ strip_tac \\ fs []
-      \\ metis_tac [v_rel_subspt, state_rel_subspt])*))
+      \\ imp_res_tac do_app_const \\ fs [next_g_def]
+      \\ drule known_correct_approx
+      \\ disch_then drule \\ simp []
+      \\ `state_globals_approx s0 g0 ∧ oracle_gapprox_disjoint g0 s0.compile_oracle`
+         by metis_tac [state_globals_approx_subspt, oracle_gapprox_disjoint_subspt]
+      \\ simp [] \\ strip_tac
+      \\ qpat_assum `do_app _ _ s1 = _` (mp_then Any mp_tac known_op_correct_approx)
+      \\ disch_then drule \\ simp [Abbr `vvs`] \\ strip_tac
+      \\ cheat
+      (* This case seems to require a change in assumptions.
 
+
+      \\ fs [state_globals_approx_def] \\ rw []
+      \\ res_tac
+
+      \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
+         by (patresolve `evaluate (_, _, s0) = _` hd evaluate_changed_globals
+             \\ simp [] \\ strip_tac)
+      \\ patresolve `do_app _ _ s1 = _` hd do_app_ssgc
+      \\ simp [Abbr `vvs`, EVERY_REVERSE] \\ strip_tac
+
+
+      \\ fs [mglobals_extend_def, state_globals_approx_def] \\ rw []
+      \\ res_tac *)))
   THEN1
    (say "Fn"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
