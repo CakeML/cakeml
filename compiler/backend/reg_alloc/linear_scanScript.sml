@@ -33,14 +33,6 @@ val numset_list_insert_nottailrec_def = Define`
   (numset_list_insert_nottailrec [] t = t) ∧
   (numset_list_insert_nottailrec (x::xs) t = insert x () (numset_list_insert_nottailrec xs t))`
 
-val is_subset_def = Define`
-    is_subset s1 s2 <=> (domain s1) SUBSET (domain s2)
-`
-
-val is_subset_compute_def = Define`
-    is_subset_compute s1 s2 <=> EVERY (\(x,y). lookup x s2 <> NONE) (toAList s1)
-`
-
 val get_live_tree_def = Define`
     (
       get_live_tree (reg_alloc$Delta wr rd) =
@@ -71,9 +63,9 @@ val check_live_tree_def = Define`
         case check_partial_col f l live flive of
         | NONE => NONE
         | SOME _ =>
-        let live_out = numset_list_delete l live in
-        let flive_out = numset_list_delete (MAP f l) flive in
-        SOME (live_out, flive_out)
+        let livein = numset_list_delete l live in
+        let flivein = numset_list_delete (MAP f l) flive in
+        SOME (livein, flivein)
     ) /\ (
       check_live_tree f (Reads l) live flive =
         check_partial_col f l live flive
@@ -81,17 +73,17 @@ val check_live_tree_def = Define`
       check_live_tree f (Branch lt1 lt2) live flive =
         case check_live_tree f lt1 live flive of
         | NONE => NONE
-        | SOME (live1, flive1) =>
+        | SOME (livein1, flivein1) =>
         case check_live_tree f lt2 live flive of
         | NONE => NONE
-        | SOME (live2, flive2) =>
-        check_partial_col f (MAP FST (toAList (difference live2 live1))) live1 flive1
+        | SOME (livein2, flivein2) =>
+        check_partial_col f (MAP FST (toAList (difference livein2 livein1))) livein1 flivein1
     ) /\ (
       check_live_tree f (Seq lt1 lt2) live flive =
         case check_live_tree f lt2 live flive of
         | NONE => NONE
-        | SOME (live2, flive2) =>
-          check_live_tree f lt1 live2 flive2
+        | SOME (livein2, flivein2) =>
+          check_live_tree f lt1 livein2 flivein2
     )`
 
 val get_live_backward_def = Define`
