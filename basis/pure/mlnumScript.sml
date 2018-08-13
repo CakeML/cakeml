@@ -1,3 +1,10 @@
+(*
+  Pure functions for the Num module.
+
+  Num is like Int but when we can assume the integers are non-negative. num and
+  int are distinct types in HOL even though they are represented by the same
+  type (int) in CakeML.
+*)
 open preamble mlstringTheory mlintTheory
 
 val _ = new_theory "mlnum";

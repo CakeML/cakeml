@@ -1,3 +1,6 @@
+(*
+  More ML functions for manipulating HOL terms involving mlstrings.
+*)
 structure mlstringLib :> mlstringLib = struct
 
 open HolKernel boolLib bossLib lcsymtacs

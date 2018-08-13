@@ -1,3 +1,9 @@
+(*
+  Pure functions for the PrettyPrinter module.
+
+  These are generally functions for converting an element of a CakeML type to
+  an mlstring app_list (representing that element).
+*)
 open
   preamble
   mlstringTheory

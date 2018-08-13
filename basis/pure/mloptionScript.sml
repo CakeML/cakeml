@@ -1,3 +1,6 @@
+(*
+  Pure functions for the Option module.
+*)
 open preamble
 
 val _ = new_theory"mloption"
