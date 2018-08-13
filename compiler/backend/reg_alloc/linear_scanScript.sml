@@ -258,7 +258,7 @@ val check_startlive_prop_def = Define`
 
 val live_tree_registers_def = Define`
     (live_tree_registers (Writes l) = set l) /\
-    (live_tree_registers (Reads l) = EMPTY) /\
+    (live_tree_registers (Reads l) = set l) /\
     (live_tree_registers (Branch lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2) /\
     (live_tree_registers (Seq lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2)
 `

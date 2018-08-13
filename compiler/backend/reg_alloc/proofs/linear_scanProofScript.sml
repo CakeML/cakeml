@@ -1333,7 +1333,7 @@ val get_intervals_withlive_registers_subset_beg = Q.store_thm("get_intervals_wit
     domain end_out SUBSET domain beg_out UNION domain (get_live_backward lt live_in)`,
 
     Induct_on `lt` >>
-    rw [get_intervals_withlive_def, get_live_backward_def, live_tree_registers_def]
+    rw [get_intervals_withlive_def, get_live_backward_def]
 
     (* Writes *)
     THEN1 (
@@ -1391,40 +1391,33 @@ val get_intervals_withlive_registers_subset_beg = Q.store_thm("get_intervals_wit
 
 val get_intervals_withlive_live_tree_registers_subset_endout = Q.store_thm("get_intervals_withlive_live_tree_registers_subset_endout",
     `!lt n_in beg_in end_in live_in n_out beg_out end_out.
-    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live_in /\
-    domain live_in SUBSET domain end_in ==>
-    domain end_in UNION live_tree_registers lt UNION domain (get_live_backward lt live_in) SUBSET domain end_out`,
+    (n_out, beg_out, end_out) = get_intervals_withlive lt n_in beg_in end_in live_in ==>
+    domain end_in UNION live_tree_registers lt SUBSET domain end_out`,
 
     Induct_on `lt` >>
-    simp [get_intervals_withlive_def, live_tree_registers_def, get_live_backward_def] >>
+    simp [get_intervals_withlive_def, live_tree_registers_def] >>
     rpt (gen_tac ORELSE disch_tac)
-
     (* Writes *)
     THEN1 (
         fs [domain_numset_list_delete, domain_numset_list_add_if_gt, SUBSET_DEF]
     )
-
     (* Reads *)
     THEN1 (
-        fs [domain_numset_list_insert, domain_numset_list_add_if_gt, SUBSET_DEF] >>
-        rw [] >> rw []
+        fs [domain_numset_list_insert, domain_numset_list_add_if_gt, SUBSET_DEF]
     )
-
     (* Branch *)
     THEN1 (
-        rpt (pairarg_tac >> fs []) >>
-        simp [domain_numset_list_insert, branch_domain] >>
-        `domain end_in UNION live_tree_registers lt' UNION domain (get_live_backward lt' live_in) SUBSET domain int_end2` by (fs [] >> metis_tac []) >>
-        `domain live_in SUBSET domain int_end2` by fs [SUBSET_DEF] >>
-        `domain int_end2 UNION live_tree_registers lt UNION domain (get_live_backward lt live_in) SUBSET domain int_end1` by (fs [] >> metis_tac []) >>
-        fs [SUBSET_DEF]
+        rpt (pairarg_tac >> FULL_SIMP_TAC std_ss []) >>
+        `domain end_in UNION live_tree_registers lt' SUBSET domain int_end2` by metis_tac [] >>
+        `domain int_end2 UNION live_tree_registers lt SUBSET domain end_out` by metis_tac [] >>
+        fs [SUBSET_DEF] >>
+        rw []
     )
-
     (* Seq *)
     THEN1 (
-        rpt (pairarg_tac >> fs []) >>
-        `domain end_in UNION live_tree_registers lt' UNION domain (get_live_backward lt' live_in) SUBSET domain int_end2` by (fs [] >> metis_tac []) >>
-        `domain int_end2 UNION live_tree_registers lt UNION domain (get_live_backward lt (get_live_backward lt' live_in)) SUBSET domain int_end1` by (fs [] >> metis_tac []) >>
+        rpt (pairarg_tac >> FULL_SIMP_TAC std_ss []) >>
+        `domain end_in UNION live_tree_registers lt' SUBSET domain int_end2` by metis_tac [] >>
+        `domain int_end2 UNION live_tree_registers lt SUBSET domain int_end1` by metis_tac [] >>
         fs [SUBSET_DEF]
     )
 )
@@ -1573,6 +1566,7 @@ val check_number_property_subset_endout = Q.store_thm("check_number_property_sub
         `int_end2 = int_end2'` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
         rveq >>
         imp_res_tac get_intervals_withlive_live_tree_registers_subset_endout >> fs [] >>
+        imp_res_tac check_number_property_strong_end >> fs [] >>
         metis_tac []
     )
 )
