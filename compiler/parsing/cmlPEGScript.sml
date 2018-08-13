@@ -1,3 +1,8 @@
+(*
+  Definition of the PEG for CakeML.
+  Includes a proof that the PEG is well-formed.
+*)
+
 open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
 

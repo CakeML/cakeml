@@ -4,7 +4,7 @@ The CakeML code for the pure parts of the basis is produced
 from these by the translator.
 
 [basisComputeLib.sml](basisComputeLib.sml):
-compset for pure basis functions
+compset for the pure basis functions.
 
 [mlintScript.sml](mlintScript.sml):
 Pure functions for the Int module.

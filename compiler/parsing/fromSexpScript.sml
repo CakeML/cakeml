@@ -1,3 +1,11 @@
+(*
+  Definitions of functions for conversion between an S-expression encoding of
+  the CakeML abstract syntax and the abstract syntax type itself.
+
+  The S-expressions are parsed as *per* the PEG in HOL’s
+  `examples/formal-language/context-free/simpleSexpPEGScript.sml`.
+*)
+
 open preamble match_goal
 open simpleSexpTheory astTheory
 

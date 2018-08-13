@@ -1,5 +1,5 @@
 (*
-  compset for pure basis functions
+  compset for the pure basis functions.
 *)
 structure basisComputeLib :> basisComputeLib = struct
 open mlstringTheory mlintTheory

@@ -1,3 +1,11 @@
+(*
+  Definition of the lexer: code for consuming tokens until a top-level
+  semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
+  structures, signatures, and between parentheses).
+
+  TODO: update this description if it is incorrect.
+*)
+
 open preamble tokensTheory lexer_funTheory
 
 val _ = new_theory "lexer_impl";
