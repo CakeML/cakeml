@@ -636,6 +636,10 @@ val list_max_intro = Q.store_thm("list_max_intro",`
   Induct>>full_simp_tac(srw_ss())[list_max_def]>>srw_tac[][]>>
   IF_CASES_TAC>>full_simp_tac(srw_ss())[]);
 
+val FOLDR_MAX_0_list_max = Q.store_thm("FOLDR_MAX_0_list_max",
+  `∀ls. FOLDR MAX 0 ls = list_max ls`,
+  Induct \\ rw[list_max_def] \\ rw[MAX_DEF]);
+
 val list_inter_def = Define `
   list_inter xs ys = FILTER (\y. MEM y xs) ys`;
 
@@ -1814,6 +1818,14 @@ NB: this is weaker:
 val MAP_EQ_MAP_IMP = save_thm("MAP_EQ_MAP_IMP",
   INJ_MAP_EQ |> SIMP_RULE (srw_ss()) [INJ_DEF]);
 *)
+
+val INJ_MAP_EQ_2 = Q.store_thm("INJ_MAP_EQ_2",
+  `∀f l1 l2.
+   (∀x y. x ∈ set l1 ∧ y ∈ set l2 ∧ f x = f y ⇒ x = y) ∧
+   MAP f l1 = MAP f l2 ⇒
+   l1 = l2`,
+  gen_tac \\ Induct \\ rw[]
+  \\ Cases_on`l2` \\ pop_assum mp_tac \\ rw[]);
 
 val LENGTH_EQ_FILTER_FILTER = Q.store_thm("LENGTH_EQ_FILTER_FILTER",
   `!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
