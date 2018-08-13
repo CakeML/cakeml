@@ -36,6 +36,3 @@ The CakeML parser.
 
 [proofs](proofs):
 Correctness proof for the CakeML compiler.
-
-[testingScript.sml](testingScript.sml):
-TODO: to be deleted
