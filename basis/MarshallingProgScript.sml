@@ -1,9 +1,9 @@
 open preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
-     CommandLineProgTheory MarshallingTheory Word8ArrayProofTheory
+     ArgParseProgTheory MarshallingTheory Word8ArrayProofTheory
 
 val _ = new_theory "MarshallingProg";
 
-val _ = translation_extends "CommandLineProg";
+val _ = translation_extends "ArgParseProg";
 
 (* Word8 module -- translated *)
 
