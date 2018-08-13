@@ -666,7 +666,7 @@ val deBruijn_inc_ts_tid_rename = Q.prove(`
 val lookup_varE_remap_tenvE = Q.prove(`
   ∀n tenvE.
   lookup_varE n (remap_tenvE f tenvE)
-  = lift (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)`,
+  = OPTION_MAP (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)`,
   fs[lookup_varE_def]>>Cases>>fs[]>>
   qabbrev_tac`n=0n`>>
   pop_assum kall_tac>>qid_spec_tac`n`>>
