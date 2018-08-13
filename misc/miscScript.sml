@@ -310,6 +310,11 @@ val LIST_REL_APPEND_EQ = Q.store_thm("LIST_REL_APPEND_EQ",
    (LIST_REL R (x1 ++ y1) (x2 ++ y2) <=> LIST_REL R x1 x2 /\ LIST_REL R y1 y2)`,
   metis_tac[LIST_REL_APPEND_IMP, EVERY2_LENGTH, EVERY2_APPEND_suff]);
 
+val LIST_REL_inv_image_MAP = Q.store_thm("LIST_REL_inv_image_MAP",
+  `LIST_REL (inv_image R f) l1 l2 = LIST_REL R (MAP f l1) (MAP f l2)`,
+  rw[LIST_REL_EL_EQN, EQ_IMP_THM, EL_MAP]
+  \\ metis_tac[EL_MAP]);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
@@ -543,6 +548,45 @@ val EVERY_ZIP = Q.store_thm ("EVERY_ZIP",
   Cases_on `h` >>
   full_simp_tac(srw_ss())[] >>
   metis_tac []);
+
+val every_zip_split = Q.store_thm("every_zip_split",
+  `!l1 l2 P Q.
+    LENGTH l1 = LENGTH l2 ⇒
+    (EVERY (\(x,y). P x ∧ Q y) (ZIP (l1, l2)) ⇔ EVERY P l1 ∧ EVERY Q l2)`,
+ Induct_on `l1`
+ >> simp []
+ >> Cases_on `l2`
+ >> rw []
+ >> metis_tac []);
+
+val every_shim = Q.store_thm("every_shim",
+`!l P. EVERY (\(x,y). P y) l = EVERY P (MAP SND l)`,
+Induct_on `l` >>
+rw [] >>
+PairCases_on `h` >>
+rw []);
+
+val every_shim2 = Q.store_thm("every_shim2",
+`!l P Q. EVERY (\(x,y). P x ∧ Q y) l = (EVERY (\x. P (FST x)) l ∧ EVERY (\x. Q (SND x)) l)`,
+Induct_on `l` >>
+rw [] >>
+PairCases_on `h` >>
+rw [] >>
+metis_tac []);
+
+val MEM_ZIP2 = Q.store_thm("MEM_ZIP2",`
+  ∀l1 l2 x.
+  MEM x (ZIP (l1,l2)) ⇒
+  ∃n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ x = (EL n l1,EL n l2)`,
+  Induct>>fs[ZIP_def]>>
+  Cases_on`l2`>>fs[ZIP_def]>>
+  rw[]
+  >-
+    (qexists_tac`0n`>>fs[])
+  >>
+    first_x_assum drule>>
+    rw[]>>
+    qexists_tac`SUC n`>>fs[]);
 
 val ZIP_MAP_FST_SND_EQ = Q.store_thm("ZIP_MAP_FST_SND_EQ",
   `∀ls. ZIP (MAP FST ls,MAP SND ls) = ls`,
@@ -1624,6 +1668,10 @@ val o_f_cong = Q.store_thm("o_f_cong",
   SRW_TAC[DNF_ss][GSYM fmap_EQ_THM,FRANGE_DEF])
 val _ = DefnBase.export_cong"o_f_cong"
 
+val o_f_id = Q.store_thm("o_f_id",
+`!m. (\x.x) o_f m = m`,
+rw [fmap_EXT]);
+
 val plus_compose = Q.store_thm("plus_compose",
   `!n:num m. $+ n o $+ m = $+ (n + m)`,
   SRW_TAC[ARITH_ss][FUN_EQ_THM])
@@ -1719,6 +1767,9 @@ MAP_ZIP
 |> MATCH_ACCEPT_TAC))
 
 (* Specialisations to identity function *)
+
+val I_PERMUTES = Q.store_thm("I_PERMUTES[simp]",
+  `I PERMUTES s`, rw[BIJ_DEF, INJ_DEF, SURJ_DEF]);
 
 val INJ_I = Q.store_thm(
 "INJ_I",
@@ -2075,6 +2126,31 @@ val MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same = Q.store_thm("MAP_ZIP_UPDATE_LIST_ALL
   Induct >> simp[LENGTH_NIL_SYM] >>
   gen_tac >> Cases >> simp[UPDATE_LIST_THM] >>
   simp[UPDATE_LIST_NOT_MEM,MAP_ZIP,combinTheory.APPLY_UPDATE_THM])
+
+val flookup_update_list_none = Q.store_thm ("flookup_update_list_none",
+`!x m l.
+  (FLOOKUP (m |++ l) x = NONE)
+  =
+  ((FLOOKUP m x = NONE) ∧ (ALOOKUP l x = NONE))`,
+ rw [flookup_fupdate_list] >>
+ every_case_tac >>
+ fs [flookup_thm, ALOOKUP_FAILS] >>
+ imp_res_tac ALOOKUP_MEM >>
+ fs [] >>
+ metis_tac []);
+
+val flookup_update_list_some = Q.store_thm ("flookup_update_list_some",
+`!x m l y.
+  (FLOOKUP (m |++ l) x = SOME y)
+  =
+  ((ALOOKUP (REVERSE l) x = SOME y) ∨
+   ((ALOOKUP l x = NONE) ∧ (FLOOKUP m x = SOME y)))`,
+ rw [flookup_fupdate_list] >>
+ every_case_tac >>
+ fs [flookup_thm, ALOOKUP_FAILS] >>
+ imp_res_tac ALOOKUP_MEM >>
+ fs [] >>
+ metis_tac []);
 
 val MULT_LE_EXP = Q.store_thm("MULT_LE_EXP",
   `∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b`,
@@ -3184,6 +3260,11 @@ val DISJOINT_FEVERY_FUNION = Q.store_thm("DISJOINT_FEVERY_FUNION",
   \\ CASE_TAC
   \\ fs[FLOOKUP_DEF]
   \\ metis_tac[]);
+
+val fevery_to_drestrict = Q.store_thm("fevery_to_drestrict",
+`!P m s.
+  FEVERY P m ⇒ FEVERY P (DRESTRICT m s)`,
+ rw [FEVERY_ALL_FLOOKUP,FLOOKUP_DRESTRICT]);
 
 val EVERY_FLAT = Q.store_thm("EVERY_FLAT",
   `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`,

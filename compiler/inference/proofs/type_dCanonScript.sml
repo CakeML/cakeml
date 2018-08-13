@@ -442,16 +442,6 @@ val check_freevars_ts_tid_rename = Q.prove(`
 val sing_renum_def = Define`
   sing_renum m n = λx. if x = m then n else x`
 
-(* duplicated in envRelScript *)
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`
-  |> curry save_thm "t_ind";
-
 val ast_t_ind = ast_t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL

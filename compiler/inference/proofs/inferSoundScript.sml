@@ -1,13 +1,7 @@
-open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory;
-open inferPropsTheory;
-open typeSysPropsTheory;
-open infer_eSoundTheory;
-open envRelTheory;
-open type_eDetermTheory;
-open infer_eCompleteTheory;
-open namespacePropsTheory;
+open preamble
+open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory
+     astPropsTheory inferPropsTheory typeSysPropsTheory infer_eSoundTheory envRelTheory type_eDetermTheory
+     infer_eCompleteTheory namespacePropsTheory
 
 val _ = new_theory "inferSound";
 
