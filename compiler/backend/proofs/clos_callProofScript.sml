@@ -1561,6 +1561,10 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
+    (∀k. let exps = [FST (SND (s_co k))] in
+           every_Fn_SOME exps /\
+           every_Fn_vs_NONE exps /\
+           ALL_DISTINCT (code_locs exps)) /\
     (∀k. SND (SND (s_co k)) = [])
     (* needs more .. *)`
 
@@ -1577,7 +1581,7 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
     ALL_DISTINCT (MAP FST (SND progs)) /\
     t.compile cfg' progs = SOME (bytes,data,FST (shift_seq 1 t.compile_oracle 0)) /\
     ?exp1 aux1 g5. progs = (exp1,aux1) /\
-    calls [exp'] g1 = ([exp1],g5) /\
+    calls [exp'] (FST cfg) = ([exp1],g5) /\
     state_rel g1 l1
      (r with
       <|compile_oracle := shift_seq 1 r.compile_oracle;
@@ -1587,7 +1591,7 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
         code := t.code |++ aux1|>) ∧
     code_inv (r.code |++ aux) r.compile (shift_seq 1 r.compile_oracle)
       (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle)``,
-  Cases_on `calls [exp'] g1` \\ fs []
+  Cases_on `calls [exp'] (FST cfg)` \\ fs []
   \\ imp_res_tac calls_sing \\ rveq \\ fs []
   \\ PairCases_on `progs` \\ fs [] \\ strip_tac
   \\ fs [code_inv_def] \\ rfs []
@@ -1595,7 +1599,6 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ simp [Once state_co_def] \\ fs []
   \\ qpat_x_assum `_ = SOME _` mp_tac
   \\ simp [Once state_cc_def] \\ fs []
-  \\ `FST cfg = g1` by cheat
   \\ PairCases_on `cfg` \\ fs []
   \\ simp [Once compile_inc_def] \\ fs [] \\ rveq \\ fs []
   \\ TOP_CASE_TAC \\ fs []
@@ -1637,10 +1640,6 @@ val env_rel_env_exists = store_thm("env_rel_env_exists",
 (* compiler correctness *)
 
 val t0 = ``t0:('c,'ffi) closSem$state``;
-
-(*
-max_print_depth := 5
-*)
 
 val calls_correct = Q.store_thm("calls_correct",
   `(∀tmp xs env1 s0 g0 g env2 ^t0 ys res s l l1 g1.
@@ -2130,7 +2129,10 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
     \\ fs [evaluate_def])
   (* Op *)
-  \\ conj_tac >- (
+  \\ conj_tac
+
+ >- (
+
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
@@ -2194,17 +2196,39 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rpt (disch_then drule) \\ strip_tac
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
       \\ fs [state_rel_def,FUPDATE_LIST])
-    (*
-    \\ drule code_rel_state_rel_install
-    \\ strip_tac \\ fs [] \\ rveq \\ fs []
-    \\ asm_exists_tac \\ fs []
+    \\ `aux = []` by metis_tac [SND,wfv_state_def]
+    \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
     \\ imp_res_tac v_to_bytes_thm
     \\ imp_res_tac v_to_words_thm
     \\ fs [] \\ rveq \\ fs []
+    \\ ntac 2 (qpat_x_assum `!x._` kall_tac)
     \\ fs [do_install_def]
-    \\ pairarg_tac \\ fs []
+    \\ `?x23 x34. t.compile_oracle 0 = (x23,x34)` by metis_tac [PAIR]
     \\ drule code_rel_state_rel_install
-    *)
+    \\ fs [shift_seq_def]
+    \\ rpt (disch_then drule) \\ strip_tac
+    \\ `t.clock <> 0` by fs [state_rel_def] \\ fs []
+    \\ fs [state_rel_def,FUPDATE_LIST]
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`[]`,`t with
+          <|clock := t.clock − 1;
+            compile_oracle := (λi. t.compile_oracle (i + 1));
+            code := FOLDL $|+ t.code aux1|>`,`l1`,`g1`] mp_tac)
+    \\ simp [] \\ rfs []
+    \\ reverse impl_tac THEN1
+     (strip_tac \\ fs [] \\ rveq \\ fs []
+      \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
+      \\ drule evaluate_add_clock
+      \\ disch_then (qspec_then `ck'` mp_tac) \\ fs [] \\ strip_tac
+      \\ qexists_tac `ck+ck'` \\ fs [] \\ rfs [])
+    \\ simp [env_rel_def] \\ rveq \\ fs []
+    \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
+    \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
+    \\ conj_tac THEN1 fs [wfv_state_def]
+
+    \\ conj_tac THEN1 cheat
+    \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
+
     \\ cheat)
   (* Fn *)
   \\ conj_tac >- (
