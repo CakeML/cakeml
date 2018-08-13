@@ -441,6 +441,12 @@ val SUBMAP_mono_FUPDATE_LIST = Q.store_thm("SUBMAP_mono_FUPDATE_LIST",
   \\ rw[] \\ fs[]
   \\ METIS_TAC[]);
 
+val SUBMAP_DRESTRICT = Q.store_thm("SUBMAP_DRESTRICT",
+  `f1 ⊑ f2 ∧ s1 ⊆ s2
+   ⇒
+   DRESTRICT f1 s1 ⊑ DRESTRICT f2 s2`,
+  rw[SUBMAP_DEF,FDOM_DRESTRICT,SUBSET_DEF,DRESTRICT_DEF]);
+
 val FDIFF_def = Define `
   FDIFF f1 s = DRESTRICT f1 (COMPL s)`;
 
@@ -532,6 +538,10 @@ val SPLIT_LIST = Q.store_thm("SPLIT_LIST",
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[TAKE_DROP]
   \\ MATCH_MP_TAC (GSYM LENGTH_TAKE)
   \\ full_simp_tac(srw_ss())[DIV_LE_X] \\ DECIDE_TAC);
+
+val EVERY_o = store_thm("EVERY_o",
+  ``!xs P f. EVERY (P o f) xs = EVERY P (MAP f xs)``,
+  Induct \\ fs []);
 
 val EXISTS_ZIP = Q.store_thm ("EXISTS_ZIP",
   `!l f. EXISTS (\(x,y). f x) l = EXISTS f (MAP FST l)`,
@@ -2534,6 +2544,13 @@ val LUPDATE_commutes = Q.store_thm(
   rename[`LUPDATE _ nn (_ :: _)`] >>
   Cases_on `nn` >> fs[LUPDATE_def]);
 
+val LUPDATE_APPEND = store_thm("LUPDATE_APPEND",
+  ``!xs n ys x.
+      LUPDATE x n (xs ++ ys) =
+      if n < LENGTH xs then LUPDATE x n xs ++ ys
+                       else xs ++ LUPDATE x (n - LENGTH xs) ys``,
+  Induct \\ fs [] \\ Cases_on `n` \\ fs [LUPDATE_def] \\ rw [] \\ fs []);
+
 val ALIST_FUPDKEY_def = Define`
   (ALIST_FUPDKEY k f [] = []) ∧
   (ALIST_FUPDKEY k f ((k',v)::rest) =
@@ -2771,6 +2788,21 @@ val word_ror_eq_any_word64_ror = Q.store_thm("word_ror_eq_any_word64_ror",
 val TL_DROP_SUC = Q.store_thm("TL_DROP_SUC",
   `∀x ls. x < LENGTH ls ⇒ TL (DROP x ls) = DROP (SUC x) ls`,
   Induct \\ rw[] \\ Cases_on`ls` \\ fs[]);
+
+val DROP_IMP_LESS_LENGTH = Q.store_thm("DROP_IMP_LESS_LENGTH",
+  `!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs`,
+  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
+  \\ res_tac \\ decide_tac);
+
+val DROP_EQ_CONS_IMP_DROP_SUC = Q.store_thm("DROP_EQ_CONS_IMP_DROP_SUC",
+  `!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys`,
+  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
+  \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
+  \\ `n - 1 + 1 = n` by decide_tac \\ full_simp_tac(srw_ss())[]);
+
+val DROP_IMP_EL = Q.store_thm("DROP_IMP_EL",
+  `!xs n h t. DROP n xs = h::t ==> (EL n xs = h)`,
+  Induct \\ fs [DROP_def] \\ Cases_on `n` \\ fs []);
 
 val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
   `∀ls. LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1`,
@@ -3098,6 +3130,32 @@ val map_union = Q.store_thm("map_union",
   \\ rw[map_def,union_def]
   \\ BasicProvers.TOP_CASE_TAC
   \\ rw[map_def,union_def]);
+
+val subspt_alt = store_thm("subspt_alt",
+  ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
+  fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
+  \\ res_tac \\ fs []);
+
+val not_in_domain = store_thm("not_in_domain",
+  ``!k t. k ∉ domain t <=> lookup k t = NONE``,
+  fs [domain_lookup] \\ rw [] \\ Cases_on `lookup k t` \\ fs []);
+
+val subspt_domain_SUBSET = store_thm("subspt_domain_SUBSET",
+  ``subspt t1 t2 ==> domain t1 SUBSET domain t2``,
+  fs [subspt_def,SUBSET_DEF]);
+
+val domain_eq = store_thm("domain_eq",
+  ``!t1 t2. domain t1 = domain t2 <=>
+            !k. lookup k t1 = NONE <=> lookup k t2 = NONE``,
+  rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
+  THEN1
+   (pop_assum (qspec_then `k` mp_tac)
+    \\ Cases_on `lookup k t1` \\ fs []
+    \\ Cases_on `lookup k t2` \\ fs [])
+  THEN1
+   (pop_assum (qspec_then `x` mp_tac)
+    \\ Cases_on `lookup x t1` \\ fs []
+    \\ Cases_on `lookup x t2` \\ fs []));
 
 (* Some temporal logic definitions based on lazy lists *)
 (* move into llistTheory? *)
