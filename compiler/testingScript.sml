@@ -1,3 +1,6 @@
+(*
+  TODO: to be deleted
+*)
 load "cfTacticsBaseLib";
 open preamble
      cmlParseTheory
