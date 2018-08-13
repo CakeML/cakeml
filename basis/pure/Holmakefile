@@ -1,4 +1,4 @@
-INCLUDES = ../../misc $(HOLDIR)/examples/formal-languages/regular
+INCLUDES = ../../misc $(HOLDIR)/examples/formal-languages/regular $(HOLDIR)/examples/formal-languages/context-free
 OPTIONS = QUIT_ON_FAILURE
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
