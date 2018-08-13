@@ -1271,58 +1271,40 @@ val get_intervals_beg_subset_registers = Q.store_thm("get_intervals_beg_subset_r
     metis_tac []
 )
 
-val get_intervals_withlive_beg_monotone = Q.store_thm("get_intervals_withlive_beg_monotone",
-    `!lt n beg end live n' beg' end' (s : int num_map) n1 beg1 end1 n2 beg2 end2.
-    (n1, beg1, end1) = get_intervals_withlive lt n beg end live /\
-    (n2, beg2, end2) = get_intervals_withlive lt n' beg' end' live /\
-    domain beg' = domain beg UNION domain s ==>
-    ?(s' : int num_map). domain beg2 = domain beg1 UNION domain s' /\ domain s' SUBSET domain s`,
+(* This theorem looks like lipschitz continuity: it says something like f(x+y) <= f(x)+y *)
+val get_intervals_withlive_beg_lipschitz = Q.store_thm("get_intervals_withlive_beg_lipschitz",
+    `!lt n1 beg1 end1 live n2 beg2 end2 (s : int num_map) nout1 begout1 endout1 nout2 begout2 endout2.
+    (nout1, begout1, endout1) = get_intervals_withlive lt n1 beg1 end1 live /\
+    (nout2, begout2, endout2) = get_intervals_withlive lt n2 beg2 end2 live /\
+    domain beg2 SUBSET domain beg1 UNION domain s ==>
+    domain begout2 SUBSET domain begout1 UNION domain s`,
 
     Induct_on `lt` >>
     rw [get_intervals_withlive_def]
     (* Writes *)
     THEN1 (
+        fs [SUBSET_DEF] >>
         rw [domain_numset_list_add_if_lt, domain_union] >>
-        qexists_tac `s` >>
-        rw [SUBSET_DEF, EXTENSION] >>
-        eq_tac >> rw [] >> rw []
+        metis_tac []
     )
     (* Reads *)
     THEN1 (
-        rw [domain_numset_list_delete, domain_union] >>
-        qexists_tac `numset_list_delete l s` >>
-        rw [EXTENSION, SUBSET_DEF, domain_numset_list_delete] >>
-        eq_tac >> rw [] >> rw []
+        fs [SUBSET_DEF] >>
+        rw [domain_numset_list_delete, domain_union]
     )
     (* Branch *)
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
-        `?(s' : int num_map). domain int_beg2 = domain int_beg2' UNION domain s' /\ domain s' SUBSET domain s` by metis_tac [] >>
-        sg `domain (difference int_beg2 live) = domain (difference int_beg2' live) UNION domain (difference s' live)` THEN1 (
-            rw [domain_difference] >>
-            rw [EXTENSION] >> eq_tac >> rw [] >> rw []
-        ) >>
-        `domain (difference s' live) SUBSET domain s'` by rw [domain_difference, SUBSET_DEF] >>
-        qabbrev_tac `s'' = difference s' live` >>
-        `?(s''' : int num_map). domain int_beg1 = domain int_beg1' UNION domain s''' /\ domain s''' SUBSET domain s''` by metis_tac [] >>
-        qexists_tac `difference s''' (union (get_live_backward lt live) (get_live_backward lt' live))` >>
-        rw [domain_difference]
-        THEN1 (
-          rw [EXTENSION] >>
-          eq_tac >> rw [] >> rw []
-        )
-        THEN1 (
-            fs [SUBSET_DEF]
-        )
+        `domain int_beg2 SUBSET domain int_beg2' UNION domain s` by metis_tac [] >>
+        `domain (difference int_beg2 live) SUBSET domain (difference int_beg2' live) UNION domain s` by fs [domain_difference, SUBSET_DEF] >>
+        `domain int_beg1 SUBSET domain int_beg1' UNION domain s` by metis_tac [] >>
+        fs [domain_difference, SUBSET_DEF]
     )
     (* Seq *)
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
-        `?(s' : int num_map). domain int_beg2 = domain int_beg2' UNION domain s' /\ domain s' SUBSET domain s` by metis_tac [] >>
-        `?(s'' : int num_map). domain int_beg1 = domain int_beg1' UNION domain s'' /\ domain s'' SUBSET domain s'` by metis_tac [] >>
-        qexists_tac `s''` >>
-        rw [] >>
-        fs [SUBSET_DEF]
+        `domain int_beg2 SUBSET domain int_beg2' UNION domain s` by metis_tac [] >>
+        metis_tac []
     )
 )
 
@@ -1353,32 +1335,30 @@ val get_intervals_withlive_registers_subset_beg = Q.store_thm("get_intervals_wit
     THEN1 (
         rpt (pairarg_tac >> fs []) >>
         `domain int_end2 SUBSET domain int_beg2 UNION domain (get_live_backward lt' live_in)` by metis_tac [] >>
-        sg `?n1' int_beg1' int_end1'. (n1', int_beg1', int_end1') = get_intervals_withlive lt n2 (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) int_end2 live_in` THEN1 (
-            `?x. x = get_intervals_withlive lt n2 (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) int_end2 live_in` by rw [] >>
+        sg `?(live_typed : int num_map). domain (get_live_backward lt' live_in) = domain live_typed` THEN1 (
+          qexists_tac `map (K 0) (get_live_backward lt' live_in)` >>
+          simp [domain_map]
+        ) >>
+        fs [] >>
+        sg `?n1' int_beg1' int_end1'. (n1', int_beg1', int_end1') = get_intervals_withlive lt n2 (union (difference int_beg2 live_in) live_typed) int_end2 live_in` THEN1 (
+            `?x. x = get_intervals_withlive lt n2 (union (difference int_beg2 live_in) live_typed) int_end2 live_in` by rw [] >>
             PairCases_on `x` >>
             metis_tac []
         ) >>
         `int_end1' = int_end1` by (`?x. x = get_intervals lt n2 LN int_end2` by rw [] >> PairCases_on `x` >> metis_tac [get_intervals_withlive_end_eq_get_intervals_end]) >>
         rveq >>
-        sg `domain int_end2 SUBSET domain (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) UNION domain live_in` THEN1 (
-            rw [domain_union, domain_difference, SUBSET_DEF] >>
+        sg `domain int_end2 SUBSET domain (union (difference int_beg2 live_in) live_typed) UNION domain live_in` THEN1 (
+            fs [domain_union, domain_difference, SUBSET_DEF] >>
             metis_tac []
         ) >>
         `domain end_out SUBSET domain int_beg1' UNION domain (get_live_backward lt live_in)` by metis_tac [] >>
-        sg `?(setunion : int num_map). domain int_beg1' = domain int_beg1 UNION domain setunion /\ domain setunion SUBSET domain (difference int_end2 int_beg2)` THEN1 (
-            `domain (union (difference int_beg2 live_in) (difference int_end2 int_beg2)) = domain (difference int_beg2 live_in) UNION domain (difference int_end2 int_beg2)` by rw [domain_union] >>
-            metis_tac [get_intervals_withlive_beg_monotone]
+        sg `domain int_beg1' SUBSET domain int_beg1 UNION domain live_typed` THEN1 (
+            `domain (union (difference int_beg2 live_in) live_typed) SUBSET domain (difference int_beg2 live_in) UNION domain live_typed` by simp [domain_union] >>
+            metis_tac [get_intervals_withlive_beg_lipschitz]
         ) >>
-        fs [domain_numset_list_insert, branch_domain] >>
-        fs [domain_union, domain_difference] >>
+        simp [domain_difference, domain_union, domain_numset_list_insert, branch_domain] >>
         fs [SUBSET_DEF] >>
-        rw [] >>
-        Cases_on `x IN domain (get_live_backward lt' live_in)` >> fs [] >>
-        Cases_on `x IN domain (get_live_backward lt live_in)` >> fs [] >>
-        rpt (first_x_assum (qspec_then `x` assume_tac)) >>
-        `(x IN domain int_beg1 \/ x IN domain setunion) \/ x IN domain (get_live_backward lt live_in)` by rw [] >>
-        `x IN domain int_end2 /\ x NOTIN domain int_beg2` by rw [] >>
-        `x IN domain int_beg2 \/ x IN domain (get_live_backward lt' live_in)` by rw []
+        metis_tac []
     )
 
     (* Seq *)
