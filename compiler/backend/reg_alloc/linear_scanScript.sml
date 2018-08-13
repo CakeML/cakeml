@@ -361,7 +361,7 @@ val add_active_interval_def = Define `
 
 val find_color_in_list_def = Define`
   (
-    find_color_in_list [] forbidden = NONE
+    find_color_in_list [] (forbidden:num_set) = NONE
   ) /\ (
     find_color_in_list (r::rs) forbidden =
         if lookup r forbidden = NONE then
@@ -373,7 +373,7 @@ val find_color_in_list_def = Define`
   )`
 
 val find_color_in_colornum_def = Define`
-    find_color_in_colornum st forbidden =
+    find_color_in_colornum st (forbidden:num_set) =
         if st.colormax <= st.colornum then
           (st, NONE)
         else
@@ -381,7 +381,7 @@ val find_color_in_colornum_def = Define`
 `
 
 val find_color_def = Define`
-    find_color st forbidden =
+    find_color st (forbidden:num_set) =
         case find_color_in_list st.colorpool forbidden of
         | SOME (col, rest) => (st with colorpool := rest, SOME col)
         | NONE => find_color_in_colornum st forbidden
@@ -413,7 +413,7 @@ val color_register_def = Define`
 
 val find_last_stealable_def = Define`
   (
-    find_last_stealable [] forbidden =
+    find_last_stealable [] (forbidden:num_set) =
         return NONE
   ) /\ (
     find_last_stealable (x::xs) forbidden =
@@ -435,7 +435,7 @@ val find_last_stealable_def = Define`
 `
 
 val find_spill_def = Define`
-    find_spill st forbidden reg rend force =
+    find_spill st (forbidden:num_set) reg rend force =
       do
         stealable <- find_last_stealable st.active forbidden;
         case stealable of
@@ -452,11 +452,12 @@ val find_spill_def = Define`
       od
 `
 
-(*TODO: bug here: elements of `preferred` list might be in `active`...*)
 val linear_reg_alloc_step_aux_def = Define`
-    linear_reg_alloc_step_aux st forbidden preferred reg rend force =
-      case find_color_in_list preferred forbidden of
-      | SOME (col, _) => color_register st reg col rend
+    linear_reg_alloc_step_aux st (forbidden:num_set) preferred reg rend force =
+      (* TODO: this might be slow *)
+      let preferred_filtered = FILTER (\c. MEM c st.colorpool) preferred in
+      case find_color_in_list preferred_filtered forbidden of
+      | SOME (col, _) => color_register (st with colorpool updated_by FILTER ($<> col)) reg col rend
       | NONE => (
         case find_color st forbidden of
         | (st', SOME col) => color_register st' reg col rend
@@ -503,9 +504,7 @@ val linear_reg_alloc_step_pass2_def = Define`
           if is_phy_var reg then
             let forbidden = union st'.phyregs forced_forbidden in
             do
-              st'' <- linear_reg_alloc_step_aux st' forbidden [] reg rend F;
-              col <- colors_sub reg;
-              return (st'' with phyregs updated_by (insert col ()));
+              linear_reg_alloc_step_aux st' forbidden [] reg rend F;
             od
           else
             linear_reg_alloc_step_aux st' forced_forbidden moves_preferred reg rend F;
@@ -746,13 +745,14 @@ val res = translate find_color_def
 val res = m_translate color_register_def
 val res = m_translate find_last_stealable_def;
 val res = m_translate find_spill_def;
+(*
 val res = m_translate linear_reg_alloc_step_aux_def
 
 val res = m_translate (linear_reg_alloc_step_pass1_def
                        |> REWRITE_RULE [GSYM map_colors_sub_eq]);
 val res = m_translate (linear_reg_alloc_step_pass2_def
                        |> REWRITE_RULE [GSYM map_colors_sub_eq]);
-
+*)
 val res = m_translate find_reg_exchange_def
 val res = m_translate apply_reg_exchange_def
 
