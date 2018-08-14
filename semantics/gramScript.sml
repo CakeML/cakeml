@@ -50,6 +50,7 @@ val tokmap0 =
                 ("raise", ``RaiseT``),
                 ("ref", ``RefT``),
                 ("sig", ``SigT``),
+                ("signature", ``SignatureT``),
                 ("struct", ``StructT``),
                 ("structure", ``StructureT``),
                 ("then", ``ThenT``),
@@ -96,8 +97,9 @@ val cmlG_def = mk_grammar_def ginfo
                     | "true" | "false" | "nil";
  ConstructorName ::=
      UQConstructorName
-  | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
-                                 s ∈ {"true"; "false"; "nil"}}``);
+  | ^(``{LongidT str ms s | ms,str,s |
+           s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
+           s ∈ {"true"; "false"; "nil"}}``);
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false";
                             "nil" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
@@ -105,10 +107,10 @@ val cmlG_def = mk_grammar_def ginfo
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
                  "::"; "@"; "\094"}}``);
  FQV ::= V
-      |  ^(``{LongidT str s | str,s |
+      |  ^(``{LongidT str ms s | str,ms,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
               s ∉ {"true"; "false"; "nil"}}``) ;
- OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
+ OpID ::= ^(``{LongidT str ms s | str,ms,s | s ≠ ""}``)
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
        |  "*" | "=" | "ref" ;
@@ -170,16 +172,22 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* modules *)
  StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
+ SigName ::= ^(``{AlphaT s | s ≠ ""}``)
+          |  ^(``{LongidT str ms s | ms,str,s | T}``) ;
+ SigDefName ::= ^(``{AlphaT s | s ≠ ""}``) ;
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName OptTypEqn
            |  "exception" Dconstructor
+           |  "structure" StructName ":" SigName
+           |  "signature" SigDefName "=" SignatureValue
            |  TypeDec ;
  OptTypEqn ::= "=" Type | ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
- OptionalSignatureAscription ::= ":>" SignatureValue | ;
+ OptionalSignatureAscription ::= ":>" SigName | ;
+ Signature ::= "signature" SigDefName "=" SignatureValue ;
  Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
- TopLevelDec ::= Structure | Decl;
+ TopLevelDec ::= Structure | Signature | Decl;
  TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
  NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
 `;

@@ -88,18 +88,11 @@ val mpop_namedscope_def = Define`
     We'll be using the option monad quite a bit in what follows
    ---------------------------------------------------------------------- *)
 
-val _ = option_monadsyntax.temp_add_option_monadsyntax();
+val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
+val _ = monadsyntax.temp_enable_monadsyntax();
+val _ = monadsyntax.temp_enable_monad "option";
 
-(* TODO: these should either be temp or moved elsewhere *)
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
-                                        "option.OPTION_IGNORE_BIND_def",
-                                        "option.OPTION_GUARD_def",
-                                        "option.OPTION_MAP_DEF",
-                                        "option.OPTION_MAP2_DEF",
-                                        "option.OPTION_CHOICE_def"]
-
-val _ = overload_on ("++", ``option$OPTION_CHOICE``)
-val _ = overload_on ("lift", ``option$OPTION_MAP``)
+val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
 (* -- *)
 
 val ifM_def = Define`
@@ -116,7 +109,6 @@ val mk_binop_def = Define`
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 `
 
-val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
 val tokcheck_def = Define`
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
 `;
@@ -159,12 +151,12 @@ val ptree_Tyop_def = Define`
       dtcase args of
           [pt] =>
           do
-            (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-            SOME(Long str (Short s))
+            (str,ms,s) <- destLongidT ' (destTOK ' (destLf pt));
+            return (FOLDR (λm acc. Long m acc) (Short s) (str::ms));
           od ++
           do
             nm <- ptree_UQTyop pt;
-            SOME(Short nm)
+            return (Short nm)
           od
         | _ => NONE
 `;
@@ -353,8 +345,8 @@ val ptree_ConstructorName_def = Define`
                 SOME (Short s)
               od ++
               do
-                (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                SOME (Long str (Short s))
+                (str,ms,s) <- destLongidT ' (destTOK ' (destLf pt));
+                return (FOLDR (λm acc. Long m acc) (Short s) (str::ms));
               od
             | _ => NONE
 `
@@ -535,28 +527,28 @@ val ptree_V_def = Define`
 `;
 
 val ptree_FQV_def = Define`
-  ptree_FQV (Lf _) = NONE ∧
+  ptree_FQV (Lf _) = fail ∧
   ptree_FQV (Nd nt args) =
-    if FST nt <> mkNT nFQV then NONE
+    if FST nt <> mkNT nFQV then fail
     else
       dtcase args of
           [pt] => OPTION_MAP Short (ptree_V pt) ++
                   do
-                    (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                    SOME(Long str (Short s))
+                    (str,ms,s) <- destLongidT ' (destTOK ' (destLf pt));
+                    return(FOLDR Long (Short s) (str::ms));
                   od
         | _ => NONE
 `
 
 val isSymbolicConstructor_def = Define`
-  isSymbolicConstructor (structopt : modN option) s =
+  isSymbolicConstructor (mnames : modN list) s =
     return (s = "::")
 `;
 
 val isConstructor_def = Define`
-  isConstructor structopt s =
+  isConstructor mnames s =
     do
-      ifM (isSymbolicConstructor structopt s)
+      ifM (isSymbolicConstructor mnames s)
         (return T)
         (return (dtcase oHD s of NONE => F | SOME c => isAlpha c ∧ isUpper c))
     od
@@ -582,24 +574,24 @@ val ptree_OpID_def = Define`
           [Lf (TK tk, _)] =>
           do
               s <- destAlphaT tk ;
-              ifM (isConstructor NONE s)
+              ifM (isConstructor [] s)
                   (return (Con (SOME (Short s)) []))
                   (return (Var (Short s)))
           od ++
           do
               s <- destSymbolT tk ;
-              ifM (isSymbolicConstructor NONE s)
+              ifM (isSymbolicConstructor [] s)
                   (return (Con (SOME (Short s)) []))
                   (return (Var (Short s)))
           od ++
           do
-              (str,s) <- destLongidT tk ;
-              ifM (isConstructor (SOME str) s)
-                  (return (Con (SOME (Long str (Short s))) []))
-                  (return (Var (Long str (Short s))))
+              (str,ms,s) <- destLongidT tk ;
+              ifM (isConstructor (str::ms) s)
+                  (return (Con (SOME (FOLDR Long (Short s) (str::ms))) []))
+                  (return (Var (FOLDR Long (Short s) (str::ms))))
           od ++
           (if tk = StarT then
-             ifM (isSymbolicConstructor NONE "*")
+             ifM (isSymbolicConstructor [] "*")
                  (return (Con (SOME (Short "*")) []))
                  (return (Var (Short "*")))
            else if tk = EqualsT then return (Var (Short "="))
@@ -1323,12 +1315,45 @@ val ptree_OptTypEqn_def = Define`
             SOME (SOME typ)
           od
         | _ => NONE
+`;
+
+val ptree_StructName_def = Define`
+  ptree_StructName (Lf _) = NONE ∧
+  ptree_StructName (Nd nm args) =
+    if FST nm <> mkNT nStructName then NONE
+    else
+      dtcase args of
+          [pt] => destAlphaT ' (destTOK ' (destLf pt))
+        | _ => NONE
 `
 
-(*
+val ptree_SigDefName_def = Define‘
+  (ptree_SigDefName (Lf _) = NONE) ∧
+  (ptree_SigDefName (Nd nt args) =
+     if FST nt ≠ mkNT nSigDefName then fail
+     else
+       dtcase args of
+         [pt] => destAlphaT ' (destTOK ' (destLf pt))
+       | _ => fail)
+’;
+
+val ptree_SigName_def = Define‘
+  (ptree_SigName (Lf _) = fail) ∧
+  (ptree_SigName (Nd nt args) =
+     if FST nt ≠ mkNT nSigName then fail
+     else
+       dtcase args of
+          [pt] => lift Short (destAlphaT ' (destTOK ' (destLf pt))) ++
+                  do
+                    (str,ms,nm) <- destLongidT ' (destTOK ' (destLf pt)) ;
+                    return (FOLDR Long (Short nm) (str::ms));
+                  od
+        | _ => fail)
+’;
+
 val ptree_SpecLine_def = Define`
-  ptree_SpecLine (Lf _) = NONE ∧
-  ptree_SpecLine (Nd nt args) =
+  (ptree_SpecLine (Lf _) = NONE) ∧
+  (ptree_SpecLine (Nd nt args) =
     if FST nt <> mkNT nSpecLine then NONE
     else
       dtcase args of
@@ -1357,14 +1382,23 @@ val ptree_SpecLine_def = Define`
             assert(tokcheckl [valtok;coltok] [ValT; ColonT]);
             vname <- ptree_V vname_pt;
             ty <- ptree_Type nType type_pt;
-            SOME(Sval vname ty)
+            return(Sval vname ty)
+          od ++
+          do
+            assert (tokcheckl [valtok; coltok] [StructureT; ColonT]);
+            strname <- ptree_StructName vname_pt ;
+            signame <- ptree_SigName type_pt ;
+            return (Smod strname signame)
+          od ++
+          do
+            assert (tokcheckl [valtok; coltok] [SignatureT; EqualsT]);
+            signame <- ptree_SigDefName vname_pt ;
+            sigval <- ptree_SignatureValue type_pt ;
+            return (Ssig signame sigval)
           od
-        | _ => NONE
-`
-
-val ptree_SpeclineList_def = Define`
-  ptree_SpeclineList (Lf _) = NONE ∧
-  ptree_SpeclineList (Nd nt args) =
+        | _ => NONE) ∧
+  (ptree_SpeclineList (Lf _) = NONE) ∧
+  (ptree_SpeclineList (Nd nt args) =
     if FST nt <> mkNT nSpecLineList then NONE
     else
       dtcase args of
@@ -1377,12 +1411,9 @@ val ptree_SpeclineList_def = Define`
               sll <- ptree_SpeclineList sll_pt;
               SOME(sl::sll)
             od
-        | _ => NONE
-`
-
-val ptree_SignatureValue_def = Define`
-  ptree_SignatureValue (Lf _) = NONE ∧
-  ptree_SignatureValue (Nd nt args) =
+        | _ => NONE) ∧
+  (ptree_SignatureValue (Lf _) = NONE) ∧
+  (ptree_SignatureValue (Nd nt args) =
     if FST nt <> mkNT nSignatureValue then NONE
     else
       dtcase args of
@@ -1391,54 +1422,40 @@ val ptree_SignatureValue_def = Define`
             assert(tokcheckl [sigtok; endtok] [SigT; EndT]);
             ptree_SpeclineList sll_pt
           od
-        | _ => NONE
+        | _ => NONE)
 `;
 
-*)
-val ptree_StructName_def = Define`
-  ptree_StructName (Lf _) = NONE ∧
-  ptree_StructName (Nd nm args) =
-    if FST nm <> mkNT nStructName then NONE
-    else
-      dtcase args of
-          [pt] => destAlphaT ' (destTOK ' (destLf pt))
-        | _ => NONE
-`
-
 val ptree_Structure_def = Define`
-  ptree_Structure (Lf _) = NONE ∧
+  ptree_Structure (Lf _) = fail ∧
   ptree_Structure (Nd nt args) =
-    if FST nt <> mkNT nStructure then NONE
+    if FST nt <> mkNT nStructure then fail
     else
       dtcase args of
-          [structuretok; sname_pt; (*asc_opt;*) eqtok; structtok; ds_pt; endtok] =>
+          [structuretok; sname_pt; asc_opt; eqtok; structtok; ds_pt; endtok] =>
           do
             assert(tokcheckl [structtok; structuretok; eqtok;   endtok]
                              [StructT;   StructureT;   EqualsT; EndT]);
             sname <- ptree_StructName sname_pt;
-            (*
             asc <- dtcase asc_opt of
-                       Lf _ => NONE
+                       Lf _ => fail
                      | Nd nt args =>
                          if FST nt <> mkNT nOptionalSignatureAscription then
-                           NONE
+                           fail
                          else
                            dtcase args of
-                               [] => SOME NONE
+                               [] => return NONE
                              | [sealtok; sig_pt] =>
                                do
                                  assert(tokcheck sealtok SealT);
-                                 sigv <- ptree_SignatureValue sig_pt;
-                                 SOME (SOME sigv)
+                                 sigv <- ptree_SigName sig_pt;
+                                 return (SOME sigv)
                                od
-                             | _ => NONE;
-                             *)
+                             | _ => fail;
             ds <- ptree_Decls ds_pt;
-            (* TODO: handle signatures *)
-            SOME(Dmod sname NONE ds)
+            return(Dmod sname asc ds)
           od
-        | _ => NONE
-`
+        | _ => fail
+`;
 
 val ptree_TopLevelDec_def = Define`
   ptree_TopLevelDec (Lf _) = NONE ∧
