@@ -1,11 +1,13 @@
+(*
+  A collection of functions that have in the past turned out to be tricky to
+  translate.
+*)
+
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
-
-(* This file contains a collection of functions that have in the past
-   turned out to be tricky to translate. *)
 
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\

@@ -1,3 +1,6 @@
+(*
+  TODO: document this
+*)
 open preamble
 open astTheory libTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;

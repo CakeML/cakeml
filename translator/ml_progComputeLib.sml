@@ -1,3 +1,6 @@
+(*
+  compset for the definitions in ml_progTheory.
+*)
 structure ml_progComputeLib =
 struct
 

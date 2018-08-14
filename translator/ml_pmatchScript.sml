@@ -1,3 +1,7 @@
+(*
+  Theory support for translation of deeply-embedded (PMATCH-based)
+  pattern-matches occurring in HOL functions.
+*)
 open preamble
      astTheory libTheory semanticPrimitivesTheory
      patternMatchesTheory patternMatchesLib

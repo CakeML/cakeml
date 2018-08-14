@@ -1,3 +1,6 @@
+(*
+  A small example of using the HOL to CakeML translator.
+*)
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_translator_demo";
