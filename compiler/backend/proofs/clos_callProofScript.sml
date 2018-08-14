@@ -470,7 +470,7 @@ val calls_ALL_DISTINCT = Q.store_thm("calls_ALL_DISTINCT",
   \\ metis_tac[numTheory.INV_SUC,DECIDE``2 * i + SUC loc = SUC (2*i+loc)``]);
 
 val compile_ALL_DISTINCT = Q.store_thm("compile_ALL_DISTINCT",
-  `compile do_call x = (y,aux) ∧
+  `compile do_call x = (y,g,aux) ∧
    ALL_DISTINCT (code_locs x)
   ⇒
    ALL_DISTINCT (MAP FST aux)`,
@@ -1561,10 +1561,13 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
-    (∀k. let exps = [FST (SND (s_co k))] in
-           every_Fn_SOME exps /\
-           every_Fn_vs_NONE exps /\
-           ALL_DISTINCT (code_locs exps)) /\
+    (∀k. let (cfg,exp,aux) = s_co k in
+           DISJOINT (IMAGE SUC (set (code_locs [exp])))
+             (set (MAP FST (SND (FST cfg)))) /\
+           wfg (FST cfg) /\
+           every_Fn_SOME [exp] /\
+           every_Fn_vs_NONE [exp] /\
+           ALL_DISTINCT (code_locs [exp])) /\
     (∀k. SND (SND (s_co k)) = [])
     (* needs more .. *)`
 
@@ -2279,11 +2282,15 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ disch_then (qspec_then `ck'` mp_tac) \\ fs [] \\ strip_tac
       \\ qexists_tac `ck+ck'` \\ fs [] \\ rfs [])
     \\ simp [env_rel_def] \\ rveq \\ fs []
-    \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
-    \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
+    \\ conj_tac THEN1 (fs [code_inv_def]
+                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
+    \\ conj_tac THEN1 (fs [code_inv_def]
+                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
     \\ conj_tac THEN1 fs [wfv_state_def]
-    \\ conj_tac THEN1 cheat
-    \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
+    \\ conj_tac THEN1 (fs [code_inv_def]
+                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
+    \\ conj_tac THEN1 (fs [code_inv_def]
+                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
     \\ cheat)
   (* Fn *)
   \\ conj_tac >- (

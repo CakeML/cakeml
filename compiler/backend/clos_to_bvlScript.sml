@@ -474,6 +474,7 @@ val _ = Datatype`
             ; do_mti : bool
             ; known_conf : clos_known$config option
             ; do_call : bool
+            ; call_state : num_set # (num, num # closLang$exp) alist
             ; max_app : num
             |>`;
 
@@ -484,6 +485,7 @@ val default_config_def = Define`
     do_mti := T;
     known_conf := SOME (clos_known$default_config 10);
     do_call := T;
+    call_state := (LN,[]);
     max_app := 10 |>`;
 
 val code_split_def = Define `
@@ -543,10 +545,11 @@ val compile_common_def = Define `
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
     let (kc, es) = clos_known$compile c.known_conf es in
-    let (es,aux) = clos_call$compile c.do_call es in
+    let (es,g,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-      (c with <| start := c.next_loc; next_loc := n; known_conf := kc |>,
+      (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
+                 call_state := (g,aux) |>,
        prog)`;
 
 val compile_def = Define `
