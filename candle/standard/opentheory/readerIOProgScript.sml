@@ -227,28 +227,35 @@ val EvalM_holrefs_init_reader_wrap = Q.store_thm("EvalM_holrefs_init_reader_wrap
        (holrefs (init_reader_wrap u))) (STATE_STORE, p:'ffi ffi_proj)`,
   metis_tac [holrefs_INTRO, EvalM_init_reader_wrap]);
 
-(* TODO: This could be had automatically from the ArrowM *)
 val EvalM_readline_wrap = Q.prove (
- `nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v /\
-  Eval env lv (STRING_TYPE ln) /\
-  Eval env rv (READER_STATE_TYPE rs)
+ `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
+  nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v
   ==>
   EvalM F env st
-    (App Opapp [App Opapp [Var (Short "readline_wrap"); lv]; rv])
+    (App Opapp [Var (Short "readline_wrap"); xv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
-       (readLine_wrap ln rs)) (HOL_STORE, p:'ffi ffi_proj)`,
-  cheat (* TODO *)
-  );
+       (readLine_wrap x)) (HOL_STORE, p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app \\ rw []
+  >-
+   (PairCases_on `x`
+    \\ fs [readLine_wrap_def, holKernelTheory.handle_Fail_def,
+           st_ex_bind_def, st_ex_return_def]
+    \\ every_case_tac \\ fs [] \\ rw [])
+  \\ xapp_spec readline_wrap_spec
+  \\ xsimpl
+  \\ asm_exists_tac \\ fs []
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `s`
+  \\ xsimpl);
 
 val EvalM_holrefs_readline_wrap = Q.prove (
- `nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v /\
-  Eval env lv (STRING_TYPE ln) /\
-  Eval env rv (READER_STATE_TYPE rs)
+ `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
+  nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v
   ==>
   EvalM F env st
-    (App Opapp [App Opapp [Var (Short "readline_wrap"); lv]; rv])
+    (App Opapp [Var (Short "readline_wrap"); xv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
-       (holrefs (readLine_wrap ln rs))) (STATE_STORE, p:'ffi ffi_proj)`,
+       (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)`,
   metis_tac [holrefs_INTRO, EvalM_readline_wrap]);
 
 (* ------------------------------------------------------------------------- *)
@@ -310,7 +317,8 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
   >-
    (rw []
     \\ Q.SPECL_THEN [`Failure x'`,`x`,`st`] assume_tac (GEN_ALL readMain_thm)
-    \\ `st with holrefs := init_refs = st` by fs [state_refs_component_equality]
+    \\ `st with holrefs := init_refs = st`
+      by fs [state_refs_component_equality]
     \\ fs [])
   \\ rw [MONAD_IO_def]
   \\ xsimpl \\ rw []
@@ -324,7 +332,8 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
 (* ------------------------------------------------------------------------- *)
 
 val monadreader_wps = Q.store_thm("monadreader_wps",
-  `hasFreeFD fs /\ wfcl cl
+  `hasFreeFD fs /\
+   wfcl cl
    ==>
    whole_prog_spec ^(fetch_v "readmain" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
@@ -338,7 +347,9 @@ val monadreader_wps = Q.store_thm("monadreader_wps",
         readerProofTheory.read_file_def]
     \\ every_case_tac
     \\ fs [GSYM add_stdo_with_numchars, with_same_numchars])
-  \\ irule (DISCH_ALL (GEN_ALL (MP_CANON (MATCH_MP app_wgframe (UNDISCH readMain_spec_wp)))))
+  \\ irule
+    (DISCH_ALL
+      (GEN_ALL (MP_CANON (MATCH_MP app_wgframe (UNDISCH readMain_spec_wp)))))
   \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `<| stdio := fs; cl := cl; holrefs := init_refs |>`
@@ -357,8 +368,11 @@ val semantics_readerIO_prog =
   sem_thm
   |> REWRITE_RULE[GSYM readerIO_prog_def]
   |> DISCH_ALL
-  |> REWRITE_RULE [GSYM AND_IMP_INTRO]
-  |> REWRITE_RULE [METIS_PROVE [] ``p ==> p ==> q <=> p ==> q``]
+  |> ONCE_REWRITE_RULE [AND_IMP_INTRO]
+  |> ONCE_REWRITE_RULE (* hasFreeFD gets simplified away in wps and its ugly *)
+    [EVAL ``hasFreeFD fs``
+     |> CONV_RULE (RHS_CONV (SIMP_CONV std_ss []))
+     |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_readerIO_prog";
 

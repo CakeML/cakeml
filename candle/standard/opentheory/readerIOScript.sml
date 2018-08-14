@@ -31,7 +31,7 @@ val _ = overload_on("commandline",``liftM state_refs_cl      cl_fupd``);
 (* Matching process_line *)
 
 val readLine_wrap_def = Define `
-  readLine_wrap line s =
+  readLine_wrap (line, s) =
     if invalid_line line then
       return (INR s)
     else
@@ -48,7 +48,7 @@ val readLines_def = Define `
       [] => stdio (print (msg_success s))
     | ln::ls =>
         do
-          res <- holrefs (readLine_wrap ln s);
+          res <- holrefs (readLine_wrap (ln, s));
           case res of
             INL e => stdio (print_err (line_Fail s e))
           | INR s => readLines (next_line s) ls
