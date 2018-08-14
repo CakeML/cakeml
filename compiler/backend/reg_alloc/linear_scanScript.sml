@@ -739,6 +739,23 @@ val res = translate union_def
 val res = translate is_stack_var_def
 val res = translate is_phy_var_def
 val res = translate fromAList_def;
+val res = translate sortingTheory.PART_DEF
+val res = translate sortingTheory.PARTITION_DEF
+val res = translate sortingTheory.QSORT_DEF
+
+val res = translate sort2_def;
+val res = translate sort3_def;
+val res = translate DIV2_def;
+val res = translate merge_def;
+val res = translate DROP_def;
+val res = translate mergesortN_def;
+val res = translate LENGTH;
+val res = translate mergesort_def;
+
+val res = translate pairTheory.LEX_DEF
+val res = translate lrnext_def
+val res = translate foldi_def
+val res = translate toAList_def
 
 (* Translate linear scan register allocator *)
 
@@ -777,10 +794,11 @@ val res = m_translate (linear_reg_alloc_step_pass2_def
 val res = m_translate find_reg_exchange_def
 val res = m_translate apply_reg_exchange_def
 val res = translate edges_to_adjlist_impl_def
+val res = m_translate st_ex_FILTER_good_def;
 
-(*
+val res = translate sort_moves_def;
+
 val res = m_translate (linear_reg_alloc_aux_def
-                       |> REWRITE_RULE [edges_to_adjlist_impl_thm])
-*)
+                       |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
 
 val _ = export_theory ();
