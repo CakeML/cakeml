@@ -1,3 +1,6 @@
+(*
+  grep example: search for file lines matching a regular expression.
+*)
 open preamble basis
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 

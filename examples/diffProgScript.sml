@@ -1,3 +1,6 @@
+(*
+  diff example: find a patch representing the difference between two files.
+*)
 open preamble basis
      charsetTheory lcsTheory diffTheory
 
