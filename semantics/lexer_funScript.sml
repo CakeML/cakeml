@@ -17,7 +17,8 @@ val _ = Datatype `symbol = StringS string
                          | CharS char
                          | NumberS int
                          | WordS num
-                         | LongS string (* identifiers with a . in them *)
+                         | LongS string (string list) string
+                            (* identifiers with a . in them *)
                          | FFIS string
                          | OtherS string
                          | ErrorS `;
@@ -134,6 +135,15 @@ val isAlphaNumPrime_def = Define`
 (* next_sym reads the next symbol from a string *)
 (* TODO: why do we need an option type? *)
 
+val destID_def = Define‘
+  (destID (OtherS "") = NONE) ∧
+  (destID (OtherS (c::cs)) =
+   if isAlpha c then SOME ([], c::cs) else if isSymbol c then SOME ([], c::cs)
+   else NONE) ∧
+  (destID (LongS first mids last) = SOME (first::mids, last)) ∧
+  (destID _ = NONE)
+’;
+
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" _ = NONE) /\
   (next_sym (c::str) loc =
@@ -195,29 +205,16 @@ val next_sym_def = tDefine "next_sym" `
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          case rest of
               #"."::rest' =>
-                (case rest' of
-                      c'::rest' =>
-                        if isAlpha c' then
-                          let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (loc with
-                                         col := loc.col + LENGTH n + LENGTH n'),
-                                  rest'')
-                        else if isSymbol c' then
-                          let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (loc with
-                                         col := loc.col + LENGTH n + LENGTH n'),
-                                  rest'')
-                        else
-                          SOME (ErrorS,
-                                Locs loc (loc with col := loc.col + LENGTH n),
-                                rest')
-                    | "" => SOME (ErrorS,
-                                  Locs loc (loc with col := loc.col + LENGTH n),
-                                  []))
+                (case OPTION_BIND
+                        (next_sym rest' (loc with col := loc.col + LENGTH n +1))
+                        (λ(s,l). OPTION_BIND (destID s) (λsl. SOME (sl,l)))
+                 of
+                     NONE => SOME (ErrorS,
+                                   Locs loc
+                                        (loc with col := loc.col + LENGTH n),
+                                   "")
+                   | SOME ((sl, last), Locs _ loc', more_input) =>
+                       SOME (LongS n sl last, Locs loc loc', more_input))
             | _ => SOME (OtherS n,
                          Locs loc (loc with col := loc.col + LENGTH n - 1),
                          rest)
@@ -228,7 +225,7 @@ val next_sym_def = tDefine "next_sym" `
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
-   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC);
+   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN TRY DECIDE_TAC);
 
 val lem1 = Q.prove (
   `((let (x,y) = z a in f x y) = P a) = (let (x,y) = z a in (f x y = P a))`,
@@ -252,15 +249,13 @@ val NOT_NIL_EXISTS_CONS = Q.prove(
    (list_CASE n F P ⇔ ∃h t. n = h :: t ∧ P h t)`,
   Cases_on `n` >> simp[]);
 
-val listeq = prove_case_eq_thm {case_def = listTheory.list_case_def,
-                                nchotomy = listTheory.list_CASES}
-val optioneq = prove_case_eq_thm { nchotomy = option_nchotomy,
-                                   case_def = option_case_def}
+val listeq = CaseEq "list"
+val optioneq = CaseEq "option"
 
-
+val _ = print "next_sym_LESS takes a while\n"
 val next_sym_LESS = Q.store_thm("next_sym_LESS",
-  `!input l. (next_sym input l = SOME (s, l', rest))
-    ==> LENGTH rest < LENGTH input`,
+  `!input l s l' rest.
+      (next_sym input l = SOME (s, l', rest)) ⇒ LENGTH rest < LENGTH input`,
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
@@ -273,10 +268,9 @@ val next_sym_LESS = Q.store_thm("next_sym_LESS",
        rpt (pairarg_tac>> fs[]) >> rveq >>
        imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `read_FFIcall` >>
-       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC)
-  (* TODO simpler? *)
-  >> `STRLEN rest < STRLEN input` by fs[]
-  >> fs[]);
+       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
+  qpat_x_assum `SOME _ = next_sym _ _` (assume_tac o SYM) >>
+  first_x_assum drule >> simp[]);
 
 val _ = Define ` init_loc = <| row := 1; col := 1; offset := 0|>`
 
@@ -366,8 +360,7 @@ val token_of_sym_def = Define `
     | CharS c => CharT c
     | NumberS i => IntT i
     | WordS n => WordT n
-    | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
-                   LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
+    | LongS m1 mids last => LongidT m1 mids last
     | FFIS s => FFIT s
     | OtherS s  => get_token s `;
 

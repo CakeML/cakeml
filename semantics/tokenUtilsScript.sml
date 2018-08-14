@@ -57,20 +57,21 @@ val isWordT_def = Define`
 val _ = export_rewrites ["isWordT_def"]
 
 val isLongidT_def = Define`
-  (isLongidT (LongidT _ _) ⇔ T) ∧
+  (isLongidT (LongidT _ _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
 `
 val _ = export_rewrites ["isLongidT_def"]
 
 val destLongidT_def = Define`
-  (destLongidT (LongidT str s) = SOME (str,s)) ∧
+  (destLongidT (LongidT str ms s) = SOME (str,ms,s)) ∧
   (destLongidT _ = NONE)
 `
 val _ = export_rewrites ["destLongidT_def"]
 
 val destLongidT_EQ_SOME = Q.store_thm(
   "destLongidT_EQ_SOME[simp]",
-  `destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)`,
+  `destLongidT t = SOME strs ⇔
+     ∃str ms s. t = LongidT str ms s ∧ strs = (str, ms, s)`,
   Cases_on `t` >> simp[] >> metis_tac[]);
 
 val destTyvarPT_def = Define`
