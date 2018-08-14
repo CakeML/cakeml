@@ -18,19 +18,11 @@ val _ = m_translation_extends "readerShared";
 val r = m_translate readLine_wrap_def
 val r = m_translate init_reader_wrap_def
 
-(* TODO move *)
-val init_reader_spec = save_thm (
-  "init_reader_spec", mk_app_of_ArrowP init_reader_v_thm);
+val init_reader_wrap_spec = save_thm ("init_reader_wrap_spec",
+  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm"));
 
-val init_reader_wrap_spec = save_thm (
-  "init_reader_wrap_spec", mk_app_of_ArrowP (theorem"init_reader_wrap_v_thm"));
-
-(* TODO move *)
-val readline_spec = save_thm (
-  "readline_spec", mk_app_of_ArrowP readline_v_thm);
-
-val readline_wrap_spec = save_thm (
-  "readline_wrap_spec", mk_app_of_ArrowP (theorem"readline_wrap_v_thm"));
+val readline_wrap_spec = save_thm ("readline_wrap_spec",
+  mk_app_of_ArrowP (theorem "readline_wrap_v_thm"));
 
 (* ------------------------------------------------------------------------- *)
 (* Set up translation to 'resume' from readerShared                          *)

@@ -8,20 +8,11 @@ val _ = new_theory "readerProg"
 val _ = m_translation_extends "readerShared"
 
 (* TODO: move *)
-val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
+val fastForwardFD_A_DELKEY_same = Q.store_thm (
+  "fastForwardFD_A_DELKEY_same[simp]",
   `forwardFD fs fd n with infds updated_by A_DELKEY fd =
    fs with infds updated_by A_DELKEY fd`,
   fs [forwardFD_def, IO_fs_component_equality]);
-
-(* ------------------------------------------------------------------------- *)
-(* Needed CF specs                                                           *)
-(* ------------------------------------------------------------------------- *)
-
-val readline_spec = save_thm (
-  "readline_spec", mk_app_of_ArrowP readline_v_thm);
-
-val init_reader_spec = save_thm (
-  "init_reader_spec", mk_app_of_ArrowP init_reader_v_thm);
 
 (* ------------------------------------------------------------------------- *)
 (* CakeML wrapper                                                            *)

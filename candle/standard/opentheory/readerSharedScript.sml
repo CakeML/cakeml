@@ -1,16 +1,21 @@
-(* ------------------------------------------------------------------------- *)
-(* Shared OpenTheory reader translations                                     *)
-(* ------------------------------------------------------------------------- *)
+(* ========================================================================= *)
+(* There are two 'frontends' to the OpenTheory reader. This theory contains  *)
+(* translations of the functions which are used by both versions so that we  *)
+(* do not translate more than once.                                          *)
+(* ========================================================================= *)
 
 open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
      readerProofTheory reader_initTheory prettyTheory
 
+(* TODO rename to reader_commonProg *)
 val _ = new_theory "readerShared"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
-(* --- Translate prettyTheory ---------------------------------------------- *)
+(* ------------------------------------------------------------------------- *)
+(* Translate prettyTheory                                                    *)
+(* ------------------------------------------------------------------------- *)
 
 val r = translate newline_def
 val r = translate breakdist_def
@@ -33,7 +38,9 @@ val r = translate hyps_def
 val r = translate thm_def
 val r = translate thm_to_string_def
 
-(* --- Translate readerTheory ---------------------------------------------- *)
+(* ------------------------------------------------------------------------- *)
+(* Translate readerTheory                                                    *)
+(* ------------------------------------------------------------------------- *)
 
 val r = translate init_state_def
 val r = translate mk_BN_def
@@ -48,9 +55,12 @@ val r = translate first_def
 val r = translate stringTheory.isDigit_def
 
 val _ = (use_mem_intro := true)
-val tymatch_ind = save_thm("tymatch_ind",REWRITE_RULE[GSYM rev_assocd_thm]holSyntaxExtraTheory.tymatch_ind)
+val tymatch_ind = save_thm ("tymatch_ind",
+  REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind)
 val _ = add_preferred_thy"-";
-val r = translate (REWRITE_RULE[GSYM rev_assocd_thm]holSyntaxExtraTheory.tymatch_def)
+val r = holSyntaxExtraTheory.tymatch_def
+        |> REWRITE_RULE [GSYM rev_assocd_thm]
+        |> translate
 val _ = (use_mem_intro := false)
 val r = translate OPTION_MAP_DEF
 val r = translate holSyntaxExtraTheory.match_type_def
@@ -92,13 +102,18 @@ val readline_side = Q.store_thm("readline_side",
   rw [fetch "-" "readline_side_def"] \\ intLib.COOPER_TAC)
   |> update_precondition;
 
+val readline_spec = save_thm ("readline_spec",
+  mk_app_of_ArrowP (theorem "readline_v_thm"));
+
 val r = translate fix_fun_typ_def
 val r = translate current_line_def
 val r = translate lines_read_def
 val r = translate next_line_def
 val r = translate line_Fail_def
 
-(* --- Translate reader_initTheory --- *)
+(* ------------------------------------------------------------------------- *)
+(* Translate reader_initTheory                                               *)
+(* ------------------------------------------------------------------------- *)
 
 val r = m_translate mk_true_def
 val r = m_translate mk_univ_def
@@ -122,33 +137,38 @@ val r = translate select_sym_def
 val r = translate ind_type_def
 val r = m_translate init_reader_def
 
+val init_reader_spec = save_thm ("init_reader_spec",
+  mk_app_of_ArrowP (theorem "init_reader_v_thm"));
+
 val r = translate msg_success_def
 val r = translate msg_usage_def
 val r = translate msg_bad_name_def
 val r = translate msg_axioms_def
-val r = translate str_prefix_def;
-val r = translate invalid_line_def;
+val r = translate str_prefix_def
+val r = translate invalid_line_def
 
-val _ = Q.prove(
+val _ = Q.prove (
   `∀x. invalid_line_side x ⇔ T`,
-  EVAL_TAC \\ rw[]) |> update_precondition;
+  EVAL_TAC \\ rw [])
+  |> update_precondition;
 
-(* --- Shared things for semantics theorems -------------------------------- *)
+(* ------------------------------------------------------------------------- *)
+(* Things needed by whole_prog_spec                                          *)
+(* ------------------------------------------------------------------------- *)
 
-val STD_streams_reader_main = Q.store_thm("STD_streams_reader_main",
+(* TODO is this necessary? *)
+val STD_streams_reader_main = Q.store_thm ("STD_streams_reader_main",
   `STD_streams fs ⇒ STD_streams (reader_main fs refs cl)`,
-  rw[reader_main_def]
+  rw [reader_main_def]
   \\ every_case_tac
-  \\ rw[STD_streams_add_stderr]
-  \\ rw[read_file_def,STD_streams_add_stderr]
-  \\ CASE_TAC \\ rw[STD_streams_add_stderr]
-  \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
-  \\ CASE_TAC \\ rw[STD_streams_add_stderr,STD_streams_add_stdout]
-  \\ fs[]);
+  \\ rw [STD_streams_add_stderr]
+  \\ rw [read_file_def,STD_streams_add_stderr]
+  \\ CASE_TAC \\ rw [STD_streams_add_stderr]
+  \\ CASE_TAC \\ rw [STD_streams_add_stderr, STD_streams_add_stdout]
+  \\ CASE_TAC \\ rw [STD_streams_add_stderr, STD_streams_add_stdout]
+  \\ fs []);
 
-(* TODO: ml_monadStore gives a similar theorem, but without a concrete state.
- * It does not appear to work with the whole_prog_spec thing. *)
-val HOL_STORE_init_precond = Q.store_thm("HOL_STORE_init_precond",
+val HOL_STORE_init_precond = Q.store_thm( "HOL_STORE_init_precond",
   `HOL_STORE init_refs
    {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
                              ++stderr_refs++init_type_constants_refs)))
