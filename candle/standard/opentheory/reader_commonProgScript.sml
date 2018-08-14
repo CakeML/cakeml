@@ -9,8 +9,7 @@ open preamble basis
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
      readerProofTheory reader_initTheory prettyTheory
 
-(* TODO rename to reader_commonProg *)
-val _ = new_theory "readerShared"
+val _ = new_theory "reader_commonProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
 (* ------------------------------------------------------------------------- *)
@@ -155,18 +154,6 @@ val _ = Q.prove (
 (* ------------------------------------------------------------------------- *)
 (* Things needed by whole_prog_spec                                          *)
 (* ------------------------------------------------------------------------- *)
-
-(* TODO is this necessary? *)
-val STD_streams_reader_main = Q.store_thm ("STD_streams_reader_main",
-  `STD_streams fs ⇒ STD_streams (reader_main fs refs cl)`,
-  rw [reader_main_def]
-  \\ every_case_tac
-  \\ rw [STD_streams_add_stderr]
-  \\ rw [read_file_def,STD_streams_add_stderr]
-  \\ CASE_TAC \\ rw [STD_streams_add_stderr]
-  \\ CASE_TAC \\ rw [STD_streams_add_stderr, STD_streams_add_stdout]
-  \\ CASE_TAC \\ rw [STD_streams_add_stderr, STD_streams_add_stdout]
-  \\ fs []);
 
 val HOL_STORE_init_precond = Q.store_thm( "HOL_STORE_init_precond",
   `HOL_STORE init_refs

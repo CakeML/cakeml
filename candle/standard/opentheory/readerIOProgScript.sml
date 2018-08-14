@@ -1,7 +1,7 @@
 open preamble basis
      ml_monadBaseLib ml_monadStoreLib
      TextIOProofTheory CommandLineProofTheory
-     readerSharedTheory readerIOTheory reader_initTheory
+     reader_commonProgTheory readerIOTheory reader_initTheory
      ml_translatorTheory ml_monad_translatorTheory ml_monad_translatorBaseTheory
      ml_monadBaseTheory
      ml_monad_translatorLib
@@ -9,7 +9,7 @@ open preamble basis
      readerIOProofTheory reader_initTheory
 
 val _ = new_theory "readerIOProg"
-val _ = m_translation_extends "readerShared";
+val _ = m_translation_extends "reader_commonProg"
 
 (* ------------------------------------------------------------------------- *)
 (* Translate things in the same monad as the reader                          *)
@@ -25,7 +25,7 @@ val readline_wrap_spec = save_thm ("readline_wrap_spec",
   mk_app_of_ArrowP (theorem "readline_wrap_v_thm"));
 
 (* ------------------------------------------------------------------------- *)
-(* Set up translation to 'resume' from readerShared                          *)
+(* Set up translation to 'resume' from reader_commonProg                     *)
 (* ------------------------------------------------------------------------- *)
 
 val refs_init_list = [] : (string * thm * thm * thm) list;
