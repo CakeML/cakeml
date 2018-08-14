@@ -597,7 +597,9 @@ val edges_to_adjlist_def = Define`
     edges_to_adjlist [] (int_beg : int num_map) acc = acc
   ) /\ (
     edges_to_adjlist ((a,b)::abs) int_beg acc =
-      if ($< LEX $<=) (the 0 (lookup a int_beg), a) (the 0 (lookup b int_beg), b) then
+      if a = b then
+        edges_to_adjlist abs int_beg acc
+      else if ($< LEX $<=) (the 0 (lookup a int_beg), a) (the 0 (lookup b int_beg), b) then
         edges_to_adjlist abs int_beg (insert b (a::(the [] (lookup b acc))) acc)
       else
         edges_to_adjlist abs int_beg (insert a (b::(the [] (lookup a acc))) acc)
@@ -610,14 +612,17 @@ val edges_to_adjlist_impl_def = Define `
     case abs of
     | [] => acc
     | ((a,b)::abs) =>
-        let a1 = the 0i (lookup a int_beg) in
-        let b1 = the 0i (lookup b int_beg) in
-          if a1 < b1 \/ (a1 = b1 /\ a <= b) then
-            edges_to_adjlist_impl abs int_beg
-              (insert b (a::(the [] (lookup b acc))) acc)
-          else
-            edges_to_adjlist_impl abs int_beg
-              (insert a (b::(the [] (lookup a acc))) acc)`
+        if a = b then
+          edges_to_adjlist_impl abs int_beg acc
+        else
+          let a1 = the 0i (lookup a int_beg) in
+          let b1 = the 0i (lookup b int_beg) in
+            if a1 < b1 \/ (a1 = b1 /\ a <= b) then
+              edges_to_adjlist_impl abs int_beg
+                (insert b (a::(the [] (lookup b acc))) acc)
+            else
+              edges_to_adjlist_impl abs int_beg
+                (insert a (b::(the [] (lookup a acc))) acc)`
 
 val edges_to_adjlist_impl_thm = store_thm("edges_to_adjlist_impl_thm",
   ``edges_to_adjlist = edges_to_adjlist_impl``,
@@ -721,6 +726,7 @@ val run_linear_reg_alloc_intervals_def = Define`
           <| colors := (nmax, 0) |>
 `
 
+(* BUG: forced and moves are not passed through the bijection... *)
 val linear_scan_reg_alloc_def = Define`
     linear_scan_reg_alloc k moves ct forced =
         let livetree = fix_domination (get_live_tree ct) in
