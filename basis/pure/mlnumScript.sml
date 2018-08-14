@@ -66,4 +66,16 @@ val fromString_thm = Q.store_thm("fromString_thm",
      , fromChars_range_unsafe_thm]
 );
 
+val fromString_IS_SOME_IFF = Q.store_thm("fromString_IS_SOME_IFF",
+  `IS_SOME (mlnum$fromString s) ⇔ EVERY isDigit (explode s)`,
+  reverse(rw[EQ_IMP_THM])
+  >- (
+    Cases_on`s` \\ fs[]
+    \\ imp_res_tac fromString_thm
+    \\ fs[])
+  \\ fs[IS_SOME_EXISTS, fromString_def]
+  \\ qspecl_then[`strlen s`,`s`]mp_tac fromChars_IS_SOME_IFF
+  \\ simp[]
+  \\ Cases_on`s` \\ fs[]);
+
 val _ = export_theory();

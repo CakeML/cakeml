@@ -1,2 +1,2 @@
-INCLUDES = .. ../../../basis
+INCLUDES = .. ../../../basis ../../../misc
 OPTIONS = QUIT_ON_FAILURE
