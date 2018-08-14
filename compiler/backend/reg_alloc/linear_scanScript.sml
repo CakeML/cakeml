@@ -625,11 +625,11 @@ val edges_to_adjlist_impl_thm = store_thm("edges_to_adjlist_impl_thm",
   \\ once_rewrite_tac [edges_to_adjlist_impl_def]
   \\ simp [FORALL_PROD,edges_to_adjlist_def,pairTheory.LEX_DEF]);
 
-val linear_reg_alloc_aux_def = Define`
-    linear_reg_alloc_aux int_beg int_end k forced moves =
+val linear_reg_alloc_intervals_def = Define`
+    linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted =
         let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves moves)) int_beg LN in
         let forced_adjlist = edges_to_adjlist forced int_beg LN in
-        let reglist = mergesort (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) (MAP FST (toAList int_beg)) in
+        let reglist = mergesort (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) reglist_unsorted in
         let phyregs = FILTER is_phy_var reglist in
         let phyphyregs = FILTER (\r. r < 2*k) phyregs in
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
@@ -646,6 +646,82 @@ val linear_reg_alloc_aux_def = Define`
           st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist moves_adjlist) st_init_pass2 stacklist;
           apply_reg_exchange phyregs;
         od
+`
+
+val extract_coloration_def = Define`
+    extract_coloration invbij reglist =
+        st_ex_FOLDL (\acc r.
+          do
+            col <- colors_sub r;
+            return (insert (the 0 (lookup r invbij)) col acc);
+          od
+        ) LN reglist
+`
+
+val find_bijection_step_def = Define`
+    find_bijection_step (bij, invbij, nmax, nstack, nalloc) r =
+      if is_phy_var r then
+        (insert r r bij, insert r r invbij, MAX r nmax, nstack, nalloc)
+      else if is_stack_var r then
+        (insert r nstack bij, insert nstack r invbij, MAX nstack nmax, nstack+4, nalloc)
+      else
+        (insert r nalloc bij, insert nalloc r invbij, MAX nalloc nmax, nstack, nalloc+4)
+`
+
+val find_bijection_def = Define`
+  (
+    find_bijection (Writes l) state =
+      FOLDL find_bijection_step state l
+  ) /\ (
+    find_bijection (Reads l) state =
+      FOLDL find_bijection_step state l
+  ) /\ (
+    find_bijection (Branch lt1 lt2) state =
+      find_bijection lt1 (find_bijection lt2 state)
+  ) /\ (
+    find_bijection (Seq lt1 lt2) state =
+      find_bijection lt1 (find_bijection lt2 state)
+  )`
+
+val apply_bijection_def = Define`
+  (
+    apply_bijection (Writes l) bij =
+      Writes (MAP (\r. the 0 (lookup r bij)) l)
+  ) /\ (
+    apply_bijection (Reads l) bij =
+      Reads (MAP (\r. the 0 (lookup r bij)) l)
+  ) /\ (
+    apply_bijection (Branch lt1 lt2) bij =
+      Branch (apply_bijection lt1 bij) (apply_bijection lt2 bij)
+  ) /\ (
+    apply_bijection (Seq lt1 lt2) bij =
+      Seq (apply_bijection lt1 bij) (apply_bijection lt2 bij)
+  )`
+
+val array_fields_names = ["colors"];
+val run_i_linear_scan_hidden_state_def =
+  define_run ``:linear_scan_hidden_state``
+  array_fields_names
+  "i_linear_scan_hidden_state";
+
+val run_linear_reg_alloc_intervals_def = Define`
+    run_linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted invbij nmax =
+        run_i_linear_scan_hidden_state (
+          do
+            linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted;
+            extract_coloration invbij reglist_unsorted;
+          od
+        ) <| colors := (nmax, 0) |>
+`
+
+val linear_scan_reg_alloc_def = Define`
+    linear_scan_reg_alloc k moves ct forced =
+        let livetree = fix_domination (get_live_tree ct) in
+        let (bij, invbij, nmax, _, _) = find_bijection livetree (LN, LN, 0, 3, 1) in
+        let livetree' = apply_bijection livetree bij in
+        let (_, int_beg, int_end) = get_intervals livetree' 0 LN LN in
+        let reglist_unsorted = (MAP FST (toAList int_beg)) in
+        run_linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted invbij nmax
 `
 
 (* === translation (TODO: move to bootstrap translation) === *)
@@ -756,6 +832,8 @@ val res = translate pairTheory.LEX_DEF
 val res = translate lrnext_def
 val res = translate foldi_def
 val res = translate toAList_def
+val res = translate MAX_DEF;
+val res = translate FOLDL;
 
 (* Translate linear scan register allocator *)
 
@@ -798,7 +876,14 @@ val res = m_translate st_ex_FILTER_good_def;
 
 val res = translate sort_moves_def;
 
-val res = m_translate (linear_reg_alloc_aux_def
+val res = m_translate (linear_reg_alloc_intervals_def
                        |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
+
+(*val res = m_translate extract_coloration_def;*)
+val res = translate find_bijection_step_def;
+val res = translate find_bijection_def;
+val res = translate apply_bijection_def;
+(*val res = translate run_linear_reg_alloc_intervals_def;*)
+(*val res = translate linear_scan_reg_alloc_def;*)
 
 val _ = export_theory ();
