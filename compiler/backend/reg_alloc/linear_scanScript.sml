@@ -604,6 +604,27 @@ val edges_to_adjlist_def = Define`
   )
 `
 
+(* this is a version that is slightly better for the translator *)
+val edges_to_adjlist_impl_def = Define `
+  edges_to_adjlist_impl abs (int_beg : int num_map) acc =
+    case abs of
+    | [] => acc
+    | ((a,b)::abs) =>
+        let a1 = the 0i (lookup a int_beg) in
+        let b1 = the 0i (lookup b int_beg) in
+          if a1 < b1 \/ (a1 = b1 /\ a <= b) then
+            edges_to_adjlist_impl abs int_beg
+              (insert b (a::(the [] (lookup b acc))) acc)
+          else
+            edges_to_adjlist_impl abs int_beg
+              (insert a (b::(the [] (lookup a acc))) acc)`
+
+val edges_to_adjlist_impl_thm = store_thm("edges_to_adjlist_impl_thm",
+  ``edges_to_adjlist = edges_to_adjlist_impl``,
+  fs [FUN_EQ_THM] \\ Induct
+  \\ once_rewrite_tac [edges_to_adjlist_impl_def]
+  \\ simp [FORALL_PROD,edges_to_adjlist_def,pairTheory.LEX_DEF]);
+
 val linear_reg_alloc_aux_def = Define`
     linear_reg_alloc_aux int_beg int_end k forced moves =
         let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves moves)) int_beg LN in
@@ -690,6 +711,7 @@ val res = translate K_DEF;
 val res = translate LAST_DEF;
 val res = translate FRONT_DEF;
 val res = translate the_def;
+val res = translate MEMBER_def;
 
 val hd_side = prove(
   ``hd_side x <=> x <> []``,
@@ -745,20 +767,20 @@ val res = translate find_color_def
 val res = m_translate color_register_def
 val res = m_translate find_last_stealable_def;
 val res = m_translate find_spill_def;
-(*
-val res = m_translate linear_reg_alloc_step_aux_def
-
+val res = m_translate (linear_reg_alloc_step_aux_def
+                       |> REWRITE_RULE [MEMBER_INTRO]);
 val res = m_translate (linear_reg_alloc_step_pass1_def
                        |> REWRITE_RULE [GSYM map_colors_sub_eq]);
 val res = m_translate (linear_reg_alloc_step_pass2_def
                        |> REWRITE_RULE [GSYM map_colors_sub_eq]);
-*)
+
 val res = m_translate find_reg_exchange_def
 val res = m_translate apply_reg_exchange_def
+val res = translate edges_to_adjlist_impl_def
 
 (*
-val res = m_translate edges_to_adjlist_def
-val res = m_translate linear_reg_alloc_aux_def
+val res = m_translate (linear_reg_alloc_aux_def
+                       |> REWRITE_RULE [edges_to_adjlist_impl_thm])
 *)
 
 val _ = export_theory ();
