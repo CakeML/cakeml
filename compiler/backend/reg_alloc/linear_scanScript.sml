@@ -649,13 +649,15 @@ val linear_reg_alloc_intervals_def = Define`
 `
 
 val extract_coloration_def = Define`
-    extract_coloration invbij reglist =
-        st_ex_FOLDL (\acc r.
-          do
-            col <- colors_sub r;
-            return (insert (the 0 (lookup r invbij)) col acc);
-          od
-        ) LN reglist
+  (
+    extract_coloration invbij [] acc = return acc
+  ) /\ (
+    extract_coloration invbij (r::rs) acc =
+      do
+        col <- colors_sub r;
+        extract_coloration invbij rs (insert (the 0 (lookup r invbij)) col acc);
+      od
+  )
 `
 
 val find_bijection_step_def = Define`
@@ -704,14 +706,19 @@ val run_i_linear_scan_hidden_state_def =
   array_fields_names
   "i_linear_scan_hidden_state";
 
+val linear_reg_alloc_intervals_and_extract_coloration_def = Define`
+    linear_reg_alloc_intervals_and_extract_coloration int_beg int_end k forced moves reglist_unsorted invbij nmax =
+      do
+        linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted;
+        extract_coloration invbij reglist_unsorted LN;
+      od
+`
+
 val run_linear_reg_alloc_intervals_def = Define`
     run_linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted invbij nmax =
-        run_i_linear_scan_hidden_state (
-          do
-            linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted;
-            extract_coloration invbij reglist_unsorted;
-          od
-        ) <| colors := (nmax, 0) |>
+        run_i_linear_scan_hidden_state
+          (linear_reg_alloc_intervals_and_extract_coloration int_beg int_end k forced moves reglist_unsorted invbij nmax)
+          <| colors := (nmax, 0) |>
 `
 
 val linear_scan_reg_alloc_def = Define`
@@ -809,9 +816,14 @@ val front_side = prove(
   Induct \\ simp [Once (fetch "-" "front_side_def")])
   |> update_precondition;
 
+val res = translate mk_BN_def;
+val res = translate mk_BS_def;
+val res = translate delete_def;
+val res = translate numset_list_delete_def;
 val res = translate lookup_def
 val res = translate insert_def
 val res = translate union_def
+val res = translate difference_def;
 val res = translate is_stack_var_def
 val res = translate is_phy_var_def
 val res = translate fromAList_def;
@@ -879,11 +891,22 @@ val res = translate sort_moves_def;
 val res = m_translate (linear_reg_alloc_intervals_def
                        |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
 
-(*val res = m_translate extract_coloration_def;*)
+val res = m_translate extract_coloration_def;
 val res = translate find_bijection_step_def;
 val res = translate find_bijection_def;
 val res = translate apply_bijection_def;
-(*val res = translate run_linear_reg_alloc_intervals_def;*)
-(*val res = translate linear_scan_reg_alloc_def;*)
+
+val res = m_translate linear_reg_alloc_intervals_and_extract_coloration_def;
+val res = m_translate_run run_linear_reg_alloc_intervals_def;
+
+val res = translate get_live_tree_def;
+val res = translate numset_list_insert_def;
+val res = translate get_live_backward_def;
+val res = translate fix_domination_def;
+val res = translate numset_list_add_if_def;
+val res = translate numset_list_add_if_lt_def;
+val res = translate numset_list_add_if_gt_def;
+val res = translate get_intervals_def;
+val res = translate linear_scan_reg_alloc_def;
 
 val _ = export_theory ();
