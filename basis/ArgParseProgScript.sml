@@ -7,6 +7,10 @@ val _ = new_theory"ArgParseProg";
 
 val _ = translation_extends "CommandLineProg";
 
+val _ = ml_prog_update (open_module "ArgParse");
+
+val () = generate_sigs := true;
+
 val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
   `(if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
@@ -75,6 +79,13 @@ val r = translate parse_arg_list_def;
 val r = translate parse_conf_def;
 
 val r = translate mkArgsConf_def;
+
+val sigs = module_signatures [
+  "mkArgsConf",
+  "parse_conf"
+];
+
+val _ = ml_prog_update (close_module (SOME sigs));
 
 (* restore the default constant lookup function *)
 val _ = find_def_for_const := old_def_of_const;
