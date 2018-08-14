@@ -1637,9 +1637,35 @@ val env_rel_env_exists = store_thm("env_rel_env_exists",
   \\ qexists_tac `v2::env5`
   \\ fs [env_rel_def]);
 
+val includes_state_def = Define `
+  includes_state g1 s_compile_oracle <=>
+    ?k:num. FST (FST (s_compile_oracle k)) = g1`;
+
+val evaluate_includes_state = store_thm("evaluate_includes_state",
+  ``!xs env s res s1 g1.
+      includes_state g1 s1.compile_oracle /\
+      closSem$evaluate (xs,env,s) = (res,s1) ==>
+      includes_state g1 s.compile_oracle``,
+  rw [] \\ drule closPropsTheory.evaluate_code \\ rw []
+  \\ fs [includes_state_def,shift_seq_def] \\ rw []
+  \\ qexists_tac `k+n` \\ fs []);
+
+val evaluate_app_includes_state = store_thm("evaluate_app_includes_state",
+  ``!xs env s res s1 g1.
+      includes_state g1 s1.compile_oracle /\
+      closSem$evaluate_app loco x vs s = (res,s1) ==>
+      includes_state g1 s.compile_oracle``,
+  rw [] \\ drule closPropsTheory.evaluate_app_code \\ rw []
+  \\ fs [includes_state_def,shift_seq_def] \\ rw []
+  \\ qexists_tac `k+n` \\ fs []);
+
 (* compiler correctness *)
 
 val t0 = ``t0:('c,'ffi) closSem$state``;
+
+(*
+max_print_depth := 8
+*)
 
 val calls_correct = Q.store_thm("calls_correct",
   `(∀tmp xs env1 s0 g0 g env2 ^t0 ys res s l l1 g1.
@@ -1656,7 +1682,8 @@ val calls_correct = Q.store_thm("calls_correct",
     env_rel (v_rel g1 l1) env1 env2 0 (MAP (λx. (0,x)) ys) ∧
     state_rel g1 l1 s0 t0 ∧ code_includes (SND g) t0.code ∧
     code_inv s0.code s0.compile s0.compile_oracle
-             t0.code t0.compile t0.compile_oracle
+             t0.code t0.compile t0.compile_oracle ∧
+    includes_state g1 s.compile_oracle
     ⇒
     ∃ck res' t.
       every_result (EVERY (wfv g1 l1)) (wfv g1 l1) res ∧ wfv_state g1 l1 s ∧
@@ -1673,7 +1700,8 @@ val calls_correct = Q.store_thm("calls_correct",
     v_rel g l f f' ∧ LIST_REL (v_rel g l) args args' ∧
     state_rel g l s0 t0 ∧
     code_inv s0.code s0.compile s0.compile_oracle
-             t0.code t0.compile t0.compile_oracle ⇒
+             t0.code t0.compile t0.compile_oracle ∧
+    includes_state g s.compile_oracle ⇒
     ∃ck res' t.
       every_result (EVERY (wfv g l)) (wfv g l) res ∧ wfv_state g l s ∧
       evaluate_app loco f' args' (t0 with clock := t0.clock + ck) = (res',t) ∧
@@ -1727,13 +1755,19 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ simp [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
       \\ fs [SUBSET_DEF,DISJOINT_DEF,EXTENSION] \\ rw []
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
-      \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
+      \\ rpt (disch_then drule \\ fs []))
     \\ simp [PULL_FORALL]
     \\ disch_then (qspecl_then [`env2`,`t0`] mp_tac)
     \\ simp [AND_IMP_INTRO]
     \\ impl_tac THEN1
-     (imp_res_tac code_includes_subg
-      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs [] \\ metis_tac [])
+     (imp_res_tac code_includes_subg \\ fs []
+      \\ reverse conj_tac THEN1
+       (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq]
+        \\ rveq \\ fs []
+        \\ drule evaluate_includes_state \\ fs []
+        \\ disch_then drule \\ fs [])
+      \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
+      \\ metis_tac [])
     \\ strip_tac
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
     THEN1 (fs [evaluate_def] \\ rw [] \\ qexists_tac `ck` \\ fs [])
@@ -1762,7 +1796,8 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ first_x_assum match_mp_tac \\ fs [])
       \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
       \\ drule evaluate_mono \\ fs [] \\ strip_tac
-      \\ imp_res_tac code_includes_SUBMAP)
+      \\ imp_res_tac code_includes_SUBMAP \\ fs []
+      \\ fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq])
     \\ strip_tac
     \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
     \\ drule evaluate_add_clock \\ fs []
@@ -1823,6 +1858,9 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[IN_DISJOINT,SUBSET_DEF]
       \\ metis_tac[numTheory.INV_SUC])
     \\ imp_res_tac calls_sing \\ rw []
+    \\ `includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq]
+      \\ metis_tac [evaluate_includes_state])
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
     \\ first_x_assum drule
     \\ fs[code_locs_def]
@@ -1956,6 +1994,9 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [code_locs_def,ALL_DISTINCT_APPEND])
     \\ imp_res_tac calls_sing \\ fs [] \\ rveq
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
+    \\ `includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq]
+      \\ metis_tac [evaluate_includes_state])
     \\ first_x_assum drule
     \\ fs[code_locs_def]
     \\ rpt (disch_then drule) \\ fs []
@@ -2032,6 +2073,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [dec_clock_def] \\ pop_assum kall_tac
     \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+    \\ `includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq]
+      \\ metis_tac [evaluate_includes_state])
     \\ fs [GSYM PULL_EXISTS,PUSH_EXISTS_IMP,GSYM PULL_FORALL]
     \\ first_x_assum drule \\ fs [code_locs_def]
     \\ rpt (disch_then drule) \\ fs []
@@ -2070,6 +2114,10 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [code_locs_def,ALL_DISTINCT_APPEND])
     \\ imp_res_tac calls_sing \\ fs [] \\ rveq
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
+    \\ `includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq,
+          semanticPrimitivesTheory.error_result_case_eq]
+      \\ metis_tac [evaluate_includes_state])
     \\ first_x_assum drule
     \\ fs[code_locs_def]
     \\ rpt (disch_then drule) \\ fs []
@@ -2129,15 +2177,24 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
     \\ fs [evaluate_def])
   (* Op *)
-  \\ conj_tac
-
- >- (
-
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)` \\ fs []
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (CCONTR_TAC \\ fs []) \\ fs []
+    \\ `includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,option_case_eq,
+          pair_case_eq,bool_case_eq,do_install_def,list_case_eq]
+      \\ imp_res_tac do_app_const \\ fs []
+      \\ TRY pairarg_tac \\ fs []
+      \\ fs [semanticPrimitivesTheory.result_case_eq,option_case_eq,
+           pair_case_eq,bool_case_eq,do_install_def,list_case_eq]
+      \\ rveq \\ fs []
+      \\ TRY (drule evaluate_includes_state \\ disch_then drule)
+      \\ fs [includes_state_def,shift_seq_def]
+      \\ imp_res_tac do_app_const \\ fs []
+      \\ metis_tac [])
     \\ first_x_assum drule \\ fs [code_locs_def]
     \\ rpt (disch_then drule \\ fs[])
     \\ fs [GSYM PULL_EXISTS,PUSH_EXISTS_IMP,GSYM PULL_FORALL]
@@ -2225,10 +2282,8 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
     \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
     \\ conj_tac THEN1 fs [wfv_state_def]
-
     \\ conj_tac THEN1 cheat
     \\ conj_tac THEN1 (fs [code_inv_def] \\ metis_tac [SND,FST])
-
     \\ cheat)
   (* Fn *)
   \\ conj_tac >- (
@@ -2553,6 +2608,11 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[subg_def,ALL_DISTINCT_APPEND,IN_DISJOINT,SUBSET_DEF]
       \\ metis_tac[numTheory.INV_SUC] )
     \\ strip_tac
+    \\ strip_tac
+    \\ `includes_state g1 s.compile_oracle /\
+        includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq]
+      \\ metis_tac [evaluate_includes_state,evaluate_app_includes_state])
     \\ `g'' = g` by (every_case_tac \\ fs[])
     \\ rveq \\ fs[]
     \\ `wfg g'`
@@ -2581,6 +2641,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ IF_CASES_TAC \\ fs []
         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
     \\ strip_tac
+    \\ qpat_x_assum `_ = (_,_)` mp_tac
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       strip_tac \\ rveq \\ rfs[]
@@ -2650,17 +2711,25 @@ val calls_correct = Q.store_thm("calls_correct",
             \\ metis_tac[code_includes_SUBMAP])
       \\ fs []
       \\ strip_tac \\ rveq
+      \\ strip_tac \\ rveq
+      \\ `includes_state g1 r'.compile_oracle` by
+       (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq]
+        \\ metis_tac [evaluate_includes_state,evaluate_app_includes_state])
+      \\ fs [] \\ rveq
+      \\ qpat_x_assum `_ = (_,_)` mp_tac
       \\ simp[evaluate_def]
       \\ imp_res_tac calls_length
       \\ simp[]
       \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
       \\ rveq \\ fs[]
+      \\ strip_tac
       \\ qpat_x_assum`_ ⇒ _`mp_tac
       \\ impl_tac THEN1
          (imp_res_tac evaluate_mono \\ fs[]
           \\ fs[env_rel_def,fv1_thm]
           \\ metis_tac[code_includes_SUBMAP])
       \\ strip_tac \\ rveq \\ fs []
+      \\ qpat_x_assum `_ = _` mp_tac
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs []
       >- (
         strip_tac \\ rveq \\ fs[]
@@ -2791,6 +2860,12 @@ val calls_correct = Q.store_thm("calls_correct",
           \\ metis_tac[code_includes_SUBMAP])
     \\ fs []
     \\ strip_tac \\ rveq
+    \\ strip_tac \\ rveq
+    \\ `includes_state g1 r'.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,bool_case_eq]
+      \\ metis_tac [evaluate_includes_state,evaluate_app_includes_state])
+    \\ fs [] \\ rveq
+    \\ qpat_x_assum `_ = (_,_)` mp_tac
     \\ simp[evaluate_append]
     \\ imp_res_tac calls_length
     \\ fs[quantHeuristicsTheory.LIST_LENGTH_2,evaluate_GENLIST_Var_tra]
@@ -2895,6 +2970,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
     \\ impl_tac THEN1 fs [wfv_state_def]
     \\ fs [PULL_FORALL,AND_IMP_INTRO]
+    \\ `includes_state g1 s.compile_oracle` by
+          (imp_res_tac evaluate_includes_state \\ fs [])
+    \\ fs [PULL_FORALL,AND_IMP_INTRO]
     \\ disch_then (qspecl_then [`env2`,`t0 with clock := t0.clock-1`] mp_tac)
     \\ impl_tac THEN1 (fs [state_rel_def,env_rel_def,fv1_thm] \\ rfs []
                        \\ imp_res_tac calls_sing \\ fs [])
@@ -2916,6 +2994,11 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rveq \\ fs[] \\ strip_tac
     \\ Cases_on `q = Rerr (Rabort Rtype_error)` \\ fs []
+    \\ `includes_state g1 r.compile_oracle` by
+     (fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,
+          bool_case_eq,option_case_eq] \\ rveq \\ fs []
+      \\ first_x_assum (assume_tac o SYM)
+      \\ imp_res_tac evaluate_includes_state \\ fs [dec_clock_def])
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
     \\ rpt (disch_then (first_x_assum o mp_then Any mp_tac))
@@ -2930,7 +3013,8 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [find_code_def]
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     \\ qexists_tac `ck` \\ fs [evaluate_def])
-  \\ conj_tac >- ( rw[evaluate_def] \\ qexists_tac`0` \\ rw[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM] )
+  \\ conj_tac >- ( rw[evaluate_def] \\ qexists_tac`0`
+                   \\ rw[RIGHT_EXISTS_IMP_THM,RIGHT_EXISTS_AND_THM] )
   (* app cons *)
   \\ simp[evaluate_def]
   \\ rpt gen_tac \\ strip_tac
@@ -2981,6 +3065,13 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ match_mp_tac state_rel_with_clock \\ fs[] )
   \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rfs[]
   \\ strip_tac
+  \\ `includes_state g r.compile_oracle` by
+     (pop_assum (assume_tac o GSYM)
+      \\ fs [semanticPrimitivesTheory.result_case_eq,pair_case_eq,
+          bool_case_eq,option_case_eq,list_case_eq] \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_includes_state
+      \\ imp_res_tac evaluate_app_includes_state
+      \\ fs [dec_clock_def])
   \\ qmatch_abbrev_tac`c1 ∧ c2 ∧ _`
   \\ qmatch_asmsub_rename_tac`wfv g1 l1`
   \\ qmatch_asmsub_rename_tac`Full_app e args rest`
@@ -3440,8 +3531,8 @@ val compile_correct = Q.store_thm("compile_correct",
 
 val semantics_calls = Q.store_thm("semantics_calls",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
-   compile T x = (y,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
-   ALL_DISTINCT (code_locs x) /\
+   compile T x = (y,g1,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
+   ALL_DISTINCT (code_locs x) /\ FST (FST (co 0)) = (g1,aux) /\
    code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
    semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x`,
@@ -3454,10 +3545,11 @@ val semantics_calls = Q.store_thm("semantics_calls",
   \\ drule (calls_correct |> SIMP_RULE std_ss [] |> CONJUNCT1)
   \\ rpt (disch_then drule) \\ fs [EVAL ``wfg (LN,[])``]
   \\ disch_then (qspecl_then [`[]`,
-      `initial_state ffi max_app (FOLDL $|+ FEMPTY (SND g)) co1 cc1 k`,
-      `set (code_locs x) DIFF domain (FST g)`,`g`] mp_tac)
+      `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
+      `set (code_locs x) DIFF domain g1`,
+      `FST (FST (s2.compile_oracle 0))`] mp_tac)
   \\ simp []
-  \\ `wfg g` by
+  \\ `wfg (g1,aux)` by
    (match_mp_tac calls_wfg
     \\ asm_exists_tac \\ fs []
     \\ EVAL_TAC \\ fs [])
@@ -3465,14 +3557,13 @@ val semantics_calls = Q.store_thm("semantics_calls",
    (fs [subg_def] \\ rpt conj_tac
     \\ fs [env_rel_def,state_rel_def,initial_state_def,code_includes_def]
     THEN1 (fs [wfv_state_def,initial_state_def,FEVERY_DEF,code_inv_def])
-    THEN1 (match_mp_tac calls_ALL_DISTINCT \\ asm_exists_tac \\ fs [])
-    THEN1 (fs [IN_DISJOINT,IN_DIFF] \\ metis_tac [])
-    \\ full_simp_tac std_ss [GSYM FUPDATE_LIST]
+    \\ cheat
+ (* \\ full_simp_tac std_ss [GSYM FUPDATE_LIST]
     \\ rpt strip_tac
     \\ match_mp_tac mem_to_flookup
     \\ fs [ALOOKUP_MEM]
     \\ match_mp_tac calls_ALL_DISTINCT
-    \\ asm_exists_tac \\ fs [])
+    \\ asm_exists_tac \\ fs [] *))
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac `(y,[],s4)`
   \\ qexists_tac `ck` \\ fs []
@@ -3485,9 +3576,9 @@ val semantics_calls = Q.store_thm("semantics_calls",
 
 val semantics_compile = Q.store_thm("semantics_compile",
   `semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
-   compile do_call x = (y,aux) ∧
+   compile do_call x = (y,g1,aux) ∧
    (if do_call then
-    syntax_ok x ∧
+    syntax_ok x ∧ FST (FST (co 0)) = (g1,aux) ∧
     code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
