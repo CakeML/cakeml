@@ -1,3 +1,7 @@
+(*
+  ML functions for manipulating the HOL terms and types defined in
+  semanticPrimitivesTheory.
+*)
 structure semanticPrimitivesSyntax = struct
   local
   open HolKernel boolLib bossLib semanticPrimitivesTheory namespaceTheory;

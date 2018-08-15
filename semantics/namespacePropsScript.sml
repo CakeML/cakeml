@@ -1,3 +1,7 @@
+(*
+  Proofs about the namespace datatype.
+  TODO: move to proofs directory?
+*)
 open preamble;
 open astTheory;
 open namespaceTheory;

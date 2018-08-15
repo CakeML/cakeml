@@ -1,3 +1,6 @@
+(*
+  Definitions of the floating point operations used in CakeML.
+*)
 open import Pervasives
 open import Lib
 

@@ -1,4 +1,6 @@
-(*Pretty printing for CakeML AST*)
+(*
+  Pretty printing for CakeML AST
+*)
 structure astPP=
 struct
 open HolKernel boolLib bossLib Parse astTheory stringLib

@@ -1,3 +1,7 @@
+(*
+  Termination proofs for functions defined in .lem files whose termination is
+  not proved automatically.
+*)
 open preamble intSimps;
 open libTheory astTheory open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;

@@ -1,3 +1,6 @@
+(*
+  A functional specification of lexing from strings to token lists.
+*)
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";

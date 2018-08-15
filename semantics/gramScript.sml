@@ -1,3 +1,8 @@
+(*
+  Definition of CakeML's Context-Free Grammar.
+  The grammar specifies how token lists should be converted to syntax trees.
+*)
+
 open HolKernel Parse boolLib bossLib
 
 open tokensTheory grammarTheory locationTheory
@@ -6,10 +11,6 @@ open lcsymtacs grammarLib
 
 val _ = new_theory "gram"
 val _ = set_grammar_ancestry ["tokens", "grammar", "location"]
-
-(* ----------------------------------------------------------------------
-    Define the CakeML Context-Free Grammar
-   ---------------------------------------------------------------------- *)
 
 val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))

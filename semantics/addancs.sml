@@ -1,3 +1,6 @@
+(*
+  A script to add a set_grammar_ancestry line to a generated Script.sml file.
+*)
 fun warn s =
   (TextIO.output(TextIO.stdErr, s ^ "\n"); TextIO.flushOut TextIO.stdErr)
 
