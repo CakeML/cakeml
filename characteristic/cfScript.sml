@@ -938,7 +938,7 @@ val pmatch_v_of_pat_norest = Q.store_thm ("pmatch_v_of_pat_norest",
 
 val cf_cases_def = Define `
   cf_cases v nomatch_exn [] env H Q =
-    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F) H Q /\
+    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F /\ Q ==f> POST_F) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
@@ -1660,7 +1660,7 @@ val cf_raise_def = Define `
 val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
-      (Fe env H Q' /\ Q' ==v> Q) /\
+      (Fe env H Q' /\ Q' ==v> Q /\ Q' ==f> Q) /\
       (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
 
 val cf_def = tDefine "cf" `
@@ -2284,7 +2284,7 @@ val cf_ffi_sound = Q.prove (
          (rveq  \\ first_x_assum drule
           \\ fs [FLOOKUP_FUPDATE_LIST] \\ rw [] \\ metis_tac [])
         \\ qpat_assum `∀ns u. MEM (ns,u) p1 ⇒ _` drule
-        \\ rw [] \\ qexists_tac `s''` \\ rw []
+        \\ rw[] \\ qexists_tac `s` \\ rw []
         \\ fs [FLOOKUP_FUPDATE_LIST]
         \\ rw [] \\ fs [FLOOKUP_DEF]
         \\ drule ((ALL_DISTINCT_FLAT_MEM_IMP |> Q.INST [`m`|->`n`]))
@@ -2467,7 +2467,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       THEN1 (
         (* e1 ~> FFI diverge *)
         rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged))))` \\
-        fs [SEP_IMPPOSTffi_def, SEP_IMP_def] \\ first_assum progress
+        fs [SEP_IMPPOSTffi_def, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
       )      
@@ -2938,7 +2938,13 @@ val cf_sound = Q.store_thm ("cf_sound",
         qpat_assum `evaluate _ _ [e] = _` (add_to_clock `ck'`) \\
         qpat_assum `evaluate_match _ _ _ branches _ = _` (add_to_clock `st'.clock`) \\
         fs [with_clock_with_clock]
-      )
+      ))
+    THEN1 (
+      (* e ~> FFI diverge *)
+      rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
+      asm_exists_tac \\ simp[] \\
+      MAP_EVERY qexists_tac [`FFIDiv s conf bytes`,`ck`] \\
+      fs[evaluate_ck_def,SEP_IMPPOSTffi_def,SEP_IMP_def]
     )
   )
   THEN1 (
@@ -2961,7 +2967,9 @@ val cf_sound' = Q.store_thm ("cf_sound'",
      ?st' h_f h_g r ck.
        (case r of
           | Val v => evaluate (st with clock := ck) env [e] = (st', Rval [v])
-          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))) /\
+          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))
+          | FFIDiv n c b => evaluate (st with clock := ck) env [e] =
+                            (st', Rerr (Rabort (Rffi_error(Final_event n c b FFI_diverged))))) /\
        SPLIT (st2heap (p:'ffi ffi_proj) st') (h_f, h_g) /\
        Q r h_f`,
   rpt strip_tac \\ qspecl_then [`(p:'ffi ffi_proj)`, `e`] assume_tac cf_sound \\
@@ -2979,7 +2987,9 @@ val cf_sound_local = Q.store_thm ("cf_sound_local",
      ?st' h' g r ck.
        (case r of
           | Val v => evaluate (st with clock := ck) env [e] = (st', Rval [v])
-          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))) /\
+          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))
+          | FFIDiv n c b => evaluate (st with clock := ck) env [e] =
+                            (st', Rerr (Rabort (Rffi_error(Final_event n c b FFI_diverged))))) /\
        SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h', g, i) /\
        Q r h'`,
   rpt strip_tac \\
