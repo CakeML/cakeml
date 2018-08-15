@@ -269,7 +269,7 @@ val state_rel_def = Define`
     (s.max_app = t.max_app) ∧
     LIST_REL (OPTREL (v_rel g l)) s.globals t.globals ∧
     fmap_rel (ref_rel (v_rel g l)) s.refs t.refs ∧
-    s.code = FEMPTY ∧ code_includes (SND g) t.code`;
+    s.code = FEMPTY (* ∧ code_includes (SND g) t.code *)`;
 
 val state_rel_max_app = Q.store_thm("state_rel_max_app",
   `state_rel g l s t ⇒ s.max_app = t.max_app`,
@@ -1561,7 +1561,8 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
-    (∀k. let (cfg,exp,aux) = s_co k in
+    (!k n. k <= n ==> subg (FST (FST (s_co k))) (FST (FST (s_co n)))) /\
+    (∀k. let (cfg,exp,aux) = s_co (k:num) in
            DISJOINT (IMAGE SUC (set (code_locs [exp])))
              (set (MAP FST (SND (FST cfg)))) /\
            wfg (FST cfg) /\
@@ -1583,17 +1584,19 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
     DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) ∧
     ALL_DISTINCT (MAP FST (SND progs)) /\
     t.compile cfg' progs = SOME (bytes,data,FST (shift_seq 1 t.compile_oracle 0)) /\
-    ?exp1 aux1 g5. progs = (exp1,aux1) /\
-    calls [exp'] (FST cfg) = ([exp1],g5) /\
-    state_rel g1 l1
-     (r with
-      <|compile_oracle := shift_seq 1 r.compile_oracle;
-        code := r.code |++ aux|>)
-     (t with
-      <|compile_oracle := shift_seq 1 t.compile_oracle;
-        code := t.code |++ aux1|>) ∧
-    code_inv (r.code |++ aux) r.compile (shift_seq 1 r.compile_oracle)
-      (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle)``,
+    ?exp1 aux1 g5 exp5 aux5 other.
+      progs = (exp1,aux1) /\
+      calls [exp'] (FST cfg) = ([exp1],g5) /\
+      state_rel g1 l1
+       (r with
+        <|compile_oracle := shift_seq 1 r.compile_oracle;
+          code := r.code |++ aux|>)
+       (t with
+        <|compile_oracle := shift_seq 1 t.compile_oracle;
+          code := t.code |++ aux1|>) ∧
+      code_inv (r.code |++ aux) r.compile (shift_seq 1 r.compile_oracle)
+        (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle) /\
+      r.compile_oracle 1 = ((g5,other),exp5,aux5)``,
   Cases_on `calls [exp'] (FST cfg)` \\ fs []
   \\ imp_res_tac calls_sing \\ rveq \\ fs []
   \\ PairCases_on `progs` \\ fs [] \\ strip_tac
@@ -2180,7 +2183,10 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
     \\ fs [evaluate_def])
   (* Op *)
-  \\ conj_tac >- (
+  \\ conj_tac
+
+ >- (
+
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
@@ -2282,15 +2288,18 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ disch_then (qspec_then `ck'` mp_tac) \\ fs [] \\ strip_tac
       \\ qexists_tac `ck+ck'` \\ fs [] \\ rfs [])
     \\ simp [env_rel_def] \\ rveq \\ fs []
-    \\ conj_tac THEN1 (fs [code_inv_def]
-                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
-    \\ conj_tac THEN1 (fs [code_inv_def]
-                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
-    \\ conj_tac THEN1 fs [wfv_state_def]
-    \\ conj_tac THEN1 (fs [code_inv_def]
-                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
-    \\ conj_tac THEN1 (fs [code_inv_def]
-                       \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs [])
+    \\ rpt (conj_tac THEN1
+              (fs [code_inv_def,wfv_state_def]
+               \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs []))
+    \\ `subg g5 g1` by
+     (fs [code_inv_def]
+      \\ qpat_x_assum `includes_state g1 s'.compile_oracle` mp_tac
+      \\ simp [includes_state_def] \\ strip_tac
+      \\ qpat_x_assum `_ = (res,s')` assume_tac
+      \\ drule evaluate_code \\ rw [] \\ fs [shift_seq_def]
+      \\ rpt (first_x_assum (qspecl_then [`1`,`k+n+1`] mp_tac)) \\ fs [])
+    \\ fs []
+
     \\ cheat)
   (* Fn *)
   \\ conj_tac >- (
@@ -3154,7 +3163,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ simp[] \\ fs[]
     \\ fs[LIST_REL_EL_EQN]
     \\ rfs[EL_TAKE])
+
   \\ (reverse(Cases_on`b`) \\ fs[] \\ rveq >- (
+
     rveq \\ drule (GEN_ALL calls_el_sing)
     \\ disch_then (qspec_then`i`mp_tac)
     \\ impl_tac >- fs[wfg_def,recclosure_wf_def]
@@ -3169,7 +3180,9 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ conj_tac >- fs[SUBSET_DEF]
       \\ qhdtm_x_assum`env_rel`mp_tac
       \\ simp[EL_ZIP]
-      \\ metis_tac[state_rel_with_clock,code_includes_subg,state_rel_def])
+      \\ rw []
+      THEN1 metis_tac[state_rel_with_clock,code_includes_subg,state_rel_def]
+      \\ cheat)
     \\ strip_tac
     \\ imp_res_tac calls_length \\ fs[]
     \\ simp[EL_ZIP]
@@ -3198,8 +3211,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ IF_CASES_TAC \\ fs[] )
   \\ simp[EVAL``(closSem$dec_clock _ _).code``]
   \\ qmatch_assum_abbrev_tac`subg gd g1`
+
   \\ `code_includes (SND gd) t0.code`
-  by ( metis_tac[code_includes_subg,state_rel_def] )
+  by cheat
   \\ pop_assum mp_tac
   \\ `ALOOKUP (SND gd) (2 * i + loc + 1) = SOME (EL i (ZIP (MAP FST fns1,es)))`
   by (
@@ -3538,8 +3552,8 @@ val compile_correct = Q.store_thm("compile_correct",
 
 val semantics_calls = Q.store_thm("semantics_calls",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
-   compile T x = (y,g1,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
-   ALL_DISTINCT (code_locs x) /\ FST (FST (co 0)) = (g1,aux) /\
+   compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
+   ALL_DISTINCT (code_locs x) /\ FST (FST (co 0)) = (g0,aux) /\
    code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
    semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x`,
@@ -3553,24 +3567,38 @@ val semantics_calls = Q.store_thm("semantics_calls",
   \\ rpt (disch_then drule) \\ fs [EVAL ``wfg (LN,[])``]
   \\ disch_then (qspecl_then [`[]`,
       `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
-      `set (code_locs x) DIFF domain g1`,
+      `UNIV DIFF domain (FST (FST (FST (s2.compile_oracle 0))))`,
       `FST (FST (s2.compile_oracle 0))`] mp_tac)
   \\ simp []
-  \\ `wfg (g1,aux)` by
+  \\ `wfg (g0,aux)` by
    (match_mp_tac calls_wfg
     \\ asm_exists_tac \\ fs []
     \\ EVAL_TAC \\ fs [])
   \\ impl_tac THEN1
-   (fs [subg_def] \\ rpt conj_tac
+   (rpt conj_tac
     \\ fs [env_rel_def,state_rel_def,initial_state_def,code_includes_def]
     THEN1 (fs [wfv_state_def,initial_state_def,FEVERY_DEF,code_inv_def])
-    \\ cheat
- (* \\ full_simp_tac std_ss [GSYM FUPDATE_LIST]
-    \\ rpt strip_tac
-    \\ match_mp_tac mem_to_flookup
-    \\ fs [ALOOKUP_MEM]
-    \\ match_mp_tac calls_ALL_DISTINCT
-    \\ asm_exists_tac \\ fs [] *))
+    THEN1
+     (drule evaluate_code \\ rw [] \\ fs []
+      \\ fs [code_inv_def,shift_seq_def]
+      \\ first_x_assum (qspecl_then [`0`,`n`] mp_tac) \\ fs [])
+    THEN1 (fs [SUBSET_DEF] \\ cheat) (* needs to be assumed *)
+    THEN1 (fs [IN_DISJOINT,IN_DIFF] \\ metis_tac [])
+    THEN1
+     (drule evaluate_code \\ rw [] \\ fs []
+      \\ fs [code_inv_def,shift_seq_def]
+      \\ rpt (first_x_assum (qspecl_then [`n`] mp_tac)) \\ fs []
+      \\ Cases_on `co n` \\ fs [] \\ PairCases_on `r` \\ fs [])
+    THEN1
+     (full_simp_tac std_ss [GSYM FUPDATE_LIST]
+      \\ rpt strip_tac
+      \\ match_mp_tac mem_to_flookup
+      \\ fs [ALOOKUP_MEM]
+      \\ `aux = SND (g0,aux)` by fs []
+      \\ pop_assum (fn th => once_rewrite_tac [th])
+      \\ match_mp_tac calls_ALL_DISTINCT
+      \\ asm_exists_tac \\ fs [])
+    \\ fs [includes_state_def] \\ qexists_tac `0` \\ fs [])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac `(y,[],s4)`
   \\ qexists_tac `ck` \\ fs []
