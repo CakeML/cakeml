@@ -1,24 +1,6 @@
-OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../ffi ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
 
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS)
-.PHONY: all
-
-
 ifdef POLY
-HOLHEAP = heap
 PARENTHEAP = ../heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-BARE_THYS = ../../misc/lem_lib_stub/libTheory ../evaluateTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../terminationTheory ../semanticsComputeLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
-
-all: $(HOLHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
+HOLHEAP = $(PARENTHEAP)
 endif

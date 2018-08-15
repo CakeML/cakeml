@@ -179,7 +179,7 @@ val cmlG_def = mk_grammar_def ginfo
            |  "type" TypeName OptTypEqn
            |  "exception" Dconstructor
            |  "structure" StructName ":" SigName
-           |  "signature" SigDefName "=" SignatureValue
+           |  Signature
            |  TypeDec ;
  OptTypEqn ::= "=" Type | ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
