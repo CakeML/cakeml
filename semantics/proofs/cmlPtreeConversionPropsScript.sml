@@ -1,3 +1,8 @@
+(*
+  Definition of a function for mapping types back to ASTs, and proofs that
+  check that the conversion functions are doing something reasonable.
+  TODO: check this description is correct
+*)
 open HolKernel Parse boolLib bossLib;
 open lcsymtacs preamble boolSimps
 
@@ -8,9 +13,6 @@ val _ = new_theory "cmlPtreeConversionProps";
 val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
-
-(* a function for mapping types back to ASTs, used to check that the
-   conversion functions are doing something reasonable *)
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)

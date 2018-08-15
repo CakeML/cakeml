@@ -1,3 +1,6 @@
+(*
+  Properties of the operational semantics.
+*)
 open preamble evaluateTheory;
 open namespaceTheory namespacePropsTheory;
 open terminationTheory

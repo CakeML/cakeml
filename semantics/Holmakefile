@@ -47,6 +47,7 @@ README_SOURCES = $(LEMS) ast.lem tokens.lem namespace.lem\
 DIRS = $(wildcard */)
 README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	../developers/readme_gen $(README_SOURCES)
+all: README.md
 
 ifdef POLY
 HOLHEAP = heap

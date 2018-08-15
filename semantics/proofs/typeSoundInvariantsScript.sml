@@ -1,10 +1,12 @@
+(*
+  A type system for values, and
+  the invariants that are used for type soundness.
+*)
 open HolKernel Parse boolLib bossLib;
 open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open terminationTheory namespacePropsTheory;
 
 val _ = new_theory "typeSoundInvariants"
-
-(* Type system for values. The invariant that is used for type soundness. *)
 
 val _ = Datatype `
  store_t =

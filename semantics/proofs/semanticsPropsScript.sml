@@ -1,3 +1,6 @@
+(*
+  Theorems about the top-level semantics, including totality and determinism.
+*)
 open preamble
      evaluateTheory
      evaluatePropsTheory
@@ -20,7 +23,7 @@ val evaluate_prog_events_determ = Q.store_thm("evaluate_prog_events_determ",
   >> fs[io_events_mono_def,evaluate_prog_with_clock_def,
         ELIM_UNCURRY]
   >> metis_tac[IS_PREFIX_LENGTH_ANTI]);
-                  
+
 val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events) UNIV)`,
   qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>

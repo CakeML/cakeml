@@ -1,4 +1,6 @@
-(* Theorems about the type system. *)
+(*
+  Theorems about the type system.
+*)
 
 open preamble
 open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;

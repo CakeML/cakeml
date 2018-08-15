@@ -1,3 +1,6 @@
+(*
+  Weakening lemmas used in type soundness
+*)
 open preamble;
 open optionTheory rich_listTheory alistTheory;
 open miscTheory;

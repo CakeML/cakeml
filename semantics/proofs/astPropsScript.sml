@@ -1,4 +1,7 @@
-(* Basic properties of the AST *)
+(*
+  Basic properties of the AST.
+  TODO: delete this theory (it has no content)
+*)
 
 open preamble;
 open astTheory astSyntax;
