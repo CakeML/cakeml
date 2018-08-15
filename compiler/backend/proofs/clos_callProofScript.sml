@@ -1310,7 +1310,7 @@ val wfv_state_SUBMAP = store_thm("wfv_state_SUBMAP",
   ``!g1 l1 code s code1.
       wfv_state g1 l1 code s /\ code SUBMAP code1 ==>
       wfv_state g1 l1 code1 s``,
-  cheat);
+  cheat (* routine proof *));
 
 val v_rel_SUBMAP = store_thm("v_rel_SUBMAP",
   ``!g1 l1 code v1 v2 code1.
@@ -1713,6 +1713,7 @@ val t0 = ``t0:('c,'ffi) closSem$state``;
 
 (*
 max_print_depth := 8
+max_print_depth := 80
 max_print_depth := 800
 *)
 
@@ -1885,7 +1886,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qexists_tac `0` \\ fs []
     \\ fs [LIST_REL_EL_EQN,EVERY_MEM,MEM_EL,PULL_EXISTS,RIGHT_EXISTS_IMP_THM])
   (* If *)
-  \\ conj_tac >- cheat (* (
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
@@ -1952,7 +1953,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
       \\ rpt (disch_then drule \\ fs []))
     \\ simp [PULL_FORALL]
-    \\ disch_then (qspecl_then [`env2`,`t0`] mp_tac)
+    \\ disch_then (qspecl_then [`env2`] mp_tac)
     \\ simp [AND_IMP_INTRO]
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
@@ -1967,6 +1968,12 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ rveq \\ fs []
     \\ Cases_on `a1 = Boolv T` \\ fs [] \\ rveq THEN1
      (first_x_assum drule \\ fs []
+      \\ `EVERY (wfv g1 l1 t.code) env` by
+        (match_mp_tac (GEN_ALL EVERY_wfv_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
+      \\ `wfv_state g1 l1 t.code r` by
+        (match_mp_tac (GEN_ALL wfv_state_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
       \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
       \\ disch_then drule \\ fs []
       \\ `ALL_DISTINCT (code_locs [x2])` by fs [ALL_DISTINCT_APPEND]
@@ -1980,7 +1987,12 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs [SUBSET_DEF]
         \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
       \\ simp [PULL_FORALL]
-      \\ disch_then (qspecl_then [`env2`,`t`] mp_tac)
+      \\ rename [`env_rel (v_rel g1 l1 t0.code) env env2 0 [(0,If args y7 y8 y)]`]
+      \\ `env_rel (v_rel g1 l1 t.code) env env2 0 [(0,If args y7 y8 y)]` by
+        (match_mp_tac (GEN_ALL env_rel_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
+      \\ disch_then (qspecl_then [`env2`] mp_tac)
+      \\ rewrite_tac [GSYM AND_IMP_INTRO]
       \\ impl_tac THEN1
        (imp_res_tac subg_trans \\ imp_res_tac code_includes_subg
         \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
@@ -2005,6 +2017,12 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [] \\ Cases_on `a` \\ fs [])
     \\ Cases_on `a1 = Boolv F` \\ fs [] \\ rveq THEN1
      (first_x_assum drule \\ fs []
+      \\ `EVERY (wfv g1 l1 t.code) env` by
+        (match_mp_tac (GEN_ALL EVERY_wfv_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
+      \\ `wfv_state g1 l1 t.code r` by
+        (match_mp_tac (GEN_ALL wfv_state_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
       \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
       \\ disch_then drule \\ fs []
       \\ `ALL_DISTINCT (code_locs [x2])` by fs [ALL_DISTINCT_APPEND]
@@ -2018,7 +2036,12 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ fs [SUBSET_DEF]
         \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
       \\ simp [PULL_FORALL]
-      \\ disch_then (qspecl_then [`env2`,`t`] mp_tac)
+      \\ rename [`env_rel (v_rel g1 l1 t0.code) env env2 0 [(0,If args y7 y8 y)]`]
+      \\ `env_rel (v_rel g1 l1 t.code) env env2 0 [(0,If args y7 y8 y)]` by
+        (match_mp_tac (GEN_ALL env_rel_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
+      \\ disch_then (qspecl_then [`env2`] mp_tac)
+      \\ rewrite_tac [GSYM AND_IMP_INTRO]
       \\ impl_tac THEN1
        (imp_res_tac subg_trans \\ imp_res_tac code_includes_subg
         \\ fs [env_rel_def] \\ IF_CASES_TAC \\ fs []
@@ -2040,9 +2063,9 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [evaluate_def]
       \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
       \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ fs [] \\ Cases_on `a` \\ fs [])) *)
+      \\ fs [] \\ Cases_on `a` \\ fs []))
   (* Let *)
-  \\ conj_tac >- cheat (* (
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ Cases_on `evaluate (xs,env,s)` \\ fs []
@@ -2081,7 +2104,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
       \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
     \\ simp [PULL_FORALL]
-    \\ disch_then (qspecl_then [`env2`,`t0`] mp_tac)
+    \\ disch_then (qspecl_then [`env2`] mp_tac)
     \\ simp [AND_IMP_INTRO]
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
@@ -2097,6 +2120,13 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ `ALL_DISTINCT (code_locs [x2])` by
           (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+    \\ `EVERY (wfv g1 l1 t.code) env` by
+        (match_mp_tac (GEN_ALL EVERY_wfv_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
+    \\ rename [`env_rel (v_rel g1 l1 t0.code) env env2 0 [(0,Let x1 e1 y)]`]
+    \\ `env_rel (v_rel g1 l1 t.code) env env2 0 [(0,Let x1 e1 y)]` by
+        (match_mp_tac (GEN_ALL env_rel_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
     \\ disch_then drule \\ fs []
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
     \\ fs [AND_IMP_INTRO] \\ impl_tac THEN1
@@ -2107,7 +2137,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [SUBSET_DEF]
       \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL]
-    \\ disch_then (qspecl_then [`v' ++ env2`,`t`] mp_tac)
+    \\ disch_then (qspecl_then [`v' ++ env2`] mp_tac)
     \\ simp [AND_IMP_INTRO]
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
@@ -2132,9 +2162,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ fs [evaluate_def]
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ fs [] \\ Cases_on `a` \\ fs []) *)
+    \\ fs [] \\ Cases_on `a` \\ fs [])
   (* Raise *)
-  \\ conj_tac >- cheat (* (
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
@@ -2149,7 +2179,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ first_x_assum drule \\ fs [code_locs_def]
     \\ rpt (disch_then drule) \\ fs []
     \\ fs [GSYM PULL_FORALL] \\ strip_tac
-    \\ first_x_assum (qspecl_then [`env2`,`t0`] mp_tac) \\ fs [AND_IMP_INTRO]
+    \\ first_x_assum (qspecl_then [`env2`] mp_tac) \\ fs [AND_IMP_INTRO]
     \\ impl_tac THEN1
      (imp_res_tac calls_sing \\ fs [env_rel_def]
       \\ IF_CASES_TAC \\ fs [] \\ ntac 2 strip_tac
@@ -2160,9 +2190,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ strip_tac \\ fs []
     \\ qexists_tac `ck` \\ fs []
     \\ every_case_tac
-    \\ fs [semanticPrimitivesPropsTheory.result_rel_def,PULL_EXISTS]) *)
+    \\ fs [semanticPrimitivesPropsTheory.result_rel_def,PULL_EXISTS])
   (* Handle *)
-  \\ conj_tac >- cheat (* (
+  \\ conj_tac >- (
     fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ Cases_on `evaluate ([x1],env,s1)` \\ fs []
@@ -2202,7 +2232,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ drule (GEN_ALL NOT_IN_domain_FST_g)
       \\ rpt (disch_then drule \\ fs []) \\ NO_TAC)
     \\ simp [PULL_FORALL]
-    \\ disch_then (qspecl_then [`env2`,`t0`] mp_tac)
+    \\ disch_then (qspecl_then [`env2`] mp_tac)
     \\ simp [AND_IMP_INTRO]
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
@@ -2221,6 +2251,9 @@ val calls_correct = Q.store_thm("calls_correct",
           (fs [code_locs_def,ALL_DISTINCT_APPEND] \\ NO_TAC)
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO] \\ rveq \\ fs []
     \\ disch_then drule \\ fs []
+    \\ `EVERY (wfv g1 l1 t.code) env` by
+        (match_mp_tac (GEN_ALL EVERY_wfv_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
     \\ fs [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
     \\ fs [AND_IMP_INTRO] \\ impl_tac THEN1
      (fs [code_locs_def,ALL_DISTINCT_APPEND,wfg_def] \\ rfs []
@@ -2230,7 +2263,10 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs [SUBSET_DEF]
       \\ TRY(first_x_assum drule) \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
     \\ fs [PULL_FORALL,AND_IMP_INTRO]
-    \\ disch_then (qspecl_then [`v'::env2`,`t`] mp_tac)
+    \\ `env_rel (v_rel g1 l1 t.code) env env2 0 [(0,Handle v5 y' y)]` by
+        (match_mp_tac (GEN_ALL env_rel_SUBMAP) \\ asm_exists_tac \\ fs []
+         \\ imp_res_tac evaluate_mono \\ fs [])
+    \\ disch_then (qspecl_then [`v'::env2`] mp_tac)
     \\ impl_tac THEN1
      (imp_res_tac code_includes_subg
       \\ reverse conj_tac
@@ -2244,7 +2280,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
-    \\ fs [evaluate_def]) *)
+    \\ fs [evaluate_def])
   (* Op *)
   \\ conj_tac
 
@@ -2384,7 +2420,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ rpt (first_x_assum (qspecl_then [`1`,`k+n+1`] mp_tac)) \\ fs [])
     \\ fs []
 
-    \\ cheat)
+    \\ cheat (* compilicated Install cheat *))
 
   (* Fn *)
   \\ conj_tac >- (
@@ -2698,9 +2734,11 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ rpt strip_tac
     \\ imp_res_tac state_rel_max_app
     \\ FULL_CASE_TAC \\ fs[])
-
   (* App *)
-  \\ conj_tac >- (
+  \\ conj_tac
+
+>- (
+
     rw[evaluate_def,calls_def]
     \\ pairarg_tac \\ fs[]
     \\ pairarg_tac \\ fs[]
@@ -3093,6 +3131,9 @@ val calls_correct = Q.store_thm("calls_correct",
         (match_mp_tac (GEN_ALL LIST_REL_v_rel_SUBMAP) \\ asm_exists_tac \\ fs []
          \\ imp_res_tac evaluate_mono \\ fs [])
     \\ first_x_assum drule
+
+
+
     \\ disch_then drule
     \\ disch_then drule
     \\ strip_tac
@@ -3776,7 +3817,7 @@ val semantics_calls = Q.store_thm("semantics_calls",
      (drule evaluate_code \\ rw [] \\ fs []
       \\ fs [code_inv_def,shift_seq_def]
       \\ first_x_assum (qspecl_then [`0`,`n`] mp_tac) \\ fs [])
-    THEN1 (fs [SUBSET_DEF] \\ cheat) (* needs to be assumed *)
+    THEN1 (fs [SUBSET_DEF] \\ cheat) (* needs to be assumed in code_inv_def *)
     THEN1 (fs [IN_DISJOINT,IN_DIFF] \\ metis_tac [])
     THEN1
      (drule evaluate_code \\ rw [] \\ fs []
