@@ -222,29 +222,17 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          case rest of
               #"."::rest' =>
-                (case rest' of
-                      c'::rest' =>
-                        if isAlpha c' then
-                          let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (loc with
-                                        col := loc.col + LENGTH n + LENGTH n'),
-                                  rest'')
-                        else if isSymbol c' then
-                          let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (loc with
-                                        col := loc.col + LENGTH n + LENGTH n'),
-                                  rest'')
-                        else
-                          SOME (ErrorS,
-                                Locs loc (loc with col := loc.col + LENGTH n),
-                                rest')
-                    | "" => SOME (ErrorS,
-                                  Locs loc (loc with col := loc.col + LENGTH n),
-                                  []))
+                (case
+                    OPTION_BIND
+                      (next_sym rest' (loc with col := loc.col + LENGTH n + 1))
+                      (λ(s,l). OPTION_BIND (destID s) (λsl. SOME (sl,l)))
+                   of
+                      NONE => SOME
+                                (ErrorS,
+                                 Locs loc (loc with col := loc.col + LENGTH n),
+                                 "")
+                    | SOME ((sl,last), Locs _ loc', more_input) =>
+                      SOME (LongS n sl last, Locs loc loc', more_input))
             | _ => SOME (OtherS n,
                          Locs loc (loc with col := loc.col + LENGTH n - 1),
                          rest)

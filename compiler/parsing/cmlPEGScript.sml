@@ -485,7 +485,7 @@ val cmlPEG_def = zDefine`
                seql [tokeq SigT; pnt nSpecLineList; tokeq EndT]
                     (bindNT nSignatureValue));
               (mkNT nOptionalSignatureAscription,
-               pegf (try (seql [tokeq SealT; pnt nSignatureValue] I))
+               pegf (try (seql [tokeq SealT; pnt nSigName] I))
                     (bindNT nOptionalSignatureAscription));
               (mkNT nStructName, peg_StructName);
               (mkNT nSigName,
@@ -502,7 +502,8 @@ val cmlPEG_def = zDefine`
                      pnt nSignatureValue]
                     (bindNT nSignature));
               (mkNT nStructure,
-               seql [tokeq StructureT; pnt nStructName; pnt nOptionalSignatureAscription;
+               seql [tokeq StructureT; pnt nStructName;
+                     pnt nOptionalSignatureAscription;
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
