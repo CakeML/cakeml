@@ -19,13 +19,7 @@ val _ = new_theory"compiler";
 val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
 (*"*)
 val poly_version_tm = mlstring_from_proc "poly" ["-v"]
-val hol_version_tm =
-  let
-    val holdir = Option.valOf (OS.Process.getEnv "HOLDIR")
-  in
-    mlstring_from_proc_from holdir "git" ["rev-parse", "HEAD"]
-  end
-  handle _ => Term `NONE : mlstring option`
+val hol_version_tm = mlstring_from_proc_from Globals.HOLDIR "git" ["rev-parse", "HEAD"]
 
 val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
 val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
@@ -54,7 +48,7 @@ val current_build_info_str_def = Define `
 
 val _ = Datatype`
   config =
-    <| inferencer_config : inferencer_config
+    <| inferencer_config : inf_env
      ; backend_config : α backend$config
      ; input_is_sexp       : bool
      ; exclude_prelude     : bool
@@ -87,7 +81,7 @@ val compile_def = Define`
     let _ = empty_ffi (strlit "finished: start up") in
     case
       if c.input_is_sexp
-      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
+      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
       else parse_prog (lexer_fun input)
     of
     | NONE => Failure ParseError
@@ -99,7 +93,7 @@ val compile_def = Define`
          then Success c.inferencer_config
          else infertype_prog c.inferencer_config full_prog
        of
-       | Failure (Exc (locs, msg)) =>
+       | Failure (locs, msg) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
@@ -107,11 +101,12 @@ val compile_def = Define`
           | NONE => Failure CompileError
           | SOME (bytes,c) => Success (bytes,c)`;
 
+(*
 val compile_explorer_def = Define`
   compile_explorer c prelude input =
     case
       if c.input_is_sexp
-      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
+      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
       else parse_prog (lexer_fun input)
     of
     | NONE => Failure ParseError
@@ -122,8 +117,9 @@ val compile_explorer_def = Define`
          then Success c.inferencer_config
          else infertype_prog c.inferencer_config full_prog
        of
-       | Failure (Exc (locs, msg)) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
+*)
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
@@ -223,23 +219,38 @@ val parse_nums_def = Define `
 val parse_clos_conf_def = Define`
   parse_clos_conf ls clos =
   let multi = find_bool (strlit"--multi=") ls clos.do_mti in
-  let known = find_bool (strlit"--known=") ls clos.do_known in
+  let known = find_bool (strlit"--known=") ls (IS_SOME clos.known_conf) in
+  let inline_factor = find_num (strlit"--inline_factor=") ls default_inline_factor in
   let call = find_bool (strlit"--call=") ls clos.do_call in
   let maxapp = find_num (strlit "--max_app=") ls clos.max_app in
-  case (multi,known,call,maxapp) of
-    (INL m,INL k,INL c,INL n) =>
+  case (multi,known,inline_factor,call,maxapp) of
+    (INL m,INL k,INL i,INL c,INL n) =>
+    if k then
+    (let max_body_size = find_num (strlit"--max_body_size=") ls (default_max_body_size n i) in
+     case max_body_size of
+      (INL x) =>
+      INL
+        (clos with <|
+          do_mti   := m;
+          known_conf := SOME (clos_known$mk_config x i);
+          do_call  := c;
+          max_app  := n
+         |>)
+      | _ => INR (concat [get_err_str max_body_size]))
+    else
     (INL
       (clos with <|
         do_mti   := m;
-        do_known := k;
+        known_conf := NONE;
         do_call  := c;
         max_app  := n
        |>))
   | _ =>
     INR (concat [get_err_str multi;
                  get_err_str known;
+                 get_err_str inline_factor;
                  get_err_str call;
-                 get_err_str maxapp])`
+                 get_err_str maxapp])`;
 
 (* bvl *)
 val parse_bvl_conf_def = Define`

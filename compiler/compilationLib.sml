@@ -42,119 +42,32 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val conf_tm = lhs(concl conf_def)
     val prog_tm = lhs(concl prog_def)
 
-    val to_mod_thm0 = timez "to_mod" eval ``to_mod ^conf_tm ^prog_tm``;
-    val (c,p) = to_mod_thm0 |> rconc |> dest_pair
-    val mod_conf_def = zDefine`mod_conf = ^c`;
-    val mod_prog_def = zDefine`mod_prog = ^p`;
-    val to_mod_thm =
-      to_mod_thm0 |> CONV_RULE(RAND_CONV(
-        FORK_CONV(REWR_CONV(SYM mod_conf_def),
-                  REWR_CONV(SYM mod_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [mod_prog_def]] cs;
+    val to_flat_thm0 = timez "to_flat" eval ``to_flat ^conf_tm ^prog_tm``;
+    val (c,p) = to_flat_thm0 |> rconc |> dest_pair
+    val flat_conf_def = zDefine`flat_conf = ^c`;
+    val flat_prog_def = zDefine`flat_prog = ^p`;
+    val to_flat_thm =
+      to_flat_thm0 |> CONV_RULE(RAND_CONV(
+        FORK_CONV(REWR_CONV(SYM flat_conf_def),
+                  REWR_CONV(SYM flat_prog_def))));
+    val () = computeLib.extend_compset [computeLib.Defs [flat_prog_def]] cs;
 
-    val mod_conf_mod_conf =
-      ``mod_conf.mod_conf``
-      |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
+    val flat_conf_source_conf =
+      ``flat_conf.source_conf``
+      |> (RAND_CONV(REWR_CONV flat_conf_def) THENC eval)
 
-    val mod_conf_source_conf =
-      ``mod_conf.source_conf``
-      |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
+    val flat_conf_clos_conf =
+      ``flat_conf.clos_conf``
+      |> (RAND_CONV(REWR_CONV flat_conf_def) THENC eval)
 
-    val mod_conf_clos_conf =
-      ``mod_conf.clos_conf``
-      |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
-
-    val mod_conf_bvl_conf =
-      ``mod_conf.bvl_conf``
-      |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
-
-    val to_con_thm0 =
-      ``to_con ^conf_tm ^prog_tm``
-      |> (REWR_CONV to_con_def THENC
-          RAND_CONV (REWR_CONV to_mod_thm) THENC
-          REWR_CONV LET_THM THENC
-          PAIRED_BETA_CONV THENC
-          PATH_CONV"rlr"(REWR_CONV mod_conf_mod_conf))
-      |> timez "to_con" (CONV_RULE(RAND_CONV eval))
-    val (c,p) = to_con_thm0 |> rconc |> dest_pair
-    val con_conf_def = zDefine`con_conf = ^c`;
-    val con_prog_def = zDefine`con_prog = ^p`;
-    val to_con_thm =
-      to_con_thm0 |> CONV_RULE(RAND_CONV(
-        FORK_CONV(REWR_CONV(SYM con_conf_def),
-                  REWR_CONV(SYM con_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [con_prog_def]] cs;
-
-    val con_conf_source_conf_next_global =
-      ``con_conf.source_conf.next_global`` |>
-        (RAND_CONV(RAND_CONV(REWR_CONV con_conf_def)) THENC eval
-         THENC RAND_CONV(REWR_CONV mod_conf_source_conf) THENC eval)
-
-    val con_conf_mod_conf_exh_ctors_env =
-      ``con_conf.mod_conf.exh_ctors_env``
-      |> (RAND_CONV(RAND_CONV(REWR_CONV con_conf_def)) THENC eval)
-
-    val con_conf_clos_conf =
-      ``con_conf.clos_conf``
-      |> (RAND_CONV(REWR_CONV con_conf_def) THENC eval
-          THENC REWR_CONV mod_conf_clos_conf)
-
-    val con_conf_bvl_conf =
-      ``con_conf.bvl_conf``
-      |> (RAND_CONV(REWR_CONV con_conf_def) THENC eval
-          THENC REWR_CONV mod_conf_bvl_conf)
-
-    val to_dec_thm0 =
-      ``to_dec ^conf_tm ^prog_tm``
-      |> (REWR_CONV to_dec_def THENC
-          RAND_CONV (REWR_CONV to_con_thm) THENC
-          REWR_CONV LET_THM THENC
-          PAIRED_BETA_CONV THENC
-          PATH_CONV"rlr"(REWR_CONV con_conf_source_conf_next_global))
-      |> timez "to_dec" (CONV_RULE(RAND_CONV eval))
-    val (c,p) = to_dec_thm0 |> rconc |> dest_pair
-    val dec_conf_def = zDefine`dec_conf = ^c`;
-    val dec_prog_def = zDefine`dec_prog = ^p`;
-    val to_dec_thm =
-      to_dec_thm0 |> CONV_RULE(RAND_CONV(
-        FORK_CONV(REWR_CONV(SYM dec_conf_def),
-                  REWR_CONV(SYM dec_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [dec_prog_def]] cs;
-
-    val dec_conf_mod_conf_exh_ctors_env =
-      ``dec_conf.mod_conf.exh_ctors_env``
-      |> (RAND_CONV(RAND_CONV(REWR_CONV dec_conf_def) THENC eval) THENC
-          REWR_CONV con_conf_mod_conf_exh_ctors_env)
-
-    val dec_conf_clos_conf =
-      ``dec_conf.clos_conf``
-      |> (RAND_CONV(REWR_CONV dec_conf_def) THENC eval
-          THENC REWR_CONV con_conf_clos_conf)
-
-    val dec_conf_bvl_conf =
-      ``dec_conf.bvl_conf``
-      |> (RAND_CONV(REWR_CONV dec_conf_def) THENC eval
-          THENC REWR_CONV con_conf_bvl_conf)
-
-    val to_exh_thm0 =
-      ``to_exh ^conf_tm ^prog_tm``
-      |> (REWR_CONV to_exh_def THENC
-          RAND_CONV (REWR_CONV to_dec_thm) THENC
-          REWR_CONV LET_THM THENC
-          PAIRED_BETA_CONV THENC
-          PATH_CONV"rlr"(REWR_CONV dec_conf_mod_conf_exh_ctors_env))
-      |> timez "to_exh" (CONV_RULE(RAND_CONV eval))
-    val (_,p) = to_exh_thm0 |> rconc |> dest_pair
-    val exh_prog_def = zDefine`exh_prog = ^p`;
-    val to_exh_thm =
-      to_exh_thm0 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(REWR_CONV(SYM exh_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [exh_prog_def]] cs;
+    val flat_conf_bvl_conf =
+      ``flat_conf.bvl_conf``
+      |> (RAND_CONV(REWR_CONV flat_conf_def) THENC eval)
 
     val to_pat_thm0 =
       ``to_pat ^conf_tm ^prog_tm``
       |> (REWR_CONV to_pat_def THENC
-          RAND_CONV (REWR_CONV to_exh_thm) THENC
+          RAND_CONV (REWR_CONV to_flat_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV)
       |> timez "to_pat" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
@@ -187,7 +100,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           RAND_CONV (REWR_CONV to_clos_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV THENC
-          PATH_CONV"rlr"(REWR_CONV dec_conf_clos_conf))
+          PATH_CONV"rlr"(REWR_CONV flat_conf_clos_conf))
       |> timez "to_bvl" (CONV_RULE(RAND_CONV eval))
     val (c,p) = to_bvl_thm0 |> rconc |> dest_pair
     val bvl_conf_def = zDefine`bvl_conf = ^c`;
@@ -205,7 +118,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val bvl_conf_bvl_conf =
       ``bvl_conf.bvl_conf``
       |> (RAND_CONV(REWR_CONV bvl_conf_def) THENC eval
-          THENC REWR_CONV dec_conf_bvl_conf)
+          THENC REWR_CONV flat_conf_bvl_conf)
 
     val to_bvi_thm0 =
       ``to_bvi ^conf_tm ^prog_tm``
@@ -245,7 +158,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
 
     val () = app delete_const
-      ["mod_prog","con_prog","dec_prog","exh_prog","pat_prog","clos_prog","bvl_prog","bvi_prog"]
+      ["flat_prog","pat_prog","clos_prog","bvl_prog","bvi_prog"]
   in to_data_thm end
 
 fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
@@ -267,7 +180,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           riscv_backend_config_def, riscv_names_def,
           tiny_backend_config_def, tiny_names_def,
           x64_backend_config_def, x64_names_def,
-          data_prog_def ]
+          data_prog_def
+          ]
       ] cs
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
@@ -283,6 +197,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC BETA_CONV THENC
           REWR_CONV_BETA LET_THM THENC
+          REWR_CONV LET_THM THENC BETA_CONV THENC
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC
           PATH_CONV "rlrraraalralrarllr" eval THENC
@@ -352,6 +267,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       in
         conv tm
       end
+
     val ths = time_with_size thms_size "get_clash (par)"
                 (parl eval_fn) word_prog0;
     val thm2 =
@@ -369,7 +285,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val oracles =
       to_livesets_thm
       |> rconc |> pairSyntax.dest_pair |> #1
-      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle 3)
+      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle reg_alloc.Irc)
 
     val oracle_def = mk_abbrev"oracle" oracles;
 
@@ -392,6 +308,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       to_livesets_invariant
       |> Q.GEN`wc` |> SPEC wc
       |> Q.GENL[`c`,`p`] |> ISPECL args
+      |> CONV_RULE ((RATOR_CONV eval) THENC BETA_CONV)
       |> CONV_RULE(RAND_CONV(
            REWR_CONV LET_THM THENC
            RAND_CONV(REWR_CONV to_livesets_thm') THENC
@@ -440,7 +357,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val GENLIST_EL_ZIP_lemma = Q.prove(
       `(LENGTH l1 = n) ∧ (LENGTH l2 = n) ∧ (LENGTH oracle_list = n) ⇒
        (GENLIST (λx. f (oracle x, EL x (ZIP (l1,l2)))) n =
-        MAP3 (λa (b1,b2,b3) (c1,c2,c3). f (SOME a, ((b1,b2,b3), (c1,c2,c3)))) oracle_list l1 l2)`,
+        MAP3 (λa (b1,b2,b3,b4) (c1,c2,c3). f (SOME a, ((b1,b2,b3,b4), (c1,c2,c3)))) oracle_list l1 l2)`,
       rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,oracle_thm,UNCURRY])
       |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_oracle_list))
 
@@ -459,6 +376,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
            RAND_CONV eval THENC
            REWR_CONV_BETA LET_THM THENC
            REWR_CONV_BETA LET_THM THENC
+           REWR_CONV LET_THM THENC BETA_CONV THENC
+           REWR_CONV LET_THM THENC BETA_CONV THENC
            RAND_CONV(
              RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
              REWR_CONV MAP_GENLIST THENC
@@ -466,13 +385,11 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                REWR_CONV o_DEF THENC
                ABS_CONV(RAND_CONV BETA_CONV))) THENC
              REWR_CONV GENLIST_EL_ZIP_lemma THENC
-             PATH_CONV"lllrararaararaa" (
+             PATH_CONV"lllrarararaararaa" (
                PAIRED_BETA_CONV THENC
                PATH_CONV"llr"(
                  REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
-                 REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
-           REWR_CONV_BETA LET_THM THENC
-           REWR_CONV_BETA LET_THM))
+                 REWR_CONV_BETA(CONJUNCT2 option_case_def))))))
 
     val tm3 = compile_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand

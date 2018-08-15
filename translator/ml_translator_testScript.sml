@@ -13,6 +13,29 @@ val ZIP2_def = Define `
 
 val res = translate ZIP2_def;
 
+val res = translate APPEND;
+val res = translate REVERSE_DEF;
+val res = translate mllistTheory.tabulate_aux_def;
+
+val res = translate MEMBER_def;
+
+val AEVERY_AUX_def = Define `
+  (AEVERY_AUX aux P [] = T) /\
+  (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
+     if MEMBER x aux then AEVERY_AUX aux P xs else
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
+
+val res = translate AEVERY_AUX_def;
+
+val res = translate mlstringTheory.strcat_def;
+val res = translate mlstringTheory.concatWith_aux_def
+
+val ADEL_def = Define `
+  (ADEL [] z = []) /\
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+
+val res = translate ADEL_def;
+
 val ZIP4_def = Define `
   ZIP4 xs = ZIP2 xs 6`
 
@@ -26,6 +49,7 @@ val res = translate char_to_byte_def;
 val res = translate MAP;
 
 val res = translate mlstringTheory.explode_aux_def;
+
 val res = translate mlstringTheory.explode_def;
 
 val string_to_bytes_def = Define`
@@ -38,10 +62,10 @@ val res = translate miscTheory.any_word64_ror_def
 val def = Define `bar = []:'a list`
 val res = translate def
 
-val def = Define `foo = if bar = []:'a list then [] else []:'a list`
+val def = Define `foo1 = if bar = []:'a list then [] else []:'a list`
 val res = translate def
 
-val def = Define `foo = 4:num`
+val def = Define `foo2 = 4:num`
 val res = translate def
 
 val _ = Datatype`
@@ -73,9 +97,64 @@ val or_pre_def = Define`
 val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
+val _ = register_type ``:'a list``
 val _ = Hol_datatype `exn_type = Fail of string | Subscript`
 val _ = register_exn_type ``:exn_type``
 
 val _ = (print_asts := true);
+
+(* test no_ind *)
+
+val word64_msb_thm = Q.prove(
+  `!w. word_msb (w:word64) =
+         ((w && 0x8000000000000000w) = 0x8000000000000000w)`,
+  blastLib.BBLAST_TAC);
+
+val res = translate word64_msb_thm;
+
+val res = translate (miscTheory.arith_shift_right_def
+                     |> INST_TYPE [alpha|->``:64``]
+                     |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
+                     |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]
+  \\ first_x_assum match_mp_tac \\ wordsLib.WORD_EVAL_TAC \\ rw[])
+  |> update_precondition;
+
+val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
+
+val res = translate shift_test_def;
+
+(* Translation failure with primes *)
+val _ = Datatype` idrec = <|v : num; f : 'a|>`;
+
+val _ = Datatype` t = V num | F 'a | D t t`;
+
+val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
+
+val res = translate test_def;
+
+(* tricky datatype *)
+
+val _ = register_type ``:'a option``;
+val _ = register_type ``:'a list``;
+val _ = register_type ``:('a # 'b)``;
+
+val _ = Datatype `
+  tt = A1
+     | B1 tt
+     | C1 (tt option)
+     | D1 (tt list)
+     | E1 (tt # tt)`
+
+val _ = register_type ``:tt``;
 
 val _ = export_theory();

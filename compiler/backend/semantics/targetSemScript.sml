@@ -24,6 +24,10 @@ val _ = Datatype `
     ; next_interfer : num -> 'b -> 'b
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
+    (* entry point for calling clear_cache *)
+    ; ccache_pc : 'a word
+    (* major interference by calling clear_cache *)
+    ; ccache_interfer : num -> 'a word # 'a word # 'b -> 'b
     (* target next-state function etc. *)
     ; target : ('a,'b,'c) target
     |>`
@@ -47,6 +51,14 @@ val evaluate_def = Define `
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then Halt Success else Halt Resource_limit_hit,ms,ffi)
+      else if mc.target.get_pc ms = mc.ccache_pc then
+        let (ms1,new_oracle) =
+          apply_oracle mc.ccache_interfer
+            (mc.target.get_reg ms mc.ptr_reg,
+             mc.target.get_reg ms mc.len_reg,
+             ms) in
+        let mc = mc with ccache_interfer := new_oracle in
+          evaluate mc ffi (k-1) ms1
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
@@ -61,12 +73,13 @@ val evaluate_def = Define `
                        then SOME (mc.target.get_byte ms a) else NONE))
            of
           | SOME bytes, SOME bytes2 =>
-            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 in
-            let (ms1,new_oracle) = apply_oracle mc.ffi_interfer (ffi_index,new_bytes,ms) in
-            let mc = mc with ffi_interfer := new_oracle in
-              if new_ffi.final_event <> NONE
-              then (Halt (FFI_outcome (THE new_ffi.final_event)),ms,new_ffi)
-              else evaluate mc new_ffi (k - 1:num) ms1
+            (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
+             | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
+             | FFI_return new_ffi new_bytes =>
+                let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
+                  (ffi_index,new_bytes,ms) in
+                let mc = mc with ffi_interfer := new_oracle in
+                  evaluate mc new_ffi (k - 1:num) ms1)
           | _ => (Error,ms,ffi)`
 
 val machine_sem_def = Define `
@@ -75,9 +88,7 @@ val machine_sem_def = Define `
        evaluate mc st k ms = (Halt t,ms',st') ∧
        st'.io_events = io_list) /\
   (machine_sem mc st ms (Diverge io_trace) <=>
-     (!k. ?ms' st'.
-            evaluate mc st k ms = (TimeOut,ms',st') ∧
-            st'.final_event = NONE) /\
+     (!k. ?ms' st'. evaluate mc st k ms = (TimeOut,ms',st')) /\
      lprefix_lub
        (IMAGE
          (\k. fromList (SND (SND (evaluate mc st k ms))).io_events) UNIV)

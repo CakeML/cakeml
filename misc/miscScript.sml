@@ -241,6 +241,15 @@ val INJ_EXTEND = Q.store_thm("INJ_EXTEND",
     INJ ((x =+ y) b) (x INSERT s) (y INSERT t)`,
   full_simp_tac(srw_ss())[INJ_DEF,combinTheory.APPLY_UPDATE_THM] \\ METIS_TAC []);
 
+val LIST_REL_eq = store_thm("LIST_REL_eq",
+  ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []);
+
+val LIST_REL_OPT_REL_eq = store_thm("LIST_REL_OPT_REL_eq",
+  ``!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)``,
+  Induct \\ Cases_on `ys` \\ fs []
+  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
+
 val MEM_LIST_REL = Q.store_thm("MEM_LIST_REL",
   `!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y`,
   simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
@@ -1796,6 +1805,30 @@ val lookup_vars_def = Define `
        | NONE => NONE
      else NONE)`
 
+val TAKE_GENLIST = Q.store_thm("TAKE_GENLIST",
+  `TAKE n (GENLIST f m) = GENLIST f (MIN n m)`,
+  rw[LIST_EQ_REWRITE, LENGTH_TAKE_EQ, MIN_DEF, EL_TAKE]);
+
+val DROP_GENLIST = Q.store_thm("DROP_GENLIST",
+  `DROP n (GENLIST f m) = GENLIST (f o ((+)n)) (m-n)`,
+  rw[LIST_EQ_REWRITE,EL_DROP]);
+
+val num_to_dec_string_nil = Q.store_thm("num_to_dec_string_nil",
+  `¬(num_to_dec_string n = [])`,
+  rw[ASCIInumbersTheory.num_to_dec_string_def]
+  \\ rw[ASCIInumbersTheory.n2s_def]
+  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.LENGTH_n2l
+  \\ rw[] \\ CCONTR_TAC \\ fs[]);
+
+val isDigit_HEX = Q.store_thm("isDigit_HEX",
+  `∀n. n < 10 ⇒ isDigit (HEX n)`,
+  REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
+  \\ gen_tac
+  \\ CONV_TAC(LAND_CONV EVAL)
+  \\ simp[]
+  \\ strip_tac \\ var_eq_tac
+  \\ EVAL_TAC);
+
 val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
   `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`,
   REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
@@ -1803,6 +1836,18 @@ val isHexDigit_HEX = Q.store_thm("isHexDigit_HEX",
   \\ CONV_TAC(LAND_CONV EVAL)
   \\ strip_tac \\ var_eq_tac
   \\ EVAL_TAC);
+
+val EVERY_isDigit_num_to_dec_string = Q.store_thm("EVERY_isDigit_num_to_dec_string",
+  `∀n. EVERY isDigit (num_to_dec_string n)`,
+  rw[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def]
+  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
+  \\ simp[EVERY_MEM]
+  \\ gen_tac\\ strip_tac
+  \\ match_mp_tac isDigit_HEX
+  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.n2l_BOUND
+  \\ rw[EVERY_MEM]
+  \\ res_tac
+  \\ decide_tac);
 
 val EVERY_isHexDigit_num_to_hex_string = Q.store_thm("EVERY_isHexDigit_num_to_hex_string",
   `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`,
@@ -2140,6 +2185,16 @@ val splitAtPki_change_predicate = Q.store_thm("splitAtPki_change_predicate",
   \\ simp[FUN_EQ_THM]
   \\ metis_tac[]);
 
+val SPLITP_splitAtPki = Q.store_thm("SPLITP_splitAtPki",
+  `SPLITP P = splitAtPki (λi x. P x) $,`,
+  simp[FUN_EQ_THM]
+  \\ Induct
+  \\ simp[SPLITP,splitAtPki_def]
+  \\ rw[o_DEF]
+  \\ qho_match_abbrev_tac`f (splitAtPki (λi x. P x) $, x) = _`
+  \\ CONV_TAC(LAND_CONV(REWRITE_CONV[splitAtPki_push]))
+  \\ simp[Abbr`f`]);
+
 val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
   `FST o (f ## g) = f o FST ∧
    SND o (f ## g) = g o SND`,
@@ -2223,6 +2278,13 @@ val SPLITP_LENGTH = Q.store_thm("SPLITP_LENGTH",
     Induct \\ rw[SPLITP, LENGTH]
 );
 
+val EVERY_TOKENS = Q.store_thm("EVERY_TOKENS",
+  `∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)`,
+  recInduct TOKENS_ind
+  \\ rw[TOKENS_def]
+  \\ pairarg_tac \\ fs[NULL_EQ]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ imp_res_tac SPLITP_IMP);
 
 val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
   `∀P l1 x l2.
@@ -2904,6 +2966,26 @@ val INJ_UPDATE = store_thm("INJ_UPDATE",
   simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
 
+val subspt_union = Q.store_thm("subspt_union",`
+  subspt s (union s t)`,
+  fs[subspt_lookup,lookup_union]);
+
+val subspt_FOLDL_union = Q.store_thm("subspt_FOLDL_union",
+  `∀ls t. subspt t (FOLDL union t ls)`,
+  Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
+
+val lookup_FOLDL_union = Q.store_thm("lookup_FOLDL_union",
+  `lookup k (FOLDL union t ls) =
+   FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`,
+  qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
+  BasicProvers.TOP_CASE_TAC \\ simp[]);
+
+val map_union = Q.store_thm("map_union",
+  `∀t1 t2. map f (union t1 t2) = union (map f t1) (map f t2)`,
+  Induct
+  \\ rw[map_def,union_def]
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ rw[map_def,union_def]);
 
 (* Some temporal logic definitions based on lazy lists *)
 (* move into llistTheory? *)
@@ -3025,6 +3107,51 @@ val _ =  save_thm("option_eq_some",
     OPTION_IGNORE_BIND_EQUALS_OPTION,
     OPTION_BIND_EQUALS_OPTION,
     OPTION_CHOICE_EQUALS_OPTION]);
+
+val ALL_DISTINCT_alist_to_fmap_REVERSE = Q.store_thm("ALL_DISTINCT_alist_to_fmap_REVERSE",
+  `ALL_DISTINCT (MAP FST ls) ⇒ alist_to_fmap (REVERSE ls) = alist_to_fmap ls`,
+  Induct_on`ls` \\ simp[FORALL_PROD] \\ rw[] \\ rw[FUNION_FUPDATE_2]);
+
+val FUPDATE_LIST_alist_to_fmap = Q.store_thm ("FUPDATE_LIST_alist_to_fmap",
+`∀ls fm. fm |++ ls = alist_to_fmap (REVERSE ls) ⊌ fm`,
+ metis_tac [FUNION_alist_to_fmap, REVERSE_REVERSE]);
+
+val DISTINCT_FUPDATE_LIST_UNION = Q.store_thm("DISTINCT_FUPDATE_LIST_UNION",
+  `ALL_DISTINCT (MAP FST ls) /\
+   DISJOINT (FDOM f) (set(MAP FST ls)) ==>
+   f |++ ls = FUNION f (alist_to_fmap ls)`,
+  rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
+  \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]);
+
+val FEVERY_alist_to_fmap = Q.store_thm("FEVERY_alist_to_fmap",
+  `EVERY P ls ==> FEVERY P (alist_to_fmap ls)`,
+  Induct_on`ls` \\ simp[FORALL_PROD]
+  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM \\ fs[EVERY_MEM]);
+
+val ALL_DISTINCT_FEVERY_alist_to_fmap = Q.store_thm("ALL_DISTINCT_FEVERY_alist_to_fmap",
+  `ALL_DISTINCT (MAP FST ls) ⇒
+   (FEVERY P (alist_to_fmap ls) ⇔ EVERY P ls)`,
+  Induct_on`ls` \\ simp[FORALL_PROD]
+  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] \\ fs[FEVERY_ALL_FLOOKUP]
+  \\ rw[EQ_IMP_THM]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[ALOOKUP_MEM]);
+
+val DISJOINT_FEVERY_FUNION = Q.store_thm("DISJOINT_FEVERY_FUNION",
+  `DISJOINT (FDOM m1) (FDOM m2) ⇒
+   (FEVERY P (FUNION m1 m2) <=> FEVERY P m1 /\ FEVERY P m2)`,
+  rw[EQ_IMP_THM,fevery_funion]
+  \\ fs[FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION,IN_DISJOINT] \\ rw[]
+  \\ first_x_assum match_mp_tac
+  \\ CASE_TAC
+  \\ fs[FLOOKUP_DEF]
+  \\ metis_tac[]);
+
+val EVERY_FLAT = Q.store_thm("EVERY_FLAT",
+  `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`,
+  rw[EVERY_MEM,MEM_FLAT,PULL_EXISTS] \\ metis_tac[]);
 
 val SUM_MAP_K = Q.store_thm("SUM_MAP_K",
   `∀f ls c. (∀x. f x = c) ⇒ SUM (MAP f ls) = LENGTH ls * c`,

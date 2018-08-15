@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open patternMatchesLib ml_translatorLib;
+open patternMatchesLib ml_translatorLib patternMatchesSyntax patternMatchesTheory;
 
 val _ = new_theory "ml_pmatch_demo";
 
@@ -34,5 +34,180 @@ val balance_black_def = Define `
     | other => Black a n b`
 
 val res = translate balance_black_def;
+
+(* set up some examples from Candle *)
+
+fun fix def name rwth =
+  def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV(REWR_CONV rwth)))
+      |> curry save_thm name
+
+val _ = Hol_datatype`type
+  = Tyvar of mlstring
+  | Tyapp of mlstring => type list`
+
+val _ = Hol_datatype`term
+  = Var of mlstring => type
+  | Const of mlstring => type
+  | Comb of term => term
+  | Abs of term => term`
+
+val PAIR_EQ_COLLAPSE = Q.prove (
+`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
+Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
+
+val pabs_elim_ss =
+    simpLib.conv_ss
+      {name  = "PABS_ELIM_CONV",
+       trace = 2,
+       key   = SOME ([],``UNCURRY (f:'a -> 'b -> bool)``),
+       conv  = K (K pairTools.PABS_ELIM_CONV)}
+
+val select_conj_ss =
+    simpLib.conv_ss
+      {name  = "SELECT_CONJ_SS_CONV",
+       trace = 2,
+       key   = SOME ([],``$@ (f:'a -> bool)``),
+       conv  = K (K (SIMP_CONV (std_ss++boolSimps.CONJ_ss) []))};
+
+val static_ss = simpLib.merge_ss
+  [pabs_elim_ss,
+   pairSimps.paired_forall_ss,
+   pairSimps.paired_exists_ss,
+   pairSimps.gen_beta_ss,
+   select_conj_ss,
+   elim_fst_snd_select_ss,
+   boolSimps.EQUIV_EXTRACT_ss,
+   simpLib.rewrites [
+     some_var_bool_T, some_var_bool_F,
+     GSYM boolTheory.F_DEF,
+     pairTheory.EXISTS_PROD,
+     pairTheory.FORALL_PROD,
+     PMATCH_ROW_EQ_NONE,
+     PMATCH_ROW_COND_def,
+     PAIR_EQ_COLLAPSE,
+     oneTheory.one]];
+
+fun rc_ss gl = srw_ss() ++ simpLib.merge_ss (static_ss :: gl)
+
+val tac =
+  BasicProvers.PURE_CASE_TAC >>
+  FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
+    PMATCH_INCOMPLETE_def]
+
+val codomain_def = Define `
+  codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty`;
+
+val codomain_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL codomain_def))) =
+    case ty of Tyapp n (y::x::xs) => x | _ => ty`,
+  rpt tac)
+val codomain_def = fix codomain_def "codomain_def" codomain_PMATCH
+
+val rev_assocd_def = Define `
+  rev_assocd a l d =
+    dtcase l of
+      [] => d
+    | ((x,y)::l) => if y = a then x else rev_assocd a l d`;
+
+val rev_assocd_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL rev_assocd_def))) =
+    case l of
+       (x,y)::l1 => if y = a then x else rev_assocd a l1 d
+     | _ => d`,
+  rpt tac)
+val rev_assocd_def = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
+
+val alphavars_def = Define `
+  alphavars env tm1 tm2 =
+    dtcase env of
+      [] => (tm1 = tm2)
+    | (t1,t2)::oenv =>
+         ((t1 = tm1) /\ (t2 = tm2)) \/
+         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)`;
+
+val raconv_def = Define `
+  raconv env tm1 tm2 =
+    dtcase (tm1,tm2) of
+      (Var _ _, Var _ _) => alphavars env tm1 tm2
+    | (Const _ _, Const _ _) => (tm1 = tm2)
+    | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
+    | (Abs v1 t1, Abs v2 t2) =>
+       (dtcase (v1,v2) of
+          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
+                                      raconv ((v1,v2)::env) t1 t2
+        | _ => F)
+    | _ => F`;
+
+val raconv_PMATCH = Q.prove(
+  `^(rhs(concl(SPEC_ALL raconv_def))) =
+    case (tm1,tm2) of
+    | (Var _ _, Var _ _) => alphavars env tm1 tm2
+    | (Const _ _, Const _ _) => (tm1 = tm2)
+    | (Comb s1 t1, Comb s2 t2)
+        => raconv env s1 s2 ∧ raconv env t1 t2
+    | (Abs v1 t1, Abs v2 t2)
+        => (case (v1,v2) of
+            | (Var n1 ty1,Var n2 ty2)
+                => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
+            | _ => F)
+    | _ => F`,
+  rpt tac)
+
+val raconv_def = fix raconv_def "raconv_def" raconv_PMATCH
+
+(* do the sample translations *)
+
+val res = translate codomain_def;
+val res = translate rev_assocd_def
+val res = translate alphavars_def;
+
+val variant_def = Define `variant _ v = v`;
+
+val res = translate variant_def
+
+val vfree_in_def = Define `
+  vfree_in v tm =
+    dtcase tm of
+      Abs bv bod => v <> bv /\ vfree_in v bod
+    | Comb s t => vfree_in v s \/ vfree_in v t
+    | _ => (tm = v)`;
+
+val res = translate vfree_in_def
+
+val is_var_def = Define `
+  is_var tm =
+    dtcase tm of
+      Var bv bod => T
+    | _ => F`
+
+val res = translate is_var_def
+val res = translate listTheory.FILTER
+val res = translate listTheory.EXISTS_DEF
+
+val vsubst_aux_def = Define `
+  vsubst_aux ilist tm =
+    dtcase tm of
+      Var _ _ => rev_assocd tm ilist tm
+    | Const _ _ => tm
+    | Comb s t => let s' = vsubst_aux ilist s in
+                  let t' = vsubst_aux ilist t in
+                    Comb s' t'
+    | Abs v s  => if ~is_var v then tm else
+                  let ilist' = FILTER (\(t,x). x <> v) ilist in
+                  if ilist' = [] then tm else
+                  let s' = vsubst_aux ilist' s in
+                  (* if s' = s then tm else --- commented out becuase it doesn't
+                                             seem to fit Harrison's formalisation *)
+                  if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
+                  then let v' = variant [s'] v in
+                         Abs v' (vsubst_aux ((v',v)::ilist') s)
+                  else Abs v s'`;
+
+val res = translate vsubst_aux_def;
+
+val foo_def = Define `
+  foo theta tm = vsubst_aux theta tm`
+
+val res = translate foo_def
 
 val _ = export_theory();

@@ -1,4 +1,4 @@
-INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders ../encoders/asm reg_alloc $(HOLDIR)/examples/machine-code/multiword
+INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders/asm reg_alloc $(HOLDIR)/examples/machine-code/multiword
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -12,7 +12,7 @@ all: $(TARGETS)
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../../semantics/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+EXTRA_CLEANS = $(HOLHEAP)
 all: $(HOLHEAP)
 
 BARE_THYS = ../../semantics/terminationTheory ../encoders/asm/asmTheory

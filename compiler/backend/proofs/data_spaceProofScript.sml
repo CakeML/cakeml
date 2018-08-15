@@ -19,6 +19,8 @@ val get_vars_IMP_LENGTH = Q.store_thm("get_vars_IMP_LENGTH",
   Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
   \\ rw [] \\ fs [] \\ res_tac \\ fs []);
 
+val case_eq_thms = bvlPropsTheory.case_eq_thms;
+
 val evaluate_compile = Q.prove(
   `!c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -52,13 +54,7 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[] \\ reverse(Cases_on `do_app op x s`)
       \\ full_simp_tac(srw_ss())[] >- (
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
-           Cases_on`a`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-           full_simp_tac(srw_ss())[do_app_def,do_space_def,op_space_req_def,
-              data_to_bvi_ignore,bvi_to_data_space_locals,
-              bvi_to_dataTheory.op_space_reset_def] >>
-           rpt var_eq_tac >>
-           simp[call_env_def,state_component_equality] >>
-           simp[locals_ok_def,lookup_fromList])
+           fs [EVAL ``op_requires_names (FFI i)``])
       \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[set_var_def]
       \\ Q.EXISTS_TAC `insert dest q l`
@@ -173,7 +169,9 @@ val evaluate_compile = Q.prove(
         \\ SRW_TAC [] []
         \\ reverse(Cases_on `do_app o' x'' (s with locals := x')`)
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >- (
-             imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]>>srw_tac[][])
+             imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
+             full_simp_tac(srw_ss())[]>>srw_tac[][]
+             \\ fs [call_env_def] \\ qexists_tac `fromList []` \\ fs [locals_ok_def])
         \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
@@ -195,7 +193,8 @@ val evaluate_compile = Q.prove(
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
       \\ reverse (Cases_on `do_app o' x s`) \\ full_simp_tac(srw_ss())[] THEN1
        (IMP_RES_TAC do_app_err \\ full_simp_tac(srw_ss())[]
-        \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+        \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+        \\ fs [EVAL ``¬op_requires_names (FFI i)``])
       \\ Cases_on `a`
       \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ NTAC 2 (Q.PAT_X_ASSUM `!xx.bbb` (K ALL_TAC))
@@ -218,6 +217,27 @@ val evaluate_compile = Q.prove(
                \\ full_simp_tac(srw_ss())[EVERY_MEM,lookup_inter_alt,
                      domain_list_insert] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[do_app_def,do_space_alt]
+      \\ IF_CASES_TAC >- (
+        fs[do_install_def,case_eq_thms]
+        \\ pairarg_tac \\ fs[]
+        \\ fs[case_eq_thms] \\ rveq
+        \\ fs[state_component_equality] \\ rveq
+        \\ fs[op_space_req_def]
+        \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
+        \\ disch_then drule
+        \\ simp[]
+        \\ qpat_abbrev_tac`ll = insert n _ (inter _ _)`
+        \\ disch_then(qspec_then`ll`mp_tac)
+        \\ impl_tac THEN1
+          (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvi_to_data_space_locals]
+           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,bvi_to_data_space_locals]
+           \\ SRW_TAC [] []
+           \\ full_simp_tac(srw_ss())[locals_ok_def,lookup_insert,lookup_inter_alt]
+           \\ full_simp_tac(srw_ss())[domain_delete,domain_list_insert])
+        \\ strip_tac \\ simp[]
+        \\ qexists_tac`w` \\ fs[]
+        \\ Cases_on`res` \\ fs[]
+        \\ fs[locals_ok_def] )
       \\ IF_CASES_TAC THEN1 fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]

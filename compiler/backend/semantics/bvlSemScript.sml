@@ -31,6 +31,8 @@ val _ = Datatype `
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
+     ; compile : 'c -> (num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
      ; code    : (num # bvl$exp) num_map
      ; ffi     : 'ffi ffi_state |> `
 
@@ -86,7 +88,41 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'ffi bvlSem$state,bvlSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state,bvlSem$v)result``)
+
+val v_to_bytes_def = Define `
+  v_to_bytes lv = some ns:word8 list.
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+
+val v_to_words_def = Define `
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+
+val s = ``(s:('c,'ffi) bvlSem$state)``
+
+val do_install_def = Define `
+  do_install vs ^s =
+      (case vs of
+       | [v1;v2] =>
+           (case (v_to_bytes v1, v_to_words v2) of
+            | (SOME bytes, SOME data) =>
+               let (cfg,progs) = s.compile_oracle 0 in
+               let new_oracle = shift_seq 1 s.compile_oracle in
+                (if DISJOINT (domain s.code) (set (MAP FST progs)) /\
+                    ALL_DISTINCT (MAP FST progs) then
+                 (case s.compile cfg progs, progs of
+                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                      if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+                        let s' =
+                          s with <|
+                             code := union s.code (fromAList progs)
+                           ; compile_oracle := new_oracle |>
+                        in
+                          Rval (CodePtr k, s')
+                      else Rerr(Rabort Rtype_error)
+                  | _ => Rerr(Rabort Rtype_error))
+                  else Rerr(Rabort Rtype_error))
+            | _ => Rerr(Rabort Rtype_error))
+       | _ => Rerr(Rabort Rtype_error))`;
 
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
@@ -94,7 +130,7 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'f
     - Label is added *)
 
 val do_app_def = Define `
-  do_app op vs (s:'ffi bvlSem$state) =
+  do_app op vs ^s =
     case (op,vs) of
     | (Global n,[]) =>
         (case get_global n s.globals of
@@ -107,6 +143,7 @@ val do_app_def = Define `
          | _ => Error)
     | (AllocGlobal,[]) =>
         Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (Install,vs) => do_install vs s
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
     | (ConsExtend tag,Block _ xs'::Number lower::Number len::Number tot::xs) =>
@@ -276,10 +313,12 @@ val do_app_def = Define `
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
-            | (ffi',ws') =>
+            | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
-                              ; ffi  := ffi'|>))
+                              ; ffi   := ffi'|>)
+            | FFI_final outcome =>
+                Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
@@ -364,7 +403,7 @@ val fix_clock_IMP = Q.prove(
    defined to evaluate a list of exp expressions. *)
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate ([],env,s:'ffi bvlSem$state) = (Rval [],s)) /\
+  (evaluate ([],env,^s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
      | (Rval v1,s1) =>
@@ -427,16 +466,21 @@ val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
 val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
 val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def };
+val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
 val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
 val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
 val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_eq_thm
-  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms]))
+  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms,
+   ffi_result_thms]))
   |> curry save_thm"case_eq_thms";
 
 val do_app_const = Q.store_thm("do_app_const",
-  `(do_app op args s1 = Rval (res,s2)) ==>
-    (s2.clock = s1.clock) /\ (s2.code = s1.code)`,
-  rw[do_app_def,case_eq_thms,PULL_EXISTS] \\ rw[]);
+  `(bvlSem$do_app op args s1 = Rval (res,s2)) ==>
+    (s2.clock = s1.clock) /\
+    (op <> Install ==> s2.code = s1.code /\
+                       s2.compile = s1.compile /\
+                       s2.compile_oracle = s1.compile_oracle)`,
+  rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]);
 
 val bvl_do_app_Ref = Q.store_thm("bvl_do_app_Ref[simp]",
   `do_app Ref vs s = Rval
@@ -451,7 +495,7 @@ val bvl_do_app_Cons = Q.store_thm("bvl_do_app_Cons[simp]",
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `!xs env s1 vs s2.
-				(evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
+     (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[dec_clock_def] >> rw[] >> rfs[] >>
@@ -475,32 +519,37 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code k = <|
+  initial_state ffi code co cc k = <|
     clock := k;
     ffi := ffi;
     code := code;
+    compile := cc;
+    compile_oracle := co;
     globals := [];
     refs := FEMPTY
   |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code start =
+  semantics init_ffi code co cc start =
   let es = [Call 0 (SOME start) []] in
-    if ∃k. FST (evaluate (es,[],initial_state init_ffi code k)) = Rerr (Rabort Rtype_error)
+  let init = initial_state init_ffi code co cc in
+    if ∃k. FST (evaluate (es,[],init k)) = Rerr (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate (es,[],initial_state init_ffi code k) = (r,s) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
+        evaluate (es,[],init k) = (r,s) ∧
+        (case r of
+         | Rerr (Rabort Rtimeout_error) => F
+         | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
+         | _ => outcome = Success) ∧
         res = Terminate outcome s.ffi.io_events
     of SOME res => res
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (es,[],initial_state init_ffi code k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList
+              (SND (evaluate (es,[],init k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 

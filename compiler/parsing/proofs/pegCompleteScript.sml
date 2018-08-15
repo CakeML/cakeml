@@ -3468,11 +3468,11 @@ val completeness = Q.store_thm(
            mkNd_def] >>
       rw[] >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[] >> dsimp[peg_eval_tok_NONE] >> pmap_cases >>
-      rename [`ptree_head vpt = NN nV`,
-              `real_fringe vpt = MAP _ vf`,
+      rename [`ptree_head ppt = NN nPattern`,
+              `real_fringe ppt = MAP _ pf`,
               `ptree_head ept = NN nE`,
               `MAP _ ef = real_fringe ept`] >>
-      map_every qexists_tac [`[vpt]`, `ef ++ sfx`, `[ept]`] >>
+      map_every qexists_tac [`[ppt]`, `ef ++ sfx`, `[ept]`] >>
       normlist >>
       simp[Once EXISTS_PROD])
   >- (print_tac "nFQV" >>

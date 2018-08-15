@@ -10,7 +10,8 @@ val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
 
-val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
 
 val result = translate LENGTH;
 val r = translate NULL;
@@ -103,7 +104,8 @@ val result = translate EVERY_DEF;
 val result = translate SNOC;
 val result = translate GENLIST_AUX;
 val result = translate GENLIST_GENLIST_AUX;
-val result = translate tabulate_aux_def;
+val res = translate tabulate_aux_def;
+
 val result = translate tabulate_def;
 
 val result = translate collate_def;

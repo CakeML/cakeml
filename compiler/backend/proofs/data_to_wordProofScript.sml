@@ -13,6 +13,100 @@ val _ = new_theory "data_to_wordProof";
 
 val _ = hide "next";
 
+(* TODO: move to sptTheory *)
+
+val eq_shape_def = Define `
+  eq_shape LN LN = T /\
+  eq_shape (LS _) (LS _) = T /\
+  eq_shape (BN t1 t2) (BN u1 u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
+  eq_shape (BS t1 _ t2) (BS u1 _ u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
+  eq_shape _ _ = F`;
+
+val spt_eq = store_thm("spt_eq",
+  ``!t1 t2.
+      t1 = t2 <=>
+      (eq_shape t1 t2 /\ (!k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v))``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,lookup_def]
+  THEN1 metis_tac []
+  \\ rw [] \\ eq_tac \\ rw [] \\ rw [] \\ fs []
+  \\ first_assum (qspec_then `0` mp_tac)
+  \\ first_assum (qspec_then `k * 2 + 1` mp_tac)
+  \\ first_x_assum (qspec_then `k * 2 + 1 + 1` mp_tac)
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] DIV_MULT,EVEN_ADD]
+  \\ fs [GSYM ADD1,EVEN,EVEN_DOUBLE]);
+
+val eq_shape_map = store_thm("eq_shape_map",
+  ``!t1 t2 f. eq_shape (map f t1) t2 <=> eq_shape t1 t2``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,map_def]);
+
+val eq_shape_IMP_domain = store_thm("eq_shape_IMP_domain",
+  ``!t1 t2. eq_shape t1 t2 ==> domain t1 = domain t2``,
+  ho_match_mp_tac (fetch "-" "eq_shape_ind")
+  \\ rw [] \\ fs [eq_shape_def]);
+
+val copy_shape_def = Define `
+  copy_shape LN LN = LN /\
+  copy_shape LN (LS y) = LN /\
+  copy_shape LN (BN t1 t2) = BN (copy_shape LN t1) (copy_shape LN t2) /\
+  copy_shape LN (BS t1 y t2) = LN /\
+  copy_shape (LS x) LN = LS x /\
+  copy_shape (LS x) (LS y) = LS x /\
+  copy_shape (LS x) (BN t1 t2) = LS x /\
+  copy_shape (LS x) (BS t1 y t2) = BS (copy_shape LN t1) x (copy_shape LN t2) /\
+  copy_shape (BN u1 u2) LN = (if domain (BN u1 u2) = {} then LN else BN u1 u2) /\
+  copy_shape (BN u1 u2) (LS y) = BN u1 u2 /\
+  copy_shape (BN u1 u2) (BN t1 t2) = BN (copy_shape u1 t1) (copy_shape u2 t2) /\
+  copy_shape (BN u1 u2) (BS t1 y t2) = BN u1 u2 /\
+  copy_shape (BS u1 x u2) LN = BS u1 x u2 /\
+  copy_shape (BS u1 x u2) (LS y) =
+     (if domain (BN u1 u2) = {} then LS x else BS u1 x u2) /\
+  copy_shape (BS u1 x u2) (BN t1 t2) = BS u1 x u2 /\
+  copy_shape (BS u1 x u2) (BS t1 y t2) = BS (copy_shape u1 t1) x (copy_shape u2 t2)`
+
+val eq_shape_copy_shape = prove(
+  ``!s. domain s = {} ==> eq_shape (copy_shape LN s) s``,
+  Induct \\ fs [copy_shape_def,eq_shape_def]);
+
+val num_lemma = prove(
+  ``(!n. 0 <> 2 * n + 2 /\ 0 <> 2 * n + 1:num) /\
+    (!n m. 2 * n + 2 = 2 * m + 2 <=> (m = n)) /\
+    (!n m. 2 * n + 1 = 2 * m + 1 <=> (m = n)) /\
+    (!n m. 2 * n + 2 <> 2 * m + 1n)``,
+  rw [] \\ fs [] \\ Cases_on `m = n` \\ fs []);
+
+val shape_eq_copy_shape = store_thm("shape_eq_copy_shape",
+  ``!t1 t2. domain t1 = domain t2 ==> eq_shape (copy_shape t1 t2) t2``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,copy_shape_def]
+  \\ rpt strip_tac \\ TRY (first_x_assum match_mp_tac)
+  \\ TRY (match_mp_tac eq_shape_copy_shape) \\ fs []
+  \\ rw [] \\ fs [eq_shape_def] \\ fs [EXTENSION]
+  \\ TRY (first_assum (qspec_then `0` mp_tac) \\ simp_tac std_ss [])
+  \\ rw [] \\ first_assum (qspec_then `2 * x + 2` mp_tac)
+  \\ first_x_assum (qspec_then `2 * x + 1` mp_tac)
+  \\ fs [num_lemma]);
+
+val lookup_copy_shape_LN = prove(
+  ``!s n. lookup n (copy_shape LN s) = NONE``,
+  Induct \\ fs [copy_shape_def,lookup_def] \\ rw [] \\ fs []);
+
+val domain_EMPTY_lookup = prove(
+  ``domain t = EMPTY ==> !x. lookup x t = NONE``,
+  fs [domain_lookup,EXTENSION] \\ rw []
+  \\ pop_assum (qspec_then `x` mp_tac)
+  \\ Cases_on `lookup x t` \\ fs []);
+
+val lookup_copy_shape = store_thm("lookup_copy_shape",
+  ``!t1 t2 n. lookup n (copy_shape t1 t2) = lookup n t1``,
+  Induct \\ Cases_on `t2` \\ fs [copy_shape_def,lookup_def] \\ rw []
+  \\ fs [lookup_def,lookup_copy_shape_LN,domain_EMPTY_lookup]);
+
+val domain_mapi = store_thm("domain_mapi[simp]",
+  ``domain (mapi f x) = domain x``,
+  fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
+
+(* / TODO *)
+
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
@@ -20,7 +114,7 @@ val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
 val data_compile_correct = Q.store_thm("data_compile_correct",
-  `!prog (s:'ffi dataSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
+  `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs /\
@@ -29,8 +123,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       ?t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events ∧
-           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
@@ -44,6 +137,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
                 LASTN (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
                 !i. state_rel c l5 l6 (set_var i v s1)
                        (set_var (adjust_var i) w t1) [] ll)
+         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
@@ -69,7 +163,11 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `cut_state_opt names_opt s` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `get_vars args x.locals` \\ full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `do_app op x' x`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (imp_res_tac do_app_Rerr \\ srw_tac[][])
+    THEN1 (imp_res_tac do_app_Rerr \\ srw_tac[][] \\
+           imp_res_tac assign_FFI_final \\
+           first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac) \\
+           asm_exists_tac >> fs[] >> rpt strip_tac >> fs[] >>
+           imp_res_tac cut_state_opt_const \\ fs[state_rel_def])
     \\ Cases_on `a`
     \\ drule (GEN_ALL assign_thm) \\ full_simp_tac(srw_ss())[]
     \\ rpt (disch_then drule)
@@ -115,7 +213,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
            wordSemTheory.get_var_def,wordSemTheory.set_var_def]
       \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
            (t with locals := insert 1 (Word (alloc_size k)) t.locals))
-               :('a result option)#( ('a,'ffi) wordSem$state)`
+               :('a result option)#( ('a,'c,'ffi) wordSem$state)`
       \\ full_simp_tac(srw_ss())[]
       \\ drule (GEN_ALL alloc_lemma)
       \\ rpt (disch_then drule)
@@ -136,7 +234,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ drule (GEN_ALL alloc_lemma) \\ fs [] \\ rveq
     \\ `dataSem$cut_env names x = SOME x` by
       (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs [lookup_inter_alt,domain_inter])
-    \\ disch_then drule
+    \\ rpt (disch_then drule)
     \\ qmatch_assum_abbrev_tac `alloc _ _ t5 = _`
     \\ `t5 = t with locals := insert 1 (Word (alloc_size k)) y` by
           (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
@@ -157,14 +255,14 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ `get_var 0 t = SOME (Loc l1 l2)` by
           full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.get_var_def]
-    \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP
+    \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.call_env_def,lookup_def,
            dataSemTheory.call_env_def,fromList_def,EVAL ``join_env LN []``,
            EVAL ``toAList (inter (fromList2 []) (insert 0 () LN))``]
     \\ asm_exists_tac \\ fs []
     \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
-    \\ imp_res_tac word_ml_inv_get_var_IMP
-    \\ pop_assum mp_tac
+    \\ rpt_drule word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_rearrange
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   THEN1 (* Seq *)
@@ -183,7 +281,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `q'' = NONE`) \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `q''` \\ full_simp_tac(srw_ss())[]
-           \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e` \\ full_simp_tac(srw_ss())[])
+           \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e` \\ full_simp_tac(srw_ss())[] \\ PURE_TOP_CASE_TAC >> fs[])
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
@@ -296,11 +394,13 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
         \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
         \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp]
-        \\ sg `LENGTH r'.stack < LENGTH locs`
-        \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
         \\ `LENGTH locs = LENGTH s.stack` by
            (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
-        \\ imp_res_tac eval_exc_stack_shorter)
+        \\ TRY(rename1 `Rraise`
+               \\ `LENGTH r'.stack < LENGTH locs`
+                 by(imp_res_tac eval_exc_stack_shorter \\ fs[]))
+        \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
+        \\ every_case_tac \\ fs[])
       \\ Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
       \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
@@ -332,8 +432,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
-      \\ sg `r'.ffi.io_events ≼ s1.ffi.io_events ∧
-          (IS_SOME t1.ffi.final_event ⇒ r'.ffi = s1.ffi)`
+      \\ sg `r'.ffi.io_events ≼ s1.ffi.io_events`
       \\ TRY (imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
@@ -347,7 +446,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
       \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[])
     \\ reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][])
+    THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ every_case_tac \\ fs[])
     \\ full_simp_tac(srw_ss())[mk_loc_jump_exc]
     \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
     \\ qpat_x_assum `!x y z.bbb` (K ALL_TAC)
@@ -377,7 +476,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
 
 val compile_correct_lemma = Q.store_thm("compile_correct_lemma",
-  `!(s:'ffi dataSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+  `!s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       t.termdep > 1 /\
@@ -385,14 +484,14 @@ val compile_correct_lemma = Q.store_thm("compile_correct_lemma",
       ?t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events ∧
-           (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
         | NONE => (res1 = NONE)
         | SOME (Rval v) => t1.ffi = s1.ffi /\
                            ?w. (res1 = SOME (Result (Loc l1 l2) w))
         | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+        | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   rpt strip_tac
   \\ drule data_compile_correct \\ full_simp_tac(srw_ss())[]
@@ -408,14 +507,21 @@ val state_rel_ext_def = Define `
   state_rel_ext c l1 l2 s u <=>
     ?t l.
       state_rel c l1 l2 s t [] [] /\
-      t.termdep > 1  /\
+      domain t.code = domain l /\
+      t.termdep > 1 /\
+      (?tt kk aa co.
+         u.compile_oracle =
+           (I ## MAP (λp. full_compile_single tt kk aa co (p,NONE))) ∘
+             t.compile_oracle /\
+         t.compile = (λconf progs. u.compile conf
+           (MAP (λp. full_compile_single tt kk aa co (p,NONE)) progs))) /\
       (!n v. lookup n t.code = SOME v ==>
              ∃t' k' a' c' col.
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
-      u = t with <|code := l;termdep:=0|>`
+      u = t with <| code := l; termdep:=0; compile:=u.compile; compile_oracle := u.compile_oracle|>`
 
 val compile_correct = Q.store_thm("compile_correct",
-  `!x (s:'ffi dataSem$state) l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+  `!x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel_ext x l1 l2 s t ==>
@@ -423,35 +529,75 @@ val compile_correct = Q.store_thm("compile_correct",
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
            (inc_clock ck t)) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events ∧
-           (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => (res1 = NONE)
          | SOME (Rval v) => t1.ffi = s1.ffi /\
                             ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
-  \\ rename1 `state_rel x0 l1 l2 s t [] []`
-  \\ drule compile_word_to_word_thm
-  \\ impl_tac THEN1 fs [state_rel_def,gc_fun_const_ok_word_gc_fun]
-  \\ srw_tac[][]
-  \\ drule compile_correct_lemma \\ full_simp_tac(srw_ss())[]
-  \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ rename1 `state_rel x0 l1 l2 s t2 [] []`
+  \\ sg `?l2. code_rel t2.code l2 /\
+              map (I ## remove_must_terminate) l2 = l`
+  THEN1 (
+    fs [boolTheory.SKOLEM_THM,METIS_PROVE [] ``(b ==> ?x. P x) <=> ?x. b ==> P x``]
+    \\ fs [spt_eq,lookup_map,eq_shape_map]
+    \\ simp [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
+    \\ fs [word_to_wordProofTheory.code_rel_def,
+         word_to_wordTheory.full_compile_single_def]
+    \\ sg `?l3. eq_shape l3 l /\ ∀n v.
+          lookup n t2.code = SOME v ⇒
+          lookup n l3 = SOME (SND
+            ((λ(name_num,arg_count,reg_prog).
+                (name_num,arg_count,reg_prog))
+               (compile_single (f n v) (f' n v) (f'' n v) (f''' n v)
+                   ((n,v),f'''' n v))))`
+    THEN1
+     (qho_match_abbrev_tac `?l3. _ l3 /\ !n v. _ n v ==> _ n l3 = SOME (ff n v)`
+      \\ qexists_tac `copy_shape (mapi ff t2.code) l`
+      \\ conj_tac THEN1 (fs [] \\ match_mp_tac shape_eq_copy_shape \\ fs [])
+      \\ fs [lookup_copy_shape]
+      \\ rw [] \\ fs [lookup_mapi])
+    \\ qexists_tac `l3`
+    \\ rw [] \\ res_tac \\ fs []
+    THEN1 (CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [] \\ metis_tac [])
+    \\ fs [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
+    \\ fs [eq_shape_map] \\ rw []
+    \\ imp_res_tac eq_shape_IMP_domain
+    \\ fs [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
+    \\ fs [EXISTS_PROD]
+    \\ `?v11 v12. lookup k t.code = SOME (v11,v12)` by metis_tac []
+    \\ `?v21 v22. lookup k t2.code = SOME (v21,v22)` by metis_tac []
+    \\ res_tac
+    \\ fs [] \\ rveq \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
+  \\ drule (compile_word_to_word_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ `domain l2' = domain l` by (rveq \\ fs [domain_map])
+  \\ `domain t2.code = domain l2'` by fs []
+  \\ `gc_fun_const_ok t2.gc_fun` by
+         fs [state_rel_def,gc_fun_const_ok_word_gc_fun]
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then `start` mp_tac)
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ `state_rel x0 l1 l2 s (t2 with permute := perm') [] []` by
    (full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
     \\ Cases_on `s.stack` \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
-  \\ `(t with permute := perm').termdep > 1` by fs[]
-  \\ ntac 2 (disch_then drule) \\ strip_tac
-  \\ qexists_tac `clk` \\ full_simp_tac(srw_ss())[]
-  \\ qpat_x_assum `let prog = Call NONE (SOME start) [0] NONE in _` mp_tac
-  \\ full_simp_tac(srw_ss())[LET_THM] \\ strip_tac
-  THEN1 (full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
-  \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[inc_clock_def]
-  \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
+  \\ drule compile_correct_lemma \\ fs []
+  \\ disch_then (drule o ONCE_REWRITE_RULE [CONJ_COMM])
+  \\ fs [] \\ strip_tac \\ fs []
+  THEN1 (rveq \\ fs [] \\ every_case_tac \\ fs[])
+  \\ pairarg_tac \\ fs [inc_clock_def]
+  \\ qexists_tac `clk`
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
+  \\ qpat_x_assum `evaulate _ = _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,t7)`
+  \\ qsuff_tac `t6 = t7` THEN1 (every_case_tac \\ fs [])
+  \\ unabbrev_all_tac \\ fs []
+  \\ fs [wordSemTheory.state_component_equality]);
 
 val state_rel_ext_with_clock = Q.prove(
   `state_rel_ext a b c s1 s2 ==>
@@ -459,20 +605,23 @@ val state_rel_ext_with_clock = Q.prove(
   full_simp_tac(srw_ss())[state_rel_ext_def] \\ srw_tac[][]
   \\ drule state_rel_with_clock
   \\ strip_tac \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-  \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]);
+  \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ metis_tac []);
 
 (* observational semantics preservation *)
 
 val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
-  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t /\
-   semantics ffi (fromAList prog) start <> Fail ==>
+  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+   semantics ffi (fromAList prog) co cc start <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit { semantics ffi (fromAList prog) start }`,
+     extend_with_resource_limit { semantics ffi (fromAList prog) co cc start }`,
   simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
   simp[dataSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
+  conj_tac
+ >- (
     qx_gen_tac`r`>>simp[]>>strip_tac>>
     strip_tac >>
     simp[wordSemTheory.semantics_def] >>
@@ -501,72 +650,20 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       srw_tac[][extend_with_resource_limit_def] >> full_simp_tac(srw_ss())[] >>
-      Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
-        Cases_on`r'`>>full_simp_tac(srw_ss())[] >> rveq >>
-        drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
-        disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
-        drule(compile_correct)>>simp[]>>
-        drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
-        disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
-        disch_then drule>>
-        simp[comp_def]>>strip_tac>>
-        `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-         (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
-           qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
-           Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
-           full_simp_tac(srw_ss())[inc_clock_def,Abbr`tt`] >>
-           disch_then(qspec_then`k+ck`mp_tac)>>simp[]>>
-           fsrw_tac[ARITH_ss][] ) >>
-        Cases_on`r = SOME TimeOut` >- (
-          every_case_tac >> full_simp_tac(srw_ss())[]>>
-          Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
-        qhdtm_x_assum`wordSem$evaluate`mp_tac >>
-        drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
-        simp[] >>
-        disch_then(qspec_then`ck+k`mp_tac) >>
-        simp[inc_clock_def] >> ntac 2 strip_tac >>
-        rveq >> full_simp_tac(srw_ss())[] >>
-        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
-      `∃r s'.
-        evaluate
-          (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) (k + k')) = (r,s') ∧
-        s'.ffi = s.ffi` by (
-          srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-          metis_tac[dataPropsTheory.evaluate_add_clock_io_events_mono,SND,
-                    initial_state_with_simp,IS_SOME_EXISTS,initial_state_simp]) >>
-      drule compile_correct >> simp[] >>
-      simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-      impl_tac >- (
-        last_x_assum(qspec_then`k+k'`mp_tac)>>srw_tac[][]>>
-        strip_tac>>full_simp_tac(srw_ss())[])>>
+      `r' <> Rerr(Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
+      `r' <> Rerr(Rabort Rtimeout_error)` by(CCONTR_TAC >> fs[]) >>
+      drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
+      disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
+      drule(compile_correct)>>simp[]>>
       drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
-      disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
-      disch_then drule>>
-      simp[comp_def]>>strip_tac>>
-      `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-       (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
-        qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
-        Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
-        full_simp_tac(srw_ss())[inc_clock_def,Abbr`tt`] >>
-        disch_then(qspec_then`k+ck`mp_tac)>>simp[]>>
-        fsrw_tac[ARITH_ss][] ) >>
-      reverse(Cases_on`t'.ffi.final_event`)>>full_simp_tac(srw_ss())[] >- (
-        Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>>
-        full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-        every_case_tac>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-        rveq>>full_simp_tac(srw_ss())[]>>
-        last_x_assum(qspec_then`k+k'`mp_tac) >> simp[]) >>
-      Cases_on`r`>>full_simp_tac(srw_ss())[]>>
-      qhdtm_x_assum`wordSem$evaluate`mp_tac >>
-      drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
-      simp[RIGHT_FORALL_IMP_THM] >>
-      impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-      disch_then(qspec_then`k+ck`mp_tac) >>
-      fsrw_tac[ARITH_ss][inc_clock_def]>> srw_tac[][] >>
-      every_case_tac>>full_simp_tac(srw_ss())[]>>rveq>>rev_full_simp_tac(srw_ss())[]>>
-      full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]) >>
+      disch_then(qspec_then `k+k'` assume_tac)>>disch_then drule>>
+      simp[inc_clock_def]>>strip_tac>>
+      qpat_x_assum `evaluate _ = (r,_)` assume_tac>>
+      dxrule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
+      disch_then(qspec_then `ck+k` mp_tac)>>
+      impl_tac>-(CCONTR_TAC>>fs[])>>
+      simp[inc_clock_def]>>strip_tac>>
+      rpt(PURE_FULL_CASE_TAC>>fs[]>>rveq>>fs[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
@@ -619,8 +716,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
-    `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-     (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
+    `t'.ffi.io_events ≼ t1.ffi.io_events` by (
       qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
       Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
       full_simp_tac(srw_ss())[inc_clock_def,Abbr`tt`] >>
@@ -675,8 +771,8 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     simp[LESS_EQ_EXISTS] >>
     metis_tac[
       wordPropsTheory.evaluate_add_clock_io_events_mono,
-      EVAL``((t:('a,'ffi) wordSem$state) with clock := k).clock``,
-      EVAL``((t:('a,'ffi) wordSem$state) with clock := k) with clock := k2``,
+      EVAL``((t:('a,'c,'ffi) wordSem$state) with clock := k).clock``,
+      EVAL``((t:('a,'c,'ffi) wordSem$state) with clock := k) with clock := k2``,
       dataPropsTheory.evaluate_add_clock_io_events_mono,
       dataPropsTheory.initial_state_with_simp,
       dataPropsTheory.initial_state_simp]) >>
@@ -708,8 +804,9 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
     strip_tac >> full_simp_tac(srw_ss())[] >>
     rveq >>
-    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) ) >>
-    (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
+    every_case_tac >> fs[]) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -736,45 +833,59 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
   simp[EL_APPEND1]);
 
-fun define_abbrev name tm = let
-  val vs = free_vars tm |> sort
-    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
-  val vars = foldr mk_pair (last vs) (butlast vs)
-  val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
-  in Define `^n ^vars = ^tm` end
+val code_rel_ext_def = Define`
+  code_rel_ext code l ⇔
+  (∀n p_1 p_2.
+        SOME (p_1,p_2) = lookup n code ⇒
+        ∃t' k' a' c' col.
+          SOME
+            (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
+          lookup n l)`
 
-val code_termdep_equiv = Q.prove(
-  `t' with <|code := l; termdep := 0|> = t <=>
-    ?x1 x2.
-      t.code = l /\ t.termdep = 0 /\ t' = t with <|code := x1; termdep := x2|>`,
-  fs [wordSemTheory.state_component_equality] \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
-
-val compile_semantics = save_thm("compile_semantics",let
-  val th1 =
-    compile_semantics_lemma |> Q.GEN `conf`
-    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
-    |> REWRITE_RULE [state_rel_ext_def]
-    |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
-    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,
-         FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
-    |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
-    |> REWRITE_RULE [ASSUME ``(t:('a,'ffi) wordSem$state).clock =
-                              (t':('a,'ffi) wordSem$state).clock``]
-    |> (fn th => MATCH_MP th (UNDISCH state_rel_init
-            |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`,`t`|->`t'`]))
-    |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
-    |> SIMP_RULE std_ss [METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``]
-    |> DISCH ``(t':('a,'ffi) wordSem$state).code = code``
-    |> SIMP_RULE std_ss [] |> UNDISCH |> UNDISCH
-  val def = define_abbrev "code_rel_ext" (th1 |> concl |> dest_imp |> fst)
-  in th1 |> REWRITE_RULE [GSYM def,code_termdep_equiv]
-         |> SIMP_RULE std_ss [PULL_EXISTS,PULL_FORALL] |> SPEC_ALL
-         |> DISCH_ALL |> GEN_ALL |> SIMP_RULE (srw_ss()) []
-         |> Q.SPEC `2` |> SIMP_RULE std_ss []
-         |> SPEC_ALL
-         |> SIMP_RULE std_ss []
-         |> UNDISCH
-         |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
+val compile_semantics = Q.store_thm("compile_semantics",`
+   (* Definitely correct *)
+   t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
+   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
+   good_dimindex (:α) ∧
+   lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧ conf_ok (:α) c ∧
+   t.termdep = 0 ∧
+   (* Construct an intermediate state *)
+   code_rel c (fromAList prog) x1 ∧
+   (* Explicitly instantiate code_oracle_rel at the intermediate state *)
+   cc = (λcfg.
+        lift (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+        MAP (compile_part c)) ∧
+   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
+   (∀n. EVERY (λ(n,_). data_num_stubs ≤ n) (SND (co n))) ∧
+   (* Construct the next composition *)
+   code_rel_ext x1 t.code ∧
+   domain x1 = domain t.code ∧
+   t.compile_oracle = (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) o tco ∧
+   Abbrev (tcc = (λconf progs.
+    t.compile conf (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
+   Fail ≠ semantics t.ffi (fromAList prog) co cc start ⇒
+   semantics t start ∈
+   extend_with_resource_limit
+   {semantics t.ffi (fromAList prog) co cc start}`,
+   rw[]>>
+   match_mp_tac (GEN_ALL compile_semantics_lemma)>>
+   qexists_tac`c`>>fs[state_rel_ext_def]>>rw[]>>
+   fs[code_rel_ext_def]>>
+   qexists_tac`t with <|code := x1; termdep := 2; compile_oracle := tco; compile := tcc |>`>>
+   simp[wordSemTheory.state_component_equality]>>
+   CONJ_TAC >-
+     (qmatch_goalsub_abbrev_tac`state_rel _ _ _ _ ttt`>>
+     `t.clock = ttt.clock` by
+       fs[Abbr`ttt`]>>
+     simp[]>>
+     match_mp_tac state_rel_init>>
+     unabbrev_all_tac>>fs[code_oracle_rel_def] >>
+     fs [init_store_ok_def])>>
+   CONJ_TAC>-
+     (unabbrev_all_tac>>fs[]>>
+     metis_tac[])>>
+   fs[FORALL_PROD]>>
+   metis_tac[]);
 
 val code_rel_ext_def = definition"code_rel_ext_def";
 
@@ -866,7 +977,7 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
     fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
        SilentFFI_def,list_Seq_def]));
 
-open match_goal
+open match_goal;
 
 val labels_rel_emp = Q.prove(`
   labels_rel [] ls ⇒ ls = [] `,
@@ -1073,7 +1184,7 @@ val MAP_FST_stubs_bound = Q.store_thm("MAP_FST_stubs_bound",
 val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
   `∀code c1 col code'.
    compile c1 c2 code = (col,code') ⇒
-   code_rel_ext (fromAList code, fromAList code')`,
+   code_rel_ext (fromAList code) (fromAList code')`,
   simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
   ntac 2 gen_tac \\
   map_every qspec_tac (map swap [(`r`,`c1.reg_alg`), (`col`,`c1.col_oracle`)]) \\

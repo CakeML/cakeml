@@ -139,9 +139,11 @@ val is_nil_spec = Q.prove (
 )
 
 val is_none = process_topdecs
-  `fun is_none opt = case opt of NONE => true | SOME _ => false`
+  `fun is_none opt = case opt of None => true | Some _ => false`
 
 val st = ml_progLib.add_prog is_none pick_name basis_st
+
+val OPTION_TYPE_def = std_preludeTheory.OPTION_TYPE_def;
 
 val is_none_spec = Q.prove (
   `!ov a opt.
@@ -192,9 +194,9 @@ val example_raise_spec = Q.prove (
   `!uv.
      UNIT_TYPE () uv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "example_raise" st) [uv]
-       emp (POSTe v. & (v = Conv (SOME ("Foo", TypeExn (Short "Foo"))) []))`,
+       emp (POSTe v. & (v = Conv (SOME (ExnStamp 7)) []))`,
   xcf "example_raise" st \\
-  xlet `POSTv ev. & (ev = Conv (SOME ("Foo", TypeExn (Short "Foo"))) [])`
+  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 7)) [])`
   THEN1 (xcon \\ xsimpl) \\
   xraise \\ xsimpl
 );
@@ -207,7 +209,7 @@ val example_handle = process_topdecs
 val st = ml_progLib.add_prog example_handle pick_name basis_st
 
 val Foo_exn_def = Define `
-  Foo_exn i v = (v = Conv (SOME ("Foo", TypeExn (Short "Foo"))) [Litv (IntLit i)])`
+  Foo_exn i v = (v = Conv (SOME (ExnStamp 7)) [Litv (IntLit i)])`
 
 val example_handle_spec = Q.prove (
   `!uv.

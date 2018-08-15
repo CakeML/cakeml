@@ -1,7 +1,7 @@
 structure ml_monadStoreLib :> ml_monadStoreLib = struct
 
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
+open astTheory libTheory evaluateTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open packLib
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
@@ -11,22 +11,24 @@ open Redblackmap AC_Sort Satisfy
 open ml_translatorLib
 
 (* COPY/PASTE from basisFunctionsLib *)
-fun derive_eval_thm v_name e = let
+fun derive_eval_thm for_eval v_name e = let
   val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
+  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
+    |> (NCONV 50 (SIMP_CONV (srw_ss()) [evaluate_def,ml_progTheory.eval_rel_alt,
             PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
   val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
                     rpt strip_tac \\ rveq \\
                     match_mp_tac (#2(EQ_IMP_RULE lemma)) \\
-                    simp_tac bool_ss [])
-                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev true v_name v_tm
+                    simp_tac bool_ss [] \\
+                    fs [state_component_equality])
+                 |> GEN_ALL |> SIMP_RULE std_ss [GSYM PULL_EXISTS]
+                            |> SIMP_RULE std_ss [PULL_EXISTS]
+                            |> SIMP_RULE (srw_ss()) [PULL_EXISTS]
+                            |> SPEC_ALL
+  val v_tm = v_thm |> concl |> rand
+  val v_def = define_abbrev for_eval v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 (* end of COPY/PASTE from basisFunctionsLib *)
 
@@ -67,7 +69,7 @@ val empty_v_list = get_term "empty_v_list"
 val empty_v_store = get_term "empty_v_store"
 val empty_alpha_list = get_term "empty_alpha_list"
 val nsLookup_env_short_term = get_term "nsLookup_env_short"
-val prim_exn_Subscript = get_term "prim_exn Subscript"
+val Conv_Subscript = get_term "Conv_Subscript"
 
 fun mk_get_refs state = let
     val ffi_ty = type_of state |> dest_type |> snd |> hd
@@ -157,6 +159,13 @@ fun get_rarrays_manip_funs (l : (string * thm * thm * thm * thm * thm * thm * th
 fun get_farrays_manip_funs (l : (string * (int * thm) * thm * thm * thm * thm * thm) list) =
   List.map (fn (x1, _, x2, x3, x4, x5, x6) => (x1, x2, x3, x4, x5, x6)) l;
 
+(*
+
+val v_name = name
+val value_def = def
+
+*)
+
 fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
@@ -178,24 +187,31 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val th = SIMP_RULE pure_ss [GSYM array_v_def] th
     val res_pair = rand(concl th)
     val res_pair_eq = EVAL res_pair
-    val th = SIMP_RULE pure_ss [res_pair_eq] th
+    val res_pair2 = rand(rator(concl th))
+    val res_pair2_eq = EVAL res_pair2
+    val th = SIMP_RULE pure_ss [res_pair_eq,res_pair2_eq] th
 
     (* Abbreviate the array location *)
-    val array_loc = concl th |> rand |> dest_pair |> fst |> rand |> rator |> rand |> rand |> rand |>
-        rator |> rand |> rand
+    val array_loc = concl th |> rator |> rand |> rand |> rator
+                    |> rand |> rand |> rand |> listSyntax.dest_cons |> fst
     val array_loc_def = define_abbrev false array_loc_name array_loc
-    val th = SIMP_RULE pure_ss [GSYM array_loc_def] th
+    val th = PURE_REWRITE_RULE [GSYM array_loc_def] th
 
     (* Abbreviate the reference location *)
-    val res = concl th |> rand |> dest_pair |> snd |> rand
+    val res = concl th |> rand
     val ref_var = mk_var(ref_name, v_ty)
     val ref_def = Define `^ref_var = ^res`
     val th = SIMP_RULE pure_ss [GSYM ref_def] th
 in (array_v_thm, array_loc_def, ref_def, th) end;
 
+(*
+val init_value_def = def
+*)
+
 fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
-    val init_value_v_thm = translate init_value_def
     val init_value_name = concl init_value_def |> lhs |> dest_const |> fst
+    val _ = (next_ml_names := init_value_name::(!next_ml_names))
+    val init_value_v_thm = translate init_value_def
 
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
@@ -207,13 +223,14 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val th = MATCH_MP th lookup_assum
 
     (* Abbreviate the constants and simplify the theorem *)
-    val array_v = concl th |> rand |> rator |> rand |> rator |> rand |> rand |> rand |> rator |> rand |> rand
-    val array_v_name = find_const_name (name ^ "_v")
-    val array_v_abbrev = define_abbrev false array_v_name array_v
-    val th = SIMP_RULE pure_ss [GSYM array_v_abbrev] th
     val th = CONV_RULE (RAND_CONV computeLib.EVAL_CONV) th
+    val array_v = concl th |> rator |> rand |> rator |> rand |> rand |> rand
+                           |> listSyntax.dest_cons |> fst |> rand
+    val array_v_name = find_const_name (name ^ "_v")
+    val array_v_def = define_abbrev false array_v_name array_v
+    val th = SIMP_RULE pure_ss [GSYM array_v_def] th
 
-    val array_loc = concl th |> rand |> dest_pair |> snd |> rand
+    val array_loc = concl th |> rand
     val array_loc_name = find_const_name (name ^ "_loc")
     val array_loc_def = define_abbrev false array_loc_name array_loc
     val th = SIMP_RULE pure_ss [GSYM array_loc_def] th
@@ -223,7 +240,8 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val init_v_th = MATCH_MP (SPEC (numSyntax.term_of_int n) LIST_REL_REPLICATE) init_value_v_thm
     val init_array = concl init_v_th |> rator |> rand
     val array_abbrev = define_abbrev false init_name init_array
-    val init_v_th = PURE_REWRITE_RULE [GSYM array_abbrev, GSYM array_v_abbrev] init_v_th
+    val init_v_th = PURE_REWRITE_RULE
+                      [GSYM array_abbrev, GSYM array_v_def] init_v_th
     val _ = save_thm (init_name ^"_v_thm", init_v_th)
     val _ = print ("Saved theorem: " ^init_name ^"_v_thm")
 in (init_v_th, array_loc_def, th) end;
@@ -239,6 +257,12 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
       val initial_state = get_state(get_ml_prog_state())
       val initial_store = EVAL (mk_get_refs initial_state) |> concl |> rhs
 
+(*
+val (name, def) = hd ref_name_def_pairs
+val for_eval = false
+val v_name = name
+*)
+
       (* Allocate the references *)
       fun create_ref (name, def) =
         let
@@ -246,13 +270,19 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
           val init_name = concl def |> dest_eq |> fst |> dest_const |> fst
           val init_name = stringLib.fromMLstring init_name
           val e = mk_opref_expr init_name
-          val _ = ml_prog_update (add_Dlet (derive_eval_thm name e) name [])
+	  val eval_thm = REWRITE_RULE [ML_code_env_def]
+				      (derive_eval_thm false name e)
+          val _ = ml_prog_update (add_Dlet eval_thm name [])
           val ref_def = DB.fetch (current_theory()) (name ^ "_def")
         in
           (value_def, ref_def)
         end
       val ref_name_def_pairs = List.map (fn (n, d, _, _) => (n, d)) refs_init_list
       val refs_trans_results = List.map create_ref ref_name_def_pairs
+
+(*
+val (name, def) = hd rarray_name_def_pairs
+*)
 
       (* Allocate the resizable arrays *)
       fun create_rarray (name, def) =
@@ -268,6 +298,10 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
 
       val rarray_name_def_pairs = List.map (fn (n, d, _, _, _, _, _, _) => (n, d)) rarrays_init_list
       val rarrays_trans_results = List.map create_rarray rarray_name_def_pairs
+
+(*
+val (name, (n, def)) = hd farray_name_def_pairs
+*)
 
       (* Allocate the fixed size arrays *)
       fun create_farray (name, (n, def)) =
@@ -616,7 +650,7 @@ in
         \\ CONV_TAC ((RAND_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV[append_empty]))
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
         \\ irule eliminate_substore_thm
-        \\ TRY(irule store2heap_aux_decompose_store1)
+        \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.map snd refs_trans_results)
@@ -626,7 +660,7 @@ in
         check_rarray
         \\ PURE_REWRITE_TAC[APPEND]
         \\ PURE_ONCE_REWRITE_TAC[cons_to_append]
-        \\ TRY(irule store2heap_aux_decompose_store1)
+        \\ TRY(irule store2heap_aux_decompose_store1 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC
@@ -639,7 +673,7 @@ in
         check_farray
         \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, APPEND]
         \\ irule eliminate_substore_thm
-        \\ TRY(irule store2heap_aux_decompose_store2)
+        \\ TRY(irule store2heap_aux_decompose_store2 \\ rpt conj_tac)
         >-(
           REPEAT (irule H_STAR_GC_SAT_IMP)
           \\ PURE_REWRITE_TAC (List.concat(List.map (fn (_, x) => [x])
@@ -908,7 +942,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the sub exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[sub_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th
@@ -936,7 +970,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the update exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[update_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th
@@ -1027,7 +1061,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the sub exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[sub_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th
@@ -1055,7 +1089,7 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the update exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
+	    list_mk_comb(EXN_TYPE,[update_exn,Conv_Subscript])
 	val (subscript_eval, usesSubscript) = let
 	    val eval_th = EVAL EXN_TYPE_e_Subscript
 	    val eval_th = EQT_ELIM eval_th

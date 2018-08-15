@@ -29,14 +29,16 @@ val _ = Globals.max_print_depth := 20;
 val cs = compilationLib.compilation_compset();
 val eval = computeLib.CBV_CONV cs;
 val default_source_conf = eval ``prim_config.source_conf`` |> rconc;
-val default_mod_conf    = eval ``prim_config.mod_conf`` |> rconc;
 
 val init_conf_def = zDefine`
   init_conf = <|
     source_conf := ^default_source_conf;
-    mod_conf    := ^default_mod_conf;
-    clos_conf   := clos_to_bvl$default_config;
-    bvl_conf    := bvl_to_bvi$default_config with <| inline_size_limit := 3; exp_cut := 200 |>
+    clos_conf   := clos_to_bvl$default_config
+                   with known_conf := SOME
+                     <| inline_max_body_size := 8; inline_factor := 0;
+                        initial_inline_factor := 0; val_approx_spt := LN |>;
+    bvl_conf    := bvl_to_bvi$default_config with
+                     <| inline_size_limit := 3; exp_cut := 200 |>
   |>`;
 
 (*

@@ -66,6 +66,9 @@ local val comp_quotation = `
              (dtcase exc of
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
+    | Install r1 r2 r3 r4 r5 => Install (find_name f r1) (find_name f r2)
+      (find_name f r3) (find_name f r4) (find_name f r5)
+    | CodeBufferWrite r1 r2 => CodeBufferWrite (find_name f r1) (find_name f r2)
     | FFI i r1 r2 r3 r4 r5 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
                                     (find_name f r4) (find_name f r5)
     | JumpLower r1 r2 dest => JumpLower (find_name f r1) (find_name f r2) dest

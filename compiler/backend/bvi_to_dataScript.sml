@@ -25,6 +25,7 @@ val op_space_reset_def = Define `
   (op_space_reset (ConsExtend _) = T) /\
   (op_space_reset (CopyByte new_flag) = new_flag) /\
   (op_space_reset ConfigGC = T) /\
+  (op_space_reset (FFI _) = T) /\
   (op_space_reset _ = F)`;
 
 val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
@@ -47,6 +48,7 @@ val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
     | ConsExtend _ => T
     | CopyByte new_flag => new_flag
     | ConfigGC => T
+    | FFI _ => T
     | _ => F`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -54,12 +56,14 @@ val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
 
 val op_requires_names_def = Define`
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
-                         (∃new_flag. op = CopyByte new_flag))`;
+                         (∃new_flag. op = CopyByte new_flag) ∨
+                         (op = Install))`;
 
 val op_requires_names_eqn = Q.store_thm("op_requires_names_eqn",
   `∀op. op_requires_names op =
     (op_space_reset op ∨ (dtcase op of
                           | FFI n => T
+                          | Install => T
                           | CopyByte new_flag => T
                           | _ => F))`,
   Cases>>fs[op_requires_names_def]);
@@ -68,6 +72,7 @@ val op_requires_names_pmatch = Q.store_thm("op_requires_names_pmatch",
   `∀op. op_requires_names op =
   (op_space_reset op ∨ (case op of
                         | FFI n => T
+                        | Install => T
                         | CopyByte new_flag => T
                         | _ => F))`,
   rpt strip_tac >>

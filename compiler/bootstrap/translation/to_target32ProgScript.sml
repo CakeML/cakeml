@@ -1,7 +1,7 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_word32ProgTheory;
+open to_word32ProgTheory std_preludeTheory;
 
 val _ = new_theory "to_target32Prog"
 
@@ -276,8 +276,11 @@ val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv32);
 
 val _ = translate (spec32 stubs_def);
 
+val _ = translate (spec32 comp_def(*pmatch*));
+
 val _ = translate (spec32 compile_def);
 
+(*
 val stack_alloc_comp_side = Q.prove(`
   ∀n m prog. stack_alloc_comp_side n m prog ⇔ T`,
 `(∀prog n m. stack_alloc_comp_side n m prog ⇔ T) ∧
@@ -298,6 +301,7 @@ val stack_alloc_prog_comp_side = Q.prove(`∀prog. stack_alloc_prog_comp_side pr
 
 val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side conf prog ⇔ T`,
   fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
+*)
 
 open stack_removeTheory
 

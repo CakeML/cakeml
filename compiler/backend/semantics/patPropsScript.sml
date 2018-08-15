@@ -37,18 +37,11 @@ val _ = export_rewrites["evaluate_raise_rval"]
 val evaluate_length = Q.store_thm("evaluate_length",
   `∀env s ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls`,
-  ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[do_app_cases] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM,
-     semanticPrimitivesTheory.store_alloc_def,
-     semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def]
+  \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rw[] \\ fs[]
+  \\ TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[]
+  \\ rename1`list_result lr`
+  \\ Cases_on`lr` \\ fs[] \\ rw[]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -129,7 +122,7 @@ val evaluate_append = Q.store_thm("evaluate_append",
 
 val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
   `dec_clock s with clock := y = s with clock := y`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
@@ -142,7 +135,20 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def]
   >> srw_tac[][]
-  >> every_case_tac \\ fs[] \\ rw[]);
+  >> every_case_tac \\ fs[] \\ rw[] \\ rfs[]);
+
+val do_app_const = Q.store_thm("do_app_const",
+  `do_app s op vs = SOME (s',r) ⇒ s'.compile = s.compile`,
+  rw[do_app_def,case_eq_thms,bool_case_eq,UNCURRY,pair_case_eq] \\ rw[]);
+
+val do_install_with_clock = Q.store_thm("do_install_with_clock",
+  `do_install vs (s with clock := k) =
+   OPTION_MAP (λ(e,s'). (e, s' with clock := k)) (do_install vs s)`,
+  rw[do_install_def] \\ rpt(PURE_TOP_CASE_TAC \\ fs[UNCURRY]));
+
+val do_install_const = Q.store_thm("do_install_const",
+  `do_install vs s = SOME (e,s') ⇒ s'.ffi = s.ffi ∧ s'.clock = s.clock ∧ s'.compile = s.compile`,
+  rw[do_install_def,case_eq_thms,UNCURRY,pair_case_eq] \\ rw[]);
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `∀env s es s' r.
@@ -151,14 +157,16 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
       evaluate env (s with clock := s.clock + extra) es =
         (s' with clock := s'.clock + extra,r)`,
   ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
+  srw_tac[][evaluate_def,case_eq_thms,pair_case_eq] >>
+  full_simp_tac(srw_ss())[do_app_add_to_clock,do_install_with_clock,case_eq_thms,pair_case_eq,bool_case_eq] >>
+  srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def] >>
+  imp_res_tac do_install_const >> fs [] \\ rfs[]
+);
 
 val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
-   s.ffi.io_events ≼ s'.ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+   s.ffi.io_events ≼ s'.ffi.io_events`,
   srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,
@@ -166,20 +174,18 @@ val do_app_io_events_mono = Q.prove(
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,IS_SOME_EXISTS] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
-  `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events ∧
-   (IS_SOME s.ffi.final_event ⇒ (FST (evaluate env s es)).ffi = s.ffi)`,
+  `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
-  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]);
+  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]);
 
 val evaluate_io_events_mono_imp = Q.prove(
   `evaluate env s es = (s',r) ⇒
-    s.ffi.io_events ≼ s'.ffi.io_events ∧
-    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+    s.ffi.io_events ≼ s'.ffi.io_events`,
   metis_tac[evaluate_io_events_mono,FST])
 
 val with_clock_ffi = Q.prove(
@@ -189,18 +195,27 @@ val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `∀env s es.
     (FST(evaluate env s es)).ffi.io_events ≼
-    (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
-    (IS_SOME((FST(evaluate env s es)).ffi.final_event) ⇒
-     (FST(evaluate env (s with clock := s.clock + extra) es)).ffi
-     = ((FST(evaluate env s es)).ffi))`,
+    (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[dec_clock_def] >> full_simp_tac(srw_ss())[do_app_add_to_clock] >>
+  full_simp_tac(srw_ss())[dec_clock_def] >> full_simp_tac(srw_ss())[do_app_add_to_clock,do_install_with_clock] >>
   TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
+  imp_res_tac do_install_const >> fsrw_tac[][] >>
+  rveq >> fsrw_tac[][do_install_with_clock] >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,IS_PREFIX_TRANS,lemma])
+
+val evaluate_const = Q.store_thm("evaluate_const",
+  `∀env s xs res s'.
+    evaluate env s xs = (s',res) ⇒ s'.compile = s.compile`,
+  ho_match_mp_tac evaluate_ind
+  \\ rw[evaluate_def,case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ fs[] \\ rfs[patSemTheory.dec_clock_def]
+  \\ imp_res_tac do_install_const \\ fs[]
+  \\ imp_res_tac do_app_const \\ fs[]
+  \\ metis_tac[]);
 
 (*
 val not_evaluate_list_append = Q.store_thm("not_evaluate_list_append",
@@ -250,7 +265,7 @@ open bagTheory
 
 (* finding the InitGlobal operations *)
 val op_gbag_def = Define`
-  op_gbag (Op (Init_global_var n)) = BAG_INSERT n {||} ∧
+  op_gbag (Op (GlobalVarInit n)) = BAG_INSERT n {||} ∧
   op_gbag _ = {||}
 `;
 

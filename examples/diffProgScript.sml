@@ -95,11 +95,11 @@ val r = translate usage_string_def;
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
     case TextIO.inputLinesFrom fname1 of
-        NONE => TextIO.output TextIO.stdErr (notfound_string fname1)
-      | SOME lines1 =>
+        None => TextIO.output TextIO.stdErr (notfound_string fname1)
+      | Some lines1 =>
         case TextIO.inputLinesFrom fname2 of
-            NONE => TextIO.output TextIO.stdErr (notfound_string fname2)
-          | SOME lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
+            None => TextIO.output TextIO.stdErr (notfound_string fname2)
+          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
 
 val diff'_spec = Q.store_thm("diff'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
@@ -122,23 +122,23 @@ val diff'_spec = Q.store_thm("diff'_spec",
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
-  >- (fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ fs[OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
-  >- (fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ fs[OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
@@ -203,7 +203,8 @@ val st = get_ml_prog_state();
 val diff_whole_prog_spec = Q.store_thm("diff_whole_prog_spec",
   `hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"diff"st) cl fs ((=) (diff_sem cl fs))`,
-  rw[whole_prog_spec_def]
+  strip_tac
+  \\ rw[whole_prog_spec_def]
   \\ qexists_tac`diff_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[diff_sem_def,GSYM add_stdo_with_numchars,with_same_numchars] )

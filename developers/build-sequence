@@ -16,11 +16,11 @@ translator
 compiler/parsing
 characteristic
 
-# basis library
-basis
-
 # monadic translator
 translator/monadic
+
+# basis library
+basis
 
 # compiler
 compiler/inference
@@ -80,16 +80,17 @@ compiler/benchmarks
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
+compiler/inference/tests
 
 # compiler translation
 compiler/bootstrap/translation
 
 # compiler sexpr bootstrap
-unverified/sexpr-bootstrap/x64/64
-unverified/sexpr-bootstrap/x64/32
+unverified/sexpr-bootstrap/x64/64:cake-unverified-x64-64.tar.gz
+unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
 
 # compiler HOL bootstrap
-compiler/bootstrap/compilation/x64/64
+compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/64/proofs
-compiler/bootstrap/compilation/x64/32
+compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs

@@ -1,7 +1,7 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_word64ProgTheory;
+open to_word64ProgTheory std_preludeTheory;
 
 val _ = new_theory "to_target64Prog"
 
@@ -239,7 +239,7 @@ val _ = translate (spec64 comp_def)
 
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:64``])
 
-val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``])
+val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``]);
 
 open stack_allocTheory
 
@@ -272,13 +272,15 @@ val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> i
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv64);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv64);
 val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv64);
-val r = translate (stack_allocTheory.SetNewTrigger_def |> conv64);
 val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv64);
 
 val _ = translate (spec64 stubs_def);
 
+val _ = translate (spec64 comp_def(*pmatch*));
+
 val _ = translate (spec64 compile_def);
 
+(*
 val stack_alloc_comp_side = Q.prove(`
   ∀n m prog. stack_alloc_comp_side n m prog ⇔ T`,
 `(∀prog n m. stack_alloc_comp_side n m prog ⇔ T) ∧
@@ -299,6 +301,7 @@ val stack_alloc_prog_comp_side = Q.prove(`∀prog. stack_alloc_prog_comp_side pr
 
 val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side conf prog ⇔ T`,
   fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
+*)
 
 open stack_removeTheory
 

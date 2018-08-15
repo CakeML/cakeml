@@ -58,38 +58,38 @@ val add_ast_compset = computeLib.extend_compset
     ,typeSystemTheory.check_ctor_tenv_def
     ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
+    ,terminationTheory.check_freevars_ast_def
     ,terminationTheory.check_type_names_def
     ,terminationTheory.type_name_subst_def
-    ,typeSystemTheory.check_exn_tenv_def
-    ,typeSystemTheory.tid_exn_to_tc_def
+    (*,typeSystemTheory.check_exn_tenv_def*)
+    (*,typeSystemTheory.tid_exn_to_tc_def*)
     ,typeSystemTheory.build_ctor_tenv_def
     ,terminationTheory.check_dup_ctors_thm
+    ,semanticPrimitivesTheory.build_constrs_def
     ,semanticPrimitivesTheory.build_tdefs_def
     ,semanticPrimitivesTheory.result_case_def
     ,semanticPrimitivesTheory.match_result_case_def
     ,semanticPrimitivesTheory.combine_dec_result_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
-    ,semanticPrimitivesTheory.no_dup_mods_def
-    ,semanticPrimitivesTheory.no_dup_top_types_def
-    ,astTheory.Texn_def
+    (*,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def
     ,astTheory.Tref_def
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
-    ,astTheory.TC_word_def
+    ,astTheory.TC_word_def*)
     ,primTypesTheory.prim_types_program_def
     ],
    computeLib.Tys
     [``:MMLnonT``
-    ,``:ast$top``
-    ,``:ast$spec``
+    (*,``:ast$top``
+    ,``:ast$spec``*)
     ,``:ast$dec``
     ,``:ast$pat``
     ,``:ast$exp``
-    ,``:tid_or_exn``
+    ,``:stamp``
     ,``:ast$op``
     ,``:ast$lop``
     ,``:ast$lit``
@@ -99,9 +99,8 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$shift``
     ,``:ast$word_size``
     ,``:eq_result``
-    ,``:ast$tctor``
     ,``:'a sem_env``
-    ,``:ast$t``
+    ,``:ast$ast_t``
     ]]
 
 val add_lexparse_compset = computeLib.extend_compset
@@ -155,9 +154,11 @@ val add_lexparse_compset = computeLib.extend_compset
       ,ptree_TopLevelDec_def
       ,ptree_Structure_def
       ,ptree_StructName_def
+      (*
       ,ptree_SignatureValue_def
       ,ptree_SpeclineList_def
       ,ptree_SpecLine_def
+      *)
       ,ptree_Decls_def
       ,ptree_Decl_def
       ,ptree_Expr_def
@@ -188,7 +189,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,dePat_def
       ]
     end
-  ]
+    ]
 
 val add_semantics_compset = computeLib.extend_compset
   [computeLib.Extenders [add_ast_compset, add_lexparse_compset,add_namespace_compset]]
