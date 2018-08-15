@@ -139,7 +139,7 @@ val peg_V_def = Define`
 
 val peg_longV_def = Define`
   peg_longV = tok (λt. do
-                        (str,s) <- destLongidT t;
+                        (str,ms,s) <- destLongidT t;
                         assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
                                s ∉ {"true"; "false"; "nil"})
                        od = SOME ())
@@ -235,7 +235,7 @@ val cmlPEG_def = zDefine`
                                    (bindNT nCompOps));
               (mkNT nOpID,
                choicel [tok (λt. do
-                                   (str,s) <- destLongidT t;
+                                   (str,ms,s) <- destLongidT t;
                                    assert(s ≠ "")
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         tok (λt. do
@@ -393,7 +393,7 @@ val cmlPEG_def = zDefine`
                choicel [
                  pegf (pnt nUQConstructorName) (bindNT nConstructorName);
                  tok (λt. do
-                            (str,s) <- destLongidT t;
+                            (str,ms,s) <- destLongidT t;
                             assert(s <> "" ∧ isAlpha (HD s) ∧
                                    isUpper (HD s) ∨
                                    s ∈ {"true"; "false"; "nil"})
@@ -469,7 +469,11 @@ val cmlPEG_def = zDefine`
                              (bindNT nSpecLine);
                         seql [tokeq TypeT; pnt nTypeName; pnt nOptTypEqn]
                              (bindNT nSpecLine);
-                        seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nSpecLine);
+                        seql [tokeq ExceptionT; pnt nDconstructor]
+                             (bindNT nSpecLine);
+                        seql [tokeq StructureT; pnt nStructName; tokeq ColonT;
+                              pnt nSigName] (bindNT nSpecLine);
+                        pegf (pnt nSignature) (bindNT nSpecLine);
                         pegf (pnt nTypeDec) (bindNT nSpecLine)]);
               (mkNT nSpecLineList,
                choicel [seql [pnt nSpecLine; pnt nSpecLineList]
@@ -484,12 +488,26 @@ val cmlPEG_def = zDefine`
                pegf (try (seql [tokeq SealT; pnt nSignatureValue] I))
                     (bindNT nOptionalSignatureAscription));
               (mkNT nStructName, peg_StructName);
+              (mkNT nSigName,
+               choicel [tok (λt. do s <- destAlphaT t ; assert (s ≠ ""); od =
+                                 SOME ())
+                            (bindNT nSigName o mktokLf);
+                        tok isLongidT (bindNT nSigName o mktokLf)]);
+              (mkNT nSigDefName,
+               tok (λt. do s <- destAlphaT t ; assert (s ≠ ""); od =
+                        SOME ())
+                   (bindNT nSigDefName o mktokLf));
+              (mkNT nSignature,
+               seql [tokeq SignatureT; pnt nSigDefName; tokeq EqualsT;
+                     pnt nSignatureValue]
+                    (bindNT nSignature));
               (mkNT nStructure,
                seql [tokeq StructureT; pnt nStructName; pnt nOptionalSignatureAscription;
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
-               pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
+               pegf (choicel [pnt nStructure; pnt nDecl; pnt nSignature])
+                    (bindNT nTopLevelDec));
               (mkNT nTopLevelDecs,
                choicel [
                  seql [pnt nE; tokeq SemicolonT; pnt nTopLevelDecs]
@@ -684,7 +702,7 @@ val npeg0_rwts =
                 “nEmult”, “nEadd”, “nElistop”, “nErel”, “nEcomp”,
                 “nEbefore”,
                 “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
-                “nE”, “nE'”, “nElist1”,
+                “nE”, “nE'”, “nElist1”, “nSignature”,
                 “nSpecLine”, “nStructure”, “nTopLevelDec”]
 
 fun wfnt(t,acc) = let
@@ -704,6 +722,7 @@ end;
 
 val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, “nDecl”,
                 “nUQTyOp”, “nUQConstructorName”, “nStructName”,
+                “nSigName”, “nSigDefName”,
                 “nConstructorName”, “nTyVarList”, “nTypeName”, “nTyOp”,
                 “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
                 “nListOps”, “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
@@ -719,7 +738,8 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, �
                 “nType”, “nTypeList1”, “nTypeList2”,
                 “nEseq”, “nElist1”, “nDtypeDecl”,
                 “nOptTypEqn”,
-                “nDecls”, “nDconstructor”, “nAndFDecls”, “nSpecLine”,
+                “nDecls”, “nDconstructor”, “nAndFDecls”, “nSignature”,
+                “nSpecLine”,
                 “nSpecLineList”, “nSignatureValue”,
                 “nOptionalSignatureAscription”, “nStructure”,
                 “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”]
