@@ -13,35 +13,35 @@ val basis_ffi_oracle_def = Define `
     \name (cls,fs) conf bytes.
      if name = "write" then
        case ffi_write conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "read" then
        case ffi_read conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "get_arg_count" then
        case ffi_get_arg_count conf bytes cls of
-       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "get_arg_length" then
        case ffi_get_arg_length conf bytes cls of
-       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "get_arg" then
        case ffi_get_arg conf bytes cls of
-       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "open_in" then
        case ffi_open_in conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "open_out" then
        case ffi_open_out conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "close" then
        case ffi_close conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      Oracle_final FFI_failed`
 
@@ -73,11 +73,11 @@ val extract_fs_with_numchars_def = Define `
   (extract_fs_with_numchars init_fs ((IO_event name conf bytes)::xs) =
     case (ALOOKUP (SND(SND fs_ffi_part)) name) of
     | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
-                       | SOME (bytes',fs') =>
+                       | SOME (FFIreturn bytes' fs') =>
                          if bytes' = MAP SND bytes then
                            extract_fs_with_numchars fs' xs
                          else NONE
-                       | NONE => NONE)
+                       | _ => NONE)
     | NONE => extract_fs_with_numchars init_fs xs)`
 
 val extract_fs_with_numchars_APPEND = Q.store_thm("extract_fs_with_numchars_APPEND",
@@ -400,7 +400,7 @@ val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
-  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
     ==> (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\ basis_proj1 x
  |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
   simp[basis_proj2_def,basis_proj1_def]
@@ -416,6 +416,28 @@ val oracle_parts = Q.store_thm("oracle_parts",
   \\ disj2_tac
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
+(* TODO: move to fsFFI? *)
+val fs_ffi_no_ffi_div = Q.prove(`
+  (ffi_open_in conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_open_out conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_read conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_close conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_write conf bytes fs = SOME FFIdiverge ==> F)
+`,
+  rw[ffi_open_in_def,ffi_open_out_def,ffi_read_def,ffi_close_def,ffi_write_def,
+     OPTION_GUARD_COND,OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]
+  \\ rpt(PURE_TOP_CASE_TAC \\ rw[])
+  \\ rw[OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]);
+
+(* TODO: move to clFFI? *)
+val cl_ffi_no_ffi_div = Q.prove(`
+  (ffi_get_arg_count conf bytes cls = SOME FFIdiverge ==> F) /\
+  (ffi_get_arg_length conf bytes cls = SOME FFIdiverge ==> F) /\
+  (ffi_get_arg conf bytes cls = SOME FFIdiverge ==> F)
+`,
+  rw[clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,
+     clFFITheory.ffi_get_arg_def]);
+
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)` ,
   qmatch_goalsub_abbrev_tac`st.ffi`
@@ -430,7 +452,7 @@ val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
   \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
   \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-  \\ TRY pairarg_tac \\ fs[]
+  \\ fs[] \\ TRY(PURE_FULL_CASE_TAC \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div])
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
   \\ srw_tac[DNF_ss][]
 );
