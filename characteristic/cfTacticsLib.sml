@@ -123,8 +123,13 @@ val cf_defs =
    cf_raise_def, cf_handle_def]
 
 val cleanup_exn_side_cond =
-  simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left]
+  simp [cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left
+       ]
 
 val xlocal =
   FIRST [
@@ -216,11 +221,10 @@ fun xlet_core cont0 cont1 cont2 =
   irule local_elim \\ hnf \\
   simp [namespaceTheory.nsOptBind_def] \\
   cont0 \\
-  CONJ_TAC THENL [
-    CONJ_TAC THENL [
-      all_tac,
-      TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left)
-    ],
+  rpt CONJ_TAC THENL [
+    all_tac,
+    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left),
+    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTv_left),
     cont1 \\ cont2
   ]
 

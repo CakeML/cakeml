@@ -1405,8 +1405,7 @@ val cf_var_def = Define `
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
-    ?Q'. (F1 env H Q' /\ Q' ==e> Q) /\
-         (F1 env H Q' /\ Q' ==f> Q) /\
+    ?Q'. (F1 env H Q' /\ Q' ==e> Q /\ Q' ==f> Q) /\
          (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))`
 
 val cf_opn_def = Define `

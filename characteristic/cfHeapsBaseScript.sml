@@ -52,18 +52,21 @@ val encode_int_11 = Q.store_thm("encode_int_11[simp]",
   Cases \\ Cases \\ rw[encode_int_def]);
 
 val _ = Datatype `
-  ffi_result = FFIreturn (word8 list) ffi | FFIdiverge`
+  ffi_result = FFIreturn (word8 list) 'ffi | FFIdiverge`
 
 (* make an ffi_next function from base functions and encode/decode *)
 val mk_ffi_next_def = Define`
   mk_ffi_next (encode,decode,ls) name conf bytes s =
     OPTION_BIND (ALOOKUP ls name) (λf.
     OPTION_BIND (decode s) (λs.
-    OPTION_BIND (f conf bytes s) (λr. SOME r)))`;
+    OPTION_BIND (f conf bytes s) (λr.
+     case r of
+       FFIreturn bytes s => SOME(FFIreturn bytes (encode s))
+     | FFIdiverge => SOME FFIdiverge)))`;
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> ffi_result option``);
+val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
@@ -625,16 +628,36 @@ val POSTv_ignore = Q.store_thm("POSTv_ignore",
    rw[POSTv_def] \\ Cases_on`r` \\ rw[cond_def]);
 
 (*------------------------------------------------------------------*)
-(* Lemmas for ==v> / ==e> *)
+(* Lemmas for ==v> / ==e> / ==f> *)
 
 val SEP_IMPPOSTv_POSTe_left = Q.store_thm ("SEP_IMPPOSTv_POSTe_left",
   `!Qe Q. $POSTe Qe ==v> Q`,
   fs [POSTe_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
+val SEP_IMPPOSTffi_POSTe_left = Q.store_thm ("SEP_IMPPOSTffi_POSTe_left",
+  `!Qe Q. $POSTe Qe ==f> Q`,
+  fs [POSTe_def, SEP_IMPPOSTffi_def, SEP_IMP_def, cond_def]
+);
+
 val SEP_IMPPOSTe_POSTv_left = Q.store_thm ("SEP_IMPPOSTe_POSTv_left",
   `!Qv Q. $POSTv Qv ==e> Q`,
   fs [POSTv_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTffi_POSTv_left = Q.store_thm ("SEP_IMPPOSTffi_POSTv_left",
+  `!Qv Q. $POSTv Qv ==f> Q`,
+  fs [POSTv_def, SEP_IMPPOSTffi_def, SEP_IMP_def, cond_def]
+                                            );
+
+val SEP_IMPPOSTe_POSTf_left = Q.store_thm ("SEP_IMPPOSTe_POSTf_left",
+  `!Qf Q. $POSTf Qf ==e> Q`,
+  fs [POSTf_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTv_POSTf_left = Q.store_thm ("SEP_IMPPOSTv_POSTf_left",
+  `!Qf Q. $POSTf Qf ==v> Q`,
+  fs [POSTf_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
 val _ = export_theory()
