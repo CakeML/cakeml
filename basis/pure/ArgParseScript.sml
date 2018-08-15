@@ -217,10 +217,11 @@ val grabWS_def = Define`
 (* Identifiers *)
 (* TODO: add extra characters [-._/\] *)
 val ident_def = Define`
-  ident = let id      = tok isAlphaNum (λt. Option (implode [FST t]));
-              arb_str = implode "";
-              joins   = Option o FOLDR (λw l. strcat (destOption w) l) arb_str;
-              join    = (λx y. Option (strcat (destOption x) (destOption y)))
+  ident = let isOkChar = (λc. isAlphaNum c ∨ MEM c "._\\/");
+              id       = tok isOkChar (λt. Option (implode [FST t]));
+              arb_str  = implode "";
+              joins    = Option o FOLDR (λw l. strcat (destOption w) l) arb_str;
+              join     = (λx y. Option (strcat (destOption x) (destOption y)))
           in seq id (rpt id joins) join
 
 `;
