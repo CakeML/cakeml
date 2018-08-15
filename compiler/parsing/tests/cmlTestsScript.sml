@@ -458,8 +458,9 @@ val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   "structure s = struct val x = 3 end"
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   "structure s :> somesig = struct val x = 3 end"
-val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
-                  "signature somesig = sig val x : int; end"
+val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
+                   "signature somesig = sig val x : int; end"
+                   (SOME “Dsig "somesig" [Sval "x" (Atapp [] (Short "int"))]”)
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec`` "val x = 10"
 val _ = parsetest ``nDecls`` elab_decls "fun f x y = x + y"
 val _ = parsetest ``nDecls`` elab_decls
