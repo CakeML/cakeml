@@ -1,0 +1,10 @@
+INCLUDES = ../developers
+OPTIONS = QUIT_ON_FAILURE
+
+all: README.md
+.PHONY: all
+
+README_SOURCES =
+DIRS = $(wildcard */)
+README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	../developers/readme_gen $(README_SOURCES)
