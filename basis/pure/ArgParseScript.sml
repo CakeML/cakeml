@@ -117,9 +117,11 @@ val matchArgs_def = Define`
                       strEq (str f.short) flagName)) (* match the short name? *)
     in if matchFlag
        then if f.has_option
-            then if IS_SOME mOpt
-                 then INR (f.cont mOpt a,T)
-                 else INL (implode "Missing value to: " ^ pArg)
+            then case arg of
+                     OptionFlag _ opt => INR (f.cont (SOME opt) a,F)
+                  | _ => if IS_SOME mOpt
+                         then INR (f.cont mOpt a,T)
+                         else INL (implode "Missing value to: " ^ pArg)
             else case arg of
                      OptionFlag _ _ => INL (implode "Malformed flag: " ^ pArg)
                   | _               => INR (f.cont NONE a,F)
@@ -139,7 +141,7 @@ val mkArgsConf_def = tDefine "mkArgsConf" `
               []      => NONE (* If empty there is no extra option *)
             | (x::xs) => if isFlag x (* is the next value a flag? *)
                          then NONE   (* There is no option then *)
-                         else SOME (destOption x) (* That is you options *)
+                         else SOME (destOption x) (* That is your option *)
     in
     case matchArg fs x flagOpt a of
         INL m => INL m
