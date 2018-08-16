@@ -606,7 +606,7 @@ fun mk_heap_condition (ex_vl, hpl, pfl) =
    - the optional poste value
    - the optional poste predicate
 *)
-fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred, postf_vl, postf_pred) = (
+fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred, postf_vl, postf_pred) =
   case (postv_v, postv_pred, poste_v, poste_pred, postf_vl, postf_pred) of
       (SOME postv_v, SOME postv_pred, NONE, NONE, NONE, NONE) => cfHeapsBaseSyntax.mk_postv (postv_v, postv_pred)
    |  (NONE, NONE, SOME poste_v, SOME poste_pred, NONE, NONE) => cfHeapsBaseSyntax.mk_poste (poste_v, poste_pred)
@@ -615,8 +615,6 @@ fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred, postf_vl, postf
                                    postf_vl, postf_pred)
    (* TODO: add postf *)
    | _  => raise (ERR "mk_heap_post_condition" "Not valid parameters")
-)   handle HOL_ERR {origin_structure = _, origin_function = fname, message = msg}
-         => raise (ERR "mk_post_condition" msg); ;
 
 (******** Get the post-condition given by the app specification ***********)
 (* [find_spec]
