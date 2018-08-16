@@ -62,7 +62,8 @@ val _ = Define `
            ("nil", (["'a"],[],Tlist_num));
            ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]));
        v := nsEmpty;
-       t := nsEmpty|>))`;
+       t := nsEmpty;
+       s := nsEmpty|>))`;
 
 
 val _ = Define `

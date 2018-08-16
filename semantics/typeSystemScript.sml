@@ -14,7 +14,6 @@ val _ = new_theory "typeSystem"
 (*open import Namespace*)
 (*open import SemanticPrimitives*)
 
-
 val _ = type_abbrev( "type_ident" , ``: num``);
 
 (* Types *)
@@ -24,9 +23,7 @@ val _ = Hol_datatype `
     Tvar of tvarN
   (* deBruijn indexed type variables. *)
   | Tvar_db of num
-  (* The two numbers represent the identity of the type constructor. The first
-     is the identity of the compilation unit that it was defined in, and the
-     second is its identity inside of that unit *)
+  (* Type applications *)
   | Tapp of t list => type_ident`;
 
 
@@ -257,15 +254,16 @@ val _ = Hol_datatype `
   <| v : tenv_val
    ; c : tenv_ctor
    ; t : tenv_abbrev
-   ; s : (modN, sigN, ( type_ident list # type_env)) namespace
+   ; s : (modN, sigN, ( type_ident list # ( tvarN list # type_ident) list # type_env)) namespace
    |>`;
 
 
 (* A signature is a type_env containing the things specified in the signature,
-   paired with a list of type_identifiers that the signature generated. Where
-   the signature is used, these should be replaced with real type identifiers
-   that are valid at the usage site. *)
-val _ = type_abbrev( "tenv_sig" , ``: (modN, sigN, ( type_ident list # type_env)) namespace``);
+   paired with two lists of type_identifiers that the signature generated. The
+   first for datatypes, and the second for opaque types. Where the signature is
+   used, the first should be replaced with real type identifiers that are valid
+   at the usage site, and the second with real types valid at the usage site. *)
+val _ = type_abbrev( "tenv_sig" , ``: (modN, sigN, ( type_ident list # ( tvarN list # type_ident) list # type_env)) namespace``);
 
 (*val extend_dec_tenv : type_env -> type_env -> type_env*)
 val _ = Define `
@@ -313,11 +311,40 @@ val _ = Define `
  (Bind_name n tvs t (bind_var_list tvs binds tenvE)))`;
 
 
-(* Change all of the type_idents in the environment *)
-(*val type_ident_subst_env : Map.map type_ident t -> type_env -> type_env*)
-(* TODO: implement *)
+(* Substitute for the type_identifiers in a type with other type identifiers
+ * (subst1) and types (subst2) *)
+(*val type_ident_subst : Map.map type_ident type_ident -> Map.map type_ident (list tvarN * t) -> t -> t*)
+ val type_ident_subst_defn = Defn.Hol_multi_defns `
+ (type_ident_subst subst1 subst2 (Tvar tv)=  (Tvar tv))
+/\ (type_ident_subst subst1 subst2 (Tvar_db v)=  (Tvar_db v))
+/\ (type_ident_subst subst1 subst2 (Tapp ts tid)=  
+ (let ts' = (MAP (type_ident_subst subst1 subst2) ts) in
+  (case FLOOKUP subst1 tid of
+    NONE =>
+    (case FLOOKUP subst2 tid of
+      NONE => Tapp ts' tid
+    | SOME (tvs,t) => type_subst (FUPDATE_LIST FEMPTY (ZIP (tvs, ts'))) t
+    )
+  | SOME tid' => Tapp ts' tid'
+  )))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_ident_subst_defn;
+
+(* Instantiate a signature with the given substitutions for its datatype and
+ * opaque type identifiers *)
+(*val sig_instantiate : Map.map type_ident type_ident -> Map.map type_ident (list tvarN * t) -> type_env -> type_env*)
 val _ = Define `
- (type_ident_subst_env subst tenv=  tenv)`;
+ (sig_instantiate subst1 subst2 tenv=  
+ (<| v := (nsMap (\ (tvs, t) .  (tvs, type_ident_subst subst1 subst2 t)) tenv.v);
+     c := (nsMap (\ (tvs, ts, tid) . 
+       (tvs, MAP (type_ident_subst subst1 subst2) ts,
+        (case FLOOKUP subst1 tid of
+          NONE => tid
+        | SOME tid' => tid'
+        ))) tenv.c);
+     t := (nsMap (\ (tvs, t) .  (tvs, type_ident_subst subst1 subst2 t)) tenv.t);
+     (* The following will need updating once we support nested signatures *)
+     s := (tenv.s) |>))`;
 
 
 (* A pattern matches values of a certain type and extends the type environment
@@ -779,12 +806,43 @@ val _ = Define `
  (tscheme_inst2 _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
 
 
+val _ = Define `
+ (ctor_inst _ (tvs_spec, ts_spec, tid_spec) (tvs_impl, ts_impl, tid_impl)=
+   ((LENGTH tvs_spec = LENGTH tvs_impl) /\  
+(let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
+    ts_spec = MAP (type_subst subst) ts_impl)))`;
+
+
+val _ = Define `
+ (type_def_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl)=
+   ((LENGTH tvs_spec = LENGTH tvs_impl) /\  
+(let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
+    t_spec = type_subst subst t_impl)))`;
+
+
+(* Will need to add something for nested signature declarations *)
 (*val weak_tenv : type_env -> type_env -> bool*)
 val _ = Define `
  (weak_tenv tenv_impl tenv_spec=  
  (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
-  nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c /\
-  nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.t tenv_impl.t))`;
+  nsSub ctor_inst tenv_spec.c tenv_impl.c /\
+  nsSub type_def_inst tenv_spec.t tenv_impl.t))`;
+
+
+(*val sig_rename_tids :  list type_ident -> list (list tvarN * type_ident) -> type_env -> list type_ident -> list (list tvarN * type_ident) -> type_env -> bool*)
+(* Checks whether the tids' can be substituted for the tids in tenv to form tenv' *)
+val _ = Define `
+ (sig_rename_tids datatype_tids opaque_tids tenv datatype_tids' opaque_tids' tenv'=
+   ((LENGTH datatype_tids = LENGTH datatype_tids') /\  
+(LENGTH opaque_tids = LENGTH opaque_tids') /\
+  ALL_DISTINCT (datatype_tids' ++ MAP SND opaque_tids') /\  
+(MAP FST opaque_tids = MAP FST opaque_tids') /\  
+(tenv' =
+   (sig_instantiate
+    (alist_to_fmap (ZIP (datatype_tids, datatype_tids')))
+    (alist_to_fmap (ZIP ((MAP SND opaque_tids), (MAP (\ (tvs, tid) .  (tvs, Tapp (MAP Tvar tvs) tid))
+                   opaque_tids'))))
+    tenv))))`;
 
 
 val _ = Hol_reln ` (! tenv x t fvs subst.
@@ -792,7 +850,7 @@ val _ = Hol_reln ` (! tenv x t fvs subst.
 check_type_names tenv.t t /\
 (subst = alist_to_fmap (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))))
 ==>
-type_sp tenv (Sval x t) {}
+type_sp tenv (Sval x t) {} {}
   <| v := (nsSing x (LENGTH fvs, type_subst subst (type_name_subst tenv.t t)));
      c := nsEmpty;
      t := nsEmpty;
@@ -801,12 +859,12 @@ type_sp tenv (Sval x t) {}
 /\ (! tenv tdefs tids tenv'.
 (type_tdefs tenv tdefs tids = SOME tenv')
 ==>
-type_sp tenv (Stype tdefs) (LIST_TO_SET tids) tenv')
+type_sp tenv (Stype tdefs) (LIST_TO_SET tids) {} tenv')
 
 /\ (! tenv tvs tn type_ident.
 T
 ==>
-type_sp tenv (Stype_opq tvs tn) { type_ident }
+type_sp tenv (Stype_opq tvs tn) {} { (tvs, type_ident) }
   <| v := nsEmpty;
      c := nsEmpty;
      t := (nsSing tn (tvs, Tapp (MAP Tvar tvs) type_ident));
@@ -817,62 +875,61 @@ type_sp tenv (Stype_opq tvs tn) { type_ident }
 check_type_names tenv.t t /\
 ALL_DISTINCT tvs)
 ==>
-type_sp tenv (Stabbrev tvs tn t) {}
+type_sp tenv (Stabbrev tvs tn t) {} {}
   <| v := nsEmpty; c := nsEmpty; t := (nsSing tn (tvs,type_name_subst tenv.t t)); s := nsEmpty |>)
 
 /\ (! tenv cn ts.
 (EVERY (check_freevars_ast []) ts /\
 EVERY (check_type_names tenv.t) ts)
 ==>
-type_sp tenv (Sexn cn ts) {}
+type_sp tenv (Sexn cn ts) {} {}
   <| v := nsEmpty;
      c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
      t := nsEmpty;
      s := nsEmpty |>)
 
-/\ (! tenv mn tenv_sig sn bound_tids tids.
-((nsLookup tenv.s sn = SOME (bound_tids, tenv_sig)) /\
-(LENGTH tids = LENGTH bound_tids))
+/\ (! tenv mn tenv_sig sn datatype_tids opaque_tids datatype_tids' opaque_tids' tenv_sig'.
+((nsLookup tenv.s sn = SOME (datatype_tids, opaque_tids, tenv_sig)) /\
+sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig')
 ==>
-type_sp tenv (Smod mn sn) (LIST_TO_SET tids)
-  (tenvLift mn (type_ident_subst_env
-                   (alist_to_fmap (ZIP (bound_tids, (MAP (\ i .  Tapp [] i) tids))))
-                   tenv_sig)))
-
-/\ (! tenv sn sps tids tenv_sig.
-(type_sps tenv sps (LIST_TO_SET tids) tenv_sig)
-==>
-type_sp tenv (Ssig sn sps) (LIST_TO_SET tids)
-  <| v := nsEmpty;
-     c := nsEmpty;
-     t := nsEmpty;
-     s := (nsSing sn (tids, tenv_sig)) |>)
+type_sp tenv (Smod mn sn) (LIST_TO_SET datatype_tids') (LIST_TO_SET opaque_tids')
+  (tenvLift mn tenv_sig'))
 
 /\ (! tenv.
 T
 ==>
-type_sps tenv [] {} <| v := nsEmpty; c := nsEmpty; t := nsEmpty; s := nsEmpty |>)
+type_sps tenv [] {} {} <| v := nsEmpty; c := nsEmpty; t := nsEmpty; s := nsEmpty |>)
 
-/\ (! tenv sp sps tenv1 tenv2 decls1 decls2.
-(type_sp tenv sp decls1 tenv1 /\
-type_sps (extend_dec_tenv tenv1 tenv) sps decls2 tenv2 /\
-DISJOINT decls1 decls2)
+/\ (! tenv sp sps tenv1 tenv2 datatype_tids1 datatype_tids2 opaque_tids1 opaque_tids2.
+(type_sp tenv sp datatype_tids1 opaque_tids1 tenv1 /\
+type_sps (extend_dec_tenv tenv1 tenv) sps datatype_tids1 opaque_tids1 tenv2 /\
+DISJOINT datatype_tids1 datatype_tids2 /\
+DISJOINT (IMAGE SND opaque_tids1) (IMAGE SND opaque_tids2) /\
+DISJOINT datatype_tids1 (IMAGE SND opaque_tids2) /\
+DISJOINT (IMAGE SND opaque_tids1) datatype_tids2)
 ==>
-type_sps tenv (sp::sps) (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
+type_sps tenv (sp::sps) (datatype_tids1 UNION datatype_tids2) (opaque_tids1 UNION opaque_tids2) (extend_dec_tenv tenv2 tenv1))`;
 
 val _ = Hol_reln ` (! tenv tenv_mod.
 T
 ==>
-check_sig tenv NONE tenv_mod tenv_mod)
+check_sig tenv NONE tenv_mod {} tenv_mod)
 
-/\ (! tenv sn tenv_mod tids bound_tids tenv_sig tenv_sig'.
-((nsLookup tenv.s sn = SOME (bound_tids, tenv_sig)) /\
-(tenv_sig' = (type_ident_subst_env
-                   (alist_to_fmap (ZIP (bound_tids, tids)))
-                   tenv_sig)) /\
-weak_tenv tenv_mod tenv_sig')
+/\ (! tenv sn tenv_mod tids ts datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig' tenv_sig1.
+((nsLookup tenv.s sn = SOME (datatype_tids, opaque_tids, tenv_sig)) /\
+(LENGTH datatype_tids = LENGTH tids) /\
+(LENGTH opaque_tids = LENGTH ts) /\
+(MAP FST opaque_tids = MAP FST ts) /\
+EVERY (\ (tvs,t) .  (check_freevars(( 0 : num)) tvs t)) ts /\
+ALL_DISTINCT tids /\
+(tenv_sig1 = sig_instantiate
+                   (alist_to_fmap (ZIP (datatype_tids, tids)))
+                   (alist_to_fmap (ZIP ((MAP SND opaque_tids), ts)))
+                   tenv_sig) /\
+weak_tenv tenv_mod tenv_sig1 /\
+sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig')
 ==>
-check_sig tenv (SOME sn) tenv_mod tenv_sig')`;
+check_sig tenv (SOME sn) tenv_mod (LIST_TO_SET (datatype_tids' ++ MAP SND opaque_tids')) tenv_sig')`;
 
 val _ = Hol_reln ` (! extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
@@ -937,20 +994,21 @@ type_d extra_checks tenv (Dexn locs cn ts)
      t := nsEmpty;
      s := nsEmpty |>)
 
-/\ (! extra_checks tenv mn ds decls tenv' tenv_sig sn_opt.
-(type_ds extra_checks tenv ds decls tenv' /\
-check_sig tenv sn_opt tenv' tenv_sig)
+/\ (! extra_checks tenv mn ds decls1 decls2 tenv' tenv_sig sn_opt.
+(DISJOINT decls1 decls2 /\
+type_ds extra_checks tenv ds decls1 tenv' /\
+check_sig tenv sn_opt tenv' decls2 tenv_sig)
 ==>
-type_d extra_checks tenv (Dmod mn sn_opt ds) decls (tenvLift mn tenv_sig))
+type_d extra_checks tenv (Dmod mn sn_opt ds) (decls1 UNION decls2) (tenvLift mn tenv_sig))
 
-/\ (! extra_checks tenv sn sps tids tenv_sig.
-(type_sps tenv sps (LIST_TO_SET tids) tenv_sig)
+/\ (! extra_checks tenv sn sps datatype_tids opaque_tids tenv_sig.
+(type_sps tenv sps (LIST_TO_SET datatype_tids) (LIST_TO_SET opaque_tids) tenv_sig)
 ==>
-type_d extra_checks tenv (Dsig sn sps) (LIST_TO_SET tids)
+type_d extra_checks tenv (Dsig sn sps) {}
   <| v := nsEmpty;
      c := nsEmpty;
      t := nsEmpty;
-     s := (nsSing sn (tids, tenv_sig)) |>)
+     s := (nsSing sn (datatype_tids, opaque_tids, tenv_sig)) |>)
 
 /\ (! extra_checks tenv.
 T
