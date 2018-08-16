@@ -217,14 +217,15 @@ val obj_t_def = tDefine "obj_t" `
   obj_t obj =
     case obj of
       Num n => mk_str (toString n)
-    | Name s => mk_str (fix_name s)
+    | Name s => mk_str s (* (fix_name s) *)
     | List ls => listof (MAP obj_t ls)
     | TypeOp s => mk_str s
-    | Type ty => typ ty
+    | Type ty => mk_str (pp_type 0 ty)
     | Const s => mk_str s
-    | Var (s,ty) => mk_blo 0 [mk_str (s ^ strlit " :"); mk_brk 1; typ ty]
-    | Term tm => term tm
-    | Thm th => thm th`
+    | Term tm => pp_term 0 tm
+    | Thm th => pp_thm th
+    | Var (s,ty) => mk_blo 0
+        [mk_str (s ^ strlit ":"); mk_brk 1; mk_str (pp_type 0 ty)]`
  (WF_REL_TAC `measure object_size`
   \\ Induct \\ rw [definition"object_size_def"]
   \\ res_tac
@@ -240,7 +241,7 @@ val state_to_string = Define `
                         toString (LENGTH (toAList s.dict));
                         strlit"]\n"] in
     let thm   = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
-    let thms  = concat (MAP (\t. thm_to_string t ^ strlit"\n") s.thms) in
+    let thms  = concat (MAP (\t. thm2str t ^ strlit"\n") s.thms) in
       concat [stack; strlit"\n"; dict; thm; thms]`;
 
 (* ------------------------------------------------------------------------- *)
@@ -397,11 +398,7 @@ val readLine_def = Define`
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
-      (* th <- EQ_MP th1 th2; *)
-      (* DEBUG: *)
-      th <- handle_Fail (EQ_MP th1 th2)
-              (\e. failwith (e ^ strlit ":\n" ^ thm_to_string th1
-                               ^ strlit"\n" ^ thm_to_string th2));
+      th <- EQ_MP th1 th2;
       return (push (Thm th) s)
     od
   else if line = strlit"hdTl" then
@@ -559,7 +556,7 @@ val invalid_line_def = Define`
 val msg_success_def = Define `
   msg_success s =
     let thm  = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
-    let thms = concat (MAP (\t. thm_to_string t ^ strlit"\n") s.thms) in
+    let thms = concat (MAP (\t. thm2str t ^ strlit"\n") s.thms) in
       concat [strlit"OK! "; thm; strlit"\n"; thms]`;
 
 val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`

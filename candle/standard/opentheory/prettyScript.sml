@@ -1,12 +1,12 @@
 open preamble holSyntaxTheory mlstringTheory
+     NumProgTheory (* cannot load mlnumTheory? *)
 
 val _ = new_theory "pretty";
 
 (* ------------------------------------------------------------------------- *)
-(* Printing blocks of strings                                                *)
+(* A pretty printer producing strings.                                       *)
+(* Based on the pretty printer from "ML from the working programmer".        *)
 (* ------------------------------------------------------------------------- *)
-
-(* Based on the pretty printer from "ML from the working programmer". *)
 
 val _ = Datatype `
   t = Block (t list) num num
@@ -58,134 +58,156 @@ val mk_brk_def = Define `mk_brk x = Break x`;
 val mk_blo_def = Define `
   mk_blo indent es = Block es indent (SUM (MAP tlength es))`
 
-(* ------------------------------------------------------------------------- *)
-(* Printing types, terms and theorems                                        *)
-(* ------------------------------------------------------------------------- *)
-
 val pp_margin_def = Define `pp_margin = 78n`;
 
-(* type := Tyvar mlstring | Tyapp mlstring (type list) *)
+(* ------------------------------------------------------------------------- *)
+(* A pretty printer for HOL types.                                           *)
+(* ------------------------------------------------------------------------- *)
 
-val typ_def = Define `
-  typ ty =
+val type_size_MEM = Q.prove (
+  `MEM t ts ==> type_size t < type1_size ts`,
+  Induct_on `ts`
+  \\ rw [type_size_def]
+  \\ res_tac \\ fs []);
+
+val pp_tyop_def = Define `
+  pp_tyop sep p ts =
+    case ts of
+      [] => strlit""
+    | t::ts =>
+        let s = FOLDL (\x y. x ^ sep ^ y) t ts in
+          if p then strlit"(" ^ s ^ strlit")" else s`;
+
+val pp_type_def = tDefine "pp_type" `
+  pp_type (prec:num) ty =
     case ty of
-      Tyvar n => mk_str n
-    | Tyapp n ts =>
-        if n = strlit"fun" then (* infix -> *)
-          case ts of
-            [t1; t2] =>
-              let t1 =
-                case t1 of
-                  Tyvar n => mk_str n
-                | Tyapp n [] => mk_str n
-                | _ => mk_blo 1 [mk_str (strlit"(");
-                                 typ t1; mk_str (strlit")")]
-              in
-                mk_blo 0 [t1; mk_str (strlit" ->"); mk_brk 1; typ t2]
-          | _ => mk_str (strlit"<dummy>")
+      Tyvar nm => nm
+    | Tyapp nm [t1; t2] =>
+        if nm = strlit"fun" then
+          pp_tyop (strlit"->") (prec > 0) [pp_type 1 t1; pp_type 0 t2]
+        else if nm = strlit"sum" then
+          pp_tyop (strlit"+") (prec > 2) [pp_type 3 t1; pp_type 2 t2]
+        else if nm = strlit"prod" then
+          pp_tyop (strlit"#") (prec > 4) [pp_type 5 t1; pp_type 4 t2]
         else
-          case ts of
-            [] => mk_str n
-          | [t1] =>
-                (case t1 of
-                  Tyvar n => mk_str n
-                | _ => mk_blo 0 [mk_blo 1 [mk_str (strlit"(");
-                                           typ t1; mk_str (strlit")")];
-                                 mk_str (strlit" "); mk_str n])
-    | _ => mk_str (strlit"<bad type>")`
+          (pp_tyop (strlit",") T [pp_type 0 t1; pp_type 0 t2]) ^ nm
+    | Tyapp nm ts =>
+          (pp_tyop (strlit",") T (MAP (pp_type 0) ts)) ^ nm`
+  (WF_REL_TAC `measure (type_size o SND)`
+   \\ rw [type_size_def]
+   \\ imp_res_tac type_size_MEM \\ fs []);
 
-val ty_to_string_def = Define `ty_to_string ty = pr (typ ty) pp_margin`
+(* ------------------------------------------------------------------------- *)
+(* Some handy things for breaking apart terms.                               *)
+(* ------------------------------------------------------------------------- *)
 
-(* tests
+val _ = Datatype `
+  fixity = right num
+         | left num`;
 
-  val A = ``Tyvar (strlit"A")``
-  val B = ``Tyvar (strlit"B")``
-  val AB = ``Tyapp (strlit"fun") [^A; ^B]``
-  val Alist = ``Tyapp (strlit"list") [^A]``
-
-  val test = EVAL ``ty_to_string ^AB``
-  val test = EVAL ``ty_to_string ^Alist``
-  val test = EVAL ``ty_to_string (Tyapp (strlit"list") [^AB])``
-  val test = EVAL ``ty_to_string (Tyapp (strlit"fun") [^AB;^AB])``
-
-*)
-
-(* term := Var mlstring type
-         | Const mlstring type
-         | Comb term term
-         | Abs term term *)
-
-(* Abs x (Abs y (Abs z e)))   -->   (\x. (\y. (\z. e))) *)
-(* Comb (Var x) (Var y)       -->   x y                 *)
-(* Comb (Abs x e) (Var y)     -->   (\x. e) y           *)
-(* Comb (Abs x e) (Abs y f)   -->   (\x. e) (\y. f)     *)
-(* Comb x <not-var-const>     -->   x (<not-var-const>) *)
-
-val paren_def = Define `
-  paren n t = mk_blo n [mk_str (strlit"("); t; mk_str (strlit")")]`
-
-(* Hide Data.Bool until names have their 'real' representation *)
-val fix_name_def = Define `
-  fix_name s =
-    if isPrefix (strlit"Data.Bool.") s then
-      extract s 10 NONE
+val fixity_of_def = Define `
+  fixity_of nm =
+    if nm = strlit"==>" then
+      right 4
+    else if nm = strlit"\\/" then
+      right 6
+    else if nm = strlit"/\\" then
+      right 8
+    else if nm = strlit"<=>" then
+      right 2
+    else if nm = strlit"=" then
+      right 12
+    else if nm = strlit"," then
+      right 14
     else
-      s`;
+      left 0`;
 
-val _ = temp_overload_on ("ptyp",
-  ``\ty. case ty of
-           Tyvar _ => typ ty
-         | Tyapp _ [] => typ ty
-         | Tyapp _ _ => paren 1 (typ ty)``);
+(* TODO
+ * - add destructors for NUMERALs, lists of things, and binary operations
+ *   (all of these are simply special cases of Comb). *)
 
-(* TODO fix it up *)
-val term_def = Define `
-   term tm =
+(* ------------------------------------------------------------------------- *)
+(* A pretty printer for terms.                                               *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = temp_overload_on ("space", ``(strlit" ")``);
+val _ = temp_overload_on ("lpar", ``(strlit"(")``);
+val _ = temp_overload_on ("rpar", ``(strlit"(")``);
+
+val pp_paren_blk_def = Define `
+  pp_paren_blk ind p xs =
+    mk_blo ind
+      ((if p then [mk_str lpar] else []) ++
+       xs ++
+       (if p then [mk_str rpar] else []))`;
+
+val pp_seq_def = Define `
+  pp_seq pf brk sep (prec: num) ts =
+    case ts of
+      [] => []
+    | t::ts =>
+        pf prec t  ::
+        mk_str sep ::
+        if brk then [mk_brk 1] else [] ++
+        pp_seq pf brk sep prec ts`;
+
+val collect_vars_def = Define `
+  collect_vars tm =
     case tm of
-      Var n ty => mk_blo 0 [mk_str (strlit"Var"); mk_brk 1;
-                            mk_str n; mk_brk 1; ptyp ty]
-    | Const n ty => mk_blo 0 [mk_str (strlit"Const"); mk_brk 1;
-                              mk_str (fix_name n); mk_brk 1; ptyp ty]
-    | Comb f x =>
-        mk_blo 0 [mk_str (strlit"Comb"); mk_brk 1;
-                  paren 1 (term f); mk_brk 1;
-                  paren 1 (term x)]
-    | Abs v x =>
-        mk_blo 0 [mk_str (strlit"Abs"); mk_brk 1;
-                  paren 1 (term v); mk_brk 1;
-                  paren 1 (term x)]
-  `;
+      Abs (Var v ty) r =>
+        let (vs, b) = collect_vars r in
+          (v::vs, b)
+    | _ => ([], tm)`;
 
-val tm_to_string_def = Define `tm_to_string tm = pr (term tm) pp_margin`
+val collect_vars_term_size = Q.store_thm("collect_vars_term_size",
+  `term_size (SND (collect_vars tm)) <= term_size tm`,
+  Induct_on `tm`
+  \\ rw [Once collect_vars_def, term_size_def]
+  \\ PURE_CASE_TAC \\ fs []
+  \\ TRY pairarg_tac \\ fs []
+  \\ rw [term_size_def]);
 
-(*
-val Va = ``Var (strlit "a") (^A)``
-val Vf = ``Var (strlit "f") (^AB)``
-val AppVfVa = ``Comb (^Vf) (^Va)``
-val Abs = ``Abs (^Va) (Var (strlit "b") (^B))``
-val AbsApp = ``Comb (^Abs) (^Va)``
-val AbsAppApp = ``Comb (^AbsApp) (^Vf)``
+val pp_term_def = tDefine "pp_term" `
+  (pp_term (prec: num) tm =
+    case tm of
+      Comb l r => (* TODO binops and lists *)
+        pp_paren_blk 0
+          (prec = 1000)
+          [pp_term 999 l; mk_brk 1; pp_term 1000 r]
+    | Abs (Var _ _) r =>
+        let (vs, b) = collect_vars tm in
+          pp_paren_blk
+            (if prec = 0 then 4 else 5)
+            (0 < prec)
+            ((mk_str (strlit"\\") :: pp_seq (K mk_str) F space 0 vs) ++
+             [mk_str (strlit".")] ++
+             (if 1 < LENGTH vs then [mk_brk 1] else [mk_str space]) ++
+             [pp_term 0 b])
+    | Abs _ _ => mk_str (strlit"<bogus abstraction>")
+    | Const n ty => mk_str n
+    | Var n ty => mk_str n)`
+  (WF_REL_TAC `measure (term_size o SND)`
+   \\ rw [Once collect_vars_def, UNCURRY]
+   \\ rename1 `collect_vars tm`
+   \\ `term_size (SND (collect_vars tm)) <= term_size tm` suffices_by rw []
+   \\ fs [collect_vars_term_size]);
 
-val test = EVAL ``tm_to_string ^Va``
-val test = EVAL ``tm_to_string ^Vf``
-val test = EVAL ``tm_to_string ^AppVfVa``
-val test = EVAL ``tm_to_string ^Abs``
-val test = EVAL ``tm_to_string ^AbsApp``
-val test = EVAL ``tm_to_string ^AbsAppApp``
-*)
+(* ------------------------------------------------------------------------- *)
+(* A pretty printer for theorems.                                            *)
+(* ------------------------------------------------------------------------- *)
 
-val hyps_def = Define `
-  hyps hs =
-    case hs of
-      []    => []
-    | h::hs => mk_str (strlit", ") :: term h :: hyps hs`
+val pp_thm_def = Define `
+  pp_thm (Sequent asl c) =
+    let ss = [mk_str (strlit"|- "); pp_term 0 c] in
+      case asl of
+        [] => mk_blo 0 ss
+      | _  => mk_blo 0 ((pp_seq pp_term T (strlit",") 0 asl) ++ ss)`
 
-val thm_def = Define `
-  thm (Sequent hs c) =
-    let hs = case hs of [] => [] | h::hs => term h::hyps hs in
-    mk_blo 0 (hs ++ [mk_str (strlit"|-"); mk_brk 1; term c])`
+val term2str_def = Define `
+  term2str tm = pr (pp_term 0 tm) pp_margin`;
 
-val thm_to_string_def = Define `thm_to_string th = pr (thm th) pp_margin`
+val thm2str_def = Define `
+  thm2str thm = pr (pp_thm thm) pp_margin`;
 
 val _ = export_theory ();
 

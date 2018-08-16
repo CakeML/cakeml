@@ -16,6 +16,8 @@ val _ = m_translation_extends "ml_hol_kernelProg"
 (* Translate prettyTheory                                                    *)
 (* ------------------------------------------------------------------------- *)
 
+(* printer functions *)
+
 val r = translate newline_def
 val r = translate breakdist_def
 val r = translate REPLICATE
@@ -26,16 +28,27 @@ val r = translate tlength_def
 val r = translate mk_blo_def
 val r = translate mk_str_def
 val r = translate mk_brk_def
-val r = translate typ_def
 val r = translate pp_margin_def
-val r = translate ty_to_string_def
-val r = translate fix_name_def
-val r = translate paren_def
-val r = translate term_def
-val r = translate tm_to_string_def
-val r = translate hyps_def
-val r = translate thm_def
-val r = translate thm_to_string_def
+
+(* type printer *)
+
+val r = translate pp_tyop_def
+val r = translate pp_type_def
+
+(* term printer *)
+
+val r = translate fixity_of_def
+val r = translate pp_paren_blk_def
+val r = translate pp_seq_def
+val r = translate collect_vars_def
+val r = translate pp_term_def
+
+(* theorem printer *)
+
+val r = translate pp_thm_def
+
+val r = translate term2str_def
+val r = translate thm2str_def
 
 (* ------------------------------------------------------------------------- *)
 (* Translate readerTheory                                                    *)
