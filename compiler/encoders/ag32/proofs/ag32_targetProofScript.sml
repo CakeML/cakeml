@@ -101,7 +101,7 @@ val load_lem2 = Q.prove(
 
 val load_lem3 =
   blastLib.BBLAST_PROVE
-   ``!(c:word32). 0xFFFFFF54w <= c /\ ~(0w <= c) ==>
+   ``!(c:word32). 0xFF800001w <= c /\ ~(0w <= c) ==>
       (-1w * w2w (w2w (-1w * c) : 23 word) = c)``
 
 val store_lem =
@@ -112,7 +112,7 @@ val store_lem =
 
 val store_lem2 =
   blastLib.BBLAST_PROVE
-   ``!(c:word32). 0w <= c /\ c <= 31w ==>
+   ``!(c:word32). 0w <= c /\ c <= 0x7FFFFFw ==>
       (w2w ((w2w c) : 23 word) = c)``
 
 (* some rewrites ---------------------------------------------------------- *)

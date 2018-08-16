@@ -173,6 +173,7 @@ val ag32_enc_def = Define`
 
 (* --- Configuration for Ag32 --- *)
 
+(* Note that some bounds here might not be tight *)
 val ag32_config_def = Define`
    ag32_config =
    <| ISA := Ag32
@@ -188,7 +189,7 @@ val ag32_config_def = Define`
                            -32w <= n /\ n < 1024w
                          else
                            -32w <= n /\ n < 32w
-    ; addr_offset := (-172w, 31w) (* old comment: "-172w can be smaller" *)
+    ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
     ; byte_offset := (-32w, 31w)
     ; jump_offset := (-0x7FFFFFw + 4w, 0x7FFFFFw + 4w)
     ; cjump_offset := (-0x7FFFFFw + 4w, 0x7FFFFFw + 4w)

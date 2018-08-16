@@ -28,13 +28,12 @@ val ag32_backend_config_ok = Q.store_thm("ag32_backend_config_ok",`
   THEN1 blastLib.FULL_BBLAST_TAC
   THEN1 names_tac
   >- (
-    cheat (* this now looks false?
     fs [stack_removeTheory.store_offset_def,
         stack_removeTheory.store_pos_def]
     \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
-    \\ rveq \\ fs [] \\ EVAL_TAC *))
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
   \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]);
