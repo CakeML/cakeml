@@ -135,6 +135,11 @@ void cml_exit(int arg) {
   exit(arg);
 }
 
+void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
+  cml_exit(EXIT_FAILURE);
+}
+
+
 /* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
 void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   #ifdef DEBUG_FFI

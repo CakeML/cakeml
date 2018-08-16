@@ -2,6 +2,7 @@ open preamble ml_translatorTheory ml_translatorLib ml_progLib
      cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory
      CommandLineProofTheory TextIOProofTheory
+     runtimeFFITheory RuntimeProofTheory
 
 val _ = new_theory"basis_ffi";
 
@@ -43,6 +44,11 @@ val basis_ffi_oracle_def = Define `
        case ffi_close conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
+     if name = "exit" then
+       case ffi_exit conf bytes () of
+       | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
+       | SOME(FFIdiverge) => Oracle_final FFI_diverged
+       | NONE => Oracle_final FFI_failed else
      Oracle_final FFI_failed`
 
 (* standard streams are initialized *)
@@ -53,14 +59,17 @@ val basis_ffi_def = Define `
      ; io_events := [] |>`;
 
 val basis_proj1_def = Define `
-  basis_proj1 = (\(cls, fs).
+  basis_proj1 = (λ(cls, fs).
     FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
-			++ (mk_proj1 fs_ffi_part fs)))`;
+		++ (mk_proj1 fs_ffi_part fs)
+                ++ (mk_proj1 runtime_ffi_part ()
+                )))`;
 
 val basis_proj2_def = Define `
   basis_proj2 =
     [mk_proj2 cl_ffi_part;
-     mk_proj2 fs_ffi_part]`;
+     mk_proj2 fs_ffi_part;
+     mk_proj2 runtime_ffi_part]`;
 
 val basis_proj1_write = Q.store_thm("basis_proj1_write",
   `basis_proj1 ffi ' "write" = encode(SND ffi)`,
@@ -396,7 +405,7 @@ val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
  clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length ]);
 
 val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
-[fs_ffi_part_def,clFFITheory.cl_ffi_part_def]);
+[fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
@@ -413,6 +422,8 @@ val oracle_parts = Q.store_thm("oracle_parts",
      CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
      \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
      \\ rw[] )
+  \\ TRY (
+      fs[ffi_exit_def] \\ NO_TAC)
   \\ disj2_tac
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
@@ -438,6 +449,23 @@ val cl_ffi_no_ffi_div = Q.prove(`
   rw[clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,
      clFFITheory.ffi_get_arg_def]);
 
+val oracle_parts_div = Q.store_thm("oracle_parts_div",
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
+    ==> st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged`,
+  simp[basis_proj2_def,basis_proj1_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[cfHeapsBaseTheory.mk_proj1_def,
+        cfHeapsBaseTheory.mk_proj2_def,
+        basis_ffi_oracle_def,basis_ffi_part_defs]
+  \\ rw[] \\ fs[FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM]
+  \\ TRY (
+     CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
+     \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
+     \\ rw[] )
+  \\ fs[cl_ffi_no_ffi_div,fs_ffi_no_ffi_div]
+  \\ disj2_tac
+  \\ CCONTR_TAC \\ fs[] \\ rfs[]);
+
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)` ,
   qmatch_goalsub_abbrev_tac`st.ffi`
@@ -446,15 +474,16 @@ val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   \\ rw[cfStoreTheory.parts_ok_def]
   \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
   \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+  \\ TRY ( imp_res_tac oracle_parts_div \\ rfs[] \\ NO_TAC)  
   \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
   \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
   \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
   \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
   \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
   \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-  \\ fs[] \\ TRY(PURE_FULL_CASE_TAC \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div])
+  \\ TRY(PURE_FULL_CASE_TAC \\ fs[])
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-  \\ srw_tac[DNF_ss][]
+  \\ srw_tac[DNF_ss][] \\ fs[ffi_exit_def]
 );
 
 (* TODO: move somewhere else? *)
