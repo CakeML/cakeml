@@ -38,11 +38,26 @@ val r = translate pp_type_def
 (* term printer *)
 
 val r = translate fixity_of_def
+val r = translate name_of_def
+val r = translate is_binop_PMATCH
+val r = translate is_binder_PMATCH
+val r = translate is_cond_PMATCH
+val r = translate is_neg_PMATCH
+val r = translate collect_vars_PMATCH
+val r = translate dest_binary_PMATCH
+val r = translate dest_binder_PMATCH
 val r = translate pp_paren_blk_def
 val r = translate pp_seq_def
-val r = translate collect_vars_def
-val r = translate name_of_def
+val r = translate interleave_def
 val r = translate pp_term_def
+
+val pp_term_side = Q.store_thm("pp_term_side",
+  `!x y. pp_term_side x y <=> T`,
+  recInduct pp_term_ind \\ rw []
+  \\ rw [Once (fetch "-" "pp_term_side_def")]
+  \\ TRY strip_tac \\ rw []
+  \\ fs [is_binop_def, is_binder_def, is_cond_def])
+  |> update_precondition;
 
 (* theorem printer *)
 
