@@ -324,7 +324,7 @@ val hcancel_conseq_conv =
     [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
-     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTffi_def))),     
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTffi_def))),
      (true, NONE, K (SCC hcancel_setup_conv)),
      (true, NONE, K hsimpl_cancel_conseq_conv),
      (true, NONE, K hpullr_conseq_conv),
