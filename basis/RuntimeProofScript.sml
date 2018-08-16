@@ -23,7 +23,7 @@ val RUNTIME_FFI_part_hprop = Q.store_thm("RUNTIME_FFI_part_hprop",
 
 val st = get_ml_prog_state();
 
-val Runtime_exit_spec = Q.store_thm("Runtime_exit",
+val Runtime_exit_spec = Q.store_thm("Runtime_exit_spec",
   `app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [uv]
      (RUNTIME)
      (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [])
