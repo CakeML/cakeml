@@ -22,7 +22,7 @@ val _ = (append_prog o process_topdecs) `
   fun process_line st0 ln =
     if invalid_line ln
     then Inl st0
-    else Inl (readline (fix_fun_typ (str_prefix ln)) st0)
+    else Inl (readline (unescape_ml (fix_fun_typ (str_prefix ln))) st0)
          handle Fail e => Inr e`;
 
 val process_line_spec = Q.store_thm("process_line_spec",
@@ -49,6 +49,7 @@ val process_line_spec = Q.store_thm("process_line_spec",
     >- (
       xlet_auto >- xsimpl
       \\ xlet_auto \\ xsimpl
+      \\ xlet_auto \\ xsimpl
       \\ xlet_auto \\ xsimpl )
     \\ xcases
     \\ fs[HOL_EXN_TYPE_def]
@@ -59,6 +60,7 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ xhandle`$POSTv Qval` \\ xsimpl
   \\ qunabbrev_tac`Qval`
   \\ xlet_auto >- xsimpl
+  \\ xlet_auto \\ xsimpl
   \\ xlet_auto \\ xsimpl
   \\ xlet_auto \\ xsimpl
   \\ xcon \\ xsimpl

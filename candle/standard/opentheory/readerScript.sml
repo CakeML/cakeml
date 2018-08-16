@@ -217,7 +217,7 @@ val obj_t_def = tDefine "obj_t" `
   obj_t obj =
     case obj of
       Num n => mk_str (toString n)
-    | Name s => mk_str s (* (fix_name s) *)
+    | Name s => mk_str (name_of s)
     | List ls => listof (MAP obj_t ls)
     | TypeOp s => mk_str s
     | Type ty => mk_str (pp_type 0 ty)
@@ -304,7 +304,6 @@ val readLine_def = Define`
       (* We only allow axioms already in the context *)
       (* and we return an alpha-equivalent variant *)
       (* (contrary to normal article semantics) *)
-      (*th <- find_axiom (ls,tm);*)
       th <- find_axiom (ls,tm);
       return (push (Thm th) s)
     od
@@ -432,8 +431,6 @@ val readLine_def = Define`
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
-      (* These were called in the wrong order according to article semantics: *)
-      (*th <- PROVE_HYP th1 th2;*)
       th <- PROVE_HYP th2 th1;
       return (push (Thm th) s)
     od
@@ -574,6 +571,19 @@ val msg_axioms_def = Define `
 (* Using the reader                                                          *)
 (* ------------------------------------------------------------------------- *)
 
+(* The articles contain strings with escaped backslashes:
+ * we need to turn things such as Data.Bool./\\ into Data.Bool./\. *)
+
+val unescape_def = Define `
+  unescape str =
+    case str of
+      #"\\":: #"\\" ::cs => #"\\"::unescape cs
+    | c1::c::cs    => c1::unescape (c::cs)
+    | cs           => cs`;
+
+val unescape_ml_def = Define `
+  unescape_ml = implode o unescape o explode`;
+
 val readLines_def = Define `
   readLines lls s =
     case lls of
@@ -584,7 +594,7 @@ val readLines_def = Define `
         else
           do
             s <- handle_Fail
-                   (readLine (fix_fun_typ (str_prefix l)) s)
+                   (readLine (unescape_ml (fix_fun_typ (str_prefix l))) s)
                    (\e. raise_Fail (line_Fail s e));
             readLines ls (next_line s)
         od`;
@@ -676,6 +686,15 @@ val getPair_PMATCH = Q.store_thm("getPair_PMATCH",
        | _ => failwith (strlit"getPair")`,
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ fs [getPair_def]
   \\ rpt (PURE_CASE_TAC \\ fs [getPair_def]));
+
+val unescape_PMATCH = Q.store_thm("unescape_PMATCH",
+  `!str.
+     unescape str =
+       case str of
+         #"\\":: #"\\" ::cs => #"\\"::unescape cs
+       | c1::c::cs    => c1::unescape (c::cs)
+       | cs           => cs`,
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]);
 
 val _ = export_theory()
 

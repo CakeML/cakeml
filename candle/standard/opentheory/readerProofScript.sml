@@ -1690,7 +1690,7 @@ val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
 val process_line_def = Define`
   process_line st refs ln =
     if invalid_line ln then (INL st, refs) else
-    case readLine (fix_fun_typ (str_prefix ln)) st refs
+    case readLine (unescape_ml (fix_fun_typ (str_prefix ln))) st refs
     of (Success st, refs) => (INL st, refs)
      | (Failure (Fail s), refs) => (INR s, refs)`;
 

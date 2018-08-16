@@ -36,7 +36,7 @@ val readLine_wrap_def = Define `
       return (INR s)
     else
         handle_Fail
-          (do s <- readLine (fix_fun_typ (str_prefix line)) s;
+          (do s <- readLine (unescape_ml (fix_fun_typ (str_prefix line))) s;
               return (INR s) od)
           (\e. return (INL e))`;
 

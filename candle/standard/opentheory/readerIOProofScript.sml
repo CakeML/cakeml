@@ -134,7 +134,7 @@ val readLine_wrap_correct = Q.store_thm("readLine_wrap_correct",
 val readLine_EQ = Q.store_thm("readLine_EQ",
   `readLine_wrap (line, s) refs = (res1, t1) /\
    ~invalid_line line /\
-   readLine (fix_fun_typ (str_prefix line)) s refs = (res2, t2)
+   readLine (unescape_ml (fix_fun_typ (str_prefix line))) s refs = (res2, t2)
    ==>
    t1 = t2 /\
    case res1 of

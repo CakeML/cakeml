@@ -118,6 +118,8 @@ val readline_side = Q.store_thm("readline_side",
 val readline_spec = save_thm ("readline_spec",
   mk_app_of_ArrowP (theorem "readline_v_thm"));
 
+val r = translate unescape_PMATCH
+val r = translate unescape_ml_def
 val r = translate fix_fun_typ_def
 val r = translate current_line_def
 val r = translate lines_read_def
