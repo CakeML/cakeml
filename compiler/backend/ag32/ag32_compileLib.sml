@@ -1,4 +1,4 @@
-structure tiny_compileLib =
+structure ag32_compileLib =
 struct
 
 open HolKernel boolLib bossLib
@@ -7,7 +7,7 @@ val _ = ParseExtras.temp_loose_equality()
 
 open tiny_targetLib asmLib;
 open backendComputeLib;
-open tiny_configTheory
+open ag32_configTheory
 
 val cmp = wordsLib.words_compset ()
 val () = computeLib.extend_compset
@@ -17,8 +17,8 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [tiny_configTheory.tiny_backend_config_def
-      ,tiny_configTheory.tiny_names_def]
+      [ag32_configTheory.ag32_backend_config_def
+      ,ag32_configTheory.ag32_names_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

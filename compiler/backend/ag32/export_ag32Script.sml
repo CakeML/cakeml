@@ -1,6 +1,6 @@
 open preamble exportTheory
 
-val () = new_theory "export_tiny";
+val () = new_theory "export_ag32";
 
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
@@ -58,8 +58,8 @@ val ffi_code =
        "/* Generated machine code follows */";
        ""])))`` |> EVAL |> concl |> rand
 
-val tiny_export_def = Define `
-  tiny_export ffi_names heap_space stack_space bytes (data:word32 list) =
+val ag32_export_def = Define `
+  ag32_export ffi_names heap_space stack_space bytes (data:word32 list) =
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".long" heap_space stack_space))
