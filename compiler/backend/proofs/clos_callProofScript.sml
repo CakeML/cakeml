@@ -1595,7 +1595,8 @@ val env_rel_Op_Install = prove(
 
 val compile_inc_def = Define `
   compile_inc g (e,xs) =
-    let (ea, g') = calls [e] g in (g', HD ea, [])`;
+    let (ea, g') = calls [e] g in
+      (g', HD ea, TAKE (LENGTH (SND g') - LENGTH (SND g)) (SND g))`;
 
 val syntax_ok_def = Define`
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)`;
@@ -1640,7 +1641,8 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
           code := t.code |++ aux1|>) ∧
       code_inv (r.code |++ aux) r.compile (shift_seq 1 r.compile_oracle)
         (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle) /\
-      r.compile_oracle 1 = ((g5,other),exp5,aux5)``,
+      r.compile_oracle 1 = ((g5,other),exp5,aux5) /\
+      t.code SUBMAP (t.code |++ aux1)``,
   Cases_on `calls [exp'] (FST cfg)` \\ fs []
   \\ imp_res_tac calls_sing \\ rveq \\ fs []
   \\ PairCases_on `progs` \\ fs [] \\ strip_tac
@@ -1652,7 +1654,7 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ PairCases_on `cfg` \\ fs []
   \\ simp [Once compile_inc_def] \\ fs [] \\ rveq \\ fs []
   \\ TOP_CASE_TAC \\ fs []
-  \\ rename [`t.compile cfg2 (output,[]) = SOME xx`]
+  \\ rename [`t.compile cfg2 (output,_) = SOME xx`]
   \\ PairCases_on `xx` \\ fs []
   \\ fs [shift_seq_def] \\ rveq \\ fs []
   \\ strip_tac \\ rveq \\ fs []
@@ -1665,7 +1667,8 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ Cases_on `r2` \\ fs [compile_inc_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ `aux = []` by (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
-  \\ fs [FUPDATE_LIST,state_co_def,state_rel_def]) |> GEN_ALL;
+  \\ fs [FUPDATE_LIST,state_co_def,state_rel_def]
+  \\ cheat) |> GEN_ALL;
 
 val fv_GENLIST_Var_alt = store_thm("fv_GENLIST_Var_alt",
   ``∀n i tra. fv v (GENLIST_Var tra i n) ⇔ v < n``,
