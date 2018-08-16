@@ -95,6 +95,11 @@ val every_refv_def = Define
    (every_refv P _ ⇔ T)`
 val _ = export_rewrites["every_refv_def"];
 
+val LENGTH_ZIP_MIN = store_thm("LENGTH_ZIP_MIN",
+  ``!xs ys. LENGTH (ZIP (xs,ys)) = MIN (LENGTH xs) (LENGTH ys)``,
+  Induct \\ fs [LENGTH,ZIP_def]
+  \\ Cases_on `ys` \\ fs [LENGTH,ZIP_def] \\ fs [MIN_DEF]);
+
 (* -- *)
 
 (* correctness of free *)
@@ -1334,6 +1339,13 @@ val LIST_REL_v_rel_SUBMAP = store_thm("LIST_REL_v_rel_SUBMAP",
       LIST_REL (v_rel g1 l1 code1) v1 v2``,
   metis_tac[LIST_REL_mono, v_rel_SUBMAP]);
 
+val env_rel_SUBMAP = store_thm("env_rel_SUBMAP",
+  ``!code code' g1 l1 env1 env2 n vars.
+      env_rel (v_rel g1 l1 code) env1 env2 n vars /\ code SUBMAP code' ==>
+      env_rel (v_rel g1 l1 code') env1 env2 n vars``,
+  rw[env_rel_def, EXISTS_MEM, PULL_EXISTS, UNCURRY]
+  \\ metis_tac[LIST_REL_mono, v_rel_SUBMAP]);
+
 (* semantic functions respect relation *)
 
 val v_rel_Unit = Q.store_thm("v_rel_Unit[simp]",
@@ -1659,11 +1671,6 @@ val fv_GENLIST_Var_alt = store_thm("fv_GENLIST_Var_alt",
   ``∀n i tra. fv v (GENLIST_Var tra i n) ⇔ v < n``,
   Induct \\ rw [] \\ once_rewrite_tac [GENLIST_Var_def] \\ fs [fv1_thm]);
 
-val LENGTH_ZIP_MIN = store_thm("LENGTH_ZIP_MIN", (* TODO: move *)
-  ``!xs ys. LENGTH (ZIP (xs,ys)) = MIN (LENGTH xs) (LENGTH ys)``,
-  Induct \\ fs [LENGTH,ZIP_def]
-  \\ Cases_on `ys` \\ fs [LENGTH,ZIP_def] \\ fs [MIN_DEF]);
-
 val env_rel_env_exists = store_thm("env_rel_env_exists",
   ``!vars. EVERY (wfv g1 l1 code) env ==>
            ?env5. env_rel (v_rel g1 l1 code) env env5 0 vars /\
@@ -1674,12 +1681,6 @@ val env_rel_env_exists = store_thm("env_rel_env_exists",
   \\ imp_res_tac v_rel_exists
   \\ qexists_tac `v2::env5`
   \\ fs [env_rel_def]);
-
-val env_rel_SUBMAP = store_thm("env_rel_SUBMAP",
-  ``!code code' g1 l1 env1 env2 n vars.
-      env_rel (v_rel g1 l1 code) env1 env2 n vars /\ code SUBMAP code' ==>
-      env_rel (v_rel g1 l1 code') env1 env2 n vars``,
-  cheat (* routine proof *));
 
 val includes_state_def = Define `
   includes_state g1 s_compile_oracle <=>
