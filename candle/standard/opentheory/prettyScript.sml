@@ -138,14 +138,60 @@ val name_of_def = Define `
       strlit"!"
     else if nm = strlit"Data.Bool.?" then
       strlit"?"
+    else if nm = strlit"Data.Bool.?!" then
+      strlit"?!"
     else if nm = strlit"Data.Bool.~" then
       strlit"~"
+    else if nm = strlit"Data.Bool.T" then
+      strlit"T"
+    else if nm = strlit"Data.Bool.F" then
+      strlit"F"
+    else if nm = strlit"Data.Bool.cond" then
+      strlit"COND"
     else
       nm`;
+
+val is_binop_def = Define `
+  is_binop con tm =
+    case tm of
+      Comb (Comb (Const con' _) _) _ => con = con'
+    | _ => F`;
+
+val is_binder_def = Define `
+  is_binder tm =
+    case tm of
+      Comb (Const nm _) (Abs _ _) =>
+        nm = strlit"Data.Bool.?" \/
+        nm = strlit"Data.Bool.!" \/
+        nm = strlit"Data.Bool.?!"
+    | _ => F`;
+
+val is_cond_def = Define `
+  is_cond tm =
+    case tm of
+      Comb (Comb (Comb (Const con _) _) _) _ =>
+        con = strlit"Data.Bool.cond"
+    | _ => F`;
 
 (* TODO
  * - add destructors for NUMERALs, lists of things, and binary operations
  *   (all of these are simply special cases of Comb). *)
+
+val collect_vars_def = Define `
+  collect_vars tm =
+    case tm of
+      Abs (Var v ty) r =>
+        let (vs, b) = collect_vars r in
+          (v::vs, b)
+    | _ => ([], tm)`;
+
+val collect_vars_term_size = Q.store_thm("collect_vars_term_size",
+  `term_size (SND (collect_vars tm)) <= term_size tm`,
+  Induct_on `tm`
+  \\ rw [Once collect_vars_def, term_size_def]
+  \\ PURE_CASE_TAC \\ fs []
+  \\ TRY pairarg_tac \\ fs []
+  \\ rw [term_size_def]);
 
 (* ------------------------------------------------------------------------- *)
 (* A pretty printer for terms.                                               *)
@@ -168,29 +214,27 @@ val pp_seq_def = Define `
         if brk then [mk_brk 1] else [] ++
         pp_seq pf brk sep ts`;
 
-val collect_vars_def = Define `
-  collect_vars tm =
-    case tm of
-      Abs (Var v ty) r =>
-        let (vs, b) = collect_vars r in
-          (v::vs, b)
-    | _ => ([], tm)`;
-
-val collect_vars_term_size = Q.store_thm("collect_vars_term_size",
-  `term_size (SND (collect_vars tm)) <= term_size tm`,
-  Induct_on `tm`
-  \\ rw [Once collect_vars_def, term_size_def]
-  \\ PURE_CASE_TAC \\ fs []
-  \\ TRY pairarg_tac \\ fs []
-  \\ rw [term_size_def]);
-
 val pp_term_def = tDefine "pp_term" `
   (pp_term (prec: num) tm =
     case tm of
-      Comb l r => (* TODO binops and lists *)
-        pp_paren_blk 0
-          (prec = 1000)
-          [pp_term 999 l; mk_brk 1; pp_term 1000 r]
+      Comb l r =>
+        if is_cond tm then
+          (case l of
+            Comb (Comb c p) l =>
+              pp_paren_blk 0 (0 < prec)
+                [mk_str (strlit"if ");
+                 pp_term 0 p;
+                 mk_brk 1;
+                 mk_str (strlit"then ");
+                 pp_term 0 l;
+                 mk_brk 1;
+                 mk_str (strlit"else ");
+                 pp_term 0 r]
+          | _ => mk_str (strlit"<pp_term: bogus COND>"))
+        else
+          pp_paren_blk 0
+            (prec = 1000)
+            [pp_term 999 l; mk_brk 1; pp_term 1000 r]
     | Abs (Var _ _) r =>
         let (vs, b) = collect_vars tm in
         let ind = if prec = 0 then 4 else 5 in
