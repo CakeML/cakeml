@@ -41,6 +41,7 @@ val r = translate fixity_of_def
 val r = translate pp_paren_blk_def
 val r = translate pp_seq_def
 val r = translate collect_vars_def
+val r = translate name_of_def
 val r = translate pp_term_def
 
 (* theorem printer *)
