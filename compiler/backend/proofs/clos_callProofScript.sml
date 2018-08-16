@@ -1704,17 +1704,36 @@ val evaluate_app_includes_state = store_thm("evaluate_app_includes_state",
   \\ fs [includes_state_def,shift_seq_def] \\ rw []
   \\ qexists_tac `k+n` \\ fs []);
 
-val SUBMAP_FUPDATE_LIST = store_thm("SUBMAP_FUPDATE_LIST",
+val SUBMAP_FUPDATE_LIST_false = store_thm("SUBMAP_FUPDATE_LIST_false",
   ``!f xs. f SUBMAP (f |++ xs)``,
   cheat (* routine proof *));
 
+val SUBMAP_FUPDATE_LIST = Q.store_thm("SUBMAP_FUPDATE_LIST",
+  `!f xs. ALL_DISTINCT (MAP FST xs) ∧ DISJOINT (FDOM f) (set (MAP FST xs)) ⇒ f SUBMAP (f |++ xs)`,
+  Induct_on`xs` \\ simp[FORALL_PROD] \\ rw[FUPDATE_LIST_THM]
+  \\ simp[FUPDATE_FUPDATE_LIST_COMMUTES]
+  \\ match_mp_tac SUBMAP_TRANS
+  \\ res_tac
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[FDOM_FUPDATE_LIST]);
+
 val evaluate_app_mono = store_thm("evaluate_app_mono",
   ``evaluate_app x y z s1 = (vs,s2) ⇒ s1.code ⊑ s2.code``,
-  cheat (* routine proof *));
+  strip_tac \\ imp_res_tac evaluate_app_code \\ fs[]
+  \\ match_mp_tac SUBMAP_FUPDATE_LIST \\ fs[]);
 
 val calls_pure = store_thm("calls_pure",
-  ``pure x1 /\ calls [x1] g = ([e1],g1) ==> pure e1``,
-  cheat (* routine proof *));
+  ``∀xs g es g1.
+    EVERY pure xs /\ calls xs g = (es,g1) ==> EVERY pure es``,
+  ho_match_mp_tac calls_ind
+  \\ rw[calls_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ imp_res_tac calls_sing \\ fs[closLangTheory.pure_def]
+  \\ fsrw_tac[ETA_ss][bool_case_eq,closLangTheory.pure_def]);
+
+val calls_pure_sing = Q.store_thm("calls_pure_sing",
+  `pure x1 /\ calls [x1] g = ([e1],g1) ==> pure x1`,
+  metis_tac[calls_pure,calls_sing,HD,EVERY_DEF]);
 
 (* compiler correctness *)
 
@@ -2370,7 +2389,7 @@ val calls_correct = Q.store_thm("calls_correct",
                code := r.code |>)` by fs [wfv_state_def,shift_seq_def]
         \\ fs [shift_seq_def]
         \\ match_mp_tac wfv_state_SUBMAP \\ asm_exists_tac \\ fs []
-        \\ simp [GSYM FUPDATE_LIST,SUBMAP_FUPDATE_LIST])
+        \\ simp [GSYM FUPDATE_LIST,SUBMAP_FUPDATE_LIST_false])
       \\ fs [do_install_def]
       \\ fs [shift_seq_def]
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
@@ -2409,7 +2428,7 @@ val calls_correct = Q.store_thm("calls_correct",
           compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY|>)`
             by fs [code_inv_def,wfv_state_def]
       \\ match_mp_tac wfv_state_SUBMAP
-      \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST,SUBMAP_FUPDATE_LIST])
+      \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST,SUBMAP_FUPDATE_LIST_false])
     \\ rpt (conj_tac THEN1 (fs [code_inv_def]
                \\ rpt (first_x_assum (qspec_then `0` mp_tac)) \\ fs []))
     \\ `subg g5 g1` by
@@ -2985,7 +3004,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ disch_then drule \\ strip_tac
       \\ `t1.code = t.code` by
        (imp_res_tac calls_sing \\ rveq \\ fs []
-        \\ drule (GEN_ALL calls_pure)
+        \\ drule (GEN_ALL calls_pure_sing)
         \\ disch_then drule \\ strip_tac
         \\ qpat_x_assum `_ = (Rval [f2],t1)` assume_tac
         \\ qmatch_assum_abbrev_tac `evaluate ([y],env77,t6) = _`
