@@ -4938,7 +4938,7 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
         \\ simp [Once code_locs_cons, SimpRHS])
   \\ pop_assum SUBST1_TAC
   *)
-  \\ qmatch_assum_abbrev_tac `compile _ ls = (_, aux)`
+  \\ qmatch_assum_abbrev_tac `compile _ ls = (_,_, aux)`
   \\ simp [ALL_DISTINCT_APPEND, Abbr `ls'`,Abbr `f`]
   \\ once_rewrite_tac [code_locs_append]
   \\ simp [ALL_DISTINCT_APPEND]
@@ -6254,7 +6254,7 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE[simp]",
   Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def]);
 
 val compile_code_locs_ALL_DISTINCT = Q.store_thm("compile_code_locs_ALL_DISTINCT",
-  `clos_call$compile do_call es = (xs,aux) ∧
+  `clos_call$compile do_call es = (xs,g,aux) ∧
    ALL_DISTINCT (code_locs es)
   ⇒
    ALL_DISTINCT (code_locs xs ++ code_locs (MAP (SND o SND) aux))`,
@@ -6277,10 +6277,10 @@ val chain_exps_every_Fn_vs_NONE = Q.store_thm("chain_exps_every_Fn_vs_NONE",
 
 val calls_compile_csyntax_ok = Q.store_thm("calls_compile_csyntax_ok",
   `clos_callProof$syntax_ok xs /\
-   clos_call$compile p xs = (ys, g)
+   clos_call$compile p xs = (ys, g, aux)
    ==>
    every_Fn_vs_NONE ys /\
-   every_Fn_vs_NONE (MAP (SND o SND) g)`,
+   every_Fn_vs_NONE (MAP (SND o SND) aux)`,
   Cases_on `p` \\ rw [clos_callTheory.compile_def]
   \\ fs [clos_callProofTheory.syntax_ok_def]
   \\ pairarg_tac \\ fs [] \\ rw []
@@ -6297,6 +6297,12 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_common_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧ (∀n. clos_mtiProof$syntax_ok [FST(SND(co1 n))])) ∧
+   (c.do_call ⇒
+     (∀k n. k ≤ n ⇒ subg (FST(SND(SND(FST(co1 k))))) (FST(SND(SND(FST(co1 n)))))) ∧
+     FST(SND(SND(FST(co1 0)))) =
+       SND(clos_call$compile c.do_call
+         (SND (clos_known$compile c.known_conf
+           (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app es1))))))) ∧
    (IS_SOME c.known_conf ⇒
      (THE c.known_conf).val_approx_spt = LN	∧
      FST (SND (FST (co1 0))) = SND
@@ -6311,6 +6317,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      BAG_DISJOINT (elist_globals es1) (elist_globals (GENLIST (FST o SND o co1) n)) ∧
      ¬contains_App_SOME c.max_app [FST(SND(co1 n))] ∧
      clos_knownProof$syntax_ok [FST(SND(co1 n))] ∧
+     wfg (FST(SND(SND(FST(co1 n))))) ∧
      every_Fn_vs_NONE (MAP (SND o SND) (SND (FST (SND (SND (FST (co1 n))))))) ∧
      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n))))))
    ⇒
@@ -6424,7 +6431,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     fs[Abbr`cc0`, clos_callProofTheory.code_inv_def]
     \\ fs[Abbr`co`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
     \\ strip_tac
-    \\ conj_tac
+    \\ conj_asm1_tac
     >- (
       match_mp_tac (GEN_ALL kcompile_csyntax_ok)
       \\ goal_assum(first_assum o mp_then Any mp_tac)
@@ -6433,6 +6440,16 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
       \\ asm_exists_tac \\ fs[]
       \\ fs[clos_knownProofTheory.syntax_ok_def])
+    \\ conj_tac >- (
+      fs[]
+      \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n'`
+      \\ `n' = n` by simp[Abbr`n'`, Abbr`n`, make_even_def, EVEN_MOD2]
+      \\ fs[] \\ rfs[] \\ rw[] )
+    \\ conj_tac >- rw[]
+    \\ conj_tac >- (
+      simp[UNCURRY, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+      \\ qx_gen_tac`m`
+      \\ cheat (* add assumptions if necessary *) )
     \\ qx_gen_tac`m`
     \\ TOP_CASE_TAC \\ fs[SND_SND_ignore_table] >- rw[]
     \\ simp[kcompile_inc_uncurry, SND_SND_ignore_table]
@@ -6590,6 +6607,13 @@ val syntax_oracle_ok_def = Define`
        SND (known (THE c.known_conf)
          (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
            (compile c.do_mti c.max_app es))) [] LN)) ∧
+    (c.do_call ⇒
+      (∀k n. k ≤ n ⇒ subg (FST(SND(SND(FST (co k))))) (FST(SND(SND(FST(co n)))))) ∧
+      FST(SND(SND(FST(co 0)))) =
+      SND(compile c.do_call
+        (SND(compile c.known_conf
+          (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
+            (compile c.do_mti c.max_app es))))))) ∧
     (∀n.
       SND (SND (co n)) = [] ∧
       globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
@@ -6598,6 +6622,7 @@ val syntax_oracle_ok_def = Define`
                    (elist_globals (GENLIST (FST o SND o co) n))) ∧
       ¬contains_App_SOME c.max_app [FST (SND (co n))] ∧
       clos_knownProof$syntax_ok [FST (SND (co n))] ∧
+      wfg (FST(SND(SND(FST(co n))))) ∧
       every_Fn_SOME (MAP (SND o SND) (SND (FST (SND (SND (FST (co n))))))) ∧
       globals_approx_every_Fn_SOME (FST (SND (FST (co n)))) ∧
       every_Fn_vs_NONE (MAP (SND o SND) (SND (FST (SND (SND (FST (co n))))))) ∧
@@ -6651,7 +6676,7 @@ val chain_exps_every_Fn_vs_SOME = Q.store_thm("chain_exps_every_Fn_vs_SOME",
 
 val ccompile_every_Fn_SOME = Q.store_thm("ccompile_every_Fn_SOME",
   `every_Fn_SOME es ∧
-   clos_call$compile do_call es = (es',aux)
+   clos_call$compile do_call es = (es',g,aux)
    ⇒
    every_Fn_SOME es' ∧
    every_Fn_SOME (MAP (SND o SND) aux)`,
