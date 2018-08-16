@@ -90,7 +90,7 @@ val is_Recclosure_def = Define`
   is_Recclosure _ = F`;
 val _ = export_rewrites["is_Recclosure_def"];
 
-val every_refv = Define
+val every_refv_def = Define
   `(every_refv P (ValueArray vs) ⇔ EVERY P vs) ∧
    (every_refv P _ ⇔ T)`
 val _ = export_rewrites["every_refv_def"];
@@ -1310,7 +1310,9 @@ val wfv_state_SUBMAP = store_thm("wfv_state_SUBMAP",
   ``!g1 l1 code s code1.
       wfv_state g1 l1 code s /\ code SUBMAP code1 ==>
       wfv_state g1 l1 code1 s``,
-  cheat (* routine proof *));
+  rw[wfv_state_def, EVERY_MEM, FEVERY_ALL_FLOOKUP]
+  \\ metis_tac[OPTION_EVERY_mono, wfv_SUBMAP, every_refv_def,
+               MONO_EVERY, ref_nchotomy]);
 
 val v_rel_SUBMAP = store_thm("v_rel_SUBMAP",
   ``!g1 l1 code v1 v2 code1.
@@ -1318,13 +1320,19 @@ val v_rel_SUBMAP = store_thm("v_rel_SUBMAP",
   ho_match_mp_tac v_rel_ind \\ rw[]
   \\ fsrw_tac[ETA_ss][v_rel_def]
   \\ fs [MEM_EL,PULL_EXISTS,PULL_FORALL,AND_IMP_INTRO]
-  \\ cheat (* routine proof *));
+  \\ fs[env_rel_def, recclosure_rel_def, LIST_REL_EL_EQN]
+  \\ rw[]
+  \\ TRY (
+    qexists_tac`g0` \\ fs[]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rw[] \\ rfs[] )
+  \\ metis_tac[code_includes_SUBMAP]);
 
 val LIST_REL_v_rel_SUBMAP = store_thm("LIST_REL_v_rel_SUBMAP",
   ``!g1 l1 code v1 v2 code1.
       LIST_REL (v_rel g1 l1 code) v1 v2 /\ code SUBMAP code1 ==>
       LIST_REL (v_rel g1 l1 code1) v1 v2``,
-  cheat (* routine proof *));
+  metis_tac[LIST_REL_mono, v_rel_SUBMAP]);
 
 (* semantic functions respect relation *)
 
