@@ -377,4 +377,26 @@ val strcat_foo_spec = Q.prove (
   >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl);
 
+val example_ffidiv = process_topdecs `
+   fun example_ffidiv b = if b then Runtime.exit () else ()`
+
+val st = ml_progLib.add_prog example_ffidiv pick_name basis_st
+
+val example_ffidiv_spec = Q.prove (
+  `!b bv.
+     BOOL b bv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_ffidiv" st) [bv]
+       (RUNTIME)
+       (POST
+          (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
+          (λev. &F)
+          (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [])
+                   * RUNTIME * SEP_EXISTS loc. W8ARRAY loc []))`,
+  xcf "example_ffidiv" st
+  >> xif
+  >- (xlet_auto
+      >- (xcon >- xsimpl)
+      >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
+  >> xcon >> xsimpl);
+                             
 val _ = export_theory();
