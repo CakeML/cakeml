@@ -171,7 +171,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           arm8_targetLib.add_arm8_encode_compset,
           mips_targetLib.add_mips_encode_compset,
           riscv_targetLib.add_riscv_encode_compset,
-          tiny_targetLib.add_tiny_encode_compset,
+          ag32_targetLib.add_ag32_encode_compset,
           x64_targetLib.add_x64_encode_compset],
         computeLib.Defs [
           arm6_backend_config_def, arm6_names_def,
@@ -892,7 +892,7 @@ val cbv_to_bytes_riscv =
 val cbv_to_bytes_ag32 =
   cbv_to_bytes
     "quad"
-    tiny_targetLib.add_tiny_encode_compset
+    ag32_targetLib.add_ag32_encode_compset
     ag32_backend_config_def ag32_names_def
     ag32_export_defs
 

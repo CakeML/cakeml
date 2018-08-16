@@ -1,12 +1,12 @@
 open preamble backendProofTheory
-     ag32_configTheory tiny_targetProofTheory
+     ag32_configTheory ag32_targetProofTheory
 open blastLib;
 
 val _ = new_theory"ag32_configProof";
 
 val is_ag32_machine_config_def = Define`
   is_ag32_machine_config mc ⇔
-  mc.target = tiny_target ∧
+  mc.target = ag32_target ∧
   mc.ptr_reg = 1 ∧
   mc.len_reg = 2  ∧
   mc.ptr2_reg = 3 ∧
@@ -23,7 +23,7 @@ val ag32_backend_config_ok = Q.store_thm("ag32_backend_config_ok",`
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   \\ fs[ag32_backend_config_def,asmTheory.offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
-  \\ fs[ag32_backend_config_def,tiny_targetTheory.tiny_config_def,asmTheory.offset_ok_def,
+  \\ fs[ag32_backend_config_def,ag32_targetTheory.ag32_config_def,asmTheory.offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
   THEN1 blastLib.FULL_BBLAST_TAC
   THEN1 names_tac
@@ -43,14 +43,14 @@ val ag32_machine_config_ok = Q.store_thm("ag32_machine_config_ok",
   `is_ag32_machine_config mc ⇒ mc_conf_ok mc`,
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_ag32_machine_config_def]
   >- EVAL_TAC
-  >- simp[tiny_backend_correct]
+  >- simp[ag32_backend_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- metis_tac[asmPropsTheory.backend_correct_def,
-       asmPropsTheory.target_ok_def,tiny_backend_correct]);
+       asmPropsTheory.target_ok_def,ag32_backend_correct]);
 
 val ag32_init_ok = Q.store_thm("ag32_init_ok",
   `is_ag32_machine_config mc ⇒
