@@ -1764,14 +1764,6 @@ val calls_correct = Q.store_thm("calls_correct",
       result_rel (LIST_REL (v_rel g l t.code)) (v_rel g l t.code) res res')`,
 
   ho_match_mp_tac evaluate_ind
-
-(*
-
-  ho_match_mp_tac evaluate_ind
-  \\ reverse (rpt conj_tac)
-
-*)
-
   \\ conj_tac >- (
     rw[]
     \\ qexists_tac`0`
@@ -2325,7 +2317,7 @@ val calls_correct = Q.store_thm("calls_correct",
         \\ Cases_on `e` \\ fs [] \\ strip_tac \\ rveq \\ fs []
         \\ rename [`_ = Rerr (Rabort aa)`] \\ Cases_on `aa` \\ fs []
         \\ fs[] \\ rw[]
-        \\ first_x_assum(first_assum o mp_then(Pat`code_inv`)mp_tac)
+        \\ first_x_assum drule \\ fs []
         \\ simp[] \\ strip_tac \\ fs[]
         \\ qexists_tac`ck` \\ simp[] \\ rw[])
       \\ rename1 `do_app op (REVERSE a) r = Rval z`
