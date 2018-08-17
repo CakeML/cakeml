@@ -11,10 +11,10 @@ val _ = Datatype `
     | RefPtr num              (* pointer to ref cell *)`;
 
 val Boolv_def = Define`
-  Boolv ts b = Block ts (bool_to_tag b) []`
+  Boolv b = Block 0 (bool_to_tag b) []`
 
 val Unit_def = Define`
-  Unit ts = Block ts (tuple_tag) []`
+  Unit = Block 0 (tuple_tag) []`
 
 val _ = Datatype `
   stack = Env (v num_map)
@@ -154,7 +154,7 @@ val do_app_aux_def = Define `
          | _ => Rerr(Rabort Rtype_error))
     | (SetGlobalsPtr,xs) =>
         (case xs of
-         | [RefPtr p] => Rval (Unit 0, s with global := SOME p)
+         | [RefPtr p] => Rval (Unit, s with global := SOME p)
          | _ => Rerr(Rabort Rtype_error))
     | (FromList n, xs) =>
         (case xs of
@@ -226,7 +226,7 @@ val do_app_aux_def = Define `
          | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
-               Rval (Unit 0, s with refs := s.refs |+
+               Rval (Unit, s with refs := s.refs |+
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
@@ -234,20 +234,21 @@ val do_app_aux_def = Define `
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
-            | SOME ds => Rval (Unit 0, s with refs := s.refs |+ (dst, ByteArray fl ds))
+                              (* no time-stamp *)
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds))
             | NONE => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
     | (TagEq n,[Block _ tag xs]) =>
-        Rval (Boolv 0 (tag = n), s)
+        Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block _ tag xs]) =>
-        Rval (Boolv 0 (tag = n ∧ LENGTH xs = l),s)
+        Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (EqualInt i,[x1]) =>
         (case x1 of
-         | Number j => Rval (Boolv 0 (i = j), s)
+         | Number j => Rval (Boolv (i = j), s)
          | _ => Rerr(Rabort Rtype_error))
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
-         | Eq_val b => Rval (Boolv 0 b, s)
+         | Eq_val b => Rval (Boolv b, s)
          | _ => Rerr(Rabort Rtype_error))
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
@@ -263,7 +264,7 @@ val do_app_aux_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (Unit 0, s with refs := s.refs |+
+             then Rval (Unit, s with refs := s.refs |+
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
@@ -275,13 +276,13 @@ val do_app_aux_def = Define `
     | (Mod,[Number n1; Number n2]) =>
          if n2 = 0 then Rerr(Rabort Rtype_error) else Rval (Number (n1 % n2),s)
     | (Less,[Number n1; Number n2]) =>
-         Rval (Boolv 0 (n1 < n2),s)
+         Rval (Boolv (n1 < n2),s)
     | (LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv 0 (n1 <= n2),s)
+         Rval (Boolv (n1 <= n2),s)
     | (Greater,[Number n1; Number n2]) =>
-         Rval (Boolv 0 (n1 > n2),s)
+         Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv 0 (n1 >= n2),s)
+         Rval (Boolv (n1 >= n2),s)
     | (WordOp W8 opw,[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Rerr(Rabort Rtype_error)
@@ -309,7 +310,7 @@ val do_app_aux_def = Define `
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
             | FFI_return ffi' ws' =>
-                Rval (Unit 0,
+                Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
@@ -324,20 +325,20 @@ val do_app_aux_def = Define `
          | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
          | _ => Rerr(Rabort Rtype_error))
     | (FP_cmp cmp, ws) =>
-        (case ws of                        (* time-stamp? *)
-         | [Word64 w1; Word64 w2] => (Rval (Boolv 0 (fp_cmp cmp w1 w2),s))
+        (case ws of
+         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
          | _ => Rerr(Rabort Rtype_error))
     | (BoundsCheckBlock,xs) =>
         (case xs of
          | [Block _ tag ys; Number i] =>
-               Rval (Boolv 0 (0 <= i /\ i < & LENGTH ys),s)
+               Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
          | _ => Rerr(Rabort Rtype_error))
     | (BoundsCheckByte loose,xs) =>
         (case xs of
          | [RefPtr ptr; Number i] =>
           (case FLOOKUP s.refs ptr of
            | SOME (ByteArray _ ws) =>
-               Rval (Boolv 0 (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
+               Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
     | (BoundsCheckArray,xs) =>
@@ -345,15 +346,15 @@ val do_app_aux_def = Define `
          | [RefPtr ptr; Number i] =>
           (case FLOOKUP s.refs ptr of
            | SOME (ValueArray ws) =>
-               Rval (Boolv 0 (0 <= i /\ i < & LENGTH ws),s)
+               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
     | (LessConstSmall n,xs) =>
         (case xs of
          | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
-                         then Rval (Boolv 0 (i < &n),s) else Rerr(Rabort Rtype_error)
+                         then Rval (Boolv (i < &n),s) else Rerr(Rabort Rtype_error)
          | _ => Rerr(Rabort Rtype_error))
-    | (ConfigGC,[Number _; Number _]) => (Rval (Unit 0, s))
+    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Rerr(Rabort Rtype_error)`;
 
 
@@ -508,9 +509,9 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (If n c1 c2,s) =
      case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-                        (* time-stamp? *)
-     | SOME x => if x = Boolv 0 T then evaluate (c1,s) else
-                 if x = Boolv 0 F then evaluate (c2,s) else
+                        (* no time stamp *)
+     | SOME x => if x = Boolv T then evaluate (c1,s) else
+                 if x = Boolv F then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of
