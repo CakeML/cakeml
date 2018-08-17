@@ -264,8 +264,7 @@ val wfv_state_def = Define`
   wfv_state g l code s ⇔
     EVERY (OPTION_EVERY (wfv g l code)) s.globals ∧
     FEVERY (every_refv (wfv g l code) o SND) s.refs ∧
-    s.code = FEMPTY ∧
-    !k. SND (SND (s.compile_oracle k)) = [] (* TODO: remove this line *)`;
+    s.code = FEMPTY`;
 
 val _ = temp_type_abbrev("calls_state",
           ``:num_set # (num, num # closLang$exp) alist``);
@@ -3724,7 +3723,7 @@ val calls_code_locs_ALL_DISTINCT = Q.store_thm("calls_code_locs_ALL_DISTINCT",
 val extra_code_assum_def = Define `
   extra_code_assum prog g0 co =
     ∀n m. MEM n (code_locs prog) ∧ n ∉ domain g0 ⇒
-          n ∉ domain (FST (FST (FST (co m))))`
+          n ∉ domain (FST (FST (FST (co m))))`;
 
 val semantics_calls = Q.store_thm("semantics_calls",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
@@ -3795,6 +3794,7 @@ val semantics_compile = Q.store_thm("semantics_compile",
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
     syntax_ok x ∧ FST (FST (co 0)) = (g1,aux) ∧
+    extra_code_assum x g1 co /\
     code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
