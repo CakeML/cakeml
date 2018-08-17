@@ -3043,18 +3043,13 @@ val proveHyp = Q.store_thm("proveHyp",
 
 (* allTypes' WF proof *)
 
-val TYPE1_SIZE_APPEND = Q.prove(
-  `!l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
-  Induct >> rw[fetch "-" "type_size_def"]
-);
-
 val (allTypes'_def, allTypes'_ind) = Defn.tprove (
   allTypes'_defn,
   WF_REL_TAC `measure type_size`
   >> Induct
   >> rw[fetch "-" "type_size_def"]
   >> fs[MEM_SPLIT]
-  >> rw[TYPE1_SIZE_APPEND]
+  >> rw[type1_size_append]
   >> rw[fetch "-" "type_size_def"]
 );
 
