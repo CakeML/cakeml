@@ -1,5 +1,6 @@
 (*
-  TODO: document this
+  Functions for constructing a CakeML program (a list of declarations)
+  together with the semantic environemt evaluation of the program produces.
 *)
 structure ml_progLib :> ml_progLib =
 struct
