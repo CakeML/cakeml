@@ -5,7 +5,12 @@ val _ = new_theory"runtimeFFI";
 
 val ffi_exit_def = Define `
  ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
- `
+  `
+
+val ffi_exit_length = Q.store_thm("ffi_exit_length",`
+  ffi_exit (conf:word8 list) (bytes:word8 list) u = SOME (FFIreturn bytes' args')
+  ==> LENGTH bytes' = LENGTH bytes`,
+  Cases_on `u` \\ rw[ffi_exit_def]);
 
 (* FFI part for the runtime *)
 

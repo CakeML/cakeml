@@ -402,7 +402,8 @@ val sets_thm = build_set heap_thms |> curry save_thm "sets_thm";
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
  ffi_close_length, clFFITheory.ffi_get_arg_count_length,
- clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length ]);
+ clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length,
+ ffi_exit_length]);
 
 val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
 [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
@@ -428,7 +429,7 @@ val oracle_parts = Q.store_thm("oracle_parts",
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
 (* TODO: move to fsFFI? *)
-val fs_ffi_no_ffi_div = Q.prove(`
+val fs_ffi_no_ffi_div = Q.store_thm("fs_ffi_no_ffi_div",`
   (ffi_open_in conf bytes fs = SOME FFIdiverge ==> F) /\
   (ffi_open_out conf bytes fs = SOME FFIdiverge ==> F) /\
   (ffi_read conf bytes fs = SOME FFIdiverge ==> F) /\
@@ -441,7 +442,7 @@ val fs_ffi_no_ffi_div = Q.prove(`
   \\ rw[OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]);
 
 (* TODO: move to clFFI? *)
-val cl_ffi_no_ffi_div = Q.prove(`
+val cl_ffi_no_ffi_div = Q.store_thm("cl_ffi_no_ffi_div",`
   (ffi_get_arg_count conf bytes cls = SOME FFIdiverge ==> F) /\
   (ffi_get_arg_length conf bytes cls = SOME FFIdiverge ==> F) /\
   (ffi_get_arg conf bytes cls = SOME FFIdiverge ==> F)
