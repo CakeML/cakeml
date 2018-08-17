@@ -87,18 +87,18 @@ val expandArgs_def = Define`
 
 (* Flags description types *)
 val _ = Datatype`
-  flag = <| name       : mlstring; (* Long flag  ("-"  if disable) *)
-            short      : char;     (* Short flag (#"-" if disable) *)
-            desc       : mlstring; (* Short description used in the help msg *)
-            has_option : bool;     (* Does it have and acompaning option/value? *)
-            (* Continuation modifing the underlying structure
-               representing the options where 'flag.cont opt x' takes
-               an optional value 'opt' and a value 'x' of ''a' and
-               uses these to update 'x' to represent the precense of
-               the flag 'flag.name' or 'flag.short' with potentially
-               some argument
-             *)
-            cont : mlstring option -> 'a -> 'a |>
+  flagConf = <| name       : mlstring; (* Long flag  ("-"  if disable) *)
+                short      : char;     (* Short flag (#"-" if disable) *)
+                desc       : mlstring; (* Short description used in the help msg *)
+                has_option : bool;     (* Does it have and acompaning option/value? *)
+                (* Continuation modifing the underlying structure
+                   representing the options where 'flag.cont opt x' takes
+                   an optional value 'opt' and a value 'x' of ''a' and
+                   uses these to update 'x' to represent the precense of
+                   the flag 'flag.name' or 'flag.short' with potentially
+                   some argument
+                 *)
+                cont : mlstring option -> 'a -> 'a |>
 `;
 
 
