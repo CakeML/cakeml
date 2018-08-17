@@ -19,6 +19,16 @@ val type1_size_append = Q.store_thm("type1_size_append",
   `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
   Induct >> simp[type_size_def])
 
+val type1_size_mem = Q.store_thm("type1_size_append",
+  `∀ty tys. MEM ty tys ==> type_size ty < type1_size tys`,
+  CONV_TAC SWAP_FORALL_CONV >> Induct
+  >> simp[fetch "-" "type_size_def"]
+  >> rw[fetch "-" "type_size_def"]
+  >- simp[]
+  >> first_x_assum drule
+  >> simp[]
+)
+
 val extends_ind = Q.store_thm("extends_ind",
   `∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2`,
@@ -3367,6 +3377,59 @@ val orth_ctxt_simps = Q.store_thm("orth_ctxt_simps[simp]",
   >- (rw[orth_ctxt_def])
   >- (rw[orth_ctxt_def])
   >- (rw[orth_ctxt_def]));
+
+(* Unify two types and return two type substitutions as a certificate *)
+val unify_subslist_def = Hol_defn "unify_subslist" `
+  (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
+    let
+      varname = (\n. strlit(REPLICATE (SUC n) #"a"))
+    in
+      SOME (n+1, ((Tyvar (varname n), Tyvar a)::rho, (Tyvar (varname n), Tyvar b)::sigma))
+  )
+  /\ (unify_subslist (Tyapp m tys1) (Tyapp m' tys2) n (rho, sigma) =
+    if (m <> m') \/ (LENGTH tys1 <> LENGTH tys2)
+    then NONE
+    else
+      FOLDR (\(ty1,ty2) e.
+        if IS_NONE e then NONE
+        else let
+          (n, rho, sigma) = THE e
+        in
+          unify_subslist ty1 ty2 n (rho,sigma)
+      )
+      (SOME (n, rho, sigma))
+      (ZIP (tys1,tys2))
+  )
+  /\ (unify_subslist (Tyapp m tys) (Tyvar a) n (rho,sigma) =
+    if MEM a (tyvars (Tyapp m tys))
+    then NONE (* cyclic *)
+    else SOME (n, rho, (Tyapp m tys,Tyvar a)::sigma))
+  /\ (unify_subslist (Tyvar a) (Tyapp m tys) n (rho,sigma) =
+    if MEM a (tyvars (Tyapp m tys))
+    then NONE (* cyclic *)
+    else SOME (n, (Tyapp m tys,Tyvar a)::rho, sigma))
+`;
+
+val (unify_subslist_def, unify_subslist_ind) = Defn.tprove (
+  unify_subslist_defn,
+  WF_REL_TAC `measure (\x. type_size (FST x) + type_size (FST(SND x)))`
+  >> NTAC 2 Induct
+  >- rw[fetch "-" "type_size_def"]
+  >- rw[fetch "-" "type_size_def"]
+  >> rpt strip_tac
+  >> imp_res_tac MEM_ZIP_MEM_MAP
+  >> rfs[]
+  >> ONCE_REWRITE_TAC[rich_listTheory.CONS_APPEND]
+  >> rw[TYPE1_SIZE_APPEND,fetch "-" "type_size_def",SND,FST]
+  >> imp_res_tac type1_size_mem
+  >> simp[]
+);
+
+val unify_def = Define`
+  unify t1 t2 =
+    let retval = unify_subslist t1 t2 0 ([],[])
+    in if IS_NONE retval then NONE else SOME (SND (THE retval))
+`;
 
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
