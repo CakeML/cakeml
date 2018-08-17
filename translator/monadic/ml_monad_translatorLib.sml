@@ -355,7 +355,9 @@ val get_EvalM_ro = rand o rator o rator o rator o rator o rator o concl o UNDISC
 (* ---- *)
 
 (* Prove the specifications for the exception handling *)
-(* val (raise_fun_def, cons, stamp) = el 1 raise_info *)
+(*
+val (raise_fun_def, cons, stamp) = el 1 raise_info
+*)
 fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, stamp) = let
     val fun_tm = concl raise_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
     val exn_param_types = (fst o ml_monadBaseLib.dest_fun_type o type_of) cons
@@ -376,7 +378,8 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, stamp) = let
     val exprs = listSyntax.mk_list (exprs_vars, exp_ty)
 
     (* Instantiate the raise specification *)
-    val raise_spec = ISPECL [cons_name, stamp, EXN_RI_tm, EVAL_CONDS,
+    val raise_spec = ISPECL [astSyntax.mk_Short cons_name, stamp,
+                             EXN_RI_tm, EVAL_CONDS,
 			     arity_tm, E, exprs, raise_fun] EvalM_raise
     val free_vars = strip_forall (concl raise_spec) |> fst
     val raise_spec = SPEC_ALL raise_spec
@@ -429,7 +432,9 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, stamp) = let
     val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 in raise_spec end
 
-(* val (handle_fun_def, cons, stamp) = el 1 handle_info *)
+(*
+val (handle_fun_def, cons, stamp) = el 1 handle_info
+*)
 fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, stamp) = let
     (* Rename the variables in handle_fun_def *)
     val handle_fun_def = let
@@ -561,7 +566,7 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, stamp) = let
     in a2_alt end
 
     (* Instantiate the specification *)
-    val handle_spec = ISPECL [cons_name, stamp, CORRECT_CONS,
+    val handle_spec = ISPECL [astSyntax.mk_Short cons_name, stamp, CORRECT_CONS,
 			      PARAMS_CONDITIONS, EXN_RI_tm, alt_handle_fun,
 			      alt_x1, alt_x2, arity_tm, a2_alt] EvalM_handle
     val free_vars = concl handle_spec |> strip_forall |> fst
@@ -604,8 +609,6 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, stamp) = let
 	\\ FULL_SIMP_TAC bool_ss case_thms
 	\\ rpt (BasicProvers.PURE_CASE_TAC \\ fs[exn_ri_def]))
     val handle_spec = MP handle_spec ref_inv_eq_lemma
-
-(* TODO HERE *)
 
     (* refinement invariant inequality *)
     val ref_inv_ineq_assum = take_assumption handle_spec
@@ -860,7 +863,7 @@ fun derive_case_of ty = let
     val stamp = inv_def |> concl |> find_term
                   (fn tm => aconv (tm |> rator |> rand) cname
                             handle HOL_ERR _ => false)
-    in list_mk_pair [cname, vars, exp2, stamp] end
+    in list_mk_pair [astSyntax.mk_Short cname, vars, exp2, stamp] end
   val rw1_tm = goal |> rand |> rand |> rand |> rand |> rator
                     |> rator |> rand |> rand
   val y = let
