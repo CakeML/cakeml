@@ -825,8 +825,10 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
      (MAP SND eqs) ∧
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
-   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
-   ALL_DISTINCT (MAP FST eqs)
+   (*(∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
+   ALL_DISTINCT (MAP FST eqs)*)
+   (* the resulting theory has to be orthogonal *)
+   orth_ctxt ((ConstSpec eqs prop)::ctxt)
    ⇒ (ConstSpec eqs prop) updates ctxt) ∧
 
   (* new_type *)
@@ -836,7 +838,9 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
   (* new_type_definition *)
   ((thyof ctxt, []) |- Comb pred witness ∧
    CLOSED pred ∧
-   name ∉ (FDOM (tysof ctxt)) ∧
+   (* name ∉ (FDOM (tysof ctxt)) ∧ *)
+   (* the resulting theory has to be orthogonal *)
+   orth_ctxt ((TypeDefn name pred abs rep)::ctxt) /\
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    abs ≠ rep
@@ -846,5 +850,15 @@ val extends_def = Define`
   extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)`
 val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 
+(* checks if a decreasingly ordered theory, i.e.
+ * ctxt = x::l means x updates l,
+ * was introduced through the updates *)
+val definitional_dec_def = Define`
+  definitional_dec ctxt = !l1 l2 x. ctxt = l1 ++ [x] ++ l2 ==> x updates l2
+`;
+val definitional_def = Define`
+  definitional ctxt = ?l. (set l = set ctxt) /\ definitional_dec l
+`;
 
 val _ = export_theory()
+
