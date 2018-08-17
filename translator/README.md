@@ -19,10 +19,12 @@ pattern matching.
 compset for the definitions in ml_progTheory.
 
 [ml_progLib.sml](ml_progLib.sml):
-TODO: document this
+Functions for constructing a CakeML program (a list of declarations)
+together with the semantic environemt evaluation of the program produces.
 
 [ml_progScript.sml](ml_progScript.sml):
-TODO: document this
+Definitions and theorems supporting ml_progLib, which constructs a
+CakeML program and its semantic environment.
 
 [ml_translatorLib.sml](ml_translatorLib.sml):
 The HOL to CakeML translator itself.
