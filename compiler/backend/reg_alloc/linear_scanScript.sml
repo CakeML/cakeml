@@ -529,7 +529,7 @@ val linear_reg_alloc_pass2_initial_state_def = Define`
        ; colornum  := k
        ; colormax  := k+nreg
        ; phyregs   := LN
-       ; stacknum  := 0
+       ; stacknum  := k+nreg
        |>`
 
 val find_reg_exchange_def = Define`
@@ -587,8 +587,13 @@ val st_ex_FILTER_good_def = Define`
     st_ex_FILTER_good P (x::xs) =
       do
         Px <- P x;
-        filter_xs <- st_ex_FILTER_good P xs;
-        return (x::filter_xs)
+        if Px then
+          do
+            filter_xs <- st_ex_FILTER_good P xs;
+            return (x::filter_xs)
+          od
+        else
+          st_ex_FILTER_good P xs;
       od
   )`
 
@@ -634,7 +639,7 @@ val linear_reg_alloc_intervals_def = Define`
     linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted =
         let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves moves)) int_beg LN in
         let forced_adjlist = edges_to_adjlist forced int_beg LN in
-        let reglist = mergesort (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) reglist_unsorted in
+        let reglist = QSORT (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) reglist_unsorted in
         let phyregs = FILTER is_phy_var reglist in
         let phyphyregs = FILTER (\r. r < 2*k) phyregs in
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
@@ -648,7 +653,10 @@ val linear_reg_alloc_intervals_def = Define`
             od
           ) reglist;
           st_init_pass2 <- return (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist));
-          st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist moves_adjlist) st_init_pass2 stacklist;
+          stackset <- return (fromAList (MAP (\r. (r,())) stacklist));
+          forced_adjlist' <- return (map (FILTER (\r. lookup r stackset <> NONE)) forced_adjlist);
+          moves_adjlist' <- return (map (FILTER (\r. lookup r stackset <> NONE)) moves_adjlist);
+          st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist' moves_adjlist') st_init_pass2 stacklist;
           apply_reg_exchange phyregs;
         od
 `
@@ -789,6 +797,7 @@ val _ = start_dynamic_init_fixed_store_translation
 (* Translate basics -- TODO: remove in bootstrap *)
 
 val res = translate NULL
+val res = translate LENGTH
 val res = translate MAP
 val res = translate FILTER
 val res = translate EVEN
@@ -829,6 +838,7 @@ val res = translate numset_list_delete_def;
 val res = translate lookup_def
 val res = translate insert_def
 val res = translate union_def
+val res = translate map_def
 val res = translate difference_def;
 val res = translate is_stack_var_def
 val res = translate is_phy_var_def
@@ -836,15 +846,6 @@ val res = translate fromAList_def;
 val res = translate sortingTheory.PART_DEF
 val res = translate sortingTheory.PARTITION_DEF
 val res = translate sortingTheory.QSORT_DEF
-
-val res = translate sort2_def;
-val res = translate sort3_def;
-val res = translate DIV2_def;
-val res = translate merge_def;
-val res = translate DROP_def;
-val res = translate mergesortN_def;
-val res = translate LENGTH;
-val res = translate mergesort_def;
 
 val res = translate pairTheory.LEX_DEF
 val res = translate lrnext_def
