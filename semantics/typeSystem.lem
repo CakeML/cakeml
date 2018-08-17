@@ -384,6 +384,7 @@ and build_ctor_tenv tenvT ((tvs,tn,ctors)::tds) (id::ids) =
         (List.map
           (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, id)))
           ctors)))
+and build_ctor_tenv tenvT _ _ = alist_to_ns []
 declare termination_argument build_ctor_tenv = automatic
 
 (* For the value restriction on let-based polymorphism *)

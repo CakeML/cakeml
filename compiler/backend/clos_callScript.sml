@@ -222,6 +222,16 @@ val calls_sing = Q.store_thm("calls_sing",
   rw [] \\ imp_res_tac calls_length \\ fs []
   \\ Cases_on `ys` \\ fs [LENGTH_NIL] );
 
+val compile_LENGTH = Q.store_thm("compile_LENGTH",
+  `compile x y = (a,b) ⇒ LENGTH y = LENGTH a`,
+  Cases_on`x` \\ rw[compile_def] \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac calls_length \\ rw[]);
+
+val compile_nil = Q.store_thm("compile_nil",
+  `clos_call$compile x [] = (a,b) ⇒ a =[] ∧ b = []`,
+  Cases_on`x` \\ rw[compile_def]
+  \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]);
+
 val selftest = let
   (* example code *)
   val f = ``Fn None (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``

@@ -219,23 +219,38 @@ val parse_nums_def = Define `
 val parse_clos_conf_def = Define`
   parse_clos_conf ls clos =
   let multi = find_bool (strlit"--multi=") ls clos.do_mti in
-  let known = find_bool (strlit"--known=") ls clos.do_known in
+  let known = find_bool (strlit"--known=") ls (IS_SOME clos.known_conf) in
+  let inline_factor = find_num (strlit"--inline_factor=") ls default_inline_factor in
   let call = find_bool (strlit"--call=") ls clos.do_call in
   let maxapp = find_num (strlit "--max_app=") ls clos.max_app in
-  case (multi,known,call,maxapp) of
-    (INL m,INL k,INL c,INL n) =>
+  case (multi,known,inline_factor,call,maxapp) of
+    (INL m,INL k,INL i,INL c,INL n) =>
+    if k then
+    (let max_body_size = find_num (strlit"--max_body_size=") ls (default_max_body_size n i) in
+     case max_body_size of
+      (INL x) =>
+      INL
+        (clos with <|
+          do_mti   := m;
+          known_conf := SOME (clos_known$mk_config x i);
+          do_call  := c;
+          max_app  := n
+         |>)
+      | _ => INR (concat [get_err_str max_body_size]))
+    else
     (INL
       (clos with <|
         do_mti   := m;
-        do_known := k;
+        known_conf := NONE;
         do_call  := c;
         max_app  := n
        |>))
   | _ =>
     INR (concat [get_err_str multi;
                  get_err_str known;
+                 get_err_str inline_factor;
                  get_err_str call;
-                 get_err_str maxapp])`
+                 get_err_str maxapp])`;
 
 (* bvl *)
 val parse_bvl_conf_def = Define`

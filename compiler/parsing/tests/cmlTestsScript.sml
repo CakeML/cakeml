@@ -175,17 +175,30 @@ val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern``
           (SOME ``Pcon NONE [
                      Pany;
                      Ptannot (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "y"])
+<<<<<<< HEAD
                              (Atapp [Atapp [] ((Short "int"))]
                                    ((Short "list")));
                      Pvar "z"]``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "x : int"
           (SOME ``Tannot (Var (Short "x")) (Atapp [] ((Short "int")))``)
+=======
+                             (Atapp [Atapp [] (Short "int")]
+                                    (Short "list"));
+                     Pvar "z"]``)
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "x : int"
+          (SOME ``Tannot (Var (Short "x")) (Atapp [] (Short "int"))``)
+>>>>>>> origin/master
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x : int) + 3"
           (SOME ``vbinop (Short "+")
                          (Tannot (Var (Short "x"))
+<<<<<<< HEAD
                                  (Atapp [] ((Short "int"))))
+=======
+                                 (Atapp [] (Short "int")))
+>>>>>>> origin/master
                          (Lit (IntLit 3))``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
@@ -285,12 +298,21 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "SOME ()"
                    (SOME ``Con (SOME (Short "SOME")) [Con NONE []]``)
 
 val _ = parsetest0 ``nSpecLine`` ``ptree_SpecLine`` "type 'a foo = 'a list"
+<<<<<<< HEAD
                    (SOME ``Stabbrev ["'a"] "foo"
                              (Atapp [Atvar "'a"] ((Short "list")))``)
 
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "type 'a foo = 'a list"
                    (SOME ``Dtabbrev locs ["'a"] "foo"
                              (Atapp [Atvar "'a"] ((Short "list")))``)
+=======
+                   (SOME ``() (* Stabbrev ["'a"] "foo"
+                             (Atapp [Atvar "'a"] (Short "list")) *)``)
+
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "type 'a foo = 'a list"
+                   (SOME ``Dtabbrev locs ["'a"] "foo"
+                             (Atapp [Atvar "'a"] (Short "list"))``)
+>>>>>>> origin/master
 
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val h::List.nil = [3]"
           (SOME ``Dlet locs
@@ -351,11 +373,19 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
                                   (Con (SOME (Short "true")) [])``)
 
 val _ = tytest0 "'a * bool"
+<<<<<<< HEAD
                 ``Atapp [Atvar "'a"; Atapp [] ((Short "bool"))] TC_tup``
 val _ = tytest0 "'a * bool * 'c"
                 ``Atapp [Atvar "'a";
                         Atapp [] ((Short "bool"));
                         Atvar "'c"] TC_tup``
+=======
+                ``Atapp [Atvar "'a"; Atapp [] (Short "bool")] TC_tup``
+val _ = tytest0 "'a * bool * 'c"
+                ``Atapp [Atvar "'a";
+                         Atapp [] (Short "bool");
+                         Atvar "'c"] TC_tup``
+>>>>>>> origin/master
 val _ = tytest "'a * bool -> 'a"
 val _ = tytest "'a * (bool * 'c)"
 val _ = tytest "(bool * int)"
@@ -363,10 +393,18 @@ val _ = tytest "(bool list * int) * bool"
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Foo"
                    (SOME ``Dexn locs "Foo" []``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int"
+<<<<<<< HEAD
                    (SOME ``Dexn locs "Bar" [Atapp [] ((Short "int"))]``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int * int"
                    (SOME “Dexn locs "Bar"
                              [Atapp [] (Short "int"); Atapp [] (Short "int")]”);
+=======
+                   (SOME ``Dexn locs "Bar" [Atapp [] (Short "int")]``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int * int"
+                   (SOME ``Dexn locs "Bar"
+                             [Atapp [] (Short "int");
+                              Atapp [] (Short "int")]``);
+>>>>>>> origin/master
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a"
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a * bool"
 val _ = parsetest ``nPatternList`` ``ptree_Plist`` "x,y"
@@ -397,7 +435,11 @@ val _ = tytest "('a->bool)list"
 val _ = tytest "'a->bool list"
 val _ = tytest "('a->bool)->bool"
 val _ = tytest0 "('a,foo)bar"
+<<<<<<< HEAD
                 “Atapp [Atvar "'a"; Atapp [] (Short "foo")] (Short "bar")”
+=======
+                ``Atapp [Atvar "'a"; Atapp [] (Short "foo")] (Short "bar")``
+>>>>>>> origin/master
 val _ = tytest "('a) list list"
 val _ = tytest "('a,'b) foo list"
 val _ = tytest "'a list"

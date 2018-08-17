@@ -499,7 +499,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
       (REVERSE
         (MAP
           (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, id)))
-          ctors)))))`;
+          ctors)))))
+/\ (build_ctor_tenv tenvT _ _=  (alist_to_ns []))`;
 
 
 (* For the value restriction on let-based polymorphism *)
@@ -1024,60 +1025,5 @@ DISJOINT decls1 decls2)
 ==>
 type_ds extra_checks tenv (d::ds)
   (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
-
-(*
-indreln [check_signature : list modN -> tenv_abbrev -> decls -> type_env -> maybe specs -> decls -> type_env -> bool]
-
-none : forall mn tenvT decls tenv.
-true
-==>
-check_signature mn tenvT decls tenv Nothing decls tenv
-
-and
-
-some : forall mn specs tenv_impl tenv_spec decls_impl decls_spec tenvT.
-weak_tenv tenv_impl tenv_spec &&
-weak_decls decls_impl decls_spec &&
-type_specs mn tenvT specs decls_spec tenv_spec
-==>
-check_signature mn tenvT decls_impl tenv_impl (Just specs) decls_spec tenv_spec
-
-let tenvLift mn tenv =
-  <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t; |>
-
-indreln [type_top : bool -> decls -> type_env -> top -> decls -> type_env -> bool]
-
-tdec : forall extra_checks tenv d tenv' decls decls'.
-type_d extra_checks [] decls tenv d decls' tenv'
-==>
-type_top extra_checks decls tenv (Tdec d) decls' tenv'
-
-and
-
-tmod : forall extra_checks tenv mn spec ds tenv_impl tenv_spec decls decls_impl decls_spec.
-not ([mn] IN decls.defined_mods) &&
-type_ds extra_checks [mn] decls tenv ds decls_impl tenv_impl &&
-check_signature [mn] tenv.t decls_impl tenv_impl spec decls_spec tenv_spec
-==>
-type_top extra_checks decls tenv (Tmod mn spec ds)
-  (union_decls <| defined_mods = {[mn]}; defined_types = {}; defined_exns = {} |> decls_spec)
-  (tenvLift mn tenv_spec)
-
-indreln [type_prog : bool -> decls -> type_env -> list top -> decls -> type_env -> bool]
-
-empty : forall extra_checks tenv decls.
-true
-==>
-type_prog extra_checks decls tenv [] empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
-
-and
-
-cons : forall extra_checks tenv top tops tenv1 tenv2 decls decls1 decls2.
-type_top extra_checks decls tenv top decls1 tenv1 &&
-type_prog extra_checks (union_decls decls1 decls) (extend_dec_tenv tenv1 tenv) tops decls2 tenv2
-==>
-type_prog extra_checks decls tenv (top :: tops)
-  (union_decls decls2 decls1) (extend_dec_tenv tenv2 tenv1)
-  *)
 val _ = export_theory()
 

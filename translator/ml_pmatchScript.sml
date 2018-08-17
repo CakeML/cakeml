@@ -34,9 +34,9 @@ val Pmatch_def = tDefine"Pmatch"`
      if l = l' then SOME env else NONE) ∧
   (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (t')) vs] =
      case nsLookup env.c n of
-      | NONE => NONE
+     | NONE => NONE
      | SOME (l,t) =>
-       if LENGTH ps = l ∧
+       if LENGTH ps = l ∧ LENGTH vs = l ∧
           same_ctor t t' ∧
           same_type t t'
        then Pmatch env refs ps vs
@@ -94,7 +94,8 @@ val pmatch_imp_Pmatch = Q.prove(
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
-    first_x_assum(qspec_then`aenv`mp_tac) \\
+    TRY BasicProvers.CASE_TAC >> fs[] >>
+    first_x_assum(qspec_then`aenv`mp_tac) >>
     simp[] >>
     BasicProvers.CASE_TAC >> fs[] >>
     rw [] \\ fs [])

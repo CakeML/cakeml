@@ -4,25 +4,8 @@ struct
 local
 
 open HolKernel boolLib bossLib computeLib
-open source_to_flatTheory
-open flat_exh_matchTheory
-open flat_reorder_matchTheory
-open patLangTheory flat_to_patTheory
-open closLangTheory pat_to_closTheory
-open clos_mtiTheory
-open clos_numberTheory
-open clos_callTheory
-open clos_annotateTheory
-open clos_knownTheory
-open bvlTheory clos_to_bvlTheory
-open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory bvi_tailrecTheory
-open dataLangTheory bvi_to_dataTheory data_simpTheory data_liveTheory data_spaceTheory
-open wordLangTheory data_to_wordTheory word_instTheory word_allocTheory word_removeTheory
-open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
-open labLangTheory stack_to_labTheory lab_filterTheory
-open asmTheory backendTheory
 open semanticsComputeLib reg_allocComputeLib
-
+open backendTheory
 
 structure Parse = struct
   open Parse
@@ -45,7 +28,7 @@ val add_backend_compset = computeLib.extend_compset
     ,``:stack_to_lab$config``
     ,``:'a lab_to_target$config``
     ,``:'a asm_config``
-    (* ,``:'a backend$config`` *)
+    ,``:'a backend$config``
     ]
 
   ,computeLib.Defs
@@ -82,22 +65,14 @@ val add_backend_compset = computeLib.extend_compset
     [ (* ---- source_to_flat ---- *)
      flatLangTheory.bool_id_def
     ,flatLangTheory.Bool_def
-    ,source_to_flatTheory.compile_pat_def
-    ,source_to_flatTheory.pat_tups_def
-    ,source_to_flatTheory.astOp_to_flatOp_def
-    ,source_to_flatTheory.compile_exp_def
-    ,source_to_flatTheory.om_tra_def
-    ,source_to_flatTheory.alloc_defs_def
-    ,source_to_flatTheory.make_varls_def
-    ,source_to_flatTheory.empty_env_def
-    ,source_to_flatTheory.extend_env_def
-    ,source_to_flatTheory.lift_env_def
-    ,source_to_flatTheory.lookup_inc_def
-    ,source_to_flatTheory.alloc_tags_def
-    ,source_to_flatTheory.compile_decs_def
-    ,source_to_flatTheory.empty_config_def
-    ,source_to_flatTheory.compile_def
     ]
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="source_to_flat"}))
+      (* ---- flat_elim ---- *)
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="reachability"}))
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -109,38 +84,37 @@ val add_backend_compset = computeLib.extend_compset
     ]
 
   ,computeLib.Defs
-    [ (* ---- flat_reorder_match ---- *)
-     flat_reorder_matchTheory.is_const_con_def
-    ,flat_reorder_matchTheory.isPvar_def
-    ,flat_reorder_matchTheory.isPcon_def
-    ,flat_reorder_matchTheory.const_cons_sep_def
-    ,flat_reorder_matchTheory.const_cons_fst_def
-    ,flat_reorder_matchTheory.compile_def
-    ]
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_reorder_match"}))
+
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_exh_match"}))
+
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_uncheck_ctors"}))
 
   ,computeLib.Tys
     [ (* ---- patLang ---- *)
      ``:patLang$exp``
     ,``:patLang$op``
     ]
-(*
-      (* ---- exh_to_pat ---- *)
+
+      (* ---- flat_to_pat ---- *)
   ,computeLib.Defs
-    [exh_to_patTheory.Bool_def
-    ,exh_to_patTheory.isBool_def
-    ,exh_to_patTheory.sIf_def
-    ,exh_to_patTheory.pure_op_op_eqn
-    ,exh_to_patTheory.pure_op_def
-    ,exh_to_patTheory.pure_def
-    ,exh_to_patTheory.ground_def
-    ,exh_to_patTheory.sLet_def
-    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
-    ,exh_to_patTheory.compile_pat_def
-    ,exh_to_patTheory.compile_row_def
-    ,exh_to_patTheory.compile_exp_def
-    ,exh_to_patTheory.compile_def
+    [flat_to_patTheory.Bool_def
+    ,flat_to_patTheory.isBool_def
+    ,flat_to_patTheory.sIf_def
+    ,flat_to_patTheory.pure_op_op_eqn (* could put this in the compute set and avoid listing explicitly *)
+    ,flat_to_patTheory.pure_op_def
+    ,flat_to_patTheory.pure_def
+    ,flat_to_patTheory.ground_def
+    ,flat_to_patTheory.sLet_def
+    ,flat_to_patTheory.Let_Els_def_compute
+    ,flat_to_patTheory.compile_pat_def
+    ,flat_to_patTheory.compile_row_def
+    ,flat_to_patTheory.compile_exp_def
+    ,flat_to_patTheory.compile_def
     ]
-*)
+
   ,computeLib.Tys
     [ (* ---- closLang ---- *)
      ``:closLang$exp``
@@ -221,6 +195,8 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
+    ,clos_to_bvlTheory.chain_exps_def
+    ,clos_to_bvlTheory.compile_common_def
     ,clos_to_bvlTheory.compile_def
     ,clos_to_bvlTheory.compile_prog_def
     ,clos_to_bvlTheory.init_code_def
@@ -878,40 +854,9 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.sec_length_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
-(*
-      (* ---- Everything in backend theory ---- *)
-    ,backendTheory.attach_bitmaps_def
-    ,backendTheory.to_mod_def
-    ,backendTheory.to_target_def
-    ,backendTheory.from_source_def
-    ,backendTheory.from_mod_def
-    ,backendTheory.from_con_def
-    ,backendTheory.from_dec_def
-    ,backendTheory.from_exh_def
-    ,backendTheory.from_pat_def
-    ,backendTheory.from_clos_def
-    ,backendTheory.from_bvl_def
-    ,backendTheory.from_bvi_def
-    ,backendTheory.from_data_def
-    ,backendTheory.from_word_def
-    ,backendTheory.from_stack_def
-    ,backendTheory.from_lab_def
-    ,backendTheory.compile_def
-    ,backendTheory.to_pat_def
-    ,backendTheory.to_lab_def
-    ,backendTheory.to_stack_def
-    ,backendTheory.to_word_def
-    ,backendTheory.to_data_def
-    ,backendTheory.to_bvi_def
-    ,backendTheory.to_bvl_def
-    ,backendTheory.to_clos_def
-    ,backendTheory.to_exh_def
-    ,backendTheory.to_con_def
-    ,backendTheory.to_dec_def
-    ,backendTheory.to_livesets_def
-    ,backendTheory.from_livesets_def
-    ,backendTheory.prim_config_def *)
     ]
+      (* ---- Everything in backend theory ---- *)
+  ,computeLib.Defs (List.map #2 (ThmSetData.theory_data{settype="compute",thy="backend"}))
   ,computeLib.Tys
     [
      ``:architecture``

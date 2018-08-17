@@ -10,6 +10,201 @@ val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
 val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 (* " *)
 
+(* a function for mapping types back to ASTs, used to check that the
+   conversion functions are doing something reasonable *)
+
+(* first, capture those types that we expect to be in the range of the
+   conversion *)
+val user_expressible_tyname_def = Define‘
+  (user_expressible_tyname (Short s) ⇔ T) ∧
+  (user_expressible_tyname (Long m (Short s)) ⇔ T) ∧
+  (user_expressible_tyname _ ⇔ F)
+’;
+val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
+
+val _ = temp_overload_on ("ND", “λn. Nd (mkNT n, ARB)”)
+val _ = temp_overload_on ("LF", “λt. Lf (TOK t, ARB)”)
+val tyname_to_AST_def = Define‘
+  tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
+  tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧
+  tyname_to_AST _ = ARB
+’;
+
+val tyname_inverted = Q.store_thm(
+  "tyname_inverted",
+  ‘∀id. user_expressible_tyname id ⇒
+        ptree_Tyop (tyname_to_AST id) = SOME id’,
+  Cases >>
+  simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def] >>
+  rename [‘Long m j’] >> Cases_on ‘j’ >>
+  simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def]);
+
+val tyname_validptree = Q.store_thm(
+  "tyname_validptree",
+  ‘∀id. user_expressible_tyname id ⇒
+          valid_ptree cmlG (tyname_to_AST id) ∧
+          ptree_head (tyname_to_AST id) = NN nTyOp’,
+  Cases >> simp[tyname_to_AST_def, cmlG_FDOM, cmlG_applied] >>
+  rename [‘Long m j’] >> Cases_on ‘j’ >>
+  simp[tyname_to_AST_def, cmlG_applied, cmlG_FDOM]);
+
+
+val user_expressible_type_def = tDefine "user_expressible_type" ‘
+  (user_expressible_type (Atvar _) ⇔ T) ∧
+  (user_expressible_type (Atapp tys tycon) ⇔
+     EVERY user_expressible_type tys ∧
+     user_expressible_tyname tycon) ∧
+  (user_expressible_type (Attup tys) ⇔
+     EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
+  (user_expressible_type (Atfun dty rty) ⇔
+     user_expressible_type dty ∧ user_expressible_type rty)
+’ (WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
+   Induct_on ‘tys’ >>
+   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]);
+val _ = augment_srw_ss [rewrites [
+           SIMP_RULE (srw_ss() ++ ETA_ss) [] user_expressible_type_def]]
+
+val type_to_AST_def = tDefine "type_to_AST" ‘
+  type_to_AST (Atvar s) (* : (token,MMLnonT,unit) parsetree *) =
+    ND nType [ND nPType [ND nDType [ND nTbase [LF (TyvarT s)]]]] ∧
+  (type_to_AST (Atfun dty rty) =
+   ND nType [
+     ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST dty; LF RparT]]];
+     LF ArrowT;
+     ND nType [
+       ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST rty; LF RparT]]]
+     ]
+   ]) ∧
+  (type_to_AST (Atapp tys id) =
+     let
+       tyop = tyname_to_AST id
+     in
+       case tys of
+           [] => ND nType [ND nPType [ND nDType [ND nTbase [tyop]]]]
+         | [ty] =>
+           ND nType [
+             ND nPType [
+               ND nDType [
+                 ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
+                 tyop
+               ]
+             ]
+           ]
+         | ty1::tyrest =>
+           ND nType [
+             ND nPType [
+               ND nDType [
+                 ND nTbase [
+                   LF LparT;
+                   ND nTypeList2 [
+                     type_to_AST ty1; LF CommaT;
+                     typel_to_AST tyrest
+                   ];
+                   LF RparT;
+                   tyop
+                 ]
+               ]
+             ]
+           ]) ∧
+  (type_to_AST (Attup tys) = ND nType [typel_to_AST_PType tys]) ∧
+
+  typel_to_AST [] = ARB ∧
+  typel_to_AST [ty] = ND nTypeList1 [type_to_AST ty] ∧
+  typel_to_AST (ty1::tyrest) = ND nTypeList1 [type_to_AST ty1; LF CommaT;
+                                              typel_to_AST tyrest] ∧
+
+  typel_to_AST_PType [] = ARB ∧
+  typel_to_AST_PType [ty] =
+    ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]]] ∧
+  typel_to_AST_PType (ty::tys) =
+    ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
+               LF StarT;
+               typel_to_AST_PType tys]
+’ (WF_REL_TAC
+     ‘measure (λs. case s of INL ty => ast_t_size ty
+                           | INR (INL tyl) => ast_t1_size tyl
+                           | INR (INR tyl) => ast_t1_size tyl)’)
+
+val destTyvarPT_tyname_to_AST = Q.store_thm(
+  "destTyvarPT_tyname_to_AST",
+  ‘∀i. user_expressible_tyname i ⇒ destTyvarPT (tyname_to_AST i) = NONE’,
+  Cases >> simp[tyname_to_AST_def] >>
+  rename [‘Long _ j’] >> Cases_on ‘j’ >>
+  simp[tyname_to_AST_def]);
+
+val _ = temp_type_abbrev ("PT", “:(token,MMLnonT,α) parsetree”);
+
+val types_inverted = Q.store_thm(
+  "types_inverted",
+  ‘(∀ty.
+     user_expressible_type ty ⇒
+       ptree_Type nType (type_to_AST ty : α PT) = SOME ty ∧
+       valid_ptree cmlG (type_to_AST ty : α PT) ∧
+       ptree_head (type_to_AST ty : α PT) = NN nType) ∧
+   (∀tys.
+     EVERY user_expressible_type tys ∧ tys ≠ [] ⇒
+       ptree_TypeList1 (typel_to_AST tys : α PT) = SOME tys ∧
+       valid_ptree cmlG (typel_to_AST tys : α PT) ∧
+       ptree_head (typel_to_AST tys : α PT) = NN nTypeList1) ∧
+   (∀tys.
+     EVERY user_expressible_type tys ∧ tys ≠ [] ⇒
+       ptree_PType (typel_to_AST_PType tys : α PT) = SOME tys ∧
+       valid_ptree cmlG (typel_to_AST_PType tys : α PT) ∧
+       ptree_head (typel_to_AST_PType tys : α PT) = NN nPType)’,
+  ho_match_mp_tac (theorem "type_to_AST_ind") >>
+  rpt conj_tac >> simp[]
+  >- simp[ptree_Type_def, type_to_AST_def, tuplify_def, cmlG_FDOM, cmlG_applied]
+  >- (rpt gen_tac >> ntac 2 strip_tac >> rename [‘Atfun dty rty’] >>
+      simp[type_to_AST_def] >> fs[] >>
+      dsimp[ptree_Type_def, tokcheck_def, tuplify_def, cmlG_FDOM, cmlG_applied])
+  >- (rpt gen_tac >> ntac 2 strip_tac >>
+      rename [‘Atapp args tycon’] >>
+      simp[type_to_AST_def] >> Cases_on ‘args’ >> simp[]
+      >- simp[Ntimes ptree_Type_def 5, tuplify_def,
+              destTyvarPT_tyname_to_AST, tyname_inverted,
+              tyname_validptree, cmlG_applied, cmlG_FDOM] >>
+      fs[] >>
+      rename [‘tl = []’] >> Cases_on ‘tl’
+      >- (simp[ptree_Type_def, tuplify_def,
+               destTyvarPT_tyname_to_AST, tyname_inverted,
+               tokcheck_def, cmlG_FDOM, cmlG_applied, tyname_validptree] >>
+          dsimp[tyname_validptree, cmlG_applied, cmlG_FDOM]) >>
+      fs[] >>
+      simp[Ntimes ptree_Type_def 6, tokcheck_def, cmlG_FDOM,
+           cmlG_applied] >>
+      dsimp[tyname_inverted, tuplify_def, tyname_validptree,
+            cmlG_applied, cmlG_FDOM])
+  >- (gen_tac >> rename [‘Attup args’] >> ntac 2 strip_tac >>
+      simp[type_to_AST_def, Ntimes ptree_Type_def 1] >>
+      ‘args ≠ []’ by (strip_tac >> fs[]) >> fs[] >>
+      simp[cmlG_applied, cmlG_FDOM] >>
+      ‘∃x y xs. args = x::y::xs’
+        by (Cases_on ‘args’ >> fs[] >> rename [‘2 ≤ SUC (LENGTH rest)’] >>
+            Cases_on ‘rest’ >> fs[]) >>
+      simp[tuplify_def])
+  >- (simp[type_to_AST_def, cmlG_FDOM, cmlG_applied, Once ptree_Type_def])
+  >- (simp[type_to_AST_def] >> rpt strip_tac >> fs[] >>
+      simp[ptree_Type_def, tokcheck_def, cmlG_applied, cmlG_FDOM])
+  >- (simp[type_to_AST_def] >>
+      dsimp[ptree_Type_def, tokcheck_def, cmlG_applied, cmlG_FDOM])
+  >- (simp[type_to_AST_def] >> rpt strip_tac >>
+      dsimp[Ntimes ptree_Type_def 6, tokcheck_def,
+            cmlG_FDOM, cmlG_applied]));
+
+val type_to_AST_injection = Q.store_thm(
+  "type_to_AST_injection",
+  ‘INJ type_to_AST
+       { t | user_expressible_type t }
+       { ast | valid_ptree cmlG ast ∧ ptree_head ast = NN nType }’,
+  simp[INJ_DEF] >> metis_tac[types_inverted, SOME_11]);
+
+val ptree_Type_surjection = Q.store_thm(
+  "ptree_Type_surjection",
+  ‘∀t. user_expressible_type t ⇒
+       ∃pt. valid_ptree cmlG pt ∧ ptree_head pt = NN nType ∧
+            ptree_Type nType pt = SOME t’,
+  metis_tac[types_inverted]);
+
 val ptree_head_TOK = Q.store_thm(
   "ptree_head_TOK",
   `(ptree_head pt = TOK sym ⇔ ?l. pt = Lf (TOK sym,l)) ∧
@@ -34,14 +229,14 @@ val TyOp_OK = Q.store_thm(
   "TyOp_OK",
   `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
-    ∃tyop. ptree_Tyop pt = SOME tyop`,
+    ∃tyop. ptree_Tyop pt = SOME tyop ∧ user_expressible_tyname tyop`,
   start >> simp[ptree_Tyop_def] >>
   asm_match `valid_ptree cmlG pt'` >>
   `destLf pt' = NONE`
     by (Cases_on `pt'` >> fs[MAP_EQ_CONS] >> rename [`Lf tokloc`] >>
         Cases_on `tokloc` >>
         rveq >> fs[] >> rveq >> fs[]) >>
-  simp[] >> metis_tac [UQTyOp_OK]);
+  dsimp[] >> metis_tac [UQTyOp_OK]);
 
 val TyvarN_OK = Q.store_thm(
   "TyvarN_OK",
@@ -79,7 +274,9 @@ val TypeName_OK = Q.store_thm(
 
 val tuplify_OK = Q.store_thm(
   "tuplify_OK",
-  `tl <> [] ⇒ ∃t. tuplify tl = SOME t`,
+  `tl <> [] ⇒
+   ∃t. tuplify tl = SOME t ∧
+       (EVERY user_expressible_type tl ⇒ user_expressible_type t)`,
   strip_tac >>
   `∃h tl0. tl = h::tl0` by (Cases_on `tl` >> fs[]) >>
   Cases_on `tl0` >> simp[tuplify_def]);
@@ -90,13 +287,14 @@ val Type_OK0 = Q.store_thm(
     (N ∈ {nType; nDType; nTbase} ∧
      ptree_head pt = NT (mkNT N)
        ⇒
-     ∃t. ptree_Type N pt = SOME t) ∧
+     ∃t. ptree_Type N pt = SOME t ∧ user_expressible_type t) ∧
     (ptree_head pt = NT (mkNT nPType) ⇒
-     ∃tl. ptree_PType pt = SOME tl ∧ tl <> []) ∧
+     ∃tl. ptree_PType pt = SOME tl ∧ tl <> [] ∧
+          EVERY user_expressible_type tl) ∧
     (ptree_head pt = NT (mkNT nTypeList1) ⇒
-     ∃tl. ptree_TypeList1 pt = SOME tl) ∧
+     ∃tl. ptree_TypeList1 pt = SOME tl ∧ EVERY user_expressible_type tl) ∧
     (ptree_head pt = NT (mkNT nTypeList2) ⇒
-     ∃tl. ptree_Typelist2 pt = SOME tl)`,
+     ∃tl. ptree_Typelist2 pt = SOME tl ∧ EVERY user_expressible_type tl)`,
   map_every qid_spec_tac [`N`, `toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   conj_tac >> simp[Once FORALL_PROD] >>
@@ -106,21 +304,21 @@ val Type_OK0 = Q.store_thm(
   simp[Once ptree_Type_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, tokcheck_def]
   >- metis_tac[tuplify_OK]
-  >- metis_tac[tuplify_OK]
-  >- metis_tac[TyOp_OK]
+  >- (dsimp[] >> metis_tac[tuplify_OK])
+  >- (dsimp[] >> metis_tac[TyOp_OK])
   >- metis_tac[]
   >- (rename1 `ptree_head pt'` >>
       `destTyvarPT pt' = NONE`
         by (Cases_on `pt'` >> fs[] >> rename[`Lf p`] >> Cases_on `p` >>
             fs[] >> fs[]) >>
-      simp[] >> metis_tac[TyOp_OK])
-  >- metis_tac [TyOp_OK]
+      dsimp[] >> metis_tac[TyOp_OK])
+  >- (dsimp[] >> metis_tac [TyOp_OK])
   >- metis_tac[]
   >- (dsimp[] >> metis_tac[])
   >- (dsimp[] >> metis_tac[])
-  >- metis_tac[]
-  >- metis_tac[]
-  >- metis_tac[])
+  >- (dsimp[] >> metis_tac[])
+  >- (dsimp[] >> metis_tac[])
+  >- (dsimp[] >> metis_tac[]));
 
 fun okify c q th =
     th |> UNDISCH |> c |> Q.INST [`N` |-> q]
@@ -503,6 +701,7 @@ val OptTypEqn_OK = Q.store_thm(
   start >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_OptTypEqn_def, tokcheck_def] >> metis_tac[Type_OK]);
 
+<<<<<<< HEAD
 val StructName_OK = Q.store_thm(
   "StructName_OK",
   ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
@@ -555,6 +754,52 @@ val Sig_OK = Q.store_thm(
       Cases_on ‘foo’ >> simp[])
   >- (rename [‘NN nTypeDec = ptree_head pt’] >>
       drule TypeDec_OK >> simp[] >> strip_tac >> simp[]));
+=======
+val SpecLine_OK = Q.store_thm(
+  "SpecLine_OK",
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃sl. ptree_SpecLine pt = SOME sl`,
+  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_SpecLine_def, pairTheory.EXISTS_PROD, PULL_EXISTS,
+              tokcheckl_def, tokcheck_def] >>
+  metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK, Dconstructor_OK,
+            pairTheory.pair_CASES, OptTypEqn_OK]);
+
+val SpecLineList_OK = Q.store_thm(
+  "SpecLineList_OK",
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLineList ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃sl. ptree_SpeclineList pt = SOME sl`,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  conj_tac >> simp[Once FORALL_PROD] >>
+  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
+  full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
+  simp[ptree_SpeclineList_def, tokcheck_def] >>
+  erule strip_assume_tac (n SpecLine_OK) >> simp[] >>
+  asm_match `ptree_head pt' = NN nSpecLine` (* >>
+  Cases_on `pt'`
+  >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >> simp[] *))
+
+val StructName_OK = Q.store_thm(
+  "StructName_OK",
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃sl. ptree_StructName pt = SOME sl`,
+  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_StructName_def]);
+
+val SignatureValue_OK = Q.store_thm(
+  "SignatureValue_OK",
+  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃sv. ptree_SignatureValue pt = SOME sv`,
+  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_SignatureValue_def, tokcheckl_def, tokcheck_def] >>
+  metis_tac[SpecLineList_OK, oneTheory.one]);
+>>>>>>> origin/master
 
 val Structure_OK = Q.store_thm(
   "Structure_OK",
@@ -572,7 +817,11 @@ val Structure_OK = Q.store_thm(
   rename[`Nd p`] >> Cases_on `p` >> fs[] >>
   fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
+<<<<<<< HEAD
   metis_tac[SigName_OK]);
+=======
+  metis_tac[SignatureValue_OK, oneTheory.one]);
+>>>>>>> origin/master
 
 val TopLevelDec_OK = Q.store_thm(
   "TopLevelDec_OK",

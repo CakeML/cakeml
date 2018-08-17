@@ -1,9 +1,8 @@
 (*
-
 An example of a stack data structure implemented using CakeML arrays, verified
 using CF.
-
 *)
+
 open preamble basis
 
 val _ = new_theory "stackProg";

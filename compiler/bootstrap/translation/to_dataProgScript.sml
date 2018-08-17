@@ -299,6 +299,12 @@ val FLATLANG_PAT_TYPE_11 = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
+val EqualityType_FLATLANG_PAT_TYPE = Q.prove(
+  `EqualityType FLATLANG_PAT_TYPE`,
+  metis_tac[EqualityType_def,FLATLANG_PAT_TYPE_no_closures,
+            FLATLANG_PAT_TYPE_types_match,FLATLANG_PAT_TYPE_11])
+  |> store_eq_thm;
+
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
 val PATLANG_EXP_TYPE_ind = theorem"PATLANG_EXP_TYPE_ind";
 
@@ -861,18 +867,21 @@ val clos_to_bvl_compile_exps_side = Q.prove(`
   CCONTR_TAC>>fs[]) |> update_precondition;
 
 val clos_to_bvl_compile_prog_side = Q.prove(`
-  ∀max_app x. clos_to_bvl_compile_prog_side max_app x ⇔ T`,
-  ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
-  simp[Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),clos_to_bvl_compile_exps_side])
-  |> update_precondition;
+  clos_to_bvl_compile_prog_side v10 v11 = T`,
+  fs [fetch "-" "clos_to_bvl_compile_prog_side_def"]
+  \\ fs [clos_to_bvl_compile_exps_side])
+ |> update_precondition;
 
 val clos_to_bvl_compile_side = Q.prove(`
-  ∀x y. clos_to_bvl_compile_side x y ⇔ T`,
-  rw[Once (fetch "-" "clos_to_bvl_compile_side_def"),
-     Once (fetch "-" "clos_to_bvl_compile_prog_side_def")]
-  \\ EVAL_TAC>>simp[bvl_jump_jumplist_side]
-  \\ simp[clos_to_bvl_compile_exps_side]
-  \\ simp[clos_to_bvl_compile_prog_side]) |> update_precondition
+  clos_to_bvl_compile_side v10 v11 = T`,
+  fs [fetch "-" "clos_to_bvl_compile_side_def"]
+  \\ fs [clos_to_bvl_compile_exps_side,
+         clos_to_bvl_compile_prog_side,
+         fetch "-" "clos_to_bvl_init_code_side_def",
+         fetch "-" "clos_to_bvl_generate_generic_app_side_def",
+         fetch "-" "bvl_jump_jump_side_def",
+         bvl_jump_jumplist_side])
+  |> update_precondition;
 
 val _ = translate (bvl_handleTheory.LetLet_def |> SIMP_RULE std_ss [MAPi_enumerate_MAP])
 
@@ -1086,12 +1095,12 @@ val _ = translate(bvi_letTheory.compile_exp_def);
 (* bvi_tailrec: Some PMATCH versions are translated 'manually'               *)
 (* ------------------------------------------------------------------------- *)
 
-val r = translate bvi_tailrecTheory.is_rec_PMATCH
+val r = translate bvi_tailrecTheory.is_rec_def (*PMATCH*)
 val r = translate bvi_tailrecTheory.is_const_PMATCH
 val r = translate bvi_tailrecTheory.from_op_PMATCH
 val r = translate bvi_tailrecTheory.op_eq_PMATCH
 val r = translate bvi_tailrecTheory.index_of_PMATCH
-val r = translate bvi_tailrecTheory.args_from_PMATCH
+val r = translate bvi_tailrecTheory.args_from_def (* PMATCH *)
 val r = translate bvi_tailrecTheory.get_bin_args_PMATCH
 val r = translate bvi_tailrecTheory.is_arith_PMATCH
 val r = translate bvi_tailrecTheory.is_rel_PMATCH

@@ -977,7 +977,7 @@ val simp_tenv_invC_more = Q.prove(
   rw[simp_tenv_invC_def]>>
   res_tac>>
   fs[t_compat_def]>>
-  metis_tac[check_freevars_to_check_t,t_walkstar_no_vars])
+  metis_tac[check_freevars_to_check_t,t_walkstar_no_vars]);
 
 val simp_tenv_invC_append = Q.prove(
 `simp_tenv_invC s'' tvs tenv tenvE ∧
@@ -986,7 +986,7 @@ val simp_tenv_invC_append = Q.prove(
   simp_tenv_invC s'' tvs (tenv'++tenv) (tenvE' ++ tenvE)`,
   rw[simp_tenv_invC_def]>>
   fs[ALOOKUP_APPEND]>>
-  every_case_tac>>res_tac>>fs[]>>metis_tac[])
+  every_case_tac>>res_tac>>fs[]>>metis_tac[]);
 
 (*convert on both sides of eqn*)
 val convert_bi_remove = Q.store_thm("convert_bi_remove",
@@ -997,7 +997,7 @@ val convert_bi_remove = Q.store_thm("convert_bi_remove",
   A = B`,
   rw[]>>
   last_x_assum (assume_tac o (Q.AP_TERM `unconvert_t`))>>
-  metis_tac[check_t_empty_unconvert_convert_id])
+  metis_tac[check_t_empty_unconvert_convert_id]);
 
 (*Substituting every tvs away with something that has no tvs leaves none left*)
 val infer_type_subst_check_t_less = Q.prove(
@@ -1027,6 +1027,7 @@ val infer_type_subst_check_t_less = Q.prove(
   >>
     fs[infer_type_subst_def,check_t_def,check_freevars_def]>>
     fs[EVERY_MAP]>>metis_tac[]);
+
 
 val infer_p_complete = Q.store_thm("infer_p_complete",
 `
@@ -1248,7 +1249,9 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
     imp_res_tac sub_completion_wfs>>
     fs[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS,convert_t_def])
   >-
-    (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (
+    simp [type_name_check_subst_comp_thm] >>
+    first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     qmatch_goalsub_abbrev_tac`t_unify _ _ A`>>
     qabbrev_tac`ls = [(t',A)]`>>
@@ -1576,7 +1579,7 @@ val t_walkstar_infer_db_subst = Q.prove(`
   >>
     fs[check_t_def]>>res_tac>>
     imp_res_tac t_walkstar_no_vars>>
-    metis_tac[t_walkstar_SUBMAP])
+    metis_tac[t_walkstar_SUBMAP]);
 
 val ienv_val_ok_more = Q.prove(`
   (ienv_val_ok cuvs env ∧ cuvs ⊆ cuvs' ⇒
@@ -1585,7 +1588,7 @@ val ienv_val_ok_more = Q.prove(`
   ienv_val_ok (count uvs') env)`,
   rw[ienv_val_ok_def,FORALL_PROD,nsAll_def]>>
   res_tac>>fs[]>>
-  metis_tac[check_t_more4,check_t_more5])
+  metis_tac[check_t_more4,check_t_more5]);
 
 val infer_e_complete = Q.store_thm ("infer_e_complete",
 `
@@ -1652,7 +1655,6 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        FDOM s' = count st'.next_uvar ∧
        t_compat s s' ∧
        MAP SND env = MAP (convert_t o t_walkstar s') env')`,
-
   ho_match_mp_tac type_e_strongind >>
   rw [add_constraint_success,success_eqns,infer_e_def]
   (*Easy cases*)
@@ -2499,7 +2501,10 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     fs[Abbr`nst`]>>
     metis_tac[t_compat_trans,SUBMAP_t_compat])
   >- (* Tannot *)
-    (first_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (
+    `ienv.inf_t = tenv.t` by fs [env_rel_complete_def] >>
+    simp [type_name_check_subst_comp_thm] >>
+    first_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     qmatch_goalsub_abbrev_tac`pure_add_constraints _ ls _`>>
     drule (CONJUNCT1 infer_e_wfs) >>

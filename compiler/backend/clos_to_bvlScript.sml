@@ -401,13 +401,11 @@ val compile_exps_def = tDefine "compile_exps" `
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
-val compile_prog_def = Define `
-  (compile_prog max_app [] = []) /\
-  (compile_prog max_app ((n,args,e)::xs) =
-     let (new_e,aux) = compile_exps max_app [e] [] in
-       (* with this approach the supporting functions (aux) are
-          close the expressions (new_e) that refers to them *)
-       MAP (\e. (n + (num_stubs max_app),args,e)) new_e ++ aux ++ compile_prog max_app xs)`
+val compile_prog_def = Define`
+  compile_prog max_app prog =
+    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
+      MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
+        prog new_exps ++ aux`;
 
 val pair_lem1 = Q.prove (
   `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
@@ -474,7 +472,7 @@ val _ = Datatype`
   config = <| next_loc : num
             ; start : num
             ; do_mti : bool
-            ; do_known : bool
+            ; known_conf : clos_known$config option
             ; do_call : bool
             ; max_app : num
             |>`;
@@ -484,7 +482,7 @@ val default_config_def = Define`
     next_loc := 0;
     start := 1;
     do_mti := T;
-    do_known := T;
+    known_conf := SOME (clos_known$default_config 10);
     do_call := T;
     max_app := 10 |>`;
 
@@ -529,7 +527,7 @@ val code_sort_def = tDefine "code_sort" `
   decide_tac);
 
 val chain_exps = Define `
-  (chain_exps i [] = []) ∧
+  (chain_exps i [] = [(i, 0n, Op None (Const 0) [])]) ∧
   (chain_exps i [e] = [(i, 0n, e)]) ∧
   (chain_exps i (e::es) =
     (i, 0,
@@ -544,27 +542,20 @@ val compile_common_def = Define `
     (* Alignment padding *)
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
-    let es = clos_known$compile c.do_known c.max_app es in
+    let (kc, es) = clos_known$compile c.known_conf es in
     let (es,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-    let prog = compile_prog c.max_app prog in
-      (c.next_loc + num_stubs c.max_app,
-       c with next_loc := n,
+      (c with <| start := c.next_loc; next_loc := n; known_conf := kc |>,
        prog)`;
-
-val compile_inc_def = Define `
-  compile_inc c es =
-    let (s, c, prog) = compile_common c es in
-      (c with start := s, code_sort prog)`;
 
 val compile_def = Define `
   compile c es =
-    let (s, c, prog) = compile_common c es in
+    let (c, prog) = compile_common c es in
     let prog =
       toAList (init_code c.max_app) ++
-      (num_stubs c.max_app - 1, 0n, init_globals c.max_app s) ::
-      prog
+      (num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start)) ::
+      (compile_prog c.max_app prog)
     in
     let c = c with start := num_stubs c.max_app - 1 in
       (c,code_sort prog)`;

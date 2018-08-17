@@ -1327,6 +1327,7 @@ val ptree_StructName_def = Define`
         | _ => NONE
 `
 
+<<<<<<< HEAD
 val ptree_SigDefName_def = Define‘
   (ptree_SigDefName (Lf _) = NONE) ∧
   (ptree_SigDefName (Nd nt args) =
@@ -1351,6 +1352,8 @@ val ptree_SigName_def = Define‘
         | _ => fail)
 ’;
 
+=======
+>>>>>>> origin/master
 val ptree_SpecLine_def = Define`
   (ptree_SpecLine (Lf _) = NONE) ∧
   (ptree_SpecLine (Nd nt args) =
@@ -1360,32 +1363,37 @@ val ptree_SpecLine_def = Define`
           [td_pt] =>
           do
             td <- ptree_TypeDec td_pt;
+<<<<<<< HEAD
             SOME(Stype td)
           od ++
           do
             (snm,specs) <- ptree_Signature td_pt ;
             return (Ssig snm specs);
+=======
+            SOME () (* (Stype td) *)
+>>>>>>> origin/master
           od
         | [exntok; dcon_pt] =>
           do
             assert (tokcheck exntok ExceptionT);
             (nm,tys) <- ptree_Dconstructor dcon_pt;
-            SOME(Sexn nm tys)
+            SOME() (* (Sexn nm tys) *)
           od
         | [typetok; tynm_pt; opteqn_pt] =>
           do
             assert(tokcheck typetok TypeT);
             (vs,nm) <- ptree_TypeName tynm_pt;
             opteqn <- ptree_OptTypEqn opteqn_pt;
-            SOME(dtcase opteqn of
+            SOME() (* (dtcase opteqn of
                      NONE => Stype_opq vs nm
-                   | SOME ty => Stabbrev vs nm ty)
+                   | SOME ty => Stabbrev vs nm ty) *)
           od
         | [valtok; vname_pt; coltok; type_pt] =>
           do
             assert(tokcheckl [valtok;coltok] [ValT; ColonT]);
             vname <- ptree_V vname_pt;
             ty <- ptree_Type nType type_pt;
+<<<<<<< HEAD
             return(Sval vname ty)
           od ++
           do
@@ -1393,6 +1401,9 @@ val ptree_SpecLine_def = Define`
             strname <- ptree_StructName vname_pt ;
             signame <- ptree_SigName type_pt ;
             return (Smod strname signame)
+=======
+            SOME() (* (Sval vname ty)*)
+>>>>>>> origin/master
           od
         | _ => NONE) ∧
   (ptree_SpeclineList (Lf _) = NONE) ∧
@@ -1400,14 +1411,14 @@ val ptree_SpecLine_def = Define`
     if FST nt <> mkNT nSpecLineList then NONE
     else
       dtcase args of
-          [] => SOME []
+          [] => SOME () (* [] *)
         | [sl_pt; sll_pt] =>
           if tokcheck sl_pt SemicolonT then ptree_SpeclineList sll_pt
           else
             do
               sl <- ptree_SpecLine sl_pt;
               sll <- ptree_SpeclineList sll_pt;
-              SOME(sl::sll)
+              SOME () (* (sl::sll) *)
             od
         | _ => NONE) ∧
   (ptree_SignatureValue (Lf _) = NONE) ∧
@@ -1420,10 +1431,20 @@ val ptree_SpecLine_def = Define`
             assert(tokcheckl [sigtok; endtok] [SigT; EndT]);
             ptree_SpeclineList sll_pt
           od
+<<<<<<< HEAD
         | _ => NONE) ∧
   (ptree_Signature (Lf _) = fail) ∧
   (ptree_Signature (Nd nt args) =
     if FST nt ≠ mkNT nSignature then fail
+=======
+        | _ => NONE
+`;
+
+val ptree_StructName_def = Define`
+  ptree_StructName (Lf _) = NONE ∧
+  ptree_StructName (Nd nm args) =
+    if FST nm <> mkNT nStructName then NONE
+>>>>>>> origin/master
     else
       dtcase args of
         [signtok; dname_pt; eqtok; sigval_pt] =>
@@ -1461,7 +1482,11 @@ val ptree_Structure_def = Define`
                                  sigv <- ptree_SigName sig_pt;
                                  return (SOME sigv)
                                od
+<<<<<<< HEAD
                              | _ => fail;
+=======
+                             | _ => NONE;
+>>>>>>> origin/master
             ds <- ptree_Decls ds_pt;
             return(Dmod sname asc ds)
           od

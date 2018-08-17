@@ -27,6 +27,8 @@ val max_heap_limit_32_thm = Q.store_thm("max_heap_limit_32_thm",
   `max_heap_limit (:32) = max_heap_limit_32`,
   rw[FUN_EQ_THM] \\ EVAL_TAC);
 
+(*
+
 val def = spec32 backendTheory.compile_explorer_def
 
 val res = translate def
@@ -43,6 +45,8 @@ val backend_compile_explorer_side = Q.prove(`
     (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
   rfs[LENGTH_EQ_NUM_compute] \\
   strip_tac \\ fs[]) |> update_precondition;
+
+*)
 
 val def = spec32
   (backendTheory.attach_bitmaps_def
@@ -105,12 +109,15 @@ val res = translate (spec32 word_to_string_def);
 
 (* compilerTheory *)
 
-val def = spec32 compilerTheory.compile_def
+val def = spec32 (PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]compilerTheory.compile_def);
 
 val _ = translate compilerTheory.locs_to_string_def;
 val res = translate def
 
 val res = translate basisProgTheory.basis_def
+
+val res = translate (primTypesTheory.prim_tenv_def
+                     |> CONV_RULE (RAND_CONV EVAL));
 
 val res = translate inferTheory.init_config_def;
 
@@ -131,6 +138,9 @@ val res = translate parse_num_list_def;
 val res = translate comma_tokens_def;
 val res = translate parse_nums_def;
 
+val res = translate clos_knownTheory.default_inline_factor_def;
+val res = translate clos_knownTheory.default_max_body_size_def;
+val res = translate clos_knownTheory.mk_config_def;
 val res = translate parse_clos_conf_def;
 val res = translate parse_bvl_conf_def;
 val res = translate parse_wtw_conf_def;
