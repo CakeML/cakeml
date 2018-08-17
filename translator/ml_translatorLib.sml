@@ -768,7 +768,7 @@ let
       write_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator
     fun is_taken_name name =
       (lookup_cons_def
-        |> SPEC (stringSyntax.fromMLstring name)
+        |> SPEC (mk_Short (stringSyntax.fromMLstring name))
         |> SPEC (get_curr_env ()) |> concl |> dest_eq |> fst
         |> EVAL |> concl |> rand
         |> optionSyntax.is_some)
@@ -1268,14 +1268,14 @@ val th = inv_defs |> map #2 |> hd
       val (n,k) = dest_TypeStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
-      in mk_eq(mk_lookup_cons(n, env_tm),
+      in mk_eq(mk_lookup_cons(mk_Short n, env_tm),
                optionSyntax.mk_some(mk_pair(l,x))) end
     else let
       val x = find_term is_ExnStamp tm
       val n = dest_ExnStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
-      in mk_eq(mk_lookup_cons(rand n, env_tm),
+      in mk_eq(mk_lookup_cons(mk_Short (rand n), env_tm),
                optionSyntax.mk_some(mk_pair(l,mk_ExnStamp (rand (rator n))))) end
   val type_assum =
       inv_defs |> map (fn (_,x,_) => CONJUNCTS x) |> Lib.flatten
@@ -1357,7 +1357,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
                     else tag_name name cons_name
           val str = stringSyntax.fromMLstring str
           val vars = listSyntax.mk_list(map (fn (x,n,v) => n) xs,string_ty)
-          in list_mk_pair([str,vars,exp,get_stamp str]) end) ts
+          in list_mk_pair([mk_Short str,vars,exp,get_stamp str]) end) ts
         val (inr,x) = Mat_cases_def |> SPEC_ALL |> concl |> rand
                                     |> rator |> rand |> rand |> dest_comb
         val xty = type_of x |> dest_type |> snd |> hd
@@ -1486,7 +1486,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
     val cons_assum = type_assum
                      |> list_dest dest_conj
                      |> filter (fn tm => aconv
-                           (tm |> rator |> rand |> rator |> rand) str)
+                           (tm |> rator |> rand |> rator |> rand |> rand) str)
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))

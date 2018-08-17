@@ -1073,7 +1073,7 @@ val print_def = Define `
 
 val EvalM_print = Q.store_thm("EvalM_print",
   `Eval env exp (STRING_TYPE x) /\
-    (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
+   (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE exc_ty (print x))
       (MONAD_IO,p:'ffi ffi_proj)`,
