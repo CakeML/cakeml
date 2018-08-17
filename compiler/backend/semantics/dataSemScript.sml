@@ -32,7 +32,8 @@ val _ = Datatype `
      ; clock   : num
      ; code    : (num # dataLang$prog) num_map
      ; ffi     : 'ffi ffi_state
-     ; space   : num |> `
+     ; space   : num
+     ; tstamps : num option |> `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
@@ -134,6 +135,12 @@ val list_to_v_def = Define `
   list_to_v [] = Block 0 nil_tag [] /\
   list_to_v (v::vs) = Block 0 cons_tag [v; list_to_v vs]`;
 
+val with_fresh_ts_def = Define`
+  with_fresh_ts ^s f = case s.tstamps of
+                          SOME ts => f ts (s with <| tstamps := SOME (ts + 1) |>)
+                        | NONE    => f 0 s
+`;
+
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -161,7 +168,7 @@ val do_app_aux_def = Define `
          | [len;lv] =>
             (case v_to_list lv of
              | SOME vs => if len = Number (& (LENGTH vs))
-                          then Rval (Block 0 n vs, s)
+                          then with_fresh_ts s (λts s'. Rval (Block ts n vs, s'))
                           else Rerr(Rabort Rtype_error)
              | _ => Rerr(Rabort Rtype_error))
          | _ => Rerr(Rabort Rtype_error))
@@ -182,13 +189,13 @@ val do_app_aux_def = Define `
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
-    | (Cons tag,xs) => Rval (Block 0 tag xs, s)
+    | (Cons tag,xs) => with_fresh_ts s (λts s'. Rval (Block ts tag xs, s'))
     | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Rerr(Rabort Rtype_error)
-        else
-          Rval (Block _ tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
+        else with_fresh_ts s (λts s'.
+          Rval (Block ts tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s'))
     | (ConsExtend tag,_) => Rerr(Rabort Rtype_error)
     | (El,[Block _ tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Rerr(Rabort Rtype_error)
@@ -586,6 +593,7 @@ val do_app_clock = Q.store_thm("do_app_clock",
     , do_install_def
     , case_eq_thms
     , PULL_EXISTS
+    , with_fresh_ts_def
     ,UNCURRY]
  \\ rw[]);
 
