@@ -19,8 +19,8 @@ pattern matching.
 compset for the definitions in ml_progTheory.
 
 [ml_progLib.sml](ml_progLib.sml):
-Functions for constructing a CakeML program (a list of declarations)
-together with the semantic environemt evaluation of the program produces.
+Functions for constructing a CakeML program (a list of declarations) together
+with the semantic environment resulting from evaluation of the program.
 
 [ml_progScript.sml](ml_progScript.sml):
 Definitions and theorems supporting ml_progLib, which constructs a
