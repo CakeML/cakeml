@@ -391,7 +391,7 @@ val example_ffidiv_spec = Q.prove (
           (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
           (λev. &F)
           (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [])
-                   * RUNTIME * SEP_EXISTS loc. W8ARRAY loc []))`,
+                   * RUNTIME)`,
   xcf "example_ffidiv" st
   >> xif
   >- (xlet_auto
