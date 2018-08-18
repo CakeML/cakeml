@@ -642,6 +642,7 @@ val linear_reg_alloc_intervals_def = Define`
         let reglist = QSORT (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) reglist_unsorted in
         let phyregs = FILTER is_phy_var reglist in
         let phyphyregs = FILTER (\r. r < 2*k) phyregs in
+        let stackphyregs = FILTER (\r. 2*k <= r) phyregs in
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
         do
           st_end_pass1 <- st_ex_FOLDL (linear_reg_alloc_step_pass1 int_beg int_end forced_adjlist moves_adjlist) st_init_pass1 reglist;
@@ -657,7 +658,7 @@ val linear_reg_alloc_intervals_def = Define`
           forced_adjlist' <- return (map (FILTER (\r. lookup r stackset <> NONE)) forced_adjlist);
           moves_adjlist' <- return (map (FILTER (\r. lookup r stackset <> NONE)) moves_adjlist);
           st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist' moves_adjlist') st_init_pass2 stacklist;
-          apply_reg_exchange phyregs;
+          apply_reg_exchange stackphyregs;
         od
 `
 
@@ -673,29 +674,63 @@ val extract_coloration_def = Define`
   )
 `
 
+val _ = Datatype `
+  bijection_state =
+    <| bij : num num_map
+     ; invbij : num num_map
+     ; nmax : num
+     ; nstack : num
+     ; nalloc : num
+     |>`
+
+val find_bijection_init_def = Define`
+    find_bijection_init =
+        <| bij := LN
+         ; invbij := LN
+         ; nmax := 0
+         ; nstack := 3
+         ; nalloc := 1
+         |>`
+
 val find_bijection_step_def = Define`
-    find_bijection_step (bij, invbij, nmax, nstack, nalloc) r =
-      if is_phy_var r then
-        (insert r r bij, insert r r invbij, MAX r nmax, nstack, nalloc)
+    find_bijection_step state r =
+      if lookup r state.bij <> NONE then
+        state
+      else if is_phy_var r then
+        state with
+          <| bij := insert r r state.bij
+           ; invbij := insert r r state.invbij
+           ; nmax := MAX r state.nmax
+             |>
       else if is_stack_var r then
-        (insert r nstack bij, insert nstack r invbij, MAX nstack nmax, nstack+4, nalloc)
+        state with
+          <| bij := insert r state.nstack state.bij
+           ; invbij := insert state.nstack r state.invbij
+           ; nmax := MAX state.nstack state.nmax
+           ; nstack := state.nstack+4
+           |>
       else
-        (insert r nalloc bij, insert nalloc r invbij, MAX nalloc nmax, nstack, nalloc+4)
+        state with
+          <| bij := insert r state.nalloc state.bij
+           ; invbij := insert state.nalloc r state.invbij
+           ; nmax := MAX state.nalloc state.nmax
+           ; nalloc := state.nalloc+4
+           |>
 `
 
 val find_bijection_def = Define`
   (
-    find_bijection (Writes l) state =
+    find_bijection state (Writes l) =
       FOLDL find_bijection_step state l
   ) /\ (
-    find_bijection (Reads l) state =
+    find_bijection state (Reads l) =
       FOLDL find_bijection_step state l
   ) /\ (
-    find_bijection (Branch lt1 lt2) state =
-      find_bijection lt1 (find_bijection lt2 state)
+    find_bijection state (Branch lt1 lt2) =
+      find_bijection (find_bijection state lt2) lt1
   ) /\ (
-    find_bijection (Seq lt1 lt2) state =
-      find_bijection lt1 (find_bijection lt2 state)
+    find_bijection state (Seq lt1 lt2) =
+      find_bijection (find_bijection state lt2) lt1
   )`
 
 val apply_bijection_def = Define`
@@ -734,15 +769,16 @@ val run_linear_reg_alloc_intervals_def = Define`
           <| colors := (nmax, 0) |>
 `
 
-(* BUG: forced and moves are not passed through the bijection... *)
 val linear_scan_reg_alloc_def = Define`
     linear_scan_reg_alloc k moves ct forced =
         let livetree = fix_domination (get_live_tree ct) in
-        let (bij, invbij, nmax, _, _) = find_bijection livetree (LN, LN, 0, 3, 1) in
-        let livetree' = apply_bijection livetree bij in
-        let (_, int_beg, int_end) = get_intervals livetree' 0 LN LN in
+        let bijstate = find_bijection find_bijection_init livetree in
+        let livetree' = apply_bijection livetree bijstate.bij in
+        let forced' = MAP (\r1,r2. (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij))) forced in
+        let moves' = MAP (\p,(r1,r2). (p,(the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)))) moves in
+        let (int_n, int_beg, int_end) = get_intervals livetree' 0 LN LN in
         let reglist_unsorted = (MAP FST (toAList int_beg)) in
-        run_linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted invbij nmax
+        run_linear_reg_alloc_intervals int_beg int_end k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax
 `
 
 (* === translation (TODO: move to bootstrap translation) === *)
@@ -899,6 +935,7 @@ val res = m_translate (linear_reg_alloc_intervals_def
                        |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
 
 val res = m_translate extract_coloration_def;
+val res = translate find_bijection_init_def;
 val res = translate find_bijection_step_def;
 val res = translate find_bijection_def;
 val res = translate apply_bijection_def;

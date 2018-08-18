@@ -657,7 +657,7 @@ val sp_inverts_def = Define`
     lookup m f = SOME fm ⇒
     lookup fm g = SOME m`
 
-val sp_inverts_insert = Q.prove(`
+val sp_inverts_insert = Q.store_thm("sp_inverts_insert",`
   sp_inverts f g ∧
   x ∉ domain f ∧
   y ∉ domain g ⇒
