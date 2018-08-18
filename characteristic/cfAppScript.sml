@@ -34,7 +34,11 @@ val evaluate_to_heap_def = Define `
                          st2heap p st' = heap)
     | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
                          st2heap p st' = heap)
-    | Div =>   ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num) io'.
+    | FFIDiv name conf bytes => (∃ck st'.
+      evaluate_ck ck st env [exp]
+      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\ 
+      st2heap p st' = heap)
+    | Div => ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num) io'.
                  (* the heap is a representation of the final io_events *)
                  io2heap io' = heap /\
                  (* clocks increase *)

@@ -1,5 +1,5 @@
 open preamble ml_translatorLib ml_progLib std_preludeTheory
-     mloptionTheory
+     mloptionTheory basisFunctionsLib
 
 val _ = new_theory"RuntimeProg"
 
@@ -23,7 +23,15 @@ val debugMsg_def = Define `
 val () = next_ml_names := ["debugMsg"];
 val result = translate debugMsg_def;
 
-val sigs = module_signatures ["fullGC", "debugMsg"];
+val exit =
+ ``[Dletrec (unknown_loc)
+     ["exit","u",
+      Let (SOME "x") (App Aw8alloc [Lit(IntLit 0); Lit(Word8 0w)])
+          (App (FFI "exit") [Lit (StrLit ""); Var (Short "x")])]]``
+
+val _ = append_prog exit
+
+val sigs = module_signatures ["fullGC", "debugMsg","exit"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
 

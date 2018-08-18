@@ -32,9 +32,11 @@ val prove_parts_ok_st =
     \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
     \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
     \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-    \\ TRY pairarg_tac \\ fs[]
-    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-    \\ srw_tac[DNF_ss][];
+    \\ TRY PURE_FULL_CASE_TAC
+    \\ fs[]
+    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
+    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
+    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def];
 
 val sets = rand(concl sets_thm)
 val to_inst = free_vars sets

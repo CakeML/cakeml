@@ -2,6 +2,7 @@ open preamble ml_translatorTheory ml_translatorLib ml_progLib
      cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory
      CommandLineProofTheory TextIOProofTheory
+     runtimeFFITheory RuntimeProofTheory
 
 val _ = new_theory"basis_ffi";
 
@@ -13,36 +14,41 @@ val basis_ffi_oracle_def = Define `
     \name (cls,fs) conf bytes.
      if name = "write" then
        case ffi_write conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "read" then
        case ffi_read conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "get_arg_count" then
        case ffi_get_arg_count conf bytes cls of
-       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "get_arg_length" then
        case ffi_get_arg_length conf bytes cls of
-       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "get_arg" then
        case ffi_get_arg conf bytes cls of
-       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "open_in" then
        case ffi_open_in conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "open_out" then
        case ffi_open_out conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
      if name = "close" then
        case ffi_close conf bytes fs of
-       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
+     if name = "exit" then
+       case ffi_exit conf bytes () of
+       | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
+       | SOME(FFIdiverge) => Oracle_final FFI_diverged
+       | NONE => Oracle_final FFI_failed else
      Oracle_final FFI_failed`
 
 (* standard streams are initialized *)
@@ -53,14 +59,17 @@ val basis_ffi_def = Define `
      ; io_events := [] |>`;
 
 val basis_proj1_def = Define `
-  basis_proj1 = (\(cls, fs).
+  basis_proj1 = (λ(cls, fs).
     FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
-			++ (mk_proj1 fs_ffi_part fs)))`;
+		++ (mk_proj1 fs_ffi_part fs)
+                ++ (mk_proj1 runtime_ffi_part ()
+                )))`;
 
 val basis_proj2_def = Define `
   basis_proj2 =
     [mk_proj2 cl_ffi_part;
-     mk_proj2 fs_ffi_part]`;
+     mk_proj2 fs_ffi_part;
+     mk_proj2 runtime_ffi_part]`;
 
 val basis_proj1_write = Q.store_thm("basis_proj1_write",
   `basis_proj1 ffi ' "write" = encode(SND ffi)`,
@@ -73,11 +82,11 @@ val extract_fs_with_numchars_def = Define `
   (extract_fs_with_numchars init_fs ((IO_event name conf bytes)::xs) =
     case (ALOOKUP (SND(SND fs_ffi_part)) name) of
     | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
-                       | SOME (bytes',fs') =>
+                       | SOME (FFIreturn bytes' fs') =>
                          if bytes' = MAP SND bytes then
                            extract_fs_with_numchars fs' xs
                          else NONE
-                       | NONE => NONE)
+                       | _ => NONE)
     | NONE => extract_fs_with_numchars init_fs xs)`
 
 val extract_fs_with_numchars_APPEND = Q.store_thm("extract_fs_with_numchars_APPEND",
@@ -393,14 +402,15 @@ val sets_thm = build_set heap_thms |> curry save_thm "sets_thm";
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
  ffi_close_length, clFFITheory.ffi_get_arg_count_length,
- clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length ]);
+ clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length,
+ ffi_exit_length]);
 
 val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
-[fs_ffi_part_def,clFFITheory.cl_ffi_part_def]);
+[fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
-  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
     ==> (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\ basis_proj1 x
  |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
   simp[basis_proj2_def,basis_proj1_def]
@@ -413,6 +423,47 @@ val oracle_parts = Q.store_thm("oracle_parts",
      CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
      \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
      \\ rw[] )
+  \\ TRY (
+      fs[ffi_exit_def] \\ NO_TAC)
+  \\ disj2_tac
+  \\ CCONTR_TAC \\ fs[] \\ rfs[]);
+
+(* TODO: move to fsFFI? *)
+val fs_ffi_no_ffi_div = Q.store_thm("fs_ffi_no_ffi_div",`
+  (ffi_open_in conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_open_out conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_read conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_close conf bytes fs = SOME FFIdiverge ==> F) /\
+  (ffi_write conf bytes fs = SOME FFIdiverge ==> F)
+`,
+  rw[ffi_open_in_def,ffi_open_out_def,ffi_read_def,ffi_close_def,ffi_write_def,
+     OPTION_GUARD_COND,OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]
+  \\ rpt(PURE_TOP_CASE_TAC \\ rw[])
+  \\ rw[OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]);
+
+(* TODO: move to clFFI? *)
+val cl_ffi_no_ffi_div = Q.store_thm("cl_ffi_no_ffi_div",`
+  (ffi_get_arg_count conf bytes cls = SOME FFIdiverge ==> F) /\
+  (ffi_get_arg_length conf bytes cls = SOME FFIdiverge ==> F) /\
+  (ffi_get_arg conf bytes cls = SOME FFIdiverge ==> F)
+`,
+  rw[clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,
+     clFFITheory.ffi_get_arg_def]);
+
+val oracle_parts_div = Q.store_thm("oracle_parts_div",
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
+    ==> st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged`,
+  simp[basis_proj2_def,basis_proj1_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[cfHeapsBaseTheory.mk_proj1_def,
+        cfHeapsBaseTheory.mk_proj2_def,
+        basis_ffi_oracle_def,basis_ffi_part_defs]
+  \\ rw[] \\ fs[FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM]
+  \\ TRY (
+     CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
+     \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
+     \\ rw[] )
+  \\ fs[cl_ffi_no_ffi_div,fs_ffi_no_ffi_div]
   \\ disj2_tac
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
@@ -424,15 +475,16 @@ val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   \\ rw[cfStoreTheory.parts_ok_def]
   \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
   \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+  \\ TRY ( imp_res_tac oracle_parts_div \\ rfs[] \\ NO_TAC)  
   \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
   \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
   \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
   \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
   \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
   \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-  \\ TRY pairarg_tac \\ fs[]
+  \\ TRY(PURE_FULL_CASE_TAC \\ fs[])
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-  \\ srw_tac[DNF_ss][]
+  \\ srw_tac[DNF_ss][] \\ fs[ffi_exit_def]
 );
 
 (* TODO: move somewhere else? *)

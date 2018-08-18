@@ -51,17 +51,22 @@ val encode_int_11 = Q.store_thm("encode_int_11[simp]",
   `∀x y. encode_int x = encode_int y ⇔ x = y`,
   Cases \\ Cases \\ rw[encode_int_def]);
 
+val _ = Datatype `
+  ffi_result = FFIreturn (word8 list) 'ffi | FFIdiverge`
+
 (* make an ffi_next function from base functions and encode/decode *)
 val mk_ffi_next_def = Define`
   mk_ffi_next (encode,decode,ls) name conf bytes s =
     OPTION_BIND (ALOOKUP ls name) (λf.
     OPTION_BIND (decode s) (λs.
-    OPTION_BIND (f conf bytes s) (λ(bytes,s).
-    SOME (bytes,encode s))))`;
+    OPTION_BIND (f conf bytes s) (λr.
+     case r of
+       FFIreturn bytes s => SOME(FFIreturn bytes (encode s))
+     | FFIdiverge => SOME FFIdiverge)))`;
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> (word8 list # ffi) option``);
+val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
@@ -75,7 +80,8 @@ val _ = type_abbrev("hprop", ``:heap -> bool``)
 val _ = Datatype `
   res = Val v
       | Exn v
-      | Div `
+      | FFIDiv string (word8 list) (word8 list)
+      | Div`
 
 val _ = type_abbrev("ffi_proj",
   ``: ('ffi -> (string |-> ffi)) #
@@ -122,6 +128,10 @@ val SEP_IMPPOSTe_def = Define `
   SEP_IMPPOSTe (Q1: res -> hprop) (Q2: res -> hprop) =
     !e. SEP_IMP (Q1 (Exn e)) (Q2 (Exn e))`
 
+val SEP_IMPPOSTffi_def = Define `
+  SEP_IMPPOSTffi (Q1: res -> hprop) (Q2: res -> hprop) =
+    !name conf bytes. SEP_IMP (Q1 (FFIDiv name conf bytes)) (Q2 (FFIDiv name conf bytes))`
+
 (* Garbage collection predicate *)
 val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
 
@@ -131,35 +141,40 @@ val POSTv_def = new_binder_definition("POSTv_def",
       \r. case r of
             | Val v => Qv v
             | Exn e => cond F
-            | Div   => cond F``)
+            | FFIDiv name conf bytes => cond F
+            | Div => cond F``)
 
 val POSTe_def = new_binder_definition("POSTe_def",
   ``($POSTe) (Qe: v -> hprop) =
       \r. case r of
             | Val v => cond F
             | Exn e => Qe e
-            | Div   => cond F``)
+            | FFIDiv name conf bytes => cond F
+            | Div => cond F``)
+
+val POSTf_def = new_binder_definition("POSTf_def",
+  ``($POSTf) (Qf: string -> word8 list -> word8 list -> hprop) =
+      \r. case r of
+            | Val v => cond F
+            | Exn e => cond F
+            | FFIDiv name conf bytes => Qf name conf bytes
+            | Div => cond F``)
 
 val POSTd_def = Define `
-  POSTd (Hd: hprop) = \r.
+  POSTd (Qd: hprop) = \r.
     case r of
      | Val v => cond F
      | Exn e => cond F
-     | Div   => Hd`
-
+     | FFIDiv name conf bytes => cond F
+     | Div => Qd`
+                                     
 val POST_def = Define `
-  POST (Qv: v -> hprop) (Qe: v -> hprop) = \r.
+  POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) (Qd: hprop) = \r.
     case r of
      | Val v => Qv v
      | Exn e => Qe e
-     | Div   => cond F`
-
-val POSTD_def = Define `
-  POSTD (Qv: v -> hprop) (Qe: v -> hprop) (Hd: hprop) = \r.
-    case r of
-     | Val v => Qv v
-     | Exn e => Qe e
-     | Div   => Hd`
+     | FFIDiv name conf bytes => Qf name conf bytes
+     | Div => Qd`
 
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
@@ -220,6 +235,9 @@ val _ = add_infix ("==v>", 470, HOLgrammars.RIGHT)
 val _ = overload_on ("==e>", Term `SEP_IMPPOSTe`)
 val _ = add_infix ("==e>", 470, HOLgrammars.RIGHT)
 
+val _ = overload_on ("==f>", Term `SEP_IMPPOSTffi`)
+val _ = add_infix ("==f>", 470, HOLgrammars.RIGHT)
+                  
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
 (*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
 (*                   paren_style = OnlyIfNecessary, *)
@@ -482,7 +500,8 @@ val SEP_IMPPOST_unfold = Q.store_thm ("SEP_IMPPOST_unfold",
       (Q1 ==+> Q2) <=>
       (!v. Q1 (Val v) ==>> Q2 (Val v)) /\
       (!v. Q1 (Exn v) ==>> Q2 (Exn v)) /\
-      (!v. Q1 Div     ==>> Q2 Div)`,
+      (!name conf bytes. Q1 (FFIDiv name conf bytes) ==>> Q2 (FFIDiv name conf bytes)) /\
+      (Q1 Div ==>> Q2 Div)`,
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ fs [SEP_IMPPOST_def] \\
   Cases \\ fs []
 );
@@ -566,6 +585,11 @@ val POSTv_Exn = Q.store_thm ("POSTv_Exn[simp]",
   fs [POSTv_def]
 );
 
+val POSTv_FFIDiv = Q.store_thm ("POSTv_FFIDiv[simp]",
+  `!Qv name conf bytes. $POSTv Qv (FFIDiv name conf bytes) = &F`,
+  fs [POSTv_def]
+);
+
 val POSTv_Div = Q.store_thm ("POSTv_Div[simp]",
   `!Qv. $POSTv Qv Div = &F`,
   fs [POSTv_def]
@@ -581,61 +605,74 @@ val POSTe_Exn = Q.store_thm ("POSTe_Exn[simp]",
   fs [POSTe_def]
 );
 
+val POSTe_FFIDiv = Q.store_thm ("POSTe_FFIDiv[simp]",
+  `!Qe name conf bytes. $POSTe Qe (FFIDiv name conf bytes) = &F`,
+  fs [POSTe_def]
+);
+
 val POSTe_Div = Q.store_thm ("POSTe_Div[simp]",
   `!Qe. $POSTe Qe Div = &F`,
   fs [POSTe_def]
 );
 
+val POSTf_Val = Q.store_thm ("POSTf_Val[simp]",
+  `!Qf v. $POSTf Qf (Val v) = &F`,
+  fs [POSTf_def]
+);
+
+val POSTf_Exn = Q.store_thm ("POSTf_Exn[simp]",
+  `!Qf v. $POSTf Qf (Exn v) = &F`,
+  fs [POSTf_def]
+);
+
+val POSTf_FFIDiv = Q.store_thm ("POSTf_FFIDiv[simp]",
+  `!Qf name conf bytes. $POSTf Qf (FFIDiv name conf bytes) = Qf name conf bytes`,
+  fs [POSTf_def]
+);
+
+val POSTf_Div = Q.store_thm ("POSTf_Div[simp]",
+  `!Qf. $POSTf Qf Div = &F`,
+  fs [POSTf_def]
+);
+
 val POSTd_Val = Q.store_thm ("POSTd_Val[simp]",
-  `!Hd v. POSTd Hd (Val v) = &F`,
+  `!Qd v. POSTd Qd (Val v) = &F`,
   fs [POSTd_def]
 );
 
 val POSTd_Exn = Q.store_thm ("POSTd_Exn[simp]",
-  `!Hd v. POSTd Hd (Exn v) = &F`,
+  `!Qd v. POSTd Qd (Exn v) = &F`,
+  fs [POSTd_def]
+);
+
+val POSTd_FFIDiv = Q.store_thm ("POSTd_FFIDiv[simp]",
+  `!Qd name conf bytes. POSTd Qd (FFIDiv name conf bytes) = &F`,
   fs [POSTd_def]
 );
 
 val POSTd_Div = Q.store_thm ("POSTd_Div[simp]",
-  `!Hd. POSTd Hd Div = Hd`,
+  `!Qd. POSTd Qd Div = Qd`,
   fs [POSTd_def]
 );
 
 val POST_Val = Q.store_thm ("POST_Val[simp]",
-  `!Qv Qe v. POST Qv Qe (Val v) = Qv v`,
+  `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Val v) = Qv v`,
   fs [POST_def]
 );
 
 val POST_Exn = Q.store_thm ("POST_Exn[simp]",
-  `!Qv Qe v. POST Qv Qe (Exn v) = Qe v`,
+  `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Exn v) = Qe v`,
+  fs [POST_def]
+);
+
+val POST_FFIDiv = Q.store_thm ("POST_FFIDiv[simp]",
+  `!Qv Qe Qf Qd name conf bytes. POST Qv Qe Qf Qd (FFIDiv name conf bytes) = Qf name conf bytes`,
   fs [POST_def]
 );
 
 val POST_Div = Q.store_thm ("POST_Div[simp]",
-  `!Qv Qe. POST Qv Qe Div = &F`,
+  `!Qv Qe Qf Qd. POST Qv Qe Qf Qd Div = Qd`,
   fs [POST_def]
-);
-
-val POSTD_Val = Q.store_thm ("POSTD_Val[simp]",
-  `!Qv Qe Hd v. POSTD Qv Qe Hd (Val v) = Qv v`,
-  fs [POSTD_def]
-);
-
-val POSTD_Exn = Q.store_thm ("POSTD_Exn[simp]",
-  `!Qv Qe Hd v. POSTD Qv Qe Hd (Exn v) = Qe v`,
-  fs [POSTD_def]
-);
-
-val POSTD_Div = Q.store_thm ("POSTD_Div[simp]",
-  `!Qv Qe Hd. POSTD Qv Qe Hd Div = Hd`,
-  fs [POSTD_def]
-);
-
-(* is this one superfluous now? *)
-
-val POSTD_eq_POST = Q.store_thm ("POSTD_eq_POST[simp]",
-  `!Qv Qe. POSTD Qv Qe (cond F) = POST Qv Qe`,
-  fs [POST_def,POSTD_def]
 );
 
 (* other lemmas about POSTv *)
@@ -645,16 +682,36 @@ val POSTv_ignore = Q.store_thm("POSTv_ignore",
    rw[POSTv_def] \\ Cases_on`r` \\ rw[cond_def]);
 
 (*------------------------------------------------------------------*)
-(* Lemmas for ==v> / ==e> *)
+(* Lemmas for ==v> / ==e> / ==f> *)
 
 val SEP_IMPPOSTv_POSTe_left = Q.store_thm ("SEP_IMPPOSTv_POSTe_left",
   `!Qe Q. $POSTe Qe ==v> Q`,
   fs [POSTe_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
+val SEP_IMPPOSTffi_POSTe_left = Q.store_thm ("SEP_IMPPOSTffi_POSTe_left",
+  `!Qe Q. $POSTe Qe ==f> Q`,
+  fs [POSTe_def, SEP_IMPPOSTffi_def, SEP_IMP_def, cond_def]
+);
+
 val SEP_IMPPOSTe_POSTv_left = Q.store_thm ("SEP_IMPPOSTe_POSTv_left",
   `!Qv Q. $POSTv Qv ==e> Q`,
   fs [POSTv_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTffi_POSTv_left = Q.store_thm ("SEP_IMPPOSTffi_POSTv_left",
+  `!Qv Q. $POSTv Qv ==f> Q`,
+  fs [POSTv_def, SEP_IMPPOSTffi_def, SEP_IMP_def, cond_def]
+                                            );
+
+val SEP_IMPPOSTe_POSTf_left = Q.store_thm ("SEP_IMPPOSTe_POSTf_left",
+  `!Qf Q. $POSTf Qf ==e> Q`,
+  fs [POSTf_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTv_POSTf_left = Q.store_thm ("SEP_IMPPOSTv_POSTf_left",
+  `!Qf Q. $POSTf Qf ==v> Q`,
+  fs [POSTf_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
 val _ = export_theory()
