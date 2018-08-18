@@ -276,7 +276,6 @@ val evaluate_list_raise_SING = Q.prove(
                 SIMP_RULE std_ss [Once bigStepTheory.evaluate_cases])
   \\ fs []);
 
-(*
 val app_basic_rel = Q.store_thm("app_basic_rel",
   `app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi state).
