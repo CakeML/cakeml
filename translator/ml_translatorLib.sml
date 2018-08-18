@@ -151,6 +151,9 @@ local
                             term (* HOL term *) *
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
+  val tyname_state = ref ([] : (string  *     (* thy_type_ctor    *)
+                                (string *     (* constructor name *)
+                                 string option) (* module name *)) list);
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
@@ -160,7 +163,8 @@ in
   fun v_thms_reset () =
     (v_thms := [];
      eval_thms := [];
-     prog_state := ml_progLib.init_state);
+     prog_state := ml_progLib.init_state
+     (* tyname_state := []; *) (* TODO ?? *));
   fun ml_prog_update f = (prog_state := f (!prog_state));
   fun get_ml_prog_state () = (!prog_state)
   fun get_curr_env () = get_env (!prog_state);
@@ -303,8 +307,49 @@ in
     val _ = eval_thms := x2
     val _ = prog_state := x3
     in () end
+  fun pack_tynames () =
+    let
+      val pack_ns =
+        pack_pair pack_string (pack_pair pack_string (pack_option pack_string))
+    in
+      pack_list pack_ns (!tyname_state)
+    end
+  fun unpack_tynames th =
+    let
+      val unpack_ns =
+        unpack_pair unpack_string
+                    (unpack_pair unpack_string (unpack_option unpack_string))
+      val tyns = unpack_list unpack_ns th
+    in
+      tyname_state := tyns
+    end
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
+  fun get_tynames () = !tyname_state
+  fun mk_tyname tm =
+    let
+      val (_, ty) = strip_fun (type_of tm)
+      val info = Option.valOf (TypeBase.fetch ty)
+      val (thyn, tyn) = TypeBasePure.ty_name_of info
+      val name = term_to_string tm
+    in
+      (* separating with underscores is more prone to name clashes *)
+      String.concat ["%%", thyn, "%%", tyn, "%%", name, "%%"]
+    end
+  fun enter_tyname tm =
+    let
+      val key   = mk_tyname tm
+      val _ = print ("tyname_state: entering constructor: " ^ key ^ "\n")
+      val mname = get_curr_module_name ()
+      val ctor  = term_to_string tm
+    in
+      if List.exists (fn (key',_) => key = key') (!tyname_state) then
+        raise ERR "enter_tyname" ("constructor already entered: " ^ ctor)
+      else
+        tyname_state := (key, (ctor, mname)) :: (!tyname_state);
+      key
+    end
+  fun lookup_tyname key = Lib.assoc key (!tyname_state)
 end
 
 fun full_id n =
@@ -1264,6 +1309,8 @@ val th = inv_defs |> map #2 |> hd
   (* cons assumption *)
   fun mk_assum tm =
     if not is_exn_type then let
+      val ctor = tm |> dest_eq |> fst |> rator |> rand |> repeat rator
+      val tname = enter_tyname ctor
       val x = find_term is_TypeStamp tm
       val (n,k) = dest_TypeStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
