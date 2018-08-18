@@ -40,10 +40,7 @@ end
 
 val add_ag32_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``ag32_target$ag32_enc``, 1, ag32_encode_conv)],
-   computeLib.Defs
-       [ag32_enc_def, ag32_constant_def, ag32_cmp_def, ag32_sh_def,
-        ag32_encode_def, ag32_encode1_def, Encode_def, enc_def,
-        ri2bits_def, funcT2num_thm, encShift_def, shiftT2num_thm]]
+   computeLib.Defs [ag32_targetTheory.ag32_config]]
 
 val ag32_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
   [computeLib.Extenders
