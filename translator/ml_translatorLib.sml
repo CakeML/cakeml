@@ -15,6 +15,8 @@ open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
 local open integer_wordSyntax in end
 
+val ERR = mk_HOL_ERR "ml_translatorLib";
+
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
