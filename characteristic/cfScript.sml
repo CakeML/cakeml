@@ -470,7 +470,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
                   NONE => NONE
                 | SOME (len, t) =>
                   if len = LENGTH argsv then
-                    SOME (Conv (SOME (id_to_n id,t)) argsv, insts_rest, wildcards_rest)
+                    SOME (Conv (SOME t) argsv, insts_rest, wildcards_rest)
                   else NONE)
       | NONE => NONE) /\
   v_of_pat _ (Pref pat) _ _ =
@@ -794,6 +794,14 @@ val validate_pat_def = Define `
    from the semantics.
 *)
 
+val same_type_EQ_same_ctor = store_thm("same_type_EQ_same_ctor[simp]",
+  ``same_type r r <=> same_ctor r r``,
+  Cases_on `r` \\ fs [same_type_def] \\ fs [same_ctor_def]);
+
+val same_ctor_REFL = store_thm("same_ctor_REFL[simp]",
+  ``same_ctor r r``,
+  fs [same_ctor_def]);
+
 val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
   `(!envC s pat v env_v insts wildcards wildcards_rest.
       v_of_pat envC pat insts wildcards = SOME (v, [], wildcards_rest) ==>
@@ -803,7 +811,6 @@ val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
       v_of_pat_list envC pats insts wildcards = SOME (vs, [], wildcards_rest) ==>
       pmatch_list envC s pats vs env_v = Match
         (ZIP (pats_bindings pats [], REVERSE insts) ++ env_v))`,
-
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
@@ -814,10 +821,7 @@ val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     every_case_tac \\ fs [] \\ rw []
     THEN1 (progress v_of_pat_list_length \\ first_assum progress)
-    THEN1 (progress v_of_pat_list_length \\ fs []) \\
-    `!(n:tvarN) t. same_ctor (n, t) (n, t)` by (
-      Cases_on `n` \\ Cases_on `t` \\ fs [same_ctor_def]
-    ) \\ fs []
+    THEN1 (progress v_of_pat_list_length \\ fs [])
   )
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
@@ -866,7 +870,6 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
       ?insts wildcards.
         env_v' = ZIP (pats_bindings pats [], REVERSE insts) ++ env_v /\
         v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))`,
-
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
   THEN1 (
@@ -885,10 +888,9 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
   THEN1 (
     fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
     fs [pat_bindings_def] \\ Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\
-    rename1 `same_ctor (id_to_n id1, t1) (n2, t2)` \\
-    `t1 = t2 /\ id_to_n id1 = n2` by
-      (irule semanticPrimitivesPropsTheory.same_ctor_and_same_tid \\ fs []) \\ rw [] \\
-    rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length
+    rename1 `same_ctor t1 t2` \\ fs [] \\
+    rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length \\
+    fs [same_ctor_def]
   )
   THEN1 (
     fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
@@ -1286,27 +1288,27 @@ val app_aw8update_def = Define `
      Q ==e> POST_F)`
 
 val app_copyaw8aw8_def = Define `
-  app_copyaw8aw8 s so l d do H Q =
+  app_copyaw8aw8 s so l d do' H Q =
     ((?ws wd F.
-        0 <= do /\ 0 <= so /\ 0 <= l /\
-        (Num do + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
+        0 <= do' /\ 0 <= so /\ 0 <= l /\
+        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
         (F * W8ARRAY s ws *
-             W8ARRAY d (TAKE (Num do) wd ⧺
+             W8ARRAY d (TAKE (Num do') wd ⧺
                         TAKE (Num l) (DROP (Num so) ws) ⧺
-                        DROP (Num do + Num l) wd)
+                        DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
      Q ==e> POST_F)`
 
 val app_copystraw8_def = Define `
-  app_copystraw8 s so l d do H Q =
+  app_copystraw8 s so l d do' H Q =
     ((?wd F.
-        0 <= do /\ 0 <= so /\ 0 <= l /\
-        (Num do + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH s /\
+        0 <= do' /\ 0 <= so /\ 0 <= l /\
+        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH s /\
         (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (TAKE (Num do) wd ⧺
+        (F * W8ARRAY d (TAKE (Num do') wd ⧺
                         MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
-                        DROP (Num do + Num l) wd)
+                        DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
      Q ==e> POST_F)`
 
@@ -1533,23 +1535,23 @@ val cf_aw8update_def = Define `
 
 val cf_copyaw8aw8_def = Define `
   cf_copyaw8aw8 xs xso xl xd xdo = \env. local (\H Q.
-    ?s so l d do.
+    ?s so l d do'.
       exp2v env xs = SOME s /\
       exp2v env xd = SOME d /\
       exp2v env xl = SOME (Litv (IntLit l)) /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
-      exp2v env xdo = SOME (Litv (IntLit do)) /\
-      app_copyaw8aw8 s so l d do H Q)`
+      exp2v env xdo = SOME (Litv (IntLit do')) /\
+      app_copyaw8aw8 s so l d do' H Q)`
 
 val cf_copystraw8_def = Define `
   cf_copystraw8 xs xso xl xd xdo = \env. local (\H Q.
-    ?s so l d do.
+    ?s so l d do'.
       exp2v env xs = SOME (Litv (StrLit s)) /\
       exp2v env xd = SOME d /\
       exp2v env xl = SOME (Litv (IntLit l)) /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
-      exp2v env xdo = SOME (Litv (IntLit do)) /\
-      app_copystraw8 s so l d do H Q)`
+      exp2v env xdo = SOME (Litv (IntLit do')) /\
+      app_copystraw8 s so l d do' H Q)`
 
 val cf_copyaw8str_def = Define `
   cf_copyaw8str xs xso xl = \env. local (\H Q.
@@ -1622,7 +1624,7 @@ val cf_match_def = Define `
   cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      cf_cases v Bindv rows env H Q)`
+      cf_cases v bind_exn_v rows env H Q)`
 
 val cf_raise_def = Define `
   cf_raise e = \env. local (\H Q.
@@ -1722,11 +1724,11 @@ val cf_def = tDefine "cf" `
              | _ => cf_bottom)
         | CopyAw8Aw8 =>
           (case args of
-             | [s; so; l; d; do] => cf_copyaw8aw8 s so l d do
+             | [s; so; l; d; do'] => cf_copyaw8aw8 s so l d do'
              | _ => cf_bottom)
         | CopyStrAw8 =>
           (case args of
-             | [s; so; l; d; do] => cf_copystraw8 s so l d do
+             | [s; so; l; d; do'] => cf_copystraw8 s so l d do'
              | _ => cf_bottom)
         | CopyAw8Str =>
           (case args of
@@ -2307,6 +2309,7 @@ fun add_to_clock qtm th g =
 
 val cf_sound = Q.store_thm ("cf_sound",
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`,
+
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
@@ -2395,6 +2398,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
+
   THEN1 (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
@@ -2775,6 +2779,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       SPLIT_TAC
     )
   )
+
   THEN1 (
     (* Log *)
     cf_strip_sound_full_tac \\
@@ -2783,12 +2788,12 @@ val cf_sound = Q.store_thm ("cf_sound",
     fs [SEP_IMP_def] \\ first_x_assum progress \\ instantiate \\
     try_finally (
       qexists_tac `ck` \\ cf_exp2v_evaluate_tac `st with clock := ck` \\
-      fs [do_log_def]
+      fs [do_log_def] \\ Cases_on `r` \\ fs [Boolv_def]
     ) \\
     try_finally (
       Q.LIST_EXISTS_TAC [`st`, `{}`, `st.clock`] \\
       progress SPLIT3_of_SPLIT_emp3 \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_log_def]
+      cf_exp2v_evaluate_tac `st` \\ fs [do_log_def,Boolv_def]
     )
   )
   THEN1 (

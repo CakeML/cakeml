@@ -10,7 +10,9 @@ val _ = ml_prog_update (open_module "Int");
 
 val () = generate_sigs := true;
 
-val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "int" (Tapp [] TC_int)`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "int" (Atapp [] (Short "int"))`` I);
+
 val _ = trans "+" `(+):int->int->int`
 val _ = trans "-" `(-):int->int->int`
 val _ = trans "*" `int_mul`

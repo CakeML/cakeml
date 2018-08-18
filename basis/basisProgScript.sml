@@ -5,8 +5,22 @@ val _ = new_theory "basisProg"
 
 val _ = translation_extends"PrettyPrinterProg";
 
-val print_eval_thm = derive_eval_thm true "print" ``Var(Long"TextIO"(Short"print"))``
-val () = ml_prog_update (add_Dlet print_eval_thm "print" [])
+val print_e = ``Var(Long"TextIO"(Short"print"))``
+val eval_thm = let
+  val th = get_ml_prog_state () |> get_thm
+  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
+           |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
+  val th = th |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["e","s3"]))
+              |> SPEC print_e
+  val st = th |> SPEC_ALL |> concl |> dest_imp |> #1 |> strip_comb |> #2 |> el 1
+  val goal = th |> SPEC st |> SPEC_ALL |> concl |> dest_imp |> fst
+  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[])
+  val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
+    rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
+    \\ asm_simp_tac bool_ss [])
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  in v_thm end
+val () = ml_prog_update (add_Dlet eval_thm "print" []);
 
 val print_app_list = process_topdecs
   `fun print_app_list ls =

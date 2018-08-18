@@ -9,7 +9,8 @@ val () = generate_sigs := true;
 
 val _ = ml_prog_update (open_module "Option");
 
-val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "option" (Atapp [Atvar "'a"] (Short "option"))`` I);
 
 val () = next_ml_names := ["getOpt"];
 val result = translate getOpt_def;
@@ -46,6 +47,7 @@ val () = next_ml_names := ["map2"];
 val res = translate OPTION_MAP2_DEF;
 
 val sigs = module_signatures [
+  "option", (* TODO: is this the right way to add a datatype? *)
   "getOpt",
   "isSome",
   "valOf",

@@ -93,6 +93,7 @@ fun op_to_exp arg =
 val cons = ``CONS : 'a -> 'a list -> 'a list``;
 val comma = ``$, : 'a -> 'b -> 'a # 'b``;
 val pvar = ``ast$Pvar``;
+val pany = ``ast$Pany``;
 val locs = ``Locs``;
 val nil_l = ``[] : 'a list``;
 val app = ``ast$App``;
@@ -126,6 +127,7 @@ fun ast_to_exp term =
     val (x, xs) = strip_comb term
   in
     if same_const x pvar then ast_to_exp (hd xs)
+    else if same_const x pany then exp_list [exp_str "Pany"]
     else if same_const x lit then
       exp_list [exp_str "Lit", lit_to_exp (hd xs)]
     else if same_const x plit then

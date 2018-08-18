@@ -1,4 +1,4 @@
-open preamble astTheory libTheory bigStepTheory semanticPrimitivesTheory whileTheory;
+open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
 open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";

@@ -123,73 +123,18 @@ val _ = Hol_datatype `
   | Or`;
 
 
-(* Type constructors.
- * 0-ary type applications represent unparameterised types (e.g., num or string)
- *)
-val _ = Hol_datatype `
- tctor =
-  (* User defined types *)
-    TC_name of (modN, typeN) id
-  (* Built-in types *)
-  | TC_int
-  | TC_char
-  | TC_string
-  | TC_ref
-  | TC_word8
-  | TC_word64
-  | TC_word8array
-  | TC_fn
-  | TC_tup
-  | TC_exn
-  | TC_vector
-  | TC_array`;
-
-
 (* Types *)
 val _ = Hol_datatype `
- t =
+ ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
-    Tvar of tvarN
-  (* deBruijn indexed type variables.
-     The type system uses these internally. *)
-  | Tvar_db of num
-  | Tapp of t list => tctor`;
-
-
-(* Some abbreviations *)
-val _ = Define `
- (Tint=  (Tapp [] TC_int))`;
-
-val _ = Define `
- (Tchar=  (Tapp [] TC_char))`;
-
-val _ = Define `
- (Tstring=  (Tapp [] TC_string))`;
-
-val _ = Define `
- (Tref t=  (Tapp [t] TC_ref))`;
-
- val _ = Define `
- (TC_word W8=  TC_word8)
-/\     (TC_word W64=  TC_word64)`;
-
-val _ = Define `
- (Tword wz=  (Tapp [] (TC_word wz)))`;
-
-val _ = Define `
- (Tword8=  (Tword W8))`;
-
-val _ = Define `
- (Tword64=  (Tword W64))`;
-
-val _ = Define `
- (Tword8array=  (Tapp [] TC_word8array))`;
-
-val _ = Define `
- (Tfn t1 t2=  (Tapp [t1;t2] TC_fn))`;
-
-val _ = Define `
- (Texn=  (Tapp [] TC_exn))`;
+    Atvar of tvarN
+  (* Function type *)
+  | Atfun of ast_t => ast_t
+  (* Tuple type *)
+  | Attup of ast_t list
+  (* Type constructor applications.
+    0-ary type applications represent unparameterised types (e.g., num or string) *)
+  | Atapp of ast_t list => (modN, typeN) id`;
 
 
 (* Patterns *)
@@ -202,7 +147,7 @@ val _ = Hol_datatype `
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of  ( (modN, conN)id)option => pat list
   | Pref of pat
-  | Ptannot of pat => t`;
+  | Ptannot of pat => ast_t`;
 
 
 (* Expressions *)
@@ -233,12 +178,12 @@ val _ = Hol_datatype `
      The first varN is the function's name, and the second varN
      is its parameter. *)
   | Letrec of (varN # varN # exp) list => exp
-  | Tannot of exp => t
+  | Tannot of exp => ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot of exp => locs`;
 
 
-val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # t list) list) list``);
+val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # ast_t list) list) list``);
 
 (* Declarations *)
 val _ = Hol_datatype `
@@ -254,33 +199,25 @@ val _ = Hol_datatype `
    *)
   | Dtype of locs => type_def
   (* Type abbreviations *)
-  | Dtabbrev of locs => tvarN list => typeN => t
+  | Dtabbrev of locs => tvarN list => typeN => ast_t
   (* New exceptions *)
-  | Dexn of locs => conN => t list`;
+  | Dexn of locs => conN => ast_t list
+  | Dmod of modN => dec list`;
 
 
-val _ = type_abbrev( "decs" , ``: dec list``);
-
+(*
 (* Specifications
    For giving the signature of a module *)
-val _ = Hol_datatype `
- spec =
-    Sval of varN => t
+type spec =
+  | Sval of varN * ast_t
   | Stype of type_def
-  | Stabbrev of tvarN list => typeN => t
-  | Stype_opq of tvarN list => typeN
-  | Sexn of conN => t list`;
+  | Stabbrev of list tvarN * typeN * ast_t
+  | Stype_opq of list tvarN * typeN
+  | Sexn of conN * list ast_t
 
+type specs = list spec
 
-val _ = type_abbrev( "specs" , ``: spec list``);
-
-val _ = Hol_datatype `
- top =
-    Tmod of modN =>  specs option => decs
-  | Tdec of dec`;
-
-
-val _ = type_abbrev( "prog" , ``: top list``);
+*)
 
 (* Accumulates the bindings of a pattern *)
 (*val pat_bindings : pat -> list varN -> list varN*)

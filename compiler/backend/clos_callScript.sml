@@ -208,7 +208,7 @@ val calls_def = tDefine "calls" `
 
 val compile_def = Define `
   compile F x = (x,[]) /\
-  compile T x = let (xs,g) = calls [x] (LN,[]) in (HD xs,SND g)`
+  compile T x = let (xs,g) = calls x (LN,[]) in (xs,SND g)`
 
 val calls_length = Q.store_thm("calls_length",
   `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs`,
@@ -222,12 +222,22 @@ val calls_sing = Q.store_thm("calls_sing",
   rw [] \\ imp_res_tac calls_length \\ fs []
   \\ Cases_on `ys` \\ fs [LENGTH_NIL] );
 
+val compile_LENGTH = Q.store_thm("compile_LENGTH",
+  `compile x y = (a,b) ⇒ LENGTH y = LENGTH a`,
+  Cases_on`x` \\ rw[compile_def] \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac calls_length \\ rw[]);
+
+val compile_nil = Q.store_thm("compile_nil",
+  `clos_call$compile x [] = (a,b) ⇒ a =[] ∧ b = []`,
+  Cases_on`x` \\ rw[compile_def]
+  \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]);
+
 val selftest = let
   (* example code *)
   val f = ``Fn None (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
   val g = ``Fn None (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
   val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (Const 5) []]]``
-  val let_let = ``Let None [^f] (Let None [^g] ^f_g_5)``
+  val let_let = ``[Let None [^f] (Let None [^g] ^f_g_5)]``
   (* compiler evaluation *)
   val tm = EVAL ``compile T ^let_let`` |> concl
   val n = tm |> find_terms (aconv ``closLang$Call``) |> length

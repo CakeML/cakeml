@@ -128,6 +128,7 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
     first_x_assum (qspecl_then [`t`, `v2_2`, `Litv (IntLit &1)`, `x`, `[v2_1]`,
                                 `REPLICATE (LENGTH t) v2_1`] mp_tac) >>
     simp [LENGTH_REPLICATE] >>
+    qpat_x_assum`_ = list_type_num`(assume_tac o SYM) \\ fs[GSYM ADD1] \\
     disch_then xapp_spec >>
     xsimpl >>
     rw [REPLICATE, GSYM ADD1]);

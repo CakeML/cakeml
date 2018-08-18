@@ -1,11 +1,11 @@
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
-open inferProgTheory;
+open parserProgTheory;
 
 val _ = new_theory "reg_allocProg";
 
-val _ = translation_extends "inferProg";
+val _ = translation_extends "parserProg";
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -297,6 +297,7 @@ val reg_alloc_aux_trans_def = Q.prove(
          stack := []|>`,
  Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]);
 
+val def = reg_alloc_aux_trans_def
 val _ = m_translate_run reg_alloc_aux_trans_def;
 
 (* The final function used by the compiler *)

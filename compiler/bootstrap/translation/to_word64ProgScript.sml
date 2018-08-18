@@ -1,7 +1,7 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open sexp_parserProgTheory;
+open sexp_parserProgTheory std_preludeTheory;
 
 val _ = new_theory "to_word64Prog"
 

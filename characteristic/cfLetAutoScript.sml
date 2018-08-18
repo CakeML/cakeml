@@ -407,10 +407,11 @@ types_match v1 v2`,
 Induct_on `x1`
 >-(
     Cases_on `x2` >>
-    types_match_tac
+    types_match_tac >>
+    EVAL_TAC
 ) >>
 Cases_on `x2`
->-(types_match_tac)>>
+>-(types_match_tac >> EVAL_TAC)>>
 types_match_tac
 >-(metis_tac[EqualityType_def])>>
 last_assum IMP_RES_TAC);

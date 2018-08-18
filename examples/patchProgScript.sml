@@ -97,14 +97,14 @@ val r = translate rejected_patch_string_def;
 val _ = (append_prog o process_topdecs) `
   fun patch' fname1 fname2 =
     case TextIO.inputLinesFrom fname1 of
-        NONE => TextIO.output TextIO.stdErr (notfound_string fname1)
-      | SOME lines1 =>
+        None => TextIO.output TextIO.stdErr (notfound_string fname1)
+      | Some lines1 =>
         case TextIO.inputLinesFrom fname2 of
-            NONE => TextIO.output TextIO.stdErr (notfound_string fname2)
-          | SOME lines2 =>
+            None => TextIO.output TextIO.stdErr (notfound_string fname2)
+          | Some lines2 =>
             case patch_alg lines2 lines1 of
-                NONE => TextIO.output TextIO.stdErr (rejected_patch_string)
-              | SOME s => TextIO.print_list s`
+                None => TextIO.output TextIO.stdErr (rejected_patch_string)
+              | Some s => TextIO.print_list s`
 
 val patch'_spec = Q.store_thm("patch'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
@@ -124,7 +124,7 @@ val patch'_spec = Q.store_thm("patch'_spec",
   xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
-  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ fs[OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
@@ -133,7 +133,7 @@ val patch'_spec = Q.store_thm("patch'_spec",
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
-  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ fs[OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
@@ -142,7 +142,7 @@ val patch'_spec = Q.store_thm("patch'_spec",
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
   \\ qpat_abbrev_tac `a1 = patch_alg _ _`
-  \\ Cases_on `a1` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ Cases_on `a1` \\ fs[OPTION_TYPE_def]
   \\ xmatch
   >- (xapp_spec output_stderr_spec \\ simp[theorem "rejected_patch_string_v_thm"])
   \\ xapp \\ rw[]);

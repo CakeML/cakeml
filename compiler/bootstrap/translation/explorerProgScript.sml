@@ -1,10 +1,10 @@
 open preamble
      ml_translatorLib
-     reg_allocProgTheory
+     inferProgTheory
 
 val _ = new_theory "explorerProg"
 
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "inferProg";
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let
@@ -49,6 +49,8 @@ val ind_lemma = Q.prove(
   \\ fs [])
   |> update_precondition;
 
+(*
+
 val res = translate presLangTheory.num_to_hex_digit_def;
 
 val num_to_hex_digit_side = prove(
@@ -63,9 +65,13 @@ val res = translate
 val res = translate
   (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
 
+*)
+
 val res = translate displayLangTheory.num_to_json_def;
 val res = translate displayLangTheory.trace_to_json_def;
 val res = translate displayLangTheory.display_to_json_def;
+
+(*
 
 val res = translate presLangTheory.op_to_display_def;
 
@@ -93,6 +99,8 @@ val num_to_varn_side = Q.prove(`
 val res5 = translate presLangTheory.pat_to_json_def;
 val res6 = translate presLangTheory.clos_to_json_def;
 val res7 = translate presLangTheory.clos_to_json_table_def;
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = (ml_translatorLib.clean_on_exit := true);

@@ -9,6 +9,9 @@ val _ = new_theory "stackProg";
 
 val _ = translation_extends"basisProg";
 
+val _ = Datatype `exn_type = EmptyStack`;
+val _ = register_exn_type ``:exn_type``;
+
 val stack_decls = process_topdecs
    ‘fun empty_stack u = ref (Array.arrayEmpty (), 0)
 
@@ -25,17 +28,17 @@ val stack_decls = process_topdecs
                q := (a,i+1))
           end
 
-    exception EmptyStack
-
     fun pop q =
       case !q of
-        (a,i) => if i = 0 then raise EmptyStack
+        (a,i) => if i = 0 then raise Emptystack
                  else let val x = Array.sub a (i-1) in (q := (a, i-1); x) end’;
 
 val _ = append_prog stack_decls;
 
 val EmptyStack_exn_def = Define`
-  EmptyStack_exn v = (v = Conv (SOME ("EmptyStack", TypeExn (Short "EmptyStack"))) [])`;
+  EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v`;
+
+val EmptyStack_exn_def = EVAL ``EmptyStack_exn v``;
 
 (* Heap predicate for stacks:
    STACK A vs qv means qv is a reference to a stack of

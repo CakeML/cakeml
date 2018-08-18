@@ -7,9 +7,11 @@ val _ = translation_extends"Word8ArrayProg"
 
 val () = ml_prog_update (open_module "Array");
 
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "array" (Atapp [Atvar "'a"] (Short "array"))`` I);
+
 val () = append_decs
-   ``[Dtabbrev unknown_loc ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
-      mk_binop "array" Aalloc;
+   ``[mk_binop "array" Aalloc;
       mk_unop "arrayEmpty" AallocEmpty;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
@@ -161,9 +163,9 @@ val _ = append_prog array_foldr;
 val array_find = process_topdecs
   `fun find_aux f arr max n =
     if n = max
-      then NONE
+      then None
     else (if f (sub arr n)
-        then SOME(sub arr n)
+        then Some(sub arr n)
       else find_aux f arr max (n + 1))
 
   fun find f arr =
@@ -173,7 +175,7 @@ val _ = append_prog array_find;
 
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
-``[Tdec (Dletrec unknown_loc
+``[(Dletrec unknown_loc
 [("findi_aux","f",
  Fun "arr"
    (Fun "max"
@@ -182,7 +184,7 @@ val array_findi_aux =
             (App Opapp
                [App Opapp [Var (Short "="); Var (Short "n")];
                 Var (Short "max")])
-            (If (Var (Short "a")) (Con (SOME (Short "NONE")) [])
+            (If (Var (Short "a")) (Con (SOME (Short "None")) [])
                (Let (SOME "b")
                   (App Opapp
                      [App Opapp
@@ -200,7 +202,7 @@ val array_findi_aux =
                                  [Var (Short "sub");
                                   Var (Short "arr")];
                                Var (Short "n")])
-                           (Con (SOME (Short "SOME"))
+                           (Con (SOME (Short "Some"))
                               [Con NONE [Var (Short "n");
                                Var (Short "d")]]))
                         (Let (SOME "e")
