@@ -6385,10 +6385,14 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      (*
      (∀k. co_ok (FEMPTY |++ (SND(FST(SND(SND(FST(co1 0))))))) ....
      *)
+     let x =
+        (SND (clos_known$compile c.known_conf
+               (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
+                      (compile c.do_mti c.max_app es1))))) in
+     (∀l k. MEM l (code_locs x) ∧ l ∉ domain (FST(SND(compile c.do_call x))) ⇒
+            l ∉ domain (FST(FST(SND(SND(FST(co1 k))))))) ∧
      FST(SND(SND(FST(co1 0)))) =
-       SND(clos_call$compile c.do_call
-         (SND (clos_known$compile c.known_conf
-           (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app es1))))))) ∧
+       SND(clos_call$compile c.do_call x)) ∧
    (IS_SOME c.known_conf ⇒
      (THE c.known_conf).val_approx_spt = LN	∧
      FST (SND (FST (co1 0))) = SND
@@ -6527,71 +6531,73 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
       \\ asm_exists_tac \\ fs[]
       \\ fs[clos_knownProofTheory.syntax_ok_def])
+    \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n'`
+    \\ `n' = n` by simp[Abbr`n'`, Abbr`n`, make_even_def, EVEN_MOD2]
+    \\ conj_tac >- ( fs[] \\ rfs[] \\ rw[] )
     \\ conj_tac >- (
-      fs[]
-      \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n'`
-      \\ `n' = n` by simp[Abbr`n'`, Abbr`n`, make_even_def, EVEN_MOD2]
-      \\ fs[] \\ rfs[] \\ rw[] )
-    \\ conj_tac >- cheat (* co_ok assumption... *)
+      simp[clos_callProofTheory.extra_code_assum_def]
+      \\ ntac 2 gen_tac \\ strip_tac
+      \\ qmatch_goalsub_abbrev_tac`FST(FST(FST z))`
+      \\ `FST(FST(FST z)) = FST(FST(SND(SND(FST(co1 m)))))`
+      by (
+        simp[Abbr`z`]
+        \\ TOP_CASE_TAC \\ rw[backendPropsTheory.FST_state_co] )
+      \\ fs[])
+    \\ conj_tac >- cheat (* co_ok *)
     \\ conj_tac >- rw[]
-    \\ conj_tac >- (
-      simp[UNCURRY, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-      \\ qx_gen_tac`m`
-      \\ qmatch_goalsub_abbrev_tac`FST ((ff (co1 m)))`
-      \\ `FST (ff (co1 m)) = FST (co1 m)` by rw[Abbr`ff`] \\ fs[]
-      \\ simp[CONJ_ASSOC]
-      \\ reverse conj_tac
-      >- (
-        CASE_TAC \\ simp[FST_SND_ignore_table,SND_SND_ignore_table,kcompile_inc_uncurry]
-        \\ simp[clos_numberProofTheory.renumber_code_locs_distinct]
-        \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
-        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_code_locs_bag
-        \\ Cases_on`known aa bb ccc dd` \\ simp[]
-        \\ strip_tac
-        \\ simp[GSYM bag_of_list_ALL_DISTINCT]
-        \\ map_every qunabbrev_tac[`aa`,`bb`,`ccc`,`dd`]
-        \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
-        \\ pop_assum SUBST_ALL_TAC \\ fs[]
-        \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-        \\ asm_exists_tac \\ fs[]
-        \\ simp[bag_of_list_ALL_DISTINCT, clos_numberProofTheory.renumber_code_locs_distinct] )
-      \\ `every_Fn_vs_NONE [FST(SND(ff (co1 m)))] ⇔ every_Fn_vs_NONE [FST(SND(co1 m))]`
-      by ( rw[Abbr`ff`,mcompile_inc_uncurry] )
-      \\ reverse conj_tac
-      >- (
-        CASE_TAC
-        \\ simp[FST_SND_ignore_table,SND_SND_ignore_table,kcompile_inc_uncurry,
-                clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
-        >- fs[clos_knownProofTheory.syntax_ok_def]
-        \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
-        \\ Cases_on`known aa bb ccc dd`
-        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_vs_NONE
-        \\ qunabbrev_tac`bb`
-        \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
-        \\ srw_tac[DNF_ss][]
-        \\ first_x_assum match_mp_tac
-        \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE,Abbr`ccc`,Abbr`dd`]
-        \\ fs[clos_knownProofTheory.syntax_ok_def] )
-      \\ `every_Fn_SOME [FST(SND(ff (co1 m)))] ⇔ every_Fn_SOME [FST(SND(co1 m))]`
-      by ( rw[Abbr`ff`,mcompile_inc_uncurry] )
-      \\ reverse conj_tac
-      >- (
-        CASE_TAC
-        \\ simp[FST_SND_ignore_table,SND_SND_ignore_table,kcompile_inc_uncurry,
-                clos_numberProofTheory.renumber_code_locs_every_Fn_SOME]
-        \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
-        \\ Cases_on`known aa bb ccc dd`
-        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_SOME
-        \\ qunabbrev_tac`bb`
-        \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
-        \\ srw_tac[DNF_ss][]
-        \\ first_x_assum match_mp_tac
-        \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_SOME,Abbr`ccc`,Abbr`dd`] )
-      \\ cheat (* add assumptions if necessary *) )
+    \\ simp[UNCURRY, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
     \\ qx_gen_tac`m`
-    \\ TOP_CASE_TAC \\ fs[SND_SND_ignore_table] >- rw[]
-    \\ simp[kcompile_inc_uncurry, SND_SND_ignore_table]
-    \\ rw[] )
+    \\ qmatch_goalsub_abbrev_tac`FST ((ff (co1 m)))`
+    \\ `FST (ff (co1 m)) = FST (co1 m)` by rw[Abbr`ff`] \\ fs[]
+    \\ simp[CONJ_ASSOC]
+    \\ reverse conj_tac
+    >- (
+      CASE_TAC \\ simp[FST_SND_ignore_table,SND_SND_ignore_table,kcompile_inc_uncurry]
+      \\ simp[clos_numberProofTheory.renumber_code_locs_distinct]
+      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_code_locs_bag
+      \\ Cases_on`known aa bb ccc dd` \\ simp[]
+      \\ strip_tac
+      \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+      \\ map_every qunabbrev_tac[`aa`,`bb`,`ccc`,`dd`]
+      \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+      \\ pop_assum SUBST_ALL_TAC \\ fs[]
+      \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
+      \\ asm_exists_tac \\ fs[]
+      \\ simp[bag_of_list_ALL_DISTINCT, clos_numberProofTheory.renumber_code_locs_distinct] )
+    \\ `every_Fn_vs_NONE [FST(SND(ff (co1 m)))] ⇔ every_Fn_vs_NONE [FST(SND(co1 m))]`
+    by ( rw[Abbr`ff`,mcompile_inc_uncurry] )
+    \\ reverse conj_tac
+    >- (
+      CASE_TAC
+      \\ simp[FST_SND_ignore_table,SND_SND_ignore_table,kcompile_inc_uncurry,
+              clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
+      >- fs[clos_knownProofTheory.syntax_ok_def]
+      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ Cases_on`known aa bb ccc dd`
+      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_vs_NONE
+      \\ qunabbrev_tac`bb`
+      \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+      \\ srw_tac[DNF_ss][]
+      \\ first_x_assum match_mp_tac
+      \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE,Abbr`ccc`,Abbr`dd`]
+      \\ fs[clos_knownProofTheory.syntax_ok_def] )
+    \\ `every_Fn_SOME [FST(SND(ff (co1 m)))] ⇔ every_Fn_SOME [FST(SND(co1 m))]`
+    by ( rw[Abbr`ff`,mcompile_inc_uncurry] )
+    \\ reverse conj_tac
+    >- (
+      CASE_TAC
+      \\ simp[FST_SND_ignore_table,SND_SND_ignore_table,kcompile_inc_uncurry,
+              clos_numberProofTheory.renumber_code_locs_every_Fn_SOME]
+      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ Cases_on`known aa bb ccc dd`
+      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_SOME
+      \\ qunabbrev_tac`bb`
+      \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+      \\ srw_tac[DNF_ss][]
+      \\ first_x_assum match_mp_tac
+      \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_SOME,Abbr`ccc`,Abbr`dd`] )
+    \\ cheat (* distinct code locs? add assumptions if necessary *) )
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
   \\ drule clos_callProofTheory.compile_ALL_DISTINCT
@@ -6748,11 +6754,14 @@ val syntax_oracle_ok_def = Define`
            (compile c.do_mti c.max_app es))) [] LN)) ∧
     (c.do_call ⇒
       (∀k n. k ≤ n ⇒ subg (FST(SND(SND(FST (co k))))) (FST(SND(SND(FST(co n)))))) ∧
-      FST(SND(SND(FST(co 0)))) =
-      SND(compile c.do_call
-        (SND(compile c.known_conf
-          (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
-            (compile c.do_mti c.max_app es))))))) ∧
+       let x =
+          (SND (clos_known$compile c.known_conf
+                 (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
+                        (compile c.do_mti c.max_app es))))) in
+       (∀l k. MEM l (code_locs x) ∧ l ∉ domain (FST(SND(compile c.do_call x))) ⇒
+              l ∉ domain (FST(FST(SND(SND(FST(co k))))))) ∧
+       FST(SND(SND(FST(co 0)))) =
+         SND(clos_call$compile c.do_call x)) ∧
     (∀n.
       SND (SND (co n)) = [] ∧
       globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
@@ -7178,7 +7187,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ res_tac
     \\ rw[] )
   *)
-  \\ cheat (* oracle distinct code locs *));
+  \\ cheat (* many syntactic properties of oracle *));
 
 (*
 val () = temp_overload_on("acompile",``clos_annotate$compile``);
