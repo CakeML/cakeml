@@ -4141,50 +4141,14 @@ val known_code_locs_bag = Q.store_thm("known_code_locs_bag",
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs[]);
 
-val known_code_locs = Q.store_thm("known_code_locs",
-  `∀x es ys z es' z'.
-    known x es ys z = (es',z') ⇒
-    is_subseq (code_locs es) (code_locs (MAP FST es'))`,
-  recInduct known_ind
-  \\ rw[known_def] \\ rw[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ rw[code_locs_append]
-  \\ imp_res_tac known_LENGTH_EQ_E \\ fs[LENGTH_EQ_NUM_compute]
-  \\ rw[] \\ fs[]
-  \\ TRY(fs[code_locs_def, is_subseq_append_suff] \\ NO_TAC) \\ rw[]
-  \\ every_case_tac \\ fs[code_locs_def, is_subseq_append_suff] \\ rw[code_locs_def]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rw[code_locs_def, code_locs_append, is_subseq_append_suff]
-  \\ TRY (
-    CHANGED_TAC(imp_res_tac code_locs_decide_inline)
-    \\ imp_res_tac known_LENGTH_EQ_E
-    \\ fs[LENGTH_EQ_NUM_compute]
-    \\ rw[] \\ fs[] \\ rw[]
-    \\ fs[is_subseq_append1]
-    \\ qspec_then`MAP FST ea2`(fn th => rw[th])(Q.SPEC`x`code_locs_cons)
-    \\ fs[is_subseq_append_suff]
-    \\ NO_TAC)
-  \\ cheat (*
-  \\ simp[MAP_MAP_o, o_DEF, UNCURRY, code_locs_map]
-  \\ match_mp_tac is_subseq_append_suff \\ fs[]
-  \\ match_mp_tac is_subseq_append_suff \\ fs[]
-  \\ match_mp_tac is_subseq_FLAT_suff \\ fs[]
-  \\ fs[EVERY2_MAP]
-  \\ irule EVERY2_refl
-  \\ simp[MAP_EQ_f, FORALL_PROD]
-  \\ rw[]
-  \\ first_x_assum drule
-  \\ simp[GSYM FST_pair]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ imp_res_tac known_LENGTH_EQ_E
-  \\ fs[LENGTH_EQ_NUM_compute]
-  \\ rveq \\ fs[]*));
-
-val compile_code_locs = Q.store_thm("compile_code_locs",
-  `compile kc es = (kc', es') ⇒ is_subseq (code_locs es) (code_locs es')`,
+val compile_code_locs_bag = Q.store_thm("compile_code_locs_bag",
+  `clos_known$compile kc es = (kc', es') ⇒
+     bag_of_list (code_locs es') ≤ bag_of_list (code_locs es)`,
   Cases_on`kc`
-  \\ rw[compile_def]
+  \\ rw[clos_knownTheory.compile_def]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[known_code_locs]);
+  \\ imp_res_tac known_code_locs_bag
+  \\ rw[]);
 
 val compile_LENGTH = Q.store_thm("compile_LENGTH",
   `clos_known$compile kc es = (kc', es') ⇒ LENGTH es' = LENGTH es`,

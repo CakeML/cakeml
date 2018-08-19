@@ -4984,11 +4984,12 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
   \\ simp [ALL_DISTINCT_APPEND]
   \\ qmatch_asmsub_abbrev_tac `renumber_code_locs_list N XS`
   (* clos_known *)
-  \\ `is_subseq (code_locs es) (code_locs ls)`
-    by metis_tac[clos_knownProofTheory.compile_code_locs]
+  \\ `bag_of_list (code_locs ls) ≤ bag_of_list (code_locs es)`
+    by metis_tac[clos_knownProofTheory.compile_code_locs_bag]
   \\ `LENGTH ls = LENGTH es` by metis_tac[clos_knownProofTheory.compile_LENGTH]
-  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[SUBSET_DEF,clos_knownProofTheory.is_subseq_MEM]
-  \\ `ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs ls)` by metis_tac[clos_knownProofTheory.is_subseq_ALL_DISTINCT]
+  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[bag_of_list_SUB_BAG_SUBSET]
+  \\ `ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs ls)`
+    by metis_tac[bag_of_list_ALL_DISTINCT, BAG_ALL_DISTINCT_SUB_BAG]
   (* clos_number *)
   \\ `ALL_DISTINCT (code_locs ls) /\
       set (code_locs ls) SUBSET EVEN /\
@@ -6056,13 +6057,15 @@ val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   Cases_on`kc` \\ rw[clos_knownTheory.compile_def] \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ fs[clos_callProofTheory.syntax_ok_def]
-  \\ imp_res_tac clos_knownProofTheory.known_code_locs
-  \\ imp_res_tac clos_knownProofTheory.is_subseq_ALL_DISTINCT
-  \\ fs[]
+  \\ imp_res_tac clos_knownProofTheory.known_code_locs_bag
+  \\ rveq
   \\ qhdtm_x_assum`known`mp_tac
   \\ specl_args_of_then``known``known_every_Fn_SOME mp_tac
   \\ specl_args_of_then``known``known_every_Fn_vs_NONE mp_tac
-  \\ rw[] \\ fs[]);
+  \\ rw[] \\ fs[]
+  \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+  \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
+  \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT]);
 
 val renumber_code_locs_fv1 = Q.store_thm("renumber_code_locs_fv1",
   `(∀n es v. LIST_REL (λe1 e2. ∀v. fv1 v e1 ⇔ fv1 v e2) (SND (renumber_code_locs_list n es)) es) ∧
@@ -6602,11 +6605,13 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ fs[FUPDATE_LIST_alist_to_fmap]
   \\ drule clos_callProofTheory.compile_ALL_DISTINCT
   \\ impl_tac >- (
-    imp_res_tac clos_knownProofTheory.compile_code_locs
+    imp_res_tac clos_knownProofTheory.compile_code_locs_bag
     \\ qhdtm_x_assum`renumber_code_locs_list`mp_tac
     \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
     \\ ntac 2 strip_tac \\ fs[]
-    \\ imp_res_tac clos_knownProofTheory.is_subseq_ALL_DISTINCT)
+    \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+    \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
+    \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT])
   \\ strip_tac
   \\ fs[ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ fs[Abbr`cc0`]
