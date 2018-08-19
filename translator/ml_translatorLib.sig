@@ -125,6 +125,7 @@ sig
     val enter_cons_name : term * term -> string
     val lookup_cons_name : string -> term * string option
     val instantiate_cons_name : thm -> thm
+    val get_cons_names : unit -> (string * (term * string option)) list
 
     (* Internal - for preprocess_monadic_def *)
     val force_eqns                   : thm -> thm

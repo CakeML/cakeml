@@ -151,7 +151,7 @@ local
                             term (* HOL term *) *
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
-  val tyname_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
+  val cons_name_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
                                 (term *         (* constructor name  *)
                                  string option) (* module name       *)) list);
 in
@@ -164,7 +164,7 @@ in
     (v_thms := [];
      eval_thms := [];
      prog_state := ml_progLib.init_state
-     (* tyname_state := []; *) (* TODO ?? *));
+     (* cons_name_state := []; *) (* TODO ?? *));
   fun ml_prog_update f = (prog_state := f (!prog_state));
   fun get_ml_prog_state () = (!prog_state)
   fun get_curr_env () = get_env (!prog_state);
@@ -307,25 +307,25 @@ in
     val _ = eval_thms := x2
     val _ = prog_state := x3
     in () end
-  fun pack_tynames () =
+  fun pack_cons_names () =
     let
       val pack_ns =
         pack_pair pack_string (pack_pair pack_term (pack_option pack_string))
     in
-      pack_list pack_ns (!tyname_state)
+      pack_list pack_ns (!cons_name_state)
     end
-  fun unpack_tynames th =
+  fun unpack_cons_names th =
     let
       val unpack_ns =
         unpack_pair unpack_string
                     (unpack_pair unpack_term (unpack_option unpack_string))
       val tyns = unpack_list unpack_ns th
     in
-      tyname_state := tyns
+      cons_name_state := tyns
     end
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
-  fun get_tynames () = !tyname_state
+  fun get_cons_names () = !cons_name_state
   fun mk_cons_name tm =
     let
       val (_, ty) = strip_fun (type_of tm)
@@ -336,18 +336,16 @@ in
       (* separating with underscores is more prone to name clashes *)
       String.concat ["%%", thyn, "%%", tyn, "%%", name, "%%"]
     end
-  fun lookup_cons_name key = Lib.assoc key (!tyname_state)
+  fun lookup_cons_name key = Lib.assoc key (!cons_name_state)
   fun enter_cons_name (tm, v_tm) =
     let
       val key   = mk_cons_name tm
-      (* TODO remove: *)
-      val _ = print ("tyname_state: entering constructor: " ^ key ^ "\n")
       val mname = get_curr_module_name ()
       val (v_tm', mname') = lookup_cons_name key
                             handle HOL_ERR _ => (v_tm, mname)
     in
       if v_tm' = v_tm andalso mname = mname' then
-        key before tyname_state := (key, (v_tm, mname)) :: (!tyname_state)
+        key before cons_name_state := (key, (v_tm, mname)) :: (!cons_name_state)
       else
         raise ERR "enter_cons_name"
                 ("already entered with different value: " ^ term_to_string v_tm)
@@ -713,7 +711,7 @@ local
     val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
     val p1 = pack_types()
     val p2 = pack_v_thms()
-    val p3 = pack_tynames()
+    val p3 = pack_cons_names()
     val p = pack_triple I I I (p1,p2,p3)
     val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
     val _ = check_uptodate_term (concl th)
@@ -724,7 +722,7 @@ local
     val (p1,p2,p3) = unpack_triple I I I th
     val _ = unpack_types p1
     val _ = unpack_v_thms p2
-    val _ = unpack_tynames p3
+    val _ = unpack_cons_names p3
     in () end;
   val finalised = ref false
 in
@@ -4245,13 +4243,5 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
-
-(*
-
-TODO:
- - ensure datatypes defined in modules can be used outside a module
-   (the type thms need to be reproved)
-
-*)
 
 end
