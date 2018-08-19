@@ -1742,6 +1742,8 @@ val mglobals_disjoint_rw = Q.store_thm("mglobals_disjoint_rw",
      mglobals_disjoint s [x]) /\
   (mglobals_disjoint s [Tick tr x] <=>
      mglobals_disjoint s [x]) /\
+  (mglobals_disjoint s [Call tr ticks dest xs] <=>
+     mglobals_disjoint s xs) /\
   (mglobals_disjoint s [Op tr opn xs] <=>
      mglobals_disjoint s xs /\ DISJOINT (mapped_globals s) (SET_OF_BAG (op_gbag opn))) /\
   (mglobals_disjoint s [App tr lopt x1 xs] <=>
@@ -2210,14 +2212,24 @@ val known_correct_approx = Q.store_thm(
       \\ fs[unique_set_globals_def,elist_globals_append] )
     \\ irule val_approx_val_merge_I \\ fs[])
   THEN1
-   (say "Call"  \\ cheat (*
+   (say "Call"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
     \\ fs [fv_max_rw]
-    \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
-    \\ fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rveq \\ fs []
+    \\ first_x_assum drule \\ fs[]
+    \\ impl_tac >- fs[mglobals_disjoint_def]
+    \\ strip_tac
+    \\ reverse conj_tac
+    >-(
+      rw[]
+      \\ fs[result_case_eq, option_case_eq, pair_case_eq, bool_case_eq]
+      \\ rveq \\ fs[] \\ fixeqs
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ fs[LENGTH_EQ_NUM_compute])
+    \\ fs[result_case_eq, option_case_eq, pair_case_eq, bool_case_eq]
+    \\ rveq \\ fs[] \\ fixeqs
+    \\ fs[mglobals_disjoint_rw]
     \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
-    \\ fixeqs
     \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
     \\ simp [] \\ strip_tac
     \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
@@ -2229,13 +2241,20 @@ val known_correct_approx = Q.store_thm(
            \\ metis_tac [ssgc_free_def])
     \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
     \\ simp [dec_clock_def, set_globals_empty_esgc_free] \\ strip_tac
-    \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
-    \\ simp [dec_clock_def, set_globals_empty_esgc_free]
-    \\ drule mglobals_extend_DISJOINT_state_globals_approx
-    \\ disch_then drule
-    \\ impl_tac
-    THEN1 metis_tac [co_disjoint_globals_first_n_exps, co_disjoint_globals_evaluate]
-    \\ metis_tac [evaluate_SING] *))
+    \\ fs[state_globals_approx_def]
+    \\ imp_res_tac set_globals_empty_esgc_free
+    \\ fs[mglobals_extend_def] \\ rw[]
+    \\ first_x_assum drule
+    \\ qmatch_goalsub_abbrev_tac`k <: b`
+    \\ reverse(Cases_on`k <: b`) \\ fs[] >- metis_tac[]
+    \\ fs[Abbr`b`]
+    \\ drule elist_globals_first_n_exps_exists
+    \\ strip_tac
+    \\ fs[ssgc_free_def]
+    \\ qmatch_asmsub_rename_tac`FST(SND(s1.compile_oracle m))`
+    \\ Cases_on`SND (s1.compile_oracle m)` \\ fs[]
+    \\ first_x_assum drule
+    \\ cheat )
   THEN1
    (say "Op"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
