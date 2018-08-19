@@ -152,8 +152,8 @@ local
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
   val cons_name_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
-                                (term *         (* constructor name  *)
-                                 string option) (* module name       *)) list);
+                                  (term *         (* constructor name  *)
+                                   string option) (* module name       *)) list);
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
@@ -163,8 +163,7 @@ in
   fun v_thms_reset () =
     (v_thms := [];
      eval_thms := [];
-     prog_state := ml_progLib.init_state
-     (* cons_name_state := []; *) (* TODO ?? *));
+     prog_state := ml_progLib.init_state);
   fun ml_prog_update f = (prog_state := f (!prog_state));
   fun get_ml_prog_state () = (!prog_state)
   fun get_curr_env () = get_env (!prog_state);
