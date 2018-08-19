@@ -120,6 +120,12 @@ sig
     val get_v_thms_ref : unit -> (string * string * term * thm * thm * string option) list ref
     val remove_Eq_from_v_thm : thm -> thm
 
+    (* Internal - handling type constructor names *)
+    val mk_tyname : term -> string
+    val enter_tyname : term * term -> string
+    val lookup_tyname : string -> term * string option
+    val instantiate_lookup_cons : thm -> thm
+
     (* Internal - for preprocess_monadic_def *)
     val force_eqns                   : thm -> thm
     val is_rec_def                   : thm -> bool
