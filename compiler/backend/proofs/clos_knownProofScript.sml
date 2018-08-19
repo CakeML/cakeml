@@ -2953,9 +2953,17 @@ val state_oracle_mglobals_disjoint_evaluate_suff = Q.store_thm(
          \\ fs [BAG_DISJOINT, DISJOINT_ALT, shift_seq_def, PULL_FORALL]
          \\ spose_not_then (mp_then (Pos hd) mp_tac elist_globals_first_n_exps_lemma)
          \\ simp [] \\ rename1 `nn1 + nn2` \\ qexists_tac `nn1 + nn2 + 1` \\ simp [])
-  THEN1 (fs [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
-         \\ cheat (* should follow from !n. BAG_ALL_DISTINCT (elist_globals (first_n_exps s0.compile_oracle n)) and
-                     x ⋲ elist_globals (first_n_exps s0.compile_oracle n') *)));
+  THEN1 (
+    fs [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
+    \\ CCONTR_TAC \\ fs[]
+    \\ drule elist_globals_first_n_exps_lemma
+    \\ disch_then(qspec_then`n+1`mp_tac)
+    \\ impl_tac >- rw[]
+    \\ qmatch_assum_rename_tac`x <: elist_globals (first_n_exps _ m)`
+    \\ qmatch_assum_abbrev_tac`x <: elist_globals (first_n_exps co m)`
+    \\ last_x_assum(qspec_then`(n+1)+m`mp_tac)
+    \\ simp[first_n_exps_shift_seq, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN]
+    \\ rw[] \\ metis_tac[]));
 
 val say = say0 "known_correct0";
 
