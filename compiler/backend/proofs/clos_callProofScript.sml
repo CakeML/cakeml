@@ -1581,7 +1581,7 @@ val env_rel_Op_Install = prove(
 val compile_inc_def = Define `
   compile_inc g (e,xs) =
     let (ea, g') = calls [e] g in
-      (g', HD ea, TAKE (LENGTH (SND g') - LENGTH (SND g)) (SND g))`;
+      (g', HD ea, TAKE (LENGTH (SND g') - LENGTH (SND g)) (SND g'))`;
 
 val syntax_ok_def = Define`
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)`;
@@ -1674,7 +1674,7 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ `aux = []` by (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
   \\ fs [FUPDATE_LIST,state_co_def,state_rel_def]
-  \\ qabbrev_tac `aux1 = (TAKE (LENGTH (SND r1) − LENGTH cfg1) cfg1)`
+  \\ qabbrev_tac `aux1 = (TAKE (LENGTH (SND r1) − LENGTH cfg1) (SND r1))`
   \\ rewrite_tac [GSYM FUPDATE_LIST]
   \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `1` mp_tac)
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once co_ok_def]))
