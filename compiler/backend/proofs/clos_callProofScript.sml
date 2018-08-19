@@ -167,6 +167,24 @@ val wfg_def = Define`
     set (MAP FST (SND g)) = IMAGE SUC (domain (FST g)) ∧
     ALL_DISTINCT (MAP FST (SND g))`;
 
+val make_g_def = Define `
+  make_g d code =
+    if IMAGE SUC (domain d) ⊆ (FDOM code) then
+      SOME (d, MAP (\k. (FST k + 1, THE (FLOOKUP code (FST k + 1)))) (toAList d))
+    else NONE`;
+
+val ALL_DISTINCT_MAP_FST_ADD1 = prove(
+  ``!xs. ALL_DISTINCT (MAP (λk. FST k + 1n) xs) =
+         ALL_DISTINCT (MAP FST xs)``,
+  Induct \\ fs [MEM_MAP]);
+
+val make_g_wfg = store_thm("make_g_wfg",
+  ``make_g d code = SOME g ==> wfg g``,
+  rw [make_g_def,wfg_def] \\ fs [MAP_MAP_o,o_DEF]
+  \\ fs [ALL_DISTINCT_MAP_FST_ADD1,ALL_DISTINCT_MAP_FST_toAList]
+  \\ fs [EXTENSION,MEM_MAP,ADD1,EXISTS_PROD,MEM_toAList,domain_lookup]
+  \\ fs [PULL_EXISTS]);
+
 val recclosure_wf_def = Define`
   recclosure_wf loc fns ⇔
     every_Fn_SOME (MAP SND fns) ∧
@@ -269,11 +287,13 @@ val wfv_state_def = Define`
 val _ = temp_type_abbrev("calls_state",
           ``:num_set # (num, num # closLang$exp) alist``);
 
+val _ = temp_type_abbrev("abs_calls_state",``:num_set``);
+
 val correct_l_def = Define `
   correct_l l g <=> l = UNIV DIFF domain (FST g)`;
 
 val state_rel_def = Define`
-  state_rel g l (s:(calls_state # 'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) ⇔
+  state_rel g l (s:(abs_calls_state # 'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) ⇔
     (s.ffi = t.ffi) ∧
     (s.clock = t.clock) ∧
     (s.max_app = t.max_app) ∧
@@ -1443,7 +1463,7 @@ val wfv_v2l = Q.store_thm("wfv_v2l",
   \\ fs [wfv_def, v_to_list_def]);
 
 val do_app_thm = Q.store_thm("do_app_thm",
-  `case do_app op (REVERSE a) (r:(calls_state # 'c,'ffi) closSem$state) of
+  `case do_app op (REVERSE a) (r:(abs_calls_state # 'c,'ffi) closSem$state) of
       Rerr (Rraise _) => F
     | Rerr (Rabort e) =>
       (e = Rtype_error \/
@@ -1470,7 +1490,7 @@ val do_app_thm = Q.store_thm("do_app_thm",
   \\ reverse strip_tac
   THEN1
    (assume_tac (GEN_ALL simple_val_rel_do_app
-                |> INST_TYPE [alpha|->``:calls_state # 'c``])
+                |> INST_TYPE [alpha|->``:abs_calls_state # 'c``])
     \\ pop_assum (qspecl_then [`REVERSE v`,`REVERSE a`,
                 `v_rel g1 l1 t.code`,
                 `t`,`\s u. state_rel g1 l1 s u /\ u.code = t.code`,
@@ -1496,8 +1516,8 @@ val do_app_thm = Q.store_thm("do_app_thm",
     THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM])
     THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]))
   \\ assume_tac (GEN_ALL simple_val_rel_do_app
-                 |> INST_TYPE [gamma|->``:calls_state # 'c``]
-                 |> INST_TYPE [alpha|->``:calls_state # 'c``])
+                 |> INST_TYPE [gamma|->``:abs_calls_state # 'c``]
+                 |> INST_TYPE [alpha|->``:abs_calls_state # 'c``])
   \\ pop_assum (qspecl_then [`REVERSE a`,`REVERSE a`,
                 `\v1 v2. wfv g1 l1 t.code v1 /\ v1 = v2`,
                 `r`,`\s1 s2. wfv_state g1 l1 t.code s1 /\ s1 = s2`,
@@ -1578,22 +1598,28 @@ val env_rel_Op_Install = prove(
   \\ qsuff_tac `!x. EXISTS (λx'. fv1 x x') e1 = fv x e1` \\ fs []
   \\ Induct_on `e1` \\ fs []);
 
-val compile_inc_def = Define `
-  compile_inc g (e,xs) =
-    let (ea, g') = calls [e] g in
-      (g', HD ea, TAKE (LENGTH (SND g') - LENGTH (SND g)) (SND g'))`;
-
 val syntax_ok_def = Define`
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)`;
+
+val calls_acc = store_thm("calls_acc",
+  ``!xs d old res d1 aux.
+      calls xs (d, []) = (res, d1, aux) ==>
+      calls xs (d, old) = (res, d1, aux ++ old)``,
+  cheat (* routine proof? *));
+
+val compile_inc_def = Define `
+  compile_inc d (e,xs) =
+    let (ea, d1, new_code) = calls [e] (d,[]) in
+      (d1, HD ea, new_code)`;
 
 val co_ok_def = Define `
   co_ok code co g k <=>
     if k = 0 then T else
       let (cfg,exp,aux) = co 0 in
       let (g',exp',aux1) = compile_inc g (exp,aux) in
-        (∀x i. MEM x (code_locs [exp]) ∧ x ∉ domain (FST g') ==>
-               x ∉ domain (FST (FST (FST (co i))))) /\
-        code_includes (SND g') (code |++ aux1) /\
+        (∀x i. MEM x (code_locs [exp]) ∧ x ∉ domain g' ==>
+               x ∉ domain (FST (FST (co i)))) /\
+        DISJOINT (set (code_locs [exp])) (domain g) /\
         DISJOINT (FDOM code) (set (MAP FST aux1)) /\
         ALL_DISTINCT (MAP FST aux1) /\
         co_ok (code |++ aux1) (shift_seq 1 co) g' (k-1n)`
@@ -1603,12 +1629,10 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
+    (?full_g. make_g (FST (FST (s_co 0))) t_code = SOME full_g) /\
     (!k. co_ok t_code s_co (FST (FST (s_co 0))) k) /\
-    (!k n. k <= n ==> subg (FST (FST (s_co k))) (FST (FST (s_co n)))) /\
     (∀k. let (cfg,exp,aux) = s_co (k:num) in
-           DISJOINT (IMAGE SUC (set (code_locs [exp])))
-             (set (MAP FST (SND (FST cfg)))) /\
-           wfg (FST cfg) /\ aux = [] /\
+           aux = [] /\
            every_Fn_SOME [exp] /\
            every_Fn_vs_NONE [exp] /\
            ALL_DISTINCT (code_locs [exp]))`
@@ -1634,9 +1658,10 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
     DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) ∧
     ALL_DISTINCT (MAP FST (SND progs)) /\
     t.compile cfg' progs = SOME (bytes,data,FST (shift_seq 1 t.compile_oracle 0)) /\
-    ?exp1 aux1 g5 exp5 aux5 other.
+    ?g4 exp1 aux1 g5 exp5 aux5 other.
       progs = (exp1,aux1) /\
-      calls [exp'] (FST cfg) = ([exp1],g5) /\
+      make_g (FST cfg) t.code = SOME g4 /\
+      calls [exp'] g4 = ([exp1],g5) /\
       state_rel g1 l1
        (r with
         <|compile_oracle := shift_seq 1 r.compile_oracle;
@@ -1645,59 +1670,74 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
         <|compile_oracle := shift_seq 1 t.compile_oracle;
           code := t.code |++ aux1|>) ∧
       code_inv (r.code |++ aux) r.compile (shift_seq 1 r.compile_oracle)
-        (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle) /\
-      r.compile_oracle 1 = ((g5,other),exp5,aux5) /\
+               (t.code |++ aux1) t.compile (shift_seq 1 t.compile_oracle) /\
+      r.compile_oracle 1 = ((FST g5,other),exp5,aux5) /\
       t.code SUBMAP (t.code |++ aux1) /\
       code_includes (SND g5) (t.code |++ aux1)``,
-  Cases_on `calls [exp'] (FST cfg)` \\ fs []
+  strip_tac \\ fs [code_inv_def]
+  \\ Cases_on `calls [exp'] full_g` \\ fs []
   \\ imp_res_tac calls_sing \\ rveq \\ fs []
-  \\ PairCases_on `progs` \\ fs [] \\ strip_tac
+  \\ PairCases_on `progs` \\ fs []
   \\ fs [code_inv_def] \\ rfs []
+  \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [Once state_co_def] \\ fs []
   \\ qpat_x_assum `_ = SOME _` mp_tac
   \\ simp [Once state_cc_def] \\ fs []
   \\ PairCases_on `cfg` \\ fs []
   \\ simp [Once compile_inc_def] \\ fs [] \\ rveq \\ fs []
-  \\ TOP_CASE_TAC \\ fs []
+  \\ simp [Once compile_inc_def] \\ fs [] \\ rveq \\ fs []
+  \\ `?x1 x2 x3. calls [exp'] (cfg0,[]) = (x1,x2,x3)` by metis_tac [PAIR] \\ fs []
+  \\ drule calls_acc
+  \\ disch_then (qspec_then `SND full_g` mp_tac)
+  \\ `(cfg0,SND full_g) = full_g` by (fs [make_g_def] \\ rveq \\ fs [])
+  \\ fs [] \\ pop_assum kall_tac
+  \\ simp [option_case_eq,pair_case_eq]
+  \\ ntac 4 strip_tac \\ rveq \\ fs []
   \\ rename [`t.compile cfg2 (output,_) = SOME xx`]
   \\ PairCases_on `xx` \\ fs []
   \\ fs [shift_seq_def] \\ rveq \\ fs []
-  \\ strip_tac \\ rveq \\ fs []
   \\ fs [compile_inc_def]
-  \\ strip_tac \\ rveq \\ fs []
   \\ simp [Once state_co_def] \\ fs []
-  \\ Cases_on `r.compile_oracle 1` \\ fs []
-  \\ rveq \\ fs []
+  \\ Cases_on `r.compile_oracle 1` \\ fs [] \\ rveq \\ fs []
   \\ rename [`r.compile_oracle 1 = ((r1,xx2),r2)`]
   \\ Cases_on `r2` \\ fs [compile_inc_def]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ `aux = []` by (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
   \\ fs [FUPDATE_LIST,state_co_def,state_rel_def]
-  \\ qabbrev_tac `aux1 = (TAKE (LENGTH (SND r1) − LENGTH cfg1) (SND r1))`
   \\ rewrite_tac [GSYM FUPDATE_LIST]
   \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `1` mp_tac)
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once co_ok_def]))
   \\ fs [compile_inc_def] \\ strip_tac
-  \\ `t.code ⊑ t.code |++ aux1` by (match_mp_tac SUBMAP_FUPDATE_LIST \\ fs [])
-  \\ fs []
-  \\ reverse conj_tac THEN1
-   (rw [] \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `k+1` mp_tac)
-    \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once co_ok_def]))
-    \\ fs [compile_inc_def,shift_seq_def])
-  \\ conj_tac THEN1
-   (match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
-    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ rw[]
-    \\ match_mp_tac (GEN_ALL (MP_CANON OPTREL_MONO))
-    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ fs []
-    \\ rw [] \\ match_mp_tac (GEN_ALL v_rel_SUBMAP) \\ asm_exists_tac \\ fs [])
-  THEN1
-   (match_mp_tac (GEN_ALL (MP_CANON fmap_rel_mono))
+  \\ `t.code ⊑ t.code |++ progs1` by (match_mp_tac SUBMAP_FUPDATE_LIST \\ fs [])
+  \\ fs [] \\ conj_tac THEN1
+   (conj_tac THEN1
+     (match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
+      \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ rw[]
+      \\ match_mp_tac (GEN_ALL (MP_CANON OPTREL_MONO))
+      \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ fs []
+      \\ rw [] \\ match_mp_tac (GEN_ALL v_rel_SUBMAP) \\ asm_exists_tac \\ fs [])
+    \\ match_mp_tac (GEN_ALL (MP_CANON fmap_rel_mono))
     \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ rw[]
     \\ Cases_on `x` \\ fs []
     \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
     \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ rw[]
-    \\ match_mp_tac (GEN_ALL v_rel_SUBMAP) \\ asm_exists_tac \\ fs []))
+    \\ match_mp_tac (GEN_ALL v_rel_SUBMAP) \\ asm_exists_tac \\ fs [])
+  \\ conj_tac
+  THEN1 (fs [make_g_def] \\ cheat (* easy? *))
+  \\ conj_tac
+  THEN1
+   (rw [] \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `k+1` mp_tac)
+    \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once co_ok_def]))
+    \\ fs [compile_inc_def,shift_seq_def])
+  \\ fs [make_g_def] \\ rveq \\ fs [code_includes_def]
+  \\ fs [flookup_update_list_some,ALOOKUP_APPEND,option_case_eq]
+  \\ fs [alookup_distinct_reverse]
+  \\ rw [] \\ fs []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [MEM_MAP] \\ rename [`MEM kk _`]
+  \\ PairCases_on `kk` \\ rveq \\ fs []
+  \\ fs [MEM_toAList,SUBSET_DEF,PULL_EXISTS,ADD1,FLOOKUP_DEF,domain_lookup])
   |> GEN_ALL;
 
 val fv_GENLIST_Var_alt = store_thm("fv_GENLIST_Var_alt",
@@ -1717,7 +1757,7 @@ val env_rel_env_exists = store_thm("env_rel_env_exists",
 
 val includes_state_def = Define `
   includes_state g1 s_compile_oracle <=>
-    ?k:num. FST (FST (s_compile_oracle k)) = g1`;
+    ?k:num. FST (FST (s_compile_oracle k)) = FST g1`;
 
 val evaluate_includes_state = store_thm("evaluate_includes_state",
   ``!xs env s res s1 g1.
@@ -1810,7 +1850,12 @@ val calls_correct = Q.store_thm("calls_correct",
       code_inv s.code s.compile s.compile_oracle
                t.code t.compile t.compile_oracle ∧
       result_rel (LIST_REL (v_rel g l t.code)) (v_rel g l t.code) res res')`,
+
   ho_match_mp_tac evaluate_ind
+  \\ ntac 7 (conj_tac >- cheat)
+  \\ reverse conj_tac THEN1 cheat
+
+(*
   \\ conj_tac >- (
     rw[]
     \\ qexists_tac`0`
@@ -2321,8 +2366,9 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
     \\ fs [evaluate_def])
   (* Op *)
-  \\ conj_tac >- (
-    fs [evaluate_def,calls_def] \\ rw []
+  \\ conj_tac >- ( *)
+
+    \\ fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)` \\ fs []
@@ -2419,6 +2465,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ drule code_rel_state_rel_install
     \\ fs [shift_seq_def]
     \\ rpt (disch_then drule) \\ strip_tac
+    \\ imp_res_tac make_g_wfg
     \\ `t.clock <> 0` by fs [state_rel_def] \\ fs []
     \\ fs [state_rel_def,FUPDATE_LIST]
     \\ first_x_assum drule
@@ -2452,16 +2499,31 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ simp [includes_state_def] \\ strip_tac
       \\ qpat_x_assum `_ = (res,s')` assume_tac
       \\ drule evaluate_code \\ rw [] \\ fs [shift_seq_def]
-      \\ rpt (first_x_assum (qspecl_then [`1`,`k+n+1`] mp_tac)) \\ fs [])
+      \\ rpt (first_x_assum (qspecl_then [`1`,`k+n+1`] mp_tac)) \\ fs []
+      \\ cheat)
     \\ fs [correct_l_def]
     \\ fs [SUBSET_DEF]
     \\ fs [code_inv_def]
-    \\ qpat_x_assum `∀k. co_ok t.code r.compile_oracle (FST cfg) k` mp_tac
+    \\ `FST cfg = FST g4` by (fs [make_g_def] \\ rveq \\ fs []) \\ fs []
+    \\ qpat_x_assum `∀k. co_ok t.code r.compile_oracle (FST g4) k` mp_tac
     \\ disch_then (qspec_then `1` mp_tac)
     \\ once_rewrite_tac [co_ok_def] \\ fs [compile_inc_def]
     \\ qpat_x_assum `includes_state g1 r.compile_oracle` mp_tac
     \\ simp [includes_state_def] \\ strip_tac \\ rveq
-    \\ metis_tac [])
+    \\ `?y1 y2 y3. (calls [exp'] (FST g4,[])) = (y1,y2,y3)` by metis_tac [PAIR]
+    \\ drule calls_acc
+    \\ disch_then (qspec_then `SND g4` mp_tac) \\ fs []
+    \\ strip_tac \\ rveq \\ fs []
+    \\ rpt strip_tac THEN1 fs [wfg_def,DISJOINT_IMAGE_SUC]
+    \\ first_x_assum drule
+    \\ disch_then drule \\ fs []
+    \\ qpat_x_assum `includes_state g1 s'.compile_oracle` mp_tac
+    \\ simp [includes_state_def] \\ strip_tac
+    \\ qpat_x_assum `_ = (res,s')` assume_tac
+    \\ drule evaluate_code \\ rw [] \\ fs [shift_seq_def]
+    \\ metis_tac []
+
+(*
   (* Fn *)
   \\ conj_tac >- (
     rw[evaluate_def]
@@ -2980,7 +3042,8 @@ val calls_correct = Q.store_thm("calls_correct",
          \\ imp_res_tac evaluate_mono \\ fs [])
       \\ fs []
       \\ strip_tac \\ rveq
-      \\ drule (Q.GEN`s`pure_correct |> INST_TYPE [``:'c``|->``:calls_state # 'c``])
+      \\ drule (Q.GEN`s`pure_correct
+                |> INST_TYPE [``:'c``|->``:abs_calls_state # 'c``])
       \\ disch_then(qspec_then`r`mp_tac)
       \\ simp[]
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -3648,7 +3711,7 @@ val calls_correct = Q.store_thm("calls_correct",
   \\ qmatch_assum_abbrev_tac `closSem$evaluate (_,_,(_ with clock := ck11)) = _`
   \\ qmatch_goalsub_abbrev_tac `_ with clock := ck22`
   \\ qsuff_tac `ck11 = ck22` \\ rw [] \\ fs []
-  \\ unabbrev_all_tac \\ fs []);
+  \\ unabbrev_all_tac \\ fs [] *));
 
 val code_locs_calls_list = Q.prove(`
   ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []`,
@@ -3723,12 +3786,12 @@ val calls_code_locs_ALL_DISTINCT = Q.store_thm("calls_code_locs_ALL_DISTINCT",
 val extra_code_assum_def = Define `
   extra_code_assum prog g0 co =
     ∀n m. MEM n (code_locs prog) ∧ n ∉ domain g0 ⇒
-          n ∉ domain (FST (FST (FST (co m))))`;
+          n ∉ domain (FST (FST (co m)))`;
 
 val semantics_calls = Q.store_thm("semantics_calls",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
-   ALL_DISTINCT (code_locs x) /\ FST (FST (co 0)) = (g0,aux) /\
+   ALL_DISTINCT (code_locs x) /\ FST (FST (co 0)) = g0 /\
    extra_code_assum x g0 co /\
    code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
    semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
@@ -3743,38 +3806,36 @@ val semantics_calls = Q.store_thm("semantics_calls",
   \\ rpt (disch_then drule) \\ fs [EVAL ``wfg (LN,[])``]
   \\ disch_then (qspecl_then [`[]`,
       `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
-      `UNIV DIFF domain (FST (FST (FST (s2.compile_oracle 0))))`,
-      `FST (FST (s2.compile_oracle 0))`] mp_tac)
+      `UNIV DIFF domain (FST (FST (s2.compile_oracle 0)))`,
+      `THE (make_g ((FST (FST (s2.compile_oracle 0)))) s2.code)`] mp_tac)
   \\ simp []
-  \\ `wfg (g0,aux)` by
+  \\ `wfg (FST (FST (co 0)),aux)` by
    (match_mp_tac calls_wfg
     \\ asm_exists_tac \\ fs []
     \\ EVAL_TAC \\ fs [])
+  \\ `?rest.
+        make_g (FST (FST (s2.compile_oracle 0))) s2.code =
+          SOME (FST (FST (s2.compile_oracle 0)),rest)` by cheat
+  \\ fs []
   \\ impl_tac THEN1
    (rpt conj_tac
     \\ fs [env_rel_def,state_rel_def,initial_state_def,code_includes_def]
     \\ fs [correct_l_def]
     THEN1 (fs [wfv_state_def,initial_state_def,FEVERY_DEF,code_inv_def])
     THEN1
-     (drule evaluate_code \\ rw [] \\ fs []
-      \\ fs [code_inv_def,shift_seq_def]
-      \\ first_x_assum (qspecl_then [`0`,`n`] mp_tac) \\ fs [])
+     (imp_res_tac make_g_wfg \\ fs [wfg_def,subg_def] \\ cheat (* subg *))
     THEN1
      (fs [SUBSET_DEF]
       \\ drule evaluate_code \\ strip_tac
       \\ fs [shift_seq_def,extra_code_assum_def])
     THEN1 (fs [IN_DISJOINT,IN_DIFF] \\ metis_tac [])
-    THEN1
-     (drule evaluate_code \\ rw [] \\ fs []
-      \\ fs [code_inv_def,shift_seq_def]
-      \\ rpt (first_x_assum (qspecl_then [`n`] mp_tac)) \\ fs []
-      \\ Cases_on `co n` \\ fs [] \\ PairCases_on `r` \\ fs [])
+    THEN1 (imp_res_tac make_g_wfg \\ fs [])
     THEN1
      (full_simp_tac std_ss [GSYM FUPDATE_LIST]
       \\ rpt strip_tac
       \\ match_mp_tac mem_to_flookup
       \\ fs [ALOOKUP_MEM]
-      \\ `aux = SND (g0,aux)` by fs []
+      \\ `aux = SND (FST (FST (co 0)),aux)` by fs []
       \\ pop_assum (fn th => once_rewrite_tac [th])
       \\ match_mp_tac calls_ALL_DISTINCT
       \\ asm_exists_tac \\ fs [])
@@ -3793,7 +3854,7 @@ val semantics_compile = Q.store_thm("semantics_compile",
   `semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
-    syntax_ok x ∧ FST (FST (co 0)) = (g1,aux) ∧
+    syntax_ok x ∧ FST (FST (co 0)) = g1 ∧
     extra_code_assum x g1 co /\
     code_inv FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
