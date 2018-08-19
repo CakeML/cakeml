@@ -2099,34 +2099,42 @@ val known_correct_approx = Q.store_thm(
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
       \\ simp []))
   THEN1
-   (say "Let" \\ cheat (*
+   (say "Let"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
     \\ rename1 `known _ xs _ g0 = (ea1, g1)`
     \\ rename1 `known _ [x2] _ g1 = ([(e2,a2)], g)`
-    \\ `subspt g0 g1 /\ subspt g1 g`
-       by (match_mp_tac subspt_known_elist_globals
-           \\ rpt (goal_assum drule \\ simp [])
-           \\ fs [unique_set_globals_def,
-                  BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
-    \\ `subspt g1 g'` by metis_tac [subspt_trans]
-    \\ fs [fv_max_rw]
-    \\ fs [evaluate_def, pair_case_eq]
-    \\ first_x_assum drule \\ rpt (disch_then drule)
-    \\ fs [result_case_eq] \\ rveq \\ fs [] \\ strip_tac
-    \\ patresolve `unique_set_globals [_] _` hd unique_set_globals_evaluate
-    \\ disch_then drule \\ strip_tac
-    \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
-    \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
-       by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
-           \\ rpt (disch_then drule \\ simp []))
-    \\ first_x_assum drule
-    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-    \\ drule co_disjoint_globals_evaluate \\ disch_then drule \\ strip_tac
-    \\ disch_then match_mp_tac \\ simp []
-    \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
-    \\ simp [] \\ strip_tac \\ fs []
-    \\ irule EVERY2_APPEND_suff \\ simp []*))
+    \\ imp_res_tac unique_set_globals_subexps
+    \\ fs[mglobals_disjoint_rw, fv_max_rw]
+    \\ reverse(fs[evaluate_def, result_case_eq, pair_case_eq]) \\ rveq
+    >- (
+      first_x_assum drule \\ fs[]
+      \\ strip_tac
+      \\ irule state_globals_approx_known_mglobals_disjoint
+      \\ asm_exists_tac \\ rw[]
+      \\ irule mglobals_disjoint_evaluate
+      \\ goal_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
+      \\ fs[unique_set_globals_def,elist_globals_append] )
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ last_x_assum drule \\ fs[]
+    \\ disch_then irule
+    \\ last_assum(mp_then Any mp_tac evaluate_changed_globals)
+    \\ fs[] \\ strip_tac
+    \\ last_assum(mp_then (Pat`known`) mp_tac known_preserves_esgc_free)
+    \\ fs[] \\ strip_tac
+    \\ last_assum(mp_then (Pat`closSem$evaluate`) mp_tac oracle_gapprox_disjoint_lemma)
+    \\ disch_then drule
+    \\ fs[] \\ strip_tac
+    \\ conj_tac
+    >- (
+      irule mglobals_disjoint_evaluate
+      \\ goal_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
+      \\ fs[unique_set_globals_def,elist_globals_append] )
+    \\ first_x_assum drule \\ fs[]
+    \\ strip_tac
+    \\ conj_tac
+    >- ( irule unique_set_globals_shift_seq \\ fs[] )
+    \\ irule EVERY2_APPEND_suff \\ fs[])
   THEN1
    (say "Raise"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
