@@ -121,10 +121,10 @@ sig
     val remove_Eq_from_v_thm : thm -> thm
 
     (* Internal - handling type constructor names *)
-    val mk_tyname : term -> string
-    val enter_tyname : term * term -> string
-    val lookup_tyname : string -> term * string option
-    val instantiate_lookup_cons : thm -> thm
+    val mk_cons_name : term -> string
+    val enter_cons_name : term * term -> string
+    val lookup_cons_name : string -> term * string option
+    val instantiate_cons_name : thm -> thm
 
     (* Internal - for preprocess_monadic_def *)
     val force_eqns                   : thm -> thm

@@ -152,7 +152,7 @@ local
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
   val tyname_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
-                                (term *         (* constructor       *)
+                                (term *         (* constructor name  *)
                                  string option) (* module name       *)) list);
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
@@ -326,7 +326,7 @@ in
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
   fun get_tynames () = !tyname_state
-  fun mk_tyname tm =
+  fun mk_cons_name tm =
     let
       val (_, ty) = strip_fun (type_of tm)
       val info = Option.valOf (TypeBase.fetch ty)
@@ -336,19 +336,20 @@ in
       (* separating with underscores is more prone to name clashes *)
       String.concat ["%%", thyn, "%%", tyn, "%%", name, "%%"]
     end
-  fun lookup_tyname key = Lib.assoc key (!tyname_state)
-  fun enter_tyname (tm, v_tm) =
+  fun lookup_cons_name key = Lib.assoc key (!tyname_state)
+  fun enter_cons_name (tm, v_tm) =
     let
-      val key   = mk_tyname tm
+      val key   = mk_cons_name tm
       (* TODO remove: *)
       val _ = print ("tyname_state: entering constructor: " ^ key ^ "\n")
       val mname = get_curr_module_name ()
-      val (v_tm', mname') = lookup_tyname key handle HOL_ERR _ => (v_tm, mname)
+      val (v_tm', mname') = lookup_cons_name key
+                            handle HOL_ERR _ => (v_tm, mname)
     in
       if v_tm' = v_tm andalso mname = mname' then
         key before tyname_state := (key, (v_tm, mname)) :: (!tyname_state)
       else
-        raise ERR "enter_tyname"
+        raise ERR "enter_cons_name"
                 ("already entered with different value: " ^ term_to_string v_tm)
     end
 end
@@ -1322,7 +1323,7 @@ val th = inv_defs |> map #2 |> hd
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
       val ctor = tm |> dest_eq |> fst |> rator |> rand |> repeat rator
-      val cv = mk_var (enter_tyname (ctor, n), str_id_ty)
+      val cv = mk_var (enter_cons_name (ctor, n), str_id_ty)
       in mk_eq(mk_lookup_cons(cv, env_tm),
                optionSyntax.mk_some(mk_pair(l,x))) end
     else let
@@ -1331,7 +1332,7 @@ val th = inv_defs |> map #2 |> hd
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
       val ctor = tm |> dest_eq |> fst |> rator |> rand |> repeat rator
-      val cv = mk_var (enter_tyname (ctor, rand n), str_id_ty)
+      val cv = mk_var (enter_cons_name (ctor, rand n), str_id_ty)
       in mk_eq(mk_lookup_cons(cv, env_tm),
                optionSyntax.mk_some(mk_pair(l,mk_ExnStamp (rand (rator n))))) end
   val type_assum =
@@ -1416,7 +1417,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
           val str = stringSyntax.fromMLstring str
           *)
           val cons_name = repeat rator tm
-          val kv = mk_var (mk_tyname cons_name, str_id_ty)
+          val kv = mk_var (mk_cons_name cons_name, str_id_ty)
           val vars = listSyntax.mk_list(map (fn (x,n,v) => n) xs,string_ty)
           in list_mk_pair([kv,vars,exp,get_stamp kv]) end) ts
         val (inr,x) = Mat_cases_def |> SPEC_ALL |> concl |> rand
@@ -1518,9 +1519,9 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
         |> CONJUNCTS |> map (concl o SPEC_ALL)
         |> first (can (match_term tm) o rand o rator o fst o dest_eq)
         |> dest_eq |> fst |> rator |> rand |> repeat rator
-        |> mk_tyname
+        |> mk_cons_name
     val str =
-      (tag |> lookup_tyname |> fst
+      (tag |> lookup_cons_name |> fst
        handle HOL_ERR _ => stringLib.fromMLstring tag)
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
@@ -3602,7 +3603,7 @@ end;
 (* Instantiate constructor variables with their actual names. Names are
  * constructed differently depending on whether types originate in a module
  * which is not the one where translation currently takes place *)
-fun instantiate_lookup_cons th =
+fun instantiate_cons_name th =
   let
     val hyps = fst (dest_thm th)
     val lcons_tm =
@@ -3624,7 +3625,7 @@ fun instantiate_lookup_cons th =
     val current_mname = get_curr_module_name ()
     fun inst_var tm =
       let
-        val (nm, mname) = lookup_tyname (fst (dest_var tm))
+        val (nm, mname) = lookup_cons_name (fst (dest_var tm))
         val s = mk_Short nm
       in
         case mname of
@@ -3688,7 +3689,7 @@ val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
   val thms = loop info
-  val thms = map (fn (x0,x1,th,x2) => (x0,x1,instantiate_lookup_cons th,x2)) thms
+  val thms = map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2)) thms
 
   val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
