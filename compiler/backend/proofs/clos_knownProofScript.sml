@@ -2154,40 +2154,61 @@ val known_correct_approx = Q.store_thm(
     \\ first_x_assum (qpat_assum `evaluate _ = _` o mp_then Any match_mp_tac)
     \\ fs [dec_clock_def, next_g_def, mglobals_disjoint_def])
   THEN1
-   (say "Handle" \\ cheat (*
+   (say "Handle"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
     \\ rename1 `known limit [x1] _ g0 = ([(e1,a1)], g1)`
     \\ rename1 `known limit [x2] _ g1 = ([(e2,a2)], g)`
     \\ fs [evaluate_def, pair_case_eq]
-    \\ `subspt g0 g1 /\ subspt g1 g`
-       by (match_mp_tac subspt_known_elist_globals
-           \\ rpt (asm_exists_tac \\ simp [])
-           \\ fs [unique_set_globals_def,
-                  BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
-    \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
-    \\ fs [fv_max_rw]
-    \\ first_x_assum drule \\ rpt (disch_then drule) \\ strip_tac
-    \\ fs [case_eq_thms] \\ rveq \\ fs []
-    THEN1 (fs [val_approx_val_merge_I])
-    \\ rename1 `evaluate (_,_,s0) = (Rerr (Rraise v), s1)`
-    \\ `unique_set_globals [x2] s1.compile_oracle`
-         by metis_tac [unique_set_globals_evaluate]
-    \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
-    \\ simp [] \\ strip_tac \\ fs []
-    \\ `ssgc_free s1 /\ vsgc_free v`
-       by (patresolve `ssgc_free _` (el 2) evaluate_changed_globals
-           \\ rpt (disch_then drule \\ simp []))
-    \\ first_x_assum (qspec_then `[v] ++ env` mp_tac)
-    \\ simp [] \\ rpt (disch_then drule \\ simp [])
-    \\ `subspt (next_g s0) (next_g s1)`
-       by (simp [next_g_def]
-           \\ imp_res_tac evaluate_IMP_shift_seq
-           \\ simp [shift_seq_def, oracle_gapprox_subspt_alt])
-    \\ impl_tac THEN1 metis_tac [subspt_trans, oracle_gapprox_subspt_evaluate]
-    \\ strip_tac
-    \\ Cases_on `res`
-    \\ fs [val_approx_val_merge_I]*))
+    \\ imp_res_tac unique_set_globals_subexps
+    \\ fs[mglobals_disjoint_rw, fv_max_rw]
+    \\ reverse(fs[evaluate_def, result_case_eq, CaseEq"error_result"]) \\ rveq
+    >- (
+      first_x_assum drule \\ fs[]
+      \\ strip_tac
+      \\ irule state_globals_approx_known_mglobals_disjoint
+      \\ asm_exists_tac \\ rw[]
+      \\ irule mglobals_disjoint_evaluate
+      \\ goal_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
+      \\ fs[unique_set_globals_def,elist_globals_append]
+      \\ fs[BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+    >- (
+      first_x_assum drule \\ fs[]
+      \\ strip_tac
+      \\ `v::(env++extra) = (v::env ++ extra)` by fs[]
+      \\ pop_assum SUBST_ALL_TAC
+      \\ first_x_assum drule \\ fs[ADD1]
+      \\ impl_tac
+      >- (
+        conj_tac
+        >- (
+          last_assum(mp_then (Pat`closSem$evaluate`)mp_tac unique_set_globals_evaluate)
+          \\ disch_then drule \\ fs[] )
+        \\ conj_tac
+        >- (
+          irule mglobals_disjoint_evaluate
+          \\ goal_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
+          \\ fs[unique_set_globals_def,elist_globals_append]
+          \\ fs[BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+        \\ conj_tac
+        >- (
+          last_assum(mp_then (Pat`closSem$evaluate`)mp_tac oracle_gapprox_disjoint_lemma)
+          \\ disch_then drule \\ fs[] )
+        \\ last_assum(mp_then Any mp_tac evaluate_changed_globals)
+        \\ fs[] \\ strip_tac
+        \\ last_assum(mp_then (Pat`known`) mp_tac known_preserves_esgc_free)
+        \\ fs[] )
+      \\ rw[]
+      \\ irule val_approx_val_merge_I \\ fs[] )
+    \\ first_x_assum drule \\ fs[]
+    \\ strip_tac \\ fs[] \\ rveq
+    \\ conj_tac
+    >- (
+      drule state_globals_approx_evaluate
+      \\ disch_then drule
+      \\ disch_then irule
+      \\ fs[unique_set_globals_def,elist_globals_append] )
+    \\ irule val_approx_val_merge_I \\ fs[])
   THEN1
    (say "Call"  \\ cheat (*
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
