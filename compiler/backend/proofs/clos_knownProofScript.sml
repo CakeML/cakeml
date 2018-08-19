@@ -1972,7 +1972,6 @@ val known_correct_approx = Q.store_thm(
    ==>
      state_globals_approx s g /\
      !vs. res = Rval vs ==> LIST_REL val_approx_val (MAP SND eas) vs`,
-
   ho_match_mp_tac known_ind \\ simp [known_def]
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
   \\ imp_res_tac evaluate_SING \\ rveq
@@ -2241,20 +2240,21 @@ val known_correct_approx = Q.store_thm(
            \\ metis_tac [ssgc_free_def])
     \\ patresolve `evaluate ([exp],_,_) = _` (el 1) evaluate_changed_globals
     \\ simp [dec_clock_def, set_globals_empty_esgc_free] \\ strip_tac
+    \\ last_assum(mp_then Any mp_tac oracle_gapprox_disjoint_lemma)
+    \\ disch_then drule
+    \\ fs[] \\ strip_tac
+    \\ fs[oracle_gapprox_disjoint_def, gapprox_disjoint_def]
     \\ fs[state_globals_approx_def]
-    \\ imp_res_tac set_globals_empty_esgc_free
     \\ fs[mglobals_extend_def] \\ rw[]
-    \\ first_x_assum drule
-    \\ qmatch_goalsub_abbrev_tac`k <: b`
-    \\ reverse(Cases_on`k <: b`) \\ fs[] >- metis_tac[]
-    \\ fs[Abbr`b`]
-    \\ drule elist_globals_first_n_exps_exists
-    \\ strip_tac
-    \\ fs[ssgc_free_def]
-    \\ qmatch_asmsub_rename_tac`FST(SND(s1.compile_oracle m))`
-    \\ Cases_on`SND (s1.compile_oracle m)` \\ fs[]
-    \\ first_x_assum drule
-    \\ cheat )
+    \\ first_assum drule
+    \\ impl_tac
+    >- (
+      strip_tac
+      \\ drule elist_globals_first_n_exps_exists
+      \\ disch_then(qx_choose_then`m`strip_assume_tac)
+      \\ fs[IN_DISJOINT, domain_lookup]
+      \\ metis_tac[] )
+    \\ metis_tac[])
   THEN1
    (say "Op"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -2459,7 +2459,6 @@ val known_correct_approx = Q.store_thm(
     \\ simp [EVERY_GENLIST]
     \\ irule EVERY2_APPEND_suff \\ simp []
     \\ fs [case_eq_thms] \\ rveq \\ simp [LIST_REL_GENLIST]));
-
 
 (* code relation *)
 
