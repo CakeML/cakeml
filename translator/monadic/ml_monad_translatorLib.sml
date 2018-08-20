@@ -3289,6 +3289,9 @@ fun m_translate_run def =
     val params_evals = List.map var_create_Eval all_params
     val th = m_translate_run_abstract_parameters th def params_evals
 
+    (* Clean up any stray lookup_cons with variables in them *)
+    val th = instantiate_cons_name th
+
     (* Instantiate the environment 0 *)
     val global_env = get_env(get_curr_prog_state())
     val env = concl th |> get_Eval_env
