@@ -293,18 +293,13 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
      (HOL_STORE st.holrefs * COMMANDLINE st.cl * MONAD_IO st.stdio)
      (POSTv uv.
        &UNIT_TYPE () uv *
-       STDIO (reader_main st.stdio st.holrefs (TL st.cl)))`,
+       STDIO (FST (SND (reader_main st.stdio st.holrefs (TL st.cl)))))`,
   rw [] \\ xapp \\ xsimpl
   \\ simp [definition"STATE_STORE_def"]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `st` \\ xsimpl
   \\ conj_tac
-  >-
-   (rw [definition "readmain_side_def", definition "readfile_side_def"]
-    \\ fs [wfcl_def]
-    \\ imp_res_tac EVERY_TL \\ Cases_on `st.cl` \\ fs []
-    \\ fs [arguments_def, liftM_def, ELIM_UNCURRY] \\ rw []
-    \\ fs [validArg_def])
+  >- (imp_res_tac readMain_side \\ fs [])
   \\ reverse conj_tac
   >-
    (rw []
@@ -315,6 +310,7 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
   \\ rw [MONAD_IO_def]
   \\ xsimpl \\ rw []
   \\ Cases_on `reader_main st.stdio st.holrefs (TL st.cl)`
+  \\ PairCases_on `r`
   \\ imp_res_tac readMain_correct \\ fs []
   \\ qpat_x_assum `_ = init_refs` (assume_tac o GSYM) \\ fs []
   \\ xsimpl);
@@ -329,7 +325,7 @@ val monadreader_wps = Q.store_thm("monadreader_wps",
    ==>
    whole_prog_spec ^(fetch_v "readmain" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
-     ((=) (reader_main fs init_refs (TL cl)))`,
+     ((=) (FST (SND (reader_main fs init_refs (TL cl)))))`,
   rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
   \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]

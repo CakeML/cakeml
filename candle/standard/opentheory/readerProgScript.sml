@@ -221,8 +221,8 @@ val read_file_spec = Q.store_thm("read_file_spec",
      (STDIO fs * HOL_STORE refs)
      (POSTv u.
        &UNIT_TYPE () u *
-       STDIO (FST(read_file fs refs fnm)) *
-       HOL_STORE (SND(read_file fs refs fnm)))`,
+       STDIO (FST (SND (read_file fs refs fnm))) *
+       HOL_STORE (SND (SND (read_file fs refs fnm))))`,
   xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
@@ -326,7 +326,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
      (COMMANDLINE cl * STDIO fs * HOL_STORE refs)
      (POSTv u.
        &UNIT_TYPE () u *
-       STDIO (reader_main fs refs (TL cl)))`,
+       STDIO (FST (SND (reader_main fs refs (TL cl)))))`,
   xcf "reader_main" (get_ml_prog_state())
   \\ fs [reader_main_def]
   \\ xlet_auto >- (xcon \\ xsimpl)
@@ -406,7 +406,7 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
    ==>
    whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
-     ((=) (reader_main fs init_refs (TL cl)))`,
+     ((=) (FST (SND (reader_main fs init_refs (TL cl)))))`,
   rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
   \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
