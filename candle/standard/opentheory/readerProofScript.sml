@@ -280,27 +280,6 @@ val first_EVERY = Q.store_thm("first_EVERY",
   \\ once_rewrite_tac [first_def]
   \\ rw [case_eq_thms, PULL_EXISTS, bool_case_eq] \\ fs []);
 
-(*
-val axiom_lemma = Q.store_thm("axiom_lemma",
-  `!upd.
-     axexts_of_upd upd <> []
-     ==>
-     axexts_of_upd upd = axexts_of_upd upd ++ conexts_of_upd upd`,
-  Induct \\ rw [] \\ EVAL_TAC);
-
-val axioms_lemma1 = Q.store_thm("axioms_lemma1",
-  `!ctx tm ts.
-     MEM tm ts /\
-     MEM ts (MAP axexts_of_upd ctx)
-     ==>
-     MEM ts (MAP (\upd. axexts_of_upd upd ++ conexts_of_upd upd) ctx)`,
-  Induct \\ rw []
-  \\ fsrw_tac [ETA_ss] [MEM_MAP, PULL_EXISTS]
-  \\ Cases_on `axexts_of_upd h = []` \\ fs [] \\ rw []
-  \\ imp_res_tac axiom_lemma \\ fs []
-  \\ metis_tac []);
-*)
-
 (* TODO move to holKernelProof *)
 val get_the_axioms_thm = Q.store_thm("get_the_axioms_thm",
   `STATE defs refs /\
@@ -453,23 +432,27 @@ val next_line_thm = Q.store_thm("next_line_thm",
 
 val getNum_thm = Q.store_thm("getNum_thm",
   `getNum obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getNum_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+   Cases_on `obj` \\ rw [getNum_def, raise_Fail_def, st_ex_return_def]
+   \\ fs []);
 
 val getName_thm = Q.store_thm("getName_thm",
   `getName obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getName_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+   Cases_on `obj` \\ rw [getName_def, raise_Fail_def, st_ex_return_def]
+   \\ fs []);
 
 val getList_thm = Q.store_thm("getList_thm",
   `OBJ defs obj /\
    getList obj refs = (res, refs')
    ==>
    refs = refs' /\ !ls. res = Success ls ==> EVERY (OBJ defs) ls`,
-   Cases_on `obj` \\ rw [getList_def, raise_Fail_def, st_ex_return_def] \\ fs []
+   Cases_on `obj` \\ rw [getList_def, raise_Fail_def, st_ex_return_def]
+   \\ fs []
    \\ metis_tac [OBJ_def]);
 
 val getTypeOp_thm = Q.store_thm("getTypeOp_thm",
   `getTypeOp obj refs = (res, refs') ==> refs = refs'`,
-   Cases_on `obj` \\ rw [getTypeOp_def, raise_Fail_def, st_ex_return_def] \\ fs []);
+   Cases_on `obj` \\ rw [getTypeOp_def, raise_Fail_def, st_ex_return_def]
+   \\ fs []);
 
 val getType_thm = Q.store_thm("getType_thm",
   `OBJ defs obj /\
@@ -596,7 +579,9 @@ val getTys_thm = Q.store_thm("getTys_thm",
    OBJ defs obj /\
    getTys obj refs = (res, refs')
    ==>
-   refs = refs' /\ !t ty. res = Success (t, ty) ==> TYPE defs t /\ TYPE defs ty`,
+   refs = refs' /\ !t ty. res = Success (t, ty)
+   ==>
+   TYPE defs t /\ TYPE defs ty`,
   Cases_on `obj`
   \\ rw [getTys_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY,
          case_eq_thms, getPair_def]
@@ -632,7 +617,8 @@ val getTms_thm = Q.store_thm("getTms_thm",
   Cases_on `obj`
   \\ fs [getTms_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def, UNCURRY,
          case_eq_thms, PULL_EXISTS, getPair_def] \\ rw []
-  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm, mk_var_thm] \\ fs []
+  \\ map_every imp_res_tac [getPair_thm, getTerm_thm, getVar_thm, mk_var_thm]
+  \\ fs []
   \\ metis_tac [FST, SND, PAIR]);
 
 val map_getTms_thm = Q.store_thm("map_getTms_thm",
@@ -671,7 +657,8 @@ val map_getNvs_thm = Q.store_thm("map_getNvs_thm",
      map getNvs xs refs = (res, refs')
      ==>
      refs = refs' /\
-     !ts. res = Success ts ==> EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) ts`,
+     !ts. res = Success ts ==>
+         EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) ts`,
   Induct
   \\ rw [Once map_def, st_ex_return_def, st_ex_bind_def, case_eq_thms] \\ fs []
   \\ imp_res_tac getNvs_thm \\ fs [ELIM_UNCURRY]
@@ -722,7 +709,8 @@ val BETA_CONV_thm = Q.store_thm("BETA_CONV_thm",
   \\ drule_or_nil BETA_thm
   \\ qmatch_asmsub_abbrev_tac `mk_comb (a, b)`
   \\ drule (GEN_ALL mk_comb_thm)
-  \\ disch_then (mp_tac o Q.SPECL [`b`,`a`] o (CONV_RULE (RESORT_FORALL_CONV rev))) \\ fs [] \\ rw []
+  \\ disch_then (mp_tac o Q.SPECL [`b`,`a`] o
+                 (CONV_RULE (RESORT_FORALL_CONV rev))) \\ fs [] \\ rw []
   \\ drule_or_nil BETA_thm
   \\ `EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) [(t0,b)]` by fs []
   \\ drule_or_nil INST_thm);
@@ -1400,13 +1388,16 @@ val mk_ex_thm = Q.store_thm("mk_ex_thm",
   \\ drule STATE_lemma \\ strip_tac
   \\ first_x_assum (qspecl_then [`ty`,`Bool`] assume_tac) \\ rfs []
   \\ qmatch_asmsub_abbrev_tac `mk_comb (pv, xv) refs`
-  \\ `TERM defs pv` by fs [Abbr`pv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
+  \\ `TERM defs pv`
+    by fs [Abbr`pv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
   \\ drule (GEN_ALL mk_comb_thm)
   \\ disch_then drule
-  \\ `TERM defs xv` by fs [Abbr`xv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
+  \\ `TERM defs xv`
+    by fs [Abbr`xv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
   \\ rpt (disch_then drule) \\ rw []
   \\ qmatch_asmsub_abbrev_tac `mk_imp (px, qv) refs`
-  \\ `TERM defs qv` by fs [Abbr`qv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
+  \\ `TERM defs qv`
+    by fs [Abbr`qv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
   \\ drule (GEN_ALL mk_imp_thm)
   \\ disch_then drule
   \\ qpat_x_assum `TERM defs px` assume_tac
@@ -1468,10 +1459,12 @@ val mk_surj_thm = Q.store_thm("mk_surj_thm",
   \\ qmatch_asmsub_abbrev_tac `mk_comb (f, xv) refs`
   \\ drule (GEN_ALL mk_comb_thm)
   \\ disch_then drule
-  \\ `TERM defs xv` by fs [Abbr`xv`, mk_var_def, TERM_def, TYPE_def, term_ok_def]
+  \\ `TERM defs xv`
+    by fs [Abbr`xv`, mk_var_def, TERM_def, TYPE_def, term_ok_def]
   \\ rpt (disch_then drule) \\ rw []
   \\ qmatch_asmsub_abbrev_tac `mk_eq (yv, fx) refs`
-  \\ `TERM defs yv` by fs [Abbr`yv`, mk_var_def, TERM_def, TYPE_def, term_ok_def]
+  \\ `TERM defs yv`
+    by fs [Abbr`yv`, mk_var_def, TERM_def, TYPE_def, term_ok_def]
   \\ drule (GEN_ALL mk_eq_thm)
   \\ qpat_x_assum `TERM defs fx` assume_tac
   \\ rpt (disch_then drule) \\ rw []
@@ -1498,13 +1491,15 @@ val mk_inj_thm = Q.store_thm("mk_inj_thm",
   \\ qmatch_asmsub_abbrev_tac `mk_comb (f, xv) refs`
   \\ drule (GEN_ALL mk_comb_thm)
   \\ disch_then drule
-  \\ `TERM defs xv` by fs [Abbr`xv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
+  \\ `TERM defs xv`
+    by fs [Abbr`xv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
   \\ rpt (disch_then drule) \\ rw []
   \\ qmatch_asmsub_abbrev_tac `mk_comb (f, yv) refs`
   \\ qpat_x_assum `TERM defs f` assume_tac
   \\ drule (GEN_ALL mk_comb_thm)
   \\ disch_then drule
-  \\ `TERM defs yv` by fs [Abbr`yv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
+  \\ `TERM defs yv`
+    by fs [Abbr`yv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
   \\ rpt (disch_then drule) \\ rw []
   \\ qpat_x_assum `TERM defs fx` assume_tac
   \\ drule (GEN_ALL mk_eq_thm)
@@ -1553,7 +1548,8 @@ val mk_neg_const_thm = Q.store_thm("mk_neg_const_thm",
   \\ qmatch_asmsub_abbrev_tac `mk_imp (pv, f)`
   \\ drule (GEN_ALL mk_imp_thm)
   \\ disch_then drule
-  \\ `TERM defs pv` by fs [Abbr`pv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
+  \\ `TERM defs pv`
+    by fs [Abbr`pv`, TERM_def, TYPE_def, term_ok_def, mk_var_def]
   \\ rpt (disch_then drule) \\ rw []
   \\ metis_tac [mk_abs_thm]);
 
@@ -1710,23 +1706,27 @@ val read_file_def = Define`
   read_file fs refs fnm =
     (if inFS_fname fs (File fnm) then
        (case readLines (all_lines fs (File fnm)) init_state refs of
-        | (Success (s,_), refs) => (add_stdout fs (msg_success s), refs)
-        | (Failure (Fail e), refs) => (add_stderr fs e, refs))
-     else (add_stderr fs (msg_bad_name fnm), refs))`;
+        | (Success (s,_), refs) => (T, add_stdout fs (msg_success s), refs)
+        | (Failure (Fail e), refs) => (F, add_stderr fs e, refs))
+     else (F, add_stderr fs (msg_bad_name fnm), refs))`;
 
 val reader_main_def = Define `
    reader_main fs refs cl =
        case cl of
          [fnm] =>
           (case init_reader () refs of
-            (Success _, refs) => FST (read_file fs refs fnm)
-          | (Failure (Fail e), _) => add_stderr fs (msg_axioms e)
-          | _ => fs)
-       | _ => add_stderr fs msg_usage`;
+            (Success _, refs) => read_file fs refs fnm
+          | (Failure (Fail e), refs) => (F, add_stderr fs (msg_axioms e), refs)
+          | (_, refs) => (F, fs, refs))
+       | _ => (F, add_stderr fs msg_usage, refs)`;
 
 (* ------------------------------------------------------------------------- *)
-(* Specs imply invariants                                                    *)
+(* Specs imply that invariants are preserved.                                *)
 (* ------------------------------------------------------------------------- *)
+
+val READER_STATE_init_state = Q.store_thm("READER_STATE_init_state",
+  `READER_STATE defs init_state`,
+  rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]);
 
 val process_line_inv = Q.store_thm("process_line_inv",
   `STATE defs refs /\
@@ -1742,18 +1742,35 @@ val process_line_inv = Q.store_thm("process_line_inv",
    \\ drule (GEN_ALL readLine_thm)
    \\ rpt (disch_then drule) \\ rw []);
 
-(* TODO if the specs are changed around a bit (process_lines and the others
-        do not preserve the reader state) we could say that at the end of
-        execution, READER_STATE holds for the resulting state and some
-        definitions. Then we could say that at the end of the program,
-        msg_success is called on a state containing only theorems and
-        correct definitions, and so what comes out is at least theorems
-        modulo pretty-printing and i/o functions
+(* TODO
+ * - print out the context in which the theorems were constructed.
+ * - if we load holSoundnessTheory we can get semantic entailment also at
+ *   the expense of a `is_set_theory mem' assumption.
+ *)
 
-
-   TODO it would be interesting to see if this can be connected with the
-        existing soundness proof
-*)
+val reader_proves = Q.store_thm("reader_proves",
+  `reader_main fs init_refs cl = (T,outp,refs)
+   ==>
+   ?s defs.
+     (!asl c. MEM (Sequent asl c) s.thms ==>
+        (thyof defs, asl) |- c) /\
+     outp =
+       add_stdout fs
+         (concat
+           [strlit "OK! ";
+            concat [toString (LENGTH s.thms); strlit " theorems:\n"];
+            strlit "\n";
+            concat (MAP (λt. thm2str t ^ strlit "\n") s.thms)])`,
+  rw [reader_main_def, case_eq_thms, read_file_def, bool_case_eq, PULL_EXISTS]
+  \\ imp_res_tac init_reader_ok
+  \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
+  \\ drule readLines_thm
+  \\ rpt (disch_then drule) \\ rw []
+  \\ fs [READER_STATE_def, EVERY_MEM]
+  \\ first_x_assum (assume_tac o REWRITE_RULE [THM_def] o
+                    Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
+  \\ rw [msg_success_def]
+  \\ metis_tac []);
 
 val _ = export_theory();
 
