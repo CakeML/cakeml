@@ -316,7 +316,7 @@ open linear_scanTheory;
 (* The record types used for the monadic state and exceptions *)
 val state_type = ``:linear_scan_hidden_state``
 val exn_type   = ``:state_exn``;
-val _          = register_exn_type exn_type;
+(* val _       = register_exn_type exn_type;  -- already registered above *)
 
 val STATE_EXN_TYPE_def = theorem "REG_ALLOC_STATE_EXN_TYPE_def"
 val exn_ri_def         = STATE_EXN_TYPE_def;
