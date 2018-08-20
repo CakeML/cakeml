@@ -3685,7 +3685,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     `(\r1 r2. intbeg_less int_beg r1 r2) = intbeg_less int_beg` by rw [FUN_EQ_THM] >>
     simp [] >>
     `?reglist. QSORT (intbeg_less int_beg) reglist_unsorted = reglist` by simp [] >>
-    `?moves_adjlist. edges_to_adjlist (MAP SND (sort_moves moves)) int_beg LN = moves_adjlist` by simp [] >>
+    `?moves_adjlist. edges_to_adjlist (MAP SND (sort_moves_rev moves)) int_beg LN = moves_adjlist` by simp [] >>
     `?forced_adjlist. edges_to_adjlist forced int_beg LN  = forced_adjlist` by simp [] >>
     `?phyregs. FILTER is_phy_var reglist = phyregs` by simp [] >>
     `?phyphyregs. FILTER (\r. r < 2*k) phyregs = phyphyregs` by simp [] >>
@@ -3711,11 +3711,11 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
       fs [EVERY_MEM]
     ) >>
     sg `!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 moves_adjlist))` THEN1 (
-      `!r. forbidden_is_from_forced (MAP SND (sort_moves moves)) int_beg r (the [] (lookup r moves_adjlist))` by rw [edges_to_adjlist_output] >>
-      `PERM moves (sort_moves moves)` by simp [sort_moves_def, QSORT_PERM] >>
-      `!r. MEM r (MAP SND (sort_moves moves)) <=> MEM r (MAP SND moves)` by (simp [MEM_MAP] >> metis_tac [PERM_MEM_EQ]) >>
+      `!r. forbidden_is_from_forced (MAP SND (sort_moves_rev moves)) int_beg r (the [] (lookup r moves_adjlist))` by rw [edges_to_adjlist_output] >>
+      `PERM moves (sort_moves_rev moves)` by simp [sort_moves_rev_def, QSORT_PERM] >>
+      `!r. MEM r (MAP SND (sort_moves_rev moves)) <=> MEM r (MAP SND moves)` by (simp [MEM_MAP] >> metis_tac [PERM_MEM_EQ]) >>
       simp [EVERY_MEM] >> rpt strip_tac >>
-      `MEM (r1,r2) (MAP SND (sort_moves moves)) \/ MEM (r2,r1) (MAP SND (sort_moves moves))` by metis_tac [forbidden_is_from_forced_def] >>
+      `MEM (r1,r2) (MAP SND (sort_moves_rev moves)) \/ MEM (r2,r1) (MAP SND (sort_moves_rev moves))` by metis_tac [forbidden_is_from_forced_def] >>
       rfs [] >>
       fs [EVERY_MEM, FORALL_PROD] >>
       metis_tac []

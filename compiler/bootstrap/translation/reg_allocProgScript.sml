@@ -399,7 +399,7 @@ val res = m_translate apply_reg_exchange_def;
 val res = translate edges_to_adjlist_impl_def;
 val res = m_translate st_ex_FILTER_good_def;
 
-val res = translate sort_moves_def;
+val res = translate sort_moves_rev_def;
 
 val res = m_translate (linear_reg_alloc_intervals_def
                        |> REWRITE_RULE [edges_to_adjlist_impl_thm]);

@@ -629,6 +629,10 @@ val edges_to_adjlist_impl_def = Define `
               edges_to_adjlist_impl abs int_beg
                 (insert a (b::(the [] (lookup a acc))) acc)`
 
+val sort_moves_rev_def = Define`
+  sort_moves_rev ls =
+    QSORT (\p:num,x p',x'. p<p') ls`
+
 val edges_to_adjlist_impl_thm = store_thm("edges_to_adjlist_impl_thm",
   ``edges_to_adjlist = edges_to_adjlist_impl``,
   fs [FUN_EQ_THM] \\ Induct
@@ -637,7 +641,7 @@ val edges_to_adjlist_impl_thm = store_thm("edges_to_adjlist_impl_thm",
 
 val linear_reg_alloc_intervals_def = Define`
     linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted =
-        let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves moves)) int_beg LN in
+        let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves_rev moves)) int_beg LN in
         let forced_adjlist = edges_to_adjlist forced int_beg LN in
         let reglist = QSORT (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) reglist_unsorted in
         let phyregs = FILTER is_phy_var reglist in
