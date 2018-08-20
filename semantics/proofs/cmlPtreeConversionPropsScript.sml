@@ -15,45 +15,49 @@ val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)
-val user_expressible_tyname_def = Define‘
-  (user_expressible_tyname (Short s) ⇔ T) ∧
-  (user_expressible_tyname (Long m (Short s)) ⇔ T) ∧
-  (user_expressible_tyname _ ⇔ F)
-’;
-val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
-
 val _ = temp_overload_on ("ND", “λn. Nd (mkNT n, ARB)”)
 val _ = temp_overload_on ("LF", “λt. Lf (TOK t, ARB)”)
+val splitid_def = Define‘
+  (splitid a (Short n) = (REVERSE a, n)) ∧
+  (splitid a (Long mid id) = splitid (mid::a) id)
+’;
+
+val splitid_acc_suffix = Q.prove(
+  ‘∀i a ms n. splitid a i = (ms, n) ⇒
+              FOLDR Long (Short n) ms = FOLDR Long i (REVERSE a)’,
+  Induct >> simp[splitid_def] >> rpt strip_tac >>
+  first_x_assum (drule_then strip_assume_tac) >> simp[FOLDR_APPEND]);
+
 val tyname_to_AST_def = Define‘
   tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
-  tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧
-  tyname_to_AST _ = ARB
+  tyname_to_AST (Long mid id) = let (mid_mids, n) = splitid [] id
+                                in
+                                  ND nTyOp [LF (LongidT mid mid_mids n)]
 ’;
+
+val ptree_Tyop_def' = SIMP_RULE (srw_ss() ++ ETA_ss) [] ptree_Tyop_def
 
 val tyname_inverted = Q.store_thm(
   "tyname_inverted",
-  ‘∀id. user_expressible_tyname id ⇒
-        ptree_Tyop (tyname_to_AST id) = SOME id’,
+  ‘∀id. ptree_Tyop (tyname_to_AST id) = SOME id’,
   Cases >>
   simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def] >>
-  rename [‘Long m j’] >> Cases_on ‘j’ >>
-  simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def]);
+  rename [‘splitid [] i’] >>
+  ‘∃mids n. splitid [] i = (mids,n)’ by metis_tac[pair_CASES] >>
+  drule splitid_acc_suffix >> simp[ptree_Tyop_def']);
 
 val tyname_validptree = Q.store_thm(
   "tyname_validptree",
-  ‘∀id. user_expressible_tyname id ⇒
-          valid_ptree cmlG (tyname_to_AST id) ∧
-          ptree_head (tyname_to_AST id) = NN nTyOp’,
+  ‘∀id. valid_ptree cmlG (tyname_to_AST id) ∧
+        ptree_head (tyname_to_AST id) = NN nTyOp’,
   Cases >> simp[tyname_to_AST_def, cmlG_FDOM, cmlG_applied] >>
-  rename [‘Long m j’] >> Cases_on ‘j’ >>
+  rename [‘splitid [] i’] >>
+  ‘∃mids n. splitid [] i = (mids,n)’ by metis_tac[pair_CASES] >>
   simp[tyname_to_AST_def, cmlG_applied, cmlG_FDOM]);
-
 
 val user_expressible_type_def = tDefine "user_expressible_type" ‘
   (user_expressible_type (Atvar _) ⇔ T) ∧
-  (user_expressible_type (Atapp tys tycon) ⇔
-     EVERY user_expressible_type tys ∧
-     user_expressible_tyname tycon) ∧
+  (user_expressible_type (Atapp tys tycon) ⇔ EVERY user_expressible_type tys) ∧
   (user_expressible_type (Attup tys) ⇔
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
@@ -127,9 +131,9 @@ val type_to_AST_def = tDefine "type_to_AST" ‘
 
 val destTyvarPT_tyname_to_AST = Q.store_thm(
   "destTyvarPT_tyname_to_AST",
-  ‘∀i. user_expressible_tyname i ⇒ destTyvarPT (tyname_to_AST i) = NONE’,
+  ‘∀i. destTyvarPT (tyname_to_AST i) = NONE’,
   Cases >> simp[tyname_to_AST_def] >>
-  rename [‘Long _ j’] >> Cases_on ‘j’ >>
+  rename [‘splitid [] i’] >> Cases_on ‘splitid [] i’ >>
   simp[tyname_to_AST_def]);
 
 val _ = temp_type_abbrev ("PT", “:(token,MMLnonT,α) parsetree”);
@@ -228,8 +232,8 @@ val UQTyOp_OK = Q.store_thm(
 val TyOp_OK = Q.store_thm(
   "TyOp_OK",
   `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃tyop. ptree_Tyop pt = SOME tyop ∧ user_expressible_tyname tyop`,
+   MAP TK toks = ptree_fringe pt ⇒
+     ∃tyop. ptree_Tyop pt = SOME tyop`,
   start >> simp[ptree_Tyop_def] >>
   asm_match `valid_ptree cmlG pt'` >>
   `destLf pt' = NONE`
@@ -701,7 +705,6 @@ val OptTypEqn_OK = Q.store_thm(
   start >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_OptTypEqn_def, tokcheck_def] >> metis_tac[Type_OK]);
 
-<<<<<<< HEAD
 val StructName_OK = Q.store_thm(
   "StructName_OK",
   ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
@@ -754,52 +757,6 @@ val Sig_OK = Q.store_thm(
       Cases_on ‘foo’ >> simp[])
   >- (rename [‘NN nTypeDec = ptree_head pt’] >>
       drule TypeDec_OK >> simp[] >> strip_tac >> simp[]));
-=======
-val SpecLine_OK = Q.store_thm(
-  "SpecLine_OK",
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_SpecLine pt = SOME sl`,
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_SpecLine_def, pairTheory.EXISTS_PROD, PULL_EXISTS,
-              tokcheckl_def, tokcheck_def] >>
-  metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK, Dconstructor_OK,
-            pairTheory.pair_CASES, OptTypEqn_OK]);
-
-val SpecLineList_OK = Q.store_thm(
-  "SpecLineList_OK",
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLineList ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_SpeclineList pt = SOME sl`,
-  map_every qid_spec_tac [`toks`, `pt`] >>
-  ho_match_mp_tac grammarTheory.ptree_ind >>
-  conj_tac >> simp[Once FORALL_PROD] >>
-  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
-  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
-  full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
-  simp[ptree_SpeclineList_def, tokcheck_def] >>
-  erule strip_assume_tac (n SpecLine_OK) >> simp[] >>
-  asm_match `ptree_head pt' = NN nSpecLine` (* >>
-  Cases_on `pt'`
-  >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >> simp[] *))
-
-val StructName_OK = Q.store_thm(
-  "StructName_OK",
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃sl. ptree_StructName pt = SOME sl`,
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_StructName_def]);
-
-val SignatureValue_OK = Q.store_thm(
-  "SignatureValue_OK",
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃sv. ptree_SignatureValue pt = SOME sv`,
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_SignatureValue_def, tokcheckl_def, tokcheck_def] >>
-  metis_tac[SpecLineList_OK, oneTheory.one]);
->>>>>>> origin/master
 
 val Structure_OK = Q.store_thm(
   "Structure_OK",
@@ -817,11 +774,7 @@ val Structure_OK = Q.store_thm(
   rename[`Nd p`] >> Cases_on `p` >> fs[] >>
   fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
-<<<<<<< HEAD
   metis_tac[SigName_OK]);
-=======
-  metis_tac[SignatureValue_OK, oneTheory.one]);
->>>>>>> origin/master
 
 val TopLevelDec_OK = Q.store_thm(
   "TopLevelDec_OK",

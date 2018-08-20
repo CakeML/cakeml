@@ -1017,9 +1017,13 @@ val sexpdec_alt_def = tDefine"sexpdec_alt"`
             (lift Dexn (sexplocn (EL 0 args)) <*>
                        (odestSEXSTR (EL 1 args)) <*>
                        (sexptype_list (EL 2 args))) else
-      if nm = "Dmod" ∧ LENGTH args = 2 then
-            (lift2 Dmod (odestSEXSTR (EL 0 args))
-                        (sexpdec_list (EL 1 args))) else NONE) ∧
+      if nm = "Dmod" ∧ LENGTH args = 3 then
+            lift Dmod (odestSEXSTR (EL 0 args)) <*>
+               sexpopt (sexpid odestSEXSTR) (EL 1 args) <*>
+               sexpdec_list (EL 2 args) else
+      if nm = "Dsig" ∧ LENGTH args = 2 then
+            lift2 Dsig (odestSEXSTR (HD args)) (sexplist sexpspec (EL 1 args))
+      else NONE) ∧
    (sexpdec_list s =
       case s of
       | SX_SYM nm => if nm = "nil" then SOME [] else NONE
