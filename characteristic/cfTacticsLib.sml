@@ -7,6 +7,8 @@ open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
 open cfAppLib cfSyntax semanticPrimitivesSyntax
 
+val ERR = mk_HOL_ERR "cfTacticsLib";
+
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
     open Portable term_pp_types smpp
