@@ -25,6 +25,13 @@ val _ = overload_on("holrefs",    ``liftM state_refs_holrefs holrefs_fupd``);
 val _ = overload_on("commandline",``liftM state_refs_cl      cl_fupd``);
 
 (* ------------------------------------------------------------------------- *)
+(* Getting emptyffi calls to trigger                                         *)
+(* ------------------------------------------------------------------------- *)
+
+val ffi_msg_def = Define `
+  ffi_msg msg = return (empty_ffi msg)`;
+
+(* ------------------------------------------------------------------------- *)
 (* Monadic wrappers for readLine                                             *)
 (* ------------------------------------------------------------------------- *)
 
@@ -45,12 +52,22 @@ val readLine_wrap_def = Define `
 val readLines_def = Define `
   readLines s lines =
     case lines of
-      [] => stdio (print (msg_success s))
+      [] =>
+        do
+          ffi_msg (strlit"finished: readLines");
+          msg <- return (msg_success s);
+          ffi_msg (strlit"finished: generate message");
+          stdio (print msg)
+        od
     | ln::ls =>
         do
           res <- holrefs (readLine_wrap (ln, s));
           case res of
-            INL e => stdio (print_err (line_Fail s e))
+            INL e =>
+                do
+                  ffi_msg (strlit"finished: readLines");
+                  stdio (print_err (line_Fail s e))
+                od
           | INR s => readLines (next_line s) ls
         od`
 
@@ -59,7 +76,9 @@ val readLines_def = Define `
 val readFile_def = Define `
   readFile fname =
     do
+      ffi_msg (strlit"starting...");
       lines <- stdio (inputLinesFrom fname);
+      ffi_msg (strlit"finished: inputLinesFrom");
       case lines of
         NONE => stdio (print_err (msg_bad_name fname))
       | SOME ls => readLines init_state ls

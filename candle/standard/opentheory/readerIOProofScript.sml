@@ -39,6 +39,10 @@ val init_reader_wrap_thm = Q.store_thm("init_reader_wrap_thm",
 (* Monadic I/O reader preserves invariants                                   *)
 (* ------------------------------------------------------------------------- *)
 
+val ffi_msg_simp = Q.store_thm("ffi_msg_simp[simp]",
+  `ffi_msg msg s = (Success (), s)`,
+  rw [ffi_msg_def, st_ex_return_def]);
+
 val readLines_thm = Q.store_thm("readLines_thm",
   `!s lines res st st1 defs.
      STATE defs st.holrefs /\
@@ -216,7 +220,9 @@ val readLines_COMMANDLINE_pres = Q.store_thm("readLines_COMMANDLINE_pres",
      tr.cl = sr.cl`,
   recInduct readLines_ind
   \\ gen_tac \\ Cases \\ strip_tac
-  \\ rw [Once readLines_def, print_def, liftM_def, st_ex_bind_def] \\ fs []
+  \\ rw [Once readLines_def, print_def, liftM_def, st_ex_bind_def,
+         st_ex_return_def]
+  \\ fs []
   \\ pairarg_tac \\ fs [case_eq_thms] \\ rw []
   \\ qpat_x_assum `_ = (res,tr)` mp_tac
   \\ PURE_TOP_CASE_TAC \\ fs []

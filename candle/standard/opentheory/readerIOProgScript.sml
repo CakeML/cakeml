@@ -268,6 +268,7 @@ val _ = ignore_type ``:hol_refs``
 (* Translate monad-IO reader                                                 *)
 (* ------------------------------------------------------------------------- *)
 
+val r = m_translate ffi_msg_def
 val r = m_translate readLines_def
 val r = m_translate readFile_def
 val r = m_translate readMain_def
