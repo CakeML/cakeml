@@ -898,6 +898,110 @@ val calls_el_sing = Q.store_thm("calls_el_sing",
   \\ asm_exists_tac \\ fs[]
   \\ fs[code_locs_def,ALL_DISTINCT_APPEND]);
 
+fun pairmaparg_tac (g as (asl,w)) =
+  (tryfind
+    (Lib.partial(mk_HOL_ERR"clos_callProofTheory""pairmaparg_tac""not found")
+        (bvk_find_term
+          (fn (bvs,tm) =>
+            is_comb tm andalso
+            pairSyntax.is_pair_map (rator tm) andalso
+            null_intersection bvs (free_vars (rand tm)) andalso
+            not (pairSyntax.is_pair (rand tm)))
+          (fn tm => Cases_on [ANTIQUOTE (rand tm)])))
+    (w::asl)) g
+
+val insert_each_pair_arg = Q.store_thm("insert_each_pair_arg",
+  `insert_each x y (p,q) = (FST (insert_each x y (p,q')), q)`,
+  Cases_on`insert_each x y (p,q)` \\ rw[]
+  \\ metis_tac[SND_insert_each, SND, FST_insert_each_same, FST]);
+
+val calls_acc_0 = Q.prove(
+  `!xs tmp x r.
+     x ++ r = SND tmp ⇒
+     calls xs tmp = (I ## I ## (combin$C (++) r)) (calls xs (FST tmp, x))`,
+  recInduct calls_ind
+  \\ rw[calls_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[]
+  \\ TRY (
+    first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ fsrw_tac[DNF_ss][APPEND_EQ_APPEND]
+    \\ first_x_assum(qspecl_then[`r''`,`[]`]mp_tac)
+    \\ simp[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ last_x_assum(qspecl_then[`r'''`,`r`]mp_tac)
+    \\ simp[]
+    \\ NO_TAC )
+  >- (
+    first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ fs[bool_case_eq] \\ rveq \\ fs[]
+    \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
+    \\ simp[] )
+  >- (
+    pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`insert_each p s (FST g, x)`
+    \\ `insert_each p s (FST g, x) = (FST (insert_each p s g), x)` by metis_tac[insert_each_pair_arg, PAIR]
+    \\ fs[] \\ rveq
+    \\ fs[bool_case_eq] \\ rveq \\ fs[]
+    \\ first_x_assum drule
+    \\ pairmaparg_tac \\ fs[] )
+  >- (
+    pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`insert_each p s (FST g, x)`
+    \\ `insert_each p s (FST g, x) = (FST (insert_each p s g), x)` by metis_tac[insert_each_pair_arg, PAIR]
+    \\ fs[] \\ rveq
+    \\ reverse (fs[bool_case_eq]) \\ rveq \\ fs[]
+    >- (
+      first_x_assum drule
+      \\ pairmaparg_tac \\ fs[]
+      \\ rveq \\ fs[]
+      \\ pairmaparg_tac \\ fs[]
+      \\ pairmaparg_tac \\ fs[]
+      \\ strip_tac \\ rveq \\ fs[]
+      \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
+      \\ simp[] )
+    \\ pairmaparg_tac \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`code_list p ff`
+    \\ Q.ISPECL_THEN[`p`,`ff`,`q,r'`]mp_tac code_list_replace_SND
+    \\ simp[]
+    \\ disch_then(qspec_then`q,r'++r`mp_tac) \\ fs[]
+    \\ Cases_on`code_list p ff (q,r')` \\ fs[]
+    \\ `∃ls. r''' = ls ++ r'` by metis_tac[SND_code_list_ZIP, SND] \\ fs[]
+    \\ strip_tac \\ fs[]
+    \\ first_x_assum(qspecl_then[`ls++r'`,`r`]mp_tac)
+    \\ simp[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ `q'' = q` by metis_tac[FST_code_list, FST]
+    \\ fs[] ));
+
+val calls_acc = store_thm("calls_acc",
+  ``!xs d old res d1 aux.
+      calls xs (d, []) = (res, d1, aux) ==>
+      calls xs (d, old) = (res, d1, aux ++ old)``,
+  rw[]
+  \\ qspecl_then[`xs`,`d,old`,`[]`,`old`]mp_tac calls_acc_0
+  \\ simp[]);
+
 (* properties of value relation *)
 
 val v_rel_exists = Q.store_thm("v_rel_exists",
@@ -1600,12 +1704,6 @@ val env_rel_Op_Install = prove(
 
 val syntax_ok_def = Define`
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)`;
-
-val calls_acc = store_thm("calls_acc",
-  ``!xs d old res d1 aux.
-      calls xs (d, []) = (res, d1, aux) ==>
-      calls xs (d, old) = (res, d1, aux ++ old)``,
-  cheat (* routine proof? *));
 
 val compile_inc_def = Define `
   compile_inc d (e,xs) =
