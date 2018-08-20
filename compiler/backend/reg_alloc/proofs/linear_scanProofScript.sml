@@ -3658,6 +3658,7 @@ val lt_div_2 = Q.prove(
     intLib.COOPER_TAC
 );
 
+
 val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals_correct",
     `!int_beg int_end k forced moves reglist_unsorted sth.
     EVERY (\r1,r2. MEM r1 reglist_unsorted /\ MEM r2 reglist_unsorted) forced /\
@@ -3676,7 +3677,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
       else
         T
     ) reglist_unsorted /\
-    EVERY (\r1,r2. EL r1 sthout.colors = EL r2 sthout.colors ==> r1 = r2) forced`,
+    EVERY (\r1,r2. EL r1 sthout.colors = EL r2 sthout.colors ==> r1 = r2) forced /\
+    LENGTH sthout.colors = LENGTH sth.colors`,
 
     rw (linear_reg_alloc_intervals_def::msimps) >>
     simp [GSYM intbeg_less_def] >>
@@ -4281,6 +4283,58 @@ val apply_bijection_output = Q.store_thm("apply_bijection_output",
     simp []
 );
 
+val get_intervals_beg_less_end = Q.store_thm("get_intervals_beg_less_end",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (!r. r IN domain beg_in ==> the 0 (lookup r beg_in) <= the 0 (lookup r end_in)) /\
+    domain beg_in SUBSET domain end_in /\
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
+    (!r. r IN domain beg_out ==> the 0 (lookup r beg_out) <= the 0 (lookup r end_out)) /\
+    domain beg_out SUBSET domain end_out`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_def] >>
+    rpt gen_tac >> strip_tac
+    THEN1 (
+        strip_tac
+        THEN1 (
+            rw [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt]
+            THEN1 (
+                every_case_tac >>
+                simp [the_def] >>
+                intLib.COOPER_TAC
+            )
+            THEN1 rfs [domain_numset_list_add_if_lt]
+        )
+        THEN1 (
+            fs [domain_numset_list_add_if_lt, domain_numset_list_add_if_gt, SUBSET_DEF] >>
+            metis_tac []
+        )
+    )
+    THEN1 (
+        strip_tac
+        THEN1 (
+            rw [lookup_numset_list_add_if_gt] >>
+            res_tac >>
+            every_case_tac
+            THEN1 (
+                `r NOTIN domain end_in` by fs [lookup_NONE_domain] >>
+                rfs [SUBSET_DEF]
+            )
+            THEN1 (
+                fs [the_def] >>
+                intLib.COOPER_TAC
+            )
+        )
+        THEN1 (
+            simp [domain_numset_list_add_if_gt] >>
+            fs [SUBSET_DEF]
+        )
+    ) >>
+    rpt (pairarg_tac >> fs []) >>
+    `!r. r IN domain int_beg2 ==> the 0 (lookup r int_beg2) <= the 0 (lookup r int_end2)` by metis_tac [] >>
+    metis_tac []
+);
+
 val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     `!k moves ct forced.
     EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced ==>
@@ -4386,7 +4440,14 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
             `lookup r int_beg' = lookup br int_beg` by fs [] >>
             `lookup r int_end' = lookup br int_end` by fs [] >>
             simp [] >>
-            cheat (* I don't think we currently have a such theorem *)
+            qspecl_then [`livetree`, `0`, `LN`, `LN`, `int_n`, `int_beg`, `int_end`] mp_tac  get_intervals_beg_less_end >>
+            impl_tac THEN1 (
+                rpt strip_tac >>
+                rw []
+            ) >>
+            rpt strip_tac >>
+            `br IN domain int_beg` by metis_tac [good_bijection_state_def] >>
+            fs []
         ) >>
         strip_tac THEN1 (
             rveq >> simp [ALL_DISTINCT_MAP_FST_toAList]
@@ -4427,7 +4488,6 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
         )
         THEN1 (
             `LENGTH sthinit.colors = bijstate.nmax+1` by (rveq >> simp []) >>
-            `LENGTH sthout.colors = LENGTH sthinit.colors` by cheat >>
             simp [intLib.COOPER_PROVE ``!(a:num) b. a < b+1 <=> a <= b``] >>
             fs [good_bijection_state_def]
         )
@@ -4507,8 +4567,9 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
 
     strip_tac THEN1 (
         rpt strip_tac >>
-     (* metis_tac [] *)
-        cheat
+        `r IN domain bijstate.bij` by fs [SUBSET_DEF] >>
+        `r IN live_tree_registers livetree` by metis_tac [good_bijection_state_def] >>
+        metis_tac [in_clash_tree_eq_live_tree_registers, fix_domination_live_tree_registers]
     )
 
     THEN1 (
@@ -4518,7 +4579,18 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
         `MEM (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)) forced'` by (rveq >> simp [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
         `in_clash_tree ct r1 /\ in_clash_tree ct r2` by (fs [EVERY_MEM, FORALL_PROD] >> metis_tac []) >>
         `r1 IN live_tree_registers livetree /\ r2 IN live_tree_registers livetree` by metis_tac [in_clash_tree_eq_live_tree_registers, fix_domination_live_tree_registers] >>
-        `r1 IN domain col /\ r2 IN domain col` by cheat >>
+        sg `r1 IN domain col /\ r2 IN domain col` THEN1 (
+            `r1 IN domain int_beg /\ r2 IN domain int_beg` by simp [] >>
+            `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by metis_tac [good_bijection_state_def] >>
+            `lookup (the 0 (lookup r1 bijstate.bij)) int_beg' = lookup r1 int_beg` by fs [] >>
+            `lookup (the 0 (lookup r2 bijstate.bij)) int_beg' = lookup r2 int_beg` by fs [] >>
+            `(r1 IN domain int_beg <=> (the 0 (lookup r1 bijstate.bij)) IN domain int_beg') /\ (r2 IN domain int_beg <=> (the 0 (lookup r2 bijstate.bij)) IN domain int_beg')` by fs [domain_lookup] >>
+            `MEM (the 0 (lookup r1 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
+            `MEM (the 0 (lookup r2 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
+            `lookup r1 col = SOME (EL (the 0 (lookup r1 bijstate.bij)) sthout.colors)` by metis_tac [] >>
+            `lookup r2 col = SOME (EL (the 0 (lookup r2 bijstate.bij)) sthout.colors)` by metis_tac [] >>
+            simp [domain_lookup]
+        ) >>
         `?c1 c2. lookup r1 col = SOME c1 /\ lookup r2 col = SOME c2` by fs [domain_lookup] >>
         fs [sp_default_def] >>
         fs [EVERY_MEM, FORALL_PROD] >>
@@ -4528,8 +4600,8 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
             `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by metis_tac [good_bijection_state_def] >>
             `lookup (the 0 (lookup r1 bijstate.bij)) int_beg' = lookup r1 int_beg` by fs [] >>
             `lookup (the 0 (lookup r2 bijstate.bij)) int_beg' = lookup r2 int_beg` by fs [] >>
-            `(the 0 (lookup r1 bijstate.bij)) IN domain int_beg' <=> r1 IN domain int_beg` by cheat (* fs [domain_lookup] *) >>
-            `(the 0 (lookup r2 bijstate.bij)) IN domain int_beg' <=> r2 IN domain int_beg` by cheat (* fs [domain_lookup] *) >>
+            `(the 0 (lookup r1 bijstate.bij)) IN domain int_beg' <=> r1 IN domain int_beg` by metis_tac [domain_lookup] >>
+            `(the 0 (lookup r2 bijstate.bij)) IN domain int_beg' <=> r2 IN domain int_beg` by metis_tac [domain_lookup] >>
             `MEM (the 0 (lookup r1 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
             `MEM (the 0 (lookup r2 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
             `c1 = EL (the 0 (lookup r1 bijstate.bij)) sthout.colors` by metis_tac [SOME_11] >>
@@ -4544,6 +4616,5 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
         fs []
     )
 );
-
 
 val _ = export_theory ();
