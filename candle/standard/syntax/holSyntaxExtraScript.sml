@@ -22,13 +22,26 @@ val type1_size_append = Q.store_thm("type1_size_append",
 val type1_size_mem = Q.store_thm("type1_size_append",
   `∀ty tys. MEM ty tys ==> type_size ty < type1_size tys`,
   CONV_TAC SWAP_FORALL_CONV >> Induct
-  >> simp[fetch "-" "type_size_def"]
-  >> rw[fetch "-" "type_size_def"]
+  >> simp[type_size_def]
+  >> rw[type_size_def]
   >- simp[]
   >> first_x_assum drule
   >> simp[]
 )
 
+val [MEM_tyvars_type_size,MEM_tyvars_type1_size] = Q.prove(
+  `(!ty m. MEM m (tyvars ty) ==> type_size(Tyvar m) <= type_size ty) /\
+   (!tyl ty m. MEM m (tyvars ty) /\ MEM ty tyl ==> type_size(Tyvar m) <= type1_size tyl)
+  `,
+  ho_match_mp_tac (type_induction)
+  \\ rw[tyvars_def,type_size_def]
+  \\ fs[MEM_FOLDR_LIST_UNION]
+  >- (first_x_assum drule \\ rpt(disch_then drule) \\ simp[])
+  >- (last_x_assum drule \\ simp[])
+  >- (last_x_assum drule \\ simp[]))
+  |> CONJUNCTS
+  |> map2 (curry save_thm) ["MEM_tyvars_type_size","MEM_tyvars_type1_size"]
+                                
 val extends_ind = Q.store_thm("extends_ind",
   `∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2`,
