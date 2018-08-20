@@ -16,7 +16,8 @@ val ERR = Feedback.mk_HOL_ERR "ag32_targetLib"
 
 fun ag32_type s = Type.mk_thy_type {Thy = "ag32", Tyop = s, Args = []}
 
-
+val ag32_encode =
+  SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM ag32_encode_def `x`)
 
 local
   fun dst tm = case Lib.total boolSyntax.dest_strip_comb tm of
@@ -29,7 +30,7 @@ in
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
        [ag32_enc_def, ag32_constant_def, ag32_cmp_def, ag32_sh_def,
-        ag32_encode_def, ag32_encode1_def, Encode_def, enc_def,
+        ag32_encode, ag32_encode1_def, Encode_def, enc_def, ag32_bop_def,
         ri2bits_def, funcT2num_thm, encShift_def, shiftT2num_thm],
        computeLib.Tys
         (List.map ag32_type ["funcT", "instruction", "reg_immT", "shiftT"]),
