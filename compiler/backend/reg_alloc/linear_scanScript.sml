@@ -694,9 +694,7 @@ val find_bijection_init_def = Define`
 
 val find_bijection_step_def = Define`
     find_bijection_step state r =
-      if lookup r state.bij <> NONE then
-        state
-      else if is_phy_var r then
+      if is_phy_var r then
         state with
           <| bij := insert r r state.bij
            ; invbij := insert r r state.invbij
@@ -718,35 +716,10 @@ val find_bijection_step_def = Define`
            |>
 `
 
-val find_bijection_def = Define`
-  (
-    find_bijection state (Writes l) =
-      FOLDL find_bijection_step state l
-  ) /\ (
-    find_bijection state (Reads l) =
-      FOLDL find_bijection_step state l
-  ) /\ (
-    find_bijection state (Branch lt1 lt2) =
-      find_bijection (find_bijection state lt2) lt1
-  ) /\ (
-    find_bijection state (Seq lt1 lt2) =
-      find_bijection (find_bijection state lt2) lt1
-  )`
-
 val apply_bijection_def = Define`
-  (
-    apply_bijection (Writes l) bij =
-      Writes (MAP (\r. the 0 (lookup r bij)) l)
-  ) /\ (
-    apply_bijection (Reads l) bij =
-      Reads (MAP (\r. the 0 (lookup r bij)) l)
-  ) /\ (
-    apply_bijection (Branch lt1 lt2) bij =
-      Branch (apply_bijection lt1 bij) (apply_bijection lt2 bij)
-  ) /\ (
-    apply_bijection (Seq lt1 lt2) bij =
-      Seq (apply_bijection lt1 bij) (apply_bijection lt2 bij)
-  )`
+    apply_bijection bij (interval : int num_map) =
+        foldi (\r i acc. insert (the 0 (lookup r bij)) i acc) 0 LN interval
+`
 
 val array_fields_names = ["colors"];
 val run_i_linear_scan_hidden_state_def =
@@ -766,21 +739,23 @@ val run_linear_reg_alloc_intervals_def = Define`
     run_linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted invbij nmax =
         run_i_linear_scan_hidden_state
           (linear_reg_alloc_intervals_and_extract_coloration int_beg int_end k forced moves reglist_unsorted invbij nmax)
-          <| colors := (nmax, 0) |>
+          <| colors := (nmax+1, 0) |>
 `
 
 val linear_scan_reg_alloc_def = Define`
     linear_scan_reg_alloc k moves ct forced =
         let livetree = fix_domination (get_live_tree ct) in
-        let bijstate = find_bijection find_bijection_init livetree in
-        let livetree' = apply_bijection livetree bijstate.bij in
+        let (int_n, int_beg, int_end) = get_intervals livetree 0 LN LN in
+        let bijstate = FOLDL find_bijection_step find_bijection_init (MAP FST (toAList int_beg)) in
         let forced' = MAP (\r1,r2. (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij))) forced in
         let moves' = MAP (\p,(r1,r2). (p,(the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)))) moves in
-        let (int_n, int_beg, int_end) = get_intervals livetree' 0 LN LN in
-        let reglist_unsorted = (MAP FST (toAList int_beg)) in
-        run_linear_reg_alloc_intervals int_beg int_end k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax
+        let int_beg' = apply_bijection bijstate.bij int_beg in
+        let int_end' = apply_bijection bijstate.bij int_end in
+        let reglist_unsorted = (MAP FST (toAList int_beg')) in
+        run_linear_reg_alloc_intervals int_beg' int_end' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax
 `
 
+(*
 (* === translation (TODO: move to bootstrap translation) === *)
 
 (* TODO: remove when moved to bootstrap *)
@@ -953,4 +928,5 @@ val res = translate numset_list_add_if_gt_def;
 val res = translate get_intervals_def;
 val res = translate linear_scan_reg_alloc_def;
 
+*)
 val _ = export_theory ();
