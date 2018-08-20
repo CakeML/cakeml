@@ -36,7 +36,9 @@ in
         (List.map ag32_type ["funcT", "instruction", "reg_immT", "shiftT"]),
        computeLib.Convs
         [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
-       computeLib.Extenders [optionLib.OPTION_rws]])
+       computeLib.Extenders [optionLib.OPTION_rws,
+         utilsLib.add_base_datatypes
+       ]])
 end
 
 val add_ag32_encode_compset = computeLib.extend_compset
