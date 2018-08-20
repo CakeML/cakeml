@@ -78,11 +78,6 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ rpt (disch_then drule) \\ rw []
   \\ metis_tac []);
 
-(* TODO move *)
-val READER_STATE_init_state = Q.store_thm("READER_STATE_init_state[simp]",
-  `READER_STATE defs init_state`,
-  rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]);
-
 val readMain_thm = Q.store_thm("readMain_thm",
   `readMain () (c with holrefs := init_refs) = (res, c')
    ==>
@@ -94,27 +89,30 @@ val readMain_thm = Q.store_thm("readMain_thm",
   \\ pop_assum mp_tac
   \\ reverse (Cases_on `TL c.cl`) \\ fs []
   >-
-   (every_case_tac \\ fs []
+   (rpt (PURE_TOP_CASE_TAC \\ fs [])
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ imp_res_tac init_reader_wrap_thm \\ fs []
     \\ qmatch_asmsub_abbrev_tac `readLines _ ls st`
     \\ `STATE defs st.holrefs` by fs [Abbr`st`]
+    \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
     \\ drule (GEN_ALL readLines_thm)
-    \\ disch_then (qspecl_then [`init_state`,`ls`] mp_tac) \\ fs []
-    \\ rw [])
+    \\ rpt (disch_then drule) \\ rw [])
   >-
-   (every_case_tac \\ fs []
-    \\ rpt (pairarg_tac \\ fs []) \\ rw []
+   (
+    rpt (PURE_TOP_CASE_TAC \\ fs [])
+    \\ TRY (pairarg_tac \\ fs []) \\ rw []
     \\ imp_res_tac init_reader_wrap_thm \\ fs []
-    \\ fs [EVAL ``?ds. STATE ds init_refs`` |> SIMP_RULE (srw_ss()) []] THENL
-      [metis_tac [], ALL_TAC, metis_tac []]
+    \\ fs [EVAL ``?ds. STATE ds init_refs`` |> SIMP_RULE (srw_ss()) []]
+    >- metis_tac []
+    >- metis_tac []
     \\ qmatch_asmsub_abbrev_tac `readLines _ ls c1`
     \\ `STATE defs c1.holrefs` by fs [Abbr`c1`]
+    \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
     \\ drule (GEN_ALL readLines_thm)
-    \\ disch_then (qspecl_then [`init_state`,`ls`] mp_tac) \\ fs []
-    \\ rw []
+    \\ rpt (disch_then drule) \\ rw []
     \\ metis_tac [])
-  \\ rw [] \\ fs [EVAL ``?ds. STATE ds init_refs`` |> SIMP_RULE (srw_ss()) []]);
+  \\ rw []
+  \\ fs [EVAL ``?ds. STATE ds init_refs`` |> SIMP_RULE (srw_ss()) []]);
 
 (* ------------------------------------------------------------------------- *)
 (* Monadic I/O reader satisfies I/O specification                            *)
@@ -178,7 +176,7 @@ val readLines_EQ = Q.store_thm("readLines_EQ",
 
 val readFile_correct = Q.store_thm("readFile_correct",
   `readFile fname c = (res, c_out) /\
-   read_file c.stdio c.holrefs fname = (fs, refs)
+   read_file c.stdio c.holrefs fname = (succ, fs, refs)
    ==>
    res = Success () /\ fs = c_out.stdio /\ refs = c_out.holrefs`,
   rw [readFile_def, read_file_def, st_ex_bind_def, st_ex_return_def,
@@ -189,27 +187,23 @@ val readFile_correct = Q.store_thm("readFile_correct",
 
 val readMain_correct = Q.store_thm ("readMain_correct",
   `readMain () c = (res, c_out) /\
-   reader_main c.stdio c.holrefs (TL c.cl) = fs
+   reader_main c.stdio c.holrefs (TL c.cl) = (succ, fs, refs)
    ==>
    res = Success () /\ fs = c_out.stdio`,
-  rw [readMain_def, st_ex_bind_def, case_eq_thms]
-  \\ TRY (Cases_on `args` \\ fs [])
-  \\ fs [liftM_def, print_err_def, arguments_def, init_reader_wrap_def,
-         handle_Fail_def, st_ex_bind_def, st_ex_return_def, ELIM_UNCURRY]
-  \\ rw [reader_main_def]
-  \\ pop_assum mp_tac
-  \\ rename1 `_::t`
-  \\ Cases_on `t` \\ fs []
-  \\ rw [] \\ fs []
+  simp [readMain_def, st_ex_bind_def, case_eq_thms, arguments_def, liftM_def,
+        print_err_def, init_reader_wrap_def, handle_Fail_def, st_ex_return_def,
+        st_ex_bind_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  >- (rw [reader_main_def, state_refs_component_equality] \\ fs [])
+  \\ TRY pairarg_tac \\ fs []
+  \\ fs [case_eq_thms] \\ rw [] \\ fs []
+  \\ rfs [state_refs_component_equality, reader_main_def]
   >-
-   (every_case_tac \\ fs [] \\ rw []
-    \\ rename1 `readFile h st`
+   (rename1 `readFile h st`
     \\ Cases_on `read_file st.stdio st.holrefs h`
+    \\ PairCases_on `r`
     \\ imp_res_tac readFile_correct)
-  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
-  \\ qmatch_asmsub_abbrev_tac `readFile h st`
-  \\ Cases_on `read_file st.stdio st.holrefs h`
-  \\ imp_res_tac readFile_correct \\ fs [Abbr`st`]);
+  \\ drule (GEN_ALL readFile_correct) \\ fs []);
 
 (* ------------------------------------------------------------------------- *)
 (* Preserving the commandline is crucial                                     *)
@@ -220,28 +214,24 @@ val readLines_COMMANDLINE_pres = Q.store_thm("readLines_COMMANDLINE_pres",
      readLines s line sr = (res, tr)
      ==>
      tr.cl = sr.cl`,
-  recInduct readLines_ind \\ rw []
-  \\ pop_assum mp_tac
-  \\ simp [Once readLines_def]
-  \\ fs [liftM_def, print_def]
-  \\ Cases_on `lines` \\ fs [st_ex_bind_def]
-  \\ rw [] \\ fs []
-  \\ pairarg_tac \\ fs []
-  \\ fs [case_eq_thms] \\ rw []
-  \\ FULL_CASE_TAC \\ fs []
-  \\ fs [UNCURRY] \\ rw []
-  \\ first_x_assum drule \\ rw []);
+  recInduct readLines_ind
+  \\ gen_tac \\ Cases \\ strip_tac
+  \\ rw [Once readLines_def, print_def, liftM_def, st_ex_bind_def] \\ fs []
+  \\ pairarg_tac \\ fs [case_eq_thms] \\ rw []
+  \\ qpat_x_assum `_ = (res,tr)` mp_tac
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ rw [UNCURRY] \\ fs []
+  \\ first_x_assum drule \\ fs []);
 
 val readMain_COMMANDLINE_pres  = Q.store_thm("readMain_COMMANDLINE_pres",
   `readMain () c = (res, d)
    ==>
    c.cl = d.cl`,
-  rw [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
-      readFile_def, liftM_def, arguments_def, print_err_def]
-  \\ pop_assum mp_tac
-  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
-  \\ fs [UNCURRY] \\ rw []
-  \\ imp_res_tac readLines_COMMANDLINE_pres \\ fs []);
+  simp [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
+        readFile_def, liftM_def, arguments_def, print_err_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ fs [ELIM_UNCURRY] \\ rw [] \\ fs []
+  \\ drule readLines_COMMANDLINE_pres \\ fs []);
 
 val _ = export_theory ();
 
