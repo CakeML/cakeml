@@ -315,6 +315,12 @@ val STDIO_precond = Q.prove(
   cases_on`fs` >> fs[IO_fs_numchars_fupd]
   ) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
+val RUNTIME_precond = Q.prove(
+  `RUNTIME {FFI_part (encode ()) (mk_ffi_next runtime_ffi_part)
+           (MAP FST (SND(SND runtime_ffi_part))) events}`,
+  rw[RUNTIME_def,runtimeFFITheory.runtime_ffi_part_def,
+     IOx_def,SEP_EXISTS_THM,SEP_CLAUSES,IO_def,one_def]);
+
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
   showing that post-condition which gives effects your programs output is an FFI_part and
@@ -442,6 +448,8 @@ val whole_prog_spec_semantics_prog_ffidiv = Q.store_thm("whole_prog_spec_semanti
 
 val heap_thms = [COMMANDLINE_precond, STDIO_precond];
 
+val heap_thms2 = [COMMANDLINE_precond, STDIO_precond, RUNTIME_precond];
+
 fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
   | build_set [th] = th
   | build_set (th1::th2::ths) =
@@ -454,6 +462,8 @@ fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
       in build_set (th::ths) end
 
 val sets_thm = build_set heap_thms |> curry save_thm "sets_thm";
+
+val sets_thm2 = build_set heap_thms2 |> curry save_thm "sets_thm2";
 
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
@@ -549,7 +559,6 @@ val SPLIT_exists = Q.store_thm ("SPLIT_exists",
     ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`,
   rw[]
   \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
-  \\ SPLIT_TAC
-);
+  \\ SPLIT_TAC);
 
 val _ = export_theory();
