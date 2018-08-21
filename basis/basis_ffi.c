@@ -136,6 +136,9 @@ void cml_exit(int arg) {
 }
 
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
+  if(alen > 0) {
+    cml_exit((int)a[0]);
+  }
   cml_exit(EXIT_FAILURE);
 }
 

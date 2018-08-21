@@ -378,7 +378,7 @@ val strcat_foo_spec = Q.prove (
   rveq >> xapp >> xsimpl);
 
 val example_ffidiv = process_topdecs `
-   fun example_ffidiv b = if b then Runtime.exit () else ()`
+   fun example_ffidiv b = if b then Runtime.abort () else ()`
 
 val st = ml_progLib.add_prog example_ffidiv pick_name basis_st
 
@@ -390,8 +390,8 @@ val example_ffidiv_spec = Q.prove (
        (POST
           (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
           (λev. &F)
-          (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [])
-                   * RUNTIME)`,
+          (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
+                   * RUNTIME))`,
   xcf "example_ffidiv" st
   >> xif
   >- (xlet_auto

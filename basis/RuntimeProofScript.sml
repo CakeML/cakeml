@@ -24,34 +24,49 @@ val RUNTIME_FFI_part_hprop = Q.store_thm("RUNTIME_FFI_part_hprop",
 val st = get_ml_prog_state();
 
 val Runtime_exit_spec = Q.store_thm("Runtime_exit_spec",
-  `app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [uv]
+  `INT i iv ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [iv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = []))`,
-  xcf "Runtime.exit" st
-  \\ xlet `POSTv loc. RUNTIME * W8ARRAY loc []`
+     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))`,
+  strip_tac \\ xcf "Runtime.exit" st
+  \\ xlet `POSTv wv. &WORD ((i2w i):word8) wv * RUNTIME`
+  THEN1
+   (simp[cf_wordFromInt_W8_def,cfTheory.app_wordFromInt_W8_def]
+    \\ irule local_elim \\ reduce_tac
+    \\ fs[ml_translatorTheory.INT_def] \\ xsimpl)
+  \\ xlet `POSTv loc. RUNTIME * W8ARRAY loc [i2w i]`
   THEN1
    (simp[cf_aw8alloc_def]
     \\ irule local_elim \\ reduce_tac
-    \\ simp[app_aw8alloc_def] \\ xsimpl)
+    \\ fs[WORD_def] \\ simp[app_aw8alloc_def]
+    \\ xsimpl \\ EVAL_TAC)
   \\ simp[cf_ffi_def,local_def]
   \\ rw[]
-  \\ qexists_tac `RUNTIME * W8ARRAY loc []`
+  \\ qexists_tac `RUNTIME * W8ARRAY loc [i2w i]`
   \\ qexists_tac `emp` \\ simp[app_ffi_def]
   \\ simp[GSYM PULL_EXISTS]
   \\ conj_tac
   >- (fs[STAR_def,emp_def,SPLIT_emp2] >> metis_tac[])
-  \\ qexists_tac `(POSTf n. (λc b. RUNTIME * &(n = "exit" ∧ c = [] ∧ b = []) * SEP_EXISTS loc. W8ARRAY loc []))`
+  \\ qexists_tac `(POSTf n. (λc b. RUNTIME * &(n = "exit" ∧ c = [] ∧ b = [i2w i]) * SEP_EXISTS loc. W8ARRAY loc [i2w i]))`
   \\ rw[]
   >- (fs[RUNTIME_def,runtime_ffi_part_def,IOx_def]
-        \\ xsimpl
-        \\ qmatch_goalsub_abbrev_tac `IO s u ns`
-      \\ MAP_EVERY qexists_tac [`loc`,`[]`,`[]`,`emp`,`s`,`u`,`ns`]
+      \\ xsimpl
+      \\ qmatch_goalsub_abbrev_tac `IO s u ns`
+      \\ MAP_EVERY qexists_tac [`loc`,`[]`,`[i2w i]`,`emp`,`s`,`u`,`ns`]
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
       \\ unabbrev_all_tac
       \\ fs[mk_ffi_next_def,encode_def,decode_def,ffi_exit_def]
       \\ xsimpl \\ metis_tac[SEP_IMP_def])
   \\ xsimpl);
+
+val Runtime_abort_spec = Q.store_thm("Runtime_abort_spec",
+  `app (p:'ffi ffi_proj) ^(fetch_v "Runtime.abort" st) [uv]
+     (RUNTIME)
+     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))`,
+  xcf "Runtime.abort" st
+  \\ xapp
+  \\ xsimpl \\ EVAL_TAC);
 
 val RUNTIME_HPROP_INJ = Q.store_thm("RUNTIME_HPROP_INJ[hprop_inj]",
   `!cl1 cl2. HPROP_INJ (RUNTIME) (RUNTIME) (T)`,
