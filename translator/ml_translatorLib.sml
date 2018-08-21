@@ -1126,38 +1126,45 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
     val pull_no_closures = N_conj_conv (can (match_term no_closure_pat)) reps
     val pull_types_match = N_conj_conv (can (match_term types_match_pat)) reps
     val x2 = mk_var("x2",alpha)
+    (* avoid using stateful simpset in the eq_lemma proof *)
+    val extra_simps =
+      List.concat (List.map (fn ty => #rewrs (TypeBase.simpls_of ty)) tys)
+    val option_case_eq = CaseEq "option"
     (* set_goal ([], goal) *)
     val eq_lemma = auto_prove "EqualityType" (goal,
-      strip_tac>> fs[EqualityType_def] \\
-      CONV_TAC pull_no_closures \\
-      reverse CONJ_TAC
-      THEN1
-        ((Induct ORELSE Cases)
-        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
-        \\ REPEAT STRIP_TAC \\ RES_TAC)\\
-      CONV_TAC pull_types_match \\
-      CONJ_TAC
-      THEN1
-        (Induct ORELSE Cases
-        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
+      strip_tac
+      \\ full_simp_tac std_ss [EqualityType_def]
+      \\ CONV_TAC pull_no_closures
+      \\ reverse conj_tac
+      >-
+       ((Induct ORELSE Cases)
+        \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF]
+        \\ rpt strip_tac
+        \\ res_tac)
+      \\ CONV_TAC pull_types_match
+      \\ CONJ_TAC
+      >-
+       ((Induct ORELSE Cases)
+        \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF]
         \\ primCases_on x2
-        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
-        \\ REPEAT STRIP_TAC \\ METIS_TAC [])
-      THEN1
-        ((Induct ORELSE Cases)
-        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
-        \\ TRY (primCases_on x2)
-        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
-        \\ (* Tries to get rid of obvious equality type *)
-           (* TODO
-            * - this metis_tac call is problematic; I'll remove it until
-            *   something breaks, and see how it can be replaced *)
-           ALL_TAC
-        (*TRY (simp[ctor_same_type_def] \\ metis_tac[EqualityType_NUM_BOOL])*)
-        \\ EVAL_TAC
-        \\ REPEAT STRIP_TAC
-        \\ rpt var_eq_tac \\ every_case_tac \\ EVAL_TAC
-        \\ METIS_TAC []))
+        \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF,
+                            stamp_11, v_11]
+        \\ rpt strip_tac
+        \\ CONV_TAC (DEPTH_CONV stringLib.string_EQ_CONV)
+        \\ full_simp_tac list_ss extra_simps
+        \\ simp_tac std_ss [EQ_IMP_THM]
+        \\ rpt strip_tac
+        \\ res_tac)
+      \\ (Induct ORELSE Cases)
+      \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF]
+      \\ TRY (primCases_on x2)
+      \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF,
+                          types_match_def, ctor_same_type_def,
+                          option_case_eq, pair_case_def, same_type_def,
+                          stamp_11, v_11]
+      \\ CONV_TAC (DEPTH_CONV stringLib.string_EQ_CONV)
+      \\ rpt strip_tac
+      \\ res_tac)
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
     val _ = not (can (find_term (aconv (rand tm2))) tm1) orelse fail()
