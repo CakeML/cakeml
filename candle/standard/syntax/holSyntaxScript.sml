@@ -830,8 +830,6 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
      (MAP SND eqs) ∧
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
-   (*(∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
-   ALL_DISTINCT (MAP FST eqs)*)
    (* the resulting theory has to pass the cyclicity check *)
    ~cyclic (ConstSpec eqs prop::ctxt)
    ⇒ (ConstSpec eqs prop) updates ctxt) ∧
@@ -843,9 +841,8 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
   (* new_type_definition *)
   ((thyof ctxt, []) |- Comb pred witness ∧
    CLOSED pred ∧
-   (* name ∉ (FDOM (tysof ctxt)) ∧ *)
    (* the resulting theory has to be orthogonal *)
-   ~cyclic (TypeDefn name pred abs rep::ctxt)
+   ~cyclic (TypeDefn name pred abs rep::ctxt) ∧
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    abs ≠ rep
