@@ -190,7 +190,16 @@ val make_g_subg = store_thm("make_g_subg",
     subg (cfg,aux) new``,
   rw [] \\ imp_res_tac make_g_wfg \\ fs [wfg_def,subg_def]
   \\ fs [make_g_def] \\ rveq \\ fs [FDOM_FUPDATE_LIST]
-  \\ cheat (* routine proof? *));
+  \\ rw[]
+  \\ match_mp_tac ALOOKUP_ALL_DISTINCT_MEM \\ fs[]
+  \\ last_assum(mp_then Any mp_tac FUPDATE_LIST_ALL_DISTINCT_REVERSE)
+  \\ disch_then(qspec_then`FEMPTY`(SUBST1_TAC o SYM))
+  \\ drule (GEN_ALL FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME)
+  \\ disch_then(qspec_then`FEMPTY`mp_tac) \\ strip_tac
+  \\ fs[MEM_MAP, PULL_EXISTS, MEM_toAList, EXISTS_PROD]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fsrw_tac[DNF_ss][EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD, EQ_IMP_THM]
+  \\ res_tac \\ fs[ADD1, domain_lookup]);
 
 val recclosure_wf_def = Define`
   recclosure_wf loc fns ⇔
