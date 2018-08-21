@@ -1,4 +1,5 @@
 open preamble ml_hol_kernelProgTheory
+     mlnumTheory
      mlintTheory StringProgTheory
      prettyTheory
 
@@ -11,6 +12,9 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
 val _ = temp_add_monadsyntax()
 
+(* ------------------------------------------------------------------------- *)
+(* Objects and functions on objects.                                         *)
+(* ------------------------------------------------------------------------- *)
 
 (* We just represent names in the string (dotted) format.
    To make the namespace more explicit, the following functions could
@@ -195,7 +199,7 @@ val BETA_CONV_def = Define `
           (\e. failwith (strlit"BETA_CONV: not a beta-redex")))`;
 
 (* ------------------------------------------------------------------------- *)
-(* Debugging                                                                 *)
+(* Debugging.                                                                *)
 (* ------------------------------------------------------------------------- *)
 
 val commas_def = Define `
@@ -245,7 +249,60 @@ val state_to_string = Define `
       concat [stack; strlit"\n"; dict; thm; thms]`;
 
 (* ------------------------------------------------------------------------- *)
-(* Article reader                                                            *)
+(* Printing of the context.                                                  *)
+(* ------------------------------------------------------------------------- *)
+
+val pp_update_def = Define `
+  pp_update upd =
+    case upd of
+      ConstSpec nts tm =>
+        mk_blo 9
+          ([mk_str (strlit"ConstSpec");
+            mk_brk 1;
+            mk_str (strlit"[")] ++
+           interleave (strlit";")
+             (FLAT (MAP (\(nm, tm). [mk_str (nm ^ strlit",");
+                                     mk_brk 1;
+                                     pp_term 0 tm]) nts)) ++
+           [mk_str (strlit"]");
+            mk_brk 1;
+            pp_term 0 tm])
+    | TypeDefn nm pred abs_nm rep_nm =>
+        mk_blo 8
+          [mk_str (strlit"TypeDefn");
+           mk_brk 1;
+           mk_str nm;
+           mk_brk 1;
+           mk_str (strlit"(absname " ^ abs_nm ^ strlit")");
+           mk_brk 1;
+           mk_str (strlit"(repname " ^ rep_nm ^ strlit")");
+           mk_brk 1;
+           pp_term 0 pred]
+    | NewType nm arity =>
+        mk_blo 7
+          [mk_str (strlit"NewType");
+           mk_brk 1;
+           mk_str nm;
+           mk_brk 1;
+           mk_str (strlit"(arity " ^ toString arity ^ strlit")")]
+    | NewConst nm ty =>
+        mk_blo 8
+          [mk_str (strlit"NewConst");
+           mk_brk 1;
+           mk_str (nm ^ strlit" :");
+           mk_brk 1;
+           mk_str (pp_type 0 ty)]
+    | NewAxiom tm =>
+        mk_blo 8
+          [mk_str (strlit"NewAxiom");
+           mk_brk 1;
+           pp_thm (Sequent [] tm)]`;
+
+val upd2str_def = Define `
+  upd2str upd = pr (pp_update upd) pp_margin`;
+
+(* ------------------------------------------------------------------------- *)
+(* Implementation of the article reader.                                     *)
 (* ------------------------------------------------------------------------- *)
 
 (* TODO fromString is broken *)
@@ -524,16 +581,8 @@ val readLine_def = Define`
         | _ => failwith (strlit"unrecognised input: " ^ line)`;
 
 (* ------------------------------------------------------------------------- *)
-(* Informative error messages                                                *)
+(* Some preprocessing is required.                                           *)
 (* ------------------------------------------------------------------------- *)
-
-val line_Fail_def = Define `
-  line_Fail s msg =
-    (mlstring$concat
-      [ strlit"Failure on line "
-      ; toString (current_line s)
-      ; strlit":\n"
-      ; msg; strlit"\n"])`;
 
 val fix_fun_typ_def = Define `
   fix_fun_typ s =
@@ -549,12 +598,42 @@ val str_prefix_def = Define `
 val invalid_line_def = Define`
   invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"`;
 
-(* TODO this could dump the theorem list *)
+val unescape_def = Define `
+  unescape str =
+    case str of
+      #"\\":: #"\\" ::cs => #"\\"::unescape cs
+    | c1::c::cs    => c1::unescape (c::cs)
+    | cs           => cs`;
+
+val unescape_ml_def = Define `
+  unescape_ml = implode o unescape o explode`;
+
+(* ------------------------------------------------------------------------- *)
+(* Print out the theorems and context if we succeed.                         *)
+(* ------------------------------------------------------------------------- *)
+
 val msg_success_def = Define `
-  msg_success s =
+  msg_success s ctxt =
+    let upds = concat (MAP (\upd. upd2str upd ^ strlit"\n") ctxt) in
     let thm  = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
     let thms = concat (MAP (\t. thm2str t ^ strlit"\n") s.thms) in
-      concat [strlit"OK! "; thm; strlit"\n"; thms]`;
+      concat
+        [strlit"OK!";
+         strlit"CONTEXT\n"; upds; strlit"\n";
+         thm; strlit"\n"; thms]`;
+
+(* ------------------------------------------------------------------------- *)
+(* Error messages.                                                           *)
+(* ------------------------------------------------------------------------- *)
+
+val line_Fail_def = Define `
+  line_Fail s msg =
+    (mlstring$concat
+      [ strlit"Failure on line "
+      ; toString (current_line s)
+      ; strlit":\n"
+      ; msg; strlit"\n"])`;
+
 
 val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
 
@@ -568,21 +647,8 @@ val msg_axioms_def = Define `
     concat[strlit"Could not initialise axioms:\n"; e; strlit "\n"]`;
 
 (* ------------------------------------------------------------------------- *)
-(* Using the reader                                                          *)
+(* Running the reader on a list of strings.                                  *)
 (* ------------------------------------------------------------------------- *)
-
-(* The articles contain strings with escaped backslashes:
- * we need to turn things such as Data.Bool./\\ into Data.Bool./\. *)
-
-val unescape_def = Define `
-  unescape str =
-    case str of
-      #"\\":: #"\\" ::cs => #"\\"::unescape cs
-    | c1::c::cs    => c1::unescape (c::cs)
-    | cs           => cs`;
-
-val unescape_ml_def = Define `
-  unescape_ml = implode o unescape o explode`;
 
 val readLines_def = Define `
   readLines lls s =
@@ -600,7 +666,7 @@ val readLines_def = Define `
         od`;
 
 (* ------------------------------------------------------------------------- *)
-(* PMATCH definitions                                                        *)
+(* PMATCH definitions.                                                       *)
 (* ------------------------------------------------------------------------- *)
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();

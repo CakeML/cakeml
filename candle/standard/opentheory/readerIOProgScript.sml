@@ -250,6 +250,16 @@ val EvalM_holrefs_readline_wrap = Q.prove (
        (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)`,
   metis_tac [holrefs_INTRO, EvalM_readline_wrap]);
 
+val EvalM_holrefs_get_the_context = Q.store_thm("EvalM_holrefs_get_the_context",
+  `nsLookup env.v (Short "the_context") = SOME the_context ⇒
+   EvalM ro env st (App Opderef [Var (Short "the_context")])
+     (MONAD (LIST_TYPE UPDATE_TYPE) HOL_EXN_TYPE (holrefs get_the_context))
+     (STATE_STORE,p:'ffi ffi_proj)`,
+  strip_tac
+  \\ match_mp_tac holrefs_INTRO
+  \\ strip_tac
+  \\ metis_tac [ml_hol_kernelProgTheory.get_the_context_thm]);
+
 (* ------------------------------------------------------------------------- *)
 (* Add access patterns                                                       *)
 (* ------------------------------------------------------------------------- *)
@@ -260,6 +270,7 @@ val _ = add_access_pattern EvalM_commandline_arguments;
 val _ = add_access_pattern EvalM_holrefs_readline_wrap;
 val _ = add_access_pattern EvalM_holrefs_init_reader_wrap;
 val _ = add_access_pattern EvalM_stdio_inputLinesFrom_STRING;
+val _ = add_access_pattern EvalM_holrefs_get_the_context;
 
 val _ = ignore_type ``:IO_fs``;
 val _ = ignore_type ``:hol_refs``

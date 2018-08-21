@@ -25,7 +25,7 @@ val _ = overload_on("holrefs",    ``liftM state_refs_holrefs holrefs_fupd``);
 val _ = overload_on("commandline",``liftM state_refs_cl      cl_fupd``);
 
 (* ------------------------------------------------------------------------- *)
-(* Getting emptyffi calls to trigger                                         *)
+(* Wrap the emptyffi call in return.                                         *)
 (* ------------------------------------------------------------------------- *)
 
 val ffi_msg_def = Define `
@@ -55,7 +55,8 @@ val readLines_def = Define `
       [] =>
         do
           ffi_msg (strlit"finished: readLines");
-          msg <- return (msg_success s);
+          ctxt <- holrefs get_the_context;
+          msg <- return (msg_success s ctxt);
           ffi_msg (strlit"finished: generate message");
           stdio (print msg)
         od

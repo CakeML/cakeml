@@ -66,10 +66,20 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ xcon \\ xsimpl
   \\ fs[SUM_TYPE_def] );
 
+(* TODO figure this out later. *)
+
+val deref_context_def = Define `
+  deref_context () = get_the_context`;
+
+val r = m_translate deref_context_def
+
+val deref_context_spec = save_thm ("deref_context_spec",
+  mk_app_of_ArrowP (theorem "deref_context_v_thm"));
+
 val _ = (append_prog o process_topdecs) `
   fun process_lines ins st0 =
     case TextIO.inputLine ins of
-      None => TextIO.print (msg_success st0)
+      None => TextIO.print (msg_success st0 (deref_context ()))
     | Some ln =>
       (case process_line st0 ln of
          Inl st1 => process_lines ins (next_line st1)
@@ -100,6 +110,17 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ xmatch
     \\ fs[OPTION_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ xlet `POSTv updv.
+               &LIST_TYPE UPDATE_TYPE refs.the_context updv *
+               STDIO (lineForwardFD fs fd) * HOL_STORE refs`
+    >-
+     (xapp
+      \\ simp [deref_context_def, get_the_context_def]
+      \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `refs`
+      \\ xsimpl)
     \\ xlet_auto >- xsimpl
     \\ xapp
     \\ xsimpl
@@ -116,7 +137,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
   \\ qmatch_assum_rename_tac`lineFD fs fd = SOME ln`
   \\ xlet_auto >- xsimpl
   \\ xmatch
-  \\ fs[OPTION_TYPE_def]
+  \\ fs [OPTION_TYPE_def]
   \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
   \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- (
@@ -184,9 +205,11 @@ val readLines_process_lines = Q.store_thm("readLines_process_lines",
      process_lines fd st refs fs ls =
      case res of
      | (Success (s,_)) =>
-         STDIO (add_stdout (fastForwardFD fs fd) (msg_success s)) * HOL_STORE r
+         STDIO (add_stdout (fastForwardFD fs fd) (msg_success s r.the_context)) *
+         HOL_STORE r
      | (Failure (Fail e)) =>
-         STDIO (add_stderr (forwardFD fs fd n) e) * HOL_STORE r`,
+         STDIO (add_stderr (forwardFD fs fd n) e) *
+         HOL_STORE r`,
   Induct \\ rw[process_lines_def]
   >- ( fs[Once readLines_def,st_ex_return_def] \\ rw[] )
   \\ pop_assum mp_tac

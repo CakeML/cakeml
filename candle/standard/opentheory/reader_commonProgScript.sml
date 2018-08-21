@@ -170,6 +170,9 @@ val r = m_translate init_reader_def
 val init_reader_spec = save_thm ("init_reader_spec",
   mk_app_of_ArrowP (theorem "init_reader_v_thm"));
 
+val r = translate pp_update_def
+val r = translate upd2str_def
+
 val r = translate msg_success_def
 val r = translate msg_usage_def
 val r = translate msg_bad_name_def
@@ -186,7 +189,7 @@ val _ = Q.prove (
 (* Things needed by whole_prog_spec                                          *)
 (* ------------------------------------------------------------------------- *)
 
-val HOL_STORE_init_precond = Q.store_thm( "HOL_STORE_init_precond",
+val HOL_STORE_init_precond = Q.store_thm ("HOL_STORE_init_precond",
   `HOL_STORE init_refs
    {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
                              ++stderr_refs++init_type_constants_refs)))
