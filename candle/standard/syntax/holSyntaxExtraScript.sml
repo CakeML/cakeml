@@ -4215,4 +4215,14 @@ val match_type_SOME = Q.store_thm("match_type_SOME",
   simp[] >>
   Cases_on`z`>>simp[])
 
+val cyclic_IMP_wf = Q.store_thm("cyclic_IMP_wf",
+  `!ctxt. definitional ctxt ==> ~cyclic ctxt`,
+  cheat
+  );
+
+val cyclic_IMP_wf = Q.store_thm("cyclic_IMP_wf",
+  `!ctxt. ~cyclic ctxt ==> wf_ctxt ctxt`,
+  cheat
+  );
+                                 
 val _ = export_theory()

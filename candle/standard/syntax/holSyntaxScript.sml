@@ -800,6 +800,11 @@ val wf_ctxt_def = Define `
   (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
   `
 
+(* The cyclicity check ensures that the dependency relation terminates.
+ *)
+val cyclic_def = Define `
+  cyclic = ARB:(update list -> bool)`
+
 (* Principles for extending the context *)
 
 val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
@@ -827,8 +832,8 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
    (*(∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
    ALL_DISTINCT (MAP FST eqs)*)
-   (* the resulting theory has to be orthogonal *)
-   orth_ctxt ((ConstSpec eqs prop)::ctxt)
+   (* the resulting theory has to pass the cyclicity check *)
+   ~cyclic (ConstSpec eqs prop::ctxt)
    ⇒ (ConstSpec eqs prop) updates ctxt) ∧
 
   (* new_type *)
@@ -840,7 +845,7 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
    CLOSED pred ∧
    (* name ∉ (FDOM (tysof ctxt)) ∧ *)
    (* the resulting theory has to be orthogonal *)
-   orth_ctxt ((TypeDefn name pred abs rep)::ctxt) /\
+   ~cyclic (TypeDefn name pred abs rep::ctxt)
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    abs ≠ rep
