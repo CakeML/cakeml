@@ -809,7 +809,8 @@ val _ = Define `
 
 val _ = Define `
  (ctor_inst _ (tvs_spec, ts_spec, tid_spec) (tvs_impl, ts_impl, tid_impl)=
-   ((LENGTH tvs_spec = LENGTH tvs_impl) /\  
+   ((tid_spec = tid_impl) /\  
+(LENGTH tvs_spec = LENGTH tvs_impl) /\  
 (let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
     ts_spec = MAP (type_subst subst) ts_impl)))`;
 

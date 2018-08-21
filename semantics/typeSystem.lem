@@ -765,6 +765,7 @@ let type_tdefs tenv tdef tids =
 let tscheme_inst2 _ ts1 ts2 = tscheme_inst ts1 ts2
 
 let ctor_inst _ (tvs_spec, ts_spec, tid_spec) (tvs_impl, ts_impl, tid_impl) =
+  tid_spec = tid_impl &&
   List.length tvs_spec = List.length tvs_impl &&
   let subst = Map.fromList (List_extra.zipSameLength tvs_impl (List.map Tvar tvs_spec)) in
     ts_spec = List.map (type_subst subst) ts_impl
