@@ -1,5 +1,5 @@
 open preamble
-     reg_allocTheory reg_allocProofTheory
+     reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;
 
 val _ = new_theory "word_allocProof";
@@ -2259,20 +2259,26 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   drule reg_alloc_correct>>
   qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
   disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
-  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
+  drule linear_scan_reg_alloc_correct>>
+  disch_then(qspecl_then [`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
+  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour (if 4 <= alg then col else spcol)`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
-    (srw_tac[][]
+    (rpt strip_tac
     >-
       (fs[total_colour_rw]>>
       `INJ (\x. 2n*x) UNIV UNIV` by fs[INJ_DEF]>>
       drule check_clash_tree_INJ >>
-      disch_then(qspecl_then[`tree`,`sp_default spcol`,`LN`,`LN`,`LN`] assume_tac)>>
+      disch_then(qspecl_then[`tree`,`sp_default (if 4 <= alg then col else spcol)`,`LN`,`LN`,`LN`] assume_tac)>>
       rfs[]>>
       drule clash_tree_colouring_ok>>
       fs[GSYM total_colour_rw]>>
-      disch_then(qspecl_then[`total_colour spcol`,`LN`,`LN`,`livein`,`gliveout`] assume_tac)>>
-      rfs[wf_def]>>
-      fs[hide_def])
+      Cases_on `4 <= alg` >> fs [] >> rfs []
+      >-
+        (disch_then(qspecl_then[`total_colour col`,`LN`,`LN`,`livein'`,`gliveout`] assume_tac)>>
+        rfs[wf_def]>>fs[hide_def])
+      >-
+        (disch_then(qspecl_then[`total_colour spcol`,`LN`,`LN`,`livein`,`gliveout`] assume_tac)>>
+        rfs[wf_def]>>fs[hide_def]))
     >-
       fs[word_state_eq_rel_def]
     >>
@@ -2283,6 +2289,7 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
       rfs[]>>fs[sp_default_def]>>rfs[]>>
       metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2])
   >>
+  Cases_on `4 <= alg` >> fs [] >>
   rw[]>>
   qexists_tac`perm'`>>rw[]>>
   fs[]>>
