@@ -256,19 +256,20 @@ val pp_update_def = Define `
   pp_update upd =
     case upd of
       ConstSpec nts tm =>
-        mk_blo 9
+        mk_blo 11
           ([mk_str (strlit"ConstSpec");
             mk_brk 1;
             mk_str (strlit"[")] ++
            interleave (strlit";")
-             (FLAT (MAP (\(nm, tm). [mk_str (nm ^ strlit",");
+             (FLAT (MAP (\(nm, tm). [mk_str (strlit"(" ^ nm ^ strlit",");
                                      mk_brk 1;
-                                     pp_term 0 tm]) nts)) ++
+                                     pp_term 0 tm;
+                                     mk_str (strlit")")]) nts)) ++
            [mk_str (strlit"]");
             mk_brk 1;
             pp_term 0 tm])
     | TypeDefn nm pred abs_nm rep_nm =>
-        mk_blo 8
+        mk_blo 9
           [mk_str (strlit"TypeDefn");
            mk_brk 1;
            mk_str nm;
@@ -279,21 +280,21 @@ val pp_update_def = Define `
            mk_brk 1;
            pp_term 0 pred]
     | NewType nm arity =>
-        mk_blo 7
+        mk_blo 8
           [mk_str (strlit"NewType");
            mk_brk 1;
            mk_str nm;
            mk_brk 1;
            mk_str (strlit"(arity " ^ toString arity ^ strlit")")]
     | NewConst nm ty =>
-        mk_blo 8
+        mk_blo 9
           [mk_str (strlit"NewConst");
            mk_brk 1;
            mk_str (nm ^ strlit" :");
            mk_brk 1;
            mk_str (pp_type 0 ty)]
     | NewAxiom tm =>
-        mk_blo 8
+        mk_blo 9
           [mk_str (strlit"NewAxiom");
            mk_brk 1;
            pp_thm (Sequent [] tm)]`;
@@ -618,8 +619,8 @@ val msg_success_def = Define `
     let thm  = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
     let thms = concat (MAP (\t. thm2str t ^ strlit"\n") s.thms) in
       concat
-        [strlit"OK!";
-         strlit"CONTEXT\n"; upds; strlit"\n";
+        [strlit"OK!\n";
+         strlit"CONTEXT:\n"; upds; strlit"\n";
          thm; strlit"\n"; thms]`;
 
 (* ------------------------------------------------------------------------- *)
