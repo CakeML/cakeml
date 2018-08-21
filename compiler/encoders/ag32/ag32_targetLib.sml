@@ -37,7 +37,7 @@ in
        computeLib.Convs
         [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
        computeLib.Extenders [optionLib.OPTION_rws,
-         utilsLib.add_base_datatypes
+         utilsLib.add_base_datatypes, asmLib.add_asm_compset
        ]])
 end
 
