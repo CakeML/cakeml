@@ -67,7 +67,7 @@ val call_main_thm1 = Q.store_thm("call_main_thm1",
 val prog_to_semantics_prog = Q.prove(
   `!init_env inp prog st c r env2 s2.
      Decls init_env inp prog env2 s2 ==>
-     (semantics_prog  inp init_env prog (Terminate Success s2.ffi.io_events))`,
+     (semantics_prog inp init_env prog (Terminate Success s2.ffi.io_events))`,
   rw[ml_progTheory.Decls_def]
   \\ fs[semanticsTheory.semantics_prog_def,PULL_EXISTS]
   \\ fs[semanticsTheory.evaluate_prog_with_clock_def]
@@ -80,6 +80,54 @@ val prog_to_semantics_prog = Q.prove(
   \\ drule evaluate_decs_add_to_clock
   \\ disch_then (qspec_then `k` mp_tac)
   \\ rpt strip_tac \\ fs []);
+
+val clock_eq_lemma = Q.prove(
+  `!c. st with clock := a = st2 with clock := b ==>
+    st with clock := c = st2 with clock := c`,
+  simp[state_component_equality]);
+
+val state_eq_semantics_prog = Q.prove(
+  `st with clock := a = st2 with clock := b ==>
+   semantics_prog st env prog r = semantics_prog st2 env prog r`,
+  strip_tac \\ Cases_on `r`
+  \\ simp[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def]
+  \\ imp_res_tac clock_eq_lemma
+  \\ fs[]);
+
+val prog_APPEND_semantics_prog = Q.prove(
+  `!prog1 init_env prog2 st1 c outcome events env2 st2.
+  Decls init_env st1 prog1 env2 st2
+  /\ semantics_prog st2 (merge_env env2 init_env) prog2 (Terminate outcome events)
+  ==>
+  semantics_prog st1 init_env (prog1++prog2) (Terminate outcome events)`,
+  Induct_on `prog1` \\ rw[]
+  >- (fs[ml_progTheory.Decls_def] \\ rveq \\ fs[ml_progTheory.merge_env_def]
+      \\ metis_tac[state_eq_semantics_prog])
+  \\ qhdtm_x_assum `Decls` (strip_assume_tac o REWRITE_RULE [Once ml_progTheory.Decls_CONS])
+  \\ rveq
+  \\ first_x_assum drule
+  \\ simp[ml_progTheory.merge_env_assoc]
+  \\ disch_then drule \\ strip_tac
+  \\ fs[state_component_equality,semanticsTheory.semantics_prog_def,PULL_EXISTS,
+        semanticsTheory.evaluate_prog_with_clock_def]
+  \\ fs[Once evaluate_decs_cons,ml_progTheory.Decls_def]
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ qmatch_asmsub_abbrev_tac `evaluate_decs (_ with clock := c_prog1) _ (prog1++prog2) = _`
+  \\ qmatch_asmsub_abbrev_tac `evaluate_decs (_ with clock := c_h) _ [_] = _`
+  \\ qexists_tac `c_h + c_prog1`
+  \\ rpt(dxrule evaluate_decs_add_to_clock) \\ simp[]
+  \\ rpt strip_tac
+  \\ fs[combine_dec_result_def] \\ rveq
+  \\ fs[extend_dec_env_def,ml_progTheory.merge_env_def]);
+
+val prog_SNOC_semantics_prog = Q.prove(
+  `!prog1 init_env decl st1 c outcome events env2 st2.
+  Decls init_env st1 prog1 env2 st2
+  /\ semantics_prog st2 (merge_env env2 init_env) [decl] (Terminate outcome events)
+  ==>
+  semantics_prog st1 init_env (SNOC decl prog1) (Terminate outcome events)`,
+  simp[SNOC_APPEND] \\ MATCH_ACCEPT_TAC prog_APPEND_semantics_prog);
 
 val FFI_part_hprop_def = Define`
   FFI_part_hprop Q =
@@ -120,5 +168,60 @@ val call_main_thm2 = Q.store_thm("call_main_thm2",
   \\ rpt (disch_then drule)
   \\ simp[] \\ strip_tac
   \\ asm_exists_tac \\ simp[]);
+
+val call_main_thm2_ffidiv = Q.store_thm("call_main_thm2_ffidiv",
+  `ML_code env1 st1 prog NONE env2 st2 ==>
+   lookup_var fname env2 = SOME fv ==>
+  app (proj1, proj2) fv [Conv NONE []] P (POSTf n. λ c b. Q n c b) ==>
+  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1
+  ==>
+    ∃st3 n c b.
+    semantics_prog st1 env1  (SNOC ^main_call prog)
+                   (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) st3.ffi.io_events) /\
+    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q n c b h3) /\
+    call_FFI_rel^* st1.ffi st3.ffi`,
+  rw[]
+  \\ qho_match_abbrev_tac`?st3 n c b. A st3 n c b /\ B st3 n c b /\ C st1 st3`
+  \\ `?st3 st4 n c b.  Decls env1 st1 prog env2 st3
+                       /\ semantics_prog st3 (merge_env env2 env1) [(^main_call)]
+                          (Terminate (FFI_outcome(Final_event n c b FFI_diverged))
+                                     st4.ffi.io_events)
+                       /\ B st4 n c b /\ C st1 st4`
+       suffices_by metis_tac[prog_SNOC_semantics_prog]
+  \\ fs[ml_progTheory.ML_code_def]
+  \\ asm_exists_tac \\ fs[app_def,app_basic_def]
+  \\ first_x_assum drule \\ impl_tac >- simp[]
+  \\ rpt strip_tac
+  \\ Cases_on `r`
+  >- (fs[cond_def])
+  >- (fs[cond_def])
+  \\ fs[]
+  \\ rename1 `Final_event name conf bytes`
+  \\ rename1 `evaluate_ck _ _ _ _ = (st4,_)`
+  \\ MAP_EVERY qexists_tac [`st4`,`name`,`conf`,`bytes`]
+  \\ conj_tac
+  >- (fs[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def,
+         terminationTheory.evaluate_decs_def]
+      \\ simp[Once terminationTheory.evaluate_def]
+      \\ simp[astTheory.pat_bindings_def]
+      \\ simp[Once terminationTheory.evaluate_def]
+      \\ simp[Once terminationTheory.evaluate_def]
+      \\ simp[do_con_check_def,build_conv_def]
+      \\ simp[Once terminationTheory.evaluate_def]
+      \\ simp[ml_progTheory.nsLookup_merge_env]
+      \\ fs[ml_progTheory.lookup_var_def,evaluate_ck_def]
+      \\ Q.REFINE_EXISTS_TAC `SUC k` \\ fs[]
+      \\ simp[evaluateTheory.dec_clock_def]
+      \\ qexists_tac `ck` \\ simp[])
+  \\ conj_tac
+  >- metis_tac[]
+  \\ unabbrev_all_tac
+  \\ simp[]
+  \\ fs[ml_progTheory.Decls_def]
+  \\ drule evaluate_decs_call_FFI_rel_imp
+  \\ strip_tac
+  \\ fs[evaluate_ck_def]
+  \\ imp_res_tac evaluate_call_FFI_rel_imp
+  \\ fs[] \\ metis_tac[RTC_RTC]);
 
 val _ = export_theory()

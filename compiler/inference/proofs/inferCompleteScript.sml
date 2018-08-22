@@ -1314,34 +1314,32 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
       fs[env_rel_def])>>
     fs[env_rel_def,env_rel_sound_def])
   >- ( (* Dtabbrev *)
-    rw [infer_d_def,success_eqns]
-    >- (
-      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
-      `ienv' = tenv_to_ienv tenv'`
-        by (
-          unabbrev_all_tac >>
-          rw [tenv_to_ienv_def] >>
-          fs [env_rel_def, env_rel_complete_def]) >>
-      rw [] >>
-      irule env_rel_tenv_to_ienv >>
-      fs[env_rel_def]
-      )
-    >- fs [env_rel_def, env_rel_sound_def])
+    `tenv.t = ienv.inf_t` by fs [env_rel_def, env_rel_complete_def] >>
+    fs [] >>
+    rw [infer_d_def,success_eqns, type_name_check_subst_comp_thm] >>
+    qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+    `ienv' = tenv_to_ienv tenv'`
+      by (
+        unabbrev_all_tac >>
+        rw [tenv_to_ienv_def] >>
+        fs [env_rel_def, env_rel_complete_def]) >>
+    rw [] >>
+    irule env_rel_tenv_to_ienv >>
+    fs[env_rel_def])
   >- ( (* Dexn *)
-    rw [infer_d_def, success_eqns]
-    >- (
-      qmatch_abbrev_tac `env_rel tenv' ienv'` >>
-      `ienv' = tenv_to_ienv tenv'`
-        by (
-          unabbrev_all_tac >>
-          rw [tenv_to_ienv_def] >>
-          fs [env_rel_def, env_rel_complete_def] >>
-          metis_tac []) >>
-      rw [] >>
-      irule env_rel_tenv_to_ienv >>
-      fs[env_rel_def]
-      )
-    >- fs [env_rel_def, env_rel_sound_def])
+    `tenv.t = ienv.inf_t` by fs [env_rel_def, env_rel_complete_def] >>
+    fs [] >>
+    rw [infer_d_def, success_eqns,type_name_check_subst_comp_thm] >>
+    qmatch_abbrev_tac `env_rel tenv' ienv'` >>
+    `ienv' = tenv_to_ienv tenv'`
+      by (
+        unabbrev_all_tac >>
+        rw [tenv_to_ienv_def] >>
+        fs [env_rel_def, env_rel_complete_def] >>
+        metis_tac []) >>
+    rw [] >>
+    irule env_rel_tenv_to_ienv >>
+    fs[env_rel_def])
   >- ( (* Dmod*)
     rw[infer_d_def,success_eqns]>>
     first_x_assum drule>>

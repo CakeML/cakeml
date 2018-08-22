@@ -114,7 +114,7 @@ local
   fun reduce_literal_conv tm =
     if fst (wordsSyntax.dest_mod_word_literal tm) =
        wordsSyntax.dest_word_literal tm
-      then raise ERR "reduce_literal" "already reduced"
+      then raise mk_HOL_ERR "encodeLib" "reduce_literal" "already reduced"
     else cnv tm
   val REDUCE_LITERALS_CONV = Conv.DEPTH_CONV reduce_literal_conv
 in

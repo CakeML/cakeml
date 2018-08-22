@@ -32,15 +32,18 @@ val prove_parts_ok_st =
     \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
     \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
     \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-    \\ TRY pairarg_tac \\ fs[]
-    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-    \\ srw_tac[DNF_ss][];
+    \\ TRY PURE_FULL_CASE_TAC
+    \\ fs[]
+    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
+    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
+    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def];
 
 val sets = rand(concl sets_thm)
+val sets2 = rand(concl sets_thm2)
 val to_inst = free_vars sets
 
 (* This function proves the SPLIT pre-condition of call_main_thm_basis *)
-fun subset_basis_st st precond =
+fun subset_basis_st st precond sets sets_thm =
   let
   val goal = pred_setSyntax.mk_subset(sets,st)
   val tac = (
@@ -67,7 +70,8 @@ fun subset_basis_st st precond =
      List.mapPartial (mk_mapping o safe_dest_eq o #2) subgoals
   val goal' = Term.subst s goal
   val th = prove(goal',tac)
-  val th = MATCH_MP SPLIT_exists (CONJ (INST s sets_thm) th)
+  val th =
+      MATCH_MP SPLIT_exists (CONJ (INST s sets_thm) th)
   val length_hyps = mapfilter (assert listSyntax.is_length o lhs) (hyp th)
                  |> map EVAL
   in foldl (uncurry PROVE_HYP) th length_hyps end;
@@ -75,8 +79,15 @@ fun subset_basis_st st precond =
 fun whole_prog_thm st name spec =
   let
     val call_ERR = ERR "whole_prog_thm"
+    val whole_prog_spec_tm = spec |> concl |> strip_imp |> snd |> strip_comb |> fst
+    val (whole_prog_spec_thm,sets_term,sets_theorem) =
+        if same_const whole_prog_spec_tm ``whole_prog_spec`` then
+          (whole_prog_spec_semantics_prog,sets,sets_thm)
+        else if same_const whole_prog_spec_tm ``whole_prog_ffidiv_spec`` then
+          (whole_prog_spec_semantics_prog_ffidiv,sets2,sets_thm2)
+       else raise(call_ERR "Conclusion must be a whole_prog_spec or whole_prog_ffidiv_spec")
     val th =
-      whole_prog_spec_semantics_prog
+      whole_prog_spec_thm
         |> C MATCH_MP (st |> get_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
         |> SPEC(stringSyntax.fromMLstring name)
         |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
@@ -88,7 +99,7 @@ fun whole_prog_thm st name spec =
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1 (* must be COMMANDNLINE cl * STDIO fs *)
     val st = split |> rator |> rand
-    val SPLIT_thm = subset_basis_st st precond
+    val SPLIT_thm = subset_basis_st st precond sets_term sets_theorem
     val th = PART_MATCH_A (#1 o dest_imp) th (concl SPLIT_thm)
     val th = MATCH_MP th SPLIT_thm
     val th = DISCH_ALL th
