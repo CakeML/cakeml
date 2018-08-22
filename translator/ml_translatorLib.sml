@@ -1126,43 +1126,38 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
     val pull_no_closures = N_conj_conv (can (match_term no_closure_pat)) reps
     val pull_types_match = N_conj_conv (can (match_term types_match_pat)) reps
     val x2 = mk_var("x2",alpha)
-    (* avoid using stateful simpset in the eq_lemma proof *)
-    val extra_simps =
-      List.concat (List.map (fn ty => #rewrs (TypeBase.simpls_of ty)) tys)
-    val option_case_eq = CaseEq "option"
+    val ty_case_eq = LIST_CONJ
+      (List.concat (List.map (#rewrs o TypeBase.simpls_of) tys))
     (* set_goal ([], goal) *)
     val eq_lemma = auto_prove "EqualityType" (goal,
       strip_tac
-      \\ full_simp_tac std_ss [EqualityType_def]
+      \\ fs [EqualityType_def]
       \\ CONV_TAC pull_no_closures
       \\ reverse conj_tac
       >-
        ((Induct ORELSE Cases)
-        \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF]
+        \\ simp [inv_def, no_closures_def, PULL_EXISTS]
         \\ rpt strip_tac
         \\ res_tac)
       \\ CONV_TAC pull_types_match
       \\ CONJ_TAC
       >-
        ((Induct ORELSE Cases)
-        \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF]
+        \\ simp [inv_def, no_closures_def, PULL_EXISTS]
         \\ primCases_on x2
-        \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF,
-                            stamp_11, v_11]
+        \\ simp [inv_def, no_closures_def, PULL_EXISTS]
+        \\ simp [ty_case_eq]
         \\ rpt strip_tac
-        \\ CONV_TAC (DEPTH_CONV stringLib.string_EQ_CONV)
-        \\ full_simp_tac list_ss extra_simps
+        \\ fs [NUM_def, BOOL_def] \\ rw []
         \\ simp_tac std_ss [EQ_IMP_THM]
         \\ rpt strip_tac
         \\ res_tac)
       \\ (Induct ORELSE Cases)
-      \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF]
+      \\ simp [inv_def, no_closures_def, PULL_EXISTS]
       \\ TRY (primCases_on x2)
-      \\ simp_tac std_ss [inv_def, no_closures_def, PULL_EXISTS, EVERY_DEF,
-                          types_match_def, ctor_same_type_def,
-                          option_case_eq, pair_case_def, same_type_def,
-                          stamp_11, v_11]
-      \\ CONV_TAC (DEPTH_CONV stringLib.string_EQ_CONV)
+      \\ simp [inv_def, no_closures_def, PULL_EXISTS,
+               types_match_def, ctor_same_type_def, same_type_def]
+      \\ simp [ty_case_eq]
       \\ rpt strip_tac
       \\ res_tac)
     (* check that the result does not mention itself *)
