@@ -252,6 +252,19 @@ val state_to_string = Define `
 (* Printing of the context.                                                  *)
 (* ------------------------------------------------------------------------- *)
 
+val pp_namepair_def = Define `
+  pp_namepair nts =
+    case nts of
+      [] => []
+    | (nm,tm)::nts =>
+        [mk_str (strlit"(" ^ nm ^ strlit", ");
+         pp_term 0 tm;
+         mk_str (strlit")")] ++
+         (if nts = [] then
+            []
+          else
+            mk_str (strlit";")::mk_brk 1::pp_namepair nts)`;
+
 val pp_update_def = Define `
   pp_update upd =
     case upd of
@@ -260,14 +273,10 @@ val pp_update_def = Define `
           ([mk_str (strlit"ConstSpec");
             mk_brk 1;
             mk_str (strlit"[")] ++
-           interleave (strlit";")
-             (FLAT (MAP (\(nm, tm). [mk_str (strlit"(" ^ nm ^ strlit",");
-                                     mk_brk 1;
-                                     pp_term 0 tm;
-                                     mk_str (strlit")")]) nts)) ++
+            pp_namepair nts ++
            [mk_str (strlit"]");
             mk_brk 1;
-            mk_str (strlit"with");
+            mk_str (strlit"with definition");
             mk_brk 1;
             pp_term 0 tm])
     | TypeDefn nm pred abs_nm rep_nm =>

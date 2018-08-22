@@ -170,6 +170,7 @@ val r = m_translate init_reader_def
 val init_reader_spec = save_thm ("init_reader_spec",
   mk_app_of_ArrowP (theorem "init_reader_v_thm"));
 
+val r = translate pp_namepair_def
 val r = translate pp_update_def
 val r = translate upd2str_def
 
