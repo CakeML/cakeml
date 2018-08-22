@@ -201,6 +201,26 @@ val make_g_subg = store_thm("make_g_subg",
   \\ fsrw_tac[DNF_ss][EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD, EQ_IMP_THM]
   \\ res_tac \\ fs[ADD1, domain_lookup]);
 
+val make_g_make_g_eq = store_thm("make_g_make_g_eq",
+  ``!x1 x2 y1 y2 g0 g1.
+      FST g0 = FST g1 /\ subg g0 g1 /\
+      make_g x1 x2 = SOME g0 /\ make_g y1 y2 = SOME g1 ==> g0 = g1``,
+  fs [make_g_def,subg_def] \\ rw [MAP_EQ_f]
+  \\ rename [`MEM kk _`]
+  \\ PairCases_on `kk`
+  \\ `lookup kk0 x1 = SOME kk1` by fs [MEM_toAList]
+  \\ fs [MEM_SPLIT] \\ fs []
+  \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [ALOOKUP_APPEND,ALL_DISTINCT_APPEND,ALL_DISTINCT]
+  \\ cheat);
+
+val make_g_IMP_subg = store_thm("make_g_IMP_subg",
+  ``make_g cfg0 code = SOME g0 /\
+    DISJOINT (FDOM code) (set (MAP FST progs1)) /\
+    make_g r1 (code |++ progs1) = SOME g1 /\
+    subg (r1,progs1 ⧺ SND g0) g1``,
+  cheat);
+
 val recclosure_wf_def = Define`
   recclosure_wf loc fns ⇔
     every_Fn_SOME (MAP SND fns) ∧
@@ -1742,6 +1762,37 @@ val co_ok_def = Define `
         ALL_DISTINCT (MAP FST aux1) /\
         co_ok (code |++ aux1) (shift_seq 1 co) (shift_seq 1 full_gs) (k-1n)`
 
+val co_ok_IMP_full_gs_eq_shift_seq = store_thm("co_ok_IMP_full_gs_eq_shift_seq",
+  ``∀k code co g full_gs.
+      co_ok code co full_gs (k+1) ==>
+      FST (FST (shift_seq k co 0)) = FST (full_gs k)``,
+  Induct \\ simp [Once co_ok_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
+  THEN1
+   (Cases_on `full_gs 0` \\ fs [shift_seq_def]
+    \\ fs [make_g_def] \\ rveq \\ fs [shift_seq_def])
+  \\ fs [ADD1]
+  \\ first_x_assum drule
+  \\ fs [shift_seq_def]);
+
+val co_ok_IMP_wfg_full_gs = store_thm("co_ok_IMP_wfg_full_gs",
+  ``∀k code co g full_gs. co_ok code co full_gs (k+1) ==> wfg (full_gs k)``,
+  Induct \\ simp [Once co_ok_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac make_g_wfg
+  \\ fs [ADD1] \\ res_tac
+  \\ fs [shift_seq_def]);
+
+val co_ok_IMP_make_g = store_thm("co_ok_IMP_make_g",
+  ``∀k code co g full_gs.
+      co_ok code co full_gs (k+1) ==>
+      ?x1 x2. make_g x1 x2 = SOME (full_gs k)``,
+  Induct \\ simp [Once co_ok_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [ADD1] \\ res_tac
+  \\ fs [shift_seq_def]
+  \\ asm_exists_tac \\ fs []);
+
 val code_inv_def = Define `
   code_inv g1_opt (s_code:num |-> num # closLang$exp) s_cc s_co t_code t_cc t_co <=>
     s_code = FEMPTY /\
@@ -1772,7 +1823,7 @@ val includes_state_def = Define `
 val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   ``code_inv (SOME g1)
       r.code r.compile r.compile_oracle t.code t.compile t.compile_oracle /\
-    includes_state g1 r.compile_oracle /\
+    includes_state g1 (shift_seq 1 r.compile_oracle) /\
     state_rel g1 l1 r t /\
     r.compile cfg (exp',aux) =
         SOME (bytes,data,FST (shift_seq 1 r.compile_oracle 0)) /\
@@ -1799,10 +1850,8 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
       r.compile_oracle 1 = ((FST g5,other),exp5,aux5) /\
       t.code SUBMAP (t.code |++ aux1) /\
       code_includes (SND g5) (t.code |++ aux1)``,
-  cheat)
-(*
   strip_tac \\ fs [code_inv_def]
-  \\ Cases_on `calls [exp'] full_g` \\ fs []
+  \\ Cases_on `calls [exp'] (full_gs 0)` \\ fs []
   \\ imp_res_tac calls_sing \\ rveq \\ fs []
   \\ PairCases_on `progs` \\ fs []
   \\ fs [code_inv_def] \\ rfs []
@@ -1816,8 +1865,13 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ simp [Once compile_inc_def] \\ fs [] \\ rveq \\ fs []
   \\ `?x1 x2 x3. calls [exp'] (cfg0,[]) = (x1,x2,x3)` by metis_tac [PAIR] \\ fs []
   \\ drule calls_acc
-  \\ disch_then (qspec_then `SND full_g` mp_tac)
-  \\ `(cfg0,SND full_g) = full_g` by (fs [make_g_def] \\ rveq \\ fs [])
+  \\ `make_g (FST (FST (r.compile_oracle 0))) t.code = SOME (full_gs 0) /\
+      Abbrev (cfg0 = FST (FST (r.compile_oracle 0)))` by
+   (qpat_x_assum `!k. co_ok _ _ _ k` (qspec_then `1` mp_tac)
+    \\ simp [Once co_ok_def] \\ rpt (pairarg_tac \\ fs [markerTheory.Abbrev_def]))
+  \\ disch_then (qspec_then `SND (full_gs 0)` mp_tac)
+  \\ `(cfg0,SND (full_gs 0)) = (full_gs 0)` by
+        (fs [make_g_def] \\ Cases_on `full_gs 0` \\ fs [] \\ rfs [])
   \\ fs [] \\ pop_assum kall_tac
   \\ simp [option_case_eq,pair_case_eq]
   \\ ntac 4 strip_tac \\ rveq \\ fs []
@@ -1833,9 +1887,30 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ `aux = []` by (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
   \\ fs [FUPDATE_LIST,state_co_def,state_rel_def]
   \\ rewrite_tac [GSYM FUPDATE_LIST]
-  \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `1` mp_tac)
+  \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `2` mp_tac)
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once co_ok_def]))
   \\ fs [compile_inc_def] \\ strip_tac
+  \\ `?m. full_gs k = full_gs (m+1)` by
+   (reverse (Cases_on `k`) THEN1 (fs [ADD1] \\ metis_tac [])
+    \\ qpat_x_assum `includes_state (full_gs 0) _` mp_tac
+    \\ fs [includes_state_def] \\ strip_tac
+    \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `(i+1)+1` assume_tac)
+    \\ drule co_ok_IMP_full_gs_eq_shift_seq
+    \\ drule co_ok_IMP_make_g
+    \\ fs [shift_seq_def] \\ rpt strip_tac
+    \\ qexists_tac `i`
+    \\ match_mp_tac make_g_make_g_eq \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs [])
+  \\ fs []
+  \\ conj_asm1_tac THEN1
+   (match_mp_tac subg_trans \\ qexists_tac `full_gs 1`
+    \\ qpat_x_assum `co_ok _ _ _ 1n` mp_tac
+    \\ once_rewrite_tac [co_ok_def] \\ fs []
+    \\ rpt (pairarg_tac \\ fs []) \\ fs []
+    \\ fs [shift_seq_def]
+    \\ imp_res_tac make_g_wfg
+    \\ metis_tac [make_g_IMP_subg])
   \\ `t.code ⊑ t.code |++ progs1` by (match_mp_tac SUBMAP_FUPDATE_LIST \\ fs [])
   \\ fs [] \\ conj_tac THEN1
    (conj_tac THEN1
@@ -1850,13 +1925,16 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
     \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
     \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ rw[]
     \\ match_mp_tac (GEN_ALL v_rel_SUBMAP) \\ asm_exists_tac \\ fs [])
-  \\ conj_tac
-  THEN1 (fs [make_g_def])
-  \\ conj_tac
-  THEN1
-   (rw [] \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `k+1` mp_tac)
+  \\ conj_tac THEN1
+   (fs [PULL_EXISTS] \\ qexists_tac `shift_seq 1 full_gs`
+    \\ fs [shift_seq_def]
+    \\ qexists_tac `m` \\ fs []
+    \\ rpt strip_tac
+    \\ rename [`co_ok _ _ _ kk`]
+    \\ qpat_assum `!k. co_ok _ _ _ k` (qspec_then `kk+1` mp_tac)
     \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once co_ok_def]))
     \\ fs [compile_inc_def,shift_seq_def])
+  \\ qabbrev_tac `g0 = full_gs 0`
   \\ fs [make_g_def] \\ rveq \\ fs [code_includes_def]
   \\ fs [flookup_update_list_some,ALOOKUP_APPEND,option_case_eq]
   \\ fs [alookup_distinct_reverse]
@@ -1864,7 +1942,7 @@ val code_rel_state_rel_install = store_thm("code_rel_state_rel_install",
   \\ imp_res_tac ALOOKUP_MEM
   \\ fs [MEM_MAP] \\ rename [`MEM kk _`]
   \\ PairCases_on `kk` \\ rveq \\ fs []
-  \\ fs [MEM_toAList,SUBSET_DEF,PULL_EXISTS,ADD1,FLOOKUP_DEF,domain_lookup]) *)
+  \\ fs [MEM_toAList,SUBSET_DEF,PULL_EXISTS,ADD1,FLOOKUP_DEF,domain_lookup])
   |> GEN_ALL;
 
 val fv_GENLIST_Var_alt = store_thm("fv_GENLIST_Var_alt",
@@ -3904,27 +3982,6 @@ val extra_code_assum_def = Define `
   extra_code_assum prog g0 co =
     ∀n m. MEM n (code_locs prog) ∧ n ∉ domain g0 ⇒
           n ∉ domain (FST (FST (co m)))`;
-
-val co_ok_IMP_wfg_full_gs = store_thm("co_ok_IMP_wfg_full_gs",
-  ``∀k code co g full_gs. co_ok code co full_gs (k+1) ==> wfg (full_gs k)``,
-  Induct \\ simp [Once co_ok_def]
-  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
-  \\ imp_res_tac make_g_wfg
-  \\ fs [ADD1] \\ res_tac
-  \\ fs [shift_seq_def]);
-
-val co_ok_IMP_full_gs_eq_shift_seq = store_thm("co_ok_IMP_full_gs_eq_shift_seq",
-  ``∀k code co g full_gs.
-      co_ok code co full_gs (k+1) ==>
-      FST (FST (shift_seq k co 0)) = FST (full_gs k)``,
-  Induct \\ simp [Once co_ok_def]
-  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
-  THEN1
-   (Cases_on `full_gs 0` \\ fs [shift_seq_def]
-    \\ fs [make_g_def] \\ rveq \\ fs [shift_seq_def])
-  \\ fs [ADD1]
-  \\ first_x_assum drule
-  \\ fs [shift_seq_def]);
 
 val semantics_calls = Q.store_thm("semantics_calls",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
