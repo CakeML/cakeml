@@ -267,7 +267,7 @@ val pp_update_def = Define `
                                      mk_str (strlit")")]) nts)) ++
            [mk_str (strlit"]");
             mk_brk 1;
-            mk_str "with";
+            mk_str (strlit"with");
             mk_brk 1;
             pp_term 0 tm])
     | TypeDefn nm pred abs_nm rep_nm =>
@@ -614,6 +614,8 @@ val unescape_ml_def = Define `
 (* ------------------------------------------------------------------------- *)
 (* Print out the theorems and context if we succeed.                         *)
 (* ------------------------------------------------------------------------- *)
+
+(* TODO produce applist (the context output becomes quite large) *)
 
 val msg_success_def = Define `
   msg_success s ctxt =
