@@ -214,7 +214,8 @@ val dequeue_spec = Q.store_thm(
       app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv)
        (POST (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
-             (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv))’,
+             (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv)
+             (λn c b. &F))’,
   xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif
   >- ((* throws exception *)
