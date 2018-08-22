@@ -3,6 +3,9 @@ open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
 val _ = new_theory "flat_uncheck_ctorsProof";
 
+val _ = set_grammar_ancestry ["flatLang","ast","semanticPrimitives","lib",
+          "flat_uncheck_ctors","flatSem","flatProps","quotient_option","ffi"];
+
 val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
 `!(p:flatLang$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`,
   ho_match_mp_tac compile_pat_ind >>
