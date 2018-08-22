@@ -8,7 +8,7 @@ val _ = new_theory"flat_to_patProof"
 val _ = temp_bring_to_front_overload"pure_op"{Name="pure_op",Thy="flat_to_pat"};
 val _ = temp_bring_to_front_overload"Loc"{Name="Loc",Thy="patSem"};
 
-val _ = set_grammar_ancestry ["misc","bag","flatProps","patProps",
+val _ = set_grammar_ancestry ["misc","ffi","bag","flatProps","patProps",
                               "flat_to_pat","backendProps","backend_common"];
 val _ = Parse.hide"U";
 
@@ -3066,7 +3066,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
      (compile es) =
    semantics T F ffi es`,
   simp[flatSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[]
+  IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     srw_tac[][] >>
