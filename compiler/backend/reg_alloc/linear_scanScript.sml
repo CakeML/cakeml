@@ -1,7 +1,6 @@
 open preamble sptreeTheory reg_allocTheory libTheory
 open mergesortTheory sortingTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
-open ml_monad_translatorLib ml_translatorTheory;
 
 val _ = new_theory "linear_scan"
 (* TODO: remove me (the `the` from libTheory don't have a name) *)
