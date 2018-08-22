@@ -2877,7 +2877,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
        |> Q.GEN`any_cc`
        |> mp_tac) >>
       simp[Abbr`X`] >>
-      disch_then(qspec_then`pure_cc (λe. (compile e,[])) cc`strip_assume_tac) >>
+      disch_then(qspec_then`pure_cc (λe. (pat_to_clos$compile e,[])) cc`strip_assume_tac) >>
       var_eq_tac >>
       qpat_abbrev_tac`xx = evaluate _ _ _` >>
       qmatch_assum_abbrev_tac`Abbrev(xx = evaluate (v4::env4) s4 [f (compile_exp bvss exp)])` >>
@@ -3059,14 +3059,14 @@ val compile_evaluate_decs = Q.store_thm("compile_evaluate_decs",
   \\ metis_tac[state_rel_trans, exc_rel_v_rel_trans]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `semantics T F (ffi:'ffi ffi_state) es ≠ Fail ⇒
+  `semantics T F (ffi:'ffi ffi$ffi_state) es ≠ Fail ⇒
    semantics
      []
      (compile_state (:'c) cc (initial_state ffi k0))
      (compile es) =
    semantics T F ffi es`,
   simp[flatSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >>
+  IF_CASES_TAC >> fs[]
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     srw_tac[][] >>
