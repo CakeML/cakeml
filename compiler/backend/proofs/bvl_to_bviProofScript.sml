@@ -18,6 +18,8 @@ set_prover (fn (tm,_) => mk_thm([],tm))
 
 val _ = new_theory"bvl_to_bviProof";
 
+val _ = set_grammar_ancestry ["misc","bvlProps","bviProps","bvlSem","bviSem","bvl_to_bvi",
+                              "backendProps","backend_common","bvl_handleProof"];
 val _ = Parse.hide"str";
 
 (* TODO: move *)
