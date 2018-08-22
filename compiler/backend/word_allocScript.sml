@@ -1308,6 +1308,13 @@ val get_heuristics_def = Define`
     let moves = get_prefs prog [] in
     (moves,NONE)`
 
+val select_reg_alloc_def = Define`
+  select_reg_alloc alg spillcosts k heu_moves tree forced =
+    if 4 <= alg then
+      linear_scan$linear_scan_reg_alloc k heu_moves tree forced
+    else
+      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced`
+
 (*
   fc is the current prog number
   alg is the allocation algorithm,
@@ -1328,10 +1335,7 @@ val word_alloc_def = Define`
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
-      (dtcase (if 4 <= alg
-               then linear_scan$linear_scan_reg_alloc k heu_moves tree forced
-               else reg_alloc (if alg <= 1n then Simple else IRC)
-                      spillcosts k heu_moves tree forced) of
+      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))
