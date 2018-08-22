@@ -3,7 +3,7 @@ open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
 val _ = new_theory "flat_uncheck_ctorsProof";
 
-val _ = set_grammar_ancestry ["misc","ffi","flatProps","flat_uncheck_ctors"];
+val _ = set_grammar_ancestry ["misc","flatProps","flat_uncheck_ctors"];
 
 val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
 `!(p:flatLang$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`,
@@ -849,7 +849,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
 
 val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
   `eval_sim
-     (ffi:'ffi ffi_state) T T ds1 T F
+     (ffi:'ffi ffi$ffi_state) T T ds1 T F
      (compile_decs ds1)
      (\p1 p2. p2 = compile_decs p1) F`,
   rw [eval_sim_def]
