@@ -45,10 +45,11 @@ val print_spec = Q.store_thm("print_spec",
     \\ xsimpl
     \\ simp[Abbr`ns`]
     \\ simp[Abbr`u`,Abbr`st`]
-    \\ EVAL_TAC \\ simp[]
+    \\ simp[mk_ffi_next_def, printFFITheory.ffi_print_def]
     \\ qmatch_assum_rename_tac`NUM (LENGTH st) _`
     \\ qexists_tac`MAP (n2w o ORD) st`
-    \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD] )
+    \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD]
+    \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -68,10 +69,10 @@ val print_spec = Q.store_thm("print_spec",
     \\ xsimpl
     \\ simp[Abbr`ns`]
     \\ simp[Abbr`u`,Abbr`ot`]
-    \\ EVAL_TAC \\ simp[]
+    \\ simp[mk_ffi_next_def, printFFITheory.ffi_print_def]
     \\ qexists_tac`MAP (n2w o ORD) (TAKE 63 st)`
     \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD]
-    \\ simp[LENGTH_SEG])
+    \\ xsimpl)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ qmatch_asmsub_rename_tac`ov = Conv _ _`
   \\ `OPTION_TYPE NUM NONE ov` by (EVAL_TAC \\ rw[])

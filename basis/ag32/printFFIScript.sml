@@ -12,11 +12,11 @@ val _ = new_theory"printFFI"
 val ffi_print_def = Define`
   ffi_print (str: word8 list) unused ls =
     if LENGTH str < 64 ∧ NULL unused
-    then SOME (unused,ls++(MAP (CHR o w2n) str))
+    then SOME (FFIreturn unused (ls++(MAP (CHR o w2n) str)))
     else NONE`;
 
 val ffi_print_length = Q.store_thm("ffi_print_length",`
-  ffi_print (conf:word8 list) (bytes:word8 list) x = SOME (bytes',x')
+  ffi_print (conf:word8 list) (bytes:word8 list) x = SOME (FFIreturn bytes' x')
   ==> LENGTH bytes' = LENGTH bytes`,
   Cases_on `x` \\ rw[ffi_print_def]);
 
