@@ -274,10 +274,7 @@ val parse_bvl_conf_def = Define`
 (* wtw *)
 val parse_wtw_conf_def = Define`
   parse_wtw_conf ls wtw =
-    if MEMBER (strlit "--regalloc=linear") ls then
-      INL (wtw with <|reg_alg:= 4 (* check meaning in word_allocScript.sml *) |>)
-    else
-      let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
+    let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
       case regalg of
         INL r => INL (wtw with <|reg_alg:= r |>)
       | INR s => INR (get_err_str regalg)`
