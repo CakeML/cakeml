@@ -15,6 +15,16 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
 
+(* TODO: move *)
+val the_OPTION_MAP = Q.store_thm("the_OPTION_MAP",
+    `!f d opt.
+    f d = d ==>
+    the d (OPTION_MAP f opt) = f (the d opt)`,
+    rw [] >> Cases_on `opt` >> rw [the_def]
+);
+(* -- *)
+(* TODO: clean up this file: e.g., move things upstream *)
+
 val numset_list_insert_FOLDL = Q.store_thm("numset_list_insert_FOLDL",
     `!l live. numset_list_insert l live = FOLDL (\live x. insert x () live) live l`,
     Induct_on `l` >> rw [numset_list_insert_def]
@@ -3591,13 +3601,6 @@ val st_ex_FILTER_good_stack = Q.store_thm("st_ex_FILTER_good_stack",
     rw (st_ex_FILTER_good_def::msimps)
 );
 
-val the_lift = Q.store_thm("the_lift",
-    `!f d opt.
-    f d = d ==>
-    the d (lift f opt) = f (the d opt)`,
-    rw [] >> Cases_on `opt` >> rw [the_def]
-);
-
 val lookup_fromAList_MAP_not_NONE = Q.store_thm("lookup_fromAList_MAP_not_NONE",
     `!r l. lookup r (fromAList (MAP (\r. (r,())) l)) <> NONE <=> MEM r l`,
     rw [] >>
@@ -3779,24 +3782,24 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
           strip_tac >> (
             `MEM reg2 stacklist` by (rveq >> fs [MEM_FILTER]) >>
             rveq >>
-            simp [lookup_inter, lookup_map, the_lift, MEM_FILTER, lookup_fromAList_MAP_not_NONE] >>
+            simp [lookup_inter, lookup_map, the_OPTION_MAP, MEM_FILTER, lookup_fromAList_MAP_not_NONE] >>
             fs [MEM_FILTER] >>
             metis_tac []
           )
         )
         THEN1 (
           strip_tac >> rveq >>
-          fs [lookup_map, the_lift, MEM_FILTER, lookup_fromAList_MAP_not_NONE]
+          fs [lookup_map, the_OPTION_MAP, MEM_FILTER, lookup_fromAList_MAP_not_NONE]
         )
       ) >>
       strip_tac THEN1 (
         rveq >> fs [EVERY_MEM, FORALL_PROD, MEM_FILTER]
       ) >>
       strip_tac THEN1 (
-        rveq >> fs [lookup_map, the_lift, EVERY_FILTER_IMP]
+        rveq >> fs [lookup_map, the_OPTION_MAP, EVERY_FILTER_IMP]
       ) >>
       strip_tac THEN1 (
-        rveq >> fs [lookup_map, the_lift, EVERY_FILTER_IMP]
+        rveq >> fs [lookup_map, the_OPTION_MAP, EVERY_FILTER_IMP]
       )
       THEN1 (
         rw [EVERY_FILTER_IMP]
