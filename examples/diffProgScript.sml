@@ -207,7 +207,8 @@ val diff_whole_prog_spec = Q.store_thm("diff_whole_prog_spec",
   \\ qexists_tac`diff_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[diff_sem_def,GSYM add_stdo_with_numchars,with_same_numchars] )
-  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH diff_spec)))
+  \\ simp [SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH diff_spec))))
   \\ xsimpl);
 
 val name = "diff"
