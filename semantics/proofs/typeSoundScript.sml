@@ -2032,12 +2032,12 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
    fs [Once type_d_cases]
    >> metis_tac [type_funs_distinct])
  >- ( (* case type definition *)
-   cheat(* >>
    drule type_d_tenv_ok
    >> fs [Once type_d_cases, type_tdefs_def]
    >> rw [extend_dec_env_def]
    >> fs [type_sound_invariant_def]
    >> qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _`
+   >> rename [`ALL_DISTINCT type_identities`]
    >> qexists_tac `FUNION (FEMPTY |++ REVERSE (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)) ctMap`
    >> qexists_tac `tenvS`
    >> simp [store_type_extension_refl] >>
@@ -2175,7 +2175,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      rw [] >>
      irule nsAll2_nsAppend
      >> simp [])
-   >- metis_tac [type_s_weakening, good_ctMap_def]*))
+   >- metis_tac [type_s_weakening, good_ctMap_def])
  >- ( (* case type def not distinct *)
    fs [Once type_d_cases, type_tdefs_def] >>
    rw [] >>
@@ -2296,8 +2296,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
  >- ( (* Case module *)
-   cheat (*>>
-   qpat_x_assum `type_d _ _ (Dmod _ _ _) _ _` mp_tac >>
+   cheat (*qpat_x_assum `type_d _ _ (Dmod _ _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>
    split_pair_case_tac >>
    fs [] >>
