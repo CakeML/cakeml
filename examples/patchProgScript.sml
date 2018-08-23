@@ -212,7 +212,8 @@ val patch_whole_prog_spec = Q.store_thm("patch_whole_prog_spec",
   \\ reverse conj_tac
   >- ( rw[patch_sem_def,GSYM add_stdo_with_numchars,with_same_numchars]
        \\ CASE_TAC \\ rw[GSYM add_stdo_with_numchars,with_same_numchars])
-  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH patch_spec)))
+  \\ simp [SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH patch_spec))))
   \\ xsimpl);
 
 val name = "patch"
