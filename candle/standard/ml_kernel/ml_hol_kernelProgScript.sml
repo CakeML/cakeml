@@ -15,12 +15,6 @@ val _ = (use_full_type_names := false);
 
 val _ = hide "abs";
 
-val _ = register_type ``:ordering``
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``
-val _ = register_type ``:'a option``
-val _ = register_type ``:unit``
-
 val _ = ml_prog_update (open_module "Kernel");
 
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
@@ -176,15 +170,6 @@ val (monad_parameters, store_translation, exn_specs) =
 (**************************************************************************************************)
 (* --- perform translation --- *)
 
-val res = translate FST;
-val res = translate SND;
-val res = translate listTheory.LENGTH;
-val res = translate listTheory.MAP;
-val res = translate MEMBER_def;
-val res = translate listTheory.EVERY_DEF;
-val res = translate listTheory.EXISTS_DEF;
-val res = translate listTheory.FILTER;
-val res = translate listTheory.APPEND;
 (* TODO: want builtin support for these *)
 (*
 val res = translate mlstringTheory.explode_aux_def;
@@ -198,36 +183,11 @@ val explode_side_thm = Q.prove(
   |> update_precondition
 val res = translate mlstringTheory.strcat_def;
 *) (* TODO temporary *)
+
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
-val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
-                simp [inv_image_def, mlstringTheory.mlstring_lt_inv_image])
-          |> translate
 val res = translate totoTheory.TO_of_LinearOrder
-(*
-val res = translate mlstringTheory.compare_aux_def
-val res = translate mlstringTheory.compare_def
 
-(* Copy and paste from mlstringProg *)
-val compare_aux_side_def = theorem"compare_aux_side_def";
-val compare_side_def = definition"compare_side_def";
-
-val compare_aux_side_thm = Q.prove (
-  `!s1 s2 ord n len. (n + len =
-    if strlen s1 < strlen s2
-      then strlen s1
-    else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
-  Induct_on `len` \\ rw [Once compare_aux_side_def]
-);
-
-val compare_side_thm = Q.prove (
-  `!s1 s2. compare_side s1 s2`,
-  rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
-(* end copy and paste *)
-*) (* TODO temporary *)
-
-val res = translate comparisonTheory.pair_cmp_def
-val res = translate ternaryComparisonsTheory.list_compare_def
 (* -- *)
 val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (holSyntaxExtraTheory.subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -255,7 +215,6 @@ val res = translate holKernelPmatchTheory.is_abs_def;
 val res = translate holKernelPmatchTheory.is_comb_def;
 val res = translate mk_var_def;
 val res = translate holSyntaxExtraTheory.frees_def;
-val res = translate combinTheory.o_DEF;
 val res = translate freesl_def;
 val res = translate (freesin_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate holKernelPmatchTheory.vfree_in_def;
@@ -267,9 +226,6 @@ val res = translate holKernelPmatchTheory.is_eq_def;
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
-val res = translate sortingTheory.PART_DEF;
-val res = translate sortingTheory.PARTITION_DEF;
-val res = translate sortingTheory.QSORT_DEF;
 
 val type_compare_def = tDefine "type_compare" `
   (type_compare t1 t2 =
@@ -432,6 +388,10 @@ val def = holKernelPmatchTheory.SYM_def |> m_translate
 val def = PROVE_HYP_def |> m_translate
 val def = list_to_hypset_def |> translate
 val def = ALPHA_THM_def |> m_translate
+
+val def = axioms_def |> m_translate
+val def = types_def |> m_translate
+val def = constants_def |> m_translate
 
 val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)
 
