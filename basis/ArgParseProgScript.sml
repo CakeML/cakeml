@@ -7,10 +7,6 @@ val _ = new_theory"ArgParseProg";
 
 val _ = translation_extends "CommandLineProg";
 
-val _ = ml_prog_update (open_module "ArgParse");
-
-val () = generate_sigs := true;
-
 val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
   `(if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
@@ -46,6 +42,10 @@ val _ = find_def_for_const := def_of_const;
 val r = translate coreloop_def';
 
 val r = translate pegexecTheory.peg_exec_def;
+
+val _ = ml_prog_update (open_module "ArgParse");
+
+val () = generate_sigs := true;
 
 val r = translate (argPEG_def |> REWRITE_RULE [tokeq_def]);
 
