@@ -55,7 +55,7 @@ val readLines_def = Define `
       [] =>
         do
           ffi_msg (strlit"finished: readLines");
-          ctxt <- holrefs get_the_context;
+          ctxt <- holrefs (context ());
           msg <- return (msg_success s ctxt);
           ffi_msg (strlit"finished: generate message");
           stdio (print msg)

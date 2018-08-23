@@ -141,8 +141,7 @@ val first_def = Define`
 val find_axiom_def = Define`
   find_axiom (ls, tm) =
     do
-      (* axs <- axioms; *) (* the monadic translator wont figure this out *)
-      axs <- get_the_axioms;
+      axs <- axioms ();
       case first (λth.
         case th of
         | Sequent h c =>
@@ -647,7 +646,6 @@ val line_Fail_def = Define `
       ; toString (current_line s)
       ; strlit":\n"
       ; msg; strlit"\n"])`;
-
 
 val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
 

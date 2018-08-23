@@ -38,12 +38,11 @@ val dest_abs_not_clash = Q.store_thm("dest_abs_not_clash[simp]",
 (* Reader does not raise Clash                                               *)
 (* ------------------------------------------------------------------------- *)
 
-(* TODO where? comes from translation of Candle kernel *)
 val find_axiom_not_clash = Q.store_thm("find_axiom_not_clash[simp]",
   `find_axiom (a,b) c <> (Failure (Clash tm),refs)`,
   Cases_on `a`
   \\ rw [find_axiom_def, st_ex_bind_def, raise_Fail_def, st_ex_return_def,
-         case_eq_thms, get_the_axioms_def, bool_case_eq]
+         case_eq_thms, axioms_def, get_the_axioms_def, bool_case_eq]
   \\ PURE_CASE_TAC \\ fs []);
 
 val pop_not_clash = Q.store_thm("pop_not_clash[simp]",
@@ -281,13 +280,13 @@ val first_EVERY = Q.store_thm("first_EVERY",
   \\ rw [case_eq_thms, PULL_EXISTS, bool_case_eq] \\ fs []);
 
 (* TODO move to holKernelProof *)
-val get_the_axioms_thm = Q.store_thm("get_the_axioms_thm",
+val axioms_thm = Q.store_thm("axioms_thm",
   `STATE defs refs /\
-   get_the_axioms refs = (res, refs')
+   axioms () refs = (res, refs')
    ==>
    refs = refs' /\
    !axs. res = Success axs ==> EVERY (THM defs) axs`,
-  rw [get_the_axioms_def, STATE_def]
+  rw [axioms_def, get_the_axioms_def, STATE_def]
   \\ fs [EVERY_MAP, lift_tm_def, CONTEXT_def, EVERY_MEM, MEM_MAP] \\ rw []
   \\ fs [THM_def]
   \\ match_mp_tac (last (CONJUNCTS proves_rules))
@@ -295,7 +294,6 @@ val get_the_axioms_thm = Q.store_thm("get_the_axioms_thm",
   \\ EVAL_TAC \\ fs [MEM_FLAT, MEM_MAP, PULL_EXISTS]
   \\ metis_tac []);
 
-(* TODO move to holKernelProof *)
 val find_axiom_thm = Q.store_thm("find_axiom_thm",
   `STATE defs refs /\
    EVERY (TERM defs) ls /\
@@ -306,7 +304,7 @@ val find_axiom_thm = Q.store_thm("find_axiom_thm",
   rw [find_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
       case_eq_thms, PULL_EXISTS]
   \\ TRY PURE_FULL_CASE_TAC \\ fs [] \\ rw []
-  \\ metis_tac [get_the_axioms_thm, first_EVERY]);
+  \\ metis_tac [axioms_thm, first_EVERY]);
 
 val assoc_thm = Q.store_thm("assoc_thm",
   `!s l refs res refs'.

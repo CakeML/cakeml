@@ -82,6 +82,8 @@ val r = translate delete_dict_def
 val r = translate first_def
 val r = translate stringTheory.isDigit_def
 
+(* TODO This could be done in the Kernel module *)
+
 val _ = (use_mem_intro := true)
 val tymatch_ind = save_thm ("tymatch_ind",
   REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind)
@@ -264,6 +266,14 @@ val HOL_STORE_init_precond = Q.store_thm ("HOL_STORE_init_precond",
   \\ simp[init_type_constants_v_thm]
   \\ unabbrev_all_tac
   \\ SPLIT_TAC );
+
+(* ------------------------------------------------------------------------- *)
+(* Generate app theorem for 'context'.                                       *)
+(* Should really be in ml_hol_kernelProgTheory.                              *)
+(* ------------------------------------------------------------------------- *)
+
+val context_spec = save_thm ("context_spec",
+  mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm"));
 
 val _ = export_theory ();
 

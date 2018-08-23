@@ -23,7 +23,7 @@ val _ = (append_prog o process_topdecs) `
     if invalid_line ln
     then Inl st0
     else Inl (readline (unescape_ml (fix_fun_typ (str_prefix ln))) st0)
-         handle Fail e => Inr e`;
+         handle Kernel.Fail e => Inr e`;
 
 val process_line_spec = Q.store_thm("process_line_spec",
   `READER_STATE_TYPE st stv ∧ STRING_TYPE ln lnv
@@ -66,20 +66,10 @@ val process_line_spec = Q.store_thm("process_line_spec",
   \\ xcon \\ xsimpl
   \\ fs[SUM_TYPE_def] );
 
-(* TODO figure this out later. *)
-
-val deref_context_def = Define `
-  deref_context () = get_the_context`;
-
-val r = m_translate deref_context_def
-
-val deref_context_spec = save_thm ("deref_context_spec",
-  mk_app_of_ArrowP (theorem "deref_context_v_thm"));
-
 val _ = (append_prog o process_topdecs) `
   fun process_lines ins st0 =
     case TextIO.inputLine ins of
-      None => TextIO.print (msg_success st0 (deref_context ()))
+      None => TextIO.print (msg_success st0 (Kernel.context ()))
     | Some ln =>
       (case process_line st0 ln of
          Inl st1 => process_lines ins (next_line st1)
@@ -116,7 +106,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
                STDIO (lineForwardFD fs fd) * HOL_STORE refs`
     >-
      (xapp
-      \\ simp [deref_context_def, get_the_context_def]
+      \\ simp [context_def, get_the_context_def]
       \\ xsimpl
       \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `refs`
@@ -124,10 +114,10 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ xlet_auto >- xsimpl
     \\ xapp
     \\ xsimpl
-    \\ simp[lineFD_NONE_lineForwardFD_fastForwardFD]
-    \\ qexists_tac`HOL_STORE refs` \\ xsimpl
+    \\ simp [lineFD_NONE_lineForwardFD_fastForwardFD]
+    \\ qexists_tac `HOL_STORE refs` \\ xsimpl
     \\ instantiate
-    \\ qexists_tac`fastForwardFD fs fd`
+    \\ qexists_tac `fastForwardFD fs fd`
     \\ xsimpl )
   \\ rpt strip_tac
   \\ xcf"process_lines"(get_ml_prog_state())
@@ -338,7 +328,8 @@ val _ = (append_prog o process_topdecs) `
   fun reader_main u =
     case CommandLine.arguments () of
       [file] => ((init_reader (); read_file file)
-                 handle Fail e => TextIO.output TextIO.stdErr (msg_axioms e))
+                 handle Kernel.Fail e =>
+                   TextIO.output TextIO.stdErr (msg_axioms e))
     | _      => TextIO.output TextIO.stdErr msg_usage`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
@@ -387,17 +378,20 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ reverse (Cases_on `q`) \\ fs []
   \\ qmatch_goalsub_abbrev_tac `$POSTv Q`
   >-
-   (Cases_on `b` \\ fs []
+   (
+    Cases_on `b` \\ fs []
     \\ xhandle
-      `POST Q (\ev.
-         &HOL_EXN_TYPE (Fail m) ev *
-         HOL_STORE r *
-         COMMANDLINE cl *
-         STDIO fs)` \\ xsimpl
+      `POST Q (\ev. &HOL_EXN_TYPE (Fail m) ev *
+                    HOL_STORE r *
+                    COMMANDLINE cl *
+                    STDIO fs) (\x y z. &F)`
+    \\ xsimpl
     >-
      (xlet_auto >- (xcon \\ xsimpl)
       \\ xlet_auto \\ xsimpl
-      \\ fs [UNIT_TYPE_def] \\ rveq \\ xapp \\ xsimpl)
+      \\ fs [UNIT_TYPE_def] \\ rveq
+      \\ xapp
+      \\ xsimpl)
     \\ fs [HOL_EXN_TYPE_def]
     \\ xcases
     \\ xlet_auto >- xsimpl
@@ -446,7 +440,7 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   \\ qexists_tac `init_refs` \\ xsimpl
   \\ qexists_tac `cl` \\ xsimpl);
 
-val _ = set_user_heap_thm HOL_STORE_init_precond;
+val _ = add_user_heap_thm HOL_STORE_init_precond;
 
 val st = get_ml_prog_state ();
 val name = "reader_main";

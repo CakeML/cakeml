@@ -250,15 +250,30 @@ val EvalM_holrefs_readline_wrap = Q.prove (
        (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)`,
   metis_tac [holrefs_INTRO, EvalM_readline_wrap]);
 
-val EvalM_holrefs_get_the_context = Q.store_thm("EvalM_holrefs_get_the_context",
-  `nsLookup env.v (Short "the_context") = SOME the_context ⇒
-   EvalM ro env st (App Opderef [Var (Short "the_context")])
-     (MONAD (LIST_TYPE UPDATE_TYPE) HOL_EXN_TYPE (holrefs get_the_context))
-     (STATE_STORE,p:'ffi ffi_proj)`,
-  strip_tac
-  \\ match_mp_tac holrefs_INTRO
-  \\ strip_tac
-  \\ metis_tac [ml_hol_kernelProgTheory.get_the_context_thm]);
+val EvalM_context = Q.store_thm("EvalM_context",
+  `Eval env uv (UNIT_TYPE u) /\
+   nsLookup env.v (Long "Kernel" (Short "context")) = SOME context_v
+   ==>
+   EvalM F env st (App Opapp [Var (Long "Kernel" (Short "context")); uv])
+     (MONAD (LIST_TYPE UPDATE_TYPE) HOL_EXN_TYPE (context u))
+     (HOL_STORE, p:'ffi ffi_proj)`,
+  ho_match_mp_tac EvalM_from_app
+  \\ rw []
+  >- (EVAL_TAC \\ fs [])
+  \\ xapp_spec context_spec
+  \\ xsimpl
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `s`
+  \\ xsimpl);
+
+val EvalM_holrefs_context = Q.store_thm("EvalM_holrefs_context",
+  `Eval env uv (UNIT_TYPE u) /\
+   nsLookup env.v (Long "Kernel" (Short "context")) = SOME context_v
+   ==>
+   EvalM F env st (App Opapp [Var (Long "Kernel" (Short "context")); uv])
+     (MONAD (LIST_TYPE UPDATE_TYPE) HOL_EXN_TYPE (holrefs (context u)))
+     (STATE_STORE, p:'ffi ffi_proj)`,
+  metis_tac [holrefs_INTRO, EvalM_context]);
 
 (* ------------------------------------------------------------------------- *)
 (* Add access patterns                                                       *)
@@ -270,7 +285,7 @@ val _ = add_access_pattern EvalM_commandline_arguments;
 val _ = add_access_pattern EvalM_holrefs_readline_wrap;
 val _ = add_access_pattern EvalM_holrefs_init_reader_wrap;
 val _ = add_access_pattern EvalM_stdio_inputLinesFrom_STRING;
-val _ = add_access_pattern EvalM_holrefs_get_the_context;
+val _ = add_access_pattern EvalM_holrefs_context;
 
 val _ = ignore_type ``:IO_fs``;
 val _ = ignore_type ``:hol_refs``
@@ -356,7 +371,7 @@ val monadreader_wps = Q.store_thm("monadreader_wps",
   \\ fs [MONAD_IO_def]
   \\ xsimpl);
 
-val _ = set_user_heap_thm HOL_STORE_init_precond;
+val _ = add_user_heap_thm HOL_STORE_init_precond;
 
 val st = get_ml_prog_state ();
 val name = "readmain";

@@ -58,7 +58,8 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ fs [st_ex_return_def, st_ex_bind_def, liftM_def]
   \\ Cases_on `lines` \\ fs []
   >-
-   (rw [print_def, state_refs_component_equality, get_the_context_def]
+   (rw [print_def, state_refs_component_equality, context_def,
+        get_the_context_def]
     \\ metis_tac [APPEND_NIL])
   \\ CASE_TAC
   \\ pairarg_tac \\ fs [] \\ rveq
@@ -169,7 +170,9 @@ val readLines_EQ = Q.store_thm("readLines_EQ",
     by fs [state_refs_component_equality]
   \\ Cases_on `lines` \\ fs []
   \\ fs [st_ex_return_def, st_ex_bind_def, handle_Fail_def, raise_Fail_def]
-  \\ rw [print_def, print_err_def, liftM_def, get_the_context_def] \\ fs []
+  \\ rw [print_def, print_err_def, liftM_def, context_def,
+         get_the_context_def]
+  \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [case_eq_thms] \\ rw []
   \\ TRY (Cases_on `res` \\ fs [])
