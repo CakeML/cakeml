@@ -1854,7 +1854,7 @@ val Mat_cases_def = Define `
   Mat_cases (INL (vars,x:exp)) = [(Pcon NONE (MAP Pvar vars),x)] /\
   Mat_cases (INR ps) =
     MAP (\(name,vars,x:exp,t:stamp).
-      (Pcon (SOME (Short name)) (MAP Pvar vars),x)) ps`;
+      (Pcon (SOME name) (MAP Pvar vars),x)) ps`;
 
 val good_cons_env_def = Define `
   good_cons_env ps env <=>
@@ -1875,7 +1875,7 @@ val evaluate_match_MAP = store_thm("evaluate_match_MAP",
       ~MEM t1 (MAP (SND o SND o SND) l1) ==>
       evaluate_match (s:'ffi state) env
         (Conv (SOME t1) vals)
-        (MAP (λ(name,vars,x,t). (Pcon (SOME (Short name))
+        (MAP (λ(name,vars,x,t). (Pcon (SOME name)
            (MAP Pvar vars),x)) l1 ++ xs) err =
       evaluate_match s env (Conv (SOME t1) vals) xs err``,
   Induct
@@ -2013,7 +2013,7 @@ val Eval_Con = store_thm("Eval_Con",
       (!vals.
          LIST_REL (\(p,x) v. p v) ps vals ==>
          q (Conv (SOME stamp) vals)) ==>
-      Eval env (Con (SOME (Short name)) (MAP SND ps)) q``,
+      Eval env (Con (SOME name) (MAP SND ps)) q``,
   rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
   \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
   \\ fs [lookup_cons_def,build_conv_def]

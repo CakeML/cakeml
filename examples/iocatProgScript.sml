@@ -42,6 +42,7 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
   (* xlet_auto picks the wrong fd here *)
   xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`fd1`, `fd1v`, `2048`] read_spec))
   >-(rw[get_file_content_def] >> xsimpl >> rw[]  >> instantiate  >> xsimpl)
+  >-(rw[get_file_content_def] >> xsimpl)
   >-(rw[get_file_content_def] >> xsimpl) >>
   xlet_auto >- xsimpl >>
   `get_file_content fs fd1 = SOME(c1,pos1)`
@@ -201,7 +202,8 @@ val cat_spec0 = Q.prove(
      fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,ALOOKUP_inFS_fname_openFileFS_nextFD] >>
      progress ALOOKUP_SOME_inFS_fname >> progress nextFD_ltX >>
      progress ALOOKUP_inFS_fname_openFileFS_nextFD >>
-     rfs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
+     rfs[ALOOKUP_inFS_fname_openFileFS_nextFD])
+  >- xsimpl >>
   xapp >> xsimpl >> simp[Abbr`fs'`] >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   map_every qexists_tac [`GC`,`fs'`] >>

@@ -23,7 +23,6 @@ BARE_THYS = ../../../semantics/terminationTheory\
             ../../../semantics/proofs/semanticPrimitivesPropsTheory\
             ../semantics/targetPropsTheory\
             ../semantics/flatPropsTheory\
-            ../semantics/exhPropsTheory\
             ../semantics/patPropsTheory\
             ../semantics/closPropsTheory\
             ../semantics/bvlPropsTheory\

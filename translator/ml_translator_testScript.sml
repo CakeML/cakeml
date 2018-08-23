@@ -157,4 +157,17 @@ val _ = Datatype `
 
 val _ = register_type ``:tt``;
 
+(* registering types inside modules *)
+
+open ml_progLib
+
+val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
+val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
+                         (my_fun my_case3 = 2n)`;
+
+val _ = ml_prog_update (open_module "My_module");
+val r = register_type ``:my_type``;
+val _ = ml_prog_update (close_module NONE);
+val r = translate my_fun_def;
+
 val _ = export_theory();

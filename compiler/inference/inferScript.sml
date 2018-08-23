@@ -50,9 +50,9 @@ val write_def = Define `
   \s. (Success (), v)`;
 
 val lookup_st_ex_def = Define `
-  lookup_st_ex l id ienv st =
+  lookup_st_ex l err id ienv st =
     dtcase nsLookup ienv id of
-    | NONE => (Failure (l, concat [implode "Undefined variable: "; id_to_string id]), st)
+    | NONE => (Failure (l, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
@@ -197,6 +197,89 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
  res_tac >>
  decide_tac);
 
+val type_name_check_subst_def = Define `
+  (type_name_check_subst l err_string_f tenvT fvs (Atvar tv) =
+    do
+      guard (MEM tv fvs) l (err_string_f tv);
+      return (Tvar tv)
+    od) ∧
+  (type_name_check_subst l f tenvT fvs (Attup ts) =
+    do
+      ts' <- type_name_check_subst_list l f tenvT fvs ts;
+      return (Ttup ts')
+    od) ∧
+  (type_name_check_subst l f tenvT fvs (Atfun t1 t2) =
+    do
+      t1' <- type_name_check_subst l f tenvT fvs t1;
+      t2' <- type_name_check_subst l f tenvT fvs t2;
+      return (Tfn t1' t2');
+    od) ∧
+  (type_name_check_subst l f tenvT fvs (Atapp ts tc) =
+    do
+      ts' <- type_name_check_subst_list l f tenvT fvs ts;
+      (tvs', t') <- lookup_st_ex l "type constructor" tc tenvT;
+      guard (LENGTH tvs' = LENGTH ts) l
+                 (concat [implode "Type constructor "; id_to_string tc; implode " given ";
+                          toString (&LENGTH ts); implode " arguments, but expected ";
+                          toString (&LENGTH tvs')]);
+      return (type_subst (alist_to_fmap (ZIP (tvs', ts'))) t');
+    od) ∧
+  (type_name_check_subst_list l f tenvT fvs [] = return []) ∧
+  (type_name_check_subst_list l f tenvT fvs (t::ts) =
+    do
+      t' <- type_name_check_subst l f tenvT fvs t;
+      ts' <- type_name_check_subst_list l f tenvT fvs ts;
+      return (t'::ts');
+    od)`;
+
+val check_dups_def = Define `
+  (check_dups l f [] = return ()) ∧
+  (check_dups l f (h::t) =
+     if MEM h t then
+       failwith l (f h)
+     else
+       check_dups l f t)`;
+
+val check_ctor_types_def = Define `
+  (check_ctor_types l tenvT tvs [] = return ()) ∧
+  (check_ctor_types l tenvT tvs ((cn,ts)::ctors) =
+    do
+      type_name_check_subst_list l
+            (\tv. concat [implode "Unbound type variable "; implode tv;
+                          implode " in type definition with constructor ";
+                          implode cn])
+            tenvT tvs ts;
+      check_ctor_types l tenvT tvs ctors
+    od)`;
+
+val check_ctors_def = Define `
+  (check_ctors l tenvT [] = return ()) ∧
+  (check_ctors l tenvT ((tvs,tn,ctors)::tds) =
+    do
+      check_dups l
+                 (\n. concat [implode "Duplicate constructor "; implode n;
+                              implode " in the definition of type ";
+                              implode tn])
+                 (MAP FST ctors);
+      check_dups l
+                 (\n. concat [implode "Duplicate type variable binding "; implode n;
+                              implode " in the definition of type ";
+                              implode tn])
+                 tvs;
+      check_ctor_types l tenvT tvs ctors;
+      check_ctors l tenvT tds;
+    od)`;
+
+val check_type_definition_def = Define `
+  check_type_definition l tenvT tds =
+    do
+      check_dups l
+                 (\n. concat [implode "Duplicate type constructor "; implode n;
+                              implode " in a mutually recursive type definition"])
+                 (MAP (FST o SND) tds);
+      check_ctors l tenvT tds;
+    od`;
+
 val infer_p_def = tDefine "infer_p" `
 (infer_p l ienv (Pvar n) =
   do t <- fresh_uvar;
@@ -223,7 +306,7 @@ val infer_p_def = tDefine "infer_p" `
            return (Infer_Tapp ts Ttup_num, tenv)
         od
     | SOME cn =>
-        do (tvs',ts,tn) <- lookup_st_ex l cn ienv.inf_c;
+        do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
            (ts'',tenv) <- infer_ps l ienv ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
            guard (LENGTH ts'' = LENGTH ts) l
@@ -239,8 +322,11 @@ val infer_p_def = tDefine "infer_p" `
   od) ∧
 (infer_p l ienv (Ptannot p t) =
  do (t',tenv) <- infer_p l ienv p;
-    () <- guard (check_freevars_ast [] t ∧ check_type_names ienv.inf_t t) l (implode "Bad type annotation");
-    () <- add_constraint l t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
+    t'' <- type_name_check_subst l
+            (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
+                          implode "Type variables are not supported in type annotations."])
+            ienv.inf_t [] t;
+    () <- add_constraint l t' (infer_type_subst [] t'');
     return (t', tenv)
  od) ∧
 (infer_ps l ienv [] =
@@ -258,7 +344,49 @@ val infer_p_ind = fetch "-" "infer_p_ind";
 
 val word_tc_def = Define`
   (word_tc W8 = Tword8_num) ∧
-  (word_tc W64 = Tword64_num)`
+  (word_tc W64 = Tword64_num)`;
+
+val op_to_string_def = Define `
+(op_to_string (Opn _) = (implode "Opn", 2n)) ∧
+(op_to_string (Opb _) = (implode "Opb", 2)) ∧
+(op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
+(op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
+(op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
+(op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
+(op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
+(op_to_string Equality = (implode "Equality", 2)) ∧
+(op_to_string Opapp = (implode "Opapp", 2)) ∧
+(op_to_string Opassign = (implode "Opassign", 2)) ∧
+(op_to_string Opref = (implode "Opref", 1)) ∧
+(op_to_string Opderef = (implode "Opderef", 1)) ∧
+(op_to_string Aw8alloc = (implode "Aw8alloc", 2)) ∧
+(op_to_string Aw8sub = (implode "Aw8sub", 2)) ∧
+(op_to_string Aw8length = (implode "Aw8length", 1)) ∧
+(op_to_string Aw8update = (implode "Aw8update", 3)) ∧
+(op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
+(op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
+(op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
+(op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
+(op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
+(op_to_string CopyAw8Aw8 = (implode "CopyAw8Aw8", 5)) ∧
+(op_to_string Chr = (implode "Chr", 1)) ∧
+(op_to_string Ord = (implode "Ord", 1)) ∧
+(op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
+(op_to_string Strsub = (implode "Strsub", 2)) ∧
+(op_to_string Implode = (implode "Implode", 1)) ∧
+(op_to_string Strlen = (implode "Strlen", 1)) ∧
+(op_to_string Strcat = (implode "Strcat", 1)) ∧
+(op_to_string VfromList = (implode "VfromList", 1)) ∧
+(op_to_string Vsub = (implode "Vsub", 2)) ∧
+(op_to_string Vlength = (implode "Vlength", 1)) ∧
+(op_to_string Aalloc = (implode "Aalloc", 2)) ∧
+(op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
+(op_to_string Asub = (implode "Asub", 2)) ∧
+(op_to_string Alength = (implode "Alength", 1)) ∧
+(op_to_string Aupdate = (implode "Aupdate", 3)) ∧
+(op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
+(op_to_string ListAppend = (implode "ListAppend", 2)) ∧
+(op_to_string (FFI _) = (implode "FFI", 2))`;
 
 val constrain_op_quotation = `
 constrain_op l op ts =
@@ -462,9 +590,14 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] Tword8array_num);
           return (Infer_Tapp [] Ttup_num)
        od
-   | _ => failwith l (implode "Wrong number of arguments to primitive")`;
+   | _ =>
+         failwith l (
+         let (ops, args) = op_to_string op in
+           concat [implode "Primitive "; ops; implode " given ";
+                             toString (&LENGTH ts); implode " arguments, but expects ";
+                             toString (&args)])`;
 
-val constrain_op_def = Define constrain_op_quotation
+val constrain_op_def = Define constrain_op_quotation;
 
 val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
   (constrain_op_quotation |>
@@ -472,7 +605,24 @@ val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
        | aq => aq)),
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[constrain_op_def])
+  >> fs[constrain_op_def]);
+
+val constrain_op_error_msg_sanity = Q.store_thm ("constrain_op_error_msg_sanity",
+`!l op args s l' s' msg.
+  LENGTH args = SND (op_to_string op) ∧
+  constrain_op l op args s = (Failure (l',msg), s')
+  ⇒
+  IS_PREFIX (explode msg) "Type mismatch"`,
+ rpt strip_tac >>
+ qmatch_abbrev_tac `IS_PREFIX _ m` >>
+ cases_on `op` >>
+ fs [op_to_string_def, constrain_op_def] >>
+ every_case_tac >>
+ fs [st_ex_bind_def, st_ex_return_def, add_constraint_def, fresh_uvar_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ fs [mlstringTheory.concat_thm, Abbr `m`]);
 
 val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Raise e) =
@@ -483,7 +633,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Handle e pes) =
   if pes = [] then
-    failwith l (implode "Empty pattern match")
+    failwith l (implode "No patterns in handle")
   else
     do t1 <- infer_e l ienv e;
        () <- infer_pes l ienv pes (Infer_Tapp [] Texn_num) t1;
@@ -500,7 +650,7 @@ val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Lit (Word64 w)) =
   return (Infer_Tapp [] Tword64_num)) ∧
 (infer_e l ienv (Var id) =
-  do (tvs,t) <- lookup_st_ex l id ienv.inf_v;
+  do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
      uvs <- n_fresh_uvar tvs;
      return (infer_deBruijn_subst uvs t)
   od) ∧
@@ -511,7 +661,7 @@ val infer_e_def = tDefine "infer_e" `
           return (Infer_Tapp ts Ttup_num)
        od
     | SOME cn =>
-       do (tvs',ts,tn) <- lookup_st_ex l cn ienv.inf_c;
+       do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
           ts'' <- infer_es l ienv es;
           ts' <- n_fresh_uvar (LENGTH tvs');
            guard (LENGTH ts'' = LENGTH ts) l
@@ -548,7 +698,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Mat e pes) =
   if pes = [] then
-    failwith l (implode "Empty pattern match")
+    failwith l (implode "No patterns in case")
   else
     do t1 <- infer_e l ienv e;
        t2 <- fresh_uvar;
@@ -587,7 +737,10 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
   *)
 (infer_e l ienv (Letrec funs e) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) l (implode "Duplicate function name");
+  do
+    check_dups l (\n. concat [implode "Duplicate function name "; implode n;
+                              implode " in mutually recursive function definition"])
+                 (MAP FST funs);
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
      funs_ts <- infer_funs l (ienv with inf_v:=env') funs;
@@ -597,8 +750,11 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Tannot e t) =
   do t' <- infer_e l ienv e;
-     () <- guard (check_freevars_ast [] t ∧ check_type_names ienv.inf_t t) l (implode "Bad type annotation");
-     () <- add_constraint l t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
+     t'' <- type_name_check_subst l
+            (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
+                          implode "Type variables are not supported in type annotations."])
+            ienv.inf_t [] t;
+     () <- add_constraint l t' (infer_type_subst [] t'');
      return t'
    od) ∧
 (infer_e _ ienv (Lannot e l) =
@@ -614,7 +770,9 @@ val infer_e_def = tDefine "infer_e" `
    return ()) ∧
 (infer_pes l ienv ((p,e)::pes) t1 t2 =
   do (t1', env') <- infer_p l ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) l (implode "Duplicate pattern variable");
+    check_dups l (\n. concat [implode "Duplicate variable "; implode n;
+                              implode " in pattern"])
+              (MAP FST env');
      () <- add_constraint l t1 t1';
      t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
      () <- add_constraint l t2 t2';
@@ -652,7 +810,9 @@ val infer_d_def = Define `
      n <- get_next_uvar;
      t1 <- infer_e (SOME locs) ienv e;
      (t2,env') <- infer_p (SOME locs) ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) (SOME locs) (implode "Duplicate pattern variable");
+     check_dups (SOME locs) (\n. concat [implode "Duplicate variable "; implode n;
+                                  implode " in the left-hand side of a definition"])
+                (MAP FST env');
      () <- add_constraint (SOME locs) t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
@@ -662,7 +822,10 @@ val infer_d_def = Define `
                inf_t := nsEmpty |>
   od) ∧
 (infer_d ienv (Dletrec locs funs) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) (implode "Duplicate function name");
+  do
+    check_dups (SOME locs) (\n. concat [implode "Duplicate function name "; implode n;
+                                        implode " a mutually recursive function definition"])
+               (MAP FST funs);
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
@@ -680,34 +843,34 @@ val infer_d_def = Define `
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs)
-                 (concat (implode "Bad type definition in one of the following " ::
-                          MAP (implode o FST o SND) tdefs));
+     check_type_definition (SOME locs) ienvT2 tdefs;
      return <| inf_v := nsEmpty;
                inf_c := build_ctor_tenv ienvT2 tdefs tids;
                inf_t := ienvT1 |>
   od) ∧
 (infer_d ienv (Dtabbrev locs tvs tn t) =
-  do () <- guard (ALL_DISTINCT tvs) (SOME locs)
-                 (concat
-                   [implode "Duplicate type variable bindings in type abbreviation ";
-                    implode tn]);
-     () <- guard (check_freevars_ast tvs t) (SOME locs)
-                 (concat [implode "Unbound type variable in type abbreviation ";
-                          implode tn]);
-     () <- guard (check_type_names ienv.inf_t t) (SOME locs)
-                 (concat [implode "Reference to unknown type in type abbreviation ";
-                          implode tn]);
+  do
+    check_dups (SOME locs) (\n. concat [implode "Duplicate type variable bindings for ";
+                                        implode n; implode " in type abbreviation ";
+                                        implode tn])
+              tvs;
+     t' <- type_name_check_subst (SOME locs)
+            (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
+                          implode tn])
+            ienv.inf_t tvs t;
      return <| inf_v := nsEmpty;
                inf_c := nsEmpty;
-               inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>
+               inf_t := nsSing tn (tvs,t') |>
   od) ∧
 (infer_d ienv (Dexn locs cn ts) =
-  do () <- guard ( EVERY (check_freevars_ast []) ts ∧ EVERY (check_type_names ienv.inf_t) ts ) (SOME locs)
-                 (implode "Bad exception definition");
-     return <| inf_v := nsEmpty;
-               inf_c := nsSing cn ([], MAP (\x. type_name_subst ienv.inf_t x) ts, Texn_num);
-               inf_t := nsEmpty |>
+  do
+    ts' <- type_name_check_subst_list (SOME locs)
+            (\tv. concat [implode "Type variable "; implode tv; implode " found in declaration of exception "; implode cn;
+                          implode ". Type variables are not allowed in exception declarations."])
+            ienv.inf_t [] ts;
+    return <| inf_v := nsEmpty;
+              inf_c := nsSing cn ([], ts', Texn_num);
+              inf_t := nsEmpty |>
   od) ∧
 (infer_d ienv (Dmod mn ds) =
   do ienv' <- infer_ds ienv ds;

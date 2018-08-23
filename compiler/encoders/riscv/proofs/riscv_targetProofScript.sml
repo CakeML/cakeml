@@ -329,7 +329,7 @@ local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
-       | NONE => raise ERR "number_of_instructions" ""
+       | NONE => raise mk_HOL_ERR "riscv_targetProofTheory" "number_of_instructions" ""
    fun gen_next_tac (j, i) =
      exists_tac (numLib.term_of_int (j - 1))
      \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,

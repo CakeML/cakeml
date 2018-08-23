@@ -112,8 +112,11 @@ fs []
 >- (PairCases_on `v'` >>
     fs [] >>
     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
->- (imp_res_tac sub_completion_unify2 >>
-    metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
+>- (
+  imp_res_tac type_name_check_subst_state >>
+  fs [] >>
+  imp_res_tac sub_completion_unify2 >>
+  metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
 >- metis_tac [APPEND, sub_completion_more_vars]
 >- (PairCases_on `v'` >>
     PairCases_on `v''` >>
@@ -242,7 +245,10 @@ rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [Once type_p_cases, convert_env_def] >>
 imp_res_tac sub_completion_wfs >>
 fs [] >>
-rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def]
+rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def] >>
+imp_res_tac type_name_check_subst_thm >>
+imp_res_tac type_name_check_subst_state>>
+fs []
 >- (match_mp_tac check_t_to_check_freevars >>
     rw [] >>
     fs [sub_completion_def] >>
@@ -412,8 +418,10 @@ val constrain_op_sub_completion = Q.prove (
  fs [constrain_op_success] >>
  every_case_tac >>
  fs [success_eqns] >>
+ TRY pairarg_tac >>
+ fs [] >>
  rw [] >>
- fs [infer_st_rewrs] >>
+ fs [infer_st_rewrs, success_eqns] >>
  metis_tac [sub_completion_unify2, sub_completion_unify]);
 
 val constrain_op_sound = Q.prove (
@@ -425,6 +433,8 @@ val constrain_op_sound = Q.prove (
  fs[constrain_op_success] >>
  rw [] >>
  fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
+ TRY pairarg_tac >>
+ fs [success_eqns] >>
  binop_tac);
 
 val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar",
@@ -481,7 +491,10 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
   rw [check_t_def] >>
   fs [check_t_def] >>
   ONCE_REWRITE_TAC [type_e_cases] >>
-  rw [Tint_def, Tchar_def]
+  rw [Tint_def, Tchar_def] >>
+  imp_res_tac type_name_check_subst_state >>
+  imp_res_tac type_name_check_subst_thm >>
+  fs []
   >-
   (* Raise *)
      (fs [sub_completion_def, flookup_thm, count_add1, SUBSET_DEF] >>
@@ -971,7 +984,9 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      fs [env_rel_sound_def] >>
      irule check_freevars_empty_convert_unconvert_id >>
      metis_tac [check_freevars_empty_convert_unconvert_id])
- >- (* Tannot *) fs [env_rel_sound_def]
+ >- (* Tannot *)
+    (fs [env_rel_sound_def] >>
+     metis_tac [])
  >- (* Tannot*)
     (`convert_t (t_walkstar s t') = type_name_subst tenv.t t`
        by (* This is the previous goal *)
