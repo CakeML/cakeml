@@ -59,7 +59,7 @@ in
   fun add_user_heap_thm thm =
       (user_thms := thm :: (!user_thms);
        HOL_MESG ("Adding user heap theorem:\n" ^ thm_to_string thm ^ "\n"))
-  val sets_thm2 = build_set heap_thms2 |> curry save_thm "sets_thm2";
+  val sets_thm2 = build_set heap_thms2;
   val sets2 = rand (concl sets_thm2)
   fun mk_user_sets_thm () = build_set (heap_thms @ (!user_thms))
 end
@@ -126,7 +126,9 @@ fun whole_prog_thm st name spec =
         |> C HO_MATCH_MP spec
         |> SIMP_RULE bool_ss [option_case_def, set_sepTheory.SEP_CLAUSES]
     val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
-    val prog_rewrite = EVAL prog_with_snoc (* TODO: this is too slow for large progs *)
+    val prog_rewrite =
+      prog_with_snoc
+      |> PURE_REWRITE_CONV [listTheory.SNOC_APPEND, listTheory.APPEND]
     val th = PURE_REWRITE_RULE[prog_rewrite] th
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1
