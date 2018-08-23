@@ -1,4 +1,4 @@
-open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory
+open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "linear_scanProof"
