@@ -280,7 +280,7 @@ val state_tac =
       asmPropsTheory.all_pcs, ag32_ok_def, ag32_config,
       combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
       alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
-      wordsTheory.WORD_LS_word_T, load_lem, load_lem2, load_lem3, store_lem2]
+      wordsTheory.WORD_LS_word_T, load_lem, load_lem3, store_lem2]
   \\ rw [alignmentTheory.aligned_numeric, combinTheory.APPLY_UPDATE_THM,
          wordsTheory.word_lsl_bv_def, wordsTheory.word_lsr_bv_def,
          wordsTheory.word_asr_bv_def, wordsTheory.word_ror_bv_def,
@@ -290,7 +290,7 @@ val state_tac =
          GSYM wordsTheory.word_mul_def,
          ONCE_REWRITE_RULE [wordsTheory.WORD_ADD_COMM]
              alignmentTheory.aligned_add_sub]
-  \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [store_lem]
+  \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [load_lem2, store_lem]
   \\ blastLib.FULL_BBLAST_TAC
 
 local
