@@ -1139,4 +1139,6 @@ val new_basic_type_definition_def = Define `
        eq3 <- mk_eq(y3,eq2) ;
        return (Sequent [] eq1, Sequent [] eq3) od od od`
 
+val _ = Define `context () = get_the_context`;
+
 val _ = export_theory();

@@ -392,6 +392,7 @@ val def = ALPHA_THM_def |> m_translate
 val def = axioms_def |> m_translate
 val def = types_def |> m_translate
 val def = constants_def |> m_translate
+val def = context_def |> m_translate
 
 val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)
 
