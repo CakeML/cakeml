@@ -119,11 +119,18 @@ val ag_prog_spec_semantics_prog = Q.store_thm("ag_prog_spec_semantics_prog",
   \\ pop_assum mp_tac \\ rw[]
   \\ fs[ag_proj1_print, FLOOKUP_DEF] \\ rw[]);
 
-val sets_thm = PRINTER_precond;
+val sets_thm = save_thm("sets_thm",PRINTER_precond);
 
 val ag_ffi_length_thms = save_thm("ag_ffi_length_thms", LIST_CONJ [ffi_print_length]);
 
 val ag_ffi_part_defs = save_thm("ag_ffi_part_defs", LIST_CONJ [print_ffi_part_def]);
+
+val SPLIT_exists = Q.store_thm ("SPLIT_exists",
+  `A s /\ s ⊆ C
+    ==> (?h1 h2. SPLIT C (h1, h2) /\ A h1)`,
+  rw[]
+  \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
+  \\ cfHeapsBaseLib.SPLIT_TAC);
 
 (*
 
@@ -205,14 +212,6 @@ val parts_ok_ag = Q.store_thm("parts_ok_ag",
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
   \\ srw_tac[DNF_ss][] \\ fs[ffi_exit_def]
 );
-
-(* TODO: move somewhere else? *)
-val SPLIT_exists = Q.store_thm ("SPLIT_exists",
-  `(A * B) s /\ s ⊆ C
-    ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`,
-  rw[]
-  \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
-  \\ SPLIT_TAC);
 
 *)
 
