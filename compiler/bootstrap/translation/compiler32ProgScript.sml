@@ -266,6 +266,7 @@ val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
     rw[Abbr`fs1`,full_compile_32_def,UNCURRY,
        GSYM fastForwardFD_with_numchars,
        GSYM add_stdo_with_numchars, with_same_numchars]
+  \\ simp [SEP_CLAUSES]
   \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
   \\ xsimpl);
 
