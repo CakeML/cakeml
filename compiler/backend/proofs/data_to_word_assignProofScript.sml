@@ -8339,15 +8339,15 @@ val th = Q.store_thm("assign_WordShiftW64",
 
 val assign_FP_cmp = SIMP_CONV (srw_ss()) [assign_def]
   ``((assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (FP_cmp fpc)
-       (args:num list) (names:num_set option)):'a prog # num)``;
+       (args:num list) (names:num_set option)):'a wordLang$prog # num)``;
 
 val assign_FP_bop = SIMP_CONV (srw_ss()) [assign_def]
   ``((assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (FP_bop fpb)
-       (args:num list) (names:num_set option)):'a prog # num)``;
+       (args:num list) (names:num_set option)):'a wordLang$prog # num)``;
 
 val assign_FP_uop = SIMP_CONV (srw_ss()) [assign_def]
   ``((assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (FP_uop fpu)
-       (args:num list) (names:num_set option)):'a prog # num)``;
+       (args:num list) (names:num_set option)):'a wordLang$prog # num)``;
 
 val w2w_select_id = store_thm("w2w_select_id",
   ``dimindex (:'a) = 64 ==>
