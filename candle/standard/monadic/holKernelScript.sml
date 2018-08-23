@@ -976,7 +976,7 @@ val _ = Define `
   let axioms() = !the_axioms
 *)
 
-val _ = Define `axioms = get_the_axioms`;
+val _ = Define `axioms () = get_the_axioms`;
 
 (*
   let new_axiom tm =
