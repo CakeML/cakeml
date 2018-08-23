@@ -3,7 +3,7 @@ signature basis_ffiLib = sig
   include Abbrev
 
   (* Set the optional store precondition *)
-  val set_user_heap_thm : thm -> unit
+  val add_user_heap_thm : thm -> unit
 
   val whole_prog_spec_def : thm
 

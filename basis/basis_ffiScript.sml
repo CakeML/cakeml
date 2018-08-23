@@ -288,7 +288,7 @@ val iobuff_loc_num =
   TextIOProgTheory.iobuff_loc_def
   |> concl |> rhs |> rand;
 
-val IOFS_precond = Q.prove(
+val IOFS_precond = Q.store_thm ("STDIO_precond",
   `wfFS fs ⇒ LENGTH v >= 2052 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
@@ -301,7 +301,7 @@ val IOFS_precond = Q.prove(
   \\ fs[SEP_CLAUSES,one_STAR,one_def,append_hprop]
   )|> UNDISCH_ALL;
 
-val STDIO_precond = Q.prove(
+val STDIO_precond = Q.store_thm ("STDIO_precond",
 ` wfFS fs ==>
   STD_streams fs ==>
   LENGTH v >= 2052 ==>
@@ -315,7 +315,7 @@ val STDIO_precond = Q.prove(
   cases_on`fs` >> fs[IO_fs_numchars_fupd]
   ) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
-val RUNTIME_precond = Q.prove(
+val RUNTIME_precond = Q.store_thm ("RUNTIME_precond",
   `RUNTIME {FFI_part (encode ()) (mk_ffi_next runtime_ffi_part)
            (MAP FST (SND(SND runtime_ffi_part))) events}`,
   rw[RUNTIME_def,runtimeFFITheory.runtime_ffi_part_def,
@@ -355,7 +355,7 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
-     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p) h1)
+     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
      semantics_prog (init_state (basis_ffi cl fs)) env1
@@ -403,7 +403,8 @@ val whole_prog_spec_semantics_prog_ffidiv = Q.store_thm("whole_prog_spec_semanti
      ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_ffidiv_spec fv cl fs Q ==>
-     (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
+     (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
+     (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
    ∃io_events fs' n c b.
      semantics_prog (init_state (basis_ffi cl fs)) env1
@@ -446,39 +447,27 @@ val whole_prog_spec_semantics_prog_ffidiv = Q.store_thm("whole_prog_spec_semanti
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]);
 
-val heap_thms = [COMMANDLINE_precond, STDIO_precond];
+val basis_ffi_length_thms = save_thm("basis_ffi_length_thms",
+  LIST_CONJ
+    [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
+     ffi_close_length, clFFITheory.ffi_get_arg_count_length,
+     clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length,
+     ffi_exit_length]);
 
-val heap_thms2 = [COMMANDLINE_precond, STDIO_precond, RUNTIME_precond];
-
-fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
-  | build_set [th] = th
-  | build_set (th1::th2::ths) =
-      let
-        val th = MATCH_MP append_hprop (CONJ th1 th2)
-        val th = CONV_RULE(LAND_CONV EVAL)th
-        val th = MATCH_MP th TRUTH |> SIMP_RULE (srw_ss()) [UNION_EMPTY]
-        val th = (CONV_RULE(RAND_CONV (pred_setLib.UNION_CONV EVAL)) th
-        handle _ => th) (* TODO quick fix *)
-      in build_set (th::ths) end
-
-val sets_thm = build_set heap_thms |> curry save_thm "sets_thm";
-
-val sets_thm2 = build_set heap_thms2 |> curry save_thm "sets_thm2";
-
-val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
-[ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
- ffi_close_length, clFFITheory.ffi_get_arg_count_length,
- clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length,
- ffi_exit_length]);
-
-val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
-[fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
+val basis_ffi_part_defs = save_thm("basis_ffi_part_defs",
+  LIST_CONJ
+    [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
-  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
-    ==> (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\ basis_proj1 x
- |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
+  `!st.
+     st.ffi.oracle = basis_ffi_oracle /\
+     MEM (ns, u) basis_proj2 /\
+     MEM m ns /\
+     u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
+     ==>
+     (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\
+          basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
@@ -517,8 +506,12 @@ val cl_ffi_no_ffi_div = Q.store_thm("cl_ffi_no_ffi_div",`
      clFFITheory.ffi_get_arg_def]);
 
 val oracle_parts_div = Q.store_thm("oracle_parts_div",
-  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
-    ==> st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged`,
+  `!st.
+     st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\
+     MEM m ns /\
+     u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
+     ==>
+     st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged`,
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
