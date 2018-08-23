@@ -343,10 +343,6 @@ val coreloop_def' =
     |> REWRITE_RULE [INTRO_FLOOKUP]
     |> SPEC_ALL |> ONCE_REWRITE_RULE [FUN_EQ_THM]);
 
-val r = translate coreloop_def';
-
-val r = translate (pegexecTheory.peg_exec_def);
-
 (* -- *)
 
 val all_charsets_def = Define `
@@ -397,8 +393,8 @@ val termination_lemma =
 val parse_regexp_side = Q.prove(
   `∀x. parse_regexp_side x = T`,
   rw[definition"parse_regexp_side_def"] \\
-  rw[definition"peg_exec_side_def"] \\
-  rw[definition"coreloop_side_def"] \\
+  rw[ArgParseProgTheory.peg_exec_side_def] \\
+  rw[ArgParseProgTheory.coreloop_side_def] \\
   qspec_then`MAP add_loc x`strip_assume_tac (Q.GEN`i`termination_lemma) \\
   qmatch_abbrev_tac`IS_SOME (OWHILE f g h)` \\
   qmatch_assum_abbrev_tac`OWHILE f g' h = SOME _` \\
