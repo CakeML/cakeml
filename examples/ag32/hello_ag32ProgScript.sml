@@ -1,4 +1,4 @@
-open preamble basis PrinterProofTheory
+open preamble basis PrinterProofTheory ag_ffiTheory
 
 val _ = new_theory "hello_ag32Prog"
 
@@ -20,20 +20,16 @@ val hello_spec = Q.store_thm ("hello_spec",
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac`out` \\ xsimpl);
 
-(*
-val hello_whole_prog_spec = Q.store_thm("hello_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "hello" st) cl fs
-    ((=) (add_stdout fs (strlit "Hello World!\n")))`,
-  rw[whole_prog_spec_def]
-  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
-  \\ qexists_tac`fs1`
-  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
-  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe hello_spec))
+val hello_ag_prog_spec = Q.store_thm("hello_ag_prog_spec",
+  `ag_prog_spec ^(fetch_v "hello" st) ((=) "Hello World!\n")`,
+  rw[ag_prog_spec_def]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (Q.SPEC`""`(Q.GEN`out`hello_spec))))
   \\ xsimpl);
 
-val spec = hello_whole_prog_spec
+val spec = hello_ag_prog_spec
 val name = "hello";
 
+(*
 val (call_thm_hello, hello_prog_tm) = whole_prog_thm st name spec;
 val hello_prog_def = Define`hello_prog = ^hello_prog_tm`;
 
