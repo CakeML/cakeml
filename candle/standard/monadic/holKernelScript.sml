@@ -58,7 +58,6 @@ val _ = type_abbrev("M", ``: (hol_refs, 'a, hol_exn) M``);
 
 val _ = define_monad_access_funs ``:hol_refs``;
 
-
 (* failwith *)
 
 val _ = define_monad_exception_functions ``:hol_exn`` ``:hol_refs``;
@@ -110,6 +109,13 @@ val _ = Define `
 
 val _ = Define `
   subset l1 l2 = EVERY (\t. MEM t l2) l1`;
+
+(*
+  let types() = !the_type_constants
+*)
+
+val _ = Define `
+  types () = get_the_type_constants`;
 
 (*
   let get_type_arity s = assoc s (!the_type_constants)
@@ -266,6 +272,13 @@ val _ = temp_overload_on("bool_ty",``mk_type(strlit"bool",[])``);
 val _ = Define `mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])`;
 val _ = temp_overload_on("aty",``mk_vartype (strlit "A")``);
 val _ = temp_overload_on("bty",``mk_vartype (strlit "B")``);
+
+(*
+  let constants() = !the_term_constants
+*)
+
+val _ = Define `
+  constants () = get_the_term_constants`;
 
 (*
   let get_const_type s = assoc s (!the_term_constants)
