@@ -191,9 +191,9 @@ val funcT_thm = Q.prove(
 val shiftT_thm = Q.prove(
   `!shiftOp.
      num2shiftT
-       (w2n (v2w
+       (w2n ((1 >< 0) (v2w
          [BIT 3 (shiftT2num shiftOp); BIT 2 (shiftT2num shiftOp);
-          BIT 1 (shiftT2num shiftOp); BIT 0 (shiftT2num shiftOp)] : word4)) =
+          BIT 1 (shiftT2num shiftOp); BIT 0 (shiftT2num shiftOp)] : word4))) =
      shiftOp`,
   Cases \\ simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [])
 
@@ -297,7 +297,7 @@ local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
-       | NONE => raise mk_HOL_ERR "tiny_targetProofTheory" "number_of_instructions" ""
+       | NONE => raise mk_HOL_ERR "ag32_targetProofTheory" "number_of_instructions" ""
    fun next_tac' (gs as (asl, _)) =
       let
          val j = number_of_instructions asl
