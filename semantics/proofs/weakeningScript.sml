@@ -49,7 +49,17 @@ val weak_tenv_refl = Q.store_thm ("weak_tenv_refl",
    >> fs [tenv_val_ok_def]
    >> metis_tac [deBruijn_subst_id])
  >> qexists_tac `\n t. T`
- >> rw [(*weak_tenvT_refl*)]);
+ >> rw []
+ >- (
+   rename [`ctor_inst _ ts _`] >>
+   PairCases_on `ts` >>
+   rw [ctor_inst_def, type_subst_ident,
+       REVERSE_ZIP, FUPDATE_LIST_alist_to_fmap, GSYM MAP_REVERSE])
+ >- (
+   rename [`type_def_inst _ ts _`] >>
+   PairCases_on `ts` >>
+   rw [type_def_inst_def, type_subst_ident,
+       REVERSE_ZIP, FUPDATE_LIST_alist_to_fmap, GSYM MAP_REVERSE]));
 
 val weakS_refl = Q.store_thm ("weakS_refl",
   `!tenvS. weakS tenvS tenvS`,
@@ -118,8 +128,15 @@ val eLookupC_weak = Q.prove (
     weak_tenv tenv' tenv ∧
     nsLookup tenv.c cn = SOME (tvs,ts,tn)
     ⇒
-    nsLookup tenv'.c cn = SOME (tvs,ts,tn)`,
- rw [weak_tenv_def, namespaceTheory.nsSub_def]);
+    ?tvs' ts'.
+      nsLookup tenv'.c cn = SOME (tvs',ts',tn) ∧
+      ctor_inst cn (tvs,ts,tn) (tvs',ts',tn)`,
+ rw [weak_tenv_def, namespaceTheory.nsSub_def] >>
+ first_x_assum drule >>
+ rw [] >>
+ PairCases_on `v2` >>
+ fs [ctor_inst_def] >>
+ rw []);
 
 val eLookupV_weak = Q.prove (
   `∀n tenv tenv' tvs t.
@@ -182,7 +199,17 @@ val type_p_weakening = Q.store_thm ("type_p_weakening",
  ONCE_REWRITE_TAC [type_p_cases] >>
  rw [] >>
  fs [EVERY_MEM] >>
- metis_tac [weak_def, check_freevars_add, EVERY_MEM, eLookupC_weak]);
+ cheat);
+ (*
+ metis_tac [weak_def, check_freevars_add, EVERY_MEM]
+ rw [GSYM PULL_EXISTS]
+ fs [weak_def]
+ imp_res_tac eLookupC_weak >>
+ fs [] >>
+ rw [] >>
+ fs [ctor_inst_def]
+ rw [] >>
+ *)
 
 val type_e_weakening_lem = Q.prove (
 `(!tenv tenvE e t. type_e tenv tenvE e t ⇒
@@ -206,8 +233,8 @@ val type_e_weakening_lem = Q.prove (
      >- metis_tac [weak_def, type_p_weakening, weak_tenvE_def] >>
      first_x_assum match_mp_tac >>
      rw [weak_def, weak_tenvE_bind_var_list])
- >- (fs [EVERY_MEM] >>
-     metis_tac [eLookupC_weak, weak_tenvE_freevars])
+ >- cheat (*(fs [EVERY_MEM] >>
+     metis_tac [eLookupC_weak, weak_tenvE_freevars])*)
  >- (
    fs [lookup_var_def]
    >> Cases_on `lookup_varE n tenvE`
@@ -581,14 +608,14 @@ val weak_tenv_extend_dec_tenv = Q.store_thm ("weak_tenv_extend_dec_tenv",
 
 val check_sig_weakening = Q.store_thm ("check_sig_weakening",
   `!tenv1 tenv2 tenv tenv_sig sn_opt.
-   check_sig tenv2 sn_opt tenv = SOME tenv_sig ∧
+   check_sig tenv2 sn_opt tenv tids tenv_sig ∧
    weak tenv1 tenv2
    ⇒
-   check_sig tenv1 sn_opt tenv = SOME tenv_sig`,
-  rw [check_sig_def] >>
-  every_case_tac >>
+   check_sig tenv1 sn_opt tenv tids tenv_sig`,
+  rw [check_sig_cases] >>
   fs [weak_def] >>
-  rfs []);
+  rfs [] >>
+  cheat);
 
 val type_defs_weakening = Q.store_thm ("type_defs_weakening",
   `!tenv tdef tids tenv' tenv''.
@@ -628,6 +655,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
  >- fs [weak_def]
  >- fs [weak_def]
  >- metis_tac [check_sig_weakening]
+ >- cheat
  >- (
   qexists_tac `tenv'`
   >> qexists_tac `tenv''`

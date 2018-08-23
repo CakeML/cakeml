@@ -159,6 +159,23 @@ induct_on `ts'` >>
 srw_tac[][] >>
 metis_tac [check_freevars_subst_single]);
 
+val type_subst_ident = Q.store_thm ("type_subst_ident",
+  `(!t. t = type_subst (alist_to_fmap (ZIP (tvs,MAP Tvar tvs))) t) ∧
+   (!ts. ts = MAP (type_subst (alist_to_fmap (ZIP (tvs,MAP Tvar tvs)))) ts)`,
+  Induct >>
+  rw [type_subst_def]
+  >- (
+    CASE_TAC >>
+    fs [flookup_fupdate_list] >>
+    every_case_tac >>
+    rw [] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [MEM_ZIP] >>
+    rw [EL_MAP])
+  >- (
+    induct_on `ts` >>
+    rw []));
+
 (* ---------- deBruijn_inc ---------- *)
 
 val deBruijn_inc0 = Q.store_thm ("deBruijn_inc0",
@@ -2136,15 +2153,15 @@ val extend_dec_tenv_ok = Q.store_thm ("extend_dec_tenv_ok",
  >> simp []);
 
 val check_sig_tenv_ok = Q.store_thm ("check_sig_tenv_ok",
-  `!tenv tenv' sn_opt tenv_sig.
+  `!tenv tenv' sn_opt decls tenv_sig.
    tenv_ok tenv ∧
    tenv_ok tenv' ∧
-   check_sig tenv sn_opt tenv' = SOME tenv_sig
+   check_sig tenv sn_opt tenv' decls tenv_sig
    ⇒
    tenv_ok tenv_sig`,
-  rw [check_sig_def] >>
-  every_case_tac >>
-  rw []);
+  rw [check_sig_cases] >>
+  rw [] >>
+  cheat);
 
 val type_tdefs_tenv_ok = Q.store_thm ("type_tdefs_tenv_ok",
   `!tenv tdef tids tenv'.
