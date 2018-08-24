@@ -15,6 +15,7 @@ val HD_let_op_SING = store_thm("HD_let_op_SING[simp]",
   strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []);
 
 (* This seems generally useful, but what should it be called? *)
+(* TODO: this is COND_RAND *)
 val PUSH_IF = store_thm("PUSH_IF",
   ``!f b x y. (if b then f x else f y) = f (if b then x else y)``,
   METIS_TAC [])
@@ -87,7 +88,7 @@ val FMAP_REL_def = Define `
           ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
 
 val compile_inc_def = Define `
-  compile_inc (e, xs) = (HD (let_op [e]), [])`;
+  compile_inc (e, xs) = (let_op e, [])`;
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
@@ -294,7 +295,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
    (fs [LENGTH_EQ_NUM] \\ rveq
     \\ fs [evaluate_def]
     \\ imp_res_tac code_rel_CONS_CONS
-    \\ reverse (fs [case_eq_thms, pair_case_eq]) 
+    \\ reverse (fs [case_eq_thms, pair_case_eq])
     \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
@@ -374,7 +375,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ fs [])
   THEN1 (* Raise *)
    (fs [code_rel_def, let_op_def] \\ rveq
-    \\ fs [evaluate_def]   
+    \\ fs [evaluate_def]
     \\ fs [pair_case_eq]
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
@@ -383,7 +384,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ imp_res_tac evaluate_SING \\ fs [])
   THEN1 (* Handle *)
    (fs [code_rel_def, let_op_def] \\ rveq
-    \\ fs [evaluate_def]   
+    \\ fs [evaluate_def]
     \\ fs [pair_case_eq]
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
@@ -391,7 +392,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ fs [case_eq_thms] \\ rveq \\ fs [])
   THEN1 (* Op *)
    (fs [code_rel_def, let_op_def] \\ rveq
-    \\ fs [evaluate_def]   
+    \\ fs [evaluate_def]
     \\ fs [pair_case_eq]
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
@@ -408,7 +409,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
       \\ Cases_on `a1`
       THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
       \\ Cases_on `t`
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])   
+      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
       \\ reverse (Cases_on `t'`)
       THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
       \\ fs [] \\ rveq
@@ -421,13 +422,13 @@ val evaluate_let_op = store_thm("evaluate_let_op",
       \\ Cases_on `v_to_words x2` \\ fs []
       THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
       \\ pairarg_tac \\ fs []
-      \\ PairCases_on `progs`     
+      \\ PairCases_on `progs`
       \\ Cases_on `t2.compile_oracle 0`
       \\ PairCases_on `r`
       \\ `r1 = [] /\ progs1 = []` by
          (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
           \\ rveq \\ fs [] \\ metis_tac [SND])
-      \\ rveq \\ fs []    
+      \\ rveq \\ fs []
       \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
       THEN1 (fs [do_install_def] \\ rw []
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
@@ -437,14 +438,17 @@ val evaluate_let_op = store_thm("evaluate_let_op",
       THEN1 (fs [do_install_def] \\ rw []
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
              \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def])
+             \\ IF_CASES_TAC \\ fs [shift_seq_def]
+             \\ METIS_TAC[LENGTH_let_op,LENGTH_NIL])
       \\ IF_CASES_TAC
       THEN1 (fs [do_install_def] \\ strip_tac \\ rveq
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
              \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
              \\ IF_CASES_TAC \\ fs [shift_seq_def]
-             \\ fs [FUPDATE_LIST, o_DEF])
+             \\ fs [FUPDATE_LIST, o_DEF]
+             \\ METIS_TAC[LENGTH_let_op,LENGTH_NIL])
       \\ fs [] \\ rveq \\ fs []
+      \\ fs[CaseEq"prod"]
       \\ fs [do_install_def] \\ strip_tac
       \\ first_x_assum drule
       \\ qmatch_goalsub_abbrev_tac `(Rval r0, tt)`
@@ -458,7 +462,13 @@ val evaluate_let_op = store_thm("evaluate_let_op",
       \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
       \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
       \\ fs [shift_seq_def]
-      \\ rveq \\ fs [])
+      \\ rveq \\ fs []
+      \\ reverse IF_CASES_TAC >- METIS_TAC[LENGTH_let_op,LENGTH_NIL]
+      \\ fs[]
+      \\ fs[CaseEq"semanticPrimitives$result"] \\ rveq \\ fs[]
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES
+      \\ fs[LIST_REL_SNOC])
    (* op <> Install *)
    \\ drule EVERY2_REVERSE \\ disch_tac
    \\ drule (GEN_ALL do_app_lemma)
