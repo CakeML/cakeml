@@ -163,12 +163,12 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
 val state_rel_def = Define `
   state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
-    s.compile = state_cc (ignore_table renumber_code_locs) t.compile /\
-    t.compile_oracle = state_co (ignore_table renumber_code_locs) s.compile_oracle /\
+    s.compile = state_cc (ignore_table renumber_code_locs_list) t.compile /\
+    t.compile_oracle = state_co (ignore_table renumber_code_locs_list) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
-         ¬contains_App_SOME s.max_app [FST(SND(s.compile_oracle n))]) /\
+         ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
     s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
@@ -479,8 +479,8 @@ val do_install = Q.prove(
                  state_rel t t') ∧
    (∀e1 t1. do_install x1 s1 = (Rval e1,t1) ⇒
      ∃e2 t2. do_install x2 s2 = (Rval e2,t2) ∧
-             ¬contains_App_SOME t1.max_app [e1] ∧ t1.max_app = s1.max_app ∧
-             e2 = SND (renumber_code_locs (FST(FST(s1.compile_oracle 0))) e1) ∧
+             ¬contains_App_SOME t1.max_app (e1) ∧ t1.max_app = s1.max_app ∧
+             e2 = SND (renumber_code_locs_list (FST(FST(s1.compile_oracle 0))) e1) ∧
              state_rel t1 t2)`,
   strip_tac
   \\ `∃res. do_install x1 s1 = res` by fs[]
@@ -492,8 +492,8 @@ val do_install = Q.prove(
   \\ imp_res_tac state_rel_max_app \\ fs[]
   \\ imp_res_tac state_rel_clock \\ fs[]
   \\ fs[shift_seq_def]
-  \\ `s2.compile_oracle = state_co (ignore_table renumber_code_locs) s1.compile_oracle` by fs[state_rel_def]
-  \\ `s1.compile = state_cc (ignore_table renumber_code_locs) s2.compile` by fs[state_rel_def]
+  \\ `s2.compile_oracle = state_co (ignore_table renumber_code_locs_list) s1.compile_oracle` by fs[state_rel_def]
+  \\ `s1.compile = state_cc (ignore_table renumber_code_locs_list) s2.compile` by fs[state_rel_def]
   \\ fs[]
   \\ qpat_x_assum`state_co _ _ _ = _`mp_tac
   \\ simp[Once state_co_def]
@@ -509,10 +509,12 @@ val do_install = Q.prove(
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ IF_CASES_TAC \\ fs[]
-  \\ IF_CASES_TAC \\ fs[]
+  \\ fs[CaseEq"bool"]
+  \\ fs[ignore_table_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ imp_res_tac renumber_code_locs_list_length
   \\ fs[state_rel_def,state_co_def,ignore_table_def]
-  \\ pairarg_tac \\ fs[]
-  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] );
+  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL] );
 
 (* compiler correctness *)
 
@@ -668,9 +670,21 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ drule (GEN_ALL do_install) \\ fs[]
       \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
       \\ disch_then drule
-      \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
-      \\ TRY (strip_tac \\ fs[])
-      \\ imp_res_tac do_install_Rabort \\ fs []
+      \\ strip_tac
+      \\ fsrw_tac[DNF_ss][case_eq_thms,pair_case_eq] \\ rfs[] \\ fs[]
+      \\ rveq \\ fs[]
+      \\ TRY (
+         first_x_assum drule
+         \\ qmatch_goalsub_abbrev_tac`renumber_code_locs_list nn`
+         \\ disch_then(qspec_then`nn`strip_assume_tac)
+         \\ rveq \\ fs[]
+         THEN (
+           Q.ISPEC_THEN`v''`FULL_STRUCT_CASES_TAC SNOC_CASES
+           >- (
+             imp_res_tac evaluate_IMP_LENGTH
+             \\ fs[do_install_def,CaseEq"list",CaseEq"option",CaseEq"prod"]
+             \\ pairarg_tac \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"] )
+           \\ fs[LIST_REL_SNOC] ))
       \\ Cases_on `err` \\ fs []
       \\ imp_res_tac do_install_not_Rraise \\ fs []
       \\ rename1 `aa = Rtimeout_error ==> _`
@@ -934,16 +948,16 @@ val renumber_code_locs_esgc_free = Q.store_thm(
 
 val semantics_number = Q.store_thm ("semantics_number",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
-     (state_cc (ignore_table renumber_code_locs) cc) xs <> Fail ==>
+     (state_cc (ignore_table renumber_code_locs_list) cc) xs <> Fail ==>
    ¬contains_App_SOME max_app xs /\
    (∀n.
       SND (SND (co n)) = [] ∧
-      ¬contains_App_SOME max_app [FST (SND (co n))]) ==>
+      ¬contains_App_SOME max_app (FST (SND (co n)))) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (state_co (ignore_table renumber_code_locs) co) cc
+     (state_co (ignore_table renumber_code_locs_list) co) cc
         (SND (renumber_code_locs_list n xs)) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (state_cc (ignore_table renumber_code_locs) cc) xs`
+     co (state_cc (ignore_table renumber_code_locs_list) cc) xs`
   ,
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -952,7 +966,7 @@ val semantics_number = Q.store_thm ("semantics_number",
        |> CONJUNCT1 |> SIMP_RULE std_ss [])
   \\ simp []
   \\ qabbrev_tac `ff = initial_state ffi max_app FEMPTY
-       (state_co (ignore_table renumber_code_locs) co) cc`
+       (state_co (ignore_table renumber_code_locs_list) co) cc`
   \\ disch_then (qspec_then `ff k` mp_tac)
   \\ qunabbrev_tac `ff`
   \\ disch_then (qspec_then `n` mp_tac)
