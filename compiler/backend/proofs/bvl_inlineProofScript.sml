@@ -5,6 +5,10 @@ local open bvl_handleProofTheory in end
 
 val _ = new_theory"bvl_inlineProof";
 
+val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
+val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+
 (* TODO: move *)
 
 val subspt_alt = store_thm("subspt_alt",

@@ -5,6 +5,8 @@ open preamble
 open set_sepTheory helperLib ConseqConv
 open quantHeuristicsTools
 
+val ERR = mk_HOL_ERR "cfTacticsBaseLib";
+
 structure Parse =
 struct
   open Parse

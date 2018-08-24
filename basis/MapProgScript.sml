@@ -6,13 +6,11 @@ val _ = new_theory "MapProg"
 
 val _ = translation_extends "CompareProg";
 
-(* TODO: move this definition below open_module once the translater
-         has better support for defining datatypes inside modules. *)
+val _ = ml_prog_update (open_module "Map");
+
 val _ = (use_full_type_names := false);
 val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
 val _ = (use_full_type_names := true);
-
-val _ = ml_prog_update (open_module "Map");
 
 val _ = next_ml_names := ["size", "singleton"];
 val _ = translate size_def;

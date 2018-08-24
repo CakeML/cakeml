@@ -2,6 +2,8 @@ open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_handleProof";
 
+val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
+
 val evaluate_SmartLet = Q.store_thm("evaluate_SmartLet[simp]",
   `bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)`,
   rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]);
