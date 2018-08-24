@@ -3,6 +3,13 @@ open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
 open parserProgTheory;
 
+(* Standalone translation only:
+open basisProgTheory
+
+val _ = new_theory "reg_allocProg";
+
+val _ = translation_extends "basisProg";
+*)
 val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "parserProg";
@@ -94,6 +101,11 @@ val _ = translate toAList_def;
 val _ = translate map_def;
 val _ = translate COUNT_LIST_AUX_def
 val _ = translate COUNT_LIST_compute
+val _ = translate mk_BS_def;
+val _ = translate mk_BN_def;
+val _ = translate delete_def;
+val _ = translate union_def;
+val _ = translate difference_def;
 
 *)
 
@@ -431,16 +443,19 @@ TODO: update the following code (comes from the non-monadic register allocator
 
 misc code to generate the unverified register allocator in SML
 
-open ml_progLib astPP
+open ml_progLib
+(* LOAD astPP separately! *)
 
 val ML_code_prog =
   get_ml_prog_state ()
   |> clean_state |> remove_snocs
   |> get_thm
 
-val prog = ML_code_prog |> concl |> strip_comb |> #2 |> el 3
+val prog = rconc (EVAL (ML_code_prog |> concl |> strip_comb |> #2 |> el 3))
 
+val _ = Globals.max_print_depth:= ~1
 val _ = enable_astPP()
+val _ = enable_sml_compat()
 val _ = trace("pp_avoids_symbol_merges",0)
 val t = TextIO.openOut("reg_alloc.sml")
 val _ = TextIO.output(t,term_to_string prog)
