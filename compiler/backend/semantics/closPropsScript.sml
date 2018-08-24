@@ -1409,7 +1409,9 @@ val tac =
   TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   imp_res_tac do_install_const >>
+  rveq >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
+  rveq >> fs[] >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2,lemma3]
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
@@ -1434,7 +1436,6 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     fsrw_tac[ARITH_ss][] >> tac) >>
   unabbrev_all_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
-  cheat >>
   tac)
 
 val do_app_never_timesout = Q.store_thm(
