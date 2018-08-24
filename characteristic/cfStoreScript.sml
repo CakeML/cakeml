@@ -27,9 +27,13 @@ val parts_ok_def = Define `
     (!ns u.
        MEM (ns,u) parts ==>
        ?s. !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) /\
+    (!x conf bytes m ns u.
+       MEM (ns,u) parts /\ MEM m ns /\
+       u m conf bytes (proj x ' m) = SOME FFIdiverge ==>
+        st.oracle m x conf bytes = Oracle_final(FFI_diverged)) /\
     !x conf bytes w new_bytes m ns u.
       MEM (ns,u) parts /\ MEM m ns /\
-      u m conf bytes (proj x ' m) = SOME (new_bytes,w) ==>
+      u m conf bytes (proj x ' m) = SOME(FFIreturn new_bytes w) ==>
       LENGTH new_bytes = LENGTH bytes /\
       ?y.
         st.oracle m x conf bytes = Oracle_return y new_bytes /\

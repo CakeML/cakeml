@@ -2,6 +2,12 @@ open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory 
 
 val _ = new_theory"clos_numberProof";
 
+val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
+val _ = temp_bring_to_front_overload"delete"{Name="delete",Thy="sptree"};
+val _ = temp_bring_to_front_overload"map"{Name="map",Thy="sptree"};
+val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+
 (* TODO: move *)
 val option_case_eq = Q.prove(
   `(option_CASE opt n s = v) ⇔
@@ -421,7 +427,7 @@ val do_app_lemma = store_thm("do_app_lemma",
 
 val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
   `!xs ys.
-     LIST_REL (v_rel app) xs ys ==> v_rel app (list_to_v xs) (list_to_v ys)`,
+     LIST_REL (v_rel ap) xs ys ==> v_rel ap (list_to_v xs) (list_to_v ys)`,
   Induct
   >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);

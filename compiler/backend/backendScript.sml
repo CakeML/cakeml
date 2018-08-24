@@ -264,7 +264,7 @@ val from_livesets_def = Define`
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
           let cp =
-            (case reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
+            (case select_reg_alloc alg spillcosts k heu_moves tree forced of
               Success col =>
                 (apply_colour (total_colour col) prog)
             | Failure _ => prog (*cannot happen*)) in

@@ -209,7 +209,10 @@ pmatch envC s (Pcon (Just n) ps) (Conv (Just stamp') vs) env =
     | Just (l,stamp) ->
         if same_type stamp stamp' && List.length ps = l then
           if same_ctor stamp stamp' then
-            pmatch_list envC s ps vs env
+            if List.length vs = l then
+              pmatch_list envC s ps vs env
+            else
+              Match_type_error
           else
             No_match
         else

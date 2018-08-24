@@ -62,7 +62,24 @@ val _ = Define `
            ("nil", (["'a"],[],Tlist_num));
            ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]));
        v := nsEmpty;
-       t := nsEmpty|>))`;
+       t := (alist_to_ns (REVERSE
+          [
+          ("array",(["'a"],Tapp [Tvar "'a"] Tarray_num));
+          ("bool",([],Tapp [] Tbool_num));
+          ("char",([],Tapp [] Tchar_num));
+          ("exn",([],Tapp [] Texn_num));
+          (* Tfn is ->, specially handled *)
+          ("int",([],Tapp [] Tint_num));
+          ("list",(["'a"],Tapp [Tvar "'a"] Tlist_num));
+          ("ref",(["'a"],Tapp [Tvar "'a"] Tref_num));
+          ("string",([],Tapp [] Tstring_num));
+          ("unit",([],Tapp [] Ttup_num));
+          (* pairs are specially handled *)
+          ("vector",(["'a"],Tapp [Tvar "'a"] Tvector_num));
+          ("word64",([],Tapp [] Tword64_num));
+          ("word8",([],Tapp [] Tword8_num));
+          ("word8array",([],Tapp [] Tword8array_num))]
+          ))|>))`;
 
 
 val _ = Define `

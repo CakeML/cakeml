@@ -126,7 +126,8 @@ val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
         (\rv. SEP_EXISTS refs' r. H refs' *
               &(f x refs = (Success r, refs')) * &(B r rv))
         (\ev. SEP_EXISTS refs' e. H refs' *
-              &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+              &(f x refs = (Failure e, refs')) * &(C e ev))
+        (\n c b. &F))`,
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
@@ -162,7 +163,8 @@ val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
           (\rv. SEP_EXISTS refs' r. H refs' *
                 &(f x refs = (Success r, refs')) * &(B r rv))
           (\ev. SEP_EXISTS refs' e. H refs' *
-                &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+                &(f x refs = (Failure e, refs')) * &(C e ev))
+          (\n c b. &F))`,
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule

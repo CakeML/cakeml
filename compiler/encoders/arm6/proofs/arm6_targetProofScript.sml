@@ -799,7 +799,7 @@ local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
-       | NONE => raise ERR "number_of_instructions" ""
+       | NONE => raise mk_HOL_ERR "arm6_targetProofTheory" "number_of_instructions" ""
    fun can_match t = Lib.can (Term.match_term t)
    fun next_tac' asm (gs as (asl, _)) =
       let

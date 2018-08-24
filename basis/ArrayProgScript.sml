@@ -163,9 +163,9 @@ val _ = append_prog array_foldr;
 val array_find = process_topdecs
   `fun find_aux f arr max n =
     if n = max
-      then NONE
+      then None
     else (if f (sub arr n)
-        then SOME(sub arr n)
+        then Some(sub arr n)
       else find_aux f arr max (n + 1))
 
   fun find f arr =
@@ -184,7 +184,7 @@ val array_findi_aux =
             (App Opapp
                [App Opapp [Var (Short "="); Var (Short "n")];
                 Var (Short "max")])
-            (If (Var (Short "a")) (Con (SOME (Short "NONE")) [])
+            (If (Var (Short "a")) (Con (SOME (Short "None")) [])
                (Let (SOME "b")
                   (App Opapp
                      [App Opapp
@@ -202,7 +202,7 @@ val array_findi_aux =
                                  [Var (Short "sub");
                                   Var (Short "arr")];
                                Var (Short "n")])
-                           (Con (SOME (Short "SOME"))
+                           (Con (SOME (Short "Some"))
                               [Con NONE [Var (Short "n");
                                Var (Short "d")]]))
                         (Let (SOME "e")
