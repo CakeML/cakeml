@@ -184,10 +184,10 @@ val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
      | SOME x => EV x i r y fk)`,
   SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
 
-val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
-                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
+(* val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP] *)
+(*                    |> SPEC_ALL |> RW1 [FUN_EQ_THM]); *)
 
-val _ = translate (def_of_const ``peg_exec``);
+(* val _ = translate (def_of_const ``peg_exec``); *)
 
 (* parsing: cmlvalid *)
 
@@ -217,7 +217,7 @@ val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
 val parse_prog_side_lemma = Q.store_thm("parse_prog_side_lemma",
   `!x. parse_prog_side x = T`,
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
-    fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
+    ArgParseProgTheory.peg_exec_side_def, ArgParseProgTheory.coreloop_side_def]
   THEN REPEAT STRIP_TAC
   THEN STRIP_ASSUME_TAC (Q.SPEC `x` owhile_TopLevelDecs_total)
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC

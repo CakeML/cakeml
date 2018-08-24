@@ -47,11 +47,11 @@ val r =
 val parse_sexp_side = Q.prove(
   `∀x. parse_sexp_side x = T`,
   simp[definition"parse_sexp_side_def",
-     parserProgTheory.peg_exec_side_def,
-     parserProgTheory.coreloop_side_def] \\
+     ArgParseProgTheory.peg_exec_side_def,
+     ArgParseProgTheory.coreloop_side_def] \\
   qx_gen_tac`i` \\
   (MATCH_MP pegexecTheory.peg_exec_total simpleSexpPEGTheory.wfG_sexpPEG |> strip_assume_tac)
-  \\ fs[definition"destresult_1_side_def"] \\
+  \\ fs[definition"destresult_2_side_def"] \\
   (MATCH_MP pegexecTheory.coreloop_total simpleSexpPEGTheory.wfG_sexpPEG |> strip_assume_tac)
   \\ fs[pegexecTheory.coreloop_def]
   \\ qmatch_abbrev_tac`IS_SOME (OWHILE a b c)`
