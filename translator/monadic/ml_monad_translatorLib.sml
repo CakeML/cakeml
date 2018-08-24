@@ -357,7 +357,9 @@ val get_EvalM_ro = rand o rator o rator o rator o rator o rator o concl o UNDISC
 (* ---- *)
 
 (* Prove the specifications for the exception handling *)
-(* val (raise_fun_def, cons, stamp) = el 1 raise_info *)
+(*
+val (raise_fun_def, cons, stamp) = el 1 raise_info
+*)
 fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, stamp) = let
     val fun_tm = concl raise_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
     val exn_param_types = (fst o ml_monadBaseLib.dest_fun_type o type_of) cons
@@ -378,8 +380,9 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, stamp) = let
     val exprs = listSyntax.mk_list (exprs_vars, exp_ty)
 
     (* Instantiate the raise specification *)
-    val raise_spec = ISPECL [cons_name, stamp, EXN_RI_tm, EVAL_CONDS,
-			     arity_tm, E, exprs, raise_fun] EvalM_raise
+    val cv = mk_var (mk_cons_name cons, astSyntax.str_id_ty)
+    val raise_spec = ISPECL [cv, stamp, EXN_RI_tm, EVAL_CONDS,
+                             arity_tm, E, exprs, raise_fun] EvalM_raise
     val free_vars = strip_forall (concl raise_spec) |> fst
     val raise_spec = SPEC_ALL raise_spec
 
@@ -431,7 +434,9 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons, stamp) = let
     val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 in raise_spec end
 
-(* val (handle_fun_def, cons, stamp) = el 1 handle_info *)
+(*
+val (handle_fun_def, cons, stamp) = el 1 handle_info
+*)
 fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, stamp) = let
     (* Rename the variables in handle_fun_def *)
     val handle_fun_def = let
@@ -563,8 +568,9 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, stamp) = let
     in a2_alt end
 
     (* Instantiate the specification *)
-    val handle_spec = ISPECL [cons_name, stamp, CORRECT_CONS,
-			      PARAMS_CONDITIONS, EXN_RI_tm, alt_handle_fun,
+    val cv = mk_var (mk_cons_name cons, astSyntax.str_id_ty)
+    val handle_spec = ISPECL [cv, stamp, CORRECT_CONS, PARAMS_CONDITIONS,
+                              EXN_RI_tm, alt_handle_fun,
 			      alt_x1, alt_x2, arity_tm, a2_alt] EvalM_handle
     val free_vars = concl handle_spec |> strip_forall |> fst
     val handle_spec = SPECL free_vars handle_spec
@@ -606,8 +612,6 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons, stamp) = let
 	\\ FULL_SIMP_TAC bool_ss case_thms
 	\\ rpt (BasicProvers.PURE_CASE_TAC \\ fs[exn_ri_def]))
     val handle_spec = MP handle_spec ref_inv_eq_lemma
-
-(* TODO HERE *)
 
     (* refinement invariant inequality *)
     val ref_inv_ineq_assum = take_assumption handle_spec
@@ -855,14 +859,17 @@ fun derive_case_of ty = let
   val goal = mk_imp(x1,mk_imp(x2,mk_imp(z3,z4)))
   val tys = IMP_EvalM_Mat_cases |> SPEC_ALL |> concl |> rand |> rator
               |> rator |> rand |> rand |> rand |> type_of |> dest_type |> snd
+
   fun get_inr_el tm = let
     val exp2 = tm |> rand
     val vars = tm |> rator |> rand |> rand |> rand
-    val cname = tm |> rator |> rand |> rator |> rand |> rand |> rand
+    (*val cname = tm |> rator |> rand |> rator |> rand |> rand |> rand*)
+    val cvar = tm |> rator |> rand |> rator |> rand |> rand
+    val cname = cvar |> dest_var |> fst |> lookup_cons_name |> fst
     val stamp = inv_def |> concl |> find_term
                   (fn tm => aconv (tm |> rator |> rand) cname
                             handle HOL_ERR _ => false)
-    in list_mk_pair [cname, vars, exp2, stamp] end
+    in list_mk_pair [cvar, vars, exp2, stamp] end
   val rw1_tm = goal |> rand |> rand |> rand |> rand |> rator
                     |> rator |> rand |> rand
   val y = let
@@ -920,7 +927,7 @@ fun derive_case_of ty = let
   val case_lemma = GEN H_var case_lemma
   in case_lemma end
   handle HOL_ERR _ =>
-  (print ("derive_case_of error: " ^(type_to_string ty));
+  (print ("derive_case_of error: " ^(type_to_string ty) ^ "\n");
    raise (ERR "derive_case_of" ("failed on type : " ^(type_to_string ty))));
 
 fun get_general_type ty =
@@ -2592,6 +2599,7 @@ can (find_term is_arb) (tm |> rand |> rator)
 *)
     val _ = print ("Translating " ^ msg ^ "\n")
     val thms = compute_deep_embedding info
+    val thms = map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2)) thms
     (* postprocess raw certificates *)
 (*
 val (fname,ml_fname,th,def) = List.hd thms
@@ -3291,6 +3299,9 @@ fun m_translate_run def =
     val all_params = strip_comb def_lhs |> snd
     val params_evals = List.map var_create_Eval all_params
     val th = m_translate_run_abstract_parameters th def params_evals
+
+    (* Clean up any stray lookup_cons with variables in them *)
+    val th = instantiate_cons_name th
 
     (* Instantiate the environment 0 *)
     val global_env = get_env(get_curr_prog_state())

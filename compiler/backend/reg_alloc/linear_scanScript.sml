@@ -3,9 +3,6 @@ open mergesortTheory sortingTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
 
 val _ = new_theory "linear_scan"
-(* TODO: remove me (the `the` from libTheory don't have a name) *)
- val the_def = Define `
- (the _ (SOME x) = x) /\ (the x NONE = x)`
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
