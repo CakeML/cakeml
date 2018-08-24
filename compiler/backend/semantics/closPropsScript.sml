@@ -555,6 +555,14 @@ val evaluate_code_lemma = prove(
    (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
     \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
     \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+    \\ qexists_tac`1+y`
+    \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
+    \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
+    \\ metis_tac[])
+  \\ TRY
+   (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
+    \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
+    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
     \\ qexists_tac`z+1+y`
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
@@ -1291,7 +1299,7 @@ val do_install_not_Rffi_error = Q.store_thm("do_install_not_Rffi_error[simp]",
   `do_install vs s = (res,t) ==> res ≠ Rerr(Rabort (Rffi_error f))`,
   rw[do_install_def,case_eq_thms,UNCURRY,bool_case_eq,pair_case_eq]);
 
-val s = ``s:('c,'ffi) closSem$state``
+val s = ``s:('c,'ffi) closSem$state``;
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `(∀p es env ^s r s'.
@@ -1337,6 +1345,8 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock,LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def] >>
   imp_res_tac do_install_add_to_clock >> fs[] >> rw[] >>
+  qpat_x_assum `evaluate (xs,env,s) = _` assume_tac >>
+  TRY (drule do_install_add_to_clock \\ fs [] \\ NO_TAC) >>
   rename1 `_ = (Rerr e4,_)` >>
   Cases_on `e4` >> fs [] >>
   imp_res_tac do_install_not_Rraise >> fs [] >>
@@ -1424,6 +1434,7 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     fsrw_tac[ARITH_ss][] >> tac) >>
   unabbrev_all_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
+  cheat >>
   tac)
 
 val do_app_never_timesout = Q.store_thm(
@@ -1572,7 +1583,7 @@ val ssgc_free_def = Define`
     (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
-    (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ esgc_free exp ∧
+    (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
          elist_globals (MAP (SND o SND) aux) = {||})
 `;
 
@@ -2554,6 +2565,7 @@ val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
     \\ simp[]
     \\ disch_then drule
     \\ rw[] \\ fs[]
+    \\ res_tac \\ fs []
     \\ NO_TAC )
   \\ imp_res_tac do_app_CURRY_I_Rval
   \\ fs[]
