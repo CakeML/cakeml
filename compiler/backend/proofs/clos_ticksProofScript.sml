@@ -8,7 +8,7 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_ticksProof";
 
-val remove_ticks_IMP_LENGTH = store_thm("remove_ticks_LENGTH_imp",
+val remove_ticks_IMP_LENGTH = store_thm("remove_ticks_IMP_LENGTH",
   ``!(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs``,
   fs [LENGTH_remove_ticks]);
 
@@ -96,7 +96,7 @@ val FMAP_REL_def = Define `
           ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
 
 val compile_inc_def = Define `
-  compile_inc (e, xs) = (HD (remove_ticks [e]), [])`;
+  compile_inc (e, xs) = (remove_ticks e, [])`;
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
@@ -534,22 +534,25 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
            \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
            \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-           \\ IF_CASES_TAC \\ fs [shift_seq_def])
+           \\ IF_CASES_TAC \\ fs [shift_seq_def]
+           \\ metis_tac[LENGTH_remove_ticks, LENGTH_NIL])
     \\ IF_CASES_TAC
     THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
            \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
            \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
            \\ IF_CASES_TAC \\ fs [shift_seq_def]
-           \\ fs [FUPDATE_LIST, o_DEF])
+           \\ fs [FUPDATE_LIST, o_DEF]
+           \\ metis_tac[LENGTH_remove_ticks, LENGTH_NIL])
     \\ fs [] \\ rveq \\ fs []
     \\ strip_tac
     \\ qpat_x_assum `!x. _` mp_tac
     \\ simp [Once do_install_def]
+    \\ fs[CaseEq"prod"]
     \\ disch_then (qspec_then `s2 with
                                <|clock := s'.clock − 1;
                                  compile_oracle := (λi. s2.compile_oracle (i + 1));
                                  code := s2.code |++ []|>` mp_tac)
-    \\ disch_then (qspec_then `[r0]` mp_tac)
+    \\ disch_then (qspec_then `r0` mp_tac)
     \\ impl_tac
     THEN1 (rfs [state_rel_def] \\ fs [pure_co_def, compile_inc_def]
            \\ rveq \\ fs [shift_seq_def, FUPDATE_LIST, o_DEF])
@@ -564,7 +567,13 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
         s'.compile_oracle = pure_co compile_inc ∘ s2.compile_oracle`
           by fs [state_rel_def]
     \\ fs [do_install_def]
-    \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def])
+    \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
+    \\ reverse IF_CASES_TAC >- metis_tac[LENGTH_remove_ticks, LENGTH_NIL]
+    \\ fs[]
+    \\ rveq
+    \\ CASE_TAC \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ Q.ISPEC_THEN`a'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
   THEN1 (* Fn *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]
