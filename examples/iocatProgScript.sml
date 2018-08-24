@@ -284,7 +284,7 @@ val st = st();
 
 val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
   `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"cat_main"st) cl fs
+   whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

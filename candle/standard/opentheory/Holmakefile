@@ -1,1 +1,31 @@
-INCLUDES = ../../../misc ../monadic
+INCLUDES = ../../../misc ../monadic \
+	   ../ml_kernel \
+	   ../../../basis \
+	   ../../../translator/monadic \
+	   ../../../characteristic \
+	   ../../../semantics \
+	   ../semantics
+
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+
+HOLHEAP = heap
+PARENT_HOLHEAP = ../ml_kernel/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
+.PHONY: all
+all: $(TARGETS) $(HOLHEAP)
+
+BARE_THYS = ../../../misc/preamble ../monadic/holKernelTheory \
+	    ../../../basis/basisProgTheory
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) \
+	  -o $(HOLHEAP) $(BARE_THYS)
+
+endif
