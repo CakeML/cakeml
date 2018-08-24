@@ -10,9 +10,7 @@ open cfTacticsLib
 open Net List packLib stringSimps
 open ml_monadStoreLib
 
-(*
- open ml_monadBaseLib
-*)
+val map = List.map;
 
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term)
@@ -3126,6 +3124,15 @@ fun create_local_references init_state th = let
             val lemma = ISPECL [exp, nexp, n, xexp, x, rator state_field, loc_name, TYPE, env, H_part2, P, state] lemma |> UNDISCH
             val lemma = MATCH_MP (MATCH_MP lemma nexp_eval) xexp_eval
             val lemma = CONV_RULE (DEPTH_CONV BETA_CONV) lemma
+            val EQ_pat = EQ_def |> SPEC_ALL |> concl |> dest_eq |> fst
+            val EQ_assums = lemma |> hyp |> filter (can (match_term EQ_pat))
+            fun remove_EQ_assums [] th = th
+              | remove_EQ_assums (goal::goals) th = let
+                  val l = auto_prove "EQ_assum" (goal,SIMP_TAC (srw_ss()) [EQ_def])
+                  val th = MP (DISCH (concl l) th) l
+                  in remove_EQ_assums goals th end
+                  handle HOL_ERR _ => remove_EQ_assums goals th
+            val lemma = remove_EQ_assums EQ_assums lemma
         in lemma end
         else MATCH_MP (ISPECL[exp, get_ref_exp, get_ref_fun, loc_name,
                     TYPE, st_name, env, H_part2, P, state]
@@ -3146,7 +3153,6 @@ fun apply_Eval_Fun_Eq ((vname,x), th) = let
     val tms = FVL [x,v] empty_varset
     val nenv = mk_write vname v env
     val th = INST [env |-> nenv] th |> clean_lookup_assums
-
     val A = mk_var("A",mk_type("fun",[type_of x,v_bool_ty]))
     val pat = list_mk_comb(A,[x,v_var])
     val assum = List.filter (can (fn y => Term.raw_match [] tms pat y ([], []))) (hyp th) |> hd
@@ -3203,6 +3209,7 @@ fun m_translate_run def =
   let
     (* Preprocess *)
     val def = m_translate_run_preprocess_def def
+              |> rename_bound_vars_rule "v"
 
     (* Decompose the definition *)
     val (def_lhs, def_rhs) = concl def |> strip_forall |> snd |> dest_eq

@@ -8,6 +8,12 @@ open preamble
 
 val _ = new_theory"bvi_to_dataProof";
 
+val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
+val _ = temp_bring_to_front_overload"delete"{Name="delete",Thy="sptree"};
+val _ = temp_bring_to_front_overload"map"{Name="map",Thy="sptree"};
+val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+
 (* value relation *)
 
 val code_rel_def = Define `
@@ -411,7 +417,7 @@ val compile_correct = Q.prove(
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
           (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC)
     \\ reverse(Cases_on `do_app op (REVERSE a) r`) \\ full_simp_tac(srw_ss())[] >- (
-         imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[] >> 
+         imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[] >>
          rveq >> IF_CASES_TAC >>
          fs[dataSemTheory.evaluate_def,iAssign_def,op_requires_names_def,
             cut_state_opt_def,cut_state_def,cut_env_def] >>
