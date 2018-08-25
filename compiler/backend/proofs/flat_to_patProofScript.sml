@@ -308,7 +308,8 @@ val compile_state_def = Define`
        refs := MAP (map_sv compile_v) s.refs;
        ffi := s.ffi;
        globals := MAP (OPTION_MAP compile_v) s.globals;
-       compile := pure_cc (λe. (compile e,[])) cc
+       compile := cc;
+       compile_oracle := pure_co compile o ARB (* s.compile_oracle *)
      |>`;
 
 val compile_state_dec_clock = Q.prove(
@@ -758,12 +759,18 @@ val compile_row_correct = Q.prove(
        ∀env count genv e res.
          evaluate (menv4++env)
            ((<| clock := count; refs := MAP (map_sv compile_v) s.refs;
-                ffi := s.ffi; globals := genv; compile := any_cc |>):('c,'ffi) patSem$state)
+                ffi := s.ffi; globals := genv;
+                compile := any_cc;
+                compile_oracle := any_co
+                |>):('c,'ffi) patSem$state)
          [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate (compile_v v::env)
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
-              ffi := s.ffi; globals := genv; compile := any_cc |> [f e] = res) ∧
+              ffi := s.ffi; globals := genv;
+              compile := any_cc;
+              compile_oracle := any_co
+              |> [f e] = res) ∧
    (∀t bvsk0 nk k ps tag cenv ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
      (pmatch_list cenv s.refs qs (TAKE k vs) [] = Match menvk) ∧
      (pmatch_list cenv s.refs ps (DROP k vs) [] = Match menv) ∧
@@ -783,12 +790,14 @@ val compile_row_correct = Q.prove(
        ∀env count genv e res.
          evaluate (menv4++menv4k++(Conv tag (MAP compile_v vs))::env)
            ((<| clock := count; refs := MAP (map_sv compile_v) s.refs;
-                ffi := s.ffi; globals := genv; compile := any_cc |>): ('c,'ffi) patSem$state)
+                ffi := s.ffi; globals := genv;
+                compile := any_cc; compile_oracle := any_co |>): ('c,'ffi) patSem$state)
          [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate (menv4k++(Conv tag (MAP compile_v vs))::env)
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
-              ffi := s.ffi; globals := genv; compile := any_cc |> [f e] = res)`,
+              ffi := s.ffi; globals := genv;
+              compile := any_cc; compile_oracle := any_co |> [f e] = res)`,
   ho_match_mp_tac compile_row_ind >>
   strip_tac >- (
     srw_tac[][flatSemTheory.pmatch_def,compile_row_def] >> srw_tac[][] >>
@@ -2852,10 +2861,10 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
        |> CONJUNCT1
        |> SIMP_RULE (srw_ss())[]
        |> Q.SPECL[`t`,`p`,`bvs0`,`env`,`s`,`v`]
-       |> Q.GEN`any_cc`
+       |> Q.GENL[`any_cc`,`any_co`]
        |> mp_tac) >>
       simp[Abbr`X`] >>
-      disch_then(qspec_then`pure_cc (λe. (compile e,[])) cc`strip_assume_tac) >>
+      disch_then(qspecl_then[`cc`,`pure_co compile o ARB`]strip_assume_tac) >>
       var_eq_tac >>
       qpat_abbrev_tac`xx = evaluate _ _ _` >>
       qmatch_assum_abbrev_tac`Abbrev(xx = evaluate (v4::env4) s4 [f (compile_exp bvss exp)])` >>
