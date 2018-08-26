@@ -813,6 +813,79 @@ val lift_ienv_def = Define `
        inf_t := nsLift mn ienv.inf_t;
        inf_s := nsLift mn ienv.inf_s |>`;
 
+(* returns a list (not necessarily unique) but is
+  guaranteed to satisfy check_freevars_ast tvs t *)
+val find_freevars_ast_def = tDefine "find_freevars_ast"`
+  (find_freevars_ast (Atvar tv) = [tv]) ∧
+  (find_freevars_ast (Attup ts) = FLAT (MAP find_freevars_ast ts)) ∧
+  (find_freevars_ast (Atfun t1 t2) = find_freevars_ast t1 ++ find_freevars_ast t2) ∧
+  (find_freevars_ast (Atapp ts tn) = FLAT (MAP find_freevars_ast ts))`
+  (WF_REL_TAC`measure ast_t_size`>>
+  rw[]>>pop_assum mp_tac>>
+  Induct_on`ts`>>rw[]>>
+  EVAL_TAC>>fs[])
+
+(* type_ident_subst for inferencer
+  TODO: probably should use alists instead of finite map
+  TODO: The type for subst1/subst2 is a bit strange... :
+  (tid |-> tid) ->
+  (tid |-> tvarN # t) ->
+  infer_t -> infer_t
+type_of``inf_type_ident_subst``
+*)
+val inf_type_ident_subst_def = tDefine "inf_type_ident_subst"`
+  (inf_type_ident_subst subst1 subst2 (Infer_Tvar_db v) = Infer_Tvar_db v) ∧
+  (inf_type_ident_subst subst1 subst2 (Infer_Tuvar n) = Infer_Tuvar n) ∧
+  (inf_type_ident_subst subst1 subst2 (Infer_Tapp ts tid) =
+    (let ts' = MAP (inf_type_ident_subst subst1 subst2) ts in
+     (case FLOOKUP subst1 tid of
+       NONE =>
+       (case FLOOKUP subst2 tid of
+         NONE => Infer_Tapp ts' tid
+       | SOME (tvs,t) => infer_type_subst (ZIP (tvs, ts')) t
+       )
+     | SOME tid' => Infer_Tapp ts' tid'
+     )))`
+  (WF_REL_TAC`measure (infer_t_size o SND o SND)`>>
+  rw[]>>pop_assum mp_tac>>
+  Induct_on`ts`>>rw[]>>
+  EVAL_TAC>>fs[]);
+
+(* sig_instantiate, for inferencer signature envs
+  see above comment on the type of subst1 and subst2 (?)
+*)
+val inf_sig_instantiate_def = Define `
+ (inf_sig_instantiate subst1 subst2 ienv =
+   (<|
+     inf_v := (nsMap (\ (tvs, t). (tvs, inf_type_ident_subst subst1 subst2 t)) ienv.inf_v);
+     inf_c := (nsMap (\ (tvs, ts, tid) .
+         (tvs, MAP (type_ident_subst subst1 subst2) ts,
+          (case FLOOKUP subst1 tid of
+            NONE => tid
+          | SOME tid' => tid'
+          ))) ienv.inf_c);
+     inf_t := (nsMap (\ (tvs, t) .  (tvs, type_ident_subst subst1 subst2 t)) ienv.inf_t);
+     inf_s := (ienv.inf_s) |>))`;
+
+(* sig_rename_tids for inferencer
+  Generates fresh identifiers for the dids and oids
+*)
+val inf_sig_rename_tids_def = Define`
+  inf_sig_rename_tids dids oids ienv =
+  do
+    dids' <- n_fresh_id (LENGTH dids);
+    oids1' <- n_fresh_id (LENGTH oids);
+    oids' <- return (ZIP(MAP FST oids,oids1'));
+    return (
+    dids',oids',
+    inf_sig_instantiate
+      (alist_to_fmap (ZIP (dids, dids')))
+      (alist_to_fmap
+      (MAP (λ((tvs,tid),tid').
+        (tid, (tvs, Tapp (MAP Tvar tvs) tid'))) (ZIP(oids,oids1'))))
+      ienv)
+  od`
+
 (* This mirrors type_sp and returns (as a tuple):
   - the list of type identifiers generated for datatypes
   - the list of opaque type identifiers
@@ -821,7 +894,17 @@ val lift_ienv_def = Define `
   The ids need to be tracked for book-keeping in signatures
 *)
 val infer_sp_def = Define`
-  (* TODO: infer_sp ienv (Sval x t) = ?? *)
+  (infer_sp ienv (Sval x t) =
+  do
+    fvs <- return (nub (find_freevars_ast t));
+    () <- guard (check_type_names ienv.inf_t t) NONE (implode "Bad type annotation");
+    subst <- return (ZIP (fvs, (MAP Infer_Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))));
+    return ([],[],
+      <| inf_v := (nsSing x (LENGTH fvs, infer_type_subst subst (type_name_subst ienv.inf_t t)));
+         inf_c := nsEmpty;
+         inf_t := nsEmpty;
+         inf_s := nsEmpty |>)
+  od) ∧
   (infer_sp ienv (Stype tdefs) =
   do
      tids <- n_fresh_id (LENGTH tdefs);
@@ -873,7 +956,12 @@ val infer_sp_def = Define`
          inf_t := nsEmpty;
          inf_s := nsEmpty |>)
   od) ∧
-  (* TODO: (infer_sp ienv (Smod mn sn) =*)
+  (infer_sp ienv (Smod mn sn) =
+  do
+    (dids,oids,ienv_sig) <- (lookup_st_ex NONE "signature" sn ienv.inf_s);
+    (dids',oids',ienv_sig') <- inf_sig_rename_tids dids oids ienv_sig;
+    return (dids',oids', lift_ienv mn ienv_sig')
+  od) ∧
   (infer_sps ienv [] =
     return ([],[],
       <| inf_v := nsEmpty;
@@ -887,12 +975,51 @@ val infer_sp_def = Define`
       return (did++dids,oid++oids,(extend_dec_ienv ienv'' ienv'))
     od)`;
 
+(* Given tenv, tenv', datatype ids and opaque ids in tenv
+   finds a substitution (if one exists)
+   of those ids in tenv so that tenv = tenv'
+*)
+
+val check_tscheme_inst_def = Define `
+  check_tscheme_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
+    let M =
+    do () <- init_state;
+       uvs <- n_fresh_uvar tvs_impl;
+       t <- return (infer_deBruijn_subst uvs t_impl);
+       () <- add_constraint NONE t_spec t
+    od
+    in
+    (* TODO: I think it doesn't matter what the initial state is here *)
+    dtcase M <| next_uvar := 0; subst := FEMPTY; next_id := 0|> of
+    | (Success _, _) => T
+    | (Failure _, _) => F `;
+
+(* TODO:
+  This corresponds to weak_tenv but this definition won't work.
+  Instead, the inferencer's weak_ienv needs to "unify" on the type_ids
+  and return the corresponding unification
+*)
+val weak_ienv_def = Define `
+ (weak_ienv ienv_impl ienv_spec =
+ (nsSub check_tscheme_inst ienv_spec.inf_v ienv_impl.inf_v ∧
+  nsSub ctor_inst ienv_spec.inf_c ienv_impl.inf_c ∧
+  nsSub type_def_inst ienv_spec.inf_t ienv_impl.inf_t))`;
+
+(* check that ienv' matches the signature *)
 val check_inf_sig_def = Define`
-  (* No signature, return the new module environment ienv' *)
-  (check_inf_sig ienv NONE ienv' = return ienv')
-  (* TODO: ∧
-  (check_inf_sig ienv (SOME sn) ienv' = *)
-  `
+  (check_inf_sig ienv NONE ienv' = return ienv') ∧
+  (check_inf_sig ienv (SOME sn) ienv' =
+  do
+    (dids,oids,ienv_sig) <- lookup_st_ex NONE "signature" sn ienv.inf_s;
+    (*
+      TODO: ienv_sig1 should be the result of
+      unifying type identifiers in ienv_sig with ienv'
+      actually, this just needs to check that such a unification exists
+    *)
+    ienv_sig1 <- return ienv_sig;
+    (dids',oids',ienv_sig') <- inf_sig_rename_tids dids oids ienv_sig;
+    return ienv_sig'
+  od)`
 
 val infer_d_def = Define `
 (infer_d ienv (Dlet locs p e) =
@@ -1052,19 +1179,6 @@ check_weak_decls decls_impl decls_spec ⇔
   list_set_eq decls_spec.inf_defined_mods decls_impl.inf_defined_mods ∧
   list_subset decls_spec.inf_defined_types decls_impl.inf_defined_types ∧
   list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
-
-val check_tscheme_inst_def = Define `
-  check_tscheme_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
-    let M =
-    do () <- init_state;
-       uvs <- n_fresh_uvar tvs_impl;
-       t <- return (infer_deBruijn_subst uvs t_impl);
-       () <- add_constraint NONE t_spec t
-    od
-    in
-    dtcase M init_infer_state of
-    | (Success _, _) => T
-    | (Failure _, _) => F `;
 
 val check_weak_ienv_def = Define `
   check_weak_ienv ienv_impl ienv_spec ⇔
