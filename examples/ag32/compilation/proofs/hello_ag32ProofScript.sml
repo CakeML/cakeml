@@ -4,6 +4,118 @@ open preamble
 
 val _ = new_theory"hello_ag32Proof";
 
+(* TODO: move *)
+
+val imp_align_eq_0 = Q.store_thm("imp_align_eq_0",
+  `w2n a < 2 ** p ⇒ (align p a= 0w)`,
+  Cases_on`a` \\ fs[]
+  \\ rw[alignmentTheory.align_w2n]
+  \\ Cases_on`p = 0` \\ fs[]
+  \\ `1 < 2 ** p` by fs[arithmeticTheory.ONE_LT_EXP]
+  \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
+  \\ fs[] );
+
+val align_add_aligned_gen = Q.store_thm("align_add_aligned_gen",
+  `∀a. aligned p a ⇒ (align p (a + b) = a + align p b)`,
+  completeInduct_on`w2n b`
+  \\ rw[]
+  \\ Cases_on`w2n b < 2 ** p`
+  >- (
+    simp[alignmentTheory.align_add_aligned]
+    \\ `align p b = 0w` by simp[imp_align_eq_0]
+    \\ simp[] )
+  \\ fs[NOT_LESS]
+  \\ Cases_on`w2n b = 2 ** p`
+  >- (
+    `aligned p b` by(
+      simp[alignmentTheory.aligned_def,alignmentTheory.align_w2n]
+      \\ metis_tac[n2w_w2n] )
+    \\ `aligned p (a + b)` by metis_tac[alignmentTheory.aligned_add_sub_cor]
+    \\ fs[alignmentTheory.aligned_def])
+  \\ fs[LESS_EQ_EXISTS]
+  \\ qmatch_asmsub_rename_tac`w2n b = z + _`
+  \\ first_x_assum(qspec_then`z`mp_tac)
+  \\ impl_keep_tac >- fs[]
+  \\ `z < dimword(:'a)` by metis_tac[w2n_lt, LESS_TRANS]
+  \\ disch_then(qspec_then`n2w z`mp_tac)
+  \\ impl_tac >- simp[]
+  \\ strip_tac
+  \\ first_assum(qspec_then`a + n2w (2 ** p)`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ rewrite_tac[word_add_n2w, GSYM WORD_ADD_ASSOC]
+  \\ Cases_on`b` \\ fs[GSYM word_add_n2w]
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`n2w (2**p)`mp_tac)
+  \\ impl_tac >- fs[stack_removeProofTheory.aligned_w2n]
+  \\ simp[]);
+
+(*
+val get_byte_word_of_bytes = Q.store_thm("get_byte_word_of_bytes",
+  `good_dimindex(:'a) ⇒
+   ∀be (a:'a word) ls i.
+      i < LENGTH ls ∧ (a + n2w (LENGTH ls) = bytes_in_word) ⇒
+      (get_byte (n2w i) (word_of_bytes be a ls) be = EL i ls)`,
+  strip_tac
+  \\ Induct_on`ls`
+  \\ rw[data_to_word_memoryProofTheory.word_of_bytes_def]
+  \\ Cases_on`i` \\ fs[]
+  >- (
+    Cases_on`a=0w` \\ fs[labPropsTheory.get_byte_set_byte]
+    \\ DEP_REWRITE_TAC[labPropsTheory.get_byte_set_byte_diff]
+    \\ simp[]
+
+val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
+  `∀be ls.
+   i < LENGTH ls ∧ good_dimindex(:'a) ⇒
+   (get_byte (n2w i : α word)
+      (EL (w2n (byte_align ((n2w i):α word)) DIV (w2n (bytes_in_word:α word)))
+        (words_of_bytes be ls)) be = EL i ls)`,
+  completeInduct_on`i`
+  \\ Cases_on`ls`
+  \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def]
+  \\ qmatch_goalsub_abbrev_tac`MAX 1 bw`
+  \\ `0 < bw` by (
+     fs[Abbr`bw`,labPropsTheory.good_dimindex_def]
+     \\ EVAL_TAC \\ fs[dimword_def] )
+  \\ `MAX 1 bw = bw` by rw[MAX_DEF] \\ fs[]
+  \\ Cases_on`i < bw` \\ fs[]
+  >- (
+    `byte_align (n2w i) = 0w`
+    by(
+      simp[alignmentTheory.byte_align_def]
+      \\ irule imp_align_eq_0
+      \\ fs[labPropsTheory.good_dimindex_def,Abbr`bw`]
+      \\ rfs[bytes_in_word_def,dimword_def] )
+    \\ simp[ZERO_DIV]
+
+val EL_words_of_bytes = Q.store_thm("EL_words_of_bytes",
+  `8 ≤ dimindex(:'a) ⇒
+   ∀be ls i.
+   i < LENGTH ls ⇒
+   (EL (i DIV (dimindex(:'a) DIV 8)) ((words_of_bytes be ls):'a word list) =
+    word_of_bytes be 0w (TAKE (dimindex(:'a) DIV 8) (DROP i ls)))`
+  strip_tac
+  \\ recInduct data_to_word_memoryProofTheory.words_of_bytes_ind
+  \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def]
+  \\ `w2n (bytes_in_word:'a word) = dimindex(:'a) DIV 8`
+  by (
+    rw[bytes_in_word_def, dimword_def, DIV_LT_X]
+    \\ match_mp_tac LESS_LESS_EQ_TRANS
+    \\ qexists_tac`2 ** dimindex(:'a)`
+    \\ simp[X_LT_EXP_X] )
+  \\ fs[]
+  \\ `0 < dimindex(:'a)` by fs[]
+  \\ `0 < dimindex(:'a) DIV 8` by fs[X_LT_DIV]
+  \\ `MAX 1 (dimindex(:'a) DIV 8) = dimindex(:'a) DIV 8`
+  by rw[MAX_DEF]
+  \\ fs[]
+  \\ Cases_on`i` \\ fs[ZERO_DIV]
+  \\ simp[EL_CONS]
+*)
+
+(* -- *)
+
+
 val hello_outputs_def =
   new_specification("hello_outputs_def",["hello_outputs"],
   hello_semantics);
@@ -251,24 +363,51 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w, LENGTH_code, LENGTH_data]
     \\ strip_tac
     \\ CONV_TAC(PATH_CONV"lrr" EVAL)
-    (*
-    \\ qmatch_goalsub_abbrev_tac`hello_init_memory _ k`
-    \\ `byte_aligned (k - n2w i)`
-    by(
-      Cases_on`i=0` \\ fs[Abbr`k`,word_add_n2w]
-      \\ fs[alignmentTheory.byte_aligned_def, GSYM word_add_n2w]
+    \\ rewrite_tac[hello_init_memory_def]
+    \\ qmatch_goalsub_abbrev_tac`i + k`
+    \\ `byte_aligned ((n2w k):word32)` by(
+      simp[Abbr`k`, GSYM word_add_n2w, alignmentTheory.byte_aligned_def]
       \\ (alignmentTheory.aligned_add_sub_cor
           |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
           |> irule)
       \\ fs[]
-      \\ EVAL_TAC)
-    \\ `byte_align k = k - i`
-    by(
-      simp[alignmentTheory.byte_aligned_def, Abbr`k`]
-      f"byte_aligned"
-    \\ simp[hello_init_memory_def]
-    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN, LENGTH_data, heap_size_def]
-    *)
+      \\ EVAL_TAC )
+    \\ `n2w k = byte_align ((n2w k):word32)`
+    by (
+      fs[alignmentTheory.byte_aligned_def,
+         alignmentTheory.byte_align_def,
+         alignmentTheory.aligned_def] )
+    \\ once_rewrite_tac[GSYM word_add_n2w]
+    \\ first_assum(CONV_TAC o PATH_CONV"lrllrr" o REWR_CONV)
+    \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+    \\ conj_tac >- EVAL_TAC
+    \\ `byte_align (n2w i + n2w k) : word32 = byte_align (n2w i) + n2w k`
+    by (
+      once_rewrite_tac[WORD_ADD_COMM]
+      \\ rewrite_tac[alignmentTheory.byte_align_def]
+      \\ irule align_add_aligned_gen
+      \\ fs[alignmentTheory.byte_aligned_def] )
+    \\ once_asm_rewrite_tac[]
+    \\ qunabbrev_tac`k`
+    \\ rewrite_tac[WORD_ADD_SUB_SYM]
+    \\ rewrite_tac[GSYM word_add_n2w]
+    \\ rewrite_tac[WORD_ADD_ASSOC]
+    \\ rewrite_tac[WORD_SUB_ADD]
+    \\ DEP_REWRITE_TAC[w2n_add]
+    \\ conj_tac
+    >- (
+      reverse conj_tac >- EVAL_TAC
+      \\ simp[alignmentTheory.byte_align_def]
+      \\ simp[alignmentTheory.align_w2n]
+      \\ simp[multiwordTheory.d_word_msb]
+      \\ DEP_REWRITE_TAC[LESS_MOD]
+      \\ fs[NOT_LESS_EQUAL]
+      \\ conj_tac
+      \\ irule IMP_MULT_DIV_LESS
+      \\ fs[] )
+    \\ simp[ADD_DIV_RWT]
+    \\ simp[hello_init_memory_words_def,EL_APPEND_EQN]
+    \\ simp[LENGTH_data,heap_size_def]
     \\ cheat  (* words_of_bytes lemma *) )
   \\ conj_tac >- cheat (* can this be proved from the previous conjunct? *)
   \\ conj_tac >- (
