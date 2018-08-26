@@ -30,7 +30,7 @@ val heap_size_def = Define`
   heap_size = 120 * 2 ** 20`;
 
 (*
-  hz = heap_size is the heap+stack size in mebibytes
+  hz = heap_size is the heap+stack size in mebibytes (including the unusable FFI bytes)
   r0 gives the lowest software-usable address
   r0 .. r0 + 64 is used by the FFI implementation
   r0 + 64 .. r0 + hzMiB is the CakeML heap+stack space
@@ -64,24 +64,24 @@ val hello_machine_config_def = Define`
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
   `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
 
+val hello_init_memory_words_def = zDefine`
+  hello_init_memory_words r0 =
+    REPLICATE (64 DIV 4) 0w ++
+    [r0 + n2w heap_size
+    ;r0 + n2w (heap_size + 4 * LENGTH data)
+    ;r0 + n2w (heap_size + 4 * LENGTH data)
+    ;r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)
+    ;r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)] ++
+    REPLICATE (heap_size DIV 4 - 5 - 64 DIV 4) 0w ++
+    data ++
+    REPLICATE 4 0w (* FFI code *) ++
+    REPLICATE 4 0w (* ccache code *) ++
+    REPLICATE 4 0w (* halt code *) ++
+    words_of_bytes F code`;
+
 val hello_init_memory_def = Define`
   hello_init_memory r0 (k:word32) =
-     if r0 + n2w heap_size <=+ k ∧ k <+ r0 + n2w (heap_size + 4 * LENGTH data) then
-       get_byte k (EL (w2n (k - (r0 + n2w heap_size))) data) F
-     else if r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ k ∧
-             k <+ r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code) then
-       EL (w2n (k - (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset)))) code
-     else if r0 + 64w + 0w * bytes_in_word ≤ k ∧ k < r0 + 64w + 1w * bytes_in_word then
-       get_byte k (r0 + n2w heap_size) F
-     else if r0 + 64w + 1w * bytes_in_word ≤ k ∧ k < r0 + 64w + 2w * bytes_in_word then
-       get_byte k (r0 + n2w heap_size + bytes_in_word * n2w (LENGTH data)) F
-     else if r0 + 64w + 2w * bytes_in_word ≤ k ∧ k < r0 + 64w + 3w * bytes_in_word then
-       get_byte k (r0 + n2w heap_size + bytes_in_word * n2w (LENGTH data)) F
-     else if r0 + 64w + 3w * bytes_in_word ≤ k ∧ k < r0 + 64w + 4w * bytes_in_word then
-       get_byte k (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)) F
-     else if r0 + 64w + 4w * bytes_in_word ≤ k ∧ k < r0 + 64w + 5w * bytes_in_word then
-       get_byte k (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)) F
-     else (0w:word8)`;
+     get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words r0)) F`;
 
 val hello_init_regs_def = Define`
   hello_init_regs r0 (k:num) =
@@ -114,7 +114,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `aligned 2 r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
    good_init_state (hello_machine_config r0) (hello_init_ag32_state r0)
      ag_ffi code 0 (hello_init_asm_state r0)
-     (λk. Word (bytes_to_word 4 0w (GENLIST (λn. hello_init_memory r0 (k + n2w n)) 4) 0w F))
+     (λk. Word (EL (w2n (k - r0) DIV 4) (hello_init_memory_words r0)))
        ({w | (hello_init_asm_state r0).regs 2 <=+ w ∧
              w <+ (hello_init_asm_state r0).regs 4}
         ∪ {w | r0 + n2w heap_size <=+ w ∧
@@ -135,7 +135,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ simp[LENGTH_data]
       \\ EVAL_TAC)
     \\ conj_tac >- EVAL_TAC
-    \\ conj_tac >- (EVAL_TAC \\ rw[])
+    \\ conj_tac >- rw[hello_init_asm_state_def]
     \\ EVAL_TAC \\ rw[] )
   \\ conj_tac
   >- (
@@ -236,15 +236,40 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     EVAL_TAC \\ rw[]
     \\ cheat (* problem with combination of ag32_ok ag32_target.config.link_reg and ccache_interfer_ok *) )
   \\ conj_tac >- (
-    EVAL_TAC
+    simp[targetSemTheory.code_loaded_def,
+         hello_machine_config_def,
+         hello_init_ag32_state_def,
+         heap_size_def, memory_size_def, LENGTH_data,
+         ag32_targetTheory.ag32_target_def]
     \\ match_mp_tac data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
     \\ simp[]
     \\ gen_tac \\ strip_tac
     \\ qpat_x_assum`_ < dimword _`mp_tac
-    \\ EVAL_TAC
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ CONV_TAC(PATH_CONV"rlr" EVAL)
     \\ Cases_on`r0`
     \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w, LENGTH_code, LENGTH_data]
-    \\ simp[GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB])
+    \\ strip_tac
+    \\ CONV_TAC(PATH_CONV"lrr" EVAL)
+    (*
+    \\ qmatch_goalsub_abbrev_tac`hello_init_memory _ k`
+    \\ `byte_aligned (k - n2w i)`
+    by(
+      Cases_on`i=0` \\ fs[Abbr`k`,word_add_n2w]
+      \\ fs[alignmentTheory.byte_aligned_def, GSYM word_add_n2w]
+      \\ (alignmentTheory.aligned_add_sub_cor
+          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+          |> irule)
+      \\ fs[]
+      \\ EVAL_TAC)
+    \\ `byte_align k = k - i`
+    by(
+      simp[alignmentTheory.byte_aligned_def, Abbr`k`]
+      f"byte_aligned"
+    \\ simp[hello_init_memory_def]
+    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN, LENGTH_data, heap_size_def]
+    *)
+    \\ cheat  (* words_of_bytes lemma *) )
   \\ conj_tac >- cheat (* can this be proved from the previous conjunct? *)
   \\ conj_tac >- (
     qpat_x_assum`_ < dimword _`mp_tac
@@ -265,36 +290,9 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ fs[word_ls_n2w, word_lo_n2w, word_slice_n2w]
     \\ cheat (* annoying word proofs: bitmap_dm is word addressable *))
   \\ conj_tac >- (
-    rw[hello_init_asm_state_def,
+    rw[hello_init_asm_state_def, hello_init_memory_def,
        EVAL``(hello_machine_config r0).target.config``,
-       EVAL``(hello_init_ag32_state r0).MEM``]
-    \\ `∃i. (a = i + byte_align a) ∧ w2n i < 4`
-    by (
-      rw[alignmentTheory.byte_align_def]
-      \\ rw[alignmentTheory.align_sub]
-      \\ qexists_tac`(1 >< 0)a`
-      \\ rw[]
-      \\ Cases_on`a`
-      \\ simp[word_extract_n2w]
-      \\ qspecl_then[`1`,`0`,`n`]mp_tac bitTheory.BITSLT_THM2
-      \\ simp[] )
-    \\ first_assum(fn th => CONV_TAC(PATH_CONV"rllr"(REWR_CONV th)))
-    \\ `4n = 2 ** 2` by rw[]
-    \\ pop_assum SUBST1_TAC
-    \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-    \\ conj_tac >- EVAL_TAC
-    \\ Cases_on`i`
-    \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
-    \\ fs[]
-    \\ conj_tac >- EVAL_TAC
-    \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w] >- metis_tac[]
-    \\ qmatch_goalsub_rename_tac`EL n _`
-    \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w] >- metis_tac[]
-    \\ qmatch_goalsub_rename_tac`EL n _`
-    \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w] >- metis_tac[]
-    \\ qmatch_goalsub_rename_tac`EL n _`
-    \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w]
-    \\ metis_tac[])
+       EVAL``(hello_init_ag32_state r0).MEM``] )
   \\ simp[LENGTH_code]);
 
 val compile_correct_applied =
@@ -311,13 +309,12 @@ val compile_correct_applied =
   |> Q.GEN`data_sp` |> Q.SPEC`0`
   |> Q.GEN`ms` |> SPEC(lhs(concl(SPEC_ALL hello_init_ag32_state_def)))
 
-(*
 val goal = compile_correct_applied |> concl |> dest_imp |> #1
            |> curry mk_imp (#1(dest_imp(concl hello_good_init_state)))
 (*
 set_goal([],goal)
 *)
-val lemma = prove(
+val lemma = prove(goal,
   disch_then assume_tac
   \\ CONV_TAC(PATH_CONV"llr"EVAL)
   \\ simp[backendProofTheory.installed_def]
@@ -338,10 +335,40 @@ val lemma = prove(
     \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w] )
   \\ conj_tac
   >- (
-    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data]
-    \\ rw[hello_init_regs_def]
-    \\ cheat (* prove some memory lookup rewrites separately *) )
+    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
+       hello_init_regs_def, bytes_in_word_def]
+    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
+            heap_size_def, EL_REPLICATE, LENGTH_data] )
   \\ conj_tac
-*)
+  >- (
+    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
+       hello_init_regs_def, bytes_in_word_def]
+    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
+            heap_size_def, EL_REPLICATE, LENGTH_data] )
+  \\ conj_tac
+  >- (
+    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
+       hello_init_regs_def, bytes_in_word_def]
+    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
+            heap_size_def, EL_REPLICATE, LENGTH_data, LENGTH_code]
+    \\ EVAL_TAC \\ simp[LENGTH_data] )
+  \\ conj_tac
+  >- (
+    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
+       hello_init_regs_def, bytes_in_word_def]
+    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
+            heap_size_def, EL_REPLICATE, LENGTH_data, LENGTH_code]
+    \\ EVAL_TAC \\ simp[LENGTH_data] )
+  \\ conj_tac
+  >- cheat (* data is installed *)
+  \\ EVAL_TAC
+  \\ rewrite_tac[hello_ag32CompileTheory.config_def]
+  \\ EVAL_TAC);
+
+val hello_machine_sem =
+  compile_correct_applied
+  |> C MATCH_MP (UNDISCH lemma)
+  |> DISCH_ALL
+  |> curry save_thm "hello_machine_sem";
 
 val _ = export_theory();
