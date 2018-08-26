@@ -2993,6 +2993,7 @@ val known_correct0 = Q.prove(
       EVERY val_approx_sgc_free aenv /\
       state_globals_approx s0 (next_g s0) /\
       subspt g0 g /\ subspt g (next_g s0) /\
+      oracle_gapprox_subspt s0.compile_oracle /\
       fv_max (LENGTH env1) xs /\
       LIST_REL (v_rel c) env1 env2 /\
       unique_set_globals xs s0.compile_oracle /\
@@ -3039,7 +3040,12 @@ val known_correct0 = Q.prove(
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ imp_res_tac unique_set_globals_subexps \\ fs []
     \\ rename1 `known _ [_] _ g0 = (_, g1)`
-    \\ `subspt g0 g1 ∧ subspt g1 (next_g s0)` by cheat
+    \\ `subspt g0 g1 ∧ subspt g1 g`
+       by (irule subspt_known_elist_globals
+           \\ simp [] \\ rpt (goal_assum drule)
+           \\ fs [unique_set_globals_def,
+                  elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION])
+    \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
     \\ disch_then (qspec_then `xenv2` mp_tac)
     \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
@@ -3059,10 +3065,15 @@ val known_correct0 = Q.prove(
     \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append, AC ASSOC_BAG_UNION COMM_BAG_UNION])
     \\ strip_tac
     (**)
-    \\ `subspt g1 g ∧ subspt g (next_g s1)` by cheat
+    \\ `subspt (next_g s0) (next_g s1)`
+       by (simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
+    \\ `subspt g (next_g s1)` by metis_tac [subspt_trans]
     \\ `state_oracle_mglobals_disjoint s1`
        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
            \\ goal_assum drule \\ simp [])
+    \\ `oracle_gapprox_subspt s1.compile_oracle`
+       by (simp [oracle_gapprox_subspt_shift_seq])
+    \\ rfs []
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
     \\ disch_then (qspec_then `xenv2` mp_tac)
     \\ fs [result_case_eq] \\ rveq \\ fs []
@@ -3310,8 +3321,9 @@ val known_correct0 = Q.prove(
         \\ fs [next_g_def] \\ goal_assum drule \\ simp []
         \\ fs [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
         \\ metis_tac [FST, SND])
-      THEN1 cheat (* simp [next_g_def, shift_seq_def, oracle_states_subspt_alt]*)
-      THEN1 cheat (* simp [next_g_def, shift_seq_def, oracle_states_subspt_alt]*)
+      THEN1 simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt]
+      THEN1 simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt]
+      THEN1 simp [oracle_gapprox_subspt_shift_seq]
       THEN1
        (qpat_x_assum `unique_set_globals _ s0.compile_oracle` mp_tac
         \\ `exps1 = FST (SND ((shift_seq kk s0.compile_oracle) 0))` by fs [shift_seq_def]
@@ -3362,7 +3374,6 @@ val known_correct0 = Q.prove(
       \\ fs [case_eq_thms, pair_case_eq]
       \\ rveq \\ fs []
       \\ strip_tac \\ fs []
-      \\ `subspt (next_g s0) (next_g s1)` by cheat
       \\ imp_res_tac do_app_const \\ fs [next_g_def]
       \\ drule known_correct_approx
       \\ disch_then drule \\ simp []
@@ -3393,8 +3404,10 @@ val known_correct0 = Q.prove(
       \\ PairCases_on `ea1` \\ fs []
       \\ `?aaa. lookup k g = SOME aaa /\ ea11 ◁ aaa`
          by (fs [known_op_def, option_case_eq] \\ rw [])
-      \\ `subspt g (FST (FST (s1.compile_oracle 0)))` by metis_tac [subspt_trans]
-      \\ pop_assum (fn th => assume_tac (SIMP_RULE (srw_ss()) [subspt_def, domain_lookup, PULL_EXISTS] th))
+      \\ imp_res_tac evaluate_IMP_shift_seq
+      \\ `subspt (next_g s0) (next_g s1)` by (simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
+      \\ `subspt g (next_g s1)` by metis_tac [next_g_def, subspt_trans]
+      \\ pop_assum (fn th => assume_tac (SIMP_RULE (srw_ss()) [next_g_def, subspt_def, domain_lookup, PULL_EXISTS] th))
       \\ res_tac \\ rfs []))
   THEN1
    (say "Fn"
@@ -3415,7 +3428,6 @@ val known_correct0 = Q.prove(
                                                         simp [config_component_equality])])
            \\ goal_assum (pop_assum o mp_then Any mp_tac)
            \\ simp []))
-
   THEN1 cheat (* Letrec *)
 
   THEN1
@@ -3433,7 +3445,12 @@ val known_correct0 = Q.prove(
     \\ Cases_on `LENGTH xs > 0` \\ fs []
     \\ fs [pair_case_eq]
     \\ rename1 `evaluate (_, _ s0) = (_, s1)`
-    \\ `subspt g0 g1 ∧ subspt g1 (next_g s0)` by cheat
+    \\ `subspt g0 g1 ∧ subspt g1 g`
+       by (irule subspt_known_elist_globals
+           \\ simp [] \\ rpt (goal_assum drule)
+           \\ fs [unique_set_globals_def, elist_globals_append,
+                  BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
+    \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
     \\ disch_then (qspec_then `xenv2` mp_tac)
     \\ impl_tac THEN1 fs [result_case_eq] \\ strip_tac
@@ -3447,6 +3464,11 @@ val known_correct0 = Q.prove(
     \\ patresolve `evaluate (_, _, s0) = _` (el 2) known_correct_approx
     \\ disch_then drule \\ simp []
     \\ `subspt g0 (next_g s0)` by metis_tac [subspt_trans]
+    \\ `subspt (next_g s0) (next_g s1)`
+       by (simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
+    \\ `subspt g (next_g s1)` by metis_tac [subspt_trans]
+    \\ `oracle_gapprox_subspt s1.compile_oracle` by simp [oracle_gapprox_subspt_shift_seq]
+    \\ rfs []
     \\ impl_tac THEN1 metis_tac [state_globals_approx_subspt, oracle_gapprox_disjoint_subspt]
     \\ strip_tac
     \\ `state_oracle_mglobals_disjoint s1`
@@ -3460,6 +3482,7 @@ val known_correct0 = Q.prove(
       \\ reverse (Cases_on `pure x1`) \\ fs []
       \\ rpt (pairarg_tac \\ fs []) \\ rveq
       \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
+
       THEN1
        ((* not pure *)
         simp [evaluate_def, evaluate_append]
@@ -3472,7 +3495,6 @@ val known_correct0 = Q.prove(
         \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append, AC ASSOC_BAG_UNION COMM_BAG_UNION])
         \\ strip_tac
         (**)
-        \\ `subspt g1 g ∧ subspt g (next_g s1)` by cheat
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
         \\ disch_then (qspec_then `xenv2` mp_tac)
         \\ impl_tac THEN1 fs [result_case_eq]
