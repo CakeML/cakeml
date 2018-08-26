@@ -990,16 +990,19 @@ val env_rel_IMP_EL =
   LESS_LENGTH_env_rel_IMP |> SPEC_ALL |> UNDISCH
   |> CONJUNCT2 |> DISCH_ALL |> GEN_ALL;
 
+(* TODO: there needs to be a PMATCH version of this for translation *)
 val extract_name_def = Define `
-  extract_name e =
-    case (some n. ?t1 t2 t3 x. e =
-            Let t1 [Op t2 (Const (& n)) []; x] ((Var t3 1):closLang$exp)) of
-    | NONE => 0:num
-    | SOME n => n`;
+  extract_name [] = (0,[]) /\
+  extract_name (x :: xs) =
+    case (some n. ?t. x = Op t (Const (& n)) []) of
+    | NONE => (0,[])
+    | SOME n => (n,xs)`;
 
 val compile_inc_def = Define `
-  compile_inc max_app (e,prog) =
-    clos_to_bvl$compile_prog max_app ((extract_name e,0,e)::prog)`;
+  compile_inc max_app (es,prog) =
+    let (n,real_es) = extract_name es in
+      clos_to_bvl$compile_prog max_app
+        (clos_to_bvl$chain_exps n real_es ++ prog)`;
 
 val nth_code_def = Define `
   nth_code t_co 0 = LN /\
@@ -1015,7 +1018,7 @@ val compile_oracle_inv_def = Define `
             (set (MAP FST (SND (t_co n))))) /\
      !n cfg e ps.
        s_co n = (cfg,e,ps) ==>
-       every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e] /\
+       every_Fn_SOME e ∧ every_Fn_vs_SOME e /\
        EVERY (λp. every_Fn_SOME [SND (SND p)]) ps /\
        EVERY (λp. every_Fn_vs_SOME [SND (SND p)]) ps`;
 
