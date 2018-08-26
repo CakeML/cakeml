@@ -75,6 +75,11 @@ n_fresh_uvar (n:num) =
        return (v::vs)
     od`;
 
+val fresh_id_def = Define`
+fresh_id =
+  λs.
+  (Success s.next_id, s with next_id := s.next_id+1)`
+
 val n_fresh_id_def = Define`
 n_fresh_id n =
   λs.
@@ -137,7 +142,9 @@ val _ = Hol_datatype `
   <| inf_v : (modN, varN, num # infer_t) namespace
    ; inf_c : tenv_ctor
    ; inf_t : tenv_abbrev
-   |>`;
+   ; inf_s :  (modN, sigN, ( type_ident list # ( tvarN list # type_ident) list # inf_env)) namespace |>`;
+
+val _ = type_abbrev( "ienv_sig" , ``: (modN, sigN, ( type_ident list # ( tvarN list # type_ident) list # inf_env)) namespace``);
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised, the generalised type, and a substitution
@@ -796,13 +803,96 @@ val extend_dec_ienv_def = Define `
   extend_dec_ienv ienv' ienv =
      <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
         inf_c := nsAppend ienv'.inf_c ienv.inf_c;
-        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>`;
+        inf_t := nsAppend ienv'.inf_t ienv.inf_t;
+        inf_s := nsAppend ienv'.inf_s ienv.inf_s |>`;
 
 val lift_ienv_def = Define `
   lift_ienv mn ienv =
     <| inf_v := nsLift mn ienv.inf_v;
        inf_c := nsLift mn ienv.inf_c;
-       inf_t := nsLift mn ienv.inf_t |>`;
+       inf_t := nsLift mn ienv.inf_t;
+       inf_s := nsLift mn ienv.inf_s |>`;
+
+(* This mirrors type_sp and returns (as a tuple):
+  - the list of type identifiers generated for datatypes
+  - the list of opaque type identifiers
+  - the inf_env corresponding to the signature
+
+  The ids need to be tracked for book-keeping in signatures
+*)
+val infer_sp_def = Define`
+  (* TODO: infer_sp ienv (Sval x t) = ?? *)
+  (infer_sp ienv (Stype tdefs) =
+  do
+     tids <- n_fresh_id (LENGTH tdefs);
+     ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
+     ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
+     check_type_definition NONE ienvT2 tdefs;
+     return
+       (tids, [] ,
+        <| inf_v := nsEmpty;
+           inf_c := build_ctor_tenv ienvT2 tdefs tids;
+           inf_t := ienvT1;
+           inf_s := nsEmpty |>)
+  od) ∧
+  (infer_sp ienv (Stype_opq tvs tn) =
+  do
+    tid <- fresh_id;
+    return
+      ([], [(tvs, tid)],
+      <| inf_v := nsEmpty;
+         inf_c := nsEmpty;
+         inf_t := (nsSing tn (tvs, Tapp (MAP Tvar tvs) tid));
+         inf_s := nsEmpty |>)
+  od) ∧
+  (infer_sp ienv (Stabbrev tvs tn t) =
+  do
+    check_dups NONE (\n. concat [implode "Duplicate type variable bindings for ";
+                                        implode n; implode " in type abbreviation ";
+                                        implode tn])
+              tvs;
+    t' <- type_name_check_subst NONE
+            (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
+                          implode tn])
+            ienv.inf_t tvs t;
+    return ([],[],
+      <| inf_v := nsEmpty;
+         inf_c := nsEmpty;
+         inf_t := nsSing tn (tvs,t');
+         inf_s := nsEmpty |>)
+  od) ∧
+  (infer_sp ienv (Sexn cn ts) =
+  do
+    ts' <- type_name_check_subst_list NONE
+            (\tv. concat [implode "Type variable "; implode tv; implode " found in declaration of exception "; implode cn;
+                          implode ". Type variables are not allowed in exception declarations."])
+            ienv.inf_t [] ts;
+    return ([],[],
+      <| inf_v := nsEmpty;
+         inf_c := nsSing cn ([], ts', Texn_num);
+         inf_t := nsEmpty;
+         inf_s := nsEmpty |>)
+  od) ∧
+  (* TODO: (infer_sp ienv (Smod mn sn) =*)
+  (infer_sps ienv [] =
+    return ([],[],
+      <| inf_v := nsEmpty;
+         inf_c := nsEmpty;
+         inf_t := nsEmpty;
+         inf_s := nsEmpty |>)) ∧
+  (infer_sps ienv (sp::sps) =
+    do
+      (did,oid,ienv') <- infer_sp ienv sp;
+      (dids,oids,ienv'') <- infer_sps (extend_dec_ienv ienv' ienv) sps;
+      return (did++dids,oid++oids,(extend_dec_ienv ienv'' ienv'))
+    od)`;
+
+val check_inf_sig_def = Define`
+  (* No signature, return the new module environment ienv' *)
+  (check_inf_sig ienv NONE ienv' = return ienv')
+  (* TODO: ∧
+  (check_inf_sig ienv (SOME sn) ienv' = *)
+  `
 
 val infer_d_def = Define `
 (infer_d ienv (Dlet locs p e) =
@@ -819,7 +909,8 @@ val infer_d_def = Define `
      () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) (implode "Value restriction violated");
      return <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
                inf_c := nsEmpty;
-               inf_t := nsEmpty |>
+               inf_t := nsEmpty;
+               inf_s := nsEmpty |>
   od) ∧
 (infer_d ienv (Dletrec locs funs) =
   do
@@ -836,7 +927,8 @@ val infer_d_def = Define `
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      return <| inf_v := alist_to_ns (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts');
                inf_c := nsEmpty;
-               inf_t := nsEmpty |>
+               inf_t := nsEmpty;
+               inf_s := nsEmpty |>
   od) ∧
 (infer_d ienv (Dtype locs tdefs) =
   do
@@ -846,7 +938,8 @@ val infer_d_def = Define `
      check_type_definition (SOME locs) ienvT2 tdefs;
      return <| inf_v := nsEmpty;
                inf_c := build_ctor_tenv ienvT2 tdefs tids;
-               inf_t := ienvT1 |>
+               inf_t := ienvT1;
+               inf_s := nsEmpty |>
   od) ∧
 (infer_d ienv (Dtabbrev locs tvs tn t) =
   do
@@ -860,7 +953,8 @@ val infer_d_def = Define `
             ienv.inf_t tvs t;
      return <| inf_v := nsEmpty;
                inf_c := nsEmpty;
-               inf_t := nsSing tn (tvs,t') |>
+               inf_t := nsSing tn (tvs,t');
+               inf_s := nsEmpty |>
   od) ∧
 (infer_d ienv (Dexn locs cn ts) =
   do
@@ -870,14 +964,24 @@ val infer_d_def = Define `
             ienv.inf_t [] ts;
     return <| inf_v := nsEmpty;
               inf_c := nsSing cn ([], ts', Texn_num);
-              inf_t := nsEmpty |>
+              inf_t := nsEmpty;
+              inf_s := nsEmpty |>
   od) ∧
-(infer_d ienv (Dmod mn ds) =
+(infer_d ienv (Dmod mn sn_opt ds) =
   do ienv' <- infer_ds ienv ds;
-     return (lift_ienv mn ienv')
+     ienv_sig <- check_inf_sig ienv sn_opt ienv';
+     return (lift_ienv mn ienv_sig)
+  od) ∧
+(infer_d ienv (Dsig sn sps) =
+  do
+    (dids,oids,ienv_sig) <- infer_sps ienv sps;
+    return <| inf_v := nsEmpty;
+              inf_c := nsEmpty;
+              inf_t := nsEmpty;
+              inf_s := (nsSing sn (dids, oids, ienv_sig))|>
   od) ∧
 (infer_ds ienv [] =
-  return <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>) ∧
+  return <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty ; inf_s := nsEmpty|>) ∧
 (infer_ds ienv (d::ds) =
   do
     ienv' <- infer_d ienv d;
