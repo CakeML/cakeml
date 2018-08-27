@@ -15,6 +15,42 @@ val imp_align_eq_0 = Q.store_thm("imp_align_eq_0",
   \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
   \\ fs[] );
 
+val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
+  `∀be a bs k.
+   LENGTH bs ≤ k ⇒
+   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)`,
+  Induct_on`bs`
+  >- (
+    EVAL_TAC
+    \\ Cases_on`k`
+    \\ EVAL_TAC
+    \\ rw[] )
+  \\ rw[data_to_word_memoryProofTheory.word_of_bytes_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ rw[data_to_word_memoryProofTheory.bytes_to_word_def]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ first_x_assum match_mp_tac
+  \\ fs[]);
+
+(*
+val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
+  `0 < p ⇒ ((align p a = 0w) ⇒ w2n a < 2 ** p)`,
+  rw[alignmentTheory.align_w2n, dimword_def]
+  \\ reverse(Cases_on`p ≤ dimindex(:'a)`)
+  >- (
+    qspec_then`a`assume_tac w2n_lt
+    \\ fs[dimword_def]
+    \\ irule LESS_LESS_EQ_TRANS
+    \\ asm_exists_tac \\ fs[] )
+  \\ fs[MOD_EQ_0_DIVISOR]
+  \\ Cases_on`d` \\ fs[]
+  >- (
+    `1 < 2 ** p` by fs[ONE_LT_EXP]
+    \\ fs[DIV_EQ_0] )
+  \\ fs[MULT]
+*)
+
 val align_add_aligned_gen = Q.store_thm("align_add_aligned_gen",
   `∀a. aligned p a ⇒ (align p (a + b) = a + align p b)`,
   completeInduct_on`w2n b`
@@ -49,24 +85,34 @@ val align_add_aligned_gen = Q.store_thm("align_add_aligned_gen",
   \\ impl_tac >- fs[stack_removeProofTheory.aligned_w2n]
   \\ simp[]);
 
-(*
 val get_byte_word_of_bytes = Q.store_thm("get_byte_word_of_bytes",
   `good_dimindex(:'a) ⇒
-   ∀be (a:'a word) ls i.
-      i < LENGTH ls ∧ (a + n2w (LENGTH ls) = bytes_in_word) ⇒
-      (get_byte (n2w i) (word_of_bytes be a ls) be = EL i ls)`,
+   i < LENGTH ls ∧ LENGTH ls ≤ w2n (bytes_in_word:'a word) ⇒
+  (get_byte (n2w i) (word_of_bytes be (0w:'a word) ls) be = EL i ls)`,
   strip_tac
-  \\ Induct_on`ls`
-  \\ rw[data_to_word_memoryProofTheory.word_of_bytes_def]
-  \\ Cases_on`i` \\ fs[]
-  >- (
-    Cases_on`a=0w` \\ fs[labPropsTheory.get_byte_set_byte]
-    \\ DEP_REWRITE_TAC[labPropsTheory.get_byte_set_byte_diff]
-    \\ simp[]
+  \\ `∃k. dimindex(:'a) DIV 8 = 2 ** k` by(
+    fs[labPropsTheory.good_dimindex_def]
+    \\ TRY(qexists_tac`2` \\ EVAL_TAC \\ NO_TAC)
+    \\ TRY(qexists_tac`3` \\ EVAL_TAC \\ NO_TAC) )
+  \\ strip_tac
+  \\ Q.ISPECL_THEN[`be`,`0w`,`ls`,`2 ** k`]mp_tac word_of_bytes_bytes_to_word
+  \\ impl_keep_tac >- (
+    rfs[bytes_in_word_def, dimword_def]
+    \\ fs[labPropsTheory.good_dimindex_def] \\ rfs[])
+  \\ rw[]
+  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
+  \\ rw[]);
+
+val word_msb_align = Q.store_thm("word_msb_align",
+  `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`,
+  rw[alignmentTheory.align_bitwise_and,word_msb]
+  \\ rw[data_to_word_memoryProofTheory.word_bit_and]
+  \\ rw[data_to_word_memoryProofTheory.word_bit_lsl]
+  \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
 
 val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
   `∀be ls.
-   i < LENGTH ls ∧ good_dimindex(:'a) ⇒
+   i < LENGTH ls ∧ w2n (bytes_in_word:'a word) * LENGTH ls ≤ dimword(:'a) ∧ good_dimindex(:'a) ⇒
    (get_byte (n2w i : α word)
       (EL (w2n (byte_align ((n2w i):α word)) DIV (w2n (bytes_in_word:α word)))
         (words_of_bytes be ls)) be = EL i ls)`,
@@ -87,7 +133,62 @@ val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
       \\ fs[labPropsTheory.good_dimindex_def,Abbr`bw`]
       \\ rfs[bytes_in_word_def,dimword_def] )
     \\ simp[ZERO_DIV]
+    \\ DEP_REWRITE_TAC[UNDISCH get_byte_word_of_bytes]
+    \\ fs[LENGTH_TAKE_EQ]
+    \\ Cases_on`i` \\ fs[EL_TAKE] )
+  \\ fs[NOT_LESS]
+  \\ pop_assum (strip_assume_tac o SIMP_RULE std_ss [LESS_EQ_EXISTS])
+  \\ `byte_align (n2w (bw + p)) = n2w bw + byte_align (n2w p)`
+  by (
+    simp[GSYM word_add_n2w]
+    \\ simp[alignmentTheory.byte_align_def]
+    \\ DEP_REWRITE_TAC[align_add_aligned_gen]
+    \\ simp[Abbr`bw`]
+    \\ CONV_TAC(REWR_CONV(GSYM alignmentTheory.byte_aligned_def))
+    \\ (data_to_word_assignProofTheory.byte_aligned_bytes_in_word
+        |> Q.GEN`w` |> Q.SPEC`1w` |> UNDISCH |> mp_tac)
+    \\ simp[] )
+  \\ simp[]
+  \\ DEP_REWRITE_TAC[w2n_add]
+  \\ conj_tac
+  >- (
+    simp[Abbr`bw`]
+    \\ reverse conj_tac >- (
+      fs[labPropsTheory.good_dimindex_def,
+         bytes_in_word_def]
+      \\ EVAL_TAC \\ fs[] \\ EVAL_TAC )
+    \\ simp[alignmentTheory.byte_align_def]
+    \\ DEP_REWRITE_TAC[word_msb_align]
+    \\ conj_tac >- ( fs[labPropsTheory.good_dimindex_def])
+    \\ simp[word_msb_n2w]
+    \\ qmatch_assum_abbrev_tac`bw * r ≤ dimword _`
+    \\ `r ≤ dimword (:'a) DIV bw` by fs[X_LE_DIV]
+    \\ `p < dimword(:'a) DIV bw` by fs[]
+    \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
+    \\ fs[dimword_def, bytes_in_word_def]
+    \\ fs[Abbr`bw`, labPropsTheory.good_dimindex_def]
+    \\ rfs[] )
+  \\ `bw < dimword(:'a)` by fs[Abbr`bw`, bytes_in_word_def]
+  \\ simp[]
+  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
+  \\ simp[]
+  \\ simp[EL_CONS,PRE_SUB1]
+  \\ simp[GSYM word_add_n2w]
+  \\ `n2w bw = byte_align (n2w bw)`
+  by(
+    fs[Abbr`bw`,bytes_in_word_def,alignmentTheory.byte_align_def]
+    \\ fs[labPropsTheory.good_dimindex_def]
+    \\ EVAL_TAC \\ fs[dimword_def] \\ EVAL_TAC )
+  \\ pop_assum SUBST1_TAC
+  \\ once_rewrite_tac[WORD_ADD_COMM]
+  \\ simp[data_to_word_memoryProofTheory.get_byte_byte_align]
+  \\ first_x_assum(qspec_then`p`mp_tac)
+  \\ simp[]
+  \\ disch_then(qspecl_then[`be`,`DROP (bw-1)t`]mp_tac)
+  \\ impl_tac >- fs[ADD1]
+  \\ simp[EL_DROP]);
 
+(*
 val EL_words_of_bytes = Q.store_thm("EL_words_of_bytes",
   `8 ≤ dimindex(:'a) ⇒
    ∀be ls i.
@@ -408,7 +509,11 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ simp[ADD_DIV_RWT]
     \\ simp[hello_init_memory_words_def,EL_APPEND_EQN]
     \\ simp[LENGTH_data,heap_size_def]
-    \\ cheat  (* words_of_bytes lemma *) )
+    \\ `4 = w2n (bytes_in_word:32 word)` by EVAL_TAC
+    \\ pop_assum SUBST1_TAC
+    \\ irule get_byte_EL_words_of_bytes
+    \\ simp[LENGTH_code, bytes_in_word_def]
+    \\ EVAL_TAC)
   \\ conj_tac >- cheat (* can this be proved from the previous conjunct? *)
   \\ conj_tac >- (
     qpat_x_assum`_ < dimword _`mp_tac
