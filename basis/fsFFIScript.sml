@@ -164,9 +164,9 @@ val ffi_open_in_def = Define`
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
       (fd, fs') <- openFile (implode fname) fs 0;
-      return (0w :: n2w8 fd ++ DROP 9 bytes, fs')
+      return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
     od ++
-    return (LUPDATE 1w 0 bytes, fs)`;
+    return (FFIreturn (LUPDATE 1w 0 bytes) fs)`;
 
 (* open append:
       contents <- ALOOKUP fs.files (implode fname);
@@ -184,9 +184,9 @@ val ffi_open_out_def = Define`
       fname <- getNullTermStr conf;
       (fd, fs') <- openFile_truncate (implode fname) fs;
       assert(fd <= 255);
-      return (0w :: n2w8 fd ++ DROP 9 bytes, fs')
+      return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
     od ++
-    return (LUPDATE 255w 0 bytes, fs)`;
+    return (FFIreturn (LUPDATE 255w 0 bytes) fs)`;
 
 (*
 * [descriptor index (8 bytes); number of char to read (2 bytes); buffer]
@@ -204,10 +204,12 @@ val ffi_read_def = Define`
              (l, fs') <- read (w82n conf) fs (w22n [n1; n0]);
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
-             return (0w :: n2w2 (LENGTH l) ++ [pad2] ++
-                    MAP (n2w o ORD) l ++
-                    DROP (LENGTH l) tll, fs')
-           od ++ return (LUPDATE 1w 0 bytes, fs)
+             return (FFIreturn
+                       (0w :: n2w2 (LENGTH l) ++ [pad2] ++
+                        MAP (n2w o ORD) l ++
+                        DROP (LENGTH l) tll)
+                       fs')
+           od ++ return (FFIreturn (LUPDATE 1w 0 bytes) fs)
       (* inaccurate: "when an error occurs, [...]
       * it is left unspecified whether the file position (if any) changes. *)
        | _ => NONE`
@@ -227,9 +229,9 @@ val ffi_write_def = Define`
             (nw, fs') <- write (w82n conf) (w22n [n1; n0])
                                (MAP (CHR o w2n) (DROP (w22n [off1; off0]) tll)) fs;
             (* return ok code and number of bytes written *)
-            return (0w :: n2w2 nw ++ (off0 :: tll), fs')
+            return (FFIreturn (0w :: n2w2 nw ++ (off0 :: tll)) fs')
           (* return error code *)
-          od ++ return (LUPDATE 1w 0 bytes, fs)
+          od ++ return (FFIreturn (LUPDATE 1w 0 bytes) fs)
         | _ => NONE`;
 
 (* closes a file given its descriptor index *)
@@ -240,9 +242,9 @@ val ffi_close_def = Define`
       assert(LENGTH conf = 8);
       do
         (_, fs') <- closeFD (w82n conf) fs;
-        return (LUPDATE 0w 0 bytes, fs')
+        return (FFIreturn (LUPDATE 0w 0 bytes) fs')
       od ++
-      return (LUPDATE 1w 0 bytes, fs)
+      return (FFIreturn (LUPDATE 1w 0 bytes) fs)
     od`;
 
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1

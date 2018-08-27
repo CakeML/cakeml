@@ -280,10 +280,10 @@ val parse_bvl_conf_def = Define`
 (* wtw *)
 val parse_wtw_conf_def = Define`
   parse_wtw_conf ls wtw =
-  let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
-  case regalg of
-    INL r => INL (wtw with <|reg_alg:= r |>)
-  | INR s => INR (get_err_str regalg)`
+    let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
+      case regalg of
+        INL r => INL (wtw with <|reg_alg:= r |>)
+      | INR s => INR (get_err_str regalg)`
 
 val parse_gc_def = Define`
   parse_gc ls default =

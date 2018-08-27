@@ -16,6 +16,12 @@ in end
 
 val _ = new_theory"clos_to_bvlProof";
 
+val _ = set_grammar_ancestry
+  ["closSem", "bvlSem", "closProps", "bvlProps",
+   "clos_to_bvl",
+   "backendProps", "ffi", "lprefix_lub"
+   ];
+
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
@@ -6415,12 +6421,12 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      ))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
-     (pure_co compile_inc o
-       state_co (if c.do_call then compile_inc else CURRY I)
+     (pure_co clos_annotateProof$compile_inc o
+       state_co (if c.do_call then clos_callProof$compile_inc else CURRY I)
        (state_co
-         (case c.known_conf of NONE => CURRY I | SOME kcfg => compile_inc kcfg)
+         (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
            (state_co (ignore_table renumber_code_locs)
-             ((if c.do_mti then pure_co (compile_inc c.max_app) else I) o co1))))
+             ((if c.do_mti then pure_co (clos_mtiProof$compile_inc c.max_app) else I) o co1))))
      cc ([Call None 0 c'.start []]) =
    closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) es1`,
   simp[compile_common_def]
@@ -6515,7 +6521,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ qmatch_assum_abbrev_tac`semantics ffi max_app FEMPTY co cc0 x <> Fail`
   \\ drule (GEN_ALL clos_callProofTheory.semantics_compile)
   \\ disch_then drule
-  \\ disch_then(qspec_then`state_co (if c.do_call then compile_inc else CURRY I) co`mp_tac)
+  \\ disch_then(qspec_then`state_co (if c.do_call then clos_callProof$compile_inc else CURRY I) co`mp_tac)
   \\ qunabbrev_tac`cc0`
   \\ qmatch_goalsub_abbrev_tac`state_cc _ cc0 = state_cc _ _`
   \\ disch_then(qspec_then`cc0`mp_tac)

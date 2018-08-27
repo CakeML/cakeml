@@ -179,7 +179,8 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
         (\e.
           STDIO fs *
           &(BadFileName_exn e ∧
-            ¬EVERY (inFS_fname fs o File) fnames)))`,
+          ¬EVERY (inFS_fname fs o File) fnames))
+        (\n c b. &F))`,
   Induct_on `fnames` >>
   rw [] >>
   xcf "get_files_contents" (get_ml_prog_state ()) >>
@@ -193,6 +194,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   reverse(Cases_on`STD_streams fs`)>-(fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
+  >- xsimpl  
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
   imp_res_tac nextFD_ltX \\
@@ -204,6 +206,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
      xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
   >- xsimpl
+  >- xsimpl  
   >- xsimpl >>
   xapp >>
   xsimpl >>
@@ -319,7 +322,8 @@ val sort_spec = Q.store_thm ("sort_spec",
             STDIO (sort_sem cl fs) * COMMANDLINE cl)
       (\e.  &(BadFileName_exn e ∧
               ¬EVERY (inFS_fname fs) inodes) *
-            STDIO fs * COMMANDLINE cl)`) >>
+            STDIO fs * COMMANDLINE cl)
+      (\n c b. &F)`) >>
   xsimpl
   >- (
     fs [BadFileName_exn_def] >>
@@ -350,7 +354,8 @@ val sort_spec = Q.store_thm ("sort_spec",
        (\e.
           COMMANDLINE cl * STDIO fs *
           &(BadFileName_exn e ∧
-            ¬EVERY (inFS_fname fs) inodes))` >>
+          ¬EVERY (inFS_fname fs) inodes))
+       (\n c b. &F)` >>
   xsimpl
   >- (
     `?command args. cl = command::args`
@@ -485,7 +490,7 @@ val sort_spec = Q.store_thm ("sort_spec",
 
 val sort_whole_prog_spec = Q.store_thm("sort_whole_prog_spec",
   `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
-   ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs (valid_sort_result cl fs)`,
+   ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs NONE (valid_sort_result cl fs)`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qexists_tac`sort_sem cl fs`
