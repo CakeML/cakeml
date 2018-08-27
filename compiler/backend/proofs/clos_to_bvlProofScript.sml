@@ -28,6 +28,8 @@ val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos
 
 (* TODO: move? *)
 
+val _ = temp_overload_on("bag_of_list",``clos_knownProof$bag_of_list``);
+
 val bag_of_list_thm = Q.store_thm("bag_of_list_thm",
   `bag_of_list [] = {||} ∧
    (∀x xs. bag_of_list (x::xs) = BAG_INSERT x (bag_of_list xs))`,
