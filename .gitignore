@@ -31,6 +31,7 @@ timing.log
 *_hol.txt
 *_thm.txt
 *_ast.txt
+*.ml.txt
 
 # Emacs backup files
 *~

@@ -600,6 +600,7 @@ val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_pmatch
 
 val _ = translate (get_delta_inst_def |> conv64)
 val _ = translate (wordLangTheory.every_var_inst_def |> conv64)
+val _ = translate select_reg_alloc_def
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 
 val res = translate_no_ind (spec64 three_to_two_reg_pmatch);

@@ -9,6 +9,11 @@ local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_gcProof";
 
+val _ = set_grammar_ancestry
+  ["dataSem", "wordSem", "data_to_word",
+   "data_to_word_memoryProof"
+  ];
+
 val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
@@ -89,7 +94,7 @@ val get_var_set_var = Q.store_thm("get_var_set_var[simp]",
   full_simp_tac(srw_ss())[wordSemTheory.get_var_def,wordSemTheory.set_var_def]);
 
 val set_var_set_var = Q.store_thm("set_var_set_var[simp]",
-  `set_var n v (set_var n w s) = set_var n v s`,
+  `set_var n v (wordSem$set_var n w s) = set_var n v s`,
   fs[wordSemTheory.state_component_equality,wordSemTheory.set_var_def,
       insert_shadow]);
 
@@ -4886,9 +4891,9 @@ val state_rel_cut_state_opt_get_var = Q.store_thm("state_rel_cut_state_opt_get_v
   \\ metis_tac[] );
 
 val jump_exc_push_env_NONE_simp = Q.store_thm("jump_exc_push_env_NONE_simp",
-  `(jump_exc (dec_clock t) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (call_env args s) = NONE <=> jump_exc s = NONE)`,
+  `(jump_exc (wordSem$dec_clock t) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (wordSem$push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (wordSem$call_env args s) = NONE <=> jump_exc s = NONE)`,
   full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
       wordSemTheory.dec_clock_def] \\ srw_tac[][] THEN1 every_case_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.push_env_def]
@@ -4917,7 +4922,7 @@ val s_key_eq_handler_eq_IMP = Q.store_thm("s_key_eq_handler_eq_IMP",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def]);
 
 val eval_NONE_IMP_jump_exc_NONE_EQ = Q.store_thm("eval_NONE_IMP_jump_exc_NONE_EQ",
-  `evaluate (q,t) = (NONE,t1) ==> (jump_exc t1 = NONE <=> jump_exc t = NONE)`,
+  `wordSem$evaluate (q,t) = (NONE,t1) ==> (jump_exc t1 = NONE <=> jump_exc t = NONE)`,
   srw_tac[][] \\ mp_tac (wordPropsTheory.evaluate_stack_swap |> Q.SPECL [`q`,`t`])
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ imp_res_tac s_key_eq_handler_eq_IMP \\ metis_tac []);
 
@@ -4989,14 +4994,14 @@ val NOT_5_domain = Q.store_thm("NOT_5_domain",
   \\ Cases_on `p_1'` \\ fs []  \\ Cases_on `n` \\ fs [])
 
 val cut_env_adjust_set_insert_1 = Q.store_thm("cut_env_adjust_set_insert_1",
-  `cut_env (adjust_set names) (insert 1 w l) = cut_env (adjust_set names) l`,
+  `wordSem$cut_env (adjust_set names) (insert 1 w l) = wordSem$cut_env (adjust_set names) l`,
   full_simp_tac(srw_ss())[wordSemTheory.cut_env_def,MATCH_MP SUBSET_INSERT_EQ_SUBSET NOT_1_domain]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[lookup_inter,lookup_insert]
   \\ Cases_on `x = 1` \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[SIMP_RULE std_ss [domain_lookup] NOT_1_domain]);
 
 val cut_env_adjust_set_insert_3 = Q.store_thm("cut_env_adjust_set_insert_3",
-  `cut_env (adjust_set names) (insert 3 w l) = cut_env (adjust_set names) l`,
+  `wordSem$cut_env (adjust_set names) (insert 3 w l) = wordSem$cut_env (adjust_set names) l`,
   full_simp_tac(srw_ss())[wordSemTheory.cut_env_def,MATCH_MP SUBSET_INSERT_EQ_SUBSET NOT_3_domain]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[lookup_inter,lookup_insert]
   \\ Cases_on `x = 3` \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ srw_tac[][]
@@ -5691,12 +5696,12 @@ val gc_lemma = Q.store_thm("gc_lemma",
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val gc_add_call_env = Q.store_thm("gc_add_call_env",
-  `(case gc (push_env y NONE t5) of
-     | NONE => (SOME Error,x)
+  `(case gc (wordSem$push_env y NONE t5) of
+     | NONE => (SOME wordSem$Error,x)
      | SOME s' => case pop_env s' of
                   | NONE => (SOME Error, call_env [] s')
                   | SOME s' => f s') = (res,t) ==>
-    (case gc (call_env [Loc l1 l2] (push_env y NONE t5)) of
+    (case gc (wordSem$call_env [Loc l1 l2] (push_env y NONE t5)) of
      | NONE => (SOME Error,x)
      | SOME s' => case pop_env s' of
                   | NONE => (SOME Error, call_env [] s')
@@ -5793,13 +5798,14 @@ val alloc_lemma = Q.store_thm("alloc_lemma",
   strip_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.alloc_def,
        LET_DEF,addressTheory.CONTAINER_def]
-  \\ Q.ABBREV_TAC `t5 = (set_store AllocSize (Word (alloc_size k))
-               (t with locals := insert 1 (Word (alloc_size k)) t.locals))`
+  \\ pop_assum mp_tac
+  \\ qmatch_goalsub_abbrev_tac`push_env _ NONE t5`
+  \\ strip_tac
   \\ imp_res_tac cut_env_IMP_cut_env
   \\ full_simp_tac(srw_ss())[cut_env_adjust_set_insert_1]
   \\ first_x_assum (assume_tac o HO_MATCH_MP gc_add_call_env)
   \\ `FLOOKUP t5.store AllocSize = SOME (Word (alloc_size k)) /\
-      cut_env (adjust_set names) t5.locals = SOME y /\
+      wordSem$cut_env (adjust_set names) t5.locals = SOME y /\
       state_rel c l1 l2 s t5 [] locs` by
    (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[state_rel_set_store_AllocSize]
     \\ full_simp_tac(srw_ss())[cut_env_adjust_set_insert_1,
@@ -5894,7 +5900,7 @@ val get_var_set_var_thm = Q.store_thm("get_var_set_var_thm",
 
 val alloc_NONE_IMP_cut_env = store_thm("alloc_NONE_IMP_cut_env",
   ``alloc w (adjust_set names) t = (NONE,s1) ==>
-    cut_env (adjust_set names) s1.locals = SOME s1.locals``,
+    wordSem$cut_env (adjust_set names) s1.locals = SOME s1.locals``,
   fs [wordSemTheory.alloc_def,wordSemTheory.gc_def]
   \\ fs [case_eq_thms] \\ rw []
   \\ fs [wordSemTheory.push_env_def,wordSemTheory.pop_env_def,
@@ -6021,7 +6027,7 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
     \\ fs [Q.SPECL [`3`,`1`] insert_insert |> SIMP_RULE std_ss []]
     \\ drule (GEN_ALL cut_env_IMP_cut_env)
     \\ disch_then drule \\ strip_tac \\ fs []
-    \\ `cut_env (insert 1 () (adjust_set names))
+    \\ `wordSem$cut_env (insert 1 () (adjust_set names))
              (insert 1 (Word (-1w)) (insert 3 (Word 0w) t.locals)) =
           SOME (insert 1 (Word (-1w)) y)` by
      (fs [wordSemTheory.cut_env_def] \\ rveq \\ fs []
@@ -6110,7 +6116,7 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
   \\ fs [Q.SPECL [`3`,`1`] insert_insert |> SIMP_RULE std_ss []]
   \\ drule (GEN_ALL cut_env_IMP_cut_env)
   \\ disch_then drule \\ strip_tac \\ fs []
-  \\ `cut_env (insert 1 () (adjust_set names))
+  \\ `wordSem$cut_env (insert 1 () (adjust_set names))
              (insert 1 (Word (alloc_size (w2n w DIV 4 + 1)))
                 (insert 3 (Word 0w) t.locals)) =
         SOME (insert 1 (Word (alloc_size (w2n w DIV 4 + 1))) y)` by
@@ -6370,7 +6376,7 @@ val adjust_var_not_15 = store_thm("adjust_var_not_15[simp]",
   metis_tac [EVAL ``EVEN 15``,EVEN_adjust_var]);
 
 val get_vars_sing = Q.store_thm("get_vars_sing",
-  `get_vars [n] t = SOME x <=> ?x1. get_vars [n] t = SOME [x1] /\ x = [x1]`,
+  `wordSem$get_vars [n] t = SOME x <=> ?x1. get_vars [n] t = SOME [x1] /\ x = [x1]`,
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs [] \\ EQ_TAC \\ fs []);
 
 val word_ml_inv_get_var_IMP = save_thm("word_ml_inv_get_var_IMP",
