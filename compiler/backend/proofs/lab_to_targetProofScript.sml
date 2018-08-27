@@ -540,6 +540,7 @@ val state_rel_def = Define `
     reg_ok s1.link_reg mc_conf.target.config /\
     (* FFI behaves correctly *)
     (!ms2 k index new_bytes t1 x.
+       index < LENGTH mc_conf.ffi_names ∧
        target_state_rel mc_conf.target
          (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
        (read_bytearray (t1.regs s1.ptr2_reg) (LENGTH new_bytes)
@@ -5351,26 +5352,31 @@ val compile_correct = Q.prove(
       \\ `w2n c2 = LENGTH new_bytes` by
        (imp_res_tac read_bytearray_LENGTH
         \\ imp_res_tac evaluatePropsTheory.call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
-      \\ res_tac \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac
-      THEN1
-       (full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO]
-        \\ rev_full_simp_tac(srw_ss())[]
-        \\ Q.PAT_X_ASSUM `t1.regs s1.ptr2_reg = c2'` (ASSUME_TAC o GSYM)
-        \\ full_simp_tac(srw_ss())[] \\ first_x_assum match_mp_tac
-        \\ full_simp_tac(srw_ss())[] \\ qexists_tac `new_io`
-        \\ full_simp_tac(srw_ss())[])
+      \\ qmatch_goalsub_abbrev_tac`mc_conf.ffi_interfer _ (index,_,_)`
+      \\ `index < LENGTH mc_conf.ffi_names`
+      by(
+        simp[Abbr`index`,get_ffi_index_def]
+        \\ imp_res_tac find_index_MEM
+        \\ first_x_assum(qspec_then`0`mp_tac)
+        \\ simp[] \\ strip_tac \\ fs[]
+        \\ simp[libTheory.the_def] )
+      \\ qunabbrev_tac`index`
+      \\ res_tac \\ full_simp_tac(srw_ss())[]
+      \\ conj_tac >- rw[]
+      \\ conj_tac
       THEN1
        (full_simp_tac(srw_ss())[shift_seq_def,PULL_FORALL,AND_IMP_INTRO])
-      THEN1 res_tac
-      THEN1
+      \\ conj_tac THEN1 metis_tac[]
+      \\ conj_tac THEN1
        (Cases_on `s1.io_regs 0 r`
         \\ full_simp_tac(srw_ss())[get_reg_value_def,word_loc_val_def])
-      THEN1
-       (qpat_x_assum `!a.
+      \\ conj_tac THEN1
+       (rpt strip_tac \\ qpat_x_assum `!a.
            byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
         \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
         \\ match_mp_tac (SIMP_RULE std_ss [] (Q.INST [`x` |-> `x'`] CallFFI_bytearray_lemma))
         \\ full_simp_tac(srw_ss())[])
+      \\ rw[]
       \\ (
         match_mp_tac (MP_CANON (Q.INST [`x`|->`x'`] bytes_in_mem_asm_write_bytearray))
         \\ simp[]))
@@ -5941,6 +5947,7 @@ val start_pc_ok_def = Define`
 val ffi_interfer_ok_def = Define`
   ffi_interfer_ok pc io_regs mc_conf ⇔
     (!ms2 k index new_bytes t1 x.
+       index < LENGTH mc_conf.ffi_names ∧
        target_state_rel mc_conf.target
          (t1 with
           pc := -n2w ((3 + index) * ffi_offset) + pc)
