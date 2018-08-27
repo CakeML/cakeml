@@ -33,6 +33,35 @@ val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
   \\ first_x_assum match_mp_tac
   \\ fs[]);
 
+val bytes_in_mem_bytes_in_memory = Q.store_thm("bytes_in_mem_bytes_in_memory",
+  `∀a bs m md k. bytes_in_mem a bs m md k ⇔ bytes_in_memory a bs m (md DIFF k)`,
+  Induct_on`bs` \\ EVAL_TAC \\ rw[]
+  \\ rw[EQ_IMP_THM]);
+
+val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_in_memory",
+  `∀p n m ba m' md.
+   (n = LENGTH ba) ∧ w2n p + n < dimword(:'a) ∧
+   (∀k. (p <=+ k ∧ k <+ p + n2w n) ⇒ k ∈ md ∧ (m k = SOME (m' k))) ∧
+   (read_bytearray (p:'a word) n m = SOME ba) ⇒
+   bytes_in_memory p ba m' md`,
+  Induct_on`ba` \\ rw[] >- EVAL_TAC
+  \\ simp[asmSemTheory.bytes_in_memory_def]
+  \\ fs[read_bytearray_def, CaseEq"option"]
+  \\ first_assum(qspec_then`p`mp_tac)
+  \\ impl_tac
+  >- (
+    simp[WORD_LOWER_EQ_REFL]
+    \\ Cases_on`p`
+    \\ simp[word_add_n2w, word_lo_n2w] \\ fs[] )
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ Cases_on`p` \\ fs[ADD1,word_add_n2w]
+  \\ qexists_tac`m` \\ fs[]
+  \\ Cases \\ strip_tac
+  \\ first_x_assum irule
+  \\ simp[WORD_LOWER_EQ_REFL, word_ls_n2w]
+  \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
+
 (*
 val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
   `0 < p ⇒ ((align p a = 0w) ⇒ w2n a < 2 ** p)`,
@@ -448,7 +477,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   \\ conj_tac >- (
     EVAL_TAC \\ rw[]
     \\ cheat (* problem with combination of ag32_ok ag32_target.config.link_reg and ccache_interfer_ok *) )
-  \\ conj_tac >- (
+  \\ conj_asm1_tac >- (
     simp[targetSemTheory.code_loaded_def,
          hello_machine_config_def,
          hello_init_ag32_state_def,
@@ -514,7 +543,30 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ irule get_byte_EL_words_of_bytes
     \\ simp[LENGTH_code, bytes_in_word_def]
     \\ EVAL_TAC)
-  \\ conj_tac >- cheat (* can this be proved from the previous conjunct? *)
+  \\ conj_tac >- (
+    fs[targetSemTheory.code_loaded_def]
+    \\ simp[hello_init_asm_state_def, hello_init_ag32_state_def]
+    \\ fs[hello_machine_config_def]
+    \\ simp[bytes_in_mem_bytes_in_memory]
+    \\ simp[hello_init_regs_def, heap_size_def, LENGTH_data,
+            LENGTH_code, memory_size_def, lab_to_targetTheory.ffi_offset_def]
+    \\ qmatch_goalsub_abbrev_tac`a ∪ b DIFF c`
+    \\ `c = a`
+    by (
+      simp[Abbr`c`,Abbr`a`, EXTENSION]
+      \\ Cases_on`r0`
+      \\ Cases
+      \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def]  )
+    \\ fs[Abbr`c`]
+    \\ simp[DIFF_SAME_UNION]
+    \\ pop_assum kall_tac
+    \\ fs[ag32_targetTheory.ag32_target_def, LENGTH_data, heap_size_def, memory_size_def,
+          lab_to_targetTheory.ffi_offset_def, hello_init_ag32_state_def]
+    \\ irule read_bytearray_IMP_bytes_in_memory
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[LENGTH_code,Abbr`a`,Abbr`b`]
+    \\ Cases_on`r0` \\  fs[word_add_n2w]
+    \\ Cases \\ fs[word_lo_n2w, word_ls_n2w])
   \\ conj_tac >- (
     qpat_x_assum`_ < dimword _`mp_tac
     \\ EVAL_TAC
