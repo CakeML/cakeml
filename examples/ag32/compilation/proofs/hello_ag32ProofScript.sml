@@ -197,6 +197,14 @@ val byte_align_IN_IMP_IN_range = Q.store_thm("byte_align_IN_IMP_IN_range",
   \\ asm_exists_tac
   \\ fs[alignmentTheory.byte_align_def]);
 
+val mem_eq_imp_asm_write_bytearray_eq = Q.store_thm("mem_eq_imp_asm_write_bytearray_eq",
+  `∀a bs.
+    (m1 k = m2 k) ⇒
+    (asm_write_bytearray a bs m1 k = asm_write_bytearray a bs m2 k)`,
+  Induct_on`bs`
+  \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def]
+  \\ rw[APPLY_UPDATE_THM]);
+
 (*
 val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
   `0 < p ⇒ ((align p a = 0w) ⇒ w2n a < 2 ** p)`,
@@ -435,7 +443,10 @@ val hello_machine_config_def = Define`
       { w | r0 + 64w <=+ w ∧ w <+ r0 + n2w (heap_size + 4 * LENGTH data) } ∪
       { w | r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ w ∧ w <+ r0 + (n2w memory_size) };
     next_interfer := K I ;
-    ccache_interfer := K (λ(_,_,ms). ms with PC := (ms.R 0w))
+    ccache_interfer := K (λ(_,_,ms). ms with PC := (ms.R 0w)) ;
+    ffi_interfer :=
+      K (λ(_,bs,ms). ms with <| PC := (ms.R 0w) ;
+                                MEM := asm_write_bytearray (ms.R 3w) bs ms.MEM|>)
   |>`
 
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
@@ -462,7 +473,8 @@ val hello_init_memory_def = Define`
 
 val hello_init_regs_def = Define`
   hello_init_regs r0 (k:num) =
-  if k = 2 then
+  if k = 0 then r0
+  else if k = 2 then
     r0 + 64w
   else if k = 4 then
     r0 + n2w heap_size
@@ -496,7 +508,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
              w <+ (hello_init_asm_state r0).regs 4}
         ∪ {w | r0 + n2w heap_size <=+ w ∧
                w <+ r0 + n2w(heap_size + 4 * LENGTH data) })
-     io_regs (K(K NONE))`,
+     (K(K NONE)) (K(K NONE))`,
   strip_tac
   \\ simp[lab_to_targetProofTheory.good_init_state_def]
   \\ conj_tac
@@ -608,7 +620,23 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     rw[asmPropsTheory.interference_ok_def]
     \\ simp[EVAL``(hello_machine_config r0).target``]
     \\ simp[EVAL``(hello_machine_config r0).next_interfer``] )
-  \\ conj_tac >- cheat (* ffi - set ffi_interfer based on hello outputs and some function modeling the print call? *)
+  \\ conj_tac >- (
+    simp[lab_to_targetProofTheory.ffi_interfer_ok_def]
+    \\ simp[hello_machine_config_def, hello_init_asm_state_def, hello_init_ag32_state_def]
+    \\ rpt gen_tac
+    \\ reverse (Cases_on`index=0`) >- cheat (* ffi_interfer_ok is too strong *)
+    \\ simp[lab_to_targetTheory.ffi_offset_def,LENGTH_data,heap_size_def]
+    \\ simp[EVAL``ag32_target.config``,labSemTheory.get_reg_value_def]
+    \\ srw_tac[ETA_ss][]
+    \\ fs[asmPropsTheory.target_state_rel_def]
+    \\ fs[ag32_targetTheory.ag32_target_def]
+    \\ fs[ag32_targetTheory.ag32_ok_def]
+    \\ fs[ag32_targetTheory.ag32_config_def]
+    \\ conj_tac
+    >- cheat (* problem with combination of ag32_ok and ag32.target.config.link_reg *)
+    \\ rw[]
+    \\ irule mem_eq_imp_asm_write_bytearray_eq
+    \\ rfs[] )
   \\ conj_tac >- (
     EVAL_TAC \\ rw[]
     \\ cheat (* problem with combination of ag32_ok ag32_target.config.link_reg and ccache_interfer_ok *) )
