@@ -845,8 +845,32 @@ val lemma = prove(goal,
       \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,heap_size_def,LENGTH_data] )
     \\ qmatch_asmsub_rename_tac`_ <=+ p`
     \\ Cases_on`p` \\ fs[word_ls_n2w,word_lo_n2w] \\ rfs[] \\ rw[]
-    \\ qmatch_asmsub_rename_tac`_ <= p`
-    \\ cheat (* arithmetic *))
+    \\ qmatch_asmsub_rename_tac`_ <= q`
+    \\ qmatch_asmsub_abbrev_tac`l ≤ q`
+    \\ fs[LESS_EQ_EXISTS]
+    \\ `∃d. p = 4 * d`
+    by (
+      fs[IN_DEF,alignmentTheory.byte_aligned_def,GSYM ALIGNED_eq_aligned,
+         addressTheory.ALIGNED_n2w]
+      \\ fs[MOD_EQ_0_DIVISOR] \\ rfs[]
+      \\ fs[Abbr`l`] \\ rveq
+      \\ qpat_x_assum`_ = 4 * _`mp_tac
+      \\ once_rewrite_tac[ADD_COMM]
+      \\ rewrite_tac[GSYM ADD_ASSOC]
+      \\ qmatch_goalsub_abbrev_tac`m + 4 * k`
+      \\ qmatch_goalsub_rename_tac`_ = 4 * n`
+      \\ strip_tac
+      \\ qexists_tac`n - k - m DIV 4`
+      \\ simp[Abbr`m`] )
+    \\ qexists_tac`d`
+    \\ simp[]
+    \\ simp[Abbr`l`,GSYM word_add_n2w]
+    \\ simp[word_add_n2w]
+    \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
+    \\ simp[]
+    \\ once_rewrite_tac[MULT_COMM]
+    \\ simp[MULT_DIV]
+    \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,LENGTH_data,heap_size_def,EL_MAP])
   \\ EVAL_TAC
   \\ rewrite_tac[hello_ag32CompileTheory.config_def]
   \\ EVAL_TAC);
