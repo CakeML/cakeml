@@ -892,6 +892,8 @@ val intermediate_prog_prefix = ref ""
 
 fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
   let
+    val _  = can (listSyntax.dest_list (rhs (concl prog_def))) orelse
+             failwith "prog_def is not a nil-terminated list"
     val cs = compilation_compset()
     val conf_def = backend_config_def
     val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
