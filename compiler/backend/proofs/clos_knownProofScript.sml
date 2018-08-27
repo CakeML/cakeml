@@ -1004,7 +1004,7 @@ val EVERY_LAST = Q.store_thm("EVERY_LAST",
   rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
 
 val LIST_REL_LAST = Q.store_thm("LIST_REL_LAST",
-  `!R l1 l2. l1 ≠ [] /\ LIST_REL R l1 l2 ==> R (LAST l1) (LAST l2)`, 
+  `!R l1 l2. l1 ≠ [] /\ LIST_REL R l1 l2 ==> R (LAST l1) (LAST l2)`,
   rw [LIST_REL_EL_EQN]
   \\ `l2 ≠ []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
   \\ fs [LAST_EL, NOT_NIL_EQ_LENGTH_NOT_0])
@@ -3246,8 +3246,6 @@ val known_correct0 = Q.prove(
    \\ patresolve `known _ [x1] _ _ = _` hd known_preserves_esgc_free
    \\ simp [] \\ strip_tac
    \\ metis_tac [v_rel_LIST_REL_subspt])
-
-
   THEN1
    (say "Op"
     \\ fs [known_def, evaluate_def]
@@ -3566,6 +3564,7 @@ val known_correct0 = Q.prove(
            \\ goal_assum (pop_assum o mp_then Any mp_tac)
            \\ simp []))
   THEN1 cheat (* Letrec *)
+
   THEN1
    (say "App"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -3629,7 +3628,7 @@ val known_correct0 = Q.prove(
         \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append, AC ASSOC_BAG_UNION COMM_BAG_UNION])
         \\ strip_tac
         (**)
-        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by cheat (* routine *)        
+        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by cheat (* routine *)
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
         \\ disch_then (qspec_then `xenv2` mp_tac)
         \\ impl_tac THEN1 fs [result_case_eq]
@@ -3695,19 +3694,18 @@ val known_correct0 = Q.prove(
         \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
         \\ goal_assum drule \\ simp [])
       THEN1
-       ((* pure *) cheat (*
+       ((* pure *)
         simp [evaluate_def, evaluate_append]
         \\ fs [result_case_eq] \\ rveq \\ fs []
         \\ fs [pair_case_eq] \\ rveq \\ fs []
         \\ rename1 `evaluate (_, _ s1) = (_, s2)`
-        \\ `subspt (next_g s1) (next_g s2) /\ subspt (next_g s2) (next_g s)`
-           by (fs [result_case_eq]
-               \\ imp_res_tac evaluate_app_IMP_shift_seq
-               \\ imp_res_tac evaluate_IMP_shift_seq
-               \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
+        \\ patresolve `evaluate (_, _, s0) = _` hd mglobals_disjoint_evaluate
+        \\ simp [] \\ disch_then (qspec_then `[x1]` mp_tac)
+        \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append, AC ASSOC_BAG_UNION COMM_BAG_UNION])
+        \\ strip_tac
+        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by cheat (* routine *)
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspecl_then [`env2`, `xenv2`] mp_tac)
-        \\ simp [co_disjoint_globals_shift_seq]
+        \\ disch_then (qspec_then `xenv2` mp_tac)
         \\ impl_tac THEN1 (fs [result_case_eq]
                            \\ metis_tac [v_rel_LIST_REL_subspt, subspt_trans])
         \\ strip_tac
@@ -3716,16 +3714,18 @@ val known_correct0 = Q.prove(
                \\ drule (pure_correct |> GEN_ALL |> INST_TYPE [``:'c`` |-> ``:val_approx num_map#'c``])
                \\ disch_then (qspecl_then [`s1`, `env1 ++ xenv1`] mp_tac)
                \\ simp [] \\ strip_tac \\ Cases_on `err_res` \\ fs [])
+        \\ `subspt (next_g s1) (next_g s2)`
+           by (fs [result_case_eq]
+               \\ imp_res_tac evaluate_IMP_shift_seq
+               \\ simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
         \\ patresolve `evaluate (_, _, s1) = _` hd evaluate_changed_globals
         \\ simp [] \\ strip_tac \\ fs []
         \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
         \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
         \\ rpt (disch_then drule \\ simp [])
-        \\ disch_then (qspec_then `g'` mp_tac)
-        \\ simp [co_disjoint_globals_shift_seq,
-                 unique_set_globals_shift_seq]
-        \\ `subspt g g'` by metis_tac [subspt_trans]
-        \\ simp [] \\ strip_tac \\ rveq
+        \\ simp [unique_set_globals_shift_seq]
+        \\ impl_tac THEN1 metis_tac [oracle_gapprox_disjoint_subspt, subspt_trans]
+        \\ strip_tac \\ rveq
         \\ rename1 `known (dec_inline_factor _) [body] _ g = ([(ebody, abody)], gdead)`
         \\ qmatch_assum_abbrev_tac `v_rel _ _ lhclos _`
         \\ rename1 `evaluate (_, _, s0) = (Rval args, _)`
@@ -3745,9 +3745,9 @@ val known_correct0 = Q.prove(
         \\ imp_res_tac nil_unique_set_globals
         \\ simp [oracle_state_sgc_free_shift_seq,
                  co_every_Fn_vs_NONE_shift_seq,
-                 oracle_states_subspt_shift_seq,
-                 unique_set_globals_shift_seq,
-                 co_disjoint_globals_shift_seq]
+                 oracle_gapprox_subspt_shift_seq,
+                 unique_set_globals_shift_seq]
+        \\ `state_oracle_mglobals_disjoint s2` by cheat (*routine*)
         \\ patresolve `LIST_REL _ args _` hd v_rel_LIST_REL_subspt
         \\ disch_then (qspec_then `next_g s2` mp_tac) \\ simp [] \\ strip_tac
         \\ rpt (disch_then drule \\ simp [])
@@ -3774,7 +3774,8 @@ val known_correct0 = Q.prove(
         \\ drule (GEN_ALL pure_correct)
         \\ disch_then (qspecl_then [`t`, `env2 ++ xenv2`] mp_tac)
         \\ simp [] \\ strip_tac \\ rveq \\ fs []
-        \\ simp [evaluate_mk_Ticks_rw]*)))
+        \\ simp [evaluate_mk_Ticks_rw]))
+
     THEN1
      ((* inlD_Annotate *) cheat (*
       simp [evaluate_def]
@@ -4187,7 +4188,7 @@ val known_correct0 = Q.prove(
                  THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
                  \\ Cases_on `loc` \\ simp []
                  THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
-                 \\ simp [clos_gen_noinline_eq, LIST_REL_EL_EQN])          
+                 \\ simp [clos_gen_noinline_eq, LIST_REL_EL_EQN])
           \\ simp []
           \\ unabbrev_all_tac
           \\ fs [next_g_def, state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
