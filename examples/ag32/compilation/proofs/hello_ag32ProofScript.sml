@@ -62,6 +62,74 @@ val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_i
   \\ simp[WORD_LOWER_EQ_REFL, word_ls_n2w]
   \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
 
+val align_ls = Q.store_thm("align_ls",
+  `align p n <=+ n`,
+  simp[WORD_LS]
+  \\ Cases_on`n`
+  \\ fs[alignmentTheory.align_w2n]
+  \\ qmatch_asmsub_rename_tac`n < _`
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ conj_asm2_tac >- fs[]
+  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
+  \\ simp[]);
+
+val align_lo = Q.store_thm("align_lo",
+  `¬aligned p n ⇒ align p n <+ n`,
+  simp[WORD_LO]
+  \\ Cases_on`n`
+  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`a < b`
+  \\ `a ≤ b` suffices_by fs[]
+  \\ qmatch_asmsub_rename_tac`n < _`
+  \\ simp[Abbr`a`]
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ conj_asm2_tac >- fs[]
+  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
+  \\ simp[]);
+
+val aligned_between = Q.store_thm("aligned_between",
+  `¬aligned p n ∧ aligned p m ∧ align p n <+ m ⇒ n <+ m`,
+  rw[WORD_LO]
+  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
+  \\ Cases_on`n` \\ Cases_on`m` \\ fs[]
+  \\ CCONTR_TAC \\ fs[NOT_LESS]
+  \\ qmatch_asmsub_abbrev_tac`n DIV d * d`
+  \\ `n DIV d * d <= n` by (
+    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
+  \\ fs[]
+  \\ qmatch_asmsub_rename_tac`(d * (m DIV d)) MOD _`
+  \\ `m DIV d * d <= m` by (
+    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
+  \\ fs[]
+  \\ `d * (n DIV d) <= m` by metis_tac[]
+  \\ pop_assum mp_tac
+  \\ simp_tac pure_ss [Once MULT_COMM]
+  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
+  \\ conj_tac >- simp[Abbr`d`]
+  \\ simp[NOT_LESS_EQUAL]
+  \\ `d * (m DIV d) < d * (n DIV d)` suffices_by fs[]
+  \\ metis_tac[])
+
+val byte_align_IN_IMP_IN_range = Q.store_thm("byte_align_IN_IMP_IN_range",
+  `byte_align a ∈ dm ∧
+   (dm = { w | low <=+ w ∧ w <+ hi }) ∧
+   byte_aligned low ∧ byte_aligned hi ⇒
+   a ∈ dm`,
+  rw[] \\ fs[]
+  >- (
+    `byte_align a <=+ a` suffices_by metis_tac[WORD_LOWER_EQ_TRANS]
+    \\ simp[alignmentTheory.byte_align_def]
+    \\ simp[align_ls] )
+  \\ Cases_on`byte_aligned a`
+    >- metis_tac[alignmentTheory.byte_aligned_def,
+                 alignmentTheory.aligned_def,
+                 alignmentTheory.byte_align_def]
+  \\ match_mp_tac (GEN_ALL aligned_between)
+  \\ fs[alignmentTheory.byte_aligned_def]
+  \\ asm_exists_tac
+  \\ fs[alignmentTheory.byte_align_def]);
+
 (*
 val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
   `0 < p ⇒ ((align p a = 0w) ⇒ w2n a < 2 ** p)`,
@@ -577,14 +645,32 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ Cases
     \\ fs[word_lo_n2w, word_ls_n2w])
   \\ conj_tac >- (
-    qpat_x_assum`_ < dimword _`mp_tac
-    \\ EVAL_TAC
-    \\ fs[LENGTH_code, LENGTH_data]
-    \\ Cases_on`r0` \\ fs[word_add_n2w]
+    gen_tac
+    \\ qmatch_goalsub_abbrev_tac`low <=+ byte_align a`
+    \\ qmatch_goalsub_abbrev_tac`byte_align a <+ hi`
     \\ strip_tac
-    \\ Cases
-    \\ fs[word_ls_n2w, word_lo_n2w, word_slice_n2w]
-    \\ cheat (* annoying word proofs: bitmap_dm is word addressable *))
+    >- (
+      disj1_tac
+      \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
+      \\ simp[Abbr`hi`,Abbr`low`]
+      \\ simp[hello_init_asm_state_def, hello_init_regs_def]
+      \\ simp[alignmentTheory.byte_aligned_def]
+      \\ conj_tac
+      \\ (alignmentTheory.aligned_add_sub_cor
+          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+          |> irule)
+      \\ fs[]
+      \\ EVAL_TAC )
+    \\ disj2_tac
+    \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
+    \\ simp[]
+    \\ simp[alignmentTheory.byte_aligned_def]
+    \\ conj_tac
+    \\ (alignmentTheory.aligned_add_sub_cor
+        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+    \\ fs[LENGTH_data]
+    \\ EVAL_TAC )
   \\ conj_tac >- (
     rw[hello_init_asm_state_def, hello_init_memory_def,
        EVAL``(hello_machine_config r0).target.config``,
