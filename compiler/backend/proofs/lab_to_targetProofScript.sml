@@ -595,8 +595,6 @@ val state_rel_def = Define `
     (p - n2w (2*ffi_offset) = mc_conf.ccache_pc) /\
     (* Small interference oracle is okay *)
     interference_ok mc_conf.next_interfer (mc_conf.target.proj t1.mem_domain) /\
-    (!q n. ((n2w (2 ** t1.align - 1) && q + n2w n) = 0w:'a word) <=>
-           (n MOD 2 ** t1.align = 0)) /\
     (!l1 l2 x2.
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
@@ -4888,8 +4886,22 @@ val compile_correct = Q.prove(
         \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
         \\ Q.PAT_X_ASSUM `xx = t1.regs r1` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-        \\ full_simp_tac(srw_ss())[alignmentTheory.aligned_bitwise_and]
-        \\ match_mp_tac pos_val_MOD_0 \\ full_simp_tac(srw_ss())[]
+        \\ (alignmentTheory.aligned_add_sub_cor
+            |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
+        \\ conj_tac >- fs[alignmentTheory.aligned_bitwise_and]
+        \\ simp[aligned_w2n]
+        \\ qmatch_goalsub_abbrev_tac`pv MOD dw MOD _`
+        \\ `pv MOD dw = pv` by (
+          simp[Abbr`pv`,Abbr`dw`]
+          \\ irule LESS_EQ_LESS_TRANS
+          \\ qexists_tac`LENGTH (prog_to_bytes code2)`
+          \\ simp[]
+          \\ drule pos_val_bound
+          \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+          \\ simp[] )
+        \\ simp[]
+        \\ qunabbrev_tac`pv`
+        \\ match_mp_tac pos_val_MOD_0 \\ fs[]
         \\ metis_tac[has_odd_inst_alignment] )
       \\ rpt strip_tac
       \\ rfs[] \\ fs[] \\ rfs[]
@@ -4911,9 +4923,23 @@ val compile_correct = Q.prove(
         \\ Q.PAT_X_ASSUM `xx = t1.regs r1` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ srw_tac[][]
-        \\ full_simp_tac(srw_ss())[alignmentTheory.aligned_bitwise_and]
-        \\ match_mp_tac pos_val_MOD_0 \\ full_simp_tac(srw_ss())[]
-        \\ metis_tac[has_odd_inst_alignment])
+        \\ (alignmentTheory.aligned_add_sub_cor
+            |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
+        \\ conj_tac >- fs[alignmentTheory.aligned_bitwise_and]
+        \\ simp[aligned_w2n]
+        \\ qmatch_goalsub_abbrev_tac`pv MOD dw MOD _`
+        \\ `pv MOD dw = pv` by (
+          simp[Abbr`pv`,Abbr`dw`]
+          \\ irule LESS_EQ_LESS_TRANS
+          \\ qexists_tac`LENGTH (prog_to_bytes code2)`
+          \\ simp[]
+          \\ drule pos_val_bound
+          \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+          \\ simp[] )
+        \\ simp[]
+        \\ qunabbrev_tac`pv`
+        \\ match_mp_tac pos_val_MOD_0 \\ fs[]
+        \\ metis_tac[has_odd_inst_alignment] )
       \\ rpt strip_tac
       \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k`MP_TAC) \\ srw_tac[][]
       \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
@@ -5910,9 +5936,11 @@ val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 val target_configured_def = Define`
   target_configured (t:'a asm_state) mc_conf ⇔
     ~t.failed /\
+    (*
     (!q n.
        (n2w (2 ** t.align - 1) && q + (n2w n):'a word) = 0w <=>
        n MOD 2 ** t.align = 0) ∧
+    *)
     t.be = mc_conf.target.config.big_endian /\
     t.align = mc_conf.target.config.code_alignment /\
     t.mem_domain = mc_conf.prog_addresses /\
@@ -5929,7 +5957,6 @@ val start_pc_ok_def = Define`
     pc - n2w ffi_offset = mc_conf.halt_pc /\
     pc - n2w (2*ffi_offset) = mc_conf.ccache_pc /\
     (1w && pc) = 0w /\
-(*>>>>>>> origin/master*)
     (!index.
        index < LENGTH mc_conf.ffi_names ==>
        pc - n2w ((3 + index) * ffi_offset) NOTIN
@@ -6260,7 +6287,7 @@ val semantics_compile_lemma = Q.prove(
   match_mp_tac (GEN_ALL semantics_make_init)>>
   fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
   fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS]>>
-  conj_tac >- fs[mc_conf_ok_def] >>  
+  conj_tac >- fs[mc_conf_ok_def] >>
   conj_tac >- (
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
