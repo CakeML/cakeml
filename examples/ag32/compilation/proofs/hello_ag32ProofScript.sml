@@ -6,6 +6,10 @@ val _ = new_theory"hello_ag32Proof";
 
 (* TODO: move *)
 
+val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
+  `ALIGNED = aligned 2`,
+  rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
+
 val imp_align_eq_0 = Q.store_thm("imp_align_eq_0",
   `w2n a < 2 ** p ⇒ (align p a= 0w)`,
   Cases_on`a` \\ fs[]
@@ -61,6 +65,69 @@ val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_i
   \\ first_x_assum irule
   \\ simp[WORD_LOWER_EQ_REFL, word_ls_n2w]
   \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
+
+val IMP_word_list = Q.store_thm("IMP_word_list",
+  `8 <= dimindex(:'a) ⇒
+   ∀p ls m.
+   (m = IMAGE (λk. (p + n2w k * (bytes_in_word:'a word), EL k ls)) (count (LENGTH ls))) ∧
+   w2n p + LENGTH ls * w2n (bytes_in_word:'a word) < dimword(:'a)
+   ⇒ word_list p ls m`,
+  strip_tac
+  \\ Induct_on`ls` \\ rw[word_list_def] >- EVAL_TAC
+  \\ fs[]
+  \\ first_x_assum(qspec_then`p + bytes_in_word`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[ADD1, LEFT_ADD_DISTRIB]
+    \\ Cases_on`p` \\ Cases_on`bytes_in_word`
+    \\ fs[word_add_n2w] )
+  \\ qmatch_goalsub_abbrev_tac`word_list _ ls m2`
+  \\ strip_tac
+  \\ simp[set_sepTheory.STAR_def]
+  \\ simp[set_sepTheory.one_def]
+  \\ qexists_tac`m2`
+  \\ simp[set_sepTheory.SPLIT_def]
+  \\ conj_tac
+  >- (
+    simp[Abbr`m2`,EXTENSION]
+    \\ qx_gen_tac`x`
+    \\ Cases_on`x = (p,h)` \\ fs[]
+    >- ( qexists_tac`0` \\ simp[] )
+    \\ EQ_TAC \\ strip_tac \\ simp[]
+    >- (
+      qexists_tac`SUC k`
+      \\ simp[GSYM word_add_n2w,ADD1,WORD_LEFT_ADD_DISTRIB])
+    \\ Cases_on`k` >- fs[]
+    \\ simp[]
+    \\ qexists_tac`n`
+    \\ simp[GSYM word_add_n2w,ADD1,WORD_LEFT_ADD_DISTRIB])
+  \\ rw[Abbr`m2`]
+  \\ Cases_on`k < LENGTH ls` \\ fs[]
+  \\ rpt disj1_tac
+  \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
+  \\ rewrite_tac[addressTheory.WORD_EQ_ADD_CANCEL]
+  \\ Cases_on`bytes_in_word`
+  \\ fs[word_add_n2w,word_mul_n2w,ADD1,LEFT_ADD_DISTRIB]
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ fs[]
+  \\ conj_tac >- (
+    irule LESS_EQ_LESS_TRANS
+    \\ qpat_x_assum`_ +_ < _`assume_tac
+    \\ asm_exists_tac \\ fs[]
+    \\ irule LESS_EQ_TRANS
+    \\ qexists_tac`n * LENGTH ls`
+    \\ simp[]
+    \\ CONV_TAC(LAND_CONV (REWR_CONV MULT_COMM))
+    \\ simp[] )
+  \\ disj1_tac
+  \\ fs[bytes_in_word_def]
+  \\ rw[]
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ simp[dimword_def,DIV_LT_X,DIV_EQ_0]
+  \\ `dimindex(:'a) = 1 * dimindex(:'a)` by fs[]
+  \\ pop_assum(CONV_TAC o LAND_CONV o REWR_CONV)
+  \\ irule bitTheory.LESS_MULT_MONO2
+  \\ simp[]);
 
 val align_ls = Q.store_thm("align_ls",
   `align p n <=+ n`,
@@ -742,7 +809,44 @@ val lemma = prove(goal,
             heap_size_def, EL_REPLICATE, LENGTH_data, LENGTH_code]
     \\ EVAL_TAC \\ simp[LENGTH_data] )
   \\ conj_tac
-  >- cheat (* data is installed *)
+  >- (
+    simp[hello_init_asm_state_def, hello_init_regs_def, LENGTH_data, heap_size_def]
+    \\ simp[Once hello_init_memory_words_def]
+    \\ simp[EL_APPEND_EQN, heap_size_def]
+    \\ irule IMP_word_list
+    \\ simp[LENGTH_data, bytes_in_word_def]
+    \\ fs[memory_size_def]
+    \\ Cases_on`r0` \\ fs[word_add_n2w]
+    \\ simp[EXTENSION,FORALL_PROD,set_sepTheory.IN_fun2set]
+    \\ reverse(rw[EQ_IMP_THM]) \\ fs[EL_MAP,LENGTH_data]
+    \\ fs[word_mul_n2w, word_add_n2w, word_lo_n2w, word_ls_n2w]
+    >- (
+      simp[IN_DEF,alignmentTheory.byte_aligned_def]
+      \\ simp[GSYM word_add_n2w]
+      \\ (alignmentTheory.aligned_add_sub_cor
+          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+          |> irule)
+      \\ reverse conj_tac >- EVAL_TAC
+      \\ (alignmentTheory.aligned_add_sub_cor
+          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+          |> irule)
+      \\ fs[]
+      \\ simp[GSYM word_mul_n2w]
+      \\ simp[GSYM ALIGNED_eq_aligned]
+      \\ qspecl_then[`0w`,`n2w k`]mp_tac addressTheory.ALIGNED_MULT
+      \\ simp[]
+      \\ disch_then irule
+      \\ EVAL_TAC )
+    >- (
+      DEP_REWRITE_TAC[ADD_DIV_RWT]
+      \\ simp[]
+      \\ once_rewrite_tac[MULT_COMM]
+      \\ simp[MULT_DIV]
+      \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,heap_size_def,LENGTH_data] )
+    \\ qmatch_asmsub_rename_tac`_ <=+ p`
+    \\ Cases_on`p` \\ fs[word_ls_n2w,word_lo_n2w] \\ rfs[] \\ rw[]
+    \\ qmatch_asmsub_rename_tac`_ <= p`
+    \\ cheat (* arithmetic *))
   \\ EVAL_TAC
   \\ rewrite_tac[hello_ag32CompileTheory.config_def]
   \\ EVAL_TAC);
