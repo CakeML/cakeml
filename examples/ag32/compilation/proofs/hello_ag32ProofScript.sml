@@ -409,7 +409,7 @@ val LENGTH_data =
   |> (REWRITE_CONV[hello_ag32CompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
 val memory_size_def = Define`
-  memory_size = 128 * 2 ** 20`;
+  memory_size = 128 * 10 ** 6`;
 
 val heap_size_def = Define`
   heap_size = 120 * 2 ** 20`;
