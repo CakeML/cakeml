@@ -4353,6 +4353,8 @@ val syntax_oracle_ok_def = Define`
     syntax_ok xs ∧
     co_every_Fn_vs_NONE co ∧
     oracle_state_sgc_free co ∧
+    oracle_gapprox_subspt co ∧
+    oracle_gapprox_disjoint (FST (FST (co 0))) co ∧
     unique_set_globals xs co ∧
     (∀n. SND(SND(co n)) = [] ∧
          syntax_ok (FST (SND (co n))))`;
@@ -4375,7 +4377,6 @@ val semantics_compile = Q.store_thm("semantics_compile",
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ irule semantics_known
   \\ fs[syntax_ok_def,syntax_oracle_ok_def]
-  \\ qexists_tac `xs`
   \\ rw []
   \\ first_x_assum(qspec_then`n`mp_tac)
   \\ simp[]);
