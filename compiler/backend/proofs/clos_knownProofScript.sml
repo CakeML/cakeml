@@ -3720,6 +3720,10 @@ val known_correct0 = Q.prove(
         \\ qmatch_assum_abbrev_tac `evaluate_app _ lhclos _ _ = _`
         \\ rename1 `evaluate (_, _, s0) = (Rval args, _)`
         \\ qmatch_goalsub_abbrev_tac `evaluate (_, _ ++ [fnclos] ++ env2 ++ xenv2, _)`
+        \\ `subspt (next_g s1) (next_g s2)` by (
+             simp[next_g_def, shift_seq_def]
+             \\ irule oracle_gapprox_subspt_alt
+             \\ fs[] )
         \\ `v_rel_app c (next_g s2) lhclos (Closure (SOME m) [] ([fnclos] ++ env2 ++ xenv2) (LENGTH xs) ebody) (SOME args)`
            by (fs [Abbr `lhclos`, v_rel_app_def]
                \\ qexists_tac `[]` \\ qexists_tac `[]` \\ simp []
@@ -3732,12 +3736,20 @@ val known_correct0 = Q.prove(
                \\ `g = gdead` by (match_mp_tac known_unchanged_globals
                                   \\ asm_exists_tac \\ simp [])
                \\ rw []
-               \\ `subspt (next_g s1) (next_g s2)` by cheat (* routine *)
                \\ metis_tac [subspt_trans])
         \\ first_x_assum drule (* inst. evaluate_app i.h. *)
-        \\ `state_oracle_mglobals_disjoint s2` by cheat (* routine *)
+        \\ `state_oracle_mglobals_disjoint s2` by (
+          irule state_oracle_mglobals_disjoint_evaluate_suff
+          \\ goal_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
+          \\ fs[unique_set_globals_shift_seq] )
         \\ rename1 `LIST_REL _ args args2`
-        \\ `LIST_REL (v_rel c (next_g s2)) args args2` by cheat (* routine *)
+        \\ `LIST_REL (v_rel c (next_g s2)) args args2` by (
+          irule LIST_REL_mono
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ rw[]
+          \\ irule v_rel_subspt
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ fs[] )
         \\ imp_res_tac nil_unique_set_globals
         \\ simp [oracle_state_sgc_free_shift_seq,
                  co_every_Fn_vs_NONE_shift_seq,
@@ -3776,7 +3788,13 @@ val known_correct0 = Q.prove(
         \\ simp [] \\ disch_then (qspec_then `[x1]` mp_tac)
         \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append, AC ASSOC_BAG_UNION COMM_BAG_UNION])
         \\ strip_tac
-        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by cheat (* routine *)
+        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by (
+          irule LIST_REL_mono
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ rw[]
+          \\ irule v_rel_subspt
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ fs[])
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
         \\ disch_then (qspec_then `xenv2` mp_tac)
         \\ impl_tac THEN1 (fs [result_case_eq]
@@ -3820,7 +3838,10 @@ val known_correct0 = Q.prove(
                  co_every_Fn_vs_NONE_shift_seq,
                  oracle_gapprox_subspt_shift_seq,
                  unique_set_globals_shift_seq]
-        \\ `state_oracle_mglobals_disjoint s2` by cheat (*routine*)
+        \\ `state_oracle_mglobals_disjoint s2` by (
+          irule state_oracle_mglobals_disjoint_evaluate_suff
+          \\ goal_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
+          \\ fs[unique_set_globals_shift_seq] )
         \\ patresolve `LIST_REL _ args _` hd v_rel_LIST_REL_subspt
         \\ disch_then (qspec_then `next_g s2` mp_tac) \\ simp [] \\ strip_tac
         \\ rpt (disch_then drule \\ simp [])
@@ -3848,7 +3869,6 @@ val known_correct0 = Q.prove(
         \\ disch_then (qspecl_then [`t`, `env2 ++ xenv2`] mp_tac)
         \\ simp [] \\ strip_tac \\ rveq \\ fs []
         \\ simp [evaluate_mk_Ticks_rw]))
-
     THEN1
      ((* inlD_Annotate *) cheat (*
       simp [evaluate_def]
