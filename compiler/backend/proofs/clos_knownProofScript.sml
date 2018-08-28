@@ -3902,7 +3902,8 @@ val known_correct0 = Q.prove(
          by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
              \\ goal_assum drule
              \\ simp [unique_set_globals_shift_seq])
-      \\ `subspt (next_g s1) (next_g s2)` by cheat (* routine *)
+      \\ `subspt (next_g s1) (next_g s2)`
+         by (simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
       \\ simp []
       \\ conj_tac THEN1 metis_tac [v_rel_LIST_REL_subspt]
       \\ patresolve `evaluate (_, _, s1) = _` (el 2) known_correct_approx
@@ -3962,24 +3963,27 @@ val known_correct0 = Q.prove(
          by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
              \\ goal_assum drule
              \\ simp [unique_set_globals_shift_seq])
-      \\ `subspt (next_g s1) (next_g s2)` by cheat (* routine *)
+      \\ `subspt (next_g s1) (next_g s2)`
+         by (simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
       \\ simp []
       \\ conj_tac THEN1 metis_tac [v_rel_LIST_REL_subspt]
       \\ simp [loptrel_def]))
-
   THEN1
-   (say "Tick" \\ cheat (*
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+   (say "Tick"
+    \\ fs [known_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
     \\ `t0.clock = s0.clock` by fs [state_rel_def]
-    \\ Cases_on `s0.clock = 0` \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac known_sing_EQ_E \\ fs [] \\ rveq
+    \\ Cases_on `s0.clock = 0`
+    \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac known_sing_EQ_E
+    \\ fs [] \\ rveq
     \\ first_x_assum drule \\ simp []
     \\ disch_then match_mp_tac
-    \\ fs [dec_clock_def, state_rel_def, next_g_def]
+    \\ fs [dec_clock_def, state_rel_def, next_g_def,
+           state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
     \\ asm_exists_tac \\ simp []
-    \\ asm_exists_tac \\ simp []
-    \\ imp_res_tac unique_set_globals_subexps \\ simp []*))
+    \\ imp_res_tac unique_set_globals_subexps \\ simp [])
   THEN1
    (say "Call" \\ cheat (*
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
