@@ -33,14 +33,59 @@ val machine_sem_total = Q.store_thm("machine_sem_total",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ metis_tac[LESS_EQ_CASES,targetPropsTheory.evaluate_add_clock_io_events_mono]);
 
+val _ = temp_overload_on("read_ffi",
+  ``λms mc.
+      (read_bytearray (mc.target.get_reg ms mc.ptr_reg)
+        (w2n (mc.target.get_reg ms mc.len_reg))
+        (λa.
+          if a ∈ mc.prog_addresses then
+            SOME (mc.target.get_byte ms a)
+          else NONE),
+       read_bytearray (mc.target.get_reg ms mc.ptr2_reg)
+        (w2n (mc.target.get_reg ms mc.len2_reg))
+        (λa.
+          if a ∈ mc.prog_addresses then
+            SOME (mc.target.get_byte ms a)
+          else NONE))``);
+
+val _ = temp_overload_on("nxt",
+  ``λmc n ms. FUNPOW mc.target.next n ms``);
+
+val interfer_FUNPOW_next_def = Define`
+  interfer_FUNPOW_next record_ffi mc ms ⇔
+   (∀n k.
+     ∃k'. (mc.next_interfer n (FUNPOW mc.target.next (k+1) ms)
+           = FUNPOW mc.target.next (k' + k + 1) ms) ∧
+           (∀ffi. record_ffi (FUNPOW mc.target.next k ms) ffi ⇒
+                  record_ffi (FUNPOW mc.target.next (1 + k) ms) ffi ∧
+                  record_ffi (FUNPOW mc.target.next (k' + k + 1) ms) ffi)) ∧
+   (∀n k.
+     ∃k'. (mc.ccache_interfer n
+            (mc.target.get_reg (FUNPOW mc.target.next k ms) mc.ptr_reg,
+             mc.target.get_reg (FUNPOW mc.target.next k ms) mc.len_reg,
+             FUNPOW mc.target.next k ms)
+           = FUNPOW mc.target.next (k' + k) ms) ∧
+           (∀ffi. record_ffi (FUNPOW mc.target.next k ms) ffi ⇒
+                  record_ffi (FUNPOW mc.target.next (k' + k) ms) ffi)) ∧
+   (∀n i b k.
+     ∃k'. (mc.ffi_interfer n (i, b, FUNPOW mc.target.next k ms)
+           = FUNPOW mc.target.next (k' + k) ms) ∧
+          (∀ffi conf bytes.
+            record_ffi (FUNPOW mc.target.next k ms) ffi ∧
+            (read_ffi (FUNPOW mc.target.next k ms) mc = (SOME conf, SOME bytes))
+            ⇒
+            record_ffi (FUNPOW mc.target.next (k' + k) ms)
+            (ffi ++ (if EL i mc.ffi_names = "" then [] else [IO_event (EL i mc.ffi_names) conf (ZIP(bytes,b))]))))`;
+
 val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
   `∀mc ffi k ms t ms' ffi'.
-   (∀n ms. ∃k. mc.next_interfer n ms = FUNPOW mc.target.next k ms) ∧
-   (∀n ms. ∃k. mc.ccache_interfer n (mc.target.get_reg ms mc.ptr_reg,mc.target.get_reg ms mc.len_reg,ms) = FUNPOW mc.target.next k ms) ∧
-   (∀n i b ms. ∃k. mc.ffi_interfer n (i,b,ms) = FUNPOW mc.target.next k ms) ∧
+   interfer_FUNPOW_next record_ffi mc ms ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
-     ∃k'. (ms' = FUNPOW mc.target.next k' ms)`,
-  ho_match_mp_tac targetSemTheory.evaluate_ind
+     ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
+          (record_ffi ms ffi.io_events ⇒
+           record_ffi ms' ffi'.io_events)`,
+  rewrite_tac[interfer_FUNPOW_next_def]
+  \\ ho_match_mp_tac targetSemTheory.evaluate_ind
   \\ rpt gen_tac
   \\ strip_tac
   \\ rpt gen_tac
@@ -48,38 +93,103 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
   \\ pop_assum mp_tac
   \\ simp[Once targetSemTheory.evaluate_def]
   \\ fs[CaseEq"bool",targetSemTheory.apply_oracle_def,shift_seq_def]
-  \\ strip_tac \\ fs[] \\ rveq
+  \\ strip_tac \\ fs[] \\ rw[]
   \\ TRY (qexists_tac`0` \\ simp[] \\ NO_TAC)
   >- (
-    last_x_assum(qspecl_then[`0`,`mc.target.next ms`]strip_assume_tac)
-    \\ simp[GSYM FUNPOW_ADD]
-    \\ qmatch_goalsub_abbrev_tac`a+b`
-    \\ qexists_tac`SUC(a+b)`
-    \\ simp[FUNPOW] )
+    last_x_assum mp_tac
+    \\ impl_tac
+    >- (
+      conj_tac >- (
+        rw[]
+        \\ last_assum(qspecl_then[`0`,`0`]mp_tac)
+        \\ strip_tac \\ fs[GSYM FUNPOW_ADD]
+        \\ last_x_assum(qspecl_then[`n+1`,`k'+k''+1`]mp_tac)
+        \\ rw[])
+      \\ conj_tac >- (
+        rw[]
+        \\ last_x_assum(qspecl_then[`0`,`0`]strip_assume_tac)
+        \\ fs[GSYM FUNPOW_ADD]
+        \\ last_x_assum(qspecl_then[`n`,`k'+k''+1`]mp_tac)
+        \\ rw[])
+      \\ rw[]
+      \\ last_x_assum(qspecl_then[`0`,`0`]strip_assume_tac)
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ last_x_assum(qspecl_then[`n`,`i`,`b`,`k'+k''+1`]strip_assume_tac)
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ qexists_tac`k'''` \\ fs[])
+    \\ rw[]
+    \\ last_x_assum(qspecl_then[`0`,`0`]strip_assume_tac)
+    \\ fs[GSYM FUNPOW_ADD] \\ rw[]
+    \\ qexists_tac`k'+k''+1` \\ rw[])
   >- (
-    first_x_assum(qspecl_then[`0`,`ms`]strip_assume_tac)
-    \\ simp[GSYM FUNPOW_ADD]
-    \\ metis_tac[] )
+    last_x_assum mp_tac
+    \\ impl_tac
+    >- (
+      conj_tac >- (
+        rw[]
+        \\ qpat_assum`!n k. ?k'. _`(qspecl_then[`0`,`0`]strip_assume_tac)
+        \\ fs[GSYM FUNPOW_ADD]
+        \\ last_x_assum(qspecl_then[`n`,`k'+k''`]mp_tac)
+        \\ rw[])
+      \\ conj_tac >- (
+        rw[]
+        \\ qpat_assum`!n k. ?k'. _`(qspecl_then[`0`,`0`]strip_assume_tac)
+        \\ fs[GSYM FUNPOW_ADD]
+        \\ qpat_x_assum`∀n k. ?k'. _`(qspecl_then[`n+1`,`k'+k''`]mp_tac)
+        \\ rw[])
+      \\ rw[]
+      \\ qpat_assum`!n k. ?k'. _`(qspecl_then[`0`,`0`]strip_assume_tac)
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ last_x_assum(qspecl_then[`n`,`i`,`b`,`k'+k''`]strip_assume_tac)
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ qexists_tac`k'''` \\ fs[])
+    \\ qpat_assum`!n k. ?k'. _`(qspecl_then[`0`,`0`]strip_assume_tac)
+    \\ fs[GSYM FUNPOW_ADD]
+    \\ rw[]
+    \\ qexists_tac`k'+k''` \\ rw[])
   >- (
     fs[CaseEq"option"]
+    \\ reverse(fs[CaseEq"ffi$ffi_result"]) \\ rfs[]
+    >- ( qexists_tac`0` \\ fs[] )
     \\ first_x_assum drule
-    \\ simp[] \\ strip_tac
-    \\ fs[CaseEq"ffi$ffi_result"] \\ rfs[]
+    \\ fs[]
+    \\ impl_tac
     >- (
-      first_x_assum(qspecl_then[`0`,`ffi_index`,`new_bytes`,`ms`]strip_assume_tac)
-      \\ simp[GSYM FUNPOW_ADD]
-      \\ metis_tac[] )
-    \\ qexists_tac`0` \\ rw[]));
-
-(*
-need to say something about ffi events above to even state this
+      conj_tac >- (
+        rw[]
+        \\ first_assum(qspecl_then[`0`,`ffi_index`,`new_bytes`,`0`]strip_assume_tac)
+        \\ fs[GSYM FUNPOW_ADD]
+        \\ last_x_assum(qspecl_then[`n`,`k'+k''`]mp_tac)
+        \\ rw[])
+      \\ conj_tac >- (
+        rw[]
+        \\ last_assum(qspecl_then[`0`,`ffi_index`,`new_bytes`,`0`]strip_assume_tac)
+        \\ fs[GSYM FUNPOW_ADD]
+        \\ qpat_x_assum`∀n k. ?k'. _`(qspecl_then[`n`,`k'+k''`]mp_tac)
+        \\ rw[])
+      \\ rw[]
+      \\ last_assum(qspecl_then[`0`,`ffi_index`,`new_bytes`,`0`]strip_assume_tac)
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ last_x_assum(qspecl_then[`n+1`,`i`,`b`,`k'+k''`]strip_assume_tac)
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ qexists_tac`k'''` \\ fs[])
+    \\ rw[]
+    \\ first_assum(qspecl_then[`0`,`ffi_index`,`new_bytes`,`0`]strip_assume_tac)
+    \\ fs[GSYM FUNPOW_ADD]
+    \\ qexists_tac`k'+k''` \\ rw[]
+    \\ first_x_assum match_mp_tac
+    \\ rfs[]
+    \\ fs[ffiTheory.call_FFI_def]
+    \\ fs[CaseEq"bool",CaseEq"oracle_result"] \\ rw[] \\ rfs[]));
 
 val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPOW_next",
-  `machine_sem mc st ms (Terminate t io_events) ⇒
-   ∃k.
-  `,
-  targetSemTheory.machine_sem_def
-*)
+  `interfer_FUNPOW_next record_ffi mc ms ∧
+   record_ffi ms st.io_events ∧
+   machine_sem mc st ms (Terminate t io_events) ⇒
+   ∃k. record_ffi (nxt mc k ms) io_events`,
+  rw[targetSemTheory.machine_sem_def]
+  \\ imp_res_tac evaluate_Halt_FUNPOW_next
+  \\ rfs[] \\ metis_tac[]);
 
 val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
   `ALIGNED = aligned 2`,
@@ -999,6 +1109,23 @@ val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_me
   \\ simp[SPLITP]
   \\ simp[o_DEF,ADD1,GSYM word_add_n2w]);
 
+val ag32_record_ffi_def = Define`
+  ag32_record_ffi r0 ms ls ⇔
+    (MAP (extract_print_from_mem 64 r0) ms.io_events
+     = MAP (λx. case x of IO_event _ conf _ => MAP (CHR o w2n) conf) ls)`;
+
+(*
+interfer_FUNPOW_next is too strong...
+
+val interfer_FUNPOW_next_ag32_record_ffi = Q.store_thm("interfer_FUNPOW_next_ag32_record_ffi",
+  `interfer_FUNPOW_next (ag32_record_ffi r0) (hello_machine_config r0) (hello_init_ag32_state r0)`,
+  simp[interfer_FUNPOW_next_def]
+  \\ conj_tac
+  >- (
+    rw[hello_machine_config_def]
+    \\ qexists_tac`0` \\ simp[]
+*)
+
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `aligned 2 r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
    ∃k. let ms = FUNPOW Next k (hello_init_ag32_state r0) in
@@ -1014,6 +1141,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ fs[SUBSET_DEF, IN_DEF]
   \\ first_x_assum drule
   \\ rw[]
-  \\ cheat (* lemmas about machine_sem, and need to implement FFI *));
+  \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
+  \\ cheat);
 
 val _ = export_theory();
