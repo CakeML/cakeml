@@ -978,15 +978,31 @@ val hello_machine_sem =
   |> curry save_thm "hello_machine_sem";
 
 val extract_print_from_mem_def = Define`
-  extract_print_from_mem (r0:word32) m =
+  extract_print_from_mem max (r0:word32) m =
     MAP (CHR o w2n)
-      (dropWhile ((<>) (0w:word8))
-        (GENLIST (λi. m (r0 + n2w i)) 64))`;
+      (FST (SPLITP ((=) (0w:word8)) (GENLIST (λi. m (r0 + n2w i)) max)))`;
+
+val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_mem_get_print_string",
+  `∀r0 x m. (get_print_string (r0,x,m) = extract_print_from_mem x r0 m)`,
+  recInduct ag32Theory.get_print_string_ind
+  \\ rw[]
+  \\ rw[Once ag32Theory.get_print_string_def]
+  \\ fs[extract_print_from_mem_def]
+  >- (
+    Cases_on`max_length` \\ fs[]
+    \\ EVAL_TAC
+    \\ rw[GENLIST_CONS]
+    \\ EVAL_TAC )
+  >- EVAL_TAC
+  \\ Cases_on`max_length` \\ fs[]
+  \\ simp[GENLIST_CONS]
+  \\ simp[SPLITP]
+  \\ simp[o_DEF,ADD1,GSYM word_add_n2w]);
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `aligned 2 r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
    ∃k. let ms = FUNPOW Next k (hello_init_ag32_state r0) in
-       let outs = MAP (extract_print_from_mem r0) ms.io_events in
+       let outs = MAP (extract_print_from_mem 64 r0) ms.io_events in
          (ms.PC = (hello_machine_config r0).halt_pc) ∧
          outs ≼ hello_outputs ∧
          ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒ (outs = hello_outputs))`,
