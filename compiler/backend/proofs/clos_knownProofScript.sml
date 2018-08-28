@@ -4204,26 +4204,21 @@ val semantics_known = Q.store_thm("semantics_known",
      (state_cc (compile_inc c) cc) xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\
    (!n. fv_max 0 (FST (SND (co n)))) /\
-   (!n exp aux.
-      SND (co n) = (exps,aux) ==>
-      EVERY esgc_free exps /\ elist_globals (MAP (SND o SND) aux) = {||}) /\
+   (!n exps aux. SND (co n) = (exps,aux) ==> EVERY esgc_free exps) /\
    every_Fn_vs_NONE xs /\
    co_every_Fn_vs_NONE co /\
-   (*
    oracle_gapprox_subspt co /\
-   *)
    oracle_state_sgc_free co /\
    unique_set_globals xs co /\
    EVERY esgc_free xs /\
    fv_max 0 xs /\
    FST (FST (co 0)) = g /\
+   oracle_gapprox_disjoint g co /\
    known c xs [] LN = (eas, g) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (state_co (compile_inc c) co) cc (MAP FST eas) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (state_cc (compile_inc c) cc) xs`,
-(*
-
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
@@ -4234,38 +4229,21 @@ val semantics_known = Q.store_thm("semantics_known",
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
                                (state_co (compile_inc c) co) cc k` mp_tac)
   \\ rename1 `evaluate (xs, _, _) = (res1, s2)`
-  \\ disch_then (qspec_then `next_g s2` mp_tac)
   \\ impl_tac
-
   THEN1
    (fs [state_rel_def, initial_state_def, fmap_rel_def]
     \\ simp [globals_approx_sgc_free_def, lookup_def]
     \\ simp [state_globals_approx_def, get_global_def]
-    \\ simp [ssgc_free_def] \\ conj_tac THEN1 metis_tac []
+    \\ simp [ssgc_free_def]
+    \\ simp [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def, mapped_globals_def, get_global_def]
     \\ simp [next_g_def]
-
-    \\ simp [co_disjoint_globals_def]
-    \\ gen_tac
-
-    \\ `` known_changed_globals
-
-    \\ fs [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
-
-    \\ `subspt (FST (FST (co 0))) (next_g s2)`
-       by (imp_res_tac evaluate_IMP_shift_seq
-           \\ simp [next_g_def, shift_seq_def, oracle_states_subspt_alt])
-
-    \\
-
-    \\ cheat)
-
+    \\ rw [] THEN1 res_tac
+    \\ fs [PAIR_FST_SND_EQ] \\ rfs [] \\ rw [])
   \\ strip_tac
   \\ qexists_tac `0` \\ simp []
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
-  \\ Cases_on `e` \\ fs [])
-*)
-cheat);
+  \\ Cases_on `e` \\ fs []);
 
 val code_locs_mk_Ticks = Q.store_thm("code_locs_mk_Ticks[simp]",
   `∀a b c d. code_locs [mk_Ticks a b c d] = code_locs [d]`,
