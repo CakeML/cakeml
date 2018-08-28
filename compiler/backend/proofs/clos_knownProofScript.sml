@@ -3695,7 +3695,13 @@ val known_correct0 = Q.prove(
         \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append, AC ASSOC_BAG_UNION COMM_BAG_UNION])
         \\ strip_tac
         (**)
-        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by cheat (* routine *)
+        \\ `LIST_REL (v_rel c (next_g s1)) env1 env2` by (
+          irule LIST_REL_mono
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ rw[]
+          \\ irule v_rel_subspt
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ fs[] )
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
         \\ disch_then (qspec_then `xenv2` mp_tac)
         \\ impl_tac THEN1 fs [result_case_eq]
