@@ -25,13 +25,19 @@ val result = translate debugMsg_def;
 
 val exit =
  ``[Dletrec (unknown_loc)
-     ["exit","u",
-      Let (SOME "x") (App Aw8alloc [Lit(IntLit 0); Lit(Word8 0w)])
-          (App (FFI "exit") [Lit (StrLit ""); Var (Short "x")])]]``
+     ["exit","i",
+      Let (SOME "y") (App (WordFromInt W8) [Var (Short "i")])
+        (Let (SOME "x") (App Aw8alloc [Lit(IntLit 1);
+                                       Var (Short "y")])
+             (App (FFI "exit") [Lit(StrLit ""); Var (Short "x")]))]]``
 
 val _ = append_prog exit
 
-val sigs = module_signatures ["fullGC", "debugMsg","exit"];
+val abort = process_topdecs `fun abort u = exit 1`
+
+val _ = append_prog abort
+                    
+val sigs = module_signatures ["fullGC", "debugMsg","exit","abort"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
 

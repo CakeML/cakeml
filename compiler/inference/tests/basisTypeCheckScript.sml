@@ -19,4 +19,8 @@ val inf_eval = computeLib.CBV_CONV cmp
 
 val test = inf_eval ``infertype_prog init_config basis``
 
+val infertype_prog_succeeds = Q.store_thm("infertype_prog_succeeds",
+  `∃s. infertype_prog init_config basis = Success s`,
+  simp [test]);
+
 val _ = export_theory ();

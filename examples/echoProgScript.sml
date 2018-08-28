@@ -45,7 +45,7 @@ val echo_spec = Q.store_thm("echo_spec",
   imp_res_tac add_stdo_o >> xsimpl);
 
 val echo_whole_prog_spec = Q.store_thm("echo_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "echo" st) cl fs
+  `whole_prog_spec ^(fetch_v "echo" st) cl fs NONE
     ((=) (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n"))))`,
   rw[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`

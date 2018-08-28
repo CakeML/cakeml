@@ -5,6 +5,8 @@ val () = new_theory "arm8_targetProof"
 
 val () = wordsLib.guess_lengths ()
 
+val ERR = mk_HOL_ERR "arm8_targetProofTheory";
+
 (* some lemmas ------------------------------------------------------------- *)
 
 fun cases_on_DecodeBitMasks (g as (asl, _)) =
