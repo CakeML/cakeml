@@ -33,6 +33,54 @@ val machine_sem_total = Q.store_thm("machine_sem_total",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ metis_tac[LESS_EQ_CASES,targetPropsTheory.evaluate_add_clock_io_events_mono]);
 
+val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
+  `∀mc ffi k ms t ms' ffi'.
+   (∀n ms. ∃k. mc.next_interfer n ms = FUNPOW mc.target.next k ms) ∧
+   (∀n ms. ∃k. mc.ccache_interfer n (mc.target.get_reg ms mc.ptr_reg,mc.target.get_reg ms mc.len_reg,ms) = FUNPOW mc.target.next k ms) ∧
+   (∀n i b ms. ∃k. mc.ffi_interfer n (i,b,ms) = FUNPOW mc.target.next k ms) ∧
+   (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
+     ∃k'. (ms' = FUNPOW mc.target.next k' ms)`,
+  ho_match_mp_tac targetSemTheory.evaluate_ind
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ pop_assum mp_tac
+  \\ simp[Once targetSemTheory.evaluate_def]
+  \\ fs[CaseEq"bool",targetSemTheory.apply_oracle_def,shift_seq_def]
+  \\ strip_tac \\ fs[] \\ rveq
+  \\ TRY (qexists_tac`0` \\ simp[] \\ NO_TAC)
+  >- (
+    last_x_assum(qspecl_then[`0`,`mc.target.next ms`]strip_assume_tac)
+    \\ simp[GSYM FUNPOW_ADD]
+    \\ qmatch_goalsub_abbrev_tac`a+b`
+    \\ qexists_tac`SUC(a+b)`
+    \\ simp[FUNPOW] )
+  >- (
+    first_x_assum(qspecl_then[`0`,`ms`]strip_assume_tac)
+    \\ simp[GSYM FUNPOW_ADD]
+    \\ metis_tac[] )
+  >- (
+    fs[CaseEq"option"]
+    \\ first_x_assum drule
+    \\ simp[] \\ strip_tac
+    \\ fs[CaseEq"ffi$ffi_result"] \\ rfs[]
+    >- (
+      first_x_assum(qspecl_then[`0`,`ffi_index`,`new_bytes`,`ms`]strip_assume_tac)
+      \\ simp[GSYM FUNPOW_ADD]
+      \\ metis_tac[] )
+    \\ qexists_tac`0` \\ rw[]));
+
+(*
+need to say something about ffi events above to even state this
+
+val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPOW_next",
+  `machine_sem mc st ms (Terminate t io_events) ⇒
+   ∃k.
+  `,
+  targetSemTheory.machine_sem_def
+*)
+
 val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
   `ALIGNED = aligned 2`,
   rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
