@@ -3465,7 +3465,35 @@ val known_correct0 = Q.prove(
                \\ simp [])
         \\ irule fmap_rel_mono
         \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
-        \\ cheat (* routine *))
+        \\ irule ref_rel_subspt
+        \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
+        \\ fs[state_cc_def]
+        \\ pairarg_tac \\ fs[]
+        \\ pairarg_tac \\ fs[]
+        \\ fs[CaseEq"option",CaseEq"prod"] \\ rw[]
+        \\ qpat_assum`_ = FST (s0.compile_oracle _)`(assume_tac o SYM) \\ fs[]
+        \\ fs[compile_inc_def]
+        \\ pairarg_tac \\ fs[] \\ rveq
+        \\ drule known_subspt
+        \\ fs[ssgc_free_def]
+        \\ fs[oracle_state_sgc_free_def]
+        \\ qpat_x_assum`∀n. globals_approx_sgc_free _`(qspec_then`kk`mp_tac)
+        \\ simp[]
+        \\ fs[oracle_gapprox_disjoint_def]
+        \\ qpat_x_assum`∀n. gapprox_disjoint _ _`(qspec_then`0`mp_tac)
+        \\ simp[gapprox_disjoint_def]
+        \\ srw_tac[DNF_ss][]
+        \\ first_x_assum match_mp_tac
+        \\ simp[BAG_ALL_DISTINCT_BAG_UNION]
+        \\ imp_res_tac unique_set_globals_shift_seq
+        \\ pop_assum kall_tac
+        \\ pop_assum(qspec_then`kk`mp_tac)
+        \\ simp[unique_set_globals_def,elist_globals_append,BAG_ALL_DISTINCT_BAG_UNION,shift_seq_def]
+        \\ simp[first_n_exps_def]
+        \\ disch_then(qspec_then`1`mp_tac)
+        \\ simp[] \\ strip_tac
+        \\ simp[BAG_DISJOINT_BAG_IN]
+        \\ fs[IN_DISJOINT])
       THEN1
        (fs [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
         \\ metis_tac [FST, SND])
