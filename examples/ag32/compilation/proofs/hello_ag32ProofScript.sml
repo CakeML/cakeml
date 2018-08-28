@@ -531,13 +531,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     simp[lab_to_targetProofTheory.target_configured_def]
     \\ conj_tac >- EVAL_TAC
     \\ simp[EVAL``(hello_machine_config r0).target``]
-    \\ simp[hello_init_asm_state_def]
-    \\ once_rewrite_tac[WORD_AND_COMM]
-    \\ Cases
-    \\ rewrite_tac[word_add_n2w]
-    \\ rewrite_tac[addressTheory.n2w_and_3]
-    \\ qx_gen_tac`m`
-    \\ cheat (* target_configured needs to be fixed *) )
+    \\ simp[hello_init_asm_state_def])
   \\ conj_tac >- EVAL_TAC
   \\ `r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) && 3w = 0w` by (
     fs[alignmentTheory.aligned_bitwise_and]
@@ -624,7 +618,6 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     simp[lab_to_targetProofTheory.ffi_interfer_ok_def]
     \\ simp[hello_machine_config_def, hello_init_asm_state_def, hello_init_ag32_state_def]
     \\ rpt gen_tac
-    \\ reverse (Cases_on`index=0`) >- cheat (* ffi_interfer_ok is too strong *)
     \\ simp[lab_to_targetTheory.ffi_offset_def,LENGTH_data,heap_size_def]
     \\ simp[EVAL``ag32_target.config``,labSemTheory.get_reg_value_def]
     \\ srw_tac[ETA_ss][]
