@@ -6,6 +6,33 @@ val _ = new_theory"hello_ag32Proof";
 
 (* TODO: move *)
 
+val machine_sem_total = Q.store_thm("machine_sem_total",
+  `∃b. machine_sem mc st ms b`,
+  Cases_on`∃k t. FST (evaluate mc st k ms) = Halt t`
+  >- (
+    fs[]
+    \\ qexists_tac`Terminate t (SND(SND(evaluate mc st k ms))).io_events`
+    \\ simp[targetSemTheory.machine_sem_def]
+    \\ Cases_on`evaluate mc st k ms`
+    \\ qexists_tac`k` \\ fs[]
+    \\ Cases_on`r` \\ fs[] )
+  \\ Cases_on`∃k. FST (evaluate mc st k ms) = Error`
+  >- ( qexists_tac`Fail` \\ simp[targetSemTheory.machine_sem_def] )
+  \\ qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (SND(SND(evaluate mc st k ms))).io_events) UNIV))`
+  \\ simp[targetSemTheory.machine_sem_def]
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ Cases_on`evaluate mc st k ms`
+    \\ fs[GSYM EXISTS_PROD]
+    \\ metis_tac[targetSemTheory.machine_result_nchotomy, FST] )
+  \\ irule build_lprefix_lub_thm
+  \\ simp[IMAGE_COMPOSE, GSYM o_DEF]
+  \\ irule prefix_chain_lprefix_chain
+  \\ simp[prefix_chain_def, PULL_EXISTS]
+  \\ qx_genl_tac[`k1`,`k2`]
+  \\ metis_tac[LESS_EQ_CASES,targetPropsTheory.evaluate_add_clock_io_events_mono]);
+
 val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
   `ALIGNED = aligned 2`,
   rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
@@ -901,5 +928,28 @@ val hello_machine_sem =
   |> C MATCH_MP (UNDISCH lemma)
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
+
+val extract_print_from_mem_def = Define`
+  extract_print_from_mem (r0:word32) m =
+    MAP (CHR o w2n)
+      (dropWhile ((<>) (0w:word8))
+        (GENLIST (λi. m (r0 + n2w i)) 64))`;
+
+val hello_ag32_next = Q.store_thm("hello_ag32_next",
+  `aligned 2 r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
+   ∃k. let ms = FUNPOW Next k (hello_init_ag32_state r0) in
+       let outs = MAP (extract_print_from_mem r0) ms.io_events in
+         (ms.PC = (hello_machine_config r0).halt_pc) ∧
+         outs ≼ hello_outputs ∧
+         ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒ (outs = hello_outputs))`,
+  disch_then assume_tac
+  \\ assume_tac (UNDISCH hello_machine_sem)
+  \\ fs[extend_with_resource_limit_def]
+  \\ qmatch_asmsub_abbrev_tac`machine_sem mc st ms`
+  \\ `∃b. machine_sem mc st ms b` by metis_tac[machine_sem_total]
+  \\ fs[SUBSET_DEF, IN_DEF]
+  \\ first_x_assum drule
+  \\ rw[]
+  \\ cheat (* lemmas about machine_sem, and need to implement FFI *));
 
 val _ = export_theory();
