@@ -3678,7 +3678,46 @@ val known_correct0 = Q.prove(
                                                         simp [config_component_equality])])
            \\ goal_assum (pop_assum o mp_then Any mp_tac)
            \\ simp []))
-  THEN1 cheat (* Letrec *)
+
+  THEN1
+   (say "Letrec"
+    \\ fs [known_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ fs [evaluate_def, bool_case_eq]
+    \\ fixeqs
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule \\ simp [])
+    \\ qmatch_asmsub_abbrev_tac `evaluate (_, rcs1 ++ env1 ++ xenv1, _)`
+    \\ qmatch_goalsub_abbrev_tac `evaluate (_, rcs2 ++ env2 ++ xenv2, _)`
+    \\ disch_then (qspec_then `rcs1 ++ env1` mp_tac)
+    \\ fs [Abbr `rcs1`]
+    \\ disch_then (qspecl_then [`rcs2 ++ env2`, `xenv2`] mp_tac)
+    \\ fs [Abbr `rcs2`]
+    \\ reverse impl_tac
+    THEN1 (strip_tac
+           \\ dsimp [EVERY_MAP, LAMBDA_PROD]
+           \\ `t0.max_app = s0.max_app` by fs [state_rel_def]
+           \\ imp_res_tac known_sing_EQ_E
+           \\ fs [] \\ rw [])
+    \\ imp_res_tac unique_set_globals_subexps \\ simp []
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ rw []
+    THEN1 simp [EVERY_GENLIST]
+    THEN1 (irule EVERY2_APPEND_suff \\ simp []
+           \\ Cases_on `loc`
+           \\ simp [LIST_REL_EL_EQN, EL_REPLICATE, clos_gen_noinline_eq])
+    THEN1 (Cases_on `loc`
+           \\ simp [EVERY_REPLICATE, clos_gen_noinline_val_approx_sgc_free])
+    \\ irule EVERY2_APPEND_suff \\ simp []
+    \\ simp [LIST_REL_EL_EQN]
+    \\ fs [Once every_Fn_vs_NONE_EVERY, EVERY_MAP, LAMBDA_PROD]
+    \\ rw []
+    \\ qexists_tac `aenv`
+    \\ qexists_tac `env1` \\ simp []
+    \\ qexists_tac `env2` \\ simp []
+    \\ fs [LIST_REL_EL_EQN]
+    \\ cheat)
+
   THEN1
    (say "App"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
