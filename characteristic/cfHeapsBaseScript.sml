@@ -573,7 +573,7 @@ val hsimpl_gc = Q.store_thm ("hsimpl_gc",
 )
 
 (*------------------------------------------------------------------*)
-(* Automatic rewrites for POSTv/POSTe/POSTd/POST/POSTD *)
+(* Automatic rewrites for POSTv/POSTe/POSTf/POSTd/POST *)
 
 val POSTv_Val = Q.store_thm ("POSTv_Val[simp]",
   `!Qv v. $POSTv Qv (Val v) = Qv v`,
