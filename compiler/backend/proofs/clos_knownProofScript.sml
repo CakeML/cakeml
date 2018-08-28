@@ -3985,23 +3985,16 @@ val known_correct0 = Q.prove(
     \\ asm_exists_tac \\ simp []
     \\ imp_res_tac unique_set_globals_subexps \\ simp [])
   THEN1
-   (say "Call" \\ cheat (*
-    \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+   (say "Call"
+    \\ fs [known_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, pair_case_eq]
     \\ imp_res_tac unique_set_globals_subexps
-    \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule \\ simp [])
     \\ disch_then (qspec_then `xenv2` mp_tac)
-    \\ rename1 `evaluate (_, _ s0) = (_, s1)`
-    \\ `subspt (next_g s1) (next_g s) /\ subspt (next_g s1) g'`
-       by (reverse conj_asm1_tac THEN1 metis_tac [subspt_trans]
-           \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, next_g_def]
-           \\ fixeqs \\ imp_res_tac evaluate_IMP_shift_seq
-           \\ simp [shift_seq_def, dec_clock_def]
-           \\ simp [oracle_states_subspt_alt])
-    \\ fs [result_case_eq] \\ strip_tac \\ rveq \\ fs []
-    \\ rename1 `evaluate (_, _ t0) = (_, t1)`
-    \\ `s1.code = FEMPTY /\ t1.code = FEMPTY` by fs [state_rel_def]
-    \\ fs [find_code_def]*))
+    \\ fs [result_case_eq] \\ rw []
+    \\ fs [state_rel_def, find_code_def])
   THEN1
    (say "evaluate_app NIL"
     \\ fs [evaluate_def, v_rel_app_NONE] \\ rveq \\ fs [])
