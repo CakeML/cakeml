@@ -3351,7 +3351,46 @@ val known_correct0 = Q.prove(
                  \\ drule oracle_gapprox_subspt_alt
                  \\ disch_then (qspec_then `kk1` mp_tac)
                  \\ simp [])
-          \\ cheat (* routine fmap_rel_mono, v_rel_subspt and v_rel_LIST_REL_subspt  *))
+          \\ irule fmap_rel_mono
+          \\ goal_assum (first_assum o mp_then Any mp_tac) \\ rw[]
+          \\ irule ref_rel_subspt
+          \\ goal_assum (first_assum o mp_then Any mp_tac) \\ rw[]
+          \\ fs[state_cc_def]
+          \\ pairarg_tac \\ fs[]
+          \\ pairarg_tac \\ fs[]
+          \\ fs[CaseEq"option",CaseEq"prod"] \\ rw[]
+          \\ qpat_assum`_ = FST (s1.compile_oracle 1)`(assume_tac o SYM) \\ fs[]
+          \\ fs[compile_inc_def]
+          \\ pairarg_tac \\ fs[] \\ rveq
+          \\ drule known_subspt
+          \\ qpat_x_assum`_ = (_,s1)`assume_tac
+          \\ drule evaluate_changed_globals
+          \\ fs[]
+          \\ strip_tac
+          \\ fs[shift_seq_def]
+          \\ fs[oracle_state_sgc_free_def]
+          \\ qpat_assum`∀n. globals_approx_sgc_free _`(qspec_then`n+1`mp_tac)
+          \\ qpat_x_assum`∀n. globals_approx_sgc_free _`(qspec_then`n`mp_tac)
+          \\ simp[globals_approx_sgc_free_def]
+          \\ fs[ssgc_free_def]
+          \\ first_x_assum(qspec_then`0`mp_tac)
+          \\ simp[]
+          \\ fs[oracle_gapprox_disjoint_def]
+          \\ qpat_x_assum`∀n. gapprox_disjoint _ _`(qspec_then`0`mp_tac)
+          \\ simp[gapprox_disjoint_def]
+          \\ srw_tac[DNF_ss][]
+          \\ first_x_assum match_mp_tac
+          \\ conj_tac >- metis_tac[]
+          \\ simp[BAG_ALL_DISTINCT_BAG_UNION]
+          \\ imp_res_tac unique_set_globals_shift_seq
+          \\ pop_assum kall_tac
+          \\ pop_assum(qspec_then`n`mp_tac)
+          \\ simp[unique_set_globals_def,elist_globals_append,BAG_ALL_DISTINCT_BAG_UNION,shift_seq_def]
+          \\ simp[first_n_exps_def]
+          \\ disch_then(qspec_then`1`mp_tac)
+          \\ simp[] \\ strip_tac
+          \\ simp[BAG_DISJOINT_BAG_IN]
+          \\ fs[IN_DISJOINT])
         \\ conj_tac
         THEN1
          (irule state_globals_approx_known_mglobals_disjoint
