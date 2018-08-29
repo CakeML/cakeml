@@ -8,6 +8,16 @@ val () = new_theory "ag32_target"
 val ag32_ok_def = Define`
   ag32_ok ms <=> aligned 2 ms.PC`
 
+(* Possible initial states for Ag32, not placed in the L3 ISA because it was
+   difficult to express this concisely there *)
+
+val ag32_init_regs_def = Define `
+ ag32_init_regs mem_start k = if k = 0n then mem_start else 0w`
+
+val ag32_init_state_def = Define `
+ ag32_init_state mem mem_start =
+  <| PC := mem_start + n2w print_string_max_length; MEM := mem; R := ag32_init_regs mem_start o w2n |>`;
+
 (* --- Encode ASM instructions to Ag32 bytes. --- *)
 
 val ag32_encode1_def = Define`
