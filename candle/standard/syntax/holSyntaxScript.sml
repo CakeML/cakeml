@@ -776,7 +776,7 @@ val monotone_def = Define`
   `;
 
 val monotone_compute_def = Define`
-  monotone_compute = EVERY (\(x,y). list_subset (sum_tyvars x) (sum_tyvars y))
+  monotone_compute = T (*EVERY (\(x,y). list_subset (ARB(*sum_tyvars*) x) (ARB(*sum_tyvars*) y))*)
 `;
 
 (* overload is_instance to terms: c is an instance of c0  if  (is_instance c0 c) *)

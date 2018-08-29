@@ -3,6 +3,8 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 
 val _ = new_theory"holSyntaxExtra"
 
+val _ = Parse.temp_overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
+                  
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
@@ -3582,7 +3584,7 @@ val normalise_tyvars_rec_def = Define `
 
 val distinct_varnames = Q.prove(
   `!ty chr n n0. n > n0 /\ n0 = list_max (MAP $strlen (tyvars ty))
-  ==> ~MEM (strlit (REPLICATE n chr)) (tyvars ty)`
+  ==> ~MEM (strlit (REPLICATE n chr)) (tyvars ty)`,
   rpt strip_tac
   >> rw[tyvars_def]
   >> ASSUME_TAC (Q.SPECL [`(MAP $strlen (tyvars ty))`] list_max_max)
@@ -3832,7 +3834,7 @@ val normalise_tyvars_subst_replacing = Q.store_thm(
 );
 
 (* Unify two types and return two type substitutions as a certificate *)
-val unify_subslist_def = Hol_defn "unify_subslist" `
+val unify_subslist_defn = Hol_defn "unify_subslist" `
   (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
     let
       varname = (\n. strlit(REPLICATE (SUC n) #"a"))
@@ -3867,13 +3869,13 @@ val (unify_subslist_def, unify_subslist_ind) = Defn.tprove (
   unify_subslist_defn,
   WF_REL_TAC `measure (\x. type_size (FST x) + type_size (FST(SND x)))`
   >> NTAC 2 Induct
-  >- rw[fetch "-" "type_size_def"]
-  >- rw[fetch "-" "type_size_def"]
+  >- rw[holSyntaxTheory.type_size_def]
+  >- rw[holSyntaxTheory.type_size_def]
   >> rpt strip_tac
   >> imp_res_tac MEM_ZIP_MEM_MAP
   >> rfs[]
   >> ONCE_REWRITE_TAC[rich_listTheory.CONS_APPEND]
-  >> rw[TYPE1_SIZE_APPEND,fetch "-" "type_size_def",SND,FST]
+  >> rw[type1_size_append,holSyntaxTheory.type_size_def,SND,FST]
   >> imp_res_tac type1_size_mem
   >> simp[]
 );
@@ -4139,7 +4141,7 @@ val finite_bounded_subst_clos = Q.store_thm("finite_bounded_subst_clos",
   >> fs[rel_to_reln_def,rel_set_union]
   >> CONV_TAC(DEPTH_CONV ETA_CONV)
   >> fs[]
-  >> Cases_on `e` >> fs[] >> metis_tac[finite_normalise_singleton,rel_to_reln_def]);
+  >> Cases_on `e` >> fs[] >> metis_tac[(*finite_normalise_singleton,*)rel_to_reln_def]);
 
 (* not true!
  val finite_normalise_clos = Q.store_thm("finite_normalise_clos",
