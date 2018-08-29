@@ -3403,6 +3403,122 @@ val orth_ctxt_simps = Q.store_thm("orth_ctxt_simps[simp]",
   >- (rw[orth_ctxt_def])
   >- (rw[orth_ctxt_def]));
 
+(* list_subset properties *)
+
+(* l1 is subset of l2 *)
+val list_subset_NIL = Q.store_thm(
+  "list_subset_NIL",
+  `!l. list_subset [] l`,
+  rw[list_subset_def,EVERY_DEF]
+);
+
+val list_subset_SING = Q.store_thm(
+  "list_subset_SING",
+  `!x y. list_subset [x] [y] = (x = y)`,
+  rw[list_subset_def]
+);
+
+val list_subset_IDENT = Q.store_thm(
+  "list_subset_IDENT",
+  `!l. list_subset l l`,
+  Induct >> rw[list_subset_def,EVERY_MEM]
+);
+
+val list_subset_SIMP = Q.store_thm(
+  "list_subset_SIMP",
+  `!l2 l1 l3. list_subset l2 (l1++l2++l3)`,
+  Induct
+  >- rw[list_subset_NIL]
+  >> strip_tac
+  >> rw[list_subset_def,EVERY_MEM]
+);
+
+val list_subset_MEM = Q.store_thm(
+  "list_subset_MEM",
+  `!l x. list_subset [x] l ==> MEM x l`,
+  rw[list_subset_def]
+);
+
+val list_subset_NIL2 = Q.store_thm(
+  "list_subset_MEM",
+  `!l. list_subset l [] = NULL l`,
+  rw[list_subset_def,NULL_EQ]
+);
+
+val list_subset_NOT_NIL = Q.store_thm(
+  "list_subset_NOT_NIL",
+  `!l1 l2. (list_subset l1 l2) /\ (NULL l2) ==> NULL l1`,
+  Induct
+  >- rw[list_subset_def]
+  >> strip_tac
+  >> Cases
+  >- rw[list_subset_NIL2]
+  >> rw[NULL_EQ]
+);
+
+val list_inter_distinct_prop =  Q.prove (
+  `!l r f. (!x. MEM x l ==> f x) /\ (!x. MEM x r ==> ~f x)
+  ==> NULL (list_inter l r)`,
+  rw[list_inter_def]
+  >> Induct_on `r`
+  >- fs[]
+  >> rw[MEM]
+  >> qexists_tac `h`
+  >> rw[]
+);
+
+val list_inter_heads = Q.prove(
+  `!x y xs ys. NULL(list_inter (x::xs) (y::ys)) ==> x <> y`,
+  fs[list_inter_def]
+)
+
+val list_inter_tails = Q.prove(
+  `!x y xs ys. NULL(list_inter (x::xs) (y::ys)) ==> NULL(list_inter xs ys)`,
+  rw[list_inter_def,NULL_FILTER]
+)
+
+val list_inter_subset = Q.prove(
+  `!ls xs ys. (!x. MEM x xs ==> MEM x ls)
+  /\ NULL (list_inter ls ys) ==> NULL (list_inter xs ys)`,
+  rw[list_inter_def,NULL_FILTER]
+  >> rpt (first_x_assum (qspecl_then [`y`] assume_tac))
+  >> rfs[]
+);
+
+val list_inter_set_symm = Q.prove(
+  `!xs ys. set (list_inter xs ys) = set (list_inter ys xs)`,
+  rw[list_inter_def,LIST_TO_SET_FILTER,INTER_COMM]
+);
+
+val list_inter_NULL_symm = Q.prove(
+  `!xs ys. NULL (list_inter xs ys) = NULL (list_inter ys xs)`,
+  metis_tac[NULL_EQ,list_inter_set_symm,LIST_TO_SET_EQ_EMPTY]
+);
+
+val list_max_MEM = Q.prove(
+  `!l x. (MEM x l) ==> (x <= list_max l)`,
+  Induct
+  >> rw[list_max_def]
+  >> fs[list_max_def]
+  >> last_x_assum drule
+  >> simp[]
+);
+
+val list_max_APPEND = Q.prove(
+  `!l x y. list_max l <= list_max (x ++ l ++ y)`,
+  Induct
+  >- rw[list_max_def]
+  >> rw[list_max_def]
+  >- (
+    match_mp_tac list_max_MEM
+    >> fs[]
+  )
+  >> first_x_assum (qspecl_then [`x ++ [h]`,`y`] mp_tac)
+  >> `h::l = [h] ⧺ l` by rw[]
+  >> asm_rewrite_tac[]
+  >> fs[]
+);
+
 (* Unify two types and return two type substitutions as a certificate *)
 val unify_subslist_def = Hol_defn "unify_subslist" `
   (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
