@@ -4129,7 +4129,30 @@ val known_correct0 = Q.prove(
         \\ qexists_tac `env1a` \\ simp []
         \\ qexists_tac `env2a` \\ simp []
         \\ irule EVERY2_APPEND_suff \\ simp [])
-      THEN1 cheat (* Recclosure *))
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rename1 `EL ii _`
+      \\ qpat_assum `LIST_REL _ fns _` (fn th =>
+           strip_assume_tac (SIMP_RULE (srw_ss()) [LIST_REL_EL_EQN] th))
+      \\ pop_assum (qspec_then `ii` mp_tac)
+      \\ simp [f_rel_def]
+      \\ strip_tac
+      \\ fs [bool_case_eq]
+      THEN1
+       (fs [state_rel_def, next_g_def, loptrel_def, check_loc_def]
+        \\ Cases_on `lopt2` \\ fs []
+        \\ Cases_on `loc` \\ fs [])
+      \\ rw []
+      \\ dsimp []
+      \\ fs [state_rel_def, next_g_def]
+      \\ goal_assum (first_assum o mp_then (Pat `val_approx_val`) mp_tac)
+      \\ simp []
+      \\ goal_assum (first_assum o mp_then (Pat `LIST_REL`) mp_tac)
+      \\ simp []
+      \\ reverse conj_tac
+      THEN1 (irule EVERY2_APPEND_suff \\ simp [])
+      \\ fs [loptrel_def, check_loc_def]
+      \\ Cases_on `lopt2` \\ fs []
+      \\ Cases_on `loc` \\ fs [])
 
     THEN1 ((* dest_closure returns Full_app *)
       Cases_on `argsopt` \\ fs [] \\ rveq
