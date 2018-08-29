@@ -3519,6 +3519,41 @@ val list_max_APPEND = Q.prove(
   >> fs[]
 );
 
+val renaming_def = Define `
+  renaming = EVERY (λ(x,y). (?m n. (x = Tyvar m) /\ (y = Tyvar n)))
+`;
+
+val renaming_simp = Q.prove(
+  `!h l. renaming (h::l) = (renaming [h] /\ renaming l)`,
+  rw[EVERY_DEF,renaming_def]
+)
+
+val type_size'_renaming = Q.prove(
+  `!sigma ty. renaming sigma
+  ==> type_size' (TYPE_SUBST sigma ty) = type_size' ty`,
+  ho_match_mp_tac TYPE_SUBST_ind
+  >> ONCE_REWRITE_TAC[renaming_def]
+  >> strip_tac
+  >- (
+    Induct
+    >- rw[TYPE_SUBST_NIL]
+    >> Cases
+    >> fs[TYPE_SUBST_def]
+    >> rw[REV_ASSOCD_def,type_size'_def]
+    >> rw[type_size'_def]
+  )
+  >> Induct
+  >- rw[TYPE_SUBST_NIL]
+  >> Cases
+  >> fs[TYPE_SUBST_def]
+  >> rw[TYPE_SUBST_def,type_size'_def,type1_size'_SUM_MAP,MAP_MAP_o,o_DEF]
+  >> Induct_on `tys`
+  >- rw[TYPE_SUBST_NIL]
+  >> Cases
+  >> rw[TYPE_SUBST_def,MAP]
+  >> rw[TYPE_SUBST_def,MAP]
+);
+
 (* Unify two types and return two type substitutions as a certificate *)
 val unify_subslist_def = Hol_defn "unify_subslist" `
   (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
