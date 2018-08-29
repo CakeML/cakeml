@@ -3083,18 +3083,6 @@ val proveHyp = Q.store_thm("proveHyp",
   TRY(fs[EVERY_MEM]>>NO_TAC) >>
   metis_tac[MEM_term_union,hypset_ok_term_union,hypset_ok_term_remove,ACONV_REFL])
 
-(* allTypes' WF proof *)
-
-val (allTypes'_def, allTypes'_ind) = Defn.tprove (
-  allTypes'_defn,
-  WF_REL_TAC `measure type_size`
-  >> Induct
-  >> rw[fetch "-" "type_size_def"]
-  >> fs[MEM_SPLIT]
-  >> rw[type1_size_append]
-  >> rw[fetch "-" "type_size_def"]
-);
-
 (* dependency relation *)
 
 val DEPENDENCY_IMP1 = Q.store_thm(

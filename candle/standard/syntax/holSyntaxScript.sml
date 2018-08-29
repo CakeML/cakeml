@@ -645,6 +645,16 @@ val type1_size_append = Q.prove(
   `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
   Induct >> simp[fetch "-" "type_size_def"])
 
+val (allTypes'_eqns, allTypes'_ind) = Defn.tprove (
+  allTypes'_defn,
+  WF_REL_TAC `measure type_size`
+  >> Induct
+  >> rw[fetch "-" "type_size_def"]
+  >> fs[MEM_SPLIT]
+  >> rw[type1_size_append]
+  >> rw[fetch "-" "type_size_def"]
+);
+
 (* extend allTypes' to terms *)
 val allTypes_def = Define `
   (allTypes (Var _ ty) = allTypes' ty)
