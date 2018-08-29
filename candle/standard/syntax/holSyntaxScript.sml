@@ -641,6 +641,10 @@ val allTypes'_defn = Hol_defn "allTypes'" `
   /\ (allTypes' (Tyvar _) = [])
 `;
 
+val type1_size_append = Q.prove(
+  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
+  Induct >> simp[fetch "-" "type_size_def"])
+
 (* extend allTypes' to terms *)
 val allTypes_def = Define `
   (allTypes (Var _ ty) = allTypes' ty)

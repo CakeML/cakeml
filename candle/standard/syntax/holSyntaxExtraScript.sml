@@ -41,7 +41,36 @@ val [MEM_tyvars_type_size,MEM_tyvars_type1_size] = Q.prove(
   >- (last_x_assum drule \\ simp[]))
   |> CONJUNCTS
   |> map2 (curry save_thm) ["MEM_tyvars_type_size","MEM_tyvars_type1_size"]
-                                
+
+(* type_size but disregarding the lengths of strings *)
+val type_size'_def = Define `
+  (∀a. type_size' (Tyvar a) = SUC 0)
+  ∧ (∀a0 a1.  type_size' (Tyapp a0 a1) = 1 + type1_size' a1)
+  ∧ (type1_size' [] = 0)
+  ∧ (∀a0 a1. type1_size' (a0::a1) = 1 + (type_size' a0 + type1_size' a1))
+`;
+
+val type1_size'_append = Q.store_thm("type1_size'_append",
+  `∀l1 l2. type1_size' (l1 ++ l2) = type1_size' l1 + type1_size' l2`,
+  Induct >> simp[type_size'_def]
+)
+
+val type1_size'_mem = Q.store_thm("type1_size'_append",
+  `∀ty tys. MEM ty tys ==> type_size' ty < type1_size' tys + 1`,
+  CONV_TAC SWAP_FORALL_CONV
+  >> Induct
+  >> simp[fetch "-" "type_size'_def"]
+  >> rw[fetch "-" "type_size'_def"]
+  >- simp[]
+  >> first_x_assum drule
+  >> simp[]
+)
+
+val type1_size'_SUM_MAP = Q.store_thm("type1_size'_SUM_MAP",
+  `∀l. type1_size' l = LENGTH l + SUM (MAP $type_size' l)`,
+  Induct >> simp[type_size'_def]
+)
+
 val extends_ind = Q.store_thm("extends_ind",
   `∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ P ctxt1 ⇒ P ctxt2`,
