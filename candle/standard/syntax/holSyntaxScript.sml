@@ -775,6 +775,10 @@ val monotone_def = Define`
     in list_subset tys_x tys_y
   `;
 
+val monotone_compute_def = Define`
+  monotone_compute = EVERY (\(x,y). list_subset (sum_tyvars x) (sum_tyvars y))
+`;
+
 (* overload is_instance to terms: c is an instance of c0  if  (is_instance c0 c) *)
 val _ = Parse.temp_overload_on("is_instance",``λc0 c. ∃sigma. c = INST sigma c0``)
 
