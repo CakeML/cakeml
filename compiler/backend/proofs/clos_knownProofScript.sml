@@ -4156,6 +4156,7 @@ val known_correct0 = Q.prove(
 
     THEN1 ((* dest_closure returns Full_app *)
       Cases_on `argsopt` \\ fs [] \\ rveq
+
       THEN1
        (drule dest_closure_SOME_IMP \\ strip_tac \\ rveq
         \\ fs [v_rel_app_def] \\ rveq \\ fs []
@@ -4207,17 +4208,13 @@ val known_correct0 = Q.prove(
           \\ simp [mglobals_disjoint_def]
           \\ fs [Abbr `fullenv1`]
           \\ impl_tac
-
           THEN1
-           (rpt conj_tac
-            THEN1 fs [Abbr `state1`, next_g_def]
-            THEN1 fs [Abbr `state1`, state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
+           (fs [Abbr `state1`, next_g_def,
+                state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
+            \\ conj_tac
             THEN1 (irule EVERY2_APPEND_suff \\ simp []
                    \\ simp [LIST_REL_EL_EQN, EL_REPLICATE])
-
-            THEN1 cheat (* state_globals_approx s0 (next_g state1) *)
-            THEN1 fs [Abbr `state1`, next_g_def]
-            THEN1 fs [result_case_eq])
+            \\ fs [result_case_eq])
           \\ strip_tac \\ fs []
           \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
           \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
@@ -4270,6 +4267,7 @@ val known_correct0 = Q.prove(
           \\ irule EVERY2_APPEND_suff
           \\ fs [next_g_def]
           \\ metis_tac [v_rel_LIST_REL_subspt, v_rel_subspt])
+
         THEN1 cheat (* Recclosure *))
 
       THEN1 ((* ISSOME argsopt *)
@@ -4349,7 +4347,6 @@ val known_correct0 = Q.prove(
           \\ fs [result_case_eq] \\ rveq \\ fs []
           \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
           \\ simp [DROP_LENGTH_TOO_LONG])
-
         THEN1
          (rpt (pairarg_tac \\ fs [])
           \\ fs [bool_case_eq] \\ rveq
