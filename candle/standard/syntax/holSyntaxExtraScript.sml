@@ -3554,6 +3554,283 @@ val type_size'_renaming = Q.prove(
   >> rw[TYPE_SUBST_def,MAP]
 );
 
+val normalise_tyvars_subst_def = Hol_defn "normalise_tyvars_subst" `
+  (normalise_tyvars_subst (Tyvar v) n n0 subst chr=
+    let
+      varname = λn. Tyvar (strlit(REPLICATE n chr))
+    in if strlen v < n0 /\ ~MEM (Tyvar v) (MAP SND subst)
+       then (SUC n, (varname n, Tyvar v)::subst)
+       else (n, subst)
+  )
+  /\ (normalise_tyvars_subst (Tyapp v tys) n n0 subst chr =
+    FOLDL (λ(n,subst) ty. normalise_tyvars_subst ty n n0 subst chr) (n, subst) tys)
+`;
+
+val (normalise_tyvars_subst_eqns,normalise_tyvars_subst_ind) = Defn.tprove(
+  normalise_tyvars_subst_def,
+  WF_REL_TAC `measure (type_size' o FST)`
+  >> rw[type_size'_def,type1_size'_mem]
+);
+
+val normalise_tyvars_rec_def = Define `
+  normalise_tyvars_rec ty chr =
+    let
+      n0 = SUC (list_max (MAP $strlen (tyvars ty)));
+      subst = SND (normalise_tyvars_subst ty n0 n0 [] chr)
+    in (TYPE_SUBST subst ty, subst)
+`;
+
+val distinct_varnames = Q.prove(
+  `!ty chr n n0. n > n0 /\ n0 = list_max (MAP $strlen (tyvars ty))
+  ==> ~MEM (strlit (REPLICATE n chr)) (tyvars ty)`
+  rpt strip_tac
+  >> rw[tyvars_def]
+  >> ASSUME_TAC (Q.SPECL [`(MAP $strlen (tyvars ty))`] list_max_max)
+  >> fs[EVERY_MEM]
+  >> imp_res_tac (INST_TYPE [beta |-> ``:num``] (GSYM MEM_MAP))
+  >> rw[]
+  >> first_x_assum (qspecl_then [`strlen (strlit (REPLICATE n chr))`] mp_tac)
+  >> fs[]
+  >> qexists_tac `strlen`
+  >> rw[strlen_def]
+  >> CCONTR_TAC
+  >> fs[]
+  >> first_x_assum drule
+  >> fs[]
+);
+
+val normalise_tyvars_subst_renames = Q.prove(
+  `!ty subst n n0 chr. renaming subst ==> renaming (SND (normalise_tyvars_subst ty n n0 subst chr))`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- rw[renaming_def,normalise_tyvars_subst_eqns]
+  >> Induct
+  >- rw[renaming_def,normalise_tyvars_subst_eqns]
+  >> strip_tac
+  >> fs[EVERY_DEF]
+  >> strip_tac
+  >> first_x_assum drule
+  >> strip_tac
+  >> rw[normalise_tyvars_subst_eqns]
+  >> ASSUME_TAC (Q.ISPECL [`(renaming o SND):num#(type,type)alist->bool`,
+    `(λ(n,subst) ty.normalise_tyvars_subst ty n n0 subst chr)`] FOLDL_invariant)
+  >> first_x_assum (qspecl_then [`l`,`(normalise_tyvars_subst h n n0 subst chr)`] mp_tac)
+  >> fs[EVERY_MEM]
+  >> disch_then match_mp_tac
+  >> rw[ELIM_UNCURRY]
+);
+
+val normalise_tyvars_rec_renames = Q.prove(
+  `!ty chr. renaming (SND (normalise_tyvars_rec ty chr))`,
+  rw[normalise_tyvars_rec_def]
+  >> mp_tac normalise_tyvars_subst_renames
+  >> rw[renaming_def]
+);
+
+val tyvars_constr_def = Define`
+  tyvars_constr n0 (n,subst) = ( n >= n0
+    /\ EVERY
+    (λ(x,y). ?a b. Tyvar a = x /\ Tyvar b = y /\ strlen a <= n /\ strlen a >= n0 /\ strlen b < n0)
+    subst)
+    `;
+
+val normalise_tyvars_subst_differ = Q.prove(
+  `!ty n_subst n0 chr. tyvars_constr n0 n_subst
+    ==> tyvars_constr n0 (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    strip_tac
+    >> Cases
+    >> rw[normalise_tyvars_subst_eqns,tyvars_constr_def]
+    >> irule EVERY_MONOTONIC
+    >> qmatch_asmsub_abbrev_tac `EVERY P subst`
+    >> qexists_tac `P`
+    >> qunabbrev_tac `P`
+    >> rw[ELIM_UNCURRY]
+    >> qexists_tac `a`
+    >> qexists_tac `b`
+    >> rw[]
+  )
+  >> Induct
+  >- rw[normalise_tyvars_subst_eqns,tyvars_constr_def]
+  >> strip_tac
+  >> fs[EVERY_DEF]
+  >> strip_tac
+  >> first_x_assum drule
+  >> rw[normalise_tyvars_subst_eqns]
+);
+
+val normalise_tyvars_rec_differ_FST_SND = Q.prove(
+  `(!r n0 n.
+  (!x. MEM x r ==> ?a b. Tyvar a = FST x /\ Tyvar b = SND x /\ strlen a <= n /\ strlen a >= n0 /\ strlen b < n0)
+  ==> (!x. MEM x (FLAT (MAP (tyvars o FST) r)) ==> strlen x >= n0))
+  /\
+  (!r n0 n.
+  (!x. MEM x r ==> ?a b. Tyvar a = FST x /\ Tyvar b = SND x /\ strlen a <= n /\ strlen a >= n0 /\ strlen b < n0)
+  ==> (!x. MEM x (FLAT (MAP (tyvars o SND) r)) ==> strlen x < n0))`,
+  CONJ_TAC
+  >> (
+    Induct
+    >- fs[]
+    >> Cases
+    >> rpt strip_tac
+    >> fs[MAP]
+    >- (
+      fs[DISJ_IMP_THM]
+      >> first_x_assum (qspecl_then [`(q,r')`] mp_tac)
+      >> fs[] >> rw[]
+      >> fs[tyvars_def,MEM]
+    )
+    >> fs[DISJ_IMP_THM]
+    >> last_x_assum (qspecl_then [`n0`,`n`] assume_tac)
+    >> fs[]
+  )
+);
+
+val normalise_tyvars_rec_differ = Q.prove(
+  `!ty chr. let subst = SND (normalise_tyvars_rec ty chr)
+    in NULL (list_inter (FLAT (MAP (tyvars o FST) subst)) (FLAT (MAP (tyvars o SND) subst)))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> `tyvars_constr n0 (n0,[])` by rw[tyvars_constr_def]
+  >> imp_res_tac normalise_tyvars_subst_differ
+  >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
+  >> qmatch_goalsub_abbrev_tac `n_subst:num#(type,type)alist`
+  >> Cases_on `n_subst`
+  >> fs[tyvars_constr_def,EVERY_MEM,ELIM_UNCURRY]
+  >> imp_res_tac normalise_tyvars_rec_differ_FST_SND
+  >> match_mp_tac list_inter_distinct_prop
+  >> qexists_tac `λx. strlen x >= (n0:num)`
+  >> rw[]
+  >> first_x_assum drule
+  >> fs[NOT_LESS_EQUAL]
+);
+
+val list_subset_tyvar = Q.store_thm(
+  "list_subset_tyvar",
+  `!ty a. MEM a (tyvars ty) ==> list_subset (tyvars (Tyvar a)) (tyvars ty)`,
+  ho_match_mp_tac type_ind
+  >> rw[list_subset_def,tyvars_def]
+);
+
+(* All type variables are within a substitution from normalise_tyvars_subst are
+ * shorter than a certain number n *)
+val normalise_tyvars_subst_max = Q.prove(
+  `!ty n_subst n0 chr.
+    let max = λ(n,subst). ~NULL subst ==> n = (SUC o list_max o FLAT)  (MAP (MAP strlen o tyvars o FST) subst)
+    in max n_subst
+    ==>  max (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    rw[normalise_tyvars_subst_eqns,ELIM_UNCURRY]
+    >> Cases_on `n_subst`
+    >> Cases_on `r`
+    >> fs[MAP,tyvars_def,list_max_def]
+  )
+  >> Induct
+  >- rw[normalise_tyvars_subst_eqns,ELIM_UNCURRY]
+  >> strip_tac
+  >> fs[EVERY_DEF]
+  >> strip_tac
+  >> first_x_assum drule
+  >> strip_tac
+  >> rw[normalise_tyvars_subst_eqns]
+  >> match_mp_tac FOLDL_invariant
+  >> strip_tac
+  >> last_x_assum drule
+  >> strip_tac
+  >> first_x_assum (qspecl_then [`n0`,`chr`] mp_tac)
+  >> NTAC 2 strip_tac
+  >> fs[ELIM_UNCURRY]
+  >> NTAC 3 strip_tac
+  >> fs[EVERY_MEM]
+);
+
+val normalise_tyvars_subst_monotone = Q.prove(
+  `!ty n_subst n0 a chr. MEM a (MAP SND (SND n_subst))
+  ==> MEM a (MAP SND (SND (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)))`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- rw[renaming_def,normalise_tyvars_subst_eqns]
+  >> Induct
+  >- rw[renaming_def,normalise_tyvars_subst_eqns]
+  >> strip_tac
+  >> fs[EVERY_DEF]
+  >> strip_tac
+  >> first_x_assum drule
+  >> strip_tac
+  >> rw[normalise_tyvars_subst_eqns]
+  >> last_x_assum (qspecl_then [`n_subst`,`n0`,`a`,`chr`] mp_tac)
+  >> rw[]
+  >> ASSUME_TAC (INST_TYPE [alpha |-> ``:num#((type, type) alist)``, beta |-> ``:type``] FOLDL_invariant)
+  >> first_x_assum (qspecl_then [`λn_subst. MEM a (MAP SND (SND n_subst))`] assume_tac)
+  >> first_x_assum (qspecl_then [`(λ(n',subst') ty. normalise_tyvars_subst ty n' n0 subst' chr)`] assume_tac)
+  >> first_x_assum (qspecl_then [`l`] assume_tac)
+  >> first_x_assum (qspecl_then [`normalise_tyvars_subst h (FST n_subst) n0 (SND n_subst) chr`] assume_tac)
+  >> fs[EVERY_MEM,ELIM_UNCURRY]
+);
+
+val EVERY_LIST_UNION = Q.store_thm(
+  "EVERY_LIST_UNION",
+  `!l1 l2 P. EVERY P (LIST_UNION l1 l2) = (EVERY P l1 /\ EVERY P l2)`,
+  rw[MEM_LIST_UNION,EVERY_MEM]
+  >> metis_tac[]
+)
+
+
+val normalise_tyvars_subst_domain = Q.store_thm(
+  "normalise_tyvars_subst_domain",
+  `!ty n n0 chr subst.
+  EVERY (λx. strlen x < n0) (tyvars ty)
+  ==> set (MAP SND (SND (normalise_tyvars_subst ty n n0 subst chr)))
+  = set(MAP SND subst ++ MAP Tyvar (tyvars ty))
+  `,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    rw[tyvars_def,normalise_tyvars_subst_eqns]
+    >- (
+      rw[UNION_DEF,INSERT_DEF,FUN_EQ_THM]
+      >> metis_tac[]
+    )
+    >> fs[EQ_IMP_THM,IN_DEF,UNION_DEF,INSERT_DEF,FUN_EQ_THM]
+      >> metis_tac[]
+  )
+  >> Induct
+  >- rw[tyvars_def,normalise_tyvars_subst_eqns]
+  >> rpt strip_tac
+  >> rw[tyvars_def,normalise_tyvars_subst_eqns]
+  >> fs[tyvars_def,EVERY_LIST_UNION]
+  >> fs[EVERY_MEM]
+  >> first_x_assum drule
+  >> first_x_assum drule
+  >> fs[normalise_tyvars_subst_eqns]
+  >> disch_then (qspecl_then [`FST (normalise_tyvars_subst h n n0 subst chr)`,
+      `chr`,`SND (normalise_tyvars_subst h n n0 subst chr)`] ASSUME_TAC)
+  >> disch_then (qspecl_then [`n`,`chr`,`subst`] ASSUME_TAC)
+  >> fs[]
+  >> fs[LIST_TO_SET_MAP]
+  >> metis_tac[UNION_ASSOC]
+)
+
+val normalise_tyvars_subst_replacing = Q.store_thm(
+  "normalise_tyvars_subst_replacing",
+  `!ty chr a. MEM a (tyvars ty) ==> MEM (Tyvar a) (MAP SND (SND (normalise_tyvars_rec ty chr)))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> `EVERY (λx. strlen x < n0) (tyvars ty)` by (
+    rw[Abbr `n0`,EVERY_MEM,GSYM LESS_EQ_IFF_LESS_SUC]
+    >> match_mp_tac list_max_MEM
+    >> rw[MEM_MAP]
+    >> qexists_tac `x`
+    >> fs[]
+  )
+  >> fs[normalise_tyvars_rec_def,normalise_tyvars_subst_domain]
+  >> rw[MEM_MAP]
+);
+
 (* Unify two types and return two type substitutions as a certificate *)
 val unify_subslist_def = Hol_defn "unify_subslist" `
   (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
