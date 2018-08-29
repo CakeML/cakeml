@@ -2513,7 +2513,7 @@ val v_rel_def = tDefine "v_rel" `
                   | SOME loc => clos_gen_noinline loc 0 funs1
      in ?aenv env1a env1b args2 env2a env2b funs2.
        if env1 = env1a ++ env1b then
-       EVERY (\(num_args, exp). fv_max (num_args + LENGTH env1a) [exp]) funs1 /\
+       EVERY (\(num_args, exp). fv_max (num_args + LENGTH funs1 + LENGTH env1a) [exp]) funs1 /\
        LIST_REL (v_rel c g) args1 args2 /\
        LIST_REL (v_rel c g) env1a env2a /\
        LIST_REL val_approx_val aenv env1a /\
@@ -3678,7 +3678,6 @@ val known_correct0 = Q.prove(
                                                         simp [config_component_equality])])
            \\ goal_assum (pop_assum o mp_then Any mp_tac)
            \\ simp []))
-
   THEN1
    (say "Letrec"
     \\ fs [known_def]
@@ -3689,10 +3688,9 @@ val known_correct0 = Q.prove(
     \\ rpt (disch_then drule \\ simp [])
     \\ qmatch_asmsub_abbrev_tac `evaluate (_, rcs1 ++ env1 ++ xenv1, _)`
     \\ qmatch_goalsub_abbrev_tac `evaluate (_, rcs2 ++ env2 ++ xenv2, _)`
-    \\ disch_then (qspec_then `rcs1 ++ env1` mp_tac)
-    \\ fs [Abbr `rcs1`]
+    \\ disch_then (qspecl_then [`rcs1 ++ env1`, `xenv1`] mp_tac)
     \\ disch_then (qspecl_then [`rcs2 ++ env2`, `xenv2`] mp_tac)
-    \\ fs [Abbr `rcs2`]
+    \\ fs [Abbr `rcs1`, Abbr `rcs2`]
     \\ reverse impl_tac
     THEN1 (strip_tac
            \\ dsimp [EVERY_MAP, LAMBDA_PROD]
@@ -3716,8 +3714,30 @@ val known_correct0 = Q.prove(
     \\ qexists_tac `env1` \\ simp []
     \\ qexists_tac `env2` \\ simp []
     \\ fs [LIST_REL_EL_EQN]
-    \\ cheat)
-
+    \\ rw []
+    \\ simp [EL_MAP]
+    \\ pairarg_tac
+    \\ fs [f_rel_def, exp_rel_def]
+    \\ qexists_tac `g0`
+    \\ qexists_tac `g0`
+    \\ simp [EVERY_REPLICATE]
+    \\ `subspt g0 (next_g s0)` by metis_tac [subspt_trans]
+    \\ qmatch_goalsub_abbrev_tac `(FST (HD (FST knownfn)))`
+    \\ `∃ebody apx g0'. knownfn = ([(ebody,apx)],g0')` by metis_tac [known_sing]
+    \\ simp []
+    \\ qexists_tac `apx`
+    \\ qexists_tac `c.inline_factor`
+    \\ conj_tac
+    THEN1 (Cases_on `loc`
+           \\ simp [EVERY_REPLICATE, clos_gen_noinline_val_approx_sgc_free])
+    \\ fs [Abbr `knownfn`]
+    \\ `c with inline_factor := c.inline_factor = c` by simp[config_component_equality]
+    \\ simp []
+    \\ drule known_unchanged_globals
+    \\ rename1 `EL nn fns = (num_args, xx)`
+    \\ `MEM (EL nn fns) fns` by fs [EL_MEM]
+    \\ rfs [] \\ fs [MEM_SPLIT]
+    \\ fs [elist_globals_append])
   THEN1
    (say "App"
     \\ fs [known_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
