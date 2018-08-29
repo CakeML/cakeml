@@ -588,6 +588,64 @@ val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
 
 (* -- *)
 
+val startup_asm_code_def = Define`
+  startup_asm_code
+    reg0 (* mem start reg: contains mem start address, leave unaltered *)
+    reg1 (* temp reg *)
+    reg2 (* heap start reg: should be left with heap start address *)
+    reg4 (* heap end reg: should be left with heap end address *)
+    heap_start_offset
+    heap_length
+    bitmaps_length
+    bitmaps_buffer_length
+    code_start_offset
+    code_length
+    code_buffer_length =
+    [Inst (Arith (Binop Add reg2 reg0 (Imm heap_start_offset)));
+     Inst (Arith (Binop Add reg4 reg2 (Imm heap_length)));
+     Inst (Mem Store reg4 (Addr reg2 (0w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg4 (Imm bitmaps_length)));
+     Inst (Mem Store reg1 (Addr reg2 (1w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg1 (Imm bitmaps_buffer_length)));
+     Inst (Mem Store reg1 (Addr reg2 (2w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg1 (Imm (code_start_offset + code_length))));
+     Inst (Mem Store reg1 (Addr reg2 (3w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg1 (Imm code_buffer_length)));
+     Inst (Mem Store reg1 (Addr reg2 (4w * bytes_in_word)));
+     Inst (Arith (Binop Sub reg1 reg1 (Imm (code_buffer_length + code_length))));
+     JumpReg reg1]`;
+
+val ag32_init_asm_state_def = Define`
+  ag32_init_asm_state mem md (r0:word32) = <|
+    be := F;
+    lr := 0 ;
+    failed := F ;
+    align := 2 ;
+    pc := (ag32_init_state mem r0).PC;
+    mem := (ag32_init_state mem r0).MEM;
+    mem_domain := md ;
+    regs := (ag32_init_state mem r0).R o n2w
+  |>`;
+
+val target_state_rel_ag32_init = Q.store_thm("target_state_rel_ag32_init",
+  `byte_aligned r0 ⇒
+   target_state_rel ag32_target
+    (ag32_init_asm_state m md r0)
+    (ag32_init_state m r0)`,
+  rw[asmPropsTheory.target_state_rel_def]
+  >- (
+    rw[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
+    \\ rw[ag32_targetTheory.ag32_init_state_def]
+    \\ (alignmentTheory.aligned_add_sub_cor
+        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+    \\ fs[alignmentTheory.byte_aligned_def]
+    \\ rw[ag32Theory.print_string_max_length_def]
+    \\ EVAL_TAC )
+  >- ( rw[ag32_init_asm_state_def] \\ EVAL_TAC )
+  >- ( rw[ag32_init_asm_state_def, ag32_targetTheory.ag32_target_def] )
+  >- ( rw[ag32_init_asm_state_def, ag32_targetTheory.ag32_target_def] )
+  >- ( pop_assum mp_tac \\ EVAL_TAC ));
 
 val hello_outputs_def =
   new_specification("hello_outputs_def",["hello_outputs"],
@@ -653,41 +711,6 @@ val hello_machine_config_def = Define`
 
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
   `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
-
-(*
-inst (Mem m r a) s = mem_op m r a s
-mem_op Store r a = mem_store 4 r a
-mem_store 4 r a = write_mem_word (addr a s) 4 (read_reg r s) s
-addr (Addr r offset) s = read_reg r s + offset
-asmSemTheory.write_mem_word_def
-*)
-
-val startup_asm_code_def = Define`
-  startup_asm_code
-    reg0 (* mem start reg: contains mem start address, leave unaltered *)
-    reg1 (* temp reg *)
-    reg2 (* heap start reg: should be left with heap start address *)
-    reg4 (* heap end reg: should be left with heap end address *)
-    heap_start_offset
-    heap_length
-    bitmaps_length
-    bitmaps_buffer_length
-    code_start_offset
-    code_length
-    code_buffer_length =
-    [Inst (Arith (Binop Add reg2 reg0 (Imm heap_start_offset)));
-     Inst (Arith (Binop Add reg4 reg2 (Imm heap_length)));
-     Inst (Mem Store reg4 (Addr reg2 (0w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg4 (Imm bitmaps_length)));
-     Inst (Mem Store reg1 (Addr reg2 (1w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg1 (Imm bitmaps_buffer_length)));
-     Inst (Mem Store reg1 (Addr reg2 (2w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg1 (Imm (code_start_offset + code_length))));
-     Inst (Mem Store reg1 (Addr reg2 (3w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg1 (Imm code_buffer_length)));
-     Inst (Mem Store reg1 (Addr reg2 (4w * bytes_in_word)));
-     Inst (Arith (Binop Sub reg1 reg1 (Imm (code_buffer_length + code_length))));
-     JumpReg reg1]`;
 
 val hello_startup_asm_code_def = Define`
   hello_startup_asm_code = (
@@ -773,18 +796,6 @@ that obtain after running startup code from ag32 init
 and do the rest of the proof from there
 *)
 
-val ag32_init_asm_state_def = Define`
-  ag32_init_asm_state mem md (r0:word32) = <|
-    be := F;
-    lr := 0 ;
-    failed := F ;
-    align := 2 ;
-    pc := (ag32_init_state mem r0).PC;
-    mem := (ag32_init_state mem r0).MEM;
-    mem_domain := md ;
-    regs := (ag32_init_state mem r0).R o n2w
-  |>`;
-
 val hello_init_asm_state_def = Define`
   hello_init_asm_state r0 =
     FOLDL (λs i. asm i (s.pc + 4w) s)
@@ -813,7 +824,7 @@ val byte_align_extract_lemma = Q.store_thm("byte_align_extract_lemma",
 
 val Next_hello = Q.store_thm("Next_hello",
   `byte_aligned r0 ⇒
-   (st.MEM = hello_init_memory r0) ⇒
+   (st.MEM = hello_init_memory r0) ⇒ (* TODO: this needs to be weakened: only require startup code to be unchanged *)
    (st.PC = r0 + (n2w (4 * pc))) ⇒
     4 * pc < dimword(:32)
    ⇒
@@ -872,13 +883,9 @@ fun Next_hello_conv tm =
     th2
   end
 
-val hello_init_ag32_state_eq =
-  hello_init_ag32_state_def
-  |> SPEC_ALL
-  |> REWRITE_RULE[
-       LENGTH_hello_startup_code,
-       ag32_targetTheory.ag32_init_state_def,
-       ag32Theory.print_string_max_length_def]
+val thms = List.map (DB.fetch "ag32") (#C (ag32Theory.inventory))
+
+fun next_rule th = th
   |> ONCE_REWRITE_RULE[numLib.SUC_RULE FUNPOW]
   |> CONV_RULE(RAND_CONV(RAND_CONV Next_hello_conv))
   |> CONV_RULE(PATH_CONV"rrlrrr"(REWR_CONV hello_init_memory_words_def))
@@ -889,6 +896,22 @@ val hello_init_ag32_state_eq =
   |> CONV_RULE(PATH_CONV"rrlrr"(EVAL))
   |> CONV_RULE(PATH_CONV"rrlr"(REWR_CONV ag32_targetProofTheory.Decode_Encode))
   |> CONV_RULE(PATH_CONV"rr"(RATOR_CONV(REWR_CONV ag32Theory.Run_def) THENC SIMP_CONV (srw_ss())[]))
+  |> CONV_RULE(PATH_CONV"rr"(SIMP_CONV (srw_ss()++LET_ss) (UPDATE_def::thms)))
+
+val hello_init_ag32_state_th1 =
+  hello_init_ag32_state_def
+  |> SPEC_ALL
+  |> REWRITE_RULE[
+       LENGTH_hello_startup_code,
+       ag32_targetTheory.ag32_init_state_def,
+       ag32Theory.print_string_max_length_def, o_DEF,
+       ag32_targetTheory.ag32_init_regs_def]
+  |> next_rule
+  |> next_rule
+  |> next_rule
+  |> next_rule
+  |> next_rule
+  |> next_rule
 
 (*
 
