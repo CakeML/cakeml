@@ -222,6 +222,12 @@ val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
   \\ first_x_assum match_mp_tac
   \\ fs[]);
 
+val word_of_bytes_extract_bytes_le_32 = Q.store_thm("word_of_bytes_extract_bytes_le_32",
+  `word_of_bytes F 0w [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] = w : word32`,
+  rw[data_to_word_memoryProofTheory.word_of_bytes_def]
+  \\ rw[wordSemTheory.set_byte_def,wordSemTheory.byte_index_def,wordSemTheory.word_slice_alt_def]
+  \\ blastLib.BBLAST_TAC);
+
 val bytes_in_mem_bytes_in_memory = Q.store_thm("bytes_in_mem_bytes_in_memory",
   `∀a bs m md k. bytes_in_mem a bs m md k ⇔ bytes_in_memory a bs m (md DIFF k)`,
   Induct_on`bs` \\ EVAL_TAC \\ rw[]
@@ -571,6 +577,15 @@ val EL_words_of_bytes = Q.store_thm("EL_words_of_bytes",
   \\ simp[EL_CONS]
 *)
 
+val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
+  `0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
+   (words_of_bytes be (l1 ++ l2) = word_of_bytes be (0w:'a word) l1 :: words_of_bytes be l2)`,
+  rw[]
+  \\ Cases_on`l1` \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def] \\ fs[]
+  \\ fs[MAX_DEF]
+  \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
+  \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
+
 (* -- *)
 
 
@@ -600,16 +615,18 @@ val heap_size_def = Define`
   heap_size = 120 * 2 ** 20`;
 
 (*
+Memory layout:
   hz = heap_size is the heap+stack size in mebibytes (including the unusable FFI bytes)
   r0 gives the lowest software-usable address
   r0 .. r0 + 64 is used by the FFI implementation
-  r0 + 64 .. r0 + hzMiB is the CakeML heap+stack space
+  r0 + 64 .. r0 + hzMiB is the CakeML heap+stack space. The machine initial PC is r0 + 64, so this initially contains the startup code.
   r0 + hzMiB .. r0 + hzMiB + 4 * LENGTH data is the bitmaps
   r0 + hzMiB + 4 * LENGTH data is the FFI PC
   r0 + hzMiB + 4 * LENGTH data + 16 is the ccache PC
   r0 + hzMiB + 4 * LENGTH data + 32 is the halt PC
-  r0 + hzMiB + 4 * LENGTH data + 48 is the initial PC
+  r0 + hzMiB + 4 * LENGTH data + 48 is the initial PC for CakeML
   r0 + hzMiB + 4 * LENGTH data + 48 .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code is the code
+  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code .. r0 + memory_size MB is any remaining code (e.g., FFI implementation) then 0s
 *)
 
 val hello_machine_config_def = Define`
@@ -637,15 +654,109 @@ val hello_machine_config_def = Define`
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
   `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
 
+(*
+inst (Mem m r a) s = mem_op m r a s
+mem_op Store r a = mem_store 4 r a
+mem_store 4 r a = write_mem_word (addr a s) 4 (read_reg r s) s
+addr (Addr r offset) s = read_reg r s + offset
+asmSemTheory.write_mem_word_def
+*)
+
+val startup_asm_code_def = Define`
+  startup_asm_code
+    reg0 (* mem start reg: contains mem start address, leave unaltered *)
+    reg1 (* temp reg *)
+    reg2 (* heap start reg: should be left with heap start address *)
+    reg4 (* heap end reg: should be left with heap end address *)
+    heap_start_offset
+    heap_length
+    bitmaps_length
+    bitmaps_buffer_length
+    code_start_offset
+    code_length
+    code_buffer_length =
+    [Inst (Arith (Binop Add reg2 reg0 (Imm heap_start_offset)));
+     Inst (Arith (Binop Add reg4 reg2 (Imm heap_length)));
+     Inst (Mem Store reg4 (Addr reg2 (0w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg4 (Imm bitmaps_length)));
+     Inst (Mem Store reg1 (Addr reg2 (1w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg1 (Imm bitmaps_buffer_length)));
+     Inst (Mem Store reg1 (Addr reg2 (2w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg1 (Imm (code_start_offset + code_length))));
+     Inst (Mem Store reg1 (Addr reg2 (3w * bytes_in_word)));
+     Inst (Arith (Binop Add reg1 reg1 (Imm code_buffer_length)));
+     Inst (Mem Store reg1 (Addr reg2 (4w * bytes_in_word)));
+     Inst (Arith (Binop Sub reg1 reg1 (Imm (code_buffer_length + code_length))));
+     JumpReg reg1]`;
+
+val hello_startup_asm_code_def = Define`
+  hello_startup_asm_code = (
+      startup_asm_code 0 1 2 4
+        (n2w 64 : word32)
+        (n2w (heap_size - 64))
+        (n2w (4 * LENGTH data))
+        (n2w 0)
+        (n2w (3 * ffi_offset))
+        (n2w (LENGTH code))
+        (n2w 0) )`;
+
+val hello_startup_asm_code_eq =
+  hello_startup_asm_code_def
+  |> CONV_RULE(RAND_CONV EVAL)
+  |> SIMP_RULE(srw_ss())[LENGTH_code,LENGTH_data]
+
+val hello_startup_code_def = Define`
+    hello_startup_code =
+    FLAT (MAP ag32_enc hello_startup_asm_code)`;
+
+val hello_startup_code_eq =
+  hello_startup_code_def
+  |> REWRITE_RULE[startup_asm_code_def, MAP, LENGTH_data, LENGTH_code,
+                  lab_to_targetTheory.ffi_offset_def,heap_size_def,
+                  bytes_in_word_def, hello_startup_asm_code_def]
+  |> CONV_RULE(RAND_CONV (RAND_CONV ag32_targetLib.ag32_encode_conv))
+  |> CONV_RULE(RAND_CONV listLib.FLAT_CONV)
+
+val hello_startup_code_eq_Encode =
+  hello_startup_code_def
+  |> REWRITE_RULE[startup_asm_code_def, MAP, LENGTH_data, LENGTH_code,
+                  lab_to_targetTheory.ffi_offset_def,heap_size_def,
+                  bytes_in_word_def, hello_startup_asm_code_def]
+  |> SIMP_RULE (srw_ss()++LET_ss)
+       [ag32_targetTheory.ag32_enc_def,
+        ag32_targetTheory.ag32_encode_def,
+        ag32_targetTheory.ag32_constant_def,
+        ag32_targetTheory.ag32_bop_def]
+  |> REWRITE_RULE[ag32_targetTheory.ag32_encode1_def]
+
+val LENGTH_hello_startup_code =
+  ``LENGTH hello_startup_code``
+  |> (RAND_CONV(REWR_CONV hello_startup_code_eq)
+      THENC listLib.LENGTH_CONV)
+
+val words_of_bytes_hello_startup_code_eq =
+  ``words_of_bytes F hello_startup_code :word32 list``
+  |> REWRITE_CONV[hello_startup_code_eq]
+  |> CONV_RULE(RAND_CONV EVAL)
+
+val words_of_bytes_hello_startup_code_eq_Encode =
+  ``words_of_bytes F hello_startup_code :word32 list``
+  |> SIMP_CONV(std_ss++ARITH_ss++LET_ss)[
+       hello_startup_code_eq_Encode,
+       GSYM APPEND_ASSOC,
+       words_of_bytes_append_word |> INST_TYPE[alpha|->``:32``] |> CONV_RULE(LAND_CONV EVAL),
+       LENGTH, word_of_bytes_extract_bytes_le_32]
+
+val LENGTH_words_of_bytes_hello_startup_code =
+  ``LENGTH (words_of_bytes F hello_startup_code : word32 list)``
+  |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
+  |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
+
 val hello_init_memory_words_def = zDefine`
-  hello_init_memory_words r0 =
+  hello_init_memory_words =
     REPLICATE (64 DIV 4) 0w ++
-    [r0 + n2w heap_size
-    ;r0 + n2w (heap_size + 4 * LENGTH data)
-    ;r0 + n2w (heap_size + 4 * LENGTH data)
-    ;r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)
-    ;r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)] ++
-    REPLICATE (heap_size DIV 4 - 5 - 64 DIV 4) 0w ++
+    words_of_bytes F hello_startup_code ++
+    REPLICATE ((heap_size - LENGTH hello_startup_code - 64) DIV 4) 0w ++
     data ++
     REPLICATE 4 0w (* FFI code *) ++
     REPLICATE 4 0w (* ccache code *) ++
@@ -654,7 +765,132 @@ val hello_init_memory_words_def = zDefine`
 
 val hello_init_memory_def = Define`
   hello_init_memory r0 (k:word32) =
-     get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words r0)) F`;
+     get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words)) F`;
+
+(*
+define the ag32 and asm states
+that obtain after running startup code from ag32 init
+and do the rest of the proof from there
+*)
+
+val ag32_init_asm_state_def = Define`
+  ag32_init_asm_state mem md (r0:word32) = <|
+    be := F;
+    lr := 0 ;
+    failed := F ;
+    align := 2 ;
+    pc := (ag32_init_state mem r0).PC;
+    mem := (ag32_init_state mem r0).MEM;
+    mem_domain := md ;
+    regs := (ag32_init_state mem r0).R o n2w
+  |>`;
+
+val hello_init_asm_state_def = Define`
+  hello_init_asm_state r0 =
+    FOLDL (λs i. asm i (s.pc + 4w) s)
+      (ag32_init_asm_state
+        (hello_init_memory r0)
+        (hello_machine_config r0).prog_addresses
+        r0)
+      (hello_startup_asm_code)`;
+
+val hello_init_ag32_state_def = Define`
+  hello_init_ag32_state r0 =
+    FUNPOW Next (LENGTH hello_startup_code)
+      (ag32_init_state (hello_init_memory r0) r0)`;
+
+val byte_align_extract_lemma = Q.store_thm("byte_align_extract_lemma",
+  `n < 4 ⇒
+   (byte_align ((31 >< 2) (w:word32) : word30 @@ (0w:word2) + (n2w n)) = byte_align w)`,
+  Cases_on`n` \\ rw[alignmentTheory.byte_align_def,alignmentTheory.align_def]
+  >- blastLib.BBLAST_TAC
+  \\ rename1`SUC n < 4`
+  \\ Cases_on`n` \\ fs[] >- blastLib.BBLAST_TAC
+  \\ rename1`SUC (SUC n) < 4`
+  \\ Cases_on`n` \\ fs[] >- blastLib.BBLAST_TAC
+  \\ rename1`SUC (SUC (SUC n)) < 4`
+  \\ Cases_on`n` \\ fs[] >- blastLib.BBLAST_TAC);
+
+val Next_hello = Q.store_thm("Next_hello",
+  `byte_aligned r0 ⇒
+   (st.MEM = hello_init_memory r0) ⇒
+   (st.PC = r0 + (n2w (4 * pc))) ⇒
+    4 * pc < dimword(:32)
+   ⇒
+   (Next st = Run (Decode (EL pc (hello_init_memory_words))) st)`,
+  rw[ag32Theory.Next_def]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ simp[hello_init_memory_def]
+  \\ simp[byte_align_extract_lemma]
+  \\ qmatch_goalsub_abbrev_tac`ff c @@ 0w`
+  \\ `(ff c @@ (0w:word2)) : word32 = ff c @@ (0w:word2) + 0w` by simp[]
+  \\ pop_assum SUBST1_TAC
+  \\ unabbrev_all_tac
+  \\ simp[byte_align_extract_lemma]
+  \\ `byte_aligned (r0 + n2w (4 * pc))`
+  by (
+    fs[alignmentTheory.byte_aligned_def]
+    \\ (alignmentTheory.aligned_add_sub_cor
+        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+    \\ fs[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w] )
+  \\ fs[alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ rfs[alignmentTheory.aligned_def]
+  \\ once_rewrite_tac[MULT_COMM]
+  \\ DEP_REWRITE_TAC[MULT_DIV]
+  \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`bb + (n2w _)`
+  \\ `byte_aligned bb`
+  by (
+    simp[Abbr`bb`, alignmentTheory.byte_aligned_def, alignmentTheory.aligned_def, alignmentTheory.align_def]
+    \\ blastLib.BBLAST_TAC )
+  \\ `bb = byte_align bb` by metis_tac[alignmentTheory.byte_align_def,alignmentTheory.aligned_def,alignmentTheory.byte_aligned_def]
+  \\ pop_assum SUBST1_TAC
+  \\ once_rewrite_tac[WORD_ADD_COMM]
+  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+  \\ conj_tac >- EVAL_TAC
+  \\ `byte_align bb = 0w + byte_align bb` by simp[]
+  \\ pop_assum SUBST1_TAC
+  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+  \\ conj_tac >- EVAL_TAC
+  \\ simp[wordSemTheory.get_byte_def,wordSemTheory.byte_index_def]
+  \\ blastLib.BBLAST_TAC);
+
+fun Next_hello_conv tm =
+  let
+    val st = rand tm
+    val st_MEM = ``ag32_state_MEM ^st`` |> SIMP_CONV(srw_ss())[]
+    val st_PC = ``ag32_state_PC ^st`` |> SIMP_CONV(srw_ss())[]
+    val th = MATCH_MP (UNDISCH Next_hello) st_MEM
+    val pc4 = rand (rconc st_PC) |> rand |> numSyntax.int_of_term
+    val pc = (pc4 div 4 |> numSyntax.term_of_int)
+    val th1 = th |> Q.GEN`pc` |> SPEC pc |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[])) |> C MATCH_MP TRUTH
+    val th2 = th1 |> CONV_RULE(LAND_CONV EVAL) |> C MATCH_MP TRUTH
+  in
+    th2
+  end
+
+val hello_init_ag32_state_eq =
+  hello_init_ag32_state_def
+  |> SPEC_ALL
+  |> REWRITE_RULE[
+       LENGTH_hello_startup_code,
+       ag32_targetTheory.ag32_init_state_def,
+       ag32Theory.print_string_max_length_def]
+  |> ONCE_REWRITE_RULE[numLib.SUC_RULE FUNPOW]
+  |> CONV_RULE(RAND_CONV(RAND_CONV Next_hello_conv))
+  |> CONV_RULE(PATH_CONV"rrlrrr"(REWR_CONV hello_init_memory_words_def))
+  |> SIMP_RULE (srw_ss())
+      [EL_APPEND_EQN, LENGTH_words_of_bytes_hello_startup_code,
+       LENGTH_hello_startup_code, heap_size_def, LENGTH_data]
+  |> CONV_RULE(PATH_CONV"rrlrrr"(REWR_CONV words_of_bytes_hello_startup_code_eq_Encode))
+  |> CONV_RULE(PATH_CONV"rrlrr"(EVAL))
+  |> CONV_RULE(PATH_CONV"rrlr"(REWR_CONV ag32_targetProofTheory.Decode_Encode))
+  |> CONV_RULE(PATH_CONV"rr"(RATOR_CONV(REWR_CONV ag32Theory.Run_def) THENC SIMP_CONV (srw_ss())[]))
+
+(*
 
 val hello_init_regs_def = Define`
   hello_init_regs r0 (k:num) =
@@ -1143,5 +1379,6 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ rw[]
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ cheat);
+*)
 
 val _ = export_theory();

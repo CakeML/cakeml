@@ -200,7 +200,7 @@ val shiftT_thm = Q.prove(
 fun tac q l = qmatch_goalsub_rename_tac q \\ MAP_EVERY Cases_on l
 
 (* The encoder and decoder are well-behaved *)
-val decode_encode = Q.prove(
+val Decode_Encode = Q.store_thm("Decode_Encode",
   `!i. Decode (Encode i) = i`,
   Cases
   \\ TRY (pairLib.PairCases_on `p`)
@@ -238,7 +238,7 @@ val ag32_run = Q.prove(
      (ms.MEM (ms.PC + 3w) = (31 >< 24) (Encode i)) /\
      aligned 2 ms.PC ==>
      (Next ms = Run i ms)`,
-  simp [ag32Theory.Next_def, aligned_pc, concat_bytes, decode_encode,
+  simp [ag32Theory.Next_def, aligned_pc, concat_bytes, Decode_Encode,
         wordsTheory.WORD_LS_word_T]
   )
 
