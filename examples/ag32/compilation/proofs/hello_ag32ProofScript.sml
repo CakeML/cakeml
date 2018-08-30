@@ -1028,6 +1028,13 @@ val mem_ok_tac =
         GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
         bitTheory.BITS_ZERO3 ]
 
+val mem_word_tac =
+    rw[data_to_word_memoryProofTheory.word_of_bytes_def,
+       wordSemTheory.set_byte_def, wordSemTheory.byte_index_def,
+       lab_to_targetTheory.ffi_offset_def,LENGTH_code,
+       wordSemTheory.word_slice_alt_def,LENGTH_data,heap_size_def]
+    \\ blastLib.BBLAST_TAC
+
 val _ = temp_overload_on("hello_asm_state0",
   ``(ag32_init_asm_state
       (hello_init_memory r0)
@@ -1047,7 +1054,19 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
        (λa. if a ∈ (hello_machine_config r0).prog_addresses then
                SOME (final_st.mem a) else NONE ) = SOME code) ∧
      (final_st.regs 2 = r0 + 64w) ∧
-     (final_st.regs 4 = r0 + n2w heap_size)`,
+     (final_st.regs 4 = r0 + n2w heap_size) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 64w)) o n2w) 4) =
+      (r0 + n2w heap_size)) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 68w)) o n2w) 4) =
+      (r0 + n2w (heap_size + 4 * LENGTH data))) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 72w)) o n2w) 4) =
+      (r0 + n2w (heap_size + 4 * LENGTH data))) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 76w)) o n2w) 4) =
+      (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code))) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 80w)) o n2w) 4) =
+      (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code))) ∧
+     (∀k. k < 4 * LENGTH data + 4 ⇒
+          (final_st.mem (r0 + n2w (heap_size + k)) = (hello_init_memory r0) (r0 + n2w (heap_size + k))))`,
   strip_tac
   \\ qho_match_abbrev_tac`LET (λtr. (_ tr) ∧ P (_ tr)) _`
   \\ rewrite_tac[hello_startup_asm_code_eq,
@@ -1084,14 +1103,17 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
     \\ CONV_TAC (PATH_CONV "lrrr" asm_conv)
     \\ strip_tac
     \\ rewrite_tac[GSYM CONJ_ASSOC]
-    \\ conj_tac >- bytes_in_memory_tac
+    \\ conj_tac >- (bytes_in_memory_tac)
+    \\ qmatch_asmsub_abbrev_tac`_ with failed updated_by (K Z)`
+    \\ `Z = F` by ( simp[Abbr`Z`] \\ mem_ok_tac)
+    \\ qpat_x_assum`Abbrev(Z = _)` kall_tac
+    \\ pop_assum SUBST_ALL_TAC
     \\ conj_tac >- ( simp[Abbr`s2`] \\ mem_ok_tac )
     \\ conj_tac >- CONV_TAC asm_conv
     \\ qunabbrev_tac`tr` )
   \\ simp[steps_def, steps_rel_def]
-  \\ simp[Abbr`s2`,Abbr`P`]
-  \\ conj_tac
-  >- (EVAL_TAC \\ simp[LENGTH_data])
+  \\ simp_tac (std_ss++LET_ss) [Abbr`s2`,Abbr`P`]
+  \\ conj_tac >- (EVAL_TAC \\ simp[LENGTH_data])
   \\ conj_tac >- (
     simp[hello_machine_config_def,
          lab_to_targetTheory.ffi_offset_def,
@@ -1156,7 +1178,17 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
     \\ irule get_byte_EL_words_of_bytes
     \\ simp[LENGTH_code, bytes_in_word_def]
     \\ EVAL_TAC)
-  \\ EVAL_TAC);
+  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- mem_word_tac
+  \\ conj_tac >- mem_word_tac
+  \\ conj_tac >- mem_word_tac
+  \\ conj_tac >- mem_word_tac
+  \\ conj_tac >- mem_word_tac
+  \\ conj_tac >- mem_word_tac
+  \\ simp_tac std_ss [asmSemTheory.asm_state_accfupds]
+  \\ rewrite_tac[heap_size_def,LENGTH_data]
+  \\ simp_tac std_ss []
+  \\ rw[]);
 
 val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_asm_step",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
@@ -1166,7 +1198,20 @@ val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_as
       (λa. if a ∈ (hello_machine_config r0).prog_addresses then SOME ((hello_init_asm_state r0).mem a) else NONE)
       = SOME code) ∧
     ((hello_init_asm_state r0).regs 2 = r0 + 64w) ∧
-    ((hello_init_asm_state r0).regs 4 = r0 + n2w heap_size)`,
+    ((hello_init_asm_state r0).regs 4 = r0 + n2w heap_size) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 64w)) o n2w) 4)
+     = r0 + n2w heap_size) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 68w)) o n2w) 4)
+     = r0 + n2w (heap_size + 4 * LENGTH data)) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 72w)) o n2w) 4)
+     = r0 + n2w (heap_size + 4 * LENGTH data)) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 76w)) o n2w) 4)
+     = r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 80w)) o n2w) 4)
+     = r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)) ∧
+    (∀k. k < 4 * LENGTH data + 4 ⇒
+      ((hello_init_asm_state r0).mem (r0 + n2w (heap_size +  k)) =
+       hello_init_memory r0 (r0 + n2w (heap_size + k))))`,
   disch_then assume_tac
   \\ mp_tac (UNDISCH hello_init_asm_state_asm_step)
   \\ simp[]
@@ -1584,26 +1629,27 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-(*
-val goal = compile_correct_applied |> concl |> dest_imp |> #1
-           |> dest_comb |> (fn (f,v) => mk_exists (v, mk_comb(f,v)))
-           |> curry mk_imp (#1(dest_imp(concl hello_good_init_state)))
-(*
-set_goal([],goal)
-*)
-val lemma = prove(goal,
+val lemma = Q.prove(
+  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
+   ∃n. installed code 0 data 0 config.ffi_names ag_ffi
+         (heap_regs ag32_backend_config.stack_conf.reg_names)
+         (hello_machine_config r0) (FUNPOW Next n (ag32_init_state (hello_init_memory r0) r0))`,
   disch_then assume_tac
   \\ CONV_TAC(PATH_CONV"rallr"EVAL)
   \\ simp[backendProofTheory.installed_def]
   \\ simp[word_list_exists_def, set_sepTheory.SEP_CLAUSES, word_list_def]
   \\ simp[EVAL``(hello_machine_config r0).target.get_pc``]
   \\ strip_assume_tac(UNDISCH hello_good_init_state)
-  \\ asm_exists_tac \\ simp[]
-  \\ pop_assum kall_tac
+  \\ fs[]
+  \\ imp_res_tac hello_init_asm_state_RTC_asm_step
+  \\ asm_exists_tac \\ rfs[]
+  \\ qhdtm_x_assum`good_init_state` mp_tac
+  \\ rewrite_tac[lab_to_targetProofTheory.good_init_state_def]
+  \\ disch_then(assume_tac o el 1 o CONJUNCTS)
   \\ conj_tac
   >- (
     simp[IN_DISJOINT]
-    \\ pop_assum mp_tac
+    \\ qpat_x_assum`_ < _`mp_tac
     \\ EVAL_TAC
     \\ simp[LENGTH_code,LENGTH_data]
     \\ strip_tac
@@ -1612,42 +1658,26 @@ val lemma = prove(goal,
     \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w] )
   \\ conj_tac
   >- (
-    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
-       hello_init_regs_def, bytes_in_word_def]
+    rw[LENGTH_data, bytes_in_word_def]
     \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
             heap_size_def, EL_REPLICATE, LENGTH_data] )
-  \\ conj_tac
-  >- (
-    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
-       hello_init_regs_def, bytes_in_word_def]
-    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
-            heap_size_def, EL_REPLICATE, LENGTH_data] )
-  \\ conj_tac
-  >- (
-    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
-       hello_init_regs_def, bytes_in_word_def]
-    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
-            heap_size_def, EL_REPLICATE, LENGTH_data, LENGTH_code]
-    \\ EVAL_TAC \\ simp[LENGTH_data] )
-  \\ conj_tac
-  >- (
-    rw[EVAL``(hello_init_asm_state r0).regs``, LENGTH_data,
-       hello_init_regs_def, bytes_in_word_def]
-    \\ simp[hello_init_memory_words_def, EL_APPEND_EQN,
-            heap_size_def, EL_REPLICATE, LENGTH_data, LENGTH_code]
-    \\ EVAL_TAC \\ simp[LENGTH_data] )
-  \\ conj_tac
-  >- (
-    simp[hello_init_asm_state_def, hello_init_regs_def, LENGTH_data, heap_size_def]
-    \\ simp[Once hello_init_memory_words_def]
-    \\ simp[EL_APPEND_EQN, heap_size_def]
-    \\ irule IMP_word_list
-    \\ simp[LENGTH_data, bytes_in_word_def]
-    \\ fs[memory_size_def]
+  \\ conj_tac >- simp[bytes_in_word_def, GSYM word_add_n2w, word_mul_n2w]
+  \\ conj_tac >- (
+    fs[asmPropsTheory.target_state_rel_def,
+       hello_machine_config_def,ag32_targetTheory.ag32_target_def]
+    \\ simp[bytes_in_word_def, GSYM word_add_n2w, GSYM word_mul_n2w] )
+  \\ conj_tac >- (
+    fs[asmPropsTheory.target_state_rel_def,
+       hello_machine_config_def,ag32_targetTheory.ag32_target_def]
+    \\ simp[bytes_in_word_def, GSYM word_add_n2w, GSYM word_mul_n2w] )
+  \\ conj_tac >- (
+    irule IMP_word_list
+    \\ fs[LENGTH_data, heap_size_def, bytes_in_word_def, memory_size_def]
     \\ Cases_on`r0` \\ fs[word_add_n2w]
     \\ simp[EXTENSION,FORALL_PROD,set_sepTheory.IN_fun2set]
-    \\ reverse(rw[EQ_IMP_THM]) \\ fs[EL_MAP,LENGTH_data]
+    \\ reverse(rw[EQ_IMP_THM])
     \\ fs[word_mul_n2w, word_add_n2w, word_lo_n2w, word_ls_n2w]
+    \\ simp[EL_MAP, LENGTH_data]
     >- (
       simp[IN_DEF,alignmentTheory.byte_aligned_def]
       \\ simp[GSYM word_add_n2w]
@@ -1658,7 +1688,7 @@ val lemma = prove(goal,
       \\ (alignmentTheory.aligned_add_sub_cor
           |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
           |> irule)
-      \\ fs[]
+      \\ fs[alignmentTheory.byte_aligned_def]
       \\ simp[GSYM word_mul_n2w]
       \\ simp[GSYM ALIGNED_eq_aligned]
       \\ qspecl_then[`0w`,`n2w k`]mp_tac addressTheory.ALIGNED_MULT
@@ -1666,11 +1696,43 @@ val lemma = prove(goal,
       \\ disch_then irule
       \\ EVAL_TAC )
     >- (
-      DEP_REWRITE_TAC[ADD_DIV_RWT]
+      first_assum(qspec_then`4 * k + 0`mp_tac)
+      \\ first_assum(qspec_then`4 * k + 1`mp_tac)
+      \\ first_assum(qspec_then`4 * k + 2`mp_tac)
+      \\ first_x_assum(qspec_then`4 * k + 3`mp_tac)
       \\ simp[]
-      \\ once_rewrite_tac[MULT_COMM]
-      \\ simp[MULT_DIV]
-      \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,heap_size_def,LENGTH_data] )
+      \\ ntac 4 (disch_then kall_tac)
+      \\ simp[hello_init_memory_def]
+      \\ fs[alignmentTheory.byte_align_def, alignmentTheory.align_w2n, word_add_n2w]
+      \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
+      \\ fs[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+      \\ `4 * k DIV 4 = k` by (once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV] )
+      \\ pop_assum SUBST_ALL_TAC
+      \\ simp[LEFT_ADD_DISTRIB]
+      \\ fs[MOD_EQ_0_DIVISOR]
+      \\ `4 * d DIV 4 = d` by (once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV] )
+      \\ pop_assum SUBST_ALL_TAC
+      \\ simp[]
+      \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
+      \\ `4 * k DIV 4 = k` by (once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV] )
+      \\ pop_assum SUBST_ALL_TAC
+      \\ rewrite_tac[ADD_ASSOC]
+      \\ simp[GSYM LEFT_ADD_DISTRIB]
+      \\ `n2w (4 * (d + k)) :word32 = byte_align (n2w (4 * (d + k)))`
+      by (
+        simp[alignmentTheory.byte_align_def, GSYM alignmentTheory.aligned_def]
+        \\ simp[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w] )
+      \\ simp[GSYM word_add_n2w]
+      \\ pop_assum SUBST_ALL_TAC
+      \\ once_rewrite_tac[WORD_ADD_COMM]
+      \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+      \\ conj_tac >- EVAL_TAC
+      \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,heap_size_def,LENGTH_data,
+              LENGTH_words_of_bytes_hello_startup_code,LENGTH_hello_startup_code]
+      \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def]
+      \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
+              wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
+      \\ blastLib.BBLAST_TAC)
     \\ qmatch_asmsub_rename_tac`_ <=+ p`
     \\ Cases_on`p` \\ fs[word_ls_n2w,word_lo_n2w] \\ rfs[] \\ rw[]
     \\ qmatch_asmsub_rename_tac`_ <= q`
@@ -1682,30 +1744,65 @@ val lemma = prove(goal,
          addressTheory.ALIGNED_n2w]
       \\ fs[MOD_EQ_0_DIVISOR] \\ rfs[]
       \\ fs[Abbr`l`] \\ rveq
-      \\ qpat_x_assum`_ = 4 * _`mp_tac
-      \\ once_rewrite_tac[ADD_COMM]
-      \\ rewrite_tac[GSYM ADD_ASSOC]
-      \\ qmatch_goalsub_abbrev_tac`m + 4 * k`
-      \\ qmatch_goalsub_rename_tac`_ = 4 * n`
-      \\ strip_tac
-      \\ qexists_tac`n - k - m DIV 4`
-      \\ simp[Abbr`m`] )
+      \\ qmatch_asmsub_abbrev_tac`4 * d + (p + m) = 4 * q`
+      \\ qexists_tac`(q - d - m DIV 4)`
+      \\ simp[Abbr`m`])
     \\ qexists_tac`d`
     \\ simp[]
     \\ simp[Abbr`l`,GSYM word_add_n2w]
     \\ simp[word_add_n2w]
-    \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
+    \\ first_assum(qspec_then`4 * d + 0`mp_tac)
+    \\ first_assum(qspec_then`4 * d + 1`mp_tac)
+    \\ first_assum(qspec_then`4 * d + 2`mp_tac)
+    \\ first_x_assum(qspec_then`4 * d + 3`mp_tac)
     \\ simp[]
-    \\ once_rewrite_tac[MULT_COMM]
-    \\ simp[MULT_DIV]
-    \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,LENGTH_data,heap_size_def,EL_MAP])
+    \\ rpt(disch_then kall_tac)
+    \\ simp[GSYM word_add_n2w]
+    \\ simp[hello_init_memory_def]
+    \\ fs[alignmentTheory.byte_align_def, alignmentTheory.align_w2n, word_add_n2w]
+    \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
+    \\ fs[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+    \\ `4 * d DIV 4 = d` by (once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV] )
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[MOD_EQ_0_DIVISOR]
+    \\ qmatch_goalsub_rename_tac`4 * k DIV 4`
+    \\ `4 * k DIV 4 = k` by (once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV] )
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[]
+    \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
+    \\ `4 * d DIV 4 = d` by (once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV] )
+    \\ pop_assum SUBST_ALL_TAC
+    \\ rewrite_tac[ADD_ASSOC]
+    \\ simp[GSYM LEFT_ADD_DISTRIB]
+    \\ `n2w (4 * (d + k)) :word32 = byte_align (n2w (4 * (d + k)))`
+    by (
+      simp[alignmentTheory.byte_align_def, GSYM alignmentTheory.aligned_def]
+      \\ simp[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w] )
+    \\ simp[GSYM word_add_n2w]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ once_rewrite_tac[WORD_ADD_COMM]
+    \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+    \\ conj_tac >- EVAL_TAC
+    \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,heap_size_def,LENGTH_data,
+            LENGTH_words_of_bytes_hello_startup_code,LENGTH_hello_startup_code]
+    \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def]
+    \\ simp[EL_MAP, LENGTH_data]
+    \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
+            wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
+    \\ blastLib.BBLAST_TAC)
   \\ EVAL_TAC
   \\ rewrite_tac[hello_ag32CompileTheory.config_def]
   \\ EVAL_TAC);
 
+val hello_clock_def =
+  new_specification("hello_clock_def",["hello_clock"],
+  GEN_ALL lemma
+  |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
+
 val hello_machine_sem =
   compile_correct_applied
-  |> C MATCH_MP (UNDISCH lemma)
+  |> C MATCH_MP (UNDISCH (SPEC_ALL hello_clock_def))
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
@@ -1731,12 +1828,12 @@ val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_me
   \\ simp[SPLITP]
   \\ simp[o_DEF,ADD1,GSYM word_add_n2w]);
 
+(*
 val ag32_record_ffi_def = Define`
   ag32_record_ffi r0 ms ls ⇔
-    (MAP (extract_print_from_mem 64 r0) ms.io_events
+    (MAP (extract_print_from_mem print_string_max_length r0) ms.io_events
      = MAP (λx. case x of IO_event _ conf _ => MAP (CHR o w2n) conf) ls)`;
 
-(*
 interfer_FUNPOW_next is too strong...
 
 val interfer_FUNPOW_next_ag32_record_ffi = Q.store_thm("interfer_FUNPOW_next_ag32_record_ffi",
@@ -1749,9 +1846,9 @@ val interfer_FUNPOW_next_ag32_record_ffi = Q.store_thm("interfer_FUNPOW_next_ag3
 *)
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
-  `aligned 2 r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
-   ∃k. let ms = FUNPOW Next k (hello_init_ag32_state r0) in
-       let outs = MAP (extract_print_from_mem 64 r0) ms.io_events in
+  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
+   ∃k. let ms = FUNPOW Next k (ag32_init_state (hello_init_memory r0) r0) in
+       let outs = MAP (extract_print_from_mem print_string_max_length r0) ms.io_events in
          (ms.PC = (hello_machine_config r0).halt_pc) ∧
          outs ≼ hello_outputs ∧
          ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒ (outs = hello_outputs))`,
@@ -1765,6 +1862,5 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ rw[]
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ cheat);
-*)
 
 val _ = export_theory();
