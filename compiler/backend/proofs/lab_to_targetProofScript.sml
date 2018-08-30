@@ -4808,11 +4808,21 @@ val find_ffi_names_append = Q.prove(`
   fs[MEM_FILTER,FILTER_APPEND]>>
   fs[]);
 
+val MOD_IMP_aligned = store_thm("MOD_IMP_aligned", (* TODO: move *)
+  ``!n p. n MOD 2 ** p = 0 ==> aligned p (n2w n)``,
+  fs [alignmentTheory.aligned_bitwise_and]
+  \\ once_rewrite_tac [WORD_AND_COMM]
+  \\ fs [WORD_AND_EXP_SUB1]);
+
 val all_enc_ok_aligned_pos_val = Q.store_thm("all_enc_ok_aligned_pos_val",
  `!(mc_conf : ('a, 'b, 'c) machine_config) labs code2 pc.
-   all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 ==>
+   all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
+   (has_odd_inst code2 ==> mc_conf.target.config.code_alignment = 0) /\
+   backend_correct mc_conf.target ==>
    aligned mc_conf.target.config.code_alignment (n2w (pos_val pc 0 code2):'a word)`,
-  cheat);
+  rw []
+  \\ last_x_assum (mp_then Any mp_tac (GEN_ALL pos_val_MOD_0))
+  \\ metis_tac [MOD_IMP_aligned]);
 
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -5397,11 +5407,13 @@ val compile_correct = Q.prove(
       \\ res_tac \\ full_simp_tac(srw_ss())[]
       \\ conj_tac
       THEN1
-       (rw [] \\ first_x_assum match_mp_tac \\ simp [] \\
-        `aligned mc_conf.target.config.code_alignment p` by fs [alignmentTheory.aligned_bitwise_and] \\
-        qpat_x_assum `_ = t1.regs s1.link_reg` (fn th => rewrite_tac [GSYM th]) \\
-        simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub] \\
-        drule all_enc_ok_aligned_pos_val \\ simp [])
+       (rw [] \\ first_x_assum match_mp_tac \\ simp []
+        \\ `aligned mc_conf.target.config.code_alignment p` by fs [alignmentTheory.aligned_bitwise_and]
+        \\ qpat_x_assum `_ = t1.regs s1.link_reg` (fn th => rewrite_tac [GSYM th])
+        \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
+        \\ drule all_enc_ok_aligned_pos_val \\ simp []
+        \\ disch_then match_mp_tac \\ fs []
+        \\ metis_tac[has_odd_inst_alignment])
       \\ conj_tac
       THEN1
        (full_simp_tac(srw_ss())[shift_seq_def,PULL_FORALL,AND_IMP_INTRO])
