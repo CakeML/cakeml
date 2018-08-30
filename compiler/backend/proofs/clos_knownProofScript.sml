@@ -84,18 +84,27 @@ val is_subseq_FLAT_suff = Q.store_thm("is_subseq_FLAT_suff",
   `∀ls1 ls2. LIST_REL is_subseq ls1 ls2 ⇒ is_subseq (FLAT ls1) (FLAT ls2)`,
   ho_match_mp_tac LIST_REL_ind
   \\ rw[is_subseq_append_suff]);
+
+val EVERY_lookup_vars = Q.store_thm(
+  "EVERY_lookup_vars",
+  `∀vs env env'. EVERY P env ∧ lookup_vars vs env = SOME env' ⇒ EVERY P env'`,
+  Induct >> simp[lookup_vars_def, case_eq_thms, PULL_EXISTS] >>
+  metis_tac[MEM_EL, EVERY_MEM]);
+
+val EVERY_LAST = Q.store_thm("EVERY_LAST",
+  `!P l. l ≠ [] /\ EVERY P l ==> P (LAST l)`,
+  rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
+
+val LIST_REL_LAST = Q.store_thm("LIST_REL_LAST",
+  `!R l1 l2. l1 ≠ [] /\ LIST_REL R l1 l2 ==> R (LAST l1) (LAST l2)`,
+  rw [LIST_REL_EL_EQN]
+  \\ `l2 ≠ []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
+  \\ fs [LAST_EL, NOT_NIL_EQ_LENGTH_NOT_0])
+
 (* -- *)
 
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
-
-(* repeated resolution, requiring that all preconditions get removed *)
-fun nailIHx k =
-  first_x_assum
-    (REPEAT_GTCL
-       (fn ttcl => fn th => first_assum (mp_then (Pos hd) ttcl th))
-       (k o assert (not o is_imp o #2 o strip_forall o concl)) o
-     assert (is_imp o #2 o strip_forall o concl))
 
 (* fixeqs flips any equations in the assumption that have evaluate on the rhs *)
 val evaluate_t = ``closSem$evaluate``
@@ -112,7 +121,6 @@ in
   RULE_ASSUM_TAC (CONV_RULE (TRY_CONV c))
 end
 
-
 val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
                       nchotomy = TypeBase.nchotomy_of ``:val_approx``}
@@ -126,14 +134,6 @@ val result_CASES = TypeBase.nchotomy_of result_ty
 val result_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of result_ty,
                       nchotomy = result_CASES}
-
-(*
-val error_ty = ``:α semanticPrimitives$error_result``
-val error_CASES = TypeBase.nchotomy_of error_ty
-val error_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of error_ty,
-                      nchotomy = error_CASES}
-*)
 
 (* simple properties of constants from clos_known: i.e., merge and known *)
 
@@ -419,7 +419,7 @@ val val_approx_better_approx = Q.store_thm(
   metis_tac [val_approx_better_approx_lemma]);
 
 val evaluate_IMP_shift_seq = Q.store_thm(
-  "evaluate__IMP_shift_seq",
+  "evaluate_IMP_shift_seq",
   `!es env s0 res s.
      closSem$evaluate (es, env, s0) = (res, s) ==>
        ?k. s.compile_oracle = shift_seq k s0.compile_oracle`,
@@ -745,6 +745,11 @@ val fv_max_append = Q.store_thm(
   `!xs ys n. fv_max n (xs ++ ys) <=> fv_max n xs /\ fv_max n ys`,
   Induct \\ simp [fv_max_rw] \\ metis_tac [fv_max_cons]);
 
+val fv_max_less = Q.store_thm(
+  "fv_max_less",
+  `!m n xs. fv_max m xs /\ m <= n ==> fv_max n xs`,
+  simp [fv_max_def] \\ rw [] \\ res_tac \\ fs []);
+
 val known_op_correct_approx = Q.store_thm(
   "known_op_correct_approx",
   `!opn args g0 a g vs s0 v s.
@@ -991,23 +996,6 @@ val dest_closure_Full_sgc_free = Q.store_thm(
    \\ conj_tac
    THEN1 (irule EVERY_TAKE \\ simp [EVERY_REVERSE])
    THEN1 (irule EVERY_DROP \\ simp [EVERY_REVERSE]));
-
-
-val EVERY_lookup_vars = Q.store_thm(
-  "EVERY_lookup_vars",
-  `∀vs env env'. EVERY P env ∧ lookup_vars vs env = SOME env' ⇒ EVERY P env'`,
-  Induct >> simp[lookup_vars_def, case_eq_thms, PULL_EXISTS] >>
-  metis_tac[MEM_EL, EVERY_MEM]);
-
-val EVERY_LAST = Q.store_thm("EVERY_LAST",
-  `!P l. l ≠ [] /\ EVERY P l ==> P (LAST l)`,
-  rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
-
-val LIST_REL_LAST = Q.store_thm("LIST_REL_LAST",
-  `!R l1 l2. l1 ≠ [] /\ LIST_REL R l1 l2 ==> R (LAST l1) (LAST l2)`,
-  rw [LIST_REL_EL_EQN]
-  \\ `l2 ≠ []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
-  \\ fs [LAST_EL, NOT_NIL_EQ_LENGTH_NOT_0])
 
 val say = say0 "evaluate_changed_globals_0";
 
@@ -1577,11 +1565,6 @@ val decide_inline_LetInline_IMP_Clos_fv_max = Q.store_thm(
   \\ first_x_assum (qspec_then `v - arity` mp_tac)
   \\ simp []);
 
-val fv_max_less = Q.store_thm(
-  "fv_max_less",
-  `!m n xs. fv_max m xs /\ m <= n ==> fv_max n xs`,
-  simp [fv_max_def] \\ rw [] \\ res_tac \\ fs []);
-
 val known_preserves_fv_max = Q.store_thm(
   "known_preserves_fv_max",
   `!c es aenv g0 eas1 g n.
@@ -1620,25 +1603,6 @@ val known_preserves_fv_max = Q.store_thm(
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ fs [EVERY_MEM]
     \\ first_x_assum drule \\ simp []));
-
-(* This unused and is unlikely to be needed. *)
-val known_extra = Q.store_thm(
-  "known_extra",
-  `!c xs aenv g0 extra1 extra2.
-     fv_max (LENGTH aenv) xs ==>
-     known c xs (aenv ++ extra1) g0 = known c xs (aenv) g0`,
-  ho_match_mp_tac known_ind
-  \\ rpt strip_tac
-  \\ fs [known_def, fv_max_rw]
-  \\ rpt (pairarg_tac \\ fs [])
-  THEN1 (simp [any_el_ALT, EL_APPEND1])
-  THEN1 (imp_res_tac known_LENGTH_EQ_E \\ fs [] \\ rfs [])
-  THEN1 (fs [ADD1] \\ rfs [])
-  THEN1 (fs [clos_gen_noinline_eq]
-         \\ TOP_CASE_TAC \\ fs [] \\ rfs [] \\ fs []
-         \\ simp [MAP_EQ_f, PULL_FORALL, FORALL_PROD]
-         \\ rpt strip_tac \\ fs [EVERY_MEM]
-         \\ res_tac \\ fs []));
 
 (* oracle_gapprox_subspt *)
 val oracle_gapprox_subspt_def = Define `
@@ -1681,40 +1645,6 @@ val oracle_gapprox_subspt_evaluate = Q.store_thm(
      closSem$evaluate (xs, env, s0) = (res, s) ==>
      oracle_gapprox_subspt s.compile_oracle`,
   rw [] \\ imp_res_tac evaluate_code \\ simp [oracle_gapprox_subspt_shift_seq]);
-
-(* oracle_gapprox_better_definedg *)
-val oracle_gapprox_better_definedg_def = Define `
-  oracle_gapprox_better_definedg co <=>
-    !n. better_definedg (FST (FST (co n))) (FST (FST (co (SUC n))))
-`;
-
-val oracle_gapprox_better_definedg_add = Q.store_thm(
-  "oracle_gapprox_better_definedg_add",
-  `oracle_gapprox_better_definedg co <=>
-     !(n:num) k. better_definedg (FST (FST (co n))) (FST (FST (co (n + k))))`,
-  eq_tac \\ rw []
-  THEN1
-   (Induct_on `k`
-    \\ fs [oracle_gapprox_better_definedg_def]
-    \\ first_x_assum (qspec_then `k + n` assume_tac)
-    \\ fs [ADD1, AC ADD_ASSOC ADD_COMM]
-    \\ metis_tac [better_definedg_trans])
-  \\ rw [oracle_gapprox_better_definedg_def]
-  \\ first_x_assum (qspecl_then [`n`, `1`] mp_tac)
-  \\ simp [ADD1]);
-
-val oracle_gapprox_better_definedg_alt = Q.store_thm(
-  "oracle_gapprox_better_definedg_alt",
-  `!co n k. oracle_gapprox_better_definedg co /\ n <= k ==>
-     better_definedg (FST (FST (co n))) (FST (FST (co k)))`,
-  rw [oracle_gapprox_better_definedg_add]
-  \\ imp_res_tac LESS_EQ_ADD_EXISTS \\ rveq \\ simp []);
-
-val oracle_gapprox_better_definedg_shift_seq = Q.store_thm(
-  "oracle_gapprox_better_definedg_shift_seq",
-  `oracle_gapprox_better_definedg co ==> !k. oracle_gapprox_better_definedg (shift_seq k co)`,
-  rw [] \\ simp [oracle_gapprox_better_definedg_def, shift_seq_def]
-  \\ fs [oracle_gapprox_better_definedg_alt]);
 
 (* oracle_state_sgc_free *)
 val oracle_state_sgc_free_def = Define `
@@ -2822,17 +2752,6 @@ val evaluate_app_exact_rw = Q.store_thm(
   \\ simp [DROP_LENGTH_TOO_LONG]
   \\ EVERY_CASE_TAC \\ simp []);
 
-val dest_closure_SOME_Full_app_args_nil = Q.store_thm(
-  "dest_closure_SOME_Full_app_args_nil",
-  `dest_closure max_app (SOME loc) f args = SOME (Full_app exp1 env args1) ⇒
-   args1 = []`,
-  simp[dest_closure_def, case_eq_thms, bool_case_eq, revtakerev] >> strip_tac >> rveq
-  >- (fs[check_loc_def] >> simp[DROP_LENGTH_NIL_rwt]) >>
-  pairarg_tac >> fs[bool_case_eq] >> rveq >> fs[check_loc_def] >> rveq >>
-  simp[DROP_LENGTH_NIL_rwt]);
-
-val eqtI_thm = EQ_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 2 |> GSYM
-
 val v_caseT = v_case_eq |> INST_TYPE [alpha |-> bool] |> Q.INST [`v` |-> `T`]
                         |> REWRITE_RULE []
 val optcaset = ``option$option_CASE``
@@ -2844,7 +2763,6 @@ val opt_caseT = case_eq_thms |> CONJUNCTS
                     |> INST_TYPE [beta |-> bool]
                     |> Q.INST [`v'` |-> `T`]
                     |> SIMP_RULE (srw_ss()) []
-
 
 val loptrel_arg1_SOME = save_thm(
   "loptrel_arg1_SOME",
@@ -4633,13 +4551,6 @@ val bag_of_list_append = Q.store_thm("bag_of_list_append",
   simp [bag_of_list_def, FOLDL_APPEND]
   \\ irule COMM_MONOID_FOLDL
   \\ simp [COMM_DEF, COMM_BAG_UNION, MONOID_BAG_UNION_EMPTY_BAG]);
-
-(*
-val bag_of_list_FLAT = Q.store_thm("bag_of_list_FLAT",
-  `!l. bag_of_list (FLAT l) = FOLDL $⊎ {||} (MAP bag_of_list l)`,
-  simp [bag_of_list_def, MAP_FLAT, GSYM MAP_MAP_o]
-  \\ irule ASSOC_FOLDL_FLAT \\ simp [ASSOC_DEF, ASSOC_BAG_UNION, RIGHT_ID_DEF]);
-*)
 
 val bag_of_list_sub_bag_FLAT_suff = Q.store_thm("bag_of_list_sub_bag_FLAT_suff",
   `!ls1 ls2. LIST_REL (\l1 l2. bag_of_list l1 ≤ bag_of_list l2) ls1 ls2 ==>
