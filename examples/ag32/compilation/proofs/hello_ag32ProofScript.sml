@@ -34,18 +34,15 @@ val steps_rel_okpath = Q.store_thm("steps_rel_okpath",
   \\ rewrite_tac[toPath_fromList]
   \\ rw[steps_rel_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]);
 
-(*
 val steps_rel_LRC = Q.store_thm("steps_rel_LRC",
    `∀R x tr.
      steps_rel R x tr ⇒
      LRC (λx y. ∃i. R x i y)
-       (MAP SND tr) x (LAST (x::(MAP SND tr)))`,
+       (FRONT(x::(MAP SND tr))) x (LAST (x::(MAP SND tr)))`,
   recInduct steps_rel_ind
   \\ rw[steps_rel_def]
-  \\ rw[LRC_def]
-     type_of``steps_rel``
-     type_of``LRC``
-*)
+  \\ rw[LRC_def, PULL_EXISTS]
+  \\ asm_exists_tac \\ rw[]);
 
 val asserts_IMP_FOLDR_COUNT_LIST = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST",
   `∀n next ms P Q. asserts n next ms P Q ⇒
@@ -55,6 +52,10 @@ val asserts_IMP_FOLDR_COUNT_LIST = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST",
   \\ rw[asmPropsTheory.asserts_def]
   \\ rw[COUNT_LIST_SNOC, FOLDR_SNOC]
   \\ first_x_assum drule \\ rw[]);
+
+val LAST_MAP_SND_steps_FOLDL = Q.store_thm("LAST_MAP_SND_steps_FOLDL",
+  `∀f x ls. LAST (x::(MAP SND (steps f x ls))) = FOLDL f x ls`,
+  Induct_on`ls` \\ rw[steps_def]);
 
 val FOLDR_FUNPOW = Q.store_thm("FOLDR_FUNPOW",
   `FOLDR (λx. f) x ls = FUNPOW f (LENGTH ls) x`,
@@ -642,6 +643,43 @@ val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
 
+val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm_step_target_state_rel",
+  `backend_correct t ∧
+   target_state_rel t s1 ms ∧ (* TODO: add more invariants here, e.g., target_configured *)
+   asm_step t.config s1 i s2
+   ⇒
+   ∃n.
+   target_state_rel t s2 (FUNPOW t.next n ms)`,
+  rw[asmPropsTheory.backend_correct_def]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`K I`mp_tac)
+  \\ impl_tac >- ( EVAL_TAC \\ rw[] )
+  \\ srw_tac[ETA_ss][]
+  \\ imp_res_tac asserts_IMP_FOLDR_COUNT_LIST
+  \\ fs[FOLDR_FUNPOW, LENGTH_COUNT_LIST]
+  \\ qexists_tac`SUC n`
+  \\ simp[FUNPOW]);
+
+val backend_correct_RTC_asm_step_target_state_rel = Q.store_thm("backend_correct_RTC_asm_step_target_state_rel",
+  `backend_correct t ∧
+   target_state_rel t s1 ms ∧
+   RTC (λs1 s2. ∃i. asm_step t.config s1 i s2) s1 s2
+   ⇒
+   ∃n. target_state_rel t s2 (FUNPOW t.next n ms)`,
+  strip_tac
+  \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
+  \\ disch_then ho_match_mp_tac
+  \\ reverse conj_tac
+  >- ( qexists_tac`0` \\ rw[] )
+  \\ rw[]
+  \\ drule (GEN_ALL backend_correct_asm_step_target_state_rel)
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ rw[GSYM FUNPOW_ADD]
+  \\ asm_exists_tac \\ rw[]);
+
 (* -- *)
 
 val startup_asm_code_def = Define`
@@ -970,6 +1008,12 @@ val mem_ok_tac =
         GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
         bitTheory.BITS_ZERO3 ]
 
+val _ = temp_overload_on("hello_asm_state0",
+  ``(ag32_init_asm_state
+      (hello_init_memory r0)
+      (hello_machine_config r0).prog_addresses
+      r0)``);
+
 val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
    steps_rel (asm_step (ag32_target.config))
@@ -1180,12 +1224,31 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ simp[] \\ strip_tac
   \\ simp[Once steps_def] \\ simp[steps_rel_def, Abbr`f`]);
 
+val target_state_rel_hello_init_asm_state =
+  NRC_LRC
+  |> EQ_IMP_RULE |> #2
+  |> Q.GEN`n`
+  |> SIMP_RULE bool_ss [PULL_EXISTS]
+  |> C MATCH_MP
+      (hello_init_asm_state_asm_step
+       |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+       |> UNDISCH_ALL
+       |> MATCH_MP steps_rel_LRC)
+  |> MATCH_MP NRC_RTC
+  |> MATCH_MP
+    (backend_correct_RTC_asm_step_target_state_rel
+     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+     |> C MATCH_MP ag32_targetProofTheory.ag32_backend_correct
+     |> C MATCH_MP (UNDISCH target_state_rel_ag32_init))
+  |> DISCH_ALL
+  |> REWRITE_RULE[LAST_MAP_SND_steps_FOLDL, GSYM hello_init_asm_state_def]
+
+(*
 val hello_init_ag32_state_def = Define`
   hello_init_ag32_state r0 =
     FUNPOW Next (LENGTH hello_startup_code)
       (ag32_init_state (hello_init_memory r0) r0)`;
 
-(*
 val byte_align_extract_lemma = Q.store_thm("byte_align_extract_lemma",
   `n < 4 ⇒
    (byte_align ((31 >< 2) (w:word32) : word30 @@ (0w:word2) + (n2w n)) = byte_align w)`,
@@ -1321,29 +1384,11 @@ val hello_init_asm_state_def = Define`
   |>`;
 *)
 
-val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm_step_target_state_rel",
-  `backend_correct t ∧
-   target_state_rel t s1 ms ∧
-   asm_step t.config s1 i s2
-   ⇒
-   ∃n.
-   target_state_rel t s2 (FUNPOW t.next n ms)`,
-  rw[asmPropsTheory.backend_correct_def]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`K I`mp_tac)
-  \\ impl_tac >- ( EVAL_TAC \\ rw[] )
-  \\ srw_tac[ETA_ss][]
-  \\ imp_res_tac asserts_IMP_FOLDR_COUNT_LIST
-  \\ fs[FOLDR_FUNPOW, LENGTH_COUNT_LIST]
-  \\ qexists_tac`SUC n`
-  \\ simp[FUNPOW]);
-
 (*
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
-   good_init_state (hello_machine_config r0) (hello_init_ag32_state r0)
+   ∃n.
+   good_init_state (hello_machine_config r0) (FUNPOW Next n (ag32_init_state (hello_init_memory r0) r0))
      ag_ffi code 0 (hello_init_asm_state r0)
      (λk. Word (EL (w2n (k - r0) DIV 4) (hello_init_memory_words)))
        ({w | (hello_init_asm_state r0).regs 2 <=+ w ∧
@@ -1352,26 +1397,11 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
                w <+ r0 + n2w(heap_size + 4 * LENGTH data) })
      (K(K NONE)) (K(K NONE))`,
   strip_tac
+  \\ strip_assume_tac(UNDISCH_ALL target_state_rel_hello_init_asm_state)
+  \\ qexists_tac`n`
   \\ simp[lab_to_targetProofTheory.good_init_state_def]
-  \\ conj_asm1_tac
-  >- (
-    ag32_targetProofTheory.ag32_backend_correct
-    asmPropsTheory.backend_correct_def
-    asmPropsTheory.asserts_def
-
-    simp[asmPropsTheory.target_state_rel_def]
-    \\ simp[EVAL``(hello_machine_config r0).target``]
-    \\ conj_tac
-    >- (
-      simp[ag32_targetTheory.ag32_ok_def, hello_init_ag32_state_def]
-      \\ (alignmentTheory.aligned_add_sub_cor
-          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-          |> irule)
-      \\ simp[LENGTH_data]
-      \\ EVAL_TAC)
-    \\ conj_tac >- EVAL_TAC
-    \\ conj_tac >- rw[hello_init_asm_state_def]
-    \\ EVAL_TAC \\ rw[] )
+  \\ conj_tac
+  >- ( fs[hello_machine_config_def, ag32_targetTheory.ag32_target_def] )
   \\ conj_tac
   >- (
     simp[lab_to_targetProofTheory.target_configured_def]
