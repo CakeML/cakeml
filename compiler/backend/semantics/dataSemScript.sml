@@ -135,6 +135,10 @@ val list_to_v_def = Define `
   list_to_v [] = Block 0 nil_tag [] /\
   list_to_v (v::vs) = Block 0 cons_tag [v; list_to_v vs]`;
 
+val list_to_v_alt_def = Define`
+  list_to_v_alt t [] = t
+∧ list_to_v_alt t (h::l) = Block 0 cons_tag [h;list_to_v_alt t l]`;
+
 val with_fresh_ts_def = Define`
   with_fresh_ts ^s f = case s.tstamps of
                           SOME ts => f ts (s with <| tstamps := SOME (ts + 1) |>)
