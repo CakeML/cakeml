@@ -71,7 +71,7 @@ val ag32_enc_def = Define`
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (asm$Imm i)))) =
-    if i < 32w then
+    if -32w <= i /\ i < 32w then
       enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Imm (w2w i)))
     else
       ag32_encode
@@ -195,8 +195,8 @@ val ag32_config_def = Define`
     ; link_reg := SOME 0
     ; two_reg_arith := F
     ; big_endian := F
-    ; valid_imm := \i n. if i = INL Add \/ i = INL Sub then
-                           -32w <= n /\ n < 1024w
+    ; valid_imm := \i n. if ISL i then
+                           -0x7FFFFFw <= n /\ n < 0x7FFFFFw
                          else
                            -32w <= n /\ n < 32w
     ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
