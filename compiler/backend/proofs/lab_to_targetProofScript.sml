@@ -556,7 +556,8 @@ val state_rel_def = Define `
     (* clear cache behaves correctly *)
     (∀ms2 t1 k a1 a2.
       target_state_rel mc_conf.target
-        (t1 with pc := p - n2w ((2 * ffi_offset))) ms2 ⇒
+        (t1 with pc := p - n2w ((2 * ffi_offset))) ms2 /\
+      aligned mc_conf.target.config.code_alignment (t1.regs s1.link_reg) ⇒
       target_state_rel mc_conf.target
         (t1 with
           <|regs :=
@@ -4820,9 +4821,7 @@ val all_enc_ok_aligned_pos_val = Q.store_thm("all_enc_ok_aligned_pos_val",
    (has_odd_inst code2 ==> mc_conf.target.config.code_alignment = 0) /\
    backend_correct mc_conf.target ==>
    aligned mc_conf.target.config.code_alignment (n2w (pos_val pc 0 code2):'a word)`,
-  rw []
-  \\ last_x_assum (mp_then Any mp_tac (GEN_ALL pos_val_MOD_0))
-  \\ metis_tac [MOD_IMP_aligned]);
+  metis_tac [MOD_IMP_aligned,pos_val_MOD_0]);
 
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -5504,19 +5503,33 @@ val compile_correct = Q.prove(
     by (
       fs[state_rel_def]
       \\ first_x_assum match_mp_tac
-      \\ qmatch_abbrev_tac`_ _ t11 _`
-      \\ qmatch_assum_abbrev_tac`_ _ t12 _`
-      \\ `t11 = t12` by (
-        simp[Abbr`t11`,Abbr`t12`,asmSemTheory.asm_state_component_equality]
-        \\ simp[GSYM WORD_LITERAL_ADD]
-        \\ qpat_x_assum`_ = mc_conf.ccache_pc`(kall_tac)
-        \\ qpat_x_assum`_ = mc_conf.ccache_pc`(mp_tac o SYM)
-        \\ rw[]
-        \\ qmatch_abbrev_tac`p + b = p + e + b + -e`>>
-        `p+e+b = p+b+e` by
-          simp[]>>
-        simp[])
-      \\ rw[] )
+      \\ conj_tac THEN1
+       (qmatch_abbrev_tac`_ _ t11 _`
+        \\ qmatch_assum_abbrev_tac`_ _ t12 _`
+        \\ `t11 = t12` by (
+          simp[Abbr`t11`,Abbr`t12`,asmSemTheory.asm_state_component_equality]
+          \\ simp[GSYM WORD_LITERAL_ADD]
+          \\ qpat_x_assum`_ = mc_conf.ccache_pc`(kall_tac)
+          \\ qpat_x_assum`_ = mc_conf.ccache_pc`(mp_tac o SYM)
+          \\ rw[]
+          \\ qmatch_abbrev_tac`p + b = p + e + b + -e`>>
+          `p+e+b = p+b+e` by
+            simp[]>>
+          simp[])
+        \\ rw[] )
+      \\ qpat_x_assum `∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)`
+            (qspec_then `s1.link_reg` mp_tac) \\ simp [] \\ strip_tac
+      \\ rename [`word_loc_val p labs (Loc l1 l2) = SOME (t1.regs r1)`]
+      \\ full_simp_tac(srw_ss())[word_loc_val_def]
+      \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
+      \\ FIRST_X_ASSUM (qspecl_then [`l1`,`l2`] mp_tac) \\ fs [] \\ rw []
+      \\ `aligned mc_conf.target.config.code_alignment p` by
+             fs [alignmentTheory.aligned_bitwise_and]
+      \\ qpat_x_assum `_ = t1.regs r1` (fn th => rewrite_tac [GSYM th])
+      \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
+      \\ drule all_enc_ok_aligned_pos_val \\ simp []
+      \\ disch_then match_mp_tac \\ fs []
+      \\ metis_tac[has_odd_inst_alignment])
     \\ qmatch_assum_abbrev_tac`target_state_rel _ t2 ms12`
     \\ qpat_assum`s1.compile _ _ = _`mp_tac
     \\ `s1.compile = compile_lab` by fs[state_rel_def]
@@ -6141,9 +6154,7 @@ val IMP_state_rel_make_init = Q.prove(
         ffi_interfer_ok_def,
         ccache_interfer_ok_def]
   \\ rfs[]
-  \\ cheat
-(*
-  \\ conj_tac >- cheat
+  \\ conj_tac >-
     (strip_tac >>
     pairarg_tac >> fs[]>>
     qpat_x_assum`!k. _ (coracle k)`(qspec_then`k` assume_tac)>>rfs[]>>
@@ -6165,7 +6176,7 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac>- simp[bytes_in_mem_def]
   \\ conj_tac>-
     (drule pos_val_0 \\ simp[])
-  \\ metis_tac[code_similar_sec_labels_ok]*));
+  \\ metis_tac[code_similar_sec_labels_ok]);
 
 val make_init_simp = Q.store_thm("make_init_simp[simp]",`
   (make_init a b d e f g h i j k l m n).ffi = b ∧
