@@ -109,7 +109,7 @@ val _ = temp_overload_on("nxt",
   ``λmc n ms. FUNPOW mc.target.next n ms``);
 
 val interference_implemented_def = Define`
-  interference_implemented mc ffi_proj ms0 ⇔
+  interference_implemented mc ffi_rel (:'ffi) ms0 ⇔
     ∃next_interfer ccache_interfer ffi_interfer.
     (∀n. mc.next_interfer n = next_interfer) ∧
     (∀n. mc.ccache_interfer n = ccache_interfer) ∧
@@ -118,34 +118,35 @@ val interference_implemented_def = Define`
       (mc.target.get_pc ms ∈ mc.prog_addresses ⇒
         ∃k. (next_interfer (mc.target.next ms)
              = FUNPOW mc.target.next k (mc.target.next ms)) ∧
-            (ffi_proj ms = ffi_proj (mc.target.next ms)) ∧
-            (ffi_proj (mc.target.next ms) =
-             ffi_proj (FUNPOW mc.target.next k (mc.target.next ms)))) ∧
+            (ffi_rel ms = ffi_rel (mc.target.next ms)) ∧
+            (ffi_rel (mc.target.next ms) =
+             ffi_rel (FUNPOW mc.target.next k (mc.target.next ms)))) ∧
       ((mc.target.get_pc ms = mc.ccache_pc) ⇒
         ∃k. (ccache_interfer
              (mc.target.get_reg ms mc.ptr_reg,
               mc.target.get_reg ms mc.len_reg,ms)
              = FUNPOW mc.target.next k ms) ∧
-            (ffi_proj ms =
-             ffi_proj (FUNPOW mc.target.next k ms))) ∧
-        ∀ffi_index bytes bytes2 new_ffi new_bytes.
+            (ffi_rel ms =
+             ffi_rel (FUNPOW mc.target.next k ms))) ∧
+        ∀(ffi:'ffi ffi_state) ffi_index bytes bytes2 new_ffi new_bytes.
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
           (read_ffi ms mc = (SOME bytes, SOME bytes2)) ∧
-          (call_FFI (ffi_proj ms) (EL ffi_index mc.ffi_names) bytes bytes2 =
-            FFI_return new_ffi new_bytes)
+          (call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 =
+            FFI_return new_ffi new_bytes) ∧
+          (ffi_rel ms ffi.io_events)
           ⇒
           ∃k.
             (ffi_interfer (ffi_index,new_bytes,ms) =
              FUNPOW mc.target.next k ms) ∧
-            (ffi_proj (FUNPOW mc.target.next k ms) = new_ffi)`;
+            (ffi_rel (FUNPOW mc.target.next k ms) new_ffi.io_events)`;
 
 val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
-  `∀mc ffi k ms t ms' ffi'.
-   interference_implemented mc ffi_proj ms ∧
-   (ffi_proj ms = ffi) ∧
+  `∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
+   interference_implemented mc ffi_rel (:'ffi) ms ∧
+   (ffi_rel ms ffi.io_events) ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
-          (ffi_proj ms' = ffi')`,
+          (ffi_rel ms' ffi'.io_events)`,
   ho_match_mp_tac targetSemTheory.evaluate_ind
   \\ rpt gen_tac
   \\ strip_tac
@@ -190,7 +191,10 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
         \\ first_assum(qspec_then`0`(mp_tac o CONJUNCT1 o CONJUNCT2))
         \\ impl_tac >- fs[]
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
-        \\ fs[GSYM FUNPOW_ADD])
+        \\ fs[GSYM FUNPOW_ADD] \\ rw[]
+        \\ first_x_assum(qspec_then`k0+k1`(mp_tac o CONJUNCT2 o CONJUNCT2))
+        \\ simp[]
+        \\ disch_then drule \\ rw[])
       \\ fs[interference_implemented_def]
       \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT1 o CONJUNCT2))
       \\ simp[]
@@ -220,31 +224,36 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
         \\ disch_then drule
         \\ disch_then drule
         \\ disch_then drule
+        \\ disch_then drule
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
-        \\ fs[GSYM FUNPOW_ADD])
+        \\ fs[GSYM FUNPOW_ADD]
+        \\ first_x_assum(qspec_then`k0+k1`(mp_tac o CONJUNCT2 o CONJUNCT2))
+        \\ simp[] )
       \\ fs[interference_implemented_def]
       \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT2 o CONJUNCT2))
       \\ simp[]
+      \\ disch_then drule
+      \\ disch_then drule
       \\ disch_then(qx_choose_then`k1`strip_assume_tac)
       \\ fs[GSYM FUNPOW_ADD])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
     \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT2 o CONJUNCT2))
     \\ simp[]
+    \\ disch_then drule
+    \\ disch_then drule
     \\ disch_then(qx_choose_then`k2`strip_assume_tac)
     \\ fs[GSYM FUNPOW_ADD]
     \\ qexists_tac`k1+k2` \\ rw[]));
 
-(*
 val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPOW_next",
-  `interference_implemented mc ffi_proj ms ∧
-   (ffi_proj ms = st.io_events) ∧
-   machine_sem mc st ms (Terminate t io_events) ⇒
-   ∃k. ffi_proj (nxt mc k ms) = io_events`,
+  `interference_implemented mc ffi_rel (:'ffi) ms ∧
+   (ffi_rel ms st.io_events) ∧
+   machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
+   ∃k. ffi_rel (nxt mc k ms) io_events`,
   rw[targetSemTheory.machine_sem_def]
   \\ imp_res_tac evaluate_Halt_FUNPOW_next
   \\ rfs[] \\ metis_tac[]);
-*)
 
 val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
   `ALIGNED = aligned 2`,
@@ -1235,147 +1244,6 @@ val target_state_rel_hello_init_asm_state =
      |> REWRITE_RULE[SIMP_CONV (srw_ss()) [ag32_targetTheory.ag32_target_def] ``ag32_target.config``])
   |> REWRITE_RULE[EVAL``ag32_target.next``]
 
-(*
-val hello_init_ag32_state_def = Define`
-  hello_init_ag32_state r0 =
-    FUNPOW Next (LENGTH hello_startup_code)
-      (ag32_init_state (hello_init_memory r0) r0)`;
-
-val byte_align_extract_lemma = Q.store_thm("byte_align_extract_lemma",
-  `n < 4 ⇒
-   (byte_align ((31 >< 2) (w:word32) : word30 @@ (0w:word2) + (n2w n)) = byte_align w)`,
-  Cases_on`n` \\ rw[alignmentTheory.byte_align_def,alignmentTheory.align_def]
-  >- blastLib.BBLAST_TAC
-  \\ rename1`SUC n < 4`
-  \\ Cases_on`n` \\ fs[] >- blastLib.BBLAST_TAC
-  \\ rename1`SUC (SUC n) < 4`
-  \\ Cases_on`n` \\ fs[] >- blastLib.BBLAST_TAC
-  \\ rename1`SUC (SUC (SUC n)) < 4`
-  \\ Cases_on`n` \\ fs[] >- blastLib.BBLAST_TAC);
-
-val Next_hello = Q.store_thm("Next_hello",
-  `byte_aligned r0 ⇒
-   (st.MEM = hello_init_memory r0) ⇒ (* TODO: this needs to be weakened: only require startup code to be unchanged *)
-   (st.PC = r0 + (n2w (4 * pc))) ⇒
-    4 * pc < dimword(:32)
-   ⇒
-   (Next st = Run (Decode (EL pc (hello_init_memory_words))) st)`,
-  rw[ag32Theory.Next_def]
-  \\ AP_THM_TAC
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ simp[hello_init_memory_def]
-  \\ simp[byte_align_extract_lemma]
-  \\ qmatch_goalsub_abbrev_tac`ff c @@ 0w`
-  \\ `(ff c @@ (0w:word2)) : word32 = ff c @@ (0w:word2) + 0w` by simp[]
-  \\ pop_assum SUBST1_TAC
-  \\ unabbrev_all_tac
-  \\ simp[byte_align_extract_lemma]
-  \\ `byte_aligned (r0 + n2w (4 * pc))`
-  by (
-    fs[alignmentTheory.byte_aligned_def]
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ fs[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w] )
-  \\ fs[alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
-  \\ rfs[alignmentTheory.aligned_def]
-  \\ once_rewrite_tac[MULT_COMM]
-  \\ DEP_REWRITE_TAC[MULT_DIV]
-  \\ simp[]
-  \\ qmatch_goalsub_abbrev_tac`bb + (n2w _)`
-  \\ `byte_aligned bb`
-  by (
-    simp[Abbr`bb`, alignmentTheory.byte_aligned_def, alignmentTheory.aligned_def, alignmentTheory.align_def]
-    \\ blastLib.BBLAST_TAC )
-  \\ `bb = byte_align bb` by metis_tac[alignmentTheory.byte_align_def,alignmentTheory.aligned_def,alignmentTheory.byte_aligned_def]
-  \\ pop_assum SUBST1_TAC
-  \\ once_rewrite_tac[WORD_ADD_COMM]
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ conj_tac >- EVAL_TAC
-  \\ `byte_align bb = 0w + byte_align bb` by simp[]
-  \\ pop_assum SUBST1_TAC
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ conj_tac >- EVAL_TAC
-  \\ simp[wordSemTheory.get_byte_def,wordSemTheory.byte_index_def]
-  \\ blastLib.BBLAST_TAC);
-
-fun Next_hello_conv tm =
-  let
-    val st = rand tm
-    val st_MEM = ``ag32_state_MEM ^st`` |> SIMP_CONV(srw_ss())[]
-    val st_PC = ``ag32_state_PC ^st`` |> SIMP_CONV(srw_ss())[]
-    val th = MATCH_MP (UNDISCH Next_hello) st_MEM
-    val pc4 = rand (rconc st_PC) |> rand |> numSyntax.int_of_term
-    val pc = (pc4 div 4 |> numSyntax.term_of_int)
-    val th1 = th |> Q.GEN`pc` |> SPEC pc |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[])) |> C MATCH_MP TRUTH
-    val th2 = th1 |> CONV_RULE(LAND_CONV EVAL) |> C MATCH_MP TRUTH
-  in
-    th2
-  end
-
-val thms = List.map (DB.fetch "ag32") (#C (ag32Theory.inventory))
-
-fun next_rule th = th
-  |> ONCE_REWRITE_RULE[numLib.SUC_RULE FUNPOW]
-  |> CONV_RULE(RAND_CONV(RAND_CONV Next_hello_conv))
-  |> CONV_RULE(PATH_CONV"rrlrrr"(REWR_CONV hello_init_memory_words_def))
-  |> SIMP_RULE (srw_ss())
-      [EL_APPEND_EQN, LENGTH_words_of_bytes_hello_startup_code,
-       LENGTH_hello_startup_code, heap_size_def, LENGTH_data]
-  |> CONV_RULE(PATH_CONV"rrlrrr"(REWR_CONV words_of_bytes_hello_startup_code_eq_Encode))
-  |> CONV_RULE(PATH_CONV"rrlrr"(EVAL))
-  |> CONV_RULE(PATH_CONV"rrlr"(REWR_CONV ag32_targetProofTheory.Decode_Encode))
-  |> CONV_RULE(PATH_CONV"rr"(RATOR_CONV(REWR_CONV ag32Theory.Run_def) THENC SIMP_CONV (srw_ss())[]))
-  |> CONV_RULE(PATH_CONV"rr"(SIMP_CONV (srw_ss()++LET_ss) (UPDATE_def::thms)))
-
-val hello_init_ag32_state_th1 =
-  hello_init_ag32_state_def
-  |> SPEC_ALL
-  |> REWRITE_RULE[
-       LENGTH_hello_startup_code,
-       ag32_targetTheory.ag32_init_state_def,
-       ag32Theory.print_string_max_length_def, o_DEF,
-       ag32_targetTheory.ag32_init_regs_def]
-  |> next_rule
-  |> next_rule
-  |> next_rule
-  |> next_rule
-  |> next_rule
-  |> next_rule
-*)
-
-(*
-
-val hello_init_regs_def = Define`
-  hello_init_regs r0 (k:num) =
-  if k = 0 then r0
-  else if k = 2 then
-    r0 + 64w
-  else if k = 4 then
-    r0 + n2w heap_size
-  else (0w:word32)`;
-
-val hello_init_ag32_state_def = Define`
-  hello_init_ag32_state (r0:word32) = <|
-    PC := r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset);
-    MEM := hello_init_memory r0;
-    R := hello_init_regs r0 o w2n
-  |>`;
-
-val hello_init_asm_state_def = Define`
-  hello_init_asm_state (r0:word32) = <|
-    be := F;
-    lr := 0 ;
-    failed := F ;
-    align := 2 ;
-    pc := (hello_init_ag32_state r0).PC;
-    mem := (hello_init_ag32_state r0).MEM;
-    mem_domain := (hello_machine_config r0).prog_addresses ;
-    regs := hello_init_regs r0
-  |>`;
-*)
-
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
    ∃n.
@@ -1793,14 +1661,14 @@ val lemma = Q.prove(
   \\ rewrite_tac[hello_ag32CompileTheory.config_def]
   \\ EVAL_TAC);
 
-val hello_clock_def =
-  new_specification("hello_clock_def",["hello_clock"],
+val hello_startup_clock_def =
+  new_specification("hello_startup_clock_def",["hello_startup_clock"],
   GEN_ALL lemma
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val hello_machine_sem =
   compile_correct_applied
-  |> C MATCH_MP (UNDISCH (SPEC_ALL hello_clock_def))
+  |> C MATCH_MP (UNDISCH (SPEC_ALL hello_startup_clock_def))
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
@@ -1826,7 +1694,12 @@ val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_me
   \\ simp[SPLITP]
   \\ simp[o_DEF,ADD1,GSYM word_add_n2w]);
 
-(*
+val ag32_ffi_rel_def = Define`
+  ag32_ffi_rel r0 ms io_events ⇔
+    (io_events =
+     MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
+       (MAP (extract_print_from_mem print_string_max_length r0) ms.io_events))`;
+
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ⇒
    ∃k. let ms = FUNPOW Next k (ag32_init_state (hello_init_memory r0) r0) in
@@ -1841,9 +1714,10 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃b. machine_sem mc st ms b` by metis_tac[machine_sem_total]
   \\ fs[SUBSET_DEF, IN_DEF]
   \\ first_x_assum drule
-  \\ rw[]
+  \\ disch_then(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
+  \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
+  \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
   \\ cheat);
-*)
 
 val _ = export_theory();
