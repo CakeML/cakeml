@@ -6,6 +6,10 @@ val _ = new_theory"hello_ag32Proof";
 
 (* TODO: move *)
 
+val dest_IO_event_def = Define`
+  dest_IO_event (IO_event s c b) = (s,c,b)`;
+val _ = export_rewrites["dest_IO_event_def"];
+
 val toPath_fromList = Q.store_thm("toPath_fromList",
   `(toPath (x, fromList []) = stopped_at x) ∧
    (toPath (x, fromList ((y,z)::t)) = pcons x y (toPath (z, fromList t)))`,
@@ -146,7 +150,10 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
    (ffi_rel ms ffi.io_events) ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
-          (ffi_rel ms' ffi'.io_events)`,
+          (ffi_rel ms' ffi'.io_events) ∧
+          ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc ms' = mc.halt_pc)) ∧
+          (((mc.target.get_reg ms' mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x))
+            ⇒ (t = Success))`,
   ho_match_mp_tac targetSemTheory.evaluate_ind
   \\ rpt gen_tac
   \\ strip_tac
@@ -210,7 +217,7 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
   >- (
     fs[CaseEq"option"]
     \\ reverse(fs[CaseEq"ffi$ffi_result"]) \\ rfs[]
-    >- ( qexists_tac`0` \\ fs[] )
+    >- ( qexists_tac`0` \\ rw[] )
     \\ first_x_assum drule
     \\ fs[]
     \\ impl_tac
@@ -250,7 +257,10 @@ val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPO
   `interference_implemented mc ffi_rel (:'ffi) ms ∧
    (ffi_rel ms st.io_events) ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
-   ∃k. ffi_rel (nxt mc k ms) io_events`,
+   ∃k. ffi_rel (nxt mc k ms) io_events ∧
+       ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc (nxt mc k ms) = mc.halt_pc)) ∧
+       ((mc.target.get_reg (nxt mc k ms) mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x)
+        ⇒ (t = Success))`,
   rw[targetSemTheory.machine_sem_def]
   \\ imp_res_tac evaluate_Halt_FUNPOW_next
   \\ rfs[] \\ metis_tac[]);
@@ -1727,6 +1737,20 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
-  \\ cheat);
+  \\ impl_tac >- cheat (* interference implementation ... *)
+  \\ strip_tac
+  \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
+  \\ qexists_tac`k + hello_startup_clock r0 ms0`
+  \\ fs[EVAL``ag32_target.get_pc``]
+  \\ fs[EVAL``ag32_target.get_reg``]
+  \\ unabbrev_all_tac \\ fs[] \\ rveq \\ fs[ag32_ffi_rel_def]
+  \\ rveq \\ fs[IS_PREFIX_APPEND]
+  \\ first_x_assum(mp_tac o Q.AP_TERM`MAP (MAP (CHR o w2n) o FST o SND o dest_IO_event)`)
+  \\ simp[MAP_MAP_o, Once o_DEF, CHR_w2n_n2w_ORD]
+  \\ simp[Once o_DEF, MAP_MAP_o, CHR_w2n_n2w_ORD]
+  \\ simp[Once o_DEF, MAP_MAP_o, CHR_w2n_n2w_ORD]
+  \\ srw_tac[ETA_ss][]
+  \\ simp[Once o_DEF, MAP_MAP_o, CHR_w2n_n2w_ORD]
+  \\ srw_tac[ETA_ss][]);
 
 val _ = export_theory();
