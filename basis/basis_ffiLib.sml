@@ -126,9 +126,7 @@ fun whole_prog_thm st name spec =
         |> C HO_MATCH_MP spec
         |> SIMP_RULE bool_ss [option_case_def, set_sepTheory.SEP_CLAUSES]
     val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
-    val prog_rewrite =
-      prog_with_snoc
-      |> PURE_REWRITE_CONV [listTheory.SNOC_APPEND, listTheory.APPEND]
+    val prog_rewrite = EVAL prog_with_snoc
     val th = PURE_REWRITE_RULE[prog_rewrite] th
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1
