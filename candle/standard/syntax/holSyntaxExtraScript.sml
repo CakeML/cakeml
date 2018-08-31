@@ -3479,6 +3479,14 @@ val list_inter_tails = Q.prove(
   rw[list_inter_def,NULL_FILTER]
 )
 
+val list_inter_elem = Q.prove(
+  `!xs1 x xs2 ys1 y ys2. NULL(list_inter (xs1++[x]++xs2) (ys1++[y]++ys2)) ==> x <> y`,
+  rpt strip_tac
+  >> fs[NULL_FILTER,list_inter_def]
+  >> first_x_assum (qspecl_then [`y`] mp_tac)
+  >> fs[]
+)
+
 val list_inter_subset = Q.prove(
   `!ls xs ys. (!x. MEM x xs ==> MEM x ls)
   /\ NULL (list_inter ls ys) ==> NULL (list_inter xs ys)`,
@@ -3495,6 +3503,24 @@ val list_inter_set_symm = Q.prove(
 val list_inter_NULL_symm = Q.prove(
   `!xs ys. NULL (list_inter xs ys) = NULL (list_inter ys xs)`,
   metis_tac[NULL_EQ,list_inter_set_symm,LIST_TO_SET_EQ_EMPTY]
+);
+
+val list_inter_subset_outer = Q.prove(
+  `!x1 x2 x3 y1 y2 y3. NULL (list_inter (x1 ++ x2 ++x3) (y1 ++ y2 ++ y3))
+    ==> NULL (list_inter (x1 ++ x3) (y1 ++ y3))`,
+  rpt gen_tac
+  >> `!x. MEM x (x1++x3) ==> MEM x (x1 ++ x2 ++ x3)` by (rw[] >> fs[])
+  >> `!x. MEM x (y1++y3) ==> MEM x (y1 ++ y2 ++ y3)` by (rw[] >> fs[])
+  >> metis_tac[list_inter_NULL_symm,list_inter_subset]
+);
+
+val list_inter_subset_inner = Q.prove(
+  `!x1 x2 x3 y1 y2 y3. NULL (list_inter (x1 ++ x2 ++x3) (y1 ++ y2 ++ y3))
+    ==> NULL (list_inter x2 y2)`,
+  rpt gen_tac
+  >> `!x. MEM x x2 ==> MEM x (x1 ++ x2 ++ x3)` by rw[]
+  >> `!x. MEM x y2 ==> MEM x (y1 ++ y2 ++ y3)` by rw[]
+  >> metis_tac[list_inter_NULL_symm,list_inter_subset]
 );
 
 val list_max_MEM = Q.prove(
