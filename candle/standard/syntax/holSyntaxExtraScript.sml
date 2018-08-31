@@ -3859,6 +3859,18 @@ val normalise_tyvars_subst_replacing = Q.store_thm(
   >> rw[MEM_MAP]
 );
 
+val tyvars_diff_types = Q.prove(
+  `!ty1 ty2. (?a. MEM a (tyvars ty1) /\ ~MEM a (tyvars ty2)) ==> ty1 <> ty2`,
+  Induct
+  >> strip_tac
+  >> Induct
+  >> rw[tyvars_def,MEM_FOLDR_LIST_UNION]
+  >> first_x_assum (qspecl_then [`y`] assume_tac)
+  >> Cases_on `l <> l'`
+  >> rw[]
+  >> fs[]
+);
+
 val MEM_tyvars_TYPE_SUBST = Q.prove(
   `!subst ty m n. renaming subst
   /\ NULL (list_inter (MAP FST ((Tyvar m,Tyvar n)::subst)) (MAP SND ((Tyvar m,Tyvar n)::subst)))
