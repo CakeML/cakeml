@@ -625,32 +625,6 @@ val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
   \\ impl_tac >- fs[ADD1]
   \\ simp[EL_DROP]);
 
-(*
-val EL_words_of_bytes = Q.store_thm("EL_words_of_bytes",
-  `8 ≤ dimindex(:'a) ⇒
-   ∀be ls i.
-   i < LENGTH ls ⇒
-   (EL (i DIV (dimindex(:'a) DIV 8)) ((words_of_bytes be ls):'a word list) =
-    word_of_bytes be 0w (TAKE (dimindex(:'a) DIV 8) (DROP i ls)))`
-  strip_tac
-  \\ recInduct data_to_word_memoryProofTheory.words_of_bytes_ind
-  \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def]
-  \\ `w2n (bytes_in_word:'a word) = dimindex(:'a) DIV 8`
-  by (
-    rw[bytes_in_word_def, dimword_def, DIV_LT_X]
-    \\ match_mp_tac LESS_LESS_EQ_TRANS
-    \\ qexists_tac`2 ** dimindex(:'a)`
-    \\ simp[X_LT_EXP_X] )
-  \\ fs[]
-  \\ `0 < dimindex(:'a)` by fs[]
-  \\ `0 < dimindex(:'a) DIV 8` by fs[X_LT_DIV]
-  \\ `MAX 1 (dimindex(:'a) DIV 8) = dimindex(:'a) DIV 8`
-  by rw[MAX_DEF]
-  \\ fs[]
-  \\ Cases_on`i` \\ fs[ZERO_DIV]
-  \\ simp[EL_CONS]
-*)
-
 val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   `0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
    (words_of_bytes be (l1 ++ l2) = word_of_bytes be (0w:'a word) l1 :: words_of_bytes be l2)`,
@@ -815,46 +789,6 @@ val memory_size_def = Define`
 val heap_size_def = Define`
   heap_size = 120 * 2 ** 20`;
 
-(*
-Memory layout:
-  hz = heap_size is the heap+stack size in mebibytes (including the unusable FFI bytes)
-  r0 gives the lowest software-usable address
-  r0 .. r0 + 64 is used by the FFI implementation
-  r0 + 64 .. r0 + hzMiB is the CakeML heap+stack space. The machine initial PC is r0 + 64, so this initially contains the startup code.
-  r0 + hzMiB .. r0 + hzMiB + 4 * LENGTH data is the bitmaps
-  r0 + hzMiB + 4 * LENGTH data is the FFI PC
-  r0 + hzMiB + 4 * LENGTH data + 16 is the ccache PC
-  r0 + hzMiB + 4 * LENGTH data + 32 is the halt PC
-  r0 + hzMiB + 4 * LENGTH data + 48 is the initial PC for CakeML
-  r0 + hzMiB + 4 * LENGTH data + 48 .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code is the code
-  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code .. r0 + memory_size MB is any remaining code (e.g., FFI implementation) then 0s
-*)
-
-val hello_machine_config_def = Define`
-  hello_machine_config r0 = <|
-    target := ag32_target;
-    ptr_reg := 1;
-    len_reg := 2;
-    ptr2_reg := 3;
-    len2_reg := 4;
-    callee_saved_regs := [60; 61; 62];
-    ffi_names := ^(rand(rconc ffi_names));
-    ffi_entry_pcs := [r0 + n2w (heap_size + 4 * LENGTH data + 0 * ffi_offset)];
-    ccache_pc      := r0 + n2w (heap_size + 4 * LENGTH data + 1 * ffi_offset);
-    halt_pc        := r0 + n2w (heap_size + 4 * LENGTH data + 2 * ffi_offset);
-    prog_addresses :=
-      { w | r0 + 64w <=+ w ∧ w <+ r0 + n2w (heap_size + 4 * LENGTH data) } ∪
-      { w | r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ w ∧ w <+ r0 + (n2w memory_size) };
-    next_interfer := K I ;
-    ccache_interfer := K (λ(_,_,ms). ms with PC := (ms.R 0w)) ;
-    ffi_interfer :=
-      K (λ(_,bs,ms). ms with <| PC := (ms.R 0w) ;
-                                MEM := asm_write_bytearray (ms.R 3w) bs ms.MEM|>)
-  |>`
-
-val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
-  `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
-
 val hello_startup_asm_code_def = Define`
   hello_startup_asm_code = (
       startup_asm_code 0 1 2 3 4
@@ -920,16 +854,63 @@ val LENGTH_words_of_bytes_hello_startup_code =
   |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
   |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
 
+(*
+    on entering real FFI code:
+      r0 = return address
+      r1 = start_address + heap_size + 4 * LENGTH data + 4
+      r2 = (temporary)
+      r3 = pointer to string
+      r4 = length of string
+    r1 <- r1 - (heap_size + 4 * LENGTH data + 4) (* r1 is now start_address *)
+    r4 <- r1 + r4                                (* r4 is now the address to write the terminating null *)
+    jump forward 6 if r1 = r4
+    r2 <- m[r3]
+    m[r1] <- r2                                  (* (r4 - r1)'th char of string written *)
+    r3 <- r3 + 1                                 (* increment string pointer *)
+    r1 <- r1 + 1                                 (* increment target pointer *)
+    jump back 5
+    m[r1] <- 0w
+    Interrupt
+    jump to r0
+      on exit:
+      r0 = start_address + heap_size + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code
+      r1 = start_address + length of string
+      r2 = last char of string (or unchanged if the string was empty)
+      r3 = pointer to string + length of string
+      r4 = start_address + length of string
+*)
+val hello_ag32_ffi_code_def = Define`
+  hello_ag32_ffi_code =
+    [Normal(fSub, 1w, Reg 1w, Imm (n2w (heap_size + 4 * LENGTH data + 4)))
+    ;Normal(fAdd, 4w, Reg 1w, Reg 4w)
+    ;JumpIfNotZero(fEqual, Imm (4w * 6w), Reg 1w, Reg 4w)
+    ;LoadMEMByte(2w, Reg 3w)
+    ;StoreMEMByte(Reg 2w, Reg 1w)
+    ;Normal(fInc, 3w, Reg 3w, Imm 0w)
+    ;Normal(fInc, 1w, Reg 1w, Imm 0w)
+    ;JumpIfZero(fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)
+    ;StoreMEMByte(Imm 0w, Reg 1w)
+    ;Interrupt
+    ;Jump(fSnd, 0w, Reg 0w)]`;
+
+val LENGTH_hello_ag32_ffi_code =
+  ``LENGTH hello_ag32_ffi_code``
+  |> SIMP_CONV (srw_ss()) [hello_ag32_ffi_code_def]
+
 val hello_init_memory_words_def = zDefine`
   hello_init_memory_words =
     REPLICATE (64 DIV 4) 0w ++
     words_of_bytes F hello_startup_code ++
     REPLICATE ((heap_size - LENGTH hello_startup_code - 64) DIV 4) 0w ++
     data ++
-    REPLICATE 4 0w (* FFI code *) ++
-    REPLICATE 4 0w (* ccache code *) ++
-    REPLICATE 4 0w (* halt code *) ++
-    words_of_bytes F code`;
+    (* ffi setup: jump to real FFI code, and store next location in r1 *)
+    [Encode (Jump (fAdd, 1w, Imm (n2w (44 + LENGTH code)))); 0w; 0w; 0w] (* FFI code *) ++
+    [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w] (* ccache code *) ++
+    [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w] (* halt code *) ++
+    words_of_bytes F code ++
+    (MAP Encode hello_ag32_ffi_code)
+    (* ++ padding of 0w out to memory_size: can be added separately *)
+    `;
 
 val hello_init_memory_def = Define`
   hello_init_memory r0 (k:word32) =
@@ -985,6 +966,56 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   \\ pop_assum SUBST1_TAC
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
   \\ EVAL_TAC);
+
+(*
+Memory layout:
+  hz = heap_size is the heap+stack size in mebibytes (including the unusable FFI bytes)
+  r0 gives the lowest software-usable address
+  r0 .. r0 + 64 is used by the FFI implementation
+  r0 + 64 .. r0 + hzMiB is the CakeML heap+stack space. The machine initial PC is r0 + 64, so this initially contains the startup code.
+  r0 + hzMiB .. r0 + hzMiB + 4 * LENGTH data is the bitmaps
+  r0 + hzMiB + 4 * LENGTH data is the FFI PC
+  r0 + hzMiB + 4 * LENGTH data + 16 is the ccache PC
+  r0 + hzMiB + 4 * LENGTH data + 32 is the halt PC
+  r0 + hzMiB + 4 * LENGTH data + 48 is the initial PC for CakeML
+  r0 + hzMiB + 4 * LENGTH data + 48 .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code is the code
+  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * 11 is the FFI implementation
+  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * 11 .. r0 + memory_size MB is 0s
+*)
+
+val hello_machine_config_def = Define`
+  hello_machine_config r0 = <|
+    target := ag32_target;
+    ptr_reg := 1;
+    len_reg := 2;
+    ptr2_reg := 3;
+    len2_reg := 4;
+    callee_saved_regs := [60; 61; 62];
+    ffi_names := ^(rand(rconc ffi_names));
+    ffi_entry_pcs := [r0 + n2w (heap_size + 4 * LENGTH data + 0 * ffi_offset)];
+    ccache_pc      := r0 + n2w (heap_size + 4 * LENGTH data + 1 * ffi_offset);
+    halt_pc        := r0 + n2w (heap_size + 4 * LENGTH data + 2 * ffi_offset);
+    prog_addresses :=
+      { w | r0 + 64w <=+ w ∧ w <+ r0 + n2w (heap_size + 4 * LENGTH data) } ∪
+      { w | r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ w ∧ w <+ r0 + (n2w memory_size) };
+    next_interfer := K I ;
+    ccache_interfer :=
+      K (λ(_,_,ms).
+        ms with <| PC := (ms.R 0w) ;
+                   R := (0w =+ ms.PC + 4w) ms.R |> );
+    ffi_interfer :=
+      K (λ(_,bs,ms). ms with <| PC := (ms.R 0w) ;
+                                R := ((0w =+ r0 + n2w(heap_size + 4 * LENGTH data + 3 * ffi_offset
+                                                     + LENGTH code + 4 * LENGTH hello_ag32_ffi_code))
+                                     ((1w =+ r0 + n2w (LENGTH bs))
+                                     ((2w =+ if bs = [] then ms.R 2w else w2w (LAST bs))
+                                     ((3w =+ ms.R 3w + n2w (LENGTH bs))
+                                     ((4w =+ r0 + n2w (LENGTH bs)) (ms.R)))))) ;
+                                MEM := asm_write_bytearray (ms.R 3w) bs ms.MEM|>)
+  |>`
+
+val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
+  `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
 
 (*
 define the ag32 and asm states
@@ -1717,6 +1748,44 @@ val ag32_ffi_rel_def = Define`
      MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
        (MAP (extract_print_from_mem print_string_max_length r0) ms.io_events))`;
 
+(* TODO: can you prove this faster? *)
+val ag32_ffi_rel_unchanged = Q.store_thm("ag32_ffi_rel_unchanged",
+  `Decode (
+    let v : word32 = (31 >< 2) ms.PC : word30 @@ (0w:word2) in
+      (ms.MEM (v + 3w) @@
+       ((ms.MEM (v + 2w) @@
+         ((ms.MEM (v + 1w) @@
+           ms.MEM (v + 0w)) : word16)) : word24)))
+    ≠ Interrupt
+   ⇒
+   (ag32_ffi_rel r0 ms = ag32_ffi_rel r0 (Next ms))`,
+  rw[ag32Theory.Next_def]
+  \\ rw[ag32Theory.Run_def]
+  \\ rw[ag32_ffi_rel_def,FUN_EQ_THM]
+  \\ qmatch_goalsub_abbrev_tac`_ = (_ = _ (_ (ms'.io_events)))`
+  \\ `ms'.io_events = ms.io_events` suffices_by rw[]
+  \\ simp[Abbr`ms'`]
+  \\ CASE_TAC \\ fs[] \\ TRY(PairCases_on`p`)
+  \\ rw[
+    ag32Theory.dfn'Accelerator_def,
+    ag32Theory.dfn'In_def,
+    ag32Theory.dfn'Jump_def,
+    ag32Theory.ALU_def,
+    ag32Theory.dfn'JumpIfNotZero_def,
+    ag32Theory.dfn'JumpIfZero_def,
+    ag32Theory.dfn'LoadConstant_def,
+    ag32Theory.dfn'LoadMEM_def,
+    ag32Theory.dfn'LoadMEMByte_def,
+    ag32Theory.dfn'LoadUpperConstant_def,
+    ag32Theory.dfn'Normal_def,
+    ag32Theory.norm_def,
+    ag32Theory.dfn'Out_def,
+    ag32Theory.dfn'Shift_def,
+    ag32Theory.dfn'StoreMEM_def,
+    ag32Theory.dfn'StoreMEMByte_def,
+    ag32Theory.incPC_def]
+  \\ CASE_TAC \\ fs[] \\ rw[]);
+
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    is_ag32_init_state (hello_init_memory r0) r0 ms0
@@ -1737,7 +1806,23 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
-  \\ impl_tac >- cheat (* interference implementation ... *)
+  \\ impl_tac >- (
+    conj_tac
+    >- (
+      simp[interference_implemented_def, Abbr`mc`]
+      \\ rewrite_tac[hello_machine_config_def, targetSemTheory.machine_config_accfupds]
+      \\ simp_tac std_ss []
+      \\ simp[EVAL``ag32_target.get_pc``]
+      \\ simp[EVAL``ag32_target.get_reg``]
+      \\ simp[EVAL``ag32_target.next``]
+      \\ qx_gen_tac`k0`
+      \\ conj_tac
+      >- (
+        disch_then assume_tac
+        \\ qexists_tac`0`
+        \\ simp[]
+
+  )cheat (* interference implementation ... *)
   \\ strip_tac
   \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
   \\ qexists_tac`k + hello_startup_clock r0 ms0`
