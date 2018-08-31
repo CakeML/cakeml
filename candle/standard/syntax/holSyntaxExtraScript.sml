@@ -3500,6 +3500,15 @@ val list_inter_set_symm = Q.prove(
   rw[list_inter_def,LIST_TO_SET_FILTER,INTER_COMM]
 );
 
+val list_inter_set = Q.prove(
+  `!xs ys. set(list_inter xs ys) = ((set xs) ∩ (set ys))`,
+  CONV_TAC SWAP_FORALL_CONV
+  >> Induct
+  >> fs[INSERT_DEF,list_inter_def,INTER_DEF,LIST_TO_SET,LEFT_AND_OVER_OR]
+  >> rw[SET_EQ_SUBSET,SUBSET_DEF]
+  >> fs[]
+);
+
 val list_inter_NULL_symm = Q.prove(
   `!xs ys. NULL (list_inter xs ys) = NULL (list_inter ys xs)`,
   metis_tac[NULL_EQ,list_inter_set_symm,LIST_TO_SET_EQ_EMPTY]
@@ -3742,7 +3751,7 @@ val list_subset_tyvar = Q.store_thm(
   >> rw[list_subset_def,tyvars_def]
 );
 
-(* All type variables are within a substitution from normalise_tyvars_subst are
+(* All type variables within a substitution from normalise_tyvars_subst are
  * shorter than a certain number n *)
 val normalise_tyvars_subst_max = Q.prove(
   `!ty n_subst n0 chr.
@@ -4049,6 +4058,26 @@ val renaming_dom_img_disjoint = Q.prove(
   >> first_x_assum (qspecl_then [`[]`,`Tyvar a`,`MAP FST l1 ⧺ [Tyvar b] ⧺ MAP FST l2`,
     `Tyvar n::MAP SND l1`,`Tyvar a`,`MAP SND l2`] assume_tac)
   >> fs[]
+);
+
+val TYPE_SUBST_replacing = Q.prove(
+  `!subst ty.
+  renaming subst
+  /\ EVERY (λx. MEM (Tyvar x) (MAP SND subst)) (tyvars ty)
+  /\ NULL (list_inter (MAP FST subst) (MAP SND subst))
+  ==> NULL (list_inter (tyvars ty) (tyvars (TYPE_SUBST subst ty)))`,
+  rw[]
+  >> rw[NULL_EQ]
+  >> ONCE_REWRITE_TAC[(GSYM (CONJUNCT2 LIST_TO_SET_EQ_EMPTY))]
+  >> ONCE_REWRITE_TAC[list_inter_set]
+  >> rw[tyvars_TYPE_SUBST,GSYM DISJOINT_DEF,DISJOINT_ALT]
+  >> imp_res_tac renaming_dom_img_disjoint
+  >> first_x_assum (qspecl_then [`x`] assume_tac)
+  >> fs[EVERY_MEM]
+  >> first_x_assum (qspecl_then [`x`] assume_tac)
+  >> rfs[] >> fs[]
+  >> first_x_assum (qspecl_then [`Tyvar x'`] mp_tac)
+  >> rw[]
 );
 
 (* Unify two types and return two type substitutions as a certificate *)
