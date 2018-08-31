@@ -936,7 +936,7 @@ val pmatch_v_of_pat_norest = Q.store_thm ("pmatch_v_of_pat_norest",
 
 val cf_cases_def = Define `
   cf_cases v nomatch_exn [] env H Q =
-    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F /\ Q ==f> POST_F) H Q /\
+    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q =~e> POST_F) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
@@ -1211,28 +1211,28 @@ val ALL_DISTINCT_FLAT_FST_IMP = Q.store_thm("ALL_DISTINCT_FLAT_FST_IMP",
 val app_ref_def = Define `
   app_ref (x: v) H Q =
     ((!r. H * r ~~> x ==>> Q (Val r)) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_assign_def = Define `
   app_assign r (x: v) H Q =
     ((?x' F.
         (H ==>> F * r ~~> x') /\
         (F * r ~~> x ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_deref_def = Define `
   app_deref r H Q =
     ((?x F.
         (H ==>> F * r ~~> x) /\
         (H ==>> Q (Val x))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_aalloc_def = Define `
   app_aalloc (n: int) v H Q =
     ((!a.
         n >= 0 /\
         (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_asub_def = Define `
   app_asub a (i: int) H Q =
@@ -1240,14 +1240,14 @@ val app_asub_def = Define `
         0 <= i /\ (Num i) < LENGTH vs /\
         (H ==>> F * ARRAY a vs) /\
         (H ==>> Q (Val (EL (Num i) vs)))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_alength_def = Define `
   app_alength a H Q =
     ((?vs F.
         (H ==>> F * ARRAY a vs) /\
         (H ==>> Q (Val (Litv (IntLit (& LENGTH vs)))))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_aupdate_def = Define `
   app_aupdate a (i: int) v H Q =
@@ -1255,14 +1255,14 @@ val app_aupdate_def = Define `
         0 <= i /\ (Num i) < LENGTH vs /\
         (H ==>> F * ARRAY a vs) /\
         (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
     ((!a.
         n >= 0 /\
         (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_aw8sub_def = Define `
   app_aw8sub a (i: int) H Q =
@@ -1270,14 +1270,14 @@ val app_aw8sub_def = Define `
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
         (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws)))))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_aw8length_def = Define `
   app_aw8length a H Q =
     ((?ws F.
         (H ==>> F * W8ARRAY a ws) /\
         (H ==>> Q (Val (Litv (IntLit (& LENGTH ws)))))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_aw8update_def = Define `
   app_aw8update a (i: int) w H Q =
@@ -1285,7 +1285,7 @@ val app_aw8update_def = Define `
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
         (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_copyaw8aw8_def = Define `
   app_copyaw8aw8 s so l d do' H Q =
@@ -1298,7 +1298,7 @@ val app_copyaw8aw8_def = Define `
                         TAKE (Num l) (DROP (Num so) ws) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_copystraw8_def = Define `
   app_copystraw8 s so l d do' H Q =
@@ -1310,7 +1310,7 @@ val app_copystraw8_def = Define `
                         MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_copyaw8str_def = Define `
   app_copyaw8str s so l H Q =
@@ -1320,22 +1320,22 @@ val app_copyaw8str_def = Define `
         (H ==>> F * W8ARRAY s ws) /\
         (F * W8ARRAY s ws
             ==>> Q (Val (Litv (StrLit (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_wordFromInt_W8_def = Define `
   app_wordFromInt_W8 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_wordFromInt_W64_def = Define `
   app_wordFromInt_W64 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word64 (i2w i)))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_wordToInt_def = Define `
   app_wordToInt w H Q =
     (H ==>> Q (Val (Litv (IntLit (& w2n w)))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 (*
 val app_opn_def = Define `
@@ -1350,24 +1350,24 @@ val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
     ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
      H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2)))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_opb_def = Define `
   app_opb opb i1 i2 H Q =
     (H ==>> Q (Val (Boolv (opb_lookup opb i1 i2))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val app_equality_def = Define `
   app_equality v1 v2 H Q =
     (no_closures v1 /\ no_closures v2 /\
      types_match v1 v2 /\
      H ==>> Q (Val (Boolv (v1 = v2))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
+     Q =~v> POST_F)`
 
 val cf_lit_def = Define `
   cf_lit l = \env. local (\H Q.
     H ==>> Q (Val (Litv l)) /\
-    Q ==e> POST_F /\ Q ==f> POST_F)`
+    Q =~v> POST_F)`
 
 val cf_con_def = Define `
   cf_con cn args = \env. local (\H Q.
@@ -1376,18 +1376,18 @@ val cf_con_def = Define `
        (build_conv env.c cn argsv = SOME cv) /\
        (exp2v_list env args = SOME argsv) /\
        H ==>> Q (Val cv)) /\
-    Q ==e> POST_F /\ Q ==f> POST_F)`
+    Q =~v> POST_F)`
 
 val cf_var_def = Define `
   cf_var name = \env. local (\H Q.
     (?v.
        nsLookup env.v name = SOME v /\
        H ==>> Q (Val v)) /\
-    Q ==e> POST_F /\ Q ==f> POST_F)`
+    Q =~v> POST_F)`
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
-    ?Q'. (F1 env H Q' /\ Q' ==e> Q /\ Q' ==f> Q) /\
+    ?Q'. (F1 env H Q' /\ Q' =~v> Q) /\
          (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))`
 
 val cf_opn_def = Define `
@@ -1597,7 +1597,7 @@ val app_ffi_def = Define `
           | SOME(FFIdiverge) => 
              (F * W8ARRAY a ws * IO s u ns) ==>> Q(FFIDiv ffi_index conf ws)
           | NONE => bool$F)) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==d> POST_F)`
 
 val cf_ffi_def = Define `
   cf_ffi ffi_index c r = \env. local (\H Q.
@@ -1614,8 +1614,8 @@ val cf_log_def = Define `
       (case (lop, b) of
            (And, T) => cf2 env H Q
          | (Or, F) => cf2 env H Q
-         | (Or, T) => (H ==>> Q (Val v) /\ Q ==e> POST_F /\ Q ==f> POST_F)
-         | (And, F) => (H ==>> Q (Val v) /\ Q ==e> POST_F /\ Q ==f> POST_F)))`
+         | (Or, T) => (H ==>> Q (Val v) /\ Q =~v> POST_F)
+         | (And, F) => (H ==>> Q (Val v) /\ Q =~v> POST_F)))`
 
 val cf_if_def = Define `
   cf_if cond cf1 cf2 = \env. local (\H Q.
@@ -1636,12 +1636,12 @@ val cf_raise_def = Define `
     ?v.
       exp2v env e = SOME v /\
       H ==>> Q (Exn v) /\
-      Q ==v> POST_F /\ Q ==f> POST_F)`
+      Q =~e> POST_F)`
 
 val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
-      (Fe env H Q' /\ Q' ==v> Q /\ Q' ==f> Q) /\
+      (Fe env H Q' /\ Q' =~e> Q) /\
       (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
 
 val cf_def = tDefine "cf" `

@@ -136,6 +136,14 @@ val SEP_IMPPOSTd_def = Define `
   SEP_IMPPOSTd (Q1: res -> hprop) (Q2: res -> hprop) =
     SEP_IMP (Q1 Div) (Q2 Div)`
 
+val SEP_IMPPOSTv_inv_def = Define `
+  SEP_IMPPOSTv_inv (Q1: res -> hprop) (Q2: res -> hprop) =
+    (SEP_IMPPOSTe Q1 Q2 /\ SEP_IMPPOSTffi Q1 Q2 /\ SEP_IMPPOSTd Q1 Q2)`
+
+val SEP_IMPPOSTe_inv_def = Define `
+  SEP_IMPPOSTe_inv (Q1: res -> hprop) (Q2: res -> hprop) =
+    (SEP_IMPPOSTv Q1 Q2 /\ SEP_IMPPOSTffi Q1 Q2 /\ SEP_IMPPOSTd Q1 Q2)`
+
 (* Garbage collection predicate *)
 val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
 
@@ -179,7 +187,7 @@ val POSTve_def = Define `
      | Exn e => Qe e
      | FFIDiv name conf bytes => cond F
      | Div => cond F`
-                                     
+
 val POST_def = Define `
   POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) (Qd: hprop) = \r.
     case r of
@@ -252,6 +260,12 @@ val _ = add_infix ("==f>", 470, HOLgrammars.RIGHT)
 
 val _ = overload_on ("==d>", Term `SEP_IMPPOSTd`)
 val _ = add_infix ("==d>", 470, HOLgrammars.RIGHT)
+
+val _ = overload_on ("=~v>", Term `SEP_IMPPOSTv_inv`)
+val _ = add_infix ("=~v>", 470, HOLgrammars.RIGHT)
+
+val _ = overload_on ("=~e>", Term `SEP_IMPPOSTe_inv`)
+val _ = add_infix ("=~e>", 470, HOLgrammars.RIGHT)
                   
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
 (*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
@@ -717,7 +731,7 @@ val POSTv_ignore = Q.store_thm("POSTv_ignore",
    rw[POSTv_def] \\ Cases_on`r` \\ rw[cond_def]);
 
 (*------------------------------------------------------------------*)
-(* Lemmas for ==v> / ==e> / ==f> / ==d> *)
+(* Lemmas for ==v> / ==e> / ==f> / ==d> / =~v> / =~e> *)
 
 val SEP_IMPPOSTv_POSTe_left = Q.store_thm ("SEP_IMPPOSTv_POSTe_left",
   `!Qe Q. $POSTe Qe ==v> Q`,
@@ -787,6 +801,20 @@ val SEP_IMPPOSTd_POSTf_left = Q.store_thm ("SEP_IMPPOSTd_POSTf_left",
 val SEP_IMPPOSTd_POSTve_left = Q.store_thm ("SEP_IMPPOSTd_POSTve_left",
   `!Qv Qe Q. POSTve Qv Qe ==d> Q`,
   fs [POSTve_def, SEP_IMPPOSTd_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTv_inv_POSTv_left = Q.store_thm ("SEP_IMPPOSTv_inv_POSTv_left",
+  `!Qv Q. $POSTv Qv =~v> Q`,
+  fs [POSTv_def, SEP_IMPPOSTv_inv_def,
+      SEP_IMPPOSTe_def, SEP_IMPPOSTffi_def, SEP_IMPPOSTd_def,
+      SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTe_inv_POSTe_left = Q.store_thm ("SEP_IMPPOSTe_inv_POSTe_left",
+  `!Qe Q. $POSTe Qe =~e> Q`,
+  fs [POSTe_def, SEP_IMPPOSTe_inv_def,
+      SEP_IMPPOSTv_def, SEP_IMPPOSTffi_def, SEP_IMPPOSTd_def,
+      SEP_IMP_def, cond_def]
 );
 
 val _ = export_theory()
