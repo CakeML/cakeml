@@ -696,6 +696,50 @@ val RTC_asm_step_consts = Q.store_thm("RTC_asm_step_consts",
   \\ fs[asmSemTheory.asm_step_def]
   \\ rw[]);
 
+val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
+  `8 ≤ dimindex(:'a) ⇒
+   ∀be ls.
+   (LENGTH (words_of_bytes be ls : 'a word list) =
+    LENGTH ls DIV (w2n (bytes_in_word : 'a word)) +
+    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))`,
+  strip_tac
+  \\ recInduct data_to_word_memoryProofTheory.words_of_bytes_ind
+  \\ `1 ≤ w2n bytes_in_word`
+  by (
+    simp[bytes_in_word_def,dimword_def]
+    \\ DEP_REWRITE_TAC[LESS_MOD]
+    \\ rw[DIV_LT_X, X_LT_DIV, X_LE_DIV]
+    \\ match_mp_tac LESS_TRANS
+    \\ qexists_tac`2 ** dimindex(:'a)`
+    \\ simp[] )
+  \\ simp[data_to_word_memoryProofTheory.words_of_bytes_def]
+  \\ conj_tac
+  >- ( DEP_REWRITE_TAC[ZERO_DIV] \\ fs[] )
+  \\ rw[ADD1]
+  \\ `MAX 1 (w2n (bytes_in_word:'a word)) = w2n (bytes_in_word:'a word)`
+      by rw[MAX_DEF]
+  \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`(m - n) DIV _`
+  \\ Cases_on`m < n` \\ fs[]
+  >- (
+    `m - n = 0` by fs[]
+    \\ simp[]
+    \\ simp[LESS_DIV_EQ_ZERO]
+    \\ rw[MIN_DEF]
+    \\ fs[Abbr`m`] )
+  \\ simp[SUB_MOD]
+  \\ qspec_then`1`(mp_tac o GEN_ALL)(Q.GEN`q`DIV_SUB) \\ fs[]
+  \\ disch_then kall_tac
+  \\ Cases_on`m MOD n = 0` \\ fs[]
+  >- (
+    DEP_REWRITE_TAC[SUB_ADD]
+    \\ fs[X_LE_DIV] )
+  \\ `MIN 1 (m MOD n) = 1` by simp[MIN_DEF]
+  \\ fs[]
+  \\ `m DIV n - 1 + 1 = m DIV n` suffices_by fs[]
+  \\ DEP_REWRITE_TAC[SUB_ADD]
+  \\ fs[X_LE_DIV]);
+
 (* -- *)
 
 val startup_asm_code_def = Define`
@@ -1227,7 +1271,16 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
     \\ simp[ADD_DIV_RWT]
     \\ simp[hello_init_memory_words_def,EL_APPEND_EQN,LENGTH_words_of_bytes_hello_startup_code]
     \\ simp[LENGTH_data,heap_size_def,LENGTH_hello_startup_code]
-    \\ `4 = w2n (bytes_in_word:32 word)` by EVAL_TAC
+    \\ simp[LENGTH_words_of_bytes,LENGTH_code,bytes_in_word_def,DIV_LT_X]
+    \\ reverse IF_CASES_TAC
+    >- (
+      fs[alignmentTheory.byte_align_def,alignmentTheory.align_w2n]
+      \\ pop_assum mp_tac
+      \\ simp[]
+      \\ DEP_REWRITE_TAC[LESS_MOD]
+      \\ DEP_REWRITE_TAC[IMP_MULT_DIV_LESS]
+      \\ fs[] )
+    \\ `4 = w2n (bytes_in_word:word32)` by EVAL_TAC
     \\ pop_assum SUBST1_TAC
     \\ irule get_byte_EL_words_of_bytes
     \\ simp[LENGTH_code, bytes_in_word_def]
