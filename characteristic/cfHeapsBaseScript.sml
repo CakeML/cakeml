@@ -171,6 +171,14 @@ val POSTd_def = Define `
      | Exn e => cond F
      | FFIDiv name conf bytes => cond F
      | Div => Qd`
+
+val POSTve_def = Define `
+  POSTve (Qv: v -> hprop) (Qe: v -> hprop) = \r.
+    case r of
+     | Val v => Qv v
+     | Exn e => Qe e
+     | FFIDiv name conf bytes => cond F
+     | Div => cond F`
                                      
 val POST_def = Define `
   POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) (Qd: hprop) = \r.
@@ -580,7 +588,7 @@ val hsimpl_gc = Q.store_thm ("hsimpl_gc",
 )
 
 (*------------------------------------------------------------------*)
-(* Automatic rewrites for POSTv/POSTe/POSTf/POSTd/POST *)
+(* Automatic rewrites for POSTv/POSTe/POSTf/POSTd/POSTve/POST *)
 
 val POSTv_Val = Q.store_thm ("POSTv_Val[simp]",
   `!Qv v. $POSTv Qv (Val v) = Qv v`,
@@ -662,6 +670,26 @@ val POSTd_Div = Q.store_thm ("POSTd_Div[simp]",
   fs [POSTd_def]
 );
 
+val POSTve_Val = Q.store_thm ("POSTve_Val[simp]",
+  `!Qv Qe v. POSTve Qv Qe (Val v) = Qv v`,
+  fs [POSTve_def]
+);
+
+val POSTve_Exn = Q.store_thm ("POSTve_Exn[simp]",
+  `!Qv Qe v. POSTve Qv Qe (Exn v) = Qe v`,
+  fs [POSTve_def]
+);
+
+val POSTve_FFIDiv = Q.store_thm ("POSTve_FFIDiv[simp]",
+  `!Qv Qe name conf bytes. POSTve Qv Qe (FFIDiv name conf bytes) = &F`,
+  fs [POSTve_def]
+);
+
+val POSTve_Div = Q.store_thm ("POSTve_Div[simp]",
+  `!Qv Qe. POSTve Qv Qe Div = &F`,
+  fs [POSTve_def]
+);
+
 val POST_Val = Q.store_thm ("POST_Val[simp]",
   `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Val v) = Qv v`,
   fs [POST_def]
@@ -702,7 +730,7 @@ val SEP_IMPPOSTv_POSTf_left = Q.store_thm ("SEP_IMPPOSTv_POSTf_left",
 );
 
 val SEP_IMPPOSTv_POSTd_left = Q.store_thm ("SEP_IMPPOSTv_POSTd_left",
-  `!Qd Q. $POSTd Qd ==v> Q`,
+  `!Qd Q. POSTd Qd ==v> Q`,
   fs [POSTd_def, SEP_IMPPOSTv_def, SEP_IMP_def, cond_def]
 );
 
@@ -717,7 +745,7 @@ val SEP_IMPPOSTe_POSTf_left = Q.store_thm ("SEP_IMPPOSTe_POSTf_left",
 );
 
 val SEP_IMPPOSTe_POSTd_left = Q.store_thm ("SEP_IMPPOSTe_POSTd_left",
-  `!Qd Q. $POSTd Qd ==e> Q`,
+  `!Qd Q. POSTd Qd ==e> Q`,
   fs [POSTd_def, SEP_IMPPOSTe_def, SEP_IMP_def, cond_def]
 );
 
@@ -732,8 +760,13 @@ val SEP_IMPPOSTffi_POSTe_left = Q.store_thm ("SEP_IMPPOSTffi_POSTe_left",
 );
 
 val SEP_IMPPOSTffi_POSTd_left = Q.store_thm ("SEP_IMPPOSTffi_POSTd_left",
-  `!Qd Q. $POSTd Qd ==f> Q`,
+  `!Qd Q. POSTd Qd ==f> Q`,
   fs [POSTd_def, SEP_IMPPOSTffi_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTffi_POSTve_left = Q.store_thm ("SEP_IMPPOSTffi_POSTve_left",
+  `!Qv Qe Q. POSTve Qv Qe ==f> Q`,
+  fs [POSTve_def, SEP_IMPPOSTffi_def, SEP_IMP_def, cond_def]
 );
 
 val SEP_IMPPOSTd_POSTv_left = Q.store_thm ("SEP_IMPPOSTd_POSTv_left",
@@ -749,6 +782,11 @@ val SEP_IMPPOSTd_POSTe_left = Q.store_thm ("SEP_IMPPOSTd_POSTe_left",
 val SEP_IMPPOSTd_POSTf_left = Q.store_thm ("SEP_IMPPOSTd_POSTf_left",
   `!Qf Q. $POSTf Qf ==d> Q`,
   fs [POSTf_def, SEP_IMPPOSTd_def, SEP_IMP_def, cond_def]
+);
+
+val SEP_IMPPOSTd_POSTve_left = Q.store_thm ("SEP_IMPPOSTd_POSTve_left",
+  `!Qv Qe Q. POSTve Qv Qe ==d> Q`,
+  fs [POSTve_def, SEP_IMPPOSTd_def, SEP_IMP_def, cond_def]
 );
 
 val _ = export_theory()

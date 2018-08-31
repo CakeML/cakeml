@@ -539,13 +539,12 @@ val openIn_spec = Q.store_thm(
      hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
        (IOFS fs)
-       (POST
+       (POSTve
           (\fdv. &(FD (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
                   inFS_fname fs (File s)) *
                 IOFS (openFileFS s fs 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs)
-          (\n c b. &F))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs))`,
   xcf "TextIO.openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
@@ -625,13 +624,12 @@ val openIn_STDIO_spec = Q.store_thm(
      hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
        (STDIO fs)
-       (POST
+       (POSTve
           (\fdv. &(FD (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
                   inFS_fname fs (File s)) *
                 STDIO (openFileFS s fs 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs)
-          (\n c b. &F))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs))`,
  rw[STDIO_def] >> xpull >> xapp_spec openIn_spec >>
  map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
  xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
@@ -647,10 +645,10 @@ val close_spec = Q.store_thm(
      FD fdw fdv ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.close" (basis_st())) [fdv]
        (IOFS fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFD fdw fs) *
-                 IOFS (fs with infds updated_by A_DELKEY fdw))
-             (\e. &(InvalidFD_exn e /\ ¬ validFD fdw fs) * IOFS fs)
-             (\n c b. &F))`,
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFD fdw fs) *
+               IOFS (fs with infds updated_by A_DELKEY fdw))
+          (\e. &(InvalidFD_exn e /\ ¬ validFD fdw fs) * IOFS fs))`,
   xcf "TextIO.close" (basis_st()) >> fs[IOFS_def, IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet`POSTv uv. &(UNIT_TYPE () uv) *
@@ -684,10 +682,10 @@ val close_STDIO_spec = Q.store_thm(
      FD fd fdv /\ fd >= 3 /\ fd <= maxFD ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.close" (basis_st())) [fdv]
        (STDIO fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFD fd fs) *
-                 STDIO (fs with infds updated_by A_DELKEY fd))
-             (\e. &(InvalidFD_exn e /\ ¬ validFD fd fs) * STDIO fs)
-             (\n c b. &F))`,
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFD fd fs) *
+               STDIO (fs with infds updated_by A_DELKEY fd))
+          (\e. &(InvalidFD_exn e /\ ¬ validFD fd fs) * STDIO fs))`,
   rw[STDIO_def] >> xpull >> xapp_spec close_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFD_def] >> xsimpl >>
@@ -702,7 +700,7 @@ val writei_spec = Q.store_thm("writei_spec",
   bc = h1 :: h2 :: h3 :: h4 :: rest ⇒
   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.writei" (basis_st())) [fdv;nv;iv]
   (IOx fs_ffi_part fs * W8ARRAY iobuff_loc bc)
-  (POST
+  (POSTve
     (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * &(nw > 0) * &(nw <= n) *
            W8ARRAY iobuff_loc (0w :: n2w2 nw ++ (n2w i :: rest)) *
            IOx fs_ffi_part
@@ -710,8 +708,7 @@ val writei_spec = Q.store_thm("writei_spec",
                   (insert_atI (TAKE nw (MAP (CHR o w2n) (DROP i rest))) pos
                                     content)))
     (\e. &(InvalidFD_exn e) * W8ARRAY iobuff_loc (1w :: n2w n :: n2w2 i ++ rest) * &(F) *
-         IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars)))
-    (\n c b. &F))`,
+         IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
   strip_tac >>
   `?ll. fs.numchars = ll` by simp[]  >> fs[] >>
   `ll ≠ [||]`  by (cases_on`ll` >> fs[wfFS_def,liveFS_def,live_numchars_def]) >>
@@ -1135,7 +1132,7 @@ val read_spec = Q.store_thm("read_spec",
    n < 256**2 ⇒ MAX n 2048 <= LENGTH rest ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read" (basis_st())) [fdv;nv]
    (W8ARRAY iobuff_loc (h1::h2::h3::h4::rest) * IOx fs_ffi_part fs)
-   (POST
+   (POSTve
      (\nrv. SEP_EXISTS (nr : num).
       &(NUM nr nrv) *
       SEP_EXISTS content pos.
@@ -1145,8 +1142,7 @@ val read_spec = Q.store_thm("read_spec",
       IOx fs_ffi_part (bumpFD fd fs nr) *
       W8ARRAY iobuff_loc (0w :: n2w (nr DIV 256) :: n2w nr :: h4::
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
-     (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE) * IOFS fs)
-     (\n c b. &F))`,
+     (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE) * IOFS fs))`,
    xcf "TextIO.read" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
    xlet_auto >- xsimpl >>
    simp[insert_atI_def,n2w2_def] >>
@@ -1170,15 +1166,14 @@ val read_spec = Q.store_thm("read_spec",
       xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
       xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
    cases_on`x` >> fs[] >>
-   xlet `POST (\uv. SEP_EXISTS nr nrv . &(NUM nr nrv) *
+   xlet `POSTve (\uv. SEP_EXISTS nr nrv . &(NUM nr nrv) *
       SEP_EXISTS content pos.  &(get_file_content fs fd = SOME(content, pos) /\
           (nr <= MIN n (LENGTH content - pos)) /\
           (nr = 0 ⇔ eof fd fs = SOME T ∨ n = 0)) *
         IOx fs_ffi_part (bumpFD fd fs nr) *
         W8ARRAY iobuff_loc (0w :: n2w (nr DIV 256) :: n2w nr :: h4 ::
           (MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)))
-          (\e. &(get_file_content fs fd = NONE))
-          (\n c b. &F)` >> xsimpl
+          (\e. &(get_file_content fs fd = NONE))` >> xsimpl
    >-(xffi >> xsimpl >>
       fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
@@ -1206,12 +1201,12 @@ val read_byte_spec = Q.store_thm("read_byte_spec",
     get_file_content fs fd = SOME(content, pos) ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read_byte" (basis_st())) [fdv]
     (IOFS fs)
-    (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
-                eof fd fs = SOME F) *
-                IOFS (bumpFD fd fs 1))
-          (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
-                IOFS(bumpFD fd fs 0))
-          (\n c b. &F))`,
+    (POSTve
+      (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
+            eof fd fs = SOME F) *
+            IOFS (bumpFD fd fs 1))
+      (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
+            IOFS(bumpFD fd fs 0)))`,
   xcf "TextIO.read_byte" (basis_st()) >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
@@ -1234,12 +1229,12 @@ val read_byte_STDIO_spec = Q.store_thm("read_byte_STDIO_spec",
     get_file_content fs fd = SOME(content, pos) ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read_byte" (basis_st())) [fdv]
     (STDIO fs)
-    (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
-                eof fd fs = SOME F) *
-                STDIO (bumpFD fd fs 1))
-          (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
-                STDIO(bumpFD fd fs 0))
-          (\n c b. &F))`,
+    (POSTve
+      (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
+            eof fd fs = SOME F) *
+            STDIO (bumpFD fd fs 1))
+      (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
+            STDIO(bumpFD fd fs 0)))`,
   rw[STDIO_def] >> xpull >> xapp_spec read_byte_spec >>
   mp_tac(GSYM(SPEC_ALL get_file_content_numchars)) >> rw[] >>
   instantiate >> xsimpl >>
@@ -1263,10 +1258,9 @@ val input1_spec = Q.store_thm("input1_spec",
         STDIO (bumpFD fd fs 0)
       | _ => &F)`,
   xcf"TextIO.input1"(get_ml_prog_state())
-  \\ xhandle`POST (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
-                       STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
-                  (λe. &EndOfFile_exn e * STDIO fs * &(eof fd fs = SOME T))
-                  (λn c b. &F)`
+  \\ xhandle`POSTve (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
+                         STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
+                    (λe. &EndOfFile_exn e * STDIO fs * &(eof fd fs = SOME T))`
   >- (
     xlet_auto_spec(SOME read_byte_STDIO_spec)
     \\ xsimpl \\ simp[bumpFD_0] \\ xsimpl
@@ -1606,10 +1600,9 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
       \\ simp[Abbr`arrmax`])
     \\ qmatch_asmsub_rename_tac`MAP _ (TAKE (pp-pos) arr2)`
     \\ qho_match_abbrev_tac`cf_handle _ _ _ _ (POSTv v. post v)`
-    \\ reverse (xhandle`POST (λv. &(pp < LENGTH content) * post v)
+    \\ reverse (xhandle`POSTve (λv. &(pp < LENGTH content) * post v)
         (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
-             * W8ARRAY arrv arr2 * STDIO fs')
-        (λn c b. &F)`)
+             * W8ARRAY arrv arr2 * STDIO fs')`)
     >- (
       xcases \\ xsimpl
       \\ fs[EndOfFile_exn_def]
@@ -1639,12 +1632,11 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
     >- xsimpl
     \\ fs[Abbr`post`]
     (* TODO xlet_auto *)
-    \\ xlet `POST (λv. &(WORD ((n2w(ORD (EL pp content))):word8) v ∧
+    \\ xlet `POSTve (λv. &(WORD ((n2w(ORD (EL pp content))):word8) v ∧
                          pp < LENGTH content)
-                      * W8ARRAY arrv arr2 * STDIO (forwardFD fs' fd 1))
-                  (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
-                   * W8ARRAY arrv arr2 * STDIO fs')
-                  (λn c b. &F)`
+                       * W8ARRAY arrv arr2 * STDIO (forwardFD fs' fd 1))
+                    (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
+                       * W8ARRAY arrv arr2 * STDIO fs')`
     >- (
       fs[STDIO_def]
       \\ xpull
@@ -1848,13 +1840,12 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
              else NONE) sv
              * STDIO fs)`,
   xcf"TextIO.inputLinesFrom"(get_ml_prog_state())
-  \\ reverse(xhandle`POST
+  \\ reverse(xhandle`POSTve
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
          (if inFS_fname fs (File f)
           then SOME(all_lines fs (File f))
           else NONE) v * STDIO fs)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)
-       (λn c b. &F)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
   >- (xcases \\ fs[BadFileName_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
       \\ xcon \\ xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def])
