@@ -3952,6 +3952,105 @@ val MEM_tyvars_TYPE_SUBST_simp = Q.prove(
   >> rw[]
 );
 
+val renaming_dom_img_disjoint = Q.prove(
+  `!subst. renaming subst
+  /\ NULL (list_inter (MAP FST subst) (MAP SND subst))
+  ==> !ty m n a. MEM (Tyvar a) (MAP SND subst) ==> ~MEM a (tyvars (TYPE_SUBST subst ty))`,
+  Induct
+  >- rw[]
+  >> Cases
+  >> ONCE_REWRITE_TAC[renaming_def]
+  >> strip_tac
+  >> Induct
+  >- (
+    rpt strip_tac
+    >> fs[]
+    >> imp_res_tac list_inter_tails
+    >> imp_res_tac list_inter_heads
+    >- (
+      fs[renaming_def]
+      >> assume_tac MEM_tyvars_TYPE_SUBST
+      >> first_x_assum (qspecl_then [`subst`,`Tyvar m`,`m'`,`a`] assume_tac)
+      >> rfs[renaming_def]
+    )
+    >> fs[renaming_def]
+    >> rveq
+    >> first_x_assum (qspecl_then [`Tyvar m`,`a`] assume_tac)
+    >> fs[MEM_MAP,Q.SPECL [`y`,`subst`] MEM_SPLIT]
+    >> Cases_on `y`
+    >> assume_tac (Q.ISPECL [`[]:(type list)`, `(Tyvar m'):type`, `MAP FST ((l1 ⧺ [(q,r)] ⧺ l2):(type,type)alist)`,
+      `Tyvar n::MAP SND (l1:(type,type)alist)`, `r:type`, `MAP SND (l2:(type,type)alist)`] list_inter_elem)
+    >> fs[TYPE_SUBST_def,REV_ASSOCD_def,tyvars_def]
+    >> FULL_CASE_TAC
+    >- (
+      fs[tyvars_def]
+      >> Cases_on `l1'` >> Cases_on `l2'`
+      >> rw[] >> fs[] >> rw[] >> fs[]
+    )
+    >> qpat_x_assum `(?y. _) ==> _` mp_tac
+    >> rw[]
+    >- (
+      qexists_tac `(Tyvar m'', Tyvar a)`
+      >> rw[]
+      >> metis_tac[]
+    )
+    >> metis_tac[]
+  )
+  >> fs[renaming_def]
+  >> imp_res_tac list_inter_tails
+  >> imp_res_tac list_inter_heads
+  >> rw[]
+  >- (
+    rw[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP]
+    >> Cases_on `~MEM a (tyvars y)`
+    >> fs[]
+    >> strip_tac
+    >> Cases_on `~MEM a' l`
+    >> fs[]
+    >> assume_tac (Q.ISPECL [`y:type`,`(TYPE_SUBST ((Tyvar m,Tyvar a)::subst) a'):type`] tyvars_diff_types)
+    >> first_x_assum mp_tac
+    >> disch_then match_mp_tac
+    >> qexists_tac `a`
+    >> rw[]
+    >> match_mp_tac MEM_tyvars_TYPE_SUBST
+    >> rw[renaming_def]
+  )
+  >> rw[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP]
+  >> Cases_on `~MEM a (tyvars y)`
+  >> fs[]
+  >> strip_tac
+  >> Cases_on `~MEM a' l`
+  >> fs[]
+  >> assume_tac (Q.ISPECL [`y:type`,`(TYPE_SUBST ((Tyvar m,Tyvar n)::subst) a'):type`] tyvars_diff_types)
+  >> first_x_assum mp_tac
+  >> disch_then match_mp_tac
+  >> qexists_tac `a`
+  >> rw[]
+  >> Cases_on `a=n`
+  >- (
+    rveq
+    >> match_mp_tac MEM_tyvars_TYPE_SUBST
+    >> fs[renaming_def]
+  )
+  >> first_x_assum (qspecl_then [`a'`,`a`] assume_tac)
+  >> assume_tac MEM_tyvars_TYPE_SUBST_simp
+  >> first_x_assum (qspecl_then [`subst`,`a'`,`m`,`n`,`a`] assume_tac)
+  >> fs[renaming_def]
+  >> rfs[]
+  >> fs[renaming_def]
+  >> `?l1 l2 b. subst = l1 ++ [Tyvar b,Tyvar a] ++ l2` by (
+    fs[MEM_MAP,MEM_SPLIT] >> rveq >> fs[EVERY_DEF,ELIM_UNCURRY]
+    >> qexists_tac `l1` >> qexists_tac `l2` >> qexists_tac `m`
+    >> Cases_on `y'` >> fs[] >> rw[]
+  )
+  >> rveq
+  >> fs[EVERY_DEF,ELIM_UNCURRY]
+  >> assume_tac (INST_TYPE [alpha |-> ``:type``] list_inter_elem)
+  >> first_x_assum (qspecl_then [`[]`,`Tyvar a`,`MAP FST l1 ⧺ [Tyvar b] ⧺ MAP FST l2`,
+    `Tyvar n::MAP SND l1`,`Tyvar a`,`MAP SND l2`] assume_tac)
+  >> fs[]
+);
+
 (* Unify two types and return two type substitutions as a certificate *)
 val unify_subslist_defn = Hol_defn "unify_subslist" `
   (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
