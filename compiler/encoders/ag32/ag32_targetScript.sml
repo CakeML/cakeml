@@ -14,9 +14,11 @@ val ag32_ok_def = Define`
 val ag32_init_regs_def = Define `
  ag32_init_regs mem_start k = if k = 0n then mem_start else 0w`
 
-val ag32_init_state_def = Define `
- ag32_init_state mem mem_start =
-  <| PC := mem_start + n2w print_string_max_length; MEM := mem; R := ag32_init_regs mem_start o w2n |>`;
+val is_ag32_init_state_def = Define `
+ is_ag32_init_state mem mem_start s <=>
+  s.PC = mem_start + n2w print_string_max_length /\
+  s.MEM = mem /\
+  s.R = ag32_init_regs mem_start o w2n`;
 
 (* --- Encode ASM instructions to Ag32 bytes. --- *)
 
