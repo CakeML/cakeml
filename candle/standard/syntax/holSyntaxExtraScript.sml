@@ -3458,6 +3458,36 @@ val list_subset_NOT_NIL = Q.store_thm(
   >> rw[NULL_EQ]
 );
 
+val list_inter_mono =  Q.prove (
+  `!l r P Q.
+    (!a. MEM a (P r) ==> MEM a (Q r))
+    /\ (!a. MEM a (P l) ==> MEM a (Q l))
+    /\ NULL (list_inter (Q l) (Q r)) ==> NULL (list_inter (P l) (P r))`,
+  rw[list_inter_def,NULL_FILTER]
+  >> rpt (first_x_assum (qspecl_then [`y`] mp_tac))
+  >> rw[] >> fs[]
+);
+
+val list_inter_map =  Q.prove (
+  `!l r f. NULL (list_inter (MAP f l) (MAP f r)) ==> NULL (list_inter l r)`,
+  rw[list_inter_def,NULL_FILTER]
+  >> `MEM (f y) (MAP f r)` by (rw[MEM_MAP] >> metis_tac[])
+  >> first_x_assum drule
+  >> rw[MEM_MAP]
+  >> first_x_assum (qspecl_then [`y`] mp_tac)
+  >> rw[]
+);
+
+val list_inter_map_inj =  Q.prove (
+  `!l r f.  (!x y. (f x = f y) = (x = y)) /\ NULL (list_inter l r)
+  ==> NULL (list_inter (MAP f l) (MAP f r))`,
+  rw[list_inter_def,NULL_FILTER,MEM_MAP]
+  >> Cases_on `y' <> y''`
+  >> rw[]
+  >> first_x_assum match_mp_tac
+  >> fs[]
+);
+
 val list_inter_distinct_prop =  Q.prove (
   `!l r f. (!x. MEM x l ==> f x) /\ (!x. MEM x r ==> ~f x)
   ==> NULL (list_inter l r)`,
@@ -4077,6 +4107,71 @@ val TYPE_SUBST_replacing = Q.prove(
   >> first_x_assum (qspecl_then [`x`] assume_tac)
   >> rfs[] >> fs[]
   >> first_x_assum (qspecl_then [`Tyvar x'`] mp_tac)
+  >> rw[]
+);
+
+val tyvars_identity = Q.prove(
+  `!l. EVERY (λx. ?a. x = Tyvar a) l
+  ==> !a. MEM a ((MAP Tyvar o FLAT o MAP tyvars) l) = MEM a l`,
+  Induct
+  >- rw[]
+  >> Cases
+  >- (
+    rpt strip_tac
+    >> fs[EVERY_DEF]
+    >> rw[MEM,FLAT,MAP,tyvars_def]
+  )
+  >> rw[EVERY_DEF]
+);
+
+val normalise_tyvars_differ = Q.prove(
+  `!ty chr. NULL (list_inter (tyvars ty) ((tyvars o FST) (normalise_tyvars_rec ty chr)))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> `tyvars_constr n0 (n0,[])` by rw[tyvars_constr_def]
+  >> imp_res_tac normalise_tyvars_subst_differ
+  >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
+  >> qmatch_asmsub_abbrev_tac `n_subst:(num#(type,type)alist)`
+  >> pop_assum (assume_tac o GSYM o PURE_ONCE_REWRITE_RULE[markerTheory.Abbrev_def])
+  >> Cases_on `n_subst`
+  >> fs[tyvars_constr_def]
+  >> `renaming r` by (
+    fs[renaming_def] >> qpat_x_assum `EVERY _ _` mp_tac
+    >> match_mp_tac EVERY_MONOTONIC >> rw[pairTheory.ELIM_UNCURRY]
+    >> qexists_tac `a` >> qexists_tac `b` >> fs[]
+  )
+  >> `NULL (list_inter (MAP FST r) (MAP SND r))` by (
+    assume_tac (INST_TYPE [alpha|->``:type list``,beta|->``:type``] list_inter_mono)
+    >> first_x_assum (qspecl_then [`MAP FST r`,`MAP SND r`,`I`,`(MAP Tyvar) o FLAT o (MAP tyvars)`] mp_tac)
+    >> fs[]
+    >> disch_then match_mp_tac
+    >> `EVERY (λx. ∃a. x = Tyvar a) (MAP FST r)` by (
+      rw[renaming_def,EVERY_MEM,MEM_MAP,ELIM_UNCURRY,MEM_SPLIT]
+      >> fs[ELIM_UNCURRY] >> qexists_tac `a` >> fs[]
+    )
+    >> `EVERY (λx. ∃a. x = Tyvar a) (MAP SND r)` by (
+      rw[renaming_def,EVERY_MEM,MEM_MAP,ELIM_UNCURRY,MEM_SPLIT]
+      >> fs[ELIM_UNCURRY] >> qexists_tac `b` >> fs[]
+    )
+    >> assume_tac (Q.SPECL [`MAP FST (r:(type,type)alist)`] tyvars_identity)
+    >> assume_tac (Q.SPECL [`MAP SND (r:(type,type)alist)`] tyvars_identity)
+    >> rfs[]
+    >> match_mp_tac list_inter_map_inj
+    >> rw[MAP_MAP_o]
+    >> assume_tac (Q.SPECL [`ty`,`chr`] normalise_tyvars_rec_differ)
+    >> fs[normalise_tyvars_rec_def]
+    >> qunabbrev_tac `n0`
+    >> qmatch_asmsub_abbrev_tac `repl:(num#(type,type)alist)`
+    >> `r = SND repl` by (fs[PAIR])
+    >> rw[]
+  )
+  >> `EVERY (λx. MEM (Tyvar x) (MAP SND r)) (tyvars ty)` by (
+    rw[EVERY_MEM]
+    >> assume_tac normalise_tyvars_subst_replacing
+    >> first_x_assum (qspecl_then [`ty`,`chr`,`x`] mp_tac)
+    >> rw[normalise_tyvars_rec_def]
+  )
+  >> drule TYPE_SUBST_replacing
   >> rw[]
 );
 
