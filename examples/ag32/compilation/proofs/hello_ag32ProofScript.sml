@@ -740,6 +740,72 @@ val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
   \\ DEP_REWRITE_TAC[SUB_ADD]
   \\ fs[X_LE_DIV]);
 
+val extract_print_from_mem_def = Define`
+  extract_print_from_mem max (r0:word32) m =
+    MAP (CHR o w2n)
+      (FST (SPLITP ((=) (0w:word8)) (GENLIST (λi. m (r0 + n2w i)) max)))`;
+
+val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_mem_get_print_string",
+  `∀r0 x m. (get_print_string (r0,x,m) = extract_print_from_mem x r0 m)`,
+  recInduct ag32Theory.get_print_string_ind
+  \\ rw[]
+  \\ rw[Once ag32Theory.get_print_string_def]
+  \\ fs[extract_print_from_mem_def]
+  >- (
+    Cases_on`max_length` \\ fs[]
+    \\ EVAL_TAC
+    \\ rw[GENLIST_CONS]
+    \\ EVAL_TAC )
+  >- EVAL_TAC
+  \\ Cases_on`max_length` \\ fs[]
+  \\ simp[GENLIST_CONS]
+  \\ simp[SPLITP]
+  \\ simp[o_DEF,ADD1,GSYM word_add_n2w]);
+
+val ag32_ffi_rel_def = Define`
+  ag32_ffi_rel r0 ms io_events ⇔
+    (io_events =
+     MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
+       (MAP (extract_print_from_mem print_string_max_length r0) ms.io_events))`;
+
+(* TODO: can you prove this faster? *)
+val ag32_ffi_rel_unchanged = Q.store_thm("ag32_ffi_rel_unchanged",
+  `Decode (
+    let v : word32 = (31 >< 2) ms.PC : word30 @@ (0w:word2) in
+      (ms.MEM (v + 3w) @@
+       ((ms.MEM (v + 2w) @@
+         ((ms.MEM (v + 1w) @@
+           ms.MEM (v + 0w)) : word16)) : word24)))
+    ≠ Interrupt
+   ⇒
+   (ag32_ffi_rel r0 ms = ag32_ffi_rel r0 (Next ms))`,
+  rw[ag32Theory.Next_def]
+  \\ rw[ag32Theory.Run_def]
+  \\ rw[ag32_ffi_rel_def,FUN_EQ_THM]
+  \\ qmatch_goalsub_abbrev_tac`_ = (_ = _ (_ (ms'.io_events)))`
+  \\ `ms'.io_events = ms.io_events` suffices_by rw[]
+  \\ simp[Abbr`ms'`]
+  \\ CASE_TAC \\ fs[] \\ TRY(PairCases_on`p`)
+  \\ rw[
+    ag32Theory.dfn'Accelerator_def,
+    ag32Theory.dfn'In_def,
+    ag32Theory.dfn'Jump_def,
+    ag32Theory.ALU_def,
+    ag32Theory.dfn'JumpIfNotZero_def,
+    ag32Theory.dfn'JumpIfZero_def,
+    ag32Theory.dfn'LoadConstant_def,
+    ag32Theory.dfn'LoadMEM_def,
+    ag32Theory.dfn'LoadMEMByte_def,
+    ag32Theory.dfn'LoadUpperConstant_def,
+    ag32Theory.dfn'Normal_def,
+    ag32Theory.norm_def,
+    ag32Theory.dfn'Out_def,
+    ag32Theory.dfn'Shift_def,
+    ag32Theory.dfn'StoreMEM_def,
+    ag32Theory.dfn'StoreMEMByte_def,
+    ag32Theory.incPC_def]
+  \\ CASE_TAC \\ fs[] \\ rw[]);
+
 (* -- *)
 
 val startup_asm_code_def = Define`
@@ -914,14 +980,15 @@ val LENGTH_words_of_bytes_hello_startup_code =
     r1 <- r1 + 1                                 (* increment target pointer *)
     jump back 5
     m[r1] <- 0w
+    r1 <- 0w (* reset registers to    *)
+    r2 <- 0w (* avoid having to       *)
+    r3 <- 0w (* specify their values  *)
+    r4 <- 0w (* in the io_regs oracle *)
     Interrupt
     jump to r0
       on exit:
       r0 = start_address + heap_size + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code
-      r1 = start_address + length of string
-      r2 = last char of string (or unchanged if the string was empty)
-      r3 = pointer to string + length of string
-      r4 = start_address + length of string
+      r1 ... r4 = 0w
 *)
 val hello_ag32_ffi_code_def = Define`
   hello_ag32_ffi_code =
@@ -934,6 +1001,10 @@ val hello_ag32_ffi_code_def = Define`
     ;Normal(fInc, 1w, Reg 1w, Imm 0w)
     ;JumpIfZero(fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)
     ;StoreMEMByte(Imm 0w, Reg 1w)
+    ;Normal(fSnd, 1w, Imm 0w, Imm 0w)
+    ;Normal(fSnd, 2w, Imm 0w, Imm 0w)
+    ;Normal(fSnd, 3w, Imm 0w, Imm 0w)
+    ;Normal(fSnd, 4w, Imm 0w, Imm 0w)
     ;Interrupt
     ;Jump(fSnd, 0w, Reg 0w)]`;
 
@@ -1023,8 +1094,8 @@ Memory layout:
   r0 + hzMiB + 4 * LENGTH data + 32 is the halt PC
   r0 + hzMiB + 4 * LENGTH data + 48 is the initial PC for CakeML
   r0 + hzMiB + 4 * LENGTH data + 48 .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code is the code
-  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * 11 is the FFI implementation
-  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * 11 .. r0 + memory_size MB is 0s
+  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code is the FFI implementation
+  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code .. r0 + memory_size MB is zeros
 *)
 
 val hello_machine_config_def = Define`
@@ -1046,15 +1117,15 @@ val hello_machine_config_def = Define`
     ccache_interfer :=
       K (λ(_,_,ms).
         ms with <| PC := (ms.R 0w) ;
-                   R := (0w =+ ms.PC + 4w) ms.R |> );
+                   R := (0w =+ r0 + n2w(heap_size + 4 * LENGTH data + ffi_offset + 4)) ms.R |> );
     ffi_interfer :=
       K (λ(_,bs,ms). ms with <| PC := (ms.R 0w) ;
                                 R := ((0w =+ r0 + n2w(heap_size + 4 * LENGTH data + 3 * ffi_offset
                                                      + LENGTH code + 4 * LENGTH hello_ag32_ffi_code))
-                                     ((1w =+ r0 + n2w (LENGTH bs))
-                                     ((2w =+ if bs = [] then ms.R 2w else w2w (LAST bs))
-                                     ((3w =+ ms.R 3w + n2w (LENGTH bs))
-                                     ((4w =+ r0 + n2w (LENGTH bs)) (ms.R)))))) ;
+                                     ((1w =+ 0w)
+                                     ((2w =+ 0w)
+                                     ((3w =+ 0w)
+                                     ((4w =+ 0w) (ms.R)))))) ;
                                 MEM := asm_write_bytearray (ms.R 3w) bs ms.MEM|>)
   |>`
 
@@ -1350,7 +1421,7 @@ val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
    is_ag32_init_state (hello_init_memory r0) r0 ms ⇒
-   ∃n.
+   ∃n io_regs cc_regs.
    good_init_state (hello_machine_config r0) (FUNPOW Next n ms)
      ag_ffi code 0 (hello_init_asm_state r0)
      (λk. Word
@@ -1359,13 +1430,14 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
              w <+ (hello_init_asm_state r0).regs 4}
         ∪ {w | r0 + n2w heap_size <=+ w ∧
                w <+ r0 + n2w(heap_size + 4 * LENGTH data) })
-     (K(K NONE)) (K(K NONE))`,
+     io_regs
+     cc_regs`,
   strip_tac
   \\ drule target_state_rel_hello_init_asm_state
   \\ impl_tac >- fs[]
   \\ strip_tac
   \\ qexists_tac`n`
-  \\ simp[lab_to_targetProofTheory.good_init_state_def]
+  \\ simp[lab_to_targetProofTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
   \\ conj_tac >- ( fs[hello_machine_config_def] )
   \\ imp_res_tac hello_init_asm_state_RTC_asm_step
   \\ conj_tac
@@ -1458,21 +1530,41 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     rw[asmPropsTheory.interference_ok_def]
     \\ simp[EVAL``(hello_machine_config r0).target``]
     \\ simp[EVAL``(hello_machine_config r0).next_interfer``] )
+  \\ simp[LEFT_EXISTS_AND_THM]
   \\ conj_tac >- (
     simp[lab_to_targetProofTheory.ffi_interfer_ok_def]
     \\ simp[hello_machine_config_def]
-    \\ rpt gen_tac
     \\ simp[lab_to_targetTheory.ffi_offset_def,LENGTH_data,heap_size_def]
     \\ simp[EVAL``ag32_target.config``,labSemTheory.get_reg_value_def]
+    \\ simp[LENGTH_hello_ag32_ffi_code,LENGTH_code]
+    \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
+    \\ qexists_tac`λk n. if n = 0 then SOME v0 else if n < 5 then SOME 0w else NONE`
+    \\ rpt gen_tac
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
     \\ fs[ag32_targetTheory.ag32_target_def]
     \\ fs[ag32_targetTheory.ag32_ok_def]
     \\ fs[ag32_targetTheory.ag32_config_def]
-    \\ rw[]
-    \\ irule mem_eq_imp_asm_write_bytearray_eq
-    \\ rfs[] )
-  \\ conj_tac >- ( EVAL_TAC \\ rw[] )
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ irule mem_eq_imp_asm_write_bytearray_eq
+      \\ rfs[] )
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rpt strip_tac
+    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]
+    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]
+    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]
+    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]
+    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def] )
+  \\ conj_tac >- (
+    rw[lab_to_targetProofTheory.ccache_interfer_ok_def,
+       hello_machine_config_def, lab_to_targetTheory.ffi_offset_def,
+       LENGTH_data, heap_size_def, EVAL``ag32_target.config``]
+    \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
+    \\ qexists_tac`λk n. if n = 0 then SOME v0 else NONE`
+    \\ EVAL_TAC \\ rw[]
+    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def] )
   \\ conj_asm1_tac >- (
     simp[targetSemTheory.code_loaded_def]
     \\ fs[asmPropsTheory.target_state_rel_def]
@@ -1528,13 +1620,13 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ EVAL_TAC )
     \\ disj2_tac
     \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
-    \\ simp[]
-    \\ fs[alignmentTheory.byte_aligned_def]
+    \\ simp[heap_size_def,LENGTH_data]
+    \\ fs[alignmentTheory.byte_aligned_def,Abbr`hi`,heap_size_def]
     \\ conj_tac
     \\ (alignmentTheory.aligned_add_sub_cor
         |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
         |> irule)
-    \\ fs[LENGTH_data]
+    \\ fs[]
     \\ EVAL_TAC )
   \\ conj_tac >- (
     simp[EVAL``(hello_machine_config r0).target.config``]
@@ -1773,72 +1865,6 @@ val hello_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
-val extract_print_from_mem_def = Define`
-  extract_print_from_mem max (r0:word32) m =
-    MAP (CHR o w2n)
-      (FST (SPLITP ((=) (0w:word8)) (GENLIST (λi. m (r0 + n2w i)) max)))`;
-
-val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_mem_get_print_string",
-  `∀r0 x m. (get_print_string (r0,x,m) = extract_print_from_mem x r0 m)`,
-  recInduct ag32Theory.get_print_string_ind
-  \\ rw[]
-  \\ rw[Once ag32Theory.get_print_string_def]
-  \\ fs[extract_print_from_mem_def]
-  >- (
-    Cases_on`max_length` \\ fs[]
-    \\ EVAL_TAC
-    \\ rw[GENLIST_CONS]
-    \\ EVAL_TAC )
-  >- EVAL_TAC
-  \\ Cases_on`max_length` \\ fs[]
-  \\ simp[GENLIST_CONS]
-  \\ simp[SPLITP]
-  \\ simp[o_DEF,ADD1,GSYM word_add_n2w]);
-
-val ag32_ffi_rel_def = Define`
-  ag32_ffi_rel r0 ms io_events ⇔
-    (io_events =
-     MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
-       (MAP (extract_print_from_mem print_string_max_length r0) ms.io_events))`;
-
-(* TODO: can you prove this faster? *)
-val ag32_ffi_rel_unchanged = Q.store_thm("ag32_ffi_rel_unchanged",
-  `Decode (
-    let v : word32 = (31 >< 2) ms.PC : word30 @@ (0w:word2) in
-      (ms.MEM (v + 3w) @@
-       ((ms.MEM (v + 2w) @@
-         ((ms.MEM (v + 1w) @@
-           ms.MEM (v + 0w)) : word16)) : word24)))
-    ≠ Interrupt
-   ⇒
-   (ag32_ffi_rel r0 ms = ag32_ffi_rel r0 (Next ms))`,
-  rw[ag32Theory.Next_def]
-  \\ rw[ag32Theory.Run_def]
-  \\ rw[ag32_ffi_rel_def,FUN_EQ_THM]
-  \\ qmatch_goalsub_abbrev_tac`_ = (_ = _ (_ (ms'.io_events)))`
-  \\ `ms'.io_events = ms.io_events` suffices_by rw[]
-  \\ simp[Abbr`ms'`]
-  \\ CASE_TAC \\ fs[] \\ TRY(PairCases_on`p`)
-  \\ rw[
-    ag32Theory.dfn'Accelerator_def,
-    ag32Theory.dfn'In_def,
-    ag32Theory.dfn'Jump_def,
-    ag32Theory.ALU_def,
-    ag32Theory.dfn'JumpIfNotZero_def,
-    ag32Theory.dfn'JumpIfZero_def,
-    ag32Theory.dfn'LoadConstant_def,
-    ag32Theory.dfn'LoadMEM_def,
-    ag32Theory.dfn'LoadMEMByte_def,
-    ag32Theory.dfn'LoadUpperConstant_def,
-    ag32Theory.dfn'Normal_def,
-    ag32Theory.norm_def,
-    ag32Theory.dfn'Out_def,
-    ag32Theory.dfn'Shift_def,
-    ag32Theory.dfn'StoreMEM_def,
-    ag32Theory.dfn'StoreMEMByte_def,
-    ag32Theory.incPC_def]
-  \\ CASE_TAC \\ fs[] \\ rw[]);
-
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    is_ag32_init_state (hello_init_memory r0) r0 ms0
@@ -1859,7 +1885,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
-  \\ impl_tac >- (
+  \\ impl_tac >- (* (
     conj_tac
     >- (
       simp[interference_implemented_def, Abbr`mc`]
@@ -1868,14 +1894,15 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       \\ simp[EVAL``ag32_target.get_pc``]
       \\ simp[EVAL``ag32_target.get_reg``]
       \\ simp[EVAL``ag32_target.next``]
+      \\ simp[EVAL``ag32_target.get_byte``]
       \\ qx_gen_tac`k0`
       \\ conj_tac
       >- (
         disch_then assume_tac
         \\ qexists_tac`0`
         \\ simp[]
-
-  )cheat (* interference implementation ... *)
+        \\ irule ag32_ffi_rel_unchanged
+  ) *) cheat (* interference implementation ... *)
   \\ strip_tac
   \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
   \\ qexists_tac`k + hello_startup_clock r0 ms0`
