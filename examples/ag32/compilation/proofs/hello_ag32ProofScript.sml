@@ -1112,7 +1112,8 @@ val hello_machine_config_def = Define`
     halt_pc        := r0 + n2w (heap_size + 4 * LENGTH data + 2 * ffi_offset);
     prog_addresses :=
       { w | r0 + 64w <=+ w ∧ w <+ r0 + n2w (heap_size + 4 * LENGTH data) } ∪
-      { w | r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ w ∧ w <+ r0 + (n2w memory_size) };
+      { w | r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ w ∧
+            w <+ r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code) };
     next_interfer := K I ;
     ccache_interfer :=
       K (λ(_,_,ms).
@@ -1888,7 +1889,8 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
-  \\ impl_tac >- (* (
+  \\ impl_tac >- (
+    (*
     conj_tac
     >- (
       simp[interference_implemented_def, Abbr`mc`]
@@ -1905,7 +1907,11 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ qexists_tac`0`
         \\ simp[]
         \\ irule ag32_ffi_rel_unchanged
-  ) *) cheat (* interference implementation ... *)
+        \\ qspecl_then[`r0`,`ms0`]mp_tac hello_startup_clock_def
+        \\ impl_tac >- fs[] \\ strip_tac
+*)
+cheat
+  )
   \\ strip_tac
   \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
   \\ qexists_tac`k + hello_startup_clock r0 ms0`
