@@ -1418,11 +1418,16 @@ val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_
    \\ goal_assum(first_assum o mp_then Any mp_tac)
    \\ match_mp_tac target_state_rel_ag32_init \\ fs[]);
 
+val hello_startup_clock_def =
+  new_specification("hello_startup_clock_def",["hello_startup_clock"],
+  GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_hello_init_asm_state))
+  |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
+
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
-   is_ag32_init_state (hello_init_memory r0) r0 ms ⇒
-   ∃n io_regs cc_regs.
-   good_init_state (hello_machine_config r0) (FUNPOW Next n ms)
+   is_ag32_init_state (hello_init_memory r0) r0 ms0 ⇒
+   ∃io_regs cc_regs.
+   good_init_state (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0) ms0)
      ag_ffi code 0 (hello_init_asm_state r0)
      (λk. Word
        (word_of_bytes F 0w (GENLIST (λi. (hello_init_asm_state r0).mem (k + n2w i)) 4)))
@@ -1433,13 +1438,14 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
      io_regs
      cc_regs`,
   strip_tac
-  \\ drule target_state_rel_hello_init_asm_state
-  \\ impl_tac >- fs[]
+  \\ drule hello_startup_clock_def \\ fs[]
+  \\ disch_then drule
   \\ strip_tac
-  \\ qexists_tac`n`
   \\ simp[lab_to_targetProofTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
   \\ conj_tac >- ( fs[hello_machine_config_def] )
-  \\ imp_res_tac hello_init_asm_state_RTC_asm_step
+  \\ drule hello_init_asm_state_RTC_asm_step
+  \\ impl_tac >- fs[]
+  \\ strip_tac
   \\ conj_tac
   >- (
     irule RTC_asm_step_target_configured
@@ -1508,17 +1514,17 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ reverse Cases >- rw[]
     \\ strip_tac
     \\ conj_tac >- (
-      qpat_x_assum`_ < dimword _`mp_tac
+      qpat_x_assum`_ + _ < _`mp_tac
       \\ EVAL_TAC
       \\ Cases_on`r0`
       \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,LENGTH_data] )
     \\ conj_tac >- (
-      qpat_x_assum`_ < dimword _`mp_tac
+      qpat_x_assum`_ + _ < _`mp_tac
       \\ EVAL_TAC
       \\ Cases_on`r0`
       \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,LENGTH_data] )
     \\ conj_tac >- (
-      qpat_x_assum`_ < dimword _`mp_tac
+      qpat_x_assum`_ + _ < _`mp_tac
       \\ EVAL_TAC
       \\ Cases_on`r0`
       \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,LENGTH_data] )
@@ -1592,7 +1598,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ Cases_on`r0` \\  fs[word_add_n2w,memory_size_def]
     \\ Cases \\ fs[word_lo_n2w, word_ls_n2w])
   \\ conj_tac >- (
-    qpat_x_assum`_ < dimword _`mp_tac
+    qpat_x_assum`_ + _ < _`mp_tac
     \\ imp_res_tac RTC_asm_step_consts
     \\ fs[LENGTH_data,heap_size_def]
     \\ EVAL_TAC
@@ -1689,18 +1695,20 @@ val compile_correct_applied =
 
 val lemma = Q.prove(
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   is_ag32_init_state (hello_init_memory r0) r0 ms ⇒
-   ∃n. installed code 0 data 0 config.ffi_names ag_ffi
-         (heap_regs ag32_backend_config.stack_conf.reg_names)
-         (hello_machine_config r0) (FUNPOW Next n ms)`,
+   is_ag32_init_state (hello_init_memory r0) r0 ms0 ⇒
+   installed code 0 data 0 config.ffi_names ag_ffi
+     (heap_regs ag32_backend_config.stack_conf.reg_names)
+     (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0) ms0)`,
   disch_then assume_tac
-  \\ CONV_TAC(PATH_CONV"rallr"EVAL)
+  \\ CONV_TAC(PATH_CONV"llr"EVAL)
   \\ simp[backendProofTheory.installed_def]
   \\ simp[word_list_exists_def, set_sepTheory.SEP_CLAUSES, word_list_def]
   \\ simp[EVAL``(hello_machine_config r0).target.get_pc``]
   \\ strip_assume_tac(UNDISCH hello_good_init_state)
   \\ fs[]
-  \\ imp_res_tac hello_init_asm_state_RTC_asm_step
+  \\ drule hello_init_asm_state_RTC_asm_step
+  \\ impl_tac >- fs[]
+  \\ strip_tac
   \\ asm_exists_tac \\ rfs[]
   \\ qhdtm_x_assum`good_init_state` mp_tac
   \\ rewrite_tac[lab_to_targetProofTheory.good_init_state_def]
@@ -1854,14 +1862,9 @@ val lemma = Q.prove(
   \\ rewrite_tac[hello_ag32CompileTheory.config_def]
   \\ EVAL_TAC);
 
-val hello_startup_clock_def =
-  new_specification("hello_startup_clock_def",["hello_startup_clock"],
-  GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`lemma))
-  |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
-
 val hello_machine_sem =
   compile_correct_applied
-  |> C MATCH_MP (UNDISCH (SPEC_ALL hello_startup_clock_def))
+  |> C MATCH_MP (UNDISCH lemma)
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
@@ -1891,10 +1894,10 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       simp[interference_implemented_def, Abbr`mc`]
       \\ rewrite_tac[hello_machine_config_def, targetSemTheory.machine_config_accfupds]
       \\ simp_tac std_ss []
-      \\ simp[EVAL``ag32_target.get_pc``]
-      \\ simp[EVAL``ag32_target.get_reg``]
-      \\ simp[EVAL``ag32_target.next``]
-      \\ simp[EVAL``ag32_target.get_byte``]
+      \\ simp[EVAL``ag32_target.get_pc``,
+              EVAL``ag32_target.get_reg``,
+              EVAL``ag32_target.next``,
+              EVAL``ag32_target.get_byte``]
       \\ qx_gen_tac`k0`
       \\ conj_tac
       >- (
