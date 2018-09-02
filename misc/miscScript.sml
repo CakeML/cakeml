@@ -3307,4 +3307,8 @@ val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
 
+val MAP_COUNT_LIST = Q.store_thm("MAP_COUNT_LIST",
+  `MAP f (COUNT_LIST n) = GENLIST f n`,
+  rw[COUNT_LIST_GENLIST,MAP_GENLIST]);
+
 val _ = export_theory()

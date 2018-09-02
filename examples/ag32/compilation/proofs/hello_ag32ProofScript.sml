@@ -48,15 +48,6 @@ val steps_rel_LRC = Q.store_thm("steps_rel_LRC",
   \\ rw[LRC_def, PULL_EXISTS]
   \\ asm_exists_tac \\ rw[]);
 
-val asserts_IMP_FOLDR_COUNT_LIST = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST",
-  `∀n next ms P Q. asserts n next ms P Q ⇒
-      Q (FOLDR next (next n ms) (COUNT_LIST n))`,
-  Induct
-  >- rw[COUNT_LIST_def, asmPropsTheory.asserts_def]
-  \\ rw[asmPropsTheory.asserts_def]
-  \\ rw[COUNT_LIST_SNOC, FOLDR_SNOC]
-  \\ first_x_assum drule \\ rw[]);
-
 val LAST_MAP_SND_steps_FOLDL = Q.store_thm("LAST_MAP_SND_steps_FOLDL",
   `∀f x ls. LAST (x::(MAP SND (steps f x ls))) = FOLDL f x ls`,
   Induct_on`ls` \\ rw[steps_def]);

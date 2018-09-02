@@ -79,10 +79,42 @@ val all_pcs_def = Define `
   (all_pcs 0 a = {}) /\
   (all_pcs (SUC n) a = a INSERT all_pcs n (a + 1w))`
 
+val all_pcs_thm = Q.store_thm("all_pcs_thm",
+  `all_pcs x y = IMAGE (((+) y) o n2w) (count x)`,
+  qid_spec_tac`y`
+  \\ Induct_on`x`
+  \\ rw[all_pcs_def]
+  \\ rw[EXTENSION]
+  \\ qmatch_goalsub_rename_tac`a = y`
+  \\ Cases_on`a = y` \\ fs[]
+  >- ( qexists_tac`0` \\ fs[] )
+  \\ rewrite_tac[word_add_n2w,GSYM WORD_ADD_ASSOC,GSYM ADD1]
+  \\ METIS_TAC[LESS_MONO_EQ,prim_recTheory.INV_SUC_EQ,WORD_ADD_0,num_CASES]);
+
 val asserts_def = zDefine `
   (asserts 0 next ms _ Q <=> Q (next 0 ms)) /\
   (asserts (SUC n) next ms P Q <=>
      let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
+
+val asserts_IMP_FOLDR_COUNT_LIST = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST",
+  `∀n next ms P Q. asserts n next ms P Q ⇒
+      Q (FOLDR next (next n ms) (COUNT_LIST n))`,
+  Induct
+  >- rw[COUNT_LIST_def, asserts_def]
+  \\ rw[asserts_def]
+  \\ rw[COUNT_LIST_SNOC, FOLDR_SNOC]
+  \\ first_x_assum drule \\ rw[]);
+
+val asserts_IMP_FOLDR_COUNT_LIST_LESS = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST_LESS",
+  `∀k n next ms P Q. asserts n next ms P Q ∧ k < n ⇒
+      P (FOLDR next ms (REVERSE (GENLIST ((-) n) (SUC k))))`,
+  simp[GSYM MAP_COUNT_LIST]
+  \\ Induct_on`k` \\ rw[]
+  \\ Cases_on`n` \\ fs[asserts_def]
+  >- (EVAL_TAC \\ fs[])
+  \\ first_x_assum drule
+  \\ simp[]
+  \\ simp[COUNT_LIST_GENLIST,MAP_GENLIST,REVERSE_GENLIST,GENLIST_CONS,PRE_SUB1,FOLDR_APPEND]);
 
 val backend_correct_def = Define `
   backend_correct t <=>
