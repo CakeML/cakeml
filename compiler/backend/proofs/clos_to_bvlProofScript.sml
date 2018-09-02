@@ -1002,7 +1002,7 @@ val env_rel_IMP_EL =
 val extract_name_def = Define `
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
-    case (some n. ?t. x = Op t (Const (& n)) []) of
+    case (some n. ?t. x = Op t (Const (& n)) [] /\ ~NULL xs) of
     | NONE => (0,x::xs)
     | SOME n => (n,xs)`;
 
@@ -2873,12 +2873,94 @@ val LIST_REL_IMP_LAST = store_thm("LIST_REL_IMP_LAST",  (* TODO: move *)
   \\ `?y1 y2. ys = SNOC y1 y2` by metis_tac [SNOC_CASES]
   \\ asm_rewrite_tac [LAST_SNOC] \\ fs [LIST_REL_SNOC]);
 
+val code_installed_cons = store_thm("code_installed_cons",
+  ``code_installed (x::xs) c ==> code_installed xs c``,
+  fs [code_installed_def]);
+
+val chained_lemma = store_thm("chained_lemma",
+  ``!index all x6 t res t1 progs k1 d1 new_exps rest acc x7 max_app aux.
+      evaluate (x6,[],t) = (res,t1) /\ HD progs = (k1,0,d1) /\
+      Abbrev (progs =
+              MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app,args,exp))
+                (chain_exps index all) new_exps ++ rest) /\
+      compile_exps max_app all acc = (x6,x7) /\
+      compile_exps max_app (MAP (SND ∘ SND) (chain_exps index all)) acc =
+         (new_exps,aux) /\ code_installed progs t.code /\ x6 <> [] ==>
+      ∃ck8 res8.
+         evaluate ([d1],[],t with clock := ck8 + t.clock) = (res8,t1) ∧
+         case res of
+           Rval vs => res8 = Rval [LAST vs]
+         | Rerr v3 => res8 = Rerr v3``,
+  Induct_on `all` THEN1 fs [compile_exps_def]
+  \\ rpt gen_tac \\ Cases_on `all`
+  THEN1
+   (fs [chain_exps_def] \\ rpt strip_tac
+    \\ imp_res_tac compile_exps_SING \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ unabbrev_all_tac \\ fs [] \\ rveq \\ fs []
+    \\ qexists_tac `0` \\ fs []
+    \\ Cases_on `res` \\ fs []
+    \\ imp_res_tac evaluate_SING \\ fs [])
+  \\ fs [chain_exps_def,compile_exps_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ once_rewrite_tac [compile_exps_CONS]
+  \\ fs [compile_exps_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac \\ pop_assum kall_tac
+  \\ rveq \\ fs []
+  \\ imp_res_tac compile_exps_SING \\ rveq \\ fs []
+  \\ unabbrev_all_tac \\ fs [] \\ rveq \\ fs []
+  \\ qpat_x_assum `evaluate (d::c2,[],t) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ Cases_on `evaluate ([d],[],t)`
+  \\ rename [`evaluate ([d],[],t) = (res1,t1)`]
+  \\ reverse (Cases_on `res1`)
+  THEN1 (fs [] \\ rw [] \\ qexists_tac `0` \\ fs [evaluate_def])
+  \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
+  \\ Cases_on `evaluate (c2,[],t1)`
+  \\ rename [`evaluate (c2,[],t1) = (res2,t2)`] \\ fs []
+  \\ strip_tac
+  \\ drule (GEN_ALL code_installed_subspt)
+  \\ disch_then (qspec_then `t1.code` mp_tac)
+  \\ impl_tac THEN1 (imp_res_tac evaluate_mono \\ fs []) \\ strip_tac
+  \\ drule code_installed_cons \\ strip_tac
+  \\ last_x_assum drule
+  \\ disch_then (pop_assum o mp_then Any mp_tac)
+  \\ ntac 2 (disch_then (first_assum o mp_then Any mp_tac))
+  \\ Cases_on `c2 = []` \\ fs []
+  THEN1 (imp_res_tac compile_exps_LENGTH \\ fs [])
+  \\ fs [markerTheory.Abbrev_def]
+  \\ `?x1 x2 the_rest.
+         MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app,args,exp))
+             (chain_exps (index + 1) (h'::t')) c2' ⧺ rest
+           = (index + num_stubs max_app + 1,0,x2)::the_rest` by
+   (imp_res_tac compile_exps_LENGTH
+    \\ Cases_on `c2'` \\ fs [] \\ Cases_on `t'` \\ fs [chain_exps_def]
+    \\ Cases_on `c2` \\ fs [])
+  \\ fs [] \\ strip_tac
+  \\ qpat_x_assum `_ = (Rval [d1],t1)` assume_tac
+  \\ drule evaluate_add_clock \\ fs []
+  \\ disch_then (qspec_then `ck8+1` assume_tac)
+  \\ fs [evaluate_def]
+  \\ qexists_tac `ck8+1`
+  \\ fs [inc_clock_def,code_installed_def,find_code_def,dec_clock_def]
+  \\ reverse (Cases_on `res2`) \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ Cases_on `c2` \\ fs []
+  \\ Cases_on `a` \\ fs []);
+
+val MAP2_APPEND = store_thm("MAP2_APPEND", (* TODO: move *)
+  ``!xs ys xs1 ys1 f.
+      LENGTH xs = LENGTH xs1 ==>
+      MAP2 f (xs ++ ys) (xs1 ++ ys1) = MAP2 f xs xs1 ++ MAP2 f ys ys1``,
+  Induct \\ Cases_on `xs1` \\ fs [MAP2]);
+
 val evaluate_IMP_evaluate_chained = store_thm("evaluate_IMP_evaluate_chained",
   ``bvlSem$evaluate (x6,[],t:('c,'ffi) bvlSem$state) = (res,t1) /\
     Abbrev (progs ⧺ aux = (k1,0,d1)::rest) /\
     Abbrev (progs =
             MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app,args,exp))
               (chain_exps n real_es ⧺ progs1) new_exps) /\
+    compile_exps max_app progs0 [] = (x6,x7) /\
     compile_exps max_app
            (MAP (SND ∘ SND) (chain_exps n real_es) ⧺ MAP (SND ∘ SND) progs1)
            [] = (new_exps,aux) /\
@@ -2888,7 +2970,58 @@ val evaluate_IMP_evaluate_chained = store_thm("evaluate_IMP_evaluate_chained",
       bvlSem$evaluate ([d1],[],t with clock := t.clock + ck8) = (res8,t1) /\
       case res of Rval vs => res8 = Rval [LAST vs]
                 | err => res8 = err``,
-  cheat); (* needs more assumptions? *)
+  Cases_on `progs0` \\ fs []
+  THEN1 (fs [extract_name_def] \\ rw [] \\ fs [compile_exps_def])
+  \\ fs [extract_name_def,option_case_eq] \\ rw []
+  THEN1
+   (match_mp_tac chained_lemma
+    \\ asm_exists_tac \\ fs []
+    \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
+    \\ fs [compile_exps_APPEND]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+    \\ qexists_tac `0` \\ fs []
+    \\ imp_res_tac compile_exps_LENGTH \\ fs [MAP2_APPEND]
+    \\ qunabbrev_tac `progs` \\ fs [markerTheory.Abbrev_def]
+    \\ Cases_on `t'` \\ fs [chain_exps_def]
+    \\ Cases_on `x6` \\ fs []
+    \\ Cases_on `c1` \\ fs [])
+  \\ qpat_x_assum `_ = (x6,_)` mp_tac
+  \\ once_rewrite_tac [compile_exps_CONS]
+  \\ fs [some_def] \\ rveq \\ fs [compile_exps_def]
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ qpat_x_assum `_ = (res,t1)` mp_tac
+  \\ simp [Once evaluate_CONS]
+  \\ fs [EVAL ``evaluate ([Op (Const (&n')) []],[],t)``]
+  \\ Cases_on `evaluate (c2,[],t)` \\ fs [] \\ strip_tac
+  \\ qsuff_tac `∃ck8 res8.
+       evaluate ([d1],[],t with clock := ck8 + t.clock) = (res8,t1) ∧
+       case q of
+         Rval vs => res8 = Rval [LAST vs]
+       | Rerr v3 => res8 = Rerr v3`
+  THEN1
+   (strip_tac \\ asm_exists_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac compile_exps_LENGTH
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ Cases_on `real_es` \\ fs []
+    \\ Cases_on `c2` \\ fs []
+    \\ Cases_on `a'` \\ fs [])
+  \\ match_mp_tac chained_lemma
+  \\ `r = t1` by (every_case_tac \\ fs []) \\ rveq
+  \\ asm_exists_tac \\ fs []
+  \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
+  \\ fs [compile_exps_APPEND]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ rename [`chain_exps kk real_es`]
+  \\ qexists_tac `kk` \\ fs []
+  \\ imp_res_tac compile_exps_LENGTH \\ fs [MAP2_APPEND]
+  \\ qunabbrev_tac `progs` \\ fs [markerTheory.Abbrev_def]
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ Cases_on `c2` \\ fs [] \\ Cases_on `real_es` \\ fs []
+  \\ rename [`chain_exps kk (h5::t5)`]
+  \\ Cases_on `t5` \\ fs [chain_exps_def]
+  \\ Cases_on `c1` \\ fs [chain_exps_def]);
 
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
@@ -2941,7 +3074,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
        FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
        FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
        s2.clock = t2.clock)`,
-
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (srw_tac[][] >> full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
@@ -3159,12 +3291,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ fsrw_tac[ARITH_ss][inc_clock_def]
     \\ Q.EXISTS_TAC `f2'` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
-
   THEN1 (* Op *)
-   (
-
-    Cases_on `op = Install` THEN1
-
+   (Cases_on `op = Install` THEN1
      (rveq \\ fs [] \\ rveq
       \\ fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
       \\ pairarg_tac \\ fs []
@@ -3413,7 +3541,21 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                     (chain_exps n real_es ⧺ progs1) new_exps`
       \\ drule (GEN_ALL evaluate_IMP_evaluate_chained)
       \\ rpt (disch_then drule)
-      \\ impl_tac THEN1 cheat (* easy *)
+      \\ impl_tac THEN1
+       (fs [] \\ reverse conj_tac THEN1
+         (imp_res_tac compile_exps_LENGTH
+          \\ Cases_on `x6` \\ fs [] \\ Cases_on `progs` \\ fs [])
+        \\ simp [code_installed_def,EVERY_MEM,FORALL_PROD]
+        \\ fs [lookup_union,lookup_fromAList,ALOOKUP_APPEND]
+        \\ fs [ALL_DISTINCT_APPEND,MEM_ALOOKUP,option_case_eq] \\ rw []
+        \\ qpat_x_assum `DISJOINT (set (MAP FST progs)) (domain t2.code)` mp_tac
+        \\ simp [IN_DISJOINT,MEM_MAP,FORALL_PROD,domain_lookup]
+        \\ imp_res_tac ALOOKUP_MEM
+        \\ Cases_on `lookup p_1 t2.code` \\ fs []
+        \\ rename [`lookup p_1 t2.code = SOME yy`]
+        \\ CCONTR_TAC \\ fs []
+        \\ first_x_assum (qspec_then `p_1` mp_tac)
+        \\ PairCases_on `yy` \\ fs [] \\ asm_exists_tac \\ fs [])
       \\ simp [] \\ strip_tac
       \\ qpat_x_assum `bvlSem$evaluate (c1,_) = _` assume_tac
       \\ drule bvlPropsTheory.evaluate_add_clock \\ simp []
@@ -3431,7 +3573,18 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ fs [lookup_union]
       \\ fs [not_domain_lookup]
       \\ fs [lookup_fromAList] \\ rveq \\ fs []
-      \\ `lookup k1 t2.code = NONE` by cheat
+      \\ `lookup k1 t2.code = NONE` by
+       (qpat_x_assum `DISJOINT _ (domain t2.code)` mp_tac
+        \\ fs [compile_exps_APPEND] \\ rpt (pairarg_tac \\ fs [])
+        \\ rveq \\ fs []
+        \\ `chain_exps n real_es <> []` by
+          (Cases_on `real_es` \\ fs [chain_exps_def]
+           \\ Cases_on `t` \\ fs [chain_exps_def])
+        \\ Cases_on `chain_exps n real_es` \\ fs []
+        \\ imp_res_tac compile_exps_LENGTH
+        \\ Cases_on `c1'` \\ fs []
+        \\ fs [domain_lookup]
+        \\ Cases_on `lookup k1 t2.code` \\ fs [])
       \\ fs [] \\ fs [dec_clock_def] \\ rfs []
       \\ rename1 `state_rel f3 s3 t3`
       \\ qexists_tac `f3` \\ fs []
