@@ -7,16 +7,39 @@ val _ = new_theory"targetProps";
 
 val _ = set_grammar_ancestry["ffi","asm","targetSem","misc"];
 
-val asserts_restrict = Q.prove(
-  `!n next1 next2 s P Q.
-      (!k. k <= n ==> (next1 k = next2 k)) ==>
-      (asserts n next1 s P Q ==> asserts n next2 s P Q)`,
-  Induct \\ full_simp_tac(srw_ss())[asserts_def,LET_DEF]
-  \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-  \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ REPEAT STRIP_TAC
-  \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ DECIDE_TAC);
+val asserts_WEAKEN = Q.store_thm("asserts_WEAKEN",
+  `!n next s P Q.
+      (!k. k <= n ==>
+        (next k = next' k) ∧
+        (P (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))) ⇒
+         P' (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))))) ==>
+      asserts n next s P Q ==>
+      asserts n next' s P' Q`,
+  Induct \\ fs[asserts_def]
+  \\ rpt gen_tac \\ strip_tac \\ strip_tac
+  \\ conj_tac
+  >- (
+    first_assum(qspec_then`0`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ first_x_assum(qspec_then`SUC n`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ rw[] )
+  >- (
+    first_assum irule
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ ntac 2 strip_tac
+    \\ conj_tac
+    >- (
+      first_assum(qspec_then`k`mp_tac)
+      \\ impl_tac >- fs[] \\ rw[] )
+    \\ first_assum(qspec_then`SUC k`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ simp_tac(srw_ss())[GENLIST_CONS, FOLDR_APPEND]
+    \\ simp_tac(srw_ss())[o_DEF]
+    \\ strip_tac
+    \\ first_assum(qspec_then`SUC n`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ strip_tac \\ fs[] ));
 
 val shift_interfer_def = Define `
   shift_interfer k s =
@@ -30,15 +53,27 @@ val shift_interfer_intro = Q.prove(
 val evaluate_EQ_evaluate_lemma = Q.prove(
   `!n ms1 c.
       c.target.get_pc ms1 IN c.prog_addresses /\ c.target.state_ok ms1 /\
+      c.prog_addresses ⊆ dm ∧
       interference_ok c.next_interfer (c.target.proj dm) /\
       (!s ms. target_state_rel c.target s ms ==> c.target.state_ok ms) /\
       (!ms1 ms2. (c.target.proj dm ms1 = c.target.proj dm ms2) ==>
-                 (c.target.state_ok ms1 = c.target.state_ok ms2)) /\
+           (c.target.state_ok ms1 = c.target.state_ok ms2) /\
+           (c.target.get_pc ms1 = c.target.get_pc ms2) /\
+           (∀a. a ∈ dm ⇒ c.target.get_byte ms1 a = c.target.get_byte ms2 a)) /\
       (!env.
          interference_ok env (c.target.proj dm) ==>
          asserts n (\k s. env k (c.target.next s)) ms1
-           (\ms'. c.target.state_ok ms' /\ c.target.get_pc ms' IN c.prog_addresses)
-           (\ms'. target_state_rel c.target s2 ms')) ==>
+           (\ms'. c.target.state_ok ms' /\
+                  (∀pc. pc ∈ all_pcs (LENGTH (c.target.config.encode i)) init_pc ⇒
+                   c.target.get_byte ms' pc = c.target.get_byte ms1 pc) /\
+                  c.target.get_pc ms' ∈
+                    all_pcs (LENGTH (c.target.config.encode i)) init_pc)
+           (\ms'. target_state_rel c.target s2 ms')) /\
+      (∃k.
+        c.target.get_pc ms1 = init_pc + n2w k /\
+        k < LENGTH (c.target.config.encode i) /\
+        bytes_in_memory init_pc (c.target.config.encode i)
+          (c.target.get_byte ms1) c.prog_addresses) ==>
       ?ms2.
         !k. (evaluate c io (k + (n + 1)) ms1 =
              evaluate (shift_interfer (n+1) c) io k ms2) /\
@@ -50,51 +85,97 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
     \\ full_simp_tac(srw_ss())[interference_ok_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[shift_interfer_def,apply_oracle_def]
+    \\ reverse TOP_CASE_TAC
+    >- (
+      `F` suffices_by fs[]
+      \\ pop_assum mp_tac
+      \\ fs[encoded_bytes_in_mem_def]
+      \\ asm_exists_tac
+      \\ qmatch_goalsub_abbrev_tac`DROP m ls`
+      \\ qmatch_goalsub_abbrev_tac`bytes_in_memory _ _ mm md`
+      \\ Q.ISPECL_THEN[`TAKE m ls`,`DROP m ls`,`init_pc`,`mm`,`md`]mp_tac bytes_in_memory_APPEND
+      \\ simp[] )
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[arithmeticTheory.ADD_CLAUSES]
   \\ SIMP_TAC std_ss [Once evaluate_def] \\ full_simp_tac(srw_ss())[ADD1] \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ Q.PAT_X_ASSUM `!i. bbb`
-       (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPEC
-         `\i. c.next_interfer 0` th))
+  \\ Q.PAT_ASSUM `!i. bbb`(qspec_then`λi. c.next_interfer 0`mp_tac)
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[interference_ok_def])
-  \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC bool_ss [GSYM ADD1,asserts_def] \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ `c.target.state_ok (c.target.next ms1)` by METIS_TAC [interference_ok_def] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[]
+  \\ SIMP_TAC bool_ss [GSYM ADD1,asserts_def] \\ full_simp_tac(srw_ss())[LET_DEF]
+  \\ strip_tac
+  \\ `c.target.state_ok (c.target.next ms1)` by METIS_TAC [interference_ok_def]
+  \\ full_simp_tac(srw_ss())[]
   \\ Q.PAT_X_ASSUM `!ms1 c. bbb ==> ?x. bb`
         (MP_TAC o Q.SPECL [`(c.next_interfer 0 (c.target.next ms1))`,
                     `(c with next_interfer := shift_seq 1 c.next_interfer)`])
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-   (full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-    THEN1 (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def])
-    THEN1 RES_TAC
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC
-         `\k. if k = SUC n then c.next_interfer 0 else env k`) \\ full_simp_tac(srw_ss())[]
-    \\ MATCH_MP_TAC IMP_IMP
-    \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[interference_ok_def] \\ srw_tac[][])
-    \\ MATCH_MP_TAC asserts_restrict
-    \\ srw_tac[][FUN_EQ_THM] \\ `F` by decide_tac)
-  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ Q.EXISTS_TAC `ms2` \\ STRIP_TAC
-  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k`)
-  \\ full_simp_tac(srw_ss())[GSYM shift_interfer_def,shift_interfer_intro,apply_oracle_def]
-  \\ full_simp_tac(srw_ss())[GSYM ADD1]);
+   (full_simp_tac(srw_ss())[]
+    \\ conj_tac >- (
+      fs[all_pcs_thm,SUBSET_DEF,PULL_EXISTS]
+      \\ drule bytes_in_memory_all_pcs
+      \\ fs[SUBSET_DEF]
+      \\ disch_then irule
+      \\ simp[all_pcs_thm]
+      \\ METIS_TAC[] )
+    \\ conj_tac THEN1 (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def])
+    \\ conj_tac THEN1 (rpt strip_tac \\ RES_TAC)
+    \\ conj_tac >- (
+      rpt strip_tac
+      \\ FIRST_ASSUM (MP_TAC o Q.SPEC
+           `\k. if k = SUC n then c.next_interfer 0 else env k`) \\ full_simp_tac(srw_ss())[]
+      \\ MATCH_MP_TAC IMP_IMP
+      \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[interference_ok_def] \\ srw_tac[][])
+      \\ simp[GSYM ADD1, asserts_def]
+      \\ MATCH_MP_TAC asserts_WEAKEN
+      \\ simp_tac(srw_ss())[FUN_EQ_THM]
+      \\ rw[])
+    \\ `c.target.proj dm (c.next_interfer 0 (c.target.next ms1)) =
+        c.target.proj dm (c.target.next ms1)` by fs[interference_ok_def]
+    \\ qpat_x_assum`∀ms1 ms2. _ ⇒ _` drule
+    \\ strip_tac \\ fs[]
+    \\ fs[all_pcs_thm]
+    \\ qexists_tac`x` \\ simp[]
+    \\ irule bytes_in_memory_change_mem
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ qx_gen_tac`j` \\ strip_tac
+    \\ first_x_assum(qspec_then`init_pc + n2w j`mp_tac)
+    \\ impl_tac
+    >- (
+      imp_res_tac bytes_in_memory_all_pcs
+      \\ fs[all_pcs_thm,SUBSET_DEF,PULL_EXISTS] )
+    \\ rw[]
+    \\ first_x_assum(qspec_then`λi x. x`mp_tac)
+    \\ impl_tac >- fs[interference_ok_def]
+    \\ strip_tac
+    \\ drule asserts_IMP_FOLDR_COUNT_LIST_LESS
+    \\ disch_then(qspec_then`0`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ simp[]
+    \\ strip_tac
+    \\ first_x_assum (match_mp_tac o GSYM)
+    \\ qexists_tac`j`
+    \\ simp[] )
+  \\ strip_tac \\ fs[]
+  \\ qexists_tac`ms2`
+  \\ reverse TOP_CASE_TAC
+  >- (
+    `F` suffices_by fs[]
+    \\ pop_assum mp_tac
+    \\ simp[encoded_bytes_in_mem_def]
+    \\ qexists_tac`i`
+    \\ qmatch_assum_abbrev_tac`k < LENGTH bs`
+    \\ Q.ISPECL_THEN[`TAKE k bs`,`DROP k bs`,`init_pc`]mp_tac bytes_in_memory_APPEND
+    \\ simp[]
+    \\ METIS_TAC[] )
+  \\ rw[]
+  \\ fs[GSYM shift_interfer_def, shift_interfer_intro,apply_oracle_def]
+  \\ fs[GSYM ADD1]
+  \\ simp[ADD1]);
 
 val enc_ok_not_empty = Q.prove(
   `enc_ok c /\ asm_ok w c ==> (c.encode w <> [])`,
   METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]);
-
-val asserts_WEAKEN = Q.prove(
-  `!n next s P Q.
-      (!x. P x ==> P' x) /\ (!k. k <= n ==> (next k = next' k)) ==>
-      asserts n next s P Q ==>
-      asserts n next' s P' Q`,
-  Induct \\ full_simp_tac(srw_ss())[asserts_def,LET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ sg `!k. k <= n ==> (next k = next' k)` \\ RES_TAC
-  \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC \\ decide_tac);
-
-val bytes_in_memory_IMP_SUBSET = Q.prove(
-  `!xs pc. bytes_in_memory pc xs m d ==> all_pcs (LENGTH xs) pc SUBSET d`,
-  Induct \\ full_simp_tac(srw_ss())[all_pcs_def,bytes_in_memory_def]);
 
 val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
   `!c s1 ms1 io i s2.
@@ -108,33 +189,56 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
                    evaluate (shift_interfer l c) io k ms2) /\
                   target_state_rel c.target s2 ms2 /\ l <> 0`,
   full_simp_tac(srw_ss()) [backend_correct_def, target_ok_def, LET_DEF]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ full_simp_tac(srw_ss())[]
-  \\ Q.EXISTS_TAC `n+1` \\ full_simp_tac(srw_ss())[]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac
+  \\ qexists_tac`n+1` \\ fs[]
   \\ MATCH_MP_TAC (GEN_ALL evaluate_EQ_evaluate_lemma)
-  \\ full_simp_tac(srw_ss())[]
+  \\ qexists_tac`s1.pc`
+  \\ qexists_tac`i`
   \\ Q.EXISTS_TAC `s1.mem_domain`
-  \\ full_simp_tac(srw_ss())[]
-  \\ REPEAT STRIP_TAC
-  \\ TRY (RES_TAC \\ fs [target_state_rel_def] \\ NO_TAC)
-  >- (full_simp_tac(srw_ss())[asm_step_def, target_state_rel_def]
-      \\ IMP_RES_TAC enc_ok_not_empty
-      \\ Cases_on `c.target.config.encode i`
-      \\ full_simp_tac(srw_ss())[bytes_in_memory_def])
-  \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPECL [`\k. env (n - k)`])
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`])
-  \\ MATCH_MP_TAC IMP_IMP
-  \\ STRIP_TAC THEN1 full_simp_tac(srw_ss())[interference_ok_def]
-  \\ MATCH_MP_TAC asserts_WEAKEN
-  \\ SRW_TAC [] []
-  >- (POP_ASSUM MP_TAC
-      \\ MATCH_MP_TAC SUBSET_IMP
-      \\ full_simp_tac(srw_ss())[asm_step_def]
-      \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET)
-  \\ full_simp_tac(srw_ss())[FUN_EQ_THM]
-  \\ REPEAT STRIP_TAC
-  \\ `n - (n - k) = k` by decide_tac
-  \\ full_simp_tac(srw_ss())[])
+  \\ fs[]
+  \\ conj_tac
+  >- (
+    fs[asm_step_def]
+    \\ fs[target_state_rel_def]
+    \\ imp_res_tac bytes_in_memory_all_pcs
+    \\ fs[SUBSET_DEF,all_pcs_thm,PULL_EXISTS]
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[]
+    \\ disch_then irule
+    \\ Cases_on`c.target.config.encode i` \\ fs[]
+    \\ pop_assum mp_tac \\ simp[]
+    \\ match_mp_tac enc_ok_not_empty
+    \\ fs[] )
+  \\ conj_tac >- fs[target_state_rel_def]
+  \\ conj_tac >- fs[target_state_rel_def]
+  \\ conj_tac >- METIS_TAC[]
+  \\ conj_tac >- (
+    ntac 2 strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`])
+    \\ simp[]
+    \\ impl_tac
+    >- fs[interference_ok_def]
+    \\ match_mp_tac asserts_WEAKEN
+    \\ simp[] )
+  \\ qexists_tac`0`
+  \\ conj_tac >- fs[target_state_rel_def]
+  \\ conj_tac >- (
+    CCONTR_TAC \\ fs[]
+    \\ pop_assum mp_tac
+    \\ simp[]
+    \\ match_mp_tac enc_ok_not_empty
+    \\ fs[asm_step_def] )
+  \\ fs[asm_step_def]
+  \\ irule bytes_in_memory_change_mem
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ fs[target_state_rel_def]
+  \\ rw[]
+  \\ first_x_assum (irule o GSYM)
+  \\ drule bytes_in_memory_all_pcs
+  \\ simp[SUBSET_DEF, all_pcs_thm, PULL_EXISTS])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
 
 (* basic properties *)
@@ -149,6 +253,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   simp[Once evaluate_def,SimpR``$==>``] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >- (
+    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`k1`mp_tac) >> simp[] ) >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>

@@ -58,7 +58,9 @@ val target_ok_def = Define`
   !ms1 ms2 s.
     (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
     (target_state_rel t s ms1 = target_state_rel t s ms2) /\
-    (t.state_ok ms1 = t.state_ok ms2)`
+    (t.state_ok ms1 = t.state_ok ms2) /\
+    (t.get_pc ms1 = t.get_pc ms2) /\
+    (!a. a IN s.mem_domain ==> t.get_byte ms1 a = t.get_byte ms2 a)`
 
 val interference_ok_def = Define `
   interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
@@ -93,7 +95,9 @@ val backend_correct_def = Define `
             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
             let pcs = all_pcs (LENGTH (t.config.encode i)) s1.pc in
             asserts n (\k s. env (n - k) (t.next s)) ms
-              (\ms'. t.state_ok ms' /\ t.get_pc ms' IN pcs)
+              (\ms'. t.state_ok ms' /\
+                     (∀pc. pc ∈ pcs ⇒ t.get_byte ms' pc = t.get_byte ms pc) ∧
+                     t.get_pc ms' IN pcs)
               (\ms'. target_state_rel t s2 ms')`
 
 (* lemma for proofs *)

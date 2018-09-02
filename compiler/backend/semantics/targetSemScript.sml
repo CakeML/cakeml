@@ -38,9 +38,9 @@ val apply_oracle_def = Define `
 
 val encoded_bytes_in_mem_def = Define`
   encoded_bytes_in_mem c pc m md ⇔
-    ∃i k. k * c.code_alignment < LENGTH (c.encode i) ∧
+    ∃i k. k (** c.code_alignment*) < LENGTH (c.encode i) ∧
       bytes_in_memory pc
-        (DROP (k * c.code_alignment) (c.encode i))
+        (DROP (k (** c.code_alignment*)) (c.encode i))
         m md`;
 
 val evaluate_def = Define `
