@@ -8,18 +8,6 @@ val asm_deterministic = Q.store_thm("asm_deterministic",
   `!c i s1 s2 s3. asm_step c s1 i s2 /\ asm_step c s1 i s3 ==> (s2 = s3)`,
   rw [asm_step_def])
 
-val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
-  `!l1 l2 pc mem mem_domain.
-      bytes_in_memory pc (l1 ++ l2) mem mem_domain <=>
-      bytes_in_memory pc l1 mem mem_domain /\
-      bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
-  Induct
-  THEN ASM_SIMP_TAC list_ss
-         [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
-          GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
-  THEN DECIDE_TAC
-  )
-
 (* -- well-formedness of encoding -- *)
 
 val offset_monotonic_def = Define `
