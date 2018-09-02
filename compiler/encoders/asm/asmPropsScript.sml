@@ -96,26 +96,6 @@ val asserts_def = zDefine `
   (asserts (SUC n) next ms P Q <=>
      let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
 
-val asserts_IMP_FOLDR_COUNT_LIST = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST",
-  `∀n next ms P Q. asserts n next ms P Q ⇒
-      Q (FOLDR next (next n ms) (COUNT_LIST n))`,
-  Induct
-  >- rw[COUNT_LIST_def, asserts_def]
-  \\ rw[asserts_def]
-  \\ rw[COUNT_LIST_SNOC, FOLDR_SNOC]
-  \\ first_x_assum drule \\ rw[]);
-
-val asserts_IMP_FOLDR_COUNT_LIST_LESS = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST_LESS",
-  `∀k n next ms P Q. asserts n next ms P Q ∧ k < n ⇒
-      P (FOLDR next ms (REVERSE (GENLIST ((-) n) (SUC k))))`,
-  simp[GSYM MAP_COUNT_LIST]
-  \\ Induct_on`k` \\ rw[]
-  \\ Cases_on`n` \\ fs[asserts_def]
-  >- (EVAL_TAC \\ fs[])
-  \\ first_x_assum drule
-  \\ simp[]
-  \\ simp[COUNT_LIST_GENLIST,MAP_GENLIST,REVERSE_GENLIST,GENLIST_CONS,PRE_SUB1,FOLDR_APPEND]);
-
 val backend_correct_def = Define `
   backend_correct t <=>
     target_ok t /\
@@ -129,6 +109,50 @@ val backend_correct_def = Define `
               (\ms'. target_state_rel t s2 ms')`
 
 (* lemma for proofs *)
+
+val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
+  `!l1 l2 pc mem mem_domain.
+      bytes_in_memory pc (l1 ++ l2) mem mem_domain <=>
+      bytes_in_memory pc l1 mem mem_domain /\
+      bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
+  Induct
+  THEN ASM_SIMP_TAC list_ss
+         [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
+          GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
+  THEN DECIDE_TAC
+  )
+
+val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
+  `!xs pc. bytes_in_memory pc xs m d ==> all_pcs (LENGTH xs) pc SUBSET d`,
+  Induct \\ full_simp_tac(srw_ss())[all_pcs_def,bytes_in_memory_def]);
+
+val bytes_in_memory_change_domain = Q.store_thm("bytes_in_memory_change_domain",
+  `∀a bs m md1 md2.
+    bytes_in_memory a bs m md1 ∧
+   (∀n. n < LENGTH bs ⇒ (a + n2w n ∈ md1 ⇔ a + n2w n ∈ md2))
+  ⇒ bytes_in_memory a bs m md2`,
+  Induct_on`bs`
+  \\ rw[bytes_in_memory_def]
+  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+  \\ first_x_assum irule
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`SUC n`mp_tac)
+  \\ simp[ADD1,GSYM word_add_n2w]);
+
+val bytes_in_memory_change_mem = Q.store_thm("bytes_in_memory_change_mem",
+  `∀a bs m1 m2 md.
+    bytes_in_memory a bs m1 md ∧
+   (∀n. n < LENGTH bs ⇒ (m1 (a + n2w n) = m2 (a + n2w n)))
+  ⇒ bytes_in_memory a bs m2 md`,
+  Induct_on`bs`
+  \\ rw[bytes_in_memory_def]
+  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+  \\ first_x_assum irule
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`SUC n`mp_tac)
+  \\ simp[ADD1,GSYM word_add_n2w]);
 
 val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
   `!t s ms.
@@ -153,13 +177,25 @@ val asserts_eval = save_thm("asserts_eval",let
     |> ONCE_REWRITE_CONV [asserts_def] |> SIMP_RULE std_ss []
   in LIST_CONJ (genlist gen_rw 20) end)
 
-val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
-  `!bs bs1 p.
-     bytes_in_memory p (bs ++ bs1) m dm <=>
-     bytes_in_memory p bs m dm /\
-     bytes_in_memory (p + n2w (LENGTH bs)) bs1 m dm`,
-  Induct \\ fs [bytes_in_memory_def,ADD1,word_add_n2w]
-  \\ REWRITE_TAC [GSYM WORD_ADD_ASSOC,word_add_n2w,CONJ_ASSOC])
+val asserts_IMP_FOLDR_COUNT_LIST = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST",
+  `∀n next ms P Q. asserts n next ms P Q ⇒
+      Q (FOLDR next (next n ms) (COUNT_LIST n))`,
+  Induct
+  >- rw[COUNT_LIST_def, asserts_def]
+  \\ rw[asserts_def]
+  \\ rw[COUNT_LIST_SNOC, FOLDR_SNOC]
+  \\ first_x_assum drule \\ rw[]);
+
+val asserts_IMP_FOLDR_COUNT_LIST_LESS = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIST_LESS",
+  `∀k n next ms P Q. asserts n next ms P Q ∧ k < n ⇒
+      P (FOLDR next ms (REVERSE (GENLIST ((-) n) (SUC k))))`,
+  simp[GSYM MAP_COUNT_LIST]
+  \\ Induct_on`k` \\ rw[]
+  \\ Cases_on`n` \\ fs[asserts_def]
+  >- (EVAL_TAC \\ fs[])
+  \\ first_x_assum drule
+  \\ simp[]
+  \\ simp[COUNT_LIST_GENLIST,MAP_GENLIST,REVERSE_GENLIST,GENLIST_CONS,PRE_SUB1,FOLDR_APPEND]);
 
 val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
   `((asmSem$upd_pc x s).align = s.align) ∧
