@@ -64,14 +64,14 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
          interference_ok env (c.target.proj dm) ==>
          asserts n (\k s. env k (c.target.next s)) ms1
            (\ms'. c.target.state_ok ms' /\
-                  (∀pc. pc ∈ all_pcs (LENGTH (c.target.config.encode i)) init_pc ⇒
+                  (∀pc. pc ∈ all_pcs (LENGTH (c.target.config.encode i)) init_pc 1 ⇒
                    c.target.get_byte ms' pc = c.target.get_byte ms1 pc) /\
                   c.target.get_pc ms' ∈
-                    all_pcs (LENGTH (c.target.config.encode i)) init_pc)
+                    all_pcs (LENGTH (c.target.config.encode i)) init_pc c.target.config.code_alignment)
            (\ms'. target_state_rel c.target s2 ms')) /\
       (∃k.
-        c.target.get_pc ms1 = init_pc + n2w k /\
-        k < LENGTH (c.target.config.encode i) /\
+        c.target.get_pc ms1 = init_pc + n2w (k * (MAX 1 c.target.config.code_alignment)) /\
+        k * (MAX 1 c.target.config.code_alignment) < LENGTH (c.target.config.encode i) /\
         bytes_in_memory init_pc (c.target.config.encode i)
           (c.target.get_byte ms1) c.prog_addresses) ==>
       ?ms2.
@@ -113,9 +113,9 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
    (full_simp_tac(srw_ss())[]
     \\ conj_tac >- (
       fs[all_pcs_thm,SUBSET_DEF,PULL_EXISTS]
-      \\ drule bytes_in_memory_all_pcs
+      \\ first_assum(mp_then Any mp_tac (GEN_ALL bytes_in_memory_all_pcs))
       \\ fs[SUBSET_DEF]
-      \\ disch_then irule
+      \\ disch_then match_mp_tac
       \\ simp[all_pcs_thm]
       \\ METIS_TAC[] )
     \\ conj_tac THEN1 (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def])
@@ -134,7 +134,8 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
         c.target.proj dm (c.target.next ms1)` by fs[interference_ok_def]
     \\ qpat_x_assum`∀ms1 ms2. _ ⇒ _` drule
     \\ strip_tac \\ fs[]
-    \\ fs[all_pcs_thm]
+    \\ rfs[all_pcs_thm]
+    \\ qmatch_asmsub_rename_tac`x * _ < _`
     \\ qexists_tac`x` \\ simp[]
     \\ irule bytes_in_memory_change_mem
     \\ goal_assum (first_assum o mp_then Any mp_tac)
@@ -143,6 +144,7 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
     \\ impl_tac
     >- (
       imp_res_tac bytes_in_memory_all_pcs
+      \\ first_x_assum(qspec_then`1`mp_tac)
       \\ fs[all_pcs_thm,SUBSET_DEF,PULL_EXISTS] )
     \\ rw[]
     \\ first_x_assum(qspec_then`λi x. x`mp_tac)
@@ -164,10 +166,10 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
     \\ pop_assum mp_tac
     \\ simp[encoded_bytes_in_mem_def]
     \\ qexists_tac`i`
-    \\ qmatch_assum_abbrev_tac`k < LENGTH bs`
-    \\ Q.ISPECL_THEN[`TAKE k bs`,`DROP k bs`,`init_pc`]mp_tac bytes_in_memory_APPEND
+    \\ qmatch_assum_abbrev_tac`k * a < LENGTH bs`
+    \\ Q.ISPECL_THEN[`TAKE (k * a) bs`,`DROP (k * a) bs`,`init_pc`]mp_tac bytes_in_memory_APPEND
     \\ simp[]
-    \\ METIS_TAC[] )
+    \\ METIS_TAC[MULT_COMM] )
   \\ rw[]
   \\ fs[GSYM shift_interfer_def, shift_interfer_intro,apply_oracle_def]
   \\ fs[GSYM ADD1]
@@ -205,7 +207,9 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
     \\ fs[target_state_rel_def]
     \\ imp_res_tac bytes_in_memory_all_pcs
     \\ fs[SUBSET_DEF,all_pcs_thm,PULL_EXISTS]
-    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ first_x_assum(qspec_then`1`mp_tac)
+    \\ simp[]
+    \\ disch_then(qspec_then`0`mp_tac)
     \\ simp[]
     \\ disch_then irule
     \\ Cases_on`c.target.config.encode i` \\ fs[]
@@ -237,8 +241,9 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
   \\ fs[target_state_rel_def]
   \\ rw[]
   \\ first_x_assum (irule o GSYM)
-  \\ drule bytes_in_memory_all_pcs
-  \\ simp[SUBSET_DEF, all_pcs_thm, PULL_EXISTS])
+  \\ drule (GEN_ALL bytes_in_memory_all_pcs)
+  \\ simp[SUBSET_DEF, all_pcs_thm, PULL_EXISTS]
+  \\ disch_then(qspec_then`1`mp_tac) \\ simp[])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
 
 (* basic properties *)
