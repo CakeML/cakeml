@@ -487,7 +487,7 @@ val sort_spec = Q.store_thm ("sort_spec",
 
 val sort_whole_prog_spec = Q.store_thm("sort_whole_prog_spec",
   `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
-   ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs (valid_sort_result cl fs)`,
+   ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs NONE (valid_sort_result cl fs)`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qexists_tac`sort_sem cl fs`
