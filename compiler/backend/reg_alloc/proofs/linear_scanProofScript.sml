@@ -14,7 +14,7 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
-
+(*
 (* TODO: move *)
 val the_OPTION_MAP = Q.store_thm("the_OPTION_MAP",
     `!f d opt.
@@ -1887,6 +1887,63 @@ val check_intervals_check_live_tree = Q.store_thm("check_intervals_check_live_tr
     imp_res_tac get_intervals_nout >>
     metis_tac [check_intervals_check_live_tree_lemma]
 );
+
+val get_intervals_ct_aux_live = Q.store_thm("get_intervals_ct_aux_live",
+    `!ct n_in beg_in end_in live_in live_in' n_out beg_out end_out live_out.
+    domain live_in = domain live_in' /\
+    (n_out, beg_out, end_out, live_out) = get_intervals_ct_aux ct n_in beg_in end_in live_in ==>
+    domain live_out = domain (get_live_backward (get_live_tree ct) live_in')`,
+
+    Induct_on `ct` >>
+    rw [get_live_backward_def, get_intervals_ct_aux_def, get_live_tree_def]
+
+    THEN1 rw [domain_numset_list_insert, domain_numset_list_delete]
+    THEN1 (
+        rw [domain_numset_list_insert, branch_domain, domain_union] >>
+        rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
+    )
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `domain (get_live_backward (get_live_tree ct') live_in') = domain live2` by metis_tac [] >>
+        `domain (get_live_backward (get_live_tree ct) live_in') = domain live1` by metis_tac [] >>
+        CASE_TAC >> fs [] >>
+        rw [get_live_backward_def, domain_numset_list_insert, branch_domain, domain_union] >>
+        rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
+    )
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        metis_tac []
+    )
+)
+
+val get_intervals_ct_aux_int = Q.store_thm("get_intervals_ct_aux_int",
+    `!ct n_in beg_in end_in live_in n_out beg_out end_out live_out.
+    (n_out, beg_out, end_out, live_out) = get_intervals_ct_aux ct n_in beg_in end_in live_in ==>
+    (n_out, beg_out, end_out) = get_intervals (get_live_tree ct) n_in beg_in end_in`,
+
+    Induct_on `ct` >>
+    rw [get_intervals_ct_aux_def, get_live_tree_def, get_intervals_def]
+    THEN1 intLib.COOPER_TAC
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        `get_intervals (get_live_tree ct') n_in beg_in end_in = (n2, int_beg2, int_end2)` by metis_tac [] >>
+        `get_intervals (get_live_tree ct) n2 int_beg2 int_end2 = (n1, int_beg1, int_end1)` by metis_tac [] >>
+        CASE_TAC >> fs [] >>
+        rw [get_intervals_def]
+    )
+    THEN1 (
+        rpt (pairarg_tac >> fs []) >>
+        (* TODO generated names *)
+        `get_intervals (get_live_tree ct') n_in beg_in end_in = (n2', int_beg2', int_end2')` by metis_tac [] >>
+        fs [] >> rveq >>
+        metis_tac []
+    )
+)
+
+val get_intervals_ct_eq = Q.store_thm("get_intervals_ct_eq",
+    `!ct. get_intervals_ct ct = get_intervals (fix_domination (get_live_tree ct)) 0 LN LN`
+    cheat (*TODO*)
+)
 
 val colors_sub_eqn = Q.store_thm("colors_sub_eqn[simp]",`
   colors_sub n s =
@@ -4337,7 +4394,7 @@ val get_intervals_beg_less_end = Q.store_thm("get_intervals_beg_less_end",
     `!r. r IN domain int_beg2 ==> the 0 (lookup r int_beg2) <= the 0 (lookup r int_end2)` by metis_tac [] >>
     metis_tac []
 );
-
+*)
 val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     `!k moves ct forced.
     EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced ==>
@@ -4355,7 +4412,7 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     ) /\
     (!r. r IN domain col ==> in_clash_tree ct r) /\
     EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced`,
-
+cheat); (*
     rpt strip_tac >>
     simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_intervals_and_extract_coloration_def] >>
     simp msimps >>
@@ -4619,5 +4676,5 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
         fs []
     )
 );
-
+*)
 val _ = export_theory ();
