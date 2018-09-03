@@ -20,6 +20,10 @@ val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
    (initial_state f c co cc k with locals := LN = initial_state f c co cc k)`,
   srw_tac[][initial_state_def]);
 
+val _ = Q.store_thm("Boolv_11[simp]",
+  `dataSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,
+  EVAL_TAC>>srw_tac[][]);
+
 val with_same_locals = Q.store_thm("with_same_locals",
   `(s with locals := s.locals) = s`,
   full_simp_tac(srw_ss())[state_component_equality]);
@@ -81,6 +85,32 @@ val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
    map_result (λ(x,y). (x,y with stack := z)) I (do_app op vs s)`,
   Cases_on `do_app op vs (s with stack := z)`
+  \\ Cases_on `op`
+  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          TRY (pairarg_tac \\ fs []) >>
+          rveq >> fs []));
+
+val do_app_aux_with_space = time Q.store_thm("do_app_aux_with_space",
+  `do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)`,
+  Cases_on `do_app_aux op vs (s with space := z)`
+  \\ Cases_on `op`
+  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          TRY (pairarg_tac \\ fs []) >>
+          rveq >> fs []));
+
+val do_app_aux_with_locals = time Q.store_thm("do_app_aux_with_locals",
+  `do_app_aux op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app_aux op vs s)`,
+  Cases_on `do_app_aux op vs (s with locals := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
