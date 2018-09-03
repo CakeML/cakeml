@@ -1,6 +1,7 @@
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
-open ml_monad_translatorLib ml_translatorTheory;
+open ml_monad_translatorLib
+open ml_translatorTheory;
 open parserProgTheory;
 
 (* Standalone translation only:
@@ -454,6 +455,7 @@ val res = translate numset_list_add_if_gt_def;
 val res = translate get_intervals_def;
 val res = translate find_bijection_clash_tree_def;
 val res = translate apply_bij_on_clash_tree_def;
+val res = translate size_of_clash_tree_def;
 val res = translate linear_scan_reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
