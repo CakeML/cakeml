@@ -11,6 +11,380 @@ fun type_rec_tac proj =
 
 val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
 
+val (builtin_closure_rules,builtin_closure_ind,builtin_closure_cases) = Hol_reln `
+  (!T ty. T ty ==> builtin_closure T ty)
+  /\ (!T. builtin_closure T Bool)
+  /\ (!T ty1 ty2. builtin_closure T ty1 /\ builtin_closure T ty2
+        ==> builtin_closure T (Fun ty1 ty2))`
+
+val ground_types_def = Define `
+  ground_types =
+  {ty | tyvars ty = []}
+  `
+
+val ground_consts_def = Define `
+  ground_consts =
+  {c:(mlstring#type) | SND c ∈ ground_types}
+  `
+
+val nonbuiltin_types_def = Define `nonbuiltin_types = {ty | ¬is_builtin_type ty}`
+
+val builtin_consts =
+  Define `builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}`
+
+val nonbuiltin_constinsts_def =
+  Define `nonbuiltin_constinsts = {c | c ∉ builtin_consts}`
+
+val consts_of_term_def = Define
+  `(consts_of_term(Abs x y) = consts_of_term x ∪ consts_of_term y) /\
+   (consts_of_term(Comb x y) = consts_of_term x ∪ consts_of_term y) /\
+   (consts_of_term(Const n ty) = {(n,ty)}) /\
+   (consts_of_term _ = {})`
+
+val is_sig_fragment_def = Define
+  `is_sig_fragment (tys,consts) =
+   (tys ⊆ ground_types ∧ tys ⊆ nonbuiltin_types
+    ∧ consts ⊆ ground_consts ∧ consts ⊆ nonbuiltin_constinsts
+    ∧ (!s c. (s,c) ∈ consts ==> c ∈ builtin_closure tys)
+   )
+  `
+
+val terms_of_frag_def = Define
+  `terms_of_frag (tys,consts) =
+   {t | consts_of_term t ∩ nonbuiltin_constinsts ⊆ consts
+        /\ set(allTypes t) ⊆ tys /\ welltyped t}
+  `
+
+val ground_terms_def = Define
+  `ground_terms = {t | ?ty. t has_type ty /\ ty ∈ ground_types}`
+
+val types_of_frag_def = Define
+  `types_of_frag (tys,consts) = builtin_closure tys`
+
+(* Lemma 8 from Andrei&Ondra, should go elsewhere*)
+
+val allTypes_no_tyvars = Q.prove(
+  `!ty. (∀x. x ∈ q ⇒ tyvars x = [])
+        /\ (∀x. MEM x (allTypes' ty) ⇒ x ∈ q)
+        ==> tyvars ty = []`,
+  ho_match_mp_tac type_ind >> rpt strip_tac
+  >> fs[allTypes'_def]
+  >> BasicProvers.PURE_FULL_CASE_TAC >- fs[tyvars_def]
+  >> qpat_x_assum `!x. _` mp_tac >> simp[] >> strip_tac
+  >> BasicProvers.PURE_FULL_CASE_TAC
+  >- (Cases_on `l` >- fs[tyvars_def]
+      >> rename1 `ty::tys` >> Cases_on `tys` >> fs[]
+      >> qmatch_goalsub_abbrev_tac `a1 = a2`
+      >> `set a1 = set a2` suffices_by(unabbrev_all_tac >> simp[])
+      >> unabbrev_all_tac
+      >> simp[tyvars_def])
+  >> fs[]);
+
+val allTypes_no_tyvars2 = Q.prove(
+  `!tm ty1 ty2. tm has_type ty1 /\
+           MEM ty2 (allTypes' ty1)
+           ==> MEM ty2 (allTypes tm)`,
+  simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
+  >> ho_match_mp_tac has_type_strongind
+  >> rw[allTypes_def,allTypes'_def] >> fs[]);
+
+val builtin_closure_tyvars = Q.prove(
+  `∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ tyvars x = []) ==> tyvars x = []`,
+  simp [IN_DEF,GSYM AND_IMP_INTRO]
+  >> ho_match_mp_tac builtin_closure_ind
+  >> rw[tyvars_def]);
+
+val builtin_closure_allTypes' = Q.prove(
+  `!ty q. (∀x. MEM x (allTypes' ty) ⇒ x ∈ q) ==> ty ∈ builtin_closure q`,
+  ho_match_mp_tac type_ind >> rpt strip_tac
+  >- (fs[allTypes'_def,boolTheory.IN_DEF] >> metis_tac[builtin_closure_rules])
+  >- (fs[allTypes'_def,listTheory.EVERY_MEM]
+      >> BasicProvers.PURE_FULL_CASE_TAC
+      >- fs[builtin_closure_rules,boolTheory.IN_DEF]
+      >> qpat_x_assum `!x. _` mp_tac >> simp[]
+      >> BasicProvers.PURE_FULL_CASE_TAC >> simp[builtin_closure_rules,boolTheory.IN_DEF]
+      >> Cases_on `l` >- fs[tyvars_def]
+      >> rename1 `ty::tys` >> Cases_on `tys` >> fs[] >> rpt strip_tac
+      >> metis_tac[builtin_closure_rules,boolTheory.IN_DEF]));
+
+val allTypes'_builtin_closure = Q.prove(
+  `!q ty x. ty ∈ builtin_closure q /\ q ⊆ nonbuiltin_types /\ MEM x (allTypes' ty) ⇒ x ∈ q`,
+  simp[boolTheory.IN_DEF,GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
+  >> ho_match_mp_tac builtin_closure_ind
+  >> rpt strip_tac
+  >- (fs[nonbuiltin_types_def,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]
+      >> first_x_assum drule >> strip_tac >> Cases_on `ty`
+      >> fs[is_builtin_type_def,is_builtin_name_def]
+      >> fs[allTypes'_def])
+  >- fs[allTypes'_def]
+  >- (fs[allTypes'_def,boolTheory.IN_DEF] >> rpt(first_x_assum drule >> strip_tac)));
+
+val consts_of_free_const = Q.prove(
+  `!tm x v. x ∈ consts_of_term v /\ VFREE_IN v tm
+            ==> v = Const (FST x) (SND x)`,
+  Induct >> rpt strip_tac
+  >> fs[consts_of_term_def,VFREE_IN_def]
+  >> rpt(BasicProvers.VAR_EQ_TAC)
+  >> fs[consts_of_term_def]);
+
+val VFREEs_IN_consts = Q.prove(
+  `!tm s ty. VFREE_IN (Const s ty) tm
+            ==> (s,ty) ∈ consts_of_term tm`,
+  Induct >> rpt strip_tac
+  >> fs[consts_of_term_def,VFREE_IN_def]
+  >> rpt(BasicProvers.VAR_EQ_TAC)
+  >> fs[consts_of_term_def]);
+
+val var_type_in_types = Q.prove(
+  `!tm ty v. VFREE_IN v tm /\ MEM ty (allTypes v)
+            ==> MEM ty (allTypes tm)`,
+  Induct >> rpt strip_tac
+  >> fs[VFREE_IN_def,allTypes_def]
+  >> rpt(BasicProvers.VAR_EQ_TAC)
+  >> fs[allTypes_def]
+  >> rpt(qpat_x_assum `!x. _` imp_res_tac) >> fs[]);
+
+val VFREE_type = Q.prove(
+  `!tm v. VFREE_IN v tm ==> v has_type typeof v`,
+  Induct >> rpt strip_tac
+  >> fs[VFREE_IN_def]
+  >> rpt(BasicProvers.VAR_EQ_TAC)
+  >> fs[typeof_def,has_type_rules]);
+
+val RTC_lifts_invariants_inv = Q.prove(
+  `(∀x y. P x ∧ R y x ⇒ P y) ⇒ ∀x y. P x ∧ R^* y x ⇒ P y`,
+  rpt strip_tac
+  >> Q.ISPECL_THEN [`inv R`,`P`] assume_tac (GEN_ALL relationTheory.RTC_lifts_invariants)
+  >> fs[relationTheory.inv_DEF,relationTheory.inv_MOVES_OUT]
+  >> metis_tac[])
+
+val terms_of_frag_combE = Q.store_thm("terms_of_frag_combE",
+  `!f a b. is_sig_fragment f /\ Comb a b ∈ terms_of_frag f ==> 
+   a ∈ terms_of_frag f /\ b ∈ terms_of_frag f`,
+  Cases
+  >> rw[terms_of_frag_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
+        consts_of_term_def,allTypes_def]
+  >> qhdtm_x_assum `$has_type` (assume_tac o PURE_ONCE_REWRITE_RULE [has_type_cases])
+  >> fs[] >> metis_tac[]);
+
+val terms_of_frag_combI = Q.store_thm("terms_of_frag_combI",
+  `!f a b. is_sig_fragment f /\ a ∈ terms_of_frag f /\ b ∈ terms_of_frag f
+           /\ welltyped(Comb a b)==> 
+   Comb a b ∈ terms_of_frag f`,
+  Cases
+  >> rw[terms_of_frag_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
+        consts_of_term_def,allTypes_def]
+  >> rpt(first_x_assum drule >> strip_tac)
+  >> imp_res_tac WELLTYPED_LEMMA
+  >> metis_tac[has_type_rules]);
+
+(* TODO: unify these two lemmas *)
+val consts_of_term_REV_ASSOCD = Q.prove(
+  `!x t ilist d. x ∈ consts_of_term (REV_ASSOCD t ilist d)
+   ==> x ∈ consts_of_term d \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)`,
+  Induct_on `ilist`
+  >> rw[holSyntaxLibTheory.REV_ASSOCD_def]
+  >> metis_tac[]);
+
+val allTypes_REV_ASSOCD = Q.prove(
+  `!x t ilist d. MEM x (allTypes (REV_ASSOCD t ilist d))
+   ==> MEM x (allTypes d) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)`,
+  Induct_on `ilist`
+  >> rw[holSyntaxLibTheory.REV_ASSOCD_def]
+  >> metis_tac[]);
+
+val consts_of_term_VSUBST = Q.prove(
+  `!x n ty tm1 ilist. x ∈ consts_of_term (VSUBST ilist tm1)
+   ==> x ∈ consts_of_term tm1 \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)`,
+  Induct_on `tm1`
+  >> rw[VSUBST_def]
+  >- (imp_res_tac consts_of_term_REV_ASSOCD >> simp[])
+  >- (fs[consts_of_term_def] >> first_x_assum drule >> strip_tac >> fs[])
+  >- (fs[consts_of_term_def,pairTheory.ELIM_UNCURRY,VSUBST_def]
+      >> first_x_assum drule
+      >> strip_tac >> fs[consts_of_term_def]
+      >> disj2_tac
+      >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
+      >> metis_tac[])
+  >- (fs[consts_of_term_def]
+      >> first_x_assum drule
+      >> strip_tac >> fs[consts_of_term_def]
+      >> disj2_tac
+      >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
+      >> metis_tac[]));
+
+val allTypes_VSUBST = Q.prove(
+  `!x tm1 ilist. MEM x (allTypes (VSUBST ilist tm1))
+                      /\ welltyped tm1
+                      ==> MEM x (allTypes tm1) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)`,
+  Induct_on `tm1`
+  >> rw[VSUBST_def]
+  >- (imp_res_tac allTypes_REV_ASSOCD >> simp[])
+  >- (fs[allTypes_def] >> first_x_assum drule >> strip_tac >> fs[])
+  >- (fs[allTypes_def]
+      >> first_x_assum drule >> strip_tac >> fs[allTypes_def]
+      >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
+      >> metis_tac[])
+  >- (fs[allTypes_def]
+      >> first_x_assum drule >> strip_tac >> fs[allTypes_def]
+      >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
+      >> metis_tac[]));
+
+(* 8(1) *)
+val types_of_frag_ground = Q.store_thm("types_of_frag_ground",
+  `!f. is_sig_fragment f ==> types_of_frag f ⊆ ground_types`,
+  Cases
+  >> rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+        welltyped_def]
+  >> metis_tac[builtin_closure_tyvars]);
+
+(* 8(2) *)
+val terms_of_frag_ground = Q.store_thm("terms_of_frag_ground",
+  `!f. is_sig_fragment f ==> terms_of_frag f ⊆ ground_terms`,
+  Cases
+  >> rw[terms_of_frag_def,ground_terms_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+        ground_types_def,welltyped_def]
+  >> qexists_tac `ty` >> simp[]
+  >> qpat_x_assum `_ has_type _` (fn thm => rpt(pop_assum mp_tac) >> mp_tac thm)
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`ty`,`x`] (* TODO: generated names *)
+  >> ho_match_mp_tac has_type_strongind >> rpt strip_tac
+  >- (fs[allTypes_def] >> match_mp_tac allTypes_no_tyvars
+      >> fs[])
+  >- (fs[allTypes_def] >> match_mp_tac allTypes_no_tyvars
+      >> fs[])
+  >- (match_mp_tac allTypes_no_tyvars >> fs[] >> rw[]
+      >> first_x_assum match_mp_tac
+      >> match_mp_tac allTypes_no_tyvars2
+      >> metis_tac[has_type_rules])
+  >- (match_mp_tac allTypes_no_tyvars >> fs[] >> rw[]
+      >> first_x_assum match_mp_tac
+      >> match_mp_tac allTypes_no_tyvars2
+      >> metis_tac[has_type_rules]));
+
+(* 8(3) *)
+val term_frag_in_type_frag = Q.store_thm("term_frag_in_type_frag",
+  `!f tm ty . is_sig_fragment f /\ tm ∈ terms_of_frag f ==>
+          typeof tm ∈ types_of_frag f`,
+  Cases
+  >> rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+        welltyped_def,terms_of_frag_def]
+  >> metis_tac[WELLTYPED_LEMMA,allTypes_no_tyvars2,builtin_closure_allTypes']);
+
+(* 8(4) *)
+val term_vars_in_term_frag = Q.store_thm("term_vars_in_term_frag",
+  `!f tm v. is_sig_fragment f /\ tm ∈ terms_of_frag f /\ VFREE_IN v tm ==>
+          v ∈ terms_of_frag f`,
+  Cases
+  >> rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+        welltyped_def,terms_of_frag_def]
+  >- (imp_res_tac consts_of_free_const >> fs[consts_of_term_def]
+      >> first_x_assum match_mp_tac >> imp_res_tac VFREEs_IN_consts >> fs[])
+  >- (imp_res_tac var_type_in_types >> rpt(qpat_x_assum `!x. _` imp_res_tac))
+  >- (imp_res_tac VFREE_type >> metis_tac[]));
+
+(* 8(5) *)
+val subterm1_in_term_frag = Q.store_thm("subterm1_in_term_frag",
+  `!f tm1 tm2. is_sig_fragment f /\ tm1 ∈ terms_of_frag f /\ subterm1 tm2 tm1 ==>
+          tm2 ∈ terms_of_frag f`,
+  Cases
+  >> rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+        welltyped_def,terms_of_frag_def,Once subterm1_cases]
+  >> fs[consts_of_term_def,allTypes_def]
+  >> (imp_res_tac WELLTYPED_LEMMA >> rpt(BasicProvers.VAR_EQ_TAC)
+      >> qhdtm_x_assum `$has_type` (assume_tac o PURE_ONCE_REWRITE_RULE [has_type_cases])
+      >> fs[] >> metis_tac[has_type_rules]));
+
+val subterm_in_term_frag = Q.store_thm("subterm_in_term_frag",
+  `!f tm1 tm2. is_sig_fragment f /\ tm1 ∈ terms_of_frag f /\ tm2 subterm tm1 ==>
+          tm2 ∈ terms_of_frag f`,
+  `!f. is_sig_fragment f ==> !tm1 tm2. tm1 ∈ terms_of_frag f /\ tm2 subterm tm1 ==>
+       tm2 ∈ terms_of_frag f` suffices_by metis_tac[]
+  >> ntac 2 strip_tac
+  >> ho_match_mp_tac RTC_lifts_invariants2
+  >> rpt strip_tac >> imp_res_tac subterm1_in_term_frag);
+
+(* 8(6) *)
+val term_frag_subst_clos = Q.store_thm("subterm_in_term_frag",
+  `!f n ty tm1 tm2. is_sig_fragment f /\ tm1 ∈ terms_of_frag f /\ tm2 ∈ terms_of_frag f
+                    /\ ty ∈ types_of_frag f
+                    /\ tm2 has_type ty ==>
+          VSUBST [(tm2, Var n ty)] tm1 ∈ terms_of_frag f`,
+  Cases >> Induct_on `tm1`
+  >- (rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+         welltyped_def,terms_of_frag_def,VSUBST_def,holSyntaxLibTheory.REV_ASSOCD_def,consts_of_term_def,allTypes_def])
+  >- (rw[VSUBST_def,holSyntaxLibTheory.REV_ASSOCD_def])
+  >- (rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+         welltyped_def,terms_of_frag_def,VSUBST_def,holSyntaxLibTheory.REV_ASSOCD_def,consts_of_term_def,allTypes_def]
+      >> imp_res_tac consts_of_term_VSUBST
+      >> fs[consts_of_term_def]
+      >> TRY(qmatch_goalsub_abbrev_tac `_ IN _`
+             >> drule allTypes_VSUBST >> simp[GSYM PULL_EXISTS]
+             >> impl_tac
+             >- (fs[Once has_type_cases] >> fs[welltyped_def] >> metis_tac[])
+             >> strip_tac >> fs[])
+      >> rename1 `Comb _ _ has_type cty`
+      >> qexists_tac `cty`
+      >> qpat_x_assum `Comb _ _ has_type _` (assume_tac o PURE_ONCE_REWRITE_RULE [has_type_cases])
+      >> fs[]
+      >> MAP_FIRST match_mp_tac (CONJUNCTS has_type_rules)
+      >> qexists_tac `dty`
+      >> conj_tac >> match_mp_tac VSUBST_HAS_TYPE
+      >> fs[])
+  >- (rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
+         welltyped_def,terms_of_frag_def,VSUBST_def,holSyntaxLibTheory.REV_ASSOCD_def,consts_of_term_def,allTypes_def]
+      >> qpat_x_assum `Abs _ _ has_type _` (assume_tac o PURE_ONCE_REWRITE_RULE [has_type_cases])
+      >> fs[] >> rpt(BasicProvers.VAR_EQ_TAC) >> fs[dest_var_def,consts_of_term_def]
+      >> imp_res_tac consts_of_term_VSUBST >> fs[consts_of_term_def,allTypes_def]
+      >> TRY(qmatch_goalsub_abbrev_tac `_ IN _`
+             >> drule allTypes_VSUBST >> simp[GSYM PULL_EXISTS]
+             >> impl_tac
+             >- (fs[welltyped_def] >> metis_tac[])
+             >> strip_tac >> fs[allTypes_def])
+      >> qexists_tac `Fun dty rty`
+      >> MAP_FIRST match_mp_tac (CONJUNCTS has_type_rules)
+      >> match_mp_tac VSUBST_HAS_TYPE
+      >> rw[] >> MAP_FIRST MATCH_ACCEPT_TAC (CONJUNCTS has_type_rules)));
+
+`!f. is_sig_fragment f ==> !tm1 tm2. tm1 ∈ terms_of_frag f /\ tm2 subterm tm1 ==>
+       tm2 ∈ terms_of_frag f` suffices_by metis_tac[]
+  >> ntac 2 strip_tac
+  >> ho_match_mp_tac RTC_lifts_invariants2
+  >> rpt strip_tac >> imp_res_tac subterm1_in_term_frag);
+
+(* Lemma 4 from Andrei&Ondra, should probably go elsewhere *)
+(*
+  `!ty2 sigma ty1. MEM ty1 (allTypes' ty2)
+   ==>
+   MEM (TYPE_SUBST sigma ty1) (allTypes' (TYPE_SUBST sigma ty2))`,
+  ho_match_mp_tac type_ind >> rpt strip_tac
+  >> fs[allTypes'_def]
+  >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[])
+  >> fs[listTheory.MEM_FLAT,listTheory.MEM_MAP]
+  >> rpt(BasicProvers.VAR_EQ_TAC)
+  >> fs[listTheory.EVERY_MEM]
+  >> first_x_assum drule >> disch_then drule
+  >> disch_then(qspec_then `sigma` assume_tac)
+  >> metis_tac[]
+
+
+  `!env sigma t.
+   set(allTypes(RESULT(INST_CORE env sigma t))) = {ty | ?ty' subst. ty = TYPE_SUBST subst ty' /\
+                                                 MEM ty' (allTypes t)}`,
+  ho_match_mp_tac INST_CORE_ind >> rpt strip_tac
+  >- (rw[INST_CORE_def,allTypes_def,holSyntaxLibTheory.REV_ASSOCD]
+      >- (rw[pred_setTheory.SET_EQ_SUBSET,pred_setTheory.SUBSET_DEF]
+          >> 
+
+`!sigma t.
+ set(allTypes(INST sigma t)) = {ty | ?ty' subst. ty = TYPE_SUBST subst ty' /\
+                                               MEM ty' (allTypes t)}`,
+  simp[INST_def,TYPE_SUBST_def]
+  >> Induct
+  >>
+  rw[allTypes_def,INST_def,INST_CORE_def,holSyntaxLibTheory.REV_ASSOCD]
+  INST_CORE_ind
+*)
+
 (* A type assignment is a map from type operator names to semantic functions.
    Each function takes a list of sets representing the meanings of the
    arguments and returns the meaning of the applied operator. The assignment is

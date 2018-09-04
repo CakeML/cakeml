@@ -628,32 +628,27 @@ val is_builtin_type_def = Define`
   /\ (is_builtin_type (Tyapp m ty) = is_builtin_name m)
 `
 
+val type1_size_append = Q.prove(
+  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
+  Induct >> simp[fetch "-" "type_size_def"]);
+
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.
  * This corresponds to   types^\bullet : term -> type set  in the publication *)
-val allTypes'_defn = Hol_defn "allTypes'" `
+val allTypes'_defn = tDefine "allTypes'" `
   (allTypes' (Tyapp s tys) =
-     case s of
-       strlit "fun" => FLAT (MAP allTypes' tys)
-     | strlit "bool" => [] (* tys = [] *)
-     | _ => [(Tyapp s tys)]
+    if s = strlit "fun" /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
+    else if s = strlit "bool" /\ tys = [] then []
+    else [(Tyapp s tys)]
   )
-  /\ (allTypes' (Tyvar _) = [])
-`;
-
-val type1_size_append = Q.prove(
-  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
-  Induct >> simp[fetch "-" "type_size_def"])
-
-val (allTypes'_eqns, allTypes'_ind) = Defn.tprove (
-  allTypes'_defn,
-  WF_REL_TAC `measure type_size`
-  >> Induct
-  >> rw[fetch "-" "type_size_def"]
-  >> fs[MEM_SPLIT]
-  >> rw[type1_size_append]
-  >> rw[fetch "-" "type_size_def"]
-);
+  /\ (allTypes' (Tyvar n) = [Tyvar n])
+  `
+  (WF_REL_TAC `measure type_size`
+   >> Induct
+   >> rw[fetch "-" "type_size_def"]
+   >> fs[MEM_SPLIT]
+   >> rw[type1_size_append]
+   >> rw[fetch "-" "type_size_def"]);
 
 (* extend allTypes' to terms *)
 val allTypes_def = Define `
