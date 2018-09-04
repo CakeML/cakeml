@@ -120,8 +120,9 @@ val interference_implemented_def = Define`
             (ffi_rel ms = ffi_rel (mc.target.next ms)) ∧
             (ffi_rel (mc.target.next ms) =
              ffi_rel (FUNPOW mc.target.next k (mc.target.next ms))) ∧
-            (∀x. x ∉ md ⇒ (mc.target.get_byte (FUNPOW mc.target.next k (mc.target.next ms)) x =
-                           mc.target.get_byte (mc.target.next ms) x))) ∧
+            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
+                  (mc.target.get_byte (FUNPOW mc.target.next k (mc.target.next ms)) x =
+                   mc.target.get_byte (mc.target.next ms) x))) ∧
       ((mc.target.get_pc ms = mc.ccache_pc) ⇒
         ∃k. (ccache_interfer
              (mc.target.get_reg ms mc.ptr_reg,
@@ -129,8 +130,9 @@ val interference_implemented_def = Define`
              = FUNPOW mc.target.next k ms) ∧
             (ffi_rel ms =
              ffi_rel (FUNPOW mc.target.next k ms)) ∧
-            (∀x. x ∉ md ⇒ (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
-                           mc.target.get_byte ms x))) ∧
+            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
+              (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
+               mc.target.get_byte ms x))) ∧
         ∀(ffi:'ffi ffi_state) ffi_index bytes bytes2 new_ffi new_bytes.
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
           (read_ffi ms mc = (SOME bytes, SOME bytes2)) ∧
@@ -142,18 +144,18 @@ val interference_implemented_def = Define`
             (ffi_interfer (ffi_index,new_bytes,ms) =
              FUNPOW mc.target.next k ms) ∧
             (ffi_rel (FUNPOW mc.target.next k ms) new_ffi.io_events) ∧
-            (∀x. x ∉ md ⇒ (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
-                           mc.target.get_byte ms x))`;
+            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
+              (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
+               mc.target.get_byte ms x))`;
 
 val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
   `∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
    interference_implemented mc ffi_rel (:'ffi) md ms ∧
-   DISJOINT md mc.prog_addresses ∧
    (ffi_rel ms ffi.io_events) ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
           (ffi_rel ms' ffi'.io_events) ∧
-          (∀x. x ∉ md ⇒ (mc.target.get_byte ms' x = mc.target.get_byte ms x)) ∧
+          (∀x. x ∉ md ∪ mc.prog_addresses ⇒ (mc.target.get_byte ms' x = mc.target.get_byte ms x)) ∧
           ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc ms' = mc.halt_pc)) ∧
           (((mc.target.get_reg ms' mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x))
             ⇒ (t = Success))`,
@@ -190,7 +192,7 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
     \\ simp[]
     \\ disch_then(qx_choose_then`k2`strip_assume_tac)
     \\ fs[GSYM FUNPOW_ADD]
-    \\ qexists_tac`k1+k2+1` \\ rw[FUNPOW_ADD] )
+    \\ qexists_tac`k1+k2+1` \\ rw[FUNPOW_ADD])
   >- (
     last_x_assum mp_tac
     \\ impl_tac
@@ -261,7 +263,7 @@ val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPO
    (ffi_rel ms st.io_events) ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
    ∃k. ffi_rel (nxt mc k ms) io_events ∧
-       (∀x. x ∉ md ⇒ (mc.target.get_byte (nxt mc k ms) x = mc.target.get_byte ms x)) ∧
+       (∀x. x ∉ md ∪ mc.prog_addresses ⇒ (mc.target.get_byte (nxt mc k ms) x = mc.target.get_byte ms x)) ∧
        ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc (nxt mc k ms) = mc.halt_pc)) ∧
        ((mc.target.get_reg (nxt mc k ms) mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x)
         ⇒ (t = Success))`,
@@ -638,6 +640,32 @@ val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
 
+val asserts2_every = Q.store_thm("asserts2_every",
+  `∀n ms j.
+   asserts2 n (λk. f) g ms P ∧ j < n ⇒
+   P (FUNPOW (f o g) j ms) (g (FUNPOW (f o g) j ms))`,
+  Induct
+  \\ rw[Once asmPropsTheory.asserts2_def]
+  \\ Cases_on`j` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[FUNPOW]);
+
+val FUNPOW_refl_trans_chain = Q.store_thm("FUNPOW_refl_trans_chain",
+  `transitive P ∧ reflexive P ⇒
+   ∀n x.  (∀j. j < n ⇒ P (FUNPOW f j x) (f (FUNPOW f j x))) ⇒
+     P x (FUNPOW f n x)`,
+  strip_tac
+  \\ Induct
+  \\ rw[]
+  >- fs[reflexive_def]
+  \\ rw[]
+  \\ fs[transitive_def]
+  \\ last_x_assum irule
+  \\ simp[FUNPOW_SUC]
+  \\ qexists_tac`FUNPOW f n x`
+  \\ simp[]);
+
 val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm_step_target_state_rel",
   `backend_correct t ∧
    target_state_rel t s1 ms ∧
@@ -650,7 +678,8 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
              (t.get_byte (FUNPOW t.next j ms) pc = t.get_byte ms pc)) ∧
      (t.get_pc (FUNPOW t.next j ms) ∈
        all_pcs (LENGTH (t.config.encode i)) s1.pc t.config.code_alignment) ∧
-     (t.state_ok (FUNPOW t.next j ms)))`,
+     (t.state_ok (FUNPOW t.next j ms))) ∧
+   (∀j x. j ≤ n ∧ x ∉ s1.mem_domain ⇒ (t.get_byte (FUNPOW t.next j ms) x = t.get_byte ms x))`,
   rw[asmPropsTheory.backend_correct_def]
   \\ first_x_assum drule
   \\ disch_then drule
@@ -662,7 +691,8 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
   \\ fs[FOLDR_FUNPOW, LENGTH_COUNT_LIST]
   \\ qexists_tac`SUC n`
   \\ simp[FUNPOW]
-  \\ gen_tac \\ strip_tac
+  \\ simp[GSYM FORALL_AND_THM]
+  \\ gen_tac
   \\ Cases_on`j` \\ fs[]
   >- (
     fs[asmSemTheory.asm_step_def, asmPropsTheory.target_state_rel_def]
@@ -671,9 +701,20 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
     \\ Cases_on`t.config.encode i` \\ fs[asmSemTheory.bytes_in_memory_def]
     \\ fs[asmPropsTheory.all_pcs_thm]
     \\ qexists_tac`0` \\ fs[])
-  \\ drule asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST_LESS
-  \\ disch_then drule
-  \\ simp[FOLDR_FUNPOW]);
+  \\ conj_tac
+  >- (
+    strip_tac
+    \\ drule asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST_LESS
+    \\ disch_then drule
+    \\ simp[FOLDR_FUNPOW] )
+  \\ ntac 2 strip_tac
+  \\ drule asserts2_every
+  \\ strip_tac
+  \\ qmatch_goalsub_rename_tac`SUC m`
+  \\ qho_match_abbrev_tac`P ms (FUNPOW t.next (SUC m) ms)`
+  \\ irule FUNPOW_refl_trans_chain
+  \\ fs[ADD1,Abbr`P`]
+  \\ simp[reflexive_def,transitive_def]);
 
 val backend_correct_RTC_asm_step_target_state_rel = Q.store_thm("backend_correct_RTC_asm_step_target_state_rel",
   `backend_correct t ∧
@@ -863,7 +904,8 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
    RTC (λs1 s2. ∃i. asm_step ag32_config s1 i s2) s1 s2
    ⇒
    ∃n. target_state_rel ag32_target s2 (FUNPOW Next n ms) ∧
-       ((FUNPOW Next n ms).io_events = ms.io_events)`,
+       ((FUNPOW Next n ms).io_events = ms.io_events) ∧
+       (∀x. x ∉ s1.mem_domain ⇒ ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
   once_rewrite_tac[CONJ_COMM]
   \\ rewrite_tac[GSYM AND_IMP_INTRO]
   \\ qid_spec_tac`ms`
@@ -886,8 +928,11 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ strip_tac
   \\ fs[GSYM FUNPOW_ADD]
   \\ once_rewrite_tac[CONJ_COMM]
-  \\ asm_exists_tac \\ rw[]
-  \\ ntac 2 (pop_assum kall_tac)
+  \\ asm_exists_tac \\ simp[]
+  \\ `y.mem_domain = x.mem_domain`
+  by ( fs[asmSemTheory.asm_step_def] \\ rveq \\ fs[] )
+  \\ fs[]
+  \\ ntac 4 (pop_assum kall_tac)
   \\ fs[asmSemTheory.asm_step_def]
   \\ `x.pc = ms.PC` by (
     fs[asmPropsTheory.target_state_rel_def, ag32_targetTheory.ag32_target_def] )
@@ -910,15 +955,17 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
     \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[] )
   \\ `ag32_ok (FUNPOW Next n ms)` by fs[asmPropsTheory.target_state_rel_def, ag32_targetTheory.ag32_target_def]
+  \\ qpat_x_assum`∀j x. _`kall_tac
   \\ ntac 3 (pop_assum mp_tac)
   \\ rpt (pop_assum kall_tac)
   \\ qid_spec_tac`ms`
-  \\ Induct_on`n` \\ rw[]
+  \\ Induct_on`n` \\ simp[]
   \\ rw[FUNPOW_SUC]
+  \\ qho_match_abbrev_tac`f (Next (FUNPOW Next n ms)) = f ms`
   \\ match_mp_tac EQ_TRANS
-  \\ qexists_tac`(FUNPOW Next n ms).io_events`
-  \\ reverse conj_tac
-  >- ( first_x_assum irule \\ simp[] )
+  \\ qexists_tac`f (FUNPOW Next n ms)`
+  \\ (reverse conj_tac >- ( fsrw_tac[DNF_ss][Abbr`f`] \\ first_x_assum irule \\ simp[] ) )
+  \\ qunabbrev_tac`f`
   \\ irule ag32_io_events_unchanged
   \\ qmatch_goalsub_abbrev_tac`st.MEM`
   \\ `bytes_in_memory ms.PC (ag32_enc i) st.MEM x.mem_domain`
@@ -1585,13 +1632,17 @@ val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    is_ag32_init_state (hello_init_memory r0) r0 ms ⇒
    ∃n. target_state_rel ag32_target (hello_init_asm_state r0) (FUNPOW Next n ms) ∧
-       ((FUNPOW Next n ms).io_events = ms.io_events)`,
+       ((FUNPOW Next n ms).io_events = ms.io_events) ∧
+       (∀x. x ∉ (hello_machine_config r0).prog_addresses ⇒
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
   strip_tac
   \\ imp_res_tac hello_init_asm_state_RTC_asm_step
-  \\ (RTC_asm_step_ag32_target_state_rel_io_events
-       |> MP_CANON |> GEN_ALL |> match_mp_tac)
-   \\ goal_assum(first_assum o mp_then Any mp_tac)
-   \\ match_mp_tac target_state_rel_ag32_init \\ fs[]);
+  \\ drule (GEN_ALL target_state_rel_ag32_init)
+  \\ disch_then drule
+  \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
+  \\ disch_then(qspec_then`md`assume_tac)
+  \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
+  \\ simp[EVAL``(ag32_init_asm_state m md r0).mem_domain``]);
 
 val hello_startup_clock_def =
   new_specification("hello_startup_clock_def",["hello_startup_clock"],
