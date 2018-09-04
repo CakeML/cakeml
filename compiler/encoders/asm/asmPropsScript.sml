@@ -66,11 +66,11 @@ val interference_ok_def = Define `
   interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
 
 val all_pcs_def = Define`
-  (all_pcs 0 a k = {}) ∧
-  (all_pcs n a k = a INSERT all_pcs (n-(MAX 1 k)) (a + n2w (MAX 1 k)) k)`;
+  (all_pcs 0n a k = {}) ∧
+  (all_pcs n a k = a INSERT all_pcs (n-(2 ** k)) (a + n2w (2 ** k)) k)`
 
 val all_pcs_thm = Q.store_thm("all_pcs_thm",
-  `all_pcs n a k = { a + n2w (i * (MAX 1 k)) | i | i * (MAX 1 k) < n }`,
+  `all_pcs n a k = { a + n2w (i * (2 ** k)) | i | i * (2 ** k) < n }`,
   qid_spec_tac`a`
   \\ qid_spec_tac`k`
   \\ completeInduct_on`n`
@@ -99,7 +99,7 @@ val backend_correct_def = Define `
             let pcs = all_pcs (LENGTH (t.config.encode i)) s1.pc in
             asserts n (\k s. env (n - k) (t.next s)) ms
               (\ms'. t.state_ok ms' /\
-                     (∀pc. pc ∈ pcs 1 ⇒ t.get_byte ms' pc = t.get_byte ms pc) ∧
+                     (∀pc. pc ∈ pcs 0 ⇒ t.get_byte ms' pc = t.get_byte ms pc) ∧
                      t.get_pc ms' IN pcs t.config.code_alignment)
               (\ms'. target_state_rel t s2 ms')`
 
@@ -126,11 +126,11 @@ val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
   \\ fs[SUBSET_DEF, PULL_EXISTS, PULL_FORALL] \\ rw[]
   \\ Cases_on`i=0` \\ fs[]
   >- ( Cases_on`xs` \\ fs[bytes_in_memory_def] )
-  \\ Cases_on`MAX 1 k < LENGTH xs`
+  \\ Cases_on`2 ** k < LENGTH xs`
   >- (
-    first_x_assum(qspec_then`DROP (MAX 1 k) xs`mp_tac)
+    first_x_assum(qspec_then`DROP (2 ** k) xs`mp_tac)
     \\ simp[]
-    \\ Q.ISPECL_THEN[`TAKE (MAX 1 k) xs`,`DROP (MAX 1 k) xs`]mp_tac bytes_in_memory_APPEND
+    \\ Q.ISPECL_THEN[`TAKE (2 ** k) xs`,`DROP (2 ** k) xs`]mp_tac bytes_in_memory_APPEND
     \\ simp[]
     \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
     \\ strip_tac
@@ -139,10 +139,10 @@ val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
     \\ simp[LEFT_SUB_DISTRIB, RIGHT_SUB_DISTRIB]
     \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
     \\ rewrite_tac[word_add_n2w]
-    \\ simp[SUB_LEFT_ADD]
+    \\ simp[SUB_LEFT_ADD, SUB_RIGHT_ADD]
     \\ IF_CASES_TAC \\ fs[]
     \\ `i = 1` by fs[] \\ fs[] )
-  \\ Cases_on`i` \\ fs[ADD1, RIGHT_ADD_DISTRIB, MAX_DEF]);
+  \\ Cases_on`i` \\ fs[ADD1, RIGHT_ADD_DISTRIB]);
 
 val bytes_in_memory_change_domain = Q.store_thm("bytes_in_memory_change_domain",
   `∀a bs m md1 md2.

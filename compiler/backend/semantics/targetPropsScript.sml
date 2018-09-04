@@ -64,14 +64,14 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
          interference_ok env (c.target.proj dm) ==>
          asserts n (\k s. env k (c.target.next s)) ms1
            (\ms'. c.target.state_ok ms' /\
-                  (∀pc. pc ∈ all_pcs (LENGTH (c.target.config.encode i)) init_pc 1 ⇒
+                  (∀pc. pc ∈ all_pcs (LENGTH (c.target.config.encode i)) init_pc 0 ⇒
                    c.target.get_byte ms' pc = c.target.get_byte ms1 pc) /\
                   c.target.get_pc ms' ∈
                     all_pcs (LENGTH (c.target.config.encode i)) init_pc c.target.config.code_alignment)
            (\ms'. target_state_rel c.target s2 ms')) /\
       (∃k.
-        c.target.get_pc ms1 = init_pc + n2w (k * (MAX 1 c.target.config.code_alignment)) /\
-        k * (MAX 1 c.target.config.code_alignment) < LENGTH (c.target.config.encode i) /\
+        c.target.get_pc ms1 = init_pc + n2w (k * (2 ** c.target.config.code_alignment)) /\
+        k * (2 ** c.target.config.code_alignment) < LENGTH (c.target.config.encode i) /\
         bytes_in_memory init_pc (c.target.config.encode i)
           (c.target.get_byte ms1) c.prog_addresses) ==>
       ?ms2.
@@ -144,7 +144,7 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
     \\ impl_tac
     >- (
       imp_res_tac bytes_in_memory_all_pcs
-      \\ first_x_assum(qspec_then`1`mp_tac)
+      \\ first_x_assum(qspec_then`0`mp_tac)
       \\ fs[all_pcs_thm,SUBSET_DEF,PULL_EXISTS] )
     \\ rw[]
     \\ first_x_assum(qspec_then`λi x. x`mp_tac)
@@ -243,7 +243,7 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
   \\ first_x_assum (irule o GSYM)
   \\ drule (GEN_ALL bytes_in_memory_all_pcs)
   \\ simp[SUBSET_DEF, all_pcs_thm, PULL_EXISTS]
-  \\ disch_then(qspec_then`1`mp_tac) \\ simp[])
+  \\ disch_then(qspec_then`0`mp_tac) \\ simp[])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
 
 (* basic properties *)
