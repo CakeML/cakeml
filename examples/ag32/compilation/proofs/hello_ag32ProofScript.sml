@@ -801,6 +801,40 @@ val ag32_ffi_rel_unchanged = Q.store_thm("ag32_ffi_rel_unchanged",
     ag32Theory.incPC_def]
   \\ CASE_TAC \\ fs[] \\ rw[]);
 
+val ag32_enc_lengths = Q.store_thm("ag32_enc_lengths",
+  `LENGTH (ag32_enc istr) ∈ {4;8;12}`,
+  Cases_on`istr`
+  \\ TRY(rename1`JumpCmp _ _ ri _` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst i ` \\ Cases_on`i`)
+  \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
+  \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
+  \\  rw[ag32_targetTheory.ag32_enc_def,
+         ag32_targetTheory.ag32_encode_def,
+         ag32_targetTheory.ag32_encode1_def]);
+
+val ag32_enc_not_Interrupt = Q.store_thm("ag32_enc_not_Interrupt",
+  `4 * k < LENGTH (ag32_enc istr) ⇒
+   let bs = DROP (4 * k) (ag32_enc istr) in
+   Decode (EL 3 bs @@ ((EL 2 bs @@ ((EL 1 bs @@ EL 0 bs) : word16)) : word24)) ≠ Interrupt`,
+  Cases_on`istr`
+  \\ TRY(rename1`JumpCmp _ _ ri _` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst i ` \\ Cases_on`i`)
+  \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
+  \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
+  \\ rw[ag32_targetTheory.ag32_enc_def,
+        ag32_targetTheory.ag32_encode_def,
+        ag32_targetTheory.ag32_encode1_def,
+        arm_stepTheory.concat_bytes,
+        ag32_targetTheory.ag32_constant_def,
+        ag32_targetProofTheory.Decode_Encode]
+  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
+  \\ qmatch_asmsub_rename_tac`4 * SUC k < _`
+  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
+  \\ qmatch_asmsub_rename_tac`4 * SUC (SUC k) < _`
+  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]);
+
 (* -- *)
 
 val startup_asm_code_def = Define`
@@ -1897,7 +1931,6 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
   \\ impl_tac >- (
-    (*
     conj_tac
     >- (
       simp[interference_implemented_def, Abbr`mc`]
@@ -1928,9 +1961,44 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
           \\ simp[alignmentTheory.aligned_extract]
           \\ blastLib.BBLAST_TAC )
         \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
-        \\ pop_assum SUBST_ALL_TAC *)
-    cheat
-  )
+        \\ pop_assum SUBST_ALL_TAC
+        \\ fs[targetSemTheory.encoded_bytes_in_mem_def]
+        \\ fs[EVAL``ag32_target.config.code_alignment``]
+        \\ fs[EVAL``ag32_target.config.encode``]
+        \\ `4 ≤ LENGTH (DROP (4 * k) (ag32_enc i))` by (
+          qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+          \\ simp[]
+          \\ strip_tac \\ fs[]
+          \\ Cases_on`k` \\ fs[]
+          \\ Cases_on`n` \\ fs[]
+          \\ Cases_on`n'` \\ fs[] )
+        \\ `∀j. j < 4 ⇒ (m (pc + n2w j) = EL j (DROP (4 * k) (ag32_enc i)))`
+        by (
+          qmatch_asmsub_abbrev_tac`bytes_in_memory pc bs`
+          \\ rw[]
+          \\ Q.ISPECL_THEN[`TAKE j bs`,`DROP j bs`,`pc`]mp_tac asmPropsTheory.bytes_in_memory_APPEND
+          \\ simp[]
+          \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+          \\ simp[]
+          \\ Cases_on`DROP j bs` \\ fs[DROP_NIL]
+          \\ simp[asmSemTheory.bytes_in_memory_def]
+          \\ rw[]
+          \\ `j < LENGTH bs` by fs[]
+          \\ imp_res_tac DROP_EL_CONS
+          \\ rfs[] )
+        \\ simp[]
+        \\ pop_assum(qspec_then`0`mp_tac) \\ simp[]
+        \\ disch_then kall_tac
+        \\ drule ag32_enc_not_Interrupt
+        \\ simp[] )
+      \\ conj_tac
+      >- cheat (* ccache implementation ok. need interference_implemented to say that the code for ccache is intact *)
+      \\ rpt gen_tac
+      \\ cheat (* ffi implementation ok. need interference_implemented to say that the code for ffi is intact *))
+    \\ simp[ag32_ffi_rel_def,Abbr`st`]
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ simp[]
+    \\ cheat (* need hello_startup_clock_def to say that initial io_events is [] ? *) )
   \\ strip_tac
   \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
   \\ qexists_tac`k + hello_startup_clock r0 ms0`
