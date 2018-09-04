@@ -635,7 +635,13 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
    asm_step t.config s1 i s2
    ⇒
    ∃n.
-   target_state_rel t s2 (FUNPOW t.next n ms)`,
+   target_state_rel t s2 (FUNPOW t.next n ms) ∧
+   (∀j. j < n ⇒
+     (∀pc. pc ∈ all_pcs (LENGTH (t.config.encode i)) s1.pc 0 ⇒
+             (t.get_byte (FUNPOW t.next j ms) pc = t.get_byte ms pc)) ∧
+     (t.get_pc (FUNPOW t.next j ms) ∈
+       all_pcs (LENGTH (t.config.encode i)) s1.pc t.config.code_alignment) ∧
+     (t.state_ok (FUNPOW t.next j ms)))`,
   rw[asmPropsTheory.backend_correct_def]
   \\ first_x_assum drule
   \\ disch_then drule
@@ -646,7 +652,19 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
   \\ imp_res_tac asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST
   \\ fs[FOLDR_FUNPOW, LENGTH_COUNT_LIST]
   \\ qexists_tac`SUC n`
-  \\ simp[FUNPOW]);
+  \\ simp[FUNPOW]
+  \\ gen_tac \\ strip_tac
+  \\ Cases_on`j` \\ fs[]
+  >- (
+    fs[asmSemTheory.asm_step_def, asmPropsTheory.target_state_rel_def]
+    \\ `t.config.encode i <> []`
+    by ( fs[asmPropsTheory.target_ok_def, asmPropsTheory.enc_ok_def] )
+    \\ Cases_on`t.config.encode i` \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[asmPropsTheory.all_pcs_thm]
+    \\ qexists_tac`0` \\ fs[])
+  \\ drule asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST_LESS
+  \\ disch_then drule
+  \\ simp[FOLDR_FUNPOW]);
 
 val backend_correct_RTC_asm_step_target_state_rel = Q.store_thm("backend_correct_RTC_asm_step_target_state_rel",
   `backend_correct t ∧
@@ -764,7 +782,7 @@ val ag32_ffi_rel_def = Define`
        (MAP (extract_print_from_mem print_string_max_length r0) ms.io_events))`;
 
 (* TODO: can you prove this faster? *)
-val ag32_ffi_rel_unchanged = Q.store_thm("ag32_ffi_rel_unchanged",
+val ag32_io_events_unchanged = Q.store_thm("ag32_io_events_unchanged",
   `Decode (
     let v : word32 = (31 >< 2) ms.PC : word30 @@ (0w:word2) in
       (ms.MEM (v + 3w) @@
@@ -773,13 +791,9 @@ val ag32_ffi_rel_unchanged = Q.store_thm("ag32_ffi_rel_unchanged",
            ms.MEM (v + 0w)) : word16)) : word24)))
     ≠ Interrupt
    ⇒
-   (ag32_ffi_rel r0 ms = ag32_ffi_rel r0 (Next ms))`,
+   ((Next ms).io_events = ms.io_events) `,
   rw[ag32Theory.Next_def]
   \\ rw[ag32Theory.Run_def]
-  \\ rw[ag32_ffi_rel_def,FUN_EQ_THM]
-  \\ qmatch_goalsub_abbrev_tac`_ = (_ = _ (_ (ms'.io_events)))`
-  \\ `ms'.io_events = ms.io_events` suffices_by rw[]
-  \\ simp[Abbr`ms'`]
   \\ CASE_TAC \\ fs[] \\ TRY(PairCases_on`p`)
   \\ rw[
     ag32Theory.dfn'Accelerator_def,
@@ -834,6 +848,119 @@ val ag32_enc_not_Interrupt = Q.store_thm("ag32_enc_not_Interrupt",
   \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
   \\ qmatch_asmsub_rename_tac`4 * SUC (SUC k) < _`
   \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]);
+
+val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag32_target_state_rel_io_events",
+  `target_state_rel ag32_target s1 ms ∧
+   RTC (λs1 s2. ∃i. asm_step ag32_config s1 i s2) s1 s2
+   ⇒
+   ∃n. target_state_rel ag32_target s2 (FUNPOW Next n ms) ∧
+       ((FUNPOW Next n ms).io_events = ms.io_events)`,
+  once_rewrite_tac[CONJ_COMM]
+  \\ rewrite_tac[GSYM AND_IMP_INTRO]
+  \\ qid_spec_tac`ms`
+  \\ simp[RIGHT_FORALL_IMP_THM]
+  \\ qho_match_abbrev_tac`RR^* s1 s2 ⇒ P s1 s2`
+  \\ match_mp_tac RTC_INDUCT
+  \\ simp[Abbr`P`,Abbr`RR`]
+  \\ conj_tac
+  >- ( rw[] \\ qexists_tac`0` \\ simp[] )
+  \\ rpt gen_tac \\ strip_tac
+  \\ ntac 2 strip_tac
+  \\ ((MATCH_MP
+        (REWRITE_RULE[GSYM AND_IMP_INTRO] backend_correct_asm_step_target_state_rel)
+        ag32_targetProofTheory.ag32_backend_correct) |> GEN_ALL |> drule)
+  \\ simp[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.config``]
+  \\ simp[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.next``]
+  \\ disch_then drule
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ fs[GSYM FUNPOW_ADD]
+  \\ once_rewrite_tac[CONJ_COMM]
+  \\ asm_exists_tac \\ rw[]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ fs[asmSemTheory.asm_step_def]
+  \\ `x.pc = ms.PC` by (
+    fs[asmPropsTheory.target_state_rel_def, ag32_targetTheory.ag32_target_def] )
+  \\ pop_assum SUBST_ALL_TAC
+  \\ fs[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.get_byte``]
+  \\ fs[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.state_ok``]
+  \\ fs[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.get_pc``]
+  \\ fs[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_config_def]``ag32_config.encode``]
+  \\ fs[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_config_def]``ag32_config.code_alignment``]
+  \\ `bytes_in_memory ms.PC (ag32_enc i) ms.MEM x.mem_domain`
+  by (
+    fs[asmPropsTheory.target_state_rel_def]
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ fs[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.get_byte``]
+    \\ rw[]
+    \\ first_x_assum(irule o GSYM)
+    \\ imp_res_tac asmPropsTheory.bytes_in_memory_all_pcs
+    \\ fs[asmPropsTheory.all_pcs_thm, SUBSET_DEF, PULL_EXISTS]
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[] )
+  \\ `ag32_ok (FUNPOW Next n ms)` by fs[asmPropsTheory.target_state_rel_def, ag32_targetTheory.ag32_target_def]
+  \\ ntac 3 (pop_assum mp_tac)
+  \\ rpt (pop_assum kall_tac)
+  \\ qid_spec_tac`ms`
+  \\ Induct_on`n` \\ rw[]
+  \\ rw[FUNPOW_SUC]
+  \\ match_mp_tac EQ_TRANS
+  \\ qexists_tac`(FUNPOW Next n ms).io_events`
+  \\ reverse conj_tac
+  >- ( first_x_assum irule \\ simp[] )
+  \\ irule ag32_io_events_unchanged
+  \\ qmatch_goalsub_abbrev_tac`st.MEM`
+  \\ `bytes_in_memory ms.PC (ag32_enc i) st.MEM x.mem_domain`
+  by (
+    irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ fsrw_tac[DNF_ss][asmPropsTheory.all_pcs_thm, PULL_EXISTS,Abbr`st`])
+  \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`m (pc + _)`
+  \\ `ag32_ok st` by fs[Abbr`st`]
+  \\ `aligned 2 st.PC` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
+  \\ `pc = st.PC`
+  by (
+    simp[Abbr`pc`]
+    \\ pop_assum mp_tac
+    \\ simp[alignmentTheory.aligned_extract]
+    \\ blastLib.BBLAST_TAC )
+  \\ qpat_x_assum`Abbrev(pc = _)`kall_tac
+  \\ pop_assum SUBST_ALL_TAC
+  \\ first_x_assum(qspec_then`n`mp_tac) \\ rw[]
+  \\ fs[asmPropsTheory.all_pcs_thm]
+  \\ qmatch_asmsub_rename_tac`4 * k < _`
+  \\ Q.ISPECL_THEN[`TAKE (4 * k) (ag32_enc i)`, `DROP (4 * k) (ag32_enc i)`,`ms.PC`]mp_tac asmPropsTheory.bytes_in_memory_APPEND
+  \\ simp[]
+  \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`pc + _`
+  \\ qmatch_asmsub_abbrev_tac`bytes_in_memory pc bs`
+  \\ `∀j. j < 4 ⇒ (m (pc + n2w j) = EL j bs)`
+  by (
+    rw[]
+    \\ Q.ISPECL_THEN[`TAKE j bs`,`DROP j bs`,`st.PC`]mp_tac asmPropsTheory.bytes_in_memory_APPEND
+    \\ simp[]
+    \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+    \\ simp[]
+    \\ `j < LENGTH bs` by (
+      fs[Abbr`bs`]
+      \\ qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+      \\ Cases_on`k` \\ fs[]
+      \\ Cases_on`n'` \\ fs[]
+      \\ Cases_on`n''` \\ fs[] )
+    \\ Cases_on`DROP j bs` \\ fs[DROP_NIL]
+    \\ simp[asmSemTheory.bytes_in_memory_def]
+    \\ rw[]
+    \\ imp_res_tac DROP_EL_CONS
+    \\ rfs[] )
+  \\ simp[]
+  \\ drule ag32_enc_not_Interrupt
+  \\ simp[]
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ simp[]);
 
 (* -- *)
 
@@ -1448,15 +1575,12 @@ val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_as
 val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_init_asm_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    is_ag32_init_state (hello_init_memory r0) r0 ms ⇒
-   ∃n. target_state_rel ag32_target (hello_init_asm_state r0) (FUNPOW Next n ms)`,
+   ∃n. target_state_rel ag32_target (hello_init_asm_state r0) (FUNPOW Next n ms) ∧
+       ((FUNPOW Next n ms).io_events = ms.io_events)`,
   strip_tac
   \\ imp_res_tac hello_init_asm_state_RTC_asm_step
-  \\ (backend_correct_RTC_asm_step_target_state_rel
-       |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-       |> C MATCH_MP ag32_targetProofTheory.ag32_backend_correct
-       |> REWRITE_RULE[EVAL``ag32_target.next``]
+  \\ (RTC_asm_step_ag32_target_state_rel_io_events
        |> MP_CANON |> GEN_ALL |> match_mp_tac)
-   \\ REWRITE_TAC[SIMP_CONV (srw_ss()) [ag32_targetTheory.ag32_target_def] ``ag32_target.config``]
    \\ goal_assum(first_assum o mp_then Any mp_tac)
    \\ match_mp_tac target_state_rel_ag32_init \\ fs[]);
 
@@ -1950,8 +2074,11 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ strip_tac
         \\ qexists_tac`0`
         \\ simp[]
-        \\ irule ag32_ffi_rel_unchanged
-        \\ simp[]
+        \\ simp[ag32_ffi_rel_def, FUN_EQ_THM]
+        \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
+        \\ `(Next ms1).io_events = ms1.io_events` suffices_by rw[]
+        \\ irule ag32_io_events_unchanged
+        \\ simp[Abbr`ms1`]
         \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
         \\ qmatch_goalsub_abbrev_tac`m (pc' + _)`
         \\ `pc' = pc`
@@ -1998,7 +2125,11 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
     \\ simp[ag32_ffi_rel_def,Abbr`st`]
     \\ CONV_TAC(LAND_CONV EVAL)
     \\ simp[]
-    \\ cheat (* need hello_startup_clock_def to say that initial io_events is [] ? *) )
+    \\ simp[Abbr`ms`]
+    \\ drule hello_startup_clock_def
+    \\ simp[]
+    \\ fs[ag32_targetTheory.is_ag32_init_state_def]
+    \\ cheat (* is_ag32_init_state should set io_events *))
   \\ strip_tac
   \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
   \\ qexists_tac`k + hello_startup_clock r0 ms0`
