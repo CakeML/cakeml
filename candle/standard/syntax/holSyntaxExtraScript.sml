@@ -4176,39 +4176,50 @@ val normalise_tyvars_differ = Q.prove(
 );
 
 (* Unify two types and return two type substitutions as a certificate *)
-val unify_subslist_defn = Hol_defn "unify_subslist" `
-  (unify_subslist (Tyvar a) (Tyvar b) n (rho, sigma) =
+val thetyvar_def = Define `(thetyvar (Tyvar a) = SOME a) /\ (thetyvar _ = NONE)`;
+
+val unify_types_def = (* Hol_defn *) tDefine "unify_types" `
+  (unify_types [] sigma = SOME sigma)
+  /\ (unify_types ((Tyapp a atys, Tyapp b btys)::l) sigma =
+    if a = b /\ LENGTH atys = LENGTH btys
+    then unify_types ((ZIP (atys,btys))++l) sigma
+    else NONE
+  )
+  /\ (unify_types ((Tyapp a atys, Tyvar b)::l) sigma =
+    unify_types ((Tyvar b, Tyapp a atys)::l) sigma
+  )
+  /\ (unify_types ((Tyvar a, ty)::l) sigma =
     let
-      varname = (\n. strlit(REPLICATE (SUC n) #"a"))
+      v = TYPE_SUBST sigma (Tyvar a);
+      v_var = IS_SOME (thetyvar v);
+      sigma_ty = TYPE_SUBST sigma ty
     in
-      SOME (n+1, ((Tyvar (varname n), Tyvar a)::rho, (Tyvar (varname n), Tyvar b)::sigma))
+      if v_var /\ (v = sigma_ty)
+      then unify_types l sigma
+      else if ~v_var
+      then unify_types ((sigma_ty,v)::l) sigma (* v = Tyapp _ _ *)
+      else if MEM (THE (thetyvar v)) (tyvars sigma_ty)
+      then NONE (* cyclic *)
+      else if v = Tyvar a
+        then unify_types l ((sigma_ty,Tyvar a)::sigma)
+        else unify_types l ((sigma_ty,v)::(sigma_ty,Tyvar a)::sigma)
+  )` (cheat);
+
   )
-  /\ (unify_subslist (Tyapp m tys1) (Tyapp m' tys2) n (rho, sigma) =
-    if (m <> m') \/ (LENGTH tys1 <> LENGTH tys2)
-    then NONE
-    else
-      FOLDR (\(ty1,ty2) e.
-        if IS_NONE e then NONE
-        else let
-          (n, rho, sigma) = THE e
-        in
-          unify_subslist ty1 ty2 n (rho,sigma)
-      )
-      (SOME (n, rho, sigma))
-      (ZIP (tys1,tys2))
-  )
-  /\ (unify_subslist (Tyapp m tys) (Tyvar a) n (rho,sigma) =
-    if MEM a (tyvars (Tyapp m tys))
-    then NONE (* cyclic *)
-    else SOME (n, rho, (Tyapp m tys,Tyvar a)::sigma))
-  /\ (unify_subslist (Tyvar a) (Tyapp m tys) n (rho,sigma) =
-    if MEM a (tyvars (Tyapp m tys))
-    then NONE (* cyclic *)
-    else SOME (n, (Tyapp m tys,Tyvar a)::rho, sigma))
+
+val unify_def = Define `
+  unify ty1 ty2 =
+    let
+      (t1,s1) = normalise_tyvars_rec ty1 #"a";
+      (t2,s2) = normalise_tyvars_rec ty2 #"b";
+      sigma = unify_types [(t1,t2)] [];
+      (* tyin2 o tyin1 = *)
+      o_tyinst tyin2 tyin1 = (MAP (TYPE_SUBST tyin2 ## I) tyin1) ++ tyin2
+    in if IS_SOME sigma
+      then SOME (o_tyinst (THE sigma) s1, o_tyinst (THE sigma) s2)
+      else NONE
 `;
 
-val (unify_subslist_def, unify_subslist_ind) = Defn.tprove (
-  unify_subslist_defn,
   WF_REL_TAC `measure (\x. type_size (FST x) + type_size (FST(SND x)))`
   >> NTAC 2 Induct
   >- rw[holSyntaxTheory.type_size_def]
@@ -4220,13 +4231,10 @@ val (unify_subslist_def, unify_subslist_ind) = Defn.tprove (
   >> rw[type1_size_append,holSyntaxTheory.type_size_def,SND,FST]
   >> imp_res_tac type1_size_mem
   >> simp[]
+  >> cheat
 );
+*)
 
-val unify_def = Define`
-  unify t1 t2 =
-    let retval = unify_subslist t1 t2 0 ([],[])
-    in if IS_NONE retval then NONE else SOME (SND (THE retval))
-`;
 
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
