@@ -307,6 +307,7 @@ local
          exists_tac n
          \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
               [asmPropsTheory.asserts_eval,
+               asmPropsTheory.asserts2_eval,
                asmPropsTheory.interference_ok_def, ag32_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)

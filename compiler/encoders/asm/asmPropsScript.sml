@@ -89,6 +89,12 @@ val asserts_def = zDefine `
   (asserts (SUC n) next ms P Q <=>
      let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
 
+val asserts2_def = zDefine`
+  (asserts2 n fi fc ms P =
+   if n = 0n then T else
+     P ms (fc ms) ∧
+     asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
+
 val backend_correct_def = Define `
   backend_correct t <=>
     target_ok t /\
@@ -101,7 +107,9 @@ val backend_correct_def = Define `
               (\ms'. t.state_ok ms' /\
                      (∀pc. pc ∈ pcs 0 ⇒ t.get_byte ms' pc = t.get_byte ms pc) ∧
                      t.get_pc ms' IN pcs t.config.code_alignment)
-              (\ms'. target_state_rel t s2 ms')`
+              (\ms'. target_state_rel t s2 ms') ∧
+            asserts2 (n + 1) (λk. env (n + 1 - k)) t.next ms
+              (λms1 ms2. ∀x. x ∉ s1.mem_domain ⇒ t.get_byte ms1 x = t.get_byte ms2 x)`
 
 (* lemma for proofs *)
 
@@ -214,6 +222,63 @@ val asserts_IMP_FOLDR_COUNT_LIST_LESS = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIS
   \\ first_x_assum drule
   \\ simp[]
   \\ simp[COUNT_LIST_GENLIST,MAP_GENLIST,REVERSE_GENLIST,GENLIST_CONS,PRE_SUB1,FOLDR_APPEND]);
+
+val asserts_WEAKEN = Q.store_thm("asserts_WEAKEN",
+  `!n next s P Q.
+      (!k. k <= n ==>
+        (next k = next' k) ∧
+        (P (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))) ⇒
+         P' (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))))) ==>
+      asserts n next s P Q ==>
+      asserts n next' s P' Q`,
+  Induct \\ fs[asserts_def]
+  \\ rpt gen_tac \\ strip_tac \\ strip_tac
+  \\ conj_tac
+  >- (
+    first_assum(qspec_then`0`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ first_x_assum(qspec_then`SUC n`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ rw[] )
+  >- (
+    first_assum irule
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ ntac 2 strip_tac
+    \\ conj_tac
+    >- (
+      first_assum(qspec_then`k`mp_tac)
+      \\ impl_tac >- fs[] \\ rw[] )
+    \\ first_assum(qspec_then`SUC k`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ simp_tac(srw_ss())[GENLIST_CONS, FOLDR_APPEND]
+    \\ simp_tac(srw_ss())[o_DEF]
+    \\ strip_tac
+    \\ first_assum(qspec_then`SUC n`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ strip_tac \\ fs[] ));
+
+val asserts2_eval = save_thm("asserts2_eval",let
+  fun gen_rw n =
+    ``asserts2 ^(numSyntax.term_of_int n) fi fc (s:'a) P``
+    |> ONCE_REWRITE_CONV [asserts2_def] |> SIMP_RULE std_ss []
+  in LIST_CONJ (List.tabulate(21,gen_rw)) end)
+
+val asserts2_change_interfer = Q.store_thm("asserts2_change_interfer",
+  `asserts2 n fi fc ms P  ∧
+   (∀k. k ≤ n ⇒ fi k = fi2 k)
+  ⇒
+   asserts2 n fi2 fc ms P`,
+  qid_spec_tac`ms`
+  \\ Induct_on`n`
+  \\ rw[Once asserts2_def]
+  \\ rw[Once asserts2_def]
+  \\ first_x_assum match_mp_tac
+  \\ rw[]
+  \\ METIS_TAC[LESS_OR_EQ]);
+
+val asserts2_first = Q.store_thm("asserts2_first",
+  `1 ≤ n ∧ asserts2 n fi fc ms P ⇒ P ms (fc ms)`,
+  rw[Once asserts2_def] \\ fs[]);
 
 val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
   `((asmSem$upd_pc x s).align = s.align) ∧

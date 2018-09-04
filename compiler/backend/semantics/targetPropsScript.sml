@@ -7,40 +7,6 @@ val _ = new_theory"targetProps";
 
 val _ = set_grammar_ancestry["ffi","asm","targetSem","misc"];
 
-val asserts_WEAKEN = Q.store_thm("asserts_WEAKEN",
-  `!n next s P Q.
-      (!k. k <= n ==>
-        (next k = next' k) ∧
-        (P (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))) ⇒
-         P' (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))))) ==>
-      asserts n next s P Q ==>
-      asserts n next' s P' Q`,
-  Induct \\ fs[asserts_def]
-  \\ rpt gen_tac \\ strip_tac \\ strip_tac
-  \\ conj_tac
-  >- (
-    first_assum(qspec_then`0`mp_tac)
-    \\ impl_tac >- fs[]
-    \\ first_x_assum(qspec_then`SUC n`mp_tac)
-    \\ impl_tac >- fs[]
-    \\ rw[] )
-  >- (
-    first_assum irule
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ ntac 2 strip_tac
-    \\ conj_tac
-    >- (
-      first_assum(qspec_then`k`mp_tac)
-      \\ impl_tac >- fs[] \\ rw[] )
-    \\ first_assum(qspec_then`SUC k`mp_tac)
-    \\ impl_tac >- fs[]
-    \\ simp_tac(srw_ss())[GENLIST_CONS, FOLDR_APPEND]
-    \\ simp_tac(srw_ss())[o_DEF]
-    \\ strip_tac
-    \\ first_assum(qspec_then`SUC n`mp_tac)
-    \\ impl_tac >- fs[]
-    \\ strip_tac \\ fs[] ));
-
 val shift_interfer_def = Define `
   shift_interfer k s =
     s with next_interfer := shift_seq k s.next_interfer`
@@ -49,29 +15,6 @@ val shift_interfer_intro = Q.prove(
   `shift_interfer k1 (shift_interfer k2 c) =
     shift_interfer (k1+k2) c`,
   full_simp_tac(srw_ss())[shift_interfer_def,shift_seq_def,ADD_ASSOC]);
-
-val asserts2_def = Define`
-  (asserts2 n fi fc ms P =
-   if n = 0n then T else
-     P ms (fc ms) ∧
-     asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
-
-val asserts2_change_interfer = Q.store_thm("asserts2_change_interfer",
-  `asserts2 n fi fc ms P  ∧
-   (∀k. k ≤ n ⇒ fi k = fi2 k)
-  ⇒
-   asserts2 n fi2 fc ms P`,
-  qid_spec_tac`ms`
-  \\ Induct_on`n`
-  \\ rw[Once asserts2_def]
-  \\ rw[Once asserts2_def]
-  \\ first_x_assum match_mp_tac
-  \\ rw[]
-  \\ METIS_TAC[LESS_OR_EQ]);
-
-val asserts2_first = Q.store_thm("asserts2_first",
-  `1 ≤ n ∧ asserts2 n fi fc ms P ⇒ P ms (fc ms)`,
-  rw[Once asserts2_def] \\ fs[]);
 
 val evaluate_EQ_evaluate_lemma = Q.prove(
   `!n ms1 c.
@@ -92,7 +35,7 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
                   c.target.get_pc ms' ∈
                     all_pcs (LENGTH (c.target.config.encode i)) init_pc c.target.config.code_alignment)
            (\ms'. target_state_rel c.target s2 ms')) /\
-      (asserts2 (n+1) (λk. c.next_interfer (n +1 - k)) c.target.next ms1
+      (asserts2 (n + 1) (λk. c.next_interfer (n + 1 - k)) c.target.next ms1
         (λms1 ms2. ∀x. x ∉ dm ⇒ c.target.get_byte ms1 x = c.target.get_byte ms2 x)) ∧
       (∃k.
         c.target.get_pc ms1 = init_pc + n2w (k * (2 ** c.target.config.code_alignment)) /\
@@ -268,9 +211,13 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
     \\ simp[]
     \\ impl_tac
     >- fs[interference_ok_def]
+    \\ disch_then(mp_tac o CONJUNCT1)
     \\ match_mp_tac asserts_WEAKEN
     \\ simp[] )
-  \\ conj_tac >- cheat (* extend backend_correct *)
+  \\ conj_tac >- (
+    FIRST_X_ASSUM (MP_TAC o Q.SPECL [`c.next_interfer`])
+    \\ impl_tac >- fs[interference_ok_def]
+    \\ disch_then(MATCH_ACCEPT_TAC o CONJUNCT2) )
   \\ qexists_tac`0`
   \\ conj_tac >- fs[target_state_rel_def]
   \\ conj_tac >- (
