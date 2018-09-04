@@ -1898,14 +1898,26 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       \\ qx_gen_tac`k0`
       \\ conj_tac
       >- (
-        disch_then assume_tac
+        qmatch_goalsub_abbrev_tac`inmd ∧ encoded_bytes_in_mem _ pc m md ∧ _ ⇒ _`
+        \\ `inmd ⇔ pc ∈ md` by ( simp[Abbr`inmd`,Abbr`md`] )
+        \\ qpat_x_assum`Abbrev(inmd ⇔ _)`kall_tac
+        \\ pop_assum SUBST_ALL_TAC
+        \\ strip_tac
         \\ qexists_tac`0`
         \\ simp[]
         \\ irule ag32_ffi_rel_unchanged
-        \\ qspecl_then[`r0`,`ms0`]mp_tac hello_startup_clock_def
-        \\ impl_tac >- fs[] \\ strip_tac
-*)
-cheat
+        \\ simp[]
+        \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
+        \\ qmatch_goalsub_abbrev_tac`m (pc' + _)`
+        \\ `pc' = pc`
+        by (
+          simp[Abbr`pc'`]
+          \\ pop_assum mp_tac
+          \\ simp[alignmentTheory.aligned_extract]
+          \\ blastLib.BBLAST_TAC )
+        \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
+        \\ pop_assum SUBST_ALL_TAC *)
+    cheat
   )
   \\ strip_tac
   \\ fs[Abbr`ms`,Abbr`mc`,GSYM FUNPOW_ADD,hello_machine_config_def,EVAL``ag32_target.next``]
