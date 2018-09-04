@@ -110,7 +110,11 @@ val interference_implemented_def = Define`
     (∀n. mc.ccache_interfer n = ccache_interfer) ∧
     (∀n. mc.ffi_interfer n = ffi_interfer) ∧
     ∀ms k0. (ms = FUNPOW mc.target.next k0 ms0) ⇒
-      (mc.target.get_pc ms ∈ mc.prog_addresses ⇒
+      (mc.target.get_pc ms ∈ mc.prog_addresses ∧
+       encoded_bytes_in_mem mc.target.config (mc.target.get_pc ms)
+         (mc.target.get_byte ms) mc.prog_addresses ∧
+       mc.target.state_ok ms
+      ⇒
         ∃k. (next_interfer (mc.target.next ms)
              = FUNPOW mc.target.next k (mc.target.next ms)) ∧
             (ffi_rel ms = ffi_rel (mc.target.next ms)) ∧
@@ -639,7 +643,7 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
   \\ first_x_assum(qspec_then`K I`mp_tac)
   \\ impl_tac >- ( EVAL_TAC \\ rw[] )
   \\ srw_tac[ETA_ss][]
-  \\ imp_res_tac asserts_IMP_FOLDR_COUNT_LIST
+  \\ imp_res_tac asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST
   \\ fs[FOLDR_FUNPOW, LENGTH_COUNT_LIST]
   \\ qexists_tac`SUC n`
   \\ simp[FUNPOW]);
