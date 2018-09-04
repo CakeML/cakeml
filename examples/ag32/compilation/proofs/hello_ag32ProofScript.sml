@@ -876,6 +876,18 @@ val hello_outputs_def =
 val (hello_sem,hello_output) = hello_outputs_def |> CONJ_PAIR
 val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
 
+(*
+
+structure hello_ag32CompileTheory = struct
+  val config_def = Define`config : 32 lab_to_target$config = <| ffi_names := SOME ["hello"] |>`;
+  val code_def = Define`code = [72w; 57w; 242w; 15w; 131w; 11w; 0w; 0w] : word8 list`;
+  val data_def = Define`data = [4w; 24w; 31w; 12w; 15w; 3w; 62w; 63w; 127w] : word32 list`;
+end
+val hello_compiled = mk_thm([],``compile (ag32_backend_config with word_to_word_conf := <|reg_alg := 2; col_oracle := ARB|>)
+  hello_prog = SOME(code,data,config)``);
+
+*)
+
 val ffi_names =
   ``config.ffi_names``
   |> (REWRITE_CONV[hello_ag32CompileTheory.config_def] THENC EVAL)
