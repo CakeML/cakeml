@@ -54,7 +54,11 @@ val evaluate_def = Define `
           let ms1 = mc.target.next ms in
           let (ms2,new_oracle) = apply_oracle mc.next_interfer ms1 in
           let mc = mc with next_interfer := new_oracle in
-            if EVERY mc.target.state_ok [ms;ms1;ms2] then
+            if EVERY mc.target.state_ok [ms;ms1;ms2] ∧
+               (∀x. x ∉ mc.prog_addresses ⇒
+                   mc.target.get_byte ms1 x =
+                   mc.target.get_byte ms x)
+            then
               evaluate mc ffi (k - 1) ms2
             else
               (Error,ms,ffi)

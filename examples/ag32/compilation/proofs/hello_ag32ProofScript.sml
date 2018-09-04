@@ -104,7 +104,7 @@ val _ = temp_overload_on("nxt",
   ``λmc n ms. FUNPOW mc.target.next n ms``);
 
 val interference_implemented_def = Define`
-  interference_implemented mc ffi_rel (:'ffi) ms0 ⇔
+  interference_implemented mc ffi_rel (:'ffi) md ms0 ⇔
     ∃next_interfer ccache_interfer ffi_interfer.
     (∀n. mc.next_interfer n = next_interfer) ∧
     (∀n. mc.ccache_interfer n = ccache_interfer) ∧
@@ -119,14 +119,18 @@ val interference_implemented_def = Define`
              = FUNPOW mc.target.next k (mc.target.next ms)) ∧
             (ffi_rel ms = ffi_rel (mc.target.next ms)) ∧
             (ffi_rel (mc.target.next ms) =
-             ffi_rel (FUNPOW mc.target.next k (mc.target.next ms)))) ∧
+             ffi_rel (FUNPOW mc.target.next k (mc.target.next ms))) ∧
+            (∀x. x ∉ md ⇒ (mc.target.get_byte (FUNPOW mc.target.next k (mc.target.next ms)) x =
+                           mc.target.get_byte (mc.target.next ms) x))) ∧
       ((mc.target.get_pc ms = mc.ccache_pc) ⇒
         ∃k. (ccache_interfer
              (mc.target.get_reg ms mc.ptr_reg,
               mc.target.get_reg ms mc.len_reg,ms)
              = FUNPOW mc.target.next k ms) ∧
             (ffi_rel ms =
-             ffi_rel (FUNPOW mc.target.next k ms))) ∧
+             ffi_rel (FUNPOW mc.target.next k ms)) ∧
+            (∀x. x ∉ md ⇒ (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
+                           mc.target.get_byte ms x))) ∧
         ∀(ffi:'ffi ffi_state) ffi_index bytes bytes2 new_ffi new_bytes.
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
           (read_ffi ms mc = (SOME bytes, SOME bytes2)) ∧
@@ -137,15 +141,19 @@ val interference_implemented_def = Define`
           ∃k.
             (ffi_interfer (ffi_index,new_bytes,ms) =
              FUNPOW mc.target.next k ms) ∧
-            (ffi_rel (FUNPOW mc.target.next k ms) new_ffi.io_events)`;
+            (ffi_rel (FUNPOW mc.target.next k ms) new_ffi.io_events) ∧
+            (∀x. x ∉ md ⇒ (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
+                           mc.target.get_byte ms x))`;
 
 val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
   `∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
-   interference_implemented mc ffi_rel (:'ffi) ms ∧
+   interference_implemented mc ffi_rel (:'ffi) md ms ∧
+   DISJOINT md mc.prog_addresses ∧
    (ffi_rel ms ffi.io_events) ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
           (ffi_rel ms' ffi'.io_events) ∧
+          (∀x. x ∉ md ⇒ (mc.target.get_byte ms' x = mc.target.get_byte ms x)) ∧
           ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc ms' = mc.halt_pc)) ∧
           (((mc.target.get_reg ms' mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x))
             ⇒ (t = Success))`,
@@ -249,16 +257,17 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
     \\ qexists_tac`k1+k2` \\ rw[]));
 
 val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPOW_next",
-  `interference_implemented mc ffi_rel (:'ffi) ms ∧
+  `interference_implemented mc ffi_rel (:'ffi) md ms ∧
    (ffi_rel ms st.io_events) ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
    ∃k. ffi_rel (nxt mc k ms) io_events ∧
+       (∀x. x ∉ md ⇒ (mc.target.get_byte (nxt mc k ms) x = mc.target.get_byte ms x)) ∧
        ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc (nxt mc k ms) = mc.halt_pc)) ∧
        ((mc.target.get_reg (nxt mc k ms) mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x)
         ⇒ (t = Success))`,
   rw[targetSemTheory.machine_sem_def]
   \\ imp_res_tac evaluate_Halt_FUNPOW_next
-  \\ rfs[] \\ metis_tac[]);
+  \\ rfs[] \\ PROVE_TAC[]);
 
 val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
   `ALIGNED = aligned 2`,
@@ -2053,7 +2062,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ disch_then(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
-  \\ disch_then(qspec_then`ag32_ffi_rel r0`mp_tac)
+  \\ disch_then(qspecl_then[`{w | r0 <=+ w ∧ w <+ r0 + n2w print_string_max_length}`,`ag32_ffi_rel r0`]mp_tac)
   \\ impl_tac >- (
     conj_tac
     >- (
