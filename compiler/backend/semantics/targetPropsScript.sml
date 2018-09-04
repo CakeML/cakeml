@@ -305,6 +305,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   \\ res_tac
   \\ CONV_TAC (RAND_CONV (SIMP_CONV std_ss [Once evaluate_def]))
   \\ fs [apply_oracle_def]
+  \\ BasicProvers.TOP_CASE_TAC >> fs []
   \\ METIS_TAC[evaluate_io_events_mono]);
 
 val _ = export_theory();
