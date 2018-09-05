@@ -3728,6 +3728,30 @@ val normalise_tyvars_subst_differ = Q.prove(
   >> rw[normalise_tyvars_subst_eqns]
 );
 
+val normalise_tyvars_subst_chr = Q.prove(
+  `!ty n_subst n0 chr.
+  let
+    inv = (EVERY (λ(x,_). ?n. x = Tyvar (strlit(REPLICATE n chr)))) o SND;
+    n_subst' = normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr
+  in inv n_subst ==> inv n_subst'`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    strip_tac
+    >> Cases
+    >> rw[normalise_tyvars_subst_eqns]
+    >> qexists_tac `q`
+    >> fs[]
+  )
+  >> Induct
+  >- rw[normalise_tyvars_subst_eqns]
+  >> strip_tac
+  >> fs[EVERY_DEF]
+  >> strip_tac
+  >> first_x_assum drule
+  >> rw[normalise_tyvars_subst_eqns]
+);
+
 val normalise_tyvars_rec_differ_FST_SND = Q.prove(
   `(!r n0 n.
   (!x. MEM x r ==> ?a b. Tyvar a = FST x /\ Tyvar b = SND x /\ strlen a <= n /\ strlen a >= n0 /\ strlen b < n0)
@@ -4124,21 +4148,37 @@ val tyvars_identity = Q.prove(
   >> rw[EVERY_DEF]
 );
 
-val normalise_tyvars_differ = Q.prove(
-  `!ty chr. NULL (list_inter (tyvars ty) ((tyvars o FST) (normalise_tyvars_rec ty chr)))`,
+val renaming_normalise_tyvars_rec = Q.prove(
+  `!ty chr. (renaming o SND) (normalise_tyvars_rec ty chr)`,
   rw[normalise_tyvars_rec_def]
   >> qmatch_goalsub_abbrev_tac `n0:num`
   >> `tyvars_constr n0 (n0,[])` by rw[tyvars_constr_def]
   >> imp_res_tac normalise_tyvars_subst_differ
   >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
   >> qmatch_asmsub_abbrev_tac `n_subst:(num#(type,type)alist)`
+  >> Cases_on `n_subst`
+  >> fs[tyvars_constr_def,renaming_def]
+  >> qpat_x_assum `EVERY _ _` mp_tac
+  >> match_mp_tac EVERY_MONOTONIC
+  >> rw[pairTheory.ELIM_UNCURRY]
+  >> qexists_tac `a` >> qexists_tac `b` >> fs[]
+);
+
+val normalise_tyvars_differ = Q.prove(
+  `!ty chr. NULL (list_inter (tyvars ty) ((tyvars o FST) (normalise_tyvars_rec ty chr)))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> qmatch_goalsub_abbrev_tac `n_subst:(num#(type,type)alist)`
   >> pop_assum (assume_tac o GSYM o PURE_ONCE_REWRITE_RULE[markerTheory.Abbrev_def])
   >> Cases_on `n_subst`
-  >> fs[tyvars_constr_def]
   >> `renaming r` by (
-    fs[renaming_def] >> qpat_x_assum `EVERY _ _` mp_tac
-    >> match_mp_tac EVERY_MONOTONIC >> rw[pairTheory.ELIM_UNCURRY]
-    >> qexists_tac `a` >> qexists_tac `b` >> fs[]
+    assume_tac renaming_normalise_tyvars_rec
+    >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
+    >> fs[normalise_tyvars_rec_def]
+    >> qunabbrev_tac `n0`
+    >> qmatch_asmsub_abbrev_tac `repl:(num#(type,type)alist)`
+    >> `r = SND repl` by (fs[PAIR])
+    >> fs[]
   )
   >> `NULL (list_inter (MAP FST r) (MAP SND r))` by (
     assume_tac (INST_TYPE [alpha|->``:type list``,beta|->``:type``] list_inter_mono)
@@ -4146,12 +4186,12 @@ val normalise_tyvars_differ = Q.prove(
     >> fs[]
     >> disch_then match_mp_tac
     >> `EVERY (λx. ∃a. x = Tyvar a) (MAP FST r)` by (
-      rw[renaming_def,EVERY_MEM,MEM_MAP,ELIM_UNCURRY,MEM_SPLIT]
-      >> fs[ELIM_UNCURRY] >> qexists_tac `a` >> fs[]
+      rw[EVERY_MEM,MEM_MAP] >> fs[MEM_SPLIT] >> rveq
+      >> fs[renaming_def,ELIM_UNCURRY]
     )
     >> `EVERY (λx. ∃a. x = Tyvar a) (MAP SND r)` by (
-      rw[renaming_def,EVERY_MEM,MEM_MAP,ELIM_UNCURRY,MEM_SPLIT]
-      >> fs[ELIM_UNCURRY] >> qexists_tac `b` >> fs[]
+      rw[EVERY_MEM,MEM_MAP] >> fs[MEM_SPLIT] >> rveq
+      >> fs[renaming_def,ELIM_UNCURRY]
     )
     >> assume_tac (Q.SPECL [`MAP FST (r:(type,type)alist)`] tyvars_identity)
     >> assume_tac (Q.SPECL [`MAP SND (r:(type,type)alist)`] tyvars_identity)
@@ -4175,6 +4215,14 @@ val normalise_tyvars_differ = Q.prove(
   >> rw[]
 );
 
+val normalise_tyvars_rec_chr = Q.prove(
+  `!ty chr. EVERY (λ(x,_). ?n. x = Tyvar (strlit(REPLICATE n chr))) (SND (normalise_tyvars_rec ty chr))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> assume_tac normalise_tyvars_subst_chr
+  >> first_x_assum (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] mp_tac)
+  >> fs[]
+);
 
 val clean_tysubst_def = tDefine "clean_tysubst" `
   (clean_tysubst [] = [])
