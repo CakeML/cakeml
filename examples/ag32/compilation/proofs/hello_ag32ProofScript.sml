@@ -1179,24 +1179,40 @@ val LENGTH_words_of_bytes_hello_startup_code =
   |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
   |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
 
-(* WIP
 (* algorithm (shallow embedding) for the FFI implementation *)
 val hello_ag32_ffi_1_def = Define`
   hello_ag32_ffi_1 s =
-    let s = incPC () (s with R := ((1w =+ (s.R 1w) - n2w (heap_size + 4 * LENGTH data + 4)) s.R)) in
+    let s = incPC () (s with R := ((2w =+ n2w (heap_size + 4 * LENGTH data + 8)) s.R)) in
+    let s = incPC () (s with R := ((1w =+ (s.R 1w) - (s.R 2w)) s.R)) in
     let s = incPC () (s with R := ((4w =+ (s.R 1w) + (s.R 4w)) s.R)) in
     s`;
 
-val hello_ag32_ffi_2_def = Define`
+val hello_ag32_ffi_2_def = tDefine"hello_ag32_ffi_2"`
   hello_ag32_ffi_2 s =
-    if (s.R 1w) = (s.R 4w) then INL s else
-    let s = s with R := ((2w =+ (word_of_bytes F 0w (GENLIST (s.MEM o ((+) (s.R 3w)) o n2w) 4))) s.R) in
-    let s = s with MEM := (((s.R 1w) =+ (7 >< 0) (s.R 2w)) s.MEM) in
+    if (s.R 1w) = (s.R 4w)
+    then s with PC := s.PC + (4w * 6w)
+    else
+    let s = incPC () (s with R := ((2w =+ (word_of_bytes F 0w (GENLIST (s.MEM o ((+) (s.R 3w)) o n2w) 4))) s.R)) in
+    let s = incPC () (s with MEM := (((s.R 1w) =+ (7 >< 0) (s.R 2w)) s.MEM)) in
     let s = s with MEM := (((s.R 1w) + 1w =+ (15 >< 8) (s.R 2w)) s.MEM) in
     let s = s with MEM := (((s.R 1w) + 2w =+ (23 >< 16) (s.R 2w)) s.MEM) in
     let s = s with MEM := (((s.R 1w) + 3w =+ (31 >< 24) (s.R 2w)) s.MEM) in
-    let s = s with R := ((3w =+ (s.R 3w) + 1w) s.R) in
-    let s = s with R := ((1w =+ (s.R 1w) + 1w) s.R) in INR s`;
+    let s = incPC () (s with R := ((3w =+ (s.R 3w) + 1w) s.R)) in
+    let s = incPC () (s with R := ((1w =+ (s.R 1w) + 1w) s.R)) in
+    hello_ag32_ffi_2 (s with PC := s.PC - (4w * 5w))`
+  (simp[APPLY_UPDATE_THM,ag32Theory.incPC_def]
+   \\ wf_rel_tac`measure (λs. w2n(s.R 4w - s.R 1w ))`
+   \\ simp[APPLY_UPDATE_THM]
+   \\ rw[]
+   \\ Cases_on`s.R 1w`
+   \\ Cases_on`s.R 4w`
+   \\ fs[WORD_LEFT_ADD_DISTRIB]
+   \\ rewrite_tac[WORD_ADD_ASSOC]
+   \\ irule(SIMP_RULE(srw_ss())[]WORD_PRED_THM)
+   \\ fs[]
+   \\ fs[word_add_n2w]
+   \\ rewrite_tac[WORD_SUM_ZERO, WORD_SUB_INTRO, WORD_EQ_NEG]
+   \\ simp[]);
 
 val hello_ag32_ffi_3_def = Define`
   hello_ag32_ffi_3 s =
@@ -1209,14 +1225,13 @@ val hello_ag32_ffi_3_def = Define`
     let s = incPC () (s with R := ((3w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((4w =+ 0w) s.R)) in
     let s = incPC () (s with io_events := s.MEM::s.io_events) in
-    s with PC :=
-    `;
+    s with <| PC := s.R 0w; R := ((0w =+ s.PC + 4w) s.R) |>`;
 
 val hello_ag32_ffi_def = Define`
   hello_ag32_ffi s =
-    hello_ag32_ffi_3
-      (OUTL (WHILE ISR (hello_ag32_ffi_2 o OUTR) (INR (hello_ag32_ffi_1 s))))`;
+    hello_ag32_ffi_3 (hello_ag32_ffi_2 (hello_ag32_ffi_1 s))`;
 
+(*
 val hello_ag32_ffi_1_correct = Q.store_thm("hello_ag32_ffi_1_correct",
   `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 4)) ∧
    (s.R 3w = ptr) ∧
