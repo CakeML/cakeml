@@ -36,18 +36,33 @@ val apply_oracle_def = Define `
   apply_oracle oracle x =
     (oracle (0:num) x, shift_seq 1 oracle)`
 
+val encoded_bytes_in_mem_def = Define`
+  encoded_bytes_in_mem c pc m md ⇔
+    ∃i k. k * (2 ** c.code_alignment) < LENGTH (c.encode i) ∧
+      bytes_in_memory pc
+        (DROP (k * (2 ** c.code_alignment)) (c.encode i))
+        m md`;
+
 val evaluate_def = Define `
   evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
       if mc.target.get_pc ms IN mc.prog_addresses then
-        let ms1 = mc.target.next ms in
-        let (ms2,new_oracle) = apply_oracle mc.next_interfer ms1 in
-        let mc = mc with next_interfer := new_oracle in
-          if EVERY mc.target.state_ok [ms;ms1;ms2] then
-            evaluate mc ffi (k - 1) ms2
-          else
-            (Error,ms,ffi)
+        if encoded_bytes_in_mem
+            mc.target.config (mc.target.get_pc ms)
+            (mc.target.get_byte ms) mc.prog_addresses then
+          let ms1 = mc.target.next ms in
+          let (ms2,new_oracle) = apply_oracle mc.next_interfer ms1 in
+          let mc = mc with next_interfer := new_oracle in
+            if EVERY mc.target.state_ok [ms;ms1;ms2] ∧
+               (∀x. x ∉ mc.prog_addresses ⇒
+                   mc.target.get_byte ms1 x =
+                   mc.target.get_byte ms x)
+            then
+              evaluate mc ffi (k - 1) ms2
+            else
+              (Error,ms,ffi)
+        else (Error,ms,ffi)
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then Halt Success else Halt Resource_limit_hit,ms,ffi)

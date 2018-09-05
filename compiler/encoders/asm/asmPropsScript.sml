@@ -58,31 +58,42 @@ val target_ok_def = Define`
   !ms1 ms2 s.
     (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
     (target_state_rel t s ms1 = target_state_rel t s ms2) /\
-    (t.state_ok ms1 = t.state_ok ms2)`
+    (t.state_ok ms1 = t.state_ok ms2) /\
+    (t.get_pc ms1 = t.get_pc ms2) /\
+    (!a. a IN s.mem_domain ==> t.get_byte ms1 a = t.get_byte ms2 a)`
 
 val interference_ok_def = Define `
   interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
 
-val all_pcs_def = Define `
-  (all_pcs 0 a = {}) /\
-  (all_pcs (SUC n) a = a INSERT all_pcs n (a + 1w))`
+val all_pcs_def = Define`
+  (all_pcs 0n a k = {}) ∧
+  (all_pcs n a k = a INSERT all_pcs (n-(2 ** k)) (a + n2w (2 ** k)) k)`
 
 val all_pcs_thm = Q.store_thm("all_pcs_thm",
-  `all_pcs x y = IMAGE (((+) y) o n2w) (count x)`,
-  qid_spec_tac`y`
-  \\ Induct_on`x`
-  \\ rw[all_pcs_def]
+  `all_pcs n a k = { a + n2w (i * (2 ** k)) | i | i * (2 ** k) < n }`,
+  qid_spec_tac`a`
+  \\ qid_spec_tac`k`
+  \\ completeInduct_on`n`
+  \\ Cases_on`n` \\ rw[all_pcs_def]
   \\ rw[EXTENSION]
-  \\ qmatch_goalsub_rename_tac`a = y`
-  \\ Cases_on`a = y` \\ fs[]
+  \\ Cases_on`a = x` \\ fs[]
   >- ( qexists_tac`0` \\ fs[] )
   \\ rewrite_tac[word_add_n2w,GSYM WORD_ADD_ASSOC,GSYM ADD1]
-  \\ METIS_TAC[LESS_MONO_EQ,prim_recTheory.INV_SUC_EQ,WORD_ADD_0,num_CASES]);
+  \\ rw[EQ_IMP_THM]
+  >- ( qexists_tac`SUC i` \\ simp[ADD1,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB] )
+  \\ qexists_tac`i-1`
+  \\ Cases_on`i` \\ fs[ADD1,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB]);
 
 val asserts_def = zDefine `
   (asserts 0 next ms _ Q <=> Q (next 0 ms)) /\
   (asserts (SUC n) next ms P Q <=>
      let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
+
+val asserts2_def = zDefine`
+  (asserts2 n fi fc ms P =
+   if n = 0n then T else
+     P ms (fc ms) ∧
+     asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
 
 val backend_correct_def = Define `
   backend_correct t <=>
@@ -93,8 +104,12 @@ val backend_correct_def = Define `
             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
             let pcs = all_pcs (LENGTH (t.config.encode i)) s1.pc in
             asserts n (\k s. env (n - k) (t.next s)) ms
-              (\ms'. t.state_ok ms' /\ t.get_pc ms' IN pcs)
-              (\ms'. target_state_rel t s2 ms')`
+              (\ms'. t.state_ok ms' /\
+                     (∀pc. pc ∈ pcs 0 ⇒ t.get_byte ms' pc = t.get_byte ms pc) ∧
+                     t.get_pc ms' IN pcs t.config.code_alignment)
+              (\ms'. target_state_rel t s2 ms') ∧
+            asserts2 (n + 1) (λk. env (n + 1 - k)) t.next ms
+              (λms1 ms2. ∀x. x ∉ s1.mem_domain ⇒ t.get_byte ms1 x = t.get_byte ms2 x)`
 
 (* lemma for proofs *)
 
@@ -111,8 +126,31 @@ val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
   )
 
 val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
-  `!xs pc. bytes_in_memory pc xs m d ==> all_pcs (LENGTH xs) pc SUBSET d`,
-  Induct \\ full_simp_tac(srw_ss())[all_pcs_def,bytes_in_memory_def]);
+  `!xs pc. bytes_in_memory pc xs m d ==> all_pcs (LENGTH xs) pc k SUBSET d`,
+  gen_tac
+  \\ completeInduct_on`LENGTH xs`
+  \\ rw[]
+  \\ fs[all_pcs_thm]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, PULL_FORALL] \\ rw[]
+  \\ Cases_on`i=0` \\ fs[]
+  >- ( Cases_on`xs` \\ fs[bytes_in_memory_def] )
+  \\ Cases_on`2 ** k < LENGTH xs`
+  >- (
+    first_x_assum(qspec_then`DROP (2 ** k) xs`mp_tac)
+    \\ simp[]
+    \\ Q.ISPECL_THEN[`TAKE (2 ** k) xs`,`DROP (2 ** k) xs`]mp_tac bytes_in_memory_APPEND
+    \\ simp[]
+    \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+    \\ strip_tac
+    \\ disch_then drule
+    \\ disch_then(qspec_then`i-1`mp_tac)
+    \\ simp[LEFT_SUB_DISTRIB, RIGHT_SUB_DISTRIB]
+    \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
+    \\ rewrite_tac[word_add_n2w]
+    \\ simp[SUB_LEFT_ADD, SUB_RIGHT_ADD]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ `i = 1` by fs[] \\ fs[] )
+  \\ Cases_on`i` \\ fs[ADD1, RIGHT_ADD_DISTRIB]);
 
 val bytes_in_memory_change_domain = Q.store_thm("bytes_in_memory_change_domain",
   `∀a bs m md1 md2.
@@ -184,6 +222,63 @@ val asserts_IMP_FOLDR_COUNT_LIST_LESS = Q.store_thm("asserts_IMP_FOLDR_COUNT_LIS
   \\ first_x_assum drule
   \\ simp[]
   \\ simp[COUNT_LIST_GENLIST,MAP_GENLIST,REVERSE_GENLIST,GENLIST_CONS,PRE_SUB1,FOLDR_APPEND]);
+
+val asserts_WEAKEN = Q.store_thm("asserts_WEAKEN",
+  `!n next s P Q.
+      (!k. k <= n ==>
+        (next k = next' k) ∧
+        (P (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))) ⇒
+         P' (FOLDR next s (REVERSE (GENLIST ((-) n) (SUC k)))))) ==>
+      asserts n next s P Q ==>
+      asserts n next' s P' Q`,
+  Induct \\ fs[asserts_def]
+  \\ rpt gen_tac \\ strip_tac \\ strip_tac
+  \\ conj_tac
+  >- (
+    first_assum(qspec_then`0`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ first_x_assum(qspec_then`SUC n`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ rw[] )
+  >- (
+    first_assum irule
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ ntac 2 strip_tac
+    \\ conj_tac
+    >- (
+      first_assum(qspec_then`k`mp_tac)
+      \\ impl_tac >- fs[] \\ rw[] )
+    \\ first_assum(qspec_then`SUC k`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ simp_tac(srw_ss())[GENLIST_CONS, FOLDR_APPEND]
+    \\ simp_tac(srw_ss())[o_DEF]
+    \\ strip_tac
+    \\ first_assum(qspec_then`SUC n`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ strip_tac \\ fs[] ));
+
+val asserts2_eval = save_thm("asserts2_eval",let
+  fun gen_rw n =
+    ``asserts2 ^(numSyntax.term_of_int n) fi fc (s:'a) P``
+    |> ONCE_REWRITE_CONV [asserts2_def] |> SIMP_RULE std_ss []
+  in LIST_CONJ (List.tabulate(21,gen_rw)) end)
+
+val asserts2_change_interfer = Q.store_thm("asserts2_change_interfer",
+  `asserts2 n fi fc ms P  ∧
+   (∀k. k ≤ n ⇒ fi k = fi2 k)
+  ⇒
+   asserts2 n fi2 fc ms P`,
+  qid_spec_tac`ms`
+  \\ Induct_on`n`
+  \\ rw[Once asserts2_def]
+  \\ rw[Once asserts2_def]
+  \\ first_x_assum match_mp_tac
+  \\ rw[]
+  \\ METIS_TAC[LESS_OR_EQ]);
+
+val asserts2_first = Q.store_thm("asserts2_first",
+  `1 ≤ n ∧ asserts2 n fi fc ms P ⇒ P ms (fc ms)`,
+  rw[Once asserts2_def] \\ fs[]);
 
 val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
   `((asmSem$upd_pc x s).align = s.align) ∧
