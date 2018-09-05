@@ -4175,37 +4175,273 @@ val normalise_tyvars_differ = Q.prove(
   >> rw[]
 );
 
-(* Unify two types and return two type substitutions as a certificate *)
-val thetyvar_def = Define `(thetyvar (Tyvar a) = SOME a) /\ (thetyvar _ = NONE)`;
 
-val unify_types_def = (* Hol_defn *) tDefine "unify_types" `
+val clean_tysubst_def = tDefine "clean_tysubst" `
+  (clean_tysubst [] = [])
+  /\ (clean_tysubst ((a,b)::l) =
+    (a,b)::(clean_tysubst (FILTER (λ(_,x). x <> b) l)))
+`(WF_REL_TAC `measure LENGTH` >> rw[]
+>> match_mp_tac LESS_EQ_IMP_LESS_SUC >> rw[LENGTH_FILTER_LEQ]);
+
+(* Unify two types and return two type substitutions as a certificate *)
+val unify_types_def = Hol_defn "unify_types" `
   (unify_types [] sigma = SOME sigma)
   /\ (unify_types ((Tyapp a atys, Tyapp b btys)::l) sigma =
     if a = b /\ LENGTH atys = LENGTH btys
-    then unify_types ((ZIP (atys,btys))++l) sigma
-    else NONE
+    then if atys = btys
+      then unify_types l sigma (* trivial rule (for Tyapps) *)
+      else unify_types ((ZIP (atys,btys))++l) sigma (* decomposition rule *)
+    else NONE (* symbol clash *)
   )
   /\ (unify_types ((Tyapp a atys, Tyvar b)::l) sigma =
-    unify_types ((Tyvar b, Tyapp a atys)::l) sigma
+    unify_types ((Tyvar b, Tyapp a atys)::l) sigma (* orient rule *)
   )
   /\ (unify_types ((Tyvar a, ty)::l) sigma =
-    let
-      v = TYPE_SUBST sigma (Tyvar a);
-      v_var = IS_SOME (thetyvar v);
-      sigma_ty = TYPE_SUBST sigma ty
-    in
-      if v_var /\ (v = sigma_ty)
-      then unify_types l sigma
-      else if ~v_var
-      then unify_types ((sigma_ty,v)::l) sigma (* v = Tyapp _ _ *)
-      else if MEM (THE (thetyvar v)) (tyvars sigma_ty)
-      then NONE (* cyclic *)
-      else if v = Tyvar a
-        then unify_types l ((sigma_ty,Tyvar a)::sigma)
-        else unify_types l ((sigma_ty,v)::(sigma_ty,Tyvar a)::sigma)
-  )` (cheat);
+    if Tyvar a = ty
+    then unify_types l sigma (* trivial rule (for Tyvars) *)
+    else if MEM a (tyvars ty)
+    then NONE (* occurs check *)
+    else let
+      subst_a = MAP ((TYPE_SUBST [(ty,Tyvar a)]) ## (TYPE_SUBST [(ty,Tyvar a)]));
+      l' = subst_a  l;
+      sigma' = subst_a sigma
+    in unify_types l' ((ty, Tyvar a)::sigma') (* variable elimination *)
+  )`;
 
+val unify_types_measure = Define`
+  unify_types_measure = λ((tytups:(type,type)alist),(sigma:(type,type)alist)).
+    let
+      dist_tyvar = CARD (BIGUNION (set (MAP (UNCURRY $UNION) (MAP (W $## (set o $tyvars)) tytups))))
+;
+      acc_type_size = SUM (MAP ((UNCURRY $+) o (W $## $type_size')) tytups);
+      num_shape = LENGTH (FILTER (λx. case x of (Tyapp _ _, Tyvar _) => T | _ => F) tytups)
+    in (dist_tyvar, acc_type_size, num_shape)
+`;
+
+val (unify_types_def,unify_types_ind) = Defn.tprove(
+  unify_types_def,
+  WF_REL_TAC `inv_image (prim_rec$< LEX (prim_rec$< LEX prim_rec$<)) unify_types_measure`
+  >> strip_tac
+  (* decomposition rule *)
+  >- (
+    rw[unify_types_measure]
+    >> DISJ2_TAC
+    >> rw[]
+    >- (
+      `!(x:(mlstring->bool)) y. x = y ==> CARD x = CARD y` by rw[]
+      >> first_x_assum match_mp_tac
+      >> `!(x:(mlstring->bool)) y a. x = y ==> x UNION a = y UNION a` by rw[]
+      >> first_x_assum match_mp_tac
+      >> rw[tyvars_def]
+      >> pop_assum kall_tac
+      >> pop_assum mp_tac
+      >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`atys`,`btys`]
+      >> Induct
+      >> rw[]
+      >> Cases_on `atys` >> fs[]
+      >> rw[AC UNION_COMM UNION_ASSOC]
+      >> `!(x:(mlstring->bool)) y a. x = y ==> a UNION x = a UNION y` by rw[]
+      >> first_assum match_mp_tac
+      >> first_x_assum match_mp_tac
+      >> fs[AC UNION_COMM UNION_ASSOC]
+    )
+    >> DISJ1_TAC
+    >> rw[type_size'_def,SUM_APPEND]
+    >> pop_assum kall_tac
+    >> pop_assum mp_tac
+    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`atys`,`btys`]
+    >> Induct
+    >> rw[type_size'_def]
+    >> Cases_on `atys`
+    >> fs[type_size'_def]
+    >> first_x_assum drule
+    >> fs[]
   )
+  >> strip_tac
+  (* trivial rule for Tyapps *)
+  >- (
+    rpt strip_tac
+    >> qmatch_goalsub_abbrev_tac `fu < fu'`
+    >> Cases_on `fu < fu'` >- fs[]
+    >> DISJ2_TAC
+    >> rw[unify_types_measure]
+    >- (
+      qunabbrev_tac `fu'`
+      >> qunabbrev_tac `fu`
+      >> fs[unify_types_measure]
+      >> qmatch_asmsub_abbrev_tac `setset:(mlstring->bool)->bool`
+      >> qmatch_asmsub_abbrev_tac `tys:(mlstring list)`
+      >> fs[NOT_LESS]
+      >> `FINITE (set (tys))` by rw[]
+      >> `FINITE (BIGUNION setset)` by (
+        qunabbrev_tac `setset`
+        >> rw[]
+        >> fs[MEM_MAP]
+        >> Cases_on `y'`
+        >> fs[ELIM_UNCURRY,FINITE_UNION]
+      )
+      >> `CARD (BIGUNION setset) <= CARD (set tys ∪ BIGUNION setset)` by (
+        assume_tac (INST_TYPE [alpha |-> ``:mlstring``] CARD_SUBSET)
+        >> first_x_assum (qspecl_then [`set tys UNION BIGUNION setset`] assume_tac)
+        >> fs[]
+      )
+      >> fs[]
+    )
+    >> simp[type_size'_def]
+  )
+  >> strip_tac
+  (* orient rule *)
+  >- (
+    rpt strip_tac
+    >> qmatch_goalsub_abbrev_tac `fu < fu'`
+    >> `fu = fu'` by (
+      qunabbrev_tac `fu`
+      >> qunabbrev_tac `fu'`
+      >> rw[unify_types_measure,AC UNION_COMM UNION_ASSOC]
+    )
+    >> qmatch_goalsub_abbrev_tac `fsu < fsu'`
+    >> `fsu = fsu'` by (
+      qunabbrev_tac `fsu`
+      >> qunabbrev_tac `fsu'`
+      >> rw[unify_types_measure]
+    )
+    >> rw[unify_types_measure]
+  )
+  >> strip_tac
+  (* variable elimination *)
+  >- (
+    rpt strip_tac
+    >> DISJ1_TAC
+    >> rw[unify_types_measure,tyvars_def]
+    >> qmatch_goalsub_abbrev_tac `CARD (BIGUNION no_a_sets) < CARD (aa UNION tys UNION (BIGUNION (setset)))`
+    >> `FINITE (aa UNION tys)` by (qunabbrev_tac `tys` >> qunabbrev_tac `aa` >> rw[FINITE_UNION])
+    >> `FINITE (BIGUNION setset)` by (
+      qunabbrev_tac `setset` >> rw[]
+      >> fs[MEM_MAP] >> Cases_on `y'`
+      >> fs[ELIM_UNCURRY,FINITE_UNION]
+    )
+    >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] CARD_PSUBSET)
+    >> first_x_assum (qspecl_then [`aa UNION tys UNION BIGUNION setset`] mp_tac)
+    >> rw[]
+    >> first_x_assum (qspecl_then [`BIGUNION no_a_sets`] mp_tac)
+    >> disch_then match_mp_tac
+    >> `(BIGUNION no_a_sets) SUBSET (tys UNION BIGUNION setset)` by (
+      qunabbrev_tac `tys`
+      >> qunabbrev_tac `no_a_sets`
+      >> qunabbrev_tac `setset`
+      >> NTAC 2 (last_x_assum mp_tac)
+      >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`a`,`ty`,`l`]
+      >> Induct
+      >- rw[]
+      >> Cases
+      >> rw[]
+      >- (
+        qmatch_goalsub_abbrev_tac `set (subst) SUBSET tys1 UNION (tysq UNION tysr UNION bigtys)`
+        >> `set subst SUBSET tys1 UNION tysq` by (
+          qunabbrev_tac `subst`
+          >> qunabbrev_tac `tysq`
+          >> qunabbrev_tac `tys1`
+          >> rw[tyvars_TYPE_SUBST,SUBSET_DEF]
+          >> Cases_on `x' = a'`
+          >> fs[REV_ASSOCD_def,tyvars_def]
+        )
+        >> NTAC 3 (PURE_ONCE_REWRITE_TAC[UNION_ASSOC])
+        >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (CONJUNCT1 SUBSET_UNION))
+        >> first_x_assum (qspecl_then [`tys1 UNION tysq`,`tysr UNION bigtys`] assume_tac)
+        >> ONCE_ASM_REWRITE_TAC[GSYM UNION_ASSOC]
+        >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (SUBSET_TRANS))
+        >> first_x_assum (qspecl_then [`set subst`,`tys1 UNION tysq`] match_mp_tac)
+        >> fs[]
+      )
+      >- (
+        rw[AC UNION_ASSOC UNION_COMM]
+        >> qmatch_goalsub_abbrev_tac `set (subst) SUBSET tysq UNION (atysr UNION (atysty UNION zbigtys))`
+        >> rw[AC UNION_ASSOC UNION_COMM]
+        >> PURE_ONCE_REWRITE_TAC[UNION_ASSOC]
+        >> `set subst SUBSET atysr UNION atysty` by (
+          qunabbrev_tac `subst`
+          >> qunabbrev_tac `atysr`
+          >> qunabbrev_tac `atysty`
+          >> rw[tyvars_TYPE_SUBST,SUBSET_DEF]
+          >> Cases_on `x' = a'`
+          >> fs[REV_ASSOCD_def,tyvars_def]
+        )
+        >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (CONJUNCT1 SUBSET_UNION))
+        >> first_x_assum (qspecl_then [`atysr UNION atysty`,`tysq UNION zbigtys`] assume_tac)
+        >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (SUBSET_TRANS))
+        >> first_x_assum (qspecl_then [`set subst`,`atysr UNION atysty`] match_mp_tac)
+        >> rw[]
+      )
+      >> first_x_assum drule
+      >> disch_then assume_tac
+      >> rw[AC UNION_ASSOC UNION_COMM]
+      >> qmatch_goalsub_abbrev_tac `repltys SUBSET tysq UNION (tysr UNION (atysty UNION abigtys))`
+      >> rw[AC UNION_ASSOC UNION_COMM]
+      >> PURE_ONCE_REWRITE_TAC[UNION_ASSOC]
+      >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (CONJUNCT1 SUBSET_UNION))
+      >> first_x_assum (qspecl_then [`abigtys UNION atysty`,`tysq UNION tysr`] assume_tac)
+      >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (SUBSET_TRANS))
+      >> first_x_assum (qspecl_then [`repltys`,`abigtys UNION atysty`] match_mp_tac)
+      >> rw[]
+      >> rfs[AC UNION_ASSOC UNION_COMM]
+    )
+    >> `~(a IN (BIGUNION no_a_sets))` by (
+      rw[IN_BIGUNION]
+      >> Cases_on `s IN no_a_sets` >> fs[]
+      >> qunabbrev_tac `no_a_sets`
+      >> qunabbrev_tac `tys`
+      >> fs[MEM_MAP]
+      >> Cases_on `y''`
+      >> fs[ELIM_UNCURRY]
+      >> rw[tyvars_TYPE_SUBST]
+      >> Cases_on `MEM x (tyvars q)` >> fs[]
+      >> Cases_on `x = a`
+      >> rw[REV_ASSOCD_def,tyvars_def]
+      >> fs[]
+    )
+    >> ONCE_REWRITE_TAC[PSUBSET_EQN]
+    >> `BIGUNION no_a_sets ⊆ aa ∪ tys ∪ BIGUNION setset` by (
+      rw[AC UNION_ASSOC UNION_COMM]
+      >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] (CONJUNCT2 SUBSET_UNION))
+      >> first_x_assum (qspecl_then [`tys ∪ BIGUNION setset`,`aa`] assume_tac)
+      >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``] SUBSET_TRANS)
+      >> first_x_assum (qspecl_then [`BIGUNION no_a_sets`,`tys UNION BIGUNION setset`,`aa UNION (tys UNION BIGUNION setset)`] assume_tac)
+      >> fs[]
+    )
+    >> qunabbrev_tac `aa`
+    >> fs[]
+  )
+  (* trivial rule (for variables) *)
+  >- (
+    rpt strip_tac
+    >> qmatch_goalsub_abbrev_tac `fu < fu'`
+    >> Cases_on `fu < fu'` >- fs[]
+    >> fs[NOT_LESS]
+    >> rw[unify_types_measure]
+    >- (
+      qunabbrev_tac `fu'`
+      >> qunabbrev_tac `fu`
+      >> fs[unify_types_measure]
+      >> qmatch_asmsub_abbrev_tac `setset:(mlstring->bool)->bool`
+      >> qmatch_asmsub_abbrev_tac `tys:(mlstring list)`
+      >> `FINITE (set (tys))` by rw[]
+      >> `FINITE (BIGUNION setset)` by (
+        qunabbrev_tac `setset`
+        >> rw[]
+        >> fs[MEM_MAP]
+        >> Cases_on `y'`
+        >> fs[ELIM_UNCURRY,FINITE_UNION]
+      )
+      >> `CARD (BIGUNION setset) <= CARD (set tys ∪ BIGUNION setset)` by (
+        assume_tac (INST_TYPE [alpha |-> ``:mlstring``] CARD_SUBSET)
+        >> first_x_assum (qspecl_then [`set tys UNION BIGUNION setset`] assume_tac)
+        >> fs[]
+      )
+      >> fs[]
+    )
+    >> simp[type_size'_def]
+  )
+);
 
 val unify_def = Define `
   unify ty1 ty2 =
@@ -4220,21 +4456,8 @@ val unify_def = Define `
       else NONE
 `;
 
-  WF_REL_TAC `measure (\x. type_size (FST x) + type_size (FST(SND x)))`
-  >> NTAC 2 Induct
-  >- rw[holSyntaxTheory.type_size_def]
-  >- rw[holSyntaxTheory.type_size_def]
-  >> rpt strip_tac
-  >> imp_res_tac MEM_ZIP_MEM_MAP
-  >> rfs[]
-  >> ONCE_REWRITE_TAC[rich_listTheory.CONS_APPEND]
-  >> rw[type1_size_append,holSyntaxTheory.type_size_def,SND,FST]
-  >> imp_res_tac type1_size_mem
-  >> simp[]
-  >> cheat
-);
+(*
 *)
-
 
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
