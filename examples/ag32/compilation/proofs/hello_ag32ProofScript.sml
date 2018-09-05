@@ -489,6 +489,42 @@ val mem_eq_imp_asm_write_bytearray_eq = Q.store_thm("mem_eq_imp_asm_write_bytear
   \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def]
   \\ rw[APPLY_UPDATE_THM]);
 
+val asm_write_bytearray_unchanged = Q.store_thm("asm_write_bytearray_unchanged",
+  `∀a bs m z. (x <+ a ∨ a + n2w (LENGTH bs) <=+ x) ∧
+    (w2n a + LENGTH bs < dimword(:'a)) ∧ (z = m x)
+  ⇒ (asm_write_bytearray (a:'a word) bs m x = z)`,
+  Induct_on`bs`
+  \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ TRY (
+    Cases_on`a` \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]
+    \\ NO_TAC )
+  \\ first_x_assum match_mp_tac
+  \\ Cases_on`a`
+  \\ Cases_on`x`
+  \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]);
+
+val asm_write_bytearray_append = Q.store_thm("asm_write_bytearray_append",
+  `∀a l1 l2 m.
+   w2n a + LENGTH l1 + LENGTH l2 < dimword (:'a) ⇒
+   (asm_write_bytearray (a:'a word) (l1 ++ l2) m =
+    asm_write_bytearray (a + n2w (LENGTH l1)) l2 (asm_write_bytearray a l1 m))`,
+  Induct_on`l1` \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[]
+  >- (
+    irule (GSYM asm_write_bytearray_unchanged)
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`a` \\ simp[word_lo_n2w,word_add_n2w,word_ls_n2w]
+    \\ fs[] )
+  \\ fs[ADD1,GSYM word_add_n2w]
+  \\ first_x_assum (qspec_then`a+1w`mp_tac)
+  \\ simp[]
+  \\ Cases_on`a` \\ fs[word_add_n2w]
+  \\ disch_then drule
+  \\ rw[]
+  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ simp[APPLY_UPDATE_THM]);
+
 (*
 val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
   `0 < p ⇒ ((align p a = 0w) ⇒ w2n a < 2 ** p)`,
@@ -1192,14 +1228,11 @@ val hello_ag32_ffi_2_def = tDefine"hello_ag32_ffi_2"`
     if (s.R 1w) = (s.R 4w)
     then s with PC := s.PC + (4w * 6w)
     else
-    let s = incPC () (s with R := ((2w =+ (word_of_bytes F 0w (GENLIST (s.MEM o ((+) (s.R 3w)) o n2w) 4))) s.R)) in
-    let s = incPC () (s with MEM := (((s.R 1w) =+ (7 >< 0) (s.R 2w)) s.MEM)) in
-    let s = s with MEM := (((s.R 1w) + 1w =+ (15 >< 8) (s.R 2w)) s.MEM) in
-    let s = s with MEM := (((s.R 1w) + 2w =+ (23 >< 16) (s.R 2w)) s.MEM) in
-    let s = s with MEM := (((s.R 1w) + 3w =+ (31 >< 24) (s.R 2w)) s.MEM) in
+    let s = incPC () (incPC () s with R := ((2w =+ w2w (s.MEM (s.R 3w))) s.R)) in
+    let s = incPC () (s with MEM := (((s.R 1w) =+ w2w (s.R 2w)) s.MEM)) in
     let s = incPC () (s with R := ((3w =+ (s.R 3w) + 1w) s.R)) in
     let s = incPC () (s with R := ((1w =+ (s.R 1w) + 1w) s.R)) in
-    hello_ag32_ffi_2 (s with PC := s.PC - (4w * 5w))`
+    hello_ag32_ffi_2 (s with PC := s.PC + (4w * -5w))`
   (simp[APPLY_UPDATE_THM,ag32Theory.incPC_def]
    \\ wf_rel_tac`measure (λs. w2n(s.R 4w - s.R 1w ))`
    \\ simp[APPLY_UPDATE_THM]
@@ -1217,9 +1250,6 @@ val hello_ag32_ffi_2_def = tDefine"hello_ag32_ffi_2"`
 val hello_ag32_ffi_3_def = Define`
   hello_ag32_ffi_3 s =
     let s = incPC () (s with MEM := (((s.R 1w) =+ 0w) s.MEM)) in
-    let s = s with MEM := (((s.R 1w) + 1w =+ 0w) s.MEM) in
-    let s = s with MEM := (((s.R 1w) + 2w =+ 0w) s.MEM) in
-    let s = s with MEM := (((s.R 1w) + 3w =+ 0w) s.MEM) in
     let s = incPC () (s with R := ((1w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((2w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((3w =+ 0w) s.R)) in
@@ -1244,13 +1274,12 @@ val hello_ag32_ffi_1_spec = Q.store_thm("hello_ag32_ffi_1_spec",
   \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
   \\ rw[] \\ fs[]);
 
-(*
 val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
   `∀s i bs.
    (s.R 1w = r0 + i) ∧
    (s.R 4w = r0 + i + n2w (LENGTH bs)) ∧
    (s.R 3w = ptr + i) ∧
-   (∀w. r0 <=+ w ∧ w <+ r0 + i + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
+   (∀w. r0 + i <=+ w ∧ w <+ r0 + i + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
    bytes_in_memory (ptr + i) bs s.MEM dm ∧
    w2n ptr + w2n i + LENGTH bs < dimword(:32) ∧
    w2n r0 + w2n i + LENGTH bs < dimword(:32)
@@ -1261,7 +1290,7 @@ val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
              ; R  := ((3w =+ ptr + i + n2w (LENGTH bs))
                       ((1w =+ r0 + i + n2w (LENGTH bs))
                        ((2w =+ r2) s.R)))
-             ; MEM := asm_write_bytearray r0 bs s.MEM
+             ; MEM := asm_write_bytearray (r0 + i) bs s.MEM
              |>))`,
   Induct_on`bs`
   >- (
@@ -1285,6 +1314,15 @@ val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
   \\ impl_tac
   >- (
     fs[ADD1, GSYM word_add_n2w]
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ first_x_assum match_mp_tac
+      \\ fs[]
+      \\ Cases_on`w`
+      \\ Cases_on`i` \\ Cases_on`r0`
+      \\ fs[word_add_n2w,word_ls_n2w]
+      \\ rfs[] )
     \\ reverse conj_tac
     >- ( Cases_on`i` \\ Cases_on`r0` \\ fs[word_add_n2w] )
     \\ fs[asmSemTheory.bytes_in_memory_def]
@@ -1292,25 +1330,91 @@ val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM]
     \\ rw[] \\ fs[]
-    \\ `F` suffices_by fs[]
-    \\ qpat_x_assum`_ ∈ dm`mp_tac
-    \\ simp[]
-    \\ first_x_assum match_mp_tac
     \\ Cases_on`i` \\ fs[]
     \\ Cases_on`r0` \\ fs[]
     \\ Cases_on`ptr` \\ fs[word_lo_n2w, word_add_n2w,word_ls_n2w]
+    \\ rfs[]
     \\ rpt(qpat_x_assum`_ _  < _`mp_tac)
     \\ strip_tac
     \\ strip_tac
-    \\ fs[]
-    \\ rfs[] \\ rw[]
+    \\ fs[] \\ rw[]
+    \\ `F` suffices_by fs[]
+    \\ imp_res_tac asmPropsTheory.bytes_in_memory_all_pcs
+    \\ pop_assum mp_tac
+    \\ simp[asmPropsTheory.all_pcs_thm,SUBSET_DEF,PULL_EXISTS]
+    \\ qexists_tac`0` \\ simp[]
+    \\ qexists_tac`n` \\ simp[]
+    \\ first_x_assum match_mp_tac
+    \\ simp[word_add_n2w,word_ls_n2w,word_lo_n2w] )
+  \\ strip_tac
+  \\ qexists_tac`r2`
+  \\ qmatch_asmsub_abbrev_tac`hello_ag32_ffi_2 s1`
+  \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s2`
+  \\ `s1 = s2` by simp[Abbr`s1`,Abbr`s2`]
+  \\ qunabbrev_tac`s1` \\ qunabbrev_tac`s2` \\ fs[]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
+  \\ simp[APPLY_UPDATE_THM,FUN_EQ_THM,ADD1,GSYM word_add_n2w]
+  \\ reverse(rw[])
+  >- (
+    match_mp_tac mem_eq_imp_asm_write_bytearray_eq
+    \\ simp[APPLY_UPDATE_THM] )
+  \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ irule asm_write_bytearray_unchanged
+  \\ simp[APPLY_UPDATE_THM]
+  \\ Cases_on`i` \\ Cases_on`r0`
+  \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w]
+  \\ simp[w2w_w2w]
+  \\ irule (GSYM WORD_ALL_BITS)
+  \\ simp[]);
 
-    \\ rfs[]
-    \\ fs[]
+val hello_ag32_ffi_3_spec = Q.store_thm("hello_ag32_ffi_3_spec",
+  `hello_ag32_ffi_3 s =
+     s with <|
+       R := (0w =+ s.PC + (4w * 7w)) ((4w =+ 0w) ((3w =+ 0w) ((2w =+ 0w) ((1w =+ 0w) s.R)))) ;
+       PC := s.R 0w ;
+       MEM := ((s.R 1w) =+ 0w) s.MEM ;
+       io_events := (((s.R 1w) =+ 0w) s.MEM) :: s.io_events
+       |>`,
+  rw[hello_ag32_ffi_3_def,ag32Theory.incPC_def]
+  \\ rw[ag32Theory.ag32_state_component_equality,APPLY_UPDATE_THM]);
 
-
-    \\ rfs[]
-*)
+val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
+  `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
+   (s.R 4w = n2w (LENGTH bs)) ∧
+   (s.R 3w = ptr) ∧
+   (∀w. r0 <=+ w ∧ w <+ r0 + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
+   bytes_in_memory ptr bs s.MEM dm ∧
+   w2n ptr + LENGTH bs < dimword(:32) ∧
+   w2n r0 + LENGTH bs + 1 < dimword(:32)
+   ⇒
+   (hello_ag32_ffi s =
+    s with <| R := ((0w =+ s.PC + 64w)
+                    ((1w =+ 0w)
+                    ((2w =+ 0w)
+                    ((3w =+ 0w)
+                    ((4w =+ 0w) s.R)))));
+              MEM := asm_write_bytearray r0 (bs++[0w]) s.MEM ;
+              PC := s.R 0w;
+              io_events := (asm_write_bytearray r0 (bs++[0w]) s.MEM) :: s.io_events
+              |>)`,
+  strip_tac
+  \\ simp[hello_ag32_ffi_def]
+  \\ drule (GEN_ALL hello_ag32_ffi_1_spec)
+  \\ disch_then drule
+  \\ disch_then SUBST_ALL_TAC
+  \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s2`
+  \\ qspecl_then[`s2`,`0w`,`bs`]mp_tac hello_ag32_ffi_2_spec
+  \\ impl_tac
+  >- ( simp[Abbr`s2`,APPLY_UPDATE_THM] \\ fs[] )
+  \\ disch_then(CHOOSE_THEN SUBST_ALL_TAC)
+  \\ simp[hello_ag32_ffi_3_spec]
+  \\ simp[Abbr`s2`,ag32Theory.ag32_state_component_equality,
+          APPLY_UPDATE_THM,FUN_EQ_THM]
+  \\ rw[]
+  \\ DEP_REWRITE_TAC[asm_write_bytearray_append]
+  \\ fs[]
+  \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def,APPLY_UPDATE_THM]);
 
 (*
     on entering real FFI code:
