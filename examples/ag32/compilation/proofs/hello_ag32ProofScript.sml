@@ -1231,18 +1231,86 @@ val hello_ag32_ffi_def = Define`
   hello_ag32_ffi s =
     hello_ag32_ffi_3 (hello_ag32_ffi_2 (hello_ag32_ffi_1 s))`;
 
-(*
-val hello_ag32_ffi_1_correct = Q.store_thm("hello_ag32_ffi_1_correct",
-  `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 4)) ∧
-   (s.R 3w = ptr) ∧
-   (s.R 4w = n2w (LENGTH bs)) ∧
-   bytes_in_memory ptr bs s.MEM md
+val hello_ag32_ffi_1_spec = Q.store_thm("hello_ag32_ffi_1_spec",
+  `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
+   (* (s.R 3w = ptr) ∧ *)
+   (s.R 4w = len) (* ∧ bytes_in_memory ptr bs s.MEM md *)
    ⇒
-   ((hello_ag32_ffi_1 s).R 1w = r0) ∧
-   ((hello_ag32_ffi_1 s).R 4w = r0 + n2w (LENGTH bs))
-  `,
-*)
+   (hello_ag32_ffi_1 s =
+    s with <| R := ((1w =+ r0) ((2w =+ n2w (heap_size + 4 * LENGTH data + 8)) ((4w =+ r0 + len) s.R)))
+            ; PC := s.PC + 12w
+            |>)`,
+  rw[hello_ag32_ffi_1_def, ag32Theory.incPC_def]
+  \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
+  \\ rw[] \\ fs[]);
 
+(*
+val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
+  `∀s i bs.
+   (s.R 1w = r0 + i) ∧
+   (s.R 4w = r0 + i + n2w (LENGTH bs)) ∧
+   (s.R 3w = ptr + i) ∧
+   (∀w. r0 <=+ w ∧ w <+ r0 + i + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
+   bytes_in_memory (ptr + i) bs s.MEM dm ∧
+   w2n ptr + w2n i + LENGTH bs < dimword(:32) ∧
+   w2n r0 + w2n i + LENGTH bs < dimword(:32)
+   ⇒
+   (∃r2.
+    (hello_ag32_ffi_2 s =
+     s with <| PC := s.PC + (4w * 6w)
+             ; R  := ((3w =+ ptr + i + n2w (LENGTH bs))
+                      ((1w =+ r0 + i + n2w (LENGTH bs))
+                       ((2w =+ r2) s.R)))
+             ; MEM := asm_write_bytearray r0 bs s.MEM
+             |>))`,
+  Induct_on`bs`
+  >- (
+    rw[lab_to_targetProofTheory.asm_write_bytearray_def]
+    \\ simp[Once hello_ag32_ffi_2_def]
+    \\ simp[ag32Theory.ag32_state_component_equality, FUN_EQ_THM, APPLY_UPDATE_THM]
+    \\ qexists_tac`s.R 2w`
+    \\ rw[] \\ rw[] )
+  \\ rw[]
+  \\ simp[Once hello_ag32_ffi_2_def]
+  \\ IF_CASES_TAC
+  >- (
+    fs[ag32Theory.print_string_max_length_def]
+    \\ Cases_on`i` \\ Cases_on`r0` \\ fs[word_add_n2w,ADD1]
+    \\ qpat_x_assum`_ _  < _`assume_tac \\ fs[] )
+  \\ simp[ag32Theory.incPC_def]
+  \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s1`
+  \\ first_x_assum(qspec_then`s1`mp_tac)
+  \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ disch_then(qspec_then`i + 1w`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[ADD1, GSYM word_add_n2w]
+    \\ reverse conj_tac
+    >- ( Cases_on`i` \\ Cases_on`r0` \\ fs[word_add_n2w] )
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rw[] \\ fs[]
+    \\ `F` suffices_by fs[]
+    \\ qpat_x_assum`_ ∈ dm`mp_tac
+    \\ simp[]
+    \\ first_x_assum match_mp_tac
+    \\ Cases_on`i` \\ fs[]
+    \\ Cases_on`r0` \\ fs[]
+    \\ Cases_on`ptr` \\ fs[word_lo_n2w, word_add_n2w,word_ls_n2w]
+    \\ rpt(qpat_x_assum`_ _  < _`mp_tac)
+    \\ strip_tac
+    \\ strip_tac
+    \\ fs[]
+    \\ rfs[] \\ rw[]
+
+    \\ rfs[]
+    \\ fs[]
+
+
+    \\ rfs[]
+*)
 
 (*
     on entering real FFI code:
