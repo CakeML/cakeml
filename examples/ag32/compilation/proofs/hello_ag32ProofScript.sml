@@ -109,7 +109,10 @@ val interference_implemented_def = Define`
     (∀n. mc.next_interfer n = next_interfer) ∧
     (∀n. mc.ccache_interfer n = ccache_interfer) ∧
     (∀n. mc.ffi_interfer n = ffi_interfer) ∧
-    ∀ms k0. (ms = FUNPOW mc.target.next k0 ms0) ⇒
+    ∀ms k0.
+      (ms = FUNPOW mc.target.next k0 ms0) ∧
+      (∀x. x ∉ md ∧ x ∉ mc.prog_addresses ⇒ (mc.target.get_byte ms x = mc.target.get_byte ms0 x))
+      ⇒
       (mc.target.get_pc ms ∈ mc.prog_addresses ∧
        encoded_bytes_in_mem mc.target.config (mc.target.get_pc ms)
          (mc.target.get_byte ms) mc.prog_addresses ∧
@@ -176,7 +179,10 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
       fs[interference_implemented_def]
       \\ conj_tac >- (
         qx_gen_tac`k0`
-        \\ first_assum(qspec_then`0`(mp_tac o CONJUNCT1))
+        \\ strip_tac
+        \\ first_assum(qspec_then`0`mp_tac)
+        \\ impl_tac >- fs[]
+        \\ disch_then(mp_tac o CONJUNCT1)
         \\ impl_tac >- fs[]
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
         \\ fs[GSYM FUNPOW_ADD]
@@ -188,9 +194,10 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
       \\ simp[] \\ rw[] \\ fs[] )
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
-    \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT1))
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ impl_tac >- fs[]
     \\ simp[]
-    \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+    \\ disch_then(qx_choose_then`k2`strip_assume_tac o CONJUNCT1)
     \\ fs[GSYM FUNPOW_ADD]
     \\ qexists_tac`k1+k2+1` \\ rw[FUNPOW_ADD])
   >- (
@@ -200,23 +207,26 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
       conj_tac >- (
         fs[interference_implemented_def]
         \\ qx_gen_tac`k0`
-        \\ first_assum(qspec_then`0`(mp_tac o CONJUNCT1 o CONJUNCT2))
+        \\ first_assum(qspec_then`0`mp_tac)
+        \\ impl_tac >- fs[]
+        \\ disch_then(mp_tac o CONJUNCT1 o CONJUNCT2)
         \\ impl_tac >- fs[]
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
         \\ fs[GSYM FUNPOW_ADD] \\ rw[]
-        \\ first_x_assum(qspec_then`k0+k1`(mp_tac o CONJUNCT2 o CONJUNCT2))
+        \\ first_x_assum(qspec_then`k0+k1`mp_tac)
         \\ simp[]
+        \\ disch_then(mp_tac o CONJUNCT2 o CONJUNCT2)
         \\ disch_then drule \\ rw[])
       \\ fs[interference_implemented_def]
-      \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT1 o CONJUNCT2))
+      \\ first_x_assum(qspec_then`0`mp_tac)
       \\ simp[]
-      \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+      \\ disch_then(qx_choose_then`k1`strip_assume_tac o CONJUNCT1)
       \\ fs[GSYM FUNPOW_ADD])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
-    \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT1 o CONJUNCT2))
+    \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[]
-    \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+    \\ disch_then(qx_choose_then`k2`strip_assume_tac o CONJUNCT1)
     \\ fs[GSYM FUNPOW_ADD]
     \\ qexists_tac`k1+k2` \\ rw[])
   >- (
@@ -230,7 +240,9 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
       conj_tac >- (
         fs[interference_implemented_def]
         \\ qx_gen_tac`k0`
-        \\ first_assum(qspec_then`0`(mp_tac o CONJUNCT2 o CONJUNCT2))
+        \\ first_assum(qspec_then`0`mp_tac)
+        \\ impl_tac >- fs[]
+        \\ disch_then(mp_tac o CONJUNCT2 o CONJUNCT2)
         \\ simp_tac(srw_ss())[]
         \\ disch_then drule
         \\ disch_then drule
@@ -239,10 +251,11 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
         \\ disch_then drule
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
         \\ fs[GSYM FUNPOW_ADD]
-        \\ first_x_assum(qspec_then`k0+k1`(mp_tac o CONJUNCT2 o CONJUNCT2))
-        \\ simp[] )
+        \\ strip_tac
+        \\ first_x_assum(qspec_then`k0+k1`mp_tac)
+        \\ simp[] \\ rw[])
       \\ fs[interference_implemented_def]
-      \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT2 o CONJUNCT2))
+      \\ first_x_assum(qspec_then`0`mp_tac)
       \\ simp[]
       \\ disch_then drule
       \\ disch_then drule
@@ -250,7 +263,7 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
       \\ fs[GSYM FUNPOW_ADD])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
-    \\ first_x_assum(qspec_then`0`(mp_tac o CONJUNCT2 o CONJUNCT2))
+    \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[]
     \\ disch_then drule
     \\ disch_then drule
@@ -1096,9 +1109,9 @@ val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail
 (*
 
 structure hello_ag32CompileTheory = struct
-  val config_def = Define`config : 32 lab_to_target$config = <| ffi_names := SOME ["hello"] |>`;
-  val code_def = Define`code = [72w; 57w; 242w; 15w; 131w; 11w; 0w; 0w] : word8 list`;
-  val data_def = Define`data = [4w; 24w; 31w; 12w; 15w; 3w; 62w; 63w; 127w] : word32 list`;
+  val config_def = zDefine`config : 32 lab_to_target$config = <| ffi_names := SOME ["hello"] |>`;
+  val code_def = zDefine`code = [72w; 57w; 242w; 15w; 131w; 11w; 0w; 0w] : word8 list`;
+  val data_def = zDefine`data = [4w; 24w; 31w; 12w; 15w; 3w; 62w; 63w; 127w] : word32 list`;
 end
 val hello_compiled = mk_thm([],``compile (ag32_backend_config with word_to_word_conf := <|reg_alg := 2; col_oracle := ARB|>)
   hello_prog = SOME(code,data,config)``);
@@ -1305,6 +1318,73 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   \\ pop_assum SUBST1_TAC
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
   \\ EVAL_TAC);
+
+val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
+  `byte_aligned r0 ∧
+   (pc = r0 + n2w (heap_size + 4 * LENGTH data + ffi_offset))
+  ⇒
+   ((hello_init_memory r0 (pc + 3w) @@
+    ((hello_init_memory r0 (pc + 2w) @@
+      ((hello_init_memory r0 (pc + 1w) @@
+        hello_init_memory r0 (pc)) : word16)) : word24)) =
+    Encode (Jump (fSnd, 0w, Reg 0w)))`,
+  strip_tac
+  \\ pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
+  \\ simp[hello_init_memory_def]
+  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
+  \\ `aligned 2 pc`
+  by (
+    simp[Abbr`pc`]
+    \\ (alignmentTheory.aligned_add_sub_cor
+        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+    \\ simp[]
+    \\ EVAL_TAC )
+  \\ simp[align_add_aligned_gen]
+  \\ simp[Abbr`pc`]
+  \\ qmatch_goalsub_abbrev_tac`r0 + x`
+  \\ `align 2 (r0 + x) = r0 + x` by fs[alignmentTheory.aligned_def]
+  \\ `r0 + x = byte_align (r0 + x)` by fs[alignmentTheory.byte_align_def]
+  \\ qhdtm_x_assum`align`SUBST_ALL_TAC
+  \\ simp_tac(srw_ss())[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ once_rewrite_tac[WORD_ADD_COMM]
+  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+  \\ conj_tac >- EVAL_TAC
+  \\ DEP_REWRITE_TAC[
+       data_to_word_memoryProofTheory.get_byte_byte_align
+       |> Q.GEN`a'` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[]]
+  \\ conj_tac >- EVAL_TAC
+  \\ DEP_REWRITE_TAC[w2n_add]
+  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
+  \\ conj_tac
+  >- ( simp[Abbr`x`] \\ EVAL_TAC )
+  \\ conj_tac
+  >- ( simp[Abbr`x`] \\ EVAL_TAC )
+  \\ qmatch_goalsub_abbrev_tac`_ = h`
+  \\ `∃l1 l2. (hello_init_memory_words = l1 ++ l2) ∧
+              (LENGTH l1 = w2n x DIV 4) ∧
+              (l2 <> [] ∧ (HD l2 = h))` by (
+    simp[hello_init_memory_words_def]
+    \\ qmatch_goalsub_abbrev_tac`l1 ++ (j::l2)`
+    \\ qexists_tac`l1 ++ TAKE 4 (j::l2)`
+    \\ simp[Abbr`l1`,Abbr`j`,Abbr`l2`]
+    \\ simp[Abbr`x`]
+    \\ EVAL_TAC )
+  \\ simp[EL_APPEND_EQN]
+  \\ simp[GSYM alignmentTheory.byte_align_def]
+  \\ qmatch_goalsub_abbrev_tac`w2n z`
+  \\ `w2n z DIV 4 = 0` by ( simp[Abbr`z`] \\ EVAL_TAC ) \\ pop_assum SUBST_ALL_TAC
+  \\ qunabbrev_tac`z`
+  \\ qmatch_goalsub_abbrev_tac`w2n z`
+  \\ `w2n z DIV 4 = 0` by ( simp[Abbr`z`] \\ EVAL_TAC ) \\ pop_assum SUBST_ALL_TAC
+  \\ qunabbrev_tac`z`
+  \\ qmatch_goalsub_abbrev_tac`w2n z`
+  \\ `w2n z DIV 4 = 0` by ( simp[Abbr`z`] \\ EVAL_TAC ) \\ pop_assum SUBST_ALL_TAC
+  \\ qunabbrev_tac`z`
+  \\ simp[]
+  \\ EVAL_TAC
+  \\ blastLib.BBLAST_TAC );
 
 (*
 Memory layout:
@@ -2125,6 +2205,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
               EVAL``ag32_target.next``,
               EVAL``ag32_target.get_byte``]
       \\ qx_gen_tac`k0`
+      \\ strip_tac
       \\ conj_tac
       >- (
         qmatch_goalsub_abbrev_tac`inmd ∧ encoded_bytes_in_mem _ pc m md ∧ _ ⇒ _`
@@ -2179,7 +2260,107 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ drule ag32_enc_not_Interrupt
         \\ simp[] )
       \\ conj_tac
-      >- cheat (* ccache implementation ok. need interference_implemented to say that the code for ccache is intact *)
+      >- (
+        pop_assum mp_tac
+        \\ simp[LENGTH_data,LENGTH_code,heap_size_def,lab_to_targetTheory.ffi_offset_def,
+                ag32Theory.print_string_max_length_def]
+        \\ ntac 2 strip_tac
+        \\ qexists_tac`1`
+        \\ simp[]
+        \\ conj_asm1_tac
+        >- (
+          simp[ag32Theory.Next_def]
+          \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
+          \\ qmatch_asmsub_abbrev_tac`_.PC = pc`
+          \\ `aligned 2 pc`
+          by (
+            simp[Abbr`pc`]
+            \\ (alignmentTheory.aligned_add_sub_cor
+                |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+                |> irule)
+            \\ fs[alignmentTheory.byte_aligned_def]
+            \\ EVAL_TAC )
+          \\ `pc = pc'`
+          by (
+            pop_assum mp_tac
+            \\ unabbrev_all_tac
+            \\ simp[alignmentTheory.aligned_extract]
+            \\ blastLib.BBLAST_TAC )
+          \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
+          \\ pop_assum (SUBST_ALL_TAC o SYM)
+          \\ first_assum(qspec_then`pc`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ first_assum(qspec_then`pc + 1w`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ first_assum(qspec_then`pc + 2w`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ first_assum(qspec_then`pc + 3w`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ simp[]
+          \\ ntac 4 (disch_then kall_tac)
+          \\ drule hello_startup_clock_def
+          \\ simp[]
+          \\ disch_then drule
+          \\ strip_tac
+          \\ first_assum(qspec_then`pc`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`, hello_machine_config_def, heap_size_def,
+                 LENGTH_data, LENGTH_code, lab_to_targetTheory.ffi_offset_def]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ first_assum(qspec_then`pc + 1w`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`, hello_machine_config_def, heap_size_def,
+                 LENGTH_data, LENGTH_code, lab_to_targetTheory.ffi_offset_def]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ first_assum(qspec_then`pc + 2w`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`, hello_machine_config_def, heap_size_def,
+                 LENGTH_data, LENGTH_code, lab_to_targetTheory.ffi_offset_def]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ first_assum(qspec_then`pc + 3w`mp_tac)
+          \\ impl_tac
+          >- (
+            simp[Abbr`pc`, hello_machine_config_def, heap_size_def,
+                 LENGTH_data, LENGTH_code, lab_to_targetTheory.ffi_offset_def]
+            \\ Cases_on`r0`
+            \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+          \\ simp[]
+          \\ ntac 4 (disch_then kall_tac)
+          \\ fs[ag32_targetTheory.is_ag32_init_state_def]
+          \\ DEP_REWRITE_TAC[hello_init_memory_ccache]
+          \\ conj_tac
+          >- ( simp[Abbr`pc`] \\ EVAL_TAC )
+          \\ simp[ag32_targetProofTheory.Decode_Encode]
+          \\ simp[ag32Theory.Run_def]
+          \\ simp[ag32Theory.dfn'Jump_def]
+          \\ simp[ag32Theory.ALU_def]
+          \\ simp[Abbr`pc`]
+          \\ simp[ag32Theory.ri2word_def])
+        \\ pop_assum(SUBST_ALL_TAC o SYM)
+        \\ conj_tac >- simp[ag32_ffi_rel_def,FUN_EQ_THM]
+        \\ simp[] )
       \\ rpt gen_tac
       \\ cheat (* ffi implementation ok. need interference_implemented to say that the code for ffi is intact *))
     \\ simp[ag32_ffi_rel_def,Abbr`st`]
