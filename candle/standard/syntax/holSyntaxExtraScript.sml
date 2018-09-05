@@ -4,7 +4,7 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 val _ = new_theory"holSyntaxExtra"
 
 val _ = Parse.temp_overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
-                  
+
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
@@ -3373,7 +3373,6 @@ val is_std_sig_extends = Q.store_thm("is_std_sig_extends",
   metis_tac[] )
 
 (* init_ctxt well-formed *)
-                                    
 val init_ctxt_wf = Q.store_thm("init_ctxt_wf",
   `wf_ctxt init_ctxt`,
   simp[wf_ctxt_def]
@@ -5292,5 +5291,5 @@ val cyclic_IMP_wf = Q.store_thm("cyclic_IMP_wf",
   `!ctxt. ~cyclic ctxt ==> wf_ctxt ctxt`,
   cheat
   );
-                                 
+
 val _ = export_theory()
