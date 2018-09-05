@@ -1218,27 +1218,27 @@ val LENGTH_words_of_bytes_hello_startup_code =
 (* algorithm (shallow embedding) for the FFI implementation *)
 val hello_ag32_ffi_1_def = Define`
   hello_ag32_ffi_1 s =
-    let s = incPC () (s with R := ((2w =+ n2w (heap_size + 4 * LENGTH data + 8)) s.R)) in
-    let s = incPC () (s with R := ((1w =+ (s.R 1w) - (s.R 2w)) s.R)) in
-    let s = incPC () (s with R := ((4w =+ (s.R 1w) + (s.R 4w)) s.R)) in
+    let s = incPC () (s with R := ((4w =+ n2w (heap_size + 4 * LENGTH data + 8)) s.R)) in
+    let s = incPC () (s with R := ((3w =+ (s.R 3w) - (s.R 4w)) s.R)) in
+    let s = incPC () (s with R := ((2w =+ (s.R 3w) + (s.R 2w)) s.R)) in
     s`;
 
 val hello_ag32_ffi_2_def = tDefine"hello_ag32_ffi_2"`
   hello_ag32_ffi_2 s =
-    if (s.R 1w) = (s.R 4w)
+    if (s.R 3w) = (s.R 2w)
     then s with PC := s.PC + (4w * 6w)
     else
-    let s = incPC () (incPC () s with R := ((2w =+ w2w (s.MEM (s.R 3w))) s.R)) in
-    let s = incPC () (s with MEM := (((s.R 1w) =+ w2w (s.R 2w)) s.MEM)) in
-    let s = incPC () (s with R := ((3w =+ (s.R 3w) + 1w) s.R)) in
+    let s = incPC () (incPC () s with R := ((4w =+ w2w (s.MEM (s.R 1w))) s.R)) in
+    let s = incPC () (s with MEM := (((s.R 3w) =+ w2w (s.R 4w)) s.MEM)) in
     let s = incPC () (s with R := ((1w =+ (s.R 1w) + 1w) s.R)) in
+    let s = incPC () (s with R := ((3w =+ (s.R 3w) + 1w) s.R)) in
     hello_ag32_ffi_2 (s with PC := s.PC + (4w * -5w))`
   (simp[APPLY_UPDATE_THM,ag32Theory.incPC_def]
-   \\ wf_rel_tac`measure (λs. w2n(s.R 4w - s.R 1w ))`
+   \\ wf_rel_tac`measure (λs. w2n(s.R 2w - s.R 3w ))`
    \\ simp[APPLY_UPDATE_THM]
    \\ rw[]
-   \\ Cases_on`s.R 1w`
-   \\ Cases_on`s.R 4w`
+   \\ Cases_on`s.R 3w`
+   \\ Cases_on`s.R 2w`
    \\ fs[WORD_LEFT_ADD_DISTRIB]
    \\ rewrite_tac[WORD_ADD_ASSOC]
    \\ irule(SIMP_RULE(srw_ss())[]WORD_PRED_THM)
@@ -1249,7 +1249,7 @@ val hello_ag32_ffi_2_def = tDefine"hello_ag32_ffi_2"`
 
 val hello_ag32_ffi_3_def = Define`
   hello_ag32_ffi_3 s =
-    let s = incPC () (s with MEM := (((s.R 1w) =+ 0w) s.MEM)) in
+    let s = incPC () (s with MEM := (((s.R 2w) =+ 0w) s.MEM)) in
     let s = incPC () (s with R := ((1w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((2w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((3w =+ 0w) s.R)) in
@@ -1262,12 +1262,11 @@ val hello_ag32_ffi_def = Define`
     hello_ag32_ffi_3 (hello_ag32_ffi_2 (hello_ag32_ffi_1 s))`;
 
 val hello_ag32_ffi_1_spec = Q.store_thm("hello_ag32_ffi_1_spec",
-  `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
-   (* (s.R 3w = ptr) ∧ *)
-   (s.R 4w = len) (* ∧ bytes_in_memory ptr bs s.MEM md *)
+  `(s.R 3w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
+   (s.R 2w = len)
    ⇒
    (hello_ag32_ffi_1 s =
-    s with <| R := ((1w =+ r0) ((2w =+ n2w (heap_size + 4 * LENGTH data + 8)) ((4w =+ r0 + len) s.R)))
+    s with <| R := ((3w =+ r0) ((4w =+ n2w (heap_size + 4 * LENGTH data + 8)) ((2w =+ r0 + len) s.R)))
             ; PC := s.PC + 12w
             |>)`,
   rw[hello_ag32_ffi_1_def, ag32Theory.incPC_def]
@@ -1276,20 +1275,20 @@ val hello_ag32_ffi_1_spec = Q.store_thm("hello_ag32_ffi_1_spec",
 
 val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
   `∀s i bs.
-   (s.R 1w = r0 + i) ∧
-   (s.R 4w = r0 + i + n2w (LENGTH bs)) ∧
-   (s.R 3w = ptr + i) ∧
+   (s.R 3w = r0 + i) ∧
+   (s.R 2w = r0 + i + n2w (LENGTH bs)) ∧
+   (s.R 1w = ptr + i) ∧
    (∀w. r0 + i <=+ w ∧ w <+ r0 + i + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
    bytes_in_memory (ptr + i) bs s.MEM dm ∧
    w2n ptr + w2n i + LENGTH bs < dimword(:32) ∧
    w2n r0 + w2n i + LENGTH bs < dimword(:32)
    ⇒
-   (∃r2.
+   (∃r4.
     (hello_ag32_ffi_2 s =
      s with <| PC := s.PC + (4w * 6w)
-             ; R  := ((3w =+ ptr + i + n2w (LENGTH bs))
-                      ((1w =+ r0 + i + n2w (LENGTH bs))
-                       ((2w =+ r2) s.R)))
+             ; R  := ((1w =+ ptr + i + n2w (LENGTH bs))
+                      ((3w =+ r0 + i + n2w (LENGTH bs))
+                       ((4w =+ r4) s.R)))
              ; MEM := asm_write_bytearray (r0 + i) bs s.MEM
              |>))`,
   Induct_on`bs`
@@ -1297,7 +1296,7 @@ val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
     rw[lab_to_targetProofTheory.asm_write_bytearray_def]
     \\ simp[Once hello_ag32_ffi_2_def]
     \\ simp[ag32Theory.ag32_state_component_equality, FUN_EQ_THM, APPLY_UPDATE_THM]
-    \\ qexists_tac`s.R 2w`
+    \\ qexists_tac`s.R 4w`
     \\ rw[] \\ rw[] )
   \\ rw[]
   \\ simp[Once hello_ag32_ffi_2_def]
@@ -1347,7 +1346,7 @@ val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
     \\ first_x_assum match_mp_tac
     \\ simp[word_add_n2w,word_ls_n2w,word_lo_n2w] )
   \\ strip_tac
-  \\ qexists_tac`r2`
+  \\ qexists_tac`r4`
   \\ qmatch_asmsub_abbrev_tac`hello_ag32_ffi_2 s1`
   \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s2`
   \\ `s1 = s2` by simp[Abbr`s1`,Abbr`s2`]
@@ -1373,16 +1372,16 @@ val hello_ag32_ffi_3_spec = Q.store_thm("hello_ag32_ffi_3_spec",
      s with <|
        R := (0w =+ s.PC + (4w * 7w)) ((4w =+ 0w) ((3w =+ 0w) ((2w =+ 0w) ((1w =+ 0w) s.R)))) ;
        PC := s.R 0w ;
-       MEM := ((s.R 1w) =+ 0w) s.MEM ;
-       io_events := (((s.R 1w) =+ 0w) s.MEM) :: s.io_events
+       MEM := ((s.R 2w) =+ 0w) s.MEM ;
+       io_events := (((s.R 2w) =+ 0w) s.MEM) :: s.io_events
        |>`,
   rw[hello_ag32_ffi_3_def,ag32Theory.incPC_def]
   \\ rw[ag32Theory.ag32_state_component_equality,APPLY_UPDATE_THM]);
 
 val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
-  `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
-   (s.R 4w = n2w (LENGTH bs)) ∧
-   (s.R 3w = ptr) ∧
+  `(s.R 3w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
+   (s.R 2w = n2w (LENGTH bs)) ∧
+   (s.R 1w = ptr) ∧
    (∀w. r0 <=+ w ∧ w <+ r0 + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
    bytes_in_memory ptr bs s.MEM dm ∧
    w2n ptr + LENGTH bs < dimword(:32) ∧
@@ -1419,20 +1418,20 @@ val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
 (*
     on entering real FFI code:
       r0 = return address
-      r1 = start_address + heap_size + 4 * LENGTH data + 8
-      r2 = (temporary)
-      r3 = pointer to string
-      r4 = length of string
-    r2 <- heap_size + 4 * LENGTH data + 8
-    r1 <- r1 - r2                                (* r1 is now start_address *)
-    r4 <- r1 + r4                                (* r4 is now the address to write the terminating null *)
-    jump forward 6 if r1 = r4
-    r2 <- m[r3]
-    m[r1] <- r2                                  (* (r4 - r1)'th char of string written *)
-    r3 <- r3 + 1                                 (* increment string pointer *)
-    r1 <- r1 + 1                                 (* increment target pointer *)
+      r1 = pointer to string
+      r2 = length of string
+      r3 = start_address + heap_size + 4 * LENGTH data + 8
+      r4 = (temporary)
+    r4 <- heap_size + 4 * LENGTH data + 8
+    r3 <- r3 - r4                                (* r3 is now start_address *)
+    r2 <- r3 + r2                                (* r2 is now the address to write the terminating null *)
+    jump forward 6 if r3 = r2
+    r4 <- m[r1]
+    m[r3] <- r4                                  (* (r2 - r3)'th char of string written *)
+    r1 <- r1 + 1                                 (* increment string pointer *)
+    r3 <- r3 + 1                                 (* increment target pointer *)
     jump back 5
-    m[r1] <- 0w
+    m[r2] <- 0w
     r1 <- 0w (* reset registers to    *)
     r2 <- 0w (* avoid having to       *)
     r3 <- 0w (* specify their values  *)
@@ -1445,16 +1444,16 @@ val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
 *)
 val hello_ag32_ffi_code_def = Define`
   hello_ag32_ffi_code =
-    [LoadConstant(2w, F, (n2w (heap_size + 4 * LENGTH data + 8)))
-    ;Normal(fSub, 1w, Reg 1w, Reg 2w)
-    ;Normal(fAdd, 4w, Reg 1w, Reg 4w)
-    ;JumpIfNotZero(fEqual, Imm (4w * 6w), Reg 1w, Reg 4w)
-    ;LoadMEMByte(2w, Reg 3w)
-    ;StoreMEMByte(Reg 2w, Reg 1w)
-    ;Normal(fInc, 3w, Reg 3w, Imm 0w)
+    [LoadConstant(4w, F, (n2w (heap_size + 4 * LENGTH data + 8)))
+    ;Normal(fSub, 3w, Reg 3w, Reg 4w)
+    ;Normal(fAdd, 2w, Reg 3w, Reg 2w)
+    ;JumpIfNotZero(fEqual, Imm (4w * 6w), Reg 3w, Reg 2w)
+    ;LoadMEMByte(4w, Reg 1w)
+    ;StoreMEMByte(Reg 4w, Reg 3w)
     ;Normal(fInc, 1w, Reg 1w, Imm 0w)
+    ;Normal(fInc, 2w, Reg 2w, Imm 0w)
     ;JumpIfZero(fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)
-    ;StoreMEMByte(Imm 0w, Reg 1w)
+    ;StoreMEMByte(Imm 0w, Reg 2w)
     ;Normal(fSnd, 1w, Imm 0w, Imm 0w)
     ;Normal(fSnd, 2w, Imm 0w, Imm 0w)
     ;Normal(fSnd, 3w, Imm 0w, Imm 0w)
@@ -1630,14 +1629,18 @@ val hello_machine_config_def = Define`
         ms with <| PC := (ms.R 0w) ;
                    R := (0w =+ r0 + n2w(heap_size + 4 * LENGTH data + ffi_offset + 4)) ms.R |> );
     ffi_interfer :=
-      K (λ(_,bs,ms). ms with <| PC := (ms.R 0w) ;
+      K (λ(_,_,ms). ms with <| PC := (ms.R 0w) ;
                                 R := ((0w =+ r0 + n2w(heap_size + 4 * LENGTH data + 3 * ffi_offset
                                                      + LENGTH code + 4 * LENGTH hello_ag32_ffi_code))
                                      ((1w =+ 0w)
                                      ((2w =+ 0w)
                                      ((3w =+ 0w)
                                      ((4w =+ 0w) (ms.R)))))) ;
-                                MEM := asm_write_bytearray (ms.R 3w) bs ms.MEM|>)
+                                MEM := asm_write_bytearray r0
+                                  (THE(read_bytearray (ms.R 1w) (w2n (ms.R 2w))
+                                         (SOME o ms.MEM))
+                                   ++[0w])
+                                  ms.MEM|>)
   |>`
 
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
@@ -2066,8 +2069,11 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ conj_tac
     >- (
       rw[]
-      \\ irule mem_eq_imp_asm_write_bytearray_eq
-      \\ rfs[] )
+      \\ `new_bytes = []` by cheat (* ffi_interfer_ok should assume the ffi is called *)
+      \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
+      \\ irule asm_write_bytearray_unchanged
+      \\ simp[]
+      \\ cheat (* same requirement as above *))
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
     \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]
