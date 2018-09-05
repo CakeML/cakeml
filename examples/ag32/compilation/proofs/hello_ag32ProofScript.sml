@@ -1334,7 +1334,7 @@ val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
   \\ `aligned 2 pc`
   by (
-    simp[Abbr`pc`]
+    simp[Abbr`pc`, LENGTH_data]
     \\ (alignmentTheory.aligned_add_sub_cor
         |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
         |> irule)
@@ -1360,7 +1360,7 @@ val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   \\ conj_tac
   >- ( simp[Abbr`x`] \\ EVAL_TAC )
   \\ conj_tac
-  >- ( simp[Abbr`x`] \\ EVAL_TAC )
+  >- ( simp[Abbr`x`,LENGTH_data] \\ EVAL_TAC )
   \\ qmatch_goalsub_abbrev_tac`_ = h`
   \\ `∃l1 l2. (hello_init_memory_words = l1 ++ l2) ∧
               (LENGTH l1 = w2n x DIV 4) ∧
@@ -1369,21 +1369,10 @@ val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
     \\ qmatch_goalsub_abbrev_tac`l1 ++ (j::l2)`
     \\ qexists_tac`l1 ++ TAKE 4 (j::l2)`
     \\ simp[Abbr`l1`,Abbr`j`,Abbr`l2`]
-    \\ simp[Abbr`x`]
+    \\ simp[Abbr`x`,LENGTH_data,LENGTH_hello_startup_code,LENGTH_words_of_bytes_hello_startup_code]
     \\ EVAL_TAC )
   \\ simp[EL_APPEND_EQN]
-  \\ simp[GSYM alignmentTheory.byte_align_def]
-  \\ qmatch_goalsub_abbrev_tac`w2n z`
-  \\ `w2n z DIV 4 = 0` by ( simp[Abbr`z`] \\ EVAL_TAC ) \\ pop_assum SUBST_ALL_TAC
-  \\ qunabbrev_tac`z`
-  \\ qmatch_goalsub_abbrev_tac`w2n z`
-  \\ `w2n z DIV 4 = 0` by ( simp[Abbr`z`] \\ EVAL_TAC ) \\ pop_assum SUBST_ALL_TAC
-  \\ qunabbrev_tac`z`
-  \\ qmatch_goalsub_abbrev_tac`w2n z`
-  \\ `w2n z DIV 4 = 0` by ( simp[Abbr`z`] \\ EVAL_TAC ) \\ pop_assum SUBST_ALL_TAC
-  \\ qunabbrev_tac`z`
-  \\ simp[]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ simp[]
   \\ blastLib.BBLAST_TAC );
 
 (*
@@ -2351,7 +2340,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
           \\ fs[ag32_targetTheory.is_ag32_init_state_def]
           \\ DEP_REWRITE_TAC[hello_init_memory_ccache]
           \\ conj_tac
-          >- ( simp[Abbr`pc`] \\ EVAL_TAC )
+          >- ( simp[Abbr`pc`,LENGTH_data] \\ EVAL_TAC )
           \\ simp[ag32_targetProofTheory.Decode_Encode]
           \\ simp[ag32Theory.Run_def]
           \\ simp[ag32Theory.dfn'Jump_def]
