@@ -5820,6 +5820,8 @@ val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
     \\ simp[]
     \\ disch_then drule
     \\ rw[] \\ fs[]
+    \\ fs[PULL_EXISTS]
+    \\ res_tac \\ fs[]
     \\ NO_TAC )
   \\ imp_res_tac do_app_SUBMAP_Rval
   \\ fs[]
