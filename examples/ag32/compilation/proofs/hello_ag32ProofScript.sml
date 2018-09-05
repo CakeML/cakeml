@@ -1174,41 +1174,70 @@ val words_of_bytes_hello_startup_code_eq =
   |> REWRITE_CONV[hello_startup_code_eq]
   |> CONV_RULE(RAND_CONV EVAL)
 
-(*
-val hello_startup_code_eq_Encode =
-  hello_startup_code_def
-  |> REWRITE_RULE[startup_asm_code_def, MAP, LENGTH_data, LENGTH_code,
-                  lab_to_targetTheory.ffi_offset_def,heap_size_def,
-                  bytes_in_word_def, hello_startup_asm_code_def]
-  |> SIMP_RULE (srw_ss()++LET_ss)
-       [ag32_targetTheory.ag32_enc_def,
-        ag32_targetTheory.ag32_encode_def,
-        ag32_targetTheory.ag32_constant_def,
-        ag32_targetTheory.ag32_bop_def]
-  |> REWRITE_RULE[ag32_targetTheory.ag32_encode1_def]
-
-val words_of_bytes_hello_startup_code_eq_Encode =
-  ``words_of_bytes F hello_startup_code :word32 list``
-  |> SIMP_CONV(std_ss++ARITH_ss++LET_ss)[
-       hello_startup_code_eq_Encode,
-       GSYM APPEND_ASSOC,
-       words_of_bytes_append_word |> INST_TYPE[alpha|->``:32``] |> CONV_RULE(LAND_CONV EVAL),
-       LENGTH, word_of_bytes_extract_bytes_le_32]
-*)
-
 val LENGTH_words_of_bytes_hello_startup_code =
   ``LENGTH (words_of_bytes F hello_startup_code : word32 list)``
   |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
   |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
 
+(* WIP
+(* algorithm (shallow embedding) for the FFI implementation *)
+val hello_ag32_ffi_1_def = Define`
+  hello_ag32_ffi_1 s =
+    let s = incPC () (s with R := ((1w =+ (s.R 1w) - n2w (heap_size + 4 * LENGTH data + 4)) s.R)) in
+    let s = incPC () (s with R := ((4w =+ (s.R 1w) + (s.R 4w)) s.R)) in
+    s`;
+
+val hello_ag32_ffi_2_def = Define`
+  hello_ag32_ffi_2 s =
+    if (s.R 1w) = (s.R 4w) then INL s else
+    let s = s with R := ((2w =+ (word_of_bytes F 0w (GENLIST (s.MEM o ((+) (s.R 3w)) o n2w) 4))) s.R) in
+    let s = s with MEM := (((s.R 1w) =+ (7 >< 0) (s.R 2w)) s.MEM) in
+    let s = s with MEM := (((s.R 1w) + 1w =+ (15 >< 8) (s.R 2w)) s.MEM) in
+    let s = s with MEM := (((s.R 1w) + 2w =+ (23 >< 16) (s.R 2w)) s.MEM) in
+    let s = s with MEM := (((s.R 1w) + 3w =+ (31 >< 24) (s.R 2w)) s.MEM) in
+    let s = s with R := ((3w =+ (s.R 3w) + 1w) s.R) in
+    let s = s with R := ((1w =+ (s.R 1w) + 1w) s.R) in INR s`;
+
+val hello_ag32_ffi_3_def = Define`
+  hello_ag32_ffi_3 s =
+    let s = incPC () (s with MEM := (((s.R 1w) =+ 0w) s.MEM)) in
+    let s = s with MEM := (((s.R 1w) + 1w =+ 0w) s.MEM) in
+    let s = s with MEM := (((s.R 1w) + 2w =+ 0w) s.MEM) in
+    let s = s with MEM := (((s.R 1w) + 3w =+ 0w) s.MEM) in
+    let s = incPC () (s with R := ((1w =+ 0w) s.R)) in
+    let s = incPC () (s with R := ((2w =+ 0w) s.R)) in
+    let s = incPC () (s with R := ((3w =+ 0w) s.R)) in
+    let s = incPC () (s with R := ((4w =+ 0w) s.R)) in
+    let s = incPC () (s with io_events := s.MEM::s.io_events) in
+    s with PC :=
+    `;
+
+val hello_ag32_ffi_def = Define`
+  hello_ag32_ffi s =
+    hello_ag32_ffi_3
+      (OUTL (WHILE ISR (hello_ag32_ffi_2 o OUTR) (INR (hello_ag32_ffi_1 s))))`;
+
+val hello_ag32_ffi_1_correct = Q.store_thm("hello_ag32_ffi_1_correct",
+  `(s.R 1w = r0 + n2w (heap_size + 4 * LENGTH data + 4)) ∧
+   (s.R 3w = ptr) ∧
+   (s.R 4w = n2w (LENGTH bs)) ∧
+   bytes_in_memory ptr bs s.MEM md
+   ⇒
+   ((hello_ag32_ffi_1 s).R 1w = r0) ∧
+   ((hello_ag32_ffi_1 s).R 4w = r0 + n2w (LENGTH bs))
+  `,
+*)
+
+
 (*
     on entering real FFI code:
       r0 = return address
-      r1 = start_address + heap_size + 4 * LENGTH data + 4
+      r1 = start_address + heap_size + 4 * LENGTH data + 8
       r2 = (temporary)
       r3 = pointer to string
       r4 = length of string
-    r1 <- r1 - (heap_size + 4 * LENGTH data + 4) (* r1 is now start_address *)
+    r2 <- heap_size + 4 * LENGTH data + 8
+    r1 <- r1 - r2                                (* r1 is now start_address *)
     r4 <- r1 + r4                                (* r4 is now the address to write the terminating null *)
     jump forward 6 if r1 = r4
     r2 <- m[r3]
@@ -1229,7 +1258,8 @@ val LENGTH_words_of_bytes_hello_startup_code =
 *)
 val hello_ag32_ffi_code_def = Define`
   hello_ag32_ffi_code =
-    [Normal(fSub, 1w, Reg 1w, Imm (n2w (heap_size + 4 * LENGTH data + 4)))
+    [LoadConstant(2w, F, (n2w (heap_size + 4 * LENGTH data + 8)))
+    ;Normal(fSub, 1w, Reg 1w, Reg 2w)
     ;Normal(fAdd, 4w, Reg 1w, Reg 4w)
     ;JumpIfNotZero(fEqual, Imm (4w * 6w), Reg 1w, Reg 4w)
     ;LoadMEMByte(2w, Reg 3w)
@@ -1256,7 +1286,7 @@ val hello_init_memory_words_def = zDefine`
     REPLICATE ((heap_size - LENGTH hello_startup_code - 64) DIV 4) 0w ++
     data ++
     (* ffi setup: jump to real FFI code, and store next location in r1 *)
-    [Encode (Jump (fAdd, 1w, Imm (n2w (44 + LENGTH code)))); 0w; 0w; 0w] (* FFI code *) ++
+    [Encode (LoadConstant (2w, F, (n2w (40 + LENGTH code)))); Encode (Jump (fAdd, 1w, Reg 2w)); 0w; 0w] (* FFI code *) ++
     [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w] (* ccache code *) ++
     [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w] (* halt code *) ++
     words_of_bytes F code ++
@@ -2351,6 +2381,11 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ conj_tac >- simp[ag32_ffi_rel_def,FUN_EQ_THM]
         \\ simp[] )
       \\ rpt gen_tac
+      \\ strip_tac
+      \\ fs[lab_to_targetTheory.ffi_offset_def, heap_size_def,
+            LENGTH_data, LENGTH_code, LENGTH_hello_ag32_ffi_code,
+            ag32Theory.print_string_max_length_def]
+
       \\ cheat (* ffi implementation ok. need interference_implemented to say that the code for ffi is intact *))
     \\ simp[ag32_ffi_rel_def,Abbr`st`]
     \\ CONV_TAC(LAND_CONV EVAL)
