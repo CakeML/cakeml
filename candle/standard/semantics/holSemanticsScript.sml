@@ -300,7 +300,7 @@ val subterm_in_term_frag = Q.store_thm("subterm_in_term_frag",
   `!f. is_sig_fragment f ==> !tm1 tm2. tm1 ∈ terms_of_frag f /\ tm2 subterm tm1 ==>
        tm2 ∈ terms_of_frag f` suffices_by metis_tac[]
   >> ntac 2 strip_tac
-  >> ho_match_mp_tac RTC_lifts_invariants2
+  >> ho_match_mp_tac RTC_lifts_invariants_inv
   >> rpt strip_tac >> imp_res_tac subterm1_in_term_frag);
 
 (* 8(6) *)
@@ -345,45 +345,112 @@ val term_frag_subst_clos = Q.store_thm("subterm_in_term_frag",
       >> match_mp_tac VSUBST_HAS_TYPE
       >> rw[] >> MAP_FIRST MATCH_ACCEPT_TAC (CONJUNCTS has_type_rules)));
 
-`!f. is_sig_fragment f ==> !tm1 tm2. tm1 ∈ terms_of_frag f /\ tm2 subterm tm1 ==>
-       tm2 ∈ terms_of_frag f` suffices_by metis_tac[]
-  >> ntac 2 strip_tac
-  >> ho_match_mp_tac RTC_lifts_invariants2
-  >> rpt strip_tac >> imp_res_tac subterm1_in_term_frag);
+val is_type_frag_interpretation_def = xDefine "is_type_frag_interpretation"`
+  is_type_frag_interpretation0 ^mem (tyfrag: type -> bool) (δ: type -> 'U) ⇔
+    (∀ty. ty ∈ tyfrag ⇒ inhabited(δ ty))`
 
-(* Lemma 4 from Andrei&Ondra, should probably go elsewhere *)
-(*
-  `!ty2 sigma ty1. MEM ty1 (allTypes' ty2)
-   ==>
-   MEM (TYPE_SUBST sigma ty1) (allTypes' (TYPE_SUBST sigma ty2))`,
+val _ = Parse.overload_on("is_type_frag_interpretation",``is_type_frag_interpretation0 ^mem``)
+
+(* Todo: grotesque patterns *)
+val ext_type_frag_builtins_def = xDefine "ext_type_frag_builtins"`
+  ext_type_frag_builtins0 ^mem (δ: type -> 'U) ty ⇔
+  case ty of Bool => boolset
+    |  Fun dom rng => Funspace (ext_type_frag_builtins0 ^mem δ dom)
+                               (ext_type_frag_builtins0 ^mem δ rng)
+    | _ => δ ty`
+
+val _ = Parse.overload_on("ext_type_frag_builtins",``ext_type_frag_builtins0 ^mem``)
+
+val is_type_frag_interpretation_ext = Q.store_thm("is_type_frag_interpretation_ext",
+  `!tyfrag tmfrag δ. is_sig_fragment (tyfrag,tmfrag) /\ is_set_theory ^mem /\ is_type_frag_interpretation tyfrag δ ==>
+   is_type_frag_interpretation (builtin_closure tyfrag) (ext_type_frag_builtins δ)`,
+  rw[] >> rw[is_type_frag_interpretation_def]
+  >> qhdtm_x_assum `is_type_frag_interpretation0` mp_tac
+  >> qhdtm_x_assum `is_sig_fragment` mp_tac    
+  >> pop_assum mp_tac
+  >> simp[boolTheory.IN_DEF]
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`ty`,`tyfrag`]
+  >> ho_match_mp_tac builtin_closure_ind >> rpt strip_tac
+  >- (fs[is_type_frag_interpretation_def,Once ext_type_frag_builtins_def,boolTheory.IN_DEF,
+         is_sig_fragment_def]
+      >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[])
+      >> fs[nonbuiltin_types_def,is_builtin_type_def,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]
+      >> rpt(first_x_assum drule) >> fs[is_builtin_type_def,is_builtin_name_def])
+  >- (fs[is_type_frag_interpretation_def,Once ext_type_frag_builtins_def,boolTheory.IN_DEF,
+         is_sig_fragment_def]
+      >> metis_tac[boolean_in_boolset])
+  >- (rpt(first_x_assum drule >> disch_then drule >> strip_tac)
+      >> drule funspace_inhabited
+      >> rename1 `Fun dty rty`
+      >> disch_then(qspecl_then [`ext_type_frag_builtins δ dty`,
+                                 `ext_type_frag_builtins δ rty`] mp_tac)
+      >> impl_tac >- metis_tac[]
+      >> disch_then assume_tac >> simp[Once ext_type_frag_builtins_def]));
+
+val is_frag_interpretation_def = xDefine "is_frag_interpretation"`
+  is_frag_interpretation0 ^mem (tyfrag,tmfrag)
+                               (δ: type -> 'U) (γ: mlstring # type -> 'U) ⇔
+  (is_type_frag_interpretation tyfrag δ /\
+   ∀(c,ty). (c,ty) ∈ tmfrag ⇒ γ(c,ty) ⋲ ext_type_frag_builtins δ ty)
+  `
+
+val _ = Parse.overload_on("is_frag_interpretation",``is_frag_interpretation0 ^mem``)
+
+(* TODO: grotesque patterns *)
+val ext_term_frag_builtins_def = xDefine "ext_term_frag_builtins"`
+  ext_term_frag_builtins0 ^mem (δ: type -> 'U) (γ: mlstring # type -> 'U) tm =
+  if ?ty. tm = (strlit "=",Fun ty (Fun ty Bool)) then
+    case tm of (_, Fun ty _) =>
+      Abstract (δ ty) (Funspace (δ ty) boolset)
+        (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
+    | _ => γ tm
+  else γ tm
+  `
+
+val _ = Parse.overload_on("ext_term_frag_builtins",``ext_term_frag_builtins0 ^mem``)
+
+val builtin_terms_def = Define
+  `builtin_terms tyfrag = builtin_consts ∩ {const | SND const ∈ tyfrag}`
+
+val ext_type_frag_idem = Q.store_thm("ext_type_frag_idem",
+  `!ty δ.
+    (ext_type_frag_builtins (ext_type_frag_builtins δ) ty)
+     = ext_type_frag_builtins δ ty`,
   ho_match_mp_tac type_ind >> rpt strip_tac
-  >> fs[allTypes'_def]
+  >- (rw[Once ext_type_frag_builtins_def])
+  >> rw[Once ext_type_frag_builtins_def]
   >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[])
-  >> fs[listTheory.MEM_FLAT,listTheory.MEM_MAP]
-  >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[listTheory.EVERY_MEM]
-  >> first_x_assum drule >> disch_then drule
-  >> disch_then(qspec_then `sigma` assume_tac)
-  >> metis_tac[]
-
-
-  `!env sigma t.
-   set(allTypes(RESULT(INST_CORE env sigma t))) = {ty | ?ty' subst. ty = TYPE_SUBST subst ty' /\
-                                                 MEM ty' (allTypes t)}`,
-  ho_match_mp_tac INST_CORE_ind >> rpt strip_tac
-  >- (rw[INST_CORE_def,allTypes_def,holSyntaxLibTheory.REV_ASSOCD]
-      >- (rw[pred_setTheory.SET_EQ_SUBSET,pred_setTheory.SUBSET_DEF]
-          >> 
-
-`!sigma t.
- set(allTypes(INST sigma t)) = {ty | ?ty' subst. ty = TYPE_SUBST subst ty' /\
-                                               MEM ty' (allTypes t)}`,
-  simp[INST_def,TYPE_SUBST_def]
-  >> Induct
-  >>
-  rw[allTypes_def,INST_def,INST_CORE_def,holSyntaxLibTheory.REV_ASSOCD]
-  INST_CORE_ind
-*)
+  >> CONV_TAC(RHS_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))
+  >> simp[]);
+                  
+val is_frag_interpretation_ext = Q.store_thm("is_frag_interpretation_ext",
+  `!tyfrag tmfrag δ γ. is_sig_fragment (tyfrag,tmfrag) /\ is_set_theory ^mem
+           /\ is_frag_interpretation (tyfrag,tmfrag) δ γ==>
+   is_frag_interpretation (builtin_closure tyfrag,
+                           tmfrag ∪ builtin_terms(builtin_closure tyfrag))
+                          (ext_type_frag_builtins δ)
+                          (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)`,
+  rw[is_frag_interpretation_def]
+  >- (match_mp_tac is_type_frag_interpretation_ext >> metis_tac[])
+  >> fs[pairTheory.ELIM_UNCURRY,is_sig_fragment_def] >> rw[]
+  >> Cases_on `x` (* TODO: generated name *)
+  >> rw[ext_term_frag_builtins_def] >> fs[]
+  >- (fs[nonbuiltin_constinsts_def,builtin_consts,pred_setTheory.SUBSET_DEF]
+      >> rpt(first_x_assum drule) >> simp[])
+  >- (first_x_assum drule >> fs[]
+      >> CONV_TAC(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))
+      >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[])
+      >> disch_then(mp_tac o PURE_ONCE_REWRITE_RULE [ext_type_frag_builtins_def])
+      >> fs[ext_type_frag_idem])
+  >- (simp[ext_type_frag_idem]
+      >> CONV_TAC(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))
+      >> CONV_TAC(RAND_CONV(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def])))
+      >> CONV_TAC(RAND_CONV(RAND_CONV(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))))
+      >> drule abstract_in_funspace >> disch_then match_mp_tac
+      >> rw[]
+      >> drule abstract_in_funspace >> disch_then match_mp_tac
+      >> rw[] >> metis_tac[boolean_in_boolset])
+  >- (rfs[builtin_terms_def,builtin_consts] >> metis_tac[]));
 
 (* A type assignment is a map from type operator names to semantic functions.
    Each function takes a list of sets representing the meanings of the
@@ -401,7 +468,7 @@ val is_type_assignment_def = xDefine "is_type_assignment"`
              inhabited ((δ name) ls))
       tysig`
 val _ = Parse.overload_on("is_type_assignment",``is_type_assignment0 ^mem``)
-
+                         
 (* A type valuation is a map from type variable names to non-empty sets. *)
 
 val _ = Parse.type_abbrev("tyval",``:mlstring -> 'U``)
