@@ -544,6 +544,7 @@ val state_rel_def = Define `
        read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
        call_FFI_rel^* s1.ffi st ∧
        call_FFI st (EL index mc_conf.ffi_names) bytes bytes2 = FFI_return new_st new_bytes ∧
+       (mc_conf.prog_addresses = t1.mem_domain) ∧
        target_state_rel mc_conf.target
          (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
        aligned mc_conf.target.config.code_alignment (t1.regs s1.link_reg) ==>
@@ -649,7 +650,8 @@ val state_rel_shift_interfer = Q.prove(
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ res_tac
   \\ full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def]
   \\ first_x_assum irule
-  \\ fs[read_ffi_bytearrays_def, read_ffi_bytearray_def]);
+  \\ fs[read_ffi_bytearrays_def, read_ffi_bytearray_def]
+  \\ metis_tac[]);
 
 (* bytes_in_memory lemmas *)
 
@@ -1402,7 +1404,7 @@ val fp_upd_lemma = Q.prove(`
   >>
     TOP_CASE_TAC>>rfs[]>>fs[labSemTheory.assert_def]>>
     IF_CASES_TAC>>fs[]>>
-    rw[]>>EVAL_TAC>>rw[])
+    rw[]>>EVAL_TAC>>rw[]);
 
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
@@ -1554,6 +1556,8 @@ val Inst_lemma = Q.prove(
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
     >- metis_tac[]
+    >- metis_tac[]
+    >- metis_tac[]
     >-
       (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
       fs[asmSemTheory.read_mem_def]>>
@@ -1681,6 +1685,8 @@ val Inst_lemma = Q.prove(
       >-
         (fs[APPLY_UPDATE_THM]>>
         IF_CASES_TAC>>fs[])
+      >- metis_tac[]
+      >- metis_tac[]
       >- metis_tac[]
       >-
         (simp[APPLY_UPDATE_THM]>>
@@ -5442,7 +5448,7 @@ val compile_correct = Q.prove(
         \\ rw[]
         \\ first_x_assum irule
         \\ rw[]
-        \\ asm_exists_tac \\ simp[]
+        \\ asm_exists_tac \\ simp[] \\ fs[]
         \\ simp[Once RTC_CASES1]
         \\ disj2_tac
         \\ goal_assum(first_assum o mp_then Any mp_tac)
@@ -5597,7 +5603,8 @@ val compile_correct = Q.prove(
       \\ conj_tac >- (
         fs[read_ffi_bytearrays_def, read_ffi_bytearray_def, shift_seq_def]
         \\ rw[] \\ first_x_assum irule
-        \\ rw[] \\ asm_exists_tac \\ rw[] )
+        \\ rw[] \\ asm_exists_tac \\ rw[]
+        \\ fs[])
       \\ conj_tac >- fs[shift_seq_def]
       \\ conj_tac
       >- (
@@ -6054,6 +6061,7 @@ val ffi_interfer_ok_def = Define`
        read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
        call_FFI_rel^* ffi st ∧
        call_FFI st (EL index mc_conf.ffi_names) bytes bytes2 = FFI_return new_st new_bytes ∧
+       (mc_conf.prog_addresses = t1.mem_domain) ∧
        target_state_rel mc_conf.target
          (t1 with
           pc := -n2w ((3 + index) * ffi_offset) + pc)
