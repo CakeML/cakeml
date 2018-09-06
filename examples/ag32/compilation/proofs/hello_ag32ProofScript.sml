@@ -1502,10 +1502,10 @@ val hello_init_memory_words_def = zDefine`
     words_of_bytes F hello_startup_code ++
     REPLICATE ((heap_size - LENGTH hello_startup_code - 64) DIV 4) 0w ++
     data ++
-    (* ffi setup: jump to real FFI code, and store next location in r1 *)
-    [Encode (LoadConstant (2w, F, (n2w (40 + LENGTH code))));
-     Encode (Normal (fAdd, 2w, Imm 0w, Imm 0w));
-     Encode (Jump (fAddWithCarry, 1w, Reg 2w)); 0w] (* FFI code *) ++
+    (* ffi setup: jump to real FFI code, and store next location in r3 *)
+    [Encode (LoadConstant (3w, F, (n2w (40 + LENGTH code))));
+     Encode (Normal (fAdd, 4w, Imm 0w, Imm 0w));
+     Encode (Jump (fAddWithCarry, 3w, Reg 3w)); 0w] (* FFI code *) ++
     [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w] (* ccache code *) ++
     [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w] (* halt code *) ++
     words_of_bytes F code ++
@@ -1632,7 +1632,7 @@ val hello_init_memory_ffi_00 = Q.store_thm("hello_init_memory_ffi_00",
     ((hello_init_memory r0 (pc + 2w) @@
       ((hello_init_memory r0 (pc + 1w) @@
         hello_init_memory r0 (pc)) : word16)) : word24)) =
-    Encode (LoadConstant (2w, F, (n2w (40 + LENGTH code)))))`,
+    Encode (LoadConstant (3w, F, (n2w (40 + LENGTH code)))))`,
   strip_tac
   \\ pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ simp[hello_init_memory_def]
@@ -1688,7 +1688,7 @@ val hello_init_memory_ffi_01 = Q.store_thm("hello_init_memory_ffi_01",
     ((hello_init_memory r0 (pc + 2w) @@
       ((hello_init_memory r0 (pc + 1w) @@
         hello_init_memory r0 (pc)) : word16)) : word24)) =
-    Encode (Normal (fAdd, 2w, Imm 0w, Imm 0w)))`,
+    Encode (Normal (fAdd, 4w, Imm 0w, Imm 0w)))`,
   strip_tac
   \\ pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ simp[hello_init_memory_def]
@@ -1744,7 +1744,7 @@ val hello_init_memory_ffi_02 = Q.store_thm("hello_init_memory_ffi_02",
     ((hello_init_memory r0 (pc + 2w) @@
       ((hello_init_memory r0 (pc + 1w) @@
         hello_init_memory r0 (pc)) : word16)) : word24)) =
-    Encode (Jump (fAddWithCarry, 1w, Reg 2w)))`,
+    Encode (Jump (fAddWithCarry, 3w, Reg 3w)))`,
   strip_tac
   \\ pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ simp[hello_init_memory_def]
@@ -1801,7 +1801,11 @@ val hello_ag32_ffi_code_correct = Q.store_thm("hello_ag32_ffi_code_correct",
       ((s.MEM (pc + 1w) @@
       s.MEM pc) : word16)) : word24)) = Encode (EL n hello_ag32_ffi_code))) ∧
    byte_aligned s.PC ∧
-
+   ¬ s.CarryFlag ∧
+   ¬ s.OverflowFlag ∧
+   (s.R 3w = r0 + n2w (heap_size + 4 * LENGTH data + 8)) ∧
+   (s.R 2w <=+ n2w print_string_max_length) ∧
+   w2n r0 + memory_size < dimword(:32)
    ⇒
    ∃k. (FUNPOW Next k s = hello_ag32_ffi s)`,
   simp[hello_ag32_ffi_def]
@@ -1867,15 +1871,48 @@ val hello_ag32_ffi_code_correct = Q.store_thm("hello_ag32_ffi_code_correct",
   \\ `ss' = ss`
   by (
     simp[Abbr`ss`,Abbr`ss'`, ag32Theory.ag32_state_component_equality]
-    \\ Cases_on`s.R 3w`
     \\ Cases_on`s.R 2w`
+    \\ Cases_on`r0`
     \\ fs[word_add_n2w]
-    \\ DEP_ONCE_REWRITE_TAC[integer_wordTheory.w2i_n2w_neg]
-    \\ simp[]
-    \\ DEP_ONCE_REWRITE_TAC[integer_wordTheory.w2i_n2w_neg]
+    \\ fs[memory_size_def]
+    \\ fs[word_ls_n2w, ag32Theory.print_string_max_length_def] \\ rfs[]
+    \\ simp[GSYM word_add_n2w]
+    \\ once_rewrite_tac[WORD_ADD_COMM]
+    \\ CCONTR_TAC
+    \\ fs[integer_wordTheory.overflow]
+    \\ rfs[word_msb_n2w, word_add_n2w]
+    \\ `¬BIT 31 n`
+    by (
+      strip_tac
+      \\ imp_res_tac bitTheory.BIT_IMP_GE_TWOEXP
+      \\ fs[] )
+    \\ fs[]
+    \\ imp_res_tac bitTheory.BIT_IMP_GE_TWOEXP
+    \\ fs[]
+    \\ qmatch_asmsub_rename_tac`_ ≤ n + m`
+    \\ qmatch_asmsub_abbrev_tac`m + z < d`
+    \\ `m < d - z` by decide_tac
+    \\ fs[Abbr`d`,Abbr`z`]
+    \\ `2 ** 31 ≤
+
+      simp[]
+    bitTheory.NOT_BIT_GT_TWOEXP
+    mm``BIT _ _````2n ** _``
+    f"BIT""
+    BIT
+    BITS_ZERO3
+    integer_wordTheory.different_sign_then_no_overflow
+    f"overflow"
+    m``
+    ff"w2i""over"
+
+    \\ DEP_ONCE_REWRITE_TAC[integer_wordTheory.w2i_n2w_pos]
     \\ simp[]
     \\ DEP_ONCE_REWRITE_TAC[integer_wordTheory.w2i_n2w_pos]
     \\ simp[]
+    \\ DEP_ONCE_REWRITE_TAC[integer_wordTheory.w2i_n2w_pos]
+    \\ simp[]
+    \\ rfs[]
 *)
 
 (*
