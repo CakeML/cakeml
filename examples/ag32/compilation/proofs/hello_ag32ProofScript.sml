@@ -1601,6 +1601,118 @@ val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   \\ EVAL_TAC \\ simp[]
   \\ blastLib.BBLAST_TAC );
 
+val hello_init_memory_ffi_00 = Q.store_thm("hello_init_memory_ffi_00",
+  `byte_aligned r0 ∧
+   (pc = r0 + n2w (heap_size + 4 * LENGTH data))
+  ⇒
+   ((hello_init_memory r0 (pc + 3w) @@
+    ((hello_init_memory r0 (pc + 2w) @@
+      ((hello_init_memory r0 (pc + 1w) @@
+        hello_init_memory r0 (pc)) : word16)) : word24)) =
+    Encode (LoadConstant (2w, F, (n2w (40 + LENGTH code)))))`,
+  strip_tac
+  \\ pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
+  \\ simp[hello_init_memory_def]
+  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
+  \\ `aligned 2 pc`
+  by (
+    simp[Abbr`pc`, LENGTH_data]
+    \\ (alignmentTheory.aligned_add_sub_cor
+        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+    \\ simp[]
+    \\ EVAL_TAC )
+  \\ simp[align_add_aligned_gen]
+  \\ simp[Abbr`pc`]
+  \\ qmatch_goalsub_abbrev_tac`r0 + x`
+  \\ `align 2 (r0 + x) = r0 + x` by fs[alignmentTheory.aligned_def]
+  \\ `r0 + x = byte_align (r0 + x)` by fs[alignmentTheory.byte_align_def]
+  \\ qhdtm_x_assum`align`SUBST_ALL_TAC
+  \\ simp_tac(srw_ss())[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ once_rewrite_tac[WORD_ADD_COMM]
+  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+  \\ conj_tac >- EVAL_TAC
+  \\ DEP_REWRITE_TAC[
+       data_to_word_memoryProofTheory.get_byte_byte_align
+       |> Q.GEN`a'` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[]]
+  \\ conj_tac >- EVAL_TAC
+  \\ DEP_REWRITE_TAC[w2n_add]
+  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
+  \\ conj_tac
+  >- ( simp[Abbr`x`] \\ EVAL_TAC )
+  \\ conj_tac
+  >- ( simp[Abbr`x`,LENGTH_data] \\ EVAL_TAC )
+  \\ qmatch_goalsub_abbrev_tac`_ = h`
+  \\ `∃l1 l2. (hello_init_memory_words = l1 ++ l2) ∧
+              (LENGTH l1 = w2n x DIV 4) ∧
+              (l2 <> [] ∧ (HD l2 = h))` by (
+    simp[hello_init_memory_words_def]
+    \\ qmatch_goalsub_abbrev_tac`l1 ++ (h::l2)`
+    \\ qexists_tac`l1`
+    \\ simp[Abbr`l1`,Abbr`l2`]
+    \\ simp[Abbr`x`,LENGTH_data,LENGTH_hello_startup_code,LENGTH_words_of_bytes_hello_startup_code]
+    \\ EVAL_TAC )
+  \\ simp[EL_APPEND_EQN]
+  \\ EVAL_TAC \\ simp[]
+  \\ blastLib.BBLAST_TAC );
+
+val hello_init_memory_ffi_01 = Q.store_thm("hello_init_memory_ffi_01",
+  `byte_aligned r0 ∧
+   (pc = r0 + n2w (heap_size + 4 * LENGTH data + 4))
+  ⇒
+   ((hello_init_memory r0 (pc + 3w) @@
+    ((hello_init_memory r0 (pc + 2w) @@
+      ((hello_init_memory r0 (pc + 1w) @@
+        hello_init_memory r0 (pc)) : word16)) : word24)) =
+    Encode (Jump (fAdd, 1w, Reg 2w)))`,
+  strip_tac
+  \\ pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
+  \\ simp[hello_init_memory_def]
+  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
+  \\ `aligned 2 pc`
+  by (
+    simp[Abbr`pc`, LENGTH_data]
+    \\ (alignmentTheory.aligned_add_sub_cor
+        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+        |> irule)
+    \\ simp[]
+    \\ EVAL_TAC )
+  \\ simp[align_add_aligned_gen]
+  \\ simp[Abbr`pc`]
+  \\ qmatch_goalsub_abbrev_tac`r0 + x`
+  \\ `align 2 (r0 + x) = r0 + x` by fs[alignmentTheory.aligned_def]
+  \\ `r0 + x = byte_align (r0 + x)` by fs[alignmentTheory.byte_align_def]
+  \\ qhdtm_x_assum`align`SUBST_ALL_TAC
+  \\ simp_tac(srw_ss())[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ once_rewrite_tac[WORD_ADD_COMM]
+  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
+  \\ conj_tac >- EVAL_TAC
+  \\ DEP_REWRITE_TAC[
+       data_to_word_memoryProofTheory.get_byte_byte_align
+       |> Q.GEN`a'` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[]]
+  \\ conj_tac >- EVAL_TAC
+  \\ DEP_REWRITE_TAC[w2n_add]
+  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
+  \\ conj_tac
+  >- ( simp[Abbr`x`] \\ EVAL_TAC )
+  \\ conj_tac
+  >- ( simp[Abbr`x`,LENGTH_data] \\ EVAL_TAC )
+  \\ qmatch_goalsub_abbrev_tac`_ = h`
+  \\ `∃l1 l2. (hello_init_memory_words = l1 ++ l2) ∧
+              (LENGTH l1 = w2n x DIV 4) ∧
+              (l2 <> [] ∧ (HD l2 = h))` by (
+    simp[hello_init_memory_words_def]
+    \\ qmatch_goalsub_abbrev_tac`l1 ++ (j::l2)`
+    \\ qexists_tac`l1 ++ [j]`
+    \\ simp[Abbr`l1`,Abbr`l2`]
+    \\ simp[Abbr`x`,LENGTH_data,LENGTH_hello_startup_code,LENGTH_words_of_bytes_hello_startup_code]
+    \\ EVAL_TAC )
+  \\ simp[EL_APPEND_EQN]
+  \\ EVAL_TAC \\ simp[]
+  \\ blastLib.BBLAST_TAC );
+
 (*
 Memory layout:
   hz = heap_size is the heap+stack size in mebibytes (including the unusable FFI bytes)
@@ -2609,6 +2721,130 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       \\ fs[lab_to_targetTheory.ffi_offset_def, heap_size_def,
             LENGTH_data, LENGTH_code, LENGTH_hello_ag32_ffi_code,
             ag32Theory.print_string_max_length_def]
+      \\ qmatch_goalsub_abbrev_tac`read_bytearray r1 r2 m`
+      \\ `read_bytearray r1 r2 m = SOME bytes`
+      by (
+        fs[targetSemTheory.read_ffi_bytearrays_def]
+        \\ fs[targetSemTheory.read_ffi_bytearray_def]
+        \\ fs[EVAL``ag32_target.get_reg``]
+        \\ fs[EVAL``ag32_target.get_byte``]
+        \\ fsrw_tac[ETA_ss][] )
+      \\ simp[]
+      \\ simp[Once EXISTS_NUM]
+      \\ disj2_tac
+      \\ simp[FUNPOW]
+      \\ fs[find_index_def]
+      \\ qpat_x_assum`_ = _.PC`(assume_tac o SYM)
+      \\ qmatch_asmsub_abbrev_tac`_.PC = pc`
+      \\ simp[ag32Theory.Next_def]
+      \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
+      \\ `aligned 2 pc`
+      by (
+        simp[Abbr`pc`]
+        \\ (alignmentTheory.aligned_add_sub_cor
+            |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+            |> irule)
+        \\ fs[alignmentTheory.byte_aligned_def]
+        \\ EVAL_TAC )
+      \\ `pc = pc'`
+      by (
+        pop_assum mp_tac
+        \\ unabbrev_all_tac
+        \\ rveq
+        \\ simp[alignmentTheory.aligned_extract]
+        \\ blastLib.BBLAST_TAC )
+      \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
+      \\ pop_assum (SUBST_ALL_TAC o SYM)
+      \\ EVERY(List.tabulate(4, (fn i =>
+        first_assum(qspec_then`pc + n2w ^(numSyntax.term_of_int i)`mp_tac)
+        \\ impl_tac
+        >- (
+          simp[Abbr`pc`]
+          \\ Cases_on`r0`
+          \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] ))))
+      \\ simp[]
+      \\ ntac 4 (disch_then kall_tac)
+      \\ drule hello_startup_clock_def
+      \\ simp[]
+      \\ disch_then drule
+      \\ strip_tac
+      \\ EVERY(List.tabulate(4, (fn i =>
+        first_assum(qspec_then`pc + n2w ^(numSyntax.term_of_int i)`mp_tac)
+        \\ impl_tac
+        >- (
+          simp[Abbr`pc`, hello_machine_config_def, heap_size_def,
+               LENGTH_data, LENGTH_code, lab_to_targetTheory.ffi_offset_def]
+          \\ Cases_on`r0`
+          \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] ))))
+      \\ simp[]
+      \\ ntac 4 (disch_then kall_tac)
+      \\ `ms0.MEM = hello_init_memory r0`
+      by ( fs[ag32_targetTheory.is_ag32_init_state_def] )
+      \\ simp[]
+      \\ DEP_REWRITE_TAC[hello_init_memory_ffi_00]
+      \\ conj_tac >- ( simp[Abbr`pc`, LENGTH_data] \\ EVAL_TAC )
+      \\ simp[ag32_targetProofTheory.Decode_Encode]
+      \\ simp[LENGTH_code]
+      \\ qmatch_goalsub_abbrev_tac`_ = FUNPOW Next _ ss`
+      \\ pop_assum mp_tac
+      \\ simp[ag32Theory.Run_def]
+      \\ simp[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def]
+      \\ strip_tac \\ simp[Abbr`ss`]
+      \\ simp[Abbr`pc`]
+      \\ simp[Once EXISTS_NUM]
+      \\ disj2_tac
+      \\ simp[FUNPOW]
+      \\ simp[ag32Theory.Next_def]
+      \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
+      \\ qmatch_goalsub_abbrev_tac`_ with PC := r0 + offset`
+      \\ `aligned 2 (r0 + offset)`
+      by (
+        simp[Abbr`offset`]
+        \\ (alignmentTheory.aligned_add_sub_cor
+            |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+            |> irule)
+        \\ fs[alignmentTheory.byte_aligned_def]
+        \\ EVAL_TAC )
+      \\ `pc' = r0 + offset`
+      by (
+        simp[Abbr`pc'`,Abbr`offset`]
+        \\ rveq
+        \\ pop_assum mp_tac
+        \\ simp[alignmentTheory.aligned_extract]
+        \\ blastLib.BBLAST_TAC )
+      \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
+      \\ pop_assum SUBST_ALL_TAC
+      \\ qunabbrev_tac`offset`
+      \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+      \\ EVERY(List.tabulate(4, (fn i =>
+        last_assum(qspec_then`pc + n2w ^(numSyntax.term_of_int i)`mp_tac)
+        \\ impl_tac
+        >- (
+          simp[Abbr`pc`]
+          \\ Cases_on`r0`
+          \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] ))))
+      \\ simp[]
+      \\ ntac 4 (disch_then kall_tac)
+      \\ EVERY(List.tabulate(4, (fn i =>
+        first_assum(qspec_then`pc + n2w ^(numSyntax.term_of_int i)`mp_tac)
+        \\ impl_tac
+        >- (
+          simp[Abbr`pc`, hello_machine_config_def, heap_size_def,
+               LENGTH_data, LENGTH_code, lab_to_targetTheory.ffi_offset_def]
+          \\ Cases_on`r0`
+          \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] ))))
+      \\ simp[]
+      \\ ntac 4 (disch_then kall_tac)
+      \\ DEP_REWRITE_TAC[hello_init_memory_ffi_01]
+      \\ conj_tac >- ( simp[Abbr`pc`, LENGTH_data] \\ EVAL_TAC )
+      \\ simp[ag32_targetProofTheory.Decode_Encode]
+      \\ qmatch_goalsub_abbrev_tac`_ = FUNPOW Next _ ss`
+      \\ pop_assum mp_tac
+      \\ simp[ag32Theory.Run_def]
+      \\ simp[ag32Theory.dfn'Jump_def,ag32Theory.ALU_def,ag32Theory.ri2word_def]
+      \\ simp[Abbr`pc`]
+      \\ simp[APPLY_UPDATE_THM]
+      \\ strip_tac
 
       \\ cheat (* ffi implementation ok *))
     \\ simp[ag32_ffi_rel_def,Abbr`st`]
