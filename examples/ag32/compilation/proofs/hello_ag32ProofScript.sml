@@ -307,6 +307,20 @@ val imp_align_eq_0 = Q.store_thm("imp_align_eq_0",
   \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
   \\ fs[] );
 
+val byte_align_extract = Q.store_thm("byte_align_extract",
+  `byte_align (x:word32) = (((31 >< 2) x):word30) @@ (0w:word2)`,
+  rw[alignmentTheory.byte_align_def]
+  \\ rw[alignmentTheory.align_def]
+  \\ blastLib.BBLAST_TAC);
+
+val byte_align_aligned = Q.store_thm("byte_align_aligned",
+  `byte_aligned x ⇔ (byte_align x = x)`, EVAL_TAC);
+
+val byte_aligned_add = Q.store_thm("byte_aligned_add",
+  `byte_aligned x ∧ byte_aligned y ⇒ byte_aligned (x+y)`,
+  rw[alignmentTheory.byte_aligned_def]
+  \\ metis_tac[alignmentTheory.aligned_add_sub_cor]);
+
 val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
   `∀be a bs k.
    LENGTH bs ≤ k ⇒
@@ -1228,7 +1242,9 @@ val LENGTH_words_of_bytes_hello_startup_code =
 (* algorithm (shallow embedding) for the FFI implementation *)
 val hello_ag32_ffi_1_def = Define`
   hello_ag32_ffi_1 s =
-    let s = incPC () (s with R := ((4w =+ n2w (heap_size + 4 * LENGTH data + 8)) s.R)) in
+    let s = incPC () (s with R := ((4w =+ w2w(((22 >< 0)(n2w (heap_size + 4 * LENGTH data + 8) :word32)):23 word)) s.R)) in
+    let s = incPC () (s with R := ((4w =+ bit_field_insert 31 23 (((31 >< 23)(n2w (heap_size + 4 * LENGTH data + 8) :word32)):9 word)
+                                                                    (s.R 4w)) s.R)) in
     let s = incPC () (s with R := ((3w =+ (s.R 3w) - (s.R 4w)) s.R)) in
     let s = incPC () (s with R := ((2w =+ (s.R 3w) + (s.R 2w)) s.R)) in
     s`;
@@ -1277,11 +1293,12 @@ val hello_ag32_ffi_1_spec = Q.store_thm("hello_ag32_ffi_1_spec",
    ⇒
    (hello_ag32_ffi_1 s =
     s with <| R := ((3w =+ r0) ((4w =+ n2w (heap_size + 4 * LENGTH data + 8)) ((2w =+ r0 + len) s.R)))
-            ; PC := s.PC + 12w
+            ; PC := s.PC + 16w
             |>)`,
   rw[hello_ag32_ffi_1_def, ag32Theory.incPC_def]
   \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
-  \\ rw[] \\ fs[]);
+  \\ rw[] \\ fs[]
+  \\ rw[heap_size_def, LENGTH_data]);
 
 val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
   `∀s i bs.
@@ -1398,7 +1415,7 @@ val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
    w2n r0 + LENGTH bs + 1 < dimword(:32)
    ⇒
    (hello_ag32_ffi s =
-    s with <| R := ((0w =+ s.PC + 64w)
+    s with <| R := ((0w =+ s.PC + 68w)
                     ((1w =+ 0w)
                     ((2w =+ 0w)
                     ((3w =+ 0w)
@@ -1454,7 +1471,8 @@ val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
 *)
 val hello_ag32_ffi_code_def = Define`
   hello_ag32_ffi_code =
-    [LoadConstant(4w, F, (n2w (heap_size + 4 * LENGTH data + 8)))
+    [LoadConstant(4w, F, (22 >< 0)((n2w (heap_size + 4 * LENGTH data + 8)):word32))
+    ;LoadUpperConstant(4w, (31 >< 23)((n2w (heap_size + 4 * LENGTH data + 8)):word32))
     ;Normal(fSub, 3w, Reg 3w, Reg 4w)
     ;Normal(fAdd, 2w, Reg 3w, Reg 2w)
     ;JumpIfNotZero(fEqual, Imm (4w * 6w), Reg 3w, Reg 2w)
@@ -1712,6 +1730,77 @@ val hello_init_memory_ffi_01 = Q.store_thm("hello_init_memory_ffi_01",
   \\ simp[EL_APPEND_EQN]
   \\ EVAL_TAC \\ simp[]
   \\ blastLib.BBLAST_TAC );
+
+(*
+val hello_ag32_ffi_code_correct = Q.store_thm("hello_ag32_ffi_code_correct",
+  `(∀n. n < LENGTH hello_ag32_ffi_code ⇒
+      let pc = s.PC + n2w (4 * n) in
+      ((s.MEM (pc + 3w) @@
+      ((s.MEM (pc + 2w) @@
+      ((s.MEM (pc + 1w) @@
+      s.MEM pc) : word16)) : word24)) = Encode (EL n hello_ag32_ffi_code))) ∧
+   byte_aligned s.PC ⇒
+   ∃k. (FUNPOW Next k s = hello_ag32_ffi s)`,
+  simp[hello_ag32_ffi_def]
+  \\ strip_tac
+  \\ simp[Once EXISTS_NUM]
+  \\ disj2_tac
+  \\ simp[FUNPOW]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ simp_tac(srw_ss())[hello_ag32_ffi_code_def]
+  \\ simp[ag32Theory.Next_def]
+  \\ simp[GSYM byte_align_extract]
+  \\ simp[#1(EQ_IMP_RULE byte_align_aligned)]
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ disch_then kall_tac
+  \\ simp[hello_ag32_ffi_1_def, ag32Theory.incPC_def]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'LoadConstant_def,ag32Theory.incPC_def]
+  \\ simp[Once EXISTS_NUM]
+  \\ disj2_tac
+  \\ simp[FUNPOW]
+  \\ first_assum(qspec_then`1`mp_tac)
+  \\ simp_tac(srw_ss())[hello_ag32_ffi_code_def]
+  \\ simp[ag32Theory.Next_def]
+  \\ simp[GSYM byte_align_extract]
+  \\ DEP_REWRITE_TAC[#1(EQ_IMP_RULE byte_align_aligned)]
+  \\ DEP_REWRITE_TAC[byte_aligned_add] \\ simp[]
+  \\ conj_tac >- EVAL_TAC
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'LoadUpperConstant_def,ag32Theory.incPC_def]
+  \\ simp[Once EXISTS_NUM]
+  \\ disj2_tac
+  \\ simp[FUNPOW]
+  \\ first_assum(qspec_then`2`mp_tac)
+  \\ simp_tac(srw_ss())[hello_ag32_ffi_code_def]
+  \\ simp[ag32Theory.Next_def]
+  \\ simp[GSYM byte_align_extract]
+  \\ DEP_REWRITE_TAC[#1(EQ_IMP_RULE byte_align_aligned)]
+  \\ DEP_REWRITE_TAC[byte_aligned_add] \\ simp[]
+  \\ conj_tac >- EVAL_TAC
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'Normal_def,ag32Theory.norm_def,ag32Theory.ALU_def,ag32Theory.incPC_def,ag32Theory.ri2word_def]
+  \\ simp[Once EXISTS_NUM]
+  \\ disj2_tac
+  \\ simp[FUNPOW]
+  \\ first_assum(qspec_then`3`mp_tac)
+  \\ simp_tac(srw_ss())[hello_ag32_ffi_code_def]
+  \\ simp[ag32Theory.Next_def]
+  \\ simp[GSYM byte_align_extract]
+  \\ DEP_REWRITE_TAC[#1(EQ_IMP_RULE byte_align_aligned)]
+  \\ DEP_REWRITE_TAC[byte_aligned_add] \\ simp[]
+  \\ conj_tac >- EVAL_TAC
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'Normal_def,ag32Theory.norm_def,ag32Theory.ALU_def,ag32Theory.incPC_def,ag32Theory.ri2word_def]
+  \\ simp[LENGTH_data, heap_size_def, APPLY_UPDATE_THM]
+*)
+
 
 (*
 Memory layout:
