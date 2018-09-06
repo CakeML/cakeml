@@ -43,6 +43,20 @@ val encoded_bytes_in_mem_def = Define`
         (DROP (k * (2 ** c.code_alignment)) (c.encode i))
         m md`;
 
+val read_ffi_bytearray_def = Define`
+  read_ffi_bytearray mc ptr_reg len_reg ms =
+    read_bytearray (mc.target.get_reg ms ptr_reg)
+      (w2n (mc.target.get_reg ms len_reg))
+      (λa.
+        if a ∈ mc.prog_addresses then
+          SOME (mc.target.get_byte ms a)
+        else NONE)`;
+
+val read_ffi_bytearrays_def = Define`
+  read_ffi_bytearrays mc ms =
+    (read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms,
+     read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)`;
+
 val evaluate_def = Define `
   evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
@@ -78,15 +92,7 @@ val evaluate_def = Define `
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
-          case (read_bytearray (mc.target.get_reg ms mc.ptr_reg)
-                  (w2n (mc.target.get_reg ms mc.len_reg))
-                  (\a. if a IN mc.prog_addresses
-                       then SOME (mc.target.get_byte ms a) else NONE),
-                read_bytearray (mc.target.get_reg ms mc.ptr2_reg)
-                  (w2n (mc.target.get_reg ms mc.len2_reg))
-                  (\a. if a IN mc.prog_addresses
-                       then SOME (mc.target.get_byte ms a) else NONE))
-           of
+          case read_ffi_bytearrays mc ms of
           | SOME bytes, SOME bytes2 =>
             (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
              | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)

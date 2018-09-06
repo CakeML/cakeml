@@ -258,9 +258,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  first_x_assum(qspec_then`k1`mp_tac) >> simp[]);
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `∀mc_conf ffi k ms.
