@@ -1171,7 +1171,7 @@ val ag32_init_asm_state_def = Define`
     regs := ag32_init_regs r0
   |>`;
 
-val is_ag32_init_state = ag32_targetTheory.is_ag32_init_state_def;
+val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 val target_state_rel_ag32_init = Q.store_thm("target_state_rel_ag32_init",
   `byte_aligned r0 ∧ is_ag32_init_state m r0 ms ⇒
