@@ -5,8 +5,9 @@ open backendPropsTheory;
 val qexistsl_tac = map_every qexists_tac;
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
-
 val _ = new_theory "clos_ticksProof";
+
+val _ = temp_overload_on("remove_ticks",``clos_ticks$remove_ticks``);
 
 val remove_ticks_IMP_LENGTH = store_thm("remove_ticks_IMP_LENGTH",
   ``!(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs``,
@@ -926,5 +927,19 @@ val semantics_remove_ticks = Q.store_thm("semantics_remove_ticks",
   \\ Cases_on `res2` \\ fs []
   \\ TRY (Cases_on `e` \\ fs [])
   \\ fs [state_rel_def])
+
+(* syntactic properties *)
+
+val code_locs_remove_ticks = store_thm("code_locs_remove_ticks",
+  ``!xs. code_locs (remove_ticks xs) = code_locs xs``,
+  ho_match_mp_tac clos_ticksTheory.remove_ticks_ind \\ rw []
+  \\ fs [code_locs_def,clos_ticksTheory.remove_ticks_def]
+  THEN1
+   (`?y. remove_ticks [x] = [y]` by metis_tac [remove_ticks_SING]
+    \\ fs [] \\ simp [Once code_locs_cons])
+  \\ Induct_on `fns` \\ fs [FORALL_PROD]
+  \\ rw [] \\ fs []
+  \\ once_rewrite_tac [code_locs_cons] \\ fs []
+  \\ metis_tac []);
 
 val _ = export_theory();

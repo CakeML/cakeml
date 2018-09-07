@@ -4602,13 +4602,15 @@ val compile_code_locs_bag = Q.store_thm("compile_code_locs_bag",
   Cases_on`kc`
   \\ rw[clos_knownTheory.compile_def]
   \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac known_code_locs_bag
-  \\ rw[]);
+  \\ rw [] \\ fs [clos_letopProofTheory.code_locs_let_op,
+       clos_ticksProofTheory.code_locs_remove_ticks]
+  \\ imp_res_tac known_code_locs_bag \\ rw[]);
 
 val compile_LENGTH = Q.store_thm("compile_LENGTH",
   `clos_known$compile kc es = (kc', es') ⇒ LENGTH es' = LENGTH es`,
   Cases_on`kc` \\ rw[compile_def]
   \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ fs [clos_letopTheory.LENGTH_let_op,clos_ticksTheory.LENGTH_remove_ticks]
   \\ imp_res_tac known_LENGTH_EQ_E);
 
 val syntax_ok_def = Define`
@@ -4630,11 +4632,20 @@ val syntax_oracle_ok_def = Define`
 
 val semantics_compile = Q.store_thm("semantics_compile",
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
-   (cc1 = state_cc (case known_conf of SOME kcfg => (compile_inc kcfg) | _ => CURRY I) cc) ∧
-   (co1 = state_co (case known_conf of SOME kcfg => (compile_inc kcfg) | _ => CURRY I) co) ∧
+   (cc1 = (case known_conf of
+           | SOME kcfg => (state_cc (compile_inc kcfg)
+                            (pure_cc clos_ticksProof$compile_inc
+                              (pure_cc clos_letopProof$compile_inc
+                                 (cc:'b clos_cc):'b clos_cc):'b clos_cc))
+           | NONE      => state_cc (CURRY I) cc)) ∧
+   (co1 = (case known_conf of
+           | SOME kcfg => (pure_co clos_letopProof$compile_inc o
+                             ((pure_co clos_ticksProof$compile_inc o
+                                (state_co (compile_inc kcfg) co)) : 'b clos_co))
+           | NONE      => state_co (CURRY I) co)) ∧
    (compile known_conf xs = (known_conf', es)) ∧
    (IS_SOME known_conf ⇒
-      syntax_oracle_ok xs co ∧
+      syntax_oracle_ok xs co ∧ 1 ≤ max_app ∧
       (THE known_conf).val_approx_spt = LN ∧
       FST (FST (co 0)) = (THE known_conf').val_approx_spt)
    ⇒
@@ -4644,10 +4655,28 @@ val semantics_compile = Q.store_thm("semantics_compile",
   \\ Cases_on`known_conf` \\ fs[compile_def]
   >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
   \\ pairarg_tac \\ fs[] \\ rveq
-  \\ irule semantics_known
-  \\ fs[syntax_ok_def,syntax_oracle_ok_def]
-  \\ rw []
-  \\ first_x_assum(qspec_then`n`mp_tac)
-  \\ simp[]);
+  \\ drule (GEN_ALL semantics_known) \\ fs []
+  \\ impl_tac THEN1
+   (rw []
+    \\ fs[syntax_ok_def,syntax_oracle_ok_def]
+    \\ rw []
+    \\ first_x_assum(qspec_then`n`mp_tac)
+    \\ simp[])
+  \\ disch_then (fn th => fs [GSYM th])
+  \\ drule (GEN_ALL clos_ticksProofTheory.semantics_remove_ticks)
+  \\ impl_keep_tac THEN1
+   (fs [syntax_oracle_ok_def,state_co_def] \\ rw []
+    \\ pairarg_tac \\ fs []
+    \\ PairCases_on `progs`
+    \\ fs [compile_inc_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ first_x_assum (qspec_then `n` assume_tac) \\ fs [] \\ rfs [])
+  \\ disch_then (fn th => fs [th])
+  \\ drule (GEN_ALL clos_letopProofTheory.semantics_let_op)
+  \\ reverse impl_tac \\ fs [] \\ rw []
+  \\ first_x_assum (qspec_then `n` assume_tac) \\ fs []
+  \\ qmatch_assum_abbrev_tac `SND pp = []`
+  \\ Cases_on `pp` \\ fs [clos_ticksProofTheory.compile_inc_def]
+  \\ fs []);
 
 val _ = export_theory();

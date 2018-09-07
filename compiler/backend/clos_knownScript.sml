@@ -1,5 +1,5 @@
 open preamble closLangTheory;
-open db_varsTheory;
+open db_varsTheory clos_ticksTheory clos_letopTheory;
 
 val _ = new_theory "clos_known";
 
@@ -615,7 +615,9 @@ val compile_def = Define `
   compile NONE exps = (NONE, exps) /\
   compile (SOME c) exps =
     let (es, g) = known c exps [] c.val_approx_spt in
-      (SOME (c with val_approx_spt := g), MAP FST es)`;
+    let es1 = remove_ticks (MAP FST es) in
+    let es2 = let_op es1 in
+      (SOME (c with val_approx_spt := g), es2)`;
 
 (*
 

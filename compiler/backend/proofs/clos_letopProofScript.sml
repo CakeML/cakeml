@@ -6,6 +6,9 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_letopProof";
 
+val _ = temp_overload_on("let_op",``clos_letop$let_op``);
+val _ = temp_overload_on("var_list",``clos_letop$var_list``);
+
 val let_op_SING = store_thm("let_op_SING",
   ``!x. ?y. let_op [x] = [y]``,
   Induct \\ fs [let_op_def] \\ CASE_TAC);
@@ -645,5 +648,45 @@ val semantics_let_op = Q.store_thm("semantics_let_op",
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs [])
+
+(* syntactic properties *)
+
+val var_list_IMP_code_locs = prove(
+  ``!k l x. var_list k l x ==> code_locs l = []``,
+  ho_match_mp_tac var_list_ind
+  \\ rw [] \\ fs [var_list_def,code_locs_def]
+  \\ rveq \\ fs []
+  \\ once_rewrite_tac [code_locs_cons]
+  \\ fs [code_locs_def]);
+
+val var_list_let_op_IMP_code_locs = prove(
+  ``!k l x. var_list k (let_op l) x ==> code_locs l = []``,
+  ho_match_mp_tac var_list_ind
+  \\ rw [] \\ fs [var_list_def,code_locs_def]
+  \\ pop_assum mp_tac
+  \\ rename [`_::l`]
+  \\ Cases_on `l` \\ fs [let_op_def,var_list_def,code_locs_def]
+  \\ every_case_tac \\ fs [var_list_def]);
+
+val code_locs_let_op = store_thm("code_locs_let_op",
+  ``!xs. code_locs (let_op xs) = code_locs xs``,
+  ho_match_mp_tac let_op_ind \\ rw []
+  \\ fs [code_locs_def,let_op_def]
+  THEN1
+   (`?y. let_op [x] = [y]` by metis_tac [let_op_SING]
+    \\ fs [] \\ simp [Once code_locs_cons])
+  THEN1
+   (every_case_tac \\ fs [code_locs_def]
+    \\ imp_res_tac dest_op_SOME_IMP \\ fs [dest_op_def]
+    \\ `?y. let_op [x2] = [y]` by metis_tac [let_op_SING] \\ fs []
+    \\ fs [code_locs_def] \\ rveq \\ fs []
+    \\ Cases_on `x2` \\ fs [let_op_def]
+    \\ rveq \\ fs [code_locs_def]
+    \\ imp_res_tac var_list_let_op_IMP_code_locs \\ fs []
+    \\ imp_res_tac var_list_IMP_code_locs \\ fs [])
+  \\ Induct_on `fns` \\ fs [FORALL_PROD]
+  \\ rw [] \\ fs []
+  \\ once_rewrite_tac [code_locs_cons] \\ fs []
+  \\ metis_tac []);
 
 val _ = export_theory();

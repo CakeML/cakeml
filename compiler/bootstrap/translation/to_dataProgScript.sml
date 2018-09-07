@@ -487,6 +487,32 @@ val clos_known_known_side = Q.prove(`
   \\ rw [] \\ simp [Once (fetch "-" "clos_known_known_side_def")]
   \\ metis_tac [FST,PAIR]) |> update_precondition;
 
+val r = translate (clos_ticksTheory.remove_ticks_def);
+
+val clos_ticks_remove_ticks_side = Q.prove(`
+  ∀a. clos_ticks_remove_ticks_side a ⇔ T`,
+  `∀z. clos_ticks$remove_ticks [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_ticks$remove_ticks [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_ticksTheory.LENGTH_remove_ticks] \\ fs [])
+  \\ ho_match_mp_tac clos_ticksTheory.remove_ticks_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_ticks_remove_ticks_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
+val r = translate (clos_letopTheory.let_op_def);
+
+val clos_letop_let_op_side = Q.prove(`
+  ∀a. clos_letop_let_op_side a ⇔ T`,
+  `∀z. clos_letop$let_op [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_letop$let_op [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_letopTheory.LENGTH_let_op] \\ fs [])
+  \\ ho_match_mp_tac clos_letopTheory.let_op_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_letop_let_op_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
 val r = translate clos_knownTheory.compile_def
 
 (* call *)
