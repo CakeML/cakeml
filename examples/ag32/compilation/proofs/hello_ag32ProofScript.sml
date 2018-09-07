@@ -572,6 +572,17 @@ val asm_write_bytearray_append = Q.store_thm("asm_write_bytearray_append",
   \\ irule mem_eq_imp_asm_write_bytearray_eq
   \\ simp[APPLY_UPDATE_THM]);
 
+val asm_write_bytearray_EL = Q.store_thm("asm_write_bytearray_EL",
+  `∀a bs m x. x < LENGTH bs ∧ LENGTH bs < dimword(:'a) ⇒
+   (asm_write_bytearray (a:'a word) bs m (a + n2w x) = EL x bs)`,
+  Induct_on`bs`
+  \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ Cases_on`x` \\ fs[]
+  >- ( fs[addressTheory.WORD_EQ_ADD_CANCEL] )
+  \\ first_x_assum drule
+  \\ simp[ADD1,GSYM word_add_n2w]
+  \\ metis_tac[WORD_ADD_ASSOC,WORD_ADD_COMM]);
+
 (*
 val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
   `0 < p ⇒ ((align p a = 0w) ⇒ w2n a < 2 ** p)`,
@@ -1308,7 +1319,7 @@ val hello_ag32_ffi_3_def = Define`
     let s = incPC () (s with R := ((2w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((3w =+ 0w) s.R)) in
     let s = incPC () (s with R := ((4w =+ 0w) s.R)) in
-    let s = incPC () (s with io_events := s.MEM::s.io_events) in
+    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
     s with <| PC := s.R 0w; R := ((0w =+ s.PC + 4w) s.R) |>`;
 
 val hello_ag32_ffi_def = Define`
@@ -1429,7 +1440,7 @@ val hello_ag32_ffi_3_spec = Q.store_thm("hello_ag32_ffi_3_spec",
        R := (0w =+ s.PC + (4w * 7w)) ((4w =+ 0w) ((3w =+ 0w) ((2w =+ 0w) ((1w =+ 0w) s.R)))) ;
        PC := s.R 0w ;
        MEM := ((s.R 2w) =+ 0w) s.MEM ;
-       io_events := (((s.R 2w) =+ 0w) s.MEM) :: s.io_events
+       io_events := s.io_events ++ [(((s.R 2w) =+ 0w) s.MEM)]
        |>`,
   rw[hello_ag32_ffi_3_def,ag32Theory.incPC_def]
   \\ rw[ag32Theory.ag32_state_component_equality,APPLY_UPDATE_THM]);
@@ -1451,7 +1462,7 @@ val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
                     ((4w =+ 0w) s.R)))));
               MEM := asm_write_bytearray r0 (bs++[0w]) s.MEM ;
               PC := s.R 0w;
-              io_events := (asm_write_bytearray r0 (bs++[0w]) s.MEM) :: s.io_events ;
+              io_events := s.io_events ++ [(asm_write_bytearray r0 (bs++[0w]) s.MEM)] ;
               OverflowFlag := (w2i (r0 + n2w (LENGTH bs)) ≠ w2i r0 + w2i ((n2w (LENGTH bs)):word32))
               |>)`,
   strip_tac
@@ -2392,7 +2403,7 @@ val hello_machine_config_def = Define`
                        ((4w =+ 0w) (ms.R)))))) ;
                  CarryFlag := F ;
                  OverflowFlag := (w2i (r0 + ms.R 2w) ≠ w2i r0 + w2i (ms.R 2w)) ;
-                 io_events := new_mem :: ms.io_events ;
+                 io_events := ms.io_events ++ [new_mem] ;
                  MEM := new_mem |>)
   |>`
 
@@ -3737,7 +3748,30 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       >- (
         qhdtm_x_assum`ag32_ffi_rel`mp_tac
         \\ simp[ag32_ffi_rel_def]
-        \\ cheat )
+        \\ simp[extract_print_from_mem_def,MAP_MAP_o,n2w_ORD_CHR_w2n]
+        \\ `EVERY ((<>) 0w) bytes` by cheat
+        \\ qmatch_goalsub_abbrev_tac`SPLITP P ls`
+        \\ Q.ISPECL_THEN[`P`,`LENGTH bytes`,`ls`]mp_tac FST_SPLITP_DROP
+        \\ `TAKE (LENGTH bytes) ls = bytes`
+        by (
+          simp[Abbr`ls`,TAKE_GENLIST,ag32Theory.print_string_max_length_def]
+          \\ simp[MIN_DEF]
+          \\ simp[LIST_EQ_REWRITE]
+          \\ gen_tac \\ strip_tac
+          \\ DEP_REWRITE_TAC[asm_write_bytearray_EL]
+          \\ simp[EL_APPEND_EQN] )
+        \\ impl_tac >- simp[o_DEF]
+        \\ disch_then SUBST_ALL_TAC
+        \\ simp[]
+        \\ `∃bs. DROP (LENGTH bytes) ls = 0w::bs`
+        by (
+          simp[Abbr`ls`,DROP_GENLIST]
+          \\ simp[ag32Theory.print_string_max_length_def]
+          \\ Cases_on`64 - LENGTH bytes` \\ fs[]
+          \\ simp[GENLIST_CONS]
+          \\ DEP_REWRITE_TAC[asm_write_bytearray_EL]
+          \\ simp[EL_APPEND_EQN,Abbr`P`] )
+        \\ simp[Abbr`P`,SPLITP])
       \\ Cases
       \\ disch_then assume_tac
       \\ match_mp_tac asm_write_bytearray_unchanged
