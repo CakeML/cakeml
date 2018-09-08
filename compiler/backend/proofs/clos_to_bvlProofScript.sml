@@ -6060,6 +6060,7 @@ val ALOOKUP_compile_prog_aux = Q.store_thm("ALOOKUP_compile_prog_aux",
   \\ metis_tac[IS_SUBLIST_APPEND, APPEND_ASSOC]);
 *)
 
+(*
 val compile_common_inc_def = Define`
   compile_common_inc c cc =
   ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
@@ -6067,6 +6068,7 @@ val compile_common_inc_def = Define`
       (state_cc (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
         (state_cc (if c.do_call then clos_callProof$compile_inc else CURRY I)
           (pure_cc clos_annotateProof$compile_inc cc)))))`;
+*)
 
 (* TODO: move *)
 
@@ -6398,6 +6400,7 @@ val set_globals_SND_renumber_code_locs = Q.store_thm("set_globals_SND_renumber_c
   `set_globals (SND (renumber_code_locs x y)) = set_globals y`,
   metis_tac[clos_numberProofTheory.renumber_code_locs_elist_globals,PAIR]);
 
+(*
 val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber_code_locs",
   `renumber_code_locs_list n es1 = (k,es2) ∧
    clos_knownProof$syntax_ok es1 ∧
@@ -6453,6 +6456,7 @@ val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber
     \\ fs[o_DEF] )
   \\ simp[clos_knownProofTheory.oracle_state_sgc_free_def,
          backendPropsTheory.FST_state_co]);
+*)
 
 val collect_apps_fv1 = Q.store_thm("collect_apps_fv1",
   `∀x y z v. fv v (FST (collect_apps x y z)) ∨ fv1 v (SND (collect_apps x y z)) ⇔ fv v y ∨ fv1 v z`,
@@ -6519,32 +6523,34 @@ val compile_elist_globals = Q.store_thm("compile_elist_globals",
   \\ rw[clos_mtiProofTheory.intro_multi_preserves_elist_globals]);
 
 val mcompile_inc_uncurry = Q.store_thm("mcompile_inc_uncurry",
-  `clos_mtiProof$compile_inc max_app p = (HD (intro_multi max_app [FST p]),[])`,
+  `clos_mtiProof$compile_inc max_app p = ((intro_multi max_app (FST p)),[])`,
   Cases_on`p` \\ EVAL_TAC);
 
 val kcompile_inc_uncurry = Q.store_thm("kcompile_inc_uncurry",
   `clos_knownProof$compile_inc c g p =
-     (SND (known (reset_inline_factor c) [FST p] [] g),
-      FST (HD (FST (known (reset_inline_factor c) [FST p] [] g))),
+     (SND (known (reset_inline_factor c) (FST p) [] g),
+      MAP FST (FST (known (reset_inline_factor c) (FST p) [] g)),
       SND p)`,
   Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ simp[]);
 
 val acompile_inc_uncurry = Q.store_thm("acompile_inc_uncurry",
-  `clos_annotateProof$compile_inc p = (HD (annotate 0 [FST p]), compile (SND p))`,
+  `clos_annotateProof$compile_inc p = ((annotate 0 (FST p)), compile (SND p))`,
   Cases_on`p` \\ rw[clos_annotateProofTheory.compile_inc_def]);
 
 val ccompile_inc_uncurry = Q.store_thm("ccompile_inc_uncurry",
   `clos_callProof$compile_inc g p =
-     (FST(SND (calls [FST p] (g,[]))),
-      HD (FST (calls [FST p] (g,[]))),
-      SND(SND (calls [FST p] (g,[]))))`,
+     (FST(SND (calls (FST p) (g,[]))),
+      (FST (calls (FST p) (g,[]))),
+      SND(SND (calls (FST p) (g,[]))))`,
   Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ simp[]);
 
 val compile_inc_uncurry = Q.store_thm("compile_inc_uncurry",
-  `compile_inc max_app p = compile_prog max_app ((extract_name (FST p),0,FST p)::SND p)`,
-  Cases_on`p` \\ EVAL_TAC);
+  `compile_inc max_app p =
+   compile_prog max_app ((chain_exps (FST (extract_name (FST p))) (SND (extract_name (FST p)))) ++ SND p)`,
+  Cases_on`p` \\ rw[compile_inc_def]
+  \\ pairarg_tac \\ rw[]);
 
 val elist_globals_sing = Q.store_thm("elist_globals_sing",
   `elist_globals [x] = set_globals x`,
