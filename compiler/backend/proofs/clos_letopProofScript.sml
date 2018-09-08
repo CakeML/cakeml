@@ -689,4 +689,66 @@ val code_locs_let_op = store_thm("code_locs_let_op",
   \\ once_rewrite_tac [code_locs_cons] \\ fs []
   \\ metis_tac []);
 
+val let_op_every_Fn_SOME = Q.store_thm("let_op_every_Fn_SOME[simp]",
+  `∀es. every_Fn_SOME (let_op es) ⇔ every_Fn_SOME es`,
+  recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def]
+  >- (
+    fs[Once every_Fn_SOME_EVERY]
+    \\ metis_tac[every_Fn_SOME_EVERY] )
+  >- (
+    CASE_TAC \\ simp[]
+    \\ imp_res_tac dest_op_SOME_IMP
+    \\ qspec_then`x2`strip_assume_tac let_op_SING
+    \\ fs[] \\ rveq
+    \\ Cases_on`every_Fn_SOME xs` \\ fs[]
+    \\ last_x_assum(SUBST_ALL_TAC o SYM)
+    \\ qhdtm_x_assum`var_list`mp_tac
+    \\ qmatch_goalsub_rename_tac`var_list n ls ts`
+    \\ rpt(pop_assum kall_tac)
+    \\ map_every qid_spec_tac [`ts`,`ls`,`n`]
+    \\ recInduct clos_letopTheory.var_list_ind
+    \\ rw[clos_letopTheory.var_list_def]
+    \\ fs[Once every_Fn_SOME_EVERY] )
+  >- (
+    simp[MAP_MAP_o,o_DEF,UNCURRY]
+    \\ Cases_on`IS_SOME loc_opt` \\ fs[]
+    \\ Cases_on`every_Fn_SOME [x1]` \\ fs[]
+    \\ simp[Once every_Fn_SOME_EVERY]
+    \\ fs[EVERY_MEM,UNCURRY,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ simp[Once every_Fn_SOME_EVERY, SimpRHS]
+    \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ metis_tac[]));
+
+val let_op_every_Fn_vs_NONE = Q.store_thm("let_op_every_Fn_vs_NONE[simp]",
+  `∀es. every_Fn_vs_NONE (let_op es) ⇔ every_Fn_vs_NONE es`,
+  recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def]
+  >- (
+    fs[Once every_Fn_vs_NONE_EVERY]
+    \\ metis_tac[every_Fn_vs_NONE_EVERY] )
+  >- (
+    CASE_TAC \\ simp[]
+    \\ imp_res_tac dest_op_SOME_IMP
+    \\ qspec_then`x2`strip_assume_tac let_op_SING
+    \\ fs[] \\ rveq
+    \\ Cases_on`every_Fn_vs_NONE xs` \\ fs[]
+    \\ last_x_assum(SUBST_ALL_TAC o SYM)
+    \\ qhdtm_x_assum`var_list`mp_tac
+    \\ qmatch_goalsub_rename_tac`var_list n ls ts`
+    \\ rpt(pop_assum kall_tac)
+    \\ map_every qid_spec_tac [`ts`,`ls`,`n`]
+    \\ recInduct clos_letopTheory.var_list_ind
+    \\ rw[clos_letopTheory.var_list_def]
+    \\ fs[Once every_Fn_vs_NONE_EVERY] )
+  >- (
+    simp[MAP_MAP_o,o_DEF,UNCURRY]
+    \\ Cases_on`vs` \\ fs[]
+    \\ Cases_on`every_Fn_vs_NONE [x1]` \\ fs[]
+    \\ simp[Once every_Fn_vs_NONE_EVERY]
+    \\ fs[EVERY_MEM,UNCURRY,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ simp[Once every_Fn_vs_NONE_EVERY, SimpRHS]
+    \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ metis_tac[]));
+
 val _ = export_theory();

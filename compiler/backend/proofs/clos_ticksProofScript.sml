@@ -942,4 +942,26 @@ val code_locs_remove_ticks = store_thm("code_locs_remove_ticks",
   \\ once_rewrite_tac [code_locs_cons] \\ fs []
   \\ metis_tac []);
 
+val remove_ticks_every_Fn_SOME = Q.store_thm("remove_ticks_every_Fn_SOME[simp]",
+  `∀ls. every_Fn_SOME (remove_ticks ls) ⇔ every_Fn_SOME ls`,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def]
+  >- (
+    qspec_then`x`strip_assume_tac remove_ticks_SING
+    \\ fs[] \\ fs[Once every_Fn_SOME_EVERY] )
+  \\ simp[Once every_Fn_SOME_EVERY,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ simp[Once every_Fn_SOME_EVERY,SimpRHS,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ metis_tac[]);
+
+val remove_ticks_every_Fn_vs_NONE = Q.store_thm("remove_ticks_every_Fn_vs_NONE[simp]",
+  `∀ls. every_Fn_vs_NONE (remove_ticks ls) ⇔ every_Fn_vs_NONE ls`,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def]
+  >- (
+    qspec_then`x`strip_assume_tac remove_ticks_SING
+    \\ fs[] \\ fs[Once every_Fn_vs_NONE_EVERY] )
+  \\ simp[Once every_Fn_vs_NONE_EVERY,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ simp[Once every_Fn_vs_NONE_EVERY,SimpRHS,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ metis_tac[]);
+
 val _ = export_theory();
