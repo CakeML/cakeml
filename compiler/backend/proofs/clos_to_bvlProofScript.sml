@@ -6341,6 +6341,8 @@ val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   \\ specl_args_of_then``known``known_every_Fn_SOME mp_tac
   \\ specl_args_of_then``known``known_every_Fn_vs_NONE mp_tac
   \\ rw[] \\ fs[]
+  \\ simp[clos_letopProofTheory.code_locs_let_op]
+  \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
   \\ simp[GSYM bag_of_list_ALL_DISTINCT]
   \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
   \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT]);
