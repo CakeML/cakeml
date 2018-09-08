@@ -936,9 +936,21 @@ val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_me
 
 val ag32_ffi_rel_def = Define`
   ag32_ffi_rel r0 ms io_events ⇔
+    (EVERY (λm. w2n (m r0) ≤ print_string_max_length) ms.io_events) ∧
     (io_events =
      MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
        (MAP (extract_print_from_mem r0) ms.io_events))`;
+
+val ag32_ffi_rel_get_print_string = Q.store_thm("ag32_ffi_rel_get_print_string",
+  `ag32_ffi_rel r0 ms io_events ⇒
+   (io_events =
+     MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
+       (MAP (λm. get_print_string (r0,m)) ms.io_events))`,
+  rw[ag32_ffi_rel_def]
+  \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f]
+  \\ fs[EVERY_MEM]
+  \\ simp[extract_print_from_mem_get_print_string]);
 
 val ag32_io_events_unchanged = Q.store_thm("ag32_io_events_unchanged",
   `Decode (
@@ -3266,7 +3278,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
    is_ag32_init_state (hello_init_memory r0) r0 ms0
   ⇒
    ∃k. let ms = FUNPOW Next k ms0 in
-       let outs = MAP (extract_print_from_mem r0) (ms.io_events) in
+       let outs = MAP (λm. get_print_string (r0,m)) ms.io_events in
          (ms.PC = (hello_machine_config r0).halt_pc) ∧
          outs ≼ hello_outputs ∧
          ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒ (outs = hello_outputs))`,
@@ -3844,6 +3856,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ simp[ag32_ffi_rel_def]
         \\ simp[extract_print_from_mem_def,MAP_MAP_o,n2w_ORD_CHR_w2n]
         \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def,APPLY_UPDATE_THM]
+        \\ simp[ag32Theory.print_string_max_length_def]
         \\ strip_tac
         \\ simp[LIST_EQ_REWRITE]
         \\ gen_tac \\ strip_tac
@@ -3867,7 +3880,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       \\ Cases_on`r0` \\ fs[memory_size_def]
       \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w])
     \\ simp[ag32_ffi_rel_def,Abbr`st`]
-    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ CONV_TAC(PATH_CONV"rl" EVAL)
     \\ simp[]
     \\ simp[Abbr`ms`]
     \\ drule hello_startup_clock_def
@@ -3878,7 +3891,8 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ qexists_tac`k + hello_startup_clock r0 ms0`
   \\ fs[EVAL``ag32_target.get_pc``]
   \\ fs[EVAL``ag32_target.get_reg``]
-  \\ unabbrev_all_tac \\ fs[] \\ rveq \\ fs[ag32_ffi_rel_def]
+  \\ imp_res_tac ag32_ffi_rel_get_print_string
+  \\ unabbrev_all_tac \\ fs[] \\ rveq \\ fs[]
   \\ rveq \\ fs[IS_PREFIX_APPEND]
   \\ first_x_assum(mp_tac o Q.AP_TERM`MAP (MAP (CHR o w2n) o FST o SND o dest_IO_event)`)
   \\ simp[MAP_MAP_o, Once o_DEF, CHR_w2n_n2w_ORD]
