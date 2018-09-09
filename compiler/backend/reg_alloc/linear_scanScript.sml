@@ -785,15 +785,12 @@ val swap_regs_def = Define`
 
 val partition_regs_def = tDefine "partition_regs" `
     partition_regs l rpiv begrpiv r =
-      do
-        reg <- sorted_regs_sub l;
-        begreg <- int_beg_sub reg;
-        if r <= l+1 then
-          if begreg < begrpiv \/ (begreg = begrpiv /\ reg <= rpiv) then
-            return r
-          else
-            return l
-        else
+      if r <= l then
+        return l
+      else
+        do
+          reg <- sorted_regs_sub l;
+          begreg <- int_beg_sub reg;
           if begreg < begrpiv \/ (begreg = begrpiv /\ reg <= rpiv) then
               partition_regs (l+1) rpiv begrpiv r
           else
@@ -801,9 +798,9 @@ val partition_regs_def = tDefine "partition_regs" `
               swap_regs l (r-1);
               partition_regs l rpiv begrpiv (r-1);
             od
-      od
+        od
 ` (
-  WF_REL_TAC `measure (\l,rpiv,begrpiv,r. (r+1)-l)`
+  WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
 );
 
 val qsort_regs_def = tDefine "qsort_regs" `
@@ -867,14 +864,11 @@ val swap_moves_def = Define`
 
 val partition_moves_def = tDefine "partition_moves" `
     partition_moves l ppiv r =
-      do
-        move <- sorted_moves_sub l;
-        if r <= l+1 then
-          if FST move < ppiv  then
-            return r
-          else
-            return l
-        else
+      if r <= l then
+        return l
+      else
+        do
+          move <- sorted_moves_sub l;
           if FST move < ppiv  then
             partition_moves (l+1) ppiv r
           else
@@ -884,7 +878,7 @@ val partition_moves_def = tDefine "partition_moves" `
             od
         od
 ` (
-  WF_REL_TAC `measure (\l,piv,r. (r+1)-l)`
+  WF_REL_TAC `measure (\l,piv,r. r-l)`
 );
 
 val qsort_moves_def = tDefine "qsort_moves" `
