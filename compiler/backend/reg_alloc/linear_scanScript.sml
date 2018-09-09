@@ -299,7 +299,8 @@ val get_intervals_ct_aux_def = Define`
 val get_intervals_ct_def = Define`
     get_intervals_ct ct =
         let (n, int_beg, int_end, live) = get_intervals_ct_aux ct 0 LN LN LN in
-        (n-1, int_beg, numset_list_add_if_gt (MAP FST (toAList live)) n int_end)
+        let listlive = MAP FST (toAList live) in
+        (n-1, numset_list_add_if_lt listlive n int_beg, numset_list_add_if_gt listlive n int_end)
 `
 
 val _ = Datatype `
@@ -471,6 +472,7 @@ val get_intervals_ct_monad_def = Define`
     get_intervals_ct_monad ct =
       do
         (n, live) <- get_intervals_ct_monad_aux ct 0 LN;
+        numset_list_add_if_lt_monad (MAP FST (toAList live)) n;
         numset_list_add_if_gt_monad (MAP FST (toAList live)) n;
         return (n-1)
       od
@@ -783,20 +785,23 @@ val swap_regs_def = Define`
 
 val partition_regs_def = tDefine "partition_regs" `
     partition_regs l rpiv begrpiv r =
-      if r <= l+1 then
-        return l
-      else
-        do
-          reg <- sorted_regs_sub l;
-          begreg <- int_beg_sub reg;
+      do
+        reg <- sorted_regs_sub l;
+        begreg <- int_beg_sub reg;
+        if r <= l+1 then
           if begreg < begrpiv \/ (begreg = begrpiv /\ reg <= rpiv) then
-            partition_regs (l+1) rpiv begrpiv r
+            return r
+          else
+            return l
+        else
+          if begreg < begrpiv \/ (begreg = begrpiv /\ reg <= rpiv) then
+              partition_regs (l+1) rpiv begrpiv r
           else
             do
               swap_regs l (r-1);
               partition_regs l rpiv begrpiv (r-1);
             od
-        od
+      od
 ` (
   WF_REL_TAC `measure (\l,rpiv,begrpiv,r. (r+1)-l)`
 );
@@ -809,21 +814,20 @@ val qsort_regs_def = tDefine "qsort_regs" `
         do
           rpiv <- sorted_regs_sub l;
           begrpiv <- int_beg_sub rpiv;
-          m <- partition_regs l rpiv begrpiv r;
-          swap_regs l m;
+          m <- partition_regs (l+1) rpiv begrpiv r;
+          swap_regs l (m-1);
           (* TODO: this condition is necessary for the termination argument, but useless in practice *)
-          if m < l \/ r <= m then
+          if m <= l \/ r < m then
             return ()
           else
             do
-              qsort_regs l m;
-              qsort_regs (m+1) r;
+              qsort_regs l (m-1);
+              qsort_regs m r;
             od
         od
 `(
     WF_REL_TAC `measure (\l,r. r-l)`
 )
-
 
 val list_to_sorted_regs_def = Define`
   (
@@ -851,7 +855,6 @@ val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
   WF_REL_TAC `measure (\n,len. len-n)`
 );
 
-
 val swap_moves_def = Define`
     swap_moves i1 i2 =
       do
@@ -864,11 +867,14 @@ val swap_moves_def = Define`
 
 val partition_moves_def = tDefine "partition_moves" `
     partition_moves l ppiv r =
-      if r <= l+1 then
-        return l
-      else
-        do
-          move <- sorted_moves_sub l;
+      do
+        move <- sorted_moves_sub l;
+        if r <= l+1 then
+          if FST move < ppiv  then
+            return r
+          else
+            return l
+        else
           if FST move < ppiv  then
             partition_moves (l+1) ppiv r
           else
@@ -888,15 +894,15 @@ val qsort_moves_def = tDefine "qsort_moves" `
       else
         do
           piv <- sorted_moves_sub l;
-          m <- partition_moves l (FST piv) r;
-          swap_moves l m;
+          m <- partition_moves (l+1) (FST piv) r;
+          swap_moves l (m-1);
           (* TODO: this condition is necessary for the termination argument, but useless in practice *)
-          if m < l \/ r <= m then
+          if m <= l \/ r < m then
             return ()
           else
             do
-              qsort_moves l m;
-              qsort_moves (m+1) r;
+              qsort_moves l (m-1);
+              qsort_moves m r;
             od
         od
 `(
