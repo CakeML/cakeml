@@ -6060,15 +6060,24 @@ val ALOOKUP_compile_prog_aux = Q.store_thm("ALOOKUP_compile_prog_aux",
   \\ metis_tac[IS_SUBLIST_APPEND, APPEND_ASSOC]);
 *)
 
-(*
+val kcompile_inc_def = Define`
+  kcompile_inc kcfg cc =
+    state_cc
+      (clos_knownProof$compile_inc kcfg)
+      ((pure_cc clos_ticksProof$compile_inc
+         ((pure_cc clos_letopProof$compile_inc (cc:'a clos_cc))
+          :'a clos_cc)):'a clos_cc)`;
+
 val compile_common_inc_def = Define`
   compile_common_inc c cc =
   ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
-    (state_cc (ignore_table renumber_code_locs)
-      (state_cc (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
-        (state_cc (if c.do_call then clos_callProof$compile_inc else CURRY I)
-          (pure_cc clos_annotateProof$compile_inc cc)))))`;
-*)
+    (state_cc (ignore_table clos_numberProof$compile_inc)
+      (let cc1 =
+        state_cc (if c.do_call then clos_callProof$compile_inc else CURRY I)
+          (pure_cc clos_annotateProof$compile_inc cc)
+        in
+       (case c.known_conf of NONE => state_cc (CURRY I) cc1
+                           | SOME kcfg => kcompile_inc kcfg cc1))))`;
 
 (* TODO: move *)
 
@@ -6666,9 +6675,10 @@ val set_code_locs_intro_multi = Q.store_thm("set_code_locs_intro_multi[simp]",
 *)
 
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
-  `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1 (compile_common_inc c cc) es1 ≠ Fail ∧
+  `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
+    (compile_common_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
-   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧ (∀n. clos_mtiProof$syntax_ok [FST(SND(co1 n))])) ∧
+   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧ (∀n. clos_mtiProof$syntax_ok (FST(SND(co1 n))))) ∧
    (c.do_call ⇒
      let x =
         (SND (clos_known$compile c.known_conf
@@ -6679,31 +6689,33 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      FST(SND(SND(FST(co1 0)))) =
        FST(SND(clos_call$compile c.do_call x))) ∧
    (IS_SOME c.known_conf ⇒
-     (THE c.known_conf).val_approx_spt = LN	∧
-     FST (SND (FST (co1 0))) = SND
-       (known (THE c.known_conf)
-         (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app es1)))
-           [] LN)) ∧
+     (THE c.known_conf).val_approx_spt = LN	∧ 1 ≤ c.max_app ∧
+     FST (SND (FST (co1 0))) = (THE (FST (compile c.known_conf
+(SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app es1)))))).val_approx_spt) ∧
    (¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
     BAG_ALL_DISTINCT (elist_globals es1) ∧
     (∀n. SND (SND (co1 n)) = [] ∧
+     ¬contains_App_SOME c.max_app (FST(SND(co1 n))) ∧
+     (*
      globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
      BAG_ALL_DISTINCT (elist_globals (GENLIST (FST o SND o co1) n)) ∧
      BAG_DISJOINT (elist_globals es1) (elist_globals (GENLIST (FST o SND o co1) n)) ∧
-     ¬contains_App_SOME c.max_app [FST(SND(co1 n))] ∧
      clos_knownProof$syntax_ok [FST(SND(co1 n))] ∧
+     *)
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
      globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))
      ))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
+     (*
      (pure_co clos_annotateProof$compile_inc o
        state_co (if c.do_call then clos_callProof$compile_inc else CURRY I)
        (state_co
          (case c.known_conf of NONE => CURRY I | SOME kcfg => clos_knownProof$compile_inc kcfg)
            (state_co (ignore_table renumber_code_locs)
              ((if c.do_mti then pure_co (clos_mtiProof$compile_inc c.max_app) else I) o co1))))
+             *) co2
      cc ([Call None 0 c'.start []]) =
    closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) es1`,
   simp[compile_common_def]
@@ -6737,7 +6749,8 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ qmatch_goalsub_abbrev_tac`state_cc _ cc0`
   \\ disch_then(qspec_then`cc0`mp_tac) \\ fs[]
   \\ impl_tac >- (
-    strip_tac
+    simp[kcompile_inc_def]
+    \\ strip_tac
     \\ simp[backendPropsTheory.SND_state_co, SND_SND_ignore_table,
            backendPropsTheory.FST_state_co,
            FST_SND_ignore_table]
