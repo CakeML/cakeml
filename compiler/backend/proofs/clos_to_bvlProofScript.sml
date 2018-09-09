@@ -6409,19 +6409,42 @@ val set_globals_SND_renumber_code_locs = Q.store_thm("set_globals_SND_renumber_c
   `set_globals (SND (renumber_code_locs x y)) = set_globals y`,
   metis_tac[clos_numberProofTheory.renumber_code_locs_elist_globals,PAIR]);
 
-(*
+val elist_globals_FLAT = Q.store_thm("elist_globals_FLAT",
+  `elist_globals (FLAT ls) = FOLDR BAG_UNION {||} (MAP elist_globals ls)`,
+  rw[elist_globals_FOLDR, MAP_FLAT]
+  \\ DEP_REWRITE_TAC[ASSOC_FOLDR_FLAT]
+  \\ simp[MAP_MAP_o,o_DEF, GSYM elist_globals_FOLDR]
+  \\ srw_tac[ETA_ss][]
+  \\ simp[ASSOC_DEF, ASSOC_BAG_UNION, LEFT_ID_DEF]);
+
+val elist_globals_SND_renumber_code_locs_list = Q.store_thm("elist_globals_SND_renumber_code_locs_list",
+  `elist_globals (SND (renumber_code_locs_list x y)) = elist_globals y`,
+  metis_tac[clos_numberProofTheory.renumber_code_locs_elist_globals,PAIR]);
+
+val elist_globals_SND_ncompile_inc = Q.store_thm("elist_globals_SND_ncompile_inc[simp]",
+  `elist_globals (SND (clos_numberProof$compile_inc x y)) = elist_globals y`,
+  rw[clos_numberProofTheory.compile_inc_def,UNCURRY,op_gbag_def,elist_globals_SND_renumber_code_locs_list]);
+
 val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber_code_locs",
   `renumber_code_locs_list n es1 = (k,es2) ∧
    clos_knownProof$syntax_ok es1 ∧
-   co_every_Fn_vs_NONE co1 ∧
+   clos_knownProof$co_every_Fn_vs_NONE co1 ∧
    BAG_ALL_DISTINCT (elist_globals es1) ∧
-   (∀n. SND (SND (co1 n)) = [] ∧ clos_knownProof$syntax_ok [FST (SND (co1 n))] ∧
-        globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
-        BAG_ALL_DISTINCT (elist_globals (GENLIST (FST o SND o co1) n)) ∧
-        BAG_DISJOINT (elist_globals es1) (elist_globals (GENLIST (FST o SND o co1) n)))
+   (∀n. SND (SND (co1 n)) = [] ∧ clos_knownProof$syntax_ok (FST (SND (co1 n))) ∧
+        clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
+        (subspt (FST (SND (FST (co1 n)))) (FST (SND (FST (co1 (SUC n)))))) ∧
+        BAG_ALL_DISTINCT (elist_globals (FLAT (GENLIST (FST o SND o co1) n))) ∧
+        BAG_DISJOINT (elist_globals es1) (elist_globals (FLAT (GENLIST (FST o SND o co1) n))))
   ⇒
-   syntax_oracle_ok es2 (state_co (ignore_table renumber_code_locs) co1)`,
-  simp[clos_knownProofTheory.syntax_oracle_ok_def]
+   clos_knownProof$syntax_oracle_ok es2
+     (state_co (ignore_table clos_numberProof$compile_inc) co1)`,
+  simp[clos_knownProofTheory.syntax_oracle_ok_def,
+       clos_knownProofTheory.oracle_state_sgc_free_def,
+       clos_knownProofTheory.oracle_gapprox_subspt_def,
+       clos_knownProofTheory.oracle_gapprox_disjoint_def,
+       clos_knownProofTheory.gapprox_disjoint_def,
+       FST_SND_ignore_table,
+       backendPropsTheory.FST_state_co]
   \\ strip_tac
   \\ simp[backendPropsTheory.SND_state_co]
   \\ conj_asm1_tac
@@ -6434,6 +6457,9 @@ val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber
     \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]FST_SND_ignore_table) mp_tac
     \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]SND_SND_ignore_table) mp_tac
     \\ ntac 3 strip_tac \\ fs[] \\ rveq
+    \\ simp[clos_numberProofTheory.compile_inc_def, UNCURRY]
+    \\ simp[Once every_Fn_vs_NONE_EVERY]
+    \\ simp[GSYM every_Fn_vs_NONE_EVERY]
     \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
     \\ metis_tac[PAIR] )
   \\ reverse conj_asm2_tac
@@ -6445,8 +6471,12 @@ val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber
       \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]SND_SND_ignore_table) mp_tac
       \\ simp[]
       \\ ntac 2 strip_tac
-      \\ qspecl_then[`FST(FST (co1 m))`,`FST (SND (co1 m))`]mp_tac syntax_ok_renumber_code_locs
-      \\ simp[] )
+      \\ simp[clos_numberProofTheory.compile_inc_def, UNCURRY]
+      \\ simp[clos_knownProofTheory.syntax_ok_def]
+      \\ simp[Once every_Fn_vs_NONE_EVERY, clos_knownProofTheory.fv_max_def, fv1_thm]
+      \\ simp[GSYM every_Fn_vs_NONE_EVERY]
+      \\ specl_args_of_then``renumber_code_locs_list``syntax_ok_renumber_code_locs_list mp_tac
+      \\ simp[clos_knownProofTheory.syntax_ok_def, clos_knownProofTheory.fv_max_def])
     \\ simp[clos_knownProofTheory.unique_set_globals_def]
     \\ simp[clos_knownProofTheory.first_n_exps_def, o_DEF,
             backendPropsTheory.SND_state_co,
@@ -6454,18 +6484,12 @@ val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber
     \\ fs[SND_SND_ignore_table, FST_SND_ignore_table]
     \\ simp[elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
     \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_elist_globals \\ fs[]
-    \\ simp[Once elist_globals_FOLDR, MAP_GENLIST, o_DEF]
-    \\ simp[set_globals_SND_renumber_code_locs]
-    \\ simp[GSYM o_DEF, GSYM MAP_GENLIST, GSYM elist_globals_FOLDR]
-    \\ simp[MAP_GENLIST]
-    \\ qmatch_goalsub_abbrev_tac`BAG_DISJOINT b1`
-    \\ simp[Once elist_globals_FOLDR, MAP_GENLIST, o_DEF]
-    \\ simp[set_globals_SND_renumber_code_locs]
-    \\ simp[Q.ISPEC`set_globals`(GSYM o_DEF), GSYM MAP_GENLIST, GSYM elist_globals_FOLDR]
-    \\ fs[o_DEF] )
-  \\ simp[clos_knownProofTheory.oracle_state_sgc_free_def,
-         backendPropsTheory.FST_state_co]);
-*)
+    \\ simp[elist_globals_FLAT, MAP_GENLIST, o_DEF, op_gbag_def]
+    \\ fs[o_DEF, elist_globals_FLAT, MAP_GENLIST])
+  \\ simp[FST_SND_ignore_table]
+  \\ qx_gen_tac`m`
+  \\ last_x_assum(qspec_then`m`mp_tac)
+  \\ cheat);
 
 val collect_apps_fv1 = Q.store_thm("collect_apps_fv1",
   `∀x y z v. fv v (FST (collect_apps x y z)) ∨ fv1 v (SND (collect_apps x y z)) ⇔ fv v y ∨ fv1 v z`,
