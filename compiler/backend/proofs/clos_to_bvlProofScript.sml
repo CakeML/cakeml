@@ -6060,14 +6060,6 @@ val ALOOKUP_compile_prog_aux = Q.store_thm("ALOOKUP_compile_prog_aux",
   \\ metis_tac[IS_SUBLIST_APPEND, APPEND_ASSOC]);
 *)
 
-val kcompile_inc_def = Define`
-  kcompile_inc kcfg cc =
-    state_cc
-      (clos_knownProof$compile_inc kcfg)
-      ((pure_cc clos_ticksProof$compile_inc
-         ((pure_cc clos_letopProof$compile_inc (cc:'a clos_cc))
-          :'a clos_cc)):'a clos_cc)`;
-
 val compile_common_inc_def = Define`
   compile_common_inc c cc =
   ((if c.do_mti then pure_cc (clos_mtiProof$compile_inc c.max_app) else I)
@@ -6076,8 +6068,7 @@ val compile_common_inc_def = Define`
         state_cc (if c.do_call then clos_callProof$compile_inc else CURRY I)
           (pure_cc clos_annotateProof$compile_inc cc)
         in
-       (case c.known_conf of NONE => state_cc (CURRY I) cc1
-                           | SOME kcfg => kcompile_inc kcfg cc1))))`;
+       clos_knownProof$known_cc c.known_conf cc)))`;
 
 (* TODO: move *)
 

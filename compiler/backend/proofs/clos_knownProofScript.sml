@@ -4630,19 +4630,27 @@ val syntax_oracle_ok_def = Define`
     (∀n. SND(SND(co n)) = [] ∧
          syntax_ok (FST (SND (co n))))`;
 
+val known_cc_def = Define `
+  known_cc known_conf cc =
+    (case known_conf of
+     | SOME kcfg => (state_cc (compile_inc kcfg)
+                      (pure_cc clos_ticksProof$compile_inc
+                        (pure_cc clos_letopProof$compile_inc
+                           (cc:'b clos_cc):'b clos_cc):'b clos_cc))
+     | NONE      => state_cc (CURRY I) cc :(val_approx num_map # 'b) clos_cc)`;
+
+val known_co_def = Define `
+  known_co known_conf (co : (val_approx num_map # 'b) clos_co) =
+    (case known_conf of
+     | SOME kcfg => (pure_co clos_letopProof$compile_inc o
+                       ((pure_co clos_ticksProof$compile_inc o
+                          (state_co (compile_inc kcfg) co)) : 'b clos_co))
+     | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
+
 val semantics_compile = Q.store_thm("semantics_compile",
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
-   (cc1 = (case known_conf of
-           | SOME kcfg => (state_cc (compile_inc kcfg)
-                            (pure_cc clos_ticksProof$compile_inc
-                              (pure_cc clos_letopProof$compile_inc
-                                 (cc:'b clos_cc):'b clos_cc):'b clos_cc))
-           | NONE      => state_cc (CURRY I) cc)) ∧
-   (co1 = (case known_conf of
-           | SOME kcfg => (pure_co clos_letopProof$compile_inc o
-                             ((pure_co clos_ticksProof$compile_inc o
-                                (state_co (compile_inc kcfg) co)) : 'b clos_co))
-           | NONE      => state_co (CURRY I) co)) ∧
+   (cc1 = known_cc known_conf cc) ∧
+   (co1 = known_co known_conf co) ∧
    (compile known_conf xs = (known_conf', es)) ∧
    (IS_SOME known_conf ⇒
       syntax_oracle_ok xs co ∧ 1 ≤ max_app ∧
@@ -4651,7 +4659,8 @@ val semantics_compile = Q.store_thm("semantics_compile",
    ⇒
    semantics ffi max_app FEMPTY co1 cc es =
    semantics ffi max_app FEMPTY co cc1 xs`,
-  strip_tac
+  simp [known_co_def,known_cc_def]
+  \\ strip_tac
   \\ Cases_on`known_conf` \\ fs[compile_def]
   >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
   \\ pairarg_tac \\ fs[] \\ rveq
