@@ -6970,10 +6970,11 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_code_locs_bag
         \\ Cases_on`known aa bb ccc dd` \\ simp[]
         \\ strip_tac
+        \\ simp[GSYM bag_of_list_ALL_DISTINCT]
         \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
         \\ asm_exists_tac \\ fs[]
         \\ simp[Abbr`bb`]
-        \\ simp[bag_of_list_ALL_DISTINCT])
+        \\ simp[bag_of_list_ALL_DISTINCT]))
     \\ cheat (* co_ok *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
@@ -6997,7 +6998,6 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
   \\ drule clos_annotateProofTheory.semantics_annotate
-
   \\ impl_tac >- (
     fs[backendPropsTheory.SND_state_co, chain_exps_every_Fn_vs_NONE]
     \\ conj_tac
@@ -7016,9 +7016,11 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ simp[Abbr`co`,backendPropsTheory.FST_state_co,
             backendPropsTheory.SND_state_co]
     \\ fs[clos_knownProofTheory.syntax_ok_def]
-    \\ rw[] \\ CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, mcompile_inc_uncurry]
-    \\ fs[HD_FST_calls, FST_SND_ignore_table, SND_SND_ignore_table,
-          clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
+    \\ simp[clos_knownProofTheory.known_co_def]
+    \\ rw[] \\ TOP_CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, mcompile_inc_uncurry]
+    \\ fs[HD_FST_calls, FST_SND_ignore_table, SND_SND_ignore_table, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ fs[mcompile_inc_uncurry, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table]
+    \\ fs[clos_letopProofTheory.compile_inc_def, clos_ticksProofTheory.compile_inc_def]
     \\ TRY (
       (clos_callProofTheory.calls_preserves_every_Fn_vs_NONE
         |> SPEC_ALL |> UNDISCH |> UNDISCH |> CONJUNCT2 |> DISCH_ALL
