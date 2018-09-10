@@ -7069,7 +7069,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
    code_installed prog2 code2
    ⇒
    bvlSem$semantics ffi code2 (co2 : num -> 'c # (num # num # bvl$exp) list) cc2 nsm1 =
-   closSem$semantics ffi max_app code1 (co1 : num -> 'c # closLang$exp # (num # num # closLang$exp) list) cc1 [Call None 0 start []]`,
+   closSem$semantics ffi max_app code1 (co1 : 'c clos_co) cc1 [Call None 0 start []]`,
   rw[]
   \\ irule (GEN_ALL IMP_semantics_eq)
   \\ simp[]
@@ -7131,13 +7131,13 @@ val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c es co ⇔
     (c.do_mti ⇒
       1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
-      (∀n. clos_mtiProof$syntax_ok [FST(SND(co n))])) ∧
+      (∀n. clos_mtiProof$syntax_ok (FST(SND(co n))))) ∧
     (IS_SOME c.known_conf ⇒
-       (THE c.known_conf).val_approx_spt = LN ∧
+       (THE c.known_conf).val_approx_spt = LN ∧ 1 ≤ c.max_app ∧
        FST(SND(FST(co 0))) =
-       SND (known (THE c.known_conf)
+       (THE (FST (clos_known$compile c.known_conf
          (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
-           (compile c.do_mti c.max_app es))) [] LN)) ∧
+           (compile c.do_mti c.max_app es)))))).val_approx_spt) ∧
     (c.do_call ⇒
        let x =
           (SND (clos_known$compile c.known_conf
@@ -7149,12 +7149,13 @@ val syntax_oracle_ok_def = Define`
          FST(SND(clos_call$compile c.do_call x))) ∧
     (∀n.
       SND (SND (co n)) = [] ∧
-      globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
+      clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
+      subspt (FST (SND (FST (co n)))) (FST (SND (FST (co (SUC n))))) ∧
       BAG_ALL_DISTINCT
         (BAG_UNION (elist_globals es)
-                   (elist_globals (GENLIST (FST o SND o co) n))) ∧
-      ¬contains_App_SOME c.max_app [FST (SND (co n))] ∧
-      clos_knownProof$syntax_ok [FST (SND (co n))] ∧
+                   (elist_globals (FLAT (GENLIST (FST o SND o co) n)))) ∧
+      ¬contains_App_SOME c.max_app (FST (SND (co n))) ∧
+      clos_knownProof$syntax_ok (FST (SND (co n))) ∧
       every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
       globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
       globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧
@@ -7345,11 +7346,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
    syntax_oracle_ok c es co
    ⇒
    semantics ffi (fromAList prog)
-     (pure_co (compile_inc c.max_app) o pure_co compile_inc o
-      state_co (if c.do_call then compile_inc else CURRY I)
-        (state_co (case c.known_conf of NONE => CURRY I | SOME kcfg => compile_inc kcfg)
-          (state_co (ignore_table renumber_code_locs)
-            ((if c.do_mti then pure_co (compile_inc c.max_app) else I) o co))))
+     (pure_co (compile_inc c.max_app) o pure_co clos_annotateProof$compile_inc o
+      state_co (if c.do_call then clos_callProof$compile_inc else CURRY I)
+        (clos_knownProof$known_co c.known_conf
+          (state_co (ignore_table clos_numberProof$compile_inc)
+            ((if c.do_mti then pure_co (clos_mtiProof$compile_inc c.max_app) else I) o co))))
        cc c'.start =
    semantics ffi c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es`,
@@ -7363,7 +7364,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ simp[]
   \\ impl_tac >- (
     fs[syntax_oracle_ok_def]
-    \\ fs[BAG_ALL_DISTINCT_BAG_UNION] )
+    \\ fs[BAG_ALL_DISTINCT_BAG_UNION]
+    \\ fs[elist_globals_FLAT, BAG_DISJOINT_FOLDR_BAG_UNION, MAP_GENLIST, EVERY_GENLIST]
+    \\ metis_tac[prim_recTheory.LESS_SUC_REFL])
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
