@@ -7043,7 +7043,103 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ first_x_assum drule
       \\ simp[Abbr`n`] )
     \\ qx_gen_tac`m`
-    \\ cheat)
+    \\ `∀m. FST (FST (co m)) = FST (SND (SND (FST (co1 m))))`
+    by (
+      simp[Abbr`co`, clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co]
+      \\ rw[] )
+    \\ simp[]
+    \\ qmatch_goalsub_abbrev_tac`calls xs g0`
+    \\ Cases_on`calls xs g0`
+    \\ qspecl_then[`xs`,`g0`]mp_tac clos_callProofTheory.calls_add_SUC_code_locs
+    \\ simp[] \\ strip_tac \\ fs[Abbr`g0`]
+    \\ `∀m k. k ∈ set (code_locs (FST (SND (co m)))) ⇒ FST (FST (co1 m)) + 2 * MAX (LENGTH (FST (SND (co1 m)))) 1 ≤ k`
+    by (
+      simp[Abbr`xs`, Abbr`co`]
+      \\ simp[clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co, FST_SND_ignore_table]
+      >- (
+        simp[mcompile_inc_uncurry, clos_numberProofTheory.compile_inc_def, UNCURRY]
+        \\ simp[Once code_locs_cons, code_locs_def, clos_mtiTheory.intro_multi_length]
+        \\ rpt gen_tac
+        \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
+        \\ simp[EVERY_MEM]
+        \\ rw[mcompile_inc_uncurry, clos_mtiTheory.intro_multi_length])
+      \\ simp[kcompile_inc_uncurry, FST_SND_ignore_table, backendPropsTheory.FST_state_co, SND_SND_ignore_table]
+      \\ simp[clos_ticksProofTheory.compile_inc_def]
+      \\ simp[clos_letopProofTheory.compile_inc_def]
+      \\ simp[clos_letopProofTheory.code_locs_let_op]
+      \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
+      \\ rpt gen_tac
+      \\ specl_args_of_then``known`` clos_knownProofTheory.known_code_locs_bag mp_tac
+      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ Cases_on`known aa bb ccc dd`
+      \\ simp[] \\ strip_tac
+      \\ imp_res_tac SUB_BAG_SET
+      \\ fs[SUBSET_DEF, IN_bag_of_list_MEM]
+      \\ rpt strip_tac
+      \\ first_x_assum drule
+      \\ simp[Abbr`bb`]
+      \\ rw[mcompile_inc_uncurry, clos_numberProofTheory.compile_inc_def, UNCURRY]
+      \\ pop_assum mp_tac
+      \\ simp[Once code_locs_cons, code_locs_def]
+      \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
+      \\ simp[EVERY_MEM]
+      \\ rw[clos_mtiTheory.intro_multi_length] )
+    \\ conj_tac
+    >- (
+      simp[IN_DISJOINT]
+      \\ first_x_assum(qspec_then`m`mp_tac)
+      \\ simp[] \\ strip_tac
+      \\ CCONTR_TAC \\ fs[]
+      \\ fs[SUBSET_DEF, PULL_EXISTS]
+      \\ first_x_assum drule
+      \\ strip_tac
+      \\ first_x_assum drule
+      \\ simp[NOT_LESS_EQUAL]
+      \\ first_x_assum drule \\ rw[]
+      \\ first_x_assum drule
+      \\ rw[IN_between]
+      \\ cheat (* add assumption re c.next_loc and co1 *) )
+    \\ conj_tac
+    >- (
+      simp[IN_DISJOINT]
+      \\ CCONTR_TAC \\ fs[]
+      \\ first_x_assum(qspec_then`m`mp_tac)
+      \\ simp[]
+      \\ CCONTR_TAC \\ fs[SUBSET_DEF]
+      \\ first_x_assum drule
+      \\ CCONTR_TAC \\ fs[]
+      \\ fs[GSYM IMP_DISJ_THM]
+      \\ first_x_assum drule
+      \\ simp[NOT_LESS_EQUAL]
+      \\ cheat (* add assumption about c.next_loc and co1, possibly incorporating above  *) )
+    \\ qx_gen_tac`p`
+    \\ strip_tac
+    \\ simp[IN_DISJOINT]
+    \\ qx_gen_tac`z`
+    \\ CCONTR_TAC \\ fs[]
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`calls ys g0`
+    \\ qspecl_then[`ys`,`g0`]mp_tac clos_callProofTheory.calls_add_SUC_code_locs
+    \\ Cases_on`calls ys g0`
+    \\ simp[SUBSET_DEF] \\ rw[]
+    \\ first_x_assum drule
+    \\ simp[Abbr`g0`] \\ rw[]
+    \\ first_assum(qspec_then`p`mp_tac)
+    \\ qmatch_asmsub_rename_tac`MEM y (code_locs ys)`
+    \\ disch_then(qspec_then`y`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ strip_tac
+    \\ strip_tac
+    \\ fs[SUBSET_DEF]
+    \\ first_x_assum drule
+    \\ simp[] \\ strip_tac
+    \\ first_x_assum(qspec_then`m`mp_tac)
+    \\ rw[]
+    \\ asm_exists_tac \\ rw[]
+    \\ rw[NOT_LESS_EQUAL]
+    \\ cheat (* add assumption about co1 monotonocity *))
   \\ strip_tac
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
