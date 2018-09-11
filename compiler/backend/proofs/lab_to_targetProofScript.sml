@@ -572,7 +572,8 @@ val state_rel_def = Define `
             (k = 0 ⇒
             cfg.labels = labs ∧
             cfg.pos = LENGTH (prog_to_bytes code2) ∧
-            cfg.asm_conf = mc_conf.target.config ∧
+            (* TODO: What is correct here? *)
+            (* cfg.asm_conf = mc_conf.target.config ∧ *)
             cfg.ffi_names = SOME(mc_conf.ffi_names)
             )) ∧
     (!l1 l2 x.
@@ -6029,7 +6030,8 @@ val compiler_oracle_ok_def = Define`
     (let (cfg,code) = coracle 0 in
         cfg.labels = init_labs ∧
         cfg.pos = init_pos ∧
-        cfg.asm_conf = c ∧
+        (* TODO: What to do here to ensure that config is correct? *)
+        (* cfg.asm_conf = c ∧ *)
         cfg.ffi_names = SOME ffis)`
 
 (* mc_conf_ok: conditions on the machine configuration
@@ -6131,7 +6133,7 @@ val make_init_filter_skip = Q.store_thm("make_init_filter_skip",
        compile_lab cbpos cbspace((λ(a,b). (a,filter_skip b)) o coracle)) =
    semantics
     (make_init mc_conf ffi io_regs cc_regs t m dm ms code
-      (λc p. compile_lab c (filter_skip p)) cbpos cbspace coracle)`,
+      (λc p. compile_lab c asm_conf (filter_skip p)) cbpos cbspace coracle)`,
   match_mp_tac (filter_skip_semantics)>>
   rw[]>>
   simp[make_init_def]>>
@@ -6221,11 +6223,11 @@ val list_subset_LENGTH = Q.store_thm("list_subset_LENGTH",`
 
 val semantics_compile_lemma = Q.prove(
   ` mc_conf_ok mc_conf ∧
-    compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
+    compiler_oracle_ok coracle c'.labels (LENGTH bytes) asm_conf mc_conf.ffi_names ∧
     (* Assumptions on input code *)
     good_code mc_conf.target.config LN code ∧
     (* Config state *)
-    c.asm_conf = mc_conf.target.config /\
+    asm_conf = mc_conf.target.config /\
     c.labels = LN ∧ c.pos = 0 ∧
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     (* FFI is either given or computed *)
@@ -6253,7 +6255,7 @@ val semantics_compile_lemma = Q.prove(
   match_mp_tac (GEN_ALL semantics_make_init)>>
   fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
   fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS]>>
-  conj_tac >- fs[mc_conf_ok_def] >>  
+  conj_tac >- fs[mc_conf_ok_def] >>
   conj_tac >- (
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
@@ -6283,9 +6285,9 @@ val semantics_compile_lemma = Q.prove(
 
 val semantics_compile = Q.store_thm("semantics_compile",`
    mc_conf_ok mc_conf ∧
-   compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
-   good_code c.asm_conf c.labels code ∧
-   c.asm_conf = mc_conf.target.config ∧
+   compiler_oracle_ok coracle c'.labels (LENGTH bytes) asm_conf mc_conf.ffi_names ∧
+   good_code asm_conf c.labels code ∧
+   asm_conf = mc_conf.target.config ∧
    c.labels = LN ∧ c.pos = 0 ∧
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\

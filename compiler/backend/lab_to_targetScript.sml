@@ -268,7 +268,6 @@ val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
 val _ = Datatype`
   config = <| labels : num num_map num_map
             ; pos : num
-            ; asm_conf : 'a asm_config
             ; init_clock : num
             ; ffi_names : string list option
             |>`;
@@ -288,25 +287,30 @@ val find_ffi_names_def = Define `
    | _ => find_ffi_names (Section k xs::rest)))`
 
 val compile_lab_def = Define `
-  compile_lab c sec_list =
+  compile_lab c asm_conf sec_list =
     let current_ffis = find_ffi_names sec_list in
     let (ffis,ffis_ok) =
       case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
     in
     if ffis_ok then
-      case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
+      case remove_labels c.init_clock asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
-          SOME (prog_to_bytes sec_list,
-                c with <| labels := l1;
-                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
-                          ffi_names := SOME ffis
-                        |>)
+        (* NOTE: In previous versions of CakeML, more information than just the list of FFIs was
+         * returned. If the need arises again, define a record called "export_config" or similar,
+         * and return that. This can then propagate safely via backend$compile.
+         * Modifying and passing lab_to_target$config is not an option since other branches in
+         * the compiler, e.g. wasm, cannot use this type.
+         * For reference, what was previously passed on, but ignored in compiler$compile:
+         *   - labels := l1
+         *   - pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list
+         *)
+          SOME (prog_to_bytes sec_list, ffis)
       | NONE => NONE
     else NONE`;
 
 (* compile labLang *)
 
 val compile_def = Define `
-  compile lc sec_list = compile_lab lc (filter_skip sec_list)`;
+  compile lc asm_conf sec_list = compile_lab lc asm_conf (filter_skip sec_list)`;
 
 val _ = export_theory();

@@ -15,15 +15,37 @@ open jsonLangTheory presLangTheory
 
 val _ = new_theory"backend";
 
-val _ = Datatype`config =
-  <| source_conf : source_to_flat$config
-   ; clos_conf : clos_to_bvl$config
-   ; bvl_conf : bvl_to_bvi$config
-   ; data_conf : data_to_word$config
+(* Target architectures provide config presets,
+ * which are turned into configs. *)
+val _ = Datatype`config_preset =
+  <| source_conf       : source_to_flat$config
+   ; clos_conf         : clos_to_bvl$config
+   ; bvl_conf          : bvl_to_bvi$config
+   ; data_conf         : data_to_word$config
    ; word_to_word_conf : word_to_word$config
-   ; word_conf : 'a word_to_stack$config
-   ; stack_conf : stack_to_lab$config
-   ; lab_conf : 'a lab_to_target$config
+   ; word_conf         : 'a word_to_stack$config
+   ; stack_conf        : stack_to_lab$config
+   ; lab_conf          : lab_to_target$config
+   ; asm_conf          : 'a asm$asm_config
+   |>`;
+
+(* Configures the later stages of the backend, i.e.
+ * where to go after stackLang. *)
+val _ = Datatype`late_config =
+  | ToTarget stack_to_lab$config lab_to_target$config
+  (* TODO: The following is in preparation of the wasm target: *)
+  (*| ToWasm   stack_to_wasm$config *)`
+
+(* Actual configuration, usually derived from a config_preset. *)
+val _ = Datatype`config =
+  <| source_conf       : source_to_flat$config
+   ; clos_conf         : clos_to_bvl$config
+   ; bvl_conf          : bvl_to_bvi$config
+   ; data_conf         : data_to_word$config
+   ; word_to_word_conf : word_to_word$config
+   ; word_conf         : 'a word_to_stack$config
+   ; late_conf         : late_config
+   ; asm_conf          : 'a asm$asm_config
    |>`;
 
 val config_component_equality = theorem"config_component_equality";
@@ -50,21 +72,32 @@ val compile_def = Define`
     let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let p = bvi_to_data$compile_prog p in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
-    let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+    let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let _ = empty_ffi (strlit "finished: data_to_word") in
-    let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+    let (c',p) = word_to_stack$compile c.asm_conf p in
     let c = c with word_conf := c' in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
-    let p = stack_to_lab$compile
-      c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
-      (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
-      (c.lab_conf.asm_conf.addr_offset) p in
-    let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let res = attach_bitmaps c.word_conf.bitmaps
-      (lab_to_target$compile c.lab_conf (p:'a prog)) in
-    let _ = empty_ffi (strlit "finished: lab_to_target") in
-      res`;
+    case c.late_conf of
+    | ToTarget stack_to_lab_conf lab_conf =>
+      let p = stack_to_lab$compile
+        stack_to_lab_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+        (c.asm_conf.reg_count - (LENGTH c.asm_conf.avoid_regs +3))
+        (c.asm_conf.addr_offset) p in
+      let _ = empty_ffi (strlit "finished: stack_to_lab") in
+      let res = attach_bitmaps c.word_conf.bitmaps
+        (lab_to_target$compile lab_conf c.asm_conf (p:'a prog)) in
+      let _ = empty_ffi (strlit "finished: lab_to_target") in
+        res
+    | _ => NONE
+    (* TODO: The following is in preparation for a wasm target: *)
+    (* | ToWasm stack_to_wasm_conf => *)
+    (*   let res = stack_to_wasm$compile *)
+    (*     stack_to_wasm_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1) *)
+    (*     (c.asm_conf.reg_count - (LENGTH c.asm_conf.avoid_regs +3)) *)
+    (*     (c.asm_conf.addr_offset) p in *)
+    (*   let _ = empty_ffi (strlit "finished: stack_to_wasm") in *)
+    (*     res *)`;
 
 val to_flat_def = Define`
   to_flat c p =
@@ -108,31 +141,39 @@ val to_data_def = Define`
 val to_word_def = Define`
   to_word c p =
   let (c,p) = to_data c p in
-  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p)`;
 
 val to_stack_def = Define`
   to_stack c p =
   let (c,p) = to_word c p in
-  let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (c',p) = word_to_stack$compile c.asm_conf p in
   let c = c with word_conf := c' in
   (c,p)`;
 
 val to_lab_def = Define`
   to_lab c p =
-  let (c,p) = to_stack c p in
-  let p = stack_to_lab$compile
-    c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
-    (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
-    (c.lab_conf.asm_conf.addr_offset) p in
-  (c,p:'a prog)`;
+  case c.late_conf of
+  | ToTarget stack_to_lab_conf lab_conf =>
+    let (c,p) = to_stack c p in
+    let p = stack_to_lab$compile
+      stack_to_lab_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+      (c.asm_conf.reg_count - (LENGTH c.asm_conf.avoid_regs +3))
+      (c.asm_conf.addr_offset) p in
+    SOME (c,p:'a prog)
+  | _ => NONE`;
 
 val to_target_def = Define`
   to_target c p =
-  let (c,p) = to_lab c p in
-    attach_bitmaps c.word_conf.bitmaps
-      (lab_to_target$compile c.lab_conf p)`;
+  case c.late_conf of
+  | ToTarget stack_to_lab_conf lab_conf =>
+    case to_lab c p of
+    | SOME (c,p) =>
+      attach_bitmaps c.word_conf.bitmaps
+        (lab_to_target$compile lab_conf c.asm_conf p)
+    | NONE => NONE
+  | _ => NONE`;
 
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
@@ -148,7 +189,8 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
      to_pat_def,
      to_flat_def] >>
   unabbrev_all_tac >>
-  rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
+  rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])) >>
+  cheat);
 
 val prim_config_def = Define`
   prim_config =
@@ -156,26 +198,32 @@ val prim_config_def = Define`
 
 val from_lab_def = Define`
   from_lab c p =
-    attach_bitmaps c.word_conf.bitmaps
-      (lab_to_target$compile c.lab_conf p)`;
+    case c.late_conf of
+    | ToTarget stack_to_lab_conf lab_conf =>
+      (attach_bitmaps c.word_conf.bitmaps
+        (lab_to_target$compile lab_conf c.asm_conf p))
+    | _ => NONE`;
 
 val from_stack_def = Define`
   from_stack c p =
-  let p = stack_to_lab$compile
-    c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
-    (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
-    (c.lab_conf.asm_conf.addr_offset) p in
-  from_lab c (p:'a prog)`;
+  case c.late_conf of
+  | ToTarget stack_to_lab_conf lab_conf =>
+    let p = stack_to_lab$compile
+      stack_to_lab_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+      (c.asm_conf.reg_count - (LENGTH c.asm_conf.avoid_regs +3))
+      (c.asm_conf.addr_offset) p in
+    from_lab c (p:'a prog)
+  | _ => NONE`;
 
 val from_word_def = Define`
   from_word c p =
-  let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (c',p) = word_to_stack$compile c.asm_conf p in
   let c = c with word_conf := c' in
   from_stack c p`;
 
 val from_data_def = Define`
   from_data c p =
-  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`;
 
@@ -227,12 +275,13 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
      from_pat_def,
      from_flat_def] >>
   unabbrev_all_tac >>
-  rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
+  rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])) >>
+  cheat);
 
 val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
   let (c',p) = to_data c p in
-  let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.asm_conf) in
   let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
   let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
   let alg = word_conf.reg_alg in
@@ -249,13 +298,13 @@ val to_livesets_def = Define`
      (name_num,arg_count,prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.asm_conf prog [])) p
   in
     ((reg_count,data),c,p)`
 
 val from_livesets_def = Define`
   from_livesets ((k,data),c,p) =
-  let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let (word_conf,asm_conf) = (c.word_to_word_conf,c.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
   let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
@@ -275,6 +324,7 @@ val from_livesets_def = Define`
 
 val compile_oracle = Q.store_thm("compile_oracle",`
   from_livesets (to_livesets c p) = compile c p`,
+  cheat>>
   srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,

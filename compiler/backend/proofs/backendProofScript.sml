@@ -280,28 +280,29 @@ val backend_config_ok_def = Define`
     c.source_conf = ^prim_config.source_conf ∧
     0 < c.clos_conf.max_app ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
-    LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
-    c.lab_conf.pos = 0 ∧
-    c.lab_conf.labels = LN ∧
+    LENGTH c.asm_conf.avoid_regs + 13 ≤ c.asm_conf.reg_count ∧
+    ((c.late_conf = ToTarget stack_to_lab_conf lab_conf) ⇒
+      lab_conf.pos = 0 ∧
+      lab_conf.labels = LN ∧
+      find_name stack_to_lab_conf.reg_names PERMUTES UNIV ∧
+      names_ok stack_to_lab_conf.reg_names c.asm_conf.reg_count c.asm_conf.avoid_regs ∧
+      fixed_names stack_to_lab_conf.reg_names c.asm_conf) ∧
     conf_ok (:'a) c.data_conf ∧
-    (c.data_conf.has_longdiv ⇒ c.lab_conf.asm_conf.ISA = x86_64) /\
+    (c.data_conf.has_longdiv ⇒ c.asm_conf.ISA = x86_64) /\
     (c.data_conf.has_div ⇒
-      c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
-      c.lab_conf.asm_conf.ISA = RISC_V) ∧
-    addr_offset_ok c.lab_conf.asm_conf 0w ∧
-    (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
-    c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
-    c.lab_conf.asm_conf.valid_imm (INL Add) 4w ∧
-    c.lab_conf.asm_conf.valid_imm (INL Add) 1w ∧
-    c.lab_conf.asm_conf.valid_imm (INL Sub) 1w ∧
-    find_name c.stack_conf.reg_names PERMUTES UNIV ∧
-    names_ok c.stack_conf.reg_names c.lab_conf.asm_conf.reg_count c.lab_conf.asm_conf.avoid_regs ∧
-    fixed_names c.stack_conf.reg_names c.lab_conf.asm_conf ∧
-    (∀s. addr_offset_ok c.lab_conf.asm_conf (store_offset s)) ∧
+      c.asm_conf.ISA = ARMv8 ∨ c.asm_conf.ISA = MIPS ∨
+      c.asm_conf.ISA = RISC_V) ∧
+    addr_offset_ok c.asm_conf 0w ∧
+    (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.asm_conf w) ∧
+    c.asm_conf.valid_imm (INL Add) 8w ∧
+    c.asm_conf.valid_imm (INL Add) 4w ∧
+    c.asm_conf.valid_imm (INL Add) 1w ∧
+    c.asm_conf.valid_imm (INL Sub) 1w ∧
+    (∀s. addr_offset_ok c.asm_conf (store_offset s)) ∧
     (∀n.
          n ≤ max_stack_alloc ⇒
-         c.lab_conf.asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
-         c.lab_conf.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))`;
+         c.asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
+         c.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))`;
 
 val backend_config_ok_with_bvl_conf_updated = Q.store_thm("backend_config_ok_with_bvl_conf_updated[simp]",
   `(f cc.bvl_conf).next_name2 = cc.bvl_conf.next_name2 ⇒
@@ -365,7 +366,7 @@ val backend_config_ok_call_empty_ffi = store_thm("backend_config_ok_call_empty_f
 
 (* TODO: ?? where to put these ?? *)
 val mc_init_ok_def = Define`
-  mc_init_ok c mc ⇔
+  mc_init_ok c mc ⇔ (* TODO: Do not refer to c.stack_conf directly but use c.late_conf. *)
   EVERY (λr. MEM (find_name c.stack_conf.reg_names (r + mc.target.config.reg_count -(LENGTH mc.target.config.avoid_regs+5))) mc.callee_saved_regs) [2;3;4] ∧
   find_name c.stack_conf.reg_names 4 = mc.len2_reg ∧
   find_name c.stack_conf.reg_names 3 = mc.ptr2_reg ∧
@@ -379,7 +380,7 @@ val mc_init_ok_def = Define`
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len2_reg ∧
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr2_reg ∧
   ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
-   c.lab_conf.asm_conf = mc.target.config`
+   c.asm_conf = mc.target.config`
 
 val mc_init_ok_with_bvl_conf_updated = Q.store_thm("mc_init_ok_with_bvl_conf_updated[simp]",
   `mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
@@ -410,11 +411,12 @@ val compile_correct = Q.store_thm("compile_correct",
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+   (* TODO: Do not refer to c.stack_conf directly but use c.late_conf. *)
    installed bytes cbspace bitmaps data_sp c'.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
-  `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
+  `c.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.ffi_names = SOME mc.ffi_names` by fs[installed_def] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_flatProofTheory.compile_semantics)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
@@ -975,7 +977,7 @@ val compile_correct = Q.store_thm("compile_correct",
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
    |> GEN_ALL
-   |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
+   |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.asm_conf`,`InitGlobals_location`]mp_tac) \\
   impl_tac >- (
     fs[] \\
     conj_tac >- (

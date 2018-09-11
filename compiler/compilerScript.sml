@@ -6,11 +6,11 @@ open preamble
      mlnumTheory mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
-open x64_configTheory export_x64Theory
-open arm8_configTheory export_arm8Theory
-open riscv_configTheory export_riscvTheory
-open mips_configTheory export_mipsTheory
-open arm6_configTheory export_arm6Theory
+open x64_presetTheory export_x64Theory
+open arm8_presetTheory export_arm8Theory
+open riscv_presetTheory export_riscvTheory
+open mips_presetTheory export_mipsTheory
+open arm6_presetTheory export_arm6Theory
 
 val _ = new_theory"compiler";
 
@@ -75,6 +75,19 @@ val locs_to_string_def = Define `
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
+
+val preset_to_conf_def = Define`
+  preset_to_conf p wasm =
+    let _ = if wasm then empty_ffi (strlit "wasm is not supported yet. the option will be ignored") else () in
+      <| source_conf       := p.source_conf
+       ; clos_conf         := p.clos_conf
+       ; bvl_conf          := p.bvl_conf
+       ; word_to_word_conf := p.word_to_word_conf
+       ; word_conf         := p.word_conf
+       (* TODO: If wasm = T, generate a late_config of shape ToWasm ... *)
+       ; late_conf         := ToTarget p.stack_conf p.lab_conf
+       ; asm_conf          := p.asm_conf
+       |>`
 
 val compile_def = Define`
   compile c prelude input =
@@ -331,55 +344,65 @@ val parse_data_conf_def = Define`
                   get_err_str gc;
                   get_err_str empty_FFI])`
 
-(* stack *)
-val parse_stack_conf_def = Define`
-  parse_stack_conf ls stack =
+(* stack (continueing to lab) *)
+val parse_stack_to_lab_conf_def = Define`
+  parse_stack_to_lab_conf ls stack =
   let jump = find_bool (strlit"--jump=") ls stack.jump in
   case jump of
     INL j => INL (stack with jump:=j)
   | INR s => INR s`
 
+(* Extend configuration with runtime parameters after
+ * it was initialized from a preset. *)
 val extend_conf_def = Define`
   extend_conf ls conf =
-  let clos = parse_clos_conf ls conf.clos_conf in
-  let bvl = parse_bvl_conf ls conf.bvl_conf in
-  let wtw = parse_wtw_conf ls conf.word_to_word_conf in
-  let data = parse_data_conf ls conf.data_conf in
-  let stack = parse_stack_conf ls conf.stack_conf in
-  case (clos,bvl,wtw,data,stack) of
-    (INL clos,INL bvl,INL wtw,INL data,INL stack) =>
-      INL (conf with
-        <|clos_conf         := clos;
-          bvl_conf          := bvl;
-          word_to_word_conf := wtw;
-          data_conf         := data;
-          stack_conf        := stack|>)
+  let clos = parse_clos_conf ls conf.clos_conf         in
+  let bvl  = parse_bvl_conf  ls conf.bvl_conf          in
+  let wtw  = parse_wtw_conf  ls conf.word_to_word_conf in
+  let data = parse_data_conf ls conf.data_conf         in
+  case (clos, bvl, wtw, data) of
+    (INL clos_upd, INL bvl_upd, INL wtw_upd, INL data_upd) =>
+      let conf = (conf with
+        <|clos_conf         := clos_upd;
+          bvl_conf          := bvl_upd ;
+          word_to_word_conf := wtw_upd ;
+          data_conf         := data_upd|>) in
+      case conf.late_conf of
+      | ToTarget stack_to_lab_conf lab_conf =>
+        let stack_to_lab = parse_stack_to_lab_conf ls stack_to_lab_conf in
+        case stack_to_lab of
+        | (INL stack_to_lab) =>
+          INL (conf with late_conf := ToTarget stack_to_lab lab_conf)
+        | _ =>
+          INR (get_err_str stack_to_lab)
+      | _ => (INL conf)
     | _ =>
       INR (concat [get_err_str clos;
-               get_err_str bvl;
-               get_err_str wtw;
-               get_err_str data;
-               get_err_str stack]) `
+                   get_err_str bvl ;
+                   get_err_str wtw ;
+                   get_err_str data])`
+
+val parse_wasm = Define `parse_wasm ls = find_bool (strlit"--wasm=") ls F`
 
 (* Defaults to x64 if no target given *)
 val parse_target_64_def = Define`
   parse_target_64 ls =
   case find_str (strlit"--target=") ls of
-    NONE => INL (x64_backend_config,x64_export)
+    NONE => INL (x64_backend_preset,x64_export)
   | SOME rest =>
-    if rest = strlit"x64" then INL (x64_backend_config,x64_export)
-    else if rest = strlit"arm8" then INL (arm8_backend_config,arm8_export)
-    else if rest = strlit"mips" then INL (mips_backend_config,mips_export)
-    else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
+    if rest = strlit"x64" then INL (x64_backend_preset,x64_export)
+    else if rest = strlit"arm8" then INL (arm8_backend_preset,arm8_export)
+    else if rest = strlit"mips" then INL (mips_backend_preset,mips_export)
+    else if rest = strlit"riscv" then INL (riscv_backend_preset,riscv_export)
     else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
 
 (* Defaults to arm6, currently no other 32-bit architecture*)
 val parse_target_32_def = Define`
   parse_target_32 ls =
   case find_str (strlit"--target=") ls of
-    NONE => INL (arm6_backend_config,arm6_export)
+    NONE => INL (arm6_backend_preset,arm6_export)
   | SOME rest =>
-    if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
+    if rest = strlit"arm6" then INL (arm6_backend_preset,arm6_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
 (* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
@@ -415,8 +438,8 @@ val format_compiler_result_def = Define`
   format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export heap stack
-    (Success ((bytes:word8 list),(data:'a word list),(c:'a lab_to_target$config))) =
-    (bytes_export (the [] c.ffi_names) heap stack bytes data, implode "")`;
+    (Success (bytes,data,ffi_names)) =
+    (bytes_export ffi_names heap stack bytes data, implode "")`;
 
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
@@ -425,9 +448,10 @@ val compile_64_def = Define`
   compile_64 cl input =
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
-  case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
-    (let ext_conf = extend_conf cl conf in
+  let wasm = parse_wasm cl in
+  case (confexp,topconf,wasm) of
+    (INL (preset,export), INL(heap,stack,sexp,prelude,typeinfer), INL wasm) =>
+    (let ext_conf = extend_conf cl (preset_to_conf preset wasm) in
     case ext_conf of
       INL ext_conf =>
         let compiler_conf =
@@ -437,13 +461,13 @@ val compile_64_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
-          Success (bytes,data,c) =>
-            (export (the [] c.ffi_names) heap stack bytes data, implode "")
+          Success (bytes,data,ffi_names) =>
+            (export ffi_names heap stack bytes data, implode "")
         | Failure err => (List [],error_to_str err))
     | INR err =>
     (List[],error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[],error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[],error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf; get_err_str wasm])))`
 
 val full_compile_64_def = Define `
   full_compile_64 cl inp fs =
@@ -458,8 +482,8 @@ val compile_32_def = Define`
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
-    (let ext_conf = extend_conf cl conf in
+    (INL (preset,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
+    (let ext_conf = extend_conf cl (preset_to_conf preset F (* no wasm for 32bit *)) in
     case ext_conf of
       INL ext_conf =>
         let compiler_conf =
@@ -469,8 +493,8 @@ val compile_32_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
-          Success (bytes,data,c) =>
-            (export (the [] c.ffi_names) heap stack bytes data, implode "")
+          Success (bytes,data,ffi_names) =>
+            (export ffi_names heap stack bytes data, implode "")
         | Failure err => (List [],error_to_str err))
     | INR err =>
     (List[],error_to_str (ConfigError (get_err_str ext_conf))))
