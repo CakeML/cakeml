@@ -3586,6 +3586,23 @@ val list_inter_subset_inner = Q.prove(
   >> metis_tac[list_inter_NULL_symm,list_inter_subset]
 );
 
+val NULL_list_inter_APPEND1 = Q.prove(
+  `!x1 y1 y2. NULL (list_inter x1 (y1++y2))
+  = (NULL (list_inter x1 y1) /\ NULL (list_inter x1 y2))`,
+  rw[list_inter_def,FILTER_APPEND]
+);
+
+val NULL_list_inter_APPEND = Q.prove(
+  `!x1 x2 y1 y2. NULL (list_inter (x1++x2) (y1++y2)) = (NULL (list_inter x1 y1)
+  /\ NULL (list_inter x1 y2) /\ NULL (list_inter x2 y1) /\ NULL (list_inter x2 y2))`,
+  rw[NULL_list_inter_APPEND1,list_inter_NULL_symm,AC CONJ_ASSOC CONJ_COMM]
+);
+
+val NULL_list_inter_SING = Q.prove(
+  `!l x. NULL (list_inter [x] l) = ~MEM x l`,
+  rw[NULL_FILTER,list_inter_def]
+);
+
 val list_max_MEM = Q.prove(
   `!l x. (MEM x l) ==> (x <= list_max l)`,
   Induct
