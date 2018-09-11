@@ -6767,6 +6767,10 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      BAG_ALL_DISTINCT (elist_globals (FLAT (GENLIST (FST o SND o co1) n))) ∧
      BAG_DISJOINT (elist_globals es1) (elist_globals (FST (SND (co1 n)))) ∧
      clos_knownProof$syntax_ok (FST(SND(co1 n))) ∧
+     (*
+     (∀n. DISJOINT (IMAGE ((+) c.next_loc) (count (LENGTH es1)))
+            (set (MAP FST (SND (SND (co1 n)))))
+     *)
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
      globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))
@@ -6993,7 +6997,31 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ qmatch_goalsub_abbrev_tac`chain_exps start xps`
   \\ drule chain_exps_semantics_call
   \\ impl_tac
-  >- ( fs[backendPropsTheory.SND_state_co] \\ cheat (* distinct code locs? *))
+  >- (
+    `LENGTH xps = LENGTH es1`
+    by (
+      imp_res_tac clos_callTheory.compile_LENGTH
+      \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
+      \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_length
+      \\ fs[] )
+    \\ fs[backendPropsTheory.SND_state_co]
+    \\ simp[Abbr`co`]
+    \\ qho_match_abbrev_tac`_ ∧ ∀n. DISJOINT _ (set (ff (co n))) ∧ (_ n) ∧ (_ n)`
+    \\ `∀n. set (ff (co n)) = set (MAP FST (SND (SND (co1 n))))`
+    by (
+      simp[Abbr`ff`, Abbr`co`]
+      \\ reverse(Cases_on`c.do_call`) \\ fs[clos_callTheory.compile_def]
+      \\ rveq \\ fs[]
+      >- (
+        simp[clos_knownProofTheory.known_co_def]
+        \\ TOP_CASE_TAC
+        >- (fs[backendPropsTheory.SND_state_co, SND_SND_ignore_table] \\ rw[])
+        \\ simp[kcompile_inc_uncurry,FST_SND_ignore_table]
+        \\ simp[clos_numberProofTheory.compile_inc_def, SND_SND_ignore_table, UNCURRY]
+        \\ simp[clos_ticksProofTheory.compile_inc_def,
+                clos_letopProofTheory.compile_inc_def] )
+      \\ cheat)
+    \\ cheat)
   \\ strip_tac
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
