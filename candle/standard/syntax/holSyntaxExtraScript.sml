@@ -4249,9 +4249,9 @@ val unify_types_def = Hol_defn "unify_types" `
     else if MEM a (tyvars ty)
     then NONE (* occurs check *)
     else let
-      subst_a = MAP ((TYPE_SUBST [(ty,Tyvar a)]) ## (TYPE_SUBST [(ty,Tyvar a)]));
-      l' = subst_a  l;
-      sigma' = subst_a sigma
+      subst_a = TYPE_SUBST [(ty,Tyvar a)];
+      l' = MAP (subst_a ## subst_a) l;
+      sigma' = MAP (subst_a ## I) sigma
     in unify_types l' ((ty, Tyvar a)::sigma') (* variable elimination *)
   )`;
 
