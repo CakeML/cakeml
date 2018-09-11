@@ -143,6 +143,31 @@ val TYPE_SUBST_tyvars = Q.store_thm("TYPE_SUBST_tyvars",
   rpt gen_tac >> EQ_TAC >> strip_tac >> fs[] >>
   fs[MEM_LIST_UNION] >> metis_tac[])
 
+val TYPE_SUBST_reduce = Q.store_thm(
+  "TYPE_SUBST_reduce",
+  `!l1 l2 ty x ts. ~MEM x (tyvars ty)
+  ==> TYPE_SUBST (l1 ++ (ts,Tyvar x)::l2) ty = TYPE_SUBST (l1 ++ l2) ty`,
+  Induct
+  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
+  >> Cases_on `x=x'`
+  >> fs[]
+  >> FULL_CASE_TAC
+  >> first_x_assum drule
+  >> fs[TYPE_SUBST_tyvars]
+);
+
+val TYPE_SUBST_reduce_list = Q.store_thm(
+  "TYPE_SUBST_reduce_list",
+  `!l1 l2 ty . (!a. MEM a (tyvars ty) ==> !ty. ~MEM (ty,Tyvar a) l1)
+  ==> TYPE_SUBST (l1 ++ l2) ty = TYPE_SUBST l2 ty`,
+  Induct
+  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
+  >> FULL_CASE_TAC
+  >- (first_x_assum drule >> disch_then (qspec_then `FST h` mp_tac) >> rw[] >> Cases_on `h` >> fs[])
+  >> first_x_assum (qspecl_then [`l2`,`ty`] mp_tac)
+  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
+);
+
 (* Welltyped terms *)
 
 val WELLTYPED_LEMMA = Q.store_thm("WELLTYPED_LEMMA",
