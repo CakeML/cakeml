@@ -7005,22 +7005,44 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_length
       \\ fs[] )
     \\ fs[backendPropsTheory.SND_state_co]
-    \\ simp[Abbr`co`]
-    \\ qho_match_abbrev_tac`_ ∧ ∀n. DISJOINT _ (set (ff (co n))) ∧ (_ n) ∧ (_ n)`
-    \\ `∀n. set (ff (co n)) = set (MAP FST (SND (SND (co1 n))))`
+    \\ reverse(Cases_on`c.do_call`)
+    \\ fs[clos_callTheory.compile_def]
+    \\ rveq \\ fs[]
+    >- (
+      simp[Abbr`co`]
+      \\ simp[clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC
+      >- (fs[backendPropsTheory.SND_state_co, SND_SND_ignore_table] \\ rw[])
+      \\ simp[kcompile_inc_uncurry,FST_SND_ignore_table, backendPropsTheory.SND_state_co]
+      \\ simp[clos_numberProofTheory.compile_inc_def, SND_SND_ignore_table, UNCURRY]
+      \\ simp[clos_ticksProofTheory.compile_inc_def, clos_letopProofTheory.compile_inc_def] )
+    \\ simp[ccompile_inc_uncurry]
+    \\ pairarg_tac \\ fs[]
+    \\ pop_assum kall_tac
+    \\ pairarg_tac \\ fs[]
+    \\ rveq
+    \\ imp_res_tac clos_callProofTheory.calls_add_SUC_code_locs
+    \\ fs[]
+    \\ `set (code_locs x) ⊆ between n k`
     by (
-      simp[Abbr`ff`, Abbr`co`]
-      \\ reverse(Cases_on`c.do_call`) \\ fs[clos_callTheory.compile_def]
-      \\ rveq \\ fs[]
-      >- (
-        simp[clos_knownProofTheory.known_co_def]
-        \\ TOP_CASE_TAC
-        >- (fs[backendPropsTheory.SND_state_co, SND_SND_ignore_table] \\ rw[])
-        \\ simp[kcompile_inc_uncurry,FST_SND_ignore_table]
-        \\ simp[clos_numberProofTheory.compile_inc_def, SND_SND_ignore_table, UNCURRY]
-        \\ simp[clos_ticksProofTheory.compile_inc_def,
-                clos_letopProofTheory.compile_inc_def] )
-      \\ cheat)
+      imp_res_tac clos_knownProofTheory.compile_code_locs_bag
+      \\ qhdtm_x_assum`renumber_code_locs_list`mp_tac
+      \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
+      \\ ntac 2 strip_tac \\ fs[]
+      \\ imp_res_tac SUB_BAG_SET
+      \\ fs[SUBSET_DEF, IN_between, IN_bag_of_list_MEM, EVERY_MEM]
+      \\ rw[] \\ res_tac \\ res_tac \\ fs[] )
+    \\ conj_asm1_tac
+    >- (
+      simp[IN_DISJOINT]
+      \\ fs[SUBSET_DEF, IN_between, PULL_EXISTS, MEM_MAP, FORALL_PROD]
+      \\ CCONTR_TAC \\ fs[]
+      \\ first_x_assum drule
+      \\ rw[]
+      \\ CCONTR_TAC \\ fs[]
+      \\ first_x_assum drule
+      \\ simp[Abbr`n`] )
+    \\ qx_gen_tac`m`
     \\ cheat)
   \\ strip_tac
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
