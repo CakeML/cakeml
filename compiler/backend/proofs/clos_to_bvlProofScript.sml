@@ -6653,6 +6653,14 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      FST (FST (co1 (SUC n))) =
      FST (renumber_code_locs_list (make_even ((FST (FST (co1 n))) + MAX (LENGTH (FST (SND (co1 n)))) 1))
             (compile c.do_mti c.max_app (FST (SND (co1 n))))) ∧
+     (let kk =
+       clos_knownProof$known_co c.known_conf
+         (state_co (ignore_table clos_numberProof$compile_inc)
+           ((if c.do_mti then
+               pure_co (clos_mtiProof$compile_inc c.max_app)
+             else I) o co1)) n in
+       FST (SND (SND (FST (co1 (SUC n))))) =
+       FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
      globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))))
@@ -6863,6 +6871,26 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ rveq \\ fs[]
     \\ qexists_tac `THE o clos_callProof$make_gs (FEMPTY |++ aux) co2`
     \\ strip_tac \\ match_mp_tac clos_callProofTheory.IMP_co_ok
+    \\ simp[]
+    \\ qx_gen_tac`i`
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ conj_asm1_tac >- (
+       simp[Abbr`co2`]
+       \\ qmatch_goalsub_abbrev_tac`FST (FST pp) = _`
+       \\ `FST (FST pp) = FST (SND (SND (FST (co1 (i+1)))))`
+       by (
+         simp[Abbr`pp`, clos_knownProofTheory.known_co_def]
+         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
+       \\ pop_assum SUBST_ALL_TAC
+       \\ qhdtm_x_assum`clos_callProof$compile_inc`mp_tac
+       \\ simp[clos_callProofTheory.compile_inc_def]
+       \\ pairarg_tac \\ fs[]
+       \\ strip_tac \\ rveq
+       \\ qmatch_assum_abbrev_tac`zz = (cfg,_,_)`
+       \\ `d1 = FST(SND(calls (FST(SND zz)) (FST (FST zz), [])))` by simp[]
+       \\ pop_assum SUBST1_TAC
+       \\ fs[ADD1] )
     \\ cheat (* syntactic properties of clos_call *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
@@ -7260,6 +7288,14 @@ val syntax_oracle_ok_def = Define`
       FST (FST (co (SUC n))) =
       FST (renumber_code_locs_list (make_even (FST (FST (co n)) + MAX (LENGTH (FST (SND (co n)))) 1))
                                    (compile c.do_mti c.max_app (FST (SND (co n))))) ∧
+     (let kk =
+       clos_knownProof$known_co c.known_conf
+         (state_co (ignore_table clos_numberProof$compile_inc)
+           ((if c.do_mti then
+               pure_co (clos_mtiProof$compile_inc c.max_app)
+             else I) o co)) n in
+       FST (SND (SND (FST (co (SUC n))))) =
+       FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
       every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
       globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
       globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧
