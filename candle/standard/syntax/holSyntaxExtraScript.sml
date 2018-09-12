@@ -174,6 +174,33 @@ val TYPE_SUBST_reduce_list = Q.store_thm(
   >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
 );
 
+val TYPE_SUBST_MEM = Q.prove(
+  `!s a b. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) s
+  /\ ALL_DISTINCT (MAP SND s)
+  /\ MEM (b,a) s ==> TYPE_SUBST s a = b`,
+  rw[MEM_SPLIT]
+  >> fs[MAP_APPEND,ALL_DISTINCT_APPEND]
+  >> `!ty. ~MEM (ty,a) l1` by (
+    rveq
+    >> fs[MEM_MAP]
+    >> rw[]
+    >> qpat_x_assum `!x. _ \/ _` (qspec_then `(ty,Tyvar a')` mp_tac)
+    >> rw[]
+  )
+  >> mp_tac (Q.SPECL [`l1`,`[(b,a)]++l2`,`a`] TYPE_SUBST_reduce_list)
+  >> rveq
+  >> rw[tyvars_def,REV_ASSOCD_def]
+);
+
+val TYPE_SUBST_NOT_MEM = Q.prove(
+  `!s a. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) s
+  /\ ALL_DISTINCT (MAP SND s)
+  /\ ~(?b. MEM (b,Tyvar a) s) ==> TYPE_SUBST s (Tyvar a) = (Tyvar a)`,
+  rw[]
+  >> assume_tac (Q.SPECL [`s`,`[]`,`Tyvar a`] TYPE_SUBST_reduce_list)
+  >> fs[tyvars_def]
+);
+
 (* Welltyped terms *)
 
 val WELLTYPED_LEMMA = Q.store_thm("WELLTYPED_LEMMA",
@@ -4536,6 +4563,119 @@ val (unify_types_def,unify_types_ind) = Defn.tprove(
     )
     >> simp[type_size'_def]
   )
+);
+
+(* A substitution is idempotent iff Dom s ∩ tyvars( CoDom s ) = ∅ *)
+val TYPE_SUBST_idempotent = Q.prove(
+  `!s. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) s /\ ALL_DISTINCT (MAP SND s)
+  ==> (TYPE_SUBST s = (TYPE_SUBST s o TYPE_SUBST s))
+  = NULL (list_inter (MAP SND s) (FLAT (MAP ((MAP Tyvar) o tyvars o FST) s)))`,
+  rw[EQ_IMP_THM,FUN_EQ_THM]
+  >- (
+    rw[NULL_FILTER,EVERY_FILTER,list_inter_def]
+    >> CCONTR_TAC
+    >> fs[MEM_FLAT,MEM_MAP]
+    >> Cases_on `y`
+    >> rveq
+    >> fs[MEM_MAP]
+    >> rveq
+    >> Cases_on `y'`
+    >> Cases_on `y''`
+    >> fs[]
+    >> rveq
+    >> assume_tac (Q.SPECL [`s`,`r`,`q`] TYPE_SUBST_MEM)
+    >> rfs[]
+    >> first_x_assum (qspec_then `r` mp_tac)
+    >> simp[]
+    >> pop_assum kall_tac
+    >> CCONTR_TAC
+    >> fs[]
+    >> pop_assum (mp_tac o CONV_RULE(LHS_CONV(PURE_ONCE_REWRITE_CONV [GSYM TYPE_SUBST_NIL])))
+    >> rw[TYPE_SUBST_tyvars]
+    >> asm_exists_tac
+    >> assume_tac (Q.SPECL [`s`,`Tyvar m`,`q'`] TYPE_SUBST_MEM)
+    >> fs[EVERY_MEM]
+    >> res_tac
+    >> fs[ELIM_UNCURRY]
+    >> rw[REV_ASSOCD_def]
+  )
+  >> rw[]
+  >> `!x. TYPE_SUBST s (Tyvar x) = TYPE_SUBST s (TYPE_SUBST s (Tyvar x))` by (
+    strip_tac
+    >> qmatch_asmsub_abbrev_tac `NULL (list_inter dom_s img_s)`
+    >> Cases_on `~MEM (Tyvar x) dom_s`
+    >> qunabbrev_tac `dom_s`
+    >- (
+      `~?b. MEM (b, Tyvar x) s` by (
+        rw[] >> fs[MEM_MAP]
+        >> first_x_assum (qspec_then `(b,Tyvar x)` mp_tac)
+        >> fs[]
+      )
+      >> drule TYPE_SUBST_NOT_MEM
+      >> disch_then (qspec_then `x` mp_tac)
+      >> fs[]
+    )
+    >> Cases_on `~MEM (Tyvar x) img_s`
+    >> qunabbrev_tac `img_s`
+    >- (
+      rw[TYPE_SUBST_compose,REV_ASSOCD_self_append]
+      >> fs[MEM_MAP]
+      >> Cases_on `y`
+      >> fs[]
+      >> rveq
+      >> PURE_ONCE_REWRITE_TAC[GSYM TYPE_SUBST_def]
+      >> drule TYPE_SUBST_MEM
+      >> disch_then (qspecl_then [`Tyvar x`,`q`] assume_tac)
+      >> rfs[]
+      >> pop_assum kall_tac
+      >> fs[MEM_SPLIT]
+      >> qmatch_goalsub_abbrev_tac `MAP l1_subs l1`
+      >> `~?b. MEM (b,Tyvar x) (MAP l1_subs l1)` by (
+        fs[ALL_DISTINCT_APPEND,MEM_MAP]
+        >> rw[]
+        >> Cases_on `y`
+        >> qunabbrev_tac `l1_subs`
+        >> rw[PAIR_MAP_THM]
+        >> qpat_x_assum `!x. _ \/ _` (qspec_then `(q',r)` mp_tac)
+        >> rw[]
+        >> fs[]
+      )
+      >> PURE_ONCE_REWRITE_TAC[GSYM TYPE_SUBST_def]
+      >> qmatch_goalsub_abbrev_tac `_ = TYPE_SUBST (_ ++ ts ++ _) _`
+      >> assume_tac (Q.SPECL [`MAP l1_subs (l1:((type,type)alist))`,
+        `ts ++ (MAP l1_subs (l2:((type,type)alist)))`,`Tyvar x`] TYPE_SUBST_reduce_list)
+      >> rfs[tyvars_def]
+      >> pop_assum kall_tac
+      >> qunabbrev_tac `ts`
+      >> rw[REV_ASSOCD_def]
+      >> fs[NULL_list_inter_APPEND,NULL_list_inter_APPEND1]
+      (* >> rpt(qpat_x_assum `NULL (list_inter _ (MAP Tyvar (tyvars q)))` mp_tac)
+      >> rpt(qpat_x_assum `NULL _` kall_tac) *)
+      >> fs[NULL_FILTER,list_inter_def]
+      >> assume_tac (Q.SPECL [`l1 ⧺ [(q,Tyvar x)] ⧺ l2`,`[]`,`q`] TYPE_SUBST_reduce_list)
+      >> RULE_ASSUM_TAC GSYM
+      >> fs[]
+      >> first_x_assum match_mp_tac
+      >> rpt strip_tac
+      >- (
+        qpat_x_assum `!x. MEM _ (MAP Tyvar _) ==> ~MEM _ (MAP SND l1)` (qspec_then `Tyvar a` mp_tac)
+        >> rw[MEM_MAP]
+        >> qexists_tac `(ty,Tyvar a)`
+        >> fs[]
+      )
+      >- (CCONTR_TAC >> fs[MEM_MAP])
+      >- (
+        qpat_x_assum `!x. MEM _ (MAP Tyvar _) ==> ~MEM _ (MAP SND l2)` (qspec_then `Tyvar a` mp_tac)
+        >> rw[MEM_MAP]
+        >> qexists_tac `(ty,Tyvar a)`
+        >> fs[]
+      )
+    )
+    >> fs[NULL_FILTER,list_inter_def]
+    >> first_x_assum drule
+    >> fs[]
+  )
+  >> fs[TYPE_SUBST_compose,TYPE_SUBST_tyvars]
 );
 
 val unify_def = Define `
