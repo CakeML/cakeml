@@ -6640,6 +6640,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
                                                (compile c.do_mti c.max_app es1)))))).val_approx_spt) ∧
    (¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
     BAG_ALL_DISTINCT (elist_globals es1) ∧
+    FST (FST (co1 0)) =
+    FST (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
+                                 (compile c.do_mti c.max_app es1)) ∧
     (∀n. SND (SND (co1 n)) = [] ∧
      ¬contains_App_SOME c.max_app (FST(SND(co1 n))) ∧
      clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
@@ -6647,9 +6650,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      BAG_ALL_DISTINCT (elist_globals (FLAT (GENLIST (FST o SND o co1) n))) ∧
      BAG_DISJOINT (elist_globals es1) (elist_globals (FST (SND (co1 n)))) ∧
      clos_knownProof$syntax_ok (FST(SND(co1 n))) ∧
-     FST (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
-                                  (compile c.do_mti c.max_app es1))
-        < FST (FST (co1 n)) + 2 * MAX (LENGTH (FST (SND (co1 n)))) 1 ∧
+     FST (FST (co1 (SUC n))) =
+     FST (renumber_code_locs_list (make_even ((FST (FST (co1 n))) + MAX (LENGTH (FST (SND (co1 n)))) 1))
+            (compile c.do_mti c.max_app (FST (SND (co1 n))))) ∧
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
      globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))))
@@ -6932,9 +6935,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ qspecl_then[`xs`,`g0`]mp_tac clos_callProofTheory.calls_add_SUC_code_locs
     \\ simp[] \\ strip_tac \\ fs[Abbr`g0`]
     \\ `∀m k. k ∈ set (code_locs (FST (SND (co m)))) ⇒
-          let n = FST (FST (co1 m)) + 2 * MAX (LENGTH (FST (SND (co1 m)))) 1 in
+          let n = make_even (FST (FST (co1 m)) + MAX (LENGTH (FST (SND (co1 m)))) 1) in
           n ≤ k ∧
-          k < FST (renumber_code_locs_list n ((if c.do_mti then intro_multi c.max_app else I) (FST (SND (co1 m)))))`
+          k < FST (renumber_code_locs_list n (compile c.do_mti c.max_app (FST (SND (co1 m)))))`
     by (
       simp[Abbr`xs`, Abbr`co`]
       \\ simp[clos_knownProofTheory.known_co_def]
@@ -6945,7 +6948,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ rpt gen_tac
         \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
         \\ simp[EVERY_MEM]
-        \\ rw[mcompile_inc_uncurry, clos_mtiTheory.intro_multi_length]
+        \\ rw[mcompile_inc_uncurry, clos_mtiTheory.intro_multi_length, clos_mtiTheory.compile_def]
         \\ res_tac \\ fs[])
       \\ simp[kcompile_inc_uncurry, FST_SND_ignore_table, backendPropsTheory.FST_state_co, SND_SND_ignore_table]
       \\ simp[clos_ticksProofTheory.compile_inc_def]
@@ -6962,17 +6965,39 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ strip_tac
       \\ first_x_assum drule
       \\ simp[Abbr`bb`]
-      \\ rw[mcompile_inc_uncurry, clos_numberProofTheory.compile_inc_def, UNCURRY]
+      \\ rw[mcompile_inc_uncurry, clos_numberProofTheory.compile_inc_def, UNCURRY, clos_mtiTheory.compile_def]
       \\ pop_assum mp_tac
       \\ simp[Once code_locs_cons, code_locs_def]
       \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
       \\ simp[EVERY_MEM]
       \\ rw[clos_mtiTheory.intro_multi_length]
       \\ res_tac \\ fs[])
+    \\ `FST (FST (co1 0)) = k`
+    by (
+      simp[]
+      \\ qmatch_goalsub_abbrev_tac`renumber_code_locs_list n'`
+      \\ `n' = n` by fs[Abbr`n'`, Abbr`n`, EVEN_MOD2, make_even_def]
+      \\ fs[] )
+    \\ `∀m n. m < n ⇒
+        FST (renumber_code_locs_list (make_even (FST (FST (co1 m)) + MAX (LENGTH (FST (SND (co1 m)))) 1))
+               (compile c.do_mti c.max_app (FST (SND (co1 m))))) ≤ FST (FST (co1 n))`
+    by (
+      qx_genl_tac[`a`,`b`]
+      \\ Induct_on`b-a` \\ fs[]
+      \\ Cases \\ fs[]
+      \\ gen_tac \\ strip_tac
+      \\ qmatch_asmsub_rename_tac`SUC v = SUC b - a`
+      \\ Cases_on`a = b` \\ fs[]
+      \\ first_x_assum(qspecl_then[`b`,`a`]mp_tac)
+      \\ simp[] \\ strip_tac
+      \\ match_mp_tac LESS_EQ_TRANS
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ specl_args_of_then``renumber_code_locs_list``(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_inc)mp_tac
+      \\ rw[make_even_def] )
     \\ conj_tac
     >- (
       simp[IN_DISJOINT]
-      \\ first_x_assum(qspec_then`m`mp_tac)
+      \\ qpat_x_assum`∀m k. MEM k _ ⇒ _`(qspec_then`m`mp_tac)
       \\ simp[] \\ strip_tac
       \\ CCONTR_TAC \\ fs[]
       \\ fs[SUBSET_DEF, PULL_EXISTS]
@@ -6980,33 +7005,62 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ strip_tac
       \\ first_x_assum drule
       \\ simp[NOT_LESS_EQUAL]
+      \\ disj1_tac
       \\ first_x_assum drule \\ rw[]
       \\ first_x_assum drule
       \\ rw[IN_between]
-      \\ first_x_assum(qspec_then`m`(strip_assume_tac o assert (is_conj o concl)))
       \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n'`
-      \\ `n' = n`  by ( simp[Abbr`n'`,Abbr`n`, make_even_def, EVEN_MOD2] )
-      \\ fs[Abbr`n'`] \\ rfs[])
+      \\ `n' = n`  by ( simp[Abbr`n'`,Abbr`n`, make_even_def, EVEN_MOD2])
+      \\ fs[Abbr`n'`] \\ rfs[]
+      \\ Cases_on`m=0` >- ( fs[make_even_def] \\ rw[] \\ fs[] )
+      \\ first_x_assum(qspecl_then[`0`,`m`]mp_tac)
+      \\ simp[]
+      \\ specl_args_of_then``renumber_code_locs_list``(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_inc)mp_tac
+      \\ simp[]
+      \\ ntac 2 strip_tac
+      \\ match_mp_tac LESS_LESS_EQ_TRANS
+      \\ asm_exists_tac \\ simp[]
+      \\ match_mp_tac LESS_EQ_TRANS
+      \\ qexists_tac`FST(FST (co1 m))`
+      \\ reverse conj_tac >- rw[make_even_def]
+      \\ match_mp_tac LESS_EQ_TRANS
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ match_mp_tac LESS_EQ_TRANS
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ rw[make_even_def])
     \\ conj_tac
     >- (
       simp[IN_DISJOINT]
       \\ CCONTR_TAC \\ fs[]
-      \\ first_x_assum(qspec_then`m`mp_tac)
+      \\ qpat_x_assum`∀m k. MEM k _ ⇒ _`(qspec_then`m`mp_tac)
       \\ simp[]
       \\ CCONTR_TAC \\ fs[SUBSET_DEF]
-      \\ first_x_assum drule
+      \\ qpat_x_assum`∀x. MEM x _ ⇒ _` drule
       \\ CCONTR_TAC \\ fs[]
       \\ fs[GSYM IMP_DISJ_THM]
       \\ first_x_assum drule
       \\ simp[NOT_LESS_EQUAL]
-      \\ first_x_assum(qspec_then`m`(strip_assume_tac o assert (is_conj o concl)))
+      \\ disj1_tac
       \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list n'`
       \\ `n' = n`  by ( simp[Abbr`n'`,Abbr`n`, make_even_def, EVEN_MOD2] )
       \\ fs[Abbr`n'`] \\ rfs[]
       \\ qhdtm_x_assum`renumber_code_locs_list`mp_tac
       \\ specl_args_of_then``renumber_code_locs_list``(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_inc)mp_tac
       \\ pop_assum(assume_tac o SYM) \\ fs[Abbr`n`]
-      \\ rw[] \\ fs[])
+      \\ rw[] \\ fs[]
+      \\ Cases_on`m=0` >- ( fs[make_even_def] \\ rw[] \\ fs[] )
+      \\ first_x_assum(qspecl_then[`0`,`m`]mp_tac)
+      \\ simp[] \\ strip_tac
+      \\ match_mp_tac LESS_LESS_EQ_TRANS
+      \\ qexists_tac`FST (FST (co1 m))`
+      \\ reverse conj_tac >- rw[make_even_def]
+      \\ match_mp_tac LESS_LESS_EQ_TRANS
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ specl_args_of_then``renumber_code_locs_list``(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_inc)mp_tac
+      \\ simp[] \\ strip_tac
+      \\ match_mp_tac LESS_LESS_EQ_TRANS
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ fs[make_even_def] \\ rw[] \\ fs[])
     \\ qx_gen_tac`p`
     \\ strip_tac
     \\ simp[IN_DISJOINT]
@@ -7019,20 +7073,23 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ simp[SUBSET_DEF] \\ rw[]
     \\ first_x_assum drule
     \\ simp[Abbr`g0`] \\ rw[]
+    \\ first_x_assum(qspecl_then[`p`,`m`]mp_tac)
     \\ first_assum(qspec_then`p`mp_tac)
-    \\ qmatch_asmsub_rename_tac`MEM y (code_locs ys)`
-    \\ disch_then(qspec_then`y`mp_tac)
+    \\ qmatch_asmsub_rename_tac`MEM z (code_locs ys)`
+    \\ disch_then(qspec_then`z`mp_tac)
     \\ impl_tac >- fs[]
     \\ strip_tac
-    \\ strip_tac
     \\ fs[SUBSET_DEF]
+    \\ strip_tac
+    \\ strip_tac
     \\ first_x_assum drule
     \\ simp[] \\ strip_tac
-    \\ first_x_assum(qspec_then`m`mp_tac)
+    \\ first_x_assum(qspecl_then[`m`,`z`]mp_tac)
     \\ simp[]
-    \\ asm_exists_tac \\ simp[]
-    \\ simp[NOT_LESS_EQUAL, NOT_LESS]
-    \\ cheat (* assume oracle for renumber_code_locs_list is monotonic and/or that the state is threaded through *))
+    \\ CCONTR_TAC \\ fs[]
+    \\ qpat_x_assum`_ ≤ z`mp_tac
+    \\ `z < FST (FST (co1 m))` by metis_tac[LESS_LESS_EQ_TRANS]
+    \\ rw[make_even_def])
   \\ strip_tac
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
@@ -7186,6 +7243,8 @@ val syntax_oracle_ok_def = Define`
               l ∉ domain (FST(SND(SND(FST(co k)))))) ∧
        FST(SND(SND(FST(co 0)))) =
          FST(SND(clos_call$compile c.do_call x))) ∧
+    FST (FST (co 0)) =
+    FST (renumber_code_locs_list (make_even (LENGTH es + c.next_loc)) (compile c.do_mti c.max_app es)) ∧
     (∀n.
       SND (SND (co n)) = [] ∧
       clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
@@ -7195,9 +7254,9 @@ val syntax_oracle_ok_def = Define`
                    (elist_globals (FLAT (GENLIST (FST o SND o co) n)))) ∧
       ¬contains_App_SOME c.max_app (FST (SND (co n))) ∧
       clos_knownProof$syntax_ok (FST (SND (co n))) ∧
-      FST (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
-                                   (compile c.do_mti c.max_app es))
-         < FST (FST (co n)) + 2 * MAX (LENGTH (FST (SND (co n)))) 1 ∧
+      FST (FST (co (SUC n))) =
+      FST (renumber_code_locs_list (make_even (FST (FST (co n)) + MAX (LENGTH (FST (SND (co n)))) 1))
+                                   (compile c.do_mti c.max_app (FST (SND (co n))))) ∧
       every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
       globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
       globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧

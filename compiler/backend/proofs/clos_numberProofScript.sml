@@ -169,7 +169,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
 val compile_inc_def = Define `
   compile_inc n xs =
     (* leave space in the naming for the daisy chaining of clos_to_bvl *)
-    let n1 = 2 * MAX (LENGTH xs) 1 + n in
+    let n1 = make_even (n + MAX (LENGTH xs) 1) in
     let (m,ys) = renumber_code_locs_list n1 xs in
       (* embed the name of the first free slot (n) in the code *)
       (* no code will be generated for this pure Const expression *)
