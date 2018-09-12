@@ -6860,7 +6860,10 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ asm_exists_tac \\ fs[]
         \\ simp[Abbr`bb`]
         \\ simp[bag_of_list_ALL_DISTINCT]))
-    \\ cheat (* co_ok *))
+    \\ rveq \\ fs[]
+    \\ qexists_tac `THE o clos_callProof$make_gs (FEMPTY |++ aux) co2`
+    \\ strip_tac \\ match_mp_tac clos_callProofTheory.IMP_co_ok
+    \\ cheat (* syntactic properties of clos_call *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
   \\ drule clos_callProofTheory.compile_ALL_DISTINCT

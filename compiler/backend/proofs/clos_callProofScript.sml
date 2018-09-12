@@ -4188,6 +4188,160 @@ val semantics_compile = Q.store_thm("semantics_compile",
   \\ irule semantics_calls
   \\ fs[compile_def, syntax_ok_def]);
 
+(* lemmas to help proving co_ok *)
+
+val make_gs_def = Define `
+  (make_gs code co 0 =
+    let g = FST (FST (co 0)) in
+      make_g g code) /\
+  (make_gs code co (SUC n) =
+    let g = FST (FST (co 0)) in
+    let (cfg,exp,aux) = co 0 in
+    let (g',exp',aux1) = compile_inc g (exp,aux) in
+      make_gs (FUNION code (FEMPTY |++ aux1)) (shift_seq 1 co) n)`
+
+val nth_code_def = Define `
+  nth_code code co 0 = code /\
+  nth_code code co (SUC k) =
+    let (cfg,exp,aux) = co 0 in
+    let (g',exp',aux') = compile_inc (FST cfg) (exp,aux) in
+      nth_code (code |++ aux') (shift_seq 1 co) k`
+
+(* TODO: move *)
+val FUNION_FEMPTY_FUPDATE_LIST = store_thm("FUNION_FEMPTY_FUPDATE_LIST",
+  ``DISJOINT (FDOM code) (set (MAP FST aux)) ==>
+    FUNION code (FEMPTY |++ aux) = code |++ aux``,
+  rw [fmap_EXT] \\ fs [FDOM_FUPDATE_LIST,FUNION_DEF]
+  \\ fs [IN_DISJOINT]
+  THEN1
+   (`~MEM x (MAP FST aux)` by metis_tac []
+    \\ fs [FUPDATE_LIST_APPLY_NOT_MEM])
+  \\ `~(x ∈ FDOM code)` by metis_tac [] \\ fs []
+  \\ match_mp_tac FUPDATE_SAME_LIST_APPLY \\ fs []);
+
+val ALL_DISTINCT_make_gs = store_thm("ALL_DISTINCT_make_gs",
+  ``!i code co2.
+      IS_SOME (make_gs code co2 i) ==>
+      ALL_DISTINCT (MAP FST (SND (THE (make_gs code co2 i))))``,
+  Induct \\ fs [make_gs_def] \\ rw [] THEN1
+   (Cases_on `make_g (FST (FST (co2 0))) code` \\ fs []
+    \\ imp_res_tac make_g_wfg \\ fs [wfg_def])
+  \\ rpt (pairarg_tac \\ fs []));
+
+val ALOOKUP_make_gs = store_thm("ALOOKUP_make_gs",
+  ``!i v code co2.
+       (∀k. IS_SOME (make_gs code co2 k)) /\
+       ALOOKUP (SND (THE (make_gs code co2 0))) k = SOME v ⇒
+       ALOOKUP (SND (THE (make_gs code co2 i))) k = SOME v``,
+  Induct \\ fs [] \\ fs [make_gs_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_x_assum match_mp_tac
+  \\ conj_tac THEN1
+   (rw [] \\ first_x_assum (qspec_then `SUC k'` mp_tac)
+    \\ fs [make_gs_def])
+  \\ first_assum (qspec_then `SUC 0` mp_tac)
+  \\ first_x_assum (qspec_then `0` mp_tac)
+  \\ fs [make_gs_def]
+  \\ rw []
+  \\ fs [IS_SOME_EXISTS]
+  \\ imp_res_tac make_g_wfg \\ fs [wfg_def]
+  \\ fs [make_g_def]
+  \\ rveq \\ fs []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [GSYM MEM_ALOOKUP]
+  \\ fs [MEM_MAP,FLOOKUP_FUNION]
+  \\ qexists_tac `k'` \\ fs []
+  \\ rveq \\ fs []
+  \\ cheat (* this proof needs a slightly different approach *));
+
+val FST_THE_make_gs = store_thm("FST_THE_make_gs",
+  ``!k code co2.
+      IS_SOME (make_gs code co2 k) ==>
+      FST (THE (make_gs code co2 k)) = FST (FST (co2 k))``,
+  Induct \\ fs [make_gs_def,make_g_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ fs [shift_seq_def,ADD1]);
+
+val IMP_co_ok = store_thm("IMP_co_ok",
+  ``!code co2 k.
+      (!i. let (cfg,exp,aux) = co2 i in
+           let (g',exp',aux') = compile_inc (FST cfg) (exp,aux) in
+             FST (FST (co2 (i+1))) = g' /\
+             (!x j. MEM x (code_locs exp) /\ ~(x IN domain g') ==>
+                    x ∉ domain (FST (FST (co2 (i + j))))) /\
+             ALL_DISTINCT (MAP FST aux') /\
+             IMAGE SUC (domain (FST cfg)) ⊆ FDOM (nth_code code co2 i) /\
+             DISJOINT (FDOM (nth_code code co2 i)) (set (MAP FST aux')) /\
+             DISJOINT (set (code_locs exp)) (domain (FST cfg))) ==>
+      co_ok code co2 (THE o make_gs code co2) k``,
+  Induct_on `k` \\ simp [Once co_ok_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp [Once make_gs_def]
+  \\ `FUNION code (FEMPTY |++ aux1) = code |++ aux1` by
+   (match_mp_tac FUNION_FEMPTY_FUPDATE_LIST
+    \\ first_x_assum (qspec_then `0` mp_tac)
+    \\ fs [nth_code_def])
+  \\ `shift_seq 1 (THE o make_gs code co2) =
+      THE o make_gs (code |++ aux1) (shift_seq 1 co2)` by
+   (fs [shift_seq_def,FUN_EQ_THM] \\ rewrite_tac [GSYM ADD1, make_gs_def]
+    \\ fs [shift_seq_def,ADD1]) \\ fs []
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1
+   (first_x_assum match_mp_tac \\ fs [shift_seq_def] \\ rw []
+    \\ first_x_assum (qspec_then `i+1` mp_tac) \\ fs []
+    \\ fs [nth_code_def,GSYM ADD1,shift_seq_def])
+  \\ first_assum (qspec_then `0` assume_tac) \\ fs []
+  \\ rewrite_tac [GSYM CONJ_ASSOC] \\ strip_tac
+  \\ fs [nth_code_def] \\ rfs []
+  \\ conj_tac THEN1 fs [make_g_def]
+  \\ rw [] \\ fs [subg_def]
+  \\ `!k. IS_SOME (make_gs code co2 k)` by
+   (qpat_x_assum `!i. f (co2 i)` mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ simp [PULL_FORALL]
+    \\ qspec_tac (`code`,`code`)
+    \\ qspec_tac (`co2`,`co2`)
+    \\ Induct_on `k` THEN1
+     (rw [] \\ fs [make_gs_def]
+      \\ pop_assum (qspec_then `0` mp_tac)
+      \\ rpt (pairarg_tac \\ fs [nth_code_def])
+      \\ fs [make_g_def])
+    \\ rw [] \\ fs [make_gs_def]
+    \\ rpt (pairarg_tac \\ fs [nth_code_def])
+    \\ first_x_assum match_mp_tac \\ fs [shift_seq_def]
+    \\ rw []
+    \\ rpt (pairarg_tac \\ fs [nth_code_def])
+    \\ first_assum (qspec_then `0` assume_tac)
+    \\ first_x_assum (qspec_then `i+1` mp_tac)
+    \\ fs []
+    \\ fs [GSYM ADD1,nth_code_def,shift_seq_def]
+    \\ fs [GSYM PULL_FORALL] \\ strip_tac
+    \\ qsuff_tac `code ⊌ (FEMPTY |++ aux1) = code |++ aux1` \\ fs []
+    \\ match_mp_tac FUNION_FEMPTY_FUPDATE_LIST
+    \\ rfs [])
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1
+   (pop_assum (qspec_then `i` mp_tac)
+    \\ fs [make_gs_def,ALL_DISTINCT_make_gs])
+  \\ reverse (rw [])
+  THEN1 (match_mp_tac ALOOKUP_make_gs \\ fs [])
+  \\ fs [FST_THE_make_gs]
+  \\ qsuff_tac `!i. subspt (FST (FST (co2 i))) (FST (FST (co2 (i+1))))`
+  THEN1
+   (`FST cfg = (FST (FST (co2 0)))` by fs []
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ rpt (pop_assum kall_tac)
+    \\ Induct_on `i` \\ fs [ADD1]
+    \\ rw [] \\ fs []
+    \\ match_mp_tac (GEN_ALL subspt_trans)
+    \\ asm_exists_tac \\ fs [])
+  \\ rw []
+  \\ qpat_x_assum `!i. f (co2 i)` (qspec_then `i` mp_tac)
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [compile_inc_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ imp_res_tac calls_subspt \\ fs []);
+
 (* Preservation of some label properties
   every_Fn_SOME xs ∧ every_Fn_vs_NONE xs
 *)
