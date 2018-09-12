@@ -19,7 +19,7 @@ val _ = new_theory"compiler";
 val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
 (*"*)
 val poly_version_tm = mlstring_from_proc "poly" ["-v"]
-val hol_version_tm = mlstring_from_proc_from Globals.HOLDIR "git" ["rev-parse", "HEAD"]
+val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
 
 val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
 val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
