@@ -248,6 +248,10 @@ val ALOOKUP_compile = Q.store_thm("ALOOKUP_compile",
   rw[GSYM ALOOKUP_MAP]
   \\ rw[FUN_EQ_THM,compile_def,LAMBDA_PROD]);
 
+val compile_append = Q.store_thm("compile_append",
+  `clos_annotate$compile (p1 ++ p2) = compile p1 ++ compile p2`,
+  rw[clos_annotateTheory.compile_def]);
+
 (* semantic functions respect relation *)
 
 val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
@@ -959,8 +963,6 @@ val shift_correct = Q.prove(
     \\ `alt_fv_set [x] SUBSET env_ok m l i env env'` by
       (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,alt_fv,alt_fv1_thm])
     \\ rev_full_simp_tac(srw_ss())[Once dec_clock_def]
-    \\ rev_full_simp_tac(srw_ss())[Once dec_clock_def]
-    \\ rev_full_simp_tac(srw_ss())[Once dec_clock_def]
     \\ code_tac
     \\ `state_rel (dec_clock 1 s1) (dec_clock 1 t1)` by
           full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ RES_TAC
@@ -1098,7 +1100,6 @@ val shift_correct = Q.prove(
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
       \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
-      \\ reverse conj_tac >- fs[dec_clock_def]
       \\ MATCH_MP_TAC EVERY2_DROP
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
       \\ full_simp_tac(srw_ss())[])

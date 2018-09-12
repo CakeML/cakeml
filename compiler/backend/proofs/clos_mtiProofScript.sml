@@ -813,7 +813,8 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ fs []
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs [LIST_REL_GENLIST]
     \\ rw [] \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_MAP]
+    \\ fs [EVERY2_MAP]
+    \\ match_mp_tac EVERY2_refl
     \\ fs [EVERY_MEM,FORALL_PROD]
     \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ drule collect_args_IMP
@@ -1301,13 +1302,13 @@ val every_Fn_vs_NONE_collect_apps = Q.prove(
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def] >> full_simp_tac(srw_ss())[] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  srw_tac[][] >> metis_tac[])
+  srw_tac[][] >> metis_tac[]);
 
 val every_Fn_vs_NONE_collect_args = Q.prove(
   `∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
     (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
   ho_match_mp_tac collect_args_ind >>
-  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[])
+  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]);
 
 val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[simp]",
   `∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es`,
@@ -1316,7 +1317,6 @@ val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[sim
   ONCE_REWRITE_TAC[CONS_APPEND] >>
   REWRITE_TAC[HD_intro_multi] >>
   full_simp_tac(srw_ss())[HD_intro_multi]
-  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >> srw_tac[][] )
   >- metis_tac[every_Fn_vs_NONE_collect_apps]
   >- metis_tac[every_Fn_vs_NONE_collect_args] >>
   simp[MAP_MAP_o,o_DEF,UNCURRY] >>
@@ -1335,7 +1335,11 @@ val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[sim
 val compile_EQ_NIL = Q.store_thm(
   "compile_EQ_NIL[simp]",
   `∀do_mti es. clos_mti$compile do_mti max_app es = [] ⇔ es = []`,
-  Cases>>fs[clos_mtiTheory.compile_def])
+  Cases>>fs[clos_mtiTheory.compile_def]);
+
+val compile_length = Q.store_thm("compile_length[simp]",
+  `LENGTH (clos_mti$compile do_mti max_app es) = LENGTH es`,
+  Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]);
 
 val EVERY_HD = Q.prove(
   `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,

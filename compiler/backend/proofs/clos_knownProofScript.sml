@@ -4,105 +4,6 @@ open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
 
 val _ = new_theory "clos_knownProof";
 
-(* TODO: move *)
-val is_subseq_def = Define`
-  (is_subseq ls [] ⇔ T) ∧
-  (is_subseq [] (x::xs) ⇔ F) ∧
-  (is_subseq (y::ys) (x::xs) ⇔
-   (x = y ∧ is_subseq ys xs) ∨
-   (is_subseq ys (x::xs)))`;
-
-val is_subseq_ind = theorem"is_subseq_ind";
-
-val is_subseq_refl = Q.store_thm("is_subseq_refl[simp]",
-  `∀ls. is_subseq ls ls`, Induct \\ rw[is_subseq_def]);
-
-val is_subseq_nil = Q.store_thm("is_subseq_nil[simp]",
-  `is_subseq [] ls ⇔ ls = []`,
-  Cases_on`ls` \\ rw[is_subseq_def]);
-
-val is_subseq_cons = Q.store_thm("is_subseq_cons",
-  `∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (x::l1) l2`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]);
-
-val is_subseq_snoc = Q.store_thm("is_subseq_snoc",
-  `∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (SNOC x l1) l2`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def] \\ fs[]);
-
-val is_subseq_append1 = Q.store_thm("is_subseq_append1",
-  `∀l3 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l3 ++ l1) l2`,
-  Induct
-  \\ rw[is_subseq_def] \\ fs[]
-  \\ metis_tac[is_subseq_cons]);
-
-val is_subseq_append2 = Q.store_thm("is_subseq_append2",
-  `∀l4 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l1 ++ l4) l2`,
-  ho_match_mp_tac SNOC_INDUCT
-  \\ rw[is_subseq_def] \\ fs[]
-  \\ metis_tac[is_subseq_snoc, SNOC_APPEND, APPEND_ASSOC]);
-
-val is_subseq_IS_SUBLIST = Q.store_thm("is_subseq_IS_SUBLIST",
-  `is_subseq l1 l2 ∧ IS_SUBLIST l3 l1 ⇒ is_subseq l3 l2`,
-  rw[IS_SUBLIST_APPEND]
-  \\ metis_tac[is_subseq_append1, is_subseq_append2]);
-
-val is_subseq_MEM = Q.store_thm("is_subseq_MEM",
-  `∀l1 l2 x. is_subseq l1 l2 ∧ MEM x l2 ⇒ MEM x l1`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]
-  \\ metis_tac[]);
-
-val IS_PREFIX_is_subseq = Q.store_thm("IS_PREFIX_is_subseq",
-  `∀l1 l2. IS_PREFIX l1 l2 ⇒ is_subseq l1 l2`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]
-  \\ fs[IS_PREFIX_NIL]);
-
-val IS_SUBLIST_is_subseq = Q.store_thm("IS_SUBLIST_is_subseq",
-  `∀l1 l2. IS_SUBLIST l1 l2 ⇒ is_subseq l1 l2`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def, IS_SUBLIST]
-  \\ simp[IS_PREFIX_is_subseq]);
-
-val is_subseq_ALL_DISTINCT = Q.store_thm("is_subseq_ALL_DISTINCT",
-  `∀l1 l2. ALL_DISTINCT l1 ∧ is_subseq l1 l2 ⇒ ALL_DISTINCT l2`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def] \\ fs[] \\ rfs[]
-  \\ metis_tac[is_subseq_MEM]);
-
-val is_subseq_append_suff = Q.store_thm("is_subseq_append_suff",
-  `∀l1 l3 l2 l4.
-   is_subseq l1 l3 ∧ is_subseq l2 l4 ⇒
-   is_subseq (l1 ++ l2) (l3 ++ l4)`,
-  recInduct is_subseq_ind
-  \\ rw[is_subseq_def]
-  \\ metis_tac[is_subseq_append1]);
-
-val is_subseq_FLAT_suff = Q.store_thm("is_subseq_FLAT_suff",
-  `∀ls1 ls2. LIST_REL is_subseq ls1 ls2 ⇒ is_subseq (FLAT ls1) (FLAT ls2)`,
-  ho_match_mp_tac LIST_REL_ind
-  \\ rw[is_subseq_append_suff]);
-
-val EVERY_lookup_vars = Q.store_thm(
-  "EVERY_lookup_vars",
-  `∀vs env env'. EVERY P env ∧ lookup_vars vs env = SOME env' ⇒ EVERY P env'`,
-  Induct >> simp[lookup_vars_def, case_eq_thms, PULL_EXISTS] >>
-  metis_tac[MEM_EL, EVERY_MEM]);
-
-val EVERY_LAST = Q.store_thm("EVERY_LAST",
-  `!P l. l ≠ [] /\ EVERY P l ==> P (LAST l)`,
-  rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
-
-val LIST_REL_LAST = Q.store_thm("LIST_REL_LAST",
-  `!R l1 l2. l1 ≠ [] /\ LIST_REL R l1 l2 ==> R (LAST l1) (LAST l2)`,
-  rw [LIST_REL_EL_EQN]
-  \\ `l2 ≠ []` by fs [NOT_NIL_EQ_LENGTH_NOT_0]
-  \\ fs [LAST_EL, NOT_NIL_EQ_LENGTH_NOT_0])
-
-(* -- *)
-
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
@@ -277,11 +178,6 @@ val unique_set_globals_evaluate = Q.store_thm(
    evaluate (es,env,s1) = (res, s2) ==> unique_set_globals xs s2.compile_oracle`,
   rpt strip_tac \\ imp_res_tac evaluate_code \\ fs []
   \\ simp [unique_set_globals_shift_seq]);
-
-val BAG_DISJOINT_SYM = Q.prove(
-  `!b1 b2. BAG_DISJOINT b1 b2 <=> BAG_DISJOINT b2 b1`,
-  simp [BAG_DISJOINT, DISJOINT_SYM]);
-
 
 val unique_set_globals_subexps = Q.store_thm("unique_set_globals_subexps",
  `(unique_set_globals (x1::x2::xs) co ==>
@@ -838,35 +734,6 @@ val value_ind =
    |> Q.SPECL [`P`, `EVERY P`]
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`
-
-(* TODO: move to closProps *)
-val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
-  `!(x: closSem$v) y xs ys.
-     v_to_list x = SOME xs /\
-     v_to_list y = SOME ys /\
-     (!t l. P (Block t l) <=> EVERY P l) /\
-     P x /\ P y ==>
-       P (list_to_v (xs ++ ys))`,
-  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, case_eq_thms] \\ fs []
-  >-
-   (qpat_x_assum `v_to_list _ = _` mp_tac
-    \\ pop_assum mp_tac
-    \\ ConseqConv.SPEC_ALL_TAC
-    \\ ho_match_mp_tac v_to_list_ind
-    \\ rw [v_to_list_def, case_eq_thms]
-    \\ fs [list_to_v_def])
-  \\ rfs []
-  \\ res_tac
-  \\ fs [list_to_v_def])
-
-val dec_clock_compile_oracle = Q.store_thm("dec_clock_compile_oracle[simp]",
-  `(closSem$dec_clock n s).compile_oracle = s.compile_oracle`,
-  EVAL_TAC);
-
-val dec_clock_compile = Q.store_thm("dec_clock_compile[simp]",
-  `(closSem$dec_clock n s).compile = s.compile`,
-  EVAL_TAC);
-(* -- *)
 
 val do_app_ssgc = Q.store_thm(
   "do_app_ssgc",
@@ -2792,10 +2659,6 @@ val oracle_gapprox_disjoint_subspt = Q.store_thm("oracle_gapprox_disjoint_subspt
   rw [oracle_gapprox_disjoint_def, gapprox_disjoint_def, DISJOINT_ALT]
   \\ fs [subspt_def, domain_lookup]);
 
-val BAG_DISJOINT_SUB_BAG = Q.store_thm("BAG_DISJOINT_SUB_BAG",
-  `!b1 b2 b3. b1 ≤ b2 /\ BAG_DISJOINT b2 b3 ==> BAG_DISJOINT b1 b3`,
-  rw [BAG_DISJOINT_BAG_IN] \\ metis_tac [SUB_BAG, BAG_IN]);
-
 val decide_inline_inlD_LetInline_sgc_free = Q.store_thm(
   "decide_inline_inlD_LetInline_sgc_free",
   `!c a lopt n body. decide_inline c a lopt n = inlD_LetInline body /\ val_approx_sgc_free a ==> set_globals body = {||}`,
@@ -3401,7 +3264,7 @@ val known_correct0 = Q.prove(
       \\ reverse impl_tac
       THEN1
        (fs [result_case_eq] \\ strip_tac \\ rw [] \\ fs []
-        \\ irule LIST_REL_LAST \\ simp []
+        \\ irule LIST_REL_IMP_LAST \\ simp []
         \\ metis_tac [LIST_REL_LENGTH, evaluate_IMP_LENGTH, NOT_NIL_EQ_LENGTH_NOT_0])
       \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_IMP_shift_seq
       \\ strip_tac \\ fs []
@@ -4539,24 +4402,6 @@ val code_locs_decide_inline = Q.store_thm("code_locs_decide_inline",
   \\ fs[CaseEq"val_approx",bool_case_eq]
   \\ rveq
   \\ imp_res_tac contains_closures_code_locs);
-
-val MONOID_BAG_UNION_EMPTY_BAG = Q.store_thm("MONOID_BAG_UNION_EMPTY_BAG",
-  `MONOID $⊎ {||}`,
-  simp [MONOID_DEF, RIGHT_ID_DEF, LEFT_ID_DEF, ASSOC_DEF, ASSOC_BAG_UNION]);
-
-val bag_of_list_def = Define `bag_of_list = FOLDL $⊎ {||} o MAP EL_BAG`;
-
-val bag_of_list_append = Q.store_thm("bag_of_list_append",
-  `!xs ys. bag_of_list (xs ++ ys) = bag_of_list xs ⊎ bag_of_list ys`,
-  simp [bag_of_list_def, FOLDL_APPEND]
-  \\ irule COMM_MONOID_FOLDL
-  \\ simp [COMM_DEF, COMM_BAG_UNION, MONOID_BAG_UNION_EMPTY_BAG]);
-
-val bag_of_list_sub_bag_FLAT_suff = Q.store_thm("bag_of_list_sub_bag_FLAT_suff",
-  `!ls1 ls2. LIST_REL (\l1 l2. bag_of_list l1 ≤ bag_of_list l2) ls1 ls2 ==>
-     bag_of_list (FLAT ls1) ≤ bag_of_list (FLAT ls2)`,
-  ho_match_mp_tac LIST_REL_ind
-  \\ srw_tac [bagLib.SBAG_SOLVE_ss] [bag_of_list_append]);
 
 val known_code_locs_bag = Q.store_thm("known_code_locs_bag",
   `!c xs aenv g0 eas g.

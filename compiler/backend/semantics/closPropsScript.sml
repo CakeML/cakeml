@@ -14,6 +14,33 @@ val dec_clock_ffi = Q.store_thm("dec_clock_ffi",
   `(dec_clock x y).ffi = y.ffi`,
   EVAL_TAC);
 
+val dec_clock_compile_oracle = Q.store_thm("dec_clock_compile_oracle[simp]",
+  `(closSem$dec_clock n s).compile_oracle = s.compile_oracle`,
+  EVAL_TAC);
+
+val dec_clock_compile = Q.store_thm("dec_clock_compile[simp]",
+  `(closSem$dec_clock n s).compile = s.compile`,
+  EVAL_TAC);
+
+val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
+  `!(x: closSem$v) y xs ys.
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys /\
+     (!t l. P (Block t l) <=> EVERY P l) /\
+     P x /\ P y ==>
+       P (list_to_v (xs ++ ys))`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, case_eq_thms] \\ fs []
+  >-
+   (qpat_x_assum `v_to_list _ = _` mp_tac
+    \\ pop_assum mp_tac
+    \\ ConseqConv.SPEC_ALL_TAC
+    \\ ho_match_mp_tac v_to_list_ind
+    \\ rw [v_to_list_def, case_eq_thms]
+    \\ fs [list_to_v_def])
+  \\ rfs []
+  \\ res_tac
+  \\ fs [list_to_v_def])
+
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
@@ -183,6 +210,10 @@ val every_Fn_SOME_EVERY = Q.store_thm("every_Fn_SOME_EVERY",
   Induct >> simp[every_Fn_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_SOME_def])
 
+val every_Fn_SOME_APPEND = Q.store_thm("every_Fn_SOME_APPEND[simp]",
+  `every_Fn_SOME (l1 ++ l2) ⇔ every_Fn_SOME l1 ∧ every_Fn_SOME l2`,
+  once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]);
+
 val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
   (every_Fn_vs_NONE [] ⇔ T) ∧
   (every_Fn_vs_NONE (x::y::xs) ⇔
@@ -231,6 +262,15 @@ val every_Fn_vs_NONE_EVERY = Q.store_thm("every_Fn_vs_NONE_EVERY",
   Induct >> simp[every_Fn_vs_NONE_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_NONE_def])
 
+val IMP_every_Fn_vs_NONE_TAKE = Q.store_thm("IMP_every_Fn_vs_NONE_TAKE",
+  `every_Fn_vs_NONE ls ⇒ every_Fn_vs_NONE (TAKE n ls)`,
+  once_rewrite_tac[every_Fn_vs_NONE_EVERY]
+  \\ Cases_on`n <= LENGTH ls` \\ simp[EVERY_TAKE, TAKE_LENGTH_TOO_LONG]);
+
+val every_Fn_vs_NONE_APPEND = Q.store_thm("every_Fn_vs_NONE_APPEND[simp]",
+  `every_Fn_vs_NONE (l1 ++ l2) ⇔ every_Fn_vs_NONE l1 ∧ every_Fn_vs_NONE l2`,
+  once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]);
+
 val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
   (every_Fn_vs_SOME [] ⇔ T) ∧
   (every_Fn_vs_SOME (x::y::xs) ⇔
@@ -278,6 +318,10 @@ val every_Fn_vs_SOME_EVERY = Q.store_thm("every_Fn_vs_SOME_EVERY",
   `∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls`,
   Induct >> simp[every_Fn_vs_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_SOME_def])
+
+val every_Fn_vs_SOME_APPEND = Q.store_thm("every_Fn_vs_SOME_APPEND[simp]",
+  `every_Fn_vs_SOME (l1 ++ l2) ⇔ every_Fn_vs_SOME l1 ∧ every_Fn_vs_SOME l2`,
+  once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]);
 
 val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\
@@ -1642,10 +1686,6 @@ val FST_SND_ignore_table = Q.store_thm("FST_SND_ignore_table",
   Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]);
 
 (* generic do_app compile proof *)
-
-val LIST_REL_MAP = store_thm("LIST_REL_MAP",
-  ``!xs. LIST_REL P xs (MAP f xs) <=> EVERY (\x. P x (f x)) xs``,
-  Induct \\ fs []);
 
 val isClos_def = Define `
   isClos (Closure x1 x2 x3 x4 x5) = T /\

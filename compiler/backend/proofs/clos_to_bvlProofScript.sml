@@ -28,48 +28,6 @@ val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos
 
 (* TODO: move? *)
 
-val _ = temp_overload_on("bag_of_list",``clos_knownProof$bag_of_list``);
-
-val bag_of_list_thm = Q.store_thm("bag_of_list_thm",
-  `bag_of_list [] = {||} ∧
-   (∀x xs. bag_of_list (x::xs) = BAG_INSERT x (bag_of_list xs))`,
-  conj_tac >- EVAL_TAC
-  \\ rewrite_tac[clos_knownProofTheory.bag_of_list_def, o_DEF]
-  \\ simp_tac bool_ss []
-  \\ qmatch_goalsub_abbrev_tac`FOLDL f`
-  \\ ntac 2 gen_tac
-  \\ `COMM f` by (rw[Abbr`f`,COMM_DEF,COMM_BAG_UNION])
-  \\ `ASSOC f` by (rw[Abbr`f`,ASSOC_DEF,ASSOC_BAG_UNION])
-  \\ drule (GSYM COMM_ASSOC_FOLDL_REVERSE)
-  \\ disch_then drule
-  \\ disch_then(CONV_TAC o LAND_CONV o REWR_CONV)
-  \\ rw[FOLDL_APPEND,Abbr`f`]
-  \\ rw[COMM_ASSOC_FOLDL_REVERSE]
-  \\ rw[BAG_INSERT_UNION, COMM_BAG_UNION]);
-
-val IN_bag_of_list_MEM = Q.store_thm("IN_bag_of_list_MEM",
-  `∀l. x <: bag_of_list l ⇔ MEM x l`,
-  Induct \\ rw[bag_of_list_thm] \\ fs[]);
-
-val bag_of_list_SUB_BAG_SUBSET = Q.store_thm("bag_of_list_SUB_BAG_SUBSET",
-  `∀l1 l2. bag_of_list l1 ≤ bag_of_list l2 ⇒ set l1 ⊆ set l2`,
-  Induct \\ rw[bag_of_list_thm]
-  \\ imp_res_tac BAG_INSERT_SUB_BAG_E
-  \\ imp_res_tac IN_bag_of_list_MEM \\ fs[]);
-
-val bag_of_list_ALL_DISTINCT = Q.store_thm("bag_of_list_ALL_DISTINCT",
-  `∀ls. BAG_ALL_DISTINCT (bag_of_list ls) ⇔ ALL_DISTINCT ls`,
-  Induct \\ rw[bag_of_list_thm,IN_bag_of_list_MEM]);
-
-val IN_between = Q.store_thm("IN_between",
-  `x ∈ between y z ⇔ y ≤ x ∧ x < z`,
-  rw[IN_DEF] \\ EVAL_TAC);
-
-val IMP_every_Fn_vs_NONE_TAKE = Q.store_thm("IMP_every_Fn_vs_NONE_TAKE",
-  `every_Fn_vs_NONE ls ⇒ every_Fn_vs_NONE (TAKE n ls)`,
-  once_rewrite_tac[every_Fn_vs_NONE_EVERY]
-  \\ Cases_on`n <= LENGTH ls` \\ simp[EVERY_TAKE, TAKE_LENGTH_TOO_LONG]);
-
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
 
 val EVERY_ZIP_GENLIST = Q.prove(
@@ -2864,15 +2822,6 @@ val compile_exps_twice_IS_SUBLIST = store_thm("compile_exps_twice_IS_SUBLIST",
   \\ rw [] \\ fs [IS_SUBLIST_APPEND]
   \\ qexists_tac `ys` \\ fs []);
 
-val LIST_REL_IMP_LAST = store_thm("LIST_REL_IMP_LAST",  (* TODO: move *)
-  ``!P xs ys.
-      LIST_REL P xs ys /\ (xs <> [] \/ ys <> []) ==> P (LAST xs) (LAST ys)``,
-  rpt gen_tac
-  \\ Cases_on `xs = []` \\ fs [] \\ Cases_on `ys = []` \\ fs []
-  \\ `?x1 x2. xs = SNOC x1 x2` by metis_tac [SNOC_CASES]
-  \\ `?y1 y2. ys = SNOC y1 y2` by metis_tac [SNOC_CASES]
-  \\ asm_rewrite_tac [LAST_SNOC] \\ fs [LIST_REL_SNOC]);
-
 val code_installed_cons = store_thm("code_installed_cons",
   ``code_installed (x::xs) c ==> code_installed xs c``,
   fs [code_installed_def]);
@@ -2947,12 +2896,6 @@ val chained_lemma = store_thm("chained_lemma",
   \\ imp_res_tac evaluate_IMP_LENGTH
   \\ Cases_on `c2` \\ fs []
   \\ Cases_on `a` \\ fs []);
-
-val MAP2_APPEND = store_thm("MAP2_APPEND", (* TODO: move *)
-  ``!xs ys xs1 ys1 f.
-      LENGTH xs = LENGTH xs1 ==>
-      MAP2 f (xs ++ ys) (xs1 ++ ys1) = MAP2 f xs xs1 ++ MAP2 f ys ys1``,
-  Induct \\ Cases_on `xs1` \\ fs [MAP2]);
 
 val evaluate_IMP_evaluate_chained = store_thm("evaluate_IMP_evaluate_chained",
   ``bvlSem$evaluate (x6,[],t:('c,'ffi) bvlSem$state) = (res,t1) /\
@@ -5294,6 +5237,7 @@ val compile_common_distinct_locs = Q.store_thm("compile_common_distinct_locs",
     \\ imp_res_tac clos_callTheory.compile_LENGTH \\ fs[]
     \\ imp_res_tac clos_callTheory.compile_nil \\ fs[code_locs_def] )
   (* clos_call *)
+  \\ `LENGTH e = LENGTH XS` by fs[Abbr`XS`]
   \\ reverse (Cases_on `c.do_call`) \\ fs [clos_callTheory.compile_def]
   \\ rveq \\ rfs [code_locs_def]
   \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
@@ -5871,21 +5815,6 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
   \\ rename1`result_rel _ _ tres`
   \\ Cases_on`tres` \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]);
 
-(* TODO: move to clos_annotate(Proof) *)
-val compile_append = Q.store_thm("compile_append",
-  `clos_annotate$compile (p1 ++ p2) = compile p1 ++ compile p2`,
-  rw[clos_annotateTheory.compile_def]);
-
-(*
-val compile_prog_append = Q.store_thm("compile_prog_append",
-  `∀max_app l1 l2.
-     compile_prog max_app (l1 ++ l2) =
-     compile_prog max_app l1 ++ compile_prog max_app l2`,
-  recInduct compile_prog_ind
-  \\ rw[compile_prog_def]
-  \\ pairarg_tac \\ fs[]);
-*)
-
 val chain_installed_chain_exps = Q.store_thm("chain_installed_chain_exps",
   `∀start es. chain_installed start es (alist_to_fmap (chain_exps start es))`,
   recInduct chain_exps_ind
@@ -6068,26 +5997,7 @@ val compile_common_inc_def = Define`
         (state_cc (if c.do_call then clos_callProof$compile_inc else CURRY I)
           (pure_cc clos_annotateProof$compile_inc cc)))))`;
 
-(* TODO: move *)
-
-val make_even_def = Define`
-  make_even n = if EVEN n then n else n+1`;
-
-val mcompile_length = Q.store_thm("mcompile_length[simp]",
-  `LENGTH (clos_mti$compile do_mti max_app es) = LENGTH es`,
-  Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]);
-
-val every_Fn_SOME_APPEND = Q.store_thm("every_Fn_SOME_APPEND[simp]",
-  `every_Fn_SOME (l1 ++ l2) ⇔ every_Fn_SOME l1 ∧ every_Fn_SOME l2`,
-  once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]);
-
-val every_Fn_vs_NONE_APPEND = Q.store_thm("every_Fn_vs_NONE_APPEND[simp]",
-  `every_Fn_vs_NONE (l1 ++ l2) ⇔ every_Fn_vs_NONE l1 ∧ every_Fn_vs_NONE l2`,
-  once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]);
-
-val every_Fn_vs_SOME_APPEND = Q.store_thm("every_Fn_vs_SOME_APPEND[simp]",
-  `every_Fn_vs_SOME (l1 ++ l2) ⇔ every_Fn_vs_SOME l1 ∧ every_Fn_vs_SOME l2`,
-  once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]);
+(* TODO: move (there's lots to move in this file) *)
 
 val every_Fn_SOME_mk_Ticks = Q.store_thm("every_Fn_SOME_mk_Ticks",
   `∀t tc n e. every_Fn_SOME [e] ⇒ every_Fn_SOME [mk_Ticks t tc n e]`,
@@ -6413,36 +6323,6 @@ val elist_globals_SND_renumber_code_locs_list = Q.store_thm("elist_globals_SND_r
 val elist_globals_SND_ncompile_inc = Q.store_thm("elist_globals_SND_ncompile_inc[simp]",
   `elist_globals (SND (clos_numberProof$compile_inc x y)) = elist_globals y`,
   rw[clos_numberProofTheory.compile_inc_def,UNCURRY,op_gbag_def,elist_globals_SND_renumber_code_locs_list]);
-
-(* TODO: move (there's lots to move in this file) *)
-
-val BAG_DISJOINT_FOLDR_BAG_UNION = Q.store_thm("BAG_DISJOINT_FOLDR_BAG_UNION",
-  `∀ls b0 b1.
-    BAG_DISJOINT b1 (FOLDR BAG_UNION b0 ls) ⇔
-    EVERY (BAG_DISJOINT b1) (b0::ls)`,
-  Induct \\ rw[] \\ metis_tac[]);
-
-val BAG_DISJOINT_SYM = Q.store_thm("BAG_DISJOINT_SYM",
-  `BAG_DISJOINT b1 b2 ⇔ BAG_DISJOINT b2 b1`,
-  rw[BAG_DISJOINT, DISJOINT_SYM]);
-
-val BAG_ALL_DISTINCT_FOLDR_BAG_UNION = Q.store_thm("BAG_ALL_DISTINCT_FOLDR_BAG_UNION",
-  `∀ls b0.
-   BAG_ALL_DISTINCT (FOLDR BAG_UNION b0 ls) ⇔
-   BAG_ALL_DISTINCT b0 ∧
-   (∀n. n < LENGTH ls ⇒
-        BAG_DISJOINT (EL n ls) b0 ∧ BAG_ALL_DISTINCT (EL n ls) ∧
-        (∀m. m < n ⇒ BAG_DISJOINT (EL n ls) (EL m ls)))`,
-  Induct \\ rw[]
-  \\ rw[BAG_ALL_DISTINCT_BAG_UNION]
-  \\ simp[Once FORALL_NUM, SimpRHS]
-  \\ Cases_on`BAG_ALL_DISTINCT h` \\ simp[]
-  \\ Cases_on`BAG_ALL_DISTINCT b0` \\ simp[]
-  \\ simp[BAG_DISJOINT_FOLDR_BAG_UNION, EVERY_MEM, MEM_EL, PULL_EXISTS]
-  \\ CONV_TAC(PATH_CONV"rrrarrr"(HO_REWR_CONV FORALL_NUM))
-  \\ simp[]
-  \\ rw[EQ_IMP_THM] \\ fs[]
-  \\ metis_tac[BAG_DISJOINT_SYM]);
 
 val syntax_oracle_ok_renumber_code_locs = Q.store_thm("syntax_oracle_ok_renumber_code_locs",
   `renumber_code_locs_list n es1 = (k,es2) ∧
@@ -7380,18 +7260,6 @@ val ccompile_every_Fn_SOME = Q.store_thm("ccompile_every_Fn_SOME",
   \\ fs[] \\ rveq \\ fs[]);
 
 (* TODO: move *)
-val ALOOKUP_MAP_FST_INJ_SOME = Q.store_thm("ALOOKUP_MAP_FST_INJ_SOME",
-  `∀ls x y.
-    ALOOKUP ls x = SOME y ∧ (∀x'. IS_SOME (ALOOKUP ls x') ∧ f x' = f x ⇒ x = x') ⇒
-    ALOOKUP (MAP (f ## g) ls) (f x) = SOME (g y)`,
-  Induct \\ simp[]
-  \\ Cases \\ rw[]
-  >- metis_tac[IS_SOME_EXISTS]
-  \\ first_x_assum irule
-  \\ rw[]
-  \\ first_x_assum irule
-  \\ rw[]);
-
 val ALOOKUP_lemma = Q.prove(
   `∀l1 l2 n k v.
     (EL n l1 = (k,v)) ∧
