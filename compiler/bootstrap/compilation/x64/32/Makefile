@@ -3,7 +3,8 @@
 
 # To set the stack and heap directives available to your own
 # CakeML programs, use the --stack_size and --heap_size
-# command-line arguments to the CakeML compiler.
+# command-line arguments to the CakeML compiler. The unit of
+# measure for both arguments is mebibytes, i.e. 1024^2 bytes.
 
 # Build the CakeML compiler.
 cake: cake.o basis_ffi.o
