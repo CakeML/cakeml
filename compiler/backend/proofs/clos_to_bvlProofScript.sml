@@ -6618,6 +6618,23 @@ val ncompile_inc_code_locs_distinct = Q.store_thm("ncompile_inc_code_locs_distin
   \\ rw[Once code_locs_def]
   \\ rw[clos_numberProofTheory.renumber_code_locs_list_distinct]);
 
+val code_locs_FST_letop_compile_inc = Q.store_thm("code_locs_FST_letop_compile_inc[simp]",
+  `code_locs (FST (clos_letopProof$compile_inc x)) = code_locs (FST x)`,
+  Cases_on`x` \\ rw[clos_letopProofTheory.compile_inc_def, clos_letopProofTheory.code_locs_let_op]);
+
+val code_locs_FST_ticks_compile_inc = Q.store_thm("code_locs_FST_ticks_compile_inc[simp]",
+  `code_locs (FST (clos_ticksProof$compile_inc x)) = code_locs (FST x)`,
+  Cases_on`x` \\ rw[clos_ticksProofTheory.compile_inc_def, clos_ticksProofTheory.code_locs_remove_ticks]);
+
+val code_locs_FST_SND_kcompile_inc = Q.store_thm("code_locs_FST_SND_kcompile_inc",
+  `bag_of_list (code_locs (FST (SND (clos_knownProof$compile_inc x y z)))) ≤
+   bag_of_list (code_locs (FST z))`,
+  rw[kcompile_inc_uncurry]
+  \\ qmatch_goalsub_abbrev_tac`known a b c d`
+  \\ specl_args_of_then``known``clos_knownProofTheory.known_code_locs_bag mp_tac
+  \\ Cases_on`known a b c d`
+  \\ simp[]);
+
 val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
     (compile_common_inc c cc) es1 ≠ Fail ∧
@@ -6891,6 +6908,42 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
        \\ `d1 = FST(SND(calls (FST(SND zz)) (FST (FST zz), [])))` by simp[]
        \\ pop_assum SUBST1_TAC
        \\ fs[ADD1] )
+    \\ conj_tac
+    >- (
+       rpt gen_tac
+       \\ qmatch_goalsub_abbrev_tac`FST (FST pp)`
+       \\ `FST (FST pp) = FST (SND (SND (FST (co1 (i+j)))))`
+       by (
+         simp[Abbr`pp`, clos_knownProofTheory.known_co_def, Abbr`co2`]
+         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
+       \\ pop_assum SUBST_ALL_TAC
+       \\ `FST (FST (co2 (i + 1))) = FST (SND (SND (FST (co1 (i + 1)))))`
+       by (
+         simp[clos_knownProofTheory.known_co_def, Abbr`co2`] \\ rveq
+         \\ simp[clos_knownProofTheory.known_co_def]
+         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
+       \\ pop_assum SUBST_ALL_TAC
+       \\ cheat )
+    \\ conj_tac
+    >- (
+      qhdtm_x_assum`clos_callProof$compile_inc`mp_tac
+      \\ simp[clos_callProofTheory.compile_inc_def]
+      \\ pairarg_tac \\ simp[] \\ strip_tac \\ rveq
+      \\ drule clos_callProofTheory.calls_ALL_DISTINCT
+      \\ simp[]
+      \\ disch_then irule
+      \\ `exp' = FST(SND(co2 i))` by simp[]
+      \\ pop_assum SUBST1_TAC
+      \\ qunabbrev_tac`co2`
+      \\ simp_tac(srw_ss())[clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,FST_SND_ignore_table,backendPropsTheory.FST_state_co]
+      \\ qmatch_goalsub_abbrev_tac`clos_knownProof$compile_inc xx yy zz`
+      \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+      \\ irule BAG_ALL_DISTINCT_SUB_BAG
+      \\ qexists_tac`bag_of_list(code_locs (FST zz))`
+      \\ simp[code_locs_FST_SND_kcompile_inc]
+      \\ simp[bag_of_list_ALL_DISTINCT]
+      \\ simp[Abbr`zz`,FST_SND_ignore_table] )
     \\ cheat (* syntactic properties of clos_call *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
