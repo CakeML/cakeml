@@ -19,10 +19,6 @@ val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 val _ = temp_bring_to_front_overload "compile" {Name="compile", Thy="clos_call"};
 
-val MEM_REPLICATE_EQ = Q.store_thm("MEM_REPLICATE_EQ",
-  `!n x y. MEM x (REPLICATE n y) <=> x = y /\ n <> 0`,
-  Induct \\ fs [REPLICATE] \\ rw [] \\ eq_tac \\ rw []);
-
 val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
 
 val TAKE_MAP = Q.store_thm("TAKE_MAP",

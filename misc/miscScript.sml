@@ -2163,6 +2163,10 @@ val FLAT_REPLICATE_NIL = Q.store_thm("FLAT_REPLICATE_NIL",
   `!n. FLAT (REPLICATE n []) = []`,
   Induct \\ fs [REPLICATE]);
 
+val MEM_REPLICATE_EQ = Q.store_thm("MEM_REPLICATE_EQ",
+  `!n x y. MEM x (REPLICATE n y) <=> x = y /\ n <> 0`,
+  Induct \\ fs [REPLICATE] \\ rw [] \\ eq_tac \\ rw []);
+
 (* n.b. used in hol-reflection *)
 
 val FDOM_FLOOKUP = Q.store_thm("FDOM_FLOOKUP",
