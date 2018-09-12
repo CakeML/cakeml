@@ -156,6 +156,12 @@ val TYPE_SUBST_reduce = Q.store_thm(
   >> fs[TYPE_SUBST_tyvars]
 );
 
+val TYPE_SUBST_reduce_CONS = Q.store_thm(
+  "TYPE_SUBST_reduce_CONS",
+  `!l2 ty x ts. ~MEM x (tyvars ty)
+  ==> TYPE_SUBST ((ts,Tyvar x)::l2) ty = TYPE_SUBST (l2) ty`,
+  rpt strip_tac >> drule TYPE_SUBST_reduce \\ disch_then (qspec_then `[]` mp_tac) \\ simp[]);
+
 val TYPE_SUBST_reduce_list = Q.store_thm(
   "TYPE_SUBST_reduce_list",
   `!l1 l2 ty . (!a. MEM a (tyvars ty) ==> !ty. ~MEM (ty,Tyvar a) l1)
@@ -4545,8 +4551,385 @@ val unify_def = Define `
       else NONE
 `;
 
-(*
-*)
+(* Soundness of unify_types *)
+
+val (equal_upto_rules,equal_upto_ind,equal_upto_cases) = Hol_reln `
+  (!l a. equal_upto l a a) /\
+  (!l a b. MEM (a,b) l ==> equal_upto l a b) /\
+  (!l a b. MEM (a,b) l ==> equal_upto l b a) /\
+  (!l n args1 args2.
+    LENGTH args1 = LENGTH args2 /\
+    LIST_REL (equal_upto l) args1 args2
+    ==>
+    equal_upto l (Tyapp n args1) (Tyapp n args2))
+  `
+
+val [equal_upto_refl,equal_upto_l1,equal_upto_l2,equal_upto_tyapp] =
+    map save_thm (zip ["equal_upto_refl","equal_upto_l1","equal_upto_l2","equal_upto_tyapp"]
+                      (CONJUNCTS equal_upto_rules));
+
+val equal_upto_nil = Q.store_thm("equal_upto_nil",
+  `!ty1 ty2. equal_upto [] ty1 ty2 ==> ty1 = ty2`,
+  `!l ty1 ty2. equal_upto l ty1 ty2 ==> l = [] ==> ty1 = ty2`  
+    suffices_by metis_tac[]
+  \\ ho_match_mp_tac equal_upto_ind \\  fs[]
+  \\ CONV_TAC(DEPTH_CONV ETA_CONV) \\ fs[quotient_listTheory.LIST_REL_EQ]);
+
+val equal_upto_eq = Q.store_thm("equal_upto_eq",
+  `!a l. equal_upto ((a,a)::l) = equal_upto l`,
+  `(!l ty1 ty2. equal_upto l ty1 ty2 ==> !l' a. l = (a,a)::l' ==> equal_upto l' ty1 ty2)
+   /\ (!l ty1 ty2. equal_upto l ty1 ty2 ==> !a. equal_upto ((a,a)::l) ty1 ty2)
+  `
+    suffices_by(rw[FUN_EQ_THM,EQ_IMP_THM] \\ metis_tac[])
+  \\ conj_tac \\ ho_match_mp_tac equal_upto_ind \\ rpt strip_tac
+  \\ fs[equal_upto_rules]
+  \\ match_mp_tac equal_upto_tyapp
+  \\ RULE_ASSUM_TAC (CONV_RULE(DEPTH_CONV ETA_CONV)) \\ simp[]
+  \\ qhdtm_x_assum `LIST_REL` mp_tac \\ match_mp_tac EVERY2_mono
+  \\ rw[]);
+
+val equal_upto_zip = Q.store_thm("equal_upto_zip",
+  `!a atys btys l ty1 ty2. equal_upto ((Tyapp a atys,Tyapp a btys)::l) ty1 ty2
+     /\ LENGTH atys = LENGTH btys
+     ==> equal_upto (ZIP (atys,btys) ⧺ l) ty1 ty2`,
+  `!l ty1 ty2.
+    equal_upto l ty1 ty2
+    ==> !a atys btys l'. l = (Tyapp a atys,Tyapp a btys)::l' /\ LENGTH atys = LENGTH btys
+                         ==> equal_upto (ZIP (atys,btys) ++ l') ty1 ty2`  
+    suffices_by metis_tac[]
+  \\ ho_match_mp_tac equal_upto_ind \\ rpt strip_tac
+  \\ fs[equal_upto_rules]
+  \\ match_mp_tac equal_upto_tyapp \\ fs[]
+  \\ TRY(qhdtm_x_assum `LIST_REL` mp_tac \\ match_mp_tac EVERY2_mono
+         \\ rw[] \\ NO_TAC)
+  \\ fs[LIST_REL_EVERY_ZIP,EVERY_MEM] \\ Cases \\ rw[]
+  >- (match_mp_tac equal_upto_l1 \\ simp[])
+  >- (match_mp_tac equal_upto_l2 \\ rfs[MEM_ZIP] \\ metis_tac[]));
+
+val equal_upto_swap = Q.store_thm("equal_upto_swap",
+  `!a b l ty1 ty2. equal_upto ((a,b)::l) ty1 ty2
+     ==> equal_upto ((b,a)::l) ty1 ty2`,
+  `!l ty1 ty2.
+    equal_upto l ty1 ty2
+    ==> !a b l'. l = (a,b)::l'
+                         ==> equal_upto ((b,a)::l') ty1 ty2`  
+    suffices_by metis_tac[]
+  \\ ho_match_mp_tac equal_upto_ind \\ rpt strip_tac
+  \\ fs[equal_upto_rules]
+  \\ match_mp_tac equal_upto_tyapp \\ fs[]
+  \\ RULE_ASSUM_TAC (CONV_RULE(DEPTH_CONV ETA_CONV)) \\ simp[]);
+
+val unify_types_invariant_def = Define
+  `unify_types_invariant orig_l l sigma =
+    (* The substitution's domain is not in the worklist *)
+    ((!x. MEM x (MAP SND sigma) ==> (~MEM x (MAP FST l) /\ ~MEM x (MAP SND l))) /\
+    (* The type variables of the worklist are not in the substitution's domain *)
+    (!a. MEM a (FLAT(MAP (tyvars o SND) l)) ==> ~MEM (Tyvar a) (MAP SND sigma)) /\
+    (!a. MEM a (FLAT(MAP (tyvars o FST) l)) ==> ~MEM (Tyvar a) (MAP SND sigma)) /\
+    (* The substitution's domain consists of variables only *)
+    (!x. MEM x (MAP SND sigma) ==> ?a. x = Tyvar a) /\
+    (* The substitution has pairwise distinct domain elements *)
+    (ALL_DISTINCT (MAP SND sigma)) /\
+    (* The substitution's domain is in the support of original list *)
+    (!a. MEM (Tyvar a) (MAP SND sigma) ==>
+         MEM a (FLAT(MAP (tyvars o FST) orig_l)) \/ MEM a (FLAT(MAP (tyvars o SND) orig_l))) /\
+    (* The type variables in the worklist occur in the original list *)
+    (!a. MEM a (FLAT(MAP (tyvars o FST) l)) ==>
+         MEM a (FLAT(MAP (tyvars o FST) orig_l)) \/ MEM a (FLAT(MAP (tyvars o SND) orig_l))) /\
+    (!a. MEM a (FLAT(MAP (tyvars o SND) l)) ==>
+         MEM a (FLAT(MAP (tyvars o FST) orig_l)) \/ MEM a (FLAT(MAP (tyvars o SND) orig_l))) /\
+    (* All differences between elements in the original worklist that remain after applying
+       the substitution are present in the worklist *)
+    (LIST_REL (equal_upto l)
+             (MAP (TYPE_SUBST sigma o FST) orig_l)
+             (MAP (TYPE_SUBST sigma o SND) orig_l)))`
+
+val REV_ASSOCD_drop =
+  Q.prove(`!l1. x <> b ==> REV_ASSOCD x (l1 ++ (a,b)::l2) y = REV_ASSOCD x (l1 ++ l2) y`,
+            Induct >- rw[REV_ASSOCD]
+            \\ Cases \\rw[REV_ASSOCD]);
+
+
+val REV_ASSOCD_self_append = Q.prove(
+  `!l. REV_ASSOCD x (MAP (f ## I) l ++ l) y = REV_ASSOCD x (MAP (f ## I) l) y`,
+  Induct >- rw[REV_ASSOCD]
+  \\ Cases \\ rw[REV_ASSOCD,REV_ASSOCD_drop]);
+
+val REV_ASSOCD_MAP_FST = Q.prove(
+  `!l.
+  REV_ASSOCD x l x = REV_ASSOCD x (MAP (f ## I) l ++ l) x /\
+  ALL_DISTINCT (MAP SND l) /\ MEM (y,x) l
+  ==> f y = y
+  `,
+  fs[REV_ASSOCD_self_append]
+  \\ Induct >- rw[REV_ASSOCD]
+  \\ Cases \\rw[REV_ASSOCD] \\ fs[]
+  \\ fs[MEM_MAP] \\ first_x_assum(qspec_then `(y,r)` mp_tac) \\ fs[]);
+
+val MEM_PAIR_IMP = Q.prove(`MEM (a,b) l ==> MEM a (MAP FST l) /\ MEM b (MAP SND l)`,
+        rw[MEM_MAP] \\ qexists_tac `(a,b)` \\ rw[]);
+
+val unify_types_invariant_pres1 = Q.prove(
+  `unify_types_invariant orig_l ((Tyapp a atys, Tyapp b btys)::l) sigma
+   /\ a = b /\ LENGTH atys = LENGTH btys /\ atys = btys ==>
+   unify_types_invariant orig_l l sigma
+  `,
+  rw[unify_types_invariant_def,equal_upto_eq]
+  \\ fs[equal_upto_eq]);
+
+val tyvars_tyapp = Q.prove(`set(tyvars(Tyapp a tys)) = set(FLAT(MAP tyvars tys))`,
+  fs[tyvars_def,FUN_EQ_THM] \\
+  fs (map (SIMP_RULE (srw_ss()) [IN_DEF]) [MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP])
+  \\ rw[EQ_IMP_THM] \\ metis_tac[]);
+    
+val unify_types_invariant_pres2 = Q.prove(
+  `unify_types_invariant orig_l ((Tyapp a atys, Tyapp b btys)::l) sigma
+   /\ a = b /\ LENGTH atys = LENGTH btys /\ atys <> btys ==>
+   unify_types_invariant orig_l ((ZIP (atys,btys))++l) sigma
+  `,
+  rw[] \\ simp[unify_types_invariant_def]
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def,MAP_ZIP] \\ rw[]
+      \\ first_x_assum drule \\ strip_tac \\ fs[]
+      \\ rveq \\ rpt(first_x_assum(qspec_then `a'` assume_tac))
+      \\ rfs[tyvars_def,MEM_FLAT,MEM_FOLDR_LIST_UNION]
+      \\ rpt(first_x_assum(qspec_then `Tyvar a'` assume_tac))
+      \\ rfs[tyvars_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def,MAP_ZIP] \\ rw[]
+      \\ last_x_assum match_mp_tac
+      \\ fs[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def,MAP_ZIP] \\ rw[]
+      \\ first_x_assum match_mp_tac
+      \\ fs[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def,MAP_ZIP,tyvars_tyapp] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def,MAP_ZIP,tyvars_tyapp] \\ metis_tac[])
+  \\ (fs[unify_types_invariant_def]
+      \\ qhdtm_x_assum `LIST_REL` mp_tac \\ match_mp_tac EVERY2_mono
+      \\ rw[] \\ metis_tac[equal_upto_zip]
+     ));
+
+val unify_types_invariant_pres3 = Q.prove(
+  `unify_types_invariant orig_l ((Tyapp a atys, Tyvar b)::l) sigma
+   ==>
+   unify_types_invariant orig_l ((Tyvar b, Tyapp a atys)::l) sigma
+  `,
+  rw[] \\ simp[unify_types_invariant_def]
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def] \\ metis_tac[])
+  \\ conj_tac
+  >- (fs[unify_types_invariant_def] \\ metis_tac[])
+  \\ (fs[unify_types_invariant_def] \\ qhdtm_x_assum `LIST_REL` mp_tac
+      \\ match_mp_tac EVERY2_mono \\ rw[] \\ match_mp_tac equal_upto_swap \\ simp[]));
+
+val unify_types_invariant_pres4 = Q.prove(
+  `unify_types_invariant orig_l ((Tyvar a, ty)::l) sigma
+   /\ Tyvar a = ty ==>
+   unify_types_invariant orig_l l sigma
+  `,
+  rw[unify_types_invariant_def]
+  \\ qhdtm_x_assum `LIST_REL` mp_tac \\ match_mp_tac EVERY2_mono
+  \\ metis_tac[equal_upto_eq]);
+
+val LIST_REL_mono_strong = Q.store_thm("LIST_REL_mono_strong",
+  `!xs ys. (LENGTH xs = LENGTH ys ==> !x y. MEM (x,y) (ZIP(xs,ys)) /\ P x y ==> Q x y) ==> LIST_REL P xs ys ==> LIST_REL Q xs ys`,
+  Induct
+  >- (Cases >> rw[])
+  >- (gen_tac >> Cases >> rw[] >> imp_res_tac LIST_REL_LENGTH \\ fs[]));
+
+val REV_ASSOCD_drop = Q.prove(
+  `!l1. r <> x ==> REV_ASSOCD x (l1 ++ [(q,r)] ++ l2) y = REV_ASSOCD x (l1 ++ l2) y`,
+  Induct >- rw[REV_ASSOCD]
+  >> Cases >> fs[REV_ASSOCD]);
+
+val equal_upto_strongind = fetch "-" "equal_upto_strongind";
+
+val REV_ASSOCD_reorder = Q.store_thm("REV_ASSOCD_reorder",
+  `!l1 l2 x y. ALL_DISTINCT(MAP SND l1) /\ ALL_DISTINCT(MAP SND l2) /\ set l1 = set l2
+   ==> REV_ASSOCD x l1 y = REV_ASSOCD x l2 y`,
+  Induct >- simp[]
+  \\ Cases \\ rw[]
+  \\ `MEM (q,r) l2` by(RULE_ASSUM_TAC GSYM \\ fs[])
+  \\ pop_assum(strip_assume_tac o REWRITE_RULE [MEM_SPLIT])
+  \\ qpat_assum `~MEM _ _` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT])
+  \\ fs[REV_ASSOCD,ALL_DISTINCT_APPEND]
+  \\ IF_CASES_TAC
+  >- (fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND]
+      \\ rpt(PURE_FULL_CASE_TAC \\ fs[]) \\ imp_res_tac ALOOKUP_MEM
+      \\ imp_res_tac MEM_PAIR_IMP \\ fs[MEM_MAP] \\ rveq \\ fs[]
+      \\ rpt(pairarg_tac \\ fs[] \\ rveq) \\ metis_tac[SND])
+  \\ simp[REV_ASSOCD_drop] \\ first_x_assum match_mp_tac
+  \\ fs[ALL_DISTINCT_APPEND] \\ fs[SET_EQ_SUBSET,SUBSET_DEF] \\ rw[]
+  \\ fs[] \\ first_x_assum drule \\ strip_tac \\ fs[]
+  \\ rveq \\ imp_res_tac MEM_PAIR_IMP
+  \\ rpt(first_x_assum (qspec_then `(q,r)` assume_tac))
+  \\ rfs[]);
+
+val equal_upto_subst = Q.store_thm("equal_upto_subst",
+  `!a ty l ty1 ty2. equal_upto ((Tyvar a,ty)::l) ty1 ty2 /\ ~MEM a (tyvars ty)
+   ==> equal_upto (MAP (TYPE_SUBST [(ty,Tyvar a)] ## TYPE_SUBST [(ty,Tyvar a)]) l)
+                  (TYPE_SUBST [(ty,Tyvar a)] ty1) (TYPE_SUBST [(ty,Tyvar a)] ty2)`,
+  `!l ty1 ty2. equal_upto l ty1 ty2 ==> !a ty l'. l = (Tyvar a,ty)::l' /\ ~MEM a (tyvars ty) ==>
+       equal_upto (MAP (TYPE_SUBST [(ty,Tyvar a)] ## TYPE_SUBST [(ty,Tyvar a)]) l')
+                  (TYPE_SUBST [(ty,Tyvar a)] ty1) (TYPE_SUBST [(ty,Tyvar a)] ty2)`  
+    suffices_by metis_tac[]
+  \\ ho_match_mp_tac equal_upto_strongind \\ rpt strip_tac
+  >- fs[equal_upto_rules]
+  >- (fs[equal_upto_rules,REV_ASSOCD,TYPE_SUBST_reduce_CONS]
+      \\ match_mp_tac equal_upto_l1
+      \\ fs[MEM_MAP] \\ qexists_tac `(ty1,ty2)`
+      \\ simp[])
+  >- (fs[equal_upto_rules,REV_ASSOCD,TYPE_SUBST_reduce_CONS]
+      \\ match_mp_tac equal_upto_l2
+      \\ fs[MEM_MAP] \\ qexists_tac `(ty2,ty1)`
+      \\ simp[])
+  \\ fs[TYPE_SUBST_def] \\ match_mp_tac equal_upto_tyapp
+  \\ conj_tac >- simp[]
+  \\ simp[EVERY2_MAP]
+  \\ qhdtm_x_assum `LIST_REL` mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ rw[]);
+  
+val unify_types_invariant_pres5 = Q.prove(
+  `unify_types_invariant orig_l ((Tyvar a, ty)::l) sigma
+   /\ Tyvar a <> ty /\ ~(MEM a (tyvars ty)) ==>
+  let
+      subst_a = TYPE_SUBST [(ty,Tyvar a)];
+      l' = MAP (subst_a ## subst_a) l;
+      sigma' = MAP (subst_a ## I) sigma
+  in unify_types_invariant orig_l l' ((ty, Tyvar a)::sigma')
+  `,
+  rw[] >> PURE_ONCE_REWRITE_TAC[unify_types_invariant_def]
+  >> conj_tac
+  >- (fs[unify_types_invariant_def] \\ simp[MEM_MAP] \\ rw[]
+      \\ CCONTR_TAC \\ fs[] \\ rveq \\ fs[]
+      >- (Cases_on `y'` \\ fs[] \\ Cases_on `q` \\ fs[TYPE_SUBST_def,REV_ASSOCD]
+          \\ EVERY_CASE_TAC \\ fs[])
+      >- (Cases_on `y'` \\ fs[] \\ Cases_on `r` \\ fs[TYPE_SUBST_def,REV_ASSOCD]
+          \\ EVERY_CASE_TAC \\ fs[tyvars_def])
+      >- (Cases_on `y'''` \\ Cases_on `y'` \\ fs[REV_ASSOCD] \\ EVERY_CASE_TAC \\ fs[] \\ rveq
+          \\ imp_res_tac MEM_PAIR_IMP \\ rpt(first_x_assum(fn thm => drule thm \\ mp_tac thm))
+          \\ rpt strip_tac \\ Cases_on `q` \\ fs[REV_ASSOCD] \\ EVERY_CASE_TAC \\ fs[] \\ rveq)
+      \\ Cases_on `y'''` \\ Cases_on `y'` \\ fs[REV_ASSOCD] \\ EVERY_CASE_TAC \\ fs[] \\ rveq
+      \\ imp_res_tac MEM_PAIR_IMP \\ rpt(first_x_assum(fn thm => drule thm \\ mp_tac thm))
+      \\ rpt strip_tac \\ Cases_on `r` \\ fs[REV_ASSOCD] \\ EVERY_CASE_TAC \\ fs[] \\ rveq)
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,tyvars_def] \\ rw[MEM_FLAT,MEM_MAP]
+      \\ fs[] \\ CCONTR_TAC \\ fs[] \\ rveq \\ fs[tyvars_TYPE_SUBST,REV_ASSOCD] \\ EVERY_CASE_TAC
+      \\ fs[tyvars_def] \\ rveq \\ Cases_on `y'''` \\ Cases_on `y'` \\ fs[REV_ASSOCD]
+      \\ EVERY_CASE_TAC \\ fs[] \\ rveq
+      \\ imp_res_tac MEM_PAIR_IMP \\rpt(first_x_assum(fn thm => drule thm \\ mp_tac thm))
+      \\ rpt strip_tac \\ fs[] \\ rveq \\ fs[DISJ_IMP_THM,FORALL_AND_THM] \\ rpt(first_x_assum drule)
+      \\ simp[] \\ rpt(first_x_assum(qspec_then `a'` assume_tac)) \\ rfs[]
+      \\ fs[MEM_FLAT,MEM_MAP] \\ rveq \\ fs[] \\ metis_tac[])
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,tyvars_def] \\ rw[MEM_FLAT,MEM_MAP]
+      \\ fs[] \\ CCONTR_TAC \\ fs[] \\ rveq \\ fs[tyvars_TYPE_SUBST,REV_ASSOCD] \\ EVERY_CASE_TAC
+      \\ fs[tyvars_def] \\ rveq \\ Cases_on `y'''` \\ Cases_on `y'` \\ fs[REV_ASSOCD]
+      \\ EVERY_CASE_TAC \\ fs[] \\ rveq
+      \\ imp_res_tac MEM_PAIR_IMP \\rpt(first_x_assum(fn thm => drule thm \\ mp_tac thm))
+      \\ rpt strip_tac \\ fs[] \\ rveq \\ fs[DISJ_IMP_THM,FORALL_AND_THM] \\ rpt(first_x_assum drule)
+      \\ simp[] \\ rpt(first_x_assum(qspec_then `a'` assume_tac)) \\ rfs[]
+      \\ fs[MEM_FLAT,MEM_MAP] \\ rveq \\ fs[] \\ metis_tac[])
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,tyvars_def] \\ rw[MEM_FLAT,MEM_MAP]
+      \\ rw[SND_PAIR_MAP] \\ Cases_on `y'` \\ fs[]
+      \\ first_x_assum match_mp_tac \\ imp_res_tac MEM_PAIR_IMP)
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,MAP_MAP_o,o_PAIR_MAP,tyvars_def])
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,MAP_MAP_o,o_PAIR_MAP,tyvars_def]
+      \\ rw[] \\ fs[])
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,MAP_MAP_o,o_PAIR_MAP,tyvars_def]
+      \\ fs[MEM_FLAT,MEM_MAP] \\ rpt strip_tac \\ rveq
+      \\ fs[tyvars_TYPE_SUBST,REV_ASSOCD]
+      \\ PURE_FULL_CASE_TAC \\ rveq \\ fs[tyvars_def] \\ rveq
+      \\ metis_tac[])
+  >> conj_tac
+  >- (fs[unify_types_invariant_def,MAP_MAP_o,o_PAIR_MAP,tyvars_def]
+      \\ fs[MEM_FLAT,MEM_MAP] \\ rpt strip_tac \\ rveq
+      \\ fs[tyvars_TYPE_SUBST,REV_ASSOCD]
+      \\ PURE_FULL_CASE_TAC \\ rveq \\ fs[tyvars_def] \\ rveq
+      \\ metis_tac[])
+  >- (fs[unify_types_invariant_def,MAP_MAP_o,o_PAIR_MAP]
+      \\ qhdtm_x_assum `LIST_REL` mp_tac \\ simp[EVERY2_MAP]
+      \\ match_mp_tac LIST_REL_mono_strong \\ rw[]
+      \\ drule equal_upto_subst \\ disch_then drule \\ simp[TYPE_SUBST_compose]
+      \\ qmatch_goalsub_abbrev_tac `equal_upto _ a1 a2 ==> equal_upto _ a3 a4`
+      \\ `a1 = a3 /\ a2 = a4` suffices_by simp[]
+      \\ unabbrev_all_tac
+      \\ conj_tac \\ fs[TYPE_SUBST_tyvars] \\ rw[]
+      \\ match_mp_tac REV_ASSOCD_reorder
+      \\ (conj_tac
+          >- fs[MAP_MAP_o,o_PAIR_MAP,tyvars_def]
+          \\ conj_tac
+          >- fs[ALL_DISTINCT_APPEND,MAP_MAP_o,o_PAIR_MAP,tyvars_def]
+          \\ fs[FUN_EQ_THM,UNION_DEF,IN_DEF] \\ metis_tac[])
+      )
+    );
+
+val unify_types_pres_invariant = Q.store_thm("unify_types_pres_invariant",
+  `!l sigma sigma' orig_l. unify_types l sigma = SOME sigma' /\
+     unify_types_invariant orig_l l sigma
+     ==> unify_types_invariant orig_l [] sigma'`,
+  ho_match_mp_tac unify_types_ind
+  >> rpt strip_tac
+  >- (rfs[unify_types_def])
+  >- (fs[unify_types_def] \\ PURE_FULL_CASE_TAC
+      >- (rpt(first_x_assum drule) \\ fs[]
+          \\ disch_then match_mp_tac
+          \\ match_mp_tac unify_types_invariant_pres1 \\ rfs[])
+      \\ rpt(first_x_assum drule) \\ fs[]
+      \\ disch_then match_mp_tac
+      \\ match_mp_tac unify_types_invariant_pres2 \\ rfs[])
+  >- (qhdtm_x_assum `unify_types` (assume_tac o REWRITE_RULE [Once unify_types_def]) \\ fs[]
+      \\ first_x_assum match_mp_tac \\ match_mp_tac unify_types_invariant_pres3 \\ simp[])
+  >- (qhdtm_x_assum `unify_types` (assume_tac o REWRITE_RULE [Once unify_types_def]) \\ fs[]
+      \\ PURE_FULL_CASE_TAC
+      >- (fs[] \\ metis_tac[unify_types_invariant_pres4])
+      \\ fs[] \\ PURE_FULL_CASE_TAC
+      >- (fs[] \\ metis_tac[unify_types_invariant_pres4])
+      \\ fs[] \\ first_x_assum match_mp_tac
+      \\ drule(GEN_ALL unify_types_invariant_pres5) \\ simp[]));
+
+val unify_types_invariant_init = Q.store_thm("unify_types_invariant_init",
+  `!orig_l. unify_types_invariant orig_l orig_l []`,
+  simp[unify_types_invariant_def] \\ rw[]
+      \\ fs[LIST_REL_EVERY_ZIP,EVERY_MEM,ZIP_MAP,MEM_MAP] \\ Cases \\ rw[]
+  \\ Cases_on `x` \\ fs[equal_upto_rules]);
+  
+val unify_types_IMP_invariant = Q.store_thm("unify_types_IMP_invariant",
+  `!l sigma. unify_types l [] = SOME sigma
+       ==> unify_types_invariant l [] sigma`,
+  metis_tac[unify_types_invariant_init,unify_types_pres_invariant]);
+
+val unify_types_sound = Q.store_thm("unify_types_sound",
+  `!l sigma. unify_types [(ty1,ty2)] [] = SOME sigma
+       ==> TYPE_SUBST sigma ty1 = TYPE_SUBST sigma ty2`,
+  rw[] \\ dxrule unify_types_IMP_invariant
+  \\ fs[unify_types_invariant_def,equal_upto_nil]);
 
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
