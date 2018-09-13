@@ -5822,8 +5822,8 @@ val compile_common_inc_def = Define`
 
 val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   `clos_callProof$syntax_ok es  ∧
-   (IS_SOME kc ⇒ globals_approx_every_Fn_SOME (THE kc).val_approx_spt ∧
-                 globals_approx_every_Fn_vs_NONE (THE kc).val_approx_spt) ∧
+   (IS_SOME kc ⇒ clos_knownProof$globals_approx_every_Fn_SOME (THE kc).val_approx_spt ∧
+                 clos_knownProof$globals_approx_every_Fn_vs_NONE (THE kc).val_approx_spt) ∧
    clos_known$compile kc es = (x,y)
   ⇒
    clos_callProof$syntax_ok y`,
@@ -5833,8 +5833,8 @@ val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   \\ imp_res_tac clos_knownProofTheory.known_code_locs_bag
   \\ rveq
   \\ qhdtm_x_assum`known`mp_tac
-  \\ specl_args_of_then``known``known_every_Fn_SOME mp_tac
-  \\ specl_args_of_then``known``known_every_Fn_vs_NONE mp_tac
+  \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_SOME mp_tac
+  \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_vs_NONE mp_tac
   \\ rw[] \\ fs[]
   \\ simp[clos_letopProofTheory.code_locs_let_op]
   \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
@@ -6264,8 +6264,8 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
        FST (SND (SND (FST (co1 (SUC n))))) =
        FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
-     globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
-     globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))))
+     clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
+     clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co clos_annotateProof$compile_inc o
@@ -6388,7 +6388,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       match_mp_tac (GEN_ALL kcompile_csyntax_ok)
       \\ goal_assum(first_assum o mp_then Any mp_tac)
       \\ reverse conj_tac
-      >- fs[globals_approx_every_Fn_SOME_def,globals_approx_every_Fn_vs_NONE_def,lookup_def]
+      >- fs[clos_knownProofTheory.globals_approx_every_Fn_SOME_def,clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def,lookup_def]
       \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
       \\ asm_exists_tac \\ fs[]
       \\ fs[clos_knownProofTheory.syntax_ok_def])
@@ -6429,7 +6429,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ simp[clos_letopProofTheory.compile_inc_def]
         \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
         \\ Cases_on`known aa bb ccc dd`
-        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_SOME
+        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
         \\ qunabbrev_tac`bb`
         \\ srw_tac[DNF_ss][]
         \\ first_x_assum match_mp_tac
@@ -6447,7 +6447,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
         \\ simp[clos_letopProofTheory.compile_inc_def]
         \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
         \\ Cases_on`known aa bb ccc dd`
-        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_vs_NONE
+        \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_every_Fn_vs_NONE
         \\ qunabbrev_tac`bb`
         \\ srw_tac[DNF_ss][]
         \\ first_x_assum match_mp_tac
@@ -6772,8 +6772,8 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ match_mp_tac (GEN_ALL kcompile_csyntax_ok)
       \\ goal_assum (first_assum o mp_then Any mp_tac)
       \\ fs [clos_knownProofTheory.syntax_ok_def,
-             globals_approx_every_Fn_vs_NONE_def,
-             globals_approx_every_Fn_SOME_def,
+             clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def,
+             clos_knownProofTheory.globals_approx_every_Fn_SOME_def,
              lookup_def]
       \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
       \\ goal_assum (last_assum o mp_then Any mp_tac) \\ fs [])
@@ -6806,7 +6806,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ fs[] )
     \\ fs[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
     \\ TRY (
-      specl_args_of_then``known``known_every_Fn_vs_NONE mp_tac
+      specl_args_of_then``known`` clos_knownProofTheory.known_every_Fn_vs_NONE mp_tac
       \\ simp[mcompile_inc_uncurry]
       \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
       \\ qmatch_goalsub_abbrev_tac`known aa [bb] [] dd`
@@ -6935,8 +6935,8 @@ val syntax_oracle_ok_def = Define`
        FST (SND (SND (FST (co (SUC n))))) =
        FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
       every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
-      globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
-      globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧
+      clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
+      clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧
     ¬contains_App_SOME c.max_app es ∧
     clos_knownProof$syntax_ok es`;
 
@@ -7166,7 +7166,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ rpt(pairarg_tac \\ fs[])
     \\ fs[syntax_oracle_ok_def]
     \\ first_assum(mp_then Any mp_tac kcompile_csyntax_ok)
-    \\ simp[globals_approx_every_Fn_SOME_def, globals_approx_every_Fn_vs_NONE_def, lookup_def]
+    \\ simp[clos_knownProofTheory.globals_approx_every_Fn_SOME_def, clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def, lookup_def]
     \\ impl_tac
     >- (
       irule renumber_code_locs_list_csyntax_ok
