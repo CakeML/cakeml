@@ -382,7 +382,7 @@ val parse_target_32_def = Define`
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
-(* Default stack and heap limits *)
+(* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
 val default_heap_sz_def = Define`
   default_heap_sz = 1000n`
 

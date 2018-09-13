@@ -17,7 +17,7 @@ val _ = hide "state";
 
 val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
 
-val rev_assocd_thm = Q.prove(
+val rev_assocd_thm = Q.store_thm("rev_assocd_thm",
   `rev_assocd = REV_ASSOCD`,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
   \\ ONCE_REWRITE_TAC [rev_assocd_def] \\ SRW_TAC [] [REV_ASSOCD]
@@ -30,6 +30,20 @@ val REPLICATE_11 = Q.prove(
   Induct \\ Cases \\ SRW_TAC [] [rich_listTheory.REPLICATE]);
 
 val _ = temp_overload_on("impossible_term",``holSyntax$Comb (Var (strlit "x") Bool) (Var (strlit "x") Bool)``);
+
+(* ------------------------------------------------------------------------- *)
+(* case_eq theorems                                                          *)
+(* ------------------------------------------------------------------------- *)
+
+fun get_thms ty =
+  { case_def = TypeBase.case_def_of ty
+  , nchotomy = TypeBase.nchotomy_of ty }
+
+val case_eq_thms =
+  LIST_CONJ (pair_case_eq::map (prove_case_eq_thm o get_thms)
+    [ ``:'a list`` , ``:'a option``
+    , ``:type``, ``:term``, ``:thm``, ``:update``
+    , ``:hol_exn``, ``:('a, 'b) exc`` ])
 
 (* ------------------------------------------------------------------------- *)
 (* Refinement invariants                                                     *)
@@ -47,11 +61,14 @@ val CONTEXT_def = Define `
 val THM_def = Define `
   THM ctxt (Sequent asl c) = ((thyof ctxt, asl) |- c)`;
 
+val lift_tm_def = Define `lift_tm c = Sequent [] c`;
+
 val STATE_def = Define `
   STATE ctxt state =
       (ctxt = state.the_context) /\ CONTEXT ctxt /\
       (state.the_type_constants = type_list ctxt) /\
-      (state.the_term_constants = const_list ctxt)`;
+      (state.the_term_constants = const_list ctxt) /\
+      (state.the_axioms = MAP lift_tm (axexts ctxt))`;
 
 (* ------------------------------------------------------------------------- *)
 (* impossible term lemmas                                                    *)
@@ -234,6 +251,30 @@ val THM_term_ok_bool = Q.prove(
   \\ FULL_SIMP_TAC std_ss []
   \\ METIS_TAC [WELLTYPED_LEMMA])
 
+(* TODO move *)
+val ALOOKUP_ALL_DISTINCT_MEM_EXISTS = Q.store_thm("ALOOKUP_ALL_DISTINCT_MEM_EXISTS",
+  `(?k. MEM (k,v) alist) /\
+    ALL_DISTINCT (MAP FST alist)
+    ==>
+    ?k. ALOOKUP alist k = SOME v`,
+  rw [] \\ qexists_tac `k` \\ metis_tac [ALOOKUP_ALL_DISTINCT_MEM]);
+
+val the_term_constants_TYPE = Q.store_thm("the_term_constants_TYPE",
+  `STATE defs refs
+   ==>
+   EVERY (\(_, ty). TYPE defs ty) refs.the_term_constants`,
+  rw [STATE_def, TYPE_def, EVERY_MEM, MEM_FLAT, UNCURRY]
+  \\ imp_res_tac CONTEXT_ALL_DISTINCT
+  \\ fs [CONTEXT_def]
+  \\ drule extends_theory_ok \\ simp [init_theory_ok]
+  \\ rw [theory_ok_def]
+  \\ first_x_assum (qspec_then `SND e` match_mp_tac)
+  \\ simp [IN_FRANGE_FLOOKUP]
+  \\ match_mp_tac ALOOKUP_ALL_DISTINCT_MEM_EXISTS \\ fs []
+  \\ fs [MEM_FLAT]
+  \\ qexists_tac `FST e` \\ fs []
+  \\ asm_exists_tac \\ fs []);
+
 (* ------------------------------------------------------------------------- *)
 (* Verification of type functions                                            *)
 (* ------------------------------------------------------------------------- *)
@@ -385,6 +426,45 @@ val term_type = Q.prove(
   TRY(fs[TYPE_def,type_ok_def]>>NO_TAC)>>
   imp_res_tac CONTEXT_std_sig >>
   fs[TYPE_def,type_ok_def,is_std_sig_def])
+
+val type_of_has_type = Q.store_thm("type_of_has_type",
+  `!tm refs ty refs'.
+     STATE defs refs /\
+     TERM defs tm /\
+     (type_of tm refs = (Success ty, refs'))
+     ==>
+     tm has_type ty /\
+     (typeof tm = ty)`,
+  Induct \\ rpt gen_tac \\ once_rewrite_tac [type_of_def] \\ fs []
+  \\ fs [st_ex_return_def, st_ex_bind_def, raise_Fail_def] \\ rw []
+  \\ once_rewrite_tac [holSyntaxTheory.has_type_rules]
+  \\ fs [TERM_def]
+  \\ fs [holSyntaxTheory.term_ok_def]
+  \\ pop_assum mp_tac
+  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ every_case_tac \\ fs [] \\ rw []
+  >-
+   (fs [dest_type_def, raise_Fail_def, st_ex_return_def]
+    \\ pop_assum mp_tac
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ match_mp_tac (CONJUNCTS holSyntaxTheory.has_type_rules |> el 3)
+    \\ last_x_assum drule
+    \\ disch_then drule \\ rw []
+    \\ qexists_tac `typeof tm'` \\ fs []
+    \\ fs [holSyntaxExtraTheory.WELLTYPED])
+  >-
+   (fs [dest_type_def, raise_Fail_def, st_ex_return_def]
+    \\ pop_assum mp_tac
+    \\ CASE_TAC \\ fs [] \\ rw []
+    \\ last_x_assum drule
+    \\ disch_then drule \\ rw [])
+  \\ fs [mk_fun_ty_def, mk_type_def, st_ex_bind_def, try_def, otherwise_def]
+  \\ fs [get_type_arity_def, get_the_type_constants_def, st_ex_bind_def]
+  \\ fs [st_ex_return_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ last_x_assum drule
+  \\ disch_then drule \\ rw []
+  \\ simp [holSyntaxTheory.has_type_rules]);
 
 val type_of_thm = Q.prove(
   `!tm. TERM defs tm /\ STATE defs s ==>
@@ -572,7 +652,7 @@ val TERM_Const = Q.prove(
     TERM defs (Const name a)`,
   rw[STATE_def,TERM_def,term_ok_def] >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
-  qpat_x_assum`X = Y`(ASSUME_TAC o SYM) >>
+  qpat_x_assum`_ = const_list _`(ASSUME_TAC o SYM) >>
   simp[ALOOKUP_MAP] >>
   qpat_x_assum`ALL_DISTINCT X`mp_tac >>
   simp[Once MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
@@ -1052,7 +1132,7 @@ val vsubst_thm = Q.store_thm("vsubst_thm",
   rfs[STATE_def] >>
   rw[] >> METIS_TAC [WELLTYPED,term_ok_welltyped])
 
-val inst_aux_Var = Q.prove(
+val inst_aux_Var = Q.store_thm("inst_aux_Var",
   `inst_aux [] theta (Var v ty) state =
       (Success (Var v (type_subst theta ty)),state)`,
   SIMP_TAC (srw_ss()) [Once inst_aux_def,rev_assocd_thm,REV_ASSOCD,
@@ -1069,7 +1149,7 @@ val MEM_frees = Q.prove(
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,MEM_subtract]);
 
-val inst_aux_thm = Q.prove(
+val inst_aux_thm = Q.store_thm("inst_aux_thm",
   `!env theta tm s s' res.
       EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
       EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) env /\
@@ -1078,8 +1158,8 @@ val inst_aux_thm = Q.prove(
       STATE defs s' /\
       case res of
       | Success t => (INST_CORE env theta tm = Result t)
-      | Failure (Fail _) => T
-      | Failure (Clash v) => (INST_CORE env theta tm = Clash v)`,
+      | Failure (Clash v) => (INST_CORE env theta tm = Clash v)
+      | _ => F`,
   HO_MATCH_MP_TAC inst_aux_ind \\ NTAC 4 STRIP_TAC \\ Cases_on `tm`
   \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
@@ -1167,8 +1247,10 @@ val inst_aux_thm = Q.prove(
       (Var v (TYPE_SUBST theta ty))` THEN1
    (SIMP_TAC std_ss [GSYM type_subst_thm])
   \\ FULL_SIMP_TAC (srw_ss()) [] >>
-  BasicProvers.CASE_TAC >> fs[] >- (rw[] >> rw[]) >>
-  BasicProvers.CASE_TAC >> fs[] >- (rw[] >> rw[])
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >- (
+    rw[] >> rw[]
+    \\ rw[Once INST_CORE_def] )
   \\ SIMP_TAC (srw_ss()) [inst_aux_Var,``dest_var (Var v ty) state``
         |> SIMP_CONV (srw_ss()) [holKernelTheory.dest_var_def,st_ex_return_def]]
   \\ Q.ABBREV_TAC `fresh_name = (VARIANT
@@ -1274,15 +1356,27 @@ val inst_thm = Q.store_thm("inst_thm",
   `EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
-    STATE defs s' /\ !t. (res = Success t) ==> TERM defs t /\
-    (t = INST theta (tm))`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC inst_lemma
+    STATE defs s' /\ (res = Success (INST theta tm)) /\ TERM defs (INST theta tm)`,
+  ntac 2 STRIP_TAC \\ IMP_RES_TAC inst_lemma
   \\ FULL_SIMP_TAC std_ss [TERM_def] >> imp_res_tac term_ok_welltyped
   \\ IMP_RES_TAC INST_CORE_LEMMA
-  \\ SIMP_TAC std_ss [INST_def]
+  \\ fs[INST_def]
   \\ POP_ASSUM (MP_TAC o Q.SPEC `theta`)
-  \\ STRIP_TAC
-  \\ MATCH_MP_TAC term_ok_INST_CORE
+  \\ STRIP_TAC \\ fs[]
+  \\ conj_tac >- (
+    fs[inst_def,st_ex_return_def]
+    \\ Cases_on`theta=[]`\\fs[]
+    \\ drule inst_aux_thm
+    \\ disch_then(qspec_then`[]`mp_tac)
+    \\ simp[TERM_def]
+    \\ disch_then drule
+    \\ simp[]
+    \\ disch_then(qspec_then`s`mp_tac)
+    \\ simp[]
+    \\ CASE_TAC
+    \\ CASE_TAC)
+  \\ drule term_ok_INST_CORE
+  \\ disch_then(qspecl_then[`[]`,`theta`]mp_tac) \\ simp[]
   \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS,FORALL_PROD,EVERY_MEM]
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TYPE_def,FORALL_PROD,MEM,IS_RESULT_def]
   \\ METIS_TAC [])
@@ -1771,8 +1865,9 @@ val INST_TYPE_thm = Q.store_thm("INST_TYPE_thm",
     qx_gen_tac`x` >> strip_tac >>
     qx_gen_tac`s9` >> strip_tac >>
     Cases_on`inst theta x s9` >>
-    imp_res_tac (inst_thm |> SIMP_RULE std_ss [EVERY_MEM]) >>
-    METIS_TAC[] )
+    drule (GEN_ALL (inst_thm |> SIMP_RULE std_ss [EVERY_MEM])) >>
+    simp[] >>
+    METIS_TAC[exc_11] )
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
   \\ Cases_on `inst theta t r`
@@ -1839,6 +1934,11 @@ val INST_thm = Q.store_thm("INST_thm",
 (* Verification of definition functions                                      *)
 (* ------------------------------------------------------------------------- *)
 
+(* TODO move *)
+val ALL_DISTINCT_DISJOINT = Q.store_thm("ALL_DISTINCT_DISJOINT",
+  `!xs ys. ALL_DISTINCT (xs ++ ys) ==> DISJOINT (set xs) (set ys)`,
+  Induct \\ rw []);
+
 val TYPE_CONS_EXTEND = Q.store_thm("TYPE_CONS_EXTEND",
   `STATE (d::defs) s /\ TYPE defs ty ==> TYPE (d::defs) ty`,
   simp[STATE_def,TYPE_def] >> strip_tac >>
@@ -1846,6 +1946,17 @@ val TYPE_CONS_EXTEND = Q.store_thm("TYPE_CONS_EXTEND",
   HINT_EXISTS_TAC >>
   imp_res_tac CONTEXT_ALL_DISTINCT >>
   Cases_on`d`>>fs[SUBMAP_FUNION])
+
+val TYPE_APPEND_EXTEND = Q.store_thm("TYPE_APPEND_EXTEND",
+  `STATE (ds++defs) s /\ TYPE defs ty ==> TYPE (ds++defs) ty`,
+  simp [STATE_def, TYPE_def] \\ strip_tac
+  \\ match_mp_tac type_ok_extend
+  \\ HINT_EXISTS_TAC
+  \\ imp_res_tac CONTEXT_ALL_DISTINCT \\ fs []
+  \\ match_mp_tac SUBMAP_FUNION \\ fs []
+  \\ disj2_tac
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ match_mp_tac ALL_DISTINCT_DISJOINT \\ fs []);
 
 val TERM_CONS_EXTEND = Q.store_thm("TERM_CONS_EXTEND",
   `STATE (d::defs) s /\ TERM defs tm ==> TERM (d::defs) tm`,
@@ -1858,6 +1969,19 @@ val TERM_CONS_EXTEND = Q.store_thm("TERM_CONS_EXTEND",
   fs[pred_setTheory.IN_DISJOINT] >>
   fs[ALL_DISTINCT_APPEND] >>
   METIS_TAC[])
+
+val TERM_APPEND_EXTEND = Q.store_thm("TERM_APPEND_EXTEND",
+  `STATE (ds++defs) s /\ TERM defs tm ==> TERM (ds++defs) tm`,
+  simp [STATE_def, TERM_def] \\ strip_tac
+  \\ match_mp_tac term_ok_extend
+  \\ qexists_tac `tysof(defs)`
+  \\ qexists_tac `tmsof(defs)`
+  \\ imp_res_tac CONTEXT_ALL_DISTINCT \\ fs []
+  \\ conj_tac
+  \\ match_mp_tac SUBMAP_FUNION \\ fs []
+  \\ disj2_tac
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ match_mp_tac ALL_DISTINCT_DISJOINT \\ fs []);
 
 val STRCAT_SHADOW_def = zDefine`
   STRCAT_SHADOW = STRCAT`
@@ -1896,12 +2020,37 @@ val add_constants_thm = Q.prove(
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   simp[ALL_DISTINCT_APPEND])
 
+(* TODO move *)
+val tyvars_EQ_thm = Q.store_thm("tyvars_EQ_thm",
+  `holKernel$tyvars = holSyntax$tyvars`,
+  fs [FUN_EQ_THM]
+  \\ recInduct tyvars_ind \\ rw []
+  \\ once_rewrite_tac [holSyntaxTheory.tyvars_def, holKernelTheory.tyvars_def] \\ fs []
+  \\ pop_assum mp_tac
+  \\ Induct_on `tys` \\ rw [] \\ simp [itlist_def]
+  \\ first_assum (qspec_then `h` assume_tac)
+  \\ simp [union_def, Once itlist_def]
+  \\ CASE_TAC \\ fs []
+  \\ simp [LIST_UNION_def]
+  \\ rename1 `FOLDR LIST_INSERT xs`
+  \\ rpt (pop_assum kall_tac)
+  \\ qid_spec_tac `xs`
+  \\ qid_spec_tac `h'`
+  \\ qid_spec_tac `t`
+  \\ Induct \\ rw [] \\ simp [itlist_def, LIST_INSERT_def, insert_def]);
+
+(* TODO move, unless it already exists elsewhere *)
+val LIST_REL_MAP_EQ = Q.store_thm("LIST_REL_MAP_EQ",
+  `!r l. LIST_REL (\x y. x = f y) l r ==> (MAP f r = l)`,
+  Induct \\ rw []);
+
 val new_specification_thm = Q.store_thm("new_specification_thm",
   `THM defs th /\ STATE defs s ==>
     case new_specification th s of
     | (Failure exn, s') => (s' = s)
     | (Success th, s') => (?d. THM (d::defs) th /\
-                              STATE (d::defs) s')`,
+                              STATE (d::defs) s' /\
+                              !th. THM defs th ==> THM (d::defs) th)`,
   Cases_on`th` >>
   simp_tac std_ss [new_specification_def,GSYM STRCAT_SHADOW_def] >>
   simp[st_ex_bind_def,st_ex_return_def] >>
@@ -2038,6 +2187,17 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
   Q.PAT_ABBREV_TAC`s':hol_refs = X` >>
   qexists_tac`d` >>
   reverse conj_asm2_tac >- (
+    reverse conj_asm1_tac
+    >-
+     (
+      Cases
+      \\ once_rewrite_tac [THM_def]
+      \\ strip_tac
+      \\ irule updates_proves \\ fs []
+      \\ `d::defs extends defs` suffices_by fs [Once RTC_CASES1, extends_def]
+      \\ fs [STATE_def, CONTEXT_def, Abbr`s'`] \\ rw []
+      \\ fs [extends_def, Once RTC_CASES1, init_ctxt_def] \\ rw [] \\ metis_tac []
+     ) >>
     fs[STATE_def,Abbr`s'`] >>
     simp[Abbr`d`] >>
     simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
@@ -2093,6 +2253,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     first_x_assum(qspec_then`n`mp_tac) >> simp[] >>
     Cases_on`EL n a`>>simp[]>>Cases_on`q`>>rw[]>>
     METIS_TAC[term_ok_welltyped,WELLTYPED_LEMMA] ) >>
+  fs [] >>
   simp[THM_def] >>
   qspecl_then[`s'`,`d::defs`,`theta`,`t`]mp_tac
     (Q.GENL[`s`,`defs`](CONV_RULE (RESORT_FORALL_CONV List.rev) vsubst_aux_thm)) >>
@@ -2135,7 +2296,8 @@ val new_basic_definition_thm = Q.store_thm("new_basic_definition_thm",
     case new_basic_definition tm s of
     | (Failure exn, s') => (s' = s)
     | (Success th, s') => (?d. THM (d::defs) th /\
-                              STATE (d::defs) s')`,
+                               STATE (d::defs) s' /\
+                               !th. THM defs th ==> THM (d::defs) th)`,
   rw[] >>
   simp[new_basic_definition_def,st_ex_bind_def] >>
   Cases_on`ASSUME tm s` >>
@@ -2149,7 +2311,8 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
     | (Failure exn, s') => (s' = s)
     | (Success (th1,th2), s') =>
       (?ds. THM (ds++defs) th1 /\ THM (ds++defs) th2 /\
-            STATE (ds++defs) s')`,
+            STATE (ds++defs) s' /\
+            !th. THM defs th ==> THM (ds++defs) th)`,
   Cases_on `th` \\ SIMP_TAC (srw_ss())
      [new_basic_type_definition_def,Once st_ex_bind_def,st_ex_return_def,raise_Fail_def,
       can_def |> SIMP_RULE std_ss [otherwise_def,st_ex_bind_def,st_ex_return_def]] >>
@@ -2402,12 +2565,29 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   pop_assum(ASSUME_TAC o SYM) >>
   simp[] >>
   simp[THM_def,ETA_AX] >>
-  conj_tac >>
-  match_mp_tac (List.nth(CONJUNCTS proves_rules,9)) >>
-  (conj_tac >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]) >>
-  simp[Abbr`s2`,conexts_of_upd_def] >>
-  imp_res_tac QSORT_type_vars_in_term >>
-  simp[equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+  conj_tac
+  >-
+   (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
+    \\ conj_tac
+    >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
+    \\ simp [Abbr`s2`,conexts_of_upd_def]
+    \\ imp_res_tac QSORT_type_vars_in_term
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+  \\ conj_tac
+  >-
+   (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
+    \\ conj_tac
+    >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
+    \\ simp [Abbr`s2`,conexts_of_upd_def]
+    \\ imp_res_tac QSORT_type_vars_in_term
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+  \\ Cases
+  \\ once_rewrite_tac [THM_def]
+  \\ strip_tac
+  \\ irule extends_proves
+  \\ HINT_EXISTS_TAC \\ fs []
+  \\ fs [STATE_def, CONTEXT_def, Abbr`s2`, Abbr`s1`] \\ rw []
+  \\ fs [extends_def, Once RTC_CASES1, init_ctxt_def])
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of context extension functions                               *)
@@ -2417,7 +2597,8 @@ val new_type_thm = Q.store_thm("new_type_thm",
   `STATE defs s ⇒
     case new_type (name,arity) s of
     | (Failure exn, s') => (s' = s)
-    | (Success (), s') => (?d. STATE (d::defs) s')`,
+    | (Success (), s') => (?d. STATE (d::defs) s' /\
+                               !th. THM defs th ==> THM (d::defs) th)`,
   rw[new_type_def,st_ex_bind_def,add_type_def,can_def,get_type_arity_def,get_the_type_constants_def
     ,otherwise_def,st_ex_return_def,raise_Fail_def] >>
   BasicProvers.CASE_TAC >>
@@ -2426,17 +2607,26 @@ val new_type_thm = Q.store_thm("new_type_thm",
   rw[set_the_type_constants_def,add_def_def,st_ex_bind_def
     ,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewType name arity` >>
-  fs[STATE_def] >>
-  fs[CONTEXT_def] >>
-  simp[extends_def,Once relationTheory.RTC_CASES1] >>
-  disj2_tac >> simp[GSYM extends_def] >>
-  rfs[updates_cases,MEM_MAP,EXISTS_PROD] )
+  conj_tac >- (
+    fs[STATE_def] >>
+    fs[CONTEXT_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] ) >>
+  Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
+  \\ irule updates_proves \\ fs []
+  \\ simp [updates_cases]
+  \\ fs [STATE_def, CONTEXT_def] \\ rveq
+  \\ CCONTR_TAC \\ fs [MEM_MAP]
+  \\ PairCases_on `y` \\ fs []
+  \\ metis_tac []);
 
 val new_constant_thm = Q.store_thm("new_constant_thm",
   `STATE defs s ∧ TYPE defs ty ⇒
     case new_constant (name,ty) s of
     | (Failure exn, s') => (s' = s)
-    | (Success (), s') => (?d. STATE (d::defs) s')`,
+    | (Success (), s') => (?d. STATE (d::defs) s' /\
+                           !th. THM defs th ==> THM (d::defs) th)`,
   rw[new_constant_def,st_ex_bind_def] >>
   qspecl_then[`[(name,ty)]`,`s`]mp_tac add_constants_thm >>
   Cases_on`add_constants [(name,ty)] s`>>simp[] >>
@@ -2444,18 +2634,27 @@ val new_constant_thm = Q.store_thm("new_constant_thm",
   imp_res_tac STATE_ALL_DISTINCT >> rw[] >>
   rw[add_def_def,st_ex_bind_def,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewConst name ty` >>
-  fs[STATE_def] >>
-  fs[CONTEXT_def] >>
-  simp[extends_def,Once relationTheory.RTC_CASES1] >>
-  disj2_tac >> simp[GSYM extends_def] >>
-  rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
-  fs[TYPE_def] )
+  conj_tac >- (
+    fs[STATE_def] >>
+    fs[CONTEXT_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
+    fs[TYPE_def] ) >>
+  Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
+  \\ irule updates_proves \\ fs []
+  \\ simp [updates_cases]
+  \\ fs [STATE_def, CONTEXT_def] \\ rveq
+  \\ conj_tac
+  >- (CCONTR_TAC \\ fs [MEM_MAP] \\ metis_tac [])
+  \\ fs [TYPE_def]);
 
 val new_axiom_thm = Q.store_thm("new_axiom_thm",
   `STATE defs s ∧ TERM defs p ⇒
     case new_axiom p s of
     | (Failure exn, s') => (s' = s)
-    | (Success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s')`,
+    | (Success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s' /\
+                               !th. THM defs th ==> THM (d::defs) th)`,
   rw[new_axiom_def,st_ex_bind_def] >>
   imp_res_tac type_of_thm >> rw[] >>
   qspecl_then[`(strlit "bool")`,`[]`,`s`]mp_tac mk_type_thm >>
@@ -2470,13 +2669,394 @@ val new_axiom_thm = Q.store_thm("new_axiom_thm",
     MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
     reverse conj_tac >- simp[] >>
     METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok] ) >>
-  fs[STATE_def] >>
-  imp_res_tac term_type >>
-  fs[CONTEXT_def] >>
-  simp[extends_def,Once relationTheory.RTC_CASES1] >>
-  disj2_tac >> simp[GSYM extends_def] >>
-  rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
-  fs[TERM_def] >>
-  METIS_TAC[term_ok_welltyped,WELLTYPED])
+  conj_tac >- (
+    fs[STATE_def,lift_tm_def] >>
+    imp_res_tac term_type >>
+    fs[CONTEXT_def] >>
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    disj2_tac >> simp[GSYM extends_def] >>
+    rfs[updates_cases,MEM_MAP,EXISTS_PROD] >>
+    fs[TERM_def] >>
+    METIS_TAC[term_ok_welltyped,WELLTYPED] ) >>
+  Cases \\ once_rewrite_tac [THM_def] \\ strip_tac
+  \\ irule updates_proves \\ fs []
+  \\ simp [updates_cases]
+  \\ reverse conj_asm2_tac >- fs [TERM_def]
+  \\ metis_tac [type_of_has_type]);
+
+(* ------------------------------------------------------------------------- *)
+(* Removing clash exceptions                                                 *)
+(* ------------------------------------------------------------------------- *)
+
+(* Support theorems *)
+
+val map_not_clash_thm = Q.store_thm("map_not_clash_thm",
+  `!f xs s.
+   (!x s. f x s <> (Failure (Clash tm),refs)) ==>
+   map f xs s <> (Failure (Clash tm),refs)`,
+   recInduct map_ind \\ rw [] \\ once_rewrite_tac [map_def]
+   \\ fs [st_ex_bind_def, st_ex_return_def]
+   \\ every_case_tac \\ fs [] \\ metis_tac []);
+
+val forall_clash_thm = Q.store_thm("forall_clash_thm",
+  `!f l s.
+    (!x s. f x s <> (Failure (Clash tm),refs)) ==>
+    forall f l s <> (Failure (Clash tm),refs)`,
+  recInduct forall_ind \\ rw [] \\ once_rewrite_tac [forall_def]
+  \\ fs [st_ex_bind_def, st_ex_return_def]
+  \\ every_case_tac \\ fs [] \\ metis_tac []);
+
+val image_clash_thm = Q.store_thm("image_clash_thm",
+  `!f l s.
+    (!x s. f x s <> (Failure (Clash tm),refs)) ==>
+    image f l s <> (Failure (Clash tm),refs)`,
+  recInduct image_ind \\ rw [] \\ once_rewrite_tac [image_def]
+  \\ rw [st_ex_bind_def, st_ex_return_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ metis_tac []);
+
+(* Function specific theorems *)
+
+val dest_type_not_clash = Q.store_thm("dest_type_not_clash[simp]",
+  `dest_type x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val mk_fun_ty_not_clash = Q.store_thm("mk_fun_ty_not_clash[simp]",
+  `mk_fun_ty t a r ≠ (Failure(Clash tm),refs)`,
+  Cases_on`t`
+  \\ rw [mk_fun_ty_def, mk_type_def, st_ex_bind_def, st_ex_return_def,
+         raise_Fail_def, try_def, otherwise_def]
+  \\ fs [case_eq_thms, bool_case_eq, COND_RATOR]);
+
+val type_of_not_clash = Q.store_thm("type_of_not_clash[simp]",
+  `∀x y. type_of x y ≠ (Failure (Clash tm),refs)`,
+  recInduct type_of_ind
+  \\ rw[]
+  \\ rw[Once type_of_def,st_ex_bind_def,raise_Fail_def,case_eq_thms]
+  \\ CASE_TAC \\ fs[st_ex_return_def,case_eq_thms]
+  \\ CCONTR_TAC \\ fs[pair_case_eq] \\ rw[] \\ fs[] \\ rfs[]
+  \\ every_case_tac \\ fs[] \\ rfs[]);
+
+val mk_abs_not_clash = Q.store_thm("mk_abs_not_clash[simp]",
+  `mk_abs x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ EVAL_TAC \\ CASE_TAC \\ fs[]);
+
+val mk_comb_not_clash = Q.store_thm("mk_comb_not_clash[simp]",
+  `mk_comb x y ≠ (Failure (Clash tm),refs)`,
+  Cases_on`x` \\ rw[mk_comb_def,st_ex_bind_def,case_eq_thms]
+  \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[raise_Fail_def,st_ex_return_def]);
+
+val mk_eq_not_clash = Q.store_thm("mk_eq_not_clash[simp]",
+  `mk_eq x y ≠ (Failure(Clash tm),refs)`,
+  Cases_on`x` \\ rw[mk_eq_def,st_ex_bind_def,try_def,otherwise_def,case_eq_thms]
+  \\ CCONTR_TAC \\ fs[st_ex_return_def,raise_Fail_def] \\ rw[]);
+
+val ABS_not_clash = Q.store_thm("ABS_not_clash[simp]",
+  `ABS x y z ≠ (Failure (Clash tm),refs)`,
+  Cases_on`y` \\ rw [ABS_def, st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [case_eq_thms] \\ CCONTR_TAC \\ fs []);
+
+val MK_COMB_not_clash = Q.store_thm("MK_COMB_not_clash[simp]",
+  `MK_COMB (a,b) c <> (Failure (Clash tm), refs)`,
+  Cases_on `a` \\ Cases_on `b` \\ rw [MK_COMB_def]
+  \\ rw [raise_Fail_def, st_ex_return_def, st_ex_bind_def]
+  \\ every_case_tac \\ fs [case_eq_thms]
+  \\ CCONTR_TAC \\ fs []);
+
+val mk_type_not_clash = Q.store_thm("mk_type_not_clash[simp]",
+  `!a b. mk_type a b <> (Failure (Clash tm), refs)`,
+  Cases \\ once_rewrite_tac [mk_type_def]
+  \\ rw [st_ex_bind_def, st_ex_return_def, raise_Fail_def, try_def, otherwise_def]
+  \\ fs [case_eq_thms, bool_case_eq, COND_RATOR]);
+
+val ASSUME_not_clash = Q.store_thm("ASSUME_not_clash[simp]",
+  `!a b. ASSUME a b <> (Failure (Clash tm), refs)`,
+  Cases \\ rw [ASSUME_def, st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ rw [case_eq_thms, bool_case_eq, COND_RATOR]);
+
+val BETA_not_clash = Q.store_thm("BETA_not_clash[simp]",
+  `BETA a b <> (Failure (Clash tm),refs)`,
+  strip_tac \\ Cases_on `a`
+  \\ fs [BETA_def, raise_Fail_def, st_ex_bind_def, st_ex_return_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
+
+val mk_const_not_clash = Q.store_thm("mk_const_not_clash[simp]",
+  `mk_const (a,b) c <> (Failure (Clash tm),refs)`,
+  Cases_on`a` \\ once_rewrite_tac [mk_const_def]
+  \\ rw [st_ex_bind_def, st_ex_return_def, raise_Fail_def, try_def, otherwise_def,
+         case_eq_thms]);
+
+val assoc_not_clash = Q.store_thm("assoc_not_clash[simp]",
+  `!a b c. assoc a b c <> (Failure (Clash tm),refs)`,
+  recInduct assoc_ind \\ rw [] \\ once_rewrite_tac [assoc_def]
+  \\ every_case_tac \\ fs [raise_Fail_def,st_ex_return_def]);
+
+val get_const_type_not_clash = Q.store_thm("get_const_type_not_clash[simp]",
+  `get_const_type a b <> (Failure (Clash tm),refs)`,
+  Cases_on`a` \\ rw [get_const_type_def,st_ex_bind_def,case_eq_thms, get_the_term_constants_def]);
+
+val DEDUCT_ANTISYM_RULE_not_clash = Q.store_thm("DEDUCT_ANTISYM_RULE_not_clash[simp]",
+  `DEDUCT_ANTISYM_RULE a b c <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ Cases_on `b` \\ once_rewrite_tac [DEDUCT_ANTISYM_RULE_def]
+  \\ rw [st_ex_bind_def, st_ex_return_def, raise_Fail_def, case_eq_thms]);
+
+val SYM_not_clash = Q.store_thm("SYM_not_clash[simp]",
+  `SYM a b <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ EVAL_TAC \\ fs [raise_Fail_def, st_ex_return_def]
+  \\ every_case_tac \\ fs []);
+
+val dest_comb_not_clash = Q.store_thm("dest_comb_not_clash[simp]",
+  `dest_comb a b <> (Failure (Clash tm),refs)`,
+  Cases_on`a` \\ EVAL_TAC);
+
+val dest_eq_not_clash = Q.store_thm("dest_eq_not_clash[simp]",
+  `dest_eq a b <> (Failure (Clash tm),refs)`,
+  Cases_on`a` \\ EVAL_TAC \\ fs [raise_Fail_def, st_ex_return_def]
+  \\ every_case_tac \\ fs []);
+
+val EQ_MP_not_clash = Q.store_thm("EQ_MP_not_clash[simp]",
+  `EQ_MP a b c <> (Failure (Clash tm),refs)`,
+  Cases_on`a` \\ Cases_on`b` \\ rw [EQ_MP_def, raise_Fail_def, st_ex_return_def]
+  \\ every_case_tac \\ fs []);
+
+val PROVE_HYP_not_clash = Q.store_thm("PROVE_HYP_not_clash[simp]",
+  `PROVE_HYP a b c <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ Cases_on `b` \\ rw [PROVE_HYP_def, st_ex_return_def]);
+
+val REFL_not_clash = Q.store_thm("REFL_not_clash[simp]",
+  `REFL a b <> (Failure (Clash tm),refs)`,
+  rw [REFL_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]);
+
+val TRANS_not_clash = Q.store_thm("TRANS_not_clash[simp]",
+  `TRANS a b c <> (Failure (Clash tm),refs)`,
+  Cases_on`a` \\ Cases_on `b`
+  \\ rw [TRANS_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ CCONTR_TAC \\ fs []);
+
+val ALPHA_THM_not_clash = Q.store_thm("ALPHA_THM_not_clash[simp]",
+  `!a b c d. ALPHA_THM a (b, c) d <> (Failure (Clash tm),refs)`,
+  recInduct ALPHA_THM_ind
+  \\ rw [ALPHA_THM_def, raise_Fail_def, st_ex_return_def, st_ex_bind_def]
+  \\ rw [case_eq_thms, bool_case_eq, COND_RATOR, map_not_clash_thm]);
+
+val add_constants_not_clash = Q.store_thm("add_constants_not_clash[simp]",
+  `add_constants a b <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ rw [add_constants_def, st_ex_bind_def, st_ex_return_def,
+                      raise_Fail_def, get_the_term_constants_def,
+                      set_the_term_constants_def]
+  \\ every_case_tac \\ fs []);
+
+val add_def_not_clash = Q.store_thm("add_def_not_clash[simp]",
+  `add_def a b <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ EVAL_TAC);
+
+val dest_var_not_clash = Q.store_thm("dest_var_not_clash[simp]",
+  `dest_var a b <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ EVAL_TAC \\ every_case_tac \\ fs [raise_Fail_def, st_ex_return_def]);
+
+val new_specification_not_clash = Q.store_thm("new_specification_not_clash[simp]",
+  `new_specification a b <> (Failure (Clash tm),refs)`,
+  Cases_on `a` \\ rw [new_specification_def, st_ex_bind_def, raise_Fail_def,
+                      st_ex_return_def, case_eq_thms, bool_case_eq, COND_RATOR]
+  \\ ho_match_mp_tac map_not_clash_thm \\ rw []
+  \\ rw [case_eq_thms, bool_case_eq, COND_RATOR, ELIM_UNCURRY]);
+
+val new_basic_definition_not_clash = Q.store_thm("new_basic_definition_not_clash[simp]",
+  `new_basic_definition a b <> (Failure (Clash tm),refs)`,
+  fs [new_basic_definition_def, st_ex_bind_def, case_eq_thms]);
+
+val add_type_not_clash = Q.store_thm("add_type_not_clash[simp]",
+  `add_type (a,b) c <> (Failure (Clash tm),refs)`,
+  rw [add_type_def, st_ex_return_def, st_ex_bind_def, raise_Fail_def, can_def,
+      get_type_arity_def, get_the_type_constants_def, set_the_type_constants_def,
+      otherwise_def]
+  \\ rw [case_eq_thms, bool_case_eq, COND_RATOR]);
+
+val new_basic_type_definition_not_clash = Q.store_thm("new_basic_type_definition_not_clash[simp]",
+  `new_basic_type_definition a b c d e <> (Failure (Clash tm),refs)`,
+  Cases_on `d` \\ rw [new_basic_type_definition_def, st_ex_bind_def,
+                      st_ex_return_def, raise_Fail_def, can_def,
+                      get_type_arity_def, get_the_type_constants_def,
+                      otherwise_def, try_def, case_eq_thms, bool_case_eq,
+                      COND_RATOR, ELIM_UNCURRY]);
+
+val vsubst_not_clash = Q.store_thm("vsubst_not_clash[simp]",
+  `vsubst x y s <> (Failure (Clash tm),refs)`,
+  rw [vsubst_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
+      ELIM_UNCURRY, case_eq_thms, bool_case_eq, COND_RATOR]
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ pop_assum mp_tac \\ fs []
+  \\ ho_match_mp_tac forall_clash_thm \\ rw [case_eq_thms]);
+
+val INST_not_clash = Q.store_thm("INST_not_clash[simp]",
+  `INST theta x s <> (Failure (Clash tm),refs)`,
+  Cases_on `x` \\ rw [holKernelTheory.INST_def, st_ex_bind_def, st_ex_return_def,
+                      case_eq_thms, image_clash_thm]);
+
+(* TODO Prove for inst_aux *)
+
+(*
+val variant_same_ty = Q.store_thm("variant_same_ty",
+  `!x z c d.
+     variant x z = Var c d
+     ==>
+     ?a b. z = Var a b /\ b = d`,
+  recInduct holSyntaxExtraTheory.variant_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once holSyntaxExtraTheory.variant_def]
+  \\ every_case_tac \\ fs []);
+
+val vsubst_same_Var = Q.store_thm("vsubst_same_Var[simp]",
+  `vsubst_aux [(Var a b, Var c d)] (Var c d) = Var a b`,
+  once_rewrite_tac [vsubst_aux_def] \\ fs []
+  \\ once_rewrite_tac [rev_assocd_def] \\ fs []);
+
+val inst_aux_clash_is_var = Q.store_thm("inst_aux_clash_is_var",
+  `!env tyin tm s f t.
+     inst_aux env tyin tm s = (Failure (Clash f),t)
+     ==>
+     ?a b. f = Var a b`,
+  recInduct inst_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on `tm` \\ fs []
+  \\ once_rewrite_tac [inst_aux_def] \\ fs []
+  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ simp [handle_Clash_def, raise_Clash_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []);
+
+val sizeof'_def = Define`
+  sizeof' (Comb s t) = 1 + sizeof' s + sizeof' t ∧
+  sizeof' (Abs v t) = 1 + sizeof' v + sizeof' t ∧
+  sizeof' _ = 1n`;
+val _ = export_rewrites["sizeof'_def"];
+
+val sizeof'_rev_assocd = Q.store_thm("sizeof'_rev_assocd",
+  `∀x  l d.
+   sizeof' d = sizeof' x ∧
+   EVERY (λp. sizeof' (FST p) = sizeof' (SND p)) l ⇒
+   sizeof' (rev_assocd x l d) = sizeof' x`,
+  simp[rev_assocd_thm]
+  \\ Induct_on`l` \\ rw[holSyntaxLibTheory.REV_ASSOCD_def]);
+
+val sizeof'_variant = Q.store_thm("sizeof'_variant[simp]",
+  `∀avoid tm. sizeof' (variant avoid tm) = sizeof' tm`,
+  recInduct holSyntaxExtraTheory.variant_ind
+  \\ rw[]
+  \\ rw[Once holSyntaxExtraTheory.variant_def]
+  \\ CASE_TAC \\ fs[]);
+
+val sizeof'_vsubst_aux = Q.store_thm("sizeof'_vsubst_aux",
+  `∀tm ss.
+    EVERY (λp. sizeof' (FST p) = sizeof' (SND p)) ss ⇒
+      sizeof' (vsubst_aux ss tm) = sizeof' tm`,
+  Induct \\ rw[]
+  \\ TRY (
+    rw[Once vsubst_aux_def]
+    \\ DEP_REWRITE_TAC[sizeof'_rev_assocd]
+    \\ simp[]
+    \\ NO_TAC )
+  \\ rw[Once vsubst_aux_def]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ simp[EVERY_FILTER]
+    \\ fs[EVERY_MEM]
+    \\ NO_TAC));
+
+val inst_aux_clash_is_var_in_env = Q.store_thm("inst_aux_clash_is_var_in_env",
+  `!n tm env tyin s f t.
+     sizeof' tm = n ∧
+     inst_aux env tyin tm s = (Failure (Clash f),t)
+     ==>
+     ?a b. f = Var a b /\ MEM f (MAP SND env) /\ (∀y t. tm <> Abs y t)`,
+  gen_tac
+  \\ completeInduct_on`n`
+  \\ Induct
+  \\ simp[Once inst_aux_def]
+  \\ rw[st_ex_return_def,st_ex_bind_def,raise_Fail_def,raise_Clash_def,handle_Clash_def]
+  \\ fs[exc_case_eq,pair_case_eq,hol_exn_case_eq,bool_case_eq] \\ rw[]
+  \\ fs[rev_assocd_thm]
+  \\ TRY (
+    qmatch_asmsub_abbrev_tac`REV_ASSOCD x l d`
+    \\ Q.ISPECL_THEN[`l`,`x`,`d`]strip_assume_tac holSyntaxLibTheory.REV_ASSOCD_MEM
+    \\ fs[MEM_MAP,SND_EQ_EQUIV,PULL_EXISTS]
+    \\ metis_tac[] )
+  \\ TRY (
+    first_x_assum(match_mp_tac o MP_CANON) \\ simp[]
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac \\ simp[] )
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm`mp_tac) \\ simp[]
+    \\ disch_then(qspec_then`tm`mp_tac) \\ simp[]
+    \\ disch_then drule \\ rw[] )
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm'`mp_tac) \\ simp[]
+    \\ disch_then(qspec_then`tm'`mp_tac) \\ simp[]
+    \\ disch_then drule \\ rw[] \\ NO_TAC)
+  \\ CCONTR_TAC \\ fs[] \\ rw[]
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm`mp_tac) \\ simp[]
+    \\ qexists_tac`tm`\\ simp[]
+    \\ asm_exists_tac \\ simp[])
+  \\ pop_assum mp_tac \\ rw[]
+  \\ fs[pair_case_eq,exc_case_eq] \\ rw[] \\ fs[]
+  \\ CCONTR_TAC \\ fs[] \\ rw[]
+  \\ TRY (
+    first_x_assum(qspec_then`sizeof' tm'`mp_tac) \\ simp[]
+    \\ qexists_tac`tm'`\\ simp[]
+    \\ asm_exists_tac \\ simp[] \\ fs[])
+  \\ pairarg_tac \\ fs[pair_case_eq,exc_case_eq] \\ rw[] \\ fs[]
+  \\ pairarg_tac \\ fs[pair_case_eq,exc_case_eq] \\ rw[] \\ fs[]
+  \\ imp_res_tac inst_aux_clash_is_var \\ fs[] \\ rw[]
+  \\ qhdtm_x_assum`dest_var`mp_tac \\ simp[dest_var_def]
+  \\ CASE_TAC \\ rw[raise_Fail_def,st_ex_return_def]
+  \\ fs[inst_aux_Var] \\ rw[]
+  \\ qhdtm_x_assum`dest_var`mp_tac \\ simp[dest_var_def]
+  \\ CASE_TAC \\ rw[raise_Fail_def,st_ex_return_def]
+  \\ imp_res_tac variant_same_ty \\ fs[] \\ rw[]
+  \\ CCONTR_TAC
+  \\ first_x_assum(qspec_then`sizeof' tm'`mp_tac) \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`vsubst_aux ss tm'`
+  \\ qexists_tac`vsubst_aux ss tm'` \\ simp[]
+  \\ DEP_REWRITE_TAC[sizeof'_vsubst_aux]
+  \\ simp[Abbr`ss`]
+  \\ asm_exists_tac \\ simp[]
+  \\ fs[] \\ rveq
+  \\ CCONTR_TAC \\ fs[] \\ rw[]
+
+  recInduct inst_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on `tm` \\ fs []
+  \\ once_rewrite_tac [inst_aux_def] \\ fs []
+  \\ simp [st_ex_return_def, st_ex_bind_def, raise_Fail_def]
+  \\ simp [handle_Clash_def, raise_Clash_def, UNCURRY]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []
+  \\ rw[]
+  \\ strip_tac \\ fs[rev_assocd_thm,holSyntaxLibTheory.REV_ASSOCD_def]
+  \\ rw[]
+  );
+
+val inst_aux_thm = Q.store_thm("inst_aux_thm",
+  `!env tyin tm s f t.
+     env = []
+     ==>
+     inst_aux env tyin tm s <> (Failure (Clash f),t)`,
+  cheat
+  );
+
+val inst_not_clash = Q.store_thm("inst_not_clash[simp]",
+  `inst x y z <> (Failure (Clash tm),refs)`,
+  fs [inst_def, st_ex_return_def, bool_case_eq, case_eq_thms, COND_RATOR]
+  \\ fs [inst_aux_thm]);
+
+val INST_TYPE_not_clash = Q.store_thm("INST_TYPE_not_clash[simp]",
+  `INST_TYPE x y z <> (Failure (Clash tm),refs)`,
+  Cases_on `y` \\ fs [INST_TYPE_def, Once image_def]
+  \\ fs [st_ex_bind_def, st_ex_return_def]
+  \\ every_case_tac \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [image_clash_thm]);
+*)
 
 val _ = export_theory();

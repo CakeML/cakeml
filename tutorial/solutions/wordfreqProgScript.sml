@@ -344,7 +344,7 @@ val wordfreq_whole_prog_spec = Q.store_thm("wordfreq_whole_prog_spec",
    cl = [pname; fname] ∧
    contents = implode (THE (ALOOKUP fs.files (File fname)))
    ⇒
-   whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs
+   whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs NONE
          ((=) (add_stdout fs (wordfreq_output_spec contents)))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

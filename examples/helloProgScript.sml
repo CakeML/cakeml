@@ -19,7 +19,7 @@ val hello_spec = Q.store_thm ("hello_spec",
   xcf "hello" st \\ xapp \\ xsimpl);
 
 val hello_whole_prog_spec = Q.store_thm("hello_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "hello" st) cl fs
+  `whole_prog_spec ^(fetch_v "hello" st) cl fs NONE
     ((=) (add_stdout fs (strlit "Hello World!\n")))`,
   rw[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
