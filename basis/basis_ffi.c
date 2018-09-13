@@ -77,7 +77,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   if (0 <= fd){
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
