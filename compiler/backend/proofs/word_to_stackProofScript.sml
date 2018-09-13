@@ -28,51 +28,28 @@ val wf_LN = Q.store_thm("wf_LN[simp]",
 val splem1 = Q.prove(`
   a ≠ 0 ⇒
   (a-1) DIV 2 < a`,
-  `0 < (2:num)` by fs[] >>
-  imp_res_tac DIV_LT_X>>rw[]>>
-  DECIDE_TAC)
+  simp[DIV_LT_X]);
 
 val splem2 = Q.prove(`
   ∀a c.
   a ≠ 0 ∧
   a < c ∧
   2 ≤ c-a ⇒
-  (a -1) DIV 2 < (c-1) DIV 2`,
-  Induct>>Induct>>rw[]>>
-  Cases_on`SUC a < c`>>fs[]>>simp[]>>
-  Cases_on` 2 ≤ c - SUC a`>>fs[]
-  >-
-    (`(c-1) DIV 2 ≤ c DIV 2` by
-       simp[DIV_LE_MONOTONE]>>
-     simp[])
-  >>
-    `c = a+2` by DECIDE_TAC>>
-    simp[ADD_DIV_RWT])
+  (a - 1) DIV 2 < (c-1) DIV 2`,
+  intLib.ARITH_TAC);
 
 val EVEN_ODD_diff = Q.prove(`
   ∀a c.
   a < c ∧
   (EVEN a ∧ EVEN c ∨ ODD a ∧ ODD c) ⇒
   2 ≤ c-a`,
-  Induct>>fs[]>>
-  rw[]
-  >-
-    (Cases_on`c`>>fs[]>>Cases_on`n`>>fs[]>>
-    DECIDE_TAC)
-  >>
-    Cases_on`c`>>fs[]>>
-    first_assum match_mp_tac>>
-    fs[EVEN,EVEN_ODD,ODD])
+  intLib.ARITH_TAC);
 
 val splem3 = Q.prove(`
   (EVEN c ∧ EVEN a ∨ ODD a ∧ ODD c) ∧
   a ≠ c ∧ a ≠ 0 ∧ c ≠ 0 ⇒
   (a-1) DIV 2 ≠ (c-1) DIV 2`,
-  rw[]>>
-  `a < c ∨ c <a` by DECIDE_TAC>>
-  imp_res_tac splem2>>
-  imp_res_tac EVEN_ODD_diff>>
-  DECIDE_TAC)
+  intLib.ARITH_TAC);
 
 val insert_swap = Q.store_thm("insert_swap",` (* TODO: move *)
   ∀t a b c d.
