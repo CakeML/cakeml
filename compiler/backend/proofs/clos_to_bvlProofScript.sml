@@ -5116,6 +5116,22 @@ val MAP_FST_chain_exps = Q.store_thm("MAP_FST_chain_exps",
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ rw[FUN_EQ_THM]);
 
+val MAP_FST_chain_exps_any = Q.store_thm("MAP_FST_chain_exps_any",
+  `∀i ls. (MAP FST (chain_exps i ls) = MAP ((+)i) (COUNT_LIST (MAX 1 (LENGTH ls))))`,
+  rpt gen_tac
+  \\ reverse(Cases_on`ls=[]`)
+  >- (
+    simp[MAP_FST_chain_exps]
+    \\ `MAX 1 (LENGTH ls) = LENGTH ls`
+    by (
+      rw[MAX_DEF]
+      \\ CCONTR_TAC \\ fs[]
+      \\ Cases_on`LENGTH ls = 0` >- fs[]
+      \\ decide_tac )
+    \\ simp[] )
+  \\ rw[chain_exps_def]
+  \\ EVAL_TAC \\ rw[]);
+
 val chain_exps_code_locs = Q.store_thm("chain_exps_code_locs[simp]",
   `∀n es. code_locs (MAP (SND o SND) (chain_exps n es)) = code_locs es`,
   recInduct chain_exps_ind
@@ -7104,6 +7120,37 @@ val renumber_code_locs_sing = Q.store_thm("renumber_code_locs_sing",
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ rw[EQ_IMP_THM] \\ rw[]);
 (* -- *)
+
+val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog",
+  `MAP FST (compile_prog max_app ls) =
+   MAP (((+)(num_stubs max_app)))
+     (MAP FST ls ++ REVERSE (code_locs (MAP (SND o SND) ls)))`,
+  simp[clos_to_bvlTheory.compile_prog_def, UNCURRY]
+  \\ Cases_on`compile_exps max_app (MAP (SND o SND) ls) []`
+  \\ imp_res_tac compile_exps_LENGTH
+  \\ fs[MAP2_MAP, MAP_MAP_o, o_DEF, UNCURRY]
+  \\ qmatch_goalsub_abbrev_tac`MAP f`
+  \\ `f = ((+)(num_stubs max_app)) o FST o FST` by ( simp[Abbr`f`, FUN_EQ_THM] )
+  \\ simp[Abbr`f`]
+  \\ simp[GSYM MAP_MAP_o]
+  \\ simp[MAP_ZIP]
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ qhdtm_x_assum`compile_exps`mp_tac
+  \\ specl_args_of_then``compile_exps`` compile_exps_code_locs mp_tac
+  \\ rw[] \\ fs[]);
+
+val MAP_FST_compile_inc = Q.store_thm("MAP_FST_compile_inc",
+  `MAP FST (compile_inc max_app p) =
+   MAP ((+)(num_stubs max_app))
+     (MAP ((+)(FST(extract_name (FST p))))
+       (COUNT_LIST (MAX 1 (LENGTH (SND (extract_name (FST p))))))
+     ++ (MAP FST (SND p))
+     ++ (REVERSE
+         (code_locs
+           (MAP (SND o SND)
+             (chain_exps (FST (extract_name (FST p)))
+               (SND (extract_name (FST p))) ++ SND p)))))`,
+  rw[compile_inc_uncurry, MAP_FST_compile_prog, MAP_FST_chain_exps_any]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
