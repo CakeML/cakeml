@@ -7238,6 +7238,89 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ `P (SND (ff pp)) ∧ R ∧ Q (FST(SND pp)) (SND(SND pp))` suffices_by metis_tac[PAIR,PAIR_EQ]
   \\ qunabbrev_tac`P` \\ qunabbrev_tac`Q`
   \\ simp[Abbr`ff`, compile_inc_uncurry]
+  \\ rewrite_tac[CONJ_ASSOC]
+  \\ reverse conj_asm2_tac
+  >- (
+    simp[Abbr`pp`]
+    \\ simp[acompile_inc_uncurry]
+    \\ simp[clos_annotateTheory.compile_def]
+    \\ simp[EVERY_MAP, UNCURRY]
+    \\ simp[HD_annotate_SING] )
+  \\ reverse conj_asm2_tac
+  >- (
+    simp[Abbr`pp`]
+    \\ simp[acompile_inc_uncurry]
+    \\ simp[clos_annotateTheory.compile_def]
+    \\ simp[EVERY_MAP, UNCURRY]
+    \\ simp[HD_annotate_SING]
+    \\ irule MONO_EVERY \\ simp[]
+    \\ qexists_tac`λx. every_Fn_SOME [SND(SND x)]`
+    \\ simp[clos_annotateProofTheory.every_Fn_SOME_annotate]
+    \\ simp[backendPropsTheory.SND_state_co]
+    \\ qmatch_goalsub_abbrev_tac`SND (SND (ff gg))`
+    \\ `SND gg = []`
+    by (
+      simp[Abbr`gg`]
+      \\ fs[syntax_oracle_ok_def]
+      \\ simp[clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,SND_SND_ignore_table]
+      \\ simp[backendPropsTheory.FST_state_co, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table]
+      \\ simp[clos_ticksProofTheory.compile_inc_def, clos_letopProofTheory.compile_inc_def]
+      \\ rw[] )
+    \\ simp[Abbr`ff`]
+    \\ TOP_CASE_TAC \\ simp[]
+    \\ simp[ccompile_inc_uncurry]
+    \\ qmatch_goalsub_abbrev_tac`calls xs g0`
+    \\ Cases_on`calls xs g0`
+    \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
+    \\ impl_tac
+    >- (
+      simp[Abbr`xs`,Abbr`g0`]
+      \\ simp[Abbr`gg`]
+      \\ simp[clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,FST_SND_ignore_table]
+      \\ simp[backendPropsTheory.FST_state_co, kcompile_inc_uncurry,FST_SND_ignore_table,SND_SND_ignore_table]
+      \\ simp[clos_letopProofTheory.compile_inc_def, clos_ticksProofTheory.compile_inc_def]
+      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
+      \\ impl_tac
+      >- (
+        simp[Abbr`bb`, Abbr`ccc`, Abbr`dd`]
+        \\ fs[syntax_oracle_ok_def] \\ rw[] )
+      \\ simp[] )
+    \\ strip_tac
+    \\ pop_assum mp_tac
+    \\ simp[Once every_Fn_SOME_EVERY]
+    \\ simp[EVERY_MAP] )
+  \\ reverse conj_asm2_tac
+  >- ( simp[Abbr`R`, Abbr`pp`, acompile_inc_uncurry] )
+  \\ reverse conj_asm2_tac
+  >- (
+    simp[Abbr`R`, Abbr`pp`, acompile_inc_uncurry]
+    \\ irule clos_annotateProofTheory.every_Fn_SOME_annotate
+    \\ simp[backendPropsTheory.SND_state_co]
+    \\ qmatch_goalsub_abbrev_tac`FST (SND (ff gg))`
+    \\ `every_Fn_SOME (FST gg)`
+    by (
+      simp[Abbr`gg`]
+      \\ fs[syntax_oracle_ok_def]
+      \\ simp[clos_knownProofTheory.known_co_def]
+      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,SND_SND_ignore_table]
+      \\ simp[backendPropsTheory.FST_state_co, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table]
+      \\ simp[clos_ticksProofTheory.compile_inc_def, clos_letopProofTheory.compile_inc_def]
+      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
+      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
+      \\ impl_tac
+      >- ( simp[Abbr`bb`, Abbr`ccc`, Abbr`dd`] \\ rw[])
+      \\ simp[] )
+    \\ simp[Abbr`ff`]
+    \\ TOP_CASE_TAC \\ simp[]
+    \\ simp[ccompile_inc_uncurry]
+    \\ qmatch_goalsub_abbrev_tac`calls xs g0`
+    \\ Cases_on`calls xs g0`
+    \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
+    \\ impl_tac >- ( simp[Abbr`xs`,Abbr`g0`] )
+    \\ simp[])
   (*
   this does not work any more, I think because calls produces code
   \\ `SND(SND pp) = []`
