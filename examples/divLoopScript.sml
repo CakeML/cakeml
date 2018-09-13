@@ -1,5 +1,10 @@
 open preamble basis
 
+val _ = new_theory "divLoop";
+
+val _ = translation_extends "basisProg";
+
+(* Needs reformulating as Qd can be anything (even &F) *)
 val div_ind = Q.store_thm("div_ind",
   `!fv xs H Qd env funs f.
        fv = Recclosure env funs f /\
@@ -14,10 +19,6 @@ val div_ind = Q.store_thm("div_ind",
   cheat
 );
 
-val _ = new_theory "pureLoop";
-
-val _ = translation_extends "basisProg";
-
 val _ = process_topdecs `fun loop x = loop x` |> append_prog;
 
 val s = get_ml_prog_state ();
@@ -29,7 +30,6 @@ val env = th |> concl |> rand |> rator |> rator |> rand
 val funs = th |> concl |> rand |> rator |> rand
 
 val f = th |> concl |> rand |> rand
-
 
 val cs = computeLib.the_compset
 val () = listLib.list_rws cs
@@ -54,8 +54,6 @@ val eval_tac = CONV_TAC eval
 fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
-
-
 val loop_spec = Q.store_thm ("loop_spec",
   `!xv.
      app (p:'ffi ffi_proj) ^(fetch_v "loop" s) [xv]
@@ -71,7 +69,20 @@ val loop_spec = Q.store_thm ("loop_spec",
   \\ CONV_TAC ((RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL)
   \\ fs [th]
   \\ simp [cf_app_def, cfNormaliseTheory.exp2v_def,namespacePropsTheory.nsLookup_nsAppend_some, namespaceTheory.nsLookup_def, cfNormaliseTheory.exp2v_list_def, cfHeapsTheory.local_def]
-
+  \\ rw []
+  \\ qexists_tac `emp`
+  \\ qexists_tac `emp`
+  \\ qexists_tac `POSTd (&T)`
+  \\ rpt strip_tac
+  THEN1 (fs [SEP_CLAUSES])
+  THEN1 (
+    last_assum mp_tac
+    \\ qpat_abbrev_tac `x1 = Recclosure _`
+    \\ qpat_abbrev_tac `x2 = Recclosure _`
+    \\ qsuff_tac `x1 = x2` THEN1 (fs [] \\ rw [] \\ fs [])
+    \\ unabbrev_all_tac
+    \\ EVAL_TAC)
+  \\ xsimpl
 );
 
 val _ = export_theory ();
