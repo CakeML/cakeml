@@ -6509,24 +6509,8 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
        \\ `d1 = FST(SND(calls (FST(SND zz)) (FST (FST zz), [])))` by simp[]
        \\ pop_assum SUBST1_TAC
        \\ fs[ADD1] )
-    \\ conj_tac
-    >- (
-       rpt gen_tac
-       \\ qmatch_goalsub_abbrev_tac`FST (FST pp)`
-       \\ `FST (FST pp) = FST (SND (SND (FST (co1 (i+j)))))`
-       by (
-         simp[Abbr`pp`, clos_knownProofTheory.known_co_def, Abbr`co2`]
-         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
-       \\ pop_assum SUBST_ALL_TAC
-       \\ `FST (FST (co2 (i + 1))) = FST (SND (SND (FST (co1 (i + 1)))))`
-       by (
-         simp[clos_knownProofTheory.known_co_def, Abbr`co2`] \\ rveq
-         \\ simp[clos_knownProofTheory.known_co_def]
-         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
-       \\ pop_assum SUBST_ALL_TAC
-       \\ cheat )
-    \\ conj_tac
-    >- (
+    \\ `ALL_DISTINCT (MAP FST aux'')`
+    by (
       qhdtm_x_assum`clos_callProof$compile_inc`mp_tac
       \\ simp[clos_callProofTheory.compile_inc_def]
       \\ pairarg_tac \\ simp[] \\ strip_tac \\ rveq
@@ -6545,6 +6529,23 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ simp[code_locs_FST_SND_kcompile_inc]
       \\ simp[bag_of_list_ALL_DISTINCT]
       \\ simp[Abbr`zz`,FST_SND_ignore_table] )
+    \\ simp[]
+    \\ conj_tac
+    >- (
+       rpt gen_tac
+       \\ qmatch_goalsub_abbrev_tac`FST (FST pp)`
+       \\ `FST (FST pp) = FST (SND (SND (FST (co1 (i+j)))))`
+       by (
+         simp[Abbr`pp`, clos_knownProofTheory.known_co_def, Abbr`co2`]
+         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
+       \\ pop_assum SUBST_ALL_TAC
+       \\ `FST (FST (co2 (i + 1))) = FST (SND (SND (FST (co1 (i + 1)))))`
+       by (
+         simp[clos_knownProofTheory.known_co_def, Abbr`co2`] \\ rveq
+         \\ simp[clos_knownProofTheory.known_co_def]
+         \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
+       \\ pop_assum SUBST_ALL_TAC
+       \\ cheat )
     \\ cheat (* syntactic properties of clos_call *))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
@@ -7152,6 +7153,72 @@ val MAP_FST_compile_inc = Q.store_thm("MAP_FST_compile_inc",
                (SND (extract_name (FST p))) ++ SND p)))))`,
   rw[compile_inc_uncurry, MAP_FST_compile_prog, MAP_FST_chain_exps_any]);
 
+val calls_Op_Const = Q.store_thm("calls_Op_Const",
+  `calls ((Op None (Const n) [])::ls) aux =
+   ((CONS (Op None (Const n) [])) ## I) (calls ls aux)`,
+  Cases_on`ls` \\ rw[clos_callTheory.calls_def]
+  \\ pairarg_tac \\ fs[]);
+
+val annotate_Op_Const = Q.store_thm("annotate_Op_Const",
+  `annotate m ((Op None (Const n) [])::ls) = Op None (Const n) [] :: annotate m ls`,
+  rw[clos_annotateTheory.annotate_def]
+  \\ Cases_on`ls` >- EVAL_TAC
+  \\ rw[clos_annotateTheory.alt_free_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`c2` >- EVAL_TAC
+  \\ rw[clos_annotateTheory.shift_def]);
+
+val extract_name_Op_Const = Q.store_thm("extract_name_Op_Const",
+  `extract_name ((Op None (Const (&n)) [])::ls) = if NULL ls then (0,[Op None (Const (&n)) []]) else (n, ls)`,
+  EVAL_TAC
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs[NULL_EQ]);
+
+val mcompile_inc_nil = Q.store_thm("mcompile_inc_nil",
+  `(FST p = [] ⇒ (clos_mtiProof$compile_inc max_app p = ([],[]))) ∧
+   (FST p ≠ [] ⇒ FST (clos_mtiProof$compile_inc max_app p) ≠ [])`,
+  Cases_on`p` \\ rw[] \\ EVAL_TAC
+  \\ strip_tac \\ fs[]);
+
+val renumber_code_locs_list_nil = Q.store_thm("renumber_code_locs_list_nil",
+  `((xs = []) ⇒ (SND (renumber_code_locs_list n xs) = [])) ∧
+   ((xs ≠ []) ⇒ (SND (renumber_code_locs_list n xs) ≠ []))`,
+  rw[]
+  \\ EVAL_TAC
+  \\ strip_tac \\ fs[]
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ simp_tac std_ss [clos_numberTheory.renumber_code_locs_length]
+  \\ simp[]);
+
+val calls_nil = Q.store_thm("calls_nil",
+  `((xs = []) ⇒ ((calls xs p) = ([],p))) ∧
+   ((xs ≠ []) ⇒ (FST (calls xs p) ≠ []))`,
+  rw[] >- EVAL_TAC
+  \\ strip_tac
+  \\ fs[]
+  \\ Cases_on`calls xs p`
+  \\ imp_res_tac clos_callTheory.calls_length
+  \\ rfs[]);
+
+val annotate_nil = Q.store_thm("annotate_nil",
+  `((xs = []) ⇒ (annotate n xs = [])) ∧
+   ((xs ≠ []) ⇒ (annotate n xs ≠ []))`,
+  rw[]
+  \\ EVAL_TAC
+  \\ strip_tac \\ fs[]
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ simp_tac std_ss [clos_annotateTheory.shift_LENGTH_LEMMA]
+  \\ simp[]
+  \\ strip_tac \\ fs[]
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ simp_tac std_ss [clos_annotateTheory.LENGTH_FST_alt_free]
+  \\ simp[]);
+
+val ignore_table_uncurry = Q.store_thm("ignore_table_uncurry",
+  `ignore_table f st p = (FST(f st (FST p)), (SND(f st (FST p))), SND p)`,
+  Cases_on`p` \\ EVAL_TAC \\ rw[UNCURRY]);
+
+
 val compile_semantics = Q.store_thm("compile_semantics",
   `semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
@@ -7368,50 +7435,57 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
     \\ impl_tac >- ( simp[Abbr`xs`,Abbr`g0`] )
     \\ simp[])
+  \\ simp[Abbr`R`]
+  \\ simp[MAP_FST_compile_prog]
+  \\ conj_tac
+  >- (
+    rewrite_tac[GSYM MAP_APPEND]
+    \\ irule ALL_DISTINCT_MAP_INJ
+    \\ simp[]
+    \\ simp[MAP_FST_chain_exps_any]
+    \\ simp[code_locs_append]
+    \\ `extract_name (FST (SND pp)) =
+       if NULL (FST(SND (co n))) then (0, [Op None (Const (&FST(FST(co n)))) []]) else
+       (FST(FST(co n)),
+        let es = (if c.do_mti then clos_mtiProof$compile_inc c.max_app else I) (SND (co n)) in
+        let es = SND (renumber_code_locs_list (make_even (FST(FST(co n)) + MAX (LENGTH (FST es)) 1)) (FST es) ) in
+        let es = (case c.known_conf of NONE => es | SOME kcfg =>
+          FST (clos_letopProof$compile_inc
+            (clos_ticksProof$compile_inc
+              (SND (clos_knownProof$compile_inc kcfg (FST(SND(FST(co n)))) (es,[]))))
+              )) in
+        let es = if c.do_call then FST(calls es (FST(SND(SND(FST(co n)))), [])) else es in
+        annotate 0 es)`
+    by (
+      simp[Abbr`pp`, acompile_inc_uncurry, backendPropsTheory.SND_state_co]
+      \\ simp[clos_knownProofTheory.known_co_def]
+      \\ Cases_on`c.known_conf` >- (
+        rw[backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
+        \\ simp[ccompile_inc_uncurry, FST_SND_ignore_table, clos_numberProofTheory.compile_inc_def, UNCURRY,
+                calls_Op_Const, annotate_Op_Const, extract_name_Op_Const]
+        \\ fs[NULL_EQ, renumber_code_locs_list_nil, calls_nil, annotate_nil])
+      \\ fs[backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
+      \\ fs[ignore_table_uncurry, clos_numberProofTheory.compile_inc_def, UNCURRY]
+      \\ cheat (* kcompile_inc Op Const, etc. *) )
+    \\ cheat (* probably want to assume the oracle doesn't produce null... *) )
+(*
+  \\ conj_tac
+  >- (
+    simp[compile_prog_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac compile_exps_LENGTH \\ fs[]
+    \\ simp[MAP2_MAP, MAP_MAP_o, o_DEF, UNCURRY]
+    \\ qmatch_goalsub_abbrev_tac`MAP f`
+    \\ `f = ((+)(num_stubs c.max_app)) o FST o FST`
+    by ( simp[Abbr`f`, FUN_EQ_THM] )
+    \\ simp[Abbr`f`]
+    \\ simp[GSYM MAP_MAP_o]
+    \\ simp[MAP_ZIP]
+    \\ simp[MAP_FST_chain_exps_any]
+    \\ cheat )
+*)
+
   (*
-  this does not work any more, I think because calls produces code
-  \\ `SND(SND pp) = []`
-  by (
-    simp[Abbr`pp`, acompile_inc_uncurry,backendPropsTheory.SND_state_co,backendPropsTheory.FST_state_co]
-    \\ simp[clos_annotateTheory.compile_def]
-    \\ rw[ccompile_inc_uncurry]
-    \\ CASE_TAC \\ simp[SND_SND_ignore_table, kcompile_inc_uncurry]
-    \\ fs[syntax_oracle_ok_def])
-  \\ fs[]
-  \\ simp[compile_prog_code_locs,Abbr`R`]
-  \\ simp[MAP_REVERSE]
-  \\ simp[MEM_MAP]
-  \\ simp[CONJ_ASSOC]
-  \\ reverse conj_asm2_tac
-  >- (
-    simp[Abbr`pp`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-    \\ simp[acompile_inc_uncurry, HD_annotate_SING] )
-  \\ fs[syntax_oracle_ok_def]
-  \\ reverse conj_asm2_tac
-  >- (
-    simp[Abbr`pp`, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-    \\ simp[acompile_inc_uncurry, HD_annotate_SING]
-    \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_annotate
-    \\ rw[ccompile_inc_uncurry, HD_FST_calls]
-    \\ TRY (
-      qmatch_goalsub_abbrev_tac`calls xx yy`
-      \\ Cases_on`calls xx yy`
-      \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
-      \\ rw[Abbr`xx`,Abbr`yy`]
-      \\ fsrw_tac[DNF_ss][]
-      \\ first_x_assum match_mp_tac )
-    \\ CASE_TAC
-    \\ fs[FST_SND_ignore_table, kcompile_inc_uncurry,
-          clos_numberProofTheory.renumber_code_locs_every_Fn_SOME]
-    \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
-    \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac known_every_Fn_SOME
-    \\ Cases_on`known aa bb ccc dd`
-    \\ qunabbrev_tac`bb`
-    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
-    \\ fs[] \\ strip_tac
-    \\ fsrw_tac[DNF_ss][]
-    \\ first_x_assum match_mp_tac
-    \\ fs[Abbr`ccc`,Abbr`dd`, clos_numberProofTheory.renumber_code_locs_every_Fn_SOME] )
   \\ `set (code_locs [FST (SND pp)]) ⊆
       between (FST(FST (co n)))
         (FST (renumber_code_locs_list (FST (FST (co n)))
