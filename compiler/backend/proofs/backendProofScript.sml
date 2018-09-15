@@ -471,14 +471,20 @@ val compile_correct = Q.store_thm("compile_correct",
   qunabbrev_tac`sem2` >>
   (flat_to_patProofTheory.compile_semantics
    |> Q.GEN`cc`
-   |> INST_TYPE[alpha|->``:(num # num # closLang$exp)``]
+   |> INST_TYPE[alpha|->``:(num # num # closLang$exp list)``]
    |> (
-     ``compile_common_inc c.clos_conf
+     ``
+     pure_cc (λes. (MAP pat_to_clos$compile es, [])) (
+      compile_common_inc (c:'a config).clos_conf
          (pure_cc (compile_inc c.clos_conf.max_app)
+           (*
            (full_cc c.bvl_conf
-             (pure_cc compile_prog TODO_cc)))``
-     |> inst[beta|->``:word8 list``, gamma|->``:word64 list``, delta|->alpha, ``:'e`` |->alpha]
+             (pure_cc compile_prog TODO_cc))
+            *)
+            TODO_cc
+             ))``
      |> ISPEC)
+   |> INST_TYPE[beta|->``:(num # num # closLang$exp)list``]
    |> Q.GEN`k0`
    |>  drule)
   \\ disch_then(qspecl_then[`TODO_clock`](strip_assume_tac o SYM)) >>
@@ -486,10 +492,10 @@ val compile_correct = Q.store_thm("compile_correct",
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] (st4 cc3 st3) es3 }` >>
+  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] (st4 (pure_cc pc cc3) st3) es3 }` >>
   (pat_to_closProofTheory.compile_semantics
    |> Q.GENL[`cc`,`st`,`es`,`max_app`]
-   |> qispl_then[`cc3`,`st4 cc3 st3`,`es3`]mp_tac) >>
+   |> qispl_then[`cc3`,`st4 (pure_cc pc cc3) st3`,`es3`]mp_tac) >>
   simp[Abbr`es3`] >>
   disch_then drule >>
   impl_tac >- (
@@ -513,7 +519,10 @@ val compile_correct = Q.store_thm("compile_correct",
     >- (
       fs[flat_to_patProofTheory.compile_state_def,
          flatSemTheory.initial_state_def] )
-    \\ simp[Abbr`cf`,Abbr`co3`]
+    \\ simp[Abbr`cf`,Abbr`co3`,Abbr`pc`]
+    \\ simp[syntax_oracle_ok_def]
+    \\ conj_tac
+
     \\ cheat (* oracle needs to be instantiated, amongst other things *) )
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
