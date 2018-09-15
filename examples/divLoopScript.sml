@@ -4,11 +4,12 @@ val _ = new_theory "divLoop";
 
 val _ = translation_extends "basisProg";
 
-(* Needs reformulating as Qd can be anything (even &F) *)
+(* Needs reformulating *)
 val div_ind = Q.store_thm("div_ind",
   `!fv xs H Qd env funs f.
        fv = Recclosure env funs f /\
        (?param body. find_recfun f funs = SOME (param, body) /\
+       (?h. Qd h) /\
      (app (p:'ffi ffi_proj) fv xs H (POSTd Qd) ==>
          cf (p:'ffi ffi_proj) body
             (extend_env_rec
@@ -65,6 +66,7 @@ val loop_spec = Q.store_thm ("loop_spec",
   \\ EXISTS_TAC f
   \\ conj_tac THEN1 (simp [th])
   \\ simp [semanticPrimitivesTheory.find_recfun_def]
+  \\ conj_tac THEN1 (simp [cond_def])
   \\ rw [cf_def, cfNormaliseTheory.dest_opapp_def]
   \\ CONV_TAC ((RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL)
   \\ fs [th]
