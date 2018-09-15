@@ -680,6 +680,14 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       fs[]
       \\ first_x_assum drule
       \\ disch_then drule
+      \\ disch_then(qspec_then`n`mp_tac)
+      \\ rw[] \\ rw[]
+      \\ fs[case_eq_thms]
+      \\ rw[] \\ simp[PULL_EXISTS] \\ fs[] )
+    (*
+      fs[]
+      \\ first_x_assum drule
+      \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
       \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
       \\ imp_res_tac state_rel_max_app
@@ -727,7 +735,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ fs [do_install_def,case_eq_thms]
       \\ rpt (pairarg_tac \\ fs [])
-      \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]) >>
+      \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]*) >>
     srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>

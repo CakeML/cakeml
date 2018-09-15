@@ -989,6 +989,8 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION])
     \\ rename1 `evaluate (_, _, s0) = (_, s1)`
     \\ Cases_on `op = Install` \\ fs []
+    THEN1 ( rveq \\ fs[] \\ qexists_tac`n` \\ simp[op_gbag_def] )
+    (*
     THEN1
      (reverse (fs [pair_case_eq, result_case_eq]) \\ rveq \\ fs []
       THEN1
@@ -1024,6 +1026,7 @@ val evaluate_changed_globals_0 = Q.prove(
       \\ rpt (pop_assum kall_tac)
       \\ fs [elist_globals_append, SET_OF_BAG_UNION]
       \\ metis_tac [UNION_ASSOC, UNION_COMM, SUBSET_UNION])
+    *)
     \\ reverse (fs [result_case_eq, pair_case_eq]) \\ rveq \\ fs []
     \\ drule do_app_ssgc \\ fs [EVERY_REVERSE]
     \\ strip_tac \\ rveq \\ fs []
@@ -2079,6 +2082,7 @@ val known_correct_approx = Q.store_thm(
       \\ irule state_globals_approx_known_op_evaluate
       \\ rpt (goal_assum drule \\ simp []))
     \\ fs [known_op_def] \\ rveq \\ fs []
+    (*
     \\ reverse (fs [result_case_eq, pair_case_eq]) \\ rveq \\ fs []
     THEN1
      (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
@@ -2105,7 +2109,7 @@ val known_correct_approx = Q.store_thm(
     \\ pop_assum drule \\ strip_tac
     \\ fs [mglobals_extend_def]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ metis_tac [state_globals_approx_def])
+    \\ metis_tac [state_globals_approx_def]*))
   THEN1
    (say "App"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -3118,6 +3122,7 @@ val known_correct0 = Q.prove(
        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
            \\ goal_assum drule \\ simp [])
     \\ Cases_on `opn = Install` \\ fs []
+    (*
     THEN1
      (drule EVERY2_REVERSE \\ strip_tac
       \\ rename1 `evaluate (_, _, s0) = (Rval vs1, _)`
@@ -3370,7 +3375,7 @@ val known_correct0 = Q.prove(
         THEN1 (pop_assum (qspec_then `n + 1` assume_tac)
                \\ fs [first_n_exps_shift_seq, first_n_exps_def,
                       elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]))
-      THEN1 fs [result_case_eq])
+      THEN1 fs [result_case_eq])*)
     \\ Cases_on `isGlobal opn /\ gO_destApx apx <> gO_None`
     THEN1
      (fs []

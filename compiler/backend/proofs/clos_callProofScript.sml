@@ -2691,6 +2691,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ strip_tac \\ pop_assum mp_tac \\ fs []
       \\ imp_res_tac do_app_const \\ fs [])
     \\ rveq \\ fs []
+    (*
     \\ fs [pair_case_eq]
     \\ rveq \\ fs []
     \\ qpat_x_assum `do_install _ r = _` mp_tac
@@ -2815,7 +2816,7 @@ val calls_correct = Q.store_thm("calls_correct",
     \\ simp [includes_state_def] \\ strip_tac
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_code \\ rw [] \\ fs [shift_seq_def]
-    \\ metis_tac [])
+    \\ metis_tac []*))
   (* Fn *)
   \\ conj_tac >- (
     say "Fn"

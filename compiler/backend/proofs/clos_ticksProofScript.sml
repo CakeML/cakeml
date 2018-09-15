@@ -497,6 +497,8 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ PairCases_on `v1`
       \\ fs []
       \\ metis_tac [])
+    \\ qexists_tac`ck + LENGTH ts` \\ rw[]
+    (*
     (* op = Install *)
     \\ qpat_x_assum `_ = (res2, t2)` mp_tac
     \\ simp [Once do_install_def]
@@ -574,7 +576,9 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ rveq
     \\ CASE_TAC \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
     \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ Q.ISPEC_THEN`a'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
+    \\ Q.ISPEC_THEN`a'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC]
+    *)
+    )
   THEN1 (* Fn *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]

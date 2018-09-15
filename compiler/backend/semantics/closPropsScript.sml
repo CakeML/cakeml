@@ -611,6 +611,7 @@ val evaluate_code_lemma = prove(
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
     \\ metis_tac[])
+  (*
   >-
    (fs [do_install_def]
     \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
@@ -624,6 +625,7 @@ val evaluate_code_lemma = prove(
     \\ rfs []
     \\ fs [FDOM_FUPDATE_LIST]
     \\ metis_tac [])
+  *)
   \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
   \\ qexists_tac `n1+n2+n3` \\ fs []
   \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`

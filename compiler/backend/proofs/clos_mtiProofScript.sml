@@ -687,7 +687,8 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ disch_then drule \\ fs[] \\ strip_tac \\ fs []
     \\ rename1 `(if opp = _ then _ else _) = _`
     \\ Cases_on `opp = Install` \\ fs [] \\ rveq
-    THEN1
+    THEN1 ( Cases_on`res1` \\ fs[] )
+    (*
      (Cases_on `res1` \\ fs []
       \\ qpat_x_assum `_ = (res2,t2)` mp_tac
       \\ simp [Once do_install_def]
@@ -763,6 +764,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ qunabbrev_tac `ss` \\ fs []
       \\ fs [state_rel_def,FUPDATE_LIST,pure_co_def,FUN_EQ_THM]
       \\ metis_tac [FST,SND])
+    *)
     \\ Cases_on `res1` \\ fs []
     \\ imp_res_tac evaluate_const \\ fs []
     \\ drule (GEN_ALL do_app_lemma)

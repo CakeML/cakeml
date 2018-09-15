@@ -3236,6 +3236,18 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
   THEN1 (* Op *)
    (Cases_on `op = Install` THEN1
+    (rveq \\ fs[] \\ rveq \\ fs[]
+     \\ fs[closSemTheory.evaluate_def]
+     \\ fs[case_eq_thms] \\ rveq \\ fs[]
+     \\ fs[compile_exps_def]
+     \\ pairarg_tac \\ fs[] \\ rveq
+     \\ first_x_assum drule
+     \\ disch_then drule
+     \\ disch_then drule
+     \\ rw[] \\ simp[bEval_def]
+     \\ qexists_tac`ck` \\ simp[]
+     \\ asm_exists_tac \\ rw[])
+    (*
      (rveq \\ fs [] \\ rveq
       \\ fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
       \\ pairarg_tac \\ fs []
@@ -3536,6 +3548,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ match_mp_tac LIST_REL_IMP_LAST \\ fs []
       \\ disj2_tac \\ CCONTR_TAC \\ fs [])
+    *)
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]

@@ -403,6 +403,8 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ IF_CASES_TAC \\ rveq \\ fs []
     THEN1 (* Op = Install *)
+      (rveq \\ fs[])
+     (*
      (drule EVERY2_REVERSE
       \\ qabbrev_tac `a1 = REVERSE vs`
       \\ qabbrev_tac `a2 = REVERSE v'`
@@ -472,6 +474,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES
       \\ fs[LIST_REL_SNOC])
+     *)
    (* op <> Install *)
    \\ drule EVERY2_REVERSE \\ disch_tac
    \\ drule (GEN_ALL do_app_lemma)
