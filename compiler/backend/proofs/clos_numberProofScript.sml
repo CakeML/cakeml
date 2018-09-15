@@ -182,8 +182,10 @@ val state_rel_def = Define `
     t.compile_oracle = state_co (ignore_table compile_inc) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
+    (*
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
          ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
+    *)
     s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
@@ -486,6 +488,7 @@ val v_to_words = Q.prove(
   \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
   \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
 
+(*
 val do_install = Q.prove(
   `state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
@@ -532,6 +535,7 @@ val do_install = Q.prove(
     (fs [compile_inc_def] \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
   \\ fs[state_rel_def,state_co_def,ignore_table_def]
   \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL] );
+*)
 
 (* compiler correctness *)
 
@@ -551,6 +555,7 @@ val lookup_vars_SOME_related_env = Q.store_thm(
   dsimp[CaseEq"option"] >> reverse conj_tac >- metis_tac[] >>
   simp[LIST_REL_EL_EQN]);
 
+(*
 val do_install_Rabort = prove(
   ``closSem$do_install xs s2 = (Rerr (Rabort a),s3) ==>
     a = Rtype_error \/ a = Rtimeout_error``,
@@ -558,6 +563,7 @@ val do_install_Rabort = prove(
   \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
   \\ pairarg_tac \\ fs []
   \\ fs [do_install_def,case_eq_thms,pair_case_eq,bool_case_eq]);
+*)
 
 val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
   `(!tmp xs env (s1:(num#'c,'ffi) closSem$state) env' t1 res s2 n.
@@ -995,10 +1001,10 @@ val renumber_code_locs_esgc_free = Q.store_thm(
 val semantics_number = Q.store_thm ("semantics_number",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
      (state_cc (ignore_table compile_inc) cc) xs <> Fail ==>
-   ¬contains_App_SOME max_app xs /\
+   ¬contains_App_SOME max_app xs (* /\
    (∀n.
       SND (SND (co n)) = [] ∧
-      ¬contains_App_SOME max_app (FST (SND (co n)))) ==>
+      ¬contains_App_SOME max_app (FST (SND (co n)))) *) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (state_co (ignore_table compile_inc) co) cc
         (SND (renumber_code_locs_list n xs)) =

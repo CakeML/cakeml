@@ -1,7 +1,7 @@
 (* A proof of the clos_mti compiler pass. The theorem is proved using
    a backwards simulation, i.e. against the direction of compilation. *)
 open preamble backendPropsTheory closPropsTheory
-clos_mtiTheory closSemTheory;
+clos_mtiTheory closSemTheory helperLib;
 
 val _ = new_theory "clos_mtiProof";
 
@@ -168,8 +168,10 @@ val SND_compile_inc = Q.store_thm("SND_compile_inc[simp]",
 
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
+    (*
     (!n. SND (SND (s.compile_oracle n)) = [] /\
          syntax_ok (FST (SND (s.compile_oracle n)))) /\
+    *)
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -1460,7 +1462,9 @@ val compile_preserves_esgc_free = Q.store_thm(
 val semantics_intro_multi = Q.store_thm ("semantics_intro_multi",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
+   (*
    (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧
+   *)
    1 <= max_app /\ syntax_ok xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc
