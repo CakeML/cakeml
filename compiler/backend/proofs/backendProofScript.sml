@@ -275,6 +275,7 @@ val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = ^prim_config.source_conf ∧
     0 < c.clos_conf.max_app ∧
+    (case c.clos_conf.known_conf of SOME kcfg => kcfg.val_approx_spt = LN | _ => T) ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
     c.lab_conf.pos = 0 ∧
@@ -469,9 +470,9 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
+
   (flat_to_patProofTheory.compile_semantics
    |> Q.GEN`cc`
-   |> INST_TYPE[alpha|->``:(num # num # closLang$exp list)``]
    |> (
      ``
      pure_cc (λes. (MAP pat_to_clos$compile es, [])) (
@@ -485,9 +486,18 @@ val compile_correct = Q.store_thm("compile_correct",
              ))``
      |> ISPEC)
    |> INST_TYPE[beta|->``:(num # num # closLang$exp)list``]
+   |> Q.GEN`co`
    |> Q.GEN`k0`
    |>  drule)
-  \\ disch_then(qspecl_then[`TODO_clock`](strip_assume_tac o SYM)) >>
+  \\ disch_then(
+       qspecl_then[`TODO_clock`,
+                   `K ((TODO_co1,
+                        (
+                        (THE(FST(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p)))))))).val_approx_spt
+                        ,
+                         (FST(SND(compile T (SND(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p))))))))),
+                          []))), [])`]
+     (strip_assume_tac o SYM)) >>
   fs[] >>
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
@@ -522,8 +532,34 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp[Abbr`cf`,Abbr`co3`,Abbr`pc`]
     \\ simp[syntax_oracle_ok_def]
     \\ conj_tac
-
-    \\ cheat (* oracle needs to be instantiated, amongst other things *) )
+    >- (
+      simp[Abbr`e3`, Abbr`p''`]
+      \\ strip_tac
+      \\ reverse conj_tac >- EVAL_TAC
+      \\ simp[Abbr`p'`]
+      \\ simp[clos_mtiProofTheory.syntax_ok_def]
+      \\ cheat (* prove syntax_ok for mti *) )
+    \\ conj_tac
+    >- (
+      strip_tac
+      \\ conj_tac
+      >- ( fs[IS_SOME_EXISTS] \\ fs[backend_config_ok_def] )
+      \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`] )
+    \\ conj_tac
+    >- ( strip_tac \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`] )
+    \\ conj_tac
+    >- (
+      gen_tac
+      \\ conj_tac >- cheat (* syntax ok *)
+      \\ conj_tac >- (
+        CONV_TAC(RAND_CONV(RAND_CONV EVAL))
+        \\ simp[GSYM REPLICATE_GENLIST]
+        \\ simp[FLAT_REPLICATE_NIL]
+        \\ cheat (* syntax ok *) )
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- ( EVAL_TAC \\ rw[] )
+      \\ cheat (* syntax ok *) )
+    \\ cheat (* syntax ok *) )
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
@@ -532,6 +568,7 @@ val compile_correct = Q.store_thm("compile_correct",
   drule (GEN_ALL bvl_to_bviProofTheory.compile_semantics)
   \\ disch_then(qspec_then`s.ffi`mp_tac)
   \\ qunabbrev_tac`cc`
+
   \\ qmatch_goalsub_abbrev_tac`semantics _ _ co (full_cc _ cc) _`
   \\ disch_then(qspecl_then[`co`,`cc`]mp_tac)
   \\ fs[Abbr`c''''`]
