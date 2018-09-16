@@ -393,47 +393,17 @@ val state_globals_approx_coupd = Q.store_thm(
 (* Mapped globals *)
 
 val mapped_globals_def = Define`
-  mapped_globals (s:('c,'ffi) closSem$state) =
-    { i | ∃v. get_global i s.globals = SOME (SOME v) }
+  mapped_globals g =
+    { i | ∃v. get_global i g = SOME (SOME v) }
 `;
-
-val mapped_globals_refupdate = Q.store_thm(
-  "mapped_globals_refupdate[simp]",
-  `mapped_globals (s with refs updated_by f) = mapped_globals s`,
-  simp[mapped_globals_def]);
-
-val mapped_globals_ffiupdate = Q.store_thm(
-  "mapped_globals_ffiupdate[simp]",
-  `mapped_globals (s with ffi updated_by v) = mapped_globals s`,
-  simp[mapped_globals_def]);
-
-val mapped_globals_clockupdate = Q.store_thm(
-  "mapped_globals_clockupdate[simp]",
-  `mapped_globals (s with clock updated_by f) = mapped_globals s`,
-  simp[mapped_globals_def]);
-
-val mapped_globals_dec_clock = Q.store_thm(
-  "mapped_globals_dec_clock[simp]",
-  `mapped_globals (dec_clock n s) = mapped_globals s`,
-  simp[mapped_globals_def, dec_clock_def]);
-
-val mapped_globals_codeupdate = Q.store_thm(
-  "mapped_globals_codeupdate[simp]",
-  `mapped_globals (s with code updated_by f) = mapped_globals s`,
-  simp[mapped_globals_def]);
-
-val mapped_globals_coupdate = Q.store_thm(
-  "mapped_globals_coupdate[simp]",
-  `mapped_globals (s with compile_oracle updated_by f) = mapped_globals s`,
-  simp[mapped_globals_def]);
 
 (* Extending mapped globals *)
 
 val mglobals_extend_def = Define`
-  mglobals_extend (s1:(('a, 'b) closSem$state)) mgs (s2:(('a, 'b) closSem$state)) ⇔
-     mapped_globals s2 ⊆ mapped_globals s1 ∪ mgs ∧
-     ∀k v. get_global k s2.globals = SOME (SOME v) ∧ k ∉ mgs ⇒
-           get_global k s1.globals = SOME (SOME v)`
+  mglobals_extend g1 mgs g2 ⇔
+     mapped_globals g2 ⊆ mapped_globals g1 ∪ mgs ∧
+     ∀k v. get_global k g2 = SOME (SOME v) ∧ k ∉ mgs ⇒
+           get_global k g1 = SOME (SOME v)`
 
 val mglobals_extend_refl = Q.store_thm(
   "mglobals_extend_refl[simp]",
@@ -450,53 +420,6 @@ val mglobals_extend_SUBSET = Q.store_thm(
   "mglobals_extend_SUBSET",
   `!s0 s g1 g2. mglobals_extend s0 g1 s ∧ g1 ⊆ g2 ⇒ mglobals_extend s0 g2 s`,
   simp[mglobals_extend_def, SUBSET_DEF] >> metis_tac[]);
-
-val mglobals_extend_refupdate = Q.store_thm(
-  "mglobals_extend_refupdate[simp]",
-  `(mglobals_extend s0 gs (s with refs updated_by f) ⇔
-      mglobals_extend s0 gs s) ∧
-   (mglobals_extend (s0 with refs updated_by f) gs s ⇔
-      mglobals_extend s0 gs s)`,
-  simp[mglobals_extend_def]);
-
-val mglobals_extend_ffiupdate = Q.store_thm(
-  "mglobals_extend_ffiupdate[simp]",
-  `(mglobals_extend s0 gs (s with ffi updated_by f) ⇔
-      mglobals_extend s0 gs s) ∧
-   (mglobals_extend (s0 with ffi updated_by f) gs s  ⇔
-      mglobals_extend s0 gs s)`,
-  simp[mglobals_extend_def]);
-
-val mglobals_extend_clockupdate = Q.store_thm(
-  "mglobals_extend_clockupdate[simp]",
-  `(mglobals_extend s0 gs (s with clock updated_by f) ⇔
-      mglobals_extend s0 gs s) ∧
-   (mglobals_extend (s0 with clock updated_by f) gs s ⇔
-      mglobals_extend s0 gs s)`,
-  simp[mglobals_extend_def]);
-
-val mglobals_extend_decclock = Q.store_thm(
-  "mglobals_extend_decclock[simp]",
-  `(mglobals_extend (dec_clock n s0) gs s ⇔ mglobals_extend s0 gs s) ∧
-   (mglobals_extend s0 gs (dec_clock n s) ⇔ mglobals_extend s0 gs s)`,
-  simp[dec_clock_def]);
-
-val mapped_globals_codeupdate = Q.store_thm(
-  "mglobals_extend_codeupdate[simp]",
-  `(mglobals_extend s0 gs (s with code updated_by f) ⇔
-      mglobals_extend s0 gs s) /\
-   (mglobals_extend (s0 with code updated_by f) gs s ⇔
-      mglobals_extend s0 gs s)`,
-  simp[mglobals_extend_def,mapped_globals_def]);
-
-val mglobals_extend_co_update = Q.store_thm(
-  "mglobals_extend_co_update[simp]",
-  `(mglobals_extend s0 gs (s with compile_oracle updated_by f) ⇔
-      mglobals_extend s0 gs s) /\
-   (mglobals_extend (s0 with compile_oracle updated_by f) gs s ⇔
-      mglobals_extend s0 gs s)`,
-  simp[mglobals_extend_def,mapped_globals_def]);
-
 
 val subspt_better_definedg = Q.store_thm(
   "subspt_better_definedg",
@@ -716,7 +639,7 @@ val do_install_ssgc = Q.store_thm(
    ssgc_free s1 /\ EVERY esgc_free es /\ es ≠ [] /\
    s1.compile_oracle = shift_seq 1 s0.compile_oracle /\
    first_n_exps s0.compile_oracle 1 = [es] /\
-   mglobals_extend s0 EMPTY s1`,
+   mglobals_extend s0.globals EMPTY s1.globals`,
    rpt gen_tac \\ strip_tac
    \\ fs [do_install_def, case_eq_thms]
    \\ pairarg_tac \\ fs []
@@ -743,7 +666,7 @@ val do_app_ssgc = Q.store_thm(
      (!v s. res = Rval (v, s) ==>
             vsgc_free v /\ ssgc_free s /\
             s.compile_oracle = s0.compile_oracle /\
-            mglobals_extend s0 (SET_OF_BAG (op_gbag opn)) s) /\
+            mglobals_extend s0.globals (SET_OF_BAG (op_gbag opn)) s.globals) /\
      (!v. res = Rerr (Rraise v) ==> vsgc_free v)`,
   gen_tac >>
   `?this_is_case. this_is_case = opn` by metis_tac [] >>
@@ -875,17 +798,17 @@ val evaluate_changed_globals_0 = Q.prove(
         ssgc_free s /\ rsgc_free res /\
         ?n.
           s.compile_oracle = shift_seq n s0.compile_oracle /\
-          mglobals_extend s0
+          mglobals_extend s0.globals
             (SET_OF_BAG (elist_globals es) ∪
-             SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s) /\
+             SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s.globals) /\
    (!loc_opt f args (s0:('c,'ffi) closSem$state) res s.
       evaluate_app loc_opt f args s0 = (res, s) /\
       ssgc_free s0 /\ vsgc_free f /\ EVERY vsgc_free args ==>
         ssgc_free s /\ rsgc_free res /\
         ?n.
           s.compile_oracle = shift_seq n s0.compile_oracle /\
-          mglobals_extend s0
-            (SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s)`,
+          mglobals_extend s0.globals
+            (SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s.globals)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
@@ -904,9 +827,9 @@ val evaluate_changed_globals_0 = Q.prove(
     \\ reverse (fs [pair_case_eq, result_case_eq]) \\ rveq \\ fs []
     \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
     \\ qexists_tac `n' + n` \\ simp [first_n_exps_shift_seq]
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
     \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
     \\ fs [elist_globals_append, SET_OF_BAG_UNION]
     \\ unabbrev_all_tac \\ rpt (pop_assum kall_tac)
@@ -933,9 +856,9 @@ val evaluate_changed_globals_0 = Q.prove(
     \\ fs [] \\ fs []
     \\ qexists_tac `n' + n`
     \\ simp [first_n_exps_shift_seq]
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
     \\ `g1 ∪ g2 ⊆ g3` suffices_by metis_tac [mglobals_extend_trans, mglobals_extend_SUBSET]
     \\ fs [elist_globals_append, SET_OF_BAG_UNION]
     \\ unabbrev_all_tac \\ rpt (pop_assum kall_tac)
@@ -945,9 +868,9 @@ val evaluate_changed_globals_0 = Q.prove(
     \\ fs [evaluate_def, pair_case_eq, case_eq_thms]
     \\ rveq \\ fs []
     THEN1 (qexists_tac `n + n'` \\ simp [first_n_exps_shift_seq]
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
            \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
            \\ unabbrev_all_tac
            \\ simp [elist_globals_append, SET_OF_BAG_UNION]
@@ -970,9 +893,9 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ goal_assum drule
            \\ metis_tac [UNION_ASSOC, UNION_COMM, SUBSET_UNION])
     THEN1 (qexists_tac `n + n'` \\ simp [first_n_exps_shift_seq]
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
            \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
            \\ fs [elist_globals_append, SET_OF_BAG_UNION]
            \\ unabbrev_all_tac \\ rpt (pop_assum kall_tac)
@@ -1016,10 +939,10 @@ val evaluate_changed_globals_0 = Q.prove(
       \\ qexists_tac `n' + (1 + n)`
       \\ simp [first_n_exps_shift_seq]
       \\ rename1 `do_install _ _ = (_, s2)`
-      \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-      \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s2`
-      \\ qmatch_asmsub_abbrev_tac `mglobals_extend s2 g3 s`
-      \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g4 s`
+      \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+      \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s2.globals`
+      \\ qmatch_asmsub_abbrev_tac `mglobals_extend s2.globals g3 s.globals`
+      \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g4 s.globals`
       \\ rfs []
       \\ `g1 ∪ g2 ∪ g3 ⊆ g4` suffices_by metis_tac [mglobals_extend_trans, mglobals_extend_SUBSET]
       \\ unabbrev_all_tac
@@ -1035,9 +958,9 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ qexists_tac `n` \\ fs [SET_OF_BAG_UNION]
            \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION])
     \\ qexists_tac `n` \\ simp []
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
     \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
     \\ unabbrev_all_tac \\ rpt (pop_assum kall_tac)
     \\ simp [elist_globals_append, SET_OF_BAG_UNION]
@@ -1073,19 +996,19 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ metis_tac [UNION_ASSOC, UNION_COMM, SUBSET_UNION])
     \\ reverse (fs [pair_case_eq, case_eq_thms]) \\ rveq \\ fs []
     THEN1 (qexists_tac `n + n'` \\ simp [first_n_exps_shift_seq]
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
            \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
            \\ unabbrev_all_tac
            \\ simp [elist_globals_append, SET_OF_BAG_UNION]
            \\ metis_tac [UNION_ASSOC, UNION_COMM])
     \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
     \\ qexists_tac `(n'' + n) + n'` \\ simp [first_n_exps_shift_seq]
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s2`
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s2 g3 s`
-    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g4 s`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s2.globals`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s2.globals g3 s.globals`
+    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g4 s.globals`
     \\ `g1 ∪ g2 ∪ g3 ⊆ g4` suffices_by metis_tac [mglobals_extend_trans, mglobals_extend_SUBSET]
     \\ fs [elist_globals_append, SET_OF_BAG_UNION]
     \\ unabbrev_all_tac
@@ -1110,9 +1033,9 @@ val evaluate_changed_globals_0 = Q.prove(
     \\ `set_globals code = {||}` by metis_tac [ssgc_free_def]
     \\ fs [set_globals_empty_esgc_free]
     \\ qexists_tac `n' + n` \\ simp [first_n_exps_shift_seq]
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+    \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+    \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
     \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
     \\ fs [elist_globals_append, SET_OF_BAG_UNION]
     \\ metis_tac [UNION_ASSOC, UNION_COMM])
@@ -1139,9 +1062,9 @@ val evaluate_changed_globals_0 = Q.prove(
     \\ fs [set_globals_empty_esgc_free, dec_clock_def]
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     THEN1 (qexists_tac `n' + n` \\ simp [first_n_exps_shift_seq]
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0 g1 s1`
-           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1 g2 s`
-           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0 g3 s`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s0.globals g1 s1.globals`
+           \\ qmatch_asmsub_abbrev_tac `mglobals_extend s1.globals g2 s.globals`
+           \\ qmatch_goalsub_abbrev_tac `mglobals_extend s0.globals g3 s.globals`
            \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
            \\ fs [elist_globals_append, SET_OF_BAG_UNION]
            \\ metis_tac [UNION_ASSOC, UNION_COMM])
@@ -1578,7 +1501,7 @@ val state_globals_approx_known_mglobals_disjoint = Q.store_thm(
   "state_globals_approx_known_mglobals_disjoint",
   `!c xs aenv g0 eas g s.
    known c xs aenv g0 = (eas, g) /\
-   mglobals_disjoint s xs /\
+   mglobals_disjoint s.globals xs /\
    state_globals_approx s g0 ==>
    state_globals_approx s g`,
    rw [] \\ simp [state_globals_approx_def] \\ rw []
@@ -1593,8 +1516,8 @@ val mglobals_disjoint_evaluate = Q.store_thm("mglobals_disjoint_evaluate",
    evaluate (ys, env, s0) = (res, s) /\
    ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free ys /\
    unique_set_globals (xs ++ ys) s0.compile_oracle /\
-   mglobals_disjoint s0 xs ==>
-   mglobals_disjoint s xs`,
+   mglobals_disjoint s0.globals xs ==>
+   mglobals_disjoint s.globals xs`,
   rw [mglobals_disjoint_def, mapped_globals_def, DISJOINT_ALT, PULL_EXISTS]
   \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
   \\ fs [mglobals_extend_def, mapped_globals_def]
@@ -1618,8 +1541,8 @@ val gapprox_extend_def = Define `
 
 val state_globals_approx_disjoint_extends = Q.store_thm("state_globals_approx_disjoint_extends",
   `!s1 mgx s2 g1 gax g2.
-     mglobals_extend s1 mgx s2 /\ gapprox_extend g1 gax g2 /\
-     DISJOINT (mapped_globals s1) gax /\ DISJOINT gax mgx /\
+     mglobals_extend s1.globals mgx s2.globals /\ gapprox_extend g1 gax g2 /\
+     DISJOINT (mapped_globals s1.globals) gax /\ DISJOINT gax mgx /\
      state_globals_approx s2 g1 ==>
      state_globals_approx s2 g2`,
    rw [state_globals_approx_def]
@@ -1633,7 +1556,7 @@ val state_globals_approx_evaluate = Q.store_thm("state_globals_approx_evaluate",
    evaluate (xs,env,s0) = (res, s) /\
    known c ys aenv g0 = (eas, g) /\
    ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free xs /\
-   mglobals_disjoint s0 ys /\
+   mglobals_disjoint s0.globals ys /\
    unique_set_globals (xs ++ ys) s0.compile_oracle /\
    state_globals_approx s g0 ==>
    state_globals_approx s g`,
@@ -1656,7 +1579,7 @@ val state_globals_approx_known_op_evaluate = Q.store_thm(
   `evaluate (xs,env,s0) = (res, s) /\
    known_op opn aargs g0 = (ea, g) /\
    ssgc_free s0 /\ EVERY vsgc_free env /\ EVERY esgc_free xs /\
-   DISJOINT (mapped_globals s0) (SET_OF_BAG (op_gbag opn)) /\
+   DISJOINT (mapped_globals s0.globals) (SET_OF_BAG (op_gbag opn)) /\
    unique_set_globals [Op tr opn xs] s0.compile_oracle /\
    state_globals_approx s g0 ==>
    state_globals_approx s g`,
@@ -1770,7 +1693,7 @@ val known_correct_approx = Q.store_thm(
    unique_set_globals xs s0.compile_oracle /\
    LIST_REL val_approx_val aenv env /\
    state_globals_approx s0 g0 /\
-   mglobals_disjoint s0 xs /\
+   mglobals_disjoint s0.globals xs /\
    oracle_gapprox_disjoint g0 s0.compile_oracle /\
    ssgc_free s0 /\ EVERY vsgc_free (env ++ extra) /\ EVERY esgc_free xs /\
    EVERY val_approx_sgc_free aenv /\ globals_approx_sgc_free g0
@@ -1860,7 +1783,7 @@ val known_correct_approx = Q.store_thm(
       \\ `unique_set_globals [x3] s1.compile_oracle`
          by (irule unique_set_globals_evaluate \\ goal_assum drule
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
-      \\ `mglobals_disjoint s1 [x3]`
+      \\ `mglobals_disjoint s1.globals [x3]`
          by (match_mp_tac mglobals_disjoint_evaluate
              \\ rpt (goal_assum drule) \\ simp []
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
@@ -1882,7 +1805,7 @@ val known_correct_approx = Q.store_thm(
       \\ `unique_set_globals [x2] s1.compile_oracle`
          by (irule unique_set_globals_evaluate \\ goal_assum drule
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION])
-      \\ `mglobals_disjoint s1 [x2]`
+      \\ `mglobals_disjoint s1.globals [x2]`
          by (match_mp_tac mglobals_disjoint_evaluate
              \\ rpt (goal_assum drule) \\ simp []
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
@@ -1896,7 +1819,7 @@ val known_correct_approx = Q.store_thm(
       THEN1 (Cases_on `res` \\ fs [] \\ metis_tac [val_approx_val_merge_I])
       \\ match_mp_tac state_globals_approx_evaluate
       \\ rpt (goal_assum drule \\ simp [])
-      \\ `mglobals_disjoint s1 [x3]`
+      \\ `mglobals_disjoint s1.globals [x3]`
          by (match_mp_tac mglobals_disjoint_evaluate
              \\ rpt (goal_assum drule) \\ simp []
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_SYM])
@@ -2141,7 +2064,7 @@ val known_correct_approx = Q.store_thm(
         \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
         \\ patresolve `evaluate (_, _, s0) = _` hd oracle_gapprox_disjoint_lemma
         \\ rpt (disch_then drule \\ simp []) \\ strip_tac
-        \\ `mglobals_disjoint s1 [x1]`
+        \\ `mglobals_disjoint s1.globals [x1]`
            by (match_mp_tac mglobals_disjoint_evaluate
                \\ rpt (goal_assum drule) \\ simp []
                \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
@@ -2203,7 +2126,7 @@ val known_correct_approx = Q.store_thm(
       \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
       \\ patresolve `evaluate (_, _, s0) = _` hd oracle_gapprox_disjoint_lemma
       \\ rpt (disch_then drule \\ simp []) \\ strip_tac
-      \\ `mglobals_disjoint s1 [x1]`
+      \\ `mglobals_disjoint s1.globals [x1]`
          by (match_mp_tac mglobals_disjoint_evaluate
              \\ rpt (goal_assum drule) \\ simp []
              \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
@@ -2769,14 +2692,14 @@ val known_subspt = Q.store_thm("known_subspt",
 
 (* Set globals in all future installs is disjoint from currently mapped globals. *)
 val state_oracle_mglobals_disjoint_def = Define `
-  state_oracle_mglobals_disjoint s <=> !n. mglobals_disjoint s (FST (SND (s.compile_oracle n)))`;
+  state_oracle_mglobals_disjoint s <=> !n. mglobals_disjoint s.globals (FST (SND (s.compile_oracle n)))`;
 
 val state_oracle_mglobals_disjoint_evaluate_suff = Q.store_thm(
   "state_oracle_mglobals_disjoint_evaluate_suff",
   `!xs env s0 res s. evaluate (xs, env, s0) = (res, s) /\
    ssgc_free s0 /\ EVERY esgc_free xs /\ EVERY vsgc_free env /\
    unique_set_globals xs s0.compile_oracle /\
-   mglobals_disjoint s0 xs /\
+   mglobals_disjoint s0.globals xs /\
    state_oracle_mglobals_disjoint s0 ==>
    state_oracle_mglobals_disjoint s`,
   rw [state_oracle_mglobals_disjoint_def, mglobals_disjoint_def, DISJOINT_ALT]
@@ -2811,7 +2734,7 @@ val known_correct0 = Q.prove(
       state_rel c (next_g s0) s0 t0 /\
       every_Fn_vs_NONE xs /\
       co_every_Fn_vs_NONE s0.compile_oracle /\
-      mglobals_disjoint s0 xs /\
+      mglobals_disjoint s0.globals xs /\
       oracle_gapprox_disjoint (next_g s0) s0.compile_oracle /\
       state_oracle_mglobals_disjoint s0 /\
       EVERY esgc_free xs /\ ssgc_free s0 /\
@@ -3031,7 +2954,7 @@ val known_correct0 = Q.prove(
     \\ `state_oracle_mglobals_disjoint s1`
        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
            \\ goal_assum drule \\ simp [])
-    \\ `mglobals_disjoint s1 [x2]`
+    \\ `mglobals_disjoint s1.globals [x2]`
        by (match_mp_tac mglobals_disjoint_evaluate
            \\ goal_assum drule
            \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, elist_globals_append])
@@ -3086,7 +3009,7 @@ val known_correct0 = Q.prove(
    \\ `state_oracle_mglobals_disjoint s1`
        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
            \\ goal_assum drule \\ simp [])
-   \\ `mglobals_disjoint s1 [x2]`
+   \\ `mglobals_disjoint s1.globals [x2]`
        by (match_mp_tac mglobals_disjoint_evaluate
            \\ goal_assum drule
            \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
