@@ -5685,10 +5685,10 @@ val chain_installed_chain_exps = Q.store_thm("chain_installed_chain_exps",
 
 val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
   `semantics ffi max_app code co cc es ≠ Fail ∧ (* es ≠ [] ∧*)
-   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
+   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) (*∧
    (∀n. DISJOINT (FDOM code) (set (MAP FST (SND (SND (co n))))) ∧
         DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
-        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n))))))
+        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n))))))*)
   ⇒
    ∃e.
    semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e] =
@@ -5728,13 +5728,14 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
       simp[Abbr`ss2`,SUBMAP_rel_def,closSemTheory.state_component_equality,closSemTheory.initial_state_def]
       \\ `es <> []` by (strip_tac \\ fs[])
       \\ simp[MAP_FST_chain_exps]
+      (*
       \\ conj_tac
-      >- (
+      >- *) \\ (
         irule SUBMAP_FUNION
         \\ simp[FDOM_alist_to_fmap, MAP_FST_chain_exps]
         \\ simp[LIST_TO_SET_MAP, COUNT_LIST_COUNT]
         \\ fs[DISJOINT_SYM] )
-      \\ fs[LIST_TO_SET_MAP, COUNT_LIST_COUNT] )
+      (* \\ fs[LIST_TO_SET_MAP, COUNT_LIST_COUNT] *))
     \\ strip_tac
     \\ first_x_assum(first_assum o mp_then Any mp_tac)
     \\ simp[]
@@ -5760,10 +5761,10 @@ val chain_exps_semantics = Q.store_thm("chain_exps_semantics",
 
 val chain_exps_semantics_call = Q.store_thm("chain_exps_semantics_call",
   `semantics ffi max_app code co cc es ≠ Fail ∧
-   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
+   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) (* ∧
    (∀n. DISJOINT (FDOM code) (set (MAP FST (SND (SND (co n))))) ∧
         DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
-        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n))))))
+        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n)))))) *)
   ⇒
    semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc ([Call None 0 start []]) =
    semantics ffi max_app code co cc es`,
@@ -6258,7 +6259,8 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
     (compile_common_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
-   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧ (∀n. clos_mtiProof$syntax_ok (FST(SND(co1 n))))) ∧
+   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧
+     (∀n. clos_mtiProof$syntax_ok (FST(SND(co1 n))))) ∧
    (c.do_call ⇒
      let x =
         (SND (clos_known$compile c.known_conf
@@ -6276,9 +6278,11 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
                                                (compile c.do_mti c.max_app es1)))))).val_approx_spt) ∧
    (¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
     BAG_ALL_DISTINCT (elist_globals es1) ∧
+    (*
     FST (FST (co1 0)) =
     FST (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
                                  (compile c.do_mti c.max_app es1)) ∧
+    *)
     (∀n. SND (SND (co1 n)) = [] ∧
      ¬contains_App_SOME c.max_app (FST(SND(co1 n))) ∧
      clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
@@ -6286,6 +6290,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      BAG_ALL_DISTINCT (elist_globals (FLAT (GENLIST (FST o SND o co1) n))) ∧
      BAG_DISJOINT (elist_globals es1) (elist_globals (FST (SND (co1 n)))) ∧
      clos_knownProof$syntax_ok (FST(SND(co1 n))) ∧
+     (*
      FST (FST (co1 (SUC n))) =
      FST (renumber_code_locs_list (make_even ((FST (FST (co1 n))) + MAX (LENGTH (FST (SND (co1 n)))) 1))
             (compile c.do_mti c.max_app (FST (SND (co1 n))))) ∧
@@ -6297,6 +6302,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
              else I) o co1)) n in
        FST (SND (SND (FST (co1 (SUC n))))) =
        FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
+     *)
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
      clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
      clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))))
@@ -6324,6 +6330,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
   \\ fs[compile_common_inc_def]
   \\ drule clos_numberProofTheory.semantics_number
   \\ fs[]
+  (*
   \\ impl_tac
   >- (
     qx_gen_tac`m`
@@ -6332,6 +6339,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ first_x_assum(qspec_then`m`mp_tac)
     \\ simp[]
     \\ rw[backendPropsTheory.pure_co_def, clos_mtiProofTheory.compile_inc_def] )
+  *)
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ drule (GEN_ALL clos_knownProofTheory.semantics_compile)
   \\ disch_then(qspec_then`kc`mp_tac)
@@ -6594,6 +6602,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ reverse(Cases_on`c.do_call`)
     \\ fs[clos_callTheory.compile_def]
     \\ rveq \\ fs[]
+    (*
     >- (
       simp[Abbr`co`]
       \\ simp[clos_knownProofTheory.known_co_def]
@@ -6602,6 +6611,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ simp[kcompile_inc_uncurry,FST_SND_ignore_table, backendPropsTheory.SND_state_co]
       \\ simp[clos_numberProofTheory.compile_inc_def, SND_SND_ignore_table, UNCURRY]
       \\ simp[clos_ticksProofTheory.compile_inc_def, clos_letopProofTheory.compile_inc_def] )
+    *)
     \\ simp[ccompile_inc_uncurry]
     \\ pairarg_tac \\ fs[]
     \\ pop_assum kall_tac
@@ -6618,8 +6628,9 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ imp_res_tac SUB_BAG_SET
       \\ fs[SUBSET_DEF, IN_between, IN_bag_of_list_MEM, EVERY_MEM]
       \\ rw[] \\ res_tac \\ res_tac \\ fs[] )
+    (*
     \\ conj_asm1_tac
-    >- (
+    >- *) \\ (
       simp[IN_DISJOINT]
       \\ fs[SUBSET_DEF, IN_between, PULL_EXISTS, MEM_MAP, FORALL_PROD]
       \\ CCONTR_TAC \\ fs[]
@@ -6628,6 +6639,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ CCONTR_TAC \\ fs[]
       \\ first_x_assum drule
       \\ simp[Abbr`n`] )
+    (*
     \\ qx_gen_tac`m`
     \\ `∀m. FST (FST (co m)) = FST (SND (SND (FST (co1 m))))`
     by (
@@ -6794,7 +6806,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ CCONTR_TAC \\ fs[]
     \\ qpat_x_assum`_ ≤ z`mp_tac
     \\ `z < FST (FST (co1 m))` by metis_tac[LESS_LESS_EQ_TRANS]
-    \\ rw[make_even_def])
+    \\ rw[make_even_def]*))
   \\ strip_tac
   \\ qhdtm_x_assum`semantics`(assume_tac o SYM) \\ fs[]
   \\ full_simp_tac bool_ss [GSYM alist_to_fmap_APPEND]
@@ -6948,8 +6960,10 @@ val syntax_oracle_ok_def = Define`
               l ∉ domain (FST(SND(SND(FST(co k)))))) ∧
        FST(SND(SND(FST(co 0)))) =
          FST(SND(clos_call$compile c.do_call x))) ∧
+    (*
     FST (FST (co 0)) =
     FST (renumber_code_locs_list (make_even (LENGTH es + c.next_loc)) (compile c.do_mti c.max_app es)) ∧
+    *)
     (∀n.
       SND (SND (co n)) = [] ∧
       clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
@@ -6959,6 +6973,7 @@ val syntax_oracle_ok_def = Define`
                    (elist_globals (FLAT (GENLIST (FST o SND o co) n)))) ∧
       ¬contains_App_SOME c.max_app (FST (SND (co n))) ∧
       clos_knownProof$syntax_ok (FST (SND (co n))) ∧
+      (*
       FST (FST (co (SUC n))) =
       FST (renumber_code_locs_list (make_even (FST (FST (co n)) + MAX (LENGTH (FST (SND (co n)))) 1))
                                    (compile c.do_mti c.max_app (FST (SND (co n))))) ∧
@@ -6970,6 +6985,7 @@ val syntax_oracle_ok_def = Define`
              else I) o co)) n in
        FST (SND (SND (FST (co (SUC n))))) =
        FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
+      *)
       every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
       clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
       clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧

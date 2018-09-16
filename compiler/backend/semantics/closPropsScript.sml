@@ -2649,9 +2649,9 @@ val find_code_SUBMAP = Q.store_thm("find_code_SUBMAP",
 
 val SUBMAP_rel_def = Define`
   SUBMAP_rel z1 z2 ⇔
-    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code ∧
+    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code (*∧
     (∀n. DISJOINT (FDOM z2.code) (set (MAP FST (SND (SND (z1.compile_oracle n))))) ∧
-         (∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (z1.compile_oracle m))))) (set (MAP FST (SND (SND (z1.compile_oracle n)))))))`;
+         (∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (z1.compile_oracle m))))) (set (MAP FST (SND (SND (z1.compile_oracle n)))))))*)`;
 
 val find_code_SUBMAP_rel = Q.store_thm("find_code_SUBMAP_rel",
   `find_code dest vs s1.code = SOME p ∧ SUBMAP_rel s1 s2 ⇒
@@ -2659,6 +2659,7 @@ val find_code_SUBMAP_rel = Q.store_thm("find_code_SUBMAP_rel",
   rw[SUBMAP_rel_def]
   \\ imp_res_tac find_code_SUBMAP);
 
+(*
 val do_install_SUBMAP = Q.store_thm("do_install_SUBMAP",
   `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
    SUBMAP_rel z1 z2 ⇒
@@ -2687,6 +2688,7 @@ val do_install_SUBMAP = Q.store_thm("do_install_SUBMAP",
   \\ CCONTR_TAC \\ fs[]
   \\ first_x_assum(qspec_then`0`mp_tac) \\ simp[]
   \\ metis_tac[]);
+*)
 
 val do_app_lemma_simp = prove(
   ``(exc_rel $= err1 err2 <=> err1 = err2) /\
