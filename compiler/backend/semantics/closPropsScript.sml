@@ -2806,6 +2806,7 @@ val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
   \\ Cases_on`op = Install`
   \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
   \\ rveq \\ fs[]
+  (*
   \\ TRY (
     drule (GEN_ALL do_install_SUBMAP)
     \\ simp[]
@@ -2814,6 +2815,7 @@ val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
     \\ fs[PULL_EXISTS]
     \\ res_tac \\ fs[]
     \\ NO_TAC )
+  *)
   \\ imp_res_tac do_app_SUBMAP_Rval
   \\ fs[]
   \\ imp_res_tac do_app_SUBMAP_Rerr);
