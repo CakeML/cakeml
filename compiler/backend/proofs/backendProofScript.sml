@@ -402,6 +402,12 @@ val _ = temp_overload_on("bvi_tailrec_compile_prog",``bvi_tailrec$compile_prog``
 val _ = temp_overload_on("bvi_to_data_compile_prog",``bvi_to_data$compile_prog``);
 val _ = temp_overload_on("bvl_to_bvi_compile_prog",``bvl_to_bvi$compile_prog``);
 
+val FST_known_co = Q.store_thm("FST_known_co",
+  `FST (known_co kc co n) = SND (FST (co n))`,
+  rw[clos_knownProofTheory.known_co_def]
+  \\ CASE_TAC
+  \\ simp[backendPropsTheory.FST_state_co]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -478,11 +484,8 @@ val compile_correct = Q.store_thm("compile_correct",
      pure_cc (λes. (MAP pat_to_clos$compile es, [])) (
       compile_common_inc (c:'a config).clos_conf
          (pure_cc (compile_inc c.clos_conf.max_app)
-           (*
            (full_cc c.bvl_conf
              (pure_cc compile_prog TODO_cc))
-            *)
-            TODO_cc
              ))``
      |> ISPEC)
    |> INST_TYPE[beta|->``:(num # num # closLang$exp)list``]
@@ -496,6 +499,9 @@ val compile_correct = Q.store_thm("compile_correct",
                         (THE(FST(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p)))))))).val_approx_spt
                         ,
                          (FST(SND(compile T (SND(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p))))))))),
+                          FST(SND(SND(compile (FST(compile c.clos_conf (MAP compile (compile p)))).start c.bvl_conf (SND(compile c.clos_conf (MAP compile (compile p))))))),
+                          FST(SND(SND(SND(compile (FST(compile c.clos_conf (MAP compile (compile p)))).start c.bvl_conf (SND(compile c.clos_conf (MAP compile (compile p)))))))),
+                          SND(SND(SND(SND(compile (FST(compile c.clos_conf (MAP compile (compile p)))).start c.bvl_conf (SND(compile c.clos_conf (MAP compile (compile p)))))))),
                           []))), [])`]
      (strip_assume_tac o SYM)) >>
   fs[] >>
@@ -520,6 +526,7 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`st3`,flatSemTheory.initial_state_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ co3 cc3 e3 }` >>
   qmatch_asmsub_abbrev_tac`compile_common_inc cf (pure_cc (compile_inc _) cc)`
+  \\ qmatch_asmsub_abbrev_tac`(TODO_co1, (coa,cob,__))`
   \\ Q.ISPECL_THEN[`co3`,`cc`,`e3`,`s.ffi`,`cf`]mp_tac
        (Q.GENL[`co`,`cc`,`es`,`ffi`,`c`,`c'`,`prog`]clos_to_bvlProofTheory.compile_semantics)
   \\ simp[]
@@ -565,19 +572,50 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[from_bvl_def] >>
   pairarg_tac \\ fs[] \\ strip_tac \\
   fs[from_bvi_def] \\
-  drule (GEN_ALL bvl_to_bviProofTheory.compile_semantics)
+  qmatch_goalsub_abbrev_tac`semantics _ _ co cc`
+  \\ Q.ISPEC_THEN`co`(drule o GEN_ALL) (Q.GEN`co`bvl_to_bviProofTheory.compile_semantics)
   \\ disch_then(qspec_then`s.ffi`mp_tac)
   \\ qunabbrev_tac`cc`
-
   \\ qmatch_goalsub_abbrev_tac`semantics _ _ co (full_cc _ cc) _`
   \\ disch_then(qspecl_then[`co`,`cc`]mp_tac)
   \\ fs[Abbr`c''''`]
   \\ impl_tac
   >- (
-    simp[CONJ_ASSOC]
-    \\ reverse conj_tac
-    >- cheat (* clos_to_bvl compile ALL_DISTINCT locs *)
-    \\ cheat (* oracle *) )
+    conj_tac
+    >- (
+      simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
+      \\ simp[Abbr`co3`] \\ rw[] )
+    \\ conj_tac >- (
+      simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
+      \\ rw[Abbr`co3`] )
+    \\ conj_tac >- (
+      simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
+      \\ rw[Abbr`co3`] )
+    \\ conj_tac
+    >- (
+      simp[Abbr`co`, backendPropsTheory.SND_state_co, FST_known_co,
+           backendPropsTheory.FST_state_co ]
+      \\ gen_tac
+      \\ conj_tac
+      >- (
+        simp[Abbr`co3`]
+        \\ simp[clos_knownProofTheory.known_co_def]
+        \\ Cases_on`cf.known_conf`
+        \\ rw[backendPropsTheory.SND_state_co,Abbr`pc`]
+        \\ EVAL_TAC \\ simp[UNCURRY] \\ EVAL_TAC )
+      \\ conj_tac
+      >- (
+        simp[Abbr`co3`] \\ rw[]
+        \\ cheat (* check bvl_to_bvi compile produces a high enough name *)
+        )
+      >- (
+        simp[Abbr`co3`] \\ rw[]
+        \\ cheat (* check bvl_to_bvi compile produces a good name *)
+        ))
+      >- (
+        qpat_x_assum`_ = (_,p''')`mp_tac
+        \\ MATCH_ACCEPT_TAC clos_to_bvlProofTheory.compile_all_distinct_locs
+        ))
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qunabbrev_tac`cc`
   \\ (bvi_to_dataProofTheory.compile_prog_semantics
@@ -590,9 +628,63 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ pairarg_tac \\ fs[]
   \\ strip_tac
   \\ rename1`compile _ _ _ p4 = (col,p5)` \\
+  qhdtm_x_assum`from_word`mp_tac \\
+  simp[from_word_def] \\ pairarg_tac \\ fs[] \\ strip_tac \\
+  qmatch_assum_rename_tac`compile _ p5 = (c6,p6)` \\
+  fs[from_stack_def,from_lab_def] \\
+  qmatch_assum_abbrev_tac`_ _ (compile c4.lab_conf p7) = SOME (bytes,_,c')`
+  \\ `compile c4.lab_conf p7 = SOME (bytes,c')`
+  by (
+    Cases_on`compile c4.lab_conf p7` \\ fs[attach_bitmaps_def] \\
+    Cases_on`x` \\ fs[attach_bitmaps_def] ) \\
+  fs[installed_def] \\
+  qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes cbspace tar_st m dm io_regs cc_regs` \\
+  qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
+  qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
+  strip_tac \\
+  qabbrev_tac`kkk = stk - 2`>>
+  qmatch_goalsub_abbrev_tac`semantics _ _ data_oracle` \\
+
+  (*
+  qabbrev_tac`word_oracle =
+    (I ## MAP (λp. full_compile_single tt kk aa c4.lab_conf.asm_conf (p,NONE))) o
+    (I ## MAP (compile_part c4_data_conf)) o
+    data_oracle`>>
+  qabbrev_tac`stack_oracle =
+     (λn.
+      let ((bm0,cfg),progs) = word_oracle n in
+      let (progs,bm) = word_to_stack$compile_word_to_stack kkk progs bm0 in
+        (cfg,progs,DROP (LENGTH bm0) bm))`>>
+  qabbrev_tac`lab_oracle =
+    (λn.
+     let (cfg,p,b) = stack_oracle n in
+       (cfg,compile_no_stubs c4.stack_conf.reg_names c4.stack_conf.jump stoff stk p))`\\
+  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
+       (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
+  qabbrev_tac`stack_st_opt =
+    full_make_init
+      c4.stack_conf
+      c4.data_conf
+      (2 * max_heap_limit (:'a) c4_data_conf - 1)
+      stk
+      stoff
+      c6.bitmaps
+      p6
+      lab_st
+      (set mc.callee_saved_regs)
+      data_sp
+      stack_oracle` >>
+  qabbrev_tac`stack_st = FST stack_st_opt` >>
+  qabbrev_tac`word_st = make_init kkk stack_st (fromAList p5) word_oracle` \\
+  (data_to_wordProofTheory.compile_semantics
+   |> GEN_ALL
+   |> SIMP_RULE (srw_ss()) [markerTheory.Abbrev_def]
+   |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["t","co","x1","start","prog","c"]))
+   |> Q.ISPECL_THEN [`word_st`,`data_oracle`]mp_tac) \\
+*)
+
   cheat);
   (*
-  data_to_wordProofTheory.compile_semantics
   qhdtm_x_assum`from_word`mp_tac \\
   simp[from_word_def] \\ pairarg_tac \\ fs[] \\ strip_tac \\
   qmatch_assum_rename_tac`compile _ p5 = (c6,p6)` \\

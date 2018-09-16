@@ -6276,7 +6276,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      (THE (FST (compile c.known_conf
                  (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
                                                (compile c.do_mti c.max_app es1)))))).val_approx_spt) ∧
-   (¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
+   ¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
     BAG_ALL_DISTINCT (elist_globals es1) ∧
     (*
     FST (FST (co1 0)) =
@@ -6303,9 +6303,13 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
        FST (SND (SND (FST (co1 (SUC n))))) =
        FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
      *)
+     (*
+     this possibly has the wrong type
      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co1 n)))))) ∧
+     *)
      clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co1 n)))) ∧
-     clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))))
+     clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co1 n))))
+     )
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co clos_annotateProof$compile_inc o
@@ -6986,7 +6990,9 @@ val syntax_oracle_ok_def = Define`
        FST (SND (SND (FST (co (SUC n))))) =
        FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
       *)
+      (*
       every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
+      *)
       clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
       clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧
     ¬contains_App_SOME c.max_app es ∧
