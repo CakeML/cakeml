@@ -186,6 +186,17 @@ val full_make_init_ffi = Q.prove(`
   fs [full_make_init_def,stack_allocProofTheory.make_init_def] >>
   fs [stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
 
+val full_make_init_compile = Q.store_thm("full_make_init_compile",
+  `(FST(full_make_init a b c d e f g h i j k)).compile =
+   (λc. (λp. h.compile c (MAP prog_to_section (MAP (prog_comp a.reg_names) (MAP (prog_comp a.jump e d) p)))) o MAP prog_comp)`,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def]
+  \\ simp[stack_removeProofTheory.make_init_any_def,
+          stack_removeProofTheory.make_init_opt_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac stackPropsTheory.evaluate_consts \\ fs[]
+  \\ EVAL_TAC \\ fs[]
+  \\ EVAL_TAC \\ fs[]);
+
 (*
 val full_make_init_ffi = Q.prove(
   `(full_make_init
@@ -401,6 +412,8 @@ val _ = temp_overload_on("bvl_inline_compile_prog",``bvl_inline$compile_prog``);
 val _ = temp_overload_on("bvi_tailrec_compile_prog",``bvi_tailrec$compile_prog``);
 val _ = temp_overload_on("bvi_to_data_compile_prog",``bvi_to_data$compile_prog``);
 val _ = temp_overload_on("bvl_to_bvi_compile_prog",``bvl_to_bvi$compile_prog``);
+val _ = temp_overload_on("bvl_to_bvi_compile_inc",``bvl_to_bvi$compile_inc``);
+val _ = temp_overload_on("bvl_inline_compile_inc",``bvl_inline$compile_inc``);
 
 val FST_known_co = Q.store_thm("FST_known_co",
   `FST (known_co kc co n) = SND (FST (co n))`,
@@ -484,9 +497,25 @@ val compile_correct = Q.store_thm("compile_correct",
      pure_cc (λes. (MAP pat_to_clos$compile es, [])) (
       compile_common_inc (c:'a config).clos_conf
          (pure_cc (compile_inc c.clos_conf.max_app)
-           (full_cc c.bvl_conf (pure_cc bvi_to_data_compile_prog TODO_cc))))``
+           (full_cc c.bvl_conf (pure_cc bvi_to_data_compile_prog
+             (λcfg. OPTION_MAP (I ## MAP upper_w2w ## I) o
+                    (λprogs.
+                      (λ(bm0,cfg) progs.
+                        (λ(progs,bm).
+                          OPTION_MAP
+                            (λ(bytes,cfg).
+                              (bytes, DROP (LENGTH bm0) bm,bm,cfg))
+                            (compile cfg
+                              (MAP prog_to_section
+                                (MAP
+                                  (prog_comp c.stack_conf.reg_names)
+                                  (MAP
+                                    (prog_comp c.stack_conf.jump
+                                      c.lab_conf.asm_conf.addr_offset
+                                      (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)))
+                                    (MAP prog_comp progs))))))
+                         (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0)) cfg (MAP (λp. full_compile_single tt kk aa (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o MAP (compile_part (c.data_conf with has_fp_ops := (1 < mc.target.config.fp_reg_count))))))))``
      |> ISPEC)
-   |> INST_TYPE[beta|->``:('a word list # 'a lab_to_target$config)``]
    |> Q.GEN`co`
    |> Q.GEN`k0`
    |>  drule)
@@ -636,8 +665,10 @@ val compile_correct = Q.store_thm("compile_correct",
   by (
     Cases_on`compile c4.lab_conf p7` \\ fs[attach_bitmaps_def] \\
     Cases_on`x` \\ fs[attach_bitmaps_def] ) \\
+
   fs[installed_def] \\
   qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes cbspace tar_st m dm io_regs cc_regs` \\
+
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
   strip_tac \\
@@ -658,7 +689,7 @@ val compile_correct = Q.store_thm("compile_correct",
     (λn.
      let (cfg,p,b) = stack_oracle n in
        (cfg,compile_no_stubs c4.stack_conf.reg_names c4.stack_conf.jump stoff stk p))`\\
-  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
+  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init mc s.ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
   qabbrev_tac`stack_st_opt =
     full_make_init
@@ -770,49 +801,41 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
   (* TODO: make this auto *)
   disch_then(qspecl_then[`tt`,`kk`,`c4.lab_conf.asm_conf`,`aa`]mp_tac) \\
-  cheat);
-
-(*
-
-  `∀n. SND (clos_co n) = []` by ( (* this won't be true later *)
-    simp[Abbr`clos_co`,full_co_def,
-         bvi_tailrecProofTheory.mk_co_def,
-         bvl_inlineProofTheory.state_co_def] \\
-    rpt (pairarg_tac \\ fs[] \\ rveq) \\
-    ntac 2 (pop_assum mp_tac) \\
-    EVAL_TAC \\ strip_tac \\ rveq \\
-    EVAL_TAC \\ strip_tac \\ rveq \\
-    pop_assum mp_tac \\ EVAL_TAC \\
-    strip_tac \\ rveq \\ REFL_TAC ) \\
-  `∀n. EVERY ($<= data_num_stubs) (MAP FST (SND (clos_co n)))` by (
-    simp[] (* real proof could be like this:
-    simp[Abbr`clos_co`,full_co_def,
-         bvi_tailrecProofTheory.mk_co_def,
-         bvl_inlineProofTheory.state_co_def] \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\ rveq \\
-    pairarg_tac \\ fs[] \\ rveq \\
-    simp[EVERY_MEM] \\ ntac 2 strip_tac \\
-    drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM) \\
-    disch_then drule \\
-    strip_tac >- (
-      drule (GEN_ALL compile_inc_next_range) \\
-      disch_then drule \\ strip_tac \\
-      qmatch_rename_tac`_ ≤ x` \\
-      `bvl_num_stubs ≤ x` by (pop_assum mp_tac \\ rw[] \\ fs[]) \\
-      pop_assum mp_tac \\
-      EVAL_TAC \\ simp[] ) \\
-    rveq \\
-    fs[bvl_to_bviTheory.compile_def] \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    drule bvi_tailrecProofTheory.compile_prog_next_mono \\
-    rw[] \\ EVAL_TAC \\ simp[] *)) \\
-
-  impl_tac >- (
+  `∀n. EVERY ($<= data_num_stubs) (MAP FST (SND (full_co c.bvl_conf co n)))` by (
+    simp[Abbr`co`,full_co_def, Abbr`co3`,
+         bvi_tailrecProofTheory.mk_co_def] \\
+    simp[UNCURRY, backendPropsTheory.FST_state_co, FST_known_co]
+    \\ simp[EVERY_MEM]
+    \\ rpt gen_tac
+    \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog znn xxs`
+    \\ Cases_on`bvi_tailrec_compile_prog znn xxs`
+    \\ rw[]
+    \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+    \\ disch_then drule
+    \\ simp[Abbr`xxs`, Abbr`znn`]
+    \\ strip_tac
+    >- (
+      pop_assum mp_tac
+      \\ simp[backendPropsTheory.SND_state_co]
+      \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc znn xxs`
+      \\ Cases_on`bvl_to_bvi$compile_inc znn xxs`
+      \\ rw[]
+      \\ drule (GEN_ALL compile_inc_next_range)
+      \\ disch_then drule
+      \\ rw[]
+      \\ qpat_x_assum`_ ≤ e`mp_tac
+      \\ EVAL_TAC
+      \\ rw[] )
+    \\ qpat_x_assum`_ ≤ e`mp_tac
+    \\ simp_tac(srw_ss())[Abbr`pc`]
+    \\ EVAL_TAC
+    \\ qpat_x_assum`_ = (n2,_)`assume_tac
+    \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ IF_CASES_TAC \\ EVAL_TAC \\ rw[] )
+  \\ `loc = InitGlobals_location` by
+   (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
+    \\ rpt (pairarg_tac \\ fs []))
+  \\ impl_tac >- (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`] \\
     (*
     qmatch_goalsub_rename_tac`c5.data_conf` \\ qunabbrev_tac`c5` \\
@@ -833,28 +856,33 @@ val compile_correct = Q.store_thm("compile_correct",
     >- fs [data_to_wordTheory.conf_ok_def,
            data_to_wordTheory.shift_length_def] \\
     CONJ_TAC>- (
-      fs[Abbr`data_oracle`,full_co_def,bvi_tailrecProofTheory.mk_co_def]>>
-      `∀n. EVERY ((<=) data_num_stubs o FST) (compile_prog (SND (clos_co n)))`
-        suffices_by simp[EVERY_o,EVERY_MAP,LAMBDA_PROD] \\
-      simp[EVERY_o] ) \\
-      (*
+      fs[Abbr`data_oracle`,full_co_def,bvi_tailrecProofTheory.mk_co_def]
+      \\ qpat_x_assum`∀n. EVERY _ _`mp_tac
+      \\ rewrite_tac[GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog]
+      \\ simp[EVERY_MAP, LAMBDA_PROD] ) \\
     conj_tac >- (
-    *)
       AP_TERM_TAC>>
       simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
-
-  \\ `s3 = InitGlobals_location` by
-   (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
-    \\ rpt (pairarg_tac \\ fs []))
-
-   (* CONJ_TAC>-
-      fs[make_init_def]>> *)
-  `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
-  `word_st.ffi = ffi` by (
+    qmatch_goalsub_abbrev_tac`semantics _ _ _ TODO_cc'`
+    \\ qpat_x_assum`semantics _ _ data_oracle _ _ ≠ Fail`mp_tac
+    \\ qmatch_goalsub_abbrev_tac`semantics _ _ _ TODO_cc`
+    \\ `TODO_cc' = TODO_cc` suffices_by simp[]
+    \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
+    \\ rpt gen_tac
+    \\ AP_TERM_TAC
+    \\ AP_THM_TAC \\ AP_THM_TAC
+    \\ simp[Abbr`kkk`,Abbr`stk`,full_make_init_compile]
+    \\ simp[EVAL``(make_init a b c d e f g h i j k l m).compile``]
+    \\ simp[Abbr`stoff`] ) \\
+  `lab_st.ffi = s.ffi` by ( fs[Abbr`lab_st`] ) \\
+  `word_st.ffi = s.ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
     fs[Abbr`stack_st`,Abbr`lab_st`,Abbr`stack_st_opt`] \\
     fs [full_make_init_def,stack_allocProofTheory.make_init_def,
         stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC) \\
+  cheat);
+
+(*
   `ffi.final_event = NONE` by
     fs[installed_def,good_init_state_def]>>
   (*impl_tac >- fs[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\ *)
