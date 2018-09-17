@@ -431,6 +431,25 @@ val FST_prog_comp_TODO_move = Q.store_thm("FST_prog_comp_TODO_move[simp]",
   `FST (prog_comp pp) = FST pp`,
   Cases_on`pp` \\ EVAL_TAC);
 
+(* TODO re-define syntax_ok on terms of things in closPropsTheory
+ * (invent new properties), and prove elsewhere
+ * that the pat_to_clos compiler satisfies these things.*)
+val syntax_ok_pat_to_clos = Q.store_thm("syntax_ok_pat_to_clos",
+  `!e. clos_mtiProof$syntax_ok [pat_to_clos$compile e]`,
+  ho_match_mp_tac pat_to_closTheory.compile_ind
+  \\ rw [pat_to_closTheory.compile_def,
+         clos_mtiProofTheory.syntax_ok_def,
+         pat_to_closTheory.CopyByteStr_def,
+         pat_to_closTheory.CopyByteAw8_def]
+  \\ rw [Once clos_mtiProofTheory.syntax_ok_cons]
+  \\ fs [clos_mtiProofTheory.syntax_ok_MAP, clos_mtiProofTheory.syntax_ok_def,
+         clos_mtiProofTheory.syntax_ok_REPLICATE, EVERY_MAP, EVERY_MEM]
+  \\ PURE_CASE_TAC \\ fs []
+  \\ rw [clos_mtiProofTheory.syntax_ok_def,
+         Once clos_mtiProofTheory.syntax_ok_cons,
+         clos_mtiProofTheory.syntax_ok_REVERSE,
+         clos_mtiProofTheory.syntax_ok_MAP]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -604,9 +623,8 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[Abbr`e3`, Abbr`p''`]
       \\ strip_tac
       \\ reverse conj_tac >- EVAL_TAC
-      \\ simp[Abbr`p'`]
-      \\ simp[clos_mtiProofTheory.syntax_ok_def]
-      \\ cheat (* prove syntax_ok for mti *) )
+      \\ ho_match_mp_tac clos_mtiProofTheory.syntax_ok_MAP
+      \\ rw [syntax_ok_pat_to_clos] )
     \\ conj_tac
     >- (
       strip_tac

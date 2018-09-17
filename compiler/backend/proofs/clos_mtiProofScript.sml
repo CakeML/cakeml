@@ -62,6 +62,24 @@ val syntax_ok_append = store_thm("syntax_ok_append[simp]",
   \\ once_rewrite_tac [syntax_ok_cons]
   \\ fs [syntax_ok_def] \\ rw [] \\ eq_tac \\ rw[]);
 
+val syntax_ok_REVERSE = Q.store_thm("syntax_ok_REVERSE[simp]",
+  `!xs. syntax_ok (REVERSE xs) <=> syntax_ok xs`,
+  ho_match_mp_tac (theorem "syntax_ok_ind")
+  \\ rw [syntax_ok_def]
+  \\ metis_tac []);
+
+val syntax_ok_MAP = Q.store_thm("syntax_ok_MAP",
+  `!xs. (!x. MEM x xs ==> syntax_ok [f x]) ==> syntax_ok (MAP f xs)`,
+  Induct
+  \\ rw [syntax_ok_def]
+  \\ rw [Once syntax_ok_cons]);
+
+val syntax_ok_REPLICATE = Q.store_thm("syntax_ok_REPLICATE",
+  `syntax_ok [x] ==> syntax_ok (REPLICATE n x)`,
+  Induct_on `n`
+  \\ rw [syntax_ok_def]
+  \\ rw [Once syntax_ok_cons]);
+
 (* code relation *)
 
 val code_rel_def = Define `
