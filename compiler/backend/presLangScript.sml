@@ -286,6 +286,9 @@ val flat_to_display_dec_def = Define`
        | Dtype mods con_arities => item_with_num "Dtype" mods
        | Dexn n1 n2 => item_with_nums "Dexn" [n1; n2]`
 
+val flat_to_display_decs_def = Define`
+  flat_to_display_decs = list_to_display flat_to_display_dec`;
+
 (* pat to displayLang *)
 
 val num_to_varn_def = tDefine "num_to_varn" `
@@ -603,7 +606,7 @@ val word_exp_to_display_def = tDefine "word_exp_to_display" `
   (word_exp_to_display (Load exp2)
     = Item NONE "Load" [word_exp_to_display exp2]) /\
   (word_exp_to_display (Op bop exs)
-    = Item NONE "Op" (asm_op_to_display bop
+    = Item NONE "Op" (asm_binop_to_display bop
         :: MAP word_exp_to_display exs)) /\
   (word_exp_to_display (Shift sh exp num)
     = Item NONE "Shift" [
@@ -679,6 +682,11 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
   )
 ;
 
+val word_progs_to_display_def = Define`
+  word_progs_to_display ps = list_to_display
+    (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
+        num_to_display n2; word_prog_to_display prog]) ps`;
+
 (* Function to construct general functions from a language to JSON. Call with
 * the name of the language and what function to use to convert it to
 * displayLang to obtain a wrapper function which exports JSON. *)
@@ -688,16 +696,48 @@ val lang_to_json_def = Define`
       ("lang", String langN);
       ("prog", display_to_json (func p))]`;
 
-val flat_to_json_def = Define`
-  flat_to_json = lang_to_json "flatLang" flat_to_display_dec`;
+(* tap configuration. which bits of compilation should we save?
+   top-level code for assembling the tapped data. *)
 
-(* pat_to_display is initiated with a 0 because of how we want to convert de bruijn
-* indices to variable names and need to keep track of where head is at
-* currently, beginning at 0 *)
-val pat_to_json_def = Define`
-  pat_to_json = lang_to_json "patLang" (pat_to_display 0)`;
+val () = Datatype `
+  tap_config = Tap_Config
+    (* save filename prefix *) string
+    (* bits which should be saved *) (string list)`;
 
-val clos_to_json_def = Define`
-  clos_to_json suffix = lang_to_json ("closLang" ++ suffix) (clos_to_display 0)`;
+val () = Datatype `
+  tap_data = Tap_Data ((string # (unit -> jsonLang$obj)) list)`;
+
+val empty_tap_data_def = Define `
+  empty_tap_data = Tap_Data []`;
+
+val should_tap_def = Define `
+  should_tap (conf : tap_config) nm = case conf of
+    | Tap_Config _ taps => EXISTS (\s. s = nm) taps`;
+
+val tap_name_def = Define `
+  tap_name (conf : tap_config) nm = case conf of
+    | Tap_Config fname _ => fname ++ "." ++ nm`;
+
+val add_tap_def = Define `
+  add_tap conf nm (to_display : 'a -> displayLang$sExp) (v : 'a) td
+    = if should_tap conf nm
+    then (case td of Tap_Data tds
+        => Tap_Data ((tap_name conf nm,
+            (\_. lang_to_json nm to_display v)) :: tds))
+    else td`;
+
+val tap_flat_def = Define `
+  tap_flat conf v = add_tap conf "flat" flat_to_display_decs v`;
+
+val tap_word_def = Define `
+  tap_word conf v = add_tap conf "word" word_progs_to_display v`;
+
+val tap_pat_def = Define`
+  tap_pat conf v = add_tap conf "pat"
+    (list_to_display (pat_to_display 0)) v`;
+
+val tap_clos_def = Define`
+  tap_clos conf v = add_tap conf "clos"
+    (list_to_display (clos_to_display 0)) v`;
 
 val _ = export_theory();

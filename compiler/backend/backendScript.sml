@@ -24,6 +24,7 @@ val _ = Datatype`config =
    ; word_conf : 'a word_to_stack$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
+   ; tap_conf : tap_config
    |>`;
 
 val config_component_equality = theorem"config_component_equality";
@@ -32,14 +33,17 @@ val attach_bitmaps_def = Define `
   attach_bitmaps bitmaps (SOME (bytes,c)) = SOME (bytes,bitmaps,c) /\
   attach_bitmaps _ _ = NONE`
 
-val compile_def = Define`
-  compile c p =
+val compile_tap_def = Define`
+  compile_tap c p =
     let (c',p) = source_to_flat$compile c.source_conf p in
+    let td = tap_flat c.tap_conf p empty_tap_data in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
     let p = flat_to_pat$compile p in
+    let td = tap_pat c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: flat_to_pat") in
     let p = MAP pat_to_clos$compile p in
+    let td = tap_clos c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: pat_to_clos") in
     let (c',p) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
@@ -52,6 +56,7 @@ val compile_def = Define`
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+    let td = tap_word c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
@@ -64,7 +69,13 @@ val compile_def = Define`
     let res = attach_bitmaps c.word_conf.bitmaps
       (lab_to_target$compile c.lab_conf (p:'a prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
-      res`;
+      (res, td)`;
+
+val compile_def1 = Define`
+  compile c p = FST (compile_tap c p)`;
+
+val compile_def = CONV_RULE (TOP_DEPTH_CONV (REWR_CONV compile_tap_def))
+  compile_def1;
 
 val to_flat_def = Define`
   to_flat c p =
