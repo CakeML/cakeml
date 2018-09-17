@@ -300,6 +300,11 @@ val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
   `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
   Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
 
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
+
 val exp_size_MEM = Q.store_thm(
   "exp_size_MEM",
   `(∀elist e. MEM e elist ⇒ exp_size e < patLang$exp1_size elist)`,

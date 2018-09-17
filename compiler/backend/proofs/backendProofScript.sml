@@ -414,6 +414,8 @@ val _ = temp_overload_on("bvi_to_data_compile_prog",``bvi_to_data$compile_prog``
 val _ = temp_overload_on("bvl_to_bvi_compile_prog",``bvl_to_bvi$compile_prog``);
 val _ = temp_overload_on("bvl_to_bvi_compile_inc",``bvl_to_bvi$compile_inc``);
 val _ = temp_overload_on("bvl_inline_compile_inc",``bvl_inline$compile_inc``);
+val _ = temp_overload_on("pat_to_clos_compile",``pat_to_clos$compile``);
+val _ = temp_overload_on("flat_to_pat_compile",``flat_to_pat$compile``);
 
 val FST_known_co = Q.store_thm("FST_known_co",
   `FST (known_co kc co n) = SND (FST (co n))`,
@@ -638,7 +640,15 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ `BAG_ALL_DISTINCT (elist_globals e3)`
       by (
         simp[Abbr`e3`,Abbr`p''`,Abbr`p'`]
-        \\ cheat (* syntax ok *) )
+        \\ simp[closPropsTheory.elist_globals_FOLDR]
+        \\ simp[BAG_ALL_DISTINCT_FOLDR_BAG_UNION]
+        \\ simp[EL_MAP]
+        \\ simp[GSYM pat_to_closProofTheory.set_globals_eq]
+        \\ CONV_TAC(REWR_CONV(GSYM(SIMP_RULE(srw_ss()++ARITH_ss)[EL_MAP](
+                  Q.ISPEC`MAP set_globals (flat_to_pat$compile p)`BAG_ALL_DISTINCT_FOLDR_BAG_UNION
+                  |> Q.SPEC`{||}`))))
+        \\ simp[GSYM patPropsTheory.elist_globals_FOLDR]
+        \\ cheat (* syntax ok for source_to_flat *) )
       \\ Cases_on`kc` \\ fs[]
       >- (
         simp[Abbr`coa`]
@@ -650,7 +660,59 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ conj_tac >- (EVAL_TAC \\ rw[])
         \\ EVAL_TAC \\ rw[lookup_def] )
       \\ simp[Abbr`coa`]
-      \\ cheat (* syntax ok *) )
+      \\ Cases_on`c.clos_conf.known_conf` \\ fs[clos_knownTheory.compile_def]
+      \\ pairarg_tac \\ fs[]
+      \\ drule clos_knownProofTheory.known_preserves_esgc_free
+      \\ impl_keep_tac
+      >- (
+        fs[] \\ rveq \\ rfs[]
+        \\ reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
+        \\ irule (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_esgc_free)
+        \\ asm_exists_tac \\ simp[]
+        \\ `EVERY esgc_free e3`
+        by (
+          simp[Abbr`e3`, Abbr`p''`]
+          \\ simp[EVERY_MAP]
+          \\ simp[EVERY_MEM] \\ rw[]
+          \\ irule pat_to_closProofTheory.compile_esgc_free
+          \\ fs[Abbr`p'`]
+          \\ cheat (* syntax ok *) )
+        \\ Cases_on`c.clos_conf.do_mti` \\ simp[clos_mtiTheory.compile_def]
+        \\ irule clos_mtiProofTheory.intro_multi_preserves_esgc_free
+        \\ simp[] )
+      \\ strip_tac \\ fs[] \\ rfs[] \\ rveq \\ fs[]
+      \\ conj_tac
+      >- (
+        EVAL_TAC
+        \\ simp[GSYM REPLICATE_GENLIST]
+        \\ simp[FLAT_REPLICATE_NIL] )
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- ( EVAL_TAC \\ rw[] )
+      \\ conj_tac >- (
+        qmatch_asmsub_abbrev_tac`known aaa bbb ccc ddd`
+        \\ qspecl_then[`aaa`,`bbb`,`ccc`,`ddd`]mp_tac clos_knownProofTheory.known_every_Fn_vs_NONE
+        \\ unabbrev_all_tac \\ simp[]
+        \\ impl_tac
+        >- (
+          reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
+          \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list nn xx`
+          \\ qspecl_then[`nn`,`xx`]mp_tac(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE)
+          \\ simp[]
+          \\ rw[Abbr`xx`]
+          \\ simp[Once closPropsTheory.every_Fn_vs_NONE_EVERY]
+          \\ simp[EVERY_MAP]
+          \\ simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE] )
+        \\ simp[] )
+      \\ qmatch_asmsub_abbrev_tac`known aaa bbb ccc ddd`
+      \\ qspecl_then[`aaa`,`bbb`,`ccc`,`ddd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
+      \\ unabbrev_all_tac \\ simp[]
+      \\ impl_tac
+      >- (
+        reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
+        \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list nn xx`
+        \\ qspecl_then[`nn`,`xx`]mp_tac(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_SOME)
+        \\ simp[])
+      \\ simp[])
     \\ cheat (* syntax ok *) )
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
