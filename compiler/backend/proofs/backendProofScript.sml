@@ -431,6 +431,14 @@ val FST_prog_comp_TODO_move = Q.store_thm("FST_prog_comp_TODO_move[simp]",
   `FST (prog_comp pp) = FST pp`,
   Cases_on`pp` \\ EVAL_TAC);
 
+val FST_compile_single = Q.store_thm("FST_compile_single[simp]",
+  `FST (compile_single a b c d e) = FST (FST e)`,
+  PairCases_on`e` \\ EVAL_TAC);
+
+val FST_compile_part = Q.store_thm("FST_compile_part[simp]",
+  `FST (compile_part a b) = (FST b)`,
+  PairCases_on`b` \\ EVAL_TAC);
+
 (* TODO re-define syntax_ok on terms of things in closPropsTheory
  * (invent new properties), and prove elsewhere
  * that the pat_to_clos compiler satisfies these things.*)
@@ -618,13 +626,13 @@ val compile_correct = Q.store_thm("compile_correct",
          flatSemTheory.initial_state_def,Abbr`s`] )
     \\ simp[Abbr`cf`,Abbr`co3`,Abbr`pc`]
     \\ simp[syntax_oracle_ok_def]
-    \\ conj_tac
-    >- (
+    \\ `syntax_ok e3`
+    by (
       simp[Abbr`e3`, Abbr`p''`]
-      \\ strip_tac
-      \\ reverse conj_tac >- EVAL_TAC
       \\ ho_match_mp_tac clos_mtiProofTheory.syntax_ok_MAP
       \\ rw [syntax_ok_pat_to_clos] )
+    \\ conj_tac
+    >- ( simp[Abbr`e3`, Abbr`p''`] \\ strip_tac \\ EVAL_TAC)
     \\ conj_tac
     >- (
       strip_tac
@@ -637,6 +645,14 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs[clos_knownTheory.compile_def, UNCURRY])
     \\ conj_tac
     >- ( strip_tac \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`] )
+    \\ `EVERY esgc_free e3`
+    by (
+      simp[Abbr`e3`, Abbr`p''`]
+      \\ simp[EVERY_MAP]
+      \\ simp[EVERY_MEM] \\ rw[]
+      \\ irule pat_to_closProofTheory.compile_esgc_free
+      \\ fs[Abbr`p'`]
+      \\ cheat (* syntax ok esgc free for flat_to_pat *) )
     \\ conj_tac
     >- (
       gen_tac
@@ -666,7 +682,7 @@ val compile_correct = Q.store_thm("compile_correct",
                   Q.ISPEC`MAP set_globals (flat_to_pat$compile p)`BAG_ALL_DISTINCT_FOLDR_BAG_UNION
                   |> Q.SPEC`{||}`))))
         \\ simp[GSYM patPropsTheory.elist_globals_FOLDR]
-        \\ cheat (* syntax ok for source_to_flat *) )
+        \\ cheat (* syntax ok for flat_to_pat globals *) )
       \\ Cases_on`kc` \\ fs[]
       >- (
         simp[Abbr`coa`]
@@ -687,14 +703,6 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
         \\ irule (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_esgc_free)
         \\ asm_exists_tac \\ simp[]
-        \\ `EVERY esgc_free e3`
-        by (
-          simp[Abbr`e3`, Abbr`p''`]
-          \\ simp[EVERY_MAP]
-          \\ simp[EVERY_MEM] \\ rw[]
-          \\ irule pat_to_closProofTheory.compile_esgc_free
-          \\ fs[Abbr`p'`]
-          \\ cheat (* syntax ok *) )
         \\ Cases_on`c.clos_conf.do_mti` \\ simp[clos_mtiTheory.compile_def]
         \\ irule clos_mtiProofTheory.intro_multi_preserves_esgc_free
         \\ simp[] )
@@ -731,7 +739,18 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ qspecl_then[`nn`,`xx`]mp_tac(CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_SOME)
         \\ simp[])
       \\ simp[])
-    \\ cheat (* syntax ok *) )
+    \\ conj_asm1_tac
+    >- (
+      simp[Abbr`e3`, Abbr`p''`]
+      \\ simp[Once closPropsTheory.contains_App_SOME_EXISTS]
+      \\ simp[EVERY_MAP]
+      \\ simp[pat_to_closProofTheory.compile_contains_App_SOME] )
+    \\ simp[clos_knownProofTheory.syntax_ok_def]
+    \\ simp[Abbr`e3`,Abbr`p''`]
+    \\ simp[Once closPropsTheory.every_Fn_vs_NONE_EVERY]
+    \\ simp[EVERY_MAP]
+    \\ simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE]
+    \\ cheat (* syntax ok: fv_max for pat_to_clos *))
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
@@ -771,13 +790,20 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ EVAL_TAC \\ simp[UNCURRY] \\ EVAL_TAC )
       \\ conj_tac
       >- (
-        simp[Abbr`co3`] \\ rw[]
-        \\ cheat (* check bvl_to_bvi compile produces a high enough name *)
-        )
+        simp[Abbr`co3`]
+        `bvl_num_stubs ≤ n2` suffices_by rw[]
+        \\ fs[bvl_to_bviTheory.compile_def]
+        \\ rpt(pairarg_tac \\ fs[])
+        \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+        \\ rveq \\ rw[])
       >- (
-        simp[Abbr`co3`] \\ rw[]
-        \\ cheat (* check bvl_to_bvi compile produces a good name *)
-        ))
+        simp[Abbr`co3`]
+        \\ `in_ns 2 n2` suffices_by rw[]
+        \\ fs[bvl_to_bviTheory.compile_def]
+        \\ rpt(pairarg_tac \\ fs[])
+        \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+        \\ rw[]
+        \\ simp[bvl_to_bviProofTheory.mult_nss_in_ns_2] )
       >- (
         qpat_x_assum`_ = (_,p''')`mp_tac
         \\ MATCH_ACCEPT_TAC clos_to_bvlProofTheory.compile_all_distinct_locs
@@ -1043,6 +1069,16 @@ val compile_correct = Q.store_thm("compile_correct",
           irule prog_to_section_labels_ok
           \\ simp[Abbr`ppg`,MAP_MAP_o, o_DEF]
           \\ simp_tac(srw_ss()++ETA_ss)[Abbr`stack_oracle`]
+          \\ simp[UNCURRY]
+          \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk psk bmk`
+          \\ Cases_on`compile_word_to_stack kkk psk bmk`
+          \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
+          \\ fs[Abbr`psk`]
+          \\ simp[Abbr`word_oracle`, MAP_MAP_o, o_DEF]
+          \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
+          \\ simp[Abbr`data_oracle`]
+          \\ simp_tac(srw_ss()++ETA_ss)[]
+          \\ simp[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
           \\ cheat (* syntax ok? *) )
         \\ drule labels_ok_imp
         \\ simp[]
@@ -1203,7 +1239,7 @@ val compile_correct = Q.store_thm("compile_correct",
     >>
       fs[stack_to_labProofTheory.good_code_def,Abbr`stack_oracle`]>>
       fs[Abbr`word_oracle`,Abbr`data_oracle`]>>
-      cheat (* syntax ok *)
+      cheat (* syntax ok: note, this may have been proved already above in the previous impl_tac *)
       (*
       simp[PAIR_MAP] >>
       EVAL_TAC >>
@@ -1269,9 +1305,41 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[attach_bitmaps_def]>>
       CONV_TAC(STRIP_QUANT_CONV(LAND_CONV EVAL)) >>
       simp[UNCURRY] >>
-      simp[Abbr`co`,full_co_def,bvi_tailrecProofTheory.mk_co_def,backendPropsTheory.state_co_def] >>
+      simp[PULL_EXISTS] >> rveq >>
+      goal_assum(first_assum o mp_then Any mp_tac) \\
+      simp[EVERY_MAP] \\
+      gen_tac \\
+      qmatch_goalsub_abbrev_tac`compile_prog _ pp`
+      \\ `SND (co n) = [(cf.max_app + (cf.max_app * (cf.max_app - 1) DIV 2 + 1), 0, Op (Const (&TODO_co1)) [])]`
+      by (
+        simp[Abbr`co`, Abbr`co3`, backendPropsTheory.SND_state_co, Abbr`pc`, FST_known_co, backendPropsTheory.FST_state_co]
+        \\ simp[clos_knownProofTheory.known_co_def]
+        \\ Cases_on`cf.known_conf` \\ fs[backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co] \\ rw[]
+        \\ EVAL_TAC \\ simp[UNCURRY] \\ EVAL_TAC )
+      (*
+      this is not true
+      -- maybe the oracle should not be empty list, so as not to trigger extract_name's failure case?
+      \\ `pp = [(3 * (cf.max_app + (cf.max_app * (cf.max_app - 1) DIV 2 + 1)) + 66, 0 , Var 0)]`
+      by (
+        simp[Abbr`pp`]
+        \\ EVAL_TAC
+        \\ rw[bvl_to_bviTheory.compile_exps_def, UNCURRY]
+        \\ simp[bvl_to_bviTheory.destLet_def, bvl_to_bviTheory.compile_exps_def]
+        \\ simp[SmartAppend_thm, bvl_to_bviTheory.compile_op_def,bvl_to_bviTheory.compile_aux_def]
+        \\ TRY (
+        \\ EVAL_TAC
+        max_print_depth := 20
+
+        \\ rw[UNCURRY]
+        hb``
+        \\ EVAL_TAC
+        f"compile_exps_def"
+
+      \\ EVAL_TAC
+      \\ simp[UNCURRY]
       rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] \\ rveq \\ fs[] \\
-      cheat (* syntax? ... *))>>
+      *)
+      cheat (* instantiate the oracle better? *))>>
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
