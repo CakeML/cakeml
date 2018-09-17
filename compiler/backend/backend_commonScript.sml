@@ -2,6 +2,11 @@ open HolKernel Parse boolLib bossLib;
 open preamble fpSemTheory;
 
 val _ = new_theory "backend_common";
+
+(* Small general definition *)
+val small_enough_int_def = Define `
+  small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int`;
+
 val _ = set_grammar_ancestry ["arithmetic", "words"]
 
 (* these must match what the prim_types_program generates *)

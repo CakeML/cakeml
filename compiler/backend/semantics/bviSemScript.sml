@@ -34,10 +34,7 @@ val bvl_to_bvi_def = Define `
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi |>`;
-
-val small_enough_int_def = Define `
-  small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int`;
-
+  
 val s = ``(s:('c,'ffi) bviSem$state)``
 
 val do_app_aux_def = Define `
