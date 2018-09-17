@@ -1,6 +1,7 @@
 open preamble astTheory mlnumTheory mlintTheory
 open flatLangTheory patLangTheory closLangTheory
-     displayLangTheory source_to_flatTheory;
+     displayLangTheory source_to_flatTheory
+     wordLangTheory;
 
 val _ = new_theory"presLang";
 
@@ -20,6 +21,9 @@ val num_to_display_def = Define`
 
 val item_with_num_def = Define`
   item_with_num name n = Item NONE name [num_to_display n]`;
+
+val item_with_nums_def = Define`
+  item_with_nums name ns = Item NONE name (MAP num_to_display ns)`;
 
 val bool_to_display_def = Define`
   bool_to_display b = empty_item (if b then "True" else "False")`;
@@ -146,8 +150,7 @@ val opt_con_to_display_def = Define `
   opt_con_to_display ocon = case ocon of
     | NONE => empty_item "ConIdNone"
     | SOME (c, NONE) => item_with_num "ConIdUntyped" c
-    | SOME (c, SOME t) => Item NONE "ConIdTyped"
-        [num_to_display c; num_to_display t]`
+    | SOME (c, SOME t) => item_with_nums "ConIdTyped" [c; t]`
 
 val flat_pat_to_display_def = tDefine "flat_pat_to_display" `
   flat_pat_to_display p =
@@ -281,7 +284,7 @@ val flat_to_display_dec_def = Define`
     case d of
        | Dlet exp => Item NONE "Dlet" [flat_to_display exp]
        | Dtype mods con_arities => item_with_num "Dtype" mods
-       | Dexn n1 n2 => Item NONE "Dexn" [num_to_display n1; num_to_display n2]`
+       | Dexn n1 n2 => item_with_nums "Dexn" [n1; n2]`
 
 (* pat to displayLang *)
 
@@ -297,8 +300,7 @@ val pat_op_to_display_def = Define `
   pat_op_to_display op = case op of
     | patLang$Op op2 => flat_op_to_display op2
     | Run => empty_item "Run"
-    | Tag_eq n1 n2 =>
-        Item NONE "Tag_eq" [(num_to_display n1);(num_to_display n2)]
+    | Tag_eq n1 n2 => item_with_nums "Tag_eq" [n1; n2]
     | El num => item_with_num "El" num
   `
 
@@ -394,7 +396,7 @@ val clos_op_to_display_def = Define `
     | FromListByte => empty_item "FromListByte"
     | LengthByteVec => empty_item "LengthByteVec"
     | DerefByteVec => empty_item "DerefByteVec"
-    | TagLenEq n1 n2 => Item NONE "TagLenEq" [num_to_display n1; num_to_display n2]
+    | TagLenEq n1 n2 => item_with_nums "TagLenEq" [n1; n2]
     | TagEq num => item_with_num "TagEq" num
     | Ref => empty_item "Ref"
     | Deref => empty_item "Deref"
@@ -495,6 +497,187 @@ val clos_to_display_def = tDefine "clos_to_display" `
   \\ rw [closLangTheory.exp_size_def]
   \\ imp_res_tac MEM_clos_exps_size \\ fs []
  );
+
+(* stackLang *)
+
+val store_name_to_display_def = Define `
+  store_name_to_display st = case st of
+    | NextFree => empty_item "NextFree"
+    | EndOfHeap => empty_item "EndOfHeap"
+    | TriggerGC => empty_item "TriggerGC"
+    | HeapLength => empty_item "HeapLength"
+    | ProgStart => empty_item "ProgStart"
+    | BitmapBase => empty_item "BitmapBase"
+    | CurrHeap => empty_item "CurrHeap"
+    | OtherHeap => empty_item "OtherHeap"
+    | AllocSize => empty_item "AllocSize"
+    | Globals => empty_item "Globals"
+    | Handler => empty_item "Handler"
+    | GenStart => empty_item "GenStart"
+    | CodeBuffer => empty_item "CodeBuffer"
+    | CodeBufferEnd => empty_item "CodeBufferEnd"
+    | BitmapBuffer => empty_item "BitmapBuffer"
+    | BitmapBufferEnd => empty_item "BitmapBufferEnd"
+    | Temp n => item_with_num "Temp" (w2n n)`;
+
+(* asm *)
+(* also, yuck. programming with python now *)
+
+val asm_binop_to_display_def = Define `
+  asm_binop_to_display op = case op of
+    | asm$Add => empty_item "Add"
+    | Sub => empty_item "Sub"
+    | And => empty_item "And"
+    | Or => empty_item "Or"
+    | Xor => empty_item "Xor"`;
+
+val asm_reg_imm_to_display_def = Define `
+  asm_reg_imm_to_display reg_imm = case reg_imm of
+    | asm$Reg reg => item_with_num "Reg" reg
+    | Imm imm => item_with_num "Imm" (w2n imm)`;
+
+val asm_arith_to_display_def = Define `
+  asm_arith_to_display op = case op of
+    | asm$Binop bop n1 n2 reg_imm => Item NONE "Binop"
+        [asm_binop_to_display bop; num_to_display n1; num_to_display n2;
+            asm_reg_imm_to_display reg_imm]
+    | asm$Shift sh n1 n2 n3 => Item NONE "Shift"
+        (shift_to_display sh :: MAP num_to_display [n1; n2; n3])
+    | Div n1 n2 n3 => item_with_nums "Div" [n1; n2; n3]
+    | LongMul n1 n2 n3 n4 => item_with_nums "LongMul" [n1; n2; n3; n4]
+    | LongDiv n1 n2 n3 n4 n5 => item_with_nums "LongDiv" [n1; n2; n3; n4; n5]
+    | AddCarry n1 n2 n3 n4 => item_with_nums "AddCarry" [n1; n2; n3; n4]
+    | AddOverflow n1 n2 n3 n4 => item_with_nums "AddOverflow" [n1; n2; n3; n4]
+    | SubOverflow n1 n2 n3 n4 => item_with_nums "SubOverflow" [n1; n2; n3; n4]`;
+
+val asm_addr_to_display_def = Define `
+  asm_addr_to_display addr = case addr of
+    | Addr reg w => item_with_nums "Addr" [reg; w2n w]`;
+
+val asm_memop_to_display_def = Define `
+  asm_memop_to_display op = case op of
+    | Load => empty_item "Load"
+    | Load8 => empty_item "Load8"
+    | Store => empty_item "Store"
+    | Store8 => empty_item "Store8"`;
+
+val asm_fp_to_display_def = Define `
+  asm_fp_to_display op = case op of
+    | FPLess n1 n2 n3 => item_with_nums "FPLess" [n1; n2; n3]
+    | FPLessEqual n1 n2 n3 => item_with_nums "FPLessEqual" [n1; n2; n3]
+    | FPEqual n1 n2 n3 => item_with_nums "FPEqual" [n1; n2; n3]
+    | FPAbs n1 n2 => item_with_nums "FPAbs" [n1; n2]
+    | FPNeg n1 n2 => item_with_nums "FPNeg" [n1; n2]
+    | FPSqrt n1 n2 => item_with_nums "FPSqrt" [n1; n2]
+    | FPAdd n1 n2 n3 => item_with_nums "FPAdd" [n1; n2; n3]
+    | FPSub n1 n2 n3 => item_with_nums "FPSub" [n1; n2; n3]
+    | FPMul n1 n2 n3 => item_with_nums "FPMul" [n1; n2; n3]
+    | FPDiv n1 n2 n3 => item_with_nums "FPDiv" [n1; n2; n3]
+    | FPMov n1 n2 => item_with_nums "FPMov" [n1; n2]
+    | FPMovToReg n1 n2 n3 => item_with_nums "FPMovToReg" [n1; n2; n3]
+    | FPMovFromReg n1 n2 n3 => item_with_nums "FPMovFromReg" [n1; n2; n3]
+    | FPToInt n1 n2 => item_with_nums "FPToInt" [n1; n2]
+    | FPFromInt n1 n2 => item_with_nums "FPFromInt" [n1; n2]`;
+
+val asm_inst_to_display_def = Define `
+  asm_inst_to_display inst = case inst of
+    | asm$Skip => empty_item "Skip"
+    | Const reg w => item_with_nums "Const" [reg; w2n w]
+    | Arith a => Item NONE "Arith" [asm_arith_to_display a]
+    | Mem mop r addr => Item NONE "Mem" [asm_memop_to_display mop;
+        num_to_display r; asm_addr_to_display addr]
+    | FP fp => Item NONE "FP" [asm_fp_to_display fp]`;
+
+(* wordLang *)
+
+val MEM_word_exps_size_ARB =
+    wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
+
+val word_exp_to_display_def = tDefine "word_exp_to_display" `
+  (word_exp_to_display (wordLang$Const v)
+    = item_with_num "Const" (w2n v)) /\
+  (word_exp_to_display (Var n)
+    = item_with_num "Var" n) /\
+  (word_exp_to_display (Lookup st)
+    = Item NONE "Lookup" [store_name_to_display st]) /\
+  (word_exp_to_display (Load exp2)
+    = Item NONE "Load" [word_exp_to_display exp2]) /\
+  (word_exp_to_display (Op bop exs)
+    = Item NONE "Op" (asm_op_to_display bop
+        :: MAP word_exp_to_display exs)) /\
+  (word_exp_to_display (Shift sh exp num)
+    = Item NONE "Shift" [
+      shift_to_display sh;
+      word_exp_to_display exp;
+      num_to_display num
+    ])`
+ (WF_REL_TAC `measure (wordLang$exp_size ARB)`
+  \\ rw []
+  \\ imp_res_tac MEM_word_exps_size_ARB
+  \\ rw []
+ );
+
+val num_set_to_display_def = Define
+  `num_set_to_display ns = List (MAP num_to_display
+    (MAP FST (sptree$toAList ns)))`;
+
+val word_prog_to_display_def = tDefine "word_prog_to_display" `
+  (word_prog_to_display Skip = empty_item "Skip") /\
+  (word_prog_to_display (Move n mvs) = Item NONE "Move"
+    [num_to_display n; displayLang$List (MAP (\(n1, n2). Tuple
+        [num_to_display n1; num_to_display n2]) mvs)]) /\
+  (word_prog_to_display (Inst i) = empty_item "Inst") /\
+  (word_prog_to_display (Assign n exp) = Item NONE "Assign"
+    [num_to_display n; word_exp_to_display exp]) /\
+  (word_prog_to_display (Get n sn) = Item NONE "Get"
+    [num_to_display n; store_name_to_display sn]) /\
+  (word_prog_to_display (Set sn exp) = Item NONE "Set"
+    [store_name_to_display sn; word_exp_to_display exp]) /\
+  (word_prog_to_display (Store exp n) = Item NONE "Store"
+    [word_exp_to_display exp; num_to_display n]) /\
+  (word_prog_to_display (MustTerminate prog) = Item NONE "MustTerminate"
+    [word_prog_to_display prog]) /\
+  (word_prog_to_display (Call a b c d) = Item NONE "Call"
+    [word_prog_to_display_ret a; option_to_display num_to_display b;
+        list_to_display num_to_display c;
+        word_prog_to_display_handler d]) /\
+  (word_prog_to_display (Seq prog1 prog2) = Item NONE "Seq"
+    [word_prog_to_display prog1; word_prog_to_display prog2]) /\
+  (word_prog_to_display (If cmp n reg p1 p2) = Item NONE "If"
+    [word_prog_to_display p1; word_prog_to_display p2]) /\
+  (word_prog_to_display (Alloc n ns) = Item NONE "Alloc"
+    [num_to_display n; num_set_to_display ns]) /\
+  (word_prog_to_display (Raise n) = item_with_num "Raise" n) /\
+  (word_prog_to_display (Return n1 n2) = item_with_nums "Return" [n1; n2]) /\
+  (word_prog_to_display Tick = empty_item "Tick") /\
+  (word_prog_to_display (LocValue n1 n2) =
+    item_with_nums "LocValue" [n1; n2]) /\
+  (word_prog_to_display (Install n1 n2 n3 n4 ns) =
+    Item NONE "Install" (MAP num_to_display [n1; n2; n3; n4]
+        ++ [num_set_to_display ns])) /\
+  (word_prog_to_display (CodeBufferWrite n1 n2) =
+    item_with_nums "CodeBufferWrite" [n1; n2]) /\
+  (word_prog_to_display (DataBufferWrite n1 n2) =
+    item_with_nums "DataBufferWrite" [n1; n2]) /\
+  (word_prog_to_display (FFI nm n1 n2 n3 n4 ns) =
+    Item NONE "FFI" (string_to_display nm :: MAP num_to_display [n1; n2; n3; n4]
+        ++ [num_set_to_display ns])) /\
+  (word_prog_to_display_ret NONE = empty_item "NONE") /\
+  (word_prog_to_display_ret (SOME (n1, ns, prog, n2, n3)) =
+    Item NONE "SOME" [Tuple [num_to_display n1; num_set_to_display ns;
+        word_prog_to_display prog; num_to_display n2; num_to_display n3]]) /\
+  (word_prog_to_display_handler NONE = empty_item "NONE") /\
+  (word_prog_to_display_handler (SOME (n1, prog, n2, n3)) =
+    Item NONE "SOME" [Tuple [num_to_display n1;
+        word_prog_to_display prog; num_to_display n2; num_to_display n3]])
+`
+  (WF_REL_TAC `measure (\x. case x of
+        | INL p => wordLang$prog_size ARB p
+        | INR (INL v) => wordLang$prog1_size ARB v
+        | INR (INR v) => wordLang$prog3_size ARB v)`
+    \\ rw []
+  )
+;
 
 (* Function to construct general functions from a language to JSON. Call with
 * the name of the language and what function to use to convert it to
