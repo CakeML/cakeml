@@ -112,7 +112,7 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
 val is_pure_do_app_Rval_IMP = Q.prove(
   `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
-  \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
+  \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
           consume_space_def,do_install_def,UNCURRY,case_eq_thms]
   \\ rw[] \\ fs [state_component_equality,is_pure_def,data_spaceTheory.op_space_req_def]);
 
