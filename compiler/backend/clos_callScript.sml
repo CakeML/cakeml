@@ -99,12 +99,12 @@ val EL_MEM_LEMMA = Q.prove(
 
 val insert_each_def = Define `
   (insert_each p 0 g = g) /\
-  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))`
+  (insert_each p (SUC n) (g1,g2) = insert_each (p+1) n (insert p () g1,g2))`
 
 val code_list_def = Define `
   (code_list loc [] g = g) /\
   (code_list loc ((n,p)::xs) (g1,g2) =
-     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))`
+     code_list (loc+1n) xs (g1,(loc,n,p)::g2))`
 
 val GENLIST_Var_def = Define `
   GENLIST_Var t i n =
@@ -114,8 +114,8 @@ val GENLIST_Var_def = Define `
 val calls_list_def = Define `
   (calls_list t i loc [] = []) /\
   (calls_list t i loc ((n,_)::xs) =
-     (n,Call (t§i§0) 0 (loc+1) (GENLIST_Var (t§i) 1 n))::
-          calls_list t (i+1) (loc+2n) xs)`;
+     (n,Call (t§i§0) 0 loc (GENLIST_Var (t§i) 1 n))::
+          calls_list t i (loc+1n) xs)`;
 
 val exp3_size_MAP_SND = Q.prove(
   `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
@@ -168,21 +168,21 @@ val calls_def = tDefine "calls" `
      let e1 = HD e1 in
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
-         if pure x then ([Call t (LENGTH es) (loc+1) es],g) else
+         if pure x then ([Call t (LENGTH es) loc es],g) else
            ([Let (t§0) (SNOC e1 es)
-              (Call (t§1) (LENGTH es) (loc+1) (GENLIST_Var t 2 (LENGTH es)))],g)
+              (Call (t§1) (LENGTH es) loc (GENLIST_Var t 2 (LENGTH es)))],g)
        else ([App t loc_opt e1 es],g)) /\
   (calls [Fn t loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
      let new_g = insert_each loc 1 g in
      let (e1,new_g) = calls [x1] new_g in
-     let new_g = (FST new_g,(loc+1,num_args,HD e1)::SND new_g) in
+     let new_g = (FST new_g,(loc,num_args,HD e1)::SND new_g) in
        (* Closedness is checked on the transformed program because
           the calls function can sometimes remove free variables. *)
        if closed (Fn t loc_opt ws num_args (HD e1)) then
          ([Fn (t§0) loc_opt ws num_args
-             (Call (t§0§0) 0 (loc+1) (GENLIST_Var (t§0) 1 num_args))],new_g)
+             (Call (t§0§0) 0 loc (GENLIST_Var (t§0) 1 num_args))],new_g)
        else
          let (e1,g) = calls [x1] g in
            ([Fn t loc_opt ws num_args (HD e1)],g)) /\
