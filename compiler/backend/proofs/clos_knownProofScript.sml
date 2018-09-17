@@ -270,7 +270,7 @@ val (val_approx_val_rules, val_approx_val_ind, val_approx_val_cases) = Hol_reln 
      val_approx_val (Tuple tg vas) (Block tg vs)) /\
   (!m n env b. val_approx_val (ClosNoInline m n) (Closure (SOME m) [] env n b)) /\
   (!m n env base fs j.
-     m = base + 2*j /\ j < LENGTH fs /\ n = FST (EL j fs) ==>
+     m = base + j /\ j < LENGTH fs /\ n = FST (EL j fs) ==>
      val_approx_val (ClosNoInline m n) (Recclosure (SOME base) [] env fs j)) /\
   (!m n b s env. val_approx_val (Clos m n b s) (Closure (SOME m) [] env n b))`;
 
@@ -1246,7 +1246,7 @@ val loptrel_def = Define`
        | (Closure (SOME loc1) ae _ n bod, SOME loc2) =>
             loc1 = loc2 ∧ n = numargs ∧ ae = []
        | (Recclosure (SOME loc1) ae _ fns i, SOME loc2) =>
-         i < LENGTH fns ∧ loc2 = loc1 + 2 * i ∧ numargs = FST (EL i fns) ∧
+         i < LENGTH fns ∧ loc2 = loc1 + i ∧ numargs = FST (EL i fns) ∧
          ae = []
        | _ => F
 `;
@@ -1389,9 +1389,9 @@ val clos_gen_noinline_eq = Q.store_thm(
   "clos_gen_noinline_eq",
   `!n c fns.
   clos_gen_noinline n c fns =
-  GENLIST (λi. ClosNoInline (2 * (i+c) + n) (FST (EL i fns))) (LENGTH fns)`,
+  GENLIST (λi. ClosNoInline (i + c + n) (FST (EL i fns))) (LENGTH fns)`,
   Induct_on`fns`>>fs[FORALL_PROD,clos_gen_noinline_def,GENLIST_CONS]>>rw[]>>
-  simp[o_DEF,ADD1])
+  simp[o_DEF,ADD1] \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs [FUN_EQ_THM]);
 
 val letrec_case_eq = Q.prove(`
   !limit loc fns.
@@ -1399,7 +1399,7 @@ val letrec_case_eq = Q.prove(`
     NONE => REPLICATE (LENGTH fns) Other
   | SOME n => clos_gen_noinline n 0 fns) =
   GENLIST (case loc of NONE => K Other |
-                       SOME n => λi. ClosNoInline (n + 2*i) (FST (EL i fns))) (LENGTH fns)`,
+                       SOME n => λi. ClosNoInline (n + i) (FST (EL i fns))) (LENGTH fns)`,
   Cases_on`loc`>>fs[clos_gen_noinline_eq,REPLICATE_GENLIST])
 
 val every_var_def = Define `

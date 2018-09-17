@@ -394,10 +394,10 @@ val clos_approx_def = Define `
       | SOME body_size => Clos loc num_args body body_size
 `;
 
-val clos_gen_noinline_def = Define`
+val clos_gen_noinline_def = Define `
   (clos_gen_noinline n i [] = []) /\
   (clos_gen_noinline n i ((a,e)::xs) =
-    ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)`;
+    ClosNoInline (n+i) a::clos_gen_noinline n (i+1) xs)`;
 
 val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
 
