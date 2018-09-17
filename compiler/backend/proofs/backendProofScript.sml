@@ -531,7 +531,9 @@ val compile_correct = Q.store_thm("compile_correct",
        qspecl_then[`TODO_clock`,
                    `K ((TODO_co1,
                         (
-                        (THE(FST(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p)))))))).val_approx_spt
+                          (case
+                            (FST(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p)))))))
+                          of NONE => LN | SOME x => x.val_approx_spt)
                         ,
                          (FST(SND(compile T (SND(compile c.clos_conf.known_conf (SND (renumber_code_locs_list (make_even (LENGTH (compile p) + c.clos_conf.next_loc)) (compile c.clos_conf.do_mti c.clos_conf.max_app (MAP compile (compile p))))))))),
                           FST(SND(SND(compile (FST(compile c.clos_conf (MAP compile (compile p)))).start c.bvl_conf (SND(compile c.clos_conf (MAP compile (compile p))))))),
@@ -608,20 +610,46 @@ val compile_correct = Q.store_thm("compile_correct",
       strip_tac
       \\ conj_tac
       >- ( fs[IS_SOME_EXISTS] \\ fs[backend_config_ok_def] )
-      \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`] )
+      \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`]
+      \\ fs[IS_SOME_EXISTS]
+      \\ simp[Abbr`coa`]
+      \\ CASE_TAC \\ fs[]
+      \\ fs[clos_knownTheory.compile_def, UNCURRY])
     \\ conj_tac
     >- ( strip_tac \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`] )
     \\ conj_tac
     >- (
       gen_tac
-      \\ conj_tac >- cheat (* syntax ok *)
-      \\ conj_tac >- (
-        CONV_TAC(RAND_CONV(RAND_CONV EVAL))
-        \\ simp[GSYM REPLICATE_GENLIST]
-        \\ simp[FLAT_REPLICATE_NIL]
+      \\ qhdtm_x_assum`clos_to_bvl$compile`mp_tac
+      \\ simp[clos_to_bvlTheory.compile_def, clos_to_bvlTheory.compile_common_def]
+      \\ qmatch_goalsub_abbrev_tac`renumber_code_locs_list nn`
+      \\ qmatch_asmsub_abbrev_tac`renumber_code_locs_list nn1`
+      \\ `nn = nn1`
+      by (
+        simp[Abbr`nn`,Abbr`nn1`,Abbr`e3`,Abbr`p''`]
+        \\ rw[make_even_def, EVEN_MOD2] )
+      \\ fs[Abbr`nn`]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ strip_tac \\ fs[Abbr`nn1`]
+      \\ rveq
+      \\ `BAG_ALL_DISTINCT (elist_globals e3)`
+      by (
+        simp[Abbr`e3`,Abbr`p''`,Abbr`p'`]
         \\ cheat (* syntax ok *) )
-      \\ conj_tac >- EVAL_TAC
-      \\ conj_tac >- ( EVAL_TAC \\ rw[] )
+      \\ Cases_on`kc` \\ fs[]
+      >- (
+        simp[Abbr`coa`]
+        \\ conj_tac >- (EVAL_TAC \\ rw[lookup_def])
+        \\ conj_tac >- (EVAL_TAC
+             \\ simp[GSYM REPLICATE_GENLIST]
+             \\ simp[FLAT_REPLICATE_NIL] )
+        \\ conj_tac >- EVAL_TAC
+        \\ conj_tac >- (EVAL_TAC \\ rw[])
+        \\ EVAL_TAC \\ rw[lookup_def] )
+      \\ simp[Abbr`coa`]
       \\ cheat (* syntax ok *) )
     \\ cheat (* syntax ok *) )
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
