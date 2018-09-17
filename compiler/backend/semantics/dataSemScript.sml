@@ -1,5 +1,5 @@
-open preamble dataLangTheory bvi_to_dataTheory;
-local open bvlSemTheory bvlPropsTheory bviSemTheory in end;
+open preamble dataLangTheory bvi_to_dataTheory closSemTheory;
+
 
 val _ = new_theory"dataSem";
 
@@ -70,6 +70,10 @@ val v_to_bytes_def = Define `
 
 val v_to_words_def = Define `
   v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+
+(* TODO: move this stuff *)
+val isClos_def = Define `
+  isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])`;
 
 val do_eq_def = tDefine"do_eq"`
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
