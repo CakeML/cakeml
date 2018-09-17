@@ -354,8 +354,8 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
+    ,dataLangTheory.op_space_reset_def
       (* ---- bvi_to_data ---- *)
-    ,bvi_to_dataTheory.op_space_reset_def
     ,bvi_to_dataTheory.op_requires_names_eqn
     ,bvi_to_dataTheory.optimise_def
     ,bvi_to_dataTheory.compile_prog_def
