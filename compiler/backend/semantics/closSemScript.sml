@@ -437,7 +437,7 @@ val dest_closure_def = Define `
           if LENGTH fns <= i \/
              ~check_loc max_app
                         loc_opt
-                        (OPTION_MAP ((+) (2*i)) loc) num_args
+                        (OPTION_MAP ((+) i) loc) num_args
                         (LENGTH args)
                         (LENGTH arg_env) ∨
              ¬(LENGTH arg_env < num_args)

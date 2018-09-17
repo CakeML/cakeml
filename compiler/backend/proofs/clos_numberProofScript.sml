@@ -84,18 +84,18 @@ val renumber_code_locs_distinct_lemma = Q.prove(
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
   TRY (
-    Cases_on`renumber_code_locs (n+2) e`>>full_simp_tac(srw_ss())[] >>
+    Cases_on`renumber_code_locs (n+1) e`>>full_simp_tac(srw_ss())[] >>
     simp[less_sorted_eq] >>
     imp_res_tac renumber_code_locs_imp_inc >>
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
-  fs[times_add_o,GSYM MAP_GENLIST,
+  fs[times_add_o |> Q.INST [`k`|->`1`] |> SIMP_RULE std_ss [],GSYM MAP_GENLIST,
      MATCH_MP sorted_map transitive_LESS,
      SORTED_inv_image_LESS_PLUS,
      SORTED_GENLIST_TIMES] >>
   Cases_on `renumber_code_locs_list n (MAP SND fns)` >>
   full_simp_tac(srw_ss())[] >>
-  Cases_on`renumber_code_locs (q+2 * LENGTH fns) e`>>full_simp_tac(srw_ss())[] >>
+  Cases_on`renumber_code_locs (q+LENGTH fns) e`>>full_simp_tac(srw_ss())[] >>
   rpt(CHANGED_TAC tac >> full_simp_tac(srw_ss())[])>>
   simp[MEM_GENLIST,MEM_MAP,PULL_EXISTS] >>
   imp_res_tac renumber_code_locs_imp_inc >>
@@ -934,20 +934,6 @@ val renumber_code_locs_every_Fn_vs_NONE = Q.store_thm("renumber_code_locs_every_
   full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY,SimpRHS] >>
   full_simp_tac(srw_ss())[EVERY_MAP,ZIP_MAP] >>
   full_simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
-
-val renumber_code_locs_EVEN = Q.store_thm("renumber_code_locs_EVEN",
-  `(∀n es. EVEN n ⇒ EVEN (FST (renumber_code_locs_list n es)) ∧ EVERY EVEN (code_locs (SND (renumber_code_locs_list n es)))) ∧
-   (∀n e. EVEN n ⇒ EVEN (FST (renumber_code_locs n e)) ∧ EVERY EVEN (code_locs [SND (renumber_code_locs n e)]))`,
-  ho_match_mp_tac renumber_code_locs_ind
-  \\ rw[renumber_code_locs_def,code_locs_def]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ fs[code_locs_def]
-  >- ( rw[Once code_locs_cons] )
-  \\ fs[EVEN_MOD2,ADD_MODULUS]
-  \\ fs[SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]
-  \\ imp_res_tac renumber_code_locs_list_length
-  \\ fs[MAP_ZIP,EVERY_GENLIST] \\ rw[]
-  \\ simp[EVEN_MOD2,SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]);
 
 val renumber_code_locs_elist_globals = Q.store_thm(
   "renumber_code_locs_elist_globals",
