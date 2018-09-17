@@ -417,6 +417,8 @@ val _ = temp_overload_on("bvl_inline_compile_inc",``bvl_inline$compile_inc``);
 val _ = temp_overload_on("pat_to_clos_compile",``pat_to_clos$compile``);
 val _ = temp_overload_on("flat_to_pat_compile",``flat_to_pat$compile``);
 
+(* TODO: move things that need moving *)
+
 val FST_known_co = Q.store_thm("FST_known_co",
   `FST (known_co kc co n) = SND (FST (co n))`,
   rw[clos_knownProofTheory.known_co_def]
@@ -791,7 +793,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ conj_tac
       >- (
         simp[Abbr`co3`]
-        `bvl_num_stubs ≤ n2` suffices_by rw[]
+        \\ `bvl_num_stubs ≤ n2` suffices_by rw[]
         \\ fs[bvl_to_bviTheory.compile_def]
         \\ rpt(pairarg_tac \\ fs[])
         \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
@@ -803,11 +805,10 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ rpt(pairarg_tac \\ fs[])
         \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
         \\ rw[]
-        \\ simp[bvl_to_bviProofTheory.mult_nss_in_ns_2] )
-      >- (
-        qpat_x_assum`_ = (_,p''')`mp_tac
-        \\ MATCH_ACCEPT_TAC clos_to_bvlProofTheory.compile_all_distinct_locs
-        ))
+        \\ simp[bvl_to_bviProofTheory.mult_nss_in_ns_2] ))
+    \\ (
+      qpat_x_assum`_ = (_,p''')`mp_tac
+      \\ MATCH_ACCEPT_TAC clos_to_bvlProofTheory.compile_all_distinct_locs))
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qunabbrev_tac`cc`
 
@@ -1054,6 +1055,39 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`c4`] \\
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
   disch_then(qspec_then`lab_oracle`mp_tac) \\
+
+  `∀k. SND (co k) = [(num_stubs cf.max_app, 0, Op (Const (&TODO_co1)) [])]` by (
+      gen_tac
+      \\ simp[Abbr`co`, Abbr`co3`, backendPropsTheory.state_co_def, Abbr`pc`, backendPropsTheory.pure_co_def, UNCURRY]
+      \\ simp[flat_to_patTheory.compile_def]
+      \\ qmatch_goalsub_abbrev_tac`SND (aaa (bbb,[],[]))`
+      \\ `SND (aaa (bbb,[],[])) = ([],[])`  by ( rw[Abbr`bbb`,Abbr`aaa`] \\ EVAL_TAC )
+      \\ fs[]
+      \\ simp[closPropsTheory.ignore_table_def, UNCURRY]
+      \\ `FST (FST (aaa (bbb,[],[]))) = TODO_co1`
+      by ( simp[Abbr`aaa`,Abbr`bbb`] \\ rw[] )
+      \\ fs[]
+      \\ qmatch_goalsub_abbrev_tac`SND ccc,[]`
+      \\ `ccc = (make_even (TODO_co1+1), [Op None (Const (&TODO_co1))[]])`
+      by ( simp[Abbr`ccc`] \\ EVAL_TAC )
+      \\ fs[Abbr`ccc`]
+      \\ qmatch_goalsub_abbrev_tac`_ _ (SND ccc)`
+      \\ `ccc = (SND (SND (FST (aaa (bbb,[],[])))),[Op None (Const (&TODO_co1)) []],[])`
+      by (
+        simp[Abbr`ccc`]
+        \\ EVAL_TAC \\ simp[UNCURRY]
+        \\ CASE_TAC \\ EVAL_TAC )
+      \\ fs[Abbr`ccc`]
+      \\ qmatch_goalsub_abbrev_tac`_ (SND ccc)`
+      \\ `SND ccc = ([Op None (Const (&TODO_co1)) []],[])`
+      by ( rw[Abbr`ccc`] \\ EVAL_TAC )
+      \\ fs[]
+      \\ simp[clos_annotateProofTheory.compile_inc_def]
+      \\ CONV_TAC(LAND_CONV(RAND_CONV EVAL))
+      \\ simp[clos_to_bvlProofTheory.compile_inc_def]
+      \\ simp[clos_to_bvlProofTheory.extract_name_def]
+      \\ simp[clos_to_bvlTheory.chain_exps_def]
+      \\ simp[clos_to_bvlTheory.compile_prog_def, clos_to_bvlTheory.compile_exps_def] ) \\
 
   impl_tac >- (
     conj_tac >- (
@@ -1310,13 +1344,13 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[EVERY_MAP] \\
       gen_tac \\
       qmatch_goalsub_abbrev_tac`compile_prog _ pp`
+      (*
       \\ `SND (co n) = [(cf.max_app + (cf.max_app * (cf.max_app - 1) DIV 2 + 1), 0, Op (Const (&TODO_co1)) [])]`
       by (
         simp[Abbr`co`, Abbr`co3`, backendPropsTheory.SND_state_co, Abbr`pc`, FST_known_co, backendPropsTheory.FST_state_co]
         \\ simp[clos_knownProofTheory.known_co_def]
         \\ Cases_on`cf.known_conf` \\ fs[backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co] \\ rw[]
         \\ EVAL_TAC \\ simp[UNCURRY] \\ EVAL_TAC )
-      (*
       this is not true
       -- maybe the oracle should not be empty list, so as not to trigger extract_name's failure case?
       \\ `pp = [(3 * (cf.max_app + (cf.max_app * (cf.max_app - 1) DIV 2 + 1)) + 66, 0 , Var 0)]`
@@ -1339,7 +1373,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ simp[UNCURRY]
       rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] \\ rveq \\ fs[] \\
       *)
-      cheat (* instantiate the oracle better? *))>>
+      \\ cheat (* instantiate the oracle better? *))>>
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
