@@ -288,12 +288,12 @@ val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
 (* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
-  `ffi_open_in conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_open_in conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_in_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]);
 
 val ffi_open_out_length = Q.store_thm("ffi_open_out_length",
-  `ffi_open_out conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_out_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]);
 
@@ -305,7 +305,7 @@ val read_length = Q.store_thm("read_length",
     fs[MIN_DEF,LENGTH_DROP]);
 
 val ffi_read_length = Q.store_thm("ffi_read_length",
-  `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_read conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def]
   \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
   \\ fs[option_eq_some]
@@ -313,7 +313,7 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   \\ imp_res_tac read_length \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
-  `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_write conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[]
   \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
   \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[n2w2_def]
@@ -321,7 +321,7 @@ val ffi_write_length = Q.store_thm("ffi_write_length",
   \\ rpt(Cases_on`t` \\ fs[] \\ Cases_on`t'` \\ fs[]));
 
 val ffi_close_length = Q.store_thm("ffi_close_length",
-  `ffi_close conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_close conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_close_def] \\ fs[option_eq_some] \\ TRY pairarg_tac \\ fs[] \\ rw[]);
 
 (* fastForwardFD *)

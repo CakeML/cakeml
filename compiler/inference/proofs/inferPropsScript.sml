@@ -487,8 +487,8 @@ val failwith_success = Q.prove (
 rw [failwith_def]);
 
 val lookup_st_ex_success = Q.prove (
-`!loc x l st v st'.
-  (lookup_st_ex loc x l st = (Success v, st'))
+`!loc x err l st v st'.
+  (lookup_st_ex loc err x l st = (Success v, st'))
   =
   ((nsLookup l x = SOME v) ∧ (st = st'))`,
  rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
@@ -543,6 +543,113 @@ val guard_success = Q.prove (
 rw [guard_def, st_ex_return_def, failwith_def] >>
 metis_tac []);
 
+val check_dups_success = Q.store_thm ("check_dups_success",
+  `!l f ls s r s'.
+    check_dups l f ls s = (Success r, s')
+    ⇔
+    s' = s ∧ ALL_DISTINCT ls`,
+  Induct_on `ls` >>
+  rw [check_dups_def, st_ex_return_def, failwith_def] >>
+  metis_tac []);
+
+val type_name_check_subst_success = Q.store_thm ("type_name_check_subst_success",
+  `(!t l f tenvT tvs r (s:'a) s'.
+    type_name_check_subst l f tenvT tvs t s = (Success r, s')
+    ⇔
+    s = s' ∧ r = type_name_subst tenvT t ∧
+    check_freevars_ast tvs t ∧ check_type_names tenvT t) ∧
+   (!ts l f tenvT tvs r (s:'a) s'.
+    type_name_check_subst_list l f tenvT tvs ts s = (Success r, s')
+    ⇔
+    s = s' ∧ r = MAP (type_name_subst tenvT) ts ∧
+    EVERY (check_freevars_ast tvs) ts ∧ EVERY (check_type_names tenvT) ts)`,
+ Induct >>
+ rw [type_name_check_subst_def, st_ex_bind_def, guard_def, st_ex_return_def,
+     check_freevars_ast_def, check_type_names_def, failwith_def,
+     type_name_subst_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ TRY pairarg_tac >>
+ fs [] >>
+ every_case_tac >>
+ fs [lookup_st_ex_success, lookup_st_ex_def] >>
+ metis_tac [exc_distinct, PAIR_EQ, NOT_EVERY]);
+
+val check_ctor_types_success = Q.store_thm ("check_ctor_types_success",
+  `!l tenvT tvs ts s s'.
+   check_ctor_types l tenvT tvs ts s = (Success (),s') ⇔
+   s = s' ∧
+   EVERY (λ(cn,ts).  EVERY (check_freevars_ast tvs) ts ∧
+   EVERY (check_type_names tenvT) ts) ts`,
+  Induct_on `ts` >>
+  rw [check_ctor_types_def, st_ex_return_def] >>
+  PairCases_on `h` >>
+  rw [check_ctor_types_def, st_ex_bind_def] >>
+  every_case_tac >>
+  fs [type_name_check_subst_success] >>
+  CCONTR_TAC >>
+  fs [combinTheory.o_DEF] >>
+  metis_tac [exc_distinct, PAIR_EQ, type_name_check_subst_success]);
+
+val check_ctors_success = Q.store_thm ("check_ctors_success",
+ `!l tenvT tds s s'.
+   ALL_DISTINCT (MAP (FST o SND) tds) ⇒
+   (check_ctors l tenvT tds s = (Success (),s') ⇔
+    s' = s ∧ check_ctor_tenv tenvT tds)`,
+  Induct_on `tds` >>
+  rw [] >>
+  TRY (PairCases_on `h`) >>
+  fs [check_ctor_tenv_def, check_type_definition_def, st_ex_bind_def,
+      check_ctors_def, st_ex_return_def, check_dup_ctors_thm]
+  >- metis_tac [] >>
+  every_case_tac >>
+  fs [check_dups_success, st_ex_return_def, check_type_definition_def,
+      check_ctor_types_success] >>
+  fs [check_dups_def, st_ex_return_def, st_ex_bind_def, LAMBDA_PROD,
+      combinTheory.o_DEF] >>
+  CCONTR_TAC >>
+  fs [combinTheory.o_DEF, ETA_THM] >>
+  rw [] >>
+  TRY (
+    Induct_on `h2` >>
+    fs [check_dups_def, st_ex_return_def] >>
+    rw [] >>
+    NO_TAC)
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]
+  >- (
+    Induct_on `h2` >>
+    fs [] >>
+    rw [check_ctor_types_def, st_ex_return_def] >>
+    PairCases_on `h` >>
+    fs [check_ctor_types_def, st_ex_return_def, st_ex_bind_def] >>
+    every_case_tac >>
+    fs [type_name_check_subst_success] >>
+    rw [] >>
+    metis_tac [NOT_EVERY, exc_distinct, PAIR_EQ, type_name_check_subst_success])
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]
+  >- metis_tac [exc_distinct, PAIR_EQ, check_dups_success]);
+
+val check_type_definition_success = Q.store_thm ("check_type_definition_success",
+  `!l tenvT tds s r s'.
+    check_type_definition l tenvT tds s = (Success r, s')
+    ⇔
+    s' = s ∧ check_ctor_tenv tenvT tds`,
+ rw [check_type_definition_def, st_ex_bind_def] >>
+ every_case_tac >>
+ fs [check_dups_success]
+ >- metis_tac [check_ctors_success] >>
+ `~ALL_DISTINCT (MAP (FST ∘ SND) tds)`
+ by metis_tac [exc_distinct, PAIR_EQ, check_dups_success] >>
+ pop_assum mp_tac >>
+ pop_assum kall_tac >>
+ Induct_on `tds` >>
+ rw [] >>
+ PairCases_on `h` >>
+ rw [check_ctor_tenv_def] >>
+ fs [LAMBDA_PROD, combinTheory.o_DEF]);
+
 val option_case_eq = Q.prove (
 `!opt f g v st st'.
   ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
@@ -555,9 +662,12 @@ val success_eqns =
   LIST_CONJ [st_ex_return_success, st_ex_bind_success, fresh_uvar_success,
              apply_subst_success, add_constraint_success, lookup_st_ex_success,
              n_fresh_uvar_success, failwith_success, add_constraints_success,
-             oneTheory.one,
+             oneTheory.one, check_type_definition_success,
              get_next_uvar_success, apply_subst_list_success, guard_success,
-             read_def, option_case_eq];
+             read_def, option_case_eq, check_dups_success,
+             type_name_check_subst_success,
+             check_ctor_types_success,
+             check_ctors_success];
 
 val _ = save_thm ("success_eqns", success_eqns);
 
@@ -581,6 +691,21 @@ PairCases_on `h` >>
 fs [infer_e_def, success_eqns] >>
 rw [] >>
 metis_tac []);
+
+val type_name_check_subst_state = Q.store_thm ("type_name_check_subst_state",
+ `(!t l err tenvT fvs (st:'a) r st'. type_name_check_subst l err tenvT fvs t st = (r,st') ⇒ st = st') ∧
+  (!ts l err tenvT fvs (st:'a) r st'. type_name_check_subst_list l err tenvT fvs ts st = (r,st') ⇒ st = st')`,
+  Induct >>
+  rw [type_name_check_subst_def, st_ex_bind_def, guard_def, st_ex_return_def,
+      failwith_def, lookup_st_ex_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw [] >>
+  TRY pairarg_tac >>
+  fs [] >>
+  every_case_tac >>
+  fs [] >>
+  metis_tac []);
 
 val infer_p_bindings = Q.store_thm ("infer_p_bindings",
 `(!l cenv p st t env st' x.
@@ -660,7 +785,7 @@ rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
 rw [] >>
 res_tac >>
 fs [] >>
-prove_tac [pure_add_constraints_append, pure_add_constraints_def]);
+prove_tac [pure_add_constraints_append, pure_add_constraints_def, type_name_check_subst_state]);
 
 val infer_e_constraints = Q.store_thm ("infer_e_constraints",
 `(!l ienv e st st' t.
@@ -689,7 +814,8 @@ every_case_tac >>
 fs [success_eqns] >>
 rw [] >>
 fs [infer_st_rewrs] >>
-prove_tac [pure_add_constraints_append, pure_add_constraints_def, infer_p_constraints]);
+prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+           infer_p_constraints, type_name_check_subst_state]);
 
 val pure_add_constraints_wfs = Q.store_thm ("pure_add_constraints_wfs",
 `!s1 ts s2.
@@ -720,6 +846,7 @@ rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
 rw [] >>
 res_tac >>
 fs [] >>
+`st''' = st''` by metis_tac [type_name_check_subst_state] >>
 metis_tac [DECIDE ``!(x:num) y z. x ≤ y ⇒ x ≤ y + z``,
            arithmeticTheory.LESS_EQ_TRANS]);
 
@@ -746,9 +873,9 @@ rw [] >>
 res_tac >>
 fs [] >>
 every_case_tac >>
-fs [success_eqns] >>
+fs [success_eqns]>>
 metis_tac [infer_p_next_uvar_mono, arithmeticTheory.LESS_EQ_TRANS,
-           pair_CASES,
+           pair_CASES,type_name_check_subst_state,
            DECIDE ``!(x:num) y. x ≤ x + y``,
            DECIDE ``!(x:num) y. x + 1 ≤ y ⇒ x ≤ y``,
            DECIDE ``!(x:num) y z. x ≤ y ⇒ x ≤ y + z``]);
@@ -772,7 +899,7 @@ rw [] >>
 res_tac >>
 fs []
 >- prove_tac [pure_add_constraints_wfs]
->- metis_tac [t_unify_wfs])
+>- metis_tac [t_unify_wfs, type_name_check_subst_state])
 
 val infer_e_wfs = Q.store_thm ("infer_e_wfs",
 `(!l ienv e st st' t.
@@ -812,7 +939,8 @@ rw [] >>
 fs [infer_st_rewrs] >>
 res_tac >>
 fs [] >>
-imp_res_tac t_unify_wfs);
+imp_res_tac t_unify_wfs >>
+metis_tac [type_name_check_subst_state]);
 
 (* ---------- The invariants of the inferencer ---------- *)
 
@@ -1167,8 +1295,8 @@ rw [check_t_def]
 >- (PairCases_on `v'` >>
     fs [] >>
     metis_tac [])
->- metis_tac []
->- metis_tac []
+>- metis_tac [type_name_check_subst_state]
+>- metis_tac [type_name_check_subst_state]
 >- (PairCases_on `v'` >>
     PairCases_on `v''` >>
     fs [] >>
@@ -1234,6 +1362,42 @@ EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)`,
   Induct>>fs[check_freevars_def,infer_type_subst_def,check_t_def]>>
   metis_tac[]);
 
+val type_name_check_subst_thm = Q.store_thm ("type_name_check_subst_thm",
+ `(!t l err tenvT fvs (st:'a) r st'.
+    type_name_check_subst l err tenvT fvs t st = (Success r,st') ⇒
+    check_freevars_ast fvs t ∧ check_type_names tenvT t ∧
+    r = type_name_subst tenvT t) ∧
+  (!ts l err tenvT fvs (st:'a) rs st'.
+    type_name_check_subst_list l err tenvT fvs ts st = (Success rs,st') ⇒
+    EVERY (check_freevars_ast fvs) ts ∧ EVERY (check_type_names tenvT) ts ∧
+    rs = MAP (type_name_subst tenvT) ts)`,
+  Induct >>
+  rw [check_type_names_def, type_name_check_subst_def, check_freevars_def,
+      type_name_subst_def, success_eqns] >>
+  rw [check_freevars_ast_def] >>
+  TRY pairarg_tac >>
+  fs [success_eqns] >>
+  rw [] >>
+  metis_tac []);
+
+val type_name_check_subst_comp_thm = Q.store_thm ("type_name_check_subst_comp_thm",
+ `(!t l err tenvT fvs (st:'a) r.
+    check_freevars_ast fvs t ∧ check_type_names tenvT t
+    ⇒
+    type_name_check_subst l err tenvT fvs t st =
+      (Success (type_name_subst tenvT t), st)) ∧
+  (!ts l err tenvT fvs (st:'a) rs st'.
+    EVERY (check_freevars_ast fvs) ts ∧ EVERY (check_type_names tenvT) ts
+    ⇒
+    type_name_check_subst_list l err tenvT fvs ts st =
+      (Success (MAP (type_name_subst tenvT) ts),st))`,
+  Induct >>
+  rw [check_type_names_def, type_name_check_subst_def, check_freevars_def,
+      type_name_subst_def, success_eqns] >>
+  fs [check_freevars_ast_def] >>
+  TRY pairarg_tac >>
+  fs [success_eqns]);
+
 val infer_p_check_s = Q.store_thm ("infer_p_check_s",
   `(!l ienv p st t env st' tvs.
     infer_p l ienv p st = (Success (t,env), st') ∧
@@ -1284,16 +1448,19 @@ val infer_p_check_s = Q.store_thm ("infer_p_check_s",
      metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
  >- (PairCases_on `v'` >>
      metis_tac [check_s_more2, infer_p_next_uvar_mono])
- >- (irule t_unify_check_s >>
-     qexists_tac `st''.subst` >>
-     qexists_tac `t'` >>
-     qexists_tac `(infer_type_subst [] (type_name_subst ienv.inf_t t))` >>
-     rw []
-     >- metis_tac [infer_p_wfs]
-     >- metis_tac [t_unify_check_s]
-     >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM]
-     >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
-                   check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM, check_t_more])
+ >- (
+   irule t_unify_check_s >>
+   qexists_tac `st''.subst` >>
+   qexists_tac `t'` >>
+   qexists_tac `(infer_type_subst []  (type_name_subst ienv.inf_t t))` >>
+   rw [] >>
+   fs []
+   >- metis_tac [infer_p_wfs]
+   >- metis_tac [t_unify_check_s]
+   >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM]
+   >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
+                 check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM,
+                 check_t_more, type_name_check_subst_thm])
  >- (PairCases_on `v'` >>
      PairCases_on `v''` >>
      metis_tac [infer_p_wfs, check_s_more2, infer_p_next_uvar_mono]));
@@ -1385,7 +1552,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
     ⇒
     EVERY (check_t 0 (count st'.next_uvar)) ts')`,
  ho_match_mp_tac infer_e_ind >>
- srw_tac[] [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem] >>
+ srw_tac[] [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, LET_THM] >>
  fsrw_tac[] [check_t_def] >>
  imp_res_tac infer_e_next_uvar_mono >>
  fsrw_tac[] [EVERY_MAP, check_t_def, check_t_infer_db_subst]
@@ -1454,9 +1621,14 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
    >> irule check_env_more
    >> `st.next_uvar ≤ st''''.next_uvar` by decide_tac
    >> metis_tac [check_env_more, check_t_more4])
- >- (res_tac >>
+ >- (imp_res_tac type_name_check_subst_thm >>
+     imp_res_tac type_name_check_subst_state >>
      fs [] >>
-     metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4])
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4,
+                type_name_check_subst_state])
  >- (res_tac >>
      fs [ienv_val_ok_def] >>
      metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4])
@@ -1483,8 +1655,9 @@ val constrain_op_wfs = Q.store_thm ("constrain_op_wfs",
     ⇒
     t_wfs st'.subst`,
   rw [constrain_op_def] >>
+  fs [] >>
   every_case_tac >>
-  fs [success_eqns] >>
+  fs [op_to_string_def, success_eqns] >>
   rw [] >>
   fs [infer_st_rewrs] >>
   metis_tac [t_unify_wfs]);
@@ -1497,7 +1670,7 @@ val constrain_op_check_t = Q.store_thm ("constrain_op_check_t",
     check_t 0 (count st'.next_uvar) t`,
   rw [constrain_op_def] >>
   every_case_tac >>
-  fs [success_eqns] >>
+  fs [op_to_string_def, success_eqns] >>
   rw [] >>
   fs [infer_st_rewrs, check_t_def]);
 
@@ -1517,7 +1690,8 @@ val constrain_op_check_s = Q.store_thm ("constrain_op_check_s",
    `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
    `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
    fs [constrain_op_success] >> rw [] >>
-   fs [infer_st_rewrs]
+   fs [op_to_string_def, infer_st_rewrs]
+   \\ TRY pairarg_tac >> fs [success_eqns]
    \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
    \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
    \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
@@ -1809,6 +1983,9 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> rw []
    >> metis_tac [check_s_more2, DECIDE ``x ≤ y+x:num``])
  >- (
+   imp_res_tac type_name_check_subst_state >>
+   imp_res_tac type_name_check_subst_thm >>
+   fs [] >>
    drule (CONJUNCT1 infer_e_wfs)
    >> first_x_assum drule
    >> rw []
@@ -2578,10 +2755,15 @@ val infer_d_check = Q.store_thm ("infer_d_check",
    >> fs []
    >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
  >- (
+   imp_res_tac type_name_check_subst_thm >>
+   fs [] >>
+   rw [] >>
    rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
    >> irule check_freevars_type_name_subst
    >> fs [ienv_ok_def])
  >- (
+   imp_res_tac type_name_check_subst_thm >>
+   fs [] >>
    fs [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
        EVERY_MAP, EVERY_MEM, MEM_MAP]
    >> rw []
@@ -2609,7 +2791,10 @@ val infer_p_next_id_const = Q.store_thm ("infer_p_next_id_const",
     st.next_id = st'.next_id)`,
 ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-fs[]>> res_tac >>
+fs[]>>
+imp_res_tac type_name_check_subst_state >>
+fs [] >>
+res_tac >>
 fs []);
 
 val infer_e_next_id_const = Q.store_thm ("infer_e_next_id_const",
@@ -2632,6 +2817,8 @@ val infer_e_next_id_const = Q.store_thm ("infer_e_next_id_const",
 ho_match_mp_tac infer_e_ind >>
 rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
 rw [] >>
+imp_res_tac type_name_check_subst_state >>
+fs [] >>
 res_tac >>
 fs [] >>
 every_case_tac >>
@@ -2650,6 +2837,8 @@ val infer_d_next_id_mono = Q.store_thm ("infer_d_next_id_mono",
   rpt (pairarg_tac >> fs [success_eqns])>>
   fs[init_state_def,init_infer_state_def]>>
   rw[]>>
+  imp_res_tac type_name_check_subst_state >>
+  fs [] >>
   imp_res_tac infer_e_next_id_const>>
   imp_res_tac infer_p_next_id_const>>fs[]
   >- (fs[n_fresh_id_def]>>rw[])>>
@@ -2734,12 +2923,12 @@ val check_t_infer_type_subst_dbs = Q.store_thm("check_t_infer_type_subst_dbs",
     rw[check_freevars_def,infer_type_subst_def,check_t_def] >>
     simp[EVERY_MAP] >> fs[EVERY_MEM] ) >>
   rw[check_freevars_def,check_t_def,infer_type_subst_def] >>
-  DECIDE_TAC)
+  DECIDE_TAC);
 
 val nub_eq_nil = Q.store_thm("nub_eq_nil",
   `∀ls. nub ls = [] ⇔ ls = []`,
   Induct >> simp[nub_def] >> rw[] >>
-  Cases_on`ls`>>fs[])
+  Cases_on`ls`>>fs[]);
 
 (*
 val check_specs_check = Q.store_thm ("check_specs_check",
@@ -3273,6 +3462,9 @@ val infer_p_inf_set_tids = Q.store_thm("infer_p_inf_set_tids",`
     fs[prim_tids_def,prim_type_nums_def]>>
     metis_tac[])
   >- (
+    imp_res_tac type_name_check_subst_state >>
+    imp_res_tac type_name_check_subst_thm >>
+    fs [] >>
     first_x_assum drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
     fs[prim_tids_def,prim_type_nums_def]>>
@@ -3313,8 +3505,9 @@ val constrain_op_set_tids = Q.store_thm("constrain_op_set_tids",
    ⇒
    inf_set_tids_subset tids t ∧ inf_set_tids_subst tids st'.subst`,
   simp[constrain_op_success,success_eqns]
-  \\ strip_tac \\ rveq
-  \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
+  \\ strip_tac \\ rveq >>
+  TRY pairarg_tac
+  \\ fs[success_eqns, inf_set_tids_subset_def, inf_set_tids_def, LET_THM]
   \\ rpt(conj_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]))
   \\ TRY(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]\\NO_TAC)
   \\ imp_res_tac t_unify_wfs
@@ -3470,6 +3663,9 @@ val infer_e_inf_set_tids = Q.store_thm("infer_e_inf_set_tids",`
     \\ simp[MAP_ZIP,LENGTH_COUNT_LIST]
     \\ simp[EVERY_MAP,inf_set_tids_subset_def,inf_set_tids_def] )
   >- (
+    imp_res_tac type_name_check_subst_state >>
+    imp_res_tac type_name_check_subst_thm >>
+    fs [] >>
     match_mp_tac SUBSET_TRANS
     \\ specl_args_of_then``infer_type_subst`` inf_set_tids_infer_type_subst_SUBSET assume_tac
     \\ asm_exists_tac
@@ -3711,9 +3907,15 @@ val infer_d_inf_set_tids = Q.store_thm("infer_d_inf_set_tids",
       \\ res_tac
       \\ rw[] )
   >- (
+    imp_res_tac type_name_check_subst_state >>
+    imp_res_tac type_name_check_subst_thm >>
+    fs [] >>
     match_mp_tac set_tids_subset_type_name_subst
     \\ fs[] )
   >- (
+    imp_res_tac type_name_check_subst_state >>
+    imp_res_tac type_name_check_subst_thm >>
+    fs [] >>
     fs[EVERY_MAP, set_tids_subset_type_name_subst]
     \\ fs[start_type_id_def] \\ EVAL_TAC \\ fs[] )
   >- ( fs[lift_ienv_def] )
@@ -3761,7 +3963,10 @@ val infer_d_wfs = Q.store_thm("infer_d_wfs",
   Induct
   \\ rw[infer_d_def, success_eqns, init_state_def]
   \\ rpt(pairarg_tac \\ fs[success_eqns])
-  \\ rw[]
+  \\ rw[] >>
+  imp_res_tac type_name_check_subst_state >>
+  imp_res_tac type_name_check_subst_thm >>
+  fs []
   \\ imp_res_tac infer_e_wfs \\ fs[]
   \\ imp_res_tac infer_p_wfs \\ fs[]
   \\ imp_res_tac t_unify_wfs \\ fs[]

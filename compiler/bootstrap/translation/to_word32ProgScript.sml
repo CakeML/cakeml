@@ -601,6 +601,7 @@ val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``] get_forced_pmatch
 
 val _ = translate (get_delta_inst_def |> conv32)
 val _ = translate (wordLangTheory.every_var_inst_def |> conv32)
+val _ = translate select_reg_alloc_def
 val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``]  word_alloc_def)
 
 val res = translate_no_ind (spec32 three_to_two_reg_pmatch);

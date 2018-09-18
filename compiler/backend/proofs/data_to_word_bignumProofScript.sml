@@ -775,7 +775,7 @@ val Replicate_code_alt_thm = Q.store_thm("Replicate_code_alt_thm",
   rw [] \\ fs [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.bad_dest_args_def,
         wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def]
-  \\ fs [EVAL ``fromList [()]``]
+  \\ fs [EVAL ``sptree$fromList [()]``]
   \\ fs [wordSemTheory.cut_env_def,wordSemTheory.get_var_def,domain_lookup]
   \\ rw [] \\ simp [Replicate_code_def]
   \\ Cases_on `n`
@@ -1145,9 +1145,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
       \\ `?k. MustTerminate_limit (:α) =
               10 * dimword (:'a) * dimword (:'a) +
               10 * dimword (:'a) + 100 + k` by metis_tac [MustTerminate_limit_eq]
-      \\ qabbrev_tac `dd = dimword (:α) * dimword (:α)`
-      \\ qabbrev_tac `ij = il * jl`
-      \\ qabbrev_tac `id = il * dimword (:'a)`
+      \\ qmatch_asmsub_abbrev_tac `_ * _ ≤ dd`
+      \\ qmatch_goalsub_abbrev_tac `2 * ij`
       \\ `il < dimword (:'a) /\ jl < dimword (:'a)` by fs []
       \\ `dimindex (:'a) < dimword (:'a)` by
             (fs [good_dimindex_def] \\ simp [dimword_def])

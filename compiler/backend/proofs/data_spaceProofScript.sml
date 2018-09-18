@@ -5,6 +5,9 @@ val _ = new_theory"data_spaceProof";
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
+val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
+val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 val IMP_sptree_eq = Q.prove(
   `wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)`,

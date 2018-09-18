@@ -938,7 +938,7 @@ val pmatch_v_of_pat_norest = Q.store_thm ("pmatch_v_of_pat_norest",
 
 val cf_cases_def = Define `
   cf_cases v nomatch_exn [] env H Q =
-    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F) H Q /\
+    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F /\ Q ==f> POST_F) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
@@ -993,7 +993,9 @@ val htriple_valid_def = Define `
         Q r h_f /\
         case r of
           | Val v => evaluate_ck ck st env [e] = (st', Rval [v])
-          | Exn v => evaluate_ck ck st env [e] = (st', Rerr (Rraise v))`;
+          | Exn v => evaluate_ck ck st env [e] = (st', Rerr (Rraise v))
+          | FFIDiv name conf bytes => evaluate_ck ck st env [e]
+                                 = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged))))`;
 
 (* Not used, but interesting: app_basic as an instance of htriple_valid *)
 val app_basic_iff_htriple_valid = Q.store_thm("app_basic_iff_htriple_valid",
@@ -1227,28 +1229,28 @@ val ALL_DISTINCT_FLAT_FST_IMP = Q.store_thm("ALL_DISTINCT_FLAT_FST_IMP",
 val app_ref_def = Define `
   app_ref (x: v) H Q =
     ((!r. H * r ~~> x ==>> Q (Val r)) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_assign_def = Define `
   app_assign r (x: v) H Q =
     ((?x' F.
         (H ==>> F * r ~~> x') /\
         (F * r ~~> x ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_deref_def = Define `
   app_deref r H Q =
     ((?x F.
         (H ==>> F * r ~~> x) /\
         (H ==>> Q (Val x))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aalloc_def = Define `
   app_aalloc (n: int) v H Q =
     ((!a.
         n >= 0 /\
         (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_asub_def = Define `
   app_asub a (i: int) H Q =
@@ -1256,14 +1258,14 @@ val app_asub_def = Define `
         0 <= i /\ (Num i) < LENGTH vs /\
         (H ==>> F * ARRAY a vs) /\
         (H ==>> Q (Val (EL (Num i) vs)))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_alength_def = Define `
   app_alength a H Q =
     ((?vs F.
         (H ==>> F * ARRAY a vs) /\
         (H ==>> Q (Val (Litv (IntLit (& LENGTH vs)))))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aupdate_def = Define `
   app_aupdate a (i: int) v H Q =
@@ -1271,14 +1273,14 @@ val app_aupdate_def = Define `
         0 <= i /\ (Num i) < LENGTH vs /\
         (H ==>> F * ARRAY a vs) /\
         (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aw8alloc_def = Define `
   app_aw8alloc (n: int) w H Q =
     ((!a.
         n >= 0 /\
         (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aw8sub_def = Define `
   app_aw8sub a (i: int) H Q =
@@ -1286,14 +1288,14 @@ val app_aw8sub_def = Define `
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
         (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws)))))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aw8length_def = Define `
   app_aw8length a H Q =
     ((?ws F.
         (H ==>> F * W8ARRAY a ws) /\
         (H ==>> Q (Val (Litv (IntLit (& LENGTH ws)))))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aw8update_def = Define `
   app_aw8update a (i: int) w H Q =
@@ -1301,7 +1303,7 @@ val app_aw8update_def = Define `
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
         (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_copyaw8aw8_def = Define `
   app_copyaw8aw8 s so l d do' H Q =
@@ -1314,7 +1316,7 @@ val app_copyaw8aw8_def = Define `
                         TAKE (Num l) (DROP (Num so) ws) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_copystraw8_def = Define `
   app_copystraw8 s so l d do' H Q =
@@ -1326,7 +1328,7 @@ val app_copystraw8_def = Define `
                         MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_copyaw8str_def = Define `
   app_copyaw8str s so l H Q =
@@ -1336,22 +1338,22 @@ val app_copyaw8str_def = Define `
         (H ==>> F * W8ARRAY s ws) /\
         (F * W8ARRAY s ws
             ==>> Q (Val (Litv (StrLit (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_wordFromInt_W8_def = Define `
   app_wordFromInt_W8 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_wordFromInt_W64_def = Define `
   app_wordFromInt_W64 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word64 (i2w i)))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_wordToInt_def = Define `
   app_wordToInt w H Q =
     (H ==>> Q (Val (Litv (IntLit (& w2n w)))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 (*
 val app_opn_def = Define `
@@ -1366,24 +1368,24 @@ val app_opn_def = Define `
   app_opn opn i1 i2 H Q =
     ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
      H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2)))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_opb_def = Define `
   app_opb opb i1 i2 H Q =
     (H ==>> Q (Val (Boolv (opb_lookup opb i1 i2))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_equality_def = Define `
   app_equality v1 v2 H Q =
     (no_closures v1 /\ no_closures v2 /\
      types_match v1 v2 /\
      H ==>> Q (Val (Boolv (v1 = v2))) /\
-     Q ==e> POST_F)`
+     Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val cf_lit_def = Define `
   cf_lit l = \env. local (\H Q.
     H ==>> Q (Val (Litv l)) /\
-    Q ==e> POST_F)`
+    Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val cf_con_def = Define `
   cf_con cn args = \env. local (\H Q.
@@ -1392,18 +1394,18 @@ val cf_con_def = Define `
        (build_conv env.c cn argsv = SOME cv) /\
        (exp2v_list env args = SOME argsv) /\
        H ==>> Q (Val cv)) /\
-    Q ==e> POST_F)`
+    Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val cf_var_def = Define `
   cf_var name = \env. local (\H Q.
     (?v.
        nsLookup env.v name = SOME v /\
        H ==>> Q (Val v)) /\
-    Q ==e> POST_F)`
+    Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
-    ?Q'. (F1 env H Q' /\ Q' ==e> Q) /\
+    ?Q'. (F1 env H Q' /\ Q' ==e> Q /\ Q' ==f> Q) /\
          (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))`
 
 val cf_opn_def = Define `
@@ -1603,11 +1605,16 @@ val cf_wordToInt_W64_def = Define `
 
 val app_ffi_def = Define `
   app_ffi ffi_index c a H Q =
-    ((?conf ws F vs s s' u ns.
-        u ffi_index conf ws s = SOME (vs,s') /\ MEM ffi_index ns /\
-        c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
-        (H ==>> F * W8ARRAY a ws * IO s u ns) /\
-        (F * W8ARRAY a vs * IO s' u ns) ==>> Q (Val (Conv NONE []))) /\
+    ((?conf ws F s u ns.
+         MEM ffi_index ns /\
+         c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
+         (H ==>> F * W8ARRAY a ws * IO s u ns) /\
+         (case u ffi_index conf ws s of
+            SOME(FFIreturn vs s') => 
+             (F * W8ARRAY a vs * IO s' u ns) ==>> Q (Val (Conv NONE []))
+          | SOME(FFIdiverge) => 
+             (F * W8ARRAY a ws * IO s u ns) ==>> Q(FFIDiv ffi_index conf ws)
+          | NONE => bool$F)) /\
      Q ==e> POST_F)`
 
 val cf_ffi_def = Define `
@@ -1625,8 +1632,8 @@ val cf_log_def = Define `
       (case (lop, b) of
            (And, T) => cf2 env H Q
          | (Or, F) => cf2 env H Q
-         | (Or, T) => (H ==>> Q (Val v) /\ Q ==e> POST_F)
-         | (And, F) => (H ==>> Q (Val v) /\ Q ==e> POST_F)))`
+         | (Or, T) => (H ==>> Q (Val v) /\ Q ==e> POST_F /\ Q ==f> POST_F)
+         | (And, F) => (H ==>> Q (Val v) /\ Q ==e> POST_F /\ Q ==f> POST_F)))`
 
 val cf_if_def = Define `
   cf_if cond cf1 cf2 = \env. local (\H Q.
@@ -1647,12 +1654,12 @@ val cf_raise_def = Define `
     ?v.
       exp2v env e = SOME v /\
       H ==>> Q (Exn v) /\
-      Q ==v> POST_F)`
+      Q ==v> POST_F /\ Q ==f> POST_F)`
 
 val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
-      (Fe env H Q' /\ Q' ==v> Q) /\
+      (Fe env H Q' /\ Q' ==v> Q /\ Q' ==f> Q) /\
       (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
 
 val cf_def = tDefine "cf" `
@@ -2063,7 +2070,10 @@ val cf_cases_evaluate_match = Q.prove (
           (st', Rval [v'])
         | Exn v' =>
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr (Rraise v'))`,
+          (st', Rerr (Rraise v'))
+        | FFIDiv name conf bytes =>
+          evaluate_match (st with clock := ck) env v rows nomatch_exn =
+          (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged))))`,
 
   Induct_on `rows` \\ rpt strip_tac \\ fs [cf_cases_def]
   THEN1 (
@@ -2136,7 +2146,59 @@ val cf_ffi_sound = Q.prove (
      ?cv rv. exp2v env r = SOME rv /\
           exp2v env c = SOME cv /\
           app_ffi ffi_index cv rv H Q))`,
-   cf_strip_sound_tac \\ Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
+   cf_strip_sound_tac \\
+   fs[app_ffi_def] \\
+   Cases_on `u ffi_index conf ws s`
+   >- fs[] \\
+   qmatch_asmsub_abbrev_tac `u ffi_index conf ws s = SOME a1` \\
+   pop_assum kall_tac \\ Cases_on `a1` \\
+   TRY(
+     qpat_assum `u ffi_index conf ws s = SOME FFIdiverge` kall_tac \\
+     qexists_tac `FFIDiv ffi_index conf ws` \\ simp[] \\
+     MAP_EVERY qexists_tac [`st`,`h_i`,`{}`,`st.clock`] \\ fs[] \\
+     conj_tac >- fs[SPLIT3_def,SPLIT_def] \\
+     conj_tac >- fs[SEP_IMP_def] \\
+     cf_evaluate_step_tac \\
+     fs [do_app_def,app_ffi_def,W8ARRAY_def] \\
+     cf_exp2v_evaluate_tac `st with clock := st.clock` \\
+     fs [do_app_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
+     fs [STAR_def,cell_def,one_def,cond_def] \\
+     first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
+     fs [SPLIT_SING_2] \\ rveq \\
+     rename1 `F' u2` \\
+     `store_lookup y st.refs = SOME (W8array ws) /\
+      Mem y (W8array ws) IN st2heap p st` by
+       (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
+        \\ fs [st2heap_def,Mem_NOT_IN_ffi2heap]
+        \\ imp_res_tac store2heap_IN_EL
+        \\ imp_res_tac store2heap_IN_LENGTH
+        \\ fs [store_lookup_def] \\ NO_TAC) \\ 
+     fs [ffiTheory.call_FFI_def] \\
+     fs [IO_def,SEP_EXISTS_THM,cond_STAR] \\ rveq \\
+     fs [one_def] \\ rveq \\
+     fs [st2heap_def,
+            FFI_split_NOT_IN_store2heap,
+            FFI_part_NOT_IN_store2heap,
+            FFI_full_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
+     fs [SPLIT_SING_2] \\ rveq \\
+     `FFI_part s u ns events IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
+     fs [FFI_part_NOT_IN_store2heap] \\
+     pop_assum mp_tac \\
+     PairCases_on `p` \\
+     simp [Once ffi2heap_def] \\
+     IF_CASES_TAC \\ fs [] \\ strip_tac \\
+     first_assum drule \\ simp_tac std_ss [FLOOKUP_DEF] \\
+     rpt strip_tac \\ rveq \\
+     qpat_x_assum `parts_ok st.ffi (p0,p1)`
+           (fn th => mp_tac th \\ assume_tac th) \\
+     simp_tac std_ss [parts_ok_def] \\ strip_tac \\
+     qpat_x_assum `!x. _ ==> _` kall_tac \\
+     `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+     rpt(first_x_assum progress) \\
+     fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n',state_component_equality]
+      ) \\
+   rename1 `_ = SOME (FFIreturn vs s')` \\
+   Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
    cf_evaluate_step_tac \\
    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
    cf_exp2v_evaluate_tac `st` \\
@@ -2221,7 +2283,7 @@ val cf_ffi_sound = Q.prove (
          (rveq  \\ first_x_assum drule
           \\ fs [FLOOKUP_FUPDATE_LIST] \\ rw [] \\ metis_tac [])
         \\ qpat_assum `∀ns u. MEM (ns,u) p1 ⇒ _` drule
-        \\ rw [] \\ qexists_tac `s''` \\ rw []
+        \\ rw[] \\ qexists_tac `s` \\ rw []
         \\ fs [FLOOKUP_FUPDATE_LIST]
         \\ rw [] \\ fs [FLOOKUP_DEF]
         \\ drule ((ALL_DISTINCT_FLAT_MEM_IMP |> Q.INST [`m`|->`n`]))
@@ -2401,6 +2463,13 @@ val cf_sound = Q.store_thm ("cf_sound",
         fs [SEP_IMPPOSTe_def, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `Exn v` \\ instantiate \\ qexists_tac `ck` \\ rw []
       )
+      THEN1 (
+        (* e1 ~> FFI diverge *)
+        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged))))` \\
+        fs [SEP_IMPPOSTffi_def, SEP_IMP_def] \\ first_assum progress \\
+        qexists_tac `FFIDiv name conf bytes` \\
+        instantiate \\ qexists_tac `ck` \\ rw []
+      )      
     )
   )
   THEN1 (
@@ -2868,7 +2937,13 @@ val cf_sound = Q.store_thm ("cf_sound",
         qpat_assum `evaluate _ _ [e] = _` (add_to_clock `ck'`) \\
         qpat_assum `evaluate_match _ _ _ branches _ = _` (add_to_clock `st'.clock`) \\
         fs [with_clock_with_clock]
-      )
+      ))
+    THEN1 (
+      (* e ~> FFI diverge *)
+      rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
+      asm_exists_tac \\ simp[] \\
+      MAP_EVERY qexists_tac [`FFIDiv s conf bytes`,`ck`] \\
+      fs[evaluate_ck_def,SEP_IMPPOSTffi_def,SEP_IMP_def]
     )
   )
   THEN1 (
@@ -2891,7 +2966,9 @@ val cf_sound' = Q.store_thm ("cf_sound'",
      ?st' h_f h_g r ck.
        (case r of
           | Val v => evaluate (st with clock := ck) env [e] = (st', Rval [v])
-          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))) /\
+          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))
+          | FFIDiv n c b => evaluate (st with clock := ck) env [e] =
+                            (st', Rerr (Rabort (Rffi_error(Final_event n c b FFI_diverged))))) /\
        SPLIT (st2heap (p:'ffi ffi_proj) st') (h_f, h_g) /\
        Q r h_f`,
   rpt strip_tac \\ qspecl_then [`(p:'ffi ffi_proj)`, `e`] assume_tac cf_sound \\
@@ -2909,7 +2986,9 @@ val cf_sound_local = Q.store_thm ("cf_sound_local",
      ?st' h' g r ck.
        (case r of
           | Val v => evaluate (st with clock := ck) env [e] = (st', Rval [v])
-          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))) /\
+          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))
+          | FFIDiv n c b => evaluate (st with clock := ck) env [e] =
+                            (st', Rerr (Rabort (Rffi_error(Final_event n c b FFI_diverged))))) /\
        SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h', g, i) /\
        Q r h'`,
   rpt strip_tac \\

@@ -817,6 +817,8 @@ fun prove_store_access_specs refs_manip_list
     val exc_type_aq = ty_antiq exc_type
     val state_type_aq = ty_antiq state_type
 
+    val intro_hprop = REWRITE_RULE [GSYM store_X_hprop_def, SEP_CLAUSES]
+
     (*
        val ((name, get_fun_def, read_fun, set_fun_def, write_fun), loc_def) =
          hd (zip refs_manip_list refs_locs_defs)
@@ -892,7 +894,7 @@ fun prove_store_access_specs refs_manip_list
         val thm_name = "set_" ^name ^"_thm"
         val _ = save_thm(thm_name, write_spec)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
-    in (read_spec, write_spec) end
+    in (intro_hprop read_spec, intro_hprop write_spec) end
 
     val refs_access_thms = List.map prove_ref_specs (zip refs_manip_list refs_locs_defs)
 
@@ -1010,7 +1012,10 @@ fun prove_store_access_specs refs_manip_list
         val _ = save_thm(thm_name, alloc_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
     in
-        (length_thm, sub_thm, update_thm, alloc_thm)
+        (intro_hprop length_thm,
+         intro_hprop sub_thm,
+         intro_hprop update_thm,
+         intro_hprop alloc_thm)
     end
 
     val rarrays_access_thms = List.map prove_rarray_specs (zip rarrays_manip_list rarrays_refs_locs_defs)
@@ -1119,7 +1124,9 @@ fun prove_store_access_specs refs_manip_list
         val _ = save_thm(thm_name, update_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
     in
-        (length_thm, sub_thm, update_thm)
+        (intro_hprop length_thm,
+         intro_hprop sub_thm,
+         intro_hprop update_thm)
     end
 
     val farrays_access_thms = List.map prove_farray_specs (zip farrays_manip_list farrays_locs_defs)

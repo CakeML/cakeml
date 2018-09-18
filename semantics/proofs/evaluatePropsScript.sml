@@ -898,4 +898,97 @@ val evaluate_set_clock = store_thm("evaluate_set_clock",
                    (s1 with clock := ck,res)``,
   metis_tac [evaluate_set_clock_lemma]);
 
+fun clock_tac q =
+  drule evaluate_add_to_clock
+  >> disch_then(qspec_then q mp_tac)
+  >> impl_tac >- fs[]
+  >> strip_tac >> rfs[with_same_clock]
+  >> fs[] >> rveq >> fs[]
+
+val evaluate_minimal_clock_lemma = Q.prove(
+`(!(s:'ffi state) env es s' r k. evaluate s env es = (s',r) ∧
+  s'.clock = 0 ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ∧
+  s.clock > k
+  ==>
+  ?s''. evaluate (s with clock := k) env es = (s'',Rerr (Rabort Rtimeout_error))) ∧
+ (!(s:'ffi state) env v pes err_v s' r k. evaluate_match s env v pes err_v = (s',r) ∧
+  s'.clock = 0 ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ∧
+  s.clock > k
+  ==>
+  ?s''. evaluate_match (s with clock := k) env v pes err_v = (s'',Rerr (Rabort Rtimeout_error)))`,
+  ho_match_mp_tac evaluate_ind
+  >> rpt strip_tac
+  >> fs[evaluate_def] >> rveq >> fs[]
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> TOP_CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`)
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`)
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (reverse TOP_CASE_TAC
+          >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+          >> clock_tac `s.clock - k`
+          >> rename1 `evaluate_match a1`
+          >> first_x_assum (qspec_then `a1.clock` assume_tac)
+          >> rfs[with_same_clock])
+      >> clock_tac `s.clock - k`)
+  >- (reverse TOP_CASE_TAC
+      >- rfs[]
+      >> CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[])
+  >- (TOP_CASE_TAC >> fs[])
+  >- (TOP_CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> TOP_CASE_TAC >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
+      >> TOP_CASE_TAC >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
+      >> clock_tac `s.clock - k`
+      >> fs[dec_clock_def])
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
+      >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
+      >> clock_tac `s.clock - k`
+      >> rename1 `evaluate a1`
+      >> first_x_assum (qspec_then `a1.clock` assume_tac)
+      >> rfs[with_same_clock])
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
+      >> rfs[]
+      >> rename1 `evaluate a1`
+      >> first_x_assum (qspec_then `a1.clock` assume_tac)
+      >> rfs[with_same_clock]
+     )
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> rename1 `evaluate_match a1`
+      >> first_x_assum (qspec_then `a1.clock` assume_tac)
+      >> rfs[with_same_clock]
+     )
+  >- (CASE_TAC >> reverse TOP_CASE_TAC
+      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
+      >> clock_tac `s.clock - k`
+      >> rename1 `evaluate a1`
+      >> first_x_assum (qspec_then `a1.clock` assume_tac)
+      >> rfs[with_same_clock])
+  >> IF_CASES_TAC >> fs[] >> rveq >> fs[]
+  >> rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[]));
+
+val evaluate_minimal_clock = save_thm("evaluate_minimal_clock",
+  CONJUNCT1 evaluate_minimal_clock_lemma);
+val evaluate_match_minimal_clock = save_thm("evaluate_match_minimal_clock",
+  CONJUNCT2 evaluate_minimal_clock_lemma);
+
 val _ = export_theory();

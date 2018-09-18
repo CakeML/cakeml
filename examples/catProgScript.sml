@@ -46,12 +46,14 @@ val do_onefile_spec = Q.store_thm(
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs (File fnm)) *
-              STDIO fs))`,
+              STDIO fs)
+         (\n c b. &F))`,
   rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
   >- xsimpl
+  >- xsimpl  
   \\ imp_res_tac nextFD_ltX
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ rfs[]
@@ -175,6 +177,7 @@ val cat_spec0 = Q.prove(
   progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME (SPEC_ALL do_onefile_spec))
   >- xsimpl
+  >- xsimpl
   >- xsimpl >>
   xapp \\
   xsimpl \\
@@ -218,7 +221,8 @@ val cat1_spec = Q.store_thm (
                &(ALOOKUP fs.files (File fnm) = SOME content) *
                STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs (File fnm)) *
-                  STDIO fs)` >> fs[]
+               STDIO fs)
+             (\n c b. &F)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
       imp_res_tac ALOOKUP_SOME_inFS_fname >>
@@ -265,7 +269,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
 
 val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
   `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"cat_main"st) cl fs
+   whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

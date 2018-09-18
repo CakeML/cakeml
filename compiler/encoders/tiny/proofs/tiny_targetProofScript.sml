@@ -287,7 +287,7 @@ local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
-       | NONE => raise ERR "number_of_instructions" ""
+       | NONE => raise mk_HOL_ERR "tiny_targetProofTheory" "number_of_instructions" ""
    fun next_tac' (gs as (asl, _)) =
       let
          val j = number_of_instructions asl

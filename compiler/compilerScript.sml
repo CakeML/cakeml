@@ -19,7 +19,7 @@ val _ = new_theory"compiler";
 val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
 (*"*)
 val poly_version_tm = mlstring_from_proc "poly" ["-v"]
-val hol_version_tm = mlstring_from_proc_from Globals.HOLDIR "git" ["rev-parse", "HEAD"]
+val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
 
 val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
 val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
@@ -274,10 +274,10 @@ val parse_bvl_conf_def = Define`
 (* wtw *)
 val parse_wtw_conf_def = Define`
   parse_wtw_conf ls wtw =
-  let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
-  case regalg of
-    INL r => INL (wtw with <|reg_alg:= r |>)
-  | INR s => INR (get_err_str regalg)`
+    let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
+      case regalg of
+        INL r => INL (wtw with <|reg_alg:= r |>)
+      | INR s => INR (get_err_str regalg)`
 
 val parse_gc_def = Define`
   parse_gc ls default =
@@ -382,7 +382,7 @@ val parse_target_32_def = Define`
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
-(* Default stack and heap limits *)
+(* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
 val default_heap_sz_def = Define`
   default_heap_sz = 1000n`
 

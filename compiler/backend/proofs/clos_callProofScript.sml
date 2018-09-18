@@ -9,6 +9,12 @@ val _ = new_theory"clos_callProof";
 val _ = temp_bring_to_front_overload "free" {Name="free", Thy="clos_call"};
 val _ = temp_bring_to_front_overload "closed" {Name="closed", Thy="clos_call"};
 
+val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
+val _ = temp_bring_to_front_overload"delete"{Name="delete",Thy="sptree"};
+val _ = temp_bring_to_front_overload"map"{Name="map",Thy="sptree"};
+val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+
 (* TODO: move *)
 
 val _ = temp_bring_to_front_overload "compile" {Name="compile", Thy="clos_call"};
@@ -1425,7 +1431,7 @@ val do_app_thm = Q.store_thm("do_app_thm",
   reverse CASE_TAC THEN1
    (pop_assum mp_tac
     \\ Cases_on `op` \\ Cases_on `REVERSE a`
-    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi_result"]
+    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
     \\ strip_tac \\ rveq \\ fs []
     \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
     \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq

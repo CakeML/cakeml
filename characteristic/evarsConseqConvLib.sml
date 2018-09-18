@@ -4,6 +4,8 @@ struct
 open preamble
 open ConseqConv ConseqConvTheory quantHeuristicsTools
 
+val ERR = mk_HOL_ERR "evarsConseqConvLib";
+
 type evars = term list
 type term_with_evars = {term: term, evars: evars}
 type evars_instantiation = {instantiation: (term, term) subst,

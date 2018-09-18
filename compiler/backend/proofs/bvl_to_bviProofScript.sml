@@ -10,13 +10,10 @@ local open
   bvi_tailrecProofTheory
 in end;
 
-(*
-
-set_prover (fn (tm,_) => mk_thm([],tm))
-
-*)
-
 val _ = new_theory"bvl_to_bviProof";
+
+val _ = set_grammar_ancestry
+  ["ffi", "bvlSem", "bviSem", "bviProps", "bvl_to_bvi", "bvl_handleProof"];
 
 val _ = Parse.hide"str";
 
@@ -83,10 +80,10 @@ val names_ok_def = Define `
     (!n k prog. s_oracle n = (k,prog) ==>
                 EVERY (\(name,arity,exp). handle_ok [exp]) prog) /\
     let next = FST (FST (s_oracle 0n)) in
-      (!n. n IN domain t_code /\ num_stubs <= n ==>
+      (!n. n IN sptree$domain t_code /\ num_stubs <= n ==>
            if in_ns_1 n then n < num_stubs + nss * next
            else in_ns_0 n /\
-                (n - num_stubs) DIV bvl_to_bvi_namespaces IN domain s_code)`;
+                (n - num_stubs) DIV bvl_to_bvi_namespaces IN sptree$domain s_code)`;
 
 val state_rel_def = Define `
   state_rel (b:num->num) s (t:('c,'ffi) bviSem$state) <=>
@@ -3726,8 +3723,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     first_x_assum(qspecl_then [`k + 1`,`outcome`] assume_tac) >>
     rfs[]) >>
   strip_tac >>
-  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
-  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+  qmatch_abbrev_tac`lprefix_lub$build_lprefix_lub l1 = lprefix_lub$build_lprefix_lub l2` >>
+  `(lprefix_lub$lprefix_chain l1 ∧ lprefix_lub$lprefix_chain l2) ∧ lprefix_lub$equiv_lprefix_chain l1 l2`
     suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
   conj_asm1_tac >- (
     UNABBREV_ALL_TAC >>
@@ -3812,14 +3809,14 @@ val full_cc_def = Define `
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      state_cc (compile_inc limit split cut) (state_cc compile_inc (mk_cc cc))`
+      state_cc (compile_inc limit split cut) (state_cc compile_inc (bvi_tailrecProof$mk_cc cc))`
 
 val full_co_def = Define `
   full_co c co =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      mk_co (state_co compile_inc (state_co (compile_inc limit split cut) co))`
+      bvi_tailrecProof$mk_co (state_co compile_inc (state_co (compile_inc limit split cut) co))`
 
 val compile_prog_avoids_nss_2 = store_thm("compile_prog_avoids_nss_2",
   ``compile_prog start f prog = (loc,code,new_state) /\

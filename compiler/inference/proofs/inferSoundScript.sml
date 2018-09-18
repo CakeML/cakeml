@@ -612,11 +612,18 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
   >- (
     (* Dtabbrev *)
     rw[infer_d_def,success_eqns]>>
+    imp_res_tac type_name_check_subst_thm >>
+    imp_res_tac type_name_check_subst_state >>
+    fs [] >>
     simp[Once type_d_cases]>>
-    fs[set_ids_def,ienv_to_tenv_def,env_rel_def, env_rel_sound_def])
+    fs[set_ids_def,ienv_to_tenv_def,env_rel_def, env_rel_sound_def] >>
+    metis_tac [])
   >- (
     (* Dexn *)
     rw[infer_d_def,success_eqns]>>
+    imp_res_tac type_name_check_subst_thm >>
+    imp_res_tac type_name_check_subst_state >>
+    fs [] >>
     simp[Once type_d_cases]>>
     fs[set_ids_def,ienv_to_tenv_def,env_rel_def, env_rel_sound_def]>>
     metis_tac[ETA_AX])

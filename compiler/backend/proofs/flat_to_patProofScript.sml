@@ -7,6 +7,9 @@ val _ = new_theory"flat_to_patProof"
 
 val _ = temp_bring_to_front_overload"pure_op"{Name="pure_op",Thy="flat_to_pat"};
 val _ = temp_bring_to_front_overload"Loc"{Name="Loc",Thy="patSem"};
+
+val _ = set_grammar_ancestry ["misc","ffi","bag","flatProps","patProps",
+                              "flat_to_pat","backendProps","backend_common"];
 val _ = Parse.hide"U";
 
 val pmatch_flat_def = flatSemTheory.pmatch_def
@@ -276,7 +279,7 @@ val evaluate_NoRun = Q.store_thm("evaluate_NoRun",
 
 val compile_tag_def = Define`
   compile_tag (SOME (tag,_)) = tag ∧
-  compile_tag NONE = tuple_tag`;
+  compile_tag NONE = backend_common$tuple_tag`;
 val _ = export_rewrites["compile_tag_def"];
 
 val compile_v_def = tDefine"compile_v"`
@@ -326,7 +329,7 @@ val compile_state_def = Define`
        refs := MAP (map_sv compile_v) s.refs;
        ffi := s.ffi;
        globals := MAP (OPTION_MAP compile_v) s.globals;
-       compile := pure_cc (λe. (compile e,[])) cc
+       compile := pure_cc (λe. (pat_to_clos$compile (* really? *) e,[])) cc
      |>`;
 
 val compile_state_dec_clock = Q.prove(
@@ -852,7 +855,7 @@ val compile_row_correct = Q.prove(
     Q.PAT_ABBREV_TAC`tt = compile_row _ X Y` >>
     `∃bvs1 n f. tt = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
     qunabbrev_tac`tt` >> simp[] >> srw_tac[][] >> simp[] >>
-    Q.PAT_ABBREV_TAC`w = Loc X` >>
+    Q.PAT_ABBREV_TAC`w = patSem$Loc _` >>
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
     conj_tac >- fs [Abbr`w`, compile_v_NoRun_v, NoRun_v_def, ETA_AX, EVERY_MAP] >>
@@ -2026,6 +2029,7 @@ val exp_rel_unbind = Q.store_thm("exp_rel_unbind",
   simp[Once exp_rel_cases] >> full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
   TRY (
+      simp[arithmeticTheory.ADD1] >>
       first_x_assum match_mp_tac >>
       simp[arithmeticTheory.ADD1] >>
       metis_tac[]) >>
@@ -2038,7 +2042,7 @@ val exp_rel_unbind = Q.store_thm("exp_rel_unbind",
     full_simp_tac(srw_ss())[MEM_ZIP,PULL_EXISTS] >>
     rev_full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS] >>
     metis_tac[]) >>
-  qpat_x_assum`bindn n U k1 k2`mp_tac >>
+  qpat_x_assum`bindn n _ k1 k2`mp_tac >>
   simp[bindn_thm] >> srw_tac[][])
 
 val exp_rel_sLet = Q.store_thm("exp_rel_sLet",
@@ -2873,7 +2877,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
        |> Q.GEN`any_cc`
        |> mp_tac) >>
       simp[Abbr`X`] >>
-      disch_then(qspec_then`pure_cc (λe. (compile e,[])) cc`strip_assume_tac) >>
+      disch_then(qspec_then`pure_cc (λe. (pat_to_clos$compile e,[])) cc`strip_assume_tac) >>
       var_eq_tac >>
       qpat_abbrev_tac`xx = evaluate _ _ _` >>
       qmatch_assum_abbrev_tac`Abbrev(xx = evaluate (v4::env4) s4 [f (compile_exp bvss exp)])` >>
@@ -3055,7 +3059,7 @@ val compile_evaluate_decs = Q.store_thm("compile_evaluate_decs",
   \\ metis_tac[state_rel_trans, exc_rel_v_rel_trans]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `semantics T F (ffi:'ffi ffi_state) es ≠ Fail ⇒
+  `semantics T F (ffi:'ffi ffi$ffi_state) es ≠ Fail ⇒
    semantics
      []
      (compile_state (:'c) cc (initial_state ffi k0))

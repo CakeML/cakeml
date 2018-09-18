@@ -533,7 +533,8 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
   \\ reverse(xhandle`POST
        (λv. &UNIT_TYPE () v * STDIO fs')
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)
+       (λn c b. &F)`)
   >- (
     xcases
     \\ fs[BadFileName_exn_def]
@@ -544,6 +545,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
     \\ xsimpl)
   >- ( xsimpl )
   \\ xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
+  >- ( xsimpl )
   >- ( xsimpl )
   >- ( xsimpl )
   \\ xlet_auto
@@ -887,7 +889,7 @@ val st = get_ml_prog_state()
 
 val grep_whole_prog_spec = Q.store_thm("grep_whole_prog_spec",
   `hasFreeFD fs ∧ grep_termination_assum cl ⇒
-   whole_prog_spec ^(fetch_v "grep" st) cl fs
+   whole_prog_spec ^(fetch_v "grep" st) cl fs NONE
      ((=) (grep_sem cl fs.files fs))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

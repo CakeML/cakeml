@@ -1,4 +1,6 @@
-open preamble wordLangTheory reg_allocTheory
+open preamble wordLangTheory;
+open linear_scanTheory;
+open reg_allocTheory;
 
 val _ = new_theory "word_alloc";
 val _ = set_grammar_ancestry [
@@ -1306,6 +1308,13 @@ val get_heuristics_def = Define`
     let moves = get_prefs prog [] in
     (moves,NONE)`
 
+val select_reg_alloc_def = Define`
+  select_reg_alloc alg spillcosts k heu_moves tree forced =
+    if 4 <= alg then
+      linear_scan$linear_scan_reg_alloc k heu_moves tree forced
+    else
+      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced`
+
 (*
   fc is the current prog number
   alg is the allocation algorithm,
@@ -1313,6 +1322,7 @@ val get_heuristics_def = Define`
     1: simple allocator + spill heuristics
     2: IRC allocator, no spill heuristics (default)
     3: IRC allocator + spill heuristics
+  >=4: linear scan register allocator
   k is the number of registers
   prog is the program to be colored
   col_opt is an optional oracle colour
@@ -1325,7 +1335,7 @@ val word_alloc_def = Define`
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
-      (dtcase reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
+      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))

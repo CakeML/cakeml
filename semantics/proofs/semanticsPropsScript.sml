@@ -6,6 +6,21 @@ open preamble
 
 val _ = new_theory"semanticsProps"
 
+val evaluate_prog_events_determ = Q.store_thm("evaluate_prog_events_determ",
+  `!st env k p k'.
+   LENGTH((FST(evaluate_prog_with_clock st env k p)).io_events)
+   = LENGTH((FST(evaluate_prog_with_clock st env k' p)).io_events) ==>
+   (FST(evaluate_prog_with_clock st env k p)).io_events
+    = (FST(evaluate_prog_with_clock st env k' p)).io_events`,
+  rpt strip_tac
+  >> (Cases_on `k <= k'` >| [ALL_TAC,`k' <= k` by simp[]])
+  >> fs[evaluate_prog_with_clock_def,ELIM_UNCURRY]
+  >> drule evaluate_decs_ffi_mono_clock
+  >> disch_then(qspecl_then [`st`,`env`,`p`] assume_tac)
+  >> fs[io_events_mono_def,evaluate_prog_with_clock_def,
+        ELIM_UNCURRY]
+  >> metis_tac[IS_PREFIX_LENGTH_ANTI]);
+                  
 val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events) UNIV)`,
   qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>

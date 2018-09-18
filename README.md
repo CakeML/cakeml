@@ -52,9 +52,6 @@ A verified compiler for CakeML, including:
 This directory contains scripts for automating routine tasks, e.g., for
 generating README.md files.
 
-[documentation](documentation):
-Work-in-progress documentation regarding the CakeML language.
-
 [examples](examples):
 Examples of verified programs built using CakeML infrastructure.
 

@@ -132,12 +132,12 @@ val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `s`, `u`, `ns`]
+    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def])
+    \\ fs [wfcl_def] \\ xsimpl)
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
   \\ `strlen x < 65536` by
@@ -150,12 +150,12 @@ val CommandLine_cloop_spec = Q.store_thm("CommandLine_cloop_spec",
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
-    \\ map_every qexists_tac [`extra`, `s`, `s`, `u`, `ns`]
+    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum])
+    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl)
   \\ xlet_auto
   THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum,mlstringTheory.LENGTH_explode])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
@@ -196,12 +196,12 @@ val CommandLine_cline_spec = Q.store_thm("CommandLine_cline_spec",
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `s`, `u`, `ns`]
+    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
            GSYM cfHeapsBaseTheory.encode_list_def]
-    \\ fs [wfcl_def])
+    \\ fs [wfcl_def] \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xapp

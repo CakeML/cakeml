@@ -1006,24 +1006,23 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
          \\ match_mp_tac pure_add_constraints_wfs
          \\ asm_exists_tac \\ rw[]
          \\ imp_res_tac infer_e_wfs \\ fs[])
-  THEN1 (every_case_tac \\ fs[] \\ rw[] \\ metis_tac[infer_e_wfs])
   THEN1 (metis_tac [infer_p_side_thm])
   THEN1 (fs [bool_case_eq] \\ rveq >>
-         PairCases_on `x25` >>
+         PairCases_on `x26` >>
          imp_res_tac infer_p_wfs >>
          fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
          first_x_assum match_mp_tac \\ fs [] >>
-         PairCases_on `x25` >> fs [] >>
+         PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x25` >> fs [] >>
+         PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x25` >> fs [] >>
+         PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs []));

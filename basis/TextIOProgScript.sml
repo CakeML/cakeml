@@ -17,7 +17,7 @@ val _ = process_topdecs `
 ` |> append_prog
 
 fun get_exn_conv name =
-  EVAL ``lookup_cons ^name ^(get_env (get_ml_prog_state ()))``
+  EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
 val BadFileName = get_exn_conv ``"BadFileName"``

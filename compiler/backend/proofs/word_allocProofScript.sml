@@ -1,11 +1,12 @@
 open preamble
-     reg_allocTheory reg_allocProofTheory
+     reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;
 
 val _ = new_theory "word_allocProof";
 
 val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
 val _ = bring_to_front_overload"prog_size"{Name="prog_size",Thy="wordLang"};
+val _ = bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 
 (*TODO: Move?*)
 val SUBSET_OF_INSERT = Q.store_thm("SUBSET_OF_INSERT",
@@ -2210,6 +2211,33 @@ val total_colour_rw = Q.prove(`
   IF_CASES_TAC>>simp[]>>
   metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]);
 
+val select_reg_alloc_correct = Q.store_thm("select_reg_alloc_correct",`
+    !alg spillcosts k heu_moves tree forced.
+    EVERY (\r1,r2. in_clash_tree tree r1 /\ in_clash_tree tree r2) forced ==>
+    ?spcol livein flivein.
+    select_reg_alloc alg spillcosts k heu_moves tree forced = Success spcol /\
+    check_clash_tree (sp_default spcol) tree LN LN = SOME (livein, flivein) /\
+    (!r. in_clash_tree tree r ==>
+      r IN domain spcol /\
+      if is_phy_var r then
+        sp_default spcol r = r DIV 2
+      else if is_stack_var r then
+        k <= (sp_default spcol r)
+      else
+        T
+    ) /\
+    (!r. r IN domain spcol ==> in_clash_tree tree r) /\
+    EVERY (\r1,r2. (sp_default spcol) r1 = (sp_default spcol) r2 ==> r1 = r2) forced`,
+
+    simp [select_reg_alloc_def] >> rpt strip_tac >>
+    qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC` >>
+    drule linear_scan_reg_alloc_correct >>
+    disch_then (qspecl_then [`k`, `heu_moves`] assume_tac) >>
+    drule reg_alloc_correct >>
+    disch_then (qspecl_then [`algg`, `spillcosts`, `k`, `heu_moves`] assume_tac) >>
+    rw [] >> fs []
+)
+
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   ∀fc c alg prog k col_opt st.
@@ -2256,12 +2284,11 @@ val word_alloc_correct = Q.store_thm("word_alloc_correct",`
   >>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
-  drule reg_alloc_correct>>
-  qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
-  disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
+  drule select_reg_alloc_correct>>
+  disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
-    (srw_tac[][]
+    (rpt strip_tac
     >-
       (fs[total_colour_rw]>>
       `INJ (\x. 2n*x) UNIV UNIV` by fs[INJ_DEF]>>
@@ -7069,9 +7096,8 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   pairarg_tac>>fs[]>>
-  qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
-  drule reg_alloc_correct>>
-  disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
+  drule select_reg_alloc_correct>>
+  disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
   assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
   rfs[]>>
   fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>rw[]
@@ -7177,7 +7203,6 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   fs[word_alloc_def,oracle_colour_ok_def]>>
   rpt strip_tac>>
   pairarg_tac>>fs[]>>
-  qabbrev_tac`algg = if alg ≤ 1 then Simple else IRC`>>
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
   qpat_abbrev_tac`tree = get_clash_tree prog`>>
   EVERY_CASE_TAC>>fs[]>>
@@ -7185,8 +7210,8 @@ val word_alloc_full_inst_ok_less = Q.store_thm("word_alloc_full_inst_ok_less",`
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
-  drule reg_alloc_correct>>
-  disch_then(qspecl_then [`algg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>
+  drule select_reg_alloc_correct>>
+  disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>
   fs[]>>
   match_mp_tac forced_distinct_col>>rfs[]>>
   unabbrev_all_tac>>

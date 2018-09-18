@@ -5,6 +5,8 @@ val () = new_theory "mips_targetProof"
 
 val () = wordsLib.guess_lengths()
 
+val ERR = mk_HOL_ERR "mips_targetProofTheory";
+
 (* some lemmas ---------------------------------------------------------- *)
 
 val bytes_in_memory_thm = Q.prove(

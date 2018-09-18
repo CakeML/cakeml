@@ -1,5 +1,4 @@
-open preamble bvlSemTheory dataSemTheory dataPropsTheory
-     copying_gcTheory int_bitwiseTheory finite_mapTheory
+open preamble int_bitwiseTheory bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory
      labPropsTheory whileTheory set_sepTheory semanticsPropsTheory
@@ -9,6 +8,12 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_assignProof";
+
+val _ = set_grammar_ancestry
+  ["wordSem", "dataSem", "data_to_word",
+   "data_to_word_memoryProof",
+   "data_to_word_gcProof"
+  ];
 
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
@@ -348,7 +353,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
         fs [wordSemTheory.set_var_def,state_rel_insert_1]
   \\ rpt_drule0 AllocVar_thm
   \\ `?x. dataSem$cut_env (fromList [();()]) s.locals = SOME x` by
-    (fs [EVAL ``fromList [(); ()]``,cut_env_def,domain_lookup,
+    (fs [EVAL ``sptree$fromList [(); ()]``,cut_env_def,domain_lookup,
          get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
   \\ disch_then drule0
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
@@ -670,7 +675,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
         fs [wordSemTheory.set_var_def,state_rel_insert_1]
   \\ rpt_drule0 AllocVar_thm
   \\ `?x. dataSem$cut_env (fromList [();();()]) s.locals = SOME x` by
-    (fs [EVAL ``fromList [(); (); ()]``,cut_env_def,domain_lookup,
+    (fs [EVAL ``sptree$fromList [(); (); ()]``,cut_env_def,domain_lookup,
          get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
   \\ disch_then drule0
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
@@ -1251,7 +1256,7 @@ val FromList_thm = Q.store_thm("FromList_thm",
         fs [wordSemTheory.set_var_def,state_rel_insert_1]
   \\ rpt_drule0 AllocVar_thm
   \\ `?x. dataSem$cut_env (fromList [();();()]) s.locals = SOME x` by
-    (fs [EVAL ``fromList [();();()]``,cut_env_def,domain_lookup,
+    (fs [EVAL ``sptree$fromList [();();()]``,cut_env_def,domain_lookup,
          get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
   \\ disch_then drule0
   \\ fs [get_var_set_var]
@@ -3130,7 +3135,7 @@ val th = Q.store_thm("assign_CopyByte",
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])));
 
 val v_to_list_IFF_list_to_v = store_thm("v_to_list_IFF_list_to_v",
-  ``!r2 in2. v_to_list r2 = SOME in2 <=> r2 = list_to_v in2``,
+  ``!r2 in2. bvlSem$v_to_list r2 = SOME in2 <=> r2 = bvlSem$list_to_v in2``,
   recInduct v_to_list_ind
   \\ rw [] \\ fs [v_to_list_def,list_to_v_def]
   \\ TRY (eq_tac \\ rw [list_to_v_def])
@@ -3148,7 +3153,7 @@ val v_to_list_SOME_CONS_IMP = store_thm("v_to_list_SOME_CONS_IMP",
   fs [v_to_list_IFF_list_to_v,list_to_v_def]);
 
 val v_to_list_IMP_list_to_v = store_thm("v_to_list_IMP_list_to_v",
-  ``!r2 in2. v_to_list r2 = SOME in2 ==> r2 = list_to_v in2``,
+  ``!r2 in2. bvlSem$v_to_list r2 = SOME in2 ==> r2 = bvlSem$list_to_v in2``,
   fs [v_to_list_IFF_list_to_v,list_to_v_def]);
 
 val evaluate_AppendMainLoop_code = prove(
@@ -8334,15 +8339,15 @@ val th = Q.store_thm("assign_WordShiftW64",
 
 val assign_FP_cmp = SIMP_CONV (srw_ss()) [assign_def]
   ``((assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (FP_cmp fpc)
-       (args:num list) (names:num_set option)):'a prog # num)``;
+       (args:num list) (names:num_set option)):'a wordLang$prog # num)``;
 
 val assign_FP_bop = SIMP_CONV (srw_ss()) [assign_def]
   ``((assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (FP_bop fpb)
-       (args:num list) (names:num_set option)):'a prog # num)``;
+       (args:num list) (names:num_set option)):'a wordLang$prog # num)``;
 
 val assign_FP_uop = SIMP_CONV (srw_ss()) [assign_def]
   ``((assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (FP_uop fpu)
-       (args:num list) (names:num_set option)):'a prog # num)``;
+       (args:num list) (names:num_set option)):'a wordLang$prog # num)``;
 
 val w2w_select_id = store_thm("w2w_select_id",
   ``dimindex (:'a) = 64 ==>

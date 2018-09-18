@@ -632,6 +632,7 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- wordLang ssa form and interface to reg allocator ---- *)
     ,word_allocTheory.get_forced_def
     ,word_allocTheory.big_union_def
+    ,word_allocTheory.select_reg_alloc_def
     ,word_allocTheory.word_alloc_def
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def

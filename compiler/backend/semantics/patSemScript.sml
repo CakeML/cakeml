@@ -453,7 +453,7 @@ val check =
   do_app_cases |> concl |> find_terms TypeBase.is_case
   |> List.map (#1 o strip_comb)
   |> List.all (fn tm => List.exists (same_const tm) [optionSyntax.option_case_tm, eq_result_CASE_tm])
-val () = if check then () else raise(ERR"patSem""do_app_cases failed")
+val () = if check then () else raise(mk_HOL_ERR"patSemTheory""do_app_cases""check failed")
 
 val do_app_cases_none = save_thm("do_app_cases_none",
   ``patSem$do_app s op vs = NONE`` |>
