@@ -1089,6 +1089,45 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ simp[clos_to_bvlTheory.chain_exps_def]
       \\ simp[clos_to_bvlTheory.compile_prog_def, clos_to_bvlTheory.compile_exps_def] ) \\
 
+(*
+TODO: set TODO_co1 to a concrete value, e.g., 0
+  `∀k. lab_oracle k = foo` by (
+    simp[Abbr`lab_oracle`, Abbr`stack_oracle`, Abbr`word_oracle`, Abbr`data_oracle`]
+    \\ gen_tac
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[PAIR_MAP] \\ rveq
+    \\ fs[full_co_def, bvi_tailrecProofTheory.mk_co_def]
+    \\ fs[UNCURRY, backendPropsTheory.FST_state_co]
+    \\ pop_assum mp_tac
+    \\ simp[backendPropsTheory.SND_state_co]
+    \\ simp[bvl_inlineTheory.compile_inc_def,
+            bvl_inlineTheory.tick_compile_prog_def,
+            bvl_inlineTheory.tick_inline_all_def,
+            bvl_inlineTheory.tick_inline_def]
+    \\ simp[bvl_inlineTheory.optimise_def,
+            bvl_inlineTheory.remove_ticks_def,
+            bvl_inlineTheory.let_op_sing_def,
+            bvl_inlineTheory.let_op_def]
+    \\ qmatch_goalsub_abbrev_tac`num_stubs _,0,xxx`
+    \\ pop_assum mp_tac
+    \\ simp[backendPropsTheory.FST_state_co]
+    \\ simp[bvl_to_bviTheory.compile_inc_def,
+            bvl_to_bviTheory.compile_list_def,
+            bvl_to_bviTheory.compile_single_def]
+    \\ CONV_TAC(LAND_CONV(RAND_CONV EVAL))
+    \\ once_rewrite_tac[COND_RAND] \\ simp[]
+    \\ once_rewrite_tac[COND_RAND] \\ simp[]
+    \\ strip_tac \\ qunabbrev_tac`xxx`
+    \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog _ (SND (_ (_ (_ xxx))))`
+    \\ pop_assum mp_tac
+    \\ CHANGED_TAC(once_rewrite_tac[COND_RAND])
+    \\ CHANGED_TAC(once_rewrite_tac[COND_RATOR])
+    \\ CHANGED_TAC(once_rewrite_tac[COND_RAND])
+    \\ simp[bvl_to_bviTheory.compile_exps_def,
+            bvl_to_bviTheory.destLet_def,
+            bvl_to_bviTheory.compile_aux_def]
+*)
+
   impl_tac >- (
     conj_tac >- (
       simp[compiler_oracle_ok_def,good_code_def] \\
