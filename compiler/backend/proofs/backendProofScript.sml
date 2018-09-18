@@ -423,12 +423,6 @@ val _ = temp_overload_on("bvl_to_bvi_compile_exps",``bvl_to_bvi$compile_exps``);
 val _ = temp_overload_on("pat_to_clos_compile",``pat_to_clos$compile``);
 val _ = temp_overload_on("flat_to_pat_compile",``flat_to_pat$compile``);
 
-val FST_compile_exps_Op_nil = Q.store_thm("FST_compile_exps_Op_nil",
-  `FST (bvl_to_bvi$compile_exps n []`,
-bvl_to_bviTheory.compile_exps_def
-bvl_handleTheory.compile_any_def
-ff"compile_exps""sing"
-
 (* TODO: move things that need moving *)
 
 val FST_known_co = Q.store_thm("FST_known_co",
@@ -453,9 +447,45 @@ val FST_compile_part = Q.store_thm("FST_compile_part[simp]",
   `FST (compile_part a b) = (FST b)`,
   PairCases_on`b` \\ EVAL_TAC);
 
+val ALL_DISTINCT_MAP_FST_SND_full_co = Q.store_thm("ALL_DISTINCT_MAP_FST_SND_full_co",
+  `ALL_DISTINCT (MAP FST (SND (co n))) ∧
+   (FST (SND (SND (FST (co n)))) MOD bvl_to_bvi_namespaces = 2)
+  ⇒
+   ALL_DISTINCT (MAP FST (SND (full_co c co n)))`,
+  rw[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
+  \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
+  \\ Cases_on`bvi_tailrec$compile_prog m xs`
+  \\ drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
+  \\ impl_tac
+  >- (
+    simp[Abbr`xs`]
+    \\ simp[backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc v p`
+    \\ Cases_on`bvl_to_bvi$compile_inc v p`
+    \\ drule bvl_to_bviProofTheory.compile_inc_DISTINCT
+    \\ impl_tac
+    >- (
+      simp[Abbr`p`]
+      \\ simp[bvl_inlineTheory.compile_inc_def, UNCURRY]
+      \\ simp[bvl_inlineTheory.tick_compile_prog_def]
+      \\ simp[bvl_inlineProofTheory.MAP_FST_tick_inline_all] )
+    \\ rw[]
+    \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+    \\ simp[MEM_MAP, PULL_EXISTS, EVERY_o, EVERY_MEM, EXISTS_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum drule
+    \\ simp[bvi_tailrecProofTheory.free_names_def]
+    \\ rw[] \\ strip_tac \\ rw[]
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ EVAL_TAC \\ simp[] )
+  \\ simp[]);
+
+(*
 val backend_cs =
   let val cs = wordsLib.words_compset() in
     cs before backendComputeLib.add_backend_compset cs end
+*)
 
 (* TODO re-define syntax_ok on terms of things in closPropsTheory
  * (invent new properties), and prove elsewhere
@@ -1200,11 +1230,24 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ rewrite_tac[COND_RATOR]
     \\ rewrite_tac[Ntimes COND_RAND 3]
     \\ simp[] )
+
   \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_distinct_locs)
   \\ impl_tac >- ( drule bvl_inlineProofTheory.compile_prog_names \\ rw[] )
   \\ strip_tac
 
-  impl_tac >- (
+  \\ `∀k. FST (SND (SND (FST (co k)))) = n2`
+  by (
+    simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
+    \\ simp[Abbr`co3`]
+    \\ rewrite_tac[COND_RATOR]
+    \\ rewrite_tac[Ntimes COND_RAND 3]
+    \\ simp[] )
+
+  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
+  \\ strip_tac
+  \\ pop_assum(assume_tac o Abbrev_intro)
+
+  \\ impl_tac >- (
     conj_tac >- (
       simp[compiler_oracle_ok_def,good_code_def] \\
       conj_tac
@@ -1226,72 +1269,11 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ simp[Abbr`word_oracle`, MAP_MAP_o, o_DEF]
           \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
           \\ simp_tac(srw_ss()++ETA_ss)[Abbr`data_oracle`]
-          \\ conj_tac >- cheat (* prove a lemma about full_co *)
-          (* the lemma might use these things... maybe not ...
-            \\ simp[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
-            \\ simp[backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-            \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog zzz yyy`
-            \\ Cases_on`bvi_tailrec$compile_prog zzz yyy`
-            \\ drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
-            \\ impl_tac
-            >- (
-              simp[Abbr`yyy`,Abbr`zzz`]
-              \\ simp[bvl_inlineTheory.compile_inc_def,
-                      bvl_inlineTheory.tick_compile_prog_def,
-                      bvl_inlineTheory.tick_inline_all_def,
-                      bvl_inlineTheory.tick_inline_def]
-              \\ simp[bvl_inlineTheory.optimise_def,
-                      bvl_inlineTheory.remove_ticks_def,
-                      bvl_inlineTheory.let_op_sing_def,
-                      bvl_inlineTheory.let_op_def]
-              \\ simp[bvl_to_bviTheory.compile_inc_def]
-              \\ simp[UNCURRY, EVERY_o]
-              \\ `TODO_co1 = 0` by (
-                simp[Abbr`TODO_co1`]
-                \\ EVAL_TAC
-                \\ simp[NUMERAL_DEF] )
-              \\ qunabbrev_tac`TODO_co1`
-              \\ pop_assum SUBST_ALL_TAC
-              \\ qmatch_goalsub_abbrev_tac`append xxx`
-              \\ pop_assum mp_tac
-              \\ simp[bvl_handleTheory.compile_any_def,
-                      Once bvl_handleTheory.compile_seqs_def,
-                      bvl_handleTheory.dest_Seq_def]
-              \\ simp[bvl_to_bviTheory.compile_list_def, UNCURRY]
-              \\ strip_tac \\ qunabbrev_tac`xxx`
-              \\ qmatch_goalsub_abbrev_tac`MAP FST xxx`
-              \\ pop_assum mp_tac \\ simp[]
-              \\ simp[bvl_to_bviTheory.compile_single_def, UNCURRY]
-              \\ strip_tac \\ qunabbrev_tac`xxx`
-              \\ qmatch_goalsub_abbrev_tac`ALL_DISTINCT xxx`
-              \\ pop_assum mp_tac \\ simp[]
-              \\ simp[bvl_handleTheory.compile_exp_def]
-              \\ CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV EVAL)))
-              \\ once_rewrite_tac[COND_RAND]
-              \\ once_rewrite_tac[COND_RAND] \\ simp[]
-              \\ once_rewrite_tac[COND_RAND]
-              \\ once_rewrite_tac[COND_RATOR]
-              \\ once_rewrite_tac[COND_RAND]
-              \\ CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV EVAL)))
-              \\ once_rewrite_tac[COND_RAND]
-              \\ once_rewrite_tac[COND_RAND]
-              \\ once_rewrite_tac[COND_RAND]
-              \\ CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV EVAL)))
-              \\ once_rewrite_tac[COND_RATOR]
-              \\ simp[append_aux_def]
-              \\ once_rewrite_tac[COND_RAND]
-              \\ simp[]
-              \\ strip_tac \\ qunabbrev_tac`xxx`
-              \\ conj_tac
-              >- (
-                rw[]
-                \\ qpat_x_assum`_ = (_,_,n1)`mp_tac
-                \\ simp[bvl_to_bviTheory.compile_prog_def]
-                \\ pairarg_tac \\ simp[]
-                \\ cheat (* need to know something about the new state that bvl_to_bvi produces ... *)
-                bvl_to_bviTheory.compile_list_def
-                bvl_to_bviTheory.compile_single_def
-            *)
+          \\ conj_tac >- (
+            irule ALL_DISTINCT_MAP_FST_SND_full_co
+            \\ simp[]
+            \\ simp[Abbr`n2`]
+            \\ EVAL_TAC \\ simp[])
           \\ simp[stack_namesTheory.compile_def, MAP_MAP_o, EVERY_MAP]
           \\ cheat (* good labels come out of the stack to lab compiler phases *) )
         \\ drule labels_ok_imp
