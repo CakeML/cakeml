@@ -3212,47 +3212,41 @@ val compile_row_set_globals = Q.prove(`
   qpat_x_assum `{||}=f` sym_sub_tac>>rw[op_gbag_def]>>
   qpat_x_assum `{||}=f` sym_sub_tac>>rw[op_gbag_def]);
 
-(*
+val sIf_set_globals_lemma =
+  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] SUB_BAG_TRANS)
+           set_globals_sIf_sub;
+
+val sLet_set_globals_lemma =
+  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] SUB_BAG_TRANS)
+           set_globals_sLet_sub;
+
 val set_globals_eq = Q.store_thm("set_globals_eq",
-  `(∀bvs exp. set_globals (compile_exp bvs exp) ≤ set_globals exp) ∧
-   (∀bvs exps.
-     elist_globals(compile_exps bvs exps) ≤ elist_globals exps) ∧
-   (∀bvs funs.
-     elist_globals(compile_funs bvs funs) ≤ elist_globals (MAP (SND o SND) funs)) ∧
-   (∀t bvs pes.
-     set_globals(compile_pes t bvs pes) ≤ elist_globals (MAP SND pes))`,
-  ho_match_mp_tac compile_exp_ind >>
-  rw[compile_exp_def,op_gbag_def]>>
-  fs[bagTheory.SUB_BAG_UNION]
+  `(!bvs exp. set_globals (compile_exp bvs exp) ≤ set_globals exp) /\
+   (!bvs exps.
+     elist_globals (compile_exps bvs exps) ≤ elist_globals exps) /\
+   (!bvs funs.
+     elist_globals (compile_funs bvs funs) ≤
+     elist_globals (MAP (SND o SND) funs)) /\
+   (!tra bvs pes.
+     set_globals (compile_pes tra bvs pes) ≤ elist_globals (MAP SND pes))`,
+  ho_match_mp_tac compile_exp_ind
+  \\ rw [compile_exp_def]
+  \\ fs [SUB_BAG_UNION]
+  >- (match_mp_tac sIf_set_globals_lemma \\ fs [SUB_BAG_UNION])
+  >- (FULL_CASE_TAC \\ fs [])
   >-
-    (full_case_tac>>fs[])
+   (Cases_on `op` \\
+    fs [flatPropsTheory.op_gbag_def, op_gbag_def, SUB_BAG_UNION])
+  >- (match_mp_tac sLet_set_globals_lemma \\ fs [SUB_BAG_UNION])
+  >- (match_mp_tac sLet_set_globals_lemma \\ fs [SUB_BAG_UNION])
   >-
-    (Cases_on`op`>>fs[flatPropsTheory.op_gbag_def,patPropsTheory.op_gbag_def])
-  >-
-    (
-    SUB_BAG_TRANS |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-    |> C MATCH_MP set_globals_sLet_sub
-    |> match_mp_tac \\
-    simp[SUB_BAG_UNION])
-  >-
-    (
-    SUB_BAG_TRANS |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-    |> C MATCH_MP set_globals_sLet_sub
-    |> match_mp_tac \\
-    simp[SUB_BAG_UNION])
-  >- (
-    split_pair_case_tac \\ fs[] \\
-    metis_tac[compile_row_set_globals] )
-  >- (
-    SUB_BAG_TRANS |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-    |> C MATCH_MP set_globals_sIf_sub
-    |> match_mp_tac \\
-    simp[SUB_BAG_UNION] \\
-    split_pair_case_tac \\ fs[SUB_BAG_UNION] \\
-    qspecl_then[`t§2`,`p`]assume_tac (CONJUNCT1 compile_pat_empty) \\ simp[] \\
-    imp_res_tac compile_row_set_globals \\
-    simp[SUB_BAG_UNION]));
-*)
+   (split_pair_case_tac \\ fs []
+    \\ imp_res_tac compile_row_set_globals \\ fs [])
+  \\ match_mp_tac sIf_set_globals_lemma
+  \\ fs [SUB_BAG_UNION]
+  \\ split_pair_case_tac \\ fs []
+  \\ fs [compile_pat_empty]
+  \\ imp_res_tac compile_row_set_globals \\ fs [SUB_BAG_UNION]);
 
 val esgc_free_let_els = Q.prove(`
   ∀t n m e.
@@ -3298,45 +3292,48 @@ val compile_row_esgc_free = Q.prove(`
   rw[sLet_def] \\ CASE_TAC \\ fs[op_gbag_def] \\
   CASE_TAC \\ fs[op_gbag_def]);
 
-(*
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
-  `(∀bvs exp. esgc_free exp ⇒ esgc_free (compile_exp bvs exp)) ∧
-   (∀bvs exps.
-     EVERY esgc_free exps ⇒ EVERY esgc_free (compile_exps bvs exps)) ∧
-   (∀bvs funs.
-     EVERY esgc_free (MAP (SND o SND)funs) ⇒ EVERY esgc_free (compile_funs bvs funs)) ∧
-   (∀t bvs pes.
-     EVERY esgc_free (MAP SND pes) ⇒ esgc_free (compile_pes t bvs pes))`,
-  ho_match_mp_tac compile_exp_ind >>
-  rw[compile_exp_def,op_gbag_def]>>
-  fs[bagTheory.SUB_BAG_UNION]
+  `(!bvs exp.
+      esgc_free exp
+      ==>
+      esgc_free (compile_exp bvs exp)) /\
+   (!bvs exps.
+      EVERY esgc_free exps
+      ==>
+      EVERY esgc_free (compile_exps bvs exps)) /\
+   (!bvs funs.
+      EVERY esgc_free (MAP (SND o SND) funs)
+      ==>
+      EVERY esgc_free (compile_funs bvs funs)) /\
+   (!tra bvs pes.
+      EVERY esgc_free (MAP SND pes)
+      ==>
+      esgc_free (compile_pes tra bvs pes))`,
+  ho_match_mp_tac compile_exp_ind
+  \\ rw [compile_exp_def]
+  \\ fs [esgc_free_sLet_sub, esgc_free_sIf_sub]
+  >- (FULL_CASE_TAC \\ fs [])
   >-
-    (full_case_tac>>fs[])
+   (qspecl_then [`SOME x::bvs`,`exp`]
+                assume_tac
+                (el 1 (CONJUNCTS set_globals_eq))
+    \\ rfs [])
   >-
-    (Q.SPECL_THEN [`SOME x::bvs`,`exp`] assume_tac (el 1 (CONJUNCTS set_globals_eq))>>
-    rfs[])
-  >- ( esgc_free_sLet_sub |> match_mp_tac \\ simp[])
-  >- ( esgc_free_sLet_sub |> match_mp_tac \\ simp[])
-  >-
-    (Q.SPECL_THEN [`MAP (SOME o FST) funs ++bvs`,`funs`] assume_tac (el 3 (CONJUNCTS set_globals_eq))>>
-    rfs[])
-  >- (
-    split_pair_case_tac \\ fs[] \\
-    metis_tac[compile_row_esgc_free] )
-  >- (
-    esgc_free_sIf_sub |> match_mp_tac \\ simp[] \\
-    qspecl_then[`t§2`, `p`] assume_tac (CONJUNCT1 compile_pat_esgc_free)>>
-    split_pair_case_tac \\ fs[] \\
-    imp_res_tac compile_row_esgc_free));
-*)
+   (qspecl_then [`MAP (SOME o FST) funs ++ bvs`,`funs`]
+                assume_tac
+                (el 3 (CONJUNCTS set_globals_eq))
+    \\ rfs [])
+  \\ split_pair_case_tac \\ fs []
+  >- metis_tac [compile_row_esgc_free]
+  \\ match_mp_tac esgc_free_sIf_sub \\ fs []
+  \\ metis_tac [compile_row_esgc_free, compile_pat_esgc_free]);
 
-(*
 val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
        BAG_ALL_DISTINCT (set_globals (compile_exp [] e))`,
   rw[]>>
   match_mp_tac BAG_ALL_DISTINCT_SUB_BAG >>
   HINT_EXISTS_TAC>>fs[set_globals_eq])
-*)
 
 val _ = export_theory()
+
