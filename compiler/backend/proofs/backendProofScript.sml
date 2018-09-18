@@ -1242,10 +1242,34 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ rewrite_tac[COND_RATOR]
     \\ rewrite_tac[Ntimes COND_RAND 3]
     \\ simp[] )
-
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
+
+  \\ `∀k. (SND(SND(SND(SND(FST(co k)))))).labels = (SND(THE(compile c.lab_conf p7))).labels`
+  by (
+    simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
+    \\ simp[Abbr`co3`]
+    \\ rewrite_tac[COND_RATOR]
+    \\ rewrite_tac[Ntimes COND_RAND 8]
+    \\ simp[]
+    \\ rpt AP_TERM_TAC
+    \\ simp[Abbr`p7`,Abbr`stk`,Abbr`stoff`]
+    \\ AP_TERM_TAC
+    \\ qpat_x_assum`_ = (_,p6)`mp_tac
+    \\ simp[]
+    \\ simp[SND_EQ_EQUIV] \\ rw[]
+    \\ qexists_tac`c6` \\ pop_assum(SUBST1_TAC o SYM)
+    \\ AP_TERM_TAC
+    \\ qpat_x_assum`_ = (_,p5)`mp_tac
+    \\ simp[]
+    \\ simp[SND_EQ_EQUIV] \\ rw[]
+    \\ qexists_tac`col` \\ pop_assum(SUBST1_TAC o SYM)
+    \\ AP_TERM_TAC
+    \\ simp[Abbr`t_code`]
+    \\ qunabbrev_tac`c4_data_conf`
+    \\ simp_tac (srw_ss())[]
+    \\ simp[] )
 
   \\ impl_tac >- (
     conj_tac >- (
@@ -1275,11 +1299,31 @@ val compile_correct = Q.store_thm("compile_correct",
             \\ simp[Abbr`n2`]
             \\ EVAL_TAC \\ simp[])
           \\ simp[stack_namesTheory.compile_def, MAP_MAP_o, EVERY_MAP]
-          \\ cheat (* good labels come out of the stack to lab compiler phases *) )
+          \\ simp[LAMBDA_PROD]
+          \\ simp[stack_allocTheory.prog_comp_def]
+          \\ simp[stack_removeTheory.prog_comp_def]
+          \\ simp[stack_namesTheory.prog_comp_def]
+          \\ simp[Once EVERY_MEM, FORALL_PROD]
+          \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
+          \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
+          \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
+          \\ simp[GSYM word_to_stackProofTheory.word_to_stack_lab_pres]
+          \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
+          \\ simp[]
+          \\ pairarg_tac \\ simp[]
+          \\ reverse impl_tac >- rw[]
+          \\ cheat (* prove separate lemma: compile_word_to_stack labels preservation
+                      there may be an embedded inductive proof in word_to_stack_compile_lab_pres that can be mined for this *)
+          )
         \\ drule labels_ok_imp
         \\ simp[]
         \\ strip_tac
-        \\ cheat (* syntactic properties of labels mostly ... prove each as separate lemmas... *) )
+        \\ simp[Abbr`stack_oracle`, UNCURRY]
+        \\ simp[Abbr`word_oracle`]
+        \\ simp[Abbr`data_oracle`]
+        \\ simp[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
+        \\ fs[]
+        \\ cheat (* syntactic properties of labels mostly ... prove separate lemmas as needed *) )
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\
