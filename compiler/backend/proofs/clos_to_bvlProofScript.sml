@@ -5618,6 +5618,7 @@ val chain_installed_thm = Q.store_thm("chain_installed_thm",
   \\ imp_res_tac closPropsTheory.evaluate_mono
   \\ imp_res_tac chain_installed_SUBMAP
   \\ first_x_assum(qspec_then`start+1`strip_assume_tac)
+  (*  \\ first_x_assum (qspec_then `s2` mp_tac) *)
   \\ first_x_assum(first_assum o mp_then (Pat`closSem$evaluate`) mp_tac)
   \\ simp[]
   \\ impl_tac >- (CCONTR_TAC \\ fs[])

@@ -970,6 +970,10 @@ val fp_cmp_inst_def = Define `
   fp_cmp_inst FP_GreaterEqual = FPLessEqual 3 1 0 /\
   fp_cmp_inst FP_Equal = FPEqual 3 0 1`;
 
+val fp_top_inst_def_def = Define `
+  fp_top_inst FP_Fma = FPFma 0 0 1 2 /\
+  fp_top_inst FP_Fms = FPFms 0 0 1 2`;
+
 val fp_bop_inst_def = Define `
   fp_bop_inst FP_Add = FPAdd 0 0 1 /\
   fp_bop_inst FP_Sub = FPSub 0 0 1 /\
@@ -1695,6 +1699,47 @@ local val assign_quotation = `
                Inst (FP (FPMovFromReg 1 23 21));
                Inst (FP (fp_cmp_inst fpc));
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
+       | _ => (Skip,l))
+    | FP_top fpt => (dtcase args of
+       | [v1;v2;v3] =>
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+            (list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Assign 5 (Load (Op Add
+                           [real_addr c (adjust_var v2); Const bytes_in_word]));
+               Assign 7 (Load (Op Add
+                           [real_addr c (adjust_var v3); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (FPMovFromReg 1 5 5));
+               Inst (FP (FPMovFromReg 2 7 7));
+               Inst (FP (fp_top_inst fpt));
+               Inst (FP (FPMovToReg 3 5 0));
+               WriteWord64 c header dest 3],l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 19 (real_addr c (adjust_var v3));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               Assign 31 (Load (Op Add [Var 19; Const bytes_in_word]));
+               Assign 33 (Load (Op Add [Var 19; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (FPMovFromReg 2 33 31));
+               Inst (FP (fp_top_inst fpt));
+               Inst (FP (FPMovToReg 5 3 0));
+               WriteWord64_on_32 c header dest 5 3],l)))
        | _ => (Skip,l))
     | FP_bop fpb => (dtcase args of
        | [v1;v2] =>

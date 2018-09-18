@@ -335,6 +335,11 @@ val do_app_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
+    | (FP_top top, ws) =>
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (Rval (Word64 (fp_top top w1 w2 w3),s))
+         | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))

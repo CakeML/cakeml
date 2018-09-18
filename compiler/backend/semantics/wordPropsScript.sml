@@ -2479,6 +2479,12 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔
     (c.two_reg_arith ==> (d1 = d2)) ∧
     fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPFma d1 d2 d3 d4)) <=>
+      (* FIXME: c.two_reg_arith ?? *)
+    fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c /\ fp_reg_ok d4 c) /\
+  (inst_ok_less c (FP (FPFms d1 d2 d3 d4)) <=>
+      (* FIXME: c.two_reg_arith ?? *)
+    fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c /\ fp_reg_ok d4 c) /\
   (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
       ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧

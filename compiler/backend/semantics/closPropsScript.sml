@@ -1924,7 +1924,8 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
                (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
-               (?f. opp = FP_bop f) \/ opp = WordToInt \/ opp = ConfigGC \/
+               (?f. opp = FP_bop f) \/ (?f. opp = FP_top f) \/
+               opp = WordToInt \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
                (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/

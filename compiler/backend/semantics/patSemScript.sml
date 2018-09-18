@@ -157,6 +157,9 @@ val do_app_def = Define `
        (case do_word_op op wz w1 w2 of
             | NONE => NONE
             | SOME w => SOME (s, Rval (Litv w)))
+    | (Op (FP_top top),
+        [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
+      SOME (s, Rval (Litv (Word64 (fp_top top w1 w2 w3))))
     | (Op (FP_bop bop), [Litv (Word64 w1); Litv (Word64 w2)]) =>
       SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (Op (FP_uop uop), [Litv (Word64 w)]) =>
