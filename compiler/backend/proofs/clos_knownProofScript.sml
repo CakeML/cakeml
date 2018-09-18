@@ -1065,9 +1065,9 @@ val do_app_ssgc = Q.store_thm(
 
 val dest_closure_Full_sgc_free = Q.store_thm(
   "dest_closure_Full_sgc_free",
-  `dest_closure max_app loc_opt f (arg1::args) =
+  `dest_closure max_app loc_opt f (arg0::args) =
      SOME (Full_app fbody env rest_args) /\
-   vsgc_free f /\ vsgc_free arg1 /\ EVERY vsgc_free args ==>
+   vsgc_free f /\ vsgc_free arg0 /\ EVERY vsgc_free args ==>
    set_globals fbody = {||} /\ EVERY vsgc_free env /\ EVERY vsgc_free rest_args`,
    rpt gen_tac \\ strip_tac
    \\ imp_res_tac dest_closure_is_closure
