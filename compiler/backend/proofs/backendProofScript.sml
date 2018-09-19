@@ -422,6 +422,9 @@ val _ = temp_overload_on("bvl_inline_compile_inc",``bvl_inline$compile_inc``);
 val _ = temp_overload_on("bvl_to_bvi_compile_exps",``bvl_to_bvi$compile_exps``);
 val _ = temp_overload_on("pat_to_clos_compile",``pat_to_clos$compile``);
 val _ = temp_overload_on("flat_to_pat_compile",``flat_to_pat$compile``);
+val _ = temp_overload_on("stack_remove_prog_comp",``stack_remove$prog_comp``);
+val _ = temp_overload_on("stack_alloc_prog_comp",``stack_alloc$prog_comp``);
+val _ = temp_overload_on("stack_names_prog_comp",``stack_names$prog_comp``);
 
 (* TODO: move things that need moving *)
 
@@ -560,6 +563,29 @@ val compile_all_enc_ok_pre = Q.prove(`
   EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
   all_enc_ok_pre c (MAP prog_to_section prog)`,
   cheat (* this is proved but not exported in stack_to_labProof *));
+
+val stack_remove_comp_stack_asm_name = Q.prove(`
+  ∀jump off k p.
+  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
+  addr_offset_ok c 0w ∧
+  good_dimindex (:'a) ∧
+  (∀n. n ≤ max_stack_alloc ⇒
+  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
+  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
+  (∀s. addr_offset_ok c (store_offset s)) ∧
+  reg_name (k+2) c ∧
+  reg_name (k+1) c ∧
+  reg_name k c ∧
+  off = c.addr_offset ⇒
+  stack_asm_name c (comp jump off k p)`,
+  cheat (* not exported from stack_removeProof *));
+
+val stack_alloc_comp_stack_asm_name = Q.prove(`
+  ∀n m p.
+  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
+  let (p',m') = comp n m p in
+  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'`,
+  cheat (* not exported from stack_allocProof *));
 
 (*
 val backend_cs =
@@ -1485,7 +1511,49 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
           \\ reverse conj_tac
           >- ( qhdtm_x_assum`mc_conf_ok`mp_tac \\ simp[mc_conf_ok_def] )
-          \\  cheat (* need to mine un-exported proofs in stack_removeProof etc... *) )
+          \\ simp[Once EVERY_MAP]
+          \\ simp[LAMBDA_PROD]
+          \\ simp[stack_removeTheory.prog_comp_def]
+          \\ simp[Once EVERY_MEM, FORALL_PROD]
+          \\ rpt gen_tac \\ strip_tac
+          \\ irule stack_remove_comp_stack_asm_name
+          \\ simp[]
+          \\ conj_tac >- fs[mc_conf_ok_def]
+          \\ conj_tac >- fs[Abbr`stoff`]
+          \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
+          \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
+          \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
+          \\ pop_assum mp_tac
+          \\ simp[Once MEM_MAP, EXISTS_PROD]
+          \\ simp[stack_allocTheory.prog_comp_def]
+          \\ simp[FST_EQ_EQUIV]
+          \\ strip_tac
+          \\ qhdtm_x_assum`comp`mp_tac
+          \\ specl_args_of_then``stack_alloc$comp`` stack_alloc_comp_stack_asm_name (Q.ISPEC_THEN`mc.target.config`mp_tac o Q.GEN`c`)
+          \\ ntac 2 strip_tac \\ fs[]
+          \\ first_x_assum match_mp_tac
+          \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp`
+          \\ Q.ISPECL_THEN[`mc.target.config`,`pp`]mp_tac word_to_stackTheory.compile_def
+          \\ simp[]
+          \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kk2 pp`
+          \\ `kk2 = kkk` by rfs[Abbr`kk2`,Abbr`kkk`,Abbr`stk`]
+          \\ qunabbrev_tac`kk2` \\ pop_assum SUBST_ALL_TAC
+          \\ pairarg_tac \\ simp[]
+          \\ strip_tac
+          \\ (word_to_stackProofTheory.word_to_stack_stack_asm_convs
+              |> UNDISCH_ALL |> SIMP_RULE std_ss [EVERY_MEM, FORALL_PROD]
+              |> DISCH_ALL |> irule)
+          \\ simp[] \\ fs[]
+          \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["progs"]))
+          \\ qexists_tac`pp` \\ simp[]
+          \\ qmatch_asmsub_abbrev_tac`MEM _ (FST (compile_word_to_stack kkk pp TODO_co2'))`
+          \\ `TODO_co2' = TODO_co2`
+          by ( simp[Abbr`TODO_co2'`, full_co_def, bvi_tailrecProofTheory.mk_co_def, backendPropsTheory.FST_state_co, UNCURRY] )
+          \\ qunabbrev_tac`TODO_co2'` \\ pop_assum SUBST_ALL_TAC \\ fs[]
+          \\ simp_tac(srw_ss()++DNF_ss)[]
+          \\ disj2_tac
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ cheat (* mine word to word conventions etc. proofs ... *) )
         \\ cheat (* oracle label(s) *) )
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
