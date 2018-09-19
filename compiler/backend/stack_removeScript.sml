@@ -206,7 +206,9 @@ val store_init_def = Define `
 
 val init_code_def = Define `
   init_code gen_gc max_heap k =
-    let max_heap = MIN max_heap (dimword (:'a) DIV 8) in
+    let max_heap = (if max_heap * w2n (bytes_in_word:'a word) < dimword (:'a)
+                    then n2w max_heap * bytes_in_word
+                    else 0w-1w) in
       list_Seq [(* if reg3 is not between start and end of memory, then put
                    it in the middle (i.e. split heap and stack evenly) *)
                 const_inst 0 (512w * bytes_in_word:'a word);
@@ -223,8 +225,13 @@ val init_code_def = Define `
                 (* shrink the heap if it is too big *)
                 move 0 3;
                 sub_inst 0 2;
-                const_inst 5 (n2w max_heap * bytes_in_word);
+                const_inst 5 max_heap;
                 If Lower 5 (Reg 0) (Seq (move 3 2) (add_inst 3 5)) Skip;
+                (* ensure heap is even number of words *)
+                sub_inst 3 2;
+                right_shift_inst 3 (word_shift (:'a) + 1);
+                left_shift_inst 3 (word_shift (:'a) + 1);
+                add_inst 3 2;
                 (* split heap into two, store heap length in 5 *)
                 move 5 3;
                 sub_inst 5 2;
