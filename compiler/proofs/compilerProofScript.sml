@@ -116,10 +116,15 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ fs[Abbr`st1`, inferTheory.init_infer_state_def]
   \\ rfs[DISJOINT_SYM]);
 
+val compile_tap_compile = Q.store_thm("compile_tap_compile",
+  `∀conf p res td. backend$compile_tap conf p = (res,td) ⇒
+    backend$compile conf p = res`,
+  simp[backendTheory.compile_def]);
+
 val compile_correct_gen = Q.store_thm("compile_correct_gen",
   `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
-    case compiler$compile cc prelude input of
+    case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
@@ -140,8 +145,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ BasicProvers.CASE_TAC
   \\ fs[initial_condition_def]
   \\ BasicProvers.CASE_TAC
-  \\ simp[semantics_def]
   \\ fs[initial_condition_def]
+  \\ simp[semantics_def]
   \\ drule (GEN_ALL infertype_prog_correct)
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
@@ -150,9 +155,9 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
+  \\ simp[semantics_def]
+  \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct
       |> SIMP_RULE std_ss [LET_THM,UNCURRY]
@@ -181,7 +186,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
 val compile_correct = Q.store_thm("compile_correct",
   `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
-    case compiler$compile cc prelude input of
+    case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
