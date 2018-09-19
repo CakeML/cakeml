@@ -21,6 +21,7 @@ val _ = Datatype `
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
+            ; has_fp_tern :bool (* supports FMA/FMS floating-point ops *)
             ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
@@ -1702,7 +1703,7 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | FP_top fpt => (dtcase args of
        | [v1;v2;v3] =>
-       (if ~c.has_fp_ops then (GiveUp,l) else
+       (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
         if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)

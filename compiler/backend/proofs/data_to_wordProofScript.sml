@@ -1055,6 +1055,7 @@ val assign_no_inst = Q.prove(`
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
+   (a.has_fp_tern ==> 2 < ac.fp_reg_count) /\
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>
@@ -1066,10 +1067,10 @@ val assign_no_inst = Q.prove(`
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst,
     asmTheory.fp_reg_ok_def,fp_uop_inst_def,fp_cmp_inst_def,
-    fp_bop_inst_def]>>
+    fp_bop_inst_def, fp_top_inst_def]>>
   IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
-    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC "");
 
 (*
 inst_ok_less_def
