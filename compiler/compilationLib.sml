@@ -161,7 +161,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       ["flat_prog","pat_prog","clos_prog","bvl_prog","bvi_prog"]
   in to_data_thm end
 
-fun compile_to_lab conf_def data_prog_def to_data_thm lab_prog_name =
+fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
   let
     val cs = compilation_compset()
     val () =
@@ -180,7 +180,8 @@ fun compile_to_lab conf_def data_prog_def to_data_thm lab_prog_name =
           riscv_backend_config_def, riscv_names_def,
           ag32_backend_config_def, ag32_names_def,
           x64_backend_config_def, x64_names_def,
-          data_prog_def, conf_def ]
+          data_prog_def
+          ]
       ] cs
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
@@ -826,14 +827,14 @@ fun eval_export word_directive target_export_defs heap_size stack_size code_def 
 fun cbv_to_bytes
       word_directive
       add_encode_compset backend_config_def names_def target_export_defs
-      conf_def stack_to_lab_thm lab_prog_def heap_size stack_size
+      stack_to_lab_thm lab_prog_def heap_size stack_size
       code_name data_name config_name filename =
   let
     val cs = compilation_compset()
     val () =
       computeLib.extend_compset [
         computeLib.Extenders [ add_encode_compset ],
-        computeLib.Defs [ backend_config_def, names_def, lab_prog_def, conf_def]
+        computeLib.Defs [ backend_config_def, names_def, lab_prog_def]
       ] cs
     val eval = computeLib.CBV_CONV cs;
 
@@ -912,13 +913,13 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
     val data_prog_def = definition(mk_abbrev_name data_prog_name)
     val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog"
-    val stack_to_lab_thm = compile_to_lab conf_def data_prog_def to_data_thm lab_prog_name
+    val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val code_name = (!intermediate_prog_prefix) ^ "code"
     val data_name = (!intermediate_prog_prefix) ^ "data"
     val config_name = (!intermediate_prog_prefix) ^ "config"
     val result_thm =
-      cbv_to_bytes conf_def stack_to_lab_thm lab_prog_def heap_size stack_size code_name data_name config_name (name^".S")
+      cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size code_name data_name config_name (name^".S")
   in result_thm end
 
 val compile_arm6 = compile arm6_backend_config_def cbv_to_bytes_arm6
