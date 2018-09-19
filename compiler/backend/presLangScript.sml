@@ -704,29 +704,45 @@ val lang_to_json_def = Define`
 val () = Datatype `
   tap_config = Tap_Config
     (* save filename prefix *) mlstring
-    (* bits which should be saved *) (mlstring list)`;
+    (* bits which should be saved. the boolean indicates
+       the presence of a '*' suffix, and matches all suffixes *)
+    ((mlstring # bool) list)`;
 
-val () = Datatype `
-  tap_data = Tap_Data ((mlstring # (unit -> jsonLang$obj)) list)`;
+val mk_tap_star = Define `
+  mk_tap_star str = if isSuffix (strlit "*") str
+    then (substring str 0 (strlen str - 1), T)
+    else (str, F)`;
 
-val empty_tap_data_def = Define `
-  empty_tap_data = Tap_Data []`;
+val mk_tap_config = Define `
+  mk_tap_config fname taps = Tap_Config (case fname of
+    | NONE => (strlit "default.tap") | SOME s => s) (MAP mk_tap_star taps)`;
+
+val default_tap_config = Define `
+  default_tap_config = mk_tap_config NONE []`;
 
 val should_tap_def = Define `
   should_tap (conf : tap_config) nm = case conf of
-    | Tap_Config _ taps => EXISTS (\s. s = nm) taps`;
+    | Tap_Config _ taps => EXISTS (\(s, star). if star then
+        isPrefix s nm else s = nm) taps`;
 
 val tap_name_def = Define `
   tap_name (conf : tap_config) nm = case conf of
     | Tap_Config fname _ => concat [fname; strlit "."; nm]`;
 
+val () = Datatype `
+  tap_data = Tap_Data mlstring (unit -> jsonLang$obj)`;
+
 val add_tap_def = Define `
-  add_tap conf nm (to_display : 'a -> displayLang$sExp) (v : 'a) td
+  add_tap conf nm (to_display : 'a -> displayLang$sExp) (v : 'a) tds
     = if should_tap conf nm
-    then (case td of Tap_Data tds
-        => Tap_Data ((tap_name conf nm,
-            (\_. lang_to_json (explode nm) to_display v)) :: tds))
-    else td`;
+    then Tap_Data (tap_name conf nm)
+            (\_. lang_to_json (explode nm) to_display v) :: tds
+    else tds`;
+
+val tap_data_strings_def = Define `
+  tap_data_strings td = case td of
+    | Tap_Data nm json_f => (nm,
+        implode (misc$append (json_to_string (json_f ()))))`;
 
 val tap_flat_def = Define `
   tap_flat conf v = add_tap conf (strlit "flat") flat_to_display_decs v`;

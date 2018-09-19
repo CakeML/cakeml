@@ -36,7 +36,7 @@ val attach_bitmaps_def = Define `
 val compile_tap_def = Define`
   compile_tap c p =
     let (c',p) = source_to_flat$compile c.source_conf p in
-    let td = tap_flat c.tap_conf p empty_tap_data in
+    let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
     let p = flat_to_pat$compile p in
