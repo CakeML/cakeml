@@ -1644,7 +1644,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp`
       \\ Q.ISPECL_THEN[`mc.target.config`,`pp`]mp_tac word_to_stackTheory.compile_def
       \\ simp[]
-      \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kk2 pkk`
+      \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kk2 pp`
       \\ `kk2 = kkk` by simp[Abbr`kk2`,Abbr`kkk`]
       \\ qunabbrev_tac`kk2` \\ pop_assum SUBST_ALL_TAC
       \\ simp[]
@@ -1718,7 +1718,6 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ strip_tac
       \\ first_x_assum drule
       \\ pairarg_tac \\ rw[]
-      \\ qunabbrev_tac`pkk`
       \\ qpat_x_assum`MAP FST pp = _`mp_tac
       \\ simp[LIST_EQ_REWRITE, EL_MAP]
       \\ disch_then(qspec_then`i`mp_tac)
