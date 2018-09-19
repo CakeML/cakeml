@@ -795,7 +795,7 @@ val compile_correct = Q.store_thm("compile_correct",
                            let p5 = SND (compile c.word_to_word_conf c.lab_conf.asm_conf t_code) in
                            let p6 = SND (compile c.lab_conf.asm_conf p5) in
                            let p7 = compile c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1) stk stoff p6 in
-                          (4w::TODO_co2(* (FST(compile c.lab_conf.asm_conf p5)).bitmaps *),
+                          ((FST(compile c.lab_conf.asm_conf p5)).bitmaps,
                            (
                            <|labels := (SND(THE(compile c.lab_conf p7))).labels;
                              pos := LENGTH (FST(THE(compile c.lab_conf p7)));
@@ -1203,7 +1203,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ rw[] )
     \\ qpat_x_assum`_ ≤ e`mp_tac
     \\ simp_tac(srw_ss())[Abbr`pc`]
-    \\ qmatch_goalsub_rename_tac`4w::IG,NORE`
+    \\ qmatch_goalsub_rename_tac`IG.bitmaps,NORE`
     \\ EVAL_TAC
     \\ qpat_x_assum`_ = (n2,_)`assume_tac
     \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
@@ -1320,7 +1320,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
 
-  \\ `∀k. FST (SND (SND (SND (FST (co k))))) = (4w::TODO_co2(*(FST(compile c.lab_conf.asm_conf p5)).bitmaps*))`
+  \\ `∀k. FST (SND (SND (SND (FST (co k))))) = ((FST(compile c.lab_conf.asm_conf p5)).bitmaps)`
   by (
     simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
     \\ simp[Abbr`co3`]
@@ -1830,6 +1830,7 @@ val compile_correct = Q.store_thm("compile_correct",
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
    |> GEN_ALL
    |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
+
   impl_tac >- (
     fs[] \\
     conj_tac >- (
@@ -1857,7 +1858,40 @@ val compile_correct = Q.store_thm("compile_correct",
       qmatch_goalsub_abbrev_tac`compile_prog _ pp`
       \\ simp[GSYM EVERY_CONJ, CONJ_ASSOC]
       \\ simp[EVERY_MEM]
-      \\ cheat (* syntactic properties of oracle, also bitmaps instantiation must be wrong... *))>>
+      \\ gen_tac
+      \\ strip_tac
+      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate ppp`
+      \\ qspec_then`ppp`mp_tac word_removeProofTheory.remove_must_terminate_conventions
+      \\ simp[]
+      \\ disch_then(qspec_then`mc.target.config`mp_tac)
+      \\ qmatch_goalsub_abbrev_tac`post_alloc_conventions kk`
+      \\ disch_then(qspec_then`kk`mp_tac)
+      \\ strip_tac
+      \\ simp[GSYM CONJ_ASSOC]
+      \\ conj_tac
+      >- (
+        first_x_assum irule
+        \\ cheat (* mine the proof in word_to_wordProof compile_conventions - save as lemma *) )
+      \\ conj_tac
+      >- (
+        first_x_assum irule
+        \\ cheat (* mine the proof in word_to_wordProof compile_conventions *) )
+      \\ qmatch_goalsub_rename_tac`compile_part xxx`
+      \\ PairCases_on`xxx`
+      \\ simp[bvi_to_dataTheory.compile_part_def]
+      \\ Cases_on`bvi_tailrec$compile_prog n2 pp`
+      \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+      \\ fs[]
+      \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+      \\ disch_then drule
+      \\ reverse strip_tac
+      >- (
+        pop_assum mp_tac
+        \\ simp[Abbr`n2`]
+        \\ EVAL_TAC \\ rw[] )
+      \\ pop_assum mp_tac
+      \\ simp[Abbr`pp`]
+      \\ cheat (* name coming out of the oracle: maybe possible to eval... *))>>
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
