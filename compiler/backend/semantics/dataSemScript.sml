@@ -485,6 +485,11 @@ val find_code_def = Define `
                                   else NONE)
        | other => NONE)`
 
+val isBool_def = Define`
+  isBool b (Block _ tag []) = (bool_to_tag b = tag)
+∧ isBool _ _                = F
+`;
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
@@ -527,8 +532,8 @@ val evaluate_def = tDefine "evaluate" `
      case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
                         (* no time stamp *)
-     | SOME x => if x = Boolv T then evaluate (c1,s) else
-                 if x = Boolv F then evaluate (c2,s) else
+     | SOME x => if isBool T x then evaluate (c1,s) else
+                 if isBool F x then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of

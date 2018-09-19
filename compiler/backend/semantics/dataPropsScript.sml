@@ -243,8 +243,8 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `evaluate (c2,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ Cases_on `x = Boolv F` \\ full_simp_tac(srw_ss())[get_var_def])
+    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[get_var_def])
   THEN1 (* Call *)
    (full_simp_tac(srw_ss())[evaluate_def]
     \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
@@ -561,8 +561,8 @@ val evaluate_locals = Q.store_thm("evaluate_locals",
   THEN1 (* If *)
    (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x = Boolv F` \\ full_simp_tac(srw_ss())[])
+    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
   THEN1 (* Call *)
    (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]

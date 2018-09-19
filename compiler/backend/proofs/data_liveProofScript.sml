@@ -248,13 +248,13 @@ val evaluate_compile = Q.prove(
     \\ `(get_var n s.locals = get_var n t1.locals)` by
          (fs [state_rel_def,domain_union,domain_insert,get_var_def]
           \\ METIS_TAC [])
-    \\ Cases_on `x = Boolv T` \\ fs [] THEN1
+    \\ Cases_on `isBool T x` \\ fs [] THEN1
      (Q.PAT_X_ASSUM `xxx = evaluate (c1,s)` (ASSUME_TAC o GSYM) \\ fs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
       \\ fs [state_rel_def,domain_union])
-    \\ Cases_on `x = Boolv F` \\ fs [] THEN1
+    \\ Cases_on `isBool F x` \\ fs [] THEN1
      (Q.PAT_X_ASSUM `xxx = evaluate (c2,s)` (ASSUME_TAC o GSYM) \\ fs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
