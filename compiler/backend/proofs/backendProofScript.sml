@@ -1364,7 +1364,33 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ strip_tac
           \\ qhdtm_x_assum`LIST_REL`mp_tac
           \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
-          \\ cheat (* good labels coming out out of BVI? *) )
+          \\ simp[LIST_REL_EL_EQN]
+          \\ strip_tac
+          \\ qpat_x_assum`MEM _ pp`mp_tac
+          \\ simp[MEM_EL]
+          \\ disch_then(qx_choose_then`i`strip_assume_tac)
+          \\ first_x_assum(qspec_then`i`mp_tac)
+          \\ simp[] \\ strip_tac
+          \\ qpat_x_assum`_ = EL i pp`(assume_tac o SYM) \\ fs[]
+          \\ fs[Abbr`pp0`] \\ rfs[EL_MAP]
+          \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
+          \\ PairCases_on`pp4`
+          \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
+          \\ fs[data_to_wordTheory.compile_part_def]
+          \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+          \\ simp[]
+          \\ pairarg_tac \\ fs[]
+          \\ simp[EVERY_MEM]
+          \\ rw[]
+          \\ fs[SUBSET_DEF]
+          \\ first_x_assum drule
+          \\ strip_tac
+          \\ first_x_assum drule
+          \\ pairarg_tac \\ rw[]
+          \\ qpat_x_assum`MAP FST pp = _`mp_tac
+          \\ simp[LIST_EQ_REWRITE, EL_MAP]
+          \\ disch_then(qspec_then`i`mp_tac)
+          \\ simp[])
         \\ drule labels_ok_imp
         \\ simp[]
         \\ strip_tac
