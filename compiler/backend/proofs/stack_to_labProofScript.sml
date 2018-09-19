@@ -2499,12 +2499,14 @@ val memory_assumption_def = Define`
       t.mem (ptr2 + 4w * bytes_in_word) =
           Word (t.code_buffer.position + n2w t.code_buffer.space_left) ∧
       t.code_buffer.buffer = [] /\
-      (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
-       (word_list bitmap_ptr (MAP Word bitmaps) *
-        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
-        word_list_exists ptr2
-          (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
-         (fun2set (t.mem,t.mem_domain)))`;
+      ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 /\
+      byte_aligned ptr4 /\ byte_aligned bitmap_ptr /\
+      1024w * bytes_in_word ≤₊ ptr4 - ptr2 /\
+     (word_list bitmap_ptr (MAP Word bitmaps) *
+      word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
+      word_list_exists ptr2
+        (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
+       (fun2set (t.mem,t.mem_domain))`;
 
 val halt_assum_lemma = Q.prove(
   `halt_assum (:'ffi#'c)

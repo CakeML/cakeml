@@ -249,6 +249,11 @@ val installed_def = Define`
       (*let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)} in*)
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
       good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
+      byte_aligned (t.regs r1) /\
+      byte_aligned (t.regs r2) /\
+      byte_aligned bitmap_ptr /\
+      t.regs r1 ≤₊ t.regs r2 /\
+      1024w * bytes_in_word ≤₊ t.regs r2 - t.regs r1 /\
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
       m (t.regs r1 + bytes_in_word) =

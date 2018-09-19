@@ -206,45 +206,29 @@ val store_init_def = Define `
 
 val init_code_def = Define `
   init_code gen_gc max_heap k =
-    let min_stack = LENGTH store_list + 1 in
-      if dimword (:'a) <= (dimindex (:'a) DIV 8) * min_stack \/
-         dimword (:'a) <= (dimindex (:'a) DIV 8) * max_heap then
-        halt_inst (10w:'a word)
-      else
-        list_Seq [(* check that pointers are in order *)
-                If Lower 3 (Reg 2) (halt_inst 7w) Skip;
-                If Lower 4 (Reg 3) (halt_inst 8w) Skip;
-                (* check that heap size isn't too big *)
+    let max_heap = MIN max_heap (dimword (:'a) DIV 8) in
+      list_Seq [(* if reg3 is not between start and end of memory, then put
+                   it in the middle (i.e. split heap and stack evenly) *)
+                const_inst 0 (512w * bytes_in_word:'a word);
+                move 5 4;
+                sub_inst 5 0;
+                move 0 4;
+                sub_inst 0 2;
+                right_shift_inst 0 (1 + word_shift (:'a));
+                left_shift_inst 0 (word_shift (:'a));
+                add_inst 0 2;
+                If Lower 3 (Reg 2) (move 3 0)
+                  (If Lower 5 (Reg 3) (move 3 0)
+                     (If Test 3 (Imm (bytes_in_word - 1w)) Skip (move 3 0)));
+                (* shrink the heap if it is too big *)
                 move 0 3;
                 sub_inst 0 2;
                 const_inst 5 (n2w max_heap * bytes_in_word);
-                If Lower 5 (Reg 0) (halt_inst 3w) Skip;
-                (* check max_stack_alloc *)
-                move 0 3;
-                const_inst 5 (n2w (min_stack-1) * bytes_in_word);
-                add_inst 0 5;
-                const_inst 5 (n2w (max_stack_alloc) * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 4w) Skip;
-                (* check that stack size is big enough *)
-                move 0 4;
-                sub_inst 0 3;
-                const_inst 5 (n2w min_stack * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 5w) Skip;
+                If Lower 5 (Reg 0) (Seq (move 3 2) (add_inst 3 5)) Skip;
                 (* split heap into two, store heap length in 5 *)
                 move 5 3;
                 sub_inst 5 2;
                 right_shift_inst 5 1;
-                (* check that all values are aligned *)
-                move 0 2;
-                or_inst 0 3;
-                or_inst 0 4;
-                or_inst 0 5;
-                If Test 0 (Imm 7w) Skip (halt_inst 6w);
-                (* this alignment check must come AFTER the above, because
-                   the bitmap pointer lookup will fail if 2 is not aligned
-                *)
-                load_inst 0 2;
-                If Test 0 (Imm 7w) Skip (halt_inst 6w);
                 (* setup store, stack *)
                 move (k+2) 2;
                 add_inst 2 5;
