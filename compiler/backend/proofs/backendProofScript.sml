@@ -555,6 +555,12 @@ val remove_labels_domain_labs = Q.store_thm("remove_labels_domain_labs",
                lab_to_targetProofTheory.code_similar_refl,
                lab_to_targetProofTheory.code_similar_get_code_labels]);
 
+val compile_all_enc_ok_pre = Q.prove(`
+  byte_offset_ok c 0w ∧
+  EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
+  all_enc_ok_pre c (MAP prog_to_section prog)`,
+  cheat (* this is proved but not exported in stack_to_labProof *));
+
 (*
 val backend_cs =
   let val cs = wordsLib.words_compset() in
@@ -1465,7 +1471,22 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[]
         \\ imp_res_tac remove_labels_domain_labs
         \\ simp[]
-        \\ cheat (* oracle label(s) and asm_ok *) )
+        \\ fs[PAIR_MAP, UNCURRY]
+        \\ simp[CONJ_ASSOC]
+        \\ reverse conj_tac
+        >- (
+          irule compile_all_enc_ok_pre
+          \\ reverse conj_tac
+          >- (
+            first_x_assum irule
+            \\ fs[mc_conf_ok_def]
+            \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
+          \\ simp[Abbr`ppg`]
+          \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
+          \\ reverse conj_tac
+          >- ( qhdtm_x_assum`mc_conf_ok`mp_tac \\ simp[mc_conf_ok_def] )
+          \\  cheat (* need to mine un-exported proofs in stack_removeProof etc... *) )
+        \\ cheat (* oracle label(s) *) )
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\
