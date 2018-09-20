@@ -1,0 +1,5 @@
+Examples that target ag32 (i.e., the Silver CPU)
+
+These examples live in a separate directory because they are designed to be run
+without an operating system and use a different version of the basis library's
+foreign function interface.
