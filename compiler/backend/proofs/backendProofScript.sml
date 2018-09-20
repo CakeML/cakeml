@@ -22,8 +22,8 @@ fun Abbrev_intro th =
   EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
 
 val EVERY_sec_label_ok = store_thm("EVERY_sec_label_ok",
-  ``EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels l) ∧
-    ALL_DISTINCT (extract_labels l) ⇒
+  ``EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels l) (*∧
+    ALL_DISTINCT (extract_labels l) *)⇔
     EVERY (sec_label_ok n) l``,
   Induct_on`l`>>simp[labPropsTheory.extract_labels_def]>>
   Cases>>simp[labPropsTheory.extract_labels_def]);
