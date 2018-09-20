@@ -21,7 +21,6 @@ val _ = Datatype `
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
-            ; has_fp_tern :bool (* supports FMA/FMS floating-point ops *)
             ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
@@ -1703,7 +1702,7 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | FP_top fpt => (dtcase args of
        | [v1;v2;v3] =>
-       (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
+       (if ~c.has_fp_ops then (GiveUp,l) else
         if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
@@ -2145,7 +2144,7 @@ val check_LongDiv_location = Q.store_thm("check_LongDiv_location",
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =
-    let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
+    let data_conf = (data_conf with has_fp_ops := (2 < asm_conf.fp_reg_count)) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 

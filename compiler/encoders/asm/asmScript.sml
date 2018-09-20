@@ -240,10 +240,8 @@ val fp_ok_def = Define `
       (c.two_reg_arith ==> (d1 = d2)) /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_ok (FPFma d1 d2 d3 d4) c <=>
-      (* FIXME: c.two_reg_arith ?? *)
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c /\ fp_reg_ok d4 c) /\
   (fp_ok (FPFms d1 d2 d3 d4) c <=>
-      (* FIXME: c.two_reg_arith ?? *)
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c /\ fp_reg_ok d4 c) /\
   (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>

@@ -1054,8 +1054,7 @@ val MemEqList_no_inst = Q.prove(`
 val assign_no_inst = Q.prove(`
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-   (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
-   (a.has_fp_tern ==> 2 < ac.fp_reg_count) /\
+   (a.has_fp_ops ⇒ 2 < ac.fp_reg_count) ∧
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>
@@ -1080,7 +1079,7 @@ val comp_no_inst = Q.prove(`
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-   (c.has_fp_ops ⇒ 1 < ac.fp_reg_count)) ∧
+   (c.has_fp_ops ⇒ 2 < ac.fp_reg_count)) ∧
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))`,
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
