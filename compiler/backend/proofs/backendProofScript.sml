@@ -508,56 +508,6 @@ val compile_word_to_stack_lab_pres = Q.store_thm("compile_word_to_stack_lab_pres
   \\ specl_args_of_then``word_to_stack$comp``word_to_stackProofTheory.word_to_stack_lab_pres mp_tac
   \\ ntac 2 strip_tac \\ fs[]);
 
-val compute_labels_alt_domain_labs = Q.store_thm("compute_labels_alt_domain_labs",
-  `∀pos code labs.
-     domain (compute_labels_alt pos code labs) =
-     IMAGE FST (get_code_labels code) ∪ domain labs`,
-  recInduct lab_to_targetTheory.compute_labels_alt_ind
-  \\ rw[lab_to_targetTheory.compute_labels_alt_def]
-  \\ pairarg_tac \\ fs[]
-  \\ simp[labPropsTheory.get_code_labels_cons]
-  \\ fs[labPropsTheory.sec_get_code_labels_def]
-  \\ simp[GSYM IMAGE_COMPOSE, o_DEF]
-  \\ simp[Once EXTENSION, PULL_EXISTS]
-  \\ metis_tac[]);
-
-val remove_labels_loop_domain_labs = Q.store_thm("remove_labels_loop_domain_labs",
-  `∀a b c d e f g h. remove_labels_loop a b c d e f = SOME (g,h) ⇒
-   domain h = IMAGE FST (get_code_labels f) ∪ domain d`,
-   recInduct lab_to_targetTheory.remove_labels_loop_ind
-   \\ rw[]
-   \\ pop_assum mp_tac
-   \\ simp[Once lab_to_targetTheory.remove_labels_loop_def]
-   \\ pairarg_tac \\ fs[]
-   \\ pairarg_tac \\ fs[]
-   \\ reverse IF_CASES_TAC \\ fs[]
-   >- (
-     strip_tac \\ fs[]
-     (*
-     \\ imp_res_tac lab_to_targetProofTheory.enc_secs_again_IMP_similar
-     lab_to_targetProofTheory.code_similar_get_code_labels
-     *)
-     \\ cheat )
-   \\ strip_tac
-   \\ rveq
-   \\ simp[compute_labels_alt_domain_labs]
-   (*
-     lab_to_targetProofTheory.code_similar_upd_lab_len
-     lab_to_targetProofTheory.code_similar_get_code_labels
-     lab_to_targetProofTheory.enc_secs_again_IMP_similar
-    *)
-   \\ cheat);
-
-val remove_labels_domain_labs = Q.store_thm("remove_labels_domain_labs",
-  `remove_labels c t k init_labs f p = SOME (q,labs) ⇒
-   domain labs = IMAGE FST (get_code_labels p) ∪ domain init_labs`,
-  rw[lab_to_targetTheory.remove_labels_def]
-  \\ imp_res_tac remove_labels_loop_domain_labs
-  \\ simp[]
-  \\ metis_tac[lab_to_targetProofTheory.code_similar_enc_sec_list,
-               lab_to_targetProofTheory.code_similar_refl,
-               lab_to_targetProofTheory.code_similar_get_code_labels]);
-
 val compile_all_enc_ok_pre = Q.prove(`
   byte_offset_ok c 0w ∧
   EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
@@ -1885,13 +1835,13 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[PULL_EXISTS] >> rveq >>
       goal_assum(first_assum o mp_then Any mp_tac) \\
       simp[EVERY_MAP] \\
-      gen_tac \\
+      gen_tac
       \\ simp[GSYM EVERY_CONJ, CONJ_ASSOC]
       \\ reverse conj_tac
       >- ( EVAL_TAC \\ simp[UNCURRY] )
       \\ simp[EVERY_MEM]
       \\ gen_tac
-      \\ simp[bvi_to_dataTheory.compile_prog_def
+      \\ simp[bvi_to_dataTheory.compile_prog_def]
       \\ qmatch_goalsub_abbrev_tac`MEM _ pp0`
       \\ qmatch_goalsub_rename_tac`MEM z pp0`
       \\ strip_tac
