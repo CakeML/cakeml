@@ -542,6 +542,22 @@ val compile_word_to_stack_convs = Q.store_thm("compile_word_to_stack_convs",
   \\ conj_tac >- (EVAL_TAC \\ metis_tac[word_to_stack_call_args,FST])
   \\ metis_tac[]);
 
+val is_Dlet_def = Define`
+  (is_Dlet (flatLang$Dlet _) ⇔ T) ∧
+  (is_Dlet _ ⇔ F)`;
+val dest_Dlet_def = Define`
+  (dest_Dlet (flatLang$Dlet e) = e)`;
+val _ = export_rewrites["is_Dlet_def","dest_Dlet_def"]
+
+val elist_globals_compile = Q.store_thm("elist_globals_compile",
+  `∀ls.
+      elist_globals (flat_to_pat$compile ls) ≤ elist_globals (MAP dest_Dlet (FILTER is_Dlet ls))`,
+  recInduct flat_to_patTheory.compile_ind
+  \\ rw[flat_to_patTheory.compile_def]
+  \\ irule (List.nth(CONJUNCTS SUB_BAG_UNION, 6))
+  \\ rw[]
+  \\ rw[flat_to_patProofTheory.set_globals_eq]);
+
 (*
 val backend_cs =
   let val cs = wordsLib.words_compset() in
@@ -793,7 +809,11 @@ val compile_correct = Q.store_thm("compile_correct",
                   Q.ISPEC`MAP set_globals (flat_to_pat$compile p)`BAG_ALL_DISTINCT_FOLDR_BAG_UNION
                   |> Q.SPEC`{||}`))))
         \\ simp[GSYM patPropsTheory.elist_globals_FOLDR]
-        \\ cheat (* syntax ok for flat_to_pat globals *) )
+        \\ irule BAG_ALL_DISTINCT_SUB_BAG
+        \\ qspec_then`p`mp_tac elist_globals_compile
+        \\ strip_tac
+        \\ goal_assum(first_assum o mp_then Any mp_tac)
+        \\ cheat (* source_to_flat produces distinct globals *) )
       \\ Cases_on`kc` \\ fs[]
       >- (
         simp[Abbr`coa`]
@@ -861,7 +881,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp[Once closPropsTheory.every_Fn_vs_NONE_EVERY]
     \\ simp[EVERY_MAP]
     \\ simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE]
-    \\ cheat (* syntax ok: fv_max for pat_to_clos *))
+    \\ cheat (* syntax ok: fv_max for pat_to_clos: input program is closed *))
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
