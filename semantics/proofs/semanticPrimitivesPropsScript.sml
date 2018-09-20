@@ -1,5 +1,6 @@
-(* Various basic properties of the big and small step semantics, and their
- * semantic primitives. *)
+(*
+  Various basic properties of the semantic primitives.
+*)
 
 open preamble;
 open libTheory astTheory namespaceTheory semanticPrimitivesTheory;

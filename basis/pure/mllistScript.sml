@@ -1,3 +1,6 @@
+(*
+  Pure functions for the List module.
+*)
 open preamble
 
 val _ = new_theory"mllist"

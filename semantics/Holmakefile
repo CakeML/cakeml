@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../misc $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub ffi
+INCLUDES = ../developers ../misc $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub ffi
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
@@ -37,6 +37,17 @@ namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
           $(LEM_CMD) $< && ./addancs $@ integer words string alist; \
         else touch namespaceScript.sml ; fi
+
+OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun namespaceProps semantics termination tokenUtils
+
+README_SOURCES = $(LEMS) ast.lem tokens.lem namespace.lem\
+	grammar.txt addancs.sml astPP.sml\
+	$(patsubst %,%Script.sml,$(OTHER_SCRIPTS))\
+	$(wildcard *Syntax.sml) $(wildcard *Lib.sml)
+DIRS = $(wildcard */)
+README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	../developers/readme_gen $(README_SOURCES)
+all: README.md
 
 ifdef POLY
 HOLHEAP = heap

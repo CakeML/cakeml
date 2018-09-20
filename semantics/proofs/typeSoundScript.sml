@@ -1,3 +1,6 @@
+(*
+  Proof of type soundness: a type-correct program does not crash.
+*)
 open preamble;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
 open terminationTheory;

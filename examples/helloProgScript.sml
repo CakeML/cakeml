@@ -1,3 +1,6 @@
+(*
+  Hello World example, printing to standard output.
+*)
 open preamble basis
 
 val _ = new_theory "helloProg"

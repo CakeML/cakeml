@@ -1,3 +1,6 @@
+(*
+  In-place insertion sort on a polymorphic array.
+*)
 open preamble semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib cfLib
      basisFunctionsLib ArrayProofTheory

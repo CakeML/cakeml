@@ -1,3 +1,8 @@
+(*
+  cat program example: concatenate and print lines from files.
+
+  Simple version that operates one character at a time.
+*)
 open preamble basis
 
 val _ = new_theory "catProg"

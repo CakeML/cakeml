@@ -121,6 +121,35 @@ val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
   `flatLang$exp6_size (REVERSE es) = exp6_size es`,
   Induct_on`es`>>simp[exp_size_def])
 
+val exp_size_MAP = Q.store_thm("exp_size_MAP",
+  `(!xs. exp6_size (MAP SND xs) < exp3_size xs + 1) /\
+   (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)`,
+  conj_tac
+  >-
+   (Induct
+    \\ rw [exp_size_def]
+    \\ PairCases_on `h` \\ fs [exp_size_def])
+  \\ Induct
+  \\ rw [exp_size_def]
+  \\ PairCases_on `h` \\ fs [exp_size_def])
+
+val exp_size_MEM = Q.store_thm("exp_size_MEM",
+  `(!xs x. MEM x xs ==> exp_size x < exp6_size xs) /\
+   (!xs x. MEM x xs ==> exp_size (SND (SND x)) < exp1_size xs) /\
+   (!xs x. MEM x xs ==> exp_size (SND x) < exp3_size xs)`,
+  conj_tac
+  >-
+   (Induct
+    \\ rw [exp_size_def]
+    \\ res_tac
+    \\ decide_tac)
+  \\ conj_tac
+  \\ Induct
+  \\ rw [exp_size_def]
+  \\ PairCases_on `h` \\ fs [exp_size_def]
+  \\ res_tac
+  \\ decide_tac);
+
 val _ = Datatype`
  dec =
     Dlet exp

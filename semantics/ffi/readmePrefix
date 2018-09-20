@@ -1,0 +1,2 @@
+Definition of CakeML's observational semantics, in particular traces of calls
+over the Foreign-Function Interface (FFI).

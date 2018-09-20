@@ -1,3 +1,7 @@
+(*
+  Definitions and theorems supporting ml_progLib, which constructs a
+  CakeML program and its semantic environment.
+*)
 open preamble
 open astTheory libTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;

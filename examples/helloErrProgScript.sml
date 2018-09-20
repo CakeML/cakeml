@@ -1,3 +1,6 @@
+(*
+  Hello World on standard error.
+*)
 open preamble basis
 
 val _ = new_theory "helloErrProg"

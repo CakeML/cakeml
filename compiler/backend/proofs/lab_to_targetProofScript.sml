@@ -2130,7 +2130,7 @@ val enc_lines_again_IMP_similar = Q.prove(`
   Cases_on`h`>>fs[enc_lines_again_def]>>EVERY_CASE_TAC>>
   asm_exists_tac>>fs[SNOC_APPEND,line_similar_def])
 
-val enc_secs_again_IMP_similar = Q.prove(
+val enc_secs_again_IMP_similar = Q.store_thm("enc_secs_again_IMP_similar",
   `∀pos labs ffis enc code code1 ok.
   enc_secs_again pos labs ffis enc code = (code1,ok) ==> code_similar code code1`,
   ho_match_mp_tac enc_secs_again_ind>>fs[enc_secs_again_def]>>rw[]>>
@@ -2157,7 +2157,7 @@ val line_similar_lines_upd_lab_len = Q.prove(
   \\ fs [] \\ rw [] \\ eq_tac \\ rw []
   \\ Cases_on `y` \\ fs [line_similar_def]);
 
-val code_similar_upd_lab_len = Q.prove(
+val code_similar_upd_lab_len = Q.store_thm("code_similar_upd_lab_len",
   `!code pos code1.
       code_similar (upd_lab_len pos code) code1 = code_similar code code1`,
   Induct \\ fs [code_similar_def] \\ Cases
@@ -4577,6 +4577,51 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
                  code_similar_refl])
   >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]
   >> rw [] >> res_tac);
+
+val compute_labels_alt_domain_labs = Q.store_thm("compute_labels_alt_domain_labs",
+  `∀pos code labs.
+     domain (compute_labels_alt pos code labs) =
+     IMAGE FST (get_code_labels code) ∪ domain labs`,
+  recInduct lab_to_targetTheory.compute_labels_alt_ind
+  \\ rw[lab_to_targetTheory.compute_labels_alt_def]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[labPropsTheory.get_code_labels_cons]
+  \\ fs[labPropsTheory.sec_get_code_labels_def]
+  \\ simp[GSYM IMAGE_COMPOSE, o_DEF]
+  \\ simp[Once EXTENSION, PULL_EXISTS]
+  \\ metis_tac[]);
+
+val remove_labels_loop_domain_labs = Q.store_thm("remove_labels_loop_domain_labs",
+  `∀a b c d e f g h. remove_labels_loop a b c d e f = SOME (g,h) ⇒
+   domain h = IMAGE FST (get_code_labels f) ∪ domain d`,
+   recInduct lab_to_targetTheory.remove_labels_loop_ind
+   \\ rw[]
+   \\ pop_assum mp_tac
+   \\ simp[Once lab_to_targetTheory.remove_labels_loop_def]
+   \\ pairarg_tac \\ fs[]
+   \\ pairarg_tac \\ fs[]
+   \\ reverse IF_CASES_TAC \\ fs[]
+   >- (
+     strip_tac \\ fs[]
+     \\ imp_res_tac enc_secs_again_IMP_similar
+     \\ metis_tac[code_similar_get_code_labels])
+   \\ strip_tac
+   \\ rveq
+   \\ simp[compute_labels_alt_domain_labs]
+   \\ metis_tac[
+     code_similar_upd_lab_len,
+     code_similar_get_code_labels,
+     enc_secs_again_IMP_similar]);
+
+val remove_labels_domain_labs = Q.store_thm("remove_labels_domain_labs",
+  `remove_labels c t k init_labs f p = SOME (q,labs) ⇒
+   domain labs = IMAGE FST (get_code_labels p) ∪ domain init_labs`,
+  rw[lab_to_targetTheory.remove_labels_def]
+  \\ imp_res_tac remove_labels_loop_domain_labs
+  \\ simp[]
+  \\ metis_tac[code_similar_enc_sec_list,
+               code_similar_refl,
+               code_similar_get_code_labels]);
 
 (** End syntactic stuff **)
 

@@ -1,7 +1,7 @@
 (* A proof of the clos_mti compiler pass. The theorem is proved using
    a backwards simulation, i.e. against the direction of compilation. *)
 open preamble backendPropsTheory closPropsTheory
-clos_mtiTheory closSemTheory;
+clos_mtiTheory closSemTheory helperLib;
 
 val _ = new_theory "clos_mtiProof";
 
@@ -61,6 +61,24 @@ val syntax_ok_append = store_thm("syntax_ok_append[simp]",
   Induct \\ fs [syntax_ok_def]
   \\ once_rewrite_tac [syntax_ok_cons]
   \\ fs [syntax_ok_def] \\ rw [] \\ eq_tac \\ rw[]);
+
+val syntax_ok_REVERSE = Q.store_thm("syntax_ok_REVERSE[simp]",
+  `!xs. syntax_ok (REVERSE xs) <=> syntax_ok xs`,
+  ho_match_mp_tac (theorem "syntax_ok_ind")
+  \\ rw [syntax_ok_def]
+  \\ metis_tac []);
+
+val syntax_ok_MAP = Q.store_thm("syntax_ok_MAP",
+  `!xs. (!x. MEM x xs ==> syntax_ok [f x]) ==> syntax_ok (MAP f xs)`,
+  Induct
+  \\ rw [syntax_ok_def]
+  \\ rw [Once syntax_ok_cons]);
+
+val syntax_ok_REPLICATE = Q.store_thm("syntax_ok_REPLICATE",
+  `syntax_ok [x] ==> syntax_ok (REPLICATE n x)`,
+  Induct_on `n`
+  \\ rw [syntax_ok_def]
+  \\ rw [Once syntax_ok_cons]);
 
 (* code relation *)
 
@@ -160,7 +178,7 @@ val FMAP_REL_def = Define `
 
 val compile_inc_def = Define `
   compile_inc max_app (e,es) =
-    (HD (intro_multi max_app [e]), [])`
+    (intro_multi max_app e, [])`
 
 val SND_compile_inc = Q.store_thm("SND_compile_inc[simp]",
   `SND (compile_inc max_app p) = []`,
@@ -168,8 +186,10 @@ val SND_compile_inc = Q.store_thm("SND_compile_inc[simp]",
 
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
+    (*
     (!n. SND (SND (s.compile_oracle n)) = [] /\
-         syntax_ok [FST (SND (s.compile_oracle n))]) /\
+         syntax_ok (FST (SND (s.compile_oracle n)))) /\
+    *)
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -552,6 +572,16 @@ val v_rel_IMP_v_to_words = prove(
   ``v_rel max_app x y ==> v_to_words y = v_to_words x``,
   rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
 
+val intro_multi_EQ_NIL = Q.store_thm(
+  "intro_multi_EQ_NIL[simp]",
+  `∀max_app es. intro_multi max_app es = [] ⇔ es = []`,
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+  simp[clos_mtiTheory.intro_multi_def] >> rpt strip_tac >>
+  rpt (pairarg_tac >> fs[]))
+
+val intro_multi_nil = Q.store_thm("intro_multi_nil",
+  `intro_multi x [] = []`, metis_tac[intro_multi_EQ_NIL]);
+
 val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
   `(!ys env2 (t1:('c,'ffi) closSem$state) env1 t2 s1 res2 xs.
      (evaluate (ys,env2,t1) = (res2,t2)) /\
@@ -677,7 +707,8 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ disch_then drule \\ fs[] \\ strip_tac \\ fs []
     \\ rename1 `(if opp = _ then _ else _) = _`
     \\ Cases_on `opp = Install` \\ fs [] \\ rveq
-    THEN1
+    THEN1 ( Cases_on`res1` \\ fs[] )
+    (*
      (Cases_on `res1` \\ fs []
       \\ qpat_x_assum `_ = (res2,t2)` mp_tac
       \\ simp [Once do_install_def]
@@ -715,14 +746,15 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ reverse IF_CASES_TAC
       THEN1 (fs [do_install_def] \\ rw [] \\ fs []
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
+             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def,intro_multi_nil]
              \\ IF_CASES_TAC \\ fs [shift_seq_def])
       \\ IF_CASES_TAC
       THEN1 (fs [do_install_def] \\ rw [] \\ fs []
              \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
              \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
              \\ IF_CASES_TAC \\ fs [shift_seq_def]
-             \\ fs [FUPDATE_LIST,FUN_EQ_THM])
+             \\ fs [FUPDATE_LIST,FUN_EQ_THM]
+             \\ rveq \\ fs[])
       \\ fs [] \\ rveq \\ fs []
       \\ `s2.clock = s'.clock /\
           s2.compile = pure_cc (compile_inc s2.max_app) s'.compile /\
@@ -738,15 +770,21 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ imp_res_tac evaluate_const \\ fs []
       \\ rfs [] \\ fs [] \\ rveq \\ fs [compile_inc_def,shift_seq_def]
       \\ qmatch_goalsub_abbrev_tac `([],ss)`
-      \\ first_x_assum (qspecl_then [`ss`,`[r0]`] mp_tac)
+      \\ fs[CaseEq"prod"] \\ fs[]
+      \\ first_x_assum (qspecl_then [`ss`,`r0`] mp_tac)
       \\ reverse impl_tac
       THEN1 (strip_tac \\ fs [] \\ unabbrev_all_tac \\ fs []
              \\ rfs [state_rel_def,do_install_def]
-             \\ imp_res_tac evaluate_const \\ fs [])
+             \\ imp_res_tac evaluate_const \\ fs []
+             \\ CASE_TAC \\ fs[] \\ rveq \\ fs[] \\ rveq \\ rfs[]
+             \\ imp_res_tac evaluate_IMP_LENGTH
+             \\ Q.ISPEC_THEN`a'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[]
+             \\ fs[LIST_REL_SNOC])
       \\ rveq \\ fs []
       \\ qunabbrev_tac `ss` \\ fs []
       \\ fs [state_rel_def,FUPDATE_LIST,pure_co_def,FUN_EQ_THM]
       \\ metis_tac [FST,SND])
+    *)
     \\ Cases_on `res1` \\ fs []
     \\ imp_res_tac evaluate_const \\ fs []
     \\ drule (GEN_ALL do_app_lemma)
@@ -797,7 +835,8 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ fs []
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs [LIST_REL_GENLIST]
     \\ rw [] \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_MAP]
+    \\ fs [EVERY2_MAP]
+    \\ match_mp_tac EVERY2_refl
     \\ fs [EVERY_MEM,FORALL_PROD]
     \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ drule collect_args_IMP
@@ -1285,13 +1324,13 @@ val every_Fn_vs_NONE_collect_apps = Q.prove(
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def] >> full_simp_tac(srw_ss())[] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  srw_tac[][] >> metis_tac[])
+  srw_tac[][] >> metis_tac[]);
 
 val every_Fn_vs_NONE_collect_args = Q.prove(
   `∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
     (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
   ho_match_mp_tac collect_args_ind >>
-  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[])
+  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]);
 
 val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[simp]",
   `∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es`,
@@ -1300,7 +1339,6 @@ val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[sim
   ONCE_REWRITE_TAC[CONS_APPEND] >>
   REWRITE_TAC[HD_intro_multi] >>
   full_simp_tac(srw_ss())[HD_intro_multi]
-  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >> srw_tac[][] )
   >- metis_tac[every_Fn_vs_NONE_collect_apps]
   >- metis_tac[every_Fn_vs_NONE_collect_args] >>
   simp[MAP_MAP_o,o_DEF,UNCURRY] >>
@@ -1316,17 +1354,14 @@ val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[sim
   srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
   metis_tac[every_Fn_vs_NONE_collect_args,SND,PAIR]);
 
-val intro_multi_EQ_NIL = Q.store_thm(
-  "intro_multi_EQ_NIL[simp]",
-  `∀max_app es. intro_multi max_app es = [] ⇔ es = []`,
-  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
-  simp[clos_mtiTheory.intro_multi_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]))
-
 val compile_EQ_NIL = Q.store_thm(
   "compile_EQ_NIL[simp]",
   `∀do_mti es. clos_mti$compile do_mti max_app es = [] ⇔ es = []`,
-  Cases>>fs[clos_mtiTheory.compile_def])
+  Cases>>fs[clos_mtiTheory.compile_def]);
+
+val compile_length = Q.store_thm("compile_length[simp]",
+  `LENGTH (clos_mti$compile do_mti max_app es) = LENGTH es`,
+  Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]);
 
 val EVERY_HD = Q.prove(
   `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
@@ -1445,7 +1480,9 @@ val compile_preserves_esgc_free = Q.store_thm(
 val semantics_intro_multi = Q.store_thm ("semantics_intro_multi",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
-   (∀n. SND (SND (co n)) = [] ∧ syntax_ok [FST (SND (co n))]) ∧
+   (*
+   (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧
+   *)
    1 <= max_app /\ syntax_ok xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc
@@ -1472,7 +1509,7 @@ val semantics_compile = Q.store_thm("semantics_compile",
   `semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
    co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
-   (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ syntax_ok [FST (SND (co n))]) ∧ 1 ≤ max_app ∧ syntax_ok xs) ⇒
+   (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧ 1 ≤ max_app ∧ syntax_ok xs) ⇒
    semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =
    semantics ffi max_app FEMPTY co cc1 xs`,
   strip_tac

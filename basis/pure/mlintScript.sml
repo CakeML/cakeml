@@ -1,3 +1,6 @@
+(*
+  Pure functions for the Int module.
+*)
 open preamble mlstringTheory
 
 val _ = new_theory"mlint";

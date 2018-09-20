@@ -2,14 +2,6 @@ open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
 
-(* TODO: move *)
-
-val FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM = Q.store_thm("FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM",
-  `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`,
-  qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
-  res_tac \\ fs[] \\ Cases_on`x` \\ fs[]);
-(* -- *)
-
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
   [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``, ``:'a reg_imm``
