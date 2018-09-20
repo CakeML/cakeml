@@ -508,60 +508,6 @@ val compile_word_to_stack_lab_pres = Q.store_thm("compile_word_to_stack_lab_pres
   \\ specl_args_of_then``word_to_stack$comp``word_to_stackProofTheory.word_to_stack_lab_pres mp_tac
   \\ ntac 2 strip_tac \\ fs[]);
 
-val compile_all_enc_ok_pre = Q.prove(`
-  byte_offset_ok c 0w ∧
-  EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
-  all_enc_ok_pre c (MAP prog_to_section prog)`,
-  cheat (* this is proved but not exported in stack_to_labProof *));
-
-val stack_remove_comp_stack_asm_name = Q.prove(`
-  ∀jump off k p.
-  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
-  addr_offset_ok c 0w ∧
-  good_dimindex (:'a) ∧
-  (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
-  (∀s. addr_offset_ok c (store_offset s)) ∧
-  reg_name (k+2) c ∧
-  reg_name (k+1) c ∧
-  reg_name k c ∧
-  off = c.addr_offset ⇒
-  stack_asm_name c (comp jump off k p)`,
-  cheat (* not exported from stack_removeProof *));
-
-val stack_alloc_comp_stack_asm_name = Q.prove(`
-  ∀n m p.
-  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
-  let (p',m') = comp n m p in
-  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'`,
-  cheat (* not exported from stack_allocProof *));
-
-val word_to_stack_stack_asm_name_lem = Q.prove(`
-  ∀p bs kf c.
-  post_alloc_conventions (FST kf) p ∧
-  full_inst_ok_less c p ∧
-  (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
-  (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
-  4 < (FST kf) ⇒
-  stack_asm_name c (FST (comp p bs kf))`,
-  cheat (* not exported from word_to_stackProof *));
-
-val word_to_stack_stack_asm_remove_lem = Q.prove(`
-  ∀(p:'a wordLang$prog) bs kf (c:'a asm_config).
-  (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
-  stack_asm_remove c (FST (comp p bs kf))`,
-  cheat (* not exported from word_to_stackProof *));
-
-val comp_no_inst = Q.prove(`
-  ∀c n m p.
-  ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
-   (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-   (c.has_fp_ops ⇒ 1 < ac.fp_reg_count)) ∧
-  addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
-  every_inst (inst_ok_less ac) (FST(comp c n m p))`,
-  cheat (* not exported from data_to_wordProof *));
-
 val compile_word_to_stack_convs = Q.store_thm("compile_word_to_stack_convs",
   `∀p bm q bm'.
    compile_word_to_stack k p bm = (q,bm') ∧
@@ -581,9 +527,11 @@ val compile_word_to_stack_convs = Q.store_thm("compile_word_to_stack_convs",
   FULL_SIMP_TAC (srw_ss())[compile_prog_def]>>
   rpt(pairarg_tac \\ fs[]) \\ rveq
   \\ qmatch_asmsub_abbrev_tac`comp p_2 bm (k,f)`
-  \\ Q.ISPECL_THEN[`p_2`,`bm`,`(k,f)`,`c`]mp_tac word_to_stack_stack_asm_name_lem
+  \\ Q.ISPECL_THEN[`p_2`,`bm`,`(k,f)`,`c`]mp_tac
+        word_to_stackProofTheory.word_to_stack_stack_asm_name_lem
   \\ impl_tac >- fs[] \\ strip_tac
-  \\ Q.ISPECL_THEN[`p_2`,`bm`,`(k,f)`,`c`]mp_tac word_to_stack_stack_asm_remove_lem
+  \\ Q.ISPECL_THEN[`p_2`,`bm`,`(k,f)`,`c`]mp_tac
+        word_to_stackProofTheory.word_to_stack_stack_asm_remove_lem
   \\ impl_tac >- fs[] \\ strip_tac
   \\ simp_tac(srw_ss())[]
   \\ simp_tac(srw_ss())[GSYM CONJ_ASSOC]
@@ -1444,7 +1392,7 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ simp[stack_removeTheory.prog_comp_def]
           \\ simp[Once EVERY_MEM, FORALL_PROD]
           \\ rpt gen_tac \\ strip_tac
-          \\ irule stack_remove_comp_stack_asm_name
+          \\ irule stack_removeProofTheory.stack_remove_comp_stack_asm_name
           \\ simp[]
           \\ conj_tac >- fs[mc_conf_ok_def]
           \\ conj_tac >- fs[Abbr`stoff`]
@@ -1457,7 +1405,8 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ simp[FST_EQ_EQUIV]
           \\ strip_tac
           \\ qhdtm_x_assum`comp`mp_tac
-          \\ specl_args_of_then``stack_alloc$comp`` stack_alloc_comp_stack_asm_name (Q.ISPEC_THEN`mc.target.config`mp_tac o Q.GEN`c`)
+          \\ specl_args_of_then``stack_alloc$comp`` stack_allocProofTheory.stack_alloc_comp_stack_asm_name
+                (Q.ISPEC_THEN`mc.target.config`mp_tac o Q.GEN`c`)
           \\ ntac 2 strip_tac \\ fs[]
           \\ first_x_assum match_mp_tac
           \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp qq`
@@ -1491,7 +1440,7 @@ val compile_correct = Q.store_thm("compile_correct",
             \\ simp[MEM_MAP, EXISTS_PROD]
             \\ simp[data_to_wordTheory.compile_part_def]
             \\ simp[PULL_EXISTS] \\ rw[]
-            \\ irule comp_no_inst
+            \\ irule data_to_wordProofTheory.comp_no_inst
             \\ qunabbrev_tac`c4_data_conf`
             \\ EVAL_TAC
             \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
@@ -1709,7 +1658,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[MEM_MAP, EXISTS_PROD]
         \\ simp[data_to_wordTheory.compile_part_def]
         \\ simp[PULL_EXISTS] \\ rw[]
-        \\ irule comp_no_inst
+        \\ irule data_to_wordProofTheory.comp_no_inst
         \\ qunabbrev_tac`c4_data_conf`
         \\ EVAL_TAC
         \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]

@@ -2989,10 +2989,10 @@ val flatten_line_ok_pre = Q.prove(`
     pop_assum mp_tac>>EVAL_TAC>>
     fs[]);
 
-val compile_all_enc_ok_pre = Q.prove(`
-  byte_offset_ok c 0w ∧
-  EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
-  all_enc_ok_pre c (MAP prog_to_section prog)`,
+val compile_all_enc_ok_pre = Q.store_thm("compile_all_enc_ok_pre",
+   `byte_offset_ok c 0w ∧
+    EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
+    all_enc_ok_pre c (MAP prog_to_section prog)`,
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
   fs[prog_to_section_def]>>pairarg_tac>>rw[]
   >- metis_tac[flatten_line_ok_pre]
