@@ -1881,49 +1881,70 @@ val compile_correct = Q.store_thm("compile_correct",
       drule compile_word_to_stack_bitmaps>>
       CASE_TAC>>strip_tac>>
       fs[attach_bitmaps_def]>>
-      CONV_TAC(STRIP_QUANT_CONV(LAND_CONV EVAL)) >>
       simp[UNCURRY] >>
       simp[PULL_EXISTS] >> rveq >>
       goal_assum(first_assum o mp_then Any mp_tac) \\
       simp[EVERY_MAP] \\
       gen_tac \\
-      qmatch_goalsub_abbrev_tac`compile_prog _ pp`
       \\ simp[GSYM EVERY_CONJ, CONJ_ASSOC]
+      \\ reverse conj_tac
+      >- ( EVAL_TAC \\ simp[UNCURRY] )
       \\ simp[EVERY_MEM]
       \\ gen_tac
+      \\ simp[bvi_to_dataTheory.compile_prog_def
+      \\ qmatch_goalsub_abbrev_tac`MEM _ pp0`
+      \\ qmatch_goalsub_rename_tac`MEM z pp0`
       \\ strip_tac
-      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate ppp`
-      \\ qspec_then`ppp`mp_tac word_removeProofTheory.remove_must_terminate_conventions
+      \\ reverse conj_tac
+      >- (
+        EVAL_TAC
+        \\ simp[UNCURRY]
+        \\ simp[Abbr`pp0`]
+        \\ fs[bvi_to_dataTheory.compile_prog_def, MEM_MAP]
+        \\ pop_assum mp_tac
+        \\ EVAL_TAC
+        \\ simp[UNCURRY]
+        \\ qmatch_goalsub_rename_tac`compile_part xxx`
+        \\ PairCases_on`xxx`
+        \\ simp[bvi_to_dataTheory.compile_part_def]
+        \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog n2 pp`
+        \\ Cases_on`bvi_tailrec$compile_prog n2 pp`
+        \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+        \\ fs[]
+        \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+        \\ ntac 2 strip_tac
+        \\ first_x_assum drule
+        \\ reverse strip_tac
+        >- (
+          pop_assum mp_tac
+          \\ simp[Abbr`n2`]
+          \\ EVAL_TAC \\ rw[] )
+        \\ strip_tac \\ rveq
+        \\ pop_assum mp_tac
+        \\ simp[Abbr`pp`]
+        \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_list n1 pp`
+        \\ qspecl_then[`n1`,`pp`]mp_tac bvl_to_bviProofTheory.compile_list_distinct_locs
+        \\ Cases_on`compile_list n1 pp` \\ simp[]
+        \\ impl_tac
+        >- ( simp[Abbr`pp`] \\ EVAL_TAC )
+        \\ simp[EVERY_MEM, MEM_FILTER, FORALL_PROD, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+        \\ EVAL_TAC \\ rw[]
+        \\ strip_tac \\ first_x_assum drule \\ EVAL_TAC
+        \\ first_x_assum drule \\ rw[] )
+      \\ qho_match_abbrev_tac`(_ _ (SND (SND (pp1 _))) ∧ _)`
+      \\ `MEM (compile_part c4_data_conf z) (MAP (compile_part c4_data_conf) pp0)` by metis_tac[MEM_MAP]
+      \\ qmatch_assum_abbrev_tac`MEM zz pp00`
+      \\ `∃wc ign. compile wc mc.target.config pp00 = (ign, MAP (pp1 o (λz. (z, NONE))) pp00)`
+      by (
+        simp[word_to_wordTheory.compile_def]
+        \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
+        \\ simp[]
+        \\ simp[word_to_wordTheory.next_n_oracle_def]
+        \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] )
+      \\ qspecl_then[`wc`,`mc.target.config`,`pp00`]mp_tac (Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
       \\ simp[]
-      \\ disch_then(qspec_then`mc.target.config`mp_tac)
-      \\ qmatch_goalsub_abbrev_tac`post_alloc_conventions kk`
-      \\ disch_then(qspec_then`kk`mp_tac)
-      \\ strip_tac
-      \\ simp[GSYM CONJ_ASSOC]
-      \\ conj_tac
-      >- (
-        first_x_assum irule
-        \\ cheat (* mine the proof in word_to_wordProof compile_conventions - save as lemma *) )
-      \\ conj_tac
-      >- (
-        first_x_assum irule
-        \\ cheat (* mine the proof in word_to_wordProof compile_conventions *) )
-      \\ qmatch_goalsub_rename_tac`compile_part xxx`
-      \\ PairCases_on`xxx`
-      \\ simp[bvi_to_dataTheory.compile_part_def]
-      \\ Cases_on`bvi_tailrec$compile_prog n2 pp`
-      \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-      \\ fs[]
-      \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ disch_then drule
-      \\ reverse strip_tac
-      >- (
-        pop_assum mp_tac
-        \\ simp[Abbr`n2`]
-        \\ EVAL_TAC \\ rw[] )
-      \\ pop_assum mp_tac
-      \\ simp[Abbr`pp`]
-      \\ cheat (* name coming out of the oracle: maybe possible to eval... *))>>
+      \\ simp[EVERY_MAP, UNCURRY]
+      \\ simp[EVERY_MEM])>>
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
