@@ -450,6 +450,10 @@ val FST_compile_part = Q.store_thm("FST_compile_part[simp]",
   `FST (compile_part a b) = (FST b)`,
   PairCases_on`b` \\ EVAL_TAC);
 
+val FST_compile_part_TODO_move = Q.store_thm("FST_compile_part_TODO_move[simp]",
+  `FST (compile_part a) = (FST a)`,
+  PairCases_on`a` \\ EVAL_TAC);
+
 val ALL_DISTINCT_MAP_FST_SND_full_co = Q.store_thm("ALL_DISTINCT_MAP_FST_SND_full_co",
   `ALL_DISTINCT (MAP FST (SND (co n))) ∧
    (FST (SND (SND (FST (co n)))) MOD bvl_to_bvi_namespaces = 2)
@@ -1473,7 +1477,43 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
           \\ disch_then drule
           \\ simp[])
-        \\ cheat (* oracle label(s) *) )
+        \\ simp[MAP_prog_to_section_Section_num]
+        \\ conj_tac
+        >- (
+          simp[Abbr`ppg`]
+          \\ simp[MAP_MAP_o, o_DEF]
+          \\ srw_tac[ETA_ss][]
+          \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk pp qq`
+          \\ Cases_on`compile_word_to_stack kkk pp qq`
+          \\ drule word_to_stackProofTheory.MAP_FST_compile_word_to_stack \\ rw[]
+          \\ simp[Abbr`pp`, MAP_MAP_o, o_DEF]
+          \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
+          \\ srw_tac[ETA_ss][bvi_to_dataTheory.compile_prog_def]
+          \\ srw_tac[ETA_ss][MAP_MAP_o, o_DEF]
+          \\ simp[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
+          \\ qmatch_goalsub_abbrev_tac`compile_prog n2 pp`
+          \\ Cases_on`compile_prog n2 pp`
+          \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+          \\ rw[]
+          \\ simp[IN_DISJOINT]
+          \\ CCONTR_TAC \\ fs[]
+          \\ first_x_assum drule
+          \\ simp[]
+          \\ rveq
+          \\ qunabbrev_tac`pp`
+          \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc n1 pp`
+          \\ Cases_on`compile_inc n1 pp`
+          \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+          \\ strip_tac \\ fs[]
+          \\ conj_tac
+          >- (
+            strip_tac
+            \\ first_x_assum drule
+            \\ simp[]
+            \\ cheat (* oracle labels... *) )
+        \\ disj1_tac
+        \\ fs[Abbr`p7`]
+        \\ cheat (* get_code_labels range...  *) )
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\
