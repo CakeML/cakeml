@@ -2723,6 +2723,7 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
        (c,compile_no_stubs stack_conf.reg_names stack_conf.jump offset sp p)) ∧
    ¬t.failed ∧
    memory_assumption stack_conf.reg_names bitmaps data_sp t ∧
+   max_stack_alloc ≤ max_heap ∧
    t.link_reg ∉ save_regs ∧ t.pc = 0 ∧
    (∀k n. k ∈ save_regs ⇒ t.io_regs n k = NONE) ∧
    (∀k n. k ∈ save_regs ⇒ t.cc_regs n k = NONE) ∧

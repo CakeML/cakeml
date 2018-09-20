@@ -209,19 +209,23 @@ val init_code_def = Define `
     let max_heap = (if max_heap * w2n (bytes_in_word:'a word) < dimword (:'a)
                     then n2w max_heap * bytes_in_word
                     else 0w-1w) in
-      list_Seq [(* if reg3 is not between start and end of memory, then put
-                   it in the middle (i.e. split heap and stack evenly) *)
-                const_inst 0 (512w * bytes_in_word:'a word);
-                move 5 4;
-                sub_inst 5 0;
+      list_Seq [(* compute the middle address, store in reg0 *)
                 move 0 4;
                 sub_inst 0 2;
                 right_shift_inst 0 (1 + word_shift (:'a));
                 left_shift_inst 0 (word_shift (:'a));
                 add_inst 0 2;
+                (* if reg3 is not between start and end of memory, then put
+                   it in the middle (i.e. split heap and stack evenly) *)
+                const_inst 5 (n2w max_stack_alloc * bytes_in_word:'a word);
+                add_inst 2 5;
+                sub_inst 4 5;
                 If Lower 3 (Reg 2) (move 3 0)
-                  (If Lower 5 (Reg 3) (move 3 0)
+                  (If Lower 4 (Reg 3) (move 3 0)
                      (If Test 3 (Imm (bytes_in_word - 1w)) Skip (move 3 0)));
+                const_inst 0 (n2w max_stack_alloc * bytes_in_word:'a word);
+                sub_inst 2 0;
+                add_inst 4 0;
                 (* shrink the heap if it is too big *)
                 move 0 3;
                 sub_inst 0 2;

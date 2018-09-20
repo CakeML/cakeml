@@ -2526,7 +2526,8 @@ val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
     (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
-    lookup stack_err_lab s.code = SOME (halt_inst 2w) ==>
+    lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+    max_stack_alloc <= max_heap ==>
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME res,t) =>
          ?w. (res = Halt (Word w)) /\ w <> (0w:'a word) /\ t.ffi = s.ffi
@@ -2539,7 +2540,6 @@ val init_code_thm = Q.store_thm("init_code_thm",
          t.ffi = s.ffi /\
          init_prop gen_gc max_heap data_sp
            (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)`,
-
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
@@ -2550,11 +2550,13 @@ val init_code_thm = Q.store_thm("init_code_thm",
             backend_commonTheory.word_shift_def]
   \\ ntac 9 tac1 \\ fs [fmap_simp_lemma1]
   \\ qmatch_goalsub_abbrev_tac `(0,Word middle)`
-  \\ qmatch_goalsub_abbrev_tac `(5,Word adj_ptr4)`
+  \\ qmatch_goalsub_abbrev_tac `(2,Word adj_ptr2)`
+  \\ qmatch_goalsub_abbrev_tac `(4,Word adj_ptr4)`
   \\ qpat_abbrev_tac `pat = (if _ then _ else _)`
-  \\ `pat = (NONE, s with regs :=
-                  s.regs |+ (0,Word middle) |+ (5,Word adj_ptr4) |+ (3,Word
-       (if ptr2 <=+ ptr3 /\ ptr3 <=+ adj_ptr4 /\ ((bytes_in_word-1w) && ptr3) = 0w
+  \\ `pat = (NONE, s with regs := s.regs |+ (0,Word middle) |+
+                 (5,Word (bytes_in_word * n2w max_stack_alloc)) |+
+                 (2,Word adj_ptr2) |+ (4,Word adj_ptr4) |+ (3,Word
+       (if adj_ptr2 <=+ ptr3 /\ ptr3 <=+ adj_ptr4 /\ ((bytes_in_word-1w) && ptr3) = 0w
         then ptr3 else middle)))` by
    (unabbrev_all_tac \\ rw []
     \\ fs [fmap_EXT,state_component_equality,FLOOKUP_DEF,
@@ -2562,47 +2564,39 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ fs [GSYM WORD_NOT_LOWER_EQUAL] \\ metis_tac [])
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ pop_assum kall_tac
-  \\ qpat_abbrev_tac `ptr3_word = (if _ then _ else middle)`
+  \\ qpat_abbrev_tac `adj_ptr3 = (if _ then _ else middle)`
   \\ Cases_on `ptr2` \\ fs []
   \\ rename1 `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
   \\ Cases_on `ptr3` \\ fs []
-  \\ rename1 `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3_raw))`
+  \\ rename1 `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
   \\ Cases_on `ptr4` \\ fs []
   \\ rename1 `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
   \\ fs [WORD_LS]
   \\ `?l. ptr4 = ptr2 + l` by fs [GSYM LESS_EQ_EXISTS]
   \\ rveq \\ fs [GSYM word_add_n2w]
-  \\ `?ptr3. ptr3_word = n2w ptr3 /\ aligned (shift (:α)) ((n2w ptr3):'a word) /\
-             ptr2 <= ptr3 /\ ptr3 + 512 * (dimindex (:α) DIV 8) <= ptr2 + l` by
-   (fs [Abbr`ptr3_word`] \\ rw [] THEN1
-     (qexists_tac `ptr3_raw` \\ fs []
-      \\ fs [alignmentTheory.aligned_bitwise_and]
-      \\ conj_tac THEN1
-       (rfs [labPropsTheory.good_dimindex_def]
-        \\ rfs [bytes_in_word_def,backend_commonTheory.word_shift_def])
-      \\ fs [Abbr`adj_ptr4`]
-      \\ `-512w * bytes_in_word + n2w l : 'a word =
-          n2w (l - 512 * (dimindex (:α) DIV 8))` by
-       (rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]
-        \\ TRY (qsuff_tac `n2w l - 2048w = n2w (l − 2048)` THEN1 fs [])
-        \\ TRY (qsuff_tac `n2w l - 4096w = n2w (l − 4096)` THEN1 fs [])
+  \\ `?ptr3. adj_ptr3 = n2w ptr3 /\
+             ptr2 + max_stack_alloc * (dimindex (:α) DIV 8) <= ptr3 /\
+             ptr3 + max_stack_alloc * (dimindex (:α) DIV 8) <= ptr2 + l` by
+   (fs [Abbr`adj_ptr3`] \\ rw [] THEN1
+     (qexists_tac `ptr3` \\ fs []
+      \\ fs [Abbr`adj_ptr4`,Abbr`adj_ptr2`]
+      \\ `n2w ptr2 + -1w * n2w max_stack_alloc * bytes_in_word + n2w l : 'a word =
+          n2w ptr2 + n2w (l - max_stack_alloc * (dimindex (:α) DIV 8))` by
+       (rewrite_tac [WORD_EQ_ADD_LCANCEL,GSYM WORD_ADD_ASSOC]
+        \\ rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def,
+                max_stack_alloc_def]
+        \\ TRY (qsuff_tac `n2w l - 1020w = n2w (l − 1020)` THEN1 fs [])
+        \\ TRY (qsuff_tac `n2w l - 2040w = n2w (l − 2040)` THEN1 fs [])
         \\ rfs [addressTheory.word_arith_lemma2,dimword_def])
-      \\ pop_assum (fn th => full_simp_tac std_ss [th])
-      \\ rfs [word_add_n2w]
+      \\ fs []
       \\ rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]
-      \\ rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def])
+      \\ rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]
+      \\ rfs [max_stack_alloc_def,word_add_n2w,dimword_def])
     \\ pop_assum kall_tac
     \\ qunabbrev_tac `middle`
     \\ qexists_tac `w2n (n2w ptr2 +
           (n2w l ⋙ (shift (:α) + 1) ≪ shift (:α)) :'a word)`
     \\ simp []
-    \\ `byte_aligned = aligned (shift (:'a)):'a word -> bool` by
-      (rpt (fs [alignmentTheory.byte_aligned_def,backend_commonTheory.word_shift_def,
-          labPropsTheory.good_dimindex_def,FUN_EQ_THM]))
-    \\ fs [alignmentTheory.aligned_add_sub
-            |> ONCE_REWRITE_RULE [WORD_ADD_COMM]]
-    \\ rfs [alignmentTheory.aligned_add_sub
-            |> ONCE_REWRITE_RULE [WORD_ADD_COMM],aligned_lsl]
     \\ qabbrev_tac `l1 = l DIV (2 ** (shift (:α) + 1)) * 2 ** (shift (:α))`
     \\ `n2w l ⋙ (shift (:α) + 1) ≪ shift (:α) = n2w l1:'a word` by
      (qunabbrev_tac `l1` \\ fs [WORD_MUL_LSL,GSYM word_mul_n2w]
@@ -2624,20 +2618,25 @@ val init_code_thm = Q.store_thm("init_code_thm",
         \\ disch_then (fn th => CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [th])))
         \\ fs [] \\ NO_TAC))
     \\ `l1 <= l` by fs [X_LE_DIV]
-    \\ fs [word_add_n2w]
+    \\ fs [word_add_n2w,max_stack_alloc_def]
     \\ rfs [labPropsTheory.good_dimindex_def]
-    \\ rfs [bytes_in_word_def,dimword_def,X_LE_DIV])
+    \\ rfs [bytes_in_word_def,dimword_def,X_LE_DIV]
+    \\ rfs [Abbr`l1`,backend_commonTheory.word_shift_def]
+    \\ qspec_then `l` strip_assume_tac (MATCH_MP DIVISION (DECIDE ``0n < 8``))
+    \\ qspec_then `l` strip_assume_tac (MATCH_MP DIVISION (DECIDE ``0n < 16``))
+    \\ decide_tac)
   \\ `n2w ptr2 <=+ n2w (ptr2 + l)` by fs[word_lo_n2w,word_ls_n2w]
   \\ `n2w (ptr3 - ptr2) >>> 1 = n2w ((ptr3 - ptr2) DIV 2)` by
      (once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr] \\ fs [DIV_LT_X])
-  \\ ntac 4 tac1
+  \\ ntac 7 tac1
+  \\ fs [Abbr`adj_ptr2`,Abbr`adj_ptr4`]
   \\ qpat_abbrev_tac `pat = (if _ then _ else _)`
   \\ `pat = (NONE, s with regs :=
-                 s.regs |+  (0,Word (-1w * n2w ptr2 + n2w ptr3)) |+
-                 (5,Word max_heap_w) |+ (3,Word
-           (if max_heap_w <₊ -1w * n2w ptr2 + n2w ptr3 :'a word
-            then n2w ptr2 + max_heap_w else n2w ptr3)))` by
-   (unabbrev_all_tac \\ rw []
+                 s.regs |+ (0,Word (-1w * n2w ptr2 + n2w ptr3'))
+                        |+ (5,Word max_heap_w) |+ (3,Word
+           (if max_heap_w <₊ -1w * n2w ptr2 + n2w ptr3' :'a word
+            then n2w ptr2 + max_heap_w else n2w ptr3')))` by
+   (fs [Abbr`pat`] \\ rw []
     \\ fs [fmap_EXT,state_component_equality,FLOOKUP_DEF,
            FAPPLY_FUPDATE_THM,EXTENSION] \\ rw [] \\ fs []
     \\ fs [GSYM WORD_NOT_LOWER_EQUAL]
@@ -2704,10 +2703,15 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ rfs [] \\ fs []
   \\ rpt (qpat_x_assum `_ MOD _ = 0n` kall_tac)
   \\ `?heap_length. h3 = h2 + heap_length /\ heap_length <= max_heap /\
-                    EVEN heap_length /\ max_stack_alloc <= heap_length` by cheat
+                    EVEN heap_length /\ max_stack_alloc <= heap_length /\
+                    heap_length + max_stack_alloc <= l4` by
+         cheat (* needs to assume max_heap is sufficiently large *)
   \\ rveq \\ fs []
   \\ `?stack_length. l4 = heap_length + stack_length /\
-                     LENGTH store_list + 1 <= stack_length` by cheat
+                     LENGTH store_list + 1 <= stack_length` by
+   (qexists_tac `l4 - heap_length` \\ fs [] \\ EVAL_TAC
+    \\ fs [max_stack_alloc_def,Abbr`d`,labPropsTheory.good_dimindex_def]
+    \\ rfs [dimword_def,LEFT_ADD_DISTRIB])
   \\ rveq \\ fs [LEFT_ADD_DISTRIB,word_add_n2w]
   \\ full_simp_tac std_ss [GSYM ADD_ASSOC]
   \\ qpat_x_assum `n2w _ ⋙ 1 = n2w _` kall_tac
@@ -2938,7 +2942,7 @@ val init_pre_def = Define `
   init_pre gen_gc max_heap bitmaps data_sp k start s <=>
     lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap k)
                                 (Call NONE (INL start) NONE)) /\
-    init_code_pre k bitmaps data_sp s`
+    init_code_pre k bitmaps data_sp s /\ max_stack_alloc ≤ max_heap`
 
 val evaluate_init_code = Q.store_thm("evaluate_init_code",
   `init_pre gen_gc max_heap bitmaps data_sp k start s /\
@@ -3131,7 +3135,7 @@ val discharge_these_def = Define`
       s2.code = fromAList (compile jump off gen_gc max_heap k start code) ∧
       8 ≤ k ∧ 1 ∈ domain s2.code ∧
       {k; k + 1; k + 2} ⊆ s2.ffi_save_regs ∧ ¬s2.use_stack ∧
-      ¬s2.use_store ∧ ¬s2.use_alloc`;
+      ¬s2.use_store ∧ ¬s2.use_alloc ∧ max_stack_alloc <= max_heap`;
 
 val propagate_these_def = Define`
   propagate_these s (bitmaps:'a word list) data_sp ⇔
