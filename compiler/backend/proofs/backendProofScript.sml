@@ -1518,7 +1518,39 @@ val compile_correct = Q.store_thm("compile_correct",
           >- (
             reverse conj_tac
             >- ( fs[Abbr`kkk`,Abbr`stk`] )
-            \\ cheat (* word_to_word conventions etc... *) )
+            \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
+            \\ `∃wc ign. compile wc mc.target.config pp0 = (ign, pp)`
+            by (
+              simp[word_to_wordTheory.compile_def]
+              \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
+              \\ simp[]
+              \\ simp[word_to_wordTheory.next_n_oracle_def]
+              \\ simp[Abbr`pp`]
+              \\ simp[Abbr`kkk`,Abbr`stk`]
+              \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
+              \\ simp[UNCURRY])
+            \\ qspecl_then[`wc`,`mc.target.config`,`pp0`]mp_tac(
+                 Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
+            \\ simp[]
+            \\ simp[EVERY_MEM, UNCURRY, Abbr`kkk`, Abbr`stk`]
+            \\ rw[]
+            \\ first_x_assum drule
+            \\ rw[]
+            \\ first_x_assum irule
+            \\ simp[Abbr`pp0`, FORALL_PROD]
+            \\ simp[MEM_MAP, EXISTS_PROD]
+            \\ simp[data_to_wordTheory.compile_part_def]
+            \\ simp[PULL_EXISTS] \\ rw[]
+            \\ irule comp_no_inst
+            \\ qunabbrev_tac`c4_data_conf`
+            \\ EVAL_TAC
+            \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
+            \\ pairarg_tac \\ fs[]
+            \\ pairarg_tac \\ fs[]
+            \\ fsrw_tac[DNF_ss][]
+            \\ conj_tac \\ first_x_assum irule
+            \\ fs[mc_conf_ok_def]
+            \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
           \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
           \\ disch_then drule
           \\ simp[])
