@@ -421,15 +421,14 @@ val format_compiler_result_def = Define`
 
 (* FIXME TODO: this is an awful workaround to avoid implementing a file writer
    right now. *)
-val format_tap_output_def = Define`
-  format_tap_output out td = if td = []
-    then concat (append out)
-    else concat (strlit "compiler output with tap data\n\n"
+val add_tap_output_def = Define`
+  add_tap_output td out = if td = [] then out
+    else Append (List (strlit "compiler output with tap data\n\n"
       :: FLAT (MAP (\td. let (nm, data) = tap_data_strings td in
         [strlit "-- "; nm; strlit " --\n\n"; data;
           strlit "\n\n"]) td)
-      ++ [strlit "-- compiled data --\n\n"]
-      ++ append out)`;
+      ++ [strlit "-- compiled data --\n\n"]))
+      out`;
 
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
@@ -451,20 +450,21 @@ val compile_64_def = Define`
              skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
-            (export (the [] c.ffi_names) heap stack bytes data, td, implode "")
-        | (Failure err, td) => (List [], td, error_to_str err))
+            (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
+              implode "")
+        | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
-    (List[], [], error_to_str (ConfigError (get_err_str ext_conf))))
+    (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[], [], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
 val full_compile_64_def = Define `
   full_compile_64 cl inp fs =
     if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
-      let (out, td, err) = compile_64 cl inp in
-      add_stderr (add_stdout (fastForwardFD fs 0) (format_tap_output out td)) err`
+      let (out, err) = compile_64 cl inp in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
 
 val compile_32_def = Define`
   compile_32 cl input =
@@ -483,19 +483,20 @@ val compile_32_def = Define`
              skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
-            (export (the [] c.ffi_names) heap stack bytes data, td, implode "")
-        | (Failure err, td) => (List [], td, error_to_str err))
+            (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
+              implode "")
+        | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
-    (List[], [], error_to_str (ConfigError (get_err_str ext_conf))))
+    (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[], [], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
 val full_compile_32_def = Define `
   full_compile_32 cl inp fs =
     if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
-      let (out,err) = compile_32 cl inp in
-      add_stderr (add_stdout (fastForwardFD fs 0) (format_tap_output out td)) err`
+      let (out, err) = compile_32 cl inp in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
 
 val _ = export_theory();
