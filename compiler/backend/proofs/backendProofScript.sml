@@ -562,6 +562,81 @@ val elist_globals_compile = Q.store_thm("elist_globals_compile",
   \\ rw[]
   \\ rw[flat_to_patProofTheory.set_globals_eq]);
 
+val get_labels_cons = Q.store_thm("get_labels_cons",
+  `get_labels (x::xs) = sec_get_labels x ∪ get_labels xs`,
+  rw[labPropsTheory.get_labels_def]);
+
+val get_code_labels_cons = Q.store_thm("get_code_labels_cons",
+  `get_code_labels (x::xs) = sec_get_code_labels x ∪ get_code_labels xs`,
+  rw[labPropsTheory.get_code_labels_def]);
+
+(*
+val flatten_preserves_labels = Q.store_thm("flatten_preserves_labels",
+  `∀m n p l x y.
+   flatten m n p = (l,x,y) ⇒
+   get_code_labels m ⊆
+     { (n,z) | z ∈ BIGUNION (IMAGE line_get_code_labels (set (append l))) } ∪
+       BIGUNION (IMAGE line_get_labels (set (append l))) `,
+  recInduct flatten_ind
+  \\ rpt gen_tac \\ strip_tac
+  \\ rw[Once flatten_def]
+  \\ qabbrev_tac`XXX = FOO p`
+  \\ Cases_on`p` \\ fs[] \\ rveq \\ fs[stack_to_labProofTheory.get_code_labels_def]
+  >- (
+    fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+    \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+    >- ( every_case_tac \\ fs[] \\ rveq \\ EVAL_TAC )
+    \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[line_get_labels_def,PULL_EXISTS]
+    >- (
+      Cases_on`s` \\ fsrw_tac[DNF_ss][line_get_labels_def, compile_jump_def]
+      \\ fs[SUBSET_DEF, PULL_EXISTS]
+      \\ metis_tac[] )
+    \\ pairarg_tac \\ fs[] \\ rveq \\ fs[line_get_labels_def]
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ rw[] \\ fsrw_tac[DNF_ss][line_get_labels_def, line_get_code_labels_def]
+    \\ Cases_on `s` \\ fs[compile_jump_def] \\ rveq \\ fs[line_get_labels_def]
+    >- metis_tac[]
+    >- metis_tac[]
+    >- cheat
+    >- cheat
+    >- metis_tac[]
+    >- metis_tac[] )
+  \\ (
+    rpt (pairarg_tac \\ fs[]) \\ rveq
+    \\ fs[SUBSET_DEF, PULL_EXISTS, CaseEq"bool"] \\ rveq \\ fs[stack_to_labProofTheory.get_code_labels_def, line_get_labels_def]
+    \\ metis_tac[] ));
+
+val get_code_labels_prog_to_section = Q.store_thm("get_code_labels_prog_to_section",
+  `∀p. BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆ get_code_labels (MAP prog_to_section p)`,
+  Induct \\ simp[FORALL_PROD]
+  \\ simp[stack_to_labTheory.prog_to_section_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs[]
+  \\ simp[get_code_labels_cons, labPropsTheory.sec_get_code_labels_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+  \\ drule flatten_preserves_labels
+  \\ rw[SUBSET_DEF, PULL_EXISTS]
+  \\ first_x_assum drule
+  \\ rw[]
+  >- metis_tac[]
+  >- cheat);
+*)
+
+val get_labels_MAP_prog_to_section_SUBSET_code_labels = Q.store_thm("get_labels_MAP_prog_to_section_SUBSET_code_labels",
+  `∀p. get_labels (MAP prog_to_section p) ⊆ get_code_labels (MAP prog_to_section p) ∪ BIGUNION (IMAGE get_code_labels (set (MAP SND p)))`,
+  Induct \\ simp[FORALL_PROD] >- (EVAL_TAC \\ simp[])
+  \\ rw[stack_to_labTheory.prog_to_section_def]
+  \\ pairarg_tac \\ fs[get_labels_cons, get_code_labels_cons]
+  \\ simp[labPropsTheory.sec_get_labels_def, labPropsTheory.sec_get_code_labels_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS]
+  \\ simp[labPropsTheory.line_get_labels_def]
+  \\ qmatch_asmsub_abbrev_tac`flatten q n z`
+  \\ qspecl_then[`q`,`n`,`z`]mp_tac flatten_labels
+  \\ simp[]
+  \\ simp[SUBSET_DEF, PULL_EXISTS]
+  \\ rw[] \\ first_x_assum drule \\ rw[]
+  \\ metis_tac[]);
+
 (*
 val backend_cs =
   let val cs = wordsLib.words_compset() in
@@ -1511,9 +1586,16 @@ val compile_correct = Q.store_thm("compile_correct",
             \\ first_x_assum drule
             \\ simp[]
             \\ cheat (* oracle labels... *) )
-        \\ disj1_tac
-        \\ fs[Abbr`p7`]
-        \\ cheat (* get_code_labels range...  *) )
+          \\ disj1_tac
+          \\ fs[Abbr`p7`]
+          \\ cheat (* get_code_labels range...  *) )
+        \\ qspec_then`ppg`mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels
+        \\ simp[SUBSET_DEF]
+        \\ strip_tac
+        \\ gen_tac \\ strip_tac
+        \\ first_x_assum drule
+        \\ strip_tac \\ rw[]
+        \\ cheat (* labels problems ... *) )
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\
