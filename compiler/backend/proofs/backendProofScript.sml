@@ -301,6 +301,7 @@ val backend_config_ok_def = Define`
     (c.data_conf.has_div ⇒
       c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
       c.lab_conf.asm_conf.ISA = RISC_V) ∧
+    max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
@@ -374,7 +375,8 @@ val backend_config_ok_call_empty_ffi = store_thm("backend_config_ok_call_empty_f
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
     backend_config_ok cc``,
   fs [backend_config_ok_def,data_to_wordTheory.conf_ok_def,
-      data_to_wordTheory.shift_length_def]);
+      data_to_wordTheory.shift_length_def,
+      data_to_wordTheory.max_heap_limit_def]);
 
 (* TODO: ?? where to put these ?? *)
 val mc_init_ok_def = Define`
@@ -580,6 +582,7 @@ val compile_correct = Q.store_thm("compile_correct",
    installed bytes cbspace bitmaps data_sp c'.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
+
   srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.ffi_names = SOME mc.ffi_names` by fs[installed_def] >>
@@ -1530,16 +1533,16 @@ val compile_correct = Q.store_thm("compile_correct",
       (simp[Abbr`c4_data_conf`] \\ EVAL_TAC) \\
     conj_tac>- fs[Abbr`p7`] \\
     conj_tac>- simp[ETA_AX] \\
+    `max_stack_alloc ≤ 2 * max_heap_limit (:α) c4_data_conf − 1` by
+       fs [] \\ fs [] \\
     conj_tac >- (
-      rfs[memory_assumption_def,Abbr`dm`]
-      \\ qmatch_goalsub_abbrev_tac`a <=+ b` >>
+      rfs[memory_assumption_def,Abbr`dm`] \\
       `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
        rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
       fs [attach_bitmaps_def] \\
       once_rewrite_tac[INTER_COMM] \\
       rewrite_tac[UNION_OVER_INTER] \\
       once_rewrite_tac[UNION_COMM] \\
-      strip_tac \\
       match_mp_tac fun2set_disjoint_union \\
       conj_tac >- (
         match_mp_tac DISJOINT_INTER
@@ -1555,7 +1558,9 @@ val compile_correct = Q.store_thm("compile_correct",
         reverse conj_tac >-
          (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
           \\ rfs [labPropsTheory.good_dimindex_def])
-        \\ `a <=+ b` by metis_tac[WORD_LOWER_IMP_LOWER_OR_EQ]
+        \\ qabbrev_tac `a = tar_st.regs mc.len_reg`
+        \\ qabbrev_tac `b = tar_st.regs mc.len2_reg`
+        \\ qpat_x_assum `a <=+ b` assume_tac
         \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
         \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
         \\ rw [] \\ reverse eq_tac THEN1
