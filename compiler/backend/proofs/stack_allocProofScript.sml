@@ -5839,7 +5839,7 @@ val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
   >>
     res_tac>>fs[]));
 
-val stack_alloc_comp_stack_asm_name = Q.prove(`
+val stack_alloc_comp_stack_asm_name = Q.store_thm("stack_alloc_comp_stack_asm_name",`
   ∀n m p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
   let (p',m') = comp n m p in

@@ -1075,7 +1075,7 @@ val assign_no_inst = Q.prove(`
 inst_ok_less_def
 *)
 
-val comp_no_inst = Q.prove(`
+val comp_no_inst = Q.store_thm("comp_no_inst",`
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧

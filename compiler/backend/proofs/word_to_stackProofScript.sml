@@ -1788,7 +1788,7 @@ val compile_result_def = Define`
   (compile_result (Exception w1 w2) = Exception w1) ∧
   (compile_result TimeOut = TimeOut) ∧
   (compile_result NotEnoughSpace = Halt (Word 1w)) ∧
-  (compile_result (FinalFFI f) = FinalFFI f) ∧  
+  (compile_result (FinalFFI f) = FinalFFI f) ∧
   (compile_result Error = Error)`;
 val _ = export_rewrites["compile_result_def"];
 
@@ -7002,7 +7002,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     drule0(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
     disch_then drule0 >>
-    simp[] >> strip_tac >>    
+    simp[] >> strip_tac >>
     `t'.ffi.io_events ≼ t1.ffi.io_events` by (
       qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
       Q.ISPECL_THEN[`exps`,`tt`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
@@ -7329,7 +7329,7 @@ val wLive_stack_asm_name = Q.prove(`
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_name_lem = Q.prove(`
+val word_to_stack_stack_asm_name_lem = Q.store_thm("word_to_stack_stack_asm_name_lem",`
   ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
@@ -7439,7 +7439,7 @@ val wLive_stack_asm_remove = Q.prove(`
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_remove_lem = Q.prove(`
+val word_to_stack_stack_asm_remove_lem = Q.store_thm("word_to_stack_stack_asm_remove_lem",`
   ∀(p:'a wordLang$prog) bs kf (c:'a asm_config).
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
   stack_asm_remove c (FST (comp p bs kf))`,
