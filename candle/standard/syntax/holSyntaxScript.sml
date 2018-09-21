@@ -590,6 +590,15 @@ val orth_ty_def = Define `
 val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
 val _ = Parse.temp_overload_on("#", ``$orth_ty``)
 
+val orth_ty_instances = Q.store_thm("orth_ty_instances",
+  `!(ty1:type) ty2. ty1 # ty2 ==> !s. (TYPE_SUBST s ty1) # (TYPE_SUBST s ty2)`,
+  rw[orth_ty_def]
+  >> first_x_assum (qspec_then `ty` mp_tac)
+  >> rw[]
+  >- (DISJ1_TAC >> rw[TYPE_SUBST_compose])
+  >> (DISJ2_TAC >> rw[TYPE_SUBST_compose])
+);
+
 (* orthogonality for constant instances *)
 val orth_ci_def = Define `
   orth_ci ((Const c ty1) : term) ((Const d ty2) :term) = ((~(c = d)) \/ (ty1 # ty2))
