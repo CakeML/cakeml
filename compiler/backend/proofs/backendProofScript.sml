@@ -546,13 +546,6 @@ val compile_word_to_stack_convs = Q.store_thm("compile_word_to_stack_convs",
   \\ conj_tac >- (EVAL_TAC \\ metis_tac[word_to_stack_call_args,FST])
   \\ metis_tac[]);
 
-val is_Dlet_def = Define`
-  (is_Dlet (flatLang$Dlet _) ⇔ T) ∧
-  (is_Dlet _ ⇔ F)`;
-val dest_Dlet_def = Define`
-  (dest_Dlet (flatLang$Dlet e) = e)`;
-val _ = export_rewrites["is_Dlet_def","dest_Dlet_def"]
-
 val elist_globals_compile = Q.store_thm("elist_globals_compile",
   `∀ls.
       elist_globals (flat_to_pat$compile ls) ≤ elist_globals (MAP dest_Dlet (FILTER is_Dlet ls))`,
