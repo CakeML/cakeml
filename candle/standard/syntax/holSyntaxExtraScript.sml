@@ -4106,7 +4106,8 @@ val normalise_tyvars_subst_replacing = Q.store_thm(
   >> rw[MEM_MAP]
 );
 
-val tyvars_diff_types = Q.prove(
+val tyvars_diff_types = Q.store_thm(
+  "tyvars_diff_types",
   `!ty1 ty2. (?a. MEM a (tyvars ty1) /\ ~MEM a (tyvars ty2)) ==> ty1 <> ty2`,
   Induct
   >> strip_tac
@@ -4408,12 +4409,191 @@ val normalise_tyvars_rec_chr = Q.prove(
   >> fs[]
 );
 
-val clean_tysubst_def = tDefine "clean_tysubst" `
+val clean_tysubst_def = tDefine "clean_tysubst_def" `
   (clean_tysubst [] = [])
-  /\ (clean_tysubst ((a,b)::l) =
-    (a,b)::(clean_tysubst (FILTER (λ(_,x). x <> b) l)))
+  /\ (clean_tysubst ((_,Tyapp _ _)::l) = clean_tysubst l)
+  /\ (clean_tysubst ((a:type,Tyvar b)::l) =
+    (a,Tyvar b)::(clean_tysubst (FILTER (λ(_,x). x <> Tyvar b) l)))
 `(WF_REL_TAC `measure LENGTH` >> rw[]
 >> match_mp_tac LESS_EQ_IMP_LESS_SUC >> rw[LENGTH_FILTER_LEQ]);
+
+(* remove duplicates, identical mappings and type applications *)
+val clean_tysubst_def = Define `
+  (clean_tysubst [] = [])
+  /\ (clean_tysubst ((_,Tyapp _ _)::l) = clean_tysubst l)
+  /\ (clean_tysubst ((a:type,Tyvar b)::l) =
+    if a = Tyvar b
+    then FILTER (λ(y,x). x <> Tyvar b) (clean_tysubst l)
+    else (a,Tyvar b)::FILTER (λ(y,x). x <> Tyvar b) (clean_tysubst l))`;
+
+val clean_tysubst_prop = Q.store_thm(
+  "clean_tysubst_prop",
+  `(!s. ALL_DISTINCT (MAP SND (clean_tysubst s)))
+  /\ (!s. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) (clean_tysubst s))`,
+  strip_tac
+  >- (
+    Induct >- rw[ALL_DISTINCT,MAP,clean_tysubst_def]
+    >> Cases >> Cases_on `r` >> rw[ALL_DISTINCT_APPEND,clean_tysubst_def]
+    >> rw[MAP_SND_FILTER_NEQ,MEM_FILTER,FILTER_ALL_DISTINCT]
+  )
+  >> Induct >- rw[clean_tysubst_def]
+  >> Cases >> Cases_on `r`
+  >> rw[clean_tysubst_def,EVERY_FILTER_IMP]
+);
+
+val clean_tysubst_eq = Q.prove(
+  `(!s1 s2 a b tys. clean_tysubst (s1++[(a,Tyapp b tys)]++s2) = clean_tysubst (s1++s2))
+  /\ (!s1 s2 s3 a b c. a <> Tyvar b ==> clean_tysubst (s1++[(a,Tyvar b)]++s2++[(c,Tyvar b)]++s3) = clean_tysubst (s1++[(a,Tyvar b)]++s2++s3))`,
+  strip_tac
+  >- (
+    Induct >- (strip_tac >> Cases >> rw[clean_tysubst_def])
+    >> Cases >> Cases_on `r` >> fs[clean_tysubst_def]
+  )
+  >> Induct (* on s1 *)
+  >- (
+    Induct (* on s2 *)
+    >- rw[clean_tysubst_def,FILTER_IDEM]
+    >> Cases >> Cases_on `r`
+    >- (
+      rw[clean_tysubst_def]
+      >- (fs[] >> first_x_assum drule >> rw[clean_tysubst_def]
+        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> rw[]
+      )
+      >> FULL_CASE_TAC >> rw[clean_tysubst_def]
+      >- (
+        first_x_assum (qspecl_then [`s3`,`a`,`b`,`c`] mp_tac)
+        >> rw[clean_tysubst_def]
+        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> rw[]
+      )
+      >> rw[FILTER_IDEM]
+      >> first_x_assum drule
+      >> fs[clean_tysubst_def]
+    )
+    >> rw[clean_tysubst_def]
+    >> first_x_assum drule
+    >> fs[clean_tysubst_def]
+  )
+  >> Cases >> Cases_on `r`
+  >> rw[clean_tysubst_def]
+);
+
+val clean_tysubst_FILTER_eq = Q.prove(
+  `(!s1 s2 a b. a <> Tyvar b ==> clean_tysubst (s1++[(a,Tyvar b)]++s2)
+  = clean_tysubst (s1++[(a,Tyvar b)]++FILTER (λ(y,x). x <> Tyvar b) s2))`,
+  Induct
+  >- (
+    Induct
+    >- fs[]
+    >> Cases >> Cases_on `r`
+    >- (
+      rw[clean_tysubst_def]
+      >- (
+        first_x_assum drule
+        >> rw[clean_tysubst_def]
+        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> rw[]
+      )
+      >- (
+        first_x_assum drule
+        >> rw[clean_tysubst_def,FILTER_IDEM]
+      )
+      >- (
+        first_x_assum drule
+        >> rw[clean_tysubst_def]
+        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
+        >> rw[]
+      )
+      >> first_x_assum drule
+      >> rw[clean_tysubst_def,FILTER_IDEM]
+    )
+    >> fs[clean_tysubst_def]
+    >> fs[]
+  )
+  >> Cases >> Cases_on `r`
+  >> rpt strip_tac
+  >> (
+    RULE_ASSUM_TAC GSYM
+    >> fs[clean_tysubst_def]
+  )
+);
+
+val clean_tysubst_NOT_MEM_MAP_SND = Q.store_thm("clean_tysubst_NOT_MEM_MAP_SND",
+  `!s x. ~MEM x (MAP SND s) ==> ~MEM x (MAP SND (clean_tysubst s))`,
+  Induct
+  >- fs[clean_tysubst_def]
+  >> Cases >> Cases_on `r`
+  >> rw[clean_tysubst_def,MAP_SND_FILTER_NEQ,MEM_FILTER]
+);
+
+val clean_tysubst_ALL_DISTINCT_MAP_SND = Q.store_thm(
+  "clean_tysubst_ALL_DISTINCT_MAP_SND",
+  `!s. ALL_DISTINCT (MAP SND (clean_tysubst s))`,
+  Induct
+  >- rw[clean_tysubst_def]
+  >> Cases_on `h` >> Cases_on `r`
+  >- (
+    rw[clean_tysubst_def,MAP_SND_FILTER_NEQ]
+    >- (match_mp_tac FILTER_ALL_DISTINCT >> fs[])
+    >- rw[MEM_FILTER]
+    >> (match_mp_tac FILTER_ALL_DISTINCT >> fs[])
+  )
+  >> rw[clean_tysubst_def]
+);
+
+val clean_tysubst_non_triv = Q.store_thm(
+  "clean_tysubst_non_triv",
+  `!s. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) (clean_tysubst s)`,
+  Induct
+  >- rw[clean_tysubst_def]
+  >> Cases_on `h` >> Cases_on `r`
+  >- (
+    rw[clean_tysubst_def]
+    >> (match_mp_tac EVERY_FILTER_IMP >> fs[])
+  )
+  >> rw[clean_tysubst_def]
+);
+
+val REV_ASSOCD_NOT_MEM_drop = Q.store_thm("REV_ASSOCD_NOT_MEM_drop",
+  `!s x. ~MEM x (MAP SND s) ==> REV_ASSOCD x s x = x`,
+  Induct >> rw[REV_ASSOCD_def]
+);
+
+val clean_tysubst_TYPE_SUBST_eq = Q.store_thm("clean_tysubst_TYPE_SUBST_eq",
+  `!ty s. TYPE_SUBST s ty = TYPE_SUBST (clean_tysubst s) ty`,
+  fs[TYPE_SUBST_tyvars]
+  >> CONV_TAC SWAP_FORALL_CONV
+  >> Induct
+  >- rw[clean_tysubst_def,EVERY_DEF]
+  >> Cases >> Cases_on `r`
+  >- (
+    rw[clean_tysubst_def,REV_ASSOCD_def]
+    >> fs[REV_ASSOCD_FILTER]
+    >> first_x_assum match_mp_tac
+    >> asm_exists_tac
+    >> fs[]
+  )
+  >> rw[REV_ASSOCD_def,clean_tysubst_def]
+  >> first_x_assum match_mp_tac
+  >> asm_exists_tac
+  >> fs[]
+);
+
+val TYPE_SUBST_FILTER_tyvars = Q.store_thm("TYPE_SUBST_FILTER_tyvars",
+  `!ty s. TYPE_SUBST s ty = TYPE_SUBST (FILTER (λ(x,y). ?a. Tyvar a = y /\ MEM a (tyvars ty)) s) ty`,
+  CONV_TAC SWAP_FORALL_CONV
+  >> Induct
+  >- rw[REV_ASSOCD_def,TYPE_SUBST_def]
+  >> fs[TYPE_SUBST_tyvars]
+  >> Cases >> Cases_on `r`
+  >- (rw[REV_ASSOCD_def,TYPE_SUBST_def] >> fs[])
+  >> rw[REV_ASSOCD_def,TYPE_SUBST_def]
+);
 
 (* Unify two types and return two type substitutions as a certificate *)
 val unify_types_def = Hol_defn "unify_types" `
@@ -4675,8 +4855,15 @@ val (unify_types_def,unify_types_ind) = Defn.tprove(
   )
 );
 
+val MEM_ZIP_EQTUP_MAP = Q.prove(
+  `!l1 l2 f. LENGTH l1 = LENGTH l2
+  /\ (!e1 e2. MEM (e1,e2) (ZIP (l1,l2)) ==> f e1 = f e2)
+  ==> MAP f l1 = MAP f l2`,
+  Induct >- (Cases >> fs[]) >> strip_tac >> Cases >> fs[]
+)
+
 (* A substitution is idempotent iff Dom s ∩ tyvars( CoDom s ) = ∅ *)
-val TYPE_SUBST_idempotent = Q.prove(
+val TYPE_SUBST_idempotent = Q.store_thm("TYPE_SUBST_idempotent",
   `!s. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) s /\ ALL_DISTINCT (MAP SND s)
   ==> (TYPE_SUBST s = (TYPE_SUBST s o TYPE_SUBST s))
   = NULL (list_inter (MAP SND s) (FLAT (MAP ((MAP Tyvar) o tyvars o FST) s)))`,
@@ -4788,6 +4975,15 @@ val TYPE_SUBST_idempotent = Q.prove(
   >> fs[TYPE_SUBST_compose,TYPE_SUBST_tyvars]
 );
 
+val MEM_tyvars_Tyapp = Q.prove(
+  `!tys a b. ~NULL (MAP tyvars tys) ==>
+  (?n. MEM a n /\ MEM n (MAP tyvars tys)) = MEM a (tyvars (Tyapp b tys))`,
+  rw[tyvars_def,MEM_MAP,MEM_FOLDR_LIST_UNION]
+  >> EQ_TAC >> rw[]
+  >> asm_exists_tac >> fs[]
+  >> qexists_tac `y` >> fs[]
+);
+
 val unify_def = Define `
   unify ty1 ty2 =
     let
@@ -4820,7 +5016,7 @@ val [equal_upto_refl,equal_upto_l1,equal_upto_l2,equal_upto_tyapp] =
 
 val equal_upto_nil = Q.store_thm("equal_upto_nil",
   `!ty1 ty2. equal_upto [] ty1 ty2 ==> ty1 = ty2`,
-  `!l ty1 ty2. equal_upto l ty1 ty2 ==> l = [] ==> ty1 = ty2`  
+  `!l ty1 ty2. equal_upto l ty1 ty2 ==> l = [] ==> ty1 = ty2`
     suffices_by metis_tac[]
   \\ ho_match_mp_tac equal_upto_ind \\  fs[]
   \\ CONV_TAC(DEPTH_CONV ETA_CONV) \\ fs[quotient_listTheory.LIST_REL_EQ]);
@@ -4845,7 +5041,7 @@ val equal_upto_zip = Q.store_thm("equal_upto_zip",
   `!l ty1 ty2.
     equal_upto l ty1 ty2
     ==> !a atys btys l'. l = (Tyapp a atys,Tyapp a btys)::l' /\ LENGTH atys = LENGTH btys
-                         ==> equal_upto (ZIP (atys,btys) ++ l') ty1 ty2`  
+                         ==> equal_upto (ZIP (atys,btys) ++ l') ty1 ty2`
     suffices_by metis_tac[]
   \\ ho_match_mp_tac equal_upto_ind \\ rpt strip_tac
   \\ fs[equal_upto_rules]
@@ -4862,7 +5058,7 @@ val equal_upto_swap = Q.store_thm("equal_upto_swap",
   `!l ty1 ty2.
     equal_upto l ty1 ty2
     ==> !a b l'. l = (a,b)::l'
-                         ==> equal_upto ((b,a)::l') ty1 ty2`  
+                         ==> equal_upto ((b,a)::l') ty1 ty2`
     suffices_by metis_tac[]
   \\ ho_match_mp_tac equal_upto_ind \\ rpt strip_tac
   \\ fs[equal_upto_rules]
