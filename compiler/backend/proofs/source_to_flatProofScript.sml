@@ -3836,4 +3836,79 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ fs [glob_alloc_def, EVERY_MEM]
   \\ res_tac \\ fs []);
 
+(* esgc_free theorems *)
+
+val elist_globals_MEM = Q.prove (
+  `!xs.
+     elist_globals xs = {||}
+     <=>
+     (!x. MEM x xs ==> set_globals x = {||})`,
+  Induct \\ rw [] \\ metis_tac []);
+
+val compile_flat_esgc_free = Q.store_thm("compile_flat_esgc_free",
+  `(!tra env exp.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      esgc_free (compile_exp tra env exp) /\
+      set_globals (compile_exp tra env exp) = {||}) /\
+   (!tra env exps.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      EVERY esgc_free (compile_exps tra env exps) /\
+      elist_globals (compile_exps tra env exps) = {||}) /\
+   (!tra env pes.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      EVERY esgc_free (MAP SND (compile_pes tra env pes)) /\
+      elist_globals (MAP SND (compile_pes tra env pes)) = {||}) /\
+   (!tra env funs.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      EVERY esgc_free (MAP (SND o SND) (compile_funs tra env funs)) /\
+      elist_globals (MAP (SND o SND) (compile_funs tra env funs)) = {||})`,
+  ho_match_mp_tac compile_exp_ind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ fs [compile_exp_def]
+  >-
+   (PURE_FULL_CASE_TAC \\ fs []
+    \\ imp_res_tac nsLookup_nsAll \\ fs [])
+  \\ fs [nsAll_nsBind]
+  >-
+   (IF_CASES_TAC \\ fs []
+    \\ fs [elist_globals_MEM, EVERY_MEM]
+    \\ fs [FOLDR_REVERSE, FOLDL_invariant, EVERY_MEM]
+    >-
+     (FOLDL_invariant |> Q.ISPECL [`\x. set_globals x = {||}`]
+      |> BETA_RULE |> match_mp_tac
+      \\ fs [op_gbag_def])
+    \\ Cases_on `op` \\ fs [op_gbag_def, astOp_to_flatOp_def])
+  >-
+   (Cases_on `lop` \\ fs []
+    \\ res_tac \\ fs []
+    \\ EVAL_TAC)
+  >-
+   (rfs []
+    \\ last_x_assum mp_tac \\ impl_tac \\ rw []
+    \\ last_x_assum mp_tac \\ impl_tac \\ rw []
+    \\ qhdtm_x_assum `nsAll` mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ EVAL_TAC
+    \\ rename1 `FOLDR _ b (MAP _ xs)`
+    \\ qid_spec_tac `b`
+    \\ Induct_on `xs` \\ rw []
+    \\ Cases_on `id` \\ Cases_on `h = n`
+    \\ fs [nsLookup_nsBind] \\ rw []
+    \\ metis_tac [])
+  \\ last_x_assum irule
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ qid_spec_tac `env`
+  \\ rename1 `pat_tups tra ps`
+  \\ qid_spec_tac `ps`
+  \\ Induct \\ rw [pat_tups_def, namespaceTheory.nsBindList_def]
+  \\ last_x_assum drule
+  \\ fs [namespaceTheory.nsBindList_def, nsAll_nsBind]);
+
 val _ = export_theory ();
