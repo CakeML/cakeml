@@ -143,6 +143,13 @@ val TYPE_SUBST_tyvars = Q.store_thm("TYPE_SUBST_tyvars",
   rpt gen_tac >> EQ_TAC >> strip_tac >> fs[] >>
   fs[MEM_LIST_UNION] >> metis_tac[])
 
+val TYPE_SUBST_Tyapp_ident = Q.store_thm(
+  "TYPE_SUBST_Tyapp_ident",
+  `!tys s a. (TYPE_SUBST s (Tyapp a tys) = (Tyapp a tys))
+  ==> !ty. MEM ty tys ==> TYPE_SUBST s ty = ty`,
+  rw[MEM_SPLIT] >> fs[ELIM_UNCURRY,APPEND_LENGTH_EQ]
+);
+
 val TYPE_SUBST_reduce = Q.store_thm(
   "TYPE_SUBST_reduce",
   `!l1 l2 ty x ts. ~MEM x (tyvars ty)
@@ -172,6 +179,38 @@ val TYPE_SUBST_reduce_list = Q.store_thm(
   >- (first_x_assum drule >> disch_then (qspec_then `FST h` mp_tac) >> rw[] >> Cases_on `h` >> fs[])
   >> first_x_assum (qspecl_then [`l2`,`ty`] mp_tac)
   >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
+);
+
+(* TODO remove TYPE_SUBST_reduce_list in favour of this more elegant version *)
+val TYPE_SUBST_reduce_list2 = Q.store_thm(
+  "TYPE_SUBST_reduce_list2",
+  `!l1 l2 ty . EVERY (λa. ~MEM (Tyvar a) (MAP SND l1)) (tyvars ty)
+  ==> TYPE_SUBST (l1 ++ l2) ty = TYPE_SUBST l2 ty`,
+  Induct
+  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
+  >> FULL_CASE_TAC
+  >- (
+    fs[EVERY_MEM,REV_ASSOCD_def]
+    >> first_x_assum drule
+    >> fs[]
+  )
+  >> first_x_assum (qspecl_then [`l2`,`ty`] mp_tac)
+  >> fs[EVERY_MEM,TYPE_SUBST_tyvars,REV_ASSOCD_def]
+);
+
+val TYPE_SUBST_eating = Q.store_thm("TYPE_SUBST_eating",
+  `!s ty a. TYPE_SUBST s ty = TYPE_SUBST s (Tyvar a)
+  ==> TYPE_SUBST s o TYPE_SUBST [(ty,Tyvar a)] = TYPE_SUBST s`,
+  rw[FUN_EQ_THM,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
+  >> Cases_on `MEM (Tyvar x') (MAP SND s)`
+  >- (
+    pop_assum (mp_tac o CONV_RULE(PURE_ONCE_REWRITE_CONV [MEM_SPLIT_APPEND_first]))
+    >> rw[]
+    >> Cases_on `a=x'`
+    >> rw[REV_ASSOCD_def]
+  )
+  >> Cases_on `a=x'`
+  >> rw[REV_ASSOCD_def]
 );
 
 val TYPE_SUBST_MEM = Q.prove(
@@ -348,6 +387,48 @@ val subtype_Tyapp = save_thm("subtype_Tyapp",
   ``ty subtype (Tyapp name args)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subtype1_cases])
+
+val subtype_trans = Q.prove(
+  `!x y z. x subtype y /\ y subtype z ==> x subtype z`,
+  assume_tac (Q.ISPEC `$subtype` transitive_def) >> fs[]
+);
+
+val subtype_TYPE_SUBST = Q.store_thm("subtype_TYPE_SUBST",
+  `!a b s. (a subtype b) ==> ((TYPE_SUBST s a) subtype (TYPE_SUBST s b))`,
+  simp[GSYM PULL_FORALL]
+  >> ho_match_mp_tac RTC_INDUCT
+  >> rw[]
+  >> `subtype1 (TYPE_SUBST s a) (TYPE_SUBST s a')` by (
+    fs[subtype1_cases,MEM_MAP,ELIM_UNCURRY]
+    >> qexists_tac `a`
+    >> fs[]
+  )
+  >> match_mp_tac (CONJUNCT2 (SPEC_ALL RTC_RULES))
+  >> asm_exists_tac
+  >> simp[]
+);
+
+val subtype_tyvars = Q.store_thm("subtype_tyvars",
+  `!a ty. MEM a (tyvars ty) = ((Tyvar a) subtype ty)`,
+  CONV_TAC SWAP_FORALL_CONV
+  >> ho_match_mp_tac type_ind
+  >> strip_tac
+  >- rw[tyvars_def]
+  >> rw[MEM_FOLDR_LIST_UNION,EQ_IMP_THM,tyvars_def,EVERY_MEM,ELIM_UNCURRY]
+  >- (
+    first_x_assum drule
+    >> disch_then (qspec_then `a` mp_tac)
+    >> rw[subtype_Tyapp]
+    >> asm_exists_tac
+    >> simp[]
+  )
+  >> fs[subtype_Tyapp]
+  >> first_x_assum drule
+  >> disch_then (qspec_then `a` mp_tac)
+  >> rw[]
+  >> asm_exists_tac
+  >> simp[]
+);
 
 val subtype_type_ok = Q.store_thm("subtype_type_ok",
   `∀tysig ty1 ty2. type_ok tysig ty2 ∧ ty1 subtype ty2 ⇒ type_ok tysig ty1`,
@@ -3535,6 +3616,18 @@ val list_inter_map =  Q.prove (
   >> rw[]
 );
 
+val NULL_list_inter_tyvars_Tyapp = Q.prove(
+  `!a ty l. NULL (list_inter (tyvars (Tyapp a ty)) l)
+    ==> EVERY (λx. NULL (list_inter x l)) (MAP tyvars ty)`,
+  rpt strip_tac
+  >> fs[list_inter_def,EVERY_MEM,NULL_FILTER,tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP]
+  >> rw[]
+  >> first_x_assum (qspecl_then [`y'`] mp_tac)
+  >> rw[]
+  >> first_x_assum (qspecl_then [`y`] mp_tac)
+  >> rw[]
+);
+
 val list_inter_map_inj =  Q.prove (
   `!l r f.  (!x y. (f x = f y) = (x = y)) /\ NULL (list_inter l r)
   ==> NULL (list_inter (MAP f l) (MAP f r))`,
@@ -3659,6 +3752,23 @@ val list_max_APPEND = Q.prove(
   >> asm_rewrite_tac[]
   >> fs[]
 );
+
+(*
+val type_size_inv = Q.store_thm(
+  "type_size_inv",
+  `!rho ty1 ty2. (type_size ty1) < (type_size ty2)
+    /\ list_subset (tyvars ty1) (tyvars ty2)
+    ==> (type_size (TYPE_SUBST rho ty1)) < (type_size (TYPE_SUBST rho ty2))`,
+  rpt Induct
+  >> rw[TYPE_SUBST_NIL]
+  >- rw[TYPE_SUBST_def,REV_ASSOCD_def,type_size'_def]
+  >- rw[TYPE_SUBST_def,REV_ASSOCD_def,type_size'_def]
+  >- rw[TYPE_SUBST_NIL]
+  >> rw[] >> Cases_on `ty`
+  >> rw[TYPE_SUBST_def,REV_ASSOCD_def,type_size'_def]
+  >> cheat
+)
+*)
 
 val renaming_def = Define `
   renaming = EVERY (λ(x,y). (?m n. (x = Tyvar m) /\ (y = Tyvar n)))
