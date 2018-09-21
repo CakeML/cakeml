@@ -3838,13 +3838,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 (* - esgc_free theorems for compile_exp ------------------------------------ *)
 
-val elist_globals_MEM = Q.prove (
-  `!xs.
-     elist_globals xs = {||}
-     <=>
-     (!x. MEM x xs ==> set_globals x = {||})`,
-  Induct \\ rw [] \\ metis_tac []);
-
 val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
   `(!tra env exp.
       nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
@@ -3877,7 +3870,7 @@ val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
   \\ fs [nsAll_nsBind]
   >-
    (IF_CASES_TAC \\ fs []
-    \\ fs [elist_globals_MEM, EVERY_MEM]
+    \\ fs [elist_globals_eq_empty, EVERY_MEM]
     \\ fs [FOLDR_REVERSE, FOLDL_invariant, EVERY_MEM]
     >-
      (FOLDL_invariant |> Q.ISPECL [`\x. set_globals x = {||}`]
@@ -3953,7 +3946,7 @@ val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
     \\ qmatch_goalsub_abbrev_tac `EVERY _ xs`
     \\ `EVERY (\x. set_globals x = {||}) (MAP SND xs)`
         suffices_by rw [EVERY_MAP]
-    \\ simp [EVERY_MEM, GSYM elist_globals_MEM, Abbr`xs`,
+    \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
              alloc_defs_set_globals]
     \\ NO_TAC)
   >- fs [compile_exp_def]
@@ -3974,7 +3967,7 @@ val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
           \\ qmatch_goalsub_abbrev_tac `EVERY _ xs`
           \\ `EVERY (\x. set_globals x = {||}) (MAP SND xs)`
               suffices_by rw [EVERY_MAP]
-          \\ simp [EVERY_MEM, GSYM elist_globals_MEM, Abbr`xs`,
+          \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
                    alloc_defs_set_globals])
     \\ simp [EVERY_MEM]
     \\ simp [compile_funs_map]
