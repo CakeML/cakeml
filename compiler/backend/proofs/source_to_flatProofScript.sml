@@ -3995,6 +3995,18 @@ val compile_prog_esgc_free = Q.store_thm("compile_prog_esgc_free",
   \\ fs [glob_alloc_def]
   \\ metis_tac [compile_decs_esgc_free]);
 
+val compile_flat_esgc_free = Q.store_thm("compile_flat_esgc_free",
+  `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   ==>
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (compile_flat ds)))`,
+  rw [compile_flat_def, flat_exh_matchTheory.compile_def]
+  \\ drule flat_exh_matchProofTheory.compile_decs_esgc_free
+  \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
+  \\ drule flat_elimProofTheory.removeFlatProg_esgc_free \\ rw []
+  \\ rename1 `compile_decs (compile_decs ds1)`
+  \\ cheat (* TODO compile_decs for uncheck and reorder_match *)
+  );
+
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `nsAll (\_ v. esgc_free v /\ set_globals v = {||}) c.mod_env.v /\
    compile c p = (c1, p1)
@@ -4002,6 +4014,6 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))`,
   rw [compile_def]
   \\ pairarg_tac \\ fs [] \\ rveq
-  \\ cheat (* TODO prove for all flat_to_flat passes *));
+  \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]);
 
 val _ = export_theory ();
