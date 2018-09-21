@@ -736,6 +736,15 @@ val syntax_ok_pat_to_clos = Q.store_thm("syntax_ok_pat_to_clos",
          clos_mtiProofTheory.syntax_ok_REVERSE,
          clos_mtiProofTheory.syntax_ok_MAP]);
 
+(* TODO: move to flat_to_patProof, and rename the other one to compile_exp... *)
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `∀p. EVERY (esgc_free o dest_Dlet) (FILTER is_Dlet p) ⇒
+    EVERY esgc_free (flat_to_pat$compile p)`,
+  recInduct flat_to_patTheory.compile_ind
+  \\ rw[flat_to_patTheory.compile_def]
+  \\ irule (CONJUNCT1 flat_to_patProofTheory.compile_esgc_free)
+  \\ rw[]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -932,7 +941,15 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ simp[EVERY_MEM] \\ rw[]
       \\ irule pat_to_closProofTheory.compile_esgc_free
       \\ fs[Abbr`p'`]
-      \\ cheat (* syntax ok esgc free for flat_to_pat *) )
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac`x`
+      \\ simp[GSYM EVERY_MEM]
+      \\ irule compile_esgc_free
+      \\ simp[EVERY_o]
+      \\ irule source_to_flatProofTheory.compile_esgc_free
+      \\ asm_exists_tac \\ rw[]
+      \\ EVAL_TAC
+      \\ Cases \\ simp[namespaceTheory.nsLookup_def])
     \\ conj_tac
     >- (
       gen_tac
