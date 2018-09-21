@@ -1689,7 +1689,7 @@ val known_correct_approx = Q.store_thm(
   `!c xs aenv g0 eas g env extra s0:((val_approx num_map#'c,'ffi) closSem$state) res s.
    known c xs aenv g0 = (eas, g) /\
    evaluate (xs, env ++ extra, s0) = (res, s) /\
-   fv_max (LENGTH env) xs /\
+   (*fv_max (LENGTH env) xs /\*)
    unique_set_globals xs s0.compile_oracle /\
    LIST_REL val_approx_val aenv env /\
    state_globals_approx s0 g0 /\
@@ -1743,7 +1743,8 @@ val known_correct_approx = Q.store_thm(
   THEN1
    (say "Var"
     \\ fs [evaluate_def, bool_case_eq] \\ rveq
-    \\ fs [any_el_ALT] \\ fs [fv_max_rw, EL_APPEND1, LIST_REL_EL_EQN])
+    \\ fs [any_el_ALT] \\ fs [fv_max_rw, EL_APPEND1, LIST_REL_EL_EQN]
+    \\ rw[EL_APPEND1])
   THEN1
    (say "If"
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
