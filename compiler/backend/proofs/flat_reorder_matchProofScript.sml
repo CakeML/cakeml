@@ -26,20 +26,6 @@ val _ = temp_overload_on ("None",``NONE``)
 val _ = temp_overload_on ("Some",``SOME``)
 val _ = temp_overload_on ("Length",``LENGTH``)
 
-val BAG_DISJOINT_SYM = Q.store_thm("BAG_DISJOINT_SYM",
-  `BAG_DISJOINT b1 b2 ⇔ BAG_DISJOINT b2 b1`,
-  rw[BAG_DISJOINT,DISJOINT_SYM]);
-
-val BAG_ALL_DISTINCT_SUB = Q.store_thm("BAG_ALL_DISTINCT_SUB",
-  `BAG_ALL_DISTINCT b2 ∧ b1 ≤ b2 ⇒ BAG_ALL_DISTINCT b1`,
-  rw[BAG_ALL_DISTINCT,SUB_BAG,BAG_INN]
-  \\ spose_not_then strip_assume_tac
-  \\ fs[NOT_LESS_EQUAL,GREATER_EQ]
-  \\ first_x_assum(qspecl_then[`e`,`2`]mp_tac)
-  \\ simp[NOT_LESS_EQUAL]
-  \\ first_x_assum(qspec_then`e`mp_tac)
-  \\ simp[]);
-
 val BAG_OF_LIST_def = Define`
   (BAG_OF_LIST [] = {||}) ∧
   (BAG_OF_LIST (x::xs) = BAG_INSERT x (BAG_OF_LIST xs))`;
@@ -758,7 +744,7 @@ val const_cons_fst_sub_bag = Q.store_thm("const_cons_fst_sub_bag",
 val const_cons_fst_distinct_globals = Q.store_thm("const_cons_fst_distinct_globals",
   `BAG_ALL_DISTINCT (elist_globals (MAP SND pes)) ⇒
    BAG_ALL_DISTINCT (elist_globals (MAP SND (const_cons_fst pes)))`,
-  METIS_TAC[const_cons_fst_sub_bag,BAG_ALL_DISTINCT_SUB]);
+  METIS_TAC[const_cons_fst_sub_bag,BAG_ALL_DISTINCT_SUB_BAG]);
 
 val compile_sub_bag = Q.store_thm("compile_sub_bag",
   `∀es. (elist_globals (compile es)) ≤ (elist_globals es)`,
@@ -796,7 +782,7 @@ val compile_sub_bag = Q.store_thm("compile_sub_bag",
 
 val compile_distinct_globals = Q.store_thm("compile_distinct_globals",
   `BAG_ALL_DISTINCT (elist_globals es) ⇒ BAG_ALL_DISTINCT (elist_globals (compile es))`,
-  METIS_TAC[compile_sub_bag,BAG_ALL_DISTINCT_SUB]);
+  METIS_TAC[compile_sub_bag,BAG_ALL_DISTINCT_SUB_BAG]);
 
 val () = export_theory();
 
