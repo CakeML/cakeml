@@ -1033,5 +1033,13 @@ val esgc_free_def = tDefine "esgc_free" `
 val esgc_free_def = save_thm("esgc_free_def[simp]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
+val is_Dlet_def = Define `
+  (is_Dlet (Dlet _) <=> T) /\
+  (is_Dlet _ <=> F)`;
+
+val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
+
+val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
+
 val _ = export_theory()
 
