@@ -4595,6 +4595,56 @@ val TYPE_SUBST_FILTER_tyvars = Q.store_thm("TYPE_SUBST_FILTER_tyvars",
   >> rw[REV_ASSOCD_def,TYPE_SUBST_def]
 );
 
+val orth_ty_instances = Q.store_thm("orth_ty_instances",
+  `!(ty1:type) ty2. ty1 # ty2 ==> !s. (TYPE_SUBST s ty1) # (TYPE_SUBST s ty2)`,
+  rw[orth_ty_def]
+  >> first_x_assum (qspec_then `ty` mp_tac)
+  >> rw[]
+  >- (DISJ1_TAC >> rw[TYPE_SUBST_compose])
+  >> (DISJ2_TAC >> rw[TYPE_SUBST_compose])
+);
+
+val unifiable_def = Define`
+  unifiable ty1 ty2 = ?s. TYPE_SUBST s ty1 = TYPE_SUBST s ty2`;
+
+val unifiable_orth_ty_equiv = Q.store_thm("unifiable_orth_ty_equiv",
+  `!ty1 ty2. NULL (list_inter (tyvars ty1) (tyvars ty2))
+  ==> unifiable ty1 ty2 = ~(ty1 # ty2)`,
+  rw[EQ_IMP_THM,unifiable_def,orth_ty_def]
+  >- (
+    qexists_tac `TYPE_SUBST s ty1`
+    >> rw[]
+    >> qexists_tac `s`
+    >> rw[]
+  )
+  >> (qspecl_then [`ty2`,`i'`] assume_tac) TYPE_SUBST_FILTER_tyvars
+  >> (qspecl_then [`ty1`,`i`] assume_tac) TYPE_SUBST_FILTER_tyvars
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER p1 i) ty1`
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER p2 i') ty2`
+  >> qexists_tac `(FILTER p1 i) ++ (FILTER p2 i')`
+  >> `!x. FILTER p1 (FILTER p2 x) = []` by (
+    fs[NULL_FILTER,list_inter_def]
+    >> strip_tac
+    >> rw[FILTER_FILTER]
+    >> rw[GSYM NULL_EQ,NULL_FILTER]
+    >> qunabbrev_tac `p1`
+    >> qunabbrev_tac `p2`
+    >> CCONTR_TAC
+    >> fs[ELIM_UNCURRY]
+    >> Cases_on `x'`
+    >> fs[]
+    >> rveq
+    >> first_x_assum (qspec_then `a` assume_tac)
+    >> fs[]
+    >> rveq
+    >> fs[]
+  )
+  >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_tyvars]
+  >> rw[FILTER_APPEND,FILTER_IDEM,FILTER_COMM]
+  >> fs[]
+);
+
+
 (* Unify two types and return two type substitutions as a certificate *)
 val unify_types_def = Hol_defn "unify_types" `
   (unify_types [] sigma = SOME sigma)
