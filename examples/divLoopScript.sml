@@ -14,7 +14,8 @@ val div_ind = Q.store_thm("div_ind",
          cf (p:'ffi ffi_proj) body
             (extend_env_rec
               (MAP (\ (f,_,_). f) funs)
-              (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+              (MAP (\ (f,_,_). naryRecclosure env
+                (letrec_pull_params funs) f) funs)
           [param] xs env) H (POSTd Qd))) ==>
      app (p:'ffi ffi_proj) fv xs H (POSTd Qd)`,
   cheat
@@ -24,36 +25,15 @@ val _ = process_topdecs `fun loop x = loop x` |> append_prog;
 
 val s = get_ml_prog_state ();
 
-val th = fetch "-" "loop_v_def"
+val v_def = fetch "-" "loop_v_def"
 
-val env = th |> concl |> rand |> rator |> rator |> rand
+val env = v_def |> concl |> rand |> rator |> rator |> rand
 
-val funs = th |> concl |> rand |> rator |> rand
+val funs = v_def |> concl |> rand |> rator |> rand
 
-val f = th |> concl |> rand |> rand
-
-val cs = computeLib.the_compset
-val () = listLib.list_rws cs
-val () = basicComputeLib.add_basic_compset cs
-val () = semanticsComputeLib.add_semantics_compset cs
-val () = ml_progComputeLib.add_env_compset cs
-val () = cfComputeLib.add_cf_aux_compset cs
-val () = computeLib.extend_compset [
-  computeLib.Defs [
-    ml_progTheory.merge_env_def,
-    ml_progTheory.write_def,
-    ml_progTheory.write_mod_def,
-    ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def
-    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
-  ]] cs
+val f = v_def |> concl |> rand |> rand
 
 val _ = (max_print_depth := 15)
-
-val eval = computeLib.CBV_CONV cs THENC EVAL (* TODO: remove EVAL *)
-val eval_tac = CONV_TAC eval
-fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
-fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 val loop_spec = Q.store_thm ("loop_spec",
   `!xv.
@@ -64,26 +44,23 @@ val loop_spec = Q.store_thm ("loop_spec",
   \\ EXISTS_TAC env
   \\ EXISTS_TAC funs
   \\ EXISTS_TAC f
-  \\ conj_tac THEN1 (simp [th])
+  \\ conj_tac THEN1 (simp [v_def])
   \\ simp [semanticPrimitivesTheory.find_recfun_def]
   \\ conj_tac THEN1 (simp [cond_def])
   \\ rw [cf_def, cfNormaliseTheory.dest_opapp_def]
   \\ CONV_TAC ((RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL)
-  \\ fs [th]
-  \\ simp [cf_app_def, cfNormaliseTheory.exp2v_def,namespacePropsTheory.nsLookup_nsAppend_some, namespaceTheory.nsLookup_def, cfNormaliseTheory.exp2v_list_def, cfHeapsTheory.local_def]
+  \\ fs [v_def |> CONV_RULE (RAND_CONV EVAL)]
+  \\ simp [cf_app_def, cfNormaliseTheory.exp2v_def,
+           namespacePropsTheory.nsLookup_nsAppend_some,
+           namespaceTheory.nsLookup_def,
+           cfNormaliseTheory.exp2v_list_def, cfHeapsTheory.local_def]
   \\ rw []
   \\ qexists_tac `emp`
   \\ qexists_tac `emp`
   \\ qexists_tac `POSTd (&T)`
   \\ rpt strip_tac
   THEN1 (fs [SEP_CLAUSES])
-  THEN1 (
-    last_assum mp_tac
-    \\ qpat_abbrev_tac `x1 = Recclosure _`
-    \\ qpat_abbrev_tac `x2 = Recclosure _`
-    \\ qsuff_tac `x1 = x2` THEN1 (fs [] \\ rw [] \\ fs [])
-    \\ unabbrev_all_tac
-    \\ EVAL_TAC)
+  THEN1 (fs [])
   \\ xsimpl
 );
 
