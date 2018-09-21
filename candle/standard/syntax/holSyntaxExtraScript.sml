@@ -5115,6 +5115,142 @@ val equal_upto_swap = Q.store_thm("equal_upto_swap",
   \\ match_mp_tac equal_upto_tyapp \\ fs[]
   \\ RULE_ASSUM_TAC (CONV_RULE(DEPTH_CONV ETA_CONV)) \\ simp[]);
 
+(* subtype of a at a path p *)
+val subtype_at_def = Define `
+  (subtype_at a [] = SOME a) /\
+  (subtype_at (Tyapp a aty) ((name,n)::p) =
+    if (a = name) /\ ((n:num) < LENGTH aty)
+    then subtype_at (EL n aty) p else NONE) /\
+  (subtype_at _ _ = NONE)
+`;
+
+val subtype_at_TYPE_SUBST = Q.store_thm("subtype_at_TYPE_SUBST",
+  `!x p s a. subtype_at x p = SOME a
+  ==> subtype_at (TYPE_SUBST s x) p = SOME (TYPE_SUBST s a)`,
+  ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> rw[subtype_at_def]
+  >> rfs[]
+  >> first_x_assum (qspec_then `s` assume_tac)
+  >> rw[EL_MAP]
+);
+
+val subtype_at_eq = Q.store_thm("subtype_at_eq",
+  `!x y. (x = y) = (!p. subtype_at x p = subtype_at y p)`,
+  ho_match_mp_tac type_ind
+  >> rw[EQ_IMP_THM]
+  >> first_x_assum (qspec_then `[]` mp_tac)
+  >> fs[subtype_at_def]
+);
+
+val subtype_at_trans = Q.store_thm("subtype_at_trans",
+  `!x p y p' z. subtype_at x p = SOME y /\  subtype_at y p' = SOME z
+  ==> subtype_at x (p++p') = SOME z`,
+  ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> rw[subtype_at_def]
+);
+
+val subtype_at_tyvars' = Q.store_thm("subtype_at_tyvars'",
+  `!x p a. subtype_at x p = SOME (Tyvar a) ==> MEM a (tyvars x)`,
+  ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> rw[subtype_at_def,tyvars_def,MEM_FOLDR_LIST_UNION]
+  >> rfs[]
+  >> qexists_tac `EL n aty`
+  >> fs[]
+  >> fs[MEM_EL]
+  >> asm_exists_tac
+  >> fs[]
+);
+
+val subtype_at_tyvars = Q.store_thm("subtype_at_tyvars",
+  `!x a. (?p. subtype_at x p = SOME (Tyvar a)) = MEM a (tyvars x)`,
+  ho_match_mp_tac type_ind
+  >> rw[subtype_at_def,tyvars_def,MEM_FOLDR_LIST_UNION]
+  >- (
+    rw[EQ_IMP_THM,subtype_at_def]
+    >- (Cases_on `p` >> fs[subtype_at_def])
+    >> qexists_tac `[]`
+    >> fs[subtype_at_def]
+  )
+  >> rw[EQ_IMP_THM]
+  >- (
+    pop_assum mp_tac
+    >> Induct_on `p`
+    >- fs[subtype_at_def]
+    >> fs[EVERY_MEM,EQ_IMP_THM,subtype_at_def]
+    >> rw[]
+    >> Cases_on `h` >> Cases_on `r` >> Cases_on `l` >> fs[subtype_at_def]
+    >- metis_tac[]
+    >> qexists_tac `EL n t`
+    >> first_x_assum (qspec_then `EL n t` mp_tac)
+    >> rw[MEM_EL]
+    >> metis_tac[subtype_at_trans]
+  )
+  >> fs[EVERY_MEM]
+  >> first_x_assum drule
+  >> disch_then (qspec_then `a` assume_tac)
+  >> `?n. subtype_at (Tyapp m l) [n] = SOME y` by (
+    fs[MEM_EL]
+    >> qexists_tac `(m,n)`
+    >> fs[subtype_at_def]
+  )
+  >> rfs[]
+  >> (qspecl_then [`Tyapp m l`,`[n]`,`y`,`p`,`Tyvar a`] drule) subtype_at_trans
+  >> rw[]
+  >> asm_exists_tac
+  >> rw[]
+);
+
+val subtype_at_MEM = Q.store_thm("subtype_at_MEM",
+  `!e l m. MEM e l ==> ?n. subtype_at (Tyapp m l) [n] = SOME e`,
+  rw[MEM_EL] >> qexists_tac `(m,n)` >> fs[subtype_at_def]
+);
+
+val subtype_at_decomp_path = Q.store_thm("subtype_at_decomp_path",
+  `!q ty1 p ty2 ty3. subtype_at ty1 p = SOME ty2 /\ subtype_at ty1 (p++q) = SOME ty3
+  ==> subtype_at ty2 q = SOME ty3`,
+  Induct
+  >> fs[subtype_at_def]
+  >- (
+    ho_match_mp_tac (fetch "-" "subtype_at_ind")
+    >> fs[subtype_at_def]
+    >> rpt strip_tac
+    >> first_x_assum drule
+    >> disch_then match_mp_tac
+    >> fs[]
+  )
+  >> strip_tac
+  >> ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> fs[subtype_at_def]
+);
+
+val subtype_at_type_size = Q.store_thm("subtype_at_type_size",
+  `!ty1 p ty2. subtype_at ty1 p = SOME ty2 ==> type_size ty1 >= type_size ty2`,
+  ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> fs[subtype_at_def,type_size_def]
+  >> rpt strip_tac >> fs[]
+  >> `MEM (EL n aty) aty` by (rw[MEM_EL] >> qexists_tac `n` >> fs[])
+  >> imp_res_tac type1_size_mem
+  >> fs[]
+);
+
+val subtype_at_cyclic = Q.store_thm("subtype_at_cyclic",
+  `!ty p. NULL p = (subtype_at ty p = SOME ty)`,
+  fs[EQ_IMP_THM]
+  >> ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> fs[subtype_at_def]
+  >> rw[]
+  >> Cases_on `n < LENGTH aty` >> fs[]
+  >> Cases_on `~IS_SOME (subtype_at (EL n aty) p)` >> fs[]
+  >> `!(f:type option->num) x y. f x <> f y ==> x <> y` by (rw[] >> CCONTR_TAC >> rw[])
+  >> pop_assum match_mp_tac
+  >> qexists_tac `type_size o THE`
+  >> fs[type_size_def,IS_SOME_EXISTS]
+  >> imp_res_tac subtype_at_type_size
+  >> `MEM (EL n aty) aty` by (rw[MEM_EL] >> qexists_tac `n` >> fs[])
+  >> imp_res_tac type1_size_mem
+  >> fs[]
+);
+
 val unify_types_invariant_def = Define
   `unify_types_invariant orig_l l sigma =
     (* The substitution's domain is not in the worklist *)
