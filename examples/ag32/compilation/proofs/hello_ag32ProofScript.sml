@@ -3119,6 +3119,17 @@ val lemma = Q.prove(
   \\ rewrite_tac[lab_to_targetProofTheory.good_init_state_def]
   \\ disch_then(assume_tac o el 1 o CONJUNCTS)
   \\ conj_tac
+  >- (irule byte_aligned_add \\ simp[] \\ EVAL_TAC)
+  \\ conj_tac
+  >- (irule byte_aligned_add \\ simp[] \\ EVAL_TAC)
+  \\ conj_tac
+  >- (irule byte_aligned_add \\ simp[] \\ EVAL_TAC)
+  \\ conj_tac
+  >- (Cases_on`r0` \\ simp[word_ls_n2w, word_add_n2w]
+      \\ fs[memory_size_def, heap_size_def])
+  \\ conj_tac
+  >- ( Cases_on`r0` \\ simp[WORD_LEFT_ADD_DISTRIB] \\ EVAL_TAC )
+  \\ conj_tac
   >- (
     simp[IN_DISJOINT]
     \\ qpat_x_assum`_ < _`mp_tac
