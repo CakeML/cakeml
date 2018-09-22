@@ -2566,8 +2566,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ `pat = (NONE, s with regs := s.regs |+ (0,Word middle) |+
                  (5,Word (bytes_in_word * n2w max_stack_alloc)) |+
                  (2,Word adj_ptr2) |+ (4,Word adj_ptr4) |+ (3,Word
-       (if adj_ptr2 <=+ ptr3 /\ ptr3 <=+ adj_ptr4 /\ ((bytes_in_word-1w) && ptr3) = 0w
-        then ptr3 else middle)))` by
+       (if adj_ptr2 <=+ ptr3 /\ ptr3 <=+ adj_ptr4 then ptr3 else middle)))` by
    (unabbrev_all_tac \\ rw []
     \\ fs [fmap_EXT,state_component_equality,FLOOKUP_DEF,
            FAPPLY_FUPDATE_THM,EXTENSION] \\ rw [] \\ fs []

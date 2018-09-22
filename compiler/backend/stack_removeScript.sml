@@ -221,8 +221,7 @@ val init_code_def = Define `
                 add_inst 2 5;
                 sub_inst 4 5;
                 If Lower 3 (Reg 2) (move 3 0)
-                  (If Lower 4 (Reg 3) (move 3 0)
-                     (If Test 3 (Imm (bytes_in_word - 1w)) Skip (move 3 0)));
+                  (If Lower 4 (Reg 3) (move 3 0) Skip);
                 const_inst 0 (n2w max_stack_alloc * bytes_in_word:'a word);
                 sub_inst 2 0;
                 add_inst 4 0;
