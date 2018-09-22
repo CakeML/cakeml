@@ -3989,30 +3989,31 @@ val ssa_cc_trans_props = Q.prove(`
     (* Install *)
     (rpt gen_tac>> strip_tac>>
     simp[Once (GSYM markerTheory.Abbrev_def)]>>
-    qpat_x_assum`_= (_,_,_)` mp_tac>>LET_ELIM_TAC>>
-    fs[next_var_rename_def]>>rw[]>>
-    imp_res_tac list_next_var_rename_move_props_2>>
-    rw[]>>fs[]>>
-    rfs[]>>
-    qabbrev_tac`na2 = na''+2`>>
-    `is_alloc_var na2` by fs[Abbr`na2`,is_stack_var_flip]>>
-    rw[]>>
-    qmatch_asmsub_abbrev_tac`list_next_var_rename_move sss _ _ = _`>>
-    Q.ISPECL_THEN[`ls`,`sss`,`na''+6`] mp_tac list_next_var_rename_move_props>>
-    simp[]>>
-    `is_alloc_var (na2+4)` by metis_tac[is_alloc_var_add]>>
-    `na''+6 = na2+4` by fs[Abbr`na2`]>>
-    impl_tac>-
-      (simp[Abbr`sss`,Abbr`ssa_cut`]>>
-      match_mp_tac ssa_map_ok_extend>>
-      CONJ_TAC>-
-       (match_mp_tac ssa_map_ok_inter>>
-       fs[Abbr`na2`]>>
-       match_mp_tac (GEN_ALL ssa_map_ok_more)>>
-       asm_exists_tac>>fs[])>>
-      metis_tac[convention_partitions])>>
-    strip_tac>>
-    fs[Abbr`na2`,markerTheory.Abbrev_def])>>
+    qpat_x_assum`_= (_,_,_)` mp_tac>>LET_ELIM_TAC >>
+    ( (* multiple goals *)
+      fs[next_var_rename_def]>>rw[]>>
+      imp_res_tac list_next_var_rename_move_props_2>>
+      rw[]>>fs[]>>
+      rfs[]>>
+      qabbrev_tac`na2 = na''+2`>>
+      `is_alloc_var na2` by fs[Abbr`na2`,is_stack_var_flip]>>
+      rw[]>>
+      qmatch_asmsub_abbrev_tac`list_next_var_rename_move sss _ _ = _`>>
+      Q.ISPECL_THEN[`ls`,`sss`,`na''+6`] mp_tac list_next_var_rename_move_props>>
+      simp[]>>
+      `is_alloc_var (na2+4)` by metis_tac[is_alloc_var_add]>>
+      `na''+6 = na2+4` by fs[Abbr`na2`]>>
+      impl_tac>-
+        (simp[Abbr`sss`,Abbr`ssa_cut`]>>
+        match_mp_tac ssa_map_ok_extend>>
+        CONJ_TAC>-
+         (match_mp_tac ssa_map_ok_inter>>
+         fs[Abbr`na2`]>>
+         match_mp_tac (GEN_ALL ssa_map_ok_more)>>
+         asm_exists_tac>>fs[])>>
+        metis_tac[convention_partitions])>>
+      strip_tac>>
+      fs[Abbr`na2`,markerTheory.Abbrev_def]))>>
   strip_tac>-
     (* CBW *)
     (rw[]>>fs[])>>
