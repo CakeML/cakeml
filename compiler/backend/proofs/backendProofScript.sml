@@ -841,6 +841,192 @@ val stack_names_stack_good_code_labels = Q.prove(`
   fs[stack_get_handler_labels_comp,get_code_labels_comp]>>
   fs[UNCURRY_PAIR_ETA]);
 
+(* stack_remove *)
+val get_code_labels_comp = Q.prove(
+  `!a b c p.
+  get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p`,
+  HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
+  \\ rw[] \\ fs [get_code_labels_def,stackLangTheory.list_Seq_def]
+  \\ every_case_tac \\ fs [] \\
+  TRY(rw[]>>match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
+  metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS])
+  >- (
+    completeInduct_on`n`>>
+    ONCE_REWRITE_TAC [stack_removeTheory.stack_alloc_def]>>
+    rw[]>>fs[stack_removeTheory.single_stack_alloc_def]>>rw[]>>
+    fs[get_code_labels_def]>>rw[]>>
+    first_x_assum(qspec_then`n-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def]>>
+    rw[]>>EVAL_TAC)
+  >- (
+    match_mp_tac SUBSET_TRANS >> qexists_tac`{}` >>fs[] >>
+    completeInduct_on`n`>>simp[Once stack_removeTheory.stack_free_def]>>
+    rw[]>>fs[stack_removeTheory.single_stack_free_def,get_code_labels_def]>>
+    first_x_assum(qspec_then`n-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def])
+  >- (
+    match_mp_tac SUBSET_TRANS >> qexists_tac`{}` >>fs[] >>
+    pop_assum kall_tac>>
+    simp[Once stack_removeTheory.stack_store_def]>>
+    rw[get_code_labels_def]>>
+    completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>
+    rw[]>>fs[get_code_labels_def]>>
+    first_x_assum(qspec_then`n0-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def])
+  >- (
+    match_mp_tac SUBSET_TRANS >> qexists_tac`{}` >>fs[] >>
+    pop_assum kall_tac>>
+    simp[Once stack_removeTheory.stack_load_def]>>
+    rw[get_code_labels_def]>>
+    completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>
+    rw[]>>fs[get_code_labels_def]>>
+    first_x_assum(qspec_then`n0-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def]));
+
+val stack_get_handler_labels_comp = Q.prove(
+  `!a b c p m.
+  stack_get_handler_labels m (comp a b c p) =
+  stack_get_handler_labels m p`,
+  HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
+  \\ rw[] \\ fs [stack_get_handler_labels_def,stackLangTheory.list_Seq_def]
+  \\ every_case_tac \\ fs []
+  >- (
+    completeInduct_on`n`>>
+    ONCE_REWRITE_TAC [stack_removeTheory.stack_alloc_def]>>
+    rw[]>>fs[stack_removeTheory.single_stack_alloc_def]>>rw[]>>
+    fs[stack_get_handler_labels_def]>>rw[]>>
+    first_x_assum(qspec_then`n-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def]>>
+    rw[]>>EVAL_TAC)
+  >- (
+    completeInduct_on`n`>>simp[Once stack_removeTheory.stack_free_def]>>
+    rw[]>>fs[stack_removeTheory.single_stack_free_def,stack_get_handler_labels_def]>>
+    first_x_assum(qspec_then`n-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def])
+  >- (
+    pop_assum kall_tac>>
+    simp[Once stack_removeTheory.stack_store_def]>>
+    rw[stack_get_handler_labels_def]>>
+    completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>
+    rw[]>>fs[stack_get_handler_labels_def]>>
+    first_x_assum(qspec_then`n0-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def])
+  >- (
+    pop_assum kall_tac>>
+    simp[Once stack_removeTheory.stack_load_def]>>
+    rw[stack_get_handler_labels_def]>>
+    completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>
+    rw[]>>fs[stack_get_handler_labels_def]>>
+    first_x_assum(qspec_then`n0-max_stack_alloc` mp_tac)>>
+    fs[stack_removeTheory.max_stack_alloc_def]));
+
+val init_code_labels = Q.prove(`
+  x ∈ get_code_labels (init_code ggc mh sp) ⇒ x = (1n,0n)`,
+  rpt(EVAL_TAC>>rw[]>>fs[]));
+
+val stack_remove_stack_good_code_labels = Q.prove(`
+  ∀prog.
+  MEM loc (MAP FST prog) ∧
+  stack_good_code_labels prog ⇒
+  stack_good_code_labels (stack_remove$compile jump off ggc mh sp loc prog)`,
+  rw[]>>
+  simp[stack_removeTheory.compile_def]>>
+  fs[stack_good_code_labels_def]>>rw[]
+  >- (
+    fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF]>>
+    simp[SUBSET_DEF,stack_removeTheory.init_stubs_def,PULL_EXISTS]>>
+    fs[get_code_labels_def,stack_removeTheory.halt_inst_def]>>
+    rw[]>>fs[]
+    >-
+      metis_tac[init_code_labels]
+    >>
+      fs[MEM_MAP,EXISTS_PROD]>>metis_tac[])
+  >>
+    fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_removeTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
+    simp[stack_get_handler_labels_comp]>>
+    fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
+    drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    rw[]
+    >-
+      fs[stack_removeTheory.init_stubs_def,stack_removeTheory.stack_err_lab_def,EXISTS_PROD]
+    >>
+      metis_tac[]);
+
+(* stack_alloc *)
+val get_code_labels_comp = Q.prove(`
+  !n m p pp mm.
+  get_code_labels (FST (comp n m p)) ⊆ (gc_stub_location,0) INSERT get_code_labels p`,
+  HO_MATCH_MP_TAC stack_allocTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ once_rewrite_tac [stack_allocTheory.comp_def]
+  \\ rw[] \\ fs [stack_get_handler_labels_def,stackLangTheory.list_Seq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF]>>metis_tac[]);
+
+val stack_get_handler_labels_comp = Q.prove(`
+  !n m p pp mm.
+  stack_get_handler_labels i (FST (comp n m p)) = stack_get_handler_labels i p`,
+  HO_MATCH_MP_TAC stack_allocTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ once_rewrite_tac [stack_allocTheory.comp_def]
+  \\ rw[] \\ fs [stack_get_handler_labels_def,stackLangTheory.list_Seq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt(pairarg_tac \\ fs[stack_get_handler_labels_def])
+  \\ fs[stack_get_handler_labels_def]);
+
+val init_code_labels = Q.prove(`
+  get_code_labels (word_gc_code c) = {}`,
+  simp[stack_allocTheory.word_gc_code_def]>>
+  EVAL_TAC>>
+  EVERY_CASE_TAC>>fs[]>>
+  rpt(EVAL_TAC>>rw[]>>fs[]));
+
+val stack_alloc_stack_good_code_labels = Q.prove(`
+  ∀prog c.
+  stack_good_code_labels prog ⇒
+  stack_good_code_labels (stack_alloc$compile c prog)`,
+  simp[stack_allocTheory.compile_def]>>
+  fs[stack_good_code_labels_def]>>rw[]
+  >- (
+    fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF]>>
+    simp[SUBSET_DEF,stack_allocTheory.stubs_def,PULL_EXISTS]>>
+    simp[init_code_labels])
+  >>
+    fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
+    simp[stack_get_handler_labels_comp]>>
+    fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
+    drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    rw[]
+    >-
+      fs[stack_allocTheory.stubs_def]
+    >>
+      metis_tac[]);
+
+(* stack_to_lab *)
+val stack_to_lab_stack_good_code_labels = Q.store_thm("stack_to_lab_stack_good_code_labels",`
+  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  MEM InitGlobals_location (MAP FST prog) ∧
+  stack_good_code_labels prog ∧
+  EVERY sec_labels_ok  prog' ⇒
+  get_labels prog' ⊆ get_code_labels prog'`,
+  rw[stack_to_labTheory.compile_def]>>
+  match_mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels_TODO>>
+  simp[]>>
+  match_mp_tac stack_names_stack_good_code_labels>>
+  match_mp_tac stack_remove_stack_good_code_labels>>
+  rw[]
+  >- (
+    simp[stack_allocTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF,LAMBDA_PROD]>>
+    fs[MEM_MAP,EXISTS_PROD]>>
+    metis_tac[])
+  >>
+  match_mp_tac stack_alloc_stack_good_code_labels>>
+  fs[]);
+
+(* word_to_stack *)
+
+
 (*
 val backend_cs =
   let val cs = wordsLib.words_compset() in
