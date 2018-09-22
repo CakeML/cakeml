@@ -11,6 +11,11 @@ val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
+(* test timing by setting this
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "ml_translator_test_timing.txt")
+*)
+
 val res = translate ZIP2_def;
 
 val res = translate APPEND;

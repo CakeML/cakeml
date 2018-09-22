@@ -693,6 +693,36 @@ in
 end
 
 
+(* timing output *)
+
+val trace_timing_to = ref (NONE : string option)
+
+fun start_timing nm = case ! trace_timing_to of
+  SOME fname => let
+    val time = Portable.timestamp ()
+    val f = TextIO.openAppend fname
+    val time_s = Portable.time_to_string time
+  in TextIO.output (f, time_s ^ ": began " ^ nm ^ "\n");
+    TextIO.closeOut f;
+    SOME (fname, nm, time)
+  end | NONE => NONE
+
+fun end_timing t = case t of
+  SOME (fname, nm, start_time) => let
+    val time = Portable.timestamp ()
+    val f = TextIO.openAppend fname
+    val time_s = Portable.time_to_string time
+    val dur_s = Portable.time_to_string (time - start_time)
+  in TextIO.output (f, time_s ^ ": finished " ^ nm ^ "\n");
+    TextIO.output (f, "  -- duration of " ^ nm ^ ": " ^ dur_s ^ "\n");
+    TextIO.closeOut f
+  end | NONE => ()
+
+fun do_timing nm f x = let
+    val start = start_timing nm
+    val r = f x
+  in end_timing start; r end
+
 (* code for loading and storing translations into a single thm *)
 
 fun check_uptodate_term tm =
@@ -3660,15 +3690,19 @@ val def = Define `
 
 fun translate_main options translate register_type def = (let
 
+  val start = start_timing "translate_main"
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
+  val prep_start = start_timing "preprocessing+registering"
   val _ = register_term_types register_type (concl def)
   val (is_rec,defs,ind) = preprocess_def def
   (* this is usually a no-op, but preprocess_def might have introduced pairs *)
   val _ = register_term_types register_type (concl (LIST_CONJ defs))
+  val _ = end_timing prep_start
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_,_) => fname) info)
+  val _ = do_timing ("noting msg " ^ msg) I ()
   (* derive deep embedding *)
   fun compute_deep_embedding info = let
     val _ = map (fn (fname,ml_fname,lhs,_,_) =>
@@ -3689,8 +3723,9 @@ val _ = map (fn (fname,ml_name,lhs,_,_) => install_rec_pattern lhs fname) info
 val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
-  val thms = loop info
-  val thms = map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2)) thms
+  val thms = do_timing "doing loop" loop info
+  val thms = do_timing "instantiating cons names"
+    (map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2))) thms
 
   val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
@@ -3711,8 +3746,9 @@ val (fname,ml_fname,th,def) = hd thms
                       (rev (if is_rec then butlast rev_params else rev_params)),
                     last rev_params)
     in (fname,ml_fname,def,th,v) end
-  val thms = map optimise_and_abstract thms
+  val thms = do_timing "optimise+abstract" (map optimise_and_abstract) thms
   (* final phase: extract precondition, perform induction, store cert *)
+  val start_fin = start_timing "translate_main final phase"
 
   val (is_fun,results) = if not is_rec then let
     (* non-recursive case *)
@@ -3849,6 +3885,9 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
     val results = map fix (zip results thms)
     val _ = map (delete_const o fst o dest_const o fst o dest_eq o concl) code_defs
   in (true,results) end
+
+  val _ = end_timing start_fin
+
   fun check results = let
     val th = LIST_CONJ (map #4 results)
     val f = can (find_term (can (match_term (get_term "WF")))) (th |> D |> concl)
@@ -3870,16 +3909,20 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
 
 fun translate_options options def =
   let
+    val start = start_timing "translation"
+
     val (is_rec,is_fun,results) =
       translate_main options (translate_options options) register_type def
 
     val () =
       if !generate_sigs then
-        let val _ = generate_sig_thms results in () end
+        let val _ = do_timing "generate_sig_thms" generate_sig_thms results
+        in () end
       else ()
   in
     if is_rec then
     let
+      val start_rec = start_timing "processing rec case"
       val recc = results |> map (fn (fname,_,def,th,pre) => th) |> hd |> hyp
         |> first (can (find_term (aconv Recclosure_tm)))
         |> rand |> rator |> rand
@@ -3904,12 +3947,14 @@ fun translate_options options def =
       val v_thm = v_thm |> DISCH_ALL
                   |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
                   |> UNDISCH_ALL
+      val _ = (end_timing start_rec; end_timing start)
       in v_thm end
     else (* not is_rec *)
     let
       val (fname,ml_fname,def,th,pre) = hd results
     in
       if is_fun then let
+        val start_fun = start_timing "processing fun case"
         val th = th |> INST [cl_env_tm |-> get_curr_env()]
         val n = ml_fname |> stringSyntax.fromMLstring
         val lookup_var_assum = th |> hyp
@@ -3926,8 +3971,10 @@ fun translate_options options def =
         val v_thm = lemma |> CONV_RULE (RAND_CONV (REWR_CONV (GSYM v_def)))
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
+        val _ = (end_timing start_fun; end_timing start)
         in save_thm(fname ^ "_v_thm",v_thm) end
       else let
+        val start_v = start_timing "processing val case"
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
@@ -3963,6 +4010,7 @@ fun translate_options options def =
         val v_thm = v_thm |> DISCH_ALL
                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
                     |> UNDISCH_ALL
+        val _ = (end_timing start_v; end_timing start)
         in save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
