@@ -3002,22 +3002,22 @@ val known_correct0 = Q.prove(
            co_every_Fn_vs_NONE_shift_seq,
            oracle_state_sgc_free_shift_seq,
            oracle_gapprox_subspt_shift_seq]
-   \\ simp [PULL_EXISTS]
-   \\ disch_then match_mp_tac \\ simp []
-   \\ `env1 ⧺ xenv1 = env1 ⧺ xenv1` by simp []
-   \\ goal_assum (pop_assum o mp_then Any mp_tac)
-   \\ simp [ADD1]
-   \\ `state_oracle_mglobals_disjoint s1`
-       by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
-           \\ goal_assum drule \\ simp [])
-   \\ `mglobals_disjoint s1.globals [x2]`
-       by (match_mp_tac mglobals_disjoint_evaluate
-           \\ goal_assum drule
-           \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
-                  elist_globals_append, BAG_DISJOINT_SYM])
-   \\ patresolve `known _ [x1] _ _ = _` hd known_preserves_esgc_free
-   \\ simp [] \\ strip_tac
-   \\ metis_tac [v_rel_LIST_REL_subspt])
+    \\ simp [PULL_EXISTS]
+    \\ disch_then match_mp_tac \\ simp []
+    \\ `env1 ⧺ xenv1 = env1 ⧺ xenv1` by simp []
+    \\ goal_assum (pop_assum o mp_then Any mp_tac)
+    \\ simp [ADD1]
+    \\ `state_oracle_mglobals_disjoint s1`
+        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
+            \\ goal_assum drule \\ simp [])
+    \\ `mglobals_disjoint s1.globals [x2]`
+        by (match_mp_tac mglobals_disjoint_evaluate
+            \\ goal_assum drule
+            \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
+                   elist_globals_append, BAG_DISJOINT_SYM])
+    \\ patresolve `known _ [x1] _ _ = _` hd known_preserves_esgc_free
+    \\ simp [] \\ strip_tac
+    \\ metis_tac [v_rel_LIST_REL_subspt])
   THEN1
    (say "Op"
     \\ fs [known_def, evaluate_def]
