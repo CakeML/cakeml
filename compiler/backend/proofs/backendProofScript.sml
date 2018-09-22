@@ -693,6 +693,83 @@ val MAP_prog_to_section_preserves_labels = Q.store_thm("MAP_prog_to_section_pres
   \\ rw[labPropsTheory.sec_get_labels_def]
   \\ metis_tac[]);
 
+val stack_get_handler_labels_def = Define`
+  (stack_get_handler_labels n (Call r d h) =
+    (case r of SOME (x,_,_) => stack_get_handler_labels n x | _ => {}) ∪
+    (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})) ∧
+  (stack_get_handler_labels n (Seq p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
+  (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
+  (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
+  (stack_get_handler_labels n _ = {})`;
+
+val flatten_preserves_handler_labels = Q.store_thm("flatten_preserves_handler_labels",
+  `∀m n p l x y.
+   flatten m n p = (l,x,y) ∧
+   good_calls m
+   ⇒
+   stack_get_handler_labels n m ⊆
+     sec_get_code_labels (Section n (append l))`,
+  recInduct stack_to_labTheory.flatten_ind
+  \\ rpt gen_tac \\ strip_tac
+  \\ rw[Once stack_to_labTheory.flatten_def]
+  \\ qabbrev_tac`XXX = FOO p`
+  \\ simp[labPropsTheory.sec_get_code_labels_def]
+  \\ Cases_on`p` \\ fs[] \\ rveq \\ fs[stack_get_handler_labels_def]
+  >- (
+    fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+    \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+    \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+    >- (
+      Cases_on`s` \\ fs[stack_to_labTheory.compile_jump_def, labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
+      \\ fs[SUBSET_DEF, PULL_EXISTS]
+      \\ metis_tac[] )
+    \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+    \\ fs[labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
+    \\ Cases_on`s` \\ fs[stack_to_labTheory.compile_jump_def, labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ rw[] \\ TRY(metis_tac[]))
+  >- (
+    fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+    \\ Cases_on`s` \\ fs[stack_to_labTheory.compile_jump_def, labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
+    \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+    \\ fs[labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ fsrw_tac[DNF_ss][]
+    \\ fs[labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
+    \\ metis_tac[])
+  \\ (
+    rpt (pairarg_tac \\ fs[]) \\ rveq
+    \\ fs[SUBSET_DEF, PULL_EXISTS, CaseEq"bool"] \\ rveq
+    \\ fs[labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def,stack_get_handler_labels_def]
+    \\ metis_tac[] ));
+
+val MAP_prog_to_section_preserves_handler_labels = Q.store_thm("MAP_prog_to_section_preserves_handler_labels",
+  `∀p.
+    EVERY good_calls (MAP SND p) ⇒
+    BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ⊆
+    get_code_labels (MAP prog_to_section p)`,
+  Induct \\ simp[FORALL_PROD]
+  \\ simp[stack_to_labTheory.prog_to_section_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs[]
+  \\ simp[get_code_labels_cons, labPropsTheory.sec_get_code_labels_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, EXISTS_PROD, FORALL_PROD] \\ rw[]
+  \\ drule flatten_preserves_handler_labels
+  \\ rw[SUBSET_DEF, PULL_EXISTS, EXISTS_PROD, FORALL_PROD]
+  \\ first_x_assum drule
+  \\ rw[labPropsTheory.sec_get_code_labels_def]
+  \\ metis_tac[]);
+
+val prog_to_section_preserves_MAP_FST = Q.prove(`
+    ∀p.
+    IMAGE (λn. n,0) (set (MAP FST p)) ⊆
+    get_code_labels (MAP prog_to_section p)`,
+    Induct>>
+    fs[get_code_labels_cons,FORALL_PROD,stack_to_labTheory.prog_to_section_def]>>
+    rw[]>> rpt(pairarg_tac>>fs[])>>
+    simp[get_code_labels_cons, labPropsTheory.sec_get_code_labels_def]>>
+    fs[SUBSET_DEF]);
+
 val get_labels_MAP_prog_to_section_SUBSET_code_labels = Q.store_thm("get_labels_MAP_prog_to_section_SUBSET_code_labels",
   `∀p. EVERY sec_labels_ok (MAP prog_to_section p) ⇒
     get_labels (MAP prog_to_section p) ⊆
@@ -710,6 +787,23 @@ val get_labels_MAP_prog_to_section_SUBSET_code_labels = Q.store_thm("get_labels_
   \\ simp[SUBSET_DEF, PULL_EXISTS, labPropsTheory.sec_get_code_labels_def]
   \\ rw[] \\ first_x_assum drule \\ rw[]
   \\ metis_tac[]);
+
+val get_labels_MAP_prog_to_section_SUBSET_code_labels_TODO = Q.store_thm("get_labels_MAP_prog_to_section_SUBSET_code_labels_TODO",
+`∀p. EVERY sec_labels_ok (MAP prog_to_section p) ∧
+     EVERY good_calls (MAP SND p) ∧
+     BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
+     BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+     IMAGE (λn. n,0) (set (MAP FST p))
+     ⇒
+    get_labels (MAP prog_to_section p) ⊆
+    get_code_labels (MAP prog_to_section p)`,
+  rw[]>>
+  drule get_labels_MAP_prog_to_section_SUBSET_code_labels>>
+  strip_tac >> match_mp_tac SUBSET_TRANS>>
+  asm_exists_tac>> simp[]>>
+  match_mp_tac SUBSET_TRANS>>
+  asm_exists_tac>> rw[]>>
+  metis_tac[MAP_prog_to_section_preserves_handler_labels,prog_to_section_preserves_MAP_FST]);
 
 (*
 val backend_cs =
