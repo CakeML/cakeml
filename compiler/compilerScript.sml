@@ -1,3 +1,9 @@
+(*
+  Definition of the CakeML compiler as a function that takes a list of command
+  line arguments and a string corresponding to standard input, and produces a
+  pair of output strings for standard error and standard output (the latter
+  containing the generated machine code if successful).
+*)
 open preamble
      lexer_funTheory lexer_implTheory
      cmlParseTheory

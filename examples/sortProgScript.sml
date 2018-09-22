@@ -1,3 +1,6 @@
+(*
+  Program to sort the lines in a file, built on top of the quick sort example.
+*)
 open preamble basis quicksortProgTheory
 
 val _ = new_theory "sortProg";

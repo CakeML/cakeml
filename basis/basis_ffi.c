@@ -1,3 +1,7 @@
+/*
+  Implements the foreign function interface (FFI) used in the CakeML basis
+  library, as a thin wrapper around the relevant system calls.
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

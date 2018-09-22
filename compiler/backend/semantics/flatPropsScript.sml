@@ -980,5 +980,74 @@ val IMP_semantics_eq = Q.store_thm("IMP_semantics_eq",
         [evaluate_decs_add_to_clock_io_events_mono,
          initial_state_with_clock, FST, ADD_SYM]);
 
+val op_gbag_def = Define `
+  op_gbag (GlobalVarInit n) = BAG_INSERT n {||} /\
+  op_gbag _ = {||}`;
+
+val set_globals_def = tDefine "set_globals" `
+  (set_globals (Raise t e) = set_globals e) /\
+  (set_globals (Handle t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
+  (set_globals (Con t id es) = elist_globals es) /\
+  (set_globals (Fun t v e) = set_globals e) /\
+  (set_globals (App t op es) = elist_globals es ⊎ op_gbag op) /\
+  (set_globals (If t e1 e2 e3) =
+    set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) /\
+  (set_globals (Mat t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
+  (set_globals (Let t v e1 e2) = set_globals e1 ⊎ set_globals e2) /\
+  (set_globals (Letrec t fs e) =
+    set_globals e ⊎ elist_globals (MAP (SND o SND) fs)) /\
+  (set_globals _ = {||}) /\
+  (elist_globals [] = {||}) /\
+  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)`
+ (WF_REL_TAC
+     `measure (\a. case a of INL e => exp_size e | INR es => exp6_size es)`
+   \\ rw [flatLangTheory.exp_size_def]
+   \\ fs [GSYM o_DEF]
+   >-
+    (`exp6_size (MAP (SND o SND) fs) < exp1_size fs + 1` suffices_by rw []
+     \\ fs [flatLangTheory.exp_size_MAP])
+   \\ `exp6_size (MAP SND pes) < exp3_size pes + 1` suffices_by rw []
+   \\ fs [flatLangTheory.exp_size_MAP]);
+
+val _ = export_rewrites ["set_globals_def"];
+
+val esgc_free_def = tDefine "esgc_free" `
+  (esgc_free (Raise t e) <=> esgc_free e) /\
+  (esgc_free (Handle t e pes) <=>
+    esgc_free e /\ EVERY esgc_free (MAP SND pes)) /\
+  (esgc_free (Con t id es) <=> EVERY esgc_free es) /\
+  (esgc_free (Fun t v e) <=> set_globals e = {||}) /\
+  (esgc_free (App t op es) <=> EVERY esgc_free es) /\
+  (esgc_free (If t e1 e2 e3) <=>
+    esgc_free e1 /\ esgc_free e2 /\ esgc_free e3) /\
+  (esgc_free (Mat t e pes) <=> esgc_free e /\ EVERY esgc_free (MAP SND pes)) /\
+  (esgc_free (Let t v e1 e2) <=> esgc_free e1 /\ esgc_free e2) /\
+  (esgc_free (Letrec t fs e) <=>
+    esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
+  (esgc_free _ <=> T)`
+ (WF_REL_TAC `measure exp_size`
+  \\ rw []
+  \\ fs [MEM_MAP] \\ rw []
+  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs [])
+
+val esgc_free_def = save_thm("esgc_free_def[simp]",
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+
+val elist_globals_eq_empty = Q.store_thm("elist_globals_eq_empty",
+  `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,
+  Induct_on`l` \\ rw[set_globals_def] \\ rw[EQ_IMP_THM] \\ rw[]);
+
+val elist_globals_append = Q.store_thm("elist_globals_append",
+  `elist_globals (xs ++ ys) = elist_globals xs ⊎ elist_globals ys`,
+ Induct_on `xs` \\ rw [BAG_UNION, FUN_EQ_THM, EMPTY_BAG]);
+
+val is_Dlet_def = Define `
+  (is_Dlet (Dlet _) <=> T) /\
+  (is_Dlet _ <=> F)`;
+
+val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
+
+val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
+
 val _ = export_theory()
 

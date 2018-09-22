@@ -207,8 +207,8 @@ val calls_def = tDefine "calls" `
   \\ DECIDE_TAC);
 
 val compile_def = Define `
-  compile F x = (x,[]) /\
-  compile T x = let (xs,g) = calls x (LN,[]) in (xs,SND g)`
+  compile F x = (x,(LN,[])) /\
+  compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)`
 
 val calls_length = Q.store_thm("calls_length",
   `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs`,
@@ -228,7 +228,7 @@ val compile_LENGTH = Q.store_thm("compile_LENGTH",
   \\ imp_res_tac calls_length \\ rw[]);
 
 val compile_nil = Q.store_thm("compile_nil",
-  `clos_call$compile x [] = (a,b) ⇒ a =[] ∧ b = []`,
+  `clos_call$compile x [] = (a,g,b) ⇒ a =[] ∧ g = LN ∧ b = []`,
   Cases_on`x` \\ rw[compile_def]
   \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]);
 

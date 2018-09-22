@@ -1,3 +1,6 @@
+(*
+  A functional specification of lexing from strings to token lists.
+*)
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";
@@ -131,9 +134,7 @@ val read_FFIcall_reduces_input = Q.store_thm(
 val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
 
-(* next_sym reads the next symbol from a string *)
-(* TODO: why do we need an option type? *)
-
+(* next_sym reads the next symbol from a string, returning NONE if at eof *)
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" _ = NONE) /\
   (next_sym (c::str) loc =
@@ -252,15 +253,13 @@ val NOT_NIL_EXISTS_CONS = Q.prove(
    (list_CASE n F P ⇔ ∃h t. n = h :: t ∧ P h t)`,
   Cases_on `n` >> simp[]);
 
-val listeq = prove_case_eq_thm {case_def = listTheory.list_case_def,
-                                nchotomy = listTheory.list_CASES}
-val optioneq = prove_case_eq_thm { nchotomy = option_nchotomy,
-                                   case_def = option_case_def}
+val listeq = CaseEq "list"
+val optioneq = CaseEq "option"
 
 
 val next_sym_LESS = Q.store_thm("next_sym_LESS",
-  `!input l. (next_sym input l = SOME (s, l', rest))
-    ==> LENGTH rest < LENGTH input`,
+  `!input l s l' rest.
+     (next_sym input l = SOME (s, l', rest)) ==> LENGTH rest < LENGTH input`,
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
@@ -273,10 +272,9 @@ val next_sym_LESS = Q.store_thm("next_sym_LESS",
        rpt (pairarg_tac>> fs[]) >> rveq >>
        imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `read_FFIcall` >>
-       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC)
-  (* TODO simpler? *)
-  >> `STRLEN rest < STRLEN input` by fs[]
-  >> fs[]);
+       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
+  qpat_x_assum ‘SOME _ = next_sym _ _’ (assume_tac o SYM) >>
+  first_x_assum drule >> simp[]);
 
 val _ = Define ` init_loc = <| row := 1; col := 1; offset := 0|>`
 

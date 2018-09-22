@@ -1,10 +1,18 @@
-INCLUDES = ../misc pure ../translator ../characteristic ../semantics ../translator/monadic
+INCLUDES = ../developers ../misc pure ../translator ../characteristic ../semantics ../translator/monadic
 OPTIONS = QUIT_ON_FAILURE
+
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
 TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS) basis_ffi.o
+
+all: $(TARGETS) basis_ffi.o README.md
 .PHONY: all
+
+README_SOURCES = basis.sml basis_ffi.c dependency-order
+DIRS = $(wildcard */)
+README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	../developers/readme_gen $(README_SOURCES)
+
 ifndef CC
 CC=gcc
 endif

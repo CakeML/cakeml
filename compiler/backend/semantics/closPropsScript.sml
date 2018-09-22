@@ -14,6 +14,33 @@ val dec_clock_ffi = Q.store_thm("dec_clock_ffi",
   `(dec_clock x y).ffi = y.ffi`,
   EVAL_TAC);
 
+val dec_clock_compile_oracle = Q.store_thm("dec_clock_compile_oracle[simp]",
+  `(closSem$dec_clock n s).compile_oracle = s.compile_oracle`,
+  EVAL_TAC);
+
+val dec_clock_compile = Q.store_thm("dec_clock_compile[simp]",
+  `(closSem$dec_clock n s).compile = s.compile`,
+  EVAL_TAC);
+
+val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
+  `!(x: closSem$v) y xs ys.
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys /\
+     (!t l. P (Block t l) <=> EVERY P l) /\
+     P x /\ P y ==>
+       P (list_to_v (xs ++ ys))`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, case_eq_thms] \\ fs []
+  >-
+   (qpat_x_assum `v_to_list _ = _` mp_tac
+    \\ pop_assum mp_tac
+    \\ ConseqConv.SPEC_ALL_TAC
+    \\ ho_match_mp_tac v_to_list_ind
+    \\ rw [v_to_list_def, case_eq_thms]
+    \\ fs [list_to_v_def])
+  \\ rfs []
+  \\ res_tac
+  \\ fs [list_to_v_def])
+
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
@@ -183,6 +210,10 @@ val every_Fn_SOME_EVERY = Q.store_thm("every_Fn_SOME_EVERY",
   Induct >> simp[every_Fn_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_SOME_def])
 
+val every_Fn_SOME_APPEND = Q.store_thm("every_Fn_SOME_APPEND[simp]",
+  `every_Fn_SOME (l1 ++ l2) ⇔ every_Fn_SOME l1 ∧ every_Fn_SOME l2`,
+  once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]);
+
 val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
   (every_Fn_vs_NONE [] ⇔ T) ∧
   (every_Fn_vs_NONE (x::y::xs) ⇔
@@ -231,6 +262,15 @@ val every_Fn_vs_NONE_EVERY = Q.store_thm("every_Fn_vs_NONE_EVERY",
   Induct >> simp[every_Fn_vs_NONE_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_NONE_def])
 
+val IMP_every_Fn_vs_NONE_TAKE = Q.store_thm("IMP_every_Fn_vs_NONE_TAKE",
+  `every_Fn_vs_NONE ls ⇒ every_Fn_vs_NONE (TAKE n ls)`,
+  once_rewrite_tac[every_Fn_vs_NONE_EVERY]
+  \\ Cases_on`n <= LENGTH ls` \\ simp[EVERY_TAKE, TAKE_LENGTH_TOO_LONG]);
+
+val every_Fn_vs_NONE_APPEND = Q.store_thm("every_Fn_vs_NONE_APPEND[simp]",
+  `every_Fn_vs_NONE (l1 ++ l2) ⇔ every_Fn_vs_NONE l1 ∧ every_Fn_vs_NONE l2`,
+  once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]);
+
 val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
   (every_Fn_vs_SOME [] ⇔ T) ∧
   (every_Fn_vs_SOME (x::y::xs) ⇔
@@ -278,6 +318,10 @@ val every_Fn_vs_SOME_EVERY = Q.store_thm("every_Fn_vs_SOME_EVERY",
   `∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls`,
   Induct >> simp[every_Fn_vs_SOME_def] >>
   Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_SOME_def])
+
+val every_Fn_vs_SOME_APPEND = Q.store_thm("every_Fn_vs_SOME_APPEND[simp]",
+  `every_Fn_vs_SOME (l1 ++ l2) ⇔ every_Fn_vs_SOME l1 ∧ every_Fn_vs_SOME l2`,
+  once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]);
 
 val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\
@@ -555,10 +599,19 @@ val evaluate_code_lemma = prove(
    (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
     \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
     \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+    \\ qexists_tac`1+y`
+    \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
+    \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
+    \\ metis_tac[])
+  \\ TRY
+   (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
+    \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
+    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
     \\ qexists_tac`z+1+y`
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
     \\ metis_tac[])
+  (*
   >-
    (fs [do_install_def]
     \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
@@ -572,6 +625,7 @@ val evaluate_code_lemma = prove(
     \\ rfs []
     \\ fs [FDOM_FUPDATE_LIST]
     \\ metis_tac [])
+  *)
   \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
   \\ qexists_tac `n1+n2+n3` \\ fs []
   \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`
@@ -1291,7 +1345,7 @@ val do_install_not_Rffi_error = Q.store_thm("do_install_not_Rffi_error[simp]",
   `do_install vs s = (res,t) ==> res ≠ Rerr(Rabort (Rffi_error f))`,
   rw[do_install_def,case_eq_thms,UNCURRY,bool_case_eq,pair_case_eq]);
 
-val s = ``s:('c,'ffi) closSem$state``
+val s = ``s:('c,'ffi) closSem$state``;
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `(∀p es env ^s r s'.
@@ -1337,6 +1391,8 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock,LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def] >>
   imp_res_tac do_install_add_to_clock >> fs[] >> rw[] >>
+  qpat_x_assum `evaluate (xs,env,s) = _` assume_tac >>
+  TRY (drule do_install_add_to_clock \\ fs [] \\ NO_TAC) >>
   rename1 `_ = (Rerr e4,_)` >>
   Cases_on `e4` >> fs [] >>
   imp_res_tac do_install_not_Rraise >> fs [] >>
@@ -1399,7 +1455,9 @@ val tac =
   TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   imp_res_tac do_install_const >>
+  rveq >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
+  rveq >> fs[] >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2,lemma3]
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
@@ -1572,7 +1630,7 @@ val ssgc_free_def = Define`
     (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
-    (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ esgc_free exp ∧
+    (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
          elist_globals (MAP (SND o SND) aux) = {||})
 `;
 
@@ -1630,10 +1688,6 @@ val FST_SND_ignore_table = Q.store_thm("FST_SND_ignore_table",
   Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]);
 
 (* generic do_app compile proof *)
-
-val LIST_REL_MAP = store_thm("LIST_REL_MAP",
-  ``!xs. LIST_REL P xs (MAP f xs) <=> EVERY (\x. P x (f x)) xs``,
-  Induct \\ fs []);
 
 val isClos_def = Define `
   isClos (Closure x1 x2 x3 x4 x5) = T /\
@@ -2554,6 +2608,7 @@ val evaluate_CURRY_I = Q.store_thm("evaluate_CURRY_I",
     \\ simp[]
     \\ disch_then drule
     \\ rw[] \\ fs[]
+    \\ res_tac \\ fs []
     \\ NO_TAC )
   \\ imp_res_tac do_app_CURRY_I_Rval
   \\ fs[]
@@ -2585,5 +2640,184 @@ val semantics_nil = Q.store_thm("semantics_nil[simp]",
   rw[semantics_def, evaluate_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[] \\ EVAL_TAC);
+
+val find_code_SUBMAP = Q.store_thm("find_code_SUBMAP",
+  `find_code dest vs code1 = SOME p ∧ code1 ⊑ code2 ⇒
+   find_code dest vs code2 = SOME p`,
+  rw[closSemTheory.find_code_def, CaseEq"option", pair_case_eq]
+  \\ imp_res_tac FLOOKUP_SUBMAP);
+
+val SUBMAP_rel_def = Define`
+  SUBMAP_rel z1 z2 ⇔
+    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code (*∧
+    (∀n. DISJOINT (FDOM z2.code) (set (MAP FST (SND (SND (z1.compile_oracle n))))) ∧
+         (∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (z1.compile_oracle m))))) (set (MAP FST (SND (SND (z1.compile_oracle n)))))))*)`;
+
+val find_code_SUBMAP_rel = Q.store_thm("find_code_SUBMAP_rel",
+  `find_code dest vs s1.code = SOME p ∧ SUBMAP_rel s1 s2 ⇒
+   find_code dest vs s2.code = SOME p`,
+  rw[SUBMAP_rel_def]
+  \\ imp_res_tac find_code_SUBMAP);
+
+(*
+val do_install_SUBMAP = Q.store_thm("do_install_SUBMAP",
+  `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
+   SUBMAP_rel z1 z2 ⇒
+   ∃s2.
+     do_install xs z2 = (r,s2) ∧
+     SUBMAP_rel s1 s2`,
+  rw[closSemTheory.do_install_def]
+  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac SUBMAP_rel_def
+  \\ imp_res_tac closSemTheory.state_component_equality
+  \\ fs[] \\ rveq
+  \\ reverse IF_CASES_TAC \\ fs[] \\ fs[]
+  >- ( last_x_assum(qspec_then`0`mp_tac) \\ simp[] )
+  \\ fs[bool_case_eq,CaseEq"option",CaseEq"prod"]
+  \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality,shift_seq_def]
+  \\ rveq \\ fs[]
+  \\ (
+    conj_tac >- (
+      irule SUBMAP_mono_FUPDATE_LIST
+      \\ fs[SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT] ))
+  \\ gen_tac
+  \\ first_x_assum(qspec_then`n+1`mp_tac)
+  \\ fs[IN_DISJOINT, FDOM_FUPDATE_LIST]
+  \\ CCONTR_TAC \\ fs[]
+  \\ first_x_assum(qspec_then`0`mp_tac) \\ simp[]
+  \\ metis_tac[]);
+*)
+
+val do_app_lemma_simp = prove(
+  ``(exc_rel $= err1 err2 <=> err1 = err2) /\
+    LIST_REL $= xs xs /\
+    simple_state_rel $= SUBMAP_rel /\
+    simple_val_rel $=``,
+  rw [] \\ fs [LIST_REL_eq,simple_state_rel_def]
+  THEN1
+   (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
+    \\ eq_tac \\ rw [])
+  \\ fs [LIST_REL_eq,LIST_REL_OPT_REL_eq,simple_val_rel_def]
+  \\ fs[SUBMAP_rel_def, closSemTheory.state_component_equality]
+  \\ metis_tac[]);
+
+val do_app_lemma =
+  simple_val_rel_do_app
+  |> Q.GENL [`vr`,`sr`]
+  |> ISPEC ``(=):closSem$v -> closSem$v -> bool``
+  |> ISPEC ``SUBMAP_rel``
+  |> Q.INST [`opp`|->`op`,`s`|->`s1`,`t`|->`s2`,`ys`|->`xs`]
+  |> SIMP_RULE std_ss [do_app_lemma_simp]
+
+val do_app_SUBMAP_Rerr = Q.store_thm("do_app_SUBMAP_Rerr",
+  `∀op xs s1 s2 r.
+    do_app op xs s1 = Rerr r ∧
+    SUBMAP_rel s1 s2 ⇒
+    do_app op xs s2 = Rerr r`,
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
+
+val do_app_SUBMAP_Rval = Q.store_thm("do_app_SUBMAP_Rval",
+  `∀op xs s1 s2 r z1.
+    do_app op xs s1 = Rval (r,z1) ∧
+    SUBMAP_rel s1 s2 ⇒
+    ∃z2.
+    do_app op xs s2 = Rval (r,z2) ∧
+    SUBMAP_rel z1 z2`,
+  rw [] \\ imp_res_tac do_app_lemma
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []);
+
+val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
+  `(∀p x y (z1:('c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    p = (x,y,z1) ∧
+    closSem$evaluate (x,y,z1) = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    SUBMAP_rel z1 z2
+    ⇒
+    ∃s2.
+    closSem$evaluate (x,y,z2) = (r,s2) ∧
+    SUBMAP_rel s1 s2) ∧
+   (∀w x y (z1:('c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    evaluate_app w x y z1 = (r,s1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    SUBMAP_rel z1 z2
+    ⇒
+    ∃s2.
+    evaluate_app w x y z2 = (r,s2) ∧
+    SUBMAP_rel s1 s2)`,
+  ho_match_mp_tac closSemTheory.evaluate_ind
+  \\ rw[closSemTheory.evaluate_def]
+  \\ TRY (
+    rename1`dest_closure`
+    \\ imp_res_tac SUBMAP_rel_def
+    \\ imp_res_tac closSemTheory.state_component_equality
+    \\ fs[CaseEq"option",CaseEq"app_kind",CaseEq"bool",closSemTheory.dec_clock_def]
+    \\ rveq \\ res_tac \\ fs[]
+    \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality] \\ rw[] \\ rfs[]
+    \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",CaseEq"list",PULL_EXISTS]
+    \\ rveq \\ fsrw_tac[DNF_ss][] \\ rfs[]
+    \\ fs[GSYM CONJ_ASSOC]
+    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
+    \\ fs[AND_IMP_INTRO]
+    \\ last_x_assum(qspec_then`ss`(fn th => mp_tac th \\ impl_tac >- fs[Abbr`ss`]))
+    \\ strip_tac \\ fs[] \\ NO_TAC )
+  \\ TRY (
+       fs[closSemTheory.evaluate_def,
+          bool_case_eq,
+          CaseEq"prod", CaseEq"option", CaseEq"list",
+          CaseEq"semanticPrimitives$result",
+          CaseEq"app_kind",
+          CaseEq"error_result",
+          closSemTheory.dec_clock_def]
+    \\ rw[]
+    \\ fs[PULL_EXISTS]
+    \\ TRY (fs[closSemTheory.state_component_equality,SUBMAP_rel_def] \\
+            HINT_EXISTS_TAC \\ fs[] \\ NO_TAC)
+    \\ res_tac \\ fs[]
+    \\ rpt(qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[])
+    \\ res_tac \\ fs[]
+    \\ fs[CaseEq"prod", CaseEq"option", bool_case_eq, PULL_EXISTS]
+    \\ rveq \\ fs[] \\ rfs[]
+    \\ fsrw_tac[DNF_ss][]
+    \\ imp_res_tac find_code_SUBMAP_rel \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
+    \\ TRY(last_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`]
+           \\ strip_tac \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality]
+           \\ rfs[]
+           \\ HINT_EXISTS_TAC \\ fs[]
+           \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+           \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
+           \\ fs[closSemTheory.state_component_equality]
+           \\ NO_TAC)
+    \\ TRY(first_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`]
+           \\ strip_tac \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality]
+           \\ rfs[]
+           \\ HINT_EXISTS_TAC \\ fs[]
+           \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+           \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
+           \\ fs[closSemTheory.state_component_equality]
+           \\ NO_TAC)
+    \\ NO_TAC)
+    (* only Install and do_app *)
+  \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS] \\ fs[]
+  \\ rveq \\ fs[] \\ res_tac \\ fs[]
+  \\ Cases_on`op = Install`
+  \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+  \\ rveq \\ fs[]
+  (*
+  \\ TRY (
+    drule (GEN_ALL do_install_SUBMAP)
+    \\ simp[]
+    \\ disch_then drule
+    \\ rw[] \\ fs[]
+    \\ fs[PULL_EXISTS]
+    \\ res_tac \\ fs[]
+    \\ NO_TAC )
+  *)
+  \\ imp_res_tac do_app_SUBMAP_Rval
+  \\ fs[]
+  \\ imp_res_tac do_app_SUBMAP_Rerr);
 
 val _ = export_theory();
