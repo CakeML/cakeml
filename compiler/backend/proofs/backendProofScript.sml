@@ -695,8 +695,10 @@ val MAP_prog_to_section_preserves_labels = Q.store_thm("MAP_prog_to_section_pres
 
 val stack_get_handler_labels_def = Define`
   (stack_get_handler_labels n (Call r d h) =
-    (case r of SOME (x,_,_) => stack_get_handler_labels n x | _ => {}) ∪
-    (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})) ∧
+    (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
+      (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
+    | _ => {})
+  ) ∧
   (stack_get_handler_labels n (Seq p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
   (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
   (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
@@ -704,8 +706,7 @@ val stack_get_handler_labels_def = Define`
 
 val flatten_preserves_handler_labels = Q.store_thm("flatten_preserves_handler_labels",
   `∀m n p l x y.
-   flatten m n p = (l,x,y) ∧
-   good_calls m
+   flatten m n p = (l,x,y)
    ⇒
    stack_get_handler_labels n m ⊆
      sec_get_code_labels (Section n (append l))`,
@@ -728,7 +729,7 @@ val flatten_preserves_handler_labels = Q.store_thm("flatten_preserves_handler_la
     \\ Cases_on`s` \\ fs[stack_to_labTheory.compile_jump_def, labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
     \\ fs[SUBSET_DEF, PULL_EXISTS]
     \\ rw[] \\ TRY(metis_tac[]))
-  >- (
+  (* >- (
     fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
     \\ Cases_on`s` \\ fs[stack_to_labTheory.compile_jump_def, labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
     \\ rpt (pairarg_tac \\ fs[]) \\ rveq
@@ -736,7 +737,7 @@ val flatten_preserves_handler_labels = Q.store_thm("flatten_preserves_handler_la
     \\ fs[SUBSET_DEF, PULL_EXISTS]
     \\ fsrw_tac[DNF_ss][]
     \\ fs[labPropsTheory.line_get_code_labels_def, labPropsTheory.sec_get_code_labels_def]
-    \\ metis_tac[])
+    \\ metis_tac[]) *)
   \\ (
     rpt (pairarg_tac \\ fs[]) \\ rveq
     \\ fs[SUBSET_DEF, PULL_EXISTS, CaseEq"bool"] \\ rveq
@@ -745,7 +746,6 @@ val flatten_preserves_handler_labels = Q.store_thm("flatten_preserves_handler_la
 
 val MAP_prog_to_section_preserves_handler_labels = Q.store_thm("MAP_prog_to_section_preserves_handler_labels",
   `∀p.
-    EVERY good_calls (MAP SND p) ⇒
     BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ⊆
     get_code_labels (MAP prog_to_section p)`,
   Induct \\ simp[FORALL_PROD]
@@ -788,22 +788,58 @@ val get_labels_MAP_prog_to_section_SUBSET_code_labels = Q.store_thm("get_labels_
   \\ rw[] \\ first_x_assum drule \\ rw[]
   \\ metis_tac[]);
 
+val stack_good_code_labels_def = Define`
+  stack_good_code_labels p ⇔
+  BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
+  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  IMAGE (λn. n,0) (set (MAP FST p))
+`
+
 val get_labels_MAP_prog_to_section_SUBSET_code_labels_TODO = Q.store_thm("get_labels_MAP_prog_to_section_SUBSET_code_labels_TODO",
 `∀p. EVERY sec_labels_ok (MAP prog_to_section p) ∧
-     EVERY good_calls (MAP SND p) ∧
-     BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
-     BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-     IMAGE (λn. n,0) (set (MAP FST p))
-     ⇒
+    stack_good_code_labels p
+   ⇒
     get_labels (MAP prog_to_section p) ⊆
     get_code_labels (MAP prog_to_section p)`,
-  rw[]>>
+  rw[stack_good_code_labels_def]>>
   drule get_labels_MAP_prog_to_section_SUBSET_code_labels>>
   strip_tac >> match_mp_tac SUBSET_TRANS>>
   asm_exists_tac>> simp[]>>
   match_mp_tac SUBSET_TRANS>>
   asm_exists_tac>> rw[]>>
   metis_tac[MAP_prog_to_section_preserves_handler_labels,prog_to_section_preserves_MAP_FST]);
+
+(* moving stackLang syntactic invariant across stackLang passes *)
+
+(* stack_names *)
+val get_code_labels_comp = Q.prove(
+  `!f p. get_code_labels (comp f p) = get_code_labels p`,
+  HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [get_code_labels_def]
+  \\ every_case_tac \\ fs [] \\
+  fs[stack_namesTheory.dest_find_name_def]);
+
+val stack_get_handler_labels_comp = Q.prove(`
+  !f p n.
+  stack_get_handler_labels n (comp f p) =
+  stack_get_handler_labels n p`,
+  HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [stack_get_handler_labels_def]
+  \\ every_case_tac \\ fs [] \\
+  fs[stack_namesTheory.dest_find_name_def]);
+
+val UNCURRY_PAIR_ETA = Q.prove(`
+  UNCURRY f = λ(p1,p2). f p1 p2`,
+  fs[FUN_EQ_THM]);
+
+val stack_names_stack_good_code_labels = Q.prove(`
+  ∀prog f. stack_good_code_labels prog ⇒
+  stack_good_code_labels (stack_names$compile f prog)`,
+  EVAL_TAC>>rw[]>>
+  fs[GSYM LIST_TO_SET_MAP]>>
+  fs[MAP_MAP_o,o_DEF,stack_namesTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
+  fs[stack_get_handler_labels_comp,get_code_labels_comp]>>
+  fs[UNCURRY_PAIR_ETA]);
 
 (*
 val backend_cs =
