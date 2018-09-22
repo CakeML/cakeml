@@ -2522,6 +2522,16 @@ val aligned_lsl = store_thm("aligned_lsl[simp]", (* TODO: move *)
   ``aligned k (w << k)``,
   match_mp_tac aligned_lsl_leq \\ fs []);
 
+val align_align_MAX = store_thm("align_align_MAX", (* TODO: move *)
+  ``!k l w. align k (align l w) = align (MAX k l) w``,
+  fs [alignmentTheory.align_def,fcpTheory.CART_EQ,word_slice_def,
+      fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ fs []);
+
+val MULT_DIV_MULT_LEMMA = store_thm("MULT_DIV_MULT_LEMMA",
+  ``!m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l``,
+  rw [] \\ qsuff_tac `k * m DIV (m * l) = k DIV l` THEN1 fs []
+  \\ simp [GSYM DIV_DIV_DIV_MULT] \\ simp [MULT_DIV]);
+
 val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
@@ -2703,9 +2713,90 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ rfs [] \\ fs []
   \\ rpt (qpat_x_assum `_ MOD _ = 0n` kall_tac)
   \\ `?heap_length. h3 = h2 + heap_length /\ heap_length <= max_heap /\
-                    EVEN heap_length /\ max_stack_alloc <= heap_length /\
+                    EVEN heap_length /\
+                    max_stack_alloc <= heap_length + LENGTH store_list /\
                     heap_length + max_stack_alloc <= l4` by
-         cheat (* needs to assume max_heap is sufficiently large *)
+   (simp [EVAL ``LENGTH store_list``]
+    \\ qpat_x_assum `Abbrev (n2w (d * h3) = _)` mp_tac
+    \\ IF_CASES_TAC \\ fs [] THEN1
+     (Cases_on `d * max_heap < dimword (:α)`
+      \\ fs [Abbr`max_heap_w`] \\ TRY (fs [GSYM WORD_LO,WORD_LO_word_T] \\ NO_TAC)
+      \\ `n2w (d * max_heap) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1) =
+          n2w (d * 2 * (max_heap DIV 2)) :'a word` by
+       (rewrite_tac [GSYM alignmentTheory.align_shift]
+        \\ fs [alignmentTheory.align_w2n,EXP_ADD]
+        \\ `2 ** shift (:α) = d` by
+          (unabbrev_all_tac \\ rfs [labPropsTheory.good_dimindex_def]
+           \\ rfs [backend_commonTheory.word_shift_def])
+        \\ pop_assum (fn th => rewrite_tac [th])
+        \\ qsuff_tac `d * max_heap DIV (2 * d) = max_heap DIV 2` \\ fs []
+        \\ once_rewrite_tac [MULT_COMM]
+        \\ drule DIV_DIV_DIV_MULT
+        \\ disch_then (fn th => simp [GSYM th])
+        \\ once_rewrite_tac [MULT_COMM]
+        \\ drule MULT_DIV \\ fs [])
+      \\ fs [] \\ simp [markerTheory.Abbrev_def,word_add_n2w]
+      \\ `w2n (n2w ptr3' + -1w * n2w (d * h2):'a word) = ptr3' - d * h2` by
+       (rewrite_tac [WORD_SUB_INTRO,WORD_MULT_CLAUSES,
+           addressTheory.word_arith_lemma2] \\ fs [])
+      \\ fs [] \\ strip_tac
+      \\ qspec_then `max_heap` mp_tac (MATCH_MP DIVISION (DECIDE ``0 < 2n``))
+      \\ disch_then (assume_tac o GSYM)
+      \\ `(d * h2 + 2 * (d * (max_heap DIV 2))) < dimword (:α)` by
+       (fs [Abbr`d`,labPropsTheory.good_dimindex_def]
+        \\ rfs [dimword_def,max_stack_alloc_def])
+      \\ fs []
+      \\ `h3 = h2 + 2 * (max_heap DIV 2)` by
+       (fs [Abbr`d`,labPropsTheory.good_dimindex_def]
+        \\ rfs [dimword_def,max_stack_alloc_def])
+      \\ pop_assum (fn th => fs [th])
+      \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def]
+      \\ rfs [EVEN_DOUBLE]
+      \\ `max_heap MOD 2 < 2` by fs [] \\ decide_tac)
+    \\ `w2n (n2w (d * h2) + n2w (d * max_stack_alloc):'a word) ≤ ptr3' ∧
+        ptr3' ≤ w2n(n2w (d * h2) + n2w (d * l4) +
+                   -1w * n2w (d * max_stack_alloc):'a word)` by
+     (qpat_x_assum `Abbrev (n2w _ = _)` mp_tac \\ IF_CASES_TAC
+      THEN1 (simp [markerTheory.Abbrev_def] \\ strip_tac \\ fs [])
+      \\ pop_assum kall_tac
+      \\ simp [markerTheory.Abbrev_def] \\ strip_tac \\ rveq
+      \\ fs [word_add_n2w]
+      \\ rewrite_tac [WORD_SUB_INTRO,WORD_MULT_CLAUSES,
+           addressTheory.word_arith_lemma2] \\ fs [])
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ fs [] \\ rewrite_tac [markerTheory.Abbrev_def]
+    \\ strip_tac \\ rveq
+    \\ `d * h2 <= ptr3'` by fs [] \\ pop_assum mp_tac
+    \\ simp [Once LESS_EQ_EXISTS]
+    \\ strip_tac \\ fs [GSYM word_add_n2w]
+    \\ rveq \\ fs []
+    \\ rewrite_tac [GSYM alignmentTheory.align_shift]
+    \\ fs [alignmentTheory.align_w2n,EXP_ADD]
+    \\ `2 ** shift (:α) = d` by
+      (unabbrev_all_tac \\ rfs [labPropsTheory.good_dimindex_def]
+       \\ rfs [backend_commonTheory.word_shift_def])
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ fs [] \\ simp [markerTheory.Abbrev_def,word_add_n2w]
+    \\ `2 * (d * (p DIV (2 * d))) <= p` by
+     (`0 < 2 * d` by fs [] \\ drule DIVISION
+      \\ disch_then (qspec_then `p` mp_tac) \\ decide_tac)
+    \\ `(d * h2 + 2 * (d * (p DIV (2 * d)))) < dimword (:α)` by
+       (fs [Abbr`d`,labPropsTheory.good_dimindex_def]
+        \\ rfs [dimword_def,max_stack_alloc_def])
+    \\ fs [] \\ rpt strip_tac
+    \\ `h3 = h2 + 2 * (p DIV (2 * d))` by
+       (fs [Abbr`d`,labPropsTheory.good_dimindex_def] \\ rfs [dimword_def])
+    \\ rveq \\ fs [EVEN_DOUBLE]
+    \\ rfs [word_add_n2w]
+    \\ `p ≤ d * l4 − d * max_stack_alloc` by fs []
+    \\ conj_tac THEN1
+     (Cases_on `d * max_heap < dimword (:α)` \\ fs []
+      \\ fs [Abbr`max_heap_w`] \\ rfs []
+      \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def] \\ rfs [])
+    \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def]
+    \\ rfs [dimword_def,max_stack_alloc_def,word_add_n2w]
+    \\ TRY (`127 <= p DIV 8` by fs [X_LE_DIV] \\ fs [])
+    \\ TRY (`127 <= p DIV 16` by fs [X_LE_DIV] \\ fs []))
   \\ rveq \\ fs []
   \\ `?stack_length. l4 = heap_length + stack_length /\
                      LENGTH store_list + 1 <= stack_length` by
