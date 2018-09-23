@@ -332,7 +332,8 @@ local
        | NONE => raise mk_HOL_ERR "riscv_targetProofTheory" "number_of_instructions" ""
    fun gen_next_tac (j, i) =
      exists_tac (numLib.term_of_int (j - 1))
-     \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
+     \\ simp [asmPropsTheory.asserts_eval,
+              asmPropsTheory.asserts2_eval, set_sepTheory.fun2set_eq,
               asmPropsTheory.interference_ok_def, riscv_proj_def]
      \\ NTAC 2 strip_tac
      \\ NTAC i (split_bytes_in_memory_tac 4)

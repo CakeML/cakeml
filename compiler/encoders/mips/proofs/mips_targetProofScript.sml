@@ -391,7 +391,9 @@ local
       in
          exists_tac n
          \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
-              [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+              [asmPropsTheory.asserts_eval,
+               asmPropsTheory.asserts2_eval,
+               asmPropsTheory.interference_ok_def,
                mips_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
