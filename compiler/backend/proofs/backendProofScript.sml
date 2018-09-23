@@ -703,6 +703,7 @@ val stack_get_handler_labels_def = Define`
   (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
   (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
   (stack_get_handler_labels n _ = {})`;
+val _ = export_rewrites["stack_get_handler_labels_def"];
 
 val flatten_preserves_handler_labels = Q.store_thm("flatten_preserves_handler_labels",
   `∀m n p l x y.
@@ -1025,7 +1026,161 @@ val stack_to_lab_stack_good_code_labels = Q.store_thm("stack_to_lab_stack_good_c
   fs[]);
 
 (* word_to_stack *)
+val word_get_code_labels_def = Define`
+  (word_get_code_labels (Call r d a h) =
+    (case d of SOME x => {x} | _ => {}) ∪
+    (case r of SOME (_,_,x,_,_) => word_get_code_labels x | _ => {}) ∪
+    (case h of SOME (_,x,l1,l2) => word_get_code_labels x | _ => {})) ∧
+  (word_get_code_labels (Seq p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2) ∧
+  (word_get_code_labels (If _ _ _ p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2) ∧
+  (word_get_code_labels (MustTerminate p) = word_get_code_labels p) ∧
+  (word_get_code_labels (LocValue _ l1) = {l1}) ∧
+  (word_get_code_labels _ = {})`;
+val _ = export_rewrites["word_get_code_labels_def"];
 
+(* TODO: This seems like it must have been established before
+  handler labels point only within the current table entry
+*)
+
+val word_good_handlers_def = Define`
+  (word_good_handlers n (Call r d a h) <=>
+    case r of
+      NONE => T
+    | SOME (_,_,x,_,_) => word_good_handlers n x ∧
+    (case h of SOME (_,x,l1,_) => l1 = n ∧ word_good_handlers n x | _ => T)) ∧
+  (word_good_handlers n (Seq p1 p2) <=> word_good_handlers n p1 ∧ word_good_handlers n p2) ∧
+  (word_good_handlers n (If _ _ _ p1 p2) <=> word_good_handlers n p1 ∧ word_good_handlers n p2) ∧
+  (word_good_handlers n (MustTerminate p) <=> word_good_handlers n p) ∧
+  (word_good_handlers n _ <=> T)`;
+val _ = export_rewrites["word_good_handlers_def"];
+
+(* this is the only property needed of the wRegs  *)
+val get_code_labels_wReg = Q.prove(`
+  (∀n. get_code_labels (f n) = {}) ⇒
+  get_code_labels (wRegWrite1 f n kf) = {} ∧
+  get_code_labels (wRegWrite2 f n kf) = {}
+  `,
+  PairCases_on`kf`>>rw[wRegWrite1_def,wRegWrite2_def]) |> SIMP_RULE std_ss [IMP_CONJ_THM];
+
+val get_code_handler_labels_wStackLoad = Q.prove(`
+  ∀ls.
+  get_code_labels (wStackLoad ls x) = get_code_labels x ∧
+  stack_get_handler_labels n (wStackLoad ls x) = stack_get_handler_labels n x`,
+  Induct>>fs[wStackLoad_def,FORALL_PROD]);
+
+val wLive_code_labels = Q.prove(`
+  wLive q bs kf = (q',bs') ⇒
+  get_code_labels q' = {}`,
+  PairCases_on`kf`>>rw[wLive_def]>>fs[]>>
+  pairarg_tac>>fs[]>>rw[]);
+
+val stack_move_code_labels = Q.prove(`
+  ∀a b c d e.
+  get_code_labels (stack_move a b c d e) = get_code_labels e`,
+  Induct>>rw[stack_move_def]);
+
+val word_to_stack_comp_code_labels = Q.prove(`
+  ∀prog bs kf n.
+  word_good_handlers n prog ⇒
+  get_code_labels (FST (comp prog bs kf)) ⊆
+  (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (word_get_code_labels prog)) ∪ stack_get_handler_labels n (FST (comp prog bs kf)))`,
+  ho_match_mp_tac word_to_stackTheory.comp_ind>>
+  rw[word_to_stackTheory.comp_def]>>
+  TRY(PairCases_on`kf`)>>
+  fs[word_get_code_labels_def]>>
+  rpt (fs[]>>pairarg_tac>>fs[])>>
+  fs[get_code_handler_labels_wStackLoad]>>
+  rw[SeqStackFree_def]
+  >-
+    (* move *)
+    (simp[wMove_def]>>
+    rename1`wMoveAux ls _`>>
+    Induct_on`ls`>>fs[wMoveAux_def]>>
+    Cases_on`ls`>>simp[wMoveAux_def,wMoveSingle_def,FORALL_PROD]>>
+    rw[]>>every_case_tac>>simp[])
+  >-
+    (map_every (fn q=> TRY(Cases_on q)) [`i`,`a`,`b`,`r`,`f`,`m`]>>
+    fs[wInst_def]>>
+    rpt (pairarg_tac>>fs[])>>
+    fs[get_code_labels_wStackLoad]>>
+    rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[]))
+  >>
+    rpt(first_x_assum drule)>>rw[]>>
+    TRY(fs[SUBSET_DEF]>>metis_tac[])
+  >-
+    (TOP_CASE_TAC>>fs[]>>pairarg_tac>>fs[get_code_labels_wStackLoad])
+  >-
+    rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[])
+  >> TRY (
+    TOP_CASE_TAC>>fs[]>>
+    every_case_tac>>fs[call_dest_def]>>
+    every_case_tac>>fs[]>>rw[]>>
+    rpt(pairarg_tac>>fs[])>>rw[]>>
+    fs[get_code_labels_wStackLoad]>>
+    fs[StackArgs_def,stack_move_code_labels,PushHandler_def,StackHandlerArgs_def,PopHandler_def]>>
+    TRY(drule wLive_code_labels>>fs[])>>
+    fs[SUBSET_DEF]>>metis_tac[])
+  >-
+    (drule wLive_code_labels>>fs[])
+  >>
+    rw[wRegWrite1_def]);
+
+val compile_word_to_stack_code_labels = Q.prove(`
+  ∀ac p bs p' bs'.
+  EVERY (λ(n,m,pp). word_good_handlers n pp) p ∧
+  compile_word_to_stack ac p bs = (p',bs') ⇒
+  (* every label in the compiled code *)
+  BIGUNION (IMAGE new_get_code_labels (set (MAP SND p'))) ⊆
+  (raise_stub_location,0n) INSERT
+  (* either came from wordLang *)
+  IMAGE (\n.(n,0n)) (BIGUNION (set (MAP (λ(n,m,pp). (word_get_code_labels pp)) p))) UNION
+  (* or has been introduced into the handler labels *)
+  BIGUNION (set (MAP (λ(n,pp). (stack_get_handler_labels n pp)) p'))`,
+  ho_match_mp_tac compile_word_to_stack_ind>>
+  fs[compile_word_to_stack_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>rw[]>>fs[]
+  >- (
+    qpat_x_assum `compile_prog _ _ _ _ = _` mp_tac>>
+    PURE_REWRITE_TAC [compile_prog_def,LET_THM]>>
+    rpt(pairarg_tac>>fs[])>>
+    rw[]>>simp[]>>
+    drule word_to_stack_comp_code_labels>>
+    qmatch_asmsub_abbrev_tac`comp p bs kf`>>
+    disch_then(qspecl_then [`bs`,`kf`] assume_tac)>>rfs[]>>
+    fs[SUBSET_DEF]>>
+    metis_tac[])
+  >>
+  fs[SUBSET_DEF]>>
+  metis_tac[]);
+
+val word_good_code_labels_def = Define`
+  word_good_code_labels p ⇔
+  EVERY (λ(n,m,pp). word_good_handlers n pp) p ∧
+  (BIGUNION (set (MAP (λ(n,m,pp). (word_get_code_labels pp)) p))) ⊆
+  (set (MAP FST p))`
+
+val word_to_stack_good_code_labels = Q.store_thm("word_to_stack_good_code_labels",`
+  compile asm_conf progs = (bs,prog') ∧
+  word_good_code_labels progs ⇒
+  stack_good_code_labels prog'`,
+  fs[word_to_stackTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[word_good_code_labels_def,stack_good_code_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]
+  >-
+    simp[raise_stub_def]
+  >>
+  match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
+  rw[]
+  >-
+    (match_mp_tac IMAGE_SUBSET_gen>>
+    asm_exists_tac>>simp[SUBSET_DEF])
+  >>
+    fs[SUBSET_DEF]);
 
 (*
 val backend_cs =
