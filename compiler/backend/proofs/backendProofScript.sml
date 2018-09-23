@@ -1102,13 +1102,13 @@ val word_to_stack_comp_code_labels = Q.prove(`
     (map_every (fn q=> TRY(Cases_on q)) [`i`,`a`,`b`,`r`,`f`,`m`]>>
     fs[wInst_def]>>
     rpt (pairarg_tac>>fs[])>>
-    fs[get_code_labels_wStackLoad]>>
+    fs[get_code_handler_labels_wStackLoad]>>
     rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[]))
   >>
     rpt(first_x_assum drule)>>rw[]>>
     TRY(fs[SUBSET_DEF]>>metis_tac[])
   >-
-    (TOP_CASE_TAC>>fs[]>>pairarg_tac>>fs[get_code_labels_wStackLoad])
+    (TOP_CASE_TAC>>fs[]>>pairarg_tac>>fs[get_code_handler_labels_wStackLoad])
   >-
     rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[])
   >> TRY (
@@ -1116,7 +1116,7 @@ val word_to_stack_comp_code_labels = Q.prove(`
     every_case_tac>>fs[call_dest_def]>>
     every_case_tac>>fs[]>>rw[]>>
     rpt(pairarg_tac>>fs[])>>rw[]>>
-    fs[get_code_labels_wStackLoad]>>
+    fs[get_code_handler_labels_wStackLoad]>>
     fs[StackArgs_def,stack_move_code_labels,PushHandler_def,StackHandlerArgs_def,PopHandler_def]>>
     TRY(drule wLive_code_labels>>fs[])>>
     fs[SUBSET_DEF]>>metis_tac[])
@@ -1181,6 +1181,403 @@ val word_to_stack_good_code_labels = Q.store_thm("word_to_stack_good_code_labels
     asm_exists_tac>>simp[SUBSET_DEF])
   >>
     fs[SUBSET_DEF]);
+
+(* word_to_word never introduces any labels, so the statements are easy *)
+local
+  open word_removeTheory word_allocTheory word_instTheory word_simpTheory word_to_wordTheory
+  open data_to_wordTheory
+in
+
+(* remove_must_terminate*)
+val word_get_code_labels_remove_must_terminate = Q.prove(`
+  ∀ps.
+  word_get_code_labels (remove_must_terminate ps) =
+  word_get_code_labels ps`,
+  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
+  fs[remove_must_terminate_def]>>
+  every_case_tac>>fs[]);
+
+val word_good_handlers_remove_must_terminate = Q.prove(`
+  ∀ps.
+  word_good_handlers n (remove_must_terminate ps) ⇔
+  word_good_handlers n ps`,
+  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
+  fs[remove_must_terminate_def]>>
+  every_case_tac>>fs[]);
+
+(* word_alloc *)
+
+val word_get_code_labels_apply_colour = Q.prove(`
+  ∀col ps.
+  word_get_code_labels (apply_colour col ps) =
+  word_get_code_labels ps`,
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  fs[apply_colour_def]>>
+  every_case_tac>>fs[]);
+
+val word_good_handlers_apply_colour = Q.prove(`
+  ∀col ps.
+  word_good_handlers n (apply_colour col ps) ⇔
+  word_good_handlers n ps`,
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  fs[apply_colour_def]>>
+  every_case_tac>>fs[]);
+
+val word_get_code_labels_word_alloc = Q.prove(`
+  word_get_code_labels (word_alloc fc c alg k prog col_opt) =
+  word_get_code_labels prog`,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[word_get_code_labels_apply_colour])
+
+val word_good_handlers_word_alloc = Q.prove(`
+  word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
+  word_good_handlers n prog`,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[word_good_handlers_apply_colour]);
+
+(* three to two *)
+val word_get_code_labels_three_to_two_reg = Q.prove(`
+  ∀ps.
+  word_get_code_labels (three_to_two_reg ps) =
+  word_get_code_labels ps`,
+  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
+  fs[three_to_two_reg_def]>>
+  every_case_tac>>fs[]);
+
+val word_good_handlers_three_to_two_reg = Q.prove(`
+  ∀ps.
+  word_good_handlers n (three_to_two_reg ps) ⇔
+  word_good_handlers n ps`,
+  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
+  fs[three_to_two_reg_def]>>
+  every_case_tac>>fs[]);
+
+(* remove_dead *)
+val word_get_code_labels_remove_dead = Q.prove(`
+  ∀ps live.
+  word_get_code_labels (FST (remove_dead ps live)) ⊆
+  word_get_code_labels ps`,
+  ho_match_mp_tac remove_dead_ind>>rw[]>>
+  fs[remove_dead_def]>>
+  every_case_tac>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>rw[]>>
+  fs[SUBSET_DEF]);
+
+val word_good_handlers_remove_dead = Q.prove(`
+  ∀ps live.
+  word_good_handlers n ps ⇒
+  word_good_handlers n (FST (remove_dead ps live))`,
+  ho_match_mp_tac remove_dead_ind>>rw[]>>
+  fs[remove_dead_def]>>
+  every_case_tac>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>rw[]);
+
+(* ssa *)
+val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
+  ∀m p.
+  word_get_code_labels (full_ssa_cc_trans m p) =
+  word_get_code_labels p`,
+  cheat);
+
+val word_good_handlers_full_ssa_cc_trans = Q.prove(`
+  ∀m p.
+  word_good_handlers n (full_ssa_cc_trans m p) ⇔
+  word_good_handlers n p`,
+  cheat);
+
+(* inst *)
+val word_get_code_labels_inst_select_exp = Q.prove(`
+  ∀a b c exp.
+  word_get_code_labels (inst_select_exp a b c exp) = {}`,
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
+  fs[inst_select_exp_def]>>
+  every_case_tac>>fs[inst_select_exp_def]);
+
+val word_get_code_labels_inst_select = Q.prove(`
+  ∀ac v ps.
+  word_get_code_labels (inst_select ac v ps) =
+  word_get_code_labels ps`,
+  ho_match_mp_tac inst_select_ind>>rw[]>>
+  fs[inst_select_def]>>
+  every_case_tac>>fs[word_get_code_labels_inst_select_exp]);
+
+val word_good_handlers_inst_select_exp = Q.prove(`
+  ∀a b c exp.
+  word_good_handlers n (inst_select_exp a b c exp)`,
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
+  fs[inst_select_exp_def]>>
+  every_case_tac>>fs[inst_select_exp_def]);
+
+val word_good_handlers_inst_select = Q.prove(`
+  ∀ac v ps.
+  word_good_handlers n (inst_select ac v ps) ⇔
+  word_good_handlers n ps`,
+  ho_match_mp_tac inst_select_ind>>rw[]>>
+  fs[inst_select_def]>>
+  every_case_tac>>fs[word_good_handlers_inst_select_exp]);
+
+(* simp *)
+val word_get_code_labels_const_fp_loop = Q.prove(`
+  ∀p l.
+  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p`,
+  ho_match_mp_tac const_fp_loop_ind \\ rw []
+  \\ fs [const_fp_loop_def]
+  \\ every_case_tac\\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF] \\ metis_tac[]);
+
+val word_good_handlers_const_fp_loop = Q.prove(`
+  ∀p l.
+  word_good_handlers n p ⇒
+  word_good_handlers n (FST (const_fp_loop p l))`,
+  ho_match_mp_tac const_fp_loop_ind \\ rw []
+  \\ fs [const_fp_loop_def]
+  \\ every_case_tac\\ fs[]
+  \\ rpt (pairarg_tac \\ fs[]));
+
+(* should be trivial cheats, = or ⊆ will do in the proofs *)
+val word_get_code_labels_simp_if = Q.prove(`
+  ∀p.
+  word_get_code_labels (simp_if p) SUBSET word_get_code_labels p`,
+  cheat);
+
+val word_good_handlers_simp_if = Q.prove(`
+  ∀p.
+  word_good_handlers n p ⇒
+  word_good_handlers n (simp_if p)`,
+  cheat);
+
+val word_get_code_labels_Seq_assoc = Q.prove(`
+  ∀p1 p2.
+  word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2`,
+  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
+  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
+  fs[UNION_ASSOC]>>
+  every_case_tac>>fs[]);
+
+val word_good_handlers_Seq_assoc = Q.prove(`
+  ∀p1 p2.
+  word_good_handlers n (Seq_assoc p1 p2) ⇔
+  word_good_handlers n p1 ∧ word_good_handlers n p2`,
+  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
+  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
+  every_case_tac>>fs[]>>metis_tac[]);
+
+val word_get_code_labels_word_simp = Q.prove(`
+  ∀ps.
+  word_get_code_labels (word_simp$compile_exp ps) ⊆
+  word_get_code_labels ps`,
+  PURE_REWRITE_TAC [compile_exp_def]>>
+  LET_ELIM_TAC>>
+  match_mp_tac SUBSET_TRANS >>
+  qexists_tac`word_get_code_labels e'`>>rw[]
+  >- (
+    unabbrev_all_tac>>EVAL_TAC>>
+    metis_tac[word_get_code_labels_const_fp_loop])>>
+  match_mp_tac SUBSET_TRANS >>
+  qexists_tac`word_get_code_labels e`>>rw[]
+  >- (
+    unabbrev_all_tac>>EVAL_TAC>>
+    metis_tac[word_get_code_labels_simp_if])>>
+  unabbrev_all_tac>>
+  fs[word_get_code_labels_Seq_assoc]);
+
+val word_good_handlers_word_simp = Q.prove(`
+  ∀ps.
+  word_good_handlers n ps ⇒
+  word_good_handlers n (word_simp$compile_exp ps)`,
+  rw[compile_exp_def]>>
+  EVAL_TAC>>match_mp_tac word_good_handlers_const_fp_loop>>
+  match_mp_tac word_good_handlers_simp_if>>
+  fs[word_good_handlers_Seq_assoc]);
+
+val word_get_code_labels_word_to_word = Q.prove(`
+  word_good_code_labels progs ⇒
+  word_good_code_labels (SND (compile wc ac progs))`,
+  fs[word_to_wordTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[word_good_code_labels_def,next_n_oracle_def]>>
+  rw[]
+  >- (
+    rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
+    rw[full_compile_single_def]>>
+    Cases_on`EL n progs`>>Cases_on`r`>>fs[compile_single_def]>>
+    fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
+    simp[COND_RAND]>>
+    fs[word_good_handlers_three_to_two_reg]>>
+    match_mp_tac word_good_handlers_remove_dead>>
+    simp[word_good_handlers_full_ssa_cc_trans,word_good_handlers_inst_select]>>
+    match_mp_tac word_good_handlers_word_simp>>
+    fs[FORALL_PROD]>>
+    metis_tac[EL_MEM])
+  >>
+    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
+    rw[full_compile_single_def]>>
+    Cases_on`EL n progs`>>Cases_on`r`>>fs[compile_single_def]>>
+    fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
+    fs[COND_RAND]>>
+    fs[word_get_code_labels_three_to_two_reg]>>
+    drule (word_get_code_labels_remove_dead|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select]>>
+    strip_tac>>
+    drule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    rw[]>>fs[FORALL_PROD,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]>>
+    first_x_assum drule>>
+    disch_then(qspecl_then [`q`,`q'`] mp_tac)>>
+    impl_tac >-
+        metis_tac[EL_MEM]>>
+    rw[]>>
+    fs[MEM_EL]>>
+    qexists_tac`n'`>>simp[]>>
+    Cases_on`EL n' progs`>>Cases_on`r`>>fs[compile_single_def]);
+
+val assign_get_code_label_def = Define`
+  (assign_get_code_label (closLang$Label x) = {x}) ∧
+  (assign_get_code_label x = {})`
+
+val data_get_code_labels_def = Define`
+  (data_get_code_labels (Call r d a h) =
+    (case d of SOME x => {x} | _ => {}) ∪
+    (case h of SOME (n,p) => data_get_code_labels p | _ => {})) ∧
+  (data_get_code_labels (Seq p1 p2) = data_get_code_labels p1 ∪ data_get_code_labels p2) ∧
+  (data_get_code_labels (If _ p1 p2) = data_get_code_labels p1 ∪ data_get_code_labels p2) ∧
+  (data_get_code_labels (Assign _ op _ _) = assign_get_code_label op) ∧
+  (data_get_code_labels _ = {})`;
+val _ = export_rewrites["data_get_code_labels_def"];
+
+val word_get_code_labels_StoreEach = Q.prove(`
+  ∀ls off.
+  word_get_code_labels (StoreEach v ls off) = {}`,
+  Induct>>fs[StoreEach_def]);
+
+val word_get_code_labels_MemEqList = Q.prove(`
+  ∀x b.
+  word_get_code_labels (MemEqList b x) = {}`,
+  Induct>>fs[MemEqList_def]);
+
+(* slow... *)
+val word_get_code_labels_assign = Q.prove(`
+  ∀x.
+  word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
+  assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))`,
+  ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
+  rw[assign_def,assign_get_code_label_def]>>
+  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
+  rpt(every_case_tac>>fs[]>>
+  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
+  EVAL_TAC));
+
+val data_to_word_comp_code_labels = Q.prove(`
+  ∀c secn l p.
+  word_get_code_labels ((FST (comp c secn l p)):'a prog) SUBSET
+  data_get_code_labels p ∪ set(MAP FST (stubs (:α) c))`,
+  ho_match_mp_tac comp_ind>>
+  rw[]>>Cases_on`p`>>fs[]>>
+  simp[Once comp_def]>>
+  rpt(pairarg_tac>>fs[])
+  >- (
+    every_case_tac>>fs[]>>
+    rpt(pairarg_tac>>fs[])>>
+    fs[SUBSET_DEF]>>fs[]>>
+    metis_tac[])
+  >-
+    fs[word_get_code_labels_assign]
+  >-
+    (fs[SUBSET_DEF]>>metis_tac[])
+  >-
+    (fs[SUBSET_DEF]>>metis_tac[])
+  >>
+    EVAL_TAC>>rw[]>>fs[]);
+
+val word_good_handlers_StoreEach = Q.prove(`
+  ∀ls off.
+  word_good_handlers secn (StoreEach v ls off)`,
+  Induct>>fs[StoreEach_def]);
+
+val word_good_handlers_MemEqList = Q.prove(`
+  ∀x b.
+  word_good_handlers secn (MemEqList b x)`,
+  Induct>>fs[MemEqList_def]);
+
+(* slow... *)
+val word_good_handlers_assign = Q.prove(`
+  ∀x.
+  word_good_handlers secn (FST (assign c secn v w x y z))`,
+  ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
+  rw[assign_def]>>
+  rpt(
+  every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
+  rw[]>>EVAL_TAC
+  ));
+
+val data_to_word_comp_good_handlers = Q.prove(`
+  ∀c secn l p.
+  word_good_handlers secn ((FST (comp c secn l p)):'a prog)`,
+  ho_match_mp_tac comp_ind>>
+  rw[]>>Cases_on`p`>>fs[]>>
+  simp[Once comp_def]>>
+  rpt(pairarg_tac>>fs[])
+  >- (
+    every_case_tac>>fs[]>>
+    rpt(pairarg_tac>>fs[])>>
+    fs[SUBSET_DEF]>>fs[]>>
+    metis_tac[])
+  >-
+    fs[word_good_handlers_assign]
+  >>
+    EVAL_TAC>>rw[]>>fs[]);
+
+val data_good_code_labels_def = Define`
+  data_good_code_labels p ⇔
+  (BIGUNION (set (MAP (λ(n,m,pp). (data_get_code_labels pp)) p))) ⊆
+  (set (MAP FST p))`
+
+val stubs_labels = Q.prove(`
+  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) data_conf)))
+  ⊆ set (MAP FST (stubs (:'a) data_conf))`,
+  rpt(EVAL_TAC>>
+  IF_CASES_TAC>>
+  simp[]));
+
+val data_to_word_good_code_labels = Q.store_thm("data_to_word_good_code_labels",`
+  (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧
+  data_good_code_labels prog ⇒
+  word_good_code_labels prog'`,
+  fs[data_to_wordTheory.compile_def]>>rw[]>>
+  qmatch_asmsub_abbrev_tac`LHS = _`>>
+  `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
+  pop_assum SUBST_ALL_TAC>>
+  fs[Abbr`LHS`]>>
+  match_mp_tac word_get_code_labels_word_to_word>>
+  fs[word_good_code_labels_def,data_good_code_labels_def]>>rw[]
+  >-
+    (EVAL_TAC>>rw[])
+  >-
+    (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
+    fs[EVERY_MEM,FORALL_PROD])
+  >-
+    (assume_tac stubs_labels>>
+    match_mp_tac SUBSET_TRANS>>asm_exists_tac>>fs[])
+  >>
+    fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,compile_part_def]>>
+    fs[SUBSET_DEF,PULL_EXISTS,Once MEM_MAP,FORALL_PROD]>>
+    rw[]>>
+    drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    rw[]
+    >-
+      (first_x_assum drule>>
+      disch_then drule>>fs[MEM_MAP,EXISTS_PROD])
+    >>
+      fs[MEM_MAP]>>metis_tac[]);
+
+end
+
 
 (*
 val backend_cs =
@@ -2240,31 +2637,47 @@ val compile_correct = Q.store_thm("compile_correct",
     (*
     qmatch_goalsub_rename_tac`c5.lab_conf.labels` \\ qunabbrev_tac`c5` >>
     *)
-    rfs[]>>rw[]
-    >-
-      fs[Abbr`p7`,stack_to_labTheory.compile_def]
-    >-
+    rfs[]>>
+    CONJ_TAC>-
+      fs[Abbr`p7`,stack_to_labTheory.compile_def]>>
+    CONJ_ASM1_TAC>-
       (match_mp_tac (MP_CANON EVERY_MONOTONIC)>>
       simp[Once CONJ_COMM]>>
       qpat_x_assum`all_enc_ok_pre _ _` kall_tac>>
       asm_exists_tac>>
       simp[]>>Cases>> simp[]>>
       rpt(pop_assum kall_tac)>>
-      metis_tac [EVERY_sec_label_ok])
-    >-
+      metis_tac [EVERY_sec_label_ok])>>
+    CONJ_TAC>-
       (qpat_x_assum`ALL_DISTINCT (MAP _ p7)` mp_tac>>
       qmatch_goalsub_abbrev_tac`MAP ff p7`>>
       `ff = Section_num` by
         (simp[Abbr`ff`,FUN_EQ_THM]>>
         Cases>>simp[])>>
-      simp[])
-    >-
+      simp[])>>
+    CONJ_TAC>-
       (match_mp_tac (MP_CANON EVERY_MONOTONIC)>>
       simp[Once CONJ_COMM]>>
       qpat_x_assum`all_enc_ok_pre _ _` kall_tac>>
+      pop_assum kall_tac>>
       asm_exists_tac>>
       simp[]>>Cases>> simp[])
-    >- cheat (* referenced labels are present *))>>
+    >-
+      (qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
+      simp[markerTheory.Abbrev_def]>>
+      disch_then (assume_tac o SYM)>>
+      drule stack_to_lab_stack_good_code_labels>>
+      simp[]>>
+      disch_then match_mp_tac>>
+      CONJ_TAC>-
+        (* something introduces the appropriate stub in p3 *)
+        cheat>>
+      drule word_to_stack_good_code_labels>>
+      disch_then match_mp_tac>>
+      qpat_x_assum` _ = (_,p5)` mp_tac>>
+      (*?? something got lost *)
+      (*drule data_to_word_good_code_labels*)
+      cheat (* referenced labels are present *)))>>
   strip_tac \\
   qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
   disch_then(assume_tac o SYM) \\
