@@ -1041,6 +1041,11 @@ val elist_globals_append = Q.store_thm("elist_globals_append",
   `elist_globals (xs ++ ys) = elist_globals xs ⊎ elist_globals ys`,
  Induct_on `xs` \\ rw [BAG_UNION, FUN_EQ_THM, EMPTY_BAG]);
 
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
+
 val is_Dlet_def = Define `
   (is_Dlet (Dlet _) <=> T) /\
   (is_Dlet _ <=> F)`;
