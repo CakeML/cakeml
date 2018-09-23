@@ -1216,6 +1216,37 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
   \\ irule (CONJUNCT1 flat_to_patProofTheory.compile_esgc_free)
   \\ rw[]);
 
+val set_globals_make_varls = Q.store_thm("set_globals_make_varls",
+  `∀a b c d. set_globals (make_varls a b c d) =
+             bag_of_list (MAP ((+)c) (COUNT_LIST (LENGTH d)))`,
+  recInduct source_to_flatTheory.make_varls_ind
+  \\ rw[source_to_flatTheory.make_varls_def]
+  >- EVAL_TAC
+  >- ( EVAL_TAC \\ rw[] \\ rw[EL_BAG] )
+  \\ simp[COUNT_LIST_def, MAP_MAP_o, ADD1, o_DEF, bag_of_list_thm]
+  \\ EVAL_TAC
+  \\ AP_THM_TAC
+  \\ simp[FUN_EQ_THM]
+  \\ simp[BAG_INSERT_UNION]);
+
+val num_bindings_def = Define
+  `(num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
+   (num_bindings (Dletrec _ f) = LENGTH f) ∧
+   (num_bindings _ = 0)`;
+val _ = export_rewrites["num_bindings_def"];
+
+val compile_decs_elist_globals = Q.store_thm("compile_decs_elist_globals",
+  `∀a b c d e f g p.
+   compile_decs a b c d = (e,f,g,p) ∧
+   nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) c.v ⇒
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
+     bag_of_list (MAP ((+) b.vidx) (COUNT_LIST (SUM (MAP num_bindings d))))`,
+  recInduct source_to_flatTheory.compile_decs_ind
+  \\ rw[source_to_flatTheory.compile_decs_def]
+  \\ rw[set_globals_make_varls]
+  \\ rw[source_to_flatProofTheory.compile_exp_esgc_free]
+  \\ cheat);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -1454,7 +1485,27 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ qspec_then`p`mp_tac elist_globals_compile
         \\ strip_tac
         \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ cheat (* source_to_flat produces distinct globals *) )
+        \\ qpat_x_assum`_ = (_,p)`assume_tac
+        \\ fs[source_to_flatTheory.compile_def]
+        \\ pairarg_tac \\ fs[] \\ rveq
+        \\ simp[source_to_flatTheory.compile_flat_def]
+        \\ simp[flat_exh_matchTheory.compile_def]
+        \\ irule flat_reorder_matchProofTheory.compile_decs_distinct_globals
+        \\ irule flat_uncheck_ctorsProofTheory.compile_decs_distinct_globals
+        \\ irule flat_elimProofTheory.removeFlatProg_distinct_globals
+        \\ irule flat_exh_matchProofTheory.compile_exps_distinct_globals
+        \\ fs[source_to_flatTheory.compile_prog_def]
+        \\ pairarg_tac \\ fs[] \\ rveq
+        \\ simp[source_to_flatTheory.glob_alloc_def]
+        \\ simp[flatPropsTheory.op_gbag_def]
+        \\ drule compile_decs_elist_globals
+        \\ impl_tac >- (
+          EVAL_TAC \\ Cases \\ simp[namespaceTheory.nsLookup_def] )
+        \\ rw[]
+        \\ simp[bag_of_list_ALL_DISTINCT]
+        \\ irule ALL_DISTINCT_MAP_INJ
+        \\ simp[]
+        \\ simp[all_distinct_count_list])
       \\ Cases_on`kc` \\ fs[]
       >- (
         simp[Abbr`coa`]
