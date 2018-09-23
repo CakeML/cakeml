@@ -1473,6 +1473,7 @@ val compile_correct = Q.store_thm("compile_correct",
       >- (
         fs[] \\ rveq \\ rfs[]
         \\ reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
+        \\ simp[clos_fvsTheory.compile_def]
         \\ irule (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_esgc_free)
         \\ asm_exists_tac \\ simp[]
         \\ Cases_on`c.clos_conf.do_mti` \\ simp[clos_mtiTheory.compile_def]
@@ -1489,7 +1490,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ conj_tac >- (
         qmatch_asmsub_abbrev_tac`known aaa bbb ccc ddd`
         \\ qspecl_then[`aaa`,`bbb`,`ccc`,`ddd`]mp_tac clos_knownProofTheory.known_every_Fn_vs_NONE
-        \\ unabbrev_all_tac \\ simp[]
+        \\ unabbrev_all_tac \\ simp[clos_fvsTheory.compile_def]
         \\ impl_tac
         >- (
           reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
@@ -1503,7 +1504,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[] )
       \\ qmatch_asmsub_abbrev_tac`known aaa bbb ccc ddd`
       \\ qspecl_then[`aaa`,`bbb`,`ccc`,`ddd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
-      \\ unabbrev_all_tac \\ simp[]
+      \\ unabbrev_all_tac \\ simp[clos_fvsTheory.compile_def]
       \\ impl_tac
       >- (
         reverse conj_tac >- (EVAL_TAC \\ rw[lookup_def])
@@ -1521,8 +1522,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp[Abbr`e3`,Abbr`p''`]
     \\ simp[Once closPropsTheory.every_Fn_vs_NONE_EVERY]
     \\ simp[EVERY_MAP]
-    \\ simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE]
-    \\ cheat (* syntax ok: fv_max for pat_to_clos: input program is closed *))
+    \\ simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE])
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>

@@ -5867,6 +5867,7 @@ val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   \\ fs[clos_callProofTheory.syntax_ok_def]
   \\ imp_res_tac clos_knownProofTheory.known_code_locs_bag
   \\ rveq
+  \\ fs[clos_fvsTheory.compile_def]
   \\ qhdtm_x_assum`known`mp_tac
   \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_SOME mp_tac
   \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_vs_NONE mp_tac
@@ -6102,6 +6103,10 @@ val compile_inc_uncurry = Q.store_thm("compile_inc_uncurry",
    compile_prog max_app ((chain_exps (FST (extract_name (FST p))) (SND (extract_name (FST p)))) ++ SND p)`,
   Cases_on`p` \\ rw[compile_inc_def]
   \\ pairarg_tac \\ rw[]);
+
+val fcompile_inc_uncurry = Q.store_thm("fcompile_inc_uncurry",
+  `clos_fvsProof$compile_inc p = (compile (FST p), [])`,
+  Cases_on`p` \\ EVAL_TAC);
 
 val elist_globals_sing = Q.store_thm("elist_globals_sing",
   `elist_globals [x] = set_globals x`,
@@ -6398,6 +6403,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
       \\ pairarg_tac \\ fs[]
       \\ rveq \\ fs[]
       \\ imp_res_tac clos_knownProofTheory.known_changed_globals_alt_set
+      \\ fs[clos_fvsTheory.compile_def]
       \\ rw[] \\ fs[o_DEF, mcompile_inc_uncurry,clos_mtiProofTheory.intro_multi_preserves_elist_globals]
       \\ fs[SUBSET_DEF,IN_DISJOINT]
       \\ CCONTR_TAC \\ fs[]
@@ -6834,10 +6840,13 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
             backendPropsTheory.SND_state_co]
     \\ fs[clos_knownProofTheory.syntax_ok_def]
     \\ simp[clos_knownProofTheory.known_co_def]
-    \\ rw[] \\ TOP_CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, mcompile_inc_uncurry]
+    \\ rw[] \\ TOP_CASE_TAC \\ fs[ccompile_inc_uncurry, kcompile_inc_uncurry, mcompile_inc_uncurry, fcompile_inc_uncurry]
     \\ fs[HD_FST_calls, FST_SND_ignore_table, SND_SND_ignore_table, backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
-    \\ fs[mcompile_inc_uncurry, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table]
-    \\ fs[clos_letopProofTheory.compile_inc_def, clos_ticksProofTheory.compile_inc_def]
+    \\ fs[mcompile_inc_uncurry, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table, fcompile_inc_uncurry]
+    \\ fs[clos_letopProofTheory.compile_inc_def,
+          clos_ticksProofTheory.compile_inc_def,
+          clos_fvsProofTheory.compile_inc_def,
+          clos_fvsTheory.compile_def]
     \\ TRY (
       (clos_callProofTheory.calls_preserves_every_Fn_vs_NONE
         |> SPEC_ALL |> UNDISCH |> UNDISCH |> CONJUNCT2 |> DISCH_ALL
@@ -6859,7 +6868,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     \\ fs[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
     \\ TRY (
       specl_args_of_then``known`` clos_knownProofTheory.known_every_Fn_vs_NONE mp_tac
-      \\ simp[mcompile_inc_uncurry]
+      \\ simp[mcompile_inc_uncurry, fcompile_inc_uncurry]
       \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
       \\ qmatch_goalsub_abbrev_tac`known aa [bb] [] dd`
       \\ Cases_on`known aa [bb] [] dd`

@@ -14,6 +14,10 @@ val HD_remove_fvs_SING = store_thm("HD_remove_fvs_SING[simp]",
   ``!x. [HD (remove_fvs fvs [x])] = remove_fvs fvs [x]``,
   strip_tac \\ strip_assume_tac (Q.SPEC `x` remove_fvs_SING) \\ simp []);
 
+val EVERY_remove_fvs_SING = Q.store_thm("EVERY_remove_fvs_SING",
+  `EVERY P (remove_fvs fvs [x]) ⇔ P (HD (remove_fvs fvs [x]))`,
+  strip_assume_tac(SPEC_ALL remove_fvs_SING) \\ rw[]);
+
 val code_rel_def = Define `
   code_rel fvs e1 e2 <=>
     e2 = remove_fvs fvs e1`;
@@ -576,5 +580,37 @@ val remove_fvs_every_Fn_vs_NONE = Q.store_thm("remove_fvs_every_Fn_vs_NONE[simp]
     \\ simp[Once every_Fn_vs_NONE_EVERY, SimpRHS]
     \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ metis_tac[]));
+
+val remove_fvs_set_globals = Q.store_thm("remove_fvs_set_globals[simp]",
+  `∀fvs x. MAP set_globals (remove_fvs fvs x) = MAP set_globals x`,
+  recInduct remove_fvs_ind
+  \\ rw[remove_fvs_def] \\ fs[]
+  \\ simp[elist_globals_FOLDR]
+  >- EVAL_TAC
+  \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]
+  \\ rw[] \\ res_tac \\ fs[]);
+
+val set_globals_HD_remove_fvs_SING = Q.store_thm("set_globals_HD_remove_fvs_SING[simp]",
+  `set_globals (HD (remove_fvs fvs [x])) = set_globals x`,
+  strip_assume_tac(SPEC_ALL remove_fvs_SING)
+  \\ first_assum(mp_tac o Q.AP_TERM`MAP set_globals`)
+  \\ rw[]);
+
+val remove_fvs_esgc_free = Q.store_thm("remove_fvs_esgc_free[simp]",
+  `∀fvs x. EVERY (esgc_free) (remove_fvs fvs x) ⇔ EVERY esgc_free x`,
+  recInduct remove_fvs_ind
+  \\ rw[remove_fvs_def, EVERY_remove_fvs_SING]
+  \\ simp[elist_globals_FOLDR]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY]);
+
+val remove_fvs_elist_globals = Q.store_thm("remove_fvs_elist_globals[simp]",
+  `elist_globals (remove_fvs fvs xs) = elist_globals xs`,
+  rw[elist_globals_FOLDR]);
 
 val _ = export_theory();

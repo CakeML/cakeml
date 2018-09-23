@@ -1,5 +1,5 @@
 open preamble closLangTheory;
-open db_varsTheory clos_ticksTheory clos_letopTheory;
+open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory;
 
 val _ = new_theory "clos_known";
 
@@ -614,6 +614,7 @@ val known_sing_EQ_E = Q.store_thm(
 val compile_def = Define `
   compile NONE exps = (NONE, exps) /\
   compile (SOME c) exps =
+    let exps = clos_fvs$compile exps in
     let (es, g) = known c exps [] c.val_approx_spt in
     let es1 = remove_ticks (MAP FST es) in
     let es2 = let_op es1 in

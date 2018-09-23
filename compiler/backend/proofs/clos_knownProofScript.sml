@@ -4378,20 +4378,22 @@ val compile_code_locs_bag = Q.store_thm("compile_code_locs_bag",
   \\ pairarg_tac \\ fs[]
   \\ rw [] \\ fs [clos_letopProofTheory.code_locs_let_op,
        clos_ticksProofTheory.code_locs_remove_ticks]
-  \\ imp_res_tac known_code_locs_bag \\ rw[]);
+  \\ imp_res_tac known_code_locs_bag \\ rw[]
+  \\ fs[clos_fvsTheory.compile_def]);
 
 val compile_LENGTH = Q.store_thm("compile_LENGTH",
   `clos_known$compile kc es = (kc', es') ⇒ LENGTH es' = LENGTH es`,
   Cases_on`kc` \\ rw[compile_def]
   \\ pairarg_tac \\ fs[] \\ rw[]
-  \\ fs [clos_letopTheory.LENGTH_let_op,clos_ticksTheory.LENGTH_remove_ticks]
-  \\ imp_res_tac known_LENGTH_EQ_E);
+  \\ fs [clos_letopTheory.LENGTH_let_op,clos_ticksTheory.LENGTH_remove_ticks,
+         clos_fvsTheory.compile_def]
+  \\ imp_res_tac known_LENGTH_EQ_E
+  \\ fs[clos_fvsProofTheory.LENGTH_remove_fvs]);
 
 val syntax_ok_def = Define`
   syntax_ok xs ⇔
     every_Fn_vs_NONE xs ∧
-    EVERY esgc_free xs ∧
-    fv_max 0 xs`;
+    EVERY esgc_free xs`;
 
 val syntax_oracle_ok_def = Define`
   syntax_oracle_ok xs co ⇔
@@ -4407,10 +4409,12 @@ val syntax_oracle_ok_def = Define`
 val known_cc_def = Define `
   known_cc known_conf cc =
     (case known_conf of
-     | SOME kcfg => (state_cc (compile_inc kcfg)
-                      (pure_cc clos_ticksProof$compile_inc
-                        (pure_cc clos_letopProof$compile_inc
-                           (cc:'b clos_cc):'b clos_cc):'b clos_cc))
+     | SOME kcfg =>
+       (pure_cc clos_fvsProof$compile_inc
+         (state_cc (compile_inc kcfg)
+           (pure_cc clos_ticksProof$compile_inc
+             (pure_cc clos_letopProof$compile_inc
+               (cc:'b clos_cc):'b clos_cc):'b clos_cc)))
      | NONE      => state_cc (CURRY I) cc :(val_approx num_map # 'b) clos_cc)`;
 
 val known_co_def = Define `
@@ -4418,7 +4422,9 @@ val known_co_def = Define `
     (case known_conf of
      | SOME kcfg => (pure_co clos_letopProof$compile_inc o
                        ((pure_co clos_ticksProof$compile_inc o
-                          (state_co (compile_inc kcfg) co)) : 'b clos_co))
+                          (state_co (compile_inc kcfg)
+                            (pure_co clos_fvsProof$compile_inc o co)
+                            : 'b clos_co)) : 'b clos_co))
      | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
 
 val semantics_compile = Q.store_thm("semantics_compile",
@@ -4438,13 +4444,67 @@ val semantics_compile = Q.store_thm("semantics_compile",
   \\ Cases_on`known_conf` \\ fs[compile_def]
   >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
   \\ pairarg_tac \\ fs[] \\ rveq
+  \\ drule (clos_fvsProofTheory.semantics_compile)
+  \\ impl_tac
+  >- ( fs[syntax_oracle_ok_def] )
+  \\ disch_then (fn th => fs [GSYM th])
   \\ drule (GEN_ALL semantics_known) \\ fs []
-  \\ impl_tac THEN1
-   (rw []
-    \\ fs[syntax_ok_def,syntax_oracle_ok_def]
-    \\ rw []
-    \\ first_x_assum(qspec_then`n`mp_tac)
-    \\ simp[])
+  \\ impl_keep_tac THEN1
+   (fs[syntax_ok_def,syntax_oracle_ok_def]
+    \\ simp[clos_fvsTheory.compile_def]
+    \\ conj_tac
+    >- ( gen_tac \\ Cases_on`SND (co n)` \\ EVAL_TAC )
+    \\ conj_tac
+    >- (
+      gen_tac \\ Cases_on`SND (co n)` \\ EVAL_TAC
+      \\ fs[co_every_Fn_vs_NONE_def]
+      \\ first_x_assum(qspec_then`n`mp_tac)
+      \\ rw[]
+      \\ drule clos_fvsProofTheory.fv_max_remove_fvs
+      \\ disch_then(qspec_then`0`mp_tac)
+      \\ rw[])
+    \\ conj_tac
+    >- (
+      gen_tac \\ Cases_on`SND (co n)` \\ EVAL_TAC
+      \\ rw[] \\ rw[]
+      \\ first_x_assum(qspec_then`n`mp_tac)
+      \\ rw[] )
+    \\ fs[co_every_Fn_vs_NONE_def]
+    \\ conj_tac
+    >- (
+      gen_tac \\ Cases_on`SND (co n)` \\ EVAL_TAC
+      \\ rw[] \\ rw[]
+      \\ first_x_assum(qspec_then`n`mp_tac)
+      \\ rw[] )
+    \\ fs[oracle_gapprox_subspt_def]
+    \\ fs[oracle_state_sgc_free_def]
+    \\ conj_tac
+    >- (
+      fs[unique_set_globals_def, elist_globals_append, first_n_exps_def]
+      \\ fs[elist_globals_FOLDR, MAP_FLAT, MAP_GENLIST]
+      \\ fs[o_DEF]
+      \\ gen_tac
+      \\ qmatch_goalsub_abbrev_tac`FLAT (GENLIST X n)`
+      \\ qmatch_asmsub_abbrev_tac`GENLIST Y`
+      \\ `X =Y`
+      by (
+        simp[Abbr`X`,Abbr`Y`, FUN_EQ_THM]
+        \\ qx_gen_tac`m` \\ Cases_on`SND (co m)` \\ EVAL_TAC
+        \\ simp[])
+      \\ fs[] )
+    \\ fs[oracle_gapprox_disjoint_def]
+    \\ conj_tac
+    >- (
+      drule clos_fvsProofTheory.fv_max_remove_fvs
+      \\ disch_then(qspec_then`0`mp_tac)
+      \\ rw[fv_max_def] )
+    \\ fs[gapprox_disjoint_def]
+    \\ gen_tac
+    \\ Cases_on`SND (co n)`
+    \\ simp[clos_fvsProofTheory.compile_inc_def]
+    \\ first_x_assum(qspec_then`n`mp_tac) \\ simp[]
+    \\ first_x_assum(qspec_then`n`mp_tac) \\ simp[]
+    \\ simp[clos_fvsTheory.compile_def] )
   \\ disch_then (fn th => fs [GSYM th])
   \\ drule (GEN_ALL clos_ticksProofTheory.semantics_remove_ticks)
   \\ impl_keep_tac THEN1
@@ -4453,7 +4513,9 @@ val semantics_compile = Q.store_thm("semantics_compile",
     \\ PairCases_on `progs`
     \\ fs [compile_inc_def]
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
-    \\ first_x_assum (qspec_then `n` assume_tac) \\ fs [] \\ rfs [])
+    \\ first_x_assum (qspec_then `n` assume_tac) \\ fs [] \\ rfs []
+    \\ Cases_on`co n` \\ fs[backendPropsTheory.pure_co_def]
+    \\ Cases_on`r` \\ fs[clos_fvsProofTheory.compile_inc_def])
   \\ disch_then (fn th => fs [th])
   \\ drule (GEN_ALL clos_letopProofTheory.semantics_let_op)
   \\ reverse impl_tac \\ fs [] \\ rw []
