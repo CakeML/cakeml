@@ -812,7 +812,8 @@ local
       in
          exists_tac n
          \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
-              [asmPropsTheory.asserts_eval, reg_mode_eq,
+              [asmPropsTheory.asserts_eval,
+               asmPropsTheory.asserts2_eval, reg_mode_eq,
                asmPropsTheory.interference_ok_def, arm6_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
