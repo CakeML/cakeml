@@ -81,7 +81,8 @@ val _ = Datatype `
   res = Val v
       | Exn v
       | FFIDiv string (word8 list) (word8 list)
-      | Div`
+      | Div
+      | DivN num`
 
 val _ = type_abbrev("ffi_proj",
   ``: ('ffi -> (string |-> ffi)) #
@@ -154,7 +155,8 @@ val POST_def = Define `
      | Val v => Qv v
      | Exn e => Qe e
      | FFIDiv name conf bytes => Qf name conf bytes
-     | Div => Qd`
+     | Div => Qd
+     | DivN n => cond F`
 
 val POSTv_def = new_binder_definition("POSTv_def",
   ``($POSTv) (Qv: v -> hprop) =
@@ -178,6 +180,15 @@ val POSTve_def = Define `
 
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
+
+val POST_DIV_N_def = new_binder_definition("POST_DIV_N_def",
+  ``($POST_DIV_N) (Qn: num -> hprop) = \r.
+      case r of
+       | Val v => cond F
+       | Exn e => cond F
+       | FFIDiv name conf bytes => cond F
+       | Div => cond F
+       | DivN n => Qn n``)
 
 (* cond specialized to equality to some value; as a post-condition *)
 val cond_eq_def = Define `
@@ -510,7 +521,8 @@ val SEP_IMPPOST_unfold = Q.store_thm ("SEP_IMPPOST_unfold",
       (!v. Q1 (Val v) ==>> Q2 (Val v)) /\
       (!v. Q1 (Exn v) ==>> Q2 (Exn v)) /\
       (!name conf bytes. Q1 (FFIDiv name conf bytes) ==>> Q2 (FFIDiv name conf bytes)) /\
-      (Q1 Div ==>> Q2 Div)`,
+      (Q1 Div ==>> Q2 Div) /\
+      (!n. Q1 (DivN n) ==>> Q2 (DivN n))`,
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ fs [SEP_IMPPOST_def] \\
   Cases \\ fs []
 );
@@ -582,7 +594,32 @@ val hsimpl_gc = Q.store_thm ("hsimpl_gc",
 )
 
 (*------------------------------------------------------------------*)
-(* Automatic rewrites for POSTv/POSTe/POSTf/POSTd/POSTve/POST *)
+(* Automatic rewrites for POST/POSTv/POSTe/POSTf/POSTd/POSTve *)
+
+val POST_Val = Q.store_thm ("POST_Val[simp]",
+  `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Val v) = Qv v`,
+  fs [POST_def]
+);
+
+val POST_Exn = Q.store_thm ("POST_Exn[simp]",
+  `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Exn v) = Qe v`,
+  fs [POST_def]
+);
+
+val POST_FFIDiv = Q.store_thm ("POST_FFIDiv[simp]",
+  `!Qv Qe Qf Qd name conf bytes. POST Qv Qe Qf Qd (FFIDiv name conf bytes) = Qf name conf bytes`,
+  fs [POST_def]
+);
+
+val POST_Div = Q.store_thm ("POST_Div[simp]",
+  `!Qv Qe Qf Qd. POST Qv Qe Qf Qd Div = Qd`,
+  fs [POST_def]
+);
+
+val POST_DivN = Q.store_thm ("POST_DivN[simp]",
+  `!Qv Qe Qf Qd n. POST Qv Qe Qf Qd (DivN n) = &F`,
+  fs [POST_def]
+);
 
 val POSTv_Val = Q.store_thm ("POSTv_Val[simp]",
   `!Qv v. $POSTv Qv (Val v) = Qv v`,
@@ -601,6 +638,11 @@ val POSTv_FFIDiv = Q.store_thm ("POSTv_FFIDiv[simp]",
 
 val POSTv_Div = Q.store_thm ("POSTv_Div[simp]",
   `!Qv. $POSTv Qv Div = &F`,
+  fs [POSTv_def, POST_def]
+);
+
+val POSTv_DivN = Q.store_thm ("POSTv_DivN[simp]",
+  `!Qv n. $POSTv Qv (DivN n) = &F`,
   fs [POSTv_def, POST_def]
 );
 
@@ -684,31 +726,11 @@ val POSTve_Div = Q.store_thm ("POSTve_Div[simp]",
   fs [POSTve_def, POST_def]
 );
 
-val POST_Val = Q.store_thm ("POST_Val[simp]",
-  `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Val v) = Qv v`,
-  fs [POST_def]
-);
-
-val POST_Exn = Q.store_thm ("POST_Exn[simp]",
-  `!Qv Qe Qf Qd v. POST Qv Qe Qf Qd (Exn v) = Qe v`,
-  fs [POST_def]
-);
-
-val POST_FFIDiv = Q.store_thm ("POST_FFIDiv[simp]",
-  `!Qv Qe Qf Qd name conf bytes. POST Qv Qe Qf Qd (FFIDiv name conf bytes) = Qf name conf bytes`,
-  fs [POST_def]
-);
-
-val POST_Div = Q.store_thm ("POST_Div[simp]",
-  `!Qv Qe Qf Qd. POST Qv Qe Qf Qd Div = Qd`,
-  fs [POST_def]
-);
-
 (* other lemmas about POSTv *)
 
 val POSTv_ignore = Q.store_thm("POSTv_ignore",
    `(POSTv v. P) r h ⇔ ∃v. r = Val v ∧ P h`,
-   rw[POSTv_def] \\ Cases_on`r` \\ rw[cond_def]);
+   Cases_on `r` \\ rw[cond_def]);
 
 (*------------------------------------------------------------------*)
 (* Lemmas for ==v> / ==e> / ==f> / ==d> / =~v> / =~e> *)
