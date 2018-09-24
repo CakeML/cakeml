@@ -1394,16 +1394,60 @@ val word_good_handlers_const_fp_loop = Q.prove(`
   \\ rpt (pairarg_tac \\ fs[]));
 
 (* should be trivial cheats, = or ⊆ will do in the proofs *)
-val word_get_code_labels_simp_if = Q.prove(`
-  ∀p.
-  word_get_code_labels (simp_if p) SUBSET word_get_code_labels p`,
-  cheat);
+
+val word_get_code_labels_apply_if_opt = Q.store_thm("word_get_code_labels_apply_if_opt",
+  `∀x y z. apply_if_opt x y = SOME z ⇒ word_get_code_labels z = word_get_code_labels x ∪ word_get_code_labels y`,
+  rw[apply_if_opt_def]
+  \\ fs[CaseEq"option",CaseEq"prod"]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"option",CaseEq"prod"]
+  \\ rveq
+  \\ fs[CaseEq"bool"] \\ rveq
+  \\ rw[SmartSeq_def]
+  \\ rename1`dest_If iff`
+  \\ Cases_on`iff` \\ fs[dest_If_def]
+  \\ rveq \\ fs[]
+  \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
+  \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
+  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]
+  \\ rw[EXTENSION, EQ_IMP_THM] \\ rw[]);
+
+val word_get_code_labels_simp_if = Q.store_thm("word_get_code_labels_simp_if[simp]",
+   `∀p.  word_get_code_labels (simp_if p) = word_get_code_labels p`,
+  recInduct simp_if_ind
+  \\ rw[simp_if_def]
+  \\ CASE_TAC \\ simp[]
+  >- ( drule word_get_code_labels_apply_if_opt \\ rw[] )
+  \\ every_case_tac \\ fs[]);
+
+val word_good_handlers_apply_if_opt = Q.store_thm("word_good_handlers_apply_if_opt",
+  `∀x y z. apply_if_opt x y = SOME z ∧
+           word_good_handlers n x ∧ word_good_handlers n y
+           ⇒
+           word_good_handlers n z `,
+  rw[apply_if_opt_def]
+  \\ fs[CaseEq"option",CaseEq"prod"]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"option",CaseEq"prod"]
+  \\ rveq
+  \\ fs[CaseEq"bool"] \\ rveq
+  \\ rw[SmartSeq_def]
+  \\ rename1`dest_If iff`
+  \\ Cases_on`iff` \\ fs[dest_If_def]
+  \\ rveq \\ fs[]
+  \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
+  \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
+  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]);
 
 val word_good_handlers_simp_if = Q.prove(`
   ∀p.
   word_good_handlers n p ⇒
   word_good_handlers n (simp_if p)`,
-  cheat);
+  recInduct simp_if_ind
+  \\ rw[simp_if_def]
+  \\ CASE_TAC \\ simp[]
+  >- ( drule word_good_handlers_apply_if_opt \\ rw[] )
+  \\ every_case_tac \\ fs[]);
 
 val word_get_code_labels_Seq_assoc = Q.prove(`
   ∀p1 p2.
@@ -1436,7 +1480,7 @@ val word_get_code_labels_word_simp = Q.prove(`
   qexists_tac`word_get_code_labels e`>>rw[]
   >- (
     unabbrev_all_tac>>EVAL_TAC>>
-    metis_tac[word_get_code_labels_simp_if])>>
+    metis_tac[word_get_code_labels_simp_if, SUBSET_REFL])>>
   unabbrev_all_tac>>
   fs[word_get_code_labels_Seq_assoc]);
 
