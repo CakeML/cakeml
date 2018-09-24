@@ -1749,6 +1749,13 @@ val data_to_word_good_code_labels = Q.store_thm("data_to_word_good_code_labels",
 
 end
 
+val compile_prog_keeps_names = Q.store_thm("compile_prog_keeps_names",
+  `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`,
+  recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ rw[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
+
 val bvl_get_code_labels_def = tDefine"bvl_get_code_labels"
   `(bvl_get_code_labels (Var _) = {}) ∧
    (bvl_get_code_labels (If e1 e2 e3) = bvl_get_code_labels e1 ∪ bvl_get_code_labels e2 ∪ bvl_get_code_labels e3) ∧
@@ -1793,6 +1800,45 @@ val bvi_good_code_labels_def = Define`
   bvi_good_code_labels p ⇔
     BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
 
+val data_get_code_labels_space = Q.store_thm("data_get_code_labels_space",
+  `∀x y y0 y1 y2.
+   (space x = INL y ⇒ data_get_code_labels y = data_get_code_labels x) ∧
+   (space x = INR (y0,y1,y2) ⇒ data_get_code_labels y2 = data_get_code_labels x)`,
+  recInduct data_spaceTheory.space_ind
+  \\ rw[data_spaceTheory.space_def] \\ simp[]
+  \\ fs[CaseEq"sum",CaseEq"dataLang$prog"] \\ rveq \\ fs[data_spaceTheory.space_def]
+  \\ fs[data_spaceTheory.pMakeSpace_def]
+  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ rveq \\ fs[]
+  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ Cases_on`space c2` \\ Cases_on`space c3` \\ fs[] \\ TRY(PairCases_on`y`)
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ PairCases_on`y'`
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]);
+
+val data_get_code_labels_compile = Q.store_thm("data_get_code_labels_compile[simp]",
+  `∀x. data_get_code_labels (data_space$compile x) = data_get_code_labels x`,
+  rw[data_spaceTheory.compile_def]
+  \\ Cases_on`space x`
+  \\ simp[data_spaceTheory.pMakeSpace_def]
+  \\ TRY (PairCases_on`y`)
+  \\ simp[data_spaceTheory.pMakeSpace_def]
+  \\ imp_res_tac data_get_code_labels_space);
+
+val data_get_code_labels_simp = Q.store_thm("data_get_code_labels_simp",
+  `∀x y. data_get_code_labels (simp x y) ⊆ data_get_code_labels x ∪ data_get_code_labels y`,
+  recInduct data_simpTheory.simp_ind
+  \\ rw[data_simpTheory.simp_def]
+  \\ fs[SUBSET_DEF, data_simpTheory.pSeq_def] \\ rw[]
+  \\ metis_tac[]);
+
+val data_get_code_labels_compile_TODO_move = Q.store_thm("data_get_code_labels_compile_TODO_move",
+  `∀x y. data_get_code_labels (FST (compile x y)) ⊆ data_get_code_labels x`,
+  recInduct data_liveTheory.compile_ind
+  \\ rw[data_liveTheory.compile_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF]);
+
 val compile_prog_good_code_labels = Q.store_thm("compile_prog_good_code_labels",
   `∀p. bvi_good_code_labels p ⇒ data_good_code_labels (bvi_to_data$compile_prog p)`,
   simp[bvi_to_dataTheory.compile_prog_def]
@@ -1804,7 +1850,48 @@ val compile_prog_good_code_labels = Q.store_thm("compile_prog_good_code_labels",
   \\ rw[]
   \\ first_x_assum irule
   \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ fs[bvi_to_dataTheory.compile_exp_def]
+  \\ fs[bvi_to_dataTheory.optimise_def]
+  \\ qmatch_asmsub_abbrev_tac`data_get_code_labels (simp a b)`
+  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_simp
+  \\ simp_tac std_ss [SUBSET_DEF]
+  \\ disch_then drule
+  \\ rw[Abbr`a`,Abbr`b`]
+  \\ qmatch_asmsub_abbrev_tac`FST (compile a b)`
+  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_compile_TODO_move
+  \\ simp[SUBSET_DEF]
+  \\ disch_then drule
+  \\ rw[Abbr`a`, Abbr`b`]
   \\ cheat);
+
+(*
+val TODO_MOVE_1_compile_prog_good_code_labels = Q.store_thm("TODO_MOVE_1_compile_prog_good_code_labels",
+  `∀n c n2 c2.
+   bvi_tailrec$compile_prog n c = (n2,c2) ∧
+   bvi_good_code_labels c ⇒
+   bvi_good_code_labels c2`,
+  recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ simp[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ drule (GEN_ALL compile_prog_keeps_names) \\ strip_tac
+  \\ qpat_x_assum`_ next xs = _`assume_tac
+  \\ drule (GEN_ALL compile_prog_keeps_names) \\ strip_tac
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+  >- (
+    fs[bvi_good_code_labels_def, SUBSET_DEF, PULL_EXISTS, o_DEF]
+    \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+    \\ fsrw_tac[DNF_ss][]
+    \\ conj_tac >- metis_tac[]
+    \\ rw[]
+    >- (
+      last_x_assum drule \\ rw[]
+      \\ last_x_assum drule
+    \\ conj_tac
+    \\
+    \\ metis_tac[]
+*)
 
 (*
 val backend_cs =
@@ -2012,13 +2099,6 @@ val compile_decs_elist_globals = Q.store_thm("compile_decs_elist_globals",
   \\ rw[]
   \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f]);
-
-val compile_prog_keeps_names = Q.store_thm("compile_prog_keeps_names",
-  `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`,
-  recInduct bvi_tailrecTheory.compile_prog_ind
-  \\ rw[bvi_tailrecTheory.compile_prog_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
