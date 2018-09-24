@@ -723,6 +723,15 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
     \\ res_tac )
   \\ METIS_TAC[compile_sing,HD,MEM,const_cons_fst_MEM,compile_set_globals_eq_empty]);
 
+val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
+  `∀ds. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds)) ⇒
+        EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (flat_reorder_match$compile_decs ds)))`,
+  Induct \\ simp[flat_reorder_matchTheory.compile_decs_def]
+  \\ Cases \\ simp[] \\ rw[] \\ fs[]
+  \\ qspec_then`[e]`mp_tac compile_esgc_free
+  \\ strip_assume_tac (SPEC_ALL flat_reorder_matchTheory.compile_sing)
+  \\ rw[]);
+
 val const_cons_sep_sub_bag = Q.store_thm("const_cons_sep_sub_bag",
   `∀pes a const_cons c a'.
     const_cons_sep pes a const_cons = (c,a') ⇒

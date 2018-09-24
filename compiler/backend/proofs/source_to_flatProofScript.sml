@@ -4004,8 +4004,9 @@ val compile_flat_esgc_free = Q.store_thm("compile_flat_esgc_free",
   \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
   \\ drule flat_elimProofTheory.removeFlatProg_esgc_free \\ rw []
   \\ rename1 `compile_decs (compile_decs ds1)`
-  \\ cheat (* TODO compile_decs for uncheck and reorder_match *)
-  );
+  \\ irule flat_reorder_matchProofTheory.compile_decs_esgc_free
+  \\ irule flat_uncheck_ctorsProofTheory.compile_decs_esgc_free
+  \\ rw[]);
 
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `nsAll (\_ v. esgc_free v /\ set_globals v = {||}) c.mod_env.v /\

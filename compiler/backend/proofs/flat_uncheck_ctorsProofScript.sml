@@ -894,6 +894,15 @@ val compile_esgc_free = Q.store_thm ("compile_esgc_free",
    \\ qspec_then `p` assume_tac compile_sing \\ fs [] \\ fs []
   \\ res_tac \\ fs []);
 
+val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
+  `∀ds. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds)) ⇒
+        EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds)))`,
+  Induct \\ simp[flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ Cases \\ simp[] \\ rw[] \\ fs[flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ qspec_then`[e]`mp_tac compile_esgc_free
+  \\ strip_assume_tac (SPEC_ALL flat_uncheck_ctorsTheory.compile_sing)
+  \\ rw[]);
+
 val compile_sub_bag = Q.store_thm ("compile_sub_bag",
   `!es. (elist_globals (compile es)) ≤ (elist_globals es)`,
   ho_match_mp_tac compile_ind
