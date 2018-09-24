@@ -3915,7 +3915,8 @@ val normalise_tyvars_subst_differ = Q.prove(
 val normalise_tyvars_subst_chr = Q.prove(
   `!ty n_subst n0 chr.
   let
-    inv = (EVERY (λ(x,_). ?n. x = Tyvar (strlit(REPLICATE n chr)))) o SND;
+    inv = λ(big_n,subst).
+      EVERY (λ(x,_). ?n. x = Tyvar (strlit(REPLICATE n chr)) /\ n < big_n) subst;
     n_subst' = normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr
   in inv n_subst ==> inv n_subst'`,
   ho_match_mp_tac type_ind
@@ -3924,7 +3925,11 @@ val normalise_tyvars_subst_chr = Q.prove(
     strip_tac
     >> Cases
     >> rw[normalise_tyvars_subst_eqns]
-    >> qexists_tac `q`
+    >- (qexists_tac `q` >> fs[])
+    >> last_x_assum mp_tac
+    >> match_mp_tac (GEN_ALL MONO_EVERY)
+    >> rw[ELIM_UNCURRY]
+    >> asm_exists_tac
     >> fs[]
   )
   >> Induct
@@ -3934,6 +3939,20 @@ val normalise_tyvars_subst_chr = Q.prove(
   >> strip_tac
   >> first_x_assum drule
   >> rw[normalise_tyvars_subst_eqns]
+);
+
+val normalise_tyvars_rec_chr = Q.store_thm("normalise_tyvars_rec_chr",
+  `!ty chr.  let
+    inv = λ(big_n,subst).
+      EVERY (λ(x,_). ?n. (x = Tyvar (strlit(REPLICATE n chr)) /\ n < big_n)) subst;
+  in ?n. inv (n,SND (normalise_tyvars_rec ty chr))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] assume_tac) normalise_tyvars_subst_chr
+  >> fs[ELIM_UNCURRY]
+  >> qmatch_goalsub_abbrev_tac `norm:(num#(type,type) alist)`
+  >> asm_exists_tac
+  >> fs[]
 );
 
 val normalise_tyvars_rec_differ_FST_SND = Q.prove(
@@ -4023,6 +4042,31 @@ val normalise_tyvars_subst_max = Q.prove(
   >> fs[EVERY_MEM]
 );
 
+val normalise_tyvars_subst_len_inv = Q.prove(
+  `!ty n_subst n0 chr.
+    let inv = λ(n,subst). (LENGTH subst) + n0 = n /\ ALL_DISTINCT (MAP SND subst)
+    in inv n_subst
+    ==>  inv (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- rw[normalise_tyvars_subst_eqns,ELIM_UNCURRY]
+  >> Induct
+  >- rw[normalise_tyvars_subst_eqns]
+  >> strip_tac
+  >> fs[EVERY_DEF]
+  >> strip_tac
+  >> first_x_assum drule
+  >> rw[normalise_tyvars_subst_eqns]
+);
+
+val normalise_tyvars_rec_subst_snd_distinct = Q.prove(
+  `!ty chr subst. ALL_DISTINCT (MAP SND (SND (normalise_tyvars_rec ty chr)))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] assume_tac) normalise_tyvars_subst_len_inv
+  >> fs[ELIM_UNCURRY]
+);
+
 val normalise_tyvars_subst_monotone = Q.prove(
   `!ty n_subst n0 a chr. MEM a (MAP SND (SND n_subst))
   ==> MEM a (MAP SND (SND (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)))`,
@@ -4088,22 +4132,60 @@ val normalise_tyvars_subst_domain = Q.store_thm(
   >> fs[]
   >> fs[LIST_TO_SET_MAP]
   >> metis_tac[UNION_ASSOC]
-)
+);
 
-val normalise_tyvars_subst_replacing = Q.store_thm(
-  "normalise_tyvars_subst_replacing",
-  `!ty chr a. MEM a (tyvars ty) ==> MEM (Tyvar a) (MAP SND (SND (normalise_tyvars_rec ty chr)))`,
+val MEM_MAP_f = Q.store_thm("MEM_MAP_f",
+  `!f l a. MEM a l ==> MEM (f a) (MAP f l)`,
+  rw[MEM_MAP] >> qexists_tac `a` >> fs[]
+);
+
+val normalise_tyvars_rec_domain = Q.store_thm("normalise_tyvars_rec_domain",
+  `!ty a chr. set (MAP SND (SND (normalise_tyvars_rec ty chr))) = set(MAP Tyvar (tyvars ty))`,
   rw[normalise_tyvars_rec_def]
   >> qmatch_goalsub_abbrev_tac `n0:num`
-  >> `EVERY (λx. strlen x < n0) (tyvars ty)` by (
-    rw[Abbr `n0`,EVERY_MEM,GSYM LESS_EQ_IFF_LESS_SUC]
-    >> match_mp_tac list_max_MEM
-    >> rw[MEM_MAP]
-    >> qexists_tac `x`
-    >> fs[]
-  )
-  >> fs[normalise_tyvars_rec_def,normalise_tyvars_subst_domain]
+  >> (qspecl_then [`ty`,`n0`,`n0`,`chr`,`[]`] assume_tac) normalise_tyvars_subst_domain
+  >> fs[]
+  >> first_x_assum match_mp_tac
+  >> unabbrev_all_tac
+  >> rw[EVERY_MEM]
+  >> (Q.ISPEC_THEN `strlen:mlstring->num` assume_tac) MEM_MAP_f
+  >> first_x_assum drule
+  >> strip_tac
+  >> imp_res_tac list_max_MEM
+  >> rw[]
+);
+
+val ALL_DISTINCT_MAP_inj = Q.prove(
+  `!l f. (!x y. f x = f y <=> x = y) ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)`,
+  Induct
   >> rw[MEM_MAP]
+  >> first_x_assum (qspec_then `f` assume_tac)
+  >> fs[]
+);
+
+val normalise_tyvars_rec_len = Q.store_thm("normalise_tyvars_rec_len",
+  `!ty chr. LENGTH (SND (normalise_tyvars_rec ty chr)) = LENGTH (tyvars ty)`,
+  rpt strip_tac
+  >> qmatch_goalsub_abbrev_tac `norm:'a#'b`
+  >> `!(a:type list) b. set a = set b /\ ALL_DISTINCT a /\ ALL_DISTINCT b
+    ==> LENGTH a = LENGTH b` by (
+    rpt strip_tac
+    >> imp_res_tac (GSYM ALL_DISTINCT_CARD_LIST_TO_SET)
+    >> rw[]
+  )
+  >> first_x_assum (qspecl_then [`MAP SND (SND norm)`,`MAP Tyvar (tyvars ty)`] assume_tac)
+  >> `!a. ALL_DISTINCT (MAP (SND:((type#type)->type)) a) ==> LENGTH a = LENGTH (MAP SND a)` by (
+    Induct >> fs[]
+  )
+  >> first_x_assum (qspec_then `SND norm` assume_tac)
+  >> rfs[]
+  >> first_x_assum match_mp_tac
+  >> rpt strip_tac
+  >> unabbrev_all_tac
+  >> rw[normalise_tyvars_rec_domain,normalise_tyvars_rec_subst_snd_distinct]
+  >> (qspec_then `ty` assume_tac) tyvars_ALL_DISTINCT
+  >> (Q.ISPECL_THEN [`tyvars ty`,`Tyvar`] assume_tac) ALL_DISTINCT_MAP_inj
+  >> rw[]
 );
 
 val tyvars_diff_types = Q.store_thm(
@@ -5693,6 +5775,27 @@ val unify_types_sound = Q.store_thm("unify_types_sound",
        ==> TYPE_SUBST sigma ty1 = TYPE_SUBST sigma ty2`,
   rw[] \\ dxrule unify_types_IMP_invariant
   \\ fs[unify_types_invariant_def,equal_upto_nil]);
+
+val clean_tysubst_NOT_MEM = Q.store_thm("clean_tysubst_NOT_MEM",
+  `!sfx q r pfx. ¬MEM (q,r) pfx ==>
+  TYPE_SUBST (clean_tysubst (pfx ⧺ [(q,r)] ⧺ sfx)) r
+  = TYPE_SUBST (clean_tysubst ([(q,r)] ⧺ sfx)) r`,
+  Induct >- rw[clean_tysubst_def]
+  >> Cases >> rpt strip_tac
+  >> fs[MEM_MAP,clean_tysubst_def]
+
+val TYPE_SUBST_clean = Q.store_thm("TYPE_SUBST_clean",
+  `!s ty.TYPE_SUBST (clean_tysubst s) ty = TYPE_SUBST s ty`,
+  rw[TYPE_SUBST_tyvars,clean_tysubst_def]
+  >> Cases_on `MEM (Tyvar x) (MAP SND s)`
+  >> fs[MEM_MAP]
+  >- Cases_on `y`
+  >> pop_assum mp_tac
+  >> PURE_ONCE_REWRITE_TAC[MEM_SPLIT_APPEND_first]
+  >> rw[]
+  >> cheat
+  >> rw[REV_ASSOCD_def,clean_tysubst_def]
+);
 
 val unify_types_complete_cyclic_non_unifiable = Q.store_thm(
   "unify_types_complete_cyclic_non_unifiable",
