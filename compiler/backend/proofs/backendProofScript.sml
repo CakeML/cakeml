@@ -1957,6 +1957,13 @@ val compile_decs_elist_globals = Q.store_thm("compile_decs_elist_globals",
   \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f]);
 
+val compile_prog_keeps_names = Q.store_thm("compile_prog_keeps_names",
+  `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`,
+  recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ rw[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -2975,22 +2982,32 @@ val compile_correct = Q.store_thm("compile_correct",
       pop_assum kall_tac>>
       asm_exists_tac>>
       simp[]>>Cases>> simp[])
-    >-
-      (qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
+    >- (
+      qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
       simp[markerTheory.Abbrev_def]>>
       disch_then (assume_tac o SYM)>>
       drule stack_to_lab_stack_good_code_labels>>
       simp[]>>
       disch_then match_mp_tac>>
-      CONJ_TAC>-
-        (* something introduces the appropriate stub in p3 *)
-        cheat>>
+      CONJ_TAC>- (
+        EVAL_TAC
+        \\ drule (GEN_ALL compile_prog_keeps_names)
+        \\ disch_then irule
+        \\ fs[bvl_to_bviTheory.compile_prog_def]
+        \\ pairarg_tac \\ fs[] \\ rveq
+        \\ simp[]
+        \\ disj1_tac
+        \\ EVAL_TAC )
       drule word_to_stack_good_code_labels>>
       disch_then match_mp_tac>>
-      qpat_x_assum` _ = (_,p5)` mp_tac>>
-      (*?? something got lost *)
-      (*drule data_to_word_good_code_labels*)
-      cheat (* referenced labels are present *)))>>
+      irule data_to_word_good_code_labels \\
+      simp[data_to_wordTheory.compile_def]
+      \\ qpat_x_assum` _ = (_,p5)` assume_tac
+      \\ qunabbrev_tac`t_code` \\ qunabbrev_tac`c4_data_conf`
+      \\ fs[]
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ ntac 2 (pop_assum kall_tac)
+      \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
   qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
   disch_then(assume_tac o SYM) \\
