@@ -740,6 +740,7 @@ fun state_tac thms =
        arm8_config, asmPropsTheory.all_pcs, arm8_ok_def, lem30,
        set_sepTheory.fun2set_eq] @ thms)
   \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+  \\ rfs []
 
 val shift_cases_tac =
    Cases_on `s`
