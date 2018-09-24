@@ -1787,7 +1787,7 @@ val bvi_get_code_labels_def = tDefine"bvi_get_code_labels"
      (case d of NONE => {} | SOME n => {n}) ∪
      (case h of NONE => {} | SOME e => bvi_get_code_labels e) ∪
      BIGUNION (set (MAP bvi_get_code_labels es))) ∧
-   (bvi_get_code_labels (Op _ es) = BIGUNION (set (MAP bvi_get_code_labels es)))`
+   (bvi_get_code_labels (Op op es) = assign_get_code_label op ∪ BIGUNION (set (MAP bvi_get_code_labels es)))`
   (wf_rel_tac`measure exp_size`
    \\ simp[bviTheory.exp_size_def]
    \\ rpt conj_tac \\ rpt gen_tac
@@ -1839,6 +1839,36 @@ val data_get_code_labels_compile_TODO_move = Q.store_thm("data_get_code_labels_c
   \\ rpt(pairarg_tac \\ fs[])
   \\ fs[SUBSET_DEF]);
 
+val data_get_code_labels_mk_ticks = Q.store_thm("data_get_code_labels_mk_ticks",
+  `∀n m. data_get_code_labels (mk_ticks n m) ⊆ data_get_code_labels m`,
+   Induct
+   \\ rw[dataLangTheory.mk_ticks_def] \\ rw[FUNPOW]
+   \\ fs[dataLangTheory.mk_ticks_def]
+   \\ first_x_assum (qspec_then`Seq Tick m`mp_tac)
+   \\ rw[]);
+
+val data_get_code_labels_iAssign = Q.store_thm("data_get_code_labels_iAssign[simp]",
+  `∀a b c d e. data_get_code_labels (iAssign a b c d e) = assign_get_code_label b`,
+  rw[bvi_to_dataTheory.iAssign_def]
+  \\ EVAL_TAC);
+
+val data_get_code_labels_compile_TODO_move2 = Q.store_thm("data_get_code_labels_compile_TODO_move2",
+  `∀a b c d e. data_get_code_labels (FST (compile a b c d e)) ⊆
+    BIGUNION (set (MAP bvi_get_code_labels e)) `,
+  recInduct bvi_to_dataTheory.compile_ind
+  \\ rw[bvi_to_dataTheory.compile_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF]
+  \\ rw[] \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`mk_ticks a b`
+  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_mk_ticks
+  \\ simp[SUBSET_DEF]
+  \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]
+  \\ qmatch_asmsub_abbrev_tac`mk_ticks a b`
+  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_mk_ticks
+  \\ simp[SUBSET_DEF]
+  \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]);
+
 val compile_prog_good_code_labels = Q.store_thm("compile_prog_good_code_labels",
   `∀p. bvi_good_code_labels p ⇒ data_good_code_labels (bvi_to_data$compile_prog p)`,
   simp[bvi_to_dataTheory.compile_prog_def]
@@ -1862,7 +1892,11 @@ val compile_prog_good_code_labels = Q.store_thm("compile_prog_good_code_labels",
   \\ simp[SUBSET_DEF]
   \\ disch_then drule
   \\ rw[Abbr`a`, Abbr`b`]
-  \\ cheat);
+  \\ qmatch_asmsub_abbrev_tac`FST (compile a b c d e)`
+  \\ qspecl_then[`a`,`b`,`c`,`d`,`e`]mp_tac data_get_code_labels_compile_TODO_move2
+  \\ simp[SUBSET_DEF,Abbr`c`]
+  \\ disch_then drule
+  \\ simp[Abbr`e`]);
 
 (*
 val TODO_MOVE_1_compile_prog_good_code_labels = Q.store_thm("TODO_MOVE_1_compile_prog_good_code_labels",
