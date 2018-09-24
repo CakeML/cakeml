@@ -1280,6 +1280,17 @@ val word_good_handlers_remove_dead = Q.prove(`
 
 (* ssa *)
 
+val word_get_code_labels_fake_moves = Q.store_thm("word_get_code_labels_fake_moves",
+  `∀a b c d e f g h i.
+   fake_moves a b c d = (e,f,g,h,i) ⇒
+   word_get_code_labels e = {} ∧
+   word_get_code_labels f = {}`,
+  Induct \\ rw[fake_moves_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"option"] \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ rw[fake_move_def]);
+
 val word_get_code_labels_ssa_cc_trans = Q.store_thm("word_get_code_labels_ssa_cc_trans",
   `∀x y z a b c.
    ssa_cc_trans x y z = (a,b,c) ⇒
@@ -1300,7 +1311,8 @@ val word_get_code_labels_ssa_cc_trans = Q.store_thm("word_get_code_labels_ssa_cc
     fs[fix_inconsistencies_def]
     \\ rpt(pairarg_tac \\ fs[])
     \\ rveq \\ fs[]
-    \\ cheat (* fake_moves, merge_moves *) )
+    \\ imp_res_tac word_get_code_labels_fake_moves
+    \\ rw[])
   >- (
     fs[list_next_var_rename_move_def]
     \\ rpt(pairarg_tac \\ fs[])
@@ -1321,7 +1333,8 @@ val word_get_code_labels_ssa_cc_trans = Q.store_thm("word_get_code_labels_ssa_cc
     \\ fs[CaseEq"prod", fix_inconsistencies_def]
     \\ rpt(pairarg_tac \\ fs[])
     \\ rveq \\ fs[]
-    \\ cheat (* fake_moves, merge_moves  - see above*)));
+    \\ imp_res_tac word_get_code_labels_fake_moves
+    \\ fs[]));
 
 val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   ∀m p.
@@ -1337,11 +1350,75 @@ val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   \\ drule word_get_code_labels_ssa_cc_trans
   \\ rw[]);
 
+val word_good_handlers_fake_moves = Q.store_thm("word_good_handlers_fake_moves",
+  `∀a b c d e f g h i.
+   fake_moves a b c d = (e,f,g,h,i) ⇒
+   word_good_handlers n e ∧
+   word_good_handlers n f`,
+  Induct \\ rw[fake_moves_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"option"] \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ rw[fake_move_def]);
+
+val word_good_handlers_ssa_cc_trans = Q.store_thm("word_good_handlers_ssa_cc_trans",
+  `∀x y z a b c.
+   ssa_cc_trans x y z = (a,b,c) ⇒
+   word_good_handlers n a = word_good_handlers n x`,
+  recInduct ssa_cc_trans_ind
+  \\ rw[ssa_cc_trans_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  >- (
+    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
+    \\ rveq \\ fs[]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
+    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
+    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
+    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
+  >- (
+    fs[fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ imp_res_tac word_good_handlers_fake_moves
+    \\ rw[])
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ fs[CaseEq"prod", fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ imp_res_tac word_good_handlers_fake_moves
+    \\ fs[]));
+
 val word_good_handlers_full_ssa_cc_trans = Q.prove(`
   ∀m p.
   word_good_handlers n (full_ssa_cc_trans m p) ⇔
   word_good_handlers n p`,
-  cheat);
+  simp[full_ssa_cc_trans_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[setup_ssa_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ drule word_good_handlers_ssa_cc_trans
+  \\ rw[]);
 
 (* inst *)
 val word_get_code_labels_inst_select_exp = Q.prove(`
@@ -1392,8 +1469,6 @@ val word_good_handlers_const_fp_loop = Q.prove(`
   \\ fs [const_fp_loop_def]
   \\ every_case_tac\\ fs[]
   \\ rpt (pairarg_tac \\ fs[]));
-
-(* should be trivial cheats, = or ⊆ will do in the proofs *)
 
 val word_get_code_labels_apply_if_opt = Q.store_thm("word_get_code_labels_apply_if_opt",
   `∀x y z. apply_if_opt x y = SOME z ⇒ word_get_code_labels z = word_get_code_labels x ∪ word_get_code_labels y`,
