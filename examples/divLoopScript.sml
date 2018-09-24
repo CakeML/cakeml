@@ -4,19 +4,18 @@ val _ = new_theory "divLoop";
 
 val _ = translation_extends "basisProg";
 
-(* Needs reformulating *)
 val div_ind = Q.store_thm("div_ind",
   `!fv xs H Qd env funs f.
        fv = Recclosure env funs f /\
        (?param body. find_recfun f funs = SOME (param, body) /\
        (?h. Qd h) /\
-     (!n. app (p:'ffi ffi_proj) fv xs H (POST_DIV_N n. Qd) ==>
+     (!n. app (p:'ffi ffi_proj) fv xs H (POST_DIV_N n Qd) ==>
             cf (p:'ffi ffi_proj) body
               (extend_env_rec
                 (MAP (\ (f,_,_). f) funs)
                 (MAP (\ (f,_,_). naryRecclosure env
                   (letrec_pull_params funs) f) funs)
-              [param] xs env) H (POST_DIV_N n. Qd))) ==>
+              [param] xs env) H (POST_DIV_N n Qd))) ==>
      app (p:'ffi ffi_proj) fv xs H (POSTd Qd)`,
   cheat
 );
@@ -57,7 +56,7 @@ val loop_spec = Q.store_thm ("loop_spec",
   \\ rw []
   \\ qexists_tac `emp`
   \\ qexists_tac `emp`
-  \\ qexists_tac `POST_DIV_N n. &T`
+  \\ qexists_tac `POST_DIV_N n &T`
   \\ rpt strip_tac
   THEN1 (fs [SEP_CLAUSES])
   THEN1 (fs [])

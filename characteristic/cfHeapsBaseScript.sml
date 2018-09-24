@@ -181,14 +181,14 @@ val POSTve_def = Define `
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
 
-val POST_DIV_N_def = new_binder_definition("POST_DIV_N_def",
-  ``($POST_DIV_N) (Qn: num -> hprop) = \r.
-      case r of
-       | Val v => cond F
-       | Exn e => cond F
-       | FFIDiv name conf bytes => cond F
-       | Div => cond F
-       | DivN n => Qn n``)
+val POST_DIV_N_def = Define `
+  POST_DIV_N (N: num) (Qd: hprop) = \r.
+    case r of
+     | Val v => cond F
+     | Exn e => cond F
+     | FFIDiv name conf bytes => cond F
+     | Div => cond F
+     | DivN n => cond (N = n) * Qd`
 
 (* cond specialized to equality to some value; as a post-condition *)
 val cond_eq_def = Define `
