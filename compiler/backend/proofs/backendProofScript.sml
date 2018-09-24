@@ -1279,11 +1279,63 @@ val word_good_handlers_remove_dead = Q.prove(`
   rpt(pairarg_tac>>fs[])>>rw[]);
 
 (* ssa *)
+
+val word_get_code_labels_ssa_cc_trans = Q.store_thm("word_get_code_labels_ssa_cc_trans",
+  `∀x y z a b c.
+   ssa_cc_trans x y z = (a,b,c) ⇒
+   word_get_code_labels a = word_get_code_labels x`,
+  recInduct ssa_cc_trans_ind
+  \\ rw[ssa_cc_trans_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  >- (
+    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
+    \\ rveq \\ fs[]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
+    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
+    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
+    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
+  >- (
+    fs[fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ cheat (* fake_moves, merge_moves *) )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ fs[CaseEq"prod", fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ cheat (* fake_moves, merge_moves  - see above*)));
+
 val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   ∀m p.
   word_get_code_labels (full_ssa_cc_trans m p) =
   word_get_code_labels p`,
-  cheat);
+  simp[full_ssa_cc_trans_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[setup_ssa_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ drule word_get_code_labels_ssa_cc_trans
+  \\ rw[]);
 
 val word_good_handlers_full_ssa_cc_trans = Q.prove(`
   ∀m p.
