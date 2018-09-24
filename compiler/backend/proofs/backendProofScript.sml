@@ -2210,6 +2210,78 @@ val bvi_tailrec_compile_prog_labels = Q.store_thm("bvi_tailrec_compile_prog_labe
      \\ asm_exists_tac \\ fs [])
    \\ qexists_tac `k + 1` \\ fs [LEFT_ADD_DISTRIB]);
 
+val bvi_tailrec_compile_prog_get_code_labels = Q.store_thm("bvi_tailrec_compile_prog_get_code_labels",
+  `!next1 code1 next2 code2.
+     bvi_tailrec_compile_prog next1 code1 = (next2, code2)
+     ==>
+     BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) code2)) ⊆
+     BIGUNION (set (MAP (bvi_get_code_labels ∘ SND ∘ SND) code1)) UNION
+       { next1 + k * bvl_to_bvi_namespaces | k
+       | next1 + k * bvl_to_bvi_namespaces < next2 }`,
+  recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ rw[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[PULL_EXISTS]
+  >- ( simp[GSYM UNION_ASSOC] \\ fs[SUBSET_DEF] )
+  \\ drule bvi_get_code_labels_compile_exp
+  \\ fs[SUBSET_DEF, PULL_EXISTS]
+  \\ rw[] \\ fs[]
+  \\ first_x_assum drule \\ rw[] \\ rw[]
+  \\ TRY (metis_tac[])
+  \\ TRY (
+    rpt disj2_tac
+    \\ qexists_tac`0` \\ rw[]
+    \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ rw[] \\ EVAL_TAC \\ rw[]
+    \\ NO_TAC )
+  \\ rpt disj2_tac
+  \\ qexists_tac`SUC k`
+  \\ rw[ADD1, LEFT_ADD_DISTRIB]);
+
+(* not true
+val not_has_rec_code_labels = Q.store_thm("not_has_rec_code_labels",
+  `∀loc xs. ¬has_rec loc xs ⇒ EVERY (((=) {}) o bvi_get_code_labels) xs`,
+  recInduct bvi_tailrecTheory.has_rec_ind
+  \\ rw[bvi_tailrecTheory.has_rec_def] \\ fs[]
+  \\ rpt(qpat_x_assum`{} = _`(assume_tac o SYM) \\ fs[])
+*)
+
+(*
+
+needs to be pushed up the rest of the compiler, this is a start...
+
+bvl_to_bviTheory.compile_single_def
+
+val compile_list_get_code_labels = Q.store_thm("compile_list_get_code_labels",
+    `∀n p code m. compile_list n p = (code,m) ⇒
+     BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) (append code))) ⊆ set (MAP FST (append code))`,
+  Induct_on`p`
+  \\ rw[bvl_to_bviTheory.compile_list_def]
+  >- (EVAL_TAC \\ rw[])
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ first_x_assum drule
+  \\ rw[]
+  \\ TRY ( fs[SUBSET_DEF] \\ NO_TAC )
+
+val compile_prog_get_code_labels_TODO_move = Q.store_thm("compile_prog_get_code_labels_TODO_move",
+  `∀s n p t q m.
+   bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
+   BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) q)) ⊆
+     3 * s + 66 INSERT set (MAP FST q)`,
+  rw[bvl_to_bviTheory.compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[]
+  \\ conj_tac
+  >- (
+    simp[SUBSET_DEF, PULL_EXISTS]
+    \\ EVAL_TAC \\ fs[]
+    \\ rw[SUBSET_DEF]
+    \\ fs[] \\ res_tac \\ rw[] )
+
+*)
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -3281,6 +3353,10 @@ val compile_correct = Q.store_thm("compile_correct",
        (imp_res_tac bvi_tailrec_compile_prog_labels
         \\ pop_assum kall_tac
         \\ pop_assum (SUBST1_TAC o GSYM) \\ fs [])
+      \\ drule bvi_tailrec_compile_prog_labels
+      \\ strip_tac
+      \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
+
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
   qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
