@@ -2840,7 +2840,8 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`c4`] \\
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
   disch_then(qspec_then`lab_oracle`mp_tac) \\
-  `∀k. SND (co k) = [(num_stubs cf.max_app, 0, Op (Const (&TODO_co1)) [])]` by (
+
+  `∀k. SND (co k) = []` by (
       gen_tac
       \\ simp[Abbr`co`, Abbr`co3`, backendPropsTheory.state_co_def, Abbr`pc`, backendPropsTheory.pure_co_def, UNCURRY]
       \\ simp[flat_to_patTheory.compile_def]
@@ -2868,10 +2869,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs[]
       \\ simp[clos_annotateProofTheory.compile_inc_def]
       \\ CONV_TAC(LAND_CONV(RAND_CONV EVAL))
-      \\ simp[clos_to_bvlProofTheory.compile_inc_def]
-      \\ simp[clos_to_bvlProofTheory.extract_name_def]
-      \\ simp[clos_to_bvlTheory.chain_exps_def]
-      \\ simp[clos_to_bvlTheory.compile_prog_def, clos_to_bvlTheory.compile_exps_def] ) \\
+      \\ simp[clos_to_bvlProofTheory.compile_inc_def]) \\
   `∀k. FST (SND (FST (co k))) = n1`
   by (
     simp[Abbr`co`, backendPropsTheory.FST_state_co, FST_known_co]
@@ -3129,6 +3127,16 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ disch_then drule
           \\ simp[])
         \\ simp[MAP_prog_to_section_Section_num]
+        \\ `ppg = []`
+        by (
+          simp[Abbr`ppg`]
+          \\ EVAL_TAC
+          \\ simp[UNCURRY]
+          \\ EVAL_TAC )
+        \\ simp[]
+        \\ EVAL_TAC
+        \\ simp[]
+        (*
         \\ conj_tac
         >- (
           simp[Abbr`ppg`]
@@ -3173,7 +3181,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ gen_tac \\ strip_tac
         \\ first_x_assum drule
         \\ strip_tac \\ rw[]
-        \\ cheat (* referenced labels are present (for oracle) *) )
+        \\ cheat (* referenced labels are present (for oracle) *) *))
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\
