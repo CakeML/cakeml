@@ -1749,6 +1749,62 @@ val data_to_word_good_code_labels = Q.store_thm("data_to_word_good_code_labels",
 
 end
 
+val bvl_get_code_labels_def = tDefine"bvl_get_code_labels"
+  `(bvl_get_code_labels (Var _) = {}) ∧
+   (bvl_get_code_labels (If e1 e2 e3) = bvl_get_code_labels e1 ∪ bvl_get_code_labels e2 ∪ bvl_get_code_labels e3) ∧
+   (bvl_get_code_labels (Let es e) = BIGUNION (set (MAP bvl_get_code_labels es)) ∪ bvl_get_code_labels e) ∧
+   (bvl_get_code_labels (Raise e) = bvl_get_code_labels e) ∧
+   (bvl_get_code_labels (Handle e1 e2) = bvl_get_code_labels e1 ∪ bvl_get_code_labels e2) ∧
+   (bvl_get_code_labels (Tick e) = bvl_get_code_labels e) ∧
+   (bvl_get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP bvl_get_code_labels es))) ∧
+   (bvl_get_code_labels (Op _ es) = BIGUNION (set (MAP bvl_get_code_labels es)))`
+  (wf_rel_tac`measure exp_size`
+   \\ simp[bvlTheory.exp_size_def]
+   \\ rpt conj_tac \\ rpt gen_tac
+   \\ Induct_on`es`
+   \\ rw[bvlTheory.exp_size_def]
+   \\ simp[] \\ res_tac \\ simp[]);
+val bvl_get_code_labels_def = bvl_get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "bvl_get_code_labels_def[simp]"
+
+val bvl_good_code_labels_def = Define`
+  bvl_good_code_labels p ⇔
+    BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
+
+val bvi_get_code_labels_def = tDefine"bvi_get_code_labels"
+  `(bvi_get_code_labels (Var _) = {}) ∧
+   (bvi_get_code_labels (If e1 e2 e3) = bvi_get_code_labels e1 ∪ bvi_get_code_labels e2 ∪ bvi_get_code_labels e3) ∧
+   (bvi_get_code_labels (Let es e) = BIGUNION (set (MAP bvi_get_code_labels es)) ∪ bvi_get_code_labels e) ∧
+   (bvi_get_code_labels (Raise e) = bvi_get_code_labels e) ∧
+   (bvi_get_code_labels (Tick e) = bvi_get_code_labels e) ∧
+   (bvi_get_code_labels (Call _ d es h) =
+     (case d of NONE => {} | SOME n => {n}) ∪
+     (case h of NONE => {} | SOME e => bvi_get_code_labels e) ∪
+     BIGUNION (set (MAP bvi_get_code_labels es))) ∧
+   (bvi_get_code_labels (Op _ es) = BIGUNION (set (MAP bvi_get_code_labels es)))`
+  (wf_rel_tac`measure exp_size`
+   \\ simp[bviTheory.exp_size_def]
+   \\ rpt conj_tac \\ rpt gen_tac
+   \\ Induct_on`es`
+   \\ rw[bviTheory.exp_size_def]
+   \\ simp[] \\ res_tac \\ simp[]);
+val bvi_get_code_labels_def = bvi_get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "bvi_get_code_labels_def[simp]"
+
+val bvi_good_code_labels_def = Define`
+  bvi_good_code_labels p ⇔
+    BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
+
+val compile_prog_good_code_labels = Q.store_thm("compile_prog_good_code_labels",
+  `∀p. bvi_good_code_labels p ⇒ data_good_code_labels (bvi_to_data$compile_prog p)`,
+  simp[bvi_to_dataTheory.compile_prog_def]
+  \\ simp[data_good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
+  \\ simp[bvi_to_dataTheory.compile_part_def]
+  \\ simp[FST_triple]
+  \\ simp[bvi_good_code_labels_def]
+  \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD, EXISTS_PROD]
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ cheat);
 
 (*
 val backend_cs =
@@ -2883,6 +2939,7 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ disch_then drule
           \\ simp[])
         \\ simp[MAP_prog_to_section_Section_num]
+
         \\ conj_tac
         >- (
           simp[Abbr`ppg`]
@@ -2910,6 +2967,8 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ Cases_on`compile_inc n1 pp`
           \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
           \\ strip_tac \\ fs[]
+          \\ qmatch_assum_rename_tac`z ∈ get_code_labels p7`
+          \\ PairCases_on`z` \\ fs[]
           \\ conj_tac
           >- (
             strip_tac
@@ -2998,7 +3057,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[]
         \\ disj1_tac
         \\ EVAL_TAC )
-      drule word_to_stack_good_code_labels>>
+      \\ drule word_to_stack_good_code_labels>>
       disch_then match_mp_tac>>
       irule data_to_word_good_code_labels \\
       simp[data_to_wordTheory.compile_def]
@@ -3006,7 +3065,14 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qunabbrev_tac`t_code` \\ qunabbrev_tac`c4_data_conf`
       \\ fs[]
       \\ goal_assum(first_assum o mp_then Any mp_tac)
-      \\ ntac 2 (pop_assum kall_tac)
+      \\ simp[Abbr`p4`]
+      \\ irule compile_prog_good_code_labels
+      \\ qpat_x_assum`_ = (_,p3)`assume_tac
+      \\ rpt(qhdtm_x_assum`semantics`kall_tac)
+      \\ qpat_x_assum`_ = (_,code,_)`assume_tac
+      \\ qpat_x_assum`_ = (_,prog')`assume_tac
+      \\ qpat_x_assum`_ = (_,p''')`assume_tac
+
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
   qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
