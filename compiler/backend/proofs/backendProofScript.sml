@@ -2182,6 +2182,34 @@ val compile_decs_elist_globals = Q.store_thm("compile_decs_elist_globals",
   \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f]);
 
+(* TODO move *)
+val bvi_tailrec_compile_prog_labels = Q.store_thm("bvi_tailrec_compile_prog_labels",
+  `!next1 code1 next2 code2.
+     bvi_tailrec_compile_prog next1 code1 = (next2, code2)
+     ==>
+     set (MAP FST code1) UNION { next1 + k * bvl_to_bvi_namespaces | k
+                               | next1 + k * bvl_to_bvi_namespaces < next2 } =
+     set (MAP FST code2) /\
+     next1 <= next2`,
+   recInduct bvi_tailrecTheory.compile_prog_ind
+   \\ rw [bvi_tailrecTheory.compile_prog_def] \\ fs []
+   \\ pop_assum mp_tac
+   \\ fs [CaseEq"prod", CaseEq"option"]
+   \\ rpt (pairarg_tac \\ fs []) \\ rw [] \\ fs []
+   \\ fs [INSERT_UNION_EQ]
+   \\ last_x_assum (SUBST1_TAC o GSYM)
+   \\ rw [EXTENSION]
+   \\ eq_tac \\ rw []
+   \\ simp [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
+   \\ rw []
+   >- (Cases_on `k` \\ fs [ADD1, LEFT_ADD_DISTRIB])
+   >-
+    (qexists_tac `0` \\ fs []
+     \\ `0n < bvl_to_bvi_namespaces` by fs [bvl_to_bvi_namespaces_def]
+     \\ match_mp_tac (GEN_ALL (DECIDE ``0n < z /\ x + z <= y ==> x < y``))
+     \\ asm_exists_tac \\ fs [])
+   \\ qexists_tac `k + 1` \\ fs [LEFT_ADD_DISTRIB]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -3101,7 +3129,6 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ disch_then drule
           \\ simp[])
         \\ simp[MAP_prog_to_section_Section_num]
-
         \\ conj_tac
         >- (
           simp[Abbr`ppg`]
@@ -3234,9 +3261,18 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qpat_x_assum`_ = (_,code,_)`assume_tac
       \\ qpat_x_assum`_ = (_,prog')`assume_tac
       \\ qpat_x_assum`_ = (_,p''')`assume_tac
-      \\ drule (GEN_ALL TODO_MOVE_1_compile_prog_good_code_labels)
-      \\ simp[bvi_good_code_labels_def] (* this, or the theorem above, looks wrong *)
-
+      \\ simp[bvi_good_code_labels_def]
+      \\ drule
+        (TODO_MOVE_1_compile_prog_good_code_labels
+         |> INST_TYPE [alpha|->``:num#bvi$exp``]
+         |> GEN_ALL)
+      \\ disch_then match_mp_tac \\ fs []
+      \\ qexists_tac `p3` \\ fs []
+      \\ reverse conj_tac
+      >-
+       (imp_res_tac bvi_tailrec_compile_prog_labels
+        \\ pop_assum kall_tac
+        \\ pop_assum (SUBST1_TAC o GSYM) \\ fs [])
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
   qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
