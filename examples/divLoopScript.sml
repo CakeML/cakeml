@@ -4,6 +4,25 @@ val _ = new_theory "divLoop";
 
 val _ = translation_extends "basisProg";
 
+val app_POST_DIV_N = store_thm("app_POST_DIV_N",
+  ``(!n. app (p:'ffi ffi_proj) fv xs H (POST_DIV_N n Qd)) <=>
+    app (p:'ffi ffi_proj) fv xs H (POSTd Qd)``,
+  cheat);
+
+val app_eq_cf_body = store_thm("app_eq_cf_body",
+  ``find_recfun f funs = SOME (param,body) /\
+    cf (p:'ffi ffi_proj) body
+      (extend_env_rec
+         (MAP (\ (f,_,_). f) funs)
+         (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+      [param] xs env) H (POST_DIV_N n Qd) ==>
+    app p (Recclosure env funs f) xs H (POST_DIV_N (SUC n) Qd)``,
+  cheat);
+
+val app_POST_DIV_N_0 = store_thm("app_POST_DIV_N_0",
+  ``app p (Recclosure env funs f) xs H (POST_DIV_N 0 Qd)``,
+  cheat);
+
 val div_ind = Q.store_thm("div_ind",
   `!fv xs H Qd env funs f.
        fv = Recclosure env funs f /\
@@ -17,8 +36,11 @@ val div_ind = Q.store_thm("div_ind",
                   (letrec_pull_params funs) f) funs)
               [param] xs env) H (POST_DIV_N n Qd))) ==>
      app (p:'ffi ffi_proj) fv xs H (POSTd Qd)`,
-  cheat
-);
+  rw [] \\ rewrite_tac [GSYM app_POST_DIV_N]
+  \\ Induct
+  THEN1 fs [app_POST_DIV_N_0]
+  \\ match_mp_tac (GEN_ALL app_eq_cf_body)
+  \\ fs []);
 
 val _ = process_topdecs `fun loop x = loop x` |> append_prog;
 
