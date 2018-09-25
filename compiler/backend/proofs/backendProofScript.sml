@@ -2246,11 +2246,74 @@ val not_has_rec_code_labels = Q.store_thm("not_has_rec_code_labels",
   \\ rpt(qpat_x_assum`{} = _`(assume_tac o SYM) \\ fs[])
 *)
 
+val destLet_code_labels = Q.store_thm("destLet_code_labels",
+  `destLet x = (y,z) ⇒
+    BIGUNION (set (MAP bvl_get_code_labels y)) ∪ bvl_get_code_labels z ⊆ bvl_get_code_labels x`,
+ Cases_on`x`
+ \\ rw[bvl_to_bviTheory.destLet_def]
+ \\ fs[bvl_to_bviTheory.destLet_def]);
+
+val compile_int_code_labels = Q.store_thm("compile_int_code_labels[simp]",
+  `∀i. bvi_get_code_labels (compile_int i) = {}`,
+  recInduct bvl_to_bviTheory.compile_int_ind
+  \\ rw[]
+  \\ rw[Once bvl_to_bviTheory.compile_int_def]
+  \\ rw[assign_get_code_label_def]);
+
 (*
+val compile_op_code_labels = Q.store_thm("compile_op_code_labels",
+  `bvi_get_code_labels (compile_op op c) ⊆
+    BIGUNION (set (MAP bvi_get_code_labels c)) ∪
+    assign_get_code_label op ∪
+    set (MAP FST (bvl_to_bvi$stubs x y)) ∪ foo`,
+  simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
+  \\ every_case_tac \\ fs[assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
+  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]
 
-needs to be pushed up the rest of the compiler, this is a start...
+  \\ PURE_CASE_TAC \\ fs[]
+  \\ fs[assign_get_code_label_def, bvl_to_bviTheory.stubs_def]
+  \\ rw[] \\ fs[REPLICATE_GENLIST, assign_get_code_label_def, MAPi_GENLIST]
 
-bvl_to_bviTheory.compile_single_def
+  m``ListLength_location``
+  overload_info_for"stubs"
+
+val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
+  `∀n xs ys aux m.
+    bvl_to_bvi$compile_exps n xs = (ys,aux,m) ⇒
+     BIGUNION (set (MAP bvi_get_code_labels ys)) ⊆
+     BIGUNION (set (MAP bvl_get_code_labels xs)) ∪
+     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m }`,
+  recInduct bvl_to_bviTheory.compile_exps_ind
+  \\ rw[bvl_to_bviTheory.compile_exps_def]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac destLet_code_labels \\ fs[NULL_EQ]
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS]
+  \\ imp_res_tac bvl_to_bviProofTheory.compile_exps_aux_sorted \\ fs[]
+  \\ imp_res_tac bvl_to_bviTheory.compile_exps_SING \\ rveq \\ fs[]
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (rpt disj2_tac
+      \\ rw[] \\ res_tac \\ fs[]
+      \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+
+val compile_single_get_code_labels = Q.store_thm("compile_single_get_code_labels",
+  `∀n p code m. compile_single n p = (code, m) ⇒
+      BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) (append code))) ⊆
+      set (MAP FST (append code))`,
+  rw[]
+  \\ PairCases_on`p`
+  \\ fs[bvl_to_bviTheory.compile_single_def]
+  \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
 
 val compile_list_get_code_labels = Q.store_thm("compile_list_get_code_labels",
     `∀n p code m. compile_list n p = (code,m) ⇒
@@ -2279,7 +2342,6 @@ val compile_prog_get_code_labels_TODO_move = Q.store_thm("compile_prog_get_code_
     \\ EVAL_TAC \\ fs[]
     \\ rw[SUBSET_DEF]
     \\ fs[] \\ res_tac \\ rw[] )
-
 *)
 
 val compile_correct = Q.store_thm("compile_correct",
