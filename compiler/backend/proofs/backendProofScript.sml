@@ -1764,7 +1764,7 @@ val bvl_get_code_labels_def = tDefine"bvl_get_code_labels"
    (bvl_get_code_labels (Handle e1 e2) = bvl_get_code_labels e1 ∪ bvl_get_code_labels e2) ∧
    (bvl_get_code_labels (Tick e) = bvl_get_code_labels e) ∧
    (bvl_get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP bvl_get_code_labels es))) ∧
-   (bvl_get_code_labels (Op _ es) = BIGUNION (set (MAP bvl_get_code_labels es)))`
+   (bvl_get_code_labels (Op op es) = IMAGE (λn. bvl_num_stubs + n * bvl_to_bvi_namespaces) (assign_get_code_label op) ∪ BIGUNION (set (MAP bvl_get_code_labels es)))`
   (wf_rel_tac`measure exp_size`
    \\ simp[bvlTheory.exp_size_def]
    \\ rpt conj_tac \\ rpt gen_tac
@@ -2275,7 +2275,8 @@ val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
     bvl_to_bvi$compile_exps n xs = (ys,aux,m) ⇒
      BIGUNION (set (MAP bvi_get_code_labels ys)) ⊆
      BIGUNION (set (MAP bvl_get_code_labels xs)) ∪
-     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m }`,
+     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m } ∪
+     set (MAP FST (bvl_to_bvi$stubs x y))`,
   recInduct bvl_to_bviTheory.compile_exps_ind
   \\ rw[bvl_to_bviTheory.compile_exps_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
@@ -2289,7 +2290,7 @@ val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
   >- (
     rw[] \\ res_tac \\ fs[]
     \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
-  >- (rpt disj2_tac
+  >- (disj1_tac \\ rpt disj2_tac
       \\ rw[] \\ res_tac \\ fs[]
       \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
   >- (
@@ -2298,11 +2299,21 @@ val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
   >- (
     rw[] \\ res_tac \\ fs[]
     \\ qspecl_then[`op`,`c1`]mp_tac(Q.GENL[`op`,`c`]compile_op_code_labels)
-    \\ simp[bvl_to_bviTheory.stubs_def, SUBSET_DEF, PULL_EXISTS]
+    \\ simp[SUBSET_DEF, PULL_EXISTS]
     \\ disch_then drule
-    \\ strip_tac \\ TRY(first_x_assum drule \\ simp[] \\ NO_TAC)
+    \\ strip_tac
+    \\ TRY(first_x_assum drule \\ simp[] \\ strip_tac \\
+            ((ntac 2 disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC) ORELSE
+             (disj1_tac \\ rpt disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC) ORELSE
+             (rpt disj2_tac \\ fs[] \\ NO_TAC)))
+    \\ TRY(rpt disj1_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC))
+  >- cheat
+  >- (
+    Cases_on`dest` \\ fs[] \\ rw[] \\ res_tac \\ fs[]
     \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+*)
 
+(*
 val compile_single_get_code_labels = Q.store_thm("compile_single_get_code_labels",
   `∀n p code m. compile_single n p = (code, m) ⇒
       BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) (append code))) ⊆
