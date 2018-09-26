@@ -2260,23 +2260,16 @@ val compile_int_code_labels = Q.store_thm("compile_int_code_labels[simp]",
   \\ rw[Once bvl_to_bviTheory.compile_int_def]
   \\ rw[assign_get_code_label_def]);
 
-(*
 val compile_op_code_labels = Q.store_thm("compile_op_code_labels",
   `bvi_get_code_labels (compile_op op c) ⊆
     BIGUNION (set (MAP bvi_get_code_labels c)) ∪
-    assign_get_code_label op ∪
-    set (MAP FST (bvl_to_bvi$stubs x y)) ∪ foo`,
+    IMAGE (λn. bvl_num_stubs + n * bvl_to_bvi_namespaces) (assign_get_code_label op) ∪
+    set (MAP FST (bvl_to_bvi$stubs x y))`,
   simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
   \\ every_case_tac \\ fs[assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
-  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]
+  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]);
 
-  \\ PURE_CASE_TAC \\ fs[]
-  \\ fs[assign_get_code_label_def, bvl_to_bviTheory.stubs_def]
-  \\ rw[] \\ fs[REPLICATE_GENLIST, assign_get_code_label_def, MAPi_GENLIST]
-
-  m``ListLength_location``
-  overload_info_for"stubs"
-
+(*
 val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
   `∀n xs ys aux m.
     bvl_to_bvi$compile_exps n xs = (ys,aux,m) ⇒
@@ -2304,6 +2297,10 @@ val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
     \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
   >- (
     rw[] \\ res_tac \\ fs[]
+    \\ qspecl_then[`op`,`c1`]mp_tac(Q.GENL[`op`,`c`]compile_op_code_labels)
+    \\ simp[bvl_to_bviTheory.stubs_def, SUBSET_DEF, PULL_EXISTS]
+    \\ disch_then drule
+    \\ strip_tac \\ TRY(first_x_assum drule \\ simp[] \\ NO_TAC)
     \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
 
 val compile_single_get_code_labels = Q.store_thm("compile_single_get_code_labels",
