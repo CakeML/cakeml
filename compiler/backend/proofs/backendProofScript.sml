@@ -2387,20 +2387,48 @@ val compile_single_get_code_labels = Q.store_thm("compile_single_get_code_labels
   \\ fsrw_tac[DNF_ss][] \\ rw[]
   \\ metis_tac[]);
 
-(*
 val compile_list_get_code_labels = Q.store_thm("compile_list_get_code_labels",
     `∀n p code m. compile_list n p = (code,m) ⇒
-     BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) (append code))) ⊆ set (MAP FST (append code))`,
+     n ≤ m ∧
+     BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) (append code))) ⊆
+     set (MAP FST (append code)) ∪
+     IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces)
+       (BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p))) ∪
+     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m } ∪
+     set (MAP FST (bvl_to_bvi$stubs x y))`,
   Induct_on`p`
   \\ rw[bvl_to_bviTheory.compile_list_def]
   >- (EVAL_TAC \\ rw[])
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ first_x_assum drule
-  \\ rw[]
-  \\ TRY ( fs[SUBSET_DEF] \\ NO_TAC )
+  \\ first_x_assum drule \\ rw[]
+  >- (
+    PairCases_on`h`
+    \\ fs[bvl_to_bviTheory.compile_single_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac bvl_to_bviProofTheory.compile_exps_aux_sorted
+    \\ fs[] )
+  >- (
+    drule compile_single_get_code_labels
+    \\ rw[]
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ fsrw_tac[DNF_ss][] \\ rw[]
+    \\ first_x_assum drule
+    \\ simp[]
+    \\ strip_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_LESS_TRANS,LESS_TRANS] )
+  >- (
+    fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+    \\ fsrw_tac[DNF_ss][]
+    \\ first_x_assum drule \\ rw[]
+    \\ PairCases_on`h`
+    \\ fs[bvl_to_bviTheory.compile_single_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac bvl_to_bviProofTheory.compile_exps_aux_sorted
+    \\ metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_LESS_TRANS,LESS_TRANS,LESS_EQ_TRANS] ));
 
+(*
 val compile_prog_get_code_labels_TODO_move = Q.store_thm("compile_prog_get_code_labels_TODO_move",
   `∀s n p t q m.
    bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
