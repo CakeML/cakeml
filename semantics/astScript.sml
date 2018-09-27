@@ -9,6 +9,9 @@ val _ = numLib.prefer_num();
 val _ = new_theory "ast"
 val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
+(*
+  Definition of CakeML abstract syntax (AST).
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*open import Namespace*)

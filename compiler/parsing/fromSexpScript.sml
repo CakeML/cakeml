@@ -1199,7 +1199,7 @@ val sexpop_opsexp = Q.store_thm("sexpop_opsexp[simp]",
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘WordFromInt c1’,
+        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt c1’,
         ‘WordToInt c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
