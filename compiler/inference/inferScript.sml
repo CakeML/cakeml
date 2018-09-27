@@ -350,6 +350,7 @@ val op_to_string_def = Define `
 (op_to_string (Opn _) = (implode "Opn", 2n)) ∧
 (op_to_string (Opb _) = (implode "Opb", 2)) ∧
 (op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
+(op_to_string (FP_top _) = (implode "FP_top", 3)) ∧
 (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
 (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
 (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
@@ -406,6 +407,12 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] (word_tc wz));
           return (Infer_Tapp [] (word_tc wz))
        od
+   | (FP_top top, [t1;t2;t3]) =>
+      do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
+         () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
+         () <- add_constraint l t3 (Infer_Tapp [] Tword64_num);
+          return (Infer_Tapp [] Tword64_num)
+      od
    | (FP_bop bop, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
