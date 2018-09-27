@@ -32,23 +32,19 @@ val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};
 structure option_monadsyntax = struct
 fun temp_add_option_monadsyntax() =
   let
-    val _ = monadsyntax.temp_add_monadsyntax();
-    val _ = temp_inferior_overload_on ("return",optionSyntax.some_tm);
-    val _ = temp_inferior_overload_on ("fail", optionSyntax.none_tm)
-    val _ = temp_overload_on ("monad_bind", option_bind_tm)
-    val _ = temp_overload_on ("monad_unitbind", option_ignore_bind_tm)
-    val _ = temp_overload_on ("assert", option_guard_tm)
-  in () end
+    open monadsyntax
+  in
+    temp_enable_monadsyntax ();
+    temp_enable_monad "option"
+  end
 
 fun add_option_monadsyntax() =
   let
-    val _ = monadsyntax.add_monadsyntax();
-    val _ = inferior_overload_on ("return",optionSyntax.some_tm);
-    val _ = inferior_overload_on ("fail", optionSyntax.none_tm)
-    val _ = overload_on ("monad_bind", option_bind_tm)
-    val _ = overload_on ("monad_unitbind", option_ignore_bind_tm)
-    val _ = overload_on ("assert", option_guard_tm)
-  in () end
+    open monadsyntax
+  in
+    enable_monadsyntax();
+    enable_monad "option"
+  end
 end
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0

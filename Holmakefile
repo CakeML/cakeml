@@ -1,12 +1,12 @@
 INCLUDES = developers compiler/bootstrap/compilation/x64/64/proofs
 OPTIONS = QUIT_ON_FAILURE
 
-README_SOURCES = COPYING developers examples build-instructions.sh
-
 all: README.md cake-x64-64.tar.gz
 .PHONY: all
 
-README.md: $(README_SOURCES) readmePrefix developers/readme_gen
+README_SOURCES = COPYING developers examples build-instructions.sh
+DIRS = $(wildcard */)
+README.md: developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	developers/readme_gen $(README_SOURCES)
 
 cake-x64-64.tar.gz: compiler/bootstrap/compilation/x64/64/cake-x64-64.tar.gz

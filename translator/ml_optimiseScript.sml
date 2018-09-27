@@ -1,12 +1,6 @@
-open preamble
-     astTheory libTheory semanticPrimitivesTheory
-     ml_progTheory ml_translatorTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open terminationTheory ml_translatorTheory
-
-val _ = new_theory "ml_optimise";
-
 (*
+  A simple verified optimiser for CakeML expressions, which is applied once the
+  translator has produced some CakeML syntax.
 
   The HOL-->ML translator occsionally produces clunky code. This file
   defines a verified optimiser which is used to simplify the clunky
@@ -18,9 +12,15 @@ val _ = new_theory "ml_optimise";
        "x - n + n" --> "x"
        "x + n - n" --> "x"
        "let x = y in x" --> "y"
-
 *)
 
+open preamble
+     astTheory libTheory semanticPrimitivesTheory
+     ml_progTheory ml_translatorTheory
+     semanticPrimitivesPropsTheory evaluatePropsTheory;
+open terminationTheory ml_translatorTheory
+
+val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 

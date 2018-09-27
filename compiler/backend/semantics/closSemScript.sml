@@ -26,14 +26,21 @@ val _ = Datatype `
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
+val _ = type_abbrev("clos_cc",
+  ``:'c -> closLang$exp list # (num # num # closLang$exp) list ->
+     (word8 list # word64 list # 'c) option``);
+
+val _ = type_abbrev("clos_co",
+  ``:num -> 'c # (closLang$exp list # (num # num # closLang$exp) list)``);
+
 val _ = Datatype `
   state =
     <| globals : (closSem$v option) list
      ; refs    : num |-> closSem$v ref
      ; ffi     : 'ffi ffi_state
      ; clock   : num
-     ; compile : 'c -> closLang$exp # (num # num # closLang$exp) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (closLang$exp # (num # num # closLang$exp) list)
+     ; compile : 'c clos_cc
+     ; compile_oracle : 'c clos_co
      ; code    : num |-> (num # closLang$exp)
      ; max_app : num
     |> `
@@ -130,8 +137,9 @@ val do_install_def = Define `
                 (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
                     ALL_DISTINCT (MAP FST (SND progs)) then
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (exp,aux) =>
-                      if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+                  | SOME (bytes',data',cfg'), (exps,aux) =>
+                      if bytes = bytes' ∧ data = data' ∧
+                         FST(new_oracle 0) = cfg' ∧ exps <> [] then
                        (let s' =
                           s with <|
                              code := s.code |++ aux
@@ -141,8 +149,8 @@ val do_install_def = Define `
                         in
                           if s.clock = 0
                           then (Rerr(Rabort Rtimeout_error),s')
-                          else (Rval exp, s'))
-                      else ((Rerr(Rabort Rtype_error):(closLang$exp,v)result),s)
+                          else (Rval exps, s'))
+                      else ((Rerr(Rabort Rtype_error):(closLang$exp list,v)result),s)
                   | _ => (Rerr(Rabort Rtype_error),s))
                   else (Rerr(Rabort Rtype_error),s))
             | _ => (Rerr(Rabort Rtype_error),s))
@@ -543,9 +551,14 @@ val evaluate_def = tDefine "evaluate" `
      case fix_clock s (evaluate (xs,env,s)) of
      | (Rval vs,s) =>
        if op = Install then
+       (*
        (case do_install (REVERSE vs) s of
-        | (Rval e,s) => evaluate ([e],[],s)
+        | (Rval es,s) =>
+            (case evaluate (es,[],s) of
+             | (Rval vs,s) => (Rval [LAST vs],s)
+             | res => res)
         | (Rerr err,s) => (Rerr err,s))
+       *) (Rerr (Rabort Rtype_error), s)
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)

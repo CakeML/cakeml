@@ -1,3 +1,6 @@
+(*
+  The top-level semantics of CakeML programs.
+*)
 open preamble;
 open lexer_funTheory
 open cmlPtreeConversionTheory;  (* TODO: should be included in termination *)

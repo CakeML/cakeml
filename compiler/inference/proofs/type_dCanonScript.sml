@@ -1,4 +1,4 @@
-open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
+open preamble astTheory namespaceTheory typeSystemTheory;
 open terminationTheory namespacePropsTheory;
 open typeSysPropsTheory typeSoundInvariantsTheory inferPropsTheory
 
@@ -6,72 +6,27 @@ val _ = new_theory "type_dCanon"
 
 (* TODO: move *)
 
-val INJ_MAP_EQ_2 = Q.store_thm("INJ_MAP_EQ_2",
-  `∀f l1 l2.
-   (∀x y. x ∈ set l1 ∧ y ∈ set l2 ∧ f x = f y ⇒ x = y) ∧
-   MAP f l1 = MAP f l2 ⇒
-   l1 = l2`,
-  gen_tac \\ Induct \\ rw[]
-  \\ Cases_on`l2` \\ pop_assum mp_tac \\ rw[]);
-
-val FOLDR_MAX_0_list_max = Q.store_thm("FOLDR_MAX_0_list_max",
-  `∀ls. FOLDR MAX 0 ls = list_max ls`,
-  Induct \\ rw[list_max_def] \\ rw[MAX_DEF]);
-
-val nsMap_compose = Q.store_thm("nsMap_compose",
-  `∀g e f. nsMap f (nsMap g e) = nsMap (f o g) e`,
-  recInduct nsMap_ind
-  \\ rw[nsMap_def, MAP_MAP_o, o_DEF, FORALL_PROD, EXISTS_PROD, LAMBDA_PROD, MAP_EQ_f]
+val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
+  `∀ga g h tenvT tds ids.
+  LENGTH tds = LENGTH ids
+  ∧ (∀x. MEM x (MAP SND (FLAT (MAP (SND o SND) tds))) ⇒
+         MAP (type_name_subst tenvT) (ga x) = (g (MAP (type_name_subst tenvT) x)))
+  ⇒
+  nsMap (λ(tvs,ts,tid). (tvs, g ts, h tid)) (build_ctor_tenv tenvT tds ids) =
+  build_ctor_tenv tenvT (MAP (I ## I ## MAP (I ## ga)) tds) (MAP h ids)`,
+  ntac 3 gen_tac
+  \\ recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]
+  \\ rw[nsMap_nsAppend, MAP_REVERSE, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ rw[MAP_EQ_f]
+  \\ pairarg_tac \\ fs[]
+  \\ match_mp_tac EQ_SYM
+  \\ first_x_assum irule
+  \\ rw[MEM_MAP,EXISTS_PROD]
   \\ metis_tac[]);
-
-val nsMap_I = Q.store_thm("nsMap_I[simp]",
-  `∀ns. nsMap I ns = ns`,
-  `∀ns f. f = I ⇒ nsMap f ns = ns` suffices_by rw[]
-  \\ CONV_TAC SWAP_FORALL_CONV
-  \\ recInduct nsMap_ind
-  \\ rw[nsMap_def, MAP_EQ_ID, UNCURRY, FORALL_PROD]
-  \\ res_tac);
-
-val check_ctor_tenv_change_tenvT = Q.store_thm("check_ctor_tenv_change_tenvT",
-  `∀tenvT1 env tenvT2.
-   EVERY (λ(cn,ts). EVERY (check_type_names tenvT1) ts ⇒
-                    EVERY (check_type_names tenvT2) ts)
-         (FLAT (MAP (SND o SND) env)) ∧
-   check_ctor_tenv tenvT1 env ⇒
-   check_ctor_tenv tenvT2 env`,
-  recInduct check_ctor_tenv_ind
-  \\ rw[check_ctor_tenv_def]
-  \\ fs[EVERY_MEM, UNCURRY, MEM_FLAT, MEM_MAP, PULL_EXISTS]
-  \\ metis_tac[]);
-
-val check_ctor_tenv_EVERY = Q.store_thm("check_ctor_tenv_EVERY",
-  `∀tenvT tds.
-     check_ctor_tenv tenvT tds ⇔
-     EVERY check_dup_ctors tds ∧
-     EVERY (ALL_DISTINCT o FST) tds ∧
-     EVERY (λ(tvs,tn,ctors).
-       EVERY (λ(cn,ts). EVERY (check_freevars_ast tvs) ts ∧
-                        EVERY (check_type_names tenvT) ts) ctors) tds ∧
-    ALL_DISTINCT (MAP (FST o SND) tds)`,
-  recInduct check_ctor_tenv_ind
-  \\ rw[check_ctor_tenv_def,LAMBDA_PROD]
-  \\ rw[EQ_IMP_THM]
-  \\ fs[MEM_MAP,EXISTS_PROD]);
-
-(* not true because of alist shadowing
-val nsMap_eq_id = Q.store_thm("nsMap_eq_id",
-  `∀f x. nsMap f x = x ⇔ nsAll (λi x. f x = x) x`,
-  recInduct nsMap_ind
-  \\ rw[nsMap_def, nsAll_def, MAP_EQ_ID, UNCURRY]
-  \\ rw[EQ_IMP_THM]
-  >- (
-    Cases_on`i` \\ fs[nsLookup_def, option_case_eq]
-    \\ imp_res_tac ALOOKUP_MEM
-    \\ res_tac \\ fs[]
-    \\ metis_tac[] )
-  >- (
-    first_x_assum(qspec_then`Short x`mp_tac)
-*)
 
 val tenv_equiv_def = Define
   `tenv_equiv tenv1 tenv2 ⇔
@@ -173,28 +128,6 @@ val type_e_tenv_equiv = Q.store_thm("type_e_tenv_equiv",
   \\ imp_res_tac nsAll2_nsLookup1 \\ fs[] \\ rw[]
   \\ metis_tac[type_p_tenv_equiv, tenv_equiv_def,
                type_name_subst_tenv_equiv, check_type_names_tenv_equiv]);
-
-val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
-  `∀ga g h tenvT tds ids.
-  LENGTH tds = LENGTH ids
-  ∧ (∀x. MEM x (MAP SND (FLAT (MAP (SND o SND) tds))) ⇒
-         MAP (type_name_subst tenvT) (ga x) = (g (MAP (type_name_subst tenvT) x)))
-  ⇒
-  nsMap (λ(tvs,ts,tid). (tvs, g ts, h tid)) (build_ctor_tenv tenvT tds ids) =
-  build_ctor_tenv tenvT (MAP (I ## I ## MAP (I ## ga)) tds) (MAP h ids)`,
-  ntac 3 gen_tac
-  \\ recInduct build_ctor_tenv_ind
-  \\ rw[build_ctor_tenv_def]
-  \\ rw[nsMap_nsAppend, MAP_REVERSE, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ rw[MAP_EQ_f]
-  \\ pairarg_tac \\ fs[]
-  \\ match_mp_tac EQ_SYM
-  \\ first_x_assum irule
-  \\ rw[MEM_MAP,EXISTS_PROD]
-  \\ metis_tac[]);
 
 val type_pe_determ_tenv_equiv = Q.store_thm("type_pe_determ_tenv_equiv",
   `type_pe_determ t1 x y z ∧
@@ -509,16 +442,6 @@ val check_freevars_ts_tid_rename = Q.prove(`
 val sing_renum_def = Define`
   sing_renum m n = λx. if x = m then n else x`
 
-(* duplicated in envRelScript *)
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`
-  |> curry save_thm "t_ind";
-
 val ast_t_ind = ast_t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
@@ -666,7 +589,7 @@ val deBruijn_inc_ts_tid_rename = Q.prove(`
 val lookup_varE_remap_tenvE = Q.prove(`
   ∀n tenvE.
   lookup_varE n (remap_tenvE f tenvE)
-  = lift (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)`,
+  = OPTION_MAP (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)`,
   fs[lookup_varE_def]>>Cases>>fs[]>>
   qabbrev_tac`n=0n`>>
   pop_assum kall_tac>>qid_spec_tac`n`>>

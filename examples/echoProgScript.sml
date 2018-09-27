@@ -1,3 +1,6 @@
+(*
+  echo program example: print the command line arguments.
+*)
 open preamble basis
 
 val _ = new_theory "echoProg";

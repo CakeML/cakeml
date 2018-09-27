@@ -1,3 +1,6 @@
+(*
+  TODO: document
+*)
 open preamble;
 open libTheory astTheory evaluateTheory semanticPrimitivesTheory;
 open semanticsTheory;

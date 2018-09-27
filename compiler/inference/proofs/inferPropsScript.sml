@@ -4,86 +4,6 @@ open astPropsTheory typeSysPropsTheory;
 
 val _ = new_theory "inferProps";
 
-(* TODO: move *)
-val MEM_ZIP2 = Q.store_thm("MEM_ZIP2",`
-  ∀l1 l2 x.
-  MEM x (ZIP (l1,l2)) ⇒
-  ∃n. n < LENGTH l1 ∧ n < LENGTH l2 ∧ x = (EL n l1,EL n l2)`,
-  Induct>>fs[ZIP_def]>>
-  Cases_on`l2`>>fs[ZIP_def]>>
-  rw[]
-  >-
-    (qexists_tac`0n`>>fs[])
-  >>
-    first_x_assum drule>>
-    rw[]>>
-    qexists_tac`SUC n`>>fs[]);
-
-val LIST_REL_inv_image_MAP = Q.store_thm("LIST_REL_inv_image_MAP",
-  `LIST_REL (inv_image R f) l1 l2 = LIST_REL R (MAP f l1) (MAP f l2)`,
-  rw[LIST_REL_EL_EQN, EQ_IMP_THM, EL_MAP]
-  \\ metis_tac[EL_MAP]);
-
-val every_zip_split = Q.prove (
-  `!l1 l2 P Q.
-    LENGTH l1 = LENGTH l2 ⇒
-    (EVERY (\(x,y). P x ∧ Q y) (ZIP (l1, l2)) ⇔ EVERY P l1 ∧ EVERY Q l2)`,
- Induct_on `l1`
- >> simp []
- >> Cases_on `l2`
- >> rw []
- >> metis_tac []);
-
-val o_f_id = Q.prove (
-`!m. (\x.x) o_f m = m`,
-rw [fmap_EXT]);
-
-val fevery_to_drestrict = Q.prove (
-`!P m s.
-  FEVERY P m ⇒ FEVERY P (DRESTRICT m s)`,
- rw [FEVERY_ALL_FLOOKUP,FLOOKUP_DRESTRICT]);
-
-(* Not sure these are general enough to go elsewhere.*)
-val flookup_update_list_none = Q.store_thm ("flookup_update_list_none",
-`!x m l.
-  (FLOOKUP (m |++ l) x = NONE)
-  =
-  ((FLOOKUP m x = NONE) ∧ (ALOOKUP l x = NONE))`,
- rw [flookup_fupdate_list] >>
- every_case_tac >>
- fs [flookup_thm, ALOOKUP_FAILS] >>
- imp_res_tac ALOOKUP_MEM >>
- fs [] >>
- metis_tac []);
-
-val flookup_update_list_some = Q.store_thm ("flookup_update_list_some",
-`!x m l y.
-  (FLOOKUP (m |++ l) x = SOME y)
-  =
-  ((ALOOKUP (REVERSE l) x = SOME y) ∨
-   ((ALOOKUP l x = NONE) ∧ (FLOOKUP m x = SOME y)))`,
- rw [flookup_fupdate_list] >>
- every_case_tac >>
- fs [flookup_thm, ALOOKUP_FAILS] >>
- imp_res_tac ALOOKUP_MEM >>
- fs [] >>
- metis_tac []);
-
-val every_shim2 = Q.prove (
-`!l P Q. EVERY (\(x,y). P x ∧ Q y) l = (EVERY (\x. P (FST x)) l ∧ EVERY (\x. Q (SND x)) l)`,
-induct_on `l` >>
-rw [] >>
-PairCases_on `h` >>
-rw [] >>
-metis_tac []);
-
-val every_shim = Q.store_thm ("every_shim",
-`!l P. EVERY (\(x,y). P y) l = EVERY P (MAP SND l)`,
-induct_on `l` >>
-rw [] >>
-PairCases_on `h` >>
-rw []);
-
 val ienv_unchanged = Q.store_thm ("ienv_unchanged[simp]",
   `(ienv with inf_v := ienv.inf_v) = ienv ∧
    (ienv with inf_c := ienv.inf_c) = ienv ∧
@@ -2218,6 +2138,15 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 rw []);
 
+val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`
+  |> curry save_thm "t_ind";
+
 (* Rename (type_system) type identifiers with a function *)
 val ts_tid_rename_def = tDefine"ts_tid_rename"`
   (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
@@ -2230,6 +2159,12 @@ val ts_tid_rename_def = tDefine"ts_tid_rename"`
   decide_tac);
 
 val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
+
+val ts_tid_rename_I = Q.store_thm("ts_tid_rename_I[simp]",
+  `ts_tid_rename I = I`,
+  simp[FUN_EQ_THM]
+  \\ ho_match_mp_tac t_ind
+  \\ rw[ts_tid_rename_def, MAP_EQ_ID, EVERY_MEM]);
 
 (* All type ids in a type belonging to a set *)
 val set_tids_def = tDefine "set_tids"`
@@ -3300,6 +3235,13 @@ val remap_tenv_def = Define`
     c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
     v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
    |>`
+
+val remap_tenv_I = Q.store_thm("remap_tenv_I[simp]",
+  `remap_tenv I = I`,
+  rw[FUN_EQ_THM, remap_tenv_def, type_env_component_equality]
+  \\ qmatch_goalsub_abbrev_tac`nsMap I'`
+  \\ `I' = I` by simp[Abbr`I'`, UNCURRY, FUN_EQ_THM]
+  \\ rw[]);
 
 val t_vwalk_set_tids = Q.store_thm("t_vwalk_set_tids",
   `∀s.  t_wfs s ⇒

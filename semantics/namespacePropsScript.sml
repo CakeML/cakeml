@@ -1,3 +1,7 @@
+(*
+  Proofs about the namespace datatype.
+  TODO: move to proofs directory?
+*)
 open preamble;
 open astTheory;
 open namespaceTheory;
@@ -945,6 +949,20 @@ val nsMap_alist_to_ns = Q.store_thm ("nsMap_alist_to_ns[simp]",
  Induct_on `l`
  >> rw []
  >> rw [alist_to_ns_def, nsMap_def]);
+
+val nsMap_compose = Q.store_thm("nsMap_compose",
+  `∀g e f. nsMap f (nsMap g e) = nsMap (f o g) e`,
+  recInduct nsMap_ind
+  \\ rw[nsMap_def, MAP_MAP_o, o_DEF, FORALL_PROD, EXISTS_PROD, LAMBDA_PROD, MAP_EQ_f]
+  \\ metis_tac[]);
+
+val nsMap_I = Q.store_thm("nsMap_I[simp]",
+  `∀ns. nsMap I ns = ns`,
+  `∀ns f. f = I ⇒ nsMap f ns = ns` suffices_by rw[]
+  \\ CONV_TAC SWAP_FORALL_CONV
+  \\ recInduct nsMap_ind
+  \\ rw[nsMap_def, MAP_EQ_ID, UNCURRY, FORALL_PROD]
+  \\ res_tac);
 
 val nsMap_nsAppend = Q.store_thm ("nsMap_nsAppend",
   `!n1 n2 f. nsMap f (nsAppend n1 n2) = nsAppend (nsMap f n1) (nsMap f n2)`,

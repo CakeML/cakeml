@@ -79,6 +79,28 @@ val compile_cons = Q.store_thm ("compile_cons",
   \\ rw [compile_def]
   \\ METIS_TAC [compile_sing, HD]);
 
+val compile_append = Q.store_thm("compile_append",
+  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`,
+  Induct >>
+  rw [compile_def] >>
+  Cases_on `es` >>
+  rw [compile_def] >>
+  fs [compile_def] >>
+  Cases_on `es2` >>
+  rw [] >>
+  Cases_on `h` >>
+  rw [compile_def]);
+
+val compile_reverse = Q.store_thm("compile_reverse",
+  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`,
+  ho_match_mp_tac compile_ind >>
+  rw [compile_def, compile_append]);
+
+val compile_HD_sing = Q.store_thm("compile_HD_sing",
+  `[HD (compile [e])] = compile [e:flatLang$exp]`,
+  qspec_then`e`strip_assume_tac compile_sing
+  \\ fs[]);
+
 val compile_decs = Define `
   (compile_decs [] = []) ∧
   (compile_decs (flatLang$Dlet e :: ds) = flatLang$Dlet (HD (compile [e])) :: compile_decs ds) ∧

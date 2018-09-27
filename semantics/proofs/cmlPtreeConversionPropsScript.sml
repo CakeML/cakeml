@@ -1,3 +1,8 @@
+(*
+  Definition of a function for mapping types back to ASTs, and proofs that
+  check that the conversion functions are doing something reasonable.
+  TODO: check this description is correct
+*)
 open HolKernel Parse boolLib bossLib;
 open lcsymtacs preamble boolSimps
 
@@ -7,11 +12,7 @@ open gramPropsTheory
 val _ = new_theory "cmlPtreeConversionProps";
 val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
 
-val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
-(* " *)
-
-(* a function for mapping types back to ASTs, used to check that the
-   conversion functions are doing something reasonable *)
+val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)
@@ -565,7 +566,7 @@ val PTbase_OK = Q.store_thm(
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
   simp[ptree_PTbase_def, tokcheck_def]
   >- (erule strip_assume_tac (n TyOp_OK) >> simp[] >>
-      rename [‘destTyvarPT pt’] >> Cases_on ‘lift Atvar (destTyvarPT pt)’ >>
+      rename [‘destTyvarPT pt’] >> Cases_on ‘OPTION_MAP Atvar (destTyvarPT pt)’ >>
       simp[]) >>
   metis_tac[Type_OK]);
 

@@ -1,10 +1,12 @@
 open preamble sptreeTheory flatLangTheory reachabilityTheory flat_elimTheory
      flatSemTheory flatPropsTheory
 
-val m = Hol_pp.print_apropos;
-val f = print_find;
-
 val _ = new_theory "flat_elimProof";
+
+val grammar_ancestry =
+  ["flat_elim", "reachability", "flatSem", "flatLang", "flatProps",
+    "misc", "ffi", "sptree"];
+val _ = set_grammar_ancestry grammar_ancestry;
 
 
 (******************************************************** STATE RELATION *********************************************************)
@@ -970,4 +972,53 @@ val flat_remove_semantics = save_thm ("flat_remove_semantics",
   MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
            flat_remove_eval_sim |> SIMP_RULE (srw_ss()) []);
 
+(* syntactic results *)
+
+val elist_globals_filter = Q.prove (
+  `elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+   ==>
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}`,
+  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
+
+val esgc_free_filter = Q.prove (
+  `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   ==>
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))`,
+  Induct_on `ds` \\ rw []);
+
+val elist_globals_filter_SUB_BAG = Q.prove (
+  `elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
+  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
+
+val removeFlatProg_elist_globals_eq_empty = Q.store_thm (
+  "removeFlatProg_elist_globals_eq_empty",
+  `elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+   ==>
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds))) = {||}`,
+  simp [removeFlatProg_def, removeUnreachable_def, UNCURRY]
+  \\ metis_tac [elist_globals_filter]);
+
+val removeFlatProg_esgc_free = Q.store_thm ("removeFlatProg_esgc_free",
+  `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   ==>
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds)))`,
+  simp [removeFlatProg_def, removeUnreachable_def, UNCURRY]
+  \\ metis_tac [esgc_free_filter]);
+
+val removeFlatProg_sub_bag = Q.store_thm ("removeFlatProg_sub_bag",
+  `elist_globals (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds))) <=
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
+  simp [removeFlatProg_def, removeUnreachable_def, UNCURRY]
+  \\ metis_tac [elist_globals_filter_SUB_BAG]);
+
+val removeFlatProg_distinct_globals = Q.store_thm (
+  "removeFlatProg_distinct_globals",
+  `BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))
+   ==>
+   BAG_ALL_DISTINCT (elist_globals
+     (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds))))`,
+  metis_tac [removeFlatProg_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+
 val _ = export_theory();
+

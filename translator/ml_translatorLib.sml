@@ -1,3 +1,7 @@
+(*
+  The HOL to CakeML translator itself.
+  The main entry point is the translate function.
+*)
 structure ml_translatorLib :> ml_translatorLib =
 struct
 

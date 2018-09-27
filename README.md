@@ -46,7 +46,7 @@ A verified compiler for CakeML, including:
  - parsing: lexer and PEG parser
  - inference: type inferencer
  - backend: compilation to ASM assembly language
- - targets: code generation to x86, ARM, and more
+ - encoders: code generation to x86, ARM, and more
 
 [developers](developers):
 This directory contains scripts for automating routine tasks, e.g., for
@@ -61,7 +61,7 @@ and what we want to use for CakeML development.
 
 [semantics](semantics):
 The definition of the CakeML language. The definition is (mostly)
-expressed in Lem (http://www.cs.kent.ac.uk/~sao/lem), but the
+expressed in [Lem](http://www.cs.kent.ac.uk/~sao/lem), but the
 generated HOL is also included. The directory includes definitions of:
  - the concrete syntax
  - the abstract syntax
@@ -75,7 +75,7 @@ A proof-producing translator from HOL functions to CakeML.
 
 [tutorial](tutorial):
 An extended worked example on using HOL and CakeML to write verified programs,
-to be presented as a tutorial on CakeML at PLDI and ICFP in 2017.
+that was presented as a tutorial on CakeML at PLDI and ICFP in 2017.
 
 [unverified](unverified):
 Various unverified tools, e.g. tools for converting OCaml to CakeML

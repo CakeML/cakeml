@@ -1,0 +1,3 @@
+DIRS = $(wildcard */)
+README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS))
+	../developers/readme_gen

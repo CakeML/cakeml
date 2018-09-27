@@ -1,3 +1,11 @@
+(*
+  Definitions of functions for conversion between an S-expression encoding of
+  the CakeML abstract syntax and the abstract syntax type itself.
+
+  The S-expressions are parsed as *per* the PEG in HOL’s
+  `examples/formal-language/context-free/simpleSexpPEGScript.sml`.
+*)
+
 open preamble match_goal
 open simpleSexpTheory astTheory
 
@@ -10,19 +18,9 @@ val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
-(* TODO: move*)
-
-(* cf. similar TODO in cmlPtreeConversionScript.sml *)
 val _ = temp_overload_on ("lift", ``OPTION_MAP``)
 
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
-                                        "option.OPTION_IGNORE_BIND_def",
-                                        "option.OPTION_GUARD_def",
-                                        "option.OPTION_CHOICE_def",
-                                        "option.OPTION_MAP2_DEF"]
-
-val _ = overload_on ("++", ``option$OPTION_CHOICE``)
-(* -- *)
+(* TODO: move*)
 
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
@@ -110,7 +108,8 @@ val dec_ind =
   |> SIMP_RULE list_ss []
   |> UNDISCH_ALL |> CONJUNCT1
   |> DISCH_ALL |> Q.GEN`P`
-(* -- *)
+
+(* end TODO *)
 
 val encode_control_def = Define`
   (encode_control "" = "") ∧
@@ -1195,24 +1194,21 @@ val opsexp_def = Define`
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
-(* TODO: This proof is not very scalable... *)
+val sexpop_opsexp = Q.store_thm("sexpop_opsexp[simp]",
+  `sexpop (opsexp op) = SOME op`,
+  Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
+  TRY(MAP_FIRST rename1 [
+        ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
+        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘WordFromInt c1’,
+        ‘WordToInt c1’
+      ] >>
+      Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
+      Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
+  rw[sexpop_def,opsexp_def,SEXSTR_def])
+
 val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   `∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2`,
-  Cases \\ TRY(Cases_on`o'`)
-  \\ Cases \\ TRY(Cases_on`o'`)
-  \\ simp[opsexp_def]
-  \\ TRY (Cases_on`w`)
-  \\ simp[opsexp_def]
-  \\ TRY (Cases_on`s`)
-  \\ simp[opsexp_def]
-  \\ TRY (Cases_on`w'`)
-  \\ simp[opsexp_def]
-  \\ TRY (Cases_on`s'`)
-  \\ simp[opsexp_def]
-  \\ TRY (Cases_on`f`)
-  \\ simp[opsexp_def]
-  \\ TRY (Cases_on`f'`)
-  \\ simp[opsexp_def]);
+  rw[EQ_IMP_THM] >> pop_assum (mp_tac o AP_TERM “sexpop”) >> simp[]);
 
 val locnsexp_def = Define`
   locnsexp (Locs (locn n1 n2 n3) (locn n4 n5 n6)) =
@@ -1478,14 +1474,6 @@ val sexppat_patsexp = Q.store_thm("sexppat_patsexp[simp]",
     qexists_tac`patsexp`>>simp[] >>
     fs[listTheory.EVERY_MEM] >> metis_tac[]) >>
   rw[] >> simp[patsexp_def,Once sexppat_def]);
-
-val sexpop_opsexp = Q.store_thm("sexpop_opsexp[simp]",
-  `sexpop (opsexp op) = SOME op`,
-  Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
-  TRY(Cases_on`o'`>>rw[sexpop_def,opsexp_def]) >>
-  TRY(Cases_on`w`>>rw[sexpop_def,opsexp_def]) >>
-  TRY(Cases_on`s`>>rw[sexpop_def,opsexp_def,SEXSTR_def])>>
-  TRY(Cases_on`f`>>rw[sexpop_def,opsexp_def,SEXSTR_def]));
 
 val sexplop_lopsexp = Q.store_thm("sexplop_lopsexp[simp]",
   `sexplop (lopsexp l) = SOME l`,
