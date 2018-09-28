@@ -2490,6 +2490,52 @@ val compile_prog_get_code_labels_TODO_move = Q.store_thm("compile_prog_get_code_
   \\ CONV_TAC(LAND_CONV EVAL) \\ simp[] \\ EVAL_TAC
   \\ simp[]);
 
+val compile_list_code_labels_domain = Q.store_thm("compile_list_code_labels_domain",
+  `∀n p code m. compile_list n p = (code,m) ⇒
+     n ≤ m ∧
+     set (MAP FST (append code)) =
+     IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (set (MAP FST p)) ∪
+     { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m }`,
+  Induct_on`p`
+  \\ rw[bvl_to_bviTheory.compile_list_def]
+  >- (EVAL_TAC \\ rw[])
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ first_x_assum drule \\ rw[]
+  >- (
+    PairCases_on`h`
+    \\ fs[bvl_to_bviTheory.compile_single_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac bvl_to_bviProofTheory.compile_exps_aux_sorted
+    \\ fs[] )
+  \\ PairCases_on`h`
+  \\ fs[bvl_to_bviTheory.compile_single_def]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac bvl_to_bviProofTheory.compile_exps_aux_sorted
+  \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac compile_exps_aux_contains
+  \\ fs[EVERY_MEM, SUBSET_DEF, PULL_EXISTS]
+  \\ simp[Once EXTENSION]
+  \\ rw[EQ_IMP_THM] \\ fs[between_def]
+  \\ res_tac \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def] \\ rveq
+  \\ fs[EVAL``bvl_num_stubs``] \\ rw[]
+  \\ Cases_on`n1 ≤ k` \\ fs[]);
+
+val compile_prog_code_labels_domain = Q.store_thm("compile_prog_code_labels_domain",
+  `∀s n p t q m.
+   bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
+   set (MAP FST q) =
+     IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (set (MAP FST p)) ∪
+     { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m } ∪
+     set (MAP FST (bvl_to_bvi$stubs x y))`,
+  rw[bvl_to_bviTheory.compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[]
+  \\ drule compile_list_code_labels_domain \\ rw[]
+  \\ rw[bvl_to_bviTheory.stubs_def]
+  \\ metis_tac[UNION_ASSOC, UNION_COMM]);
+
 val LetLet_code_labels = Q.store_thm("LetLet_code_labels[simp]",
   `bvl_get_code_labels (LetLet x y z) = bvl_get_code_labels z`,
   rw[bvl_handleTheory.LetLet_def]
@@ -2678,6 +2724,12 @@ val compile_prog_get_code_labels_TODO_move_1 = Q.store_thm("compile_prog_get_cod
     \\ rw[SUBSET_DEF]
     \\ metis_tac[])
   \\ cheat);
+
+val set_MAP_code_sort = Q.store_thm("set_MAP_code_sort",
+  `set (MAP f (code_sort x)) = set (MAP f x)`,
+  Q.ISPEC_THEN`x`mp_tac clos_to_bvlProofTheory.PERM_code_sort
+  \\ rw[EXTENSION, MEM_MAP]
+  \\ imp_res_tac MEM_PERM \\ fs[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -3755,7 +3807,16 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
       \\ drule compile_prog_get_code_labels_TODO_move
       \\ qmatch_goalsub_abbrev_tac`ss ⊆ star INSERT _`
-      \\ simp[GSYM UNION_ASSOC]
+      \\ drule compile_prog_get_code_labels_TODO_move_1
+      \\ strip_tac
+      \\ fs[clos_to_bvlTheory.compile_def]
+      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+      \\ fs[set_MAP_code_sort]
+      \\ qmatch_goalsub_abbrev_tac`star INSERT fcc ∪ pp`
+      \\ `star ∈ pp ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
+      \\ drule (GEN_ALL compile_prog_code_labels_domain) \\ simp[]
+      \\ disch_then(qspecl_then[`ARB`,`ARB`]strip_assume_tac)
+      \\ fs[Abbr`fcc`]
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
