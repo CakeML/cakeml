@@ -2707,6 +2707,63 @@ val optimise_get_code_labels = Q.store_thm("optimise_get_code_labels",
     \\ SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[] )
   \\ cheat);
 
+val mk_tick_code_labels = Q.store_thm("mk_tick_code_labels[simp]",
+  `!n x. bvl_get_code_labels (mk_tick n x) = bvl_get_code_labels x`,
+  Induct \\ rw [] \\ fs [bvlTheory.mk_tick_def, FUNPOW_SUC]);
+
+val tick_inline_code_labels = Q.store_thm ("tick_inline_code_labels",
+  `!cs xs.
+     BIGUNION (set (MAP bvl_get_code_labels (tick_inline cs xs))) SUBSET
+     BIGUNION (set (MAP bvl_get_code_labels xs)) UNION
+     BIGUNION (set (MAP (bvl_get_code_labels o SND) (toList cs)))`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_ind
+  \\ rw [bvl_inlineTheory.tick_inline_def]
+  \\ TRY
+   (qmatch_goalsub_rename_tac `_ (HD (tick_inline cs [x])) SUBSET _`
+    \\ Cases_on `tick_inline cs [x]`
+    \\ pop_assum (assume_tac o Q.AP_TERM `LENGTH`)
+    \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
+    \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
+  \\ TRY
+   (rename1 `assign_get_code_label op`
+    \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
+  \\ TRY (* what... *)
+   (rename1 `option_CASE dest`
+    \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw []
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ fs [MEM_MAP, MEM_toList]
+    \\ metis_tac [FST, SND, PAIR])
+  \\ Cases_on `tick_inline cs [x1]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ Cases_on `tick_inline cs [x2]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ Cases_on `tick_inline cs [x3]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ rw [bvl_inlineTheory.LENGTH_tick_inline]
+  \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac []);
+
+val tick_inline_all_code_labels = Q.store_thm("tick_inline_all_code_labels",
+  `!limit cs xs aux cs1 xs1.
+     tick_inline_all limit cs xs aux = (cs1, xs1)
+     ==>
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) xs1)) SUBSET
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) xs)) UNION
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) aux)) UNION
+     BIGUNION (set (MAP (bvl_get_code_labels o SND) (toList cs)))`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_all_ind
+  \\ rw [bvl_inlineTheory.tick_inline_all_def]
+  \\ fs [MAP_REVERSE]
+  \\ Cases_on `tick_inline cs [e1]`
+  \\ first_assum (assume_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
+  \\ qispl_then [`cs`,`[e1]`] assume_tac tick_inline_code_labels \\ fs [] \\ rfs []
+  \\ fs [AC UNION_COMM UNION_ASSOC]
+  \\ qmatch_goalsub_abbrev_tac `s1 SUBSET s2 UNION (s3 UNION (s4 UNION s5))`
+  \\ fs [SUBSET_DEF] \\ rw []
+  \\ rpt (first_x_assum drule \\ rw []) \\ fs []
+  \\ fs [MEM_MAP, MEM_toList, lookup_insert]
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ fs [Abbr `s3`, MEM_MAP, MEM_toList, PULL_EXISTS]
+  \\ metis_tac [PAIR, FST, SND]);
+
 val compile_prog_get_code_labels_TODO_move_1 = Q.store_thm("compile_prog_get_code_labels_TODO_move_1",
   `bvl_inline$compile_prog x y z p = (inlines,q) ⇒
    BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) q)) ⊆
@@ -2723,7 +2780,8 @@ val compile_prog_get_code_labels_TODO_move_1 = Q.store_thm("compile_prog_get_cod
     \\ specl_args_of_then``bvl_inline$optimise``optimise_get_code_labels mp_tac
     \\ rw[SUBSET_DEF]
     \\ metis_tac[])
-  \\ cheat);
+  \\ imp_res_tac tick_inline_all_code_labels
+  \\ fs [o_DEF, toList_def, toListA_def]);
 
 val set_MAP_code_sort = Q.store_thm("set_MAP_code_sort",
   `set (MAP f (code_sort x)) = set (MAP f x)`,
