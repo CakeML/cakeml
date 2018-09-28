@@ -2677,13 +2677,38 @@ val let_op_sing_code_labels = Q.store_thm("let_op_sing_code_labels[simp]",
   \\ rw[]);
 
 val remove_ticks_code_labels = Q.store_thm("remove_ticks_code_labels",
-  `∀x. BIGUNION (set (MAP bvl_get_code_labels (remove_ticks x))) = BIGUNION (set (MAP bvl_get_code_labels x))`,
+  `∀x.
+     BIGUNION (set (MAP bvl_get_code_labels (remove_ticks x))) =
+     BIGUNION (set (MAP bvl_get_code_labels x))`,
   recInduct bvl_inlineTheory.remove_ticks_ind
   \\ rw[bvl_inlineTheory.remove_ticks_def]
   \\ FULL_SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[]);
 
+(* TODO move *)
+val dest_Seq_SOME = Q.store_thm("dest_Seq_SOME",
+  `!e. dest_Seq e = SOME (x, y) <=> e = Let [x; y] (Var 1)`,
+  Cases \\ fs [bvl_handleTheory.dest_Seq_def]
+  \\ rename1 `Let xs e` \\ Cases_on `xs` \\ fs [bvl_handleTheory.dest_Seq_def]
+  \\ rename1 `_::xs` \\ Cases_on `xs` \\ fs [bvl_handleTheory.dest_Seq_def]
+  \\ rename1 `_::_::xs` \\ Cases_on `xs` \\ fs [bvl_handleTheory.dest_Seq_def]
+  \\ Cases_on `e` \\ fs [bvl_handleTheory.dest_Seq_def]
+  \\ metis_tac []);
+
+val compile_seqs_code_labels = Q.store_thm("compile_seqs_code_labels",
+  `!cut e acc.
+     bvl_get_code_labels (compile_seqs cut e acc) SUBSET
+     bvl_get_code_labels e UNION
+     (case acc of NONE => {} | SOME r => bvl_get_code_labels r)`,
+  ho_match_mp_tac bvl_handleTheory.compile_seqs_ind \\ rw []
+  \\ rw [Once bvl_handleTheory.compile_seqs_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
+  \\ fs [dest_Seq_SOME] \\ rw []
+  \\ metis_tac [compile_exp_code_labels_TODO_move, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]);
+
 val optimise_get_code_labels = Q.store_thm("optimise_get_code_labels",
-  `∀x y z. bvl_get_code_labels (SND (SND (optimise x y z))) ⊆ bvl_get_code_labels (SND (SND z))`,
+  `∀x y z.
+     bvl_get_code_labels (SND (SND (optimise x y z))) ⊆
+     bvl_get_code_labels (SND (SND z))`,
   rpt gen_tac \\ PairCases_on`z`
   \\ reverse(rw[bvl_inlineTheory.optimise_def, bvl_handleTheory.compile_any_def, bvl_handleTheory.compile_exp_def])
   >- (
@@ -2705,7 +2730,12 @@ val optimise_get_code_labels = Q.store_thm("optimise_get_code_labels",
     \\ strip_tac \\ asm_exists_tac \\ simp[]
     \\ specl_args_of_then``bvl_inline$remove_ticks`` remove_ticks_code_labels mp_tac
     \\ SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[] )
-  \\ cheat);
+  \\ Cases_on `remove_ticks [z2]` \\ fs []
+  \\ first_assum (assume_tac o Q.AP_TERM `LENGTH`) \\ fs [] \\ rw []
+  \\ qspec_then `[z2]` assume_tac remove_ticks_code_labels \\ fs [] \\ rfs []
+  \\ pop_assum (SUBST1_TAC o GSYM)
+  \\ qspecl_then [`y`,`let_op_sing h`,`NONE`]
+       assume_tac compile_seqs_code_labels \\ fs []);
 
 val mk_tick_code_labels = Q.store_thm("mk_tick_code_labels[simp]",
   `!n x. bvl_get_code_labels (mk_tick n x) = bvl_get_code_labels x`,
