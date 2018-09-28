@@ -2479,7 +2479,43 @@ val dest_var_code_labels_TODO_move = Q.store_thm("dest_var_code_labels_TODO_move
   \\ rw[bvl_constTheory.delete_var_def]
   \\ EVAL_TAC);
 
-(*
+val dest_simple_SOME_code_labels = Q.store_thm("dest_simple_SOME_code_labels",
+  `∀x y. dest_simple x = SOME y ⇒ bvl_get_code_labels x = {}`,
+  recInduct bvl_constTheory.dest_simple_ind
+  \\ rw[NULL_EQ] \\ EVAL_TAC);
+
+val SmartOp2_code_labels = Q.store_thm("SmartOp2_code_labels[simp]",
+  `bvl_get_code_labels (SmartOp2 (op,x1,x2)) =
+    assign_get_code_label op ∪ bvl_get_code_labels x1 ∪ bvl_get_code_labels x2`,
+  rw[bvl_constTheory.SmartOp2_def, assign_get_code_label_def]
+  \\ rpt(PURE_CASE_TAC \\ simp[assign_get_code_label_def])
+  \\ imp_res_tac dest_simple_SOME_code_labels \\ fs[]
+  \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
+  \\ rveq \\ fs[assign_get_code_label_def,bvlTheory.Bool_def]
+  \\ simp[EXTENSION] \\ metis_tac[]);
+
+val SmartOp_code_labels = Q.store_thm("SmartOp_code_labels[simp]",
+  `bvl_get_code_labels (SmartOp op xs) = assign_get_code_label op ∪ BIGUNION (set (MAP bvl_get_code_labels xs))`,
+  rw[bvl_constTheory.SmartOp_def]
+  \\ PURE_CASE_TAC \\ simp[]
+  \\ PURE_CASE_TAC \\ simp[]
+  \\ PURE_CASE_TAC \\ simp[]
+  \\ simp[bvl_constTheory.SmartOp_flip_def]
+  \\ PURE_TOP_CASE_TAC \\ fs[]
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  \\ imp_res_tac dest_simple_SOME_code_labels
+  \\ rw[assign_get_code_label_def]);
+
+val MEM_extract_list_code_labels = Q.store_thm("MEM_extract_list_code_labels",
+  `∀xs x. MEM (SOME x) (extract_list xs) ⇒ bvl_get_code_labels x = {}`,
+  Induct
+  \\ rw[bvl_constTheory.extract_list_def]
+  \\ res_tac \\ fs[]
+  \\ Cases_on`h` \\ fs[bvl_constTheory.extract_def]
+  \\ rename1`Op op l`
+  \\ Cases_on`op` \\ fs[bvl_constTheory.extract_def] \\ rw[]
+  \\ EVAL_TAC);
+
 val compile_code_labels_TODO_move_1 = Q.store_thm("compile_code_labels_TODO_move_1",
   `∀x y. BIGUNION (set (MAP bvl_get_code_labels (bvl_const$compile x y))) ⊆
          BIGUNION (set (MAP bvl_get_code_labels y)) ∪
@@ -2488,13 +2524,28 @@ val compile_code_labels_TODO_move_1 = Q.store_thm("compile_code_labels_TODO_move
   \\ rw[bvl_constTheory.compile_def]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF]
   \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]
+  \\ fsrw_tac[ETA_ss][MAP_MAP_o, o_DEF]
   \\ TRY(metis_tac[])
   >- (
-    CASE_TAC \\ fs[]
-    \\ CASE_TAC \\ fs[]
-    \\ CASE_TAC \\ fs[]
+    PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[]
     \\ rw[]
+    \\ asm_exists_tac \\ fs[]
+    \\ fs[LLOOKUP_THM]
+    \\ fs[MEM_MAP, MEM_FILTER, IS_SOME_EXISTS, PULL_EXISTS]
+    \\ simp[MEM_EL, PULL_EXISTS]
+    \\ goal_assum(first_assum o mp_then Any mp_tac) \\ simp[]
+    \\ PURE_FULL_CASE_TAC \\ fs[] )
+  >- (
+    rw[]
+    \\ last_x_assum drule
+    \\ rw[] >- metis_tac[]
+    \\ reverse(fs[MEM_MAP, PULL_EXISTS, MEM_FILTER, IS_SOME_EXISTS])
+    >- metis_tac[]
+    \\ imp_res_tac MEM_extract_list_code_labels
+    \\ fs[]));
 
+(*
 val compile_exp_code_labels_TODO_move_1 = Q.store_thm("compile_exp_code_labels_TODO_move_1[simp]",
   `∀e. bvl_get_code_labels (bvl_const$compile_exp e) = bvl_get_code_labels e`,
   rw[bvl_constTheory.compile_exp_def]
