@@ -2823,6 +2823,30 @@ val assign_get_code_label_compile_op = Q.store_thm("assign_get_code_label_compil
   `assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`,
   Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, assign_get_code_label_def]);
 
+val no_Labels_def = tDefine"no_Labels"`
+  (no_Labels (Var _ _) ⇔ T) ∧
+  (no_Labels (If _ e1 e2 e3) ⇔ no_Labels e1 ∧ no_Labels e2 ∧ no_Labels e3) ∧
+  (no_Labels (Let _ es e) ⇔ EVERY no_Labels es ∧ no_Labels e) ∧
+  (no_Labels (Raise _ e) ⇔ no_Labels e) ∧
+  (no_Labels (Handle _ e1 e2) ⇔ no_Labels e1 ∧ no_Labels e2) ∧
+  (no_Labels (Tick _ e) ⇔ no_Labels e) ∧
+  (no_Labels (Call _ _ _ es) ⇔ EVERY no_Labels es) ∧
+  (no_Labels (App _ _ e es) ⇔ no_Labels e ∧ EVERY no_Labels es) ∧
+  (no_Labels (Fn _ _ _ _ e) ⇔ no_Labels e) ∧
+  (no_Labels (Letrec _ _ _ es e) ⇔ EVERY no_Labels (MAP SND es) ∧ no_Labels e) ∧
+  (no_Labels (Op _ op es) ⇔ (∀n. op ≠ Label n) ∧ EVERY no_Labels es)`
+(wf_rel_tac`measure exp_size`
+ \\ simp [closLangTheory.exp_size_def]
+ \\ rpt conj_tac \\ rpt gen_tac
+ \\ Induct_on`es`
+ \\ rw [closLangTheory.exp_size_def]
+ \\ simp [] \\ res_tac \\ simp []);
+
+val no_Labels_def =
+  no_Labels_def
+  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
+  |> curry save_thm "no_Labels_def[simp]"
+
 val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
   (clos_get_code_labels (Var _ _) = {}) ∧
   (clos_get_code_labels (If _ e1 e2 e3) =
@@ -2839,10 +2863,15 @@ val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
   (clos_get_code_labels (Tick _ e) = clos_get_code_labels e) ∧
   (clos_get_code_labels (Call _ _ l es) =
     {l} ∪ BIGUNION (set (MAP clos_get_code_labels es))) ∧
-  (clos_get_code_labels (App _ _ e es) =
-    clos_get_code_labels e ∪ BIGUNION (set (MAP clos_get_code_labels es))) ∧
-  (clos_get_code_labels (Fn _ _ _ _ e) = clos_get_code_labels e) ∧
-  (clos_get_code_labels (Letrec _ _ _ es e) =
+  (clos_get_code_labels (App _ l e es) =
+    (case l of NONE => {} | SOME n => {n}) ∪
+    clos_get_code_labels e ∪
+    BIGUNION (set (MAP clos_get_code_labels es))) ∧
+  (clos_get_code_labels (Fn _ l _ _ e) =
+   (case l of NONE => {} | SOME n => {n}) ∪
+   clos_get_code_labels e) ∧
+  (clos_get_code_labels (Letrec _ l _ es e) =
+   (case l of NONE => {} | SOME n => {n}) ∪
     clos_get_code_labels e ∪
     BIGUNION (set (MAP clos_get_code_labels (MAP SND es)))) ∧
   (clos_get_code_labels (Op _ op es) =
@@ -2860,24 +2889,77 @@ val clos_get_code_labels_def =
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
   |> curry save_thm "clos_get_code_labels_def[simp]"
 
-(* TODO broken mess:
+val SUM_SET_count_2 = Q.store_thm("SUM_SET_count_2",
+  `∀n. 2 * SUM_SET (count (SUC n)) = n * (n + 1)`,
+  Induct \\ rw[Once COUNT_SUC, SUM_SET_THM, LEFT_ADD_DISTRIB, SUM_SET_DELETE]
+  \\ rewrite_tac[EXP, ONE, TWO, MULT, ADD, LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
+  \\ rw[]);
+
+val SUM_SET_count = Q.store_thm("SUM_SET_count",
+  `∀n. n ≠ 0 ⇒ SUM_SET (count n) = n * (n - 1) DIV 2`,
+  Cases \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`a = b`
+  \\ qspecl_then[`2`,`a`,`b`]mp_tac EQ_MULT_LCANCEL
+  \\ disch_then(mp_tac o #1 o EQ_IMP_RULE)
+  \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
+  \\ disch_then irule
+  \\ unabbrev_all_tac
+  \\ rewrite_tac[SUM_SET_count_2]
+  \\ simp[ADD1, LEFT_ADD_DISTRIB, bitTheory.DIV_MULT_THM2]
+  \\ qmatch_goalsub_abbrev_tac`a = a - a MOD 2`
+  \\ `a MOD 2 = 0` suffices_by simp[]
+  \\ simp[Abbr`a`,GSYM EVEN_MOD2]
+  \\ simp[EVEN_ADD]
+  \\ rw[EVEN_EXP_IFF]);
+
+val domain_init_code = Q.store_thm("domain_init_code",
+  `0 < max_app ⇒ domain (init_code max_app) = count (max_app + max_app * (max_app - 1) DIV 2)`,
+  rw[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF,
+     GSYM SUM_IMAGE_count_SUM_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac`SUM_IMAGE f`
+  \\ `f = I` by simp[Abbr`f`,FUN_EQ_THM]
+  \\ rw[GSYM SUM_SET_DEF, SUM_SET_count]);
+
+(*
 val compile_exps_code_labels = Q.store_thm("compile_exps_code_labels",
   `!app es1 aux1 es2 aux2.
-     compile_exps app es1 aux1 = (es2, aux2)
+     compile_exps app es1 aux1 = (es2, aux2) ∧
+     EVERY no_Labels es1 ∧ 0 < app
      ==>
-     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) es2)) SUBSET
-     BIGUNION (set (MAP clos_get_code_labels p)) UNION
-     BIGUNION (set (MAP bvl_get_code_labels q)) ∪
-     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) b)) ∪
-     BIGUNION (set (MAP clos_get_code_labels p)) UNION
-     set (MAP FST a)
-     ⊆ set (MAP FST b)`,
-
+     BIGUNION (set (MAP bvl_get_code_labels es2)) ∪
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) aux2))
+     ⊆
+     IMAGE (((+) (num_stubs app))) (BIGUNION (set (MAP clos_get_code_labels es1))) ∪
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) aux1)) ∪
+     domain (init_code app)`,
   recInduct clos_to_bvlTheory.compile_exps_ind
   \\ rw [clos_to_bvlTheory.compile_exps_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs []
-  \\ rw [assign_get_code_label_def, assign_get_code_label_compile_op]
+  \\ fs[assign_get_code_label_def]
+  \\ fs[MAP_GENLIST, o_DEF]
+  \\ TRY (
+    CHANGED_TAC(rw[assign_get_code_label_compile_op])
+    \\ CASE_TAC \\ fs[]
+    \\ Cases_on`op` \\ fs[assign_get_code_label_def]
+    \\ fsrw_tac[DNF_ss][]
+    \\ NO_TAC )
+  \\ TRY (
+    fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+    \\ last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
+    \\ metis_tac[] )
+  \\ TRY (
+    reverse PURE_CASE_TAC
+    \\ fs[clos_to_bvlTheory.mk_cl_call_def, assign_get_code_label_def, MAP_GENLIST, o_DEF]
+    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
+    \\ rw[]
+    \\ TRY (
+      last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
+      \\ metis_tac[] )
+    >- metis_tac[]
+
+  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST] \\ metis_tac[]
+
 
   >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION, UNION_ASSOC, UNION_COMM])
   >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
