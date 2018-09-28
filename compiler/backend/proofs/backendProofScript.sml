@@ -3813,10 +3813,25 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
       \\ fs[set_MAP_code_sort]
       \\ qmatch_goalsub_abbrev_tac`star INSERT fcc ∪ pp`
-      \\ `star ∈ pp ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
+      \\ `star ∈ fcc ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
       \\ drule (GEN_ALL compile_prog_code_labels_domain) \\ simp[]
       \\ disch_then(qspecl_then[`ARB`,`ARB`]strip_assume_tac)
       \\ fs[Abbr`fcc`]
+      \\ conj_tac
+      >- (
+        simp[Abbr`star`,Abbr`pp`, PULL_EXISTS]
+        \\ qmatch_goalsub_abbrev_tac`_ * mm`
+        \\ disj1_tac \\ disj1_tac
+        \\ qexists_tac`mm` \\ simp[]
+        \\ fs[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def]
+        \\ pairarg_tac \\ fs[] \\ rveq
+        \\ simp[bvl_inlineProofTheory.MAP_FST_MAP_optimise]
+        \\ qmatch_asmsub_abbrev_tac`tick_inline_all limit ts qrog []`
+        \\ qspecl_then[`limit`,`ts`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
+        \\ simp[]
+        \\ rw[Abbr`qrog`]
+        \\ simp[set_MAP_code_sort] )
+      \\ simp[Abbr`pp`]
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
