@@ -2368,13 +2368,52 @@ val compile_exps_get_code_labels = Q.store_thm("compile_exps_get_code_labels",
     Cases_on`dest` \\ fs[] \\ rw[] \\ res_tac \\ fs[]
     \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``]));
 
+val compile_exps_aux_contains = Q.store_thm("compile_exps_aux_contains",
+  `∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
+    { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < n1 } ⊆ set (MAP FST (append aux))`,
+  ho_match_mp_tac bvl_to_bviTheory.compile_exps_ind
+  \\ rw[bvl_to_bviTheory.compile_exps_def]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS] )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n2` >- metis_tac[]
+    \\ fs[NOT_LESS]  )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n2` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ `k = n2` by decide_tac \\ rveq \\ fs[]
+    \\ fs[bvl_to_bviTheory.compile_aux_def] )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]  )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n2` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n3` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ `k = n3` by decide_tac \\ rveq \\ fs[]
+    \\ fs[bvl_to_bviTheory.compile_aux_def] ));
+
 val compile_single_get_code_labels = Q.store_thm("compile_single_get_code_labels",
   `∀n p code m. compile_single n p = (code, m) ⇒
       BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) (append code))) ⊆
       IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (bvl_get_code_labels (SND(SND p))) ∪
       set (MAP FST (append code)) ∪
-      set (MAP FST (bvl_to_bvi$stubs x y)) ∪
-      {bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m }`,
+      set (MAP FST (bvl_to_bvi$stubs x y))`,
   rw[]
   \\ PairCases_on`p`
   \\ fs[bvl_to_bviTheory.compile_single_def]
@@ -2383,8 +2422,10 @@ val compile_single_get_code_labels = Q.store_thm("compile_single_get_code_labels
   \\ imp_res_tac bvl_to_bviTheory.compile_exps_SING
   \\ rveq \\ fs[]
   \\ fs[bvl_to_bviTheory.compile_exps_def]
-  \\ fs[SUBSET_DEF, PULL_EXISTS]
-  \\ fsrw_tac[DNF_ss][] \\ rw[]
+  \\ first_x_assum(qspecl_then[`y`,`x`]mp_tac)
+  \\ fs[SUBSET_DEF, PULL_EXISTS] \\ strip_tac
+  \\ drule compile_exps_aux_contains
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF] \\ rw[]
   \\ metis_tac[]);
 
 val compile_list_get_code_labels = Q.store_thm("compile_list_get_code_labels",
@@ -2394,7 +2435,6 @@ val compile_list_get_code_labels = Q.store_thm("compile_list_get_code_labels",
      set (MAP FST (append code)) ∪
      IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces)
        (BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p))) ∪
-     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m } ∪
      set (MAP FST (bvl_to_bvi$stubs x y))`,
   Induct_on`p`
   \\ rw[bvl_to_bviTheory.compile_list_def]
@@ -2434,8 +2474,7 @@ val compile_prog_get_code_labels_TODO_move = Q.store_thm("compile_prog_get_code_
    BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) q)) ⊆
      bvl_num_stubs + s * bvl_to_bvi_namespaces INSERT
      set (MAP FST q) ∪
-     IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p))) ∪
-     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m }`,
+     IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p))) `,
   rw[bvl_to_bviTheory.compile_prog_def]
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ simp[]
