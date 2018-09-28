@@ -2731,6 +2731,47 @@ val set_MAP_code_sort = Q.store_thm("set_MAP_code_sort",
   \\ rw[EXTENSION, MEM_MAP]
   \\ imp_res_tac MEM_PERM \\ fs[]);
 
+val assign_get_code_label_compile_op = Q.store_thm("assign_get_code_label_compile_op",
+  `assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`,
+  Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, assign_get_code_label_def]);
+
+(*
+val compile_exps_code_labels = Q.store_thm("compile_exps_code_labels",
+  `∀m p a q b. compile_exps m p a = (q,b) ⇒
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) a)) ⊆ set (MAP FST a)
+     ⇒
+     BIGUNION (set (MAP bvl_get_code_labels q)) ∪
+     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) b)) ∪
+     set (MAP FST a)
+     ⊆ set (MAP FST b)`,
+  recInduct clos_to_bvlTheory.compile_exps_ind
+  \\ rw[clos_to_bvlTheory.compile_exps_def] \\ rw[]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq
+  \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs[]
+  \\ rw[assign_get_code_label_def, assign_get_code_label_compile_op]
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+
+val compile_prog_code_labels = Q.store_thm("compile_prog_code_labels",
+  `BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) (compile_prog m x))) ⊆
+   set (MAP FST (compile_prog m x))`,
+  rw[clos_to_bvlTheory.compile_prog_def]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH \\ fs[]
+  \\ simp[MAP2_MAP]
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+  \\ simp[GSYM o_DEF, GSYM MAP_MAP_o, MAP_ZIP]
+  \\ qho_match_abbrev_tac`_ ⊆ set (MAP (λx. P (FST(FST x))) _) ∪ _ ∧ _`
+  \\ simp[GSYM o_DEF, GSYM MAP_MAP_o, MAP_ZIP]
+  \\ simp[Abbr`P`, MAP_MAP_o, o_DEF]
+*)
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -3826,6 +3867,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ fs[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def]
         \\ pairarg_tac \\ fs[] \\ rveq
         \\ simp[bvl_inlineProofTheory.MAP_FST_MAP_optimise]
+        \\ fs[bvl_inlineTheory.tick_compile_prog_def]
         \\ qmatch_asmsub_abbrev_tac`tick_inline_all limit ts qrog []`
         \\ qspecl_then[`limit`,`ts`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
         \\ simp[]
@@ -3838,18 +3880,33 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qmatch_asmsub_abbrev_tac`star = _ + _ * mm`
       \\ `star = ff mm` by simp[Abbr`ff`,Abbr`star`]
       \\ pop_assum SUBST1_TAC
-      \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ IMAGE ff CC ∪ {ff mm} ∪ IMAGE ff BB ∪ _ ∪ _`
-      (*
-      need to show stubs also are IMAGE ff of something, and maybe the other set too
+      \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ IMAGE ff CC ∪ {ff mm} ∪ IMAGE ff BB ∪ DD ∪ EE`
+      \\ `DISJOINT (IMAGE ff AA) DD`
+      by (
+        simp[Abbr`DD`,Abbr`ff`,IN_DISJOINT]
+        \\ EVAL_TAC
+        \\ CCONTR_TAC \\ fs[]
+        \\ rveq
+        \\ first_x_assum(mp_tac o Q.AP_TERM`λn. n MOD 3`)
+        \\ simp[] )
+      \\ `DISJOINT (IMAGE ff AA) EE`
+      by (
+        simp[Abbr`EE`,Abbr`ff`,bvl_to_bviTheory.stubs_def]
+        \\ EVAL_TAC
+        \\ CCONTR_TAC \\ fs[] )
       \\ `IMAGE ff AA ⊆ IMAGE ff CC ∪ IMAGE ff BB ∪ IMAGE ff {mm}` suffices_by (simp[SUBSET_DEF] \\ metis_tac[])
       \\ simp_tac std_ss [GSYM IMAGE_UNION]
       \\ irule IMAGE_SUBSET
       \\ match_mp_tac SUBSET_TRANS
       \\ asm_exists_tac
       \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
-      \\ simp[clos_to_bvlTheory.init_globals_def, assign_get_code_label_def]
-      f"init_globals"
-      *)
+      \\ simp[linear_scanProofTheory.set_MAP_FST_toAList]
+      \\ conj_tac >- cheat (* init code labels *)
+      \\ fs[clos_to_bvlTheory.compile_common_def]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ rveq \\ fs[]
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
