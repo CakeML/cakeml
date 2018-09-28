@@ -3832,6 +3832,24 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ rw[Abbr`qrog`]
         \\ simp[set_MAP_code_sort] )
       \\ simp[Abbr`pp`]
+      \\ drule bvl_inlineProofTheory.compile_prog_names
+      \\ rw[set_MAP_code_sort]
+      \\ qmatch_goalsub_abbrev_tac`IMAGE ff _`
+      \\ qmatch_asmsub_abbrev_tac`star = _ + _ * mm`
+      \\ `star = ff mm` by simp[Abbr`ff`,Abbr`star`]
+      \\ pop_assum SUBST1_TAC
+      \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ IMAGE ff CC ∪ {ff mm} ∪ IMAGE ff BB ∪ _ ∪ _`
+      (*
+      need to show stubs also are IMAGE ff of something, and maybe the other set too
+      \\ `IMAGE ff AA ⊆ IMAGE ff CC ∪ IMAGE ff BB ∪ IMAGE ff {mm}` suffices_by (simp[SUBSET_DEF] \\ metis_tac[])
+      \\ simp_tac std_ss [GSYM IMAGE_UNION]
+      \\ irule IMAGE_SUBSET
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac
+      \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
+      \\ simp[clos_to_bvlTheory.init_globals_def, assign_get_code_label_def]
+      f"init_globals"
+      *)
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
