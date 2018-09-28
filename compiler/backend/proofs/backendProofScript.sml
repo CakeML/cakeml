@@ -2545,11 +2545,12 @@ val compile_code_labels_TODO_move_1 = Q.store_thm("compile_code_labels_TODO_move
     \\ imp_res_tac MEM_extract_list_code_labels
     \\ fs[]));
 
-(*
-val compile_exp_code_labels_TODO_move_1 = Q.store_thm("compile_exp_code_labels_TODO_move_1[simp]",
-  `∀e. bvl_get_code_labels (bvl_const$compile_exp e) = bvl_get_code_labels e`,
+val compile_exp_code_labels_TODO_move_1 = Q.store_thm("compile_exp_code_labels_TODO_move_1",
+  `∀e. bvl_get_code_labels (bvl_const$compile_exp e) ⊆ bvl_get_code_labels e`,
   rw[bvl_constTheory.compile_exp_def]
   \\ rw[Once(GSYM bvl_constTheory.compile_HD_SING)]
+  \\ specl_args_of_then``bvl_const$compile``compile_code_labels_TODO_move_1 mp_tac
+  \\ rw[] \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]);
 
 val compile_exp_code_labels_TODO_move = Q.store_thm("compile_exp_code_labels_TODO_move",
   `∀a b c. bvl_get_code_labels (compile_exp a b c) ⊆ bvl_get_code_labels c `,
@@ -2560,19 +2561,84 @@ val compile_exp_code_labels_TODO_move = Q.store_thm("compile_exp_code_labels_TOD
   \\ pop_assum mp_tac
   \\ specl_args_of_then``bvl_handle$compile``compile_code_labels_TODO_move mp_tac
   \\ rw[] \\ fs[]
+  \\ metis_tac[compile_exp_code_labels_TODO_move_1, SUBSET_TRANS]);
 
-  bvl_handleTheory.compile_exp_def
+val var_list_code_labels_imp = Q.store_thm("var_list_code_labels_imp",
+  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP bvl_get_code_labels x)) = {} (*∧
+                            BIGUNION (set (MAP bvl_get_code_labels y)) = {}*)`,
+  recInduct bvl_inlineTheory.var_list_ind
+  \\ rw[bvl_inlineTheory.var_list_def] \\ fs[]);
+
+val let_op_code_labels = Q.store_thm("let_op_code_labels",
+  `∀x. BIGUNION (set (MAP bvl_get_code_labels (let_op x))) = BIGUNION (set (MAP bvl_get_code_labels x))`,
+  recInduct bvl_inlineTheory.let_op_ind
+  \\ rw[bvl_inlineTheory.let_op_def]
+  \\ full_simp_tac std_ss [Once(GSYM bvl_inlineProofTheory.HD_let_op)] \\ fs[]
+  \\ PURE_CASE_TAC \\ fs[]
+  \\ Cases_on`HD (let_op [x2])` \\ fs[bvl_inlineTheory.dest_op_def]
+  \\ rveq
+  \\ imp_res_tac var_list_code_labels_imp
+  \\ fs[] \\ rveq \\ fs[]
+  \\ simp[EXTENSION]
+  \\ metis_tac[]);
+
+val let_op_sing_code_labels = Q.store_thm("let_op_sing_code_labels[simp]",
+  `bvl_get_code_labels (let_op_sing x) = bvl_get_code_labels x`,
+  rw[bvl_inlineTheory.let_op_sing_def]
+  \\ simp_tac std_ss [Once(GSYM bvl_inlineProofTheory.HD_let_op)]
+  \\ simp[]
+  \\ specl_args_of_then``bvl_inline$let_op``let_op_code_labels mp_tac
+  \\ simp_tac std_ss [Once(GSYM bvl_inlineProofTheory.HD_let_op)]
+  \\ rw[]);
+
+val remove_ticks_code_labels = Q.store_thm("remove_ticks_code_labels",
+  `∀x. BIGUNION (set (MAP bvl_get_code_labels (remove_ticks x))) = BIGUNION (set (MAP bvl_get_code_labels x))`,
+  recInduct bvl_inlineTheory.remove_ticks_ind
+  \\ rw[bvl_inlineTheory.remove_ticks_def]
+  \\ FULL_SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[]);
 
 val optimise_get_code_labels = Q.store_thm("optimise_get_code_labels",
-  `bvl_get_code_labels (SND (SND (optimise x y z))) = bvl_get_code_labels (SND (SND z))`,
-  PairCases_on`z` \\ rw[bvl_inlineTheory.optimise_def, bvl_handleTheory.compile_any_def, bvl_handleTheory.compile_exp_def]
+  `∀x y z. bvl_get_code_labels (SND (SND (optimise x y z))) ⊆ bvl_get_code_labels (SND (SND z))`,
+  rpt gen_tac \\ PairCases_on`z`
+  \\ reverse(rw[bvl_inlineTheory.optimise_def, bvl_handleTheory.compile_any_def, bvl_handleTheory.compile_exp_def])
+  >- (
+    specl_args_of_then``bvl_handle$compile``compile_code_labels_TODO_move mp_tac
+    \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`bvl_handle$compile a b c`
+    \\ Cases_on`bvl_handle$compile a b c`
+    \\ PairCases_on`r`
+    \\ unabbrev_all_tac
+    \\ imp_res_tac bvl_handleTheory.compile_sing
+    \\ rveq
+    \\ qpat_x_assum`_ ⊆ _`mp_tac
+    \\ simp[]
+    \\ strip_tac
+    \\ match_mp_tac SUBSET_TRANS
+    \\ asm_exists_tac \\ simp[]
+    \\ match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``bvl_const$compile_exp`` compile_exp_code_labels_TODO_move_1 mp_tac
+    \\ strip_tac \\ asm_exists_tac \\ simp[]
+    \\ specl_args_of_then``bvl_inline$remove_ticks`` remove_ticks_code_labels mp_tac
+    \\ SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[] )
+  \\ cheat);
 
 val compile_prog_get_code_labels_TODO_move_1 = Q.store_thm("compile_prog_get_code_labels_TODO_move_1",
   `bvl_inline$compile_prog x y z p = (inlines,q) ⇒
-   BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) q)) = BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p))`,
+   BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) q)) ⊆
+   BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p))`,
   rw[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def, bvl_inlineTheory.tick_compile_prog_def]
   \\ pairarg_tac \\ fs[] \\ rveq
-*)
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ match_mp_tac SUBSET_TRANS
+  \\ qexists_tac`BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) prog1))`
+  \\ conj_tac
+  >- (
+    rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ rpt(pop_assum mp_tac)
+    \\ specl_args_of_then``bvl_inline$optimise``optimise_get_code_labels mp_tac
+    \\ rw[SUBSET_DEF]
+    \\ metis_tac[])
+  \\ cheat);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
