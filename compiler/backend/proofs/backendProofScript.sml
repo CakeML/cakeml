@@ -2871,7 +2871,8 @@ val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
    (case l of NONE => {} | SOME n => {n}) ∪
    clos_get_code_labels e) ∧
   (clos_get_code_labels (Letrec _ l _ es e) =
-   (case l of NONE => {} | SOME n => {n}) ∪
+   (case l of NONE => {} | SOME n =>
+     IMAGE (λk. n + 2 * k) (count (LENGTH es))) ∪
     clos_get_code_labels e ∪
     BIGUNION (set (MAP clos_get_code_labels (MAP SND es)))) ∧
   (clos_get_code_labels (Op _ op es) =
@@ -2920,11 +2921,31 @@ val domain_init_code = Q.store_thm("domain_init_code",
   \\ `f = I` by simp[Abbr`f`,FUN_EQ_THM]
   \\ rw[GSYM SUM_SET_DEF, SUM_SET_count]);
 
-(*
+val MEM_build_aux_imp_SND_MEM = Q.store_thm("MEM_build_aux_imp_SND_MEM",
+  `∀n ls acc m aux x.
+    build_aux n ls acc = (m,aux) ∧ MEM x aux ⇒
+     MEM (SND x) ls ∨ MEM x acc`,
+  Induct_on`ls`
+  \\ rw[clos_to_bvlTheory.build_aux_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[] \\ fs[]);
+
+val recc_Lets_code_labels = Q.store_thm("recc_Lets_code_labels",
+  `∀n nargs k rest. bvl_get_code_labels (recc_Lets n nargs k rest) =
+   IMAGE (λj. n + 2 * j) (count k) ∪ bvl_get_code_labels rest`,
+  recInduct clos_to_bvlTheory.recc_Lets_ind \\ rw[]
+  \\ rw[Once clos_to_bvlTheory.recc_Lets_def] \\ fs[]
+  \\ fs[clos_to_bvlTheory.recc_Let_def, assign_get_code_label_def]
+  \\ rw[Once EXTENSION]
+  \\ Cases_on`k` \\ fs[]
+  \\ fsrw_tac[DNF_ss][EQ_IMP_THM, PULL_EXISTS,ADD1] \\ rw[ADD1]
+  >- ( disj1_tac \\ qexists_tac`n'` \\ simp[] )
+  \\ Cases_on`j < n'` \\ fs[]);
+
 val compile_exps_code_labels = Q.store_thm("compile_exps_code_labels",
   `!app es1 aux1 es2 aux2.
      compile_exps app es1 aux1 = (es2, aux2) ∧
-     EVERY no_Labels es1 ∧ 0 < app
+     EVERY no_Labels es1 ∧ 0 < app ∧ EVERY (obeys_max_app app) es1 ∧ every_Fn_SOME es1
      ==>
      BIGUNION (set (MAP bvl_get_code_labels es2)) ∪
      BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) aux2))
@@ -2953,40 +2974,80 @@ val compile_exps_code_labels = Q.store_thm("compile_exps_code_labels",
     \\ fs[clos_to_bvlTheory.mk_cl_call_def, assign_get_code_label_def, MAP_GENLIST, o_DEF]
     \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
     \\ rw[]
-    \\ TRY (
+    >- (
       last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
       \\ metis_tac[] )
     >- metis_tac[]
+    >- (
+      last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
+      \\ metis_tac[] )
+    >- metis_tac[]
+    \\ simp[domain_init_code]
+    \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
+    \\ fs[] \\ NO_TAC)
+  \\ TRY (
+    reverse PURE_CASE_TAC
+    \\ fs[clos_to_bvlTheory.mk_cl_call_def, assign_get_code_label_def, MAP_GENLIST, o_DEF, IS_SOME_EXISTS]
+    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
+    \\ rw[]
+    \\ simp[domain_init_code, clos_to_bvlTheory.num_stubs_def]
+    \\ fs[MEM_MAP, clos_to_bvlTheory.free_let_def, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def]
+    \\ NO_TAC)
+  \\ TRY (
+    fs[IS_SOME_EXISTS] \\ rveq \\ fs[]
+    \\ CHANGED_TAC(fs[CaseEq"list"]) \\ rveq \\ fs[]
+    \\ TRY (
+      CHANGED_TAC(fs[CaseEq"prod"]) \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[assign_get_code_label_def]
+      \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+      \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs[] \\ rveq \\ rw[]
+      \\ fs[clos_to_bvlTheory.build_aux_def, clos_to_bvlTheory.build_recc_lets_def]
+      \\ rveq \\ fs[MEM_GENLIST, clos_to_bvlTheory.free_let_def,MEM_MAP, clos_to_bvlTheory.recc_Let0_def]
+      \\ fsrw_tac[DNF_ss][assign_get_code_label_def]
+      \\ metis_tac[] )
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS]
+    \\ simp[clos_to_bvlTheory.build_recc_lets_def, assign_get_code_label_def]
+    \\ fsrw_tac[DNF_ss][MEM_MAP, PULL_EXISTS, assign_get_code_label_def]
+    \\ simp[clos_to_bvlTheory.recc_Let0_def, assign_get_code_label_def]
+    \\ rw[]
+    \\ TRY ( rpt disj1_tac \\ qexists_tac`SUC (LENGTH v7)` \\ simp[] \\ NO_TAC )
+    \\ fs[recc_Lets_code_labels]
+    \\ last_x_assum drule \\ rw[]
+    >- metis_tac[]
+    >- (
+      drule MEM_build_aux_imp_SND_MEM
+      \\ disch_then drule
+      \\ reverse strip_tac
+      >- (
+        fs[clos_to_bvlTheory.compile_exps_def]
+        \\ rveq \\ metis_tac[] )
+      \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
+      \\ fs[MAP2_MAP, MEM_MAP, UNCURRY]
+      \\ fs[clos_to_bvlTheory.code_for_recc_case_def, SND_EQ_EQUIV]
+      \\ rveq \\ fs[assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def]
+      \\ fs[MEM_ZIP] \\ rveq \\ fs[]
+      \\ fs[clos_to_bvlTheory.compile_exps_def] \\ rveq \\ fs[]
+      \\ `MEM (EL n (c1 ++ c2)) (c1 ++ c2)` by (
+        simp[MEM_EL, EL_APPEND_EQN] \\ rw[]
+        \\ Cases_on`n` \\ fs[LENGTH_EQ_NUM_compute]
+        \\ rveq \\ fs[ADD1] \\ disj2_tac
+        \\ qexists_tac`n'` \\ simp[] )
+      \\ fs[]
+      \\ metis_tac[] )
+    >- metis_tac[])
+  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST] \\ rw[] \\ metis_tac[]);
 
-  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST] \\ metis_tac[]
-
-
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION, UNION_ASSOC, UNION_COMM])
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
-
-  >-
-   (
-    rw [assign_get_code_label_def]
-    \\ Cases_on `op` \\ fs [clos_to_bvlTheory.compile_op_def, assign_get_code_label_def]
-   )
-  >- (metis_tac [SUBSET_TRANS, UNION_SUBSET, SUBSET_UNION])
-  >-
-   (
-    DEEP_INTRO_TAC some_intro \\ fs []
-    \\ fs [MEM_MAP]
-    \\ rpt strip_tac
-    \\ metis_tac
-   )
-
+(*
 val compile_prog_code_labels = Q.store_thm("compile_prog_code_labels",
-  `BIGUNION (set (MAP (bvl_get_code_labels o SND o SND)
+  `0 < max_app ∧
+   EVERY no_Labels (MAP (SND o SND) prog) ∧
+   EVERY (obeys_max_app max_app) (MAP (SND o SND) prog) ∧
+   every_Fn_SOME (MAP (SND o SND) prog)
+   ⇒
+   BIGUNION (set (MAP (bvl_get_code_labels o SND o SND)
                    (compile_prog max_app prog))) SUBSET
    set (MAP FST (compile_prog max_app prog))`,
-
   rw[clos_to_bvlTheory.compile_prog_def]
   \\ pairarg_tac \\ fs[]
   \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH \\ fs[]
@@ -2996,7 +3057,14 @@ val compile_prog_code_labels = Q.store_thm("compile_prog_code_labels",
   \\ qho_match_abbrev_tac`_ ⊆ set (MAP (λx. P (FST(FST x))) _) ∪ _ ∧ _`
   \\ simp[GSYM o_DEF, GSYM MAP_MAP_o, MAP_ZIP]
   \\ simp[Abbr`P`, MAP_MAP_o, o_DEF]
-  *)
+  \\ drule compile_exps_code_labels
+  \\ simp[]
+  \\ fs[SUBSET_DEF, PULL_EXISTS]
+  \\ rw[]
+  >- (
+    last_x_assum drule
+    \\ disch_then drule \\ rw[]
+*)
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
