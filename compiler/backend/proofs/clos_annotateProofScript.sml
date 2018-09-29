@@ -1288,6 +1288,42 @@ val annotate_code_locs = Q.store_thm("annotate_code_locs",
           (ALL_DISTINCT (code_locs ls) ⇒ ALL_DISTINCT (code_locs (annotate n ls)))`,
   srw_tac[][annotate_def,shift_code_locs,alt_free_code_locs,alt_free_code_locs_distinct]);
 
+val EVERY_shift_sing = store_thm("EVERY_shift_sing",
+  ``EVERY f (shift [y] x1 x2 x3) <=> f (HD (shift [y] x1 x2 x3))``,
+  `?t. shift [y] x1 x2 x3 = [t]` by metis_tac [shift_SING] \\ fs []);
+
+val shift_obeys_max_app = store_thm("shift_obeys_max_app",
+  ``!xs m l i.
+      EVERY (obeys_max_app n) xs ==>
+      EVERY (obeys_max_app n) (shift xs m l i)``,
+  ho_match_mp_tac shift_ind \\ rw [shift_def]
+  \\ fs [EVERY_shift_sing,shift_LENGTH_LEMMA]
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ metis_tac []);
+
+val alt_free_obeys_max_app = store_thm("alt_free_obeys_max_app",
+  ``!xs m l i.
+      EVERY (obeys_max_app n) xs ==>
+      EVERY (obeys_max_app n) (FST (alt_free xs))``,
+  ho_match_mp_tac alt_free_ind \\ rw [alt_free_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac alt_free_SING \\ rveq \\ fs [] \\ rw []
+  THEN1 (rpt (pop_assum kall_tac)
+         \\ Induct_on `xs` \\ fs [shift_def,Once shift_CONS] \\ EVAL_TAC)
+  \\ imp_res_tac alt_free_LENGTH \\ fs []
+  THEN1 (rpt (pop_assum kall_tac)
+         \\ Induct_on `fns` \\ fs [shift_def,Once shift_CONS] \\ EVAL_TAC)
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ rw []
+  \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\ rfs []
+  \\ imp_res_tac alt_free_SING \\ fs []);
+
+val annotate_obeys_max_app = store_thm("annotate_obeys_max_app",
+  ``!n xs. EVERY (obeys_max_app m) xs ==>
+           EVERY (obeys_max_app m) (annotate n xs)``,
+  rw [annotate_def]
+  \\ match_mp_tac shift_obeys_max_app
+  \\ match_mp_tac alt_free_obeys_max_app \\ fs []);
+
 (* semantics preservation *)
 
 val compile_inc_def = Define `
