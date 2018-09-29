@@ -2820,4 +2820,28 @@ val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
   \\ fs[]
   \\ imp_res_tac do_app_SUBMAP_Rerr);
 
+val obeys_max_app_def = tDefine"obeys_max_app"`
+  (obeys_max_app m (Var _ _) ⇔ T) ∧
+  (obeys_max_app m (If _ e1 e2 e3) ⇔ obeys_max_app m e1 ∧ obeys_max_app m e2 ∧ obeys_max_app m e3) ∧
+  (obeys_max_app m (Let _ es e) ⇔ EVERY (obeys_max_app m) es ∧ obeys_max_app m e) ∧
+  (obeys_max_app m (Raise _ e) ⇔ obeys_max_app m e) ∧
+  (obeys_max_app m (Handle _ e1 e2) ⇔ obeys_max_app m e1 ∧ obeys_max_app m e2) ∧
+  (obeys_max_app m (Tick _ e) ⇔ obeys_max_app m e) ∧
+  (obeys_max_app m (Call _ _ _ es) ⇔ EVERY (obeys_max_app m) es) ∧
+  (obeys_max_app m (App _ _ e es) ⇔ LENGTH es ≤ m ∧ obeys_max_app m e ∧ EVERY (obeys_max_app m) es) ∧
+  (obeys_max_app m (Fn _ _ _ _ e) ⇔ obeys_max_app m e) ∧
+  (obeys_max_app m (Letrec _ _ _ es e) ⇔ EVERY (obeys_max_app m) (MAP SND es) ∧ obeys_max_app m e) ∧
+  (obeys_max_app m (Op _ _ es) ⇔ EVERY (obeys_max_app m) es)`
+(wf_rel_tac`measure (exp_size o SND)`
+ \\ simp [closLangTheory.exp_size_def]
+ \\ rpt conj_tac \\ rpt gen_tac
+ \\ Induct_on`es`
+ \\ rw [closLangTheory.exp_size_def]
+ \\ simp [] \\ res_tac \\ simp []);
+
+val obeys_max_app_def =
+  obeys_max_app_def
+  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
+  |> curry save_thm "obeys_max_app_def[simp]"
+
 val _ = export_theory();
