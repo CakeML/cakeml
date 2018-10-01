@@ -3038,7 +3038,6 @@ val compile_exps_code_labels = Q.store_thm("compile_exps_code_labels",
     >- metis_tac[])
   \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST] \\ rw[] \\ metis_tac[]);
 
-(*
 val compile_prog_code_labels = Q.store_thm("compile_prog_code_labels",
   `0 < max_app ∧
    EVERY no_Labels (MAP (SND o SND) prog) ∧
@@ -3047,24 +3046,17 @@ val compile_prog_code_labels = Q.store_thm("compile_prog_code_labels",
    ⇒
    BIGUNION (set (MAP (bvl_get_code_labels o SND o SND)
                    (compile_prog max_app prog))) SUBSET
-   set (MAP FST (compile_prog max_app prog))`,
+   IMAGE (((+) (clos_to_bvl$num_stubs max_app))) (BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) prog)))) ∪
+   domain (init_code max_app)`,
   rw[clos_to_bvlTheory.compile_prog_def]
   \\ pairarg_tac \\ fs[]
   \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH \\ fs[]
   \\ simp[MAP2_MAP]
-  \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+  \\ fs[MAP_MAP_o, o_DEF, UNCURRY]
   \\ simp[GSYM o_DEF, GSYM MAP_MAP_o, MAP_ZIP]
-  \\ qho_match_abbrev_tac`_ ⊆ set (MAP (λx. P (FST(FST x))) _) ∪ _ ∧ _`
-  \\ simp[GSYM o_DEF, GSYM MAP_MAP_o, MAP_ZIP]
-  \\ simp[Abbr`P`, MAP_MAP_o, o_DEF]
+  \\ fs[MAP_MAP_o, o_DEF]
   \\ drule compile_exps_code_labels
-  \\ simp[]
-  \\ fs[SUBSET_DEF, PULL_EXISTS]
-  \\ rw[]
-  >- (
-    last_x_assum drule
-    \\ disch_then drule \\ rw[]
-*)
+  \\ simp[MAP_MAP_o, o_DEF]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
