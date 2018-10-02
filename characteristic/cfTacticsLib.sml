@@ -126,9 +126,9 @@ val cf_defs =
 
 val cleanup_exn_side_cond =
   simp [cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTe_left,
         cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left,
         cfHeapsBaseTheory.SEP_IMPPOSTe_POSTf_left,
         cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left
        ]
@@ -226,7 +226,7 @@ fun xlet_core cont0 cont1 cont2 =
   rpt CONJ_TAC THENL [
     all_tac,
     TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left),
-    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTv_left),
+    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left),
     cont1 \\ cont2
   ]
 
