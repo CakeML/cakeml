@@ -168,7 +168,7 @@ val f = v_def |> concl |> rand |> rand
 val _ = (max_print_depth := 15)
 
 val loop_spec = Q.store_thm ("loop_spec",
-  `!xv n.
+  `!xv.
      app (p:'ffi ffi_proj) ^(fetch_v "loop" s) [xv]
        emp (POSTd &T)`,
   strip_tac
@@ -179,6 +179,59 @@ val loop_spec = Q.store_thm ("loop_spec",
   \\ conj_tac THEN1 (simp [v_def])
   \\ simp [semanticPrimitivesTheory.find_recfun_def]
   \\ rw [cf_def, cfNormaliseTheory.dest_opapp_def]
+  \\ CONV_TAC ((RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL)
+  \\ fs [v_def |> CONV_RULE (RAND_CONV EVAL)]
+  \\ simp [cf_app_def, cfNormaliseTheory.exp2v_def,
+           namespacePropsTheory.nsLookup_nsAppend_some,
+           namespaceTheory.nsLookup_def,
+           cfNormaliseTheory.exp2v_list_def, cfHeapsTheory.local_def]
+  \\ rw []
+  \\ qexists_tac `emp`
+  \\ qexists_tac `emp`
+  \\ qexists_tac `POST_DIV_N n &T`
+  \\ rpt strip_tac
+  THEN1 (fs [SEP_CLAUSES])
+  THEN1 (fs [])
+  \\ xsimpl);
+
+val _ = process_topdecs
+  `fun loopIf x = if x then x else loopIf x` |> append_prog;
+
+val s = get_ml_prog_state ();
+
+val v_def = fetch "-" "loopIf_v_def"
+
+val env = v_def |> concl |> rand |> rator |> rator |> rand
+
+val funs = v_def |> concl |> rand |> rator |> rand
+
+val f = v_def |> concl |> rand |> rand
+
+val loopIf_spec = Q.store_thm ("loopIf_spec",
+  `!b bv.
+     BOOL b bv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "loopIf" s) [bv]
+       emp (POSTvd (\v. &(bv = v /\ b)) &(~b))`,
+  Cases_on `b`
+  THEN1 (
+    rw []
+    \\ xcf "loopIf" s
+    \\ xif
+    \\ qexists_tac `T`
+    \\ rw []
+    \\ xvar
+    \\ xsimpl)
+  \\ rw [POSTvd_def, GSYM POSTd_def]
+  \\ match_mp_tac div_ind
+  \\ EXISTS_TAC env
+  \\ EXISTS_TAC funs
+  \\ EXISTS_TAC f
+  \\ conj_tac THEN1 (simp [v_def])
+  \\ simp [semanticPrimitivesTheory.find_recfun_def]
+  \\ rw [cf_def, cfNormaliseTheory.dest_opapp_def]
+  \\ xif
+  \\ qexists_tac `F`
+  \\ rw []
   \\ CONV_TAC ((RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL)
   \\ fs [v_def |> CONV_RULE (RAND_CONV EVAL)]
   \\ simp [cf_app_def, cfNormaliseTheory.exp2v_def,
