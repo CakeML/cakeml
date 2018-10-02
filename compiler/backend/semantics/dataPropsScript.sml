@@ -134,14 +134,33 @@ val do_app_with_locals = time Q.prove(
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []));
 
+val do_app_aux_err = Q.store_thm("do_app_aux_err",
+  `do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                             \/
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
+  rw [ do_app_aux_def,case_eq_thms
+     , do_install_def,do_space_def,with_fresh_ts_def
+     , PULL_EXISTS, UNCURRY,consume_space_def]
+  \\ fs []);
+
+val do_app_aux_const = Q.store_thm("do_app_aux_const",
+  `do_app_aux op vs x = Rval (y,z) ⇒
+    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
+    z.clock = x.clock ∧ z.compile = x.compile`,
+  rw [ do_app_aux_def,case_eq_thms
+     , do_install_def,do_space_def,with_fresh_ts_def
+     , PULL_EXISTS, UNCURRY,consume_space_def]
+  \\ fs []);
+
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
                              \/
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
-  rw [ do_app_def,do_app_aux_def,case_eq_thms
+  rw [ do_app_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
-  \\ fs []);
+  \\ fs []
+  \\ METIS_TAC [do_app_aux_err]);
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒
