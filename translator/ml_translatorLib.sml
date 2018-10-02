@@ -2322,7 +2322,9 @@ fun find_ind_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                   |> dest_eq |> fst |> repeat rator
   val r = dest_thy_const const
-  val ind = fetch_from_thy (#Thy r) ((#Name r) ^ "_ind")
+  val ind = fetch_from_thy (#Thy r) ((#Name r) ^ "_trans_ind")
+            handle HOL_ERR _ =>
+            fetch_from_thy (#Thy r) ((#Name r) ^ "_ind")
             handle HOL_ERR _ =>
             fetch_from_thy (#Thy r) ((#Name r) ^ "_IND")
             handle HOL_ERR _ =>
@@ -2354,8 +2356,9 @@ fun get_induction_for_def def = let
   val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> mk_set
   fun get_ind [] = raise ERR "get_ind" "Bind Error"
     | get_ind [res] =
-      (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-      fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))
+      (fetch_from_thy (#Thy res) ((#Name res) ^ "_trans_ind") handle HOL_ERR _ =>
+       (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+        (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))))
     | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
   in
     get_ind names
@@ -3592,14 +3595,38 @@ fun guess_def_name original_def = let
                    handle HOL_ERR _ => (const_thy,const_name ^ "_def")
   in if current_theory() = thy then name else thy ^ "Theory." ^ name end
 
-fun print_unable_to_prove_ind_thm original_def ml_name = let
+fun break_lines_at k [] = []
+  | break_lines_at k (x::xs) = let
+      fun consume ts [] = (ts,[])
+        | consume ts (x::xs) =
+            if size ts + 1 + size x <= k then
+              consume (ts ^ " " ^ x) xs
+            else (ts,x::xs)
+      val (line,rest) = consume x xs
+      in line :: break_lines_at k rest end;
+
+fun break_line_at k prefix text = let
+  val words = String.tokens (fn c => c = #" ") text
+  val lines = break_lines_at k words
+  in map (fn str => prefix ^ str) lines end;
+
+fun print_unable_to_prove_ind_thm ind original_def ml_name = let
   val name = guess_def_name original_def
-  val _ = print ("\nERROR: Unable to prove induction for "^name^"")
+  val thy_const = original_def |> SPEC_ALL |> CONJUNCTS |> hd |>
+                  SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+                  |> dest_thy_const
+  val _ = print ("\nERROR: Unable to prove induction for "^name^"\n")
   val _ = print ("\n")
-  val _ = print ("\n  The induction goal has been left as an assumption on")
-  val _ = print ("\n  the theorem returned by the translator. You must")
-  val _ = print ("\n  prove it with something like the following before")
-  val _ = print ("\n  this constant is used in subsequent translations.")
+  val t = (!show_types)
+  val _ = (show_types := true)
+  val _ = print_term (concl (the ind))
+  val _ = (show_types := t)
+  val line_length = 53
+  val _ = map print (break_line_at line_length "\n  "
+    ("This induction goal has been left as an assumption on the theorem "^
+     "returned by the translator. You can prove it with something like "^
+     "the following before "^(#Name thy_const)^" is used in subsequent "^
+     "translations."))
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
@@ -3614,8 +3641,15 @@ fun print_unable_to_prove_ind_thm original_def ml_name = let
   val _ = print ("\n  \\\\ fs [FORALL_PROD])")
   val _ = print ("\n  |> update_precondition;")
   val _ = print ("\n")
-  val _ = print ("\n  Here `translate_no_ind` does exactly the same as")
-  val _ = print ("\n  `translate` except it doesn't attempt an induction.")
+  val _ = map print (break_line_at line_length "\n  "
+    ("Here `translate_no_ind` does the same as `translate` " ^
+     "except it does not attempt the induction proof."))
+  val _ = print ("\n")
+  val _ = map print (break_line_at line_length "\n  "
+    ("Alternatively, you can keep on using `translate` if you " ^
+     " prove the induction goal from above and save it in " ^
+     (#Thy thy_const)^"Theory as "^(#Name thy_const)^"_trans_ind " ^
+     "or "^(#Name thy_const)^"_ind."))
   val _ = print ("\n")
   val _ = print ("\n")
   in () end;
@@ -3862,7 +3896,7 @@ val (fname,ml_fname,def,th,v) = hd thms
              else (MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
                    handle HOL_ERR _ => let
                      val (_,ml_name,_,_,_) = hd thms
-                     in (print_unable_to_prove_ind_thm original_def ml_name; th) end)
+                     in (print_unable_to_prove_ind_thm ind original_def ml_name; th) end)
 
     val results = th |> CONJUNCTS |> map SPEC_ALL
 (*
