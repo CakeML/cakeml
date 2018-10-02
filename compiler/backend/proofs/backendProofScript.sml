@@ -4189,12 +4189,39 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ asm_exists_tac
       \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
       \\ simp[linear_scanProofTheory.set_MAP_FST_toAList]
-      \\ conj_tac >- cheat (* init code labels *)
+
+      \\ conj_tac >- (
+        reverse conj_tac
+        >- (
+          simp[clos_to_bvlTheory.init_globals_def, assign_get_code_label_def]
+          \\ simp[clos_to_bvlTheory.partial_app_fn_location_def]
+          \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST, assign_get_code_label_def, domain_init_code]
+          \\ conj_tac
+          >- (
+            rw[]
+            \\ disj1_tac
+            \\ disj1_tac
+            \\ cheat (* arithmetic *) )
+          \\ fs[clos_to_bvlTheory.compile_common_def]
+          \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+          (*
+          \\ simp[domain_init_code]
+          \\ simp[clos_to_bvlTheory.num_stubs_def]
+          \\ simp[Abbr`mm`, clos_to_bvlTheory.num_stubs_def]
+          *)
+          \\ cheat (* looks possibly problematic... *)
+      )
       \\ fs[clos_to_bvlTheory.compile_common_def]
-      \\ pairarg_tac \\ fs[]
-      \\ pairarg_tac \\ fs[]
-      \\ pairarg_tac \\ fs[]
-      \\ rveq \\ fs[]
+      \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+      \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
+      \\ impl_tac
+      >- (
+        simp[]
+        \\ cheat (* syntactic properties through closLang phases *) )
+      \\ strip_tac
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ simp[]
+      \\ reverse conj_tac >- simp[SUBSET_DEF]
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
