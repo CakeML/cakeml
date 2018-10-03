@@ -2823,30 +2823,6 @@ val assign_get_code_label_compile_op = Q.store_thm("assign_get_code_label_compil
   `assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`,
   Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, assign_get_code_label_def]);
 
-val no_Labels_def = tDefine"no_Labels"`
-  (no_Labels (Var _ _) ⇔ T) ∧
-  (no_Labels (If _ e1 e2 e3) ⇔ no_Labels e1 ∧ no_Labels e2 ∧ no_Labels e3) ∧
-  (no_Labels (Let _ es e) ⇔ EVERY no_Labels es ∧ no_Labels e) ∧
-  (no_Labels (Raise _ e) ⇔ no_Labels e) ∧
-  (no_Labels (Handle _ e1 e2) ⇔ no_Labels e1 ∧ no_Labels e2) ∧
-  (no_Labels (Tick _ e) ⇔ no_Labels e) ∧
-  (no_Labels (Call _ _ _ es) ⇔ EVERY no_Labels es) ∧
-  (no_Labels (App _ _ e es) ⇔ no_Labels e ∧ EVERY no_Labels es) ∧
-  (no_Labels (Fn _ _ _ _ e) ⇔ no_Labels e) ∧
-  (no_Labels (Letrec _ _ _ es e) ⇔ EVERY no_Labels (MAP SND es) ∧ no_Labels e) ∧
-  (no_Labels (Op _ op es) ⇔ (∀n. op ≠ Label n) ∧ EVERY no_Labels es)`
-(wf_rel_tac`measure exp_size`
- \\ simp [closLangTheory.exp_size_def]
- \\ rpt conj_tac \\ rpt gen_tac
- \\ Induct_on`es`
- \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []);
-
-val no_Labels_def =
-  no_Labels_def
-  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "no_Labels_def[simp]"
-
 val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
   (clos_get_code_labels (Var _ _) = {}) ∧
   (clos_get_code_labels (If _ e1 e2 e3) =
