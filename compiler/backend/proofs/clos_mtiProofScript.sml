@@ -1513,6 +1513,40 @@ val intro_multi_obeys_max_app = store_thm("intro_multi_obeys_max_app",
   \\ drule collect_args_ok_IMP \\ fs []
   \\ strip_tac \\ fs []);
 
+val collect_apps_no_Labels = store_thm("collect_apps_no_Labels",
+  ``!m es e es' e'.
+      collect_apps m es e = (es',e') /\ EVERY no_Labels es /\ no_Labels e ==>
+      EVERY no_Labels es' /\ no_Labels e'``,
+  ho_match_mp_tac collect_apps_ind \\ fs [collect_apps_def] \\ rw [] \\ fs []);
+
+val collect_args_no_Labels = store_thm("collect_args_no_Labels",
+  ``!m na e es' e'.
+      collect_args m na e = (es',e') /\ no_Labels e ==> no_Labels e'``,
+  ho_match_mp_tac collect_args_ind \\ fs [] \\ rw [collect_args_def] \\ fs []);
+
+val intro_multi_no_Labels = store_thm("intro_multi_no_Labels",
+  ``!m xs. EVERY no_Labels xs ==> EVERY no_Labels (intro_multi m xs)``,
+  ho_match_mp_tac intro_multi_ind \\ rw []
+  \\ fs [intro_multi_def,no_Labels_def]
+  \\ TRY
+   (`∃x. intro_multi m [e]  = [x]` by fs [intro_multi_sing]
+    \\ `∃x1. intro_multi m [e1] = [x1]` by fs [intro_multi_sing]
+    \\ `∃x2. intro_multi m [e2] = [x2]` by fs [intro_multi_sing]
+    \\ `∃x3. intro_multi m [e3] = [x3]` by fs [intro_multi_sing]
+    \\ fs [] \\ NO_TAC)
+  \\ TRY pairarg_tac \\ fs []
+  \\ `∃x. intro_multi m [e']  = [x]` by fs [intro_multi_sing] \\ fs []
+  THEN1 (imp_res_tac collect_apps_no_Labels \\ fs [])
+  THEN1 (imp_res_tac collect_args_no_Labels \\ fs [])
+  \\ `∃x. intro_multi m [e]  = [x]` by fs [intro_multi_sing] \\ fs []
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ rw [] \\ rveq
+  \\ rpt (first_x_assum drule) \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs [] \\ rw []
+  \\ first_x_assum match_mp_tac
+  \\ rename [`_ = (_,e2)`]
+  \\ `∃x.  intro_multi m [e2] = [x]` by fs [clos_mtiTheory.intro_multi_sing] \\ fs []
+  \\ imp_res_tac collect_args_no_Labels \\ fs []);
+
 (* preservation of observable semantics *)
 
 val semantics_intro_multi = Q.store_thm ("semantics_intro_multi",
