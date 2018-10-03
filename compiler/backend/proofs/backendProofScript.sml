@@ -3068,6 +3068,36 @@ val bvl_get_code_labels_JumpList = Q.store_thm("bvl_get_code_labels_JumpList",
        ((fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[th]))) o SYM)TAKE_DROP
   \\ simp[]);
 
+val clos_get_code_labels_shift = Q.store_thm("clos_get_code_labels_shift",
+  `∀a b c d. MAP clos_get_code_labels (shift a b c d) = MAP clos_get_code_labels a`,
+  recInduct clos_annotateTheory.shift_ind
+  \\ rw[clos_annotateTheory.shift_def] \\ fs[]
+  \\ simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, UNCURRY, FORALL_PROD, EXISTS_PROD]
+  \\ rw[EQ_IMP_THM] \\ fs[]
+  \\ first_x_assum drule \\ rw[] \\ fs[]
+  \\ metis_tac[HD]);
+
+val clos_get_code_labels_alt_free = Q.store_thm("clos_get_code_labels_alt_free",
+  `∀xs. BIGUNION (set (MAP clos_get_code_labels (FST (alt_free xs)))) ⊆
+        BIGUNION (set (MAP clos_get_code_labels xs))`,
+  recInduct clos_annotateTheory.alt_free_ind
+  \\ rw[clos_annotateTheory.alt_free_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[] \\ fs[map_replicate, clos_annotateTheory.const_0_def, assign_get_code_label_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS]
+  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
+  \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
+  \\ rw[Once(GSYM clos_annotateTheory.HD_FST_alt_free)]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
+  \\ metis_tac[SND]);
+
+val clos_get_code_labels_annotate = Q.store_thm("clos_get_code_labels_annotate",
+  `BIGUNION (set (MAP clos_get_code_labels (annotate n xs))) ⊆
+   BIGUNION (set (MAP clos_get_code_labels xs))`,
+  rw[clos_annotateTheory.annotate_def, clos_get_code_labels_shift, clos_get_code_labels_alt_free]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -4199,7 +4229,6 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ asm_exists_tac
       \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
       \\ simp[linear_scanProofTheory.set_MAP_FST_toAList]
-
       \\ conj_tac >- (
         reverse conj_tac
         >- (
@@ -4263,14 +4292,47 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs[clos_to_bvlTheory.compile_common_def]
       \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
       \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
-      \\ impl_tac
-      >- (
-        simp[]
-        \\ cheat (* syntactic properties through closLang phases *) )
+
+      \\ impl_tac >- cheat (* syntactic properties through closLang phases *)
       \\ strip_tac
       \\ match_mp_tac SUBSET_TRANS
       \\ asm_exists_tac \\ simp[]
       \\ reverse conj_tac >- simp[SUBSET_DEF]
+      \\ qmatch_goalsub_abbrev_tac`compile_prog _ (compile ls)`
+      \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog]
+      \\ qunabbrev_tac`ff`
+      \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ BB ∪ CC ∪ {mm}`
+      \\ `DISJOINT (IMAGE ff AA) {mm}` by (
+        simp[Abbr`ff`, Abbr`mm`,clos_to_bvlTheory.num_stubs_def] )
+      \\ `DISJOINT (IMAGE ff AA) BB`
+      by(
+        simp[Abbr`ff`,Abbr`BB`,IN_DISJOINT,domain_init_code,clos_to_bvlTheory.num_stubs_def]
+        \\ CCONTR_TAC \\ fs[] )
+      \\ `IMAGE ff AA ⊆ CC` suffices_by simp[SUBSET_DEF]
+      \\ simp[Abbr`CC`]
+      \\ rewrite_tac[GSYM LIST_TO_SET_APPEND, GSYM MAP_APPEND]
+      \\ qmatch_goalsub_abbrev_tac`MAP ff CC`
+      \\ `AA ⊆ set CC` suffices_by (
+        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+        \\ metis_tac[] )
+      \\ simp[Abbr`AA`, Abbr`CC`]
+      \\ simp[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
+      \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
+              LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
+      \\ match_mp_tac SUBSET_TRANS
+      \\ qexists_tac`BIGUNION (set (MAP (clos_get_code_labels o SND o SND) ls))`
+      \\ conj_tac
+      >- (
+        simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+        \\ rpt gen_tac
+        \\ specl_args_of_then``annotate`` (Q.GENL[`n`,`xs`]clos_get_code_labels_annotate) mp_tac
+        \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+        \\ simp[Once(GSYM clos_to_bvlProofTheory.HD_annotate_SING)]
+        \\ rw[] \\ metis_tac[] )
+      \\ simp[GSYM LIST_TO_SET_MAP]
+      (*
+      \\ simp[Abbr`ls`, clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
+      *)
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
