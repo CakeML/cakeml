@@ -4760,4 +4760,352 @@ val known_every_Fn_vs_NONE = Q.store_thm("known_every_Fn_vs_NONE",
   \\ Cases_on `known c [pp] qq g`
   \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
 
+val known_every_Fn_vs_NONE = Q.store_thm("known_every_Fn_vs_NONE",
+  `∀a b c d.
+    every_Fn_vs_NONE b ∧ EVERY val_approx_every_Fn_vs_NONE c ∧
+    globals_approx_every_Fn_vs_NONE d
+    ⇒
+    every_Fn_vs_NONE (MAP FST (FST (known a b c d))) ∧
+    EVERY val_approx_every_Fn_vs_NONE (MAP SND (FST (known a b c d))) ∧
+    globals_approx_every_Fn_vs_NONE (SND (known a b c d))`,
+  recInduct clos_knownTheory.known_ind
+  \\ rw[clos_knownTheory.known_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ rveq \\ fs[]
+  \\ TRY ( match_mp_tac val_approx_every_Fn_vs_NONE_merge \\ fs[] )
+  \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
+  >- ( rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS] )
+  >- ( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
+  >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ TRY(reverse conj_tac >- fs[Once every_Fn_vs_NONE_EVERY, EVERY_SNOC])
+    \\ match_mp_tac every_Fn_vs_NONE_mk_Ticks
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ rveq
+    \\ imp_res_tac decide_inline_every_Fn_vs_NONE
+    \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ rveq
+    \\ imp_res_tac decide_inline_every_Fn_vs_NONE
+    \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[])
+  >- (
+    rw[clos_knownTheory.clos_approx_def]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[] )
+  \\ last_x_assum mp_tac
+  \\ PURE_TOP_CASE_TAC
+  \\ fs [EVERY_REPLICATE, clos_gen_no_inline_every_Fn_vs_NONE] \\ rw []
+  \\ fs [Once every_Fn_vs_NONE_EVERY]
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ fs [MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ first_x_assum drule \\ fs [MEM_REPLICATE_EQ] \\ rw []
+  \\ rename1 `known c [pp] qq`
+  \\ Cases_on `known c [pp] qq g`
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
+
+(* no_Labels *)
+
+val val_approx_no_Labels_def = tDefine "val_approx_no_Labels" `
+  (val_approx_no_Labels (ClosNoInline m n) <=> T) /\
+  (val_approx_no_Labels (Clos m n e s) <=> no_Labels e) /\
+  (val_approx_no_Labels (Tuple tag vas) <=> EVERY val_approx_no_Labels vas) /\
+  (val_approx_no_Labels _ <=> T)
+` (WF_REL_TAC `measure val_approx_size`
+   \\ Induct_on `vas` \\ simp []
+   \\ rw [] THEN1 simp [val_approx_size_def]
+   \\ first_x_assum drule
+   \\ disch_then (qspec_then `tag` assume_tac)
+   \\ fs [val_approx_size_def]);
+
+val decide_inline_no_Labels = Q.store_thm("decide_inline_no_Labels",
+  `val_approx_no_Labels b ∧ decide_inline a b c d = inlD_LetInline e ⇒
+   no_Labels e`,
+  rw[decide_inline_def,CaseEq"val_approx",CaseEq"bool"]
+  \\ fs[val_approx_no_Labels_def]);
+
+val globals_approx_no_Labels_def = Define`
+  globals_approx_no_Labels g =
+    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)`;
+
+val val_approx_no_Labels_merge = Q.store_thm("val_approx_no_Labels_merge",
+  `∀a b. val_approx_no_Labels a ∧ val_approx_no_Labels b ⇒
+         val_approx_no_Labels (merge a b)`,
+  recInduct clos_knownTheory.merge_ind
+  \\ rw[clos_knownTheory.merge_def,val_approx_no_Labels_def]
+  \\ fs[EVERY_MEM,MAP2_MAP,MEM_MAP]
+  \\ rw[] \\ imp_res_tac MEM_ZIP_MEM_MAP
+  \\ rfs[UNCURRY]);
+
+val known_op_no_Labels = Q.store_thm("known_op_no_Labels",
+  `known_op op x y = (a,b) ∧
+  EVERY val_approx_no_Labels x ∧
+  globals_approx_no_Labels y
+   ⇒ val_approx_no_Labels a ∧
+     globals_approx_no_Labels b`,
+  Cases_on`op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
+  \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,
+                      CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
+  \\ rw[] \\ fs[val_approx_no_Labels_def]
+  \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_no_Labels_def,lookup_insert]
+  \\ rw[] \\ fs[]
+  \\ TRY ( match_mp_tac val_approx_no_Labels_merge \\ fs[] )
+  \\ last_x_assum match_mp_tac \\ fs[]
+  \\ TRY asm_exists_tac \\ fs[]
+  \\ intLib.COOPER_TAC);
+
+val no_Labels_mk_Ticks = Q.store_thm("no_Labels_mk_Ticks",
+  `∀t tc n e. no_Labels e ⇒ no_Labels (mk_Ticks t tc n e)`,
+  recInduct mk_Ticks_ind
+  \\ rw[Once mk_Ticks_def]
+  \\ rw[Once mk_Ticks_def]
+  \\ fs[] \\ rw[Once mk_Ticks_def]);
+
+val clos_gen_no_inline_no_Labels = Q.store_thm (
+  "clos_gen_no_inline_no_Labels",
+  `!(xs:(num,closLang$exp) alist) n x.
+   EVERY val_approx_no_Labels (clos_gen_noinline x n xs)`,
+  Induct \\ rw [clos_gen_noinline_def]
+  \\ PairCases_on `h`
+  \\ rw [clos_gen_noinline_def,val_approx_no_Labels_def])
+
+val known_no_Labels = Q.store_thm("known_no_Labels",
+  `∀a b c d.
+    EVERY no_Labels b ∧ EVERY val_approx_no_Labels c ∧
+    globals_approx_no_Labels d
+    ⇒
+    EVERY no_Labels (MAP FST (FST (known a b c d))) ∧
+    EVERY val_approx_no_Labels (MAP SND (FST (known a b c d))) ∧
+    globals_approx_no_Labels (SND (known a b c d))`,
+  recInduct clos_knownTheory.known_ind
+  \\ rw[clos_knownTheory.known_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+  \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ fs [val_approx_no_Labels_def]
+  \\ TRY (match_mp_tac val_approx_no_Labels_merge \\ fs [])
+  \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
+  >- (rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,val_approx_no_Labels_def] )
+  >- (IF_CASES_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  \\ fs [val_approx_no_Labels_def]
+  >- (imp_res_tac known_op_no_Labels \\ fs[EVERY_REVERSE])
+  >- (imp_res_tac known_op_no_Labels \\ fs[EVERY_REVERSE])
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ TRY(reverse conj_tac \\ fs[Once every_Fn_vs_NONE_EVERY, EVERY_SNOC])
+    \\ match_mp_tac no_Labels_mk_Ticks
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ rveq
+    \\ imp_res_tac decide_inline_no_Labels
+    \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[val_approx_no_Labels_def]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ rveq
+    \\ imp_res_tac decide_inline_no_Labels
+    \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[val_approx_no_Labels_def]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[val_approx_no_Labels_def])
+  >- (
+    rw[clos_knownTheory.clos_approx_def,val_approx_no_Labels_def]
+    \\ TOP_CASE_TAC \\ fs[val_approx_no_Labels_def]
+    \\ TOP_CASE_TAC \\ fs[val_approx_no_Labels_def] )
+  \\ last_x_assum mp_tac
+  \\ PURE_TOP_CASE_TAC
+  \\ fs [EVERY_REPLICATE, clos_gen_no_inline_no_Labels] \\ rw []
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ fs [MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS] \\ rw []
+  \\ fs [val_approx_no_Labels_def]
+  \\ first_x_assum drule \\ rw []
+  \\ first_x_assum drule \\ fs [MEM_REPLICATE_EQ] \\ rw []
+  \\ fs [val_approx_no_Labels_def]
+  \\ rename1 `known c [pp] qq`
+  \\ Cases_on `known c [pp] qq g`
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
+
+val compile_no_Labels = store_thm("compile_no_Labels",
+  ``compile (SOME c) xs = (res,ys) /\ EVERY no_Labels xs /\
+    globals_approx_no_Labels c.val_approx_spt ==>
+    ?c1. res = SOME c1 /\ EVERY no_Labels ys /\
+         globals_approx_no_Labels c1.val_approx_spt``,
+  fs [clos_knownTheory.compile_def,clos_fvsTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac \\ rveq \\ fs []
+  \\ qspecl_then [`c`,`remove_fvs 0 xs`,`[]`,`c.val_approx_spt`]
+         mp_tac known_no_Labels
+  \\ fs [clos_fvsProofTheory.remove_fvs_no_Labels]
+  \\ metis_tac [clos_ticksProofTheory.remove_ticks_no_Labels,
+                clos_letopProofTheory.let_op_no_Labels]);
+
+(* obeys_max_app *)
+
+val val_approx_obeys_max_app_def = tDefine "val_approx_obeys_max_app" `
+  (val_approx_obeys_max_app k (ClosNoInline m n) <=> T) /\
+  (val_approx_obeys_max_app k (Clos m n e s) <=> obeys_max_app k e) /\
+  (val_approx_obeys_max_app k (Tuple tag vas) <=> EVERY (val_approx_obeys_max_app k) vas) /\
+  (val_approx_obeys_max_app k _ <=> T)
+` (WF_REL_TAC `measure (val_approx_size o SND)`
+   \\ Induct_on `vas` \\ simp []
+   \\ rw [] THEN1 simp [val_approx_size_def]
+   \\ first_x_assum drule
+   \\ disch_then (qspec_then `tag` assume_tac)
+   \\ fs [val_approx_size_def]);
+
+val decide_inline_obeys_max_app = Q.store_thm("decide_inline_obeys_max_app",
+  `val_approx_obeys_max_app k b ∧ decide_inline a b c d = inlD_LetInline e ⇒
+   obeys_max_app k e`,
+  rw[decide_inline_def,CaseEq"val_approx",CaseEq"bool"]
+  \\ fs[val_approx_obeys_max_app_def]);
+
+val globals_approx_obeys_max_app_def = Define`
+  globals_approx_obeys_max_app k g =
+    (∀c d. lookup c g = SOME d ⇒ val_approx_obeys_max_app k d)`;
+
+val val_approx_obeys_max_app_merge = Q.store_thm("val_approx_obeys_max_app_merge",
+  `∀a b. val_approx_obeys_max_app k a ∧ val_approx_obeys_max_app k b ⇒
+         val_approx_obeys_max_app k (merge a b)`,
+  recInduct clos_knownTheory.merge_ind
+  \\ rw[clos_knownTheory.merge_def,val_approx_obeys_max_app_def]
+  \\ fs[EVERY_MEM,MAP2_MAP,MEM_MAP]
+  \\ rw[] \\ imp_res_tac MEM_ZIP_MEM_MAP
+  \\ rfs[UNCURRY]);
+
+val known_op_obeys_max_app = Q.store_thm("known_op_obeys_max_app",
+  `known_op op x y = (a,b) ∧
+  EVERY (val_approx_obeys_max_app k) x ∧
+  globals_approx_obeys_max_app k y
+   ⇒ val_approx_obeys_max_app k a ∧
+     globals_approx_obeys_max_app k b`,
+  Cases_on`op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
+  \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,
+                      CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
+  \\ rw[] \\ fs[val_approx_obeys_max_app_def]
+  \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_obeys_max_app_def,lookup_insert]
+  \\ rw[] \\ fs[]
+  \\ TRY ( match_mp_tac val_approx_obeys_max_app_merge \\ fs[] )
+  \\ last_x_assum match_mp_tac \\ fs[]
+  \\ TRY asm_exists_tac \\ fs[]
+  \\ intLib.COOPER_TAC);
+
+val obeys_max_app_mk_Ticks = Q.store_thm("obeys_max_app_mk_Ticks",
+  `∀t tc n e. obeys_max_app k e ⇒ obeys_max_app k (mk_Ticks t tc n e)`,
+  recInduct mk_Ticks_ind
+  \\ rw[Once mk_Ticks_def]
+  \\ rw[Once mk_Ticks_def]
+  \\ fs[] \\ rw[Once mk_Ticks_def]);
+
+val clos_gen_no_inline_obeys_max_app = Q.store_thm (
+  "clos_gen_no_inline_obeys_max_app",
+  `!(xs:(num,closLang$exp) alist) n x.
+   EVERY (val_approx_obeys_max_app k) (clos_gen_noinline x n xs)`,
+  Induct \\ rw [clos_gen_noinline_def]
+  \\ PairCases_on `h`
+  \\ rw [clos_gen_noinline_def,val_approx_obeys_max_app_def])
+
+val known_IMP_LENGTH = store_thm("known_IMP_LENGTH",
+  ``known c xs vs g = (ys,g') ==> LENGTH ys = LENGTH xs``,
+  metis_tac [known_LENGTH,FST]);
+
+val known_obeys_max_app = Q.store_thm("known_obeys_max_app",
+  `∀a b c d.
+    EVERY (obeys_max_app k) b ∧ EVERY (val_approx_obeys_max_app k) c ∧
+    globals_approx_obeys_max_app k d
+    ⇒
+    EVERY (obeys_max_app k) (MAP FST (FST (known a b c d))) ∧
+    EVERY (val_approx_obeys_max_app k) (MAP SND (FST (known a b c d))) ∧
+    globals_approx_obeys_max_app k (SND (known a b c d))`,
+  recInduct clos_knownTheory.known_ind
+  \\ rw[clos_knownTheory.known_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+  \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ fs [val_approx_obeys_max_app_def]
+  \\ TRY (match_mp_tac val_approx_obeys_max_app_merge \\ fs [])
+  \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
+  >- (rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,val_approx_obeys_max_app_def] )
+  >- (IF_CASES_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  \\ fs [val_approx_obeys_max_app_def]
+  >- (imp_res_tac known_op_obeys_max_app \\ fs[EVERY_REVERSE])
+  >- (imp_res_tac known_op_obeys_max_app \\ fs[EVERY_REVERSE])
+  \\ imp_res_tac known_IMP_LENGTH \\ fs []
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ TRY(reverse conj_tac \\ fs[Once every_Fn_vs_NONE_EVERY, EVERY_SNOC])
+    \\ match_mp_tac obeys_max_app_mk_Ticks
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ rveq
+    \\ imp_res_tac decide_inline_obeys_max_app
+    \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[val_approx_obeys_max_app_def]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
+    \\ fs[] \\ rveq
+    \\ imp_res_tac decide_inline_obeys_max_app
+    \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[val_approx_obeys_max_app_def]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ CASE_TAC \\ fs[val_approx_obeys_max_app_def])
+  >- (
+    rw[clos_knownTheory.clos_approx_def,val_approx_obeys_max_app_def]
+    \\ TOP_CASE_TAC \\ fs[val_approx_obeys_max_app_def]
+    \\ TOP_CASE_TAC \\ fs[val_approx_obeys_max_app_def] )
+  \\ last_x_assum mp_tac
+  \\ PURE_TOP_CASE_TAC
+  \\ fs [EVERY_REPLICATE, clos_gen_no_inline_obeys_max_app] \\ rw []
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ fs [MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS] \\ rw []
+  \\ fs [val_approx_obeys_max_app_def]
+  \\ first_x_assum drule \\ rw []
+  \\ first_x_assum drule \\ fs [MEM_REPLICATE_EQ] \\ rw []
+  \\ fs [val_approx_obeys_max_app_def]
+  \\ rename1 `known c [pp] qq`
+  \\ Cases_on `known c [pp] qq g`
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
+
+val compile_obeys_max_app = store_thm("compile_obeys_max_app",
+  ``compile (SOME c) xs = (res,ys) /\ EVERY (obeys_max_app k) xs /\
+    globals_approx_obeys_max_app k c.val_approx_spt ==>
+    ?c1. res = SOME c1 /\ EVERY (obeys_max_app k) ys /\
+         globals_approx_obeys_max_app k c1.val_approx_spt``,
+  fs [clos_knownTheory.compile_def,clos_fvsTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac \\ rveq \\ fs []
+  \\ qspecl_then [`c`,`remove_fvs 0 xs`,`[]`,`c.val_approx_spt`]
+         mp_tac known_obeys_max_app
+  \\ fs [clos_fvsProofTheory.remove_fvs_obeys_max_app]
+  \\ metis_tac [clos_ticksProofTheory.remove_ticks_obeys_max_app,
+                clos_letopProofTheory.let_op_obeys_max_app]);
+
 val _ = export_theory();
