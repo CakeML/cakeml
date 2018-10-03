@@ -1324,6 +1324,38 @@ val annotate_obeys_max_app = store_thm("annotate_obeys_max_app",
   \\ match_mp_tac shift_obeys_max_app
   \\ match_mp_tac alt_free_obeys_max_app \\ fs []);
 
+val shift_no_Labels = store_thm("shift_no_Labels",
+  ``!xs m l i.
+      EVERY no_Labels xs ==>
+      EVERY no_Labels (shift xs m l i)``,
+  ho_match_mp_tac shift_ind \\ rw [shift_def]
+  \\ fs [EVERY_shift_sing,shift_LENGTH_LEMMA]
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ metis_tac []);
+
+val alt_free_no_Labels = store_thm("alt_free_no_Labels",
+  ``!xs m l i.
+      EVERY no_Labels xs ==>
+      EVERY no_Labels (FST (alt_free xs))``,
+  ho_match_mp_tac alt_free_ind \\ rw [alt_free_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac alt_free_SING \\ rveq \\ fs [] \\ rw []
+  THEN1 (rpt (pop_assum kall_tac)
+         \\ Induct_on `xs` \\ fs [shift_def,Once shift_CONS] \\ EVAL_TAC \\ fs [])
+  \\ imp_res_tac alt_free_LENGTH \\ fs []
+  THEN1 (rpt (pop_assum kall_tac)
+         \\ Induct_on `fns` \\ fs [shift_def,Once shift_CONS] \\ EVAL_TAC \\ fs [])
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ rw []
+  \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\ rfs []
+  \\ imp_res_tac alt_free_SING \\ fs []);
+
+val annotate_no_Labels = store_thm("annotate_no_Labels",
+  ``!n xs. EVERY no_Labels xs ==>
+           EVERY no_Labels (annotate n xs)``,
+  rw [annotate_def]
+  \\ match_mp_tac shift_no_Labels
+  \\ match_mp_tac alt_free_no_Labels \\ fs []);
+
 (* semantics preservation *)
 
 val compile_inc_def = Define `
