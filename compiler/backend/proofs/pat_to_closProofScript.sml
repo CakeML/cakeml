@@ -743,4 +743,14 @@ val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
        BAG_ALL_DISTINCT (set_globals (compile e))`,
   fs[set_globals_eq]);
 
+val compile_no_Labels = store_thm("compile_no_Labels",
+  ``!e. no_Labels (compile e)``,
+  ho_match_mp_tac compile_ind \\ rw [compile_def]
+  \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
+  \\ TRY (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ NO_TAC)
+  \\ every_case_tac \\ fs []
+  \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ EVAL_TAC \\ fs []);
+
 val _ = export_theory()
