@@ -754,4 +754,40 @@ val let_op_every_Fn_vs_NONE = Q.store_thm("let_op_every_Fn_vs_NONE[simp]",
     \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ metis_tac[]));
 
+val EVERY_let_op_sing = store_thm("EVERY_let_op_sing",
+  ``EVERY f (let_op [x]) = f (HD (let_op [x]))``,
+  qspec_then`x`strip_assume_tac let_op_SING \\ fs []);
+
+val var_list_no_Labels = store_thm("var_list_no_Labels",
+  ``!n l m. var_list n l m ==> EVERY no_Labels l /\ EVERY (obeys_max_app k) l``,
+  Induct_on `l` \\ Cases_on `m` \\ fs [var_list_def]
+  \\ Cases \\ fs [var_list_def] \\ rw [] \\ res_tac \\ fs []);
+
+val let_op_obeys_max_app = Q.store_thm("let_op_obeys_max_app",
+  `∀es. EVERY (obeys_max_app k) (let_op es) ⇔ EVERY (obeys_max_app k) es`,
+  recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def] \\ fs [EVERY_let_op_sing]
+  \\ TRY CASE_TAC \\ fs [LENGTH_let_op]
+  THEN1
+   (qspec_then`x2`strip_assume_tac let_op_SING \\ fs []
+    \\ eq_tac \\ rw []
+    \\ Cases_on `y` \\ fs [dest_op_def] \\ rveq \\ fs []
+    \\ metis_tac [var_list_no_Labels])
+  \\ eq_tac \\ rw[]
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ metis_tac []);
+
+val let_op_no_Labels = Q.store_thm("let_op_no_Labels",
+  `∀es. EVERY no_Labels (let_op es) ⇔ EVERY no_Labels es`,
+  recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def] \\ fs [EVERY_let_op_sing]
+  \\ TRY CASE_TAC \\ fs []
+  THEN1
+   (qspec_then`x2`strip_assume_tac let_op_SING \\ fs []
+    \\ Cases_on `y` \\ fs [dest_op_def] \\ rveq \\ fs []
+    \\ qsuff_tac `EVERY no_Labels l` THEN1 metis_tac []
+    \\ metis_tac [var_list_no_Labels])
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ metis_tac []);
+
 val _ = export_theory();
