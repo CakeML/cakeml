@@ -3058,6 +3058,16 @@ val compile_prog_code_labels = Q.store_thm("compile_prog_code_labels",
   \\ drule compile_exps_code_labels
   \\ simp[MAP_MAP_o, o_DEF]);
 
+val bvl_get_code_labels_JumpList = Q.store_thm("bvl_get_code_labels_JumpList",
+  `∀n xs. bvl_get_code_labels (JumpList n xs) = BIGUNION (set (MAP bvl_get_code_labels xs))`,
+  recInduct bvl_jumpTheory.JumpList_ind
+  \\ rw[]
+  \\ rw[Once  bvl_jumpTheory.JumpList_def, assign_get_code_label_def]
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ Q.ISPECL_THEN[`LENGTH xs DIV 2`,`xs`]
+       ((fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[th]))) o SYM)TAKE_DROP
+  \\ simp[]);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -4199,18 +4209,57 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ conj_tac
           >- (
             rw[]
-            \\ disj1_tac
-            \\ disj1_tac
-            \\ cheat (* arithmetic *) )
+            \\ simp[Abbr`mm`, clos_to_bvlTheory.num_stubs_def]
+            \\ simp[GSYM SUM_SET_count]
+            \\ rewrite_tac[ADD_ASSOC] \\ simp[]
+            \\ qmatch_goalsub_abbrev_tac`_ < SUM_SET (count ma)`
+            \\ `prev + SUM_SET (count tot) ≤ SUM_SET (count ma)` suffices_by metis_tac[LESS_OR_EQ]
+            \\ Cases_on`ma` \\ simp[COUNT_SUC]
+            \\ simp[SUM_SET_THM, SUM_SET_DELETE]
+            \\ `SUM_SET (count tot) ≤ SUM_SET (count n)` suffices_by simp[]
+            \\ simp[SUM_SET_count]
+            \\ simp[X_LE_DIV]
+            \\ qspec_then`1`mp_tac bitTheory.DIV_MULT_THM
+            \\ simp[]
+            \\ disch_then kall_tac
+            \\ `tot * (tot -1) ≤ n * (n - 1)` suffices_by simp[]
+            \\ match_mp_tac LESS_MONO_MULT2
+            \\ simp[] )
           \\ fs[clos_to_bvlTheory.compile_common_def]
           \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-          (*
-          \\ simp[domain_init_code]
-          \\ simp[clos_to_bvlTheory.num_stubs_def]
-          \\ simp[Abbr`mm`, clos_to_bvlTheory.num_stubs_def]
-          *)
-          \\ cheat (* looks possibly problematic... *)
-      )
+          \\ simp[GSYM MEM_MAP]
+          \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog, Abbr`mm`]
+          \\ simp[Once MEM_MAP]
+          \\ simp[clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
+          \\ simp[Once MEM_MAP, MEM_COUNT_LIST]
+          \\ metis_tac[ADD])
+        \\ simp[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
+        \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD]
+        \\ simp[MEM_toAList, lookup_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
+        \\ rpt gen_tac
+        \\ simp[EL_APPEND_EQN]
+        \\ rw[]
+        >- (
+          pop_assum mp_tac
+          \\ simp[clos_to_bvlTheory.generate_generic_app_def]
+          \\ simp[assign_get_code_label_def, bvl_get_code_labels_def,
+                  bvl_jumpTheory.Jump_def,
+                  clos_to_bvlTheory.partial_app_fn_location_code_def]
+          \\ simp[MEM_MAP, MEM_GENLIST, PULL_EXISTS, bvl_get_code_labels_JumpList]
+          \\ simp[assign_get_code_label_def, clos_to_bvlTheory.mk_cl_call_def]
+          \\ simp[MEM_MAP, PULL_EXISTS, MEM_GENLIST]
+          \\ simp[clos_to_bvlTheory.generic_app_fn_location_def] )
+        \\ qmatch_asmsub_abbrev_tac`EL _ ls = z`
+        \\ `MEM z ls` by (
+          simp[MEM_EL, Abbr`ls`, Abbr`z`]
+          \\ pop_assum (assume_tac o SYM)
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ simp[LENGTH_FLAT, MAP_GENLIST, o_DEF] )
+        \\ pop_assum mp_tac
+        \\ simp[MEM_FLAT, Abbr`ls`, MEM_GENLIST, PULL_EXISTS,Abbr`z`]
+        \\ simp[clos_to_bvlTheory.generate_partial_app_closure_fn_def]
+        \\ rw[]
+        \\ fs[assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def] )
       \\ fs[clos_to_bvlTheory.compile_common_def]
       \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
       \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
