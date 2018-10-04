@@ -3092,33 +3092,148 @@ val clos_get_code_labels_chain_exps = Q.store_thm("clos_get_code_labels_chain_ex
   \\ metis_tac[]);
 
 (*
+val call_dests_def = tDefine "call_dests" `
+  (call_dests [] = {}) /\
+  (call_dests (x::y::xs) =
+     let c1 = call_dests [x] in
+     let c2 = call_dests (y::xs) in
+       c1 ∪ c2) /\
+  (call_dests [Var _ v] = {}) /\
+  (call_dests [If _ x1 x2 x3] =
+     let c1 = call_dests [x1] in
+     let c2 = call_dests [x2] in
+     let c3 = call_dests [x3] in
+       c1 ∪ c2 ∪ c3) /\
+  (call_dests [Let _ xs x2] =
+     let c1 = call_dests xs in
+     let c2 = call_dests [x2] in
+       c1 ∪ c2) /\
+  (call_dests [Raise _ x1] =
+     call_dests [x1]) /\
+  (call_dests [Tick _ x1] =
+     call_dests [x1]) /\
+  (call_dests [Op _ op xs] =
+     call_dests xs) /\
+  (call_dests [App _ loc_opt x1 xs] =
+     let c1 = call_dests [x1] in
+     let c2 = call_dests xs in
+         c1 ∪ c2) /\
+  (call_dests [Fn _ loc_opt vs num_args x1] =
+     let c1 = call_dests [x1] in c1) /\
+  (call_dests [Letrec _ loc_opt vs fns x1] =
+     let c1 = call_dests (MAP SND fns) in
+     let c2 = call_dests [x1] in
+     c1 ∪ c2) /\
+  (call_dests [Handle _ x1 x2] =
+     let c1 = call_dests [x1] in
+     let c2 = call_dests [x2] in
+       c1 ∪ c2) /\
+  (call_dests [Call _ ticks dest xs] =
+     dest INSERT call_dests xs)`
+  (WF_REL_TAC `measure (exp3_size)`
+   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
+   Induct_on `fns` >>
+   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
+   Cases_on `h` >>
+   full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
+   decide_tac);
+*)
+
 val clos_get_code_labels_calls = Q.store_thm("clos_get_code_labels_calls",
   `∀es g es2 g2.
-    calls es g = (es2,g2) ∧ every_Fn_SOME es
+    calls es g = (es2,g2) ∧ every_Fn_SOME es (* not sure this is necessary *)
     ⇒
     BIGUNION (set (MAP clos_get_code_labels es2)) ∪
-    BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) (SND g2)))) ⊆
+    BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) (SND g2)))) ∪
+    IMAGE SUC (domain (FST g2)) ∪ set (MAP FST (SND g2)) (* this line only for induction -- feel free to remove *)
+    ⊆
     BIGUNION (set (MAP clos_get_code_labels es)) ∪
-    BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) (SND g))))`,
+    BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) (SND g)))) ∪
+    IMAGE SUC (domain (FST g)) ∪ set (MAP FST (SND g))`,
+  cheat
+  (*
   recInduct clos_callTheory.calls_ind
+  \\ conj_tac
+  >- ( rw[clos_callTheory.calls_def] \\ rw[] \\ rw[SUBSET_DEF] )
+  \\ conj_tac
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ simp[clos_callTheory.calls_def]
+    \\ rpt gen_tac
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ imp_res_tac clos_callTheory.calls_sing \\ fs[] \\ rveq
+    \\ simp[GSYM CONJ_ASSOC]
+    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
+    \\ conj_tac >- (
+      fs[SUBSET_DEF] \\ rw[]
+      \\ fs[PULL_EXISTS]
+      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
+      \\ metis_tac[] )
+    \\ conj_tac >- (
+      fs[SUBSET_DEF] \\ rw[]
+      \\ fs[PULL_EXISTS]
+      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
+      \\ metis_tac[] )
+    \\ conj_tac >- (
+      fs[SUBSET_DEF] \\ rw[]
+      \\ fs[PULL_EXISTS]
+      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
+      \\ metis_tac[] )
+
+    \\ strip_tac
+    \\ strip_tac
+    \\ strip_tac
+    \\ rpt(pairarg_tac \\ fs[]) \\ fs[] \\ rveq \\ fs[]
+    \\ imp_res_tac clos_callTheory.calls_sing \\ fs[] \\ rveq
+    \\ rw[] \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, EXISTS_PROD, FORALL_PROD] \\ rw[]
+    \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
+    \\ TRY (first_x_assum (fn th => drule th \\ disch_then(mp_tac o assert (is_disj o concl))) \\ rw[] \\ fs[])
+    \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj1_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+    \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+    \\ TRY (disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+    \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+    \\ TRY (disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+    \\ TRY (rpt disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+
   \\ rw[clos_callTheory.calls_def] \\ fs[]
   \\ rpt(pairarg_tac \\ fs[]) \\ fs[] \\ rveq \\ fs[]
   \\ imp_res_tac clos_callTheory.calls_sing \\ fs[] \\ rveq
-  \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS, MEM_MAP, EXISTS_PROD, FORALL_PROD]
+  \\ TRY (
+    ntac 3 (
+      rw[]
+      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
+      \\ TRY (first_x_assum (fn th => drule th \\ disch_then(mp_tac o assert (is_disj o concl))) \\ rw[] \\ fs[])
+      \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj1_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+      \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+      \\ TRY (disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+      \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+      \\ TRY (rpt disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
+      )
+    \\ NO_TAC)
+
+    fs[CaseEq"bool",IS_SOME_EXISTS] \\ rveq \\ fs[]
+
+
+  \\ fsrw_tac[DNF_ss][PULL_EXISTS]
+
   \\ TRY(metis_tac[])
   \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS, MEM_MAP, CaseEq"bool", IS_SOME_EXISTS]
   \\ rveq \\ fs[] \\ fs[MEM_MAP, PULL_EXISTS]
   \\ rw[] \\ fs[]
+  *));
 
 val compile_get_code_labels = Q.store_thm("compile_get_code_labels",
-  `clos_call$compile do_call es = (es2, g, aux) ⇒
+  `clos_call$compile do_call es = (es2, g, aux) ∧ every_Fn_SOME es ⇒
    BIGUNION (set (MAP clos_get_code_labels (es2 ++ MAP (SND o SND) aux))) ⊆
    BIGUNION (set (MAP clos_get_code_labels es))`,
   Cases_on`do_call`
   \\ simp[clos_callTheory.compile_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ strip_tac \\ rveq \\ fs[]
-*)
+  \\ drule clos_get_code_labels_calls
+  \\ simp[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -4386,6 +4501,12 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ once_rewrite_tac[GSYM MAP_MAP_o]
       \\ rewrite_tac[GSYM MAP_APPEND]
       \\ qmatch_goalsub_abbrev_tac`MAP clos_get_code_labels ls`
+      \\ drule compile_get_code_labels
+      \\ impl_tac >- cheat (* syntax ok *)
+      \\ asm_simp_tac bool_ss []
+      \\ strip_tac
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ simp[]
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
