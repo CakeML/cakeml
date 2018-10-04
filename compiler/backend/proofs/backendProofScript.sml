@@ -3400,6 +3400,119 @@ val compile_common_syntax = store_thm("compile_common_syntax",
   \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
   \\ match_mp_tac chain_exps_every_Fn_SOME \\ fs []);
 
+val var_list_code_labels_imp_TODO_move = Q.store_thm("var_list_code_labels_imp_TODO_move",
+  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP clos_get_code_labels x)) = {} (*∧
+                            BIGUNION (set (MAP bvl_get_code_labels y)) = {}*)`,
+  recInduct clos_letopTheory.var_list_ind
+  \\ rw[clos_letopTheory.var_list_def] \\ fs[]);
+
+val let_op_get_code_labels = Q.store_thm("let_op_get_code_labels[simp]",
+  `∀es. MAP clos_get_code_labels (let_op es) = MAP clos_get_code_labels es`,
+  recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def] \\ fs[]
+  >- (
+    PURE_TOP_CASE_TAC \\ fs[]
+    \\ qmatch_assum_rename_tac`dest_op op _ = _`
+    \\ Cases_on`op` \\ fs[clos_letopTheory.dest_op_def] \\ rveq
+    \\ imp_res_tac var_list_code_labels_imp_TODO_move \\ fs[])
+  \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
+  \\ res_tac \\ fs[]);
+
+val remove_ticks_code_labels = Q.store_thm("remove_ticks_code_labels[simp]",
+  `∀es. MAP clos_get_code_labels (remove_ticks es) = MAP clos_get_code_labels es`,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def] \\ fs[]
+  \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
+  \\ res_tac \\ fs[]);
+
+val val_approx_labels_def = tDefine"val_approx_labels"`
+  val_approx_labels (ClosNoInline loc _) = {loc} ∧
+  val_approx_labels (Clos loc _ body _) = loc INSERT (clos_get_code_labels body) ∧
+  val_approx_labels (Tuple _ ls) = BIGUNION (set (MAP val_approx_labels ls)) ∧
+  val_approx_labels _ = {}`
+ (wf_rel_tac`measure val_approx_size`
+  \\ gen_tac \\ Induct \\ rw[clos_knownTheory.val_approx_size_def]
+  \\ res_tac \\ rw[]);
+
+val val_approx_labels_merge = Q.store_thm("val_approx_labels_merge",
+  `∀x y. val_approx_labels (merge x y) ⊆ val_approx_labels x ∪ val_approx_labels y`,
+  recInduct clos_knownTheory.merge_ind
+  \\ rw[clos_knownTheory.merge_def, val_approx_labels_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MAP2_MAP, FORALL_PROD, MEM_ZIP]
+  \\ rw[] \\ fs[MEM_EL, PULL_EXISTS]
+  \\ metis_tac[]);
+
+(*
+the statement is not correct: it probably needs to talk about f too, and the other arguments
+val known_code_labels = Q.store_thm("known_code_labels",
+  `∀a b c d e f. known a b c d = (e,f) ⇒
+   BIGUNION (set (MAP clos_get_code_labels (MAP FST e))) ∪
+   BIGUNION (set (MAP val_approx_labels (MAP SND e))) ⊆
+   BIGUNION (set (MAP clos_get_code_labels b)) ∪
+   BIGUNION (set (MAP val_approx_labels c))`,
+  recInduct clos_knownTheory.known_ind
+  \\ rw[clos_knownTheory.known_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ rveq \\ fs[]
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- (
+    rw[any_el_ALT, val_approx_labels_def]
+    \\ rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ asm_exists_tac \\ rw[]
+    \\ rw[MEM_EL] \\ asm_exists_tac \\ rw[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- (
+    match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``clos_known$merge``val_approx_labels_merge strip_assume_tac
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[SUBSET_DEF] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[val_approx_labels_def] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS, val_approx_labels_def] \\ metis_tac[] )
+  >- (
+    match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``clos_known$merge``val_approx_labels_merge strip_assume_tac
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[SUBSET_DEF,val_approx_labels_def] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[val_approx_labels_def] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- (
+    Cases_on`op` \\ rw[clos_knownTheory.isGlobal_def, clos_knownTheory.known_op_def, NULL_EQ, assign_get_code_label_def]
+    \\ fs[clos_knownTheory.known_op_def, NULL_EQ]
+    \\ fs[CaseEq"bool",CaseEq"option"] \\ rveq \\ fs[clos_knownTheory.gO_destApx_def]
+    \\ fs[assign_get_code_label_def]
+    >- ( PURE_CASE_TAC \\ fs[assign_get_code_label_def] )
+    \\ fs[SUBSET_DEF] \\ metis_tac[] )
+  >- (
+    Cases_on`op` \\ rw[clos_knownTheory.isGlobal_def, clos_knownTheory.known_op_def, NULL_EQ, assign_get_code_label_def]
+    \\ fs[clos_knownTheory.known_op_def, NULL_EQ]
+    \\ fs[CaseEq"bool",CaseEq"option",CaseEq"list",CaseEq"val_approx"] \\ rveq \\ fs[clos_knownTheory.gO_destApx_def, val_approx_labels_def]
+    \\ fs[SUBSET_DEF]
+    >- metis_tac[]
+
+  >- (
+    rveq
+    \\ fs[CaseEq"inliningDecision"] \\ rveq \\ fs[]
+    >- (
+      fs[clos_knownTheory.decide_inline_def]
+      \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[]
+      type_of``Clos``
+    f"decide_inline_def"
+*)
+
+val compile_get_code_labels_TODO_move = Q.store_thm("compile_get_code_labels_TODO_move",
+  `clos_known$compile kcfg es = (kc2,es2) ⇒
+   BIGUNION (set (MAP clos_get_code_labels es2)) ⊆ BIGUNION (set (MAP clos_get_code_labels es))`,
+  Cases_on`kcfg` \\ rw[clos_knownTheory.compile_def]
+  \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ cheat);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -4659,6 +4772,11 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ impl_tac >- cheat (* syntax ok *)
       \\ asm_simp_tac bool_ss []
       \\ strip_tac
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ simp[]
+      \\ drule clos_knownProofTheory.compile_LENGTH \\ rw[]
+      \\ drule clos_callTheory.compile_LENGTH \\ (disch_then(mp_tac o SYM)) \\ rw[]
+      \\ drule compile_get_code_labels_TODO_move \\ strip_tac
       \\ match_mp_tac SUBSET_TRANS
       \\ asm_exists_tac \\ simp[]
 
