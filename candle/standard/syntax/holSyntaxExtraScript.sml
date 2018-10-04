@@ -6680,6 +6680,16 @@ val unify_types_complete = Q.store_thm("unify_types_complete",
   >> fs[option_CLAUSES]
 );
 
+val unify_sound = Q.store_thm("unify_sound",
+  `!ty1 ty2 s1 s2. unify ty1 ty2 = SOME (s1,s2)
+       ==> TYPE_SUBST s1 ty1 = TYPE_SUBST s2 ty2`,
+  rw[unify_def,ELIM_UNCURRY,IS_SOME_EXISTS]
+  >> fs[THE_DEF]
+  >> imp_res_tac unify_types_sound
+  >> fs[GSYM TYPE_SUBST_compose]
+  >> fs[normalise_tyvars_rec_def]
+);
+
 val unify_complete = Q.store_thm("unify_complete",
   `!ty1 ty2. ~(ty1 # ty2) = IS_SOME (unify ty1 ty2)`,
   rw[]
