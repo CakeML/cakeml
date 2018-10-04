@@ -6680,6 +6680,21 @@ val unify_types_complete = Q.store_thm("unify_types_complete",
   >> fs[option_CLAUSES]
 );
 
+val unify_complete = Q.store_thm("unify_complete",
+  `!ty1 ty2. ~(ty1 # ty2) = IS_SOME (unify ty1 ty2)`,
+  rw[]
+  >> (qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac) normalise_tyvars_rec_chr_diff2
+  >> (qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac) orth_ty_normalise
+  >> fs[unify_def]
+  >> pop_assum kall_tac
+  >> imp_res_tac (GSYM unifiable_orth_ty_equiv)
+  >> rpt (qpat_x_assum `_ ==> _` kall_tac)
+  >> fs[]
+  >> fs[unify_types_complete,ELIM_UNCURRY]
+  >> FULL_CASE_TAC
+  >> fs[IS_SOME_DEF]
+);
+
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
   rw[MEM_MAP] >> metis_tac[FST]);
