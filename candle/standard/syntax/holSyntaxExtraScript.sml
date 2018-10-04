@@ -3777,7 +3777,11 @@ val renaming_def = Define `
 val renaming_simp = Q.prove(
   `!h l. renaming (h::l) = (renaming [h] /\ renaming l)`,
   rw[EVERY_DEF,renaming_def]
-)
+);
+
+val non_triv_renaming_def = Define`
+  non_triv_renaming s = (renaming s /\ EVERY (λ(x,y). x <> y) s /\ ALL_DISTINCT (MAP SND s))
+`;
 
 val type_size'_renaming = Q.prove(
   `!sigma ty. renaming sigma
@@ -3885,7 +3889,7 @@ val tyvars_constr_def = Define`
     subst)
     `;
 
-val normalise_tyvars_subst_differ = Q.prove(
+val normalise_tyvars_subst_ineq = Q.prove(
   `!ty n_subst n0 chr. tyvars_constr n0 n_subst
     ==> tyvars_constr n0 (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)`,
   ho_match_mp_tac type_ind
@@ -3910,6 +3914,41 @@ val normalise_tyvars_subst_differ = Q.prove(
   >> strip_tac
   >> first_x_assum drule
   >> rw[normalise_tyvars_subst_eqns]
+);
+
+val normalise_tyvars_rec_ineq = Q.prove(
+  `!ty chr. EVERY (λ(x,y). x <> y) (SND (normalise_tyvars_rec ty chr))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] assume_tac) normalise_tyvars_subst_ineq
+  >> fs[tyvars_constr_def]
+  >> qmatch_asmsub_abbrev_tac `norm:'a#'b`
+  >> Cases_on `norm`
+  >> pop_assum (assume_tac o GSYM o PURE_ONCE_REWRITE_RULE[markerTheory.Abbrev_def])
+  >> fs[tyvars_constr_def,EVERY_MEM,ELIM_UNCURRY]
+  >> rpt strip_tac
+  >> first_x_assum (qspec_then `e` assume_tac)
+  >> Cases_on `e`
+  >> rfs[]
+  >> rveq
+  >> fs[]
+);
+
+val normalise_tyvars_rec_ineq2 = Q.prove(
+  `!ty chr. EVERY (λ(x,_). ?a. Tyvar a = x /\ strlen a > list_max(MAP strlen (tyvars ty))) (SND (normalise_tyvars_rec ty chr))`,
+  rw[normalise_tyvars_rec_def]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> (qspecl_then [`ty`,`(SUC n0,[])`,`SUC n0`,`chr`] assume_tac) normalise_tyvars_subst_ineq
+  >> fs[tyvars_constr_def]
+  >> qmatch_asmsub_abbrev_tac `norm:'a#'b`
+  >> Cases_on `norm`
+  >> fs[tyvars_constr_def,EVERY_MEM]
+  >> unabbrev_all_tac
+  >> rw[]
+  >> first_x_assum drule
+  >> rw[ELIM_UNCURRY]
+  >> asm_exists_tac
+  >> fs[]
 );
 
 val normalise_tyvars_subst_chr = Q.prove(
@@ -3988,7 +4027,7 @@ val normalise_tyvars_rec_differ = Q.prove(
   rw[normalise_tyvars_rec_def]
   >> qmatch_goalsub_abbrev_tac `n0:num`
   >> `tyvars_constr n0 (n0,[])` by rw[tyvars_constr_def]
-  >> imp_res_tac normalise_tyvars_subst_differ
+  >> imp_res_tac normalise_tyvars_subst_ineq
   >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
   >> qmatch_goalsub_abbrev_tac `n_subst:num#(type,type)alist`
   >> Cases_on `n_subst`
@@ -4067,6 +4106,21 @@ val normalise_tyvars_rec_subst_snd_distinct = Q.prove(
   >> fs[ELIM_UNCURRY]
 );
 
+val normalise_tyvars_rec_len_inv = Q.prove(
+  `!ty chr subst. subst = SND (normalise_tyvars_rec ty chr)
+  ==> (LENGTH subst) = LENGTH (tyvars ty) /\ ALL_DISTINCT (MAP SND subst)`,
+  NTAC 3 strip_tac
+  >> fs[normalise_tyvars_rec_def,ELIM_UNCURRY]
+  >> qmatch_goalsub_abbrev_tac `n0:num`
+  >> qmatch_goalsub_abbrev_tac `norm:(num#(type,type) alist)`
+  >> (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] assume_tac) normalise_tyvars_subst_len_inv
+  >> qunabbrev_tac `norm`
+  >> fs[ELIM_UNCURRY]
+  >> first_x_assum drule
+  >> rw[normalise_tyvars_subst_eqns]
+  >> cheat
+);
+
 val normalise_tyvars_subst_monotone = Q.prove(
   `!ty n_subst n0 a chr. MEM a (MAP SND (SND n_subst))
   ==> MEM a (MAP SND (SND (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)))`,
@@ -4097,7 +4151,6 @@ val EVERY_LIST_UNION = Q.store_thm(
   rw[MEM_LIST_UNION,EVERY_MEM]
   >> metis_tac[]
 )
-
 
 val normalise_tyvars_subst_domain = Q.store_thm(
   "normalise_tyvars_subst_domain",
@@ -4140,7 +4193,7 @@ val MEM_MAP_f = Q.store_thm("MEM_MAP_f",
 );
 
 val normalise_tyvars_rec_domain = Q.store_thm("normalise_tyvars_rec_domain",
-  `!ty a chr. set (MAP SND (SND (normalise_tyvars_rec ty chr))) = set(MAP Tyvar (tyvars ty))`,
+  `!ty chr. set (MAP SND (SND (normalise_tyvars_rec ty chr))) = set(MAP Tyvar (tyvars ty))`,
   rw[normalise_tyvars_rec_def]
   >> qmatch_goalsub_abbrev_tac `n0:num`
   >> (qspecl_then [`ty`,`n0`,`n0`,`chr`,`[]`] assume_tac) normalise_tyvars_subst_domain
@@ -4153,6 +4206,39 @@ val normalise_tyvars_rec_domain = Q.store_thm("normalise_tyvars_rec_domain",
   >> strip_tac
   >> imp_res_tac list_max_MEM
   >> rw[]
+);
+
+val TYPE_SUBST_replacing_all = Q.store_thm("TYPE_SUBST_replacing_all",
+  `!ty s.
+  EVERY (λx. MEM (Tyvar x) (MAP SND s)) (tyvars ty)
+  /\ ALL_DISTINCT (MAP SND s)
+  /\ EVERY (λ(x,y). x <> y) s
+  ==> EVERY (λx. MEM x (FLAT (MAP (tyvars o FST) s))) (tyvars (TYPE_SUBST s ty))
+  `,
+  rw[tyvars_TYPE_SUBST,tyvars_def,EVERY_MEM,MEM_FLAT,MEM_MAP]
+  >> last_x_assum drule
+  >> rw[]
+  >> `MEM x (tyvars (FST y))` by (
+    qpat_x_assum `MEM _ s` (assume_tac o ONCE_REWRITE_RULE[MEM_SPLIT_APPEND_first])
+    >> fs[]
+    >> rveq
+    >> Cases_on `y`
+    >> fs[ALL_DISTINCT_APPEND]
+    >> qpat_x_assum `MEM x _` mp_tac
+    >> (qspecl_then [`pfx`,`[(q,Tyvar x')]++sfx`,`Tyvar x'`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar x') pfx` by (
+      strip_tac
+      >> fs[MEM_MAP]
+      >> qpat_x_assum `!x. _ \/ _` (qspec_then `(ty',Tyvar x')` mp_tac)
+      >> rw[]
+    )
+    >> rveq
+    >> fs[tyvars_def,REV_ASSOCD_def]
+  )
+  >> qexists_tac `tyvars (FST y)`
+  >> fs[]
+  >> qexists_tac `y`
+  >> fs[]
 );
 
 val ALL_DISTINCT_MAP_inj = Q.prove(
@@ -4420,7 +4506,7 @@ val renaming_normalise_tyvars_rec = Q.prove(
   rw[normalise_tyvars_rec_def]
   >> qmatch_goalsub_abbrev_tac `n0:num`
   >> `tyvars_constr n0 (n0,[])` by rw[tyvars_constr_def]
-  >> imp_res_tac normalise_tyvars_subst_differ
+  >> imp_res_tac normalise_tyvars_subst_ineq
   >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
   >> qmatch_asmsub_abbrev_tac `n_subst:(num#(type,type)alist)`
   >> Cases_on `n_subst`
@@ -4482,12 +4568,80 @@ val normalise_tyvars_differ = Q.prove(
   >> rw[]
 );
 
-val normalise_tyvars_rec_chr = Q.prove(
-  `!ty chr. EVERY (λ(x,_). ?n. x = Tyvar (strlit(REPLICATE n chr))) (SND (normalise_tyvars_rec ty chr))`,
-  rw[normalise_tyvars_rec_def]
-  >> qmatch_goalsub_abbrev_tac `n0:num`
-  >> assume_tac normalise_tyvars_subst_chr
-  >> first_x_assum (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] mp_tac)
+val normalise_tyvars_rec_chr_diff = Q.store_thm("normalise_tyvars_rec_chr_diff",
+  `!ty1 ty2 chr1 chr2. chr1 <> chr2 ==>
+    NULL (list_inter (MAP FST (SND (normalise_tyvars_rec ty1 chr1))) (MAP FST (SND (normalise_tyvars_rec ty2 chr2))))`,
+  rw[NULL_FILTER,list_inter_def]
+  >> CCONTR_TAC
+  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_chr
+  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_chr
+  >> fs[ELIM_UNCURRY,EVERY_MEM,MEM_MAP]
+  >> rpt (first_x_assum drule)
+  >> rpt (disch_then assume_tac)
+  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_ineq2
+  >> Cases_on `y'`
+  >> Cases_on `y''`
+  >> fs[EVERY_MEM,ELIM_UNCURRY]
+  >> first_x_assum drule
+  >> disch_then assume_tac
+  >> (Q.ISPECL_THEN [`n''`,`n'''`,`chr1`,`chr2`] assume_tac)
+    (Q.prove(`!n n' x y. x <> y /\ (n <> 0 \/ n' <> 0) ==> REPLICATE n x <> REPLICATE n' y`,
+      Induct >> Induct >> fs[REPLICATE]))
+  >> rfs[]
+);
+
+val set_MEM = Q.store_thm( "set_MEM", `!A B. set A = set B ==> !a. MEM a A ==> MEM a B`, rw[]);
+
+val normalise_tyvars_rec_chr_diff2 = Q.store_thm("normalise_tyvars_rec_chr_diff2",
+  `!ty1 ty2 chr1 chr2. chr1 <> chr2 ==>
+    NULL (list_inter (tyvars (FST (normalise_tyvars_rec ty1 chr1)))
+    (tyvars (FST (normalise_tyvars_rec ty2 chr2))))`,
+  rpt strip_tac
+  >> imp_res_tac normalise_tyvars_rec_chr_diff
+  >> first_x_assum (qspecl_then [`ty2`,`ty1`] assume_tac)
+  >> CCONTR_TAC
+  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_subst_snd_distinct
+  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_subst_snd_distinct
+  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_ineq
+  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_ineq
+  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_renames
+  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_renames
+  >> fs[NULL_FILTER,list_inter_def,normalise_tyvars_rec_def,MEM_MAP,renaming_def]
+  >> qmatch_assum_abbrev_tac `MEM _ (tyvars (TYPE_SUBST subst1 ty1))`
+  >> qmatch_assum_abbrev_tac `MEM _ (tyvars (TYPE_SUBST subst2 ty2))`
+  >> `∀x. MEM x (tyvars ty1) ⇒ MEM (Tyvar x) (MAP SND subst1)` by (
+    (qspecl_then [`ty1`,`chr1`] assume_tac) (GSYM normalise_tyvars_rec_domain)
+    >> imp_res_tac set_MEM
+    >> strip_tac
+    >> first_x_assum (qspec_then `Tyvar x` assume_tac)
+    >> fs[MEM_MAP,normalise_tyvars_rec_def]
+    >> rfs[]
+  )
+  >> `∀x. MEM x (tyvars ty2) ⇒ MEM (Tyvar x) (MAP SND subst2)` by (
+    (qspecl_then [`ty2`,`chr2`] assume_tac) (GSYM normalise_tyvars_rec_domain)
+    >> imp_res_tac set_MEM
+    >> strip_tac
+    >> first_x_assum (qspec_then `Tyvar x` assume_tac)
+    >> fs[MEM_MAP,normalise_tyvars_rec_def]
+    >> rfs[]
+  )
+  >> (qspecl_then [`ty1`,`subst1`] assume_tac) TYPE_SUBST_replacing_all
+  >> (qspecl_then [`ty2`,`subst2`] assume_tac) TYPE_SUBST_replacing_all
+  >> rfs[EVERY_MEM]
+  >> NTAC 2 (first_x_assum drule >> disch_then assume_tac)
+  >> fs[MEM_FLAT,MEM_MAP]
+  >> NTAC 2 (first_x_assum drule >> disch_then assume_tac)
+  >> Cases_on `y'`
+  >> Cases_on `y''`
+  >> fs[ELIM_UNCURRY]
+  >> rveq
+  >> fs[tyvars_def]
+  >> rveq
+  >> qpat_x_assum `!x. _ ==> !x. _` (qspec_then `Tyvar m` assume_tac)
+  >> fs[PULL_EXISTS]
+  >> first_x_assum (qspec_then `(Tyvar m,Tyvar n)` assume_tac)
+  >> rfs[]
+  >> first_x_assum (qspec_then `(Tyvar m,Tyvar n')` assume_tac)
   >> fs[]
 );
 
@@ -4666,6 +4820,15 @@ val clean_tysubst_TYPE_SUBST_eq = Q.store_thm("clean_tysubst_TYPE_SUBST_eq",
   >> fs[]
 );
 
+val clean_tysubst_wlog = Q.store_thm("clean_tysubst_wlog",
+  `!s. ?s'. ALL_DISTINCT (MAP SND s')
+  /\ EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) s'
+  /\ !ty. TYPE_SUBST s ty = TYPE_SUBST s' ty`,
+  strip_tac
+  >> qexists_tac `clean_tysubst s`
+  >> rw[clean_tysubst_prop,GSYM clean_tysubst_TYPE_SUBST_eq]
+);
+
 val TYPE_SUBST_FILTER_tyvars = Q.store_thm("TYPE_SUBST_FILTER_tyvars",
   `!ty s. TYPE_SUBST s ty = TYPE_SUBST (FILTER (λ(x,y). ?a. Tyvar a = y /\ MEM a (tyvars ty)) s) ty`,
   CONV_TAC SWAP_FORALL_CONV
@@ -4678,12 +4841,22 @@ val TYPE_SUBST_FILTER_tyvars = Q.store_thm("TYPE_SUBST_FILTER_tyvars",
 );
 
 val orth_ty_instances = Q.store_thm("orth_ty_instances",
-  `!(ty1:type) ty2. ty1 # ty2 ==> !s. (TYPE_SUBST s ty1) # (TYPE_SUBST s ty2)`,
-  rw[orth_ty_def]
+  `!(ty1:type) ty2. ty1 # ty2 ==> !s s'. (TYPE_SUBST s ty1) # (TYPE_SUBST s' ty2)`,
+  rw[orth_ty_def,TYPE_SUBST_compose]
   >> first_x_assum (qspec_then `ty` mp_tac)
-  >> rw[]
-  >- (DISJ1_TAC >> rw[TYPE_SUBST_compose])
-  >> (DISJ2_TAC >> rw[TYPE_SUBST_compose])
+  >> strip_tac
+  >- (DISJ1_TAC >> fs[])
+  >> (DISJ2_TAC >> fs[])
+);
+
+val orth_ty_symm_imp= Q.prove(
+  `!(ty1:type) ty2. (ty1 # ty2) ==> (ty2 # ty1)`,
+  fs[orth_ty_def,AC DISJ_ASSOC DISJ_COMM]
+);
+
+val orth_ty_symm = Q.store_thm("orth_ty_symm",
+  `!(ty1:type) ty2. (ty1 # ty2) = (ty2 # ty1)`,
+  rw[EQ_IMP_THM,orth_ty_symm_imp]
 );
 
 val unifiable_def = Define`
@@ -4723,6 +4896,412 @@ val unifiable_orth_ty_equiv = Q.store_thm("unifiable_orth_ty_equiv",
   )
   >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_tyvars]
   >> rw[FILTER_APPEND,FILTER_IDEM,FILTER_COMM]
+  >> fs[]
+);
+
+val ZIP_ident = Q.prove(
+  `!a b c d. LENGTH a = LENGTH c /\ LENGTH b = LENGTH d /\
+  LENGTH a = LENGTH b ==> ((ZIP (a,b) = ZIP (c,d)) <=> (a = c /\ b = d))`,
+  Induct >- fs[]
+  >> strip_tac
+  >> rpt Cases >> fs[]
+  >> first_x_assum (qspecl_then [`t`,`t'`,`t''`] assume_tac)
+  >> rw[] >> fs[AC CONJ_ASSOC CONJ_COMM]
+);
+
+val MEM_SPLIT_APPEND_SND_first = Q.store_thm("MEM_SPLIT_APPEND_SND_first",
+  `!s x. MEM x (MAP SND s) ==> ?pfx sfx q. s = pfx ++ [(q,x)] ++ sfx /\ ~MEM x (MAP SND pfx)`,
+  rpt strip_tac
+  >> pop_assum (assume_tac o PURE_ONCE_REWRITE_RULE [MEM_SPLIT_APPEND_first])
+  >> fs[]
+  >> `LENGTH (MAP SND s) = LENGTH pfx + 1 + LENGTH sfx` by (ASM_REWRITE_TAC[LENGTH_APPEND] >> fs[])
+  >> ONCE_REWRITE_TAC[GSYM ZIP_MAP_FST_SND_EQ]
+  >> fs[MAP_APPEND]
+  >> qexists_tac `TAKE (LENGTH pfx) s`
+  >> qexists_tac `DROP (SUC (LENGTH pfx)) s`
+  >> qexists_tac `FST (EL (LENGTH pfx) s)`
+  >> qmatch_goalsub_abbrev_tac `ZIP (a,b) = ZIP(c,d)`
+  >> (Q.ISPECL_THEN [`a`,`b`,`c`,`d`] assume_tac) ZIP_ident
+  >> unabbrev_all_tac
+  >> fs[LENGTH_MAP]
+  >> rpt strip_tac
+  >- (
+    NTAC 2 (pop_assum kall_tac)
+    >> rpt (pop_assum mp_tac)
+    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`sfx`,`x`,`pfx`,`s`]
+    >> Induct >- fs[]
+    >> rw[]
+    >> Cases_on `pfx`
+    >> fs[]
+  )
+  >- (
+    NTAC 2 (pop_assum kall_tac)
+    >> rpt (pop_assum mp_tac)
+    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`sfx`,`x`,`pfx`,`s`]
+    >> Induct >- fs[]
+    >> rw[]
+    >> Cases_on `pfx`
+    >> fs[]
+  )
+  >> pop_assum mp_tac
+  >> rw[ZIP_MAP_FST_SND_EQ,MAP_TAKE]
+  >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  >> rw[TAKE_LENGTH_APPEND]
+);
+
+val PAIR_MAP_o = Q.store_thm("PAIR_MAP_o",
+  `!f f' g g'. (f ## f') o (g ## g') = (f o g) ## (f' o g')`,
+  fs[FUN_EQ_THM,o_DEF] >> NTAC 4 strip_tac >> Cases >> fs[PAIR_MAP_THM]
+);
+
+val SND_PAIR_MAP_o = Q.store_thm("SND_PAIR_MAP_o",
+  `!f g. SND o (f ## g) = g o SND`,
+  fs[SND_PAIR_MAP,FUN_EQ_THM,o_DEF]
+);
+
+val FST_PAIR_MAP_o = Q.store_thm("FST_PAIR_MAP_o",
+  `!f g. FST o (f ## g) = f o FST`,
+  fs[FST_PAIR_MAP,FUN_EQ_THM,o_DEF]
+);
+
+val MAP_SND_I = Q.prove(
+  `!ls f. (MAP SND (MAP (f ## I) ls)) = MAP SND ls`,
+  Induct >> rw[]
+);
+
+val FST_SWAP_SND = Q.prove(
+  `FST o SWAP = SND /\ SND o SWAP = FST`,
+  rw[FUN_EQ_THM,EQ_IMP_THM,SWAP_def]
+);
+
+val renaming_clean_tysubst = Q.prove(
+  `!s. renaming s ==> renaming (clean_tysubst s)`,
+  Induct
+  >- fs[renaming_def,clean_tysubst_def]
+  >> rpt strip_tac
+  >> fs[renaming_def]
+  >> pairarg_tac
+  >> fs[clean_tysubst_def,EVERY_MEM,MEM_FILTER,ELIM_UNCURRY]
+  >> rveq
+  >> rw[]
+  >> fs[MEM_FILTER]
+);
+
+val non_triv_renaming_clean_tysubst = Q.store_thm("non_triv_renaming_clean_tysubst",
+  `!s. renaming s ==> non_triv_renaming (clean_tysubst s)`,
+  rw[renaming_clean_tysubst,non_triv_renaming_def]
+  >> (qspec_then `s` assume_tac) (CONJUNCT1 clean_tysubst_prop) >> fs[]
+  >> (qspec_then `s` mp_tac) (CONJUNCT2 clean_tysubst_prop)
+  >> match_mp_tac MONO_EVERY
+  >> fs[ELIM_UNCURRY,PULL_EXISTS]
+);
+
+val renaming_wlog_non_triv = Q.store_thm("renaming_wlog_non_triv",
+  `!s. renaming s ==> ?s'. non_triv_renaming s' /\ !ty. TYPE_SUBST s ty = TYPE_SUBST s' ty`,
+  rpt strip_tac
+  >> imp_res_tac non_triv_renaming_clean_tysubst
+  >> asm_exists_tac
+  >> rw[GSYM clean_tysubst_TYPE_SUBST_eq]
+);
+
+val MAP_SND_FILTER = Q.prove(
+  `!l f. MAP SND (FILTER (λx. f (SND x)) l) = FILTER f (MAP SND l)`,
+  Induct >> rw[]
+);
+
+val NOT_MEM_TYPE_SUBST_FILTER = Q.prove(
+  `!l s pfx sfx x m. ~MEM (Tyvar x) l /\ s = pfx ++ [(Tyvar m, Tyvar x)] ++ sfx
+  /\ non_triv_renaming s
+  /\ ALL_DISTINCT (MAP FST s)
+  /\ NULL (list_inter (MAP FST s) (MAP SND s))
+  ==> ~MEM (Tyvar m) (MAP (TYPE_SUBST s) (FILTER (λx. MEM x (MAP SND s)) l))
+  `,
+  rw[MEM_MAP,MEM_FILTER,non_triv_renaming_def,renaming_def]
+  >> CCONTR_TAC
+  >> fs[]
+  >> Cases_on `y'`
+  >> fs[]
+  >> rveq
+  >> fs[EVERY_MEM]
+  >> NTAC 2 (first_x_assum drule >> strip_tac)
+  >> fs[ELIM_UNCURRY] >> rveq
+  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+  >> imp_res_tac MEM_SPLIT_APPEND_SND_first
+  >> rveq
+  >- (
+    qmatch_asmsub_abbrev_tac `TYPE_SUBST (pfx' ++ tup ++ sfx' ++ tup' ++ sfx) _`
+    >> (qspecl_then[`pfx'`,`tup ++ sfx' ++ tup' ++ sfx`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar n) pfx'` by (
+      qpat_x_assum `~MEM _ (MAP SND pfx')` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+      >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty,Tyvar n)` mp_tac) >> fs[]
+    )
+    >> qunabbrev_tac `tup`
+    >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+    >> rveq
+    >> fs[ALL_DISTINCT_APPEND]
+  )
+  (* >> qpat_x_assum `MEM _ (_ ++ _ ++ _)` kall_tac *)
+  >> `q = Tyvar m'` by (
+    fs[ALL_DISTINCT_APPEND]
+    >- (imp_res_tac (Q.ISPEC `SND` MEM_MAP_f) >> fs[])
+    >> (imp_res_tac (Q.ISPEC `SND` MEM_MAP_f) >> qpat_x_assum `!x. _ \/ x = Tyvar n ==> _ ` (qspec_then `Tyvar n` assume_tac) >> fs[])
+  )
+  >> fs[]
+  >> `~MEM (Tyvar n) (MAP SND (pfx ++[(Tyvar m,Tyvar x)] ++ pfx'))` by (
+    fs[MAP_APPEND,ALL_DISTINCT_APPEND]
+  )
+  >> qmatch_asmsub_abbrev_tac `REV_ASSOCD _ (pfx ++ tup ++ pfx' ++ tup' ++ sfx') _`
+  >> (qspecl_then[`pfx ++ tup ++ pfx'`,`tup' ++ sfx'`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
+  >> `!ty. ~MEM (ty,Tyvar n) (pfx ++ tup ++ pfx')` by (
+    qpat_x_assum `~MEM _ (MAP SND (pfx ++ tup ++ pfx'))` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+    >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty,Tyvar n)` mp_tac) >> fs[]
+  )
+  >> qunabbrev_tac `tup'`
+  >> fs[tyvars_def,REV_ASSOCD_def]
+  >> fs[ALL_DISTINCT_APPEND]
+);
+
+val renaming_undo_eq = Q.store_thm("renaming_undo_eq",
+  `!s ty. non_triv_renaming s
+  /\ NULL (list_inter (MAP FST s) (MAP SND s))
+  /\ ALL_DISTINCT (MAP FST s)
+  /\ EVERY (λx. ~MEM (Tyvar x) (MAP FST s)) (tyvars ty)
+  ==> ?f. !ts. TYPE_SUBST (f ts) (TYPE_SUBST s ty) = TYPE_SUBST ts ty`,
+  rw[]
+  >> qexists_tac `λts. (MAP (I ## TYPE_SUBST s) (FILTER (λ(_,y). MEM y (MAP SND s)) ts)) ++ (MAP SWAP s) ++ ts`
+  >> strip_tac
+  >> fs[renaming_def,non_triv_renaming_def,ELIM_UNCURRY]
+  >> rw[TYPE_SUBST_compose,TYPE_SUBST_tyvars]
+  >> Cases_on `MEM (Tyvar x) (MAP SND s)`
+  >- (
+    imp_res_tac MEM_SPLIT_APPEND_SND_first
+    >> rw[]
+    >> qmatch_goalsub_abbrev_tac `MAP (ts' ## I) pfx ++ tup ++ l1 ++ l2 ++ l3 ++ l4 ++ l5`
+    >> `~MEM (Tyvar x) (MAP SND (MAP (ts' ## I) pfx))` by rw[MAP_SND_I]
+    >> (qspecl_then[`MAP (ts' ## I) pfx`,`tup ++ l1 ++ l2 ++ l3 ++ l4 ++ l5 ++ ts`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar x) (MAP (ts' ## I) pfx)` by (
+      qpat_x_assum `~MEM _ _` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+      >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+    )
+    >> qunabbrev_tac `tup`
+    >> qunabbrev_tac `ts'`
+    >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+    >> qpat_x_assum `REV_ASSOCD_def _ _ _ = _` kall_tac
+    >> qunabbrev_tac `l2`
+    >> Cases_on `MEM (Tyvar x) (MAP SND ts)`
+    >- (
+      imp_res_tac MEM_SPLIT_APPEND_SND_first
+      >> rw[FILTER_APPEND]
+      >> qmatch_goalsub_abbrev_tac `pfx' ++ tup ++ sfx'`
+      >> (qspecl_then[`pfx'`,`tup ++ sfx'`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+      >> `!ty. ~MEM (ty,Tyvar x) pfx'` by (
+        qpat_x_assum `~MEM _ (MAP SND pfx')` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+        >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+      )
+      >> qunabbrev_tac `tup`
+      >> fs[tyvars_def,REV_ASSOCD_def]
+      >> qmatch_goalsub_abbrev_tac `pfx ++ tup ++ sfx`
+      >> (qspecl_then[`pfx`,`tup ++ sfx`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+      >> `!ty. ~MEM (ty,Tyvar x) pfx` by (
+        qpat_x_assum `~MEM _ (MAP SND pfx)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+        >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+      )
+      >> qunabbrev_tac `tup`
+      >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+      >> qmatch_goalsub_abbrev_tac `MAP ts'' (FILTER f pfx')`
+      >> `~MEM (Tyvar m) (MAP SND (MAP ts'' (FILTER f pfx')))` by (
+        qunabbrev_tac `ts''`
+        >> rw[MEM_FILTER,MAP_MAP_o,SND_PAIR_MAP_o]
+        >> `!ty. ~MEM (ty,Tyvar x) (FILTER f pfx')` by rw[MEM_FILTER]
+        >> rw[MEM_MAP]
+        >> CCONTR_TAC
+        >> Cases_on `y`
+        >> fs[]
+        >> Cases_on `Tyvar x = r`
+        >- (
+          rveq
+          >> first_x_assum (qspec_then `q` assume_tac)
+          >> fs[]
+        )
+        >> Cases_on `r` >> fs[]
+        >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+        >> fs[]
+        >> Cases_on `MEM (Tyvar m') (MAP SND (pfx ++ [(Tyvar m,Tyvar x)] ++ sfx))`
+        >- (
+          imp_res_tac MEM_SPLIT_APPEND_SND_first
+          >> qpat_x_assum `pfx ++  _ ++ _ = _` (fn x => REV_FULL_SIMP_TAC pure_ss [x] >> assume_tac x)
+          >> (qspecl_then[`pfx''`,`[(q'',Tyvar m')]++sfx''`,`Tyvar m'`] assume_tac) TYPE_SUBST_reduce_list
+          >> `!ty. ~MEM (ty,Tyvar m') pfx''` by (
+            qpat_x_assum `~MEM _ (MAP SND pfx'')` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+            >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar m')` mp_tac) >> fs[]
+          )
+          >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+          >> rveq
+          >> `pfx = pfx''` by (
+            qpat_x_assum `pfx ++ _ ++ _ = _` mp_tac
+            >> qpat_x_assum `ALL_DISTINCT (MAP FST pfx ++ _ ++ _)` mp_tac
+            >> rpt (pop_assum kall_tac)
+            >> rpt strip_tac
+            >> fs[APPEND_EQ_APPEND,ALL_DISTINCT_APPEND]
+            >> rveq >> fs[]
+            >> fs[CONV_RULE(LHS_CONV SYM_CONV) APPEND_EQ_CONS]
+            >> rveq >> fs[]
+            >> first_x_assum (qspec_then `Tyvar m` assume_tac) >> fs[]
+          )
+          >> fs[]
+        )
+        >> qmatch_asmsub_abbrev_tac `~MEM (Tyvar m') (MAP SND ls)`
+        >> (qspecl_then[`ls`,`[]`,`Tyvar m'`] assume_tac) TYPE_SUBST_reduce_list
+        >> `!ty. ~MEM (ty,Tyvar m') ls` by (
+          qpat_x_assum `~MEM _ (MAP SND ls)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+          >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar m')` mp_tac) >> fs[]
+        )
+        >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+        >> qunabbrev_tac `f`
+        >> rveq
+        >> qpat_x_assum `MEM (q,Tyvar m) (FILTER _ _)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_FILTER])
+        >> qpat_x_assum `NULL _` assume_tac
+        >> fs[NULL_FILTER,list_inter_def]
+        >> first_x_assum (qspec_then `Tyvar m` assume_tac)
+        >> fs[]
+      )
+      >> imp_res_tac MEM_SPLIT_APPEND_SND_first
+      >> qmatch_goalsub_abbrev_tac `MAP ts'' (FILTER f pfx') ++ tup`
+      >> (qspec_then`MAP ts'' (FILTER f pfx')` ((qspec_then `Tyvar m` assume_tac) o (CONV_RULE SWAP_FORALL_CONV))) TYPE_SUBST_reduce_list
+      >> fs[tyvars_def]
+      >> `!ty. ~MEM (ty,Tyvar m) (MAP ts'' (FILTER f pfx'))` by (
+        qpat_x_assum `~MEM _ (MAP SND (MAP ts'' (FILTER f pfx')))` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+        >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar m)` mp_tac) >> fs[]
+      )
+      >> pop_assum (fn x => fs[x])
+      >> first_x_assum (qspec_then `tup ⧺ MAP ts'' (FILTER f sfx') ⧺ l3 ⧺ l4 ⧺ l5 ⧺ pfx' ⧺ [(q',Tyvar x)] ⧺ sfx'` assume_tac)
+      >> qunabbrev_tac `tup`
+      >> fs[REV_ASSOCD_def]
+    )
+    >> (qspecl_then[`ts`,`[]`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar x) ts` by (
+      qpat_x_assum `~MEM _ (MAP SND ts)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+      >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+    )
+    >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+    >> rveq
+    >> qmatch_goalsub_abbrev_tac `MAP f' (FILTER f ts)`
+    >> `~MEM (Tyvar m) (MAP SND (MAP f' (FILTER f ts)))` by (
+      unabbrev_all_tac
+      >> rw[MAP_MAP_o,SND_PAIR_MAP_o]
+      >> fs[Once (GSYM MAP_MAP_o)]
+      >> (Q.ISPEC_THEN `ts` assume_tac) MAP_SND_FILTER
+      >> first_x_assum (qspec_then `λy. MEM y (MAP SND pfx) \/ y = Tyvar x \/ MEM y (MAP SND sfx)` assume_tac)
+      >> fs[AC DISJ_ASSOC DISJ_COMM]
+      >> pop_assum kall_tac
+      >> qmatch_goalsub_abbrev_tac `FILTER _ snd_ts`
+      >> (qspecl_then [`snd_ts`,`pfx ++ [(Tyvar m,Tyvar x)] ++ sfx`,`pfx`,`sfx`,`x`,`m`] assume_tac) NOT_MEM_TYPE_SUBST_FILTER
+      >> fs[non_triv_renaming_def,renaming_def,MAP_APPEND,AC DISJ_ASSOC DISJ_COMM]
+      >> first_x_assum match_mp_tac
+      >> fs[ELIM_UNCURRY]
+    )
+    >> (qspecl_then[`MAP f' (FILTER f ts)`,`l3 ++ l4 ++ l5 ++ ts`,`Tyvar m`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar m) (MAP f' (FILTER f ts))` by (
+      qpat_x_assum `~MEM _ (MAP SND (MAP f' (FILTER f ts)))` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+      >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar m)` mp_tac) >> fs[]
+    )
+    >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+    >> `~MEM (Tyvar m) (MAP SND l3)` by (
+      unabbrev_all_tac
+      >> rw[MAP_MAP_o,FST_SWAP_SND]
+      >> fs[ALL_DISTINCT_APPEND]
+    )
+    >> (qspecl_then[`l3`,`l4 ++ l5 ++ ts`,`Tyvar m`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar m) l3` by (
+      qpat_x_assum `~MEM _ (MAP SND l3)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+      >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar m)` mp_tac) >> fs[]
+    )
+    >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+    >> qunabbrev_tac `l4`
+    >> rw[SWAP_def,REV_ASSOCD_def]
+  )
+  (* case: ~MEM (Tyvar x) (MAP SND s) *)
+  >> qmatch_goalsub_abbrev_tac `MAP (ts' ## I) s ++ ts'' ++ l1 ++ ts`
+  >> `~MEM (Tyvar x) (MAP SND (MAP (ts' ## I) s))` by fs[MAP_MAP_o,SND_PAIR_MAP_o]
+  >> (qspecl_then[`MAP (ts'##I) s`,`ts'' ++ l1 ++ ts`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+  >> `!ty. ~MEM (ty,Tyvar x) (MAP (ts' ## I) s)` by (
+    qpat_x_assum `~MEM _ (MAP SND (MAP _ s))` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+    >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+  )
+  >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+  >> pop_assum kall_tac
+  >> qpat_x_assum `~MEM (Tyvar x) (MAP SND (MAP (ts' ## I) s))` kall_tac
+  >> qunabbrev_tac `ts''`
+  >> qunabbrev_tac `ts'`
+  >> qmatch_goalsub_abbrev_tac `MAP f' (FILTER f ts)`
+  >> `~MEM (Tyvar x) (MAP SND (MAP f' (FILTER f ts)))` by (
+    qunabbrev_tac `f`
+    >> rw[MAP_MAP_o,SND_PAIR_MAP_o,MEM_FILTER,MEM_MAP]
+    >> Cases_on `Tyvar x = SND y` >> fs[]
+    >> strip_tac
+    >> Cases_on `~MEM y' ts` >> fs[]
+    >> qmatch_goalsub_abbrev_tac `_ \/ b`
+    >> Cases_on `~b` >> fs[]
+    >> unabbrev_all_tac >> fs[]
+    >> Cases_on `y` >> Cases_on `y'`
+    >> fs[SWAP_def]
+    >> qmatch_goalsub_abbrev_tac `a \/ _`
+    >> Cases_on `a` >> fs[]
+    >> match_mp_tac tyvars_diff_types
+    >> rw[tyvars_def,tyvars_TYPE_SUBST]
+    >> unabbrev_all_tac
+    >> Cases_on `y''` >> fs[EVERY_MEM]
+    >> last_assum drule >> strip_tac
+    >> fs[tyvars_def]
+    >> assume_tac (Q.ISPECL [`SND:(type#type)->type`,`s:((type,type) alist)`] MEM_MAP_f)
+    >> first_x_assum drule
+    >> rw[]
+    >> qmatch_goalsub_abbrev_tac `a \/ _`
+    >> Cases_on `a` >> fs[]
+    >> unabbrev_all_tac
+    >> imp_res_tac MEM_SPLIT_APPEND_SND_first
+    >> (qspecl_then[`pfx`,`[(q,Tyvar n)]++sfx`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
+    >> `!ty. ~MEM (ty,Tyvar n) pfx` by (
+      qpat_x_assum `~MEM _ (MAP SND pfx)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+      >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar n)` mp_tac) >> fs[]
+    )
+    >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+    >> rveq
+    >> last_assum (qspec_then `(q,Tyvar n)` assume_tac)
+    >> first_x_assum drule
+    >> fs[tyvars_def]
+  )
+  >> (qspecl_then[`MAP f' (FILTER f ts)`,`l1 ++ ts`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+  >> `!ty. ~MEM (ty,Tyvar x) (MAP f' (FILTER f ts))` by (
+    qpat_x_assum `~MEM _ (MAP SND (MAP f' _))` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+    >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+  )
+  >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+  >> pop_assum kall_tac
+  >> fs[EVERY_MEM]
+  >> first_x_assum drule
+  >> disch_then (assume_tac o PURE_ONCE_REWRITE_RULE[GSYM FST_SWAP_SND])
+  >> rfs[Once (GSYM MAP_MAP_o)]
+  >> (qspecl_then[`l1`,`ts`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
+  >> `!ty. ~MEM (ty,Tyvar x) l1` by (
+    qpat_x_assum `~MEM _ (MAP SND l1)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+    >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar x)` mp_tac) >> fs[]
+  )
+  >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+);
+
+val orth_ty_renaming_instance2 = Q.store_thm("orth_ty_renaming_instance2",
+  `!ty1 ty2 s. non_triv_renaming s
+  /\ NULL (list_inter (MAP FST s) (MAP SND s))
+  /\ ALL_DISTINCT (MAP FST s)
+  /\ EVERY (λx. ~MEM (Tyvar x) (MAP FST s)) (tyvars ty1)
+  /\ (TYPE_SUBST s ty1 # ty2) ==> (ty1 # ty2)`,
+  rw[renaming_def,non_triv_renaming_def]
+  >> fs[orth_ty_def,GSYM RIGHT_FORALL_OR_THM,GSYM LEFT_FORALL_OR_THM]
+  >> NTAC 2 strip_tac
+  >> imp_res_tac renaming_undo_eq
+  >> rfs[renaming_def,non_triv_renaming_def]
+  >> first_x_assum (qspec_then `i` (assume_tac o GSYM))
   >> fs[]
 );
 
