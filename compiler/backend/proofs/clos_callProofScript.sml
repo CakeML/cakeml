@@ -4446,4 +4446,65 @@ val (ctm2,ctab2) = EVAL``clos_call$compile T ^tm2`` |> concl |> rhs |> dest_pair
 val res4 = EVAL``evaluate ([^ctm2],[],<|clock := 2; code := (alist_to_fmap ^ctab2)|>)``
 *)
 
+(* obeys_max_app and no_Labels *)
+
+val state_syntax_def = Define `
+  state_syntax f ((g,xs):calls_state) = EVERY (\(x1,x2,x3). f x3) xs`;
+
+val state_syntax_insert_each = store_thm("state_syntax_insert_each",
+  ``!k1 loc g.
+      state_syntax f (insert_each loc k1 g) = state_syntax f g``,
+  Induct \\ Cases_on `g` \\ fs [insert_each_def,state_syntax_def]);
+
+val state_syntax_code_list = store_thm("state_syntax_code_list",
+  ``!n xs g.
+      state_syntax f (code_list n xs g) <=>
+      state_syntax f g /\ EVERY f (MAP SND xs)``,
+  Induct_on `xs` \\ fs [FORALL_PROD,code_list_def,state_syntax_def]
+  \\ rw [] \\ eq_tac \\ rw []);
+
+val obeys_max_app_GENLIST_Var = store_thm("obeys_max_app_GENLIST_Var",
+  ``!n l w. EVERY (obeys_max_app k) (GENLIST_Var n l w)``,
+  Induct_on `w` \\ once_rewrite_tac [GENLIST_Var_def] \\ rw []);
+
+val obeys_max_app_calls_list = store_thm("obeys_max_app_calls_list",
+  ``!t k1 loc fns. EVERY (obeys_max_app k) (MAP SND (calls_list t k1 loc fns))``,
+  Induct_on `fns` \\ fs [FORALL_PROD,calls_list_def,obeys_max_app_GENLIST_Var]);
+
+val calls_obeys_max_app = store_thm("calls_obeys_max_app",
+  ``!xs g ys g1.
+      calls xs g = (ys,g1) /\ state_syntax (obeys_max_app k) g /\
+      EVERY (obeys_max_app k) xs ==>
+      EVERY (obeys_max_app k) ys /\ state_syntax (obeys_max_app k) g1``,
+  ho_match_mp_tac calls_ind \\ rpt strip_tac \\ fs [calls_def] \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ imp_res_tac calls_sing \\ rveq \\ fs []
+  \\ imp_res_tac calls_length \\ fs []
+  \\ fs [bool_case_eq] \\ rveq \\ fs [obeys_max_app_GENLIST_Var]
+  \\ fs [state_syntax_def,state_syntax_insert_each]
+  \\ fs [state_syntax_code_list,MAP_ZIP,obeys_max_app_calls_list]
+  \\ rename [`SND g5`] \\ PairCases_on `g5` \\ fs [state_syntax_def]);
+
+val no_Labels_GENLIST_Var = store_thm("no_Labels_GENLIST_Var",
+  ``!n l w. EVERY no_Labels (GENLIST_Var n l w)``,
+  Induct_on `w` \\ once_rewrite_tac [GENLIST_Var_def] \\ rw []);
+
+val no_Labels_calls_list = store_thm("no_Labels_calls_list",
+  ``!t k1 loc fns. EVERY no_Labels (MAP SND (calls_list t k1 loc fns))``,
+  Induct_on `fns` \\ fs [FORALL_PROD,calls_list_def,no_Labels_GENLIST_Var]);
+
+val calls_no_Labels = store_thm("calls_no_Labels",
+  ``!xs g ys g1.
+      calls xs g = (ys,g1) /\ state_syntax no_Labels g /\
+      EVERY no_Labels xs ==>
+      EVERY no_Labels ys /\ state_syntax no_Labels g1``,
+  ho_match_mp_tac calls_ind \\ rpt strip_tac \\ fs [calls_def] \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ imp_res_tac calls_sing \\ rveq \\ fs []
+  \\ imp_res_tac calls_length \\ fs []
+  \\ fs [bool_case_eq] \\ rveq \\ fs [no_Labels_GENLIST_Var]
+  \\ fs [state_syntax_def,state_syntax_insert_each]
+  \\ fs [state_syntax_code_list,MAP_ZIP,no_Labels_calls_list]
+  \\ rename [`SND g5`] \\ PairCases_on `g5` \\ fs [state_syntax_def]);
+
 val _ = export_theory();
