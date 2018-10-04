@@ -2000,6 +2000,12 @@ val syntax_ok_pat_to_clos = Q.store_thm("syntax_ok_pat_to_clos",
          clos_mtiProofTheory.syntax_ok_REVERSE,
          clos_mtiProofTheory.syntax_ok_MAP]);
 
+val syntax_ok_MAP_pat_to_clos = store_thm("syntax_ok_MAP_pat_to_clos",
+  ``!xs. clos_mtiProof$syntax_ok (MAP pat_to_clos_compile xs)``,
+  Induct \\ fs [clos_mtiProofTheory.syntax_ok_def]
+  \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_cons]
+  \\ fs [syntax_ok_pat_to_clos]);
+
 (* TODO: move to flat_to_patProof, and rename the other one to compile_exp... *)
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `∀p. EVERY (esgc_free o dest_Dlet) (FILTER is_Dlet p) ⇒
@@ -3235,6 +3241,165 @@ val compile_get_code_labels = Q.store_thm("compile_get_code_labels",
   \\ drule clos_get_code_labels_calls
   \\ simp[]);
 
+val no_Labels_ann = store_thm("no_Labels_ann",
+  ``!xs.
+      EVERY no_Labels (MAP (SND o SND) xs) ==>
+      EVERY no_Labels (MAP (SND ∘ SND) (clos_annotate$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`]
+  \\ `?t. annotate x2 [x3] = [t]` by
+    (fs [clos_annotateTheory.annotate_def]
+     \\ Cases_on `alt_free [x3]` \\ fs []
+     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
+     \\ metis_tac [clos_annotateTheory.shift_SING])
+  \\ fs []
+  \\ qspecl_then [`x2`,`[x3]`] mp_tac clos_annotateProofTheory.annotate_no_Labels
+  \\ fs []);
+
+val obeys_max_app_ann = store_thm("obeys_max_app_ann",
+  ``!xs.
+      EVERY (obeys_max_app m) (MAP (SND o SND) xs) ==>
+      EVERY (obeys_max_app m) (MAP (SND ∘ SND) (clos_annotate$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`]
+  \\ `?t. annotate x2 [x3] = [t]` by
+    (fs [clos_annotateTheory.annotate_def]
+     \\ Cases_on `alt_free [x3]` \\ fs []
+     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
+     \\ metis_tac [clos_annotateTheory.shift_SING])
+  \\ fs []
+  \\ qspecl_then [`x2`,`[x3]`] mp_tac clos_annotateProofTheory.annotate_obeys_max_app
+  \\ fs []);
+
+val every_Fn_SOME_ann = store_thm("every_Fn_SOME_ann",
+  ``!xs.
+      every_Fn_SOME (MAP (SND o SND) xs) ==>
+      every_Fn_SOME (MAP (SND ∘ SND) (clos_annotate$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
+  \\ Induct_on `xs` \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
+      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
+  \\ fs [] \\ rw []
+  \\ fs [clos_to_bvlProofTheory.HD_annotate_SING]
+  \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_annotate \\ fs []);
+
+val chain_exps_no_Labels = store_thm("chain_exps_no_Labels",
+  ``!es l. EVERY no_Labels es ==>
+           EVERY no_Labels (MAP (SND ∘ SND) (chain_exps l es))``,
+  Induct_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
+  \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]);
+
+val chain_exps_obeys_max_app = store_thm("chain_exps_obeys_max_app",
+  ``!es l. EVERY (obeys_max_app k) es ==>
+           EVERY (obeys_max_app k) (MAP (SND ∘ SND) (chain_exps l es))``,
+  Induct_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
+  \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]);
+
+val chain_exps_every_Fn_SOME = store_thm("chain_exps_every_Fn_SOME",
+  ``!es l. every_Fn_SOME es ==>
+           every_Fn_SOME (MAP (SND ∘ SND) (chain_exps l es))``,
+  Induct_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
+  \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
+      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
+  \\ fs []);
+
+val syntax_ok_IMP_obeys_max_app = store_thm("syntax_ok_IMP_obeys_max_app",
+  ``!e3. 0 < m /\ clos_mtiProof$syntax_ok e3 ==> EVERY (obeys_max_app m) e3``,
+  ho_match_mp_tac clos_mtiProofTheory.syntax_ok_ind \\ rpt strip_tac \\ fs []
+  \\ pop_assum mp_tac \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_def]
+  \\ fs [] \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ rw [] \\ res_tac);
+
+val compile_common_syntax = store_thm("compile_common_syntax",
+  ``!cf e3 cf1 e4.
+      compile_common cf e3 = (cf1,e4) /\
+      (!x. cf.known_conf = SOME x ==> x.val_approx_spt = LN) ==>
+      (EVERY no_Labels e3 ==>
+       EVERY no_Labels (MAP (SND o SND) e4)) /\
+      (0 < cf.max_app /\ clos_mtiProof$syntax_ok e3 ==>
+       EVERY (obeys_max_app cf.max_app) (MAP (SND o SND) e4)) /\
+      every_Fn_SOME (MAP (SND o SND) e4)``,
+  fs [clos_to_bvlTheory.compile_common_def]
+  \\ rpt gen_tac \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac \\ rveq \\ fs [] \\ rw []
+  THEN1 (* no_Labels *)
+   (drule (clos_numberProofTheory.renumber_code_locs_no_Labels |> CONJUNCT1)
+    \\ impl_tac THEN1
+     (Cases_on `cf.do_mti` \\ fs [clos_mtiTheory.compile_def]
+      \\ fs [clos_mtiProofTheory.intro_multi_no_Labels])
+    \\ strip_tac
+    \\ `EVERY no_Labels es'` by
+      (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
+       \\ drule clos_knownProofTheory.compile_no_Labels
+       \\ fs [clos_knownTheory.compile_def]
+       \\ impl_tac
+       THEN1 fs [clos_knownProofTheory.globals_approx_no_Labels_def,lookup_def]
+       \\ rw [] \\ fs [])
+    \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
+    \\ TRY pairarg_tac \\ fs [] \\ rveq
+    \\ TRY (drule clos_callProofTheory.calls_no_Labels
+            \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
+    \\ match_mp_tac no_Labels_ann
+    \\ fs [clos_callProofTheory.state_syntax_def]
+    \\ rw [] \\ TRY (match_mp_tac chain_exps_no_Labels \\ fs [])
+    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ rw [] \\ res_tac \\ fs [])
+  THEN1 (* obeys_max_app *)
+   (drule (clos_numberProofTheory.renumber_code_locs_obeys_max_app
+           |> CONJUNCT1 |> GEN_ALL)
+    \\ disch_then (qspec_then `cf.max_app` mp_tac)
+    \\ impl_tac THEN1
+     (Cases_on `cf.do_mti` \\ fs [clos_mtiTheory.compile_def]
+      \\ fs [clos_mtiProofTheory.intro_multi_obeys_max_app]
+      \\ match_mp_tac syntax_ok_IMP_obeys_max_app \\ fs[])
+    \\ strip_tac
+    \\ `EVERY (obeys_max_app cf.max_app) es'` by
+      (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
+       \\ drule (GEN_ALL clos_knownProofTheory.compile_obeys_max_app)
+       \\ disch_then (qspec_then `cf.max_app` mp_tac)
+       \\ fs [clos_knownTheory.compile_def]
+       \\ impl_tac
+       THEN1 fs [clos_knownProofTheory.globals_approx_obeys_max_app_def,lookup_def]
+       \\ rw [] \\ fs [])
+    \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
+    \\ TRY pairarg_tac \\ fs [] \\ rveq
+    \\ TRY (drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
+            \\ disch_then (qspec_then `cf.max_app` mp_tac)
+            \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
+    \\ match_mp_tac obeys_max_app_ann
+    \\ fs [clos_callProofTheory.state_syntax_def]
+    \\ rw [] \\ TRY (match_mp_tac chain_exps_obeys_max_app \\ fs [])
+    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ rw [] \\ res_tac \\ fs [])
+  \\ rename [`renumber_code_locs_list r1 r2`]
+  \\ qspecl_then [`r1`,`r2`] mp_tac
+      (clos_numberProofTheory.renumber_code_locs_every_Fn_SOME |> CONJUNCT1)
+  \\ fs [] \\ strip_tac
+  \\ rename [`_ cf.known_conf es = (kc4,es4)`]
+  \\ rename [`_ = (r5,r6,r7)`]
+  \\ `every_Fn_SOME es4` by
+    (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
+     \\ fs [clos_knownTheory.compile_def]
+     \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
+     \\ qspecl_then [`x`,`clos_fvs$compile es`,`[]`,`LN`] mp_tac
+           clos_knownProofTheory.known_every_Fn_SOME
+     \\ fs [] \\ impl_tac THEN1
+      (simp [clos_fvsTheory.compile_def,clos_fvsProofTheory.remove_fvs_every_Fn_SOME]
+       \\ EVAL_TAC \\ fs [lookup_def])
+     \\ strip_tac \\ fs [])
+  \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
+  \\ TRY pairarg_tac \\ fs [] \\ rveq
+  \\ TRY (drule clos_callProofTheory.calls_preserves_every_Fn_SOME
+          \\ impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ strip_tac \\ fs [])
+  \\ match_mp_tac every_Fn_SOME_ann
+  \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
+  \\ match_mp_tac chain_exps_every_Fn_SOME \\ fs []);
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -3406,10 +3571,10 @@ val compile_correct = Q.store_thm("compile_correct",
          flatSemTheory.initial_state_def,Abbr`s`] )
     \\ simp[Abbr`cf`,Abbr`co3`,Abbr`pc`]
     \\ simp[syntax_oracle_ok_def]
-    \\ `syntax_ok e3`
+    \\ `clos_mtiProof$syntax_ok e3`
     by (
       simp[Abbr`e3`, Abbr`p''`]
-      \\ ho_match_mp_tac clos_mtiProofTheory.syntax_ok_MAP
+      \\ match_mp_tac clos_mtiProofTheory.syntax_ok_MAP
       \\ rw [syntax_ok_pat_to_clos] )
     \\ conj_tac
     >- ( simp[Abbr`e3`, Abbr`p''`] \\ strip_tac \\ EVAL_TAC)
@@ -3954,8 +4119,9 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ qunabbrev_tac`c4_data_conf`
     \\ simp_tac (srw_ss())[]
     \\ simp[] )
+  \\ impl_keep_tac
+  >- (
 
-  \\ impl_keep_tac >- (
     conj_tac >- (
       simp[compiler_oracle_ok_def,good_code_def] \\
       conj_tac
@@ -4429,28 +4595,16 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs[clos_to_bvlTheory.compile_common_def]
       \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
       \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
-
       \\ impl_tac >- (
           simp[]
-          \\ qmatch_goalsub_abbrev_tac`compile ls`
-          \\ conj_tac
-          >- (
-            simp[clos_annotateTheory.compile_def]
-            \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
-            \\ rw[EVERY_MEM, MEM_MAP, PULL_EXISTS]
-            \\ qmatch_goalsub_abbrev_tac`annotate nn xs`
-            \\ qspecl_then[`nn`,`xs`]mp_tac clos_annotateProofTheory.annotate_no_Labels
-            \\ simp[Abbr`xs`]
-            \\ once_rewrite_tac[GSYM clos_to_bvlProofTheory.HD_annotate_SING]
-            \\ simp[Abbr`nn`]
-            \\ disch_then irule
-            \\ pop_assum mp_tac
-            \\ qmatch_goalsub_rename_tac`MEM zz _`
-            \\ qid_spec_tac`zz`
-            \\ simp[GSYM EVERY_MEM]
-            \\ cheat (* push no_Labels further *) )
-          \\ cheat (* syntactic properties through closLang phases *)
-      )
+          \\ `EVERY no_Labels e3 /\ clos_mtiProof$syntax_ok e3` by
+           (qpat_x_assum `Abbrev (e3 = MAP pat_to_clos_compile _)` mp_tac
+            \\ rpt (pop_assum kall_tac) \\ strip_tac \\ unabbrev_all_tac
+            \\ fs [pat_to_closProofTheory.compile_no_Labels,EVERY_MEM,
+                   MEM_MAP,PULL_EXISTS,syntax_ok_MAP_pat_to_clos])
+          \\ qspecl_then [`cf`,`e3`] mp_tac compile_common_syntax
+          \\ simp [clos_to_bvlTheory.compile_common_def]
+          \\ Cases_on `cf.known_conf` \\ fs [])
       \\ strip_tac
       \\ match_mp_tac SUBSET_TRANS
       \\ asm_exists_tac \\ simp[]
