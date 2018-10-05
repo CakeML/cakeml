@@ -3446,23 +3446,33 @@ val val_approx_labels_merge = Q.store_thm("val_approx_labels_merge",
   \\ rw[] \\ fs[MEM_EL, PULL_EXISTS]
   \\ metis_tac[]);
 
-(*
-the statement is not correct: it probably needs to talk about f too, and the other arguments
+val clos_get_code_labels_mk_Ticks = Q.store_thm("clos_get_code_labels_mk_Ticks[simp]",
+  `∀a b c d. clos_get_code_labels (mk_Ticks a b c d) = clos_get_code_labels d`,
+  recInduct clos_knownTheory.mk_Ticks_ind
+  \\ rw[]
+  \\ rw[Once clos_knownTheory.mk_Ticks_def]);
+
+(* some metis_tac calls take a few seconds here *)
 val known_code_labels = Q.store_thm("known_code_labels",
   `∀a b c d e f. known a b c d = (e,f) ⇒
    BIGUNION (set (MAP clos_get_code_labels (MAP FST e))) ∪
-   BIGUNION (set (MAP val_approx_labels (MAP SND e))) ⊆
+   BIGUNION (set (MAP val_approx_labels (MAP SND e))) ∪
+   BIGUNION (set (MAP val_approx_labels (toList f)))
+   ⊆
    BIGUNION (set (MAP clos_get_code_labels b)) ∪
-   BIGUNION (set (MAP val_approx_labels c))`,
+   BIGUNION (set (MAP val_approx_labels c)) ∪
+   BIGUNION (set (MAP val_approx_labels (toList d)))`,
   recInduct clos_knownTheory.known_ind
   \\ rw[clos_knownTheory.known_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ rveq \\ fs[]
+  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ rveq \\ fs[val_approx_labels_def]
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
   >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
   >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
   >- (
     rw[any_el_ALT, val_approx_labels_def]
     \\ rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ disj1_tac
     \\ asm_exists_tac \\ rw[]
     \\ rw[MEM_EL] \\ asm_exists_tac \\ rw[] )
   >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
@@ -3470,18 +3480,22 @@ val known_code_labels = Q.store_thm("known_code_labels",
     match_mp_tac SUBSET_TRANS
     \\ specl_args_of_then``clos_known$merge``val_approx_labels_merge strip_assume_tac
     \\ asm_exists_tac \\ simp[]
-    \\ fs[SUBSET_DEF] \\ metis_tac[] )
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ metis_tac[] )
   >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
   >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
-  >- ( rw[val_approx_labels_def] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
-  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS, val_approx_labels_def] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
   >- (
     match_mp_tac SUBSET_TRANS
     \\ specl_args_of_then``clos_known$merge``val_approx_labels_merge strip_assume_tac
     \\ asm_exists_tac \\ simp[]
-    \\ fs[SUBSET_DEF,val_approx_labels_def] \\ metis_tac[] )
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ metis_tac[] )
   >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
-  >- ( rw[val_approx_labels_def] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  >- ( rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
   >- (
     Cases_on`op` \\ rw[clos_knownTheory.isGlobal_def, clos_knownTheory.known_op_def, NULL_EQ, assign_get_code_label_def]
     \\ fs[clos_knownTheory.known_op_def, NULL_EQ]
@@ -3493,25 +3507,206 @@ val known_code_labels = Q.store_thm("known_code_labels",
     Cases_on`op` \\ rw[clos_knownTheory.isGlobal_def, clos_knownTheory.known_op_def, NULL_EQ, assign_get_code_label_def]
     \\ fs[clos_knownTheory.known_op_def, NULL_EQ]
     \\ fs[CaseEq"bool",CaseEq"option",CaseEq"list",CaseEq"val_approx"] \\ rveq \\ fs[clos_knownTheory.gO_destApx_def, val_approx_labels_def]
-    \\ fs[SUBSET_DEF]
-    >- metis_tac[]
-
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    >- (
+      rw[]
+      \\ first_x_assum drule
+      \\ simp[MEM_MAP, PULL_EXISTS, MEM_toList]
+      \\ disch_then irule
+      \\ metis_tac[] )
+    >- ( fs[MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
+    \\ rw[]
+    \\ qpat_x_assum`∀x s. _ ∧ MEM _ (MAP _ (MAP SND _)) ⇒ _`irule
+    \\ fs[SWAP_REVERSE_SYM, val_approx_labels_def, PULL_EXISTS]
+    \\ srw_tac[DNF_ss][MEM_MAP, MEM_EL]
+    \\ asm_exists_tac \\ rw[]
+    \\ intLib.COOPER_TAC )
+  >- (
+    Cases_on`op` \\ rw[clos_knownTheory.isGlobal_def, clos_knownTheory.known_op_def, NULL_EQ, assign_get_code_label_def]
+    \\ fs[clos_knownTheory.known_op_def, NULL_EQ]
+    \\ fs[CaseEq"bool",CaseEq"option",CaseEq"list",CaseEq"val_approx"] \\ rveq \\ fs[clos_knownTheory.gO_destApx_def, val_approx_labels_def]
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    >- (
+      fs[MEM_MAP, PULL_EXISTS, MEM_toList, lookup_insert]
+      \\ reverse(rw[]) >- metis_tac[]
+      \\ qpat_x_assum`∀x y. _ ∈ _ (SND _) ∧ MEM _ ea1 ⇒ _`irule
+      \\ fs[SWAP_REVERSE_SYM]
+      \\ fs[LIST_EQ_REWRITE, EL_MAP, EL_APPEND_EQN, EL_REVERSE, PRE_SUB1]
+      \\ qmatch_assum_rename_tac`_ = LENGTH zz + _`
+      \\ first_x_assum(qspec_then`LENGTH zz`mp_tac)
+      \\ simp[] \\ rw[]
+      \\ asm_exists_tac \\ simp[MEM_EL]
+      \\ qexists_tac`LENGTH zz` \\ simp[] )
+    >- (
+      fs[MEM_MAP, PULL_EXISTS, MEM_toList, lookup_insert]
+      \\ reverse(rw[]) >- metis_tac[]
+      \\ drule(val_approx_labels_merge |> SIMP_RULE std_ss [SUBSET_DEF])
+      \\ rw[] >- metis_tac[]
+      \\ qpat_x_assum`∀x y. _ ∈ _ (SND _) ∧ MEM _ ea1 ⇒ _`irule
+      \\ fs[SWAP_REVERSE_SYM]
+      \\ fs[LIST_EQ_REWRITE, EL_MAP, EL_APPEND_EQN, EL_REVERSE, PRE_SUB1]
+      \\ qmatch_assum_rename_tac`_ = LENGTH zz + _`
+      \\ first_x_assum(qspec_then`LENGTH zz`mp_tac)
+      \\ simp[] \\ rw[]
+      \\ asm_exists_tac \\ simp[MEM_EL]
+      \\ qexists_tac`LENGTH zz` \\ simp[] )
+    \\ fs[MEM_MAP, PULL_EXISTS, MEM_toList, lookup_insert]
+    \\ rw[] \\ metis_tac[] )
   >- (
     rveq
     \\ fs[CaseEq"inliningDecision"] \\ rveq \\ fs[]
     >- (
       fs[clos_knownTheory.decide_inline_def]
+      \\ PURE_TOP_CASE_TAC \\ fs[]
       \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[]
-      type_of``Clos``
-    f"decide_inline_def"
-*)
+      \\ fs[PULL_EXISTS, SUBSET_DEF]
+      \\ metis_tac[] )
+    >- (
+      fs[clos_knownTheory.decide_inline_def]
+      \\ PURE_TOP_CASE_TAC \\ fs[] \\ rw[]
+      \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[val_approx_labels_def]
+      \\ fs[PULL_EXISTS, SUBSET_DEF]
+      \\ metis_tac[] )
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs[] \\ rveq
+    \\ fs[clos_knownTheory.decide_inline_def]
+    \\ PURE_TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[val_approx_labels_def]
+    \\ fs[PULL_EXISTS, SUBSET_DEF]
+    \\ metis_tac[] )
+  >- (
+    rveq
+    \\ fs[CaseEq"inliningDecision"] \\ rveq \\ fs[val_approx_labels_def]
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs[] \\ rveq
+    \\ fs[clos_knownTheory.decide_inline_def]
+    \\ PURE_TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[val_approx_labels_def]
+    \\ fs[PULL_EXISTS, SUBSET_DEF] \\ rw[]
+    \\ metis_tac[] )
+  >- (
+    rw[]
+    \\ fs[CaseEq"inliningDecision"] \\ rveq \\ fs[val_approx_labels_def]
+    >- (
+      fs[clos_knownTheory.decide_inline_def]
+      \\ PURE_TOP_CASE_TAC \\ fs[]
+      \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[]
+      \\ fs[PULL_EXISTS, SUBSET_DEF]
+      \\ metis_tac[] )
+    >- (
+      fs[clos_knownTheory.decide_inline_def]
+      \\ PURE_TOP_CASE_TAC \\ fs[] \\ rw[]
+      \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[val_approx_labels_def]
+      \\ fs[PULL_EXISTS, SUBSET_DEF]
+      \\ metis_tac[] )
+    \\ pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs[] \\ rveq
+    \\ fs[clos_knownTheory.decide_inline_def]
+    \\ PURE_TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ fs[CaseEq"val_approx",CaseEq"bool"] \\ rveq \\ fs[val_approx_labels_def]
+    \\ fs[PULL_EXISTS, SUBSET_DEF]
+    \\ metis_tac[] )
+  >- (
+    rw[] \\ fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+    \\ fs[MEM_MAP, PULL_EXISTS, MEM_REPLICATE_EQ, val_approx_labels_def]
+    \\ metis_tac[] )
+  >- (
+    PURE_TOP_CASE_TAC \\ simp[val_approx_labels_def]
+    \\ simp[clos_knownTheory.clos_approx_def]
+    \\ PURE_TOP_CASE_TAC \\ simp[val_approx_labels_def]
+    \\ fs[SUBSET_DEF, PULL_EXISTS] )
+  >- (
+    rw[]
+    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList, MEM_REPLICATE_EQ, val_approx_labels_def]
+    \\ metis_tac[] )
+  >- (
+    rveq
+    \\ PURE_TOP_CASE_TAC
+    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList, MEM_REPLICATE_EQ, val_approx_labels_def, FORALL_PROD, EXISTS_PROD]
+    \\ rw[]
+    >- metis_tac[]
+    >- (
+      first_x_assum drule
+      \\ qmatch_asmsub_abbrev_tac`known aa bb cc dd`
+      \\ Cases_on`known aa bb cc dd` \\ fs[]
+      \\ unabbrev_all_tac \\ fs[]
+      \\ imp_res_tac clos_knownTheory.known_LENGTH_EQ_E
+      \\ fs[LENGTH_EQ_NUM_compute] \\ rveq \\ fs[]
+      \\ Cases_on`h` \\ fs[] \\ rw[]
+      \\ metis_tac[] )
+    >- (
+      first_x_assum drule
+      \\ rw[]
+      >- metis_tac[]
+      >- cheat
+      >- metis_tac[]
+      >- metis_tac[] )
+    >- (
+      first_x_assum drule
+      \\ qmatch_asmsub_abbrev_tac`known aa bb cc dd`
+      \\ Cases_on`known aa bb cc dd` \\ fs[]
+      \\ unabbrev_all_tac \\ fs[]
+      \\ imp_res_tac clos_knownTheory.known_LENGTH_EQ_E
+      \\ fs[LENGTH_EQ_NUM_compute] \\ rveq \\ fs[]
+      \\ Cases_on`h` \\ fs[] \\ rw[]
+      \\ first_x_assum drule
+      \\ rw[]
+      >- metis_tac[]
+      >- cheat
+      >- metis_tac[]
+      >- metis_tac[] ))
+  >- (
+    rveq
+    \\ PURE_TOP_CASE_TAC
+    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList, MEM_REPLICATE_EQ, val_approx_labels_def, FORALL_PROD, EXISTS_PROD]
+    >- metis_tac[]
+    \\ rw[]
+    \\ last_x_assum drule
+    \\ rw[]
+    >- metis_tac[]
+    >- cheat
+    >- metis_tac[]
+    >- metis_tac[] )
+  >- (
+    rveq
+    \\ PURE_TOP_CASE_TAC
+    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList, MEM_REPLICATE_EQ, val_approx_labels_def, FORALL_PROD, EXISTS_PROD]
+    >- metis_tac[]
+    \\ rw[]
+    \\ last_x_assum drule
+    \\ disch_then drule
+    \\ rw[]
+    >- metis_tac[]
+    >- cheat
+    >- metis_tac[]
+    >- metis_tac[] ));
+
+val clos_get_code_labels_remove_fvs = Q.store_thm("clos_get_code_labels_remove_fvs[simp]",
+  `∀n es. MAP clos_get_code_labels (remove_fvs n es) = MAP clos_get_code_labels es`,
+  recInduct clos_fvsTheory.remove_fvs_ind
+  \\ rw[clos_fvsTheory.remove_fvs_def] \\ fs[assign_get_code_label_def]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ rw[] \\ fs[]);
 
 val compile_get_code_labels_TODO_move = Q.store_thm("compile_get_code_labels_TODO_move",
   `clos_known$compile kcfg es = (kc2,es2) ⇒
-   BIGUNION (set (MAP clos_get_code_labels es2)) ⊆ BIGUNION (set (MAP clos_get_code_labels es))`,
+   BIGUNION (set (MAP clos_get_code_labels es2)) ⊆
+   BIGUNION (set (MAP clos_get_code_labels es)) ∪
+   (case kcfg of SOME x => BIGUNION (set (MAP val_approx_labels (toList x.val_approx_spt))) | _ => {})`,
   Cases_on`kcfg` \\ rw[clos_knownTheory.compile_def]
   \\ pairarg_tac \\ fs[] \\ rw[]
-  \\ cheat);
+  \\ drule known_code_labels \\ rw[]
+  \\ match_mp_tac SUBSET_TRANS
+  \\ asm_exists_tac \\ simp[]
+  \\ rw[clos_fvsTheory.compile_def]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -4779,6 +4974,10 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ drule compile_get_code_labels_TODO_move \\ strip_tac
       \\ match_mp_tac SUBSET_TRANS
       \\ asm_exists_tac \\ simp[]
+      \\ reverse conj_tac
+      >- (
+        PURE_TOP_CASE_TAC \\ fs[]
+        \\ EVAL_TAC \\ fs[] )
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
