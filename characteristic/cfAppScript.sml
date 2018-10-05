@@ -22,11 +22,6 @@ val io_prefix_def = Define `
     (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
     s1.ffi.io_events ≼ s2.ffi.io_events`;
 
-val io2heap_def = Define `
-  io2heap (io_events : io_event llist) =
-    (* type of heap needs to be tweaked before this function can be defined *)
-    ARB:heap`;
-
 val evaluate_to_heap_def = Define `
   evaluate_to_heap st env exp p heap (r:res) <=>
     case r of
@@ -36,21 +31,20 @@ val evaluate_to_heap_def = Define `
                          st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
-      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\ 
+      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
       st2heap p st' = heap)
-    | Div => ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num) io'.
-                 (* the heap is a representation of the final io_events *)
-                 io2heap io' = heap /\
-                 (* clocks increase *)
-                 (∀i. cks i < cks (i+1)) /\
-                 (* all clocks in the sequence produce timeout and a state in sts *)
-                 (∀i. evaluate_ck (cks i) st env [exp] =
-                        (sts i, Rerr (Rabort Rtimeout_error))) /\
-                 (* the limit state st' approximates all states in the sequence *)
-                 (∀i. LPREFIX (fromList (sts i).ffi.io_events) io') /\
-                 (* if there is a maximal io_event list, then io' is that list *)
-                 ∀j. (∀i. (sts i).ffi.io_events ≼ (sts j).ffi.io_events) ==>
-                     io' = fromList (sts j).ffi.io_events`
+    | Div io => ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num).
+                  heap = UNIV /\
+                  (* clocks increase *)
+                  (∀i. cks i < cks (i+1)) /\
+                  (* all clocks in the sequence produce timeout and a state in sts *)
+                  (∀i. evaluate_ck (cks i) st env [exp] =
+                         (sts i, Rerr (Rabort Rtimeout_error))) /\
+                  (* the limit state st' approximates all states in the sequence *)
+                  (∀i. LPREFIX (fromList (sts i).ffi.io_events) io) /\
+                  (* if there is a maximal io_event list, then io is that list *)
+                  ∀j. (∀i. (sts i).ffi.io_events ≼ (sts j).ffi.io_events) ==>
+                      io = fromList (sts j).ffi.io_events`
 
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
