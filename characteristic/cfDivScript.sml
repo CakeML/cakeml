@@ -7,17 +7,13 @@ open cfTacticsBaseLib cfTheory
 
 val _ = new_theory "cfDiv";
 
-val events_of_def = Define`
-  events_of H = some events. ?Q. H = Q * one(FFI_full events)`
-
-val imp_app_POSTd = store_thm("imp_app_POSTd",
+val app_POSTd = store_thm("app_POSTd",
   ``!p f xvs H Q.
-      (?io (Hs: num -> hprop).
+      (?io events (Hs: num -> hprop).
         Q io /\
-        Hs 0 = H /\
-        (!i. IS_SOME(events_of(Hs i))) /\
-        (!i. LENGTH(THE(events_of(Hs i))) <
-             LENGTH(THE(events_of(Hs (SUC i))))) /\
+        H ==>> Hs 0 /\
+        (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
+        (!i. LENGTH (events i) < LENGTH (events (i+1))) /\
         (!i. app p f xvs (Hs (SUC i)) (POSTd Q) ==>
              app p f xvs (Hs i) (POSTd Q)) /\
         (!i. LPREFIX (fromList (THE(events_of (Hs i)))) io))
