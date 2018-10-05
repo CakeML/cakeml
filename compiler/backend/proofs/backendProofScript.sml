@@ -3059,68 +3059,6 @@ val clos_get_code_labels_shift = Q.store_thm("clos_get_code_labels_shift",
   \\ first_x_assum drule \\ rw[] \\ fs[]
   \\ metis_tac[HD]);
 
-val clos_get_code_labels_alt_free = Q.store_thm("clos_get_code_labels_alt_free",
-  `∀xs. BIGUNION (set (MAP clos_get_code_labels (FST (alt_free xs)))) ⊆
-        BIGUNION (set (MAP clos_get_code_labels xs))`,
-  recInduct clos_annotateTheory.alt_free_ind
-  \\ rw[clos_annotateTheory.alt_free_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rw[] \\ fs[map_replicate, clos_annotateTheory.const_0_def, assign_get_code_label_def]
-  \\ fs[SUBSET_DEF, PULL_EXISTS]
-  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
-  \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
-  \\ rw[Once(GSYM clos_annotateTheory.HD_FST_alt_free)]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
-  \\ metis_tac[SND]);
-
-(*
-val clos_get_code_labels_alt_free_code_locs = Q.store_thm("clos_get_code_labels_alt_free_code_locs",
-  `∀xs.
-    BIGUNION (set (MAP clos_get_code_labels xs)) ⊆ set (code_locs xs) ⇒
-    BIGUNION (set (MAP clos_get_code_labels (FST (alt_free xs)))) ⊆ set (code_locs (FST (alt_free xs)))`,
-  recInduct clos_annotateTheory.alt_free_ind
-  \\ rw[clos_annotateTheory.alt_free_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rw[]
-  \\ fs[map_replicate, clos_annotateTheory.const_0_def, assign_get_code_label_def,
-        closPropsTheory.code_locs_append]
-  \\ fs[SUBSET_DEF, PULL_EXISTS, closPropsTheory.code_locs_def]
-  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
-  \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
-  \\ qspecl_then[`y`,`xs`]mp_tac closPropsTheory.code_locs_cons \\ rw[] \\ fs[]
-  \\ rpt(CHANGED_TAC(fs[Once closPropsTheory.code_locs_cons, closPropsTheory.code_locs_def]))
-  \\ rw[Once(GSYM clos_annotateTheory.HD_FST_alt_free)]
-
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
-  \\ metis_tac[SND]);
-*)
-
-val clos_get_code_labels_annotate = Q.store_thm("clos_get_code_labels_annotate",
-  `BIGUNION (set (MAP clos_get_code_labels (annotate n xs))) ⊆
-   BIGUNION (set (MAP clos_get_code_labels xs))`,
-  rw[clos_annotateTheory.annotate_def, clos_get_code_labels_shift, clos_get_code_labels_alt_free]);
-
-val clos_get_code_labels_chain_exps = Q.store_thm("clos_get_code_labels_chain_exps",
-  `∀n es.
-   BIGUNION (set (MAP (clos_get_code_labels o SND o SND) (chain_exps n es))) =
-   BIGUNION (set (MAP (clos_get_code_labels) es)) ∪
-   IMAGE ((+) n) (count (LENGTH es) DELETE 0)`,
-  recInduct clos_to_bvlTheory.chain_exps_ind
-  \\ rw[clos_to_bvlTheory.chain_exps_def, assign_get_code_label_def]
-  >- ( EVAL_TAC \\ simp[] )
-  \\ simp[Once EXTENSION, PULL_EXISTS, MEM_MAP, ADD1]
-  \\ rw[EQ_IMP_THM] \\ fs[]
-  \\ TRY (
-    qmatch_assum_rename_tac`z ≠ 0`
-    \\ Cases_on`z` \\ fs[ADD1]
-    \\ Cases_on`n` \\ fs[]
-    \\ NO_TAC)
-  \\ metis_tac[]);
-
 val call_dests_def = tDefine "call_dests" `
   (call_dests [] = {}) /\
   (call_dests (x::y::xs) =
@@ -3167,6 +3105,100 @@ val call_dests_def = tDefine "call_dests" `
    Cases_on `h` >>
    full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
    decide_tac);
+
+val call_dests_ind = theorem"call_dests_ind";
+
+val call_dests_cons = Q.store_thm("call_dests_cons",
+  `∀y x. call_dests (x::y) = call_dests [x] ∪ call_dests y`,
+  Induct \\ rw[call_dests_def]);
+
+val call_dests_append = Q.store_thm("call_dests_append",
+  `∀l1 l2. call_dests (l1 ++ l2) = call_dests l1 ∪ call_dests l2`,
+  recInduct call_dests_ind
+  \\ rpt strip_tac
+  \\ full_simp_tac std_ss []
+  \\ rw[call_dests_def]
+  >- (
+    last_x_assum(qspec_then`l2`mp_tac)
+    \\ rw[]
+    \\ rw[Once call_dests_cons]
+    \\ rw[call_dests_def]
+    \\ rw[UNION_ASSOC] )
+  \\ ( rw[Once call_dests_cons] \\ rw[call_dests_def] ));
+
+val call_dests_map = Q.store_thm("call_dests_map",
+  `∀ls. call_dests (MAP f ls) = BIGUNION (set (MAP (λx. call_dests [f x]) ls))`,
+  Induct \\ rw[call_dests_def]
+  \\ rw[Once call_dests_cons]);
+
+val call_dests_shift = Q.store_thm("call_dests_shift[simp]",
+  `∀a b c d. call_dests (shift a b c d) = call_dests a`,
+  recInduct clos_annotateTheory.shift_ind
+  \\ rw[clos_annotateTheory.shift_def, call_dests_def, call_dests_append] \\ fs[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[call_dests_map]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]);
+
+val clos_get_code_labels_alt_free = Q.store_thm("clos_get_code_labels_alt_free",
+  `∀xs. BIGUNION (set (MAP clos_get_code_labels (FST (alt_free xs)))) ⊆
+        BIGUNION (set (MAP clos_get_code_labels xs))`,
+  recInduct clos_annotateTheory.alt_free_ind
+  \\ rw[clos_annotateTheory.alt_free_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[] \\ fs[map_replicate, clos_annotateTheory.const_0_def, assign_get_code_label_def]
+  \\ fs[SUBSET_DEF, PULL_EXISTS]
+  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
+  \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
+  \\ rw[Once(GSYM clos_annotateTheory.HD_FST_alt_free)]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
+  \\ metis_tac[SND]);
+
+val call_dests_alt_free = Q.store_thm("call_dests_alt_free",
+  `∀xs. (call_dests (FST (alt_free xs))) ⊆
+        (call_dests xs)`,
+  recInduct clos_annotateTheory.alt_free_ind
+  \\ rw[clos_annotateTheory.alt_free_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[call_dests_def]
+  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, GSYM MAP_K_REPLICATE]
+  >- ( rw[Once call_dests_cons] \\ fs[] )
+  \\ rw[call_dests_map, clos_annotateTheory.const_0_def, call_dests_def, MEM_MAP, FORALL_PROD, EXISTS_PROD] \\ fs[]
+  \\ first_x_assum drule
+  \\ rw[] \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ rw[PULL_EXISTS]
+  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[]
+  \\ rw[] \\ fs[]
+  \\ metis_tac[]);
+
+val call_dests_annotate = Q.store_thm("call_dests_annotate",
+  `call_dests (annotate n xs) ⊆ call_dests xs`,
+  rw[clos_annotateTheory.annotate_def, call_dests_alt_free]);
+
+val clos_get_code_labels_annotate = Q.store_thm("clos_get_code_labels_annotate",
+  `BIGUNION (set (MAP clos_get_code_labels (annotate n xs))) ⊆
+   BIGUNION (set (MAP clos_get_code_labels xs))`,
+  rw[clos_annotateTheory.annotate_def, clos_get_code_labels_shift, clos_get_code_labels_alt_free]);
+
+val clos_get_code_labels_chain_exps = Q.store_thm("clos_get_code_labels_chain_exps",
+  `∀n es.
+   BIGUNION (set (MAP (clos_get_code_labels o SND o SND) (chain_exps n es))) =
+   BIGUNION (set (MAP (clos_get_code_labels) es)) ∪
+   IMAGE ((+) n) (count (LENGTH es) DELETE 0)`,
+  recInduct clos_to_bvlTheory.chain_exps_ind
+  \\ rw[clos_to_bvlTheory.chain_exps_def, assign_get_code_label_def]
+  >- ( EVAL_TAC \\ simp[] )
+  \\ simp[Once EXTENSION, PULL_EXISTS, MEM_MAP, ADD1]
+  \\ rw[EQ_IMP_THM] \\ fs[]
+  \\ TRY (
+    qmatch_assum_rename_tac`z ≠ 0`
+    \\ Cases_on`z` \\ fs[ADD1]
+    \\ Cases_on`n` \\ fs[]
+    \\ NO_TAC)
+  \\ metis_tac[]);
 
 val clos_get_code_labels_code_locs = Q.store_thm("clos_get_code_labels_code_locs",
   `∀xs. EVERY no_Labels xs ∧ every_Fn_SOME xs ⇒
@@ -5145,11 +5177,17 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ simp[Once(GSYM MAP_MAP_o)]
       \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
       \\ conj_tac >- cheat (* syntax ok *)
+
       \\ simp[]
       \\ conj_tac
       >- (
         simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT, MEM_MAP, PULL_EXISTS]
         \\ metis_tac[] )
+      \\ rw[call_dests_map, o_DEF]
+
+      (*
+      call_dests_annotate
+      *)
 
       (*
       \\ match_mp_tac SUBSET_TRANS
