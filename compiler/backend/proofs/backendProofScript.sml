@@ -3708,6 +3708,72 @@ val compile_get_code_labels_TODO_move = Q.store_thm("compile_get_code_labels_TOD
   \\ asm_exists_tac \\ simp[]
   \\ rw[clos_fvsTheory.compile_def]);
 
+val renumber_code_locs_imp_EVEN = Q.store_thm("renumber_code_locs_imp_EVEN",
+  `(renumber_code_locs_list n es = (n',es') ∧ EVEN n ⇒ EVEN n') ∧
+   (renumber_code_locs n e = (n',e') ∧ EVEN n ⇒ EVEN n')`,
+  rw[]
+  \\ strip_assume_tac(SPEC_ALL (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_EVEN)) \\ rfs[]
+  \\ strip_assume_tac(SPEC_ALL (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)) \\ rfs[]);
+
+(*
+val renumber_code_locs_clos_get_code_labels = Q.store_thm("renumber_code_locs_clos_get_code_labels",
+  `(∀n es n' es'. renumber_code_locs_list n es = (n',es') ∧ EVERY ((=){}) (MAP clos_get_code_labels es) ∧ EVEN n ⇒
+      BIGUNION (set (MAP clos_get_code_labels es')) = { n + 2 * k | k | n + 2 * k < n' }) ∧
+   (∀n e n' e'. renumber_code_locs n e = (n',e') ∧ clos_get_code_labels e = {} ∧ EVEN n ⇒
+     clos_get_code_labels e' = { n + 2 * k | k | n + 2 * k < n' })`,
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind
+  \\ rw[clos_numberTheory.renumber_code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_imp_inc
+  \\ imp_res_tac renumber_code_locs_imp_EVEN \\ fs[]
+  >- (
+    rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k` \\ simp[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ `F` by decide_tac
+      \\ `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[LEFT_ADD_DISTRIB]
+
+      \\ qexists_tac`k`
+      \\ simp[]
+    fs[Once closPropsTheory.contains_App_SOME_EXISTS]
+    \\ once_rewrite_tac[ADD_SYM]
+    \\ simp[count_add, GSYM IMAGE_COMPOSE, o_DEF]
+    \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] )
+  >- (
+    qmatch_goalsub_rename_tac`count (p1 + (p2 + p3))`
+    \\ `p1 + (p2 + p3) = p3 + p2 + p1` by simp[]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[count_add, GSYM IMAGE_COMPOSE, o_DEF]
+    \\ simp[GSYM UNION_ASSOC]
+    \\ AP_TERM_TAC
+    \\ rw[EXTENSION, EQ_IMP_THM] )
+  >- (
+    simp[count_add, GSYM IMAGE_COMPOSE, o_DEF]
+    \\ rw[EXTENSION, EQ_IMP_THM] )
+  >- ( Cases_on`op` \\ fs[assign_get_code_label_def] )
+  >- (
+    once_rewrite_tac[ADD_SYM]
+    \\ simp[count_add, GSYM IMAGE_COMPOSE, o_DEF]
+    \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] )
+  >- (
+    simp[count_add, GSYM IMAGE_COMPOSE, o_DEF]
+
+  \\ fs[count_add, IMAGE_COMPOSE]
+  m``count (a + b)``
+  \\ rw[Once EXTENSION, PULL_EXISTS, EQ_IMP_THM] \\ rw[]
+*)
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -4978,6 +5044,9 @@ val compile_correct = Q.store_thm("compile_correct",
       >- (
         PURE_TOP_CASE_TAC \\ fs[]
         \\ EVAL_TAC \\ fs[] )
+      \\ qhdtm_x_assum`renumber_code_locs_list`assume_tac
+      \\ drule clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
+      \\ simp[] \\ disch_then(assume_tac o SYM) \\ fs[]
 
       \\ cheat (* referenced labels are present *)))>>
   strip_tac \\
