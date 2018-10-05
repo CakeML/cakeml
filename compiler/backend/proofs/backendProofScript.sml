@@ -3947,24 +3947,35 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
       compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
       BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
-  cheat); (* the main cheat *)
+  rpt gen_tac
+  \\ fs [clos_to_bvlTheory.compile_common_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
+  \\ qmatch_goalsub_abbrev_tac `clos_annotate$compile ls`
+  \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
+          LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
+  \\ simp[GSYM LIST_TO_SET_MAP]
+  \\ simp[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
+  \\ simp[GSYM o_DEF]
+  \\ simp[Once(GSYM MAP_MAP_o)]
+  \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
+  \\ conj_tac >- cheat (* syntax ok *)
+  \\ simp[]
+  \\ conj_tac >- (
+        simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT,
+             MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
+  \\ cheat); (* the main cheat *)
 
 (*
 
-      \\ simp[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
-      \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
-              LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
-      \\ simp[GSYM LIST_TO_SET_MAP]
-      \\ simp[GSYM o_DEF]
-      \\ simp[Once(GSYM MAP_MAP_o)]
-      \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
-      \\ conj_tac >- cheat (* syntax ok *)
+  print_find "code_locs_def"
+
+
+
 
       \\ simp[]
-      \\ conj_tac
-      >- (
-        simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT, MEM_MAP, PULL_EXISTS]
-        \\ metis_tac[] )
+
       \\ rw[call_dests_map, o_DEF]
 
       (*
