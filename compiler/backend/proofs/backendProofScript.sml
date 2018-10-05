@@ -3948,6 +3948,7 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
       (∀x. c.known_conf = SOME x ⇒ isEmpty x.val_approx_spt) ==>
       BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
+
   rpt strip_tac
   \\ drule compile_common_syntax
   \\ fs [EVERY_MAP,compile_no_Labels]
@@ -3972,6 +3973,18 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
   \\ conj_tac >- (
         simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT,
              MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
+  \\ rewrite_tac [GSYM MAP_MAP_o]
+  \\ match_mp_tac SUBSET_TRANS
+  \\ qexists_tac `call_dests (MAP (SND o SND) ls)`
+  \\ conj_tac THEN1
+   (rpt (pop_assum kall_tac)
+    \\ Induct_on `ls` THEN1 (EVAL_TAC \\ fs [])
+    \\ fs [] \\ once_rewrite_tac [call_dests_cons]
+    \\ strip_tac \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
+    \\ disj1_tac
+    \\ fs [clos_to_bvlProofTheory.HD_annotate_SING]
+    \\ metis_tac [call_dests_annotate,SUBSET_DEF])
+
   \\ cheat); (* the main cheat *)
 
 (*
