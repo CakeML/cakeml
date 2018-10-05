@@ -3075,6 +3075,30 @@ val clos_get_code_labels_alt_free = Q.store_thm("clos_get_code_labels_alt_free",
   \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
   \\ metis_tac[SND]);
 
+(*
+val clos_get_code_labels_alt_free_code_locs = Q.store_thm("clos_get_code_labels_alt_free_code_locs",
+  `∀xs.
+    BIGUNION (set (MAP clos_get_code_labels xs)) ⊆ set (code_locs xs) ⇒
+    BIGUNION (set (MAP clos_get_code_labels (FST (alt_free xs)))) ⊆ set (code_locs (FST (alt_free xs)))`,
+  recInduct clos_annotateTheory.alt_free_ind
+  \\ rw[clos_annotateTheory.alt_free_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[]
+  \\ fs[map_replicate, clos_annotateTheory.const_0_def, assign_get_code_label_def,
+        closPropsTheory.code_locs_append]
+  \\ fs[SUBSET_DEF, PULL_EXISTS, closPropsTheory.code_locs_def]
+  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
+  \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
+  \\ qspecl_then[`y`,`xs`]mp_tac closPropsTheory.code_locs_cons \\ rw[] \\ fs[]
+  \\ rpt(CHANGED_TAC(fs[Once closPropsTheory.code_locs_cons, closPropsTheory.code_locs_def]))
+  \\ rw[Once(GSYM clos_annotateTheory.HD_FST_alt_free)]
+
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
+  \\ metis_tac[SND]);
+*)
+
 val clos_get_code_labels_annotate = Q.store_thm("clos_get_code_labels_annotate",
   `BIGUNION (set (MAP clos_get_code_labels (annotate n xs))) ⊆
    BIGUNION (set (MAP clos_get_code_labels xs))`,
@@ -3097,7 +3121,6 @@ val clos_get_code_labels_chain_exps = Q.store_thm("clos_get_code_labels_chain_ex
     \\ NO_TAC)
   \\ metis_tac[]);
 
-(*
 val call_dests_def = tDefine "call_dests" `
   (call_dests [] = {}) /\
   (call_dests (x::y::xs) =
@@ -3121,9 +3144,10 @@ val call_dests_def = tDefine "call_dests" `
   (call_dests [Op _ op xs] =
      call_dests xs) /\
   (call_dests [App _ loc_opt x1 xs] =
+     let ll = case loc_opt of SOME n => {n} | _ => {} in
      let c1 = call_dests [x1] in
      let c2 = call_dests xs in
-         c1 ∪ c2) /\
+         ll ∪ c1 ∪ c2) /\
   (call_dests [Fn _ loc_opt vs num_args x1] =
      let c1 = call_dests [x1] in c1) /\
   (call_dests [Letrec _ loc_opt vs fns x1] =
@@ -3143,7 +3167,31 @@ val call_dests_def = tDefine "call_dests" `
    Cases_on `h` >>
    full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
    decide_tac);
-*)
+
+val clos_get_code_labels_code_locs = Q.store_thm("clos_get_code_labels_code_locs",
+  `∀xs. EVERY no_Labels xs ∧ every_Fn_SOME xs ⇒
+        BIGUNION (set (MAP clos_get_code_labels xs)) = set (code_locs xs) ∪ call_dests xs`,
+  recInduct closPropsTheory.code_locs_ind
+  \\ rw[closPropsTheory.code_locs_def, call_dests_def] \\ fs[]
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( Cases_on`op` \\ fs[assign_get_code_label_def] )
+  >- (
+    rw[EXTENSION]
+    \\ PURE_TOP_CASE_TAC \\ fs[]
+    \\ metis_tac[] )
+  >- (
+    fs[IS_SOME_EXISTS]
+    \\ rw[EXTENSION]
+    \\ metis_tac[] )
+  >- (
+    fs[IS_SOME_EXISTS]
+    \\ fs[MAP_MAP_o]
+    \\ rw[EXTENSION, MEM_GENLIST, MEM_MAP, PULL_EXISTS, closPropsTheory.code_locs_map, MEM_FLAT]
+    \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] ));
 
 val clos_get_code_labels_calls = Q.store_thm("clos_get_code_labels_calls",
   `∀es g es2 g2.
@@ -3899,6 +3947,10 @@ val renumber_code_locs_clos_get_code_labels = Q.store_thm("renumber_code_locs_cl
       \\ fs[LESS_EQ_EXISTS] \\ rveq
       \\ qexists_tac`k-p`
       \\ simp[] )));
+
+val EVEN_make_even = Q.store_thm("EVEN_make_even[simp]",
+  `EVEN (make_even x)`,
+  rw[make_even_def, EVEN_ADD]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
