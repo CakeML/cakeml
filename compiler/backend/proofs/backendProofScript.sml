@@ -3944,23 +3944,30 @@ val EVEN_make_even = Q.store_thm("EVEN_make_even[simp]",
 
 val compile_common_code_locs = store_thm("compile_common_code_locs",
   ``!c es c1 xs.
-      compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
+      compile_common c (MAP pat_to_clos_compile es) = (c1,xs) /\
+      (∀x. c.known_conf = SOME x ⇒ isEmpty x.val_approx_spt) ==>
       BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
-  rpt gen_tac
+  rpt strip_tac
+  \\ drule compile_common_syntax
+  \\ fs [EVERY_MAP,compile_no_Labels]
+  \\ strip_tac
+  \\ qpat_x_assum `_ ==> _` kall_tac
   \\ fs [clos_to_bvlTheory.compile_common_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ strip_tac \\ rveq \\ fs []
+  \\ rveq \\ fs []
   \\ fs [clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
   \\ qmatch_goalsub_abbrev_tac `clos_annotate$compile ls`
   \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
           LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
   \\ simp[GSYM LIST_TO_SET_MAP]
-  \\ simp[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
+  \\ fs[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
   \\ simp[GSYM o_DEF]
   \\ simp[Once(GSYM MAP_MAP_o)]
   \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
-  \\ conj_tac >- cheat (* syntax ok *)
+  \\ conj_tac THEN1
+   (fs [o_DEF] \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ rw[] \\ res_tac \\ fs [])
   \\ simp[]
   \\ conj_tac >- (
         simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT,
@@ -3971,10 +3978,6 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
 
   print_find "code_locs_def"
 
-
-
-
-      \\ simp[]
 
       \\ rw[call_dests_map, o_DEF]
 
@@ -5089,210 +5092,210 @@ val compile_correct = Q.store_thm("compile_correct",
       qpat_x_assum`all_enc_ok_pre _ _` kall_tac>>
       pop_assum kall_tac>>
       asm_exists_tac>>
-      simp[]>>Cases>> simp[])
-
+      simp[]>>Cases>> simp[]) >>
+    qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
+    simp[markerTheory.Abbrev_def]>>
+    disch_then (assume_tac o SYM)>>
+    drule stack_to_lab_stack_good_code_labels>>
+    simp[]>>
+    disch_then match_mp_tac>>
+    CONJ_TAC>- (
+      EVAL_TAC
+      \\ drule (GEN_ALL compile_prog_keeps_names)
+      \\ disch_then irule
+      \\ fs[bvl_to_bviTheory.compile_prog_def]
+      \\ pairarg_tac \\ fs[] \\ rveq
+      \\ simp[]
+      \\ disj1_tac
+      \\ EVAL_TAC )
+    \\ drule word_to_stack_good_code_labels>>
+    disch_then match_mp_tac>>
+    irule data_to_word_good_code_labels \\
+    simp[data_to_wordTheory.compile_def]
+    \\ qpat_x_assum` _ = (_,p5)` assume_tac
+    \\ qunabbrev_tac`t_code` \\ qunabbrev_tac`c4_data_conf`
+    \\ fs[]
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[Abbr`p4`]
+    \\ irule compile_prog_good_code_labels
+    \\ qpat_x_assum`_ = (_,p3)`assume_tac
+    \\ rpt(qhdtm_x_assum`semantics`kall_tac)
+    \\ qpat_x_assum`_ = (_,code,_)`assume_tac
+    \\ qpat_x_assum`_ = (_,prog')`assume_tac
+    \\ qpat_x_assum`_ = (_,p''')`assume_tac
+    \\ simp[bvi_good_code_labels_def]
+    \\ drule
+      (TODO_MOVE_1_compile_prog_good_code_labels
+       |> INST_TYPE [alpha|->``:num#bvi$exp``]
+       |> GEN_ALL)
+    \\ disch_then match_mp_tac \\ fs []
+    \\ qexists_tac `p3` \\ fs []
+    \\ reverse conj_tac
+    >-
+     (imp_res_tac bvi_tailrec_compile_prog_labels
+      \\ pop_assum kall_tac
+      \\ pop_assum (SUBST1_TAC o GSYM) \\ fs [])
+    \\ drule bvi_tailrec_compile_prog_labels
+    \\ strip_tac
+    \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
+    \\ drule compile_prog_get_code_labels_TODO_move
+    \\ qmatch_goalsub_abbrev_tac`ss ⊆ star INSERT _`
+    \\ drule compile_prog_get_code_labels_TODO_move_1
+    \\ strip_tac
+    \\ fs[clos_to_bvlTheory.compile_def]
+    \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+    \\ fs[set_MAP_code_sort]
+    \\ qmatch_goalsub_abbrev_tac`star INSERT fcc ∪ pp`
+    \\ `star ∈ fcc ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
+    \\ drule (GEN_ALL compile_prog_code_labels_domain) \\ simp[]
+    \\ disch_then(qspecl_then[`ARB`,`ARB`]strip_assume_tac)
+    \\ fs[Abbr`fcc`]
+    \\ conj_tac
     >- (
-      qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
-      simp[markerTheory.Abbrev_def]>>
-      disch_then (assume_tac o SYM)>>
-      drule stack_to_lab_stack_good_code_labels>>
-      simp[]>>
-      disch_then match_mp_tac>>
-      CONJ_TAC>- (
-        EVAL_TAC
-        \\ drule (GEN_ALL compile_prog_keeps_names)
-        \\ disch_then irule
-        \\ fs[bvl_to_bviTheory.compile_prog_def]
-        \\ pairarg_tac \\ fs[] \\ rveq
-        \\ simp[]
-        \\ disj1_tac
-        \\ EVAL_TAC )
-      \\ drule word_to_stack_good_code_labels>>
-      disch_then match_mp_tac>>
-      irule data_to_word_good_code_labels \\
-      simp[data_to_wordTheory.compile_def]
-      \\ qpat_x_assum` _ = (_,p5)` assume_tac
-      \\ qunabbrev_tac`t_code` \\ qunabbrev_tac`c4_data_conf`
-      \\ fs[]
-      \\ goal_assum(first_assum o mp_then Any mp_tac)
-      \\ simp[Abbr`p4`]
-      \\ irule compile_prog_good_code_labels
-      \\ qpat_x_assum`_ = (_,p3)`assume_tac
-      \\ rpt(qhdtm_x_assum`semantics`kall_tac)
-      \\ qpat_x_assum`_ = (_,code,_)`assume_tac
-      \\ qpat_x_assum`_ = (_,prog')`assume_tac
-      \\ qpat_x_assum`_ = (_,p''')`assume_tac
-      \\ simp[bvi_good_code_labels_def]
-      \\ drule
-        (TODO_MOVE_1_compile_prog_good_code_labels
-         |> INST_TYPE [alpha|->``:num#bvi$exp``]
-         |> GEN_ALL)
-      \\ disch_then match_mp_tac \\ fs []
-      \\ qexists_tac `p3` \\ fs []
-      \\ reverse conj_tac
-      >-
-       (imp_res_tac bvi_tailrec_compile_prog_labels
-        \\ pop_assum kall_tac
-        \\ pop_assum (SUBST1_TAC o GSYM) \\ fs [])
-      \\ drule bvi_tailrec_compile_prog_labels
-      \\ strip_tac
-      \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
-      \\ drule compile_prog_get_code_labels_TODO_move
-      \\ qmatch_goalsub_abbrev_tac`ss ⊆ star INSERT _`
-      \\ drule compile_prog_get_code_labels_TODO_move_1
-      \\ strip_tac
-      \\ fs[clos_to_bvlTheory.compile_def]
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[set_MAP_code_sort]
-      \\ qmatch_goalsub_abbrev_tac`star INSERT fcc ∪ pp`
-      \\ `star ∈ fcc ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
-      \\ drule (GEN_ALL compile_prog_code_labels_domain) \\ simp[]
-      \\ disch_then(qspecl_then[`ARB`,`ARB`]strip_assume_tac)
-      \\ fs[Abbr`fcc`]
-      \\ conj_tac
+      simp[Abbr`star`,Abbr`pp`, PULL_EXISTS]
+      \\ qmatch_goalsub_abbrev_tac`_ * mm`
+      \\ disj1_tac \\ disj1_tac
+      \\ qexists_tac`mm` \\ simp[]
+      \\ fs[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def]
+      \\ pairarg_tac \\ fs[] \\ rveq
+      \\ simp[bvl_inlineProofTheory.MAP_FST_MAP_optimise]
+      \\ fs[bvl_inlineTheory.tick_compile_prog_def]
+      \\ qmatch_asmsub_abbrev_tac`tick_inline_all limit ts qrog []`
+      \\ qspecl_then[`limit`,`ts`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
+      \\ simp[]
+      \\ rw[Abbr`qrog`]
+      \\ simp[set_MAP_code_sort] )
+    \\ simp[Abbr`pp`]
+    \\ drule bvl_inlineProofTheory.compile_prog_names
+    \\ rw[set_MAP_code_sort]
+    \\ qmatch_goalsub_abbrev_tac`IMAGE ff _`
+    \\ qmatch_asmsub_abbrev_tac`star = _ + _ * mm`
+    \\ `star = ff mm` by simp[Abbr`ff`,Abbr`star`]
+    \\ pop_assum SUBST1_TAC
+    \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ IMAGE ff CC ∪ {ff mm} ∪ IMAGE ff BB ∪ DD ∪ EE`
+    \\ `DISJOINT (IMAGE ff AA) DD`
+    by (
+      simp[Abbr`DD`,Abbr`ff`,IN_DISJOINT]
+      \\ EVAL_TAC
+      \\ CCONTR_TAC \\ fs[]
+      \\ rveq
+      \\ first_x_assum(mp_tac o Q.AP_TERM`λn. n MOD 3`)
+      \\ simp[] )
+    \\ `DISJOINT (IMAGE ff AA) EE`
+    by (
+      simp[Abbr`EE`,Abbr`ff`,bvl_to_bviTheory.stubs_def]
+      \\ EVAL_TAC
+      \\ CCONTR_TAC \\ fs[] )
+    \\ `IMAGE ff AA ⊆ IMAGE ff CC ∪ IMAGE ff BB ∪ IMAGE ff {mm}` suffices_by (simp[SUBSET_DEF] \\ metis_tac[])
+    \\ simp_tac std_ss [GSYM IMAGE_UNION]
+    \\ irule IMAGE_SUBSET
+    \\ match_mp_tac SUBSET_TRANS
+    \\ asm_exists_tac
+    \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
+    \\ simp[linear_scanProofTheory.set_MAP_FST_toAList]
+    \\ conj_tac >- (
+      reverse conj_tac
       >- (
-        simp[Abbr`star`,Abbr`pp`, PULL_EXISTS]
-        \\ qmatch_goalsub_abbrev_tac`_ * mm`
-        \\ disj1_tac \\ disj1_tac
-        \\ qexists_tac`mm` \\ simp[]
-        \\ fs[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def]
-        \\ pairarg_tac \\ fs[] \\ rveq
-        \\ simp[bvl_inlineProofTheory.MAP_FST_MAP_optimise]
-        \\ fs[bvl_inlineTheory.tick_compile_prog_def]
-        \\ qmatch_asmsub_abbrev_tac`tick_inline_all limit ts qrog []`
-        \\ qspecl_then[`limit`,`ts`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
-        \\ simp[]
-        \\ rw[Abbr`qrog`]
-        \\ simp[set_MAP_code_sort] )
-      \\ simp[Abbr`pp`]
-      \\ drule bvl_inlineProofTheory.compile_prog_names
-      \\ rw[set_MAP_code_sort]
-      \\ qmatch_goalsub_abbrev_tac`IMAGE ff _`
-      \\ qmatch_asmsub_abbrev_tac`star = _ + _ * mm`
-      \\ `star = ff mm` by simp[Abbr`ff`,Abbr`star`]
-      \\ pop_assum SUBST1_TAC
-      \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ IMAGE ff CC ∪ {ff mm} ∪ IMAGE ff BB ∪ DD ∪ EE`
-      \\ `DISJOINT (IMAGE ff AA) DD`
-      by (
-        simp[Abbr`DD`,Abbr`ff`,IN_DISJOINT]
-        \\ EVAL_TAC
-        \\ CCONTR_TAC \\ fs[]
-        \\ rveq
-        \\ first_x_assum(mp_tac o Q.AP_TERM`λn. n MOD 3`)
-        \\ simp[] )
-      \\ `DISJOINT (IMAGE ff AA) EE`
-      by (
-        simp[Abbr`EE`,Abbr`ff`,bvl_to_bviTheory.stubs_def]
-        \\ EVAL_TAC
-        \\ CCONTR_TAC \\ fs[] )
-      \\ `IMAGE ff AA ⊆ IMAGE ff CC ∪ IMAGE ff BB ∪ IMAGE ff {mm}` suffices_by (simp[SUBSET_DEF] \\ metis_tac[])
-      \\ simp_tac std_ss [GSYM IMAGE_UNION]
-      \\ irule IMAGE_SUBSET
-      \\ match_mp_tac SUBSET_TRANS
-      \\ asm_exists_tac
-      \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
-      \\ simp[linear_scanProofTheory.set_MAP_FST_toAList]
-      \\ conj_tac >- (
-        reverse conj_tac
+        simp[clos_to_bvlTheory.init_globals_def, assign_get_code_label_def]
+        \\ simp[clos_to_bvlTheory.partial_app_fn_location_def]
+        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST, assign_get_code_label_def, domain_init_code]
+        \\ conj_tac
         >- (
-          simp[clos_to_bvlTheory.init_globals_def, assign_get_code_label_def]
-          \\ simp[clos_to_bvlTheory.partial_app_fn_location_def]
-          \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST, assign_get_code_label_def, domain_init_code]
-          \\ conj_tac
-          >- (
-            rw[]
-            \\ simp[Abbr`mm`, clos_to_bvlTheory.num_stubs_def]
-            \\ simp[GSYM SUM_SET_count]
-            \\ rewrite_tac[ADD_ASSOC] \\ simp[]
-            \\ qmatch_goalsub_abbrev_tac`_ < SUM_SET (count ma)`
-            \\ `prev + SUM_SET (count tot) ≤ SUM_SET (count ma)` suffices_by metis_tac[LESS_OR_EQ]
-            \\ Cases_on`ma` \\ simp[COUNT_SUC]
-            \\ simp[SUM_SET_THM, SUM_SET_DELETE]
-            \\ `SUM_SET (count tot) ≤ SUM_SET (count n)` suffices_by simp[]
-            \\ simp[SUM_SET_count]
-            \\ simp[X_LE_DIV]
-            \\ qspec_then`1`mp_tac bitTheory.DIV_MULT_THM
-            \\ simp[]
-            \\ disch_then kall_tac
-            \\ `tot * (tot -1) ≤ n * (n - 1)` suffices_by simp[]
-            \\ match_mp_tac LESS_MONO_MULT2
-            \\ simp[] )
-          \\ fs[clos_to_bvlTheory.compile_common_def]
-          \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-          \\ simp[GSYM MEM_MAP]
-          \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog, Abbr`mm`]
-          \\ simp[Once MEM_MAP]
-          \\ simp[clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
-          \\ simp[Once MEM_MAP, MEM_COUNT_LIST]
-          \\ metis_tac[ADD])
-        \\ simp[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
-        \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD]
-        \\ simp[MEM_toAList, lookup_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
-        \\ rpt gen_tac
-        \\ simp[EL_APPEND_EQN]
-        \\ rw[]
-        >- (
-          pop_assum mp_tac
-          \\ simp[clos_to_bvlTheory.generate_generic_app_def]
-          \\ simp[assign_get_code_label_def, bvl_get_code_labels_def,
-                  bvl_jumpTheory.Jump_def,
-                  clos_to_bvlTheory.partial_app_fn_location_code_def]
-          \\ simp[MEM_MAP, MEM_GENLIST, PULL_EXISTS, bvl_get_code_labels_JumpList]
-          \\ simp[assign_get_code_label_def, clos_to_bvlTheory.mk_cl_call_def]
-          \\ simp[MEM_MAP, PULL_EXISTS, MEM_GENLIST]
-          \\ simp[clos_to_bvlTheory.generic_app_fn_location_def] )
-        \\ qmatch_asmsub_abbrev_tac`EL _ ls = z`
-        \\ `MEM z ls` by (
-          simp[MEM_EL, Abbr`ls`, Abbr`z`]
-          \\ pop_assum (assume_tac o SYM)
-          \\ goal_assum(first_assum o mp_then Any mp_tac)
-          \\ simp[LENGTH_FLAT, MAP_GENLIST, o_DEF] )
-        \\ pop_assum mp_tac
-        \\ simp[MEM_FLAT, Abbr`ls`, MEM_GENLIST, PULL_EXISTS,Abbr`z`]
-        \\ simp[clos_to_bvlTheory.generate_partial_app_closure_fn_def]
-        \\ rw[]
-        \\ fs[assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def] )
-      \\ fs[clos_to_bvlTheory.compile_common_def]
-      \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-      \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
-      \\ impl_tac >- (
-          simp[]
-          \\ `EVERY no_Labels e3 /\ clos_mtiProof$syntax_ok e3` by
-           (qpat_x_assum `Abbrev (e3 = MAP pat_to_clos_compile _)` mp_tac
-            \\ rpt (pop_assum kall_tac) \\ strip_tac \\ unabbrev_all_tac
-            \\ fs [pat_to_closProofTheory.compile_no_Labels,EVERY_MEM,
-                   MEM_MAP,PULL_EXISTS,syntax_ok_MAP_pat_to_clos])
-          \\ qspecl_then [`cf`,`e3`] mp_tac compile_common_syntax
-          \\ simp [clos_to_bvlTheory.compile_common_def]
-          \\ Cases_on `cf.known_conf` \\ fs [])
-      \\ strip_tac
-      \\ match_mp_tac SUBSET_TRANS
-      \\ asm_exists_tac \\ simp[]
-      \\ reverse conj_tac >- simp[SUBSET_DEF]
-      \\ qmatch_goalsub_abbrev_tac`compile_prog _ (compile ls)`
-      \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog]
-      \\ qunabbrev_tac`ff`
-      \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ BB ∪ CC ∪ {mm}`
-      \\ `DISJOINT (IMAGE ff AA) {mm}` by (
-        simp[Abbr`ff`, Abbr`mm`,clos_to_bvlTheory.num_stubs_def] )
-      \\ `DISJOINT (IMAGE ff AA) BB`
-      by(
-        simp[Abbr`ff`,Abbr`BB`,IN_DISJOINT,domain_init_code,clos_to_bvlTheory.num_stubs_def]
-        \\ CCONTR_TAC \\ fs[] )
-      \\ `IMAGE ff AA ⊆ CC` suffices_by simp[SUBSET_DEF]
-      \\ simp[Abbr`CC`]
-      \\ rewrite_tac[GSYM LIST_TO_SET_APPEND, GSYM MAP_APPEND]
-      \\ qmatch_goalsub_abbrev_tac`MAP ff CC`
-      \\ `AA ⊆ set CC` suffices_by (
-        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
-        \\ metis_tac[] )
-      \\ simp[Abbr`AA`, Abbr`CC`]
-      \\ qpat_x_assum `Abbrev (e3 = _)` kall_tac
-      \\ qpat_x_assum `Abbrev (e3 = _)` assume_tac
-      \\ rename [`Abbrev (_ = MAP pat_to_clos_compile pat_prog)`]
-      \\ qspecl_then [`cf`,`pat_prog`] mp_tac compile_common_code_locs
-      \\ simp [Abbr`ls`,Abbr`e3`]
-      \\ fs [clos_to_bvlTheory.compile_common_def]))
+          rw[]
+          \\ simp[Abbr`mm`, clos_to_bvlTheory.num_stubs_def]
+          \\ simp[GSYM SUM_SET_count]
+          \\ rewrite_tac[ADD_ASSOC] \\ simp[]
+          \\ qmatch_goalsub_abbrev_tac`_ < SUM_SET (count ma)`
+          \\ `prev + SUM_SET (count tot) ≤ SUM_SET (count ma)` suffices_by metis_tac[LESS_OR_EQ]
+          \\ Cases_on`ma` \\ simp[COUNT_SUC]
+          \\ simp[SUM_SET_THM, SUM_SET_DELETE]
+          \\ `SUM_SET (count tot) ≤ SUM_SET (count n)` suffices_by simp[]
+          \\ simp[SUM_SET_count]
+          \\ simp[X_LE_DIV]
+          \\ qspec_then`1`mp_tac bitTheory.DIV_MULT_THM
+          \\ simp[]
+          \\ disch_then kall_tac
+          \\ `tot * (tot -1) ≤ n * (n - 1)` suffices_by simp[]
+          \\ match_mp_tac LESS_MONO_MULT2
+          \\ simp[] )
+        \\ fs[clos_to_bvlTheory.compile_common_def]
+        \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+        \\ simp[GSYM MEM_MAP]
+        \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog, Abbr`mm`]
+        \\ simp[Once MEM_MAP]
+        \\ simp[clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
+        \\ simp[Once MEM_MAP, MEM_COUNT_LIST]
+        \\ metis_tac[ADD])
+      \\ simp[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
+      \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD]
+      \\ simp[MEM_toAList, lookup_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF]
+      \\ rpt gen_tac
+      \\ simp[EL_APPEND_EQN]
+      \\ rw[]
+      >- (
+        pop_assum mp_tac
+        \\ simp[clos_to_bvlTheory.generate_generic_app_def]
+        \\ simp[assign_get_code_label_def, bvl_get_code_labels_def,
+                bvl_jumpTheory.Jump_def,
+                clos_to_bvlTheory.partial_app_fn_location_code_def]
+        \\ simp[MEM_MAP, MEM_GENLIST, PULL_EXISTS, bvl_get_code_labels_JumpList]
+        \\ simp[assign_get_code_label_def, clos_to_bvlTheory.mk_cl_call_def]
+        \\ simp[MEM_MAP, PULL_EXISTS, MEM_GENLIST]
+        \\ simp[clos_to_bvlTheory.generic_app_fn_location_def] )
+      \\ qmatch_asmsub_abbrev_tac`EL _ ls = z`
+      \\ `MEM z ls` by (
+        simp[MEM_EL, Abbr`ls`, Abbr`z`]
+        \\ pop_assum (assume_tac o SYM)
+        \\ goal_assum(first_assum o mp_then Any mp_tac)
+        \\ simp[LENGTH_FLAT, MAP_GENLIST, o_DEF] )
+      \\ pop_assum mp_tac
+      \\ simp[MEM_FLAT, Abbr`ls`, MEM_GENLIST, PULL_EXISTS,Abbr`z`]
+      \\ simp[clos_to_bvlTheory.generate_partial_app_closure_fn_def]
+      \\ rw[]
+      \\ fs[assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def] )
+    \\ fs[clos_to_bvlTheory.compile_common_def]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+    \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
+    \\ impl_tac >- (
+        simp[]
+        \\ `EVERY no_Labels e3 /\ clos_mtiProof$syntax_ok e3` by
+         (qpat_x_assum `Abbrev (e3 = MAP pat_to_clos_compile _)` mp_tac
+          \\ rpt (pop_assum kall_tac) \\ strip_tac \\ unabbrev_all_tac
+          \\ fs [pat_to_closProofTheory.compile_no_Labels,EVERY_MEM,
+                 MEM_MAP,PULL_EXISTS,syntax_ok_MAP_pat_to_clos])
+        \\ qspecl_then [`cf`,`e3`] mp_tac compile_common_syntax
+        \\ simp [clos_to_bvlTheory.compile_common_def]
+        \\ Cases_on `cf.known_conf` \\ fs [])
+    \\ strip_tac
+    \\ match_mp_tac SUBSET_TRANS
+    \\ asm_exists_tac \\ simp[]
+    \\ reverse conj_tac >- simp[SUBSET_DEF]
+    \\ qmatch_goalsub_abbrev_tac`compile_prog _ (compile ls)`
+    \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog]
+    \\ qunabbrev_tac`ff`
+    \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ BB ∪ CC ∪ {mm}`
+    \\ `DISJOINT (IMAGE ff AA) {mm}` by (
+      simp[Abbr`ff`, Abbr`mm`,clos_to_bvlTheory.num_stubs_def] )
+    \\ `DISJOINT (IMAGE ff AA) BB`
+    by(
+      simp[Abbr`ff`,Abbr`BB`,IN_DISJOINT,domain_init_code,clos_to_bvlTheory.num_stubs_def]
+      \\ CCONTR_TAC \\ fs[] )
+    \\ `IMAGE ff AA ⊆ CC` suffices_by simp[SUBSET_DEF]
+    \\ simp[Abbr`CC`]
+    \\ rewrite_tac[GSYM LIST_TO_SET_APPEND, GSYM MAP_APPEND]
+    \\ qmatch_goalsub_abbrev_tac`MAP ff CC`
+    \\ `AA ⊆ set CC` suffices_by (
+      simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+      \\ metis_tac[] )
+    \\ simp[Abbr`AA`, Abbr`CC`]
+    \\ qpat_x_assum `Abbrev (e3 = _)` kall_tac
+    \\ qpat_x_assum `Abbrev (e3 = _)` assume_tac
+    \\ rename [`Abbrev (_ = MAP pat_to_clos_compile pat_prog)`]
+    \\ qspecl_then [`cf`,`pat_prog`] mp_tac compile_common_code_locs
+    \\ simp [Abbr`ls`,Abbr`e3`]
+    \\ fs [clos_to_bvlTheory.compile_common_def]
+    \\ disch_then match_mp_tac
+    \\ rpt strip_tac \\ fs []))
   \\ strip_tac
   \\ qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
   disch_then(assume_tac o SYM) \\
