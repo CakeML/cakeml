@@ -3942,6 +3942,113 @@ val EVEN_make_even = Q.store_thm("EVEN_make_even[simp]",
   `EVEN (make_even x)`,
   rw[make_even_def, EVEN_ADD]);
 
+val compile_common_code_locs = store_thm("compile_common_code_locs",
+  ``!c es c1 xs.
+      compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
+      BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
+      set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
+  cheat); (* the main cheat *)
+
+(*
+
+      \\ simp[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
+      \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
+              LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
+      \\ simp[GSYM LIST_TO_SET_MAP]
+      \\ simp[GSYM o_DEF]
+      \\ simp[Once(GSYM MAP_MAP_o)]
+      \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
+      \\ conj_tac >- cheat (* syntax ok *)
+
+      \\ simp[]
+      \\ conj_tac
+      >- (
+        simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT, MEM_MAP, PULL_EXISTS]
+        \\ metis_tac[] )
+      \\ rw[call_dests_map, o_DEF]
+
+      (*
+      call_dests_annotate
+      *)
+
+      (*
+      \\ match_mp_tac SUBSET_TRANS
+      \\ qexists_tac`BIGUNION (set (MAP (clos_get_code_labels o SND o SND) ls))`
+      \\ conj_tac
+      >- (
+        simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+        \\ rpt gen_tac
+        \\ specl_args_of_then``annotate`` (Q.GENL[`n`,`xs`]clos_get_code_labels_annotate) mp_tac
+        \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+        \\ simp[Once(GSYM clos_to_bvlProofTheory.HD_annotate_SING)]
+        \\ rw[] \\ metis_tac[] )
+      \\ simp[GSYM LIST_TO_SET_MAP]
+      (*
+      \\ match_mp_tac SUBSET_TRANS
+      \\ qexists_tac`set (MAP FST ls) ∪ set (code_locs (MAP (SND o SND) ls))`
+      \\ reverse conj_tac
+      >- (
+        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD, closPropsTheory.code_locs_map, MEM_FLAT]
+        \\ rw[]
+        \\ disj2_tac
+        \\ goal_assum(first_assum o mp_then Any mp_tac)
+        \\ specl_args_of_then``annotate`` (Q.GENL[`n`,`xs`]clos_get_code_labels_annotate) mp_tac
+        \\ rw[Once(GSYM (clos_to_bvlProofTheory.HD_annotate_SING))]
+        \\ fs[SUBSET_DEF]
+        ff"annotate""sing" *)
+      \\ simp[Abbr`ls`, clos_to_bvlProofTheory.MAP_FST_chain_exps_any,
+              clos_get_code_labels_chain_exps]
+      \\ qmatch_goalsub_abbrev_tac`(_ ∧ ZZ) ∧ _`
+      \\ `ZZ`
+      by (
+        simp[Abbr`ZZ`]
+        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_COUNT_LIST] )
+      \\ qunabbrev_tac`ZZ` \\ simp[]
+      \\ rewrite_tac[GSYM UNION_SUBSET]
+      \\ rewrite_tac[GSYM BIGUNION_UNION]
+      \\ rewrite_tac[GSYM LIST_TO_SET_APPEND]
+      \\ once_rewrite_tac[GSYM MAP_MAP_o]
+      \\ rewrite_tac[GSYM MAP_APPEND]
+      \\ qmatch_goalsub_abbrev_tac`MAP clos_get_code_labels ls`
+      \\ drule compile_get_code_labels
+      \\ impl_tac >- (
+        cheat (* syntax ok *)
+      )
+      \\ asm_simp_tac bool_ss []
+      \\ strip_tac
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ simp[]
+      \\ drule clos_knownProofTheory.compile_LENGTH \\ rw[]
+      \\ drule clos_callTheory.compile_LENGTH \\ (disch_then(mp_tac o SYM)) \\ rw[]
+      \\ drule compile_get_code_labels_TODO_move \\ strip_tac
+      \\ match_mp_tac SUBSET_TRANS
+      \\ asm_exists_tac \\ simp[]
+      \\ reverse conj_tac
+      >- (
+        PURE_TOP_CASE_TAC \\ fs[]
+        \\ EVAL_TAC \\ fs[] )
+      \\ qhdtm_x_assum`renumber_code_locs_list`assume_tac
+      \\ drule clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
+      \\ simp[] \\ disch_then(assume_tac o SYM) \\ fs[]
+      \\ drule (CONJUNCT1 renumber_code_locs_clos_get_code_labels)
+      \\ qmatch_goalsub_abbrev_tac`EVEN nm`
+      \\ `nm = make_even (cf.next_loc + LENGTH es)` by (
+        simp[make_even_def, Abbr`nm`] \\ simp[EVEN_MOD2] )
+      \\ qpat_x_assum`Abbrev(nm = _)`kall_tac
+      \\ pop_assum SUBST_ALL_TAC
+      \\ simp[]
+      \\ impl_tac
+      >- ( cheat (* no name annotations out of mti *) )
+      \\ disch_then SUBST_ALL_TAC
+      \\ qhdtm_x_assum`clos_call$compile`assume_tac
+
+      \\ qmatch_goalsub_abbrev_tac`nm + 2 * _`
+      \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_COUNT_LIST, EXISTS_PROD, FORALL_PROD]
+      \\ rw[]
+      *)
+
+*)
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -5169,105 +5276,14 @@ val compile_correct = Q.store_thm("compile_correct",
         simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
         \\ metis_tac[] )
       \\ simp[Abbr`AA`, Abbr`CC`]
-      \\ simp[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
-      \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
-              LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
-      \\ simp[GSYM LIST_TO_SET_MAP]
-      \\ simp[GSYM o_DEF]
-      \\ simp[Once(GSYM MAP_MAP_o)]
-      \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
-      \\ conj_tac >- cheat (* syntax ok *)
-
-      \\ simp[]
-      \\ conj_tac
-      >- (
-        simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT, MEM_MAP, PULL_EXISTS]
-        \\ metis_tac[] )
-      \\ rw[call_dests_map, o_DEF]
-
-      (*
-      call_dests_annotate
-      *)
-
-      (*
-      \\ match_mp_tac SUBSET_TRANS
-      \\ qexists_tac`BIGUNION (set (MAP (clos_get_code_labels o SND o SND) ls))`
-      \\ conj_tac
-      >- (
-        simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
-        \\ rpt gen_tac
-        \\ specl_args_of_then``annotate`` (Q.GENL[`n`,`xs`]clos_get_code_labels_annotate) mp_tac
-        \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
-        \\ simp[Once(GSYM clos_to_bvlProofTheory.HD_annotate_SING)]
-        \\ rw[] \\ metis_tac[] )
-      \\ simp[GSYM LIST_TO_SET_MAP]
-      (*
-      \\ match_mp_tac SUBSET_TRANS
-      \\ qexists_tac`set (MAP FST ls) ∪ set (code_locs (MAP (SND o SND) ls))`
-      \\ reverse conj_tac
-      >- (
-        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD, closPropsTheory.code_locs_map, MEM_FLAT]
-        \\ rw[]
-        \\ disj2_tac
-        \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ specl_args_of_then``annotate`` (Q.GENL[`n`,`xs`]clos_get_code_labels_annotate) mp_tac
-        \\ rw[Once(GSYM (clos_to_bvlProofTheory.HD_annotate_SING))]
-        \\ fs[SUBSET_DEF]
-        ff"annotate""sing" *)
-      \\ simp[Abbr`ls`, clos_to_bvlProofTheory.MAP_FST_chain_exps_any,
-              clos_get_code_labels_chain_exps]
-      \\ qmatch_goalsub_abbrev_tac`(_ ∧ ZZ) ∧ _`
-      \\ `ZZ`
-      by (
-        simp[Abbr`ZZ`]
-        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_COUNT_LIST] )
-      \\ qunabbrev_tac`ZZ` \\ simp[]
-      \\ rewrite_tac[GSYM UNION_SUBSET]
-      \\ rewrite_tac[GSYM BIGUNION_UNION]
-      \\ rewrite_tac[GSYM LIST_TO_SET_APPEND]
-      \\ once_rewrite_tac[GSYM MAP_MAP_o]
-      \\ rewrite_tac[GSYM MAP_APPEND]
-      \\ qmatch_goalsub_abbrev_tac`MAP clos_get_code_labels ls`
-      \\ drule compile_get_code_labels
-      \\ impl_tac >- (
-        cheat (* syntax ok *)
-      )
-      \\ asm_simp_tac bool_ss []
-      \\ strip_tac
-      \\ match_mp_tac SUBSET_TRANS
-      \\ asm_exists_tac \\ simp[]
-      \\ drule clos_knownProofTheory.compile_LENGTH \\ rw[]
-      \\ drule clos_callTheory.compile_LENGTH \\ (disch_then(mp_tac o SYM)) \\ rw[]
-      \\ drule compile_get_code_labels_TODO_move \\ strip_tac
-      \\ match_mp_tac SUBSET_TRANS
-      \\ asm_exists_tac \\ simp[]
-      \\ reverse conj_tac
-      >- (
-        PURE_TOP_CASE_TAC \\ fs[]
-        \\ EVAL_TAC \\ fs[] )
-      \\ qhdtm_x_assum`renumber_code_locs_list`assume_tac
-      \\ drule clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
-      \\ simp[] \\ disch_then(assume_tac o SYM) \\ fs[]
-      \\ drule (CONJUNCT1 renumber_code_locs_clos_get_code_labels)
-      \\ qmatch_goalsub_abbrev_tac`EVEN nm`
-      \\ `nm = make_even (cf.next_loc + LENGTH es)` by (
-        simp[make_even_def, Abbr`nm`] \\ simp[EVEN_MOD2] )
-      \\ qpat_x_assum`Abbrev(nm = _)`kall_tac
-      \\ pop_assum SUBST_ALL_TAC
-      \\ simp[]
-      \\ impl_tac
-      >- ( cheat (* no name annotations out of mti *) )
-      \\ disch_then SUBST_ALL_TAC
-      \\ qhdtm_x_assum`clos_call$compile`assume_tac
-
-      \\ qmatch_goalsub_abbrev_tac`nm + 2 * _`
-      \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_COUNT_LIST, EXISTS_PROD, FORALL_PROD]
-      \\ rw[]
-      *)
-
-      \\ cheat (* referenced labels are present *)))>>
-  strip_tac \\
-  qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
+      \\ qpat_x_assum `Abbrev (e3 = _)` kall_tac
+      \\ qpat_x_assum `Abbrev (e3 = _)` assume_tac
+      \\ rename [`Abbrev (_ = MAP pat_to_clos_compile pat_prog)`]
+      \\ qspecl_then [`cf`,`pat_prog`] mp_tac compile_common_code_locs
+      \\ simp [Abbr`ls`,Abbr`e3`]
+      \\ fs [clos_to_bvlTheory.compile_common_def]))
+  \\ strip_tac
+  \\ qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
   disch_then(assume_tac o SYM) \\
   Cases_on`stack_st_opt` \\
   drule full_make_init_semantics \\
