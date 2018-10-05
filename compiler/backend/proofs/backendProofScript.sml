@@ -3193,6 +3193,14 @@ val clos_get_code_labels_code_locs = Q.store_thm("clos_get_code_labels_code_locs
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] ));
 
+val BIGUNION_clos_get_code_labels_GENLIST_Var = store_thm(
+   "BIGUNION_clos_get_code_labels_GENLIST_Var",
+  ``!t n a. BIGUNION (set (MAP clos_get_code_labels (GENLIST_Var t n a))) = EMPTY``,
+  Induct_on `a`
+  \\ once_rewrite_tac [clos_callTheory.GENLIST_Var_def]
+  \\ asm_simp_tac std_ss [ADD1,MAP_APPEND,LIST_TO_SET_APPEND,BIGUNION_UNION]
+  \\ fs []);
+
 val clos_get_code_labels_calls = Q.store_thm("clos_get_code_labels_calls",
   `∀es g es2 g2.
     calls es g = (es2,g2) ∧ every_Fn_SOME es (* not sure this is necessary *)
@@ -3204,79 +3212,29 @@ val clos_get_code_labels_calls = Q.store_thm("clos_get_code_labels_calls",
     BIGUNION (set (MAP clos_get_code_labels es)) ∪
     BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) (SND g)))) ∪
     IMAGE SUC (domain (FST g)) ∪ set (MAP FST (SND g))`,
-  cheat
-  (*
   recInduct clos_callTheory.calls_ind
-  \\ conj_tac
-  >- ( rw[clos_callTheory.calls_def] \\ rw[] \\ rw[SUBSET_DEF] )
-  \\ conj_tac
-  >- (
-    rpt gen_tac \\ strip_tac
-    \\ simp[clos_callTheory.calls_def]
-    \\ rpt gen_tac
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ strip_tac \\ rveq \\ fs[]
-    \\ imp_res_tac clos_callTheory.calls_sing \\ fs[] \\ rveq
-    \\ simp[GSYM CONJ_ASSOC]
-    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ conj_tac >- (
-      fs[SUBSET_DEF] \\ rw[]
-      \\ fs[PULL_EXISTS]
-      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
-      \\ metis_tac[] )
-    \\ conj_tac >- (
-      fs[SUBSET_DEF] \\ rw[]
-      \\ fs[PULL_EXISTS]
-      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
-      \\ metis_tac[] )
-    \\ conj_tac >- (
-      fs[SUBSET_DEF] \\ rw[]
-      \\ fs[PULL_EXISTS]
-      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
-      \\ metis_tac[] )
-
-    \\ strip_tac
-    \\ strip_tac
-    \\ strip_tac
-    \\ rpt(pairarg_tac \\ fs[]) \\ fs[] \\ rveq \\ fs[]
-    \\ imp_res_tac clos_callTheory.calls_sing \\ fs[] \\ rveq
-    \\ rw[] \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, EXISTS_PROD, FORALL_PROD] \\ rw[]
-    \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
-    \\ TRY (first_x_assum (fn th => drule th \\ disch_then(mp_tac o assert (is_disj o concl))) \\ rw[] \\ fs[])
-    \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj1_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-    \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-    \\ TRY (disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-    \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-    \\ TRY (disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-    \\ TRY (rpt disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-
-  \\ rw[clos_callTheory.calls_def] \\ fs[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ fs[] \\ rveq \\ fs[]
-  \\ imp_res_tac clos_callTheory.calls_sing \\ fs[] \\ rveq
-  \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS, MEM_MAP, EXISTS_PROD, FORALL_PROD]
+  \\ rpt conj_tac
   \\ TRY (
-    ntac 3 (
-      rw[]
-      \\ rpt (first_x_assum (fn th => drule th \\ disch_then drule) \\ rw[] \\ fs[] \\ rw[])
-      \\ TRY (first_x_assum (fn th => drule th \\ disch_then(mp_tac o assert (is_disj o concl))) \\ rw[] \\ fs[])
-      \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj1_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-      \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-      \\ TRY (disj1_tac \\ disj1_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-      \\ TRY (disj1_tac \\ disj1_tac \\ disj1_tac \\ disj2_tac \\ disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-      \\ TRY (rpt disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC)
-      )
-    \\ NO_TAC)
-
-    fs[CaseEq"bool",IS_SOME_EXISTS] \\ rveq \\ fs[]
-
-
-  \\ fsrw_tac[DNF_ss][PULL_EXISTS]
-
-  \\ TRY(metis_tac[])
-  \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS, MEM_MAP, CaseEq"bool", IS_SOME_EXISTS]
-  \\ rveq \\ fs[] \\ fs[MEM_MAP, PULL_EXISTS]
-  \\ rw[] \\ fs[]
-  *));
+    full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,
+            closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,
+            BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
+    \\ imp_res_tac clos_callTheory.calls_sing \\ rveq
+    \\ rveq \\ full_simp_tac std_ss [APPEND,bool_case_eq]
+    \\ rveq \\ full_simp_tac std_ss [APPEND]
+    \\ full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,
+          closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
+          BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,HD,IS_SOME_EXISTS,
+          BIGUNION_clos_get_code_labels_GENLIST_Var]
+    \\ rveq \\ full_simp_tac std_ss [APPEND]
+    \\ TRY CASE_TAC \\ full_simp_tac std_ss [APPEND]
+    \\ full_simp_tac std_ss [SUBSET_DEF,IN_UNION,IN_INSERT,NOT_IN_EMPTY,
+          MAP,LIST_TO_SET,SUBSET_DEF,BIGUNION_INSERT,BIGUNION_EMPTY]
+    \\ metis_tac [])
+  (* leaves App, Fn, Letrec cases -- tweaks to the above should make
+     it also work for these cases, but the statement might be slightly wrong *)
+  \\ cheat);
 
 val compile_get_code_labels = Q.store_thm("compile_get_code_labels",
   `clos_call$compile do_call es = (es2, g, aux) ∧ every_Fn_SOME es ⇒
