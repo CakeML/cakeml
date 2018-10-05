@@ -154,19 +154,19 @@ val POST_def = Define `
      | Val v => Qv v
      | Exn e => Qe e
      | FFIDiv name conf bytes => Qf name conf bytes
-     | Div io => & (Qd io)`
+     | Div io => cond (Qd io)`
 
 val POSTv_def = new_binder_definition("POSTv_def",
   ``($POSTv) (Qv: v -> hprop) =
-      POST Qv (\e. cond F) (\name conf bytes. cond F) (\io. cond F)``)
+      POST Qv (\e. cond F) (\name conf bytes. cond F) (\io. F)``)
 
 val POSTe_def = new_binder_definition("POSTe_def",
   ``($POSTe) (Qe: v -> hprop) =
-      POST (\v. cond F) Qe (\name conf bytes. cond F) (\io. cond F)``)
+      POST (\v. cond F) Qe (\name conf bytes. cond F) (\io. F)``)
 
 val POSTf_def = new_binder_definition("POSTf_def",
   ``($POSTf) (Qf: string -> word8 list -> word8 list -> hprop) =
-      POST (\v. cond F) (\e. cond F) Qf (\io. cond F)``)
+      POST (\v. cond F) (\e. cond F) Qf (\io. F)``)
 
 val POSTd_def = Define `
   POSTd (Qd: io_event llist -> bool) =
@@ -174,10 +174,10 @@ val POSTd_def = Define `
 
 val POSTve_def = Define `
   POSTve (Qv: v -> hprop) (Qe: v -> hprop) =
-    POST Qv Qe (\name conf bytes. cond F) (\io. cond F)`
+    POST Qv Qe (\name conf bytes. cond F) (\io. F)`
 
 val POSTvd_def = Define `
-  POSTvd (Qv: v -> hprop) (Qd: io_event llist -> hprop) =
+  POSTvd (Qv: v -> hprop) (Qd: io_event llist -> bool) =
     POST Qv (\e. cond F) (\name conf bytes. cond F) Qd`
 
 val POST_F_def = Define `
@@ -604,7 +604,7 @@ val POST_FFIDiv = Q.store_thm ("POST_FFIDiv[simp]",
 );
 
 val POST_Div = Q.store_thm ("POST_Div[simp]",
-  `!Qv Qe Qf Qd io. POST Qv Qe Qf Qd (Div io) = Qd io`,
+  `!Qv Qe Qf Qd io. POST Qv Qe Qf Qd (Div io) = &(Qd io)`,
   fs [POST_def]
 );
 
@@ -684,7 +684,7 @@ val POSTd_FFIDiv = Q.store_thm ("POSTd_FFIDiv[simp]",
 );
 
 val POSTd_Div = Q.store_thm ("POSTd_Div[simp]",
-  `!Qd io. POSTd Qd (Div io) = Qd io`,
+  `!Qd io. POSTd Qd (Div io) = &(Qd io)`,
   fs [POSTd_def, POST_def]
 );
 
@@ -724,7 +724,7 @@ val POSTvd_FFIDiv = Q.store_thm ("POSTvd_FFIDiv[simp]",
 );
 
 val POSTvd_Div = Q.store_thm ("POSTvd_Div[simp]",
-  `!Qv Qd io. POSTvd Qv Qd (Div io) = Qd io`,
+  `!Qv Qd io. POSTvd Qv Qd (Div io) = &(Qd io)`,
   fs [POSTvd_def, POST_def]
 );
 
