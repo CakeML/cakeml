@@ -4507,4 +4507,96 @@ val calls_no_Labels = store_thm("calls_no_Labels",
   \\ fs [state_syntax_code_list,MAP_ZIP,no_Labels_calls_list]
   \\ rename [`SND g5`] \\ PairCases_on `g5` \\ fs [state_syntax_def]);
 
+(* names *)
+
+val app_call_dests_GENLIST_Var = store_thm("app_call_dests_GENLIST_Var",
+  ``!t i num_args. app_call_dests opt (GENLIST_Var t i num_args) = {}``,
+  Induct_on `num_args`
+  \\ once_rewrite_tac [clos_callTheory.GENLIST_Var_def]
+  \\ fs [app_call_dests_append]);
+
+val calls_locs = store_thm("calls_locs",
+  ``!known_code g call_code g1.
+      calls known_code g = (call_code,g1) /\
+      call_dests known_code = ∅ /\
+      call_dests (MAP (SND ∘ SND) (SND g)) ⊆ set (MAP FST (SND g)) ==>
+      set (MAP FST (SND g)) ⊆ set (MAP FST (SND g1)) ∧
+      call_dests (MAP (SND ∘ SND) (SND g)) ⊆
+      call_dests (MAP (SND ∘ SND) (SND g1)) ∧
+      call_dests call_code ⊆ set (MAP FST (SND g1)) ∧
+      call_dests (MAP (SND ∘ SND) (SND g1)) ⊆ set (MAP FST (SND g1)) ∧
+      app_dests call_code UNION app_dests (MAP (SND ∘ SND) (SND g1))
+        ⊆ app_dests known_code UNION app_dests (MAP (SND ∘ SND) (SND g)) ∧
+      set (code_locs call_code) ∪ set (code_locs (MAP (SND ∘ SND) (SND g1))) =
+      set (code_locs known_code) ∪ set (code_locs (MAP (SND ∘ SND) (SND g)))``,
+
+  cheat);
+
+(*
+
+  recInduct clos_callTheory.calls_ind
+  \\ rpt conj_tac
+  THEN1 full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,app_call_dests_def,
+            closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
+            BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,
+            AC UNION_COMM UNION_ASSOC,SUBSET_REFL,EMPTY_SUBSET]
+  \\ TRY (full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,app_call_dests_def,
+            closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
+            BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,
+            AC UNION_COMM UNION_ASSOC,SUBSET_REFL,EMPTY_SUBSET]
+    \\ rpt gen_tac \\ strip_tac
+    \\ rpt gen_tac \\ strip_tac
+    \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
+    \\ imp_res_tac clos_callTheory.calls_sing \\ rveq
+    \\ rveq \\ full_simp_tac std_ss [APPEND,bool_case_eq,EMPTY_UNION]
+    \\ rveq \\ full_simp_tac std_ss [APPEND,closPropsTheory.code_locs_def,
+                  LET_THM,LIST_TO_SET,LIST_TO_SET_APPEND]
+    \\ TRY CASE_TAC \\ full_simp_tac std_ss [APPEND]
+    \\ once_rewrite_tac [app_call_dests_cons,closPropsTheory.code_locs_cons]
+    \\ rveq \\ full_simp_tac std_ss [app_call_dests_def,UNION_EMPTY,LIST_TO_SET,
+         closPropsTheory.code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND,LET_THM,
+         MAP,o_DEF]
+    \\ rpt (pop_assum mp_tac)
+    \\ once_rewrite_tac [app_call_dests_cons,closPropsTheory.code_locs_cons]
+    \\ rveq \\ full_simp_tac std_ss [app_call_dests_def,UNION_EMPTY,LIST_TO_SET,
+         closPropsTheory.code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND]
+    \\ rpt (disch_then assume_tac)
+    \\ full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,
+          closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
+          BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,HD,
+          IS_SOME_EXISTS,SND_insert_each,app_call_dests_GENLIST_Var,
+          code_locs_GENLIST_Var,clos_callProofTheory.SND_code_list_ZIP]
+    \\ rev_full_simp_tac std_ss []
+    \\ once_rewrite_tac [app_call_dests_cons,closPropsTheory.code_locs_cons]
+    \\ rveq \\ full_simp_tac std_ss [app_call_dests_def,UNION_EMPTY,LIST_TO_SET,
+         closPropsTheory.code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND]
+    \\ rveq \\ full_simp_tac std_ss [APPEND]
+    \\ TRY CASE_TAC \\ full_simp_tac std_ss [APPEND]
+    \\ full_simp_tac std_ss [SUBSET_DEF,IN_UNION,IN_INSERT,NOT_IN_EMPTY,
+          MAP,LIST_TO_SET,SUBSET_DEF,BIGUNION_INSERT,BIGUNION_EMPTY,EXTENSION]
+    \\ metis_tac [])
+
+  (* App and Letrec cases remain *)
+
+(code_locs (MAP SND (calls_list t 1 0 fns)))
+
+LENGTH (calls_list t 1 0 fns)
+
+*)
+
+val call_compile_locs = store_thm("call_compile_locs",
+  ``clos_call$compile b known_code = (call_code,g,aux) /\
+    call_dests known_code = ∅ ==>
+    call_dests call_code ∪ call_dests (MAP (SND ∘ SND) aux) ⊆
+    set (MAP FST aux) /\
+    app_dests call_code ∪ app_dests (MAP (SND ∘ SND) aux) ⊆
+    app_dests known_code /\
+    set (code_locs call_code) ∪ set (code_locs (MAP (SND ∘ SND) aux)) =
+    set (code_locs known_code)``,
+  reverse (Cases_on `b`) \\ fs [clos_callTheory.compile_def]
+  THEN1 (strip_tac \\ rveq \\ fs [closPropsTheory.code_locs_def])
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ drule calls_locs \\ fs [EVAL ``(code_locs [])``]);
+
 val _ = export_theory();

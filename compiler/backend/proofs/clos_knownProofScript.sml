@@ -5108,4 +5108,13 @@ val compile_obeys_max_app = store_thm("compile_obeys_max_app",
   \\ metis_tac [clos_ticksProofTheory.remove_ticks_obeys_max_app,
                 clos_letopProofTheory.let_op_obeys_max_app]);
 
+(* names *)
+
+val known_compile_locs = store_thm("known_compile_locs",
+  ``clos_known$compile b number_code = (kc,known_code) /\
+    call_dests number_code = ∅ /\ app_dests number_code = ∅ ==>
+    call_dests known_code = ∅ /\
+    app_dests known_code ⊆ set (code_locs known_code)``,
+  cheat);
+
 val _ = export_theory();

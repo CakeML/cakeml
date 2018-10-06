@@ -2868,4 +2868,102 @@ val no_Labels_def =
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
   |> curry save_thm "no_Labels_def[simp]"
 
+val app_call_dests_def = tDefine "app_call_dests" `
+  (app_call_dests opt [] = {}) /\
+  (app_call_dests opt (x::y::xs) =
+     let c1 = app_call_dests opt [x] in
+     let c2 = app_call_dests opt (y::xs) in
+       c1 ∪ c2) /\
+  (app_call_dests opt [Var _ v] = {}) /\
+  (app_call_dests opt [If _ x1 x2 x3] =
+     let c1 = app_call_dests opt [x1] in
+     let c2 = app_call_dests opt [x2] in
+     let c3 = app_call_dests opt [x3] in
+       c1 ∪ c2 ∪ c3) /\
+  (app_call_dests opt [Let _ xs x2] =
+     let c1 = app_call_dests opt xs in
+     let c2 = app_call_dests opt [x2] in
+       c1 ∪ c2) /\
+  (app_call_dests opt [Raise _ x1] =
+     app_call_dests opt [x1]) /\
+  (app_call_dests opt [Tick _ x1] =
+     app_call_dests opt [x1]) /\
+  (app_call_dests opt [Op _ op xs] =
+     app_call_dests opt xs) /\
+  (app_call_dests opt [App _ loc_opt x1 xs] =
+     let ll = if opt = SOME T then {} else
+                case loc_opt of SOME n => {n} | _ => {} in
+     let c1 = app_call_dests opt [x1] in
+     let c2 = app_call_dests opt xs in
+         ll ∪ c1 ∪ c2) /\
+  (app_call_dests opt [Fn _ loc_opt vs num_args x1] =
+     let c1 = app_call_dests opt [x1] in c1) /\
+  (app_call_dests opt [Letrec _ loc_opt vs fns x1] =
+     let c1 = app_call_dests opt (MAP SND fns) in
+     let c2 = app_call_dests opt [x1] in
+     c1 ∪ c2) /\
+  (app_call_dests opt [Handle _ x1 x2] =
+     let c1 = app_call_dests opt [x1] in
+     let c2 = app_call_dests opt [x2] in
+       c1 ∪ c2) /\
+  (app_call_dests opt [Call _ ticks dest xs] =
+     if opt = SOME F then app_call_dests opt xs else
+       dest INSERT app_call_dests opt xs)`
+  (WF_REL_TAC `measure (exp3_size o SND)`
+   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
+   Induct_on `fns` >>
+   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
+   Cases_on `h` >>
+   full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
+   decide_tac);
+
+val _ = save_thm("app_call_dests_def[simp]",app_call_dests_def);
+
+val _ = overload_on("call_dests",``app_call_dests (SOME T)``);
+val _ = overload_on("app_dests",``app_call_dests (SOME F)``);
+val _ = overload_on("any_dests",``app_call_dests NONE``);
+
+val app_call_dests_ind = theorem"app_call_dests_ind";
+
+val app_call_dests_cons = Q.store_thm("app_call_dests_cons",
+  `∀y x. app_call_dests opt (x::y) =
+         app_call_dests opt [x] ∪ app_call_dests opt y`,
+  Induct \\ rw[app_call_dests_def]);
+
+val any_dest_cons = save_thm("any_dest_cons",
+  app_call_dests_cons |> Q.INST [`opt`|->`NONE`]);
+val call_dest_cons = save_thm("call_dest_cons",
+  app_call_dests_cons |> Q.INST [`opt`|->`SOME T`]);
+val app_dest_cons = save_thm("app_dest_cons",
+  app_call_dests_cons |> Q.INST [`opt`|->`SOME F`]);
+
+val app_call_dests_append = Q.store_thm("app_call_dests_append",
+  `∀l1 l2. app_call_dests opt (l1 ++ l2) =
+           app_call_dests opt l1 ∪ app_call_dests opt l2`,
+  Induct_on `l1` \\ fs [app_call_dests_def]
+  \\ once_rewrite_tac [app_call_dests_cons]
+  \\ fs [AC UNION_COMM UNION_ASSOC]);
+
+val any_dest_append = save_thm("any_dest_append",
+  app_call_dests_append |> Q.INST [`opt`|->`NONE`]);
+val call_dest_append = save_thm("call_dest_append",
+  app_call_dests_append |> Q.INST [`opt`|->`SOME T`]);
+val app_dest_append = save_thm("app_dest_append",
+  app_call_dests_append |> Q.INST [`opt`|->`SOME F`]);
+
+val app_call_dests_map = Q.store_thm("app_call_dests_map",
+  `∀ls. app_call_dests opt (MAP f ls) =
+        BIGUNION (set (MAP (λx. app_call_dests opt [f x]) ls))`,
+  Induct \\ rw[app_call_dests_def]
+  \\ rw[Once app_call_dests_cons]);
+
+val any_dests_call_dests_app_dests = store_thm("any_dests_call_dests_app_dests",
+  ``!xs. any_dests xs = call_dests xs UNION app_dests xs``,
+  qid_spec_tac `opt:bool option`
+  \\ ho_match_mp_tac app_call_dests_ind
+  \\ fs [app_call_dests_def] \\ rw []
+  \\ fs [AC UNION_COMM UNION_ASSOC]
+  \\ Cases_on `opt = SOME F` \\ fs []
+  \\ fs [EXTENSION] \\ rw[] \\ eq_tac \\ rw [] \\ fs []);
+
 val _ = export_theory();

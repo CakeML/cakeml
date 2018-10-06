@@ -1356,6 +1356,43 @@ val annotate_no_Labels = store_thm("annotate_no_Labels",
   \\ match_mp_tac shift_no_Labels
   \\ match_mp_tac alt_free_no_Labels \\ fs []);
 
+val pure_code_locs = store_thm("pure_code_locs",
+  ``!xs. EVERY pure xs ==> code_locs xs = []``,
+  cheat);
+
+val code_locs_REP_const_0 = store_thm("code_locs_REP_const_0",
+  ``code_locs (REPLICATE n (const_0 t)) = []``,
+  cheat);
+
+val code_locs_alt_free = store_thm("code_locs_alt_free",
+  ``!xs r1 r2. alt_free xs = (r1,r2) ==> code_locs r1 = code_locs xs``,
+  ho_match_mp_tac clos_annotateTheory.alt_free_ind
+  \\ fs [clos_annotateTheory.alt_free_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ fs []
+  \\ rveq \\ fs []
+  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ rveq \\ fs []
+  \\ fs [closPropsTheory.code_locs_def,bool_case_eq]
+  \\ rveq \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
+  \\ fs [closPropsTheory.code_locs_def]
+  \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
+  \\ fs [closPropsTheory.code_locs_def,pure_code_locs,
+         code_locs_REP_const_0]
+  \\ cheat);
+
+val code_locs_shift = store_thm("code_locs_shift",
+  ``!xs k1 k2 k3. code_locs (shift xs k1 k2 k3) = code_locs xs``,
+  ho_match_mp_tac clos_annotateTheory.shift_ind
+  \\ fs [clos_annotateTheory.shift_def,closPropsTheory.code_locs_def]
+  \\ cheat);
+
+val code_locs_annotate = store_thm("code_locs_annotate",
+  ``!n xs. code_locs (annotate n xs) = code_locs xs``,
+  rw [clos_annotateTheory.annotate_def]
+  \\ Cases_on `alt_free xs` \\ fs []
+  \\ drule code_locs_alt_free
+  \\ fs [code_locs_shift]);
+
 (* semantics preservation *)
 
 val compile_inc_def = Define `
