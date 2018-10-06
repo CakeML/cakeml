@@ -62,13 +62,18 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!loc args1 args2 env1 env2 num_args e1 e2.
      LIST_REL (v_rel ds) env1 env2 /\
      LIST_REL (v_rel ds) args1 args2 /\
-     code_rel ds [e1] [e2] ==>
-       v_rel ds (Closure loc args1 env1 num_args e1) (Closure loc args2 env2 num_args e2)) /\
+     code_rel ds [e1] [e2] /\
+     { l |l| loc = SOME l } SUBSET domain ds ==>
+       v_rel ds (Closure loc args1 env1 num_args e1)
+                (Closure loc args2 env2 num_args e2)) /\
   (!loc args1 args2 env1 env2 k.
      LIST_REL (v_rel ds) env1 env2 /\
      LIST_REL (v_rel ds) args1 args2 /\
-     LIST_REL (f_rel ds) funs1 funs2 ==>
-       v_rel ds (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))`;
+     LIST_REL (f_rel ds) funs1 funs2 /\
+     { l + 2 * k |l,k| loc = SOME l /\ k <= LENGTH funs1 } SUBSET domain ds
+     ==>
+       v_rel ds (Recclosure loc args1 env1 funs1 k)
+                (Recclosure loc args2 env2 funs2 k))`;
 
 val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel ds (Number n) x``,
