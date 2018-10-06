@@ -4,12 +4,6 @@ val _ = new_theory "clos_labelsProof";
 
 val _ = set_grammar_ancestry ["closLang","clos_labels","closSem","closProps","backend_common"]
 
-(* TODO: move *)
-val fdom_to_num_set_def = Define`
-  fdom_to_num_set fm =
-    fromAList (MAP (λ(n,_). (n,())) (fmap_to_alist fm))`;
-(* -- *)
-
 val LENGTH_remove_dests = store_thm("LENGTH_remove_dests",
   ``!dests xs. LENGTH (remove_dests dests xs) = LENGTH xs``,
   recInduct remove_dests_ind \\ simp [remove_dests_def] \\ rw [] );
@@ -63,6 +57,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      LIST_REL (v_rel ds) env1 env2 /\
      LIST_REL (v_rel ds) args1 args2 /\
      code_rel ds [e1] [e2] /\
+     set (code_locs [e1]) ⊆ domain ds ∧
      { l |l| loc = SOME l } SUBSET domain ds ==>
        v_rel ds (Closure loc args1 env1 num_args e1)
                 (Closure loc args2 env2 num_args e2)) /\
@@ -70,7 +65,8 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      LIST_REL (v_rel ds) env1 env2 /\
      LIST_REL (v_rel ds) args1 args2 /\
      LIST_REL (f_rel ds) funs1 funs2 /\
-     { l + 2 * k |l,k| loc = SOME l /\ k <= LENGTH funs1 } SUBSET domain ds
+     set (code_locs (MAP SND funs1)) ⊆ domain ds ∧
+     { l + 2 * k |l,k| loc = SOME l /\ k < LENGTH funs1 } SUBSET domain ds
      ==>
        v_rel ds (Recclosure loc args1 env1 funs1 k)
                 (Recclosure loc args2 env2 funs2 k))`;
@@ -224,13 +220,39 @@ val do_app_lemma = prove(
 
 (* evaluate level correctness *)
 
-(* TODO:  from here
+val evaluate_code_const_ind =
+  evaluate_ind
+  |> Q.SPEC `\(xs,env,s).
+       (case evaluate (xs,env,s) of (_,s1) =>
+          (s1.code = s.code))`
+  |> Q.SPEC `\x1 x2 x3 x4.
+       (case evaluate_app x1 x2 x3 x4 of (_,s1) =>
+          (s1.code = x4.code))`;
+
+val evaluate_code_const_lemma = prove(
+  evaluate_code_const_ind |> concl |> rand,
+  MATCH_MP_TAC evaluate_code_const_ind
+  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ full_simp_tac(srw_ss())[LET_THM]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+  \\ IMP_RES_TAC do_app_const
+  \\ full_simp_tac(srw_ss())[dec_clock_def])
+  |> SIMP_RULE std_ss [FORALL_PROD]
+
+val evaluate_code_const = Q.store_thm("evaluate_code_const",
+  `(evaluate (xs,env,s) = (res,s1)) ==>
+      (s1.code = s.code)`,
+  REPEAT STRIP_TAC
+  \\ (evaluate_code_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
+  \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   `(!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 ys env2 t1.
       evaluate (xs, env1, s1) = (res1, s2) /\
       LIST_REL (v_rel ds) env1 env2 /\ state_rel ds s1 t1 /\
-      FDOM s.code ⊆ domain ds ∧
+      FDOM s1.code ⊆ domain ds ∧ set (code_locs xs) ⊆ domain ds ∧
+      BIGUNION (IMAGE (λ(_,e). set (code_locs [e])) (FRANGE s1.code)) ⊆ domain ds ∧
       code_rel ds xs ys ==>
       ?res2 t2.
         evaluate (ys, env2, t1) = (res2, t2) /\
@@ -239,7 +261,9 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
    (!loc_opt f1 args1 (s1:('c,'ffi) closSem$state) res1 s2 f2 args2 t1.
       evaluate_app loc_opt f1 args1 s1 = (res1, s2) /\
       v_rel ds f1 f2 /\ LIST_REL (v_rel ds) args1 args2 /\
-      state_rel ds s1 t1 ∧ FDOM s.code ⊆ domain ds
+      { l | l | loc_opt = SOME l } ⊆ domain ds ∧
+      BIGUNION (IMAGE (λ(_,e). set (code_locs [e])) (FRANGE s1.code)) ⊆ domain ds ∧
+      state_rel ds s1 t1 ∧ FDOM s1.code ⊆ domain ds
       ==>
       ?res2 t2.
         evaluate_app loc_opt f2 args2 t1 = (res2, t2) /\
@@ -261,12 +285,13 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
     \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs[]
     \\ imp_res_tac code_rel_CONS_CONS
     \\ fs[evaluate_def]
-    \\ reverse (fs [case_eq_thms, pair_case_eq])
+    \\ reverse (fs [case_eq_thms, pair_case_eq, code_locs_def])
     \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
     \\ strip_tac
     \\ rveq \\ fs [PULL_EXISTS] (* Closes Rerr *)
+    \\ imp_res_tac evaluate_code_const \\ fs[]
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
     \\ strip_tac
@@ -282,8 +307,9 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   \\ conj_tac THEN1 (* If *)
    (rw [code_rel_def, remove_dests_def] \\ rveq
     \\ fs [evaluate_def]
-    \\ reverse (fs [case_eq_thms, pair_case_eq])
+    \\ reverse (fs [case_eq_thms, pair_case_eq, code_locs_def])
     \\ rveq \\ fsrw_tac[DNF_ss] [PULL_EXISTS]
+    \\ imp_res_tac evaluate_code_const \\ fs[]
     \\ first_x_assum drule
     \\ disch_then drule
     \\ strip_tac
@@ -303,7 +329,8 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   \\ conj_tac THEN1 (* Let *)
    (fs [code_rel_def, remove_dests_def]
     \\ rw[evaluate_def]
-    \\ fsrw_tac[DNF_ss][CaseEq"prod"]
+    \\ fsrw_tac[DNF_ss][CaseEq"prod",code_locs_def]
+    \\ imp_res_tac evaluate_code_const \\ fs[]
     \\ first_x_assum drule
     \\ rpt(disch_then drule \\ fs[])
     \\ strip_tac \\ fs[]
@@ -314,16 +341,18 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   \\ conj_tac THEN1 (* Raise *)
    (fs [code_rel_def, remove_dests_def] \\ rveq
     \\ rw [evaluate_def]
-    \\ fs [pair_case_eq]
+    \\ fs [pair_case_eq,code_locs_def]
+    \\ imp_res_tac evaluate_code_const \\ fs[]
     \\ first_x_assum drule
-    \\ ntac 2 (disch_then drule)
+    \\ rpt(disch_then drule)
     \\ strip_tac \\ fs []
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_SING \\ fs [])
   \\ conj_tac THEN1 (* Handle *)
    (fs [code_rel_def, remove_dests_def] \\ rveq
     \\ rw [evaluate_def]
-    \\ fs [pair_case_eq]
+    \\ fs [pair_case_eq, code_locs_def]
+    \\ imp_res_tac evaluate_code_const
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
     \\ strip_tac \\ fs []
@@ -332,7 +361,7 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   \\ conj_tac THEN1 (* Op *)
    (fs [code_rel_def, remove_dests_def] \\ rveq
     \\ rw [evaluate_def]
-    \\ fs [pair_case_eq]
+    \\ fs [pair_case_eq, code_locs_def]
     \\ first_x_assum drule
     \\ ntac 2 (disch_then drule)
     \\ strip_tac \\ fs []
@@ -353,13 +382,14 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
     \\ rw [evaluate_def]
     \\ `t1.max_app = s1.max_app` by fs [state_rel_def]
     \\ fs []
-    \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ rveq \\ fs [] \\ rveq \\ fs [code_locs_def]
     \\ fs [Once case_eq_thms] \\ rveq \\ fs[]
-    THEN1 (fs [code_rel_def])
+    THEN1 (fs [code_rel_def, SUBSET_DEF] \\ rw[] \\ fs[])
     \\ drule (Q.SPEC `vs` lookup_vars_lemma)
     \\ CASE_TAC \\ strip_tac
     \\ fs [] \\ rveq \\ fs [code_rel_def]
-    \\ imp_res_tac lookup_vars_SOME \\ fs[])
+    \\ imp_res_tac lookup_vars_SOME \\ fs[]
+    \\ rw[SUBSET_DEF] \\ fs[])
   \\ conj_tac THEN1 (* Letrec *)
    (rpt gen_tac \\ strip_tac
     \\ rpt gen_tac \\ strip_tac
@@ -371,7 +401,7 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
       fs[CaseEq"bool"] \\ rveq \\ fs[]
       \\ fs[EVERY_MEM, EXISTS_MEM]
       \\ res_tac \\ fs[] )
-    \\ fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ fs[CaseEq"option", code_locs_def] \\ rveq \\ fs[]
     >- (
       imp_res_tac lookup_vars_lemma
       \\ pop_assum(qspec_then`names`mp_tac)
@@ -381,9 +411,13 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
       \\ irule EVERY2_APPEND_suff \\ fs[]
       \\ fs[LIST_REL_GENLIST]
       \\ fs[LIST_REL_EL_EQN, EL_MAP]
-      \\ rw[]
-      \\ pairarg_tac \\ fs[f_rel_def]
-      \\ fs[code_rel_def] )
+      \\ fs[SUBSET_DEF] \\ rw[]
+      >- (
+        pairarg_tac \\ fs[f_rel_def]
+        \\ fs[code_rel_def] )
+      \\ fs[MEM_GENLIST, PULL_EXISTS]
+      \\ rpt(first_x_assum(qspec_then`k`mp_tac))
+      \\ rw[] )
     >- (
       imp_res_tac lookup_vars_lemma
       \\ pop_assum(qspec_then`names`mp_tac)
@@ -393,12 +427,16 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
       \\ irule EVERY2_APPEND_suff \\ fs[]
       \\ fs[LIST_REL_GENLIST]
       \\ fs[LIST_REL_EL_EQN, EL_MAP]
-      \\ rw[]
-      \\ pairarg_tac \\ fs[f_rel_def]
-      \\ fs[code_rel_def] ))
+      \\ fs[SUBSET_DEF] \\ rw[]
+      >- (
+        pairarg_tac \\ fs[f_rel_def]
+        \\ fs[code_rel_def] )
+      \\ fs[MEM_GENLIST, PULL_EXISTS]
+      \\ rpt(first_x_assum(qspec_then`k`mp_tac))
+      \\ rw[] ) )
   \\ conj_tac THEN1 (* App *) (
     rpt gen_tac \\ strip_tac
-    \\ Cases_on`loc_opt` \\ fs[remove_dests_def, code_rel_def, evaluate_def]
+    \\ Cases_on`loc_opt` \\ fs[remove_dests_def, code_rel_def, evaluate_def, code_locs_def]
     >- (
       rw[] \\ fs[LENGTH_remove_dests]
       \\ fs[CaseEq"prod"]
@@ -406,6 +444,7 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
       \\ rpt(disch_then drule) \\ rw[]
       \\ fs[case_eq_thms, PULL_EXISTS, CaseEq"prod"] \\ rveq \\ fs[]
       \\ fsrw_tac[DNF_ss][]
+      \\ imp_res_tac evaluate_code_const \\ fs[]
       \\ first_x_assum drule
       \\ rpt(disch_then drule) \\ rw[]
       \\ imp_res_tac evaluate_SING \\ fs[])
@@ -420,49 +459,126 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
       \\ rpt(disch_then drule) \\ rw[]
       \\ fs[case_eq_thms, PULL_EXISTS, CaseEq"prod"] \\ rveq \\ fs[]
       \\ fsrw_tac[DNF_ss][]
+      \\ imp_res_tac evaluate_code_const \\ fs[]
       \\ first_x_assum drule
       \\ rpt(disch_then drule) \\ rw[]
-      \\ imp_res_tac evaluate_SING \\ fs[])
-    \\ `x ∉ FDOM s.code`
-    by (
-      fs[SUBSET_DEF, domain_lookup]
-      \\ strip_tac \\ res_tac \\ fs[] )
-    \\ simp[evaluate_def, do_app_def]
-    \\ simp[Once remove_dests_cons]
+      \\ imp_res_tac evaluate_SING \\ fs[]
+      \\ rveq \\ fs[]
+      \\ first_x_assum irule \\ fs[]
+      \\ fs[domain_lookup, IS_SOME_EXISTS])
+    \\ Cases_on`NULL xs` \\ simp[evaluate_def, do_app_def]
+    >- ( fs[NULL_EQ] \\ rw[] )
     \\ simp[evaluate_append]
-    \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
-    >- (
-      Cases_on`xs` \\ fs[remove_dests_def, evaluate_def]
-
+    \\ `LENGTH xs > 0` by (CCONTR_TAC \\ fs[NULL_EQ, NOT_GREATER]) \\ fs[]
     \\ fs[CaseEq"prod"] \\ fs[]
-    \\ fs[case_eq_thms, CaseEq"prod"] \\ rveq \\ fs[]
+    \\ reverse(fs[case_eq_thms, CaseEq"prod"] \\ rveq \\ fs[PULL_EXISTS])
+    >- ( first_x_assum drule \\ disch_then drule \\ rw[] \\ rw[] )
+    >- (
+      first_x_assum drule
+      \\ disch_then drule \\ rw[] \\ fs[]
+      \\ first_x_assum drule
+      \\ disch_then drule \\ rw[] \\ fs[]
+      \\ fsrw_tac[DNF_ss][]
+      \\ disj2_tac \\ first_x_assum irule
+      \\ imp_res_tac evaluate_code_const \\ fs[])
     \\ first_x_assum drule
     \\ rpt(disch_then drule) \\ rw[]
+    \\ imp_res_tac evaluate_code_const
     \\ imp_res_tac evaluate_SING \\ fs[] \\ rveq \\ fs[]
-    \\ fs[evaluate_app_rw]
-
-    \\ fs[case_eq_thms, PULL_EXISTS, CaseEq"prod"] \\ rveq \\ fs[]
-    \\ fsrw_tac[DNF_ss][]
     \\ first_x_assum drule
-    \\ rpt(disch_then drule) \\ rw[]
-    \\ imp_res_tac evaluate_SING \\ fs[])
+    \\ rpt(disch_then drule) \\ rw[] \\ fs[]
+    \\ Cases_on`y2 = []` >- (
+      imp_res_tac LIST_REL_LENGTH
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ fs[] )
+    \\ fs[evaluate_app_rw]
+    \\ fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ imp_res_tac dest_closure_SOME_IMP
+    \\ fs[dest_closure_def, CaseEq"bool"] \\ rveq \\ fs[check_loc_def]
+    \\ rveq \\ fs[domain_lookup]
+    \\ pairarg_tac \\ fs[]
+    \\ rveq \\ fs[]
+    \\ fs[SUBSET_DEF, PULL_EXISTS, NOT_LESS_EQUAL]
+    \\ fs[domain_lookup]
+    \\ res_tac \\ fs[])
   \\ conj_tac THEN1 (* Tick *)
-   (fs [code_rel_def, remove_fvs_def] \\ rveq
+   (fs [code_rel_def, remove_dests_def, code_locs_def] \\ rveq
     \\ rw [evaluate_def]
     \\ `s1.clock = t1.clock` by fs [state_rel_def]
     \\ fs []
     \\ first_x_assum irule \\ fs []
     \\ fs [dec_clock_def, state_rel_def])
   \\ conj_tac THEN1 (* Call *)
-   (fs [code_rel_def, remove_fvs_def] \\ rveq
-    \\ rw [evaluate_def]
-    \\ fs [Once case_eq_thms, pair_case_eq]
-    \\ rveq \\ fsrw_tac[DNF_ss][]
+   (fs [code_rel_def, remove_dests_def, code_locs_def] \\ rveq
+    \\ rpt gen_tac \\ strip_tac
+    \\ simp [evaluate_def]
+    \\ rpt gen_tac \\ strip_tac
+    \\ fs[CaseEq"prod"]
+    \\ IF_CASES_TAC
+    >- (
+      fs[evaluate_def, case_eq_thms] \\ rveq \\ fs[]
+      \\ first_x_assum drule \\ disch_then drule
+      \\ rw[] \\ fs[]
+      >- (
+        imp_res_tac LIST_REL_LENGTH
+        \\ PURE_TOP_CASE_TAC \\ fs[]
+        \\ fs[find_code_def]
+        \\ fs[state_rel_def]
+        \\ fs[fmap_rel_def]
+        \\ fs[FLOOKUP_DEF] \\ rfs[]
+        \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"]
+        \\ rveq \\ fs[]
+        \\ first_x_assum drule
+        \\ simp[f_rel_def] )
+      \\ fs[CaseEq"prod"] \\ rveq
+      \\ fs[find_code_def]
+      \\ fs[CaseEq"option", CaseEq"prod"]
+      \\ qmatch_assum_rename_tac`state_rel ds x2 t2`
+      \\ `fmap_rel (f_rel ds) x2.code t2.code` by fs[state_rel_def]
+      \\ drule fmap_rel_FLOOKUP_imp
+      \\ strip_tac
+      \\ first_x_assum drule
+      \\ strip_tac \\ simp[]
+      \\ Cases_on`v2` \\ fs[f_rel_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
+      \\ `t2.clock = x2.clock` by fs[state_rel_def]
+      \\ fs[]
+      \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
+      >- fs[state_rel_def]
+      \\ first_x_assum drule
+      \\ disch_then(qspec_then`(dec_clock (ticks+1) t2)`mp_tac)
+      \\ fs[code_rel_def]
+      \\ disch_then irule
+      \\ imp_res_tac evaluate_code_const \\ fs[dec_clock_def]
+      \\ reverse conj_tac >- fs[state_rel_def, dec_clock_def]
+      \\ fs[SUBSET_DEF, PULL_EXISTS, IN_FRANGE_FLOOKUP, FORALL_PROD]
+      \\ metis_tac[])
+    \\ Cases_on`NULL xs` \\ simp[evaluate_def, do_app_def]
+    >- (
+      fs[NULL_EQ, remove_dests_def, evaluate_def] \\ rveq \\ fs[]
+      \\ fs[find_code_def]
+      \\ `FLOOKUP s.code dest = NONE`
+      by (
+        fs[SUBSET_DEF, FLOOKUP_DEF, domain_lookup]
+        \\ strip_tac \\ res_tac \\ fs[] )
+      \\ fs[] \\ rveq \\ fs[] )
+    \\ fs[]
     \\ first_x_assum drule
     \\ disch_then drule
-    \\ strip_tac \\ rveq
-    \\ fs [state_rel_def, find_code_def]
-    \\ rveq \\ fs [])
+    \\ strip_tac \\ fs[]
+    \\ fs[Once case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rveq \\ fs[]
+    \\ rveq \\ fs[]
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ qmatch_goalsub_rename_tac`REVERSE ws`
+    \\ CASE_TAC \\ fs[]
+    \\ fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ fs[CaseEq"prod"] \\ rveq \\ fs[]
+    \\ fs[find_code_def]
+    \\ imp_res_tac evaluate_code_const \\ fs[]
+    \\ fs[CaseEq"option"]
+    \\ fs[FLOOKUP_DEF, SUBSET_DEF, domain_lookup]
+    \\ res_tac \\ fs[] )
   \\ conj_tac THEN1 (* evaluate_app NIL *)
    (simp [])
   (* evaluate_app CONS *)
@@ -506,11 +622,13 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
     \\ fs [dec_clock_def, state_rel_def]
     \\ irule EVERY2_APPEND_suff \\ fs [])
   (* dest_closure returns SOME Full_app *)
-  \\ qpat_x_assum `v_rel f1 f2` assume_tac
+  \\ qpat_x_assum `v_rel _ f1 f2` assume_tac
   \\ drule (GEN_ALL dest_closure_SOME_Full_app)
-  \\ pop_assum kall_tac
-  \\ ntac 3 (disch_then drule)
-  \\ strip_tac \\ fs []
+  \\ strip_tac
+  \\ qpat_x_assum `v_rel _ f1 f2` mp_tac
+  \\ first_x_assum drule
+  \\ ntac 2 (disch_then drule)
+  \\ ntac 2 strip_tac \\ fs []
   \\ imp_res_tac LIST_REL_LENGTH
   \\ `s1.clock = t1.clock` by fs [state_rel_def]
   \\ rw[evaluate_def] \\ fs[] \\ rveq \\ fs[]
@@ -520,10 +638,27 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   \\ qmatch_goalsub_abbrev_tac `evaluate (xxx2, _, sss2)`
   \\ disch_then (qspecl_then [`xxx2`, `sss2`] mp_tac)
   \\ unabbrev_all_tac \\ simp []
-  \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
+  \\ impl_tac THEN1 (
+    fs [dec_clock_def, state_rel_def]
+    \\ imp_res_tac dest_closure_SOME_IMP
+    \\ fs[dest_closure_def,CaseEq"bool"] \\ rveq \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ fs[CaseEq"bool"]
+    \\ rveq
+    \\ fs[code_locs_map, SUBSET_DEF, PULL_EXISTS, MEM_FLAT, MEM_MAP, FORALL_PROD]
+    \\ fs[NOT_LESS_EQUAL]
+    \\ fs[LIST_REL_EL_EQN]
+    \\ rfs[] \\ first_x_assum drule
+    \\ Cases_on`EL i fns'`
+    \\ simp[f_rel_def] \\ rw[]
+    \\ fs[code_rel_def] \\ rfs[]
+    \\ metis_tac[MEM_EL] )
   \\ strip_tac \\ fs []
-  \\ fs [case_eq_thms] \\ rveq \\ fs [])
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
+  \\ first_x_assum irule \\ fs[]
+  \\ imp_res_tac evaluate_code_const \\ fs[dec_clock_def])
 
+(*
 val remove_fvs_correct = Q.store_thm("remove_fvs_correct",
   `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
        evaluate (xs, env1, s1) = (res1, s2) /\

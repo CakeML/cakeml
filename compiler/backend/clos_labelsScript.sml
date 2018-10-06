@@ -30,7 +30,7 @@ val remove_dests_def = tDefine "remove_dests" `
   (remove_dests ds [Call t ticks dest xs] =
    if IS_SOME (lookup dest ds) then
     [Call t ticks dest (remove_dests ds xs)]
-   else [Op t (if NULL xs then (String"") else El) (remove_dests ds xs)]) /\
+   else [Op t (if NULL xs then El else String "") (remove_dests ds xs)]) /\
   (remove_dests ds [App t NONE x1 xs] =
   [App t NONE (HD (remove_dests ds [x1])) (remove_dests ds xs)]) /\
   (remove_dests ds [App t (SOME dest) x1 xs] =
@@ -103,7 +103,7 @@ val add_code_locs_def = tDefine "add_code_locs" `
 
 val compile_def = Define`
   compile prog =
-    let ds = fromAList (MAP (λ(n,_,_). (n,())) prog) in
+    let ds = list_insert (MAP FST prog) LN in
     let ds = add_code_locs ds (MAP (SND o SND) prog) in
       MAP (λ(n,args,exp). (n, args, HD(remove_dests ds [exp]))) prog`;
 
