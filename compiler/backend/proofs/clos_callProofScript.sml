@@ -4515,6 +4515,36 @@ val app_call_dests_GENLIST_Var = store_thm("app_call_dests_GENLIST_Var",
   \\ once_rewrite_tac [clos_callTheory.GENLIST_Var_def]
   \\ fs [app_call_dests_append]);
 
+val pure_code_locs = Q.store_thm("pure_code_locs", (* DUPLCATED! clos_annotate *)
+  `!xs. pure xs ==> code_locs [xs] = [] /\
+                    app_call_dests opt [xs] = {}`,
+  recInduct closLangTheory.pure_ind
+  \\ rw[closLangTheory.pure_def, closPropsTheory.code_locs_def]
+  \\ fsrw_tac[ETA_ss][EVERY_MEM]
+  \\ Q.ISPEC_THEN`es`mp_tac code_locs_map
+  \\ disch_then(qspec_then`I`mp_tac)
+  \\ simp[FLAT_EQ_NIL, EVERY_MAP, EVERY_MEM]
+  \\ cheat);
+
+val call_dests_code_list_SUBSET = store_thm("call_dests_code_list_SUBSET",
+  ``!xs n g.
+      call_dests (MAP SND xs) ⊆ set (MAP FST (SND g)) /\
+      call_dests (MAP (λx. SND (SND x)) (SND g)) ⊆ set (MAP FST (SND g)) ==>
+      call_dests (MAP (λx. SND (SND x)) (SND (code_list n xs g))) ⊆
+      set (MAP FST (SND (code_list n xs g)))``,
+  Induct \\ fs [FORALL_PROD] THEN1 (EVAL_TAC \\ fs [])
+  \\ fs [code_list_def] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ rpt (pop_assum mp_tac)
+  \\ once_rewrite_tac [app_call_dests_cons] \\ fs []
+  \\ fs [SUBSET_DEF]);
+
+val code_locs_MAP_SND_calls_list = store_thm("code_locs_MAP_SND_calls_list",
+  ``!t x y fns. code_locs (MAP SND (calls_list t x y fns)) = []``,
+  Induct_on `fns` \\ fs [calls_list_def,FORALL_PROD]
+  \\ once_rewrite_tac [code_locs_cons]
+  \\ fs [code_locs_def]);
+
 val calls_locs = store_thm("calls_locs",
   ``!known_code g call_code g1.
       calls known_code g = (call_code,g1) /\
@@ -4534,53 +4564,65 @@ val calls_locs = store_thm("calls_locs",
 
 (*
 
-  recInduct clos_callTheory.calls_ind
+  recInduct calls_ind
   \\ rpt conj_tac
-  THEN1 full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,app_call_dests_def,
-            closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
-            BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,
-            AC UNION_COMM UNION_ASSOC,SUBSET_REFL,EMPTY_SUBSET]
-  \\ TRY (full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,app_call_dests_def,
-            closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
-            BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,
+
+  \\ TRY (
+
+    full_simp_tac std_ss [calls_def,LET_THM,app_call_dests_def,
+            every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
+            BIGUNION_INSERT,BIGUNION_EMPTY,
             AC UNION_COMM UNION_ASSOC,SUBSET_REFL,EMPTY_SUBSET]
     \\ rpt gen_tac \\ strip_tac
     \\ rpt gen_tac \\ strip_tac
     \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
-    \\ imp_res_tac clos_callTheory.calls_sing \\ rveq
+    \\ imp_res_tac calls_sing \\ rveq
     \\ rveq \\ full_simp_tac std_ss [APPEND,bool_case_eq,EMPTY_UNION]
-    \\ rveq \\ full_simp_tac std_ss [APPEND,closPropsTheory.code_locs_def,
+    \\ rveq \\ full_simp_tac std_ss [APPEND,code_locs_def,
                   LET_THM,LIST_TO_SET,LIST_TO_SET_APPEND]
     \\ TRY CASE_TAC \\ full_simp_tac std_ss [APPEND]
-    \\ once_rewrite_tac [app_call_dests_cons,closPropsTheory.code_locs_cons]
+    \\ once_rewrite_tac [app_call_dests_cons,code_locs_cons]
     \\ rveq \\ full_simp_tac std_ss [app_call_dests_def,UNION_EMPTY,LIST_TO_SET,
-         closPropsTheory.code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND,LET_THM,
+         code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND,LET_THM,
          MAP,o_DEF]
     \\ rpt (pop_assum mp_tac)
-    \\ once_rewrite_tac [app_call_dests_cons,closPropsTheory.code_locs_cons]
+    \\ once_rewrite_tac [app_call_dests_cons,code_locs_cons]
     \\ rveq \\ full_simp_tac std_ss [app_call_dests_def,UNION_EMPTY,LIST_TO_SET,
-         closPropsTheory.code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND]
+         code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND]
     \\ rpt (disch_then assume_tac)
-    \\ full_simp_tac std_ss [clos_callTheory.calls_def,LET_THM,
-          closPropsTheory.every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
-          BIGUNION_INSERT,BIGUNION_EMPTY,clos_get_code_labels_def,HD,
+    \\ full_simp_tac std_ss [calls_def,LET_THM,
+          every_Fn_SOME_def,MAP,LIST_TO_SET,UNION_EMPTY,
+          BIGUNION_INSERT,BIGUNION_EMPTY,HD,
           IS_SOME_EXISTS,SND_insert_each,app_call_dests_GENLIST_Var,
-          code_locs_GENLIST_Var,clos_callProofTheory.SND_code_list_ZIP]
+          code_locs_GENLIST_Var]
     \\ rev_full_simp_tac std_ss []
-    \\ once_rewrite_tac [app_call_dests_cons,closPropsTheory.code_locs_cons]
+    \\ TRY (qpat_x_assum `_ ==> _` mp_tac \\ impl_tac
+            THEN1 (match_mp_tac call_dests_code_list_SUBSET
+                   \\ imp_res_tac calls_length \\ fs [MAP_ZIP])
+            \\ disch_then strip_assume_tac)
+    \\ imp_res_tac calls_length \\ fs [MAP_ZIP,calls_list_length]
+    \\ imp_res_tac calls_pure_sing
+    \\ imp_res_tac pure_code_locs \\ fs []
+    \\ full_simp_tac std_ss [AC UNION_ASSOC UNION_COMM,
+         code_locs_MAP_SND_calls_list]
+
+    \\ once_rewrite_tac [app_call_dests_cons,code_locs_cons]
     \\ rveq \\ full_simp_tac std_ss [app_call_dests_def,UNION_EMPTY,LIST_TO_SET,
-         closPropsTheory.code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND]
+         code_locs_def,APPEND_NIL,LIST_TO_SET_APPEND,GSYM ADD1]
+    \\ rpt conj_tac
     \\ rveq \\ full_simp_tac std_ss [APPEND]
     \\ TRY CASE_TAC \\ full_simp_tac std_ss [APPEND]
-    \\ full_simp_tac std_ss [SUBSET_DEF,IN_UNION,IN_INSERT,NOT_IN_EMPTY,
+    \\ full_simp_tac std_ss [SUBSET_DEF,IN_UNION,IN_INSERT,NOT_IN_EMPTY,IN_IMAGE,
           MAP,LIST_TO_SET,SUBSET_DEF,BIGUNION_INSERT,BIGUNION_EMPTY,EXTENSION]
-    \\ metis_tac [])
+    \\ metis_tac []
 
-  (* App and Letrec cases remain *)
+)
 
-(code_locs (MAP SND (calls_list t 1 0 fns)))
-
-LENGTH (calls_list t 1 0 fns)
+  remaining cases:
+     App -- almost works (problem with relating FST g with SND g
+                          because they can be out-of-sync, i.e.
+                          statement above needs updating)
+     Letrec -- needs some work
 
 *)
 
