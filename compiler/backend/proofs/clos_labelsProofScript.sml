@@ -94,7 +94,7 @@ val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
 
 val state_rel_def = Define `
   state_rel ds (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
-    t.max_app = s.max_app /\ 1 <= s.max_app /\
+    t.max_app = s.max_app /\ (* 1 <= s.max_app /\ *)
     t.clock = s.clock /\
     t.ffi = s.ffi /\
     LIST_REL (OPTREL (v_rel ds)) s.globals t.globals /\
@@ -687,33 +687,54 @@ val remove_dests_correct = Q.store_thm("remove_dests_correct",
   \\ disch_then drule
   \\ fs [code_rel_def, code_code_locs_def]);
 
-(*
 (* preservation of observational semantics *)
 
+val compile_inc_def = Define ` (* this is probably wrong *)
+  compile_inc (es,aux) =
+    ( let ds = list_insert (MAP FST aux) LN in
+      let ds = add_code_locs ds (MAP (SND o SND) aux) in
+     remove_dests ds es,
+     clos_labels$compile aux)`;
+
 val semantics_compile = Q.store_thm("semantics_compile",
-  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs <> Fail ==>
-   (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (pure_co compile_inc o co) cc (clos_fvs$compile xs) =
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs`,
+  `semantics (ffi:'ffi ffi$ffi_state) max_app (alist_to_fmap aux)
+     co (pure_cc (compile_inc) cc) xs <> ffi$Fail ==> set (code_locs xs) ⊆ code_code_locs (alist_to_fmap aux) ==>
+   semantics (ffi:'ffi ffi$ffi_state) max_app (alist_to_fmap (clos_labels$compile aux))
+     (pure_co (compile_inc) o co) cc (remove_dests (add_code_locs (list_insert (MAP FST aux) LN) (MAP (SND o SND) aux)) xs) =
+   semantics (ffi:'ffi ffi$ffi_state) max_app (alist_to_fmap aux)
+     co (pure_cc (compile_inc) cc) xs`,
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
-  \\ drule remove_fvs_correct
+  \\ drule remove_dests_correct
   \\ simp []
-  \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-                               (pure_co compile_inc o co) cc k` mp_tac)
+  \\ disch_then (qspec_then `initial_state ffi max_app (alist_to_fmap (clos_labels$compile aux))
+                               (pure_co (compile_inc) o co) cc k` mp_tac)
+  \\ qmatch_goalsub_abbrev_tac`remove_dests ds`
+  \\ disch_then(qspec_then`ds`mp_tac)
   \\ impl_tac
-  THEN1 fs [state_rel_def, initial_state_def]
-  \\ fs[compile_def]
+  THEN1 (
+    fs [state_rel_def, initial_state_def]
+    \\ simp[fmap_rel_OPTREL_FLOOKUP, OPTREL_def, EXISTS_PROD, f_rel_def, code_rel_def]
+    \\ simp[compile_def]
+    \\ Q.ISPEC_THEN`λp. (FST p, HD(remove_dests ds[SND p]))`(Q.ISPEC_THEN`aux`mp_tac) ALOOKUP_MAP
+    \\ simp[Once LAMBDA_PROD] \\ disch_then kall_tac
+    \\ conj_tac
+    >- (
+      qx_gen_tac`a`
+      \\ Cases_on`ALOOKUP aux a` \\ simp[]
+      \\ PairCases_on`x` \\ fs[] )
+    \\ simp[Abbr`ds`, add_code_locs_code_locs]
+    \\ fs[code_code_locs_def, domain_list_insert, SUBSET_DEF, PULL_EXISTS,
+          IN_FRANGE_FLOOKUP, MEM_MAP, EXISTS_PROD, code_locs_map, MEM_FLAT]
+    \\ metis_tac[ALOOKUP_MEM] )
   \\ strip_tac
   \\ qexists_tac `0` \\ simp []
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs [])
 
+(*
 (* syntactic properties *)
 
 val code_locs_remove_fvs = store_thm("code_locs_remove_fvs[simp]",
