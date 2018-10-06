@@ -758,15 +758,24 @@ val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
   >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (Cases_on`op=Install` >- fs[pure_op_def] >>
-      every_case_tac >> full_simp_tac(srw_ss())[] >>
-      rename1 `closLang$pure_op opn` >> Cases_on `opn` >>
-      full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] >>
-      srw_tac[][] >>
-      rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
-      every_case_tac \\ fs[] >>
-      full_simp_tac(srw_ss())[EVERY_MEM, EXISTS_MEM] >> metis_tac[])
+      fsrw_tac[ETA_ss][]
+      \\ PURE_CASE_TAC \\ fs[]
+      \\ PURE_CASE_TAC \\ fs[]
+      \\ rveq
+      \\ reverse PURE_CASE_TAC \\ fs[]
+      >- (
+        rename1 `closLang$pure_op opn` >> Cases_on `opn` >>
+        full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] >>
+        rveq \\ fs[] \\ fs[CaseEq"prod"] )
+      \\ rename1 `closLang$pure_op opn` >> Cases_on `opn`
+      \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] \\ rveq \\ fs[]
+      \\ fs[CaseEq"prod"]
+      \\ rveq \\ fs[])
+  (*
   >- (every_case_tac >> simp[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])) |> SIMP_RULE (srw_ss()) []
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])
+  *))
+  |> SIMP_RULE (srw_ss()) []
 
 val pure_correct = save_thm(
   "pure_correct",
