@@ -658,17 +658,36 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
   \\ first_x_assum irule \\ fs[]
   \\ imp_res_tac evaluate_code_const \\ fs[dec_clock_def])
 
-(*
-val remove_fvs_correct = Q.store_thm("remove_fvs_correct",
-  `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
-       evaluate (xs, env1, s1) = (res1, s2) /\
-       LIST_REL v_rel env1 env2 /\ state_rel s1 t1 ==>
-       ?res2 t2.
-         evaluate (remove_fvs (LENGTH env1) xs, env2, t1) = (res2, t2) /\
-         result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-         state_rel s2 t2`,
-  rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_fvs) \\ simp [code_rel_def])
+val add_code_locs_code_locs = Q.store_thm("add_code_locs_code_locs",
+  `∀ds es. domain (add_code_locs ds es) = domain ds ∪ set (code_locs es)`,
+  recInduct add_code_locs_ind
+  \\ rw[add_code_locs_def, code_locs_def, UNION_ASSOC]
+  >- ( CASE_TAC \\ rw[EXTENSION] \\ metis_tac[] )
+  >- (
+    simp[EXTENSION, domain_list_insert]
+    \\ metis_tac[]));
 
+val code_code_locs_def = Define`
+  code_code_locs fm =
+    FDOM fm ∪ BIGUNION (IMAGE (λ(_,e). set (code_locs [e])) (FRANGE fm))`;
+
+val remove_dests_correct = Q.store_thm("remove_dests_correct",
+  `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1 ds.
+       evaluate (xs, env1, s1) = (res1, s2) /\
+       LIST_REL (v_rel ds) env1 env2 /\ state_rel ds s1 t1 /\
+       code_code_locs s1.code ⊆ domain ds ∧
+       set (code_locs xs) ⊆ domain ds
+       ==>
+       ?res2 t2.
+         evaluate (remove_dests ds xs, env2, t1) = (res2, t2) /\
+         result_rel (LIST_REL (v_rel ds)) (v_rel ds) res1 res2 /\
+         state_rel ds s2 t2`,
+  rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_dests)
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ fs [code_rel_def, code_code_locs_def]);
+
+(*
 (* preservation of observational semantics *)
 
 val semantics_compile = Q.store_thm("semantics_compile",
