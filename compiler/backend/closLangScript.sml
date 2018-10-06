@@ -122,9 +122,9 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (App _ _ _ _) ⇔ F)
     ∧
-  (pure (Fn _ _ _ _ _) ⇔ T)
+  (pure (Fn _ _ _ _ _) ⇔ F (* could maybe be: T *))
     ∧
-  (pure (Letrec _ _ _ _ x) ⇔ pure x)
+  (pure (Letrec _ _ _ _ x) ⇔ F (* could maybe be: pure x *))
     ∧
   (pure (Op _ opn es) ⇔ EVERY pure es ∧ pure_op opn)
 ` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
