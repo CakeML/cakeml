@@ -4509,6 +4509,7 @@ val calls_no_Labels = store_thm("calls_no_Labels",
 
 (* names *)
 
+(*
 val app_call_dests_GENLIST_Var = store_thm("app_call_dests_GENLIST_Var",
   ``!t i num_args. app_call_dests opt (GENLIST_Var t i num_args) = {}``,
   Induct_on `num_args`
@@ -4640,5 +4641,6 @@ val call_compile_locs = store_thm("call_compile_locs",
   \\ pairarg_tac \\ fs []
   \\ strip_tac \\ rveq \\ fs []
   \\ drule calls_locs \\ fs [EVAL ``(code_locs [])``]);
+*)
 
 val _ = export_theory();

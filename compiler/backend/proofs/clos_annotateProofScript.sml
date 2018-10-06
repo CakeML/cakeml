@@ -6,6 +6,7 @@ open preamble
 val _ = new_theory"clos_annotateProof";
 
 val _ = temp_bring_to_front_overload"do_app"{Name="do_app",Thy="closSem"};
+val _ = temp_bring_to_front_overload"compile"{Name="compile",Thy="clos_annotate"};
 
 val EVERY2_EL = LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst
                 |> UNDISCH |> CONJUNCT2 |> DISCH_ALL;

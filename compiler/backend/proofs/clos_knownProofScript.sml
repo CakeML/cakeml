@@ -5169,6 +5169,7 @@ val app_call_dests_val_approx_bodies_merge = Q.store_thm("app_call_dests_val_app
   \\ metis_tac[MEM_EL]);
 *)
 
+(*
 val val_approx_dests_def = tDefine"val_approx_dests_def"`
   val_approx_dests a [] = {} ∧
   val_approx_dests a [ClosNoInline loc _] = {loc} ∧
@@ -5439,5 +5440,6 @@ val compile_locs = store_thm("compile_locs",
   \\ disch_then(fn th => assume_tac (SPEC``SOME T`` th) \\ assume_tac (SPEC``SOME F`` th))
   \\ fs[] \\ rfs[]
   \\ cheat);
+*)
 
 val _ = export_theory();
