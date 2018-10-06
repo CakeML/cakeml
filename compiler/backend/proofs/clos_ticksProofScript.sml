@@ -988,4 +988,16 @@ val remove_ticks_no_Labels = store_thm("remove_ticks_no_Labels",
   \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
   \\ rw [] \\ res_tac);
 
+val remove_ticks_app_call_dests = Q.store_thm("remove_ticks_app_call_dests[simp]",
+  `∀es. app_call_dests x (remove_ticks es) = app_call_dests x es`,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def]
+  >- rw[Once closPropsTheory.app_call_dests_cons]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+  \\ simp[app_call_dests_map]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
+  \\ first_x_assum drule \\ rw[]);
+
 val _ = export_theory();

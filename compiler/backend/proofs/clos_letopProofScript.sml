@@ -790,4 +790,28 @@ val let_op_no_Labels = Q.store_thm("let_op_no_Labels",
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
   \\ metis_tac []);
 
+val var_list_app_call_dests = Q.store_thm("var_list_app_call_dests",
+  `∀x y z. var_list x y z ⇒ app_call_dests a y = {}`,
+  recInduct clos_letopTheory.var_list_ind
+  \\ rw[clos_letopTheory.var_list_def]
+  \\ rw[Once app_call_dests_cons]);
+
+val let_op_app_call_dests = Q.store_thm("let_op_app_call_dests[simp]",
+  `∀es. app_call_dests x (let_op es) = app_call_dests x es`,
+  recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def]
+  >- rw[Once closPropsTheory.app_call_dests_cons]
+  >- (
+    PURE_CASE_TAC \\ simp[]
+    \\ qspec_then`x2`strip_assume_tac let_op_SING \\ fs []
+    \\ Cases_on `y` \\ fs [clos_letopTheory.dest_op_def] \\ rveq \\ fs []
+    \\ qsuff_tac `app_call_dests x l = {}` THEN1 fs[]
+    \\ metis_tac [var_list_app_call_dests])
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+  \\ simp[app_call_dests_map]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
+  \\ first_x_assum drule \\ rw[]);
+
 val _ = export_theory();

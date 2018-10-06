@@ -3687,7 +3687,7 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
                 app_dests known_code ⊆ set (code_locs known_code)`
   THEN1 (fs [SUBSET_DEF,EXTENSION] \\ metis_tac [])
   \\ ntac 2 (pop_assum kall_tac)
-  \\ drule clos_knownProofTheory.known_compile_locs
+  \\ drule clos_knownProofTheory.compile_locs
   \\ disch_then match_mp_tac
   \\ imp_res_tac renumber_code_locs_any_dests
   \\ fs [closPropsTheory.any_dests_call_dests_app_dests]);

@@ -1,6 +1,7 @@
 open preamble local open bagLib in end
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
      closLangTheory db_varsTheory backendPropsTheory
+local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
 val _ = new_theory "clos_knownProof";
 
@@ -5110,11 +5111,18 @@ val compile_obeys_max_app = store_thm("compile_obeys_max_app",
 
 (* names *)
 
-val known_compile_locs = store_thm("known_compile_locs",
+val compile_locs = store_thm("compile_locs",
   ``clos_known$compile b number_code = (kc,known_code) /\
     call_dests number_code = ∅ /\ app_dests number_code = ∅ ==>
     call_dests known_code = ∅ /\
     app_dests known_code ⊆ set (code_locs known_code)``,
+  strip_tac
+  \\ Cases_on`b` \\ fs[clos_knownTheory.compile_def]
+  \\ rveq \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ simp[clos_letopProofTheory.code_locs_let_op,
+          clos_ticksProofTheory.code_locs_remove_ticks]
   cheat);
 
 val _ = export_theory();
