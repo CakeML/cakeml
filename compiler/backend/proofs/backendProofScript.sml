@@ -3164,6 +3164,16 @@ val BIGUNION_clos_get_code_labels_GENLIST_Var = store_thm(
   \\ asm_simp_tac std_ss [ADD1,MAP_APPEND,LIST_TO_SET_APPEND,BIGUNION_UNION]
   \\ fs []);
 
+val no_Labels_labs = store_thm("no_Labels_labs",
+  ``!xs.
+      EVERY no_Labels (MAP (SND o SND) xs) ==>
+      EVERY no_Labels (MAP (SND ∘ SND) (clos_labels$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_labelsTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`,`remove_dests ds`] \\ fs []
+  \\ qspecl_then [`ds`,`[x3]`] mp_tac clos_labelsProofTheory.remove_dests_no_Labels
+  \\ fs [clos_labelsProofTheory.EVERY_remove_dests_sing]);
+
 val no_Labels_ann = store_thm("no_Labels_ann",
   ``!xs.
       EVERY no_Labels (MAP (SND o SND) xs) ==>
@@ -3180,6 +3190,17 @@ val no_Labels_ann = store_thm("no_Labels_ann",
   \\ qspecl_then [`x2`,`[x3]`] mp_tac clos_annotateProofTheory.annotate_no_Labels
   \\ fs []);
 
+val obeys_max_app_labs = store_thm("obeys_max_app_labs",
+  ``!xs.
+      EVERY (obeys_max_app k) (MAP (SND o SND) xs) ==>
+      EVERY (obeys_max_app k) (MAP (SND ∘ SND) (clos_labels$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_labelsTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`,`remove_dests ds`] \\ fs []
+  \\ qspecl_then [`ds`,`[x3]`] mp_tac
+        clos_labelsProofTheory.remove_dests_obeys_max_app
+  \\ fs [clos_labelsProofTheory.EVERY_remove_dests_sing]);
+
 val obeys_max_app_ann = store_thm("obeys_max_app_ann",
   ``!xs.
       EVERY (obeys_max_app m) (MAP (SND o SND) xs) ==>
@@ -3195,6 +3216,18 @@ val obeys_max_app_ann = store_thm("obeys_max_app_ann",
   \\ fs []
   \\ qspecl_then [`x2`,`[x3]`] mp_tac clos_annotateProofTheory.annotate_obeys_max_app
   \\ fs []);
+
+val every_Fn_SOME_labs = store_thm("every_Fn_SOME_labs",
+  ``!xs.
+      every_Fn_SOME (MAP (SND o SND) xs) ==>
+      every_Fn_SOME (MAP (SND ∘ SND) (clos_labels$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_labelsTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
+  \\ rename [`remove_dests ds`] \\ fs []
+  \\ Induct_on `xs` \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
+      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
+  \\ fs [] \\ rw []);
 
 val every_Fn_SOME_ann = store_thm("every_Fn_SOME_ann",
   ``!xs.
@@ -3240,7 +3273,7 @@ val syntax_ok_IMP_obeys_max_app = store_thm("syntax_ok_IMP_obeys_max_app",
 
 val compile_common_syntax = store_thm("compile_common_syntax",
   ``!cf e3 cf1 e4.
-      compile_common cf e3 = (cf1,e4) /\
+      clos_to_bvl$compile_common cf e3 = (cf1,e4) /\
       (!x. cf.known_conf = SOME x ==> x.val_approx_spt = LN) ==>
       (EVERY no_Labels e3 ==>
        EVERY no_Labels (MAP (SND o SND) e4)) /\
@@ -3267,6 +3300,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ TRY (drule clos_callProofTheory.calls_no_Labels
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
+    \\ match_mp_tac no_Labels_labs
     \\ match_mp_tac no_Labels_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
     \\ rw [] \\ TRY (match_mp_tac chain_exps_no_Labels \\ fs [])
@@ -3294,6 +3328,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
     \\ TRY (drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
             \\ disch_then (qspec_then `cf.max_app` mp_tac)
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
+    \\ match_mp_tac obeys_max_app_labs
     \\ match_mp_tac obeys_max_app_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
     \\ rw [] \\ TRY (match_mp_tac chain_exps_obeys_max_app \\ fs [])
@@ -3319,6 +3354,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
   \\ TRY pairarg_tac \\ fs [] \\ rveq
   \\ TRY (drule clos_callProofTheory.calls_preserves_every_Fn_SOME
           \\ impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ strip_tac \\ fs [])
+  \\ match_mp_tac every_Fn_SOME_labs
   \\ match_mp_tac every_Fn_SOME_ann
   \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
   \\ match_mp_tac chain_exps_every_Fn_SOME \\ fs []);
