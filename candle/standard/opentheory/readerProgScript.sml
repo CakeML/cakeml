@@ -235,7 +235,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
      (POSTv u.
        &UNIT_TYPE () u *
        STDIO (FST (SND (read_file fs refs fnm))) *
-       HOL_STORE (SND (SND (read_file fs refs fnm))))`,
+       HOL_STORE (FST (SND (SND (read_file fs refs fnm)))))`,
   xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)

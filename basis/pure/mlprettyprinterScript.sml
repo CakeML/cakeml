@@ -41,7 +41,7 @@ val fromWord8_def = Define`
 
 val fromWord64_def = Define`
   fromWord64 (w : 64 word) =
-  List [strlit "0wx", mlnum$toString (words$w2n w)]
+  List [strlit "0wx"; mlnum$toString (words$w2n w)]
 `
 
 val fromRat_def = Define`

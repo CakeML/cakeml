@@ -475,11 +475,6 @@ fun mlstring_from_proc cmd args =
     NONE => Term `NONE : mlstring option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
-fun mlstring_from_proc_from dir cmd args =
-  case read_process (cmd, args, SOME dir) of
-    NONE => Term `NONE : mlstring option`
-  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
-
 (* ========================================================================= *)
 (* ========================================================================= *)
 
