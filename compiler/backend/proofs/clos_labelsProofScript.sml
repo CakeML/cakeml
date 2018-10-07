@@ -789,6 +789,13 @@ val remove_dests_obeys_max_app = store_thm("remove_dests_obeys_max_app",
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_dests]
   \\ rw [] \\ res_tac);
 
+val compile_any_dests_SUBSET_code_locs = store_thm(
+   "compile_any_dests_SUBSET_code_locs",
+  ``any_dests (MAP (SND ∘ SND) (compile input)) ⊆
+    set (MAP FST (compile input)) ∪
+    set (code_locs (MAP (SND ∘ SND) (compile input)))``,
+  cheat);
+
 (*
 
 val remove_fvs_set_globals = Q.store_thm("remove_fvs_set_globals[simp]",
