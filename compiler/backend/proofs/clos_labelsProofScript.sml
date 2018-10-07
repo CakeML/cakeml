@@ -698,9 +698,13 @@ val compile_inc_def = Define ` (* this is probably wrong *)
 
 val semantics_compile = Q.store_thm("semantics_compile",
   `semantics (ffi:'ffi ffi$ffi_state) max_app (alist_to_fmap aux)
-     co (pure_cc (compile_inc) cc) xs <> ffi$Fail ==> set (code_locs xs) ⊆ code_code_locs (alist_to_fmap aux) ==>
-   semantics (ffi:'ffi ffi$ffi_state) max_app (alist_to_fmap (clos_labels$compile aux))
-     (pure_co (compile_inc) o co) cc (remove_dests (add_code_locs (list_insert (MAP FST aux) LN) (MAP (SND o SND) aux)) xs) =
+     co (pure_cc (compile_inc) cc) xs <> ffi$Fail ==>
+   set (code_locs xs) ⊆ code_code_locs (alist_to_fmap aux) ==>
+   semantics (ffi:'ffi ffi$ffi_state) max_app
+     (alist_to_fmap (clos_labels$compile aux))
+     (pure_co (compile_inc) o co) cc
+     (remove_dests (add_code_locs
+       (list_insert (MAP FST aux) LN) (MAP (SND o SND) aux)) xs) =
    semantics (ffi:'ffi ffi$ffi_state) max_app (alist_to_fmap aux)
      co (pure_cc (compile_inc) cc) xs`,
   strip_tac
@@ -734,76 +738,58 @@ val semantics_compile = Q.store_thm("semantics_compile",
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs [])
 
-(*
 (* syntactic properties *)
 
-val code_locs_remove_fvs = store_thm("code_locs_remove_fvs[simp]",
-  ``!fvs xs. code_locs (remove_fvs fvs xs) = code_locs xs``,
-  ho_match_mp_tac remove_fvs_ind \\ rw []
-  \\ fs [code_locs_def,remove_fvs_def]
-  THEN1
-   (`?y. remove_fvs fvs [x] = [y]` by metis_tac [remove_fvs_SING]
-    \\ fs [] \\ simp [Once code_locs_cons])
-  THEN1 (every_case_tac \\ fs [code_locs_def] )
-  \\ fs[code_locs_map]
-  \\ AP_TERM_TAC
-  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]);
-
-val fv_max_remove_fvs = Q.store_thm("fv_max_remove_fvs",
-  `∀fvs xs.
-    every_Fn_vs_NONE xs ⇒
-    (∀v. fv v (remove_fvs fvs xs) ⇒ v < fvs)`,
-  recInduct remove_fvs_ind
-  \\ rw[remove_fvs_def] \\ fs[fv1_thm]
-  \\ full_simp_tac std_ss [fv1_def, HD_remove_fvs_SING]
-  \\ fs[LENGTH_remove_fvs]
-  \\ res_tac \\ fs[]
-  \\ fs[EXISTS_MAP, EXISTS_MEM]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ full_simp_tac std_ss [fv1_def, HD_remove_fvs_SING]
-  \\ first_x_assum drule
-  \\ disch_then(first_assum o mp_then Any mp_tac)
-  \\ impl_tac
-  >- (
-    fs[Q.SPEC`MAP SND _`every_Fn_vs_NONE_EVERY]
-    \\ fs[EVERY_MAP, LAMBDA_PROD]
-    \\ fs[EVERY_MEM, FORALL_PROD]
-    \\ res_tac )
-  \\ rw[]);
-
-val remove_fvs_every_Fn_SOME = Q.store_thm("remove_fvs_every_Fn_SOME[simp]",
-  `∀fvs es. every_Fn_SOME (remove_fvs fvs es) ⇔ every_Fn_SOME es`,
-  recInduct remove_fvs_ind
-  \\ rw[remove_fvs_def]
+val remove_dests_every_Fn_SOME = Q.store_thm("remove_dests_every_Fn_SOME[simp]",
+  `∀ds es. every_Fn_SOME es ==> every_Fn_SOME (remove_dests ds es)`,
+  recInduct remove_dests_ind
+  \\ rw[remove_dests_def]
   >- (
     fs[Once every_Fn_SOME_EVERY]
     \\ metis_tac[every_Fn_SOME_EVERY] )
-  >- (
-    simp[MAP_MAP_o,o_DEF,UNCURRY]
-    \\ Cases_on`IS_SOME loc_opt` \\ fs[]
-    \\ Cases_on`every_Fn_SOME [x1]` \\ fs[]
-    \\ simp[Once every_Fn_SOME_EVERY]
-    \\ fs[EVERY_MEM,UNCURRY,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ simp[Once every_Fn_SOME_EVERY, SimpRHS]
-    \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ metis_tac[]));
+  \\ TRY (Cases_on `lookup dest ds` \\ fs [] \\ NO_TAC)
+  \\ Induct_on `fns` \\ fs [] \\ rw []
+  \\ PairCases_on `h` \\ fs []
+  \\ pop_assum mp_tac
+  \\ Cases_on `fns` \\ fs []
+  \\ PairCases_on `h` \\ fs []
+  \\ metis_tac []);
 
-val remove_fvs_every_Fn_vs_NONE = Q.store_thm("remove_fvs_every_Fn_vs_NONE[simp]",
-  `∀fvs es. every_Fn_vs_NONE (remove_fvs fvs es) ⇔ every_Fn_vs_NONE es`,
-  recInduct remove_fvs_ind
-  \\ rw[remove_fvs_def]
+val remove_dests_every_Fn_vs_NONE = Q.store_thm("remove_dests_every_Fn_vs_NONE[simp]",
+  `∀ds es. every_Fn_vs_NONE es ==> every_Fn_vs_NONE (remove_dests ds es)`,
+  recInduct remove_dests_ind
+  \\ rw[remove_dests_def]
   >- (
     fs[Once every_Fn_vs_NONE_EVERY]
     \\ metis_tac[every_Fn_vs_NONE_EVERY] )
-  >- (
-    simp[MAP_MAP_o,o_DEF,UNCURRY]
-    \\ Cases_on`IS_SOME loc_opt` \\ fs[]
-    \\ Cases_on`every_Fn_vs_NONE [x1]` \\ fs[]
-    \\ simp[Once every_Fn_vs_NONE_EVERY]
-    \\ fs[EVERY_MEM,UNCURRY,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ simp[Once every_Fn_vs_NONE_EVERY, SimpRHS]
-    \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ metis_tac[]));
+  \\ TRY (Cases_on `lookup dest ds` \\ fs [] \\ NO_TAC)
+  \\ Induct_on `fns` \\ fs [] \\ rw []
+  \\ PairCases_on `h` \\ fs []
+  \\ pop_assum mp_tac
+  \\ Cases_on `fns` \\ fs []
+  \\ PairCases_on `h` \\ fs []
+  \\ metis_tac []);
+
+val EVERY_remove_dests_sing = store_thm("EVERY_remove_dests_sing",
+  ``EVERY f (remove_dests n [y]) <=> f (HD (remove_dests n [y]))``,
+  `?t. remove_dests n [y] = [t]` by metis_tac [remove_dests_SING] \\ fs []);
+
+val remove_dests_no_Labels = store_thm("remove_dests_no_Labels",
+  ``!ds xs. EVERY no_Labels xs ==> EVERY no_Labels (remove_dests ds xs)``,
+  ho_match_mp_tac remove_dests_ind \\ rw [remove_dests_def]
+  \\ fs [EVERY_remove_dests_sing]
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ rw [] \\ res_tac);
+
+val remove_dests_obeys_max_app = store_thm("remove_dests_obeys_max_app",
+  ``!ds xs. EVERY (obeys_max_app k) xs ==>
+            EVERY (obeys_max_app k) (remove_dests ds xs)``,
+  ho_match_mp_tac remove_dests_ind \\ rw [remove_dests_def]
+  \\ fs [EVERY_remove_dests_sing]
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_dests]
+  \\ rw [] \\ res_tac);
+
+(*
 
 val remove_fvs_set_globals = Q.store_thm("remove_fvs_set_globals[simp]",
   `∀fvs x. MAP set_globals (remove_fvs fvs x) = MAP set_globals x`,
@@ -837,23 +823,6 @@ val remove_fvs_elist_globals = Q.store_thm("remove_fvs_elist_globals[simp]",
   `elist_globals (remove_fvs fvs xs) = elist_globals xs`,
   rw[elist_globals_FOLDR]);
 
-val EVERY_remove_fvs_sing = store_thm("EVERY_remove_fvs_sing",
-  ``EVERY f (remove_fvs n [y]) <=> f (HD (remove_fvs n [y]))``,
-  `?t. remove_fvs n [y] = [t]` by metis_tac [remove_fvs_SING] \\ fs []);
-
-val remove_fvs_no_Labels = store_thm("remove_fvs_no_Labels",
-  ``!n xs. EVERY no_Labels (remove_fvs n xs) = EVERY no_Labels xs``,
-  ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
-  \\ fs [EVERY_remove_fvs_sing]
-  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
-  \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
-
-val remove_fvs_obeys_max_app = store_thm("remove_fvs_obeys_max_app",
-  ``!n xs. EVERY (obeys_max_app k) (remove_fvs n xs) = EVERY (obeys_max_app k) xs``,
-  ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
-  \\ fs [EVERY_remove_fvs_sing]
-  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_fvs]
-  \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
-
 *)
+
 val _ = export_theory();
