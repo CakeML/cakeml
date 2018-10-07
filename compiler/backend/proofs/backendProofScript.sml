@@ -3649,9 +3649,16 @@ val renumber_code_locs_any_dests = store_thm("renumber_code_locs_any_dests",
        metis_tac [clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]
   \\ fs [MAP_ZIP]);
 
+val BIGUNION_MAP_code_locs_SND_SND = store_thm("BIGUNION_MAP_code_locs_SND_SND",
+  ``BIGUNION (set (MAP (set ∘ code_locs ∘ (λx. [SND (SND x)])) xs)) =
+    set (code_locs (MAP (SND o SND) xs))``,
+  Induct_on `xs` \\ fs [closPropsTheory.code_locs_def]
+  \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
+  \\ fs [closPropsTheory.code_locs_def]);
+
 val compile_common_code_locs = store_thm("compile_common_code_locs",
   ``!c es c1 xs.
-      compile_common c (MAP pat_to_clos_compile es) = (c1,xs) /\
+      clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) /\
       (∀x. c.known_conf = SOME x ⇒ isEmpty x.val_approx_spt) ==>
       BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
@@ -3679,6 +3686,12 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
   \\ conj_tac >- (
         simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT,
              MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
+  \\ rename [`clos_labels$compile input`]
+  \\ fs [BIGUNION_MAP_code_locs_SND_SND]
+  \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]);
+
+(*
+  \\ fs [MAP_MAP_o,o_DEF]
   \\ rewrite_tac [GSYM MAP_MAP_o]
   \\ match_mp_tac SUBSET_TRANS
   \\ qexists_tac `any_dests (MAP (SND o SND) ls)`
@@ -3726,7 +3739,7 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
   \\ drule clos_knownProofTheory.compile_locs
   \\ disch_then match_mp_tac
   \\ imp_res_tac renumber_code_locs_any_dests
-  \\ fs [closPropsTheory.any_dests_call_dests_app_dests]);
+  \\ fs [closPropsTheory.any_dests_call_dests_app_dests]); *)
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
