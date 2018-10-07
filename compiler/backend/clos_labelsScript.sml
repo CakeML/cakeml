@@ -107,4 +107,8 @@ val compile_def = Define`
     let ds = add_code_locs ds (MAP (SND o SND) prog) in
       MAP (λ(n,args,exp). (n, args, HD(remove_dests ds [exp]))) prog`;
 
+val LENGTH_remove_dests = store_thm("LENGTH_remove_dests",
+  ``!dests xs. LENGTH (remove_dests dests xs) = LENGTH xs``,
+  recInduct (fetch "-" "remove_dests_ind") \\ simp [remove_dests_def] \\ rw []);
+
 val _ = export_theory();
