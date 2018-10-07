@@ -789,12 +789,27 @@ val remove_dests_obeys_max_app = store_thm("remove_dests_obeys_max_app",
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_dests]
   \\ rw [] \\ res_tac);
 
+val code_locs_remove_dests = store_thm("code_locs_remove_dests,"
+  ``!ds xs. code_locs (remove_dests ds xs) = code_locs xs``,
+  ho_match_mp_tac remove_dests_ind \\ rw [remove_dests_def]
+  \\ `?x1. remove_dests ds [x] = [x1]` by fs [remove_dests_SING]
+  \\ `?r1. remove_dests ds [x1] = [r1]` by fs [remove_dests_SING]
+  \\ `?r2. remove_dests ds [x2] = [r2]` by fs [remove_dests_SING]
+  \\ `?r3. remove_dests ds [x3] = [r3]` by fs [remove_dests_SING]
+  \\ fs [] \\ once_rewrite_tac [code_locs_cons]
+  \\ fs [code_locs_def]
+  \\ cheat (* not quite right needs to be `set` *));
+
 val compile_any_dests_SUBSET_code_locs = store_thm(
    "compile_any_dests_SUBSET_code_locs",
   ``any_dests (MAP (SND ∘ SND) (compile input)) ⊆
     set (MAP FST (compile input)) ∪
     set (code_locs (MAP (SND ∘ SND) (compile input)))``,
-  cheat);
+  fs [compile_def] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
+  \\ qmatch_abbrev_tac `any_dests
+       (MAP (λx. HD (remove_dests ds [SND (SND x)])) input) ⊆ d`
+  \\ qsuff_tac `d = domain ds`
+  \\ cheat);
 
 (*
 
