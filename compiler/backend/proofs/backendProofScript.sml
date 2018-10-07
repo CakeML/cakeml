@@ -4901,6 +4901,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[GSYM MEM_MAP]
         \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog, Abbr`mm`]
         \\ simp[Once MEM_MAP]
+        \\ simp[clos_labelsProofTheory.MAP_FST_compile]
         \\ simp[clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
         \\ simp[Once MEM_MAP, MEM_COUNT_LIST]
         \\ metis_tac[ADD])

@@ -770,6 +770,38 @@ val remove_dests_every_Fn_vs_NONE = Q.store_thm("remove_dests_every_Fn_vs_NONE[s
   \\ PairCases_on `h` \\ fs []
   \\ metis_tac []);
 
+val remove_dests_every_Fn_vs_SOME = Q.store_thm("remove_dests_every_Fn_vs_SOME[simp]",
+  `∀ds es. every_Fn_vs_SOME es ==> every_Fn_vs_SOME (clos_labels$remove_dests ds es)`,
+  recInduct clos_labelsTheory.remove_dests_ind
+  \\ rw[clos_labelsTheory.remove_dests_def]
+  >- (
+    fs[Once every_Fn_vs_SOME_EVERY]
+    \\ metis_tac[every_Fn_vs_SOME_EVERY] )
+  \\ TRY (Cases_on `lookup dest ds` \\ fs [] \\ NO_TAC)
+  \\ Induct_on `fns` \\ fs [] \\ rw []
+  \\ PairCases_on `h` \\ fs []
+  \\ pop_assum mp_tac
+  \\ Cases_on `fns` \\ fs []
+  \\ PairCases_on `h` \\ fs []
+  \\ metis_tac []);
+
+val compile_every_Fn_SOME = Q.store_thm("compile_every_Fn_SOME",
+  `every_Fn_SOME (MAP (SND o SND) es) ⇒
+   every_Fn_SOME (MAP (SND o SND) (clos_labels$compile es))`,
+  rw[clos_labelsTheory.compile_def, Once every_Fn_SOME_EVERY]
+  \\ fs[Once every_Fn_SOME_EVERY]
+  \\ fs[EVERY_MAP, UNCURRY]
+  \\ fs[EVERY_MEM] \\ rw[remove_dests_SING]);
+
+val compile_every_Fn_vs_SOME = Q.store_thm("compile_every_Fn_vs_SOME",
+  `every_Fn_vs_SOME (MAP (SND o SND) es) ⇒
+   every_Fn_vs_SOME (MAP (SND o SND) (clos_labels$compile es))`,
+  rw[Once every_Fn_vs_SOME_EVERY]
+  \\ rw[clos_labelsTheory.compile_def]
+  \\ rw[Once every_Fn_vs_SOME_EVERY]
+  \\ fs[EVERY_MAP, UNCURRY]
+  \\ fs[EVERY_MEM, remove_dests_SING]);
+
 val EVERY_remove_dests_sing = store_thm("EVERY_remove_dests_sing",
   ``EVERY f (remove_dests n [y]) <=> f (HD (remove_dests n [y]))``,
   `?t. remove_dests n [y] = [t]` by metis_tac [remove_dests_SING] \\ fs []);
@@ -802,6 +834,55 @@ val code_locs_remove_dests = store_thm("code_locs_remove_dests",
   \\ fs[code_locs_append]
   >- ( simp[UNION_COMM] )
   \\ fs[Once EXTENSION, code_locs_map, MEM_MAP, PULL_EXISTS, MEM_FLAT, EXISTS_PROD]
+  \\ metis_tac[]);
+
+val code_locs_remove_dests_distinct = store_thm("code_locs_remove_dests_distinct",
+  ``!ds xs. ALL_DISTINCT (code_locs xs) ⇒ ALL_DISTINCT (code_locs (clos_labels$remove_dests ds xs))``,
+  ho_match_mp_tac clos_labelsTheory.remove_dests_ind \\ rw [clos_labelsTheory.remove_dests_def]
+  \\ `?x1. clos_labels$remove_dests ds [x] = [x1]` by fs [remove_dests_SING]
+  \\ `?r1. clos_labels$remove_dests ds [x1] = [r1]` by fs [remove_dests_SING]
+  \\ `?r2. clos_labels$remove_dests ds [x2] = [r2]` by fs [remove_dests_SING]
+  \\ `?r3. clos_labels$remove_dests ds [x3] = [r3]` by fs [remove_dests_SING]
+  \\ fs[NULL_EQ, code_locs_def]
+  \\ qspecl_then[`ds`,`[x]`]mp_tac code_locs_remove_dests
+  \\ qspecl_then[`ds`,`xs`]mp_tac code_locs_remove_dests
+  \\ qspecl_then[`ds`,`[x1]`]mp_tac code_locs_remove_dests
+  \\ qspecl_then[`ds`,`[x2]`]mp_tac code_locs_remove_dests
+  \\ qspecl_then[`ds`,`[x3]`]mp_tac code_locs_remove_dests
+  \\ rw[] \\ fs[ALL_DISTINCT_APPEND, code_locs_append]
+  >- (
+    simp[Once code_locs_cons]
+    \\ fs[ALL_DISTINCT_APPEND]
+    \\ qspecl_then[`ds`,`y::xs`]mp_tac code_locs_remove_dests
+    \\ rw[] )
+  >- metis_tac[]
+  >- metis_tac[]
+  \\ conj_tac
+  >- (
+    fs[code_locs_map, MAP_MAP_o, o_DEF, UNCURRY, MEM_FLAT, PULL_EXISTS, MEM_MAP, FORALL_PROD]
+    \\ reverse conj_tac
+    >- (
+      rw[]
+      \\ first_x_assum match_mp_tac
+      \\ asm_exists_tac \\ rw[]
+      \\ pop_assum mp_tac
+      \\ qspecl_then[`ds`,`[p_2]`]mp_tac code_locs_remove_dests
+      \\ rw[] )
+    \\ fs[ALL_DISTINCT_FLAT, EL_MAP, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ first_x_assum irule
+      \\ metis_tac[] )
+    \\ rw[]
+    \\ qspecl_then[`ds`,`[SND (EL i fns)]`]mp_tac code_locs_remove_dests
+    \\ qspecl_then[`ds`,`[SND (EL j fns)]`]mp_tac code_locs_remove_dests
+    \\ rw[] \\ fs[] \\ metis_tac[] )
+  \\ fs[code_locs_map, MEM_FLAT, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD]
+  \\ reverse(rw[])
+  >- metis_tac[]
+  \\ qspecl_then[`ds`,`[p_2']`]mp_tac code_locs_remove_dests
+  \\ rw[] \\ fs[]
   \\ metis_tac[]);
 
 val any_dests_remove_dests = Q.store_thm("any_dests_remove_dests",
@@ -839,6 +920,12 @@ val compile_any_dests_SUBSET_code_locs = store_thm(
   \\ qmatch_goalsub_abbrev_tac`remove_dests ds xs`
   \\ mp_tac(SPEC_ALL any_dests_remove_dests)
   \\ simp[SUBSET_DEF]);
+
+val MAP_FST_compile = Q.store_thm("MAP_FST_compile",
+  `∀ls. MAP FST (clos_labels$compile ls) = MAP FST ls`,
+  Induct
+  \\ rw[clos_labelsTheory.compile_def, MAP_MAP_o, o_DEF, UNCURRY]
+  \\ srw_tac[ETA_ss][]);
 
 (*
 
