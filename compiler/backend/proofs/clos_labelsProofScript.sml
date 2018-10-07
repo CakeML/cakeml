@@ -467,7 +467,7 @@ val evaluate_remove_dests = Q.store_thm("evaluate_remove_dests",
       \\ first_x_assum irule \\ fs[]
       \\ fs[domain_lookup, IS_SOME_EXISTS])
     \\ Cases_on`NULL xs` \\ simp[evaluate_def, do_app_def]
-    >- ( fs[NULL_EQ] \\ rw[] )
+    >- ( fs[NULL_EQ] \\ rw[])
     \\ simp[evaluate_append]
     \\ `LENGTH xs > 0` by (CCONTR_TAC \\ fs[NULL_EQ, NOT_GREATER]) \\ fs[]
     \\ fs[CaseEq"prod"] \\ fs[]
@@ -789,16 +789,30 @@ val remove_dests_obeys_max_app = store_thm("remove_dests_obeys_max_app",
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_dests]
   \\ rw [] \\ res_tac);
 
-val code_locs_remove_dests = store_thm("code_locs_remove_dests,"
-  ``!ds xs. code_locs (remove_dests ds xs) = code_locs xs``,
+val code_locs_remove_dests = store_thm("code_locs_remove_dests",
+  ``!ds xs. set (code_locs (remove_dests ds xs)) = set (code_locs xs)``,
   ho_match_mp_tac remove_dests_ind \\ rw [remove_dests_def]
   \\ `?x1. remove_dests ds [x] = [x1]` by fs [remove_dests_SING]
   \\ `?r1. remove_dests ds [x1] = [r1]` by fs [remove_dests_SING]
   \\ `?r2. remove_dests ds [x2] = [r2]` by fs [remove_dests_SING]
   \\ `?r3. remove_dests ds [x3] = [r3]` by fs [remove_dests_SING]
-  \\ fs [] \\ once_rewrite_tac [code_locs_cons]
-  \\ fs [code_locs_def]
-  \\ cheat (* not quite right needs to be `set` *));
+  \\ fs [NULL_EQ] \\ once_rewrite_tac [code_locs_cons]
+  \\ fs [code_locs_def] \\ rveq
+  \\ fs[remove_dests_def, code_locs_def]
+  \\ fs[code_locs_append]
+  >- ( simp[UNION_COMM] )
+  \\ fs[Once EXTENSION, code_locs_map, MEM_MAP, PULL_EXISTS, MEM_FLAT, EXISTS_PROD]
+  \\ metis_tac[]);
+
+val any_dests_remove_dests = Q.store_thm("any_dests_remove_dests",
+  `∀ds xs. any_dests (remove_dests ds xs) ⊆ domain ds`,
+  recInduct remove_dests_ind
+  \\ rw[remove_dests_def, IS_SOME_EXISTS, app_call_dests_append]
+  \\ simp[Once app_call_dests_cons]
+  \\ fs[domain_lookup, NULL_EQ]
+  \\ TRY(Cases_on`lookup dest ds` \\ fs[remove_dests_def] \\ NO_TAC)
+  \\ simp[app_call_dests_map, SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD]
+  \\ fs[SUBSET_DEF] \\ metis_tac[]);
 
 val compile_any_dests_SUBSET_code_locs = store_thm(
    "compile_any_dests_SUBSET_code_locs",
@@ -808,8 +822,23 @@ val compile_any_dests_SUBSET_code_locs = store_thm(
   fs [compile_def] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
   \\ qmatch_abbrev_tac `any_dests
        (MAP (λx. HD (remove_dests ds [SND (SND x)])) input) ⊆ d`
-  \\ qsuff_tac `d = domain ds`
-  \\ cheat);
+  \\ `d = domain ds`
+  by (
+    simp[Abbr`ds`, add_code_locs_code_locs, Abbr`d`]
+    \\ simp[Once EXTENSION, domain_list_insert]
+    \\ srw_tac[ETA_ss][]
+    \\ AP_TERM_TAC
+    \\ simp[code_locs_map]
+    \\ simp[MEM_FLAT, MEM_MAP, PULL_EXISTS]
+    \\ simp[code_locs_remove_dests] )
+  \\ fs[Abbr`d`]
+  \\ pop_assum kall_tac
+  \\ simp[app_call_dests_map]
+  \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
+  \\ rpt gen_tac
+  \\ qmatch_goalsub_abbrev_tac`remove_dests ds xs`
+  \\ mp_tac(SPEC_ALL any_dests_remove_dests)
+  \\ simp[SUBSET_DEF]);
 
 (*
 

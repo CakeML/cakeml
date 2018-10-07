@@ -37,7 +37,7 @@ val remove_dests_def = tDefine "remove_dests" `
   if IS_SOME (lookup dest ds) then
     [App t (SOME dest) (HD (remove_dests ds [x1])) (remove_dests ds xs)]
   else
-    if NULL xs then [Op t El [x1]]
+    if NULL xs then [Let t [Op t El []] (HD (remove_dests ds [x1]))]
     else [Op t (String"") (remove_dests ds xs ++ remove_dests ds [x1])]) /\
   (remove_dests ds [Letrec t loc_opt vs fns x1] =
      let m = LENGTH fns in
