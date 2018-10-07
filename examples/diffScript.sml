@@ -999,7 +999,7 @@ val headers_within_append1 = Q.store_thm("headers_within_append1",
   >> FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC]
   >> drule0(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then[`n + LENGTH l'`,`m`] assume_tac)
-  >> `!opt. lift ($++ (l' ⧺ [x])) opt = lift ($++ l') (lift (CONS x) opt)`
+  >> `!opt. OPTION_MAP ($++ (l' ⧺ [x])) opt = OPTION_MAP ($++ l') (OPTION_MAP (CONS x) opt)`
        by(Cases >> fs[])
   >> fs[ADD1]
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
@@ -1027,7 +1027,7 @@ val headers_within_append2 = Q.store_thm("headers_within_append2",
   >> impl_tac >> fs[]
   >> strip_tac >> first_x_assum drule0
   >> fs[]
-  >> `!opt. lift (combin$C $++ (h::l')) opt = lift (combin$C $++ l') (lift (SNOC h) opt)`
+  >> `!opt. OPTION_MAP (combin$C $++ (h::l')) opt = OPTION_MAP (combin$C $++ l') (OPTION_MAP (SNOC h) opt)`
        by(Cases >> fs[] )
        >> fs[ADD1]
   >> pop_assum kall_tac
