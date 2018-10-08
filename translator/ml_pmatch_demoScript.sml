@@ -1,3 +1,7 @@
+(*
+  Demonstration of using the translator on functions containing PMATCH-based
+  pattern matching.
+*)
 open HolKernel Parse boolLib bossLib;
 open patternMatchesLib ml_translatorLib patternMatchesSyntax patternMatchesTheory;
 

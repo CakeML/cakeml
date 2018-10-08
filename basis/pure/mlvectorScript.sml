@@ -1,3 +1,6 @@
+(*
+  Pure functions for the Vector module.
+*)
 open preamble
       mllistTheory miscTheory regexp_compilerTheory
 

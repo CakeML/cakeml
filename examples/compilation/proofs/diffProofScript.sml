@@ -25,6 +25,7 @@ val compile_correct_applied =
 val diff_compiled_thm =
   CONJ compile_correct_applied diff_output
   |> DISCH_ALL
+  |> check_thm
   |> curry save_thm "diff_compiled_thm";
 
 val _ = export_theory();

@@ -1,12 +1,17 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../misc ../semantics parsing inference backend\
+INCLUDES = ../developers ../misc ../semantics parsing inference backend\
            backend/reg_alloc encoders/asm ../basis ../characteristic\
            backend/arm6 backend/arm8 backend/mips backend/riscv\
            backend/x64\
            $(HOLDIR)/examples/formal-languages/context-free
 
-all: compilerTheory.uo compilationLib.uo
+all: compilerTheory.uo compilationLib.uo README.md
 .PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml)
+DIRS = $(wildcard */)
+README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	../developers/readme_gen $(README_SOURCES)
 
 ifdef POLY
 HOLHEAP = heap

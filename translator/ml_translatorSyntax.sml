@@ -1,3 +1,7 @@
+(*
+  Library for manipulating the HOL terms and types defined in
+  ml_translatorTheory.
+*)
 structure ml_translatorSyntax :> ml_translatorSyntax =
 struct
 

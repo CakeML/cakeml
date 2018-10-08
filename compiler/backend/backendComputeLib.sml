@@ -179,7 +179,17 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_knownTheory.known_def
     ,clos_knownTheory.compile_def
     ,clos_knownTheory.clos_approx_def
+      (* ---- clos_ticks---- *)
+    ,clos_ticksTheory.remove_ticks_def
+      (* ---- clos_letop---- *)
+    ,clos_letopTheory.var_list_def
+    ,clos_letopTheory.dest_op_def
+    ,clos_letopTheory.let_op_def
     ]
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_fvs"}))
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_labels"}))
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
      ``:bvl$exp``
@@ -503,6 +513,11 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.bignum_words_def
     ,data_to_wordTheory.Smallnum_def
     ,data_to_wordTheory.MemEqList_def
+    ,data_to_wordTheory.arg1_def
+    ,data_to_wordTheory.arg2_def
+    ,data_to_wordTheory.arg3_def
+    ,data_to_wordTheory.arg4_def
+    ,data_to_wordTheory.all_assign_defs
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.fp_cmp_inst_def
     ,data_to_wordTheory.fp_bop_inst_def

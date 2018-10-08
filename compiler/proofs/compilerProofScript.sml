@@ -224,7 +224,8 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs[] )
     \\ fs[])
   \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
-  \\ simp[]);
+  \\ simp[])
+|> check_thm;
 
 val type_config_ok = Q.store_thm ("type_config_ok",
   `env_rel prim_tenv infer$init_config ∧

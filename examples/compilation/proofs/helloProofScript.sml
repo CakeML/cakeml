@@ -26,6 +26,7 @@ val compile_correct_applied =
 val hello_compiled_thm =
   CONJ compile_correct_applied hello_output
   |> DISCH_ALL
+  |> check_thm
   |> curry save_thm "hello_compiled_thm";
 
 val _ = export_theory();

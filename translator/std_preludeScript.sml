@@ -1,3 +1,7 @@
+(*
+  Translations of various useful HOL functions and datatypes, to serve as a
+  starting point for further translations.
+*)
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
 open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
 

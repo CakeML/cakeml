@@ -113,6 +113,14 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
+val assign_def =
+  data_to_wordTheory.assign_def
+  |> REWRITE_RULE [data_to_wordTheory.arg1_def,
+                   data_to_wordTheory.arg2_def,
+                   data_to_wordTheory.arg3_def,
+                   data_to_wordTheory.arg4_def,
+                   data_to_wordTheory.all_assign_defs];
+
 val data_compile_correct = Q.store_thm("data_compile_correct",
   `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -853,7 +861,7 @@ val compile_semantics = Q.store_thm("compile_semantics",`
    code_rel c (fromAList prog) x1 ∧
    (* Explicitly instantiate code_oracle_rel at the intermediate state *)
    cc = (λcfg.
-        lift (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+        OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
         MAP (compile_part c)) ∧
    Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
    (∀n. EVERY (λ(n,_). data_num_stubs ≤ n) (SND (co n))) ∧
@@ -1075,7 +1083,7 @@ val assign_no_inst = Q.prove(`
 inst_ok_less_def
 *)
 
-val comp_no_inst = Q.prove(`
+val comp_no_inst = Q.store_thm("comp_no_inst",`
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧

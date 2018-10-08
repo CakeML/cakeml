@@ -1,3 +1,7 @@
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 open import Pervasives
 open import Lib
 import List_extra
