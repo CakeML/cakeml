@@ -28,6 +28,11 @@ fun tac (g as (asl,w)) =
     map_every (fn tm => Cases_on [ANTIQUOTE tm]) tms g
   end
 
+val renumber_code_locs_list_IMP_LENGTH = store_thm(
+   "renumber_code_locs_list_IMP_LENGTH",
+  ``renumber_code_locs_list loc es = (l1,es2) ==> LENGTH es2 = LENGTH es``,
+  metis_tac [SND,renumber_code_locs_length]);
+
 val renumber_code_locs_inc = Q.store_thm("renumber_code_locs_inc",
   `(∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
     (∀n e. n ≤ FST (renumber_code_locs n e))`,
@@ -869,10 +874,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[find_code_def] >>
     `FDOM s2'.code = FDOM t2.code` by full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def] >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
-      srw_tac[][] ) >>
-    rfs[state_rel_def])
+    fs [FLOOKUP_DEF,state_rel_def])
   THEN1 (* App empty *)
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
@@ -973,7 +975,7 @@ val renumber_code_locs_elist_globals = Q.store_thm(
       set_globals e' = set_globals e)`,
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag Add``] >>
   rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
   qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
@@ -995,6 +997,34 @@ val renumber_code_locs_esgc_free = Q.store_thm(
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
       simp[]));
+
+val renumber_code_locs_obeys_max_app = Q.store_thm(
+  "renumber_code_locs_obeys_max_app",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY (obeys_max_app m) es ⇒
+      EVERY (obeys_max_app m) es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ obeys_max_app m e ⇒ obeys_max_app m e')`,
+  ho_match_mp_tac renumber_code_locs_ind
+  \\ rw [renumber_code_locs_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs []
+  \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
+
+val renumber_code_locs_no_Labels = Q.store_thm(
+  "renumber_code_locs_no_Labels",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY no_Labels es ⇒
+      EVERY no_Labels es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ no_Labels e ⇒ no_Labels e')`,
+  ho_match_mp_tac renumber_code_locs_ind
+  \\ rw [renumber_code_locs_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs []
+  \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
 
 (* preservation of observable semantics *)
 

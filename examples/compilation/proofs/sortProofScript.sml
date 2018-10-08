@@ -25,6 +25,7 @@ val compile_correct_applied =
 val sort_compiled_thm =
   CONJ compile_correct_applied sort_output
   |> DISCH_ALL
+  |> check_thm
   |> curry save_thm "sort_compiled_thm";
 
 val _ = export_theory();

@@ -723,6 +723,15 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
     \\ res_tac )
   \\ METIS_TAC[compile_sing,HD,MEM,const_cons_fst_MEM,compile_set_globals_eq_empty]);
 
+val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
+  `∀ds. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds)) ⇒
+        EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (flat_reorder_match$compile_decs ds)))`,
+  Induct \\ simp[flat_reorder_matchTheory.compile_decs_def]
+  \\ Cases \\ simp[] \\ rw[] \\ fs[]
+  \\ qspec_then`[e]`mp_tac compile_esgc_free
+  \\ strip_assume_tac (SPEC_ALL flat_reorder_matchTheory.compile_sing)
+  \\ rw[]);
+
 val const_cons_sep_sub_bag = Q.store_thm("const_cons_sep_sub_bag",
   `∀pes a const_cons c a'.
     const_cons_sep pes a const_cons = (c,a') ⇒
@@ -784,5 +793,19 @@ val compile_distinct_globals = Q.store_thm("compile_distinct_globals",
   `BAG_ALL_DISTINCT (elist_globals es) ⇒ BAG_ALL_DISTINCT (elist_globals (compile es))`,
   METIS_TAC[compile_sub_bag,BAG_ALL_DISTINCT_SUB_BAG]);
 
-val () = export_theory();
+val compile_decs_sub_bag = Q.store_thm("compile_decs_sub_bag",
+  `(elist_globals (MAP dest_Dlet (FILTER is_Dlet (flat_reorder_match$compile_decs ds)))) ≤ (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))`,
+  Induct_on`ds` \\ rw [flat_reorder_matchTheory.compile_decs_def]
+  \\ fs [UNCURRY] \\ rw []
+  \\ Cases_on `h` \\ fs []
+  \\ qspec_then `e` assume_tac flat_reorder_matchTheory.compile_sing \\ fs []
+  \\ `elist_globals [e2] <= elist_globals [e]`
+    by metis_tac [compile_sub_bag]
+  \\ fs [SUB_BAG_UNION]);
 
+val compile_decs_distinct_globals = Q.store_thm("compile_decs_distinct_globals",
+  `BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))) ⇒
+   BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet (flat_reorder_match$compile_decs ds))))`,
+  metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+
+val () = export_theory();

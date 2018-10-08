@@ -186,6 +186,10 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_letopTheory.dest_op_def
     ,clos_letopTheory.let_op_def
     ]
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_fvs"}))
+  ,computeLib.Defs
+    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_labels"}))
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
      ``:bvl$exp``

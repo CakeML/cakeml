@@ -968,4 +968,36 @@ val remove_ticks_every_Fn_vs_NONE = Q.store_thm("remove_ticks_every_Fn_vs_NONE[s
   \\ simp[Once every_Fn_vs_NONE_EVERY,SimpRHS,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
   \\ metis_tac[]);
 
+val EVERY_remove_ticks_sing = store_thm("EVERY_remove_ticks_sing",
+  ``EVERY f (remove_ticks [x]) = f (HD (remove_ticks [x]))``,
+  qspec_then`x`strip_assume_tac remove_ticks_SING \\ fs []);
+
+val remove_ticks_obeys_max_app = store_thm("remove_ticks_obeys_max_app",
+  ``!xs. EVERY (obeys_max_app m) xs ==> EVERY (obeys_max_app m) (remove_ticks xs)``,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def]
+  \\ fs [EVERY_remove_ticks_sing,LENGTH_remove_ticks]
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ rw [] \\ res_tac);
+
+val remove_ticks_no_Labels = store_thm("remove_ticks_no_Labels",
+  ``!xs. EVERY no_Labels xs ==> EVERY no_Labels (remove_ticks xs)``,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def]
+  \\ fs [EVERY_remove_ticks_sing]
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ rw [] \\ res_tac);
+
+val remove_ticks_app_call_dests = Q.store_thm("remove_ticks_app_call_dests[simp]",
+  `∀es. app_call_dests x (remove_ticks es) = app_call_dests x es`,
+  recInduct clos_ticksTheory.remove_ticks_ind
+  \\ rw[clos_ticksTheory.remove_ticks_def]
+  >- rw[Once closPropsTheory.app_call_dests_cons]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+  \\ simp[app_call_dests_map]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
+  \\ first_x_assum drule \\ rw[]);
+
 val _ = export_theory();

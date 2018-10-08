@@ -51,4 +51,8 @@ val remove_fvs_def = tDefine "remove_fvs" `
 val compile_def = Define`
   compile exps = remove_fvs 0 exps`;
 
+val LENGTH_remove_fvs = store_thm("LENGTH_remove_fvs",
+  ``!fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs``,
+  recInduct (fetch "-" "remove_fvs_ind") \\ simp [remove_fvs_def] \\ rw []);
+
 val _ = export_theory();

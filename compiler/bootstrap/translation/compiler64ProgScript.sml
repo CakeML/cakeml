@@ -8,6 +8,9 @@ val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
 
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "compiler64Prog_translate_timing.txt")
+
 val () = Globals.max_print_depth := 15;
 
 val () = use_long_names := true;
