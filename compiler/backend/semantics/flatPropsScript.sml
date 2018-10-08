@@ -1033,5 +1033,26 @@ val esgc_free_def = tDefine "esgc_free" `
 val esgc_free_def = save_thm("esgc_free_def[simp]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
+val elist_globals_eq_empty = Q.store_thm("elist_globals_eq_empty",
+  `elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}`,
+  Induct_on`l` \\ rw[set_globals_def] \\ rw[EQ_IMP_THM] \\ rw[]);
+
+val elist_globals_append = Q.store_thm("elist_globals_append",
+  `elist_globals (xs ++ ys) = elist_globals xs ⊎ elist_globals ys`,
+ Induct_on `xs` \\ rw [BAG_UNION, FUN_EQ_THM, EMPTY_BAG]);
+
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
+
+val is_Dlet_def = Define `
+  (is_Dlet (Dlet _) <=> T) /\
+  (is_Dlet _ <=> F)`;
+
+val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
+
+val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
+
 val _ = export_theory()
 

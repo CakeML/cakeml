@@ -1705,10 +1705,10 @@ val read_file_def = Define`
     (if inFS_fname fs (File fnm) then
        (case readLines (all_lines fs (File fnm)) init_state refs of
         | (Success (s,_), refs) =>
-            (T, add_stdout fs (msg_success s refs.the_context), refs)
-        | (Failure (Fail e), refs) => (F, add_stderr fs e, refs))
+            (T, add_stdout fs (msg_success s refs.the_context), refs, SOME s)
+        | (Failure (Fail e), refs) => (F, add_stderr fs e, refs, NONE))
      else
-       (F, add_stderr fs (msg_bad_name fnm), refs))`;
+       (F, add_stderr fs (msg_bad_name fnm), refs, NONE))`;
 
 val reader_main_def = Define `
    reader_main fs refs cl =
@@ -1716,9 +1716,9 @@ val reader_main_def = Define `
          [fnm] =>
           (case init_reader () refs of
             (Success _, refs) => read_file fs refs fnm
-          | (Failure (Fail e), refs) => (F, add_stderr fs (msg_axioms e), refs)
-          | (_, refs) => (F, fs, refs))
-       | _ => (F, add_stderr fs msg_usage, refs)`;
+          | (Failure (Fail e), refs) => (F, add_stderr fs (msg_axioms e), refs, NONE)
+          | (_, refs) => (F, fs, refs, NONE))
+       | _ => (F, add_stderr fs msg_usage, refs, NONE)`;
 
 (* ------------------------------------------------------------------------- *)
 (* Specs imply that invariants are preserved.                                *)
@@ -1743,12 +1743,14 @@ val process_line_inv = Q.store_thm("process_line_inv",
    \\ rpt (disch_then drule) \\ rw []);
 
 val reader_proves = Q.store_thm("reader_proves",
-  `reader_main fs init_refs cl = (T,outp,refs)
+  `reader_main fs init_refs cl = (T,outp,refs,sopt)
    ==>
-   ?s ctxt.
-     (!asl c. MEM (Sequent asl c) s.thms ==> (thyof ctxt, asl) |- c) /\
-     outp = add_stdout fs (msg_success s ctxt) /\
-     ctxt extends init_ctxt`,
+   ?s.
+     sopt = SOME s /\
+     (!asl c.
+        MEM (Sequent asl c) s.thms ==> (thyof refs.the_context, asl) |- c) /\
+     outp = add_stdout fs (msg_success s refs.the_context) /\
+     refs.the_context extends init_ctxt`,
   rw [reader_main_def, case_eq_thms, read_file_def, bool_case_eq, PULL_EXISTS]
   \\ imp_res_tac init_reader_ok
   \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
@@ -1758,9 +1760,7 @@ val reader_proves = Q.store_thm("reader_proves",
   \\ first_x_assum (assume_tac o REWRITE_RULE [THM_def] o
                     Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
   \\ fs [STATE_def, CONTEXT_def] \\ rveq
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `ds ++ refs'.the_context` \\ fs []
-  \\ metis_tac []);
+  \\ fs [EQ_SYM_EQ]);
 
 val _ = export_theory();
 

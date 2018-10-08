@@ -513,7 +513,47 @@ val clos_letop_let_op_side = Q.prove(`
   \\ rw [] \\ simp [Once (fetch "-" "clos_letop_let_op_side_def")]
   \\ metis_tac [FST,PAIR]) |> update_precondition;
 
+val r = translate (clos_fvsTheory.remove_fvs_def);
+
+val clos_fvs_remove_fvs_side = Q.prove(`
+  ∀a b. clos_fvs_remove_fvs_side a b ⇔ T`,
+  `∀a z. clos_fvs$remove_fvs a [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_fvs$remove_fvs a [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_fvsTheory.LENGTH_remove_fvs] \\ fs [])
+  \\ ho_match_mp_tac clos_fvsTheory.remove_fvs_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_fvs_remove_fvs_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
 val r = translate clos_knownTheory.compile_def
+
+(* labels *)
+
+val r = translate (clos_labelsTheory.remove_dests_def);
+
+val clos_labels_remove_dests_side = Q.prove(`
+  ∀a b. clos_labels_remove_dests_side a b ⇔ T`,
+  `∀a z. clos_labels$remove_dests a [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_labels$remove_dests a [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_labelsTheory.LENGTH_remove_dests] \\ fs [])
+  \\ ho_match_mp_tac clos_labelsTheory.remove_dests_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_labels_remove_dests_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
+val r = translate clos_labelsTheory.compile_def;
+
+val clos_labels_compile_side = Q.prove(`
+  ∀a. clos_labels_compile_side a ⇔ T`,
+  `∀a z. clos_labels$remove_dests a [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_labels$remove_dests a [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_labelsTheory.LENGTH_remove_dests] \\ fs [])
+  \\ rw [] \\ simp [Once (fetch "-" "clos_labels_compile_side_def")])
+ |> update_precondition;
 
 (* call *)
 
@@ -573,7 +613,8 @@ val clos_annotate_compile_side = Q.prove(
   METIS_TAC[clos_annotateTheory.shift_SING,clos_annotateTheory.alt_free_SING,
             FST,PAIR,list_distinct]) |> update_precondition;
 
-val r = translate clos_to_bvlTheory.compile_def
+val r = translate clos_to_bvlTheory.compile_common_def;
+val r = translate clos_to_bvlTheory.compile_def;
 
 val BVL_EXP_TYPE_def = theorem"BVL_EXP_TYPE_def";
 val BVL_EXP_TYPE_ind = theorem"BVL_EXP_TYPE_ind";

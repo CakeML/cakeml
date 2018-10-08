@@ -25,6 +25,9 @@ val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
 (* -- *)
 
+fun check_tag t = Tag.isEmpty t orelse Tag.isDisk t
+val check_thm = Lib.assert (check_tag o Thm.tag)
+
 val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
 val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};
 val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};

@@ -37,6 +37,7 @@ val compile_correct_applied =
 val cake_compiled_thm =
   CONJ compile_correct_applied cake_output
   |> DISCH_ALL
+  |> check_thm
   |> curry save_thm "cake_compiled_thm";
 
 (* TODO: compose this with a correctness theorem for compiler_x64? *)

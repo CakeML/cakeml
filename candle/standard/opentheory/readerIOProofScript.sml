@@ -184,7 +184,7 @@ val readLines_EQ = Q.store_thm("readLines_EQ",
 
 val readFile_correct = Q.store_thm("readFile_correct",
   `readFile fname c = (res, c_out) /\
-   read_file c.stdio c.holrefs fname = (succ, fs, refs)
+   read_file c.stdio c.holrefs fname = (succ, fs, refs, fstate)
    ==>
    res = Success () /\ fs = c_out.stdio /\ refs = c_out.holrefs`,
   rw [readFile_def, read_file_def, st_ex_bind_def, st_ex_return_def,
@@ -195,7 +195,7 @@ val readFile_correct = Q.store_thm("readFile_correct",
 
 val readMain_correct = Q.store_thm ("readMain_correct",
   `readMain () c = (res, c_out) /\
-   reader_main c.stdio c.holrefs (TL c.cl) = (succ, fs, refs)
+   reader_main c.stdio c.holrefs (TL c.cl) = (succ, fs, refs, fstate)
    ==>
    res = Success () /\ fs = c_out.stdio`,
   simp [readMain_def, st_ex_bind_def, case_eq_thms, arguments_def, liftM_def,

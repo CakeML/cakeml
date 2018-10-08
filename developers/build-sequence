@@ -69,6 +69,7 @@ candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
+candle/standard/opentheory/compilation
 
 # examples and tests
 characteristic/examples

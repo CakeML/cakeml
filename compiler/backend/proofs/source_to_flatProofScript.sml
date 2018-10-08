@@ -3836,4 +3836,185 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ fs [glob_alloc_def, EVERY_MEM]
   \\ res_tac \\ fs []);
 
+(* - esgc_free theorems for compile_exp ------------------------------------ *)
+
+val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
+  `(!tra env exp.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      esgc_free (compile_exp tra env exp) /\
+      set_globals (compile_exp tra env exp) = {||}) /\
+   (!tra env exps.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      EVERY esgc_free (compile_exps tra env exps) /\
+      elist_globals (compile_exps tra env exps) = {||}) /\
+   (!tra env pes.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      EVERY esgc_free (MAP SND (compile_pes tra env pes)) /\
+      elist_globals (MAP SND (compile_pes tra env pes)) = {||}) /\
+   (!tra env funs.
+      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
+      ==>
+      EVERY esgc_free (MAP (SND o SND) (compile_funs tra env funs)) /\
+      elist_globals (MAP (SND o SND) (compile_funs tra env funs)) = {||})`,
+  ho_match_mp_tac compile_exp_ind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ fs [compile_exp_def]
+  >-
+   (PURE_FULL_CASE_TAC \\ fs []
+    \\ imp_res_tac nsLookup_nsAll \\ fs [])
+  \\ fs [nsAll_nsBind]
+  >-
+   (IF_CASES_TAC \\ fs []
+    \\ fs [elist_globals_eq_empty, EVERY_MEM]
+    \\ fs [FOLDR_REVERSE, FOLDL_invariant, EVERY_MEM]
+    >-
+     (FOLDL_invariant |> Q.ISPECL [`\x. set_globals x = {||}`]
+      |> BETA_RULE |> match_mp_tac
+      \\ fs [op_gbag_def])
+    \\ Cases_on `op` \\ fs [op_gbag_def, astOp_to_flatOp_def])
+  >-
+   (Cases_on `lop` \\ fs []
+    \\ res_tac \\ fs []
+    \\ EVAL_TAC)
+  >-
+   (rfs []
+    \\ last_x_assum mp_tac \\ impl_tac \\ rw []
+    \\ last_x_assum mp_tac \\ impl_tac \\ rw []
+    \\ qhdtm_x_assum `nsAll` mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ EVAL_TAC
+    \\ rename1 `FOLDR _ b (MAP _ xs)`
+    \\ qid_spec_tac `b`
+    \\ Induct_on `xs` \\ rw []
+    \\ Cases_on `id` \\ Cases_on `h = n`
+    \\ fs [nsLookup_nsBind] \\ rw []
+    \\ metis_tac [])
+  \\ last_x_assum irule
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ qid_spec_tac `env`
+  \\ rename1 `pat_tups tra ps`
+  \\ qid_spec_tac `ps`
+  \\ Induct \\ rw [pat_tups_def, namespaceTheory.nsBindList_def]
+  \\ last_x_assum drule
+  \\ fs [namespaceTheory.nsBindList_def, nsAll_nsBind]);
+
+(* - esgc_free theorems for compile_decs ----------------------------------- *)
+
+val make_varls_esgc_free = Q.store_thm("make_varls_esgc_free",
+  `!n t idx xs.
+     esgc_free (make_varls n t idx xs)`,
+  ho_match_mp_tac make_varls_ind
+  \\ rw [make_varls_def]);
+
+val alloc_defs_set_globals = Q.store_thm("alloc_defs_set_globals",
+  `!xs n next. elist_globals (MAP SND (alloc_defs n next xs)) = {||}`,
+  Induct \\ rw [alloc_defs_def, op_gbag_def]);
+
+val alloc_defs_esgc_free = Q.store_thm("alloc_defs_esgc_free",
+  `!xs n next. EVERY esgc_free (MAP SND (alloc_defs n next xs))`,
+  Induct \\ rw [alloc_defs_def, op_gbag_def]);
+
+val nsAll_extend_env = Q.store_thm("nsAll_extend_env",
+  `nsAll P e1.v /\ nsAll P e2.v ==> nsAll P (extend_env e1 e2).v`,
+  simp [extend_env_def, nsAll_nsAppend]);
+
+val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
+  `!n next env decs n1 next1 env1 decs1.
+     nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v /\
+     compile_decs n next env decs = (n1, next1, env1, decs1)
+     ==>
+     EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs1)) /\
+     nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env1.v`,
+  ho_match_mp_tac compile_decs_ind
+  \\ rw [compile_decs_def]
+  \\ fs [compile_exp_esgc_free, make_varls_esgc_free]
+  \\ fs [EVERY_MAP, EVERY_FILTER, MAP_FILTER]
+  \\ simp [EVERY_MEM, MEM_MAPi, PULL_EXISTS, UNCURRY]
+  \\ TRY
+   (irule nsAll_alist_to_ns
+    \\ fs [ELIM_UNCURRY]
+    \\ ho_match_mp_tac
+      (EVERY_CONJ |> REWRITE_RULE [EQ_IMP_THM] |> SPEC_ALL |> CONJUNCT2)
+    \\ conj_tac
+    >- simp [GSYM EVERY_MAP, alloc_defs_esgc_free]
+    \\ qmatch_goalsub_abbrev_tac `EVERY _ xs`
+    \\ `EVERY (\x. set_globals x = {||}) (MAP SND xs)`
+        suffices_by rw [EVERY_MAP]
+    \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
+             alloc_defs_set_globals]
+    \\ NO_TAC)
+  >- fs [compile_exp_def]
+  >-
+   (ho_match_mp_tac (EVERY_EL |> REWRITE_RULE [EQ_IMP_THM]
+                     |> SPEC_ALL |> CONJUNCT1)
+    \\ qmatch_goalsub_abbrev_tac `extend_env env2`
+    \\ qmatch_asmsub_abbrev_tac `nsAll P`
+    \\ `nsAll P (extend_env env2 env).v`
+      by (irule nsAll_extend_env
+          \\ fs [Abbr `env2`, Abbr `P`]
+          \\ irule nsAll_alist_to_ns
+          \\ fs [alloc_defs_append]
+          \\ simp [EVERY_CONJ, ELIM_UNCURRY]
+          \\ simp [GSYM EVERY_MAP]
+          \\ fs [alloc_defs_esgc_free]
+          \\ conj_tac
+          \\ qmatch_goalsub_abbrev_tac `EVERY _ xs`
+          \\ `EVERY (\x. set_globals x = {||}) (MAP SND xs)`
+              suffices_by rw [EVERY_MAP]
+          \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
+                   alloc_defs_set_globals])
+    \\ simp [EVERY_MEM]
+    \\ simp [compile_funs_map]
+    \\ rw [MEM_MAP, PULL_EXISTS, UNCURRY]
+    \\ qmatch_goalsub_abbrev_tac `compile_exp _ env3`
+    \\ `nsAll P env3.v` by fs [Abbr `P`, Abbr `env3`, nsAll_nsBind]
+    \\ fs [compile_exp_esgc_free])
+  \\ fs [empty_env_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ fs [EVERY_MEM, lift_env_def]
+  \\ last_x_assum mp_tac
+  \\ impl_tac \\ rw []
+  \\ irule nsAll_extend_env \\ fs []);
+
+(* - the source_to_flat compiler produces things which are esgc_free ------- *)
+
+val compile_prog_esgc_free = Q.store_thm("compile_prog_esgc_free",
+  `nsAll (\_ v. esgc_free v /\ set_globals v = {||}) c.mod_env.v /\
+   compile_prog c p = (c1, p1)
+   ==>
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))`,
+  rw [compile_prog_def]
+  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ fs [glob_alloc_def]
+  \\ metis_tac [compile_decs_esgc_free]);
+
+val compile_flat_esgc_free = Q.store_thm("compile_flat_esgc_free",
+  `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   ==>
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (compile_flat ds)))`,
+  rw [compile_flat_def, flat_exh_matchTheory.compile_def]
+  \\ drule flat_exh_matchProofTheory.compile_decs_esgc_free
+  \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
+  \\ drule flat_elimProofTheory.removeFlatProg_esgc_free \\ rw []
+  \\ rename1 `compile_decs (compile_decs ds1)`
+  \\ irule flat_reorder_matchProofTheory.compile_decs_esgc_free
+  \\ irule flat_uncheck_ctorsProofTheory.compile_decs_esgc_free
+  \\ rw[]);
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `nsAll (\_ v. esgc_free v /\ set_globals v = {||}) c.mod_env.v /\
+   compile c p = (c1, p1)
+   ==>
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))`,
+  rw [compile_def]
+  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]);
+
 val _ = export_theory ();
