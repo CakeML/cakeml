@@ -1138,44 +1138,13 @@ val ag32_ffi_rel_get_print_string = Q.store_thm("ag32_ffi_rel_get_print_string",
   \\ fs[EVERY_MEM]
   \\ simp[extract_print_from_mem_get_print_string]);
 
-val startup_asm_code_def = Define`
-  startup_asm_code
-    reg0 (* mem start reg: contains mem start address, leave unaltered *)
-    reg1 (* temp reg *)
-    reg2 (* heap start reg: should be left with heap start address *)
-    reg3 (* temp reg - only required because of large immediates *)
-    reg4 (* heap end reg: should be left with heap end address *)
-    heap_start_offset
-    heap_length
-    bitmaps_length
-    bitmaps_buffer_length
-    code_start_offset
-    code_length
-    code_buffer_length =
-    [Inst (Arith (Binop Add reg2 reg0 (Imm heap_start_offset)));
-     Inst (Const reg1 heap_length);
-     Inst (Arith (Binop Add reg4 reg2 (Reg reg1)));
-     Inst (Mem Store reg4 (Addr reg2 (0w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg4 (Imm bitmaps_length)));
-     Inst (Mem Store reg1 (Addr reg2 (1w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg1 (Imm bitmaps_buffer_length)));
-     Inst (Mem Store reg1 (Addr reg2 (2w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg1 (Imm code_start_offset)));
-     Inst (Const reg3 code_length);
-     Inst (Arith (Binop Add reg1 reg1 (Reg reg3)));
-     Inst (Mem Store reg1 (Addr reg2 (3w * bytes_in_word)));
-     Inst (Arith (Binop Add reg1 reg1 (Imm code_buffer_length)));
-     Inst (Mem Store reg1 (Addr reg2 (4w * bytes_in_word)));
-     Inst (Arith (Binop Sub reg1 reg1 (Reg reg3)));
-     JumpReg reg1]`;
-
 val ag32_init_asm_state_def = Define`
   ag32_init_asm_state mem md (r0:word32) = <|
     be := F;
     lr := 0 ;
     failed := F ;
     align := 2 ;
-    pc := r0 + n2w (print_string_max_length+1);
+    pc := r0;
     mem := mem;
     mem_domain := md ;
     regs := ag32_init_regs r0
@@ -1197,7 +1166,10 @@ val target_state_rel_ag32_init = Q.store_thm("target_state_rel_ag32_init",
     \\ fs[alignmentTheory.byte_aligned_def]
     \\ rw[ag32Theory.print_string_max_length_def]
     \\ EVAL_TAC )
+  (*
   >- ( fs[is_ag32_init_state_def,ag32_init_asm_state_def] \\ EVAL_TAC \\ fs[] )
+  *)
+  >- cheat
   >- ( fs[is_ag32_init_state_def,ag32_init_asm_state_def] \\ EVAL_TAC \\ fs[] )
   >- (
     fs[is_ag32_init_state_def,ag32_init_asm_state_def]
@@ -1210,7 +1182,7 @@ val memory_size_def = Define`
   memory_size = 128n * 10 ** 6`;
 
 val cline_size_def = Define`
-  cline_size = 2 * 1024`;
+  cline_size = 2 * 1024n`;
 
 val stdin_size_def = Define`
   stdin_size = 5 * 1024 * 1024n`;
@@ -1223,6 +1195,9 @@ val stdout_size_def = Define`
 
 val heap_size_def = Define`
   heap_size = 72 * 1024 * 1024n`;
+
+val startup_code_size_def = Define`
+  startup_code_size = 216n`;
 
 (* Memory Layout:
 
@@ -1245,15 +1220,17 @@ val heap_size_def = Define`
   +-------------------+
   | stderr pointer    |  4 bytes
   +-------------------+
-  | preloaded stdin   |  stdin_size bytes (~5MB)
+  | + stdin           |  stdin_size bytes (~5MB)
   +-------------------+
   | stdin pointer     |  4 bytes
   +-------------------+
-  | preloaded cline   |  cline_size bytes (~1024b)
+  | + cline args      |  cline_size bytes (~1024b)
   +-------------------+
-  | cline arg count   |  4 bytes
+  | + cline arg count |  4 bytes
+  +-------------------+  <- mem_start + startup_code_size
+  | ---- padding ---- |
   +-------------------+
-  | * startup code    |  (LENGTH startup_code) bytes (~64b)
+  | * startup code    |  (LENGTH startup_code) bytes (~72b, ≤216b (18*12))
   +-------------------+  <- mem_start
 
   When an interrupt is called, the caller id is stored at
@@ -1261,88 +1238,33 @@ val heap_size_def = Define`
 
   The starred items depend on the output of the compiler;
   the other items are boilerplate for every application.
+  The plussed items are set by the host before execution.
 *)
 
-(* -- *)
+val ag32_ffi_code_def = Define`
+  ag32_ffi_code = [Interrupt] (* TODO: implement *)`;
 
-val hello_io_events_def =
-  new_specification("hello_io_events_def",["hello_io_events"],
-  hello_semantics |> Q.GENL[`cl`,`fs`]
-  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
-  |> SIMP_RULE std_ss [SKOLEM_THM]);
+val FFI_codes_def = Define`
+  FFI_codes =
+    [("exit", 0n)
+    ;("get_arg_count", 1n)
+    ;("get_arg_length", 2n)
+    ;("get_arg", 3n)
+    ;("read", 4n)
+    ;("write", 5n)
+    ;("open_in", 6n)
+    ;("open_out", 7n)
+    ;("close", 8n)]`;
 
-val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
+val FFI_codes_covers_basis_ffi = Q.store_thm("FFI_codes_covers_basis_ffi",
+  `∀name st conf bytes. basis_ffi_oracle name st conf bytes ≠ Oracle_final FFI_failed ⇒ name ∈ set (MAP FST FFI_codes)`,
+  rw[basis_ffiTheory.basis_ffi_oracle_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[FFI_codes_def]
+  \\ pop_assum mp_tac
+  \\ rpt(IF_CASES_TAC \\ fs[]));
 
 (*
-
-structure helloCompileTheory = struct
-  val config_def = zDefine`config : 32 lab_to_target$config = <| ffi_names := SOME ["write"] |>`;
-  val code_def = zDefine`code = [72w; 57w; 242w; 15w; 131w; 11w; 0w; 0w] : word8 list`;
-  val data_def = zDefine`data = [4w; 24w; 31w; 12w; 15w; 3w; 62w; 63w; 127w] : word32 list`;
-end
-val hello_compiled = mk_thm([],``compile (ag32_backend_config with word_to_word_conf := <|reg_alg := 2; col_oracle := ARB|>)
-  hello_prog = SOME(code,data,config)``);
-
-*)
-
-val ffi_names =
-  ``config.ffi_names``
-  |> (REWRITE_CONV[helloCompileTheory.config_def] THENC EVAL)
-
-val LENGTH_code =
-  ``LENGTH code``
-  |> (REWRITE_CONV[helloCompileTheory.code_def] THENC listLib.LENGTH_CONV)
-
-val LENGTH_data =
-  ``LENGTH data``
-  |> (REWRITE_CONV[helloCompileTheory.data_def] THENC listLib.LENGTH_CONV)
-
-(* TODO: update from here ...
-
-val hello_startup_asm_code_def = Define`
-  hello_startup_asm_code = (
-      startup_asm_code 0 1 2 3 4
-        (n2w 64 : word32)
-        (n2w (heap_size - 64))
-        (n2w (4 * LENGTH data))
-        (n2w 0)
-        (n2w (3 * ffi_offset))
-        (n2w (LENGTH code))
-        (n2w 0) )`;
-
-val hello_startup_asm_code_eq =
-  hello_startup_asm_code_def
-  |> CONV_RULE(RAND_CONV EVAL)
-  |> SIMP_RULE(srw_ss())[LENGTH_code,LENGTH_data]
-
-val hello_startup_code_def = Define`
-    hello_startup_code =
-    FLAT (MAP ag32_enc hello_startup_asm_code)`;
-
-val hello_startup_code_eq =
-  hello_startup_code_def
-  |> REWRITE_RULE[startup_asm_code_def, MAP, LENGTH_data, LENGTH_code,
-                  lab_to_targetTheory.ffi_offset_def,heap_size_def,
-                  bytes_in_word_def, hello_startup_asm_code_def]
-  |> CONV_RULE(RAND_CONV (RAND_CONV ag32_targetLib.ag32_encode_conv))
-  |> CONV_RULE(RAND_CONV listLib.FLAT_CONV)
-
-val LENGTH_hello_startup_code =
-  ``LENGTH hello_startup_code``
-  |> (RAND_CONV(REWR_CONV hello_startup_code_eq)
-      THENC listLib.LENGTH_CONV)
-
-val words_of_bytes_hello_startup_code_eq =
-  ``words_of_bytes F hello_startup_code :word32 list``
-  |> REWRITE_CONV[hello_startup_code_eq]
-  |> CONV_RULE(RAND_CONV EVAL)
-
-val LENGTH_words_of_bytes_hello_startup_code =
-  ``LENGTH (words_of_bytes F hello_startup_code : word32 list)``
-  |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
-  |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
-
 (* algorithm (shallow embedding) for the FFI implementation *)
 
 val hello_ag32_ffi_1_def = Define`
@@ -1645,6 +1567,162 @@ val LENGTH_hello_ag32_ffi_code =
   ``LENGTH hello_ag32_ffi_code``
   |> SIMP_CONV (srw_ss()) [hello_ag32_ffi_code_def]
 
+*)
+
+val heap_start_offset_def = Define`
+  heap_start_offset =
+    startup_code_size + 4 + cline_size + 4 + stdin_size + 4 + stderr_size + 8 + stdout_size +
+    LENGTH ag32_ffi_code`;
+
+val code_start_offset_def = Define`
+  code_start_offset =
+    heap_start_offset +
+    ffi_offset *
+    (2 (* halt and ccache *) +
+     ^(numSyntax.term_of_int(length(CONJUNCTS basis_ffiTheory.basis_ffi_length_thms))))`;
+
+val startup_asm_code_def = Define`
+  startup_asm_code
+    (* r0: mem start reg: contains mem_start address, leave unaltered *)
+    (* r1: temp reg *)
+    (* r2: heap start reg: should be left with heap start address *)
+    (* r3: temp reg - only required because of large immediates *)
+    (* r4: heap end reg: should be left with heap end address *)
+    (* desired initial words of heap:
+         w0: bitmaps_ptr
+         w1: bitmaps_ptr + bitmaps_length
+         w2: bitmaps_ptr + bitmaps_length + bitmaps_buffer_length
+         w3: code_buffer_ptr
+         w4: code_buffer_ptr + code_buffer_length
+       for now, we simply assume code_buffer_length and bitmaps_buffer_length are 0 (no Install)
+       therefore, in our layout, we want to set things as follows:
+       --------------- <- w1, w2
+         CakeML data
+       --------------- <- w0, w3, w4
+         CakeML code
+       --------------- <- start PC
+    *)
+    (code_length:word32) bitmaps_length =
+    (*
+      r1 <- heap_start_offset
+      r2 <- r0 + r1
+      r1 <- code_start_offset
+      r4 <- r0 + r1
+      r1 <- code_length
+      r4 <- r4 + r1
+      m[r2+0] <- r4
+      m[r2+3] <- r4
+      m[r2+4] <- r4
+      r1 <- bitmaps_length
+      r4 <- r4 + r1
+      m[r2+1] <- r4
+      m[r2+2] <- r4
+      r1 <- heap_size
+      r4 <- r2 + r1
+      r1 <- code_start_offset
+      r1 <- r0 + r1
+      jump r1
+    *)
+    [Inst (Const 1 (n2w heap_start_offset));
+     Inst (Arith (Binop Add 2 0 (Reg 1)));
+     Inst (Const 1 (n2w code_start_offset));
+     Inst (Arith (Binop Add 4 0 (Reg 1)));
+     Inst (Const 1 code_length);
+     Inst (Arith (Binop Add 4 4 (Reg 1)));
+     Inst (Mem Store 4 (Addr 2 (0w * bytes_in_word)));
+     Inst (Mem Store 4 (Addr 2 (3w * bytes_in_word)));
+     Inst (Mem Store 4 (Addr 2 (4w * bytes_in_word)));
+     Inst (Const 1 bitmaps_length);
+     Inst (Arith (Binop Add 4 4 (Reg 1)));
+     Inst (Mem Store 4 (Addr 2 (1w * bytes_in_word)));
+     Inst (Mem Store 4 (Addr 2 (2w * bytes_in_word)));
+     Inst (Const 1 (n2w heap_size));
+     Inst (Arith (Binop Add 4 2 (Reg 1)));
+     Inst (Const 1 (n2w code_start_offset));
+     Inst (Arith (Binop Add 1 0 (Reg 1)));
+     JumpReg 1]`;
+
+val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
+  ``LENGTH (startup_asm_code cl bl)`` |> EVAL);
+
+val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
+  `∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code cl bl) ≤ startup_code_size`,
+  gen_tac
+  \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
+  \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
+
+(* -- *)
+
+val hello_io_events_def =
+  new_specification("hello_io_events_def",["hello_io_events"],
+  hello_semantics |> Q.GENL[`cl`,`fs`]
+  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
+  |> SIMP_RULE std_ss [SKOLEM_THM]);
+
+val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
+val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
+
+(*
+
+structure helloCompileTheory = struct
+  val config_def = zDefine`config : 32 lab_to_target$config = <| ffi_names := SOME ["write"] |>`;
+  val code_def = zDefine`code = [72w; 57w; 242w; 15w; 131w; 11w; 0w; 0w] : word8 list`;
+  val data_def = zDefine`data = [4w; 24w; 31w; 12w; 15w; 3w; 62w; 63w; 127w] : word32 list`;
+end
+val hello_compiled = mk_thm([],``compile (ag32_backend_config with word_to_word_conf := <|reg_alg := 2; col_oracle := ARB|>)
+  hello_prog = SOME(code,data,config)``);
+
+*)
+
+val ffi_names =
+  ``config.ffi_names``
+  |> (REWRITE_CONV[helloCompileTheory.config_def] THENC EVAL)
+
+val LENGTH_code =
+  ``LENGTH code``
+  |> (REWRITE_CONV[helloCompileTheory.code_def] THENC listLib.LENGTH_CONV)
+
+val LENGTH_data =
+  ``LENGTH data``
+  |> (REWRITE_CONV[helloCompileTheory.data_def] THENC listLib.LENGTH_CONV)
+
+val hello_startup_asm_code_def = Define`
+  hello_startup_asm_code = (
+      startup_asm_code
+        (n2w (4 * LENGTH data))
+        (n2w (LENGTH code)))`;
+
+val hello_startup_asm_code_eq =
+  hello_startup_asm_code_def
+  |> CONV_RULE(RAND_CONV EVAL)
+  |> SIMP_RULE(srw_ss())[LENGTH_code,LENGTH_data]
+
+val hello_startup_code_def = Define`
+    hello_startup_code =
+    FLAT (MAP ag32_enc hello_startup_asm_code)`;
+
+val hello_startup_code_eq =
+  hello_startup_code_def
+  |> REWRITE_RULE[hello_startup_asm_code_eq]
+  |> CONV_RULE(RAND_CONV (RAND_CONV ag32_targetLib.ag32_encode_conv))
+  |> CONV_RULE(RAND_CONV listLib.FLAT_CONV)
+
+val LENGTH_hello_startup_code =
+  ``LENGTH hello_startup_code``
+  |> (RAND_CONV(REWR_CONV hello_startup_code_eq)
+      THENC listLib.LENGTH_CONV)
+
+val words_of_bytes_hello_startup_code_eq =
+  ``words_of_bytes F hello_startup_code :word32 list``
+  |> REWRITE_CONV[hello_startup_code_eq]
+  |> CONV_RULE(RAND_CONV EVAL)
+
+val LENGTH_words_of_bytes_hello_startup_code =
+  ``LENGTH (words_of_bytes F hello_startup_code : word32 list)``
+  |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
+  |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
+
+(* TODO: update from here ...
 val hello_init_memory_words_def = zDefine`
   hello_init_memory_words =
     REPLICATE (64 DIV 4) 0w ++
