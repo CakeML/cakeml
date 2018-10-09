@@ -13,43 +13,6 @@ val _ = (max_print_depth := 18);
 val word_shift_def = backend_commonTheory.word_shift_def
 
 val _ = bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
-(* TODO: move *)
-
-val SUBMAP_DRESTRICT = Q.store_thm("SUBMAP_DRESTRICT",
-  `f1 ⊑ f2 ∧ s1 ⊆ s2
-   ⇒
-   DRESTRICT f1 s1 ⊑ DRESTRICT f2 s2`,
-  rw[SUBMAP_DEF,FDOM_DRESTRICT,SUBSET_DEF,DRESTRICT_DEF]);
-
-val DROP_IMP_LESS_LENGTH = Q.prove(
-  `!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs`,
-  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
-  \\ res_tac \\ decide_tac);
-
-val DROP_EQ_CONS_IMP_DROP_SUC = Q.prove(
-  `!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys`,
-  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
-  \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
-  \\ `n - 1 + 1 = n` by decide_tac \\ full_simp_tac(srw_ss())[]);
-
-val DROP_IMP_EL = Q.store_thm("DROP_IMP_EL",
-  `!xs n h t. DROP n xs = h::t ==> (EL n xs = h)`,
-  Induct \\ fs [DROP_def] \\ Cases_on `n` \\ fs []);
-
-val EL_APPEND = store_thm("EL_APPEND",
-  ``!xs n ys.
-      EL n (xs ++ ys) =
-      if n < LENGTH xs then EL n xs else EL (n - LENGTH xs) ys``,
-  Induct \\ fs [] \\ Cases_on `n` \\ fs [EL]);
-
-val LUPDATE_APPEND = store_thm("LUPDATE_APPEND",
-  ``!xs n ys x.
-      LUPDATE x n (xs ++ ys) =
-      if n < LENGTH xs then LUPDATE x n xs ++ ys
-                       else xs ++ LUPDATE x (n - LENGTH xs) ys``,
-  Induct \\ fs [] \\ Cases_on `n` \\ fs [LUPDATE_def] \\ rw [] \\ fs []);
-
-(* -- *)
 
 (* TODO: move and join with stack_remove *)
 
@@ -1209,7 +1172,7 @@ val word_gc_move_bitmap_code_thm = Q.store_thm("word_gc_move_bitmap_code_thm",
   \\ qexists_tac `ck+ck'+1` \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
   \\ fs [LUPDATE_LENGTH_ADD_LEMMA,ADD1]
-  \\ fs [EL_APPEND]
+  \\ fs [EL_APPEND_EQN]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,ADD1]
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
@@ -2973,7 +2936,7 @@ val word_gen_gc_partial_move_bitmap_code_thm =
   \\ qexists_tac `ck+ck'+1` \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
   \\ fs [LUPDATE_LENGTH_ADD_LEMMA,ADD1]
-  \\ fs [EL_APPEND]
+  \\ fs [EL_APPEND_EQN]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,ADD1]
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
@@ -5667,7 +5630,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
     first_x_assum(qspec_then`k`mp_tac)>>
     (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
-    simp[] >> strip_tac >> fs[] >> 
+    simp[] >> strip_tac >> fs[] >>
     drule comp_correct_thm >>
     simp[alloc_arg_def,comp_def] >>
     conj_tac >- metis_tac[] >>
@@ -5876,7 +5839,7 @@ val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
   >>
     res_tac>>fs[]));
 
-val stack_alloc_comp_stack_asm_name = Q.prove(`
+val stack_alloc_comp_stack_asm_name = Q.store_thm("stack_alloc_comp_stack_asm_name",`
   ∀n m p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
   let (p',m') = comp n m p in

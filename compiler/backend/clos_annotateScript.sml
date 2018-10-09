@@ -53,9 +53,9 @@ val alt_free_def = tDefine "alt_free" `
   (alt_free [Letrec t loc _ fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = alt_free [x1] in
-       if no_overlap m l2 then
+   (*  if no_overlap m l2 then
          ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
-       else
+       else  *)
      let res = MAP (\(n,x). let (c,l) = alt_free [x] in
                               ((n,HD c),Shift (n + m) l)) fns in
      let c1 = MAP FST res in

@@ -1,3 +1,9 @@
+(*
+  Definition of the overall parsing functions that go from tokens to abstract
+  syntax trees. In other words, these include calls to the functions in
+  `../semantics/cmlPtreeConversion`.
+*)
+
 open HolKernel Parse boolLib bossLib
      cmlPEGTheory cmlPtreeConversionTheory
 

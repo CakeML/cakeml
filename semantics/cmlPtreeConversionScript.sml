@@ -1,10 +1,10 @@
+(*
+  Specification of how to convert parse trees to abstract syntax.
+*)
+
 open preamble gramTheory tokenUtilsTheory astTheory
 
 val _ = new_theory "cmlPtreeConversion"
-
-(* ----------------------------------------------------------------------
-    Parse trees to abstract syntax
-   ---------------------------------------------------------------------- *)
 
 val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast", "namespace"]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
@@ -89,18 +89,7 @@ val mpop_namedscope_def = Define`
    ---------------------------------------------------------------------- *)
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-
-(* TODO: these should either be temp or moved elsewhere *)
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
-                                        "option.OPTION_IGNORE_BIND_def",
-                                        "option.OPTION_GUARD_def",
-                                        "option.OPTION_MAP_DEF",
-                                        "option.OPTION_MAP2_DEF",
-                                        "option.OPTION_CHOICE_def"]
-
-val _ = overload_on ("++", ``option$OPTION_CHOICE``)
-val _ = overload_on ("lift", ``option$OPTION_MAP``)
-(* -- *)
+val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
 
 val ifM_def = Define`
   ifM bM tM eM =

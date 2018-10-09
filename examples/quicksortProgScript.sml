@@ -1,3 +1,6 @@
+(*
+  In-place quick sort on a polymorphic array.
+*)
 open preamble semanticPrimitivesTheory
 open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
 open basisProgTheory ArrayProofTheory
@@ -5,6 +8,8 @@ open basisProgTheory ArrayProofTheory
 val _ = new_theory "quicksortProg";
 
 val _ = translation_extends"basisProg";
+
+(* TODO: move *)
 
 val list_rel_perm_help = Q.prove (
   `!l1 l2.
@@ -142,6 +147,8 @@ val length_gt1 = Q.store_thm ("length_gt1",
   rw [] >>
   Cases_on `t` >>
   fs []);
+
+(* -- *)
 
 fun basis_st () = get_ml_prog_state ()
 

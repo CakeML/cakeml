@@ -1,3 +1,7 @@
+(*
+  Functions for constructing a CakeML program (a list of declarations) together
+  with the semantic environment resulting from evaluation of the program.
+*)
 structure ml_progLib :> ml_progLib =
 struct
 

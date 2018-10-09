@@ -1,3 +1,6 @@
+(*
+  compset for parts of the semantics, including the lexer.
+*)
 structure semanticsComputeLib :> semanticsComputeLib =
 struct
 

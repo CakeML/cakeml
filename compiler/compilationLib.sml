@@ -1,3 +1,7 @@
+(*
+  Library for in-logic compilation of CakeML abstract syntax producing machine
+  code (for a variety of targets) using the CakeML compiler backend.
+*)
 structure compilationLib = struct
 
 open preamble backendTheory

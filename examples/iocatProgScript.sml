@@ -1,3 +1,6 @@
+(*
+  Faster cat: process 2048 chars at a time.
+*)
 open preamble basis
 
 val _ = new_theory "iocatProg"

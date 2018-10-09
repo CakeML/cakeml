@@ -1,3 +1,6 @@
+(*
+  patch example: apply a patch to a file.
+*)
 open preamble basis
      charsetTheory diffTheory
 
