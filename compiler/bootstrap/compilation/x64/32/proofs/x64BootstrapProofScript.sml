@@ -16,7 +16,7 @@ val with_clos_conf_simp = prove(
   ``(mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
      mc_init_ok x64_backend_config) /\
-    (x.max_app <> 0 ==>
+    (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
      (backend_config_ok (x64_backend_config with clos_conf := x) =
       backend_config_ok x64_backend_config))``,
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
