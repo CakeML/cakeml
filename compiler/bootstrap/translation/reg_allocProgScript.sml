@@ -424,8 +424,6 @@ val res = translate linear_scan_reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
-val _ = export_theory();
-
 (*
 TODO: update the following code (comes from the non-monadic register allocator
 

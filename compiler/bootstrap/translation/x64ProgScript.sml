@@ -9,6 +9,8 @@ val _ = new_theory "x64Prog"
 
 val _ = translation_extends "to_target64Prog";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");
+
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
@@ -253,6 +255,8 @@ val res = translate (GEN_ALL x64_enc_thm)
 val _ = translate (x64_config_def |> gconv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
