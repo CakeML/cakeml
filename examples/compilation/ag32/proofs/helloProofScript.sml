@@ -1206,9 +1206,11 @@ val startup_code_size_def = Define`
   +-------------------+  about 22MB left for these
   | * CakeML code     |
   +-------------------+
-  | FFI call jumps    |  176 ((9 + 2) * 16) bytes
+  | * FFI call jumps  |  <= 176 ((9 + 2) * 16) bytes
   +-------------------+
   | CakeML stack/heap |  heap_size bytes (~72MB)
+  +-------------------+  <- mem_start + heap_start_offset
+  | --- (padding) --- |  (will arrange for this to be 0)
   +-------------------+
   | FFI code          |  (LENGTH ag32_ffi_code) bytes (~640b)
   +-------------------+
@@ -1221,6 +1223,8 @@ val startup_code_size_def = Define`
   | stderr pointer    |  4 bytes
   +-------------------+
   | + stdin           |  stdin_size bytes (~5MB)
+  +-------------------+
+  | + stdin length    |  4 bytes
   +-------------------+
   | stdin pointer     |  4 bytes
   +-------------------+
@@ -1263,6 +1267,64 @@ val FFI_codes_covers_basis_ffi = Q.store_thm("FFI_codes_covers_basis_ffi",
   \\ simp[FFI_codes_def]
   \\ pop_assum mp_tac
   \\ rpt(IF_CASES_TAC \\ fs[]));
+
+val ffi_code_start_offset_def = Define`
+  ffi_code_start_offset =
+    startup_code_size + 4 + cline_size + 4 + 4 + stdin_size + 4 + stderr_size + 8 + stdout_size`;
+
+val length_ag32_ffi_code = Define`
+  length_ag32_ffi_code = 640n`;
+
+val heap_start_offset_def = Define`
+  heap_start_offset =
+    ffi_code_start_offset + length_ag32_ffi_code`;
+
+val ffi_jumps_offset_def = Define`
+  ffi_jumps_offset =
+    heap_start_offset + heap_size`;
+
+(* FFI jumps
+  - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
+  - get return address in link_reg (r0)
+  - note: PC is mem_start + ffi_jumps_offset + ffi_offset * index (where index is into the compiler-generated ffi_names)
+*)
+
+val exit_jump_ag32_code_def = Define`
+  exit_jump_ag32_code ffi_names =
+    let index = THE (INDEX_OF "exit" ffi_names) in
+    let dist_to_ffi_code = length_ag32_ffi_code + heap_size + ffi_offset * index in
+    [Encode(LoadConstant(5w, F, (22 >< 0)((n2w dist_to_ffi_code):word32)));
+     Encode(LoadUpperConstant(5w, (31 >< 23)((n2w dist_to_ffi_code):word32)));
+     Encode(Jump (fSub, 5w, Reg 5w));
+     0w]`;
+
+val ccache_jump_ag32_code_def = Define`
+  ccache_jump_ag32_code_def = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]`;
+
+val halt_jump_ag32_code_def = Define`
+  halt_jump_ag32_code = [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w]`;
+
+(* exit
+   PC is mem_start + ffi_code_start_offset  *)
+val ag32_ffi_exit_def = Define`
+  ag32_ffi_exit s =
+    let s = (s with <| R := (5w =+ s.PC + 4w) s.R ;
+                       PC := s.PC + 4w |>) in
+    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w ffi_code_start_offset :word32)):23 word)) s.R) in
+    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w ffi_code_start_offset :word32)):9 word) (s.R 6w)) s.R) in
+    let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
+    let s = incPC () (s with MEM := ((s.R 5w) =+ 0w) s.MEM) in
+    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
+    s`;
+
+val ag32_ffi_exit_code_def = Define`
+  ag32_ffi_exit_code =
+    [Jump (fAdd, 5w, Imm 4w);
+     LoadConstant(6w, F, (22 >< 0)((n2w ffi_code_start_offset):word32));
+     LoadUpperConstant(6w, (31 >< 23)((n2w ffi_code_start_offset):word32));
+     Normal (fSub, 5w, Reg 5w, Reg 6w);
+     StoreMEMByte (Imm 0w, Reg 5w);
+     Interrupt]`;
 
 (*
 (* algorithm (shallow embedding) for the FFI implementation *)
@@ -1569,17 +1631,11 @@ val LENGTH_hello_ag32_ffi_code =
 
 *)
 
-val heap_start_offset_def = Define`
-  heap_start_offset =
-    startup_code_size + 4 + cline_size + 4 + stdin_size + 4 + stderr_size + 8 + stdout_size +
-    LENGTH ag32_ffi_code`;
-
 val code_start_offset_def = Define`
-  code_start_offset =
-    heap_start_offset +
+  code_start_offset num_ffis =
+    ffi_jumps_offset +
     ffi_offset *
-    (2 (* halt and ccache *) +
-     ^(numSyntax.term_of_int(length(CONJUNCTS basis_ffiTheory.basis_ffi_length_thms))))`;
+    (2 (* halt and ccache *) + num_ffis)`;
 
 val startup_asm_code_def = Define`
   startup_asm_code
@@ -1602,11 +1658,11 @@ val startup_asm_code_def = Define`
          CakeML code
        --------------- <- start PC
     *)
-    (code_length:word32) bitmaps_length =
+    num_ffis (code_length:word32) bitmaps_length =
     (*
       r1 <- heap_start_offset
       r2 <- r0 + r1
-      r1 <- code_start_offset
+      r1 <- (code_start_offset num_ffis)
       r4 <- r0 + r1
       r1 <- code_length
       r4 <- r4 + r1
@@ -1619,13 +1675,13 @@ val startup_asm_code_def = Define`
       m[r2+2] <- r4
       r1 <- heap_size
       r4 <- r2 + r1
-      r1 <- code_start_offset
+      r1 <- (code_start_offset num_ffis)
       r1 <- r0 + r1
       jump r1
     *)
     [Inst (Const 1 (n2w heap_start_offset));
      Inst (Arith (Binop Add 2 0 (Reg 1)));
-     Inst (Const 1 (n2w code_start_offset));
+     Inst (Const 1 (n2w (code_start_offset num_ffis)));
      Inst (Arith (Binop Add 4 0 (Reg 1)));
      Inst (Const 1 code_length);
      Inst (Arith (Binop Add 4 4 (Reg 1)));
@@ -1638,15 +1694,15 @@ val startup_asm_code_def = Define`
      Inst (Mem Store 4 (Addr 2 (2w * bytes_in_word)));
      Inst (Const 1 (n2w heap_size));
      Inst (Arith (Binop Add 4 2 (Reg 1)));
-     Inst (Const 1 (n2w code_start_offset));
+     Inst (Const 1 (n2w (code_start_offset num_ffis)));
      Inst (Arith (Binop Add 1 0 (Reg 1)));
      JumpReg 1]`;
 
 val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
-  ``LENGTH (startup_asm_code cl bl)`` |> EVAL);
+  ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
 
 val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
-  `∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code cl bl) ≤ startup_code_size`,
+  `∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code n cl bl) ≤ startup_code_size`,
   gen_tac
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
   \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
@@ -1689,13 +1745,14 @@ val LENGTH_data =
 val hello_startup_asm_code_def = Define`
   hello_startup_asm_code = (
       startup_asm_code
+        (LENGTH (THE config.ffi_names))
         (n2w (4 * LENGTH data))
         (n2w (LENGTH code)))`;
 
 val hello_startup_asm_code_eq =
   hello_startup_asm_code_def
   |> CONV_RULE(RAND_CONV EVAL)
-  |> SIMP_RULE(srw_ss())[LENGTH_code,LENGTH_data]
+  |> SIMP_RULE(srw_ss())[LENGTH_code,LENGTH_data,ffi_names]
 
 val hello_startup_code_def = Define`
     hello_startup_code =
