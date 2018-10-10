@@ -442,6 +442,14 @@ let opw64_lookup op = match op with
   | Sub -> W64sub
 end
 
+val opw_lookup : opw -> nat -> nat -> nat
+let opw_lookup op n = match op with
+  | Andw -> WNand n
+  | Orw -> WNor n
+  | Xor -> WNxor n
+  | Add -> WNadd n
+  | Sub -> WNsub n
+
 val shift8_lookup : shift -> word8 -> nat -> word8
 let shift8_lookup sh = match sh with
   | Lsl -> W8lsl

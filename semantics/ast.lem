@@ -13,6 +13,7 @@ type lit =
   | StrLit of string
   | Word8 of word8
   | Word64 of word64
+  | WordN of (word_size * bitString)
 
 (* Built-in binary operations *)
 type opn = Plus | Minus | Times | Divide | Modulo
@@ -35,7 +36,7 @@ type typeN = string
 (* Type variable names *)
 type tvarN = string
 
-type word_size = W8 | W64
+type word_size = nat
 
 type op =
   (* Operations on integers *)
