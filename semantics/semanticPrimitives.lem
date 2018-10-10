@@ -496,6 +496,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (Opw WN op, [Litv (WordN n1 w1); Litv (WordN n2 w2)]) ->
+        if  (n1 = n2) then
+          Just ((S,t), Rval (Litv (WordN (opwN_lookup op w1 w2))))
+        else
+          Nothing
     | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (FP_uop uop, [Litv (Word64 w)]) ->
