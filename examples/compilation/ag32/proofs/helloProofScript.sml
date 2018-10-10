@@ -1971,42 +1971,24 @@ val hello_init_memory_words_def = zDefine`
     data (* ++ padding of 0w out to memory_size: not included here *)
     `;
 
-(* TODO: update from here ...
 val hello_init_memory_def = Define`
   hello_init_memory r0 (k:word32) =
      get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words)) F`;
 
 val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
-  `byte_aligned r0 ∧ 64 ≤ n ∧ n < 64 + LENGTH hello_startup_code ⇒
+  `byte_aligned r0 ∧ n < LENGTH hello_startup_code ⇒
    (hello_init_memory r0 (r0 + (n2w n)) =
-    EL (n-64) hello_startup_code)`,
+    EL n hello_startup_code)`,
   strip_tac
   \\ simp[hello_init_memory_def]
   \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
   \\ simp[align_add_aligned_gen]
-  \\ Q.ISPECL_THEN[`n-64`,`F`,`hello_startup_code`]mp_tac
+  \\ Q.ISPECL_THEN[`n`,`F`,`hello_startup_code`]mp_tac
        (Q.GEN`i`(INST_TYPE[alpha|->``:32``]get_byte_EL_words_of_bytes))
   \\ simp[bytes_in_word_def,LENGTH_hello_startup_code]
   \\ impl_tac >- EVAL_TAC
   \\ simp[alignmentTheory.byte_align_def]
-  \\ fs[LESS_EQ_EXISTS, GSYM word_add_n2w]
-  \\ once_rewrite_tac[WORD_ADD_COMM]
-  \\ `aligned 2 (64w:word32)` by EVAL_TAC
-  \\ simp[align_add_aligned_gen]
-  \\ DEP_REWRITE_TAC[w2n_add]
-  \\ conj_tac
-  >- (
-    reverse conj_tac >- EVAL_TAC
-    \\ DEP_REWRITE_TAC[word_msb_align]
-    \\ simp[word_msb_n2w]
-    \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-    \\ fs[LENGTH_hello_startup_code] )
-  \\ simp[]
-  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
-  \\ simp[]
   \\ simp[hello_init_memory_words_def]
-  \\ rewrite_tac[GSYM APPEND_ASSOC]
-  \\ simp[EL_APPEND2]
   \\ rewrite_tac[GSYM APPEND_ASSOC]
   \\ DEP_REWRITE_TAC [EL_APPEND1]
   \\ conj_tac
@@ -2019,7 +2001,7 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
     \\ conj_tac
     \\ irule IMP_MULT_DIV_LESS
     \\ fs[] )
-  \\ `r0 + n2w p + 64w = n2w p + byte_align (r0 + 64w)`
+  \\ `r0 + n2w n = n2w n + byte_align r0`
   by (
     simp[alignmentTheory.byte_align_def, align_add_aligned_gen]
     \\ fs[alignmentTheory.aligned_def] )
@@ -2027,6 +2009,7 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
   \\ EVAL_TAC);
 
+(* TODO: update from here ...
 val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   `byte_aligned r0 ∧
    (pc = r0 + n2w (heap_size + 4 * LENGTH data + ffi_offset))
