@@ -16,7 +16,7 @@ val app_POSTd = store_thm("app_POSTd",
         (!i. LENGTH (events i) < LENGTH (events (i+1))) /\
         (!i. app p f xvs (Hs (SUC i)) (POSTd Q) ==>
              app p f xvs (Hs i) (POSTd Q)) /\
-        (!i. LPREFIX (events i) io))
+        (!i. LPREFIX (fromList (events i)) io))
       ==>
       app p f xvs H (POSTd Q)``,
   cheat);
