@@ -562,7 +562,7 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
     \\ disch_then drule
     \\ simp[FOLDR_FUNPOW] )
   \\ ntac 2 strip_tac
-  \\ drule asserts2_every
+  \\ drule asmPropsTheory.asserts2_every
   \\ strip_tac
   \\ qmatch_goalsub_rename_tac`SUC m`
   \\ qho_match_abbrev_tac`P ms (FUNPOW t.next (SUC m) ms)`
@@ -844,30 +844,6 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ simp[]);
 
 (*
-val extract_print_from_mem_def = Define`
-  extract_print_from_mem (r0:word32) m =
-    MAP (CHR o w2n) (GENLIST (λi. m (r0 + n2w (i+1))) (w2n (m r0)))`;
-
-val get_print_string_length_genlist = Q.store_thm("get_print_string_length_genlist",
-  `∀a n m. get_print_string_length (a,n,m) =
-    MAP (CHR o w2n) (GENLIST (λi. m (a + n2w i)) n)`,
-  recInduct ag32Theory.get_print_string_length_ind
-  \\ rw[]
-  \\ rw[Once ag32Theory.get_print_string_length_def]
-  \\ fs[]
-  \\ qmatch_asmsub_rename_tac`len ≠ _`
-  \\ Cases_on`len` \\ fs[GENLIST_CONS,ADD1,o_DEF,GSYM word_add_n2w]);
-
-val extract_print_from_mem_get_print_string = Q.store_thm("extract_print_from_mem_get_print_string",
-  `∀r0 m.  w2n (m r0) ≤ print_string_max_length ⇒
-    (get_print_string (r0,m) = extract_print_from_mem r0 m)`,
-  rw[ag32Theory.get_print_string_def]
-  \\ rw[get_print_string_length_genlist]
-  \\ rw[extract_print_from_mem_def]
-  \\ qmatch_goalsub_abbrev_tac`MIN a b`
-  \\ `MIN a b = a` by rw[MIN_DEF]
-  \\ rw[GSYM word_add_n2w]);
-
 val ag32_ffi_rel_def = Define`
   ag32_ffi_rel r0 ms io_events ⇔
     (EVERY (λm. w2n (m r0) ≤ print_string_max_length) ms.io_events) ∧
@@ -1011,7 +987,7 @@ val ffi_code_start_offset_def = Define`
     startup_code_size + 4 + cline_size + 4 + 4 + stdin_size + 4 + stderr_size + 8 + stdout_size`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 180n`;
+  length_ag32_ffi_code = 232n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -1034,6 +1010,10 @@ val ag32_ffi_exit_def = Define`
     let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w (ffi_code_start_offset+4) :word32)):9 word) (s.R 6w)) s.R) in
     let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
     let s = incPC () (s with MEM := ((s.R 5w) =+ 0w) s.MEM) in
+    let s = incPC () (s with R := (5w =+ 0w) s.R) in
+    let s = incPC () (s with R := (6w =+ 0w) s.R) in
+    let s = incPC () (s with R := (7w =+ 0w) s.R) in
+    let s = incPC () (s with <| R := (8w =+ 0w) s.R; OverflowFlag := F; CarryFlag := F|>) in
     let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
     s`;
 
@@ -1044,6 +1024,10 @@ val ag32_ffi_exit_code_def = Define`
      LoadUpperConstant(6w, (31 >< 23)((n2w (ffi_code_start_offset+4)):word32));
      Normal (fSub, 5w, Reg 5w, Reg 6w);
      StoreMEMByte (Imm 0w, Reg 5w);
+     Normal(fSnd, 5w, Imm 0w, Imm 0w);
+     Normal(fSnd, 6w, Imm 0w, Imm 0w);
+     Normal(fSnd, 7w, Imm 0w, Imm 0w);
+     Normal(fAdd, 8w, Imm 0w, Imm 0w);
      Interrupt]`;
 
 (* get_arg_count
@@ -1071,6 +1055,11 @@ val ag32_ffi_get_arg_count_def = Define`
     let s = incPC () (s with R := (6w =+ (n2w startup_code_size)) s.R) in
     let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
     let s = incPC () (s with MEM := ((s.R 5w) =+ 1w) s.MEM) in
+    let s = dfn'Normal(fSub, 4w, Reg 4w, Imm 4w) s in
+    let s = incPC () (s with R := (5w =+ 0w) s.R) in
+    let s = incPC () (s with R := (6w =+ 0w) s.R) in
+    let s = incPC () (s with R := (7w =+ 0w) s.R) in
+    let s = incPC () (s with <| R := (8w =+ 0w) s.R; OverflowFlag := F; CarryFlag := F|>) in
     let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
     let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
     s`;
@@ -1090,6 +1079,11 @@ val ag32_ffi_get_arg_count_code_def = Define`
      LoadConstant(6w, F, n2w startup_code_size);
      Normal (fSub, 5w, Reg 5w, Reg 6w);
      StoreMEMByte (Imm 1w, Reg 5w);
+     Normal (fSub, 4w, Reg 4w, Imm 4w);
+     Normal(fSnd, 5w, Imm 0w, Imm 0w);
+     Normal(fSnd, 6w, Imm 0w, Imm 0w);
+     Normal(fSnd, 7w, Imm 0w, Imm 0w);
+     Normal(fAdd, 8w, Imm 0w, Imm 0w);
      Interrupt;
      Jump (fSnd, 0w, Reg 0w)]`;
 
@@ -1165,6 +1159,10 @@ val ag32_ffi_get_arg_length_3_def = Define`
     let s = incPC () (s with R := (6w =+ (s.R 6w >>>~ 4w)) s.R) in
     let s = dfn'Normal (fAdd, 4w, Reg 4w, Imm 4w) s in
     let s = incPC () (s with MEM := ((s.R 4w) =+ w2w (s.R 6w)) s.MEM) in
+    let s = incPC () (s with R := (5w =+ 0w) s.R) in
+    let s = incPC () (s with R := (6w =+ 0w) s.R) in
+    let s = incPC () (s with R := (7w =+ 0w) s.R) in
+    let s = incPC () (s with <| R := (8w =+ 0w) s.R; OverflowFlag := F; CarryFlag := F|>) in
     let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
     let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
     s`;
@@ -1197,6 +1195,10 @@ val ag32_ffi_get_arg_length_code_def = Define`
      Shift (shiftLR, 6w, Reg 6w, Imm 4w);
      Normal (fAdd, 4w, Reg 4w, Imm 4w);
      StoreMEMByte (Reg 6w, Reg 4w);
+     Normal(fSnd, 5w, Imm 0w, Imm 0w);
+     Normal(fSnd, 6w, Imm 0w, Imm 0w);
+     Normal(fSnd, 7w, Imm 0w, Imm 0w);
+     Normal(fAdd, 8w, Imm 0w, Imm 0w);
      Interrupt;
      Jump (fSnd, 0w, Reg 0w)]`;
 
@@ -1212,7 +1214,11 @@ val ag32_ffi_get_arg_length_code_def = Define`
 (* FFI jumps
   - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
   - get return address in link_reg (r0)
-  - note: PC is mem_start + ffi_jumps_offset + ffi_offset * index (where index is into the compiler-generated ffi_names)
+  - PC is mem_start + ffi_jumps_offset + ffi_offset * index
+  conventions on return:
+    r0 is the end of this ffi's code (i.e., entrypoint of the next ffi's code)
+    r1-r6 are 0w (* TODO: this is not currently satisfied *)
+    overflow and carry are false
 *)
 
 val ffi_entrypoints_def = Define`
@@ -1220,6 +1226,13 @@ val ffi_entrypoints_def = Define`
     ("exit", ag32_ffi_exit_entrypoint);
     ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
     ("get_arg_length", ag32_ffi_get_arg_length_entrypoint) (* TODO: ... *)]`;
+
+val ffi_exitpcs_def = Define`
+  ffi_exitpcs = [
+    ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
+    ("get_arg_count", ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
+    ("get_arg_length", heap_start_offset) (* TODO: ... *)
+    ]`;
 
 val mk_jump_ag32_code_def = Define`
   mk_jump_ag32_code ffi_names name =
@@ -1762,7 +1775,7 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
   \\ EVAL_TAC);
 
-(* TODO: update from here ...
+(*
 val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   `byte_aligned r0 ∧
    (pc = r0 + n2w (heap_size + 4 * LENGTH data + ffi_offset))
@@ -2615,13 +2628,43 @@ Memory layout:
   r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code .. r0 + memory_size MB is zeros
 *)
 
+*)
+
 val md = ``
-      { w | (r0:word32) + 64w <=+ w ∧ w <+ r0 + n2w (heap_size + 4 * LENGTH data) } ∪
-      { w | r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) <=+ w ∧
-            w <+ r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code) } ``
+      { w | (r0:word32) + n2w heap_start_offset <=+ w ∧ w <+ r0 + n2w (heap_start_offset + heap_size) } ∪
+      { w | r0 + n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code) <=+ w ∧
+            w <+ r0 + n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code + 4 * LENGTH data) } ``;
+
+val ag32_ccache_interfer_def = Define`
+  ag32_ccache_interfer num_ffis r0 (_,_,ms) =
+    ms with <| PC := (ms.R 0w) ;
+               R := (0w =+ r0 + n2w(ffi_code_start_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
+
+val ag32_ffi_interfer_def = Define`
+  ag32_ffi_interfer ffi_names r0 (index,new_bytes,ms) =
+    let name = EL index ffi_names in
+    let new_mem = (r0 =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
+    let new_mem = asm_write_bytearray (ms.R 4w) new_bytes new_mem in
+    let exitpc = THE (ALOOKUP ffi_exitpcs name) in
+        ms with
+          <| PC := (ms.R 0w) ;
+             R := ((0w =+ r0 + n2w exitpc)
+                   ((1w =+ 0w)
+                   ((2w =+ 0w)
+                   ((3w =+ 0w)
+                   ((4w =+ 0w)
+                   ((5w =+ 0w)
+                   ((6w =+ 0w) (ms.R)))))))) ;
+             CarryFlag := F ;
+             OverflowFlag := F ;
+             io_events := ms.io_events ++ [new_mem] ;
+             MEM := new_mem |>`;
 
 val hello_machine_config_def = Define`
-  hello_machine_config r0 = <|
+  hello_machine_config r0 =
+  let ffi_names = THE config.ffi_names in
+  let num_ffis = LENGTH ffi_names in
+  <|
     target := ag32_target;
     ptr_reg := 1;
     len_reg := 2;
@@ -2629,40 +2672,19 @@ val hello_machine_config_def = Define`
     len2_reg := 4;
     callee_saved_regs := [60; 61; 62];
     ffi_names := ^(rand(rconc ffi_names));
-    ffi_entry_pcs := [r0 + n2w (heap_size + 4 * LENGTH data + 0 * ffi_offset)];
-    ccache_pc      := r0 + n2w (heap_size + 4 * LENGTH data + 1 * ffi_offset);
-    halt_pc        := r0 + n2w (heap_size + 4 * LENGTH data + 2 * ffi_offset);
+    ffi_entry_pcs := GENLIST (λi. r0 + n2w (ffi_code_start_offset + i * ffi_offset)) num_ffis;
+    ccache_pc     := r0 + n2w (ffi_code_start_offset + (num_ffis + 0) * ffi_offset);
+    halt_pc       := r0 + n2w (ffi_code_start_offset + (num_ffis + 1) * ffi_offset);
     prog_addresses := ^md ;
     next_interfer := K I ;
-    ccache_interfer :=
-      K (λ(_,_,ms).
-        ms with <| PC := (ms.R 0w) ;
-                   R := (0w =+ r0 + n2w(heap_size + 4 * LENGTH data + ffi_offset + 4)) ms.R |> );
-    ffi_interfer :=
-      K (λ(_,_,ms).
-        let new_mem =
-          asm_write_bytearray r0
-               ((w2w(ms.R 2w)) ::
-                (THE (read_bytearray (ms.R 1w) (w2n (ms.R 2w))
-                        (λa. if a ∈ ^md then SOME (ms.MEM a) else NONE))))
-               ms.MEM in
-            ms with
-              <| PC := (ms.R 0w) ;
-                 R := ((0w =+ r0 + n2w(heap_size + 4 * LENGTH data + 3 * ffi_offset
-                                       + LENGTH code + 4 * LENGTH hello_ag32_ffi_code))
-                       ((1w =+ 0w)
-                       ((2w =+ 0w)
-                       ((3w =+ 0w)
-                       ((4w =+ 0w) (ms.R)))))) ;
-                 CarryFlag := F ;
-                 OverflowFlag := (w2i (r0 + ms.R 2w) ≠ w2i r0 + w2i (ms.R 2w)) ;
-                 io_events := ms.io_events ++ [new_mem] ;
-                 MEM := new_mem |>)
+    ccache_interfer := K (ag32_ccache_interfer num_ffis r0) ;
+    ffi_interfer := K (ag32_ffi_interfer ffi_names r0)
   |>`
 
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
   `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
 
+(*
 (*
 define the ag32 and asm states
 that obtain after running startup code from ag32 init
