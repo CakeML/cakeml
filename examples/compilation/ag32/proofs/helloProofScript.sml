@@ -1206,7 +1206,7 @@ val startup_code_size_def = Define`
   +-------------------+  <- mem_start + heap_start_offset
   | --- (padding) --- |  (will arrange for this to be 0)
   +-------------------+
-  | FFI code          |  (LENGTH ag32_ffi_code) bytes (~640b)
+  | FFI code          |  (4 * LENGTH ag32_ffi_code) bytes (~640b)
   +-------------------+
   | stdout buffer     |  stdout_size bytes (~10MB)
   +-------------------+
@@ -1264,7 +1264,7 @@ val ffi_code_start_offset_def = Define`
     startup_code_size + 4 + cline_size + 4 + 4 + stdin_size + 4 + stderr_size + 8 + stdout_size`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 640n`;
+  length_ag32_ffi_code = 180n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -1274,29 +1274,12 @@ val ffi_jumps_offset_def = Define`
   ffi_jumps_offset =
     heap_start_offset + heap_size`;
 
-(* FFI jumps
-  - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
-  - get return address in link_reg (r0)
-  - note: PC is mem_start + ffi_jumps_offset + ffi_offset * index (where index is into the compiler-generated ffi_names)
-*)
-
-val exit_jump_ag32_code_def = Define`
-  exit_jump_ag32_code ffi_names =
-    let index = THE (INDEX_OF "exit" ffi_names) in
-    let dist_to_ffi_code = length_ag32_ffi_code + heap_size + ffi_offset * index + 8 in
-    [Encode(LoadConstant(5w, F, (22 >< 0)((n2w dist_to_ffi_code):word32)));
-     Encode(LoadUpperConstant(5w, (31 >< 23)((n2w dist_to_ffi_code):word32)));
-     Encode(Jump (fSub, 5w, Reg 5w));
-     0w]`;
-
-val ccache_jump_ag32_code_def = Define`
-  ccache_jump_ag32_code_def = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]`;
-
-val halt_jump_ag32_code_def = Define`
-  halt_jump_ag32_code = [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w]`;
-
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
+
+val ag32_ffi_exit_entrypoint_def = Define`
+  ag32_ffi_exit_entrypoint = 0n`;
+
 val ag32_ffi_exit_def = Define`
   ag32_ffi_exit s =
     let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
@@ -1322,9 +1305,13 @@ val ag32_ffi_exit_code_def = Define`
    length (= 2) is in r3
    pointer is in r4 *)
 
+val ag32_ffi_get_arg_count_entrypoint_def = Define`
+  ag32_ffi_get_arg_count_entrypoint =
+  ag32_ffi_exit_entrypoint + 4 * LENGTH ag32_ffi_exit_code`;
+
 val ag32_ffi_get_arg_count_def = Define`
   ag32_ffi_get_arg_count s =
-    let pc_offset = (ffi_code_start_offset - startup_code_size) + 4 * LENGTH ag32_ffi_exit_code + 4 in
+    let pc_offset = (ffi_code_start_offset - startup_code_size) + ag32_ffi_get_arg_count_entrypoint + 4 in
     let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
     let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
     let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w pc_offset :word32)):9 word) (s.R 6w)) s.R) in
@@ -1343,7 +1330,7 @@ val ag32_ffi_get_arg_count_def = Define`
 
 val ag32_ffi_get_arg_count_code_def = Define`
   ag32_ffi_get_arg_count_code =
-    let pc_offset = (ffi_code_start_offset - startup_code_size) + 4 * LENGTH ag32_ffi_exit_code + 4 in
+    let pc_offset = (ffi_code_start_offset - startup_code_size) + ag32_ffi_get_arg_count_entrypoint + 4 in
     [Jump (fAdd, 5w, Imm 4w);
      LoadConstant(6w, F, (22 >< 0)((n2w pc_offset):word32));
      LoadUpperConstant(6w, (31 >< 23)((n2w pc_offset):word32));
@@ -1361,17 +1348,20 @@ val ag32_ffi_get_arg_count_code_def = Define`
 
 (* get_arg_length
    PC is mem_start + ffi_code_start_offset
-         + 4 * LENGTH ag32_ffi_exit_code
+         + ag32_ffi_get_arg_count_entrypoint
          + 4 * LENGTH ag32_ffi_get_arg_count_code
    r3 contains length (=2)
    r4 contains pointer to byte array with the arg index: [index % 256, index / 256]
    the array should afterwards contain the length of the arg at index (in the same format) *)
 
+val ag32_ffi_get_arg_length_entrypoint_def = Define`
+  ag32_ffi_get_arg_length_entrypoint =
+  ag32_ffi_get_arg_count_entrypoint + 4 * LENGTH ag32_ffi_get_arg_count_code`;
+
 val ag32_ffi_get_arg_length_1_def = Define`
   ag32_ffi_get_arg_length_1 s =
     let pc_offset = ffi_code_start_offset +
-                    4 * LENGTH ag32_ffi_exit_code +
-                    4 * LENGTH ag32_ffi_get_arg_count_code +
+                    ag32_ffi_get_arg_length_entrypoint +
                     4 in
     let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
     let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
@@ -1435,8 +1425,7 @@ val ag32_ffi_get_arg_length_3_def = Define`
 val ag32_ffi_get_arg_length_code_def = Define`
   ag32_ffi_get_arg_length_code =
     let pc_offset = ffi_code_start_offset +
-                    4 * LENGTH ag32_ffi_exit_code +
-                    4 * LENGTH ag32_ffi_get_arg_count_code +
+                    ag32_ffi_get_arg_length_entrypoint +
                     4 in
     [Jump (fAdd, 5w, Imm 4w);
      LoadConstant(6w, F, (22 >< 0)((n2w pc_offset):word32));
@@ -1472,6 +1461,38 @@ val ag32_ffi_get_arg_length_code_def = Define`
 ;("open_out", 7n)
 ;("close", 8n)
 *)
+
+(* FFI jumps
+  - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
+  - get return address in link_reg (r0)
+  - note: PC is mem_start + ffi_jumps_offset + ffi_offset * index (where index is into the compiler-generated ffi_names)
+*)
+
+val ffi_entrypoints_def = Define`
+  ffi_entrypoints = [
+    ("exit", ag32_ffi_exit_entrypoint);
+    ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
+    ("get_arg_length", ag32_ffi_get_arg_length_entrypoint) (* TODO: ... *)]`;
+
+val mk_jump_ag32_code_def = Define`
+  mk_jump_ag32_code ffi_names name =
+    let index = THE (INDEX_OF name ffi_names) in
+    let entrypoint = THE (ALOOKUP ffi_entrypoints name) in
+    let dist_to_ffi_code = length_ag32_ffi_code + heap_size + ffi_offset * index + 8 - entrypoint in
+    [Encode(LoadConstant(5w, F, (22 >< 0)((n2w dist_to_ffi_code):word32)));
+     Encode(LoadUpperConstant(5w, (31 >< 23)((n2w dist_to_ffi_code):word32)));
+     Encode(Jump (fSub, 5w, Reg 5w));
+     0w]`;
+
+val ccache_jump_ag32_code_def = Define`
+  ccache_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]`;
+
+val halt_jump_ag32_code_def = Define`
+  halt_jump_ag32_code = [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w]`;
+
+val ag32_ffi_jumps_def = Define`
+  ag32_ffi_jumps ffi_names =
+    FLAT (MAP (mk_jump_ag32_code ffi_names) ffi_names) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code`;
 
 (*
 (* algorithm (shallow embedding) for the FFI implementation *)
@@ -1778,6 +1799,18 @@ val LENGTH_hello_ag32_ffi_code =
 
 *)
 
+val ag32_ffi_code_def = Define`
+  ag32_ffi_code =
+    MAP Encode (
+      ag32_ffi_exit_code ++
+      ag32_ffi_get_arg_count_code ++
+      ag32_ffi_get_arg_length_code (* TODO ++ the rest *) )`;
+
+val LENGTH_ag32_ffi_code_check = Q.store_thm("LENGTH_ag32_ffi_code_check",
+  `4 * LENGTH ag32_ffi_code = length_ag32_ffi_code`,
+  CONV_TAC(LAND_CONV EVAL)
+  \\ EVAL_TAC);
+
 val code_start_offset_def = Define`
   code_start_offset num_ffis =
     ffi_jumps_offset +
@@ -1926,24 +1959,19 @@ val LENGTH_words_of_bytes_hello_startup_code =
   |> REWRITE_CONV[words_of_bytes_hello_startup_code_eq]
   |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
 
-(* TODO: update from here ...
 val hello_init_memory_words_def = zDefine`
   hello_init_memory_words =
-    REPLICATE (64 DIV 4) 0w ++
     words_of_bytes F hello_startup_code ++
-    REPLICATE ((heap_size - LENGTH hello_startup_code - 64) DIV 4) 0w ++
-    data ++
-    (* ffi setup: jump to real FFI code, and store next location in r3 *)
-    [Encode (LoadConstant (3w, F, (n2w (40 + LENGTH code))));
-     Encode (Normal (fAdd, 4w, Imm 0w, Imm 0w));
-     Encode (Jump (fAddWithCarry, 3w, Reg 3w)); 0w] (* FFI code *) ++
-    [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w] (* ccache code *) ++
-    [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w] (* halt code *) ++
+    REPLICATE (startup_code_size - (LENGTH hello_startup_code DIV 4)) 0w ++
+    REPLICATE ((ffi_code_start_offset - startup_code_size) DIV 4) 0w ++
+    ag32_ffi_code ++
+    REPLICATE (heap_size DIV 4) 0w ++
+    ag32_ffi_jumps (THE config.ffi_names) ++
     words_of_bytes F code ++
-    (MAP Encode hello_ag32_ffi_code)
-    (* ++ padding of 0w out to memory_size: can be added separately *)
+    data (* ++ padding of 0w out to memory_size: not included here *)
     `;
 
+(* TODO: update from here ...
 val hello_init_memory_def = Define`
   hello_init_memory r0 (k:word32) =
      get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words)) F`;
