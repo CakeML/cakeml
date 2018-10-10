@@ -71,11 +71,8 @@ val compile_tap_def = Define`
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       (res, td)`;
 
-val compile_def1 = Define`
+val compile_def = Define`
   compile c p = FST (compile_tap c p)`;
-
-val compile_def = CONV_RULE (TOP_DEPTH_CONV (REWR_CONV compile_tap_def))
-  compile_def1;
 
 val to_flat_def = Define`
   to_flat c p =
@@ -147,7 +144,7 @@ val to_target_def = Define`
 
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
-  srw_tac[][FUN_EQ_THM,compile_def,
+  srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
      to_target_def,
      to_lab_def,
      to_stack_def,
@@ -226,7 +223,7 @@ val from_source_def = Define`
 
 val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
   `compile = from_source`,
-  srw_tac[][FUN_EQ_THM,compile_def,
+  srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
      from_source_def,
      from_lab_def,
      from_stack_def,
@@ -293,7 +290,7 @@ val compile_oracle = Q.store_thm("compile_oracle",`
      to_clos_def,
      to_pat_def,
      to_flat_def,to_livesets_def] >>
-  fs[compile_def]>>
+  fs[compile_def,compile_tap_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>

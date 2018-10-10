@@ -41,9 +41,26 @@ val num_to_hex_def = Define `
     (if n < 16 then [] else num_to_hex (n DIV 16)) ++
     num_to_hex_digit (n MOD 16)`;
 
+(* num_to_hex "implements" words$word_to_hex_string in a
+   simple way that the translator can handle. these lemmas
+   check that is true. *)
+val num_to_hex_digit_eq = Q.store_thm ("num_to_hex_digit_eq",
+  `!i. i < 16 ==> num_to_hex_digit i = [HEX i]`,
+  CONV_TAC (REPEATC (numLib.BOUNDED_FORALL_CONV EVAL))
+  \\ simp []);
+
+val num_to_hex_eq = Q.store_thm ("num_to_hex_eq",
+  `num_to_hex (w2n w) = words$word_to_hex_string w`,
+  simp [wordsTheory.word_to_hex_string_def, wordsTheory.w2s_def]
+  \\ Q.SPEC_TAC (`w2n w`, `n`)
+  \\ measureInduct_on `I n`
+  \\ simp [Once numposrepTheory.n2l_def, ASCIInumbersTheory.n2s_def]
+  \\ simp [Once num_to_hex_def, num_to_hex_digit_eq]
+  \\ (PURE_CASE_TAC \\ simp[ASCIInumbersTheory.n2s_def]));
+
 val display_word_to_hex_string_def = Define `
   display_word_to_hex_string w =
-    empty_item (implode ("0x" ++ words$word_to_hex_string w))`;
+    empty_item (implode ("0x" ++ num_to_hex (w2n w)))`;
 
 val lit_to_display_def = Define`
   (lit_to_display (IntLit i) =
@@ -491,7 +508,7 @@ val clos_to_display_def = tDefine "clos_to_display" `
     Tuple [display_num_as_varn (h+i); clos_to_display h x] :: clos_to_display_lets h (i-1) xs) /\
   (clos_to_display_letrecs h i len [] = []) /\
   (clos_to_display_letrecs h i len ((vn,e)::es) =
-    Tuple [display_num_as_varn (h+i); 
+    Tuple [display_num_as_varn (h+i);
         list_to_display string_to_display2 (num_to_varn_list (h+len-1) vn);
         clos_to_display (h+len+vn) e]
     :: clos_to_display_letrecs h (i-1) len es)`

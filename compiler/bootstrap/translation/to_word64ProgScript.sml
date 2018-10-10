@@ -790,6 +790,10 @@ val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |>
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS);
 
+(* translate some 32/64 specific parts of the tap/explorer
+   that can't be translated in explorerProgScript *)
+val res = translate (presLangTheory.tap_word_def |> conv64);
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);

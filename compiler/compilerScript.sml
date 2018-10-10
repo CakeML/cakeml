@@ -431,7 +431,7 @@ val format_compiler_result_def = Define`
 (* FIXME TODO: this is an awful workaround to avoid implementing a file writer
    right now. *)
 val add_tap_output_def = Define`
-  add_tap_output td out = if td = [] then out
+  add_tap_output td out = if NULL td then out
     else Append (List (strlit "compiler output with tap data\n\n"
       :: FLAT (MAP (\td. let (nm, data) = tap_data_strings td in
         [strlit "-- "; nm; strlit " --\n\n"; data;
