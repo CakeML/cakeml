@@ -269,6 +269,11 @@ val LIST_REL_lookup_fromList = Q.store_thm("LIST_REL_lookup_fromList",
      (GENLIST I (LENGTH args)) args`,
   SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
 
+val LIST_REL_lookup_fromList_MAP = Q.store_thm("LIST_REL_lookup_fromList_MAP",
+  `LIST_REL (λv x. ∃z. lookup v (fromList args) = SOME z ∧ x = f z)
+    (GENLIST I (LENGTH args)) (MAP f args)`,
+  fs [LIST_REL_MAP2,LIST_REL_GENLIST_I,lookup_fromList])
+
 val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
   `(LIST_REL R (SNOC x xs) yys ⇔
       ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
