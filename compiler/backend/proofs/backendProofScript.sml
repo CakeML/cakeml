@@ -69,8 +69,7 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
-  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
-        data_to_word_memoryProofTheory.aligned_add_pow]);
+  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]);
 
 val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
   `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
@@ -282,7 +281,7 @@ val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
   ∀x:'a word.x ∈ byte_aligned ⇒
   w2n x MOD (dimindex (:'a) DIV 8) = 0`,
   rw[IN_DEF]>>
-  fs [stack_removeProofTheory.aligned_w2n, alignmentTheory.byte_aligned_def]>>
+  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
   rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
 
 val prim_config = prim_config_eq |> concl |> lhs
@@ -5039,7 +5038,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ qexists_tac `i DIV (dimindex (:α) DIV 8)`
         \\ rfs [alignmentTheory.byte_aligned_def,
              ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-        \\ fs [stack_removeProofTheory.aligned_w2n]
+        \\ fs [aligned_w2n]
         \\ drule DIVISION
         \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
         \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by

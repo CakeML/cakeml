@@ -1,108 +1,10 @@
-open preamble pathTheory
+open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
      helloProgTheory helloCompileTheory
 
 val _ = new_theory"helloProof";
 
 (* TODO: move *)
-
-val v2w_32_F = Q.store_thm("v2w_32_F[simp]",
-  `(v2w [F] : word32) = 0w`, EVAL_TAC);
-
-val v2w_32_T = Q.store_thm("v2w_32_T[simp]",
-  `(v2w [T] : word32) = 1w`, EVAL_TAC);
-
-val call_FFI_rel_consts = Q.store_thm("call_FFI_rel_consts",
-  `call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)`,
-  rw[evaluatePropsTheory.call_FFI_rel_def]
-  \\ fs[ffiTheory.call_FFI_def]
-  \\ fs[CaseEq"bool",CaseEq"oracle_result"]
-  \\ rw[]);
-
-val RTC_call_FFI_rel_consts = Q.store_thm("RTC_call_FFI_rel_consts",
-  `∀s1 s2. RTC call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)`,
-  once_rewrite_tac[EQ_SYM_EQ]
-  \\ match_mp_tac RTC_lifts_equalities
-  \\ rw[call_FFI_rel_consts]);
-
-val dest_IO_event_def = Define`
-  dest_IO_event (IO_event s c b) = (s,c,b)`;
-val _ = export_rewrites["dest_IO_event_def"];
-
-val toPath_fromList = Q.store_thm("toPath_fromList",
-  `(toPath (x, fromList []) = stopped_at x) ∧
-   (toPath (x, fromList ((y,z)::t)) = pcons x y (toPath (z, fromList t)))`,
-  conj_tac >- EVAL_TAC
-  \\ rw[pathTheory.pcons_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]);
-
-val steps_def = Define`
-  (steps f x [] = []) ∧
-  (steps f x (j::js) =
-   let y = f x j in
-   let tr = steps f y js in
-     ((j,y)::tr))`;
-
-val steps_rel_def = Define`
-  (steps_rel R x [] ⇔ T) ∧
-  (steps_rel R x ((j,y)::tr) ⇔
-    R x j y ∧
-    steps_rel R y tr)`;
-
-val steps_rel_ind = theorem"steps_rel_ind";
-
-val steps_rel_okpath = Q.store_thm("steps_rel_okpath",
-  `∀R x tr.
-    steps_rel R x tr ⇔ okpath R (toPath (x,fromList tr))`,
-  recInduct steps_rel_ind
-  \\ rewrite_tac[toPath_fromList]
-  \\ rw[steps_rel_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]);
-
-val steps_rel_LRC = Q.store_thm("steps_rel_LRC",
-   `∀R x tr.
-     steps_rel R x tr ⇒
-     LRC (λx y. ∃i. R x i y)
-       (FRONT(x::(MAP SND tr))) x (LAST (x::(MAP SND tr)))`,
-  recInduct steps_rel_ind
-  \\ rw[steps_rel_def]
-  \\ rw[LRC_def, PULL_EXISTS]
-  \\ asm_exists_tac \\ rw[]);
-
-val LAST_MAP_SND_steps_FOLDL = Q.store_thm("LAST_MAP_SND_steps_FOLDL",
-  `∀f x ls. LAST (x::(MAP SND (steps f x ls))) = FOLDL f x ls`,
-  Induct_on`ls` \\ rw[steps_def]);
-
-val FOLDR_FUNPOW = Q.store_thm("FOLDR_FUNPOW",
-  `FOLDR (λx. f) x ls = FUNPOW f (LENGTH ls) x`,
-  qid_spec_tac`x`
-  \\ Induct_on`ls`
-  \\ rw[FUNPOW_SUC]);
-
-val machine_sem_total = Q.store_thm("machine_sem_total",
-  `∃b. machine_sem mc st ms b`,
-  Cases_on`∃k t. FST (evaluate mc st k ms) = Halt t`
-  >- (
-    fs[]
-    \\ qexists_tac`Terminate t (SND(SND(evaluate mc st k ms))).io_events`
-    \\ simp[targetSemTheory.machine_sem_def]
-    \\ Cases_on`evaluate mc st k ms`
-    \\ qexists_tac`k` \\ fs[]
-    \\ Cases_on`r` \\ fs[] )
-  \\ Cases_on`∃k. FST (evaluate mc st k ms) = Error`
-  >- ( qexists_tac`Fail` \\ simp[targetSemTheory.machine_sem_def] )
-  \\ qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (SND(SND(evaluate mc st k ms))).io_events) UNIV))`
-  \\ simp[targetSemTheory.machine_sem_def]
-  \\ conj_tac
-  >- (
-    rw[]
-    \\ Cases_on`evaluate mc st k ms`
-    \\ fs[GSYM EXISTS_PROD]
-    \\ metis_tac[targetSemTheory.machine_result_nchotomy, FST] )
-  \\ irule build_lprefix_lub_thm
-  \\ simp[IMAGE_COMPOSE, GSYM o_DEF]
-  \\ irule prefix_chain_lprefix_chain
-  \\ simp[prefix_chain_def, PULL_EXISTS]
-  \\ qx_genl_tac[`k1`,`k2`]
-  \\ metis_tac[LESS_EQ_CASES,targetPropsTheory.evaluate_add_clock_io_events_mono]);
 
 val _ = temp_overload_on("nxt",
   ``λmc n ms. FUNPOW mc.target.next n ms``);
@@ -300,33 +202,6 @@ val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPO
   \\ imp_res_tac evaluate_Halt_FUNPOW_next
   \\ rfs[] \\ PROVE_TAC[]);
 
-val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
-  `ALIGNED = aligned 2`,
-  rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
-
-val imp_align_eq_0 = Q.store_thm("imp_align_eq_0",
-  `w2n a < 2 ** p ⇒ (align p a= 0w)`,
-  Cases_on`a` \\ fs[]
-  \\ rw[alignmentTheory.align_w2n]
-  \\ Cases_on`p = 0` \\ fs[]
-  \\ `1 < 2 ** p` by fs[arithmeticTheory.ONE_LT_EXP]
-  \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
-  \\ fs[] );
-
-val byte_align_extract = Q.store_thm("byte_align_extract",
-  `byte_align (x:word32) = (((31 >< 2) x):word30) @@ (0w:word2)`,
-  rw[alignmentTheory.byte_align_def]
-  \\ rw[alignmentTheory.align_def]
-  \\ blastLib.BBLAST_TAC);
-
-val byte_align_aligned = Q.store_thm("byte_align_aligned",
-  `byte_aligned x ⇔ (byte_align x = x)`, EVAL_TAC);
-
-val byte_aligned_add = Q.store_thm("byte_aligned_add",
-  `byte_aligned x ∧ byte_aligned y ⇒ byte_aligned (x+y)`,
-  rw[alignmentTheory.byte_aligned_def]
-  \\ metis_tac[alignmentTheory.aligned_add_sub_cor]);
-
 val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
   `∀be a bs k.
    LENGTH bs ≤ k ⇒
@@ -460,74 +335,6 @@ val IMP_word_list = Q.store_thm("IMP_word_list",
   \\ irule bitTheory.LESS_MULT_MONO2
   \\ simp[]);
 
-val align_ls = Q.store_thm("align_ls",
-  `align p n <=+ n`,
-  simp[WORD_LS]
-  \\ Cases_on`n`
-  \\ fs[alignmentTheory.align_w2n]
-  \\ qmatch_asmsub_rename_tac`n < _`
-  \\ DEP_REWRITE_TAC[LESS_MOD]
-  \\ conj_asm2_tac >- fs[]
-  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
-  \\ simp[]);
-
-val align_lo = Q.store_thm("align_lo",
-  `¬aligned p n ⇒ align p n <+ n`,
-  simp[WORD_LO]
-  \\ Cases_on`n`
-  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
-  \\ strip_tac
-  \\ qmatch_goalsub_abbrev_tac`a < b`
-  \\ `a ≤ b` suffices_by fs[]
-  \\ qmatch_asmsub_rename_tac`n < _`
-  \\ simp[Abbr`a`]
-  \\ DEP_REWRITE_TAC[LESS_MOD]
-  \\ conj_asm2_tac >- fs[]
-  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
-  \\ simp[]);
-
-val aligned_between = Q.store_thm("aligned_between",
-  `¬aligned p n ∧ aligned p m ∧ align p n <+ m ⇒ n <+ m`,
-  rw[WORD_LO]
-  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
-  \\ Cases_on`n` \\ Cases_on`m` \\ fs[]
-  \\ CCONTR_TAC \\ fs[NOT_LESS]
-  \\ qmatch_asmsub_abbrev_tac`n DIV d * d`
-  \\ `n DIV d * d <= n` by (
-    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
-  \\ fs[]
-  \\ qmatch_asmsub_rename_tac`(d * (m DIV d)) MOD _`
-  \\ `m DIV d * d <= m` by (
-    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
-  \\ fs[]
-  \\ `d * (n DIV d) <= m` by metis_tac[]
-  \\ pop_assum mp_tac
-  \\ simp_tac pure_ss [Once MULT_COMM]
-  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
-  \\ conj_tac >- simp[Abbr`d`]
-  \\ simp[NOT_LESS_EQUAL]
-  \\ `d * (m DIV d) < d * (n DIV d)` suffices_by fs[]
-  \\ metis_tac[])
-
-val byte_align_IN_IMP_IN_range = Q.store_thm("byte_align_IN_IMP_IN_range",
-  `byte_align a ∈ dm ∧
-   (dm = { w | low <=+ w ∧ w <+ hi }) ∧
-   byte_aligned low ∧ byte_aligned hi ⇒
-   a ∈ dm`,
-  rw[] \\ fs[]
-  >- (
-    `byte_align a <=+ a` suffices_by metis_tac[WORD_LOWER_EQ_TRANS]
-    \\ simp[alignmentTheory.byte_align_def]
-    \\ simp[align_ls] )
-  \\ Cases_on`byte_aligned a`
-    >- metis_tac[alignmentTheory.byte_aligned_def,
-                 alignmentTheory.aligned_def,
-                 alignmentTheory.byte_align_def]
-  \\ match_mp_tac (GEN_ALL aligned_between)
-  \\ fs[alignmentTheory.byte_aligned_def]
-  \\ asm_exists_tac
-  \\ fs[alignmentTheory.byte_align_def]);
-
 val mem_eq_imp_asm_write_bytearray_eq = Q.store_thm("mem_eq_imp_asm_write_bytearray_eq",
   `∀a bs.
     (m1 k = m2 k) ⇒
@@ -600,40 +407,6 @@ val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
     \\ fs[DIV_EQ_0] )
   \\ fs[MULT]
 *)
-
-val align_add_aligned_gen = Q.store_thm("align_add_aligned_gen",
-  `∀a. aligned p a ⇒ (align p (a + b) = a + align p b)`,
-  completeInduct_on`w2n b`
-  \\ rw[]
-  \\ Cases_on`w2n b < 2 ** p`
-  >- (
-    simp[alignmentTheory.align_add_aligned]
-    \\ `align p b = 0w` by simp[imp_align_eq_0]
-    \\ simp[] )
-  \\ fs[NOT_LESS]
-  \\ Cases_on`w2n b = 2 ** p`
-  >- (
-    `aligned p b` by(
-      simp[alignmentTheory.aligned_def,alignmentTheory.align_w2n]
-      \\ metis_tac[n2w_w2n] )
-    \\ `aligned p (a + b)` by metis_tac[alignmentTheory.aligned_add_sub_cor]
-    \\ fs[alignmentTheory.aligned_def])
-  \\ fs[LESS_EQ_EXISTS]
-  \\ qmatch_asmsub_rename_tac`w2n b = z + _`
-  \\ first_x_assum(qspec_then`z`mp_tac)
-  \\ impl_keep_tac >- fs[]
-  \\ `z < dimword(:'a)` by metis_tac[w2n_lt, LESS_TRANS]
-  \\ disch_then(qspec_then`n2w z`mp_tac)
-  \\ impl_tac >- simp[]
-  \\ strip_tac
-  \\ first_assum(qspec_then`a + n2w (2 ** p)`mp_tac)
-  \\ impl_tac >- fs[]
-  \\ rewrite_tac[word_add_n2w, GSYM WORD_ADD_ASSOC]
-  \\ Cases_on`b` \\ fs[GSYM word_add_n2w]
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`n2w (2**p)`mp_tac)
-  \\ impl_tac >- fs[stack_removeProofTheory.aligned_w2n]
-  \\ simp[]);
 
 val get_byte_word_of_bytes = Q.store_thm("get_byte_word_of_bytes",
   `good_dimindex(:'a) ⇒
@@ -746,32 +519,6 @@ val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   \\ fs[MAX_DEF]
   \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
-
-val asserts2_every = Q.store_thm("asserts2_every",
-  `∀n ms j.
-   asserts2 n (λk. f) g ms P ∧ j < n ⇒
-   P (FUNPOW (f o g) j ms) (g (FUNPOW (f o g) j ms))`,
-  Induct
-  \\ rw[Once asmPropsTheory.asserts2_def]
-  \\ Cases_on`j` \\ fs[]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp[FUNPOW]);
-
-val FUNPOW_refl_trans_chain = Q.store_thm("FUNPOW_refl_trans_chain",
-  `transitive P ∧ reflexive P ⇒
-   ∀n x.  (∀j. j < n ⇒ P (FUNPOW f j x) (f (FUNPOW f j x))) ⇒
-     P x (FUNPOW f n x)`,
-  strip_tac
-  \\ Induct
-  \\ rw[]
-  >- fs[reflexive_def]
-  \\ rw[]
-  \\ fs[transitive_def]
-  \\ last_x_assum irule
-  \\ simp[FUNPOW_SUC]
-  \\ qexists_tac`FUNPOW f n x`
-  \\ simp[]);
 
 val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm_step_target_state_rel",
   `backend_correct t ∧

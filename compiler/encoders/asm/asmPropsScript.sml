@@ -280,6 +280,17 @@ val asserts2_first = Q.store_thm("asserts2_first",
   `1 ≤ n ∧ asserts2 n fi fc ms P ⇒ P ms (fc ms)`,
   rw[Once asserts2_def] \\ fs[]);
 
+val asserts2_every = Q.store_thm("asserts2_every",
+  `∀n ms j.
+   asserts2 n (λk. f) g ms P ∧ j < n ⇒
+   P (FUNPOW (f o g) j ms) (g (FUNPOW (f o g) j ms))`,
+  Induct
+  \\ rw[Once asserts2_def]
+  \\ Cases_on`j` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[FUNPOW]);
+
 val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
   `((asmSem$upd_pc x s).align = s.align) ∧
    ((asmSem$upd_pc x s).mem_domain = s.mem_domain) ∧

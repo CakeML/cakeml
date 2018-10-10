@@ -15,6 +15,8 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
+val _ = Parse.hide"el";
+
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
                                 (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``
@@ -5691,32 +5693,6 @@ val get_byte_bytes_to_word = Q.store_thm("get_byte_bytes_to_word",
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))
   \\ rfs [labPropsTheory.good_dimindex_def]);
-
-val pow_eq_0 = Q.store_thm("pow_eq_0",
-  `dimindex (:'a) <= k ==> (n2w (2 ** k) = 0w:'a word)`,
-  fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
-  \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
-
-val aligned_pow = Q.store_thm("aligned_pow",
-  `aligned k (n2w (2 ** k))`,
-  Cases_on `k < dimindex (:'a)`
-  \\ fs [NOT_LESS,pow_eq_0,aligned_0]
-  \\ `2 ** k < dimword (:'a)` by fs [dimword_def]
-  \\ fs [aligned_def,align_w2n])
-
-local
-  val aligned_add_mult_lemma = Q.prove(
-    `aligned k (w + n2w (2 ** k)) = aligned k w`,
-    fs [aligned_add_sub,aligned_pow]) |> GEN_ALL
-  val aligned_add_mult_any = Q.prove(
-    `!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w`,
-    Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
-    \\ pop_assum (qspec_then `w + n2w (2 ** k)` mp_tac)
-    \\ fs [aligned_add_mult_lemma]) |> GEN_ALL
-in
-  val aligned_add_pow = save_thm("aligned_add_pow[simp]",
-    CONJ aligned_add_mult_lemma aligned_add_mult_any)
-end
 
 val MOD_MULT_MOD_LEMMA = Q.prove(
   `k MOD n = 0 /\ x MOD n = t /\ 0 < k /\ 0 < n /\ n <= k ==>

@@ -306,4 +306,31 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   \\ BasicProvers.TOP_CASE_TAC >> fs []
   \\ METIS_TAC[evaluate_io_events_mono]);
 
+val machine_sem_total = Q.store_thm("machine_sem_total",
+  `∃b. machine_sem mc st ms b`,
+  Cases_on`∃k t. FST (evaluate mc st k ms) = Halt t`
+  >- (
+    fs[]
+    \\ qexists_tac`Terminate t (SND(SND(evaluate mc st k ms))).io_events`
+    \\ simp[targetSemTheory.machine_sem_def]
+    \\ Cases_on`evaluate mc st k ms`
+    \\ qexists_tac`k` \\ fs[]
+    \\ Cases_on`r` \\ fs[] )
+  \\ Cases_on`∃k. FST (evaluate mc st k ms) = Error`
+  >- ( qexists_tac`Fail` \\ simp[targetSemTheory.machine_sem_def] )
+  \\ qexists_tac`Diverge (lprefix_lub$build_lprefix_lub (IMAGE (λk. fromList (SND(SND(evaluate mc st k ms))).io_events) UNIV))`
+  \\ simp[targetSemTheory.machine_sem_def]
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ Cases_on`evaluate mc st k ms`
+    \\ fs[GSYM EXISTS_PROD]
+    \\ metis_tac[targetSemTheory.machine_result_nchotomy, FST] )
+  \\ irule build_lprefix_lub_thm
+  \\ simp[IMAGE_COMPOSE, GSYM o_DEF]
+  \\ irule prefix_chain_lprefix_chain
+  \\ simp[prefix_chain_def, PULL_EXISTS]
+  \\ qx_genl_tac[`k1`,`k2`]
+  \\ metis_tac[LESS_EQ_CASES,evaluate_add_clock_io_events_mono]);
+
 val _ = export_theory();

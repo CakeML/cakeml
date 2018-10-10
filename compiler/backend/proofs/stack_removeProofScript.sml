@@ -15,22 +15,6 @@ val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
 
 (* TODO: move *)
 
-val aligned_or = Q.store_thm("aligned_or", (* TODO: move *)
-  `aligned n (w || v) <=> aligned n w /\ aligned n v`,
-  Cases_on `n = 0`
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [alignmentTheory.aligned_extract]
-  \\ metis_tac [])
-
-val aligned_w2n = Q.store_thm("aligned_w2n",
-  `aligned k w <=> w2n (w:'a word) MOD 2 ** k = 0`,
-  Cases_on `w`
-  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n]
-  \\ `0n < 2 ** k` by simp []
-  \\ drule DIVISION
-  \\ disch_then (qspec_then `n` assume_tac)
-  \\ `(n DIV 2 ** k * 2 ** k) < dimword (:α)` by decide_tac
-  \\ asm_simp_tac std_ss [] \\ decide_tac);
-
 val word_list_exists_thm = Q.store_thm("word_list_exists_thm",
   `(word_list_exists a 0 = emp) /\
     (word_list_exists a (SUC n) =

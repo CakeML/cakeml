@@ -13,6 +13,7 @@ val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
 val _ = temp_bring_to_front_overload"delete"{Name="delete",Thy="sptree"};
 val _ = temp_bring_to_front_overload"map"{Name="map",Thy="sptree"};
 val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+val _ = Parse.hide"tail";
 
 (* value relation *)
 

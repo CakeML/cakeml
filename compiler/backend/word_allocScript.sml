@@ -933,6 +933,8 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
 
 val _ = type_abbrev ("heu_data",``:num#num#num#num#num``);
 
+val _ = Parse.hide"mem";
+
 val add1_lhs_const_def = Define`
   add1_lhs_const x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>

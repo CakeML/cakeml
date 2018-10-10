@@ -95,6 +95,8 @@ val iAssign_def = Define `
           else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
                    (Assign n1 op vs NONE)`;
 
+val _ = Parse.hide"tail";
+
 val compile_def = tDefine "compile" `
   (compile (n:num) (env:num list) tail live [] =
     (Skip,[]:num list,n)) /\

@@ -6,8 +6,6 @@ open preamble ffiTheory BasicProvers
      targetSemTheory targetPropsTheory
 local open stack_removeProofTheory in end
 
-val aligned_w2n = stack_removeProofTheory.aligned_w2n;
-
 val _ = new_theory "lab_to_targetProof";
 
 val evaluate_ignore_clocks = Q.prove(

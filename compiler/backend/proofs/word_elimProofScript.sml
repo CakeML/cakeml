@@ -5,6 +5,8 @@ val f = print_find;
 
 val _ = new_theory "word_elimProof";
 
+val _ = Parse.hide"mem";
+
 (******************************************************** NOINSTALL PREDICATE *********************************************************)
 
 (*  ensures there are no install instructions in the code to be optimised - these will break the dead code elimination
