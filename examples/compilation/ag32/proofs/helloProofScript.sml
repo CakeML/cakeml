@@ -1960,10 +1960,15 @@ val LENGTH_words_of_bytes_hello_startup_code =
   |> CONV_RULE(RAND_CONV listLib.LENGTH_CONV)
 
 val hello_init_memory_words_def = zDefine`
-  hello_init_memory_words =
+  hello_init_memory_words args stdin =
     words_of_bytes F hello_startup_code ++
     REPLICATE (startup_code_size - (LENGTH hello_startup_code DIV 4)) 0w ++
-    REPLICATE ((ffi_code_start_offset - startup_code_size) DIV 4) 0w ++
+    [n2w (LENGTH args)] ++
+    words_of_bytes F (PAD_RIGHT 0w cline_size (FLAT (MAP (SNOC 0w) (MAP (MAP (n2w o ORD) o explode) args)))) ++
+    [0w] ++
+    [n2w (LENGTH stdin)] ++
+    words_of_bytes F (PAD_RIGHT 0w stdin_size (MAP (n2w o ORD) stdin)) ++
+    REPLICATE ((4 + stderr_size + 8 + stdout_size) DIV 4) 0w ++
     ag32_ffi_code ++
     REPLICATE (heap_size DIV 4) 0w ++
     ag32_ffi_jumps (THE config.ffi_names) ++
@@ -1972,14 +1977,15 @@ val hello_init_memory_words_def = zDefine`
     `;
 
 val hello_init_memory_def = Define`
-  hello_init_memory r0 (k:word32) =
-     get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words)) F`;
+  hello_init_memory r0 (args, stdin) (k:word32) =
+     get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words args stdin)) F`;
 
 val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   `byte_aligned r0 ∧ n < LENGTH hello_startup_code ⇒
-   (hello_init_memory r0 (r0 + (n2w n)) =
+   (hello_init_memory r0 inputs (r0 + (n2w n)) =
     EL n hello_startup_code)`,
-  strip_tac
+  Cases_on`inputs`
+  \\ strip_tac
   \\ simp[hello_init_memory_def]
   \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
   \\ simp[align_add_aligned_gen]
