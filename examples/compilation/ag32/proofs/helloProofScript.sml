@@ -1299,8 +1299,7 @@ val halt_jump_ag32_code_def = Define`
    PC is mem_start + ffi_code_start_offset  *)
 val ag32_ffi_exit_def = Define`
   ag32_ffi_exit s =
-    let s = (s with <| R := (5w =+ s.PC + 4w) s.R ;
-                       PC := s.PC + 4w |>) in
+    let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
     let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w (ffi_code_start_offset+4) :word32)):23 word)) s.R) in
     let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w (ffi_code_start_offset+4) :word32)):9 word) (s.R 6w)) s.R) in
     let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
@@ -1326,19 +1325,18 @@ val ag32_ffi_exit_code_def = Define`
 val ag32_ffi_get_arg_count_def = Define`
   ag32_ffi_get_arg_count s =
     let pc_offset = (ffi_code_start_offset - startup_code_size) + 4 * LENGTH ag32_ffi_exit_code + 4 in
-    let s = (s with <| R := (5w =+ s.PC + 4w) s.R ;
-                       PC := s.PC + 4w |>) in
+    let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
     let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
     let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w pc_offset :word32)):9 word) (s.R 6w)) s.R) in
     let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
     let s = dfn'LoadMEM (6w, Reg 5w) s in
     let s = incPC () (s with MEM := ((s.R 4w) =+ (7 >< 0) (s.R 6w)) s.MEM) in
     let s = incPC () (s with R := (6w =+ (s.R 6w) >>>~ 4w) s.R) in
-    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
-    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
-    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
-    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
+    let s = dfn'Normal(fAdd, 4w, Reg 4w, Imm 4w) s in
     let s = incPC () (s with MEM := ((s.R 4w) =+ (7 >< 0) (s.R 6w)) s.MEM) in
+    let s = incPC () (s with R := (6w =+ (n2w startup_code_size)) s.R) in
+    let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
+    let s = incPC () (s with MEM := ((s.R 5w) =+ 1w) s.MEM) in
     let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
     let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
     s`;
@@ -1353,13 +1351,127 @@ val ag32_ffi_get_arg_count_code_def = Define`
      LoadMEM (6w, Reg 5w);
      StoreMEMByte (Reg 6w, Reg 4w);
      Shift (shiftLR, 6w, Reg 6w, Imm 4w);
-     Normal (fInc, 4w, Reg 4w, Imm 0w);
-     Normal (fInc, 4w, Reg 4w, Imm 0w);
-     Normal (fInc, 4w, Reg 4w, Imm 0w);
-     Normal (fInc, 4w, Reg 4w, Imm 0w);
+     Normal (fAdd, 4w, Reg 4w, Imm 4w);
+     StoreMEMByte (Reg 6w, Reg 4w);
+     LoadConstant(6w, F, n2w startup_code_size);
+     Normal (fSub, 5w, Reg 5w, Reg 6w);
+     StoreMEMByte (Imm 1w, Reg 5w);
+     Interrupt;
+     Jump (fSnd, 0w, Reg 0w)]`;
+
+(* get_arg_length
+   PC is mem_start + ffi_code_start_offset
+         + 4 * LENGTH ag32_ffi_exit_code
+         + 4 * LENGTH ag32_ffi_get_arg_count_code
+   r3 contains length (=2)
+   r4 contains pointer to byte array with the arg index: [index % 256, index / 256]
+   the array should afterwards contain the length of the arg at index (in the same format) *)
+
+val ag32_ffi_get_arg_length_1_def = Define`
+  ag32_ffi_get_arg_length_1 s =
+    let pc_offset = ffi_code_start_offset +
+                    4 * LENGTH ag32_ffi_exit_code +
+                    4 * LENGTH ag32_ffi_get_arg_count_code +
+                    4 in
+    let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
+    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
+    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w pc_offset :word32)):9 word) (s.R 6w)) s.R) in
+    let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 6w) s in
+    let s = incPC () (s with MEM := ((s.R 5w) =+ 2w) s.MEM) in
+    let s = incPC () (s with R := (7w =+ w2w (s.MEM (s.R 4w))) s.R) in
+    let s = dfn'Normal (fAdd, 4w, Reg 4w, Imm 4w) s in
+    let s = incPC () (s with R := (6w =+ w2w (s.MEM (s.R 4w))) s.R) in
+    let s = incPC () (s with R := (6w =+ ((s.R 6w) <<~ 4w)) s.R) in
+    let s = dfn'Normal (fAdd, 7w, Reg 6w, Reg 7w) s in
+    let s = incPC () (s with R := (6w =+ (n2w (startup_code_size + 4))) s.R) in
+    let s = dfn'Normal (fAdd, 5w, Reg 5w, Reg 6w) s in
+    let s = incPC () (s with R := (6w =+ 0w) s.R) in
+    s`;
+
+val ag32_ffi_get_arg_length_2_def = tDefine"ag32_ffi_get_arg_length_2"`
+  ag32_ffi_get_arg_length_2 s =
+    if ∀n. s.MEM (s.R 5w + n2w n) ≠ 0w then s else
+    let s = incPC () (s with R := (8w =+ w2w (s.MEM (s.R 5w))) s.R) in
+    if (s.R 8w = 0w) then
+      s with PC := s.PC + 4w * 4w
+    else
+      let s = incPC () (s with R := (6w =+ (s.R 6w + 1w)) s.R) in
+      let s = incPC () (s with R := (5w =+ (s.R 5w + 1w)) s.R) in
+      let s = s with PC := s.PC + 4w * - 4w in
+      ag32_ffi_get_arg_length_2 s`
+  (simp[APPLY_UPDATE_THM, ag32Theory.incPC_def]
+   \\ wf_rel_tac`measure (λs. LEAST n. s.MEM (s.R 5w + (n2w n)) = 0w)`
+   \\ rw[APPLY_UPDATE_THM]
+   \\ Cases_on`n` \\ fs[] \\ rfs[]
+   \\ numLib.LEAST_ELIM_TAC
+   \\ conj_tac
+   >- (
+     qmatch_asmsub_rename_tac`SUC n`
+     \\ qexists_tac`n`
+     \\ fs[GSYM word_add_n2w,ADD1] )
+   \\ rw[]
+   \\ numLib.LEAST_ELIM_TAC
+   \\ conj_tac >- metis_tac[]
+   \\ rw[]
+   \\ CCONTR_TAC \\ fs[NOT_LESS, LESS_EQ_EXISTS]
+   \\ rw[]
+   \\ qmatch_asmsub_rename_tac`s.MEM (n2w m + _) = 0w`
+   \\ Cases_on`m` \\ fs[]
+   \\ last_x_assum(qspec_then`n`mp_tac)
+   \\ simp[ADD1]
+   \\ fs[ADD1, GSYM word_add_n2w]);
+
+val ag32_ffi_get_arg_length_3_def = Define`
+  ag32_ffi_get_arg_length_3 s =
+    let s = dfn'Normal (fSub, 4w, Reg 4w, Imm 4w) s in
+    let s = incPC () (s with MEM := ((s.R 4w) =+ w2w (s.R 6w)) s.MEM) in
+    let s = incPC () (s with R := (6w =+ (s.R 6w >>>~ 4w)) s.R) in
+    let s = dfn'Normal (fAdd, 4w, Reg 4w, Imm 4w) s in
+    let s = incPC () (s with MEM := ((s.R 4w) =+ w2w (s.R 6w)) s.MEM) in
+    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
+    let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
+    s`;
+
+val ag32_ffi_get_arg_length_code_def = Define`
+  ag32_ffi_get_arg_length_code =
+    let pc_offset = ffi_code_start_offset +
+                    4 * LENGTH ag32_ffi_exit_code +
+                    4 * LENGTH ag32_ffi_get_arg_count_code +
+                    4 in
+    [Jump (fAdd, 5w, Imm 4w);
+     LoadConstant(6w, F, (22 >< 0)((n2w pc_offset):word32));
+     LoadUpperConstant(6w, (31 >< 23)((n2w pc_offset):word32));
+     Normal (fSub, 5w, Reg 5w, Reg 6w); (* mem_start is now in r5 *)
+     StoreMEMByte (Imm 2w, Reg 5w);
+     LoadMEMByte (7w, Reg 4w);
+     Normal (fAdd, 4w, Reg 4w, Imm 4w);
+     LoadMEMByte (6w, Reg 4w);
+     Shift (shiftLL, 6w, Reg 6w, Imm 4w);
+     Normal (fAdd, 7w, Reg 6w, Reg 7w); (* index is now in r7 *)
+     LoadConstant (6w, F, n2w (startup_code_size + 4));
+     Normal (fAdd, 5w, Reg 5w, Reg 6w); (* r5 is now at start of args *)
+     Normal (fSnd, 6w, Imm 0w, Imm 0w); (* r6 is length counter *)
+     LoadMEMByte (8w, Reg 5w);
+     JumpIfZero (fSnd, Imm (4w * 4w), Imm 0w, Reg 8w);
+     Normal (fInc, 6w, Reg 6w, Imm 0w);
+     Normal (fInc, 5w, Reg 5w, Imm 0w);
+     JumpIfZero (fSnd, Imm (4w * -4w), Imm 0w, Imm 0w);
+     Normal (fSub, 4w, Reg 4w, Imm 4w);
+     StoreMEMByte (Reg 6w, Reg 4w);
+     Shift (shiftLR, 6w, Reg 6w, Imm 4w);
+     Normal (fAdd, 4w, Reg 4w, Imm 4w);
      StoreMEMByte (Reg 6w, Reg 4w);
      Interrupt;
      Jump (fSnd, 0w, Reg 0w)]`;
+
+(*
+;("get_arg", 3n)
+;("read", 4n)
+;("write", 5n)
+;("open_in", 6n)
+;("open_out", 7n)
+;("close", 8n)
+*)
 
 (*
 (* algorithm (shallow embedding) for the FFI implementation *)
