@@ -1096,6 +1096,7 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ first_x_assum(qspec_then`0`mp_tac)
   \\ simp[]);
 
+(*
 val extract_print_from_mem_def = Define`
   extract_print_from_mem (r0:word32) m =
     MAP (CHR o w2n) (GENLIST (λi. m (r0 + n2w (i+1))) (w2n (m r0)))`;
@@ -1137,6 +1138,7 @@ val ag32_ffi_rel_get_print_string = Q.store_thm("ag32_ffi_rel_get_print_string",
   \\ simp[MAP_EQ_f]
   \\ fs[EVERY_MEM]
   \\ simp[extract_print_from_mem_get_print_string]);
+*)
 
 val ag32_init_asm_state_def = Define`
   ag32_init_asm_state mem md (r0:word32) = <|
@@ -1160,16 +1162,8 @@ val target_state_rel_ag32_init = Q.store_thm("target_state_rel_ag32_init",
   >- (
     rw[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
     \\ fs[is_ag32_init_state_def]
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ fs[alignmentTheory.byte_aligned_def]
-    \\ rw[ag32Theory.print_string_max_length_def]
-    \\ EVAL_TAC )
-  (*
+    \\ fs[alignmentTheory.byte_aligned_def])
   >- ( fs[is_ag32_init_state_def,ag32_init_asm_state_def] \\ EVAL_TAC \\ fs[] )
-  *)
-  >- cheat
   >- ( fs[is_ag32_init_state_def,ag32_init_asm_state_def] \\ EVAL_TAC \\ fs[] )
   >- (
     fs[is_ag32_init_state_def,ag32_init_asm_state_def]
@@ -1245,9 +1239,6 @@ val startup_code_size_def = Define`
   The plussed items are set by the host before execution.
 *)
 
-val ag32_ffi_code_def = Define`
-  ag32_ffi_code = [Interrupt] (* TODO: implement *)`;
-
 val FFI_codes_def = Define`
   FFI_codes =
     [("exit", 0n)
@@ -1292,7 +1283,7 @@ val ffi_jumps_offset_def = Define`
 val exit_jump_ag32_code_def = Define`
   exit_jump_ag32_code ffi_names =
     let index = THE (INDEX_OF "exit" ffi_names) in
-    let dist_to_ffi_code = length_ag32_ffi_code + heap_size + ffi_offset * index in
+    let dist_to_ffi_code = length_ag32_ffi_code + heap_size + ffi_offset * index + 8 in
     [Encode(LoadConstant(5w, F, (22 >< 0)((n2w dist_to_ffi_code):word32)));
      Encode(LoadUpperConstant(5w, (31 >< 23)((n2w dist_to_ffi_code):word32)));
      Encode(Jump (fSub, 5w, Reg 5w));
@@ -1310,8 +1301,8 @@ val ag32_ffi_exit_def = Define`
   ag32_ffi_exit s =
     let s = (s with <| R := (5w =+ s.PC + 4w) s.R ;
                        PC := s.PC + 4w |>) in
-    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w ffi_code_start_offset :word32)):23 word)) s.R) in
-    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w ffi_code_start_offset :word32)):9 word) (s.R 6w)) s.R) in
+    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w (ffi_code_start_offset+4) :word32)):23 word)) s.R) in
+    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w (ffi_code_start_offset+4) :word32)):9 word) (s.R 6w)) s.R) in
     let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
     let s = incPC () (s with MEM := ((s.R 5w) =+ 0w) s.MEM) in
     let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
@@ -1320,11 +1311,55 @@ val ag32_ffi_exit_def = Define`
 val ag32_ffi_exit_code_def = Define`
   ag32_ffi_exit_code =
     [Jump (fAdd, 5w, Imm 4w);
-     LoadConstant(6w, F, (22 >< 0)((n2w ffi_code_start_offset):word32));
-     LoadUpperConstant(6w, (31 >< 23)((n2w ffi_code_start_offset):word32));
+     LoadConstant(6w, F, (22 >< 0)((n2w (ffi_code_start_offset+4)):word32));
+     LoadUpperConstant(6w, (31 >< 23)((n2w (ffi_code_start_offset+4)):word32));
      Normal (fSub, 5w, Reg 5w, Reg 6w);
      StoreMEMByte (Imm 0w, Reg 5w);
      Interrupt]`;
+
+(* get_arg_count
+   PC is mem_start + ffi_code_start_offset
+         + 4 * LENGTH ag32_ffi_exit_code
+   length (= 2) is in r3
+   pointer is in r4 *)
+
+val ag32_ffi_get_arg_count_def = Define`
+  ag32_ffi_get_arg_count s =
+    let pc_offset = (ffi_code_start_offset - startup_code_size) + 4 * LENGTH ag32_ffi_exit_code + 4 in
+    let s = (s with <| R := (5w =+ s.PC + 4w) s.R ;
+                       PC := s.PC + 4w |>) in
+    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
+    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w pc_offset :word32)):9 word) (s.R 6w)) s.R) in
+    let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
+    let s = dfn'LoadMEM (6w, Reg 5w) s in
+    let s = incPC () (s with MEM := ((s.R 4w) =+ (7 >< 0) (s.R 6w)) s.MEM) in
+    let s = incPC () (s with R := (6w =+ (s.R 6w) >>>~ 4w) s.R) in
+    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
+    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
+    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
+    let s = incPC () (s with R := (4w =+ (s.R 4w) + 1w) s.R) in
+    let s = incPC () (s with MEM := ((s.R 4w) =+ (7 >< 0) (s.R 6w)) s.MEM) in
+    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
+    let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
+    s`;
+
+val ag32_ffi_get_arg_count_code_def = Define`
+  ag32_ffi_get_arg_count_code =
+    let pc_offset = (ffi_code_start_offset - startup_code_size) + 4 * LENGTH ag32_ffi_exit_code + 4 in
+    [Jump (fAdd, 5w, Imm 4w);
+     LoadConstant(6w, F, (22 >< 0)((n2w pc_offset):word32));
+     LoadUpperConstant(6w, (31 >< 23)((n2w pc_offset):word32));
+     Normal (fSub, 5w, Reg 5w, Reg 6w);
+     LoadMEM (6w, Reg 5w);
+     StoreMEMByte (Reg 6w, Reg 4w);
+     Shift (shiftLR, 6w, Reg 6w, Imm 4w);
+     Normal (fInc, 4w, Reg 4w, Imm 0w);
+     Normal (fInc, 4w, Reg 4w, Imm 0w);
+     Normal (fInc, 4w, Reg 4w, Imm 0w);
+     Normal (fInc, 4w, Reg 4w, Imm 0w);
+     StoreMEMByte (Reg 6w, Reg 4w);
+     Interrupt;
+     Jump (fSnd, 0w, Reg 0w)]`;
 
 (*
 (* algorithm (shallow embedding) for the FFI implementation *)
