@@ -2735,7 +2735,7 @@ fun ag32_enc_conv tm =
 val bytes_in_memory_tac =
   simp[asmSemTheory.bytes_in_memory_def]
   \\ DEP_REWRITE_TAC[hello_init_memory_startup]
-  \\ simp[LENGTH_hello_startup_code]
+  \\ simp[LENGTH_hello_startup_code, LENGTH_code, ffi_names]
   \\ rewrite_tac[hello_startup_code_eq] \\ EVAL_TAC
   \\ Cases_on`r0`
   \\ fs[word_ls_n2w,word_add_n2w,word_lo_n2w,
@@ -2772,24 +2772,29 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
       hello_startup_asm_code) in
    steps_rel (asm_step (ag32_target.config)) hello_asm_state0 tr ∧
    let final_st = LAST (hello_asm_state0::(MAP SND tr)) in
-     (final_st.pc = (hello_machine_config r0).halt_pc + n2w ffi_offset) ∧
+   let ffi_names = THE config.ffi_names in
+   let num_ffis = LENGTH ffi_names in
+     (final_st.pc = r0 + n2w (code_start_offset num_ffis)) ∧
      (read_bytearray final_st.pc (LENGTH code)
        (λa. if a ∈ (hello_machine_config r0).prog_addresses then
                SOME (final_st.mem a) else NONE ) = SOME code) ∧
-     (final_st.regs 2 = r0 + 64w) ∧
-     (final_st.regs 4 = r0 + n2w heap_size) ∧
-     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 64w)) o n2w) 4) =
-      (r0 + n2w heap_size)) ∧
-     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 68w)) o n2w) 4) =
-      (r0 + n2w (heap_size + 4 * LENGTH data))) ∧
-     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 72w)) o n2w) 4) =
-      (r0 + n2w (heap_size + 4 * LENGTH data))) ∧
-     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 76w)) o n2w) 4) =
-      (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code))) ∧
-     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (r0 + 80w)) o n2w) 4) =
-      (r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code))) ∧
+     let hs = r0 + n2w heap_start_offset in
+     let ds = r0 + n2w (code_start_offset num_ffis + LENGTH code) in
+     (final_st.regs 2 = hs) ∧
+     (final_st.regs 4 = hs + n2w heap_size) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (hs + 0w * 4w)) o n2w) 4) =
+      ds) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (hs + 1w * 4w)) o n2w) 4) =
+      ds + n2w (4 * LENGTH data)) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (hs + 2w * 4w)) o n2w) 4) =
+      ds + n2w (4 * LENGTH data)) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (hs + 3w * 4w)) o n2w) 4) =
+      ds) ∧
+     (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (hs + 4w * 4w)) o n2w) 4) =
+      ds) ∧
      (∀k. k < 4 * LENGTH data + 4 ⇒
-          (final_st.mem (r0 + n2w (heap_size + k)) = (hello_init_memory r0) (r0 + n2w (heap_size + k))))`,
+          (final_st.mem (ds + n2w k) =
+           (hello_init_memory r0 input) (ds + n2w k)))`,
   strip_tac
   \\ qho_match_abbrev_tac`LET (λtr. (_ tr) ∧ P (_ tr)) _`
   \\ rewrite_tac[hello_startup_asm_code_eq,
@@ -2803,9 +2808,7 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ simp[asmSemTheory.asm_step_def, ag32_targetTheory.ag32_config, Abbr`i`]
   \\ qpat_x_assum`Abbrev (s2 = _)`mp_tac
   \\ CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)
-  \\ simp
-      [ag32_init_asm_state_def,
-       ag32Theory.print_string_max_length_def]
+  \\ simp [ag32_init_asm_state_def]
   \\ `ag32_init_regs r0 = (λk. ag32_init_regs r0 k)` by simp[FUN_EQ_THM]
   \\ pop_assum SUBST1_TAC
   \\ simp[ag32_targetTheory.ag32_init_regs_def]
@@ -2925,7 +2928,6 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ simp_tac std_ss []
   \\ rw[]);
 
-(*
 val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_asm_step",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
    (λx y. ∃i. asm_step ag32_config x i y)^* hello_asm_state0 (hello_init_asm_state r0) ∧
