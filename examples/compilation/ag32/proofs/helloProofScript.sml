@@ -3034,24 +3034,27 @@ val hello_startup_clock_def =
 
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
-   is_ag32_init_state (hello_init_memory r0) r0 ms0 ⇒
+   SUM (MAP strlen args) + LENGTH args ≤ cline_size ∧
+   LENGTH inp ≤ stdin_size ∧
+   is_ag32_init_state (hello_init_memory r0 (args,inp)) r0 ms0 ⇒
    ∃io_regs cc_regs.
-   good_init_state (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0) ms0)
-     ag_ffi code 0 (hello_init_asm_state r0)
+   good_init_state (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0 inp args) ms0)
+     ag_ffi code 0 (hello_init_asm_state r0 (args,inp))
      (λk. Word
-       (word_of_bytes F 0w (GENLIST (λi. (hello_init_asm_state r0).mem (k + n2w i)) 4)))
-       ({w | (hello_init_asm_state r0).regs 2 <=+ w ∧
-             w <+ (hello_init_asm_state r0).regs 4}
-        ∪ {w | r0 + n2w heap_size <=+ w ∧
-               w <+ r0 + n2w(heap_size + 4 * LENGTH data) })
+       (word_of_bytes F 0w (GENLIST (λi. (hello_init_asm_state r0 (args,inp)).mem (k + n2w i)) 4)))
+       ({w | (hello_init_asm_state r0 (args,inp)).regs 2 <=+ w ∧
+             w <+ (hello_init_asm_state r0 (args,inp)).regs 4}
+        ∪ {w | r0 + n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code) <=+ w ∧
+               w <+ r0 + n2w(code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code + 4 * LENGTH data) })
      io_regs
      cc_regs`,
   strip_tac
   \\ drule hello_startup_clock_def \\ fs[]
+  \\ disch_then drule \\ disch_then drule
   \\ disch_then drule
   \\ strip_tac
   \\ simp[lab_to_targetProofTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
-  \\ conj_tac >- ( fs[hello_machine_config_def] )
+  \\ conj_tac >- ( fs[hello_machine_config_def, ag32_machine_config_def] )
   \\ drule hello_init_asm_state_RTC_asm_step
   \\ impl_tac >- fs[]
   \\ strip_tac
@@ -3063,7 +3066,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ simp[lab_to_targetProofTheory.target_configured_def]
     \\ EVAL_TAC)
   \\ conj_tac >- (
-    fs[asmPropsTheory.target_state_rel_def, hello_machine_config_def] )
+    fs[asmPropsTheory.target_state_rel_def, hello_machine_config_def, ag32_machine_config_def] )
   \\ `r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset) && 3w = 0w` by (
     fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def]
     \\ Cases_on`r0`
@@ -3106,16 +3109,16 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     rewrite_tac[lab_to_targetProofTheory.start_pc_ok_def]
     \\ conj_tac >- (
       qpat_x_assum`_ < _`mp_tac
-      \\ EVAL_TAC
+      \\ EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names]
       \\ Cases_on`r0`
-      \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,LENGTH_data] )
+      \\ fs[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,word_lo_n2w] )
     \\ conj_tac >- (
       qpat_x_assum`_ < _`mp_tac
-      \\ EVAL_TAC
+      \\ EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names]
       \\ Cases_on`r0`
-      \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,LENGTH_data] )
+      \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,word_lo_n2w] )
     \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ conj_tac >- (EVAL_TAC \\ simp[LENGTH_data])
+    \\ conj_tac >- (EVAL_TAC \\ simp[ffi_names])
     \\ conj_tac >- (
       rpt(qpat_x_assum`_ = 0w`mp_tac)
       \\ EVAL_TAC \\ simp[LENGTH_data] )
