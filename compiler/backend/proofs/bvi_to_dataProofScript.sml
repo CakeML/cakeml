@@ -25,13 +25,54 @@ val code_rel_def = Define `
       (lookup n bvi_code = SOME (arg_count,exp)) ==>
       (lookup n data_code = SOME (arg_count,compile_exp arg_count exp))`;
 
+(* Projection from `dataSem$v` into `bvlSem$v` that basically gets rid of
+   timestamp information (note this make the function non-injective)
+*)
+val data_to_bvi_v_def = tDefine"data_to_bvi_v_def"`
+  data_to_bvi_v (Number i)      = bvlSem$Number i
+∧ data_to_bvi_v (Word64 w)      = bvlSem$Word64 w
+∧ data_to_bvi_v (CodePtr p)     = bvlSem$CodePtr p
+∧ data_to_bvi_v (RefPtr r)      = bvlSem$RefPtr r
+∧ data_to_bvi_v (Block _ tag l) = bvlSem$Block tag (MAP data_to_bvi_v l)
+`
+(wf_rel_tac `measure v_size`
+\\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
+   by (Induct >> rw [v_size_def])
+\\ rw []
+\\ IMP_RES_TAC SUM_MAP_MEM_bound
+\\ ho_match_mp_tac LESS_EQ_LESS_TRANS
+\\ Q.EXISTS_TAC `SUM (MAP (λx. v_size x + 1) l)`
+\\ rw []
+\\ ho_match_mp_tac LESS_EQ_TRANS
+\\ Q.EXISTS_TAC `v_size a + 1`
+\\ rw [])
+
+(* Projection for Unit constant *)
+val data_to_bvi_v_Unit = Q.store_thm("data_to_bvi_v_Unit",
+  `data_to_bvi_v Unit = Unit`,
+  rw [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
+);
+
+(* Projection for Boolv constant *)
+val data_to_bvi_v_Boolv = Q.store_thm("data_to_bvi_v_Boolv",
+  `∀b. data_to_bvi_v (Boolv b) = (Boolv b)`,
+  rw [data_to_bvi_v_def,Boolv_def,bvlSemTheory.Boolv_def]
+);
+
+(* Projection for references, non-injective for value arrays *)
+val data_to_bvi_ref_def = Define`
+  data_to_bvi_ref (ValueArray l)   = ValueArray (MAP data_to_bvi_v l)
+∧ data_to_bvi_ref (ByteArray b bl) = ByteArray b bl
+`
+
+(* State relation *)
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) bviSem$state) (t:('c,'ffi) dataSem$state) <=>
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
     (t.compile_oracle = ((I ## bvi_to_data$compile_prog) o s.compile_oracle)) /\
     (s.compile = (λcfg prog. t.compile cfg (bvi_to_data$compile_prog prog))) /\
-    (s.refs = t.refs) /\
+    (s.refs = data_to_bvi_ref o_f t.refs) /\
     (s.ffi = t.ffi) /\
     (s.global = t.global)`;
 
