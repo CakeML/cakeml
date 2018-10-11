@@ -979,7 +979,7 @@ val ffi_code_start_offset_def = Define`
     startup_code_size + 4 + cline_size + 4 + 4 + stdin_size + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 232n`;
+  length_ag32_ffi_code = 256n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -1194,14 +1194,59 @@ val ag32_ffi_get_arg_length_code_def = Define`
      Interrupt;
      Jump (fSnd, 0w, Reg 0w)]`;
 
-(*
-;("get_arg", 3n)
-;("read", 4n)
-;("write", 5n)
-;("open_in", 6n)
-;("open_out", 7n)
-;("close", 8n)
-*)
+(* get_arg *)
+
+val ag32_ffi_get_arg_entrypoint_def = Define`
+  ag32_ffi_get_arg_entrypoint =
+  ag32_ffi_get_arg_length_entrypoint + 4 * LENGTH ag32_ffi_get_arg_length_code`;
+
+val ag32_ffi_get_arg_code_def = Define`
+  ag32_ffi_get_arg_code = [Interrupt] (* TODO *)`;
+
+(* read *)
+
+val ag32_ffi_read_entrypoint_def = Define`
+  ag32_ffi_read_entrypoint =
+  ag32_ffi_get_arg_entrypoint + 4 * LENGTH ag32_ffi_get_arg_code`;
+
+val ag32_ffi_read_code_def = Define`
+  ag32_ffi_read_code = [Interrupt] (* TODO *)`;
+
+(* write *)
+
+val ag32_ffi_write_entrypoint_def = Define`
+  ag32_ffi_write_entrypoint =
+  ag32_ffi_read_entrypoint + 4 * LENGTH ag32_ffi_read_code`;
+
+val ag32_ffi_write_code_def = Define`
+  ag32_ffi_write_code = [Interrupt] (* TODO *)`;
+
+(* open_in *)
+
+val ag32_ffi_open_in_entrypoint_def = Define`
+  ag32_ffi_open_in_entrypoint =
+  ag32_ffi_write_entrypoint + 4 * LENGTH ag32_ffi_write_code`;
+
+val ag32_ffi_open_in_code_def = Define`
+  ag32_ffi_open_in_code = [Interrupt] (* TODO *)`;
+
+(* open_out *)
+
+val ag32_ffi_open_out_entrypoint_def = Define`
+  ag32_ffi_open_out_entrypoint =
+  ag32_ffi_open_in_entrypoint + 4 * LENGTH ag32_ffi_open_in_code`;
+
+val ag32_ffi_open_out_code_def = Define`
+  ag32_ffi_open_out_code = [Interrupt] (* TODO *)`;
+
+(* close *)
+
+val ag32_ffi_close_entrypoint_def = Define`
+  ag32_ffi_close_entrypoint =
+  ag32_ffi_open_out_entrypoint + 4 * LENGTH ag32_ffi_open_out_code`;
+
+val ag32_ffi_close_code_def = Define`
+  ag32_ffi_close_code = [Interrupt] (* TODO *)`;
 
 (* FFI jumps
   - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
@@ -1217,14 +1262,25 @@ val ffi_entrypoints_def = Define`
   ffi_entrypoints = [
     ("exit", ag32_ffi_exit_entrypoint);
     ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
-    ("get_arg_length", ag32_ffi_get_arg_length_entrypoint) (* TODO: ... *)]`;
+    ("get_arg_length", ag32_ffi_get_arg_length_entrypoint);
+    ("get_arg", ag32_ffi_get_arg_entrypoint);
+    ("read", ag32_ffi_read_entrypoint);
+    ("write", ag32_ffi_write_entrypoint);
+    ("open_in", ag32_ffi_open_in_entrypoint);
+    ("open_out", ag32_ffi_open_out_entrypoint);
+    ("close", ag32_ffi_close_entrypoint)]`;
 
 val ffi_exitpcs_def = Define`
   ffi_exitpcs = [
     ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
     ("get_arg_count", ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
-    ("get_arg_length", heap_start_offset) (* TODO: ... *)
-    ]`;
+    ("get_arg_length", ffi_code_start_offset + ag32_ffi_get_arg_entrypoint);
+    ("get_arg", ffi_code_start_offset + ag32_ffi_read_entrypoint);
+    ("read", ffi_code_start_offset + ag32_ffi_write_entrypoint);
+    ("write", ffi_code_start_offset + ag32_ffi_open_in_entrypoint);
+    ("open_in", ffi_code_start_offset + ag32_ffi_open_out_entrypoint);
+    ("open_out", ffi_code_start_offset + ag32_ffi_close_entrypoint);
+    ("close", heap_start_offset) ]`;
 
 val mk_jump_ag32_code_def = Define`
   mk_jump_ag32_code ffi_names name =
@@ -1247,7 +1303,7 @@ val ag32_ffi_jumps_def = Define`
     FLAT (MAP (mk_jump_ag32_code ffi_names) ffi_names) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code`;
 
 (*
-(* algorithm (shallow embedding) for the FFI implementation *)
+(* OLD (for inspiration) algorithm (shallow embedding) for the FFI implementation *)
 
 val hello_ag32_ffi_1_def = Define`
   hello_ag32_ffi_1 s =
@@ -1556,7 +1612,13 @@ val ag32_ffi_code_def = Define`
     MAP Encode (
       ag32_ffi_exit_code ++
       ag32_ffi_get_arg_count_code ++
-      ag32_ffi_get_arg_length_code (* TODO ++ the rest *) )`;
+      ag32_ffi_get_arg_length_code ++
+      ag32_ffi_get_arg_code ++
+      ag32_ffi_read_code ++
+      ag32_ffi_write_code ++
+      ag32_ffi_open_in_code ++
+      ag32_ffi_open_out_code ++
+      ag32_ffi_close_code)`;
 
 val LENGTH_ag32_ffi_code = ``LENGTH ag32_ffi_code`` |> EVAL
 
@@ -1823,7 +1885,7 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
   \\ EVAL_TAC);
 
-(*
+(* OLD (inspiration only)
 val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   `byte_aligned r0 ∧
    (pc = r0 + n2w (heap_size + 4 * LENGTH data + ffi_offset))
@@ -2659,23 +2721,6 @@ val hello_ag32_ffi_code_correct = Q.store_thm("hello_ag32_ffi_code_correct",
   \\ simp[ag32_targetProofTheory.Decode_Encode]
   \\ simp[ag32Theory.Run_def]
   \\ simp[ag32Theory.dfn'Jump_def,ag32Theory.ri2word_def,ag32Theory.ALU_def,APPLY_UPDATE_THM]);
-
-(*
-Memory layout:
-  hz = heap_size is the heap+stack size in mebibytes (including the unusable FFI bytes)
-  r0 gives the lowest software-usable address
-  r0 .. r0 + 64 is used by the FFI implementation
-  r0 + 64 .. r0 + hzMiB is the CakeML heap+stack space. The machine initial PC is r0 + 64, so this initially contains the startup code.
-  r0 + hzMiB .. r0 + hzMiB + 4 * LENGTH data is the bitmaps
-  r0 + hzMiB + 4 * LENGTH data is the FFI PC
-  r0 + hzMiB + 4 * LENGTH data + 16 is the ccache PC
-  r0 + hzMiB + 4 * LENGTH data + 32 is the halt PC
-  r0 + hzMiB + 4 * LENGTH data + 48 is the initial PC for CakeML
-  r0 + hzMiB + 4 * LENGTH data + 48 .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code is the code
-  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code .. r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code is the FFI implementation
-  r0 + hzMiB + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code .. r0 + memory_size MB is zeros
-*)
-
 *)
 
 val hello_machine_config_def = Define`
