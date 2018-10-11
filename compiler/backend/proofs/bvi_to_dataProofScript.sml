@@ -82,54 +82,28 @@ val find_code_def = bvlSemTheory.find_code_def;
 val _ = temp_bring_to_front_overload"find_code"{Name="find_code",Thy="bvlSem"};
 
 val find_code_lemma = Q.prove(
-  `state_rel r t2 /\
-    (find_code dest a r.code = SOME (args,exp)) ==>
-    (find_code dest a t2.code = SOME (args,compile_exp (LENGTH args) exp))`,
-  reverse (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def]
+  `state_rel r t2 ∧
+    find_code dest (MAP data_to_bvi_v a) r.code = SOME (args,exp)
+    ⇒ ∃args'.
+       args = MAP data_to_bvi_v args' ∧
+       dataSem$find_code dest a t2.code =
+         SOME (args',compile_exp (LENGTH args') exp)`,
+  reverse (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def,dataSemTheory.find_code_def]
   \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,code_rel_def]
   \\ REPEAT STRIP_TAC THEN1
-   (Cases_on `lookup x r.code` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ PairCases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ Cases_on `LAST a` \\ FULL_SIMP_TAC (srw_ss()) []
+   (Cases_on `lookup x r.code` \\ fs [option_case_eq]
+    \\ PairCases_on `x'` \\ fs []
+    \\ RES_TAC \\ fs [])
+  \\ Cases_on `LAST a` \\  rfs [] \\ fs [data_to_bvi_v_def]
   \\ FULL_SIMP_TAC std_ss []
-  \\ Cases_on `lookup n r.code` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ PairCases_on `x` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ RES_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ sg `x0 = LENGTH args` \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `lookup n r.code` \\ fs [option_case_eq]
+  \\ PairCases_on `x` \\ fs []
+  \\ RES_TAC \\ fs []
+  \\ `x0 = LENGTH args`
+     by (qpat_x_assum `FRONT _ = _` (assume_tac o GSYM) \\ rveq
+        \\ Cases_on `a` \\ fs [])
   \\ `?t1 t2. a = SNOC t1 t2` by METIS_TAC [SNOC_CASES]
-  \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1]);
-
-val do_app_data_to_bvi = Q.prove(
-  `(do_app op a s1 = Rval (x0,s2)) /\ state_rel s1 t1 /\ op ≠ Install ==>
-    (∃cc co.
-     do_app op a (data_to_bvi t1) =
-      Rval (x0,s2 with <| code := map (K ARB) t1.code
-                          ;compile := cc
-                          ;compile_oracle := co
-                        |>))`,
-  full_simp_tac(srw_ss())[state_rel_def]
-  \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bviSemTheory.do_app_def] \\ REPEAT STRIP_TAC \\ fs[]
-  \\ Cases_on `do_app_aux op a s1` \\ full_simp_tac(srw_ss())[]
-  \\ reverse (Cases_on `x`) \\ full_simp_tac(srw_ss())[] THEN1
-   (Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
-    \\ fs[bvlPropsTheory.case_eq_thms] \\ rw[]
-    \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality]
-    \\ fs[domain_lookup,lookup_map,code_rel_def]
-    \\ METIS_TAC[PAIR] )
-  \\ `do_app_aux op a (data_to_bvi t1) = SOME NONE` by
-   (Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
-    \\ fs[bvlPropsTheory.case_eq_thms])
-  \\ `bvi_to_bvl (data_to_bvi t1) = bvi_to_bvl s1` by
-   (full_simp_tac(srw_ss())[bvi_to_bvl_def,data_to_bvi_def,code_rel_def,
-        spt_eq_thm,lookup_map_K,domain_map,
-        bvlSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `do_app op a (bvi_to_bvl s1)` \\ full_simp_tac(srw_ss())[]
-  \\ fs[bvlPropsTheory.case_eq_thms]
-  \\ fs[bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.state_component_equality]);
-
-(* compiler correctness *)
+  \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1,MAP_SNOC]);
 
 val optimise_correct = Q.store_thm("optimise_correct",
   `!c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
