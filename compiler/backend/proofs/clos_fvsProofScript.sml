@@ -613,4 +613,22 @@ val remove_fvs_elist_globals = Q.store_thm("remove_fvs_elist_globals[simp]",
   `elist_globals (remove_fvs fvs xs) = elist_globals xs`,
   rw[elist_globals_FOLDR]);
 
+val EVERY_remove_fvs_sing = store_thm("EVERY_remove_fvs_sing",
+  ``EVERY f (remove_fvs n [y]) <=> f (HD (remove_fvs n [y]))``,
+  `?t. remove_fvs n [y] = [t]` by metis_tac [remove_fvs_SING] \\ fs []);
+
+val remove_fvs_no_Labels = store_thm("remove_fvs_no_Labels",
+  ``!n xs. EVERY no_Labels (remove_fvs n xs) = EVERY no_Labels xs``,
+  ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
+  \\ fs [EVERY_remove_fvs_sing]
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
+
+val remove_fvs_obeys_max_app = store_thm("remove_fvs_obeys_max_app",
+  ``!n xs. EVERY (obeys_max_app k) (remove_fvs n xs) = EVERY (obeys_max_app k) xs``,
+  ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
+  \\ fs [EVERY_remove_fvs_sing]
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_fvs]
+  \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
+
 val _ = export_theory();

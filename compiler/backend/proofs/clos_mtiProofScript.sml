@@ -275,7 +275,7 @@ val mk_Apps_def = Define `
   mk_Apps e [] = e /\
   mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]`
 
-val collect_apps_IMP_mk_Apps = prove(
+val collect_apps_IMP_mk_Apps = store_thm("collect_apps_IMP_mk_Apps",
   ``!es max_app (acc:closLang$exp list) e other e3.
       collect_apps max_app [] e = (other,e3) /\ syntax_ok es /\ es = [e] ==>
       ?ts. e = mk_Apps e3 (ZIP (ts, other)) /\ LENGTH other = LENGTH ts /\
@@ -1474,6 +1474,78 @@ val compile_preserves_esgc_free = Q.store_thm(
   `∀do_mti es. EVERY esgc_free es ⇒
                EVERY esgc_free (clos_mti$compile do_mti max_app es)`,
   Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
+
+val intro_multi_obeys_max_app = store_thm("intro_multi_obeys_max_app",
+  ``!m xs. m ≠ 0 /\ syntax_ok xs ==> EVERY (obeys_max_app m) (intro_multi m xs)``,
+  ho_match_mp_tac intro_multi_ind \\ rw []
+  \\ fs [intro_multi_def,syntax_ok_def]
+  \\ TRY (pop_assum mp_tac
+    \\ once_rewrite_tac [syntax_ok_cons]
+    \\ strip_tac \\ fs []
+    \\ `∃x.  intro_multi m [e]  = [x]` by fs [intro_multi_sing]
+    \\ `∃x1. intro_multi m [e1] = [x1]` by fs [intro_multi_sing]
+    \\ `∃x2. intro_multi m [e2] = [x2]` by fs [intro_multi_sing]
+    \\ `∃x3. intro_multi m [e3] = [x3]` by fs [intro_multi_sing]
+    \\ fs [] \\ NO_TAC)
+  \\ TRY pairarg_tac \\ fs []
+  \\ fs [intro_multi_length]
+  THEN1
+   (fs [quantHeuristicsTheory.LIST_LENGTH_1] \\ rveq \\ fs []
+    \\ imp_res_tac collect_apps_acc \\ rveq \\ fs []
+    \\ drule collect_apps_cons \\ fs [] \\ strip_tac
+    \\ drule collect_apps_IMP_mk_Apps \\ fs [] \\ strip_tac
+    \\ rveq \\ fs []
+    \\ drule collect_apps_syntax_ok \\ fs [syntax_ok_def]
+    \\ `∃x.  intro_multi m [e']  = [x]` by fs [intro_multi_sing] \\ fs [])
+  THEN1
+   (drule collect_args_ok_IMP \\ fs []
+    \\ strip_tac \\ fs [] \\ rveq \\ fs []
+    \\ `∃x0. intro_multi m [e'] = [x0]` by fs [clos_mtiTheory.intro_multi_sing]
+    \\ fs [])
+  \\ `∃x.  intro_multi m [e] = [x]` by fs [clos_mtiTheory.intro_multi_sing]
+  \\ fs []
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ rw [] \\ rveq
+  \\ rpt (first_x_assum drule) \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs [] \\ rw []
+  \\ first_x_assum match_mp_tac
+  \\ rename [`_ = (_,e2)`]
+  \\ `∃x.  intro_multi m [e2] = [x]` by fs [clos_mtiTheory.intro_multi_sing] \\ fs []
+  \\ drule collect_args_ok_IMP \\ fs []
+  \\ strip_tac \\ fs []);
+
+val collect_apps_no_Labels = store_thm("collect_apps_no_Labels",
+  ``!m es e es' e'.
+      collect_apps m es e = (es',e') /\ EVERY no_Labels es /\ no_Labels e ==>
+      EVERY no_Labels es' /\ no_Labels e'``,
+  ho_match_mp_tac collect_apps_ind \\ fs [collect_apps_def] \\ rw [] \\ fs []);
+
+val collect_args_no_Labels = store_thm("collect_args_no_Labels",
+  ``!m na e es' e'.
+      collect_args m na e = (es',e') /\ no_Labels e ==> no_Labels e'``,
+  ho_match_mp_tac collect_args_ind \\ fs [] \\ rw [collect_args_def] \\ fs []);
+
+val intro_multi_no_Labels = store_thm("intro_multi_no_Labels",
+  ``!m xs. EVERY no_Labels xs ==> EVERY no_Labels (intro_multi m xs)``,
+  ho_match_mp_tac intro_multi_ind \\ rw []
+  \\ fs [intro_multi_def,no_Labels_def]
+  \\ TRY
+   (`∃x. intro_multi m [e]  = [x]` by fs [intro_multi_sing]
+    \\ `∃x1. intro_multi m [e1] = [x1]` by fs [intro_multi_sing]
+    \\ `∃x2. intro_multi m [e2] = [x2]` by fs [intro_multi_sing]
+    \\ `∃x3. intro_multi m [e3] = [x3]` by fs [intro_multi_sing]
+    \\ fs [] \\ NO_TAC)
+  \\ TRY pairarg_tac \\ fs []
+  \\ `∃x. intro_multi m [e']  = [x]` by fs [intro_multi_sing] \\ fs []
+  THEN1 (imp_res_tac collect_apps_no_Labels \\ fs [])
+  THEN1 (imp_res_tac collect_args_no_Labels \\ fs [])
+  \\ `∃x. intro_multi m [e]  = [x]` by fs [intro_multi_sing] \\ fs []
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ rw [] \\ rveq
+  \\ rpt (first_x_assum drule) \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs [] \\ rw []
+  \\ first_x_assum match_mp_tac
+  \\ rename [`_ = (_,e2)`]
+  \\ `∃x.  intro_multi m [e2] = [x]` by fs [clos_mtiTheory.intro_multi_sing] \\ fs []
+  \\ imp_res_tac collect_args_no_Labels \\ fs []);
 
 (* preservation of observable semantics *)
 

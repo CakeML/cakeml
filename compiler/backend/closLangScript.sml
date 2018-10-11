@@ -106,6 +106,8 @@ val pure_op_def = Define `
 `;
 
 (* pure e means e can neither raise an exception nor side-effect the state *)
+(* the clauses annotated with "could maybe be" were changed for syntactic labels proofs;
+   the condition now also includes cannot contain any function names *)
 val pure_def = tDefine "pure" `
   (pure (Var _ _) ⇔ T)
     ∧
@@ -115,7 +117,7 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (Raise _ _) ⇔ F)
     ∧
-  (pure (Handle _ e1 _) ⇔ pure e1)
+  (pure (Handle _ e1 e2) ⇔ pure e1 ∧ pure e2 (* could maybe be (just): pure e1 *))
     ∧
   (pure (Tick _ _) ⇔ F)
     ∧
@@ -123,9 +125,9 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (App _ _ _ _) ⇔ F)
     ∧
-  (pure (Fn _ _ _ _ _) ⇔ T)
+  (pure (Fn _ _ _ _ _) ⇔ F (* could maybe be: T *))
     ∧
-  (pure (Letrec _ _ _ _ x) ⇔ pure x)
+  (pure (Letrec _ _ _ _ x) ⇔ F (* could maybe be: pure x *))
     ∧
   (pure (Op _ opn es) ⇔ EVERY pure es ∧ pure_op opn)
 ` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
