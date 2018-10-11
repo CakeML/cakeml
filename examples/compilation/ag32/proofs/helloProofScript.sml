@@ -1734,8 +1734,8 @@ val hello_startup_asm_code_def = Define`
   hello_startup_asm_code = (
       startup_asm_code
         (LENGTH (THE config.ffi_names))
-        (n2w (4 * LENGTH data))
-        (n2w (LENGTH code)))`;
+        (n2w (LENGTH code))
+        (n2w (4 * LENGTH data)))`;
 
 val hello_startup_asm_code_eq =
   hello_startup_asm_code_def
@@ -2759,7 +2759,6 @@ val _ = temp_overload_on("hello_asm_state0",
       (hello_machine_config r0).prog_addresses
       r0)``);
 
-(*
 val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
    SUM (MAP strlen args) + LENGTH args ≤ cline_size ∧
@@ -2960,34 +2959,41 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ conj_tac >- mem_word_tac
   \\ conj_tac >- mem_word_tac
   \\ conj_tac >- mem_word_tac
-  \\ conj_tac >- mem_word_tac
   \\ simp_tac std_ss [asmSemTheory.asm_state_accfupds]
-  \\ rewrite_tac[heap_size_def,LENGTH_data]
-  \\ simp_tac std_ss []
-  \\ rw[]);
+  \\ simp[LENGTH_code,ffi_names,EVAL``code_start_offset num_ffis``,LENGTH_data]
+  \\ gen_tac \\ strip_tac
+  \\ Cases_on`r0` \\ fs[memory_size_def]
+  \\ rewrite_tac[word_add_n2w] \\ rw[]);
 
 val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_asm_step",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
-   (λx y. ∃i. asm_step ag32_config x i y)^* hello_asm_state0 (hello_init_asm_state r0) ∧
-   ((hello_init_asm_state r0).pc = (hello_machine_config r0).halt_pc + n2w ffi_offset) ∧
-   (read_bytearray (hello_init_asm_state r0).pc (LENGTH code)
-      (λa. if a ∈ (hello_machine_config r0).prog_addresses then SOME ((hello_init_asm_state r0).mem a) else NONE)
+  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
+   SUM (MAP strlen args) + LENGTH args ≤ cline_size ∧
+   LENGTH inp ≤ stdin_size
+  ⇒
+   (λx y. ∃i. asm_step ag32_config x i y)^* hello_asm_state0 (hello_init_asm_state r0 (args,inp)) ∧
+   let ffi_names = THE config.ffi_names in
+   let num_ffis = LENGTH ffi_names in
+   let hs = r0 + n2w heap_start_offset in
+   let ds = r0 + n2w (code_start_offset num_ffis + LENGTH code) in
+   ((hello_init_asm_state r0 (args,inp)).pc = r0 + n2w (code_start_offset num_ffis)) ∧
+   (read_bytearray (hello_init_asm_state r0 (args,inp)).pc (LENGTH code)
+      (λa. if a ∈ (hello_machine_config r0).prog_addresses then SOME ((hello_init_asm_state r0 (args,inp)).mem a) else NONE)
       = SOME code) ∧
-    ((hello_init_asm_state r0).regs 2 = r0 + 64w) ∧
-    ((hello_init_asm_state r0).regs 4 = r0 + n2w heap_size) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 64w)) o n2w) 4)
-     = r0 + n2w heap_size) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 68w)) o n2w) 4)
-     = r0 + n2w (heap_size + 4 * LENGTH data)) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 72w)) o n2w) 4)
-     = r0 + n2w (heap_size + 4 * LENGTH data)) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 76w)) o n2w) 4)
-     = r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0).mem o ((+)(r0 + 80w)) o n2w) 4)
-     = r0 + n2w (heap_size + 4 * LENGTH data + 3 * ffi_offset + LENGTH code)) ∧
+    ((hello_init_asm_state r0 (args,inp)).regs 2 = hs) ∧
+    ((hello_init_asm_state r0 (args,inp)).regs 4 = hs + n2w heap_size) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (args,inp)).mem o ((+)(hs + 0w * 4w)) o n2w) 4)
+     = ds) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (args,inp)).mem o ((+)(hs + 1w * 4w)) o n2w) 4)
+     = ds + n2w (4 * LENGTH data)) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (args,inp)).mem o ((+)(hs + 2w * 4w)) o n2w) 4)
+     = ds + n2w (4 * LENGTH data)) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (args,inp)).mem o ((+)(hs + 3w * 4w)) o n2w) 4)
+     = ds) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (args,inp)).mem o ((+)(hs + 4w * 4w)) o n2w) 4)
+     = ds) ∧
     (∀k. k < 4 * LENGTH data + 4 ⇒
-      ((hello_init_asm_state r0).mem (r0 + n2w (heap_size +  k)) =
-       hello_init_memory r0 (r0 + n2w (heap_size + k))))`,
+      ((hello_init_asm_state r0 (args,inp)).mem (ds + n2w k) =
+       hello_init_memory r0 (args,inp) (ds + n2w k)))`,
   disch_then assume_tac
   \\ mp_tac (UNDISCH hello_init_asm_state_asm_step)
   \\ simp[]
@@ -3003,8 +3009,10 @@ val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_as
 
 val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_init_asm_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   is_ag32_init_state (hello_init_memory r0) r0 ms ⇒
-   ∃n. target_state_rel ag32_target (hello_init_asm_state r0) (FUNPOW Next n ms) ∧
+   SUM (MAP strlen args) + LENGTH args ≤ cline_size ∧
+   LENGTH inp ≤ stdin_size ∧
+   is_ag32_init_state (hello_init_memory r0 (args,inp)) r0 ms ⇒
+   ∃n. target_state_rel ag32_target (hello_init_asm_state r0 (args,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (hello_machine_config r0).prog_addresses ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
@@ -3021,6 +3029,8 @@ val hello_startup_clock_def =
   new_specification("hello_startup_clock_def",["hello_startup_clock"],
   GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_hello_init_asm_state))
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
+
+(*
 
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
