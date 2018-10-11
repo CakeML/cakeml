@@ -442,13 +442,14 @@ let opw64_lookup op = match op with
   | Sub -> W64sub
 end
 
+(* TODO add these into lib.lem *)
 val opw_lookup : opw -> nat -> nat -> nat
-let opw_lookup op n = match op with
-  | Andw -> WNand n
-  | Orw -> WNor n
-  | Xor -> WNxor n
-  | Add -> WNadd n
-  | Sub -> WNsub n
+let opw_lookup op = match op with
+  | Andw -> WNand
+  | Orw -> WNor
+  | Xor -> WNxor
+  | Add -> WNadd
+  | Sub -> WNsub
 
 val shift8_lookup : shift -> word8 -> nat -> word8
 let shift8_lookup sh = match sh with
@@ -496,6 +497,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (OpwN n1 op, [Litv (WordN n2 w1); Litv (WordN n3 w2)]) ->
+	if (n1 = n2) /\ (n2 = n3) then
+	  Just ((s,t), Rval (Litv (WordN (opwN_lookup op w1 w2))))
+        else
+	  Nothing 
     | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (FP_uop uop, [Litv (Word64 w)]) ->
