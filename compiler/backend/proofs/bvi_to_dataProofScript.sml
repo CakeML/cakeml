@@ -142,44 +142,338 @@ val compile_part_thm = Q.prove(
   `compile_part = λ(x,y). (x, (λ(a,b). (a, compile_exp a b)) y)`,
   simp[FUN_EQ_THM,FORALL_PROD,compile_part_def])
 
+(* Projection for results, injective upto `dataSem$v` *)
+val data_to_bvi_result_def = Define`
+  data_to_bvi_result (Rval v) = Rval (data_to_bvi_v v)
+∧ data_to_bvi_result (Rerr (Rraise v)) = Rerr (Rraise (data_to_bvi_v v))
+∧ data_to_bvi_result (Rerr (Rabort err)) = Rerr (Rabort err)
+`
+
+(* All the `dataSem$v` values project to `bvlSem$Boolv b` satisfy `isBool` *)
+val isBool_eq = Q.store_thm("isBool_eq",
+  `∀z b. isBool b z ⇔ (Boolv b = data_to_bvi_v z)`,
+  rw [] \\ EQ_TAC
+  \\ Cases_on `z`
+  \\ fs [isBool_def,data_to_bvi_v_def,bvlSemTheory.Boolv_def]
+  \\ Cases_on `l`
+  \\ fs [isBool_def,data_to_bvi_v_def,bvlSemTheory.Boolv_def]
+);
+
+(* Lifting `data_to_bvi_v` projection to work over `bvlSem$v list` *)
+val v_to_list_eq = Q.store_thm("v_to_list_eq",
+  `∀x. v_to_list (data_to_bvi_v x) = lift (MAP data_to_bvi_v) (v_to_list x)`,
+  ho_match_mp_tac v_to_list_ind
+  \\ rw [bvlSemTheory.v_to_list_def, v_to_list_def, data_to_bvi_v_def]
+  \\ cases_on `v_to_list x` \\ rw []
+);
+
+(* Special bijection for `data_to_bvi_v` with `dataSem$Number` + `MAP` *)
+val data_to_bvi_number_eq = Q.store_thm("data_to_bvi_number_eq",
+  `∀ns.
+    MAP data_to_bvi_v (MAP (Number ∘ $& ∘ w2n) ns) =
+    MAP (Number ∘ $& ∘ w2n) ns`,
+  Induct \\ rw[data_to_bvi_v_def]
+);
+
+(* Special bijection for `data_to_bvi_v` with `dataSem$Word64` + `MAP` *)
+val data_to_bvi_word_eq = Q.store_thm("data_to_bvi_word_eq",
+  `∀ns.
+    MAP data_to_bvi_v (MAP Word64 ns) =
+    MAP Word64 ns`,
+  Induct \\ rw[data_to_bvi_v_def]
+);
+
+(* Bijection of `data_to_bvi_v (Number n)` over multiple maps *)
+val MAP_data_to_bvi_Number = Q.store_thm("MAP_data_to_bvi_Number",
+`∀xs ws. MAP data_to_bvi_v (MAP Number xs) = MAP data_to_bvi_v ws ⇔ (MAP Number xs) = ws`,
+  Induct  \\ Cases_on `ws` \\ fs []
+  \\ rw [data_to_bvi_v_def]
+  \\ Cases_on `h`  \\ fs [data_to_bvi_v_def]);
+
+(* Bijection of `data_to_bvi_v (Word64 n)` over multiple maps *)
+val MAP_data_to_bvi_Word64 = Q.store_thm("MAP_data_to_bvi_Word64",
+`∀xs ws. MAP data_to_bvi_v (MAP Word64 xs) = MAP data_to_bvi_v ws ⇔ (MAP Word64 xs) = ws`,
+  Induct  \\ Cases_on `ws` \\ fs []
+  \\ rw [data_to_bvi_v_def]
+  \\ Cases_on `h`  \\ fs [data_to_bvi_v_def]);
+
+(* `data_to_bvi_v_def` is idempotent over `v_to_bytes` *)
+val v_to_bytes_eq = Q.store_thm("v_to_bytes_eq" ,
+  `∀x. v_to_bytes (data_to_bvi_v x) = v_to_bytes x`,
+  rw [ v_to_list_eq, bvlSemTheory.v_to_bytes_def
+     , v_to_bytes_def
+     , GSYM data_to_bvi_number_eq
+     , MAP_data_to_bvi_Number,MAP_o]
+);
+
+(* `data_to_bvi_v_def` is idempotent over `v_to_words` *)
+val v_to_words_eq = Q.store_thm("v_to_words_eq" ,
+  `∀x. v_to_words (data_to_bvi_v x) = v_to_words x`,
+  rw [ v_to_list_eq, bvlSemTheory.v_to_words_def
+     , v_to_words_def
+     , GSYM data_to_bvi_word_eq
+     , MAP_data_to_bvi_Word64,MAP_o]
+);
+
+(* isBool simplifications *)
+val isBool_simps = Q.store_thm("isBool_simps",
+  `(∀b z. isBool T (z:v) ⇒ ¬isBool F z) ∧
+   (∀b z. isBool F (z:v) ⇒ ¬isBool T z) `,
+  rw []
+  \\ Cases_on `z`
+  \\ fs [isBool_def,data_to_bvi_v_def,bvlSemTheory.Boolv_def]
+  \\ Cases_on `l`
+  \\ fs [isBool_def,data_to_bvi_v_def
+        , bvlSemTheory.Boolv_def
+        , backend_commonTheory.bool_to_tag_def
+        , backend_commonTheory.true_tag_def
+        , backend_commonTheory.false_tag_def
+        ]
+);
+
+val [isBool_T_F, isBool_F_T] = zip ["isBool_T_F", "isBool_F_T"]
+                                   (CONJUNCTS isBool_simps) |> map save_thm;
+
+(* A variable correspondece (`var_corr`) over projecte values in `t2`
+   implies all values in `a` are projections of values in `t2`
+ *)
+val get_vars_lift_thm = Q.store_thm("get_vars_lift_thm" ,
+  `∀vs a t2.
+    var_corr a vs (map data_to_bvi_v t2)
+    ⇒ ∃z. get_vars vs t2 = SOME z ∧ a = (MAP data_to_bvi_v z)`,
+  Induct
+  \\ Cases_on `a`
+  \\ fs [var_corr_def,get_vars_def,lookup_map,get_var_def]
+  \\ rw []
+  \\ RES_TAC
+  \\ rw [var_corr_def,get_vars_def,lookup_map,get_var_def]
+);
+
+
+val var_corr_inter = Q.store_thm("var_corr_inter",
+  `∀t p vs z. var_corr z vs (inter p t) ⇒ var_corr z vs p`,
+  fs [var_corr_def]
+  \\ ntac 2 strip_tac
+  \\ ho_match_mp_tac LIST_REL_ind
+  \\ rw []
+  \\ fs [get_var_def]
+  \\ fs [lookup_inter_alt]
+);
+
+val get_vars_mk_wf = Q.store_thm("get_vars_mk_wf",
+  `∀vs t z. get_vars vs (mk_wf t) = SOME z ⇒ get_vars vs t = SOME z`,
+  Induct
+  \\ rw [get_vars_def,get_var_def]
+  \\ Cases_on `lookup h t` \\ fs []
+  \\ Cases_on `get_vars vs (mk_wf t)` \\ fs []
+  \\ RES_TAC
+  \\ qpat_x_assum `_::_ = _` (ASSUME_TAC o GSYM)
+  \\ fs []
+);
+
+val get_vars_inter = Q.store_thm("get_vars_inter",
+  `∀vs p t z. get_vars vs  (inter p t) = SOME z ⇒ get_vars vs  p = SOME z`,
+  Induct
+  \\ rw [get_vars_def]
+  \\ fs [get_var_def,lookup_inter_alt]
+  \\ Cases_on `h ∈ domain t` \\ fs []
+  \\ Cases_on `lookup h p`   \\ fs []
+  \\ Cases_on `get_vars vs (inter p t)` \\ fs []
+  \\ RES_TAC
+  \\ qpat_x_assum `_::_ = _` (ASSUME_TAC o GSYM)
+  \\ fs []
+);
+
+(* `data_to_bvi_v` preserves `var_corr` *)
+val var_corr_map = Q.store_thm("var_corr_map",
+  `∀p f vs z. var_corr z vs p ⇒ var_corr (MAP f z) vs (map f p)`,
+  fs [var_corr_def,LIST_REL_MAP2,get_var_def]
+  \\ ntac 2 strip_tac
+  \\ ho_match_mp_tac LIST_REL_ind
+  \\ fs [lookup_map]
+);
+
+(* Construction of the pre-image of `data_to_bvi_v`,
+   wich in all cases except `Block` is bijective
+ *)
+val data_to_bvi_v_eq = Q.store_thm("data_to_bvi_v_eq",
+  `(∀v n i. data_to_bvi_v v = Number i  ⇒ v = Number i)  ∧
+   (∀v n w. data_to_bvi_v v = Word64 w  ⇒ v = Word64 w)  ∧
+   (∀v n p. data_to_bvi_v v = CodePtr p ⇒ v = CodePtr p) ∧
+   (∀v n r. data_to_bvi_v v = RefPtr r  ⇒ v = RefPtr r)  ∧
+   (∀v n l. data_to_bvi_v v = Block n l
+     ⇒ ∃ts l'. v = Block ts n l' ∧ l = MAP data_to_bvi_v l')`,
+  rw [] \\ Cases_on `v` \\ fs [data_to_bvi_v_def] \\ METIS_TAC []);
+
+val [ data_to_bvi_eq_Number,  data_to_bvi_eq_Word64
+    , data_to_bvi_eq_CodePtr, data_to_bvi_eq_RefPtr
+    , data_to_bvi_eq_Block] =
+      zip [ "data_to_bvi_eq_Number",  "data_to_bvi_eq_Word64"
+          , "data_to_bvi_eq_CodePtr", "data_to_bvi_eq_RefPtr"
+          , "data_to_bvi_eq_Block"]
+          (CONJUNCTS data_to_bvi_v_eq)  |> map save_thm;
+
+val data_to_bvi_ref_eq = Q.store_thm("data_to_bvi_ref_eq",
+  `(∀v fl ds. data_to_bvi_ref v = ByteArray fl ds ⇒ v = ByteArray fl ds) ∧
+   (∀v l.     data_to_bvi_ref v = ValueArray l
+     ⇒ ∃l'. v = ValueArray l' ∧ l = MAP data_to_bvi_v l')`,
+  rw [] \\ Cases_on `v` \\ fs [data_to_bvi_ref_def] \\ METIS_TAC []
+);
+
+val [data_to_bvi_eq_ByteArray, data_to_bvi_eq_ValueArray] =
+  zip ["data_to_bvi_eq_ByteArray", "data_to_bvi_eq_ValueArray"]
+      (CONJUNCTS data_to_bvi_ref_eq)  |> map save_thm;
+
+(* Construction of the pre-image of `data_to_bvi_result` *)
+val data_to_bvi_result_eq = Q.store_thm("data_to_bvi_result_eq",
+  `∀x v. data_to_bvi_result x = Rerr (Rraise v)
+    ⇒ ∃z. x = Rerr (Rraise z) ∧ v = data_to_bvi_v z`,
+   Cases_on `x` \\ fs [data_to_bvi_result_def]
+   \\ Cases_on `e` \\ fs [data_to_bvi_result_def]
+);
+
+val list_to_v_MAP = Q.store_thm("list_to_v_MAP",
+  `∀z. list_to_v (MAP data_to_bvi_v z) = data_to_bvi_v (list_to_v z)`,
+  Induct \\ rw [list_to_v_def,bvlSemTheory.list_to_v_def,data_to_bvi_v_def]
+);
+
+(* `data_to_bvi_v` preservers `do_eq` *)
+val data_to_bvi_do_eq = Q.store_thm("data_to_bvi_do_eq",
+  `(∀t v1 v2. do_eq (data_to_bvi_ref o_f t) (data_to_bvi_v v1) (data_to_bvi_v v2)
+              = do_eq t v1 v2) ∧
+   (∀t l1 l2. do_eq_list (data_to_bvi_ref o_f t) (MAP data_to_bvi_v l1) (MAP data_to_bvi_v l2)
+              = do_eq_list t l1 l2)`,
+  ho_match_mp_tac do_eq_ind
+  \\ rw [do_eq_def,bvlSemTheory.do_eq_def,data_to_bvi_v_def]
+  \\ fs [ backend_commonTheory.closure_tag_def
+        , backend_commonTheory.partial_app_tag_def
+        , isClos_def,bvlSemTheory.isClos_def,isClos_def
+        , FLOOKUP_o_f]
+  >- (every_case_tac \\ fs [data_to_bvi_ref_def])
+  >- METIS_TAC []
+  >- (Cases_on `l1` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
+  >- (Cases_on `l2` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
+  >- (every_case_tac \\ fs [data_to_bvi_ref_def])
+);
+
+val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
+  `∀op t r z res s1.
+    op ≠ Install ∧ op ≠ Greater ∧ op ≠ GreaterEq ∧ (∀b. op ≠ CopyByte b) ∧
+    state_rel r t ∧
+    do_app op (MAP data_to_bvi_v z) r = Rval (res,s1)
+    ⇒ ∃s2 pres.
+       do_app_aux op z t = Rval (pres,s2) ∧
+       res = data_to_bvi_v pres ∧
+       state_rel s1 s2`,
+Cases_on `op`
+  \\ ntac 2 (fs [ do_app_aux_def
+                , bvlSemTheory.do_app_def
+                , bviSemTheory.do_app_def
+                , bviSemTheory.do_app_aux_def
+                , list_case_eq
+                , option_case_eq
+                , bool_case_eq
+                , v_case_eq
+                , bvlSemTheory.v_case_eq
+                , ffiTheory.call_FFI_def
+                , with_fresh_ts_def
+                , closSemTheory.ref_case_eq
+                , do_install_def
+                , ffiTheory.ffi_result_case_eq
+                , ffiTheory.oracle_result_case_eq
+                , semanticPrimitivesTheory.eq_result_case_eq
+                , astTheory.word_size_case_eq
+                , pair_case_eq
+                , dataLangTheory.op_space_reset_def
+                , consume_space_def])
+  \\ rw [case_eq_thms, bvlSemTheory.case_eq_thms, pair_case_eq]
+  \\ every_case_tac \\ fs []
+  \\ REPEAT (CHANGED_TAC (rfs [MAP_EQ_CONS]))
+  \\ rveq
+  \\ rpt (qpat_x_assum `_ = data_to_bvi_v _` (ASSUME_TAC o GSYM))
+  \\ imp_res_tac data_to_bvi_v_eq
+  \\ rw[data_to_bvi_v_def]
+  \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
+       , bviSemTheory.state_component_equality
+       , data_to_bvi_ref_def
+       , state_rel_def
+       , o_f_FUPDATE
+       , map_replicate
+       , data_to_bvi_eq_ByteArray
+       , v_to_list_eq
+       , v_to_list_def
+       , data_to_bvi_v_Boolv
+       , data_to_bvi_v_Unit]
+  \\ rfs [FLOOKUP_o_f,option_case_eq]
+  \\ imp_res_tac data_to_bvi_ref_eq
+  \\ imp_res_tac data_to_bvi_v_eq
+  \\ fs [data_to_bvi_v_def
+        ,data_to_bvi_ref_def
+        ,LENGTH_MAP,EL_MAP
+        ,o_f_FUPDATE
+        ,LUPDATE_MAP
+        ,data_to_bvi_v_Unit
+        ,data_to_bvi_v_Boolv]
+  >- METIS_TAC [data_to_bvi_v_def]
+  >- (Cases_on `t.tstamps`
+     \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
+     \\ METIS_TAC [])
+  >- (Cases_on `t.tstamps`
+     \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
+     \\ METIS_TAC [])
+  >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
+  >- (Cases_on `t.tstamps`
+     \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
+     \\ METIS_TAC [])
+  >- (`Num i < LENGTH l'`
+      by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
+      \\ rw [EL_MAP])
+  >- rfs [code_rel_def]
+  >- (rfs [data_to_bvi_do_eq,data_to_bvi_v_Boolv])
+);
+
 val compile_correct = Q.prove(
-  `!xs env s1 res s2 t1 n corr tail live.
-     (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
-     var_corr env corr t1.locals /\ (LENGTH xs <> 1 ==> ~tail) /\
-     (!k. n <= k ==> (lookup k t1.locals = NONE)) /\
-     state_rel s1 t1 /\ EVERY (\n. lookup n t1.locals <> NONE) live /\
-     (isException res ==> jump_exc t1 <> NONE) ==>
-     ?t2 prog pres vs next_var.
-       (compile n corr tail live xs = (prog,vs,next_var)) /\
-       (evaluate (prog,t1) = (pres,t2)) /\ state_rel s2 t2 /\
-       (case pres of
-        | SOME r =>
-           ((res_list r = res) /\
-            (isResult res ==>
-               tail /\
-               (t1.stack = t2.stack) /\
-               (t1.handler = t2.handler)) /\
-            (isException res ==>
-               (jump_exc (t2 with <| stack := t1.stack;
-                                     handler := t1.handler |>) = SOME t2)))
-        | NONE => ~tail /\ n <= next_var /\
-                  EVERY (\v. v < next_var) vs /\
-                  (!k. next_var <= k ==> (lookup k t2.locals = NONE)) /\
-                  var_corr env corr t2.locals /\
-                  (!k x. (lookup k t2.locals = SOME x) ==> k < next_var) /\
-                  (!k x. (lookup k t1.locals = SOME x) /\
-                         (~MEM k live ==> MEM k corr) ==>
-                         (lookup k t2.locals = SOME x)) /\
-                  (t1.stack = t2.stack) /\ (t1.handler = t2.handler) /\
-                  (jump_exc t1 <> NONE ==> jump_exc t2 <> NONE) /\
-                  case res of
-                  | Rval xs => var_corr xs vs t2.locals
-                  | _ => F)`,
+  `∀xs env s1 res s2 t1 n corr tail live.
+     evaluate (xs,env,s1) = (res,s2) ∧
+     res ≠ Rerr(Rabort Rtype_error) ∧
+     var_corr env corr (map data_to_bvi_v t1.locals) ∧
+     (LENGTH xs ≠ 1 ⇒ ¬tail) ∧
+     (∀k. n ≤ k ⇒ (lookup k t1.locals = NONE)) ∧
+     state_rel s1 t1 ∧
+     EVERY (\n. lookup n t1.locals ≠ NONE) live ∧
+     (isException res ⇒ jump_exc t1 ≠ NONE)
+     ⇒ ∃t2 prog pres vs next_var.
+         compile n corr tail live xs = (prog,vs,next_var) ∧
+         evaluate (prog,t1) = (pres,t2) ∧
+         state_rel s2 t2 ∧
+         (case pres of
+          | SOME r =>
+             ((res_list (data_to_bvi_result r) = res) ∧
+              (isResult res ⇒
+                 tail ∧
+                 (t1.stack = t2.stack) ∧
+                 (t1.handler = t2.handler)) ∧
+              (isException res ⇒
+                 (jump_exc (t2 with <| stack := t1.stack;
+                                       handler := t1.handler |>) = SOME t2)))
+          | NONE => ~tail ∧  n <= next_var ∧
+                    EVERY (\v. v < next_var) vs ∧
+                    (∀k. next_var <= k ⇒ (lookup k t2.locals = NONE)) ∧
+                    var_corr env corr (map data_to_bvi_v t2.locals) ∧
+                    (∀k x. (lookup k t2.locals = SOME x) ⇒ k < next_var) ∧
+                    (∀k x. (lookup k t1.locals = SOME x) ∧
+                           (¬MEM k live ⇒ MEM k corr) ⇒
+                           (lookup k t2.locals = SOME x)) ∧
+                    (t1.stack = t2.stack) ∧  (t1.handler = t2.handler) ∧
+                    (jump_exc t1 ≠ NONE ⇒ jump_exc t2 ≠ NONE) ∧
+                    case res of
+                    | Rval xs => var_corr xs vs (map data_to_bvi_v t2.locals)
+                    | _ => F)`,
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bviSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
   THEN1 (* NIL *)
-    (SRW_TAC [] [var_corr_def]
+    (SRW_TAC [] [var_corr_def,data_to_bvi_v_def]
      \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss [NOT_LESS]
      \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
   THEN1 (* CONS *)
