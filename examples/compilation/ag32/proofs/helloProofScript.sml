@@ -928,11 +928,13 @@ val startup_code_size_def = Define`
   +-------------------+
   | FFI code          |  (4 * LENGTH ag32_ffi_code) bytes (~640b)
   +-------------------+
-  | FFI call id       |  4 bytes
+  | FFI call id       |  4 bytes (as a word)
   +-------------------+
   | output buffer     |  output_buffer_size bytes (~2Kb)
   +-------------------+
   | output length     |  4 bytes
+  +-------------------+
+  | output id         |  8 bytes
   +-------------------+
   | + stdin           |  stdin_size bytes (~5Mb)
   +-------------------+
@@ -942,7 +944,7 @@ val startup_code_size_def = Define`
   +-------------------+
   | + cline args      |  cline_size bytes (~1024b)
   +-------------------+
-  | + cline arg count |  4 bytes
+  | + cline arg count |  4 bytes (as a word)
   +-------------------+  <- mem_start + startup_code_size
   | ---- padding ---- |
   +-------------------+
@@ -974,9 +976,12 @@ val FFI_codes_covers_basis_ffi = Q.store_thm("FFI_codes_covers_basis_ffi",
   \\ pop_assum mp_tac
   \\ rpt(IF_CASES_TAC \\ fs[]));
 
+val output_offset_def = Define`
+  output_offset = startup_code_size + 4 + cline_size + 4 + 4 + stdin_size`;
+
 val ffi_code_start_offset_def = Define`
   ffi_code_start_offset =
-    startup_code_size + 4 + cline_size + 4 + 4 + stdin_size + 4 + output_buffer_size + 4`;
+    output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
   length_ag32_ffi_code = 256n`;
@@ -1714,11 +1719,24 @@ val ag32_ccache_interfer_def = Define`
     ms with <| PC := (ms.R 0w) ;
                R := (0w =+ r0 + n2w(ffi_code_start_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
 
+val ag32_ffi_write_mem_update_def = Define`
+  ag32_ffi_write_mem_update name r0 conf bytes mem =
+    if name = "write" then
+      case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
+        let written = DROP (w22n [off1; off0]) tll in
+          asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
+    else mem`;
+
 val ag32_ffi_interfer_def = Define`
   ag32_ffi_interfer ffi_names r0 (index,new_bytes,ms) =
     let name = EL index ffi_names in
-    let new_mem = (r0 =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
+    let new_mem = ((r0 + n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
     let new_mem = asm_write_bytearray (ms.R 4w) new_bytes new_mem in
+    let new_mem =
+      ag32_ffi_write_mem_update name r0
+        (THE (read_bytearray (ms.R 2w) (w2n (ms.R 1w)) (SOME o ms.MEM)))
+        (THE (read_bytearray (ms.R 4w) (w2n (ms.R 3w)) (SOME o ms.MEM)))
+        new_mem in
     let exitpc = THE (ALOOKUP ffi_exitpcs name) in
         ms with
           <| PC := (ms.R 0w) ;
@@ -1838,7 +1856,7 @@ val hello_init_memory_words_def = zDefine`
     [0w] ++
     [n2w (LENGTH stdin)] ++
     words_of_bytes F (PAD_RIGHT 0w stdin_size (MAP (n2w o ORD) stdin)) ++
-    REPLICATE ((4 + output_buffer_size + 4) DIV 4) 0w ++
+    REPLICATE ((8 + 4 + output_buffer_size + 4) DIV 4) 0w ++
     ag32_ffi_code ++
     REPLICATE (heap_size DIV 4) 0w ++
     ag32_ffi_jumps (THE config.ffi_names) ++
