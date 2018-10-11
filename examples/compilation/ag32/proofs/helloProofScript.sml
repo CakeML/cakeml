@@ -1647,6 +1647,60 @@ val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
   \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
 
+val ag32_prog_addresses = Define`
+  ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 =
+      { w | (r0:word32) + n2w heap_start_offset <=+ w ∧ w <+ r0 + n2w (heap_start_offset + heap_size) } ∪
+      { w | r0 + n2w (code_start_offset num_ffis + LENGTH_code) <=+ w ∧
+            w <+ r0 + n2w (code_start_offset num_ffis + LENGTH_code + 4 * LENGTH_data) } `;
+
+val ag32_ccache_interfer_def = Define`
+  ag32_ccache_interfer num_ffis r0 (_,_,ms) =
+    ms with <| PC := (ms.R 0w) ;
+               R := (0w =+ r0 + n2w(ffi_code_start_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
+
+val ag32_ffi_interfer_def = Define`
+  ag32_ffi_interfer ffi_names r0 (index,new_bytes,ms) =
+    let name = EL index ffi_names in
+    let new_mem = (r0 =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
+    let new_mem = asm_write_bytearray (ms.R 4w) new_bytes new_mem in
+    let exitpc = THE (ALOOKUP ffi_exitpcs name) in
+        ms with
+          <| PC := (ms.R 0w) ;
+             R := ((0w =+ r0 + n2w exitpc)
+                   ((1w =+ 0w)
+                   ((2w =+ 0w)
+                   ((3w =+ 0w)
+                   ((4w =+ 0w)
+                   ((5w =+ 0w)
+                   ((6w =+ 0w) (ms.R)))))))) ;
+             CarryFlag := F ;
+             OverflowFlag := F ;
+             io_events := ms.io_events ++ [new_mem] ;
+             MEM := new_mem |>`;
+
+val ag32_machine_config_def = Define`
+  ag32_machine_config ffi_names LENGTH_code LENGTH_data r0 =
+  let num_ffis = LENGTH ffi_names in
+  <|
+    target := ag32_target;
+    ptr_reg := 1;
+    len_reg := 2;
+    ptr2_reg := 3;
+    len2_reg := 4;
+    callee_saved_regs := [60; 61; 62];
+    ffi_names := ffi_names ;
+    ffi_entry_pcs := GENLIST (λi. r0 + n2w (ffi_code_start_offset + i * ffi_offset)) num_ffis;
+    ccache_pc     := r0 + n2w (ffi_code_start_offset + (num_ffis + 0) * ffi_offset);
+    halt_pc       := r0 + n2w (ffi_code_start_offset + (num_ffis + 1) * ffi_offset);
+    prog_addresses := ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 ;
+    next_interfer := K I ;
+    ccache_interfer := K (ag32_ccache_interfer num_ffis r0) ;
+    ffi_interfer := K (ag32_ffi_interfer ffi_names r0)
+  |>`
+
+val is_ag32_machine_config_ag32_machine_config = Q.store_thm("is_ag32_machine_config_ag32_machine_config",
+  `is_ag32_machine_config (ag32_machine_config a b c r0)`, EVAL_TAC);
+
 (* -- *)
 
 val hello_io_events_def =
@@ -2630,61 +2684,10 @@ Memory layout:
 
 *)
 
-val md = ``
-      { w | (r0:word32) + n2w heap_start_offset <=+ w ∧ w <+ r0 + n2w (heap_start_offset + heap_size) } ∪
-      { w | r0 + n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code) <=+ w ∧
-            w <+ r0 + n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code + 4 * LENGTH data) } ``;
-
-val ag32_ccache_interfer_def = Define`
-  ag32_ccache_interfer num_ffis r0 (_,_,ms) =
-    ms with <| PC := (ms.R 0w) ;
-               R := (0w =+ r0 + n2w(ffi_code_start_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
-
-val ag32_ffi_interfer_def = Define`
-  ag32_ffi_interfer ffi_names r0 (index,new_bytes,ms) =
-    let name = EL index ffi_names in
-    let new_mem = (r0 =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
-    let new_mem = asm_write_bytearray (ms.R 4w) new_bytes new_mem in
-    let exitpc = THE (ALOOKUP ffi_exitpcs name) in
-        ms with
-          <| PC := (ms.R 0w) ;
-             R := ((0w =+ r0 + n2w exitpc)
-                   ((1w =+ 0w)
-                   ((2w =+ 0w)
-                   ((3w =+ 0w)
-                   ((4w =+ 0w)
-                   ((5w =+ 0w)
-                   ((6w =+ 0w) (ms.R)))))))) ;
-             CarryFlag := F ;
-             OverflowFlag := F ;
-             io_events := ms.io_events ++ [new_mem] ;
-             MEM := new_mem |>`;
-
 val hello_machine_config_def = Define`
-  hello_machine_config r0 =
-  let ffi_names = THE config.ffi_names in
-  let num_ffis = LENGTH ffi_names in
-  <|
-    target := ag32_target;
-    ptr_reg := 1;
-    len_reg := 2;
-    ptr2_reg := 3;
-    len2_reg := 4;
-    callee_saved_regs := [60; 61; 62];
-    ffi_names := ^(rand(rconc ffi_names));
-    ffi_entry_pcs := GENLIST (λi. r0 + n2w (ffi_code_start_offset + i * ffi_offset)) num_ffis;
-    ccache_pc     := r0 + n2w (ffi_code_start_offset + (num_ffis + 0) * ffi_offset);
-    halt_pc       := r0 + n2w (ffi_code_start_offset + (num_ffis + 1) * ffi_offset);
-    prog_addresses := ^md ;
-    next_interfer := K I ;
-    ccache_interfer := K (ag32_ccache_interfer num_ffis r0) ;
-    ffi_interfer := K (ag32_ffi_interfer ffi_names r0)
-  |>`
+  hello_machine_config =
+    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)`;
 
-val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
-  `is_ag32_machine_config (hello_machine_config r0)`, EVAL_TAC);
-
-(*
 (*
 define the ag32 and asm states
 that obtain after running startup code from ag32 init
@@ -2692,10 +2695,10 @@ and do the rest of the proof from there
 *)
 
 val hello_init_asm_state_def = Define`
-  hello_init_asm_state r0 =
+  hello_init_asm_state r0 input =
     FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
       (ag32_init_asm_state
-        (hello_init_memory r0)
+        (hello_init_memory r0 input)
         (hello_machine_config r0).prog_addresses
         r0)
       (hello_startup_asm_code)`;
@@ -2756,10 +2759,11 @@ val mem_word_tac =
 
 val _ = temp_overload_on("hello_asm_state0",
   ``(ag32_init_asm_state
-      (hello_init_memory r0)
+      (hello_init_memory r0 input)
       (hello_machine_config r0).prog_addresses
       r0)``);
 
+(*
 val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
    let tr =
@@ -2921,6 +2925,7 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ simp_tac std_ss []
   \\ rw[]);
 
+(*
 val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_asm_step",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ⇒
    (λx y. ∃i. asm_step ag32_config x i y)^* hello_asm_state0 (hello_init_asm_state r0) ∧
