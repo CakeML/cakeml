@@ -58,7 +58,6 @@ val _ = type_abbrev("M", ``: (hol_refs, 'a, hol_exn) M``);
 
 val _ = define_monad_access_funs ``:hol_refs``;
 
-
 (* failwith *)
 
 val _ = define_monad_exception_functions ``:hol_exn`` ``:hol_refs``;
@@ -110,6 +109,13 @@ val _ = Define `
 
 val _ = Define `
   subset l1 l2 = EVERY (\t. MEM t l2) l1`;
+
+(*
+  let types() = !the_type_constants
+*)
+
+val _ = Define `
+  types () = get_the_type_constants`;
 
 (*
   let get_type_arity s = assoc s (!the_type_constants)
@@ -266,6 +272,13 @@ val _ = temp_overload_on("bool_ty",``mk_type(strlit"bool",[])``);
 val _ = Define `mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])`;
 val _ = temp_overload_on("aty",``mk_vartype (strlit "A")``);
 val _ = temp_overload_on("bty",``mk_vartype (strlit "B")``);
+
+(*
+  let constants() = !the_term_constants
+*)
+
+val _ = Define `
+  constants () = get_the_term_constants`;
 
 (*
   let get_const_type s = assoc s (!the_term_constants)
@@ -662,9 +675,11 @@ val inst_aux_def = tDefine "inst_aux" `
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;
-                            return (Abs y' t') od)
+                            if (y = y') /\ (t = t')
+                              then return tm
+                              else return (Abs y' t') od)
                         (\w'.
-                         if w' <> y' then failwith (strlit "clash") else
+                         if w' <> y' then raise_clash w' else
                          do temp <- inst_aux [] tyin t ;
                             y' <- return (variant (frees temp) y') ;
                             (v1,ty') <- dest_var y' ;
@@ -961,7 +976,7 @@ val _ = Define `
   let axioms() = !the_axioms
 *)
 
-val _ = Define `axioms = get_the_axioms`;
+val _ = Define `axioms () = get_the_axioms`;
 
 (*
   let new_axiom tm =
@@ -1123,5 +1138,7 @@ val new_basic_type_definition_def = Define `
        eq2 <- mk_eq(y2,r) ;
        eq3 <- mk_eq(y3,eq2) ;
        return (Sequent [] eq1, Sequent [] eq3) od od od`
+
+val _ = Define `context () = get_the_context`;
 
 val _ = export_theory();

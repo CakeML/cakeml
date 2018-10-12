@@ -1,5 +1,5 @@
 open preamble closLangTheory;
-open db_varsTheory;
+open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory;
 
 val _ = new_theory "clos_known";
 
@@ -549,10 +549,13 @@ val known_def = tDefine "known" `
              let (eabody,_) = known (dec_inline_factor c) [body] (MAP SND ea2) g in
              let (ebody, abody) = HD eabody in
                if pure x then
+                 (* We don't have to evaluate x *)
                  ([(Let (t§0) (MAP FST ea2)
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)
                else
-                 ([(Let (t§0) (CONS e1 (MAP FST ea2))
+                 (* We need to evaluate x for its side-effects,
+                    but we must do so after evaluating the args. *)
+                 ([(Let (t§0) (SNOC e1 (MAP FST ea2))
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)], g)) /\
   (known c [Fn t loc_opt ws_opt num_args x1] vs g =
      let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
@@ -611,8 +614,11 @@ val known_sing_EQ_E = Q.store_thm(
 val compile_def = Define `
   compile NONE exps = (NONE, exps) /\
   compile (SOME c) exps =
+    let exps = clos_fvs$compile exps in
     let (es, g) = known c exps [] c.val_approx_spt in
-      (SOME (c with val_approx_spt := g), MAP FST es)`;
+    let es1 = remove_ticks (MAP FST es) in
+    let es2 = let_op es1 in
+      (SOME (c with val_approx_spt := g), es2)`;
 
 (*
 

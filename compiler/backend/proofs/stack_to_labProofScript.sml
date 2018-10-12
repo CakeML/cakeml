@@ -2989,10 +2989,10 @@ val flatten_line_ok_pre = Q.prove(`
     pop_assum mp_tac>>EVAL_TAC>>
     fs[]);
 
-val compile_all_enc_ok_pre = Q.prove(`
-  byte_offset_ok c 0w ∧
-  EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
-  all_enc_ok_pre c (MAP prog_to_section prog)`,
+val compile_all_enc_ok_pre = Q.store_thm("compile_all_enc_ok_pre",
+   `byte_offset_ok c 0w ∧
+    EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
+    all_enc_ok_pre c (MAP prog_to_section prog)`,
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
   fs[prog_to_section_def]>>pairarg_tac>>rw[]
   >- metis_tac[flatten_line_ok_pre]
@@ -3082,7 +3082,7 @@ val get_code_labels_def = Define `
   (get_code_labels (JumpLower n m l) = {(l,0)}) /\
   (get_code_labels _ = {})`
 
-val flatten_labels = Q.prove(`
+val flatten_labels = Q.store_thm("flatten_labels",`
   ∀p n m.
   let pp = set(append (FST (flatten p n m))) in
   BIGUNION (IMAGE line_get_labels pp)
@@ -3126,7 +3126,7 @@ val flatten_labels = Q.prove(`
     rw[]>>
     metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]));
 
-val prog_to_section_labels = Q.prove(`
+val prog_to_section_labels = Q.store_thm("prog_to_section_labels",`
   prog_to_section (n,p) = pp ⇒
   sec_get_labels pp
   ⊆

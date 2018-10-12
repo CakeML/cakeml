@@ -1,15 +1,22 @@
+(*
+  A collection of functions that have in the past turned out to be tricky to
+  translate.
+*)
+
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 
-(* This file contains a collection of functions that have in the past
-   turned out to be tricky to translate. *)
-
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
+
+(* test timing by setting this
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "ml_translator_test_timing.txt")
+*)
 
 val res = translate ZIP2_def;
 

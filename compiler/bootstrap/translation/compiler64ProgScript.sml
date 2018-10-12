@@ -8,6 +8,11 @@ val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
+
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "compiler64Prog_translate_timing.txt")
+
 val () = Globals.max_print_depth := 15;
 
 val () = use_long_names := true;
@@ -186,6 +191,10 @@ val res = translate
   (arm8_configTheory.arm8_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
+(* Leave the module now, so that key things are available in the toplevel
+   namespace for main. *)
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
 (* Rest of the translation *)
 val res = translate (extend_conf_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val res = translate parse_target_64_def;
@@ -281,7 +290,7 @@ val main_spec = Q.store_thm("main_spec",
   \\ xsimpl);
 
 val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "main" st) cl fs
+  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
     ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`,
   simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
@@ -290,6 +299,7 @@ val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
     rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
        GSYM fastForwardFD_with_numchars,
        GSYM add_stdo_with_numchars, with_same_numchars]
+  \\ simp [SEP_CLAUSES]
   \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
   \\ xsimpl);
 

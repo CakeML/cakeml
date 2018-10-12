@@ -148,6 +148,8 @@ sig
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
 
+    val trace_timing_to : string option ref
+
     (* returns the induction theorem for the latest rec translation *)
     val latest_ind : unit -> thm
 

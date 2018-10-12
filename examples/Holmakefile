@@ -1,4 +1,4 @@
-INCLUDES = ../characteristic ../basis ../translator ../misc $(HOLDIR)/examples/formal-languages/regular ../semantics
+INCLUDES = ../developers ../characteristic ../basis ../translator ../misc $(HOLDIR)/examples/formal-languages/regular ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -7,8 +7,10 @@ TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
 all: $(TARGETS)
 .PHONY: all
 
-README.md: readmePrefix ../developers/readme_gen
-	../developers/readme_gen
+README_SOURCES = $(wildcard *Script.sml)
+DIRS = $(wildcard */)
+README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	../developers/readme_gen $(README_SOURCES)
 all: README.md
 
 ifdef POLY

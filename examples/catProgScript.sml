@@ -1,3 +1,8 @@
+(*
+  cat program example: concatenate and print lines from files.
+
+  Simple version that operates one character at a time.
+*)
 open preamble basis
 
 val _ = new_theory "catProg"
@@ -269,7 +274,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
 
 val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
   `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"cat_main"st) cl fs
+   whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

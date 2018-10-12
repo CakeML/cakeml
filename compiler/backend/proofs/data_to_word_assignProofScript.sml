@@ -6885,7 +6885,7 @@ val cut_env_IMP_domain = store_thm("cut_env_IMP_domain",
 
 val word_exp_set_var_ShiftVar = store_thm("word_exp_set_var_ShiftVar",
   ``word_exp (set_var v (Word w) t) (ShiftVar sow v n) =
-    lift Word (case sow of Lsl => SOME (w << n)
+    OPTION_MAP Word (case sow of Lsl => SOME (w << n)
                          | Lsr => SOME (w >>> n)
                          | Asr => SOME (w >> n)
                          | Ror => SOME (word_ror w n))``,

@@ -1,3 +1,9 @@
+(*
+  Pure functions for the PrettyPrinter module.
+
+  These are generally functions for converting an element of a CakeML type to
+  an mlstring app_list (representing that element).
+*)
 open
   preamble
   mlstringTheory
@@ -35,7 +41,7 @@ val fromWord8_def = Define`
 
 val fromWord64_def = Define`
   fromWord64 (w : 64 word) =
-  List [strlit "0wx", mlnum$toString (words$w2n w)]
+  List [strlit "0wx"; mlnum$toString (words$w2n w)]
 `
 
 val fromRat_def = Define`

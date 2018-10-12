@@ -3202,7 +3202,7 @@ val stack_remove_lab_pres = Q.store_thm("stack_remove_lab_pres",`
     fs[max_stack_alloc_def])
   >- EVAL_TAC);
 
-val stack_remove_comp_stack_asm_name = Q.prove(`
+val stack_remove_comp_stack_asm_name = Q.store_thm("stack_remove_comp_stack_asm_name",`
   ∀jump off k p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
   addr_offset_ok c 0w ∧

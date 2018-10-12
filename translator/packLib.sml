@@ -1,9 +1,12 @@
+(*
+  A library for packing theorems, terms, and types as theorems (which can
+  thereby be saved in theories).
+*)
+
 structure packLib =
 struct
 
 open HolKernel boolLib bossLib;
-
-(* packers and unpackers for thms, terms and types *)
 
 fun pack_type ty = REFL (mk_var("ty",ty));
 fun unpack_type th = th |> concl |> dest_eq |> fst |> type_of;

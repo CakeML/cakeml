@@ -7,6 +7,8 @@ val _ = new_theory "to_word64Prog"
 
 val _ = translation_extends "sexp_parserProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word64Prog");
+
 val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
@@ -779,6 +781,8 @@ val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

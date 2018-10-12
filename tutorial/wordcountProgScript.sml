@@ -95,7 +95,7 @@ val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
    cl = [pname; fname] ∧
    contents = THE (ALOOKUP fs.files (File fname))
    ⇒
-   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
+   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs NONE
    ((=)
      (add_stdout fs
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));

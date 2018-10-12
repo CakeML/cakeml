@@ -1,3 +1,6 @@
+(*
+  grep example: search for file lines matching a regular expression.
+*)
 open preamble basis
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
@@ -889,7 +892,7 @@ val st = get_ml_prog_state()
 
 val grep_whole_prog_spec = Q.store_thm("grep_whole_prog_spec",
   `hasFreeFD fs ∧ grep_termination_assum cl ⇒
-   whole_prog_spec ^(fetch_v "grep" st) cl fs
+   whole_prog_spec ^(fetch_v "grep" st) cl fs NONE
      ((=) (grep_sem cl fs.files fs))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

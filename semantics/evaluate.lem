@@ -1,3 +1,6 @@
+(*
+  Functional big-step semantics for evaluation of CakeML programs.
+*)
 open import Pervasives_extra
 open import Lib
 open import Ast
