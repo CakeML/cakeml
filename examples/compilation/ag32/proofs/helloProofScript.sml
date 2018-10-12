@@ -3890,24 +3890,23 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ disch_then(qspecl_then[`{w | r0 + n2w startup_code_size <=+ w ∧ w <=+ r0 + n2w ffi_code_start_offset }`,`ag32_ffi_rel r0`]mp_tac)
-  \\ impl_tac >- cheat (*
-    conj_tac
-    >- (
+  \\ impl_tac >- (
+    conj_tac >- (
       simp[interference_implemented_def, Abbr`mc`]
-      \\ rewrite_tac[hello_machine_config_def, targetSemTheory.machine_config_accfupds]
-      \\ simp_tac std_ss []
-      \\ simp[EVAL``ag32_target.get_pc``,
-              EVAL``ag32_target.get_reg``,
-              EVAL``ag32_target.next``,
-              EVAL``ag32_target.get_byte``]
+      \\ simp[EVAL``(hello_machine_config r0).target.next``]
+      \\ simp[EVAL``(hello_machine_config r0).target.get_byte``]
+      \\ simp[EVAL``(hello_machine_config r0).target.get_pc``]
+      \\ simp[EVAL``(hello_machine_config r0).target.get_reg``]
+      \\ simp[EVAL``(hello_machine_config r0).ffi_entry_pcs``]
+      \\ simp[ffi_names]
+      \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
+      \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
+      \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
       \\ qx_gen_tac`k0`
       \\ strip_tac
       \\ conj_tac
       >- (
-        qmatch_goalsub_abbrev_tac`inmd ∧ encoded_bytes_in_mem _ pc m md ∧ _ ⇒ _`
-        \\ `inmd ⇔ pc ∈ md` by ( simp[Abbr`inmd`,Abbr`md`] )
-        \\ qpat_x_assum`Abbrev(inmd ⇔ _)`kall_tac
-        \\ pop_assum SUBST_ALL_TAC
+        qmatch_goalsub_abbrev_tac`_ ∧ encoded_bytes_in_mem _ pc m md ∧ _ ⇒ _`
         \\ strip_tac
         \\ qexists_tac`0`
         \\ simp[]
@@ -3916,7 +3915,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ `(Next ms1).io_events = ms1.io_events` suffices_by rw[]
         \\ irule ag32_io_events_unchanged
         \\ simp[Abbr`ms1`]
-        \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
+        \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def, EVAL``(hello_machine_config r0).target.state_ok``]
         \\ qmatch_goalsub_abbrev_tac`m (pc' + _)`
         \\ `pc' = pc`
         by (
@@ -3927,8 +3926,8 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
         \\ pop_assum SUBST_ALL_TAC
         \\ fs[targetSemTheory.encoded_bytes_in_mem_def]
-        \\ fs[EVAL``ag32_target.config.code_alignment``]
-        \\ fs[EVAL``ag32_target.config.encode``]
+        \\ fs[EVAL``(hello_machine_config r0).target.config.code_alignment``]
+        \\ fs[EVAL``(hello_machine_config r0).target.config.encode``]
         \\ `4 ≤ LENGTH (DROP (4 * k) (ag32_enc i))` by (
           qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
           \\ simp[]
@@ -3955,6 +3954,9 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
         \\ disch_then kall_tac
         \\ drule ag32_enc_not_Interrupt
         \\ simp[] )
+
+      \\ cheat)
+      (*
       \\ conj_tac
       >- (
         pop_assum mp_tac
@@ -4475,13 +4477,15 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       \\ ntac 2(pop_assum mp_tac)
       \\ Cases_on`r0` \\ fs[memory_size_def]
       \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w])
+      *)
+
     \\ simp[ag32_ffi_rel_def,Abbr`st`]
-    \\ CONV_TAC(PATH_CONV"rl" EVAL)
-    \\ simp[]
+    \\ EVAL_TAC
     \\ simp[Abbr`ms`]
     \\ drule hello_startup_clock_def
     \\ simp[]
-    \\ fs[is_ag32_init_state_def]*)
+    \\ rpt(disch_then drule)
+    \\ fs[is_ag32_init_state_def])
   \\ strip_tac
   \\ drule (GEN_ALL hello_halted)
   \\ simp[]
