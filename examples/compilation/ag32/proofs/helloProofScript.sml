@@ -1712,7 +1712,7 @@ val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
   \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
 
-val ag32_prog_addresses = Define`
+val ag32_prog_addresses_def = Define`
   ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 =
       { w | r0 <=+ w ∧ w <+ r0 + n2w startup_code_size } ∪
       { w | r0 + n2w heap_start_offset <=+ w ∧ w <+ r0 + n2w (heap_start_offset + heap_size) } ∪
@@ -1726,10 +1726,12 @@ val ag32_ccache_interfer_def = Define`
 
 val ag32_ffi_write_mem_update_def = Define`
   ag32_ffi_write_mem_update name r0 conf bytes new_bytes mem =
-    if name = "write" ∧ HD new_bytes = 0w then
+    if (name = "write") ∧ (HD new_bytes = 0w) then
       case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
         let written = DROP (w22n [off1; off0]) tll in
-          asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
+          if LENGTH written ≤ output_buffer_size then
+            asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
+          else mem
     else mem`;
 
 val ag32_ffi_interfer_def = Define`
@@ -3232,34 +3234,41 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result",CaseEq"ffi_result"]
       \\ rveq \\ fs[]
       \\ simp[ag32_ffi_write_mem_update_def]
+      \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray p new_bytes m2`
+      \\ `asm_write_bytearray p new_bytes m2 a = asm_write_bytearray p new_bytes t1.mem a`
+      by (
+        irule mem_eq_imp_asm_write_bytearray_eq
+        \\ simp[Abbr`m2`, APPLY_UPDATE_THM] \\ rw[]
+        \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
+        \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
+        \\ simp[ag32_prog_addresses_def]
+        \\ EVAL_TAC
+        \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w, word_ls_n2w, word_lo_n2w] )
+      \\ rw[]
       \\ fs[targetSemTheory.read_ffi_bytearrays_def]
       \\ fs[targetSemTheory.read_ffi_bytearray_def]
       \\ fs[fsFFITheory.ffi_write_def]
       \\ fs[CaseEq"list"] \\ rveq
-      \\ cheat
-      (*
-      \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
-      \\ simp[APPLY_UPDATE_THM]
-      \\ `m1 = m2`
-      by (
-        simp[Abbr`m1`,Abbr`m2`]
-        \\ qpat_x_assum`_ = t1.mem_domain`(assume_tac o SYM)
-        \\ simp[] )
-      \\ fs[Abbr`m1`]
-      \\ IF_CASES_TAC
+      \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
+      \\ rewrite_tac[OPTION_CHOICE_EQUALS_OPTION]
+      \\ reverse strip_tac
       >- (
-        qpat_x_assum`_ = t1.mem_domain`(assume_tac o SYM)
-        \\ qpat_x_assum`_ ∈ _`mp_tac
-        \\ simp[]
-        \\ Cases_on`a` \\ simp[word_ls_n2w,word_lo_n2w,word_add_n2w]
-        \\ fs[memory_size_def] )
+        pop_assum mp_tac \\ simp[]
+        \\ strip_tac \\ rveq
+        \\ qpat_x_assum`_ = 0w`mp_tac
+        \\ simp[LUPDATE_def] )
+      \\ fs[]
+      \\ pairarg_tac \\ fs[] \\ rveq
+      \\ rw[]
       \\ irule asm_write_bytearray_unchanged
-      \\ simp[]
-      \\ Cases_on`r0` \\ fs[memory_size_def]
-      \\ Cases_on`a` \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]
-      \\ qpat_x_assum`_ ∈ _`mp_tac
-      \\ qpat_x_assum`_ = t1.mem_domain`(assume_tac o SYM)
-      \\ simp[word_ls_n2w,word_lo_n2w,word_add_n2w]*))
+      \\ fs[EVAL``output_offset``, output_buffer_size_def]
+      \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+      \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
+      \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
+      \\ simp[ag32_prog_addresses_def]
+      \\ strip_tac
+      \\ CONV_TAC(LAND_CONV EVAL)
+      \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w] )
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
     \\ rpt(IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]))
