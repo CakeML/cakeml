@@ -161,7 +161,7 @@ val isBool_eq = Q.store_thm("isBool_eq",
 
 (* Lifting `data_to_bvi_v` projection to work over `bvlSem$v list` *)
 val v_to_list_eq = Q.store_thm("v_to_list_eq",
-  `∀x. v_to_list (data_to_bvi_v x) = lift (MAP data_to_bvi_v) (v_to_list x)`,
+  `∀x. v_to_list (data_to_bvi_v x) = OPTION_MAP (MAP data_to_bvi_v) (v_to_list x)`,
   ho_match_mp_tac v_to_list_ind
   \\ rw [bvlSemTheory.v_to_list_def, v_to_list_def, data_to_bvi_v_def]
   \\ cases_on `v_to_list x` \\ rw []
