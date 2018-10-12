@@ -330,6 +330,16 @@ in
     end
 end
 
+val has_addresses_def = Define `
+  has_addresses a [] dm = T /\
+  has_addresses a (x::xs) dm = (a IN dm /\ has_addresses (a+1w) xs dm)`;
+
+val bytes_in_memory_IMP_has_addresses = prove(
+  ``!a xs m dm. bytes_in_memory a xs m dm ==> has_addresses a xs dm``,
+  Induct_on `xs`
+  \\ fs [has_addresses_def,asmSemTheory.bytes_in_memory_def]
+  \\ rw [] \\ res_tac \\ fs []);
+
 local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
@@ -341,6 +351,9 @@ local
               asmPropsTheory.asserts2_eval, set_sepTheory.fun2set_eq,
               asmPropsTheory.interference_ok_def, riscv_proj_def]
      \\ NTAC 2 strip_tac
+     \\ drule bytes_in_memory_IMP_has_addresses
+     \\ simp [has_addresses_def,addressTheory.word_arith_lemma1]
+     \\ strip_tac
      \\ NTAC i (split_bytes_in_memory_tac 4)
      \\ NTAC j next_state_tac
    fun next_tac_by_instructions gs =
