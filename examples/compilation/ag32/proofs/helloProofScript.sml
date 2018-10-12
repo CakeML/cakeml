@@ -3720,15 +3720,17 @@ val hello_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
-(*
+val hello_machine_config_halt_pc =
+  ``(hello_machine_config r0).halt_pc``
+  |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
+
 val hello_halted = Q.store_thm("hello_halted",
   `∀ms.
     byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
     (mc = hello_machine_config r0) ∧
     (ms.PC = mc.halt_pc) ∧
-    (∀x. r0 + n2w (heap_size + 4 * LENGTH data + 32) <=+ x ∧
-         x <+ r0 + n2w (heap_size + 4 * LENGTH data + 36) ⇒
-         (mc.target.get_byte ms x = (hello_init_memory r0) x)) ⇒
+    (∀x. mc.halt_pc <=+ x ∧ x <+ mc.halt_pc + 16w ⇒
+         (mc.target.get_byte ms x = (hello_init_memory r0 inp) x)) ⇒
     ∀k. ((FUNPOW Next k ms).io_events = ms.io_events) ∧
         ((FUNPOW Next k ms).PC = ms.PC) ∧
         ((FUNPOW Next k ms).MEM = ms.MEM) ∧
@@ -3744,12 +3746,12 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ `aligned 2 pc`
   by (
     simp[Abbr`pc`]
-    \\ simp[hello_machine_config_def]
+    \\ simp[hello_machine_config_def, ag32_machine_config_def]
     \\ (alignmentTheory.aligned_add_sub_cor
         |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
         |> irule)
     \\ fs[alignmentTheory.byte_aligned_def]
-    \\ simp[LENGTH_data, heap_size_def, lab_to_targetTheory.ffi_offset_def]
+    \\ simp[LENGTH_data, heap_size_def, lab_to_targetTheory.ffi_offset_def, ffi_names]
     \\ EVAL_TAC )
   \\ `pc = pc'`
   by (
@@ -3766,34 +3768,35 @@ val hello_halted = Q.store_thm("hello_halted",
     simp[]
     \\ Cases_on`r0`
     \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def]
-    \\ simp[hello_machine_config_def]
-    \\ simp[LENGTH_data,heap_size_def,lab_to_targetTheory.ffi_offset_def]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def])
+    \\ simp[hello_machine_config_halt_pc, word_add_n2w]
+    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
   \\ first_assum(qspec_then`ms.PC + 1w`mp_tac)
   \\ impl_tac
   >- (
     simp[]
     \\ Cases_on`r0`
-    \\ simp[hello_machine_config_def]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def,heap_size_def,LENGTH_data,lab_to_targetTheory.ffi_offset_def] )
+    \\ simp[hello_machine_config_halt_pc]
+    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
   \\ first_assum(qspec_then`ms.PC + 2w`mp_tac)
   \\ impl_tac
   >- (
     simp[]
     \\ Cases_on`r0`
-    \\ simp[hello_machine_config_def]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def,heap_size_def,LENGTH_data,lab_to_targetTheory.ffi_offset_def] )
+    \\ simp[hello_machine_config_halt_pc]
+    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
   \\ first_x_assum(qspec_then`ms.PC + 3w`mp_tac)
   \\ impl_tac
   >- (
     simp[]
     \\ Cases_on`r0`
-    \\ simp[hello_machine_config_def]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def,heap_size_def,LENGTH_data,lab_to_targetTheory.ffi_offset_def] )
+    \\ simp[hello_machine_config_halt_pc]
+    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
   \\ simp[]
   \\ simp[EVAL``(hello_machine_config r0).target.get_byte``]
   \\ rpt (disch_then SUBST_ALL_TAC)
-  \\ qmatch_goalsub_abbrev_tac`_ @@ hello_init_memory r0 pc`
+  \\ qmatch_goalsub_abbrev_tac`_ @@ hello_init_memory r0 inp pc`
+  \\ cheat
+  (*
   \\ drule hello_init_memory_halt
   \\ impl_tac
   >- ( simp[Abbr`pc`,hello_machine_config_def] )
@@ -3803,8 +3806,9 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def]
   \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def]
   \\ strip_tac
-  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
+  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]*));
 
+(*
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    is_ag32_init_state (hello_init_memory r0) r0 ms0
