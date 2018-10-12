@@ -1030,8 +1030,7 @@ val ag32_ffi_exit_code_def = Define`
 (* get_arg_count
    PC is mem_start + ffi_code_start_offset
          + 4 * LENGTH ag32_ffi_exit_code
-   length (= 2) is in r3
-   pointer is in r4 *)
+   pointer is in r3 *)
 
 val ag32_ffi_get_arg_count_entrypoint_def = Define`
   ag32_ffi_get_arg_count_entrypoint =
@@ -1088,8 +1087,7 @@ val ag32_ffi_get_arg_count_code_def = Define`
    PC is mem_start + ffi_code_start_offset
          + ag32_ffi_get_arg_count_entrypoint
          + 4 * LENGTH ag32_ffi_get_arg_count_code
-   r3 contains length (=2)
-   r4 contains pointer to byte array with the arg index: [index % 256, index / 256]
+   r3 contains pointer to byte array with the arg index: [index % 256, index / 256]
    the array should afterwards contain the length of the arg at index (in the same format) *)
 
 val ag32_ffi_get_arg_length_entrypoint_def = Define`
@@ -1727,23 +1725,23 @@ val ag32_ccache_interfer_def = Define`
                R := (0w =+ r0 + n2w(ffi_code_start_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
 
 val ag32_ffi_write_mem_update_def = Define`
-  ag32_ffi_write_mem_update name r0 conf bytes mem =
-    if name = "write" then
+  ag32_ffi_write_mem_update name r0 conf bytes new_bytes mem =
+    if name = "write" ∧ HD new_bytes = 0w then
       case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
         let written = DROP (w22n [off1; off0]) tll in
           asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
     else mem`;
 
 val ag32_ffi_interfer_def = Define`
-  ag32_ffi_interfer ffi_names r0 (index,new_bytes,ms) =
+  ag32_ffi_interfer ffi_names md r0 (index,new_bytes,ms) =
     let name = EL index ffi_names in
     let new_mem = ((r0 + n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
-    let new_mem = asm_write_bytearray (ms.R 4w) new_bytes new_mem in
+    let new_mem = asm_write_bytearray (ms.R 3w) new_bytes new_mem in
     let new_mem =
       ag32_ffi_write_mem_update name r0
-        (THE (read_bytearray (ms.R 2w) (w2n (ms.R 1w)) (SOME o ms.MEM)))
-        (THE (read_bytearray (ms.R 4w) (w2n (ms.R 3w)) (SOME o ms.MEM)))
-        new_mem in
+        (THE (read_bytearray (ms.R 1w) (w2n (ms.R 2w)) (λa. if a ∈ md then SOME (ms.MEM a) else NONE)))
+        (THE (read_bytearray (ms.R 3w) (w2n (ms.R 4w)) (λa. if a ∈ md then SOME (ms.MEM a) else NONE)))
+        new_bytes new_mem in
     let exitpc = THE (ALOOKUP ffi_exitpcs name) in
         ms with
           <| PC := (ms.R 0w) ;
@@ -1762,6 +1760,7 @@ val ag32_ffi_interfer_def = Define`
 val ag32_machine_config_def = Define`
   ag32_machine_config ffi_names LENGTH_code LENGTH_data r0 =
   let num_ffis = LENGTH ffi_names in
+  let md = ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 in
   <|
     target := ag32_target;
     ptr_reg := 1;
@@ -1773,10 +1772,10 @@ val ag32_machine_config_def = Define`
     ffi_entry_pcs := GENLIST (λi. r0 + n2w (ffi_jumps_offset + i * ffi_offset)) num_ffis;
     ccache_pc     := r0 + n2w (ffi_jumps_offset + (num_ffis + 0) * ffi_offset);
     halt_pc       := r0 + n2w (ffi_jumps_offset + (num_ffis + 1) * ffi_offset);
-    prog_addresses := ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 ;
+    prog_addresses := md ;
     next_interfer := K I ;
     ccache_interfer := K (ag32_ccache_interfer num_ffis r0) ;
-    ffi_interfer := K (ag32_ffi_interfer ffi_names r0)
+    ffi_interfer := K (ag32_ffi_interfer ffi_names md r0)
   |>`
 
 val is_ag32_machine_config_ag32_machine_config = Q.store_thm("is_ag32_machine_config_ag32_machine_config",
@@ -3222,20 +3221,25 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ fs[ag32_targetTheory.ag32_ok_def]
     \\ fs[ag32_targetTheory.ag32_config_def]
     \\ conj_tac
-    >- cheat (*
+    >- (
       rw[]
       \\ fs[ffiTheory.call_FFI_def]
-      \\ `st.oracle = ag_ffi.oracle` by metis_tac[RTC_call_FFI_rel_consts]
-      \\ fs[EVAL``ag_ffi.oracle``]
-      \\ pop_assum kall_tac
+      \\ `st.oracle = (basis_ffi cl fs).oracle` by metis_tac[evaluatePropsTheory.RTC_call_FFI_rel_consts]
+      \\ fs[basis_ffiTheory.basis_ffi_def]
+      \\ fs[SIMP_CONV(srw_ss())[basis_ffiTheory.basis_ffi_oracle_def]``basis_ffi_oracle "write"``]
       \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result"]
-      \\ fs[NULL_EQ]
-      \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
-      \\ simp[APPLY_UPDATE_THM]
+      \\ pairarg_tac \\ fs[]
+      \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result",CaseEq"ffi_result"]
+      \\ rveq \\ fs[]
+      \\ simp[ag32_ffi_write_mem_update_def]
       \\ fs[targetSemTheory.read_ffi_bytearrays_def]
       \\ fs[targetSemTheory.read_ffi_bytearray_def]
-      \\ qmatch_goalsub_abbrev_tac`read_bytearray r1 r2 m1`
-      \\ qmatch_asmsub_abbrev_tac`read_bytearray r1 r2 m2`
+      \\ fs[fsFFITheory.ffi_write_def]
+      \\ fs[CaseEq"list"] \\ rveq
+      \\ cheat
+      (*
+      \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
+      \\ simp[APPLY_UPDATE_THM]
       \\ `m1 = m2`
       by (
         simp[Abbr`m1`,Abbr`m2`]
@@ -3255,7 +3259,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ Cases_on`a` \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]
       \\ qpat_x_assum`_ ∈ _`mp_tac
       \\ qpat_x_assum`_ = t1.mem_domain`(assume_tac o SYM)
-      \\ simp[word_ls_n2w,word_lo_n2w,word_add_n2w]*)
+      \\ simp[word_ls_n2w,word_lo_n2w,word_add_n2w]*))
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
     \\ rpt(IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]))
