@@ -265,8 +265,12 @@ in
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss())
          [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
-          riscv_config, asmPropsTheory.all_pcs, lem2, cond_rand_thms,
+          riscv_config, lem2, cond_rand_thms,
           alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
+       \\ TRY
+          ((let val n = numSyntax.term_of_int (4 * ((length l) + 1)) in
+           `!i ms'. (∀pc. pc ∈ all_pcs ^n (ms.c_PC ms.procID) 0 ⇒ (env i ms').MEM8 pc = ms'.MEM8 pc)` end)
+           by (rw [asmPropsTheory.all_pcs] \\ fs []))
        \\ (if not (List.null l) andalso
               (asmLib.isJump asm orelse asmLib.isCall asm) then
               (* Need to show that the register contents from the first
@@ -287,16 +291,17 @@ in
            else
               all_tac)
        \\ MAP_EVERY (fn s =>
-            qunabbrev_tac [QUOTE s]
-            \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
+            qpat_x_assum `NextRISCV _ = _` kall_tac
+            \\ qunabbrev_tac [QUOTE s]
+            \\ rev_full_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
                   alignmentTheory.aligned_numeric]
-            \\ NTAC 10 (POP_ASSUM kall_tac)
             ) l
+       \\ TRY (qpat_x_assum `NextRISCV _ = _` kall_tac) (* <-- todo, should just remove all assumptions containing NextRISCV ... *)
        \\ qunabbrev_tac [QUOTE x]
-       \\ asm_simp_tac (srw_ss())
+       \\ rev_full_simp_tac (srw_ss())
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
        \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-       \\ asm_simp_tac (srw_ss()) []
+       \\ asm_simp_tac (srw_ss()) [asmPropsTheory.all_pcs]
        \\ (if asmLib.isAddCarry asm then
              qabbrev_tac `r2 = ms.c_gpr ms.procID (n2w n0)`
              \\ qabbrev_tac `r3 = ms.c_gpr ms.procID (n2w n1)`
@@ -318,7 +323,7 @@ in
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++
                        wordsLib.WORD_CANCEL_ss) []
                  else
-                   NO_STRIP_FULL_SIMP_TAC std_ss
+                   NO_STRIP_FULL_SIMP_TAC (srw_ss())
                         [alignmentTheory.aligned_extract, lem12, lem12b]
                    \\ blastLib.FULL_BBLAST_TAC))
       ) gs
