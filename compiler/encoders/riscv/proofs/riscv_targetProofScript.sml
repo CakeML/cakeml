@@ -256,6 +256,13 @@ local
     utilsLib.mk_cond_rand_thms
        (utilsLib.accessor_fns ``: riscv_state`` @
         utilsLib.accessor_fns ``: 64 asm_state``)
+  fun drop_var_asms_tac var =
+    let
+      val var = mk_var (var, ``:riscv_state``)
+    in
+      rpt (WEAKEN_TAC (fn tm => not (markerSyntax.is_abbrev tm) andalso
+                                free_in var tm))
+    end
 in
   fun state_tac asm (gs as (asl, _)) =
     let
@@ -267,10 +274,6 @@ in
          [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
           riscv_config, lem2, cond_rand_thms,
           alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
-       \\ TRY
-          ((let val n = numSyntax.term_of_int (4 * ((length l) + 1)) in
-           `!i ms'. (∀pc. pc ∈ all_pcs ^n (ms.c_PC ms.procID) 0 ⇒ (env i ms').MEM8 pc = ms'.MEM8 pc)` end)
-           by (rw [asmPropsTheory.all_pcs] \\ fs []))
        \\ (if not (List.null l) andalso
               (asmLib.isJump asm orelse asmLib.isCall asm) then
               (* Need to show that the register contents from the first
@@ -291,14 +294,14 @@ in
            else
               all_tac)
        \\ MAP_EVERY (fn s =>
-            qpat_x_assum `NextRISCV _ = _` kall_tac
+            drop_var_asms_tac s
             \\ qunabbrev_tac [QUOTE s]
-            \\ rev_full_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
-                  alignmentTheory.aligned_numeric]
+            \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
+                                        alignmentTheory.aligned_numeric]
             ) l
-       \\ TRY (qpat_x_assum `NextRISCV _ = _` kall_tac) (* <-- todo, should just remove all assumptions containing NextRISCV ... *)
+       \\ drop_var_asms_tac x
        \\ qunabbrev_tac [QUOTE x]
-       \\ rev_full_simp_tac (srw_ss())
+       \\ asm_simp_tac (srw_ss())
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
        \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
        \\ asm_simp_tac (srw_ss()) [asmPropsTheory.all_pcs]
@@ -323,22 +326,21 @@ in
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++
                        wordsLib.WORD_CANCEL_ss) []
                  else
-                   NO_STRIP_FULL_SIMP_TAC (srw_ss())
+                   NO_STRIP_FULL_SIMP_TAC std_ss
                         [alignmentTheory.aligned_extract, lem12, lem12b]
                    \\ blastLib.FULL_BBLAST_TAC))
       ) gs
     end
 end
 
-val has_addresses_def = Define `
-  has_addresses a [] dm = T /\
-  has_addresses a (x::xs) dm = (a IN dm /\ has_addresses (a+1w) xs dm)`;
-
-val bytes_in_memory_IMP_has_addresses = prove(
-  ``!a xs m dm. bytes_in_memory a xs m dm ==> has_addresses a xs dm``,
-  Induct_on `xs`
-  \\ fs [has_addresses_def,asmSemTheory.bytes_in_memory_def]
-  \\ rw [] \\ res_tac \\ fs []);
+val bytes_in_memory_IMP_all_pcs_MEM8 = Q.prove(
+ `!env a xs m dm.
+   bytes_in_memory a xs m dm /\
+   (!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM8 a = ms'.MEM8 a)) ==>
+   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM8 pc = ms'.MEM8 pc))`,
+ Induct_on `xs`
+ \\ rw [asmPropsTheory.all_pcs_def, asmSemTheory.bytes_in_memory_def]
+ \\ metis_tac []);
 
 local
    fun number_of_instructions asl =
@@ -351,8 +353,9 @@ local
               asmPropsTheory.asserts2_eval, set_sepTheory.fun2set_eq,
               asmPropsTheory.interference_ok_def, riscv_proj_def]
      \\ NTAC 2 strip_tac
-     \\ drule bytes_in_memory_IMP_has_addresses
-     \\ simp [has_addresses_def,addressTheory.word_arith_lemma1]
+     \\ drule bytes_in_memory_IMP_all_pcs_MEM8
+     \\ disch_then (qspec_then `env` mp_tac)
+     \\ simp []
      \\ strip_tac
      \\ NTAC i (split_bytes_in_memory_tac 4)
      \\ NTAC j next_state_tac
