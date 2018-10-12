@@ -3880,6 +3880,11 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
+val ag32_ffi_mem_domain_def = Define`
+  ag32_ffi_mem_domain r0 =
+    { w | r0 + n2w startup_code_size <=+ w ∧
+          w <+ r0 + n2w ffi_code_start_offset }`;
+
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -3891,8 +3896,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     (hello_machine_config r0)
     (basis_ffi cl (stdin_fs inp)).oracle
     (ag32_ffi_rel r0)
-    { w | r0 + n2w startup_code_size <=+ w ∧
-          w <+ r0 + n2w ffi_code_start_offset } ms`,
+    (ag32_ffi_mem_domain r0) ms`,
   rw[interference_implemented_def]
   \\ simp[EVAL``(hello_machine_config r0).target.next``]
   \\ simp[EVAL``(hello_machine_config r0).target.get_byte``]
@@ -4069,6 +4073,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ rpt gen_tac
   \\ strip_tac
   \\ fs[find_index_def] \\ rveq
+  \\ simp[ffi_names]
   \\ cheat);
 
 (*
