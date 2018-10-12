@@ -4074,6 +4074,12 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ strip_tac
   \\ fs[find_index_def] \\ rveq
   \\ simp[ffi_names]
+  \\ fs[EVAL``(hello_machine_config r0).ffi_names``, ffi_names]
+  \\ fs[ffiTheory.call_FFI_def,CaseEq"oracle_result",CaseEq"bool"]
+  \\ rveq \\ rfs[basis_ffiTheory.basis_ffi_def]
+  \\ qhdtm_x_assum`basis_ffi_oracle`mp_tac
+  \\ simp[Once basis_ffiTheory.basis_ffi_oracle_def]
+  \\ pairarg_tac \\ rw[CaseEq"option",CaseEq"ffi_result"]
   \\ cheat);
 
 (*
