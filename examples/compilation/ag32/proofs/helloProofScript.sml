@@ -843,26 +843,6 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ first_x_assum(qspec_then`0`mp_tac)
   \\ simp[]);
 
-(*
-val ag32_ffi_rel_def = Define`
-  ag32_ffi_rel r0 ms io_events ⇔
-    (EVERY (λm. w2n (m r0) ≤ print_string_max_length) ms.io_events) ∧
-    (io_events =
-     MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
-       (MAP (extract_print_from_mem r0) ms.io_events))`;
-
-val ag32_ffi_rel_get_print_string = Q.store_thm("ag32_ffi_rel_get_print_string",
-  `ag32_ffi_rel r0 ms io_events ⇒
-   (io_events =
-     MAP (λout. IO_event "print" (MAP (n2w o ORD) out) [])
-       (MAP (λm. get_print_string (r0,m)) ms.io_events))`,
-  rw[ag32_ffi_rel_def]
-  \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]
-  \\ fs[EVERY_MEM]
-  \\ simp[extract_print_from_mem_get_print_string]);
-*)
-
 val ag32_init_asm_state_def = Define`
   ag32_init_asm_state mem md (r0:word32) = <|
     be := F;
@@ -993,6 +973,67 @@ val heap_start_offset_def = Define`
 val ffi_jumps_offset_def = Define`
   ffi_jumps_offset =
     heap_start_offset + heap_size`;
+
+val get_output_io_event_def = Define`
+  get_output_io_event (IO_event name conf bs2) =
+    if name = "write" then
+      case MAP FST bs2 of (n1 :: n0 :: off1 :: off0 :: tll) =>
+        let written = DROP (w22n [off1; off0]) tll in
+          if LENGTH written ≤ output_buffer_size ∧ w22n [off1; off0] ≤ LENGTH tll then
+            SOME (conf ++ [0w;0w;n1;n0] ++ written)
+          else NONE
+      | _ => NONE
+    else NONE`;
+
+val get_ag32_io_event_def = Define`
+  get_ag32_io_event r0 m =
+    let call_id = m (r0 + n2w (ffi_code_start_offset - 4)) in
+    if call_id = n2w (THE (ALOOKUP FFI_codes "write")) then
+      let n1 = m (r0 + n2w (output_offset + 10)) in
+      let n0 = m (r0 + n2w (output_offset + 11)) in
+      let n = w22n [n1; n0] in
+        read_bytearray (r0 + n2w output_offset) (8 + 4 + n) (SOME o m)
+    else NONE`;
+
+val stdin_fs_def = Define`
+  stdin_fs inp =
+    <| files :=
+       [(IOStream (strlit "stdout"), "")
+       ;(IOStream (strlit "stderr"), "")
+       ;(IOStream (strlit "stdin"), inp)]
+     ; infds :=
+       [(0, IOStream(strlit"stdin"), 0)
+       ;(1, IOStream(strlit"stdout"), 0)
+       ;(2, IOStream(strlit"stderr"), 0)]
+     ; numchars := LGENLIST (K output_buffer_size) NONE
+     |>`;
+
+val wfFS_stdin_fs = Q.store_thm("wfFS_stdin_fs",
+  `2 ≤ maxFD ⇒ wfFS (stdin_fs inp)`,
+  rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
+  \\ rw[fsFFIPropsTheory.liveFS_def]
+  \\ rw[fsFFIPropsTheory.live_numchars_def]
+  \\ qmatch_goalsub_abbrev_tac`always P ll`
+  \\ `∀x. (x = ll) ⇒ always P x` suffices_by rw[]
+  \\ ho_match_mp_tac always_coind
+  \\ rw[]
+  \\ qexists_tac`output_buffer_size`
+  \\ conj_tac
+  >- ( simp[Abbr`ll`] \\ simp[LGENLIST_EQ_CONS] )
+  \\ simp[Abbr`P`]
+  \\ EVAL_TAC);
+
+val STD_streams_stdin_fs = Q.store_thm("STD_streams_stdin_fs",
+  `STD_streams (stdin_fs inp)`,
+  rw[fsFFIPropsTheory.STD_streams_def]
+  \\ qexists_tac`0`
+  \\ rw[stdin_fs_def]
+  \\ rw[]);
+
+val ag32_ffi_rel_def = Define`
+  ag32_ffi_rel r0 ms io_events ⇔
+    (MAP (get_ag32_io_event r0) ms.io_events =
+     MAP get_output_io_event io_events)`;
 
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
@@ -1875,6 +1916,14 @@ val hello_init_memory_words_def = zDefine`
 val hello_init_memory_def = Define`
   hello_init_memory r0 (cl, stdin) (k:word32) =
      get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words cl stdin)) F`;
+
+val hello_machine_config_def = Define`
+  hello_machine_config =
+    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)`;
+
+val hello_machine_config_halt_pc =
+  ``(hello_machine_config r0).halt_pc``
+  |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
 
 val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   `byte_aligned r0 ∧ n < LENGTH hello_startup_code ⇒
@@ -2762,10 +2811,6 @@ val hello_ag32_ffi_code_correct = Q.store_thm("hello_ag32_ffi_code_correct",
   \\ simp[ag32Theory.Run_def]
   \\ simp[ag32Theory.dfn'Jump_def,ag32Theory.ri2word_def,ag32Theory.ALU_def,APPLY_UPDATE_THM]);
 *)
-
-val hello_machine_config_def = Define`
-  hello_machine_config =
-    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)`;
 
 (*
 define the ag32 and asm states
@@ -3734,10 +3779,6 @@ val hello_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
-val hello_machine_config_halt_pc =
-  ``(hello_machine_config r0).halt_pc``
-  |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
-
 val hello_halted = Q.store_thm("hello_halted",
   `∀ms.
     byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
@@ -3821,63 +3862,6 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
-val get_output_io_event_def = Define`
-  get_output_io_event (IO_event name conf bs2) =
-    if name = "write" then
-      case MAP FST bs2 of (n1 :: n0 :: off1 :: off0 :: tll) =>
-        let written = DROP (w22n [off1; off0]) tll in
-          if LENGTH written ≤ output_buffer_size ∧ w22n [off1; off0] ≤ LENGTH tll then
-            SOME (conf ++ [0w;0w;n1;n0] ++ written)
-          else NONE
-      | _ => NONE
-    else NONE`;
-
-val get_ag32_io_event_def = Define`
-  get_ag32_io_event r0 m =
-    let call_id = m (r0 + n2w (ffi_code_start_offset - 4)) in
-    if call_id = n2w (THE (ALOOKUP FFI_codes "write")) then
-      let n1 = m (r0 + n2w (output_offset + 10)) in
-      let n0 = m (r0 + n2w (output_offset + 11)) in
-      let n = w22n [n1; n0] in
-        read_bytearray (r0 + n2w output_offset) (8 + 4 + n) (SOME o m)
-    else NONE`;
-
-val stdin_fs_def = Define`
-  stdin_fs inp =
-    <| files :=
-       [(IOStream (strlit "stdout"), "")
-       ;(IOStream (strlit "stderr"), "")
-       ;(IOStream (strlit "stdin"), inp)]
-     ; infds :=
-       [(0, IOStream(strlit"stdin"), 0)
-       ;(1, IOStream(strlit"stdout"), 0)
-       ;(2, IOStream(strlit"stderr"), 0)]
-     ; numchars := LGENLIST (K output_buffer_size) NONE
-     |>`;
-
-val wfFS_stdin_fs = Q.store_thm("wfFS_stdin_fs",
-  `2 ≤ maxFD ⇒ wfFS (stdin_fs inp)`,
-  rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
-  \\ rw[fsFFIPropsTheory.liveFS_def]
-  \\ rw[fsFFIPropsTheory.live_numchars_def]
-  \\ qmatch_goalsub_abbrev_tac`always P ll`
-  \\ `∀x. (x = ll) ⇒ always P x` suffices_by rw[]
-  \\ ho_match_mp_tac always_coind
-  \\ rw[]
-  \\ qexists_tac`output_buffer_size`
-  \\ conj_tac
-  >- ( simp[Abbr`ll`] \\ simp[LGENLIST_EQ_CONS] )
-  \\ simp[Abbr`P`]
-  \\ EVAL_TAC);
-
-val STD_streams_stdin_fs = Q.store_thm("STD_streams_stdin_fs",
-  `STD_streams (stdin_fs inp)`,
-  rw[fsFFIPropsTheory.STD_streams_def]
-  \\ qexists_tac`0`
-  \\ rw[stdin_fs_def]
-  \\ rw[]);
-
-(*
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
@@ -4549,6 +4533,5 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ srw_tac[ETA_ss][]
   \\ simp[Once o_DEF, MAP_MAP_o, CHR_w2n_n2w_ORD]
   \\ srw_tac[ETA_ss][]);
-*)
 
 val _ = export_theory();
