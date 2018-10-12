@@ -3821,28 +3821,91 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
+val get_output_io_event_def = Define`
+  get_output_io_event (IO_event name conf bs2) =
+    if name = "write" then
+      case MAP FST bs2 of (n1 :: n0 :: off1 :: off0 :: tll) =>
+        let written = DROP (w22n [off1; off0]) tll in
+          if LENGTH written ≤ output_buffer_size ∧ w22n [off1; off0] ≤ LENGTH tll then
+            SOME (conf ++ [0w;0w;n1;n0] ++ written)
+          else NONE
+      | _ => NONE
+    else NONE`;
+
+val get_ag32_io_event_def = Define`
+  get_ag32_io_event r0 m =
+    let call_id = m (r0 + n2w (ffi_code_start_offset - 4)) in
+    if call_id = n2w (THE (ALOOKUP FFI_codes "write")) then
+      let n1 = m (r0 + n2w (output_offset + 10)) in
+      let n0 = m (r0 + n2w (output_offset + 11)) in
+      let n = w22n [n1; n0] in
+        read_bytearray (r0 + n2w output_offset) (8 + 4 + n) (SOME o m)
+    else NONE`;
+
+val stdin_fs_def = Define`
+  stdin_fs inp =
+    <| files :=
+       [(IOStream (strlit "stdout"), "")
+       ;(IOStream (strlit "stderr"), "")
+       ;(IOStream (strlit "stdin"), inp)]
+     ; infds :=
+       [(0, IOStream(strlit"stdin"), 0)
+       ;(1, IOStream(strlit"stdout"), 0)
+       ;(2, IOStream(strlit"stderr"), 0)]
+     ; numchars := LGENLIST (K output_buffer_size) NONE
+     |>`;
+
+val wfFS_stdin_fs = Q.store_thm("wfFS_stdin_fs",
+  `2 ≤ maxFD ⇒ wfFS (stdin_fs inp)`,
+  rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
+  \\ rw[fsFFIPropsTheory.liveFS_def]
+  \\ rw[fsFFIPropsTheory.live_numchars_def]
+  \\ qmatch_goalsub_abbrev_tac`always P ll`
+  \\ `∀x. (x = ll) ⇒ always P x` suffices_by rw[]
+  \\ ho_match_mp_tac always_coind
+  \\ rw[]
+  \\ qexists_tac`output_buffer_size`
+  \\ conj_tac
+  >- ( simp[Abbr`ll`] \\ simp[LGENLIST_EQ_CONS] )
+  \\ simp[Abbr`P`]
+  \\ EVAL_TAC);
+
+val STD_streams_stdin_fs = Q.store_thm("STD_streams_stdin_fs",
+  `STD_streams (stdin_fs inp)`,
+  rw[fsFFIPropsTheory.STD_streams_def]
+  \\ qexists_tac`0`
+  \\ rw[stdin_fs_def]
+  \\ rw[]);
+
 (*
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   is_ag32_init_state (hello_init_memory r0) r0 ms0
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
+   LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
+   is_ag32_init_state (hello_init_memory r0 (cl,inp)) r0 ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
-     let outs = MAP (λm. get_print_string (r0,m)) ms.io_events in
+     let outs = MAP (get_ag32_io_event r0) ms.io_events in
        (ms.PC = (hello_machine_config r0).halt_pc) ∧
-       outs ≼ hello_outputs ∧
-       ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒ (outs = hello_outputs))`,
-  disch_then assume_tac
-  \\ mp_tac hello_machine_sem
-  \\ impl_tac >- fs[] \\ strip_tac
+       outs ≼ MAP get_output_io_event (hello_io_events cl (stdin_fs inp)) ∧
+       ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒
+        (outs = MAP get_output_io_event (hello_io_events cl (stdin_fs inp))))`,
+  rw[]
+  \\ drule (GEN_ALL hello_machine_sem)
+  \\ disch_then(first_assum o mp_then Any mp_tac) \\ fs[]
+  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
+  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ strip_tac
   \\ fs[extend_with_resource_limit_def]
   \\ qmatch_asmsub_abbrev_tac`machine_sem mc st ms`
-  \\ `∃b. machine_sem mc st ms b` by metis_tac[machine_sem_total]
+  \\ `∃b. machine_sem mc st ms b` by metis_tac[targetPropsTheory.machine_sem_total]
   \\ fs[SUBSET_DEF, IN_DEF]
   \\ first_x_assum drule
   \\ disch_then(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
+
   \\ disch_then(qspecl_then[`{w | r0 <=+ w ∧ w <=+ r0 + n2w print_string_max_length}`,`ag32_ffi_rel r0`]mp_tac)
   \\ impl_tac >- (
     conj_tac
@@ -4486,7 +4549,6 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ srw_tac[ETA_ss][]
   \\ simp[Once o_DEF, MAP_MAP_o, CHR_w2n_n2w_ORD]
   \\ srw_tac[ETA_ss][]);
-
 *)
 
 val _ = export_theory();
