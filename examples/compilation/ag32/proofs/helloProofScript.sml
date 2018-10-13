@@ -1035,6 +1035,17 @@ val ag32_ffi_rel_def = Define`
     (MAP (get_ag32_io_event r0) ms.io_events =
      MAP get_output_io_event io_events)`;
 
+val extract_write_def = Define`
+  extract_write fd oevent =
+    let conf = TAKE 8 oevent in
+    if w82n conf = fd then
+      SOME (DROP (8 + 4) oevent)
+    else NONE`;
+
+val extract_writes_def = Define`
+  extract_writes fd oevents =
+    FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))`;
+
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
 
@@ -4499,6 +4510,49 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ Cases_on`r0` \\ fs[memory_size_def]
   \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w])
   *)
+
+val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
+  `wfcl cl ∧ 2 ≤ maxFD ⇒
+   (extract_writes 1 (MAP get_output_io_event (hello_io_events cl (stdin_fs inp))) =
+    "Hello World!\n")`,
+  strip_tac
+  \\ drule(GEN_ALL(DISCH_ALL hello_output))
+  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
+  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ qspec_tac(`hello_io_events cl (stdin_fs inp)`,`ls`)
+  (* probably need to generalise over (stdin_fs inp) but say that it contains stdout *)
+  \\ simp[basis_ffiTheory.extract_fs_def, PULL_EXISTS, RIGHT_FORALL_IMP_THM]
+  \\ Induct
+  >- (
+    simp[basis_ffiTheory.extract_fs_with_numchars_def, extract_writes_def]
+    \\ simp[TextIOProofTheory.add_stdo_def,
+            TextIOProofTheory.stdo_def,
+            TextIOProofTheory.up_stdo_def]
+    \\ SELECT_ELIM_TAC
+    \\ conj_tac
+    >- (
+      simp[stdin_fs_def]
+      \\ qexists_tac`implode ""`
+      \\ simp[] )
+    \\ rw[fsFFITheory.fsupdate_def]
+    \\ simp[fsFFITheory.IO_fs_component_equality]
+    \\ CCONTR_TAC \\ fs[]
+    \\ first_x_assum(mp_tac o Q.AP_TERM`ALOOKUP`)
+    \\ simp[FUN_EQ_THM]
+    \\ qexists_tac`1`
+    \\ simp[stdin_fs_def, ALIST_FUPDKEY_ALOOKUP] )
+  \\ Cases
+  \\ simp[basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ rw[]
+  \\ fs[CaseEq"option"] \\ fs[]
+  >- (
+    simp[get_output_io_event_def]
+    \\ reverse(rw[])
+    >- fs[extract_writes_def]
+    \\ fs[fsFFITheory.fs_ffi_part_def] )
+  \\ fs[CaseEq"ffi_result"]
+  \\ rw[]
+  \\ cheat);
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
