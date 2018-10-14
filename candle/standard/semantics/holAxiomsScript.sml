@@ -17,6 +17,8 @@ val _ = Parse.temp_overload_on("FAx2",``Forall (strlit "x2") A``)
 val _ = Parse.temp_overload_on("y",``Var (strlit "y") B``)
 val _ = Parse.temp_overload_on("FAy",``Forall (strlit "y") B``)
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 val eta_has_model = Q.store_thm("eta_has_model",

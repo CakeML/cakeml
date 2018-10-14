@@ -3,6 +3,8 @@ open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory ho
 
 val _ = new_theory"holExtension"
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 val sound_update_def = xDefine"sound_update"`
