@@ -1088,7 +1088,7 @@ val startup_code_size_def = Define`
   +-------------------+
   | output length     |  4 bytes
   +-------------------+
-  | output id         |  8 bytes
+  | output id         |  8 bytes (* ridiculously overpowered... *)
   +-------------------+
   | + stdin           |  stdin_size bytes (~5Mb)
   +-------------------+
@@ -1702,14 +1702,40 @@ val ag32_ffi_read_entrypoint_def = Define`
 val ag32_ffi_read_code_def = Define`
   ag32_ffi_read_code = [Interrupt] (* TODO *)`;
 
-(* write *)
+(* write
+   PC is mem_start + ffi_code_start_offset + ag32_ffi_write_entrypoint
+   r1 contains pointer to byte array with the output id
+   r2 contains length of r1 (should be 8)
+   r3 contains pointer to byte array n1::n0::off1::off0::tll
+   r4 contains LENGTH tll + 4
+   postconditions:
+     * written (THE (ALOOKUP FFI_codes "write")) at (mem_start + n2w (ffi_code_start_offset - 1))
+     * if the following conditions hold
+         - r2 contains 8
+         - LENGTH tll ≥ w22n [off1; off0]
+         - w82n conf ≤ 2
+         - w22n [n1; n0] ≤ LENGTH tll - w22n [off1; off0]
+       then
+         - write 0w::n2w2(MIN output_buffer_size (w22n [n1; n0])) to array pointed by r3
+         - write conf ++ [0w;0w;n1;n0] ++ (DROP (w22n [off1; off0]) tll)
+         (* TODO: this is not quite right -- some discrepancy on what happens when requested too much output *)
+           to mem_start + n2w output_offset
+       else
+         - write 1w to the first byte pointed by r3
+         - do not touch anything else in memory
+     * r1,..,r6 are set to 0 and carry and overflow unset
+     * exit happens at the end of the code, by jumping to r0
+*)
 
 val ag32_ffi_write_entrypoint_def = Define`
   ag32_ffi_write_entrypoint =
   ag32_ffi_read_entrypoint + 4 * LENGTH ag32_ffi_read_code`;
 
 val ag32_ffi_write_code_def = Define`
-  ag32_ffi_write_code = [Interrupt] (* TODO *)`;
+  ag32_ffi_write_code =
+    [
+     Interrupt
+    ]`;
 
 (* open_in *)
 
