@@ -22,6 +22,95 @@ val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
   \\ Induct
   \\ simp[ALIST_FUPDKEY_def,FORALL_PROD]);
 
+val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
+  `∀ls fs fs' off.
+   (extract_fs_with_numchars fs ls = SOME fs') ∧
+   (ALOOKUP fs'.infds fd = SOME(IOStream nm, off)) ⇒
+   ∃off'.
+     (ALOOKUP fs.infds fd = SOME (IOStream nm, off')) ∧ off' ≤ off ∧
+     (∀content.
+       (ALOOKUP fs.files (IOStream nm) = SOME content) ∧ (off' = LENGTH content) ∧
+       (∀fd' off'. (ALOOKUP fs.infds fd' = SOME (IOStream nm, off')) ⇒ (fd = fd'))
+       ⇒
+       ∃written.
+         (ALOOKUP fs'.files (IOStream nm) = SOME (content ++ written)) ∧
+         (off = off' + LENGTH written))`,
+  Induct
+  >- ( rw[basis_ffiTheory.extract_fs_with_numchars_def])
+  \\ Cases
+  \\ rw[basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ fs[fsFFITheory.fs_ffi_part_def]
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac \\ rveq
+  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.ffi_open_in_def,
+        fsFFITheory.ffi_open_out_def,
+        fsFFITheory.ffi_write_def,
+        fsFFITheory.ffi_read_def,
+        fsFFITheory.ffi_close_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
+  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.closeFD_def,
+        fsFFITheory.read_def,
+        fsFFITheory.openFile_truncate_def,
+        fsFFITheory.openFile_def,
+        fsFFITheory.write_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
+  \\ fs[CaseEq"bool"]
+  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ fs[CaseEq"option"]
+  \\ fs[CaseEq"bool"]
+  \\ Cases_on`v` \\ fs[]
+  \\ rveq \\ fs[] \\ rfs[]
+  \\ rw[] \\ fs[]
+  \\ TRY(
+    fsrw_tac[DNF_ss][] \\ fs[data_to_word_assignProofTheory.IMP]
+    \\ NO_TAC)
+  >- (
+    Cases_on`fnm = IOStream nm` \\ fsrw_tac[DNF_ss][]
+    \\ fs[FORALL_PROD] \\ rveq \\ fs[] \\ rfs[]
+    \\ metis_tac[] )
+  \\ fsrw_tac[DNF_ss][FORALL_PROD]);
+
+val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_numchars_closes_iostreams",
+  `∀ls fs fs' fd nm off.
+   (extract_fs_with_numchars fs ls = SOME fs') ∧
+   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, off))
+   ⇒
+   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, off))`,
+  Induct
+  >- (
+    rw[basis_ffiTheory.extract_fs_with_numchars_def]
+    \\ metis_tac[] )
+  \\ Cases
+  \\ rw[basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  >- metis_tac[]
+  \\ fs[fsFFITheory.fs_ffi_part_def]
+  \\ last_x_assum drule
+  \\ disch_then match_mp_tac
+  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.ffi_open_in_def,
+        fsFFITheory.ffi_open_out_def,
+        fsFFITheory.ffi_write_def,
+        fsFFITheory.ffi_read_def,
+        fsFFITheory.ffi_close_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
+  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.closeFD_def,
+        fsFFITheory.read_def,
+        fsFFITheory.openFile_truncate_def,
+        fsFFITheory.openFile_def,
+        fsFFITheory.write_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
+  \\ CCONTR_TAC \\ fs[]);
+
 val interference_implemented_def = Define`
   interference_implemented mc ffi_oracle ffi_rel md ms0 ⇔
     ∃next_interfer ccache_interfer ffi_interfer.
@@ -1063,10 +1152,11 @@ val get_output_io_event_def = Define`
   get_output_io_event (IO_event name conf bs2) =
     if name = "write" then
       case MAP FST bs2 of (n1 :: n0 :: off1 :: off0 :: tll) =>
-        let written = DROP (w22n [off1; off0]) tll in
-          if LENGTH written ≤ output_buffer_size ∧ w22n [off1; off0] ≤ LENGTH tll then
+        let k = MIN (w22n [n1; n0]) output_buffer_size in
+        if (SND (HD bs2) = 0w) then
+          let written = TAKE k (DROP (w22n [off1; off0]) tll) in
             SOME (conf ++ [0w;0w;n1;n0] ++ written)
-          else NONE
+        else NONE
       | _ => NONE
     else NONE`;
 
@@ -1130,6 +1220,266 @@ val extract_write_def = Define`
 val extract_writes_def = Define`
   extract_writes fd oevents =
     FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))`;
+
+val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
+  `∀ls fs fs' off off' out rest.
+   (extract_fs fs ls = SOME fs') ∧
+   (* can only read/write up to output_buffer_size - this could be made more nuanced *)
+   (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
+   (* IOStream of interest exists at the start *)
+   (ALOOKUP fs.infds fd = SOME (IOStream nam, LENGTH out)) ∧
+   (ALOOKUP fs.files (IOStream nam) = SOME out) ∧
+   (* no non-IOStream files *)
+   (∀nm. ¬inFS_fname fs (File nm)) ∧
+   (* well-formedness invariants for the filesystem *)
+   (∀fd fnm off. (ALOOKUP fs'.infds fd = SOME (fnm, off)) ⇒ inFS_fname fs' fnm) ∧
+   (∀fd1 nm off1 fd2 off2. (* this one depends on us not being able to open IOStreams *)
+     (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, off1)) ∧
+     (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, off2))
+     ⇒ (fd1 = fd2)) ∧
+   (*
+   (∀fd fnm off cont.
+     (ALOOKUP fs'.infds fd = SOME (fnm, off)) ∧
+     (ALOOKUP fs'.files fnm = SOME cont) ⇒ off ≤ LENGTH cont) ∧
+   *)
+   (* -- *)
+   (* nothing has changed except the IOStream of interest *)
+   (∀x. x ≠ fd ⇒ (ALOOKUP fs'.infds x = ALOOKUP fs.infds x)) ∧
+   (∀fnm. fnm ≠ IOStream nam ⇒ (ALOOKUP fs'.files fnm = ALOOKUP fs.files fnm)) ∧
+   (* and it has only changed by appending *)
+   (ALOOKUP fs'.infds fd = SOME (IOStream nam, LENGTH out + LENGTH rest)) ∧
+   (ALOOKUP fs'.files (IOStream nam) = SOME (out ++ rest))
+   ⇒
+   (extract_writes fd (MAP get_output_io_event ls) = rest)`,
+  Induct
+  >- (
+    rw[basis_ffiTheory.extract_fs_def, extract_writes_def]
+    \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
+    \\ rveq \\ fs[] )
+  \\ Cases
+  \\ rpt gen_tac
+  \\ fs[basis_ffiTheory.extract_fs_def, PULL_EXISTS]
+  \\ rw[]
+  \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ fs[get_output_io_event_def]
+  \\ reverse(rw[])
+  >- (
+    fs[extract_writes_def]
+    \\ first_x_assum irule
+    \\ fs[CaseEq"option"]
+    >- ( qexists_tac`fs` \\ fs[] \\ metis_tac[])
+    \\ fs[CaseEq"ffi_result"]
+    \\ qexists_tac`fs'` \\ fs[]
+    \\ fs[fsFFITheory.fs_ffi_part_def]
+    \\ rveq
+    \\ fs[CaseEq"bool"] \\ rveq
+    >- (
+      fs[fsFFITheory.ffi_open_in_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+      \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
+      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+      \\ fs[fsFFITheory.openFile_def]
+      \\ fs[fsFFIPropsTheory.inFS_fname_def]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+      \\ metis_tac[] )
+    >- (
+      fs[fsFFITheory.ffi_open_out_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+      \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
+      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+      \\ fs[fsFFITheory.openFile_truncate_def]
+      \\ fs[fsFFIPropsTheory.inFS_fname_def]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+      \\ metis_tac[] )
+    >- (
+      fs[fsFFITheory.ffi_read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+      \\ fs[CaseEq"list"]
+      \\ fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
+      \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
+      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+      \\ fs[fsFFITheory.read_def]
+      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+      \\ fs[fsFFITheory.bumpFD_def]
+      \\ fs[fsFFIPropsTheory.inFS_fname_def]
+      \\ fs[fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+      \\ rw[]
+      \\ TRY PURE_CASE_TAC \\ fs[]
+      \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
+      \\ rveq \\ fs[] \\ rfs[]
+      >- metis_tac[]
+      (*
+      >- metis_tac[]
+      >- metis_tac[]
+      >- metis_tac[]
+      *)
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ reverse(Cases_on`fnm`)
+      >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
+      \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
+      \\ simp[ALIST_FUPDKEY_ALOOKUP]
+      \\ first_x_assum drule
+      \\ simp[]
+      \\ strip_tac
+      \\ disch_then drule
+      \\ simp[] )
+    >- (
+      reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
+      >- metis_tac[]
+      >- metis_tac[]
+      \\ pairarg_tac \\ fs[] \\ rveq
+      \\ fs[fsFFITheory.closeFD_def]
+      \\ rveq \\ fs[]
+      \\ fs[ALOOKUP_ADELKEY]
+      \\ fs[fsFFIPropsTheory.inFS_fname_def]
+      \\ drule (GEN_ALL extract_fs_with_numchars_closes_iostreams)
+      \\ simp[ALOOKUP_ADELKEY]
+      \\ Cases_on`w82n l = fd` \\ fs[]
+      >- (
+        rw[]
+        \\ qexists_tac`w82n l` \\ simp[]
+        \\ CCONTR_TAC \\ fs[]
+        \\ metis_tac[] )
+      \\ `ALOOKUP z.infds (w82n l) = SOME x` by metis_tac[]
+      \\ rw[] \\ rw[] \\ rw[]
+      >- metis_tac[]
+      (*
+      >- metis_tac[]
+      *)
+      \\ first_x_assum(qspec_then`w82n l`mp_tac) \\ rw[]
+      \\ Cases_on`x` \\ fs[]
+      \\ Cases_on`q = IOStream nam`
+      >- (
+        fs[] \\ CCONTR_TAC \\ fs[]
+        \\ Cases_on`fd = fd'` \\ fs[] \\ rw[]
+        \\ metis_tac[] )
+      \\ `MEM q (MAP FST z.files)` by metis_tac[]
+      \\ `IS_SOME (ALOOKUP z.files q)`
+      by simp[data_to_word_gcProofTheory.IS_SOME_ALOOKUP_EQ]
+      \\ fs[IS_SOME_EXISTS]
+      \\ `ALOOKUP fs.files q = SOME x` by metis_tac[]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+      \\ reverse(Cases_on`q`) \\ fs[]
+      >- metis_tac[]
+      \\ CCONTR_TAC \\ fs[]
+      \\ `fd = fd'` by metis_tac[]
+      \\ rveq \\ fs[] )
+    )
+  \\ fs[fsFFITheory.fs_ffi_part_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ last_x_assum drule
+  \\ fs[fsFFITheory.ffi_write_def]
+  \\ fs[CaseEq"list"] \\ rveq
+  \\ strip_tac
+  \\ reverse IF_CASES_TAC
+  >- (
+    Cases_on`l0` \\ fs[LUPDATE_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION]
+    \\ TRY pairarg_tac \\ fs[]
+    \\ fs[extract_writes_def]
+    \\ first_x_assum irule
+    \\ rveq
+    \\ fs[] \\ rfs[]
+    \\ metis_tac[])
+  \\ Cases_on`l0` \\ fs[LUPDATE_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ PairCases_on`h`
+  \\ fs[] \\ rveq
+  \\ fs[fsFFITheory.write_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rfs[fsFFITheory.fsupdate_def]
+  \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rfs[]
+  \\ qmatch_asmsub_abbrev_tac`extract_fs_with_numchars fs'`
+  \\ qmatch_asmsub_abbrev_tac`ALIST_FUPDKEY fnm (K new_content)`
+  \\ fs[extract_writes_def, extract_write_def]
+  \\ simp[TAKE_APPEND]
+  \\ simp[DROP_APPEND, DROP_LENGTH_TOO_LONG]
+  \\ simp[TAKE_LENGTH_TOO_LONG]
+  \\ reverse(Cases_on`w82n l = fd`) \\ fs[]
+  >- (
+    first_x_assum irule
+    \\ simp[]
+    \\ IF_CASES_TAC
+    >- ( rveq \\ fs[] \\ metis_tac[] )
+    \\ `inFS_fname fs fnm`
+    by (
+      simp[fsFFIPropsTheory.inFS_fname_def]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ simp[MEM_MAP, EXISTS_PROD]
+      \\ asm_exists_tac \\ rw[] )
+    \\ Cases_on`fnm` \\ rfs[]
+    \\ first_assum(qspec_then`w82n l`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
+    \\ simp_tac(srw_ss())[]
+    \\ ntac 2 strip_tac
+    \\ last_assum drule
+    \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
+    \\ strip_tac
+    \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
+    \\ disch_then drule
+    \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+    \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
+    \\ strip_tac
+    \\ reverse(Cases_on`zz = 0`) >- fs[]
+    \\ qunabbrev_tac`zz`
+    \\ pop_assum mp_tac
+    \\ simp[]
+    \\ once_rewrite_tac[output_buffer_size_def]
+    \\ simp[]
+    \\ strip_tac \\ fs[]
+    \\ qunabbrev_tac`new_content`
+    \\ fs[fsFFIPropsTheory.inFS_fname_def]
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ PURE_CASE_TAC \\ fs[]
+      \\ PURE_CASE_TAC \\ fs[] )
+    \\ conj_tac >- metis_tac[]
+    (*
+    \\ conj_tac >- metis_tac[]
+    *)
+    \\ rw[]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[])
+  \\ fs[MAP_TAKE]
+  \\ qmatch_goalsub_abbrev_tac`written ++ _`
+  \\ rveq \\ fs[]
+  \\ rveq \\ fs[]
+  \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
+  \\ disch_then drule
+  \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[data_to_word_assignProofTheory.IMP]
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`off + nw`
+  \\ fs[Abbr`new_content`]
+  \\ `LENGTH written = nw`
+  by (
+    simp[Abbr`written`, LENGTH_TAKE_EQ]
+    \\ rw[] \\ fs[Abbr`nw`] )
+  \\ fs[Abbr`off`, DROP_LENGTH_TOO_LONG]
+  \\ qmatch_asmsub_abbrev_tac`¬inFS_fname fs' (File _)`
+  \\ `nw ≤ LENGTH rest` by fs[Abbr`nw`]
+  \\ rfs[] \\ fs[]
+  \\ qpat_x_assum`_ ⇒ _`mp_tac
+  \\ impl_tac
+  >- (
+    rw[]
+    \\ fs[CaseEq"option"]
+    \\ CCONTR_TAC \\ fs[]
+    \\ rveq
+    \\ metis_tac[] )
+  \\ strip_tac
+  \\ rveq \\ fs[]
+  \\ first_x_assum irule
+  \\ fs[fsFFIPropsTheory.inFS_fname_def]
+  \\ simp[Abbr`fs'`]
+  \\ conj_tac
+  >- ( rw[] \\ PURE_CASE_TAC \\ fs[] )
+  \\ conj_tac >- metis_tac[]
+  \\ rw[] \\ PURE_CASE_TAC \\ fs[] );
 
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
@@ -4614,215 +4964,6 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ EVAL_TAC
   \\ simp[LENGTH_code, LENGTH_data]);
 
-val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
-  `∀ls fs fs' off.
-   (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (ALOOKUP fs'.infds fd = SOME(IOStream nm, off)) ⇒
-   ∃off'. (ALOOKUP fs.infds fd = SOME (IOStream nm, off')) ∧ off' ≤ off`,
-  Induct
-  >- rw[basis_ffiTheory.extract_fs_with_numchars_def]
-  \\ Cases
-  \\ rw[basis_ffiTheory.extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
-  \\ fs[fsFFITheory.fs_ffi_part_def]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ strip_tac \\ rveq
-  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.ffi_open_in_def,
-        fsFFITheory.ffi_open_out_def,
-        fsFFITheory.ffi_write_def,
-        fsFFITheory.ffi_read_def,
-        fsFFITheory.ffi_close_def]
-  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
-  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.closeFD_def,
-        fsFFITheory.read_def,
-        fsFFITheory.openFile_truncate_def,
-        fsFFITheory.openFile_def,
-        fsFFITheory.write_def]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
-  \\ fs[CaseEq"bool"]
-  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ fs[CaseEq"option"]
-  \\ fs[CaseEq"bool"]
-  \\ Cases_on`v` \\ fs[]);
-
-val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_numchars_closes_iostreams",
-  `∀ls fs fs' fd nm off.
-   (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, off))
-   ⇒
-   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, off))`,
-  Induct
-  >- (
-    rw[basis_ffiTheory.extract_fs_with_numchars_def]
-    \\ metis_tac[] )
-  \\ Cases
-  \\ rw[basis_ffiTheory.extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
-  >- metis_tac[]
-  \\ fs[fsFFITheory.fs_ffi_part_def]
-  \\ last_x_assum drule
-  \\ disch_then match_mp_tac
-  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.ffi_open_in_def,
-        fsFFITheory.ffi_open_out_def,
-        fsFFITheory.ffi_write_def,
-        fsFFITheory.ffi_read_def,
-        fsFFITheory.ffi_close_def]
-  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
-  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.closeFD_def,
-        fsFFITheory.read_def,
-        fsFFITheory.openFile_truncate_def,
-        fsFFITheory.openFile_def,
-        fsFFITheory.write_def]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
-  \\ CCONTR_TAC \\ fs[]);
-
-(*
-val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
-  `∀ls fs fs' off off' out rest.
-   (extract_fs fs ls = SOME fs') ∧
-   (ALOOKUP fs.infds fd = SOME (IOStream nam, off)) ∧
-   (ALOOKUP fs.files (IOStream nam) = SOME out) ∧
-   (∀nm. ¬inFS_fname fs (File nm)) ∧
-   (∀fd fnm off. (ALOOKUP fs'.infds fd = SOME (fnm, off)) ⇒ inFS_fname fs' fnm) ∧
-   (∀fd1 nm off1 fd2 off2.
-     (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, off1)) ∧
-     (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, off2))
-     ⇒ (fd1 = fd2)) ∧
-   (∀x. x ≠ fd ⇒ (ALOOKUP fs'.infds x = ALOOKUP fs.infds x)) ∧
-   (∀fnm. fnm ≠ IOStream nam ⇒ (ALOOKUP fs'.files fnm = ALOOKUP fs.files fnm)) ∧
-   (ALOOKUP fs'.infds fd = SOME (IOStream nam, off')) ∧
-   (ALOOKUP fs'.files (IOStream nam) = SOME (out ++ rest))
-   ⇒
-   (extract_writes 1 (MAP get_output_io_event ls) = rest)`
-  Induct
-  >- (
-    rw[basis_ffiTheory.extract_fs_def, extract_writes_def]
-    \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
-    \\ rveq \\ fs[] )
-  \\ Cases
-  \\ rpt gen_tac
-  \\ fs[basis_ffiTheory.extract_fs_def, PULL_EXISTS]
-  \\ rw[]
-  \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
-  \\ fs[get_output_io_event_def]
-  \\ reverse(rw[])
-  >- (
-    fs[extract_writes_def]
-    \\ first_x_assum irule
-    \\ fs[CaseEq"option"]
-    >- ( qexists_tac`fs` \\ fs[] \\ metis_tac[])
-    \\ fs[CaseEq"ffi_result"]
-    \\ qexists_tac`fs'` \\ fs[]
-    \\ fs[fsFFITheory.fs_ffi_part_def]
-    \\ rveq
-    \\ fs[CaseEq"bool"] \\ rveq
-    >- (
-      fs[fsFFITheory.ffi_open_in_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-      \\ TRY (first_x_assum MATCH_ACCEPT_TAC)
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.openFile_def]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ metis_tac[] )
-    >- (
-      fs[fsFFITheory.ffi_open_out_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-      \\ TRY (first_x_assum MATCH_ACCEPT_TAC)
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.openFile_truncate_def]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ metis_tac[] )
-    >- (
-      fs[fsFFITheory.ffi_read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-      \\ fs[CaseEq"list"]
-      \\ fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-      \\ TRY (first_x_assum MATCH_ACCEPT_TAC)
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.read_def]
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.bumpFD_def]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
-      \\ rw[]
-      \\ TRY PURE_CASE_TAC \\ fs[]
-      \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
-      \\ rveq \\ fs[] \\ rfs[]
-      >- metis_tac[]
-      >- metis_tac[]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ reverse(Cases_on`fnm`)
-      >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
-      \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
-      \\ simp[ALIST_FUPDKEY_ALOOKUP]
-      \\ first_x_assum drule
-      \\ simp[]
-      \\ strip_tac
-      \\ disch_then drule
-      \\ simp[] )
-    >- (
-      reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
-      >- metis_tac[]
-      >- metis_tac[]
-      \\ pairarg_tac \\ fs[] \\ rveq
-      \\ fs[fsFFITheory.closeFD_def]
-      \\ rveq \\ fs[]
-      \\ fs[ALOOKUP_ADELKEY]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ drule (GEN_ALL extract_fs_with_numchars_closes_iostreams)
-      \\ simp[ALOOKUP_ADELKEY]
-      \\ Cases_on`w82n l = fd` \\ fs[]
-      >- (
-        rw[]
-        \\ qexists_tac`w82n l` \\ simp[]
-        \\ CCONTR_TAC \\ fs[]
-        \\ metis_tac[] )
-      \\ `ALOOKUP z.infds (w82n l) = SOME x` by metis_tac[]
-      \\ rw[] \\ rw[] \\ rw[]
-      >- metis_tac[]
-      \\ first_x_assum(qspec_then`w82n l`mp_tac) \\ rw[]
-      \\ Cases_on`x` \\ fs[]
-      \\ Cases_on`q = IOStream nam`
-      >- (
-        fs[] \\ CCONTR_TAC \\ fs[]
-        \\ Cases_on`fd = fd'` \\ fs[] \\ rw[]
-        \\ metis_tac[] )
-      \\ `MEM q (MAP FST z.files)` by metis_tac[]
-      \\ `IS_SOME (ALOOKUP z.files q)`
-      by simp[data_to_word_gcProofTheory.IS_SOME_ALOOKUP_EQ]
-      \\ fs[IS_SOME_EXISTS]
-      \\ `ALOOKUP fs.files q = SOME x` by metis_tac[]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ reverse(Cases_on`q`) \\ fs[]
-      >- metis_tac[]
-      \\ CCONTR_TAC \\ fs[]
-      \\ `fd = fd'` by metis_tac[]
-      \\ rveq \\ fs[] )
-    )
-  \\ fs[fsFFITheory.fs_ffi_part_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
-  \\ last_x_assum drule
-  \\ fs[fsFFITheory.ffi_write_def]
-  \\ fs[CaseEq"list"] \\ rveq
-  \\ strip_tac
-  \\ reverse IF_CASES_TAC
-  >- (
-    pop_assum mp_tac
-    \\ fs[extract_writes_def]
-    \\ disch_then assume_tac
-    \\ first_x_assum irule
-
 val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
   `wfcl cl ∧ 2 ≤ maxFD ⇒
    (extract_writes 1 (MAP get_output_io_event (hello_io_events cl (stdin_fs inp))) =
@@ -4831,7 +4972,6 @@ val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
   \\ drule(GEN_ALL(DISCH_ALL hello_output))
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
-  \\ qspec_tac(`hello_io_events cl (stdin_fs inp)`,`ls`)
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ simp[TextIOProofTheory.stdo_def]
@@ -4845,151 +4985,19 @@ val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
   \\ pop_assum mp_tac
   \\ simp[TextIOProofTheory.up_stdo_def]
   \\ simp[fsFFITheory.fsupdate_def]
-  \\ simp[Once(EVAL``(stdin_fs inp).infds``)]
-  \\ simp[Once(EVAL``(stdin_fs inp).infds``)]
-  \\ simp[ALIST_FUPDKEY_def]
-  \\ simp[Once(EVAL``(stdin_fs inp).files``)]
-  \\ simp[ALIST_FUPDKEY_def]
-  \\ simp[Once(EVAL``(stdin_fs inp).numchars``)]
-  \\ pop_assum mp_tac
-  \\ qspec_tac(`stdin_fs inp`,`fs`)
-
-  \\ `∃out. (ALOOKUP (stdin_fs inp).files (IOStream(strlit"stdout")) = SOME out) ∧
-      (ALOOKUP (stdin_fs inp).infds 1 = SOME(IOStream(strlit"stdout"),LENGTH out)) ∧
-      (∀fn. ¬inFS_fname (stdin_fs inp) (File fn))`
-  by simp[stdin_fs_def, fsFFIPropsTheory.inFS_fname_def]
-  \\ ntac 3 (pop_assum mp_tac)
-  \\ qid_spec_tac`out`
-  \\ qspec_tac(`stdin_fs inp`,`fs`)
-  \\ simp[basis_ffiTheory.extract_fs_def, PULL_EXISTS, RIGHT_FORALL_IMP_THM]
-  \\ simp[PULL_FORALL]
-  \\ Induct_on`ls`
-  >- (
-    simp[basis_ffiTheory.extract_fs_with_numchars_def, extract_writes_def,
-         fsFFITheory.with_same_numchars]
-    \\ rpt gen_tac
-    \\ simp[TextIOProofTheory.add_stdo_def,
-            TextIOProofTheory.stdo_def,
-            TextIOProofTheory.up_stdo_def]
-    \\ ntac 3 strip_tac
-    \\ SELECT_ELIM_TAC
-    \\ conj_tac
-    >- ( qexists_tac`implode out` \\ simp[] )
-    \\ rw[fsFFITheory.fsupdate_def]
-    \\ simp[fsFFITheory.IO_fs_component_equality]
-    \\ CCONTR_TAC \\ fs[]
-    \\ first_x_assum(mp_tac o Q.AP_TERM`ALOOKUP`)
-    \\ simp[FUN_EQ_THM]
-    \\ qexists_tac`1`
-    \\ simp[ALIST_FUPDKEY_ALOOKUP] )
-  \\ Cases
-  \\ simp[basis_ffiTheory.extract_fs_with_numchars_def]
+  \\ simp[stdin_fs_def]
   \\ rw[]
-  \\ fs[CaseEq"option"] \\ fs[]
-  >- (
-    simp[get_output_io_event_def]
-    \\ rw[]
-    >- fs[fsFFITheory.fs_ffi_part_def]
-    \\ fs[extract_writes_def]
-    \\ first_x_assum irule
-    \\ metis_tac[] )
-  \\ fs[CaseEq"ffi_result"] \\ rw[]
-  \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
-  \\ first_assum(mp_tac o Q.AP_TERM`(λx. x.infds)`)
-  \\ simp_tac(srw_ss())[]
-  \\ disch_then(SUBST_ALL_TAC o SYM)
-  \\ simp_tac(srw_ss())[TextIOProofTheory.add_stdo_def,TextIOProofTheory.up_stdo_def,fsFFITheory.fsupdate_def]
+  \\ drule (GEN_ALL extract_fs_extract_writes)
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
-  \\ disch_then(qspec_then`1`mp_tac o CONV_RULE SWAP_FORALL_CONV)
-  \\ simp[]
-  \\ strip_tac
-  \\ fs[fsFFITheory.fs_ffi_part_def]
-  \\ qmatch_goalsub_abbrev_tac`bbb::_`
-  \\ Cases_on`bbb` \\ fs[extract_writes_def]
-  \\ fs[CaseEq"bool"] \\ rw[]
+  \\ disch_then match_mp_tac
+  \\ rw[fsFFIPropsTheory.inFS_fname_def]
+  >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[])
   >- (
-    fs[extract_writes_def, get_output_io_event_def]
-    \\ first_x_assum irule
-    \\ goal_assum(first_assum o mp_then (Pat`extract_fs_with_numchars`) mp_tac)
-    \\ fs[fsFFITheory.ffi_open_in_def,
-          OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, ALOOKUP_ADELKEY]
-    \\ first_x_assum(qspec_then`implode fname`mp_tac)
-    \\ strip_tac
-    \\ imp_res_tac fsFFIPropsTheory.not_inFS_fname_openFile \\ fs[])
-  >- (
-    fs[extract_writes_def, get_output_io_event_def]
-    \\ first_x_assum irule
-    \\ goal_assum(first_assum o mp_then (Pat`extract_fs_with_numchars`) mp_tac)
-    \\ fs[fsFFITheory.ffi_open_out_def,
-          OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ fs[fsFFITheory.openFile_truncate_def, fsFFITheory.closeFD_def]
-    \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, ALOOKUP_ADELKEY]
-    \\ fs[fsFFIPropsTheory.inFS_fname_def]
-    \\ imp_res_tac ALOOKUP_MEM
-    \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-    \\ metis_tac[] )
-  >- (
-    fs[extract_writes_def, get_output_io_event_def]
-    \\ first_x_assum irule
-    \\ goal_assum(first_assum o mp_then (Pat`extract_fs_with_numchars`) mp_tac)
-    \\ fs[fsFFITheory.ffi_read_def, CaseEq"list",
-          OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ fs[fsFFITheory.read_def]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ fs[fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP, CaseEq"option"]
-    \\ rfs[] \\ rveq \\ fs[]
-    \\ fs[CaseEq"bool"]
-    >- (
-      fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ rveq \\ fs[]
-      \\ fs[quotient_pairTheory.PAIR_MAP_I, ALIST_FUPDKEY_I]
-      \\ qmatch_goalsub_abbrev_tac`_ _ _ fs' _ `
-      \\ `fs' = fs with numchars := THE (LTL fs.numchars)`
-      by ( simp[Abbr`fs'`,fsFFITheory.IO_fs_component_equality] )
-      \\ qpat_x_assum`Abbrev(fs' = _)`kall_tac
-      \\ rveq \\ fs[]
-      \\ fs[TextIOProofTheory.add_stdo_with_numchars] )
-    \\ fs[fsFFIPropsTheory.inFS_fname_def]
-    \\ rveq \\ fs[]
-    \\ fs[TextIOProofTheory.add_stdo_def, TextIOProofTheory.up_stdo_def,
-          TextIOProofTheory.stdo_def, ALIST_FUPDKEY_ALOOKUP]
-    \\ rfs[]
-    \\ qhdtm_x_assum`fsupdate`mp_tac
-    \\ SELECT_ELIM_TAC
-    \\ conj_tac
-    >- ( qexists_tac`implode out` \\ simp[] )
-    \\ rw[]
-    \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
-    \\ rfs[]
-    \\ fs[fsFFITheory.IO_fs_component_equality]
-
-  \\ TRY (
-    fs[extract_writes_def, get_output_io_event_def]
-    \\ first_x_assum irule
-    \\ goal_assum(first_assum o mp_then (Pat`extract_fs_with_numchars`) mp_tac)
-    \\ fs[fsFFITheory.ffi_open_in_def,
-          fsFFITheory.ffi_open_out_def,
-          fsFFITheory.ffi_close_def,
-          OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ fs[fsFFITheory.openFile_truncate_def, fsFFITheory.closeFD_def]
-    \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, ALOOKUP_ADELKEY]
-    \\ TRY (
-      first_x_assum(qspec_then`implode fname`mp_tac)
-      \\ strip_tac
-      \\ imp_res_tac fsFFIPropsTheory.not_inFS_fname_openFile \\ fs[]
-      \\ NO_TAC)
-    \\ fs[fsFFIPropsTheory.inFS_fname_def]
-    \\ imp_res_tac ALOOKUP_MEM
-    \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-    \\ metis_tac[]
-
-  \\ cheat);
-*)
+    pop_assum mp_tac
+    \\ rw[] \\ fs[] \\ rw[]
+    \\ pop_assum mp_tac \\ rw[])
+  >- rw[]
+  >- rw[]);
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
