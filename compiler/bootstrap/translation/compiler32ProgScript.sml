@@ -1,12 +1,13 @@
-open preamble
-     arm6ProgTheory compilerTheory
+open preamble;
+local open ag32ProgTheory in end;
+open compilerTheory
      exportTheory
-     ml_translatorLib ml_translatorTheory
-open cfLib basis
+     ml_translatorLib ml_translatorTheory;
+open cfLib basis;
 
 val _ = new_theory"compiler32Prog";
 
-val _ = translation_extends "arm6Prog";
+val _ = translation_extends "ag32Prog";
 
 val () = Globals.max_print_depth := 15;
 
