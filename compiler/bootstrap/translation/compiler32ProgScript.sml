@@ -155,6 +155,14 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_
   Note: ffi_asm is translated multiple times...
 *)
 
+(* ag32 *)
+val res = translate ag32_configTheory.ag32_names_def;
+val res = translate export_ag32Theory.ffi_asm_def;
+val res = translate export_ag32Theory.ag32_export_def;
+val res = translate
+  (ag32_configTheory.ag32_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
 (* arm6 *)
 val res = translate arm6_configTheory.arm6_names_def;
 val res = translate export_arm6Theory.ffi_asm_def;
