@@ -4524,8 +4524,78 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ simp[]
     \\ disch_then match_mp_tac
     \\ pop_assum kall_tac
-    \\ cheat (* similar to previous conjunct *)
-  )
+    \\ qexists_tac`DROP (off DIV 4 + LENGTH ag32_ffi_write_code) (hello_init_memory_words cl inp)`
+    \\ qexists_tac`TAKE (off DIV 4) (hello_init_memory_words cl inp)`
+    \\ reverse conj_tac
+    >- (
+      simp[LENGTH_TAKE_EQ, LENGTH_hello_init_memory_words]
+      \\ simp[Abbr`off`]
+      \\ pop_assum mp_tac
+      \\ EVAL_TAC
+      \\ fs[memory_size_def] )
+    \\ simp[LENGTH_TAKE_EQ, LENGTH_hello_init_memory_words]
+    \\ pop_assum mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ strip_tac \\ simp[Abbr`off`]
+    \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`EL _ mw`
+    \\ `mw = hello_init_memory_words cl inp`
+    by (
+      simp[Abbr`mw`]
+      \\ match_mp_tac TAKE_DROP_SUBLIST
+      \\ simp[]
+      \\ reverse conj_tac
+      >- (
+        simp[LENGTH_hello_init_memory_words]
+        \\ EVAL_TAC )
+      \\ simp[IS_PREFIX_APPEND]
+      \\ simp[hello_init_memory_words_def]
+      \\ simp[ffi_names]
+      \\ simp[ag32_ffi_code_def]
+      \\ rewrite_tac[GSYM APPEND_ASSOC]
+      \\ qmatch_goalsub_abbrev_tac`MAP Encode ag32_ffi_write_code ++ l2`
+      \\ simp[]
+      \\ qmatch_goalsub_abbrev_tac`l1 ++ MAP Encode ag32_ffi_write_code ++ l2`
+      \\ qmatch_goalsub_abbrev_tac`DROP n`
+      \\ `n = LENGTH l1`
+      by (
+        simp[Abbr`n`, Abbr`l1`, LENGTH_ag32_ffi_code, heap_size_def,
+             output_buffer_size_def, LENGTH_hello_startup_code,
+             startup_code_size_def,LENGTH_words_of_bytes_hello_startup_code]
+        \\ CONV_TAC(PATH_CONV"rrr"EVAL)
+        \\ simp[LENGTH_words_of_bytes, bitstringTheory.length_pad_right, LENGTH_code,
+                bytes_in_word_def, LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS,
+                Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+        \\ qmatch_goalsub_abbrev_tac`sz DIV 4`
+        \\ `sz = stdin_size` by (rw[Abbr`sz`])
+        \\ qpat_x_assum`Abbrev(sz = _)`kall_tac
+        \\ qmatch_goalsub_abbrev_tac`_ + (cz DIV 4 + _)`
+        \\ `cz = cline_size` by (rw[Abbr`cz`])
+        \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
+        \\ rveq
+        \\ rw[stdin_size_def, cline_size_def])
+      \\ rewrite_tac[GSYM APPEND_ASSOC]
+      \\ asm_rewrite_tac[DROP_LENGTH_APPEND]
+      \\ simp[])
+    \\ qpat_x_assum`Abbrev(mw = _)`kall_tac
+    \\ rw[]
+    \\ simp[GSYM(SIMP_RULE(srw_ss())[]hello_init_memory_def)]
+    \\ drule hello_startup_clock_def
+    \\ simp[]
+    \\ rpt(disch_then drule)
+    \\ rw[]
+    \\ fs[is_ag32_init_state_def]
+    \\ rfs[]
+    \\ first_x_assum match_mp_tac
+    \\ simp[hello_machine_config_def, ag32_machine_config_def, ffi_names]
+    \\ simp[ag32_prog_addresses_def, ag32_ffi_mem_domain_def, LENGTH_data, LENGTH_code]
+    \\ qpat_x_assum`_ <=+ x`mp_tac
+    \\ qpat_x_assum`x <+ _`mp_tac
+    \\ qpat_x_assum`k < _`mp_tac
+    \\ EVAL_TAC
+    \\ qpat_x_assum`_ = ms1.PC`(assume_tac o SYM)
+    \\ Cases_on`x` \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ fs[word_ls_n2w, word_lo_n2w] )
   \\ strip_tac
   \\ asm_exists_tac
   \\ simp[]
