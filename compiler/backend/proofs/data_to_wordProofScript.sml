@@ -113,6 +113,14 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
+val assign_def =
+  data_to_wordTheory.assign_def
+  |> REWRITE_RULE [data_to_wordTheory.arg1_def,
+                   data_to_wordTheory.arg2_def,
+                   data_to_wordTheory.arg3_def,
+                   data_to_wordTheory.arg4_def,
+                   data_to_wordTheory.all_assign_defs];
+
 val data_compile_correct = Q.store_thm("data_compile_correct",
   `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\

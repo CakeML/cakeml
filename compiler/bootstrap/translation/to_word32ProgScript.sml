@@ -464,9 +464,19 @@ val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32);
 val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv32);
 val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32);
 
-(*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
+val _ = translate arg1_def;
+val _ = translate arg2_pmatch;
+val _ = translate arg3_pmatch;
+val _ = translate arg4_pmatch;
 
-val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
+fun tweak_assign_def th =
+  th |> SIMP_RULE std_ss [assign_rw]
+     |> inline_simp |> conv32 |> we_simp
+     |> SIMP_RULE std_ss [SHIFT_ZERO,shift_left_rwt]
+     |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
+
+val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
+val res = translate (assign_def |> tweak_assign_def);
 
 val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
 
