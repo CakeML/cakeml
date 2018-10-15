@@ -1495,6 +1495,20 @@ val ag32_ffi_return_code_def = Define`
    Interrupt;
    Jump (fSnd, 0w, Reg 0w)]`;
 
+val ag32_ffi_return_def = Define`
+  ag32_ffi_return s =
+  let s = dfn'Normal (fAdd, 1w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 2w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 3w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 4w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 5w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 6w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 7w, Imm 0w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 8w, Imm 0w, Imm 0w) s in
+  let s = dfn'Interrupt s in
+  let s = dfn'Jump (fSnd, 0w, Reg 0w) s in
+  s`;
+
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
 
@@ -2689,6 +2703,20 @@ val ag32_ffi_write_copy_thm = Q.store_thm("ag32_ffi_write_copy_thm",
     \\ blastLib.BBLAST_TAC )
   \\ irule mem_eq_imp_asm_write_bytearray_eq
   \\ rw[APPLY_UPDATE_THM]);
+
+val ag32_ffi_write_def = Define`
+  ag32_ffi_write s =
+  let s = ag32_ffi_write_set_id s in
+  let s = ag32_ffi_write_check_conf s in
+  let s0 = ag32_ffi_write_load_noff s in
+  let s = ag32_ffi_write_check_lengths s0 in
+  let s =
+    if s.PC = s0.PC + n2w (4 * LENGTH ag32_ffi_write_check_lengths_code) then
+      let s = ag32_ffi_write_write_header s in
+      let s = ag32_ffi_write_num_written s in
+              ag32_ffi_write_copy s
+    else dfn'StoreMEMByte (Imm 1w, Reg 3w) s
+  in ag32_ffi_return s`;
 
 (* open_in *)
 
