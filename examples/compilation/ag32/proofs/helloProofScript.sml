@@ -1848,13 +1848,14 @@ val ag32_ffi_write_num_written_code_def = Define`
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off1::off0::tll *)
      StoreMEMByte (Reg 1w, Reg 3w);
      Normal (fAdd, 3w, Reg 3w, Imm 2w);
-     Normal (fAdd, 3w, Reg 3w, Reg 7w)]   (* r3 -> DROP off tll *)`;
+     Normal (fAdd, 3w, Reg 3w, Reg 7w);   (* r3 -> DROP off tll *)
+     LoadConstant (2w, F, 4w * 8w)]`;
 
 val ag32_ffi_write_copy_code_def = Define`
   ag32_ffi_write_copy_code = [
-     JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 1w);
+     JumpIfZero (fSnd, Reg 2w, Imm 0w, Reg 1w);
      LoadMEMByte (8w, Reg 3w);
-     StoreMEMByte (Reg 3w, Reg 5w);
+     StoreMEMByte (Reg 8w, Reg 5w);
      Normal (fInc, 3w, Reg 3w, Imm 1w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);
      Normal (fDec, 1w, Reg 1w, Imm 1w);
@@ -2458,6 +2459,7 @@ val ag32_ffi_write_num_written_def = Define`
   let s = dfn'StoreMEMByte (Reg 1w, Reg 3w) s in
   let s = dfn'Normal (fAdd, 3w, Reg 3w, Imm 2w) s in
   let s = dfn'Normal (fAdd, 3w, Reg 3w, Reg 7w) s in
+  let s = dfn'LoadConstant (2w, F, 4w * 8w) s in
   s`;
 
 val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm",
@@ -2471,7 +2473,8 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
               MEM := asm_write_bytearray (s.R 3w) (0w::(n2w2 k)) s.MEM;
               R := ((8w =+ r8)
                    ((3w =+ s.R 3w + 4w + s.R 7w)
-                   ((1w =+ n2w k) s.R)));
+                   ((2w =+ 4w * 8w)
+                   ((1w =+ n2w k) s.R))));
               CarryFlag := cf;
               OverflowFlag := ov |>)`,
   rewrite_tac[ag32_ffi_write_num_written_def]
@@ -2524,6 +2527,8 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp[Once COND_RAND]
   \\ simp[Once COND_RATOR]
   \\ simp[ag32Theory.ag32_state_component_equality]
@@ -2557,17 +2562,133 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
   >- blastLib.BBLAST_TAC
   \\ cheat (* word proof for Magnus *));
 
-(*
-val ag32_ffi_write_copy_def = Define`
-  ag32_ffi_write_copy = [
-     JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 1w);
-     LoadMEMByte (8w, Reg 3w);
-     StoreMEMByte (Reg 3w, Reg 5w);
-     Normal (fInc, 3w, Reg 3w, Imm 1w);
-     Normal (fInc, 5w, Reg 5w, Imm 1w);
-     Normal (fDec, 1w, Reg 1w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w)]`;
-*)
+val ag32_ffi_write_copy_def = tDefine"ag32_ffi_write_copy_def"`
+  ag32_ffi_write_copy s0 =
+  let s = dfn'JumpIfZero (fSnd, Reg 2w, Imm 0w, Reg 1w) s0 in
+  if (s0.R 1w = 0w) then s else
+  let s = dfn'LoadMEMByte (8w, Reg 3w) s in
+  let s = dfn'StoreMEMByte (Reg 8w, Reg 5w) s in
+  let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
+  let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
+  let s0 = dfn'Normal (fDec, 1w, Reg 1w, Imm 1w) s in
+  let s = dfn'JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w) s0 in
+  ag32_ffi_write_copy s`
+  (wf_rel_tac`measure (λs. w2n (s.R 1w))`
+   \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
+         ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+         ag32Theory.dfn'LoadConstant_def,
+         ag32Theory.dfn'StoreMEMByte_def, ag32Theory.dfn'LoadMEMByte_def,
+         ag32Theory.ri2word_def, ag32Theory.incPC_def, APPLY_UPDATE_THM]
+   \\ Cases_on`s0.R 1w` \\ fs[]
+   \\ Cases_on`n` \\ fs[]
+   \\ simp[ADD1, GSYM word_add_n2w]);
+
+val ag32_ffi_write_copy_thm = Q.store_thm("ag32_ffi_write_copy_thm",
+  `∀s written.
+   bytes_in_memory (s.R 3w) written s.MEM md ∧ (w2n (s.R 1w) = LENGTH written) ∧
+   DISJOINT md { w | s.R 5w <=+ w ∧ w <+ s.R 5w + n2w (LENGTH written) } ∧
+   w2n (s.R 5w) + LENGTH written < dimword(:32) ∧
+   w2n (s.R 3w) + LENGTH written < dimword(:32)
+   ⇒
+   ∃r1 r3 r5 r8.
+   (ag32_ffi_write_copy s =
+    s with <| PC := s.PC + s.R 2w;
+              R := ((1w =+ r1)
+                   ((3w =+ r3)
+                   ((5w =+ r5)
+                   ((8w =+ r8) s.R))));
+              MEM := asm_write_bytearray (s.R 5w) written s.MEM |>)`,
+  Induct_on`w2n (s.R 1w)` \\ rw[]
+  >- (
+    qpat_x_assum`0 = _`(assume_tac o SYM)
+    \\ fs[read_bytearray_def, asmSemTheory.bytes_in_memory_def] \\ rw[]
+    \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def]
+    \\ rw[Once ag32_ffi_write_copy_def, ag32Theory.dfn'LoadConstant_def,
+          ag32Theory.incPC_def, APPLY_UPDATE_THM]
+    \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def, ag32Theory.ri2word_def,
+          ag32Theory.incPC_def, APPLY_UPDATE_THM]
+    \\ rw[ag32Theory.ag32_state_component_equality]
+    \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+    \\ metis_tac[] )
+  \\ fs[]
+  \\ qpat_x_assum`SUC _ = _`(assume_tac o SYM)
+  \\ Cases_on`written`
+  \\ fs[read_bytearray_def, asmSemTheory.bytes_in_memory_def]
+  \\ rw[] \\ fs[CaseEq"option"] \\ rw[]
+  \\ rw[Once ag32_ffi_write_copy_def, ag32Theory.dfn'LoadConstant_def,
+        ag32Theory.incPC_def, APPLY_UPDATE_THM] \\ fs[]
+  \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,
+        ag32Theory.ALU_def, APPLY_UPDATE_THM]
+  \\ rw[ag32Theory.dfn'LoadMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,
+        APPLY_UPDATE_THM]
+  \\ rw[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,
+        APPLY_UPDATE_THM]
+  \\ rw[ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+        ag32Theory.incPC_def, ag32Theory.ri2word_def,
+        ag32Theory.ALU_def, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_write_copy s'`
+  \\ first_x_assum(qspec_then`s'`mp_tac)
+  \\ simp[Abbr`s'`, APPLY_UPDATE_THM]
+  \\ impl_keep_tac
+  >- (
+    Cases_on`s.R 1w` \\ fs[]
+    \\ simp[ADD1]
+    \\ simp[GSYM word_add_n2w] )
+  \\ rveq
+  \\ disch_then(qspec_then`t`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[]
+    \\ reverse conj_asm2_tac
+    >- (
+      fs[IN_DISJOINT, data_to_word_assignProofTheory.IMP]
+      \\ Cases_on`s.R 5w`
+      \\ fs[ADD1, word_add_n2w]
+      \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
+      \\ gen_tac \\ strip_tac
+      \\ first_x_assum drule
+      \\ rw[]
+      \\ Cases_on`s.R 1w` \\ rfs[word_add_n2w]
+      \\ Cases_on`n''` \\ fs[ADD1, GSYM word_add_n2w]
+      \\ first_x_assum match_mp_tac
+      \\ Cases_on`x`
+      \\ fs[word_ls_n2w] \\ rw[]
+      \\ fs[word_add_n2w, word_ls_n2w]
+      \\ Cases_on`n + 1 = dimword(:32)` \\ fs[]
+      \\ `n + 1 < dimword(:32)` by fs[] \\ fs[])
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rw[]
+    \\ Cases_on`s.R 1w` \\ fs[] \\ rfs[]
+    \\ Cases_on`n'` \\ fs[ADD1, GSYM word_add_n2w] \\ rw[]
+    \\ rfs[] \\ rw[]
+    \\ fs[IN_DISJOINT, data_to_word_assignProofTheory.IMP]
+    \\ drule (GEN_ALL asmPropsTheory.bytes_in_memory_all_pcs)
+    \\ simp[asmPropsTheory.all_pcs_thm, SUBSET_DEF, PULL_EXISTS]
+    \\ disch_then(qspec_then`0`mp_tac) \\ simp[]
+    \\ disch_then drule
+    \\ strip_tac
+    \\ last_x_assum drule
+    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
+    \\ fs[word_ls_n2w] \\ rfs[]
+    \\ fs[word_lo_n2w] )
+  \\ rw[]
+  \\ rw[]
+  \\ rw[ag32Theory.ag32_state_component_equality]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ map_every qexists_tac[`r1`,`r3`,`r5`,`r8`]
+  \\ reverse conj_tac >- rw[]
+  \\ rw[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+  >- (
+    irule asm_write_bytearray_unchanged
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`s.R 1w` \\ fs[ADD1]
+    \\ Cases_on`s.R 5w` \\ fs[word_add_n2w]
+    \\ fs[word_lo_n2w, word_ls_n2w]
+    \\ blastLib.BBLAST_TAC )
+  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ rw[APPLY_UPDATE_THM]);
 
 (* open_in *)
 
