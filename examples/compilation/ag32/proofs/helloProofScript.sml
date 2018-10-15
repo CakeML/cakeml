@@ -1859,6 +1859,38 @@ val ag32_ffi_write_code_def = Define`
      [ (* error case *) StoreMEMByte (Imm 1w, Reg 3w) ] ++
      ag32_ffi_return_code`;
 
+val ag32_ffi_write_set_id_def = Define`
+  ag32_ffi_write_set_id s =
+    let s = dfn'Jump (fAdd, 5w, Imm 4w) s in
+    let s = dfn'LoadConstant (6w, F, n2w (ag32_ffi_write_entrypoint + 4)) s in
+    let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 6w) s in
+    let s = dfn'Normal (fDec, 5w, Reg 5w, Imm 0w) s in
+    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w) s in
+    s`;
+
+val ag32_ffi_write_set_id_thm = Q.store_thm("ag32_ffi_write_set_id_thm",
+  `(s.PC = r0 + n2w (ffi_code_start_offset + ag32_ffi_write_entrypoint))
+    ⇒
+    ∃cf ov r5 r6.
+     (ag32_ffi_write_set_id s =
+      s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_set_id_code);
+                R := ((6w =+ r6) ((5w =+ r5) s.R));
+                CarryFlag := cf;
+                OverflowFlag := ov;
+                MEM := ((r0 + n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "write"))) s.MEM |>)`,
+  rw[ag32_ffi_write_set_id_def]
+  \\ rw[ag32Theory.dfn'Jump_def, ag32Theory.ALU_def, ag32Theory.ri2word_def]
+  \\ qmatch_goalsub_abbrev_tac`r0 + n2w off`
+  \\ rw[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def]
+  \\ rw[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def,
+        ag32Theory.ri2word_def, ag32Theory.incPC_def, APPLY_UPDATE_THM]
+  \\ rw[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.ri2word_def,
+        ag32Theory.incPC_def, APPLY_UPDATE_THM]
+  \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM, Abbr`off`]
+  \\ EVAL_TAC
+  \\ rw[]
+  \\ metis_tac[]);
+
 (* open_in *)
 
 val ag32_ffi_open_in_entrypoint_def = Define`
