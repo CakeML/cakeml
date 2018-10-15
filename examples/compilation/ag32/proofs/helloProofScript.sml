@@ -1802,7 +1802,7 @@ val ag32_ffi_write_load_noff_code_def = Define`
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off0::... *)
      LoadMEMByte (8w, Reg 3w);            (* r8 = [0w; 0w; 0w; off0] *)
      Normal (fXor, 7w, Reg 7w, Reg 8w);   (* r7 = [0w; 0w; off1; off0] (= w22n [off1; off0]) *)
-     Normal (fInc, 3w, Reg 3w, Imm 1w)]   (* r3 -> ... *)`;
+     Normal (fSub, 3w, Reg 3w, Imm 3w)]   (* r3 -> n1::n0::off1::off0::... *)`;
 
 val ag32_ffi_write_check_lengths_code_def = Define`
   ag32_ffi_write_check_lengths_code = [
@@ -1818,7 +1818,7 @@ val ag32_ffi_write_check_lengths_code_def = Define`
 
 val ag32_ffi_write_write_header_code_def = Define`
   ag32_ffi_write_write_header_code = [
-     LoadConstant(8w, F, n2w (ffi_code_start_offset - output_offset));
+     LoadConstant(8w, F, n2w ((ffi_code_start_offset - 1) - output_offset));
      Normal (fSub, 5w, Reg 5w, Reg 8w);   (* r5 = mem_start + output_offset *)
      StoreMEM (Imm 0w, Reg 5w);
      Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 4 *)
@@ -1829,8 +1829,8 @@ val ag32_ffi_write_write_header_code_def = Define`
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 9 *)
      StoreMEMByte (Imm 0w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 10 *)
-     Shift (shiftLR, 8w, Reg 1w, Imm 4w); (* r8 = [0w; 0w; 0w; n1] *)
-     StoreMEMByte (Reg 8w, Reg 5w);
+     Shift (shiftLR, 2w, Reg 1w, Imm 4w); (* r2 = [0w; 0w; 0w; n1] *)
+     StoreMEMByte (Reg 2w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 11 *)
      StoreMEMByte (Reg 1w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 12 *)
@@ -1883,10 +1883,10 @@ val ag32_ffi_write_set_id_def = Define`
 val ag32_ffi_write_set_id_thm = Q.store_thm("ag32_ffi_write_set_id_thm",
   `(s.PC = r0 + n2w (ffi_code_start_offset + ag32_ffi_write_entrypoint))
     ⇒
-    ∃cf ov r5 r6.
+    ∃cf ov r6.
      (ag32_ffi_write_set_id s =
       s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_set_id_code);
-                R := ((6w =+ r6) ((5w =+ r5) s.R));
+                R := ((6w =+ r6) ((5w =+ r0 + (n2w (ffi_code_start_offset - 1))) s.R));
                 CarryFlag := cf;
                 OverflowFlag := ov;
                 MEM := ((r0 + n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "write"))) s.MEM |>)`,
@@ -2039,84 +2039,91 @@ val ag32_ffi_write_load_noff_def = Define`
   let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'LoadMEMByte (8w, Reg 3w) s in
   let s = dfn'Normal (fXor, 7w, Reg 7w, Reg 8w) s in
-  let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
+  let s = dfn'Normal (fSub, 3w, Reg 3w, Imm 3w) s in
   s`;
 
 val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
   `(read_bytearray (s.R 3w) r4 (λa. if a ∈ md then SOME (s.MEM a) else NONE) =
     SOME (n1::n0::off1::off0::tll))
    ⇒
-   ∃r8.
+   ∃r8 ov cf.
    (ag32_ffi_write_load_noff s =
     s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_load_noff_code);
-              R := ((3w =+ s.R 3w + 4w)
-                   ((8w =+ r8)
+              OverflowFlag := ov;
+              CarryFlag := cf;
+              R := ((8w =+ r8)
                    ((1w =+ n2w (w22n [n1; n0]))
-                   ((7w =+ n2w (w22n [off1; off0])) s.R)))) |>)`,
+                   ((7w =+ n2w (w22n [off1; off0])) s.R))) |>)`,
   rewrite_tac[ag32_ffi_write_load_noff_def]
   \\ strip_tac
   \\ simp_tac (srw_ss())
        [Q.SPECL[`1w`]ag32Theory.dfn'LoadMEMByte_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`shiftLR`,`1w`]ag32Theory.dfn'Shift_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.shift_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`fInc`]ag32Theory.dfn'Normal_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`8w`]ag32Theory.dfn'LoadMEMByte_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`fXor`]ag32Theory.dfn'Normal_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`7w`]ag32Theory.dfn'LoadMEMByte_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`shiftLR`,`7w`]ag32Theory.dfn'Shift_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.shift_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
-  \\ CONV_TAC(PATH_CONV"ralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp[ag32Theory.ag32_state_component_equality]
   \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
   \\ qexists_tac`r8`
   \\ conj_tac >- EVAL_TAC
-  \\ rw[MarshallingTheory.w22n_def,Abbr`r8`]
-  >- blastLib.BBLAST_TAC
-  >- ( Cases_on`n0` \\ Cases_on`n1` \\ fs[] )
+  \\ rw[MarshallingTheory.w22n_def,Abbr`r8`] \\ fs[]
   >- ( Cases_on`off0` \\ Cases_on`off1` \\ fs[]
        \\ imp_res_tac read_bytearray_LENGTH
        \\ fs[] \\ rw[]
@@ -2189,6 +2196,279 @@ val ag32_ffi_write_check_lengths_thm = Q.store_thm("ag32_ffi_write_check_lengths
   \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
   \\ qexists_tac`r8`
   \\ rw[] \\ fs[]);
+
+val ag32_ffi_write_write_header_def = Define`
+  ag32_ffi_write_write_header s =
+  let s = dfn'LoadConstant(8w, F, n2w ((ffi_code_start_offset - 1) - output_offset)) s in
+  let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 8w) s in
+  let s = dfn'StoreMEM (Imm 0w, Reg 5w) s in
+  let s = dfn'Normal (fAdd, 5w, Reg 5w, Imm 4w) s in
+  let s = dfn'Shift (shiftLL, 2w, Reg 2w, Imm 12w) s in
+  let s = dfn'StoreMEM (Reg 2w, Reg 5w) s in
+  let s = dfn'Normal (fAdd, 5w, Reg 5w, Imm 4w) s in
+  let s = dfn'StoreMEMByte (Imm 0w, Reg 5w) s in
+  let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
+  let s = dfn'StoreMEMByte (Imm 0w, Reg 5w) s in
+  let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
+  let s = dfn'Shift (shiftLR, 2w, Reg 1w, Imm 4w) s in
+  let s = dfn'StoreMEMByte (Reg 2w, Reg 5w) s in
+  let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
+  let s = dfn'StoreMEMByte (Reg 1w, Reg 5w) s in
+  let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
+  let s = dfn'StoreMEMByte (Imm 0w, Reg 3w) s in
+  s`;
+
+val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_thm",
+  `(s.R 5w = r0 + n2w (ffi_code_start_offset - 1)) ∧
+    byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
+   (LENGTH conf = 8) ∧ (w82n conf < 3) ∧ (s.R 2w = n2w (w82n conf)) ∧
+   (s.R 1w = n2w (w22n [n1; n0])) ∧ (s.R 3w ≠ r0 + n2w output_offset)
+   ⇒
+   ∃r2 r8 ov cf.
+   (ag32_ffi_write_write_header s =
+    s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_write_header_code);
+              R := ((5w =+ r0 + n2w (output_offset + 12))
+                   ((8w =+ r8)
+                   ((2w =+ r2) s.R)));
+              MEM :=
+                (((s.R 3w) =+ 0w)
+                 (asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w; 0w; n1; n0]) s.MEM));
+              OverflowFlag := ov;
+              CarryFlag := cf |>)`,
+  rewrite_tac[ag32_ffi_write_write_header_def]
+  \\ strip_tac
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'LoadConstant_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[`fSub`,`5w`]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'StoreMEM_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ qmatch_goalsub_abbrev_tac`adr + 2w`
+  \\ `adr = r0 + n2w output_offset`
+  by (
+    simp[Abbr`adr`]
+    \\ EVAL_TAC
+    \\ blastLib.BBLAST_TAC
+    \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_bitwise_and]
+    \\ blastLib.FULL_BBLAST_TAC )
+  \\ qpat_x_assum`Abbrev(adr = _)`kall_tac
+  \\ qmatch_goalsub_rename_tac`_ with OverflowFlag := ov`
+  \\ asm_simp_tac (srw_ss())[]
+  \\ qmatch_goalsub_abbrev_tac`5w =+ r5`
+  \\ `r5 = r0 + n2w output_offset`
+  by ( simp[Abbr`r5`] \\ EVAL_TAC \\ simp[] )
+  \\ qpat_x_assum`Abbrev(r5 = _)`kall_tac \\ rveq
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[`fAdd`]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[`shiftLL`]ag32Theory.dfn'Shift_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ qmatch_goalsub_abbrev_tac`adr + 2w`
+  \\ `adr = r0 + n2w (output_offset + 4)`
+  by (
+    simp[Abbr`adr`]
+    \\ EVAL_TAC
+    \\ blastLib.BBLAST_TAC
+    \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_bitwise_and]
+    \\ blastLib.FULL_BBLAST_TAC )
+  \\ qpat_x_assum`Abbrev(adr = _)`kall_tac \\ rveq
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'StoreMEMByte_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[`fInc`]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'Shift_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ simp[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM]
+  \\ simp[ag32_ffi_write_write_header_code_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`if 2w = _ then r2 else _`
+  \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
+  \\ qexists_tac`r2`
+  \\ qexists_tac`r8`
+  \\ reverse conj_tac
+  >- ( rw[] \\ fs[] \\ rw[GSYM word_add_n2w] )
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rveq
+  \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+  \\ simp[EVAL``output_offset``]
+  \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+  \\ Cases
+  \\ IF_CASES_TAC >- fs[]
+  \\ simp_tac std_ss []
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ simp[MarshallingTheory.w22n_def, GSYM word_add_n2w, GSYM word_mul_n2w]
+    \\ Cases_on`n0` \\ fs[] \\ rveq
+    \\ blastLib.BBLAST_TAC )
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[Abbr`r2`]
+    \\ simp[MarshallingTheory.w22n_def, GSYM word_add_n2w, GSYM word_mul_n2w]
+    \\ Cases_on`n1` \\ fs[] \\ rveq
+    \\ cheat (* word proof for Magnus *) )
+  \\ IF_CASES_TAC
+  >- ( full_simp_tac std_ss [n2w_11] \\ rfs[] )
+  \\ IF_CASES_TAC
+  >- ( full_simp_tac std_ss [n2w_11] \\ rfs[] )
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
+    \\ cheat (* word proof for Magnus *))
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
+    \\ cheat (* word proof for Magnus *))
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
+    \\ cheat (* word proof for Magnus *))
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
+    \\ cheat (* word proof for Magnus *))
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[] )
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[] )
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[] )
+  \\ IF_CASES_TAC
+  >- (
+    full_simp_tac std_ss [n2w_11] \\ rfs[]
+    \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[])
+  \\ simp[]);
+
+(*
+val ag32_ffi_write_num_written_def = Define`
+  ag32_ffi_write_num_written = [
+     (* calculate k and write to mutable array *)
+     Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> n0::off1::off0::tll *)
+     LoadConstant (8w, F, n2w output_buffer_size); (* r8 = output_buffer_size *)
+     JumpIfZero (fLess, Imm 8w, Reg 8w, Reg 1w);  (* skip if ¬(output_buffer_size < w22n [n1; n0]) *)
+     Normal (fSnd, 1w, Reg 1w, Reg 8w);   (* r1 = MIN output_buffer_size (w22n [n1; n0]) *)
+     Shift (shiftLR, 8w, Reg 1w, Imm 8w); (* r8 = r1 DIV 256 *)
+     StoreMEMByte (Reg 8w, Reg 3w);
+     Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off1::off0::tll *)
+     StoreMEMByte (Reg 1w, Reg 3w);
+     Normal (fAdd, 3w, Reg 7w, Imm 2w)]   (* r3 -> DROP off tll *)`;
+
+val ag32_ffi_write_copy_def = Define`
+  ag32_ffi_write_copy = [
+     JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 1w);
+     LoadMEMByte (8w, Reg 3w);
+     StoreMEMByte (Reg 3w, Reg 5w);
+     Normal (fInc, 3w, Reg 3w, Imm 1w);
+     Normal (fInc, 5w, Reg 5w, Imm 1w);
+     Normal (fDec, 1w, Reg 1w, Imm 1w);
+     JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w)]`;
+*)
 
 (* open_in *)
 
