@@ -2134,6 +2134,62 @@ val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
     \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[]
     \\ cheat (* word proof for Magnus *) ));
 
+val ag32_ffi_write_check_lengths_def = Define`
+  ag32_ffi_write_check_lengths s =
+  let s = dfn'Normal (fLess, 8w, Reg 4w, Reg 7w) s in
+  let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
+  let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 8w) s in
+  let s = dfn'Normal (fSub, 4w, Reg 4w, Reg 7w) s in
+  let s = dfn'Normal (fLess, 8w, Reg 4w, Reg 1w) s in
+  let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
+  let s = dfn'LoadConstant (4w, F, 4w * 35w) s in
+  let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
+  s`;
+
+val ag32_ffi_write_check_lengths_thm = Q.store_thm("ag32_ffi_write_check_lengths_thm",
+  `(s.R 4w = n2w ltll) ∧ (s.R 7w = n2w off) ∧ (s.R 1w = n2w n) ∧ (s.R 6w = v2w [cnd]) ∧
+   off < dimword(:16) ∧ n < dimword(:16) ∧ ltll < dimword (:32)
+   ⇒
+   ∃r4 r6 r8 cf ov.
+   (ag32_ffi_write_check_lengths s =
+    s with <| PC := if cnd ∧ off ≤ ltll ∧ n ≤ ltll - off
+                    then s.PC + n2w (4 * LENGTH ag32_ffi_write_check_lengths_code)
+                    else s.PC + n2w (4 * (LENGTH ag32_ffi_write_check_lengths_code + 34)) ;
+              R := ((8w =+ r8)
+                   ((4w =+ r4)
+                   ((6w =+ r6) s.R)));
+              CarryFlag := cf;
+              OverflowFlag := ov |>)`,
+  strip_tac
+  \\ simp[ag32_ffi_write_check_lengths_def]
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.ri2word_def,
+          ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.incPC_def,
+          ag32Theory.dfn'LoadConstant_def, APPLY_UPDATE_THM]
+  \\ simp[ag32Theory.dfn'JumpIfZero_def,ag32Theory.ri2word_def,
+          ag32Theory.ALU_def,ag32Theory.incPC_def,APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`COND b1`
+  \\ qmatch_goalsub_abbrev_tac`if b2 then _  + _ else _`
+  \\ `b1 = ¬b2`
+  by (
+    unabbrev_all_tac
+    \\ Cases_on`cnd` \\ fs[]
+    \\ simp[NOT_LESS_EQUAL]
+    \\ simp[word_lt_n2w]
+    \\ cheat (* word proof for Magnus *) )
+  \\ qpat_x_assum`Abbrev(b1 = _)`kall_tac
+  \\ simp[] \\ rveq
+  \\ IF_CASES_TAC
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[ag32_ffi_write_check_lengths_code_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`if 4w = _ then r4 else _`
+  \\ qexists_tac`r4`
+  \\ qmatch_goalsub_abbrev_tac`if 6w = _ then r6 else _`
+  \\ qexists_tac`r6`
+  \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
+  \\ qexists_tac`r8`
+  \\ rw[] \\ fs[]);
+
 (* open_in *)
 
 val ag32_ffi_open_in_entrypoint_def = Define`
