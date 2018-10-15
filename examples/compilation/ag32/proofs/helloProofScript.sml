@@ -1705,7 +1705,7 @@ val ag32_ffi_read_code_def = Define`
 
 (* write
    PC is mem_start + ffi_code_start_offset + ag32_ffi_write_entrypoint
-   r1 contains pointer to byte array with the output id
+   r1 contains pointer to byte array (conf) with the output id
    r2 contains length of r1 (should be 8)
    r3 contains pointer to byte array n1::n0::off1::off0::tll
    r4 contains LENGTH tll + 4
@@ -1713,14 +1713,14 @@ val ag32_ffi_read_code_def = Define`
      * written (THE (ALOOKUP FFI_codes "write")) at (mem_start + n2w (ffi_code_start_offset - 1))
      * if the following conditions hold
          - r2 contains 8
-         - LENGTH tll ≥ w22n [off1; off0]
          - w82n conf ≤ 2
+         - w22n [off1; off0] ≤ LENGTH tll
          - w22n [n1; n0] ≤ LENGTH tll - w22n [off1; off0]
        then
-         - write 0w::n2w2(MIN output_buffer_size (w22n [n1; n0])) to array pointed by r3
+         - write 0w::n2w2(k) to array pointed by r3
          - write conf ++ [0w;0w;n1;n0] ++ (TAKE k (DROP (w22n [off1; off0]) tll))
-             where k = MIN (w22n [n1; n0]) output_buffer_size
            to mem_start + n2w output_offset
+         where k = MIN (w22n [n1; n0]) output_buffer_size
        else
          - write 1w to the first byte pointed by r3
          - do not touch anything else in memory
@@ -1734,8 +1734,80 @@ val ag32_ffi_write_entrypoint_def = Define`
 
 val ag32_ffi_write_code_def = Define`
   ag32_ffi_write_code =
-    [
-     Interrupt
+    [Jump (fAdd, 5w, Imm 4w);
+     LoadConstant(6w, F, n2w (ag32_ffi_write_entrypoint + 4));
+     Normal (fSub, 5w, Reg 5w, Reg 6w);   (* r5 = mem_start + ffi_code_start_offset *)
+     Normal (fDec, 5w, Reg 5w, Imm 0w);
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w);
+     Normal (fEqual, 6w, Reg 2w, Imm 8w); (* r6 = (LENGTH conf = 8) *)
+     Normal (fSub, 4w, Reg 4w, Imm 4w);   (* r4 = LENGTH tll *)
+     LoadMEM (2w, Reg 1w);                (* r2 = [conf4; conf5; conf6; conf7] *)
+     Normal (fEqual, 7w, Reg 2w, Imm 0w);
+     Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 2**32 *)
+     Normal (fAdd, 1w, Reg 1w, Imm 4w);
+     LoadMEM (2w, Reg 1w);                (* r2 = [conf0; conf1; conf2; conf3] *)
+     LoadConstant(7w, F, 65535w);
+     Normal(fAnd, 7w, Reg 7w, Reg 2w);
+     Normal(fEqual, 7w, Reg 7w, Imm 0w);  (* r7 = w82n conf < 2**16 *)
+     Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 2**16 *)
+     Shift (shiftLR, 2w, Reg 2w, Imm 16w);(* r2 = [0w; 0w; conf0; conf1] *)
+     LoadConstant(7w, F, 255w);
+     Normal(fAnd, 7w, Reg 7w, Reg 2w);
+     Normal(fEqual, 7w, Reg 7w, Imm 0w);  (* r7 = w82n conf < 2**8 *)
+     Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 2**8 *)
+     Shift (shiftLR, 2w, Reg 2w, Imm 8w); (* r2 = [0w; 0w; 0w; conf0] (= w82n conf) *)
+     Normal (fLess, 7w, Reg 2w, Imm 3w);
+     Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 *)
+     LoadMEM (1w, Reg 3w);                (* r1 = [off0; off1; n0; n1] *)
+     Shift (shiftLR, 7w, Reg 1w, Imm 4w); (* r7 = [0w; off0; off1; n0] *)
+     Shift (shiftLL, 1w, Reg 1w, Imm 4w); (* r1 = [off1; n0; n1; 0w] *)
+     LoadConstant(8w, F, 255w);
+     Normal (fAnd, 8w, Reg 7w, Reg 8w);   (* r8 = [0w; 0w; 0w; n0] *)
+     Normal (fOr, 1w, Reg 1w, Reg 8w);    (* r1 = [off1; n0; n1; n0] *)
+     LoadConstant(8w, F, 65535w);
+     Normal (fAnd, 1w, Reg 1w, Reg 8w);   (* r1 = [0w; 0w; n1; n0] (= w22n [n1; n0]) *)
+     Shift (shiftLR, 8w, Reg 7w, Imm 8w); (* r8 = [0w; 0w; 0w; off0] *)
+     Shift (shiftLR, 7w; Reg 7w; Imm 4w); (* r7 = [0w; 0w; off0; off1] *)
+     Shift (shiftLL, 7w; Reg 7w; Imm 4w); (* r7 = [0w; off0; off1; 0w] *)
+     Normal (fAnd, 7w, Reg 7w, Reg 8w);   (* r7 = [0w; off0; off1; off0] *)
+     LoadConstant(8w, F, 65535w);
+     Normal (fAnd, 7w, Reg 7w, Reg 8w);   (* r7 = [0w; 0w; off1; off0] (= w22n [off1; off0]) *)
+     Normal (fLess, 8w, Reg 4w, Reg 7w);  (* r8 = LENGTH tll < w22n [off1; off0] *)
+     Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [off1; off0] *)
+     Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
+                                                  w22n [off1; off0] ≤ LENGTH tll *)
+     Normal (fSub, 4w, Reg 4w, Reg 7w);   (* r4 = LENGTH tll - w22n [off1; off0] *)
+     Normal (fLess, 8w, Reg 4w, Reg 1w);  (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
+     Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
+     LoadConstant (9w, F, 4w * ?);
+     JumpIfZero (fAnd, Reg 9w, Reg 6w, Reg 8w);
+     LoadConstant(8w, F, n2w (ffi_code_start_offset - output_offset));
+     Normal (fSub, 5w, Reg 5w, Reg 8w);   (* r5 = mem_start + output_offset *)
+     StoreMEM (Imm 0w, Reg 5w);
+     Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 4 *)
+     Shift (shiftLL, 2w, Reg 2w, Imm 12w);(* r2 = [conf0; 0w; 0w; 0w] *)
+     StoreMEM (Reg 2w, Reg 5w);
+     Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 8 *)
+     StoreMEMByte (Imm 0w, Reg 5w);
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 9 *)
+     StoreMEMByte (Imm 0w, Reg 5w);
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 10 *)
+     Shift (shiftLR, 8w, Reg 1w, Imm 4w); (* r8 = [0w; 0w; 0w; n1] *)
+     StoreMEMByte (Reg 8w, Reg 5w);
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 11 *)
+     StoreMEMByte (Reg 1w, Reg 5w);
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 12 *)
+     StoreMEMByte (Imm 0w, Reg 3w);
+     Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> n0::off1::off0::tll *)
+     LoadConstant (8w, F, n2w output_buffer_size); (* r8 = output_buffer_size *)
+     JumpIfZero (fLess, Imm 8w, Reg 8w, Reg 1w);  (* skip if ¬(output_buffer_size < w22n [n1; n0]) *)
+     Normal (fSnd, 1w, Reg 1w, Reg 8w);   (* r1 = MIN output_buffer_size (w22n [n1; n0]) *)
+     (* TODO: write n2w2(r1) to the next 2 bytes at r3 *)
+     (* TODO: push r3 pointer forward 1 byte + r7 *)
+     (* TODO: copy bytes from r3 to r5 decrementing r1 to zero *)
+     (* TODO: clear registers and flags *)
+     Interrupt;
+     Jump (fSnd, 0w, Reg 0w)
     ]`;
 
 (* open_in *)
