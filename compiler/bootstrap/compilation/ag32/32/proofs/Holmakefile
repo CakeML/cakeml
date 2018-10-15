@@ -1,0 +1,4 @@
+INCLUDES = ../../../../../../misc ../../../../../../semantics/proofs ../../../../../backend/proofs ../../../../../encoders/ag32/proofs ../../../../../backend/ag32/proofs ../../../../translation ..
+ifdef POLY
+HOLHEAP=../heap
+endif
