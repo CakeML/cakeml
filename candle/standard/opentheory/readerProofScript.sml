@@ -1700,25 +1700,34 @@ val process_lines_def = Define`
        STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) *
        HOL_STORE refs)`;
 
+val read_stdin_def = Define `
+  read_stdin fs refs =
+    let fs' = fastForwardFD fs 0 in
+      case readLines (all_lines fs (IOStream (strlit"stdin"))) init_state refs of
+        (Success (s, _), refs) =>
+          (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
+      | (Failure (Fail e), refs) => (add_stderr fs' e, refs, NONE)`;
+
 val read_file_def = Define`
   read_file fs refs fnm =
     (if inFS_fname fs (File fnm) then
        (case readLines (all_lines fs (File fnm)) init_state refs of
         | (Success (s,_), refs) =>
-            (T, add_stdout fs (msg_success s refs.the_context), refs, SOME s)
-        | (Failure (Fail e), refs) => (F, add_stderr fs e, refs, NONE))
+            (add_stdout fs (msg_success s refs.the_context), refs, SOME s)
+        | (Failure (Fail e), refs) => (add_stderr fs e, refs, NONE))
      else
-       (F, add_stderr fs (msg_bad_name fnm), refs, NONE))`;
+       (add_stderr fs (msg_bad_name fnm), refs, NONE))`;
 
 val reader_main_def = Define `
    reader_main fs refs cl =
-       case cl of
-         [fnm] =>
-          (case init_reader () refs of
-            (Success _, refs) => read_file fs refs fnm
-          | (Failure (Fail e), refs) => (F, add_stderr fs (msg_axioms e), refs, NONE)
-          | (_, refs) => (F, fs, refs, NONE))
-       | _ => (F, add_stderr fs msg_usage, refs, NONE)`;
+     case init_reader () refs of
+       (Failure (Fail e), refs) => (add_stderr fs (msg_axioms e), refs, NONE)
+     | (Failure _, refs) => (fs, refs, NONE)
+     | (Success _, refs) =>
+         (case cl of
+            [] => read_stdin fs refs
+          | [fnm] => read_file fs refs fnm
+          | _ => (add_stderr fs msg_usage, refs, NONE))`;
 
 (* ------------------------------------------------------------------------- *)
 (* Specs imply that invariants are preserved.                                *)
@@ -1743,15 +1752,17 @@ val process_line_inv = Q.store_thm("process_line_inv",
    \\ rpt (disch_then drule) \\ rw []);
 
 val reader_proves = Q.store_thm("reader_proves",
-  `reader_main fs init_refs cl = (T,outp,refs,sopt)
+  `reader_main fs init_refs cl = (outp,refs,SOME s)
    ==>
-   ?s.
-     sopt = SOME s /\
-     (!asl c.
-        MEM (Sequent asl c) s.thms ==> (thyof refs.the_context, asl) |- c) /\
-     outp = add_stdout fs (msg_success s refs.the_context) /\
-     refs.the_context extends init_ctxt`,
-  rw [reader_main_def, case_eq_thms, read_file_def, bool_case_eq, PULL_EXISTS]
+   (!asl c.
+      MEM (Sequent asl c) s.thms
+      ==>
+      (thyof refs.the_context, asl) |- c) /\
+   let fs' = case cl of [] => fastForwardFD fs 0 | _ => fs in
+   outp = add_stdout fs' (msg_success s refs.the_context) /\
+   refs.the_context extends init_ctxt`,
+  rw [reader_main_def, case_eq_thms, read_file_def, read_stdin_def,
+      bool_case_eq, PULL_EXISTS]
   \\ imp_res_tac init_reader_ok
   \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
   \\ drule readLines_thm
