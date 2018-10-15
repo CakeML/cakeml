@@ -1137,17 +1137,6 @@ val ffi_code_start_offset_def = Define`
   ffi_code_start_offset =
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
-val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 256n`;
-
-val heap_start_offset_def = Define`
-  heap_start_offset =
-    ffi_code_start_offset + length_ag32_ffi_code`;
-
-val ffi_jumps_offset_def = Define`
-  ffi_jumps_offset =
-    heap_start_offset + heap_size`;
-
 val get_output_io_event_def = Define`
   get_output_io_event (IO_event name conf bs2) =
     if name = "write" then
@@ -1482,6 +1471,17 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
   \\ conj_tac >- metis_tac[]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[] );
 
+val length_ag32_ffi_code = Define`
+  length_ag32_ffi_code = 612n`;
+
+val heap_start_offset_def = Define`
+  heap_start_offset =
+    ffi_code_start_offset + length_ag32_ffi_code`;
+
+val ffi_jumps_offset_def = Define`
+  ffi_jumps_offset =
+    heap_start_offset + heap_size`;
+
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
 
@@ -1724,7 +1724,7 @@ val ag32_ffi_read_code_def = Define`
        else
          - write 1w to the first byte pointed by r3
          - do not touch anything else in memory
-     * r1,..,r6 are set to 0 and carry and overflow unset
+     * r1,..,r8 are set to 0 and carry and overflow unset
      * exit happens at the end of the code, by jumping to r0
 *)
 
@@ -1734,11 +1734,13 @@ val ag32_ffi_write_entrypoint_def = Define`
 
 val ag32_ffi_write_code_def = Define`
   ag32_ffi_write_code =
-    [Jump (fAdd, 5w, Imm 4w);
+    [(* write caller id *)
+     Jump (fAdd, 5w, Imm 4w);
      LoadConstant(6w, F, n2w (ag32_ffi_write_entrypoint + 4));
      Normal (fSub, 5w, Reg 5w, Reg 6w);   (* r5 = mem_start + ffi_code_start_offset *)
      Normal (fDec, 5w, Reg 5w, Imm 0w);
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w);
+     (* check LENGTH conf and w82n conf *)
      Normal (fEqual, 6w, Reg 2w, Imm 8w); (* r6 = (LENGTH conf = 8) *)
      Normal (fSub, 4w, Reg 4w, Imm 4w);   (* r4 = LENGTH tll *)
      LoadMEM (2w, Reg 1w);                (* r2 = [conf4; conf5; conf6; conf7] *)
@@ -1758,6 +1760,7 @@ val ag32_ffi_write_code_def = Define`
      Shift (shiftLR, 2w, Reg 2w, Imm 8w); (* r2 = [0w; 0w; 0w; conf0] (= w82n conf) *)
      Normal (fLess, 7w, Reg 2w, Imm 3w);
      Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 *)
+     (* load n and off *)
      LoadMEM (1w, Reg 3w);                (* r1 = [off0; off1; n0; n1] *)
      Shift (shiftLR, 7w, Reg 1w, Imm 4w); (* r7 = [0w; off0; off1; n0] *)
      Shift (shiftLL, 1w, Reg 1w, Imm 4w); (* r1 = [off1; n0; n1; 0w] *)
@@ -1767,11 +1770,12 @@ val ag32_ffi_write_code_def = Define`
      LoadConstant(8w, F, 65535w);
      Normal (fAnd, 1w, Reg 1w, Reg 8w);   (* r1 = [0w; 0w; n1; n0] (= w22n [n1; n0]) *)
      Shift (shiftLR, 8w, Reg 7w, Imm 8w); (* r8 = [0w; 0w; 0w; off0] *)
-     Shift (shiftLR, 7w; Reg 7w; Imm 4w); (* r7 = [0w; 0w; off0; off1] *)
-     Shift (shiftLL, 7w; Reg 7w; Imm 4w); (* r7 = [0w; off0; off1; 0w] *)
+     Shift (shiftLR, 7w, Reg 7w, Imm 4w); (* r7 = [0w; 0w; off0; off1] *)
+     Shift (shiftLL, 7w, Reg 7w, Imm 4w); (* r7 = [0w; off0; off1; 0w] *)
      Normal (fAnd, 7w, Reg 7w, Reg 8w);   (* r7 = [0w; off0; off1; off0] *)
      LoadConstant(8w, F, 65535w);
      Normal (fAnd, 7w, Reg 7w, Reg 8w);   (* r7 = [0w; 0w; off1; off0] (= w22n [off1; off0]) *)
+     (* check conditions on LENGTH tll, n, and off *)
      Normal (fLess, 8w, Reg 4w, Reg 7w);  (* r8 = LENGTH tll < w22n [off1; off0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [off1; off0] *)
      Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
@@ -1779,8 +1783,9 @@ val ag32_ffi_write_code_def = Define`
      Normal (fSub, 4w, Reg 4w, Reg 7w);   (* r4 = LENGTH tll - w22n [off1; off0] *)
      Normal (fLess, 8w, Reg 4w, Reg 1w);  (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
-     LoadConstant (9w, F, 4w * ?);
-     JumpIfZero (fAnd, Reg 9w, Reg 6w, Reg 8w);
+     LoadConstant (4w, F, 4w * 35w);
+     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w);
+     (* write first 12 bytes of output buffer *)
      LoadConstant(8w, F, n2w (ffi_code_start_offset - output_offset));
      Normal (fSub, 5w, Reg 5w, Reg 8w);   (* r5 = mem_start + output_offset *)
      StoreMEM (Imm 0w, Reg 5w);
@@ -1798,14 +1803,35 @@ val ag32_ffi_write_code_def = Define`
      StoreMEMByte (Reg 1w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 12 *)
      StoreMEMByte (Imm 0w, Reg 3w);
+     (* calculate k and write to mutable array *)
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> n0::off1::off0::tll *)
      LoadConstant (8w, F, n2w output_buffer_size); (* r8 = output_buffer_size *)
      JumpIfZero (fLess, Imm 8w, Reg 8w, Reg 1w);  (* skip if ¬(output_buffer_size < w22n [n1; n0]) *)
      Normal (fSnd, 1w, Reg 1w, Reg 8w);   (* r1 = MIN output_buffer_size (w22n [n1; n0]) *)
-     (* TODO: write n2w2(r1) to the next 2 bytes at r3 *)
-     (* TODO: push r3 pointer forward 1 byte + r7 *)
-     (* TODO: copy bytes from r3 to r5 decrementing r1 to zero *)
-     (* TODO: clear registers and flags *)
+     Shift (shiftLR, 8w, Reg 1w, Imm 8w); (* r8 = r1 DIV 256 *)
+     StoreMEMByte (Reg 8w, Reg 3w);
+     Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off1::off0::tll *)
+     StoreMEMByte (Reg 1w, Reg 3w);
+     (* copy string to output buffer *)
+     Normal (fAdd, 3w, Reg 7w, Imm 2w);   (* r3 -> DROP off tll *)
+     JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 1w);
+     LoadMEMByte (8w, Reg 3w);
+     StoreMEMByte (Reg 3w, Reg 5w);
+     Normal (fInc, 3w, Reg 3w, Imm 1w);
+     Normal (fInc, 5w, Reg 5w, Imm 1w);
+     Normal (fDec, 1w, Reg 1w, Imm 1w);
+     JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w);
+     (* error case *)
+     StoreMEMByte (Imm 1w, Reg 3w);
+     (* clear registers and flags *)
+     Normal (fAdd, 1w, Imm 0w, Imm 0w);
+     Normal (fSnd, 2w, Imm 0w, Imm 0w);
+     Normal (fSnd, 3w, Imm 0w, Imm 0w);
+     Normal (fSnd, 4w, Imm 0w, Imm 0w);
+     Normal (fSnd, 5w, Imm 0w, Imm 0w);
+     Normal (fSnd, 6w, Imm 0w, Imm 0w);
+     Normal (fSnd, 7w, Imm 0w, Imm 0w);
+     Normal (fSnd, 8w, Imm 0w, Imm 0w);
      Interrupt;
      Jump (fSnd, 0w, Reg 0w)
     ]`;
@@ -1841,9 +1867,9 @@ val ag32_ffi_close_code_def = Define`
   - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
   - get return address in link_reg (r0)
   - PC is mem_start + ffi_jumps_offset + ffi_offset * index
-  conventions on return:
+  conventions on return (see ag32_ffi_interfer_def):
     r0 is the end of this ffi's code (i.e., entrypoint of the next ffi's code)
-    r1-r6 are 0w (* TODO: this is not currently satisfied *)
+    r1-r8 are 0w
     overflow and carry are false
 *)
 
@@ -2338,7 +2364,9 @@ val ag32_ffi_interfer_def = Define`
                    ((3w =+ 0w)
                    ((4w =+ 0w)
                    ((5w =+ 0w)
-                   ((6w =+ 0w) (ms.R)))))))) ;
+                   ((6w =+ 0w)
+                   ((7w =+ 0w)
+                   ((8w =+ 0w) (ms.R)))))))))) ;
              CarryFlag := F ;
              OverflowFlag := F ;
              io_events := ms.io_events ++ [new_mem] ;
@@ -2463,7 +2491,7 @@ val hello_init_memory_def = Define`
 
 val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
-   (LENGTH (hello_init_memory_words cl inp) = 27569028)`, (* adjust as necessary *)
+   (LENGTH (hello_init_memory_words cl inp) = 27569117)`, (* adjust as necessary *)
   simp[hello_init_memory_words_def]
   \\ simp[LENGTH_words_of_bytes_hello_startup_code,LENGTH_ag32_ffi_code,heap_size_def,
           output_buffer_size_def,startup_code_size_def,LENGTH_hello_startup_code,
@@ -2479,6 +2507,7 @@ val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words
   \\ `cz = cline_size` by (rw[Abbr`cz`])
   \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
   \\ rveq
+  \\ qmatch_goalsub_abbrev_tac`_ = rhs`
   \\ rw[stdin_size_def, cline_size_def]);
 
 val hello_machine_config_def = Define`
@@ -3627,7 +3656,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ simp[ag32_ffi_interfer_def]
     \\ simp[LENGTH_ag32_ffi_code,LENGTH_code]
     \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
-    \\ qexists_tac`λk n. if n = 0 then SOME v0 else if n < 7 then SOME 0w else NONE`
+    \\ qexists_tac`λk n. if n = 0 then SOME v0 else if n < 9 then SOME 0w else NONE`
     \\ rpt gen_tac
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
