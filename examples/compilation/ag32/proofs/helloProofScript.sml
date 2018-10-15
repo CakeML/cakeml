@@ -1891,6 +1891,60 @@ val ag32_ffi_write_set_id_thm = Q.store_thm("ag32_ffi_write_set_id_thm",
   \\ rw[]
   \\ metis_tac[]);
 
+val ag32_ffi_write_check_conf_def = Define`
+  ag32_ffi_write_check_conf s =
+   let s = dfn'Normal (fEqual, 6w, Reg 2w, Imm 8w) s in
+   let s = dfn'Normal (fSub, 4w, Reg 4w, Imm 4w) s in
+   let s = dfn'LoadMEM (2w, Reg 1w) s in
+   let s = dfn'Normal (fEqual, 7w, Reg 2w, Imm 0w) s in
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
+   let s = dfn'Normal (fAdd, 1w, Reg 1w, Imm 4w) s in
+   let s = dfn'LoadMEM (2w, Reg 1w) s in
+   let s = dfn'LoadConstant(7w, F, 65535w) s in
+   let s = dfn'Normal(fAnd, 7w, Reg 7w, Reg 2w) s in
+   let s = dfn'Normal(fEqual, 7w, Reg 7w, Imm 0w) s in
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
+   let s = dfn'Shift (shiftLR, 2w, Reg 2w, Imm 16w) s in
+   let s = dfn'LoadConstant(7w, F, 255w) s in
+   let s = dfn'Normal(fAnd, 7w, Reg 7w, Reg 2w) s in
+   let s = dfn'Normal(fEqual, 7w, Reg 7w, Imm 0w) s in
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
+   let s = dfn'Shift (shiftLR, 2w, Reg 2w, Imm 8w) s in
+   let s = dfn'Normal (fLess, 7w, Reg 2w, Imm 3w) s in
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
+   s`;
+
+(*
+val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
+  `(read_bytearray (s.R 1w) (w2n (s.R 2w)) (λa. if a ∈ md then SOME (s.MEM a) else NONE) = SOME conf)
+   ⇒
+   ∃ov cf.
+   (ag32_ffi_write_check_conf s =
+    s with <| R := ((6w =+ v2w[(LENGTH conf = 8) ∧ w82n conf < 3])
+                   ((2w =+ n2w (w82n conf))
+                   ((7w =+ r7) s.R)));
+              OverflowFlag := ov;
+              CarryFlag := cf |>)`,
+  rewrite_tac[ag32_ffi_write_check_conf_def]
+  \\ strip_tac
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[`fEqual`,`6w`]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ imp_res_tac read_bytearray_LENGTH
+  \\ CONV_TAC(PATH_CONV"raralrr"(SIMP_CONV(srw_ss()++LET_ss)[]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[`fSub`]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"raralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss()) [ag32Theory.dfn'LoadMEM_def, ag32Theory.incPC_def, ag32Theory.ri2word_def]
+  \\ CONV_TAC(PATH_CONV"raralrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ qmatch_goalsub_abbrev_tac`adr + 2w`
+*)
+
 (* open_in *)
 
 val ag32_ffi_open_in_entrypoint_def = Define`
