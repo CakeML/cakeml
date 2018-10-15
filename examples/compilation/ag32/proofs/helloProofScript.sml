@@ -3372,6 +3372,44 @@ val ag32_ffi_mem_domain_DISJOINT_prog_addresses = Q.store_thm("ag32_ffi_mem_doma
   \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w]
   \\ rfs[]);
 
+(*
+val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
+  `(read_bytearray (s.R 1w) (w2n (s.R 2w)) (λa. if a ∈ md then SOME (s.MEM a) else NONE) = SOME conf) ∧
+   (read_bytearray (s.R 3w) (w2n (s.R 4w)) (λa. if a ∈ md then SOME (s.MEM a) else NONE) = SOME bytes) ∧
+   (r0 + n2w (ffi_code_start_offset - 1) ∉ md) ∧
+   (INDEX_OF "write" ffi_names = SOME index) ∧
+   (ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+   (s.PC = r0 + n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "write")))
+   ⇒
+   (ag32_ffi_write s = ag32_ffi_interfer ffi_names md r0 (index, new_bytes, s))`,
+  rw[ag32_ffi_interfer_def]
+  \\ fs[GSYM find_index_INDEX_OF]
+  \\ imp_res_tac find_index_is_MEM
+  \\ imp_res_tac find_index_MEM
+  \\ first_x_assum(qspec_then`0`mp_tac) \\ rw[]
+  \\ simp[ag32_ffi_write_def]
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_return s'`
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qmatch_asmsub_abbrev_tac`if (s1.PC = _) then _ else _`
+  \\ mp_tac ag32_ffi_write_set_id_thm
+  \\ impl_tac
+  >- ( simp[] \\ EVAL_TAC )
+  \\ strip_tac \\ fs[]
+  \\ pop_assum kall_tac
+  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_write_check_conf s2`
+  \\ qspec_then`s2`mp_tac(Q.GENL[`s`]ag32_ffi_write_check_conf_thm)
+  \\ impl_tac
+  >- (
+    imp_res_tac read_bytearray_LENGTH \\ fs[]
+    \\ simp[Abbr`s2`,APPLY_UPDATE_THM]
+    \\ imp_res_tac read_bytearray_IMP_bytes_in_memory
+    \\ first_x_assum irule
+    \\ simp[]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rw[]
+*)
+
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ios ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld r0) ms = (SOME conf, SOME bytes)) ∧
