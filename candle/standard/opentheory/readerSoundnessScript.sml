@@ -2,6 +2,8 @@ open preamble readerProofTheory holSoundnessTheory
 
 val _ = new_theory "readerSoundness";
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U-> bool``;
 
 val reader_sound = Q.store_thm("reader_sound",
