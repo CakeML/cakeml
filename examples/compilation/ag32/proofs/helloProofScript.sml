@@ -1847,7 +1847,8 @@ val ag32_ffi_write_num_written_code_def = Define`
      StoreMEMByte (Reg 8w, Reg 3w);
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off1::off0::tll *)
      StoreMEMByte (Reg 1w, Reg 3w);
-     Normal (fAdd, 3w, Reg 7w, Imm 2w)]   (* r3 -> DROP off tll *)`;
+     Normal (fAdd, 3w, Reg 3w, Imm 2w);
+     Normal (fAdd, 3w, Reg 3w, Reg 7w)]   (* r3 -> DROP off tll *)`;
 
 val ag32_ffi_write_copy_code_def = Define`
   ag32_ffi_write_copy_code = [
@@ -2445,20 +2446,118 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[])
   \\ simp[]);
 
-(*
 val ag32_ffi_write_num_written_def = Define`
-  ag32_ffi_write_num_written = [
-     (* calculate k and write to mutable array *)
-     Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> n0::off1::off0::tll *)
-     LoadConstant (8w, F, n2w output_buffer_size); (* r8 = output_buffer_size *)
-     JumpIfZero (fLess, Imm 8w, Reg 8w, Reg 1w);  (* skip if ¬(output_buffer_size < w22n [n1; n0]) *)
-     Normal (fSnd, 1w, Reg 1w, Reg 8w);   (* r1 = MIN output_buffer_size (w22n [n1; n0]) *)
-     Shift (shiftLR, 8w, Reg 1w, Imm 8w); (* r8 = r1 DIV 256 *)
-     StoreMEMByte (Reg 8w, Reg 3w);
-     Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off1::off0::tll *)
-     StoreMEMByte (Reg 1w, Reg 3w);
-     Normal (fAdd, 3w, Reg 7w, Imm 2w)]   (* r3 -> DROP off tll *)`;
+  ag32_ffi_write_num_written s =
+  let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
+  let s0 = dfn'LoadConstant (8w, F, n2w output_buffer_size) s in
+  let s = dfn'JumpIfZero (fLess, Imm 8w, Reg 8w, Reg 1w) s0 in
+  let s = if s.PC = s0.PC + 4w then dfn'Normal (fSnd, 1w, Reg 1w, Reg 8w) s else s in
+  let s = dfn'Shift (shiftLR, 8w, Reg 1w, Imm 8w) s in
+  let s = dfn'StoreMEMByte (Reg 8w, Reg 3w) s in
+  let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
+  let s = dfn'StoreMEMByte (Reg 1w, Reg 3w) s in
+  let s = dfn'Normal (fAdd, 3w, Reg 3w, Imm 2w) s in
+  let s = dfn'Normal (fAdd, 3w, Reg 3w, Reg 7w) s in
+  s`;
 
+val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm",
+  `(read_bytearray (s.R 3w) r4 (λa. if a ∈ md then SOME (s.MEM a) else NONE) =
+    SOME (0w::n0::off1::off0::tll)) ∧
+   (s.R 1w = n2w n) ∧ (k = MIN n output_buffer_size) ∧ n < dimword(:16)
+   ⇒
+   ∃r8 cf ov.
+   (ag32_ffi_write_num_written s =
+    s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_num_written_code);
+              MEM := asm_write_bytearray (s.R 3w) (0w::(n2w2 k)) s.MEM;
+              R := ((8w =+ r8)
+                   ((3w =+ s.R 3w + 4w + s.R 7w)
+                   ((1w =+ n2w k) s.R)));
+              CarryFlag := cf;
+              OverflowFlag := ov |>)`,
+  rewrite_tac[ag32_ffi_write_num_written_def]
+  \\ strip_tac
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'Normal_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'LoadConstant_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'JumpIfZero_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ qmatch_goalsub_abbrev_tac`if cnd then _ else _`
+  \\ qmatch_asmsub_abbrev_tac`cnd = ((if cnd' then _ else _).PC = _)`
+  \\ `cnd = ¬cnd'` by ( rw[Abbr`cnd`,Abbr`cnd'`] )
+  \\ qpat_x_assum`Abbrev(cnd = _)`kall_tac
+  \\ qunabbrev_tac`cnd'`
+  \\ rveq
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss())[]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'Shift_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def, ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp_tac (srw_ss())
+       [Q.SPECL[]ag32Theory.dfn'StoreMEMByte_def,
+        ag32Theory.ri2word_def, ag32Theory.norm_def, ag32Theory.shift_def,
+        ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[COND_RAND,APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ simp[Once COND_RAND]
+  \\ simp[Once COND_RATOR]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[EVAL``4 * LENGTH ag32_ffi_write_num_written_code``]
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`v2w [cnd] = 0w`
+  \\ fs[EVAL``output_buffer_size``]
+  \\ rfs[word_lt_n2w]
+  \\ `¬BIT 31 n` by cheat (* word proof for Magnus *) \\ fs[]
+  \\ `MIN n 2048 = if cnd then 2048 else n` by rw[Abbr`cnd`,MIN_DEF]
+  \\ imp_res_tac read_bytearray_LENGTH
+  \\ fs[] \\ rveq
+  \\ fs[read_bytearray_def]
+  \\ fs[CaseEq"option"] \\ rveq
+  \\ Cases_on`s.R 3w`
+  \\ Cases_on`cnd` \\ fs[markerTheory.Abbrev_def]
+  \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
+  \\ qexists_tac`r8` \\ simp[Abbr`r8`]
+  \\ (reverse conj_tac >- (rw[] \\ fs[]))
+  \\ rw[MarshallingTheory.n2w2_def, lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+  \\ fs[] \\ rfs[word_add_n2w]
+  \\ TRY (
+    Cases_on`n' + 1 < dimword(:32)` \\ fs[]
+    \\ `n' + 1  =dimword(:32)` by fs[]
+    \\ fs[] \\ NO_TAC)
+  \\ TRY (
+    Cases_on`n' + 2 < dimword(:32)` \\ fs[]
+    \\ Cases_on`n' = dimword(:32) - 1` \\ fs[]
+    \\ Cases_on`n' = dimword(:32) - 2` \\ fs[]
+    \\ NO_TAC)
+  >- blastLib.BBLAST_TAC
+  \\ cheat (* word proof for Magnus *));
+
+(*
 val ag32_ffi_write_copy_def = Define`
   ag32_ffi_write_copy = [
      JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 1w);
