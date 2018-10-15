@@ -1221,6 +1221,7 @@ val extract_writes_def = Define`
   extract_writes fd oevents =
     FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))`;
 
+(* TODO: why is this proof so slow? make it faster? *)
 val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
   `∀ls fs fs' off off' out rest.
    (extract_fs fs ls = SOME fs') ∧
@@ -1717,8 +1718,8 @@ val ag32_ffi_read_code_def = Define`
          - w22n [n1; n0] ≤ LENGTH tll - w22n [off1; off0]
        then
          - write 0w::n2w2(MIN output_buffer_size (w22n [n1; n0])) to array pointed by r3
-         - write conf ++ [0w;0w;n1;n0] ++ (DROP (w22n [off1; off0]) tll)
-         (* TODO: this is not quite right -- some discrepancy on what happens when requested too much output *)
+         - write conf ++ [0w;0w;n1;n0] ++ (TAKE k (DROP (w22n [off1; off0]) tll))
+             where k = MIN (w22n [n1; n0]) output_buffer_size
            to mem_start + n2w output_offset
        else
          - write 1w to the first byte pointed by r3
@@ -2241,10 +2242,9 @@ val ag32_ffi_write_mem_update_def = Define`
   ag32_ffi_write_mem_update name r0 conf bytes new_bytes mem =
     if (name = "write") ∧ (HD new_bytes = 0w) then
       case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
-        let written = DROP (w22n [off1; off0]) tll in
-          if LENGTH written ≤ output_buffer_size then
-            asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
-          else mem
+        let k = MIN (w22n [n1; n0]) output_buffer_size in
+        let written = TAKE k (DROP (w22n [off1; off0]) tll) in
+          asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
     else mem`;
 
 val ag32_ffi_interfer_def = Define`
@@ -3593,22 +3593,25 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ rewrite_tac[OPTION_CHOICE_EQUALS_OPTION]
       \\ reverse strip_tac
       >- (
-        pop_assum mp_tac \\ simp[]
+        pop_assum mp_tac \\ simp[LUPDATE_def]
         \\ strip_tac \\ rveq
         \\ qpat_x_assum`_ = 0w`mp_tac
-        \\ simp[LUPDATE_def] )
+        \\ simp[] )
       \\ fs[]
       \\ pairarg_tac \\ fs[] \\ rveq
       \\ rw[]
       \\ irule asm_write_bytearray_unchanged
       \\ fs[EVAL``output_offset``, output_buffer_size_def]
+      \\ fs[LENGTH_TAKE_EQ, fsFFITheory.write_def]
+      \\ pairarg_tac \\ fs[]
       \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
       \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
       \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
       \\ simp[ag32_prog_addresses_def]
       \\ strip_tac
       \\ CONV_TAC(LAND_CONV EVAL)
-      \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w] )
+      \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ rw[MIN_DEF])
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
     \\ rpt(IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]))
