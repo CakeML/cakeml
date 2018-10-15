@@ -1509,6 +1509,30 @@ val ag32_ffi_return_def = Define`
   let s = dfn'Jump (fSnd, 0w, Reg 0w) s in
   s`;
 
+val ag32_ffi_return_thm = Q.store_thm("ag32_ffi_return_thm",
+  `(ag32_ffi_return s =
+    s with <| PC := s.R 0w;
+              R := ((0w =+ s.PC + n2w (4 * LENGTH ag32_ffi_return_code))
+                   ((1w =+ 0w)
+                   ((2w =+ 0w)
+                   ((3w =+ 0w)
+                   ((4w =+ 0w)
+                   ((5w =+ 0w)
+                   ((6w =+ 0w)
+                   ((7w =+ 0w)
+                   ((8w =+ 0w) s.R)))))))));
+              io_events := SNOC s.MEM s.io_events;
+              OverflowFlag := F;
+              CarryFlag := F |>)`,
+  rw[ag32_ffi_return_def]
+  \\ rw[ag32Theory.dfn'Normal_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,
+        ag32Theory.norm_def, ag32Theory.ALU_def,
+        ag32Theory.dfn'Interrupt_def, ag32Theory.dfn'Jump_def]
+  \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
+  >- EVAL_TAC
+  \\ rw[] \\ fs[]
+  \\ EVAL_TAC);
+
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
 
@@ -1956,7 +1980,7 @@ val ag32_ffi_write_check_conf_def = Define`
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in s`;
 
 val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
-  `(read_bytearray (s.R 1w) (w2n (s.R 2w)) (λa. if a ∈ md then SOME (s.MEM a) else NONE) = SOME conf)
+  `bytes_in_memory (s.R 1w) conf s.MEM md ∧ (w2n (s.R 2w) = LENGTH conf)
    ⇒
    ∃ov cf r1 r2 r7.
    (ag32_ffi_write_check_conf s =
@@ -1974,7 +1998,6 @@ val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
        [Q.SPECL[`fEqual`,`6w`]ag32Theory.dfn'Normal_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ imp_res_tac read_bytearray_LENGTH
   \\ CONV_TAC(PATH_CONV"rararararalrr"(SIMP_CONV(srw_ss()++LET_ss)[]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
@@ -2022,25 +2045,76 @@ val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
   \\ qexists_tac`w2w (s.MEM (s.R 1w + 7w))`
   \\ qmatch_goalsub_abbrev_tac`if 7w = _ then r7 else _`
   \\ qexists_tac`r7`
-  \\ rw[] \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
-  >- cheat (* word proof for Magnus *)
-  \\ fs[MarshallingTheory.w82n_def, LEFT_ADD_DISTRIB]
-  \\ Cases_on`h` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h'` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h''` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h'''` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h''''` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h'''''` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h''''''` \\ fs[] \\ Cases_on`n` \\ fs[]
-  \\ Cases_on`h'''''''` \\ fs[]
-  \\ qhdtm_x_assum`read_bytearray`mp_tac
-  \\ CONV_TAC(LAND_CONV EVAL) \\ rw[]
-  \\ rw[w2w_n2w]
-  \\ qspecl_then[`7`,`0`,`n`]mp_tac bitTheory.BITSLT_THM
+  \\ reverse(Cases_on`LENGTH conf = 8`) \\ fs[]
+  >- ( Cases_on`s.R 2w` \\ fs[] \\ rw[] \\ fs[] )
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rveq
+  \\ fs[asmSemTheory.bytes_in_memory_def] \\ rveq
+  \\ simp[MarshallingTheory.w82n_def, LEFT_ADD_DISTRIB]
+  \\ Cases_on`s.R 2w` \\ fs[] \\ rveq
+  \\ Cases \\ fs[]
+  \\ Cases_on`7=n` \\ fs[]
+  \\ Cases_on`4=n` \\ fs[]
+  \\ Cases_on`1=n` \\ fs[]
+  \\ rfs[Abbr`r7`]
+  \\ Cases_on`s.R 1w` \\ fs[]
+  \\ Cases_on`2=n` \\ fs[]
+  >- (
+    rw[]
+    \\ rw[GSYM word_add_n2w]
+    \\ qmatch_asmsub_rename_tac`s.R 1w = n2w r1`
+    \\ Cases_on`s.MEM (n2w r1)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 1w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 3w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 5w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 4w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 2w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 6w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`s.MEM (n2w r1 + 7w)` \\ fs[]
+    \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`n` \\ fs[] )
+  \\ Cases_on`6=n` \\ fs[]
+  \\ rveq \\ rw[]
+  \\ qmatch_asmsub_rename_tac`s.R 1w = n2w r1`
+  \\ Cases_on`s.MEM (n2w r1)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 6w)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 1w)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 2w)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 3w)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 7w)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 5w)` \\ fs[]
+  \\ Cases_on`s.MEM (n2w r1 + 4w)` \\ fs[]
+  \\ simp[w2w_n2w]
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ qspecl_then[`7`,`0`]mp_tac bitTheory.BITSLT_THM
   \\ rw[]
+  \\ TRY (
+    qmatch_goalsub_rename_tac`BITS 7 0 m < _`
+    \\ first_x_assum(qspec_then`m`mp_tac)
+    \\ rw[] )
+  \\ rw[bitTheory.BITS_ZERO3]
   \\ Cases_on`n` \\ fs[]
   \\ Cases_on`n'` \\ fs[]
-  \\ Cases_on`n` \\ fs[]);
+  \\ Cases_on`n''` \\ fs[]
+  \\ Cases_on`n'''` \\ fs[]
+  \\ Cases_on`n''''` \\ fs[]
+  \\ Cases_on`n''''''` \\ fs[]
+  \\ Cases_on`n'''''''` \\ fs[]
+  \\ Cases_on`n'''''` \\ fs[]
+  \\ Cases_on`n` \\ fs[]
+  \\ Cases_on`n'` \\ fs[]
+  \\ simp[ADD1]
+  \\ simp[word_lt_n2w]
+  \\ qspecl_then[`31`,`n+3`]mp_tac bitTheory.NOT_BIT_GT_TWOEXP
+  \\ simp[]);
 
 val ag32_ffi_write_load_noff_def = Define`
   ag32_ffi_write_load_noff s =
