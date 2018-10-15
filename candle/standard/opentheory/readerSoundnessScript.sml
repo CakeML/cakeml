@@ -26,6 +26,7 @@ val reader_sound = Q.store_thm("reader_sound",
      refs.the_context extends init_ctxt /\
      (* the output consists of a message displaying the context and    *)
      (* the contents of the theorem stack.                             *)
+     let fs' = case cl of [] => fastForwardFD fs 0 | _ => fs in
      outp = add_stdout fs (msg_success s refs.the_context)`,
   rpt strip_tac
   \\ drule (GEN_ALL reader_proves) \\ rw []
