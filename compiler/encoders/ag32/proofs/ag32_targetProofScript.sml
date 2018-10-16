@@ -115,6 +115,10 @@ val store_lem2 =
    ``!(c:word32). 0w <= c /\ c <= 0x7FFFFFw ==>
       (w2w ((w2w c) : 23 word) = c)``
 
+val mem_lem =
+  blastLib.BBLAST_PROVE
+   ``!(c:word32). bit_field_insert 31 23 ((31 >< 23) c) (w2w ((22 >< 0) c)) = c``;
+
 (* some rewrites ---------------------------------------------------------- *)
 
 local
@@ -147,7 +151,7 @@ val ag32_encoding = Q.prove (
    `!i. let l = ag32_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [ag32_enc_def, ag32_cmp_def, length_ag32_encode, ag32_encode_def]
+   \\ simp [ag32_enc_def, ag32_constant_def, ag32_cmp_def, length_ag32_encode, ag32_encode_def]
    \\ REPEAT CASE_TAC
    \\ rw [length_ag32_encode]
    )
@@ -165,7 +169,7 @@ val ag32_target_ok = Q.prove (
         \\ Cases_on `0xFFFFFFE0w <= w2 + 0xFFFFFFFCw /\ w2 + 0xFFFFFFFCw < 32w`
    ]
    \\ lfs (enc_rwts @ encode_extra_rwts)
-   \\ rw []
+   \\ rw [length_ag32_encode]
    \\ blastLib.FULL_BBLAST_TAC
    )
 
@@ -280,7 +284,7 @@ val state_tac =
       asmPropsTheory.all_pcs, ag32_ok_def, ag32_config,
       combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
       alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
-      wordsTheory.WORD_LS_word_T, load_lem, load_lem3, store_lem2]
+      wordsTheory.WORD_LS_word_T, load_lem, load_lem3, store_lem2, mem_lem]
   \\ rw [alignmentTheory.aligned_numeric, combinTheory.APPLY_UPDATE_THM,
          wordsTheory.word_lsl_bv_def, wordsTheory.word_lsr_bv_def,
          wordsTheory.word_asr_bv_def, wordsTheory.word_ror_bv_def,
@@ -292,6 +296,16 @@ val state_tac =
              alignmentTheory.aligned_add_sub]
   \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [load_lem2, store_lem]
   \\ blastLib.FULL_BBLAST_TAC
+
+val bytes_in_memory_IMP_all_pcs_MEM = Q.prove(
+ `!env a xs m dm.
+   bytes_in_memory a xs m dm /\
+   (*(!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM a = ms'.MEM a)) ==>*)
+   (!(i:num) ms'. fun2set ((env i ms').MEM, dm) = fun2set (ms'.MEM, dm)) ==>
+   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM pc = ms'.MEM pc))`,
+ simp [set_sepTheory.fun2set_eq] \\ Induct_on `xs`
+ \\ rw [asmPropsTheory.all_pcs_def, asmSemTheory.bytes_in_memory_def]
+ \\ metis_tac []);
 
 local
    fun number_of_instructions asl =
@@ -310,6 +324,10 @@ local
                asmPropsTheory.asserts2_eval,
                asmPropsTheory.interference_ok_def, ag32_proj_def]
          \\ NTAC 2 strip_tac
+         \\ drule bytes_in_memory_IMP_all_pcs_MEM
+         \\ disch_then (qspec_then `env` mp_tac)
+         \\ asm_simp_tac (srw_ss()) []
+         \\ strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
       end gs
@@ -317,6 +335,7 @@ in
   val next_tac =
     Q.PAT_ABBREV_TAC `instr = ag32_enc _`
     \\ pop_assum mp_tac
+    \\ ASM_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ strip_tac
     \\ qunabbrev_tac `instr`
@@ -355,7 +374,7 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
              Const
            --------------*)
          print_tac "Const"
-         \\ Cases_on `word_abs c <+ 0x800000w`
+         \\ Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw`
          >| [Cases_on `0w <= c`, all_tac]
          \\ next_tac
          )
@@ -437,8 +456,9 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
          \\ Cases_on `a`
          \\ Cases_on `m`
          \\ (Cases_on `-32w <= c /\ c < 32w`
-             >| [all_tac, Cases_on `0w <= c` \\ fs []]
-             \\ next_tac)
+             >| [all_tac,
+                 Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw` >| [Cases_on `0w <= c`, all_tac]])
+         \\ next_tac
          )
          (*--------------
              FP
@@ -452,9 +472,10 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
         --------------*)
    >- (
       print_tac "Jump"
-      \\ Cases_on `0xFFFFFFE0w <= c /\ c < 32w`
-      >- next_tac
-      \\ Cases_on `0w <= c + 0xFFFFFFFCw`
+      \\ (Cases_on `-32w <= c /\ c < 32w`
+          >| [all_tac,
+              Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw`
+              >| [Cases_on `0w <= c - 4w`, all_tac]])
       \\ next_tac
       )
    >- (
@@ -464,7 +485,8 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
       print_tac "JumpCmp"
       \\ Cases_on `r`
       \\ Cases_on `c`
-      \\ Cases_on `0w <= c0 + 0xFFFFFFFCw`
+      \\ (Cases_on `-0x7FFFFFw <= c0 /\ c0 < 0x7FFFFFw`
+          >| [Cases_on `0w <= c0 - 4w`, all_tac])
       \\ next_tac
       )
       (*--------------
@@ -472,9 +494,10 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
         --------------*)
    >- (
       print_tac "Call"
-      \\ Cases_on `0xFFFFFFE0w <= c /\ c < 32w`
-      >- next_tac
-      \\ Cases_on `0w <= c + 0xFFFFFFFCw`
+      \\ (Cases_on `-32w <= c /\ c < 32w`
+          >| [all_tac,
+              Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw`
+              >| [Cases_on `0w <= c - 4w`, all_tac]])
       \\ next_tac
       )
    >- (
@@ -489,9 +512,10 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
           Loc
         --------------*)
       print_tac "Loc"
-      \\ Cases_on `0xFFFFFFE0w <= c + 0xFFFFFFFCw /\ c + 0xFFFFFFFCw < 32w`
+      \\ Cases_on `-32w <= c - 4w /\ c - 4w < 32w`
       >- next_tac
-      \\ Cases_on `0w <= c + 0xFFFFFFFCw`
+      \\ (Cases_on `-0x7FFFFFw <= c - 4w /\ c - 4w < 0x7FFFFFw`
+          >| [Cases_on `0w <= c - 4w`, all_tac])
       \\ next_tac
       )
    )
