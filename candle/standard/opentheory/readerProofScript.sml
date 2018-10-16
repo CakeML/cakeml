@@ -1660,8 +1660,8 @@ val init_reader_ok = Q.store_thm("init_reader_ok",
   \\ disch_then drule \\ rw []
   >- (asm_exists_tac \\ fs [])
   \\ drule (GEN_ALL new_axiom_thm)
-  \\ disch_then drule \\ fs []
-  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ disch_then drule \\ fs [] \\ rw []
+  \\ fs [st_ex_return_def] \\ rw []
   \\ asm_exists_tac \\ fs []);
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
@@ -1699,6 +1699,16 @@ val process_lines_def = Define`
    | (INR e,refs)  =>
        STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) *
        HOL_STORE refs)`;
+
+val process_list_def = Define `
+  (process_list fs s refs [] =
+     STDIO (add_stdout fs (msg_success s refs.the_context)) *
+     HOL_STORE refs) /\
+  (process_list fs s refs (l::ls) =
+     case process_line s refs l of
+       (INL s, refs) => process_list fs (next_line s) refs ls
+     | (INR e, refs) => STDIO (add_stderr fs (line_Fail s e)) *
+                        HOL_STORE refs)`;
 
 val read_stdin_def = Define `
   read_stdin fs refs =

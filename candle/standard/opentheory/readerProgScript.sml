@@ -177,11 +177,24 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
   \\ rw[stdo_def,up_stdo_def,LENGTH_explode]
   \\ xsimpl);
 
+(* Apply the reader on a list of lines. *)
+
+val _ = (append_prog o process_topdecs) `
+  fun process_list ls s =
+    case ls of
+      [] => TextIO.print (msg_success s (Kernel.context ()))
+    | l::ls =>
+      (case process_line s l of
+         Inl s => process_list ls (next_line s)
+       | Inr e => TextIO.output TextIO.stdErr (line_fail s e))`;
+
 val _ = (append_prog o process_topdecs) `
   fun read_stdin () =
-    (process_lines TextIO.stdIn init_state;
-     TextIO.inputAll TextIO.stdIn;
-     ());
+    let
+      val ls = TextIO.inputLines TextIO.stdIn
+    in
+      process_list ls init_state
+    end;
   `;
 
 val _ = (append_prog o process_topdecs) `
@@ -234,6 +247,107 @@ val readLines_process_lines = Q.store_thm("readLines_process_lines",
   \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
   \\ metis_tac []);
 
+val readLines_process_list = Q.store_thm("readLines_process_list",
+  `!ls s refs res r fs.
+   readLines ls s refs = (res,r) ⇒
+   ∃n.
+     process_list fs s refs ls =
+     case res of
+     | (Success (s,_)) =>
+         STDIO (add_stdout fs (msg_success s r.the_context)) * HOL_STORE r
+     | (Failure (Fail e)) =>
+         STDIO (add_stderr fs e) *
+         HOL_STORE r`,
+  Induct \\ rw [process_list_def]
+  \\ pop_assum mp_tac
+  \\ rw [Once readLines_def, st_ex_return_def, st_ex_bind_def, raise_Fail_def,
+         handle_Fail_def]
+  \\ fs [process_line_def]
+  \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
+
+val process_list_spec = Q.store_thm("process_list_spec",
+  `!ls lsv s sv fs refs.
+   STD_streams fs /\
+   LIST_TYPE STRING_TYPE ls lsv /\
+   READER_STATE_TYPE s sv
+   ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "process_list" (get_ml_prog_state ()))
+     [lsv; sv]
+     (STDIO fs * HOL_STORE refs)
+     (POSTv u. &UNIT_TYPE () u * process_list fs s refs ls)`,
+  Induct \\ rw []
+  >-
+   (fs [LIST_TYPE_def]
+    \\ xcf "process_list" (get_ml_prog_state ())
+    \\ xmatch
+    \\ xlet_auto
+    >- (xcon \\ xsimpl)
+    \\ fs [process_list_def]
+    \\ xlet `POSTv rv.
+               SEP_EXISTS refs' r.
+                 STDIO fs *
+                 HOL_STORE refs' *
+                 &(context () refs = (Success r,refs')) *
+                 &LIST_TYPE UPDATE_TYPE r rv`
+    >-
+     (xapp
+      \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `refs`
+      \\ xsimpl
+      \\ rw [context_def, get_the_context_def] \\ fs []
+      \\ xsimpl)
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ fs [context_def, get_the_context_def]
+    \\ xsimpl
+    \\ instantiate
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `fs`
+    \\ xsimpl)
+  \\ fs [LIST_TYPE_def]
+  \\ xcf "process_list" (get_ml_prog_state ())
+  \\ xmatch
+  \\ xlet_auto
+  >-
+   (xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `refs`
+    \\ xsimpl)
+  \\ simp [process_list_def]
+  \\ CASE_TAC \\ fs []
+  \\ reverse CASE_TAC \\ fs []
+  >-
+   (fs [SUM_TYPE_def]
+    \\ xmatch
+    \\ xlet_auto >- xsimpl
+    \\ xapp_spec output_STDIO_spec
+    \\ xsimpl
+    \\ qexists_tac `HOL_STORE r`
+    \\ HINT_EXISTS_TAC
+    \\ xsimpl
+    \\ drule STD_streams_stderr
+    \\ rw [stdo_def, get_file_content_def, PULL_EXISTS, UNCURRY]
+    \\ asm_exists_tac \\ fs [FD_stderr]
+    \\ xsimpl
+    \\ simp [insert_atI_end
+            |> Q.GEN`l2` |> Q.ISPEC `explode out`
+            |> SIMP_RULE (srw_ss()) [LENGTH_explode]]
+    \\ simp[add_stdo_def]
+    \\ SELECT_ELIM_TAC
+    \\ fs [STD_streams_stderr]
+    \\ rw [stdo_def, up_stdo_def, LENGTH_explode]
+    \\ xsimpl)
+  \\ fs [SUM_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ last_x_assum xapp_spec
+  \\ xsimpl
+  \\ instantiate
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `r`
+  \\ xsimpl);
+
 val read_stdin_spec = Q.store_thm("read_stdin_spec",
   `UNIT_TYPE () uv /\
    (?inp. stdin fs inp 0)
@@ -247,20 +361,42 @@ val read_stdin_spec = Q.store_thm("read_stdin_spec",
   xcf "read_stdin" (get_ml_prog_state ())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
+  \\ fs [UNIT_TYPE_def]
   \\ xmatch
-  \\ reverse IF_CASES_TAC
-  >- (xsimpl \\ fs [UNIT_TYPE_def])
-  \\ reverse conj_tac
-  >- (fs [UNIT_TYPE_def] \\ rw [] \\ EVAL_TAC)
-  \\ simp [read_stdin_def]
-  \\ rpt CASE_TAC \\ fs []
-  \\ imp_res_tac stdin_get_file_content \\ fs []
-  \\ `READER_STATE_TYPE init_state init_state_v` by cheat (* TODO *)
-  \\ `FD 0 stdin_v` by cheat (* TODO *)
-  \\ xlet_auto_spec (SOME (Q.INST[`fd`|->`0`]process_lines_spec))
+  \\ xlet `POSTv fcv.
+             &LIST_TYPE STRING_TYPE
+               (MAP (λx. implode x ^ implode "\n")
+                    (splitlines (DROP 0 inp))) fcv *
+            STDIO (fastForwardFD fs 0) *
+            HOL_STORE refs`
+  >-
+   (simp []
+    \\ xapp
+    \\ imp_res_tac stdin_get_file_content
+    \\ instantiate
+    \\ simp [FD_stdin]
+    \\ xsimpl)
+  \\ `STD_streams (fastForwardFD fs 0)` by rw [STD_streams_fastForwardFD]
+  \\ xapp
+  \\ instantiate
   \\ xsimpl
-  \\ cheat (* TODO *)
-  );
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `init_state`
+  \\ simp [RIGHT_EXISTS_AND_THM]
+  \\ conj_tac
+  >- fs [READER_STATE_TYPE_def, init_state_def, init_state_v_thm]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `refs`
+  \\ xsimpl
+  \\ rw []
+  >- fs [UNIT_TYPE_def]
+  \\ simp [read_stdin_def]
+  \\ CASE_TAC \\ fs []
+  \\ drule (GEN_ALL readLines_process_list)
+  \\ disch_then (qspec_then `fastForwardFD fs 0` mp_tac) \\ rw []
+  \\ rpt CASE_TAC \\ fs []
+  \\ fs [stdin_def, all_lines_def, lines_of_def, strcat_thm] \\ rfs []
+  \\ xsimpl);
 
 val read_file_spec = Q.store_thm("read_file_spec",
   `FILENAME fnm fnv /\ hasFreeFD fs
@@ -372,7 +508,8 @@ val _ = (append_prog o process_topdecs) `
     handle Kernel.Fail e => TextIO.output TextIO.stdErr (msg_axioms e)`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
-  `hasFreeFD fs
+  `hasFreeFD fs /\
+   (?inp. stdin fs inp 0)
    ==>
    app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
      [Conv NONE []]
@@ -380,55 +517,139 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
      (POSTv u.
        &UNIT_TYPE () u *
        STDIO (FST (reader_main fs refs (TL cl))))`,
-
   xcf "reader_main" (get_ml_prog_state())
-  \\ fs [reader_main_def]
-  \\ Cases_on `init_reader () refs` \\ fs []
-  \\ cheat (* TODO *)
-  (*
+  \\ reverse (Cases_on `STD_streams fs`)
+  >- (fs [STDIO_def] \\ xpull)
+  \\ reverse (Cases_on `wfcl cl`)
+  >- (fs [COMMANDLINE_def] \\ xpull)
+  (* TODO is this right? *)
   \\ xhandle
-    `POST
-       (λrv.
-         SEP_EXISTS refs' r.
-           HOL_STORE refs' *
-           &(init_reader () refs = (Success r,refs')) *
-           &THM_TYPE r rv)
-       (λev.
-         SEP_EXISTS refs' e.
-           HOL_STORE refs' *
-           &(init_reader () refs = (Failure e,refs')) *
-           &HOL_EXN_TYPE e ev) (λn c b. &F)`
-  \\ qmatch_goalsub_abbrev_tac`$POSTv Qval`
-  \\ xhandle`$POSTv Qval` \\ xsimpl
-  \\ qunabbrev_tac`Qval`
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto
-  \\ reverse (Cases_on `q`) \\ fs []
+       `POST
+          (λrv.
+            SEP_EXISTS refs' r.
+              HOL_STORE refs' *
+              COMMANDLINE cl *
+              STDIO fs *
+              &(init_reader () refs = (Success r,refs')) *
+              &UNIT_TYPE r rv)
+          (λev.
+            SEP_EXISTS refs' e.
+              HOL_STORE refs' *
+              COMMANDLINE cl *
+              STDIO fs *
+              &(init_reader () refs = (Failure e,refs')) *
+              &HOL_EXN_TYPE e ev)
+          (λn c b. &F)`
   >-
    (
-    CASE_TAC \\ fs []
-    \\ cheat (* TODO *)
-   )
-  \\ qmatch_goalsub_abbrev_tac`$POSTv Qval`
-  \\ xhandle`$POSTv Qval` \\ xsimpl
-  \\ qunabbrev_tac`Qval`
-  \\ xlet_auto >- (xcon \\ xsimpl)
-
-  \\ qmatch_goalsub_abbrev_tac`$POSTv Qval`
-  \\ xlet `$POSTv Qval` \\ xsimpl
-  >-
-   (
-    xapp
+    xlet_auto
+    >- (xcon \\ xsimpl)
+    (* TODO this spec is wrong *)
+    \\ xlet `
+        (POST
+           (λrv.
+                SEP_EXISTS refs' r.
+                    STDIO fs *
+                    COMMANDLINE cl *
+                    HOL_STORE refs' *
+                    &(init_reader () refs = (Success (),refs')) *
+                    &UNIT_TYPE () rv)
+           (λev.
+                SEP_EXISTS refs' e.
+                    STDIO fs *
+                    COMMANDLINE cl *
+                    HOL_STORE refs' *
+                    &(init_reader () refs = (Failure e,refs')) *
+                    &HOL_EXN_TYPE e ev) (λn c b. &F))`
     \\ xsimpl
+    >-
+     (xapp
+      \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `refs`
+      \\ xsimpl)
+    \\ xlet_auto
+    >- (xcon \\ xsimpl)
+    \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
+    >- xsimpl
+    \\ Cases_on `TL cl` \\ fs [LIST_TYPE_def]
+    >-
+     (
+      xmatch
+      \\ xlet_auto
+      >- (xcon \\ xsimpl)
+      \\ xapp
+      \\ xsimpl
+      \\ instantiate
+      \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `refs'`
+      \\ xsimpl
+      \\ cheat (* TODO blah read_stdin *)
+     )
+    \\ xmatch
+    \\ reverse conj_tac
+    >-
+     (rw []
+      \\ Cases_on `t` \\ fs [LIST_TYPE_def]
+      \\ EVAL_TAC)
+    \\ reverse IF_CASES_TAC
+    >-
+     (
+      reverse conj_tac
+      >-
+       (rw []
+        \\ Cases_on `t` \\ fs [LIST_TYPE_def]
+        \\ EVAL_TAC)
+      \\ xapp_spec output_stderr_spec
+      \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `msg_usage`
+      \\ simp [msg_usage_v_thm]
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `fs`
+      \\ xsimpl
+      \\ rw []
+      \\ cheat (* TODO blah msg_usage *)
+     )
+    \\ xapp
+    \\ xsimpl
+    \\ instantiate
+    \\ simp [FILENAME_def]
+    \\ asm_exists_tac \\ fs []
+    \\ simp [RIGHT_EXISTS_AND_THM]
+    \\ conj_tac
+    >-
+     (fs [wfcl_def]
+      \\ Cases_on `cl` \\ fs [] \\ rw []
+      \\ fs [validArg_def])
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `refs`
+    \\ qexists_tac `refs'`
     \\ xsimpl
-    \\ qunabbrev_tac `Qval`
     \\ rw []
-    \\ Cases_on `v` \\ fs [THM_TYPE_def, UNIT_TYPE_def]
-    \\ xsimpl
+    \\ cheat (* TODO blah read_file *)
    )
+  >-
+   (
+    xsimpl
+    \\ cheat (* TODO reader_main should not appear here *)
+   )
+  \\ Cases_on `e` \\ fs [HOL_EXN_TYPE_def]
+  \\ xcases
+  \\ xlet_auto
+  >- xsimpl
+  \\ xapp_spec output_stderr_spec
+  \\ xsimpl
+  \\ asm_exists_tac \\ fs []
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `fs`
+  \\ xsimpl
+  \\ fs [reader_main_def]
+  \\ xsimpl
+  );
 
+  (*
+  *
   \\ reverse (Cases_on `wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
   \\ fs [wfcl_def]
   \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
@@ -511,14 +732,20 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
    whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
      ((=) (FST (reader_main fs init_refs (TL cl))))`,
+  cheat (* TODO *)
+  );
+  (*
   rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
-  \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
+  \\ qexists_tac `fastForwardFD fs1 0` \\ fs [Abbr`fs1`]
   \\ reverse conj_tac
   >-
-   (fs [reader_main_def, read_file_def]
+   (
+    fs [reader_main_def, read_file_def, read_stdin_def]
     \\ every_case_tac
-    \\ fs [GSYM add_stdo_with_numchars, with_same_numchars])
+    \\ fs [GSYM add_stdo_with_numchars, with_same_numchars]
+    \\ fs [add_stdout_fastForwardFD]
+    )
   \\ irule
     (DISCH_ALL ((MP_CANON (MATCH_MP app_wgframe (UNDISCH reader_main_spec)))))
   \\ xsimpl \\ instantiate
@@ -526,6 +753,7 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ qexists_tac `init_refs` \\ xsimpl
   \\ qexists_tac `cl` \\ xsimpl);
+  *)
 
 val _ = add_user_heap_thm HOL_STORE_init_precond;
 
