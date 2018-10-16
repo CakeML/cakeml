@@ -22,6 +22,29 @@ val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
   \\ Induct
   \\ simp[ALIST_FUPDKEY_def,FORALL_PROD]);
 
+val byte_aligned_imp = Q.store_thm("byte_aligned_imp",
+  `byte_aligned (x:word32) ⇒
+   (((((31 >< 2) x):word30) @@ (0w:word2)) = x)`,
+  rw[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_def, alignmentTheory.align_def]
+  \\ blastLib.FULL_BBLAST_TAC);
+
+val dfn'Normal_PC = Q.store_thm("dfn'Normal_PC",
+  `(dfn'Normal x s).PC = s.PC + 4w`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'Normal_def]
+  \\ rw[ag32Theory.norm_def]
+  \\ simp[ag32Theory.ALU_def]
+  \\ PURE_TOP_CASE_TAC \\ simp[ag32Theory.incPC_def]);
+
+val dfn'Normal_MEM = Q.store_thm("dfn'Normal_MEM",
+  `(dfn'Normal x s).MEM = s.MEM`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'Normal_def]
+  \\ rw[ag32Theory.norm_def]
+  \\ simp[ag32Theory.ALU_def]
+  \\ PURE_TOP_CASE_TAC \\ simp[ag32Theory.incPC_def]);
+
+
 val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
   `∀ls fs fs' off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
@@ -1472,7 +1495,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
   \\ rw[] \\ PURE_CASE_TAC \\ fs[] );
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 612n`;
+  length_ag32_ffi_code = 668n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -1532,6 +1555,83 @@ val ag32_ffi_return_thm = Q.store_thm("ag32_ffi_return_thm",
   >- EVAL_TAC
   \\ rw[] \\ fs[]
   \\ EVAL_TAC);
+
+
+fun next_tac n =
+  let
+    val sn = mk_var("s"^(Int.toString n), ``:ag32_state``)
+  in
+    rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
+    \\ qmatch_goalsub_abbrev_tac`Next ^sn`
+    \\ rw[ag32Theory.Next_def]
+    \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+    \\ simp[GSYM get_mem_word_def]
+    \\ `^sn.PC = s.PC + n2w(4 * ^(numSyntax.term_of_int n))`
+    by ( simp[Abbr`^sn`, dfn'Normal_PC] )
+    \\ `byte_aligned ^sn.PC`
+    by (
+      simp[]
+      \\ irule byte_aligned_add \\ simp[]
+      \\ EVAL_TAC )
+    \\ drule byte_aligned_imp
+    \\ simp[]
+    \\ disch_then kall_tac
+    \\ qpat_x_assum`Abbrev(pc = _)`kall_tac
+    \\ first_assum(qspec_then`^(numSyntax.term_of_int n)`mp_tac)
+    \\ impl_tac >- EVAL_TAC
+    \\ simp_tac(srw_ss())[ag32_ffi_return_code_def]
+    \\ `^sn.MEM = s.MEM` by simp[Abbr`^sn`,dfn'Normal_MEM]
+    \\ simp[]
+    \\ disch_then kall_tac
+    \\ simp[ag32_targetProofTheory.Decode_Encode]
+    \\ simp[ag32Theory.Run_def]
+  end
+
+val ag32_ffi_return_code_thm = Q.store_thm("ag32_ffi_return_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_return_code ⇒
+        (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi_return_code))) ∧ byte_aligned s.PC
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_return s)`,
+  rw[ag32_ffi_return_def]
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
+  \\ rw[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ impl_tac >- EVAL_TAC
+  \\ simp_tac(srw_ss())[]
+  \\ imp_res_tac byte_aligned_imp \\ rfs[]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32_ffi_return_code_def, ag32Theory.Run_def]
+  \\ EVERY (List.tabulate(8, next_tac o (curry(op +)1)))
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
+  \\ qmatch_goalsub_abbrev_tac`Next s9`
+  \\ rw[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ `s9.PC = s.PC + n2w(4 * 9)`
+  by ( simp[Abbr`s9`, ag32Theory.dfn'Interrupt_def, ag32Theory.incPC_def] )
+  \\ `byte_aligned s9.PC`
+  by (
+    simp[]
+    \\ irule byte_aligned_add \\ simp[]
+    \\ EVAL_TAC )
+  \\ drule byte_aligned_imp
+  \\ simp[]
+  \\ disch_then kall_tac
+  \\ qpat_x_assum`Abbrev(pc = _)`kall_tac
+  \\ first_assum(qspec_then`9`mp_tac)
+  \\ impl_tac >- EVAL_TAC
+  \\ simp_tac(srw_ss())[ag32_ffi_return_code_def]
+  \\ `s9.MEM = s.MEM` by simp[Abbr`s9`,ag32Theory.dfn'Interrupt_def,ag32Theory.incPC_def]
+  \\ simp[]
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[Once EXISTS_NUM]);
 
 (* exit
    PC is mem_start + ffi_code_start_offset  *)
