@@ -126,7 +126,7 @@ local
 in
   val encode_rwts =
     [ag32_encode_def, ag32_enc_def, ag32_encode1_def, ag32_bop_def,
-     ag32_sh_def, ag32_cmp_def, ag32_constant_def]
+     ag32_sh_def, ag32_cmp_def, ag32_constant_def, ag32_jump_constant_def]
   val encode_extra_rwts = [ri2bits_def, enc_def, encShift_def, Encode_def]
 end
 
@@ -151,7 +151,8 @@ val ag32_encoding = Q.prove (
    `!i. let l = ag32_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [ag32_enc_def, ag32_constant_def, ag32_cmp_def, length_ag32_encode, ag32_encode_def]
+   \\ simp [ag32_enc_def, ag32_constant_def, ag32_jump_constant_def,
+            ag32_cmp_def, length_ag32_encode, ag32_encode_def]
    \\ REPEAT CASE_TAC
    \\ rw [length_ag32_encode]
    )

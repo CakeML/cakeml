@@ -63,6 +63,14 @@ val ag32_constant_def = Define`
    let v = if jmp then v - 8w else v in
     [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
 
+(* Workaround that makes sure that all jump-related instructions
+   are always encoded to the same length.
+   Not using this workaround causes problems in lab_to_target. *)
+val ag32_jump_constant_def = Define`
+  ag32_jump_constant (r, v : word32) =
+   let v = v - 8w in
+    [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
+
 val () = Parse.temp_overload_on ("enc", ``ag32_encode1``)
 val () = Parse.temp_overload_on ("temp_reg", ``63w : word6``)
 
@@ -143,18 +151,12 @@ val ag32_enc_def = Define`
          StoreMEMByte (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (FP _)) = enc ReservedInstr) /\
    (ag32_enc (Jump a) =
-      if -32w <= a /\ a < 32w then
-        enc (Jump (fAdd, temp_reg, Imm (w2w a)))
-      else
         ag32_encode
-          (ag32_constant (temp_reg, a, T) ++
+          (ag32_jump_constant (temp_reg, a) ++
            [Jump (fAdd, temp_reg, Reg temp_reg)])) /\
    (ag32_enc (Call a) =
-      if -32w <= a /\ a < 32w then
-        enc (Jump (fAdd, 0w, Imm (w2w a)))
-      else
         ag32_encode
-          (ag32_constant (temp_reg, a, T) ++
+          (ag32_jump_constant (temp_reg, a) ++
            [Jump (fAdd, 0w, Reg temp_reg)])) /\
    (ag32_enc (JumpReg r) =
       enc (Jump (fSnd, temp_reg, Reg (n2w r)))) /\
@@ -162,25 +164,20 @@ val ag32_enc_def = Define`
       let j = i - 4w in
       ag32_encode
         (Jump (fAdd, n2w r, Imm 4w) ::
-         (if -32w <= j /\ j < 32w then
-            [Normal (fAdd, n2w r, Reg (n2w r), Imm (w2w j))]
-          else
-            (ag32_constant (temp_reg, j, F) ++
-             [Normal (fAdd, n2w r, Reg (n2w r), Reg temp_reg)])))) /\
-   (* TODO: a can sometimes fit as an imm here! *)
+            (ag32_jump_constant (temp_reg, j) ++
+             [Normal (fAdd, n2w r, Reg (n2w r), Reg temp_reg)]))) /\
    (ag32_enc (JumpCmp cmp r1 (Reg r2) a) =
       let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r1), Reg (n2w r2)) in
       ag32_encode
-        (ag32_constant (temp_reg, a, T) ++
+        (ag32_jump_constant (temp_reg, a) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else
            JumpIfNotZero arg])) /\
-   (* TODO: a can sometimes fit as an imm here! *)
    (ag32_enc (JumpCmp cmp r (asm$Imm i) a) =
       let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r), Imm (w2w i)) in
       ag32_encode
-        (ag32_constant (temp_reg, a, T) ++
+        (ag32_jump_constant (temp_reg, a) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else
