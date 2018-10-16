@@ -29,7 +29,7 @@ in
      (ERR "ag32_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset())
       [computeLib.Defs
-       [ag32_enc_def, ag32_constant_def, ag32_cmp_def, ag32_sh_def,
+       [ag32_enc_def, ag32_constant_def, ag32_jump_constant_def, ag32_cmp_def, ag32_sh_def,
         ag32_encode, ag32_encode1_def, Encode_def, enc_def, ag32_bop_def,
         ri2bits_def, funcT2num_thm, encShift_def, shiftT2num_thm],
        computeLib.Tys
