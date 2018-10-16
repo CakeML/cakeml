@@ -56,6 +56,18 @@ val dfn'LoadMEMByte_MEM = Q.store_thm("dfn'LoadMEMByte_MEM",
   \\ rw[ag32Theory.dfn'LoadMEMByte_def]
   \\ simp[ag32Theory.incPC_def]);
 
+val dfn'Shift_PC = Q.store_thm("dfn'Shift_PC",
+  `(ag32$dfn'Shift x s).PC = s.PC + 4w`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'Shift_def]
+  \\ simp[ag32Theory.incPC_def]);
+
+val dfn'Shift_MEM = Q.store_thm("dfn'Shift_MEM",
+  `(ag32$dfn'Shift x s).MEM = s.MEM`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'Shift_def]
+  \\ simp[ag32Theory.incPC_def]);
+
 val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
   `∀ls fs fs' off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
@@ -2335,7 +2347,7 @@ fun next_tac n =
     \\ qmatch_goalsub_abbrev_tac`pc + 2w`
     \\ simp[GSYM get_mem_word_def]
     \\ `^sn.PC = s.PC + n2w(4 * ^(numSyntax.term_of_int n))`
-    by ( simp[Abbr`^sn`, dfn'Normal_PC, dfn'LoadMEMByte_PC] )
+    by ( simp[Abbr`^sn`, dfn'Normal_PC, dfn'LoadMEMByte_PC, dfn'Shift_PC] )
     \\ `byte_aligned ^sn.PC`
     by (
       simp[]
@@ -2347,8 +2359,8 @@ fun next_tac n =
     \\ qpat_x_assum`Abbrev(pc = _)`kall_tac
     \\ first_assum(qspec_then`^(numSyntax.term_of_int n)`mp_tac)
     \\ impl_tac >- EVAL_TAC
-    \\ simp_tac(srw_ss())[ag32_ffi_write_check_conf_code_def]
-    \\ `^sn.MEM = s.MEM` by simp[Abbr`^sn`, dfn'Normal_MEM, dfn'LoadMEMByte_MEM]
+    \\ simp_tac(srw_ss())[ag32_ffi_write_check_conf_code_def, ag32_ffi_write_load_noff_code_def]
+    \\ `^sn.MEM = s.MEM` by simp[Abbr`^sn`, dfn'Normal_MEM, dfn'LoadMEMByte_MEM, dfn'Shift_MEM]
     \\ simp[]
     \\ disch_then kall_tac
     \\ simp[ag32_targetProofTheory.Decode_Encode]
@@ -2380,6 +2392,10 @@ val ag32_ffi_write_check_conf_code_thm = Q.store_thm("ag32_ffi_write_check_conf_
 val ag32_ffi_write_check_conf_MEM = Q.store_thm("ag32_ffi_write_check_conf_MEM",
   `(ag32_ffi_write_check_conf s).MEM = s.MEM`,
   rw[ag32_ffi_write_check_conf_def, dfn'Normal_MEM, dfn'LoadMEMByte_MEM]);
+
+val ag32_ffi_write_check_conf_PC = Q.store_thm("ag32_ffi_write_check_conf_PC",
+  `(ag32_ffi_write_check_conf s).PC = s.PC + 132w`,
+  rw[ag32_ffi_write_check_conf_def, dfn'Normal_PC, dfn'LoadMEMByte_PC]);
 
 val ag32_ffi_write_load_noff_def = Define`
   ag32_ffi_write_load_noff s =
@@ -2499,6 +2515,32 @@ val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
   \\ DEP_REWRITE_TAC[GSYM WORD_ADD_XOR]
   \\ simp[word_mul_n2w, word_add_n2w]
   \\ cheat (* word proof for Magnus *) );
+
+val ag32_ffi_write_load_noff_code_thm = Q.store_thm("ag32_ffi_write_load_noff_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_write_load_noff_code ⇒
+        (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi_write_load_noff_code))) ∧ byte_aligned s.PC
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_load_noff s)`,
+  rw[ag32_ffi_write_load_noff_def]
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
+  \\ rw[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ impl_tac >- EVAL_TAC
+  \\ simp_tac(srw_ss())[]
+  \\ imp_res_tac byte_aligned_imp \\ rfs[]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32_ffi_write_load_noff_code_def, ag32Theory.Run_def]
+  \\ EVERY (List.tabulate(11, next_tac o (curry(op +)1)))
+  \\ rw[Once EXISTS_NUM]);
+
+val ag32_ffi_write_load_noff_MEM = Q.store_thm("ag32_ffi_write_load_noff_MEM",
+  `(ag32_ffi_write_load_noff s).MEM = s.MEM`,
+  rw[ag32_ffi_write_load_noff_def, dfn'Normal_MEM, dfn'LoadMEMByte_MEM, dfn'Shift_MEM]);
 
 val ag32_ffi_write_check_lengths_def = Define`
   ag32_ffi_write_check_lengths s =
@@ -3104,16 +3146,17 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ EVAL_TAC \\ simp[]
     \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def] )
   \\ fs[Abbr`P`]
+  \\ `byte_aligned s1.PC`
+  by (
+    simp[Abbr`s1`]
+    \\ irule byte_aligned_add
+    \\ reverse conj_tac >- EVAL_TAC
+    \\ irule byte_aligned_add
+    \\ reverse conj_tac >- EVAL_TAC
+    \\ simp[] )
   \\ impl_tac
   >- (
     simp[Abbr`s1`]
-    \\ reverse conj_tac
-    >- (
-      irule byte_aligned_add
-      \\ reverse conj_tac >- EVAL_TAC
-      \\ irule byte_aligned_add
-      \\ reverse conj_tac >- EVAL_TAC
-      \\ simp[] )
     \\ fs[ag32_ffi_write_code_def]
     \\ qx_gen_tac`j`
     \\ strip_tac
@@ -3123,7 +3166,30 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = s2`
   \\ `s2.MEM = s1.MEM` by fs[Abbr`s2`, ag32_ffi_write_check_conf_MEM]
-  ag32_ffi_write_load_noff_code_thm
+  \\ qspec_then`s2`mp_tac(Q.GEN`s`ag32_ffi_write_load_noff_code_thm)
+  \\ `s2.PC = s1.PC + 132w` by simp[Abbr`s2`, ag32_ffi_write_check_conf_PC]
+  \\ `byte_aligned s2.PC` by (
+    simp[]
+    \\ irule byte_aligned_add
+    \\ reverse conj_tac >- EVAL_TAC
+    \\ simp[] )
+  \\ impl_tac
+  >- (
+    simp[]
+    \\ fs[ag32_ffi_write_code_def]
+    \\ qx_gen_tac`j`
+    \\ strip_tac
+    \\ first_x_assum(qspec_then`j + LENGTH ag32_ffi_write_set_id_code
+                                  + LENGTH ag32_ffi_write_check_conf_code`mp_tac)
+    \\ impl_tac >- fs[]
+    \\ simp[EL_APPEND_EQN, LEFT_ADD_DISTRIB, GSYM word_add_n2w, Abbr`s1`]
+    \\ qmatch_goalsub_abbrev_tac`get_mem_word _ y`
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`get_mem_word _ x`
+    \\ `x = y` by (simp[Abbr`x`, Abbr`y`] \\ EVAL_TAC \\ simp[])
+    \\ fs[])
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`_ = s3`
 *)
 
 (* open_in *)
