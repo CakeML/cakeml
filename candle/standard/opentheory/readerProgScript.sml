@@ -522,230 +522,106 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on `wfcl cl`)
   >- (fs [COMMANDLINE_def] \\ xpull)
-  (* TODO is this right? *)
-  \\ xhandle
-       `POST
-          (λrv.
-            SEP_EXISTS refs' r.
-              HOL_STORE refs' *
-              COMMANDLINE cl *
-              STDIO fs *
-              &(init_reader () refs = (Success r,refs')) *
-              &UNIT_TYPE r rv)
-          (λev.
-            SEP_EXISTS refs' e.
-              HOL_STORE refs' *
-              COMMANDLINE cl *
-              STDIO fs *
-              &(init_reader () refs = (Failure e,refs')) *
-              &HOL_EXN_TYPE e ev)
-          (λn c b. &F)`
+  \\ simp [reader_main_def]
+  \\ Cases_on `init_reader () refs`
+  \\ rename1 `init_reader _ _ = (res, _)`
+  \\ reverse (Cases_on `res`) \\ fs []
   >-
-   (
-    xlet_auto
-    >- (xcon \\ xsimpl)
-    (* TODO this spec is wrong *)
-    \\ xlet `
-        (POST
-           (λrv.
-                SEP_EXISTS refs' r.
-                    STDIO fs *
-                    COMMANDLINE cl *
-                    HOL_STORE refs' *
-                    &(init_reader () refs = (Success (),refs')) *
-                    &UNIT_TYPE () rv)
-           (λev.
-                SEP_EXISTS refs' e.
-                    STDIO fs *
-                    COMMANDLINE cl *
-                    HOL_STORE refs' *
-                    &(init_reader () refs = (Failure e,refs')) *
-                    &HOL_EXN_TYPE e ev) (λn c b. &F))`
-    \\ xsimpl
+   (CASE_TAC \\ fs []
+    \\ reverse (xhandle
+      `POSTe ev. HOL_STORE r * STDIO fs *
+                 &(HOL_EXN_TYPE (Fail m) ev)`)
     >-
-     (xapp
-      \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV
-      \\ qexists_tac `refs`
-      \\ xsimpl)
-    \\ xlet_auto
-    >- (xcon \\ xsimpl)
-    \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
-    >- xsimpl
-    \\ Cases_on `TL cl` \\ fs [LIST_TYPE_def]
-    >-
-     (
-      xmatch
+     (fs [HOL_EXN_TYPE_def]
+      \\ xcases
       \\ xlet_auto
-      >- (xcon \\ xsimpl)
-      \\ xapp
-      \\ xsimpl
+      >- xsimpl
+      \\ xapp_spec output_stderr_spec
       \\ instantiate
       \\ xsimpl
       \\ CONV_TAC SWAP_EXISTS_CONV
-      \\ qexists_tac `refs'`
-      \\ xsimpl
-      \\ cheat (* TODO blah read_stdin *)
-     )
-    \\ xmatch
-    \\ reverse conj_tac
-    >-
-     (rw []
-      \\ Cases_on `t` \\ fs [LIST_TYPE_def]
-      \\ EVAL_TAC)
-    \\ reverse IF_CASES_TAC
-    >-
-     (
-      reverse conj_tac
-      >-
-       (rw []
-        \\ Cases_on `t` \\ fs [LIST_TYPE_def]
-        \\ EVAL_TAC)
-      \\ xapp_spec output_stderr_spec
-      \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV
-      \\ qexists_tac `msg_usage`
-      \\ simp [msg_usage_v_thm]
-      \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `fs`
-      \\ xsimpl
-      \\ rw []
-      \\ cheat (* TODO blah msg_usage *)
-     )
+      \\ xsimpl)
+    \\ xlet_auto
+    >- (xcon \\ xsimpl)
+    \\ xlet `POSTe ev. HOL_STORE r * STDIO fs * &(HOL_EXN_TYPE (Fail m) ev)`
+    \\ xsimpl
+    \\ xapp
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `refs`
+    \\ xsimpl)
+  \\ qmatch_goalsub_abbrev_tac `$POSTv Q`
+  \\ xhandle `$POSTv Q` \\ xsimpl
+  \\ qunabbrev_tac `Q`
+  \\ xlet_auto
+  >- (xcon \\ xsimpl)
+  \\ xlet `POSTv u. STDIO fs * HOL_STORE r * &UNIT_TYPE () u * COMMANDLINE cl` \\ xsimpl
+  >-
+   (xapp
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `refs`
+    \\ xsimpl)
+  \\ xlet_auto
+  >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
+  >- xsimpl
+  \\ CASE_TAC \\ fs [LIST_TYPE_def]
+  >-
+   (xmatch
+    \\ xlet_auto
+    >- (xcon \\ xsimpl)
     \\ xapp
     \\ xsimpl
     \\ instantiate
-    \\ simp [FILENAME_def]
-    \\ asm_exists_tac \\ fs []
-    \\ simp [RIGHT_EXISTS_AND_THM]
-    \\ conj_tac
-    >-
-     (fs [wfcl_def]
-      \\ Cases_on `cl` \\ fs [] \\ rw []
-      \\ fs [validArg_def])
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `refs'`
-    \\ xsimpl
-    \\ rw []
-    \\ cheat (* TODO blah read_file *)
-   )
-  >-
-   (
-    xsimpl
-    \\ cheat (* TODO reader_main should not appear here *)
-   )
-  \\ Cases_on `e` \\ fs [HOL_EXN_TYPE_def]
-  \\ xcases
-  \\ xlet_auto
-  >- xsimpl
-  \\ xapp_spec output_stderr_spec
-  \\ xsimpl
-  \\ asm_exists_tac \\ fs []
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `fs`
-  \\ xsimpl
-  \\ fs [reader_main_def]
-  \\ xsimpl
-  );
-
-  (*
-  *
-  \\ reverse (Cases_on `wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
-  \\ fs [wfcl_def]
-  \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
-  >-
-   (qexists_tac `STDIO fs * HOL_STORE refs`
+    \\ qexists_tac `r`
     \\ xsimpl)
-  \\ reverse (Cases_on `STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ Cases_on `TL cl` \\ fs [LIST_TYPE_def]
-  >-
-   (xmatch
-    \\ xapp_spec output_stderr_spec
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `msg_usage`
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `fs` \\ xsimpl
-    \\ fs [msg_usage_v_thm, UNIT_TYPE_def])
-  \\ reverse (Cases_on `t`) \\ fs [LIST_TYPE_def]
+  \\ reverse CASE_TAC \\ fs [LIST_TYPE_def]
   >-
    (xmatch
     \\ xapp_spec output_stderr_spec
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `msg_usage`
+    \\ simp [msg_usage_v_thm]
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `fs`
-    \\ xsimpl
-    \\ fs [msg_usage_v_thm, UNIT_TYPE_def])
+    \\ xsimpl)
   \\ xmatch
-  \\ Cases_on `init_reader () refs` \\ fs []
-  \\ drule init_reader_spec
-  \\ disch_then (qspec_then `refs` strip_assume_tac)
-  \\ reverse (Cases_on `q`) \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `$POSTv Q`
-  >-
-   (
-    Cases_on `b` \\ fs []
-    \\ xhandle
-      `POST Q (\ev. &HOL_EXN_TYPE (Fail m) ev *
-                    HOL_STORE r *
-                    COMMANDLINE cl *
-                    STDIO fs) (\x y z. &F)`
-    \\ xsimpl
-    >-
-     (xlet_auto >- (xcon \\ xsimpl)
-      \\ xlet_auto \\ xsimpl
-      \\ fs [UNIT_TYPE_def] \\ rveq
-      \\ xapp
-      \\ xsimpl)
-    \\ fs [HOL_EXN_TYPE_def]
-    \\ xcases
-    \\ xlet_auto >- xsimpl
-    \\ xapp_spec output_stderr_spec \\ xsimpl
-    \\ instantiate
-    \\ unabbrev_all_tac \\ xsimpl
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `fs` \\ xsimpl)
-  \\ xhandle `$POSTv Q` \\ xsimpl
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto \\ xsimpl
-  >- (fs [UNIT_TYPE_def] \\ rveq \\ xapp \\ xsimpl)
   \\ xapp
-  \\ unabbrev_all_tac \\ rw [] \\ xsimpl
-  \\ instantiate \\ xsimpl
+  \\ Cases_on `cl` \\ fs [wfcl_def, FILENAME_def, validArg_def]
+  \\ xsimpl
+  \\ asm_exists_tac \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `r` \\ xsimpl
-  \\ Cases_on `cl` \\ fs [] \\ rveq
-  \\ fs [implode_def, FILENAME_def, validArg_def]
-  \\ asm_exists_tac
+  \\ qexists_tac `r`
   \\ xsimpl);
-  *)
-  );
 
 (* ------------------------------------------------------------------------- *)
 (* whole_prog_spec                                                           *)
 (* ------------------------------------------------------------------------- *)
 
 val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
-  `hasFreeFD fs
+  `hasFreeFD fs /\
+   (?inp. stdin fs inp 0)
    ==>
    whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
      ((=) (FST (reader_main fs init_refs (TL cl))))`,
-  cheat (* TODO *)
-  );
-  (*
   rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
-  \\ qexists_tac `fastForwardFD fs1 0` \\ fs [Abbr`fs1`]
+  \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
   \\ reverse conj_tac
   >-
-   (
-    fs [reader_main_def, read_file_def, read_stdin_def]
+   (fs [reader_main_def, read_file_def, read_stdin_def]
     \\ every_case_tac
     \\ fs [GSYM add_stdo_with_numchars, with_same_numchars]
-    \\ fs [add_stdout_fastForwardFD]
-    )
+    \\ AP_THM_TAC
+    \\ AP_TERM_TAC
+    \\ metis_tac [fastForwardFD_with_numchars, with_same_numchars])
   \\ irule
     (DISCH_ALL ((MP_CANON (MATCH_MP app_wgframe (UNDISCH reader_main_spec)))))
   \\ xsimpl \\ instantiate
@@ -753,7 +629,6 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ qexists_tac `init_refs` \\ xsimpl
   \\ qexists_tac `cl` \\ xsimpl);
-  *)
 
 val _ = add_user_heap_thm HOL_STORE_init_precond;
 
