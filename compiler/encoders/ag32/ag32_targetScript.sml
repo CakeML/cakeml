@@ -54,21 +54,19 @@ val ag32_cmp_def = Define`
    (ag32_cmp NotTest = fAnd)`
 
 val ag32_constant_def = Define`
-  ag32_constant (r, v : word32, jmp) =
+  ag32_constant (r, v : word32) =
   if -0x7FFFFFw <= v /\ v < 0x7FFFFFw then
-   let v = if jmp then v - 4w else v;
-       (b, n) = if 0w <= v then (F, v) else (T, -v) in
+   let (b, n) = if 0w <= v then (F, v) else (T, -v) in
     [LoadConstant (r, b, w2w n)]
   else
-   let v = if jmp then v - 8w else v in
-    [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
+   [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
 
 (* Workaround that makes sure that all jump-related instructions
    are always encoded to the same length.
    Not using this workaround causes problems in lab_to_target. *)
 val ag32_jump_constant_def = Define`
-  ag32_jump_constant (r, v : word32) =
-   let v = v - 8w in
+  ag32_jump_constant (r, v : word32, adjust_offset) =
+   let v = if adjust_offset then v - 8w else v in
     [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
 
 val () = Parse.temp_overload_on ("enc", ``ag32_encode1``)
@@ -78,7 +76,7 @@ val ag32_enc_def = Define`
    (ag32_enc (Inst Skip) =
       enc (Normal (fOr, 0w, Reg 0w, Imm 0w))) /\
    (ag32_enc (Inst (Const r i)) =
-      ag32_encode (ag32_constant (n2w r, i, F))) /\
+      ag32_encode (ag32_constant (n2w r, i))) /\
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Binop bop r1 r2 (asm$Imm i)))) =
@@ -86,7 +84,7 @@ val ag32_enc_def = Define`
       enc (Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Imm (w2w i)))
     else
       ag32_encode
-        (ag32_constant (temp_reg, i, F) ++
+        (ag32_constant (temp_reg, i) ++
         [Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg temp_reg)])) /\
    (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 n))) =
       enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (n2w n)))) /\
@@ -116,7 +114,7 @@ val ag32_enc_def = Define`
          LoadMEM (n2w r1, Reg (n2w r1))]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a, F) ++
+        (ag32_constant (temp_reg, a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
@@ -126,7 +124,7 @@ val ag32_enc_def = Define`
          LoadMEMByte (n2w r1, Reg (n2w r1))]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a, F) ++
+        (ag32_constant (temp_reg, a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEMByte (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Store r1 (Addr r2 a))) =
@@ -136,7 +134,7 @@ val ag32_enc_def = Define`
          StoreMEM (Reg (n2w r1), Reg temp_reg)]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a, F) ++
+        (ag32_constant (temp_reg, a) ++
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
@@ -146,17 +144,17 @@ val ag32_enc_def = Define`
          StoreMEMByte (Reg (n2w r1), Reg temp_reg)]
     else
       ag32_encode
-        (ag32_constant (temp_reg, a, F) ++
+        (ag32_constant (temp_reg, a) ++
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEMByte (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (FP _)) = enc ReservedInstr) /\
    (ag32_enc (Jump a) =
         ag32_encode
-          (ag32_jump_constant (temp_reg, a) ++
+          (ag32_jump_constant (temp_reg, a, T) ++
            [Jump (fAdd, temp_reg, Reg temp_reg)])) /\
    (ag32_enc (Call a) =
         ag32_encode
-          (ag32_jump_constant (temp_reg, a) ++
+          (ag32_jump_constant (temp_reg, a, T) ++
            [Jump (fAdd, 0w, Reg temp_reg)])) /\
    (ag32_enc (JumpReg r) =
       enc (Jump (fSnd, temp_reg, Reg (n2w r)))) /\
@@ -164,12 +162,12 @@ val ag32_enc_def = Define`
       let j = i - 4w in
       ag32_encode
         (Jump (fAdd, n2w r, Imm 4w) ::
-            (ag32_jump_constant (temp_reg, j) ++
+            (ag32_jump_constant (temp_reg, j, F) ++
              [Normal (fAdd, n2w r, Reg (n2w r), Reg temp_reg)]))) /\
    (ag32_enc (JumpCmp cmp r1 (Reg r2) a) =
       let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r1), Reg (n2w r2)) in
       ag32_encode
-        (ag32_jump_constant (temp_reg, a) ++
+        (ag32_jump_constant (temp_reg, a, T) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else
@@ -177,7 +175,7 @@ val ag32_enc_def = Define`
    (ag32_enc (JumpCmp cmp r (asm$Imm i) a) =
       let arg = (ag32_cmp cmp, Reg temp_reg, Reg (n2w r), Imm (w2w i)) in
       ag32_encode
-        (ag32_jump_constant (temp_reg, a) ++
+        (ag32_jump_constant (temp_reg, a, T) ++
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else

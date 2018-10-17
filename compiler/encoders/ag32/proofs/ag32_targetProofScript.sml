@@ -473,10 +473,6 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
         --------------*)
    >- (
       print_tac "Jump"
-      \\ (Cases_on `-32w <= c /\ c < 32w`
-          >| [all_tac,
-              Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw`
-              >| [Cases_on `0w <= c - 4w`, all_tac]])
       \\ next_tac
       )
    >- (
@@ -486,8 +482,6 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
       print_tac "JumpCmp"
       \\ Cases_on `r`
       \\ Cases_on `c`
-      \\ (Cases_on `-0x7FFFFFw <= c0 /\ c0 < 0x7FFFFFw`
-          >| [Cases_on `0w <= c0 - 4w`, all_tac])
       \\ next_tac
       )
       (*--------------
@@ -495,10 +489,6 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
         --------------*)
    >- (
       print_tac "Call"
-      \\ (Cases_on `-32w <= c /\ c < 32w`
-          >| [all_tac,
-              Cases_on `-0x7FFFFFw <= c /\ c < 0x7FFFFFw`
-              >| [Cases_on `0w <= c - 4w`, all_tac]])
       \\ next_tac
       )
    >- (
@@ -513,10 +503,6 @@ val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
           Loc
         --------------*)
       print_tac "Loc"
-      \\ Cases_on `-32w <= c - 4w /\ c - 4w < 32w`
-      >- next_tac
-      \\ (Cases_on `-0x7FFFFFw <= c - 4w /\ c - 4w < 0x7FFFFFw`
-          >| [Cases_on `0w <= c - 4w`, all_tac])
       \\ next_tac
       )
    )
