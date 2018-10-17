@@ -2870,12 +2870,12 @@ val gc_move_inv = store_thm("gc_move_inv",
   \\ imp_res_tac gc_forward_ptr_ok \\ fs []
   \\ fs [heap_length_APPEND,heap_length_heap_expand]
   \\ fs [heap_length_def,el_length_def]
-  \\ rpt (conj_tac THEN1
-   (drule heap_lookup_SPLIT \\ strip_tac \\ fs []
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ fs [gc_forward_ptr_thm] \\ rveq \\ fs []
-    \\ fs [FILTER_APPEND,isDataElement_def,el_length_def,
-           SUM_APPEND,isForwardPointer_def]))
+  \\ rpt (sTHEN1 (conj_tac,
+                  drule heap_lookup_SPLIT \\ strip_tac \\ fs []
+                  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+                  \\ fs [gc_forward_ptr_thm] \\ rveq \\ fs []
+                  \\ fs [FILTER_APPEND,isDataElement_def,el_length_def,
+                         SUM_APPEND,isForwardPointer_def]))
   \\ conj_tac
   THEN1
    (fs [balanced_state_def,heap_length_def,SUM_APPEND,el_length_def] \\ rw []

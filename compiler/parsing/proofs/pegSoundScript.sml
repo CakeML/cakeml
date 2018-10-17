@@ -204,6 +204,11 @@ val mkNd_11 = Q.store_thm(
   ‘mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2’,
   csimp[mkNd_def]);
 
+val kill_asm_guard =
+    sTHEN1 (disch_then (fn th => SUBGOAL_THEN (lhand (concl th))
+                                              (MP_TAC o MATCH_MP th)),
+            simp[])
+
 val peg_linfix_correct_lemma = Q.store_thm(
   "peg_linfix_correct_lemma",
   `∀UpperN sym sepsym i0 i pts.

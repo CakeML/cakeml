@@ -2385,6 +2385,9 @@ fun add_to_clock qtm th g =
         th evaluate_match_add_to_clock_lemma g))
   g
 
+local
+  fun op >>- (t1,i) t2 = sTHEN1(t1, t2)
+in
 val cf_sound = Q.store_thm ("cf_sound",
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`,
 
@@ -2959,6 +2962,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     metis_tac[]
   )
 );
+end (* end local rebinding THEN1 *)
 
 val cf_sound' = Q.store_thm ("cf_sound'",
   `!e env H Q st.

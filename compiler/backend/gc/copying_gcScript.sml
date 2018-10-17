@@ -154,9 +154,10 @@ val gc_move_thm = Q.prove(
     \\ SRW_TAC [] [] \\ full_simp_tac std_ss [])
   \\ full_simp_tac std_ss [gc_inv_def,heap_map1_def]
   \\ Q.ABBREV_TAC `ff = heap_map 0 (ha ++ DataElement ys l d::hb)`
-  \\ rpt (strip_tac THEN1
-   (full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,FILTER_APPEND,
-      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac))
+  \\ rpt (sTHEN1 (strip_tac,
+                  full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,
+                                            isForwardPointer_def,SUM_APPEND,
+                                            el_length_def] \\ decide_tac))
   \\ strip_tac THEN1 (metis_tac [heaps_similar_lemma])
   \\ strip_tac
   THEN1 (full_simp_tac std_ss [EVERY_APPEND] \\ EVAL_TAC \\ full_simp_tac std_ss [])

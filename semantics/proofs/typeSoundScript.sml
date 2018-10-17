@@ -611,13 +611,14 @@ val type_v_list_to_v = Q.store_thm("type_v_list_to_v",
    type_v n ctMap tenvS x t /\
    v_to_list x = SOME xs ==>
      type_v n ctMap tenvS (list_to_v xs) t`,
-   recInduct v_to_list_ind \\ rw [Once type_v_cases]
+   recInduct v_to_list_ind >> reverse (rpt conj_tac)
+   >- (rw [Once type_v_cases] \\ fs [v_to_list_def, list_to_v_def])
    \\ fs [v_to_list_def, list_to_v_def] \\ rw []
    \\ fs [list_to_v_def]
    \\ FULL_CASE_TAC \\ fs [] \\ rw []
    \\ fs [list_to_v_def]
    \\ qpat_x_assum `type_v _ _ _ _ _` mp_tac
-   \\ rw [Once type_v_cases] \\ simp [Once type_v_cases]);
+   \\ ONCE_REWRITE_TAC [type_v_cases] >> dsimp[]);
 
 val type_v_list_to_v_APPEND = Q.store_thm("type_v_list_to_v_APPEND",
   `!xs ys t.

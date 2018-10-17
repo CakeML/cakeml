@@ -1140,7 +1140,7 @@ val pmov_MAP_INJ = Q.store_thm("pmov_MAP_INJ",
   \\ simp[Once pmov_def,SimpRHS]
   \\ match_mp_tac EQ_SYM
   \\ BasicProvers.TOP_CASE_TAC
-  \\ TRY ( BasicProvers.TOP_CASE_TAC >- simp[map_state_def] )
+  \\ TRY (sTHEN1 (BasicProvers.TOP_CASE_TAC, simp[map_state_def] ))
   \\ qmatch_assum_abbrev_tac`⊢ p`
   \\ `p ▷* fstep p`
   by (
