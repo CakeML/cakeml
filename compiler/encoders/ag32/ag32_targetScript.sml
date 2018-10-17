@@ -203,9 +203,9 @@ val ag32_config_def = Define`
                            -32w <= n /\ n < 32w
     ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
     ; byte_offset := (-32w, 31w)
-    ; jump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw + 4w)
-    ; cjump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw + 4w)
-    ; loc_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw + 4w)
+    ; jump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
+    ; cjump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
+    ; loc_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
     |>`
 
 val ag32_proj_def = Define`
