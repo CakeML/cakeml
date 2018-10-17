@@ -2604,15 +2604,19 @@ val ag32_ffi_write_load_noff_R = Q.store_thm("ag32_ffi_write_load_noff_R",
 
 val ag32_ffi_write_check_lengths_def = Define`
   ag32_ffi_write_check_lengths s =
-  let s = dfn'Normal (fLess, 8w, Reg 4w, Reg 7w) s in
+  let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 7w) s in
   let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 8w) s in
   let s = dfn'Normal (fSub, 4w, Reg 4w, Reg 7w) s in
-  let s = dfn'Normal (fLess, 8w, Reg 4w, Reg 1w) s in
+  let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
   let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
   let s = dfn'LoadConstant (4w, F, 4w * 36w) s in
   let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
   s`;
+
+val v2w_sing = store_thm("v2w_sing", (* TODO: move *)
+  ``v2w [b] = if b then 1w else 0w``,
+  Cases_on `b` \\ EVAL_TAC);
 
 val ag32_ffi_write_check_lengths_thm = Q.store_thm("ag32_ffi_write_check_lengths_thm",
   `(s.R 4w = n2w ltll) ∧ (s.R 7w = n2w off) ∧ (s.R 1w = n2w n) ∧ (s.R 6w = v2w [cnd]) ∧
@@ -2642,8 +2646,11 @@ val ag32_ffi_write_check_lengths_thm = Q.store_thm("ag32_ffi_write_check_lengths
     unabbrev_all_tac
     \\ Cases_on`cnd` \\ fs[]
     \\ simp[NOT_LESS_EQUAL]
-    \\ simp[word_lt_n2w]
-    \\ cheat (* word proof for Magnus *) )
+    \\ fs [WORD_LO]
+    \\ Cases_on `ltll < off` \\ fs []
+    \\ fs [NOT_LESS]
+    \\ simp_tac std_ss [addressTheory.WORD_SUB_INTRO,addressTheory.word_arith_lemma2]
+    \\ fs [] \\ rw [v2w_sing])
   \\ qpat_x_assum`Abbrev(b1 = _)`kall_tac
   \\ simp[] \\ rveq
   \\ IF_CASES_TAC
