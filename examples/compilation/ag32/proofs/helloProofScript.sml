@@ -3800,6 +3800,7 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
                    ((1w =+ n2w k) s.R))));
               CarryFlag := cf;
               OverflowFlag := ov |>)`,
+
   rewrite_tac[ag32_ffi_write_num_written_def]
   \\ strip_tac
   \\ simp_tac (srw_ss())
@@ -3860,7 +3861,8 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
   \\ qmatch_goalsub_abbrev_tac`v2w [cnd] = 0w`
   \\ fs[EVAL``output_buffer_size``]
   \\ rfs[word_lt_n2w]
-  \\ `¬BIT 31 n` by cheat (* word proof for Magnus *) \\ fs[]
+  \\ `¬BIT 31 n` by
+    fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO] \\ fs[]
   \\ `MIN n 2048 = if cnd then 2048 else n` by rw[Abbr`cnd`,MIN_DEF]
   \\ fs[] \\ rveq
   \\ fs[asmSemTheory.bytes_in_memory_def]
@@ -3882,6 +3884,7 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
     \\ Cases_on`n' = dimword(:32) - 2` \\ fs[]
     \\ NO_TAC)
   >- blastLib.BBLAST_TAC
+  \\ fs [NOT_LESS]
   \\ cheat (* word proof for Magnus *));
 
 val ag32_ffi_write_num_written_code_thm = Q.store_thm("ag32_ffi_write_num_written_code_thm",
