@@ -2545,8 +2545,9 @@ val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
     \\ rw[GSYM word_add_n2w, GSYM word_mul_n2w]
     \\ simp[WORD_MUL_LSL]
     \\ DEP_REWRITE_TAC[GSYM WORD_ADD_XOR]
-    \\ simp[word_mul_n2w]
-    \\ cheat (* word proof for Magnus *) )
+    \\ match_mp_tac (blastLib.BBLAST_PROVE
+        ``w1 <+ 256w ==> (0w = (w1 && 256w * w2:word32))``)
+    \\ fs [WORD_LO] )
   \\ fs[asmSemTheory.bytes_in_memory_def]
   \\ rw[]
   \\ Cases_on`s.MEM (s.R 1w)` \\ fs[]
@@ -2556,8 +2557,10 @@ val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
   \\ simp[w2w_n2w]
   \\ simp[bitTheory.BITS_ZERO3]
   \\ DEP_REWRITE_TAC[GSYM WORD_ADD_XOR]
-  \\ simp[word_mul_n2w, word_add_n2w]
-  \\ cheat (* word proof for Magnus *) );
+  \\ simp[GSYM word_mul_n2w, GSYM word_add_n2w]
+  \\ match_mp_tac (blastLib.BBLAST_PROVE
+      ``w1 <+ 256w ==> (0w = (w1 && 256w * w2:word32))``)
+  \\ fs [WORD_LO]);
 
 val ag32_ffi_write_load_noff_code_thm = Q.store_thm("ag32_ffi_write_load_noff_code_thm",
   `(∀k. k < LENGTH ag32_ffi_write_load_noff_code ⇒
