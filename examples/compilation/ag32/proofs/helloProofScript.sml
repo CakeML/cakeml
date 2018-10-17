@@ -2012,7 +2012,7 @@ val ag32_ffi_write_write_header_code_def = Define`
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 9 *)
      StoreMEMByte (Imm 0w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 10 *)
-     Shift (shiftLR, 2w, Reg 1w, Imm 4w); (* r2 = [0w; 0w; 0w; n1] *)
+     Shift (shiftLR, 2w, Reg 1w, Imm 8w); (* r2 = [0w; 0w; 0w; n1] *)
      StoreMEMByte (Reg 2w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 11 *)
      StoreMEMByte (Reg 1w, Reg 5w);
@@ -2723,14 +2723,14 @@ val ag32_ffi_write_write_header_def = Define`
   let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 8w) s in
   let s = dfn'StoreMEM (Imm 0w, Reg 5w) s in
   let s = dfn'Normal (fAdd, 5w, Reg 5w, Imm 4w) s in
-  let s = dfn'Shift (shiftLL, 2w, Reg 2w, Imm 12w) s in
+  let s = dfn'Shift (shiftLL, 2w, Reg 2w, Imm 24w) s in
   let s = dfn'StoreMEM (Reg 2w, Reg 5w) s in
   let s = dfn'Normal (fAdd, 5w, Reg 5w, Imm 4w) s in
   let s = dfn'StoreMEMByte (Imm 0w, Reg 5w) s in
   let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
   let s = dfn'StoreMEMByte (Imm 0w, Reg 5w) s in
   let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
-  let s = dfn'Shift (shiftLR, 2w, Reg 1w, Imm 4w) s in
+  let s = dfn'Shift (shiftLR, 2w, Reg 1w, Imm 8w) s in
   let s = dfn'StoreMEMByte (Reg 2w, Reg 5w) s in
   let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
   let s = dfn'StoreMEMByte (Reg 1w, Reg 5w) s in
@@ -2880,7 +2880,11 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     full_simp_tac std_ss [n2w_11] \\ rfs[Abbr`r2`]
     \\ simp[MarshallingTheory.w22n_def, GSYM word_add_n2w, GSYM word_mul_n2w]
     \\ Cases_on`n1` \\ fs[] \\ rveq
-    \\ cheat (* word proof for Magnus *) )
+    \\ fs [GSYM w2w_def]
+    \\ match_mp_tac (blastLib.BBLAST_PROVE
+        ``w <+ 256w:word32 /\ (k = w2w w) ==> ((7 >< 0)
+          ((256w * w + w2w (n0:word8)) ⋙ 8) = k:word8)``)
+    \\ fs [w2w_def,WORD_LO])
   \\ IF_CASES_TAC
   >- ( full_simp_tac std_ss [n2w_11] \\ rfs[] )
   \\ IF_CASES_TAC
@@ -2897,7 +2901,9 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
-    \\ cheat (* word proof for Magnus *))
+    \\ match_mp_tac (blastLib.BBLAST_PROVE
+         ``w <+ 256w:word32 /\ (k = w2w w) ==> ((31 >< 24) (w ≪ 24) = k:word8)``)
+    \\ fs [WORD_LO,w2w_def])
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
@@ -2910,7 +2916,7 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
-    \\ cheat (* word proof for Magnus *))
+    \\ blastLib.BBLAST_TAC)
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
@@ -2923,7 +2929,7 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
-    \\ cheat (* word proof for Magnus *))
+    \\ blastLib.BBLAST_TAC)
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
@@ -2936,7 +2942,7 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
-    \\ cheat (* word proof for Magnus *))
+    \\ blastLib.BBLAST_TAC)
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
