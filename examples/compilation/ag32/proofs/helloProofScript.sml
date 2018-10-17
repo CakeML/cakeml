@@ -3765,8 +3765,7 @@ val ag32_ffi_write_num_written_def = Define`
   s`;
 
 val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm",
-  `(read_bytearray (s.R 3w) r4 (λa. if a ∈ md then SOME (s.MEM a) else NONE) =
-    SOME (0w::n0::off1::off0::tll)) ∧
+  `bytes_in_memory (s.R 3w) (0w::n0::off1::off0::tll) s.MEM md ∧
    (s.R 1w = n2w n) ∧ (k = MIN n output_buffer_size) ∧ n < dimword(:16)
    ⇒
    ∃r8 cf ov.
@@ -3841,9 +3840,8 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
   \\ rfs[word_lt_n2w]
   \\ `¬BIT 31 n` by cheat (* word proof for Magnus *) \\ fs[]
   \\ `MIN n 2048 = if cnd then 2048 else n` by rw[Abbr`cnd`,MIN_DEF]
-  \\ imp_res_tac read_bytearray_LENGTH
   \\ fs[] \\ rveq
-  \\ fs[read_bytearray_def]
+  \\ fs[asmSemTheory.bytes_in_memory_def]
   \\ fs[CaseEq"option"] \\ rveq
   \\ Cases_on`s.R 3w`
   \\ Cases_on`cnd` \\ fs[markerTheory.Abbrev_def]
@@ -4263,7 +4261,6 @@ val ag32_ffi_write_def = Define`
     else dfn'StoreMEMByte (Imm 1w, Reg 3w) s
   in ag32_ffi_return s`;
 
-(* TODO: WIP
 val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   `(∀k. k < LENGTH ag32_ffi_write_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -4274,8 +4271,10 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
    (w2n (s.R 2w) = LENGTH conf) ∧
    bytes_in_memory (s.R 3w) (n1::n0::off1::off0::tll) s.MEM md ∧
    (w2n (s.R 4w) = 4 + LENGTH tll) ∧
+   w2n (s.R 3w) + 4 + LENGTH tll < dimword(:32) ∧ (* not sure whether/why this is needed: can't get from bytes_in_memory? *)
    DISJOINT md { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_write_code } ∧
    DISJOINT md { w | r0 + n2w startup_code_size <=+ w ∧ w <+ r0 + n2w heap_start_offset }
+   (* ∧ md ⊆ { w | w | r0 <+ w ∧ r0 + w <=+ r0 + n2w memory_size }*)
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_write s)`,
   rw[]
@@ -4683,12 +4682,46 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
     \\ rfs[])
   \\ strip_tac
-  \\ qspec_then`s5`mp_tac(CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_write_num_written_thm))
   \\ `s5.R 3w = s.R 3w`
   by ( simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, Abbr`s2`, Abbr`s1`, APPLY_UPDATE_THM] )
+  \\ qspec_then`s5`mp_tac(CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_write_num_written_thm))
   \\ simp[]
-  \\ disch_then drule
-*)
+  \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ `s4.R 3w = s.R 3w` by simp[Abbr`s4`, Abbr`s3`, Abbr`s2`, Abbr`s1`,APPLY_UPDATE_THM]
+  \\ `s5.R 1w = n2w n`by simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, APPLY_UPDATE_THM]
+  \\ simp[]
+  \\ disch_then(qspecl_then[`tll`,`n`,`md`]mp_tac)
+  \\ impl_tac
+  >- (
+    simp[]
+    \\ simp[Abbr`s5`,APPLY_UPDATE_THM]
+    \\ reverse conj_tac
+    >- (
+      simp[Abbr`n`,MarshallingTheory.w22n_def]
+      \\ Cases_on`n0` \\Cases_on`n1` \\ fs[] )
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ qexists_tac`s.MEM` \\ simp[]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`s.R 3w` \\ simp[word_add_n2w] \\ fs[]
+    \\ gen_tac \\ strip_tac
+    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+    \\ simp[Abbr`s1`,APPLY_UPDATE_THM]
+    \\ EVAL_TAC
+    \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+    \\ fs[word_ls_n2w,word_lo_n2w]
+    \\ drule (GEN_ALL asmPropsTheory.bytes_in_memory_all_pcs)
+    \\ disch_then(qspec_then`0`mp_tac)
+    \\ simp[asmPropsTheory.all_pcs_thm, SUBSET_DEF, PULL_EXISTS]
+    \\ disch_then drule
+    \\ qhdtm_assum`DISJOINT`mp_tac
+    \\ simp_tac (srw_ss()) [IN_DISJOINT,data_to_word_assignProofTheory.IMP]
+    \\ ntac 2 strip_tac
+    \\ first_x_assum drule
+    \\ EVAL_TAC \\ simp[] )
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`_ = s6`
+  \\ fs[]
+  \\ cheat);
 
 (* open_in *)
 
