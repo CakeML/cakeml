@@ -5072,7 +5072,55 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ simp[]
   \\ disch_then(qspec_then`TAKE (MIN n output_buffer_size) (DROP off tll)`mp_tac)
   \\ simp[]
-  \\ impl_tac >- cheat (* running out of steam *)
+  \\ qmatch_asmsub_abbrev_tac`COND cnd`
+  \\ `cnd`
+  by (
+    fs[Abbr`s4`]
+    \\ Cases_on`cnd` \\ fs[]
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ EVAL_TAC )
+  \\ qunabbrev_tac`cnd` \\ fs[]
+  \\ impl_tac >- (
+    reverse conj_tac
+    >- (
+      Cases_on`s.R 3w` \\ fs[word_add_n2w]
+      \\ EVAL_TAC
+      \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+      \\ simp[MIN_DEF]
+      \\ simp[IN_DISJOINT]
+      \\ Cases
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ CCONTR_TAC \\ fs[]
+      \\ qhdtm_x_assum`DISJOINT`mp_tac
+      \\ qhdtm_x_assum`DISJOINT`mp_tac
+      \\ EVAL_TAC
+      \\ simp[IN_DISJOINT, data_to_word_assignProofTheory.IMP]
+      \\ strip_tac
+      \\ first_x_assum drule
+      \\ fs[word_ls_n2w, word_lo_n2w] )
+    \\ `tll = TAKE off tll ++ DROP off tll` by metis_tac[TAKE_DROP]
+    \\ qhdtm_x_assum`bytes_in_memory`mp_tac
+    \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ simp[] \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`TAKE kk ll`
+    \\ `ll = TAKE kk ll ++ DROP kk ll` by metis_tac[TAKE_DROP]
+    \\ qhdtm_x_assum`bytes_in_memory`mp_tac
+    \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ strip_tac
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[Abbr`s6`]
+    \\ gen_tac \\ strip_tac
+    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+    \\ Cases_on`s.R 3w`
+    \\ simp[word_add_n2w, MarshallingTheory.n2w2_def]
+    \\ simp[word_ls_n2w, word_lo_n2w]
+    \\ fs[]
+    \\ rfs[Abbr`ll`]
+    \\ `kk ≤ n` by simp[Abbr`kk`]
+    \\ fs[LENGTH_TAKE_EQ])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = s7`
   \\ fs[]
