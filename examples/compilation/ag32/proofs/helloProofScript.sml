@@ -1990,12 +1990,12 @@ val ag32_ffi_write_load_noff_code_def = Define`
 
 val ag32_ffi_write_check_lengths_code_def = Define`
   ag32_ffi_write_check_lengths_code = [
-     Normal (fLess, 8w, Reg 4w, Reg 7w);  (* r8 = LENGTH tll < w22n [off1; off0] *)
+     Normal (fLower, 8w, Reg 4w, Reg 7w); (* r8 = LENGTH tll < w22n [off1; off0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [off1; off0] *)
      Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
                                                   w22n [off1; off0] ≤ LENGTH tll *)
      Normal (fSub, 4w, Reg 4w, Reg 7w);   (* r4 = LENGTH tll - w22n [off1; off0] *)
-     Normal (fLess, 8w, Reg 4w, Reg 1w);  (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
+     Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      LoadConstant (4w, F, 4w * 36w);
      JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
