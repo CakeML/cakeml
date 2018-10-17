@@ -5125,7 +5125,19 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ qmatch_asmsub_abbrev_tac`_ = s7`
   \\ fs[]
   \\ qspec_then`s7`mp_tac(Q.GEN`s`ag32_ffi_return_code_thm)
-  \\ impl_tac >- cheat (* running out of steam *)
+  \\ impl_tac >- (
+    reverse conj_tac
+    >- (
+      simp[Abbr`s7`, Abbr`s6`, APPLY_UPDATE_THM, Abbr`wcoff`]
+      \\ CONV_TAC(RAND_CONV EVAL) \\ simp[]
+      \\ irule byte_aligned_add
+      \\ simp[]
+      \\ EVAL_TAC )
+    \\ qx_gen_tac`j` \\ strip_tac
+    \\ simp[Abbr`s7`]
+    \\ `s6.R 2w = 32w` by simp[Abbr`s6`, APPLY_UPDATE_THM]
+    \\ cheat (* code memory not overwritten. there are similar subgoals above, or just do it again... *)
+  )
   \\ strip_tac
   \\ rpt(qpat_x_assum`FUNPOW Next _ _ = _`(assume_tac o SYM))
   \\ fs[]
