@@ -929,7 +929,7 @@ val ag32_io_events_unchanged = Q.store_thm("ag32_io_events_unchanged",
   \\ PURE_CASE_TAC \\ fs[] \\ rw[]);
 
 val ag32_enc_lengths = Q.store_thm("ag32_enc_lengths",
-  `LENGTH (ag32_enc istr) ∈ {4;8;12}`,
+  `LENGTH (ag32_enc istr) ∈ {4;8;12;16}`,
   Cases_on`istr`
   \\ TRY(rename1`JumpCmp _ _ ri _` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst i ` \\ Cases_on`i`)
@@ -937,6 +937,7 @@ val ag32_enc_lengths = Q.store_thm("ag32_enc_lengths",
   \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
   \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
   \\  rw[ag32_targetTheory.ag32_enc_def,
+         ag32_targetTheory.ag32_constant_def,
          ag32_targetTheory.ag32_encode_def,
          ag32_targetTheory.ag32_encode1_def]);
 
