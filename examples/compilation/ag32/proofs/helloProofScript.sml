@@ -4496,7 +4496,6 @@ val ag32_ffi_write_def = Define`
     else dfn'StoreMEMByte (Imm 1w, Reg 3w) s
   in ag32_ffi_return s`;
 
-(*
 val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   `(∀k. k < LENGTH ag32_ffi_write_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -4927,7 +4926,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ `s5.R 1w = n2w n`by simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, APPLY_UPDATE_THM]
   \\ simp[]
   \\ disch_then(qspecl_then[`tll`,`n`,`md`]mp_tac)
-  \\ impl_tac
+  \\ impl_keep_tac
   >- (
     simp[]
     \\ simp[Abbr`s5`,APPLY_UPDATE_THM]
@@ -5047,11 +5046,27 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ simp[]
     \\ simp[word_ls_n2w, word_lo_n2w] )
   \\ strip_tac
-
-  ag32_ffi_write_copy_thm
-
-  \\ cheat);
-*)
+  \\ qspec_then`s6`mp_tac ag32_ffi_write_copy_thm
+  \\ `s6.R 3w = s5.R 3w + 4w + n2w off`
+  by (
+    simp[Abbr`s6`, APPLY_UPDATE_THM]
+    \\ simp[Abbr`s5`, APPLY_UPDATE_THM]
+    \\ simp[Abbr`s4`, APPLY_UPDATE_THM]
+    \\ simp[Abbr`s3`, APPLY_UPDATE_THM] )
+  \\ simp[]
+  \\ disch_then(qspec_then`TAKE (MIN n output_buffer_size) (DROP off tll)`mp_tac)
+  \\ simp[]
+  \\ impl_tac >- cheat (* running out of steam *)
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`_ = s7`
+  \\ fs[]
+  \\ qspec_then`s7`mp_tac(Q.GEN`s`ag32_ffi_return_code_thm)
+  \\ impl_tac >- cheat (* running out of steam *)
+  \\ strip_tac
+  \\ rpt(qpat_x_assum`FUNPOW Next _ _ = _`(assume_tac o SYM))
+  \\ fs[]
+  \\ simp[GSYM FUNPOW_ADD]
+  \\ metis_tac[]);
 
 (* open_in *)
 
