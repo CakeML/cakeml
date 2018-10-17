@@ -1074,7 +1074,8 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
       \\ qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
       \\ Cases_on`k` \\ fs[]
       \\ Cases_on`n'` \\ fs[]
-      \\ Cases_on`n''` \\ fs[] )
+      \\ Cases_on`n''` \\ fs[]
+      \\ Cases_on`n'` \\ fs[] )
     \\ Cases_on`DROP j bs` \\ fs[DROP_NIL]
     \\ simp[asmSemTheory.bytes_in_memory_def]
     \\ rw[]
@@ -5563,11 +5564,13 @@ val startup_asm_code_def = Define`
 val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
   ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
 
+(*
 val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
   `∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code n cl bl) ≤ startup_code_size`,
   gen_tac
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
   \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
+*)
 
 val ag32_prog_addresses_def = Define`
   ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 =
@@ -6399,7 +6402,7 @@ val hello_init_memory_def = Define`
 
 val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
-   (LENGTH (hello_init_memory_words cl inp) = 27569117)`, (* adjust as necessary *)
+   (LENGTH (hello_init_memory_words cl inp) = 27572109)`, (* adjust as necessary *)
   simp[hello_init_memory_words_def]
   \\ simp[LENGTH_words_of_bytes_hello_startup_code,LENGTH_ag32_ffi_code,heap_size_def,
           output_buffer_size_def,startup_code_size_def,LENGTH_hello_startup_code,
@@ -8209,7 +8212,8 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       \\ strip_tac \\ fs[]
       \\ Cases_on`k` \\ fs[]
       \\ Cases_on`n` \\ fs[]
-      \\ Cases_on`n'` \\ fs[] )
+      \\ Cases_on`n'` \\ fs[]
+      \\ Cases_on`n` \\ fs[] )
     \\ `∀j. j < 4 ⇒ (m (pc + n2w j) = EL j (DROP (4 * k) (ag32_enc i)))`
     by (
       qmatch_asmsub_abbrev_tac`bytes_in_memory pc bs`
