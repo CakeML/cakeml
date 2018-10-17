@@ -1135,7 +1135,7 @@ val heap_size_def = Define`
   heap_size = 100 * 1024 * 1024n`;
 
 val startup_code_size_def = Define`
-  startup_code_size = 216n`;
+  startup_code_size = 288n`;
 
 (* Memory Layout:
 
@@ -2006,7 +2006,7 @@ val ag32_ffi_write_write_header_code_def = Define`
      Normal (fSub, 5w, Reg 5w, Reg 8w);   (* r5 = mem_start + output_offset *)
      StoreMEM (Imm 0w, Reg 5w);
      Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 4 *)
-     Shift (shiftLL, 2w, Reg 2w, Imm 12w);(* r2 = [conf0; 0w; 0w; 0w] *)
+     Shift (shiftLL, 2w, Reg 2w, Imm 24w);(* r2 = [conf0; 0w; 0w; 0w] *)
      StoreMEM (Reg 2w, Reg 5w);
      Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 8 *)
      StoreMEMByte (Imm 0w, Reg 5w);
@@ -5172,311 +5172,6 @@ val LENGTH_ag32_ffi_jumps =
       [LENGTH_FLAT,MAP_MAP_o,o_DEF,mk_jump_ag32_code_def,
        Q.ISPEC`λx. 4n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
 
-(*
-(* OLD (for inspiration) algorithm (shallow embedding) for the FFI implementation *)
-
-val hello_ag32_ffi_1_def = Define`
-  hello_ag32_ffi_1 s =
-    let s = incPC () (s with R := ((4w =+ w2w(((22 >< 0)(n2w (heap_size + 4 * LENGTH data + 12) :word32)):23 word)) s.R)) in
-    let s = incPC () (s with R := ((4w =+ bit_field_insert 31 23 (((31 >< 23)(n2w (heap_size + 4 * LENGTH data + 12) :word32)):9 word)
-                                                                    (s.R 4w)) s.R)) in
-    let s = incPC () (s with R := ((3w =+ (s.R 3w) - (s.R 4w)) s.R)) in
-    let s = incPC () (s with MEM := ((s.R 3w) =+ (w2w (s.R 2w))) s.MEM) in
-    let s = incPC () (s with <|
-          R := ((2w =+ (s.R 3w) + (s.R 2w)) s.R)
-        ; OverflowFlag := (w2i (s.R 3w + s.R 2w) ≠ w2i (s.R 3w) + w2i (s.R 2w)) |>) in
-    s`;
-
-val hello_ag32_ffi_2_def = tDefine"hello_ag32_ffi_2"`
-  hello_ag32_ffi_2 s =
-    if (s.R 3w) = (s.R 2w)
-    then s with PC := s.PC + (4w * 6w)
-    else
-    let s = incPC () (incPC () (s with R := ((3w =+ (s.R 3w) + 1w) s.R))) in
-    let s = incPC () (s with R := ((4w =+ w2w (s.MEM (s.R 1w))) s.R)) in
-    let s = incPC () (s with MEM := (((s.R 3w) =+ w2w (s.R 4w)) s.MEM)) in
-    let s = incPC () (s with R := ((1w =+ (s.R 1w) + 1w) s.R)) in
-    hello_ag32_ffi_2 (s with PC := s.PC + (4w * -5w))`
-  (simp[APPLY_UPDATE_THM,ag32Theory.incPC_def]
-   \\ wf_rel_tac`measure (λs. w2n(s.R 2w - s.R 3w ))`
-   \\ simp[APPLY_UPDATE_THM]
-   \\ rw[]
-   \\ Cases_on`s.R 3w`
-   \\ Cases_on`s.R 2w`
-   \\ fs[WORD_LEFT_ADD_DISTRIB]
-   \\ rewrite_tac[WORD_ADD_ASSOC]
-   \\ irule(SIMP_RULE(srw_ss())[]WORD_PRED_THM)
-   \\ fs[]
-   \\ fs[word_add_n2w]
-   \\ rewrite_tac[WORD_SUM_ZERO, WORD_SUB_INTRO, WORD_EQ_NEG]
-   \\ simp[]);
-
-val hello_ag32_ffi_2_ind = theorem"hello_ag32_ffi_2_ind";
-
-val hello_ag32_ffi_3_def = Define`
-  hello_ag32_ffi_3 s =
-    let s = incPC () (s with R := ((1w =+ 0w) s.R)) in
-    let s = incPC () (s with R := ((2w =+ 0w) s.R)) in
-    let s = incPC () (s with R := ((3w =+ 0w) s.R)) in
-    let s = incPC () (s with R := ((4w =+ 0w) s.R)) in
-    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
-    s with <| PC := s.R 0w; R := ((0w =+ s.PC + 4w) s.R) |>`;
-
-val hello_ag32_ffi_def = Define`
-  hello_ag32_ffi s =
-    hello_ag32_ffi_3 (hello_ag32_ffi_2 (hello_ag32_ffi_1 s))`;
-
-val hello_ag32_ffi_1_spec = Q.store_thm("hello_ag32_ffi_1_spec",
-  `(s.R 3w = r0 + n2w (heap_size + 4 * LENGTH data + 12)) ∧
-   (s.R 2w = len)
-   ⇒
-   (hello_ag32_ffi_1 s =
-    s with <| R := ((3w =+ r0) ((4w =+ n2w (heap_size + 4 * LENGTH data + 12)) ((2w =+ r0 + len) s.R)))
-            ; PC := s.PC + 20w
-            ; MEM := ((r0 =+ (w2w len)) s.MEM)
-            ; OverflowFlag := (w2i (r0 + len) ≠ w2i r0 + w2i len)
-            |>)`,
-  rw[hello_ag32_ffi_1_def, ag32Theory.incPC_def]
-  \\ simp[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
-  \\ simp[LENGTH_data,heap_size_def]
-  \\ rw[] \\ fs[]);
-
-val hello_ag32_ffi_2_spec = Q.store_thm("hello_ag32_ffi_2_spec",
-  `∀s i bs.
-   (s.R 3w = r0 + i) ∧
-   (s.R 2w = r0 + i + n2w (LENGTH bs)) ∧
-   (s.R 1w = ptr + i) ∧
-   (∀w. r0 + i <=+ w ∧ w <+ r0 + i + n2w (LENGTH bs) ⇒ w ∉ dm) ∧
-   bytes_in_memory (ptr + i) bs s.MEM dm ∧
-   w2n ptr + w2n i + LENGTH bs < dimword(:32) ∧
-   w2n r0 + w2n i + 1 + LENGTH bs < dimword(:32)
-   ⇒
-   (∃r4.
-    (hello_ag32_ffi_2 s =
-     s with <| PC := s.PC + (4w * 6w)
-             ; R  := ((1w =+ ptr + i + n2w (LENGTH bs))
-                      ((3w =+ r0 + i + n2w (LENGTH bs))
-                       ((4w =+ r4) s.R)))
-             ; MEM := asm_write_bytearray (r0 + 1w + i) bs s.MEM
-             |>))`,
-  Induct_on`bs`
-  >- (
-    rw[lab_to_targetProofTheory.asm_write_bytearray_def]
-    \\ simp[Once hello_ag32_ffi_2_def]
-    \\ simp[ag32Theory.ag32_state_component_equality, FUN_EQ_THM, APPLY_UPDATE_THM]
-    \\ qexists_tac`s.R 4w`
-    \\ rw[] \\ rw[] )
-  \\ rw[]
-  \\ simp[Once hello_ag32_ffi_2_def]
-  \\ IF_CASES_TAC
-  >- (
-    fs[]
-    \\ Cases_on`i` \\ Cases_on`r0` \\ fs[word_add_n2w,ADD1]
-    \\ qpat_x_assum`_ _  < _`assume_tac \\ fs[] )
-  \\ simp[ag32Theory.incPC_def]
-  \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s1`
-  \\ first_x_assum(qspec_then`s1`mp_tac)
-  \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-  \\ disch_then(qspec_then`i + 1w`mp_tac)
-  \\ impl_tac
-  >- (
-    fs[ADD1, GSYM word_add_n2w]
-    \\ conj_tac
-    >- (
-      rw[]
-      \\ first_x_assum match_mp_tac
-      \\ fs[]
-      \\ Cases_on`w`
-      \\ Cases_on`i` \\ Cases_on`r0`
-      \\ fs[word_add_n2w,word_ls_n2w]
-      \\ rfs[] )
-    \\ reverse conj_tac
-    >- ( Cases_on`i` \\ Cases_on`r0` \\ fs[word_add_n2w] )
-    \\ fs[asmSemTheory.bytes_in_memory_def]
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
-    \\ goal_assum(first_assum o mp_then Any mp_tac)
-    \\ simp[APPLY_UPDATE_THM]
-    \\ rw[] \\ fs[]
-    \\ Cases_on`i` \\ fs[]
-    \\ Cases_on`r0` \\ fs[]
-    \\ Cases_on`ptr` \\ fs[word_lo_n2w, word_add_n2w,word_ls_n2w]
-    \\ rfs[]
-    \\ rpt(qpat_x_assum`_ _  < _`mp_tac)
-    \\ strip_tac
-    \\ strip_tac
-    \\ fs[] \\ rw[]
-    \\ `F` suffices_by fs[]
-    \\ imp_res_tac asmPropsTheory.bytes_in_memory_all_pcs
-    \\ pop_assum mp_tac
-    \\ simp[asmPropsTheory.all_pcs_thm,SUBSET_DEF,PULL_EXISTS]
-    \\ qexists_tac`0` \\ simp[]
-    \\ qexists_tac`n` \\ simp[]
-    \\ first_x_assum match_mp_tac
-    \\ simp[word_add_n2w,word_ls_n2w,word_lo_n2w]
-    \\ rfs[])
-  \\ strip_tac
-  \\ qexists_tac`r4`
-  \\ qmatch_asmsub_abbrev_tac`hello_ag32_ffi_2 s1`
-  \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s2`
-  \\ `s1 = s2` by simp[Abbr`s1`,Abbr`s2`]
-  \\ qunabbrev_tac`s1` \\ qunabbrev_tac`s2` \\ fs[]
-  \\ simp[ag32Theory.ag32_state_component_equality]
-  \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
-  \\ simp[APPLY_UPDATE_THM,FUN_EQ_THM,ADD1,GSYM word_add_n2w]
-  \\ reverse(rw[])
-  >- (
-    match_mp_tac mem_eq_imp_asm_write_bytearray_eq
-    \\ simp[APPLY_UPDATE_THM] )
-  \\ fs[asmSemTheory.bytes_in_memory_def]
-  \\ irule asm_write_bytearray_unchanged
-  \\ simp[APPLY_UPDATE_THM]
-  \\ Cases_on`i` \\ Cases_on`r0`
-  \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w]
-  \\ simp[w2w_w2w]
-  \\ irule (GSYM WORD_ALL_BITS)
-  \\ simp[]);
-
-val hello_ag32_ffi_3_spec = Q.store_thm("hello_ag32_ffi_3_spec",
-  `hello_ag32_ffi_3 s =
-     s with <|
-       R := (0w =+ s.PC + (4w * 6w)) ((4w =+ 0w) ((3w =+ 0w) ((2w =+ 0w) ((1w =+ 0w) s.R)))) ;
-       PC := s.R 0w ;
-       io_events := s.io_events ++ [s.MEM]
-       |>`,
-  rw[hello_ag32_ffi_3_def,ag32Theory.incPC_def]
-  \\ rw[ag32Theory.ag32_state_component_equality,APPLY_UPDATE_THM]);
-
-val hello_ag32_ffi_spec = Q.store_thm("hello_ag32_ffi_spec",
-  `(s.R 3w = r0 + n2w (heap_size + 4 * LENGTH data + 12)) ∧
-   (s.R 2w = n2w (LENGTH bs)) ∧
-   (s.R 1w = ptr) ∧
-   (∀w. r0 <=+ w ∧ w <+ r0 + n2w (LENGTH bs + 1) ⇒ w ∉ dm) ∧
-   bytes_in_memory ptr bs s.MEM dm ∧
-   w2n ptr + LENGTH bs < dimword(:32) ∧
-   w2n r0 + LENGTH bs + 1 < dimword(:32)
-   ⇒
-   (hello_ag32_ffi s =
-    s with <| R := ((0w =+ s.PC + 68w)
-                    ((1w =+ 0w)
-                    ((2w =+ 0w)
-                    ((3w =+ 0w)
-                    ((4w =+ 0w) s.R)))));
-              MEM := asm_write_bytearray r0 ((n2w(LENGTH bs))::bs) s.MEM ;
-              PC := s.R 0w;
-              io_events := s.io_events ++ [(asm_write_bytearray r0 ((n2w(LENGTH bs))::bs) s.MEM)] ;
-              OverflowFlag := (w2i (r0 + n2w (LENGTH bs)) ≠ w2i r0 + w2i ((n2w (LENGTH bs)):word32))
-              |>)`,
-  strip_tac
-  \\ simp[hello_ag32_ffi_def]
-  \\ drule (GEN_ALL hello_ag32_ffi_1_spec)
-  \\ disch_then drule
-  \\ disch_then SUBST_ALL_TAC
-  \\ qmatch_goalsub_abbrev_tac`hello_ag32_ffi_2 s2`
-  \\ qspecl_then[`s2`,`0w`,`bs`]mp_tac hello_ag32_ffi_2_spec
-  \\ impl_tac >- (
-    simp[Abbr`s2`,APPLY_UPDATE_THM] \\ fs[]
-    \\ conj_tac >- (
-      rw[]
-      \\ first_x_assum match_mp_tac \\ fs[]
-      \\ Cases_on`w` \\ Cases_on`r0`
-      \\ fs[word_add_n2w,word_lo_n2w] \\ rfs[] )
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
-    \\ goal_assum(first_assum o mp_then Any mp_tac)
-    \\ simp[APPLY_UPDATE_THM] \\ rw[]
-    \\ Cases_on`s.R 1w` \\ fs[word_add_n2w]
-    \\ qpat_x_assum`_ + LENGTH _ < _`assume_tac
-    \\ fs[]
-    \\ imp_res_tac asmPropsTheory.bytes_in_memory_all_pcs
-    \\ first_x_assum(qspec_then`0`mp_tac)
-    \\ simp[asmPropsTheory.all_pcs_thm,SUBSET_DEF,PULL_EXISTS]
-    \\ disch_then drule
-    \\ rw[word_add_n2w]
-    \\ `F` suffices_by fs[]
-    \\ pop_assum mp_tac \\ simp[]
-    \\ first_x_assum match_mp_tac
-    \\ simp[word_add_n2w, word_lo_n2w, word_ls_n2w])
-  \\ disch_then(CHOOSE_THEN SUBST_ALL_TAC)
-  \\ simp[hello_ag32_ffi_3_spec]
-  \\ simp[Abbr`s2`,ag32Theory.ag32_state_component_equality,
-          APPLY_UPDATE_THM,FUN_EQ_THM]
-  \\ conj_asm1_tac
-  >- (
-    rw[]
-    \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def,APPLY_UPDATE_THM]
-    \\ Cases_on`r0 + 1w <=+ x ∧ x <+ r0 + 1w + n2w (LENGTH bs)`
-    >- (
-      rw[]
-      >- ( Cases_on`r0` \\ fs[word_add_n2w, word_ls_n2w,word_lo_n2w] \\ rfs[] )
-      \\ Cases_on`r0` \\ Cases_on`x` \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w] \\ rfs[]
-      \\ qmatch_goalsub_rename_tac`_ _ _ s.MEM (n2w m)`
-      \\ Cases_on `m` \\ fs[ADD1]
-      \\ qmatch_goalsub_rename_tac`_ _ _ s.MEM (n2w (m+1))`
-      \\ `∃p. ((n2w (m+1):word32) = n2w (n+1) + n2w p) ∧ p < LENGTH bs` by (
-        fs[LESS_EQ_EXISTS] \\ fs[word_add_n2w]
-        \\ qexists_tac`p` \\ simp[]
-        \\ rveq \\ fs[])
-      \\ first_assum SUBST_ALL_TAC
-      \\ DEP_REWRITE_TAC[asm_write_bytearray_EL]
-      \\ simp[] )
-    \\ DEP_REWRITE_TAC[SIMP_RULE std_ss [] asm_write_bytearray_unchanged]
-    \\ rw[APPLY_UPDATE_THM, w2w_n2w]
-    \\ Cases_on`x` \\ Cases_on`r0`
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w] \\ rfs[] )
-  \\ rw[]);
-
-(*
-    on entering real FFI code:
-      r0 = return address
-      r1 = pointer to string
-      r2 = length of string
-      r3 = mem_start + heap_size + 4 * LENGTH data + 12
-      r4 = (temporary)
-    r4 <- heap_size + 4 * LENGTH data + 12
-    r3 <- r3 - r4                                (* r3 is now mem_start *)
-    m[r3] <- r2                                  (* write the length *)
-    r2 <- r3 + r2                                (* r2 is now address to stop writing at *)
-    jump forward 6 if r2 = r3
-    r3 <- r3 + 1                                 (* increment target pointer *)
-    r4 <- m[r1]
-    m[r3] <- r4                                  (* (r2 - r3)'th char of string written *)
-    r1 <- r1 + 1                                 (* increment string pointer *)
-    jump back 5
-    r1 <- 0w (* reset registers to    *)
-    r2 <- 0w (* avoid having to       *)
-    r3 <- 0w (* specify their values  *)
-    r4 <- 0w (* in the io_regs oracle *)
-    Interrupt
-    jump to r0
-      on exit:
-      r0 = mem_start + heap_size + 4 * LENGTH data + 48 + LENGTH code + 4 * LENGTH hello_ag32_ffi_code
-      r1 ... r4 = 0w
-*)
-val hello_ag32_ffi_code_def = Define`
-  hello_ag32_ffi_code =
-    [LoadConstant(4w, F, (22 >< 0)((n2w (heap_size + 4 * LENGTH data + 12)):word32))
-    ;LoadUpperConstant(4w, (31 >< 23)((n2w (heap_size + 4 * LENGTH data + 12)):word32))
-    ;Normal(fSub, 3w, Reg 3w, Reg 4w)
-    ;StoreMEMByte(Reg 2w, Reg 3w)
-    ;Normal(fAdd, 2w, Reg 2w, Reg 3w)
-    ;JumpIfNotZero(fEqual, Imm (4w * 6w), Reg 2w, Reg 3w)
-    ;Normal(fInc, 3w, Reg 3w, Imm 0w)
-    ;LoadMEMByte(4w, Reg 1w)
-    ;StoreMEMByte(Reg 4w, Reg 3w)
-    ;Normal(fInc, 1w, Reg 1w, Imm 0w)
-    ;JumpIfZero(fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)
-    ;Normal(fSnd, 1w, Imm 0w, Imm 0w)
-    ;Normal(fSnd, 2w, Imm 0w, Imm 0w)
-    ;Normal(fSnd, 3w, Imm 0w, Imm 0w)
-    ;Normal(fSnd, 4w, Imm 0w, Imm 0w)
-    ;Interrupt
-    ;Jump(fSnd, 0w, Reg 0w)]`;
-
-val LENGTH_hello_ag32_ffi_code =
-  ``LENGTH hello_ag32_ffi_code``
-  |> SIMP_CONV (srw_ss()) [hello_ag32_ffi_code_def]
-
-*)
-
 val ag32_ffi_code_def = Define`
   ag32_ffi_code =
     MAP Encode (
@@ -5566,13 +5261,11 @@ val startup_asm_code_def = Define`
 val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
   ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
 
-(*
 val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
   `∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code n cl bl) ≤ startup_code_size`,
-  gen_tac
+  gen_tac (* change startup_code_size definition if this does not go through *)
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
   \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
-*)
 
 val ag32_prog_addresses_def = Define`
   ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 =
