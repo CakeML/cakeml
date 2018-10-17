@@ -72,27 +72,21 @@ val r = translate ag32_bop_def;
 val r = translate ag32_sh_def;
 val r = translate ag32_cmp_def;
 
-val def = ag32_enc_def
+fun format_def def = def
   |> SIMP_RULE std_ss [pred_setTheory.IN_INSERT,pred_setTheory.NOT_IN_EMPTY,
-                   wordsTheory.WORD_LO,wordsTheory.word_abs_def,
-                   wordsTheory.WORD_LE,wordsTheory.word_extract_def,
-                   wordsTheory.word_bits_mask,wordsTheory.WORD_MUL_LSL,
-                   wordsTheory.word_mul_n2w,addressTheory.word_arith_lemma2,
-                   wordsTheory.WORD_LT,word_msb_word_bit,ag32_constant_def,
-                   EVAL ``dimindex (:32)``,miscTheory.word_bit_test]
+                       wordsTheory.WORD_LO,wordsTheory.word_abs_def,
+                       wordsTheory.WORD_LE,wordsTheory.word_extract_def,
+                       wordsTheory.word_bits_mask,wordsTheory.WORD_MUL_LSL,
+                       wordsTheory.word_mul_n2w,addressTheory.word_arith_lemma2,
+                       wordsTheory.WORD_LT,word_msb_word_bit,ag32_constant_def,
+                       EVAL ``dimindex (:32)``,miscTheory.word_bit_test]
   |> REWRITE_RULE [word_neg];
 
-val r = translate def;
+val r = translate (format_def ag32_jump_constant_def);
 
-val r = translate (ag32_config_def
-  |> SIMP_RULE std_ss [pred_setTheory.IN_INSERT,pred_setTheory.NOT_IN_EMPTY,
-                   wordsTheory.WORD_LO,wordsTheory.word_abs_def,
-                   wordsTheory.WORD_LE,wordsTheory.word_extract_def,
-                   wordsTheory.word_bits_mask,wordsTheory.WORD_MUL_LSL,
-                   wordsTheory.word_mul_n2w,addressTheory.word_arith_lemma2,
-                   wordsTheory.WORD_LT,word_msb_word_bit,ag32_constant_def,
-                   EVAL ``dimindex (:32)``,miscTheory.word_bit_test]
-  |> REWRITE_RULE [word_neg]);
+val r = translate (format_def ag32_enc_def);
+
+val r = translate (format_def ag32_config_def);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
