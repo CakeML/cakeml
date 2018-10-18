@@ -6115,17 +6115,27 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
       \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X] )
     \\ simp[Abbr`md`]
     \\ EVAL_TAC
+    \\ fs[EVAL``code_start_offset _``]
     \\ fs[IN_DISJOINT, LEFT_ADD_DISTRIB, FFI_codes_def]
     \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
     \\ simp[PULL_FORALL]
     \\ Cases \\ Cases
     \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X]
-    \\ fs[EVAL``code_start_offset _``, LEFT_ADD_DISTRIB] \\ rfs[]
-    \\ cheat (* I don't know why this isn't working - need another assumption? *))
+    \\ conj_tac
+    >- (
+      CCONTR_TAC
+      \\ fs[]
+      \\ rveq \\ fs[]
+      \\ qpat_x_assum`_ MOD _ < _`mp_tac \\ simp[]
+      \\ qpat_x_assum`_ ≤ _ MOD _`mp_tac \\ simp[] )
+    \\ simp[data_to_word_assignProofTheory.IMP]
+    \\ strip_tac
+    \\ qx_gen_tac`j`
+    \\ Cases_on`j < 416` \\ simp[])
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]
-  \\ cheat);
+  \\ cheat (* WIP *));
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
