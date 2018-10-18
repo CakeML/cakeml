@@ -426,11 +426,11 @@ end
 
 val opw_lookup : opw -> nat -> nat -> nat
 let opw_lookup op = match op with
-  | Andw -> WNand
-  | Orw -> WNor
-  | Xor -> WNxor
-  | Add -> WNadd
-  | Sub -> WNsub
+  | Andw -> Wand
+  | Orw -> Wor
+  | Xor -> Wxor
+  | Add -> Wadd
+  | Sub -> Wsub
 
 val shift8_lookup : shift -> word8 -> nat -> word8
 let shift8_lookup sh = match sh with
