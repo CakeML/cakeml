@@ -7433,6 +7433,95 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
+val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
+  `(s.PC = r0 + n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   byte_aligned r0 ∧
+   (INDEX_OF nm ffi_names = SOME index) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧ (* only for brute force proof *)
+   (ALOOKUP ffi_entrypoints nm = SOME epc) ∧
+   (∀k. k < 4 ⇒
+     (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+      EL k (mk_jump_ag32_code ffi_names nm)))
+   ⇒
+   ∃k ov cf r5.
+     (FUNPOW Next k s =
+      s with <| PC := r0 + n2w (ffi_code_start_offset + epc)
+              ; R := ((5w =+ r5) s.R)
+              ; CarryFlag := cf
+              ; OverflowFlag := ov |>)`,
+  rw[]
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ simp[FUNPOW]
+  \\ simp[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ simp_tac(srw_ss())[]
+  \\ qpat_x_assum`Abbrev(pc = _)`mp_tac
+  \\ DEP_REWRITE_TAC[byte_aligned_imp]
+  \\ conj_asm1_tac
+  >- ( simp[] \\ irule byte_aligned_add \\ fs[]
+       \\ simp[GSYM word_add_n2w]
+       \\ irule byte_aligned_add
+       \\ conj_tac >- EVAL_TAC
+       \\ simp[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+       \\ EVAL_TAC \\ simp[])
+  \\ strip_tac \\ fs[Abbr`pc`]
+  \\ disch_then kall_tac
+  \\ simp[mk_jump_ag32_code_def]
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def]
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ simp[FUNPOW]
+  \\ simp[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ first_assum(qspec_then`1`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ simp_tac(srw_ss())[]
+  \\ qpat_x_assum`Abbrev(pc = _)`mp_tac
+  \\ DEP_REWRITE_TAC[byte_aligned_imp]
+  \\ conj_asm1_tac
+  >- ( irule byte_aligned_add \\ fs[] \\ EVAL_TAC)
+  \\ strip_tac \\ fs[Abbr`pc`]
+  \\ disch_then kall_tac
+  \\ simp[mk_jump_ag32_code_def]
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'LoadUpperConstant_def, ag32Theory.incPC_def]
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ simp[FUNPOW]
+  \\ simp[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ first_assum(qspec_then`2`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ simp_tac(srw_ss())[]
+  \\ qpat_x_assum`Abbrev(pc = _)`mp_tac
+  \\ DEP_REWRITE_TAC[byte_aligned_imp]
+  \\ conj_asm1_tac
+  >- ( irule byte_aligned_add \\ fs[] \\ EVAL_TAC)
+  \\ strip_tac \\ fs[Abbr`pc`]
+  \\ disch_then kall_tac
+  \\ simp[mk_jump_ag32_code_def]
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def]
+  \\ simp[ag32Theory.dfn'Jump_def, ag32Theory.ALU_def, ag32Theory.ri2word_def]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[Once EXISTS_NUM] \\ disj1_tac
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`if 5w = _ then r5 else _`
+  \\ qexists_tac`r5` \\ rw[]
+  \\ fs[FFI_codes_def]
+  \\ fs[GSYM find_index_INDEX_OF]
+  \\ imp_res_tac find_index_LESS_LENGTH \\ fs[]
+  (* TODO: brute force.. probably can be done better *)
+  \\ `index < 9` by fs[]
+  \\ fs[ffi_entrypoints_def]
+  \\ fs[NUMERAL_LESS_THM]
+  \\ fs[CaseEq"bool"] \\ rveq \\ fs[]
+  \\ EVAL_TAC \\ simp[]);
+
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
