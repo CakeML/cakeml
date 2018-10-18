@@ -7035,14 +7035,14 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ rw[FUN_EQ_THM]
     \\ rw[]
     \\ match_mp_tac EQ_SYM
-    (*
-    \\ first_x_assum irule
+    \\ fs[EVAL``ag32_target.get_byte``]
+    \\ reverse(Cases_on`a ∈ ag32_startup_addresses r0`) \\ fs[]
+    >- (
+      drule RTC_asm_step_outside_mem_domain
+      \\ simp[ag32_init_asm_state_def]
+      \\ fs[is_ag32_init_state_def] )
     \\ imp_res_tac RTC_asm_step_consts \\ fs[]
-    \\ qpat_x_assum`_ ∈ _`mp_tac
-    \\ simp[hello_machine_config_def,ag32_init_asm_state_def]
-    *)
-    \\ cheat (* similar to cheat above, about startup asm not touching memory outside its domain *)
-    )
+    \\ fs[ag32_init_asm_state_def])
   \\ conj_tac >- (
     fs[bytes_in_mem_bytes_in_memory]
     \\ qpat_x_assum`_.pc = _`(assume_tac o SYM) \\ fs[]
