@@ -139,6 +139,7 @@ val word8FromWord64 : word64 -> word8
 declare hol target_rep function word8FromWord64 = `w2w`
 val word64FromWord8 : word8 -> word64
 declare hol target_rep function word64FromWord8 = `w2w`
+(*
 val W8and : word8 -> word8 -> word8
 declare hol target_rep function W8and = `word_and`
 declare isabelle target_rep function W8and = `Bits.bitAND`
@@ -169,6 +170,17 @@ declare isabelle target_rep function W64add = `Groups.plus`
 val W64sub : word64 -> word64 -> word64
 declare hol target_rep function W64sub = `word_sub`
 declare isabelle target_rep function W64sub = `Groups.minus`
+*)
+val Wand : bool list -> bool list -> bool list
+declare hol target_rep function WNand = `band`
+val Wor : bool list -> bool list -> bool list
+declare hol target_rep function WNor = `bor`
+val Wxor : bool list -> bool list -> bool list
+declare hol target_rep function WNxor = `bxor`
+val Wadd : bool list -> bool list -> bool list
+declare hol target_rep function WNadd = `add`
+val Wsub : bool list -> bool list -> bool list
+declare hol target_rep function WNsub = `sub`
 
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`

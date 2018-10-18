@@ -11,9 +11,7 @@ type lit =
   | IntLit of integer
   | Char of char
   | StrLit of string
-  | Word8 of word8
-  | Word64 of word64
-  | WordN of (word_size * bitString)
+  | Word of (bool list)
 
 (* Built-in binary operations *)
 type opn = Plus | Minus | Times | Divide | Modulo

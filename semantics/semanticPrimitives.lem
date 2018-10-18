@@ -424,24 +424,6 @@ let opb_lookup n : integer -> integer -> bool = match n with
   | Geq -> (>=)
 end
 
-val opw8_lookup : opw -> word8 -> word8 -> word8
-let opw8_lookup op = match op with
-  | Andw -> W8and
-  | Orw -> W8or
-  | Xor -> W8xor
-  | Add -> W8add
-  | Sub -> W8sub
-end
-
-val opw64_lookup : opw -> word64 -> word64 -> word64
-let opw64_lookup op = match op with
-  | Andw -> W64and
-  | Orw -> W64or
-  | Xor -> W64xor
-  | Add -> W64add
-  | Sub -> W64sub
-end
-
 (* TODO add these into lib.lem *)
 val opw_lookup : opw -> nat -> nat -> nat
 let opw_lookup op = match op with
