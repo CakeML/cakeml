@@ -8074,17 +8074,25 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
     \\ fs[EVAL``(hello_machine_config r0).target.get_byte``]
     \\ fs[ag32_targetTheory.is_ag32_init_state_def] \\ rfs[]
     \\ rw[]
-    \\ cheat (* needs fixing after startup code domain change *)
-    (*
+    \\ qmatch_goalsub_rename_tac`_ = _ a`
+    \\ `a ∉ ag32_startup_addresses ms0.PC`
+    by (
+      EVAL_TAC
+      \\ ntac 2 (pop_assum mp_tac)
+      \\ EVAL_TAC
+      \\ simp[ffi_names]
+      \\ Cases_on`a` \\ Cases_on`ms0.PC`
+      \\ simp[word_add_n2w]
+      \\ simp[word_ls_n2w, word_lo_n2w]
+      \\ fs[memory_size_def] )
+    \\ first_x_assum drule
+    \\ disch_then(assume_tac o SYM) \\ simp[]
     \\ first_x_assum irule
-    \\ qmatch_goalsub_rename_tac`z ∉ _`
-    \\ Cases_on`ms0.PC` \\ Cases_on`z`
+    \\ Cases_on`ms0.PC` \\ Cases_on`a`
     \\ fs[word_add_n2w, hello_machine_config_halt_pc]
     \\ simp[hello_machine_config_def, ag32_machine_config_def, ffi_names, ag32_prog_addresses_def, LENGTH_code, LENGTH_data]
     \\ EVAL_TAC
-    \\ fs[word_lo_n2w, word_ls_n2w, memory_size_def] \\ rfs[]
-    *)
-    )
+    \\ fs[word_lo_n2w, word_ls_n2w, memory_size_def] \\ rfs[])
   \\ fs[GSYM FUNPOW_ADD, Abbr`ms`]
   \\ strip_tac
   \\ fs[EVAL``(hello_machine_config r0).target.next``,Abbr`mc`,FUNPOW_ADD]
