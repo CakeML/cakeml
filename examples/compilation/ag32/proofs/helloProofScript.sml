@@ -864,6 +864,48 @@ val RTC_asm_step_consts = Q.store_thm("RTC_asm_step_consts",
   \\ fs[asmSemTheory.asm_step_def]
   \\ rw[]);
 
+val mem_op_outside_mem_domain = Q.store_thm("mem_op_outside_mem_domain",
+  `∀m n a s x. x ∉ s.mem_domain ∧ ¬(mem_op m n a s).failed ⇒ ((asmSem$mem_op m n a s).mem x = s.mem x)`,
+  Cases \\ rw[asmSemTheory.mem_op_def]
+  \\ fs[asmSemTheory.mem_load_def,
+        asmSemTheory.mem_store_def,
+        asmSemTheory.upd_reg_def, asmSemTheory.assert_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ cheat);
+
+val inst_outside_mem_domain = Q.store_thm("inst_outside_mem_domain",
+  `∀i. x ∉ s.mem_domain ∧ ¬(inst i s).failed ⇒ ((inst i s).mem x = s.mem x)`,
+  Cases \\ rw[asmSemTheory.inst_def]
+  >- EVAL_TAC
+  \\ rw[mem_op_outside_mem_domain]);
+
+val asm_outside_mem_domain = Q.store_thm("asm_outside_mem_domain",
+  `∀i p s x. x ∉ s.mem_domain ∧ ¬(asm i p s).failed ⇒ ((asm i p s).mem x = s.mem x)`,
+  ho_match_mp_tac asmTheory.asm_induction
+  \\ rw[asmSemTheory.asm_def]
+  >- rw[inst_outside_mem_domain]
+  >- rw[asmSemTheory.jump_to_offset_def]
+  >- rw[asmSemTheory.jump_to_offset_def]
+  >- (rw[asmSemTheory.jump_to_offset_def] >- EVAL_TAC)
+  >- EVAL_TAC
+  >- EVAL_TAC);
+
+val asm_step_outside_mem_domain = Q.store_thm("asm_step_outside_mem_domain",
+  `asm_step c s1 i s2 ⇒
+   (∀x. x ∉ s1.mem_domain ⇒ (s2.mem x = s1.mem x))`,
+  rw[asmSemTheory.asm_step_def]
+  \\ rw[asm_outside_mem_domain]);
+
+val RTC_asm_step_outside_mem_domain = Q.store_thm("RTC_asm_step_outside_mem_domain",
+  `∀s1 s2. RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2
+  ⇒ (∀a. a ∉ s1.mem_domain ⇒ (s2.mem a = s1.mem a))`,
+  ho_match_mp_tac RTC_INDUCT
+  \\ rw[]
+  \\ drule asm_step_outside_mem_domain
+  \\ disch_then drule \\ rw[]
+  \\ fs[asmSemTheory.asm_step_def]
+  \\ metis_tac[asmPropsTheory.asm_consts]);
+
 val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
   `8 ≤ dimindex(:'a) ⇒
    ∀be ls.
@@ -6808,14 +6850,24 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   \\ disch_then drule
   \\ strip_tac
   \\ simp[lab_to_targetProofTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
-  \\ conj_tac >- (
-    fs[hello_machine_config_def, ag32_machine_config_def]
-    \\ fs[asmPropsTheory.target_state_rel_def]
-    \\ cheat (* prove that asm doesn't touch memory outside its domain, then use that? *)
-    )
   \\ drule hello_init_asm_state_RTC_asm_step
   \\ impl_tac >- fs[]
   \\ strip_tac
+  \\ conj_tac >- (
+    fs[hello_machine_config_def, ag32_machine_config_def]
+    \\ fs[asmPropsTheory.target_state_rel_def]
+    \\ fs[EVAL``ag32_target.get_byte``]
+    \\ qx_gen_tac`a` \\ strip_tac
+    \\ drule RTC_asm_step_consts
+    \\ strip_tac \\ fs[]
+    \\ `hello_asm_state0.mem_domain = ag32_startup_addresses r0` by (
+      fs[ag32_init_asm_state_def] )
+    \\ fs[]
+    \\ Cases_on`a ∈ ag32_startup_addresses r0` \\ fs[]
+    \\ drule RTC_asm_step_outside_mem_domain
+    \\ simp[]
+    \\ fs[is_ag32_init_state_def]
+    \\ simp[ag32_init_asm_state_def])
   \\ conj_tac
   >- (
     Q.ISPEC_THEN `hello_machine_config r0 with prog_addresses := ag32_startup_addresses r0`
