@@ -6061,6 +6061,26 @@ val EL_FLAT_MAP_mk_jump_ag32_code = Q.store_thm("EL_FLAT_MAP_mk_jump_ag32_code",
   \\ simp[Once mk_jump_ag32_code_def]
   \\ simp[LEFT_ADD_DISTRIB]);
 
+(*
+TODO: make get_output_io_event / get_ag32_io_event indicate failure (simply) in FFI memory
+val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
+  `(ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs'))
+   ⇒
+   (get_ag32_io_event r0
+     (ag32_ffi_write_mem_update (EL index ffi_names) r0 conf bytes new_bytes m)
+    = get_output_io_event (IO_event "write" conf (ZIP (bytes,new_bytes))))`,
+  rw[]
+  \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
+  \\ fs[fsFFITheory.ffi_write_def]
+  \\ fs[CaseEq"list"]
+  \\ rveq
+  \\ simp[get_output_io_event_def, MAP_ZIP]
+  \\ rewrite_tac[GSYM EL] \\ simp[EL_ZIP]
+  \\ reverse IF_CASES_TAC
+  >- (
+    simp[ag32_ffi_write_mem_update_def]
+*)
+
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ios ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld r0) ms = (SOME conf, SOME bytes)) ∧
@@ -6224,6 +6244,8 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]
+  \\ qpat_x_assum`ag32_ffi_interfer _ _ _ _ = _`(assume_tac o SYM)
+  \\ simp[]
   \\ cheat (* WIP *));
 
 val hello_io_events_def =
