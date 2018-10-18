@@ -81,24 +81,25 @@ fun rename_conv s tm =
   in ALPHA_CONV (mk_var(s,type_of v)) tm end;
 
 val get_index_def = Define `
-  get_index hi his hk hks st sts i =
-    if i = 0:num then (i,hi,hk,st) else
-      let ind = get_index hi his hk hks st sts (i-1) in
-        (i, his ind, hks ind, sts ind)`
+  get_index st states i = if i = 0:num then (i,st) else
+                            (i, states (get_index st states (i-1)))`
+
+val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
+  ``FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io``,
+  cheat);
 
 val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
   ``!p fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
-         (!n. ?i. n < LENGTH (events i)) /\
          (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
          (!i.
             (app p fv [vs i] (Hs i)
                              (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
-        (!i. LPREFIX (fromList (events i)) io) /\ Q io)
+         (!n. ?i. n < LENGTH (events i)) /\
+         (!i. LPREFIX (fromList (events i)) io) /\ Q io)
       ==>
       app p repeat_v [fv; xv] H (POSTd Q)``,
-
   rpt strip_tac
   \\ rw [app_def, app_basic_def]
   \\ fs [repeat_v,do_opapp_def,Once find_recfun_def]
@@ -121,35 +122,127 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
   \\ fs [evaluate_to_heap_def]
   \\ fs [app_def,app_basic_def,POSTv_eq,PULL_EXISTS]
   \\ fs [evaluate_to_heap_def,PULL_EXISTS,cond_STAR]
-  \\ fs [ml_translatorTheory.PULL_EXISTS_EXTRA]
-  \\ `∀x. ∃env exp h_f h_g ck st''.
-            let (i,h_i',h_k',st') = x in
-                 SPLIT (st2heap p st') (h_i',h_k') ⇒
-                 Hs i h_i' ⇒
-                 SPLIT3 (st2heap p st'') (h_f,h_k',h_g) ∧
-                 do_opapp [fv; vs i] = SOME (env,exp) ∧ Hs (SUC i) h_f ∧
-                 evaluate_ck ck st' env [exp] = (st'',Rval [vs (SUC i)])` by
-        fs [FORALL_PROD]
+  \\ qabbrev_tac `assert_Hs = \i st.
+                    ?h_i h_k. SPLIT (st2heap p st) (h_i,h_k) /\ Hs i h_i`
+  \\ `!i st0.
+        assert_Hs i st0 ==>
+        ?env exp ck st1.
+          assert_Hs (i+1) st1 /\
+          do_opapp [fv; vs i] = SOME (env,exp) /\
+          evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+          st1.clock = 0` by
+   (fs [Abbr`assert_Hs`,PULL_EXISTS] \\ rpt strip_tac
+    \\ first_assum drule \\ disch_then drule
+    \\ strip_tac \\ fs [ADD1]
+    \\ fs [evaluate_ck_def]
+    \\ drule evaluatePropsTheory.evaluate_set_clock
+    \\ disch_then (qspec_then `0` mp_tac) \\ strip_tac \\ fs []
+    \\ qexists_tac `ck1` \\ fs [cfStoreTheory.st2heap_clock]
+    \\ rename [`SPLIT3 (st2heap p st4) (h1,h2,h3)`]
+    \\ qexists_tac `h1` \\ fs []
+    \\ qexists_tac `h2 UNION h3` \\ fs []
+    \\ fs [SPLIT3_def,SPLIT_def,IN_DISJOINT,AC UNION_COMM UNION_ASSOC]
+    \\ metis_tac [])
+  \\ `!x. ?ck st1. let (i,st0) = x in
+            assert_Hs i st0 ==>
+            ?env exp.
+              assert_Hs (i+1) st1 /\
+              do_opapp [fv; vs i] = SOME (env,exp) /\
+              evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+              st1.clock = 0` by (fs [FORALL_PROD] \\ metis_tac [])
   \\ pop_assum mp_tac
   \\ simp [SKOLEM_THM]
   \\ fs [FORALL_PROD]
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rr") (rename_conv "envs"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrar") (rename_conv "exps"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarar") (rename_conv "his"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararar") (rename_conv "hks"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarararar") (rename_conv "cks"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararararar") (rename_conv "sts"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rr") (rename_conv "clocks"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrar") (rename_conv "states"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarar") (rename_conv "i"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararar") (rename_conv "st0"))
   \\ strip_tac
-  \\ qabbrev_tac `get_i = get_index h_i his h_k hks st sts`
-  \\ first_x_assum (qspecl_then
-       [`i`,`his (get_i i)`,`hks (get_i i)`,`sts (get_i i)`] (mp_tac o Q.GEN `i`))
-  \\ strip_tac
-  \\ `∀i. SPLIT (st2heap p (sts (get_i i))) (his (get_i i),hks (get_i i)) /\
-          Hs i (his (get_i i))` by cheat
+  \\ qabbrev_tac `get_i = get_index st1 states`
+  \\ qabbrev_tac `cks = clocks o get_i`
+  \\ qabbrev_tac `sts = \i.
+                    if i = 0 then st1 else states (get_index st1 states (i-1))`
+  \\ `∀i.
+        ∃env exp.
+            do_opapp [fv; vs i] = SOME (env,exp) ∧
+            evaluate_ck (cks i) (sts i) env [exp] =
+            (sts (i+1),Rval [vs (i + 1)]) ∧
+            (sts (i+1)).clock = 0 ∧
+            assert_Hs i (sts i) ∧ assert_Hs (i+1) (sts (i+1))` by
+    (Induct THEN1
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ `assert_Hs 0 st1` by
+         (fs [Abbr`assert_Hs`] \\ asm_exists_tac \\ fs [SEP_IMP_def])
+       \\ fs [] \\ once_rewrite_tac [get_index_def] \\ fs []
+       \\ first_x_assum drule \\ strip_tac \\ fs [])
+     \\ fs [ADD1]
+     \\ first_x_assum drule
+     \\ strip_tac \\ fs []
+     \\ `(states (i + 1,sts (i + 1))) = sts (i+2)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ `clocks (i + 1,sts (i + 1)) = cks (i+1)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ fs [])
+  \\ qexists_tac `\i. sts (i+1)`
+  \\ qexists_tac `\i. SUM (GENLIST cks (SUC i)) + 3 * i + 1`
   \\ fs []
-
-
-
+  \\ conj_tac
+  THEN1 (rewrite_tac [GSYM ADD1,GENLIST] \\ fs [SNOC_APPEND,SUM_APPEND])
+  \\ conj_tac
+  THEN1
+   (`st1 = sts 0` by fs[Abbr`sts`]
+    \\ fs [] \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ simp [PULL_FORALL]
+    \\ qid_spec_tac `vs`
+    \\ qid_spec_tac `cks`
+    \\ qid_spec_tac `sts`
+    \\ qid_spec_tac `assert_Hs`
+    \\ rpt (pop_assum kall_tac)
+    \\ Induct_on `i` \\ rw []
+    THEN1
+     (fs [evaluate_ck_def,terminationTheory.evaluate_def]
+      \\ pop_assum (qspec_then `0` strip_assume_tac)
+      \\ fs [evaluateTheory.dec_clock_def,namespaceTheory.nsOptBind_def,
+             build_rec_env_def]
+      \\ simp [do_opapp_def,EVAL ``find_recfun "repeat" [("repeat","f",x)]``]
+      \\ drule evaluatePropsTheory.evaluate_add_to_clock
+      \\ disch_then (qspec_then `1` mp_tac) \\ fs []
+      \\ fs [terminationTheory.evaluate_def]
+      \\ fs [state_component_equality])
+    \\ first_assum (qspec_then `0` strip_assume_tac)
+    \\ simp [evaluate_ck_def,terminationTheory.evaluate_def]
+    \\ simp [evaluateTheory.dec_clock_def,namespaceTheory.nsOptBind_def,
+             build_rec_env_def] \\ fs [evaluate_ck_def]
+    \\ drule evaluatePropsTheory.evaluate_add_to_clock
+    \\ once_rewrite_tac [GENLIST_CONS] \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `(_ with clock := cks 0 + pppp : num)`
+    \\ disch_then (qspec_then `pppp` mp_tac) \\ fs [Abbr `pppp`]
+    \\ disch_then kall_tac
+    \\ simp [do_opapp_def,EVAL ``find_recfun "repeat" [("repeat","f",x)]``]
+    \\ rewrite_tac [MULT_CLAUSES]
+    \\ fs []
+    \\ first_x_assum (qspecl_then [`assert_Hs o SUC`,
+                                   `sts o SUC`,`cks o SUC`,`vs o SUC`] mp_tac)
+    \\ impl_tac THEN1
+     (fs [ADD1] \\ strip_tac
+      \\ first_x_assum (qspec_then `i+1` mp_tac)
+      \\ fs [] \\ strip_tac \\ fs [])
+    \\ fs [ADD1]
+    \\ strip_tac
+    \\ once_rewrite_tac [terminationTheory.evaluate_def]
+    \\ fs [])
+  \\ `!i s. assert_Hs i s ==> s.ffi.io_events = events i` by
+     (fs [Abbr`assert_Hs`] \\ rw []
+      \\ last_x_assum (qspec_then `i` (mp_tac o ONCE_REWRITE_RULE [STAR_COMM]))
+      \\ rw [] \\ fs [one_STAR,SPLIT_def] \\ fs [EXTENSION]
+      \\ match_mp_tac FFI_full_IN_st2heap_IMP \\ fs [] \\ metis_tac [])
+  \\ `!i. (sts i).ffi.io_events = events i` by metis_tac []
+  \\ fs []
   \\ cheat);
 
 val _ = export_theory();
