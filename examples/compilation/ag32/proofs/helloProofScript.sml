@@ -405,6 +405,15 @@ val bytes_in_memory_EL = Q.store_thm("bytes_in_memory_EL",
   \\ disch_then drule
   \\ simp[ADD1, GSYM word_add_n2w]);
 
+val bytes_in_memory_in_domain = Q.store_thm("bytes_in_memory_in_domain",
+  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ ((a + n2w k) ∈ md)`,
+  Induct_on`bs`
+  \\ rw[asmSemTheory.bytes_in_memory_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[ADD1, GSYM word_add_n2w]);
+
 val bytes_in_mem_bytes_in_memory = Q.store_thm("bytes_in_mem_bytes_in_memory",
   `∀a bs m md k. bytes_in_mem a bs m md k ⇔ bytes_in_memory a bs m (md DIFF k)`,
   Induct_on`bs` \\ EVAL_TAC \\ rw[]
@@ -5531,6 +5540,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
    (ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧ (* TODO: this will need to weaken *)
+   (∀fd fnm off. (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒ IS_SOME(ALOOKUP fs.files fnm)) ∧
    (s.PC = r0 + n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "write")))
    ⇒
    (ag32_ffi_write s = ag32_ffi_interfer ffi_names md r0 (index, new_bytes, s))`,
@@ -5634,7 +5644,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
       \\ simp[EXISTS_PROD]
       \\ simp[fsFFITheory.write_def, EXISTS_PROD]
       \\ Cases_on`LENGTH conf = 8` \\ fs[]
-      \\ first_x_assum(qspec_then`w82n conf`mp_tac)
+      \\ last_x_assum(qspec_then`w82n conf`mp_tac)
       \\ Cases_on`w82n conf < 3` \\ fs[]
       \\ simp[IS_SOME_EXISTS]
       \\ strip_tac \\ simp[]
@@ -5876,7 +5886,63 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ qunabbrev_tac`s'`
   \\ fs[]
   \\ simp[Abbr`s3`, APPLY_UPDATE_THM]
-  \\ cheat);
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ A`
+  \\ `B ∧ A` suffices_by rw[]
+  \\ simp[Abbr`B`, FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ EVAL_TAC \\ simp[]
+  \\ qhdtm_x_assum`ag32_ffi_write_copy`kall_tac
+  \\ simp[Abbr`A`]
+  \\ simp[ag32_ffi_write_mem_update_def, ADD1]
+  \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
+  \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ bs'`
+  \\ `bs = SOME bs'`
+  by (
+    simp[Abbr`bs`]
+    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ fs[Abbr`bs'`]
+    \\ gen_tac \\ strip_tac
+    \\ drule bytes_in_memory_EL
+    \\ simp[]
+    \\ drule bytes_in_memory_in_domain
+    \\ simp[] )
+  \\ simp[Abbr`bs`, Abbr`bs'`]
+  \\ fs[fsFFITheory.write_def]
+  \\ `∃x. ALOOKUP fs.infds (w82n conf) = SOME x` by metis_tac[IS_SOME_EXISTS]
+  \\ fs[] \\ Cases_on`x` \\ fs[]
+  \\ first_x_assum drule
+  \\ simp[IS_SOME_EXISTS]
+  \\ strip_tac \\ fs[]
+  \\ rveq \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
+  \\ `bs = SOME conf`
+  by (
+    simp[Abbr`bs`]
+    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ fs[]
+    \\ gen_tac \\ strip_tac
+    \\ conj_tac
+    >- (
+      once_rewrite_tac[WORD_ADD_COMM]
+      \\ irule bytes_in_memory_in_domain
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ simp[] )
+    \\ once_rewrite_tac[WORD_ADD_COMM]
+    \\ irule bytes_in_memory_EL
+    \\ simp[]
+    \\ asm_exists_tac
+    \\ simp[] )
+  \\ simp[Abbr`bs`]
+  \\ qmatch_goalsub_abbrev_tac`lhs = _`
+  \\ DEP_ONCE_REWRITE_TAC[asm_write_bytearray_append]
+  \\ simp[Abbr`lhs`]
+  \\ conj_tac
+  >- (
+    EVAL_TAC
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ rw[MIN_DEF] )
+  \\ rewrite_tac[GSYM WORD_ADD_ASSOC, word_add_n2w]
+  \\ AP_TERM_TAC
+  \\ cheat (* local proof: (roughly) order of non-overlapping memory writes *));
 
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ios ∧
