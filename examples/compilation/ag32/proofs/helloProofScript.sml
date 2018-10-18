@@ -5003,6 +5003,40 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     simp[Abbr`s6`,Abbr`s5`,Abbr`s3`,Abbr`s2`,Abbr`s1`]
     \\ EVAL_TAC \\ simp[] )
   \\ qmatch_asmsub_abbrev_tac`s6.PC = r0 + n2w wcoff`
+  \\ `(∀k. k < LENGTH ag32_ffi_write_code ⇒
+        (get_mem_word s6.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi_write_code)))`
+  by (
+    qx_gen_tac`j`
+    \\ strip_tac
+    \\ full_simp_tac std_ss [GSYM ADD_ASSOC]
+    \\ qmatch_asmsub_abbrev_tac`wcoff = _ + (_ + wcr)`
+    \\ first_x_assum(qspec_then`j`mp_tac)
+    \\ impl_tac >- (
+      simp[Abbr`wcr`]
+      \\ pop_assum mp_tac
+      \\ EVAL_TAC \\ rw[] )
+    \\ simp[]
+    \\ qmatch_goalsub_abbrev_tac`get_mem_word _ y`
+    \\ simp[get_mem_word_def,APPLY_UPDATE_THM,Abbr`s6`]
+    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+    \\ simp[Abbr`y`,Abbr`wcoff`]
+    \\ EVAL_TAC
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ fs[GSYM word_add_n2w]
+    \\ qpat_x_assum`n2w _ ∈ _`mp_tac
+    \\ qhdtm_x_assum`DISJOINT`mp_tac
+    \\ simp_tac (srw_ss()) [IN_DISJOINT,data_to_word_assignProofTheory.IMP]
+    \\ EVAL_TAC
+    \\ ntac 2 strip_tac
+    \\ first_x_assum drule
+    \\ simp[]
+    \\ simp[word_ls_n2w, word_lo_n2w]
+    \\ qpat_x_assum`j < _`mp_tac
+    \\ EVAL_TAC
+    \\ simp[])
   \\ impl_keep_tac
   >- (
     simp[]
@@ -5040,27 +5074,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ `x = y` by (
       simp[Abbr`x`, Abbr`y`,Abbr`wcoff`]
       \\ EVAL_TAC \\ simp[GSYM word_add_n2w] )
-    \\ qpat_x_assum`Abbrev(y = _)`kall_tac
-    \\ pop_assum(SUBST_ALL_TAC o SYM)
-    \\ simp[get_mem_word_def,APPLY_UPDATE_THM,Abbr`s6`]
-    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
-    \\ simp[Abbr`x`,Abbr`wcoff`]
-    \\ EVAL_TAC
-    \\ pop_assum mp_tac
-    \\ EVAL_TAC
-    \\ strip_tac
-    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
-    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
-    \\ fs[word_ls_n2w, word_lo_n2w]
-    \\ fs[GSYM word_add_n2w]
-    \\ qpat_x_assum`n2w _ ∈ _`mp_tac
-    \\ qhdtm_x_assum`DISJOINT`mp_tac
-    \\ simp_tac (srw_ss()) [IN_DISJOINT,data_to_word_assignProofTheory.IMP]
-    \\ EVAL_TAC
-    \\ ntac 2 strip_tac
-    \\ first_x_assum drule
-    \\ simp[]
-    \\ simp[word_ls_n2w, word_lo_n2w] )
+    \\ simp[])
   \\ strip_tac
   \\ qspec_then`s6`mp_tac ag32_ffi_write_copy_thm
   \\ `s6.R 3w = s5.R 3w + 4w + n2w off`
@@ -5136,8 +5150,38 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ qx_gen_tac`j` \\ strip_tac
     \\ simp[Abbr`s7`]
     \\ `s6.R 2w = 32w` by simp[Abbr`s6`, APPLY_UPDATE_THM]
-    \\ cheat (* code memory not overwritten. there are similar subgoals above, or just do it again... *)
-  )
+    \\ full_simp_tac std_ss [GSYM ADD_ASSOC]
+    \\ qmatch_asmsub_abbrev_tac`wcoff = _ + (_ + wcr)`
+    \\ qpat_x_assum`∀k. k < LENGTH ag32_ffi_write_code ⇒ _`
+         (qspec_then`j + wcr DIV 4 + LENGTH ag32_ffi_write_copy_code + 1`mp_tac)
+    \\ impl_tac >- (
+      simp[Abbr`wcr`]
+      \\ qpat_x_assum`j <_`mp_tac
+      \\ EVAL_TAC \\ rw[] )
+    \\ simp[ag32_ffi_write_code_def]
+    \\ qpat_x_assum`j < _`mp_tac \\ strip_tac
+    \\ simp[EL_APPEND_EQN, GSYM LEFT_ADD_DISTRIB, GSYM word_add_n2w, Abbr`s1`, Abbr`wcr`]
+    \\ once_rewrite_tac[MULT_COMM] \\ simp[MULT_DIV]
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ qmatch_goalsub_abbrev_tac`get_mem_word _ y`
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`get_mem_word _ x`
+    \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+    \\ `x = y` by (
+      simp[Abbr`x`, Abbr`y`,Abbr`wcoff`]
+      \\ EVAL_TAC \\ simp[GSYM word_add_n2w] )
+    \\ qpat_x_assum`Abbrev(y = _)`kall_tac
+    \\ pop_assum(SUBST_ALL_TAC o SYM)
+    \\ simp[get_mem_word_def,APPLY_UPDATE_THM]
+    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+    \\ simp[Abbr`x`,Abbr`wcoff`]
+    \\ EVAL_TAC
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ fs[word_add_n2w]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ fs[GSYM word_add_n2w]
+    \\ qpat_x_assum`j < _`mp_tac \\ EVAL_TAC
+    \\ simp[MIN_DEF])
   \\ strip_tac
   \\ rpt(qpat_x_assum`FUNPOW Next _ _ = _`(assume_tac o SYM))
   \\ fs[]
