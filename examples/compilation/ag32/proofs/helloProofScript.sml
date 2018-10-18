@@ -5944,15 +5944,26 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ AP_TERM_TAC
   \\ cheat (* local proof: (roughly) order of non-overlapping memory writes *));
 
+val ag32_fs_ok_def = Define`
+  ag32_fs_ok fs ⇔
+   (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
+   (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧
+   (∀fd fnm off.
+     (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒
+     IS_SOME (ALOOKUP fs.files fnm))`;
+
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ios ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld r0) ms = (SOME conf, SOME bytes)) ∧
    (ffi_write conf bytes fs = SOME (FFIreturn bytes' fs')) ∧
    (INDEX_OF "write" ffi_names = SOME index) ∧
-   w2n r0 + memory_size < dimword (:32) ∧
+   byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
-   (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
+   (*
+   (ms.PC = r0 + n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "write"))) ∧
+   *)
+   ag32_fs_ok fs ∧
    (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
         (get_mem_word ms.MEM (r0 + n2w (ffi_jumps_offset + 4 * k))
          = EL k (ag32_ffi_jumps ffi_names))) ∧
@@ -5994,6 +6005,8 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ imp_res_tac read_bytearray_IMP_mem_SOME
     \\ fs[IS_SOME_EXISTS] )
   \\ strip_tac
+  (* TODO: verify mk_jump_ag32_code and insert it here *)
+  (*
   \\ drule (GEN_ALL ag32_ffi_write_thm)
   \\ disch_then drule
   \\ qpat_x_assum`Abbrev(md = _)`mp_tac
@@ -6002,8 +6015,46 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ disch_then drule
   \\ simp[]
   \\ disch_then(first_assum o mp_then Any mp_tac)
-  (*
-  ag32_ffi_write_code_thm
+  \\ simp[]
+  \\ impl_tac
+  >- (
+    conj_tac >- cheat (* byte array does not wrap *)
+    \\ fs[ag32_fs_ok_def]
+    \\ metis_tac[] )
+  \\ strip_tac
+  \\ drule (GEN_ALL ag32_ffi_write_code_thm)
+  \\ simp[]
+  \\ simp[ffi_entrypoints_def]
+  \\ disch_then drule \\ simp[]
+  \\ `∃n1 n0 off1 off0 tll. bytes = n1::n0::off1::off0::tll`
+  by ( fs[fsFFITheory.ffi_write_def] \\ fs[CaseEq"list"] )
+  \\ rveq
+  \\ disch_then drule
+  \\ fs[]
+  \\ impl_tac
+  >- (
+    conj_tac >- cheat (* byte array does not wrap *)
+    \\ reverse conj_tac
+    >- (
+      simp[Abbr`md`]
+      \\ EVAL_TAC
+      \\ fs[IN_DISJOINT, LEFT_ADD_DISTRIB, FFI_codes_def]
+      \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+      \\ simp[PULL_FORALL]
+      \\ Cases \\ Cases
+      \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X] )
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ fs[IN_DISJOINT, LEFT_ADD_DISTRIB, FFI_codes_def]
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ simp[PULL_FORALL]
+    \\ Cases \\ Cases
+    \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X]
+    \\ fs[EVAL``code_start_offset _``, LEFT_ADD_DISTRIB] \\ rfs[]
+    \\ cheat (* I don't know why this isn't working - need another assumption? *))
+  \\ strip_tac
+  \\ qexists_tac`k`
+  \\ simp[]
   *)
   \\ cheat);
 
@@ -7588,6 +7639,9 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ impl_tac >- (
     conj_tac >- EVAL_TAC
     \\ conj_tac >- ( simp[LENGTH_data, LENGTH_code] \\ EVAL_TAC )
+    (*
+    \\ conj_tac >- ( EVAL_TAC \\ simp[] \\ cheat (* the PC is wrong: we need to prove the jump code correct *))
+    *)
     \\ conj_tac >- cheat (* invariant on fs - can this be added to ag32_ffi_rel maybe?
                             otherwise interference_implemented needs to be tweaked... *)
     \\ conj_tac >- (
