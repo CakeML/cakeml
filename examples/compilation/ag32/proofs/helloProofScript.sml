@@ -1169,10 +1169,10 @@ val ag32_init_asm_state_def = Define`
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 val target_state_rel_ag32_init = Q.store_thm("target_state_rel_ag32_init",
-  `(r0 = 0w) ∧ byte_aligned r0 ∧ is_ag32_init_state m ms ⇒
+  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ is_ag32_init_state m ms ⇒
    target_state_rel ag32_target
     (ag32_init_asm_state m md r0) ms`,
-  rw[asmPropsTheory.target_state_rel_def]
+  rw[markerTheory.Abbrev_def,arithmeticTheory.ALT_ZERO,asmPropsTheory.target_state_rel_def]
   >- (
     rw[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
     \\ fs[is_ag32_init_state_def]
@@ -6785,7 +6785,7 @@ val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_as
   \\ fs[ag32_targetTheory.ag32_target_def]);
 
 val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_init_asm_state",
-  `(r0 = 0w) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
+  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms ⇒
@@ -6810,7 +6810,7 @@ val hello_startup_clock_def =
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
+  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ⇒
@@ -7141,10 +7141,10 @@ val compile_correct_applied =
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
 val hello_installed = Q.store_thm("hello_installed",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
+  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) r0 ms0 ⇒
+   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0 inp cl) ms0)`,
