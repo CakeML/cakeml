@@ -1279,7 +1279,7 @@ val get_output_io_event_def = Define`
         if (SND (HD bs2) = 0w) then
           let written = TAKE k (DROP (w22n [off1; off0]) tll) in
             SOME (conf ++ [0w;0w;n1;n0] ++ written)
-        else NONE
+        else SOME []
       | _ => NONE
     else NONE`;
 
@@ -1287,10 +1287,12 @@ val get_ag32_io_event_def = Define`
   get_ag32_io_event r0 m =
     let call_id = m (r0 + n2w (ffi_code_start_offset - 4)) in
     if call_id = n2w (THE (ALOOKUP FFI_codes "write")) then
-      let n1 = m (r0 + n2w (output_offset + 10)) in
-      let n0 = m (r0 + n2w (output_offset + 11)) in
-      let n = w22n [n1; n0] in
-        read_bytearray (r0 + n2w output_offset) (8 + 4 + n) (SOME o m)
+      if m (r0 + n2w output_offset) = 0w then
+        let n1 = m (r0 + n2w (output_offset + 10)) in
+        let n0 = m (r0 + n2w (output_offset + 11)) in
+        let n = w22n [n1; n0] in
+          read_bytearray (r0 + n2w output_offset) (8 + 4 + n) (SOME o m)
+      else SOME []
     else NONE`;
 
 val stdin_fs_def = Define`
@@ -1335,10 +1337,11 @@ val ag32_ffi_rel_def = Define`
 
 val extract_write_def = Define`
   extract_write fd oevent =
-    let conf = TAKE 8 oevent in
-    if w82n conf = fd then
-      SOME (DROP (8 + 4) oevent)
-    else NONE`;
+    if NULL oevent then NONE else
+      let conf = TAKE 8 oevent in
+      if (w82n conf = fd) then
+        SOME (DROP (8 + 4) oevent)
+      else NONE`;
 
 val extract_writes_def = Define`
   extract_writes fd oevents =
@@ -1500,7 +1503,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
     Cases_on`l0` \\ fs[LUPDATE_def]
     \\ fs[OPTION_CHOICE_EQUALS_OPTION]
     \\ TRY pairarg_tac \\ fs[]
-    \\ fs[extract_writes_def]
+    \\ fs[extract_writes_def, extract_write_def]
     \\ first_x_assum irule
     \\ rveq
     \\ fs[] \\ rfs[]
