@@ -1146,13 +1146,19 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     IMP_RES_TAC push_env_pop_env_s_key_eq>>
     qpat_x_assum`_.stack = _`kall_tac>>
     `s_key_eq s.stack y.stack` by full_simp_tac(srw_ss())[set_store_def]>>
-    full_simp_tac(srw_ss())[SOME_11]>>TRY(CONJ_TAC>>srw_tac[][]>-
-      (qpat_x_assum`gc a = SOME b` mp_tac>>
+    full_simp_tac(srw_ss())[SOME_11]>>
+    TRY(
+     sTHEN1 (
+      CONJ_TAC >> srw_tac[][]
+     ,
+      qpat_x_assum`gc a = SOME b` mp_tac>>
       qpat_x_assum`pop_env a = b` mp_tac>>
-      full_simp_tac(srw_ss())[pop_env_def,gc_def,push_env_def,set_store_def
-        ,LET_THM,env_to_list_def]>>
+      full_simp_tac(srw_ss())[pop_env_def,gc_def,push_env_def,set_store_def,
+                              LET_THM,env_to_list_def]>>
       every_case_tac>>full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def]>>
-      srw_tac[][]>>full_simp_tac(srw_ss())[]))>> TRY(full_simp_tac(srw_ss())[call_env_def,fromList2_def]>>srw_tac[][])>>
+      srw_tac[][]>>full_simp_tac(srw_ss())[]
+     )
+    ) >> TRY(full_simp_tac(srw_ss())[call_env_def,fromList2_def]>>srw_tac[][])>>
     full_case_tac>>full_simp_tac(srw_ss())[get_var_def]>>
     Q.MATCH_ASSUM_ABBREV_TAC `gc a = y`>>
     Q.MATCH_ASSUM_ABBREV_TAC `gc b = SOME x'`>>

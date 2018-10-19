@@ -2770,7 +2770,8 @@ val evaluate_code_SUBMAP = Q.store_thm("evaluate_code_SUBMAP",
     \\ fs[GSYM CONJ_ASSOC]
     \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
     \\ fs[AND_IMP_INTRO]
-    \\ last_x_assum(qspec_then`ss`(fn th => mp_tac th \\ impl_tac >- fs[Abbr`ss`]))
+    \\ last_x_assum(qspec_then`ss`(fn th => sTHEN1(mp_tac th \\ impl_tac,
+                                                   fs[Abbr`ss`])))
     \\ strip_tac \\ fs[] \\ NO_TAC )
   \\ TRY (
        fs[closSemTheory.evaluate_def,
