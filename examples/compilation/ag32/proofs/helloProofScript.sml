@@ -1612,7 +1612,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
   \\ rw[] \\ PURE_CASE_TAC \\ fs[] );
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 668n`;
+  length_ag32_ffi_code = 672n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
