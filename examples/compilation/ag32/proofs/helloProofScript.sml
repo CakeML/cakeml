@@ -5462,11 +5462,13 @@ val ag32_ccache_interfer_def = Define`
 
 val ag32_ffi_write_mem_update_def = Define`
   ag32_ffi_write_mem_update name r0 conf bytes new_bytes mem =
-    if (name = "write") ∧ (HD new_bytes = 0w) then
-      case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
-        let k = MIN (w22n [n1; n0]) output_buffer_size in
-        let written = TAKE k (DROP (w22n [off1; off0]) tll) in
-          asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
+    if (name = "write") then
+      if (HD new_bytes = 0w) then
+        case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
+          let k = MIN (w22n [n1; n0]) output_buffer_size in
+          let written = TAKE k (DROP (w22n [off1; off0]) tll) in
+            asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
+      else ((r0 + n2w output_offset) =+ 1w) mem
     else mem`;
 
 val ag32_ffi_interfer_def = Define`
@@ -5679,6 +5681,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ simp[ag32_ffi_write_mem_update_def]
     \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
     \\ Cases
+    \\ IF_CASES_TAC \\ fs[]
     \\ IF_CASES_TAC
     >- simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
     \\ IF_CASES_TAC
