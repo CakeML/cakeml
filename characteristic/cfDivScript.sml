@@ -86,7 +86,10 @@ val get_index_def = Define `
 
 val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
   ``FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io``,
-  cheat);
+  strip_tac \\ fs [st2heap_def]
+  THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
+  \\ Cases_on `p` \\ fs [ffi2heap_def]
+  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []);
 
 val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
   ``!p fv xv H Q.
