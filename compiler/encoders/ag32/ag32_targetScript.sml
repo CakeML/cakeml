@@ -11,14 +11,11 @@ val ag32_ok_def = Define`
 (* Possible initial states for Ag32, not placed in the L3 ISA because it was
    difficult to express this concisely there *)
 
-val ag32_init_regs_def = Define `
- ag32_init_regs mem_start k = if k = 0n then mem_start else 0w`
-
 val is_ag32_init_state_def = Define `
- is_ag32_init_state mem mem_start s <=>
-  s.PC = mem_start /\
+ is_ag32_init_state mem s <=>
+  s.PC = 0w /\
   s.MEM = mem /\
-  s.R = ag32_init_regs mem_start o w2n /\
+  s.R = K 0w /\
   s.io_events = []`;
 
 (* --- Encode ASM instructions to Ag32 bytes. --- *)
