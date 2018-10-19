@@ -1151,6 +1151,9 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ first_x_assum(qspec_then`0`mp_tac)
   \\ simp[]);
 
+val ag32_init_asm_regs_def = Define `
+ ag32_init_asm_regs mem_start k = if k = 0n then mem_start else 0w`
+
 val ag32_init_asm_state_def = Define`
   ag32_init_asm_state mem md (r0:word32) = <|
     be := F;
@@ -1160,13 +1163,13 @@ val ag32_init_asm_state_def = Define`
     pc := r0;
     mem := mem;
     mem_domain := md ;
-    regs := ag32_init_regs r0
+    regs := ag32_init_asm_regs r0
   |>`;
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 val target_state_rel_ag32_init = Q.store_thm("target_state_rel_ag32_init",
-  `byte_aligned r0 ∧ is_ag32_init_state m r0 ms ⇒
+  `(r0 = 0w) ∧ byte_aligned r0 ∧ is_ag32_init_state m ms ⇒
    target_state_rel ag32_target
     (ag32_init_asm_state m md r0) ms`,
   rw[asmPropsTheory.target_state_rel_def]
@@ -6676,9 +6679,9 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ qpat_x_assum`Abbrev (s2 = _)`mp_tac
   \\ CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)
   \\ simp [ag32_init_asm_state_def]
-  \\ `ag32_init_regs r0 = (λk. ag32_init_regs r0 k)` by simp[FUN_EQ_THM]
+  \\ `ag32_init_asm_regs r0 = (λk. ag32_init_asm_regs r0 k)` by simp[FUN_EQ_THM]
   \\ pop_assum SUBST1_TAC
-  \\ simp[ag32_targetTheory.ag32_init_regs_def]
+  \\ simp[ag32_init_asm_regs_def]
   \\ CONV_TAC (PATH_CONV "lrrr" asm_conv)
   \\ strip_tac
   \\ rewrite_tac[GSYM CONJ_ASSOC]
@@ -6878,10 +6881,10 @@ val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_as
   \\ fs[ag32_targetTheory.ag32_target_def]);
 
 val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_init_asm_state",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
+  `(r0 = 0w) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) r0 ms ⇒
+   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms ⇒
    ∃n. target_state_rel ag32_target (hello_init_asm_state r0 (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses r0) ⇒
@@ -6889,6 +6892,8 @@ val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_
   strip_tac
   \\ imp_res_tac hello_init_asm_state_RTC_asm_step
   \\ drule (GEN_ALL target_state_rel_ag32_init)
+  \\ rveq
+  \\ disch_then drule
   \\ disch_then drule
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
@@ -6904,7 +6909,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) r0 ms0 ⇒
+   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ⇒
    ∃io_regs cc_regs.
    good_init_state (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0 inp cl) ms0)
      (basis_ffi cl fs) code 0
