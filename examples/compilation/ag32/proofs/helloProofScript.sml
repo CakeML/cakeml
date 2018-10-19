@@ -443,22 +443,36 @@ val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_i
   \\ simp[WORD_LOWER_EQ_REFL, word_ls_n2w]
   \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
 
+val all_words_def = Define `
+ (all_words base 0 = ∅) /\
+ (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
+
+val read_bytearray_IMP_bytes_in_memory_all_words = Q.store_thm("read_bytearray_IMP_bytes_in_memory_all_words",
+  `∀p n m ba m' md.
+   (n = LENGTH ba) ∧
+   (∀k. k ∈ all_words p n ⇒ k ∈ md ∧ (m k = SOME (m' k))) ∧
+   (read_bytearray (p:'a word) n m = SOME ba) ⇒
+   bytes_in_memory p ba m' md`,
+  Induct_on`ba` \\ rw[] >- EVAL_TAC
+  \\ simp[asmSemTheory.bytes_in_memory_def]
+  \\ fs[read_bytearray_def, CaseEq"option"]
+  \\ first_assum(qspec_then`p`mp_tac)
+  \\ impl_tac >- simp[all_words_def]
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ fs [all_words_def]
+  \\ metis_tac []);
+
 val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
   `∀p n m ba.
    (read_bytearray p n m = SOME ba) ⇒
-   ∀k. p <=+ k ∧ k <+ p + n2w n ⇒ IS_SOME (m k)`,
-  Induct_on`n`
-  \\ rw[read_bytearray_def] \\ fs[]
-  >- (
-    fs[WORD_LOWER_OR_EQ]
-    \\ metis_tac[WORD_LOWER_NOT_EQ, WORD_LOWER_ANTISYM] )
-  \\ fs[CaseEq"option"]
-  \\ Cases_on`p = k` \\ fs[]
-  \\ first_x_assum drule
-  \\ disch_then irule
-  \\ Cases_on`p` \\ Cases_on`k`
-  \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w]
-  \\ rveq \\ fs[ADD1]);
+   ∀k. k ∈ all_words p n ⇒ IS_SOME (m k)`,
+ Induct_on `n`
+ \\ rw[read_bytearray_def,all_words_def]
+ \\ fs[CaseEq"option"]
+ \\ first_x_assum drule
+ \\ disch_then drule
+ \\ simp []);
 
 val IMP_word_list = Q.store_thm("IMP_word_list",
   `8 <= dimindex(:'a) ⇒
@@ -6024,22 +6038,20 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ fs[EVAL``(ag32_machine_config a b c d).len_reg``]
   \\ fs[EVAL``(ag32_machine_config a b c d).target.get_reg``]
   \\ fs[EVAL``(ag32_machine_config a b c d).target.get_byte``]
-  \\ first_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory)
-  \\ last_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory)
+  \\ first_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory_all_words)
+  \\ last_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory_all_words)
   \\ imp_res_tac read_bytearray_LENGTH \\ fs[]
   \\ qmatch_asmsub_abbrev_tac`_ ∈ md`
   \\ disch_then(qspecl_then[`ms.MEM`,`md`]mp_tac) \\ simp[]
   \\ impl_tac
   >- (
-    conj_tac >- cheat (* byte array does not wrap *)
-    \\ imp_res_tac read_bytearray_IMP_mem_SOME
+    imp_res_tac read_bytearray_IMP_mem_SOME
     \\ fs[IS_SOME_EXISTS] )
   \\ strip_tac
   \\ disch_then(qspecl_then[`ms.MEM`,`md`]mp_tac) \\ simp[]
   \\ impl_tac
   >- (
-    conj_tac >- cheat (* byte array does not wrap *)
-    \\ imp_res_tac read_bytearray_IMP_mem_SOME
+    imp_res_tac read_bytearray_IMP_mem_SOME
     \\ fs[IS_SOME_EXISTS] )
   \\ strip_tac
   \\ drule (GEN_ALL mk_jump_ag32_code_thm)
