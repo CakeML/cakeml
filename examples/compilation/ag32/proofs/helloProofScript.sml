@@ -887,14 +887,37 @@ val RTC_asm_step_consts = Q.store_thm("RTC_asm_step_consts",
   \\ fs[asmSemTheory.asm_step_def]
   \\ rw[]);
 
+val read_mem_word_IMP_mem_eq = store_thm("read_mem_word_IMP_mem_eq",
+  ``!a k s w s'. (read_mem_word a k s = (w,s')) ==> (s'.mem = s.mem)``,
+  Induct_on `k` \\ fs [asmSemTheory.read_mem_word_def]
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ res_tac \\ fs [asmSemTheory.assert_def]
+  \\ rveq \\ fs []);
+
+val write_mem_word_mem_domain = store_thm("write_mem_word_mem_domain",
+  ``!k b a s. (write_mem_word b k a s).mem_domain = s.mem_domain``,
+  Induct \\ fs [asmSemTheory.write_mem_word_def,
+                asmSemTheory.assert_def,asmSemTheory.upd_mem_def]);
+
+val write_mem_word_mem_eq = store_thm("write_mem_word_mem_eq",
+  ``!k b a s x.
+      ~(write_mem_word b k a s).failed /\ x ∉ s.mem_domain ==>
+      ((write_mem_word b k a s).mem x = s.mem x)``,
+  Induct \\ fs [asmSemTheory.write_mem_word_def,APPLY_UPDATE_THM,
+                asmSemTheory.assert_def,asmSemTheory.upd_mem_def]
+  \\ fs [write_mem_word_mem_domain]
+  \\ rw [] \\ res_tac \\ fs []);
+
 val mem_op_outside_mem_domain = Q.store_thm("mem_op_outside_mem_domain",
-  `∀m n a s x. x ∉ s.mem_domain ∧ ¬(mem_op m n a s).failed ⇒ ((asmSem$mem_op m n a s).mem x = s.mem x)`,
+  `∀m n a s x. x ∉ s.mem_domain ∧ ¬(mem_op m n a s).failed ⇒
+               ((asmSem$mem_op m n a s).mem x = s.mem x)`,
   Cases \\ rw[asmSemTheory.mem_op_def]
   \\ fs[asmSemTheory.mem_load_def,
         asmSemTheory.mem_store_def,
         asmSemTheory.upd_reg_def, asmSemTheory.assert_def]
   \\ TRY pairarg_tac \\ fs[]
-  \\ cheat (* local proof *));
+  \\ imp_res_tac read_mem_word_IMP_mem_eq \\ fs []
+  \\ match_mp_tac write_mem_word_mem_eq \\ fs []);
 
 val inst_outside_mem_domain = Q.store_thm("inst_outside_mem_domain",
   `∀i. x ∉ s.mem_domain ∧ ¬(inst i s).failed ⇒ ((inst i s).mem x = s.mem x)`,
