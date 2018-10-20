@@ -7048,6 +7048,16 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
         \\ simp[ag32_prog_addresses_def]
         \\ EVAL_TAC
         \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w, word_ls_n2w, word_lo_n2w] )
+      \\ reverse IF_CASES_TAC
+      >- (
+        rw[APPLY_UPDATE_THM]
+        \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
+        \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
+        \\ simp[ag32_prog_addresses_def]
+        \\ EVAL_TAC
+        \\ qpat_x_assum`Abbrev(r0 = _)`mp_tac
+        \\ simp[Once ALT_ZERO]
+        \\ strip_tac \\ simp[Abbr`r0`] )
       \\ rw[]
       \\ fs[targetSemTheory.read_ffi_bytearrays_def]
       \\ fs[targetSemTheory.read_ffi_bytearray_def]
@@ -7617,10 +7627,10 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
+  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) r0 ms0 ∧
+   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ∧
    Abbrev(ms = FUNPOW Next (hello_startup_clock r0 ms0 inp cl) ms0)
   ⇒
    interference_implemented
@@ -7923,7 +7933,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       \\ first_x_assum irule
       \\ EVAL_TAC
       \\ fs[EVAL``ffi_jumps_offset``, EVAL``ag32_ffi_jumps [_]``]
-      \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
+      \\ Cases_on`r0` \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
       \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[])
     \\ rw[]
     \\ first_assum(mp_then Any mp_tac (GEN_ALL get_mem_word_get_byte))
@@ -8017,7 +8027,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ first_x_assum irule
     \\ EVAL_TAC
     \\ fs[EVAL``LENGTH ag32_ffi_write_code``]
-    \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
+    \\ Cases_on`r0` \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
     \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[])
   \\ strip_tac
   \\ asm_exists_tac
@@ -8073,10 +8083,10 @@ val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
   >- rw[]);
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
+  `Abbrev(r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) r0 ms0
+   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
@@ -8090,6 +8100,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ disch_then(first_assum o mp_then Any mp_tac) \\ fs[]
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ impl_tac >- rw[markerTheory.Abbrev_def]
   \\ strip_tac
   \\ fs[extend_with_resource_limit_def]
   \\ qmatch_asmsub_abbrev_tac`machine_sem mc st ms`
@@ -8100,7 +8111,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ drule hello_interference_implemented
-  \\ impl_tac >- fs[markerTheory.Abbrev_def]
+  \\ impl_tac >- ( fs[] \\ fs[markerTheory.Abbrev_def] )
   \\ strip_tac \\ rfs[]
   \\ disch_then drule
   \\ impl_tac >- (
@@ -8143,20 +8154,20 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
     \\ fs[ag32_targetTheory.is_ag32_init_state_def] \\ rfs[]
     \\ rw[]
     \\ qmatch_goalsub_rename_tac`_ = _ a`
-    \\ `a ∉ ag32_startup_addresses ms0.PC`
+    \\ `a ∉ ag32_startup_addresses r0`
     by (
       EVAL_TAC
       \\ ntac 2 (pop_assum mp_tac)
       \\ EVAL_TAC
       \\ simp[ffi_names]
-      \\ Cases_on`a` \\ Cases_on`ms0.PC`
+      \\ Cases_on`r0` \\ Cases_on`a` \\ Cases_on`ms0.PC`
       \\ simp[word_add_n2w]
       \\ simp[word_ls_n2w, word_lo_n2w]
       \\ fs[memory_size_def] )
     \\ first_x_assum drule
     \\ disch_then(assume_tac o SYM) \\ simp[]
     \\ first_x_assum irule
-    \\ Cases_on`ms0.PC` \\ Cases_on`a`
+    \\ Cases_on`r0` \\ Cases_on`a`
     \\ fs[word_add_n2w, hello_machine_config_halt_pc]
     \\ simp[hello_machine_config_def, ag32_machine_config_def, ffi_names, ag32_prog_addresses_def, LENGTH_code, LENGTH_data]
     \\ EVAL_TAC
