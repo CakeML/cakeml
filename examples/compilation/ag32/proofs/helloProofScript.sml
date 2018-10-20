@@ -447,6 +447,14 @@ val all_words_def = Define `
  (all_words base 0 = ∅) /\
  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
 
+val IN_all_words_add = Q.store_thm("IN_all_words_add",
+  `∀n base x. x < n ⇒ base + n2w x ∈ all_words base n`,
+  Induct \\ rw[all_words_def]
+  \\ Cases_on`x` \\ fs[ADD1]
+  \\ disj2_tac
+  \\ first_x_assum(qspec_then`base+1w`(drule_then mp_tac))
+  \\ rw[GSYM word_add_n2w]);
+
 val read_bytearray_IMP_bytes_in_memory_all_words = Q.store_thm("read_bytearray_IMP_bytes_in_memory_all_words",
   `∀p n m ba m' md.
    (n = LENGTH ba) ∧
