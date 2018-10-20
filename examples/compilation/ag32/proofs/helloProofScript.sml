@@ -1307,7 +1307,7 @@ val get_ag32_io_event_def = Define`
       if m (r0 + n2w output_offset) = 0w then
         let n1 = m (r0 + n2w (output_offset + 10)) in
         let n0 = m (r0 + n2w (output_offset + 11)) in
-        let n = w22n [n1; n0] in
+        let n = MIN (w22n [n1; n0]) output_buffer_size in
           read_bytearray (r0 + n2w output_offset) (8 + 4 + n) (SOME o m)
       else SOME []
     else NONE`;
@@ -6047,7 +6047,37 @@ val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
     \\ rveq \\ fs[]
     \\ rveq
     \\ fs[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM] )
-  \\ cheat (* WIP *));
+  \\ qmatch_goalsub_abbrev_tac`w22n [n1'; n0']`
+  \\ `n1' = n1`
+  by (
+    simp[Abbr`n1'`]
+    \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray _ ls`
+    \\ `n1 = EL 10 ls` by ( simp[Abbr`ls`, EL_APPEND_EQN] )
+    \\ pop_assum SUBST1_TAC
+    \\ simp[GSYM word_add_n2w]
+    \\ irule asm_write_bytearray_EL
+    \\ simp[Abbr`ls`]
+    \\ simp[MIN_DEF, output_buffer_size_def] )
+  \\ qpat_x_assum`Abbrev(n1' = _)`kall_tac
+  \\ `n0' = n0`
+  by (
+    simp[Abbr`n0'`]
+    \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray _ ls`
+    \\ `n0 = EL 11 ls` by ( simp[Abbr`ls`, EL_APPEND_EQN] )
+    \\ pop_assum SUBST1_TAC
+    \\ simp[GSYM word_add_n2w]
+    \\ irule asm_write_bytearray_EL
+    \\ simp[Abbr`ls`]
+    \\ simp[MIN_DEF, output_buffer_size_def] )
+  \\ qpat_x_assum`Abbrev(n0' = _)`kall_tac
+  \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+  \\ simp[]
+  \\ gen_tac \\ strip_tac
+  \\ `r0 + n2w i + n2w output_offset = (r0 + n2w output_offset) + n2w i` by simp[]
+  \\ pop_assum SUBST1_TAC
+  \\ DEP_REWRITE_TAC[asm_write_bytearray_EL]
+  \\ simp[]
+  \\ simp[MIN_DEF, output_buffer_size_def]);
 
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ios ∧
@@ -6237,7 +6267,49 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ cheat (* byte array not too long, may need to assume more *))
   \\ rw[]
   \\ simp[ag32_ffi_write_mem_update_def]
-  \\ cheat (* WIP *));
+  \\ reverse IF_CASES_TAC
+  >- (
+    simp[APPLY_UPDATE_THM]
+    \\ IF_CASES_TAC
+    >- (
+      qpat_x_assum`x ∉ _`mp_tac
+      \\ rveq
+      \\ simp[ag32_ffi_mem_domain_def]
+      \\ EVAL_TAC
+      \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+      \\ fs[word_ls_n2w, word_lo_n2w] )
+    \\ irule asm_write_bytearray_unchanged
+    \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
+    \\ Cases_on`r0` \\ Cases_on`ms.R 3w` \\ fs[memory_size_def]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
+    \\ fs[ADD1]
+    \\ fs[word_add_n2w]
+    \\ conj_tac >- cheat (* byte array not too long *)
+    \\ reverse conj_tac
+    >- (
+      qpat_x_assum`x ∉ _`mp_tac
+      \\ simp[ag32_ffi_mem_domain_def]
+      \\ EVAL_TAC
+      \\ Cases_on`x` \\ fs[word_add_n2w]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ fs[asmSemTheory.bytes_in_memory_def]
+      \\ qpat_x_assum`n2w n' ∈ _`mp_tac
+      \\ simp[Abbr`md`]
+      \\ EVAL_TAC \\ fs[]
+      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w, LEFT_ADD_DISTRIB]
+      \\ fs[EVAL``code_start_offset _``, FFI_codes_def]
+      \\ cheat (* byte array not too long / in range *) )
+    \\ IF_CASES_TAC \\ fs[]
+    \\ qpat_x_assum`x ∉ _`mp_tac
+    \\ rveq
+    \\ simp[ag32_ffi_mem_domain_def]
+    \\ EVAL_TAC
+    \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+  \\ irule asm_write_bytearray_unchanged
+  \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
+  \\ Cases_on`r0` \\ Cases_on`ms.R 3w` \\ fs[memory_size_def]
+  \\ cheat (* various memory non overlapping stuff  *));
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
