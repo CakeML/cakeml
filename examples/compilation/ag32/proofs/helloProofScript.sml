@@ -1302,7 +1302,7 @@ val get_output_io_event_def = Define`
 
 val get_ag32_io_event_def = Define`
   get_ag32_io_event r0 m =
-    let call_id = m (r0 + n2w (ffi_code_start_offset - 4)) in
+    let call_id = m (r0 + n2w (ffi_code_start_offset - 1)) in
     if call_id = n2w (THE (ALOOKUP FFI_codes "write")) then
       if m (r0 + n2w output_offset) = 0w then
         let n1 = m (r0 + n2w (output_offset + 10)) in
@@ -5988,13 +5988,13 @@ val EL_FLAT_MAP_mk_jump_ag32_code = Q.store_thm("EL_FLAT_MAP_mk_jump_ag32_code",
   \\ simp[Once mk_jump_ag32_code_def]
   \\ simp[LEFT_ADD_DISTRIB]);
 
-(*
-TODO: make get_output_io_event / get_ag32_io_event indicate failure (simply) in FFI memory
 val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
-  `(ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs'))
+  `(ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+   (m (r0 + n2w (ffi_code_start_offset - 1)) = n2w (THE (ALOOKUP FFI_codes "write"))) ∧
+    ag32_fs_ok fs ∧ w2n r0 + memory_size < dimword(:32)
    ⇒
-   (get_ag32_io_event r0
-     (ag32_ffi_write_mem_update (EL index ffi_names) r0 conf bytes new_bytes m)
+   (get_ag32_io_event (r0:word32)
+     (ag32_ffi_write_mem_update "write" r0 conf bytes new_bytes m)
     = get_output_io_event (IO_event "write" conf (ZIP (bytes,new_bytes))))`,
   rw[]
   \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
@@ -6006,7 +6006,48 @@ val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
   \\ reverse IF_CASES_TAC
   >- (
     simp[ag32_ffi_write_mem_update_def]
-*)
+    \\ simp[get_ag32_io_event_def, APPLY_UPDATE_THM]
+    \\ IF_CASES_TAC
+    >- (pop_assum mp_tac \\ EVAL_TAC)
+    \\ simp[] )
+  \\ simp[ag32_ffi_write_mem_update_def]
+  \\ simp[get_ag32_io_event_def]
+  \\ reverse(Cases_on`LENGTH conf = 8` \\ fs[])
+  >- ( rveq \\ fs[LUPDATE_def] )
+  \\ reverse(Cases_on`w22n [off1; off0] ≤ LENGTH tll` \\ fs[])
+  >- ( rveq \\ fs[LUPDATE_def] )
+  \\ fs[fsFFITheory.write_def]
+  \\ Cases_on`ALOOKUP fs.infds (w82n conf)` \\ fs[]
+  >- ( rveq \\ fs[LUPDATE_def] )
+  \\ pairarg_tac \\ fs[]
+  \\ fs[ag32_fs_ok_def]
+  \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[]
+  \\ fs[IS_SOME_EXISTS, PULL_EXISTS] \\ fs[]
+  \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
+  >- ( rveq \\ fs[LUPDATE_def] )
+  \\ rveq \\ fs[]
+  \\ `w82n conf < 3` by metis_tac[]
+  \\ `HD conf = 0w`
+  by (
+    fs[LENGTH_EQ_NUM_compute]
+    \\ rveq \\ fs[MarshallingTheory.w82n_def]
+    \\ Cases_on`h` \\ fs[] )
+  \\ conj_tac
+  >- (
+    irule asm_write_bytearray_unchanged
+    \\ simp[]
+    \\ Cases_on`r0` \\ fs[memory_size_def]
+    \\ fs[EVAL``output_offset``, EVAL``ffi_code_start_offset``]
+    \\ simp[word_add_n2w, word_ls_n2w, word_lo_n2w]
+    \\ simp[EVAL``output_buffer_size``]
+    \\ simp[MIN_DEF] )
+  \\ reverse IF_CASES_TAC
+  >- (
+    fs[LENGTH_EQ_NUM_compute]
+    \\ rveq \\ fs[]
+    \\ rveq
+    \\ fs[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM] )
+  \\ cheat (* WIP *));
 
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ios ∧
@@ -6165,12 +6206,37 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ simp[data_to_word_assignProofTheory.IMP]
     \\ strip_tac
     \\ qx_gen_tac`j`
-    \\ Cases_on`j < 416` \\ simp[])
+    \\ Cases_on`j < 420` \\ simp[])
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]
   \\ qpat_x_assum`ag32_ffi_interfer _ _ _ _ = _`(assume_tac o SYM)
   \\ simp[]
+  \\ simp[ag32_ffi_interfer_def]
+  \\ fs[ag32_ffi_rel_def]
+  \\ `EL index ffi_names = "write"`
+  by (
+    fs[GSYM find_index_INDEX_OF]
+    \\ imp_res_tac find_index_is_MEM
+    \\ imp_res_tac find_index_MEM
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[] )
+  \\ conj_tac
+  >- (
+    fs[]
+    \\ irule ag32_ffi_rel_write_mem_update
+    \\ fs[]
+    \\ reverse conj_tac
+    >- ( asm_exists_tac \\ fs[] )
+    \\ irule asm_write_bytearray_unchanged
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`r0` \\ Cases_on`ms.R 3w` \\ fs[memory_size_def]
+    \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
+    \\ imp_res_tac fsFFIPropsTheory.ffi_write_length \\ fs[ADD1]
+    \\ EVAL_TAC \\ fs[]
+    \\ cheat (* byte array not too long, may need to assume more *))
+  \\ rw[]
+  \\ simp[ag32_ffi_write_mem_update_def]
   \\ cheat (* WIP *));
 
 val hello_io_events_def =
@@ -6266,7 +6332,7 @@ val hello_init_memory_def = Define`
 
 val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
-   (LENGTH (hello_init_memory_words cl inp) = 27572127)`, (* adjust as necessary *)
+   (LENGTH (hello_init_memory_words cl inp) = 27572128)`, (* adjust as necessary *)
   simp[hello_init_memory_words_def]
   \\ simp[LENGTH_words_of_bytes_hello_startup_code,LENGTH_ag32_ffi_code,heap_size_def,
           output_buffer_size_def,startup_code_size_def,LENGTH_hello_startup_code,
