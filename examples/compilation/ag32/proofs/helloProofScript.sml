@@ -180,7 +180,7 @@ val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_num
   \\ CCONTR_TAC \\ fs[]);
 
 val interference_implemented_def = Define`
-  interference_implemented mc ffi_oracle ffi_rel md ms0 ⇔
+  interference_implemented mc ffi_pred ffi_rel md ms0 ⇔
     ∃next_interfer ccache_interfer ffi_interfer.
     (∀n. mc.next_interfer n = next_interfer) ∧
     (∀n. mc.ccache_interfer n = ccache_interfer) ∧
@@ -213,7 +213,7 @@ val interference_implemented_def = Define`
               (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
                mc.target.get_byte ms x))) ∧
         ∀ffi ffi_index bytes bytes2 new_ffi new_bytes.
-          (ffi.oracle = ffi_oracle) ∧
+          (ffi_pred ffi) ∧
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
           (read_ffi_bytearrays mc ms = (SOME bytes, SOME bytes2)) ∧
           (call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 =
@@ -228,10 +228,27 @@ val interference_implemented_def = Define`
               (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
                mc.target.get_byte ms x))`;
 
+val interference_implemented_mono = Q.store_thm("interference_implemented_mono",
+  `(∀x. Q x ⇒ P x) ∧
+   interference_implemented mc P ffi_rel md ms ⇒
+   interference_implemented mc Q ffi_rel md ms`,
+  rw[interference_implemented_def]
+  \\ asm_exists_tac \\ rw[]
+  \\ last_x_assum drule \\ rw[]
+  \\ first_x_assum(qspec_then`k0`mp_tac)
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ rw[]);
+
 val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
   `∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
-   interference_implemented mc ffi.oracle ffi_rel md ms ∧
-   (ffi_rel ms ffi.io_events) ∧
+   interference_implemented mc P ffi_rel md ms ∧
+   (ffi_rel ms ffi.io_events) ∧ P ffi ∧
+   (∀ffi1 ffi2. P ffi1 ∧ call_FFI_rel ffi1 ffi2 ⇒ P ffi2) ∧
+   (*
+   (∀ffi'. P ffi'  ⇒ (ffi'.oracle = ffi.oracle)) ∧
+   *)
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
           (ffi_rel ms' ffi'.io_events) ∧
@@ -268,7 +285,8 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
         \\ rw[] \\ fs[ADD1,FUNPOW_ADD]
         \\ metis_tac[])
       \\ first_x_assum(qspec_then`0`mp_tac)
-      \\ simp[] \\ rw[] \\ fs[] )
+      \\ simp[] \\ rw[] \\ fs[]
+      \\ metis_tac[])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
     \\ first_x_assum(qspec_then`0`mp_tac)
@@ -301,7 +319,8 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
       \\ first_x_assum(qspec_then`0`mp_tac)
       \\ simp[]
       \\ disch_then(qx_choose_then`k1`strip_assume_tac o CONJUNCT1)
-      \\ fs[GSYM FUNPOW_ADD])
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ metis_tac[])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
     \\ first_x_assum(qspec_then`0`mp_tac)
@@ -313,7 +332,7 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
     fs[CaseEq"option",CaseEq"prod"]
     \\ reverse(fs[CaseEq"ffi$ffi_result"]) \\ rfs[]
     >- ( qexists_tac`0` \\ rw[] )
-    \\ first_x_assum drule
+    \\ last_x_assum drule
     \\ fs[]
     \\ impl_tac
     >- (
@@ -338,17 +357,15 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
         \\ fs[targetSemTheory.read_ffi_bytearrays_def,
               targetSemTheory.read_ffi_bytearray_def]
         \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ fs[]
-        \\ fs[ffiTheory.call_FFI_def]
-        \\ fs[CaseEq"bool",CaseEq"oracle_result"]
-        \\ rveq \\ simp[])
+        \\ fs[])
       \\ fs[interference_implemented_def]
       \\ first_x_assum(qspec_then`0`mp_tac)
       \\ simp[]
       \\ disch_then (first_assum o mp_then Any mp_tac)
       \\ impl_tac >- fs[]
       \\ disch_then(qx_choose_then`k1`strip_assume_tac)
-      \\ fs[GSYM FUNPOW_ADD])
+      \\ fs[GSYM FUNPOW_ADD]
+      \\ metis_tac[evaluatePropsTheory.call_FFI_rel_def])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
     \\ first_x_assum(qspec_then`0`mp_tac)
@@ -360,8 +377,8 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
     \\ qexists_tac`k1+k2` \\ rw[]));
 
 val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPOW_next",
-  `interference_implemented mc st.oracle ffi_rel md ms ∧
-   (ffi_rel ms st.io_events) ∧
+  `interference_implemented mc P ffi_rel md ms ∧
+   (ffi_rel ms st.io_events) ∧ P st ∧ (∀ffi1 ffi2. P ffi1 ∧ call_FFI_rel ffi1 ffi2 ⇒ P ffi2) ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
    ∃k. ffi_rel (nxt mc k ms) io_events ∧
        (∀x. x ∉ md ∪ mc.prog_addresses ⇒ (mc.target.get_byte (nxt mc k ms) x = mc.target.get_byte ms x)) ∧
@@ -7729,6 +7746,11 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
+val ag32_ffi_pred_def = Define`
+  ag32_ffi_pred ffi ⇔
+    (ffi.oracle = basis_ffi_oracle) ∧
+    ag32_fs_ok (SND ffi.ffi_state)`;
+
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
   `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -7738,7 +7760,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   ⇒
    interference_implemented
     (hello_machine_config r0)
-    (basis_ffi cl (stdin_fs inp)).oracle
+    ag32_ffi_pred
     (ag32_ffi_rel r0)
     (ag32_ffi_mem_domain r0) ms`,
   rw[interference_implemented_def]
@@ -7922,6 +7944,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ fs[EVAL``(hello_machine_config r0).ffi_names``, ffi_names]
   \\ fs[ffiTheory.call_FFI_def,CaseEq"oracle_result",CaseEq"bool"]
   \\ rveq \\ rfs[basis_ffiTheory.basis_ffi_def]
+  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_pred_def] \\ fs[]
   \\ qhdtm_x_assum`basis_ffi_oracle`mp_tac
   \\ simp[Once basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ rw[CaseEq"option",CaseEq"ffi_result"]
@@ -7936,8 +7959,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     conj_tac >- EVAL_TAC
     \\ conj_tac >- ( simp[LENGTH_data, LENGTH_code] \\ EVAL_TAC )
     \\ conj_tac >- ( EVAL_TAC \\ simp[])
-    \\ conj_tac >- cheat (* invariant on fs - can this be added to ag32_ffi_rel maybe?
-                            otherwise interference_implemented needs to be tweaked... *)
+    \\ conj_tac >- fs[ag32_ffi_pred_def]
     \\ conj_tac >- (
       rw[]
       \\ first_assum(mp_then Any mp_tac (GEN_ALL get_mem_word_get_byte))
@@ -8219,12 +8241,26 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ disch_then drule
   \\ impl_tac >- (
     simp[ag32_ffi_rel_def,Abbr`st`]
-    \\ EVAL_TAC
-    \\ simp[Abbr`ms`]
-    \\ drule hello_startup_clock_def
-    \\ simp[]
-    \\ rpt(disch_then drule)
-    \\ fs[is_ag32_init_state_def])
+    \\ conj_tac
+    >- (
+      EVAL_TAC
+      \\ simp[Abbr`ms`]
+      \\ drule hello_startup_clock_def
+      \\ simp[]
+      \\ rpt(disch_then drule)
+      \\ fs[is_ag32_init_state_def])
+    \\ conj_tac
+    >- (
+      simp[ag32_ffi_pred_def]
+      \\ conj_tac >- rw[basis_ffiTheory.basis_ffi_def]
+      \\ simp[basis_ffiTheory.basis_ffi_def]
+      \\ ag32_fs_ok_def
+      \\ cheat (* ag32_fs_ok stdin_fs *))
+    \\ simp[ag32_ffi_pred_def]
+    \\ rpt gen_tac
+    \\ strip_tac
+    \\ conj_tac >- metis_tac[evaluatePropsTheory.call_FFI_rel_consts]
+    \\ cheat (* ag32_fs_ok preservation *))
   \\ strip_tac
   \\ drule (GEN_ALL hello_halted)
   \\ simp[]
