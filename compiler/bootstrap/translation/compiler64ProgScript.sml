@@ -60,8 +60,12 @@ val def = spec64
 
 val res = translate def
 
-val def = spec64 backendTheory.compile_def
+val def = spec64 backendTheory.compile_tap_def
   |> REWRITE_RULE[max_heap_limit_64_thm]
+
+val res = translate def
+
+val def = spec64 backendTheory.compile_def
 
 val res = translate def
 
@@ -135,6 +139,7 @@ val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
 val res = translate find_str_def;
+val res = translate find_strs_def;
 val res = translate find_bool_def;
 val res = translate find_num_def;
 val res = translate get_err_str_def;
@@ -152,6 +157,7 @@ val res = translate parse_wtw_conf_def;
 val res = translate parse_gc_def;
 val res = translate parse_data_conf_def;
 val res = translate parse_stack_conf_def;
+val res = translate parse_tap_conf_def;
 
 val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def]);
 
@@ -198,6 +204,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 (* Rest of the translation *)
 val res = translate (extend_conf_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val res = translate parse_target_64_def;
+val res = translate add_tap_output_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`heap`,`stack`,`c`]
