@@ -6016,6 +6016,11 @@ val ag32_fs_ok_def = Define`
      (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒
      IS_SOME (ALOOKUP fs.files fnm))`;
 
+val ag32_fs_ok_stdin_fs = Q.store_thm("ag32_fs_ok_stdin_fs",
+  `ag32_fs_ok (stdin_fs inp)`,
+  rw[ag32_fs_ok_def, stdin_fs_def]
+  \\ rw[] \\ fs[CaseEq"bool"]);
+
 val EL_FLAT_MAP_mk_jump_ag32_code = Q.store_thm("EL_FLAT_MAP_mk_jump_ag32_code",
   `∀ls index.
    (INDEX_OF nm ls = SOME index) ∧ k < 4 ⇒
@@ -8254,13 +8259,12 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       simp[ag32_ffi_pred_def]
       \\ conj_tac >- rw[basis_ffiTheory.basis_ffi_def]
       \\ simp[basis_ffiTheory.basis_ffi_def]
-      \\ ag32_fs_ok_def
-      \\ cheat (* ag32_fs_ok stdin_fs *))
+      \\ simp[ag32_fs_ok_stdin_fs])
     \\ simp[ag32_ffi_pred_def]
     \\ rpt gen_tac
     \\ strip_tac
     \\ conj_tac >- metis_tac[evaluatePropsTheory.call_FFI_rel_consts]
-    \\ cheat (* ag32_fs_ok preservation *))
+    \\ cheat (* ag32_fs_ok preservation: probably technically false because IOstreams can be closed *))
   \\ strip_tac
   \\ drule (GEN_ALL hello_halted)
   \\ simp[]
