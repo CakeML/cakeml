@@ -246,9 +246,6 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
    interference_implemented mc P ffi_rel md ms ∧
    (ffi_rel ms ffi.io_events) ∧ P ffi ∧
    (∀ffi1 ffi2. P ffi1 ∧ call_FFI_rel ffi1 ffi2 ⇒ P ffi2) ∧
-   (*
-   (∀ffi'. P ffi'  ⇒ (ffi'.oracle = ffi.oracle)) ∧
-   *)
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
           (ffi_rel ms' ffi'.io_events) ∧
@@ -461,8 +458,8 @@ val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_i
   \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
 
 val all_words_def = Define `
- (all_words base 0 = ∅) /\
- (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
+  (all_words base 0 = ∅) /\
+  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
 
 val IN_all_words_add = Q.store_thm("IN_all_words_add",
   `∀n base x. x < n ⇒ base + n2w x ∈ all_words base n`,
@@ -492,12 +489,12 @@ val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
   `∀p n m ba.
    (read_bytearray p n m = SOME ba) ⇒
    ∀k. k ∈ all_words p n ⇒ IS_SOME (m k)`,
- Induct_on `n`
- \\ rw[read_bytearray_def,all_words_def]
- \\ fs[CaseEq"option"]
- \\ first_x_assum drule
- \\ disch_then drule
- \\ simp []);
+  Induct_on `n`
+  \\ rw[read_bytearray_def,all_words_def]
+  \\ fs[CaseEq"option"]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp []);
 
 val IMP_word_list = Q.store_thm("IMP_word_list",
   `8 <= dimindex(:'a) ⇒
@@ -1214,7 +1211,7 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ simp[]);
 
 val ag32_init_asm_regs_def = Define `
- ag32_init_asm_regs mem_start k = if k = 0n then mem_start else 0w`
+  ag32_init_asm_regs mem_start k = if k = 0n then mem_start else 0w`
 
 val ag32_init_asm_state_def = Define`
   ag32_init_asm_state mem md (r0:word32) = <|
@@ -1395,6 +1392,9 @@ val STD_streams_stdin_fs = Q.store_thm("STD_streams_stdin_fs",
   \\ rw[stdin_fs_def]
   \\ rw[]);
 
+(* TODO: replace ffi_pred with an extended version of this that takes the whole
+ffi, not just the io_events. then we can also check the fs invariants and
+correspondence between ms's fd table and fs's. *)
 val ag32_ffi_rel_def = Define`
   ag32_ffi_rel r0 ms io_events ⇔
     (MAP (get_ag32_io_event r0) ms.io_events =
@@ -5590,6 +5590,14 @@ val ag32_ffi_mem_domain_DISJOINT_prog_addresses = Q.store_thm("ag32_ffi_mem_doma
   \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w]
   \\ rfs[]);
 
+val ag32_fs_ok_def = Define`
+  ag32_fs_ok fs ⇔
+   (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
+   (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧
+   (∀fd fnm off.
+     (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒
+     IS_SOME (ALOOKUP fs.files fnm))`;
+
 val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
@@ -5598,12 +5606,10 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
    (w2n (s.R 2w) = LENGTH conf) ∧
-   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) (* ≤ w2n r0 + memory_size *) ∧
+   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) ∧
    (INDEX_OF "write" ffi_names = SOME index) ∧
    (ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
-   (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
-   (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧ (* TODO: this will need to weaken *)
-   (∀fd fnm off. (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒ IS_SOME(ALOOKUP fs.files fnm)) ∧
+   ag32_fs_ok fs ∧
    (s.PC = r0 + n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "write")))
    ⇒
    (ag32_ffi_write s = ag32_ffi_interfer ffi_names md r0 (index, new_bytes, s))`,
@@ -5706,6 +5712,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
       simp[Abbr`o1`]
       \\ simp[EXISTS_PROD]
       \\ simp[fsFFITheory.write_def, EXISTS_PROD]
+      \\ fs[ag32_fs_ok_def]
       \\ Cases_on`LENGTH conf = 8` \\ fs[]
       \\ last_x_assum(qspec_then`w82n conf`mp_tac)
       \\ Cases_on`w82n conf < 3` \\ fs[]
@@ -5971,8 +5978,9 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ simp[] )
   \\ simp[Abbr`bs`, Abbr`bs'`]
   \\ fs[fsFFITheory.write_def]
-  \\ `∃x. ALOOKUP fs.infds (w82n conf) = SOME x` by metis_tac[IS_SOME_EXISTS]
+  \\ `∃x. ALOOKUP fs.infds (w82n conf) = SOME x` by metis_tac[IS_SOME_EXISTS, ag32_fs_ok_def]
   \\ fs[] \\ Cases_on`x` \\ fs[]
+  \\ fs[ag32_fs_ok_def]
   \\ first_x_assum drule
   \\ simp[IS_SOME_EXISTS]
   \\ strip_tac \\ fs[]
@@ -6007,14 +6015,6 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ rewrite_tac[GSYM WORD_ADD_ASSOC, word_add_n2w]
   \\ AP_TERM_TAC
   \\ cheat (* local proof: (roughly) order of non-overlapping memory writes *));
-
-val ag32_fs_ok_def = Define`
-  ag32_fs_ok fs ⇔
-   (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
-   (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧
-   (∀fd fnm off.
-     (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒
-     IS_SOME (ALOOKUP fs.files fnm))`;
 
 val ag32_fs_ok_stdin_fs = Q.store_thm("ag32_fs_ok_stdin_fs",
   `ag32_fs_ok (stdin_fs inp)`,
