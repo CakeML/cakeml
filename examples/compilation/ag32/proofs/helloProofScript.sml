@@ -6115,6 +6115,18 @@ val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
   \\ simp[]
   \\ simp[MIN_DEF, output_buffer_size_def]);
 
+val ag32_fs_ok_ffi_write = Q.store_thm("ag32_fs_ok_ffi_write",
+  `(ffi_write conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
+   ag32_fs_ok fs'`,
+  rw[fsFFITheory.ffi_write_def,CaseEq"list"]
+  \\ fs[ag32_fs_ok_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.write_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rw[]
+  \\ every_case_tac \\ fs[]
+  \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]);
+
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel r0 ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld r0) ms = (SOME conf, SOME bytes)) ∧
@@ -6298,7 +6310,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   >- (
     fs[]
     \\ reverse conj_tac
-    >- ( cheat (* ag32_fs_ok preserved by ffi_write *) )
+    >- metis_tac[ag32_fs_ok_ffi_write]
     \\ irule ag32_ffi_rel_write_mem_update
     \\ fs[]
     \\ reverse conj_tac
