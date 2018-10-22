@@ -219,7 +219,7 @@ declare hol target_rep function Wlsr = `shiftr`
 val Wasr : list bool -> nat -> list bool
 declare hol target_rep function Wasr = `asr`
 val Wror : list bool -> nat -> list bool
-declare hol target_rep function Wror = `ror`
+declare hol target_rep function Wror v n = `w2v (word_ror (v2w v) n)`
 
 
 open import {hol} `alistTheory`
