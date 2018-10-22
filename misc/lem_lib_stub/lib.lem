@@ -139,6 +139,10 @@ val word8FromWord64 : word64 -> word8
 declare hol target_rep function word8FromWord64 = `w2w`
 val word64FromWord8 : word8 -> word64
 declare hol target_rep function word64FromWord8 = `w2w`
+val bitstringFromWord64: word64 -> list bool
+declare hol target_rep function bitstringFromWord64 = `n2v`
+val word64FromBitstring: list bool -> word64
+declare hol target_rep function word64FromBitstring = `v2n`
 (*
 val W8and : word8 -> word8 -> word8
 declare hol target_rep function W8and = `word_and`
@@ -182,6 +186,7 @@ declare hol target_rep function Wadd = `add`
 val Wsub : list bool -> list bool -> list bool
 declare hol target_rep function Wsub = `sub`
 
+(*
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`
 declare isabelle target_rep function W8lsl = `shiftl`
@@ -206,6 +211,16 @@ declare isabelle target_rep function W64asr = `sshiftr`
 val W64ror : word64 -> nat -> word64
 declare hol target_rep function W64ror = `word_ror`
 declare isabelle target_rep function W64ror = `(% a b. word_rotr b a)`
+*)
+val Wlsl : list bool -> nat -> list bool
+declare hol target_rep function Wlsl = `shiftl`
+val Wlsr : list bool -> nat -> list bool
+declare hol target_rep function Wlsr = `shiftr`
+val Wasr : list bool -> nat -> list bool
+declare hol target_rep function Wasr = `asr`
+val Wror : list bool -> nat -> list bool
+declare hol target_rep function Wror = `ror`
+
 
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)

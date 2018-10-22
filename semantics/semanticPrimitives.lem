@@ -432,20 +432,12 @@ let opw_lookup op = match op with
   | Sub -> Wsub
 end
 
-val shift8_lookup : shift -> word8 -> nat -> word8
-let shift8_lookup sh = match sh with
-  | Lsl -> W8lsl
-  | Lsr -> W8lsr
-  | Asr -> W8asr
-  | Ror -> W8ror
-end
-
-val shift64_lookup : shift -> word64 -> nat -> word64
-let shift64_lookup sh = match sh with
-  | Lsl -> W64lsl
-  | Lsr -> W64lsr
-  | Asr -> W64asr
-  | Ror -> W64ror
+val shift_lookup : shift -> list bool -> nat -> list bool
+let shift_lookup sh = match sh with
+  | Lsl -> Wlsl
+  | Lsr -> Wlsr
+  | Asr -> Wasr
+  | Ror -> Wror
 end
 
 val Boolv : bool -> v
@@ -494,10 +486,8 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t),Rval (Boolv (fp_cmp cmp (word64FromBitstring w1) (word64FromBitstring w2))))
         else
           Nothing
-    | (Shift W8 op n, [Litv (Word8 w)]) ->
-        Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
-    | (Shift W64 op n, [Litv (Word64 w)]) ->
-        Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
+    | (Shift n1 op n, [Litv (Word w)]) ->
+        Just ((s,t), Rval (Litv (Word (shift_lookup op w n))))
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing

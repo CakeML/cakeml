@@ -90,6 +90,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val integerFromWord64 : word64 -> integer*)
 (*val word8FromWord64 : word64 -> word8*)
 (*val word64FromWord8 : word8 -> word64*)
+(*val bitstringFromWord64: word64 -> list bool*)
+(*val word64FromBitstring: list bool -> word64*)
 (*
 val W8and : word8 -> word8 -> word8
 declare hol target_rep function W8and = `word_and`
@@ -128,14 +130,37 @@ declare isabelle target_rep function W64sub = `Groups.minus`
 (*val Wadd : list bool -> list bool -> list bool*)
 (*val Wsub : list bool -> list bool -> list bool*)
 
-(*val W8lsl : word8 -> nat -> word8*)
-(*val W8lsr : word8 -> nat -> word8*)
-(*val W8asr : word8 -> nat -> word8*)
-(*val W8ror : word8 -> nat -> word8*)
-(*val W64lsl : word64 -> nat -> word64*)
-(*val W64lsr : word64 -> nat -> word64*)
-(*val W64asr : word64 -> nat -> word64*)
-(*val W64ror : word64 -> nat -> word64*)
+(*
+val W8lsl : word8 -> nat -> word8
+declare hol target_rep function W8lsl = `word_lsl`
+declare isabelle target_rep function W8lsl = `shiftl`
+val W8lsr : word8 -> nat -> word8
+declare hol target_rep function W8lsr = `word_lsr`
+declare isabelle target_rep function W8lsr = `shiftr`
+val W8asr : word8 -> nat -> word8
+declare hol target_rep function W8asr = `word_asr`
+declare isabelle target_rep function W8asr = `sshiftr`
+val W8ror : word8 -> nat -> word8
+declare hol target_rep function W8ror = `word_ror`
+declare isabelle target_rep function W8ror = `(% a b. word_rotr b a)`
+val W64lsl : word64 -> nat -> word64
+declare hol target_rep function W64lsl = `word_lsl`
+declare isabelle target_rep function W64lsl = `shiftl`
+val W64lsr : word64 -> nat -> word64
+declare hol target_rep function W64lsr = `word_lsr`
+declare isabelle target_rep function W64lsr = `shiftr`
+val W64asr : word64 -> nat -> word64
+declare hol target_rep function W64asr = `word_asr`
+declare isabelle target_rep function W64asr = `sshiftr`
+val W64ror : word64 -> nat -> word64
+declare hol target_rep function W64ror = `word_ror`
+declare isabelle target_rep function W64ror = `(% a b. word_rotr b a)`
+*)
+(*val Wlsl : list bool -> nat -> list bool*)
+(*val Wlsr : list bool -> nat -> list bool*)
+(*val Wasr : list bool -> nat -> list bool*)
+(*val Wror : list bool -> nat -> list bool*)
+
 
 (*open import {hol} `alistTheory`*)
 val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);
