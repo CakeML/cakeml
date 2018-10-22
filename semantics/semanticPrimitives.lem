@@ -160,8 +160,7 @@ let lit_same_type l1 l2 =
     | (IntLit _, IntLit _) -> true
     | (Char _, Char _) -> true
     | (StrLit _, StrLit _) -> true
-    | (Word8 _, Word8 _) -> true
-    | (Word64 _, Word64 _) -> true
+    | (Word x, Word y) -> length x = length y
     | _ -> false
   end
 
