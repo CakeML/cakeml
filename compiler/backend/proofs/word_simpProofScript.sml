@@ -615,6 +615,8 @@ val push_env_pop_env_locals_thm = Q.store_thm("push_env_pop_env_locals_thm",
           \\ fs [cut_env_def, get_var_def] \\ rw [lookup_inter_EQ])
       >- (irule PERM_list_rearrange \\ metis_tac [ALL_DISTINCT_MAP, QSORT_PERM, ALL_DISTINCT_PERM])));
 
+infix >->
+fun tac1 >-> tac2 = sTHEN1 (tac1,tac2)
 val evaluate_sf_gc_consts_thm = Q.store_thm("evaluate_sf_gc_consts",
   `!p s s' res.
    evaluate (p, s) = (res, s') /\ gc_fun_const_ok s.gc_fun ==>
@@ -698,10 +700,10 @@ val evaluate_sf_gc_consts_thm = Q.store_thm("evaluate_sf_gc_consts",
       DISCH_TAC \\ TOP_CASE_TAC \\ TRY (TOP_CASE_TAC)
         \\ TRY ( (* NONE or Result from handler *)
         res_tac \\ fs [] \\ rw []
-          >- (irule EVERY2_trans
-            \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans_thm
-            >- (asm_exists_tac \\ rw []))
-          >- (rw [get_above_handler_def] \\ rw [ADD1]))
+          >-> (irule EVERY2_trans
+            \\ conj_tac >-> ACCEPT_TAC sf_gc_consts_trans_thm
+            >-> (asm_exists_tac \\ rw []))
+          >-> (rw [get_above_handler_def] \\ rw [ADD1]))
 
         >- (* Exception from handler *)
         (DISCH_TAC \\ res_tac \\ fs [get_above_handler_def, ADD1] \\
@@ -735,7 +737,8 @@ val evaluate_sf_gc_consts_thm = Q.store_thm("evaluate_sf_gc_consts",
   (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\
   imp_res_tac evaluate_gc_fun_const_ok_thm \\ res_tac \\
   TRY (rw [] \\ irule EVERY2_trans \\ rpt conj_tac
-  >- ACCEPT_TAC sf_gc_consts_trans_thm >- (asm_exists_tac \\ rw [])) \\
+       >-> ACCEPT_TAC sf_gc_consts_trans_thm
+       >-> (asm_exists_tac \\ rw [])) \\
   DISCH_TAC \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ conj_tac
     >- (irule EVERY2_trans_LASTN_sf_gc_consts_thm \\ rw [] \\ asm_exists_tac \\ rw [])
     >- rw [sf_gc_consts_get_above_handler_thm])

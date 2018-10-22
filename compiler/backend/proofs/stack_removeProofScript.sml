@@ -2521,7 +2521,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
    (tac \\ fs [labPropsTheory.good_dimindex_def]
     \\ rw [] \\ fs [dimword_def])
   \\ fs [GSYM NOT_LESS]
-  \\ rpt (tac \\ IF_CASES_TAC THEN1 halt_tac) \\ tac
+  \\ rpt (tac \\ sTHEN1(IF_CASES_TAC, halt_tac)) \\ tac
   \\ Cases_on `ptr2` \\ fs []
   \\ rename1 `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
   \\ Cases_on `ptr3` \\ fs []
@@ -2673,7 +2673,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
   >- ( fs[Abbr`s7`,loc_check_def] )
   \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
-  \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))
+  \\ rpt (sTHEN1(conj_tac, fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))
   \\ conj_tac >- (
     simp_tac(srw_ss()++LET_ss)[Abbr`s8`,Abbr`s7`,init_reduce_def,o_DEF] \\
     ASM_REWRITE_TAC[] \\
@@ -3313,9 +3313,9 @@ val stack_remove_call_args = Q.store_thm("stack_remove_call_args",
   IF_CASES_TAC>>EVAL_TAC>>
   pop_assum kall_tac>>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,stack_removeTheory.prog_comp_def]>>
-  TRY(CONJ_TAC>-
-    (Induct_on`bitmaps`>>fs[stack_removeTheory.store_list_code_def]>>
-    EVAL_TAC>>fs[]))>>
+  TRY(sTHEN1 (CONJ_TAC,
+              Induct_on`bitmaps`>>fs[stack_removeTheory.store_list_code_def]>>
+              EVAL_TAC>>fs[]))>>
   (
   rw[]>>res_tac>>
   pop_assum mp_tac>> rpt (pop_assum kall_tac)>>

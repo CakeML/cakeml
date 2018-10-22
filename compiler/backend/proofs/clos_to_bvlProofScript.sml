@@ -6050,6 +6050,8 @@ val collect_args_fv1 = Q.store_thm("collect_args_fv1",
   \\ rw[clos_mtiTheory.collect_args_def]
   \\ rw[fv1_thm]);
 
+infix ->-
+val op->- = sTHEN1
 val intro_multi_fv1 = Q.store_thm("intro_multi_fv1",
   `∀max_app es. LIST_REL (λe1 e2. ∀v. fv1 v e1 ⇔ fv1 v e2) (intro_multi max_app es) es`,
   recInduct clos_mtiTheory.intro_multi_ind
@@ -6064,13 +6066,13 @@ val intro_multi_fv1 = Q.store_thm("intro_multi_fv1",
     CHANGED_TAC(fs[EXISTS_MAP])
     \\ fs[UNCURRY, fv_exists, EXISTS_MEM, EXISTS_PROD, PULL_EXISTS]
     \\ rw[EQ_IMP_THM] \\ fs[]
-    >- (
+    ->- (
       Cases_on`collect_args max_app p_1 p_2` \\ fs[]
       \\ res_tac \\ rfs[]
       \\ imp_res_tac collect_args_fv1
       \\ disj1_tac
       \\ asm_exists_tac \\ fs[] )
-    >- (
+    ->- (
       disj1_tac
       \\ asm_exists_tac \\ fs[]
       \\ Cases_on`collect_args max_app p_1 p_2` \\ fs[]

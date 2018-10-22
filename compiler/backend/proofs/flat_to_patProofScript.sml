@@ -1039,7 +1039,7 @@ val exp_rel_lit = Q.store_thm("exp_rel_lit",
     (exp_rel z1 z2 V e1 (Lit t l) ⇔ (e1 = Lit t l)) ∧
     (exp_rel z1 z2 V (Bool t b) e2 ⇔ (e2 = Bool t b)) ∧
     (exp_rel z1 z2 V e1 (Bool t b) ⇔ (e1 = Bool t b))`,
-  srw_tac[][Once exp_rel_cases] >>
+  rpt conj_tac >> srw_tac[][Once exp_rel_cases] >>
   srw_tac[][Once exp_rel_cases,Bool_def] )
 val _ = export_rewrites["exp_rel_lit"];
 

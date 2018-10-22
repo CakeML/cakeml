@@ -332,7 +332,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     Cases_on`op = Run` \\ fs[] >- (
       split_pair_case_tac \\ fs[] \\
       fs[evaluate_def,MAP_REVERSE,ETA_AX] \\
-      first_x_assum(fn th => mp_tac th \\ (impl_tac >- (strip_tac \\ fs[]))) \\
+      first_x_assum(fn th => mp_tac th \\ sTHEN1(impl_tac, strip_tac \\ fs[])) \\
       rw[] \\
       fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[] \\
       drule do_install \\

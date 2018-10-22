@@ -145,6 +145,8 @@ val push_env_case_handler = Q.store_thm("push_env_case_handler[simp]",
   CASE_TAC \\ rw[push_env_def]
   \\ split_pair_case_tac \\ rw[push_env_def,FUN_EQ_THM]);
 
+infix >->
+fun tac1 >-> tac2 = sTHEN1(tac1,tac2)
 val word_remove_correct = Q.store_thm("word_remove_correct",
   `∀prog st res rst.
     evaluate (prog,st) = (res,rst) ∧
@@ -159,7 +161,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",
     qmatch_goalsub_rename_tac`remove_must_terminate _` \\
     pairarg_tac \\ fs[] \\
     reverse(fs[case_eq_thms] \\ rveq \\ fs[])
-    >- ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
+    >-> ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
     qpat_x_assum`(res,rst) = _`(assume_tac o SYM) \\ fs[] \\
     `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\ fs[] \\
     qexists_tac`clk + clk'` \\ fs[] \\
@@ -195,10 +197,10 @@ val word_remove_correct = Q.store_thm("word_remove_correct",
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[]
-    >- (
+    >-> (
       fs[case_eq_thms] \\
       strip_tac \\ fs[] \\ rveq
-      >- metis_tac[]
+      >-> metis_tac[]
       \\ rfs[]
       \\ fs[compile_state_def,dec_clock_def,call_env_def]
       \\ qexists_tac`clk` \\ fs[] )
@@ -206,7 +208,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[]
-    >- (
+    >-> (
       strip_tac \\ rveq \\ fs[] \\
       qexists_tac`0` \\ fs[] \\
       fs[add_ret_loc_def] ) \\
@@ -216,7 +218,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",
     rfs[] \\
     TOP_CASE_TAC \\ fs[] \\ rveq \\
     simp[Once case_eq_thms]
-    >- (
+    >-> (
       simp[Once case_eq_thms]
       \\ strip_tac \\ fs[]
       \\ rveq \\ fs[]
@@ -238,9 +240,9 @@ val word_remove_correct = Q.store_thm("word_remove_correct",
         \\ simp[state_component_equality] )
       \\ rw[]
       \\ fs[compile_state_def] )
-    >- (
+    >-> (
       strip_tac \\ fs[] \\ rveq \\ fs[]
-      >- (
+      >-> (
         fs[dec_clock_def]
         \\ qexists_tac`clk` \\ fs[]
         \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`

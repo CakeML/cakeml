@@ -2,6 +2,9 @@ open semanticPrimitivesTheory
 open semanticPrimitivesPropsTheory
 open preamble flatPropsTheory flatSemTheory flat_exh_matchTheory
 
+infix >->
+val op>-> = sTHEN1
+
 val _ = new_theory "flat_exh_matchProof"
 
 (* ------------------------------------------------------------------------- *)
@@ -370,7 +373,7 @@ val do_opapp_thm = Q.store_thm("do_opapp_thm",
   \\ TRY
    (qpat_x_assum `ok_ctor _ (Conv t v1)` mp_tac
     \\ Cases_on `t` \\ fs [ok_ctor_def]
-    >- metis_tac []
+    >-> metis_tac []
     \\ PairCases_on `x` \\ fs []
     \\ Cases_on `x1` \\ fs [] \\ rw []
     \\ metis_tac [LIST_REL_LENGTH, flookup_thm, FLOOKUP_SUBMAP])
@@ -390,8 +393,9 @@ val do_opapp_thm = Q.store_thm("do_opapp_thm",
    (qpat_x_assum `ok_ctor _ (Conv t _)` mp_tac
     \\ simp [ok_ctor_def]
     \\ fs [ok_ctor_def] \\ rw []
-    >- metis_tac [FLOOKUP_SUBMAP, LIST_REL_LENGTH])
-  \\ TRY (conj_tac >- (simp [Once v_rel_cases, nv_rel_LIST_REL] \\ metis_tac []))
+    >-> metis_tac [FLOOKUP_SUBMAP, LIST_REL_LENGTH])
+  \\ TRY (conj_tac >->
+          (simp [Once v_rel_cases, nv_rel_LIST_REL] \\ metis_tac []))
   \\ match_mp_tac EVERY2_APPEND_suff \\ fs [EVERY2_MAP]
   \\ match_mp_tac EVERY2_refl \\ rw [UNCURRY]
   \\ simp [Once v_rel_cases, nv_rel_LIST_REL] \\ metis_tac []);
@@ -1380,4 +1384,3 @@ val compile_exps_distinct_globals = Q.store_thm (
   metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 val _ = export_theory();
-

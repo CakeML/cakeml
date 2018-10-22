@@ -156,9 +156,9 @@ val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
     \\ first_assum drule \\ pop_assum mp_tac
     \\ first_x_assum drule \\ fs [] \\ rw []
     \\ rpt (first_x_assum drule)
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ rpt (sTHEN1(impl_tac, fs [bviTheory.exp_size_def]) \\ strip_tac \\ fs [])
     \\ TRY strip_tac
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ rpt (sTHEN1(impl_tac, fs [bviTheory.exp_size_def]) \\ strip_tac \\ fs [])
     \\ once_rewrite_tac [GSYM compile_HD_SING] \\ fs []
     \\ once_rewrite_tac [evaluate_CONS] \\ fs [compile_HD_SING])
   \\ fs [bviTheory.exp_size_def]
@@ -181,7 +181,7 @@ val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
    (rw [] \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     \\ fs [compile_def,evaluate_def,compile_HD_SING]
     \\ first_x_assum drule \\ fs [] \\ disch_then drule
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ rpt (sTHEN1(impl_tac, fs [bviTheory.exp_size_def]) \\ strip_tac \\ fs [])
     \\ fs [compile_def,evaluate_def,compile_HD_SING])
   \\ Cases_on `?x1 x2 x3. h = If x1 x2 x3` \\ rw [] \\ fs []
   THEN1
@@ -191,10 +191,10 @@ val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
     \\ TRY (first_x_assum drule \\ fs [] \\ rw [])
     \\ TRY (qpat_x_assum `!x._` drule)
     \\ TRY (qpat_x_assum `!x._` drule)
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ rpt (sTHEN1(impl_tac, fs [bviTheory.exp_size_def]) \\ strip_tac \\ fs [])
     \\ fs [compile_def,evaluate_def,compile_HD_SING]
     \\ rw [] \\ pop_assum drule
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs []))
+    \\ rpt (sTHEN1(impl_tac, fs [bviTheory.exp_size_def]) \\ strip_tac \\ fs []))
   \\ Cases_on `?ts dest args handler. h = Call ts dest args handler`
   \\ fs [] \\ rveq THEN1
    (Cases_on `handler` \\ fs []

@@ -1387,7 +1387,7 @@ val get_clash_sets_tl = Q.prove(
     Cases_on`o0`>>TRY (PairCases_on`x`)>>full_simp_tac(srw_ss())[])
   >>
     TRY(first_x_assum(qspecl_then[`p0`,`live`,`f`]mp_tac)>>
-    impl_tac>-size_tac>>srw_tac[][]>>
+        sTHEN1(impl_tac,size_tac)>>srw_tac[][]>>
     full_simp_tac(srw_ss())[UNCURRY])
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]);

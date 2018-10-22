@@ -483,7 +483,7 @@ val compile_handle_ok = Q.store_thm("compile_handle_ok",
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
   \\ fs [handle_ok_def]
-  \\ TRY ( conj_tac >- ( strip_tac \\ fs[LENGTH_NIL] ) )
+  \\ TRY (sTHEN1(conj_tac, strip_tac \\ fs[LENGTH_NIL] ))
   \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
   \\ conj_tac THEN1
    (conj_tac THEN1

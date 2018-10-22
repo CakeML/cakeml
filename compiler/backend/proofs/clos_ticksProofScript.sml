@@ -460,7 +460,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ fs [] \\ strip_tac
     \\ fs [case_eq_thms] \\ rveq \\ Cases_on `res1` \\ fs []
     (* Close the Rval and Rerr Rabort cases using TRY *)
-    \\ TRY (qexists_tac `ck + LENGTH ts` THEN1 fs [])
+    \\ TRY (sTHEN1(qexists_tac `ck + LENGTH ts`, fs []))
     \\ qpat_x_assum `!x. _` mp_tac
     \\ disch_then (mp_tac o Q.SPEC `v'::env1`) \\ fs []
     \\ disch_then drule
@@ -620,7 +620,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ strip_tac \\ fs []
     \\ `!l1 l2. LIST_REL v_rel l1 l2 ==> LIST_REL v_rel
           (GENLIST (Recclosure loc [] l1 fns') (LENGTH fns') ++ env1)
-          (GENLIST (Recclosure loc [] l2 (MAP (\(num_args, x).
+          (GENLIST (Recclosure loc [] l2 (MAP (λ(num_args, x).
                                                 (num_args, HD (remove_ticks [x]))) fns'))
                    (LENGTH fns') ++ env2)` by
      (qpat_x_assum `LIST_REL _ _ _` mp_tac
@@ -891,7 +891,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ disch_then drule
       \\ strip_tac
       \\ Cases_on `res1` \\ fs [] \\ rveq
-      \\ qexists_tac `ck` \\ fs [])))
+      \\ qexists_tac `ck` \\ fs [])));
 
 val remove_ticks_correct = Q.store_thm("remove_ticks_correct",
   `(!xs env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1.

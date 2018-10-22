@@ -3622,6 +3622,8 @@ val state_rel_set_fp_var = Q.store_thm("state_rel_set_fp_var",
   fs[state_rel_def,set_fp_var_def,stackSemTheory.set_fp_var_def]>>rw[]>>
   metis_tac[]);
 
+infix >->
+fun t1 >-> t2 = sTHEN1 (t1,t2)
 val evaluate_wInst = Q.store_thm("evaluate_wInst",
   `∀i s t s'.
    inst i s = SOME s' ∧
@@ -3908,8 +3910,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
                 reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
                 wordLangTheory.max_var_exp_def,list_max_def]
         \\ impl_tac
-        >- (
-          TRY (conj_tac >- metis_tac[])
+        >-> (
+          TRY (conj_tac >-> metis_tac[])
           \\ rw[] \\ fs[TWOxDIV2] )
         \\ simp[] )
       \\ drule (GEN_ALL word_exp_thm2)
@@ -3940,8 +3942,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
               reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ impl_tac
-      >- (
-        TRY(conj_tac >- metis_tac[])
+      >-> (
+        TRY(conj_tac >-> metis_tac[])
         \\ rw[] \\ fs[TWOxDIV2] )
       \\ simp[]
       \\ rw[]
@@ -4024,8 +4026,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
                 reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
                 wordLangTheory.max_var_exp_def,list_max_def]
         \\ impl_tac
-        >- (
-          TRY(conj_tac >- metis_tac[])
+        >-> (
+          TRY(conj_tac >-> metis_tac[])
           \\ rw[] \\ fs[TWOxDIV2] )
         \\ simp[]
         \\ fs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def,state_rel_def])
@@ -4066,9 +4068,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ disch_then (fn th => drule th >> mp_tac th)
       \\ pop_assum kall_tac
       \\ disch_then drule
-      \\ impl_tac >- (rw[] \\ simp[TWOxDIV2])
+      \\ impl_tac >-> (rw[] \\ simp[TWOxDIV2])
       \\ strip_tac
-      \\ impl_tac >- (rw[] \\ simp[TWOxDIV2])
+      \\ impl_tac >-> (rw[] \\ simp[TWOxDIV2])
       \\ strip_tac
       \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
       \\ simp[Abbr`tt`]
