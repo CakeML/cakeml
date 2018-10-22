@@ -423,7 +423,7 @@ let opb_lookup n : integer -> integer -> bool = match n with
   | Geq -> (>=)
 end
 
-val opw_lookup : opw -> nat -> nat -> nat
+val opw_lookup : opw -> list bool -> list bool -> list bool
 let opw_lookup op = match op with
   | Andw -> Wand
   | Orw -> Wor
