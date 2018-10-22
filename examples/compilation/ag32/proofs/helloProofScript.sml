@@ -6133,6 +6133,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
    (call_FFI ffi "write" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "write" ffi_names = SOME index) ∧
    byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
+   w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
    (ms.PC = r0 + n2w (ffi_jumps_offset + index * ffi_offset)) ∧
@@ -6242,8 +6243,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   >- (
     simp[Abbr`ms1`, APPLY_UPDATE_THM]
     \\ fs[ag32_ffi_rel_def]
-    \\ reverse conj_tac >- EVAL_TAC
-    \\ cheat (* byte array length in range *) )
+    \\ EVAL_TAC)
   \\ strip_tac
   \\ `ag32_ffi_interfer ffi_names md r0 (index,bytes',ms) =
       ag32_ffi_interfer ffi_names md r0 (index,bytes',ms1)`
@@ -6263,8 +6263,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ fs[]
   \\ impl_tac
   >- (
-    conj_tac >- cheat (* byte array does not wrap *)
-    \\ reverse conj_tac
+    reverse conj_tac
     >- (
       simp[Abbr`md`]
       \\ EVAL_TAC
@@ -6321,7 +6320,14 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
     \\ imp_res_tac fsFFIPropsTheory.ffi_write_length \\ fs[ADD1]
     \\ EVAL_TAC \\ fs[]
-    \\ cheat (* byte array not too long, may need to assume more *))
+    \\ Cases_on`ms.R 4w` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`n2w n' ∈ md` mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ simp[word_add_n2w, LEFT_ADD_DISTRIB]
+    \\ fs[word_lo_n2w, word_ls_n2w]
+    \\ fs[EVAL``code_start_offset _``])
   \\ rw[]
   \\ simp[ag32_ffi_write_mem_update_def]
   \\ reverse IF_CASES_TAC
@@ -6342,7 +6348,6 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
     \\ fs[ADD1]
     \\ fs[word_add_n2w]
-    \\ conj_tac >- cheat (* byte array not too long *)
     \\ reverse conj_tac
     >- (
       qpat_x_assum`x ∉ _`mp_tac
@@ -6356,6 +6361,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
       \\ EVAL_TAC \\ fs[]
       \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w, LEFT_ADD_DISTRIB]
       \\ fs[EVAL``code_start_offset _``, FFI_codes_def]
+      \\ fs[LEFT_ADD_DISTRIB]
       \\ cheat (* byte array not too long / in range *) )
     \\ IF_CASES_TAC \\ fs[]
     \\ qpat_x_assum`x ∉ _`mp_tac
@@ -7755,6 +7761,19 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
+val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
+  `∀ptr len.
+   IS_SOME (read_bytearray ptr len (m:'a word -> 'b option)) ∧
+   (∀x. IS_SOME (m x) ⇒ w2n x < dimword(:'a) - 1) ∧
+   w2n ptr < dimword (:'a)
+   ⇒
+   w2n ptr + len < dimword(:'a)`,
+  Induct_on`len`
+  \\ rw[read_bytearray_def]
+  \\ fs[CaseEq"option", IS_SOME_EXISTS, PULL_EXISTS]
+  \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
+  \\ res_tac \\ fs[] \\ rfs[])
+
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
   `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -7959,7 +7978,29 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ simp[ffiTheory.call_FFI_def, Once basis_ffiTheory.basis_ffi_oracle_def]
   \\ simp[ffi_names, INDEX_OF_def, INDEX_FIND_def]
   \\ impl_tac >- (
-    conj_tac >- EVAL_TAC
+    conj_tac
+    >- (
+      fs[targetSemTheory.read_ffi_bytearrays_def,
+         targetSemTheory.read_ffi_bytearray_def,
+         EVAL``(hello_machine_config r0).target.get_reg``,
+         EVAL``(hello_machine_config r0).ptr2_reg``,
+         EVAL``(hello_machine_config r0).len2_reg``]
+      \\ drule (SIMP_RULE(srw_ss())[PULL_EXISTS, IS_SOME_EXISTS]read_bytearray_no_wrap)
+      \\ simp[]
+      \\ Cases_on`ms1.R 4w` \\ fs[]
+      \\ imp_res_tac read_bytearray_LENGTH \\ fs[]
+      \\ strip_tac
+      \\ first_x_assum irule
+      \\ Cases_on`ms1.R 3w` \\ fs[]
+      \\ EVAL_TAC
+      \\ simp[ffi_names, LENGTH_code, LENGTH_data]
+      \\ qpat_x_assum`_ = ms1.PC`(assume_tac o SYM)
+      \\ simp[]
+      \\ `r0 = n2w 0` by metis_tac[ALT_ZERO]
+      \\ simp[]
+      \\ Cases
+      \\ simp[word_ls_n2w, word_lo_n2w] )
+    \\ conj_tac >- EVAL_TAC
     \\ conj_tac >- ( simp[LENGTH_data, LENGTH_code] \\ EVAL_TAC )
     \\ conj_tac >- ( EVAL_TAC \\ simp[])
     \\ conj_tac >- (
