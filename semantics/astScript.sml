@@ -7,7 +7,6 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
 (*
   Definition of CakeML abstract syntax (AST).
@@ -23,8 +22,7 @@ val _ = Hol_datatype `
     IntLit of int
   | Char of char
   | StrLit of string
-  | Word8 of word8
-  | Word64 of word64`;
+  | Word of ( bool list)`;
 
 
 (* Built-in binary operations *)
@@ -56,9 +54,7 @@ val _ = type_abbrev( "typeN" , ``: string``);
 (* Type variable names *)
 val _ = type_abbrev( "tvarN" , ``: string``);
 
-val _ = Hol_datatype `
- word_size = W8 | W64`;
-
+val _ = type_abbrev( "word_size" , ``: num``);
 
 val _ = Hol_datatype `
  op =

@@ -171,16 +171,16 @@ val W64sub : word64 -> word64 -> word64
 declare hol target_rep function W64sub = `word_sub`
 declare isabelle target_rep function W64sub = `Groups.minus`
 *)
-val Wand : bool list -> bool list -> bool list
-declare hol target_rep function WNand = `band`
-val Wor : bool list -> bool list -> bool list
-declare hol target_rep function WNor = `bor`
-val Wxor : bool list -> bool list -> bool list
-declare hol target_rep function WNxor = `bxor`
-val Wadd : bool list -> bool list -> bool list
-declare hol target_rep function WNadd = `add`
-val Wsub : bool list -> bool list -> bool list
-declare hol target_rep function WNsub = `sub`
+val Wand : list bool -> list bool -> list bool
+declare hol target_rep function Wand = `band`
+val Wor : list bool -> list bool -> list bool
+declare hol target_rep function Wor = `bor`
+val Wxor : list bool -> list bool -> list bool
+declare hol target_rep function Wxor = `bxor`
+val Wadd : list bool -> list bool -> list bool
+declare hol target_rep function Wadd = `add`
+val Wsub : list bool -> list bool -> list bool
+declare hol target_rep function Wsub = `sub`
 
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`

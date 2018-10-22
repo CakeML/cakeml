@@ -90,16 +90,43 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val integerFromWord64 : word64 -> integer*)
 (*val word8FromWord64 : word64 -> word8*)
 (*val word64FromWord8 : word8 -> word64*)
-(*val W8and : word8 -> word8 -> word8*)
-(*val W8or : word8 -> word8 -> word8*)
-(*val W8xor : word8 -> word8 -> word8*)
-(*val W8add : word8 -> word8 -> word8*)
-(*val W8sub : word8 -> word8 -> word8*)
-(*val W64and : word64 -> word64 -> word64*)
-(*val W64or : word64 -> word64 -> word64*)
-(*val W64xor : word64 -> word64 -> word64*)
-(*val W64add : word64 -> word64 -> word64*)
-(*val W64sub : word64 -> word64 -> word64*)
+(*
+val W8and : word8 -> word8 -> word8
+declare hol target_rep function W8and = `word_and`
+declare isabelle target_rep function W8and = `Bits.bitAND`
+val W8or : word8 -> word8 -> word8
+declare hol target_rep function W8or = `word_or`
+declare isabelle target_rep function W8or = `Bits.bitOR`
+val W8xor : word8 -> word8 -> word8
+declare hol target_rep function W8xor = `word_xor`
+declare isabelle target_rep function W8xor = `Bits.bitXOR`
+val W8add : word8 -> word8 -> word8
+declare hol target_rep function W8add = `word_add`
+declare isabelle target_rep function W8add = `Groups.plus`
+val W8sub : word8 -> word8 -> word8
+declare hol target_rep function W8sub = `word_sub`
+declare isabelle target_rep function W8sub = `Groups.minus`
+val W64and : word64 -> word64 -> word64
+declare hol target_rep function W64and = `word_and`
+declare isabelle target_rep function W64and = `Bits.bitAND`
+val W64or : word64 -> word64 -> word64
+declare hol target_rep function W64or = `word_or`
+declare isabelle target_rep function W64or = `Bits.bitOR`
+val W64xor : word64 -> word64 -> word64
+declare hol target_rep function W64xor = `word_xor`
+declare isabelle target_rep function W64xor = `Bits.bitXOR`
+val W64add : word64 -> word64 -> word64
+declare hol target_rep function W64add = `word_add`
+declare isabelle target_rep function W64add = `Groups.plus`
+val W64sub : word64 -> word64 -> word64
+declare hol target_rep function W64sub = `word_sub`
+declare isabelle target_rep function W64sub = `Groups.minus`
+*)
+(*val Wand : list bool -> list bool -> list bool*)
+(*val Wor : list bool -> list bool -> list bool*)
+(*val Wxor : list bool -> list bool -> list bool*)
+(*val Wadd : list bool -> list bool -> list bool*)
+(*val Wsub : list bool -> list bool -> list bool*)
 
 (*val W8lsl : word8 -> nat -> word8*)
 (*val W8lsr : word8 -> nat -> word8*)

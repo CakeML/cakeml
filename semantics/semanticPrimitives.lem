@@ -431,6 +431,7 @@ let opw_lookup op = match op with
   | Xor -> Wxor
   | Add -> Wadd
   | Sub -> Wsub
+end
 
 val shift8_lookup : shift -> word8 -> nat -> word8
 let shift8_lookup sh = match sh with
@@ -475,7 +476,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         Just ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
     | (Opw n1 op, [Litv (WordN n2 w1); Litv (WordN n3 w2)]) ->
-	if (n1 = n2) /\ (n2 = n3) then
+	if (n1 = n2) || (n2 = n3) then
 	  Just ((s,t), Rval (Litv (WordN (opwN_lookup op w1 w2))))
         else
 	  Nothing 

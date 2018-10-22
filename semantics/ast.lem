@@ -11,7 +11,7 @@ type lit =
   | IntLit of integer
   | Char of char
   | StrLit of string
-  | Word of (bool list)
+  | Word of (list bool)
 
 (* Built-in binary operations *)
 type opn = Plus | Minus | Times | Divide | Modulo
