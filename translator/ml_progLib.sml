@@ -6,7 +6,7 @@ structure ml_progLib :> ml_progLib =
 struct
 
 open preamble;
-open ml_progTheory astSyntax packLib;
+open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
 
 (* state *)
 
@@ -14,6 +14,101 @@ datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
                                     (thm list) (* env const definitions *) *
                                     (thm list) (* v const definitions *) *
                                     thm (* ML_code thm *);
+
+(* converting nsLookups *)
+
+fun pfun_eq_name const = "nsLookup_" ^ fst (dest_const const) ^ "_pfun_eqs"
+
+val nsLookup_tms = [``nsLookup``, ``nsLookup_Short``, ``nsLookup_Mod1``]
+
+fun str_dest tm = stringSyntax.fromHOLstring tm |> explode |> map ord
+
+val env_type = type_of ``empty_env``
+
+local
+
+val nsLookup_repr_set = let
+    val irrefl_thm = MATCH_MP good_cmp_Less_irrefl_trans string_cmp_good
+  in alist_treeLib.mk_alist_reprs irrefl_thm EVAL
+    str_dest (list_compare Int.compare)
+  end
+
+val empty = (Redblackmap.mkDict Term.compare : (term, unit) Redblackmap.dict)
+val pfun_eqs_in_repr = ref empty
+
+fun add thm = List.app (add_alist_repr nsLookup_repr_set) (BODY_CONJUNCTS thm)
+
+fun get_pfun_thm c = let
+    val c_details = dest_thy_const c
+    val thm = DB.fetch (#Thy c_details) (pfun_eq_name c)
+    (* ensure that a relevant term is present *)
+    val _ = find_term (same_const (List.last nsLookup_tms)) (concl thm)
+  in (c, thm) end
+
+fun uniq [] = []
+  | uniq [x] = [x]
+  | uniq (x :: y :: zs) = if same_const x y then uniq (y :: zs)
+    else x :: uniq (y :: zs)
+
+fun mk_chain [] chain set = (chain, set)
+  | mk_chain ((c, t) :: cs) chain set = if Redblackmap.peek (set, c) = SOME ()
+  then mk_chain cs chain set
+  else let
+    val cs2 = t |> concl |> strip_conj |> map (find_terms is_const o rhs)
+        |> List.concat
+        |> filter (fn tm => type_of tm = env_type)
+        |> Listsort.sort Term.compare |> uniq
+        |> filter (fn c => Redblackmap.peek (set, c) = NONE)
+        |> List.mapPartial (total get_pfun_thm)
+  in if null cs2 then mk_chain cs ((c, t) :: chain)
+    (Redblackmap.insert (set, c, ()))
+  else mk_chain (cs2 @ (c, t) :: cs) chain set end
+
+in
+
+fun check_in_repr_set tms = let
+    val consts = List.concat (map (find_terms is_const) tms)
+        |> filter (fn tm => type_of tm = env_type)
+        |> Listsort.sort Term.compare |> uniq
+        |> List.mapPartial (total get_pfun_thm)
+    val (chain, set) = mk_chain consts [] (! pfun_eqs_in_repr)
+    val _ = if null chain then raise Empty else ()
+    val msg = if length chain > 3
+        then "Adding repr thms for " ^ Int.toString (length chain) ^ " consts."
+        else "Adding repr thms for ["
+            ^ concat (commafy (map (fst o dest_const o fst) chain)) ^ "]."
+  in
+    print (msg ^ "\n"); List.app (add o snd) (rev chain);
+        pfun_eqs_in_repr := set
+  end handle Empty => ()
+
+fun pfun_conv tm = let
+    val (f, xs) = strip_comb tm
+    val _ = length xs = 2 orelse raise UNCHANGED
+    val _ = exists (same_const f) nsLookup_tms orelse raise UNCHANGED
+    val _ = check_in_repr_set [hd xs]
+  in reprs_conv nsLookup_repr_set tm end
+
+end
+
+val nsLookup_conv_arg1_xs = [``option_CASE``, ``COND``,
+  ``OPTION_CHOICE``, ``(/\)``, ``(\/)``, ``(=)``]
+
+fun nsLookup_arg1_conv conv tm = let
+    val (f, xs) = strip_comb tm
+    val _ = exists (same_const f) nsLookup_conv_arg1_xs orelse raise UNCHANGED
+  in if length xs > 1 then RATOR_CONV (nsLookup_arg1_conv conv) tm
+    else if length xs = 1 then RAND_CONV conv tm
+    else raise UNCHANGED
+  end
+
+val nsLookup_rewrs = BODY_CONJUNCTS nsLookup_eq @ [option_choice_f_apply]
+
+fun nsLookup_conv tm = REPEATC (FIRST_CONV
+  (map REWR_CONV nsLookup_rewrs
+    @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv, pfun_conv,
+        (SIMP_CONV (bool_ss ++ optionSimps.OPTION_ss)
+            [nsLookup_merge_env_eqs])])) tm
 
 (* helper functions *)
 
@@ -85,22 +180,6 @@ fun cond_abbrev dest conv eval name th = let
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        in (th,[def]) end end
 
-local
-  val fast_rewrites = ref ([]:thm list);
-  fun has_fast_result lemma = let
-    val rhs = lemma |> concl |> dest_eq |> snd
-    val c = repeat (fst o dest_comb) rhs
-    val cname = dest_const c |> fst
-    in mem cname ["F","NONE","mod_defined","nsLookup"] end
-    handle HOL_ERR _ => false
-in
-  fun get_fast_rewrites () = !fast_rewrites
-  fun add_fast_rewrite lemma =
-    if has_fast_result lemma then
-      fast_rewrites := lemma::(!fast_rewrites)
-    else ()
-end;
-
 fun cond_env_abbrev dest conv name th = let
   val tm = dest th
   val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
@@ -109,19 +188,15 @@ fun cond_env_abbrev dest conv name th = let
        val def = define_abbrev false (find_name name) tm |> SPEC_ALL
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        val env_const = def |> concl |> dest_eq |> fst
-       (* derive theorem for computeLib *)
+       (* derive nsLookup thms *)
        val xs = nsLookup_eq_format |> SPEC env_const |> concl
                    |> find_terms is_eq |> map (fst o dest_eq)
-       fun derive_rewrite tm = let
-         val lemma = (REWRITE_CONV
-                      ([def,nsLookup_write_cons,nsLookup_write,
-                        nsLookup_merge_env,nsLookup_write_mod,nsLookup_empty]
-                       @ (get_fast_rewrites ())) THENC SIMP_CONV (srw_ss()) []) tm
-         val _ = add_fast_rewrite lemma
-         in lemma end
-       val compute_th = LIST_CONJ (map derive_rewrite xs)
-       val thm_name = "nsLookup_" ^ fst (dest_const env_const)
-       val _ = save_thm(thm_name ^ "[compute]",compute_th)
+       val rewrs = [def, nsLookup_write_eqs, nsLookup_write_cons_eqs,
+                         nsLookup_merge_env_eqs, nsLookup_write_mod_eqs,
+                         nsLookup_empty_eqs]
+       val pfun_eqs = LIST_CONJ (map (REWRITE_CONV rewrs) xs)
+       val thm_name = "nsLookup_" ^ fst (dest_const env_const) ^ "_pfun_eqs"
+       val _ = save_thm(thm_name, pfun_eqs)
        in (th,[def]) end end
 
 (*
