@@ -480,6 +480,19 @@ val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
   \\ disch_then drule
   \\ simp []);
 
+val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
+  `∀ptr len.
+   IS_SOME (read_bytearray ptr len (m:'a word -> 'b option)) ∧
+   (∀x. IS_SOME (m x) ⇒ w2n x < dimword(:'a) - 1) ∧
+   w2n ptr < dimword (:'a)
+   ⇒
+   w2n ptr + len < dimword(:'a)`,
+  Induct_on`len`
+  \\ rw[read_bytearray_def]
+  \\ fs[CaseEq"option", IS_SOME_EXISTS, PULL_EXISTS]
+  \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
+  \\ res_tac \\ fs[] \\ rfs[])
+
 val IMP_word_list = Q.store_thm("IMP_word_list",
   `8 <= dimindex(:'a) ⇒
    ∀p ls m.
@@ -6372,7 +6385,28 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ irule asm_write_bytearray_unchanged
   \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
   \\ Cases_on`r0` \\ Cases_on`ms.R 3w` \\ fs[memory_size_def]
-  \\ cheat (* various memory non overlapping stuff  *));
+  \\ qpat_x_assum`_ = w2n (ms.R 2w)`(assume_tac o SYM) \\ fs[]
+  \\ fs[word_add_n2w]
+  \\ fs[EVAL``output_offset``]
+  \\ Cases_on`x` \\ fs[word_lo_n2w, word_ls_n2w]
+  \\ qmatch_goalsub_abbrev_tac`LENGTH conf + ll`
+  \\ pop_assum mp_tac
+  \\ simp[LENGTH_TAKE_EQ]
+  \\ reverse IF_CASES_TAC
+  >- (
+    fs[ADD1]
+    \\ fs[fsFFITheory.ffi_write_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[]
+    \\ pairarg_tac \\ fs[fsFFITheory.write_def]
+    \\ pairarg_tac \\ fs[] \\ rveq )
+  \\ simp[EVAL``output_buffer_size``]
+  \\ `LENGTH conf = 8` by (
+    fs[fsFFITheory.ffi_write_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] )
+  \\ strip_tac
+  \\ simp[Abbr`ll`]
+  \\ conj_tac >- simp[MIN_DEF]
+  \\ cheat (* memory non-overlapping stuff *));
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
@@ -7760,19 +7794,6 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def]
   \\ strip_tac
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
-
-val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
-  `∀ptr len.
-   IS_SOME (read_bytearray ptr len (m:'a word -> 'b option)) ∧
-   (∀x. IS_SOME (m x) ⇒ w2n x < dimword(:'a) - 1) ∧
-   w2n ptr < dimword (:'a)
-   ⇒
-   w2n ptr + len < dimword(:'a)`,
-  Induct_on`len`
-  \\ rw[read_bytearray_def]
-  \\ fs[CaseEq"option", IS_SOME_EXISTS, PULL_EXISTS]
-  \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
-  \\ res_tac \\ fs[] \\ rfs[])
 
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
   `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
