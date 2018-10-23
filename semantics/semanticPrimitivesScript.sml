@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "semanticPrimitives"
 
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*import List_extra*)
@@ -217,8 +221,7 @@ val _ = Define `
       (IntLit _, IntLit _) => T
     | (Char _, Char _) => T
     | (StrLit _, StrLit _) => T
-    | (Word8 _, Word8 _) => T
-    | (Word64 _, Word64 _) => T
+    | (Word x, Word y) => LENGTH x = LENGTH y
     | _ => F
   )))`;
 
@@ -524,45 +527,24 @@ val _ = Define `
 )))`;
 
 
-(*val opw8_lookup : opw -> word8 -> word8 -> word8*)
+(*val opw_lookup : opw -> list bool -> list bool -> list bool*)
 val _ = Define `
- (opw8_lookup op=  ((case op of
-    Andw => word_and
-  | Orw => word_or
-  | Xor => word_xor
-  | Add => word_add
-  | Sub => word_sub
+ (opw_lookup op=  ((case op of
+    Andw => band
+  | Orw => bor
+  | Xor => bxor
+  | Add => add
+  | Sub => sub
 )))`;
 
 
-(*val opw64_lookup : opw -> word64 -> word64 -> word64*)
+(*val shift_lookup : shift -> list bool -> nat -> list bool*)
 val _ = Define `
- (opw64_lookup op=  ((case op of
-    Andw => word_and
-  | Orw => word_or
-  | Xor => word_xor
-  | Add => word_add
-  | Sub => word_sub
-)))`;
-
-
-(*val shift8_lookup : shift -> word8 -> nat -> word8*)
-val _ = Define `
- (shift8_lookup sh=  ((case sh of
-    Lsl => word_lsl
-  | Lsr => word_lsr
-  | Asr => word_asr
-  | Ror => word_ror
-)))`;
-
-
-(*val shift64_lookup : shift -> word64 -> nat -> word64*)
-val _ = Define `
- (shift64_lookup sh=  ((case sh of
-    Lsl => word_lsl
-  | Lsr => word_lsr
-  | Asr => word_asr
-  | Ror => word_ror
+ (shift_lookup sh=  ((case sh of
+    Lsl => shiftl
+  | Lsr => shiftr
+  | Asr => asr
+  | Ror => (\ v n. w2v (word_ror (v2w v) n))
 )))`;
 
 
@@ -597,20 +579,28 @@ val _ = Define `
           SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw W8 op, [Litv (Word8 w1); Litv (Word8 w2)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
-    | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
-    | (FP_uop uop, [Litv (Word64 w)]) =>
-        SOME ((s,t),Rval (Litv (Word64 (fp_uop uop w))))
-    | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t),Rval (Boolv (fp_cmp cmp w1 w2)))
-    | (Shift W8 op n, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
-    | (Shift W64 op n, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
+    | (Opw n1 op, [Litv (Word w1); Litv (Word w2)]) =>
+        if (n1 = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
+          SOME ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
+        else
+          NONE
+    | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>
+        if (LENGTH w1 = LENGTH w2) /\ (LENGTH w1 =( 64 : num)) then
+          SOME ((s,t),Rval (Litv (Word (n2v (fp_bop bop (v2n w1) (v2n w2))))))
+        else
+          NONE
+    | (FP_uop uop, [Litv (Word w)]) =>
+        if LENGTH w =( 64 : num) then
+          SOME ((s,t),Rval (Litv (Word (n2v (fp_uop uop (v2n w))))))
+        else
+          NONE
+    | (FP_cmp cmp, [Litv (Word w1); Litv (Word w2)]) =>
+        if (LENGTH w1 = LENGTH w2) /\ (LENGTH w1 =( 64 : num)) then
+          SOME ((s,t),Rval (Boolv (fp_cmp cmp (v2n w1) (v2n w2))))
+        else
+          NONE
+    | (Shift n1 op n, [Litv (Word w)]) =>
+        SOME ((s,t), Rval (Litv (Word (shift_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -629,14 +619,17 @@ val _ = Define `
             SOME (Refv v) => SOME ((s,t),Rval v)
           | _ => NONE
         )
-    | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
-        if n <( 0 : int) then
-          SOME ((s,t), Rerr (Rraise sub_exn_v))
+    | (Aw8alloc, [Litv (IntLit n); Litv (Word w)]) =>
+        if LENGTH w =( 8 : num) then
+          if n <( 0 : int) then
+            SOME ((s,t), Rerr (Rraise sub_exn_v))
+          else
+            let (s',lnum) =              
+(store_alloc (W8array (REPLICATE (Num (ABS (I n))) (v2n w))) s)
+            in
+              SOME ((s',t), Rval (Loc lnum))
         else
-          let (s',lnum) =            
-(store_alloc (W8array (REPLICATE (Num (ABS (I n))) w)) s)
-          in
-            SOME ((s',t), Rval (Loc lnum))
+          NONE 
     | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
@@ -647,7 +640,7 @@ val _ = Define `
                   if n >= LENGTH ws then
                     SOME ((s,t), Rerr (Rraise sub_exn_v))
                   else
-                    SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
+                    SOME ((s,t), Rval (Litv (Word (n2v (EL n ws)))))
           | _ => NONE
         )
     | (Aw8length, [Loc n]) =>
@@ -656,30 +649,29 @@ val _ = Define `
               SOME ((s,t),Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
-        (case store_lookup lnum s of
-          SOME (W8array ws) =>
-            if i <( 0 : int) then
-              SOME ((s,t), Rerr (Rraise sub_exn_v))
-            else
-              let n = (Num (ABS (I i))) in
-                if n >= LENGTH ws then
-                  SOME ((s,t), Rerr (Rraise sub_exn_v))
-                else
-                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
-                      NONE => NONE
-                    | SOME s' => SOME ((s',t), Rval (Conv NONE []))
-                  )
-        | _ => NONE
-      )
-    | (WordFromInt W8, [Litv(IntLit i)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (i2w i))))
-    | (WordFromInt W64, [Litv(IntLit i)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (i2w i))))
-    | (WordToInt W8, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (WordToInt W64, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word w)]) =>
+        if LENGTH w =( 8 : num) then
+          (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                SOME ((s,t), Rerr (Rraise sub_exn_v))
+              else
+                let n = (Num (ABS (I i))) in
+                  if n >= LENGTH ws then
+                    SOME ((s,t), Rerr (Rraise sub_exn_v))
+                  else
+                    (case store_assign lnum (W8array (LUPDATE (v2n w) n ws)) s of
+                        NONE => NONE
+                      | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+                    )
+          | _ => NONE
+          )
+        else
+          NONE
+    | (WordFromInt n, [Litv (IntLit i)]) =>
+        SOME ((s,t), Rval (Litv (Word (fixwidth n (v2i i)))))
+    | (WordToInt n, [Litv (Word w)]) =>
+        SOME ((s,t), Rval (Litv (IntLit (i2v w))))
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (EXPLODE str,off) len NONE of
