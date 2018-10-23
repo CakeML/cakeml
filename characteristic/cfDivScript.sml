@@ -3,7 +3,7 @@ open set_sepTheory helperLib ml_translatorTheory
 open ml_translatorTheory semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormaliseTheory cfAppTheory
-open cfTacticsBaseLib cfTheory
+open cfTacticsBaseLib cfTacticsLib cfTheory
 
 val _ = new_theory "cfDiv";
 
@@ -246,6 +246,27 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
       \\ match_mp_tac FFI_full_IN_st2heap_IMP \\ fs [] \\ metis_tac [])
   \\ `!i. (sts i).ffi.io_events = events i` by metis_tac []
   \\ fs []
+  \\ rpt strip_tac
+  \\ qpat_assum `!n. ?i. n < _` (qspecl_then [`LENGTH (events (j + 1))`] mp_tac)
+  \\ strip_tac
+  \\ qpat_assum `!i. _ ≼ _` (qspecl_then [`i`] mp_tac)
+  \\ strip_tac
+  \\ `LENGTH (events (i + 1)) ≤ LENGTH (events (j + 1))` by fs [IS_PREFIX_LENGTH]
+  \\ `LENGTH (events i) < LENGTH (events (i + 1))` by cheat
+  \\ fs []);
+
+(* example: the yes program *)
+
+val _ = (append_prog o cfTacticsLib.process_topdecs)
+  `fun yes c = (putChar c; repeat yes c);`
+
+val st = ml_translatorLib.get_ml_prog_state ();
+
+val yes_spec = store_thm("yes_spec",
+  ``!xv.
+      app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [xv]
+        emp (POSTd (\io. T))``,
+  xcf "yes" st
   \\ cheat);
 
 val _ = export_theory();
