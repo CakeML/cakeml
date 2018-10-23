@@ -92,6 +92,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val word64FromWord8 : word8 -> word64*)
 (*val bitstringFromWord64: word64 -> list bool*)
 (*val word64FromBitstring: list bool -> word64*)
+(*val bitstringFromWord8 : word8 -> list bool*)
+(*val word8FromBitstring : list bool -> word8*)
 (*
 val W8and : word8 -> word8 -> word8
 declare hol target_rep function W8and = `word_and`
