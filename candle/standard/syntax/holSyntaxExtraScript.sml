@@ -5989,6 +5989,11 @@ val subtype_at_MEM = Q.store_thm("subtype_at_MEM",
   rw[MEM_EL] >> qexists_tac `(m,n)` >> fs[subtype_at_def]
 );
 
+val subtype_at_Tyvar = Q.store_thm("subtype_at_Tyvar",
+  `!p a. IS_SOME (subtype_at (Tyvar a) p) = NULL p`,
+  Induct >> fs[subtype_at_def]
+);
+
 val subtype_at_decomp_path = Q.store_thm("subtype_at_decomp_path",
   `!q ty1 p ty2 ty3. subtype_at ty1 p = SOME ty2 /\ subtype_at ty1 (p++q) = SOME ty3
   ==> subtype_at ty2 q = SOME ty3`,
@@ -6703,6 +6708,272 @@ val unify_complete = Q.store_thm("unify_complete",
   >> fs[unify_types_complete,ELIM_UNCURRY]
   >> FULL_CASE_TAC
   >> fs[IS_SOME_DEF]
+);
+
+(* if possible generate a certificate for t' <= t
+ * i.e. t' is an instance of t
+ * instance_subst [(t',t)] []
+ * !s. is_instance ty0 (TYPE_SUBST s ty0) *)
+val instance_subst_def = Hol_defn "instance_subst" `
+  (instance_subst [] s = SOME (FILTER (UNCURRY $<>) s))
+  /\ (instance_subst ((Tyvar a,Tyvar b)::x) s =
+    if MEM (Tyvar a,Tyvar b) s
+    then instance_subst x s
+    else if ~MEM (Tyvar b) (MAP SND s)
+      then instance_subst x ((Tyvar a,Tyvar b)::s)
+      else NONE)
+  /\ (instance_subst ((Tyapp m l,Tyapp n l')::x) s =
+    if m = n /\ LENGTH l = LENGTH l'
+    then instance_subst ((ZIP (l,l'))++x) s
+    else NONE)
+  /\ (instance_subst ((Tyvar _,Tyapp _ _)::x) _ = NONE)
+  /\ (instance_subst ((Tyapp m l,Tyvar a)::x) s =
+    if ~MEM (Tyapp m l,Tyvar a) s /\ ~MEM (Tyvar a) (MAP SND s)
+    then instance_subst x ((Tyapp m l,Tyvar a)::s)
+    else NONE)
+`;
+
+val (instance_subst_def,instance_subst_ind) = Defn.tprove(
+  instance_subst_def,
+  WF_REL_TAC `measure (SUM o (MAP (λx. (type_size' o FST) x + (type_size' o SND) x)) o FST)`
+  >> rw[SUM_APPEND,type_size'_def]
+  >> rw[SUM_MAP_PLUS,MAP_ZIP,GSYM o_DEF,type1_size'_SUM_MAP]
+);
+
+val [instance_subst_empty,instance_subst_tyvars,instance_subst_tyapp,instance_subst_tyvar_tyapp,instance_subst_tyapp_tyvar] =
+    map save_thm (zip ["instance_subst_empty","instance_subst_tyvars","instance_subst_tyapp","instance_subst_tyvar_tyapp","instance_subst_tyapp_tyvar"]
+                      (map GEN_ALL (CONJUNCTS instance_subst_def)));
+
+val instance_subst_inv_def = Define`
+    instance_subst_inv orig_l l sigma = (
+    (* each element from l comes from the list orig_l at the same height *)
+    (!a b. MEM (a,b) l ==> ?x y p. MEM (x,y) orig_l /\ (
+        (subtype_at x p = SOME a /\ subtype_at y p = SOME b)
+        \/ (subtype_at x p = SOME b /\ subtype_at y p = SOME a)))
+    (* orig_l are equal except for the elements in l *)
+    /\ (!x y. MEM (x,y) orig_l ==> !a. MEM a (tyvars y) ==> !p. IS_SOME (subtype_at x p) /\ subtype_at y p = SOME (Tyvar a)
+      ==> (?q c d. MEM (c,d) l /\ subtype_at c q = subtype_at x p /\ subtype_at d q = SOME (Tyvar a))
+        \/ TYPE_SUBST sigma (Tyvar a) = THE (subtype_at x p))
+    (* If we have a certificate for two non equal types then the
+       original list could not have been equal *)
+    (* /\ ((?s. EVERY (λ(x,y). x = TYPE_SUBST s y) orig_l)
+      ==> ?s'. EVERY (λ(x,y). x = (TYPE_SUBST s' o TYPE_SUBST sigma) y) orig_l) *)
+    (* no duplicates in the type substitution *)
+    /\ ALL_DISTINCT (MAP SND sigma)
+    (* no identities in sigma *)
+    /\ EVERY (λ(x,y). x <> y) sigma
+    (* The substitution's domain consists of variables only *)
+    /\ (!x. MEM x (MAP SND sigma) ==> ?a. x = Tyvar a)
+    (* Same type variables must stay equal under sigma *)
+    /\ (!a. MEM (Tyvar a,Tyvar a) l ==> ~MEM (Tyvar a) (MAP SND sigma))
+)`;
+
+val instance_subst_inv_init = Q.prove(
+  `!orig_l. instance_subst_inv orig_l orig_l []`,
+  fs[instance_subst_inv_def]
+  >> strip_tac
+  >> conj_tac
+  >- (
+    rw[]
+    >> asm_exists_tac
+    >> qexists_tac `[]`
+    >> fs[subtype_at_def]
+  )
+  >- (
+    rw[IS_SOME_EXISTS]
+    >> fs[THE_DEF]
+    >> DISJ1_TAC
+    >> asm_exists_tac
+    >> qexists_tac `p`
+    >> fs[]
+  )
+);
+
+val instance_subst_mono = Q.store_thm("instance_subst_mono",
+  `!l sigma sigma'. instance_subst l sigma = SOME sigma'
+  /\ ALL_DISTINCT (MAP SND sigma)
+  ==> !a b. a <> b /\ MEM (a,b) sigma
+  ==> MEM (a,b) sigma'`,
+  ho_match_mp_tac instance_subst_ind
+  >> conj_tac
+  >- (
+    rpt strip_tac
+    >> (qspec_then `sigma` assume_tac) instance_subst_empty
+    >> rfs[MEM_FILTER]
+  )
+  >> rw[instance_subst_def]
+);
+
+val MEM_MAP_f_FILTER_imp = Q.store_thm("MEM_MAP_f_FILTER_imp",
+  `!a l f P. MEM a (MAP f (FILTER P l)) ==> MEM a (MAP f l)`,
+  strip_tac
+  >> Induct
+  >> rw[]
+  >> DISJ2_TAC
+  >> last_x_assum match_mp_tac
+  >> asm_exists_tac
+  >> fs[]
+);
+
+val instance_subst_mono_same_tyvars = Q.store_thm("instance_subst_mono_same_tyvars",
+  `!l sigma sigma' a. instance_subst l sigma = SOME sigma'
+  /\ ALL_DISTINCT (MAP SND sigma) /\ MEM (Tyvar a, Tyvar a) sigma
+  ==> ~MEM (Tyvar a) (MAP SND sigma')`,
+  ho_match_mp_tac instance_subst_ind
+  >> conj_tac
+  >- (
+    rpt strip_tac
+    >> (qspec_then `sigma` assume_tac) instance_subst_empty
+    >> rfs[MEM_FILTER]
+    >> qpat_x_assum `MEM (_,_) _` (assume_tac o REWRITE_RULE [MEM_SPLIT])
+    >> fs[]
+    >> fs[ALL_DISTINCT_APPEND,FILTER_APPEND]
+    >> imp_res_tac MEM_MAP_f_FILTER_imp
+    >> first_x_assum (qspec_then `Tyvar a` assume_tac)
+    >> rfs[]
+  )
+  >> rw[instance_subst_def]
+);
+
+val instance_subst_inv_pres = Q.prove(
+  `!l sigma sigma'. instance_subst l sigma = SOME sigma'
+  /\ instance_subst_inv l l sigma
+  ==> instance_subst_inv l [] sigma'`,
+  ho_match_mp_tac instance_subst_ind
+  >> conj_tac
+  >- (
+    rw[instance_subst_def,instance_subst_inv_def]
+    >> imp_res_tac FILTER_EQ_ID >> fs[]
+  )
+  >> conj_tac
+  >- (
+    rw[instance_subst_def]
+    >> first_x_assum drule
+    >- (
+      `instance_subst_inv l l sigma` by (
+        fs[instance_subst_inv_def]
+        >> rw[]
+        >- (
+          asm_exists_tac
+          >> qexists_tac `[]`
+          >> fs[]
+          >> disj1_tac
+          >> rw[GSYM subtype_at_cyclic]
+        )
+        >- (
+          qmatch_abbrev_tac `_ \/ z`
+          >> Cases_on `z` >> fs[]
+          >> unabbrev_all_tac
+          >> asm_exists_tac
+          >> qexists_tac `p`
+          >> fs[]
+        )
+      )
+      >> rw[]
+      >> fs[instance_subst_inv_def]
+      >> rpt strip_tac
+      >- (
+        fs[IS_SOME_EXISTS]
+        >> Cases_on `p` >> rveq >> fs[subtype_at_def,subtype_at_Tyvar]
+        >> (qspecl_then [`l`,`sigma`,`sigma'`] assume_tac) instance_subst_mono
+        >> rfs[]
+        >> qpat_x_assum `EVERY _ sigma` (drule o REWRITE_RULE[EVERY_MEM])
+        >> first_x_assum (qspecl_then [`Tyvar a`,`Tyvar b`] mp_tac)
+        >> rw[]
+        >> fs[tyvars_def]
+        >> assume_tac (Q.ISPECL [`SND:(type#type)->type`,`sigma':((type,type) alist)`] MEM_MAP_f)
+        >> first_x_assum drule
+        >> rw[]
+        >> imp_res_tac MEM_SPLIT_APPEND_SND_first
+        >> (qspecl_then[`pfx`,`[(q,Tyvar a')]++sfx`,`Tyvar a'`] assume_tac) TYPE_SUBST_reduce_list
+        >> `!ty. ~MEM (ty,Tyvar a') pfx` by (
+          qpat_x_assum `~MEM _ (MAP SND pfx)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
+          >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty,Tyvar a')` mp_tac) >> fs[]
+        )
+        >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
+        >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+        >> fs[ALL_DISTINCT_APPEND]
+        >> qpat_x_assum `!x. _ \/ _ ==> ~MEM _ _` (qspec_then `Tyvar a'` assume_tac)
+        >> fs[]
+      )
+      >> qpat_x_assum `!x y. _` drule
+      >> disch_then drule
+      >> rw[]
+    )
+    >> Cases_on `a = b`
+    >- (
+      rveq
+      >> fs[instance_subst_inv_def]
+      >> rw[]
+      >- (
+        qpat_x_assum `!x y. _` (qspecl_then [`Tyvar a`,`Tyvar a`] assume_tac)
+        >> fs[tyvars_def]
+        >> first_x_assum (qspec_then `[]` assume_tac)
+        >> fs[subtype_at_def]
+      )
+    )
+    >> pop_assum mp_tac
+    >> `instance_subst_inv l l ((Tyvar a,Tyvar b)::sigma)` by (
+      fs[instance_subst_inv_def]
+    )
+    >> drule instance_subst_mono
+    >> disch_then (qspecl_then [`Tyvar a`,`Tyvar b`] assume_tac)
+    >> fs[ALL_DISTINCT_APPEND]
+    >> cheat
+  )
+  >> conj_tac
+  >- (
+    rw[instance_subst_def,instance_subst_inv_def]
+    >> cheat
+  )
+  >> conj_tac
+  >- rw[instance_subst_def,instance_subst_inv_def]
+  >- (
+    rw[instance_subst_def,instance_subst_inv_def]
+    >- (
+      fs[]
+      >> cheat
+    )
+  )
+);
+
+val instance_subst_inv_imp = Q.prove(
+  `!l sigma. instance_subst l [] = SOME sigma ==> instance_subst_inv l [] sigma`,
+  ho_match_mp_tac instance_subst_ind
+  >> rw[instance_subst_def,instance_subst_inv_def,LIST_REL_EVERY_ZIP,EVERY_MEM]
+  >> fs[equal_upto_nil,ELIM_UNCURRY,ZIP_MAP,MAP_MAP_o,MEM_MAP]
+  >- (
+    fs[subtype_at_Tyvar,subtype_at_def,NULL_EQ]
+    >> rveq
+    >> fs[subtype_at_def]
+  )
+  >> cheat
+);
+
+val instance_subst_soundness = Q.store_thm("instance_subst_soundness",
+  `!t t' s. instance_subst [(t',t)] [] = SOME s ==> t' = TYPE_SUBST s t`,
+  rw[]
+  >> imp_res_tac instance_subst_inv_imp
+  >> cheat
+);
+
+val instance_subst_completeness_step_n = Q.prove(
+  `!ty1 ty2. (
+    (?a atys b. ty1 = Tyapp a atys /\ ty2 = Tyvar b)
+    \/ (?a atys b btys. ty1 = Tyapp a atys /\ ty2 = Tyvar b btys /\ (a <> b \/ LENGTH atys <> LENGTH btys))
+   ) ==> !s. (TYPE_SUBST s ty1) <> ty2`,
+   cheat
+);
+
+val instance_subst_completeness_step = Q.store_thm("instance_subst_completeness_step",
+  `!t t' sigma. is_instance t' t /\ instance_subst_inv t' t sigma ==> IS_SOME (instance_subst t' t)`,
+  ho_match_mp_tac instance_subst_ind
+  >> cheat
+);
+
+val instance_subst_completeness = Q.store_thm("instance_subst_completeness",
+  `!t t'. (is_instance t' t) = IS_SOME (instance_subst t' t)`,
+  cheat
 );
 
 (* TODO: lemmas that should maybe go elsewhere *)
