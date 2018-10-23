@@ -7,6 +7,8 @@ val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
+
 (* translator setup *)
 
 val RW = REWRITE_RULE
@@ -1141,6 +1143,8 @@ val infertype_prog_side_thm = store_thm("infertype_prog_side_thm",
   |> update_precondition;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

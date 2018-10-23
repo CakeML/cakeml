@@ -113,6 +113,14 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
+val assign_def =
+  data_to_wordTheory.assign_def
+  |> REWRITE_RULE [data_to_wordTheory.arg1_def,
+                   data_to_wordTheory.arg2_def,
+                   data_to_wordTheory.arg3_def,
+                   data_to_wordTheory.arg4_def,
+                   data_to_wordTheory.all_assign_defs];
+
 val data_compile_correct = Q.store_thm("data_compile_correct",
   `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -130,7 +138,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
          | SOME (Rval v) =>
              ?w. state_rel c l1 l2 s1 t1 [(v,w)] locs /\
                  (res1 = SOME (Result (Loc l1 l2) w))
-         | SOME (Rerr (Rraise v)) =>
+         | SOME (Rerr (Rraise v)) => (t1.ffi = s1.ffi) /\
              ?w l5 l6 ll.
                (res1 = SOME (Exception (mk_loc (jump_exc t)) w)) /\
                (jump_exc t <> NONE ==>
@@ -249,7 +257,8 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ imp_res_tac state_rel_jump_exc \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][mk_loc_def])
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][mk_loc_def]
+    \\ first_x_assum (qspec_then `0` mp_tac) \\ fs [state_rel_def])
   THEN1 (* Return *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -487,10 +496,11 @@ val compile_correct_lemma = Q.store_thm("compile_correct_lemma",
            t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
-        | NONE => (res1 = NONE)
-        | SOME (Rval v) => t1.ffi = s1.ffi /\
+        | NONE => (t1.ffi = s1.ffi) /\ (res1 = NONE)
+        | SOME (Rval v) => (t1.ffi = s1.ffi) /\
                            ?w. (res1 = SOME (Result (Loc l1 l2) w))
-        | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+        | SOME (Rerr (Rraise v)) => (t1.ffi = s1.ffi) /\
+                                    (?v w. res1 = SOME (Exception v w))
         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
   rpt strip_tac
@@ -531,13 +541,13 @@ val compile_correct = Q.store_thm("compile_correct",
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events) /\
         (res1 <> SOME NotEnoughSpace ==>
+         (t1.ffi = s1.ffi) /\
          case res of
          | NONE => (res1 = NONE)
-         | SOME (Rval v) => t1.ffi = s1.ffi /\
-                            ?w. (res1 = SOME (Result (Loc l1 l2) w))
+         | SOME (Rval v) => ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
-         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
-         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
+         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f))
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))`,
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
   \\ fs [wordSemTheory.state_component_equality]
@@ -595,7 +605,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
   \\ qpat_x_assum `evaulate _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t7)`
-  \\ qsuff_tac `t6 = t7` THEN1 (every_case_tac \\ fs [])
+  \\ qsuff_tac `t6 = t7`
+  THEN1 (every_case_tac \\ fs [])
   \\ unabbrev_all_tac \\ fs []
   \\ fs [wordSemTheory.state_component_equality]);
 
