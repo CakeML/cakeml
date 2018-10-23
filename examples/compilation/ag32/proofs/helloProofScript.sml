@@ -589,6 +589,13 @@ val asm_write_bytearray_unchange_alt = store_thm("asm_write_bytearray_unchanged_
   \\ first_x_assum (qspec_then `k + 1` mp_tac)
   \\ fs [GSYM word_add_n2w,ADD1]);
 
+val asm_write_bytearray_unchanged_all_words = Q.store_thm("asm_write_bytearray_unchanged_all_words",
+  `∀a bs m z x.
+    ~(x ∈ all_words a (LENGTH bs)) ∧ (z = m x) ⇒
+    (asm_write_bytearray (a:'a word) bs m x = z)`,
+  Induct_on`bs`
+  \\ rw[all_words_def,lab_to_targetProofTheory.asm_write_bytearray_def,APPLY_UPDATE_THM]);
+
 val asm_write_bytearray_id = Q.store_thm("asm_write_bytearray_id",
   `∀a bs m.
     (∀j. j < LENGTH bs ⇒ (m (a + n2w j) = EL j bs))
@@ -6393,7 +6400,8 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
         (ag32_prog_addresses (LENGTH ffi_names) lc ld r0) r0
         (index,bytes',ms) = FUNPOW Next k ms) ∧
       ag32_ffi_rel r0 (FUNPOW Next k ms) ffi' ∧
-      ∀x. x ∉ ag32_ffi_mem_domain r0 ⇒ ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
+      ∀x. x ∉ ag32_ffi_mem_domain r0 /\ x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
   strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
@@ -6579,36 +6587,22 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     simp[APPLY_UPDATE_THM]
     \\ IF_CASES_TAC
     >- (
-      qpat_x_assum`x ∉ _`mp_tac
+      qpat_x_assum`x ∉ ag32_ffi_mem_domain _`mp_tac
       \\ rveq
       \\ simp[ag32_ffi_mem_domain_def]
       \\ EVAL_TAC
       \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
       \\ fs[word_ls_n2w, word_lo_n2w] )
-    \\ irule asm_write_bytearray_unchanged
+    \\ irule asm_write_bytearray_unchanged_all_words
     \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
+    \\ simp []
     \\ Cases_on`r0` \\ Cases_on`ms.R 3w` \\ fs[memory_size_def]
     \\ simp[APPLY_UPDATE_THM]
     \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
     \\ fs[ADD1]
     \\ fs[word_add_n2w]
-    \\ reverse conj_tac
-    >- (
-      qpat_x_assum`x ∉ _`mp_tac
-      \\ simp[ag32_ffi_mem_domain_def]
-      \\ EVAL_TAC
-      \\ Cases_on`x` \\ fs[word_add_n2w]
-      \\ fs[word_ls_n2w, word_lo_n2w]
-      \\ fs[asmSemTheory.bytes_in_memory_def]
-      \\ qpat_x_assum`n2w n' ∈ _`mp_tac
-      \\ simp[Abbr`md`]
-      \\ EVAL_TAC \\ fs[]
-      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w, LEFT_ADD_DISTRIB]
-      \\ fs[EVAL``code_start_offset _``, FFI_codes_def]
-      \\ fs[LEFT_ADD_DISTRIB]
-      \\ cheat (* byte array not too long / in range *) )
     \\ IF_CASES_TAC \\ fs[]
-    \\ qpat_x_assum`x ∉ _`mp_tac
+    \\ qpat_x_assum`x ∉ ag32_ffi_mem_domain _`mp_tac
     \\ rveq
     \\ simp[ag32_ffi_mem_domain_def]
     \\ EVAL_TAC
