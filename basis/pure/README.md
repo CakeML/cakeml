@@ -3,6 +3,9 @@ HOL definitions of the pure functions used in the CakeML basis.
 The CakeML code for the pure parts of the basis is produced
 from these by the translator.
 
+[ArgParseScript.sml](ArgParseScript.sml):
+Pure functions for parsing of command-line arguments.
+
 [basisComputeLib.sml](basisComputeLib.sml):
 compset for the pure basis functions.
 

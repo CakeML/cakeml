@@ -1,3 +1,6 @@
+(*
+  Pure functions for parsing of command-line arguments.
+*)
 open preamble mlstringTheory
 open pegTheory pegexecTheory pegLib
 
