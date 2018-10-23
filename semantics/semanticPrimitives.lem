@@ -552,17 +552,13 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                       | Just s' -> Just ((s',t), Rval (Conv Nothing []))
                     end
           | _ -> Nothing
-        end
+          end
         else
           Nothing
-    | (WordFromInt W8, [Litv(IntLit i)]) ->
-        Just ((s,t), Rval (Litv (Word8 (word8FromInteger i))))
-    | (WordFromInt W64, [Litv(IntLit i)]) ->
-        Just ((s,t), Rval (Litv (Word64 (word64FromInteger i))))
-    | (WordToInt W8, [Litv (Word8 w)]) ->
-        Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord8 w)))))
-    | (WordToInt W64, [Litv (Word64 w)]) ->
-        Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord64 w)))))
+    | (WordFromInt n, [Litv (IntLit i)]) ->
+        Just ((s,t), Rval (Litv (Word (fixwidth n (bitstringFromInteger i)))))
+    | (WordToInt n, [Litv (Word w)]) ->
+        Just ((s,t), Rval (Litv (IntLit (integerFromBitstring w))))
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
         Just ((s,t),
         match copy_array (toCharList str,off) len Nothing with

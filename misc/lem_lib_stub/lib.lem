@@ -147,6 +147,12 @@ val bitstringFromWord8 : word8 -> list bool
 declare hol target_rep function bitstringFromWord8 = `n2v`
 val word8FromBitstring : list bool -> word8
 declare hol target_rep function word8FromBitstring = `v2n`
+val bitstringFromInteger : integer -> list bool
+declare hol target_rep function bitstringFromInteger = `v2i`
+val integerFromBitstring : list bool -> integer
+declare hol target_rep function integerFromBitstring = `i2v`
+val fixwidth : nat -> list bool -> list bool
+declare hol target_rep function fixwidth = `fixwidth`
 (*
 val W8and : word8 -> word8 -> word8
 declare hol target_rep function W8and = `word_and`
