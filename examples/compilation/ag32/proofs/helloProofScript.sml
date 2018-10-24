@@ -8251,6 +8251,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     (hello_machine_config r0)
     (ag32_ffi_rel r0)
     (ag32_ffi_mem_domain r0) ms`,
+
   rw[interference_implemented_def]
   \\ simp[EVAL``(hello_machine_config r0).target.next``]
   \\ simp[EVAL``(hello_machine_config r0).target.get_byte``]
@@ -8663,6 +8664,9 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ fs[EVAL``LENGTH ag32_ffi_write_code``]
     \\ Cases_on`r0` \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
     \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[])
+
+  \\ cheat (* this goal statement looks suspicious -- partially working proof below
+
   \\ strip_tac
   \\ asm_exists_tac
   \\ simp[]
@@ -8675,18 +8679,12 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ simp[data_to_word_assignProofTheory.IMP, AND_IMP_INTRO]
   \\ strip_tac
   \\ Cases_on`x ∈ ag32_ffi_mem_domain r0` \\ fs[]
-  \\ cheat (* trying to fix this proof
-
-  \\ simp[hello_machine_config_def, ag32_machine_config_def, ffi_names]
-  \\ simp[data_to_word_assignProofTheory.IMP, AND_IMP_INTRO]
-  \\ strip_tac
-  \\ `F` suffices_by rw[]
-  \\ pop_assum mp_tac
-  \\ simp[]
-  \\ first_x_assum match_mp_tac
-  \\ simp[]
-  \\ EVAL_TAC
-  \\ simp[LENGTH_code, LENGTH_data] *));
+  THEN1
+   (fs [hello_machine_config_def, ag32_machine_config_def, ffi_names]
+    \\ qpat_x_assum `x ∈ ag32_prog_addresses _ _ _ _` mp_tac \\ simp []
+    \\ first_x_assum match_mp_tac \\ simp []
+    \\ EVAL_TAC \\ simp[LENGTH_code, LENGTH_data])
+  ??? *));
 
 val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
   `wfcl cl ∧ 2 ≤ maxFD ⇒
