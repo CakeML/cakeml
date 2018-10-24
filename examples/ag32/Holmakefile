@@ -1,8 +1,0 @@
-INCLUDES = ../../characteristic ../../basis ../../basis/ag32 ../../misc
-OPTIONS = QUIT_ON_FAILURE
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS)
-.PHONY: all
