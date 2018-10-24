@@ -1,6 +1,0 @@
-A version of the basis library for ag32 (the Silver CPU)
-
-This includes most of the standard basis library but has different FFI
-functions (and ultimately a different FFI oracle), because programs for Silver
-are designed to be run without an operating system and have access to different
-FFI primitives.
