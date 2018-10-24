@@ -350,8 +350,17 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
         \\ fs[GSYM FUNPOW_ADD]
         \\ strip_tac
         \\ first_x_assum(qspec_then`k0+k1`mp_tac)
-        \\ simp[] \\ rw[]
-        \\ cheat (* problem *)
+        \\ simp[]
+        \\ impl_tac
+        >- (
+          rw[]
+          \\ first_x_assum irule
+          \\ rw[]
+          \\ fs[targetSemTheory.read_ffi_bytearrays_def]
+          \\ imp_res_tac read_ffi_bytearray_IMP_SUBSET_prog_addresses
+          \\ fs[SUBSET_DEF]
+          \\ metis_tac[] )
+        \\ rw[]
         \\ first_x_assum match_mp_tac
         \\ fs[targetSemTheory.read_ffi_bytearrays_def,
               targetSemTheory.read_ffi_bytearray_def]
