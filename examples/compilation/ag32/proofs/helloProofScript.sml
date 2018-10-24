@@ -2280,14 +2280,14 @@ val ag32_ffi_write_set_id_thm = Q.store_thm("ag32_ffi_write_set_id_thm",
 
 val ag32_ffi_read_set_id_def = Define`
   ag32_ffi_read_set_id s =
-    let s = dfn'LoadConstant (6w, F, n2w (ffi_code_start_offset - 1)) s in
-    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 6w) s in
+    let s = dfn'LoadConstant (5w, F, n2w (ffi_code_start_offset - 1)) s in
+    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w) s in
     s`;
 
 val ag32_ffi_read_set_id_thm = Q.store_thm("ag32_ffi_read_set_id_thm",
   `  (ag32_ffi_read_set_id s =
       s with <| PC := s.PC + 8w;
-                R := ((6w =+ n2w (ffi_code_start_offset - 1)) s.R);
+                R := ((5w =+ n2w (ffi_code_start_offset - 1)) s.R);
                 MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "read"))) s.MEM |>)`,
   rw[ag32_ffi_read_set_id_def]
   \\ rw[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def]
@@ -5308,8 +5308,19 @@ val ag32_ffi_read_body_def = Define`
 
 val ag32_ffi_read_def = Define`
   ag32_ffi_read s =
-    let s = ag32_ffi_read_body s in
-      ag32_ffi_return s`;
+  let s = ag32_ffi_read_set_id s in
+  let s = ag32_ffi_write_check_conf s in
+  let s0 = ag32_ffi_write_load_noff s in
+  let s = ag32_ffi_write_check_lengths s0 in
+  let s =
+    if s.PC = s0.PC + n2w (4 * LENGTH ag32_ffi_write_check_lengths_code) then
+      let s = ag32_ffi_write_write_header s in
+      let s = ag32_ffi_write_num_written s in
+              ag32_ffi_write_copy s
+    else
+      let s = dfn'StoreMEMByte (Imm 1w, Reg 3w) s in
+              dfn'StoreMEMByte (Imm 1w, Reg 5w) s
+  in ag32_ffi_return s`;
 
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   `(∀k. k < LENGTH ag32_ffi_read_code ⇒
@@ -6278,7 +6289,551 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
    (s.PC = r0 + n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "read")))
    ⇒
    (ag32_ffi_read s = ag32_ffi_interfer ffi_names md r0 (index, new_bytes, s))`,
-  cheat (* correctness of shallow embedding of read *);
+
+  rw[ag32_ffi_interfer_def]
+  \\ drule INDEX_OF_IMP_EL \\ strip_tac
+  \\ simp[ag32_ffi_read_def]
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_return s'`
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qmatch_asmsub_abbrev_tac`if (s1.PC = _) then _ else _`
+  \\ mp_tac ag32_ffi_read_set_id_thm
+  \\ strip_tac \\ fs[]
+  \\ pop_assum kall_tac
+  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_write_check_conf s2`
+  \\ qspec_then`s2`mp_tac(Q.GENL[`s`]ag32_ffi_write_check_conf_thm)
+  \\ impl_tac
+  >- (
+    simp[Abbr`s2`,APPLY_UPDATE_THM]
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ rw[APPLY_UPDATE_THM]
+    \\ imp_res_tac asmPropsTheory.bytes_in_memory_all_pcs
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[asmPropsTheory.all_pcs_thm, SUBSET_DEF, PULL_EXISTS]
+    \\ disch_then drule
+    \\ simp[Abbr`md`,Abbr`r0`]
+    \\ simp[ag32_prog_addresses_def]
+    \\ qpat_x_assum`_ = _ + _`(assume_tac o SYM)
+    \\ simp[]
+    \\ EVAL_TAC
+    \\ fs[word_add_n2w, memory_size_def]
+    \\ fs[word_ls_n2w, word_lo_n2w, FFI_codes_def] )
+  \\ strip_tac \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_write_load_noff s3`
+  \\ qpat_x_assum`_ = s3`kall_tac
+  \\ fs[Abbr`s2`, APPLY_UPDATE_THM]
+  \\ fs[fsFFITheory.ffi_read_def, CaseEq"list"]
+  \\ rveq
+  \\ rename [`bytes_in_memory (s.R 3w) (n1::n0::off1::off0::tll) s.MEM md`]
+  \\ qspec_then`s3`mp_tac(Q.GENL[`s`]ag32_ffi_write_load_noff_thm)
+  \\ impl_tac
+  >- (
+    simp[Abbr`s3`,APPLY_UPDATE_THM]
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ rw[APPLY_UPDATE_THM]
+    \\ imp_res_tac asmPropsTheory.bytes_in_memory_all_pcs
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[asmPropsTheory.all_pcs_thm, SUBSET_DEF, PULL_EXISTS]
+    \\ disch_then drule
+    \\ simp[Abbr`md`,Abbr`r0`]
+    \\ simp[ag32_prog_addresses_def]
+    \\ qpat_x_assum`_ = _ + _`(assume_tac o SYM)
+    \\ simp[]
+    \\ EVAL_TAC
+    \\ fs[word_add_n2w, memory_size_def]
+    \\ fs[word_ls_n2w, word_lo_n2w, FFI_codes_def] )
+  \\ strip_tac \\ fs[]
+  \\ pop_assum kall_tac
+  \\ fs[APPLY_UPDATE_THM]
+  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_write_check_lengths s2`
+  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`off`,`n`,`cnd`]ag32_ffi_write_check_lengths_thm)
+  \\ disch_then(qspecl_then[`LENGTH tll`,`w22n [off1; off0]`,`w22n [n1; n0]`,
+                            `(LENGTH conf = 8) ∧ w82n conf < 3`]mp_tac)
+  \\ impl_tac
+  >- (
+    simp[Abbr`s2`,Abbr`s3`,Abbr`r0`,APPLY_UPDATE_THM]
+    \\ simp[MarshallingTheory.w22n_def]
+    \\ Cases_on`s.R 4w` \\ fs[ADD1,word_add_n2w]
+    \\ Cases_on`off0` \\ Cases_on`off1` \\ fs[]
+    \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[] )
+  \\ strip_tac \\ fs[]
+  \\ pop_assum kall_tac
+  \\ fs[Abbr`s3`, APPLY_UPDATE_THM]
+  \\ fs[Abbr`s2`, APPLY_UPDATE_THM]
+  \\ qmatch_asmsub_abbrev_tac`COND cnd`
+  \\ qmatch_asmsub_abbrev_tac`s' = if cnd' then _ else _`
+  \\ `cnd' = cnd`
+  by (
+    simp[Abbr`cnd'`,Abbr`s1`]
+    \\ Cases_on`cnd` \\ simp[]
+    \\ EVAL_TAC \\ simp[] )
+  \\ qpat_x_assum`Abbrev(cnd' = _)`kall_tac
+  \\ rveq
+  \\ reverse(Cases_on`cnd`) \\ fs[]
+
+  >- (
+    qpat_x_assum`Abbrev(s' = _)`mp_tac
+    \\ simp[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def]
+    \\ strip_tac
+    \\ simp[Abbr`s'`]
+    \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
+    \\ qmatch_asmsub_abbrev_tac`OPTION_CHOICE o1`
+    \\ `o1 = NONE`
+    by (
+      simp[Abbr`o1`,Abbr`r0`]
+      \\ simp[EXISTS_PROD]
+      \\ simp[fsFFITheory.read_def, EXISTS_PROD]
+      \\ fs[ag32_fs_ok_def]
+      \\ Cases_on`LENGTH conf = 8` \\ fs[]
+      \\ last_x_assum(qspec_then`w82n conf`mp_tac)
+      \\ Cases_on`w82n conf < 3` \\ fs[]
+      \\ simp[IS_SOME_EXISTS]
+      \\ strip_tac \\ simp[]
+      \\ res_tac \\ rfs [GREATER_EQ]
+      \\ Cases_on`x` \\ simp[]
+      \\ CCONTR_TAC \\ fs[]
+      \\ Cases_on`ALOOKUP fs.files q` \\ fs[]
+      \\ fs[markerTheory.Abbrev_def]
+      \\ fs [GSYM NOT_LESS]
+      \\ cheat (* does it check the right thing? *))
+    \\ fs[] \\ rveq
+    \\ simp[LUPDATE_def]
+    \\ qmatch_goalsub_abbrev_tac`A ∧ (B ∧ A)`
+    \\ `A ∧ B` suffices_by rw[]
+    \\ qunabbrev_tac`B`
+    \\ reverse conj_tac
+    >- (
+      simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+      \\ EVAL_TAC
+      \\ simp[] \\ cheat (* exit point *) )
+    \\ simp[Abbr`A`]
+    \\ simp[ag32_ffi_write_mem_update_def]
+    \\ fs [Abbr`r0`]
+    \\ cheat (* what is that write about *))
+
+  \\ cheat (* to update *));
+
+  (*
+
+    \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+    \\ Cases
+    \\ IF_CASES_TAC \\ fs[]
+    \\ IF_CASES_TAC
+    >- simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+    \\ IF_CASES_TAC
+    >- (
+      match_mp_tac EQ_SYM
+      \\ fs[asmSemTheory.bytes_in_memory_def,
+            lab_to_targetProofTheory.asm_write_bytearray_def]
+      \\ simp[APPLY_UPDATE_THM]
+      \\ rveq
+      \\ IF_CASES_TAC
+      >- (
+        rpt(qpat_x_assum`_ ∈ md`mp_tac)
+        \\ simp[Abbr`md`]
+        \\ qpat_x_assum`r0 + _ = n2w n`(assume_tac o SYM)
+        \\ simp[ag32_prog_addresses_def]
+        \\ EVAL_TAC
+        \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB]
+        \\ Cases_on`r0` \\ fs[memory_size_def]
+        \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+      \\ IF_CASES_TAC
+      >- (
+        rpt(qpat_x_assum`_ ∈ md`mp_tac)
+        \\ simp[Abbr`md`]
+        \\ qpat_x_assum`r0 + _ = n2w n`(assume_tac o SYM)
+        \\ simp[ag32_prog_addresses_def]
+        \\ EVAL_TAC
+        \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB]
+        \\ Cases_on`r0` \\ fs[memory_size_def]
+        \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+      \\ IF_CASES_TAC
+      >- (
+        rpt(qpat_x_assum`_ ∈ md`mp_tac)
+        \\ simp[Abbr`md`]
+        \\ qpat_x_assum`r0 + _ = n2w n`(assume_tac o SYM)
+        \\ simp[ag32_prog_addresses_def]
+        \\ EVAL_TAC
+        \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB]
+        \\ Cases_on`r0` \\ fs[memory_size_def]
+        \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+      \\ irule asm_write_bytearray_unchanged
+      \\ simp[APPLY_UPDATE_THM]
+      \\ conj_tac
+      >- ( Cases_on`s.R 3w` \\ fs[ADD1, memory_size_def, word_add_n2w] )
+      \\ Cases_on`s.R 3w`
+      \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w]
+      \\ fs[EVAL``code_start_offset _``, FFI_codes_def]
+      \\ fs[LEFT_ADD_DISTRIB]
+      \\ fs[EVAL``ffi_code_start_offset``]
+      \\ Cases_on`r0` \\ fs[memory_size_def]
+      \\ fs[word_add_n2w] \\ rfs[]
+      \\ rveq \\ fs[] \\ rfs[]
+      \\ qpat_x_assum`n2w n' ∈ _`mp_tac
+      \\ simp[word_add_n2w, Abbr`md`]
+      \\ simp[ag32_prog_addresses_def]
+      \\ EVAL_TAC
+      \\ simp[LEFT_ADD_DISTRIB])
+    \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+    \\ fs[asmSemTheory.bytes_in_memory_def] \\ rveq
+    \\ IF_CASES_TAC \\ simp[]
+    \\ IF_CASES_TAC \\ simp[]
+    \\ IF_CASES_TAC \\ simp[]
+    \\ match_mp_tac EQ_SYM
+    \\ Cases_on`n2w n <+ s.R 3w + 4w ∨ s.R 3w + 4w + n2w (LENGTH tll) <=+ n2w n`
+    >- (
+      irule asm_write_bytearray_unchanged
+      \\ simp[APPLY_UPDATE_THM]
+      \\ Cases_on`s.R 3w` \\ fs[word_add_n2w] )
+    \\ fs[WORD_NOT_LOWER, WORD_NOT_LOWER_EQUAL]
+    \\ Cases_on`s.R 3w`
+    \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w] \\ rfs[]
+    \\ qpat_x_assum`_ ≤ n`mp_tac
+    \\ rw[LESS_EQ_EXISTS] \\ fs[]
+    \\ drule bytes_in_memory_EL
+    \\ disch_then drule
+    \\ rw[word_add_n2w]
+    \\ qmatch_goalsub_rename_tac`n2w (a + (p + 4))`
+    \\ `n2w(a + (p + 4)) = n2w(a+4) + n2w p:word32` by simp[word_add_n2w]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ irule asm_write_bytearray_EL
+    \\ simp[] )
+
+
+
+  \\ pop_assum mp_tac \\ simp[markerTheory.Abbrev_def] \\ strip_tac
+  \\ qspec_then`s1`mp_tac(Q.GEN`s`ag32_ffi_write_write_header_thm)
+  \\ impl_tac
+  >- (
+    simp[Abbr`s1`, APPLY_UPDATE_THM]
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`s.R 3w ∈ _`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ fs[FFI_codes_def]
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ Cases_on`r0` \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
+    \\ fs[memory_size_def, word_ls_n2w, word_lo_n2w] )
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`_ = s2`
+  \\ fs[]
+  \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ qhdtm_x_assum`ag32_ffi_write_write_header`kall_tac
+  \\ qmatch_asmsub_abbrev_tac`1w =+ n2w n`
+  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`k`]ag32_ffi_write_num_written_thm)
+  \\ simp[]
+  \\ impl_tac
+  >- (
+    simp[Abbr`s2`, APPLY_UPDATE_THM]
+    \\ reverse conj_tac
+    >- (
+      simp[Abbr`n`, MarshallingTheory.w22n_def]
+      \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[] )
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
+    \\ rveq
+    \\ DEP_REWRITE_TAC[asm_write_bytearray_append]
+    \\ simp[EVAL``output_offset``]
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+    \\ EVAL_TAC \\ fs[]
+    \\ qpat_x_assum`n2w n' ∈ _`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[FFI_codes_def]
+    \\ fs[EVAL``code_start_offset _``]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ disch_then assume_tac
+    \\ conj_tac
+    >- (
+      irule asm_write_bytearray_unchanged
+      \\ simp[APPLY_UPDATE_THM]
+      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+    \\ conj_tac
+    >- (
+      irule asm_write_bytearray_unchanged
+      \\ simp[APPLY_UPDATE_THM]
+      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+    \\ conj_tac
+    >- (
+      irule asm_write_bytearray_unchanged
+      \\ simp[APPLY_UPDATE_THM]
+      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+    \\ qhdtm_x_assum`bytes_in_memory`mp_tac
+    \\ EVAL_TAC \\ simp[LEFT_ADD_DISTRIB]
+    \\ strip_tac
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[APPLY_UPDATE_THM]
+    \\ qx_gen_tac`z` \\ strip_tac
+    \\ simp[word_add_n2w]
+    \\ match_mp_tac EQ_SYM
+    \\ irule asm_write_bytearray_unchanged
+    \\ simp[word_add_n2w, APPLY_UPDATE_THM]
+    \\ simp[word_ls_n2w, word_lo_n2w])
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`_ = s3`
+  \\ fs[]
+  \\ fs[Abbr`s2`, APPLY_UPDATE_THM]
+  \\ qhdtm_x_assum`ag32_ffi_write_num_written`kall_tac
+  \\ qspec_then`s3`mp_tac(ag32_ffi_write_copy_thm)
+  \\ qmatch_asmsub_abbrev_tac`LENGTH tll - off`
+  \\ disch_then(qspec_then`TAKE (MIN n output_buffer_size) (DROP off tll)`mp_tac)
+  \\ simp[]
+  \\ impl_tac >- (
+    simp[Abbr`s3`, APPLY_UPDATE_THM]
+    \\ reverse conj_tac
+    >- (
+      Cases_on`s.R 3w` \\ fs[word_add_n2w]
+      \\ EVAL_TAC
+      \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+      \\ simp[MIN_DEF]
+      \\ simp[IN_DISJOINT]
+      \\ Cases
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ simp[Abbr`md`]
+      \\ EVAL_TAC \\ fs[]
+      \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB]
+      \\ fs[word_ls_n2w, word_lo_n2w] )
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ `tll = TAKE off tll ++ DROP off tll` by metis_tac[TAKE_DROP]
+    \\ qhdtm_x_assum`bytes_in_memory`mp_tac
+    \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ simp[] \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`TAKE kk ll`
+    \\ `ll = TAKE kk ll ++ DROP kk ll` by metis_tac[TAKE_DROP]
+    \\ qhdtm_x_assum`bytes_in_memory`mp_tac
+    \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ strip_tac
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ gen_tac \\ strip_tac
+    \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ simp[word_add_n2w]
+    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+    \\ Cases_on`s.R 3w`
+    \\ simp[word_add_n2w, MarshallingTheory.n2w2_def]
+    \\ simp[word_ls_n2w, word_lo_n2w]
+    \\ fs[]
+    \\ rfs[Abbr`ll`]
+    \\ `kk ≤ n` by simp[Abbr`kk`]
+    \\ fs[LENGTH_TAKE_EQ]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ DEP_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+    \\ EVAL_TAC
+    \\ simp[word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ `kk ≤ LENGTH tll - off` by fs[] \\ fs[]
+    \\ fs[FFI_codes_def, EVAL``code_start_offset _``] \\ rfs[]
+    \\ `kk ≤ output_buffer_size` by simp[Abbr`kk`]
+    \\ fs[EVAL``output_buffer_size``]
+    \\ qpat_x_assum`n2w n'' ∈ _`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ simp[word_ls_n2w, word_lo_n2w, word_add_n2w])
+  \\ strip_tac
+  \\ qunabbrev_tac`s'`
+  \\ fs[]
+  \\ simp[Abbr`s3`, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ A`
+  \\ `B ∧ A` suffices_by rw[]
+  \\ simp[Abbr`B`, FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ EVAL_TAC \\ simp[]
+  \\ qhdtm_x_assum`ag32_ffi_write_copy`kall_tac
+  \\ simp[Abbr`A`]
+  \\ simp[ag32_ffi_write_mem_update_def, ADD1]
+  \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
+  \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ bs'`
+  \\ `bs = SOME bs'`
+  by (
+    simp[Abbr`bs`]
+    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ fs[Abbr`bs'`]
+    \\ gen_tac \\ strip_tac
+    \\ drule bytes_in_memory_EL
+    \\ simp[]
+    \\ drule bytes_in_memory_in_domain
+    \\ simp[] )
+  \\ simp[Abbr`bs`, Abbr`bs'`]
+  \\ fs[fsFFITheory.write_def]
+  \\ `∃x. ALOOKUP fs.infds (w82n conf) = SOME x` by metis_tac[IS_SOME_EXISTS, ag32_fs_ok_def]
+  \\ fs[] \\ Cases_on`x` \\ fs[]
+  \\ fs[ag32_fs_ok_def]
+  \\ first_x_assum drule
+  \\ simp[IS_SOME_EXISTS]
+  \\ strip_tac \\ fs[]
+  \\ rveq \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
+  \\ `bs = SOME conf`
+  by (
+    simp[Abbr`bs`]
+    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ fs[]
+    \\ gen_tac \\ strip_tac
+    \\ conj_tac
+    >- (
+      once_rewrite_tac[WORD_ADD_COMM]
+      \\ irule bytes_in_memory_in_domain
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ simp[] )
+    \\ once_rewrite_tac[WORD_ADD_COMM]
+    \\ irule bytes_in_memory_EL
+    \\ simp[]
+    \\ asm_exists_tac
+    \\ simp[] )
+  \\ simp[Abbr`bs`]
+  \\ qmatch_goalsub_abbrev_tac`lhs = _`
+  \\ DEP_ONCE_REWRITE_TAC[asm_write_bytearray_append]
+  \\ simp[Abbr`lhs`]
+  \\ conj_tac
+  >- (
+    EVAL_TAC
+    \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ rw[MIN_DEF] )
+  \\ rewrite_tac[GSYM WORD_ADD_ASSOC, word_add_n2w]
+  \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM]
+  \\ Cases
+  \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC
+  >- (
+    irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged
+    \\ simp[APPLY_UPDATE_THM]
+    \\ EVAL_TAC
+    \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ qpat_x_assum`read_bytearray (n2w _) _ _ = _`assume_tac
+    \\ drule read_bytearray_IMP_mem_SOME
+    \\ simp[IS_SOME_EXISTS]
+    \\ disch_then(qspec_then`n2w n' + n2w 0`mp_tac)
+    \\ simp[IN_all_words_add]
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[FFI_codes_def] )
+  \\ simp[MarshallingTheory.n2w2_def]
+  \\ simp[lab_to_targetProofTheory.asm_write_bytearray_def, APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC
+  >- (
+    irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged
+    \\ simp[APPLY_UPDATE_THM]
+    \\ EVAL_TAC
+    \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
+    \\ drule read_bytearray_IMP_mem_SOME
+    \\ simp[IS_SOME_EXISTS]
+    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
+    \\ simp[IN_all_words_add]
+    \\ simp[Abbr`md`]
+    \\ Cases_on`s.R 3w`
+    \\ EVAL_TAC
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[FFI_codes_def] \\ rfs[])
+  \\ IF_CASES_TAC
+  >- (
+    irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged
+    \\ simp[APPLY_UPDATE_THM]
+    \\ EVAL_TAC
+    \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
+    \\ drule read_bytearray_IMP_mem_SOME
+    \\ simp[IS_SOME_EXISTS]
+    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
+    \\ simp[IN_all_words_add]
+    \\ simp[Abbr`md`]
+    \\ Cases_on`s.R 3w`
+    \\ EVAL_TAC
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[FFI_codes_def] \\ rfs[])
+  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ simp[APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC
+  >- (
+    IF_CASES_TAC
+    >- (
+      Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+      \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
+      \\ drule read_bytearray_IMP_mem_SOME
+      \\ simp[IS_SOME_EXISTS]
+      \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
+      \\ simp[IN_all_words_add]
+      \\ simp[Abbr`md`]
+      \\ Cases_on`s.R 3w`
+      \\ EVAL_TAC
+      \\ simp[LEFT_ADD_DISTRIB]
+      \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+      \\ fs[FFI_codes_def] \\ rfs[]
+      \\ fs[EVAL``ffi_code_start_offset``]
+      \\ rfs[])
+    \\ irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+    \\ Cases_on`s.R 3w`
+    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[EVAL``ffi_code_start_offset``]
+    \\ rfs[]
+    \\ qpat_x_assum`read_bytearray (n2w _) _ _ = _`assume_tac
+    \\ drule read_bytearray_IMP_mem_SOME
+    \\ simp[IS_SOME_EXISTS]
+    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
+    \\ impl_tac
+    >- (
+      asm_simp_tac bool_ss []
+      \\ irule IN_all_words_add
+      \\ simp[] )
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[FFI_codes_def] \\ rfs[] )
+  \\ IF_CASES_TAC
+  >- (
+    `LENGTH tll + 4 = SUC(SUC(SUC(SUC(LENGTH tll))))` by simp[ADD1]
+    \\ full_simp_tac std_ss [read_bytearray_def]
+    \\ fs[CaseEq"bool",CaseEq"option"])
+  \\ irule EQ_SYM
+  \\ DEP_REWRITE_TAC[asm_write_bytearray_id]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ gen_tac \\ strip_tac
+  \\ IF_CASES_TAC
+  >- (
+    Cases_on`r0` \\ fs[word_add_n2w, memory_size_def]
+    \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
+    \\ drule read_bytearray_IMP_mem_SOME
+    \\ simp[IS_SOME_EXISTS]
+    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
+    \\ simp[IN_all_words_add]
+    \\ simp[Abbr`md`]
+    \\ Cases_on`s.R 3w`
+    \\ EVAL_TAC
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ fs[FFI_codes_def] \\ rfs[]
+    \\ fs[EVAL``ffi_code_start_offset``]
+    \\ rfs[])
+  \\ drule bytes_in_memory_EL
+  \\ disch_then(qspec_then`j + 4`mp_tac)
+  \\ simp[EL_CONS,PRE_SUB1]
+  \\ simp[GSYM word_add_n2w]);
+*)
+
 (*
   rw [] \\ imp_res_tac INDEX_OF_IMP_EL
   \\ fs [ag32_ffi_interfer_def]
