@@ -7263,7 +7263,31 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ strip_tac
   \\ simp[Abbr`ll`]
   \\ conj_tac >- simp[MIN_DEF]
-  \\ cheat (* memory non-overlapping stuff *));
+  \\ conj_tac
+  >- (
+    irule EQ_SYM
+    \\ irule asm_write_bytearray_unchange_alt
+    \\ simp[APPLY_UPDATE_THM]
+    \\ conj_tac
+    >- (
+      fs[data_to_word_assignProofTheory.IMP]
+      \\ CCONTR_TAC \\ fs[]
+      \\ qpat_x_assum`_ ∉ all_words _ _`mp_tac
+      \\ simp[]
+      \\ once_rewrite_tac[WORD_ADD_COMM]
+      \\ irule IN_all_words_add
+      \\ simp[] )
+    \\ EVAL_TAC \\ simp[]
+    \\ IF_CASES_TAC \\ simp[]
+    \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain _`mp_tac
+    \\ rveq \\ EVAL_TAC
+    \\ simp[] )
+  \\ simp[MIN_DEF]
+  \\ fs[data_to_word_assignProofTheory.IMP]
+  \\ fs[EVAL``output_buffer_size``]
+  \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain _`mp_tac
+  \\ EVAL_TAC
+  \\ simp[]);
 
 val read_bytearray_IMP_domain = store_thm("read_bytearray_IMP_domain",
   ``!n a xs.
