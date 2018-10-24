@@ -4557,8 +4557,6 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
    (* ∧ md ⊆ { w | w | r0 <+ w ∧ r0 + w <=+ r0 + n2w memory_size }*)
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_write s)`,
-  cheat);
-(*
   rw[]
   \\ simp[ag32_ffi_write_def]
   \\ mp_tac ag32_ffi_write_set_id_code_thm
@@ -5292,7 +5290,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ rpt(qpat_x_assum`FUNPOW Next _ _ = _`(assume_tac o SYM))
   \\ fs[]
   \\ simp[GSYM FUNPOW_ADD]
-  \\ metis_tac[]); *)
+  \\ metis_tac[]);
 
 val ag32_ffi_read_body_def = Define`
   ag32_ffi_read_body s =
