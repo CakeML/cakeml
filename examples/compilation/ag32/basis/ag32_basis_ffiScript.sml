@@ -801,17 +801,17 @@ val ag32_enc_not_Interrupt = Q.store_thm("ag32_enc_not_Interrupt",
   \\ rw[ag32_targetTheory.ag32_enc_def,
         ag32_targetTheory.ag32_encode_def,
         ag32_targetTheory.ag32_encode1_def,
-        arm_stepTheory.concat_bytes,
+        ag32_targetProofTheory.concat_bytes,
         ag32_targetTheory.ag32_constant_def,
         ag32_targetTheory.ag32_jump_constant_def,
         ag32_targetProofTheory.Decode_Encode]
-  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
+  \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
   \\ qmatch_asmsub_rename_tac`4 * SUC k < _`
-  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
+  \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
   \\ qmatch_asmsub_rename_tac`4 * SUC (SUC k) < _`
-  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
+  \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
   \\ qmatch_asmsub_rename_tac`4 * SUC (SUC (SUC k)) < _`
-  \\ Cases_on`k` \\ fs[arm_stepTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]);
+  \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]);
 
 val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag32_target_state_rel_io_events",
   `target_state_rel ag32_target s1 ms ∧

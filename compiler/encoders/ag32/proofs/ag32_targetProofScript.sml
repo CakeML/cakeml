@@ -180,10 +180,9 @@ val aligned_pc = Q.prove(
   \\ blastLib.BBLAST_TAC
   )
 
-val concat_bytes =
-  blastLib.BBLAST_PROVE
-    ``!w: word32.
-         (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w``
+val concat_bytes = Q.store_thm("concat_bytes",
+ `!w: word32. (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w`,
+  blastLib.BBLAST_TAC);
 
 val funcT_thm = Q.prove(
   `!func.
