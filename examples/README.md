@@ -3,9 +3,6 @@ Examples of verified programs built using CakeML infrastructure.
 Larger examples (like the CakeML compiler and Candle theorem prover) can be
 found in their own top-level directories.
 
-[ag32](ag32):
-Examples that target ag32 (i.e., the Silver CPU)
-
 [catProgScript.sml](catProgScript.sml):
 cat program example: concatenate and print lines from files.
 
