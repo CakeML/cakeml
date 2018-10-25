@@ -105,6 +105,95 @@ val extract_fs_def = Define`
     OPTION_MAP (numchars_fupd (K init_fs.numchars))
     (extract_fs_with_numchars init_fs events)`;
 
+val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
+  `∀ls fs fs' off.
+   (extract_fs_with_numchars fs ls = SOME fs') ∧
+   (ALOOKUP fs'.infds fd = SOME(IOStream nm, off)) ⇒
+   ∃off'.
+     (ALOOKUP fs.infds fd = SOME (IOStream nm, off')) ∧ off' ≤ off ∧
+     (∀content.
+       (ALOOKUP fs.files (IOStream nm) = SOME content) ∧ (off' = LENGTH content) ∧
+       (∀fd' off'. (ALOOKUP fs.infds fd' = SOME (IOStream nm, off')) ⇒ (fd = fd'))
+       ⇒
+       ∃written.
+         (ALOOKUP fs'.files (IOStream nm) = SOME (content ++ written)) ∧
+         (off = off' + LENGTH written))`,
+  Induct
+  >- ( rw[extract_fs_with_numchars_def])
+  \\ Cases
+  \\ rw[extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ fs[fsFFITheory.fs_ffi_part_def]
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac \\ rveq
+  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.ffi_open_in_def,
+        fsFFITheory.ffi_open_out_def,
+        fsFFITheory.ffi_write_def,
+        fsFFITheory.ffi_read_def,
+        fsFFITheory.ffi_close_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
+  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.closeFD_def,
+        fsFFITheory.read_def,
+        fsFFITheory.openFile_truncate_def,
+        fsFFITheory.openFile_def,
+        fsFFITheory.write_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
+  \\ fs[CaseEq"bool"]
+  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ fs[CaseEq"option"]
+  \\ fs[CaseEq"bool"]
+  \\ Cases_on`v` \\ fs[]
+  \\ rveq \\ fs[] \\ rfs[]
+  \\ rw[] \\ fs[]
+  \\ TRY(
+    fsrw_tac[DNF_ss][] \\ fs[DISJ_EQ_IMP]
+    \\ NO_TAC)
+  >- (
+    Cases_on`fnm = IOStream nm` \\ fsrw_tac[DNF_ss][]
+    \\ fs[FORALL_PROD] \\ rveq \\ fs[] \\ rfs[]
+    \\ metis_tac[] )
+  \\ fsrw_tac[DNF_ss][FORALL_PROD]);
+
+val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_numchars_closes_iostreams",
+  `∀ls fs fs' fd nm off.
+   (extract_fs_with_numchars fs ls = SOME fs') ∧
+   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, off))
+   ⇒
+   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, off))`,
+  Induct
+  >- (
+    rw[extract_fs_with_numchars_def]
+    \\ metis_tac[] )
+  \\ Cases
+  \\ rw[extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  >- metis_tac[]
+  \\ fs[fsFFITheory.fs_ffi_part_def]
+  \\ last_x_assum drule
+  \\ disch_then match_mp_tac
+  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.ffi_open_in_def,
+        fsFFITheory.ffi_open_out_def,
+        fsFFITheory.ffi_write_def,
+        fsFFITheory.ffi_read_def,
+        fsFFITheory.ffi_close_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
+  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ fs[fsFFITheory.closeFD_def,
+        fsFFITheory.read_def,
+        fsFFITheory.openFile_truncate_def,
+        fsFFITheory.openFile_def,
+        fsFFITheory.write_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
+  \\ CCONTR_TAC \\ fs[]);
+
 (*
 val extract_stdo_def = Define`
   (extract_stdo fd [] = "") ∧

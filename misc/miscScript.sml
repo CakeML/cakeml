@@ -2669,6 +2669,12 @@ val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
    ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
   ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
 
+val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
+  `ALIST_FUPDKEY n I = I`,
+  simp[FUN_EQ_THM]
+  \\ Induct
+  \\ simp[ALIST_FUPDKEY_def,FORALL_PROD]);
+
 val FILTER_EL_EQ = Q.store_thm("FILTER_EL_EQ",
   `∀l1 l2. LENGTH l1 = LENGTH l2 ∧
    (∀n. n < LENGTH l1 ∧ (P (EL n l1) ∨ P (EL n l2)) ⇒ (EL n l1 = EL n l2))
@@ -3317,6 +3323,13 @@ val FST_SPLITP_DROP = Q.store_thm("FST_SPLITP_DROP",
  PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
  fs[SPLITP]);
 
+val TAKE_DROP_SUBLIST = Q.store_thm("TAKE_DROP_SUBLIST",
+  `ll ≼ (DROP n ls) ∧ n < LENGTH ls ∧ (nlll = n + LENGTH ll) ⇒
+   (TAKE n ls ++ ll ++ DROP nlll ls = ls)`,
+  rw[IS_PREFIX_APPEND, LIST_EQ_REWRITE, LENGTH_TAKE_EQ, EL_APPEND_EQN, EL_DROP]
+  \\ rw[] \\ fs[EL_TAKE]
+  \\ fs[NOT_LESS, LESS_EQ_EXISTS]);
+
 (* computes the next position for which P holds *)
 val Lnext_def = tDefine "Lnext" `
   Lnext P ll = if eventually P ll then
@@ -3780,6 +3793,10 @@ val v2w_32_F = Q.store_thm("v2w_32_F[simp]",
 val v2w_32_T = Q.store_thm("v2w_32_T[simp]",
   `(v2w [T] : word32) = 1w`, EVAL_TAC);
 
+val v2w_sing = store_thm("v2w_sing",
+  ``v2w [b] = if b then 1w else 0w``,
+  Cases_on `b` \\ EVAL_TAC);
+
 val FOLDR_FUNPOW = Q.store_thm("FOLDR_FUNPOW",
   `FOLDR (λx. f) x ls = FUNPOW f (LENGTH ls) x`,
   qid_spec_tac`x`
@@ -4016,5 +4033,41 @@ val steps_rel_LRC = Q.store_thm("steps_rel_LRC",
 val LAST_MAP_SND_steps_FOLDL = Q.store_thm("LAST_MAP_SND_steps_FOLDL",
   `∀f x ls. LAST (x::(MAP SND (steps f x ls))) = FOLDL f x ls`,
   Induct_on`ls` \\ rw[steps_def]);
+
+val all_words_def = Define `
+  (all_words base 0 = ∅) /\
+  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
+
+val IN_all_words_add = Q.store_thm("IN_all_words_add",
+  `∀n base x. x < n ⇒ base + n2w x ∈ all_words base n`,
+  Induct \\ rw[all_words_def]
+  \\ Cases_on`x` \\ fs[ADD1]
+  \\ disj2_tac
+  \\ first_x_assum(qspec_then`base+1w`(drule_then mp_tac))
+  \\ rw[GSYM word_add_n2w]);
+
+val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
+  `∀p n m ba.
+   (read_bytearray p n m = SOME ba) ⇒
+   ∀k. k ∈ all_words p n ⇒ IS_SOME (m k)`,
+  Induct_on `n`
+  \\ rw[read_bytearray_def,all_words_def]
+  \\ fs[CaseEq"option"]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp []);
+
+val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
+  `∀ptr len.
+   IS_SOME (read_bytearray ptr len (m:'a word -> 'b option)) ∧
+   (∀x. IS_SOME (m x) ⇒ w2n x < dimword(:'a) - 1) ∧
+   w2n ptr < dimword (:'a)
+   ⇒
+   w2n ptr + len < dimword(:'a)`,
+  Induct_on`len`
+  \\ rw[read_bytearray_def]
+  \\ fs[CaseEq"option", IS_SOME_EXISTS, PULL_EXISTS]
+  \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
+  \\ res_tac \\ fs[] \\ rfs[])
 
 val _ = export_theory()

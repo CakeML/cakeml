@@ -8,23 +8,6 @@ val _ = new_theory"ag32_basis_ffi";
 val _ = temp_overload_on("nxt",
   ``λmc n ms. FUNPOW mc.target.next n ms``);
 
-val v2w_sing = store_thm("v2w_sing",
-  ``v2w [b] = if b then 1w else 0w``,
-  Cases_on `b` \\ EVAL_TAC);
-
-val TAKE_DROP_SUBLIST = Q.store_thm("TAKE_DROP_SUBLIST",
-  `ll ≼ (DROP n ls) ∧ n < LENGTH ls ∧ (nlll = n + LENGTH ll) ⇒
-   (TAKE n ls ++ ll ++ DROP nlll ls = ls)`,
-  rw[IS_PREFIX_APPEND, LIST_EQ_REWRITE, LENGTH_TAKE_EQ, EL_APPEND_EQN, EL_DROP]
-  \\ rw[] \\ fs[EL_TAKE]
-  \\ fs[NOT_LESS, LESS_EQ_EXISTS]);
-
-val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
-  `ALIST_FUPDKEY n I = I`,
-  simp[FUN_EQ_THM]
-  \\ Induct
-  \\ simp[ALIST_FUPDKEY_def,FORALL_PROD]);
-
 val byte_aligned_imp = Q.store_thm("byte_aligned_imp",
   `byte_aligned (x:word32) ⇒
    (((((31 >< 2) x):word30) @@ (0w:word2)) = x)`,
@@ -88,112 +71,6 @@ val dfn'JumpIfZero_MEM = Q.store_thm("dfn'JumpIfZero_MEM",
   PairCases_on`x`
   \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def]
   \\ PURE_TOP_CASE_TAC \\ fs[ag32Theory.incPC_def] \\ rw[]);
-
-val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
-  `∀ls fs fs' off.
-   (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (ALOOKUP fs'.infds fd = SOME(IOStream nm, off)) ⇒
-   ∃off'.
-     (ALOOKUP fs.infds fd = SOME (IOStream nm, off')) ∧ off' ≤ off ∧
-     (∀content.
-       (ALOOKUP fs.files (IOStream nm) = SOME content) ∧ (off' = LENGTH content) ∧
-       (∀fd' off'. (ALOOKUP fs.infds fd' = SOME (IOStream nm, off')) ⇒ (fd = fd'))
-       ⇒
-       ∃written.
-         (ALOOKUP fs'.files (IOStream nm) = SOME (content ++ written)) ∧
-         (off = off' + LENGTH written))`,
-  Induct
-  >- ( rw[basis_ffiTheory.extract_fs_with_numchars_def])
-  \\ Cases
-  \\ rw[basis_ffiTheory.extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
-  \\ fs[fsFFITheory.fs_ffi_part_def]
-  \\ last_x_assum drule
-  \\ disch_then drule
-  \\ strip_tac \\ rveq
-  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.ffi_open_in_def,
-        fsFFITheory.ffi_open_out_def,
-        fsFFITheory.ffi_write_def,
-        fsFFITheory.ffi_read_def,
-        fsFFITheory.ffi_close_def]
-  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
-  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.closeFD_def,
-        fsFFITheory.read_def,
-        fsFFITheory.openFile_truncate_def,
-        fsFFITheory.openFile_def,
-        fsFFITheory.write_def]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
-  \\ fs[CaseEq"bool"]
-  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ fs[CaseEq"option"]
-  \\ fs[CaseEq"bool"]
-  \\ Cases_on`v` \\ fs[]
-  \\ rveq \\ fs[] \\ rfs[]
-  \\ rw[] \\ fs[]
-  \\ TRY(
-    fsrw_tac[DNF_ss][] \\ fs[data_to_word_assignProofTheory.IMP]
-    \\ NO_TAC)
-  >- (
-    Cases_on`fnm = IOStream nm` \\ fsrw_tac[DNF_ss][]
-    \\ fs[FORALL_PROD] \\ rveq \\ fs[] \\ rfs[]
-    \\ metis_tac[] )
-  \\ fsrw_tac[DNF_ss][FORALL_PROD]);
-
-val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_numchars_closes_iostreams",
-  `∀ls fs fs' fd nm off.
-   (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, off))
-   ⇒
-   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, off))`,
-  Induct
-  >- (
-    rw[basis_ffiTheory.extract_fs_with_numchars_def]
-    \\ metis_tac[] )
-  \\ Cases
-  \\ rw[basis_ffiTheory.extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
-  >- metis_tac[]
-  \\ fs[fsFFITheory.fs_ffi_part_def]
-  \\ last_x_assum drule
-  \\ disch_then match_mp_tac
-  \\ reverse(fs[CaseEq"bool"]) \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.ffi_open_in_def,
-        fsFFITheory.ffi_open_out_def,
-        fsFFITheory.ffi_write_def,
-        fsFFITheory.ffi_read_def,
-        fsFFITheory.ffi_close_def]
-  \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
-  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.closeFD_def,
-        fsFFITheory.read_def,
-        fsFFITheory.openFile_truncate_def,
-        fsFFITheory.openFile_def,
-        fsFFITheory.write_def]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
-  \\ CCONTR_TAC \\ fs[]);
-
-val all_words_def = Define `
-  (all_words base 0 = ∅) /\
-  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
-
-val read_ffi_bytearray_IMP_SUBSET_prog_addresses = store_thm(
-   "read_ffi_bytearray_IMP_SUBSET_prog_addresses",
-  ``(read_ffi_bytearray mc a l ms = SOME bytes) ==>
-    all_words (mc.target.get_reg ms a) (LENGTH bytes) SUBSET
-      mc.prog_addresses``,
-  fs [targetSemTheory.read_ffi_bytearray_def]
-  \\ qspec_tac (`mc.target.get_reg ms a`,`x`)
-  \\ qspec_tac (`(w2n (mc.target.get_reg ms l))`,`n`)
-  \\ qspec_tac (`bytes`,`res`)
-  \\ Induct_on `n` \\ fs [read_bytearray_def,all_words_def]
-  \\ rw [] \\ fs[option_case_eq] \\ rveq \\ fs []
-  \\ fs [all_words_def]);
 
 val interference_implemented_def = Define`
   interference_implemented mc ffi_rel md ms0 ⇔
@@ -356,7 +233,7 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
           \\ first_x_assum irule
           \\ rw[]
           \\ fs[targetSemTheory.read_ffi_bytearrays_def]
-          \\ imp_res_tac read_ffi_bytearray_IMP_SUBSET_prog_addresses
+          \\ imp_res_tac targetPropsTheory.read_ffi_bytearray_IMP_SUBSET_prog_addresses
           \\ fs[SUBSET_DEF]
           \\ metis_tac[] )
         \\ rw[]
@@ -384,7 +261,7 @@ val evaluate_Halt_FUNPOW_next = Q.store_thm("evaluate_Halt_FUNPOW_next",
     \\ qexists_tac`k1+k2` \\ rw[]
     \\ first_x_assum match_mp_tac \\ fs []
     \\ fs [targetSemTheory.read_ffi_bytearrays_def]
-    \\ imp_res_tac read_ffi_bytearray_IMP_SUBSET_prog_addresses
+    \\ imp_res_tac targetPropsTheory.read_ffi_bytearray_IMP_SUBSET_prog_addresses
     \\ fs [SUBSET_DEF] \\ metis_tac []));
 
 val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPOW_next",
@@ -425,30 +302,12 @@ val word_of_bytes_extract_bytes_le_32 = Q.store_thm("word_of_bytes_extract_bytes
   \\ rw[wordSemTheory.set_byte_def,wordSemTheory.byte_index_def,wordSemTheory.word_slice_alt_def]
   \\ blastLib.BBLAST_TAC);
 
-val bytes_in_memory_EL = Q.store_thm("bytes_in_memory_EL",
-  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ (m (a + n2w k) = EL k bs)`,
-  Induct_on`bs`
-  \\ rw[asmSemTheory.bytes_in_memory_def]
-  \\ Cases_on`k` \\ fs[]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp[ADD1, GSYM word_add_n2w]);
-
-val bytes_in_memory_in_domain = Q.store_thm("bytes_in_memory_in_domain",
-  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ ((a + n2w k) ∈ md)`,
-  Induct_on`bs`
-  \\ rw[asmSemTheory.bytes_in_memory_def]
-  \\ Cases_on`k` \\ fs[]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp[ADD1, GSYM word_add_n2w]);
-
 val bytes_in_mem_bytes_in_memory = Q.store_thm("bytes_in_mem_bytes_in_memory",
   `∀a bs m md k. bytes_in_mem a bs m md k ⇔ bytes_in_memory a bs m (md DIFF k)`,
   Induct_on`bs` \\ EVAL_TAC \\ rw[]
   \\ rw[EQ_IMP_THM]);
 
-val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_in_memory",
+val read_bytearray_IMP_bytes_in_memory_WORD_LOWER = Q.store_thm("read_bytearray_IMP_bytes_in_memory_WORD_LOWER",
   `∀p n m ba m' md.
    (n = LENGTH ba) ∧ w2n p + n < dimword(:'a) ∧
    (∀k. (p <=+ k ∧ k <+ p + n2w n) ⇒ k ∈ md ∧ (m k = SOME (m' k))) ∧
@@ -471,54 +330,6 @@ val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_i
   \\ first_x_assum irule
   \\ simp[WORD_LOWER_EQ_REFL, word_ls_n2w]
   \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
-
-val IN_all_words_add = Q.store_thm("IN_all_words_add",
-  `∀n base x. x < n ⇒ base + n2w x ∈ all_words base n`,
-  Induct \\ rw[all_words_def]
-  \\ Cases_on`x` \\ fs[ADD1]
-  \\ disj2_tac
-  \\ first_x_assum(qspec_then`base+1w`(drule_then mp_tac))
-  \\ rw[GSYM word_add_n2w]);
-
-val read_bytearray_IMP_bytes_in_memory_all_words = Q.store_thm("read_bytearray_IMP_bytes_in_memory_all_words",
-  `∀p n m ba m' md.
-   (n = LENGTH ba) ∧
-   (∀k. k ∈ all_words p n ⇒ k ∈ md ∧ (m k = SOME (m' k))) ∧
-   (read_bytearray (p:'a word) n m = SOME ba) ⇒
-   bytes_in_memory p ba m' md`,
-  Induct_on`ba` \\ rw[] >- EVAL_TAC
-  \\ simp[asmSemTheory.bytes_in_memory_def]
-  \\ fs[read_bytearray_def, CaseEq"option"]
-  \\ first_assum(qspec_then`p`mp_tac)
-  \\ impl_tac >- simp[all_words_def]
-  \\ rw[]
-  \\ first_x_assum irule
-  \\ fs [all_words_def]
-  \\ metis_tac []);
-
-val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
-  `∀p n m ba.
-   (read_bytearray p n m = SOME ba) ⇒
-   ∀k. k ∈ all_words p n ⇒ IS_SOME (m k)`,
-  Induct_on `n`
-  \\ rw[read_bytearray_def,all_words_def]
-  \\ fs[CaseEq"option"]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp []);
-
-val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
-  `∀ptr len.
-   IS_SOME (read_bytearray ptr len (m:'a word -> 'b option)) ∧
-   (∀x. IS_SOME (m x) ⇒ w2n x < dimword(:'a) - 1) ∧
-   w2n ptr < dimword (:'a)
-   ⇒
-   w2n ptr + len < dimword(:'a)`,
-  Induct_on`len`
-  \\ rw[read_bytearray_def]
-  \\ fs[CaseEq"option", IS_SOME_EXISTS, PULL_EXISTS]
-  \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
-  \\ res_tac \\ fs[] \\ rfs[])
 
 val IMP_word_list = Q.store_thm("IMP_word_list",
   `8 <= dimindex(:'a) ⇒
@@ -605,7 +416,7 @@ val asm_write_bytearray_unchanged = Q.store_thm("asm_write_bytearray_unchanged",
   \\ Cases_on`x`
   \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]);
 
-val asm_write_bytearray_unchange_alt = store_thm("asm_write_bytearray_unchanged_alt",
+val asm_write_bytearray_unchanged_alt = store_thm("asm_write_bytearray_unchanged_alt",
   ``∀a bs m z.
       (z = m x) /\ ~(x IN { a + n2w k | k < LENGTH bs }) ==>
       (asm_write_bytearray a bs m x = z)``,
@@ -871,74 +682,6 @@ val get_mem_word_get_byte = Q.store_thm("get_mem_word_get_byte",
   \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def]
   \\ blastLib.BBLAST_TAC);
 
-val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm_step_target_state_rel",
-  `backend_correct t ∧
-   target_state_rel t s1 ms ∧
-   asm_step t.config s1 i s2
-   ⇒
-   ∃n.
-   target_state_rel t s2 (FUNPOW t.next n ms) ∧
-   (∀j. j < n ⇒
-     (∀pc. pc ∈ all_pcs (LENGTH (t.config.encode i)) s1.pc 0 ⇒
-             (t.get_byte (FUNPOW t.next j ms) pc = t.get_byte ms pc)) ∧
-     (t.get_pc (FUNPOW t.next j ms) ∈
-       all_pcs (LENGTH (t.config.encode i)) s1.pc t.config.code_alignment) ∧
-     (t.state_ok (FUNPOW t.next j ms))) ∧
-   (∀j x. j ≤ n ∧ x ∉ s1.mem_domain ⇒ (t.get_byte (FUNPOW t.next j ms) x = t.get_byte ms x))`,
-  rw[asmPropsTheory.backend_correct_def]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`K I`mp_tac)
-  \\ impl_tac >- ( EVAL_TAC \\ rw[] )
-  \\ srw_tac[ETA_ss][]
-  \\ imp_res_tac asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST
-  \\ fs[FOLDR_FUNPOW, LENGTH_COUNT_LIST]
-  \\ qexists_tac`SUC n`
-  \\ simp[FUNPOW]
-  \\ simp[GSYM FORALL_AND_THM]
-  \\ gen_tac
-  \\ Cases_on`j` \\ fs[]
-  >- (
-    fs[asmSemTheory.asm_step_def, asmPropsTheory.target_state_rel_def]
-    \\ `t.config.encode i <> []`
-    by ( fs[asmPropsTheory.target_ok_def, asmPropsTheory.enc_ok_def] )
-    \\ Cases_on`t.config.encode i` \\ fs[asmSemTheory.bytes_in_memory_def]
-    \\ fs[asmPropsTheory.all_pcs_thm]
-    \\ qexists_tac`0` \\ fs[])
-  \\ conj_tac
-  >- (
-    strip_tac
-    \\ drule asmPropsTheory.asserts_IMP_FOLDR_COUNT_LIST_LESS
-    \\ disch_then drule
-    \\ simp[FOLDR_FUNPOW] )
-  \\ ntac 2 strip_tac
-  \\ drule asmPropsTheory.asserts2_every
-  \\ strip_tac
-  \\ qmatch_goalsub_rename_tac`SUC m`
-  \\ qho_match_abbrev_tac`P ms (FUNPOW t.next (SUC m) ms)`
-  \\ irule FUNPOW_refl_trans_chain
-  \\ fs[ADD1,Abbr`P`]
-  \\ simp[reflexive_def,transitive_def]);
-
-val backend_correct_RTC_asm_step_target_state_rel = Q.store_thm("backend_correct_RTC_asm_step_target_state_rel",
-  `backend_correct t ∧
-   target_state_rel t s1 ms ∧
-   RTC (λs1 s2. ∃i. asm_step t.config s1 i s2) s1 s2
-   ⇒
-   ∃n. target_state_rel t s2 (FUNPOW t.next n ms)`,
-  strip_tac
-  \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
-  \\ disch_then ho_match_mp_tac
-  \\ reverse conj_tac
-  >- ( qexists_tac`0` \\ rw[] )
-  \\ rw[]
-  \\ drule (GEN_ALL backend_correct_asm_step_target_state_rel)
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ rw[GSYM FUNPOW_ADD]
-  \\ asm_exists_tac \\ rw[]);
-
 val asm_step_target_configured = Q.store_thm("asm_step_target_configured",
   `asm_step c s1 i s2 ∧ target_configured s1 mc ⇒
    target_configured s2 mc`,
@@ -953,81 +696,6 @@ val RTC_asm_step_target_configured = Q.store_thm("RTC_asm_step_target_configured
   \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
   \\ disch_then ho_match_mp_tac \\ rw[]
   \\ metis_tac[asm_step_target_configured]);
-
-val RTC_asm_step_consts = Q.store_thm("RTC_asm_step_consts",
-  `RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2
-  ⇒ (s2.mem_domain = s1.mem_domain) ∧
-    (s2.be = s1.be)`,
-  rw[]
-  \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
-  \\ disch_then ho_match_mp_tac \\ rw[]
-  \\ fs[asmSemTheory.asm_step_def]
-  \\ rw[]);
-
-val read_mem_word_IMP_mem_eq = store_thm("read_mem_word_IMP_mem_eq",
-  ``!a k s w s'. (read_mem_word a k s = (w,s')) ==> (s'.mem = s.mem)``,
-  Induct_on `k` \\ fs [asmSemTheory.read_mem_word_def]
-  \\ rw [] \\ pairarg_tac \\ fs []
-  \\ res_tac \\ fs [asmSemTheory.assert_def]
-  \\ rveq \\ fs []);
-
-val write_mem_word_mem_domain = store_thm("write_mem_word_mem_domain",
-  ``!k b a s. (write_mem_word b k a s).mem_domain = s.mem_domain``,
-  Induct \\ fs [asmSemTheory.write_mem_word_def,
-                asmSemTheory.assert_def,asmSemTheory.upd_mem_def]);
-
-val write_mem_word_mem_eq = store_thm("write_mem_word_mem_eq",
-  ``!k b a s x.
-      ~(write_mem_word b k a s).failed /\ x ∉ s.mem_domain ==>
-      ((write_mem_word b k a s).mem x = s.mem x)``,
-  Induct \\ fs [asmSemTheory.write_mem_word_def,APPLY_UPDATE_THM,
-                asmSemTheory.assert_def,asmSemTheory.upd_mem_def]
-  \\ fs [write_mem_word_mem_domain]
-  \\ rw [] \\ res_tac \\ fs []);
-
-val mem_op_outside_mem_domain = Q.store_thm("mem_op_outside_mem_domain",
-  `∀m n a s x. x ∉ s.mem_domain ∧ ¬(mem_op m n a s).failed ⇒
-               ((asmSem$mem_op m n a s).mem x = s.mem x)`,
-  Cases \\ rw[asmSemTheory.mem_op_def]
-  \\ fs[asmSemTheory.mem_load_def,
-        asmSemTheory.mem_store_def,
-        asmSemTheory.upd_reg_def, asmSemTheory.assert_def]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ imp_res_tac read_mem_word_IMP_mem_eq \\ fs []
-  \\ match_mp_tac write_mem_word_mem_eq \\ fs []);
-
-val inst_outside_mem_domain = Q.store_thm("inst_outside_mem_domain",
-  `∀i. x ∉ s.mem_domain ∧ ¬(inst i s).failed ⇒ ((inst i s).mem x = s.mem x)`,
-  Cases \\ rw[asmSemTheory.inst_def]
-  >- EVAL_TAC
-  \\ rw[mem_op_outside_mem_domain]);
-
-val asm_outside_mem_domain = Q.store_thm("asm_outside_mem_domain",
-  `∀i p s x. x ∉ s.mem_domain ∧ ¬(asm i p s).failed ⇒ ((asm i p s).mem x = s.mem x)`,
-  ho_match_mp_tac asmTheory.asm_induction
-  \\ rw[asmSemTheory.asm_def]
-  >- rw[inst_outside_mem_domain]
-  >- rw[asmSemTheory.jump_to_offset_def]
-  >- rw[asmSemTheory.jump_to_offset_def]
-  >- (rw[asmSemTheory.jump_to_offset_def] >- EVAL_TAC)
-  >- EVAL_TAC
-  >- EVAL_TAC);
-
-val asm_step_outside_mem_domain = Q.store_thm("asm_step_outside_mem_domain",
-  `asm_step c s1 i s2 ⇒
-   (∀x. x ∉ s1.mem_domain ⇒ (s2.mem x = s1.mem x))`,
-  rw[asmSemTheory.asm_step_def]
-  \\ rw[asm_outside_mem_domain]);
-
-val RTC_asm_step_outside_mem_domain = Q.store_thm("RTC_asm_step_outside_mem_domain",
-  `∀s1 s2. RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2
-  ⇒ (∀a. a ∉ s1.mem_domain ⇒ (s2.mem a = s1.mem a))`,
-  ho_match_mp_tac RTC_INDUCT
-  \\ rw[]
-  \\ drule asm_step_outside_mem_domain
-  \\ disch_then drule \\ rw[]
-  \\ fs[asmSemTheory.asm_step_def]
-  \\ metis_tac[asmPropsTheory.asm_consts]);
 
 val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
   `8 ≤ dimindex(:'a) ⇒
@@ -1164,7 +832,7 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ rpt gen_tac \\ strip_tac
   \\ ntac 2 strip_tac
   \\ ((MATCH_MP
-        (REWRITE_RULE[GSYM AND_IMP_INTRO] backend_correct_asm_step_target_state_rel)
+        (REWRITE_RULE[GSYM AND_IMP_INTRO] targetPropsTheory.backend_correct_asm_step_target_state_rel)
         ag32_targetProofTheory.ag32_backend_correct) |> GEN_ALL |> drule)
   \\ simp[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.config``]
   \\ simp[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.next``]
@@ -1569,7 +1237,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       \\ imp_res_tac ALOOKUP_MEM
       \\ reverse(Cases_on`fnm`)
       >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
-      \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
+      \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
       \\ simp[ALIST_FUPDKEY_ALOOKUP]
       \\ first_x_assum drule
       \\ simp[]
@@ -1585,7 +1253,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       \\ rveq \\ fs[]
       \\ fs[ALOOKUP_ADELKEY]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ drule (GEN_ALL extract_fs_with_numchars_closes_iostreams)
+      \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
       \\ simp[ALOOKUP_ADELKEY]
       \\ Cases_on`w82n l = fd` \\ fs[]
       >- (
@@ -1672,7 +1340,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
     \\ last_assum drule
     \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
     \\ strip_tac
-    \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
+    \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
     \\ disch_then drule
     \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
     \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
@@ -1702,7 +1370,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
   \\ qmatch_goalsub_abbrev_tac`written ++ _`
   \\ rveq \\ fs[]
   \\ rveq \\ fs[]
-  \\ drule (GEN_ALL extract_fs_with_numchars_keeps_iostreams)
+  \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
   \\ disch_then drule
   \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
   \\ simp[data_to_word_assignProofTheory.IMP]
@@ -5937,7 +5605,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w] \\ rfs[]
     \\ qpat_x_assum`_ ≤ n`mp_tac
     \\ rw[LESS_EQ_EXISTS] \\ fs[]
-    \\ drule bytes_in_memory_EL
+    \\ drule asmPropsTheory.bytes_in_memory_EL
     \\ disch_then drule
     \\ rw[word_add_n2w]
     \\ qmatch_goalsub_rename_tac`n2w (a + (p + 4))`
@@ -6100,9 +5768,9 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
     \\ fs[Abbr`bs'`]
     \\ gen_tac \\ strip_tac
-    \\ drule bytes_in_memory_EL
+    \\ drule asmPropsTheory.bytes_in_memory_EL
     \\ simp[]
-    \\ drule bytes_in_memory_in_domain
+    \\ drule asmPropsTheory.bytes_in_memory_in_domain
     \\ simp[] )
   \\ simp[Abbr`bs`, Abbr`bs'`]
   \\ fs[fsFFITheory.write_def]
@@ -6123,11 +5791,11 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ conj_tac
     >- (
       once_rewrite_tac[WORD_ADD_COMM]
-      \\ irule bytes_in_memory_in_domain
+      \\ irule asmPropsTheory.bytes_in_memory_in_domain
       \\ goal_assum(first_assum o mp_then Any mp_tac)
       \\ simp[] )
     \\ once_rewrite_tac[WORD_ADD_COMM]
-    \\ irule bytes_in_memory_EL
+    \\ irule asmPropsTheory.bytes_in_memory_EL
     \\ simp[]
     \\ asm_exists_tac
     \\ simp[] )
@@ -6269,7 +5937,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ fs[FFI_codes_def] \\ rfs[]
     \\ fs[EVAL``ffi_code_start_offset``]
     \\ rfs[])
-  \\ drule bytes_in_memory_EL
+  \\ drule asmPropsTheory.bytes_in_memory_EL
   \\ disch_then(qspec_then`j + 4`mp_tac)
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
@@ -6503,7 +6171,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w] \\ rfs[]
     \\ qpat_x_assum`_ ≤ n`mp_tac
     \\ rw[LESS_EQ_EXISTS] \\ fs[]
-    \\ drule bytes_in_memory_EL
+    \\ drule asmPropsTheory.bytes_in_memory_EL
     \\ disch_then drule
     \\ rw[word_add_n2w]
     \\ qmatch_goalsub_rename_tac`n2w (a + (p + 4))`
@@ -6669,9 +6337,9 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
     \\ fs[Abbr`bs'`]
     \\ gen_tac \\ strip_tac
-    \\ drule bytes_in_memory_EL
+    \\ drule asmPropsTheory.bytes_in_memory_EL
     \\ simp[]
-    \\ drule bytes_in_memory_in_domain
+    \\ drule asmPropsTheory.bytes_in_memory_in_domain
     \\ simp[] )
   \\ simp[Abbr`bs`, Abbr`bs'`]
   \\ fs[fsFFITheory.write_def]
@@ -6692,11 +6360,11 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ conj_tac
     >- (
       once_rewrite_tac[WORD_ADD_COMM]
-      \\ irule bytes_in_memory_in_domain
+      \\ irule asmPropsTheory.bytes_in_memory_in_domain
       \\ goal_assum(first_assum o mp_then Any mp_tac)
       \\ simp[] )
     \\ once_rewrite_tac[WORD_ADD_COMM]
-    \\ irule bytes_in_memory_EL
+    \\ irule asmPropsTheory.bytes_in_memory_EL
     \\ simp[]
     \\ asm_exists_tac
     \\ simp[] )
@@ -6838,7 +6506,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ fs[FFI_codes_def] \\ rfs[]
     \\ fs[EVAL``ffi_code_start_offset``]
     \\ rfs[])
-  \\ drule bytes_in_memory_EL
+  \\ drule asmPropsTheory.bytes_in_memory_EL
   \\ disch_then(qspec_then`j + 4`mp_tac)
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
@@ -7044,8 +6712,8 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ fs[EVAL``(ag32_machine_config a b c d).len_reg``]
   \\ fs[EVAL``(ag32_machine_config a b c d).target.get_reg``]
   \\ fs[EVAL``(ag32_machine_config a b c d).target.get_byte``]
-  \\ first_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory_all_words)
-  \\ last_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory_all_words)
+  \\ first_assum(mp_then Any mp_tac asmPropsTheory.read_bytearray_IMP_bytes_in_memory)
+  \\ last_assum(mp_then Any mp_tac asmPropsTheory.read_bytearray_IMP_bytes_in_memory)
   \\ imp_res_tac read_bytearray_LENGTH \\ fs[]
   \\ qmatch_asmsub_abbrev_tac`_ ∈ md`
   \\ disch_then(qspecl_then[`ms.MEM`,`md`]mp_tac) \\ simp[]
@@ -7267,7 +6935,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ conj_tac
   >- (
     irule EQ_SYM
-    \\ irule asm_write_bytearray_unchange_alt
+    \\ irule asm_write_bytearray_unchanged_alt
     \\ simp[APPLY_UPDATE_THM]
     \\ conj_tac
     >- (
@@ -7334,8 +7002,8 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   \\ fs[EVAL``(ag32_machine_config a b c d).len_reg``]
   \\ fs[EVAL``(ag32_machine_config a b c d).target.get_reg``]
   \\ fs[EVAL``(ag32_machine_config a b c d).target.get_byte``]
-  \\ first_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory_all_words)
-  \\ last_assum(mp_then Any mp_tac read_bytearray_IMP_bytes_in_memory_all_words)
+  \\ first_assum(mp_then Any mp_tac asmPropsTheory.read_bytearray_IMP_bytes_in_memory)
+  \\ last_assum(mp_then Any mp_tac asmPropsTheory.read_bytearray_IMP_bytes_in_memory)
   \\ imp_res_tac read_bytearray_LENGTH \\ fs[]
   \\ qmatch_asmsub_abbrev_tac`_ ∈ md`
   \\ disch_then(qspecl_then[`ms.MEM`,`md`]mp_tac) \\ simp[]
@@ -7496,7 +7164,7 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     THEN1 fs []
     \\ unabbrev_all_tac
     \\ conj_tac THEN1 EVAL_TAC
-    \\ match_mp_tac asm_write_bytearray_unchange_alt
+    \\ match_mp_tac asm_write_bytearray_unchanged_alt
     \\ fs [APPLY_UPDATE_THM]
     \\ CCONTR_TAC \\ fs []
     \\ Cases_on `ms.R 4w` \\ fs [] \\ rveq \\ fs []
@@ -7506,7 +7174,7 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     \\ EVAL_TAC \\ fs [EVAL ``LENGTH FFI_codes``])
   \\ gen_tac \\ strip_tac
   \\ simp[ag32_ffi_write_mem_update_def]
-  \\ match_mp_tac asm_write_bytearray_unchange_alt
+  \\ match_mp_tac asm_write_bytearray_unchanged_alt
   \\ first_x_assum mp_tac
   \\ first_x_assum mp_tac
   \\ fs [ag32_ffi_mem_domain_def,Abbr`r0`]

@@ -180,6 +180,40 @@ val bytes_in_memory_change_mem = Q.store_thm("bytes_in_memory_change_mem",
   \\ first_x_assum(qspec_then`SUC n`mp_tac)
   \\ simp[ADD1,GSYM word_add_n2w]);
 
+val bytes_in_memory_EL = Q.store_thm("bytes_in_memory_EL",
+  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ (m (a + n2w k) = EL k bs)`,
+  Induct_on`bs`
+  \\ rw[asmSemTheory.bytes_in_memory_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[ADD1, GSYM word_add_n2w]);
+
+val bytes_in_memory_in_domain = Q.store_thm("bytes_in_memory_in_domain",
+  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ ((a + n2w k) ∈ md)`,
+  Induct_on`bs`
+  \\ rw[asmSemTheory.bytes_in_memory_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[ADD1, GSYM word_add_n2w]);
+
+val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_in_memory",
+  `∀p n m ba m' md.
+   (n = LENGTH ba) ∧
+   (∀k. k ∈ all_words p n ⇒ k ∈ md ∧ (m k = SOME (m' k))) ∧
+   (read_bytearray (p:'a word) n m = SOME ba) ⇒
+   bytes_in_memory p ba m' md`,
+  Induct_on`ba` \\ rw[] >- EVAL_TAC
+  \\ simp[asmSemTheory.bytes_in_memory_def]
+  \\ fs[read_bytearray_def, CaseEq"option"]
+  \\ first_assum(qspec_then`p`mp_tac)
+  \\ impl_tac >- simp[all_words_def]
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ fs [all_words_def]
+  \\ metis_tac []);
+
 val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
   `!t s ms.
      target_state_rel t s ms <=>
@@ -371,5 +405,80 @@ val asm_consts = Q.store_thm("asm_consts[simp]",
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ full_simp_tac(srw_ss())[SND_read_mem_word_consts,write_mem_word_consts])
+
+val RTC_asm_step_consts = Q.store_thm("RTC_asm_step_consts",
+  `RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2
+  ⇒ (s2.mem_domain = s1.mem_domain) ∧
+    (s2.be = s1.be)`,
+  rw[]
+  \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
+  \\ disch_then ho_match_mp_tac \\ rw[]
+  \\ fs[asmSemTheory.asm_step_def]
+  \\ rw[]);
+
+val read_mem_word_IMP_mem_eq = store_thm("read_mem_word_IMP_mem_eq",
+  ``!a k s w s'. (read_mem_word a k s = (w,s')) ==> (s'.mem = s.mem)``,
+  Induct_on `k` \\ fs [asmSemTheory.read_mem_word_def]
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ res_tac \\ fs [asmSemTheory.assert_def]
+  \\ rveq \\ fs []);
+
+val write_mem_word_mem_domain = store_thm("write_mem_word_mem_domain",
+  ``!k b a s. (write_mem_word b k a s).mem_domain = s.mem_domain``,
+  Induct \\ fs [asmSemTheory.write_mem_word_def,
+                asmSemTheory.assert_def,asmSemTheory.upd_mem_def]);
+
+val write_mem_word_mem_eq = store_thm("write_mem_word_mem_eq",
+  ``!k b a s x.
+      ~(write_mem_word b k a s).failed /\ x ∉ s.mem_domain ==>
+      ((write_mem_word b k a s).mem x = s.mem x)``,
+  Induct \\ fs [asmSemTheory.write_mem_word_def,APPLY_UPDATE_THM,
+                asmSemTheory.assert_def,asmSemTheory.upd_mem_def]
+  \\ fs [write_mem_word_mem_domain]
+  \\ rw [] \\ res_tac \\ fs []);
+
+val mem_op_outside_mem_domain = Q.store_thm("mem_op_outside_mem_domain",
+  `∀m n a s x. x ∉ s.mem_domain ∧ ¬(mem_op m n a s).failed ⇒
+               ((asmSem$mem_op m n a s).mem x = s.mem x)`,
+  Cases \\ rw[asmSemTheory.mem_op_def]
+  \\ fs[asmSemTheory.mem_load_def,
+        asmSemTheory.mem_store_def,
+        asmSemTheory.upd_reg_def, asmSemTheory.assert_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ imp_res_tac read_mem_word_IMP_mem_eq \\ fs []
+  \\ match_mp_tac write_mem_word_mem_eq \\ fs []);
+
+val inst_outside_mem_domain = Q.store_thm("inst_outside_mem_domain",
+  `∀i. x ∉ s.mem_domain ∧ ¬(inst i s).failed ⇒ ((inst i s).mem x = s.mem x)`,
+  Cases \\ rw[asmSemTheory.inst_def]
+  >- EVAL_TAC
+  \\ rw[mem_op_outside_mem_domain]);
+
+val asm_outside_mem_domain = Q.store_thm("asm_outside_mem_domain",
+  `∀i p s x. x ∉ s.mem_domain ∧ ¬(asm i p s).failed ⇒ ((asm i p s).mem x = s.mem x)`,
+  ho_match_mp_tac asmTheory.asm_induction
+  \\ rw[asmSemTheory.asm_def]
+  >- rw[inst_outside_mem_domain]
+  >- rw[asmSemTheory.jump_to_offset_def]
+  >- rw[asmSemTheory.jump_to_offset_def]
+  >- (rw[asmSemTheory.jump_to_offset_def] >- EVAL_TAC)
+  >- EVAL_TAC
+  >- EVAL_TAC);
+
+val asm_step_outside_mem_domain = Q.store_thm("asm_step_outside_mem_domain",
+  `asm_step c s1 i s2 ⇒
+   (∀x. x ∉ s1.mem_domain ⇒ (s2.mem x = s1.mem x))`,
+  rw[asmSemTheory.asm_step_def]
+  \\ rw[asm_outside_mem_domain]);
+
+val RTC_asm_step_outside_mem_domain = Q.store_thm("RTC_asm_step_outside_mem_domain",
+  `∀s1 s2. RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2
+  ⇒ (∀a. a ∉ s1.mem_domain ⇒ (s2.mem a = s1.mem a))`,
+  ho_match_mp_tac RTC_INDUCT
+  \\ rw[]
+  \\ drule asm_step_outside_mem_domain
+  \\ disch_then drule \\ rw[]
+  \\ fs[asmSemTheory.asm_step_def]
+  \\ metis_tac[asm_consts]);
 
 val () = export_theory ()

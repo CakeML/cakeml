@@ -688,13 +688,13 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ fs[asmPropsTheory.target_state_rel_def]
     \\ fs[EVAL``ag32_target.get_byte``]
     \\ qx_gen_tac`a` \\ strip_tac
-    \\ drule RTC_asm_step_consts
+    \\ drule asmPropsTheory.RTC_asm_step_consts
     \\ strip_tac \\ fs[]
     \\ `hello_asm_state0.mem_domain = ag32_startup_addresses r0` by (
       fs[ag32_init_asm_state_def] )
     \\ fs[]
     \\ Cases_on`a ∈ ag32_startup_addresses r0` \\ fs[]
-    \\ drule RTC_asm_step_outside_mem_domain
+    \\ drule asmPropsTheory.RTC_asm_step_outside_mem_domain
     \\ simp[]
     \\ fs[is_ag32_init_state_def]
     \\ simp[ag32_init_asm_state_def])
@@ -878,18 +878,18 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ fs[EVAL``ag32_target.get_byte``]
     \\ reverse(Cases_on`a ∈ ag32_startup_addresses r0`) \\ fs[]
     >- (
-      drule RTC_asm_step_outside_mem_domain
+      drule asmPropsTheory.RTC_asm_step_outside_mem_domain
       \\ simp[ag32_init_asm_state_def]
       \\ fs[is_ag32_init_state_def] )
-    \\ imp_res_tac RTC_asm_step_consts \\ fs[]
+    \\ imp_res_tac asmPropsTheory.RTC_asm_step_consts \\ fs[]
     \\ fs[ag32_init_asm_state_def])
   \\ conj_tac >- (
     fs[bytes_in_mem_bytes_in_memory]
     \\ qpat_x_assum`_.pc = _`(assume_tac o SYM) \\ fs[]
-    \\ irule read_bytearray_IMP_bytes_in_memory
+    \\ irule read_bytearray_IMP_bytes_in_memory_WORD_LOWER
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ simp[]
-    \\ imp_res_tac RTC_asm_step_consts
+    \\ imp_res_tac asmPropsTheory.RTC_asm_step_consts
     \\ qpat_x_assum`_ = _.pc`(assume_tac o SYM) \\ fs[]
     \\ EVAL_TAC
     \\ simp[LENGTH_data,LENGTH_code,Abbr`num_ffis`,ffi_names]
@@ -897,7 +897,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ Cases \\ fs[word_lo_n2w, word_ls_n2w])
   \\ conj_tac >- (
     qpat_x_assum`_ + _ < _`mp_tac
-    \\ imp_res_tac RTC_asm_step_consts
+    \\ imp_res_tac asmPropsTheory.RTC_asm_step_consts
     \\ fs[LENGTH_data,heap_size_def]
     \\ EVAL_TAC
     \\ simp[SUBSET_DEF, LENGTH_code, LENGTH_data, Abbr`num_ffis`, ffi_names]
