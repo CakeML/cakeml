@@ -6,6 +6,16 @@ val _ = new_theory"helloProof";
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
+val get_mem_word_get_byte =
+  ag32_basis_ffiTheory.get_mem_word_get_byte
+  |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
+
+val target_state_rel_ag32_init =
+  ag32_basis_ffiTheory.target_state_rel_ag32_init
+  |> Q.GEN`r0` |> Q.SPEC`0w`
+  |> SIMP_RULE std_ss[``n2w ZERO :word32`` |> SIMP_CONV std_ss [ALT_ZERO] ]
+  |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``, markerTheory.Abbrev_def]
+
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
   hello_semantics |> Q.GENL[`cl`,`fs`]
@@ -94,8 +104,8 @@ val hello_init_memory_words_def = zDefine`
     `;
 
 val hello_init_memory_def = Define`
-  hello_init_memory r0 (cl, stdin) (k:word32) =
-     get_byte k (EL (w2n (byte_align k - r0) DIV 4) (hello_init_memory_words cl stdin)) F`;
+  hello_init_memory (cl, stdin) (k:word32) =
+     get_byte k (EL (w2n (byte_align k) DIV 4) (hello_init_memory_words cl stdin)) F`;
 
 val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
@@ -120,25 +130,23 @@ val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words
 
 val hello_machine_config_def = Define`
   hello_machine_config =
-    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)`;
+    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data) 0w`;
 
 val hello_machine_config_halt_pc =
-  ``(hello_machine_config r0).halt_pc``
+  ``hello_machine_config.halt_pc``
   |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
 
 val hello_machine_config_ccache_pc =
-  ``(hello_machine_config r0).ccache_pc``
+  ``hello_machine_config.ccache_pc``
   |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
 
 val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
-  `byte_aligned r0 ∧ n < LENGTH hello_startup_code ⇒
-   (hello_init_memory r0 inputs (r0 + (n2w n)) =
+  `n < LENGTH hello_startup_code ⇒
+   (hello_init_memory inputs (n2w n) =
     EL n hello_startup_code)`,
   Cases_on`inputs`
   \\ strip_tac
   \\ simp[hello_init_memory_def]
-  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
-  \\ simp[align_add_aligned_gen]
   \\ Q.ISPECL_THEN[`n`,`F`,`hello_startup_code`]mp_tac
        (Q.GEN`i`(INST_TYPE[alpha|->``:32``]get_byte_EL_words_of_bytes))
   \\ simp[bytes_in_word_def,LENGTH_hello_startup_code]
@@ -147,80 +155,39 @@ val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
   \\ simp[hello_init_memory_words_def]
   \\ rewrite_tac[GSYM APPEND_ASSOC]
   \\ DEP_REWRITE_TAC [EL_APPEND1]
+  \\ simp[LENGTH_words_of_bytes_hello_startup_code]
+  \\ fs[LENGTH_hello_startup_code, DIV_LT_X]
+  \\ fs[alignmentTheory.align_w2n]
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ fs[]
   \\ conj_tac
-  >- (
-    simp[LENGTH_words_of_bytes_hello_startup_code]
-    \\ fs[LENGTH_hello_startup_code, DIV_LT_X]
-    \\ fs[alignmentTheory.align_w2n]
-    \\ DEP_REWRITE_TAC[LESS_MOD]
-    \\ fs[]
-    \\ conj_tac
-    \\ irule IMP_MULT_DIV_LESS
-    \\ fs[] )
-  \\ `r0 + n2w n = n2w n + byte_align r0`
-  by (
-    simp[alignmentTheory.byte_align_def, align_add_aligned_gen]
-    \\ fs[alignmentTheory.aligned_def] )
-  \\ pop_assum SUBST1_TAC
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ EVAL_TAC);
+  \\ irule IMP_MULT_DIV_LESS
+  \\ fs[] );
 
-(* TODO: use get_mem_word in this theorem *)
 val hello_init_memory_halt = Q.store_thm("hello_init_memory_halt",
-  `byte_aligned r0 ∧
-   (pc = (hello_machine_config r0).halt_pc) ∧
+  `(pc = hello_machine_config.halt_pc) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
   ⇒
-   ((hello_init_memory r0 (cl,inp) (pc + 3w) @@
-    ((hello_init_memory r0 (cl,inp) (pc + 2w) @@
-      ((hello_init_memory r0 (cl,inp) (pc + 1w) @@
-        hello_init_memory r0 (cl,inp) (pc)) : word16)) : word24)) =
+  (get_mem_word (hello_init_memory (cl,inp)) pc =
     Encode (Jump (fAdd, 0w, Imm 0w)))`,
   strip_tac
   \\ qpat_x_assum`pc = _`(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
-  \\ simp[hello_init_memory_def]
-  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
-  \\ `aligned 2 pc`
+  \\ qspecl_then[`cl`,`inp`]mp_tac hello_init_memory_words_def
+  \\ rewrite_tac[GSYM APPEND_ASSOC, ag32_ffi_jumps_def]
+  \\ qmatch_goalsub_abbrev_tac`ls ++ (words_of_bytes F code ++ _)`
+  \\ qmatch_goalsub_abbrev_tac`ls ++ lr`
+  \\ rewrite_tac[APPEND_ASSOC]
+  \\ qmatch_goalsub_abbrev_tac`ll ++ ls ++ lr`
+  \\ strip_tac
+  \\ qspecl_then[`hello_init_memory (cl,inp)`,`0`]mp_tac(Q.GENL[`m`,`k`,`off`]get_mem_word_get_byte)
+  \\ simp[]
+  \\ `4 * LENGTH ll = w2n pc`
   by (
-    simp[Abbr`pc`, hello_machine_config_halt_pc]
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ simp[]
-    \\ EVAL_TAC )
-  \\ simp[align_add_aligned_gen]
-  \\ simp[Abbr`pc`]
-  \\ rewrite_tac[hello_machine_config_halt_pc]
-  \\ qmatch_goalsub_abbrev_tac`r0 + x`
-  \\ `align 2 (r0 + x) = r0 + x` by fs[alignmentTheory.aligned_def, hello_machine_config_halt_pc]
-  \\ `r0 + x = byte_align (r0 + x)` by fs[alignmentTheory.byte_align_def]
-  \\ qhdtm_x_assum`align`SUBST_ALL_TAC
-  \\ simp_tac(srw_ss())[]
-  \\ pop_assum SUBST_ALL_TAC
-  \\ once_rewrite_tac[WORD_ADD_COMM]
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ conj_tac >- EVAL_TAC
-  \\ DEP_REWRITE_TAC[
-       data_to_word_memoryProofTheory.get_byte_byte_align
-       |> Q.GEN`a'` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[]]
-  \\ conj_tac >- EVAL_TAC
-  \\ DEP_REWRITE_TAC[w2n_add]
-  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
-  \\ conj_tac
-  >- ( simp[Abbr`x`] \\ EVAL_TAC )
-  \\ conj_tac
-  >- ( simp[Abbr`x`,LENGTH_data] \\ EVAL_TAC )
-  \\ qmatch_goalsub_abbrev_tac`_ = h`
-  \\ `∃l1 l2. (hello_init_memory_words cl inp = l1 ++ l2) ∧
-              (LENGTH l1 = w2n x DIV 4) ∧
-              (l2 <> [] ∧ (HD l2 = h))` by (
-    simp[hello_init_memory_words_def, ag32_ffi_jumps_def]
-    \\ qmatch_goalsub_abbrev_tac`l1 ++ halt_jump_ag32_code ++ _ ++ _`
-    \\ qexists_tac`l1`
-    \\ simp[halt_jump_ag32_code_def]
-    \\ simp[Abbr`l1`,Abbr`x`]
-    \\ simp[LENGTH_words_of_bytes_hello_startup_code, LENGTH_words_of_bytes, LENGTH_FLAT, bitstringTheory.length_pad_right]
-    \\ simp[LENGTH_data, LENGTH_code]
+    simp[Abbr`ll`, LENGTH_words_of_bytes_hello_startup_code,
+         LENGTH_hello_startup_code, startup_code_size_def,
+         heap_size_def, output_buffer_size_def, ccache_jump_ag32_code_def,
+         LENGTH_ag32_ffi_code]
+    \\ simp[LENGTH_words_of_bytes, LENGTH_FLAT, bitstringTheory.length_pad_right]
     \\ simp[MAP_MAP_o, o_DEF, ADD1, ffi_names, SUM_MAP_PLUS]
     \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
     \\ qmatch_goalsub_abbrev_tac`MIN 1 (cz MOD _)` \\ `cz = stdin_size` by ( simp[Abbr`cz`] )
@@ -229,69 +196,43 @@ val hello_init_memory_halt = Q.store_thm("hello_init_memory_halt",
     \\ qmatch_goalsub_abbrev_tac`MIN 1 (sz MOD _)` \\ `sz = cline_size` by ( simp[Abbr`sz`] )
     \\ qpat_x_assum`Abbrev(sz = _)`kall_tac \\ pop_assum SUBST_ALL_TAC
     \\ simp[cline_size_def, bytes_in_word_def]
-    \\ simp[LENGTH_ag32_ffi_code]
-    \\ simp[LENGTH_hello_startup_code, startup_code_size_def, heap_size_def, output_buffer_size_def]
-    \\ EVAL_TAC)
-  \\ simp[EL_APPEND_EQN]
-  \\ EVAL_TAC \\ simp[]
-  \\ blastLib.BBLAST_TAC );
+    \\ simp[mk_jump_ag32_code_def]
+    \\ simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names])
+  \\ impl_tac
+  >- (
+    simp[hello_init_memory_def, Abbr`ls`]
+    \\ EVAL_TAC
+    \\ reverse conj_asm1_tac
+    >- decide_tac
+    \\ simp[Abbr`pc`]
+    \\ EVAL_TAC
+    \\ simp[ffi_names] )
+  \\ simp[Abbr`ls`, halt_jump_ag32_code_def]);
 
-(* TODO: use get_mem_word in this theorem *)
 val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
-  `byte_aligned r0 ∧
-   (pc = (hello_machine_config r0).ccache_pc) ∧
+  `(pc = hello_machine_config.ccache_pc) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
   ⇒
-   ((hello_init_memory r0 (cl,inp) (pc + 3w) @@
-    ((hello_init_memory r0 (cl,inp) (pc + 2w) @@
-      ((hello_init_memory r0 (cl,inp) (pc + 1w) @@
-        hello_init_memory r0 (cl,inp) (pc)) : word16)) : word24)) =
+   (get_mem_word (hello_init_memory (cl,inp)) pc =
     Encode (Jump (fSnd, 0w, Reg 0w)))`,
   strip_tac
   \\ qpat_x_assum`pc = _`(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
-  \\ simp[hello_init_memory_def]
-  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
-  \\ `aligned 2 pc`
+  \\ qspecl_then[`cl`,`inp`]mp_tac hello_init_memory_words_def
+  \\ rewrite_tac[GSYM APPEND_ASSOC, ag32_ffi_jumps_def]
+  \\ qmatch_goalsub_abbrev_tac`ls ++ (halt_jump_ag32_code ++ _)`
+  \\ qmatch_goalsub_abbrev_tac`ls ++ lr`
+  \\ rewrite_tac[APPEND_ASSOC]
+  \\ qmatch_goalsub_abbrev_tac`ll ++ ls ++ lr`
+  \\ strip_tac
+  \\ qspecl_then[`hello_init_memory (cl,inp)`,`0`]mp_tac(Q.GENL[`m`,`k`,`off`]get_mem_word_get_byte)
+  \\ simp[]
+  \\ `4 * LENGTH ll = w2n pc`
   by (
-    simp[Abbr`pc`, hello_machine_config_ccache_pc]
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ simp[]
-    \\ EVAL_TAC )
-  \\ simp[align_add_aligned_gen]
-  \\ simp[Abbr`pc`]
-  \\ rewrite_tac[hello_machine_config_ccache_pc]
-  \\ qmatch_goalsub_abbrev_tac`r0 + x`
-  \\ `align 2 (r0 + x) = r0 + x` by fs[alignmentTheory.aligned_def, hello_machine_config_ccache_pc]
-  \\ `r0 + x = byte_align (r0 + x)` by fs[alignmentTheory.byte_align_def]
-  \\ qhdtm_x_assum`align`SUBST_ALL_TAC
-  \\ simp_tac(srw_ss())[]
-  \\ pop_assum SUBST_ALL_TAC
-  \\ once_rewrite_tac[WORD_ADD_COMM]
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ conj_tac >- EVAL_TAC
-  \\ DEP_REWRITE_TAC[
-       data_to_word_memoryProofTheory.get_byte_byte_align
-       |> Q.GEN`a'` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[]]
-  \\ conj_tac >- EVAL_TAC
-  \\ DEP_REWRITE_TAC[w2n_add]
-  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
-  \\ conj_tac
-  >- ( simp[Abbr`x`] \\ EVAL_TAC )
-  \\ conj_tac
-  >- ( simp[Abbr`x`,LENGTH_data] \\ EVAL_TAC )
-  \\ qmatch_goalsub_abbrev_tac`_ = h`
-  \\ `∃l1 l2. (hello_init_memory_words cl inp = l1 ++ l2) ∧
-              (LENGTH l1 = w2n x DIV 4) ∧
-              (l2 <> [] ∧ (HD l2 = h))` by (
-    simp[hello_init_memory_words_def, ag32_ffi_jumps_def]
-    \\ qmatch_goalsub_abbrev_tac`l1 ++ ccache_jump_ag32_code ++ _ ++ _ ++ _`
-    \\ qexists_tac`l1`
-    \\ simp[ccache_jump_ag32_code_def]
-    \\ simp[Abbr`l1`,Abbr`x`]
-    \\ simp[LENGTH_words_of_bytes_hello_startup_code, LENGTH_words_of_bytes, LENGTH_FLAT, bitstringTheory.length_pad_right]
-    \\ simp[LENGTH_data, LENGTH_code]
+    simp[Abbr`ll`, LENGTH_words_of_bytes_hello_startup_code,
+         LENGTH_hello_startup_code, startup_code_size_def,
+         heap_size_def, output_buffer_size_def, ccache_jump_ag32_code_def,
+         LENGTH_ag32_ffi_code]
+    \\ simp[LENGTH_words_of_bytes, LENGTH_FLAT, bitstringTheory.length_pad_right]
     \\ simp[MAP_MAP_o, o_DEF, ADD1, ffi_names, SUM_MAP_PLUS]
     \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
     \\ qmatch_goalsub_abbrev_tac`MIN 1 (cz MOD _)` \\ `cz = stdin_size` by ( simp[Abbr`cz`] )
@@ -300,26 +241,26 @@ val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
     \\ qmatch_goalsub_abbrev_tac`MIN 1 (sz MOD _)` \\ `sz = cline_size` by ( simp[Abbr`sz`] )
     \\ qpat_x_assum`Abbrev(sz = _)`kall_tac \\ pop_assum SUBST_ALL_TAC
     \\ simp[cline_size_def, bytes_in_word_def]
-    \\ simp[LENGTH_ag32_ffi_code]
-    \\ simp[LENGTH_hello_startup_code, startup_code_size_def, heap_size_def, output_buffer_size_def]
-    \\ EVAL_TAC)
-  \\ simp[EL_APPEND_EQN]
-  \\ EVAL_TAC \\ simp[]
-  \\ blastLib.BBLAST_TAC );
-
-(*
-define the ag32 and asm states
-that obtain after running startup code from ag32 init
-and do the rest of the proof from there
-*)
+    \\ simp[mk_jump_ag32_code_def]
+    \\ simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names])
+  \\ impl_tac
+  >- (
+    simp[hello_init_memory_def, Abbr`ls`]
+    \\ EVAL_TAC
+    \\ reverse conj_asm1_tac
+    >- decide_tac
+    \\ simp[Abbr`pc`]
+    \\ EVAL_TAC
+    \\ simp[ffi_names] )
+  \\ simp[Abbr`ls`, ccache_jump_ag32_code_def]);
 
 val hello_init_asm_state_def = Define`
-  hello_init_asm_state r0 input =
+  hello_init_asm_state input =
     FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
       (ag32_init_asm_state
-        (hello_init_memory r0 input)
-        (ag32_startup_addresses r0)
-        r0)
+        (hello_init_memory input)
+        (ag32_startup_addresses 0w)
+        0w)
       (hello_startup_asm_code)`;
 
 val (asm_tm, mk_asm, dest_asm, is_asm) = HolKernel.syntax_fns3 "asmSem" "asm"
@@ -362,12 +303,11 @@ val bytes_in_memory_tac =
         memory_size_def]
 
 val mem_ok_tac =
-  Cases_on`r0`
-  \\ fs[word_ls_n2w,word_add_n2w,word_lo_n2w,
-        alignmentTheory.byte_aligned_def,
-        word_extract_n2w, memory_size_def,
-        GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
-        bitTheory.BITS_ZERO3 ]
+  fs[word_ls_n2w,word_add_n2w,word_lo_n2w,
+     alignmentTheory.byte_aligned_def,
+     word_extract_n2w, memory_size_def,
+     GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+     bitTheory.BITS_ZERO3 ]
 
 val mem_word_tac =
     rw[data_to_word_memoryProofTheory.word_of_bytes_def,
@@ -380,13 +320,12 @@ val mem_word_tac =
 
 val _ = temp_overload_on("hello_asm_state0",
   ``(ag32_init_asm_state
-      (hello_init_memory r0 (cl,inp))
-      (ag32_startup_addresses r0)
-      r0)``);
+      (hello_init_memory (cl,inp))
+      (ag32_startup_addresses 0w)
+      0w)``);
 
 val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ⇒
    let tr =
     (steps (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
@@ -396,12 +335,12 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
    let final_st = LAST (hello_asm_state0::(MAP SND tr)) in
    let ffi_names = THE config.ffi_names in
    let num_ffis = LENGTH ffi_names in
-     (final_st.pc = r0 + n2w (code_start_offset num_ffis)) ∧
+     (final_st.pc = n2w (code_start_offset num_ffis)) ∧
      (read_bytearray final_st.pc (LENGTH code)
-       (λa. if a ∈ (hello_machine_config r0).prog_addresses then
+       (λa. if a ∈ hello_machine_config.prog_addresses then
                SOME (final_st.mem a) else NONE ) = SOME code) ∧
-     let hs = r0 + n2w heap_start_offset in
-     let ds = r0 + n2w (code_start_offset num_ffis + LENGTH code) in
+     let hs = n2w heap_start_offset in
+     let ds = n2w (code_start_offset num_ffis + LENGTH code) in
      (final_st.regs 2 = hs) ∧
      (final_st.regs 4 = hs + n2w heap_size) ∧
      (word_of_bytes F 0w (GENLIST (final_st.mem o ((+) (hs + 0w * 4w)) o n2w) 4) =
@@ -416,11 +355,11 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
       ds) ∧
      (∀k. k < 4 * LENGTH data + 4 ⇒
           (final_st.mem (ds + n2w k) =
-           (hello_init_memory r0 (cl,inp)) (ds + n2w k)))`,
+           (hello_init_memory (cl,inp)) (ds + n2w k)))`,
   strip_tac
   \\ qho_match_abbrev_tac`LET (λtr. (_ tr) ∧ P (_ tr)) _`
   \\ rewrite_tac[hello_startup_asm_code_eq,
-                 EVAL``ag32_startup_addresses r0``]
+                 EVAL``ag32_startup_addresses 0w``]
   \\ simp[]
   \\ qmatch_goalsub_abbrev_tac`steps _ _ (i::tr)`
   \\ simp[steps_def, steps_rel_def]
@@ -431,7 +370,7 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ qpat_x_assum`Abbrev (s2 = _)`mp_tac
   \\ CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)
   \\ simp [ag32_init_asm_state_def]
-  \\ `ag32_init_asm_regs r0 = (λk. ag32_init_asm_regs r0 k)` by simp[FUN_EQ_THM]
+  \\ `ag32_init_asm_regs (0w:word32) = (λk. ag32_init_asm_regs 0w k)` by simp[FUN_EQ_THM]
   \\ pop_assum SUBST1_TAC
   \\ simp[ag32_init_asm_regs_def]
   \\ CONV_TAC (PATH_CONV "lrrr" asm_conv)
@@ -473,21 +412,11 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
     \\ match_mp_tac data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
     \\ simp[]
     \\ gen_tac \\ strip_tac
-    \\ qpat_x_assum`_ < dimword _`mp_tac
     \\ CONV_TAC(LAND_CONV EVAL)
-    \\ CONV_TAC(PATH_CONV"rlr" EVAL)
-    \\ Cases_on`r0`
     \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w, LENGTH_code, LENGTH_data, ffi_names]
-    \\ strip_tac
     \\ rewrite_tac[hello_init_memory_def]
     \\ qmatch_goalsub_abbrev_tac`i + k`
-    \\ `byte_aligned ((n2w k):word32)` by(
-      simp[Abbr`k`, GSYM word_add_n2w, alignmentTheory.byte_aligned_def]
-      \\ (alignmentTheory.aligned_add_sub_cor
-          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-          |> irule)
-      \\ fs[alignmentTheory.byte_aligned_def]
-      \\ EVAL_TAC )
+    \\ `byte_aligned ((n2w k):word32)` by( simp[Abbr`k`] \\ EVAL_TAC )
     \\ `n2w k = byte_align ((n2w k):word32)`
     by (
       fs[alignmentTheory.byte_aligned_def,
@@ -505,10 +434,6 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
       \\ fs[alignmentTheory.byte_aligned_def] )
     \\ once_asm_rewrite_tac[]
     \\ qunabbrev_tac`k`
-    \\ rewrite_tac[WORD_ADD_SUB_SYM]
-    \\ rewrite_tac[GSYM word_add_n2w]
-    \\ rewrite_tac[WORD_ADD_ASSOC]
-    \\ rewrite_tac[WORD_SUB_ADD]
     \\ DEP_REWRITE_TAC[w2n_add]
     \\ conj_tac
     >- (
@@ -587,38 +512,36 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ simp_tac std_ss [asmSemTheory.asm_state_accfupds]
   \\ simp[LENGTH_code,ffi_names,EVAL``code_start_offset num_ffis``,LENGTH_data]
   \\ gen_tac \\ strip_tac
-  \\ Cases_on`r0` \\ fs[memory_size_def]
   \\ rewrite_tac[word_add_n2w] \\ rw[]);
 
 val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_asm_step",
-  `byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size
   ⇒
-   (λx y. ∃i. asm_step ag32_config x i y)^* hello_asm_state0 (hello_init_asm_state r0 (cl,inp)) ∧
+   (λx y. ∃i. asm_step ag32_config x i y)^* hello_asm_state0 (hello_init_asm_state (cl,inp)) ∧
    let ffi_names = THE config.ffi_names in
    let num_ffis = LENGTH ffi_names in
-   let hs = r0 + n2w heap_start_offset in
-   let ds = r0 + n2w (code_start_offset num_ffis + LENGTH code) in
-   ((hello_init_asm_state r0 (cl,inp)).pc = r0 + n2w (code_start_offset num_ffis)) ∧
-   (read_bytearray (hello_init_asm_state r0 (cl,inp)).pc (LENGTH code)
-      (λa. if a ∈ (hello_machine_config r0).prog_addresses then SOME ((hello_init_asm_state r0 (cl,inp)).mem a) else NONE)
+   let hs = n2w heap_start_offset in
+   let ds = n2w (code_start_offset num_ffis + LENGTH code) in
+   ((hello_init_asm_state (cl,inp)).pc = n2w (code_start_offset num_ffis)) ∧
+   (read_bytearray (hello_init_asm_state (cl,inp)).pc (LENGTH code)
+      (λa. if a ∈ hello_machine_config.prog_addresses then SOME ((hello_init_asm_state (cl,inp)).mem a) else NONE)
       = SOME code) ∧
-    ((hello_init_asm_state r0 (cl,inp)).regs 2 = hs) ∧
-    ((hello_init_asm_state r0 (cl,inp)).regs 4 = hs + n2w heap_size) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (cl,inp)).mem o ((+)(hs + 0w * 4w)) o n2w) 4)
+    ((hello_init_asm_state (cl,inp)).regs 2 = hs) ∧
+    ((hello_init_asm_state (cl,inp)).regs 4 = hs + n2w heap_size) ∧
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state (cl,inp)).mem o ((+)(hs + 0w * 4w)) o n2w) 4)
      = ds) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (cl,inp)).mem o ((+)(hs + 1w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state (cl,inp)).mem o ((+)(hs + 1w * 4w)) o n2w) 4)
      = ds + n2w (4 * LENGTH data)) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (cl,inp)).mem o ((+)(hs + 2w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state (cl,inp)).mem o ((+)(hs + 2w * 4w)) o n2w) 4)
      = ds + n2w (4 * LENGTH data)) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (cl,inp)).mem o ((+)(hs + 3w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state (cl,inp)).mem o ((+)(hs + 3w * 4w)) o n2w) 4)
      = ds) ∧
-    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state r0 (cl,inp)).mem o ((+)(hs + 4w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((hello_init_asm_state (cl,inp)).mem o ((+)(hs + 4w * 4w)) o n2w) 4)
      = ds) ∧
     (∀k. k < 4 * LENGTH data + 4 ⇒
-      ((hello_init_asm_state r0 (cl,inp)).mem (ds + n2w k) =
-       hello_init_memory r0 (cl,inp) (ds + n2w k)))`,
+      ((hello_init_asm_state (cl,inp)).mem (ds + n2w k) =
+       hello_init_memory (cl,inp) (ds + n2w k)))`,
   disch_then assume_tac
   \\ mp_tac (UNDISCH hello_init_asm_state_asm_step)
   \\ simp[]
@@ -633,24 +556,21 @@ val hello_init_asm_state_RTC_asm_step = Q.store_thm("hello_init_asm_state_RTC_as
   \\ fs[ag32_targetTheory.ag32_target_def]);
 
 val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_init_asm_state",
-  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (hello_init_asm_state r0 (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (hello_init_memory (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target (hello_init_asm_state (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
-       (∀x. x ∉ (ag32_startup_addresses r0) ⇒
+       (∀x. x ∉ (ag32_startup_addresses 0w) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
   strip_tac
   \\ imp_res_tac hello_init_asm_state_RTC_asm_step
   \\ drule (GEN_ALL target_state_rel_ag32_init)
   \\ rveq
-  \\ disch_then drule
-  \\ disch_then drule
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
   \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md r0).mem_domain``]);
+  \\ simp[EVAL``(ag32_init_asm_state m md 0w).mem_domain``]);
 
 val hello_startup_clock_def =
   new_specification("hello_startup_clock_def",["hello_startup_clock"],
@@ -658,29 +578,27 @@ val hello_startup_clock_def =
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val hello_good_init_state = Q.store_thm("hello_good_init_state",
-  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ⇒
+   is_ag32_init_state (hello_init_memory (cl,inp)) ms0 ⇒
    ∃io_regs cc_regs.
-   good_init_state (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0 inp cl) ms0)
+   good_init_state hello_machine_config (FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)
      (basis_ffi cl fs) code 0
-     ((hello_init_asm_state r0 (cl,inp)) with mem_domain := (hello_machine_config r0).prog_addresses)
+     ((hello_init_asm_state (cl,inp)) with mem_domain := hello_machine_config.prog_addresses)
      (λk. Word
-       (word_of_bytes F 0w (GENLIST (λi. (hello_init_asm_state r0 (cl,inp)).mem (k + n2w i)) 4)))
-       ({w | (hello_init_asm_state r0 (cl,inp)).regs 2 <=+ w ∧
-             w <+ (hello_init_asm_state r0 (cl,inp)).regs 4}
-        ∪ {w | r0 + n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code) <=+ w ∧
-               w <+ r0 + n2w(code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code + 4 * LENGTH data) })
+       (word_of_bytes F 0w (GENLIST (λi. (hello_init_asm_state (cl,inp)).mem (k + n2w i)) 4)))
+       ({w | (hello_init_asm_state (cl,inp)).regs 2 <=+ w ∧
+             w <+ (hello_init_asm_state (cl,inp)).regs 4}
+        ∪ {w | n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code) <=+ w ∧
+               w <+ n2w(code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code + 4 * LENGTH data) })
      io_regs
      cc_regs`,
   strip_tac
   \\ drule hello_startup_clock_def \\ fs[]
   \\ disch_then drule \\ disch_then drule
-  \\ disch_then drule
   \\ strip_tac
   \\ simp[lab_to_targetProofTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
-  \\ drule hello_init_asm_state_RTC_asm_step
+  \\ mp_tac hello_init_asm_state_RTC_asm_step
   \\ impl_tac >- fs[]
   \\ strip_tac
   \\ conj_tac >- (
@@ -690,17 +608,17 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ qx_gen_tac`a` \\ strip_tac
     \\ drule asmPropsTheory.RTC_asm_step_consts
     \\ strip_tac \\ fs[]
-    \\ `hello_asm_state0.mem_domain = ag32_startup_addresses r0` by (
+    \\ `hello_asm_state0.mem_domain = ag32_startup_addresses 0w` by (
       fs[ag32_init_asm_state_def] )
     \\ fs[]
-    \\ Cases_on`a ∈ ag32_startup_addresses r0` \\ fs[]
+    \\ Cases_on`a ∈ ag32_startup_addresses 0w` \\ fs[]
     \\ drule asmPropsTheory.RTC_asm_step_outside_mem_domain
     \\ simp[]
     \\ fs[is_ag32_init_state_def]
     \\ simp[ag32_init_asm_state_def])
   \\ conj_tac
   >- (
-    Q.ISPEC_THEN `hello_machine_config r0 with prog_addresses := ag32_startup_addresses r0`
+    Q.ISPEC_THEN `hello_machine_config with prog_addresses := ag32_startup_addresses 0w`
       drule (Q.GEN`mc` RTC_asm_step_target_configured)
     \\ simp[lab_to_targetProofTheory.target_configured_def]
     \\ impl_tac >- EVAL_TAC
@@ -708,75 +626,32 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   \\ conj_tac >- (
     fs[asmPropsTheory.target_state_rel_def, hello_machine_config_def, ag32_machine_config_def] )
   \\ qabbrev_tac`num_ffis = LENGTH (THE config.ffi_names)`
-  \\ `r0 + n2w (code_start_offset num_ffis) && 3w = 0w` by (
+  \\ `n2w (code_start_offset num_ffis) && 3w = 0w:word32` by (
     EVAL_TAC
-    \\ fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def, Abbr`num_ffis`, ffi_names]
-    \\ Cases_on`r0`
-    \\ simp[word_add_n2w]
-    \\ once_rewrite_tac[WORD_AND_COMM]
-    \\ rewrite_tac[addressTheory.n2w_and_3]
-    \\ qpat_x_assum`_ = 0w`mp_tac
-    \\ once_rewrite_tac[WORD_AND_COMM]
-    \\ rewrite_tac[addressTheory.n2w_and_3]
-    \\ EVAL_TAC
-    \\ simp[] )
-  \\ `r0 + n2w (code_start_offset num_ffis) && 1w = 0w` by (
+    \\ fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def, Abbr`num_ffis`, ffi_names])
+  \\ `n2w (code_start_offset num_ffis) && 1w = 0w:word32` by (
     EVAL_TAC
-    \\ fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def, Abbr`num_ffis`, ffi_names]
-    \\ Cases_on`r0`
-    \\ simp[word_add_n2w]
-    \\ once_rewrite_tac[WORD_AND_COMM]
-    \\ rewrite_tac[addressTheory.n2w_and_1]
-    \\ qpat_x_assum`_ && n2w _ = 0w`mp_tac
-    \\ once_rewrite_tac[WORD_AND_COMM]
-    \\ rewrite_tac[addressTheory.n2w_and_3]
-    \\ EVAL_TAC
-    \\ simp[]
-    \\ DEP_ONCE_REWRITE_TAC[LESS_MOD]
-    \\ conj_tac
-    >- (
-      match_mp_tac LESS_LESS_EQ_TRANS
-      \\ qexists_tac`4`
-      \\ simp[MOD_LESS] )
-    \\ strip_tac
-    \\ DEP_ONCE_REWRITE_TAC[LESS_MOD]
-    \\ conj_tac
-    >- (
-      match_mp_tac LESS_LESS_EQ_TRANS
-      \\ qexists_tac`2`
-      \\ simp[MOD_LESS] )
-    \\ fs[MOD_EQ_0_DIVISOR]
-    \\ qexists_tac`2 * d`
-    \\ simp[] )
+    \\ fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def, Abbr`num_ffis`, ffi_names])
   \\ conj_tac >- (
     rewrite_tac[lab_to_targetProofTheory.start_pc_ok_def]
-    \\ conj_tac >- (
-      qpat_x_assum`_ < _`mp_tac
-      \\ EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names, Abbr`num_ffis`]
-      \\ Cases_on`r0`
-      \\ fs[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,word_lo_n2w] )
-    \\ conj_tac >- (
-      qpat_x_assum`_ < _`mp_tac
-      \\ EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names, Abbr`num_ffis`]
-      \\ Cases_on`r0`
-      \\ simp[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,word_lo_n2w] )
+    \\ conj_tac >- ( EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names, Abbr`num_ffis`])
+    \\ conj_tac >- ( EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names, Abbr`num_ffis`])
     \\ simp[lab_to_targetTheory.ffi_offset_def]
     \\ conj_tac >- (EVAL_TAC \\ simp[ffi_names,Abbr`num_ffis`])
     \\ conj_tac >- (EVAL_TAC \\ simp[ffi_names,Abbr`num_ffis`] )
     \\ conj_tac >- fs[]
-    \\ rewrite_tac[EVAL``(hello_machine_config r0).ffi_names``]
+    \\ rewrite_tac[EVAL``hello_machine_config.ffi_names``]
     \\ fs[ffi_names, Abbr`num_ffis`,lab_to_targetTheory.ffi_offset_def, EVAL``code_start_offset n``]
     \\ simp[hello_machine_config_def, ffi_names, ag32_machine_config_def]
-    \\ EVAL_TAC \\ simp[LENGTH_data, LENGTH_code]
-    \\ Cases_on`r0`
-    \\ fs[WORD_LOWER_OR_EQ,WORD_NOT_LOWER,word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+    \\ EVAL_TAC \\ simp[LENGTH_data, LENGTH_code])
   \\ conj_tac >- (
-    qpat_x_assum`_ && 3w = _`mp_tac
-    \\ EVAL_TAC \\ fs[] )
+    imp_res_tac asmPropsTheory.RTC_asm_step_consts
+    \\ qpat_x_assum`_ && 3w = _`mp_tac \\ fs[]
+    \\ simp[ag32_init_asm_state_def] )
   \\ conj_tac >- (
     rw[asmPropsTheory.interference_ok_def]
-    \\ simp[EVAL``(hello_machine_config r0).target``]
-    \\ simp[EVAL``(hello_machine_config r0).next_interfer``] )
+    \\ simp[EVAL``(hello_machine_config).target``]
+    \\ simp[EVAL``(hello_machine_config).next_interfer``] )
   \\ simp[LEFT_EXISTS_AND_THM]
   \\ conj_tac >- (
     simp[lab_to_targetProofTheory.ffi_interfer_ok_def]
@@ -813,18 +688,14 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
         \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
         \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
         \\ simp[ag32_prog_addresses_def]
-        \\ EVAL_TAC
-        \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w, word_ls_n2w, word_lo_n2w] )
+        \\ EVAL_TAC)
       \\ reverse IF_CASES_TAC
       >- (
         rw[APPLY_UPDATE_THM]
         \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
         \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
         \\ simp[ag32_prog_addresses_def]
-        \\ EVAL_TAC
-        \\ qpat_x_assum`Abbrev(r0 = _)`mp_tac
-        \\ simp[Once ALT_ZERO]
-        \\ strip_tac \\ simp[Abbr`r0`] )
+        \\ EVAL_TAC)
       \\ rw[]
       \\ fs[targetSemTheory.read_ffi_bytearrays_def]
       \\ fs[targetSemTheory.read_ffi_bytearray_def]
@@ -845,13 +716,12 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ fs[EVAL``output_offset``, output_buffer_size_def]
       \\ fs[LENGTH_TAKE_EQ, fsFFITheory.write_def]
       \\ pairarg_tac \\ fs[]
-      \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
       \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
       \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
       \\ simp[ag32_prog_addresses_def]
       \\ strip_tac
       \\ CONV_TAC(LAND_CONV EVAL)
-      \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
       \\ rw[MIN_DEF])
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
@@ -868,7 +738,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   \\ conj_asm1_tac >- (
     simp[targetSemTheory.code_loaded_def]
     \\ fs[asmPropsTheory.target_state_rel_def]
-    \\ simp[SIMP_CONV (srw_ss()) [hello_machine_config_def,ag32_machine_config_def]``(hello_machine_config r0).target``]
+    \\ simp[SIMP_CONV (srw_ss()) [hello_machine_config_def,ag32_machine_config_def]``(hello_machine_config).target``]
     \\ rfs[]
     \\ first_x_assum(CONV_TAC o RAND_CONV o REWR_CONV o SYM)
     \\ AP_TERM_TAC
@@ -876,7 +746,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ rw[]
     \\ match_mp_tac EQ_SYM
     \\ fs[EVAL``ag32_target.get_byte``]
-    \\ reverse(Cases_on`a ∈ ag32_startup_addresses r0`) \\ fs[]
+    \\ reverse(Cases_on`a ∈ ag32_startup_addresses 0w`) \\ fs[]
     >- (
       drule asmPropsTheory.RTC_asm_step_outside_mem_domain
       \\ simp[ag32_init_asm_state_def]
@@ -893,19 +763,14 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ qpat_x_assum`_ = _.pc`(assume_tac o SYM) \\ fs[]
     \\ EVAL_TAC
     \\ simp[LENGTH_data,LENGTH_code,Abbr`num_ffis`,ffi_names]
-    \\ Cases_on`r0` \\  fs[word_add_n2w,memory_size_def]
-    \\ Cases \\ fs[word_lo_n2w, word_ls_n2w])
+    \\ Cases \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w])
   \\ conj_tac >- (
-    qpat_x_assum`_ + _ < _`mp_tac
-    \\ imp_res_tac asmPropsTheory.RTC_asm_step_consts
+    imp_res_tac asmPropsTheory.RTC_asm_step_consts
     \\ fs[LENGTH_data,heap_size_def]
     \\ EVAL_TAC
     \\ simp[SUBSET_DEF, LENGTH_code, LENGTH_data, Abbr`num_ffis`, ffi_names]
-    \\ Cases_on`r0` \\ fs[word_add_n2w]
-    \\ strip_tac
-    \\ simp[GSYM FORALL_AND_THM]
     \\ Cases
-    \\ fs[word_lo_n2w, word_ls_n2w])
+    \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w])
   \\ conj_tac >- (
     gen_tac
     \\ qmatch_goalsub_abbrev_tac`low <=+ byte_align a`
@@ -916,26 +781,15 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
       \\ simp[Abbr`hi`,Abbr`low`]
       \\ fs[alignmentTheory.byte_aligned_def]
-      \\ rewrite_tac[word_add_n2w, GSYM WORD_ADD_ASSOC]
-      \\ conj_tac
-      \\ (alignmentTheory.aligned_add_sub_cor
-          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-          |> irule)
-      \\ fs[]
       \\ EVAL_TAC )
     \\ disj2_tac
     \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
     \\ simp[heap_size_def,LENGTH_data,LENGTH_code]
     \\ fs[alignmentTheory.byte_aligned_def,Abbr`hi`,heap_size_def]
-    \\ conj_tac
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ fs[]
     \\ simp[Abbr`num_ffis`,ffi_names]
     \\ EVAL_TAC )
   \\ conj_tac >- (
-    simp[EVAL``(hello_machine_config r0).target.config``]
+    simp[EVAL``(hello_machine_config).target.config``]
     \\ Cases
     \\ qmatch_asmsub_rename_tac`i < dimword _`
     \\ `byte_align ((n2w i):word32) <=+ n2w i`
@@ -982,7 +836,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
   \\ simp[LENGTH_code]);
 
 val is_ag32_machine_config_hello_machine_config = Q.store_thm("is_ag32_machine_config_hello_machine_config",
-  `is_ag32_machine_config (hello_machine_config r0)`,
+  `is_ag32_machine_config hello_machine_config`,
   rw[hello_machine_config_def, is_ag32_machine_config_ag32_machine_config]);
 
 val compile_correct_applied =
@@ -999,21 +853,20 @@ val compile_correct_applied =
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
 val hello_installed = Q.store_thm("hello_installed",
-  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ⇒
+   is_ag32_init_state (hello_init_memory (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (hello_machine_config r0) (FUNPOW Next (hello_startup_clock r0 ms0 inp cl) ms0)`,
+     (hello_machine_config) (FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)`,
   disch_then assume_tac
   \\ CONV_TAC(PATH_CONV"llr"EVAL)
   \\ simp[backendProofTheory.installed_def]
   \\ simp[word_list_exists_def, set_sepTheory.SEP_CLAUSES, word_list_def]
-  \\ simp[EVAL``(hello_machine_config r0).target.get_pc``]
+  \\ simp[EVAL``(hello_machine_config).target.get_pc``]
   \\ strip_assume_tac(UNDISCH hello_good_init_state)
   \\ fs[]
-  \\ drule hello_init_asm_state_RTC_asm_step
+  \\ mp_tac hello_init_asm_state_RTC_asm_step
   \\ impl_tac >- fs[]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`good_init_state _ _ _ _ _ t`
@@ -1022,30 +875,17 @@ val hello_installed = Q.store_thm("hello_installed",
   \\ qhdtm_x_assum`good_init_state` mp_tac
   \\ rewrite_tac[lab_to_targetProofTheory.good_init_state_def]
   \\ disch_then(assume_tac o el 1 o CONJUNCTS)
-  \\ conj_tac
-  >- (irule byte_aligned_add \\ simp[] \\ EVAL_TAC)
-  \\ conj_tac
-  >- (irule byte_aligned_add \\ simp[]
-      \\ reverse conj_tac >- EVAL_TAC
-      \\ irule byte_aligned_add \\ simp[]
-      \\ EVAL_TAC)
-  \\ conj_tac
-  >- (irule byte_aligned_add \\ simp[ffi_names, LENGTH_code] \\ EVAL_TAC)
-  \\ conj_tac
-  >- (Cases_on`r0`
-      \\ EVAL_TAC
-      \\ fs[memory_size_def, heap_size_def])
-  \\ conj_tac
-  >- ( Cases_on`r0` \\ simp[WORD_LEFT_ADD_DISTRIB] \\ EVAL_TAC )
+  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- (simp[ffi_names, LENGTH_code] \\ EVAL_TAC)
+  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- EVAL_TAC
   \\ conj_tac
   >- (
     simp[IN_DISJOINT]
-    \\ qpat_x_assum`_ < _`mp_tac
     \\ EVAL_TAC
     \\ simp[LENGTH_code,LENGTH_data,ffi_names]
-    \\ strip_tac
     \\ Cases
-    \\ Cases_on`r0`
     \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w] )
   \\ conj_tac
   >- ( rw[LENGTH_data, bytes_in_word_def, LENGTH_code, ffi_names] )
@@ -1065,7 +905,7 @@ val hello_installed = Q.store_thm("hello_installed",
     irule IMP_word_list
     \\ fs[LENGTH_code, LENGTH_data, heap_size_def, bytes_in_word_def,
           memory_size_def, ffi_names, EVAL``code_start_offset n``]
-    \\ Cases_on`r0` \\ fs[word_add_n2w]
+    \\ fs[word_add_n2w]
     \\ simp[EXTENSION,FORALL_PROD,set_sepTheory.IN_fun2set]
     \\ reverse(rw[EQ_IMP_THM])
     \\ fs[word_mul_n2w, word_add_n2w, word_lo_n2w, word_ls_n2w]
@@ -1077,9 +917,6 @@ val hello_installed = Q.store_thm("hello_installed",
           |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
           |> irule)
       \\ reverse conj_tac >- EVAL_TAC
-      \\ (alignmentTheory.aligned_add_sub_cor
-          |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-          |> irule)
       \\ fs[alignmentTheory.byte_aligned_def]
       \\ simp[GSYM word_mul_n2w]
       \\ simp[GSYM ALIGNED_eq_aligned]
@@ -1096,24 +933,13 @@ val hello_installed = Q.store_thm("hello_installed",
       \\ ntac 4 (disch_then kall_tac)
       \\ qmatch_goalsub_abbrev_tac`n + off`
       \\ qmatch_goalsub_abbrev_tac`word_of_bytes _ _ ls`
-      \\ `ls = GENLIST (λi. hello_init_memory (n2w n) (cl,inp) (n2w (4 * (k + (off DIV 4)) + n + i))) 4`
+      \\ `ls = GENLIST (λi. hello_init_memory (cl,inp) (n2w (4 * (k + (off DIV 4)) + i))) 4`
       by ( simp[Abbr`ls`,Abbr`off`,LEFT_ADD_DISTRIB] )
       \\ qpat_x_assum`Abbrev(ls = _)`kall_tac
       \\ pop_assum SUBST_ALL_TAC
       \\ simp[Abbr`off`, GSYM word_add_n2w]
       \\ simp[hello_init_memory_def]
       \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
-      \\ `∀x:word32. get_byte (n2w n + x) = get_byte x`
-      by (
-        simp[Once ADD_COMM]
-        \\ `(n2w n : word32) = byte_align ((n2w n):word32)`
-        by ( fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def, alignmentTheory.aligned_def] )
-        \\ pop_assum SUBST1_TAC
-        \\ simp[FUN_EQ_THM]
-        \\ rpt gen_tac
-        \\ match_mp_tac data_to_word_memoryProofTheory.get_byte_byte_align
-        \\ EVAL_TAC )
-      \\ simp[]
       \\ `∀(y:word32) x. get_byte (n2w (4 * x) + y) = get_byte y`
       by (
         rw[FUN_EQ_THM]
@@ -1127,23 +953,6 @@ val hello_installed = Q.store_thm("hello_installed",
       \\ simp[]
       \\ pop_assum(qspec_then`0w`mp_tac) \\ simp[]
       \\ disch_then kall_tac
-      \\ `∀x:word32. byte_align (n2w n + x) = byte_align x + n2w n`
-      by (
-        `(n2w n : word32) = byte_align ((n2w n):word32)`
-        by ( fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def, alignmentTheory.aligned_def] )
-        \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
-        \\ gen_tac
-        \\ once_rewrite_tac[WORD_ADD_COMM]
-        \\ DEP_REWRITE_TAC[align_add_aligned_gen]
-        \\ simp[] )
-      \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
-      \\ simp[]
-      \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
-      \\ qmatch_goalsub_abbrev_tac`(_:word32) + zz`
-      \\ `zz = 0w`
-      by ( simp[Abbr`zz`, word_add_n2w] )
-      \\ qpat_x_assum`Abbrev(zz = _)`kall_tac
-      \\ rw[]
       \\ `∀y x. byte_align (n2w (4 * x) + y) = n2w (4 * x) + byte_align y : word32`
       by (
         rw[]
@@ -1196,8 +1005,8 @@ val hello_installed = Q.store_thm("hello_installed",
          addressTheory.ALIGNED_n2w]
       \\ fs[MOD_EQ_0_DIVISOR] \\ rfs[]
       \\ fs[Abbr`l`] \\ rveq
-      \\ qmatch_asmsub_abbrev_tac`4 * d + (p + m) = 4 * q`
-      \\ qexists_tac`(q - d - m DIV 4)`
+      \\ qmatch_asmsub_abbrev_tac`p + m = 4 * d`
+      \\ qexists_tac`(d - m DIV 4)`
       \\ simp[Abbr`m`])
     \\ qexists_tac`d`
     \\ simp[]
@@ -1212,24 +1021,13 @@ val hello_installed = Q.store_thm("hello_installed",
     \\ `d < LENGTH data` by ( simp[LENGTH_data] ) \\ simp[EL_MAP]
     \\ qmatch_goalsub_abbrev_tac`n + off`
     \\ qmatch_goalsub_abbrev_tac`word_of_bytes _ _ ls`
-    \\ `ls = GENLIST (λi. hello_init_memory (n2w n) (cl,inp) (n2w (4 * (d + (off DIV 4)) + n + i))) 4`
+    \\ `ls = GENLIST (λi. hello_init_memory (cl,inp) (n2w (4 * (d + (off DIV 4)) + i))) 4`
     by ( simp[Abbr`ls`,Abbr`off`,LEFT_ADD_DISTRIB] )
     \\ qpat_x_assum`Abbrev(ls = _)`kall_tac
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[Abbr`off`, GSYM word_add_n2w]
     \\ simp[hello_init_memory_def]
     \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
-    \\ `∀x:word32. get_byte (n2w n + x) = get_byte x`
-    by (
-      simp[Once ADD_COMM]
-      \\ `(n2w n : word32) = byte_align ((n2w n):word32)`
-      by ( fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def, alignmentTheory.aligned_def] )
-      \\ pop_assum SUBST1_TAC
-      \\ simp[FUN_EQ_THM]
-      \\ rpt gen_tac
-      \\ match_mp_tac data_to_word_memoryProofTheory.get_byte_byte_align
-      \\ EVAL_TAC )
-    \\ simp[]
     \\ `∀(y:word32) x. get_byte (n2w (4 * x) + y) = get_byte y`
     by (
       rw[FUN_EQ_THM]
@@ -1243,23 +1041,6 @@ val hello_installed = Q.store_thm("hello_installed",
     \\ simp[]
     \\ pop_assum(qspec_then`0w`mp_tac) \\ simp[]
     \\ disch_then kall_tac
-    \\ `∀x:word32. byte_align (n2w n + x) = byte_align x + n2w n`
-    by (
-      `(n2w n : word32) = byte_align ((n2w n):word32)`
-      by ( fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def, alignmentTheory.aligned_def] )
-      \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
-      \\ gen_tac
-      \\ once_rewrite_tac[WORD_ADD_COMM]
-      \\ DEP_REWRITE_TAC[align_add_aligned_gen]
-      \\ simp[] )
-    \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
-    \\ simp[]
-    \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
-    \\ qmatch_goalsub_abbrev_tac`(_:word32) + zz`
-    \\ `zz = 0w`
-    by ( simp[Abbr`zz`, word_add_n2w] )
-    \\ qpat_x_assum`Abbrev(zz = _)`kall_tac
-    \\ rw[]
     \\ `∀y x. byte_align (n2w (4 * x) + y) = n2w (4 * x) + byte_align y : word32`
     by (
       rw[]
@@ -1296,7 +1077,14 @@ val hello_installed = Q.store_thm("hello_installed",
     \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
     \\ rveq
     \\ rw[stdin_size_def, cline_size_def]
-    \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def]
+    \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def, Abbr`ll`]
+    \\ fs[LENGTH_data, LEFT_ADD_DISTRIB, Abbr`n`]
+    >- ( DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[] )
+    \\ pop_assum mp_tac
+    \\ simp[]
+    \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
+    \\ once_rewrite_tac[MULT_COMM]
+    \\ simp[MULT_DIV] \\ rw[]
     \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
             wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
     \\ blastLib.BBLAST_TAC)
@@ -1312,13 +1100,12 @@ val hello_machine_sem =
 
 val hello_halted = Q.store_thm("hello_halted",
   `∀ms.
-    byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
     SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
     LENGTH inp ≤ stdin_size ∧
-    (mc = hello_machine_config r0) ∧
+    (mc = hello_machine_config) ∧
     (ms.PC = mc.halt_pc) ∧
     (∀x. mc.halt_pc <=+ x ∧ x <+ mc.halt_pc + 16w ⇒
-         (mc.target.get_byte ms x = (hello_init_memory r0 (cl,inp)) x)) ⇒
+         (mc.target.get_byte ms x = (hello_init_memory (cl,inp)) x)) ⇒
     ∀k. ((FUNPOW Next k ms).io_events = ms.io_events) ∧
         ((FUNPOW Next k ms).PC = ms.PC) ∧
         ((FUNPOW Next k ms).MEM = ms.MEM) ∧
@@ -1335,10 +1122,6 @@ val hello_halted = Q.store_thm("hello_halted",
   by (
     simp[Abbr`pc`]
     \\ simp[hello_machine_config_def, ag32_machine_config_def]
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ fs[alignmentTheory.byte_aligned_def]
     \\ simp[LENGTH_data, heap_size_def, lab_to_targetTheory.ffi_offset_def, ffi_names]
     \\ EVAL_TAC )
   \\ `pc = pc'`
@@ -1351,41 +1134,20 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ pop_assum (SUBST_ALL_TAC o SYM)
   \\ fs[Abbr`pc`]
   \\ first_assum(qspec_then`ms.PC`mp_tac)
-  \\ impl_tac
-  >- (
-    simp[]
-    \\ Cases_on`r0`
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def]
-    \\ simp[hello_machine_config_halt_pc, word_add_n2w]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+  \\ impl_tac >- simp[hello_machine_config_halt_pc]
   \\ first_assum(qspec_then`ms.PC + 1w`mp_tac)
-  \\ impl_tac
-  >- (
-    simp[]
-    \\ Cases_on`r0`
-    \\ simp[hello_machine_config_halt_pc]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+  \\ impl_tac >- simp[hello_machine_config_halt_pc]
   \\ first_assum(qspec_then`ms.PC + 2w`mp_tac)
-  \\ impl_tac
-  >- (
-    simp[]
-    \\ Cases_on`r0`
-    \\ simp[hello_machine_config_halt_pc]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+  \\ impl_tac >- simp[hello_machine_config_halt_pc]
   \\ first_x_assum(qspec_then`ms.PC + 3w`mp_tac)
-  \\ impl_tac
-  >- (
-    simp[]
-    \\ Cases_on`r0`
-    \\ simp[hello_machine_config_halt_pc]
-    \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+  \\ impl_tac >- simp[hello_machine_config_halt_pc]
   \\ simp[]
-  \\ simp[EVAL``(hello_machine_config r0).target.get_byte``]
+  \\ simp[EVAL``(hello_machine_config).target.get_byte``]
   \\ rpt (disch_then SUBST_ALL_TAC)
-  \\ qmatch_goalsub_abbrev_tac`_ @@ hello_init_memory r0 _ pc`
-  \\ drule hello_init_memory_halt
+  \\ qmatch_goalsub_abbrev_tac`_ @@ hello_init_memory _ pc`
+  \\ mp_tac hello_init_memory_halt
   \\ impl_tac >- simp[]
-  \\ simp[]
+  \\ simp[get_mem_word_def]
   \\ disch_then kall_tac
   \\ simp[ag32_targetProofTheory.Decode_Encode]
   \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def]
@@ -1394,22 +1156,21 @@ val hello_halted = Q.store_thm("hello_halted",
   \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
 
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
-  `Abbrev (r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0 ∧
-   Abbrev(ms = FUNPOW Next (hello_startup_clock r0 ms0 inp cl) ms0)
+   is_ag32_init_state (hello_init_memory (cl,inp)) ms0 ∧
+   Abbrev(ms = FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)
   ⇒
    interference_implemented
-    (hello_machine_config r0)
-    (ag32_ffi_rel r0)
-    (ag32_ffi_mem_domain r0) ms`,
+    (hello_machine_config)
+    (ag32_ffi_rel 0w)
+    (ag32_ffi_mem_domain 0w) ms`,
   rw[interference_implemented_def]
-  \\ simp[EVAL``(hello_machine_config r0).target.next``]
-  \\ simp[EVAL``(hello_machine_config r0).target.get_byte``]
-  \\ simp[EVAL``(hello_machine_config r0).target.get_pc``]
-  \\ simp[EVAL``(hello_machine_config r0).target.get_reg``]
-  \\ simp[EVAL``(hello_machine_config r0).ffi_entry_pcs``]
+  \\ simp[EVAL``(hello_machine_config).target.next``]
+  \\ simp[EVAL``(hello_machine_config).target.get_byte``]
+  \\ simp[EVAL``(hello_machine_config).target.get_pc``]
+  \\ simp[EVAL``(hello_machine_config).target.get_reg``]
+  \\ simp[EVAL``(hello_machine_config).ffi_entry_pcs``]
   \\ simp[ffi_names]
   \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
   \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
@@ -1427,7 +1188,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ `(Next ms1).io_events = ms1.io_events` suffices_by rw[]
     \\ irule ag32_io_events_unchanged
     \\ simp[Abbr`ms1`]
-    \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def, EVAL``(hello_machine_config r0).target.state_ok``]
+    \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def, EVAL``(hello_machine_config).target.state_ok``]
     \\ qmatch_goalsub_abbrev_tac`m (pc' + _)`
     \\ `pc' = pc`
     by (
@@ -1438,8 +1199,8 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
     \\ pop_assum SUBST_ALL_TAC
     \\ fs[targetSemTheory.encoded_bytes_in_mem_def]
-    \\ fs[EVAL``(hello_machine_config r0).target.config.code_alignment``]
-    \\ fs[EVAL``(hello_machine_config r0).target.config.encode``]
+    \\ fs[EVAL``(hello_machine_config).target.config.code_alignment``]
+    \\ fs[EVAL``(hello_machine_config).target.config.encode``]
     \\ `4 ≤ LENGTH (DROP (4 * k) (ag32_enc i))` by (
       qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
       \\ simp[]
@@ -1480,10 +1241,6 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       \\ `aligned 2 pc`
       by (
         simp[Abbr`pc`, hello_machine_config_ccache_pc]
-        \\ (alignmentTheory.aligned_add_sub_cor
-            |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-            |> irule)
-        \\ fs[alignmentTheory.byte_aligned_def]
         \\ EVAL_TAC )
       \\ `pc = pc'`
       by (
@@ -1494,76 +1251,33 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
       \\ pop_assum (SUBST_ALL_TAC o SYM)
       \\ first_assum(qspec_then`pc`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data])
       \\ first_assum(qspec_then`pc + 1w`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data])
       \\ first_assum(qspec_then`pc + 2w`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data])
       \\ first_assum(qspec_then`pc + 3w`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names, LENGTH_code, LENGTH_data])
       \\ simp[]
       \\ ntac 4 (disch_then kall_tac)
-      \\ drule hello_startup_clock_def
+      \\ mp_tac hello_startup_clock_def
       \\ simp[]
       \\ disch_then drule
       \\ disch_then drule
       \\ disch_then drule
       \\ strip_tac
       \\ first_assum(qspec_then`pc`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC
-        \\ simp[ffi_names,LENGTH_code,LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names,LENGTH_code,LENGTH_data])
       \\ first_assum(qspec_then`pc + 1w`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC
-        \\ simp[ffi_names,LENGTH_code,LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names,LENGTH_code,LENGTH_data])
       \\ first_assum(qspec_then`pc + 2w`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC
-        \\ simp[ffi_names,LENGTH_code,LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names,LENGTH_code,LENGTH_data])
       \\ first_assum(qspec_then`pc + 3w`mp_tac)
-      \\ impl_tac
-      >- (
-        simp[Abbr`pc`]
-        \\ EVAL_TAC
-        \\ simp[ffi_names,LENGTH_code,LENGTH_data]
-        \\ Cases_on`r0`
-        \\ fs[word_add_n2w,word_ls_n2w,word_lo_n2w,memory_size_def] )
+      \\ impl_tac >- ( simp[Abbr`pc`] \\ EVAL_TAC \\ simp[ffi_names,LENGTH_code,LENGTH_data])
       \\ simp[]
       \\ ntac 4 (disch_then kall_tac)
       \\ fs[is_ag32_init_state_def]
+      \\ simp[GSYM get_mem_word_def]
       \\ DEP_REWRITE_TAC[hello_init_memory_ccache]
       \\ conj_tac
       >- ( simp[Abbr`pc`,LENGTH_data] \\ EVAL_TAC )
@@ -1582,7 +1296,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ strip_tac
   \\ fs[find_index_def] \\ rveq
   \\ simp[ffi_names]
-  \\ fs[EVAL``(hello_machine_config r0).ffi_names``, ffi_names]
+  \\ fs[EVAL``(hello_machine_config).ffi_names``, ffi_names]
   \\ fs[ffiTheory.call_FFI_def,CaseEq"oracle_result",CaseEq"bool"]
   \\ rveq \\ rfs[basis_ffiTheory.basis_ffi_def]
   \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def] \\ fs[]
@@ -1601,13 +1315,15 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
    (strip_tac
     \\ asm_exists_tac
     \\ simp[hello_machine_config_def,ag32_machine_config_def])
+  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- EVAL_TAC
   \\ conj_tac
   >- (
     fs[targetSemTheory.read_ffi_bytearrays_def,
        targetSemTheory.read_ffi_bytearray_def,
-       EVAL``(hello_machine_config r0).target.get_reg``,
-       EVAL``(hello_machine_config r0).ptr2_reg``,
-       EVAL``(hello_machine_config r0).len2_reg``]
+       EVAL``(hello_machine_config).target.get_reg``,
+       EVAL``(hello_machine_config).ptr2_reg``,
+       EVAL``(hello_machine_config).len2_reg``]
     \\ drule (SIMP_RULE(srw_ss())[PULL_EXISTS, IS_SOME_EXISTS]read_bytearray_no_wrap)
     \\ simp[]
     \\ Cases_on`ms1.R 4w` \\ fs[]
@@ -1619,8 +1335,6 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ simp[ffi_names, LENGTH_code, LENGTH_data]
     \\ qpat_x_assum`_ = ms1.PC`(assume_tac o SYM)
     \\ simp[]
-    \\ `r0 = n2w 0` by metis_tac[ALT_ZERO]
-    \\ simp[]
     \\ Cases
     \\ simp[word_ls_n2w, word_lo_n2w] )
   \\ conj_tac >- EVAL_TAC
@@ -1629,7 +1343,6 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ conj_tac >- (
     rw[]
     \\ first_assum(mp_then Any mp_tac (GEN_ALL get_mem_word_get_byte))
-    \\ disch_then(first_assum o mp_then Any mp_tac)
     \\ disch_then(qspec_then`ffi_jumps_offset DIV 4`mp_tac)
     \\ simp[LEFT_ADD_DISTRIB]
     \\ mp_tac(EVAL``4 * (ffi_jumps_offset DIV 4) = ffi_jumps_offset``)
@@ -1646,7 +1359,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       >- (
         pop_assum mp_tac
         \\ EVAL_TAC
-        \\ Cases_on`r0` \\ fs[memory_size_def] )
+        \\ fs[])
       \\ rw[]
       \\ pop_assum mp_tac
       \\ simp[]
@@ -1697,7 +1410,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ qpat_x_assum`Abbrev(mw = _)`kall_tac
     \\ rw[]
     \\ simp[GSYM(SIMP_RULE(srw_ss())[]hello_init_memory_def)]
-    \\ drule hello_startup_clock_def
+    \\ mp_tac hello_startup_clock_def
     \\ simp[]
     \\ rpt(disch_then drule)
     \\ rw[]
@@ -1711,12 +1424,12 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       >- (
         EVAL_TAC
         \\ fs[EVAL``ffi_jumps_offset``, EVAL``ag32_ffi_jumps [_]``]
-        \\ Cases_on`x` \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+        \\ Cases_on`x` \\ fs[ word_add_n2w]
         \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[] )
       \\ simp[ffi_names, LENGTH_code, LENGTH_data]
       \\ qpat_x_assum`_ = ms1.PC`(assume_tac o SYM)
       \\ EVAL_TAC \\ simp[]
-      \\ Cases_on`x` \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+      \\ Cases_on`x` \\ fs[word_add_n2w]
       \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[]
       \\ fs[EVAL``ffi_jumps_offset``, EVAL``ag32_ffi_jumps [_]``]
       \\ rfs[])
@@ -1724,12 +1437,12 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ first_x_assum irule
     \\ EVAL_TAC
     \\ fs[EVAL``ffi_jumps_offset``, EVAL``ag32_ffi_jumps [_]``]
-    \\ Cases_on`r0` \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
+    \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[word_add_n2w]
     \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[])
   \\ rw[]
-  \\ first_assum(mp_then Any mp_tac (GEN_ALL get_mem_word_get_byte))
   \\ qmatch_goalsub_abbrev_tac`4 * k + off`
-  \\ disch_then(qspecl_then[`off DIV 4`,`ms1.MEM`,`MAP Encode ag32_ffi_write_code`]mp_tac)
+  \\ qspecl_then[`off DIV 4`,`ms1.MEM`,`MAP Encode ag32_ffi_write_code`]mp_tac
+      (GEN_ALL get_mem_word_get_byte)
   \\ simp[EL_MAP,LEFT_ADD_DISTRIB]
   \\ `4 * (off DIV 4) = off` by (simp[Abbr`off`] \\ EVAL_TAC)
   \\ simp[]
@@ -1791,7 +1504,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ qpat_x_assum`Abbrev(mw = _)`kall_tac
   \\ rw[]
   \\ simp[GSYM(SIMP_RULE(srw_ss())[]hello_init_memory_def)]
-  \\ drule hello_startup_clock_def
+  \\ mp_tac hello_startup_clock_def
   \\ simp[]
   \\ rpt(disch_then drule)
   \\ rw[]
@@ -1805,12 +1518,12 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     >- (
       EVAL_TAC
       \\ fs[EVAL``LENGTH ag32_ffi_write_code``]
-      \\ Cases_on`x` \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+      \\ Cases_on`x` \\ fs[word_add_n2w]
       \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[] )
     \\ simp[ffi_names, LENGTH_code, LENGTH_data]
     \\ qpat_x_assum`_ = ms1.PC`(assume_tac o SYM)
     \\ EVAL_TAC \\ simp[]
-    \\ Cases_on`x` \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+    \\ Cases_on`x` \\ fs[word_add_n2w]
     \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[]
     \\ fs[EVAL``LENGTH ag32_ffi_write_code``]
     \\ rfs[])
@@ -1818,7 +1531,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ first_x_assum irule
   \\ EVAL_TAC
   \\ fs[EVAL``LENGTH ag32_ffi_write_code``]
-  \\ Cases_on`r0` \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[memory_size_def, word_add_n2w]
+  \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[word_add_n2w]
   \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[]);
 
 val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
@@ -1857,17 +1570,16 @@ val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
   >- rw[]);
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",
-  `Abbrev(r0 = n2w ZERO) ∧ byte_aligned r0 ∧ w2n r0 + memory_size < dimword (:32) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
+  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
-   is_ag32_init_state (hello_init_memory r0 (cl,inp)) ms0
+   is_ag32_init_state (hello_init_memory (cl,inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
-     let outs = MAP (get_ag32_io_event r0) ms.io_events in
-       (ms.PC = (hello_machine_config r0).halt_pc) ∧
+     let outs = MAP (get_ag32_io_event 0w) ms.io_events in
+       (ms.PC = (hello_machine_config).halt_pc) ∧
        outs ≼ MAP get_output_io_event (hello_io_events cl (stdin_fs inp)) ∧
-       ((ms.R (n2w (hello_machine_config r0).ptr_reg) = 0w) ⇒
+       ((ms.R (n2w (hello_machine_config).ptr_reg) = 0w) ⇒
         (outs = MAP get_output_io_event (hello_io_events cl (stdin_fs inp))))`,
   rw[]
   \\ drule (GEN_ALL hello_machine_sem)

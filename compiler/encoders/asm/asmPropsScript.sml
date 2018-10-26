@@ -409,6 +409,8 @@ val asm_consts = Q.store_thm("asm_consts[simp]",
 val RTC_asm_step_consts = Q.store_thm("RTC_asm_step_consts",
   `RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2
   ⇒ (s2.mem_domain = s1.mem_domain) ∧
+    (s2.lr = s1.lr) ∧
+    (s2.align = s1.align) ∧
     (s2.be = s1.be)`,
   rw[]
   \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
