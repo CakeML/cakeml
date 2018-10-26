@@ -674,8 +674,8 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
     \\ simp[EVAL``ag32_target.config``,labSemTheory.get_reg_value_def]
     \\ simp[ag32_ffi_interfer_def]
     \\ simp[LENGTH_ag32_ffi_code,LENGTH_code]
-    \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
-    \\ qexists_tac`λk n. if n = 0 then SOME v0 else if n < 9 then SOME 0w else NONE`
+    \\ qexists_tac`λk i n. if n = 0 then OPTION_MAP n2w (ALOOKUP ffi_exitpcs i)
+                           else if n < 9 then SOME 0w else NONE`
     \\ rpt gen_tac
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
@@ -688,6 +688,8 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
       \\ fs[ffiTheory.call_FFI_def]
       \\ `st.oracle = (basis_ffi cl fs).oracle` by metis_tac[evaluatePropsTheory.RTC_call_FFI_rel_consts]
       \\ fs[basis_ffiTheory.basis_ffi_def]
+      \\ cheat (* need to prove this for each ffi function that is used; below is for write *)
+      (*
       \\ fs[SIMP_CONV(srw_ss())[basis_ffiTheory.basis_ffi_oracle_def]``basis_ffi_oracle "write"``]
       \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result"]
       \\ pairarg_tac \\ fs[]
@@ -736,9 +738,18 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
       \\ strip_tac
       \\ CONV_TAC(LAND_CONV EVAL)
       \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
-      \\ rw[MIN_DEF])
+      \\ rw[MIN_DEF]
+      *))
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
+    \\ qmatch_goalsub_abbrev_tac`THE opt`
+    \\ `IS_SOME opt`
+    by (
+      simp[Abbr`opt`]
+      \\ qpat_x_assum`index < _`mp_tac
+      \\ simp[NUMERAL_LESS_THM]
+      \\ strip_tac \\ rveq \\ EVAL_TAC )
+    \\ fs[IS_SOME_EXISTS]
     \\ rpt(IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]))
   \\ conj_tac >- (
     rw[lab_to_targetProofTheory.ccache_interfer_ok_def,
@@ -1108,7 +1119,12 @@ val wordcount_installed = Q.store_thm("wordcount_installed",
 
 val wordcount_machine_sem =
   compile_correct_applied
-  |> C MATCH_MP (UNDISCH wordcount_installed)
+  |> C MATCH_MP (
+       wordcount_installed
+       |> Q.GENL[`cl`,`fs`]
+       |> Q.SPECL[`[strlit"wordcount"]`,`stdin_fs inp`]
+       |> SIMP_RULE(srw_ss())[cline_size_def]
+       |> UNDISCH)
   |> DISCH_ALL
   |> curry save_thm "wordcount_machine_sem";
 
@@ -1308,6 +1324,8 @@ val wordcount_interference_implemented = Q.store_thm("wordcount_interference_imp
     \\ simp[] )
   \\ rpt gen_tac
   \\ strip_tac
+  \\ cheat (* need to update for multiple FFI functions. below works if there's only 1 (write) *)
+  (*
   \\ fs[find_index_def] \\ rveq
   \\ simp[ffi_names]
   \\ fs[EVAL``(wordcount_machine_config).ffi_names``, ffi_names]
@@ -1546,15 +1564,21 @@ val wordcount_interference_implemented = Q.store_thm("wordcount_interference_imp
   \\ EVAL_TAC
   \\ fs[EVAL``LENGTH ag32_ffi_write_code``]
   \\ Cases_on`x` \\ Cases_on`ms0.PC` \\ fs[word_add_n2w]
-  \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[]);
+  \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[]
+  *)
+  );
 
 val wordcount_extract_writes_stdout = Q.store_thm("wordcount_extract_writes_stdout",
-  `wfcl cl ∧ 2 ≤ maxFD ⇒
-   (extract_writes 1 (MAP get_output_io_event (wordcount_io_events cl (stdin_fs inp))) =
-    "wordcount World!\n")`,
+  `2 ≤ maxFD ⇒
+   (extract_writes 1 (MAP get_output_io_event (wordcount_io_events input)) =
+    explode (
+      concat [toString (LENGTH (TOKENS isSpace input)); strlit" ";
+              toString (LENGTH (splitlines input)); strlit "\n"]))`,
   strip_tac
   \\ drule(GEN_ALL(DISCH_ALL wordcount_output))
-  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
+  \\ disch_then(qspec_then`input`mp_tac)
+  \\ cheat (* to be updated *)
+  (*
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -1581,25 +1605,24 @@ val wordcount_extract_writes_stdout = Q.store_thm("wordcount_extract_writes_stdo
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
   >- rw[]
-  >- rw[]);
+  >- rw[]
+  *)
+  );
 
 val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
-   LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
-   is_ag32_init_state (wordcount_init_memory (cl,inp)) ms0
+  `LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
+   is_ag32_init_state (wordcount_init_memory ([strlit"wordcount"],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
      let outs = MAP (get_ag32_io_event 0w) ms.io_events in
        (ms.PC = (wordcount_machine_config).halt_pc) ∧
-       outs ≼ MAP get_output_io_event (wordcount_io_events cl (stdin_fs inp)) ∧
+       outs ≼ MAP get_output_io_event (wordcount_io_events inp) ∧
        ((ms.R (n2w (wordcount_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (wordcount_io_events cl (stdin_fs inp))))`,
+        (outs = MAP get_output_io_event (wordcount_io_events inp)))`,
   rw[]
   \\ mp_tac (GEN_ALL wordcount_machine_sem)
   \\ disch_then(first_assum o mp_then Any mp_tac) \\ fs[]
-  \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ strip_tac
   \\ fs[extend_with_resource_limit_def]
   \\ qmatch_asmsub_abbrev_tac`machine_sem mc st ms`
@@ -1609,8 +1632,8 @@ val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
   \\ disch_then(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
-  \\ mp_tac wordcount_interference_implemented
-  \\ impl_tac >- ( fs[] \\ fs[markerTheory.Abbrev_def] )
+  \\ qspec_then`[strlit"wordcount"]`mp_tac(Q.GEN`cl` wordcount_interference_implemented)
+  \\ impl_tac >- ( fs[] \\ fs[markerTheory.Abbrev_def, cline_size_def] )
   \\ strip_tac \\ rfs[]
   \\ disch_then drule
   \\ impl_tac >- (
@@ -1619,26 +1642,19 @@ val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
     >- (
       EVAL_TAC
       \\ simp[Abbr`ms`]
-      \\ mp_tac wordcount_startup_clock_def
-      \\ simp[]
+      \\ qspec_then`[strlit"wordcount"]`mp_tac(CONV_RULE(RESORT_FORALL_CONV List.rev)wordcount_startup_clock_def)
+      \\ simp[cline_size_def]
       \\ rpt(disch_then drule)
       \\ fs[is_ag32_init_state_def])
     \\ simp[basis_ffiTheory.basis_ffi_def]
     \\ simp[ag32_fs_ok_stdin_fs])
   \\ strip_tac
-  \\ mp_tac (GEN_ALL wordcount_halted)
-  \\ simp[]
-  \\ disch_then drule
-  \\ disch_then drule
+  \\ qspec_then`[strlit"wordcount"]`mp_tac (Q.GENL[`cl`,`mc`] wordcount_halted)
+  \\ simp[cline_size_def]
   \\ disch_then(qspec_then`FUNPOW Next k ms`mp_tac)
-  \\ strip_tac
-  \\ qexists_tac`k + wordcount_startup_clock ms0 inp cl`
-  \\ qx_gen_tac`k2` \\ strip_tac
-  \\ first_x_assum(qspec_then`k2-k-(wordcount_startup_clock ms0 inp cl)`mp_tac)
   \\ impl_tac
   >- (
-    conj_tac
-    >- (
+    conj_tac >- (
       fs[Abbr`mc`]
       \\ fs[EVAL``(wordcount_machine_config).target.get_pc``]
       \\ fs[Abbr`ms`, FUNPOW_ADD]
@@ -1648,10 +1664,9 @@ val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
     \\ fs[Abbr`mc`]
     \\ fs[EVAL``(wordcount_machine_config).target.next``]
     \\ fs[Abbr`ms`, FUNPOW_ADD]
-    \\ mp_tac wordcount_startup_clock_def
-    \\ disch_then(qspec_then`ms0`mp_tac)
+    \\ qspec_then`[strlit"wordcount"]`mp_tac(CONV_RULE(RESORT_FORALL_CONV List.rev)wordcount_startup_clock_def)
     \\ disch_then(first_assum o mp_then Any mp_tac)
-    \\ impl_tac >- fs[]
+    \\ impl_tac >- fs[cline_size_def]
     \\ strip_tac
     \\ fs[EVAL``(wordcount_machine_config).target.get_byte``]
     \\ fs[ag32_targetTheory.is_ag32_init_state_def] \\ rfs[]
@@ -1674,6 +1689,10 @@ val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
     \\ simp[wordcount_machine_config_def, ag32_machine_config_def, ffi_names, ag32_prog_addresses_def, LENGTH_code, LENGTH_data]
     \\ EVAL_TAC
     \\ fs[word_lo_n2w, word_ls_n2w, memory_size_def] \\ rfs[])
+  \\ strip_tac
+  \\ qexists_tac`k + wordcount_startup_clock ms0 inp [strlit"wordcount"]`
+  \\ qx_gen_tac`k2` \\ strip_tac
+  \\ first_x_assum(qspec_then`k2-k-(wordcount_startup_clock ms0 inp [strlit"wordcount"])`mp_tac)
   \\ fs[GSYM FUNPOW_ADD, Abbr`ms`]
   \\ strip_tac
   \\ fs[EVAL``(wordcount_machine_config).target.next``,Abbr`mc`,FUNPOW_ADD]
