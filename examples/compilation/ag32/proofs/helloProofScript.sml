@@ -297,7 +297,6 @@ val bytes_in_memory_tac =
   \\ DEP_REWRITE_TAC[hello_init_memory_startup, hello_init_memory_startup |> Q.GEN`n` |> Q.SPEC`0` |> SIMP_RULE(srw_ss())[]]
   \\ simp[LENGTH_hello_startup_code]
   \\ rewrite_tac[hello_startup_code_eq] \\ EVAL_TAC
-  \\ Cases_on`r0`
   \\ fs[word_ls_n2w,word_add_n2w,word_lo_n2w,
         alignmentTheory.byte_aligned_def,
         memory_size_def]
@@ -1582,11 +1581,10 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
        ((ms.R (n2w (hello_machine_config).ptr_reg) = 0w) ⇒
         (outs = MAP get_output_io_event (hello_io_events cl (stdin_fs inp))))`,
   rw[]
-  \\ drule (GEN_ALL hello_machine_sem)
+  \\ mp_tac (GEN_ALL hello_machine_sem)
   \\ disch_then(first_assum o mp_then Any mp_tac) \\ fs[]
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
-  \\ impl_tac >- rw[markerTheory.Abbrev_def]
   \\ strip_tac
   \\ fs[extend_with_resource_limit_def]
   \\ qmatch_asmsub_abbrev_tac`machine_sem mc st ms`
@@ -1596,7 +1594,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   \\ disch_then(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
-  \\ drule hello_interference_implemented
+  \\ mp_tac hello_interference_implemented
   \\ impl_tac >- ( fs[] \\ fs[markerTheory.Abbrev_def] )
   \\ strip_tac \\ rfs[]
   \\ disch_then drule
@@ -1606,68 +1604,67 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
     >- (
       EVAL_TAC
       \\ simp[Abbr`ms`]
-      \\ drule hello_startup_clock_def
+      \\ mp_tac hello_startup_clock_def
       \\ simp[]
       \\ rpt(disch_then drule)
       \\ fs[is_ag32_init_state_def])
     \\ simp[basis_ffiTheory.basis_ffi_def]
     \\ simp[ag32_fs_ok_stdin_fs])
   \\ strip_tac
-  \\ drule (GEN_ALL hello_halted)
+  \\ mp_tac (GEN_ALL hello_halted)
   \\ simp[]
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then(qspec_then`FUNPOW Next k ms`mp_tac)
   \\ strip_tac
-  \\ qexists_tac`k + hello_startup_clock r0 ms0 inp cl`
+  \\ qexists_tac`k + hello_startup_clock ms0 inp cl`
   \\ qx_gen_tac`k2` \\ strip_tac
-  \\ first_x_assum(qspec_then`k2-k-(hello_startup_clock r0 ms0 inp cl)`mp_tac)
+  \\ first_x_assum(qspec_then`k2-k-(hello_startup_clock ms0 inp cl)`mp_tac)
   \\ impl_tac
   >- (
     conj_tac
     >- (
       fs[Abbr`mc`]
-      \\ fs[EVAL``(hello_machine_config r0).target.get_pc``]
+      \\ fs[EVAL``(hello_machine_config).target.get_pc``]
       \\ fs[Abbr`ms`, FUNPOW_ADD]
-      \\ fs[EVAL``(hello_machine_config r0).target.next``]
+      \\ fs[EVAL``(hello_machine_config).target.next``]
       \\ first_x_assum irule
       \\ fs[markerTheory.Abbrev_def] )
     \\ fs[Abbr`mc`]
-    \\ fs[EVAL``(hello_machine_config r0).target.next``]
+    \\ fs[EVAL``(hello_machine_config).target.next``]
     \\ fs[Abbr`ms`, FUNPOW_ADD]
-    \\ drule hello_startup_clock_def
+    \\ mp_tac hello_startup_clock_def
     \\ disch_then(qspec_then`ms0`mp_tac)
     \\ disch_then(first_assum o mp_then Any mp_tac)
     \\ impl_tac >- fs[]
     \\ strip_tac
-    \\ fs[EVAL``(hello_machine_config r0).target.get_byte``]
+    \\ fs[EVAL``(hello_machine_config).target.get_byte``]
     \\ fs[ag32_targetTheory.is_ag32_init_state_def] \\ rfs[]
     \\ rw[]
     \\ qmatch_goalsub_rename_tac`_ = _ a`
-    \\ `a ∉ ag32_startup_addresses r0`
+    \\ `a ∉ ag32_startup_addresses 0w`
     by (
       EVAL_TAC
       \\ ntac 2 (pop_assum mp_tac)
       \\ EVAL_TAC
       \\ simp[ffi_names]
-      \\ Cases_on`r0` \\ Cases_on`a` \\ Cases_on`ms0.PC`
+      \\ Cases_on`a` \\ Cases_on`ms0.PC`
       \\ simp[word_add_n2w]
-      \\ simp[word_ls_n2w, word_lo_n2w]
-      \\ fs[memory_size_def] )
+      \\ simp[word_ls_n2w, word_lo_n2w])
     \\ first_x_assum drule
     \\ disch_then(assume_tac o SYM) \\ simp[]
     \\ first_x_assum irule
-    \\ Cases_on`r0` \\ Cases_on`a`
+    \\ Cases_on`a`
     \\ fs[word_add_n2w, hello_machine_config_halt_pc]
     \\ simp[hello_machine_config_def, ag32_machine_config_def, ffi_names, ag32_prog_addresses_def, LENGTH_code, LENGTH_data]
     \\ EVAL_TAC
     \\ fs[word_lo_n2w, word_ls_n2w, memory_size_def] \\ rfs[])
   \\ fs[GSYM FUNPOW_ADD, Abbr`ms`]
   \\ strip_tac
-  \\ fs[EVAL``(hello_machine_config r0).target.next``,Abbr`mc`,FUNPOW_ADD]
-  \\ fs[EVAL``(hello_machine_config r0).target.get_reg``]
-  \\ fs[EVAL``(hello_machine_config r0).target.get_pc``]
-  \\ fs[EVAL``(hello_machine_config r0).ptr_reg``]
+  \\ fs[EVAL``(hello_machine_config).target.next``,Abbr`mc`,FUNPOW_ADD]
+  \\ fs[EVAL``(hello_machine_config).target.get_reg``]
+  \\ fs[EVAL``(hello_machine_config).target.get_pc``]
+  \\ fs[EVAL``(hello_machine_config).ptr_reg``]
   \\ fs[ag32_ffi_rel_def]
   \\ conj_tac
   >- ( fs[IS_PREFIX_APPEND] \\ fs[markerTheory.Abbrev_def] )
