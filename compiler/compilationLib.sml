@@ -712,8 +712,7 @@ val riscv_export_defs = [
   export_riscvTheory.ffi_asm_def];
 
 val ag32_export_defs = [
-  export_ag32Theory.ag32_export_def,
-  export_ag32Theory.ffi_asm_def];
+  export_ag32Theory.ag32_export_def];
 
 datatype 'a app_list = Nil | List of 'a list | Append of 'a app_list * 'a app_list
 val is_Nil = same_const (prim_mk_const{Thy="misc",Name="Nil"})

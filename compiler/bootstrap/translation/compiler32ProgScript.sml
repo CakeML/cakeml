@@ -157,7 +157,6 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_
 
 (* ag32 *)
 val res = translate ag32_configTheory.ag32_names_def;
-val res = translate export_ag32Theory.ffi_asm_def;
 val res = translate export_ag32Theory.ag32_export_def;
 val res = translate
   (ag32_configTheory.ag32_backend_config_def
