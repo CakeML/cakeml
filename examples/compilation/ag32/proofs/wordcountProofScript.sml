@@ -1577,9 +1577,8 @@ val wordcount_extract_writes_stdout = Q.store_thm("wordcount_extract_writes_stdo
   strip_tac
   \\ drule(GEN_ALL(DISCH_ALL wordcount_output))
   \\ disch_then(qspec_then`input`mp_tac)
-  \\ cheat (* to be updated *)
-  (*
-  \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
+  \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
+  \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ simp[TextIOProofTheory.stdo_def]
@@ -1592,8 +1591,8 @@ val wordcount_extract_writes_stdout = Q.store_thm("wordcount_extract_writes_stdo
   \\ Cases \\ simp[] \\ strip_tac \\ rveq
   \\ pop_assum mp_tac
   \\ simp[TextIOProofTheory.up_stdo_def]
-  \\ simp[fsFFITheory.fsupdate_def]
-  \\ simp[stdin_fs_def]
+  \\ simp[fsFFITheory.fsupdate_def, fsFFIPropsTheory.fastForwardFD_def]
+  \\ simp[stdin_fs_def, ALIST_FUPDKEY_ALOOKUP, libTheory.the_def]
   \\ rw[]
   \\ drule (GEN_ALL extract_fs_extract_writes)
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
@@ -1604,10 +1603,8 @@ val wordcount_extract_writes_stdout = Q.store_thm("wordcount_extract_writes_stdo
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
-  >- rw[]
-  >- rw[]
-  *)
-  );
+  >- (rw[MAX_DEF] \\ cheat (* extract_fs_extract_writes needs to be less stringent about other changes *))
+  >- rw[]);
 
 val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
   `LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
