@@ -548,7 +548,7 @@ val state_rel_def = Define `
        aligned mc_conf.target.config.code_alignment (t1.regs s1.link_reg) ==>
        target_state_rel mc_conf.target
          (t1 with
-         <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
+         <|regs := (\a. get_reg_value (s1.io_regs k (EL index mc_conf.ffi_names) a) (t1.regs a) I);
            mem := asm_write_bytearray (t1.regs s1.ptr2_reg) new_bytes t1.mem;
            pc := t1.regs s1.link_reg|>)
         (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
@@ -5431,7 +5431,7 @@ val compile_correct = Q.prove(
          `code2`,`labs`,
          `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a sec list)) ;
                      mem := asm_write_bytearray c2' new_bytes t1.mem ;
-                     regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
+                     regs := \a. get_reg_value (s1.io_regs 0 s a) (t1.regs a) I |>`,
          `mc_conf.ffi_interfer 0 (get_ffi_index mc_conf.ffi_names s,new_bytes,ms2)`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (rpt strip_tac
@@ -5471,7 +5471,12 @@ val compile_correct = Q.prove(
       \\ qunabbrev_tac`index`
       \\ conj_tac
       THEN1
-       (rw [] \\ first_x_assum match_mp_tac \\ simp []
+       (rw [] \\
+        `s = EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names` by
+          metis_tac[EL_get_ffi_index_MEM]
+        \\ first_assum (fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
+        \\ first_x_assum match_mp_tac \\ simp []
+        \\ pop_assum(SUBST_ALL_TAC o SYM)
         \\ `aligned mc_conf.target.config.code_alignment p` by fs [alignmentTheory.aligned_bitwise_and]
         \\ qpat_x_assum `_ = t1.regs s1.link_reg` (fn th => rewrite_tac [GSYM th])
         \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
@@ -5499,7 +5504,7 @@ val compile_correct = Q.prove(
         \\ goal_assum(first_assum o mp_then Any mp_tac))
       \\ conj_tac THEN1 metis_tac[]
       \\ conj_tac THEN1
-       (Cases_on `s1.io_regs 0 r`
+       (Cases_on `s1.io_regs 0 s r`
         \\ full_simp_tac(srw_ss())[get_reg_value_def,word_loc_val_def])
       \\ conj_tac THEN1
        (rpt strip_tac \\ qpat_x_assum `!a.
@@ -6039,7 +6044,7 @@ val make_init_def = Define `
      ; pc             := 0
      ; be             := mc_conf.target.config.big_endian
      ; ffi            := ffi
-     ; io_regs        := \n k. if MEM k mc_conf.callee_saved_regs then NONE else (io_regs n k)
+     ; io_regs        := \n i k. if MEM k mc_conf.callee_saved_regs then NONE else (io_regs n i k)
      ; cc_regs        := \n k. if MEM k mc_conf.callee_saved_regs then NONE else (cc_regs n k)
      ; code           := code
      ; clock          := 0
@@ -6115,7 +6120,7 @@ val ffi_interfer_ok_def = Define`
          <|regs :=
             (\a.
              get_reg_value
-               (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k a)
+               (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k (EL index mc_conf.ffi_names) a)
                (t1.regs a) I);
            mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0

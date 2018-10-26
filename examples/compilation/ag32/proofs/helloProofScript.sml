@@ -660,7 +660,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ simp[ag32_ffi_interfer_def]
     \\ simp[LENGTH_ag32_ffi_code,LENGTH_code]
     \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
-    \\ qexists_tac`λk n. if n = 0 then SOME v0 else if n < 9 then SOME 0w else NONE`
+    \\ qexists_tac`λk s n. if n = 0 then SOME v0 else if n < 9 then SOME 0w else NONE`
     \\ rpt gen_tac
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
