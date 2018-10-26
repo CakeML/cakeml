@@ -1170,7 +1170,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   \\ simp[EVAL``(hello_machine_config).target.get_pc``]
   \\ simp[EVAL``(hello_machine_config).target.get_reg``]
   \\ simp[EVAL``(hello_machine_config).ffi_entry_pcs``]
-  \\ simp[ffi_names]
+  \\ simp[ffi_names, REV_DEF]
   \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
   \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
   \\ simp[Once hello_machine_config_def, ag32_machine_config_def]
