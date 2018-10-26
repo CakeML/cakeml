@@ -2605,6 +2605,85 @@ val ag32_ffi_write_check_lengths_R = Q.store_thm("ag32_ffi_write_check_lengths_R
      APPLY_UPDATE_THM]
   \\ EVAL_TAC);
 
+val ag32_ffi_read_check_lengths_code_def = Define`
+  ag32_ffi_read_check_lengths_code = [
+     Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll < w22n [off1; off0] *)
+     Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [off1; off0] *)
+     Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
+                                                  w22n [off1; off0] ≤ LENGTH tll *)
+     Normal (fSub, 4w, Reg 4w, Reg 7w);   (* r4 = LENGTH tll - w22n [off1; off0] *)
+     Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
+     Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
+     LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset));
+     Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = mem_start + output_offset *)
+     LoadConstant (4w, F, 4w * 34w);
+     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
+
+val ag32_ffi_read_check_lengths_def = Define`
+  ag32_ffi_read_check_lengths s =
+  let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
+  let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
+  let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 8w) s in
+  let s = dfn'Normal (fSub, 4w, Reg 4w, Reg 7w) s in
+  let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
+  let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
+  let s = dfn'LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset)) s in
+  let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 4w) s in
+  let s = dfn'LoadConstant (4w, F, 4w * 34w) s in
+  let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
+  s`;
+
+val ag32_ffi_read_check_lengths_thm = Q.store_thm("ag32_ffi_read_check_lengths_thm",
+  `(s.R 5w = r0 + n2w (ffi_code_start_offset - 1)) ∧
+   (s.R 4w = n2w ltll) ∧ (s.R 7w = n2w off) ∧ (s.R 1w = n2w n) ∧ (s.R 6w = v2w [cnd]) ∧
+   off < dimword(:16) ∧ n < dimword(:16) ∧ ltll < dimword (:32)
+   ⇒
+   ∃r4 r6 r8 cf ov.
+   (ag32_ffi_read_check_lengths s =
+    s with <| PC := if cnd ∧ n ≤ ltll (* ∧ n ≤ ltll - off *)
+                    then s.PC + n2w (4 * LENGTH ag32_ffi_read_check_lengths_code)
+                    else s.PC + n2w (4 * (LENGTH ag32_ffi_read_check_lengths_code + 33)) ;
+              R := ((8w =+ r8)
+                   ((4w =+ r4)
+                   ((5w =+ r0 + n2w output_offset)
+                   ((6w =+ r6) s.R))));
+              CarryFlag := cf;
+              OverflowFlag := ov |>)`,
+  cheat (*
+  strip_tac
+  \\ simp[ag32_ffi_read_check_lengths_def]
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.ri2word_def,
+          ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.incPC_def,
+          ag32Theory.dfn'LoadConstant_def, APPLY_UPDATE_THM]
+  \\ simp[ag32Theory.dfn'JumpIfZero_def,ag32Theory.ri2word_def,
+          ag32Theory.ALU_def,ag32Theory.incPC_def,APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`COND b1`
+  \\ qmatch_goalsub_abbrev_tac`if b2 then _  + _ else _`
+  \\ `b1 = ¬b2`
+  by (
+    unabbrev_all_tac
+    \\ Cases_on`cnd` \\ fs[]
+    \\ simp[NOT_LESS_EQUAL]
+    \\ fs [WORD_LO]
+    \\ Cases_on `ltll < off` \\ fs []
+    \\ fs [NOT_LESS]
+    \\ simp_tac std_ss [addressTheory.WORD_SUB_INTRO,addressTheory.word_arith_lemma2]
+    \\ fs [] \\ rw [v2w_sing])
+  \\ qpat_x_assum`Abbrev(b1 = _)`kall_tac
+  \\ simp[] \\ rveq
+  \\ IF_CASES_TAC
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[ag32_ffi_read_check_lengths_code_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`if 4w = _ then r4 else _`
+  \\ qexists_tac`r4`
+  \\ qmatch_goalsub_abbrev_tac`if 6w = _ then r6 else _`
+  \\ qexists_tac`r6`
+  \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
+  \\ qexists_tac`r8`
+  \\ rw[] \\ fs[]
+  \\ EVAL_TAC \\ simp[] *));
+
 val ag32_ffi_write_write_header_def = Define`
   ag32_ffi_write_write_header s =
   let s = dfn'StoreMEM (Imm 0w, Reg 5w) s in
@@ -4990,15 +5069,14 @@ val ag32_ffi_read_def = Define`
   let s = ag32_ffi_read_set_id s in
   let s = ag32_ffi_write_check_conf s in
   let s0 = ag32_ffi_write_load_noff s in
-  let s = ag32_ffi_write_check_lengths s0 in
+  let s = ag32_ffi_read_check_lengths s0 in
   let s =
     if s.PC = s0.PC + n2w (4 * LENGTH ag32_ffi_write_check_lengths_code) then
       let s = ag32_ffi_write_write_header s in
       let s = ag32_ffi_write_num_written s in
               ag32_ffi_write_copy s
     else
-      let s = dfn'StoreMEMByte (Imm 1w, Reg 3w) s in
-              dfn'StoreMEMByte (Imm 1w, Reg 5w) s
+      dfn'StoreMEMByte (Imm 1w, Reg 3w) s
   in ag32_ffi_return s`;
 
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
@@ -5017,7 +5095,10 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    (* ∧ md ⊆ { w | w | r0 <+ w ∧ r0 + w <=+ r0 + n2w memory_size }*)
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_read s)`,
-  cheat (* read deep/shallow *));
+  cheat (* read deep/shallow -- before this is removed:
+                                  1. update ag32_ffi_read_def, then
+                                  2. prove ag32_ffi_read_thm below, and then
+                                  3. update ag32_ffi_read_code_def *));
 
 (* open_in *)
 
@@ -5945,15 +6026,12 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
 
-val ag32_ffi_read_body_consts = store_thm("ag32_ffi_read_body_consts",
-  ``((ag32_ffi_read_body s).io_events = s.io_events) /\
-    ((ag32_ffi_read_body s).R 0w = s.R 0w) /\
-    ((ag32_ffi_read_body s).data_in = s.data_in) /\
-    ((ag32_ffi_read_body s).data_out = s.data_out) /\
-    !x. ~MEM x [1w;2w;3w;4w;5w;6w;7w;8w] ==>
-        ((ag32_ffi_read_body s).R x = s.R x)``,
-  fs [ag32_ffi_read_body_def,APPLY_UPDATE_THM]
-  \\ cheat);
+val bytes_in_memory_IMP_asm_write_bytearray = store_thm( (* TODO: move *)
+   "bytes_in_memory_IMP_asm_write_bytearray",
+  ``!bs a m. bytes_in_memory a bs m md ==> (asm_write_bytearray a bs m = m)``,
+  rw [FUN_EQ_THM]
+  \\ irule asm_write_bytearray_id
+  \\ metis_tac [asmPropsTheory.bytes_in_memory_EL]);
 
 val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
@@ -6029,8 +6107,8 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ strip_tac \\ fs[]
   \\ pop_assum kall_tac
   \\ fs[APPLY_UPDATE_THM]
-  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_write_check_lengths s2`
-  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`off`,`n`,`cnd`]ag32_ffi_write_check_lengths_thm)
+  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_read_check_lengths s2`
+  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`off`,`n`,`cnd`]ag32_ffi_read_check_lengths_thm)
   \\ disch_then(qspecl_then[`LENGTH tll`,`w22n [off1; off0]`,`w22n [n1; n0]`,
                             `(LENGTH conf = 8) ∧ w82n conf < 3`]mp_tac)
   \\ impl_tac
@@ -6054,7 +6132,6 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ qpat_x_assum`Abbrev(cnd' = _)`kall_tac
   \\ rveq
   \\ reverse(Cases_on`cnd`) \\ fs[]
-
   >- (
     qpat_x_assum`Abbrev(s' = _)`mp_tac
     \\ simp[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def]
@@ -6074,12 +6151,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
       \\ simp[IS_SOME_EXISTS]
       \\ strip_tac \\ simp[]
       \\ res_tac \\ rfs [GREATER_EQ]
-      \\ Cases_on`x` \\ simp[]
-      \\ CCONTR_TAC \\ fs[]
-      \\ Cases_on`ALOOKUP fs.files q` \\ fs[]
-      \\ fs[markerTheory.Abbrev_def]
-      \\ fs [GSYM NOT_LESS]
-      \\ cheat (* does it check the right thing? *))
+      \\ fs [markerTheory.Abbrev_def])
     \\ fs[] \\ rveq
     \\ simp[LUPDATE_def]
     \\ qmatch_goalsub_abbrev_tac`A ∧ (B ∧ A)`
@@ -6093,7 +6165,16 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ simp[Abbr`A`]
     \\ simp[ag32_ffi_write_mem_update_def]
     \\ fs [Abbr`r0`]
-    \\ cheat (* what is that write about *))
+    \\ once_rewrite_tac [lab_to_targetProofTheory.asm_write_bytearray_def]
+    \\ AP_TERM_TAC
+    \\ irule (GSYM bytes_in_memory_IMP_asm_write_bytearray)
+    \\ qexists_tac `md` \\ fs []
+    \\ match_mp_tac asmPropsTheory.bytes_in_memory_change_mem
+    \\ qexists_tac `s.MEM`
+    \\ conj_tac THEN1 fs [asmSemTheory.bytes_in_memory_def]
+    \\ fs [APPLY_UPDATE_THM]
+    \\ rw [] \\ qsuff_tac `F` \\ fs []
+    \\ cheat (* ffi_code_start_offset − 1 is not in byte array *))
 
   \\ cheat (* to update *));
 
@@ -6513,32 +6594,6 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ disch_then(qspec_then`j + 4`mp_tac)
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
-*)
-
-(*
-  rw [] \\ imp_res_tac INDEX_OF_IMP_EL
-  \\ fs [ag32_ffi_interfer_def]
-  \\ fs [ag32_ffi_write_mem_update_def]
-  \\ fs [fsFFITheory.ffi_read_def]
-  \\ `?n1 n0 off1 off0 tll. bytes = n1 :: n0 :: off1 :: off0 :: tll`
-        by (every_case_tac \\ fs []) \\ rveq \\ fs []
-  \\ fs [LUPDATE_def]
-  \\ simp[ag32_ffi_read_def,ag32_ffi_return_thm]
-  \\ simp[ag32Theory.ag32_state_component_equality,ag32_ffi_read_body_consts]
-  \\ fs [AC CONJ_COMM CONJ_ASSOC]
-  \\ simp [CONJ_ASSOC]
-  \\ reverse conj_tac
-  THEN1
-   (qmatch_abbrev_tac `((0w =+ t1) _) = ((0w =+ t2) _)`
-    \\ qsuff_tac `t1 = t2` THEN1
-     (rw [] \\ fs [APPLY_UPDATE_THM,FUN_EQ_THM] \\ rw []
-      \\ match_mp_tac (ag32_ffi_read_body_consts |> CONJUNCTS |> last) \\ fs [])
-    \\ unabbrev_all_tac
-    \\ cheat (* PC is correct on exit *))
-  \\ fs [ag32_ffi_read_body_def,Abbr`r0`]
-  \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ fs [OPTION_CHOICE_EQUALS_OPTION,EXISTS_PROD,fsFFITheory.read_def,PULL_EXISTS]
-  \\ simp [GSYM NOT_LESS,GREATER_EQ]
 *)
 
 val ag32_fs_ok_stdin_fs = Q.store_thm("ag32_fs_ok_stdin_fs",
