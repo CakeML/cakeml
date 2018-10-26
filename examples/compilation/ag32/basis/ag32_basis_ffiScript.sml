@@ -1,7 +1,10 @@
 open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory;
+local open blastLib basis_ffiTheory in end
 
 val _ = new_theory"ag32_basis_ffi";
+
+val () = computeLib.set_skip computeLib.the_compset ``COND`` NONE;
 
 (* TODO: move *)
 
