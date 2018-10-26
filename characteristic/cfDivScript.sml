@@ -91,6 +91,16 @@ val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
   \\ Cases_on `p` \\ fs [ffi2heap_def]
   \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []);
 
+val lprefix_lub_0 = store_thm("lprefix_lub_0",
+  ``events 0 ≼ events 1 /\
+    lprefix_lub (IMAGE (fromList ∘ events) UNIV) io ==>
+    lprefix_lub (IMAGE (λi. fromList (events (i + 1:num))) UNIV) io``,
+  cheat);
+
+val evaluate_IMP_io_events_mono = prove(
+  ``evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi``,
+  metis_tac [evaluatePropsTheory.evaluate_io_events_mono,FST]);
+
 val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
   ``!p fv xv H Q.
       (?Hs events vs io.
@@ -99,8 +109,8 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
          (!i.
             (app p fv [vs i] (Hs i)
                              (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
-         (!n. ?i. n < LENGTH (events i)) /\
-         (!i. LPREFIX (fromList (events i)) io) /\ Q io)
+         lprefix_lub (IMAGE (fromList o events) UNIV) io /\
+         Q io)
       ==>
       app p repeat_v [fv; xv] H (POSTd Q)``,
   rpt strip_tac
@@ -246,14 +256,13 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
       \\ match_mp_tac FFI_full_IN_st2heap_IMP \\ fs [] \\ metis_tac [])
   \\ `!i. (sts i).ffi.io_events = events i` by metis_tac []
   \\ fs []
-  \\ rpt strip_tac
-  \\ qpat_assum `!n. ?i. n < _` (qspecl_then [`LENGTH (events (j + 1))`] mp_tac)
+  \\ match_mp_tac lprefix_lub_0 \\ fs []
+  \\ qpat_x_assum `!i. ?y. _` (qspec_then `0` mp_tac)
   \\ strip_tac
-  \\ qpat_assum `!i. _ ≼ _` (qspecl_then [`i`] mp_tac)
-  \\ strip_tac
-  \\ `LENGTH (events (i + 1)) ≤ LENGTH (events (j + 1))` by fs [IS_PREFIX_LENGTH]
-  \\ `LENGTH (events i) < LENGTH (events (i + 1))` by cheat
-  \\ fs []);
+  \\ qpat_x_assum `!i. _` (assume_tac o GSYM) \\ fs []
+  \\ fs [evaluate_ck_def]
+  \\ imp_res_tac evaluate_IMP_io_events_mono
+  \\ fs [evaluatePropsTheory.io_events_mono_def]);
 
 (* example: the yes program *)
 

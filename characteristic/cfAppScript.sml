@@ -40,11 +40,8 @@ val evaluate_to_heap_def = Define `
                   (* all clocks in the sequence produce timeout and a state in sts *)
                   (∀i. evaluate_ck (cks i) st env [exp] =
                          (sts i, Rerr (Rabort Rtimeout_error))) /\
-                  (* the limit state st' approximates all states in the sequence *)
-                  (∀i. LPREFIX (fromList (sts i).ffi.io_events) io) /\
-                  (* if there is a maximal io_event list, then io is that list *)
-                  ∀j. (∀i. (sts i).ffi.io_events ≼ (sts j).ffi.io_events) ==>
-                      io = fromList (sts j).ffi.io_events`
+                  (* io is the limit of the io_events of all states sts *)
+                  lprefix_lub (IMAGE (\i. fromList (sts i).ffi.io_events) UNIV) io`
 
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
