@@ -1549,7 +1549,6 @@ val hello_extract_writes_stdout = Q.store_thm("hello_extract_writes_stdout",
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
-  >- rw[]
   >- rw[]);
 
 val hello_ag32_next = Q.store_thm("hello_ag32_next",

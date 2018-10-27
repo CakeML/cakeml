@@ -2,6 +2,7 @@
   Verify that the ag32 implementation of the FFI primitives satisfies
   interference_implemented.
 *)
+
 open preamble
   ag32_memoryTheory
   ag32_machine_configTheory
@@ -954,15 +955,10 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
      (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, off1)) ∧
      (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, off2))
      ⇒ (fd1 = fd2)) ∧
-   (*
-   (∀fd fnm off cont.
-     (ALOOKUP fs'.infds fd = SOME (fnm, off)) ∧
-     (ALOOKUP fs'.files fnm = SOME cont) ⇒ off ≤ LENGTH cont) ∧
-   *)
    (* -- *)
    (* nothing has changed except the IOStream of interest -- is this actually necessary? *)
-   (∀x. x ≠ fd ⇒ (ALOOKUP fs'.infds x = ALOOKUP fs.infds x)) ∧
-   (∀fnm. fnm ≠ IOStream nam ⇒ (ALOOKUP fs'.files fnm = ALOOKUP fs.files fnm)) ∧
+   (∀x. x ≠ fd ⇒ (OPTREL (inv_image (=) FST) (ALOOKUP fs'.infds x) (ALOOKUP fs.infds x))) ∧
+   (∀fnm. inFS_fname fs' fnm = inFS_fname fs fnm) ∧
    (* and it has only changed by appending *)
    (ALOOKUP fs'.infds fd = SOME (IOStream nam, LENGTH out + LENGTH rest)) ∧
    (ALOOKUP fs'.files (IOStream nam) = SOME (out ++ rest))
@@ -1024,11 +1020,10 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
       \\ rveq \\ fs[] \\ rfs[]
       >- metis_tac[]
+      >- ( first_x_assum drule \\ simp[OPTREL_def] )
+      >- metis_tac[]
+      >- metis_tac[]
       (*
-      >- metis_tac[]
-      >- metis_tac[]
-      >- metis_tac[]
-      *)
       \\ imp_res_tac ALOOKUP_MEM
       \\ reverse(Cases_on`fnm`)
       >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
@@ -1038,7 +1033,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       \\ simp[]
       \\ strip_tac
       \\ disch_then drule
-      \\ simp[] )
+      \\ simp[] *))
     >- (
       reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
       >- metis_tac[]
@@ -1053,34 +1048,45 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       \\ Cases_on`w82n l = fd` \\ fs[]
       >- (
         rw[]
+        \\ simp[DISJ_EQ_IMP]
         \\ qexists_tac`w82n l` \\ simp[]
-        \\ CCONTR_TAC \\ fs[]
+        \\ rw[] \\ strip_tac
+        \\ first_x_assum(qspec_then`fd'`mp_tac)
+        \\ impl_tac >- simp[]
+        \\ simp[OPTREL_def, FORALL_PROD]
         \\ metis_tac[] )
-      \\ `ALOOKUP z.infds (w82n l) = SOME x` by metis_tac[]
+      \\ first_assum(qspec_then`w82n l`mp_tac)
+      \\ impl_tac >- simp[]
+      \\ simp_tac (srw_ss())[Once OPTREL_def]
+      \\ simp[EXISTS_PROD] \\ strip_tac
       \\ rw[] \\ rw[] \\ rw[]
       >- metis_tac[]
       (*
       >- metis_tac[]
       *)
+      \\ rw[OPTREL_def]
       \\ first_x_assum(qspec_then`w82n l`mp_tac) \\ rw[]
-      \\ Cases_on`x` \\ fs[]
-      \\ Cases_on`q = IOStream nam`
+      \\ qmatch_asmsub_rename_tac`_ = SOME(x1,x2)`
+      \\ Cases_on`x1 = IOStream nam`
       >- (
         fs[] \\ CCONTR_TAC \\ fs[]
         \\ Cases_on`fd = fd'` \\ fs[] \\ rw[]
         \\ metis_tac[] )
-      \\ `MEM q (MAP FST z.files)` by metis_tac[]
-      \\ `IS_SOME (ALOOKUP z.files q)`
+      \\ `MEM x1 (MAP FST z.files)` by metis_tac[]
+      \\ `IS_SOME (ALOOKUP z.files x1)`
       by simp[data_to_word_gcProofTheory.IS_SOME_ALOOKUP_EQ]
       \\ fs[IS_SOME_EXISTS]
-      \\ `ALOOKUP fs.files q = SOME x` by metis_tac[]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ reverse(Cases_on`q`) \\ fs[]
-      >- metis_tac[]
+      \\ reverse(Cases_on`x1`) \\ fs[]
+      >- (
+        imp_res_tac ALOOKUP_MEM
+        \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+        \\ metis_tac[] )
       \\ CCONTR_TAC \\ fs[]
-      \\ `fd = fd'` by metis_tac[]
-      \\ rveq \\ fs[] )
+      \\ Cases_on`fd' = fd` \\ fs[]
+      \\ first_x_assum drule
+      \\ simp[OPTREL_def, FORALL_PROD]
+      \\ CCONTR_TAC \\ fs[]
+      \\ metis_tac[])
     )
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
@@ -1119,7 +1125,11 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
     first_x_assum irule
     \\ simp[]
     \\ IF_CASES_TAC
-    >- ( rveq \\ fs[] \\ metis_tac[] )
+    >- (
+      rveq \\ fs[]
+      \\ first_x_assum drule
+      \\ simp[Once OPTREL_def, EXISTS_PROD]
+      \\ metis_tac[] )
     \\ `inFS_fname fs fnm`
     by (
       simp[fsFFIPropsTheory.inFS_fname_def]
@@ -1130,7 +1140,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
     \\ first_assum(qspec_then`w82n l`mp_tac)
     \\ impl_tac >- fs[]
     \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
-    \\ simp_tac(srw_ss())[]
+    \\ simp_tac(srw_ss())[Once OPTREL_def, EXISTS_PROD]
     \\ ntac 2 strip_tac
     \\ last_assum drule
     \\ simp_tac(srw_ss())[fsFFIPropsTheory.inFS_fname_def]
@@ -1140,27 +1150,16 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
     \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
     \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
     \\ strip_tac
-    \\ reverse(Cases_on`zz = 0`) >- fs[]
-    \\ qunabbrev_tac`zz`
-    \\ pop_assum mp_tac
-    \\ simp[]
-    \\ once_rewrite_tac[output_buffer_size_def]
-    \\ simp[]
-    \\ strip_tac \\ fs[]
-    \\ qunabbrev_tac`new_content`
-    \\ fs[fsFFIPropsTheory.inFS_fname_def]
-    \\ conj_tac
+    \\ reverse conj_tac
     >- (
-      rw[]
+      fs[fsFFIPropsTheory.inFS_fname_def]
+      \\ conj_tac >- metis_tac[]
+      \\ rw[]
+      \\ fs[OPTREL_def, FORALL_PROD]
       \\ PURE_CASE_TAC \\ fs[]
-      \\ PURE_CASE_TAC \\ fs[] )
-    \\ conj_tac >- metis_tac[]
-    (*
-    \\ conj_tac >- metis_tac[]
-    *)
-    \\ rw[]
-    \\ PURE_CASE_TAC \\ fs[]
-    \\ PURE_CASE_TAC \\ fs[])
+      \\ PURE_CASE_TAC \\ fs[]
+      \\ metis_tac[NOT_SOME_NONE,SOME_11] )
+    \\ fs[fsFFIPropsTheory.inFS_fname_def])
   \\ fs[MAP_TAKE]
   \\ qmatch_goalsub_abbrev_tac`written ++ _`
   \\ rveq \\ fs[]
@@ -1187,16 +1186,17 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
     \\ fs[CaseEq"option"]
     \\ CCONTR_TAC \\ fs[]
     \\ rveq
+    \\ first_x_assum(qspec_then`fd'`mp_tac)
+    \\ simp[OPTREL_def, FORALL_PROD]
     \\ metis_tac[] )
   \\ strip_tac
   \\ rveq \\ fs[]
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
   \\ simp[Abbr`fs'`]
-  \\ conj_tac
-  >- ( rw[] \\ PURE_CASE_TAC \\ fs[] )
   \\ conj_tac >- metis_tac[]
-  \\ rw[] \\ PURE_CASE_TAC \\ fs[] );
+  \\ rw[] \\ PURE_CASE_TAC \\ fs[]
+  \\ metis_tac[]);
 
 val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧

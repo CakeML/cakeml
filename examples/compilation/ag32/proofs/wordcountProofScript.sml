@@ -1589,8 +1589,7 @@ val wordcount_extract_writes_stdout = Q.store_thm("wordcount_extract_writes_stdo
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
-  >- (rw[MAX_DEF] \\ cheat (* extract_fs_extract_writes needs to be less stringent about other changes *))
-  >- rw[]);
+  >- rw[OPTREL_def]);
 
 val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
   `LENGTH inp ≤ stdin_size ∧ 2 ≤ maxFD ∧
