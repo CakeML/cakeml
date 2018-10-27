@@ -4070,4 +4070,94 @@ val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
   \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
   \\ res_tac \\ fs[] \\ rfs[])
 
+val asm_write_bytearray_def = Define `
+  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
+  (asm_write_bytearray a (x::xs) m = (a =+ x) (asm_write_bytearray (a+1w) xs m))`
+
+val mem_eq_imp_asm_write_bytearray_eq = Q.store_thm("mem_eq_imp_asm_write_bytearray_eq",
+  `∀a bs.
+    (m1 k = m2 k) ⇒
+    (asm_write_bytearray a bs m1 k = asm_write_bytearray a bs m2 k)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def]
+  \\ rw[APPLY_UPDATE_THM]);
+
+val asm_write_bytearray_unchanged = Q.store_thm("asm_write_bytearray_unchanged",
+  `∀a bs m z. (x <+ a ∨ a + n2w (LENGTH bs) <=+ x) ∧
+    (w2n a + LENGTH bs < dimword(:'a)) ∧ (z = m x)
+  ⇒ (asm_write_bytearray (a:'a word) bs m x = z)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ TRY (
+    Cases_on`a` \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]
+    \\ NO_TAC )
+  \\ first_x_assum match_mp_tac
+  \\ Cases_on`a`
+  \\ Cases_on`x`
+  \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]);
+
+val asm_write_bytearray_id = Q.store_thm("asm_write_bytearray_id",
+  `∀a bs m.
+    (∀j. j < LENGTH bs ⇒ (m (a + n2w j) = EL j bs))
+  ⇒ (asm_write_bytearray (a:'a word) bs m x = m x)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+  \\ first_x_assum match_mp_tac
+  \\ rw[]
+  \\ first_x_assum(qspec_then`SUC j`mp_tac)
+  \\ rw[]
+  \\ fs[ADD1, GSYM word_add_n2w]);
+
+val asm_write_bytearray_unchanged_alt = store_thm("asm_write_bytearray_unchanged_alt",
+  ``∀a bs m z.
+      (z = m x) /\ ~(x IN { a + n2w k | k < LENGTH bs }) ==>
+      (asm_write_bytearray a bs m x = z)``,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  THEN1 (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
+  \\ first_x_assum match_mp_tac \\ fs [] \\ rw []
+  \\ first_x_assum (qspec_then `k + 1` mp_tac)
+  \\ fs [GSYM word_add_n2w,ADD1]);
+
+val asm_write_bytearray_unchanged_all_words = Q.store_thm("asm_write_bytearray_unchanged_all_words",
+  `∀a bs m z x.
+    ~(x ∈ all_words a (LENGTH bs)) ∧ (z = m x) ⇒
+    (asm_write_bytearray (a:'a word) bs m x = z)`,
+  Induct_on`bs`
+  \\ rw[all_words_def,asm_write_bytearray_def,APPLY_UPDATE_THM]);
+
+val asm_write_bytearray_append = Q.store_thm("asm_write_bytearray_append",
+  `∀a l1 l2 m.
+   w2n a + LENGTH l1 + LENGTH l2 < dimword (:'a) ⇒
+   (asm_write_bytearray (a:'a word) (l1 ++ l2) m =
+    asm_write_bytearray (a + n2w (LENGTH l1)) l2 (asm_write_bytearray a l1 m))`,
+  Induct_on`l1` \\ rw[asm_write_bytearray_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[]
+  >- (
+    irule (GSYM asm_write_bytearray_unchanged)
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`a` \\ simp[word_lo_n2w,word_add_n2w,word_ls_n2w]
+    \\ fs[] )
+  \\ fs[ADD1,GSYM word_add_n2w]
+  \\ first_x_assum (qspec_then`a+1w`mp_tac)
+  \\ simp[]
+  \\ Cases_on`a` \\ fs[word_add_n2w]
+  \\ disch_then drule
+  \\ rw[]
+  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ simp[APPLY_UPDATE_THM]);
+
+val asm_write_bytearray_EL = Q.store_thm("asm_write_bytearray_EL",
+  `∀a bs m x. x < LENGTH bs ∧ LENGTH bs < dimword(:'a) ⇒
+   (asm_write_bytearray (a:'a word) bs m (a + n2w x) = EL x bs)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ Cases_on`x` \\ fs[]
+  >- ( fs[addressTheory.WORD_EQ_ADD_CANCEL] )
+  \\ first_x_assum drule
+  \\ simp[ADD1,GSYM word_add_n2w]
+  \\ metis_tac[WORD_ADD_ASSOC,WORD_ADD_COMM]);
+
 val _ = export_theory()

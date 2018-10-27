@@ -390,10 +390,6 @@ val has_io_name_def = Define `
 
 val has_io_name_ind = theorem"has_io_name_ind"
 
-val asm_write_bytearray_def = Define `
-  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
-  (asm_write_bytearray a (x::xs) m = (a =+ x) (asm_write_bytearray (a+1w) xs m))`
-
 val word_loc_val_byte_def = Define `
   word_loc_val_byte p labs m a be =
     case word_loc_val p labs (m (byte_align a)) of

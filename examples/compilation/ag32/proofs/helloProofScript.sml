@@ -1,17 +1,18 @@
 open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_basis_ffiTheory helloProgTheory helloCompileTheory;
+     ag32_memoryTheory ag32_ffi_codeProofTheory ag32_machine_configTheory
+     ag32_basis_ffiProofTheory helloProgTheory helloCompileTheory;
 
 val _ = new_theory"helloProof";
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 val get_mem_word_get_byte =
-  ag32_basis_ffiTheory.get_mem_word_get_byte
+  ag32_basis_ffiProofTheory.get_mem_word_get_byte
   |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
 
 val target_state_rel_ag32_init =
-  ag32_basis_ffiTheory.target_state_rel_ag32_init
+  ag32_basis_ffiProofTheory.target_state_rel_ag32_init
   |> Q.GEN`r0` |> Q.SPEC`0w`
   |> SIMP_RULE std_ss[``n2w ZERO :word32`` |> SIMP_CONV std_ss [ALT_ZERO] ]
   |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``, markerTheory.Abbrev_def]

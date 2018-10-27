@@ -1,2 +1,2 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../../../../misc .. ../../../encoders/ag32/proofs ../../semantics ../../proofs
+INCLUDES = ../../../../misc .. ../../../encoders/ag32 ../../../encoders/ag32/proofs ../../semantics ../../proofs
