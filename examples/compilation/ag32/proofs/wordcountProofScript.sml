@@ -123,7 +123,7 @@ val wordcount_init_memory_def = Define`
 
 val LENGTH_wordcount_init_memory_words = Q.store_thm("LENGTH_wordcount_init_memory_words",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
-   (LENGTH (wordcount_init_memory_words cl inp) = 27585135)`, (* adjust as necessary *)
+   (LENGTH (wordcount_init_memory_words cl inp) = 27585123)`, (* adjust as necessary *)
   simp[wordcount_init_memory_words_def]
   \\ simp[LENGTH_words_of_bytes_wordcount_startup_code,LENGTH_ag32_ffi_code,heap_size_def,
           output_buffer_size_def,startup_code_size_def,LENGTH_wordcount_startup_code,

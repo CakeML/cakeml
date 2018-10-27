@@ -3,9 +3,24 @@
   This includes the FFI interference oracle.
 *)
 open preamble ag32_memoryTheory ag32_configProofTheory
-local open targetSemTheory ag32_targetTheory in end
+local open asmSemTheory targetSemTheory ag32_targetTheory in end
 
 val _ = new_theory"ag32_machine_config";
+
+val ag32_init_asm_regs_def = Define `
+  ag32_init_asm_regs mem_start k = if k = 0n then mem_start else 0w`
+
+val ag32_init_asm_state_def = Define`
+  ag32_init_asm_state mem md (r0:word32) = <|
+    be := F;
+    lr := 0 ;
+    failed := F ;
+    align := 2 ;
+    pc := r0;
+    mem := mem;
+    mem_domain := md ;
+    regs := ag32_init_asm_regs r0
+  |>`;
 
 val ag32_prog_addresses_def = Define`
   ag32_prog_addresses num_ffis LENGTH_code LENGTH_data r0 =

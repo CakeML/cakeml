@@ -5,7 +5,7 @@
   and prove theorems summarising their effects.
 *)
 open preamble
-local open lab_to_targetTheory in end
+local open ag32Theory lab_to_targetTheory in end
 
 val _ = new_theory"ag32_memory";
 
@@ -71,21 +71,6 @@ val dfn'JumpIfZero_MEM = Q.store_thm("dfn'JumpIfZero_MEM",
 
 (* -- *)
 
-val ag32_init_asm_regs_def = Define `
-  ag32_init_asm_regs mem_start k = if k = 0n then mem_start else 0w`
-
-val ag32_init_asm_state_def = Define`
-  ag32_init_asm_state mem md (r0:word32) = <|
-    be := F;
-    lr := 0 ;
-    failed := F ;
-    align := 2 ;
-    pc := r0;
-    mem := mem;
-    mem_domain := md ;
-    regs := ag32_init_asm_regs r0
-  |>`;
-
 val memory_size_def = Define`
   memory_size = 128n * 10 ** 6`;
 
@@ -102,7 +87,7 @@ val heap_size_def = Define`
   heap_size = 100 * 1024 * 1024n`;
 
 val startup_code_size_def = Define`
-  startup_code_size = 288n`;
+  startup_code_size = 240n`;
 
 (* Memory Layout:
 
@@ -114,7 +99,7 @@ val startup_code_size_def = Define`
   | * FFI call jumps  |  <= 176 ((9 + 2) * 16) bytes
   +-------------------+
   | CakeML stack/heap |  heap_size bytes (~100Mb)
-  +-------------------+  <- mem_start + heap_start_offset
+  +-------------------+  <- heap_start_offset
   | --- (padding) --- |  (will arrange for this to be 0)
   +-------------------+
   | FFI code          |  (4 * LENGTH ag32_ffi_code) bytes (~640b)
@@ -136,11 +121,11 @@ val startup_code_size_def = Define`
   | + cline args      |  cline_size bytes (~1024b)
   +-------------------+
   | + cline arg count |  4 bytes (as a word)
-  +-------------------+  <- mem_start + startup_code_size
+  +-------------------+  <- startup_code_size
   | ---- padding ---- |
   +-------------------+
   | * startup code    |  (LENGTH startup_code) bytes (~72b, ≤216b (18*12))
-  +-------------------+  <- mem_start
+  +-------------------+
 
   The starred items depend on the output of the compiler;
   the other items are boilerplate for every application.
@@ -229,7 +214,7 @@ val ag32_ffi_return_thm = Q.store_thm("ag32_ffi_return_thm",
   \\ EVAL_TAC);
 
 (* exit
-   PC is mem_start + ffi_code_start_offset  *)
+   PC is ffi_code_start_offset  *)
 
 val ag32_ffi_exit_entrypoint_def = Define`
   ag32_ffi_exit_entrypoint = 0n`;
@@ -262,7 +247,7 @@ val ag32_ffi_exit_code_def = Define`
      Interrupt]`;
 
 (* get_arg_count
-   PC is mem_start + ffi_code_start_offset
+   PC is ffi_code_start_offset
          + 4 * LENGTH ag32_ffi_exit_code
    pointer is in r3 *)
 
@@ -318,7 +303,7 @@ val ag32_ffi_get_arg_count_code_def = Define`
      Jump (fSnd, 0w, Reg 0w)]`;
 
 (* get_arg_length
-   PC is mem_start + ffi_code_start_offset
+   PC is ffi_code_start_offset
          + ag32_ffi_get_arg_count_entrypoint
          + 4 * LENGTH ag32_ffi_get_arg_count_code
    r3 contains pointer to byte array with the arg index: [index % 256, index / 256]
@@ -451,13 +436,13 @@ val ag32_ffi_read_code_def = Define`
      ag32_ffi_return_code`;
 
 (* write
-   PC is mem_start + ffi_code_start_offset + ag32_ffi_write_entrypoint
+   PC is ffi_code_start_offset + ag32_ffi_write_entrypoint
    r1 contains pointer to byte array (conf) with the output id
    r2 contains length of r1 (should be 8)
    r3 contains pointer to byte array n1::n0::off1::off0::tll
    r4 contains LENGTH tll + 4
    postconditions:
-     * written (THE (ALOOKUP FFI_codes "write")) at (mem_start + n2w (ffi_code_start_offset - 1))
+     * written (THE (ALOOKUP FFI_codes "write")) at (n2w (ffi_code_start_offset - 1))
      * if the following conditions hold
          - r2 contains 8
          - w82n conf ≤ 2
@@ -466,7 +451,7 @@ val ag32_ffi_read_code_def = Define`
        then
          - write 0w::n2w2(k) to array pointed by r3
          - write conf ++ [0w;0w;n1;n0] ++ (TAKE k (DROP (w22n [off1; off0]) tll))
-           to mem_start + n2w output_offset
+           to n2w output_offset
          where k = MIN (w22n [n1; n0]) output_buffer_size
        else
          - write 1w to the first byte pointed by r3
@@ -483,7 +468,7 @@ val ag32_ffi_write_set_id_code_def = Define`
   ag32_ffi_write_set_id_code =
     [Jump (fAdd, 5w, Imm 4w);
      LoadConstant(6w, F, n2w (ag32_ffi_write_entrypoint + 4));
-     Normal (fSub, 5w, Reg 5w, Reg 6w);   (* r5 = mem_start + ffi_code_start_offset *)
+     Normal (fSub, 5w, Reg 5w, Reg 6w);   (* r5 = ffi_code_start_offset *)
      Normal (fDec, 5w, Reg 5w, Imm 0w);
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w)]`;
 
@@ -548,26 +533,26 @@ val ag32_ffi_write_check_lengths_code_def = Define`
      Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset));
-     Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = mem_start + output_offset *)
+     Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = output_offset *)
      LoadConstant (4w, F, 4w * 34w);
      JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
 
 val ag32_ffi_write_write_header_code_def = Define`
   ag32_ffi_write_write_header_code = [
      StoreMEM (Imm 0w, Reg 5w);
-     Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 4 *)
+     Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = output_offset + 4 *)
      Shift (shiftLL, 2w, Reg 2w, Imm 24w);(* r2 = [conf0; 0w; 0w; 0w] *)
      StoreMEM (Reg 2w, Reg 5w);
-     Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = mem_start + output_offset + 8 *)
+     Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = output_offset + 8 *)
      StoreMEMByte (Imm 0w, Reg 5w);
-     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 9 *)
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = output_offset + 9 *)
      StoreMEMByte (Imm 0w, Reg 5w);
-     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 10 *)
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = output_offset + 10 *)
      Shift (shiftLR, 2w, Reg 1w, Imm 8w); (* r2 = [0w; 0w; 0w; n1] *)
      StoreMEMByte (Reg 2w, Reg 5w);
-     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 11 *)
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = output_offset + 11 *)
      StoreMEMByte (Reg 1w, Reg 5w);
-     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = mem_start + output_offset + 12 *)
+     Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = output_offset + 12 *)
      StoreMEMByte (Imm 0w, Reg 3w)]`;
 
 val ag32_ffi_write_num_written_code_def = Define`
@@ -1090,7 +1075,7 @@ val ag32_ffi_read_check_lengths_code_def = Define`
      Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
      LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset));
-     Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = mem_start + output_offset *)
+     Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = output_offset *)
      LoadConstant (4w, F, 4w * 34w);
      JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
 
@@ -1774,7 +1759,7 @@ val ag32_ffi_close_code_def = Define`
 (* FFI jumps
   - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
   - get return address in link_reg (r0)
-  - PC is mem_start + ffi_jumps_offset + ffi_offset * index
+  - PC is ffi_jumps_offset + ffi_offset * index
   conventions on return (see ag32_ffi_interfer_def):
     r0 is the end of this ffi's code (i.e., entrypoint of the next ffi's code)
     r1-r8 are 0w
@@ -1881,7 +1866,6 @@ val code_start_offset_def = Define`
 
 val startup_asm_code_def = Define`
   startup_asm_code
-    (* r0: mem start reg: contains mem_start address, leave unaltered *)
     (* r1: temp reg *)
     (* r2: heap start reg: should be left with heap start address *)
     (* r3: temp reg - only required because of large immediates *)
@@ -1902,10 +1886,8 @@ val startup_asm_code_def = Define`
     *)
     num_ffis (code_length:word32) bitmaps_length =
     (*
-      r1 <- heap_start_offset
-      r2 <- r0 + r1
-      r1 <- (code_start_offset num_ffis)
-      r4 <- r0 + r1
+      r2 <- heap_start_offset
+      r4 <- code_start_offset num_ffis
       r1 <- code_length
       r4 <- r4 + r1
       m[r2+0] <- r4
@@ -1917,14 +1899,11 @@ val startup_asm_code_def = Define`
       m[r2+2] <- r4
       r1 <- heap_size
       r4 <- r2 + r1
-      r1 <- (code_start_offset num_ffis)
-      r1 <- r0 + r1
+      r1 <- code_start_offset num_ffis
       jump r1
     *)
-    [Inst (Const 1 (n2w heap_start_offset));
-     Inst (Arith (Binop Add 2 0 (Reg 1)));
-     Inst (Const 1 (n2w (code_start_offset num_ffis)));
-     Inst (Arith (Binop Add 4 0 (Reg 1)));
+    [Inst (Const 2 (n2w heap_start_offset));
+     Inst (Const 4 (n2w (code_start_offset num_ffis)));
      Inst (Const 1 code_length);
      Inst (Arith (Binop Add 4 4 (Reg 1)));
      Inst (Mem Store 4 (Addr 2 (0w * bytes_in_word)));
@@ -1937,7 +1916,6 @@ val startup_asm_code_def = Define`
      Inst (Const 1 (n2w heap_size));
      Inst (Arith (Binop Add 4 2 (Reg 1)));
      Inst (Const 1 (n2w (code_start_offset num_ffis)));
-     Inst (Arith (Binop Add 1 0 (Reg 1)));
      JumpReg 1]`;
 
 val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",

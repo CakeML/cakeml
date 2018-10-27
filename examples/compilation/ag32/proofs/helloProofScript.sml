@@ -110,7 +110,7 @@ val hello_init_memory_def = Define`
 
 val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
-   (LENGTH (hello_init_memory_words cl inp) = 27572137)`, (* adjust as necessary *)
+   (LENGTH (hello_init_memory_words cl inp) = 27572125)`, (* adjust as necessary *)
   simp[hello_init_memory_words_def]
   \\ simp[LENGTH_words_of_bytes_hello_startup_code,LENGTH_ag32_ffi_code,heap_size_def,
           output_buffer_size_def,startup_code_size_def,LENGTH_hello_startup_code,
