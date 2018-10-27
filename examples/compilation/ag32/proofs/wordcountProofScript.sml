@@ -7,10 +7,6 @@ val _ = new_theory"wordcountProof";
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
-val get_mem_word_get_byte =
-  ag32_basis_ffiProofTheory.get_mem_word_get_byte
-  |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
-
 val target_state_rel_ag32_init =
   ag32_basis_ffiProofTheory.target_state_rel_ag32_init
   |> Q.GEN`r0` |> Q.SPEC`0w`

@@ -5,7 +5,7 @@
   and prove theorems summarising their effects.
 *)
 open preamble
-local open ag32Theory lab_to_targetTheory in end
+local open ag32Theory asmSemTheory MarshallingTheory lab_to_targetTheory blastLib in end
 
 val _ = new_theory"ag32_memory";
 
@@ -604,18 +604,18 @@ val ag32_ffi_write_set_id_def = Define`
     s`;
 
 val ag32_ffi_write_set_id_thm = Q.store_thm("ag32_ffi_write_set_id_thm",
-  `(s.PC = r0 + n2w (ffi_code_start_offset + ag32_ffi_write_entrypoint))
+  `(s.PC = n2w (ffi_code_start_offset + ag32_ffi_write_entrypoint))
     ⇒
     ∃cf ov r6.
      (ag32_ffi_write_set_id s =
       s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_set_id_code);
-                R := ((6w =+ r6) ((5w =+ r0 + (n2w (ffi_code_start_offset - 1))) s.R));
+                R := ((6w =+ r6) ((5w =+ (n2w (ffi_code_start_offset - 1))) s.R));
                 CarryFlag := cf;
                 OverflowFlag := ov;
-                MEM := ((r0 + n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "write"))) s.MEM |>)`,
+                MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "write"))) s.MEM |>)`,
   rw[ag32_ffi_write_set_id_def]
   \\ rw[ag32Theory.dfn'Jump_def, ag32Theory.ALU_def, ag32Theory.ri2word_def]
-  \\ qmatch_goalsub_abbrev_tac`r0 + n2w off`
+  \\ qmatch_goalsub_abbrev_tac`n2w off`
   \\ rw[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def]
   \\ rw[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def,
         ag32Theory.ri2word_def, ag32Theory.incPC_def, APPLY_UPDATE_THM]
@@ -989,7 +989,7 @@ val ag32_ffi_write_check_lengths_def = Define`
   s`;
 
 val ag32_ffi_write_check_lengths_thm = Q.store_thm("ag32_ffi_write_check_lengths_thm",
-  `(s.R 5w = r0 + n2w (ffi_code_start_offset - 1)) ∧
+  `(s.R 5w = n2w (ffi_code_start_offset - 1)) ∧
    (s.R 4w = n2w ltll) ∧ (s.R 7w = n2w off) ∧ (s.R 1w = n2w n) ∧ (s.R 6w = v2w [cnd]) ∧
    off < dimword(:16) ∧ n < dimword(:16) ∧ ltll < dimword (:32)
    ⇒
@@ -1000,7 +1000,7 @@ val ag32_ffi_write_check_lengths_thm = Q.store_thm("ag32_ffi_write_check_lengths
                     else s.PC + n2w (4 * (LENGTH ag32_ffi_write_check_lengths_code + 33)) ;
               R := ((8w =+ r8)
                    ((4w =+ r4)
-                   ((5w =+ r0 + n2w output_offset)
+                   ((5w =+ n2w output_offset)
                    ((6w =+ r6) s.R))));
               CarryFlag := cf;
               OverflowFlag := ov |>)`,
@@ -1094,7 +1094,7 @@ val ag32_ffi_read_check_lengths_def = Define`
   s`;
 
 val ag32_ffi_read_check_lengths_thm = Q.store_thm("ag32_ffi_read_check_lengths_thm",
-  `(s.R 5w = r0 + n2w (ffi_code_start_offset - 1)) ∧
+  `(s.R 5w = n2w (ffi_code_start_offset - 1)) ∧
    (s.R 4w = n2w ltll) ∧ (s.R 7w = n2w off) ∧ (s.R 1w = n2w n) ∧ (s.R 6w = v2w [cnd]) ∧
    off < dimword(:16) ∧ n < dimword(:16) ∧ ltll < dimword (:32)
    ⇒
@@ -1105,7 +1105,7 @@ val ag32_ffi_read_check_lengths_thm = Q.store_thm("ag32_ffi_read_check_lengths_t
                     else s.PC + n2w (4 * (LENGTH ag32_ffi_read_check_lengths_code + 33)) ;
               R := ((8w =+ r8)
                    ((4w =+ r4)
-                   ((5w =+ r0 + n2w output_offset)
+                   ((5w =+ n2w output_offset)
                    ((6w =+ r6) s.R))));
               CarryFlag := cf;
               OverflowFlag := ov |>)`,
@@ -1164,45 +1164,29 @@ val ag32_ffi_write_write_header_def = Define`
   s`;
 
 val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_thm",
-  `(s.R 5w = r0 + n2w output_offset) ∧
-    byte_aligned r0 ∧ w2n r0 + memory_size < dimword(:32) ∧
+  `(s.R 5w = n2w output_offset) ∧
    (LENGTH conf = 8) ∧ (w82n conf < 3) ∧ (s.R 2w = n2w (w82n conf)) ∧
-   (s.R 1w = n2w (w22n [n1; n0])) ∧ (s.R 3w ≠ r0 + n2w output_offset)
+   (s.R 1w = n2w (w22n [n1; n0])) ∧ (s.R 3w ≠ n2w output_offset)
    ⇒
    ∃r2 ov cf.
    (ag32_ffi_write_write_header s =
     s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_write_write_header_code);
-              R := ((5w =+ r0 + n2w (output_offset + 12))
+              R := ((5w =+ n2w (output_offset + 12))
                    ((2w =+ r2) s.R));
               MEM :=
                 (((s.R 3w) =+ 0w)
-                 (asm_write_bytearray (r0 + n2w output_offset) (conf ++ [0w; 0w; n1; n0]) s.MEM));
+                 (asm_write_bytearray (n2w output_offset) (conf ++ [0w; 0w; n1; n0]) s.MEM));
               OverflowFlag := ov;
               CarryFlag := cf |>)`,
   rewrite_tac[ag32_ffi_write_write_header_def]
   \\ strip_tac
-  (*
-  \\ simp_tac (srw_ss())
-       [Q.SPECL[]ag32Theory.dfn'LoadConstant_def,
-        ag32Theory.ri2word_def, ag32Theory.norm_def,
-        ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
-  \\ simp_tac (srw_ss()) [Once LET_THM]
-  \\ simp_tac (srw_ss())
-       [Q.SPECL[`fSub`,`5w`]ag32Theory.dfn'Normal_def,
-        ag32Theory.ri2word_def, ag32Theory.norm_def,
-        ag32Theory.shift_def,
-        ag32Theory.ALU_def, ag32Theory.incPC_def ]
-  \\ CONV_TAC(PATH_CONV"rarararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
-  \\ simp_tac (srw_ss()) [Once LET_THM]
-  *)
   \\ simp_tac (srw_ss())
        [Q.SPECL[]ag32Theory.dfn'StoreMEM_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
   \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ qmatch_goalsub_abbrev_tac`adr + 2w`
-  \\ `adr = r0 + n2w output_offset`
+  \\ `adr = n2w output_offset`
   by (
     simp[Abbr`adr`]
     \\ EVAL_TAC
@@ -1210,14 +1194,6 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
     \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_bitwise_and]
     \\ blastLib.FULL_BBLAST_TAC )
   \\ qpat_x_assum`Abbrev(adr = _)`kall_tac
-  (*
-  \\ qmatch_goalsub_rename_tac`_ with OverflowFlag := ov`
-  \\ asm_simp_tac (srw_ss())[]
-  \\ qmatch_goalsub_abbrev_tac`5w =+ r5`
-  \\ `r5 = r0 + n2w output_offset`
-  by ( simp[Abbr`r5`] \\ EVAL_TAC \\ simp[] )
-  \\ qpat_x_assum`Abbrev(r5 = _)`kall_tac \\ rveq
-  *)
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ simp_tac (srw_ss())
        [Q.SPECL[`fAdd`]ag32Theory.dfn'Normal_def,
@@ -1235,7 +1211,7 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
   \\ CONV_TAC(PATH_CONV"rararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ rveq
   \\ qmatch_goalsub_abbrev_tac`adr + 2w`
-  \\ `adr = r0 + n2w (output_offset + 4)`
+  \\ `adr = n2w (output_offset + 4)`
   by (
     simp[Abbr`adr`]
     \\ EVAL_TAC
@@ -1292,7 +1268,7 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
   \\ rveq
   \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
   \\ simp[EVAL``output_offset``]
-  \\ Cases_on`r0` \\ fs[memory_size_def, word_add_n2w]
+  \\ fs[memory_size_def, word_add_n2w]
   \\ Cases
   \\ IF_CASES_TAC >- fs[]
   \\ simp_tac std_ss []
@@ -1320,13 +1296,13 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
     \\ match_mp_tac (blastLib.BBLAST_PROVE
          ``w <+ 256w:word32 /\ (k = w2w w) ==> ((31 >< 24) (w ≪ 24) = k:word8)``)
@@ -1335,67 +1311,67 @@ val ag32_ffi_write_write_header_thm = Q.store_thm("ag32_ffi_write_write_header_t
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
     \\ blastLib.BBLAST_TAC)
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
     \\ blastLib.BBLAST_TAC)
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''''''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
     \\ Cases_on`h'''''''` \\ fs[] \\ rw[]
     \\ blastLib.BBLAST_TAC)
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[] )
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h'''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[] )
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
-    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[] )
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[]
+    \\ Cases_on`h''` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[] )
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[]
-    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[] )
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[]
+    \\ Cases_on`h'` \\ fs[] \\ rveq \\ Cases_on`n` \\ fs[] )
   \\ IF_CASES_TAC
   >- (
     full_simp_tac std_ss [n2w_11] \\ rfs[]
     \\ fs[MarshallingTheory.w82n_def]
-    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n''` \\ fs[])
+    \\ Cases_on`h` \\ fs[] \\ rveq \\ Cases_on`n'` \\ fs[])
   \\ simp[]);
 
 val ag32_ffi_write_write_header_PC = Q.store_thm("ag32_ffi_write_write_header_PC",
