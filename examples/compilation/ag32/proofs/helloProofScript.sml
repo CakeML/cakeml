@@ -7,12 +7,6 @@ val _ = new_theory"helloProof";
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
-val target_state_rel_ag32_init =
-  ag32_basis_ffiProofTheory.target_state_rel_ag32_init
-  |> Q.GEN`r0` |> Q.SPEC`0w`
-  |> SIMP_RULE std_ss[``n2w ZERO :word32`` |> SIMP_CONV std_ss [ALT_ZERO] ]
-  |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``, markerTheory.Abbrev_def]
-
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
   hello_semantics |> Q.GENL[`cl`,`fs`]
@@ -127,7 +121,7 @@ val LENGTH_hello_init_memory_words = Q.store_thm("LENGTH_hello_init_memory_words
 
 val hello_machine_config_def = Define`
   hello_machine_config =
-    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data) 0w`;
+    ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)`;
 
 val hello_machine_config_halt_pc =
   ``hello_machine_config.halt_pc``
@@ -256,8 +250,7 @@ val hello_init_asm_state_def = Define`
     FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
       (ag32_init_asm_state
         (hello_init_memory input)
-        (ag32_startup_addresses 0w)
-        0w)
+        (ag32_startup_addresses))
       (hello_startup_asm_code)`;
 
 val (asm_tm, mk_asm, dest_asm, is_asm) = HolKernel.syntax_fns3 "asmSem" "asm"
@@ -317,8 +310,7 @@ val mem_word_tac =
 val _ = temp_overload_on("hello_asm_state0",
   ``(ag32_init_asm_state
       (hello_init_memory (cl,inp))
-      (ag32_startup_addresses 0w)
-      0w)``);
+      (ag32_startup_addresses))``);
 
 val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -355,7 +347,7 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   strip_tac
   \\ qho_match_abbrev_tac`LET (λtr. (_ tr) ∧ P (_ tr)) _`
   \\ rewrite_tac[hello_startup_asm_code_eq,
-                 EVAL``ag32_startup_addresses 0w``]
+                 EVAL``ag32_startup_addresses``]
   \\ simp[]
   \\ qmatch_goalsub_abbrev_tac`steps _ _ (i::tr)`
   \\ simp[steps_def, steps_rel_def]
@@ -366,9 +358,6 @@ val hello_init_asm_state_asm_step = Q.store_thm("hello_init_asm_state_asm_step",
   \\ qpat_x_assum`Abbrev (s2 = _)`mp_tac
   \\ CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)
   \\ simp [ag32_init_asm_state_def]
-  \\ `ag32_init_asm_regs (0w:word32) = (λk. ag32_init_asm_regs 0w k)` by simp[FUN_EQ_THM]
-  \\ pop_assum SUBST1_TAC
-  \\ simp[ag32_init_asm_regs_def]
   \\ CONV_TAC (PATH_CONV "lrrr" asm_conv)
   \\ strip_tac
   \\ rewrite_tac[GSYM CONJ_ASSOC]
@@ -557,7 +546,7 @@ val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_
    is_ag32_init_state (hello_init_memory (cl,inp)) ms ⇒
    ∃n. target_state_rel ag32_target (hello_init_asm_state (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
-       (∀x. x ∉ (ag32_startup_addresses 0w) ⇒
+       (∀x. x ∉ (ag32_startup_addresses) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
   strip_tac
   \\ imp_res_tac hello_init_asm_state_RTC_asm_step
@@ -566,7 +555,7 @@ val target_state_rel_hello_init_asm_state = Q.store_thm("target_state_rel_hello_
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
   \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md 0w).mem_domain``]);
+  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]);
 
 val hello_startup_clock_def =
   new_specification("hello_startup_clock_def",["hello_startup_clock"],
@@ -604,17 +593,17 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ qx_gen_tac`a` \\ strip_tac
     \\ drule asmPropsTheory.RTC_asm_step_consts
     \\ strip_tac \\ fs[]
-    \\ `hello_asm_state0.mem_domain = ag32_startup_addresses 0w` by (
+    \\ `hello_asm_state0.mem_domain = ag32_startup_addresses` by (
       fs[ag32_init_asm_state_def] )
     \\ fs[]
-    \\ Cases_on`a ∈ ag32_startup_addresses 0w` \\ fs[]
+    \\ Cases_on`a ∈ ag32_startup_addresses` \\ fs[]
     \\ drule asmPropsTheory.RTC_asm_step_outside_mem_domain
     \\ simp[]
     \\ fs[is_ag32_init_state_def]
     \\ simp[ag32_init_asm_state_def])
   \\ conj_tac
   >- (
-    Q.ISPEC_THEN `hello_machine_config with prog_addresses := ag32_startup_addresses 0w`
+    Q.ISPEC_THEN `hello_machine_config with prog_addresses := ag32_startup_addresses`
       drule (Q.GEN`mc` RTC_asm_step_target_configured)
     \\ simp[lab_to_targetProofTheory.target_configured_def]
     \\ impl_tac >- EVAL_TAC
@@ -742,7 +731,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
     \\ rw[]
     \\ match_mp_tac EQ_SYM
     \\ fs[EVAL``ag32_target.get_byte``]
-    \\ reverse(Cases_on`a ∈ ag32_startup_addresses 0w`) \\ fs[]
+    \\ reverse(Cases_on`a ∈ ag32_startup_addresses`) \\ fs[]
     >- (
       drule asmPropsTheory.RTC_asm_step_outside_mem_domain
       \\ simp[ag32_init_asm_state_def]
@@ -1159,8 +1148,8 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
   ⇒
    interference_implemented
     (hello_machine_config)
-    (ag32_ffi_rel 0w)
-    (ag32_ffi_mem_domain 0w) ms`,
+    (ag32_ffi_rel)
+    (ag32_ffi_mem_domain) ms`,
   rw[interference_implemented_def]
   \\ simp[EVAL``(hello_machine_config).target.next``]
   \\ simp[EVAL``(hello_machine_config).target.get_byte``]
@@ -1311,8 +1300,6 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
    (strip_tac
     \\ asm_exists_tac
     \\ simp[hello_machine_config_def,ag32_machine_config_def])
-  \\ conj_tac >- EVAL_TAC
-  \\ conj_tac >- EVAL_TAC
   \\ conj_tac
   >- (
     fs[targetSemTheory.read_ffi_bytearrays_def,
@@ -1572,7 +1559,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
-     let outs = MAP (get_ag32_io_event 0w) ms.io_events in
+     let outs = MAP (get_ag32_io_event) ms.io_events in
        (ms.PC = (hello_machine_config).halt_pc) ∧
        outs ≼ MAP get_output_io_event (hello_io_events cl (stdin_fs inp)) ∧
        ((ms.R (n2w (hello_machine_config).ptr_reg) = 0w) ⇒
@@ -1639,7 +1626,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
     \\ fs[ag32_targetTheory.is_ag32_init_state_def] \\ rfs[]
     \\ rw[]
     \\ qmatch_goalsub_rename_tac`_ = _ a`
-    \\ `a ∉ ag32_startup_addresses 0w`
+    \\ `a ∉ ag32_startup_addresses`
     by (
       EVAL_TAC
       \\ ntac 2 (pop_assum mp_tac)
