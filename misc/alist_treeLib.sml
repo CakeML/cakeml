@@ -2,9 +2,24 @@
 can be represented as sorted alists, and derive a fast conversion on
 applications of those functions. *)
 
-structure alist_treeLib = struct
+structure alist_treeLib : alist_treeLib = struct
 
-open preamble alist_treeTheory
+open preamble alist_treeTheory comparisonTheory
+
+(* Syntax *)
+
+val alookup_tm = prim_mk_const {Name = "ALOOKUP", Thy = "alist"}
+
+fun mkc nm = prim_mk_const {Name = nm, Thy = "alist_tree"}
+
+val count_append_tm = mkc "count_append"
+val is_insert_tm = mkc "is_insert"
+val option_choice_tm = mkc "option_choice_f"
+val is_lookup_tm = mkc "is_lookup"
+val repr_tm = mkc "sorted_alist_repr"
+
+(* trivia *)
+val err = mk_HOL_ERR "alist_treeLib"
 
 (* the repr set object *)
 datatype 'a alist_reprs = AList_Reprs of {R_thm: thm, conv: conv,
@@ -15,9 +30,10 @@ fun mk_alist_reprs R_thm conv dest cmp
     = AList_Reprs {R_thm = R_thm, conv = conv, cmp = cmp,
         dest = dest, dict = ref (Redblackmap.mkDict Term.compare)}
 
-(* constructing is_insert thms *)
+fun peek_functions_in_rs (AList_Reprs inn_rs)
+    = Redblackmap.listItems (! (#dict inn_rs)) |> map fst
 
-val count_append_tm = ``count_append``;
+(* constructing is_insert thms *)
 
 fun find_key_rec is_last [] = raise Empty
   | find_key_rec is_last (t :: ts) = if listSyntax.is_nil t
@@ -34,8 +50,6 @@ fun last_key t = find_key_rec true [t] |> pairSyntax.dest_pair |> fst
 
 fun mk_singleton x = listSyntax.mk_list ([x], type_of x)
 
-val err = mk_HOL_ERR "mltree?"
-
 val simp_count_append = SIMP_CONV bool_ss [count_append_HD_LAST, pairTheory.FST]
 
 fun assume_prems thm = if not (is_imp (concl thm)) then thm
@@ -46,9 +60,6 @@ fun assume_prems thm = if not (is_imp (concl thm)) then thm
   in
     assume_prems (MP thm prem)
   end
-
-val is_insert_tm = ``is_insert``
-val count_append_tm = ``count_append``
 
 fun do_inst_mp insts mp_thm arg_thm = let
     val (prem, _) = dest_imp (concl mp_thm)
@@ -92,7 +103,8 @@ fun build_insert (dest : term -> 'a) cmp R k x =
       in if not (cmp (dest_k, dest (hd_key r)) = LESS)
         then do_inst_mp (vsub "l" l) (SPEC n is_insert_r) (build r)
         else if cmp (dest_k, dest (last_key l)) = GREATER
-        then pp (ISPECL [R, n, l, r, k, x] is_insert_centre)
+        then ISPECL [R, n, k, x] is_insert_centre
+            |> INST (vsub "l" l @ vsub "r" r) |> pp
         else do_inst_mp (vsub "r" r) (SPEC n is_insert_l) (build l)
       end
   in build end
@@ -154,9 +166,6 @@ fun prove_insert R conv dest cmp k x al = let
   in thm |> DISCH_ALL |> prove |> CONV_RULE (RAND_CONV (balance 0 "N")) end
 
 (* making repr theorems *)
-
-val alookup_tm = ``ALOOKUP``;
-val option_choice_tm = ``option_choice_f``;
 
 fun is_short_list xs = listSyntax.is_nil xs
     orelse total (listSyntax.is_nil o snd o listSyntax.dest_cons) xs = SOME true
@@ -263,7 +272,6 @@ val thm_200 = timeit "build repr" test_200 rs
 *)
 
 (* proving and using is_lookup thms *)
-val is_lookup_tm = ``is_lookup``;
 
 fun build_lookup (dest : term -> 'a) cmp R k =
   let
@@ -274,7 +282,7 @@ fun build_lookup (dest : term -> 'a) cmp R k =
         raise (err "build_lookup" "check"))
     val pp = chk o assume_prems
     fun build t = if listSyntax.is_nil t
-      then pp (ISPECL [R, k] is_lookup_empty)
+      then pp (ISPECL [R, k, t] is_lookup_empty)
       else if listSyntax.is_cons t then let
         val (xs, _) = listSyntax.dest_list t
         val _ = length xs = 1 orelse raise (err "build_insert" "malformed")
@@ -304,8 +312,6 @@ fun prove_lookup R conv dest cmp k al = let
       else prove (prove_assum_by_conv conv thm)
   in thm |> DISCH_ALL |> prove end
 
-val repr_tm = ``sorted_alist_repr``;
-
 fun repr_prove_lookup conv dest cmp repr_thm k = let
     val (f, xs) = strip_comb (concl repr_thm)
     val f = same_const f repr_tm orelse
@@ -320,8 +326,11 @@ fun reprs_conv rs tm = let
     val (f, x) = dest_comb tm handle HOL_ERR _ => raise UNCHANGED
     val repr_thm = case Redblackmap.peek (! (#dict inn_rs), f) of
       NONE => raise UNCHANGED | SOME thm => thm
-  in repr_prove_lookup (#conv inn_rs) (#dest inn_rs) (#cmp inn_rs)
-    repr_thm x end
+  in if is_eq (concl repr_thm)
+    then (RATOR_CONV (REWR_CONV repr_thm) THENC reprs_conv rs) tm
+    else repr_prove_lookup (#conv inn_rs) (#dest inn_rs) (#cmp inn_rs)
+        repr_thm x
+  end
 
 fun test_f_def () = new_definition ("f", mk_eq (``f : num -> num option``,
     test_mk_alookup (upto 1 300)));

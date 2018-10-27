@@ -131,7 +131,7 @@ val is_insert_centre_rule = Q.store_thm ("is_insert_centre_rule",
   \\ metis_tac [relationTheory.irreflexive_def]); 
 
 val is_insert_centre = save_thm ("is_insert_centre",
-  is_insert_centre_rule |> Q.GENL [`fl`, `fr`, `R`, `n`, `l`, `r`, `k`, `x`]
+  is_insert_centre_rule |> Q.GENL [`fl`, `fr`, `R`, `n`, `k`, `x`]
     |> SPECL [T, T] |> CONV_RULE (SIMP_CONV bool_ss []));
 
 val is_insert_far_left = Q.store_thm ("is_insert_far_left",
@@ -308,7 +308,7 @@ val is_lookup_centre = Q.store_thm ("is_lookup_centre",
         relationTheory.transitive_def]));
 
 val is_lookup_empty = Q.store_thm ("is_lookup_empty",
-  `!R k. is_lookup F F R [] k NONE`,
+  `!R k al. (al = []) ==> is_lookup F F R al k NONE`,
   fs [is_lookup_def]);
 
 val _ = export_theory ();
