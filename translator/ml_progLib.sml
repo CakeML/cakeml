@@ -169,6 +169,17 @@ fun define_abbrev for_eval name tm = let
   val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
   in def end
 
+val ML_code_tm = prim_mk_const {Name = "ML_code", Thy = "ml_prog"}
+
+fun no_prog_conv conv tm = let
+    (* avoid conv operating on the 3rd argument of ML_code, the program *)
+    val (f, xs) = strip_comb tm
+  in if not (same_const f ML_code_tm) orelse null xs
+    then conv tm
+    else if length xs = 3 then RATOR_CONV (no_prog_conv conv) tm
+    else (RATOR_CONV (no_prog_conv conv) THENC RAND_CONV conv) tm
+  end
+
 fun cond_abbrev dest conv eval name th = let
   val tm = dest th
   val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
@@ -210,7 +221,6 @@ fun clean (ML_code (ss,envs,vs,th)) = let
   val conv = (RATOR_CONV o RAND_CONV)
   val name = "auto_env"
   val (th,new_envs) = cond_env_abbrev dest conv name th
-  val th = REWRITE_RULE [ML_code_env_def] th
   in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
 
 (* --- *)
@@ -277,7 +287,7 @@ fun add_Dtabbrev loc l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
 
 fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_Dlet_var th
-           |> REWRITE_RULE [ML_code_env_def]
+           |> CONV_RULE (no_prog_conv (REWRITE_CONV [ML_code_env_def]))
   val th = MATCH_MP th eval_thm
            handle HOL_ERR _ => failwith "add_Dlet eval_thm does not match"
   val th = th |> SPECL [stringSyntax.fromMLstring var_str,unknown_loc]
@@ -289,9 +299,10 @@ val (n,v,exp) = (v_tm,w,body)
 *)
 
 fun add_Dlet_Fun loc n v exp v_name (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_Dlet_Fun th
-           |> REWRITE_RULE [ML_code_env_def]
-  val th = SPECL [n,v,exp,loc] th
+  val let_th = ML_code_Dlet_Fun |> UNDISCH_ALL
+    |> SPECL [n,v,exp,loc] |> DISCH_ALL
+  val th = MATCH_MP let_th th
+    |> CONV_RULE (no_prog_conv (REWRITE_CONV [ML_code_env_def]))
   val tm = th |> concl |> rator |> rand |> rator |> rand
   val v_def = define_abbrev false v_name tm
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
@@ -306,16 +317,18 @@ val Recclosure_pat =
   |> dest_exists |> snd |> rand
 
 fun add_Dletrec loc funs v_names (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_Dletrec th
-           |> REWRITE_RULE [ML_code_env_def]
-  val th = SPECL [funs,loc] th |> prove_assum_by_eval
+  val let_th = ML_code_Dletrec |> UNDISCH_ALL
+    |> SPECL [funs,loc] |> DISCH_ALL
+  val th = MATCH_MP let_th th
+    |> CONV_RULE (no_prog_conv (REWRITE_CONV [ML_code_env_def]))
+    |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
                   (SIMP_CONV std_ss [write_rec_def,FOLDR,
                     semanticPrimitivesTheory.build_rec_env_def]))
   val tms = rev (find_terms (can (match_term Recclosure_pat)) (concl th))
   val xs = zip v_names tms
   val v_defs = map (fn (x,y) => define_abbrev false x y) xs
-  val th = REWRITE_RULE (map GSYM v_defs) th
+  val th = CONV_RULE (no_prog_conv (REWRITE_CONV (map GSYM v_defs))) th
   in clean (ML_code (ss,envs,v_defs @ vs,th)) end
 
 fun get_mod_prefix (ML_code (ss,envs,vs,th)) = let
@@ -385,12 +398,16 @@ fun remove_snocs (ML_code (ss,envs,vs,th)) = let
 fun get_thm (ML_code (ss,envs,vs,th)) = th
 fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 
+val ML_code_env_tm = prim_mk_const {Name = "ML_code_env", Thy = "ml_prog"}
+
 fun get_env s = let
   val th = get_thm s
-  val th = MATCH_MP ML_code_Dlet_var th
-  val th = REWRITE_RULE [ML_code_env_def] th
-  in th |> SPEC_ALL |> concl |> dest_imp |> fst
-        |> rator |> rator |> rator |> rand end
+  val code_env = case strip_comb (concl th) of
+      (f, [env1, _, _, mn, env2, _])
+        => list_mk_icomb (ML_code_env_tm, [env1, mn, env2])
+    | _ => failwith("thm concl unexpected: " ^ term_to_string (concl th))
+  val rewr_thm = REWRITE_CONV [ML_code_env_def] code_env
+  in rhs (concl rewr_thm) end
 
 fun get_state s = get_thm s |> concl |> rand
 
