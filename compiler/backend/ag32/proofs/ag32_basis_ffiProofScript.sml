@@ -1751,6 +1751,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
    ⇒
    (ag32_ffi_read s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`,
 
+(*
   rw[ag32_ffi_interfer_def]
   \\ drule INDEX_OF_IMP_EL \\ strip_tac
   \\ simp[ag32_ffi_read_def]
@@ -1809,8 +1810,8 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ strip_tac \\ fs[]
   \\ pop_assum kall_tac
   \\ fs[APPLY_UPDATE_THM]
-  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_read_check_lengths s2`
-  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`off`,`n`,`cnd`]ag32_ffi_read_check_lengths_thm)
+  \\ qmatch_asmsub_abbrev_tac`ag32_ffi_read_check_length s2`
+  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`off`,`n`,`cnd`]ag32_ffi_read_check_length_thm)
   \\ disch_then(qspecl_then[`LENGTH tll`,`w22n [off1; off0]`,`w22n [n1; n0]`,
                             `(LENGTH conf = 8) ∧ w82n conf < 3`]mp_tac)
   \\ impl_tac
@@ -1877,8 +1878,9 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ fs [APPLY_UPDATE_THM]
     \\ rw [] \\ qsuff_tac `F` \\ fs []
     \\ cheat (* ffi_code_start_offset − 1 is not in byte array *))
+    *)
 
-  \\ cheat (* to update *));
+  cheat (* to update *));
 
   (*
 

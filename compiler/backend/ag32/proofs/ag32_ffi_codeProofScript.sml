@@ -15,13 +15,6 @@ val byte_aligned_imp = Q.store_thm("byte_aligned_imp",
   rw[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_def, alignmentTheory.align_def]
   \\ blastLib.FULL_BBLAST_TAC);
 
-val get_mem_word_def = Define`
-  get_mem_word (m:word32->word8) (pc:word32) : word32 =
-  (m (pc + 3w) @@
-   ((m (pc + 2w) @@
-     ((m (pc + 1w) @@
-       m (pc)) : word16)) :word24))`;
-
 (* -- *)
 
 fun next_tac n =
