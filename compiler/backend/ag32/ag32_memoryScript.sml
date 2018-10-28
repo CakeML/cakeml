@@ -882,6 +882,49 @@ val ag32_ffi_read_check_length_def = Define`
    let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
    s`;
 
+val ag32_ffi_read_check_length_thm = Q.store_thm("ag32_ffi_read_check_length_thm",
+  `(s.R 1w = n2w n) ∧ (s.R 4w = n2w ltll) ∧ (s.R 6w = v2w [cnd])
+   ∧ ltll < dimword(:32) ∧ n < dimword(:32)
+   ⇒
+   ∃r4 r6 r8 cf ov.
+   (ag32_ffi_read_check_length s =
+    s with <| PC := if cnd ∧ n ≤ ltll
+                    then s.PC + n2w (4 * LENGTH ag32_ffi_read_check_length_code)
+                    else s.PC + n2w (4 * (LENGTH ag32_ffi_read_check_length_code + 19)) ;
+              R := ((8w =+ r8)
+                   ((6w =+ r6)
+                   ((4w =+ r4) s.R)));
+              CarryFlag := cf;
+              OverflowFlag := ov |>)`,
+  strip_tac
+  \\ simp[ag32_ffi_read_check_length_def]
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.incPC_def,
+          ag32Theory.ri2word_def, ag32Theory.norm_def,
+          ag32Theory.dfn'LoadConstant_def, ag32Theory.dfn'JumpIfZero_def,
+          ag32Theory.ALU_def, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`COND b1`
+  \\ qmatch_goalsub_abbrev_tac`if b2 then _  + _ else _`
+  \\ `b1 = ¬b2`
+  by (
+    unabbrev_all_tac
+    \\ Cases_on`cnd` \\ fs[]
+    \\ simp[NOT_LESS_EQUAL]
+    \\ fs [WORD_LO]
+    \\ Cases_on `ltll < n` \\ fs [])
+  \\ qpat_x_assum`Abbrev(b1 = _)`kall_tac
+  \\ simp[] \\ rveq
+  \\ IF_CASES_TAC
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[ag32_ffi_read_check_length_code_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`if 4w = _ then r4 else _`
+  \\ qexists_tac`r4`
+  \\ qmatch_goalsub_abbrev_tac`if 6w = _ then r6 else _`
+  \\ qexists_tac`r6`
+  \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
+  \\ qexists_tac`r8`
+  \\ rw[] \\ fs[]);
+
 val ag32_ffi_read_num_written_def = Define`
   ag32_ffi_read_num_written s =
    let s = dfn'StoreMEMByte(Imm 0w, Reg 3w) s in
@@ -1551,85 +1594,6 @@ val ag32_ffi_write_check_lengths_R = Q.store_thm("ag32_ffi_write_check_lengths_R
      ag32Theory.dfn'LoadConstant_def, ag32Theory.dfn'JumpIfZero_def,
      APPLY_UPDATE_THM]
   \\ EVAL_TAC);
-
-val ag32_ffi_read_check_lengths_code_def = Define`
-  ag32_ffi_read_check_lengths_code = [
-     Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll < w22n [off1; off0] *)
-     Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [off1; off0] *)
-     Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
-                                                  w22n [off1; off0] ≤ LENGTH tll *)
-     Normal (fSub, 4w, Reg 4w, Reg 7w);   (* r4 = LENGTH tll - w22n [off1; off0] *)
-     Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
-     Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll - w22n [off1; off0] < w22n [n1; n0] *)
-     LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset));
-     Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = output_offset *)
-     LoadConstant (4w, F, 4w * 34w);
-     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
-
-val ag32_ffi_read_check_length_def = Define`
-  ag32_ffi_read_check_length s =
-  let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
-  let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
-  let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 8w) s in
-  let s = dfn'Normal (fSub, 4w, Reg 4w, Reg 7w) s in
-  let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
-  let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
-  let s = dfn'LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset)) s in
-  let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 4w) s in
-  let s = dfn'LoadConstant (4w, F, 4w * 34w) s in
-  let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
-  s`;
-
-val ag32_ffi_read_check_length_thm = Q.store_thm("ag32_ffi_read_check_length_thm",
-  `(s.R 5w = n2w (ffi_code_start_offset - 1)) ∧
-   (s.R 4w = n2w ltll) ∧ (s.R 7w = n2w off) ∧ (s.R 1w = n2w n) ∧ (s.R 6w = v2w [cnd]) ∧
-   off < dimword(:16) ∧ n < dimword(:16) ∧ ltll < dimword (:32)
-   ⇒
-   ∃r4 r6 r8 cf ov.
-   (ag32_ffi_read_check_length s =
-    s with <| PC := if cnd ∧ n ≤ ltll (* ∧ n ≤ ltll - off *)
-                    then s.PC + n2w (4 * LENGTH ag32_ffi_read_check_length_code)
-                    else s.PC + n2w (4 * (LENGTH ag32_ffi_read_check_length_code + 33)) ;
-              R := ((8w =+ r8)
-                   ((4w =+ r4)
-                   ((5w =+ n2w output_offset)
-                   ((6w =+ r6) s.R))));
-              CarryFlag := cf;
-              OverflowFlag := ov |>)`,
-  cheat (*
-  strip_tac
-  \\ simp[ag32_ffi_read_check_length_def]
-  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.ri2word_def,
-          ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.incPC_def,
-          ag32Theory.dfn'LoadConstant_def, APPLY_UPDATE_THM]
-  \\ simp[ag32Theory.dfn'JumpIfZero_def,ag32Theory.ri2word_def,
-          ag32Theory.ALU_def,ag32Theory.incPC_def,APPLY_UPDATE_THM]
-  \\ qmatch_goalsub_abbrev_tac`COND b1`
-  \\ qmatch_goalsub_abbrev_tac`if b2 then _  + _ else _`
-  \\ `b1 = ¬b2`
-  by (
-    unabbrev_all_tac
-    \\ Cases_on`cnd` \\ fs[]
-    \\ simp[NOT_LESS_EQUAL]
-    \\ fs [WORD_LO]
-    \\ Cases_on `ltll < off` \\ fs []
-    \\ fs [NOT_LESS]
-    \\ simp_tac std_ss [addressTheory.WORD_SUB_INTRO,addressTheory.word_arith_lemma2]
-    \\ fs [] \\ rw [v2w_sing])
-  \\ qpat_x_assum`Abbrev(b1 = _)`kall_tac
-  \\ simp[] \\ rveq
-  \\ IF_CASES_TAC
-  \\ simp[ag32Theory.ag32_state_component_equality]
-  \\ simp[ag32_ffi_read_check_length_code_def]
-  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
-  \\ qmatch_goalsub_abbrev_tac`if 4w = _ then r4 else _`
-  \\ qexists_tac`r4`
-  \\ qmatch_goalsub_abbrev_tac`if 6w = _ then r6 else _`
-  \\ qexists_tac`r6`
-  \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
-  \\ qexists_tac`r8`
-  \\ rw[] \\ fs[]
-  \\ EVAL_TAC \\ simp[] *));
 
 val ag32_ffi_write_write_header_def = Define`
   ag32_ffi_write_write_header s =
