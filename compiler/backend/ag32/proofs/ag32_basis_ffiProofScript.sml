@@ -1486,7 +1486,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ fs[]
   \\ fs[Abbr`s2`, APPLY_UPDATE_THM]
   \\ qhdtm_x_assum`ag32_ffi_write_num_written`kall_tac
-  \\ qspec_then`s3`mp_tac(ag32_ffi_write_copy_thm)
+  \\ qspec_then`s3`mp_tac(ag32_ffi_copy_thm)
   \\ qmatch_asmsub_abbrev_tac`LENGTH tll - off`
   \\ disch_then(qspec_then`TAKE (MIN n output_buffer_size) (DROP off tll)`mp_tac)
   \\ simp[]
@@ -1553,7 +1553,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ `B ∧ A` suffices_by rw[]
   \\ simp[Abbr`B`, FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ EVAL_TAC \\ simp[]
-  \\ qhdtm_x_assum`ag32_ffi_write_copy`kall_tac
+  \\ qhdtm_x_assum`ag32_ffi_copy`kall_tac
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_write_mem_update_def, ADD1]
   \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
@@ -2046,7 +2046,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ fs[]
   \\ fs[Abbr`s2`, APPLY_UPDATE_THM]
   \\ qhdtm_x_assum`ag32_ffi_write_num_written`kall_tac
-  \\ qspec_then`s3`mp_tac(ag32_ffi_write_copy_thm)
+  \\ qspec_then`s3`mp_tac(ag32_ffi_copy_thm)
   \\ qmatch_asmsub_abbrev_tac`LENGTH tll - off`
   \\ disch_then(qspec_then`TAKE (MIN n output_buffer_size) (DROP off tll)`mp_tac)
   \\ simp[]
@@ -2114,7 +2114,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ `B ∧ A` suffices_by rw[]
   \\ simp[Abbr`B`, FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ EVAL_TAC \\ simp[]
-  \\ qhdtm_x_assum`ag32_ffi_write_copy`kall_tac
+  \\ qhdtm_x_assum`ag32_ffi_copy`kall_tac
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_write_mem_update_def, ADD1]
   \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
