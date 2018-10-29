@@ -1218,8 +1218,16 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
       \\ disch_then kall_tac
       \\ drule ag32_enc_not_Interrupt
       \\ simp[] )
-    \\ cheat (* encoded asm step doesn't touch stdin pointer. may need to improve interference_implemented *)
-    )
+    \\ `∀i. i ≤ 8 ⇒ n2w (stdin_offset + i) ∉ md`
+    suffices_by (
+      simp[get_mem_word_def, LESS_OR_EQ, NUMERAL_LESS_THM, word_add_n2w]
+      \\ simp_tac(srw_ss()++DNF_ss)[]
+      \\ simp[] )
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ simp[LENGTH_code, LENGTH_data, ffi_names]
+    \\ simp[LESS_OR_EQ, NUMERAL_LESS_THM]
+    \\ rw[] \\ rw[])
   \\ conj_tac
   >- (
     strip_tac

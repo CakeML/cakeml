@@ -38,6 +38,7 @@ val interference_implemented_def = Define`
       (mc.target.get_pc ms ∈ mc.prog_addresses ∧
        encoded_bytes_in_mem mc.target.config (mc.target.get_pc ms)
          (mc.target.get_byte ms) mc.prog_addresses ∧
+       (∀x. x ∉ mc.prog_addresses ⇒ (mc.target.get_byte (mc.target.next ms) x = mc.target.get_byte ms x)) ∧
        mc.target.state_ok ms
       ⇒
         ∃k. (next_interfer (mc.target.next ms)
