@@ -664,7 +664,7 @@ val hello_good_init_state = Q.store_thm("hello_good_init_state",
       \\ pairarg_tac \\ fs[]
       \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result",CaseEq"ffi_result"]
       \\ rveq \\ fs[]
-      \\ simp[ag32_ffi_write_mem_update_def]
+      \\ simp[ag32_ffi_mem_update_def]
       \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray p new_bytes m2`
       \\ `asm_write_bytearray p new_bytes m2 a = asm_write_bytearray p new_bytes t1.mem a`
       by (

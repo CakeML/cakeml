@@ -35,8 +35,8 @@ val ag32_ccache_interfer_def = Define`
     ms with <| PC := (ms.R 0w) ;
                R := (0w =+ n2w (ffi_jumps_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
 
-val ag32_ffi_write_mem_update_def = Define`
-  ag32_ffi_write_mem_update name conf bytes new_bytes mem =
+val ag32_ffi_mem_update_def = Define`
+  ag32_ffi_mem_update name conf bytes new_bytes mem =
     if (name = "write") then
       if (HD new_bytes = 0w) then
         case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
@@ -44,6 +44,12 @@ val ag32_ffi_write_mem_update_def = Define`
           let written = TAKE k (DROP (w22n [off1; off0]) tll) in
             asm_write_bytearray (n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
       else ((n2w output_offset) =+ 1w) mem
+    else if (name = "read") then
+      case new_bytes of (zz :: k1 :: k0 :: _) =>
+        if (zz = 0w) then
+          set_mem_word (n2w stdin_offset)
+            (get_mem_word mem (n2w stdin_offset) + n2w (w22n [k1; k0])) mem
+        else mem
     else mem`;
 
 val ag32_ffi_interfer_def = Define`
@@ -52,7 +58,7 @@ val ag32_ffi_interfer_def = Define`
     let new_mem = ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
     let new_mem = asm_write_bytearray (ms.R 3w) new_bytes new_mem in
     let new_mem =
-      ag32_ffi_write_mem_update name
+      ag32_ffi_mem_update name
         (THE (read_bytearray (ms.R 1w) (w2n (ms.R 2w)) (λa. if a ∈ md then SOME (ms.MEM a) else NONE)))
         (THE (read_bytearray (ms.R 3w) (w2n (ms.R 4w)) (λa. if a ∈ md then SOME (ms.MEM a) else NONE)))
         new_bytes new_mem in
