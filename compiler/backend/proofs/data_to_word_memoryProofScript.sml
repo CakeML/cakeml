@@ -1422,10 +1422,6 @@ val isDataElement_lemmas = store_thm("isDataElement_lemmas[simp]",
 
 (* --- Allocating multiple cons-elements in one go --- *)
 
-val list_to_v_alt_def = Define `
-  list_to_v_alt t []     = t /\
-  list_to_v_alt t (h::l) = Block cons_tag [h; list_to_v_alt t l]`;
-
 val list_to_BlockReps_def = Define `
   list_to_BlockReps conf t a []     = ARB /\
   list_to_BlockReps conf t a (h::l) =
@@ -3763,7 +3759,7 @@ val word_ml_inv_num = Q.store_thm("word_ml_inv_num",
   \\ qexists_tac `hs` \\ fs [] \\ conj_tac
   THEN1
    (match_mp_tac abs_ml_inv_Num \\ fs []
-    \\ fs [bviSemTheory.small_enough_int_def]
+    \\ fs [backend_commonTheory.small_enough_int_def]
     \\ fs [small_int_def,Smallnum_def]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
   \\ fs [word_addr_def,Smallnum_def,GSYM word_mul_n2w]
@@ -3792,7 +3788,7 @@ val word_ml_inv_neg_num = Q.store_thm("word_ml_inv_neg_num",
   \\ qexists_tac `hs` \\ fs [] \\ conj_tac
   THEN1
    (match_mp_tac abs_ml_inv_Num \\ fs []
-    \\ fs [bviSemTheory.small_enough_int_def]
+    \\ fs [backend_commonTheory.small_enough_int_def]
     \\ fs [small_int_def,Smallnum_def]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
   \\ fs [word_addr_def,Smallnum_def,GSYM word_mul_n2w]
@@ -7219,7 +7215,7 @@ val Smallnum_1 = Q.store_thm("Smallnum_1",
   \\ fs[word_bit_test,Smallnum_bits]);
 
 val vb_size_def = tDefine"vb_size"`
-  (vb_size (Block ts t ls) = 1 + ts + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
+  (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
   (vb_size _ = 1n)`
 (WF_REL_TAC`measure v_size` \\
  ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
@@ -7234,7 +7230,7 @@ val memory_rel_pointer_eq_size = Q.store_thm("memory_rel_pointer_eq_size",
      vb_size v1 = vb_size v2`,
   ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[vb_size_def]
   \\ qhdtm_x_assum`memory_rel`mp_tac
-  \\ qid_spec_tac`n` \\ qid_spec_tac`n'` \\ qid_spec_tac`n0`
+  \\ qid_spec_tac`n` \\ qid_spec_tac`n0` \\ qid_spec_tac`n'`
   THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 1 3
   THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 2 3
   THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 6 4
@@ -7429,32 +7425,32 @@ val v1_size_map = Q.store_thm("v1_size_map",
   Induct \\ rw[v_size_def]);
 
 val v_depth_def = tDefine"v_depth"`
-  (v_depth (Block _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
+  (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
   (v_depth _ = 0n)`
 (WF_REL_TAC`measure v_size` \\
- gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
+ ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
  \\ res_tac \\ rw[]);
 val _ = export_rewrites["v_depth_def"];
 
 val v_depth_ind = theorem"v_depth_ind";
 
-val clear_pointers_def = tDefine"clear_pointers_def"`
-  (clear_pointers (Block t ls) = Block t (MAP clear_pointers ls)) ∧
-  (clear_pointers (CodePtr _) = CodePtr 0) ∧
-  (clear_pointers (RefPtr _) = RefPtr 0) ∧
-  (clear_pointers x = x)`
-(WF_REL_TAC`measure v_size` \\
- gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]);
+(* val clear_pointers_def = tDefine"clear_pointers_def"` *)
+(*   (clear_pointers (Block ts t ls) = Block ts t (MAP clear_pointers ls)) ∧ *)
+(*   (clear_pointers (CodePtr _) = CodePtr 0) ∧ *)
+(*   (clear_pointers (RefPtr _) = RefPtr 0) ∧ *)
+(*   (clear_pointers x = x)` *)
+(* (WF_REL_TAC`measure v_size` \\ *)
+(*  ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[] *)
+(*  \\ res_tac \\ rw[]); *)
 
-val vb_size_clear = Q.store_thm("vb_size_clear",
-  `∀v. vb_size v = v_size (clear_pointers v)`,
-  ho_match_mp_tac vb_size_ind
-  \\ rw[v_size_def,vb_size_def,clear_pointers_def,v1_size_map]
-  \\ AP_TERM_TAC \\ rw[MAP_MAP_o,MAP_EQ_f]);
+(* val vb_size_clear = Q.store_thm("vb_size_clear", *)
+(*   `∀v. vb_size v = v_size (clear_pointers v)`, *)
+(*   ho_match_mp_tac vb_size_ind *)
+(*   \\ rw[v_size_def,vb_size_def,clear_pointers_def,v1_size_map] *)
+(*   \\ AP_TERM_TAC \\ rw[MAP_MAP_o,MAP_EQ_f]); *)
 
 val v_inv_Block_tag_limit = Q.store_thm("v_inv_Block_tag_limit",
-  `v_inv c (Block n l) (v,f,(heap:'a ml_heap)) ∧
+  `v_inv c (Block ts n l) (v,f,(heap:'a ml_heap)) ∧
    heap_in_memory_store heap a sp sp1 gens c s m (dm:'a word set) limit
   ⇒ n < dimword(:'a) DIV 16`,
   rw[v_inv_def] \\ fs[BlockRep_def]
@@ -7469,7 +7465,7 @@ val elements_list_def = Define`
   (elements_list [] = T) ∧
   (elements_list [v] = T) ∧
   (elements_list (v::w::vs) =
-   ∃t ls. w = Block t ls ∧ MEM v ls ∧ elements_list (w::vs))`;
+   ∃ts t ls. w = Block ts t ls ∧ MEM v ls ∧ elements_list (w::vs))`;
 val _ = export_rewrites["elements_list_def"];
 
 val elements_list_ind = theorem"elements_list_ind";
@@ -7525,17 +7521,17 @@ val memory_rel_elements_list_distinct = Q.store_thm("memory_rel_elements_list_di
   \\ Cases_on`vars` \\ fs[]
   \\ qmatch_assum_rename_tac`_ :: _ = MAP FST l1` \\ rveq
   \\ Cases_on`l1` \\ fs[] \\ rveq
-  \\ qmatch_assum_rename_tac`Block _ _ = FST p`
+  \\ qmatch_assum_rename_tac`Block _ _ _ = FST p`
   \\ Cases_on`p` \\ fs[]
   \\ qmatch_assum_rename_tac`MEM (FST p) ls`
   \\ Cases_on`p` \\ fs[] \\ rveq
-  \\ qmatch_asmsub_rename_tac`(Block t ls,wb)`
-  \\ qmatch_asmsub_rename_tac`Block t ls :: MAP FST l1`
-  \\ first_x_assum(qspec_then`(Block t ls,wb)::l1`mp_tac)
+  \\ qmatch_asmsub_rename_tac`(Block ts t ls,wb)`
+  \\ qmatch_asmsub_rename_tac`Block ts t ls :: MAP FST l1`
+  \\ first_x_assum(qspec_then`(Block ts t ls,wb)::l1`mp_tac)
   \\ simp[]
   \\ rpt_drule memory_rel_tail \\ simp[]
   \\ strip_tac \\ strip_tac
-  \\ qmatch_asmsub_rename_tac`(v,w)::(Block _ _,_)::_`
+  \\ qmatch_asmsub_rename_tac`(v,w)::(Block _ _ _,_)::_`
   \\ Cases_on`w = wb` \\ fs[]
   >- (
     rpt_drule memory_rel_pointer_eq_size
@@ -7573,7 +7569,7 @@ val memory_rel_elements_list_words = Q.store_thm("memory_rel_elements_list_words
   \\ rw[] \\ rw[] \\ Cases_on`vars` \\ fs[]
   \\ qmatch_assum_rename_tac`_ :: _ = MAP FST l1` \\ rveq
   \\ Cases_on`l1` \\ fs[] \\ rveq
-  \\ qmatch_assum_rename_tac`Block _ _ = FST p`
+  \\ qmatch_assum_rename_tac`Block _ _ _ = FST p`
   \\ Cases_on`p` \\ fs[]
   \\ qmatch_assum_rename_tac`MEM (FST p) ls`
   \\ Cases_on`p` \\ fs[] \\ rveq
@@ -7706,7 +7702,7 @@ val memory_rel_ptr_eq = Q.store_thm("memory_rel_ptr_eq",
 
 val memory_rel_Block_Block_small_eq = prove(
   ``memory_rel c be refs sp st m dm
-      ((Block t1 v1,Word (w1:'a word))::(Block t2 v2,Word w2)::vars) /\
+      ((Block ts1 t1 v1,Word (w1:'a word))::(Block ts2 t2 v2,Word w2)::vars) /\
     good_dimindex (:'a) /\ w1 <> w2 /\ ¬word_bit 0 w1 ==>
     LENGTH v1 <> LENGTH v2 \/ t1 <> t2``,
   rw [] \\ drule memory_rel_Block_IMP \\ fs []
@@ -7864,7 +7860,7 @@ val bit_pattern_1100 = store_thm("bit_pattern_1100[simp]",
   \\ metis_tac [DECIDE ``2 < 32n /\ 2 < 64n /\ 3 < 32n /\ 3 < 64n``]);
 
 val memory_rel_isClos = prove(
-  ``memory_rel c be refs sp st m dm ((Block t1 v1,Word (w1:'a word))::vars) /\
+  ``memory_rel c be refs sp st m dm ((Block ts1 t1 v1,Word (w1:'a word))::vars) /\
     word_bit 0 w1 /\
     get_real_addr c st w1 = SOME a' /\ m a' = Word x' /\ good_dimindex (:'a) ==>
     (isClos t1 v1 <=> word_is_clos c x')``,
@@ -7908,11 +7904,11 @@ val eq_assum_APPEND = prove(
 
 val memory_rel_Block_explode_lemma = prove(
   ``!n.
-      memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
+      memory_rel c be refs sp st m dm ((Block ts1 t1 v1,Word w1)::vars) /\
       word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
       memory_rel c be refs sp st m dm
         (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++
-         (Block t1 v1,Word (w1:'a word))::vars) /\
+         (Block ts1 t1 v1,Word (w1:'a word))::vars) /\
       eq_assum (a + bytes_in_word) m dm (TAKE n v1)``,
   Induct THEN1
    (fs [TAKE_def,eq_explode_def,eq_assum_def] \\ rw []
@@ -7924,7 +7920,7 @@ val memory_rel_Block_explode_lemma = prove(
   \\ fs [] \\ ntac 2 strip_tac
   \\ fs [eq_explode_APPEND,eq_explode_def,eq_assum_APPEND,eq_assum_def]
   \\ `memory_rel c be refs sp st m dm
-        ((Block t1 v1,Word w1)::
+        ((Block ts1 t1 v1,Word w1)::
          (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++ vars))` by
    (qpat_x_assum `memory_rel c be refs sp st m dm _` kall_tac
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
@@ -7938,7 +7934,7 @@ val memory_rel_Block_explode_lemma = prove(
   \\ fs [] \\ rw [] \\ fs []);
 
 val memory_rel_Block_explode = store_thm("memory_rel_Block_explode",
-  ``memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
+  ``memory_rel c be refs sp st m dm ((Block ts1 t1 v1,Word w1)::vars) /\
     word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
     memory_rel c be refs sp st m dm
       (eq_explode (a + bytes_in_word:'a word) m dm v1 ++ vars) /\
@@ -8311,7 +8307,7 @@ val word_eq_thm0 = prove(
     \\ rpt_drule memory_rel_Block_explode
     \\ strip_tac
     \\ `memory_rel c be refs sp st m dm
-         ((Block t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
+         ((Block v29 t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
           vars))` by
      (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
