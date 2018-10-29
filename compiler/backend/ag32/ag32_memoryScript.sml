@@ -56,6 +56,18 @@ val dfn'Normal_MEM = Q.store_thm("dfn'Normal_MEM",
   \\ simp[ag32Theory.ALU_def]
   \\ PURE_TOP_CASE_TAC \\ simp[ag32Theory.incPC_def]);
 
+val dfn'LoadMEM_PC = Q.store_thm("dfn'LoadMEM_PC",
+  `(dfn'LoadMEM x s).PC = s.PC + 4w`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'LoadMEM_def]
+  \\ simp[ag32Theory.incPC_def]);
+
+val dfn'LoadMEM_MEM = Q.store_thm("dfn'LoadMEM_MEM",
+  `(dfn'LoadMEM x s).MEM = s.MEM`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'LoadMEM_def]
+  \\ simp[ag32Theory.incPC_def]);
+
 val dfn'LoadMEMByte_PC = Q.store_thm("dfn'LoadMEMByte_PC",
   `(dfn'LoadMEMByte x s).PC = s.PC + 4w`,
   PairCases_on`x`

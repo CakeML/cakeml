@@ -21,7 +21,9 @@ val first_tac =
    rw[ag32_ffi_write_check_lengths_def,
       ag32_ffi_write_load_noff_def,
       ag32_ffi_write_check_conf_def,
-      ag32_ffi_read_check_conf_def]
+      ag32_ffi_read_check_conf_def,
+      ag32_ffi_read_load_lengths_def,
+      ag32_ffi_read_check_length_def]
   \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
   \\ rw[ag32Theory.Next_def]
   \\ qmatch_goalsub_abbrev_tac`pc + 2w`
@@ -37,6 +39,8 @@ val first_tac =
           ag32_ffi_write_load_noff_code_def,
           ag32_ffi_write_check_conf_code_def,
           ag32_ffi_read_check_conf_code_def,
+          ag32_ffi_read_load_lengths_code_def,
+          ag32_ffi_read_check_length_code_def,
           ag32Theory.Run_def];
 
 fun next_tac n =
@@ -51,6 +55,7 @@ fun next_tac n =
     \\ `^sn.PC = s.PC + n2w(4 * ^(numSyntax.term_of_int n))`
     by ( simp[Abbr`^sn`,
               dfn'Normal_PC,
+              dfn'LoadMEM_PC,
               dfn'LoadMEMByte_PC,
               dfn'Shift_PC,
               dfn'LoadConstant_PC] )
@@ -72,10 +77,13 @@ fun next_tac n =
                           ag32_ffi_write_num_written_code_def,
                           ag32_ffi_copy_code_def,
                           ag32_ffi_return_code_def,
-                          ag32_ffi_read_check_conf_code_def]
+                          ag32_ffi_read_check_conf_code_def,
+                          ag32_ffi_read_load_lengths_code_def,
+                          ag32_ffi_read_check_length_code_def]
     \\ `^sn.MEM = s.MEM`
     by simp[Abbr`^sn`,
             dfn'Normal_MEM,
+            dfn'LoadMEM_MEM,
             dfn'LoadMEMByte_MEM,
             dfn'Shift_MEM,
             dfn'LoadConstant_MEM]
@@ -2051,6 +2059,26 @@ val ag32_ffi_read_check_conf_code_thm = Q.store_thm("ag32_ffi_read_check_conf_co
    ∃k. (FUNPOW Next k s = ag32_ffi_read_check_conf s)`,
   first_tac
   \\ EVERY (List.tabulate(32, next_tac o (curry(op +)1)))
+  \\ rw[Once EXISTS_NUM]);
+
+val ag32_ffi_read_load_lengths_code_thm = Q.store_thm("ag32_ffi_read_load_lengths_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_read_load_lengths_code ⇒
+        (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi_read_load_lengths_code))) ∧ byte_aligned s.PC
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_read_load_lengths s)`,
+  first_tac
+  \\ EVERY (List.tabulate(10, next_tac o (curry(op +)1)))
+  \\ rw[Once EXISTS_NUM]);
+
+val ag32_ffi_read_check_length_code_thm = Q.store_thm("ag32_ffi_read_check_length_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_read_check_length_code ⇒
+        (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi_read_check_length_code))) ∧ byte_aligned s.PC
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_read_check_length s)`,
+  first_tac
+  \\ EVERY (List.tabulate(4, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
