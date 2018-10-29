@@ -1098,7 +1098,7 @@ val ag32_ffi_read_num_written_def = Define`
    s`;
 
 val ag32_ffi_read_num_written_thm = Q.store_thm("ag32_ffi_read_num_written_thm",
-  `bytes_in_memory (s.R 3w) (0w::n0::pad1::pad2::tll) s.MEM md ∧
+  `bytes_in_memory (s.R 3w) (n1::n0::pad1::pad2::tll) s.MEM md ∧
    (s.R 1w = n2w n) ∧
    (s.R 5w = n2w off) ∧
    (s.R 7w = n2w lcmo) ∧

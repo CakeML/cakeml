@@ -1943,66 +1943,28 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ irule asm_write_bytearray_EL
     \\ simp[] )
   \\ pop_assum mp_tac \\ simp[markerTheory.Abbrev_def] \\ strip_tac
-  \\ cheat (* to be updated *));
-(*
-  \\ qspec_then`s1`mp_tac(Q.GEN`s`ag32_ffi_write_write_header_thm)
-  \\ impl_tac
-  >- (
-    simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
-    \\ qpat_x_assum`s.R 3w ∈ _`mp_tac
-    \\ simp[Abbr`md`]
-    \\ EVAL_TAC
-    \\ fs[FFI_codes_def]
-    \\ simp[LEFT_ADD_DISTRIB]
-    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
-    \\ fs[memory_size_def, word_ls_n2w, word_lo_n2w] )
-  \\ strip_tac
-  \\ qmatch_asmsub_abbrev_tac`_ = s2`
-  \\ fs[]
-  \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
-  \\ qhdtm_x_assum`ag32_ffi_write_write_header`kall_tac
-  \\ qmatch_asmsub_abbrev_tac`1w =+ n2w n`
-  \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`k`]ag32_ffi_write_num_written_thm)
+  \\ qspecl_then[`s1`,`w22n[n1;n0]`,`len - off`]mp_tac(Q.GENL[`s`,`n`,`lcmo`,`k`]ag32_ffi_read_num_written_thm)
   \\ simp[]
   \\ impl_tac
   >- (
-    simp[Abbr`s2`, APPLY_UPDATE_THM]
+    simp[Abbr`s1`, APPLY_UPDATE_THM]
     \\ reverse conj_tac
     >- (
-      simp[Abbr`n`, MarshallingTheory.w22n_def]
-      \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[] )
+      simp[MarshallingTheory.w22n_def]
+      \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[]
+      \\ fs[stdin_size_def])
     \\ fs[asmSemTheory.bytes_in_memory_def]
     \\ simp[APPLY_UPDATE_THM]
     \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
     \\ rveq
-    \\ DEP_REWRITE_TAC[asm_write_bytearray_append]
-    \\ simp[EVAL``output_offset``]
-    \\ fs[memory_size_def, word_add_n2w]
-    \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
-    \\ EVAL_TAC \\ fs[]
-    \\ qpat_x_assum`n2w n' ∈ _`mp_tac
+    \\ fs[EVAL``ffi_code_start_offset``]
+    \\ rpt(qpat_x_assum`_ ∈ md`mp_tac)
     \\ simp[Abbr`md`]
     \\ EVAL_TAC \\ simp[LEFT_ADD_DISTRIB]
     \\ fs[FFI_codes_def]
     \\ fs[EVAL``code_start_offset _``]
-    \\ fs[word_ls_n2w, word_lo_n2w]
-    \\ disch_then assume_tac
-    \\ conj_tac
-    >- (
-      irule asm_write_bytearray_unchanged
-      \\ simp[APPLY_UPDATE_THM]
-      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
-    \\ conj_tac
-    >- (
-      irule asm_write_bytearray_unchanged
-      \\ simp[APPLY_UPDATE_THM]
-      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
-    \\ conj_tac
-    >- (
-      irule asm_write_bytearray_unchanged
-      \\ simp[APPLY_UPDATE_THM]
-      \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+    \\ fs[word_ls_n2w, word_lo_n2w, memory_size_def]
+    \\ rpt (disch_then assume_tac)
     \\ qhdtm_x_assum`bytes_in_memory`mp_tac
     \\ EVAL_TAC \\ simp[LEFT_ADD_DISTRIB]
     \\ strip_tac
@@ -2010,17 +1972,15 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM]
     \\ qx_gen_tac`z` \\ strip_tac
-    \\ simp[word_add_n2w]
-    \\ match_mp_tac EQ_SYM
-    \\ irule asm_write_bytearray_unchanged
-    \\ simp[word_add_n2w, APPLY_UPDATE_THM]
-    \\ simp[word_ls_n2w, word_lo_n2w])
+    \\ simp[word_add_n2w])
   \\ strip_tac
-  \\ qmatch_asmsub_abbrev_tac`_ = s3`
+  \\ qmatch_asmsub_abbrev_tac`_ = s2`
   \\ fs[]
-  \\ fs[Abbr`s2`, APPLY_UPDATE_THM]
-  \\ qhdtm_x_assum`ag32_ffi_write_num_written`kall_tac
-  \\ qspec_then`s3`mp_tac(ag32_ffi_copy_thm)
+  \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ qhdtm_x_assum`ag32_ffi_read_num_written`kall_tac
+  \\ qspec_then`s2`mp_tac(ag32_ffi_copy_thm)
+  \\ cheat (* to be updated *));
+(*
   \\ qmatch_asmsub_abbrev_tac`LENGTH tll - off`
   \\ disch_then(qspec_then`TAKE (MIN n output_buffer_size) (DROP off tll)`mp_tac)
   \\ simp[]
