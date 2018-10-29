@@ -1170,49 +1170,56 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ simp[]
     \\ simp[ag32_ffi_rel_def, FUN_EQ_THM]
     \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
-    \\ `(Next ms1).io_events = ms1.io_events` suffices_by rw[]
-    \\ irule ag32_io_events_unchanged
-    \\ simp[Abbr`ms1`]
-    \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def, EVAL``(hello_machine_config).target.state_ok``]
-    \\ qmatch_goalsub_abbrev_tac`m (pc' + _)`
-    \\ `pc' = pc`
-    by (
-      simp[Abbr`pc'`]
-      \\ pop_assum mp_tac
-      \\ simp[alignmentTheory.aligned_extract]
-      \\ blastLib.BBLAST_TAC )
-    \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
-    \\ pop_assum SUBST_ALL_TAC
-    \\ fs[targetSemTheory.encoded_bytes_in_mem_def]
-    \\ fs[EVAL``(hello_machine_config).target.config.code_alignment``]
-    \\ fs[EVAL``(hello_machine_config).target.config.encode``]
-    \\ `4 ≤ LENGTH (DROP (4 * k) (ag32_enc i))` by (
-      qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+    \\ `((Next ms1).io_events = ms1.io_events) ∧
+        ((get_mem_word (Next ms1).MEM (n2w stdin_offset) = get_mem_word m (n2w stdin_offset)) ∧
+         (get_mem_word (Next ms1).MEM (n2w (stdin_offset + 4)) = get_mem_word m (n2w (stdin_offset + 4))))`
+       suffices_by rw[]
+    \\ conj_tac
+    >- (
+      irule ag32_io_events_unchanged
+      \\ simp[Abbr`ms1`]
+      \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def, EVAL``(hello_machine_config).target.state_ok``]
+      \\ qmatch_goalsub_abbrev_tac`m (pc' + _)`
+      \\ `pc' = pc`
+      by (
+        simp[Abbr`pc'`]
+        \\ pop_assum mp_tac
+        \\ simp[alignmentTheory.aligned_extract]
+        \\ blastLib.BBLAST_TAC )
+      \\ qpat_x_assum`Abbrev(pc' = _)`kall_tac
+      \\ pop_assum SUBST_ALL_TAC
+      \\ fs[targetSemTheory.encoded_bytes_in_mem_def]
+      \\ fs[EVAL``(hello_machine_config).target.config.code_alignment``]
+      \\ fs[EVAL``(hello_machine_config).target.config.encode``]
+      \\ `4 ≤ LENGTH (DROP (4 * k) (ag32_enc i))` by (
+        qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+        \\ simp[]
+        \\ strip_tac \\ fs[]
+        \\ Cases_on`k` \\ fs[]
+        \\ Cases_on`n` \\ fs[]
+        \\ Cases_on`n'` \\ fs[]
+        \\ Cases_on`n` \\ fs[] )
+      \\ `∀j. j < 4 ⇒ (m (pc + n2w j) = EL j (DROP (4 * k) (ag32_enc i)))`
+      by (
+        qmatch_asmsub_abbrev_tac`bytes_in_memory pc bs`
+        \\ rw[]
+        \\ Q.ISPECL_THEN[`TAKE j bs`,`DROP j bs`,`pc`]mp_tac asmPropsTheory.bytes_in_memory_APPEND
+        \\ simp[]
+        \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+        \\ simp[]
+        \\ Cases_on`DROP j bs` \\ fs[DROP_NIL]
+        \\ simp[asmSemTheory.bytes_in_memory_def]
+        \\ rw[]
+        \\ `j < LENGTH bs` by fs[]
+        \\ imp_res_tac DROP_EL_CONS
+        \\ rfs[] )
       \\ simp[]
-      \\ strip_tac \\ fs[]
-      \\ Cases_on`k` \\ fs[]
-      \\ Cases_on`n` \\ fs[]
-      \\ Cases_on`n'` \\ fs[]
-      \\ Cases_on`n` \\ fs[] )
-    \\ `∀j. j < 4 ⇒ (m (pc + n2w j) = EL j (DROP (4 * k) (ag32_enc i)))`
-    by (
-      qmatch_asmsub_abbrev_tac`bytes_in_memory pc bs`
-      \\ rw[]
-      \\ Q.ISPECL_THEN[`TAKE j bs`,`DROP j bs`,`pc`]mp_tac asmPropsTheory.bytes_in_memory_APPEND
-      \\ simp[]
-      \\ disch_then(drule o #1 o EQ_IMP_RULE o SPEC_ALL)
-      \\ simp[]
-      \\ Cases_on`DROP j bs` \\ fs[DROP_NIL]
-      \\ simp[asmSemTheory.bytes_in_memory_def]
-      \\ rw[]
-      \\ `j < LENGTH bs` by fs[]
-      \\ imp_res_tac DROP_EL_CONS
-      \\ rfs[] )
-    \\ simp[]
-    \\ pop_assum(qspec_then`0`mp_tac) \\ simp[]
-    \\ disch_then kall_tac
-    \\ drule ag32_enc_not_Interrupt
-    \\ simp[] )
+      \\ pop_assum(qspec_then`0`mp_tac) \\ simp[]
+      \\ disch_then kall_tac
+      \\ drule ag32_enc_not_Interrupt
+      \\ simp[] )
+    \\ cheat (* encoded asm step doesn't touch stdin pointer. may need to improve interference_implemented *)
+    )
   \\ conj_tac
   >- (
     strip_tac
@@ -1592,7 +1599,13 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
       \\ rpt(disch_then drule)
       \\ fs[is_ag32_init_state_def])
     \\ simp[basis_ffiTheory.basis_ffi_def]
-    \\ simp[ag32_fs_ok_stdin_fs])
+    \\ simp[ag32_fs_ok_stdin_fs]
+    \\ simp[Abbr`ms`]
+    \\ mp_tac hello_startup_clock_def
+    \\ simp[]
+    \\ rpt(disch_then drule)
+    \\ strip_tac
+    \\ cheat (* initial stdin offset and length are correct *))
   \\ strip_tac
   \\ mp_tac (GEN_ALL hello_halted)
   \\ simp[]

@@ -662,7 +662,7 @@ val ag32_ffi_read_check_length_code_def = Define`
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [n1; n0] *)
      Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
                                                   w22n [n1; n0] ≤ LENGTH tll *)
-     LoadConstant (4w, F, 4w * 20w);
+     LoadConstant (4w, F, 4w * 26w);
      JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
 
 val ag32_ffi_read_num_written_code_def = Define`
@@ -1016,7 +1016,7 @@ val ag32_ffi_read_check_length_def = Define`
    let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
    let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 8w) s in
-   let s = dfn'LoadConstant (4w, F, 4w * 20w) s in
+   let s = dfn'LoadConstant (4w, F, 4w * 26w) s in
    let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
    s`;
 
@@ -1028,7 +1028,7 @@ val ag32_ffi_read_check_length_thm = Q.store_thm("ag32_ffi_read_check_length_thm
    (ag32_ffi_read_check_length s =
     s with <| PC := if cnd ∧ n ≤ ltll
                     then s.PC + n2w (4 * LENGTH ag32_ffi_read_check_length_code)
-                    else s.PC + n2w (4 * (LENGTH ag32_ffi_read_check_length_code + 19)) ;
+                    else s.PC + n2w (4 * (LENGTH ag32_ffi_read_check_length_code + 25)) ;
               R := ((8w =+ r8)
                    ((6w =+ r6)
                    ((4w =+ r4) s.R)));
