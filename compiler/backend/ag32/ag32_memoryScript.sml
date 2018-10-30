@@ -26,6 +26,14 @@ val set_mem_word_def = Define`
     ((a + 2w =+ (((23 >< 16) w):word8)) o
     ((a + 3w =+ (((31 >< 24) w):word8))))))`;
 
+val set_mem_word_neq = Q.store_thm("set_mem_word_neq",`
+  x ≠ k ∧
+  x +1w ≠ k ∧
+  x +2w ≠ k ∧
+  x +3w ≠ k ⇒
+  set_mem_word x y m k = m k`,
+  EVAL_TAC>>fs[]);
+
 (* TODO: copied from stack_allocProofTheory *)
 val good_dimindex_32 = store_thm("good_dimindex_32",
   ``(byte_aligned (w:word32) <=>
@@ -52,6 +60,33 @@ val get_mem_word_set_mem_word = Q.store_thm("get_mem_word_set_mem_word",
       CCONTR_TAC>> pop_assum kall_tac>>
       blastLib.FULL_BBLAST_TAC))>>
     blastLib.BBLAST_TAC));
+
+val get_mem_word_asm_write_bytearray_UNCHANGED_LT = Q.store_thm("get_mem_word_asm_write_bytearray_UNCHANGED_LT",`
+  (pc <+ a) ∧
+  (pc+1w <+ a) ∧
+  (pc+2w <+ a) ∧
+  (pc+3w <+ a) ∧
+  w2n a + LENGTH ls < dimword(:32)
+  ⇒
+  get_mem_word
+    (asm_write_bytearray a ls m) pc =
+  get_mem_word m pc`,
+  rw[]>>
+  imp_res_tac asm_write_bytearray_unchanged>>
+  fs[get_mem_word_def]);
+
+val get_mem_word_UPDATE = Q.store_thm("get_mem_word_UPDATE",`
+  pc ≠ k ∧
+  pc+1w ≠ k ∧
+  pc+2w ≠ k ∧
+  pc+3w ≠ k
+  ⇒
+  get_mem_word
+    ((k =+ v) m) pc =
+  get_mem_word m pc`,
+  rw[]>>
+  fs[get_mem_word_def] >>
+  fs[APPLY_UPDATE_THM]);
 
 val dfn'Normal_PC = Q.store_thm("dfn'Normal_PC",
   `(dfn'Normal x s).PC = s.PC + 4w`,

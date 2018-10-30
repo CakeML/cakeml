@@ -1173,7 +1173,7 @@ val hello_interference_implemented = Q.store_thm("hello_interference_implemented
     \\ `((Next ms1).io_events = ms1.io_events) ∧
         ((get_mem_word (Next ms1).MEM (n2w stdin_offset) = get_mem_word m (n2w stdin_offset)) ∧
          (get_mem_word (Next ms1).MEM (n2w (stdin_offset + 4)) = get_mem_word m (n2w (stdin_offset + 4))))`
-       suffices_by rw[]
+       suffices_by rw[ag32_stdin_implemented_def]
     \\ conj_tac
     >- (
       irule ag32_io_events_unchanged
