@@ -19,6 +19,7 @@ val wc_lines_def = Define`
 val res = translate splitwords_def;
 val res = translate wc_lines_def;
 
+(* TODO: move *)
 val inputLinesFromAny = process_topdecs`
   fun inputLinesFromAny fnameopt =
     case fnameopt of
@@ -29,7 +30,7 @@ val () = append_prog inputLinesFromAny;
 
 val inputLinesFromAny_spec = Q.store_thm("inputLinesFromAny_spec",
   `OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
-  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),0)))
+  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0)))
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
     [fov] (STDIO fs)
@@ -48,7 +49,7 @@ val inputLinesFromAny_spec = Q.store_thm("inputLinesFromAny_spec",
     by (
       simp[get_file_content_def, PULL_EXISTS]
       \\ fs[STD_streams_def]
-      \\ last_x_assum(qspecl_then[`0`,`inp`]mp_tac)
+      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
       \\ simp[] \\ strip_tac
       \\ fs[wfFS_def]
       \\ imp_res_tac ALOOKUP_MEM
@@ -65,18 +66,20 @@ val inputLinesFromAny_spec = Q.store_thm("inputLinesFromAny_spec",
       \\ simp[all_lines_def]
       \\ fs[get_file_content_def]
       \\ fs[STD_streams_def]
-      \\ last_x_assum(qspecl_then[`0`,`inp`]mp_tac)
+      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
       \\ rw[]
       \\ pairarg_tac \\ fs[]
       \\ fs[lines_of_def] )
     \\ qexists_tac`emp`
     \\ xsimpl
     \\ mp_tac stdin_v_thm
+    \\ drule STD_streams_get_mode
     \\ simp[stdIn_def]
     \\ EVAL_TAC )
   \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   \\ xapp
   \\ fs[]);
+(* -- *)
 
 val wordcount = process_topdecs`
   fun wordcount u =
@@ -95,7 +98,7 @@ val wordcount_precond_def = Define`
         ALOOKUP fs.files (File fname) = SOME contents ∧
         fs' = fs
     | _ =>
-      ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),0) ∧
+      ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0) ∧
       ALOOKUP fs.files (IOStream (strlit"stdin")) = SOME contents ∧
       fs' = fastForwardFD fs 0`;
 

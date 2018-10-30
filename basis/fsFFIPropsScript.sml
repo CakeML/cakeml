@@ -1061,4 +1061,12 @@ val get_mode_forwardFD = Q.store_thm("get_mode_forwardFD[simp]",
   rw[get_mode_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]);
 
+val STD_streams_get_mode = Q.store_thm("STD_streams_get_mode",
+  `STD_streams fs ⇒
+   (get_mode fs 0 = SOME ReadMode) ∧
+   (get_mode fs 1 = SOME WriteMode) ∧
+   (get_mode fs 2 = SOME WriteMode)`,
+  rw[STD_streams_def, get_mode_def, EXISTS_PROD]
+  \\ metis_tac[]);
+
 val _ = export_theory();
