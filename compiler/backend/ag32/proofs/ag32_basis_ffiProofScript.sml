@@ -2069,9 +2069,18 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ simp[Abbr`B`, FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ EVAL_TAC \\ simp[]
   \\ simp[Abbr`A`]
-  \\ cheat (* to be updated *));
-(*
   \\ simp[ag32_ffi_mem_update_def, ADD1]
+  \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
+  \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[LUPDATE_def]
+  >- (
+    fs[fsFFITheory.read_def, ag32_fs_ok_def]
+    >- metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]
+    \\ pairarg_tac \\ fs[]
+    \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE] )
+  \\ fs[fsFFITheory.read_def]
+  \\ pairarg_tac \\ fs[]
+  \\ cheat);
+(*
   \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
   \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ bs'`
   \\ `bs = SOME bs'`
