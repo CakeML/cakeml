@@ -362,6 +362,27 @@ val ag32_ffi_copy_code_thm = Q.store_thm("ag32_ffi_copy_code_thm",
   \\ first_x_assum drule
   \\ fs[word_add_n2w]);
 
+val ag32_ffi_read_set_id_code_thm = Q.store_thm(
+  "ag32_ffi_read_set_id_code_thm",
+  ‘(∀k. k < LENGTH ag32_ffi_read_set_id_code ⇒
+         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi_read_set_id_code)) ∧ byte_aligned s.PC
+     ⇒
+   ∃k. FUNPOW Next k s = ag32_ffi_read_set_id s’
+  rw[ag32_ffi_read_set_id_def] >> qexists_tac `SUC (SUC 0)` >> simp[FUNPOW] >>
+  simp[ag32Theory.Next_def] >> drule byte_aligned_imp >> rw[] >>
+  rw[GSYM get_mem_word_def] >>
+  first_assum (qspec_then ‘0’ mp_tac) >>
+  simp_tac (srw_ss()) [ag32_ffi_read_set_id_code_def] >>
+  disch_then kall_tac >>
+  simp[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def,
+       ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def] >>
+  ‘byte_aligned (s.PC + 4w)’ by (irule byte_aligned_add >> simp[] >> EVAL_TAC)>>
+  drule byte_aligned_imp >> simp[] >>
+  rpt (disch_then kall_tac) >>
+  first_x_assum (qspec_then ‘1’ mp_tac) >>
+  simp[ag32_ffi_read_set_id_code_def, ag32_targetProofTheory.Decode_Encode]);
+
 val ag32_ffi_write_set_id_code_thm = Q.store_thm("ag32_ffi_write_set_id_code_thm",
   `(∀k. k < LENGTH ag32_ffi_write_set_id_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
