@@ -26,19 +26,32 @@ val set_mem_word_def = Define`
     ((a + 2w =+ (((23 >< 16) w):word8)) o
     ((a + 3w =+ (((31 >< 24) w):word8))))))`;
 
+(* TODO: copied from stack_allocProofTheory *)
+val good_dimindex_32 = store_thm("good_dimindex_32",
+  ``(byte_aligned (w:word32) <=>
+     ((w && 3w) = 0w))``,
+  fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]);
+
 val get_mem_word_set_mem_word = Q.store_thm("get_mem_word_set_mem_word",
   `byte_aligned a ∧ byte_aligned x ⇒
    (get_mem_word (set_mem_word a w m) x =
     if a = x then w else get_mem_word m x)`,
-  cheat);
-  (*
-  rw[get_mem_word_def, set_mem_word_def, APPLY_UPDATE_THM]
-  \\ fs[addressTheory.WORD_EQ_ADD_CANCEL]
-  \\ TRY (
-    fs[alignmentTheory.byte_aligned_def,
-       GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_ADD_EQ]
-    \\ fs[addressTheory.ALIGNED_n2w] \\ NO_TAC)
-  *)
+  rw[get_mem_word_def,set_mem_word_def]>>
+  fs[APPLY_UPDATE_THM]
+  >-
+    (rpt
+    (IF_CASES_TAC>- (
+      CCONTR_TAC>>
+      qpat_x_assum`a = _` mp_tac>>
+      blastLib.BBLAST_TAC))>>
+    blastLib.BBLAST_TAC)
+  >>
+  fs[good_dimindex_32]>>
+  (rpt
+    (IF_CASES_TAC>- (
+      CCONTR_TAC>> pop_assum kall_tac>>
+      blastLib.FULL_BBLAST_TAC))>>
+    blastLib.BBLAST_TAC));
 
 val dfn'Normal_PC = Q.store_thm("dfn'Normal_PC",
   `(dfn'Normal x s).PC = s.PC + 4w`,

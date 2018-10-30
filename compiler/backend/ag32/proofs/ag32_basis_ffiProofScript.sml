@@ -2395,6 +2395,55 @@ val ag32_fs_ok_ffi_read = Q.store_thm("ag32_fs_ok_ffi_read",
   \\ every_case_tac \\ fs[]
   \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]);
 
+val get_mem_word_asm_write_bytearray_UNCHANGED_LT = Q.store_thm("get_mem_word_asm_write_bytearray_UNCHANGED_LT",`
+  (pc <+ a) ∧
+  (pc+1w <+ a) ∧
+  (pc+2w <+ a) ∧
+  (pc+3w <+ a) ∧
+  w2n a + LENGTH ls < dimword(:32)
+  ⇒
+  get_mem_word
+    (asm_write_bytearray a ls m) pc =
+  get_mem_word m pc`,
+  rw[]>>
+  imp_res_tac asm_write_bytearray_unchanged>>
+  fs[get_mem_word_def]);
+
+val get_mem_word_UPDATE = Q.store_thm("get_mem_word_UPDATE",`
+  pc ≠ k ∧
+  pc+1w ≠ k ∧
+  pc+2w ≠ k ∧
+  pc+3w ≠ k
+  ⇒
+  get_mem_word
+    ((k =+ v) m) pc =
+  get_mem_word m pc`,
+  rw[]>>
+  fs[get_mem_word_def] >>
+  fs[APPLY_UPDATE_THM]);
+
+(* lower bound on ag32 prog addresses *)
+val ag32_prog_address_LT = Q.store_thm("ag32_prog_address_LT",`
+  w ∈ ag32_prog_addresses (LENGTH ffi_names) lc ld ∧
+  LENGTH ffi_names ≤ LENGTH FFI_codes ⇒
+  0x501503w <+ w:word32`,
+  simp[ag32_prog_addresses_def]>>
+  EVAL_TAC>>rw[]
+  >-
+    (last_x_assum mp_tac>> blastLib.FULL_BBLAST_TAC)
+  >>
+  `LENGTH ffi_names = 0 ∨
+  LENGTH ffi_names = 1 ∨
+  LENGTH ffi_names = 2 ∨
+  LENGTH ffi_names = 3 ∨
+  LENGTH ffi_names = 4 ∨
+  LENGTH ffi_names = 5 ∨
+  LENGTH ffi_names = 6 ∨
+  LENGTH ffi_names = 7 ∨
+  LENGTH ffi_names = 8 ∨
+  LENGTH ffi_names = 9` by DECIDE_TAC>>
+  fs[]>>last_x_assum mp_tac>> blastLib.FULL_BBLAST_TAC)
+
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
@@ -2601,7 +2650,23 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ qexists_tac`off`
     \\ qexists_tac`len`
     \\ simp[]
-    \\ cheat (* stdin_offset untouched by write updates *))
+    \\ drule asmPropsTheory.bytes_in_memory_in_domain
+    \\ disch_then(qspec_then`0` assume_tac)>>fs[Abbr`md`]
+    \\ imp_res_tac ag32_prog_address_LT
+    \\ fs[fsFFITheory.ffi_write_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[]
+    \\ simp[ag32_ffi_mem_update_def]
+    >- (
+      pairarg_tac>>fs[]>>rveq>>fs[]>>
+      DEP_REWRITE_TAC [get_mem_word_asm_write_bytearray_UNCHANGED_LT,get_mem_word_UPDATE]>>
+      fs[]>>EVAL_TAC>>
+      rveq >> fs[]>>
+      fs[LENGTH_TAKE_EQ,LENGTH_DROP,MIN_DEF]>>
+      pop_assum mp_tac  >> blastLib.FULL_BBLAST_TAC)
+    >>
+      DEP_REWRITE_TAC [get_mem_word_UPDATE,get_mem_word_asm_write_bytearray_UNCHANGED_LT]>>
+      fs[]>>EVAL_TAC>>
+      pop_assum mp_tac  >> blastLib.FULL_BBLAST_TAC)
   \\ rw[]
   \\ simp[ag32_ffi_mem_update_def]
   \\ reverse IF_CASES_TAC
@@ -2888,8 +2953,37 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
       \\ fs[EVAL``code_start_offset _``])
     \\ conj_tac
     >- metis_tac[ag32_fs_ok_ffi_read]
+    \\ drule asmPropsTheory.bytes_in_memory_in_domain
+    \\ disch_then(qspec_then`0` assume_tac)>>fs[Abbr`md`]
+    \\ imp_res_tac ag32_prog_address_LT
     \\ simp[ag32_ffi_mem_update_def]
-    \\ cheat (* the updated stdin offset is ok (and the length hasn't changed) *))
+    \\ fs[fsFFITheory.ffi_read_def, fsFFITheory.read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+    >- (
+      rpt(pairarg_tac>>fs[])>>rveq>>
+      fs[MarshallingTheory.n2w2_def,MarshallingTheory.w22n_def]>>
+      DEP_REWRITE_TAC[get_mem_word_set_mem_word]>>
+      CONJ_TAC>-
+        EVAL_TAC>>
+      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT,get_mem_word_UPDATE]>>
+      CONJ_TAC>- (
+        EVAL_TAC>>
+        rpt(CONJ_TAC>- blastLib.FULL_BBLAST_TAC)>>
+        fs[MIN_DEF]>>rw[]>>fs[])>>
+      fs[word_add_n2w]>>
+      qmatch_goalsub_abbrev_tac`ls MOD _`>>
+      qexists_tac`ls`>>simp[]>>
+      EVAL_TAC>>simp[]>>
+      qexists_tac`len`>>fs[Abbr`ls`]>>
+      CONJ_TAC>- (
+        (* the updated stdin offset is ok (and the length hasn't changed) *)
+        cheat)>>
+      fs[stdin_size_def])
+    >>  
+      qexists_tac`off` \\ qexists_tac`len`>>
+      simp[LUPDATE_def]>>
+      DEP_REWRITE_TAC [get_mem_word_UPDATE,get_mem_word_asm_write_bytearray_UNCHANGED_LT]>>
+      fs[]>>EVAL_TAC>>
+      pop_assum mp_tac  >> blastLib.FULL_BBLAST_TAC)
   \\ gen_tac \\ strip_tac
   \\ simp[ag32_ffi_mem_update_def]
   \\ cheat (* need to handle the (success) case when the stdin offset is
