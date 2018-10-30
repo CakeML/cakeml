@@ -2339,6 +2339,14 @@ val ag32_fs_ok_ffi_write = Q.store_thm("ag32_fs_ok_ffi_write",
   \\ every_case_tac \\ fs[]
   \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]);
 
+val set_mem_word_neq = Q.store_thm("set_mem_word_neq",`
+  x ≠ k ∧
+  x +1w ≠ k ∧
+  x +2w ≠ k ∧
+  x +3w ≠ k ⇒
+  set_mem_word x y m k = m k`,
+  EVAL_TAC>>fs[]);
+
 val ag32_ffi_rel_read_mem_update = Q.store_thm("ag32_ffi_rel_read_mem_update",
   `(ffi_read conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
    (m ((n2w (ffi_code_start_offset - 1)):word32) = n2w (THE (ALOOKUP FFI_codes "read"))) ∧
@@ -2371,7 +2379,8 @@ val ag32_ffi_rel_read_mem_update = Q.store_thm("ag32_ffi_rel_read_mem_update",
   \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[]
   \\ fs[IS_SOME_EXISTS, PULL_EXISTS] \\ fs[]
   \\ rveq \\ fs[]
-  \\ cheat (* lemma: set_mem_word x y m k = m k when k ≠ x *));
+  \\ DEP_ONCE_REWRITE_TAC [set_mem_word_neq]>> fs[]>>
+  EVAL_TAC);
 
 val ag32_fs_ok_ffi_read = Q.store_thm("ag32_fs_ok_ffi_read",
   `(ffi_read conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
