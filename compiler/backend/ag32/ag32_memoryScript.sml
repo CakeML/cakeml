@@ -88,6 +88,11 @@ val get_mem_word_UPDATE = Q.store_thm("get_mem_word_UPDATE",`
   fs[get_mem_word_def] >>
   fs[APPLY_UPDATE_THM]);
 
+val get_mem_word_change_mem = Q.store_thm("get_mem_word_change_mem",
+  `(∀k. k < 4 ⇒ (m1 (pc + n2w k) = m2 (pc + n2w k))) ⇒
+   (get_mem_word m1 pc = get_mem_word m2 pc)`,
+  srw_tac[DNF_ss][get_mem_word_def, NUMERAL_LESS_THM]);
+
 val dfn'Normal_PC = Q.store_thm("dfn'Normal_PC",
   `(dfn'Normal x s).PC = s.PC + 4w`,
   PairCases_on`x`

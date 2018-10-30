@@ -1201,12 +1201,7 @@ val wordcount_interference_implemented = Q.store_thm("wordcount_interference_imp
     \\ simp[]
     \\ simp[ag32_ffi_rel_def, FUN_EQ_THM]
     \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
-    \\ `((Next ms1).io_events = ms1.io_events) ∧
-        ((get_mem_word (Next ms1).MEM (n2w stdin_offset) = get_mem_word m (n2w stdin_offset)) ∧
-         (get_mem_word (Next ms1).MEM (n2w (stdin_offset + 4)) = get_mem_word m (n2w (stdin_offset + 4))))`
-       suffices_by rw[ag32_stdin_implemented_def]
-    \\ conj_tac
-    >- (
+    \\ `((Next ms1).io_events = ms1.io_events)` by (
       irule ag32_io_events_unchanged
       \\ simp[Abbr`ms1`]
       \\ `aligned 2 pc` by rfs[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def, EVAL``(wordcount_machine_config).target.state_ok``]
@@ -1249,16 +1244,52 @@ val wordcount_interference_implemented = Q.store_thm("wordcount_interference_imp
       \\ disch_then kall_tac
       \\ drule ag32_enc_not_Interrupt
       \\ simp[] )
-    \\ `∀i. i ≤ 8 ⇒ n2w (stdin_offset + i) ∉ md`
-    suffices_by (
-      simp[get_mem_word_def, LESS_OR_EQ, NUMERAL_LESS_THM, word_add_n2w]
-      \\ simp_tac(srw_ss()++DNF_ss)[]
+    \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ _ ⇔ _`
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ Cases_on`A ∧ B` \\ fs[]
+    \\ rw[markerTheory.Abbrev_def]
+    \\ Cases_on`ag32_fs_ok (SND x.ffi_state)` \\ fs[]
+    \\ fs[ag32_fs_ok_def]
+    \\ first_assum(qspec_then`0`mp_tac)
+    \\ last_assum(qspec_then`0`mp_tac)
+    \\ simp_tac(srw_ss())[IS_SOME_EXISTS, EXISTS_PROD, PULL_EXISTS]
+    \\ rw[ag32_stdin_implemented_def]
+    \\ qmatch_goalsub_rename_tac`fnm = IOStream _`
+    \\ Cases_on`fnm = IOStream (strlit"stdin")` \\ simp[]
+    \\ Cases_on`ALOOKUP (SND x.ffi_state).files (IOStream(strlit"stdin"))` \\ simp[]
+    \\ qmatch_goalsub_rename_tac`off ≤ LENGTH input`
+    \\ Cases_on`off ≤ LENGTH input ∧ LENGTH input ≤ stdin_size` \\ fs[] \\ rveq
+    \\ `∀i. i < 8 + LENGTH input ⇒ ((Next ms1).MEM (n2w (stdin_offset + i)) = m (n2w (stdin_offset + i)))`
+    by (
+      rw[]
+      \\ first_x_assum irule
+      \\ rw[Abbr`md`]
+      \\ EVAL_TAC
+      \\ simp[LENGTH_code, LENGTH_data, ffi_names, word_lo_n2w, word_ls_n2w]
+      \\ fs[EVAL``stdin_size``] )
+    \\ qspecl_then[`(Next ms1).MEM`,`m`,`n2w stdin_offset`]mp_tac(Q.GENL[`m1`,`m2`,`pc`]get_mem_word_change_mem)
+    \\ impl_tac
+    >- (
+      rw[word_add_n2w]
+      \\ first_x_assum (qspec_then`k`mp_tac)
       \\ simp[] )
-    \\ simp[Abbr`md`]
-    \\ EVAL_TAC
-    \\ simp[LENGTH_code, LENGTH_data, ffi_names]
-    \\ simp[LESS_OR_EQ, NUMERAL_LESS_THM]
-    \\ rw[] \\ rw[])
+    \\ rw[]
+    \\ qspecl_then[`(Next ms1).MEM`,`m`,`n2w (stdin_offset + 4)`]mp_tac(Q.GENL[`m1`,`m2`,`pc`]get_mem_word_change_mem)
+    \\ impl_tac
+    >- (
+      rw[word_add_n2w]
+      \\ first_x_assum (qspec_then`k+4`mp_tac)
+      \\ simp[] )
+    \\ rw[]
+    \\ AP_TERM_TAC
+    \\ AP_TERM_TAC
+    \\ EQ_TAC \\ strip_tac
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ rw[word_add_n2w]
+    \\ first_x_assum(qspec_then`n + 8`mp_tac)
+    \\ rw[])
   \\ conj_tac
   >- (
     strip_tac
