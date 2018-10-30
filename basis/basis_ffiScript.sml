@@ -108,12 +108,12 @@ val extract_fs_def = Define`
 val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
   `∀ls fs fs' off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (ALOOKUP fs'.infds fd = SOME(IOStream nm, off)) ⇒
+   (ALOOKUP fs'.infds fd = SOME(IOStream nm, md, off)) ⇒
    ∃off'.
-     (ALOOKUP fs.infds fd = SOME (IOStream nm, off')) ∧ off' ≤ off ∧
+     (ALOOKUP fs.infds fd = SOME (IOStream nm, md, off')) ∧ off' ≤ off ∧
      (∀content.
        (ALOOKUP fs.files (IOStream nm) = SOME content) ∧ (off' = LENGTH content) ∧
-       (∀fd' off'. (ALOOKUP fs.infds fd' = SOME (IOStream nm, off')) ⇒ (fd = fd'))
+       (∀fd' md' off'. (ALOOKUP fs.infds fd' = SOME (IOStream nm, md', off')) ⇒ (fd = fd'))
        ⇒
        ∃written.
          (ALOOKUP fs'.files (IOStream nm) = SOME (content ++ written)) ∧
@@ -161,9 +161,9 @@ val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numc
 val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_numchars_closes_iostreams",
   `∀ls fs fs' fd nm off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, off))
+   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, md, off))
    ⇒
-   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, off))`,
+   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, md, off))`,
   Induct
   >- (
     rw[extract_fs_with_numchars_def]
