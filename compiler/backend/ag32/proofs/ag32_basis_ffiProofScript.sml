@@ -22,7 +22,7 @@ val INDEX_OF_IMP_EL = store_thm("INDEX_OF_IMP_EL",
   \\ first_x_assum (qspec_then `0` mp_tac)
   \\ fs []);
 
-val IN_all_words = Q.store_thm("IN_all_words",
+val IN_all_words = Q.store_thm("IN_all_words", (* should replace IN_all_words_add *)
   `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
   qid_spec_tac`base`
   \\ Induct_on`n`
@@ -819,7 +819,7 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ first_x_assum(qspec_then`0`mp_tac)
   \\ simp[]);
 
-val read_bytearray_IMP_domain = store_thm("read_bytearray_IMP_domain",
+val read_bytearray_IMP_domain = store_thm("read_bytearray_IMP_domain", (* replace uses with read_bytearray_IMP_mem_SOME *)
   ``!n a xs.
       (read_bytearray a n
         (λa. if a ∈ md then SOME (m a) else NONE) = SOME xs) ==>
@@ -897,14 +897,15 @@ val stdin_fs_def = Define`
        ;(IOStream (strlit "stderr"), "")
        ;(IOStream (strlit "stdin"), inp)]
      ; infds :=
-       [(0, IOStream(strlit"stdin"), 0)
-       ;(1, IOStream(strlit"stdout"), 0)
-       ;(2, IOStream(strlit"stderr"), 0)]
+       [(0, IOStream(strlit"stdin"), ReadMode, 0)
+       ;(1, IOStream(strlit"stdout"), WriteMode, 0)
+       ;(2, IOStream(strlit"stderr"), WriteMode, 0)]
      ; numchars := LGENLIST (K output_buffer_size) NONE
+     ; maxFD := 2
      |>`;
 
 val wfFS_stdin_fs = Q.store_thm("wfFS_stdin_fs",
-  `2 ≤ maxFD ⇒ wfFS (stdin_fs inp)`,
+  `wfFS (stdin_fs inp)`,
   rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
   \\ rw[fsFFIPropsTheory.liveFS_def]
   \\ rw[fsFFIPropsTheory.live_numchars_def]
@@ -923,20 +924,22 @@ val STD_streams_stdin_fs = Q.store_thm("STD_streams_stdin_fs",
   rw[fsFFIPropsTheory.STD_streams_def]
   \\ qexists_tac`0`
   \\ rw[stdin_fs_def]
-  \\ rw[]);
+  \\ rw[]
+  \\ rw[EQ_IMP_THM]);
 
 val ag32_fs_ok_def = Define`
   ag32_fs_ok fs ⇔
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧
-   (∀fd fnm off.
-     (ALOOKUP fs.infds fd = SOME (fnm,off)) ⇒
-     IS_SOME (ALOOKUP fs.files fnm))`;
+   (∀fd fnm md off.
+     (ALOOKUP fs.infds fd = SOME (fnm,md,off)) ⇒
+     ∃cnt. (ALOOKUP fs.files fnm = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
+   STD_streams fs`;
 
 val ag32_stdin_implemented_def = Define`
   ag32_stdin_implemented fs m ⇔
     ∃off inp.
-      (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"), off)) ∧
+      (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"), ReadMode, off)) ∧
       (ALOOKUP fs.files (IOStream(strlit"stdin")) = SOME inp) ∧
       (get_mem_word m (n2w stdin_offset) = n2w off) ∧
       (get_mem_word m (n2w (stdin_offset + 4)) = n2w (LENGTH inp)) ∧
@@ -971,22 +974,22 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
    (* can only read/write up to output_buffer_size - this could be made more nuanced *)
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (* IOStream of interest exists at the start *)
-   (ALOOKUP fs.infds fd = SOME (IOStream nam, LENGTH out)) ∧
+   (ALOOKUP fs.infds fd = SOME (IOStream nam, WriteMode, LENGTH out)) ∧
    (ALOOKUP fs.files (IOStream nam) = SOME out) ∧
    (* no non-IOStream files *)
    (∀nm. ¬inFS_fname fs (File nm)) ∧
    (* well-formedness invariants for the filesystem *)
-   (∀fd fnm off. (ALOOKUP fs'.infds fd = SOME (fnm, off)) ⇒ inFS_fname fs' fnm) ∧
-   (∀fd1 nm off1 fd2 off2. (* this one depends on us not being able to open IOStreams *)
-     (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, off1)) ∧
-     (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, off2))
+   (∀fd fnm md off. (ALOOKUP fs'.infds fd = SOME (fnm, md, off)) ⇒ inFS_fname fs' fnm) ∧
+   (∀fd1 nm md1 off1 fd2 md2 off2. (* this one depends on us not being able to open IOStreams *)
+     (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, md1, off1)) ∧
+     (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, md2, off2))
      ⇒ (fd1 = fd2)) ∧
    (* -- *)
    (* nothing has changed except the IOStream of interest -- is this actually necessary? *)
    (∀x. x ≠ fd ⇒ (OPTREL (inv_image (=) FST) (ALOOKUP fs'.infds x) (ALOOKUP fs.infds x))) ∧
    (∀fnm. inFS_fname fs' fnm = inFS_fname fs fnm) ∧
    (* and it has only changed by appending *)
-   (ALOOKUP fs'.infds fd = SOME (IOStream nam, LENGTH out + LENGTH rest)) ∧
+   (ALOOKUP fs'.infds fd = SOME (IOStream nam, WriteMode, LENGTH out + LENGTH rest)) ∧
    (ALOOKUP fs'.files (IOStream nam) = SOME (out ++ rest))
    ⇒
    (extract_writes fd (MAP get_output_io_event ls) = rest)`,
@@ -1075,6 +1078,7 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       >- (
         rw[]
         \\ simp[DISJ_EQ_IMP]
+        \\ CONV_TAC SWAP_EXISTS_CONV
         \\ qexists_tac`w82n l` \\ simp[]
         \\ rw[] \\ strip_tac
         \\ first_x_assum(qspec_then`fd'`mp_tac)
@@ -1091,13 +1095,12 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       >- metis_tac[]
       *)
       \\ rw[OPTREL_def]
-      \\ first_x_assum(qspec_then`w82n l`mp_tac) \\ rw[]
-      \\ qmatch_asmsub_rename_tac`_ = SOME(x1,x2)`
+      \\ first_x_assum(qspec_then`w82n l`mp_tac o CONV_RULE SWAP_FORALL_CONV) \\ rw[]
+      \\ qmatch_asmsub_rename_tac`_ = SOME(x1,x2,x3)`
       \\ Cases_on`x1 = IOStream nam`
       >- (
         fs[] \\ CCONTR_TAC \\ fs[]
-        \\ Cases_on`fd = fd'` \\ fs[] \\ rw[]
-        \\ metis_tac[] )
+        \\ Cases_on`x2` \\ metis_tac[] )
       \\ `MEM x1 (MAP FST z.files)` by metis_tac[]
       \\ `IS_SOME (ALOOKUP z.files x1)`
       by simp[data_to_word_gcProofTheory.IS_SOME_ALOOKUP_EQ]
@@ -1298,7 +1301,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ qmatch_asmsub_abbrev_tac`ag32_ffi_write_check_lengths s2`
   \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`off`,`n`,`cnd`]ag32_ffi_write_check_lengths_thm)
   \\ disch_then(qspecl_then[`LENGTH tll`,`w22n [off1; off0]`,`w22n [n1; n0]`,
-                            `(LENGTH conf = 8) ∧ w82n conf < 3`]mp_tac)
+                            `(LENGTH conf = 8) ∧ w82n conf < 3 ∧ 0 < w82n conf`]mp_tac)
   \\ impl_tac
   >- (
     simp[Abbr`s2`,Abbr`s3`,APPLY_UPDATE_THM]
@@ -1338,10 +1341,13 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
       \\ Cases_on`w82n conf < 3` \\ fs[]
       \\ simp[IS_SOME_EXISTS]
       \\ strip_tac \\ simp[]
-      \\ Cases_on`x` \\ simp[]
+      \\ PairCases_on`x` \\ simp[]
       \\ CCONTR_TAC \\ fs[]
-      \\ Cases_on`ALOOKUP fs.files q` \\ fs[]
-      \\ fs[markerTheory.Abbrev_def] )
+      \\ Cases_on`ALOOKUP fs.files x0` \\ fs[]
+      \\ fs[markerTheory.Abbrev_def]
+      \\ fs[fsFFIPropsTheory.STD_streams_def]
+      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
+      \\ simp[] \\ rfs[])
     \\ fs[] \\ rveq
     \\ simp[LUPDATE_def]
     \\ qmatch_goalsub_abbrev_tac`A ∧ (B ∧ A)`
@@ -1597,7 +1603,7 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ simp[Abbr`bs`, Abbr`bs'`]
   \\ fs[fsFFITheory.write_def]
   \\ `∃x. ALOOKUP fs.infds (w82n conf) = SOME x` by metis_tac[IS_SOME_EXISTS, ag32_fs_ok_def]
-  \\ fs[] \\ Cases_on`x` \\ fs[]
+  \\ fs[] \\ PairCases_on`x` \\ fs[]
   \\ fs[ag32_fs_ok_def]
   \\ first_x_assum drule
   \\ simp[IS_SOME_EXISTS]
@@ -1629,6 +1635,17 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   >- (
     EVAL_TAC
     \\ rw[MIN_DEF] )
+  \\ qmatch_asmsub_rename_tac`mode = WriteMode`
+  \\ Cases_on`mode`
+  >- (
+    fs[fsFFIPropsTheory.STD_streams_def]
+    \\ qpat_x_assum`_ < 3`mp_tac
+    \\ simp[NUMERAL_LESS_THM]
+    \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH err`]mp_tac)
+    \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH out`]mp_tac)
+    \\ rw[] )
+  \\ fs[]
+  \\ rveq \\ fs[]
   \\ rewrite_tac[GSYM WORD_ADD_ASSOC, word_add_n2w]
   \\ AP_TERM_TAC
   \\ simp[FUN_EQ_THM]
@@ -2070,6 +2087,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ EVAL_TAC \\ simp[]
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def, ADD1]
+  (*
   \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
   \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[LUPDATE_def]
   >- (
@@ -2079,6 +2097,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE] )
   \\ fs[fsFFITheory.read_def]
   \\ pairarg_tac \\ fs[]
+  *)
   \\ cheat);
 (*
   \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
@@ -2264,8 +2283,9 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
 
 val ag32_fs_ok_stdin_fs = Q.store_thm("ag32_fs_ok_stdin_fs",
   `ag32_fs_ok (stdin_fs inp)`,
-  rw[ag32_fs_ok_def, stdin_fs_def]
-  \\ rw[] \\ fs[CaseEq"bool"]);
+  rw[ag32_fs_ok_def, STD_streams_stdin_fs]
+  \\ rw[stdin_fs_def]
+  \\ fs[stdin_fs_def, CaseEq"bool"]);
 
 val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
   `(ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
@@ -2300,12 +2320,12 @@ val ag32_ffi_rel_write_mem_update = Q.store_thm("ag32_ffi_rel_write_mem_update",
   >- ( rveq \\ fs[LUPDATE_def] )
   \\ pairarg_tac \\ fs[]
   \\ fs[ag32_fs_ok_def]
-  \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[]
-  \\ fs[IS_SOME_EXISTS, PULL_EXISTS] \\ fs[]
+  \\ `∃cnt. (ALOOKUP fs.files fnm = SOME cnt)` by metis_tac[]
   \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
   >- ( rveq \\ fs[LUPDATE_def] )
+  >- ( rveq \\ fs[LUPDATE_def] )
   \\ rveq \\ fs[]
-  \\ `w82n conf < 3` by metis_tac[]
+  \\ `w82n conf < 3` by metis_tac[IS_SOME_EXISTS]
   \\ `HD conf = 0w`
   by (
     fs[LENGTH_EQ_NUM_compute]
@@ -2362,12 +2382,70 @@ val ag32_fs_ok_ffi_write = Q.store_thm("ag32_fs_ok_ffi_write",
    ag32_fs_ok fs'`,
   rw[fsFFITheory.ffi_write_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
+  \\ `STD_streams fs'`
+  by (
+    fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
+    \\ pairarg_tac \\ fs[] \\ rveq
+    \\ fs[fsFFITheory.write_def]
+    \\ pairarg_tac \\ fs[] \\ rveq
+    \\ irule fsFFIPropsTheory.STD_streams_fsupdate
+    \\ simp[]
+    \\ first_x_assum drule
+    \\ simp[] )
+  \\ conj_tac
+  >- (
+    fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
+    \\ pairarg_tac \\ fs[fsFFITheory.write_def]
+    \\ pairarg_tac \\ fs[]
+    \\ rw[fsFFITheory.fsupdate_def, LDROP1_THM] )
+  \\ conj_tac
+  >- (
+    fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
+    \\ pairarg_tac \\ fs[fsFFITheory.write_def]
+    \\ pairarg_tac \\ fs[]
+    \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+    \\ PURE_TOP_CASE_TAC \\ simp[] \\ rw[]
+    \\ metis_tac[NOT_SOME_NONE, IS_SOME_EXISTS] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.write_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rw[]
-  \\ every_case_tac \\ fs[]
-  \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]);
+  \\ fs[CaseEq"option"]
+  \\ PairCases_on`v` \\ fs[]
+  \\ fs[CaseEq"bool",PULL_EXISTS] \\ rveq
+  >- (
+    first_x_assum drule
+    \\ rw[] \\ rw[]
+    \\ Cases_on`fnm = fnm'` \\ fs[]
+    \\ strip_tac \\ fs[] )
+  \\ first_assum drule
+  \\ strip_tac \\ fs[]
+  \\ Cases_on`fnm = fnm'` \\ fs[]
+  \\ fs[LENGTH_TAKE_EQ]
+  \\ qmatch_goalsub_abbrev_tac`f12 ⇒ _`
+  \\ strip_tac \\ fs[] \\ rveq
+  \\ `w82n conf < 3` by metis_tac[IS_SOME_EXISTS]
+  \\ pop_assum mp_tac
+  \\ simp[NUMERAL_LESS_THM]
+  \\ first_x_assum(qspec_then`w82n conf`mp_tac)
+  \\ simp[]
+  \\ rw[] \\ fs[] \\ rw[] \\ fs[] \\ rfs[]
+  \\ qpat_x_assum`STD_streams fs`mp_tac
+  \\ simp[fsFFIPropsTheory.STD_streams_def]
+  \\ strip_tac
+  \\ TRY (
+    first_x_assum(qspecl_then[`2`,`WriteMode`,`LENGTH err`]mp_tac)
+    \\ simp[] \\ strip_tac \\ rveq
+    \\ first_x_assum(qspecl_then[`fd`,`WriteMode`,`LENGTH out`]mp_tac)
+    \\ simp[] \\ NO_TAC )
+  \\ TRY (
+    first_x_assum(qspecl_then[`fd`,`WriteMode`,`LENGTH err`]mp_tac)
+    \\ simp[] \\ strip_tac \\ rveq
+    \\ first_x_assum(qspecl_then[`1`,`WriteMode`,`LENGTH out`]mp_tac)
+    \\ simp[] \\ NO_TAC )
+  \\ TRY (
+    last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
+    \\ simp[] \\ NO_TAC ));
 
 val ag32_stdin_implemented_ffi_write = Q.store_thm("ag32_stdin_implemented_ffi_write",
   `ag32_stdin_implemented fs m ∧
@@ -2433,9 +2511,10 @@ val ag32_ffi_rel_read_mem_update = Q.store_thm("ag32_ffi_rel_read_mem_update",
   >- ( rveq \\ fs[LUPDATE_def] \\ rveq \\ simp[] \\ EVAL_TAC)
   \\ pairarg_tac \\ fs[]
   \\ fs[ag32_fs_ok_def]
-  \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[]
-  \\ fs[IS_SOME_EXISTS, PULL_EXISTS] \\ fs[]
+  \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[IS_SOME_EXISTS]
+  \\ fs[IS_SOME_EXISTS, PULL_EXISTS, EXISTS_PROD] \\ fs[]
   \\ rveq \\ fs[]
+  \\ reverse(Cases_on`md` \\ fs[LUPDATE_def]) \\ rveq \\ fs[]
   \\ DEP_ONCE_REWRITE_TAC [set_mem_word_neq]>> fs[]>>
   EVAL_TAC);
 
@@ -2444,13 +2523,37 @@ val ag32_fs_ok_ffi_read = Q.store_thm("ag32_fs_ok_ffi_read",
    ag32_fs_ok fs'`,
   rw[fsFFITheory.ffi_read_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
+  \\ `STD_streams fs'`
+  by (
+    fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
+    \\ pairarg_tac \\ fs[] \\ rveq
+    \\ fs[fsFFITheory.read_def]
+    \\ pairarg_tac \\ fs[] \\ rveq
+    \\ reverse(Cases_on`w82n conf = 1 ∨ w82n conf = 2`)
+    >- ( fs[fsFFIPropsTheory.STD_streams_bumpFD] )
+    \\ qhdtm_x_assum`STD_streams`mp_tac
+    \\ simp[Once fsFFIPropsTheory.STD_streams_def]
+    \\ strip_tac
+    \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH err`]mp_tac)
+    \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH out`]mp_tac)
+    \\ fs[] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.read_def]
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM,
                 fsFFITheory.bumpFD_def]
+  \\ conj_tac
+  >- (
+    rw[] \\ every_case_tac \\ fs[]
+    \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE])
   \\ rw[]
-  \\ every_case_tac \\ fs[]
-  \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]);
+  \\ fs[CaseEq"option"]
+  \\ PairCases_on`v` \\ fs[]
+  \\ fs[CaseEq"bool",PULL_EXISTS] \\ rveq
+  >- (
+    first_x_assum drule
+    \\ rw[] \\ rw[]
+    \\ Cases_on`fnm = fnm'` \\ fs[]
+    \\ strip_tac \\ fs[] ));
 
 val ag32_stdin_implemented_ffi_read = Q.store_thm("ag32_stdin_implemented_ffi_read",
   `ag32_stdin_implemented fs m ∧
@@ -2661,7 +2764,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ simp[data_to_word_assignProofTheory.IMP]
     \\ strip_tac
     \\ qx_gen_tac`j`
-    \\ Cases_on`j < 420` \\ simp[])
+    \\ Cases_on`j < 428` \\ simp[])
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]

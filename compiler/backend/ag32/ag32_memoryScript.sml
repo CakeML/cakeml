@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1016n`;
+  length_ag32_ffi_code = 1024n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -1396,7 +1396,9 @@ val ag32_ffi_write_check_conf_code_def = Define`
      Normal (fInc, 1w, Reg 1w, Imm 1w);   (* r1 -> conf0 *)
      LoadMEMByte (2w, Reg 1w);            (* r2 = conf0 *)
      Normal (fLess, 7w, Reg 2w, Imm 3w);  (* r7 = conf0 < 3 *)
-     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 *)`;
+     Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 *)
+     Normal (fLess, 7w, Imm 0w, Reg 2w);  (* r7 = 0 < conf0 *)
+     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ 0 < w82n conf < 3 *)`;
 
 val ag32_ffi_write_load_noff_code_def = Define`
   ag32_ffi_write_load_noff_code = [       (* r3 -> n1::n0::off1::off0::... *)
@@ -1540,15 +1542,18 @@ val ag32_ffi_write_check_conf_def = Define`
    let s = dfn'Normal (fInc, 1w, Reg 1w, Imm 1w) s in
    let s = dfn'LoadMEMByte (2w, Reg 1w) s in
    let s = dfn'Normal (fLess, 7w, Reg 2w, Imm 3w) s in
-   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in s`;
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
+   let s = dfn'Normal (fLess, 7w, Imm 0w, Reg 2w) s in
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
+   s`;
 
 val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧ (w2n (s.R 2w) = LENGTH conf)
    ⇒
    ∃ov cf r1 r2 r7.
    (ag32_ffi_write_check_conf s =
-    s with <| R := ((6w =+ v2w[(LENGTH conf = 8) ∧ w82n conf < 3])
-                   ((2w =+ (if (LENGTH conf = 8) ∧ w82n conf < 3 then n2w (w82n conf) else r2))
+    s with <| R := ((6w =+ v2w[(LENGTH conf = 8) ∧ w82n conf < 3 ∧ 0 < w82n conf])
+                   ((2w =+ (if (LENGTH conf = 8) ∧ w82n conf < 3 ∧ 0 < w82n conf then n2w (w82n conf) else r2))
                    ((4w =+ s.R 4w - 4w)
                    ((1w =+ r1)
                    ((7w =+ r7) s.R)))));
@@ -1597,6 +1602,10 @@ val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
        [ag32Theory.dfn'Normal_def,
         ag32Theory.ri2word_def, ag32Theory.norm_def,
         ag32Theory.ALU_def, ag32Theory.incPC_def ]
+  \\ CONV_TAC(PATH_CONV"rararararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
+  \\ CONV_TAC(PATH_CONV"rararararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
+  \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ CONV_TAC(PATH_CONV"rararararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
   \\ simp_tac (srw_ss()) [Once LET_THM]
   \\ CONV_TAC(PATH_CONV"rararararalrr"(SIMP_CONV(srw_ss()++LET_ss)[APPLY_UPDATE_THM]))
@@ -1684,7 +1693,7 @@ val ag32_ffi_write_check_conf_MEM = Q.store_thm("ag32_ffi_write_check_conf_MEM",
   rw[ag32_ffi_write_check_conf_def, dfn'Normal_MEM, dfn'LoadMEMByte_MEM]);
 
 val ag32_ffi_write_check_conf_PC = Q.store_thm("ag32_ffi_write_check_conf_PC",
-  `(ag32_ffi_write_check_conf s).PC = s.PC + 132w`,
+  `(ag32_ffi_write_check_conf s).PC = s.PC + 140w`,
   rw[ag32_ffi_write_check_conf_def, dfn'Normal_PC, dfn'LoadMEMByte_PC]);
 
 val ag32_ffi_write_check_conf_R = Q.store_thm("ag32_ffi_write_check_conf_R",

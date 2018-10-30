@@ -468,7 +468,7 @@ val ag32_ffi_write_check_conf_code_thm = Q.store_thm("ag32_ffi_write_check_conf_
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_write_check_conf s)`,
   first_tac
-  \\ EVERY (List.tabulate(32, next_tac o (curry(op +)1)))
+  \\ EVERY (List.tabulate(34, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
 val ag32_ffi_write_load_noff_code_thm = Q.store_thm("ag32_ffi_write_load_noff_code_thm",
@@ -1552,7 +1552,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
       \\ simp[GSYM get_mem_word_def]
       \\ CONV_TAC(LAND_CONV EVAL) \\ simp[]
       \\ strip_tac \\ simp[Abbr`pc`]
-      \\ first_assum(qspec_then`LENGTH ag32_ffi_write_set_id_code + (352 DIV 4)`mp_tac)
+      \\ first_assum(qspec_then`LENGTH ag32_ffi_write_set_id_code + (360 DIV 4)`mp_tac)
       \\ impl_tac >- EVAL_TAC
       \\ simp[]
       \\ qmatch_goalsub_abbrev_tac`get_mem_word s1mem pcc`
