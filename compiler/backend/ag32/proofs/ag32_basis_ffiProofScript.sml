@@ -1847,7 +1847,7 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ qmatch_asmsub_abbrev_tac`ag32_ffi_read_check_length s2`
   \\ qspec_then`s2`mp_tac(Q.GENL[`s`,`ltll`,`n`,`cnd`]ag32_ffi_read_check_length_thm)
   \\ disch_then(qspecl_then[`LENGTH tll`,`w22n [n1; n0]`,
-                            `(LENGTH conf = 8) ∧ w82n conf < 3`]mp_tac)
+                            `(LENGTH conf = 8) ∧ (w82n conf = 0)`]mp_tac)
   \\ impl_tac
   >- (
     simp[Abbr`s2`,Abbr`s3`,APPLY_UPDATE_THM]
@@ -1886,9 +1886,15 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
       \\ Cases_on`w82n conf < 3` \\ fs[]
       \\ simp[IS_SOME_EXISTS]
       \\ strip_tac \\ simp[]
-      \\ Cases_on`x` \\ simp[]
+      \\ PairCases_on`x` \\ simp[]
       \\ CCONTR_TAC \\ fs[]
-      \\ fs[markerTheory.Abbrev_def] )
+      \\ fs[markerTheory.Abbrev_def]
+      \\ qpat_x_assum`w82n _ < _`mp_tac
+      \\ simp[NUMERAL_LESS_THM]
+      \\ fs[fsFFIPropsTheory.STD_streams_def]
+      \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH err`]mp_tac)
+      \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH out`]mp_tac)
+      \\ rw[])
     \\ fs[] \\ rveq
     \\ simp[LUPDATE_def]
     \\ qmatch_goalsub_abbrev_tac`A ∧ (B ∧ A)`
@@ -2087,18 +2093,23 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ EVAL_TAC \\ simp[]
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def, ADD1]
-  (*
   \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
   \\ TRY pairarg_tac \\ fs[] \\ rveq \\ fs[LUPDATE_def]
-  >- (
-    fs[fsFFITheory.read_def, ag32_fs_ok_def]
-    >- metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE]
-    \\ pairarg_tac \\ fs[]
-    \\ metis_tac[IS_SOME_EXISTS, NOT_SOME_NONE] )
+  >- ( fs[fsFFITheory.read_def, ag32_fs_ok_def] )
   \\ fs[fsFFITheory.read_def]
-  \\ pairarg_tac \\ fs[]
-  *)
-  \\ cheat);
+  \\ `SUC strm = output_buffer_size + 1`
+  by ( fs[ag32_fs_ok_def] )
+  \\ fs[]
+  \\ `∃l1 l0. n2w2 (LENGTH l) = [l1; l0]` by simp[MarshallingTheory.n2w2_def]
+  \\ simp[]
+  \\ `w22n [l1; l0] = LENGTH l` by (
+    pop_assum(SUBST1_TAC o SYM)
+    \\ irule MarshallingTheory.w22n_n2w2
+    \\ rveq \\ simp[LENGTH_TAKE_EQ]
+    \\ simp[Abbr`k`]
+    \\ EVAL_TAC )
+  \\ simp[]
+  \\ cheat (* to be updated *));
 (*
   \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
   \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ bs'`

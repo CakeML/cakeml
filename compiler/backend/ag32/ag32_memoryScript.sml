@@ -671,6 +671,7 @@ val ag32_ffi_read_set_id_code_def = Define`
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w)]`;
 
+(* TODO: this would be shorter and maybe simpler using LoadMEM rather than LoadMEMByte *)
 val ag32_ffi_read_check_conf_code_def = Define`
   ag32_ffi_read_check_conf_code = [
      Normal (fEqual, 6w, Reg 2w, Imm 8w); (* r6 = (LENGTH conf = 8) *)
@@ -704,8 +705,8 @@ val ag32_ffi_read_check_conf_code_def = Define`
      Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ conf{7..1} = 0 *)
      Normal (fInc, 1w, Reg 1w, Imm 1w);   (* r1 -> conf0 *)
      LoadMEMByte (2w, Reg 1w);            (* r2 = conf0 *)
-     Normal (fLess, 7w, Reg 2w, Imm 3w);  (* r7 = conf0 < 3 *)
-     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 *)`;
+     Normal (fEqual, 7w, Reg 2w, Imm 0w); (* r7 = conf0 = 0 *)
+     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ w82n conf = 0 *)`;
 
 val ag32_ffi_read_load_lengths_code_def = Define`
   ag32_ffi_read_load_lengths_code = [     (* r3 -> n1::n0::... *)
@@ -812,7 +813,7 @@ val ag32_ffi_read_check_conf_def = Define`
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
    let s = dfn'Normal (fInc, 1w, Reg 1w, Imm 1w) s in
    let s = dfn'LoadMEMByte (2w, Reg 1w) s in
-   let s = dfn'Normal (fLess, 7w, Reg 2w, Imm 3w) s in
+   let s = dfn'Normal (fEqual, 7w, Reg 2w, Imm 0w) s in
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in s`;
 
 val ag32_ffi_read_check_conf_thm = Q.store_thm("ag32_ffi_read_check_conf_thm",
@@ -820,8 +821,8 @@ val ag32_ffi_read_check_conf_thm = Q.store_thm("ag32_ffi_read_check_conf_thm",
    ⇒
    ∃ov cf r1 r2 r7.
    (ag32_ffi_read_check_conf s =
-    s with <| R := ((6w =+ v2w[(LENGTH conf = 8) ∧ w82n conf < 3])
-                   ((2w =+ (if (LENGTH conf = 8) ∧ w82n conf < 3 then n2w (w82n conf) else r2))
+    s with <| R := ((6w =+ v2w[(LENGTH conf = 8) ∧ (w82n conf = 0)])
+                   ((2w =+ (if (LENGTH conf = 8) ∧ (w82n conf = 0) then n2w (w82n conf) else r2))
                    ((4w =+ s.R 4w - 4w)
                    ((1w =+ r1)
                    ((7w =+ r7) s.R)))));
