@@ -155,7 +155,7 @@ val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
 val bytes_in_memory_change_domain = Q.store_thm("bytes_in_memory_change_domain",
   `∀a bs m md1 md2.
     bytes_in_memory a bs m md1 ∧
-   (∀n. n < LENGTH bs ⇒ (a + n2w n ∈ md1 ⇔ a + n2w n ∈ md2))
+   (∀n. n < LENGTH bs ∧ a + n2w n ∈ md1 ⇒ a + n2w n ∈ md2)
   ⇒ bytes_in_memory a bs m md2`,
   Induct_on`bs`
   \\ rw[bytes_in_memory_def]
