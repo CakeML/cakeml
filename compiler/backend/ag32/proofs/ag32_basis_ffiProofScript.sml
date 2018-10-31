@@ -2448,36 +2448,49 @@ val ag32_fs_ok_ffi_write = Q.store_thm("ag32_fs_ok_ffi_write",
     \\ simp[] \\ NO_TAC ));
 
 val bytes_in_memory_UPDATE_LT = Q.store_thm("bytes_in_memory_UPDATE",`
-  ((w2n pc + (LENGTH ls) <= w2n k) ∧
-  (w2n pc + (LENGTH ls) < dimword(:32))) ∧
+  (w2n pc + (LENGTH ls) <= w2n (k:word32)) ∧
+  LENGTH ls <= 2**31 ∧
+  ¬word_msb pc ∧
   bytes_in_memory pc ls m dm ⇒
   bytes_in_memory pc ls ((k =+ v)m) dm`,
   rw[]>>
   match_mp_tac asmPropsTheory.bytes_in_memory_change_mem>>
   asm_exists_tac>>fs[APPLY_UPDATE_THM]>>
-  rw[]>>fs[]>>
-  cheat);
+  ntac 2 strip_tac>>
+  `n + w2n pc < w2n k` by fs[]>>
+  rw[]>>
+  CCONTR_TAC>> pop_assum kall_tac>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC [w2n_add]>>
+  fs[word_msb_n2w_numeric]);
 
 val bytes_in_memory_asm_write_bytearray_LT = Q.store_thm("bytes_in_memory_asm_write_bytearray_LT",`
-  ((w2n pc + (LENGTH ls) <= w2n k) ∧
-  (w2n pc + (LENGTH ls) < dimword(:32))) ∧
-  (w2n k + (LENGTH bs) < dimword(:32)) ∧
+  (w2n pc + (LENGTH ls) <= w2n (k:word32)) ∧
+  (w2n k + (LENGTH bs) < dimword(:32))∧
+  LENGTH ls <= 2**31 ∧
+  ¬word_msb pc ∧
   bytes_in_memory pc ls m dm ⇒
   bytes_in_memory pc ls (asm_write_bytearray k bs m) dm`,
   rw[]>>
   match_mp_tac asmPropsTheory.bytes_in_memory_change_mem>>
   asm_exists_tac>>fs[APPLY_UPDATE_THM]>>
-  rw[]>>fs[]>>
+  ntac 2 strip_tac>>
+  `n + w2n pc < w2n k` by fs[]>>
+  rw[]>>
   match_mp_tac EQ_SYM>>
-  match_mp_tac asm_write_bytearray_unchanged_alt>>fs[]>>
-  cheat);
+  match_mp_tac asm_write_bytearray_unchanged>>
+  simp[]>>
+  DISJ1_TAC>>simp[WORD_LO]>>
+  DEP_REWRITE_TAC [w2n_add]>>
+  fs[word_msb_n2w_numeric]);
 
 val ag32_stdin_implemented_ffi_write = Q.store_thm("ag32_stdin_implemented_ffi_write",
-  `ag32_stdin_implemented fs m ∧
+  `
+  STD_streams fs ∧
+  ag32_stdin_implemented fs m ∧
    ffi_write conf bytes fs = SOME (FFIreturn bytes' fs') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
    0x501503w <+ ms.R 3w
-   (* you may assume more here from the context where this is used *)
    ⇒
    ag32_stdin_implemented fs'
      (ag32_ffi_mem_update "write" conf bytes bytes'
@@ -2506,8 +2519,8 @@ val ag32_stdin_implemented_ffi_write = Q.store_thm("ag32_stdin_implemented_ffi_w
     fs[fsFFITheory.fsupdate_def]>>
     simp[ALIST_FUPDKEY_ALOOKUP]>>
     rw[]>>fs[]>>
-    (* TODO: what if fnm = stdin ? *)
-    cheat
+    fs[fsFFIPropsTheory.STD_streams_def]>>
+    rfs[]
     )
   \\ simp[CONJ_ASSOC]
   \\ conj_tac
@@ -2872,7 +2885,7 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ conj_tac
     >- metis_tac[ag32_fs_ok_ffi_write]
     \\ match_mp_tac ag32_stdin_implemented_ffi_write
-    \\ fs[]
+    \\ fs[ag32_fs_ok_def]
     \\ drule asmPropsTheory.bytes_in_memory_in_domain
     \\ disch_then(qspec_then`0` assume_tac)>>fs[Abbr`md`]
     \\ imp_res_tac ag32_prog_address_LT)
