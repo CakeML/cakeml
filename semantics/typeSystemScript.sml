@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "typeSystem"
 
+(*
+  Specification of CakeML's type system.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Ast*)
@@ -336,56 +339,71 @@ val _ = Define `
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
- (type_op op ts t=  
- ((case (op,ts) of
-      (Opapp, [t1; t2]) => t1 = Tfn t2 t
-    | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
-    | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
-    | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
-    | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
-    | (FP_bop _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
-    | (FP_uop _, [t1]) =>  (t1 = Tword64) /\ (t = Tword64)
-    | (FP_cmp _, [t1; t2]) =>  (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tbool)
-    | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
-    | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
-    | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
-    | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])
-    | (Opref, [t1]) => t = Tref t1
-    | (Opderef, [t1]) => t1 = Tref t
-    | (Aw8alloc, [t1; t2]) => (t1 = Tint) /\ (t2 = Tword8) /\ (t = Tword8array)
-    | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword8)
-    | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
-    | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t = Ttup [])
-    | (WordFromInt W8, [t1]) => (t1 = Tint) /\ (t = Tword8)
-    | (WordToInt W8, [t1]) => (t1 = Tword8) /\ (t = Tint)
-    | (WordFromInt W64, [t1]) => (t1 = Tint) /\ (t = Tword64)
-    | (WordToInt W64, [t1]) => (t1 = Tword64) /\ (t = Tint)
-    | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
-    | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>      
-(t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
-    | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
-    | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>      
-(t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
-    | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
-    | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
-    | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
-    | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
-    | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
-    | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
-    | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
-    | (VfromList, [Tapp [t1] ctor]) => (ctor = Tlist_num) /\ (t = Tvector t1)
-    | (Vsub, [t1; t2]) => (t2 = Tint) /\ (Tvector t = t1)
-    | (Vlength, [Tapp [t1] ctor]) => (ctor = Tvector_num) /\ (t = Tint)
-    | (Aalloc, [t1; t2]) => (t1 = Tint) /\ (t = Tarray t2)
-    | (AallocEmpty, [t1]) => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
-    | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)
-    | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
-    | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\ (t2 = Tint) /\ (t = Ttup [])
-    | (ConfigGC, [t1;t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
-    | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
-    | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\ (t2 = Tapp [t1] ctor) /\ (t = t2)
-    | _ => F
-  )))`;
+ (type_op op ts t= 
+  ((case (op,ts) of
+         (Opapp, [t1; t2]) => t1 = Tfn t2 t
+     | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
+     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
+     | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
+     | (FP_bop _, [t1; t2]) => (t1 = Tword64) /\
+                                 (t2 = Tword64) /\ (t = Tword64)
+     | (FP_uop _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
+     | (FP_cmp _, [t1; t2]) => (t1 = Tword64) /\
+                                 (t2 = Tword64) /\ (t = Tbool)
+     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
+     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+     | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])
+     | (Opref, [t1]) => t = Tref t1
+     | (Opderef, [t1]) => t1 = Tref t
+     | (Aw8alloc, [t1; t2]) => (t1 = Tint) /\
+                                 (t2 = Tword8) /\ (t = Tword8array)
+     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\
+                               (t2 = Tint) /\ (t = Tword8)
+     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
+     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\
+                                      (t2 = Tint) /\
+                                        (t3 = Tword8) /\ (t = Ttup [])
+     | (WordFromInt W8, [t1]) => (t1 = Tint) /\ (t = Tword8)
+     | (WordToInt W8, [t1]) => (t1 = Tword8) /\ (t = Tint)
+     | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\
+                                       (t2 = Tint) /\
+                                         (t3 = Tint) /\ (t = Tstring)
+     | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
+   (t1 = Tstring) /\
+     (t2 = Tint) /\
+       (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
+     | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\
+                                       (t2 = Tint) /\
+                                         (t3 = Tint) /\ (t = Tstring)
+     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
+   (t1 = Tword8array) /\
+     (t2 = Tint) /\
+       (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
+     | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
+     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
+     | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
+     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
+     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
+     | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
+     | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
+     | (VfromList, [Tapp [t1] ctor]) => (ctor = Tlist_num) /\
+                                          (t = Tvector t1)
+     | (Vsub, [t1; t2]) => (t2 = Tint) /\ (Tvector t = t1)
+     | (Vlength, [Tapp [t1] ctor]) => (ctor = Tvector_num) /\ (t = Tint)
+     | (Aalloc, [t1; t2]) => (t1 = Tint) /\ (t = Tarray t2)
+     | (AallocEmpty, [t1]) => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
+     | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)
+     | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
+     | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\
+                                    (t2 = Tint) /\ (t = Ttup [])
+     | (ConfigGC, [t1;t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
+     | (FFI n, [t1;t2]) => (t1 = Tstring) /\
+                             (t2 = Tword8array) /\ (t = Ttup [])
+     | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\
+                                               (t2 = Tapp [t1] ctor) /\
+                                                 (t = t2)
+     | _ => F
+   )))`;
 
 
 (*val check_type_names : tenv_abbrev -> ast_t -> bool*)
@@ -508,14 +526,14 @@ T
 type_p tvs tenv (Plit (StrLit s)) Tstring [])
 
 /\ (! tvs tenv w.
-T
+(LENGTH w =( 8 : num))
 ==>
-type_p tvs tenv (Plit (Word8 w)) Tword8 [])
+type_p tvs tenv (Plit (Word w)) Tword8 [])
 
 /\ (! tvs tenv w.
-T
+(LENGTH w =( 64 : num))
 ==>
-type_p tvs tenv (Plit (Word64 w)) Tword64 [])
+type_p tvs tenv (Plit (Word w)) Tword64 [])
 
 /\ (! tvs tenv cn ps ts tvs' tn ts' bindings.
 (EVERY (check_freevars tvs []) ts' /\
@@ -569,14 +587,14 @@ T
 type_e tenv tenvE (Lit (StrLit s)) Tstring)
 
 /\ (! tenv tenvE w.
-T
+(LENGTH w =( 8 : num))
 ==>
-type_e tenv tenvE (Lit (Word8 w)) Tword8)
+type_e tenv tenvE (Lit (Word w)) Tword8)
 
 /\ (! tenv tenvE w.
-T
+(LENGTH w =( 64 : num))
 ==>
-type_e tenv tenvE (Lit (Word64 w)) Tword64)
+type_e tenv tenvE (Lit (Word w)) Tword64)
 
 /\ (! tenv tenvE e t.
 (check_freevars (num_tvs tenvE) [] t /\

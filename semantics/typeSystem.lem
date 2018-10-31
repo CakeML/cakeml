@@ -410,16 +410,16 @@ type_p tvs tenv (Plit (StrLit s)) Tstring []
 and
 
 plit_word8 : forall tvs tenv w.
-true
+length w = 8
 ==>
-type_p tvs tenv (Plit (Word8 w)) Tword8 []
+type_p tvs tenv (Plit (Word w)) Tword8 []
 
 and
 
 plit_word64 : forall tvs tenv w.
-true
+length w = 64
 ==>
-type_p tvs tenv (Plit (Word64 w)) Tword64 []
+type_p tvs tenv (Plit (Word w)) Tword64 []
 
 and
 
@@ -495,16 +495,16 @@ type_e tenv tenvE (Lit (StrLit s)) Tstring
 and
 
 lit_word8 : forall tenv tenvE w.
-true
+length w = 8
 ==>
-type_e tenv tenvE (Lit (Word8 w)) Tword8
+type_e tenv tenvE (Lit (Word w)) Tword8
 
 and
 
 lit_word64 : forall tenv tenvE w.
-true
+length w = 64
 ==>
-type_e tenv tenvE (Lit (Word64 w)) Tword64
+type_e tenv tenvE (Lit (Word w)) Tword64
 
 and
 
