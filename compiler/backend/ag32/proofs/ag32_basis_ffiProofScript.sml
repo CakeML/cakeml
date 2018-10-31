@@ -3242,22 +3242,47 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     \\ imp_res_tac ag32_prog_address_LT)
   \\ gen_tac \\ strip_tac
   \\ simp[ag32_ffi_mem_update_def]
-  \\ cheat (* need to handle the (success) case when the stdin offset is
-              updated. this case should work because x is not in the ffi_mem_domain. and
-              the below proof should probably work in the failure case *)
-  (*
-  \\ match_mp_tac asm_write_bytearray_unchanged_alt
-  \\ first_x_assum mp_tac
-  \\ first_x_assum mp_tac
-  \\ fs [ag32_ffi_mem_domain_def]
-  \\ `startup_code_size < 2**32-1 /\
-      (ffi_code_start_offset − 1) < 2**32-1` by EVAL_TAC
-  \\ Cases_on `x` \\ fs [WORD_LO,WORD_LS]
-  \\ fs [METIS_PROVE [] ``(~b \/ c) <=> (b ==> c)``,NOT_LESS]
-  \\ fs [APPLY_UPDATE_THM,bool_case_eq]
-  \\ rpt strip_tac
-  \\ DISJ2_TAC \\ pop_assum mp_tac \\ pop_assum mp_tac \\ EVAL_TAC \\ fs []
-  *)
-  );
+  \\ imp_res_tac read_bytearray_LENGTH \\ fs[ADD1]
+  \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
+  \\ PURE_TOP_CASE_TAC \\ fs[]
+  \\ PURE_TOP_CASE_TAC \\ fs[]
+  \\ PURE_TOP_CASE_TAC \\ fs[]
+  \\ reverse PURE_TOP_CASE_TAC \\ fs[]
+  >- (
+    match_mp_tac asm_write_bytearray_unchanged_alt
+    \\ qpat_x_assum`x ∉ _` mp_tac
+    \\ fs [ag32_ffi_mem_domain_def]
+    \\ `startup_code_size < 2**32-1 /\
+        (ffi_code_start_offset − 1) < 2**32-1` by EVAL_TAC
+    \\ Cases_on `x` \\ fs [WORD_LO,WORD_LS]
+    \\ fs [METIS_PROVE [] ``(~b \/ c) <=> (b ==> c)``,NOT_LESS]
+    \\ fs [APPLY_UPDATE_THM,bool_case_eq]
+    \\ rpt strip_tac
+    \\ DISJ2_TAC \\ pop_assum mp_tac \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [] )
+  \\ fs[fsFFITheory.ffi_read_def]
+  \\ fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+  \\ conj_tac
+  >- (
+    fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`ms.R 3w ∈ _`mp_tac
+    \\ Cases_on`ms.R 3w`
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB, word_lo_n2w, word_ls_n2w, EVAL``stdin_offset``, memory_size_def, EVAL``code_start_offset _``] )
+  \\ DEP_REWRITE_TAC[set_mem_word_neq]
+  \\ conj_tac
+  >- (
+    EVAL_TAC
+    \\ qpat_x_assum`x ∉ _`mp_tac
+    \\ EVAL_TAC
+    \\ Cases_on`x`
+    \\ simp[word_ls_n2w, word_lo_n2w] )
+  \\ irule asm_write_bytearray_unchanged_alt
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[]
+  \\ qpat_x_assum`_ ∉ _`mp_tac
+  \\ EVAL_TAC);
 
 val _ = export_theory();
