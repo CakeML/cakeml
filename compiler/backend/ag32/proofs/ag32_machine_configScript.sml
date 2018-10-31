@@ -121,26 +121,4 @@ val ag32_ffi_mem_domain_DISJOINT_prog_addresses = Q.store_thm("ag32_ffi_mem_doma
   \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w]
   \\ rfs[]);
 
-(* lower bound on ag32 prog addresses *)
-val ag32_prog_address_LT = Q.store_thm("ag32_prog_address_LT",`
-  w ∈ ag32_prog_addresses (LENGTH ffi_names) lc ld ∧
-  LENGTH ffi_names ≤ LENGTH FFI_codes ⇒
-  0x501503w <+ w:word32`,
-  simp[ag32_prog_addresses_def]>>
-  EVAL_TAC>>rw[]
-  >-
-    (last_x_assum mp_tac>> blastLib.FULL_BBLAST_TAC)
-  >>
-  `LENGTH ffi_names = 0 ∨
-  LENGTH ffi_names = 1 ∨
-  LENGTH ffi_names = 2 ∨
-  LENGTH ffi_names = 3 ∨
-  LENGTH ffi_names = 4 ∨
-  LENGTH ffi_names = 5 ∨
-  LENGTH ffi_names = 6 ∨
-  LENGTH ffi_names = 7 ∨
-  LENGTH ffi_names = 8 ∨
-  LENGTH ffi_names = 9` by DECIDE_TAC>>
-  fs[]>>last_x_assum mp_tac>> blastLib.FULL_BBLAST_TAC)
-
 val _ = export_theory();

@@ -2236,10 +2236,16 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_read s)`,
-  cheat (* read deep/shallow -- before this is removed:
-                                  1. update ag32_ffi_read_def, then
-                                  2. prove ag32_ffi_read_thm below, and then
-                                  3. update ag32_ffi_read_code_def *));
+  cheat (* read deep/shallow *));
+
+val ag32_ffi_get_arg_count_code_thm = Q.store_thm("ag32_ffi_get_arg_count_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_get_arg_count_code ⇒
+      (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+       Encode (EL k ag32_ffi_get_arg_count_code))) ∧
+   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint))
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_count s)`,
+  cheat (* get_arg_count deep/shallow *));
 
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
   `(s.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧

@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1024n`;
+  length_ag32_ffi_code = 1008n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -490,52 +490,55 @@ val ag32_ffi_get_arg_count_entrypoint_def = Define`
   ag32_ffi_get_arg_count_entrypoint =
   ag32_ffi_exit_entrypoint + 4 * LENGTH ag32_ffi_exit_code`;
 
-val ag32_ffi_get_arg_count_def = Define`
-  ag32_ffi_get_arg_count s =
-    let pc_offset = (ffi_code_start_offset - startup_code_size) + ag32_ffi_get_arg_count_entrypoint + 4 in
-    let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
-    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
-    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w pc_offset :word32)):9 word) (s.R 6w)) s.R) in
-    let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
-    let s = dfn'LoadMEM (6w, Reg 5w) s in
-    let s = incPC () (s with MEM := ((s.R 4w) =+ (7 >< 0) (s.R 6w)) s.MEM) in
-    let s = incPC () (s with R := (6w =+ (s.R 6w) >>>~ 4w) s.R) in
-    let s = dfn'Normal(fAdd, 4w, Reg 4w, Imm 4w) s in
-    let s = incPC () (s with MEM := ((s.R 4w) =+ (7 >< 0) (s.R 6w)) s.MEM) in
-    let s = incPC () (s with R := (6w =+ (n2w startup_code_size)) s.R) in
-    let s = incPC () (s with R := (5w =+ (s.R 5w) - (s.R 6w)) s.R) in
-    let s = incPC () (s with MEM := ((s.R 5w) =+ 1w) s.MEM) in
-    let s = dfn'Normal(fSub, 4w, Reg 4w, Imm 4w) s in
-    let s = incPC () (s with R := (5w =+ 0w) s.R) in
-    let s = incPC () (s with R := (6w =+ 0w) s.R) in
-    let s = incPC () (s with R := (7w =+ 0w) s.R) in
-    let s = incPC () (s with <| R := (8w =+ 0w) s.R; OverflowFlag := F; CarryFlag := F|>) in
-    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
-    let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
-    s`;
+val ag32_ffi_get_arg_count_main_code_def = Define`
+  ag32_ffi_get_arg_count_main_code =
+    [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_count"))), Reg 5w);
+     LoadConstant(5w, F, n2w startup_code_size);
+     LoadMEM(5w, Reg 5w);
+     StoreMEM(Reg 3w, Reg 5w)]`;
 
 val ag32_ffi_get_arg_count_code_def = Define`
   ag32_ffi_get_arg_count_code =
-    let pc_offset = (ffi_code_start_offset - startup_code_size) + ag32_ffi_get_arg_count_entrypoint + 4 in
-    [Jump (fAdd, 5w, Imm 4w);
-     LoadConstant(6w, F, (22 >< 0)((n2w pc_offset):word32));
-     LoadUpperConstant(6w, (31 >< 23)((n2w pc_offset):word32));
-     Normal (fSub, 5w, Reg 5w, Reg 6w);
-     LoadMEM (6w, Reg 5w);
-     StoreMEMByte (Reg 6w, Reg 4w);
-     Shift (shiftLR, 6w, Reg 6w, Imm 4w);
-     Normal (fAdd, 4w, Reg 4w, Imm 4w);
-     StoreMEMByte (Reg 6w, Reg 4w);
-     LoadConstant(6w, F, n2w startup_code_size);
-     Normal (fSub, 5w, Reg 5w, Reg 6w);
-     StoreMEMByte (Imm 1w, Reg 5w);
-     Normal (fSub, 4w, Reg 4w, Imm 4w);
-     Normal(fSnd, 5w, Imm 0w, Imm 0w);
-     Normal(fSnd, 6w, Imm 0w, Imm 0w);
-     Normal(fSnd, 7w, Imm 0w, Imm 0w);
-     Normal(fAdd, 8w, Imm 0w, Imm 0w);
-     Interrupt;
-     Jump (fSnd, 0w, Reg 0w)]`;
+    ag32_ffi_get_arg_count_main_code
+    ++ ag32_ffi_return_code`;
+
+val ag32_ffi_get_arg_count_main_def = Define`
+  ag32_ffi_get_arg_count_main s =
+  let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
+  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_count"))), Reg 5w) s in
+  let s = dfn'LoadConstant(5w, F, n2w startup_code_size) s in
+  let s = dfn'LoadMEM(5w, Reg 5w) s in
+  let s = dfn'StoreMEM(Reg 3w, Reg 5w) s in
+  s`;
+
+val ag32_ffi_get_arg_count_main_thm = Q.store_thm("ag32_ffi_get_arg_count_main_thm",
+  `(get_mem_word s.MEM (n2w startup_code_size) = n2w len) ∧ len < 256 * 256
+   ⇒
+   ∃r5.
+    (ag32_ffi_get_arg_count_main s =
+     s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_count_main_code);
+               MEM :=
+                 asm_write_bytearray (s.R 3w) [n2w len; n2w (len DIV 256)]
+                   (((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) s.MEM);
+               R := ((5w =+ r5) s.R) |>)`,
+  rw[ag32_ffi_get_arg_count_main_def]
+  \\ rw[ag32Theory.dfn'StoreMEM_def, ag32Theory.dfn'LoadMEM_def, ag32Theory.ri2word_def,
+        ag32Theory.dfn'LoadConstant_def, ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ EVAL_TAC
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ fs[get_mem_word_def, EVAL``startup_code_size``]
+  \\ qexists_tac`n2w len` \\ simp[]
+  \\ Cases
+  \\ Cases_on`s.R 3w`
+  \\ cheat (* word proofs *));
+
+val ag32_ffi_get_arg_count_def = Define`
+  ag32_ffi_get_arg_count s =
+  let s = ag32_ffi_get_arg_count_main s in
+  ag32_ffi_return s`;
 
 (* get_arg_length
    PC is ffi_code_start_offset
