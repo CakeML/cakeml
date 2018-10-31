@@ -58,7 +58,7 @@ val do_onefile_spec = Q.store_thm(
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
   >- xsimpl
-  >- xsimpl  
+  >- xsimpl
   \\ imp_res_tac nextFD_ltX
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ rfs[]
@@ -69,7 +69,8 @@ val do_onefile_spec = Q.store_thm(
   xfun_spec `recurse`
     `!m n fs00 uv.
        UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
-       STD_streams fs00 ∧ get_file_content fs00 fd = SOME (content, n)
+       STD_streams fs00 ∧ get_file_content fs00 fd = SOME (content, n) ∧
+       get_mode fs00 fd = SOME ReadMode
          ==>
        app p recurse [uv]
          (STDIO fs00)
@@ -127,12 +128,14 @@ val do_onefile_spec = Q.store_thm(
   (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
   *)
   xlet `POSTv u3. &(u3 = Conv NONE []) *
-                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) (implode content))`
+                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs ReadMode 0) fd) (implode content))`
   >- (xapp >>
       simp[fsFFITheory.get_file_content_def,PULL_EXISTS,EXISTS_PROD] >>
-      goal_assum(first_assum o (mp_then (Pos (el 3)) mp_tac)) >>
+      first_x_assum(qspec_then`ReadMode`strip_assume_tac) >>
+      goal_assum(first_assum o (mp_then (Pos(el 4)) mp_tac)) >>
       xsimpl >>
-      fs[UNIT_TYPE_def,STD_streams_openFileFS]) >>
+      fs[UNIT_TYPE_def,STD_streams_openFileFS]
+      \\ simp[get_mode_def]) >>
   (* calling close *)
   xapp_spec close_STDIO_spec >>
   xsimpl >> instantiate >>
