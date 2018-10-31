@@ -95,7 +95,31 @@ val lprefix_lub_0 = store_thm("lprefix_lub_0",
   ``events 0 ≼ events 1 /\
     lprefix_lub (IMAGE (fromList ∘ events) UNIV) io ==>
     lprefix_lub (IMAGE (λi. fromList (events (i + 1:num))) UNIV) io``,
-  cheat);
+  rpt strip_tac
+  \\ fs [lprefix_lub_def]
+  \\ rpt strip_tac
+  THEN1
+   (qpat_x_assum `!ll. _ ==> LPREFIX ll io` (qspec_then `ll` mp_tac)
+    \\ strip_tac \\ first_assum match_mp_tac
+    \\ qexists_tac `i + 1` \\ rw [])
+  \\ qpat_x_assum `!ub. _ ==> LPREFIX io ub` (qspec_then `ub` mp_tac)
+  \\ strip_tac \\ first_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ reverse (Cases_on `x`)
+  THEN1
+   (qpat_x_assum `!ll. _ ==> LPREFIX ll ub` (qspec_then `ll` mp_tac)
+    \\ strip_tac \\ first_assum match_mp_tac
+    \\ qexists_tac `n`
+    \\ rw [ADD1])
+  \\ rw [] \\ match_mp_tac (GEN_ALL LPREFIX_TRANS)
+  \\ qexists_tac `fromList (events 1)`
+  \\ strip_tac
+  THEN1 rw [LPREFIX_def, from_toList]
+  \\ qpat_x_assum `!ll. _ ==> LPREFIX ll ub` (qspec_then `fromList (events 1)` mp_tac)
+  \\ rpt strip_tac
+  \\ `LPREFIX (fromList (events 1)) ub` by
+   (first_assum match_mp_tac
+   \\ qexists_tac `0` \\ rw []));
 
 val evaluate_IMP_io_events_mono = prove(
   ``evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi``,
