@@ -329,6 +329,14 @@ val get_file_content_add_stdout = Q.store_thm("get_file_content_add_stdout",
   >- metis_tac[STD_streams_def,SOME_11,PAIR,FST,SND]
   \\ CASE_TAC);
 
+val get_mode_add_stdo = Q.store_thm("get_mode_add_stdo[simp]",
+  `get_mode (add_stdo fd nm fs x) fd' = get_mode fs fd'`,
+  rw[get_mode_def,add_stdo_def, up_stdo_def, fsupdate_def]
+  \\ TOP_CASE_TAC \\ rw[]
+  \\ TOP_CASE_TAC \\ rw[]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ rw[]);
+
 val linesFD_add_stdout = Q.store_thm("linesFD_add_stdout",
   `STD_streams fs ∧ fd ≠ 1 ⇒
    linesFD (add_stdout fs out) fd = linesFD fs fd`,
