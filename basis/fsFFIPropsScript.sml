@@ -1061,6 +1061,11 @@ val get_mode_forwardFD = Q.store_thm("get_mode_forwardFD[simp]",
   rw[get_mode_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]);
 
+val get_mode_lineForwardFD = Q.store_thm("get_mode_lineForwardFD[simp]",
+  `get_mode (lineForwardFD fs fd) fd' = get_mode fs fd'`,
+  qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
+  \\ rw[]);
+
 val STD_streams_get_mode = Q.store_thm("STD_streams_get_mode",
   `STD_streams fs ⇒
    (get_mode fs 0 = SOME ReadMode) ∧
