@@ -1002,6 +1002,11 @@ val ag32_stdin_implemented_def = Define`
       bytes_in_memory (n2w (stdin_offset + 8)) (MAP (n2w o ORD) inp)
         m (all_words (n2w (stdin_offset + 8)) (LENGTH inp))`;
 
+val ag32_cline_implemented_def = Define`
+  ag32_cline_implemented cl m ⇔
+    (get_mem_word m (n2w startup_code_size) = n2w (LENGTH cl)) ∧
+    LENGTH cl < 256 * 256`;
+
 val ag32_ffi_rel_def = Define`
   ag32_ffi_rel ms ffi ⇔
     (MAP get_ag32_io_event ms.io_events =
@@ -2325,6 +2330,41 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
 *)
+
+val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
+  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+   bytes_in_memory (s.R 3w) bytes s.MEM md ∧
+   Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (w2n (s.R 2w) = LENGTH conf) ∧
+   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) ∧
+   (INDEX_OF "get_arg_count" ffi_names = SOME index) ∧
+   (ffi_get_arg_count conf bytes cl = SOME (FFIreturn new_bytes cl')) ∧
+   ag32_cline_implemented cl s.MEM ∧
+   (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "get_arg_count")))
+   ⇒
+   (ag32_ffi_get_arg_count s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`,
+  rw[ag32_ffi_interfer_def]
+  \\ rw[ag32_ffi_get_arg_count_def]
+  \\ fs[ag32_cline_implemented_def]
+  \\ drule ag32_ffi_get_arg_count_main_thm
+  \\ simp[]
+  \\ strip_tac \\ fs[]
+  \\ pop_assum kall_tac
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[APPLY_UPDATE_THM, FUN_EQ_THM]
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ _`
+  \\ `EL index ffi_names = "get_arg_count"`
+  by ( drule INDEX_OF_IMP_EL \\ rw[] )
+  \\ `B` by ( simp[Abbr`B`] \\ EVAL_TAC \\ rw[] )
+  \\ simp[]
+  \\ qunabbrev_tac`B`
+  \\ pop_assum kall_tac
+  \\ simp[Abbr`A`]
+  \\ simp[ag32_ffi_mem_update_def]
+  \\ fs[clFFITheory.ffi_get_arg_count_def]);
 
 val ag32_fs_ok_stdin_fs = Q.store_thm("ag32_fs_ok_stdin_fs",
   `ag32_fs_ok (stdin_fs inp)`,
