@@ -368,7 +368,7 @@ val ag32_ffi_read_set_id_code_thm = Q.store_thm(
          get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_set_id_code)) ∧ byte_aligned s.PC
      ⇒
-   ∃k. FUNPOW Next k s = ag32_ffi_read_set_id s’
+   ∃k. FUNPOW Next k s = ag32_ffi_read_set_id s’,
   rw[ag32_ffi_read_set_id_def] >> qexists_tac `SUC (SUC 0)` >> simp[FUNPOW] >>
   simp[ag32Theory.Next_def] >> drule byte_aligned_imp >> rw[] >>
   rw[GSYM get_mem_word_def] >>

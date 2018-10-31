@@ -2109,48 +2109,27 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     \\ simp[Abbr`k`]
     \\ EVAL_TAC )
   \\ simp[]
-  \\ cheat (* to be updated *));
-(*
-  \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
-  \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ bs'`
-  \\ `bs = SOME bs'`
-  by (
-    simp[Abbr`bs`]
-    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
-    \\ fs[Abbr`bs'`]
-    \\ gen_tac \\ strip_tac
-    \\ drule asmPropsTheory.bytes_in_memory_EL
-    \\ simp[]
-    \\ drule asmPropsTheory.bytes_in_memory_in_domain
-    \\ simp[] )
-  \\ simp[Abbr`bs`, Abbr`bs'`]
-  \\ fs[fsFFITheory.write_def]
-  \\ `∃x. ALOOKUP fs.infds (w82n conf) = SOME x` by metis_tac[IS_SOME_EXISTS, ag32_fs_ok_def]
-  \\ fs[] \\ Cases_on`x` \\ fs[]
-  \\ fs[ag32_fs_ok_def]
-  \\ first_x_assum drule
-  \\ simp[IS_SOME_EXISTS]
-  \\ strip_tac \\ fs[]
-  \\ rveq \\ simp[]
-  \\ qmatch_goalsub_abbrev_tac`THE (bs:word8 list option)`
-  \\ `bs = SOME conf`
-  by (
-    simp[Abbr`bs`]
-    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
-    \\ fs[]
-    \\ gen_tac \\ strip_tac
-    \\ conj_tac
-    >- (
-      once_rewrite_tac[WORD_ADD_COMM]
-      \\ irule asmPropsTheory.bytes_in_memory_in_domain
-      \\ goal_assum(first_assum o mp_then Any mp_tac)
-      \\ simp[] )
-    \\ once_rewrite_tac[WORD_ADD_COMM]
-    \\ irule asmPropsTheory.bytes_in_memory_EL
-    \\ simp[]
-    \\ asm_exists_tac
-    \\ simp[] )
-  \\ simp[Abbr`bs`]
+  \\ DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+  \\ conj_tac
+  >- (
+    fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`s.R 3w ∈ _`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ Cases_on`s.R 3w` \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB, ADD1, word_add_n2w]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ fs[memory_size_def, EVAL``code_start_offset _``]
+    \\ `k ≤ output_buffer_size + 1` by simp[Abbr`k`]
+    \\ pop_assum mp_tac \\ EVAL_TAC
+    \\ rveq \\ simp[LENGTH_TAKE_EQ] )
+  \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+  \\ conj_tac >- EVAL_TAC
+  \\ simp[word_add_n2w]
+  \\ `LENGTH l = k`
+  by ( rveq \\ simp[LENGTH_TAKE_EQ] \\ simp[Abbr`k`] )
+  \\ fs[]
+  \\ cheat (* order of memory writes *));
+(* maybe some of this is useful:
   \\ qmatch_goalsub_abbrev_tac`lhs = _`
   \\ DEP_ONCE_REWRITE_TAC[asm_write_bytearray_append]
   \\ simp[Abbr`lhs`]
