@@ -365,6 +365,134 @@ val ag32_ffi_copy_code_thm = Q.store_thm("ag32_ffi_copy_code_thm",
   \\ first_x_assum drule
   \\ fs[word_add_n2w]);
 
+
+fun simp0 ths g = asm_simp_tac (srw_ss() ++ ARITH_ss) ths g
+
+fun rnwc_next n =
+    let
+      val ns = Int.toString n
+    in
+      qmatch_abbrev_tac [QUOTE ("?k. FUNPOW Next k s"^ns^" = _")] >>
+      ONCE_REWRITE_TAC [LET_THM] >> BETA_TAC
+    end
+
+val ltNumeral = Q.prove(
+  ‘(x < NUMERAL (BIT2 n) ⇔ x < NUMERAL (BIT1 n) \/ x = NUMERAL (BIT1 n)) /\
+   (x < NUMERAL (BIT1 n) ⇔
+      x < PRE (NUMERAL (BIT1 n)) \/ x = PRE (NUMERAL (BIT1 n)))’,
+  REWRITE_TAC[BIT1, BIT2, NUMERAL_DEF] >> simp[])
+
+fun instn0 th i =
+    first_assum (qspec_then [QUOTE (Int.toString i)]
+                            (assume_tac o SIMP_RULE (srw_ss()) [th])) >>
+    Q.REFINE_EXISTS_TAC ‘SUC k’ >>
+    simp0[FUNPOW, ag32Theory.Next_def, GSYM get_mem_word_def] >>
+    (if i > 0 then
+       [QUOTE ("byte_aligned (s.PC + " ^ Int.toString (i * 4) ^ "w)")]
+         by (irule byte_aligned_add >> simp[] >> EVAL_TAC) >>
+       drule_then assume_tac byte_aligned_imp >> simp0[]
+     else ALL_TAC) >>
+    simp0[SimpLHS, LET_THM] >>
+    (if i > 0 then ntac 2 (pop_assum kall_tac) else ALL_TAC)
+
+val instn = instn0 ag32_ffi_read_num_written_code_def
+
+(*
+
+val ag32_ffi_read_num_written_code_thm = Q.store_thm(
+  "ag32_ffi_read_num_written_code_thm",
+  ‘s.R 3w ∉
+     { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_num_written_code } ∧
+   (∀k. k < LENGTH ag32_ffi_read_num_written_code ⇒
+          get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+          Encode (EL k ag32_ffi_read_num_written_code)) ∧
+   byte_aligned s.PC
+     ⇒
+   ∃k. FUNPOW Next k s = ag32_ffi_read_num_written s’,
+  strip_tac >>
+  assume_tac (EVAL “LENGTH ag32_ffi_read_num_written_code”) >> fs[] >>
+  instn 0 >>
+  drule_then assume_tac byte_aligned_imp >>
+  simp[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def] >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp_tac (srw_ss()) [ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def,
+                       ag32Theory.ri2word_def, ag32_ffi_read_num_written_def] >>
+
+  rnwc_next 1 >> ‘s1.PC = s.PC + 4w’ by simp[Abbr‘s1’] >> instn 1
+  ‘get_mem_word s1.MEM (s.PC + 4w) = get_mem_word s.MEM (s.PC + 4w)’
+    by (fs[get_mem_word_def, Abbr‘s1’] >>
+        simp[combinTheory.UPDATE_def] >>
+        map_every (fn q => first_assum (qspec_then q mp_tac))
+                  [‘7’, ‘6’, ‘5’, ‘4’] >>
+        simp_tac (srw_ss()) [] >> simp0[]) >>
+  ‘s1.R = s.R’ by simp[Abbr‘s1’] >>
+  simp[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def,
+       ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def,
+       ag32Theory.ri2word_def, SimpLHS, ag32Theory.incPC_def] >>
+  ONCE_REWRITE_TAC [LET_THM] >>
+  CONV_TAC (BINDER_CONV (RAND_CONV (RAND_CONV
+    (SIMP_CONV (srw_ss()) [ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+                           ag32Theory.ALU_def, LET_THM,
+                           ag32Theory.ri2word_def, ag32Theory.incPC_def])))) >>
+  simp0[] >>
+
+  qmatch_abbrev_tac ‘∃k. FUNPOW Next k s2 = _’ >>
+  Q.REFINE_EXISTS_TAC ‘SUC k’ >> simp0[FUNPOW] >>
+  ‘s2.MEM = s1.MEM ∧ s2.PC = s.PC + 8w’ by simp[Abbr‘s2’] >>
+  last_assum (qspec_then ‘2’ mp_tac) >> impl_tac >- simp[] >>
+  simp_tac (srw_ss()) [ag32_ffi_read_num_written_code_def] >>
+  simp0[ag32Theory.Next_def, GSYM get_mem_word_def] >>
+  ‘byte_aligned (s.PC + 8w)’ by (irule byte_aligned_add >> simp[] >> EVAL_TAC)>>
+  drule_then assume_tac byte_aligned_imp >> simp0[] >>
+  simp[SimpLHS, LET_THM] >>
+  ‘get_mem_word s1.MEM (s.PC + 8w) = get_mem_word s.MEM (s.PC + 8w)’
+    by (fs[get_mem_word_def, Abbr‘s1’] >>
+        simp[combinTheory.UPDATE_def] >>
+        map_every (fn q => first_assum (qspec_then q mp_tac))
+                  [‘11’, ‘10’, ‘9’, ‘8’] >>
+        simp_tac (srw_ss()) [] >> simp0[]) >>
+  simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def,
+        ag32Theory.dfn'LoadConstant_def,
+        ag32Theory.ri2word_def, SimpLHS, ag32Theory.incPC_def] >>
+  disch_then kall_tac >>
+  simp0[SimpLHS, LET_THM] >>
+  ONCE_REWRITE_TAC [LET_THM] >>
+  CONV_TAC (BINDER_CONV (RAND_CONV (RAND_CONV
+    (SIMP_CONV (srw_ss()) [ag32Theory.dfn'LoadConstant_def, LET_THM,
+                           ag32Theory.ri2word_def, ag32Theory.incPC_def])))) >>
+  simp0[] >>
+
+  qmatch_abbrev_tac ‘∃k. FUNPOW Next k s3 = _’ >>
+  Q.REFINE_EXISTS_TAC ‘SUC k’ >> simp0[FUNPOW] >>
+  ‘s3.MEM = s1.MEM ∧ s3.PC = s.PC + 12w’ by simp[Abbr‘s3’] >>
+  last_assum (qspec_then ‘3’ mp_tac) >> impl_tac >- simp[] >>
+  simp_tac (srw_ss()) [ag32_ffi_read_num_written_code_def] >>
+  simp0[ag32Theory.Next_def, GSYM get_mem_word_def] >>
+  ‘byte_aligned (s.PC + 12w)’
+     by (irule byte_aligned_add >> simp[] >> EVAL_TAC)>>
+  drule_then assume_tac byte_aligned_imp >> simp0[] >>
+  simp[SimpLHS, LET_THM] >>
+  ‘get_mem_word s1.MEM (s.PC + 12w) = get_mem_word s.MEM (s.PC + 12w)’
+    by (fs[get_mem_word_def, Abbr‘s1’] >>
+        simp[combinTheory.UPDATE_def] >>
+        map_every (fn q => first_assum (qspec_then q mp_tac))
+                  [‘15’, ‘14’, ‘13’, ‘12’] >>
+        simp_tac (srw_ss()) [] >> simp0[]) >>
+  simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def,
+        ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
+        ag32Theory.ri2word_def, SimpLHS, ag32Theory.incPC_def] >>
+  disch_then kall_tac >>
+  simp0[SimpLHS, LET_THM] >>
+  ONCE_REWRITE_TAC [LET_THM] >>
+  CONV_TAC (BINDER_CONV (RAND_CONV (RAND_CONV
+    (SIMP_CONV (srw_ss()) [ag32Theory.dfn'LoadConstant_def, LET_THM,
+                           ag32Theory.ri2word_def, ag32Theory.incPC_def])))) >>
+  simp0[] >>
+
+
+
+
+*)
 val ag32_ffi_write_set_id_code_thm = Q.store_thm("ag32_ffi_write_set_id_code_thm",
   `(∀k. k < LENGTH ag32_ffi_write_set_id_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
