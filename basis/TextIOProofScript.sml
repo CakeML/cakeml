@@ -159,8 +159,8 @@ val EndOfFile_UNICITY = Q.store_thm("EndOfFile_UNICITY[xlet_auto_match]",
  * n.b. numchars is ignored *)
 
 val stdo_def = Define`
-  stdo fd name fs out = ∃md.
-    (ALOOKUP fs.infds fd = SOME(IOStream(strlit name),md,strlen out) /\
+  stdo fd name fs out =
+    (ALOOKUP fs.infds fd = SOME(IOStream(strlit name),WriteMode,strlen out) /\
      ALOOKUP fs.files (IOStream(strlit name)) = SOME (explode out))`;
 
 val _ = overload_on("stdout",``stdo 1 "stdout"``);
@@ -335,6 +335,11 @@ val get_mode_add_stdo = Q.store_thm("get_mode_add_stdo[simp]",
   \\ TOP_CASE_TAC \\ rw[]
   \\ TOP_CASE_TAC \\ rw[]
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ rw[]);
+
+val get_mode_bumpFD = Q.store_thm("get_mode_bumpFD[simp]",
+  `get_mode (bumpFD fd fs n) fd' = get_mode fs fd'`,
+  rw[get_mode_def,bumpFD_def,ALIST_FUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]);
 
 val linesFD_add_stdout = Q.store_thm("linesFD_add_stdout",
@@ -960,7 +965,6 @@ val tac =
   \\ rw[] \\ imp_res_tac stdo_UNICITY_R \\ rveq
   \\ fs[stdo_def,get_file_content_def,get_mode_def,PULL_EXISTS]
   \\ instantiate \\ xsimpl
-  \\ conj_tac >- metis_tac[STD_streams_def]
   \\ conj_tac >- (EVAL_TAC \\ simp[EVAL_RULE stdout_v_thm,EVAL_RULE stderr_v_thm])
   \\ simp[Q.ISPEC`explode x`(Q.GEN`l2`insert_atI_end) |> SIMP_RULE(srw_ss())[]]
   \\ xsimpl;
