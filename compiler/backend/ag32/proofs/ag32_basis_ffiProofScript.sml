@@ -2371,6 +2371,62 @@ val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
   \\ simp[ag32_ffi_mem_update_def]
   \\ fs[clFFITheory.ffi_get_arg_count_def]);
 
+val get_mem_arg_thm = Q.store_thm("get_mem_arg_thm",
+  `∀cl i a.
+   bytes_in_memory a (FLAT (MAP (SNOC 0w) cl)) m md ∧
+   i < LENGTH cl ∧ EVERY (EVERY ((<>)0w)) cl
+   ⇒
+   get_mem_arg m a i = (a + n2w (SUM (MAP LENGTH (TAKE (i+1) cl)) + i),
+                        EL i cl)`,
+  Induct \\ simp[]
+  \\ gen_tac
+  \\ Cases
+  \\ simp[get_mem_arg_def]
+  >- (
+    rw[asmPropsTheory.bytes_in_memory_APPEND]
+    \\ rw[get_next_mem_arg_LEAST]
+    \\ simp[whileTheory.OLEAST_def]
+    \\ reverse IF_CASES_TAC
+    >- ( fs[SNOC_APPEND, asmPropsTheory.bytes_in_memory_APPEND, asmSemTheory.bytes_in_memory_def] )
+    \\ simp[]
+    \\ numLib.LEAST_ELIM_TAC
+    \\ conj_tac >- metis_tac[]
+    \\ fs[SNOC_APPEND, asmPropsTheory.bytes_in_memory_APPEND, asmSemTheory.bytes_in_memory_def]
+    \\ gen_tac \\ strip_tac
+    \\ qmatch_goalsub_rename_tac`l MOD _`
+    \\ `l = LENGTH h` suffices_by (
+      rw[]
+      \\ rw[LIST_EQ_REWRITE]
+      \\ imp_res_tac asmPropsTheory.bytes_in_memory_EL )
+    \\ `¬(LENGTH h < l)` by metis_tac[]
+    \\ imp_res_tac asmPropsTheory.bytes_in_memory_EL
+    \\ fs[EVERY_MEM, MEM_EL]
+    \\ Cases_on`l < LENGTH h` \\ fs[]
+    \\ metis_tac[] )
+  \\ rw[asmPropsTheory.bytes_in_memory_APPEND]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ rw[]
+  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ reverse IF_CASES_TAC
+  >- ( fs[SNOC_APPEND, asmPropsTheory.bytes_in_memory_APPEND, asmSemTheory.bytes_in_memory_def] )
+  \\ simp[]
+  \\ numLib.LEAST_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ fs[ADD1, GSYM word_add_n2w]
+  \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ qmatch_goalsub_rename_tac`l = _`
+  \\ fs[SNOC_APPEND, asmPropsTheory.bytes_in_memory_APPEND, asmSemTheory.bytes_in_memory_def]
+  \\ `¬(LENGTH h < l)` by metis_tac[]
+  \\ Cases_on`l < LENGTH h` \\ fs[]
+  \\ imp_res_tac asmPropsTheory.bytes_in_memory_EL
+  \\ fs[EVERY_MEM, MEM_EL]
+  \\ metis_tac[]);
+
 val ag32_ffi_get_arg_length_thm = Q.store_thm("ag32_ffi_get_arg_length_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
@@ -2436,7 +2492,15 @@ val ag32_ffi_get_arg_length_thm = Q.store_thm("ag32_ffi_get_arg_length_thm",
   \\ pop_assum kall_tac
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def]
-  \\ cheat (* get_mem_arg interaction with implemented cline *));
+  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
+  \\ qmatch_goalsub_abbrev_tac`EL ix cl`
+  \\ `n = strlen (EL ix cl)` suffices_by rw[]
+  \\ simp[Abbr`n`]
+  \\ qmatch_asmsub_abbrev_tac`FLAT (MAP _ bl)`
+  \\ qspec_then`bl`(mp_tac o Q.GENL[`m`,`md`]) get_mem_arg_thm
+  \\ disch_then(fn th => DEP_REWRITE_TAC[th])
+  \\ simp[Abbr`bl`, EL_MAP]
+  \\ cheat (* add no-nulls assumption to cline_implemented, and bytes_in_memory_change_mem *));
 
 val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
