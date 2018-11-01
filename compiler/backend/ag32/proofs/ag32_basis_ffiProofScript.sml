@@ -989,6 +989,7 @@ val ag32_fs_ok_def = Define`
    (∀fd fnm md off.
      (ALOOKUP fs.infds fd = SOME (fnm,md,off)) ⇒
      ∃cnt. (ALOOKUP fs.files fnm = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
+   (* maybe *) fs.maxFD ≤ 2 ∧
    STD_streams fs`;
 
 val ag32_stdin_implemented_def = Define`
@@ -2366,6 +2367,219 @@ val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def]
   \\ fs[clFFITheory.ffi_get_arg_count_def]);
+
+val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
+  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+   bytes_in_memory (s.R 3w) bytes s.MEM md ∧
+   Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (w2n (s.R 2w) = LENGTH conf) ∧
+   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) ∧
+   (INDEX_OF "open_in" ffi_names = SOME index) ∧
+   (ffi_open_in conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+   ag32_fs_ok fs ∧
+   (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "open_in")))
+   ⇒
+   (ag32_ffi_open_in s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`,
+  rw[ag32_ffi_interfer_def]
+  \\ rw[ag32_ffi_open_in_def,ag32_ffi_fail_def]
+  \\ simp[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,ag32Theory.dfn'LoadConstant_def]
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ C ∧ _`
+  \\ `EL index ffi_names = "open_in"` by ( drule INDEX_OF_IMP_EL \\ rw[] )
+  \\ `B` by (
+    simp[Abbr`B`] \\ EVAL_TAC \\ rw[] )
+  \\ `C` by (
+    simp[Abbr`C`]  \\EVAL_TAC
+    \\ simp[FUN_EQ_THM,APPLY_UPDATE_THM])
+  \\ simp[Abbr`A`,ag32_ffi_mem_update_def,FUN_EQ_THM]
+  \\ rw[]
+  \\ EVAL_TAC
+  \\ simp[APPLY_UPDATE_THM]
+  \\ match_mp_tac EQ_SYM
+  \\ Cases_on`bytes`>>fs[]
+  >-
+    (* TODO: fs doesn't seem to enforce that bytes ≠ []
+      this case split is temporary
+    *)
+    cheat
+  \\ `new_bytes = 1w :: t` by (
+    fs[fsFFITheory.ffi_open_in_def,OPTION_CHOICE_EQUALS_OPTION]
+    >-
+      (pairarg_tac>>fs[fsFFITheory.openFile_def]>>
+      fs[ag32_fs_ok_def]>>
+      imp_res_tac fsFFIPropsTheory.STD_streams_nextFD>>
+      fs[])
+    >>
+    rw[]>>fs[LUPDATE_def])
+  \\ simp[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC >> fs[]
+  \\ IF_CASES_TAC
+  >-
+    (match_mp_tac asm_write_bytearray_unchanged >>
+    fs[APPLY_UPDATE_THM]>>
+    (* use mem domain *)
+    cheat)
+  >>
+    (* this one should be easy, maybe ... *)
+    fs[asmSemTheory.bytes_in_memory_def]>>
+    drule asmPropsTheory.bytes_in_memory_change_mem>>
+    qmatch_goalsub_abbrev_tac`_ _ t mm x`>>
+    disch_then(qspec_then`mm` mp_tac)>>
+    impl_tac
+    >-
+      (rw[Abbr`mm`,APPLY_UPDATE_THM]>>
+      rfs[]>>
+      (* use mem domain *)
+      cheat)
+    >>
+    strip_tac>>
+    drule bytes_in_memory_IMP_asm_write_bytearray>>
+    fs[Abbr`mm`,APPLY_UPDATE_THM]);
+
+val ag32_ffi_open_out_thm = Q.store_thm("ag32_ffi_open_out_thm",
+  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+   bytes_in_memory (s.R 3w) bytes s.MEM md ∧
+   Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (w2n (s.R 2w) = LENGTH conf) ∧
+   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) ∧
+   (INDEX_OF "open_out" ffi_names = SOME index) ∧
+   (ffi_open_out conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+   ag32_fs_ok fs ∧
+   (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "open_out")))
+   ⇒
+   (ag32_ffi_open_out s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`,
+  rw[ag32_ffi_interfer_def]
+  \\ rw[ag32_ffi_open_out_def,ag32_ffi_fail_def]
+  \\ simp[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,ag32Theory.dfn'LoadConstant_def]
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ C ∧ _`
+  \\ `EL index ffi_names = "open_out"` by ( drule INDEX_OF_IMP_EL \\ rw[] )
+  \\ `B` by (
+    simp[Abbr`B`] \\ EVAL_TAC \\ rw[] )
+  \\ `C` by (
+    simp[Abbr`C`]  \\EVAL_TAC
+    \\ simp[FUN_EQ_THM,APPLY_UPDATE_THM])
+  \\ simp[Abbr`A`,ag32_ffi_mem_update_def,FUN_EQ_THM]
+  \\ rw[]
+  \\ EVAL_TAC
+  \\ simp[APPLY_UPDATE_THM]
+  \\ match_mp_tac EQ_SYM
+  \\ Cases_on`bytes`>>fs[]
+  >-
+    (* TODO: fs doesn't seem to enforce that bytes ≠ []
+      this case split is temporary
+    *)
+    cheat
+  \\ `new_bytes = 1w :: t` by (
+    fs[fsFFITheory.ffi_open_out_def,OPTION_CHOICE_EQUALS_OPTION]
+    >-
+      (pairarg_tac>>fs[fsFFITheory.openFile_truncate_def]>>
+      fs[ag32_fs_ok_def]>>
+      imp_res_tac fsFFIPropsTheory.STD_streams_nextFD>>
+      fs[])
+    >>
+    (* TODO: open_out returns 255 instead of 1??? *)
+    rw[]>>fs[LUPDATE_def]>>cheat)
+  \\ simp[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC >> fs[]
+  \\ IF_CASES_TAC
+  >-
+    (match_mp_tac asm_write_bytearray_unchanged >>
+    fs[APPLY_UPDATE_THM]>>
+    (* use mem domain *)
+    cheat)
+  >>
+    (* this one should be easy, maybe ... *)
+    fs[asmSemTheory.bytes_in_memory_def]>>
+    drule asmPropsTheory.bytes_in_memory_change_mem>>
+    qmatch_goalsub_abbrev_tac`_ _ t mm x`>>
+    disch_then(qspec_then`mm` mp_tac)>>
+    impl_tac
+    >-
+      (rw[Abbr`mm`,APPLY_UPDATE_THM]>>
+      rfs[]>>
+      (* use mem domain *)
+      cheat)
+    >>
+    strip_tac>>
+    drule bytes_in_memory_IMP_asm_write_bytearray>>
+    fs[Abbr`mm`,APPLY_UPDATE_THM]);
+
+val ag32_ffi_close_thm = Q.store_thm("ag32_ffi_close_thm",
+  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+   bytes_in_memory (s.R 3w) bytes s.MEM md ∧
+   Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (w2n (s.R 2w) = LENGTH conf) ∧
+   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) ∧
+   (INDEX_OF "close" ffi_names = SOME index) ∧
+   (ffi_close conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+   ag32_fs_ok fs ∧
+   (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "close")))
+   ⇒
+   (ag32_ffi_close s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`,
+  rw[ag32_ffi_interfer_def]
+  \\ rw[ag32_ffi_close_def,ag32_ffi_fail_def]
+  \\ simp[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def, ag32Theory.ri2word_def,ag32Theory.dfn'LoadConstant_def]
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ C ∧ _`
+  \\ `EL index ffi_names = "close"` by ( drule INDEX_OF_IMP_EL \\ rw[] )
+  \\ `B` by (
+    simp[Abbr`B`] \\ EVAL_TAC \\ rw[] )
+  \\ `C` by (
+    simp[Abbr`C`]  \\EVAL_TAC
+    \\ simp[FUN_EQ_THM,APPLY_UPDATE_THM])
+  \\ simp[Abbr`A`,ag32_ffi_mem_update_def,FUN_EQ_THM]
+  \\ rw[]
+  \\ EVAL_TAC
+  \\ simp[APPLY_UPDATE_THM]
+  \\ match_mp_tac EQ_SYM
+  \\ Cases_on`bytes`>>fs[]
+  >-
+    (* TODO: fs doesn't seem to enforce that bytes ≠ []
+      this case split is temporary
+    *)
+    cheat
+  \\ `new_bytes = 1w :: t` by (
+    fs[fsFFITheory.ffi_close_def,OPTION_CHOICE_EQUALS_OPTION]
+    >-
+      (pairarg_tac>>fs[fsFFITheory.closeFD_def]>>
+      (* can STDOUT, STDIN and STDERR be closed? *)
+      cheat)
+    >>
+    rw[]>>fs[LUPDATE_def])
+  \\ simp[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC >> fs[]
+  \\ IF_CASES_TAC
+  >-
+    (match_mp_tac asm_write_bytearray_unchanged >>
+    fs[APPLY_UPDATE_THM]>>
+    (* use mem domain *)
+    cheat)
+  >>
+    (* this one should be easy, maybe ... *)
+    fs[asmSemTheory.bytes_in_memory_def]>>
+    drule asmPropsTheory.bytes_in_memory_change_mem>>
+    qmatch_goalsub_abbrev_tac`_ _ t mm x`>>
+    disch_then(qspec_then`mm` mp_tac)>>
+    impl_tac
+    >-
+      (rw[Abbr`mm`,APPLY_UPDATE_THM]>>
+      rfs[]>>
+      (* use mem domain *)
+      cheat)
+    >>
+    strip_tac>>
+    drule bytes_in_memory_IMP_asm_write_bytearray>>
+    fs[Abbr`mm`,APPLY_UPDATE_THM]);
 
 val ag32_fs_ok_stdin_fs = Q.store_thm("ag32_fs_ok_stdin_fs",
   `ag32_fs_ok (stdin_fs inp)`,

@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1024n`;
+  length_ag32_ffi_code = 1168n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -2368,14 +2368,32 @@ val ag32_ffi_write_def = Define`
               dfn'StoreMEMByte (Imm 1w, Reg 5w) s
   in ag32_ffi_return s`;
 
-(* open_in *)
+(* returns error code 1 after writing the appropriate ffi *)
+val ag32_ffi_fail_def = Define`
+  ag32_ffi_fail ffiname s =
+  let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
+  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes ffiname))), Reg 5w) s in
+  let s = dfn'StoreMEMByte (Imm 1w, Reg 3w) s in
+  s`
 
+val ag32_ffi_fail_code_def = Define`
+  ag32_ffi_fail_code ffiname =
+    [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes ffiname))), Reg 5w);
+     StoreMEMByte(Imm 1w, Reg 3w)]`
+
+(* open_in *)
 val ag32_ffi_open_in_entrypoint_def = Define`
   ag32_ffi_open_in_entrypoint =
   ag32_ffi_write_entrypoint + 4 * LENGTH ag32_ffi_write_code`;
 
+val ag32_ffi_open_in_def = Define`
+  ag32_ffi_open_in s =
+ let s = ag32_ffi_fail "open_in" s in
+  ag32_ffi_return s`;
+
 val ag32_ffi_open_in_code_def = Define`
-  ag32_ffi_open_in_code = [Interrupt] (* TODO *)`;
+  ag32_ffi_open_in_code = ag32_ffi_fail_code "open_in" ++ ag32_ffi_return_code`
 
 (* open_out *)
 
@@ -2383,8 +2401,13 @@ val ag32_ffi_open_out_entrypoint_def = Define`
   ag32_ffi_open_out_entrypoint =
   ag32_ffi_open_in_entrypoint + 4 * LENGTH ag32_ffi_open_in_code`;
 
+val ag32_ffi_open_out_def = Define`
+  ag32_ffi_open_out s =
+ let s = ag32_ffi_fail "open_out" s in
+  ag32_ffi_return s`;
+
 val ag32_ffi_open_out_code_def = Define`
-  ag32_ffi_open_out_code = [Interrupt] (* TODO *)`;
+  ag32_ffi_open_out_code = ag32_ffi_fail_code "open_out" ++ ag32_ffi_return_code`
 
 (* close *)
 
@@ -2392,8 +2415,13 @@ val ag32_ffi_close_entrypoint_def = Define`
   ag32_ffi_close_entrypoint =
   ag32_ffi_open_out_entrypoint + 4 * LENGTH ag32_ffi_open_out_code`;
 
+val ag32_ffi_close_def = Define`
+  ag32_ffi_close s =
+ let s = ag32_ffi_fail "close" s in
+  ag32_ffi_return s`;
+
 val ag32_ffi_close_code_def = Define`
-  ag32_ffi_close_code = [Interrupt] (* TODO *)`;
+  ag32_ffi_close_code = ag32_ffi_fail_code "close" ++ ag32_ffi_return_code`
 
 (* FFI jumps
   - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
