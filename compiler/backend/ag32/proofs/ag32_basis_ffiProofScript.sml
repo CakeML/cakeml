@@ -2399,12 +2399,8 @@ val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
   \\ EVAL_TAC
   \\ simp[APPLY_UPDATE_THM]
   \\ match_mp_tac EQ_SYM
-  \\ Cases_on`bytes`>>fs[]
-  >-
-    (* TODO: fs doesn't seem to enforce that bytes ≠ []
-      this case split is temporary
-    *)
-    cheat
+  \\ Cases_on`bytes`
+  >- ( fs[fsFFITheory.ffi_open_in_def] )
   \\ `new_bytes = 1w :: t` by (
     fs[fsFFITheory.ffi_open_in_def,OPTION_CHOICE_EQUALS_OPTION]
     >-
@@ -2420,10 +2416,14 @@ val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
   >-
     (match_mp_tac asm_write_bytearray_unchanged >>
     fs[APPLY_UPDATE_THM]>>
-    (* use mem domain *)
-    cheat)
+    fs[asmSemTheory.bytes_in_memory_def]
+    \\ rveq
+    \\ qpat_x_assum`_ ∈ md`mp_tac
+    \\ simp[Abbr`md`]
+    \\ Cases_on`s.R 3w`
+    \\ EVAL_TAC
+    \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def, LEFT_ADD_DISTRIB])
   >>
-    (* this one should be easy, maybe ... *)
     fs[asmSemTheory.bytes_in_memory_def]>>
     drule asmPropsTheory.bytes_in_memory_change_mem>>
     qmatch_goalsub_abbrev_tac`_ _ t mm x`>>
@@ -2432,8 +2432,15 @@ val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
     >-
       (rw[Abbr`mm`,APPLY_UPDATE_THM]>>
       rfs[]>>
-      (* use mem domain *)
-      cheat)
+      drule asmPropsTheory.bytes_in_memory_in_domain
+      \\ disch_then drule
+      \\ simp[Abbr`md`]
+      \\ Cases_on`s.R 3w`
+      \\ EVAL_TAC
+      \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def, LEFT_ADD_DISTRIB]
+      \\ fs[word_add_n2w]
+      \\ strip_tac \\ fs[] \\ rfs[ADD1]
+      \\ qpat_x_assum`_ = _ MOD _`mp_tac \\ simp[])
     >>
     strip_tac>>
     drule bytes_in_memory_IMP_asm_write_bytearray>>
@@ -2471,11 +2478,7 @@ val ag32_ffi_open_out_thm = Q.store_thm("ag32_ffi_open_out_thm",
   \\ simp[APPLY_UPDATE_THM]
   \\ match_mp_tac EQ_SYM
   \\ Cases_on`bytes`>>fs[]
-  >-
-    (* TODO: fs doesn't seem to enforce that bytes ≠ []
-      this case split is temporary
-    *)
-    cheat
+  >- ( fs[fsFFITheory.ffi_open_out_def] )
   \\ `new_bytes = 1w :: t` by (
     fs[fsFFITheory.ffi_open_out_def,OPTION_CHOICE_EQUALS_OPTION]
     >-
@@ -2484,18 +2487,21 @@ val ag32_ffi_open_out_thm = Q.store_thm("ag32_ffi_open_out_thm",
       imp_res_tac fsFFIPropsTheory.STD_streams_nextFD>>
       fs[])
     >>
-    (* TODO: open_out returns 255 instead of 1??? *)
-    rw[]>>fs[LUPDATE_def]>>cheat)
+    rw[]>>fs[LUPDATE_def])
   \\ simp[asm_write_bytearray_def,APPLY_UPDATE_THM]
   \\ IF_CASES_TAC >> fs[]
   \\ IF_CASES_TAC
   >-
     (match_mp_tac asm_write_bytearray_unchanged >>
     fs[APPLY_UPDATE_THM]>>
-    (* use mem domain *)
-    cheat)
+    fs[asmSemTheory.bytes_in_memory_def]
+    \\ rveq
+    \\ qpat_x_assum`_ ∈ md`mp_tac
+    \\ simp[Abbr`md`]
+    \\ Cases_on`s.R 3w`
+    \\ EVAL_TAC
+    \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def, LEFT_ADD_DISTRIB])
   >>
-    (* this one should be easy, maybe ... *)
     fs[asmSemTheory.bytes_in_memory_def]>>
     drule asmPropsTheory.bytes_in_memory_change_mem>>
     qmatch_goalsub_abbrev_tac`_ _ t mm x`>>
@@ -2504,8 +2510,15 @@ val ag32_ffi_open_out_thm = Q.store_thm("ag32_ffi_open_out_thm",
     >-
       (rw[Abbr`mm`,APPLY_UPDATE_THM]>>
       rfs[]>>
-      (* use mem domain *)
-      cheat)
+      drule asmPropsTheory.bytes_in_memory_in_domain
+      \\ disch_then drule
+      \\ simp[Abbr`md`]
+      \\ Cases_on`s.R 3w`
+      \\ EVAL_TAC
+      \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def, LEFT_ADD_DISTRIB]
+      \\ fs[word_add_n2w]
+      \\ strip_tac \\ fs[] \\ rfs[ADD1]
+      \\ qpat_x_assum`_ = _ MOD _`mp_tac \\ simp[])
     >>
     strip_tac>>
     drule bytes_in_memory_IMP_asm_write_bytearray>>
@@ -2543,16 +2556,12 @@ val ag32_ffi_close_thm = Q.store_thm("ag32_ffi_close_thm",
   \\ simp[APPLY_UPDATE_THM]
   \\ match_mp_tac EQ_SYM
   \\ Cases_on`bytes`>>fs[]
-  >-
-    (* TODO: fs doesn't seem to enforce that bytes ≠ []
-      this case split is temporary
-    *)
-    cheat
+  >- fs[fsFFITheory.ffi_close_def]
   \\ `new_bytes = 1w :: t` by (
     fs[fsFFITheory.ffi_close_def,OPTION_CHOICE_EQUALS_OPTION]
     >-
       (pairarg_tac>>fs[fsFFITheory.closeFD_def]>>
-      (* can STDOUT, STDIN and STDERR be closed? *)
+      (* can STDOUT, STDIN and STDERR be closed? RK: yes they can *)
       cheat)
     >>
     rw[]>>fs[LUPDATE_def])
@@ -2562,10 +2571,14 @@ val ag32_ffi_close_thm = Q.store_thm("ag32_ffi_close_thm",
   >-
     (match_mp_tac asm_write_bytearray_unchanged >>
     fs[APPLY_UPDATE_THM]>>
-    (* use mem domain *)
-    cheat)
+    fs[asmSemTheory.bytes_in_memory_def]
+    \\ rveq
+    \\ qpat_x_assum`_ ∈ md`mp_tac
+    \\ simp[Abbr`md`]
+    \\ Cases_on`s.R 3w`
+    \\ EVAL_TAC
+    \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def, LEFT_ADD_DISTRIB])
   >>
-    (* this one should be easy, maybe ... *)
     fs[asmSemTheory.bytes_in_memory_def]>>
     drule asmPropsTheory.bytes_in_memory_change_mem>>
     qmatch_goalsub_abbrev_tac`_ _ t mm x`>>
@@ -2574,8 +2587,15 @@ val ag32_ffi_close_thm = Q.store_thm("ag32_ffi_close_thm",
     >-
       (rw[Abbr`mm`,APPLY_UPDATE_THM]>>
       rfs[]>>
-      (* use mem domain *)
-      cheat)
+      drule asmPropsTheory.bytes_in_memory_in_domain
+      \\ disch_then drule
+      \\ simp[Abbr`md`]
+      \\ Cases_on`s.R 3w`
+      \\ EVAL_TAC
+      \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def, LEFT_ADD_DISTRIB]
+      \\ fs[word_add_n2w]
+      \\ strip_tac \\ fs[] \\ rfs[ADD1]
+      \\ qpat_x_assum`_ = _ MOD _`mp_tac \\ simp[])
     >>
     strip_tac>>
     drule bytes_in_memory_IMP_asm_write_bytearray>>

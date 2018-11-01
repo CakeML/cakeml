@@ -171,7 +171,10 @@ val ffi_open_in_def = Define`
       (fd, fs') <- openFile (implode fname) fs ReadMode 0;
       return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
     od ++
-    return (FFIreturn (LUPDATE 1w 0 bytes) fs)`;
+    do
+      assert(0 < LENGTH bytes);
+      return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+    od`;
 
 (* open append:
       contents <- ALOOKUP fs.files (implode fname);
@@ -191,7 +194,10 @@ val ffi_open_out_def = Define`
       assert(fd <= 255);
       return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
     od ++
-    return (FFIreturn (LUPDATE 255w 0 bytes) fs)`;
+    do
+      assert(0 < LENGTH bytes);
+      return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+    od`;
 
 (*
 * [descriptor index (8 bytes); number of char to read (2 bytes); buffer]
