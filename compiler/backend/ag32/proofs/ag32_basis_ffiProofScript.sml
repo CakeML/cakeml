@@ -1006,7 +1006,8 @@ val ag32_stdin_implemented_def = Define`
 val ag32_cline_implemented_def = Define`
   ag32_cline_implemented cl m ⇔
     (get_mem_word m (n2w startup_code_size) = n2w (LENGTH cl)) ∧
-    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ cl ≠ [] ∧
+    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+    EVERY validArg cl ∧ cl ≠ [] ∧
     bytes_in_memory (n2w (startup_code_size  + 4))
       (FLAT (MAP (SNOC 0w) (MAP (MAP (n2w o ORD) o explode) cl)))
       m (all_words (n2w (startup_code_size + 4)) (SUM (MAP strlen cl) + LENGTH cl))`;
@@ -2500,7 +2501,26 @@ val ag32_ffi_get_arg_length_thm = Q.store_thm("ag32_ffi_get_arg_length_thm",
   \\ qspec_then`bl`(mp_tac o Q.GENL[`m`,`md`]) get_mem_arg_thm
   \\ disch_then(fn th => DEP_REWRITE_TAC[th])
   \\ simp[Abbr`bl`, EL_MAP]
-  \\ cheat (* add no-nulls assumption to cline_implemented, and bytes_in_memory_change_mem *));
+  \\ simp[EVERY_MAP, ORD_BOUND]
+  \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ _ _ dm`
+  \\ qexists_tac`dm`
+  \\ reverse conj_tac
+  >- (
+    fs[EVERY_MEM, clFFITheory.validArg_def]
+    \\ gen_tac \\ strip_tac
+    \\ Cases \\ rw[] \\ strip_tac \\ rveq
+    \\ rfs[] )
+  \\ irule asmPropsTheory.bytes_in_memory_change_mem
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ rw[APPLY_UPDATE_THM]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ EVAL_TAC
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+  \\ simp[SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ fs[EVAL``cline_size``] \\ rw[]
+  \\ qpat_x_assum`_ = _ MOD _`mp_tac
+  \\ simp[]);
 
 val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
