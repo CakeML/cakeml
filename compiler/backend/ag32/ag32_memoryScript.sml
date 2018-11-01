@@ -783,11 +783,58 @@ val get_next_mem_arg_def = tDefine"get_next_mem_arg"`
    \\ `¬(n''' < n)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
    \\ fs[NOT_LESS]);
 
+val get_next_mem_arg_ind = theorem"get_next_mem_arg_ind";
+
+val get_next_mem_arg_LEAST = Q.store_thm("get_next_mem_arg_LEAST",
+  `∀m a acc. get_next_mem_arg m a acc =
+    case OLEAST n. m (a + n2w n) = 0w of
+    | NONE => (a, REVERSE acc)
+    | SOME n => (a + n2w n, REVERSE acc ++ (GENLIST (λn. m (a + n2w n)) n))`,
+  recInduct get_next_mem_arg_ind
+  \\ rw[]
+  \\ simp[Once get_next_mem_arg_def]
+  \\ Cases_on`m a = 0w` \\ fs[]
+  >- (
+    simp[whileTheory.OLEAST_def]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ numLib.LEAST_ELIM_TAC
+    \\ conj_tac >- metis_tac[]
+    \\ gen_tac \\ strip_tac
+    \\ Cases_on`n'` \\ fs[]
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[] )
+  \\ IF_CASES_TAC
+  >- ( simp[whileTheory.OLEAST_def] )
+  \\ fs[]
+  \\ simp[whileTheory.OLEAST_def]
+  \\ reverse IF_CASES_TAC \\ fs[]
+  >- (
+    Cases_on`n` \\ fs[]
+    \\ fs[ADD1, GSYM word_add_n2w] )
+  \\ IF_CASES_TAC \\ fs[]
+  \\ numLib.LEAST_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ numLib.LEAST_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ qmatch_goalsub_rename_tac`_::_ _ n1 = _ _ n2`
+  \\ `n2 = n1 + 1` suffices_by (
+    simp[GSYM word_add_n2w]
+    \\ simp[GSYM ADD1, GENLIST_CONS]
+    \\ simp[o_DEF, ADD1, GSYM word_add_n2w] )
+  \\ Cases_on`n2` \\ fs[ADD1]
+  \\ fs[GSYM word_add_n2w]
+  \\ qmatch_goalsub_rename_tac`n2 = n1`
+  \\ `¬(n1 + 1 < n2 + 1)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
+  \\ `¬(n2 < n1)` by metis_tac[]
+  \\ fs[]);
+
 val get_mem_arg_def = Define`
   (get_mem_arg m a 0 = get_next_mem_arg m a []) ∧
   (get_mem_arg m a (SUC n) =
    let (a, _) = get_next_mem_arg m a [] in
-     get_mem_arg m a n)`;
+     get_mem_arg m (a+1w) n)`;
 
 val ag32_ffi_get_arg_length_loop_thm = Q.store_thm("ag32_ffi_get_arg_length_loop_thm",
   `(s.R 6w = n2w (index+1)) ∧ index ≤ cline_size ∧
@@ -826,7 +873,8 @@ val ag32_ffi_get_arg_length_loop_thm = Q.store_thm("ag32_ffi_get_arg_length_loop
     \\ rw[] \\ fs[]
     \\ AP_THM_TAC \\ AP_TERM_TAC
     \\ AP_THM_TAC \\ AP_TERM_TAC
-    \\ cheat (* get_next_mem_arg length lemma *) )
+    \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+    \\ IF_CASES_TAC \\ fs[])
   \\ rw[]
   \\ simp[Once ag32_ffi_get_arg_length_loop_def]
   \\ fs[EVAL``cline_size``]
@@ -845,7 +893,12 @@ val ag32_ffi_get_arg_length_loop_thm = Q.store_thm("ag32_ffi_get_arg_length_loop
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
     \\ rw[]
-    \\ cheat (* word proof: can wrap around memory *) )
+    \\ Cases_on`s.R 5w` \\ fs[word_add_n2w]
+    \\ qexists_tac`dimword(:32)-1`
+    \\ simp[]
+    \\ fs[GSYM word_add_n2w]
+    \\ EVAL_TAC \\ fs[word_add_n2w]
+    \\ metis_tac[n2w_mod,EVAL``dimword(:32)``])
   \\ strip_tac \\ simp[]
   \\ pop_assum kall_tac
   \\ simp[ag32Theory.ag32_state_component_equality]
@@ -858,7 +911,8 @@ val ag32_ffi_get_arg_length_loop_thm = Q.store_thm("ag32_ffi_get_arg_length_loop
   \\ simp[get_mem_arg_def, GSYM ADD1, UNCURRY]
   \\ AP_TERM_TAC
   \\ AP_TERM_TAC
-  \\ cheat (* hopefully another get_next_mem_arg length lemma *) );
+  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ IF_CASES_TAC \\ fs[]);
 
 (* get_arg *)
 
