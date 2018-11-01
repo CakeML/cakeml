@@ -604,7 +604,7 @@ val ag32_ffi_get_arg_length_store_code_def = Define`
      Normal(fInc, 3w, Reg 3w, Imm 1w);
      StoreMEMByte(Reg 4w, Reg 3w)]`;
 
-val ag32_ffi_get_arg_length_code = Define`
+val ag32_ffi_get_arg_length_code_def = Define`
   ag32_ffi_get_arg_length_code =
     ag32_ffi_get_arg_length_setup_code ++
     ag32_ffi_get_arg_length_loop_code ++
@@ -913,6 +913,52 @@ val ag32_ffi_get_arg_length_loop_thm = Q.store_thm("ag32_ffi_get_arg_length_loop
   \\ AP_TERM_TAC
   \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]);
+
+val ag32_ffi_get_arg_length_store_def = Define`
+  ag32_ffi_get_arg_length_store s =
+  let s = dfn'Normal (fDec, 4w, Reg 4w, Imm 1w) s in
+  let s = dfn'StoreMEMByte(Reg 4w, Reg 3w) s in
+  let s = dfn'Shift(shiftLR, 4w, Reg 4w, Imm 8w) s in
+  let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
+  let s = dfn'StoreMEMByte(Reg 4w, Reg 3w) s in
+  s`;
+
+val ag32_ffi_get_arg_length_store_thm = Q.store_thm("ag32_ffi_get_arg_length_store_thm",
+  `(s.R 4w = n2w (n+1))
+   ⇒
+   ∃r4 r3.
+   (ag32_ffi_get_arg_length_store s =
+    s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_length_store_code);
+              R := ((4w =+ r4)
+                   ((3w =+ r3) s.R));
+              MEM := (((s.R 3w) =+ (n2w n))
+                     (((s.R 3w + 1w) =+ (n2w (n DIV 256))) s.MEM)) |>)`,
+  rw[ag32_ffi_get_arg_length_store_def]
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ri2word_def,
+          ag32Theory.incPC_def, ag32Theory.ALU_def,
+          ag32Theory.dfn'Shift_def, ag32Theory.shift_def,
+          ag32Theory.dfn'StoreMEMByte_def,
+          APPLY_UPDATE_THM]
+  \\ rw[ag32Theory.ag32_state_component_equality]
+  \\ qmatch_goalsub_abbrev_tac`4w =+ r4`
+  \\ qmatch_goalsub_abbrev_tac`3w =+ r3`
+  \\ qexists_tac`r4` \\ qexists_tac`r3`
+  \\ simp[ag32_ffi_get_arg_length_store_code_def]
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[Abbr`r3`] \\ fs[Abbr`r4`, GSYM word_add_n2w]
+  >- (
+    Cases_on`s.R 3w` \\ fs[word_add_n2w]
+    \\ qmatch_asmsub_rename_tac`m < _`
+    \\ Cases_on`m = dimword(:32)-1` \\ fs[] )
+  >- cheat (* word proof *)
+  \\ blastLib.FULL_BBLAST_TAC);
+
+val ag32_ffi_get_arg_length_def = Define`
+  ag32_ffi_get_arg_length s =
+    let s = ag32_ffi_get_arg_length_setup s in
+    let s = ag32_ffi_get_arg_length_loop s in
+    let s = ag32_ffi_get_arg_length_store s in
+    ag32_ffi_return s`;
 
 (* get_arg *)
 
