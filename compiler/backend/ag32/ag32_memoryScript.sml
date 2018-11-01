@@ -624,6 +624,35 @@ val ag32_ffi_get_arg_length_setup_def = Define`
   let s = dfn'Normal(fAdd, 6w, Reg 6w, Reg 7w) s in
   s`;
 
+val ag32_ffi_get_arg_length_setup_thm = Q.store_thm("ag32_ffi_get_arg_length_setup_thm",
+  `bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧ n2w(ffi_code_start_offset - 1) ∉ md
+   ⇒
+   ∃r7 ov cf.
+   (ag32_ffi_get_arg_length_setup s =
+    s with <|
+      MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM;
+      PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_length_setup_code);
+      R := ((5w =+ n2w (startup_code_size + 4))
+           ((6w =+ n2w (256 * w2n l1 + w2n l0 + 1))
+           ((7w =+ r7) s.R)));
+      CarryFlag := cf; OverflowFlag := ov |>)`,
+  rw[ag32_ffi_get_arg_length_setup_def]
+  \\ simp[ag32Theory.dfn'LoadMEMByte_def,
+        ag32Theory.incPC_def,
+        ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.ri2word_def,
+        ag32Theory.dfn'Shift_def, ag32Theory.shift_def,
+        ag32Theory.dfn'LoadConstant_def,
+        ag32Theory.dfn'StoreMEMByte_def, APPLY_UPDATE_THM]
+  \\ fs[asmSemTheory.bytes_in_memory_def, w2w_n2w, EVAL``ffi_code_start_offset``]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ EVAL_TAC
+  \\ qexists_tac`w2w l1`
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[] \\ fs[]
+  \\ cheat (* word proof *));
+
 val ag32_ffi_get_arg_length_loop1_def = tDefine"ag32_ffi_get_arg_length_loop1"`
   ag32_ffi_get_arg_length_loop1 s =
     if (∀n. s.MEM (s.R 5w + n2w n) ≠ 0w) then s else
