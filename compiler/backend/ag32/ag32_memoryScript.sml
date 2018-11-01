@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1164n`;
+  length_ag32_ffi_code = 1180n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -571,108 +571,165 @@ val ag32_ffi_get_arg_length_entrypoint_def = Define`
   ag32_ffi_get_arg_length_entrypoint =
   ag32_ffi_get_arg_count_entrypoint + 4 * LENGTH ag32_ffi_get_arg_count_code`;
 
-val ag32_ffi_get_arg_length_1_def = Define`
-  ag32_ffi_get_arg_length_1 s =
-    let pc_offset = ffi_code_start_offset +
-                    ag32_ffi_get_arg_length_entrypoint +
-                    4 in
-    let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
-    let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w pc_offset :word32)):23 word)) s.R) in
-    let s = incPC () (s with R := (6w =+ bit_field_insert 31 23 (((31 >< 23)(n2w pc_offset :word32)):9 word) (s.R 6w)) s.R) in
-    let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 6w) s in
-    let s = incPC () (s with MEM := ((s.R 5w) =+ 2w) s.MEM) in
-    let s = incPC () (s with R := (7w =+ w2w (s.MEM (s.R 4w))) s.R) in
-    let s = dfn'Normal (fAdd, 4w, Reg 4w, Imm 4w) s in
-    let s = incPC () (s with R := (6w =+ w2w (s.MEM (s.R 4w))) s.R) in
-    let s = incPC () (s with R := (6w =+ ((s.R 6w) <<~ 4w)) s.R) in
-    let s = dfn'Normal (fAdd, 7w, Reg 6w, Reg 7w) s in
-    let s = incPC () (s with R := (6w =+ (n2w (startup_code_size + 4))) s.R) in
-    let s = dfn'Normal (fAdd, 5w, Reg 5w, Reg 6w) s in
-    let s = incPC () (s with R := (6w =+ 0w) s.R) in
-    s`;
+val ag32_ffi_get_arg_length_setup_code_def = Define`
+  ag32_ffi_get_arg_length_setup_code =
+    [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w);
+     LoadConstant(5w, F, (n2w (startup_code_size + 4))); (* r5 contains pointer *)
+     LoadMEMByte(6w, Reg 3w);
+     Shift(shiftLL, 6w, Reg 6w, Imm 8w);
+     Normal(fInc, 3w, Reg 3w, Imm 1w);
+     LoadMEMByte(7w, Reg 3w);
+     Normal(fDec, 3w, Reg 3w, Imm 1w);
+     Normal(fInc, 6w, Reg 6w, Imm 1w);
+     Normal(fAdd, 6w, Reg 6w, Reg 7w)] (* r6 contains index+1 *)`;
 
-val ag32_ffi_get_arg_length_2_def = tDefine"ag32_ffi_get_arg_length_2"`
-  ag32_ffi_get_arg_length_2 s =
-    if ∀n. s.MEM (s.R 5w + n2w n) ≠ 0w then s else
-    let s = incPC () (s with R := (8w =+ w2w (s.MEM (s.R 5w))) s.R) in
-    if (s.R 8w = 0w) then
-      s with PC := s.PC + 4w * 4w
-    else
-      let s = incPC () (s with R := (6w =+ (s.R 6w + 1w)) s.R) in
-      let s = incPC () (s with R := (5w =+ (s.R 5w + 1w)) s.R) in
-      let s = s with PC := s.PC + 4w * - 4w in
-      ag32_ffi_get_arg_length_2 s`
-  (simp[APPLY_UPDATE_THM, ag32Theory.incPC_def]
-   \\ wf_rel_tac`measure (λs. LEAST n. s.MEM (s.R 5w + (n2w n)) = 0w)`
-   \\ rw[APPLY_UPDATE_THM]
-   \\ Cases_on`n` \\ fs[] \\ rfs[]
-   \\ numLib.LEAST_ELIM_TAC
-   \\ conj_tac
-   >- (
-     qmatch_asmsub_rename_tac`SUC n`
-     \\ qexists_tac`n`
-     \\ fs[GSYM word_add_n2w,ADD1] )
-   \\ rw[]
-   \\ numLib.LEAST_ELIM_TAC
-   \\ conj_tac >- metis_tac[]
-   \\ rw[]
-   \\ CCONTR_TAC \\ fs[NOT_LESS, LESS_EQ_EXISTS]
-   \\ rw[]
-   \\ qmatch_asmsub_rename_tac`s.MEM (n2w m + _) = 0w`
-   \\ Cases_on`m` \\ fs[]
-   \\ last_x_assum(qspec_then`n`mp_tac)
-   \\ simp[ADD1]
-   \\ fs[ADD1, GSYM word_add_n2w]);
-
-val ag32_ffi_get_arg_length_3_def = Define`
-  ag32_ffi_get_arg_length_3 s =
-    let s = dfn'Normal (fSub, 4w, Reg 4w, Imm 4w) s in
-    let s = incPC () (s with MEM := ((s.R 4w) =+ w2w (s.R 6w)) s.MEM) in
-    let s = incPC () (s with R := (6w =+ (s.R 6w >>>~ 4w)) s.R) in
-    let s = dfn'Normal (fAdd, 4w, Reg 4w, Imm 4w) s in
-    let s = incPC () (s with MEM := ((s.R 4w) =+ w2w (s.R 6w)) s.MEM) in
-    let s = incPC () (s with R := (5w =+ 0w) s.R) in
-    let s = incPC () (s with R := (6w =+ 0w) s.R) in
-    let s = incPC () (s with R := (7w =+ 0w) s.R) in
-    let s = incPC () (s with <| R := (8w =+ 0w) s.R; OverflowFlag := F; CarryFlag := F|>) in
-    let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
-    let s = s with <| R := (0w =+ s.PC + 4w) s.R; PC := s.R 0w |> in
-    s`;
-
-val ag32_ffi_get_arg_length_code_def = Define`
-  ag32_ffi_get_arg_length_code =
-    let pc_offset = ffi_code_start_offset +
-                    ag32_ffi_get_arg_length_entrypoint +
-                    4 in
-    [Jump (fAdd, 5w, Imm 4w);
-     LoadConstant(6w, F, (22 >< 0)((n2w pc_offset):word32));
-     LoadUpperConstant(6w, (31 >< 23)((n2w pc_offset):word32));
-     Normal (fSub, 5w, Reg 5w, Reg 6w); (* mem_start is now in r5 *)
-     StoreMEMByte (Imm 2w, Reg 5w);
-     LoadMEMByte (7w, Reg 4w);
-     Normal (fAdd, 4w, Reg 4w, Imm 4w);
-     LoadMEMByte (6w, Reg 4w);
-     Shift (shiftLL, 6w, Reg 6w, Imm 4w);
-     Normal (fAdd, 7w, Reg 6w, Reg 7w); (* index is now in r7 *)
-     LoadConstant (6w, F, n2w (startup_code_size + 4));
-     Normal (fAdd, 5w, Reg 5w, Reg 6w); (* r5 is now at start of args *)
-     Normal (fSnd, 6w, Imm 0w, Imm 0w); (* r6 is length counter *)
+val ag32_ffi_get_arg_length_loop_code_def = Define`
+  ag32_ffi_get_arg_length_loop_code =
+    [JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 6w);
+     Normal (fSnd, 7w, Reg 7w, Imm 0w);
      LoadMEMByte (8w, Reg 5w);
-     JumpIfZero (fSnd, Imm (4w * 4w), Imm 0w, Reg 8w);
-     Normal (fInc, 6w, Reg 6w, Imm 0w);
-     Normal (fInc, 5w, Reg 5w, Imm 0w);
-     JumpIfZero (fSnd, Imm (4w * -4w), Imm 0w, Imm 0w);
-     Normal (fSub, 4w, Reg 4w, Imm 4w);
-     StoreMEMByte (Reg 6w, Reg 4w);
-     Shift (shiftLR, 6w, Reg 6w, Imm 4w);
-     Normal (fAdd, 4w, Reg 4w, Imm 4w);
-     StoreMEMByte (Reg 6w, Reg 4w);
-     Normal(fSnd, 5w, Imm 0w, Imm 0w);
-     Normal(fSnd, 6w, Imm 0w, Imm 0w);
-     Normal(fSnd, 7w, Imm 0w, Imm 0w);
-     Normal(fAdd, 8w, Imm 0w, Imm 0w);
-     Interrupt;
-     Jump (fSnd, 0w, Reg 0w)]`;
+     Normal (fInc, 5w, Reg 5w, Imm 1w);
+     Normal (fInc, 7w, Reg 7w, Imm 1w);
+     JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w);
+     Normal (fDec, 6w, Reg 6w, Imm 1w);
+     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)]`;
+
+val ag32_ffi_get_arg_length_store_code_def = Define`
+  ag32_ffi_get_arg_length_store_code =
+    [Normal (fDec, 7w, Reg 7w, Imm 1w);
+     StoreMEMByte(Reg 7w, Reg 3w);
+     Shift(shiftLR, 7w, Reg 7w, Imm 8w);
+     Normal(fInc, 3w, Reg 3w, Imm 1w);
+     StoreMEMByte(Reg 7w, Reg 3w)]`;
+
+val ag32_ffi_get_arg_length_code = Define`
+  ag32_ffi_get_arg_length_code =
+    ag32_ffi_get_arg_length_setup_code ++
+    ag32_ffi_get_arg_length_loop_code ++
+    ag32_ffi_get_arg_length_store_code ++
+    ag32_ffi_return_code`;
+
+val ag32_ffi_get_arg_length_setup_def = Define`
+  ag32_ffi_get_arg_length_setup s =
+  let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
+  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w) s in
+  let s = dfn'LoadConstant(5w, F, (n2w (startup_code_size + 4))) s in
+  let s = dfn'LoadMEMByte(6w, Reg 3w) s in
+  let s = dfn'Shift(shiftLL, 6w, Reg 6w, Imm 8w) s in
+  let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
+  let s = dfn'LoadMEMByte(7w, Reg 3w) s in
+  let s = dfn'Normal(fDec, 3w, Reg 3w, Imm 1w) s in
+  let s = dfn'Normal(fInc, 6w, Reg 6w, Imm 1w) s in
+  let s = dfn'Normal(fAdd, 6w, Reg 6w, Reg 7w) s in
+  s`;
+
+val ag32_ffi_get_arg_length_loop1_def = tDefine"ag32_ffi_get_arg_length_loop1"`
+  ag32_ffi_get_arg_length_loop1 s =
+    if (∀n. s.MEM (s.R 5w + n2w n) ≠ 0w) then s else
+    let s = dfn'LoadMEMByte (8w, Reg 5w) s in
+    let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
+    let s0 = dfn'Normal (fInc, 7w, Reg 7w, Imm 1w) s in
+    let s = dfn'JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w) s0 in
+    if (s0.R 8w = 0w) then s else ag32_ffi_get_arg_length_loop1 s`
+  (wf_rel_tac`measure (λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
+   \\ rw[ag32Theory.dfn'LoadMEMByte_def,
+         ag32Theory.incPC_def,
+         ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.ri2word_def,
+         ag32Theory.dfn'JumpIfNotZero_def]
+   \\ fs[APPLY_UPDATE_THM]
+   \\ Cases_on`s.R 5w` \\ fs[word_add_n2w]
+   \\ numLib.LEAST_ELIM_TAC
+   \\ Cases_on`n` \\ fs[] \\ rfs[ADD1]
+   \\ conj_tac >- (qexists_tac`n''` \\ simp[])
+   \\ rw[]
+   \\ numLib.LEAST_ELIM_TAC
+   \\ conj_tac >- (qexists_tac`n''+1` \\ simp[])
+   \\ rw[]
+   \\ Cases_on`n'''` \\ fs[ADD1]
+   \\ Cases_on`n` \\ fs[ADD1]
+   \\ `¬(n'''' < n''' + 1)` by metis_tac[ADD_ASSOC,ADD_COMM]
+   \\ fs[NOT_LESS]);
+
+val ag32_ffi_get_arg_length_loop1_thm = Q.store_thm("ag32_ffi_get_arg_length_loop1_thm",
+  `ag32_ffi_get_arg_length_loop1 s =
+   case OLEAST n. s.MEM (s.R 5w + n2w n) = 0w of
+     NONE => s
+   | SOME n =>
+     s with <| PC := s.PC + n2w (4 * 4);
+               R := ((8w =+ 0w)
+                    ((7w =+ s.R 7w + n2w (n+1))
+                    ((5w =+ s.R 5w + n2w (n+1)) s.R))) |>`,
+  reverse(rw[whileTheory.OLEAST_def])
+  >- (
+    rw[Once ag32_ffi_get_arg_length_loop1_def]
+    \\ fs[] \\ metis_tac[] )
+  \\ numLib.LEAST_ELIM_TAC
+  \\ conj_tac >- (qexists_tac`n` \\ simp[])
+  \\ pop_assum kall_tac
+  \\ qid_spec_tac`s`
+  \\ Induct_on`n`
+  >- (
+    rw[]
+    \\ simp[Once ag32_ffi_get_arg_length_loop1_def]
+    \\ IF_CASES_TAC
+    >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+    \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ri2word_def,
+            ag32Theory.incPC_def, ag32Theory.ALU_def, ag32Theory.dfn'LoadMEMByte_def,
+            ag32Theory.dfn'JumpIfNotZero_def,
+            APPLY_UPDATE_THM]
+    \\ simp[ag32Theory.ag32_state_component_equality]
+    \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+    \\ rw[] \\ fs[] )
+  \\ rw[]
+  \\ simp[Once ag32_ffi_get_arg_length_loop1_def]
+  \\ IF_CASES_TAC
+  >- ( first_x_assum(qspec_then`SUC n`mp_tac) \\ rw[] )
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ri2word_def,
+          ag32Theory.incPC_def, ag32Theory.ALU_def, ag32Theory.dfn'LoadMEMByte_def,
+          ag32Theory.dfn'JumpIfNotZero_def,
+          APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC
+  >- (
+    first_x_assum(qspec_then`0`mp_tac)
+    \\ impl_tac >- simp[]
+    \\ strip_tac
+    \\ Cases_on`s.MEM (s.R 5w)` \\ fs[w2w_n2w]
+    \\ qspecl_then[`7`,`0`,`n'`]mp_tac bitTheory.BITSLT_THM
+    \\ strip_tac \\ fs[]
+    \\ fs[bitTheory.BITS_ZERO3] )
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_loop1 s'`
+  \\ first_x_assum(qspec_then`s'`mp_tac)
+  \\ simp[Abbr`s'`, APPLY_UPDATE_THM]
+  \\ impl_tac
+  >- (
+    fs[ADD1, GSYM word_add_n2w] \\ rw[]
+    \\ first_x_assum(qspec_then`m+1`mp_tac)
+    \\ rw[GSYM word_add_n2w] )
+  \\ simp[]
+  \\ disch_then kall_tac
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]);
+
+val ag32_ffi_get_arg_length_loop_def = tDefine"ag32_ffi_get_arg_length_loop"`
+  ag32_ffi_get_arg_length_loop s0 =
+  let s = dfn'JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 6w) s0 in
+  if (s0.R 6w = 0w) then s else
+  let s = dfn'Normal (fSnd, 7w, Reg 7w, Imm 0w) s in
+  let s = ag32_ffi_get_arg_length_loop1 s in
+  let s = dfn'Normal (fDec, 6w, Reg 6w, Imm 1w) s in
+  let s = dfn'JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w) s in
+  ag32_ffi_get_arg_length_loop s`
+  (wf_rel_tac`measure (λs. w2n (s.R 6w))`
+   \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
+         ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+         ag32Theory.dfn'LoadConstant_def,
+         ag32Theory.dfn'StoreMEMByte_def, ag32Theory.dfn'LoadMEMByte_def,
+         ag32Theory.ri2word_def, ag32Theory.incPC_def, APPLY_UPDATE_THM,
+         ag32_ffi_get_arg_length_loop1_thm]
+   \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
+   \\ Cases_on`s0.R 6w` \\ fs[]
+   \\ Cases_on`n` \\ fs[ADD1, GSYM word_add_n2w]);
 
 (* get_arg *)
 
