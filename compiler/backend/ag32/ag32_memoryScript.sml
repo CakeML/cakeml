@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1180n`;
+  length_ag32_ffi_code = 1184n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -582,26 +582,27 @@ val ag32_ffi_get_arg_length_setup_code_def = Define`
      LoadMEMByte(7w, Reg 3w);
      Normal(fDec, 3w, Reg 3w, Imm 1w);
      Normal(fInc, 6w, Reg 6w, Imm 1w);
-     Normal(fAdd, 6w, Reg 6w, Reg 7w)] (* r6 contains index+1 *)`;
+     Normal(fAdd, 6w, Reg 6w, Reg 7w); (* r6 contains index+1 *)
+     LoadConstant(7w, F, n2w (4 * 8))]`;
 
 val ag32_ffi_get_arg_length_loop_code_def = Define`
   ag32_ffi_get_arg_length_loop_code =
-    [JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 6w);
-     Normal (fSnd, 7w, Reg 7w, Imm 0w);
+    [JumpIfZero (fSnd, Reg 7w, Imm 0w, Reg 6w);
+     Normal (fSnd, 4w, Reg 4w, Imm 0w);
      LoadMEMByte (8w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);
-     Normal (fInc, 7w, Reg 7w, Imm 1w);
+     Normal (fInc, 4w, Reg 4w, Imm 1w);
      JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w);
      Normal (fDec, 6w, Reg 6w, Imm 1w);
      JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)]`;
 
 val ag32_ffi_get_arg_length_store_code_def = Define`
   ag32_ffi_get_arg_length_store_code =
-    [Normal (fDec, 7w, Reg 7w, Imm 1w);
-     StoreMEMByte(Reg 7w, Reg 3w);
-     Shift(shiftLR, 7w, Reg 7w, Imm 8w);
+    [Normal (fDec, 4w, Reg 4w, Imm 1w);
+     StoreMEMByte(Reg 4w, Reg 3w);
+     Shift(shiftLR, 4w, Reg 4w, Imm 8w);
      Normal(fInc, 3w, Reg 3w, Imm 1w);
-     StoreMEMByte(Reg 7w, Reg 3w)]`;
+     StoreMEMByte(Reg 4w, Reg 3w)]`;
 
 val ag32_ffi_get_arg_length_code = Define`
   ag32_ffi_get_arg_length_code =
@@ -622,19 +623,20 @@ val ag32_ffi_get_arg_length_setup_def = Define`
   let s = dfn'Normal(fDec, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'Normal(fInc, 6w, Reg 6w, Imm 1w) s in
   let s = dfn'Normal(fAdd, 6w, Reg 6w, Reg 7w) s in
+  let s = dfn'LoadConstant(7w, F, n2w (4 * 8)) s in
   s`;
 
 val ag32_ffi_get_arg_length_setup_thm = Q.store_thm("ag32_ffi_get_arg_length_setup_thm",
   `bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧ n2w(ffi_code_start_offset - 1) ∉ md
    ⇒
-   ∃r7 ov cf.
+   ∃ov cf.
    (ag32_ffi_get_arg_length_setup s =
     s with <|
       MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM;
       PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_length_setup_code);
       R := ((5w =+ n2w (startup_code_size + 4))
            ((6w =+ n2w (256 * w2n l1 + w2n l0 + 1))
-           ((7w =+ r7) s.R)));
+           ((7w =+ n2w (4 * 8)) s.R)));
       CarryFlag := cf; OverflowFlag := ov |>)`,
   rw[ag32_ffi_get_arg_length_setup_def]
   \\ simp[ag32Theory.dfn'LoadMEMByte_def,
@@ -648,7 +650,6 @@ val ag32_ffi_get_arg_length_setup_thm = Q.store_thm("ag32_ffi_get_arg_length_set
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[ag32Theory.ag32_state_component_equality]
   \\ EVAL_TAC
-  \\ qexists_tac`w2w l1`
   \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ rw[] \\ fs[]
   \\ cheat (* word proof *));
@@ -658,7 +659,7 @@ val ag32_ffi_get_arg_length_loop1_def = tDefine"ag32_ffi_get_arg_length_loop1"`
     if (∀n. s.MEM (s.R 5w + n2w n) ≠ 0w) then s else
     let s = dfn'LoadMEMByte (8w, Reg 5w) s in
     let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
-    let s0 = dfn'Normal (fInc, 7w, Reg 7w, Imm 1w) s in
+    let s0 = dfn'Normal (fInc, 4w, Reg 4w, Imm 1w) s in
     let s = dfn'JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w) s0 in
     if (s0.R 8w = 0w) then s else ag32_ffi_get_arg_length_loop1 s`
   (wf_rel_tac`measure (λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
@@ -687,7 +688,7 @@ val ag32_ffi_get_arg_length_loop1_thm = Q.store_thm("ag32_ffi_get_arg_length_loo
    | SOME n =>
      s with <| PC := s.PC + n2w (4 * 4);
                R := ((8w =+ 0w)
-                    ((7w =+ s.R 7w + n2w (n+1))
+                    ((4w =+ s.R 4w + n2w (n+1))
                     ((5w =+ s.R 5w + n2w (n+1)) s.R))) |>`,
   reverse(rw[whileTheory.OLEAST_def])
   >- (
@@ -742,9 +743,9 @@ val ag32_ffi_get_arg_length_loop1_thm = Q.store_thm("ag32_ffi_get_arg_length_loo
 
 val ag32_ffi_get_arg_length_loop_def = tDefine"ag32_ffi_get_arg_length_loop"`
   ag32_ffi_get_arg_length_loop s0 =
-  let s = dfn'JumpIfZero (fSnd, Imm (4w * 8w), Imm 0w, Reg 6w) s0 in
+  let s = dfn'JumpIfZero (fSnd, Reg 7w, Imm 0w, Reg 6w) s0 in
   if (s0.R 6w = 0w) then s else
-  let s = dfn'Normal (fSnd, 7w, Reg 7w, Imm 0w) s in
+  let s = dfn'Normal (fSnd, 4w, Reg 4w, Imm 0w) s in
   let s = ag32_ffi_get_arg_length_loop1 s in
   let s = dfn'Normal (fDec, 6w, Reg 6w, Imm 1w) s in
   let s = dfn'JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w) s in
@@ -759,6 +760,105 @@ val ag32_ffi_get_arg_length_loop_def = tDefine"ag32_ffi_get_arg_length_loop"`
    \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
    \\ Cases_on`s0.R 6w` \\ fs[]
    \\ Cases_on`n` \\ fs[ADD1, GSYM word_add_n2w]);
+
+val get_next_mem_arg_def = tDefine"get_next_mem_arg"`
+  get_next_mem_arg (m:word32->word8) a acc =
+    if m a = 0w ∨ ∀n. m (a + n2w n) ≠ 0w then (a, REVERSE acc)
+    else get_next_mem_arg m (a + 1w) (m a :: acc)`
+  (wf_rel_tac`measure(λ(m,a,acc). LEAST n. m (a + n2w n) = 0w)`
+   \\ rw[]
+   \\ numLib.LEAST_ELIM_TAC
+   \\ Cases_on`n` \\ fs[ADD1]
+   \\ conj_tac >- (qexists_tac`n'` \\ fs[GSYM word_add_n2w])
+   \\ rw[]
+   \\ numLib.LEAST_ELIM_TAC
+   \\ conj_tac >- metis_tac[]
+   \\ rw[]
+   \\ fs[GSYM word_add_n2w]
+   \\ Cases_on`n''` \\ fs[ADD1, GSYM word_add_n2w]
+   \\ `¬(n' + 1 < n''' + 1)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
+   \\ fs[NOT_LESS]
+   \\ `¬(n' < n)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
+   \\ fs[NOT_LESS]
+   \\ `¬(n''' < n)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
+   \\ fs[NOT_LESS]);
+
+val get_mem_arg_def = Define`
+  (get_mem_arg m a 0 = get_next_mem_arg m a []) ∧
+  (get_mem_arg m a (SUC n) =
+   let (a, _) = get_next_mem_arg m a [] in
+     get_mem_arg m a n)`;
+
+val ag32_ffi_get_arg_length_loop_thm = Q.store_thm("ag32_ffi_get_arg_length_loop_thm",
+  `(s.R 6w = n2w (index+1)) ∧ index ≤ cline_size ∧
+   (s.R 7w = n2w (4 * 8)) ∧
+   (∃n. s.MEM (s.R 5w + n2w n) = 0w)
+   ⇒
+   ∃r8 r6 r5.
+   (ag32_ffi_get_arg_length_loop s =
+    s with <| PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_length_loop_code);
+              R := ((8w =+ r8)
+                   ((4w =+ n2w (LENGTH (SND (get_mem_arg s.MEM (s.R 5w) index)) + 1))
+                   ((6w =+ r6)
+                   ((5w =+ r5) s.R)))) |>)`,
+  qid_spec_tac`s`
+  \\ Induct_on`index`
+  >- (
+    rw[]
+    \\ simp[Once ag32_ffi_get_arg_length_loop_def]
+    \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ri2word_def,
+            ag32Theory.incPC_def, ag32Theory.ALU_def, ag32Theory.dfn'JumpIfZero_def,
+            ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_length_loop1_thm,
+            APPLY_UPDATE_THM]
+    \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
+    \\ fs[whileTheory.OLEAST_def]
+    \\ simp[Once ag32_ffi_get_arg_length_loop_def, APPLY_UPDATE_THM]
+    \\ simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.incPC_def,
+            ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM]
+    \\ simp[ag32Theory.ag32_state_component_equality]
+    \\ simp[get_mem_arg_def] \\ rveq
+    \\ simp[EVAL``ag32_ffi_get_arg_length_loop_code``]
+    \\ qexists_tac`0w`
+    \\ qexists_tac`0w`
+    \\ qmatch_goalsub_abbrev_tac`5w =+ r5`
+    \\ qexists_tac`r5`
+    \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+    \\ rw[] \\ fs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ cheat (* get_next_mem_arg length lemma *) )
+  \\ rw[]
+  \\ simp[Once ag32_ffi_get_arg_length_loop_def]
+  \\ fs[EVAL``cline_size``]
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ri2word_def,
+          ag32Theory.incPC_def, ag32Theory.ALU_def, ag32Theory.dfn'JumpIfZero_def,
+          ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_length_loop1_thm,
+          APPLY_UPDATE_THM]
+  \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
+  \\ fs[whileTheory.OLEAST_def]
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_loop s'`
+  \\ first_x_assum(qspec_then`s'`mp_tac)
+  \\ simp[Abbr`s'`, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
+  \\ impl_tac
+  >- (
+    rveq
+    \\ numLib.LEAST_ELIM_TAC
+    \\ conj_tac >- metis_tac[]
+    \\ rw[]
+    \\ cheat (* word proof: can wrap around memory *) )
+  \\ strip_tac \\ simp[]
+  \\ pop_assum kall_tac
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qexists_tac`r8`
+  \\ qexists_tac`r6`
+  \\ qexists_tac`r5`
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[] \\ fs[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[get_mem_arg_def, GSYM ADD1, UNCURRY]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ cheat (* hopefully another get_next_mem_arg length lemma *) );
 
 (* get_arg *)
 
