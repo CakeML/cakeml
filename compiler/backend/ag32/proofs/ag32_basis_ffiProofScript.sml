@@ -1006,7 +1006,10 @@ val ag32_stdin_implemented_def = Define`
 val ag32_cline_implemented_def = Define`
   ag32_cline_implemented cl m ⇔
     (get_mem_word m (n2w startup_code_size) = n2w (LENGTH cl)) ∧
-    LENGTH cl < 256 * 256`;
+    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ cl ≠ [] ∧
+    bytes_in_memory (n2w (startup_code_size  + 4))
+      (FLAT (MAP (SNOC 0w) (MAP (MAP (n2w o ORD) o explode) cl)))
+      m (all_words (n2w (startup_code_size + 4)) (SUM (MAP strlen cl) + LENGTH cl))`;
 
 val ag32_ffi_rel_def = Define`
   ag32_ffi_rel ms ffi ⇔
@@ -2351,7 +2354,7 @@ val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
   \\ rw[ag32_ffi_get_arg_count_def]
   \\ fs[ag32_cline_implemented_def]
   \\ drule ag32_ffi_get_arg_count_main_thm
-  \\ simp[]
+  \\ impl_tac >- ( fs[cline_size_def] )
   \\ strip_tac \\ fs[]
   \\ pop_assum kall_tac
   \\ simp[ag32_ffi_return_thm]
@@ -2367,6 +2370,73 @@ val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def]
   \\ fs[clFFITheory.ffi_get_arg_count_def]);
+
+val ag32_ffi_get_arg_length_thm = Q.store_thm("ag32_ffi_get_arg_length_thm",
+  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+   bytes_in_memory (s.R 3w) bytes s.MEM md ∧
+   Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (w2n (s.R 2w) = LENGTH conf) ∧
+   (w2n (s.R 4w) = LENGTH bytes) ∧ w2n (s.R 3w) + LENGTH bytes < dimword(:32) ∧
+   (INDEX_OF "get_arg_length" ffi_names = SOME index) ∧
+   (ffi_get_arg_length conf bytes (cl:mlstring list) = SOME (FFIreturn new_bytes cl')) ∧
+   ag32_cline_implemented cl s.MEM ∧
+   (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "get_arg_length")))
+   ⇒
+   (ag32_ffi_get_arg_length s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`,
+  rw[ag32_ffi_interfer_def]
+  \\ rw[ag32_ffi_get_arg_length_def]
+  \\ fs[ag32_cline_implemented_def]
+  \\ fs[clFFITheory.ffi_get_arg_length_def]
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ rveq \\ fs[]
+  \\ drule ag32_ffi_get_arg_length_setup_thm
+  \\ impl_tac
+  >- (
+    simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB, word_ls_n2w] )
+  \\ strip_tac \\ fs[]
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_loop s1`
+  \\ qmatch_asmsub_rename_tac`bytes_in_memory _ [i1; i0]`
+  \\ qspecl_then[`s1`,`w2n i1 + 256 * w2n i0`]mp_tac(Q.GENL[`s`,`index`]ag32_ffi_get_arg_length_loop_thm)
+  \\ impl_tac
+  >- (
+    simp[Abbr`s1`, APPLY_UPDATE_THM]
+    \\ Cases_on`cl` \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[SNOC_APPEND]
+    \\ fs[asmPropsTheory.bytes_in_memory_APPEND]
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ qexists_tac`strlen h`
+    \\ rw[]
+    \\ pop_assum mp_tac
+    \\ EVAL_TAC
+    \\ fs[IN_all_words, EVAL``cline_size``] )
+  \\ strip_tac \\ fs[]
+  \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_store s1`
+  \\ qmatch_asmsub_abbrev_tac`4w =+ n2w(n + 1)`
+  \\ qspecl_then[`s1`,`n`]mp_tac(Q.GENL[`s`,`n`]ag32_ffi_get_arg_length_store_thm)
+  \\ impl_tac >- ( simp[Abbr`s1`, APPLY_UPDATE_THM] )
+  \\ strip_tac \\ fs[]
+  \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ pop_assum kall_tac
+  \\ simp[ag32_ffi_return_thm]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ simp[APPLY_UPDATE_THM, FUN_EQ_THM]
+  \\ qmatch_goalsub_abbrev_tac`A ∧ B ∧ _`
+  \\ `EL index ffi_names = "get_arg_length"`
+  by ( drule INDEX_OF_IMP_EL \\ rw[] )
+  \\ `B` by ( simp[Abbr`B`] \\ EVAL_TAC \\ rw[] )
+  \\ simp[]
+  \\ qunabbrev_tac`B`
+  \\ pop_assum kall_tac
+  \\ simp[Abbr`A`]
+  \\ simp[ag32_ffi_mem_update_def]
+  \\ cheat (* get_mem_arg interaction with implemented cline *));
 
 val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
