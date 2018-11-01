@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1168n`;
+  length_ag32_ffi_code = 1164n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -499,8 +499,7 @@ val ag32_ffi_get_arg_count_main_code_def = Define`
      StoreMEMByte (Reg 5w, Reg 3w);
      Shift (shiftLR, 5w, Reg 5w, Imm 8w);
      Normal (fInc, 3w, Reg 3w, Imm 0w);
-     StoreMEMByte (Reg 5w, Reg 3w);
-     Normal (fDec, 3w, Reg 3w, Imm 0w)]`;
+     StoreMEMByte (Reg 5w, Reg 3w)]`;
 
 val ag32_ffi_get_arg_count_code_def = Define`
   ag32_ffi_get_arg_count_code =
@@ -517,19 +516,18 @@ val ag32_ffi_get_arg_count_main_def = Define`
   let s = dfn'Shift (shiftLR, 5w, Reg 5w, Imm 8w) s in
   let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 0w) s in
   let s = dfn'StoreMEMByte (Reg 5w, Reg 3w) s in
-  let s = dfn'Normal (fDec, 3w, Reg 3w, Imm 0w) s in
   s`;
 
 val ag32_ffi_get_arg_count_main_thm = Q.store_thm("ag32_ffi_get_arg_count_main_thm",
   `(get_mem_word s.MEM (n2w startup_code_size) = n2w len) ∧ len < 256 * 256
    ⇒
-   ∃r5.
+   ∃r3 r5.
     (ag32_ffi_get_arg_count_main s =
      s with <| PC := s.PC + n2w (4 * (LENGTH ag32_ffi_get_arg_count_main_code));
                MEM :=
                  asm_write_bytearray (s.R 3w) [n2w len; n2w (len DIV 256)]
                    (((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) s.MEM);
-               R := ((5w =+ r5) s.R) |>)`,
+               R := ((3w =+ r3) ((5w =+ r5) s.R)) |>)`,
   rw[ag32_ffi_get_arg_count_main_def]
   \\ rw[ag32Theory.dfn'StoreMEM_def, ag32Theory.dfn'LoadMEM_def, ag32Theory.ri2word_def,
         ag32Theory.dfn'LoadConstant_def, ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def,
@@ -541,10 +539,9 @@ val ag32_ffi_get_arg_count_main_thm = Q.store_thm("ag32_ffi_get_arg_count_main_t
   \\ simp[ag32Theory.ag32_state_component_equality]
   \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ fs[get_mem_word_def, EVAL``startup_code_size``]
-  \\ qexists_tac`n2w len >>>8` \\ simp[]>>
-  reverse CONJ_TAC>-
-    (rw[]>>fs[])>>
-  strip_tac>>
+  \\ qexists_tac`s.R 3w + 1w` \\ simp[]
+  \\ qexists_tac`n2w len >>>8` \\ simp[]
+  \\ strip_tac>>
   IF_CASES_TAC>>fs[]
   >- (
     `s.R 3w ≠ x` by
