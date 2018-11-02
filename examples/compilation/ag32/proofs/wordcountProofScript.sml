@@ -672,14 +672,18 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
       \\ fs[ffiTheory.call_FFI_def]
       \\ `st.oracle = (basis_ffi cl fs).oracle` by metis_tac[evaluatePropsTheory.RTC_call_FFI_rel_consts]
       \\ fs[basis_ffiTheory.basis_ffi_def]
-      \\ cheat (* need to prove this for each ffi function that is used; below is for write *)
-      (*
-      \\ fs[SIMP_CONV(srw_ss())[basis_ffiTheory.basis_ffi_oracle_def]``basis_ffi_oracle "write"``]
+      \\ qpat_x_assum`index < _`mp_tac
+      \\ simp[NUMERAL_LESS_THM]
+      \\ strip_tac \\ rveq \\ fs[]
+      \\ qmatch_asmsub_abbrev_tac`oracle_result_CASE r`
+      \\ pop_assum mp_tac
+      \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
+      \\ strip_tac \\ fs[Abbr`r`]
       \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result"]
       \\ pairarg_tac \\ fs[]
       \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result",CaseEq"ffi_result"]
       \\ rveq \\ fs[]
-      \\ simp[ag32_ffi_write_mem_update_def]
+      \\ simp[ag32_ffi_mem_update_def]
       \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray p new_bytes m2`
       \\ `asm_write_bytearray p new_bytes m2 a = asm_write_bytearray p new_bytes t1.mem a`
       by (
@@ -689,6 +693,24 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
         \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
         \\ simp[ag32_prog_addresses_def]
         \\ EVAL_TAC)
+      \\ TRY (
+        CHANGED_TAC(fs[fsFFITheory.ffi_read_def])
+        \\ fs[CaseEq"list"] \\ rveq
+        \\ PURE_TOP_CASE_TAC \\ fs[]
+        \\ PURE_TOP_CASE_TAC \\ fs[]
+        \\ PURE_TOP_CASE_TAC \\ fs[]
+        \\ reverse IF_CASES_TAC >- rw[]
+        \\ rw[]
+        \\ qmatch_goalsub_abbrev_tac`set_mem_word x y m a`
+        \\ qpat_x_assum`m a = _`(SUBST1_TAC o SYM)
+        \\ irule set_mem_word_neq
+        \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
+        \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
+        \\ simp[ag32_prog_addresses_def, Abbr`x`]
+        \\ strip_tac
+        \\ EVAL_TAC
+        \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
+        \\ NO_TAC)
       \\ reverse IF_CASES_TAC
       >- (
         rw[APPLY_UPDATE_THM]
@@ -722,8 +744,7 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
       \\ strip_tac
       \\ CONV_TAC(LAND_CONV EVAL)
       \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
-      \\ rw[MIN_DEF]
-      *))
+      \\ rw[MIN_DEF])
     \\ simp[APPLY_UPDATE_THM]
     \\ rpt strip_tac
     \\ qmatch_goalsub_abbrev_tac`THE opt`
