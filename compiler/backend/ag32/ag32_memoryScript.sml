@@ -617,9 +617,9 @@ val ag32_ffi_get_arg_length_setup_def = Define`
   let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w) s in
   let s = dfn'LoadConstant(5w, F, (n2w (startup_code_size + 4))) s in
   let s = dfn'LoadMEMByte(6w, Reg 3w) s in
-  let s = dfn'Shift(shiftLL, 6w, Reg 6w, Imm 8w) s in
   let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'LoadMEMByte(7w, Reg 3w) s in
+  let s = dfn'Shift(shiftLL, 7w, Reg 7w, Imm 8w) s in
   let s = dfn'Normal(fDec, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'Normal(fInc, 6w, Reg 6w, Imm 1w) s in
   let s = dfn'Normal(fAdd, 6w, Reg 6w, Reg 7w) s in
@@ -652,7 +652,10 @@ val ag32_ffi_get_arg_length_setup_thm = Q.store_thm("ag32_ffi_get_arg_length_set
   \\ EVAL_TAC
   \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ rw[] \\ fs[]
-  \\ cheat (* word proof *));
+  \\ qmatch_goalsub_abbrev_tac`w2w (A) +  (w2w(B) <<8)`
+  \\ simp[w2w_def,GSYM word_add_n2w]
+  \\ fs[WORD_MUL_LSL]
+  \\ simp[GSYM word_mul_n2w]);
 
 val ag32_ffi_get_arg_length_loop1_def = tDefine"ag32_ffi_get_arg_length_loop1"`
   ag32_ffi_get_arg_length_loop1 s =
@@ -924,7 +927,8 @@ val ag32_ffi_get_arg_length_store_def = Define`
   s`;
 
 val ag32_ffi_get_arg_length_store_thm = Q.store_thm("ag32_ffi_get_arg_length_store_thm",
-  `(s.R 4w = n2w (n+1))
+  `(s.R 4w = n2w (n+1)) ∧
+   n < dimword(:32)
    ⇒
    ∃r4 r3.
    (ag32_ffi_get_arg_length_store s =
@@ -950,7 +954,10 @@ val ag32_ffi_get_arg_length_store_thm = Q.store_thm("ag32_ffi_get_arg_length_sto
     Cases_on`s.R 3w` \\ fs[word_add_n2w]
     \\ qmatch_asmsub_rename_tac`m < _`
     \\ Cases_on`m = dimword(:32)-1` \\ fs[] )
-  >- cheat (* word proof *)
+  >- (
+      qspecl_then [`n`,`8n`] mp_tac (INST_TYPE [alpha|->``:32``] n2w_DIV)>>
+      simp[]>>
+      blastLib.FULL_BBLAST_TAC)
   \\ blastLib.FULL_BBLAST_TAC);
 
 val ag32_ffi_get_arg_length_def = Define`
