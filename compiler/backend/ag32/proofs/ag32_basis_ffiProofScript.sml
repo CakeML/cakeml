@@ -2452,14 +2452,38 @@ val ag32_ffi_get_arg_length_thm = Q.store_thm("ag32_ffi_get_arg_length_thm",
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_store s1`
   \\ qmatch_asmsub_abbrev_tac`4w =+ n2w(n + 1)`
   \\ qspecl_then[`s1`,`n`]mp_tac(Q.GENL[`s`,`n`]ag32_ffi_get_arg_length_store_thm)
+  \\ qmatch_goalsub_abbrev_tac`EL ix cl`
+  \\ `n = strlen (EL ix cl)`
+  by (
+    simp[Abbr`n`]
+    \\ qmatch_asmsub_abbrev_tac`FLAT (MAP _ bl)`
+    \\ qspec_then`bl`(mp_tac o Q.GENL[`m`,`md`]) get_mem_arg_thm
+    \\ disch_then(fn th => DEP_REWRITE_TAC[th])
+    \\ simp[Abbr`bl`, EL_MAP]
+    \\ simp[EVERY_MAP, ORD_BOUND]
+    \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ _ _ dm`
+    \\ qexists_tac`dm`
+    \\ reverse conj_tac
+    >- (
+      fs[EVERY_MEM, clFFITheory.validArg_def]
+      \\ gen_tac \\ strip_tac
+      \\ Cases \\ rw[] \\ strip_tac \\ rveq
+      \\ rfs[] )
+    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ rw[APPLY_UPDATE_THM]
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ EVAL_TAC
+    \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+    \\ simp[SUM_MAP_PLUS]
+    \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+    \\ fs[EVAL``cline_size``] \\ rw[]
+    \\ qpat_x_assum`_ = _ MOD _`mp_tac
+    \\ simp[])
   \\ impl_tac >-
     ( simp[Abbr`s1`, APPLY_UPDATE_THM] >>
-    (*
-      TODO: this can be proved but it involves redoing a lot of the proof
-      about command line arguments that happens below.
-      This assumption might be unnecessary in ag32_ffi_get_arg_length_store_thm
-    *)
-    cheat)
+       fs[EVERY_MEM, clFFITheory.validArg_def, MEM_EL, PULL_EXISTS]
+       \\ res_tac \\ fs[])
   \\ strip_tac \\ fs[]
   \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
   \\ pop_assum kall_tac
@@ -2475,34 +2499,7 @@ val ag32_ffi_get_arg_length_thm = Q.store_thm("ag32_ffi_get_arg_length_thm",
   \\ pop_assum kall_tac
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def]
-  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
-  \\ qmatch_goalsub_abbrev_tac`EL ix cl`
-  \\ `n = strlen (EL ix cl)` suffices_by rw[]
-  \\ simp[Abbr`n`]
-  \\ qmatch_asmsub_abbrev_tac`FLAT (MAP _ bl)`
-  \\ qspec_then`bl`(mp_tac o Q.GENL[`m`,`md`]) get_mem_arg_thm
-  \\ disch_then(fn th => DEP_REWRITE_TAC[th])
-  \\ simp[Abbr`bl`, EL_MAP]
-  \\ simp[EVERY_MAP, ORD_BOUND]
-  \\ qmatch_asmsub_abbrev_tac`bytes_in_memory _ _ _ dm`
-  \\ qexists_tac`dm`
-  \\ reverse conj_tac
-  >- (
-    fs[EVERY_MEM, clFFITheory.validArg_def]
-    \\ gen_tac \\ strip_tac
-    \\ Cases \\ rw[] \\ strip_tac \\ rveq
-    \\ rfs[] )
-  \\ irule asmPropsTheory.bytes_in_memory_change_mem
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ rw[APPLY_UPDATE_THM]
-  \\ ntac 2 (pop_assum mp_tac)
-  \\ EVAL_TAC
-  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
-  \\ simp[SUM_MAP_PLUS]
-  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
-  \\ fs[EVAL``cline_size``] \\ rw[]
-  \\ qpat_x_assum`_ = _ MOD _`mp_tac
-  \\ simp[]);
+  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]);
 
 val ag32_ffi_open_in_thm = Q.store_thm("ag32_ffi_open_in_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
