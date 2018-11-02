@@ -249,7 +249,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1184n`;
+  length_ag32_ffi_code = 1304n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -1284,10 +1284,9 @@ val ag32_ffi_get_arg_store_def = tDefine"ag32_ffi_get_arg_store"`
    \\ last_x_assum(qspec_then`n'''''+1`mp_tac)
    \\ simp[]);
 
-(* TODO
 val ag32_ffi_get_arg_store_thm = Q.store_thm("ag32_ffi_get_arg_store_thm",
   `((OLEAST n. s.MEM (s.R 5w + n2w n) = 0w) = SOME n) ∧
-   (∀i. i ≤ n ⇒ s.R 5w + n2w i ≠ s.R 3w)
+   (∀i. i ≤ n ⇒ s.R 5w + n2w i ≠ s.R 3w) ∧ Abbrev(w2n (s.R 3w) + n < dimword(:32))
    ⇒
    ∃r8 r5 r3.
    (ag32_ffi_get_arg_store s =
@@ -1327,17 +1326,131 @@ val ag32_ffi_get_arg_store_thm = Q.store_thm("ag32_ffi_get_arg_store_thm",
   \\ IF_CASES_TAC
   >- (
     fs[whileTheory.OLEAST_def]
-    \\ first_x_assum(qspec_then`n'`mp_tac)
-    \\ simp[] \\ strip_tac
-    \\ first_x_assum(qspec_then`i`mp_tac)
-    \\ simp[]
+    \\ first_assum(qspec_then`n'`mp_tac)
+    \\ simp_tac(srw_ss())[DISJ_EQ_IMP]
+    \\ impl_tac >- fs[] \\ strip_tac
+    \\ `¬(i ≤ SUC n)` by metis_tac[]
+    \\ fs[NOT_LESS_EQUAL]
+    \\ `SUC n < n'` by fs[]
+    \\ first_assum(qspec_then`n`mp_tac)
+    \\ simp_tac(srw_ss())[DISJ_EQ_IMP]
+    \\ impl_tac >- (
+      qpat_x_assum`_ = SUC _`mp_tac
+      \\ numLib.LEAST_ELIM_TAC
+      \\ conj_tac >- metis_tac[]
+      \\ rw[] \\ fs[NOT_LESS_EQUAL]
+      \\ strip_tac \\ rveq
+      \\ `¬(n < SUC n)` by metis_tac[]
+      \\ fs[] )
+    \\ strip_tac
+    \\ Cases_on`i < dimword(:32)` \\ fs[]
+    \\ `¬(i' ≤ SUC n)` by metis_tac[]
+    \\ fs[] )
+  \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ri2word_def,
+          ag32Theory.incPC_def, ag32Theory.ALU_def,
+          ag32Theory.dfn'Shift_def, ag32Theory.shift_def,
+          ag32Theory.dfn'StoreMEMByte_def, ag32Theory.dfn'LoadMEMByte_def,
+          ag32Theory.dfn'JumpIfZero_def,
+          APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC
+  >- (
+    Cases_on`s.MEM (s.R 5w)` \\ fs[w2w_n2w]
+    \\ qspecl_then[`7`,`0`]mp_tac bitTheory.BITSLT_THM
+    \\ disch_then(qspec_then`n'`mp_tac)
+    \\ strip_tac \\ fs[]
+    \\ fs[bitTheory.BITS_ZERO3, NOT_LESS_EQUAL, DISJ_EQ_IMP] \\ rw[]
+    \\ fs[whileTheory.OLEAST_def]
     \\ qpat_x_assum`_ = SUC _`mp_tac
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
     \\ rw[] \\ fs[NOT_LESS_EQUAL]
-    \\ `¬(n' < SUC n)` by metis_tac[]
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[] )
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_store s'`
+  \\ last_x_assum(qspec_then`s'`mp_tac)
+  \\ fs[whileTheory.OLEAST_def]
+  \\ qpat_x_assum`_ = SUC _`mp_tac
+  \\ numLib.LEAST_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac >> strip_tac
+  \\ strip_tac \\ rveq
+  \\ impl_tac
+  >- (
+    simp[Abbr`s'`, APPLY_UPDATE_THM]
+    \\ simp[GSYM CONJ_ASSOC]
+    \\ conj_tac
+    >- (
+      qexists_tac`n`
+      \\ rw[] \\ fs[ADD1, GSYM word_add_n2w]
+      \\ last_x_assum(qspec_then`n+1`mp_tac)
+      \\ simp[GSYM word_add_n2w] )
+    \\ numLib.LEAST_ELIM_TAC
+    \\ conj_tac
+    >- (
+      qexists_tac`n`
+      \\ rw[] \\ fs[ADD1, GSYM word_add_n2w]
+      \\ last_x_assum(qspec_then`n+1`mp_tac)
+      \\ simp[GSYM word_add_n2w] )
+    \\ gen_tac \\ strip_tac
+    \\ fs[ADD1, GSYM word_add_n2w]
+    \\ fs[DISJ_EQ_IMP]
+    \\ `¬(n' < n + 1)` by metis_tac[]
+    \\ fs[CaseEq"bool"]
+    >- (
+      Cases_on`s.MEM (s.R 5w)` \\ fs[w2w_n2w]
+      \\ qspecl_then[`7`,`0`]mp_tac bitTheory.BITSLT_THM
+      \\ disch_then(qspec_then`n''''`mp_tac)
+      \\ strip_tac \\ fs[]
+      \\ fs[bitTheory.BITS_ZERO3, NOT_LESS_EQUAL]
+      \\ fs[word_extract_n2w]
+      \\ fs[bitTheory.BITS_ZERO3, NOT_LESS_EQUAL] )
+    \\ `¬(n''' + 1 < n + 1)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC, WORD_ADD_COMM]
     \\ fs[NOT_LESS]
-*)
+    \\ Cases_on`n''' ≤ n` \\ fs[NOT_LESS_EQUAL]
+    >- ( Cases_on`s.R 3w` \\ fs[word_add_n2w,markerTheory.Abbrev_def] )
+    \\ first_x_assum drule
+    \\ simp[DISJ_EQ_IMP]
+    \\ rw[]
+    \\ last_x_assum(qspec_then`n+1`mp_tac)
+    \\ simp[GSYM word_add_n2w] )
+  \\ strip_tac
+  \\ simp[]
+  \\ pop_assum kall_tac
+  \\ simp[Abbr`s'`, APPLY_UPDATE_THM]
+  \\ simp[ag32Theory.ag32_state_component_equality]
+  \\ qexists_tac`r8`
+  \\ qexists_tac`r5`
+  \\ qexists_tac`r3`
+  \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[]
+  \\ rw[GENLIST_CONS]
+  \\ simp[asm_write_bytearray_def, o_DEF, ADD1, GSYM word_add_n2w]
+  \\ simp[APPLY_UPDATE_THM] \\ rw[]
+  >- (
+    irule asm_write_bytearray_unchanged_alt
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`s.MEM (s.R 5w)` \\ fs[w2w_n2w]
+    \\ qspecl_then[`7`,`0`]mp_tac bitTheory.BITSLT_THM
+    \\ simp[word_extract_n2w]
+    \\ fs[bitTheory.BITS_ZERO3]
+    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w] \\ rw[]
+    \\ Cases_on`k < n` \\ fs[]
+    \\ qmatch_goalsub_rename_tac`m ≠ _`
+    \\ Cases_on`k + m + 1 < dimword(:32)` \\ fs[]
+    \\ fs[markerTheory.Abbrev_def] )
+  \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray a bs m x = _ _ bs' m' _`
+  \\ `bs = bs'`
+  by (
+    simp[Abbr`bs`,Abbr`bs'`]
+    \\ simp[LIST_EQ_REWRITE]
+    \\ simp[Abbr`m`, Abbr`m'`, APPLY_UPDATE_THM]
+    \\ rw[]
+    \\ last_x_assum(qspec_then`x'+1`mp_tac)
+    \\ simp[ADD1, GSYM word_add_n2w] )
+  \\ qpat_x_assum`Abbrev(bs = _)`kall_tac
+  \\ simp[Abbr`bs'`]
+  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ simp[Abbr`m'`,Abbr`m`,APPLY_UPDATE_THM]);
 
 val ag32_ffi_get_arg_def = Define`
   ag32_ffi_get_arg s =

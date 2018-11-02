@@ -2455,6 +2455,16 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)`,
    cheat);
 
+val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
+      (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+       Encode (EL k ag32_ffi_get_arg_code))) ∧
+   byte_aligned s.PC ∧
+   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_entrypoint))
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
+   cheat);
+
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
   `(s.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
    (INDEX_OF nm ffi_names = SOME index) ∧
