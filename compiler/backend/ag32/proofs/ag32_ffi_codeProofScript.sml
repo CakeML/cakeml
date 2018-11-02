@@ -2,6 +2,7 @@
   Verify the deep embeddings of the ag32 implementation of the CakeML basis FFI
   primitives.
 *)
+
 open preamble ag32_memoryTheory
 local open blastLib ag32_targetProofTheory in end
 
@@ -2285,7 +2286,7 @@ val ag32_ffi_read_entrypoint_thm = EVAL “ag32_ffi_read_entrypoint”
 val codedefs = [ag32_ffi_read_code_def, ag32_ffi_read_set_id_code_def,
                 ag32_ffi_read_check_conf_code_def,
                 ag32_ffi_read_check_length_code_def,
-                ag32_ffi_read_num_written_code_def
+                ag32_ffi_read_num_written_code_def,
                 ag32_ffi_read_load_lengths_code_def]
 
 val bytes_in_memory_update = Q.prove(
@@ -2443,6 +2444,16 @@ val ag32_ffi_get_arg_count_code_thm = Q.store_thm("ag32_ffi_get_arg_count_code_t
      fn j => qspec_then [QUOTE ("4 * (k + 8) + " ^ Int.toString j)]
                         mp_tac th))) >>
   simp[div_lemma] >> simp[LEFT_ADD_DISTRIB, word_add_n2w]);
+
+val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code_thm",
+  `(∀k. k < LENGTH ag32_ffi_get_arg_length_code ⇒
+      (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+       Encode (EL k ag32_ffi_get_arg_length_code))) ∧
+   byte_aligned s.PC ∧
+   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint))
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)`,
+   cheat);
 
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
   `(s.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
