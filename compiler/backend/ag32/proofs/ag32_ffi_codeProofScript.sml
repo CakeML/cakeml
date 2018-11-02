@@ -2279,6 +2279,21 @@ val ag32_ffi_read_check_length_code_thm = Q.store_thm("ag32_ffi_read_check_lengt
   \\ EVERY (List.tabulate(4, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
+val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
+val ag32_ffi_read_entrypoint_thm = EVAL “ag32_ffi_read_entrypoint”
+
+val codedefs = [ag32_ffi_read_code_def, ag32_ffi_read_set_id_code_def,
+                ag32_ffi_read_check_conf_code_def,
+                ag32_ffi_read_check_length_code_def,
+                ag32_ffi_read_num_written_code_def
+                ag32_ffi_read_load_lengths_code_def]
+
+val bytes_in_memory_update = Q.prove(
+  ‘∀bs a. k ∉ md ∧ bytes_in_memory a bs mf md ⇒
+          bytes_in_memory a bs ((k =+ v) mf) md’,
+  Induct >> simp[asmSemTheory.bytes_in_memory_def] >>
+  metis_tac[combinTheory.UPDATE_APPLY]);
+
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   `(∀k. k < LENGTH ag32_ffi_read_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -2293,6 +2308,68 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_read s)`,
+
+  simp0[ag32_ffi_read_def] >> strip_tac >>
+  ‘∃k1. FUNPOW Next k1 s = ag32_ffi_read_set_id s’
+    by (irule ag32_ffi_read_set_id_code_thm >>
+        fs[ag32_ffi_read_code_def, EL_APPEND1] >> EVAL_TAC) >>
+  Q.REFINE_EXISTS_TAC ‘krest + k1’ >> simp0[FUNPOW_ADD] >>
+  qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s1 = LET _ s1’ >>
+  simp0 [Once LET_THM] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_read_set_id_code”) >>
+  assume_tac (EVAL “LENGTH ag32_ffi_read_check_conf_code”) >>
+  ‘∃k2. FUNPOW Next k2 s1 = ag32_ffi_read_check_conf s1’
+    by (irule ag32_ffi_read_check_conf_code_thm >>
+        simp[Abbr‘s1’, ag32_ffi_read_set_id_thm] >>
+        qmatch_abbrev_tac ‘_ ∧ byte_aligned _’ >> reverse conj_tac >- EVAL_TAC>>
+        qx_gen_tac `k` >> strip_tac >>
+        simp[ffi_code_start_offset_thm, ag32_ffi_read_entrypoint_thm] >>
+        first_x_assum
+          (qspec_then `k + LENGTH ag32_ffi_read_set_id_code` mp_tac) >>
+        simp[ag32_ffi_read_entrypoint_thm, ffi_code_start_offset_thm,
+             LEFT_ADD_DISTRIB, word_add_n2w] >> impl_tac
+        >- (EVAL_TAC >> simp[]) >>
+        simp[EL_APPEND1, EL_APPEND2, ag32_ffi_read_code_def] >>
+        disch_then (SUBST1_TAC o SYM) >>
+        irule get_mem_word_change_mem >>
+        simp[combinTheory.UPDATE_def, word_add_n2w]) >>
+  Q.REFINE_EXISTS_TAC ‘krest + k2’ >> simp0[FUNPOW_ADD] >>
+  qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s2 = LET _ s2’ >>
+  simp0[Once LET_THM] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_read_load_lengths_code”) >>
+  ‘bytes_in_memory (s1.R 1w) conf s1.MEM md’
+     by (simp[Abbr‘s1’, ag32_ffi_read_set_id_thm,
+              combinTheory.UPDATE_APPLY] >>
+         irule bytes_in_memory_update >> simp[] >>
+         qpat_x_assum `DISJOINT md _` mp_tac >> EVAL_TAC >>
+         simp[DISJOINT_ALT] >> rpt strip_tac >>
+         res_tac >> fs[]) >>
+  ‘∃k3. FUNPOW Next k3 s2 = ag32_ffi_read_load_lengths s2’
+    by (irule ag32_ffi_read_load_lengths_code_thm >>
+        drule_then mp_tac ag32_ffi_read_check_conf_thm >> impl_tac
+        >- rw[Abbr`s1`, ag32_ffi_read_set_id_thm, combinTheory.UPDATE_APPLY] >>
+        disch_then strip_assume_tac >> pop_assum SUBST_ALL_TAC >> rfs[] >>
+        simp[Abbr`s2`, Abbr`s1`, ag32_ffi_read_set_id_thm] >>
+        qmatch_abbrev_tac ‘_ ∧ byte_aligned _’ >> reverse conj_tac >- EVAL_TAC>>
+        qx_gen_tac `k` >>
+        simp[ffi_code_start_offset_thm, ag32_ffi_read_entrypoint_thm] >>
+        strip_tac >>
+        first_x_assum
+          (qspec_then ‘k + LENGTH ag32_ffi_read_set_id_code +
+                       LENGTH ag32_ffi_read_check_conf_code’ mp_tac) >>
+        simp[ag32_ffi_read_code_def, EL_APPEND1, EL_APPEND2] >>
+        disch_then (SUBST1_TAC o SYM) >>
+        simp[word_add_n2w, LEFT_ADD_DISTRIB, ag32_ffi_read_entrypoint_thm,
+             ffi_code_start_offset_thm] >>
+        irule get_mem_word_change_mem >>
+        simp[combinTheory.UPDATE_APPLY, word_add_n2w]) >>
+  Q.REFINE_EXISTS_TAC ‘krest + k3’ >> simp0[FUNPOW_ADD] >>
+  qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s3 = LET _ s3’ >>
+  simp0[Once LET_THM] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_read_check_length_code”) >>
+  ‘∃k4. FUNPOW Next k4 s3 = ag32_ffi_read_check_length s3’
+    by (irule ag32_ffi_read_check_length_code_thm >>
+        simp[Abbr‘s3’, ag32_ffi_read_load_lengths_thm] >> cheat) >>
   cheat (* read deep/shallow *));
 
 val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
@@ -2303,7 +2380,6 @@ val ag32_ffi_return_LET = Q.prove(
   ‘ag32_ffi_return (LET f v) = LET (ag32_ffi_return o f) v’,
   simp[]);
 
-val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
 val ag32_ffi_get_arg_count_entrypoint_thm =
     EVAL “ag32_ffi_get_arg_count_entrypoint”
 
