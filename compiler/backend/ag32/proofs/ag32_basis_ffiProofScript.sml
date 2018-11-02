@@ -3730,6 +3730,10 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   \\ qpat_x_assum`_ ∉ _`mp_tac
   \\ EVAL_TAC);
 
+val ag32_ffi_get_arg_count_entrypoint_thm =
+    EVAL “ag32_ffi_get_arg_count_entrypoint”
+val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
+
 val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_count",
   `ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
@@ -3858,7 +3862,23 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
     \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM] )
   \\ qspec_then`ms1`mp_tac (CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_get_arg_count_code_thm))
   \\ fs[Abbr`ms1`, APPLY_UPDATE_THM]
-  \\ fs[ffi_entrypoints_def, GSYM word_add_n2w]
+  \\ fs[ffi_entrypoints_def, GSYM word_add_n2w] >> impl_tac
+  >- (fs[word_add_n2w, ag32_ffi_get_arg_count_entrypoint_thm,
+         ffi_code_start_offset_thm] >> reverse conj_tac >- EVAL_TAC >>
+      simp[DIV_LT_X, ag32_ffi_get_arg_count_code_def,
+           ag32_ffi_get_arg_count_main_code_def, ag32_ffi_return_code_def] >>
+      qx_gen_tac `i` >> spose_not_then strip_assume_tac >>
+      `ms.R 3w ∈ md`
+        by (Cases_on `bytes` >>
+            fs[asmSemTheory.bytes_in_memory_def,
+               clFFITheory.ffi_get_arg_count_def]) >>
+      pop_assum mp_tac >>
+      simp[Abbr‘md’, ag32_prog_addresses_def, heap_start_offset_def,
+           ffi_code_start_offset_thm, code_start_offset_def,
+           length_ag32_ffi_code_def, ffi_jumps_offset_def,
+           lab_to_targetTheory.ffi_offset_def, heap_size_def] >>
+      simp[word_ls_n2w, word_lo_n2w] >>
+      fs[FFI_codes_def])
   \\ qmatch_asmsub_abbrev_tac`FUNPOW _ _ _ = ms1`
   \\ strip_tac
   \\ qexists_tac`k'+k`
