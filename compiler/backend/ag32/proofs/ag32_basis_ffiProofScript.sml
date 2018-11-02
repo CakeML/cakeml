@@ -1845,6 +1845,40 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
 
+val asm_write_bytearray_UPDATE = Q.store_thm("asm_write_bytearray_UPDATE",`
+  x ≠ pc ⇒
+  asm_write_bytearray a ls ((pc =+ v) m) x =
+  asm_write_bytearray a ls m x`,
+  rw[]>>
+  match_mp_tac mem_eq_imp_asm_write_bytearray_eq >>
+  fs[APPLY_UPDATE_THM]);
+
+val set_mem_word_asm_write_bytearray_commute_LT = Q.store_thm("get_mem_word_asm_write_bytearray_UNCHANGED_LT",`
+  (pc <+ a) ∧
+  (pc+1w <+ a) ∧
+  (pc+2w <+ a) ∧
+  (pc+3w <+ a) ∧
+  w2n a + LENGTH ls < dimword(:32)
+  ⇒
+  set_mem_word pc w
+    (asm_write_bytearray a ls m) =
+  asm_write_bytearray a ls (set_mem_word pc w m)`,
+  rw[FUN_EQ_THM]>>
+  imp_res_tac asm_write_bytearray_unchanged>>
+  fs[set_mem_word_def]>>
+  simp[APPLY_UPDATE_THM]>>
+  rw[]>>fs[APPLY_UPDATE_THM]>>
+  metis_tac[asm_write_bytearray_UPDATE]);
+
+(* TODO: maybe move into misc *)
+val asm_write_bytearray_append2 = Q.store_thm("asm_write_bytearray_append2",
+  `∀a l1 l2 m.
+   (asm_write_bytearray (a:word32) (l1 ++ l2) m =
+    asm_write_bytearray a l1 (asm_write_bytearray (a + n2w (LENGTH l1)) l2 m))`,
+  Induct_on`l1` \\ rw[asm_write_bytearray_def]
+  \\ AP_TERM_TAC
+  \\ fs[ADD1,GSYM word_add_n2w]);
+
 val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
@@ -2194,148 +2228,71 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ `LENGTH l = k`
   by ( rveq \\ simp[LENGTH_TAKE_EQ] \\ simp[Abbr`k`] )
   \\ fs[]
-  \\ cheat (* order of memory writes *));
-(* maybe some of this is useful:
-  \\ qmatch_goalsub_abbrev_tac`lhs = _`
-  \\ DEP_ONCE_REWRITE_TAC[asm_write_bytearray_append]
-  \\ simp[Abbr`lhs`]
-  \\ conj_tac
-  >- (
-    EVAL_TAC
-    \\ rw[MIN_DEF] )
-  \\ rewrite_tac[GSYM WORD_ADD_ASSOC, word_add_n2w]
+  \\ DEP_REWRITE_TAC [GSYM set_mem_word_asm_write_bytearray_commute_LT]
+  \\ conj_asm1_tac >- (
+    EVAL_TAC>>fs[]>>
+    (* mem domain *)
+    cheat)
   \\ AP_TERM_TAC
-  \\ simp[FUN_EQ_THM]
-  \\ Cases
-  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
-  \\ IF_CASES_TAC
-  >- (
-    irule EQ_SYM
-    \\ irule asm_write_bytearray_unchanged
-    \\ simp[APPLY_UPDATE_THM]
-    \\ EVAL_TAC
-    \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w]
-    \\ qpat_x_assum`read_bytearray (n2w _) _ _ = _`assume_tac
-    \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`n2w n' + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
-    \\ simp[Abbr`md`]
-    \\ EVAL_TAC
-    \\ simp[LEFT_ADD_DISTRIB]
-    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ fs[FFI_codes_def] )
-  \\ simp[MarshallingTheory.n2w2_def]
-  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
-  \\ IF_CASES_TAC
-  >- (
-    irule EQ_SYM
-    \\ irule asm_write_bytearray_unchanged
-    \\ simp[APPLY_UPDATE_THM]
-    \\ EVAL_TAC
-    \\ fs[word_add_n2w, memory_size_def]
-    \\ fs[word_ls_n2w, word_lo_n2w]
-    \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
-    \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
-    \\ simp[Abbr`md`]
-    \\ Cases_on`s.R 3w`
-    \\ EVAL_TAC
-    \\ simp[LEFT_ADD_DISTRIB]
-    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ fs[FFI_codes_def] \\ rfs[])
-  \\ IF_CASES_TAC
-  >- (
-    irule EQ_SYM
-    \\ irule asm_write_bytearray_unchanged
-    \\ simp[APPLY_UPDATE_THM]
-    \\ EVAL_TAC
-    \\ fs[word_add_n2w, memory_size_def]
-    \\ fs[word_ls_n2w, word_lo_n2w]
-    \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
-    \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
-    \\ simp[Abbr`md`]
-    \\ Cases_on`s.R 3w`
-    \\ EVAL_TAC
-    \\ simp[LEFT_ADD_DISTRIB]
-    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ fs[FFI_codes_def] \\ rfs[])
-  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ simp[asm_write_bytearray_def]
+  \\ rw[FUN_EQ_THM]
   \\ simp[APPLY_UPDATE_THM]
   \\ IF_CASES_TAC
-  >- (
-    IF_CASES_TAC
-    >- (
-      fs[word_add_n2w, memory_size_def]
-      \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
-      \\ drule read_bytearray_IMP_mem_SOME
-      \\ simp[IS_SOME_EXISTS]
-      \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-      \\ simp[IN_all_words_add]
-      \\ simp[Abbr`md`]
-      \\ Cases_on`s.R 3w`
-      \\ EVAL_TAC
-      \\ simp[LEFT_ADD_DISTRIB]
-      \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-      \\ fs[FFI_codes_def] \\ rfs[]
-      \\ fs[EVAL``ffi_code_start_offset``]
-      \\ rfs[])
-    \\ irule EQ_SYM
-    \\ irule asm_write_bytearray_unchanged
-    \\ simp[APPLY_UPDATE_THM]
-    \\ fs[word_add_n2w, memory_size_def]
-    \\ Cases_on`s.R 3w`
-    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ fs[EVAL``ffi_code_start_offset``]
-    \\ rfs[]
-    \\ qpat_x_assum`read_bytearray (n2w _) _ _ = _`assume_tac
-    \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ impl_tac
-    >- (
-      asm_simp_tac bool_ss []
-      \\ irule IN_all_words_add
-      \\ simp[] )
-    \\ simp[Abbr`md`]
-    \\ EVAL_TAC
-    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ fs[FFI_codes_def] \\ rfs[] )
+  >-
+    (`s.R 3w <+ s.R 3w +4w` by
+      blastLib.FULL_BBLAST_TAC>>
+    irule asm_write_bytearray_unchanged>>
+    fs[APPLY_UPDATE_THM]>>
+    rveq>>fs[])
   \\ IF_CASES_TAC
-  >- (
-    `LENGTH tll + 4 = SUC(SUC(SUC(SUC(LENGTH tll))))` by simp[ADD1]
-    \\ full_simp_tac std_ss [read_bytearray_def]
-    \\ fs[CaseEq"bool",CaseEq"option"])
-  \\ irule EQ_SYM
-  \\ DEP_REWRITE_TAC[asm_write_bytearray_id]
-  \\ simp[APPLY_UPDATE_THM]
-  \\ gen_tac \\ strip_tac
+  >-
+    (`s.R 3w+1w <+ s.R 3w +4w` by
+      blastLib.FULL_BBLAST_TAC>>
+    irule asm_write_bytearray_unchanged>>
+    fs[APPLY_UPDATE_THM]>>
+    rveq>>fs[])
   \\ IF_CASES_TAC
-  >- (
-    fs[word_add_n2w, memory_size_def]
-    \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
-    \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
-    \\ simp[Abbr`md`]
-    \\ Cases_on`s.R 3w`
-    \\ EVAL_TAC
-    \\ simp[LEFT_ADD_DISTRIB]
-    \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ fs[FFI_codes_def] \\ rfs[]
-    \\ fs[EVAL``ffi_code_start_offset``]
-    \\ rfs[])
-  \\ drule asmPropsTheory.bytes_in_memory_EL
-  \\ disch_then(qspec_then`j + 4`mp_tac)
-  \\ simp[EL_CONS,PRE_SUB1]
-  \\ simp[GSYM word_add_n2w]);
-*)
+  >-
+    (`s.R 3w+2w <+ s.R 3w +4w` by
+      blastLib.FULL_BBLAST_TAC>>
+    irule asm_write_bytearray_unchanged>>
+    fs[APPLY_UPDATE_THM]>>
+    rveq>>fs[])
+  \\ IF_CASES_TAC
+  >-
+    (`s.R 3w+3w <+ s.R 3w +4w` by
+      blastLib.FULL_BBLAST_TAC>>
+    irule asm_write_bytearray_unchanged>>
+    fs[APPLY_UPDATE_THM]>>
+    rveq>>fs[]>>
+    rw[]
+    >-
+      (pop_assum mp_tac>>
+      EVAL_TAC>>
+      (* mem domain contradiction *)
+      cheat)
+    >>
+    fs[asmSemTheory.bytes_in_memory_def])
+  \\ simp[asm_write_bytearray_append2]
+  \\ qpat_abbrev_tac `smm = (_ =+ _) s.MEM`
+  \\ DEP_REWRITE_TAC [asm_write_bytearray_UPDATE]
+  \\ simp[]
+  \\ match_mp_tac mem_eq_imp_asm_write_bytearray_eq
+  \\ AP_THM_TAC
+  \\ match_mp_tac (GSYM bytes_in_memory_IMP_asm_write_bytearray)
+  \\ qpat_x_assum`bytes_in_memory (s.R 3w) _ _ _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac`_ _ lss _ _`
+  \\ `?ll. LENGTH ll = LENGTH l + 4 ∧ lss = ll ++ DROP (STRLEN l) tll` by
+    (fs[Abbr`lss`]>>
+    qexists_tac`n1::n0::pad1::pad2::TAKE (STRLEN l) tll` >>
+    fs[markerTheory.Abbrev_def,MIN_DEF])
+  \\ simp[asmPropsTheory.bytes_in_memory_APPEND,GSYM word_add_n2w,Abbr`smm`]
+  \\ strip_tac
+  \\ match_mp_tac asmPropsTheory.bytes_in_memory_change_mem
+  \\ asm_exists_tac
+  \\ rw[APPLY_UPDATE_THM]
+  (* mem domain contradiction *)
+  \\ cheat);
 
 val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
