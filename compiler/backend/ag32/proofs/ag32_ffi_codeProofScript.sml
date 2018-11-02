@@ -382,6 +382,7 @@ fun rnwc_next n =
         ag32Theory.ri2word_def, ag32Theory.incPC_def, LET_THM,
         ag32Theory.dfn'JumpIfZero_def, ag32Theory.dfn'StoreMEMByte_def,
         ag32Theory.dfn'Shift_def, ag32Theory.dfn'StoreMEM_def,
+        ag32Theory.dfn'LoadMEM_def,
         ag32Theory.dfn'LoadConstant_def])) >> strip_tac
     end
 
@@ -417,28 +418,35 @@ fun glAbbr i =
             (fn th => REWRITE_TAC [REWRITE_RULE [markerTheory.Abbrev_def] th])>>
        simp[combinTheory.UPDATE_def, sub_common]);
 
-fun gmw i = let
+fun gmw0 tac i = let
   val is = Int.toString i
   val off = "(s.PC + " ^ Int.toString (4 * i) ^ "w)"
   val sg : term quotation  =
       [QUOTE ("get_mem_word s"^is^".MEM " ^ off ^
               " = get_mem_word s.MEM "^off)]
-  fun insthyp sel =
-      sel (fn th =>
-              map_every (fn q => qspec_then q mp_tac th)
-                (List.tabulate(7,
-                    fn j => [QUOTE (Int.toString (4 * i + j - 3))]))) >>
-      simp_tac (srw_ss()) [sub_common] >> simp0[]
 in
   sg
     by (EVERY (List.tabulate(i, (fn j => glAbbr(i - j)))) >>
-        fs[get_mem_word_def] >>
-        insthyp last_x_assum >>
-        (if i >= 14 then insthyp last_x_assum else ALL_TAC)) >>
-  pop_assum (fn rwt1 => pop_assum (fn rwt2 =>
-    simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def, rwt1,
-          rwt2]))
+        fs[get_mem_word_def] >> tac i) >>
+  pop_assum (fn rwt0 =>
+    mp_tac rwt0 >> simp0[] >>
+    pop_assum (fn _ =>
+      disch_then (fn rwt =>
+         simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def, rwt])))
 end
+
+fun insthyp sel n f =
+    sel (fn th =>
+            map_every
+              (fn q => qspec_then q mp_tac th)
+              (List.tabulate (n, fn j => [QUOTE (Int.toString (f j))]))) >>
+    simp_tac(srw_ss()) [sub_common] >> simp0[]
+
+fun gmwtac i =
+    insthyp last_x_assum 7 (fn j => 4*i + j - 3) >>
+    (if i >= 14 then insthyp last_x_assum 7 (fn j => 4*i + j - 3)
+     else ALL_TAC)
+val gmw = gmw0 gmwtac
 
 val v2w_EQ0 = Q.store_thm(
   "v2w_EQ0",
@@ -455,7 +463,7 @@ fun r3_unchanged i =
     end
 
 fun print_tac msg g = (print (msg ^ "\n"); ALL_TAC g)
-fun combined i =
+fun combined0 instn gmw i =
     let
       val is = Int.toString i
       val ss = "s" ^ is
@@ -463,9 +471,10 @@ fun combined i =
       print_tac ("Combined instruction #"^is) >>
       rnwc_next i >>
       [QUOTE (ss ^ ".PC = s.PC + " ^ Int.toString (i * 4) ^ "w")]
-        by simp[Abbr[QUOTE ss]] >> TRY (r3_unchanged i) >>
+        by simp[Abbr[QUOTE ss]] >>
       instn i >> gmw i
     end;
+val combined = combined0 instn gmw
 
 val _ = temp_overload_on ("align4",
   “λw:word32. (((31 >< 2) w) : 30 word @@ (0w : 2 word)) : word32”);
@@ -2286,14 +2295,78 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    ∃k. (FUNPOW Next k s = ag32_ffi_read s)`,
   cheat (* read deep/shallow *));
 
+val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
+                               ag32_ffi_get_arg_count_main_code_def,
+                               ag32_ffi_return_code_def])
+
+val ag32_ffi_return_LET = Q.prove(
+  ‘ag32_ffi_return (LET f v) = LET (ag32_ffi_return o f) v’,
+  simp[]);
+
+val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
+val ag32_ffi_get_arg_count_entrypoint_thm =
+    EVAL “ag32_ffi_get_arg_count_entrypoint”
+
+val div_lemma = Q.prove(
+  ‘0 < c ⇒ (c * x + y) DIV c = x + y DIV c ∧ (c * x) DIV c = x’,
+  metis_tac[ADD_DIV_ADD_DIV, MULT_COMM, MULT_DIV]);
+
+val gmw = gmw0 (fn i =>
+                   simp0[ffi_code_start_offset_thm] >>
+                   insthyp last_x_assum 4 (fn j => 4 * i + j))
+val combined = combined0 instn gmw
+
 val ag32_ffi_get_arg_count_code_thm = Q.store_thm("ag32_ffi_get_arg_count_code_thm",
-  `(∀k. k < LENGTH ag32_ffi_get_arg_count_code ⇒
+  `s.R 3w ∉
+     { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_get_arg_count_code } ∧
+   (∀k. k < LENGTH ag32_ffi_get_arg_count_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_get_arg_count_code))) ∧
+   byte_aligned s.PC ∧
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_count s)`,
-  cheat (* get_arg_count deep/shallow *));
+  rw[ffi_code_start_offset_thm, ag32_ffi_get_arg_count_entrypoint_thm] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_get_arg_count_code”) >> fs[] >>
+  instn 0 >>
+  simp0 [ag32_ffi_get_arg_count_def, ag32_ffi_get_arg_count_main_def] >>
+  simp0[Once LET_THM] >>
+  simp0[ag32_ffi_return_LET, combinTheory.o_ABS_R] >>
+  drule_then assume_tac byte_aligned_imp >>
+  simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def] >>
+  ntac 2 (pop_assum kall_tac) >>
+
+  simp0[ffi_code_start_offset_thm] >>
+  EVERY (List.tabulate(7, fn j => combined (j + 1))) >>
+  simp[] >> irule ag32_ffi_return_code_thm >>
+  qmatch_abbrev_tac ‘_ ∧ byte_aligned s8.PC’ >>
+  pop_assum mp_tac >>
+  simp[ag32Theory.dfn'StoreMEMByte_def, ag32Theory.incPC_def,
+       ag32Theory.ri2word_def] >>
+  strip_tac >>
+  ‘s8.PC = s.PC + 32w’ by simp[Abbr‘s8’] >> simp[] >> reverse conj_tac
+  >- EVAL_TAC >>
+  qx_gen_tac ‘k’ >> strip_tac >>
+  first_x_assum
+    (qspec_then ‘k + LENGTH ag32_ffi_get_arg_count_main_code’ mp_tac) >>
+  simp[EL_APPEND2, ag32_ffi_get_arg_count_code_def] >>
+  simp[ag32_ffi_get_arg_count_code_def,
+       ag32_ffi_get_arg_count_main_code_def, LEFT_ADD_DISTRIB, word_add_n2w] >>
+  RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [ag32_ffi_return_code_def]) >>
+  simp[] >>
+  disch_then (SUBST1_TAC o SYM) >>
+  EVERY (List.tabulate(8, fn j => glAbbr (8 - j))) >>
+  simp[startup_code_size_def] >>
+  simp[get_mem_word_def, sub_common] >>
+  simp[word_add_n2w] >>
+  simp[GSYM word_add_n2w, sub_common] >>
+  simp[word_add_n2w] >>
+  first_x_assum (fn th =>
+    qspec_then `4 * (k + 7) + 3` mp_tac th >>
+    EVERY (List.tabulate(5,
+     fn j => qspec_then [QUOTE ("4 * (k + 8) + " ^ Int.toString j)]
+                        mp_tac th))) >>
+  simp[div_lemma] >> simp[LEFT_ADD_DISTRIB, word_add_n2w]);
 
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
   `(s.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
