@@ -90,6 +90,39 @@ val bytes_in_memory_asm_write_bytearray_LT = Q.store_thm("bytes_in_memory_asm_wr
   DEP_REWRITE_TAC [w2n_add]>>
   fs[word_msb_n2w_numeric]);
 
+val asm_write_bytearray_UPDATE = Q.store_thm("asm_write_bytearray_UPDATE",`
+  x ≠ pc ⇒
+  asm_write_bytearray a ls ((pc =+ v) m) x =
+  asm_write_bytearray a ls m x`,
+  rw[]>>
+  match_mp_tac mem_eq_imp_asm_write_bytearray_eq >>
+  fs[APPLY_UPDATE_THM]);
+
+val set_mem_word_asm_write_bytearray_commute_LT = Q.store_thm("get_mem_word_asm_write_bytearray_UNCHANGED_LT",`
+  (pc <+ a) ∧
+  (pc+1w <+ a) ∧
+  (pc+2w <+ a) ∧
+  (pc+3w <+ a) ∧
+  w2n a + LENGTH ls < dimword(:32)
+  ⇒
+  set_mem_word pc w
+    (asm_write_bytearray a ls m) =
+  asm_write_bytearray a ls (set_mem_word pc w m)`,
+  rw[FUN_EQ_THM]>>
+  imp_res_tac asm_write_bytearray_unchanged>>
+  fs[set_mem_word_def]>>
+  simp[APPLY_UPDATE_THM]>>
+  rw[]>>fs[APPLY_UPDATE_THM]>>
+  metis_tac[asm_write_bytearray_UPDATE]);
+
+val asm_write_bytearray_append2 = Q.store_thm("asm_write_bytearray_append2",
+  `∀a l1 l2 m.
+   (asm_write_bytearray (a:word32) (l1 ++ l2) m =
+    asm_write_bytearray a l1 (asm_write_bytearray (a + n2w (LENGTH l1)) l2 m))`,
+  Induct_on`l1` \\ rw[asm_write_bytearray_def]
+  \\ AP_TERM_TAC
+  \\ fs[ADD1,GSYM word_add_n2w]);
+
 val _ = temp_overload_on("nxt",
   ``λmc n ms. FUNPOW mc.target.next n ms``);
 
@@ -1845,40 +1878,6 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
   \\ simp[EL_CONS,PRE_SUB1]
   \\ simp[GSYM word_add_n2w]);
 
-val asm_write_bytearray_UPDATE = Q.store_thm("asm_write_bytearray_UPDATE",`
-  x ≠ pc ⇒
-  asm_write_bytearray a ls ((pc =+ v) m) x =
-  asm_write_bytearray a ls m x`,
-  rw[]>>
-  match_mp_tac mem_eq_imp_asm_write_bytearray_eq >>
-  fs[APPLY_UPDATE_THM]);
-
-val set_mem_word_asm_write_bytearray_commute_LT = Q.store_thm("get_mem_word_asm_write_bytearray_UNCHANGED_LT",`
-  (pc <+ a) ∧
-  (pc+1w <+ a) ∧
-  (pc+2w <+ a) ∧
-  (pc+3w <+ a) ∧
-  w2n a + LENGTH ls < dimword(:32)
-  ⇒
-  set_mem_word pc w
-    (asm_write_bytearray a ls m) =
-  asm_write_bytearray a ls (set_mem_word pc w m)`,
-  rw[FUN_EQ_THM]>>
-  imp_res_tac asm_write_bytearray_unchanged>>
-  fs[set_mem_word_def]>>
-  simp[APPLY_UPDATE_THM]>>
-  rw[]>>fs[APPLY_UPDATE_THM]>>
-  metis_tac[asm_write_bytearray_UPDATE]);
-
-(* TODO: maybe move into misc *)
-val asm_write_bytearray_append2 = Q.store_thm("asm_write_bytearray_append2",
-  `∀a l1 l2 m.
-   (asm_write_bytearray (a:word32) (l1 ++ l2) m =
-    asm_write_bytearray a l1 (asm_write_bytearray (a + n2w (LENGTH l1)) l2 m))`,
-  Induct_on`l1` \\ rw[asm_write_bytearray_def]
-  \\ AP_TERM_TAC
-  \\ fs[ADD1,GSYM word_add_n2w]);
-
 val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
@@ -2230,9 +2229,14 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ fs[]
   \\ DEP_REWRITE_TAC [GSYM set_mem_word_asm_write_bytearray_commute_LT]
   \\ conj_asm1_tac >- (
-    EVAL_TAC>>fs[]>>
-    (* mem domain *)
-    cheat)
+    EVAL_TAC>>fs[]>> fs[ADD1]
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`s.R 3w ∈ md`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ Cases_on`s.R 3w` \\ fs[FFI_codes_def, LEFT_ADD_DISTRIB, word_add_n2w]
+    \\ `k ≤ LENGTH tll` by simp[Abbr`k`] \\ fs[]
+    \\ fs[word_ls_n2w, word_lo_n2w, EVAL``code_start_offset _``, memory_size_def])
   \\ AP_TERM_TAC
   \\ simp[asm_write_bytearray_def]
   \\ rw[FUN_EQ_THM]
@@ -2269,8 +2273,13 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
     >-
       (pop_assum mp_tac>>
       EVAL_TAC>>
-      (* mem domain contradiction *)
-      cheat)
+      fs[asmSemTheory.bytes_in_memory_def]
+      \\ qpat_x_assum`s.R 3w ∈ _`mp_tac
+      \\ simp[Abbr`md`]
+      \\ EVAL_TAC
+      \\ Cases_on`s.R 3w` \\ fs[]
+      \\ fs[word_add_n2w, LEFT_ADD_DISTRIB, EVAL``code_start_offset _``, memory_size_def]
+      \\ fs[FFI_codes_def, word_ls_n2w, word_lo_n2w])
     >>
     fs[asmSemTheory.bytes_in_memory_def])
   \\ simp[asm_write_bytearray_append2]
@@ -2291,8 +2300,17 @@ val ag32_ffi_read_thm = Q.store_thm("ag32_ffi_read_thm",
   \\ match_mp_tac asmPropsTheory.bytes_in_memory_change_mem
   \\ asm_exists_tac
   \\ rw[APPLY_UPDATE_THM]
-  (* mem domain contradiction *)
-  \\ cheat);
+  \\ drule asmPropsTheory.bytes_in_memory_in_domain
+  \\ simp[]
+  \\ disch_then drule
+  \\ simp[Abbr`md`]
+  \\ EVAL_TAC
+  \\ Cases_on`s.R 3w` \\ fs[word_add_n2w, LEFT_ADD_DISTRIB]
+  \\ fs[EVAL``code_start_offset _``,EVAL``FFI_codes``]
+  \\ fs[word_ls_n2w, word_lo_n2w, memory_size_def]
+  \\ rfs[EVAL``ffi_code_start_offset``]
+  \\ qpat_x_assum`_ = _ MOD _`mp_tac
+  \\ simp[]);
 
 val ag32_ffi_get_arg_count_thm = Q.store_thm("ag32_ffi_get_arg_count_thm",
   `bytes_in_memory (s.R 1w) conf s.MEM md ∧
