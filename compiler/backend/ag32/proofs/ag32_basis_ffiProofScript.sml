@@ -4178,4 +4178,180 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
   \\ qpat_x_assum`_ ∉ _`mp_tac
   \\ EVAL_TAC);
 
+val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_length",
+  `ag32_ffi_rel ms ffi ∧
+   (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
+   (call_FFI ffi "get_arg_length" conf bytes = FFI_return ffi' bytes') ∧
+   (INDEX_OF "get_arg_length" ffi_names = SOME index) ∧
+   w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (ms.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
+        (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
+         = EL k (ag32_ffi_jumps ffi_names))) ∧
+   (∀k. k < LENGTH ag32_ffi_get_arg_length_code ⇒
+        (get_mem_word ms.MEM (n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "get_arg_length") + 4 * k))
+         = Encode (EL k ag32_ffi_get_arg_length_code)))
+   ⇒
+   ∃k.
+     (ag32_ffi_interfer ffi_names
+        (ag32_prog_addresses (LENGTH ffi_names) lc ld)
+        (index,bytes',ms) = FUNPOW Next k ms) ∧
+      ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
+      ∀x. x ∉ ag32_ffi_mem_domain ∧
+          x ∉ { ms.R 3w + n2w i | i < LENGTH bytes } ⇒
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
+  strip_tac
+  \\ fs[targetSemTheory.read_ffi_bytearrays_def]
+  \\ fs[targetSemTheory.read_ffi_bytearray_def]
+  \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
+  \\ fs[EVAL``(ag32_machine_config a b c).len2_reg``]
+  \\ fs[EVAL``(ag32_machine_config a b c).ptr_reg``]
+  \\ fs[EVAL``(ag32_machine_config a b c).len_reg``]
+  \\ fs[EVAL``(ag32_machine_config a b c).target.get_reg``]
+  \\ fs[EVAL``(ag32_machine_config a b c).target.get_byte``]
+  \\ first_assum(mp_then Any mp_tac asmPropsTheory.read_bytearray_IMP_bytes_in_memory)
+  \\ last_assum(mp_then Any mp_tac asmPropsTheory.read_bytearray_IMP_bytes_in_memory)
+  \\ imp_res_tac read_bytearray_LENGTH \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`_ ∈ md`
+  \\ disch_then(qspecl_then[`ms.MEM`,`md`]mp_tac) \\ simp[]
+  \\ impl_tac
+  >- (
+    imp_res_tac read_bytearray_IMP_mem_SOME
+    \\ fs[IS_SOME_EXISTS] )
+  \\ strip_tac
+  \\ disch_then(qspecl_then[`ms.MEM`,`md`]mp_tac) \\ simp[]
+  \\ impl_tac
+  >- (
+    imp_res_tac read_bytearray_IMP_mem_SOME
+    \\ fs[IS_SOME_EXISTS] )
+  \\ strip_tac
+  \\ drule (GEN_ALL mk_jump_ag32_code_thm)
+  \\ simp[]
+  \\ disch_then drule \\ simp[]
+  \\ simp[ffi_entrypoints_def]
+  \\ impl_tac
+  >- (
+    gen_tac \\ strip_tac
+    \\ last_x_assum(qspec_then`index * (ffi_offset DIV 4) + k`mp_tac)
+    \\ impl_tac
+    >- (
+      simp[LENGTH_ag32_ffi_jumps]
+      \\ EVAL_TAC
+      \\ fs[FFI_codes_def]
+      \\ fs[GSYM find_index_INDEX_OF]
+      \\ imp_res_tac find_index_LESS_LENGTH
+      \\ fs[] )
+    \\ simp[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
+    \\ `4 * (index * (ffi_offset DIV 4)) = index * ffi_offset`
+    by ( EVAL_TAC \\ simp[] )
+    \\ pop_assum SUBST1_TAC
+    \\ simp[]
+    \\ disch_then kall_tac
+    \\ simp[ag32_ffi_jumps_def]
+    \\ rewrite_tac[GSYM APPEND_ASSOC]
+    \\ DEP_REWRITE_TAC[EL_APPEND1]
+    \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF]
+    \\ simp[Once mk_jump_ag32_code_def]
+    \\ simp[Q.ISPEC`λx. 4n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+    \\ conj_tac
+    >- (
+      EVAL_TAC
+      \\ fs[FFI_codes_def]
+      \\ fs[GSYM find_index_INDEX_OF]
+      \\ imp_res_tac find_index_LESS_LENGTH
+      \\ fs[] )
+    \\ simp[lab_to_targetTheory.ffi_offset_def]
+    \\ simp[EL_FLAT_MAP_mk_jump_ag32_code] )
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`_ = ms1`
+  \\ `(ms.MEM = ms1.MEM) ∧
+      (ms.R 1w = ms1.R 1w) ∧
+      (ms.R 3w = ms1.R 3w)` by simp[Abbr`ms1`,APPLY_UPDATE_THM] \\ fs[]
+  \\ drule (GEN_ALL ag32_ffi_get_arg_length_thm)
+  \\ disch_then drule
+  \\ qpat_x_assum`Abbrev(md = _)`mp_tac
+  \\ CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++LET_ss)[ag32_machine_config_def]))
+  \\ strip_tac
+  \\ disch_then (first_assum o mp_then Any mp_tac)
+  \\ simp[]
+  \\ qhdtm_x_assum`call_FFI`mp_tac
+  \\ simp[ffiTheory.call_FFI_def]
+  \\ `ffi.oracle = basis_ffi_oracle` by fs[ag32_ffi_rel_def]
+  \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
+  \\ pairarg_tac \\ simp[]
+  \\ simp[CaseEq"option",CaseEq"oracle_result",CaseEq"bool",CaseEq"ffi_result"]
+  \\ strip_tac
+  \\ var_eq_tac
+  \\ var_eq_tac
+  \\ var_eq_tac
+  \\ disch_then(first_assum o mp_then Any mp_tac)
+  \\ simp[]
+  \\ qpat_x_assum`ms.R _ = _`kall_tac
+  \\ qpat_x_assum`ms.R _ = _`kall_tac
+  \\ qpat_x_assum`ms.MEM = _`kall_tac
+  \\ simp[LEFT_FORALL_IMP_THM]
+  \\ impl_tac
+  >- (
+    simp[Abbr`ms1`, APPLY_UPDATE_THM]
+    \\ fs[ag32_ffi_rel_def, ag32_cline_implemented_def]
+    \\ EVAL_TAC \\ fs [markerTheory.Abbrev_def])
+  \\ strip_tac
+  \\ `ag32_ffi_interfer ffi_names md (index,bytes',ms) =
+      ag32_ffi_interfer ffi_names md (index,bytes',ms1)`
+  by (
+    simp[ag32_ffi_interfer_def, ag32Theory.ag32_state_component_equality]
+    \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]
+    \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM] )
+  \\ qspec_then`ms1`mp_tac (CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_get_arg_length_code_thm))
+  \\ fs[Abbr`ms1`, APPLY_UPDATE_THM]
+  \\ fs[ffi_entrypoints_def, GSYM word_add_n2w] >> impl_tac
+  >- EVAL_TAC
+  \\ qmatch_asmsub_abbrev_tac`FUNPOW _ _ _ = ms1`
+  \\ strip_tac
+  \\ qexists_tac`k'+k`
+  \\ simp[FUNPOW_ADD]
+  \\ qpat_x_assum`ag32_ffi_interfer _ _ _ = _`(assume_tac o SYM)
+  \\ simp[]
+  \\ simp[ag32_ffi_interfer_def]
+  \\ fs[ag32_ffi_rel_def]
+  \\ `EL index ffi_names = "get_arg_length"`
+  by (
+    fs[GSYM find_index_INDEX_OF]
+    \\ imp_res_tac find_index_is_MEM
+    \\ imp_res_tac find_index_MEM
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ simp[] )
+  \\ `!i. i < LENGTH bytes' ==> ms.R 3w + n2w i IN md` by
+   (Cases_on `ms.R 4w` \\ fs [] \\ rveq \\ fs []
+    \\ drule read_bytearray_IMP_domain \\ fs [])
+  \\ conj_tac >- (
+    fs[]
+    \\ conj_tac
+    >- (
+      simp[ag32_ffi_mem_update_def]
+      \\ simp[get_output_io_event_def]
+      \\ simp[get_ag32_io_event_def, APPLY_UPDATE_THM]
+      \\ DEP_ONCE_REWRITE_TAC[SIMP_RULE(srw_ss())[]asm_write_bytearray_unchanged]
+      \\ simp[APPLY_UPDATE_THM]
+      \\ EVAL_TAC
+      \\ fs[clFFITheory.ffi_get_arg_length_def]
+      \\ rveq \\ fs[]
+      \\ first_x_assum(qspec_then`0`mp_tac)
+      \\ simp[Abbr`md`]
+      \\ Cases_on`ms.R 3w`
+      \\ EVAL_TAC
+      \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w, LEFT_ADD_DISTRIB, FFI_codes_def])
+    \\ cheat (* stdin and cline remain implemented: prove as lemmas *))
+  \\ gen_tac \\ strip_tac
+  \\ simp[ag32_ffi_mem_update_def]
+  \\ imp_res_tac read_bytearray_LENGTH \\ fs[ADD1]
+  \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
+  \\ irule asm_write_bytearray_unchanged_alt
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[]
+  \\ qpat_x_assum`_ ∉ _`mp_tac
+  \\ EVAL_TAC);
+
 val _ = export_theory();
