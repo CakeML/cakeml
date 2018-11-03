@@ -2521,9 +2521,8 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
    cheat);
 
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
-  `(s.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+  `(s.PC = n2w (ffi_jumps_offset + ffi_offset * (LENGTH ffi_names - (index + 1)))) ∧
    (INDEX_OF nm ffi_names = SOME index) ∧
-   LENGTH ffi_names ≤ LENGTH FFI_codes ∧ (* only for brute force proof *)
    (ALOOKUP ffi_entrypoints nm = SOME epc) ∧
    (∀k. k < 4 ⇒
      (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -2601,11 +2600,35 @@ val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
   \\ fs[FFI_codes_def]
   \\ fs[GSYM find_index_INDEX_OF]
   \\ imp_res_tac find_index_LESS_LENGTH \\ fs[]
-  (* TODO: brute force.. probably can be done better *)
-  \\ `index < 9` by fs[]
-  \\ fs[ffi_entrypoints_def]
-  \\ fs[NUMERAL_LESS_THM]
-  \\ fs[CaseEq"bool"] \\ rveq \\ fs[]
-  \\ EVAL_TAC \\ simp[]);
+  \\ qmatch_goalsub_abbrev_tac`off - epc`
+  \\ qmatch_goalsub_abbrev_tac`n2w (ffi_jumps_offset + st)`
+  \\ `off = ffi_jumps_offset + st + 8 - ffi_code_start_offset`
+  by ( simp[Abbr`off`] \\ EVAL_TAC \\ simp[] )
+  \\ qpat_x_assum`Abbrev(off = _)`kall_tac
+  \\ qho_match_abbrev_tac`_ + -1w * (lc (n2w (off - epc))) + _ = _`
+  \\ `lc (n2w (off - epc)) = n2w (off - epc)` by (
+    qpat_x_assum`off = _`kall_tac
+    \\ simp[Abbr`lc`]
+    \\ blastLib.BBLAST_TAC )
+  \\ pop_assum SUBST_ALL_TAC
+  \\ rewrite_tac[WORD_SUB_INTRO, word_mul_n2w]
+  \\ DEP_REWRITE_TAC[GSYM n2w_sub]
+  \\ conj_asm1_tac
+  >- ( simp[] \\ EVAL_TAC \\ simp[] )
+  \\ simp_tac std_ss [word_add_n2w]
+  \\ AP_TERM_TAC
+  \\ qmatch_goalsub_abbrev_tac`a - b`
+  \\ `a + 8 = b + epc + ffi_code_start_offset` suffices_by rw[]
+  \\ `ffi_code_start_offset ≤ a + 8 `
+  by ( simp[Abbr`a`] \\ EVAL_TAC \\ simp[Abbr`st`] )
+  \\ `epc ≤ off` suffices_by simp[Abbr`b`]
+  \\ simp[Abbr`a`]
+  \\ EVAL_TAC
+  \\ simp[Abbr`st`]
+  \\ EVAL_TAC
+  \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB]
+  \\ qpat_x_assum`_ = SOME epc`mp_tac
+  \\ EVAL_TAC
+  \\ rpt(IF_CASES_TAC \\ simp[]));
 
 val _ = export_theory();

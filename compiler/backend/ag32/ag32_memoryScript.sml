@@ -3234,7 +3234,9 @@ val mk_jump_ag32_code_def = Define`
   mk_jump_ag32_code ffi_names name =
     let index = THE (INDEX_OF name ffi_names) in
     let entrypoint = THE (ALOOKUP ffi_entrypoints name) in
-    let dist_to_ffi_code = length_ag32_ffi_code + heap_size + ffi_offset * index + 8 - entrypoint in
+    let dist_to_ffi_code =
+      8 + ffi_offset * (LENGTH ffi_names - 1 - index) +
+      heap_size + length_ag32_ffi_code - entrypoint in
     [Encode(LoadConstant(5w, F, (22 >< 0)((n2w dist_to_ffi_code):word32)));
      Encode(LoadUpperConstant(5w, (31 >< 23)((n2w dist_to_ffi_code):word32)));
      Encode(Jump (fSub, 5w, Reg 5w));
@@ -3268,14 +3270,14 @@ val halt_jump_ag32_code_def = Define`
 
 val ag32_ffi_jumps_def = Define`
   ag32_ffi_jumps ffi_names =
-    FLAT (MAP (mk_jump_ag32_code ffi_names) ffi_names) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code`;
+    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code`;
 
 val LENGTH_ag32_ffi_jumps =
   ``LENGTH (ag32_ffi_jumps nms)``
-  |> EVAL
-  |> SIMP_RULE(srw_ss()++LET_ss)
-      [LENGTH_FLAT,MAP_MAP_o,o_DEF,mk_jump_ag32_code_def,
+  |> SIMP_CONV(srw_ss()++LET_ss)
+      [LENGTH_FLAT,MAP_MAP_o,o_DEF,mk_jump_ag32_code_def,ag32_ffi_jumps_def,
        Q.ISPEC`λx. 4n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  |> CONV_RULE(RAND_CONV EVAL)
   |> curry save_thm "LENGTH_ag32_ffi_jumps"
 
 val ag32_ffi_code_def = Define`

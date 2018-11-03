@@ -3427,11 +3427,11 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "write" conf bytes = FFI_return ffi' bytes') ∧
-   (INDEX_OF "write" ffi_names = SOME index) ∧
+   (INDEX_OF "write" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
-   (ms.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - 1 - index) * ffi_offset)) ∧
    (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
         (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
          = EL k (ag32_ffi_jumps ffi_names))) ∧
@@ -3478,17 +3478,15 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   \\ impl_tac
   >- (
     gen_tac \\ strip_tac
-    \\ last_x_assum(qspec_then`index * (ffi_offset DIV 4) + k`mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`ffi_offset * ix`
+    \\ last_x_assum(qspec_then`ix * (ffi_offset DIV 4) + k`mp_tac)
     \\ impl_tac
     >- (
-      simp[LENGTH_ag32_ffi_jumps]
+      simp[LENGTH_ag32_ffi_jumps,Abbr`ix`]
       \\ EVAL_TAC
-      \\ fs[FFI_codes_def]
-      \\ fs[GSYM find_index_INDEX_OF]
-      \\ imp_res_tac find_index_LESS_LENGTH
-      \\ fs[] )
+      \\ fs[FFI_codes_def])
     \\ simp[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
-    \\ `4 * (index * (ffi_offset DIV 4)) = index * ffi_offset`
+    \\ `4 * (ix * (ffi_offset DIV 4)) = ix * ffi_offset`
     by ( EVAL_TAC \\ simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[]
@@ -3502,12 +3500,13 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
     \\ conj_tac
     >- (
       EVAL_TAC
-      \\ fs[FFI_codes_def]
+      \\ fs[FFI_codes_def, Abbr`ix`]
       \\ fs[GSYM find_index_INDEX_OF]
       \\ imp_res_tac find_index_LESS_LENGTH
       \\ fs[] )
     \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ simp[EL_FLAT_MAP_mk_jump_ag32_code] )
+    \\ irule EL_FLAT_MAP_mk_jump_ag32_code
+    \\ simp[INDEX_OF_REVERSE])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = ms1`
   \\ `(ms.MEM = ms1.MEM) ∧
@@ -3724,11 +3723,11 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "read" conf bytes = FFI_return ffi' bytes') ∧
-   (INDEX_OF "read" ffi_names = SOME index) ∧
+   (INDEX_OF "read" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
-   (ms.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index + 1)) * ffi_offset)) ∧
    (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
         (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
          = EL k (ag32_ffi_jumps ffi_names))) ∧
@@ -3742,7 +3741,7 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
         (index,bytes',ms) = FUNPOW Next k ms) ∧
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
-          x ∉ { ms.R 3w + n2w i | i < LENGTH bytes } ⇒
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
           ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
   strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
@@ -3776,17 +3775,15 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   \\ impl_tac
   >- (
     gen_tac \\ strip_tac
-    \\ last_x_assum(qspec_then`index * (ffi_offset DIV 4) + k`mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`ffi_offset * ix`
+    \\ last_x_assum(qspec_then`ix * (ffi_offset DIV 4) + k`mp_tac)
     \\ impl_tac
     >- (
-      simp[LENGTH_ag32_ffi_jumps]
+      simp[LENGTH_ag32_ffi_jumps,Abbr`ix`]
       \\ EVAL_TAC
-      \\ fs[FFI_codes_def]
-      \\ fs[GSYM find_index_INDEX_OF]
-      \\ imp_res_tac find_index_LESS_LENGTH
-      \\ fs[] )
+      \\ fs[FFI_codes_def])
     \\ simp[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
-    \\ `4 * (index * (ffi_offset DIV 4)) = index * ffi_offset`
+    \\ `4 * (ix * (ffi_offset DIV 4)) = ix * ffi_offset`
     by ( EVAL_TAC \\ simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[]
@@ -3800,12 +3797,13 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     \\ conj_tac
     >- (
       EVAL_TAC
-      \\ fs[FFI_codes_def]
+      \\ fs[FFI_codes_def,Abbr`ix`]
       \\ fs[GSYM find_index_INDEX_OF]
       \\ imp_res_tac find_index_LESS_LENGTH
       \\ fs[] )
-    \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ simp[EL_FLAT_MAP_mk_jump_ag32_code] )
+    \\ simp[EVAL``ffi_offset``]
+    \\ irule EL_FLAT_MAP_mk_jump_ag32_code
+    \\ simp[INDEX_OF_REVERSE])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = ms1`
   \\ `(ms.MEM = ms1.MEM) ∧
@@ -3944,7 +3942,7 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   \\ PURE_TOP_CASE_TAC \\ fs[]
   \\ PURE_TOP_CASE_TAC \\ fs[]
   \\ PURE_TOP_CASE_TAC \\ fs[]
-  \\ reverse PURE_TOP_CASE_TAC \\ fs[]
+  \\ reverse PURE_TOP_CASE_TAC \\ fs[IN_all_words]
   >- (
     match_mp_tac asm_write_bytearray_unchanged_alt
     \\ qpat_x_assum`x ∉ _` mp_tac
@@ -3954,6 +3952,8 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     \\ Cases_on `x` \\ fs [WORD_LO,WORD_LS]
     \\ fs [METIS_PROVE [] ``(~b \/ c) <=> (b ==> c)``,NOT_LESS]
     \\ fs [APPLY_UPDATE_THM,bool_case_eq]
+    \\ strip_tac
+    \\ reverse conj_tac >- metis_tac[NOT_LESS]
     \\ rpt strip_tac
     \\ DISJ2_TAC \\ pop_assum mp_tac \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [] )
   \\ fs[fsFFITheory.ffi_read_def]
@@ -3976,9 +3976,9 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     \\ EVAL_TAC
     \\ Cases_on`x`
     \\ simp[word_ls_n2w, word_lo_n2w] )
-  \\ irule asm_write_bytearray_unchanged_alt
+  \\ irule asm_write_bytearray_unchanged_all_words
   \\ simp[APPLY_UPDATE_THM]
-  \\ rw[]
+  \\ rw[IN_all_words]
   \\ qpat_x_assum`_ ∉ _`mp_tac
   \\ EVAL_TAC);
 
@@ -3990,11 +3990,11 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
   `ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "get_arg_count" conf bytes = FFI_return ffi' bytes') ∧
-   (INDEX_OF "get_arg_count" ffi_names = SOME index) ∧
+   (INDEX_OF "get_arg_count" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
-   (ms.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index + 1)) * ffi_offset)) ∧
    (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
         (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
          = EL k (ag32_ffi_jumps ffi_names))) ∧
@@ -4008,7 +4008,7 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
         (index,bytes',ms) = FUNPOW Next k ms) ∧
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
-          x ∉ { ms.R 3w + n2w i | i < LENGTH bytes } ⇒
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
           ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
   strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
@@ -4042,17 +4042,15 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
   \\ impl_tac
   >- (
     gen_tac \\ strip_tac
-    \\ last_x_assum(qspec_then`index * (ffi_offset DIV 4) + k`mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`ffi_offset * ix`
+    \\ last_x_assum(qspec_then`ix * (ffi_offset DIV 4) + k`mp_tac)
     \\ impl_tac
     >- (
-      simp[LENGTH_ag32_ffi_jumps]
+      simp[LENGTH_ag32_ffi_jumps,Abbr`ix`]
       \\ EVAL_TAC
-      \\ fs[FFI_codes_def]
-      \\ fs[GSYM find_index_INDEX_OF]
-      \\ imp_res_tac find_index_LESS_LENGTH
-      \\ fs[] )
+      \\ fs[FFI_codes_def])
     \\ simp[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
-    \\ `4 * (index * (ffi_offset DIV 4)) = index * ffi_offset`
+    \\ `4 * (ix * (ffi_offset DIV 4)) = ix * ffi_offset`
     by ( EVAL_TAC \\ simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[]
@@ -4066,12 +4064,13 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
     \\ conj_tac
     >- (
       EVAL_TAC
-      \\ fs[FFI_codes_def]
+      \\ fs[FFI_codes_def,Abbr`ix`]
       \\ fs[GSYM find_index_INDEX_OF]
       \\ imp_res_tac find_index_LESS_LENGTH
       \\ fs[] )
     \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ simp[EL_FLAT_MAP_mk_jump_ag32_code] )
+    \\ irule EL_FLAT_MAP_mk_jump_ag32_code
+    \\ simp[INDEX_OF_REVERSE])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = ms1`
   \\ `(ms.MEM = ms1.MEM) ∧
@@ -4171,21 +4170,21 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
   \\ simp[ag32_ffi_mem_update_def]
   \\ imp_res_tac read_bytearray_LENGTH \\ fs[ADD1]
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
-  \\ irule asm_write_bytearray_unchanged_alt
+  \\ irule asm_write_bytearray_unchanged_all_words
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[]
-  \\ qpat_x_assum`_ ∉ _`mp_tac
+  \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
   \\ EVAL_TAC);
 
 val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_length",
   `ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "get_arg_length" conf bytes = FFI_return ffi' bytes') ∧
-   (INDEX_OF "get_arg_length" ffi_names = SOME index) ∧
+   (INDEX_OF "get_arg_length" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
-   (ms.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index+1)) * ffi_offset)) ∧
    (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
         (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
          = EL k (ag32_ffi_jumps ffi_names))) ∧
@@ -4199,7 +4198,7 @@ val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_le
         (index,bytes',ms) = FUNPOW Next k ms) ∧
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
-          x ∉ { ms.R 3w + n2w i | i < LENGTH bytes } ⇒
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
           ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
   strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
@@ -4233,17 +4232,15 @@ val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_le
   \\ impl_tac
   >- (
     gen_tac \\ strip_tac
-    \\ last_x_assum(qspec_then`index * (ffi_offset DIV 4) + k`mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`ffi_offset * ix`
+    \\ last_x_assum(qspec_then`ix * (ffi_offset DIV 4) + k`mp_tac)
     \\ impl_tac
     >- (
-      simp[LENGTH_ag32_ffi_jumps]
+      simp[LENGTH_ag32_ffi_jumps,Abbr`ix`]
       \\ EVAL_TAC
-      \\ fs[FFI_codes_def]
-      \\ fs[GSYM find_index_INDEX_OF]
-      \\ imp_res_tac find_index_LESS_LENGTH
-      \\ fs[] )
+      \\ fs[FFI_codes_def])
     \\ simp[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
-    \\ `4 * (index * (ffi_offset DIV 4)) = index * ffi_offset`
+    \\ `4 * (ix * (ffi_offset DIV 4)) = ix * ffi_offset`
     by ( EVAL_TAC \\ simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[]
@@ -4257,12 +4254,13 @@ val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_le
     \\ conj_tac
     >- (
       EVAL_TAC
-      \\ fs[FFI_codes_def]
+      \\ fs[FFI_codes_def,Abbr`ix`]
       \\ fs[GSYM find_index_INDEX_OF]
       \\ imp_res_tac find_index_LESS_LENGTH
       \\ fs[] )
     \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ simp[EL_FLAT_MAP_mk_jump_ag32_code] )
+    \\ irule EL_FLAT_MAP_mk_jump_ag32_code
+    \\ simp[INDEX_OF_REVERSE])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = ms1`
   \\ `(ms.MEM = ms1.MEM) ∧
@@ -4347,21 +4345,21 @@ val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_le
   \\ simp[ag32_ffi_mem_update_def]
   \\ imp_res_tac read_bytearray_LENGTH \\ fs[ADD1]
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
-  \\ irule asm_write_bytearray_unchanged_alt
+  \\ irule asm_write_bytearray_unchanged_all_words
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[]
-  \\ qpat_x_assum`_ ∉ _`mp_tac
+  \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
   \\ EVAL_TAC);
 
 val ag32_ffi_interfer_get_arg = Q.store_thm("ag32_ffi_interfer_get_arg",
   `ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "get_arg" conf bytes = FFI_return ffi' bytes') ∧
-   (INDEX_OF "get_arg" ffi_names = SOME index) ∧
+   (INDEX_OF "get_arg" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
    code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
-   (ms.PC = n2w (ffi_jumps_offset + index * ffi_offset)) ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index+1)) * ffi_offset)) ∧
    (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
         (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
          = EL k (ag32_ffi_jumps ffi_names))) ∧
@@ -4375,7 +4373,7 @@ val ag32_ffi_interfer_get_arg = Q.store_thm("ag32_ffi_interfer_get_arg",
         (index,bytes',ms) = FUNPOW Next k ms) ∧
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
-          x ∉ { ms.R 3w + n2w i | i < LENGTH bytes } ⇒
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
           ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
   strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
@@ -4409,17 +4407,15 @@ val ag32_ffi_interfer_get_arg = Q.store_thm("ag32_ffi_interfer_get_arg",
   \\ impl_tac
   >- (
     gen_tac \\ strip_tac
-    \\ last_x_assum(qspec_then`index * (ffi_offset DIV 4) + k`mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`ffi_offset * ix`
+    \\ last_x_assum(qspec_then`ix * (ffi_offset DIV 4) + k`mp_tac)
     \\ impl_tac
     >- (
-      simp[LENGTH_ag32_ffi_jumps]
+      simp[LENGTH_ag32_ffi_jumps,Abbr`ix`]
       \\ EVAL_TAC
-      \\ fs[FFI_codes_def]
-      \\ fs[GSYM find_index_INDEX_OF]
-      \\ imp_res_tac find_index_LESS_LENGTH
-      \\ fs[] )
+      \\ fs[FFI_codes_def])
     \\ simp[LEFT_ADD_DISTRIB, GSYM word_add_n2w]
-    \\ `4 * (index * (ffi_offset DIV 4)) = index * ffi_offset`
+    \\ `4 * (ix * (ffi_offset DIV 4)) = ix * ffi_offset`
     by ( EVAL_TAC \\ simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[]
@@ -4433,12 +4429,13 @@ val ag32_ffi_interfer_get_arg = Q.store_thm("ag32_ffi_interfer_get_arg",
     \\ conj_tac
     >- (
       EVAL_TAC
-      \\ fs[FFI_codes_def]
+      \\ fs[FFI_codes_def,Abbr`ix`]
       \\ fs[GSYM find_index_INDEX_OF]
       \\ imp_res_tac find_index_LESS_LENGTH
       \\ fs[] )
     \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ simp[EL_FLAT_MAP_mk_jump_ag32_code] )
+    \\ irule EL_FLAT_MAP_mk_jump_ag32_code
+    \\ simp[INDEX_OF_REVERSE])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`_ = ms1`
   \\ `(ms.MEM = ms1.MEM) ∧
@@ -4523,10 +4520,10 @@ val ag32_ffi_interfer_get_arg = Q.store_thm("ag32_ffi_interfer_get_arg",
   \\ simp[ag32_ffi_mem_update_def]
   \\ imp_res_tac read_bytearray_LENGTH \\ fs[ADD1]
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
-  \\ irule asm_write_bytearray_unchanged_alt
+  \\ irule asm_write_bytearray_unchanged_all_words
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[]
-  \\ qpat_x_assum`_ ∉ _`mp_tac
+  \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
   \\ EVAL_TAC);
 
 val _ = export_theory();
