@@ -22,6 +22,15 @@ val INDEX_OF_IMP_EL = store_thm("INDEX_OF_IMP_EL",
   \\ first_x_assum (qspec_then `0` mp_tac)
   \\ fs []);
 
+val INDEX_OF_REVERSE = Q.store_thm("INDEX_OF_REVERSE",
+  `ALL_DISTINCT ls ⇒
+   INDEX_OF x (REVERSE ls) = OPTION_MAP (λn. LENGTH ls - 1 - n) (INDEX_OF x ls)`,
+  rw[GSYM find_index_INDEX_OF]
+  \\ Cases_on`find_index x ls 0`
+  >- ( fs[GSYM find_index_NOT_MEM] )
+  \\ imp_res_tac find_index_ALL_DISTINCT_REVERSE
+  \\ fs[]);
+
 val IN_all_words = Q.store_thm("IN_all_words", (* should replace IN_all_words_add *)
   `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
   qid_spec_tac`base`
@@ -3854,31 +3863,21 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
     reverse conj_tac
     >- (
       simp[Abbr`md`]
+      \\ fs[ag32_ffi_rel_def, ag32_stdin_implemented_def, word_add_n2w]
+      \\ fs[EVAL``stdin_size``]
       \\ EVAL_TAC
       \\ fs[IN_DISJOINT, LEFT_ADD_DISTRIB, FFI_codes_def]
       \\ fs[memory_size_def, word_add_n2w]
       \\ simp[PULL_FORALL]
       \\ Cases \\ Cases
-      \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X] )
-    \\ simp[Abbr`md`]
-    \\ EVAL_TAC
-    \\ fs[EVAL``code_start_offset _``]
-    \\ fs[IN_DISJOINT, LEFT_ADD_DISTRIB, FFI_codes_def]
-    \\ fs[memory_size_def, word_add_n2w]
-    \\ simp[PULL_FORALL]
-    \\ Cases \\ Cases
-    \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X]
-    \\ conj_tac
-    >- (
-      CCONTR_TAC
-      \\ fs[]
-      \\ rveq \\ fs[]
-      \\ qpat_x_assum`_ MOD _ < _`mp_tac \\ simp[]
-      \\ qpat_x_assum`_ ≤ _ MOD _`mp_tac \\ simp[] )
-    \\ simp[data_to_word_assignProofTheory.IMP]
-    \\ strip_tac
-    \\ qx_gen_tac`j`
-    \\ Cases_on`j < 420` \\ simp[])
+      \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X]
+      \\ Cases \\ Cases
+      \\ fs[word_ls_n2w, word_lo_n2w, DIV_LT_X]
+      \\ fs[LEFT_ADD_DISTRIB, EVAL``code_start_offset _``]
+      \\ fs[DISJ_EQ_IMP]
+      \\ rw[] \\ strip_tac \\ fs[])
+    \\ fs[ag32_ffi_rel_def, ag32_stdin_implemented_def, word_add_n2w]
+    \\ fs[EVAL``stdin_size``])
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]
