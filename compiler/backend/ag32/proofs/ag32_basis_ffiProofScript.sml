@@ -3227,15 +3227,111 @@ val ag32_stdin_implemented_ffi_write = Q.store_thm("ag32_stdin_implemented_ffi_w
 val ag32_cline_implemented_ffi_write = Q.store_thm("ag32_cline_implemented_ffi_write",
   `ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
-   n2w heap_start_offset <=+ ms.R 3w
+   n2w heap_start_offset <=+ ms.R 3w ∧
+   (ffi_write conf bytes fs = SOME (FFIreturn bytes' fs'))
    ⇒
    ag32_cline_implemented cl
      (ag32_ffi_mem_update "write" conf bytes bytes'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
            n2w (THE (ALOOKUP FFI_codes "write"))) m)))`,
-  rw[ag32_cline_implemented_def]
-  \\ cheat (* cline unaffected by write, don't prove until all the cline ffi functions are done *));
+  simp[ag32_cline_implemented_def]
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`get_mem_word m'`
+  \\ pop_assum mp_tac
+  \\ simp[ag32_ffi_mem_update_def]
+  \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
+  \\ fs[fsFFITheory.ffi_write_def, CaseEq"list"]
+  \\ rveq
+  \\ strip_tac
+  \\ conj_tac
+  >- (
+    simp[Abbr`m'`]
+    \\ IF_CASES_TAC
+    >- (
+      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      \\ conj_tac
+      >- (
+        EVAL_TAC \\ fs[]
+        \\ Cases_on`ms.R 3w` \\ fs[]
+        \\ fs[word_ls_n2w, word_lo_n2w]
+        \\ simp[LENGTH_TAKE_EQ_MIN]
+        \\ qmatch_goalsub_abbrev_tac`LENGTH conf + (k + _)`
+        \\ `k ≤ 2048` by simp[Abbr`k`]
+        \\ reverse(Cases_on`LENGTH conf = 8` \\ fs[])
+        >- ( rveq \\ fs[LUPDATE_def] )
+        \\ fs[EVAL``heap_start_offset``] )
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ conj_tac >- EVAL_TAC
+      \\ simp[] )
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ conj_tac >- EVAL_TAC
+    \\ DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+    \\ conj_tac
+    >- (
+      EVAL_TAC \\ fs[]
+      \\ Cases_on`ms.R 3w` \\ fs[]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ fs[EVAL``heap_start_offset``] )
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ conj_tac >- EVAL_TAC
+    \\ simp[] )
+  \\ irule asmPropsTheory.bytes_in_memory_change_mem
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ rw[]
+  \\ simp[Abbr`m'`]
+  \\ rw[]
+  >- (
+    irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged_all_words
+    \\ conj_tac
+    >- (
+      simp[IN_all_words, LENGTH_TAKE_EQ_MIN]
+      \\ EVAL_TAC
+      \\ simp[DISJ_EQ_IMP]
+      \\ qmatch_goalsub_abbrev_tac`LENGTH conf + (k + _)`
+      \\ `k ≤ 2048` by simp[Abbr`k`]
+      \\ reverse(Cases_on`LENGTH conf = 8` \\ fs[])
+      >- ( rveq \\ fs[LUPDATE_def] )
+      \\ fs[EVAL``cline_size``] )
+    \\ irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged_all_words
+    \\ conj_tac
+    >- (
+      simp[IN_all_words, word_add_n2w, ADD1, DISJ_EQ_IMP]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``, ADD1]
+      \\ simp[word_add_n2w, EVAL``startup_code_size``]
+      \\ rw[]
+      \\ fs[EVAL``cline_size``]
+      \\ fs[word_lo_n2w, word_ls_n2w] )
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rw[]
+    \\ pop_assum mp_tac
+    \\ EVAL_TAC
+    \\ fs[EVAL``cline_size``] )
+  \\ simp[APPLY_UPDATE_THM]
+  \\ IF_CASES_TAC
+  >- (
+    pop_assum mp_tac
+    \\ EVAL_TAC
+    \\ fs[EVAL``cline_size``] )
+  \\ irule EQ_SYM
+  \\ irule asm_write_bytearray_unchanged_all_words
+  \\ conj_tac
+  >- (
+    simp[IN_all_words, word_add_n2w, ADD1, DISJ_EQ_IMP]
+    \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``, ADD1]
+    \\ simp[word_add_n2w, EVAL``startup_code_size``]
+    \\ rw[]
+    \\ fs[EVAL``cline_size``]
+    \\ fs[word_lo_n2w, word_ls_n2w] )
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ EVAL_TAC
+  \\ fs[EVAL``cline_size``] );
 
 val ag32_ffi_rel_read_mem_update = Q.store_thm("ag32_ffi_rel_read_mem_update",
   `(ffi_read conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
