@@ -4162,6 +4162,84 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   \\ qpat_x_assum`_ ∉ _`mp_tac
   \\ EVAL_TAC);
 
+val ag32_ffi_interfer_open_in = Q.store_thm("ag32_ffi_interfer_open_in",
+  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+   (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
+   (call_FFI ffi "open_in" conf bytes = FFI_return ffi' bytes') ∧
+   (INDEX_OF "open_in" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
+   w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index + 1)) * ffi_offset)) ∧
+   (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
+        (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
+         = EL k (ag32_ffi_jumps ffi_names))) ∧
+   (∀k. k < LENGTH ag32_ffi_open_in_code ⇒
+        (get_mem_word ms.MEM (n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "open_in") + 4 * k))
+         = Encode (EL k ag32_ffi_open_in_code)))
+   ⇒
+   ∃k.
+     (ag32_ffi_interfer ffi_names
+        (ag32_prog_addresses (LENGTH ffi_names) lc ld)
+        (index,bytes',ms) = FUNPOW Next k ms) ∧
+      ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
+      ∀x. x ∉ ag32_ffi_mem_domain ∧
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
+  cheat (* probably very similar to ag32_ffi_interfer_read *));
+
+val ag32_ffi_interfer_open_out = Q.store_thm("ag32_ffi_interfer_open_out",
+  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+   (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
+   (call_FFI ffi "open_out" conf bytes = FFI_return ffi' bytes') ∧
+   (INDEX_OF "open_out" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
+   w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index + 1)) * ffi_offset)) ∧
+   (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
+        (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
+         = EL k (ag32_ffi_jumps ffi_names))) ∧
+   (∀k. k < LENGTH ag32_ffi_open_out_code ⇒
+        (get_mem_word ms.MEM (n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "open_out") + 4 * k))
+         = Encode (EL k ag32_ffi_open_out_code)))
+   ⇒
+   ∃k.
+     (ag32_ffi_interfer ffi_names
+        (ag32_prog_addresses (LENGTH ffi_names) lc ld)
+        (index,bytes',ms) = FUNPOW Next k ms) ∧
+      ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
+      ∀x. x ∉ ag32_ffi_mem_domain ∧
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
+  cheat (* probably very similar to ag32_ffi_interfer_open_in *));
+
+val ag32_ffi_interfer_close = Q.store_thm("ag32_ffi_interfer_close",
+  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+   (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
+   (call_FFI ffi "close" conf bytes = FFI_return ffi' bytes') ∧
+   (INDEX_OF "close" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
+   w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
+   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+   code_start_offset (LENGTH ffi_names) + lc + 4 * ld < memory_size ∧
+   (ms.PC = n2w (ffi_jumps_offset + (LENGTH ffi_names - (index + 1)) * ffi_offset)) ∧
+   (∀k. k < LENGTH (ag32_ffi_jumps ffi_names) ⇒
+        (get_mem_word ms.MEM (n2w (ffi_jumps_offset + 4 * k))
+         = EL k (ag32_ffi_jumps ffi_names))) ∧
+   (∀k. k < LENGTH ag32_ffi_close_code ⇒
+        (get_mem_word ms.MEM (n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "close") + 4 * k))
+         = Encode (EL k ag32_ffi_close_code)))
+   ⇒
+   ∃k.
+     (ag32_ffi_interfer ffi_names
+        (ag32_prog_addresses (LENGTH ffi_names) lc ld)
+        (index,bytes',ms) = FUNPOW Next k ms) ∧
+      ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
+      ∀x. x ∉ ag32_ffi_mem_domain ∧
+          x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)`,
+  cheat (* probably very similar to ag32_ffi_interfer_open_in *));
+
 val ag32_ffi_get_arg_count_entrypoint_thm =
     EVAL “ag32_ffi_get_arg_count_entrypoint”
 val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
