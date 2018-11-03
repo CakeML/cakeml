@@ -4,6 +4,8 @@
 open import Pervasives
 import List_extra
 import String
+include import {hol} `bitstringTheory`
+include import {hol} `bitstring_extraTheory`
 
 (* TODO: look for these in the built-in library *)
 
@@ -140,17 +142,17 @@ declare hol target_rep function word8FromWord64 = `w2w`
 val word64FromWord8 : word8 -> word64
 declare hol target_rep function word64FromWord8 = `w2w`
 val bitstringFromWord64: word64 -> list bool
-declare hol target_rep function bitstringFromWord64 = `n2v`
+declare hol target_rep function bitstringFromWord64 = `w2v`
 val word64FromBitstring: list bool -> word64
-declare hol target_rep function word64FromBitstring = `v2n`
+declare hol target_rep function word64FromBitstring = `v2w`
 val bitstringFromWord8 : word8 -> list bool
-declare hol target_rep function bitstringFromWord8 = `n2v`
+declare hol target_rep function bitstringFromWord8 = `w2v`
 val word8FromBitstring : list bool -> word8
-declare hol target_rep function word8FromBitstring = `v2n`
-val bitstringFromInteger : integer -> list bool
-declare hol target_rep function bitstringFromInteger = `v2i`
+declare hol target_rep function word8FromBitstring = `v2w`
+val bitstringFromInteger : integer -> nat -> list bool
+declare hol target_rep function bitstringFromInteger = `i2vN`
 val integerFromBitstring : list bool -> integer
-declare hol target_rep function integerFromBitstring = `i2v`
+declare hol target_rep function integerFromBitstring = `v2i`
 val fixwidth : nat -> list bool -> list bool
 declare hol target_rep function fixwidth = `fixwidth`
 (*
@@ -192,9 +194,9 @@ declare hol target_rep function Wor = `bor`
 val Wxor : list bool -> list bool -> list bool
 declare hol target_rep function Wxor = `bxor`
 val Wadd : list bool -> list bool -> list bool
-declare hol target_rep function Wadd = `add`
+declare hol target_rep function Wadd = `fixadd`
 val Wsub : list bool -> list bool -> list bool
-declare hol target_rep function Wsub = `sub`
+declare hol target_rep function Wsub = `fixsub`
 
 (*
 val W8lsl : word8 -> nat -> word8
@@ -223,13 +225,13 @@ declare hol target_rep function W64ror = `word_ror`
 declare isabelle target_rep function W64ror = `(% a b. word_rotr b a)`
 *)
 val Wlsl : list bool -> nat -> list bool
-declare hol target_rep function Wlsl = `shiftl`
+declare hol target_rep function Wlsl = `fixshiftl`
 val Wlsr : list bool -> nat -> list bool
-declare hol target_rep function Wlsr = `shiftr`
+declare hol target_rep function Wlsr = `fixshiftr`
 val Wasr : list bool -> nat -> list bool
-declare hol target_rep function Wasr = `asr`
+declare hol target_rep function Wasr = `fixasr`
 val Wror : list bool -> nat -> list bool
-declare hol target_rep function Wror v n = `w2v (word_ror (v2w v) n)`
+declare hol target_rep function Wror = `rotate`
 
 
 open import {hol} `alistTheory`

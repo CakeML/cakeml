@@ -533,18 +533,18 @@ val _ = Define `
     Andw => band
   | Orw => bor
   | Xor => bxor
-  | Add => add
-  | Sub => sub
+  | Add => fixadd
+  | Sub => fixsub
 )))`;
 
 
 (*val shift_lookup : shift -> list bool -> nat -> list bool*)
 val _ = Define `
  (shift_lookup sh=  ((case sh of
-    Lsl => shiftl
-  | Lsr => shiftr
-  | Asr => asr
-  | Ror => (\ v n. w2v (word_ror (v2w v) n))
+    Lsl => fixshiftl
+  | Lsr => fixshiftr
+  | Asr => fixasr
+  | Ror => rotate
 )))`;
 
 
@@ -586,17 +586,17 @@ val _ = Define `
           NONE
     | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>
         if (LENGTH w1 = LENGTH w2) /\ (LENGTH w1 =( 64 : num)) then
-          SOME ((s,t),Rval (Litv (Word (n2v (fp_bop bop (v2n w1) (v2n w2))))))
+          SOME ((s,t),Rval (Litv (Word (w2v (fp_bop bop (v2w w1) (v2w w2))))))
         else
           NONE
     | (FP_uop uop, [Litv (Word w)]) =>
         if LENGTH w =( 64 : num) then
-          SOME ((s,t),Rval (Litv (Word (n2v (fp_uop uop (v2n w))))))
+          SOME ((s,t),Rval (Litv (Word (w2v (fp_uop uop (v2w w))))))
         else
           NONE
     | (FP_cmp cmp, [Litv (Word w1); Litv (Word w2)]) =>
         if (LENGTH w1 = LENGTH w2) /\ (LENGTH w1 =( 64 : num)) then
-          SOME ((s,t),Rval (Boolv (fp_cmp cmp (v2n w1) (v2n w2))))
+          SOME ((s,t),Rval (Boolv (fp_cmp cmp (v2w w1) (v2w w2))))
         else
           NONE
     | (Shift n1 op n, [Litv (Word w)]) =>
@@ -619,13 +619,14 @@ val _ = Define `
             SOME (Refv v) => SOME ((s,t),Rval v)
           | _ => NONE
         )
+
     | (Aw8alloc, [Litv (IntLit n); Litv (Word w)]) =>
         if LENGTH w =( 8 : num) then
           if n <( 0 : int) then
             SOME ((s,t), Rerr (Rraise sub_exn_v))
           else
             let (s',lnum) =              
-(store_alloc (W8array (REPLICATE (Num (ABS (I n))) (v2n w))) s)
+(store_alloc (W8array (REPLICATE (Num (ABS (I n))) (v2w w))) s)
             in
               SOME ((s',t), Rval (Loc lnum))
         else
@@ -640,7 +641,7 @@ val _ = Define `
                   if n >= LENGTH ws then
                     SOME ((s,t), Rerr (Rraise sub_exn_v))
                   else
-                    SOME ((s,t), Rval (Litv (Word (n2v (EL n ws)))))
+                    SOME ((s,t), Rval (Litv (Word (w2v (EL n ws)))))
           | _ => NONE
         )
     | (Aw8length, [Loc n]) =>
@@ -660,7 +661,7 @@ val _ = Define `
                   if n >= LENGTH ws then
                     SOME ((s,t), Rerr (Rraise sub_exn_v))
                   else
-                    (case store_assign lnum (W8array (LUPDATE (v2n w) n ws)) s of
+                    (case store_assign lnum (W8array (LUPDATE (v2w w) n ws)) s of
                         NONE => NONE
                       | SOME s' => SOME ((s',t), Rval (Conv NONE []))
                     )
@@ -669,9 +670,10 @@ val _ = Define `
         else
           NONE
     | (WordFromInt n, [Litv (IntLit i)]) =>
-        SOME ((s,t), Rval (Litv (Word (fixwidth n (v2i i)))))
+        SOME ((s,t), Rval (Litv (Word (i2vN i n))))
     | (WordToInt n, [Litv (Word w)]) =>
-        SOME ((s,t), Rval (Litv (IntLit (i2v w))))
+        SOME ((s,t), Rval (Litv (IntLit (v2i w))))
+
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (EXPLODE str,off) len NONE of
