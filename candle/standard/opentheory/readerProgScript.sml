@@ -80,7 +80,8 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
      READER_STATE_TYPE st stv /\
      FD fd fdv /\ fd <= maxFD /\ fd <> 1 /\ fd <> 2 /\
      STD_streams fs /\
-     get_file_content fs fd = SOME (content, n)
+     get_file_content fs fd = SOME (content, n) /\
+     get_mode fs fd = SOME ReadMode
      ==>
      app (p:'ffi ffi_proj) ^(fetch_v "process_lines" (get_ml_prog_state ()))
        [fdv; stv]
@@ -150,8 +151,8 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
     \\ simp[]
     \\ qexists_tac`emp` \\ xsimpl
     \\ qmatch_asmsub_rename_tac`(INL st',refs')`
-    \\ qexists_tac`next_line st'` \\ qexists_tac`refs'`
-    \\ qexists_tac`fd` \\ xsimpl
+    \\ Q.LIST_EXISTS_TAC [`next_line st'`, `refs'`, `fd`]
+    \\ xsimpl
     \\ imp_res_tac get_file_content_lineForwardFD_forwardFD
     \\ simp[get_file_content_forwardFD] )
   \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
@@ -165,7 +166,7 @@ val process_lines_spec = Q.store_thm("process_lines_spec",
   \\ `STD_streams fs'` by simp[STD_streams_lineForwardFD,Abbr`fs'`]
   \\ drule STD_streams_stderr \\ strip_tac
   \\ fs[stdo_def]
-  \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS]
+  \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS,get_mode_def]
   \\ `2 <= 255n` by simp[] \\ asm_exists_tac
   \\ instantiate \\ xsimpl
   \\ conj_tac >- fs [FD_def, GSYM stdErr_def, stderr_v_thm]
@@ -327,7 +328,7 @@ val process_list_spec = Q.store_thm("process_list_spec",
     \\ HINT_EXISTS_TAC
     \\ xsimpl
     \\ drule STD_streams_stderr
-    \\ rw [stdo_def, get_file_content_def, PULL_EXISTS, UNCURRY]
+    \\ rw [stdo_def, get_file_content_def, get_mode_def, PULL_EXISTS, UNCURRY]
     \\ asm_exists_tac \\ fs [FD_stderr]
     \\ xsimpl
     \\ simp [insert_atI_end
@@ -374,7 +375,7 @@ val read_stdin_spec = Q.store_thm("read_stdin_spec",
     \\ xapp
     \\ imp_res_tac stdin_get_file_content
     \\ instantiate
-    \\ simp [FD_stdin]
+    \\ fs [FD_stdin, get_mode_def, PULL_EXISTS, stdin_def]
     \\ xsimpl)
   \\ `STD_streams (fastForwardFD fs 0)` by rw [STD_streams_fastForwardFD]
   \\ xapp
@@ -425,7 +426,7 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ xsimpl
     \\ drule STD_streams_stderr \\ strip_tac
     \\ fs[stdo_def]
-    \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS]
+    \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS,get_mode_def]
     \\ `2 <= 255n` by simp[] \\ asm_exists_tac
     \\ instantiate \\ xsimpl
     \\ conj_tac >- fs [GSYM stdErr_def, FD_def, stderr_v_thm]
@@ -441,58 +442,63 @@ val read_file_spec = Q.store_thm("read_file_spec",
   \\ xhandle`$POSTv Qval` \\ xsimpl
   \\ qunabbrev_tac`Qval`
   \\ xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl
-  \\ qspecl_then [`maxFD`,`fs`] mp_tac (GEN_ALL nextFD_leX)
+  \\ qspecl_then [`fs.maxFD`,`fs`] mp_tac (GEN_ALL nextFD_leX)
   \\ impl_tac \\ fs [] \\ rw []
-  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-  \\ pop_assum (qspec_then`0`mp_tac) \\ rw []
+  \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
+  \\ disch_then (qspecl_then [`0`,`ReadMode`] mp_tac) \\ rw []
   \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd`
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ `get_file_content fs' fd = SOME (content,0)`
     by simp[get_file_content_def,Abbr`fs'`]
   \\ imp_res_tac STD_streams_nextFD
-  \\ imp_res_tac STD_streams_openFileFS
-  \\ pop_assum(qspecl_then[`fnm`,`0`]assume_tac)
-  \\ `fd ≠ 1 ∧ fd ≠ 2` by rfs[]
+  \\ drule (GEN_ALL STD_streams_openFileFS)
+  \\ disch_then (qspecl_then [`ReadMode`,`fnm`, `0`] assume_tac)
   \\ assume_tac init_state_v_thm
-  \\ xlet_auto_spec (SOME (Q.SPEC `fs'` (Q.GEN`fs`process_lines_spec)))
+  \\ `get_mode fs' fd = SOME ReadMode` by fs [get_mode_def]
+  \\ `fd ≠ 1 ∧ fd ≠ 2` by rfs[]
+  \\ xlet_auto_spec
+    (SOME (Q.SPECL [`fs'`,`fs.maxFD`]
+          (Q.GENL [`fs`, `maxFD`] process_lines_spec)))
   \\ xsimpl
   \\ xapp_spec close_STDIO_spec
-  \\ instantiate
-  \\ rfs[]
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ qexists_tac `fd`
+  \\ xsimpl
+  \\ rfs []
   \\ drule (GEN_ALL readLines_process_lines)
   \\ disch_then(qspecl_then[`fd`,`fs'`]strip_assume_tac)
-  \\ simp[Abbr`fs'`,linesFD_openFileFS_nextFD,Abbr`fd`,MAP_MAP_o,o_DEF]
+  \\ simp[linesFD_openFileFS_nextFD,Abbr`fd`,MAP_MAP_o,o_DEF, Abbr`fs'`]
   \\ CASE_TAC
-  >- (
-    CASE_TAC
+  >-
+   (CASE_TAC \\ fs []
     \\ xsimpl
-    \\ qexists_tac`HOL_STORE r` \\ xsimpl
-    \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-    \\ qexists_tac`fs'` \\ xsimpl
-    \\ simp[Abbr`fs'`]
-    \\ simp[add_stdout_fastForwardFD] \\ rw [] \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
+    \\ qexists_tac `fs'`
+    \\ simp [Abbr `fs'`, add_stdout_fastForwardFD]
     \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
-    \\ disch_then (qspecl_then [`0`,`fnm`] mp_tac) \\ rw []
-    \\ `1 <> nextFD fs` by fs []
+    \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac) \\ rw []
     \\ qmatch_goalsub_abbrev_tac `add_stdout _ str1`
-    \\ imp_res_tac add_stdo_A_DELKEY
-    \\ first_x_assum
-      (qspecl_then [`str1`,`"stdout"`, `openFileFS fnm fs 0`] mp_tac)
-    \\ xsimpl )
+    \\ `1 <> nextFD fs` by fs []
+    \\ drule (GEN_ALL add_stdo_A_DELKEY)
+    \\ disch_then
+      (qspecl_then [`str1`,`"stdout"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
+    \\ rw []
+    \\ drule (GEN_ALL linesFD_openFileFS_nextFD)
+    \\ disch_then (qspec_then `ReadMode` mp_tac) \\ rw []
+    \\ xsimpl)
   \\ CASE_TAC \\ fs[]
   \\ xsimpl
-  \\ qexists_tac`HOL_STORE r` \\ xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ qexists_tac`fs'` \\ xsimpl
   \\ simp[Abbr`fs'`]
   \\ simp[add_stdo_forwardFD] \\ rw []
   \\ `2 <> nextFD fs` by fs [] \\ fs []
   \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
-  \\ disch_then (qspecl_then [`0`,`fnm`] mp_tac) \\ rw []
+  \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac) \\ rw []
   \\ imp_res_tac add_stdo_A_DELKEY
   \\ qmatch_goalsub_abbrev_tac `add_stderr _ str1`
   \\ first_x_assum
-    (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs 0`] mp_tac)
+    (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
   \\ xsimpl);
 
 val _ = (append_prog o process_topdecs) `
@@ -556,7 +562,8 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ qunabbrev_tac `Q`
   \\ xlet_auto
   >- (xcon \\ xsimpl)
-  \\ xlet `POSTv u. STDIO fs * HOL_STORE r * &UNIT_TYPE () u * COMMANDLINE cl` \\ xsimpl
+  \\ xlet `POSTv u. STDIO fs * HOL_STORE r * &UNIT_TYPE () u * COMMANDLINE cl`
+  \\ xsimpl
   >-
    (xapp
     \\ xsimpl
