@@ -3509,15 +3509,98 @@ val ag32_stdin_implemented_ffi_read = Q.store_thm("ag32_stdin_implemented_ffi_re
 val ag32_cline_implemented_ffi_read = Q.store_thm("ag32_cline_implemented_ffi_read",
   `ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
-   n2w heap_start_offset <=+ ms.R 3w
+   n2w heap_start_offset <=+ ms.R 3w ∧
+   (ffi_read conf bytes fs = SOME (FFIreturn bytes' fs'))
    ⇒
    ag32_cline_implemented cl
      (ag32_ffi_mem_update "read" conf bytes bytes'
-       (asm_read_bytearray (ms.R 3w) bytes'
+       (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
            n2w (THE (ALOOKUP FFI_codes "read"))) m)))`,
-  rw[ag32_cline_implemented_def]
-  \\ cheat (* cline unaffected by read, don't prove until all the cline ffi functions are done *));
+  simp[ag32_cline_implemented_def]
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`get_mem_word m'`
+  \\ pop_assum mp_tac
+  \\ simp[ag32_ffi_mem_update_def]
+  \\ imp_res_tac fsFFIPropsTheory.ffi_read_length
+  \\ fs[fsFFITheory.ffi_read_def, CaseEq"list"]
+  \\ rveq
+  \\ Cases_on`bytes'` \\ fs[]
+  \\ Cases_on`t` \\ fs[]
+  \\ Cases_on`t'` \\ fs[]
+  \\ CONV_TAC(PATH_CONV"lrr"(REWR_CONV EQ_SYM_EQ)) \\ simp[]
+  \\ strip_tac
+  \\ conj_tac
+  >- (
+    simp[Abbr`m'`]
+    \\ IF_CASES_TAC
+    >- (
+      DEP_REWRITE_TAC[get_mem_word_set_mem_word]
+      \\ CONJ_TAC  >- EVAL_TAC
+      \\ IF_CASES_TAC
+      >- (pop_assum mp_tac \\ EVAL_TAC)
+      \\ DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      \\ conj_tac
+      >- (
+        EVAL_TAC \\ fs[]
+        \\ Cases_on`ms.R 3w` \\ fs[]
+        \\ fs[word_ls_n2w, word_lo_n2w]
+        \\ fs[EVAL``heap_start_offset``] )
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ conj_tac >- EVAL_TAC
+      \\ simp[] )
+    \\ DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+    \\ conj_tac
+    >- (
+      EVAL_TAC \\ fs[]
+      \\ Cases_on`ms.R 3w` \\ fs[]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ fs[EVAL``heap_start_offset``] )
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ conj_tac >- EVAL_TAC
+    \\ simp[] )
+  \\ irule asmPropsTheory.bytes_in_memory_change_mem
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ rw[]
+  \\ simp[Abbr`m'`]
+  \\ rw[]
+  >- (
+    irule EQ_SYM
+    \\ DEP_REWRITE_TAC[set_mem_word_neq]
+    \\ conj_tac
+    >- (
+      EVAL_TAC
+      \\ fs[EVAL``cline_size``] )
+    \\ irule asm_write_bytearray_unchanged_all_words
+    \\ conj_tac
+    >- (
+      simp[IN_all_words]
+      \\ EVAL_TAC
+      \\ simp[DISJ_EQ_IMP]
+      \\ fs[EVAL``cline_size``]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``, ADD1]
+      \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w] )
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rw[]
+    \\ pop_assum mp_tac
+    \\ EVAL_TAC
+    \\ fs[EVAL``cline_size``] )
+  \\ irule EQ_SYM
+  \\ irule asm_write_bytearray_unchanged_all_words
+  \\ conj_tac
+  >- (
+    simp[IN_all_words, word_add_n2w, ADD1, DISJ_EQ_IMP]
+    \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``, ADD1]
+    \\ simp[word_add_n2w, EVAL``startup_code_size``]
+    \\ fs[EVAL``cline_size``]
+    \\ fs[word_lo_n2w, word_ls_n2w] )
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ EVAL_TAC
+  \\ fs[EVAL``cline_size``] );
 
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel ms ffi ∧
@@ -4023,8 +4106,9 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
       \\ fs[FFI_codes_def, EVAL``code_start_offset _``,memory_size_def,LEFT_ADD_DISTRIB]
       \\ Cases_on`ms.R 3w`
       \\ fs[word_lo_n2w, word_ls_n2w])
-    \\ match_mp_tac ag32_cline_implemented_ffi_read
+    \\ match_mp_tac (GEN_ALL ag32_cline_implemented_ffi_read)
     \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ qpat_x_assum`ms.R 3w ∈ md` mp_tac
     \\ simp[Abbr`md`]
     \\ EVAL_TAC
