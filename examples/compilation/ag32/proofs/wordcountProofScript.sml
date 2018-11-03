@@ -1415,8 +1415,6 @@ val wordcount_interference_implemented = Q.store_thm("wordcount_interference_imp
     \\ simp[] )
   \\ rpt gen_tac
   \\ simp[EVAL``wordcount_machine_config.ptr2_reg``]
-  \\ simp[IN_all_words]
-  \\ once_rewrite_tac[DISJ_COMM]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_rel ms1`
   \\ `∀k. k < LENGTH (ag32_ffi_jumps (THE config.ffi_names)) ⇒
          (get_mem_word ms1.MEM (n2w (ffi_jumps_offset + 4 * k)) =
@@ -1544,13 +1542,12 @@ val wordcount_interference_implemented = Q.store_thm("wordcount_interference_imp
   \\ IF_CASES_TAC \\ fs[]
   >- (
     strip_tac \\ rveq
-    \\ match_mp_tac(GEN_ALL(ag32_ffi_interfer_read |> SIMP_RULE (srw_ss()) []))
+    \\ match_mp_tac(GEN_ALL(ag32_ffi_interfer_read))
     \\ asm_exists_tac \\ simp[]
     \\ fs[EVAL``wordcount_machine_config.ffi_names``]
     \\ fs[wordcount_machine_config_def]
     \\ fs[ffi_names, INDEX_OF_def, INDEX_FIND_def]
     \\ simp[FFI_codes_def, LENGTH_data, LENGTH_code, EVAL``code_start_offset _``, memory_size_def]
-    \\ conj_tac >- cheat (* jump offsets still in wrong order? *)
     \\ rw[]
     \\ qmatch_goalsub_abbrev_tac`4 * k + off`
     \\ qspecl_then[`off DIV 4`,`ms1.MEM`,`MAP Encode ag32_ffi_read_code`]mp_tac
