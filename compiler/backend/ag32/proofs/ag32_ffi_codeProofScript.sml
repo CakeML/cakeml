@@ -2295,6 +2295,11 @@ val bytes_in_memory_update = Q.prove(
   Induct >> simp[asmSemTheory.bytes_in_memory_def] >>
   metis_tac[combinTheory.UPDATE_APPLY]);
 
+val bytes_in_memory_prefix = Q.prove(
+  ‘∀bs sfx a. bytes_in_memory a (bs ++ sfx) mf md ⇒
+              bytes_in_memory a bs mf md’,
+  Induct >> simp[asmSemTheory.bytes_in_memory_def] >> metis_tac[]);
+
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   `(∀k. k < LENGTH ag32_ffi_read_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -2305,6 +2310,9 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    bytes_in_memory (s.R 3w) (n1::n0::off1::off0::tll) s.MEM md ∧
    (w2n (s.R 4w) = 4 + LENGTH tll) ∧
    w2n (s.R 3w) + 4 + LENGTH tll < dimword(:32) ∧ (* not sure whether/why this is needed: can't get from bytes_in_memory? *)
+   w2n (get_mem_word s.MEM (n2w stdin_offset)) ≤
+     w2n (get_mem_word s.MEM (n2w (stdin_offset + 4))) ∧
+   w2n (get_mem_word s.MEM (n2w (stdin_offset + 4))) ≤ stdin_size ∧
    DISJOINT md { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_code } ∧
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    ⇒
@@ -2312,16 +2320,20 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
 
   simp0[ag32_ffi_read_def] >> strip_tac >>
   ‘∃k1. FUNPOW Next k1 s = ag32_ffi_read_set_id s’
-    by (irule ag32_ffi_read_set_id_code_thm >>
+    by (print_tac "read_code_thm: 1. read_set_id" >>
+        irule ag32_ffi_read_set_id_code_thm >>
         fs[ag32_ffi_read_code_def, EL_APPEND1] >> EVAL_TAC) >>
   Q.REFINE_EXISTS_TAC ‘krest + k1’ >> simp0[FUNPOW_ADD] >>
   qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s1 = LET _ s1’ >>
   simp0 [Once LET_THM] >>
   assume_tac (EVAL “LENGTH ag32_ffi_read_set_id_code”) >>
   assume_tac (EVAL “LENGTH ag32_ffi_read_check_conf_code”) >>
+  full_simp_tac(srw_ss())[ag32_ffi_read_set_id_thm, ffi_code_start_offset_thm,
+                          FFI_codes_def] >>
   ‘∃k2. FUNPOW Next k2 s1 = ag32_ffi_read_check_conf s1’
-    by (irule ag32_ffi_read_check_conf_code_thm >>
-        simp[Abbr‘s1’, ag32_ffi_read_set_id_thm] >>
+    by (print_tac "read_code_thm: 2. read_check_conf" >>
+        irule ag32_ffi_read_check_conf_code_thm >>
+        simp[Abbr‘s1’] >>
         qmatch_abbrev_tac ‘_ ∧ byte_aligned _’ >> reverse conj_tac >- EVAL_TAC>>
         qx_gen_tac `k` >> strip_tac >>
         simp[ffi_code_start_offset_thm, ag32_ffi_read_entrypoint_thm] >>
@@ -2339,18 +2351,18 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   simp0[Once LET_THM] >>
   assume_tac (EVAL “LENGTH ag32_ffi_read_load_lengths_code”) >>
   ‘bytes_in_memory (s1.R 1w) conf s1.MEM md’
-     by (simp[Abbr‘s1’, ag32_ffi_read_set_id_thm,
-              combinTheory.UPDATE_APPLY] >>
+     by (simp[Abbr‘s1’, combinTheory.UPDATE_APPLY] >>
          irule bytes_in_memory_update >> simp[] >>
          qpat_x_assum `DISJOINT md _` mp_tac >> EVAL_TAC >>
          simp[DISJOINT_ALT] >> rpt strip_tac >>
          res_tac >> fs[]) >>
+  drule_then mp_tac ag32_ffi_read_check_conf_thm >> impl_tac
+  >- rw[Abbr`s1`, combinTheory.UPDATE_APPLY] >>
+  disch_then strip_assume_tac >> pop_assum SUBST_ALL_TAC >>
   ‘∃k3. FUNPOW Next k3 s2 = ag32_ffi_read_load_lengths s2’
-    by (irule ag32_ffi_read_load_lengths_code_thm >>
-        drule_then mp_tac ag32_ffi_read_check_conf_thm >> impl_tac
-        >- rw[Abbr`s1`, ag32_ffi_read_set_id_thm, combinTheory.UPDATE_APPLY] >>
-        disch_then strip_assume_tac >> pop_assum SUBST_ALL_TAC >> rfs[] >>
-        simp[Abbr`s2`, Abbr`s1`, ag32_ffi_read_set_id_thm] >>
+    by (print_tac "read_code_thm: 3. read_load_lengths" >>
+        irule ag32_ffi_read_load_lengths_code_thm >>
+        simp[Abbr`s2`, Abbr`s1`] >>
         qmatch_abbrev_tac ‘_ ∧ byte_aligned _’ >> reverse conj_tac >- EVAL_TAC>>
         qx_gen_tac `k` >>
         simp[ffi_code_start_offset_thm, ag32_ffi_read_entrypoint_thm] >>
@@ -2368,9 +2380,52 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s3 = LET _ s3’ >>
   simp0[Once LET_THM] >>
   assume_tac (EVAL “LENGTH ag32_ffi_read_check_length_code”) >>
+  full_simp_tac(srw_ss()) [] >> rev_full_simp_tac(srw_ss()) [] >>
+  print_tac "read_code_thm: 3a. calculate read_load_lengths effect" >>
+  ‘bytes_in_memory (s2.R 3w) [n1;n0] s2.MEM md’
+    by (simp[Abbr‘s2’, Abbr‘s1’, combinTheory.UPDATE_APPLY] >>
+        irule bytes_in_memory_update >>
+        qmatch_abbrev_tac ‘_ ∉ md ∧ bytes_in_memory _ _ _ md’ >>
+        reverse conj_tac
+        >- (irule bytes_in_memory_prefix >> simp[] >> metis_tac[]) >>
+        qpat_x_assum `DISJOINT md _` mp_tac >> EVAL_TAC >>
+        simp[DISJOINT_ALT] >> rpt strip_tac >>
+        res_tac >> fs[]) >>
+  drule (GEN_ALL ag32_ffi_read_load_lengths_thm) >>
+  qabbrev_tac ‘in_off = get_mem_word s.MEM (n2w stdin_offset)’ >>
+  qabbrev_tac ‘in_len = get_mem_word s.MEM (n2w (stdin_offset + 4))’ >>
+  ‘get_mem_word s2.MEM (n2w stdin_offset) = in_off ∧
+   get_mem_word s2.MEM (n2w (stdin_offset + 4)) = in_len’
+     by (simp[Abbr‘s2’, Abbr‘s1’, Abbr‘in_off’, Abbr‘in_len’] >> EVAL_TAC) >>
+  simp0[] >> disch_then (qspecl_then [‘w2n in_off’, ‘w2n in_len’] mp_tac) >>
+  simp0[] >> markerLib.RM_ABBREV_TAC "s3" >>
+  disch_then (REPEAT_TCL CHOOSE_THEN
+               (ASSUME_TAC o
+                CONV_RULE (REWR_CONV (GSYM markerTheory.Abbrev_def)))) >>
   ‘∃k4. FUNPOW Next k4 s3 = ag32_ffi_read_check_length s3’
-    by (irule ag32_ffi_read_check_length_code_thm >>
-        simp[Abbr‘s3’, ag32_ffi_read_load_lengths_thm] >> cheat) >>
+    by (print_tac "read_code_thm: 4. read_check_length" >>
+        irule ag32_ffi_read_check_length_code_thm >>
+        EVERY (List.tabulate(3, fn j => glAbbr (3 - j))) >>
+        qmatch_abbrev_tac ‘_ ∧ byte_aligned _’ >> reverse conj_tac >- EVAL_TAC>>
+        qx_gen_tac `k` >>
+        simp[ffi_code_start_offset_thm, ag32_ffi_read_entrypoint_thm] >>
+        strip_tac >>
+        first_x_assum
+          (qspec_then ‘k + LENGTH ag32_ffi_read_set_id_code +
+                       LENGTH ag32_ffi_read_check_conf_code +
+                       LENGTH ag32_ffi_read_load_lengths_code’ mp_tac) >>
+        simp[ag32_ffi_read_code_def, EL_APPEND1, EL_APPEND2] >>
+        disch_then (SUBST_ALL_TAC o SYM) >>
+        simp[ag32_ffi_read_entrypoint_thm, LEFT_ADD_DISTRIB, word_add_n2w] >>
+        irule get_mem_word_change_mem >> simp[word_add_n2w]) >>
+
+  Q.REFINE_EXISTS_TAC ‘krest + k4’ >> simp0[FUNPOW_ADD] >>
+  qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s4 = LET _ s4’ >>
+  simp0[Once LET_THM] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_read_check_length_code”) >>
+  print_tac "read_code_thm: 4a. calculating read_check_length's effect" >>
+  cheat >>
+  print_tac "read_code_thm: splitting on check_length's guard" >>
   cheat (* read deep/shallow *));
 
 val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
