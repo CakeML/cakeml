@@ -1027,10 +1027,11 @@ val STD_streams_stdin_fs = Q.store_thm("STD_streams_stdin_fs",
 val ag32_fs_ok_def = Define`
   ag32_fs_ok fs ⇔
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
-   (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧
+   (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧ (* this needs to change for close *)
    (∀fd fnm md off.
      (ALOOKUP fs.infds fd = SOME (fnm,md,off)) ⇒
      ∃cnt. (ALOOKUP fs.files fnm = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
+   (∀fnm. ALOOKUP fs.files (File fnm) = NONE) ∧
    (* maybe *) fs.maxFD ≤ 2 ∧
    STD_streams fs`;
 
@@ -3610,8 +3611,7 @@ val ag32_fs_ok_ffi_open_in = Q.store_thm("ag32_fs_ok_ffi_open_in",
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.openFile_def]
-  \\ cheat (* ag32_fs_ok probably needs to be changed to say there are no Files in the file system *));
+  \\ fs[fsFFITheory.openFile_def]);
 
 val ag32_fs_ok_ffi_open_out = Q.store_thm("ag32_fs_ok_ffi_open_out",
   `(ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
@@ -3621,8 +3621,7 @@ val ag32_fs_ok_ffi_open_out = Q.store_thm("ag32_fs_ok_ffi_open_out",
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.openFile_truncate_def]
-  \\ cheat (* ag32_fs_ok probably needs to be changed to say there are no Files in the file system *));
+  \\ fs[fsFFITheory.openFile_truncate_def]);
 
 val ag32_fs_ok_ffi_close = Q.store_thm("ag32_fs_ok_ffi_close",
   `(ffi_close conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
