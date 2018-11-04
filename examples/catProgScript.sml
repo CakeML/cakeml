@@ -144,7 +144,8 @@ val do_onefile_spec = Q.store_thm(
   qexists_tac`fs0` \\ xsimpl \\
   simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
   simp[GSYM add_stdo_A_DELKEY,Abbr`fd`,openFileFS_A_DELKEY_nextFD] \\
-  xsimpl);
+  xsimpl \\
+  simp[validFileFD_def]);
 
 val file_contents_def = Define `
   file_contents fnm fs = implode (THE (ALOOKUP fs.files (File fnm)))`

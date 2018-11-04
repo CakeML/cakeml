@@ -105,6 +105,10 @@ val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
   rw[validFD_def] >> imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[]);
 
+val validFileFD_def = Define`
+  validFileFD fd infds ⇔
+    ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)`;
+
 (* getNullTermStr lemmas *)
 
 val getNullTermStr_add_null = Q.store_thm(
@@ -346,6 +350,17 @@ val validFD_fastForwardFD = Q.store_thm("validFD_fastForwardFD[simp]",
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
+val validFileFD_fastForwardFD = Q.store_thm("validFileFD_fastForwardFD[simp]",
+  `validFileFD fd (fastForwardFD fs x).infds ⇔ validFileFD fd fs.infds`,
+  rw[validFileFD_def, fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds x` \\ rw[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ rw[PAIR_MAP, FST_EQ_EQUIV, PULL_EXISTS, SND_EQ_EQUIV]
+  \\ rw[EQ_IMP_THM]);
+
 val fastForwardFD_files = Q.store_thm("fastForwardFD_files[simp]",
   `(fastForwardFD fs fd).files = fs.files`,
   EVAL_TAC
@@ -468,6 +483,17 @@ val fsupdate_MAP_FST_files = Q.store_thm("fsupdate_MAP_FST_files[simp]",
 val validFD_fsupdate = Q.store_thm("validFD_fsupdate[simp]",
   `validFD fd (fsupdate fs fd' x y z) ⇔ validFD fd fs`,
   rw[fsupdate_def,validFD_def]);
+
+val validFileFD_fsupdate = Q.store_thm("validFileFD_fsupdate[simp]",
+  `validFileFD fd (fsupdate fs fd' x y z).infds ⇔ validFileFD fd fs.infds`,
+  rw[fsupdate_def,validFileFD_def]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ rw[]
+  \\ PairCases_on`x`
+  \\ simp[]);
 
 val fsupdate_numchars = Q.store_thm("fsupdate_numchars",
   `!fs fd k p c ll. fsupdate fs fd k p c with numchars := ll =

@@ -301,6 +301,14 @@ val validFD_add_stdo = Q.store_thm("validFD_add_stdo[simp]",
   `validFD fd (add_stdo fd' nm fs out) ⇔ validFD fd fs`,
   rw[add_stdo_def]);
 
+val validFileFD_up_stdo = Q.store_thm("validFileFD_up_stdo[simp]",
+  `validFileFD fd (up_stdo fd' fs out).infds ⇔ validFileFD fd fs.infds`,
+  rw[up_stdo_def]);
+
+val validFileFD_add_stdo = Q.store_thm("validFileFD_add_stdo[simp]",
+  `validFileFD fd (add_stdo fd' nm fs out).infds ⇔ validFileFD fd fs.infds`,
+  rw[add_stdo_def]);
+
 val up_stdo_A_DELKEY = Q.store_thm("up_stdo_A_DELKEY",
   `fd ≠ fd' ⇒
    up_stdo fd (fs with infds updated_by A_DELKEY fd') out =
@@ -663,21 +671,6 @@ val openIn_STDIO_spec = Q.store_thm(
  fs[GSYM validFD_numchars,GSYM openFileFS_fupd_numchars,inFS_fname_numchars])
 
 (* openOut, openAppend here *)
-
-val validFileFD_def = Define`
-  validFileFD fd infds ⇔
-    ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)`;
-
-val validFileFD_fastForwardFD = Q.store_thm("validFileFD_fastForwardFD",
-  `validFileFD fd (fastForwardFD fs x).infds ⇔ validFileFD fd fs.infds`,
-  rw[validFileFD_def, fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds x` \\ rw[libTheory.the_def]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
-  \\ TOP_CASE_TAC \\ simp[]
-  \\ rw[PAIR_MAP, FST_EQ_EQUIV, PULL_EXISTS, SND_EQ_EQUIV]
-  \\ rw[EQ_IMP_THM]);
 
 val close_spec = Q.store_thm(
   "close_spec",

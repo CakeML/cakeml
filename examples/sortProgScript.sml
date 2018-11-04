@@ -210,7 +210,10 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
      xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
   >- xsimpl
-  >- xsimpl
+  >- (xsimpl  \\
+    simp[Abbr`fs'`, validFileFD_def]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[] )
   >- xsimpl >>
   xapp >>
   xsimpl >>

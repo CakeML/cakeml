@@ -201,11 +201,9 @@ val cat_spec0 = Q.prove(
   xlet_auto_spec (SOME (Q.SPECL[`nextFD fs`,`fs'`] close_STDIO_spec))
   >- xsimpl
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
-      irule ALOOKUP_validFD >>
-     fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,ALOOKUP_inFS_fname_openFileFS_nextFD] >>
-     progress ALOOKUP_SOME_inFS_fname >> progress nextFD_ltX >>
-     progress ALOOKUP_inFS_fname_openFileFS_nextFD >>
-     rfs[ALOOKUP_inFS_fname_openFileFS_nextFD])
+      simp[validFileFD_def]
+      \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
+      \\ simp[])
   >- xsimpl >>
   xapp >> xsimpl >> simp[Abbr`fs'`] >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>

@@ -576,7 +576,11 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'' ==>> _`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs''`
   \\ xsimpl
-  \\ rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`]
+  \\ reverse(rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`])
+  >- (
+    simp[validFileFD_def]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[] )
   \\ simp[o_DEF,mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
   \\ fs[linesFD_openFileFS_nextFD]
   \\ srw_tac[ETA_ss][FILTER_MAP,o_DEF]
