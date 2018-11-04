@@ -3699,6 +3699,185 @@ val ag32_cline_implemented_ffi_open_in = Q.store_thm("ag32_cline_implemented_ffi
   \\ fs[EVAL``ffi_code_start_offset``]
   \\ fs[MAP_MAP_o, o_DEF]);
 
+val ag32_stdin_implemented_ffi_open_out = Q.store_thm("ag32_stdin_implemented_ffi_open_out",
+  `ag32_fs_ok fs ∧
+   ag32_stdin_implemented fs m ∧
+   ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs') ∧
+   w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
+   n2w heap_start_offset <=+ ms.R 3w
+   ⇒
+   ag32_stdin_implemented fs'
+     (asm_write_bytearray (ms.R 3w) bytes'
+       ((n2w (ffi_code_start_offset - 1) =+
+         n2w (THE (ALOOKUP FFI_codes "open_out"))) m))`,
+  rw[]
+  \\ fs[fsFFITheory.ffi_open_out_def]
+  \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
+  \\ simp[OPTION_CHOICE_EQUALS_OPTION]
+  \\ qmatch_goalsub_abbrev_tac`A ∨ B ⇒ _`
+  \\ Cases_on`B`
+  >- (
+    simp[Abbr`A`]
+    \\ fs[markerTheory.Abbrev_def, DISJ_EQ_IMP]
+    \\ rveq
+    \\ fs[ag32_stdin_implemented_def]
+    \\ conj_tac
+    >- (
+      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``stdin_offset``]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ conj_tac >- EVAL_TAC \\ simp[] )
+    \\ conj_tac
+    >- (
+      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``stdin_offset``]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ conj_tac >- EVAL_TAC \\ simp[] )
+    \\ DEP_REWRITE_TAC[bytes_in_memory_asm_write_bytearray_LT]
+    \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``stdin_offset``]
+    \\ fs[EVAL``stdin_size``]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
+    \\ fs[] \\ EVAL_TAC \\ fs[] )
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ simp[markerTheory.Abbrev_def]
+  \\ strip_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq
+  \\ fs[ag32_stdin_implemented_def]
+  \\ fs[fsFFITheory.openFile_truncate_def]
+  \\ rveq \\ fs[]
+  \\ fs[ag32_fs_ok_def]
+  \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD
+  \\ simp[]
+  \\ fs[]);
+
+val ag32_cline_implemented_ffi_open_out = Q.store_thm("ag32_cline_implemented_ffi_open_out",
+  `ag32_cline_implemented cl m ∧
+   w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
+   n2w heap_start_offset <=+ ms.R 3w ∧
+   (ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs'))
+   ⇒
+   ag32_cline_implemented cl
+       (asm_write_bytearray (ms.R 3w) bytes'
+         ((n2w (ffi_code_start_offset - 1) =+
+           n2w (THE (ALOOKUP FFI_codes "open_out"))) m))`,
+  simp[ag32_cline_implemented_def]
+  \\ strip_tac
+  \\ conj_tac
+  >- (
+    DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+    \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``startup_code_size``]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ conj_tac >- EVAL_TAC \\ simp[] )
+  \\ DEP_REWRITE_TAC[bytes_in_memory_asm_write_bytearray_LT]
+  \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``startup_code_size``]
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+  \\ simp[SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ fs[EVAL``cline_size``]
+  \\ fs[word_ls_n2w, word_lo_n2w]
+  \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+  \\ simp[SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ fs[EVAL``ffi_code_start_offset``]
+  \\ fs[MAP_MAP_o, o_DEF]);
+
+val ag32_stdin_implemented_ffi_close = Q.store_thm("ag32_stdin_implemented_ffi_close",
+  `ag32_fs_ok fs ∧
+   ag32_stdin_implemented fs m ∧
+   ffi_close conf bytes fs = SOME (FFIreturn bytes' fs') ∧
+   w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
+   n2w heap_start_offset <=+ ms.R 3w
+   ⇒
+   ag32_stdin_implemented fs'
+     (asm_write_bytearray (ms.R 3w) bytes'
+       ((n2w (ffi_code_start_offset - 1) =+
+         n2w (THE (ALOOKUP FFI_codes "close"))) m))`,
+  rw[]
+  \\ fs[fsFFITheory.ffi_close_def]
+  \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
+  \\ simp[OPTION_CHOICE_EQUALS_OPTION]
+  \\ qmatch_goalsub_abbrev_tac`A ∨ B ⇒ _`
+  \\ Cases_on`B`
+  >- (
+    simp[Abbr`A`]
+    \\ fs[markerTheory.Abbrev_def, DISJ_EQ_IMP]
+    \\ rveq
+    \\ fs[ag32_stdin_implemented_def]
+    \\ conj_tac
+    >- (
+      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``stdin_offset``]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ conj_tac >- EVAL_TAC \\ simp[] )
+    \\ conj_tac
+    >- (
+      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``stdin_offset``]
+      \\ fs[word_ls_n2w, word_lo_n2w]
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ conj_tac >- EVAL_TAC \\ simp[] )
+    \\ DEP_REWRITE_TAC[bytes_in_memory_asm_write_bytearray_LT]
+    \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``stdin_offset``]
+    \\ fs[EVAL``stdin_size``]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
+    \\ fs[] \\ EVAL_TAC \\ fs[] )
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ simp[markerTheory.Abbrev_def]
+  \\ strip_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq
+  \\ fs[ag32_stdin_implemented_def]
+  \\ fs[fsFFITheory.closeFD_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ simp[ALOOKUP_ADELKEY]
+  \\ fs[ag32_fs_ok_def]
+  \\ res_tac
+  \\ rfs[]);
+
+val ag32_cline_implemented_ffi_close = Q.store_thm("ag32_cline_implemented_ffi_close",
+  `ag32_cline_implemented cl m ∧
+   w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
+   n2w heap_start_offset <=+ ms.R 3w ∧
+   (ffi_close conf bytes fs = SOME (FFIreturn bytes' fs'))
+   ⇒
+   ag32_cline_implemented cl
+       (asm_write_bytearray (ms.R 3w) bytes'
+         ((n2w (ffi_code_start_offset - 1) =+
+           n2w (THE (ALOOKUP FFI_codes "close"))) m))`,
+  simp[ag32_cline_implemented_def]
+  \\ strip_tac
+  \\ conj_tac
+  >- (
+    DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+    \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``startup_code_size``]
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ conj_tac >- EVAL_TAC \\ simp[] )
+  \\ DEP_REWRITE_TAC[bytes_in_memory_asm_write_bytearray_LT]
+  \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``,EVAL``startup_code_size``]
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+  \\ simp[SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ fs[EVAL``cline_size``]
+  \\ fs[word_ls_n2w, word_lo_n2w]
+  \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
+  \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+  \\ simp[SUM_MAP_PLUS]
+  \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+  \\ fs[EVAL``ffi_code_start_offset``]
+  \\ fs[MAP_MAP_o, o_DEF]);
+
 val ag32_stdin_implemented_ffi_get_arg_count = Q.store_thm("ag32_stdin_implemented_ffi_get_arg_count",
   `ag32_stdin_implemented fs m ∧
    ffi_get_arg_count conf bytes (cl:mlstring list) = SOME (FFIreturn bytes' cl') ∧
@@ -4835,7 +5014,26 @@ val ag32_ffi_interfer_open_out = Q.store_thm("ag32_ffi_interfer_open_out",
       \\ fs[EVAL``code_start_offset _``])
     \\ conj_tac
     >- metis_tac[ag32_fs_ok_ffi_open_out]
-    \\ cheat (* cline and stdin remain implemented *) )
+    \\ `n2w heap_start_offset <=+ ms.R 3w`
+    by (
+      imp_res_tac fsFFIPropsTheory.ffi_open_out_length
+      \\ fs[fsFFITheory.ffi_open_out_def]
+      \\ Cases_on`bytes` \\ fs[]
+      \\ first_x_assum(qspec_then`0`mp_tac)
+      \\ simp[Abbr`md`]
+      \\ EVAL_TAC
+      \\ Cases_on`ms.R 3w` \\ simp[word_add_n2w, word_ls_n2w, word_lo_n2w]
+      \\ fs[FFI_codes_def] )
+    \\ rveq
+    \\ conj_tac
+    >- (
+      irule ag32_stdin_implemented_ffi_open_out
+      \\ fs[PULL_EXISTS]
+      \\ asm_exists_tac \\ fs[]
+      \\ asm_exists_tac \\ fs[])
+    \\ irule ag32_cline_implemented_ffi_open_out
+    \\ fs[PULL_EXISTS]
+    \\ asm_exists_tac \\ fs[])
   \\ gen_tac \\ strip_tac
   \\ irule asm_write_bytearray_unchanged_all_words
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
@@ -5013,7 +5211,26 @@ val ag32_ffi_interfer_close = Q.store_thm("ag32_ffi_interfer_close",
       \\ fs[EVAL``code_start_offset _``])
     \\ conj_tac
     >- metis_tac[ag32_fs_ok_ffi_close]
-    \\ cheat (* cline and stdin remain implemented *) )
+    \\ `n2w heap_start_offset <=+ ms.R 3w`
+    by (
+      imp_res_tac fsFFIPropsTheory.ffi_close_length
+      \\ fs[fsFFITheory.ffi_close_def]
+      \\ Cases_on`bytes` \\ fs[]
+      \\ first_x_assum(qspec_then`0`mp_tac)
+      \\ simp[Abbr`md`]
+      \\ EVAL_TAC
+      \\ Cases_on`ms.R 3w` \\ simp[word_add_n2w, word_ls_n2w, word_lo_n2w]
+      \\ fs[FFI_codes_def] )
+    \\ rveq
+    \\ conj_tac
+    >- (
+      irule ag32_stdin_implemented_ffi_close
+      \\ fs[PULL_EXISTS]
+      \\ asm_exists_tac \\ fs[]
+      \\ asm_exists_tac \\ fs[])
+    \\ irule ag32_cline_implemented_ffi_close
+    \\ fs[PULL_EXISTS]
+    \\ asm_exists_tac \\ fs[])
   \\ gen_tac \\ strip_tac
   \\ irule asm_write_bytearray_unchanged_all_words
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
