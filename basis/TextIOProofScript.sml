@@ -664,21 +664,36 @@ val openIn_STDIO_spec = Q.store_thm(
 
 (* openOut, openAppend here *)
 
+val validFileFD_def = Define`
+  validFileFD fd infds ⇔
+    ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)`;
+
+val validFileFD_fastForwardFD = Q.store_thm("validFileFD_fastForwardFD",
+  `validFileFD fd (fastForwardFD fs x).infds ⇔ validFileFD fd fs.infds`,
+  rw[validFileFD_def, fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds x` \\ rw[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ rw[PAIR_MAP, FST_EQ_EQUIV, PULL_EXISTS, SND_EQ_EQUIV]
+  \\ rw[EQ_IMP_THM]);
+
 val close_spec = Q.store_thm(
   "close_spec",
   `∀fdw fdv fs.
      FD fdw fdv ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.close" (basis_st())) [fdv]
        (IOFS fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFD fdw fs) *
+       (POST (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
                  IOFS (fs with infds updated_by A_DELKEY fdw))
-             (\e. &(InvalidFD_exn e /\ ¬ validFD fdw fs) * IOFS fs)
+             (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs)
              (\n c b. &F))`,
   xcf "TextIO.close" (basis_st()) >> fs[IOFS_def, IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet`POSTv uv. &(UNIT_TYPE () uv) *
-        W8ARRAY iobuff_loc ((if validFD fdw fs then 0w else 1w) ::t) *
-        IOx fs_ffi_part (if validFD fdw fs then
+        W8ARRAY iobuff_loc ((if validFileFD fdw fs.infds then 0w else 1w) ::t) *
+        IOx fs_ffi_part (if validFileFD fdw fs.infds then
                             (fs with infds updated_by A_DELKEY fdw)
                          else fs)`
   >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def] >>
@@ -687,14 +702,17 @@ val close_spec = Q.store_thm(
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
      map_every qexists_tac[`ns`,`f`,`st`] >> xsimpl >>
      qexists_tac`n2w8 fdw` >> fs[FD_def] >>
-     unabbrev_all_tac >> CASE_TAC >> rw[] >>
+     unabbrev_all_tac >>
+     simp[validFileFD_def] >>
+     Cases_on`ALOOKUP fs.infds fdw` \\ fs[] \\
+     TRY(PairCases_on`x`) \\
      fs[mk_ffi_next_def, ffi_close_def, (* decode_encode_FS, *)
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ,w82n_n2w8,LENGTH_n2w8,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
-        imp_res_tac validFD_ALOOKUP >> cases_on`fs` >> fs[IO_fs_infds_fupd] >>
-        fs[validFD_def] >> imp_res_tac ALOOKUP_NONE >>
-        fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl) >>
+     cases_on`fs` >> fs[IO_fs_infds_fupd] >>
+     imp_res_tac ALOOKUP_NONE >> rw[] \\
+     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   CASE_TAC >> xif >> instantiate
   >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
@@ -707,13 +725,13 @@ val close_STDIO_spec = Q.store_thm(
      FD fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "TextIO.close" (basis_st())) [fdv]
        (STDIO fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFD fd fs) *
+       (POST (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
                  STDIO (fs with infds updated_by A_DELKEY fd))
-             (\e. &(InvalidFD_exn e /\ ¬ validFD fd fs) * STDIO fs)
+             (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs)
              (\n c b. &F))`,
   rw[STDIO_def] >> xpull >> xapp_spec close_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
-  xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFD_def] >> xsimpl >>
+  xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
   fs[STD_streams_def,ALOOKUP_ADELKEY] \\
   Cases_on`fd = 0` \\ fs[]
   \\ Cases_on`fd = 1` \\ fs[]
@@ -1971,8 +1989,22 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
     \\ `¬(fd = 0 ∨ fd = 1 ∨ fd = 2)` suffices_by fs[]
     \\ metis_tac[nextFD_NOT_MEM,ALOOKUP_MEM] )
   \\ strip_tac
-  \\ xlet_auto >- xsimpl
-  >- ( xsimpl \\ simp[Abbr`fsob`] )
+  \\ `validFileFD fd fso.infds`
+  by (
+    simp[validFileFD_def]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[]
+    \\ first_x_assum(qspecl_then[`0`,`ReadMode`]mp_tac)
+    \\ simp_tac(srw_ss())[Abbr`fso`] )
+  \\ `validFileFD fd fsob.infds`
+  by ( simp[Abbr`fsob`, validFileFD_fastForwardFD] )
+  \\ xlet_auto_spec(SOME close_STDIO_spec)
+  >- (
+    xsimpl
+    \\ simp[Abbr`fsob`, Abbr`fso`]
+    \\ imp_res_tac STD_streams_nextFD
+    \\ rfs[])
+  >- xsimpl
   >- xsimpl
   \\ reverse xcon \\ xsimpl
   \\ fs[]

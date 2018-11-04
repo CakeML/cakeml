@@ -1178,53 +1178,25 @@ val extract_fs_extract_writes = Q.store_thm("extract_fs_extract_writes",
       >- metis_tac[]
       \\ pairarg_tac \\ fs[] \\ rveq
       \\ fs[fsFFITheory.closeFD_def]
+      \\ pairarg_tac \\ fs[]
       \\ rveq \\ fs[]
       \\ fs[ALOOKUP_ADELKEY]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
       \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
       \\ simp[ALOOKUP_ADELKEY]
       \\ Cases_on`w82n l = fd` \\ fs[]
-      >- (
-        rw[]
-        \\ simp[DISJ_EQ_IMP]
-        \\ CONV_TAC SWAP_EXISTS_CONV
-        \\ qexists_tac`w82n l` \\ simp[]
-        \\ rw[] \\ strip_tac
-        \\ first_x_assum(qspec_then`fd'`mp_tac)
-        \\ impl_tac >- simp[]
-        \\ simp[OPTREL_def, FORALL_PROD]
-        \\ metis_tac[] )
-      \\ first_assum(qspec_then`w82n l`mp_tac)
-      \\ impl_tac >- simp[]
-      \\ simp_tac (srw_ss())[Once OPTREL_def]
-      \\ simp[EXISTS_PROD] \\ strip_tac
-      \\ rw[] \\ rw[] \\ rw[]
-      >- metis_tac[]
-      (*
-      >- metis_tac[]
-      *)
-      \\ rw[OPTREL_def]
-      \\ first_x_assum(qspec_then`w82n l`mp_tac o CONV_RULE SWAP_FORALL_CONV) \\ rw[]
-      \\ qmatch_asmsub_rename_tac`_ = SOME(x1,x2,x3)`
-      \\ Cases_on`x1 = IOStream nam`
-      >- (
-        fs[] \\ CCONTR_TAC \\ fs[]
-        \\ Cases_on`x2` \\ metis_tac[] )
-      \\ `MEM x1 (MAP FST z.files)` by metis_tac[]
-      \\ `IS_SOME (ALOOKUP z.files x1)`
-      by simp[data_to_word_gcProofTheory.IS_SOME_ALOOKUP_EQ]
-      \\ fs[IS_SOME_EXISTS]
-      \\ reverse(Cases_on`x1`) \\ fs[]
-      >- (
-        imp_res_tac ALOOKUP_MEM
-        \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-        \\ metis_tac[] )
-      \\ CCONTR_TAC \\ fs[]
-      \\ Cases_on`fd' = fd` \\ fs[]
-      \\ first_x_assum drule
+      \\ rw[] >- metis_tac[]
+      \\ rw[]
+      \\ fs[DISJ_EQ_IMP]
       \\ simp[OPTREL_def, FORALL_PROD]
-      \\ CCONTR_TAC \\ fs[]
-      \\ metis_tac[])
+      \\ Cases_on`ALOOKUP z.infds (w82n l)` \\ fs[]
+      \\ PairCases_on`x`
+      \\ reverse(Cases_on`x0` \\ fs[]) >- metis_tac[]
+      \\ pop_assum mp_tac \\ simp[]
+      \\ first_x_assum drule
+      \\ simp[OPTREL_def]
+      \\ rpt strip_tac
+      \\ fs[] \\ rveq \\ fs[])
     )
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
@@ -2942,8 +2914,9 @@ val ag32_ffi_close_thm = Q.store_thm("ag32_ffi_close_thm",
     fs[fsFFITheory.ffi_close_def,OPTION_CHOICE_EQUALS_OPTION]
     >-
       (pairarg_tac>>fs[fsFFITheory.closeFD_def]>>
-      (* can STDOUT, STDIN and STDERR be closed? RK: yes they can *)
-      cheat)
+       pairarg_tac \\ fs[] \\ rveq
+       \\ fs[ag32_fs_ok_def]
+       \\ metis_tac[NOT_SOME_NONE])
     >>
     rw[]>>fs[LUPDATE_def])
   \\ simp[asm_write_bytearray_def,APPLY_UPDATE_THM]
@@ -3634,7 +3607,8 @@ val ag32_fs_ok_ffi_close = Q.store_thm("ag32_fs_ok_ffi_close",
   \\ fs[fsFFITheory.closeFD_def]
   \\ rveq \\ fs[]
   \\ simp[ALOOKUP_ADELKEY]
-  \\ cheat (* invariants need to change to allow closing IOstreams *));
+  \\ pairarg_tac \\ fs[]
+  \\ metis_tac[NOT_SOME_NONE]);
 
 val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
   `ag32_ffi_rel ms ffi ∧
