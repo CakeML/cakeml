@@ -14,6 +14,14 @@ val fastForwardFD_A_DELKEY_same = Q.store_thm (
    fs with infds updated_by A_DELKEY fd`,
   fs [forwardFD_def, IO_fs_component_equality]);
 
+(* TODO: move *)
+val validFileFD_forwardFD = Q.store_thm (
+  "validFileFD_forwardFD",
+  `validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds`,
+  rw [forwardFD_def, validFileFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []);
+
 (* ------------------------------------------------------------------------- *)
 (* CakeML wrapper                                                            *)
 (* ------------------------------------------------------------------------- *)
@@ -485,21 +493,24 @@ val read_file_spec = Q.store_thm("read_file_spec",
     \\ rw []
     \\ drule (GEN_ALL linesFD_openFileFS_nextFD)
     \\ disch_then (qspec_then `ReadMode` mp_tac) \\ rw []
+    \\ fs [validFileFD_def]
     \\ xsimpl)
   \\ CASE_TAC \\ fs[]
   \\ xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ qexists_tac`fs'` \\ xsimpl
-  \\ simp[Abbr`fs'`]
-  \\ simp[add_stdo_forwardFD] \\ rw []
+  \\ simp[Abbr`fs'`, add_stdo_forwardFD]
   \\ `2 <> nextFD fs` by fs [] \\ fs []
   \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
-  \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac) \\ rw []
+  \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac)
+  \\ strip_tac \\ fs []
   \\ imp_res_tac add_stdo_A_DELKEY
   \\ qmatch_goalsub_abbrev_tac `add_stderr _ str1`
   \\ first_x_assum
     (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
-  \\ xsimpl);
+  \\ xsimpl
+  \\ fs [validFileFD_forwardFD]
+  \\ rw [validFileFD_def]);
 
 val _ = (append_prog o process_topdecs) `
   fun reader_main u =
