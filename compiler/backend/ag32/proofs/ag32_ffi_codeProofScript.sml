@@ -2300,6 +2300,13 @@ val bytes_in_memory_prefix = Q.prove(
               bytes_in_memory a bs mf md’,
   Induct >> simp[asmSemTheory.bytes_in_memory_def] >> metis_tac[]);
 
+fun glAbbrs i = EVERY (List.tabulate(i, fn j => glAbbr (i - j)))
+
+val w22n_bound = Q.store_thm("w22n_bound",
+  ‘∀b1 b2. w22n [b1; b2] < 65536’,
+  rw[MarshallingTheory.w22n_def] >>
+  map_every (fn q => Q.ISPEC_THEN q mp_tac w2n_lt) [‘b1’, ‘b2’] >> simp[]);
+
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   `(∀k. k < LENGTH ag32_ffi_read_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -2313,6 +2320,7 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    w2n (get_mem_word s.MEM (n2w stdin_offset)) ≤
      w2n (get_mem_word s.MEM (n2w (stdin_offset + 4))) ∧
    w2n (get_mem_word s.MEM (n2w (stdin_offset + 4))) ≤ stdin_size ∧
+   w2n (s.R 3w + 4w) + output_buffer_size + 1 < 4294967296 ∧
    DISJOINT md { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_code } ∧
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    ⇒
@@ -2545,7 +2553,77 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   Q.REFINE_EXISTS_TAC ‘krest + k5’ >> simp0[FUNPOW_ADD] >>
   qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s5 = _’ >>
   simp[] >>
+  print_tac "read_code_thm: calculating effect of ffi_read_num_written" >>
+  ‘bytes_in_memory (s4.R 3w) (n1::n0::off1::off0::tll) s4.MEM md’
+    by (EVERY (List.tabulate(4, fn j => glAbbr(4 - j))) >>
+        irule
+          (SIMP_RULE bool_ss [combinTheory.UPDATE_def] bytes_in_memory_update)>>
+        simp[] >> qpat_x_assum ‘DISJOINT _ _’ mp_tac >>
+        simp[DISJOINT_ALT] >>
+        disch_then (fn imp => disch_then (fn th => mp_tac (MATCH_MP imp th))) >>
+        EVAL_TAC) >>
+  drule (ag32_ffi_read_num_written_thm
+           |> Q.GEN ‘k’
+           |> Q.INST [‘n’ |-> ‘w2n (s4.R 1w)’, ‘off’ |-> ‘w2n (s4.R 5w)’,
+                      ‘lcmo’ |-> ‘w2n (s4.R 7w)’]) >> simp[] >>
+  impl_tac
+  >- (glAbbrs 4 >> qspecl_then [‘n1’, ‘n0’] mp_tac w22n_bound >> simp[] >>
+      fs[stdin_size_def]) >>
+  disch_then (qx_choosel_then [‘r8_5’, ‘r4_5’, ‘cf5’, ‘ov5’] mp_tac) >>
+  RM_ABBREV_TAC "s5" >>
+  disch_then
+    (assume_tac o CONV_RULE (REWR_CONV (GSYM markerTheory.Abbrev_def))) >>
+  assume_tac (EVAL “LENGTH ag32_ffi_copy_code”) >>
   print_tac "read_code_thm: ffi_copy" >>
+  ‘∃k6. FUNPOW Next k6 s5 = ag32_ffi_copy s5’
+    by (irule ag32_ffi_copy_code_thm >> reverse (rpt conj_tac)
+        >- (simp[DISJOINT_ALT, PULL_EXISTS, ag32_ffi_copy_code_def, DIV_LT_X] >>
+            glAbbrs 5 >> simp[word_add_n2w, ag32_ffi_read_entrypoint_thm] >>
+            qx_gen_tac ‘k’ >> strip_tac >> qx_gen_tac ‘m’ >>
+            REWRITE_TAC [DECIDE “p ∨ ¬q ⇔ q ⇒ p”] >> strip_tac >>
+            fs[output_buffer_size_def] >>
+            ONCE_REWRITE_TAC [WORD_ADD_COMM] >>
+            asm_simp_tac (bool_ss ++ ARITH_ss) [GSYM word_add_n2w, sub_common]>>
+            strip_tac >>
+            Q.UNDISCH_THEN ‘s.R 3w ∈ md’ mp_tac >>
+            rpt (qpat_x_assum ‘DISJOINT md _’ mp_tac) >> simp[DISJOINT_ALT] >>
+            disch_then (fn i1 => disch_then (fn i2 => disch_then (fn th =>
+              mp_tac (MATCH_MP i1 th) >> mp_tac (MATCH_MP i2 th)))) >>
+            simp[word_ls_n2w, word_lo_n2w, startup_code_size_def,
+                 heap_start_offset_def, word_add_n2w, ffi_code_start_offset_thm,
+                 length_ag32_ffi_code_def])
+        >- (glAbbrs 5 >> simp[MIN_DEF])
+        >- (glAbbrs 5 >> EVAL_TAC)
+        >- (glAbbrs 5 >> EVAL_TAC) >>
+        qx_gen_tac ‘k’ >> glAbbrs 5 >> simp[] >> strip_tac >>
+        first_x_assum (
+          qspec_then
+            ‘LENGTH (ag32_ffi_read_set_id_code ++
+                     ag32_ffi_read_check_conf_code ++
+                     ag32_ffi_read_load_lengths_code ++
+                     ag32_ffi_read_check_length_code ++
+                     ag32_ffi_read_num_written_code) + k’
+            mp_tac) >> impl_tac
+        >- (EVAL_TAC >> simp[]) >>
+        simp[ag32_ffi_read_code_def, EL_APPEND1, EL_APPEND2,
+             ag32_ffi_read_entrypoint_thm, LEFT_ADD_DISTRIB, word_add_n2w] >>
+        disch_then (SUBST1_TAC o SYM) >> irule get_mem_word_change_mem >>
+        simp[set_mem_word_def, word_add_n2w, stdin_offset_def,
+             combinTheory.UPDATE_def, cline_size_def, startup_code_size_def,
+             MarshallingTheory.n2w2_def, asm_write_bytearray_def] >>
+        qx_gen_tac ‘m’ >> simp[sub_common, GSYM word_add_n2w] >>
+        rw[] >>
+        Q.UNDISCH_THEN ‘s.R 3w ∈ md’ mp_tac >>
+        rpt (qpat_x_assum ‘DISJOINT md _’ mp_tac) >>
+        simp[DISJOINT_ALT] >>
+        disch_then (fn i1 => disch_then (fn i2 => disch_then (fn th =>
+          mp_tac (MATCH_MP i1 th) >> mp_tac (MATCH_MP i2 th)))) >>
+        simp[startup_code_size_def, heap_start_offset_def, word_add_n2w,
+             word_lo_n2w, word_ls_n2w, ffi_code_start_offset_thm,
+             length_ag32_ffi_code_def]) >>
+  Q.REFINE_EXISTS_TAC ‘krest + k6’ >> simp[FUNPOW_ADD] >>
+  qmatch_abbrev_tac ‘∃krest. FUNPOW Next krest s6 = ag32_ffi_return s6’ >>
+  print_tac "read_code_thm: final return call" >>
   cheat (* read deep/shallow *));
 
 val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
