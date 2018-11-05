@@ -800,13 +800,11 @@ val empty_valuation = xDefine "empty_valuation"
 
 val _ = Parse.overload_on("empty_valuation",``empty_valuation0 ^mem``);
 
-val fleq_def = xDefine "fleq"
-  `fleq0 ^mem ((tyfrag1,tmfrag1),(δ1: type -> 'U,γ1: mlstring # type -> 'U)) ((tyfrag2,tmfrag2),(δ2,γ2)) =
+val fleq_def = Define
+  `fleq ((tyfrag1,tmfrag1),(δ1: type -> 'U,γ1: mlstring # type -> 'U)) ((tyfrag2,tmfrag2),(δ2,γ2)) =
    (tmfrag1 ⊆ tmfrag2 /\ tyfrag1 ⊆ tyfrag2
     /\ (!c ty. (c,ty) ∈ tmfrag1 ==> γ1(c,ty) = γ2(c,ty))
     /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))`
-
-val _ = Parse.overload_on("fleq",``fleq0 ^mem``);
 
 val builtin_closure_mono_lemma = Q.prove(
   `!tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty`,
