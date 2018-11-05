@@ -1638,7 +1638,8 @@ val word_get_code_labels_assign = Q.prove(`
   word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
   assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))`,
   ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
-  rw[assign_def,assign_get_code_label_def]>>
+  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
+     assign_get_code_label_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
   rpt(every_case_tac>>fs[]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
@@ -1681,7 +1682,7 @@ val word_good_handlers_assign = Q.prove(`
   ∀x.
   word_good_handlers secn (FST (assign c secn v w x y z))`,
   ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
-  rw[assign_def]>>
+  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def]>>
   rpt(
   every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
   rw[]>>EVAL_TAC

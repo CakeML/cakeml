@@ -513,6 +513,11 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.bignum_words_def
     ,data_to_wordTheory.Smallnum_def
     ,data_to_wordTheory.MemEqList_def
+    ,data_to_wordTheory.arg1_def
+    ,data_to_wordTheory.arg2_def
+    ,data_to_wordTheory.arg3_def
+    ,data_to_wordTheory.arg4_def
+    ,data_to_wordTheory.all_assign_defs
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.fp_cmp_inst_def
     ,data_to_wordTheory.fp_bop_inst_def
