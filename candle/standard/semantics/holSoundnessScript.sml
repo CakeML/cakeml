@@ -10,7 +10,7 @@ val binary_inference_rule = Q.store_thm("binary_inference_rule",
     ∀thy h1 h2 p1 p2 q.
     q has_type Bool ∧ term_ok (sigof thy) q ∧
     (∀δ γ v sigma. is_frag_interpretation (total_fragment (sigof thy)) δ γ ∧
-           valuates_frag δ v sigma ∧
+           valuates_frag (total_fragment (sigof thy)) δ v sigma ∧
            (∀ty. tyvars (sigma ty) = []) ∧
            (∀ty. type_ok (tysof (sigof thy)) (sigma ty)) ∧
            p1 ∈ ground_terms_uninst (sigof thy) sigma ∧
@@ -127,11 +127,22 @@ val ABS_correct = Q.store_thm("ABS_correct",
    (qpat_x_assum `typeof _ = typeof_` (assume_tac o GSYM) >>
     simp[] >> match_mp_tac termsem_in_type_ext2 >>
     simp[] >> asm_exists_tac >> simp[] >> rw[combinTheory.UPDATE_def] >>
-    fs[valuates_frag_def]) >>
+    fs[valuates_frag_def] >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac VFREE_IN_subterm >>
+    imp_res_tac subterm_in_term_frag_uninst >>
+    imp_res_tac term_frag_uninst_in_type_frag >>
+    fs[]
+   ) >>
   conj_tac >-
    (match_mp_tac termsem_in_type_ext2 >>
     simp[] >> asm_exists_tac >> simp[] >> rw[combinTheory.UPDATE_def] >>
-    fs[valuates_frag_def]) >>
+    fs[valuates_frag_def] >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac VFREE_IN_subterm >>
+    imp_res_tac subterm_in_term_frag_uninst >>
+    imp_res_tac term_frag_uninst_in_type_frag >>
+    fs[]) >>
   rename1 `_ =+ x2` >>
   first_x_assum drule >>
   disch_then(qspecl_then [`sigma`,`((x,ty) =+ x2) v`] mp_tac) >>
@@ -187,10 +198,21 @@ val BETA_correct = Q.store_thm("BETA_correct",
   >> simp[termsem_def]
   >> match_mp_tac apply_abstract_matchable
   >> conj_tac
-  >- fs[valuates_frag_def]
+  >- (fs[valuates_frag_def]
+      >> first_x_assum match_mp_tac
+      >> drule terms_of_frag_uninst_combE >> disch_then drule
+      >> strip_tac
+      >> drule term_frag_uninst_in_type_frag >> disch_then drule
+      >> simp[])
   >> conj_tac
   >- (fs[APPLY_UPDATE_ID] >> match_mp_tac termsem_in_type_ext2
-      >> simp[] >> asm_exists_tac >> fs[valuates_frag_def])
+      >> simp[] >> asm_exists_tac >> fs[valuates_frag_def]
+      >> rw[] >> first_x_assum match_mp_tac
+      >> imp_res_tac VFREE_IN_subterm
+      >> imp_res_tac subterm_in_term_frag_uninst
+      >> imp_res_tac term_frag_uninst_in_type_frag
+      >> fs[]
+     )
   >> conj_tac >- simp[]
   >> simp[APPLY_UPDATE_ID]);
 
@@ -339,7 +361,16 @@ val DEDUCT_ANTISYM_correct = Q.store_thm("DEDUCT_ANTISYM_correct",
        >> simp[]
        >> impl_tac
        >- (conj_tac >- metis_tac[terms_of_frag_uninst_equationE,welltyped_equation]
-           >> fs[valuates_frag_def])
+           >> fs[valuates_frag_def]
+           >> rw[] >> first_x_assum match_mp_tac
+           >> imp_res_tac VFREE_IN_subterm
+           >> drule terms_of_frag_uninst_equationE
+           >> disch_then drule
+           >> impl_tac >- simp[welltyped_equation]
+           >> strip_tac
+           >> imp_res_tac subterm_in_term_frag_uninst
+           >> imp_res_tac term_frag_uninst_in_type_frag
+           >> fs[])
        >> rw[ext_type_frag_builtins_def])
   >> `a1 <> True ==> a1 = False`
     by(`a1 ⋲ boolset` suffices_by metis_tac[mem_boolset,true_neq_false]
@@ -349,7 +380,16 @@ val DEDUCT_ANTISYM_correct = Q.store_thm("DEDUCT_ANTISYM_correct",
        >> simp[]
        >> impl_tac
        >- (conj_tac >- metis_tac[terms_of_frag_uninst_equationE,welltyped_equation]
-           >> fs[valuates_frag_def])
+           >> fs[valuates_frag_def]
+           >> rw[] >> first_x_assum match_mp_tac
+           >> imp_res_tac VFREE_IN_subterm
+           >> drule terms_of_frag_uninst_equationE
+           >> disch_then drule
+           >> impl_tac >- simp[welltyped_equation]
+           >> strip_tac
+           >> imp_res_tac subterm_in_term_frag_uninst
+           >> imp_res_tac term_frag_uninst_in_type_frag
+           >> fs[])
        >> rw[ext_type_frag_builtins_def])
   >> simp[]
   >> first_x_assum match_mp_tac
@@ -467,7 +507,16 @@ val INST_correct = Q.store_thm("INST_correct",
       >> asm_exists_tac
       >> fs[]
       >> conj_tac >- fs[models_def]
-      >> match_mp_tac terms_of_frag_uninst_term_ok
+      >> conj_tac
+      >- (match_mp_tac terms_of_frag_uninst_term_ok >> fs[])
+      >> rw[] >> first_x_assum match_mp_tac
+      >> imp_res_tac VFREE_IN_subterm
+      >> imp_res_tac subterm_in_term_frag_uninst
+      >> drule terms_of_frag_uninst_term_ok
+      >> impl_tac >- fs[]
+      >> strip_tac
+      >> imp_res_tac subterm_in_term_frag_uninst
+      >> imp_res_tac term_frag_uninst_in_type_frag
       >> fs[])
   >- (match_mp_tac terms_of_frag_uninst_term_ok >> fs[])
   >- (rw[EVERY_MEM] >> match_mp_tac terms_of_frag_uninst_term_ok >> fs[]) >>
@@ -528,7 +577,10 @@ val INST_TYPE_correct = Q.store_thm("INST_TYPE_correct",
       rw[ground_types_def,tyvars_def] >>
       fs[theory_ok_def,is_std_sig_def,type_ok_def])
   >- (fs[valuates_frag_builtins] >> fs[valuates_frag_def]
-      >> rw[] >> simp[GSYM TYPE_SUBSTf_TYPE_SUBST_compose])
+      >> rw[] >> simp[GSYM TYPE_SUBSTf_TYPE_SUBST_compose]
+      >> first_x_assum match_mp_tac
+      >> simp[TYPE_SUBSTf_TYPE_SUBST_compose]
+     )
   >- (match_mp_tac terms_of_frag_uninst_term_ok
       >> simp[]
       >> conj_tac

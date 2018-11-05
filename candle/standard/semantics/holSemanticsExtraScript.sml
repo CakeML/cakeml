@@ -55,7 +55,7 @@ val termsem_ext_equation = Q.store_thm("termsem_ext_equation",
     ∀sig frag δ γ v s t.
     is_sig_fragment sig frag ∧
     is_frag_interpretation frag δ γ ∧
-    valuates_frag δ v sigma ∧
+    valuates_frag frag δ v sigma ∧
     s ∈ terms_of_frag_uninst frag sigma ∧ t ∈ terms_of_frag_uninst frag sigma ∧
     term_ok sig (s === t)
     ⇒ termsem_ext δ γ v sigma (s === t) = Boolean (termsem_ext δ γ v sigma s = termsem_ext δ γ v sigma t)`,
@@ -68,7 +68,13 @@ val termsem_ext_equation = Q.store_thm("termsem_ext_equation",
       >- (drule abstract_in_funspace_matchable \\ disch_then match_mp_tac
           \\ metis_tac[boolean_in_boolset])
       \\ match_mp_tac termsem_in_type_ext \\ Cases_on `frag`
-      \\ simp[] \\ asm_exists_tac \\ fs[valuates_frag_def])
+      \\ simp[] \\ asm_exists_tac \\ fs[valuates_frag_def]
+      \\ rw[] \\ first_x_assum match_mp_tac
+      \\ imp_res_tac VFREE_IN_subterm
+      \\ imp_res_tac subterm_in_term_frag_uninst
+      \\ imp_res_tac term_frag_uninst_in_type_frag
+      \\ fs[]
+     )
   \\ strip_tac \\ simp[]
   \\ unabbrev_all_tac \\ simp[]
   \\ qmatch_goalsub_abbrev_tac `Abstract s1 t1 f1 ' x1`
@@ -79,11 +85,17 @@ val termsem_ext_equation = Q.store_thm("termsem_ext_equation",
       >- metis_tac[boolean_in_boolset]
       \\ fs[term_ok_def]
       \\ match_mp_tac termsem_in_type_ext \\ Cases_on `frag`
-      \\ simp[] \\ asm_exists_tac \\ fs[valuates_frag_def])
+      \\ simp[] \\ asm_exists_tac \\ fs[valuates_frag_def]
+      \\ rw[] \\ first_x_assum match_mp_tac
+      \\ imp_res_tac VFREE_IN_subterm
+      \\ imp_res_tac subterm_in_term_frag_uninst
+      \\ imp_res_tac term_frag_uninst_in_type_frag
+      \\ fs[]
+     )
   \\ simp[]);
 
 val valuates_frag_builtins = Q.store_thm("valuates_frag_builtins",
-  `valuates_frag (ext_type_frag_builtins δ) v sigma = valuates_frag δ v sigma`,
+  `valuates_frag frag (ext_type_frag_builtins δ) v sigma = valuates_frag frag δ v sigma`,
   rw[valuates_frag_def,ext_type_frag_idem]);
 
 val allTypes_typeof = Q.store_thm("allTypes_typeof",
@@ -627,6 +639,11 @@ val termsem_VSUBST = Q.store_thm("termsem_VSUBST",
     metis_tac[VSUBST_simple_subst] >>
   rw[] >>
   metis_tac[termsem_simple_subst,termsem_aconv]);
+
+(* todo: fleq? *)
+val equal_on_def = Define`
+  equal_on (sig:sig) i i' ⇔
+  fleq (total_fragment sig,i) (total_fragment sig, i')`
 
 (*
 val is_std_interpretation_is_type = Q.store_thm("is_std_interpretation_is_type",
