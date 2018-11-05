@@ -2319,6 +2319,8 @@ val word_add_o = Q.prove(
   ‘word_add m o (word_add n o f) = word_add (m + n) o f’,
   simp[FUN_EQ_THM]);
 
+
+
 val bytes_in_memory_GENLIST = Q.store_thm(
   "bytes_in_memory_GENLIST",
   ‘∀sz base f.
@@ -2336,6 +2338,30 @@ val WORD_ADD_CANCEL_LBARE = Q.prove(
       simp[WORD_LITERAL_ADD]) >>
   simp[word_add_n2w]);
 
+val lbare' = CONV_RULE (PATH_CONV "rlr" (REWR_CONV EQ_SYM_EQ THENC
+                                         LAND_CONV (REWR_CONV WORD_ADD_COMM)))
+                       WORD_ADD_CANCEL_LBARE
+
+val stupid1 = Q.prove(
+‘∀i. i ∈ {0w;1w;2w;3w} ∧ w2n (a0 : word32)  < 4294967292 ⇒ a0 + i ≠ UINT_MAXw’,
+simp[DISJ_IMP_THM, FORALL_AND_THM, RIGHT_AND_OVER_OR] >>
+rpt conj_tac >> Q.ISPEC_THEN ‘a0’ mp_tac ranged_word_nchotomy >>
+simp[PULL_EXISTS, word_add_n2w, word_eq_n2w, bitTheory.MOD_2EXP_MAX_def,
+     bitTheory.MOD_2EXP_def])
+  |> SIMP_RULE (srw_ss()) [RIGHT_AND_OVER_OR, DISJ_IMP_THM, FORALL_AND_THM]
+  |> CONJUNCTS
+  |> map UNDISCH
+
+fun w2nit i =
+    w2n_plus1 |> Q.ISPEC [QUOTE ("(a0 + " ^ Int.toString i ^ "w : word32)")]
+              |> SIMP_RULE (srw_ss()) (lbare' :: stupid1)
+              |> SYM
+val w2ns = List.tabulate (4, w2nit)
+fun simpem [] = raise Fail ""
+  | simpem [th] = SIMP_RULE (srw_ss() ++ ARITH_ss) [] th
+  | simpem (th::ths) = simpem (map (SIMP_RULE (srw_ss()) [th]) ths)
+val stupid = DISCH_ALL (simpem w2ns)
+
 val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   `(∀k. k < LENGTH ag32_ffi_read_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -2350,7 +2376,7 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
      w2n (get_mem_word s.MEM (n2w (stdin_offset + 4))) ∧
    w2n (get_mem_word s.MEM (n2w (stdin_offset + 4))) ≤ stdin_size ∧
    w2n (s.R 3w + 4w) + output_buffer_size + 1 < 4294967296 ∧
-   n2w (output_buffer_size + stdin_size + stdin_offset) + 8w ≤₊ s.R 3w ∧
+   output_buffer_size + stdin_size + stdin_offset + 8 ≤ w2n (s.R 3w) ∧
    DISJOINT md { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_code } ∧
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    ⇒
@@ -2666,9 +2692,20 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
           glAbbrs 5 >>
           simp[stdin_offset_def, cline_size_def, startup_code_size_def,
                output_buffer_size_def, word_add_n2w, word_ls_n2w] >>
-          rpt strip_tac >> disj1_tac >> simp[GSYM word_add_n2w] >> cheat)
-      >- (glAbbrs 5 >> cheat)
-      >- (glAbbrs 5 >> cheat)) >>
+          rpt strip_tac >> disj1_tac >>
+          disch_then
+            (mp_tac o CONV_RULE (LAND_CONV (REWR_CONV (GSYM n2w_w2n)))) >>
+          simp[word_ls_n2w] >>
+          fs[stdin_size_def, stupid, output_buffer_size_def, stdin_offset_def,
+             cline_size_def, startup_code_size_def])
+      >- (glAbbrs 5 >> fs[stupid, output_buffer_size_def] >> rfs[stupid] >>
+          fs[MIN_DEF])
+      >- (glAbbrs 5 >>
+          fs[stdin_offset_def, output_buffer_size_def, cline_size_def,
+             startup_code_size_def, stdin_size_def, MIN_DEF])) >>
+  disch_then (qx_choosel_then [‘r1_6’, ‘r3_6’, ‘r5_6’, ‘r8_6’] SUBST_ALL_TAC)>>
+  print_tac "read_code_thm: applying final return" >>
+  irule ag32_ffi_return_code_thm >>
   cheat (* read deep/shallow *));
 
 val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
