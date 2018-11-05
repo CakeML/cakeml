@@ -964,11 +964,6 @@ val valuates_frag_def = xDefine "valuates_frag"`
   valuates_frag0 ^mem δ v sigma = (!x ty. v(x,ty) ⋲ (ext_type_frag_builtins δ (TYPE_SUBSTf sigma ty)))`;
 val _ = Parse.overload_on("valuates_frag",``valuates_frag0 ^mem``)
 
-val models_def = xDefine "models"`
-  models0 ^mem frag δ γ v sigma tm =
-  (valuates_frag δ v sigma /\ tm ∈ terms_of_frag frag /\ termsem δ γ v sigma tm = True)`
-val _ = Parse.overload_on("models",``models0 ^mem``)
-
 val satisfies_def = xDefine"satisfies"`
   satisfies0 ^mem frag δ γ sigma (h,c) ⇔
     ∀v. valuates_frag δ v sigma ∧ c ∈ terms_of_frag_uninst frag sigma ∧ EVERY (λt. t ∈ terms_of_frag_uninst frag sigma) h ∧
