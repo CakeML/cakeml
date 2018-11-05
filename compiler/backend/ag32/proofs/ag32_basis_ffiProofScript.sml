@@ -4516,7 +4516,12 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
   \\ fs[]
   \\ impl_tac
   >- (
-    reverse conj_tac
+    conj_tac
+    >- ( fs[ag32_ffi_rel_def, ag32_stdin_implemented_def, word_add_n2w, EVAL``stdin_size``] )
+    \\ conj_tac
+    >- ( fs[ag32_ffi_rel_def, ag32_stdin_implemented_def, word_add_n2w, EVAL``stdin_size``] )
+    \\ rewrite_tac[Once CONJ_ASSOC]
+    \\ reverse conj_tac
     >- (
       simp[Abbr`md`]
       \\ fs[ag32_ffi_rel_def, ag32_stdin_implemented_def, word_add_n2w]
@@ -4532,8 +4537,12 @@ val ag32_ffi_interfer_read = Q.store_thm("ag32_ffi_interfer_read",
       \\ fs[LEFT_ADD_DISTRIB, EVAL``code_start_offset _``]
       \\ fs[DISJ_EQ_IMP]
       \\ rw[] \\ strip_tac \\ fs[])
-    \\ fs[ag32_ffi_rel_def, ag32_stdin_implemented_def, word_add_n2w]
-    \\ fs[EVAL``stdin_size``])
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`ms.R 3w ∈ _`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ Cases_on`ms.R 3w` \\ fs[memory_size_def, LEFT_ADD_DISTRIB, word_add_n2w, EVAL``code_start_offset _``]
+    \\ fs[word_ls_n2w, word_lo_n2w])
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]
