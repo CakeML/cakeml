@@ -384,6 +384,7 @@ fun rnwc_next n =
         ag32Theory.dfn'JumpIfZero_def, ag32Theory.dfn'StoreMEMByte_def,
         ag32Theory.dfn'Shift_def, ag32Theory.dfn'StoreMEM_def,
         ag32Theory.dfn'LoadMEM_def, ag32Theory.dfn'LoadMEMByte_def,
+        ag32Theory.dfn'JumpIfNotZero_def,
         ag32Theory.dfn'LoadConstant_def])) >> strip_tac
     end
 
@@ -2878,6 +2879,64 @@ val ag32_ffi_get_arg_length_setup_code_thm = Q.store_thm(
 
   EVERY (List.tabulate(10, fn j => (combined (j + 1)))) >>
   qexists_tac `0` >> simp[]);
+
+val ag32_ffi_get_arg_length_loop1_code_def = Define‘
+  ag32_ffi_get_arg_length_loop1_code =
+    GENLIST (λi. EL (i + 2) ag32_ffi_get_arg_length_loop_code) 4
+’;
+
+val instn = instn0
+              (CONV_RULE (RAND_CONV EVAL)
+                         ag32_ffi_get_arg_length_loop1_code_def)
+val combined = combined0 instn gmw
+
+val ag32_ffi_get_arg_length_loop1_code_thm = Q.store_thm(
+  "ag32_ffi_get_arg_length_loop1_code_thm",
+  ‘s.MEM (s.R 5w + n2w zoff) = 0w ∧
+   (∀k. k < LENGTH ag32_ffi_get_arg_length_loop1_code ⇒
+        get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+        Encode (EL k ag32_ffi_get_arg_length_loop1_code)) ∧
+   byte_aligned s.PC ⇒
+   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop1 s’,
+
+  assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop1_code”) >>
+  map_every qid_spec_tac [‘s’, ‘zoff’] >> Induct >> simp[] >>
+  rw[] >> instn 0 >> simp0[Once ag32_ffi_get_arg_length_loop1_def] >>
+  drule_then assume_tac byte_aligned_imp >>
+  simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def]
+  >- ((* base case *)
+      ‘(∀n. s.MEM (n2w n + s.R 5w) ≠ 0w) = F’
+         by (simp[] >> qexists_tac `0` >> simp[]) >>
+      pop_assum SUBST1_TAC >> simp0[] >>
+      combined 1 >> combined 2 >> combined 3 >>
+      qexists_tac `0` >> simp[] >>
+      simp[Abbr‘s3’, Abbr‘s2’, Abbr‘s1’, combinTheory.UPDATE_def]) >>
+  ‘(∀n. s.MEM (n2w n + s.R 5w) ≠ 0w) = F’
+     by (simp[] >> qexists_tac `SUC zoff` >> simp[]) >>
+  pop_assum SUBST1_TAC >> simp0[] >>
+  EVERY (List.tabulate(3, fn j => combined (j + 1))) >>
+  Cases_on ‘s3.R 8w = 0w’ >> simp0[] >- (qexists_tac `0` >> simp[]) >>
+  rnwc_next 4 >> rfs[] >>
+  first_x_assum irule >> glAbbrs 4 >> fs[ADD1, GSYM word_add_n2w]);
+
+val instn = instn0 ag32_ffi_get_arg_length_loop_code_def
+
+val ag32_ffi_get_arg_length_loop_code_thm = Q.store_thm(
+  "ag32_ffi_get_arg_length_loop_code_thm",
+  ‘s.MEM (s.R 5w + n2w zoff) = 0w ∧
+   (∀k. k < LENGTH ag32_ffi_get_arg_length_loop_code ⇒
+        get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+        Encode (EL k ag32_ffi_get_arg_length_loop_code)) ∧
+   byte_aligned s.PC ⇒
+   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop s’,
+  rw[ffi_code_start_offset_thm] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop_code”) >> fs[] >>
+  instn 0 >>
+  simp0[ag32_ffi_get_arg_length_loop_def] >>
+  drule_then assume_tac byte_aligned_imp >>
+  simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def] >>
+  ntac 2 (pop_assum kall_tac) >> cheat);
+
 
 
 val ag32_ffi_get_arg_length_code_thm = Q.store_thm(
