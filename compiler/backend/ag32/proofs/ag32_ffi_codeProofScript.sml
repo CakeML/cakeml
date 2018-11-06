@@ -3343,27 +3343,49 @@ val ag32_ffi_get_arg_find_decomp1_thm = Q.store_thm("ag32_ffi_get_arg_find_decom
   \\ AP_TERM_TAC
   \\ simp[]);
 
-(*
 val ag32_ffi_get_arg_find_decomp_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp_thm",
-  `∀s. FST(ag32_ffi_get_arg_find_decomp (s,md)) = ag32_ffi_get_arg_find s`,
+  `∀s. (∃n. s.MEM (s.R 5w + n2w n) = 0w) ⇒ (FST(ag32_ffi_get_arg_find_decomp (s,md)) = ag32_ffi_get_arg_find s)`,
   recInduct ag32_ffi_get_arg_find_ind
   \\ rw[]
   \\ rw[Once ag32_ffi_get_arg_find_decomp_def]
-  >- (
-    pop_assum mp_tac
-    \\ simp[Once ag32Theory.dfn'JumpIfZero_def]
-    \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
-    \\ strip_tac \\ fs[]
-    \\ rw[Once ag32_ffi_get_arg_find_def]
-    \\ simp[Once ag32Theory.dfn'JumpIfZero_def]
-    \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def] )
+  >- rw[Once ag32_ffi_get_arg_find_def]
   \\ fs[]
-  *)
+  \\ simp[Once ag32_ffi_get_arg_find_def]
+  \\ last_x_assum mp_tac
+  \\ impl_tac
+  >- (
+    simp[ag32Theory.dfn'JumpIfZero_def
+        ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
+        ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
+    \\ simp[ag32_ffi_get_arg_find1_thm]
+    \\ simp[whileTheory.OLEAST_def]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ simp[APPLY_UPDATE_THM]
+    \\ simp[word_add_n2w]
+    \\ qmatch_goalsub_abbrev_tac`n2w (_ + (x + 1))`
+    \\ `x ≤ n`
+    by (
+      simp[Abbr`x`]
+      \\ numLib.LEAST_ELIM_TAC
+      \\ conj_tac >- metis_tac[]
+      \\ rw[]
+      \\ CCONTR_TAC \\ fs[NOT_LESS_EQUAL] )
+    \\ qexists_tac`n + dimword(:32) -1 - x`
+    \\ last_x_assum(SUBST1_TAC o SYM)
+    \\ AP_TERM_TAC
+    \\ simp[] )
+  \\ disch_then(SUBST1_TAC o SYM)
+  \\ DEP_REWRITE_TAC[ag32_ffi_get_arg_find_decomp1_thm]
+  \\ simp[ag32Theory.dfn'JumpIfZero_def]
+  \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
+  \\ metis_tac[]);
 
+(*
 val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_decomp_thm",
   `FST(ag32_ffi_get_arg_store_decomp (s,md)) = ag32_ffi_get_arg_store s`,
   rw[ag32_ffi_get_arg_store_decomp_def]
   \\ rw[ag32_ffi_get_arg_store_def]);
+*)
 
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
@@ -3374,7 +3396,6 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
    cheat (*
-     prove ag32_ffi_get_arg_find_decomp_thm,
      prove ag32_ffi_get_arg_store_decomp_thm,
      use ag32_ffi_get_arg_FUNPOW_Next and the decomp_thms
      (may need to add assumptions about 0w being in memory) *));
