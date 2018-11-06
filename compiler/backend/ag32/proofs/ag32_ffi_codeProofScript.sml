@@ -3380,12 +3380,49 @@ val ag32_ffi_get_arg_find_decomp_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp
   \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
   \\ metis_tac[]);
 
-(*
 val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_decomp_thm",
-  `FST(ag32_ffi_get_arg_store_decomp (s,md)) = ag32_ffi_get_arg_store s`,
-  rw[ag32_ffi_get_arg_store_decomp_def]
-  \\ rw[ag32_ffi_get_arg_store_def]);
-*)
+  `∀s.
+    (∃n. s.MEM (s.R 5w + n2w n) = 0w ∧
+         ∀i. i ≤ n ⇒ s.R 3w ≠ s.R 5w + n2w i) ⇒
+    FST(ag32_ffi_get_arg_store_decomp (s,md)) = ag32_ffi_get_arg_store s`,
+  recInduct ag32_ffi_get_arg_store_ind
+  \\ rw[]
+  \\ rw[Once ag32_ffi_get_arg_store_decomp_def]
+  >- (
+    rw[Once ag32_ffi_get_arg_store_def]
+    \\ fs[DISJ_EQ_IMP]
+    \\ first_x_assum drule
+    \\ rw[] \\ res_tac \\ fs[] )
+  \\ fs[]
+  \\ simp[Once ag32_ffi_get_arg_store_def]
+  \\ last_x_assum mp_tac
+  \\ impl_tac
+  >- metis_tac[]
+  \\ impl_tac
+  >- (
+    fs[ag32Theory.dfn'JumpIfZero_def
+        ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
+        ,ag32Theory.dfn'StoreMEMByte_def, ag32Theory.dfn'LoadMEMByte_def
+        ,APPLY_UPDATE_THM
+        ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
+    \\ qexists_tac`n-1`
+    \\ reverse conj_tac
+    >- rw[]
+    \\ Cases_on`n` \\ fs[] \\ rfs[]
+    \\ fs[ADD1, GSYM word_add_n2w]
+    \\ rw[]
+    \\ `F` suffices_by rw[]
+    \\ pop_assum mp_tac
+    \\ rw[]
+    \\ Cases_on`s.R 5w` \\ fs[word_add_n2w, LESS_OR_EQ]
+    \\ fsrw_tac[DNF_ss][] \\ fs[] )
+  \\ disch_then(SUBST1_TAC o SYM)
+  \\ rw[]
+  \\ fs[DISJ_EQ_IMP]
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ simp[]);
 
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
@@ -3396,9 +3433,8 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
    cheat (*
-     prove ag32_ffi_get_arg_store_decomp_thm,
      use ag32_ffi_get_arg_FUNPOW_Next and the decomp_thms
-     (may need to add assumptions about 0w being in memory) *));
+     (may need to add assumptions about the memory) *));
 
 (* ag32_ffi_open_in *)
 
