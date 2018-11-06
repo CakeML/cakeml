@@ -5198,7 +5198,17 @@ val ag32_ffi_interfer_close = Q.store_thm("ag32_ffi_interfer_close",
   \\ qspec_then`ms1`mp_tac (CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_close_code_thm))
   \\ fs[Abbr`ms1`, APPLY_UPDATE_THM]
   \\ fs[ffi_entrypoints_def, GSYM word_add_n2w]
-  \\ impl_tac >- EVAL_TAC
+  \\ impl_tac >- (
+    EVAL_TAC
+    \\ Cases_on`ms.R 3w` \\ fs[]
+    \\ CCONTR_TAC \\ fs[] \\ fs[] \\ rveq
+    \\ Cases_on`bytes` \\ fs[fsFFITheory.ffi_close_def]
+    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ qpat_x_assum`_ ∈ md`mp_tac
+    \\ simp[Abbr`md`]
+    \\ EVAL_TAC
+    \\ fs[word_ls_n2w, word_lo_n2w]
+    \\ fs(map EVAL [``LENGTH FFI_codes``,``memory_size``,``code_start_offset _``]) )
   \\ qmatch_asmsub_abbrev_tac`FUNPOW _ _ _ = ms1`
   \\ strip_tac
   \\ qexists_tac`k'+k`
