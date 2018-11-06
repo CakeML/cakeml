@@ -3069,7 +3069,12 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint)) ∧
    bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧
    n2w (ffi_code_start_offset -1) ∉ md ∧
+   (∀j. j < 4 * LENGTH ag32_ffi_get_arg_length_code ⇒
+        n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint + j)
+        ∉ md) ∧
    w2n l0 + 256 * w2n l1 ≤ cline_size ∧
+   LENGTH (SND (get_mem_arg ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
+     (n2w (startup_code_size + 4)) (w2n l0 + 256 * w2n l1))) < dimword(:32) ∧
    has_n_args ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
      (n2w (startup_code_size + 4)) (w2n l0 + (256 * w2n l1) + 1)
    ⇒
@@ -3149,14 +3154,118 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
           ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def,
           ag32Theory.dfn'Shift_def, ag32Theory.shift_def, APPLY_UPDATE_THM]
   \\ simp[ag32_progTheory.mem_unchanged_def, APPLY_UPDATE_THM]
-  \\ cheat (*
-    - figure out a suitable md
-    - prove the code is still in memory
-    - use ag32_ffi_return_code_thm
-    - prove the code is still in memory
-    - use FUNPOW_ADD
-  *)
-  );
+  \\ disch_then(qspec_then`UNIV DIFF {s2.PC + n2w k | k | k DIV 4 < 5}`mp_tac)
+  \\ simp[DIV_LT_X, IN_DISJOINT, DISJ_EQ_IMP]
+  \\ impl_tac
+  >- (
+    simp[Abbr`s2`, APPLY_UPDATE_THM]
+    \\ pop_assum kall_tac
+    \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
+    \\ pop_assum kall_tac
+    \\ qpat_x_assum`_ = _`kall_tac
+    \\ rewrite_tac[CONJ_ASSOC]
+    \\ reverse conj_tac >- EVAL_TAC
+    \\ simp[PULL_EXISTS]
+    \\ reverse conj_tac
+    >- (
+      qx_gen_tac`j`
+      \\ strip_tac
+      \\ last_x_assum(qspec_then`j + LENGTH ag32_ffi_get_arg_length_setup_code + LENGTH ag32_ffi_get_arg_length_loop_code`mp_tac)
+      \\ simp[ag32_ffi_get_arg_length_code_def, LEFT_ADD_DISTRIB, word_add_n2w]
+      \\ fs[EVAL``LENGTH ag32_ffi_get_arg_length_store_code``]
+      \\ strip_tac
+      \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+      \\ simp[EL_APPEND2, EL_APPEND1]
+      \\ qpat_x_assum`j < _`mp_tac
+      \\ fs[EVAL``LENGTH ag32_ffi_get_arg_length_store_code``, EL_APPEND1, EL_APPEND2]
+      \\ EVAL_TAC \\ simp[])
+    \\ simp[GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
+    \\ qx_gen_tac`j` \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`s.R 3w = r3`
+    \\ `s.R 3w ∈ md` by fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[word_add_n2w]
+    \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_loop_code``,``LENGTH ag32_ffi_get_arg_length_setup_code``])
+    \\ fs(map EVAL [``ag32_ffi_get_arg_length_entrypoint``,``ffi_code_start_offset``])
+    \\ fs[EVAL``LENGTH ag32_ffi_get_arg_length_store_code``]
+    \\ IF_CASES_TAC \\ fs[]
+    >- (
+      fs[Abbr`r3`]
+      \\ first_x_assum(qspec_then`j + 4 * (LENGTH ag32_ffi_get_arg_length_setup_code + LENGTH ag32_ffi_get_arg_length_loop_code)`mp_tac)
+      \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_loop_code``,``LENGTH ag32_ffi_get_arg_length_setup_code``])
+      \\ simp[EVAL``LENGTH ag32_ffi_get_arg_length_code``] )
+    \\ IF_CASES_TAC \\ fs[]
+    \\ fs[Abbr`r3`]
+    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w] \\ rfs[]
+    \\ Cases_on`n = dimword(:32) -1` \\ fs[]
+    \\ first_x_assum(qspec_then`j + 4 * (LENGTH ag32_ffi_get_arg_length_setup_code + LENGTH ag32_ffi_get_arg_length_loop_code) -1`mp_tac)
+    \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_loop_code``,``LENGTH ag32_ffi_get_arg_length_setup_code``])
+    \\ simp[EVAL``LENGTH ag32_ffi_get_arg_length_code``]
+    \\ strip_tac
+    \\ `n = j + 5247432 - 1` by fs[]
+    \\ fs[])
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_return s3`
+  \\ qspec_then`s3`mp_tac(Q.GEN `s`ag32_ffi_return_code_thm)
+  \\ impl_tac
+  >- (
+    qmatch_asmsub_abbrev_tac`4w =+ n2w (n + 1)`
+    \\ qspec_then`s2`mp_tac(Q.GENL[`s`]ag32_ffi_get_arg_length_store_thm)
+    \\ impl_tac
+    >- (
+      simp[Abbr`s2`, APPLY_UPDATE_THM]
+      \\ simp[Abbr`n`, Abbr`argc`]
+      \\ simp[Abbr`s1`, APPLY_UPDATE_THM] )
+    \\ strip_tac \\ fs[]
+    \\ pop_assum kall_tac
+    \\ simp[Abbr`s3`]
+    \\ simp[Abbr`s2`, APPLY_UPDATE_THM]
+    \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
+    \\ reverse conj_tac >- EVAL_TAC
+    \\ qx_gen_tac`j`
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ strip_tac
+    \\ last_x_assum(qspec_then`j + (LENGTH ag32_ffi_get_arg_length_setup_code +
+                                    LENGTH ag32_ffi_get_arg_length_loop_code +
+                                    LENGTH ag32_ffi_get_arg_length_store_code)` mp_tac)
+    \\ simp[ag32_ffi_get_arg_length_code_def]
+    \\ simp[EL_APPEND1, EL_APPEND2]
+    \\ disch_then(SUBST1_TAC o SYM)
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ simp[word_add_n2w, LEFT_ADD_DISTRIB]
+    \\ EVAL_TAC
+    \\ pop_assum mp_tac
+    \\ EVAL_TAC
+    \\ simp[]
+    \\ strip_tac
+    \\ Cases_on`s.R 3w` \\ fs[word_add_n2w] \\ rfs[]
+    \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_code``])
+    \\ fs(map EVAL [``ag32_ffi_get_arg_length_entrypoint``,``ffi_code_start_offset``])
+    \\ Cases_on`n = dimword(:32) -1` \\ fs[]
+    \\ CCONTR_TAC \\ fs[] \\ rveq \\ fs[]
+    \\ TRY (
+      qmatch_asmsub_abbrev_tac`z = n + 1`
+      \\ `n = z - 1` by simp[]
+      \\ fs[Abbr`z`] \\ rveq \\ fs[] )
+    \\ qmatch_asmsub_abbrev_tac`s.R 3w = n2w (4 * j + z)`
+    \\ qmatch_asmsub_abbrev_tac`n2w (_ + y) ∉ md`
+    \\ first_x_assum(qspec_then`4 * j + z - y`mp_tac)
+    \\ simp[Abbr`z`, Abbr`y`]
+    \\ fs[asmSemTheory.bytes_in_memory_def])
+  \\ strip_tac
+  \\ pop_assum(SUBST1_TAC o SYM)
+  \\ qpat_x_assum`_ = s3`(SUBST1_TAC o SYM)
+  \\ fs[]
+  \\ qpat_x_assum`FUNPOW _ _ _ = s2`(SUBST1_TAC o SYM)
+  \\ qpat_x_assum`FUNPOW _ _ _ = s1`(SUBST1_TAC o SYM)
+  \\ simp_tac(srw_ss())[GSYM FUNPOW_ADD]
+  \\ metis_tac[]);
 
 (* ag32_ffi_get_arg *)
 
