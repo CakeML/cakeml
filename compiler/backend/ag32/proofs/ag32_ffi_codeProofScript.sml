@@ -2930,25 +2930,69 @@ val loop_code_def' = Q.prove(
 
 
 
-val instn = instn0 ag32_ffi_get_arg_length_loop_code_def
+val instn = instn0 loop_code_def'
+val combined = combined0 instn gmw
+
+val has_n_args_def = Define‘
+  (has_n_args mem a 0 ⇔ T) ∧
+  (has_n_args (mem : word32 -> word8) a (SUC n) ⇔
+     ∃off. mem (a + n2w off) = 0w ∧
+           (∀i. i < off ⇒ mem (a + n2w i) ≠ 0w) ∧
+           has_n_args mem (a + n2w off + 1w) n)
+’;
 
 val ag32_ffi_get_arg_length_loop_code_thm = Q.store_thm(
   "ag32_ffi_get_arg_length_loop_code_thm",
-  ‘s.MEM (s.R 5w + n2w zoff) = 0w ∧
+  ‘has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_loop_code ⇒
         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
         Encode (EL k ag32_ffi_get_arg_length_loop_code)) ∧
    byte_aligned s.PC ⇒
    ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop s’,
-  rw[ffi_code_start_offset_thm] >>
+
+  ‘∃cnt. w2n (s.R 6w) = cnt’ by simp[] >>
+  pop_assum mp_tac >> map_every qid_spec_tac [‘argc’, ‘s’, ‘cnt’] >> Induct >>
+  rw[] >>
   assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop_code”) >> fs[] >>
   instn 0 >>
   simp0[Once ag32_ffi_get_arg_length_loop_def] >>
   drule_then assume_tac byte_aligned_imp >>
   simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def] >>
-  ntac 2 (pop_assum kall_tac) >> cheat);
-
-
+  ntac 2 (pop_assum kall_tac) >- (qexists_tac `0` >> simp[]) >>
+  ‘s.R 6w ≠ 0w’ by (strip_tac >> fs[]) >> simp0[] >>
+  combined 1 >> rev_full_simp_tac (srw_ss()) [] >>
+  rnwc_next 2 >> spc 2 >>
+  qmatch_abbrev_tac ‘∃k. FUNPOW Next k s2 = LET _ s3’ >>
+  ‘∃c0. argc = SUC c0’ by (Cases_on ‘argc’ >> fs[]) >> pop_assum SUBST_ALL_TAC>>
+  full_simp_tac (srw_ss()) [has_n_args_def] >>
+  rename [‘has_n_args s.MEM (n2w zoff + s.R 5w + 1w) c0’] >>
+  ‘s2.MEM (s2.R 5w + n2w zoff) = 0w’ by (glAbbrs 2 >> goal_assum drule)>>
+  drule ag32_ffi_get_arg_length_loop1_code_thm >> impl_tac
+  >- (qmatch_abbrev_tac ‘_ ∧ byte_aligned s2.PC’ >> reverse conj_tac
+      >- (glAbbrs 2 >> irule byte_aligned_add >> simp[] >> EVAL_TAC) >>
+      qx_gen_tac `k` >>
+      assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop1_code”) >> rw[] >>
+      first_x_assum (qspec_then ‘k + 2’ mp_tac) >>
+      simp[LEFT_ADD_DISTRIB, word_add_n2w, loop_code_def', EL_CONS, PRE_SUB1,
+           EL_APPEND1] >>
+      disch_then (SUBST1_TAC o SYM) >> glAbbrs 2 >> simp[GSYM word_add_n2w]) >>
+  disch_then (qx_choose_then ‘k2’ assume_tac) >>
+  Q.REFINE_EXISTS_TAC ‘k + k2’ >> simp0[FUNPOW_ADD] >> simp0[Once LET_THM] >>
+  rev_full_simp_tac (srw_ss()) [] >>
+  ‘(OLEAST n. s2.MEM (s2.R 5w + n2w n) = 0w) = SOME zoff’
+    by (glAbbrs 2 >> DEEP_INTRO_TAC whileTheory.OLEAST_INTRO >> simp[] >>
+        conj_tac >- (goal_assum drule) >> rw[] >>
+        ‘¬(zoff < n) ∧ ¬(n < zoff)’ suffices_by simp[] >> metis_tac[]) >>
+  qpat_x_assum ‘Abbrev (s3 = _)’ mp_tac >>
+  simp0[ag32_ffi_get_arg_length_loop1_thm] >> strip_tac >>
+  rename [‘FUNPOW Next k2 s2 = s6’] >> spc 6 >> instn 6 >> gmw 6 >>
+  simp0[EL_APPEND1, EL_APPEND2, ag32_ffi_get_arg_length_loop1_code_def] >>
+  combined 7 >>
+  simp0[EL_APPEND1, EL_APPEND2, ag32_ffi_get_arg_length_loop1_code_def] >>
+  rnwc_next 8 >> first_x_assum irule >> glAbbrs 8 >> reverse conj_tac
+  >- (goal_assum drule >> simp[GSYM word_add_n2w]) >>
+  Q.ISPEC_THEN ‘s.R 6w’ mp_tac ranged_word_nchotomy >> strip_tac >> fs[] >>
+  simp[WORD_LITERAL_ADD]);
 
 val ag32_ffi_get_arg_length_code_thm = Q.store_thm(
   "ag32_ffi_get_arg_length_code_thm",
