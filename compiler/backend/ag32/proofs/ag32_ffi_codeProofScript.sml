@@ -3121,19 +3121,32 @@ val ag32_ffi_open_in_FUNPOW_Next = let
         ag32_ffi_return_def,ag32_ffi_fail_def])
   in REWRITE_RULE [ag32_ffi_open_in_intro] th  end;
 
+val ag32_ffi_open_in_entrypoint_thm = EVAL “ag32_ffi_open_in_entrypoint”
+
 val ag32_ffi_open_in_code_thm = Q.store_thm("ag32_ffi_open_in_code_thm",
   `(∀k. k < LENGTH ag32_ffi_open_in_code ⇒
-      (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
-       Encode (EL k ag32_ffi_open_in_code))) ∧
+          get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+          Encode (EL k ag32_ffi_open_in_code)) ∧
    byte_aligned s.PC ∧
-   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_open_in_entrypoint))
+   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_open_in_entrypoint)) ∧
+   s.R 3w ∉ { s.PC + n2w n | n < 4 * LENGTH ag32_ffi_open_in_code}
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_open_in s)`,
-  strip_tac
-  \\ match_mp_tac ag32_ffi_open_in_FUNPOW_Next \\ fs []
-  \\ `LENGTH ag32_ffi_open_in_code < 2 * 32` by EVAL_TAC \\ simp []
-  \\ cheat (* could these be verified as part of the verification
-              of the shallow embedding? *));
+  strip_tac >>
+  irule ag32_ffi_open_in_FUNPOW_Next \\ fs [] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_open_in_code”) >>
+  simp[] >>
+  simp[ag32_ffi_open_in_fail_decomp_def, ag32Theory.dfn'LoadConstant_def,
+       ag32_progTheory.mem_unchanged_def, ag32Theory.dfn'StoreMEMByte_def,
+       ag32Theory.incPC_def, ag32Theory.ri2word_def, combinTheory.UPDATE_def] >>
+  simp[FFI_codes_def,
+       combinTheory.UPDATE_def, ffi_code_start_offset_thm] >>
+  qmatch_goalsub_abbrev_tac ‘COND ((n2w n) = _) 6w (s.MEM _)’ >>
+  qexists_tac ‘{n2w n; s.R 3w}’ >>
+  simp[Abbr‘n’, ag32_ffi_open_in_entrypoint_thm, DIV_LT_X, word_add_n2w] >>
+  reverse conj_tac >- intLib.ARITH_TAC >>
+  rfs[ag32_ffi_open_in_entrypoint_thm, ffi_code_start_offset_thm,
+      word_add_n2w] >> fs[]);
 
 (* ag32_ffi_open_out *)
 
