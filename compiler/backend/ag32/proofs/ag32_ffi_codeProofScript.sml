@@ -3,7 +3,7 @@
   primitives.
 *)
 
-open preamble ag32_memoryTheory
+open preamble ag32_memoryTheory ag32_decompilerLib
 local open blastLib ag32_targetProofTheory in end
 
 val _ = new_theory"ag32_ffi_codeProof";
@@ -2994,8 +2994,36 @@ val ag32_ffi_get_arg_length_loop_code_thm = Q.store_thm(
   Q.ISPEC_THEN ‘s.R 6w’ mp_tac ranged_word_nchotomy >> strip_tac >> fs[] >>
   simp[WORD_LITERAL_ADD]);
 
-val ag32_ffi_get_arg_length_code_thm = Q.store_thm(
-  "ag32_ffi_get_arg_length_code_thm",
+(* ag32_ffi_get_arg_length *)
+
+val (ag32_ffi_get_arg_length_setup_SPEC,
+     ag32_ffi_get_arg_length_setup_decomp_def) = ag32_decompile
+     ag32_ffi_get_arg_length_setup_code_def
+
+val (ag32_ffi_get_arg_length_loop_SPEC,
+     ag32_ffi_get_arg_length_loop_decomp_def) = ag32_decompile
+     ag32_ffi_get_arg_length_loop_code_def
+
+val (ag32_ffi_get_arg_length_store_SPEC,
+     ag32_ffi_get_arg_length_store_decomp_def) = ag32_decompile
+     ag32_ffi_get_arg_length_store_code_def
+
+val ag32_ffi_get_arg_length_SPEC =
+  SPEC_COMPOSE_RULE [ag32_ffi_get_arg_length_setup_SPEC,
+                     ag32_ffi_get_arg_length_loop_SPEC,
+                     ag32_ffi_get_arg_length_store_SPEC,
+                     ag32_ffi_return_SPEC]
+
+val ag32_ffi_get_arg_length_FUNPOW_Next = let
+  val th = ag32_ffi_get_arg_length_SPEC
+  val code_def = ag32_ffi_get_arg_length_code_def
+                 |> SIMP_RULE std_ss [ag32_ffi_get_arg_length_setup_code_def,
+                                      ag32_ffi_get_arg_length_loop_code_def,
+                                      ag32_ffi_get_arg_length_store_code_def,
+                                      ag32_ffi_return_code_def,APPEND]
+  in FUNPOW_Next_from_SPEC code_def th end;
+
+val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_length_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_get_arg_length_code))) ∧
@@ -3003,8 +3031,36 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm(
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)`,
+   cheat (* try using decompiler output from above *));
 
-   cheat);
+(* ag32_ffi_get_arg *)
+
+val (ag32_ffi_get_arg_setup_SPEC,
+     ag32_ffi_get_arg_setup_decomp_def) = ag32_decompile
+     ag32_ffi_get_arg_setup_code_def
+
+val (ag32_ffi_get_arg_find_SPEC,
+     ag32_ffi_get_arg_find_decomp_def) = ag32_decompile
+     ag32_ffi_get_arg_find_code_def
+
+val (ag32_ffi_get_arg_store_SPEC,
+     ag32_ffi_get_arg_store_decomp_def) = ag32_decompile
+     ag32_ffi_get_arg_store_code_def
+
+val ag32_ffi_get_arg_SPEC =
+  SPEC_COMPOSE_RULE [ag32_ffi_get_arg_setup_SPEC,
+                     ag32_ffi_get_arg_find_SPEC,
+                     ag32_ffi_get_arg_store_SPEC,
+                     ag32_ffi_return_SPEC]
+
+val ag32_ffi_get_arg_FUNPOW_Next = let
+  val th = ag32_ffi_get_arg_SPEC
+  val code_def = ag32_ffi_get_arg_code_def
+                 |> SIMP_RULE std_ss [ag32_ffi_get_arg_setup_code_def,
+                                      ag32_ffi_get_arg_find_code_def,
+                                      ag32_ffi_get_arg_store_code_def,
+                                      ag32_ffi_return_code_def,APPEND]
+  in FUNPOW_Next_from_SPEC code_def th end;
 
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
@@ -3014,7 +3070,34 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
-   cheat);
+   cheat (* try using decompiler output from above *));
+
+(* ag32_ffi_open_in *)
+
+val ag32_ffi_open_in_fail_code_def = Define `
+  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code "open_in"`
+    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+
+val (ag32_ffi_open_in_fail_SPEC,
+     ag32_ffi_open_in_fail_decomp_def) = ag32_decompile
+     ag32_ffi_open_in_fail_code_def
+
+val ag32_ffi_open_in_SPEC =
+  SPEC_COMPOSE_RULE [ag32_ffi_open_in_fail_SPEC,
+                     ag32_ffi_return_SPEC]
+
+val ag32_ffi_open_in_FUNPOW_Next = let
+  val th = ag32_ffi_open_in_SPEC
+  val code_def = ag32_ffi_open_in_code_def
+                 |> SIMP_RULE std_ss [ag32_ffi_fail_code_def,
+                                      ag32_ffi_return_code_def,APPEND]
+  val th = FUNPOW_Next_from_SPEC code_def th
+  val ag32_ffi_open_in_intro = prove(
+    ``ag32_ffi_return (FST (ag32_ffi_open_in_fail_decomp (s,md))) =
+      ag32_ffi_open_in s``,
+    fs [ag32_ffi_open_in_fail_decomp_def,ag32_ffi_open_in_def,
+        ag32_ffi_return_def,ag32_ffi_fail_def])
+  in REWRITE_RULE [ag32_ffi_open_in_intro] th  end;
 
 val ag32_ffi_open_in_code_thm = Q.store_thm("ag32_ffi_open_in_code_thm",
   `(∀k. k < LENGTH ag32_ffi_open_in_code ⇒
@@ -3024,7 +3107,38 @@ val ag32_ffi_open_in_code_thm = Q.store_thm("ag32_ffi_open_in_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_open_in_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_open_in s)`,
-   cheat);
+  strip_tac
+  \\ match_mp_tac ag32_ffi_open_in_FUNPOW_Next \\ fs []
+  \\ `LENGTH ag32_ffi_open_in_code < 2 * 32` by EVAL_TAC \\ simp []
+  \\ cheat (* could these be verified as part of the verification
+              of the shallow embedding? *));
+
+(* ag32_ffi_open_out *)
+
+val ag32_ffi_open_out_fail_code_def = Define `
+  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code "open_out"`
+    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+
+val (ag32_ffi_open_out_fail_SPEC,
+     ag32_ffi_open_out_fail_decomp_def) = ag32_decompile
+     ag32_ffi_open_out_fail_code_def
+
+val ag32_ffi_open_out_SPEC =
+  SPEC_COMPOSE_RULE [ag32_ffi_open_out_fail_SPEC,
+                     ag32_ffi_return_SPEC]
+
+val ag32_ffi_open_out_fail_FUNPOW_Next = let
+  val th = ag32_ffi_open_out_SPEC
+  val code_def = ag32_ffi_open_out_code_def
+                 |> SIMP_RULE std_ss [ag32_ffi_fail_code_def,
+                                      ag32_ffi_return_code_def,APPEND]
+  val th = FUNPOW_Next_from_SPEC code_def th
+  val ag32_ffi_open_out_intro = prove(
+    ``ag32_ffi_return (FST (ag32_ffi_open_out_fail_decomp (s,md))) =
+      ag32_ffi_open_out s``,
+    fs [ag32_ffi_open_out_fail_decomp_def,ag32_ffi_open_out_def,
+        ag32_ffi_return_def,ag32_ffi_fail_def])
+  in REWRITE_RULE [ag32_ffi_open_out_intro] th  end;
 
 val ag32_ffi_open_out_code_thm = Q.store_thm("ag32_ffi_open_out_code_thm",
   `(∀k. k < LENGTH ag32_ffi_open_out_code ⇒
@@ -3034,7 +3148,32 @@ val ag32_ffi_open_out_code_thm = Q.store_thm("ag32_ffi_open_out_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_open_out_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_open_out s)`,
-   cheat);
+  strip_tac
+  \\ match_mp_tac ag32_ffi_open_out_fail_FUNPOW_Next \\ fs []
+  \\ `LENGTH ag32_ffi_open_out_code < 2 * 32` by EVAL_TAC \\ simp []
+  \\ cheat (* could these be verified as part of the verification
+              of the shallow embedding? *));
+
+(* ag32_ffi_close *)
+
+val ag32_ffi_close_fail_code_def = Define `
+  ag32_ffi_close_fail_code = ag32_ffi_fail_code "close"`
+    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+
+val (ag32_ffi_close_fail_SPEC,
+     ag32_ffi_close_fail_decomp_def) = ag32_decompile
+     ag32_ffi_close_fail_code_def
+
+val ag32_ffi_close_SPEC =
+  SPEC_COMPOSE_RULE [ag32_ffi_close_fail_SPEC,
+                     ag32_ffi_return_SPEC]
+
+val ag32_ffi_close_fail_FUNPOW_Next = let
+  val th = ag32_ffi_close_SPEC
+  val code_def = ag32_ffi_close_code_def
+                 |> SIMP_RULE std_ss [ag32_ffi_fail_code_def,
+                                      ag32_ffi_return_code_def,APPEND]
+  in FUNPOW_Next_from_SPEC code_def th end;
 
 val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
   `(∀k. k < LENGTH ag32_ffi_close_code ⇒
@@ -3045,6 +3184,8 @@ val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_close s)`,
    cheat);
+
+(* mk_jump_ag32 *)
 
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
   `(s.PC = n2w (ffi_jumps_offset + ffi_offset * (LENGTH ffi_names - (index + 1)))) ∧

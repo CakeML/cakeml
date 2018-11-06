@@ -109,6 +109,55 @@ val dfn'Normal_MEM = Q.store_thm("dfn'Normal_MEM",
   \\ simp[ag32Theory.ALU_def]
   \\ PURE_TOP_CASE_TAC \\ simp[ag32Theory.incPC_def]);
 
+val dfn'JumpIfZero_PC = Q.store_thm("dfn'JumpIfZero_PC",
+  `((dfn'JumpIfZero (fSnd,Reg i,Imm w,Reg r) s).PC =
+      if s.R r = 0w then s.PC + s.R i else s.PC + 4w) /\
+   ((dfn'JumpIfZero (fSnd,Imm v,Imm w,Reg r) s).PC =
+      if s.R r = 0w then s.PC + sw2sw v else s.PC + 4w) /\
+   ((dfn'JumpIfZero (fSnd,Imm v,Imm w,Imm x) s).PC =
+      if sw2sw x = 0w:word32 then s.PC + sw2sw v else s.PC + 4w)`,
+  rw[ag32Theory.dfn'JumpIfZero_def,ag32Theory.ALU_def,ag32Theory.ri2word_def]
+  \\ simp[ag32Theory.incPC_def]);
+
+val dfn'JumpIfZero_MEM = Q.store_thm("dfn'JumpIfZero_MEM",
+  `(dfn'JumpIfZero x s).MEM = s.MEM`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'JumpIfZero_def]
+  \\ simp[ag32Theory.incPC_def,ag32Theory.ALU_def]
+  \\ rpt (every_case_tac \\ fs []));
+
+val dfn'JumpIfNotZero_PC = Q.store_thm("dfn'JumpIfNotZero_PC",
+  `((dfn'JumpIfNotZero (fSnd,Reg i,Imm w,Reg r) s).PC =
+      if s.R r <> 0w then s.PC + s.R i else s.PC + 4w) /\
+   ((dfn'JumpIfNotZero (fSnd,Imm v,Imm w,Reg r) s).PC =
+      if s.R r <> 0w then s.PC + sw2sw v else s.PC + 4w) /\
+   ((dfn'JumpIfNotZero (fSnd,Imm v,Imm w,Imm x) s).PC =
+      if sw2sw x <> 0w:word32 then s.PC + sw2sw v else s.PC + 4w)`,
+  rw[ag32Theory.dfn'JumpIfNotZero_def,ag32Theory.ALU_def,ag32Theory.ri2word_def]
+  \\ simp[ag32Theory.incPC_def]);
+
+val dfn'JumpIfNotZero_MEM = Q.store_thm("dfn'JumpIfNotZero_MEM",
+  `(dfn'JumpIfNotZero x s).MEM = s.MEM`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'JumpIfNotZero_def]
+  \\ simp[ag32Theory.incPC_def,ag32Theory.ALU_def]
+  \\ rpt (every_case_tac \\ fs []));
+
+val dfn'Interrupt_PC = Q.store_thm("dfn'Interrupt_PC",
+  `((dfn'Interrupt s).PC = s.PC + 4w)`,
+  rw[ag32Theory.dfn'Interrupt_def]
+  \\ simp[ag32Theory.incPC_def]);
+
+val dfn'Interrupt_MEM = Q.store_thm("dfn'Interrupt_MEM",
+  `((dfn'Interrupt s).MEM = s.MEM)`,
+  rw[ag32Theory.dfn'Interrupt_def,ag32Theory.incPC_def]);
+
+val dfn'Jump_MEM = Q.store_thm("dfn'Jump_MEM",
+  `((dfn'Jump x s).MEM = s.MEM)`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'Jump_def,ag32Theory.ALU_def]
+  \\ every_case_tac \\ fs []);
+
 val dfn'LoadMEM_PC = Q.store_thm("dfn'LoadMEM_PC",
   `(dfn'LoadMEM x s).PC = s.PC + 4w`,
   PairCases_on`x`
@@ -119,6 +168,12 @@ val dfn'LoadMEM_MEM = Q.store_thm("dfn'LoadMEM_MEM",
   `(dfn'LoadMEM x s).MEM = s.MEM`,
   PairCases_on`x`
   \\ rw[ag32Theory.dfn'LoadMEM_def]
+  \\ simp[ag32Theory.incPC_def]);
+
+val dfn'StoreMEMByte_PC = Q.store_thm("dfn'StoreMEMByte_PC",
+  `(dfn'StoreMEMByte x s).PC = s.PC + 4w`,
+  PairCases_on`x`
+  \\ rw[ag32Theory.dfn'StoreMEMByte_def]
   \\ simp[ag32Theory.incPC_def]);
 
 val dfn'LoadMEMByte_PC = Q.store_thm("dfn'LoadMEMByte_PC",
@@ -587,6 +642,15 @@ val ag32_ffi_get_arg_length_setup_code_def = Define`
 
 val ag32_ffi_get_arg_length_loop_code_def = Define`
   ag32_ffi_get_arg_length_loop_code =
+    [JumpIfZero (fSnd,Imm (4w * 7w),Imm 0w,Imm 0w);
+     Normal (fSnd,4w,Reg 4w,Imm 0w);
+     LoadMEMByte (8w,Reg 5w);
+     Normal (fInc,5w,Reg 5w,Imm 1w);
+     Normal (fInc,4w,Reg 4w,Imm 1w);
+     JumpIfNotZero (fSnd,Imm (4w * -3w),Imm 0w,Reg 8w);
+     Normal (fDec,6w,Reg 6w,Imm 1w);
+     JumpIfNotZero (fSnd,Imm (4w * -6w),Imm 0w,Reg 6w)]
+  (* old code
     [JumpIfZero (fSnd, Reg 7w, Imm 0w, Reg 6w);
      Normal (fSnd, 4w, Reg 4w, Imm 0w);
      LoadMEMByte (8w, Reg 5w);
@@ -594,7 +658,7 @@ val ag32_ffi_get_arg_length_loop_code_def = Define`
      Normal (fInc, 4w, Reg 4w, Imm 1w);
      JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w);
      Normal (fDec, 6w, Reg 6w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)]`;
+     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)] *)`;
 
 val ag32_ffi_get_arg_length_store_code_def = Define`
   ag32_ffi_get_arg_length_store_code =

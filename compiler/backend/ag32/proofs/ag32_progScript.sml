@@ -7,6 +7,15 @@ open set_sepTheory progTheory ag32Theory temporal_stateTheory
 
 val () = new_theory "ag32_prog"
 
+val v2w_F_T = store_thm("v2w_F_T", (* TODO: move *)
+  ``(v2w [F] = 0w) /\ (v2w [T] = 1w)``,
+  fs [bitstringTheory.v2w_def,bitstringTheory.testbit_def,
+      bitstringTheory.field_def,bitstringTheory.fixwidth_def]
+  \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_0]
+  \\ fs [bitstringTheory.zero_extend_def,word_index]
+  \\ rw [bitstringTheory.shiftr_def]
+  \\ Cases_on `i` \\ fs [ADD1,DECIDE ``1-(n+1n) = 0``] \\ EVAL_TAC);
+
 (* basic definitions *)
 
 val _ = Datatype `
@@ -260,16 +269,22 @@ val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
    SPECL [``CODE_POOL ag32_instr c * p'``,
           ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA);
 
-val ANY_AG32_SPEC = store_thm("ANY_AG32_SPEC",
+val mem_unchanged_def = Define `
+  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)`;
+
+val mem_unchanged_same = store_thm("mem_unchanged_same[simp]",
+  ``mem_unchanged md m m``,
+  fs [mem_unchanged_def]);
+
+val ANY_AG32_SPEC_LEMMA = store_thm("ANY_AG32_SPEC_LEMMA",
   ``!w ast.
       ast = Decode w ==>
-      (aligned 2 s.PC ==> aligned 2 (Run (Decode w) s).PC) /\
-      (!a. ~(a IN md) ==> (Run ast s).MEM a = s.MEM a) ==>
+      mem_unchanged md (Run ast s).MEM s.MEM ==>
       SPEC AG32_MODEL
         (aS s * aD md * aPC p)
         {(p,w)}
-        (aS (Run ast s) * aD md * aPC (Run ast s).PC)``,
-  fs [Next_def]
+        (aS (Run ast s) * aD md * aP (Run ast s).PC)``,
+  fs [Next_def,mem_unchanged_def]
   \\ rw [aPC_def]
   \\ match_mp_tac IMP_AG32_SPEC
   \\ simp [SEP_CLAUSES,SEP_EXISTS_THM]
@@ -293,6 +308,35 @@ val ANY_AG32_SPEC = store_thm("ANY_AG32_SPEC",
   \\ Cases \\ fs [IN_ag32_proj]
   \\ Cases_on `c IN ms` \\ fs []
   \\ metis_tac [SUBSET_DEF]);
+
+val ANY_AG32_SPEC = store_thm("ANY_AG32_SPEC",
+  ``!w ast.
+      ast = Decode w ==>
+      (aligned 2 s.PC ==> aligned 2 (Run ast s).PC) /\
+      mem_unchanged md (Run ast s).MEM s.MEM ==>
+      SPEC AG32_MODEL
+        (aS s * aD md * aPC p)
+        {(p,w)}
+        (aS (Run ast s) * aD md * aPC (Run ast s).PC)``,
+  rw []
+  \\ drule (SIMP_RULE std_ss [] ANY_AG32_SPEC_LEMMA)
+  \\ fs [aPC_def,STAR_ASSOC,SPEC_MOVE_COND]
+  \\ Cases_on `aligned 2 (Run (Decode w) s).PC` \\ fs [SEP_CLAUSES]
+  \\ rw [] \\ fs []
+  \\ Cases_on `p = s.PC` \\ fs []
+  \\ once_rewrite_tac [GSYM AG32_SPEC_CODE]
+  \\ once_rewrite_tac [STAR_COMM]
+  \\ fs [AG32_SPEC_SEMANTICS,FORALL_PROD]
+  \\ fs [STAR_ag32_proj,GSYM STAR_ASSOC,aPC_def]);
+
+val SPEC_AG32_FIX_POST_PC = store_thm("SPEC_AG32_FIX_POST_PC",
+  ``SPEC AG32_MODEL (aS s * aD md * aPC p) c (post s.PC) ==>
+    SPEC AG32_MODEL (aS s * aD md * aPC p) c (post p)``,
+  Cases_on `p = s.PC` \\ fs []
+  \\ once_rewrite_tac [GSYM AG32_SPEC_CODE]
+  \\ once_rewrite_tac [STAR_COMM]
+  \\ fs [AG32_SPEC_SEMANTICS,FORALL_PROD]
+  \\ fs [STAR_ag32_proj,GSYM STAR_ASSOC,aPC_def]);
 
 (* SPEC implies FUNPOW Next *)
 
@@ -327,16 +371,17 @@ val SPEC_IMP_FUNPOW_Next = store_thm("SPEC_IMP_FUNPOW_Next",
   ``SPEC AG32_MODEL
       (aS s * aD md * aPC s.PC)
       (code_set a (MAP Encode instr_list))
-      (aS s1 * q)
+      (aS s1 * aD md1 * other)
     ==>
-    LENGTH instr_list < 2**30 /\
-    (∀k. k < LENGTH instr_list ⇒
+    LENGTH instr_list < 2**30 ==>
+    (∀k. k < LENGTH instr_list ==>
          (get_mem_word s.MEM (a + n2w (4 * k)) =
           Encode (EL k instr_list))) /\
-    aligned 2 s.PC /\
+    byte_aligned s.PC /\
     DISJOINT md { a + n2w k | k | k DIV 4 < LENGTH instr_list } ==>
     ∃k. FUNPOW Next k s = s1``,
-  once_rewrite_tac [GSYM AG32_SPEC_CODE]
+  fs [alignmentTheory.byte_aligned_def]
+  \\ once_rewrite_tac [GSYM AG32_SPEC_CODE]
   \\ once_rewrite_tac [STAR_COMM]
   \\ fs [AG32_SPEC_SEMANTICS,FORALL_PROD]
   \\ rewrite_tac [GSYM STAR_ASSOC,STAR_ag32_proj,aPC_def]
