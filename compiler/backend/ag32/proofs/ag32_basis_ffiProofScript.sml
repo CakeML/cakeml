@@ -5615,8 +5615,19 @@ val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_le
     \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM] )
   \\ qspec_then`ms1`mp_tac (CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_get_arg_length_code_thm))
   \\ fs[Abbr`ms1`, APPLY_UPDATE_THM]
-  \\ fs[ffi_entrypoints_def, GSYM word_add_n2w] >> impl_tac
-  >- EVAL_TAC
+  \\ fs[ffi_entrypoints_def, GSYM word_add_n2w]
+  \\ disch_then(qspec_then`md`mp_tac)
+  \\ `∃l0 l1. bytes = [l0; l1]`
+  by ( fs[clFFITheory.ffi_get_arg_length_def, LENGTH_EQ_NUM_compute] )
+  \\ disch_then(qspecl_then[`l1`,`l0`]mp_tac)
+  >> impl_tac >- (
+    conj_tac >- EVAL_TAC
+    \\ fs[]
+    \\ fs[clFFITheory.ffi_get_arg_length_def]
+    \\ fs[ag32_ffi_rel_def]
+    \\ fs[ag32_cline_implemented_def] \\ rveq
+    \\ cheat (* memory domain check, and then cline bytes_in_memory implies has_n_args  *) )
+  \\ pop_assum kall_tac
   \\ qmatch_asmsub_abbrev_tac`FUNPOW _ _ _ = ms1`
   \\ strip_tac
   \\ qexists_tac`k'+k`

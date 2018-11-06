@@ -642,6 +642,7 @@ val ag32_ffi_get_arg_length_setup_code_def = Define`
 
 val ag32_ffi_get_arg_length_loop_code_def = Define`
   ag32_ffi_get_arg_length_loop_code =
+  (* decompiler version:
     [JumpIfZero (fSnd,Imm (4w * 7w),Imm 0w,Imm 0w);
      Normal (fSnd,4w,Reg 4w,Imm 0w);
      LoadMEMByte (8w,Reg 5w);
@@ -650,7 +651,7 @@ val ag32_ffi_get_arg_length_loop_code_def = Define`
      JumpIfNotZero (fSnd,Imm (4w * -3w),Imm 0w,Reg 8w);
      Normal (fDec,6w,Reg 6w,Imm 1w);
      JumpIfNotZero (fSnd,Imm (4w * -6w),Imm 0w,Reg 6w)]
-  (* old code
+  *)
     [JumpIfZero (fSnd, Reg 7w, Imm 0w, Reg 6w);
      Normal (fSnd, 4w, Reg 4w, Imm 0w);
      LoadMEMByte (8w, Reg 5w);
@@ -658,7 +659,7 @@ val ag32_ffi_get_arg_length_loop_code_def = Define`
      Normal (fInc, 4w, Reg 4w, Imm 1w);
      JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w);
      Normal (fDec, 6w, Reg 6w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)] *)`;
+     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)]`;
 
 val ag32_ffi_get_arg_length_store_code_def = Define`
   ag32_ffi_get_arg_length_store_code =
