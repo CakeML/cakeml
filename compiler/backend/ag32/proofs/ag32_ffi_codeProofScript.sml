@@ -3296,6 +3296,75 @@ val ag32_ffi_get_arg_FUNPOW_Next = let
                                       ag32_ffi_return_code_def,APPEND]
   in FUNPOW_Next_from_SPEC code_def th end;
 
+val ag32_ffi_get_arg_setup_decomp_thm = Q.store_thm("ag32_ffi_get_arg_setup_decomp_thm",
+  `FST(ag32_ffi_get_arg_setup_decomp (s,md)) = ag32_ffi_get_arg_setup s`,
+  rw[ag32_ffi_get_arg_setup_decomp_def]
+  \\ rw[ag32_ffi_get_arg_setup_def]);
+
+val ag32_ffi_get_arg_find_decomp1_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp1_thm",
+  `∀s.
+    (∃n. s.MEM (s.R 5w + n2w n) = 0w) ⇒
+    (ag32_ffi_get_arg_find_decomp1 s = ag32_ffi_get_arg_find1 s)`,
+  recInduct ag32_ffi_get_arg_find1_ind
+  \\ rw[]
+  \\ rw[Once ag32_ffi_get_arg_find_decomp_def] \\ fs[]
+  >- (
+    pop_assum mp_tac
+    \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.incPC_def,
+            ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM,
+            ag32Theory.dfn'LoadMEMByte_def, ag32Theory.dfn'JumpIfNotZero_def]
+    \\ simp[Once ag32_ffi_get_arg_find1_def]
+    \\ IF_CASES_TAC
+    >- (
+      first_x_assum(qspec_then`0`mp_tac)
+      \\ simp[]
+      \\ Cases_on`s.MEM (s.R 5w)`
+      \\ simp[w2w_n2w, bitTheory.BITS_ZERO3] \\ fs[] )
+    \\ strip_tac
+    \\ simp[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.incPC_def,
+            ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM,
+            ag32Theory.dfn'LoadMEMByte_def, ag32Theory.dfn'JumpIfNotZero_def] )
+  \\ pop_assum mp_tac
+  \\ fs[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.incPC_def,
+        ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM,
+        ag32Theory.dfn'LoadMEMByte_def, ag32Theory.dfn'JumpIfNotZero_def]
+  \\ strip_tac
+  \\ simp[Once ag32_ffi_get_arg_find1_def]
+  \\ fs[ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.incPC_def,
+        ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM,
+        ag32Theory.dfn'LoadMEMByte_def, ag32Theory.dfn'JumpIfNotZero_def]
+  \\ fs[AND_IMP_INTRO]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ first_x_assum irule
+  \\ qexists_tac`dimword(:32)-1 + n`
+  \\ simp[]
+  \\ Cases_on`s.R 5w` \\ fs[word_add_n2w]
+  \\ last_x_assum(SUBST1_TAC o SYM)
+  \\ AP_TERM_TAC
+  \\ simp[]);
+
+(*
+val ag32_ffi_get_arg_find_decomp_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp_thm",
+  `∀s. FST(ag32_ffi_get_arg_find_decomp (s,md)) = ag32_ffi_get_arg_find s`,
+  recInduct ag32_ffi_get_arg_find_ind
+  \\ rw[]
+  \\ rw[Once ag32_ffi_get_arg_find_decomp_def]
+  >- (
+    pop_assum mp_tac
+    \\ simp[Once ag32Theory.dfn'JumpIfZero_def]
+    \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
+    \\ strip_tac \\ fs[]
+    \\ rw[Once ag32_ffi_get_arg_find_def]
+    \\ simp[Once ag32Theory.dfn'JumpIfZero_def]
+    \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def] )
+  \\ fs[]
+  *)
+
+val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_decomp_thm",
+  `FST(ag32_ffi_get_arg_store_decomp (s,md)) = ag32_ffi_get_arg_store s`,
+  rw[ag32_ffi_get_arg_store_decomp_def]
+  \\ rw[ag32_ffi_get_arg_store_def]);
+
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -3304,7 +3373,11 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
-   cheat (* try using decompiler output from above *));
+   cheat (*
+     prove ag32_ffi_get_arg_find_decomp_thm,
+     prove ag32_ffi_get_arg_store_decomp_thm,
+     use ag32_ffi_get_arg_FUNPOW_Next and the decomp_thms
+     (may need to add assumptions about 0w being in memory) *));
 
 (* ag32_ffi_open_in *)
 
