@@ -72,8 +72,7 @@ structure astSyntax = struct
   val VfromList = prim_mk_const{Thy="ast",Name="VfromList"};
   val Vlength = prim_mk_const{Thy="ast",Name="Vlength"};
   val Vsub = prim_mk_const{Thy="ast",Name="Vsub"};
-  val W64 = prim_mk_const{Thy="ast",Name="W64"};
-  val W8 = prim_mk_const{Thy="ast",Name="W8"};
+  val WordSize = prim_mk_const{Thy="ast" ,Name="WordSize"};
   val Xor = prim_mk_const{Thy="ast",Name="Xor"};
   local
     val s1 = HolKernel.syntax_fns1 "namespace"
@@ -103,8 +102,7 @@ structure astSyntax = struct
   val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise";
   val (StrLit_tm,mk_StrLit,dest_StrLit,is_StrLit) = s "StrLit";
   val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var";
-  val (Word64_tm,mk_Word64,dest_Word64,is_Word64) = s "Word64";
-  val (Word8_tm,mk_Word8,dest_Word8,is_Word8) = s "Word8";
+  val (Word,mw_Word,dest_Word,is_Word) = s "Word";
   val (WordFromInt_tm,mk_WordFromInt,dest_WordFromInt,is_WordFromInt) = s "WordFromInt";
   val (WordToInt_tm,mk_WordToInt,dest_WordToInt,is_WordToInt) = s "WordToInt";
   end
