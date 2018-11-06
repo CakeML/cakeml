@@ -383,7 +383,7 @@ fun rnwc_next n =
         ag32Theory.ri2word_def, ag32Theory.incPC_def, LET_THM,
         ag32Theory.dfn'JumpIfZero_def, ag32Theory.dfn'StoreMEMByte_def,
         ag32Theory.dfn'Shift_def, ag32Theory.dfn'StoreMEM_def,
-        ag32Theory.dfn'LoadMEM_def,
+        ag32Theory.dfn'LoadMEM_def, ag32Theory.dfn'LoadMEMByte_def,
         ag32Theory.dfn'LoadConstant_def])) >> strip_tac
     end
 
@@ -464,15 +464,20 @@ fun r3_unchanged i =
     end
 
 fun print_tac msg g = (print (msg ^ "\n"); ALL_TAC g)
+fun spc i =
+    let
+      val ss = "s" ^ Int.toString i
+    in
+      [QUOTE (ss ^ ".PC = s.PC + " ^ Int.toString (i * 4) ^ "w")]
+         by simp[Abbr[QUOTE ss]]
+    end
 fun combined0 instn gmw i =
     let
       val is = Int.toString i
       val ss = "s" ^ is
     in
       print_tac ("Combined instruction #"^is) >>
-      rnwc_next i >>
-      [QUOTE (ss ^ ".PC = s.PC + " ^ Int.toString (i * 4) ^ "w")]
-        by simp[Abbr[QUOTE ss]] >>
+      rnwc_next i >> spc i >>
       instn i >> gmw i
     end;
 val combined = combined0 instn gmw
@@ -2846,7 +2851,37 @@ val ag32_ffi_get_arg_count_code_thm = Q.store_thm("ag32_ffi_get_arg_count_code_t
                         mp_tac th))) >>
   simp[div_lemma] >> simp[LEFT_ADD_DISTRIB, word_add_n2w]);
 
-val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code_thm",
+val instn = instn0 ag32_ffi_get_arg_length_setup_code_def
+
+val gmw = gmw0 (fn i =>
+                   simp0[ffi_code_start_offset_thm] >>
+                   insthyp last_x_assum 4 (fn j => 4 * i + j))
+val combined = combined0 instn gmw
+
+val ag32_ffi_get_arg_length_setup_code_thm = Q.store_thm(
+  "ag32_ffi_get_arg_length_setup_code_thm",
+  ‘w2w (n2w (ffi_code_start_offset − 1) : 23 word) ∉
+     { s.PC + n2w k | k |
+       k DIV 4 < LENGTH ag32_ffi_get_arg_length_setup_code } ∧
+   (∀k. k < LENGTH ag32_ffi_get_arg_length_setup_code ⇒
+        get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+        Encode (EL k ag32_ffi_get_arg_length_setup_code)) ∧
+   byte_aligned s.PC ⇒
+   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_setup s’,
+  rw[ffi_code_start_offset_thm] >>
+  assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_setup_code”) >> fs[] >>
+  instn 0 >>
+  simp0[ag32_ffi_get_arg_length_setup_def] >>
+  drule_then assume_tac byte_aligned_imp >>
+  simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def] >>
+  ntac 2 (pop_assum kall_tac) >>
+
+  EVERY (List.tabulate(10, fn j => (combined (j + 1)))) >>
+  qexists_tac `0` >> simp[]);
+
+
+val ag32_ffi_get_arg_length_code_thm = Q.store_thm(
+  "ag32_ffi_get_arg_length_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_length_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_get_arg_length_code))) ∧
@@ -2854,6 +2889,7 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)`,
+
    cheat);
 
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
