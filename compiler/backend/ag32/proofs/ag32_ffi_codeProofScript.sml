@@ -2919,6 +2919,17 @@ val ag32_ffi_get_arg_length_loop1_code_thm = Q.store_thm(
   rnwc_next 4 >> rfs[] >>
   first_x_assum irule >> glAbbrs 4 >> fs[ADD1, GSYM word_add_n2w]);
 
+val loop_code_def' = Q.prove(
+  ‘ag32_ffi_get_arg_length_loop_code =
+     TAKE 2 ag32_ffi_get_arg_length_loop_code ++
+     ag32_ffi_get_arg_length_loop1_code ++
+     DROP 6 ag32_ffi_get_arg_length_loop_code’,
+  EVAL_TAC)
+  |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss())
+                                     [ag32_ffi_get_arg_length_loop_code_def]))
+
+
+
 val instn = instn0 ag32_ffi_get_arg_length_loop_code_def
 
 val ag32_ffi_get_arg_length_loop_code_thm = Q.store_thm(
@@ -2932,7 +2943,7 @@ val ag32_ffi_get_arg_length_loop_code_thm = Q.store_thm(
   rw[ffi_code_start_offset_thm] >>
   assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop_code”) >> fs[] >>
   instn 0 >>
-  simp0[ag32_ffi_get_arg_length_loop_def] >>
+  simp0[Once ag32_ffi_get_arg_length_loop_def] >>
   drule_then assume_tac byte_aligned_imp >>
   simp0[ag32_targetProofTheory.Decode_Encode, ag32Theory.Run_def] >>
   ntac 2 (pop_assum kall_tac) >> cheat);
