@@ -3424,6 +3424,41 @@ val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_deco
   \\ first_x_assum drule
   \\ simp[]);
 
+val SND_ag32_ffi_get_arg_find_decomp = Q.store_thm("SND_ag32_ffi_get_arg_find_decomp",
+  `∀p. (∃n. (FST p).MEM ((FST p).R 5w + n2w n) = 0w) ⇒ SND (ag32_ffi_get_arg_find_decomp p) = SND p`,
+  simp[FORALL_PROD]
+  \\ recInduct ag32_ffi_get_arg_find_ind
+  \\ rw[]
+  \\ rw[Once ag32_ffi_get_arg_find_decomp_def]
+  \\ fs[]
+  \\ DEP_REWRITE_TAC[ag32_ffi_get_arg_find_decomp1_thm]
+  \\ conj_tac
+  >- (
+    simp[ag32Theory.dfn'JumpIfZero_def]
+    \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
+    \\ metis_tac[] )
+  \\ first_x_assum irule
+  \\ simp[ag32Theory.dfn'JumpIfZero_def
+      ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
+      ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
+  \\ simp[ag32_ffi_get_arg_find1_thm]
+  \\ simp[whileTheory.OLEAST_def]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ simp[word_add_n2w]
+  \\ qmatch_goalsub_abbrev_tac`n2w (_ + (x + 1))`
+  \\ `x ≤ n`
+  by (
+    simp[Abbr`x`]
+    \\ numLib.LEAST_ELIM_TAC
+    \\ conj_tac >- metis_tac[]
+    \\ rw[]
+    \\ CCONTR_TAC \\ fs[NOT_LESS_EQUAL] )
+  \\ qexists_tac`n + dimword(:32) -1 - x`
+  \\ last_x_assum(SUBST1_TAC o SYM)
+  \\ AP_TERM_TAC
+  \\ simp[] );
+
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -3432,9 +3467,43 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_entrypoint))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
-   cheat (*
-     use ag32_ffi_get_arg_FUNPOW_Next and the decomp_thms
-     (may need to add assumptions about the memory) *));
+  rw[ag32_ffi_get_arg_def]
+  \\ qabbrev_tac`md = COMPL {s.PC + n2w k | k DIV 4 < LENGTH ag32_ffi_get_arg_code }`
+  \\ mp_tac(GSYM (ag32_ffi_get_arg_setup_decomp_thm))
+  \\ rw[]
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_find s1`
+  \\ qspec_then`s1`mp_tac ag32_ffi_get_arg_find_decomp_thm
+  \\ impl_keep_tac >- cheat (* add assumptions *)
+  \\ disch_then(assume_tac o SYM) \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_store s2`
+  \\ qspec_then`s2`mp_tac ag32_ffi_get_arg_store_decomp_thm
+  \\ impl_keep_tac >- cheat (* add assumptions *)
+  \\ disch_then(assume_tac o SYM) \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`s2 = FST p2`
+  \\ `(s2,md) = p2`
+  by (
+    simp[Abbr`p2`, Abbr`s2`, quantHeuristicsTheory.FST_PAIR_EQ]
+    \\ DEP_REWRITE_TAC[SND_ag32_ffi_get_arg_find_decomp]
+    \\ simp[] \\ fs[]
+    \\ metis_tac[] )
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp[Abbr`s2`]
+  \\ qmatch_asmsub_abbrev_tac`s1 = FST p1`
+  \\ `(s1,md) = p1`
+  by (
+    simp[Abbr`p1`, Abbr`s1`, quantHeuristicsTheory.FST_PAIR_EQ]
+    \\ simp[ag32_ffi_get_arg_setup_decomp_def] )
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp[Abbr`p1`, Abbr`p2`]
+  \\ match_mp_tac ag32_ffi_get_arg_FUNPOW_Next
+  \\ simp[EVAL``LENGTH ag32_ffi_get_arg_code``, CONJ_ASSOC]
+  \\ reverse conj_tac
+  >- (
+    simp[Abbr`md`]
+    \\ simp[EVAL``LENGTH ag32_ffi_get_arg_code``]
+    \\ simp[IN_DISJOINT]
+    \\ metis_tac[] )
+  \\ cheat (* prove preconditions *));
 
 (* ag32_ffi_open_in *)
 
