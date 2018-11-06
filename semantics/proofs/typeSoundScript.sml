@@ -69,8 +69,10 @@ val prim_canonical_values_thm = Q.store_thm ("prim_canonical_values_thm",
   `(type_v tvs ctMap tenvS v Tint ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (IntLit n))) ∧
    (type_v tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
    (type_v tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
-   (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
-   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) ∧
+   (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ 
+     (∃n. (v = Litv (Word n)) ∧ (LENGTH n = 8))) ∧
+   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒
+     (∃n. (v = Litv (Word n)) ∧ (LENGTH n = 64))) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
