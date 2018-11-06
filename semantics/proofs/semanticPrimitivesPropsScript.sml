@@ -59,43 +59,35 @@ val Tword_simp = Q.store_thm("Tword_simp[simp]",
    (∀n a. (Tword64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))`,
   rpt conj_tac \\ rpt Cases \\ EVAL_TAC \\ metis_tac[]);
   *)
-
-val opw_lookup_def = Define`
-  (opw_lookup Andw = word_and) ∧
-  (opw_lookup Orw = word_or) ∧
-  (opw_lookup Xor = word_xor) ∧
-  (opw_lookup Add = word_add) ∧
-  (opw_lookup Sub = word_sub)`;
+val opw_lookup_def = Define`opw_lookup=semanticPrimitives$opw_lookup`
 val _ = export_rewrites["opw_lookup_def"];
 
-val shift_lookup_def = Define`
-  (shift_lookup Lsl = word_lsl) ∧
-  (shift_lookup Lsr = word_lsr) ∧
-  (shift_lookup Asr = word_asr) ∧
-  (shift_lookup Ror = word_ror)`;
+val shift_lookup_def = Define`shift_lookup=semanticPrimitives$shift_lookup`;
 val _ = export_rewrites["shift_lookup_def"];
 
 val do_word_op_def = Define`
-  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
-  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
+  (do_word_op op (WordSize n) (Word w1) (Word w2) =
+     if (LENGTH w1 = LENGTH w2) ∧ (n = LENGTH w1) then
+       SOME (Word (opw_lookup op w1 w2))
+     else NONE) ∧
   (do_word_op op _ _ _ = NONE)`;
 val _ = export_rewrites["do_word_op_def"];
 
 val do_shift_def = Define`
-  (do_shift sh n W8 (Word8 w) = SOME (Word8 (shift_lookup sh w n))) ∧
-  (do_shift sh n W64 (Word64 w) = SOME (Word64 (shift_lookup sh w n))) ∧
+  (do_shift sh n (WordSize ws) (Word w) = SOME (Word (shift_lookup sh w n))) ∧
   (do_shift _ _ _ _ = NONE)`;
 val _ = export_rewrites["do_shift_def"];
 
 val do_word_to_int_def = Define`
-  (do_word_to_int W8 (Word8 w) = SOME(int_of_num(w2n w))) ∧
-  (do_word_to_int W64 (Word64 w) = SOME(int_of_num(w2n w))) ∧
+  (do_word_to_int (WordSize n) (Word w) = 
+     if LENGTH w = n then
+       SOME(v2i w)
+     else NONE) ∧
   (do_word_to_int _ _ = NONE)`;
 val _ = export_rewrites["do_word_to_int_def"];
 
 val do_word_from_int_def = Define`
-  (do_word_from_int W8 i = Word8 (i2w i)) ∧
-  (do_word_from_int W64 i = Word64 (i2w i))`;
+  do_word_from_int (WordSize n) i = Word (i2vN i n)`;
 val _ = export_rewrites["do_word_from_int_def"];
 
 val lit_same_type_refl = Q.store_thm("lit_same_type_refl",
