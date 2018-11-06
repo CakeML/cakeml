@@ -49,6 +49,11 @@ val op_space_reset_def = Define `
   (op_space_reset (FFI _) = T) /\
   (op_space_reset _ = F)`;
 
+val op_requires_names_def = Define`
+  op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
+                         (∃new_flag. op = CopyByte new_flag) ∨
+                         (op = Install))`;
+
 val _ = Datatype `
   prog = Skip
        | Move num num

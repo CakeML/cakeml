@@ -1,4 +1,4 @@
-open preamble dataLangTheory bvi_to_dataTheory closSemTheory;
+open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory;
 
 
 val _ = new_theory"dataSem";
