@@ -1,4 +1,4 @@
-open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
+open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
      data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
@@ -10,8 +10,8 @@ local open gen_gcTheory in end
 val _ = new_theory "data_to_word_gcProof";
 
 val _ = set_grammar_ancestry
-  ["dataSem", "wordSem", "data_to_word",
-   "data_to_word_memoryProof"
+  ["data_to_word_memoryProof",
+   "dataSem", "wordSem", "data_to_word"
   ];
 
 val shift_def = backend_commonTheory.word_shift_def
@@ -4639,11 +4639,6 @@ val find_code_thm_handler = Q.store_thm("find_code_thm_handler",
   \\ full_simp_tac(srw_ss())[] \\ metis_tac []) |> SPEC_ALL;
 val _ = save_thm("find_code_thm_handler",find_code_thm_handler);
 
-val bvl_find_code = Q.store_thm("bvl_find_code",
-  `bvlSem$find_code dest xs code = SOME(ys,prog) ⇒
-  ¬bad_dest_args dest xs`,
-  Cases_on`dest`>>
-  full_simp_tac(srw_ss())[bvlSemTheory.find_code_def,wordSemTheory.bad_dest_args_def])
 
 val s_key_eq_LENGTH = Q.store_thm("s_key_eq_LENGTH",
   `!xs ys. s_key_eq xs ys ==> (LENGTH xs = LENGTH ys)`,
@@ -4843,7 +4838,7 @@ val state_rel_get_var_RefPtr = Q.store_thm("state_rel_get_var_RefPtr",
 
 val state_rel_get_var_Block = Q.store_thm("state_rel_get_var_Block",
   `state_rel c l1 l2 s t v1 locs ∧
-   get_var n s.locals = SOME (Block tag vs) ⇒
+   get_var n s.locals = SOME (Block ts tag vs) ⇒
    ∃w. get_var (adjust_var n) t = SOME (Word w)`,
   rw[]
   \\ imp_res_tac state_rel_get_var_IMP
@@ -5760,8 +5755,8 @@ val set_var_inc_clock = Q.store_thm("set_var_inc_clock",
 
 val do_app = LIST_CONJ [dataSemTheory.do_app_def,do_space_def,
   data_spaceTheory.op_space_req_def,
-  bvi_to_dataTheory.op_space_reset_def, bviSemTheory.do_app_def,
-  bviSemTheory.do_app_aux_def, bvlSemTheory.do_app_def]
+  dataLangTheory.op_space_reset_def,
+  dataSemTheory.do_app_aux_def]
 
 val w2n_minus_1_LESS_EQ = Q.store_thm("w2n_minus_1_LESS_EQ",
   `(w2n (-1w:'a word) <= w2n (w:'a word)) <=> w + 1w = 0w`,
