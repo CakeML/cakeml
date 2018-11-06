@@ -3219,17 +3219,42 @@ val ag32_ffi_close_fail_FUNPOW_Next = let
   val code_def = ag32_ffi_close_code_def
                  |> SIMP_RULE std_ss [ag32_ffi_fail_code_def,
                                       ag32_ffi_return_code_def,APPEND]
-  in FUNPOW_Next_from_SPEC code_def th end;
+  val th = FUNPOW_Next_from_SPEC code_def th
+  val ag32_ffi_close_intro = prove(
+    ``ag32_ffi_return (FST (ag32_ffi_close_fail_decomp (s,md))) =
+      ag32_ffi_close s``,
+    fs [ag32_ffi_close_fail_decomp_def,ag32_ffi_close_def,
+        ag32_ffi_return_def,ag32_ffi_fail_def])
+  in REWRITE_RULE [ag32_ffi_close_intro] th end
 
 val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
   `(∀k. k < LENGTH ag32_ffi_close_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_close_code))) ∧
    byte_aligned s.PC ∧
-   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_close_entrypoint))
+   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_close_entrypoint)) ∧
+   s.R 3w ∉ { s.PC + n2w n | n < 4 * LENGTH ag32_ffi_close_code}
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_close s)`,
-   cheat);
+  strip_tac
+  \\ irule ag32_ffi_close_fail_FUNPOW_Next
+  \\ simp [EVAL ``LENGTH ag32_ffi_close_code``]
+  \\ fs [theorem "ag32_ffi_close_fail_decomp_pre_def",
+         ag32_progTheory.mem_unchanged_def, PULL_FORALL,
+         ag32Theory.dfn'LoadConstant_def,
+         ag32Theory.dfn'StoreMEMByte_def,
+         ag32Theory.incPC_def,
+         ag32Theory.ri2word_def,
+         combinTheory.UPDATE_def,
+         EVAL ``THE (ALOOKUP FFI_codes "close")``,
+         EVAL ``ffi_code_start_offset``,
+         EVAL ``ag32_ffi_close_entrypoint``,
+         EVAL ``LENGTH ag32_ffi_close_code``]
+  \\ qmatch_goalsub_abbrev_tac `COND (n2w n = _) _`
+  \\ qexists_tac `{n2w n; s.R 3w}`
+  \\ rfs [Abbr `n`, DIV_LT_X]
+  \\ rw [word_add_n2w, DISJ_EQ_IMP]
+  \\ strip_tac \\ fs []);
 
 (* mk_jump_ag32 *)
 
