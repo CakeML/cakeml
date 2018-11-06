@@ -102,13 +102,17 @@ fun nsLookup_arg1_conv conv tm = let
     else raise UNCHANGED
   end
 
-val nsLookup_rewrs = BODY_CONJUNCTS nsLookup_eq @ [option_choice_f_apply]
+val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
+    [nsLookup_eq, option_choice_f_apply, boolTheory.COND_CLAUSES,
+        optionTheory.option_case_def, optionTheory.OPTION_CHOICE_def,
+        boolTheory.AND_CLAUSES, boolTheory.OR_CLAUSES,
+        boolTheory.REFL_CLAUSE,
+        nsLookup_pf_nsBind, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend])
 
-fun nsLookup_conv tm = REPEATC (FIRST_CONV
+fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
   (map REWR_CONV nsLookup_rewrs
-    @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv, pfun_conv,
-        (SIMP_CONV (bool_ss ++ optionSimps.OPTION_ss)
-            [nsLookup_merge_env_eqs])])) tm
+    @ map (RATOR_CONV o REWR_CONV) (BODY_CONJUNCTS nsLookup_merge_env_eqs)
+    @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv, pfun_conv])) tm
 
 (* helper functions *)
 
@@ -406,7 +410,7 @@ fun get_env s = let
       (f, [env1, _, _, mn, env2, _])
         => list_mk_icomb (ML_code_env_tm, [env1, mn, env2])
     | _ => failwith("thm concl unexpected: " ^ term_to_string (concl th))
-  val rewr_thm = REWRITE_CONV [ML_code_env_def] code_env
+  val rewr_thm = QCONV (REWRITE_CONV [ML_code_env_def]) code_env
   in rhs (concl rewr_thm) end
 
 fun get_state s = get_thm s |> concl |> rand

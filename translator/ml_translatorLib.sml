@@ -4106,10 +4106,7 @@ fun prove_Eval_assumptions th =
     fun prove_Eval_assum tm =
       let
         val th1 =
-          (ONCE_DEPTH_CONV(
-            REWR_CONV Eval_Var THENC
-            PURE_REWRITE_CONV[(*lookup_var_eq_lookup_var_id*)] THENC
-            QUANT_CONV(LAND_CONV EVAL) THENC REWR_CONV UNWIND_THM1)) tm
+          (ONCE_DEPTH_CONV(REWR_CONV Eval_Var_nsLookup THENC nsLookup_conv)) tm
         val const =
           th1 |> concl |> rand |> strip_forall |> #2 |> repeat (#2 o dest_imp) |> rator |> rand
         val cert = get_cert (get_bare_v_thm const)
