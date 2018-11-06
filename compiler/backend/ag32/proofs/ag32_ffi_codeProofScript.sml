@@ -2300,6 +2300,15 @@ val bytes_in_memory_prefix = Q.prove(
               bytes_in_memory a bs mf md’,
   Induct >> simp[asmSemTheory.bytes_in_memory_def] >> metis_tac[]);
 
+val asm_write_bytearray_avoiding = Q.prove(
+  ‘∀a bs.
+     x ∉ {a + n2w i | i < LENGTH bs } ⇒ asm_write_bytearray a bs f x = f x’,
+  simp[] >> Induct_on ‘bs’ >> simp[asm_write_bytearray_def] >>
+  simp[combinTheory.UPDATE_def] >> rw[]
+  >- (first_x_assum (qspec_then ‘0’ mp_tac) >> simp[]) >>
+  first_x_assum (qspec_then ‘SUC j’ (mp_tac o Q.GEN ‘j’)) >> simp[] >>
+  strip_tac >> first_x_assum irule >> fs[GSYM word_add_n2w, ADD1]);
+
 fun glAbbrs i = EVERY (List.tabulate(i, fn j => glAbbr (i - j)))
 
 val w22n_bound = Q.store_thm("w22n_bound",
@@ -2706,7 +2715,64 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   disch_then (qx_choosel_then [‘r1_6’, ‘r3_6’, ‘r5_6’, ‘r8_6’] SUBST_ALL_TAC)>>
   print_tac "read_code_thm: applying final return" >>
   irule ag32_ffi_return_code_thm >>
-  cheat (* read deep/shallow *));
+
+  qmatch_abbrev_tac ‘_ ∧ byte_aligned s6.PC’ >>
+  reverse conj_tac >- (glAbbrs 6 >> EVAL_TAC) >>
+  assume_tac (EVAL “LENGTH ag32_ffi_return_code”) >>
+  qx_gen_tac ‘k’ >> simp[Abbr‘s6’] >> strip_tac >>
+  first_x_assum (
+    qspec_then
+      ‘LENGTH (ag32_ffi_read_set_id_code ++
+               ag32_ffi_read_check_conf_code ++
+               ag32_ffi_read_load_lengths_code ++
+               ag32_ffi_read_check_length_code ++
+               ag32_ffi_read_num_written_code ++
+               ag32_ffi_copy_code) + k + 1 (* for extra store byte instr. *)’
+      mp_tac) >>
+  impl_tac >- (EVAL_TAC >> simp[]) >>
+  simp[ag32_ffi_read_code_def, EL_APPEND1, EL_APPEND2,
+       ag32_ffi_read_entrypoint_thm, LEFT_ADD_DISTRIB, word_add_n2w] >>
+  disch_then (SUBST1_TAC o SYM) >>
+  qmatch_abbrev_tac `get_mem_word M1 A1 = get_mem_word s.MEM A2` >>
+  `A1 = A2` by (simp[Abbr`A1`, Abbr`A2`] >> glAbbrs 5 >>
+                simp[ag32_ffi_read_entrypoint_thm, word_add_n2w]) >>
+  map_every UNABBREV_TAC ["A1", "A2"] >> simp[] >>
+  irule get_mem_word_change_mem >>
+  qx_gen_tac ‘m’ >> strip_tac >>
+  UNABBREV_TAC "M1" >>
+  qmatch_abbrev_tac `asm_write_bytearray base written f A = s.MEM A` >>
+  ‘A ∉ { base + n2w i | i < LENGTH written}’
+    by (simp[] >> qx_gen_tac `i` >> Cases_on `i < LENGTH written` >> simp[] >>
+        simp[Abbr‘base’, Abbr‘A’] >> UNABBREV_TAC "written" >> fs[] >>
+        pop_assum mp_tac >> glAbbrs 5 >>
+        simp[word_add_n2w, output_buffer_size_def] >>
+        simp[GSYM word_add_n2w, sub_common, Once EQ_SYM_EQ] >> strip_tac >>
+        simp[word_add_n2w,
+             CONV_RULE (PATH_CONV "rlr" (REWR_CONV EQ_SYM_EQ))
+                       WORD_ADD_CANCEL_LBARE] >> strip_tac >>
+        Q.UNDISCH_THEN ‘s.R 3w ∈ md’ mp_tac >>
+        rpt (qpat_x_assum ‘DISJOINT md _’ mp_tac) >>
+        simp[DISJOINT_ALT] >>
+        disch_then (fn i1 => disch_then (fn i2 => disch_then (fn th =>
+          mp_tac (MATCH_MP i1 th) >> mp_tac (MATCH_MP i2 th)))) >>
+        simp[startup_code_size_def, heap_start_offset_def, word_add_n2w,
+             word_lo_n2w, word_ls_n2w, ffi_code_start_offset_thm,
+             length_ag32_ffi_code_def]) >>
+  drule_then SUBST1_TAC asm_write_bytearray_avoiding >>
+  simp[Abbr‘f’, Abbr‘A’] >> glAbbrs 5 >>
+  simp[set_mem_word_def, word_add_n2w, stdin_offset_def,
+       asm_write_bytearray_def,
+       combinTheory.UPDATE_def, cline_size_def, startup_code_size_def,
+       MarshallingTheory.n2w2_def] >>
+  simp[sub_common, GSYM word_add_n2w] >> rw[] >>
+  Q.UNDISCH_THEN ‘s.R 3w ∈ md’ mp_tac >>
+  rpt (qpat_x_assum ‘DISJOINT md _’ mp_tac) >>
+  simp[DISJOINT_ALT] >>
+  disch_then (fn i1 => disch_then (fn i2 => disch_then (fn th =>
+    mp_tac (MATCH_MP i1 th) >> mp_tac (MATCH_MP i2 th)))) >>
+  simp[startup_code_size_def, heap_start_offset_def, word_add_n2w,
+       word_lo_n2w, word_ls_n2w, ffi_code_start_offset_thm,
+       length_ag32_ffi_code_def]);
 
 val instn = instn0 (LIST_CONJ [ag32_ffi_get_arg_count_code_def,
                                ag32_ffi_get_arg_count_main_code_def,
