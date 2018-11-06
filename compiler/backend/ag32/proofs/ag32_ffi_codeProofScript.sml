@@ -3023,6 +3023,28 @@ val ag32_ffi_get_arg_length_FUNPOW_Next = let
                                       ag32_ffi_return_code_def,APPEND]
   in FUNPOW_Next_from_SPEC code_def th end;
 
+val ag32_ffi_get_arg_length_setup_decomp_thm = Q.store_thm("ag32_ffi_get_arg_length_setup_decomp_thm",
+  `FST(ag32_ffi_get_arg_length_setup_decomp (s,md)) = ag32_ffi_get_arg_length_setup s`,
+  rw[ag32_ffi_get_arg_length_setup_decomp_def]
+  \\ rw[ag32_ffi_get_arg_length_setup_def]);
+
+val ag32_ffi_get_arg_length_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_length_store_decomp_thm",
+  `FST(ag32_ffi_get_arg_length_store_decomp (s,md)) = ag32_ffi_get_arg_length_store s`,
+  rw[ag32_ffi_get_arg_length_store_decomp_def]
+  \\ rw[ag32_ffi_get_arg_length_store_def]);
+
+(*
+val ag32_ffi_get_arg_length_loop_decomp_thm = Q.store_thm("ag32_ffi_get_arg_length_loop_decomp_thm",
+  `∀s. FST(ag32_ffi_get_arg_length_loop_decomp (s,md)) = ag32_ffi_get_arg_length_loop s`,
+  recInduct ag32_ffi_get_arg_length_loop_ind
+  \\ rw[]
+  \\ rw[Once ag32_ffi_get_arg_length_loop_decomp_def]
+  \\ rw[Once ag32_ffi_get_arg_length_loop_decomp_def]
+  >- (
+
+    rw[Once ag32_ffi_get_arg_length_loop_def]
+*)
+
 val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_length_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
