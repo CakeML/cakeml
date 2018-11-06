@@ -55,7 +55,9 @@ val _ = type_abbrev( "typeN" , ``: string``);
 (* Type variable names *)
 val _ = type_abbrev( "tvarN" , ``: string``);
 
-val _ = type_abbrev( "word_size" , ``: num``);
+val _ = Hol_datatype `
+ word_size = WordSize of num`;
+
 
 val _ = Hol_datatype `
  op =

@@ -2,7 +2,7 @@
   Specification of how to convert parse trees to abstract syntax.
 *)
 
-open preamble gramTheory tokenUtilsTheory astTheory
+open preamble gramTheory tokenUtilsTheory astTheory bitstringTheory
 
 val _ = new_theory "cmlPtreeConversion"
 
@@ -822,7 +822,7 @@ val ptree_Eliteral_def = Define`
       (do i <- destIntT t ; return (Lit (IntLit i)) od ++
        do c <- destCharT t ; return (Lit (Char c)) od ++
        do s <- destStringT t ; return (Lit (StrLit s)) od ++
-       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od ++
+       do n <- destWordT t ; return (Lit (Word (bitstring$n2v n))) od ++
        do s <- destFFIT t ; return (App (FFI s) []) od)
     od
 `

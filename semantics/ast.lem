@@ -34,7 +34,7 @@ type typeN = string
 (* Type variable names *)
 type tvarN = string
 
-type word_size = nat
+type word_size = WordSize of nat
 
 type op =
   (* Operations on integers *)
