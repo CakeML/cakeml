@@ -5488,6 +5488,25 @@ val ag32_ffi_interfer_get_arg_count = Q.store_thm("ag32_ffi_interfer_get_arg_cou
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
   \\ EVAL_TAC);
 
+val cline_in_memory_has_n_args = Q.store_thm("cline_in_memory_has_n_args",
+  `∀l cls a.
+   bytes_in_memory a (FLAT (MAP (SNOC 0w) cls)) m md ∧
+   l ≤ LENGTH cls ∧ EVERY (EVERY ((<>)0w)) cls
+  ⇒
+   has_n_args m a l`,
+  Induct
+  >> simp[has_n_args_def]
+  \\ Cases \\ simp[]
+  \\ rw[asmPropsTheory.bytes_in_memory_APPEND]
+  \\ first_x_assum drule
+  \\ simp[] \\ strip_tac
+  \\ fs[ADD1, GSYM word_add_n2w]
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ fs[SNOC_APPEND, asmPropsTheory.bytes_in_memory_APPEND, asmSemTheory.bytes_in_memory_def]
+  \\ imp_res_tac asmPropsTheory.bytes_in_memory_EL
+  \\ simp[]
+  \\ fs[EVERY_MEM, MEM_EL, DISJ_EQ_IMP]);
+
 val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_length",
   `ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
@@ -5626,7 +5645,55 @@ val ag32_ffi_interfer_get_arg_length = Q.store_thm("ag32_ffi_interfer_get_arg_le
     \\ fs[clFFITheory.ffi_get_arg_length_def]
     \\ fs[ag32_ffi_rel_def]
     \\ fs[ag32_cline_implemented_def] \\ rveq
-    \\ cheat (* memory domain check, and then cline bytes_in_memory implies has_n_args  *) )
+    \\ conj_tac
+    >- (
+      simp[Abbr`md`]
+      \\ EVAL_TAC
+      \\ simp[]
+      \\ fs[LEFT_ADD_DISTRIB, word_add_n2w, word_ls_n2w, word_lo_n2w, memory_size_def, EVAL``code_start_offset _``] )
+    \\ conj_tac
+    >- (
+      simp[Abbr`md`]
+      \\ EVAL_TAC
+      \\ simp[]
+      \\ fs[LEFT_ADD_DISTRIB, word_add_n2w, word_ls_n2w, word_lo_n2w, memory_size_def, EVAL``code_start_offset _``] )
+    \\ qmatch_goalsub_abbrev_tac`get_mem_arg m`
+    \\ last_assum(mp_then Any mp_tac (GEN_ALL bytes_in_memory_UPDATE_LT))
+    \\ qmatch_asmsub_abbrev_tac`m = (kk =+ v) _`
+    \\ disch_then(qspecl_then[`v`,`kk`]mp_tac)
+    \\ impl_tac
+    >- (
+      simp[Abbr`kk`]
+      \\ EVAL_TAC
+      \\ simp[LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1]
+      \\ simp[SUM_MAP_PLUS]
+      \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+      \\ fs[EVAL``cline_size``] )
+    \\ simp[] \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`get_mem_arg _ _ i`
+    \\ drule get_mem_arg_thm
+    \\ disch_then(qspec_then`i`mp_tac)
+    \\ impl_keep_tac
+    >- (
+      fs[MAP_MAP_o]
+      \\ fs[EVERY_MEM, MEM_MAP, PULL_EXISTS]
+      \\ gen_tac \\ strip_tac
+      \\ Cases
+      \\ fs[]
+      \\ simp[DISJ_EQ_IMP]
+      \\ strip_tac \\ rveq
+      \\ fs[clFFITheory.validArg_def] )
+    \\ simp[word_add_n2w]
+    \\ disch_then kall_tac
+    \\ fs[EL_MAP]
+    \\ fs[EVERY_MEM, clFFITheory.validArg_def]
+    \\ last_assum(qspec_then`EL i cls`mp_tac)
+    \\ impl_tac >- metis_tac[MEM_EL]
+    \\ simp[] \\ strip_tac
+    \\ irule cline_in_memory_has_n_args
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ fs[Abbr`i`]
+    \\ simp[EVERY_MEM])
   \\ pop_assum kall_tac
   \\ qmatch_asmsub_abbrev_tac`FUNPOW _ _ _ = ms1`
   \\ strip_tac
