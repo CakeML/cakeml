@@ -3112,7 +3112,14 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
       simp[Abbr`argc`]
       \\ Cases_on`l0` \\ Cases_on`l1` \\ fs[] )
     \\ reverse conj_tac >- EVAL_TAC
-    \\ cheat )
+    \\ qx_gen_tac`j` \\ strip_tac
+    \\ last_x_assum(qspec_then`j + LENGTH ag32_ffi_get_arg_length_setup_code`mp_tac)
+    \\ simp[ag32_ffi_get_arg_length_code_def, LEFT_ADD_DISTRIB, word_add_n2w]
+    \\ strip_tac
+    \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+    \\ simp[EL_APPEND2, EL_APPEND1]
+    \\ qpat_x_assum`j < _`mp_tac
+    \\ EVAL_TAC \\ simp[])
   \\ strip_tac
   \\ qspecl_then[`s1`,`argc-1`]mp_tac(Q.GENL[`s`,`index`]ag32_ffi_get_arg_length_loop_thm)
   \\ impl_tac
