@@ -3431,7 +3431,7 @@ val ag32_ffi_get_arg_find_decomp1_pre' = Q.store_thm(
   Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
   simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ri2word_def,
        ag32Theory.ALU_def, ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
-       ag32Theory.incPC_def, dfn'LoadMEMByte_def, dfn'JumpIfNotZero_def,
+       ag32Theory.incPC_def, ag32Theory.dfn'LoadMEMByte_def, ag32Theory.dfn'JumpIfNotZero_def,
        combinTheory.UPDATE_def] >>
   qx_gen_tac ‘s’ >> strip_tac >>
   Cases_on ‘w2w (s.MEM (s.R 5w)) = (0w : word32)’ >> simp[] >>
@@ -3524,73 +3524,103 @@ val ag32_ffi_get_arg_setup_decomp_pre' =
         “ag32_ffi_get_arg_setup_decomp_pre(s,md)” |> EQT_ELIM |> DISCH_ALL
     end
 
-(*
-val ag32_ffi_get_arg_find_decomp_pre' =
-    let
-      open ag32Theory
-    in
-      (SIMP_CONV (srw_ss()) [Once ag32_ffi_get_arg_find_decomp_def, LET_THM,
-                             dfn'StoreMEMByte_def, FFI_codes_def,
-                             ri2word_def, dfn'LoadConstant_def,
-                             incPC_def, ffi_code_start_offset_thm,
-                             combinTheory.UPDATE_def,
-                             ag32_progTheory.mem_unchanged_def] (* THENC
-       SIMP_CONV (bool_ss ++ COND_elim_ss) [
-         CONV_RULE EVAL
-          (ASSUME “n2w (THE (ALOOKUP FFI_codes "get_arg") +
-                        ffi_code_start_offset - 4) ∈ md : word32 set”)] *))
-        “ag32_ffi_get_arg_find_decomp_pre(s,md)”
-|> EQT_ELIM |> DISCH_ALL
-    end
-*)
-
-
-
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_get_arg_code))) ∧
    byte_aligned s.PC ∧
-   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_entrypoint))
+   (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_entrypoint)) ∧
+   bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧
+   n2w (ffi_code_start_offset - 1) ∉ md ∧
+   256 * w2n l1 + w2n l0 ≤ cline_size ∧
+   has_n_args ((n2w (ffi_code_start_offset - 1) =+ (n2w (THE (ALOOKUP FFI_codes "get_arg")))) s.MEM)
+     (n2w (startup_code_size + 4)) (SUC (256 * w2n l1 + w2n l0))
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
   rw[ag32_ffi_get_arg_def]
-  \\ qabbrev_tac`md = COMPL {s.PC + n2w k | k DIV 4 < LENGTH ag32_ffi_get_arg_code }`
-  \\ mp_tac(GSYM (ag32_ffi_get_arg_setup_decomp_thm))
+  \\ qabbrev_tac`fmd = COMPL {s.PC + n2w k | k | k < 4 * LENGTH ag32_ffi_get_arg_code }`
+  \\ qspec_then`fmd`mp_tac(GSYM (Q.GEN`md`ag32_ffi_get_arg_setup_decomp_thm))
   \\ rw[]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_find s1`
-  \\ qspec_then`s1`mp_tac ag32_ffi_get_arg_find_decomp_thm
-  \\ impl_keep_tac >- cheat (* add assumptions *)
+  \\ qspecl_then[`fmd`,`s1`]mp_tac (Q.GEN`md`ag32_ffi_get_arg_find_decomp_thm)
+  \\ drule (GEN_ALL ag32_ffi_get_arg_setup_thm)
+  \\ impl_tac >- simp[]
+  \\ strip_tac
+  \\ qpat_x_assum`_ = s1`SUBST_ALL_TAC
+  \\ qunabbrev_tac`s1`
+  \\ qmatch_asmsub_abbrev_tac`_ = s1`
+  \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`has_n_args s1mem a`
+  \\ `s1mem = s1.MEM` by simp[Abbr`s1`]
+  \\ fs[Abbr`s1mem`]
+  \\ `a = s1.R 5w` by simp[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ fs[Abbr`a`]
+  \\ impl_keep_tac >- (
+    fs[has_n_args_def]
+    \\ asm_exists_tac
+    \\ simp[])
   \\ disch_then(assume_tac o SYM) \\ simp[]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_store s2`
-  \\ qspec_then`s2`mp_tac ag32_ffi_get_arg_store_decomp_thm
-  \\ impl_keep_tac >- cheat (* add assumptions *)
+  \\ qspecl_then[`fmd`,`s2`]mp_tac (Q.GEN`md`ag32_ffi_get_arg_store_decomp_thm)
+  \\ qmatch_asmsub_abbrev_tac`6w =+ n2w index`
+  \\ qspec_then`s1`mp_tac(Q.GENL[`s`]ag32_ffi_get_arg_find_thm)
+  \\ impl_tac
+  >- (
+    fs[]
+    \\ reverse conj_tac >- metis_tac[]
+    \\ simp[Abbr`s1`, APPLY_UPDATE_THM] )
+  \\ strip_tac
+  \\ qpat_x_assum`_ = s2`SUBST_ALL_TAC
+  \\ qunabbrev_tac`s2`
+  \\ qmatch_asmsub_abbrev_tac`_ = s2`
+  \\ simp[]
+  \\ impl_keep_tac >- (
+    fs[has_n_args_def]
+    \\ cheat (* relate get_mem_arg to off, etc. *))
   \\ disch_then(assume_tac o SYM) \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`s2 = FST p2`
-  \\ `(s2,md) = p2`
+  \\ qmatch_asmsub_abbrev_tac`FST p2 = s2`
+  \\ `(s2,fmd) = p2`
   by (
-    simp[Abbr`p2`, Abbr`s2`, quantHeuristicsTheory.FST_PAIR_EQ]
+    qpat_x_assum`_ = s2`(SUBST1_TAC o SYM)
+    \\ simp[Abbr`p2`, quantHeuristicsTheory.FST_PAIR_EQ]
     \\ DEP_REWRITE_TAC[SND_ag32_ffi_get_arg_find_decomp]
     \\ simp[] \\ fs[]
     \\ metis_tac[] )
-  \\ pop_assum SUBST_ALL_TAC
-  \\ simp[Abbr`s2`]
-  \\ qmatch_asmsub_abbrev_tac`s1 = FST p1`
-  \\ `(s1,md) = p1`
+  \\ qpat_x_assum`_ = FST _`mp_tac
+  \\ qpat_assum`_ = p2` SUBST1_TAC
+  \\ strip_tac
+  \\ qmatch_asmsub_abbrev_tac`FST p1 = s1`
+  \\ `(s1,fmd) = p1`
   by (
-    simp[Abbr`p1`, Abbr`s1`, quantHeuristicsTheory.FST_PAIR_EQ]
+    qpat_x_assum`_ = s1`(SUBST1_TAC o SYM)
+    \\ simp[Abbr`p1`, quantHeuristicsTheory.FST_PAIR_EQ]
     \\ simp[ag32_ffi_get_arg_setup_decomp_def] )
-  \\ pop_assum SUBST_ALL_TAC
+  \\ qpat_x_assum`Abbrev(p2 = _)`mp_tac
+  \\ first_assum SUBST1_TAC
+  \\ strip_tac
   \\ simp[Abbr`p1`, Abbr`p2`]
   \\ match_mp_tac ag32_ffi_get_arg_FUNPOW_Next
   \\ simp[EVAL``LENGTH ag32_ffi_get_arg_code``, CONJ_ASSOC]
   \\ reverse conj_tac
   >- (
-    simp[Abbr`md`]
-    \\ simp[EVAL``LENGTH ag32_ffi_get_arg_code``]
-    \\ simp[IN_DISJOINT]
+    simp[Abbr`fmd`, IN_DISJOINT, DIV_LT_X, EVAL``LENGTH ag32_ffi_get_arg_code``]
     \\ metis_tac[] )
-  \\ cheat (* prove preconditions *));
+  \\ simp[GSYM CONJ_ASSOC]
+  \\ qpat_x_assum`(s1,fmd) = _`(assume_tac o SYM) \\ fs[]
+  \\ qpat_x_assum`(s2,fmd) = _`(assume_tac o SYM) \\ fs[]
+  \\ conj_tac >- cheat (* store_decomp_pre *)
+  \\ conj_tac
+  >- (
+    irule ag32_ffi_get_arg_setup_decomp_pre'
+    \\ simp[Abbr`fmd`]
+    \\ EVAL_TAC
+    \\ rw[]
+    \\ CCONTR_TAC
+    \\ fs[] \\ fs[] )
+  \\ irule ag32_ffi_get_arg_find_decomp_pre'
+  \\ qexists_tac`SUC index`
+  \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
+  \\ fs[EVAL``cline_size``]);
 
 (* ag32_ffi_open_in *)
 
