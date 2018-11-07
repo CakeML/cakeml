@@ -5,6 +5,60 @@ open preamble
 
 val _ = new_theory"helloProof";
 
+(* TODO: move *)
+val SUM_MAP_BOUND = Q.store_thm("SUM_MAP_BOUND",`
+  (∀x. f x ≤ c) ⇒ (SUM (MAP f ls) ≤ LENGTH ls * c)`,
+  rw[]>> Induct_on`ls` >>rw[MULT_SUC]>>
+  first_x_assum(qspec_then`h` assume_tac)>>
+  DECIDE_TAC);
+
+val SUM_MOD = Q.store_thm("SUM_MOD",`
+  k > 0 ⇒
+  (SUM ls MOD k = (SUM (MAP (λn. n MOD k) ls)) MOD k)`,
+  Induct_on`ls`>>rw[]>>
+  DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]>>fs[]);
+
+val words_of_bytes_append = Q.store_thm("words_of_bytes_append",
+  `0 < w2n(bytes_in_word:'a word) ⇒
+   ∀l1 l2.
+   (LENGTH l1 MOD w2n (bytes_in_word:'a word) = 0) ⇒
+   (words_of_bytes be (l1 ++ l2) : 'a word list =
+    words_of_bytes be l1 ++ words_of_bytes be l2)`,
+  strip_tac
+  \\ gen_tac
+  \\ completeInduct_on`LENGTH l1`
+  \\ rw[]
+  \\ Cases_on`l1` \\ fs[]
+  >- EVAL_TAC
+  \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def]
+  \\ fs[PULL_FORALL]
+  >- (
+    simp[TAKE_APPEND]
+    \\ qmatch_goalsub_abbrev_tac`_ ++ xx`
+    \\ `xx = []` suffices_by rw[]
+    \\ simp[Abbr`xx`]
+    \\ fs[ADD1]
+    \\ rfs[MOD_EQ_0_DIVISOR]
+    \\ Cases_on`d` \\ fs[] )
+  \\ simp[DROP_APPEND]
+  \\ qmatch_goalsub_abbrev_tac`_ ++ DROP n l2`
+  \\ `n = 0`
+  by (
+    simp[Abbr`n`]
+    \\ rfs[MOD_EQ_0_DIVISOR]
+    \\ Cases_on`d` \\ fs[ADD1] )
+  \\ simp[]
+  \\ first_x_assum irule
+  \\ simp[]
+  \\ rfs[MOD_EQ_0_DIVISOR, ADD1]
+  \\ Cases_on`d` \\ fs[MULT]
+  \\ simp[MAX_DEF]
+  \\ IF_CASES_TAC \\ fs[NOT_LESS]
+  >- metis_tac[]
+  \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
+  \\ Cases_on`n''` \\ fs[]);
+(* -- *)
+
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 val hello_io_events_def =
@@ -47,12 +101,6 @@ val init_memory_words_def = Define`
   data (* ++ padding of 0w out to memory_size: not included here *)
   `
 
-val SUM_MAP_BOUND = Q.store_thm("SUM_MAP_BOUND",`
-  (∀x. f x ≤ c) ⇒ (SUM (MAP f ls) ≤ LENGTH ls * c)`,
-  rw[]>> Induct_on`ls` >>rw[MULT_SUC]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  DECIDE_TAC);
-
 val LENGTH_startup_code = Q.store_thm("LENGTH_startup_code",`
   LENGTH (startup_code f c d) ≤ startup_code_size`,
   simp[startup_code_def,LENGTH_FLAT,SUM_MAP_K,MAP_MAP_o,o_DEF]>>
@@ -67,11 +115,10 @@ val LENGTH_startup_code = Q.store_thm("LENGTH_startup_code",`
     rw[]>>fs[]) >>
   simp[]);
 
-val SUM_MOD = Q.store_thm("SUM_MOD",`
-  k > 0 ⇒
-  (SUM ls MOD k = (SUM (MAP (λn. n MOD k) ls)) MOD k)`,
-  Induct_on`ls`>>rw[]>>
-  DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]>>fs[]);
+val LENGTH_ag32_enc_MOD_4 = Q.store_thm("LENGTH_ag32_enc_MOD_4",
+  `LENGTH (ag32_enc i) MOD 4 = 0`,
+  qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+  \\ rw[] \\ rw[]);
 
 val LENGTH_startup_code_MOD_4 = Q.store_thm("LENGTH_startup_code_MOD_4",`
   LENGTH (startup_code f c d) MOD 4 = 0`,
@@ -290,6 +337,61 @@ val init_memory_ccache = Q.store_thm("init_memory_ccache",
     \\ EVAL_TAC
     \\ simp[] )
   \\ simp[Abbr`ls`, ccache_jump_ag32_code_def]);
+
+val init_memory_startup_bytes_in_memory = Q.store_thm("init_memory_startup_bytes_in_memory",
+  `i < LENGTH sc  ∧
+   (sc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
+   bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i sc)))) (ag32_enc (EL i sc))
+     (init_memory code data ffis inputs) ag32_startup_addresses`,
+  rw[]
+  \\ qmatch_asmsub_abbrev_tac`i < LENGTH sc`
+  \\ qmatch_goalsub_abbrev_tac`bytes_in_memory a _ m`
+  \\ `∃ll lr.
+        (init_memory_words code data ffis (FST inputs) (SND inputs) = ll ++ words_of_bytes F (ag32_enc (EL i sc)) ++ lr) ∧
+        (n2w (4 * LENGTH ll) = a)`
+  by (
+    simp[init_memory_words_def, startup_code_def]
+    \\ `MAP ag32_enc sc = MAP ag32_enc (TAKE i sc ++ [EL i sc] ++ DROP (i+1) sc)`
+    by (
+      AP_TERM_TAC
+      \\ rewrite_tac[GSYM CONS_APPEND, GSYM APPEND_ASSOC]
+      \\ DEP_REWRITE_TAC[GSYM DROP_EL_CONS]
+      \\ simp[] )
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[]
+    \\ DEP_REWRITE_TAC[words_of_bytes_append]
+    \\ conj_tac
+    >- (
+      simp[bytes_in_word_def]
+      \\ DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]
+      \\ conj_tac >- rw[]
+      \\ rewrite_tac[LENGTH_FLAT, MAP_MAP_o]
+      \\ DEP_ONCE_REWRITE_TAC[SUM_MOD]
+      \\ conj_tac >- rw[]
+      \\ rewrite_tac[MAP_MAP_o]
+      \\ simp[LENGTH_ag32_enc_MOD_4, o_DEF]
+      \\ simp[Q.ISPEC`λx. 0n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]] )
+    \\ rewrite_tac[GSYM APPEND_ASSOC]
+    \\ qmatch_goalsub_abbrev_tac`ll ++ _`
+    \\ qexists_tac`ll`
+    \\ simp[]
+    \\ simp[Abbr`ll`, Abbr`a`]
+    \\ simp[LENGTH_words_of_bytes]
+    \\ simp[LENGTH_FLAT, MAP_MAP_o, bytes_in_word_def]
+    \\ qmatch_goalsub_abbrev_tac`_ + z`
+    \\ `z = 0`
+    by (
+      simp[Abbr`z`]
+      \\ DEP_ONCE_REWRITE_TAC[SUM_MOD]
+      \\ simp[MAP_MAP_o, o_DEF, LENGTH_ag32_enc_MOD_4]
+      \\ simp[Q.ISPEC`λx. 0n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]  )
+    \\ simp[]
+    \\ fs[Abbr`z`]
+    \\ fs[MOD_EQ_0_DIVISOR]
+    \\ `4 * d = d * 4` by simp[]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[MULT_DIV] )
+  \\ cheat);
 
 val init_asm_state_def = Define`
   init_asm_state code data ffis input =
