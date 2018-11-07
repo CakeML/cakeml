@@ -3424,13 +3424,47 @@ val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_deco
   \\ first_x_assum drule
   \\ simp[]);
 
-(*
+val ag32_ffi_get_arg_find_decomp1_pre' = Q.store_thm(
+  "ag32_ffi_get_arg_find_decomp1_pre'",
+  ‘∀off s.
+     s.MEM (s.R 5w + n2w off) = 0w ⇒ ag32_ffi_get_arg_find_decomp1_pre s’,
+  Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
+  simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ri2word_def,
+       ag32Theory.ALU_def, ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+       ag32Theory.incPC_def, dfn'LoadMEMByte_def, dfn'JumpIfNotZero_def,
+       combinTheory.UPDATE_def] >>
+  qx_gen_tac ‘s’ >> strip_tac >>
+  Cases_on ‘w2w (s.MEM (s.R 5w)) = (0w : word32)’ >> simp[] >>
+  first_x_assum irule >> simp[] >> fs[ADD1, GSYM word_add_n2w]);
+
 val ag32_ffi_get_arg_find_decomp_pre' = Q.store_thm(
   "ag32_ffi_get_arg_find_decomp_pre'",
-  ‘∀s md off. s.MEM (s.R 5w + n2w off) = 0w ⇒
-              ag32_ffi_get_arg_find_decomp_pre (s,md)’,
-  recInduct ag32_ffi_get_arg_find_ind
- *)
+  ‘∀c md s.
+     has_n_args s.MEM (s.R 5w) c ∧ w2n (s.R 6w) ≤ c ⇒
+     ag32_ffi_get_arg_find_decomp_pre (s,md)’,
+  Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
+  simp[has_n_args_def, PULL_EXISTS] >> rpt strip_tac >>
+  Cases_on ‘s.R 6w = 0w’ >> simp[] >>
+  simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ri2word_def,
+       ag32Theory.ALU_def, ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
+       ag32Theory.incPC_def] >>
+  reverse conj_tac
+  >- (irule ag32_ffi_get_arg_find_decomp1_pre' >> simp[] >> goal_assum drule) >>
+  first_x_assum irule >>
+  qmatch_goalsub_abbrev_tac ‘ag32_ffi_get_arg_find_decomp1 s1’ >>
+  ‘s1.MEM (s1.R 5w + n2w off) = 0w’ by simp[Abbr‘s1’] >>
+  drule_then assume_tac
+    (SIMP_RULE bool_ss [PULL_EXISTS] ag32_ffi_get_arg_find_decomp1_thm)>>
+  simp[] >>
+  ‘(OLEAST n. s1.MEM (s1.R 5w + n2w n) = 0w) = SOME off’
+    by (DEEP_INTRO_TAC whileTheory.OLEAST_INTRO >> simp[Abbr`s1`] >>
+        conj_tac >- goal_assum drule >> qx_gen_tac `n` >> strip_tac >>
+        ‘¬(n < off) ∧ ¬(off < n)’ suffices_by simp[] >> metis_tac[]) >>
+   simp[ag32_ffi_get_arg_find1_thm, combinTheory.UPDATE_def] >>
+   reverse conj_tac >- simp[Abbr‘s1’, GSYM word_add_n2w] >>
+   simp[Abbr‘s1’] >>
+   Q.ISPEC_THEN ‘s.R 6w’ mp_tac ranged_word_nchotomy >> rw[] >> fs[] >>
+   simp[WORD_LITERAL_ADD]);
 
 val SND_ag32_ffi_get_arg_find_decomp = Q.store_thm("SND_ag32_ffi_get_arg_find_decomp",
   `∀p. (∃n. (FST p).MEM ((FST p).R 5w + n2w n) = 0w) ⇒ SND (ag32_ffi_get_arg_find_decomp p) = SND p`,
