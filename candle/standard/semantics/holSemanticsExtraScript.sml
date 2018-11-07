@@ -640,6 +640,170 @@ val termsem_VSUBST = Q.store_thm("termsem_VSUBST",
   rw[] >>
   metis_tac[termsem_simple_subst,termsem_aconv]);
 
+val is_interpretation_reduce = Q.store_thm("is_interpretation_reduce",
+  `∀δ γ tyenv tmenv tyenv' tmenv'.
+     tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧
+     is_frag_interpretation (total_fragment (tyenv',tmenv')) δ γ ⇒
+     is_frag_interpretation (total_fragment (tyenv,tmenv)) δ γ`,
+  rw[total_fragment_def,is_frag_interpretation_def,is_type_frag_interpretation_def,GSYM PFORALL_THM]
+  >- (first_x_assum match_mp_tac >> fs[ground_types_def,tyvars_def] >> metis_tac[type_ok_extend])
+  >> first_x_assum match_mp_tac
+  >> fs[ground_consts_def,ground_types_def] >> metis_tac[type_ok_extend,term_ok_extend]);
+
+val inhabited_ext = Q.store_thm("inhabited_ext",
+  `!tyfrag ty δ. is_set_theory ^mem ==> ty ∈ builtin_closure tyfrag
+   /\ tyfrag ⊆ nonbuiltin_types
+   /\ (∀ty. ty ∈ tyfrag ⇒ inhabited (δ ty))
+   ==> inhabited (ext_type_frag_builtins δ ty)`,
+  simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL,IN_DEF] >> strip_tac
+  >> ho_match_mp_tac builtin_closure_ind
+  >> rpt strip_tac
+  >- (simp[Once ext_type_frag_builtins_def] >>
+      rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+      fs[nonbuiltin_types_def,SUBSET_DEF,IN_DEF] >>
+      rpt(first_x_assum drule) >> fs[is_builtin_type_def])
+  >- (simp[Once ext_type_frag_builtins_def] >>
+      metis_tac[boolean_in_boolset])
+  >- (simp[Once ext_type_frag_builtins_def] >>
+      metis_tac[funspace_inhabited]));             
+
+val exists_valuation = Q.store_thm("exists_valuation",
+  `!frag sig δ γ ty. is_set_theory ^mem ==>
+    is_frag_interpretation frag δ γ
+    /\ is_sig_fragment sig frag
+    /\ ty ∈ ground_types sig
+    ==> ?v:'U valuation. valuates_frag frag δ v (K ty)
+  `,
+  Cases
+  >> rw[is_frag_interpretation_def,is_type_frag_interpretation_def,valuates_frag_def,
+        types_of_frag_def,is_sig_fragment_def]
+  >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC [PFORALL_THM]
+  >> simp[ELIM_UNCURRY]
+  >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC [GSYM SKOLEM_THM]
+  >> Cases >> rw[RIGHT_EXISTS_IMP_THM]
+  >> metis_tac[inhabited_ext]);
+
+val exists_sigma_valuation = Q.store_thm("exists_sigma_valuation",
+  `!frag sig δ γ sigma. is_set_theory ^mem ==>
+    is_frag_interpretation frag δ γ
+    /\ is_sig_fragment sig frag
+    /\ (!ty. sigma ty ∈ ground_types sig)
+    ==> ?v:'U valuation. valuates_frag frag δ v sigma
+  `,  
+  Cases
+  >> rw[is_frag_interpretation_def,is_type_frag_interpretation_def,valuates_frag_def,
+        types_of_frag_def,is_sig_fragment_def]
+  >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC [PFORALL_THM]
+  >> simp[ELIM_UNCURRY]
+  >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC [GSYM SKOLEM_THM]
+  >> Cases >> rw[RIGHT_EXISTS_IMP_THM]
+  >> metis_tac[inhabited_ext]);
+
+val exists_valuation_bool = Q.store_thm("exists_valuation_bool",
+  `!frag sig δ γ. is_set_theory ^mem ==>
+    is_frag_interpretation frag δ γ
+    /\ is_sig_fragment sig frag
+    ==> ?v:'U valuation. valuates_frag frag δ v (K Bool)
+  `,
+  Cases
+  >> rw[is_frag_interpretation_def,is_type_frag_interpretation_def,valuates_frag_def,
+        types_of_frag_def,is_sig_fragment_def]
+  >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC [PFORALL_THM]
+  >> simp[ELIM_UNCURRY]
+  >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC [GSYM SKOLEM_THM]
+  >> Cases >> rw[RIGHT_EXISTS_IMP_THM]
+  >> metis_tac[inhabited_ext]);
+
+val satisfies_reduce = Q.store_thm("satisfies_reduce",
+  `is_set_theory ^mem ⇒
+    ∀δ γ tyenv tmenv tyenv' tmenv' h c.
+      is_std_sig (tyenv,tmenv) ∧
+      tyenv ⊑ tyenv' ∧
+      tmenv ⊑ tmenv' ∧
+      EVERY (term_ok (tyenv,tmenv)) (c::h) ∧
+      is_frag_interpretation (total_fragment(tyenv',tmenv')) δ γ ∧
+      satisfies_t (tyenv',tmenv') δ γ (h,c) ⇒
+      satisfies_t (tyenv,tmenv) δ γ (h,c)`,
+  rw[satisfies_t_def,satisfies_def] >>
+  drule exists_sigma_valuation >>
+  qspec_then `(tyenv',tmenv')` assume_tac total_fragment_is_fragment >>
+  rpt(disch_then drule) >> disch_then(qspec_then `sigma` mp_tac) >>
+  impl_tac >- (rw[ground_types_def] >> metis_tac[type_ok_extend]) >>
+  strip_tac >> rename1 `valuates_frag _ _ v2` >>
+  `valuates_frag
+    (total_fragment (tyenv',tmenv')) δ
+    (λ(x,ty). if TYPE_SUBSTf sigma ty ∈ types_of_frag(total_fragment(tyenv,tmenv)) then
+                v(x,ty)
+              else v2(x,ty)) sigma`
+    by(fs[valuates_frag_def] >> metis_tac[]) >>
+  qmatch_asmsub_abbrev_tac `valuates_frag _ _ v3` >>
+  imp_res_tac term_ok_welltyped >>
+  drule termsem_frees >>
+  disch_then(qspecl_then [`δ`,`γ`,`v`,`v3`] mp_tac) >>
+  impl_tac >-
+    (rw[] >> imp_res_tac VFREE_IN_subterm >>
+     qspec_then `(tyenv,tmenv)` assume_tac total_fragment_is_fragment >>
+     drule subterm_in_term_frag_uninst >> rpt(disch_then drule) >>
+     strip_tac >>
+     drule term_frag_uninst_in_type_frag >> rpt(disch_then drule) >>
+     rw[Abbr `v3`]) >>
+  simp[] >> disch_then kall_tac >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[] >>
+  rpt conj_tac
+  >- metis_tac[type_ok_extend]
+  >- (fs[EVERY_MEM,ground_terms_uninst_def] >> rw[] >>
+      rpt(first_x_assum drule) >> rpt strip_tac >>
+      asm_exists_tac >> fs[ground_types_def] >>
+      metis_tac[type_ok_extend])
+  >- (fs[ground_terms_uninst_def,ground_types_def] >>
+      asm_exists_tac >> fs[] >> metis_tac[type_ok_extend])
+  >- (fs[terms_of_frag_uninst_def,total_fragment_def,SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,
+         ground_consts_def,ground_types_def] >>
+      metis_tac[type_ok_extend,term_ok_extend])
+  >- (fs[EVERY_MEM] >> rw[] >> rpt(first_x_assum drule) >> rpt strip_tac >>
+      fs[terms_of_frag_uninst_def,total_fragment_def,SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,
+         ground_consts_def,ground_types_def] >>
+      metis_tac[type_ok_extend,term_ok_extend])
+  >- (fs[EVERY_MEM] >> rw[] >> rpt(first_x_assum drule) >> rpt strip_tac >>
+      imp_res_tac term_ok_welltyped >>
+      drule termsem_frees >>
+      disch_then(qspecl_then [`δ`,`γ`,`v`,`v3`] mp_tac) >>
+      impl_tac >-
+        (rw[] >> imp_res_tac VFREE_IN_subterm >>
+         qspec_then `(tyenv,tmenv)` assume_tac total_fragment_is_fragment >>
+         drule subterm_in_term_frag_uninst >> rpt(disch_then drule) >>
+         strip_tac >>
+         drule term_frag_uninst_in_type_frag >> rpt(disch_then drule) >>
+         rw[Abbr `v3`]) >>
+      simp[]));
+
+val models_reduce = Q.store_thm("models_reduce",
+  `is_set_theory ^mem ⇒
+    ∀δ γ tyenv tmenv axs tyenv' tmenv' axs'.
+     is_std_sig (tyenv,tmenv) ∧
+     tyenv ⊑ tyenv' ∧ tmenv ⊑ tmenv' ∧ (axs ⊆ axs') ∧
+     models δ γ ((tyenv',tmenv'),axs') ∧
+     (∀p. p ∈ axs ⇒ (term_ok (tyenv,tmenv)) p)
+     ⇒
+     models δ γ ((tyenv,tmenv),axs)`,
+  rw[models_def]
+  >- imp_res_tac is_interpretation_reduce
+  >> match_mp_tac (MP_CANON satisfies_reduce)
+  >> simp[]
+  >> rpt(asm_exists_tac >> simp[])
+  >> conj_tac
+  >- (qspec_then `(tyenv',tmenv')` assume_tac total_fragment_is_fragment
+      >> fs[total_fragment_def] >> drule is_frag_interpretation_ext
+      >> disch_then drule >> disch_then drule >> strip_tac
+      >> fs[is_frag_interpretation_def,total_fragment_def,is_type_frag_interpretation_def,
+            ext_type_frag_idem]
+      >> rw[]
+      >- (first_x_assum match_mp_tac
+          >> fs[IN_DEF,builtin_closure_rules,INTER_DEF])
+      >> fs[ELIM_UNCURRY])
+  >> metis_tac[SUBSET_DEF]);
+
 (* todo: fleq? *)
 val equal_on_def = Define`
   equal_on (sig:sig) i i' ⇔
