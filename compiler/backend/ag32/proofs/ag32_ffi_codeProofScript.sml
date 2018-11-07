@@ -3574,9 +3574,30 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   \\ qunabbrev_tac`s2`
   \\ qmatch_asmsub_abbrev_tac`_ = s2`
   \\ simp[]
-  \\ impl_keep_tac >- (
+  \\ impl_tac >- (
     fs[has_n_args_def]
-    \\ cheat (* relate get_mem_arg to off, etc. *))
+    \\ `s2.MEM = s1.MEM` by simp[Abbr`s2`]
+    \\ `s2.R 3w = s.R 3w` by simp[Abbr`s2`,Abbr`s1`,APPLY_UPDATE_THM]
+    (*
+    \\ Cases_on`index`
+    >- (
+      simp[]
+      \\ simp[Abbr`s2`, APPLY_UPDATE_THM]
+      \\ qexists_tac`off` \\ simp[]
+      \\ fs[asmSemTheory.bytes_in_memory_def]
+      \\ reverse(Cases_on`l0 = 0w`) >- fs[markerTheory.Abbrev_def]
+      \\ gen_tac \\ simp[LESS_OR_EQ]
+      \\ `s1.MEM (s.R 3w) = 0w`
+      by (
+        qpat_x_assum`_ = s1.MEM`(assume_tac o SYM) \\ fs[APPLY_UPDATE_THM]
+        \\ rw[]
+        \\ metis_tac[] )
+      \\ strip_tac
+      >- metis_tac[]
+      \\ rhr *)
+    \\ cheat (* may has_n_args needs a domain or a size limit,
+                or maybe assume bytes_in_memory and use a theorem
+                  from ag32_basis_ffiProof to get has_n_args back *))
   \\ disch_then(assume_tac o SYM) \\ simp[]
   \\ qmatch_asmsub_abbrev_tac`FST p2 = s2`
   \\ `(s2,fmd) = p2`
