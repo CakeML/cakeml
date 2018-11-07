@@ -3424,6 +3424,14 @@ val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_deco
   \\ first_x_assum drule
   \\ simp[]);
 
+(*
+val ag32_ffi_get_arg_find_decomp_pre' = Q.store_thm(
+  "ag32_ffi_get_arg_find_decomp_pre'",
+  ‘∀s md off. s.MEM (s.R 5w + n2w off) = 0w ⇒
+              ag32_ffi_get_arg_find_decomp_pre (s,md)’,
+  recInduct ag32_ffi_get_arg_find_ind
+ *)
+
 val SND_ag32_ffi_get_arg_find_decomp = Q.store_thm("SND_ag32_ffi_get_arg_find_decomp",
   `∀p. (∃n. (FST p).MEM ((FST p).R 5w + n2w n) = 0w) ⇒ SND (ag32_ffi_get_arg_find_decomp p) = SND p`,
   simp[FORALL_PROD]
@@ -3458,6 +3466,51 @@ val SND_ag32_ffi_get_arg_find_decomp = Q.store_thm("SND_ag32_ffi_get_arg_find_de
   \\ last_x_assum(SUBST1_TAC o SYM)
   \\ AP_TERM_TAC
   \\ simp[] );
+
+val ag32_ffi_get_arg_setup_decomp_thm' = Q.prove(
+  ‘ag32_ffi_get_arg_setup_decomp (s,md) = (ag32_ffi_get_arg_setup s, md)’,
+  Cases_on ‘ag32_ffi_get_arg_setup_decomp (s,md)’ >> simp[] >>
+  mp_tac ag32_ffi_get_arg_setup_decomp_thm >> simp[] >>
+  fs[ag32_ffi_get_arg_setup_decomp_def]);
+
+val ag32_ffi_get_arg_setup_decomp_pre' =
+    let
+      open ag32Theory
+    in
+      (SIMP_CONV (srw_ss()) [ag32_ffi_get_arg_setup_decomp_def, LET_THM,
+                             dfn'StoreMEMByte_def, FFI_codes_def,
+                             ri2word_def, dfn'LoadConstant_def,
+                             incPC_def, ffi_code_start_offset_thm,
+                             combinTheory.UPDATE_def,
+                             ag32_progTheory.mem_unchanged_def] THENC
+       SIMP_CONV (bool_ss ++ COND_elim_ss) [
+         CONV_RULE EVAL
+          (ASSUME “n2w (THE (ALOOKUP FFI_codes "get_arg") +
+                        ffi_code_start_offset - 4) ∈ md : word32 set”)])
+        “ag32_ffi_get_arg_setup_decomp_pre(s,md)” |> EQT_ELIM |> DISCH_ALL
+    end
+
+(*
+val ag32_ffi_get_arg_find_decomp_pre' =
+    let
+      open ag32Theory
+    in
+      (SIMP_CONV (srw_ss()) [Once ag32_ffi_get_arg_find_decomp_def, LET_THM,
+                             dfn'StoreMEMByte_def, FFI_codes_def,
+                             ri2word_def, dfn'LoadConstant_def,
+                             incPC_def, ffi_code_start_offset_thm,
+                             combinTheory.UPDATE_def,
+                             ag32_progTheory.mem_unchanged_def] (* THENC
+       SIMP_CONV (bool_ss ++ COND_elim_ss) [
+         CONV_RULE EVAL
+          (ASSUME “n2w (THE (ALOOKUP FFI_codes "get_arg") +
+                        ffi_code_start_offset - 4) ∈ md : word32 set”)] *))
+        “ag32_ffi_get_arg_find_decomp_pre(s,md)”
+|> EQT_ELIM |> DISCH_ALL
+    end
+*)
+
+
 
 val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
