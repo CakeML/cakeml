@@ -74,6 +74,10 @@ val nsLookup_Short_nsAppend = Q.store_thm("nsLookup_Short_nsAppend",
   \\ fs [nsLookup_Short_Bind, nsAppend_def,
     alookup_append_option_choice_f]);
 
+val nsLookup_Mod1_Bind = Q.store_thm("nsLookup_Mod1_Bind",
+  `nsLookup_Mod1 (Bind ss ms) nm = ALOOKUP ms nm`,
+  fs [nsLookup_Mod1_def]);
+
 val nsLookup_Mod1_nsAppend = Q.store_thm("nsLookup_Mod1_nsAppend",
   `nsLookup_Mod1 (nsAppend ns1 ns2)
     = option_choice_f (nsLookup_Mod1 ns1) (nsLookup_Mod1 ns2)`,
@@ -608,14 +612,27 @@ val lookup_var_def = Define `
 val lookup_cons_def = Define `
   lookup_cons name (env:v sem_env) = nsLookup env.c name`;
 
-(* theorems about old lookup functions *)
-(* FIXME: it's likely that nothing below this line is still needed *)
+(* the old lookup formulation worked via nsLookup/mod_defined,
+   and mod_defined is still used in various characteristic scripts
+   so we supply an eval theorem that maps to the new approach. *)
 
 val mod_defined_def = zDefine `
   mod_defined env n =
     ∃p1 p2 e3.
       p1 ≠ [] ∧ id_to_mods n = p1 ++ p2 ∧
       nsLookupMod env p1 = SOME e3`;
+
+val mod_defined_nsLookup_Mod1 = Q.store_thm(
+  "mod_defined_nsLookup_Mod1",
+  `mod_defined env id = (case id of Short _ => F
+        | Long mn _ => (case nsLookup_Mod1 env mn of NONE => F | _ => T))`,
+  PURE_CASE_TAC \\ fs [id_to_mods_def, mod_defined_def]
+    \\ Cases_on `env`
+    \\ fs [Once EXISTS_LIST, nsLookupMod_def, nsLookup_Mod1_def]
+    \\ PURE_CASE_TAC \\ fs [Once EXISTS_LIST, nsLookupMod_def]);
+
+(* theorems about old lookup functions *)
+(* FIXME: everything below this line is unlikely to be needed. *)
 
 val nsLookupMod_nsBind = Q.prove(`
   p ≠ [] ⇒

@@ -19,11 +19,13 @@ datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
 
 fun pfun_eq_name const = "nsLookup_" ^ fst (dest_const const) ^ "_pfun_eqs"
 
-val nsLookup_tms = [``nsLookup``, ``nsLookup_Short``, ``nsLookup_Mod1``]
+val nsLookup_tm = prim_mk_const {Name = "nsLookup", Thy = "namespace"}
+val nsLookup_pf_tms = [prim_mk_const {Name = "nsLookup_Mod1", Thy = "ml_prog"},
+    prim_mk_const {Name = "nsLookup_Short", Thy = "ml_prog"}]
 
 fun str_dest tm = stringSyntax.fromHOLstring tm |> explode |> map ord
 
-val env_type = type_of ``empty_env``
+val env_type = type_of (prim_mk_const {Name = "empty_env", Thy = "ml_prog"})
 
 local
 
@@ -42,7 +44,7 @@ fun get_pfun_thm c = let
     val c_details = dest_thy_const c
     val thm = DB.fetch (#Thy c_details) (pfun_eq_name c)
     (* ensure that a relevant term is present *)
-    val _ = find_term (same_const (List.last nsLookup_tms)) (concl thm)
+    val _ = find_term (same_const (hd nsLookup_pf_tms)) (concl thm)
   in (c, thm) end
 
 fun uniq [] = []
@@ -85,7 +87,8 @@ fun check_in_repr_set tms = let
 fun pfun_conv tm = let
     val (f, xs) = strip_comb tm
     val _ = length xs = 2 orelse raise UNCHANGED
-    val _ = exists (same_const f) nsLookup_tms orelse raise UNCHANGED
+    val _ = exists (same_const f) (nsLookup_tm :: nsLookup_pf_tms)
+        orelse raise UNCHANGED
     val _ = check_in_repr_set [hd xs]
   in reprs_conv nsLookup_repr_set tm end
 
@@ -107,12 +110,17 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
         optionTheory.option_case_def, optionTheory.OPTION_CHOICE_def,
         boolTheory.AND_CLAUSES, boolTheory.OR_CLAUSES,
         boolTheory.REFL_CLAUSE,
-        nsLookup_pf_nsBind, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend])
+        nsLookup_pf_nsBind, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend,
+        nsLookup_Short_Bind, nsLookup_Mod1_Bind, nsLookup_merge_env_eqs])
 
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
   (map REWR_CONV nsLookup_rewrs
-    @ map (RATOR_CONV o REWR_CONV) (BODY_CONJUNCTS nsLookup_merge_env_eqs)
+    @ map (RATOR_CONV o REWR_CONV) nsLookup_rewrs
     @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv, pfun_conv])) tm
+
+val () = computeLib.add_convs
+    (map (fn t => (t, 2, QCHANGED_CONV nsLookup_conv)) nsLookup_pf_tms)
+val () = computeLib.add_thms [nsLookup_eq] computeLib.the_compset
 
 (* helper functions *)
 
