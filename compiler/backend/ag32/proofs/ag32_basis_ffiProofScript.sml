@@ -7,6 +7,7 @@ open preamble
   ag32_memoryTheory
   ag32_machine_configTheory
   ag32_ffi_codeProofTheory
+  ag32_memoryProofTheory
 local open blastLib basis_ffiTheory in end
 
 val _ = new_theory"ag32_basis_ffiProof";
