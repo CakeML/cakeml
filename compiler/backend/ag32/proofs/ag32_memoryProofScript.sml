@@ -12,6 +12,8 @@ in end
 
 val _ = new_theory"ag32_memoryProof";
 
+(* TODO: move *)
+
 val IN_all_words = Q.store_thm("IN_all_words", (* should replace IN_all_words_add *)
   `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
   qid_spec_tac`base`
@@ -215,8 +217,6 @@ val get_mem_word_get_byte =
   get_mem_word_get_byte_gen
   |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
   |> curry save_thm "get_mem_word_get_byte";
-
-(* TODO: move *)
 
 val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
   `8 ≤ dimindex(:'a) ⇒
@@ -1268,7 +1268,7 @@ val init_asm_state_RTC_asm_step = Q.store_thm("init_asm_state_RTC_asm_step",
        im (cl,inp) (ds + n2w k)))`,
   ntac 5 strip_tac>>
   disch_then assume_tac>>
-  qspecl_then [`code'`,`data'`,`ffis`,`cl`,`inp`] mp_tac init_asm_state_asm_step>>
+  qspecl_then [`code`,`data`,`ffis`,`cl`,`inp`] mp_tac init_asm_state_asm_step>>
   simp[]>>
   strip_tac>>
   drule steps_rel_LRC>>
