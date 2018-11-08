@@ -6,7 +6,11 @@
 *)
 
 open preamble
-local open ag32Theory asmSemTheory asmPropsTheory MarshallingTheory lab_to_targetTheory blastLib in end
+local open
+  ag32Theory ag32_targetTheory
+  asmSemTheory asmPropsTheory
+  MarshallingTheory lab_to_targetTheory blastLib
+in end
 
 val _ = new_theory"ag32_memory";
 
@@ -3427,5 +3431,39 @@ val startup_asm_code_def = Define`
 
 val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
   ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
+
+val startup_code_def = Define`
+  startup_code ffi_len code_len data_len =
+    FLAT (MAP ag32_enc (startup_asm_code ffi_len (n2w code_len) (n2w (4* data_len))))`
+
+val init_memory_words_def = Define`
+  init_memory_words code data ffis cl stdin =
+  let sc = startup_code (LENGTH ffis) (LENGTH code) (LENGTH data) in
+  (* startup code *)
+  words_of_bytes F sc ++
+  (* pad startup code to size *)
+  REPLICATE ((startup_code_size - LENGTH sc) DIV 4) 0w ++
+  (* command line *)
+  [n2w (LENGTH cl)] ++
+  words_of_bytes F (PAD_RIGHT 0w cline_size (FLAT (MAP (SNOC 0w) (MAP (MAP (n2w o ORD) o explode) cl)))) ++
+  [0w] ++
+  (* stdin *)
+  [n2w (LENGTH stdin)] ++
+  words_of_bytes F (PAD_RIGHT 0w stdin_size (MAP (n2w o ORD) stdin)) ++
+  (* output *)
+  REPLICATE ((8 + 4 + output_buffer_size + 4) DIV 4) 0w ++
+  (* ffis *)
+  ag32_ffi_code ++
+  (* heap *)
+  REPLICATE (heap_size DIV 4) 0w ++
+  (* FFIs *)
+  ag32_ffi_jumps ffis ++
+  words_of_bytes F code ++
+  data (* ++ padding of 0w out to memory_size: not included here *)
+  `
+
+val init_memory_def = Define`
+  init_memory code data ffis (cl,stdin) k =
+  get_byte k (EL (w2n (byte_align k) DIV 4) (init_memory_words code data ffis cl stdin)) F`
 
 val _ = export_theory();

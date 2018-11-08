@@ -352,7 +352,7 @@ val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
     \\ Cases_on`k`
     \\ EVAL_TAC
     \\ rw[] )
-  \\ rw[data_to_word_memoryProofTheory.word_of_bytes_def]
+  \\ rw[word_of_bytes_def]
   \\ Cases_on`k` \\ fs[]
   \\ rw[data_to_word_memoryProofTheory.bytes_to_word_def]
   \\ AP_THM_TAC
@@ -362,8 +362,8 @@ val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
 
 val word_of_bytes_extract_bytes_le_32 = Q.store_thm("word_of_bytes_extract_bytes_le_32",
   `word_of_bytes F 0w [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] = w : word32`,
-  rw[data_to_word_memoryProofTheory.word_of_bytes_def]
-  \\ rw[wordSemTheory.set_byte_def,wordSemTheory.byte_index_def,wordSemTheory.word_slice_alt_def]
+  rw[word_of_bytes_def]
+  \\ rw[set_byte_def,byte_index_def,word_slice_alt_def]
   \\ blastLib.BBLAST_TAC);
 
 val bytes_in_mem_bytes_in_memory = Q.store_thm("bytes_in_mem_bytes_in_memory",
@@ -516,7 +516,7 @@ val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
         (words_of_bytes be ls)) be = EL i ls)`,
   completeInduct_on`i`
   \\ Cases_on`ls`
-  \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def]
+  \\ rw[words_of_bytes_def]
   \\ qmatch_goalsub_abbrev_tac`MAX 1 bw`
   \\ `0 < bw` by (
      fs[Abbr`bw`,labPropsTheory.good_dimindex_def]
@@ -590,7 +590,7 @@ val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   `0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
    (words_of_bytes be (l1 ++ l2) = word_of_bytes be (0w:'a word) l1 :: words_of_bytes be l2)`,
   rw[]
-  \\ Cases_on`l1` \\ rw[data_to_word_memoryProofTheory.words_of_bytes_def] \\ fs[]
+  \\ Cases_on`l1` \\ rw[words_of_bytes_def] \\ fs[]
   \\ fs[MAX_DEF]
   \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
@@ -657,7 +657,7 @@ val get_mem_word_get_byte_gen = Q.store_thm("get_mem_word_get_byte_gen",
     \\ pop_assum mp_tac \\ CONV_TAC(LAND_CONV EVAL)
     \\ strip_tac \\ simp[Abbr`a`] )
   \\ simp[EL_APPEND_EQN]
-  \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def]
+  \\ simp[get_byte_def, byte_index_def]
   \\ blastLib.BBLAST_TAC);
 
 val get_mem_word_get_byte =
@@ -679,50 +679,6 @@ val RTC_asm_step_target_configured = Q.store_thm("RTC_asm_step_target_configured
   \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
   \\ disch_then ho_match_mp_tac \\ rw[]
   \\ metis_tac[asm_step_target_configured]);
-
-val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
-  `8 ≤ dimindex(:'a) ⇒
-   ∀be ls.
-   (LENGTH (words_of_bytes be ls : 'a word list) =
-    LENGTH ls DIV (w2n (bytes_in_word : 'a word)) +
-    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))`,
-  strip_tac
-  \\ recInduct data_to_word_memoryProofTheory.words_of_bytes_ind
-  \\ `1 ≤ w2n bytes_in_word`
-  by (
-    simp[bytes_in_word_def,dimword_def]
-    \\ DEP_REWRITE_TAC[LESS_MOD]
-    \\ rw[DIV_LT_X, X_LT_DIV, X_LE_DIV]
-    \\ match_mp_tac LESS_TRANS
-    \\ qexists_tac`2 ** dimindex(:'a)`
-    \\ simp[] )
-  \\ simp[data_to_word_memoryProofTheory.words_of_bytes_def]
-  \\ conj_tac
-  >- ( DEP_REWRITE_TAC[ZERO_DIV] \\ fs[] )
-  \\ rw[ADD1]
-  \\ `MAX 1 (w2n (bytes_in_word:'a word)) = w2n (bytes_in_word:'a word)`
-      by rw[MAX_DEF]
-  \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`(m - n) DIV _`
-  \\ Cases_on`m < n` \\ fs[]
-  >- (
-    `m - n = 0` by fs[]
-    \\ simp[]
-    \\ simp[LESS_DIV_EQ_ZERO]
-    \\ rw[MIN_DEF]
-    \\ fs[Abbr`m`] )
-  \\ simp[SUB_MOD]
-  \\ qspec_then`1`(mp_tac o GEN_ALL)(Q.GEN`q`DIV_SUB) \\ fs[]
-  \\ disch_then kall_tac
-  \\ Cases_on`m MOD n = 0` \\ fs[]
-  >- (
-    DEP_REWRITE_TAC[SUB_ADD]
-    \\ fs[X_LE_DIV] )
-  \\ `MIN 1 (m MOD n) = 1` by simp[MIN_DEF]
-  \\ fs[]
-  \\ `m DIV n - 1 + 1 = m DIV n` suffices_by fs[]
-  \\ DEP_REWRITE_TAC[SUB_ADD]
-  \\ fs[X_LE_DIV]);
 
 val ag32_io_events_unchanged = Q.store_thm("ag32_io_events_unchanged",
   `Decode (
@@ -756,20 +712,6 @@ val ag32_io_events_unchanged = Q.store_thm("ag32_io_events_unchanged",
     ag32Theory.dfn'StoreMEMByte_def,
     ag32Theory.incPC_def]
   \\ PURE_CASE_TAC \\ fs[] \\ rw[]);
-
-val ag32_enc_lengths = Q.store_thm("ag32_enc_lengths",
-  `LENGTH (ag32_enc istr) ∈ {4;8;12;16}`,
-  Cases_on`istr`
-  \\ TRY(rename1`JumpCmp _ _ ri _` \\ Cases_on`ri`)
-  \\ TRY(rename1`Inst i ` \\ Cases_on`i`)
-  \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
-  \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
-  \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
-  \\  rw[ag32_targetTheory.ag32_enc_def,
-         ag32_targetTheory.ag32_constant_def,
-         ag32_targetTheory.ag32_jump_constant_def,
-         ag32_targetTheory.ag32_encode_def,
-         ag32_targetTheory.ag32_encode1_def]);
 
 val ag32_enc_not_Interrupt = Q.store_thm("ag32_enc_not_Interrupt",
   `4 * k < LENGTH (ag32_enc istr) ⇒

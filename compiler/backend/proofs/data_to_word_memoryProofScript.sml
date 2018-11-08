@@ -140,19 +140,6 @@ val _ = type_abbrev("ml_el",
 
 val _ = type_abbrev("ml_heap",``:'a ml_el list``);
 
-val word_of_bytes_def = Define `
-  (word_of_bytes be a [] = 0w) /\
-  (word_of_bytes be a (b::bs) =
-     set_byte a b (word_of_bytes be (a+1w) bs) be)`
-
-val words_of_bytes_def = tDefine "words_of_bytes" `
-  (words_of_bytes be [] = ([]:'a word list)) /\
-  (words_of_bytes be bytes =
-     let xs = TAKE (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
-     let ys = DROP (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
-       word_of_bytes be 0w xs :: words_of_bytes be ys)`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
-
 val bytes_to_word_def = Define `
   (bytes_to_word 0 a bs w be = w) /\
   (bytes_to_word (SUC k) a [] w be = w) /\

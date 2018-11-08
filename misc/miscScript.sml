@@ -4160,4 +4160,36 @@ val asm_write_bytearray_EL = Q.store_thm("asm_write_bytearray_EL",
   \\ simp[ADD1,GSYM word_add_n2w]
   \\ metis_tac[WORD_ADD_ASSOC,WORD_ADD_COMM]);
 
+val byte_index_def = Define `
+  byte_index (a:'a word) is_bigendian =
+    let d = dimindex (:'a) DIV 8 in
+      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
+
+val get_byte_def = Define `
+  get_byte (a:'a word) (w:'a word) is_bigendian =
+    (w2w (w >>> byte_index a is_bigendian)):word8`
+
+val word_slice_alt_def = Define `
+  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
+
+val set_byte_def = Define `
+  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
+    let i = byte_index a is_bigendian in
+      (word_slice_alt (dimindex (:'a)) (i + 8) w
+       || w2w b << i
+       || word_slice_alt i 0 w)`;
+
+val word_of_bytes_def = Define `
+  (word_of_bytes be a [] = 0w) /\
+  (word_of_bytes be a (b::bs) =
+     set_byte a b (word_of_bytes be (a+1w) bs) be)`
+
+val words_of_bytes_def = tDefine "words_of_bytes" `
+  (words_of_bytes be [] = ([]:'a word list)) /\
+  (words_of_bytes be bytes =
+     let xs = TAKE (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
+     let ys = DROP (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
+       word_of_bytes be 0w xs :: words_of_bytes be ys)`
+ (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
+
 val _ = export_theory()
