@@ -148,20 +148,9 @@ val hello_init_memory_ccache = Q.store_thm("hello_init_memory_ccache",
   match_mp_tac init_memory_ccache>>
   simp[ffi_names,ag32_machine_config_def,FFI_codes_def]);
 
-val ag32_start_asm_state_def = Define`
-  ag32_start_asm_state code data ffi_names input =
-    FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
-      (ag32_init_asm_state
-         (init_memory code data ffi_names input)
-         (ag32_startup_addresses))
-      (startup_asm_code
-        (LENGTH ffi_names)
-        (n2w (LENGTH code))
-        (n2w (4 * LENGTH data)))`;
-
 val hello_start_asm_state_def = Define`
   hello_start_asm_state =
-    ag32_start_asm_state code data (THE config.ffi_names)`;
+    init_asm_state code data (THE config.ffi_names)`;
 
 val _ = temp_overload_on("hello_asm_state0",
   ``(ag32_init_asm_state
