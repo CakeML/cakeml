@@ -579,8 +579,8 @@ val _ = Define `
           SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw (WordSize n1) op, [Litv (Word w1); Litv (Word w2)]) =>
-        if (n1 = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
+    | (Opw op, [Litv (Word w1); Litv (Word w2)]) =>
+        if (LENGTH w1 = LENGTH w2) then
           SOME ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
         else
           NONE
@@ -599,7 +599,7 @@ val _ = Define `
           SOME ((s,t),Rval (Boolv (fp_cmp cmp (v2w w1) (v2w w2))))
         else
           NONE
-    | (Shift n1 op n, [Litv (Word w)]) =>
+    | (Shift op n, [Litv (Word w)]) =>
         SOME ((s,t), Rval (Litv (Word (shift_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
@@ -671,7 +671,7 @@ val _ = Define `
           NONE
     | (WordFromInt (WordSize n), [Litv (IntLit i)]) =>
         SOME ((s,t), Rval (Litv (Word (i2vN i n))))
-    | (WordToInt (WordSize n), [Litv (Word w)]) =>
+    | (WordToInt, [Litv (Word w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (v2i w))))
 
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>

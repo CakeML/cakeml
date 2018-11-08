@@ -7,7 +7,6 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "tokens"
-val _ = set_grammar_ancestry ["integer", "string"];
 
 (*
   The tokens of CakeML concrete syntax.

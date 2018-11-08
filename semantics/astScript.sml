@@ -7,7 +7,6 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
 (*
   Definition of CakeML abstract syntax (AST).
@@ -65,8 +64,8 @@ val _ = Hol_datatype `
     Opn of opn
   | Opb of opb
   (* Operations on words *)
-  | Opw of word_size => opw
-  | Shift of word_size => shift => num
+  | Opw of opw
+  | Shift of shift => num
   | Equality
   (* FP operations *)
   | FP_cmp of fp_cmp
@@ -85,7 +84,7 @@ val _ = Hol_datatype `
   | Aw8update
   (* Word/integer conversions *)
   | WordFromInt of word_size
-  | WordToInt of word_size
+  | WordToInt
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
