@@ -1,2 +1,2 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../../../../misc .. ../../../encoders/ag32 ../../../encoders/ag32/proofs ../../semantics ../../proofs ../../../../basis $(HOLDIR)/examples/machine-code/decompiler $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/l3-machine-code/common
+INCLUDES = ../../../../misc .. ../../../encoders/ag32 ../../../encoders/asm ../../../encoders/ag32/proofs ../../semantics ../../proofs ../../../../basis $(HOLDIR)/examples/machine-code/decompiler $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/l3-machine-code/common

@@ -31,19 +31,6 @@ val INDEX_OF_REVERSE = Q.store_thm("INDEX_OF_REVERSE",
   \\ imp_res_tac find_index_ALL_DISTINCT_REVERSE
   \\ fs[]);
 
-val IN_all_words = Q.store_thm("IN_all_words", (* should replace IN_all_words_add *)
-  `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
-  qid_spec_tac`base`
-  \\ Induct_on`n`
-  \\ rw[all_words_def, ADD1]
-  \\ rw[EQ_IMP_THM]
-  >- ( qexists_tac`0` \\ simp[] )
-  >- ( qexists_tac`i + 1` \\ simp[GSYM word_add_n2w] )
-  \\ Cases_on`i` \\ fs[ADD1]
-  \\ disj2_tac
-  \\ simp[GSYM word_add_n2w]
-  \\ asm_exists_tac \\ simp[]);
-
 val bytes_in_memory_UPDATE_GT = Q.store_thm("bytes_in_memory_UPDATE_GT",`
   k <+ (pc:word32) ∧
   LENGTH ls <= 2**31 ∧
@@ -342,24 +329,6 @@ val machine_sem_Terminate_FUNPOW_next = Q.store_thm("machine_sem_Terminate_FUNPO
   \\ imp_res_tac evaluate_Halt_FUNPOW_next
   \\ rfs[] \\ PROVE_TAC[]);
 
-val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
-  `∀be a bs k.
-   LENGTH bs ≤ k ⇒
-   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)`,
-  Induct_on`bs`
-  >- (
-    EVAL_TAC
-    \\ Cases_on`k`
-    \\ EVAL_TAC
-    \\ rw[] )
-  \\ rw[word_of_bytes_def]
-  \\ Cases_on`k` \\ fs[]
-  \\ rw[data_to_word_memoryProofTheory.bytes_to_word_def]
-  \\ AP_THM_TAC
-  \\ AP_TERM_TAC
-  \\ first_x_assum match_mp_tac
-  \\ fs[]);
-
 val word_of_bytes_extract_bytes_le_32 = Q.store_thm("word_of_bytes_extract_bytes_le_32",
   `word_of_bytes F 0w [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] = w : word32`,
   rw[word_of_bytes_def]
@@ -483,109 +452,6 @@ val align_eq_0_imp = Q.store_thm("align_eq_0_imp",
   \\ fs[MULT]
 *)
 
-val get_byte_word_of_bytes = Q.store_thm("get_byte_word_of_bytes",
-  `good_dimindex(:'a) ⇒
-   i < LENGTH ls ∧ LENGTH ls ≤ w2n (bytes_in_word:'a word) ⇒
-  (get_byte (n2w i) (word_of_bytes be (0w:'a word) ls) be = EL i ls)`,
-  strip_tac
-  \\ `∃k. dimindex(:'a) DIV 8 = 2 ** k` by(
-    fs[labPropsTheory.good_dimindex_def]
-    \\ TRY(qexists_tac`2` \\ EVAL_TAC \\ NO_TAC)
-    \\ TRY(qexists_tac`3` \\ EVAL_TAC \\ NO_TAC) )
-  \\ strip_tac
-  \\ Q.ISPECL_THEN[`be`,`0w`,`ls`,`2 ** k`]mp_tac word_of_bytes_bytes_to_word
-  \\ impl_keep_tac >- (
-    rfs[bytes_in_word_def, dimword_def]
-    \\ fs[labPropsTheory.good_dimindex_def] \\ rfs[])
-  \\ rw[]
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
-  \\ rw[]);
-
-val word_msb_align = Q.store_thm("word_msb_align",
-  `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`,
-  rw[alignmentTheory.align_bitwise_and,word_msb]
-  \\ rw[data_to_word_memoryProofTheory.word_bit_and]
-  \\ rw[data_to_word_memoryProofTheory.word_bit_lsl]
-  \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
-
-val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
-  `∀be ls.
-   i < LENGTH ls ∧ w2n (bytes_in_word:'a word) * LENGTH ls ≤ dimword(:'a) ∧ good_dimindex(:'a) ⇒
-   (get_byte (n2w i : α word)
-      (EL (w2n (byte_align ((n2w i):α word)) DIV (w2n (bytes_in_word:α word)))
-        (words_of_bytes be ls)) be = EL i ls)`,
-  completeInduct_on`i`
-  \\ Cases_on`ls`
-  \\ rw[words_of_bytes_def]
-  \\ qmatch_goalsub_abbrev_tac`MAX 1 bw`
-  \\ `0 < bw` by (
-     fs[Abbr`bw`,labPropsTheory.good_dimindex_def]
-     \\ EVAL_TAC \\ fs[dimword_def] )
-  \\ `MAX 1 bw = bw` by rw[MAX_DEF] \\ fs[]
-  \\ Cases_on`i < bw` \\ fs[]
-  >- (
-    `byte_align (n2w i) = 0w`
-    by(
-      simp[alignmentTheory.byte_align_def]
-      \\ irule imp_align_eq_0
-      \\ fs[labPropsTheory.good_dimindex_def,Abbr`bw`]
-      \\ rfs[bytes_in_word_def,dimword_def] )
-    \\ simp[ZERO_DIV]
-    \\ DEP_REWRITE_TAC[UNDISCH get_byte_word_of_bytes]
-    \\ fs[LENGTH_TAKE_EQ]
-    \\ Cases_on`i` \\ fs[EL_TAKE] )
-  \\ fs[NOT_LESS]
-  \\ pop_assum (strip_assume_tac o SIMP_RULE std_ss [LESS_EQ_EXISTS])
-  \\ `byte_align (n2w (bw + p)) = n2w bw + byte_align (n2w p)`
-  by (
-    simp[GSYM word_add_n2w]
-    \\ simp[alignmentTheory.byte_align_def]
-    \\ DEP_REWRITE_TAC[align_add_aligned_gen]
-    \\ simp[Abbr`bw`]
-    \\ CONV_TAC(REWR_CONV(GSYM alignmentTheory.byte_aligned_def))
-    \\ (data_to_word_assignProofTheory.byte_aligned_bytes_in_word
-        |> Q.GEN`w` |> Q.SPEC`1w` |> UNDISCH |> mp_tac)
-    \\ simp[] )
-  \\ simp[]
-  \\ DEP_REWRITE_TAC[w2n_add]
-  \\ conj_tac
-  >- (
-    simp[Abbr`bw`]
-    \\ reverse conj_tac >- (
-      fs[labPropsTheory.good_dimindex_def,
-         bytes_in_word_def]
-      \\ EVAL_TAC \\ fs[] \\ EVAL_TAC )
-    \\ simp[alignmentTheory.byte_align_def]
-    \\ DEP_REWRITE_TAC[word_msb_align]
-    \\ conj_tac >- ( fs[labPropsTheory.good_dimindex_def])
-    \\ simp[word_msb_n2w]
-    \\ qmatch_assum_abbrev_tac`bw * r ≤ dimword _`
-    \\ `r ≤ dimword (:'a) DIV bw` by fs[X_LE_DIV]
-    \\ `p < dimword(:'a) DIV bw` by fs[]
-    \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-    \\ fs[dimword_def, bytes_in_word_def]
-    \\ fs[Abbr`bw`, labPropsTheory.good_dimindex_def]
-    \\ rfs[] )
-  \\ `bw < dimword(:'a)` by fs[Abbr`bw`, bytes_in_word_def]
-  \\ simp[]
-  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
-  \\ simp[]
-  \\ simp[EL_CONS,PRE_SUB1]
-  \\ simp[GSYM word_add_n2w]
-  \\ `n2w bw = byte_align (n2w bw)`
-  by(
-    fs[Abbr`bw`,bytes_in_word_def,alignmentTheory.byte_align_def]
-    \\ fs[labPropsTheory.good_dimindex_def]
-    \\ EVAL_TAC \\ fs[dimword_def] \\ EVAL_TAC )
-  \\ pop_assum SUBST1_TAC
-  \\ once_rewrite_tac[WORD_ADD_COMM]
-  \\ simp[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ first_x_assum(qspec_then`p`mp_tac)
-  \\ simp[]
-  \\ disch_then(qspecl_then[`be`,`DROP (bw-1)t`]mp_tac)
-  \\ impl_tac >- fs[ADD1]
-  \\ simp[EL_DROP]);
-
 val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   `0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
    (words_of_bytes be (l1 ++ l2) = word_of_bytes be (0w:'a word) l1 :: words_of_bytes be l2)`,
@@ -594,76 +460,6 @@ val words_of_bytes_append_word = Q.store_thm("words_of_bytes_append_word",
   \\ fs[MAX_DEF]
   \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
-
-val get_mem_word_get_byte_gen = Q.store_thm("get_mem_word_get_byte_gen",
-  `(∀x. r0 + n2w (4 * (LENGTH ll + k)) <=+ x ∧ x <+ r0 + n2w (4 * (LENGTH ll + k) + 4)
-      ⇒ (m x = get_byte x (EL (w2n (byte_align x - r0) DIV 4) (ll ++ ls ++ lr)) F)) ∧
-   (LENGTH ll = off) ∧
-   k < LENGTH ls ∧ byte_aligned r0 ∧ (4 * (off + k)) < dimword(:31) ∧
-   w2n r0 + (4 * (off + k) + 4) < dimword(:32)
-   ⇒ (get_mem_word m (r0 + n2w (4 * (off + k))) = EL k ls)`,
-  rw[get_mem_word_def]
-  \\ ntac 4 (
-    qmatch_goalsub_abbrev_tac`m x`
-    \\ first_assum(qspec_then`x`mp_tac)
-    \\ impl_tac
-    >- (
-      fs[Abbr`x`]
-      \\ Cases_on`r0` \\ fs[word_add_n2w]
-      \\ fs[word_ls_n2w, word_lo_n2w] )
-    \\ disch_then SUBST_ALL_TAC
-    \\ qunabbrev_tac`x`)
-  \\ last_x_assum kall_tac
-  \\ fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def]
-  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
-  \\ `aligned 2 pc`
-  by (
-    simp[Abbr`pc`]
-    \\ (alignmentTheory.aligned_add_sub_cor
-        |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
-        |> irule)
-    \\ simp[]
-    \\ simp[GSYM ALIGNED_eq_aligned]
-    \\ simp[addressTheory.ALIGNED_n2w])
-  \\ simp[align_add_aligned_gen]
-  \\ simp[Abbr`pc`]
-  \\ qmatch_goalsub_abbrev_tac`r0 + x`
-  \\ `align 2 (r0 + x) = r0 + x` by fs[alignmentTheory.aligned_def]
-  \\ `r0 + x = byte_align (r0 + x)` by fs[alignmentTheory.byte_align_def]
-  \\ qhdtm_x_assum`align`SUBST_ALL_TAC
-  \\ simp_tac(srw_ss())[]
-  \\ pop_assum SUBST_ALL_TAC
-  \\ once_rewrite_tac[WORD_ADD_COMM]
-  \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-  \\ DEP_REWRITE_TAC[
-       data_to_word_memoryProofTheory.get_byte_byte_align
-       |> Q.GEN`a'` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[]]
-  \\ rewrite_tac[CONJ_ASSOC]
-  \\ conj_tac >- EVAL_TAC
-  \\ DEP_REWRITE_TAC[w2n_add]
-  \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
-  \\ conj_tac >- ( simp[Abbr`x`] \\ EVAL_TAC )
-  \\ conj_tac >- (
-    fs[Abbr`x`, word_msb_n2w_numeric, NOT_LESS_EQUAL]
-    \\ EVAL_TAC )
-  \\ `w2n x DIV 4 = k + LENGTH ll`
-  by (
-    simp[Abbr`x`]
-    \\ once_rewrite_tac[MULT_COMM]
-    \\ simp[MULT_DIV] )
-  \\ pop_assum SUBST_ALL_TAC
-  \\ ntac 3 (
-    qmatch_goalsub_abbrev_tac`w2n a`
-    \\ pop_assum mp_tac \\ CONV_TAC(LAND_CONV EVAL)
-    \\ strip_tac \\ simp[Abbr`a`] )
-  \\ simp[EL_APPEND_EQN]
-  \\ simp[get_byte_def, byte_index_def]
-  \\ blastLib.BBLAST_TAC);
-
-val get_mem_word_get_byte =
-  get_mem_word_get_byte_gen
-  |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
-  |> curry save_thm "get_mem_word_get_byte";
 
 val asm_step_target_configured = Q.store_thm("asm_step_target_configured",
   `asm_step c s1 i s2 ∧ target_configured s1 mc ⇒
