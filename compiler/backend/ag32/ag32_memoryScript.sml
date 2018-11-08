@@ -9,7 +9,8 @@ open preamble
 local open
   ag32Theory ag32_targetTheory
   asmSemTheory asmPropsTheory
-  MarshallingTheory lab_to_targetTheory blastLib
+  mlstringTheory MarshallingTheory
+  lab_to_targetTheory blastLib
 in end
 
 val _ = new_theory"ag32_memory";
