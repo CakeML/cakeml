@@ -648,11 +648,25 @@ val init_asm_state_asm_step = Q.store_thm("init_asm_state_asm_step",
   \\ strip_tac
   \\ rewrite_tac[GSYM CONJ_ASSOC]
   \\ conj_tac >- (
-    simp[EVAL``heap_start_offset``]>>
-    CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)>>
-    simp[asmSemTheory.bytes_in_memory_def,EVAL``ag32_startup_addresses``]>>
-    DEP_REWRITE_TAC[init_memory_startup]>>
-    cheat)
+    irule bytes_in_memory_get_byte_words
+    \\ qmatch_goalsub_abbrev_tac`ag32_enc istr`
+    \\ conj_tac >- ( mp_tac ag32_enc_lengths \\ simp[] )
+    \\ reverse conj_tac
+    >- (
+      simp[ag32_startup_addresses_def, SUBSET_DEF, IN_all_words, PULL_EXISTS,
+           word_lo_n2w, EVAL``startup_code_size``]
+      \\ mp_tac ag32_enc_lengths \\ simp[] )
+    \\ qexists_tac`F`
+    \\ simp[init_memory_def]
+    \\ qexists_tac`[]` \\ simp[]
+    \\ simp[init_memory_words_def, startup_code_def, startup_asm_code_def]
+    \\ DEP_ONCE_REWRITE_TAC[words_of_bytes_append]
+    \\ rewrite_tac[GSYM APPEND_ASSOC]
+    \\ qmatch_goalsub_abbrev_tac`_ ++ lr`
+    \\ conj_tac
+    >- ( simp[bytes_in_word_def, LENGTH_ag32_enc_MOD_4] )
+    \\ qexists_tac`lr`
+    \\ rw[])
   \\ conj_tac >- simp[Abbr`s2`]
   \\ conj_tac >- CONV_TAC asm_conv
   \\ qunabbrev_tac`tr`
