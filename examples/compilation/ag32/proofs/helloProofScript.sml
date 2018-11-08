@@ -1,7 +1,8 @@
 open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory ag32_machine_configTheory
-     ag32_basis_ffiProofTheory helloProgTheory helloCompileTheory;
+     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
+     ag32_machine_configTheory ag32_basis_ffiProofTheory
+     helloProgTheory helloCompileTheory;
 
 val _ = new_theory"helloProof";
 
@@ -639,9 +640,9 @@ val hello_installed = Q.store_thm("hello_installed",
       \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
       \\ rveq
       \\ rw[stdin_size_def, cline_size_def]
-      \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def]
-      \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
-              wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
+      \\ simp[word_of_bytes_def]
+      \\ simp[get_byte_def, byte_index_def,
+              set_byte_def, word_slice_alt_def]
       \\ blastLib.BBLAST_TAC)
     \\ qmatch_asmsub_rename_tac`_ <=+ p`
     \\ Cases_on`p` \\ fs[word_ls_n2w,word_lo_n2w] \\ rfs[] \\ rw[]
@@ -727,7 +728,7 @@ val hello_installed = Q.store_thm("hello_installed",
     \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
     \\ rveq
     \\ rw[stdin_size_def, cline_size_def]
-    \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def, Abbr`ll`]
+    \\ simp[word_of_bytes_def, Abbr`ll`]
     \\ fs[LENGTH_data, LEFT_ADD_DISTRIB, Abbr`n`]
     >- ( DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[] )
     \\ pop_assum mp_tac
@@ -735,8 +736,8 @@ val hello_installed = Q.store_thm("hello_installed",
     \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
     \\ once_rewrite_tac[MULT_COMM]
     \\ simp[MULT_DIV] \\ rw[]
-    \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
-            wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
+    \\ simp[get_byte_def, byte_index_def,
+            set_byte_def, word_slice_alt_def]
     \\ blastLib.BBLAST_TAC)
   \\ EVAL_TAC
   \\ rewrite_tac[ffi_names]

@@ -1,7 +1,8 @@
 open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_ffi_codeProofTheory ag32_machine_configTheory
-     ag32_basis_ffiProofTheory wordcountProgTheory wordcountCompileTheory;
+     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
+     ag32_machine_configTheory ag32_basis_ffiProofTheory
+     wordcountProgTheory wordcountCompileTheory;
 
 val _ = new_theory"wordcountProof";
 
@@ -310,10 +311,10 @@ val mem_ok_tac =
      bitTheory.BITS_ZERO3 ]
 
 val mem_word_tac =
-    rw[data_to_word_memoryProofTheory.word_of_bytes_def,
-       wordSemTheory.set_byte_def, wordSemTheory.byte_index_def,
+    rw[word_of_bytes_def,
+       set_byte_def, byte_index_def,
        lab_to_targetTheory.ffi_offset_def,LENGTH_code,
-       wordSemTheory.word_slice_alt_def,LENGTH_data,heap_size_def,
+       word_slice_alt_def,LENGTH_data,heap_size_def,
        EVAL``heap_start_offset``, ffi_names, code_start_offset_def,
        EVAL``ffi_jumps_offset``]
     \\ blastLib.BBLAST_TAC
@@ -1019,9 +1020,9 @@ val wordcount_installed = Q.store_thm("wordcount_installed",
       \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
       \\ rveq
       \\ rw[stdin_size_def, cline_size_def]
-      \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def]
-      \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
-              wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
+      \\ simp[word_of_bytes_def]
+      \\ simp[get_byte_def, byte_index_def,
+              set_byte_def, word_slice_alt_def]
       \\ blastLib.BBLAST_TAC)
     \\ qmatch_asmsub_rename_tac`_ <=+ p`
     \\ Cases_on`p` \\ fs[word_ls_n2w,word_lo_n2w] \\ rfs[] \\ rw[]
@@ -1107,7 +1108,7 @@ val wordcount_installed = Q.store_thm("wordcount_installed",
     \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
     \\ rveq
     \\ rw[stdin_size_def, cline_size_def]
-    \\ simp[data_to_word_memoryProofTheory.word_of_bytes_def, Abbr`ll`]
+    \\ simp[word_of_bytes_def, Abbr`ll`]
     \\ fs[LENGTH_data, LEFT_ADD_DISTRIB, Abbr`n`]
     >- ( DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[] )
     \\ pop_assum mp_tac
@@ -1115,8 +1116,8 @@ val wordcount_installed = Q.store_thm("wordcount_installed",
     \\ DEP_REWRITE_TAC[ADD_DIV_RWT] \\ simp[]
     \\ once_rewrite_tac[MULT_COMM]
     \\ simp[MULT_DIV] \\ rw[]
-    \\ simp[wordSemTheory.get_byte_def, wordSemTheory.byte_index_def,
-            wordSemTheory.set_byte_def, wordSemTheory.word_slice_alt_def]
+    \\ simp[get_byte_def, byte_index_def,
+            set_byte_def, word_slice_alt_def]
     \\ blastLib.BBLAST_TAC)
   \\ EVAL_TAC
   \\ rewrite_tac[ffi_names]
