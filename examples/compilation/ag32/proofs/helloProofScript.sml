@@ -126,14 +126,6 @@ val hello_machine_config_ccache_pc =
   ``hello_machine_config.ccache_pc``
   |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
 
-val hello_init_memory_startup = Q.store_thm("hello_init_memory_startup",
-  `n < LENGTH hello_startup_code ⇒
-   (hello_init_memory inputs (n2w n) =
-    EL n hello_startup_code)`,
-  fs[hello_startup_code_def,hello_init_memory_def,hello_startup_asm_code_def,
-    GSYM startup_code_def]>>
-  metis_tac[init_memory_startup]);
-
 val hello_init_memory_halt = Q.store_thm("hello_init_memory_halt",
   `(pc = hello_machine_config.halt_pc) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size

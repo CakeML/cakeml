@@ -134,14 +134,6 @@ val wordcount_machine_config_ccache_pc =
   ``(wordcount_machine_config).ccache_pc``
   |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
 
-val wordcount_init_memory_startup = Q.store_thm("wordcount_init_memory_startup",
-  `n < LENGTH wordcount_startup_code ⇒
-   (wordcount_init_memory inputs (n2w n) =
-    EL n wordcount_startup_code)`,
-  fs[wordcount_startup_code_def,wordcount_init_memory_def,wordcount_startup_asm_code_def,
-    GSYM startup_code_def]>>
-  metis_tac[init_memory_startup]);
-
 val wordcount_init_memory_halt = Q.store_thm("wordcount_init_memory_halt",
   `(pc = wordcount_machine_config.halt_pc) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
