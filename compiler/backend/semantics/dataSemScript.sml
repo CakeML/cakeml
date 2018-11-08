@@ -177,6 +177,9 @@ val do_app_aux_def = Define `
         (case xs of
          | [len;lv] =>
             (case v_to_list lv of
+             | SOME [] => if len = Number 0
+                          then Rval (Block 0 n [],s)
+                          else Error
              | SOME vs => if len = Number (& (LENGTH vs))
                           then with_fresh_ts s (λts s'. Rval (Block ts n vs, s'))
                           else Error

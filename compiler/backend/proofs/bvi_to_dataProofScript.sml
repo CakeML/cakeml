@@ -423,6 +423,7 @@ Cases_on `op`
      \\ METIS_TAC [])
   >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
   >- (Cases_on `t.tstamps`
+     \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
   >- (`Num i < LENGTH l'`
