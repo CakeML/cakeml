@@ -5706,8 +5706,8 @@ val w2n_add_byte_align_lemma = Q.store_thm("w2n_add_byte_align_lemma",
 val get_byte_byte_align = Q.store_thm("get_byte_byte_align",
   `good_dimindex (:'a) ==>
     get_byte (a' + byte_align a) w be = get_byte a' (w:'a word) be`,
-  fs [wordSemTheory.get_byte_def] \\ rw [] \\ rpt AP_TERM_TAC
-  \\ fs [wordSemTheory.byte_index_def,w2n_add_byte_align_lemma]);
+  fs [get_byte_def] \\ rw [] \\ rpt AP_TERM_TAC
+  \\ fs [byte_index_def,w2n_add_byte_align_lemma]);
 
 val get_byte_eq = Q.store_thm("get_byte_eq",
   `good_dimindex (:'a) /\ a = byte_align a + a' ==>
