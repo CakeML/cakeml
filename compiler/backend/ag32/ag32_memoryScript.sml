@@ -3401,7 +3401,7 @@ val startup_asm_code_def = Define`
       m[r2+3] <- r4
       m[r2+4] <- r4
       r1 <- bitmaps_length
-      r4 <- r4 + r1
+      r4 <- r1 + r4
       m[r2+1] <- r4
       m[r2+2] <- r4
       r1 <- heap_size
@@ -3417,7 +3417,7 @@ val startup_asm_code_def = Define`
      Inst (Mem Store 4 (Addr 2 (3w * bytes_in_word)));
      Inst (Mem Store 4 (Addr 2 (4w * bytes_in_word)));
      Inst (Const 1 bitmaps_length);
-     Inst (Arith (Binop Add 4 4 (Reg 1)));
+     Inst (Arith (Binop Add 4 1 (Reg 4)));
      Inst (Mem Store 4 (Addr 2 (1w * bytes_in_word)));
      Inst (Mem Store 4 (Addr 2 (2w * bytes_in_word)));
      Inst (Const 1 (n2w heap_size));
