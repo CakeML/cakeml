@@ -244,7 +244,7 @@ val evaluate_compile = Q.prove(
       \\ IF_CASES_TAC THEN1 fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
-      \\ `¬op_space_reset o'` by fs[bvi_to_dataTheory.op_requires_names_def] \\ fs[]
+      \\ `¬op_space_reset o'` by fs[dataLangTheory.op_requires_names_def] \\ fs[]
       \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
       \\ full_simp_tac(srw_ss())[]
       (* \\ `s with space := s.space - op_space_req o' (LENGTH x) = s` *)

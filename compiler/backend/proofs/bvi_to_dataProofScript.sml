@@ -731,7 +731,7 @@ val compile_correct = Q.prove(
     \\ reverse(Cases_on `do_app op (REVERSE a) r`) \\ full_simp_tac(srw_ss())[] >- (
          imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[] >>
          rveq >> IF_CASES_TAC >>
-         fs[dataSemTheory.evaluate_def,iAssign_def,op_requires_names_def,
+         fs[dataSemTheory.evaluate_def,iAssign_def,dataLangTheory.op_requires_names_def,
             cut_state_opt_def,cut_state_def,cut_env_def] >>
          fs[bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,domain_map,bviSemTheory.do_app_aux_def,
             do_space_def,dataSemTheory.do_app_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def] >>
@@ -754,7 +754,7 @@ val compile_correct = Q.prove(
     \\ simp[]
     \\ Cases_on`op = Install`
     >- (
-      fs[op_requires_names_def,domain_map]
+      fs[dataLangTheory.op_requires_names_def,domain_map]
       \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
       \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
       \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
@@ -813,9 +813,11 @@ val compile_correct = Q.prove(
       \\ TOP_CASE_TAC \\ fs[])
     \\ Cases_on `op = Greater \/ op = GreaterEq` THEN1
      (fs []
-      \\ (fs [op_requires_names_def,dataLangTheory.op_space_reset_def]
+      \\ (fs [dataLangTheory.op_requires_names_def
+             ,dataLangTheory.op_space_reset_def]
       \\ fs [evaluate_def,cut_state_opt_def]
-      \\ fs [cut_state_def,cut_env_def,op_requires_names_def,domain_map]
+      \\ fs [cut_state_def,cut_env_def,domain_map
+            ,dataLangTheory.op_requires_names_def]
       \\ imp_res_tac get_vars_reverse \\ fs []
       \\ Cases_on `MAP data_to_bvi_v (REVERSE z')`
       THEN1 fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
@@ -880,7 +882,7 @@ val compile_correct = Q.prove(
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
          \\ full_simp_tac(srw_ss())[jump_exc_def])))
     \\ Cases_on`∃b. op = CopyByte b` >- (
-      fs[op_requires_names_def]
+      fs[dataLangTheory.op_requires_names_def]
       \\ qhdtm_x_assum`bviSem$do_app`mp_tac
       \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
       \\ strip_tac \\ rveq \\ fs[pair_case_eq,domain_map] \\ rw[]
@@ -938,7 +940,8 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
     THEN1
      (`op_space_reset op` by
-      rfs [dataLangTheory.op_space_reset_def,op_requires_names_def]
+      rfs [dataLangTheory.op_space_reset_def
+          ,dataLangTheory.op_requires_names_def]
       \\ `state_rel r (t2 with <|locals := env1; space := 0|>)`
          by fs[state_rel_def]
       \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
@@ -984,7 +987,7 @@ val compile_correct = Q.prove(
     \\ imp_res_tac get_vars_reverse
     \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac (srw_ss()) []
     \\ Cases_on `op_space_req op (LENGTH vs) = 0`
-    \\ full_simp_tac(srw_ss())[evaluate_def,op_requires_names_def]
+    \\ full_simp_tac(srw_ss())[evaluate_def,dataLangTheory.op_requires_names_def]
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
           cut_state_def,cut_env_def]
     \\ full_simp_tac(srw_ss())[dataSemTheory.do_app_def,do_space_def,LET_DEF]
