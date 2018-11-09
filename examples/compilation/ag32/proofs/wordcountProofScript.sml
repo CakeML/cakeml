@@ -134,17 +134,6 @@ val wordcount_machine_config_ccache_pc =
   ``(wordcount_machine_config).ccache_pc``
   |> EVAL |> SIMP_RULE(srw_ss())[ffi_names]
 
-val wordcount_init_memory_halt = Q.store_thm("wordcount_init_memory_halt",
-  `(pc = wordcount_machine_config.halt_pc) ∧
-   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
-  ⇒
-  (get_mem_word (wordcount_init_memory (cl,inp)) pc =
-    Encode (Jump (fAdd, 0w, Imm 0w)))`,
-  simp[wordcount_machine_config_def,wordcount_init_memory_def]>>
-  strip_tac>>
-  match_mp_tac init_memory_halt>>
-  simp[ffi_names,ag32_machine_config_def,FFI_codes_def]);
-
 val wordcount_init_memory_ccache = Q.store_thm("wordcount_init_memory_ccache",
   `(pc = wordcount_machine_config.ccache_pc) ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
@@ -534,50 +523,11 @@ val wordcount_halted = Q.store_thm("wordcount_halted",
         ((FUNPOW Next k ms).PC = ms.PC) ∧
         ((FUNPOW Next k ms).MEM = ms.MEM) ∧
         (∀w. w ≠ 0w ⇒ ((FUNPOW Next k ms).R w = ms.R w))`,
-  gen_tac \\ strip_tac \\ rveq
-  \\ Induct >- rw[]
-  \\ simp[FUNPOW_SUC]
-  \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
-  \\ pop_assum mp_tac
-  \\ simp[ag32Theory.Next_def]
-  \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
-  \\ qmatch_asmsub_abbrev_tac`_.PC = pc`
-  \\ `aligned 2 pc`
-  by (
-    simp[Abbr`pc`]
-    \\ simp[wordcount_machine_config_def, ag32_machine_config_def]
-    \\ simp[LENGTH_data, heap_size_def, lab_to_targetTheory.ffi_offset_def, ffi_names]
-    \\ EVAL_TAC )
-  \\ `pc = pc'`
-  by (
-    pop_assum mp_tac
-    \\ unabbrev_all_tac
-    \\ simp[alignmentTheory.aligned_extract]
-    \\ blastLib.BBLAST_TAC )
-  \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
-  \\ pop_assum (SUBST_ALL_TAC o SYM)
-  \\ fs[Abbr`pc`]
-  \\ first_assum(qspec_then`ms.PC`mp_tac)
-  \\ impl_tac >- simp[wordcount_machine_config_halt_pc]
-  \\ first_assum(qspec_then`ms.PC + 1w`mp_tac)
-  \\ impl_tac >- simp[wordcount_machine_config_halt_pc]
-  \\ first_assum(qspec_then`ms.PC + 2w`mp_tac)
-  \\ impl_tac >- simp[wordcount_machine_config_halt_pc]
-  \\ first_x_assum(qspec_then`ms.PC + 3w`mp_tac)
-  \\ impl_tac >- simp[wordcount_machine_config_halt_pc]
-  \\ simp[]
-  \\ simp[EVAL``(wordcount_machine_config).target.get_byte``]
-  \\ rpt (disch_then SUBST_ALL_TAC)
-  \\ qmatch_goalsub_abbrev_tac`_ @@ wordcount_init_memory _ pc`
-  \\ mp_tac wordcount_init_memory_halt
-  \\ impl_tac >- simp[]
-  \\ simp[get_mem_word_def]
-  \\ disch_then kall_tac
-  \\ simp[ag32_targetProofTheory.Decode_Encode]
-  \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def]
-  \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def]
-  \\ strip_tac
-  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
+  rewrite_tac[wordcount_init_memory_def]
+  \\ gen_tac \\ strip_tac
+  \\ irule ag32_halted
+  \\ asm_exists_tac
+  \\ fs[ffi_names, FFI_codes_def, wordcount_machine_config_def]);
 
 fun ffi_tac ag32_ffi_interfer_xxx ag32_ffi_xxx_code =
   strip_tac \\ rveq
