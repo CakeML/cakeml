@@ -418,6 +418,19 @@ val get_byte_repl = Q.prove(`
 
 (* -- *)
 
+val byte_aligned_code_start_offset = Q.store_thm("byte_aligned_code_start_offset",
+  `byte_aligned (n2w(code_start_offset num_ffis) : word32)`,
+  rw[code_start_offset_def]
+  \\ `ffi_offset = 4 * w2n (bytes_in_word:word32)` by EVAL_TAC
+  \\ pop_assum SUBST1_TAC
+  \\ simp[GSYM word_add_n2w]
+  \\ qmatch_goalsub_abbrev_tac`byte_aligned (a + _)`
+  \\ Q.ISPECL_THEN[`a`,`4 * (num_ffis + 2)`]mp_tac(Q.GENL[`a`,`i`]backendProofTheory.byte_aligned_mult)
+  \\ impl_tac >- EVAL_TAC
+  \\ simp[GSYM word_add_n2w, GSYM word_mul_n2w]
+  \\ rw[Abbr`a`]
+  \\ EVAL_TAC);
+
 val LENGTH_startup_code = Q.store_thm("LENGTH_startup_code",`
   LENGTH (startup_code f c d) ≤ startup_code_size`,
   simp[startup_code_def,LENGTH_FLAT,SUM_MAP_K,MAP_MAP_o,o_DEF]>>
@@ -597,6 +610,146 @@ val init_memory_code = Q.store_thm("init_memory_code",
     fs[memory_size_def])>>
   DEP_REWRITE_TAC [get_byte_EL_words_of_bytes |> INST_TYPE [alpha|->``:32``] |> SIMP_RULE (srw_ss()) [bytes_in_word_def]]>>
   EVAL_TAC>>fs[memory_size_def]);
+
+(* TODO
+   - complete this proof
+   - clean it up a bit (it repeats a lot) *)
+val init_memory_data = Q.store_thm("init_memory_data",
+  `SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
+   LENGTH inp <= stdin_size /\
+   code_start_offset (LENGTH ffis) + (LENGTH code) +
+     4 * LENGTH data < memory_size /\
+   (low = code_start_offset (LENGTH ffis) + LENGTH code) /\
+   k < LENGTH data /\
+   byte_aligned (n2w (LENGTH code):word32)
+   ==>
+   word_of_bytes F 0w
+     [init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)));
+      init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 1w);
+      init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 2w);
+      init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 3w)] =
+    EL k data`,
+  rw []
+  \\ qabbrev_tac `low = LENGTH code + code_start_offset (LENGTH ffis)`
+  \\ simp [init_memory_def]
+  \\ simp [word_add_n2w]
+  \\ simp [init_memory_words_def]
+  \\ qmatch_goalsub_abbrev_tac `hh ++ cc ++ d`
+  \\ `LENGTH hh = LENGTH (ag32_ffi_jumps ffis) + ^(sz)`
+    by (fs[Abbr`hh`]
+        \\ simp [LENGTH_ag32_ffi_code, LENGTH_ag32_ffi_jumps]
+        \\ qmatch_goalsub_abbrev_tac
+          `(cll + (stl + (scl + (_ + (_ + (_ + (scpad + _)))))))`
+        \\ fs [LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
+               bytes_in_word_def, LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1,
+               SUM_MAP_PLUS,
+               Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
+        \\ `cll = cline_size DIV 4`
+          by (simp [Abbr `cll`]
+              \\ qmatch_goalsub_abbrev_tac `clll DIV 4`
+              \\ `clll = cline_size` by (unabbrev_all_tac \\ fs [])
+              \\ simp [cline_size_def])
+        \\ `stl = stdin_size DIV 4`
+          by (simp [Abbr `stl`]
+              \\ qmatch_goalsub_abbrev_tac `stll DIV 4`
+              \\ `stll = stdin_size` by (unabbrev_all_tac \\ fs [])
+              \\ simp [stdin_size_def])
+        \\ `scl + scpad = startup_code_size DIV 4`
+          by (unabbrev_all_tac \\ fs [LENGTH_startup_code_MOD_4]
+              \\ qmatch_goalsub_abbrev_tac `A DIV 4 + _`
+              \\ DEP_REWRITE_TAC
+                [GSYM (Q.SPEC `4n` ADD_DIV_RWT|>SIMP_RULE (srw_ss())[])]
+              \\ unabbrev_all_tac \\ simp [LENGTH_startup_code_MOD_4]
+              \\ AP_THM_TAC \\ AP_TERM_TAC
+              \\ match_mp_tac (DECIDE ``a ≤ b ⇒ (a+(b-a) = b:num)``)
+              \\ simp [LENGTH_startup_code])
+        \\ pop_assum mp_tac \\ simp [] \\ EVAL_TAC
+        \\ fs [])
+  (* TODO this needs to be moved to this theory *)
+  \\ `byte_aligned (n2w (code_start_offset (LENGTH ffis)) : word32)`
+      by fs [byte_aligned_code_start_offset]
+  (* TODO this was not nice *)
+  \\ ntac 4
+    (DEP_ONCE_REWRITE_TAC [EL_APPEND2] THEN
+       (conj_tac THEN1
+         (fs [Abbr `low`, Abbr `cc`, memory_size_def,
+              EVAL ``code_start_offset f``,
+              alignmentTheory.byte_align_def,
+              alignmentTheory.align_w2n,
+              LENGTH_ag32_ffi_jumps,
+              alignmentTheory.byte_aligned_def,
+              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              LENGTH_words_of_bytes, bytes_in_word_def]
+          \\ intLib.ARITH_TAC)))
+  \\ simp [word_of_bytes_def, Abbr `cc`, LENGTH_ag32_ffi_jumps]
+  (* TODO this is a useful lemma *)
+  \\ `!(y:word32) x. get_byte (n2w (4 * x) + y) = get_byte y`
+    by (
+      rw[FUN_EQ_THM]
+      \\ `byte_aligned ((n2w (4 * x)):word32)` by (
+        fs[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w] )
+      \\ `n2w (4 * x) : word32 = byte_align (n2w (4 * x))`
+      by ( fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def, alignmentTheory.aligned_def] )
+      \\ pop_assum SUBST1_TAC
+      \\ match_mp_tac data_to_word_memoryProofTheory.get_byte_byte_align
+      \\ EVAL_TAC )
+  \\ simp [GSYM word_add_n2w]
+  \\ pop_assum (qspec_then `0w` mp_tac) \\ fs []
+  \\ disch_then kall_tac
+  (* TODO this repeats *)
+  \\ qmatch_goalsub_abbrev_tac `EL n _`
+  \\ `n = k` by
+         (fs [Abbr `low`, Abbr `n`, memory_size_def,
+              EVAL ``code_start_offset f``,
+              alignmentTheory.byte_align_def,
+              alignmentTheory.align_w2n,
+              LENGTH_ag32_ffi_jumps,
+              alignmentTheory.byte_aligned_def,
+              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              LENGTH_words_of_bytes, bytes_in_word_def]
+          \\ intLib.ARITH_TAC)
+  \\ pop_assum (SUBST_ALL_TAC)
+  \\ qmatch_goalsub_abbrev_tac `get_byte 1w (EL n _)`
+  \\ `n = k` by
+         (fs [Abbr `low`, Abbr `n`, Abbr `k`, memory_size_def,
+              EVAL ``code_start_offset f``,
+              alignmentTheory.byte_align_def,
+              alignmentTheory.align_w2n,
+              LENGTH_ag32_ffi_jumps,
+              alignmentTheory.byte_aligned_def,
+              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              LENGTH_words_of_bytes, bytes_in_word_def]
+          \\ fs [word_add_n2w, word_mul_n2w]
+          \\ intLib.ARITH_TAC)
+  \\ pop_assum (SUBST_ALL_TAC)
+  \\ qmatch_goalsub_abbrev_tac `get_byte 2w (EL n _)`
+  \\ `n = k` by
+         (fs [Abbr `low`, Abbr `n`, Abbr `k`, memory_size_def,
+              EVAL ``code_start_offset f``,
+              alignmentTheory.byte_align_def,
+              alignmentTheory.align_w2n,
+              LENGTH_ag32_ffi_jumps,
+              alignmentTheory.byte_aligned_def,
+              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              LENGTH_words_of_bytes, bytes_in_word_def]
+          \\ fs [word_add_n2w, word_mul_n2w]
+          \\ intLib.ARITH_TAC)
+  \\ pop_assum (SUBST_ALL_TAC)
+  \\ qmatch_goalsub_abbrev_tac `get_byte 3w (EL n _)`
+  \\ `n = k` by
+         (fs [Abbr `low`, Abbr `n`, Abbr `k`, memory_size_def,
+              EVAL ``code_start_offset f``,
+              alignmentTheory.byte_align_def,
+              alignmentTheory.align_w2n,
+              LENGTH_ag32_ffi_jumps,
+              alignmentTheory.byte_aligned_def,
+              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              LENGTH_words_of_bytes, bytes_in_word_def]
+          \\ fs [word_add_n2w, word_mul_n2w]
+          \\ intLib.ARITH_TAC)
+  \\ pop_assum (SUBST_ALL_TAC)
+  \\ cheat (* TODO *)
+  );
 
 val init_memory_halt = Q.store_thm("init_memory_halt",
   `(pc = n2w (ffi_jumps_offset + (LENGTH f + 1) * ffi_offset)) ∧
