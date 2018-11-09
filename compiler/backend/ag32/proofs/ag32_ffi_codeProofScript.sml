@@ -3201,8 +3201,9 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
     \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_loop_code``,``LENGTH ag32_ffi_get_arg_length_setup_code``])
     \\ simp[EVAL``LENGTH ag32_ffi_get_arg_length_code``]
     \\ strip_tac
-    \\ `n = j + 5247432 - 1` by fs[]
-    \\ fs[])
+    \\ qmatch_asmsub_abbrev_tac`n + 1 = j + z`
+    \\ `n = j + z - 1` by fs[]
+    \\ fs[Abbr`z`])
   \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_return s3`
   \\ qspec_then`s3`mp_tac(Q.GEN `s`ag32_ffi_return_code_thm)

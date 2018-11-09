@@ -288,8 +288,8 @@ val startup_code_size_def = Define`
 
 val FFI_codes_def = Define`
   FFI_codes =
-    [("exit", 0n)
-    ;("get_arg_count", 1n)
+    [(*("exit", 0n)
+    ;*)("get_arg_count", 1n)
     ;("get_arg_length", 2n)
     ;("get_arg", 3n)
     ;("read", 4n)
@@ -309,7 +309,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1304n`;
+  length_ag32_ffi_code = 1264n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -548,7 +548,8 @@ val ag32_ffi_exit_code_def = Define`
 
 val ag32_ffi_get_arg_count_entrypoint_def = Define`
   ag32_ffi_get_arg_count_entrypoint =
-  ag32_ffi_exit_entrypoint + 4 * LENGTH ag32_ffi_exit_code`;
+  0n
+  (* ag32_ffi_exit_entrypoint + 4 * LENGTH ag32_ffi_exit_code *)`;
 
 val ag32_ffi_get_arg_count_main_code_def = Define`
   ag32_ffi_get_arg_count_main_code =
@@ -3278,7 +3279,9 @@ val ag32_ffi_close_code_def = Define`
 
 val ffi_entrypoints_def = Define`
   ffi_entrypoints = [
+    (*
     ("exit", ag32_ffi_exit_entrypoint);
+    *)
     ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
     ("get_arg_length", ag32_ffi_get_arg_length_entrypoint);
     ("get_arg", ag32_ffi_get_arg_entrypoint);
@@ -3290,7 +3293,9 @@ val ffi_entrypoints_def = Define`
 
 val ffi_exitpcs_def = Define`
   ffi_exitpcs = [
+    (*
     ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
+    *)
     ("get_arg_count", ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
     ("get_arg_length", ffi_code_start_offset + ag32_ffi_get_arg_entrypoint);
     ("get_arg", ffi_code_start_offset + ag32_ffi_read_entrypoint);
@@ -3353,7 +3358,9 @@ val LENGTH_ag32_ffi_jumps =
 val ag32_ffi_code_def = Define`
   ag32_ffi_code =
     MAP Encode (
+      (*
       ag32_ffi_exit_code ++
+      *)
       ag32_ffi_get_arg_count_code ++
       ag32_ffi_get_arg_length_code ++
       ag32_ffi_get_arg_code ++

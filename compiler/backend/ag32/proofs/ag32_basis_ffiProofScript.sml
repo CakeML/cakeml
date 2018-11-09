@@ -673,6 +673,7 @@ val startup_asm_code_small_enough = Q.store_thm("startup_asm_code_small_enough",
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
   \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
 
+(* TODO: this is not true until exit is implemented
 val FFI_codes_covers_basis_ffi = Q.store_thm("FFI_codes_covers_basis_ffi",
   `∀name st conf bytes. basis_ffi_oracle name st conf bytes ≠ Oracle_final FFI_failed ⇒ name ∈ set (MAP FST FFI_codes)`,
   rw[basis_ffiTheory.basis_ffi_oracle_def]
@@ -680,6 +681,7 @@ val FFI_codes_covers_basis_ffi = Q.store_thm("FFI_codes_covers_basis_ffi",
   \\ simp[FFI_codes_def]
   \\ pop_assum mp_tac
   \\ rpt(IF_CASES_TAC \\ fs[]));
+*)
 
 val get_output_io_event_def = Define`
   get_output_io_event (IO_event name conf bs2) =
@@ -6949,8 +6951,10 @@ val ag32_interference_implemented = Q.store_thm("ag32_interference_implemented",
   \\ simp[MEM_EL, PULL_EXISTS]
   \\ disch_then(qspec_then`ffi_index`mp_tac)
   \\ impl_tac >- fs[]
+  (*
   \\ Cases_on`EL ffi_index ffi_names = "exit"` \\ fs[]
   >- cheat (* remove exit from the list ? or implement it *)
+  *)
   \\ Cases_on`EL ffi_index ffi_names = "read"` \\ fs[]
   >- ffi_tac ag32_ffi_interfer_read ``ag32_ffi_read_code``
   \\ Cases_on`EL ffi_index ffi_names = "close"` \\ fs[]
