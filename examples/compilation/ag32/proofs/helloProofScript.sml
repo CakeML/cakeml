@@ -274,50 +274,11 @@ val hello_halted = Q.store_thm("hello_halted",
         ((FUNPOW Next k ms).PC = ms.PC) ∧
         ((FUNPOW Next k ms).MEM = ms.MEM) ∧
         (∀w. w ≠ 0w ⇒ ((FUNPOW Next k ms).R w = ms.R w))`,
-  gen_tac \\ strip_tac \\ rveq
-  \\ Induct >- rw[]
-  \\ simp[FUNPOW_SUC]
-  \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
-  \\ pop_assum mp_tac
-  \\ simp[ag32Theory.Next_def]
-  \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
-  \\ qmatch_asmsub_abbrev_tac`_.PC = pc`
-  \\ `aligned 2 pc`
-  by (
-    simp[Abbr`pc`]
-    \\ simp[hello_machine_config_def, ag32_machine_config_def]
-    \\ simp[LENGTH_data, heap_size_def, lab_to_targetTheory.ffi_offset_def, ffi_names]
-    \\ EVAL_TAC )
-  \\ `pc = pc'`
-  by (
-    pop_assum mp_tac
-    \\ unabbrev_all_tac
-    \\ simp[alignmentTheory.aligned_extract]
-    \\ blastLib.BBLAST_TAC )
-  \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
-  \\ pop_assum (SUBST_ALL_TAC o SYM)
-  \\ fs[Abbr`pc`]
-  \\ first_assum(qspec_then`ms.PC`mp_tac)
-  \\ impl_tac >- simp[hello_machine_config_halt_pc]
-  \\ first_assum(qspec_then`ms.PC + 1w`mp_tac)
-  \\ impl_tac >- simp[hello_machine_config_halt_pc]
-  \\ first_assum(qspec_then`ms.PC + 2w`mp_tac)
-  \\ impl_tac >- simp[hello_machine_config_halt_pc]
-  \\ first_x_assum(qspec_then`ms.PC + 3w`mp_tac)
-  \\ impl_tac >- simp[hello_machine_config_halt_pc]
-  \\ simp[]
-  \\ simp[EVAL``(hello_machine_config).target.get_byte``]
-  \\ rpt (disch_then SUBST_ALL_TAC)
-  \\ qmatch_goalsub_abbrev_tac`_ @@ hello_init_memory _ pc`
-  \\ mp_tac hello_init_memory_halt
-  \\ impl_tac >- simp[]
-  \\ simp[get_mem_word_def]
-  \\ disch_then kall_tac
-  \\ simp[ag32_targetProofTheory.Decode_Encode]
-  \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def]
-  \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def]
-  \\ strip_tac
-  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
+  rewrite_tac[hello_init_memory_def]
+  \\ gen_tac \\ strip_tac
+  \\ irule ag32_halted
+  \\ asm_exists_tac
+  \\ fs[ffi_names, FFI_codes_def, hello_machine_config_def]);
 
 val hello_interference_implemented = Q.store_thm("hello_interference_implemented",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧

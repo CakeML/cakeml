@@ -6470,4 +6470,79 @@ val ag32_installed = Q.store_thm("ag32_installed",
     \\ blastLib.BBLAST_TAC*))
   \\ EVAL_TAC);
 
+val ag32_halted = Q.store_thm("ag32_halted",
+  `∀ms.
+    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+    LENGTH inp ≤ stdin_size ∧
+    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
+    (mc = ag32_machine_config ffi_names (LENGTH code) (LENGTH data)) ∧
+    (ms.PC = mc.halt_pc) ∧
+    (∀x. mc.halt_pc <=+ x ∧ x <+ mc.halt_pc + 16w ⇒
+         (mc.target.get_byte ms x = (init_memory code data ffi_names (cl,inp)) x)) ⇒
+    ∀k. ((FUNPOW Next k ms).io_events = ms.io_events) ∧
+        ((FUNPOW Next k ms).PC = ms.PC) ∧
+        ((FUNPOW Next k ms).MEM = ms.MEM) ∧
+        (∀w. w ≠ 0w ⇒ ((FUNPOW Next k ms).R w = ms.R w))`,
+  gen_tac \\ strip_tac \\ rveq
+  \\ Induct >- rw[]
+  \\ simp[FUNPOW_SUC]
+  \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
+  \\ pop_assum mp_tac
+  \\ simp[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc' + 2w`
+  \\ qmatch_asmsub_abbrev_tac`_.PC = pc`
+  \\ `byte_aligned pc`
+  by (
+    simp[Abbr`pc`]
+    \\ simp[ag32_machine_config_def]
+    \\ simp[lab_to_targetTheory.ffi_offset_def, GSYM word_add_n2w]
+    \\ irule byte_aligned_add
+    \\ conj_tac >- EVAL_TAC
+    \\ simp[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+    \\ EVAL_TAC )
+  \\ `pc = pc'`
+  by (
+    pop_assum mp_tac
+    \\ simp[alignmentTheory.byte_aligned_def]
+    \\ unabbrev_all_tac
+    \\ simp[alignmentTheory.aligned_extract]
+    \\ blastLib.BBLAST_TAC )
+  \\ qpat_x_assum`Abbrev(pc' = _)` kall_tac
+  \\ pop_assum (SUBST_ALL_TAC o SYM)
+  \\ fs[Abbr`pc`]
+  \\ first_assum(qspec_then`ms.PC`mp_tac)
+  \\ impl_tac >- (
+    fs[ag32_machine_config_def, FFI_codes_def]
+    \\ EVAL_TAC \\ fs[] )
+  \\ first_assum(qspec_then`ms.PC + 1w`mp_tac)
+  \\ impl_tac >- (
+    fs[ag32_machine_config_def, FFI_codes_def]
+    \\ EVAL_TAC \\ fs[] )
+  \\ first_assum(qspec_then`ms.PC + 2w`mp_tac)
+  \\ impl_tac >- (
+    fs[ag32_machine_config_def, FFI_codes_def]
+    \\ EVAL_TAC \\ fs[] )
+  \\ first_x_assum(qspec_then`ms.PC + 3w`mp_tac)
+  \\ impl_tac >- (
+    fs[ag32_machine_config_def, FFI_codes_def]
+    \\ EVAL_TAC \\ fs[] )
+  \\ simp[]
+  \\ simp[EVAL``(ag32_machine_config _ _ _).target.get_byte``]
+  \\ rpt (disch_then SUBST_ALL_TAC)
+  \\ qmatch_goalsub_abbrev_tac`_ @@ init_memory _ _ _ _ pc`
+  \\ first_assum(mp_then Any mp_tac(GEN_ALL init_memory_halt))
+  \\ simp[]
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ pop_assum mp_tac
+  \\ simp[ag32_machine_config_def]
+  \\ strip_tac
+  \\ simp[get_mem_word_def]
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def]
+  \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def]
+  \\ strip_tac
+  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
+
 val _ = export_theory();
