@@ -156,66 +156,62 @@ val wordcount_init_memory_ccache = Q.store_thm("wordcount_init_memory_ccache",
   match_mp_tac init_memory_ccache>>
   simp[ffi_names,ag32_machine_config_def,FFI_codes_def]);
 
-val wordcount_init_asm_state_def = Define`
-  wordcount_init_asm_state input =
-    FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
-      (ag32_init_asm_state
-        (wordcount_init_memory input)
-        (ag32_startup_addresses))
-      (wordcount_startup_asm_code)`;
+val wordcount_start_asm_state_def = Define`
+  wordcount_start_asm_state =
+    init_asm_state code data (THE config.ffi_names)`;
 
 val _ = temp_overload_on("wordcount_asm_state0",
   ``(ag32_init_asm_state
       (wordcount_init_memory (cl,inp))
       (ag32_startup_addresses))``);
 
-val wordcount_init_asm_state_RTC_asm_step = Q.store_thm("wordcount_init_asm_state_RTC_asm_step",
+val wordcount_start_asm_state_RTC_asm_step = Q.store_thm("wordcount_start_asm_state_RTC_asm_step",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size
   ⇒
-   (λx y. ∃i. asm_step ag32_config x i y)^* wordcount_asm_state0 (wordcount_init_asm_state (cl,inp)) ∧
+   (λx y. ∃i. asm_step ag32_config x i y)^* wordcount_asm_state0 (wordcount_start_asm_state (cl,inp)) ∧
    let ffi_names = THE config.ffi_names in
    let num_ffis = LENGTH ffi_names in
    let hs = n2w heap_start_offset in
    let ds = n2w (code_start_offset num_ffis + LENGTH code) in
-   ((wordcount_init_asm_state (cl,inp)).pc = n2w (code_start_offset num_ffis)) ∧
-   (read_bytearray (wordcount_init_asm_state (cl,inp)).pc (LENGTH code)
-      (λa. if a ∈ wordcount_machine_config.prog_addresses then SOME ((wordcount_init_asm_state (cl,inp)).mem a) else NONE)
+   ((wordcount_start_asm_state (cl,inp)).pc = n2w (code_start_offset num_ffis)) ∧
+   (read_bytearray (wordcount_start_asm_state (cl,inp)).pc (LENGTH code)
+      (λa. if a ∈ wordcount_machine_config.prog_addresses then SOME ((wordcount_start_asm_state (cl,inp)).mem a) else NONE)
       = SOME code) ∧
-    ((wordcount_init_asm_state (cl,inp)).regs 2 = hs) ∧
-    ((wordcount_init_asm_state (cl,inp)).regs 4 = hs + n2w heap_size) ∧
-    (word_of_bytes F 0w (GENLIST ((wordcount_init_asm_state (cl,inp)).mem o ((+)(hs + 0w * 4w)) o n2w) 4)
+    ((wordcount_start_asm_state (cl,inp)).regs 2 = hs) ∧
+    ((wordcount_start_asm_state (cl,inp)).regs 4 = hs + n2w heap_size) ∧
+    (word_of_bytes F 0w (GENLIST ((wordcount_start_asm_state (cl,inp)).mem o ((+)(hs + 0w * 4w)) o n2w) 4)
      = ds) ∧
-    (word_of_bytes F 0w (GENLIST ((wordcount_init_asm_state (cl,inp)).mem o ((+)(hs + 1w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((wordcount_start_asm_state (cl,inp)).mem o ((+)(hs + 1w * 4w)) o n2w) 4)
      = ds + n2w (4 * LENGTH data)) ∧
-    (word_of_bytes F 0w (GENLIST ((wordcount_init_asm_state (cl,inp)).mem o ((+)(hs + 2w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((wordcount_start_asm_state (cl,inp)).mem o ((+)(hs + 2w * 4w)) o n2w) 4)
      = ds + n2w (4 * LENGTH data)) ∧
-    (word_of_bytes F 0w (GENLIST ((wordcount_init_asm_state (cl,inp)).mem o ((+)(hs + 3w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((wordcount_start_asm_state (cl,inp)).mem o ((+)(hs + 3w * 4w)) o n2w) 4)
      = ds) ∧
-    (word_of_bytes F 0w (GENLIST ((wordcount_init_asm_state (cl,inp)).mem o ((+)(hs + 4w * 4w)) o n2w) 4)
+    (word_of_bytes F 0w (GENLIST ((wordcount_start_asm_state (cl,inp)).mem o ((+)(hs + 4w * 4w)) o n2w) 4)
      = ds) ∧
     (∀k. k < 4 * LENGTH data + 4 ⇒
-      ((wordcount_init_asm_state (cl,inp)).mem (ds + n2w k) =
+      ((wordcount_start_asm_state (cl,inp)).mem (ds + n2w k) =
        wordcount_init_memory (cl,inp) (ds + n2w k)))`,
   strip_tac>>
   drule (GEN_ALL init_asm_state_RTC_asm_step)>>
   disch_then drule>>
-  disch_then(qspecl_then [`wordcount_machine_config`,`wordcount_init_memory`,`wordcount_init_asm_state (cl,inp)`,`wordcount_asm_state0`,`code`,`data`,`THE config.ffi_names`] mp_tac)>>
+  disch_then(qspecl_then [`wordcount_machine_config`,`wordcount_init_memory`,`wordcount_start_asm_state (cl,inp)`,`wordcount_asm_state0`,`code`,`data`,`THE config.ffi_names`] mp_tac)>>
   impl_tac >-(
     EVAL_TAC>>
     fs[ffi_names,LENGTH_data,LENGTH_code])>>
   simp[]);
 
-val target_state_rel_wordcount_init_asm_state = Q.store_thm("target_state_rel_wordcount_init_asm_state",
+val target_state_rel_wordcount_start_asm_state = Q.store_thm("target_state_rel_wordcount_start_asm_state",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (wordcount_init_memory (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (wordcount_init_asm_state (cl,inp)) (FUNPOW Next n ms) ∧
+   ∃n. target_state_rel ag32_target (wordcount_start_asm_state (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
   strip_tac
-  \\ imp_res_tac wordcount_init_asm_state_RTC_asm_step
+  \\ imp_res_tac wordcount_start_asm_state_RTC_asm_step
   \\ drule (GEN_ALL target_state_rel_ag32_init)
   \\ rveq
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
@@ -225,7 +221,7 @@ val target_state_rel_wordcount_init_asm_state = Q.store_thm("target_state_rel_wo
 
 val wordcount_startup_clock_def =
   new_specification("wordcount_startup_clock_def",["wordcount_startup_clock"],
-  GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_wordcount_init_asm_state))
+  GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_wordcount_start_asm_state))
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
@@ -234,291 +230,29 @@ val wordcount_good_init_state = Q.store_thm("wordcount_good_init_state",
    is_ag32_init_state (wordcount_init_memory (cl,inp)) ms0 ⇒
    ∃io_regs cc_regs.
    good_init_state wordcount_machine_config (FUNPOW Next (wordcount_startup_clock ms0 inp cl) ms0)
-     (basis_ffi cl fs) code 0
-     ((wordcount_init_asm_state (cl,inp)) with mem_domain := wordcount_machine_config.prog_addresses)
+     (basis_ffi cl fs) wordcountCompile$code 0
+     ((wordcount_start_asm_state (cl,inp)) with mem_domain := wordcount_machine_config.prog_addresses)
      (λk. Word
-       (word_of_bytes F 0w (GENLIST (λi. (wordcount_init_asm_state (cl,inp)).mem (k + n2w i)) 4)))
-       ({w | (wordcount_init_asm_state (cl,inp)).regs 2 <=+ w ∧
-             w <+ (wordcount_init_asm_state (cl,inp)).regs 4}
-        ∪ {w | n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code) <=+ w ∧
-               w <+ n2w(code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH code + 4 * LENGTH data) })
+       (word_of_bytes F 0w (GENLIST (λi. (wordcount_start_asm_state (cl,inp)).mem (k + n2w i)) 4)))
+       ({w | (wordcount_start_asm_state (cl,inp)).regs 2 <=+ w ∧
+             w <+ (wordcount_start_asm_state (cl,inp)).regs 4}
+        ∪ {w | n2w (code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH wordcountCompile$code) <=+ w ∧
+               w <+ n2w(code_start_offset (LENGTH (THE config.ffi_names)) + LENGTH wordcountCompile$code + 4 * LENGTH wordcountCompile$data) })
      io_regs
      cc_regs`,
   strip_tac
-  \\ drule wordcount_startup_clock_def \\ fs[]
-  \\ disch_then drule \\ disch_then drule
-  \\ strip_tac
-  \\ simp[lab_to_targetProofTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
-  \\ mp_tac wordcount_init_asm_state_RTC_asm_step
-  \\ impl_tac >- fs[]
-  \\ strip_tac
-  \\ conj_tac >- (
-    fs[wordcount_machine_config_def, ag32_machine_config_def]
-    \\ fs[asmPropsTheory.target_state_rel_def]
-    \\ fs[EVAL``ag32_target.get_byte``]
-    \\ qx_gen_tac`a` \\ strip_tac
-    \\ drule asmPropsTheory.RTC_asm_step_consts
-    \\ strip_tac \\ fs[]
-    \\ `wordcount_asm_state0.mem_domain = ag32_startup_addresses` by (
-      fs[ag32_init_asm_state_def] )
-    \\ fs[]
-    \\ Cases_on`a ∈ ag32_startup_addresses` \\ fs[]
-    \\ drule asmPropsTheory.RTC_asm_step_outside_mem_domain
-    \\ simp[]
-    \\ fs[is_ag32_init_state_def]
-    \\ simp[ag32_init_asm_state_def])
-  \\ conj_tac
-  >- (
-    Q.ISPEC_THEN `wordcount_machine_config with prog_addresses := ag32_startup_addresses`
-      drule (Q.GEN`mc` RTC_asm_step_target_configured)
-    \\ simp[lab_to_targetProofTheory.target_configured_def]
-    \\ impl_tac >- EVAL_TAC
-    \\ strip_tac \\ fs[])
-  \\ conj_tac >- (
-    fs[asmPropsTheory.target_state_rel_def, wordcount_machine_config_def, ag32_machine_config_def] )
-  \\ qabbrev_tac`num_ffis = LENGTH (THE config.ffi_names)`
-  \\ `n2w (code_start_offset num_ffis) && 3w = 0w:word32` by (
-    EVAL_TAC
-    \\ fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def, Abbr`num_ffis`, ffi_names])
-  \\ `n2w (code_start_offset num_ffis) && 1w = 0w:word32` by (
-    EVAL_TAC
-    \\ fs[alignmentTheory.aligned_bitwise_and, alignmentTheory.byte_aligned_def, Abbr`num_ffis`, ffi_names])
-  \\ conj_tac >- (
-    rewrite_tac[lab_to_targetProofTheory.start_pc_ok_def]
-    \\ conj_tac >- ( EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names, Abbr`num_ffis`])
-    \\ conj_tac >- ( EVAL_TAC \\ simp[LENGTH_code, LENGTH_data, ffi_names, Abbr`num_ffis`])
-    \\ simp[lab_to_targetTheory.ffi_offset_def]
-    \\ conj_tac >- (EVAL_TAC \\ simp[ffi_names,Abbr`num_ffis`])
-    \\ conj_tac >- (EVAL_TAC \\ simp[ffi_names,Abbr`num_ffis`] )
-    \\ conj_tac >- fs[]
-    \\ rewrite_tac[EVAL``wordcount_machine_config.ffi_names``]
-    \\ fs[ffi_names, Abbr`num_ffis`,lab_to_targetTheory.ffi_offset_def, EVAL``code_start_offset n``]
-    \\ gen_tac \\ CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[NUMERAL_LESS_THM]))
-    \\ simp[wordcount_machine_config_def, ffi_names, ag32_machine_config_def]
-    \\ EVAL_TAC \\ simp[LENGTH_data, LENGTH_code]
-    \\ strip_tac \\ rveq \\ EVAL_TAC)
-  \\ conj_tac >- (
-    imp_res_tac asmPropsTheory.RTC_asm_step_consts
-    \\ qpat_x_assum`_ && 3w = _`mp_tac \\ fs[]
-    \\ simp[ag32_init_asm_state_def] )
-  \\ conj_tac >- (
-    rw[asmPropsTheory.interference_ok_def]
-    \\ simp[EVAL``(wordcount_machine_config).target``]
-    \\ simp[EVAL``(wordcount_machine_config).next_interfer``] )
-  \\ simp[LEFT_EXISTS_AND_THM]
-  \\ conj_tac >- (
-    simp[lab_to_targetProofTheory.ffi_interfer_ok_def]
-    \\ simp[wordcount_machine_config_def, ag32_machine_config_def]
-    \\ simp[lab_to_targetTheory.ffi_offset_def,LENGTH_data,heap_size_def,Abbr`num_ffis`,ffi_names]
-    \\ simp[EVAL``ag32_target.config``,labSemTheory.get_reg_value_def]
-    \\ simp[ag32_ffi_interfer_def]
-    \\ simp[LENGTH_ag32_ffi_code,LENGTH_code]
-    \\ qexists_tac`λk i n. if n = 0 then OPTION_MAP n2w (ALOOKUP ffi_exitpcs i)
-                           else if n < 9 then SOME 0w else NONE`
-    \\ rpt gen_tac
-    \\ srw_tac[ETA_ss][]
-    \\ fs[asmPropsTheory.target_state_rel_def]
-    \\ fs[ag32_targetTheory.ag32_target_def]
-    \\ fs[ag32_targetTheory.ag32_ok_def]
-    \\ fs[ag32_targetTheory.ag32_config_def]
-    \\ conj_tac
-    >- (
-      rw[]
-      \\ fs[ffiTheory.call_FFI_def]
-      \\ `st.oracle = (basis_ffi cl fs).oracle` by metis_tac[evaluatePropsTheory.RTC_call_FFI_rel_consts]
-      \\ fs[basis_ffiTheory.basis_ffi_def]
-      \\ qpat_x_assum`index < _`mp_tac
-      \\ simp[NUMERAL_LESS_THM]
-      \\ strip_tac \\ rveq \\ fs[]
-      \\ qmatch_asmsub_abbrev_tac`oracle_result_CASE r`
-      \\ pop_assum mp_tac
-      \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
-      \\ strip_tac \\ fs[Abbr`r`]
-      \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result"]
-      \\ pairarg_tac \\ fs[]
-      \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result",CaseEq"ffi_result"]
-      \\ rveq \\ fs[]
-      \\ simp[ag32_ffi_mem_update_def]
-      \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray p new_bytes m2`
-      \\ `asm_write_bytearray p new_bytes m2 a = asm_write_bytearray p new_bytes t1.mem a`
-      by (
-        irule mem_eq_imp_asm_write_bytearray_eq
-        \\ simp[Abbr`m2`, APPLY_UPDATE_THM] \\ rw[]
-        \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
-        \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
-        \\ simp[ag32_prog_addresses_def]
-        \\ EVAL_TAC)
-      \\ TRY (
-        CHANGED_TAC(fs[fsFFITheory.ffi_read_def])
-        \\ fs[CaseEq"list"] \\ rveq
-        \\ PURE_TOP_CASE_TAC \\ fs[]
-        \\ PURE_TOP_CASE_TAC \\ fs[]
-        \\ PURE_TOP_CASE_TAC \\ fs[]
-        \\ reverse IF_CASES_TAC >- rw[]
-        \\ rw[]
-        \\ qmatch_goalsub_abbrev_tac`set_mem_word x y m a`
-        \\ qpat_x_assum`m a = _`(SUBST1_TAC o SYM)
-        \\ irule set_mem_word_neq
-        \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
-        \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
-        \\ simp[ag32_prog_addresses_def, Abbr`x`]
-        \\ strip_tac
-        \\ EVAL_TAC
-        \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
-        \\ NO_TAC)
-      \\ reverse IF_CASES_TAC
-      >- (
-        rw[APPLY_UPDATE_THM]
-        \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
-        \\ qpat_x_assum`_ = _.mem_domain`(assume_tac o SYM)
-        \\ simp[ag32_prog_addresses_def]
-        \\ EVAL_TAC)
-      \\ rw[]
-      \\ fs[targetSemTheory.read_ffi_bytearrays_def]
-      \\ fs[targetSemTheory.read_ffi_bytearray_def]
-      \\ fs[fsFFITheory.ffi_write_def]
-      \\ fs[CaseEq"list"] \\ rveq
-      \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
-      \\ rewrite_tac[OPTION_CHOICE_EQUALS_OPTION]
-      \\ reverse strip_tac
-      >- (
-        pop_assum mp_tac \\ simp[LUPDATE_def]
-        \\ strip_tac \\ rveq
-        \\ qpat_x_assum`_ = 0w`mp_tac
-        \\ simp[] )
-      \\ fs[]
-      \\ pairarg_tac \\ fs[] \\ rveq
-      \\ rw[]
-      \\ irule asm_write_bytearray_unchanged
-      \\ fs[EVAL``output_offset``, output_buffer_size_def]
-      \\ fs[LENGTH_TAKE_EQ, fsFFITheory.write_def]
-      \\ pairarg_tac \\ fs[]
-      \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
-      \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
-      \\ simp[ag32_prog_addresses_def]
-      \\ strip_tac
-      \\ CONV_TAC(LAND_CONV EVAL)
-      \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
-      \\ rw[MIN_DEF])
-    \\ simp[APPLY_UPDATE_THM]
-    \\ rpt strip_tac
-    \\ qmatch_goalsub_abbrev_tac`THE opt`
-    \\ `IS_SOME opt`
-    by (
-      simp[Abbr`opt`]
-      \\ qpat_x_assum`index < _`mp_tac
-      \\ simp[NUMERAL_LESS_THM]
-      \\ strip_tac \\ rveq \\ EVAL_TAC )
-    \\ fs[IS_SOME_EXISTS]
-    \\ rpt(IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def]))
-  \\ conj_tac >- (
-    rw[lab_to_targetProofTheory.ccache_interfer_ok_def,
-       wordcount_machine_config_def, ag32_machine_config_def,
-       lab_to_targetTheory.ffi_offset_def, ag32_ccache_interfer_def,
-       LENGTH_data, heap_size_def, EVAL``ag32_target.config``]
-    \\ qmatch_goalsub_abbrev_tac`0w =+ v0`
-    \\ qexists_tac`λk n. if n = 0 then SOME v0 else NONE`
-    \\ EVAL_TAC \\ rw[]
-    \\ IF_CASES_TAC \\ simp[labSemTheory.get_reg_value_def] )
-  \\ conj_asm1_tac >- (
-    simp[targetSemTheory.code_loaded_def]
-    \\ fs[asmPropsTheory.target_state_rel_def]
-    \\ simp[SIMP_CONV (srw_ss()) [wordcount_machine_config_def,ag32_machine_config_def]``(wordcount_machine_config).target``]
-    \\ rfs[]
-    \\ first_x_assum(CONV_TAC o RAND_CONV o REWR_CONV o SYM)
-    \\ AP_TERM_TAC
-    \\ rw[FUN_EQ_THM]
-    \\ rw[]
-    \\ match_mp_tac EQ_SYM
-    \\ fs[EVAL``ag32_target.get_byte``]
-    \\ reverse(Cases_on`a ∈ ag32_startup_addresses`) \\ fs[]
-    >- (
-      drule asmPropsTheory.RTC_asm_step_outside_mem_domain
-      \\ simp[ag32_init_asm_state_def]
-      \\ fs[is_ag32_init_state_def] )
-    \\ imp_res_tac asmPropsTheory.RTC_asm_step_consts \\ fs[]
-    \\ fs[ag32_init_asm_state_def])
-  \\ conj_tac >- (
-    fs[bytes_in_mem_bytes_in_memory]
-    \\ qpat_x_assum`_.pc = _`(assume_tac o SYM) \\ fs[]
-    \\ irule read_bytearray_IMP_bytes_in_memory_WORD_LOWER
-    \\ goal_assum(first_assum o mp_then Any mp_tac)
-    \\ simp[]
-    \\ imp_res_tac asmPropsTheory.RTC_asm_step_consts
-    \\ qpat_x_assum`_ = _.pc`(assume_tac o SYM) \\ fs[]
-    \\ EVAL_TAC
-    \\ simp[LENGTH_data,LENGTH_code,Abbr`num_ffis`,ffi_names]
-    \\ Cases \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w])
-  \\ conj_tac >- (
-    imp_res_tac asmPropsTheory.RTC_asm_step_consts
-    \\ fs[LENGTH_data,heap_size_def]
-    \\ EVAL_TAC
-    \\ simp[SUBSET_DEF, LENGTH_code, LENGTH_data, Abbr`num_ffis`, ffi_names]
-    \\ Cases
-    \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w])
-  \\ conj_tac >- (
-    gen_tac
-    \\ qmatch_goalsub_abbrev_tac`low <=+ byte_align a`
-    \\ qmatch_goalsub_abbrev_tac`byte_align a <+ hi`
-    \\ strip_tac
-    >- (
-      disj1_tac
-      \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
-      \\ simp[Abbr`hi`,Abbr`low`]
-      \\ fs[alignmentTheory.byte_aligned_def]
-      \\ EVAL_TAC )
-    \\ disj2_tac
-    \\ irule (SIMP_RULE (srw_ss()) [] byte_align_IN_IMP_IN_range)
-    \\ simp[heap_size_def,LENGTH_data,LENGTH_code]
-    \\ fs[alignmentTheory.byte_aligned_def,Abbr`hi`,heap_size_def]
-    \\ simp[Abbr`num_ffis`,ffi_names]
-    \\ EVAL_TAC )
-  \\ conj_tac >- (
-    simp[EVAL``(wordcount_machine_config).target.config``]
-    \\ Cases
-    \\ qmatch_asmsub_rename_tac`i < dimword _`
-    \\ `byte_align ((n2w i):word32) <=+ n2w i`
-      by metis_tac[align_ls,alignmentTheory.byte_align_def]
-    \\ pop_assum mp_tac
-    \\ simp[alignmentTheory.byte_align_def, alignmentTheory.align_w2n]
-    \\ simp[word_ls_n2w]
-    \\ `4 * (i DIV 4) ≤ i` by (
-      once_rewrite_tac[MULT_COMM]
-      \\ simp[GSYM X_LE_DIV] )
-    \\ fs[]
-    \\ fs[LESS_EQ_EXISTS]
-    \\ qmatch_asmsub_rename_tac`i = q + _`
-    \\ `n2w i : word32 = n2w q + n2w (4 * (i DIV 4))` by metis_tac[word_add_n2w]
-    \\ pop_assum(fn th => CONV_TAC(RAND_CONV(REWRITE_CONV[th])))
-    \\ `n2w (4 * (i DIV 4)) : word32 = byte_align (n2w (4 * (i DIV 4)))`
-    by (
-      simp[alignmentTheory.byte_align_def]
-      \\ simp[GSYM alignmentTheory.aligned_def]
-      \\ simp[GSYM ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
-    \\ pop_assum(CONV_TAC o PATH_CONV"rllrr" o REWR_CONV)
-    \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
-    \\ conj_tac >- EVAL_TAC
-    \\ `q < 4`
-    by (
-      `q = i - 4 * (i DIV 4)` by fs[]
-      \\ rw[]
-      \\ qspec_then`4`mp_tac DIVISION
-      \\ impl_tac >- rw[]
-      \\ disch_then(qspec_then`i`mp_tac)
-      \\ strip_tac
-      \\ first_x_assum(CONV_TAC o LAND_CONV o REWR_CONV)
-      \\ simp[] )
-    \\ DEP_REWRITE_TAC[MP_CANON get_byte_word_of_bytes]
-    \\ simp[word_add_n2w]
-    \\ conj_tac >- EVAL_TAC
-    \\ Cases_on`q` \\ fs[] >- metis_tac[]
-    \\ qmatch_asmsub_rename_tac`SUC q < _`
-    \\ Cases_on`q` \\ fs[] >- metis_tac[]
-    \\ qmatch_asmsub_rename_tac`SUC (SUC q) < _`
-    \\ Cases_on`q` \\ fs[] >- metis_tac[]
-    \\ qmatch_asmsub_rename_tac`SUC (SUC (SUC q)) < _`
-    \\ Cases_on`q` \\ fs[] >- metis_tac[] )
-  \\ simp[LENGTH_code]);
+  \\ rewrite_tac[wordcount_machine_config_def, wordcount_start_asm_state_def]
+  \\ match_mp_tac ag32_good_init_state
+  \\ simp[]
+  \\ conj_tac >- (simp[ffi_names] \\ EVAL_TAC)
+  \\ conj_tac >- (simp[ffi_names])
+  \\ conj_tac >- (simp[ffi_names, LENGTH_data, LENGTH_code] \\ EVAL_TAC)
+  \\ conj_tac >- (simp[ LENGTH_code] \\ EVAL_TAC)
+  \\ conj_tac >- (fs[wordcount_init_memory_def])
+  \\ drule wordcount_startup_clock_def
+  \\ disch_then drule
+  \\ disch_then drule \\ rw[]
+  \\ fs[wordcount_start_asm_state_def]);
 
 val is_ag32_machine_config_wordcount_machine_config = Q.store_thm("is_ag32_machine_config_wordcount_machine_config",
   `is_ag32_machine_config wordcount_machine_config`,
@@ -551,7 +285,7 @@ val wordcount_installed = Q.store_thm("wordcount_installed",
   \\ simp[EVAL``(wordcount_machine_config).target.get_pc``]
   \\ strip_assume_tac(UNDISCH wordcount_good_init_state)
   \\ fs[]
-  \\ mp_tac wordcount_init_asm_state_RTC_asm_step
+  \\ mp_tac wordcount_start_asm_state_RTC_asm_step
   \\ impl_tac >- fs[]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`good_init_state _ _ _ _ _ t`
