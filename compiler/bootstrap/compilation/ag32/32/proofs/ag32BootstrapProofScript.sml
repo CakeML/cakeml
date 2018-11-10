@@ -142,6 +142,20 @@ val FST_ALOOKUP_fastForwardFD_infds = Q.store_thm("FST_ALOOKUP_fastForwardFD_inf
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]);
+
+val FST_ALOOKUP_add_stdo_infds = Q.store_thm("FST_ALOOKUP_add_stdo_infds",
+  `OPTION_MAP FST (ALOOKUP (add_stdo fd nm fs out).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')`,
+  mp_tac TextIOProofTheory.add_stdo_MAP_FST_infds
+  \\ strip_tac
+  \\ drule (GEN_ALL data_to_word_bignumProofTheory.MAP_FST_EQ_IMP_IS_SOME_ALOOKUP)
+  \\ disch_then(qspec_then`fd'`mp_tac)
+  \\ Cases_on`ALOOKUP fs.infds fd'` \\ simp[]
+  \\ rw[IS_SOME_EXISTS] \\ rw[]
+  \\ fs[TextIOProofTheory.add_stdo_def, TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
+  \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[] \\ Cases_on`x` \\ rw[]);
 (* -- *)
 
 val cake_extract_writes = Q.store_thm("cake_extract_writes",
@@ -201,10 +215,40 @@ val cake_extract_writes = Q.store_thm("cake_extract_writes",
   >- (
     first_x_assum irule
     \\ simp[ALOOKUP_fastForwardFD_infds_neq]
-    \\ cheat (* prove more lemmas, and/or similar to previously *))
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd = _`
+      \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd)`
+      by( simp_tac(srw_ss())[Abbr`fs'`, FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds] )
+      \\ rfs[]
+      \\ fs[stdin_fs_def]
+      \\ pop_assum mp_tac
+      \\ rw[fsFFIPropsTheory.inFS_fname_def] \\ fs[] )
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs' fd1 = _`
+      \\ `OPTION_MAP FST (ALOOKUP fs' fd1) = OPTION_MAP FST (ALOOKUP fs' fd2)` by simp[]
+      \\ `IS_SOME (OPTION_MAP FST (ALOOKUP fs' fd1))` by simp[]
+      \\ ntac 2 (pop_assum mp_tac)
+      \\ simp_tac(srw_ss())[Abbr`fs'`,FST_ALOOKUP_fastForwardFD_infds,FST_ALOOKUP_add_stdo_infds]
+      \\ simp[stdin_fs_def]
+      \\ rw[] )
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ qmatch_goalsub_abbrev_tac`ALOOKUP fs'`
+      \\ `OPTION_MAP FST (ALOOKUP fs' x) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds x)`
+      by ( simp[FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds, Abbr`fs'`] )
+      \\ rw[OPTREL_def]
+      \\ Cases_on`ALOOKUP fs' x` \\ fs[] )
+    \\ simp[EVAL``(stdin_fs inp).infds``]
+    \\ simp[Once stdin_fs_def]
+    \\ cheat (* possibly from some add_stdo lemmas *))
   \\ first_x_assum irule
   \\ simp[ALOOKUP_fastForwardFD_infds_neq]
-  \\ cheat (* more of the same *));
+  \\ cheat (* probably very similar to previous case *));
 
 val cake_ag32_next = Q.store_thm("cake_ag32_next",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
