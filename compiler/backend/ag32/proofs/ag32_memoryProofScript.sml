@@ -611,9 +611,7 @@ val init_memory_code = Q.store_thm("init_memory_code",
   DEP_REWRITE_TAC [get_byte_EL_words_of_bytes |> INST_TYPE [alpha|->``:32``] |> SIMP_RULE (srw_ss()) [bytes_in_word_def]]>>
   EVAL_TAC>>fs[memory_size_def]);
 
-(* TODO
-   - complete this proof
-   - clean it up a bit (it repeats a lot) *)
+(* TODO - clean it up a bit (it repeats a lot) *)
 val init_memory_data = Q.store_thm("init_memory_data",
   `SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
    LENGTH inp <= stdin_size /\
@@ -748,8 +746,8 @@ val init_memory_data = Q.store_thm("init_memory_data",
           \\ fs [word_add_n2w, word_mul_n2w]
           \\ intLib.ARITH_TAC)
   \\ pop_assum (SUBST_ALL_TAC)
-  \\ cheat (* TODO *)
-  );
+  \\ simp[set_byte_def,get_byte_def,byte_index_def,word_slice_alt_def]
+  \\ blastLib.FULL_BBLAST_TAC);
 
 val init_memory_halt = Q.store_thm("init_memory_halt",
   `(pc = n2w (ffi_jumps_offset + (LENGTH f + 1) * ffi_offset)) ∧
@@ -1273,53 +1271,6 @@ val init_asm_state_asm_step = Q.store_thm("init_asm_state_asm_step",
     \\ CONV_TAC (PATH_CONV "lrrr" asm_conv)
     \\ strip_tac
     \\ rewrite_tac[GSYM CONJ_ASSOC]
-    (*
-    \\ conj_tac >- (
-            cheat (* something like the following, but need to be more careful to
-               distinguish istr and ibytes cases, and also might need to handle after memory updates *)
-      (*
-      CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)
-      \\ (qmatch_goalsub_abbrev_tac`bytes_in_memory _ (ag32_enc istr)`
-          ORELSE qmatch_goalsub_abbrev_tac`bytes_in_memory _ ibytes`)
-      \\ irule bytes_in_memory_get_byte_words
-      \\ conj_tac >- ( mp_tac ag32_enc_lengths \\ simp[] \\ simp[Abbr`ibytes`])
-      \\ reverse conj_tac
-      >- (
-        simp[SUBSET_DEF, IN_all_words, PULL_EXISTS, word_lo_n2w, word_add_n2w]
-        \\ TRY(simp[Abbr`ibytes`])
-        \\ LENGTH_ag32_enc_cases_tac)
-      \\ qexists_tac`F`
-      \\ simp[init_memory_def, init_memory_words_def, startup_code_eq, startup_asm_code_def]
-      \\ rpt (
-        rewrite_tac[GSYM APPEND_ASSOC]
-        \\ DEP_ONCE_REWRITE_TAC[words_of_bytes_append]
-        \\ conj_tac >- simp[bytes_in_word_def, LENGTH_ag32_enc_MOD_4] )
-      \\ simp[EVAL``heap_start_offset``, EVAL``code_start_offset _``]
-      \\ CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)
-      \\ simp[]
-      \\ rewrite_tac[GSYM APPEND_ASSOC]
-      \\ (qmatch_goalsub_abbrev_tac`words_of_bytes _ ibytes ++ lr`
-          ORELSE qmatch_goalsub_abbrev_tac`words_of_bytes _ (_ istr) ++ lr`)
-      \\ simp[]
-      \\ (qmatch_goalsub_abbrev_tac`ll ++ words_of_bytes _ ibytes`
-          ORELSE qmatch_goalsub_abbrev_tac`ll ++ words_of_bytes _ (_ istr)`
-          ORELSE qabbrev_tac`ll=[]:word32 list`)
-      \\ qexists_tac`ll` \\ qexists_tac`lr`
-      \\ simp[]
-      \\ simp[Abbr`ll`, LENGTH_words_of_bytes, bytes_in_word_def, LENGTH_ag32_enc_MOD_4]
-      \\ TRY(simp[Abbr`ibytes`])
-      \\ simp[]
-      \\ LENGTH_ag32_enc_cases_tac
-      *)
-      (* The following will work works if you wait long enough ...
-      CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)>>
-      fs[EVAL ``code_start_offset ffis``]>>
-      rpt(fs[Once hide_def]>>
-      simp[asmSemTheory.bytes_in_memory_def,EVAL``ag32_startup_addresses``]>>
-      DEP_REWRITE_TAC[init_memory_startup]>>
-      simp[startup_code_eq])*)
-      )
-      *)
     \\ qmatch_asmsub_abbrev_tac`_ with failed updated_by (K Z)`
     \\ `Z = F` by (
       simp[Abbr`Z`] \\ mem_ok_tac \\
