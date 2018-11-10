@@ -142,6 +142,7 @@ val hello_ag32_next = Q.store_thm("hello_ag32_next",
      let ms = FUNPOW Next k ms0 in
      let outs = MAP (get_ag32_io_event) ms.io_events in
        (ms.PC = (hello_machine_config).halt_pc) ∧
+       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (hello_io_events cl (stdin_fs inp)) ∧
        ((ms.R (n2w (hello_machine_config).ptr_reg) = 0w) ⇒
         (outs = MAP get_output_io_event (hello_io_events cl (stdin_fs inp))))`,

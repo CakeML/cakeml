@@ -171,6 +171,7 @@ val wordcount_ag32_next = Q.store_thm("wordcount_ag32_next",
      let ms = FUNPOW Next k ms0 in
      let outs = MAP (get_ag32_io_event) ms.io_events in
        (ms.PC = (wordcount_machine_config).halt_pc) ∧
+       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (wordcount_io_events inp) ∧
        ((ms.R (n2w (wordcount_machine_config).ptr_reg) = 0w) ⇒
         (outs = MAP get_output_io_event (wordcount_io_events inp)))`,

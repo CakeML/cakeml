@@ -6988,6 +6988,7 @@ val ag32_next = Q.store_thm("ag32_next",
      let ms = FUNPOW Next k ms0 in
      let outs = MAP (get_ag32_io_event) ms.io_events in
        (ms.PC = (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)).halt_pc) ∧
+       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event io_events ∧
        ((ms.R (n2w (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)).ptr_reg) = 0w) ⇒
         (outs = MAP get_output_io_event io_events))`,
@@ -7409,6 +7410,8 @@ val ag32_next = Q.store_thm("ag32_next",
   \\ fs[EVAL``(ag32_machine_config _ _ _).target.get_pc``]
   \\ fs[EVAL``(ag32_machine_config _ _ _).ptr_reg``]
   \\ fs[ag32_ffi_rel_def]
+  \\ conj_tac
+  >- cheat (* halt jump instruction still at halt_pc *)
   \\ conj_tac
   >- ( fs[IS_PREFIX_APPEND] \\ fs[markerTheory.Abbrev_def] )
   \\ strip_tac \\ fs[]
