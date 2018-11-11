@@ -98,9 +98,7 @@ val cake_installed = Q.store_thm("cake_installed",
   \\ simp[]
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (
-    conj_tac >- cheat (* need to support empty ffi (or turn it off) *)
-    \\ EVAL_TAC)
+  \\ conj_tac >- EVAL_TAC
   \\ asm_exists_tac \\ simp[]);
 
 val cake_machine_sem =
@@ -399,6 +397,7 @@ val cake_ag32_next = Q.store_thm("cake_ag32_next",
      let ms = FUNPOW Next k ms0 in
      let outs = MAP (get_ag32_io_event) ms.io_events in
        (ms.PC = (cake_machine_config).halt_pc) ∧
+       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (cake_io_events cl (stdin_fs inp)) ∧
        ((ms.R (n2w (cake_machine_config).ptr_reg) = 0w) ⇒
         (outs = MAP get_output_io_event (cake_io_events cl (stdin_fs inp))))`,
@@ -412,9 +411,7 @@ val cake_ag32_next = Q.store_thm("cake_ag32_next",
   \\ irule ag32_next
   \\ conj_tac >- simp[ffi_names]
   \\ conj_tac >- (simp[ffi_names, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[ffi_names]
-    conj_tac >- cheat (* need to support empty ffi (or turn it off) *)
-    \\ EVAL_TAC)
+  \\ conj_tac >- (simp[ffi_names] \\ EVAL_TAC)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
