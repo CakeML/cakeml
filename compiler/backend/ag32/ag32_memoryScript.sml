@@ -288,15 +288,18 @@ val startup_code_size_def = Define`
 
 val FFI_codes_def = Define`
   FFI_codes =
-    [(*("exit", 0n)
-    ;*)("get_arg_count", 1n)
+    [
+    ("", 0n)
+    ;("get_arg_count", 1n)
     ;("get_arg_length", 2n)
     ;("get_arg", 3n)
     ;("read", 4n)
     ;("write", 5n)
     ;("open_in", 6n)
     ;("open_out", 7n)
-    ;("close", 8n)]`;
+    ;("close", 8n)
+    (*;("exit", 9n)*)
+    ]`;
 
 val stdin_offset_def = Define`
   stdin_offset = startup_code_size + 4 + cline_size`;
@@ -309,7 +312,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1264n`;
+  length_ag32_ffi_code = 1268n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -509,7 +512,7 @@ val ag32_ffi_copy_thm = Q.store_thm("ag32_ffi_copy_thm",
   \\ rw[APPLY_UPDATE_THM]);
 
 (* exit
-   PC is ffi_code_start_offset  *)
+   PC is ffi_code_start_offset
 
 val ag32_ffi_exit_entrypoint_def = Define`
   ag32_ffi_exit_entrypoint = 0n`;
@@ -540,16 +543,29 @@ val ag32_ffi_exit_code_def = Define`
      Normal(fSnd, 7w, Imm 0w, Imm 0w);
      Normal(fAdd, 8w, Imm 0w, Imm 0w);
      Interrupt]`;
+*)
+
+(* "" ffi
+  PC is ffi_code_start_offset
+ *)
+val ag32_ffi__entrypoint_def = Define`
+  ag32_ffi__entrypoint = 0n`;
+
+val ag32_ffi__def = Define`
+  ag32_ffi_ s = dfn'Jump (fSnd, 0w, Reg 0w) s`
+
+val ag32_ffi__code_def = Define`
+  ag32_ffi__code =
+    [Jump (fSnd, 0w, Reg 0w)]`;
 
 (* get_arg_count
    PC is ffi_code_start_offset
-         + 4 * LENGTH ag32_ffi_exit_code
+         + 4 * LENGTH ag32_ffi__code
    pointer is in r3 *)
 
 val ag32_ffi_get_arg_count_entrypoint_def = Define`
   ag32_ffi_get_arg_count_entrypoint =
-  0n
-  (* ag32_ffi_exit_entrypoint + 4 * LENGTH ag32_ffi_exit_code *)`;
+  ag32_ffi__entrypoint + 4 * LENGTH ag32_ffi__code`;
 
 val ag32_ffi_get_arg_count_main_code_def = Define`
   ag32_ffi_get_arg_count_main_code =
@@ -3279,9 +3295,7 @@ val ag32_ffi_close_code_def = Define`
 
 val ffi_entrypoints_def = Define`
   ffi_entrypoints = [
-    (*
-    ("exit", ag32_ffi_exit_entrypoint);
-    *)
+    ("", ag32_ffi__entrypoint);
     ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
     ("get_arg_length", ag32_ffi_get_arg_length_entrypoint);
     ("get_arg", ag32_ffi_get_arg_entrypoint);
@@ -3289,13 +3303,15 @@ val ffi_entrypoints_def = Define`
     ("write", ag32_ffi_write_entrypoint);
     ("open_in", ag32_ffi_open_in_entrypoint);
     ("open_out", ag32_ffi_open_out_entrypoint);
-    ("close", ag32_ffi_close_entrypoint)]`;
+    ("close", ag32_ffi_close_entrypoint)
+    (*
+    ("exit", ag32_ffi_exit_entrypoint);
+    *)
+    ]`;
 
 val ffi_exitpcs_def = Define`
   ffi_exitpcs = [
-    (*
-    ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
-    *)
+    ("", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
     ("get_arg_count", ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
     ("get_arg_length", ffi_code_start_offset + ag32_ffi_get_arg_entrypoint);
     ("get_arg", ffi_code_start_offset + ag32_ffi_read_entrypoint);
@@ -3303,7 +3319,11 @@ val ffi_exitpcs_def = Define`
     ("write", ffi_code_start_offset + ag32_ffi_open_in_entrypoint);
     ("open_in", ffi_code_start_offset + ag32_ffi_open_out_entrypoint);
     ("open_out", ffi_code_start_offset + ag32_ffi_close_entrypoint);
-    ("close", heap_start_offset) ]`;
+    ("close", heap_start_offset)
+    (*
+    ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
+    *)
+    ]`;
 
 val mk_jump_ag32_code_def = Define`
   mk_jump_ag32_code ffi_names name =
@@ -3358,9 +3378,7 @@ val LENGTH_ag32_ffi_jumps =
 val ag32_ffi_code_def = Define`
   ag32_ffi_code =
     MAP Encode (
-      (*
-      ag32_ffi_exit_code ++
-      *)
+      ag32_ffi__code ++
       ag32_ffi_get_arg_count_code ++
       ag32_ffi_get_arg_length_code ++
       ag32_ffi_get_arg_code ++
@@ -3368,7 +3386,11 @@ val ag32_ffi_code_def = Define`
       ag32_ffi_write_code ++
       ag32_ffi_open_in_code ++
       ag32_ffi_open_out_code ++
-      ag32_ffi_close_code)`;
+      ag32_ffi_close_code
+      (*
+      ag32_ffi_exit_code ++
+      *)
+      )`;
 
 val LENGTH_ag32_ffi_code = ``LENGTH ag32_ffi_code`` |> EVAL
   |> curry save_thm "LENGTH_ag32_ffi_code"

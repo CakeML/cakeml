@@ -55,6 +55,10 @@ val ag32_ffi_mem_update_def = Define`
 val ag32_ffi_interfer_def = Define`
   ag32_ffi_interfer ffi_names md (index,new_bytes,ms) =
     let name = EL index ffi_names in
+    let exitpc = THE (ALOOKUP ffi_exitpcs name) in
+    if name = "" then
+      ms with <| PC := (ms.R 0w) ; R := ((0w =+ n2w exitpc) (ms.R)) |>
+    else
     let new_mem = ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
     let new_mem = asm_write_bytearray (ms.R 3w) new_bytes new_mem in
     let new_mem =
@@ -62,22 +66,21 @@ val ag32_ffi_interfer_def = Define`
         (THE (read_bytearray (ms.R 1w) (w2n (ms.R 2w)) (λa. if a ∈ md then SOME (ms.MEM a) else NONE)))
         (THE (read_bytearray (ms.R 3w) (w2n (ms.R 4w)) (λa. if a ∈ md then SOME (ms.MEM a) else NONE)))
         new_bytes new_mem in
-    let exitpc = THE (ALOOKUP ffi_exitpcs name) in
-        ms with
-          <| PC := (ms.R 0w) ;
-             R := ((0w =+ n2w exitpc)
-                   ((1w =+ 0w)
-                   ((2w =+ 0w)
-                   ((3w =+ 0w)
-                   ((4w =+ 0w)
-                   ((5w =+ 0w)
-                   ((6w =+ 0w)
-                   ((7w =+ 0w)
-                   ((8w =+ 0w) (ms.R)))))))))) ;
-             CarryFlag := F ;
-             OverflowFlag := F ;
-             io_events := ms.io_events ++ [new_mem] ;
-             MEM := new_mem |>`;
+      ms with
+        <| PC := (ms.R 0w) ;
+           R := ((0w =+ n2w exitpc)
+                 ((1w =+ 0w)
+                 ((2w =+ 0w)
+                 ((3w =+ 0w)
+                 ((4w =+ 0w)
+                 ((5w =+ 0w)
+                 ((6w =+ 0w)
+                 ((7w =+ 0w)
+                 ((8w =+ 0w) (ms.R)))))))))) ;
+           CarryFlag := F ;
+           OverflowFlag := F ;
+           io_events := ms.io_events ++ [new_mem] ;
+           MEM := new_mem |>`;
 
 val ag32_machine_config_def = Define`
   ag32_machine_config ffi_names LENGTH_code LENGTH_data =
