@@ -7445,7 +7445,32 @@ val ag32_next = Q.store_thm("ag32_next",
   \\ fs[EVAL``(ag32_machine_config _ _ _).ptr_reg``]
   \\ fs[ag32_ffi_rel_def]
   \\ conj_tac
-  >- cheat (* halt jump instruction still at halt_pc *)
+  >- (
+    fs[EVAL``(ag32_machine_config _ _ _).target.get_byte``]
+    \\ first_assum(mp_then Any mp_tac (GEN_ALL init_memory_halt))
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ simp[]
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ simp[ag32_machine_config_def]
+    \\ disch_then(qspecl_then[`data`,`code`](SUBST1_TAC o SYM))
+    \\ irule(GEN_ALL get_mem_word_change_mem)
+    \\ qx_gen_tac `j`
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`m2 a = _`
+    \\ qpat_x_assum`∀x. _ ⇒ m2 _ = _`(qspec_then`a`mp_tac)
+    \\ impl_tac
+    >- (
+      simp[Abbr`a`]
+      \\ qpat_x_assum`_ < memory_size`mp_tac
+      \\ EVAL_TAC
+      \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w] )
+    \\ disch_then(SUBST1_TAC)
+    \\ rfs[is_ag32_init_state_def]
+    \\ first_x_assum irule
+    \\ simp[Abbr`a`]
+    \\ qpat_x_assum`_ < memory_size`mp_tac
+    \\ EVAL_TAC
+    \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w] )
   \\ conj_tac
   >- ( fs[IS_PREFIX_APPEND] \\ fs[markerTheory.Abbrev_def] )
   \\ strip_tac \\ fs[]
