@@ -110,6 +110,7 @@ val cake_machine_sem =
   |> curry save_thm "cake_machine_sem";
 
 (* TODO: move *)
+
 val get_stdin_stdin_fs = Q.store_thm("get_stdin_stdin_fs[simp]",
   `get_stdin (stdin_fs inp) = inp`,
   EVAL_TAC
@@ -156,6 +157,93 @@ val FST_ALOOKUP_add_stdo_infds = Q.store_thm("FST_ALOOKUP_add_stdo_infds",
   \\ TOP_CASE_TAC \\ fs[]
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
   \\ rw[] \\ Cases_on`x` \\ rw[]);
+
+val ALOOKUP_add_stdout_files = Q.store_thm("ALOOKUP_add_stdout_files",
+  `STD_streams fs ⇒ (
+   ALOOKUP (add_stdout fs out).files fnm =
+   if fnm = IOStream(strlit"stdout") then
+     SOME (THE (ALOOKUP fs.files fnm) ++ explode out)
+   else ALOOKUP fs.files fnm)`,
+  strip_tac
+  \\ imp_res_tac TextIOProofTheory.STD_streams_stdout
+  \\ simp[TextIOProofTheory.add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ simp[TextIOProofTheory.up_stdo_def]
+  \\ simp[fsFFITheory.fsupdate_def]
+  \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
+  \\ rveq
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC
+  \\ TOP_CASE_TAC
+  \\ fs[]);
+
+val ALOOKUP_add_stderr_files = Q.store_thm("ALOOKUP_add_stderr_files",
+  `STD_streams fs ⇒ (
+   ALOOKUP (add_stderr fs err).files fnm =
+   if fnm = IOStream(strlit"stderr") then
+     SOME (THE (ALOOKUP fs.files fnm) ++ explode err)
+   else ALOOKUP fs.files fnm)`,
+  strip_tac
+  \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
+  \\ simp[TextIOProofTheory.add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ simp[TextIOProofTheory.up_stdo_def]
+  \\ simp[fsFFITheory.fsupdate_def]
+  \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
+  \\ rveq
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC
+  \\ TOP_CASE_TAC
+  \\ fs[]);
+
+val ALOOKUP_add_stdout_infds = Q.store_thm("ALOOKUP_add_stdout_infds",
+  `STD_streams fs ⇒ (
+   ALOOKUP (add_stdout fs out).infds fd =
+   if fd = 1 then
+     SOME ((I ## I ## ((+) (strlen out))) (THE (ALOOKUP fs.infds fd)))
+   else ALOOKUP fs.infds fd)`,
+  strip_tac
+  \\ imp_res_tac TextIOProofTheory.STD_streams_stdout
+  \\ simp[TextIOProofTheory.add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ simp[TextIOProofTheory.up_stdo_def]
+  \\ simp[fsFFITheory.fsupdate_def]
+  \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
+  \\ rveq
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ rw[]
+  >- ( strip_tac \\ fs[] )
+  \\ PairCases_on`x`
+  \\ fs[]);
+
+val ALOOKUP_add_stderr_infds = Q.store_thm("ALOOKUP_add_stderr_infds",
+  `STD_streams fs ⇒ (
+   ALOOKUP (add_stderr fs err).infds fd =
+   if fd = 2 then
+     SOME ((I ## I ## ((+) (strlen err))) (THE (ALOOKUP fs.infds fd)))
+   else ALOOKUP fs.infds fd)`,
+  strip_tac
+  \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
+  \\ simp[TextIOProofTheory.add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ conj_tac >- metis_tac[]
+  \\ gen_tac \\ strip_tac
+  \\ simp[TextIOProofTheory.up_stdo_def]
+  \\ simp[fsFFITheory.fsupdate_def]
+  \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
+  \\ rveq
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ rw[]
+  >- ( strip_tac \\ fs[] )
+  \\ PairCases_on`x`
+  \\ fs[]);
+
 (* -- *)
 
 val cake_extract_writes = Q.store_thm("cake_extract_writes",
@@ -245,10 +333,62 @@ val cake_extract_writes = Q.store_thm("cake_extract_writes",
       \\ Cases_on`ALOOKUP fs' x` \\ fs[] )
     \\ simp[EVAL``(stdin_fs inp).infds``]
     \\ simp[Once stdin_fs_def]
-    \\ cheat (* possibly from some add_stdo lemmas *))
+    \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_files]
+    \\ simp[]
+    \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
+    \\ simp[STD_streams_stdin_fs]
+    \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_files]
+    \\ simp[STD_streams_stdin_fs]
+    \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_infds]
+    \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
+    \\ simp[STD_streams_stdin_fs]
+    \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_infds]
+    \\ simp[STD_streams_stdin_fs]
+    \\ simp[stdin_fs_def])
   \\ first_x_assum irule
   \\ simp[ALOOKUP_fastForwardFD_infds_neq]
-  \\ cheat (* probably very similar to previous case *));
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd = _`
+    \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd)`
+    by( simp_tac(srw_ss())[Abbr`fs'`, FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds] )
+    \\ rfs[]
+    \\ fs[stdin_fs_def]
+    \\ pop_assum mp_tac
+    \\ rw[fsFFIPropsTheory.inFS_fname_def] \\ fs[] )
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs' fd1 = _`
+    \\ `OPTION_MAP FST (ALOOKUP fs' fd1) = OPTION_MAP FST (ALOOKUP fs' fd2)` by simp[]
+    \\ `IS_SOME (OPTION_MAP FST (ALOOKUP fs' fd1))` by simp[]
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ simp_tac(srw_ss())[Abbr`fs'`,FST_ALOOKUP_fastForwardFD_infds,FST_ALOOKUP_add_stdo_infds]
+    \\ simp[stdin_fs_def]
+    \\ rw[] )
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ qmatch_goalsub_abbrev_tac`ALOOKUP fs'`
+    \\ `OPTION_MAP FST (ALOOKUP fs' x) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds x)`
+    by ( simp[FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds, Abbr`fs'`] )
+    \\ rw[OPTREL_def]
+    \\ Cases_on`ALOOKUP fs' x` \\ fs[] )
+  \\ simp[EVAL``(stdin_fs inp).infds``]
+  \\ simp[Once stdin_fs_def]
+  \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_files]
+  \\ simp[]
+  \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
+  \\ simp[STD_streams_stdin_fs]
+  \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_files]
+  \\ simp[STD_streams_stdin_fs]
+  \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_infds]
+  \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
+  \\ simp[STD_streams_stdin_fs]
+  \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_infds]
+  \\ simp[STD_streams_stdin_fs]
+  \\ simp[stdin_fs_def])
 
 val cake_ag32_next = Q.store_thm("cake_ag32_next",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
