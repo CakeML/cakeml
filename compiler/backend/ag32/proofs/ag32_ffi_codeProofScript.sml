@@ -3844,6 +3844,34 @@ val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
   \\ rw [word_add_n2w, DISJ_EQ_IMP]
   \\ strip_tac \\ fs []);
 
+(* ag32_ffi_ *)
+
+
+val ag32_ffi__code_thm = Q.store_thm("ag32_ffi__code_thm",
+  `(∀k. k < LENGTH ag32_ffi__code ⇒
+        (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
+         Encode (EL k ag32_ffi__code))) ∧ byte_aligned s.PC
+   ⇒
+   ∃k. (FUNPOW Next k s = ag32_ffi_ s)`,
+  rw[ag32_ffi__def]
+  \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
+  \\ rw[ag32Theory.Next_def]
+  \\ qmatch_goalsub_abbrev_tac`pc + 2w`
+  \\ simp[GSYM get_mem_word_def]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ impl_tac >- EVAL_TAC
+  \\ simp_tac(srw_ss())[]
+  \\ imp_res_tac byte_aligned_imp \\ rfs[]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ disch_then kall_tac
+  \\ simp[ag32_targetProofTheory.Decode_Encode]
+  \\ simp[ag32_ffi__code_def, ag32Theory.Run_def]
+  \\ EVERY (List.tabulate(1, next_tac o (curry(op +)1)))
+  \\ rw[Once EXISTS_NUM]
+  \\ simp[EVAL``EL 1 ag32_ffi__code``]);
+
+val ag32_ffi__entrypoint_thm = EVAL “ag32_ffi__entrypoint”
+
 (* mk_jump_ag32 *)
 
 val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",

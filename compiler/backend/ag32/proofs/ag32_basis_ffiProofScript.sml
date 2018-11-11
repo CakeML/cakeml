@@ -5970,12 +5970,11 @@ val ag32_ffi_interfer_ = Q.store_thm("ag32_ffi_interfer_",
   by (
     simp[ag32_ffi_interfer_def, ag32Theory.ag32_state_component_equality] >>
     simp[Abbr`ms1`,FUN_EQ_THM, APPLY_UPDATE_THM])>>
-  cheat);
-  (*
-  \\ qspec_then`ms1`mp_tac (CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi__code_thm))
+  qspec_then`ms1`mp_tac (CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi__code_thm))
   \\ fs[Abbr`ms1`, APPLY_UPDATE_THM]
   \\ fs[ffi_entrypoints_def, GSYM word_add_n2w]
   \\ qmatch_asmsub_abbrev_tac`FUNPOW _ _ _ = ms1`
+  \\ impl_tac >- EVAL_TAC
   \\ strip_tac
   \\ qexists_tac`k'+k`
   \\ simp[FUNPOW_ADD]
@@ -5997,51 +5996,7 @@ val ag32_ffi_interfer_ = Q.store_thm("ag32_ffi_interfer_",
   \\ conj_tac >- (
     simp[Abbr`ms1`,ag32Theory.ag32_state_component_equality]>>
     simp[APPLY_UPDATE_THM,FUN_EQ_THM])
-  \\ conj_tac >- (
-    conj_tac
-    >- (
-      (* this cheat is false because the silent FFI
-        does not introduce an io_event
-       *)
-      cheat
-    )>>
-    cheat
-    )
-  \\ gen_tac \\ strip_tac
-  \\ simp[ag32_ffi_mem_update_def]
-  \\ simp[Abbr`ms1`]
-  \\ irule asm_write_bytearray_unchanged_all_words
-  \\ simp[APPLY_UPDATE_THM]
-  \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC
-  \\ IF_CASES_TAC
-  >-
-    (pop_assum sym_sub_tac>>simp[])>>
-  simp[])*)
-
-val target_state_rel_init_asm_state = Q.store_thm("target_state_rel_init_asm_state",
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
-   LENGTH inp ≤ stdin_size ∧
-   LENGTH ffi_names ≤ LENGTH FFI_codes ∧
-   code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data < memory_size ∧
-   is_ag32_init_state (init_memory code data ffi_names (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data ffi_names (cl,inp)) (FUNPOW Next n ms) ∧
-       ((FUNPOW Next n ms).io_events = ms.io_events) ∧
-       (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
-  strip_tac
-  \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ strip_tac
-  \\ drule (GEN_ALL target_state_rel_ag32_init)
-  \\ fs[]
-  \\ rveq
-  \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
-  \\ disch_then(qspec_then`md`assume_tac)
-  \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]);
+  \\ simp[Abbr`ms1`]);
 
 val SUBSET_ffi_names_IMP_LENGTH_LESS_EQ = Q.store_thm("SUBSET_ffi_names_IMP_LENGTH_LESS_EQ",
   `set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names
