@@ -57,7 +57,11 @@ val ag32_ffi_interfer_def = Define`
     let name = EL index ffi_names in
     let exitpc = THE (ALOOKUP ffi_exitpcs name) in
     if name = "" then
-      ms with <| PC := (ms.R 0w) ; R := ((0w =+ n2w exitpc) (ms.R)) |>
+      ms with <| PC := (ms.R 0w) ;
+                 R := ((0w =+ n2w exitpc) ((5w =+ 0w) (ms.R)));
+                 CarryFlag := F;
+                 OverflowFlag := F
+               |>
     else
     let new_mem = ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes name))) ms.MEM in
     let new_mem = asm_write_bytearray (ms.R 3w) new_bytes new_mem in

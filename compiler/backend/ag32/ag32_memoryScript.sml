@@ -312,7 +312,7 @@ val ffi_code_start_offset_def = Define`
     output_offset + 8 + 4 + output_buffer_size + 4`;
 
 val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1268n`;
+  length_ag32_ffi_code = 1272n`;
 
 val heap_start_offset_def = Define`
   heap_start_offset =
@@ -552,11 +552,15 @@ val ag32_ffi__entrypoint_def = Define`
   ag32_ffi__entrypoint = 0n`;
 
 val ag32_ffi__def = Define`
-  ag32_ffi_ s = dfn'Jump (fSnd, 0w, Reg 0w) s`
+  ag32_ffi_ s =
+  let s = dfn'Normal (fAdd, 5w, Imm 0w, Imm 0w) s in
+  dfn'Jump (fSnd, 0w, Reg 0w) s`
 
 val ag32_ffi__code_def = Define`
   ag32_ffi__code =
-    [Jump (fSnd, 0w, Reg 0w)]`;
+    [
+    Normal (fAdd, 5w, Imm 0w, Imm 0w);
+    Jump (fSnd, 0w, Reg 0w)]`;
 
 (* get_arg_count
    PC is ffi_code_start_offset
