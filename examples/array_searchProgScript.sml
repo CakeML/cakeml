@@ -2,7 +2,7 @@ open preamble semanticPrimitivesTheory
 open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
 open basisProgTheory quicksortProgTheory ArrayProofTheory
 
-val _ = new_theory "binary_searchProg";
+val _ = new_theory "array_searchProg";
 
 val _ = translation_extends "basisProg";
 
@@ -10,115 +10,6 @@ fun basis_st () = get_ml_prog_state ()
 
 (**********)
 
-val double = process_topdecs `
-    fun double x = if x = 0 then 0 else double (x - 1) + 2;
-`;
-
-val _ = append_prog double;
-
-val double_spec = Q.store_thm("double_spec",
-    `∀x x_v. NUM x x_v
-        ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double" (basis_st())) [x_v]
-        emp (POSTv v. &(NUM (2 * x) v))`,
-    Induct_on `x` >>
-    xcf "double" (basis_st())
-    >- (xlet_auto
-        >- xsimpl
-        >> xif >> fs[BOOL_def] >>
-           xret >> xsimpl)
-    >- (
-        xlet_auto
-        >- xsimpl
-        >> xif >>
-           fs[BOOL_def] >>
-           xlet_auto
-           >- xsimpl
-           >> xlet_auto
-                >- xsimpl
-                >> xapp >>
-                   xsimpl >>
-                   fs[NUM_def, INT_def] >>
-                   fs[integerTheory.INT_ADD_CALCULATE]
-        )
-);
-
-(**********)
-(*
-val double_ref_same = process_topdecs `
-    fun double_ref_same x =
-        if !x = 0 then x else
-            (x := (!x - 1); x := (!(double_ref_same x) + 2); x);
-`;
-*)
-val double_ref = process_topdecs `
-    fun double_ref x =
-        if !x = 0 then (ref 0) else
-            (
-                x := (!x - 1);
-                (let val result = (double_ref x) in
-                    (result := !result + 2; result)
-                 end)
-            );
-`;
-
-val _ = append_prog double_ref;
-
-val double_ref_spec = Q.store_thm("double_ref_spec",
-    `∀ inp inp_v inp_ref ffi_p .
-        NUM inp inp_v
-      ⇒ app (ffi_p:'ffi ffi_proj) ^(fetch_v "double_ref" (basis_st())) [inp_ref]
-        (inp_ref ~~> inp_v)
-        (POSTv ret_ref .
-            (SEP_EXISTS inp0_v .
-                (inp_ref ~~> inp0_v) * &(NUM 0 inp0_v)) *
-            (SEP_EXISTS ret_v .
-                (ret_ref ~~> ret_v) * &(NUM (2 * inp) ret_v))
-        )`,
-    Induct_on `inp` >>
-    xcf "double_ref" (basis_st())
-    >- (xlet_auto
-        >- xsimpl
-        >> rveq >> xlet_auto
-           >- xsimpl
-           >> xif >> fs[BOOL_def] >>
-                xref >> xsimpl)
-    >>
-        (*
-        let a = !x in
-        let b = (a = 0) in
-        if b then (ref 0) else
-            let c = !x in
-            let d = c - 1 in
-                x := d; let result = double_ref x in
-                    let e = !result in
-                    let f = e + 2 in
-                    (result := f; result)
-        *)
-        fs[ADD1] >>
-        xlet_auto (* a *)
-            >- xsimpl
-        >> rveq >> xlet_auto (* b*)
-            >- xsimpl
-        >> xif >> fs[BOOL_def] >> xlet_auto (* c *)
-            >- xsimpl
-        >> rveq >> xlet_auto (* d *)
-            >- xsimpl
-        >> xlet_auto (* x := d; *)
-            >- xsimpl
-        >> last_x_assum imp_res_tac >>
-           xlet_auto (* result *)
-            >- xsimpl
-        >> xlet_auto (* e *)
-            >- xsimpl
-        >> rveq >> xlet_auto (* f *)
-            >- xsimpl
-        >> xlet_auto (* result := f; *)
-            >- xsimpl
-        >> xvar >> xsimpl >>
-           fs[NUM_def, INT_def]
-);
-
-(**********************)
 val linear_search = process_topdecs `
 fun linear_search array value =
     let
@@ -278,8 +169,10 @@ val linear_search_spec = Q.store_thm("linear_search_spec",
                   fs[] >> rveq >> rw[] >> fs[]
 );
 
-val search = process_topdecs `
-fun search cmp array value =
+(**********)
+
+val binary_search = process_topdecs `
+fun binary_search cmp array value =
     let
         fun search_aux start finish =
             if start >= finish then None else
@@ -296,26 +189,8 @@ fun search cmp array value =
         search_aux 0 (Array.length array)
     end;
 `;
-val _ = append_prog search;
-(*
-fun search cmp array value =
-let val length = Array.length array
-    fun search_aux start finish =
-        if start >= finish then NONE
-        else (
-            print (Int.toString(finish - start));
-            let val mid = (finish + start) div 2
-            in
-                if value = Array.sub(array, mid) then SOME mid
-                else if cmp(value, (Array.sub(array, mid))) then
-                    search_aux start mid
-                else
-                    search_aux (mid + 1) finish
-            end)
-in
-    search_aux 0 length
-end;
-*)
+
+val _ = append_prog binary_search;
 
 val drop_take_partition = Q.store_thm("drop_take_partition",
     `∀ l n m . n ≤ m ∧ m ≤ LENGTH l ⇒
@@ -427,7 +302,7 @@ val mem_drop_impl = Q.store_thm("mem_drop_impl",
     >- (first_x_assum (qspecl_then [`n - 1`, `m - 1`, `v`] mp_tac) >> fs[])
 );
 
-val search_spec = Q.store_thm("search_spec",
+val binary_search_spec = Q.store_thm("binary_search_spec",
    `∀ a ffi_p cmp cmp_v value value_v elems elem_vs arr_v .
         strict_weak_order cmp ∧
         EqualityType a ∧
@@ -439,7 +314,7 @@ val search_spec = Q.store_thm("search_spec",
         LIST_REL (a) elems elem_vs ∧
         SORTED (λ x y . cmp x y) elems (* list is sorted *)
     ⇒
-        app (ffi_p : 'ffi ffi_proj) ^(fetch_v "search" (basis_st()))
+        app (ffi_p : 'ffi ffi_proj) ^(fetch_v "binary_search" (basis_st()))
         [cmp_v; arr_v; value_v] (* the arguments *)
         (ARRAY arr_v elem_vs) (* array is in heap with contents elem_vs *)
         (POSTv u_v .
@@ -451,7 +326,7 @@ val search_spec = Q.store_thm("search_spec",
                 (¬MEM value elems ⇒ u = NONE) (* if value not present, NONE *)
              )
         )`,
-    xcf "search" (basis_st()) >>
+    xcf "binary_search" (basis_st()) >>
     reverse (xfun_spec `search_aux`
         `∀ sublist sublist_vs start finish start_v finish_v .
             sublist = DROP start (TAKE finish elems) ∧

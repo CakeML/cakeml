@@ -71,8 +71,6 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- flat_elim ---- *)
   ,computeLib.Defs
     (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="reachability"}))
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
