@@ -525,8 +525,7 @@ val _ = (append_prog o process_topdecs) `
     handle Kernel.Fail e => TextIO.output TextIO.stdErr (msg_axioms e)`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
-  `hasFreeFD fs /\
-   (?inp. stdin fs inp 0)
+  `(case TL cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs)
    ==>
    app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
      [Conv NONE []]
@@ -623,8 +622,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
 (* ------------------------------------------------------------------------- *)
 
 val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
-  `hasFreeFD fs /\
-   (?inp. stdin fs inp 0)
+  `(case TL cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs)
    ==>
    whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
@@ -656,17 +654,18 @@ val spec = UNDISCH reader_whole_prog_spec;
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
 val reader_prog_def = Define `reader_prog = ^prog_tm`
 
-val semantics_reader_prog =
+val reader_semantics =
   sem_thm
   |> REWRITE_RULE[GSYM reader_prog_def]
   |> DISCH_ALL
   |> ONCE_REWRITE_RULE [AND_IMP_INTRO]
-  |> ONCE_REWRITE_RULE (* hasFreeFD gets simplified away in wps and its ugly *)
+  |> REWRITE_RULE
     [EVAL ``hasFreeFD fs``
      |> CONV_RULE (RHS_CONV (SIMP_CONV std_ss []))
-     |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM]
+     |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM
+     |> CONV_RULE (LHS_CONV (ONCE_REWRITE_CONV [CONJ_COMM]))]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
-  |> curry save_thm "semantics_reader_prog";
+  |> curry save_thm "reader_semantics";
 
 val _ = export_theory ();
 
