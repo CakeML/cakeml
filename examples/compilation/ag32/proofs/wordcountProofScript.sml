@@ -82,7 +82,7 @@ val wordcount_startup_clock_def =
   GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_wordcount_start_asm_state))
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
-val compile_correct_applied =
+val wordcount_compile_correct_applied =
   MATCH_MP compile_correct wordcount_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP wordcount_not_fail
@@ -94,6 +94,7 @@ val compile_correct_applied =
   |> C MATCH_MP is_ag32_machine_config_ag32_machine_config
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
+  |> curry save_thm "wordcount_compile_correct_applied";
 
 val wordcount_installed = Q.store_thm("wordcount_installed",
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -119,7 +120,7 @@ val wordcount_installed = Q.store_thm("wordcount_installed",
   \\ fs[ffi_names]);
 
 val wordcount_machine_sem =
-  compile_correct_applied
+  wordcount_compile_correct_applied
   |> C MATCH_MP (
        wordcount_installed
        |> Q.GENL[`cl`,`fs`]
