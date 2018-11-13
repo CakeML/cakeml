@@ -1,49 +1,59 @@
+(*
+  Implementation for wordLang dead code elimination.
+
+  Analyses code to give a next-step function as a num_set num_map.
+  Uses flat_elim functions to close the next-step function and give a set of
+    reachable functions.
+  Removes unreachable functions from the code.
+*)
+
 open preamble sptreeTheory wordLangTheory flat_elimTheory
 
 val _ = new_theory "word_elim";
 
 
-val findWordLoc_def = Define `
-    (findWordLoc (name:num, _, _) = name)
+val find_word_loc_def = Define `
+    (find_word_loc (name:num, _, _) = name)
 `
 
-val findWordRef_def = Define `
-    (findWordRef (MustTerminate p) = findWordRef p) ∧
-    (findWordRef (Call ret target _ handler) = union
+val find_word_ref_def = Define `
+    (find_word_ref (MustTerminate p) = find_word_ref p) ∧
+    (find_word_ref (Call ret target _ handler) = union
         (case target of | NONE => LN | SOME n => (insert n () LN))
             (union
                 (case ret of
                     | NONE => LN
                     | SOME (_,_,ret_handler,l1,_) =>
-                        insert l1 () (findWordRef (ret_handler)))
+                        insert l1 () (find_word_ref (ret_handler)))
                 (case handler of
                     | NONE => LN
-                    | SOME (_,ex_handler,_,_) => findWordRef (ex_handler)))
+                    | SOME (_,ex_handler,_,_) => find_word_ref (ex_handler)))
     ) ∧
-    (findWordRef (Seq p1 p2) = union (findWordRef p1) (findWordRef p2)) ∧
-    (findWordRef (If _ _ _ p1 p2) = union (findWordRef p1) (findWordRef p2)) ∧
-    (findWordRef (LocValue _ n) = insert n () LN) ∧
-    (findWordRef _ = LN)
+    (find_word_ref (Seq p1 p2) = union (find_word_ref p1) (find_word_ref p2)) ∧
+    (find_word_ref (If _ _ _ p1 p2) =
+        union (find_word_ref p1) (find_word_ref p2)) ∧
+    (find_word_ref (LocValue _ n) = insert n () LN) ∧
+    (find_word_ref _ = LN)
 `
 
-val findWordRef_ind = theorem "findWordRef_ind";
+val find_word_ref_ind = theorem "find_word_ref_ind";
 
-val analyseWordCode_def = Define`
-    (analyseWordCode [] = LN:num_set num_map) ∧
-    (analyseWordCode ((n, args, prog)::t) =
-        insert n (findWordRef prog) (analyseWordCode t))
+val analyse_word_code_def = Define`
+    (analyse_word_code [] = LN:num_set num_map) ∧
+    (analyse_word_code ((n, args, prog)::t) =
+        insert n (find_word_ref prog) (analyse_word_code t))
 `
 
-val removeWordCode_def = Define `
-    removeWordCode reachable l =
+val remove_word_code_def = Define `
+    remove_word_code reachable l =
         FILTER (\ x . IS_SOME (lookup (FST x) reachable)) l
 `
 
-val removeWordProg_def = Define `
-    removeWordProg (n:num) code =
-        let t = analyseWordCode code in
+val remove_word_prog_def = Define `
+    remove_word_prog (n:num) code =
+        let t = analyse_word_code code in
         let reachable = closure_spt (insert n () (LN:num_set)) t in
-        removeWordCode reachable code
+        remove_word_code reachable code
 `
 
 

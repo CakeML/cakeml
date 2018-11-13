@@ -1,3 +1,11 @@
+(*
+  Implementation for flatLang dead code elimination.
+
+  Analyses code to give a next-step function as a num_set num_map.
+  Closes this next-step function to give a set of reachable globals.
+  Removes unreachable globals from the code.
+*)
+
 open preamble sptreeTheory flatLangTheory
 
 val _ = new_theory "flat_elim";
@@ -5,57 +13,57 @@ val _ = new_theory "flat_elim";
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
 
-(* isHidden exp = T means there is no direct execution of GlobalVarLookup *)
-val isHidden_def = tDefine "isHidden" `
-    (isHidden (Raise t e) = isHidden e) ∧
+(* is_hidden exp = T means there is no direct execution of GlobalVarLookup *)
+val is_hidden_def = tDefine "is_hidden" `
+    (is_hidden (Raise t e) = is_hidden e) ∧
         (* raise exception *)
-    (isHidden (Handle t e pes) = F) ∧
+    (is_hidden (Handle t e pes) = F) ∧
         (* exception handler *)
-    (isHidden (Lit t l) = T) ∧
+    (is_hidden (Lit t l) = T) ∧
         (* literal *)
-    (isHidden (Con t id_option es) = EVERY isHidden es) ∧
+    (is_hidden (Con t id_option es) = EVERY is_hidden es) ∧
         (* constructor *)
-    (isHidden (Var_local t str) = T) ∧
+    (is_hidden (Var_local t str) = T) ∧
         (* local var *)
-    (isHidden (Fun t name body) = T) ∧
+    (is_hidden (Fun t name body) = T) ∧
         (* function abstraction *)
-    (isHidden (App t Opapp l) = F) ∧
+    (is_hidden (App t Opapp l) = F) ∧
         (* function application *)
-    (isHidden (App t (GlobalVarInit g) [e]) = isHidden e) ∧
+    (is_hidden (App t (GlobalVarInit g) [e]) = is_hidden e) ∧
         (* GlobalVarInit *)
-    (isHidden (App t (GlobalVarLookup g) [e]) = F) ∧
+    (is_hidden (App t (GlobalVarLookup g) [e]) = F) ∧
         (* GlobalVarLookup *)
-    (isHidden (If t e1 e2 e3) = (isHidden e1 ∧ isHidden e2 ∧ isHidden e3)) ∧
+    (is_hidden (If t e1 e2 e3) = (is_hidden e1 ∧ is_hidden e2 ∧ is_hidden e3)) ∧
         (* if expression *)
-    (isHidden (Mat t e1 [p,e2]) = (isHidden e1 ∧ isHidden e2)) ∧
+    (is_hidden (Mat t e1 [p,e2]) = (is_hidden e1 ∧ is_hidden e2)) ∧
         (* SINGLE pattern match *)
-    (isHidden (Let t opt e1 e2) = (isHidden e1 ∧ isHidden e2)) ∧
+    (is_hidden (Let t opt e1 e2) = (is_hidden e1 ∧ is_hidden e2)) ∧
         (* let-expression *)
-    (isHidden (Letrec t funs e) = isHidden e) ∧
+    (is_hidden (Letrec t funs e) = is_hidden e) ∧
         (* local def of mutually recursive funs *)
-    (isHidden _ = F)
+    (is_hidden _ = F)
 `
     (
         WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >>
         Induct_on `es` >> rw[exp_size_def] >> fs[]
     );
 
-val isHidden_ind = theorem "isHidden_ind";
+val is_hidden_ind = theorem "is_hidden_ind";
 
 (* check if expression is pure in that it does not make any visible changes
     (other than writing to globals) *)
-val isPure_def = tDefine "isPure" `
-    (isPure (Handle t e pes) = isPure e) ∧
-    (isPure (Lit t l) = T) ∧
-    (isPure (Con t id_option es) = EVERY isPure es) ∧
-    (isPure (Var_local t str) = T) ∧
-    (isPure (Fun t name body) = T) ∧
-    (isPure (App t (GlobalVarInit g) es) = EVERY isPure es) ∧
-    (isPure (If t e1 e2 e3) = (isPure e1 ∧ isPure e2 ∧ isPure e3)) ∧
-    (isPure (Mat t e1 pes) = (isPure e1 ∧ EVERY isPure (MAP SND pes))) ∧
-    (isPure (Let t opt e1 e2) = (isPure e1 ∧ isPure e2)) ∧
-    (isPure (Letrec t funs e) = isPure e) ∧
-    (isPure _ = F)
+val is_pure_def = tDefine "is_pure" `
+    (is_pure (Handle t e pes) = is_pure e) ∧
+    (is_pure (Lit t l) = T) ∧
+    (is_pure (Con t id_option es) = EVERY is_pure es) ∧
+    (is_pure (Var_local t str) = T) ∧
+    (is_pure (Fun t name body) = T) ∧
+    (is_pure (App t (GlobalVarInit g) es) = EVERY is_pure es) ∧
+    (is_pure (If t e1 e2 e3) = (is_pure e1 ∧ is_pure e2 ∧ is_pure e3)) ∧
+    (is_pure (Mat t e1 pes) = (is_pure e1 ∧ EVERY is_pure (MAP SND pes))) ∧
+    (is_pure (Let t opt e1 e2) = (is_pure e1 ∧ is_pure e2)) ∧
+    (is_pure (Letrec t funs e) = is_pure e) ∧
+    (is_pure _ = F)
 `
     (
         WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
@@ -64,7 +72,7 @@ val isPure_def = tDefine "isPure" `
             Cases_on `h` >> fs[exp_size_def])
     );
 
-val isPure_ind = theorem "isPure_ind";
+val is_pure_ind = theorem "is_pure_ind";
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧
@@ -92,25 +100,26 @@ val exp_size_map_snd_snd = Q.store_thm("exp_size_map_snd_snd",
         (Cases_on `h` >> Cases_on `r` >> rw[exp_size_def]) >> rw[]
 );
 
-val findLoc_def = tDefine "findLoc" `
-    (findLoc ((Raise _ er):flatLang$exp) = findLoc er) ∧
-    (findLoc (Handle _ eh p_es) =
-        union (findLoc eh) (findLocL (MAP SND p_es))) ∧
-    (findLoc (Lit _ _) = LN:num_set) ∧
-    (findLoc (Con _ _ es) = findLocL es) ∧
-    (findLoc (Var_local _ _) = LN) ∧
-    (findLoc (Fun _ _ ef) = findLoc ef) ∧
-    (findLoc (App _ op es) = (case (dest_GlobalVarInit op) of
-        | SOME n => (insert n () (findLocL es))
-        | NONE => findLocL es)) ∧
-    (findLoc (If _ ei1 ei2 ei3) =
-        union (findLoc ei1) (union (findLoc ei2) (findLoc ei3))) ∧
-    (findLoc (Mat _ em p_es) = union (findLoc em) (findLocL (MAP SND p_es))) ∧
-    (findLoc (Let _ _ el1 el2) = union (findLoc el1) (findLoc el2)) ∧
-    (findLoc (Letrec _ vv_es elr1) =
-        union (findLocL (MAP (SND o SND) vv_es)) (findLoc elr1)) ∧
-    (findLocL [] = LN) ∧
-    (findLocL (e::es) = union (findLoc e) (findLocL es))`
+val find_loc_def = tDefine "find_loc" `
+    (find_loc ((Raise _ er):flatLang$exp) = find_loc er) ∧
+    (find_loc (Handle _ eh p_es) =
+        union (find_loc eh) (find_locL (MAP SND p_es))) ∧
+    (find_loc (Lit _ _) = LN:num_set) ∧
+    (find_loc (Con _ _ es) = find_locL es) ∧
+    (find_loc (Var_local _ _) = LN) ∧
+    (find_loc (Fun _ _ ef) = find_loc ef) ∧
+    (find_loc (App _ op es) = (case (dest_GlobalVarInit op) of
+        | SOME n => (insert n () (find_locL es))
+        | NONE => find_locL es)) ∧
+    (find_loc (If _ ei1 ei2 ei3) =
+        union (find_loc ei1) (union (find_loc ei2) (find_loc ei3))) ∧
+    (find_loc (Mat _ em p_es) =
+        union (find_loc em) (find_locL (MAP SND p_es))) ∧
+    (find_loc (Let _ _ el1 el2) = union (find_loc el1) (find_loc el2)) ∧
+    (find_loc (Letrec _ vv_es elr1) =
+        union (find_locL (MAP (SND o SND) vv_es)) (find_loc elr1)) ∧
+    (find_locL [] = LN) ∧
+    (find_locL (e::es) = union (find_loc e) (find_locL es))`
     (
         WF_REL_TAC `measure (λ e . case e of
             | INL x => exp_size x
@@ -128,29 +137,30 @@ val findLoc_def = tDefine "findLoc" `
             rw[])
     );
 
-val findLoc_ind = theorem "findLoc_ind";
+val find_loc_ind = theorem "find_loc_ind";
 
-val findLookups_def = tDefine "findLookups" `
-    (findLookups (Raise _ er) = findLookups er) ∧
-    (findLookups (Handle _ eh p_es) =
-        union (findLookups eh) (findLookupsL (MAP SND p_es))) ∧
-    (findLookups (Lit _ _) = LN) ∧
-    (findLookups (Con _ _ es) = findLookupsL es) ∧
-    (findLookups (Var_local _ _) = LN) ∧
-    (findLookups (Fun _ _ ef) = findLookups ef) ∧
-    (findLookups (App _ op es) = (case (dest_GlobalVarLookup op) of
-        | SOME n => (insert n () (findLookupsL es))
-        | NONE => findLookupsL es)) ∧
-    (findLookups (If _ ei1 ei2 ei3) =
-        union (findLookups ei1) (union (findLookups ei2) (findLookups ei3))) ∧
-    (findLookups (Mat _ em p_es) =
-        union (findLookups em) (findLookupsL (MAP SND p_es))) ∧
-    (findLookups (Let _ _ el1 el2) =
-        union (findLookups el1) (findLookups el2)) ∧
-    (findLookups (Letrec _ vv_es elr1) =
-        union (findLookupsL (MAP (SND o SND) vv_es)) (findLookups elr1)) ∧
-    (findLookupsL [] = LN) ∧
-    (findLookupsL (e::es) = union (findLookups e) (findLookupsL es))
+val find_lookups_def = tDefine "find_lookups" `
+    (find_lookups (Raise _ er) = find_lookups er) ∧
+    (find_lookups (Handle _ eh p_es) =
+        union (find_lookups eh) (find_lookupsL (MAP SND p_es))) ∧
+    (find_lookups (Lit _ _) = LN) ∧
+    (find_lookups (Con _ _ es) = find_lookupsL es) ∧
+    (find_lookups (Var_local _ _) = LN) ∧
+    (find_lookups (Fun _ _ ef) = find_lookups ef) ∧
+    (find_lookups (App _ op es) = (case (dest_GlobalVarLookup op) of
+        | SOME n => (insert n () (find_lookupsL es))
+        | NONE => find_lookupsL es)) ∧
+    (find_lookups (If _ ei1 ei2 ei3) =
+        union (find_lookups ei1)
+            (union (find_lookups ei2) (find_lookups ei3))) ∧
+    (find_lookups (Mat _ em p_es) =
+        union (find_lookups em) (find_lookupsL (MAP SND p_es))) ∧
+    (find_lookups (Let _ _ el1 el2) =
+        union (find_lookups el1) (find_lookups el2)) ∧
+    (find_lookups (Letrec _ vv_es elr1) =
+        union (find_lookupsL (MAP (SND o SND) vv_es)) (find_lookups elr1)) ∧
+    (find_lookupsL [] = LN) ∧
+    (find_lookupsL (e::es) = union (find_lookups e) (find_lookupsL es))
 `
     (
         WF_REL_TAC `measure (λ e . case e of
@@ -169,12 +179,12 @@ val findLookups_def = tDefine "findLookups" `
             rw[])
     );
 
-val findLookups_ind = theorem "findLookups_ind";
+val find_lookups_ind = theorem "find_lookups_ind";
 
-val analyseExp_def = Define `
-    analyseExp e = let locs = (findLoc e) in let lookups = (findLookups e) in
-        if isPure e then (
-            if (isHidden e) then (LN, map (K lookups) locs)
+val analyse_exp_def = Define `
+    analyse_exp e = let locs = (find_loc e) in let lookups = (find_lookups e) in
+        if is_pure e then (
+            if (is_hidden e) then (LN, map (K lookups) locs)
             else (locs, map (K lookups) locs)
         ) else (
             (union locs lookups, (map (K LN) (union locs lookups)))
@@ -208,16 +218,16 @@ val num_set_tree_union_def = Define `
                 (num_set_tree_union t2 t2'))
 `;
 
-val codeAnalysis_union_def = Define `
-    codeAnalysis_union (r1, t1) (r2, t2) =
+val code_analysis_union_def = Define `
+    code_analysis_union (r1, t1) (r2, t2) =
         ((union r1 r2), (num_set_tree_union t1 t2))
 `
 
-val analyseCode_def = Define `
-    analyseCode [] = (LN, LN) ∧
-    analyseCode ((Dlet e)::cs) =
-        codeAnalysis_union (analyseExp e) (analyseCode cs) ∧
-    analyseCode (_::cs) = analyseCode cs
+val analyse_code_def = Define `
+    analyse_code [] = (LN, LN) ∧
+    analyse_code ((Dlet e)::cs) =
+        code_analysis_union (analyse_exp e) (analyse_code cs) ∧
+    analyse_code (_::cs) = analyse_code cs
 `
 
 
@@ -280,21 +290,21 @@ val keep_def = Define `
            -> if any are in, then keep e
            -> however if e is not pure (can have side-effects),
               then it must be kept *)
-        if isEmpty (inter (findLoc e) reachable) then (¬ (isPure e)) else T) ∧
+        if isEmpty (inter (find_loc e) reachable) then (¬ (is_pure e)) else T) ∧
     (keep reachable _ = T) (* not a Dlet, will be Dtype/Dexn so keep *)
 `
 
 val keep_ind = theorem "keep_ind";
 
-val removeUnreachable_def = Define `
-    removeUnreachable reachable l = FILTER (keep reachable) l
+val remove_unreachable_def = Define `
+    remove_unreachable reachable l = FILTER (keep reachable) l
 `
 
-val removeFlatProg_def = Define `
-    removeFlatProg code =
-        let (r, t) = analyseCode code in
+val remove_flat_prog_def = Define `
+    remove_flat_prog code =
+        let (r, t) = analyse_code code in
         let reachable = closure_spt r (mk_wf_set_tree t) in
-        removeUnreachable reachable code
+        remove_unreachable reachable code
 `
 
 

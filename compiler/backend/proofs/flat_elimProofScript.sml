@@ -1,3 +1,10 @@
+(*
+  Definitions and proofs of correctness for flatLang dead code elimination.
+
+  General sptree lemmas, definitions of reachability in a num_set num_map,
+  and proofs of semantic preservation for flat_elim.
+*)
+
 open preamble sptreeTheory flatLangTheory flat_elimTheory
      flatSemTheory flatPropsTheory
 
@@ -346,86 +353,86 @@ val domain_spt_fold_union_LN = Q.store_thm("domain_spt_fold_union_LN",
 
 (**************************** ANALYSIS LEMMAS *****************************)
 
-val isPure_EVERY_aconv = Q.store_thm ("isPure_EVERY_aconv",
-    `∀ es . EVERY (λ a . isPure a) es = EVERY isPure es`,
+val is_pure_EVERY_aconv = Q.store_thm ("is_pure_EVERY_aconv",
+    `∀ es . EVERY (λ a . is_pure a) es = EVERY is_pure es`,
     Induct >> fs[]
 );
 
-val wf_findLoc_wf_findLocL = Q.store_thm ("wf_findLoc_wf_findLocL",
-    `(∀ e locs . findLoc  e = locs ⇒ wf locs) ∧
-    (∀ l locs . findLocL l = locs ⇒ wf locs)`,
-    ho_match_mp_tac findLoc_ind >> rw[findLoc_def, wf_union] >> rw[wf_def] >>
+val wf_find_loc_wf_find_locL = Q.store_thm ("wf_find_loc_wf_find_locL",
+    `(∀ e locs . find_loc  e = locs ⇒ wf locs) ∧
+    (∀ l locs . find_locL l = locs ⇒ wf locs)`,
+    ho_match_mp_tac find_loc_ind >> rw[find_loc_def, wf_union] >> rw[wf_def] >>
     Cases_on `dest_GlobalVarInit op` >> fs[wf_insert]
 );
 
-val wf_findLocL = Q.store_thm("wf_findLocL",
-    `∀ l . wf(findLocL l)`,
-    metis_tac[wf_findLoc_wf_findLocL]
+val wf_find_locL = Q.store_thm("wf_find_locL",
+    `∀ l . wf(find_locL l)`,
+    metis_tac[wf_find_loc_wf_find_locL]
 );
 
-val wf_findLoc = Q.store_thm("wf_findLoc",
-    `∀ e . wf(findLoc e)`,
-    metis_tac[wf_findLoc_wf_findLocL]
+val wf_find_loc = Q.store_thm("wf_find_loc",
+    `∀ e . wf(find_loc e)`,
+    metis_tac[wf_find_loc_wf_find_locL]
 );
 
-val wf_findLookups_wf_findLookupsL = Q.store_thm (
-    "wf_findLookups_wf_findLookupsL",
-    `(∀ e lookups . findLookups e = lookups ⇒ wf lookups) ∧
-    (∀ l lookups . findLookupsL l = lookups ⇒ wf lookups)`,
-    ho_match_mp_tac findLookups_ind >>
-    rw[findLookups_def, wf_union] >> rw[wf_def] >>
+val wf_find_lookups_wf_find_lookupsL = Q.store_thm (
+    "wf_find_lookups_wf_find_lookupsL",
+    `(∀ e lookups . find_lookups e = lookups ⇒ wf lookups) ∧
+    (∀ l lookups . find_lookupsL l = lookups ⇒ wf lookups)`,
+    ho_match_mp_tac find_lookups_ind >>
+    rw[find_lookups_def, wf_union] >> rw[wf_def] >>
     Cases_on `dest_GlobalVarLookup op` >> fs[wf_insert]
 );
 
-val wf_findLookupsL = Q.store_thm("wf_findLookupsL",
-    `∀ l . wf(findLookupsL l)`,
-    metis_tac[wf_findLookups_wf_findLookupsL]
+val wf_find_lookupsL = Q.store_thm("wf_find_lookupsL",
+    `∀ l . wf(find_lookupsL l)`,
+    metis_tac[wf_find_lookups_wf_find_lookupsL]
 );
 
-val wf_findLookups = Q.store_thm("wf_findLookups",
-    `∀ e . wf(findLookups e)`,
-    metis_tac[wf_findLookups_wf_findLookupsL]
+val wf_find_lookups = Q.store_thm("wf_find_lookups",
+    `∀ e . wf(find_lookups e)`,
+    metis_tac[wf_find_lookups_wf_find_lookupsL]
 );
 
-val findLookupsL_MEM = Q.store_thm("findLookupsL_MEM",
-    `∀ e es . MEM e es ⇒ domain (findLookups e) ⊆ domain (findLookupsL es)`,
-    Induct_on `es` >> rw[] >> fs[findLookups_def, domain_union] >>
+val find_lookupsL_MEM = Q.store_thm("find_lookupsL_MEM",
+    `∀ e es . MEM e es ⇒ domain (find_lookups e) ⊆ domain (find_lookupsL es)`,
+    Induct_on `es` >> rw[] >> fs[find_lookups_def, domain_union] >>
     res_tac >> fs[SUBSET_DEF]
 );
 
-val findLookupsL_APPEND = Q.store_thm("findLookupsL_APPEND",
-    `∀ l1 l2 . findLookupsL (l1 ++ l2) =
-        union (findLookupsL l1) (findLookupsL l2)`,
-    Induct >> fs[findLookups_def] >> fs[union_assoc]
+val find_lookupsL_APPEND = Q.store_thm("find_lookupsL_APPEND",
+    `∀ l1 l2 . find_lookupsL (l1 ++ l2) =
+        union (find_lookupsL l1) (find_lookupsL l2)`,
+    Induct >> fs[find_lookups_def] >> fs[union_assoc]
 );
 
-val findLookupsL_REVERSE = Q.store_thm("findLookupsL_REVERSE",
-    `∀ l . findLookupsL l = findLookupsL (REVERSE l)`,
-    Induct >> fs[findLookups_def] >>
-    fs[findLookupsL_APPEND, findLookups_def, union_num_set_sym]
+val find_lookupsL_REVERSE = Q.store_thm("find_lookupsL_REVERSE",
+    `∀ l . find_lookupsL l = find_lookupsL (REVERSE l)`,
+    Induct >> fs[find_lookups_def] >>
+    fs[find_lookupsL_APPEND, find_lookups_def, union_num_set_sym]
 );
 
-val findLoc_EVERY_isEmpty = Q.store_thm("findLoc_EVERY_isEmpty",
+val find_loc_EVERY_isEmpty = Q.store_thm("find_loc_EVERY_isEmpty",
     `∀ l reachable:num_set .
-        EVERY (λ e . isEmpty (inter (findLoc e) reachable)) l
-      ⇔ isEmpty (inter (findLocL l) reachable)`,
-    Induct >- fs[Once findLoc_def, inter_def]
+        EVERY (λ e . isEmpty (inter (find_loc e) reachable)) l
+      ⇔ isEmpty (inter (find_locL l) reachable)`,
+    Induct >- fs[Once find_loc_def, inter_def]
     >> fs[EVERY_DEF] >> rw[] >> EQ_TAC >> rw[] >>
-       qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+       qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
        fs[inter_union_empty]
 );
 
-val wf_analyseExp = Q.store_thm("wf_analyseExp",
-    `∀ e roots tree . analyseExp e = (roots, tree) ⇒ (wf roots) ∧ (wf tree)`,
-    simp[analyseExp_def] >> rw[] >>
+val wf_analyse_exp = Q.store_thm("wf_analyse_exp",
+    `∀ e roots tree . analyse_exp e = (roots, tree) ⇒ (wf roots) ∧ (wf tree)`,
+    simp[analyse_exp_def] >> rw[] >>
     metis_tac[
-        wf_def, wf_map, wf_union, wf_findLoc, wf_findLookups_wf_findLookupsL]
+        wf_def, wf_map, wf_union, wf_find_loc, wf_find_lookups_wf_find_lookupsL]
 );
 
-val analyseExp_domain = Q.store_thm("analyseExp_domain",
-    `∀ e roots tree . analyseExp e = (roots, tree)
+val analyse_exp_domain = Q.store_thm("analyse_exp_domain",
+    `∀ e roots tree . analyse_exp e = (roots, tree)
   ⇒ (domain roots ⊆ domain tree)`,
-    simp[analyseExp_def] >> rw[] >> rw[domain_def, domain_map]
+    simp[analyse_exp_def] >> rw[] >> rw[domain_def, domain_map]
 );
 
 
@@ -521,62 +528,62 @@ val lookup_num_set_tree_union = Q.store_thm("lookup_num_set_tree_union",
         >-  fs[lookup_SOME_SOME_num_set_tree_union])
 );
 
-val wf_codeAnalysis_union = Q.store_thm("wf_codeAnalysis_union",
+val wf_code_analysis_union = Q.store_thm("wf_code_analysis_union",
     `∀ r3 r2 r1 t1 t2 t3. wf r1 ∧ wf r2
-        ∧ codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3`,
-    rw[codeAnalysis_union_def] >> rw[wf_union]
+        ∧ code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3`,
+    rw[code_analysis_union_def] >> rw[wf_union]
 );
 
-val wf_codeAnalysis_union_strong = Q.store_thm("wf_codeAnalysis_union_strong",
+val wf_code_analysis_union_strong = Q.store_thm("wf_code_analysis_union_strong",
     `∀ r3:num_set r2 r1 (t1:num_set num_map) t2 t3.
         wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 ∧
-        codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3`,
-    rw[codeAnalysis_union_def] >> rw[wf_union] >>
+        code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3`,
+    rw[code_analysis_union_def] >> rw[wf_union] >>
     imp_res_tac wf_num_set_tree_union >> fs[]
 );
 
-val domain_codeAnalysis_union = Q.store_thm("domain_codeAnalysis_union",
+val domain_code_analysis_union = Q.store_thm("domain_code_analysis_union",
     `∀ r1:num_set r2 r3 (t1:num_set num_map) t2 t3 .
     domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧
-    codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3`,
-    rw[codeAnalysis_union_def] >> rw[domain_union] >>
+    code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3`,
+    rw[code_analysis_union_def] >> rw[domain_union] >>
     rw[domain_num_set_tree_union] >> fs[SUBSET_DEF]
 );
 
-val wf_codeAnalysis_union = Q.store_thm("wf_codeAnalysis_union",
+val wf_code_analysis_union = Q.store_thm("wf_code_analysis_union",
     `∀ r3 r2 r1 t1 t2 t3. wf r1 ∧ wf r2
-        ∧ codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3`,
-    rw[codeAnalysis_union_def] >> rw[wf_union]
+        ∧ code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3`,
+    rw[code_analysis_union_def] >> rw[wf_union]
 );
 
-val wf_codeAnalysis_union_strong = Q.store_thm("wf_codeAnalysis_union_strong",
+val wf_code_analysis_union_strong = Q.store_thm("wf_code_analysis_union_strong",
     `∀ r3:num_set r2 r1 (t1:num_set num_map) t2 t3.
         wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 ∧
-        codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3`,
-    rw[codeAnalysis_union_def] >> rw[wf_union] >>
+        code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3`,
+    rw[code_analysis_union_def] >> rw[wf_union] >>
     imp_res_tac wf_num_set_tree_union >> fs[]
 );
 
-val domain_codeAnalysis_union = Q.store_thm("domain_codeAnalysis_union",
+val domain_code_analysis_union = Q.store_thm("domain_code_analysis_union",
     `∀ r1:num_set r2 r3 (t1:num_set num_map) t2 t3 .
     domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧
-    codeAnalysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3`,
-    rw[codeAnalysis_union_def] >> rw[domain_union] >>
+    code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3`,
+    rw[code_analysis_union_def] >> rw[domain_union] >>
     rw[domain_num_set_tree_union] >> fs[SUBSET_DEF]
 );
 
-val analyseCode_thm = Q.store_thm("analyseCode_thm",
-    `∀ code root tree . analyseCode code = (root, tree)
+val analyse_code_thm = Q.store_thm("analyse_code_thm",
+    `∀ code root tree . analyse_code code = (root, tree)
     ⇒ (wf root) ∧ (domain root ⊆ domain tree)`,
     Induct
-    >-(rw[analyseCode_def] >> rw[wf_def])
-    >> Cases_on `h` >> simp[analyseCode_def] >> Cases_on `analyseExp e` >>
-       Cases_on `analyseCode code` >>
+    >-(rw[analyse_code_def] >> rw[wf_def])
+    >> Cases_on `h` >> simp[analyse_code_def] >> Cases_on `analyse_exp e` >>
+       Cases_on `analyse_code code` >>
        first_x_assum (qspecl_then [`q'`, `r'`] mp_tac) >> simp[] >>
-       qspecl_then [`e`, `q`, `r`] mp_tac wf_analyseExp >> simp[] >> rw[]
-       >- imp_res_tac wf_codeAnalysis_union
-       >> qspecl_then [`e`, `q`, `r`] mp_tac analyseExp_domain >> rw[] >>
-          imp_res_tac domain_codeAnalysis_union
+       qspecl_then [`e`, `q`, `r`] mp_tac wf_analyse_exp >> simp[] >> rw[]
+       >- imp_res_tac wf_code_analysis_union
+       >> qspecl_then [`e`, `q`, `r`] mp_tac analyse_exp_domain >> rw[] >>
+          imp_res_tac domain_code_analysis_union
 );
 
 
@@ -748,54 +755,54 @@ val mk_wf_set_tree_num_set_tree_union = Q.store_thm(
 
 (************************** ADJACENCY/REACHABILITY ***************************)
 
-val isAdjacent_def = Define `
-    isAdjacent tree x y =
+val is_adjacent_def = Define `
+    is_adjacent tree x y =
     ∃ aSetx aSety.
         ( lookup x tree = SOME aSetx ) ∧ ( lookup y aSetx = SOME () ) ∧
         ( lookup y tree = SOME aSety )
 `;
 
 val adjacent_domain = Q.store_thm("adjacent_domain",
-    `∀ tree x y . isAdjacent tree x y ⇒ x ∈ domain tree ∧ y ∈ domain tree`,
-    rw[isAdjacent_def] >> rw[domain_lookup]
+    `∀ tree x y . is_adjacent tree x y ⇒ x ∈ domain tree ∧ y ∈ domain tree`,
+    rw[is_adjacent_def] >> rw[domain_lookup]
 );
 
-val isReachable_def = Define `
-    isReachable tree = RTC (isAdjacent tree)
+val is_reachable_def = Define `
+    is_reachable tree = RTC (is_adjacent tree)
 `;
 
 val reachable_domain = Q.store_thm("reachable_domain",
-    `∀ tree x y . isReachable tree x y
+    `∀ tree x y . is_reachable tree x y
   ⇒ (x = y ∨ (x ∈ domain tree ∧ y ∈ domain tree))`,
-    simp[isReachable_def] >> strip_tac >> ho_match_mp_tac RTC_INDUCT_RIGHT1 >>
+    simp[is_reachable_def] >> strip_tac >> ho_match_mp_tac RTC_INDUCT_RIGHT1 >>
     metis_tac[adjacent_domain]
 );
 
-val rtc_isAdjacent = Q.store_thm("rtc_isAdjacent",
-    `s ⊆ t ∧ (∀ k . k ∈ t ⇒ ∀ n . (isAdjacent fullTree k n ⇒ n ∈ t)) ⇒
-    ∀ x y . RTC(isAdjacent fullTree) x y ⇒ x ∈ s ⇒ y ∈ t`,
+val rtc_is_adjacent = Q.store_thm("rtc_is_adjacent",
+    `s ⊆ t ∧ (∀ k . k ∈ t ⇒ ∀ n . (is_adjacent fullTree k n ⇒ n ∈ t)) ⇒
+    ∀ x y . RTC(is_adjacent fullTree) x y ⇒ x ∈ s ⇒ y ∈ t`,
     strip_tac >>
     ho_match_mp_tac RTC_INDUCT_RIGHT1 >>
     fs[SUBSET_DEF] >>
     metis_tac []
 );
 
-val isAdjacent_num_set_tree_union = Q.store_thm(
-    "isAdjacent_num_set_tree_union",
+val is_adjacent_num_set_tree_union = Q.store_thm(
+    "is_adjacent_num_set_tree_union",
     `∀ t1 t2 n m .
-        isAdjacent t1 n m ⇒ isAdjacent (num_set_tree_union t1 t2) n m`,
-    rw[isAdjacent_def] >> imp_res_tac lookup_domain_num_set_tree_union >>
+        is_adjacent t1 n m ⇒ is_adjacent (num_set_tree_union t1 t2) n m`,
+    rw[is_adjacent_def] >> imp_res_tac lookup_domain_num_set_tree_union >>
     first_x_assum (qspec_then `t2` mp_tac) >> rw[] >>
     first_x_assum (qspec_then `t2` mp_tac) >> rw[] >>
     fs[SUBSET_DEF, domain_lookup]
 );
 
-val isAdjacent_wf_set_tree_num_set_tree_union = Q.store_thm (
-    "isAdjacent_wf_set_tree_num_set_tree_union",
+val is_adjacent_wf_set_tree_num_set_tree_union = Q.store_thm (
+    "is_adjacent_wf_set_tree_num_set_tree_union",
     `∀ t1 t2 n m .
-        isAdjacent (mk_wf_set_tree t1) n m
-        ⇒ isAdjacent (mk_wf_set_tree (num_set_tree_union t1 t2)) n m`,
-    rw[isAdjacent_def] >> fs[mk_wf_set_tree_def] >> fs[lookup_map] >>
+        is_adjacent (mk_wf_set_tree t1) n m
+        ⇒ is_adjacent (mk_wf_set_tree (num_set_tree_union t1 t2)) n m`,
+    rw[is_adjacent_def] >> fs[mk_wf_set_tree_def] >> fs[lookup_map] >>
     fs[lookup_union] >> fs[lookup_map] >> fs[PULL_EXISTS] >>
     fs[lookup_num_set_tree_union] >>
     Cases_on `lookup n t1` >> fs[] >> Cases_on `lookup n t2` >> fs[] >>
@@ -805,15 +812,15 @@ val isAdjacent_wf_set_tree_num_set_tree_union = Q.store_thm (
     rw[SUBSET_DEF, domain_lookup]
 );
 
-val isReachable_wf_set_tree_num_set_tree_union = Q.store_thm (
-    "isReachable_wf_set_tree_num_set_tree_union",
+val is_reachable_wf_set_tree_num_set_tree_union = Q.store_thm (
+    "is_reachable_wf_set_tree_num_set_tree_union",
     `∀ t1 t2 n m .
-        isReachable (mk_wf_set_tree t1) n m
-      ⇒ isReachable (mk_wf_set_tree (num_set_tree_union t1 t2)) n m`,
-    simp[isReachable_def] >> strip_tac >> strip_tac >>
+        is_reachable (mk_wf_set_tree t1) n m
+      ⇒ is_reachable (mk_wf_set_tree (num_set_tree_union t1 t2)) n m`,
+    simp[is_reachable_def] >> strip_tac >> strip_tac >>
     ho_match_mp_tac RTC_INDUCT_RIGHT1 >> rw[] >>
     simp[Once RTC_CASES2] >> disj2_tac >> qexists_tac `m` >> fs[] >>
-    imp_res_tac isAdjacent_wf_set_tree_num_set_tree_union >> fs[]
+    imp_res_tac is_adjacent_wf_set_tree_num_set_tree_union >> fs[]
 );
 
 
@@ -827,17 +834,17 @@ val v_size_map_snd = Q.store_thm("exp_size_map_snd",
     `v_size (SND h) ≤ v2_size h` by (Cases_on `h` >> rw[v_size_def]) >> rw[]
 );
 
-val findVglobals_def = tDefine "findVglobals" `
-    (findVglobals (Conv _ vl) = (findVglobalsL vl):num_set) ∧
-    (findVglobals (Closure vvs _ e) =
-        union (findVglobalsL (MAP SND vvs)) (findLookups e)) ∧
-    (findVglobals (Recclosure vvs vves _) =
-        union (findVglobalsL (MAP SND vvs))
-            (findLookupsL (MAP (SND o SND) vves))) ∧
-    (findVglobals (Vectorv vl) = findVglobalsL vl) ∧
-    (findVglobals _ = LN) ∧
-    (findVglobalsL [] = LN) ∧
-    (findVglobalsL (h::t) = union (findVglobals h) (findVglobalsL t))
+val find_v_globals_def = tDefine "find_v_globals" `
+    (find_v_globals (Conv _ vl) = (find_v_globalsL vl):num_set) ∧
+    (find_v_globals (Closure vvs _ e) =
+        union (find_v_globalsL (MAP SND vvs)) (find_lookups e)) ∧
+    (find_v_globals (Recclosure vvs vves _) =
+        union (find_v_globalsL (MAP SND vvs))
+            (find_lookupsL (MAP (SND o SND) vves))) ∧
+    (find_v_globals (Vectorv vl) = find_v_globalsL vl) ∧
+    (find_v_globals _ = LN) ∧
+    (find_v_globalsL [] = LN) ∧
+    (find_v_globalsL (h::t) = union (find_v_globals h) (find_v_globalsL t))
 `
 (
     WF_REL_TAC `measure (λ e . case e of
@@ -847,156 +854,156 @@ val findVglobals_def = tDefine "findVglobals" `
     Cases_on `v3_size(MAP SND vvs) = v1_size vvs` >> rw[]
 );
 
-val findVglobals_ind = theorem "findVglobals_ind";
+val find_v_globals_ind = theorem "find_v_globals_ind";
 
-val findVglobalsL_APPEND = Q.store_thm("findVglobalsL_APPEND",
-    `∀ l1 l2 . findVglobalsL (l1 ++ l2) =
-        union (findVglobalsL l1) (findVglobalsL l2)`,
-    Induct >> fs[findVglobals_def] >> fs[union_assoc]
+val find_v_globalsL_APPEND = Q.store_thm("find_v_globalsL_APPEND",
+    `∀ l1 l2 . find_v_globalsL (l1 ++ l2) =
+        union (find_v_globalsL l1) (find_v_globalsL l2)`,
+    Induct >> fs[find_v_globals_def] >> fs[union_assoc]
 );
 
-val findVglobalsL_REVERSE = Q.store_thm("findVglobalsL_REVERSE",
-    `∀ l . findVglobalsL l = findVglobalsL (REVERSE l)`,
-    Induct >> fs[findVglobals_def] >>
-    fs[findVglobalsL_APPEND, union_num_set_sym, findVglobals_def]
+val find_v_globalsL_REVERSE = Q.store_thm("find_v_globalsL_REVERSE",
+    `∀ l . find_v_globalsL l = find_v_globalsL (REVERSE l)`,
+    Induct >> fs[find_v_globals_def] >>
+    fs[find_v_globalsL_APPEND, union_num_set_sym, find_v_globals_def]
 );
 
-val findVglobalsL_MEM = Q.store_thm("findVglobalsL_MEM",
+val find_v_globalsL_MEM = Q.store_thm("find_v_globalsL_MEM",
     `∀ k v vs . MEM (k, v) vs
-  ⇒ domain (findVglobals v) ⊆ domain (findVglobalsL (MAP SND vs))`,
-    Induct_on `vs` >> rw[] >> fs[findVglobals_def, domain_union] >>
+  ⇒ domain (find_v_globals v) ⊆ domain (find_v_globalsL (MAP SND vs))`,
+    Induct_on `vs` >> rw[] >> fs[find_v_globals_def, domain_union] >>
     res_tac >> fs[SUBSET_DEF]
 );
 
-val findVglobalsL_EL = Q.store_thm("findVglobalsL_EL",
+val find_v_globalsL_EL = Q.store_thm("find_v_globalsL_EL",
     `∀ n vs . n < LENGTH vs ⇒
-    domain (findVglobals (EL n vs)) ⊆ domain(findVglobalsL vs)`,
+    domain (find_v_globals (EL n vs)) ⊆ domain(find_v_globalsL vs)`,
     Induct >> fs[EL] >> rw[] >> Cases_on `vs` >>
-    fs[findVglobals_def, domain_union] >>
+    fs[find_v_globals_def, domain_union] >>
     Cases_on `n = 0` >> fs[] >>  fs[EXTENSION, SUBSET_DEF]
 );
 
-val findVglobals_MAP_Recclosure = Q.store_thm("findVglobals_MAP_Recclosure",
+val find_v_globals_MAP_Recclosure = Q.store_thm("find_v_globals_MAP_Recclosure",
     `∀ (funs:(tvarN,tvarN # flatLang$exp) alist) v l .
-        domain (findVglobalsL (MAP (λ (f,x,e). Recclosure v l f) funs)) ⊆
-            domain (findVglobalsL (MAP SND v)) ∪
-            domain (findLookupsL (MAP (SND o SND) l))`,
-    Induct >> fs[findVglobals_def] >> rw[domain_union] >>
-    PairCases_on `h` >> fs[findVglobals_def, domain_union]
+        domain (find_v_globalsL (MAP (λ (f,x,e). Recclosure v l f) funs)) ⊆
+            domain (find_v_globalsL (MAP SND v)) ∪
+            domain (find_lookupsL (MAP (SND o SND) l))`,
+    Induct >> fs[find_v_globals_def] >> rw[domain_union] >>
+    PairCases_on `h` >> fs[find_v_globals_def, domain_union]
 );
 
-val findVglobalsL_REPLICATE = Q.store_thm ("findVglobalsL_REPLICATE",
-    `∀ n v vs . domain (findVglobalsL (REPLICATE n v)) ⊆
-        domain (findVglobals v)`,
-    Induct >> fs[REPLICATE, findVglobals_def, domain_union]
+val find_v_globalsL_REPLICATE = Q.store_thm ("find_v_globalsL_REPLICATE",
+    `∀ n v vs . domain (find_v_globalsL (REPLICATE n v)) ⊆
+        domain (find_v_globals v)`,
+    Induct >> fs[REPLICATE, find_v_globals_def, domain_union]
 );
 
-val findVglobalsL_LUPDATE = Q.store_thm ("findVglobalsL_LUPDATE",
+val find_v_globalsL_LUPDATE = Q.store_thm ("find_v_globalsL_LUPDATE",
     `∀ n vs (reachable:num_set) v . n < LENGTH vs ∧
-    domain (findVglobalsL vs) ⊆ domain reachable ∧
-    domain (findVglobals v) ⊆ domain reachable
-  ⇒ domain (findVglobalsL (LUPDATE v n vs)) ⊆ domain reachable`,
+    domain (find_v_globalsL vs) ⊆ domain reachable ∧
+    domain (find_v_globals v) ⊆ domain reachable
+  ⇒ domain (find_v_globalsL (LUPDATE v n vs)) ⊆ domain reachable`,
     Induct_on `vs` >> rw[] >> Cases_on `n` >> fs[LUPDATE_def] >>
-    fs[findVglobals_def, domain_union]
+    fs[find_v_globals_def, domain_union]
 );
 
-val findVglobals_v_to_list = Q.store_thm("findVglobals_v_to_list",
+val find_v_globals_v_to_list = Q.store_thm("find_v_globals_v_to_list",
     `∀ x reachable xs .
-        domain (findVglobals x) ⊆ domain reachable ∧ v_to_list x = SOME xs
-    ⇒ domain (findVglobalsL xs) ⊆ domain reachable`,
+        domain (find_v_globals x) ⊆ domain reachable ∧ v_to_list x = SOME xs
+    ⇒ domain (find_v_globalsL xs) ⊆ domain reachable`,
     recInduct v_to_list_ind >>
-    fs[v_to_list_def, findVglobals_def, domain_union] >> rw[] >>
+    fs[v_to_list_def, find_v_globals_def, domain_union] >> rw[] >>
     Cases_on `v_to_list v2` >> fs[] >> rveq >>
-    fs[findVglobals_def, domain_union] >> metis_tac[]
+    fs[find_v_globals_def, domain_union] >> metis_tac[]
 );
 
-val findVglobals_list_to_v = Q.store_thm("findVglobals_list_to_v",
+val find_v_globals_list_to_v = Q.store_thm("find_v_globals_list_to_v",
     `∀ xs reachable x .
-        domain (findVglobalsL xs) ⊆ domain reachable ∧ list_to_v xs = x
-    ⇒ domain (findVglobals x) ⊆ domain reachable`,
-    Induct >> fs[list_to_v_def, findVglobals_def, domain_union]
+        domain (find_v_globalsL xs) ⊆ domain reachable ∧ list_to_v xs = x
+    ⇒ domain (find_v_globals x) ⊆ domain reachable`,
+    Induct >> fs[list_to_v_def, find_v_globals_def, domain_union]
 );
 
-val findRefsGlobals_def = Define `
-    (findRefsGlobals (Refv a::t) =
-        union (findVglobals a) (findRefsGlobals t)) ∧
-    (findRefsGlobals (Varray l::t) =
-        union (findVglobalsL l) (findRefsGlobals t)) ∧
-    (findRefsGlobals (_::t) = findRefsGlobals t) ∧
-    (findRefsGlobals [] = LN)
+val find_refs_globals_def = Define `
+    (find_refs_globals (Refv a::t) =
+        union (find_v_globals a) (find_refs_globals t)) ∧
+    (find_refs_globals (Varray l::t) =
+        union (find_v_globalsL l) (find_refs_globals t)) ∧
+    (find_refs_globals (_::t) = find_refs_globals t) ∧
+    (find_refs_globals [] = LN)
 `
 
-val findRefsGlobals_ind = theorem "findRefsGlobals_ind";
+val find_refs_globals_ind = theorem "find_refs_globals_ind";
 
-val findRefsGlobals_EL = Q.store_thm("findRefsGlobals_EL",
+val find_refs_globals_EL = Q.store_thm("find_refs_globals_EL",
     `∀ n l . n < LENGTH l ⇒
         (∀ a . EL n l = Refv a
-            ⇒ domain (findVglobals a) ⊆ domain (findRefsGlobals l)) ∧
+            ⇒ domain (find_v_globals a) ⊆ domain (find_refs_globals l)) ∧
         (∀ vs . EL n l = Varray vs
-            ⇒ domain (findVglobalsL vs) ⊆ domain (findRefsGlobals l))`,
+            ⇒ domain (find_v_globalsL vs) ⊆ domain (find_refs_globals l))`,
     Induct >> rw[]
-    >- (Cases_on `l` >> fs[findRefsGlobals_def, domain_union])
-    >- (Cases_on `l` >> fs[findRefsGlobals_def, domain_union])
+    >- (Cases_on `l` >> fs[find_refs_globals_def, domain_union])
+    >- (Cases_on `l` >> fs[find_refs_globals_def, domain_union])
     >> fs[EL] >> first_x_assum (qspec_then `TL l` mp_tac) >> rw[] >>
        `n < LENGTH (TL l)` by fs[LENGTH_TL] >> fs[] >>
        Cases_on `l` >> fs[] >>
-       Cases_on `h` >> fs[findRefsGlobals_def, domain_union, SUBSET_DEF]
+       Cases_on `h` >> fs[find_refs_globals_def, domain_union, SUBSET_DEF]
 );
 
-val findRefsGlobals_MEM = Q.store_thm("findRefsGlobals_MEM",
+val find_refs_globals_MEM = Q.store_thm("find_refs_globals_MEM",
     `∀ refs reachable:num_set .
-        domain (findRefsGlobals refs) ⊆ domain reachable
+        domain (find_refs_globals refs) ⊆ domain reachable
       ⇒ (∀ a . MEM (Refv a) refs
-            ⇒ domain (findVglobals a) ⊆ domain reachable) ∧
+            ⇒ domain (find_v_globals a) ⊆ domain reachable) ∧
         (∀ vs . MEM (Varray vs) refs
-            ⇒ domain (findVglobalsL vs) ⊆ domain reachable)`,
-    Induct >> rw[] >> fs[findRefsGlobals_def, domain_union] >>
-    Cases_on `h` >> fs[findRefsGlobals_def, domain_union]
+            ⇒ domain (find_v_globalsL vs) ⊆ domain reachable)`,
+    Induct >> rw[] >> fs[find_refs_globals_def, domain_union] >>
+    Cases_on `h` >> fs[find_refs_globals_def, domain_union]
 );
 
-val findRefsGlobals_LUPDATE = Q.store_thm ("findRefsGlobals_LUPDATE",
+val find_refs_globals_LUPDATE = Q.store_thm ("find_refs_globals_LUPDATE",
     `∀ reachable:num_set refs n .
-        n < LENGTH refs ∧ domain (findRefsGlobals refs) ⊆ domain reachable
+        n < LENGTH refs ∧ domain (find_refs_globals refs) ⊆ domain reachable
       ⇒
-        (∀ a . domain (findVglobals a) ⊆ domain reachable
-            ⇒ domain (findRefsGlobals (LUPDATE (Refv a) n refs))
+        (∀ a . domain (find_v_globals a) ⊆ domain reachable
+            ⇒ domain (find_refs_globals (LUPDATE (Refv a) n refs))
                 ⊆ domain reachable) ∧
-    (∀ vs . domain (findVglobalsL vs) ⊆ domain reachable
-        ⇒ domain (findRefsGlobals (LUPDATE (Varray vs) n  refs))
+    (∀ vs . domain (find_v_globalsL vs) ⊆ domain reachable
+        ⇒ domain (find_refs_globals (LUPDATE (Varray vs) n  refs))
             ⊆ domain reachable) ∧
-    (∀ ws. domain (findRefsGlobals (LUPDATE (W8array ws) n refs))
+    (∀ ws. domain (find_refs_globals (LUPDATE (W8array ws) n refs))
         ⊆ domain reachable)`,
     Induct_on `refs` >> rw[] >> Cases_on `h` >>
-    fs[findRefsGlobals_def, domain_union] >>
-    Cases_on `n = 0` >> fs[LUPDATE_def, findRefsGlobals_def, domain_union] >>
+    fs[find_refs_globals_def, domain_union] >>
+    Cases_on `n = 0` >> fs[LUPDATE_def, find_refs_globals_def, domain_union] >>
     fs[domain_union, LUPDATE_def] >> Cases_on `n` >> fs[] >>
-    fs[LUPDATE_def, findRefsGlobals_def, domain_union]
+    fs[LUPDATE_def, find_refs_globals_def, domain_union]
 );
 
-val findRefsGlobals_APPEND = Q.store_thm ("findRefsGlobals_APPEND",
-    `∀ refs new . findRefsGlobals (refs ++ new) =
-        union (findRefsGlobals refs) (findRefsGlobals new)`,
-    Induct >> rw[] >> fs[findRefsGlobals_def] >>
-    Cases_on `h` >> fs[findRefsGlobals_def] >> fs[union_assoc]
+val find_refs_globals_APPEND = Q.store_thm ("find_refs_globals_APPEND",
+    `∀ refs new . find_refs_globals (refs ++ new) =
+        union (find_refs_globals refs) (find_refs_globals new)`,
+    Induct >> rw[] >> fs[find_refs_globals_def] >>
+    Cases_on `h` >> fs[find_refs_globals_def] >> fs[union_assoc]
 
 );
 
-val findEnvGlobals_def = Define `
-    findEnvGlobals env = findVglobalsL (MAP SND env.v)
+val find_env_globals_def = Define `
+    find_env_globals env = find_v_globalsL (MAP SND env.v)
 `
 
-val findResultGlobals_def = Define `
-    (findResultGlobals (SOME (Rraise v)) = findVglobals v) ∧
-    (findResultGlobals _ = LN)
+val find_result_globals_def = Define `
+    (find_result_globals (SOME (Rraise v)) = find_v_globals v) ∧
+    (find_result_globals _ = LN)
 `
 
-val findResultGlobals_ind = theorem "findResultGlobals_ind";
+val find_result_globals_ind = theorem "find_result_globals_ind";
 
-val findSemPrimResGlobals_def = Define `
-    (findSemPrimResGlobals (Rerr e :
+val find_sem_prim_res_globals_def = Define `
+    (find_sem_prim_res_globals (Rerr e :
         (flatSem$v list, flatSem$v) semanticPrimitives$result) =
-        findResultGlobals (SOME e)) ∧
-    (findSemPrimResGlobals (Rval e) = findVglobalsL e)
+        find_result_globals (SOME e)) ∧
+    (find_sem_prim_res_globals (Rval e) = find_v_globalsL e)
 `
 
 (* s = state, t = removed state *)
@@ -1012,7 +1019,7 @@ val globals_rel_def = Define `
             ⇒ EL n t.globals = NONE) ∧
         (∀ n x . n ∈ domain reachable ∧ n < LENGTH t.globals ∧
             EL n t.globals = SOME x
-          ⇒ domain (findVglobals x) ⊆ domain reachable)
+          ⇒ domain (find_v_globals x) ⊆ domain reachable)
 `
 
 val globals_rel_trans = Q.store_thm("globals_rel_trans",
@@ -1022,33 +1029,35 @@ val globals_rel_trans = Q.store_thm("globals_rel_trans",
     rw[globals_rel_def]
 );
 
-val decsClosed_def = Define `
-    decsClosed (reachable : num_set) decs ⇔  ∀ r t . analyseCode decs = (r,t)
+val decs_closed_def = Define `
+    decs_closed (reachable : num_set) decs ⇔  ∀ r t . analyse_code decs = (r,t)
     ⇒ domain r ⊆ domain reachable ∧
-      (∀ n m . n ∈ domain reachable ∧ isReachable (mk_wf_set_tree t) n m
+      (∀ n m . n ∈ domain reachable ∧ is_reachable (mk_wf_set_tree t) n m
       ⇒ m ∈ domain reachable)
 `
 
-val decsClosed_reduce = Q.store_thm ("decsClosed_reduce",
-    `∀ reachable h t . decsClosed reachable (h::t) ⇒ decsClosed reachable t`,
-    fs[decsClosed_def] >> rw[] >> Cases_on `h` >> fs[analyseCode_def]
-    >- (Cases_on `analyseExp e` >> fs[codeAnalysis_union_def, domain_union])
-    >- (Cases_on `analyseExp e` >> fs[codeAnalysis_union_def, domain_union] >>
+val decs_closed_reduce = Q.store_thm ("decs_closed_reduce",
+    `∀ reachable h t . decs_closed reachable (h::t) ⇒ decs_closed reachable t`,
+    fs[decs_closed_def] >> rw[] >> Cases_on `h` >> fs[analyse_code_def]
+    >- (Cases_on `analyse_exp e` >> fs[code_analysis_union_def, domain_union])
+    >- (Cases_on `analyse_exp e` >> fs[code_analysis_union_def, domain_union] >>
         first_x_assum drule >> rw[] >> pop_assum match_mp_tac >>
-        assume_tac isReachable_wf_set_tree_num_set_tree_union >> fs[] >>
+        assume_tac is_reachable_wf_set_tree_num_set_tree_union >> fs[] >>
         fs[Once num_set_tree_union_sym])
     >> metis_tac[]
 );
 
-val decsClosed_reduce_HD = Q.store_thm("decsClosed_reduce_HD",
-    `∀ reachable h t . decsClosed reachable (h::t) ⇒ decsClosed reachable [h]`,
-    fs[decsClosed_def] >> rw[] >> Cases_on `h` >> fs[analyseCode_def] >>
-    Cases_on `analyseExp e` >>
-    fs[codeAnalysis_union_def, domain_union] >> rveq >> fs[domain_def]
-    >- (Cases_on `analyseCode t` >> fs[codeAnalysis_union_def, domain_union])
+val decs_closed_reduce_HD = Q.store_thm("decs_closed_reduce_HD",
+    `∀ reachable h t .
+        decs_closed reachable (h::t) ⇒ decs_closed reachable [h]`,
+    fs[decs_closed_def] >> rw[] >> Cases_on `h` >> fs[analyse_code_def] >>
+    Cases_on `analyse_exp e` >>
+    fs[code_analysis_union_def, domain_union] >> rveq >> fs[domain_def]
+    >- (Cases_on `analyse_code t` >> fs[code_analysis_union_def, domain_union])
     >- (fs[Once num_set_tree_union_sym, num_set_tree_union_def] >>
-        Cases_on `analyseCode t` >> fs[codeAnalysis_union_def, domain_union] >>
-        imp_res_tac isReachable_wf_set_tree_num_set_tree_union >>
+        Cases_on `analyse_code t` >>
+        fs[code_analysis_union_def, domain_union] >>
+        imp_res_tac is_reachable_wf_set_tree_num_set_tree_union >>
         pop_assum (qspec_then `r` mp_tac) >> strip_tac >> res_tac)
     >- (fs[EVAL ``mk_wf_set_tree LN``] >>
         imp_res_tac reachable_domain >> fs[domain_def])
@@ -1060,7 +1069,7 @@ val decsClosed_reduce_HD = Q.store_thm("decsClosed_reduce_HD",
 val flat_state_rel_def = Define `
     flat_state_rel reachable s t ⇔ s.clock = t.clock ∧ s.refs = t.refs ∧
     s.ffi = t.ffi ∧ globals_rel reachable s t ∧
-    domain (findRefsGlobals s.refs) ⊆ domain reachable
+    domain (find_refs_globals s.refs) ⊆ domain reachable
 `
 
 val flat_state_rel_trans = Q.store_thm("flat_state_rel_trans",
@@ -1074,84 +1083,85 @@ val flat_state_rel_trans = Q.store_thm("flat_state_rel_trans",
 
 val pmatch_Match_reachable = Q.store_thm ("pmatch_Match_reachable",
     `(∀ env refs p v l a reachable:num_set . pmatch env refs p v l = Match a ∧
-        domain (findVglobalsL (MAP SND env.v)) ⊆ domain reachable ∧
-        domain (findVglobals v) ⊆ domain reachable ∧
-        domain (findVglobalsL (MAP SND l)) ⊆ domain reachable ∧
-        domain (findRefsGlobals refs) ⊆ domain reachable
-    ⇒ domain (findVglobalsL (MAP SND a)) ⊆ domain reachable)
+        domain (find_v_globalsL (MAP SND env.v)) ⊆ domain reachable ∧
+        domain (find_v_globals v) ⊆ domain reachable ∧
+        domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
+        domain (find_refs_globals refs) ⊆ domain reachable
+    ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
   ∧
     (∀ env refs p vs l a reachable:num_set .
         pmatch_list env refs p vs l = Match a ∧
-        domain (findVglobalsL (MAP SND env.v)) ⊆ domain reachable ∧
-        domain (findVglobalsL vs) ⊆ domain reachable ∧
-        domain (findVglobalsL (MAP SND l)) ⊆ domain reachable ∧
-        domain (findRefsGlobals refs) ⊆ domain reachable
-    ⇒ domain (findVglobalsL (MAP SND a)) ⊆ domain reachable)`
+        domain (find_v_globalsL (MAP SND env.v)) ⊆ domain reachable ∧
+        domain (find_v_globalsL vs) ⊆ domain reachable ∧
+        domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
+        domain (find_refs_globals refs) ⊆ domain reachable
+    ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)`
   ,
     ho_match_mp_tac pmatch_ind >> rw[pmatch_def] >>
-    fs[findVglobals_def, domain_union]
+    fs[find_v_globals_def, domain_union]
     >- (Cases_on `store_lookup lnum refs` >> fs[] >> Cases_on `x` >> fs[] >>
         fs[semanticPrimitivesTheory.store_lookup_def] >>
         first_x_assum (qspec_then `reachable` match_mp_tac) >> rw[] >>
-        imp_res_tac findRefsGlobals_EL >> metis_tac[SUBSET_TRANS])
+        imp_res_tac find_refs_globals_EL >> metis_tac[SUBSET_TRANS])
     >- (Cases_on `pmatch env refs p v l` >> fs[domain_union])
 );
 
 
-val findVglobals_list_to_v_APPEND = Q.store_thm(
-    "findVglobals_list_to_v_APPEND",
+val find_v_globals_list_to_v_APPEND = Q.store_thm(
+    "find_v_globals_list_to_v_APPEND",
     `∀ xs reachable ys .
-        domain (findVglobalsL xs) ⊆ domain reachable ∧
-        domain(findVglobalsL ys) ⊆ domain reachable
-    ⇒ domain (findVglobals (list_to_v (xs ++ ys))) ⊆ domain reachable`,
-    Induct >> fs[list_to_v_def, findVglobals_def, domain_union] >>
-    metis_tac[findVglobals_list_to_v]
+        domain (find_v_globalsL xs) ⊆ domain reachable ∧
+        domain(find_v_globalsL ys) ⊆ domain reachable
+    ⇒ domain (find_v_globals (list_to_v (xs ++ ys))) ⊆ domain reachable`,
+    Induct >> fs[list_to_v_def, find_v_globals_def, domain_union] >>
+    metis_tac[find_v_globals_list_to_v]
 );
 
-val findVglobals_Unitv = Q.store_thm("findVglobals_Unitv[simp]",
-  `findVglobals (Unitv cc) = LN`,
+val find_v_globals_Unitv = Q.store_thm("find_v_globals_Unitv[simp]",
+  `find_v_globals (Unitv cc) = LN`,
   EVAL_TAC);
 
 val do_app_SOME_flat_state_rel = Q.store_thm("do_app_SOME_flat_state_rel",
     `∀ reachable state removed_state op l new_state result new_removed_state.
         flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧
-        domain(findVglobalsL l) ⊆ domain reachable ∧
-        domain (findLookups (App tra op [])) ⊆ domain reachable
+        domain(find_v_globalsL l) ⊆ domain reachable ∧
+        domain (find_lookups (App tra op [])) ⊆ domain reachable
           ⇒ do_app cc state op l = SOME (new_state, result) ∧
             result ≠ Rerr (Rabort Rtype_error)
             ⇒ ∃ new_removed_state .
                 flat_state_rel reachable new_state new_removed_state ∧
                 do_app cc removed_state op l =
                     SOME (new_removed_state, result) ∧
-                domain (findSemPrimResGlobals (list_result result)) ⊆
+                domain (find_sem_prim_res_globals (list_result result)) ⊆
                     domain reachable`,
 
     rw[] >> qpat_x_assum `flat_state_rel _ _ _` mp_tac >>
     simp[Once flat_state_rel_def] >> strip_tac >>
     `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[]) >>
     reverse (Cases_on `op`) >> fs[]
-    >- (fs[do_app_def] >> Cases_on `l` >> fs[findVglobals_def] >>
+    >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
         rveq >> fs[flat_state_rel_def] >>
-        fs[findLookups_def, dest_GlobalVarLookup_def] >>
-        fs[findSemPrimResGlobals_def] >>
+        fs[find_lookups_def, dest_GlobalVarLookup_def] >>
+        fs[find_sem_prim_res_globals_def] >>
         Cases_on `EL n new_state.globals` >> fs[] >> res_tac >>
-        Cases_on `EL n removed_state.globals` >> fs[findVglobals_def] >>
+        Cases_on `EL n removed_state.globals` >> fs[find_v_globals_def] >>
         fs[globals_rel_def] >> res_tac >> fs[] >> rveq >> metis_tac[])
-    >- (fs[do_app_def] >> Cases_on `l` >> fs[findVglobals_def] >>
+    >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
         Cases_on `t` >> fs[] >>
         rveq >> fs[flat_state_rel_def, globals_rel_def] >> rfs[] >>
         fs[EL_LUPDATE] >> rw[] >>
-        fs[findSemPrimResGlobals_def, findVglobals_def] >>
+        fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
         metis_tac[]) >>
     fs[do_app_cases] >> rveq >> fs[] >> rw[] >>
-    fs[findSemPrimResGlobals_def, findVglobals_def, findResultGlobals_def] >>
+    fs[find_sem_prim_res_globals_def, find_v_globals_def,
+        find_result_globals_def] >>
     fs[semanticPrimitivesTheory.store_assign_def,
        semanticPrimitivesTheory.store_v_same_type_def, subscript_exn_v_def] >>
     fs[semanticPrimitivesTheory.store_alloc_def,
        semanticPrimitivesTheory.store_lookup_def,
        chr_exn_v_def, Boolv_def, div_exn_v_def] >>
-    fs[flat_state_rel_def, findVglobals_def,
-       domain_union, findRefsGlobals_def] >> rveq >> rfs[globals_rel_def]
+    fs[flat_state_rel_def, find_v_globals_def,
+       domain_union, find_refs_globals_def] >> rveq >> rfs[globals_rel_def]
     (* 21 subgoals *)
     >- (rw[] >> Cases_on `n' < LENGTH removed_state.globals` >> rveq >> fs[]
         >- fs[EL_APPEND1] >- fs[EL_APPEND2] >- fs[EL_APPEND1] >- fs[EL_APPEND2]
@@ -1163,42 +1173,42 @@ val do_app_SOME_flat_state_rel = Q.store_thm("do_app_SOME_flat_state_rel",
         >- (fs[EL_APPEND2] >>
             `n' - LENGTH removed_state.globals < n` by fs[] >>
             fs[EL_REPLICATE]))
-    >-  metis_tac[findRefsGlobals_LUPDATE]
-    >-  metis_tac[findVglobals_v_to_list, findVglobals_list_to_v_APPEND]
+    >-  metis_tac[find_refs_globals_LUPDATE]
+    >-  metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
     >- (qsuff_tac
-        `domain (findVglobalsL (LUPDATE v'''''' (Num (ABS i''''''')) vs))
+        `domain (find_v_globalsL (LUPDATE v'''''' (Num (ABS i''''''')) vs))
             ⊆ domain reachable`
-        >-  metis_tac[findRefsGlobals_LUPDATE]
-        >>  match_mp_tac findVglobalsL_LUPDATE >> fs[] >>
+        >-  metis_tac[find_refs_globals_LUPDATE]
+        >>  match_mp_tac find_v_globalsL_LUPDATE >> fs[] >>
             imp_res_tac EL_MEM >> rfs[] >>
-            fs[findRefsGlobals_def] >> metis_tac[findRefsGlobals_MEM])
+            fs[find_refs_globals_def] >> metis_tac[find_refs_globals_MEM])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (imp_res_tac findRefsGlobals_EL >>
-        `domain (findVglobals (EL (Num (ABS i'''''')) vs))
-            ⊆ domain (findVglobalsL vs)` by
-            (match_mp_tac findVglobalsL_EL >> decide_tac) >>
+    >- (imp_res_tac find_refs_globals_EL >>
+        `domain (find_v_globals (EL (Num (ABS i'''''')) vs))
+            ⊆ domain (find_v_globalsL vs)` by
+            (match_mp_tac find_v_globalsL_EL >> decide_tac) >>
              metis_tac[SUBSET_TRANS])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
     >- (rw[] >- metis_tac[] >>
-        fs[findRefsGlobals_APPEND, domain_union, findRefsGlobals_def] >>
-        metis_tac[findVglobalsL_REPLICATE, SUBSET_DEF])
+        fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
+        metis_tac[find_v_globalsL_REPLICATE, SUBSET_DEF])
     >- (`Num (ABS i''''') < LENGTH vs'` by fs[] >>
-        metis_tac[findVglobalsL_EL, SUBSET_DEF])
+        metis_tac[find_v_globalsL_EL, SUBSET_DEF])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (metis_tac[findVglobals_v_to_list, SUBSET_DEF])
+    >- (metis_tac[find_v_globals_v_to_list, SUBSET_DEF])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (rw[] >> metis_tac[findRefsGlobals_LUPDATE])
-    >- (rw[] >> metis_tac[findRefsGlobals_LUPDATE])
-    >- (rw[] >> metis_tac[findRefsGlobals_LUPDATE])
+    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
+    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
+    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (fs[findRefsGlobals_APPEND, domain_union, findRefsGlobals_def] >>
+    >- (fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
         metis_tac[])
-    >- (metis_tac[findRefsGlobals_EL, SUBSET_DEF])
+    >- (metis_tac[find_refs_globals_EL, SUBSET_DEF])
     >- (rw[] >>
-        fs[findRefsGlobals_APPEND, findRefsGlobals_def,
-           findVglobals_def, domain_union] >> res_tac)
-    >- (rw[] >> metis_tac[findRefsGlobals_LUPDATE])
+        fs[find_refs_globals_APPEND, find_refs_globals_def,
+           find_v_globals_def, domain_union] >> res_tac)
+    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
 );
 
 
@@ -1213,10 +1223,10 @@ val close_spt_thm = Q.store_thm("close_spt_thm",
         (roots ⊆ domain (seen)) ∧
         (domain seen ⊆ domain tree) ∧
         (∀ k . k ∈ domain (seen)
-            ⇒ (∃ n . (n ∈ roots) ∧ (isReachable tree n k))) ∧
+            ⇒ (∃ n . (n ∈ roots) ∧ (is_reachable tree n k))) ∧
         (∀ k . k ∈ domain (reachable)
-            ⇒ (∀ a . (isAdjacent tree k a) ⇒ a ∈ domain (seen)))
-      ⇒ (domain closure = {a | ∃ n . (isReachable tree n a) ∧ (n ∈ roots)})`
+            ⇒ (∀ a . (is_adjacent tree k a) ⇒ a ∈ domain (seen)))
+      ⇒ (domain closure = {a | ∃ n . (is_reachable tree n a) ∧ (n ∈ roots)})`
   ,
     recInduct close_spt_ind >> rw[] >>
     once_rewrite_tac [close_spt_def] >> simp[] >> fs[wf_set_tree_def] >>
@@ -1234,9 +1244,9 @@ val close_spt_thm = Q.store_thm("close_spt_thm",
         >> (imp_res_tac reachable_domain >> rveq >> fs[] >>
             res_tac >>
             qspecl_then [`domain reachable`, `domain reachable`, `tree`] mp_tac
-                (rtc_isAdjacent |> GEN_ALL) >>
+                (rtc_is_adjacent |> GEN_ALL) >>
             strip_tac >> fs[] >>
-            fs[isReachable_def] >>
+            fs[is_reachable_def] >>
             res_tac)
         )
     >- (
@@ -1294,22 +1304,22 @@ val close_spt_thm = Q.store_thm("close_spt_thm",
             fs[lookup_difference] >> EVERY_CASE_TAC >> fs[] >>
             res_tac >>
             qexists_tac `n` >> fs[] >>
-            fs[isReachable_def] >>
+            fs[is_reachable_def] >>
             simp[Once RTC_CASES2] >>
             DISJ2_TAC >>
             qexists_tac `n1` >> fs[] >>
-            fs[isAdjacent_def]
+            fs[is_adjacent_def]
             )
         >-  metis_tac[]
         >- (
             Cases_on `a ∈ domain seen` >> fs[] >>
             Cases_on `a ∈ domain reachable` >> rfs[]
             >-  metis_tac[]
-            >>  `a ∈ domain tree` by fs[isAdjacent_def, domain_lookup] >>
-                `k ∈ domain tree` by fs[isAdjacent_def, domain_lookup] >>
+            >>  `a ∈ domain tree` by fs[is_adjacent_def, domain_lookup] >>
+                `k ∈ domain tree` by fs[is_adjacent_def, domain_lookup] >>
                 `k ∈ domain (inter tree (difference seen reachable))` by
                     fs[domain_inter, domain_difference] >>
-                fs[isAdjacent_def] >>
+                fs[is_adjacent_def] >>
                 fs[domain_lookup] >>
                 qspecl_then
                     [`inter tree (difference seen reachable)`, `LN`, `a`]
@@ -1336,7 +1346,7 @@ val closure_spt_lemma =
         |> SIMP_RULE std_ss [
                 ConseqConvTheory.AND_CLAUSES_XX,
                 ConseqConvTheory.IMP_CLAUSES_XX,
-                IN_SING, Once isReachable_def, RTC_REFL, AND_CLAUSES
+                IN_SING, Once is_reachable_def, RTC_REFL, AND_CLAUSES
            ] |> GEN_ALL
 ;
 
@@ -1344,7 +1354,7 @@ val closure_spt_thm = Q.store_thm("closure_spt_thm",
     `∀ tree start . wf start ∧ (wf_set_tree tree) ∧
     (domain start ⊆ domain tree)
   ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`,
+        {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}`,
     rw[] >> assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >>
     first_x_assum match_mp_tac >> reverse(rw[]) >> res_tac >> fs[SUBSET_DEF] >>
     qexists_tac `k` >> fs[]
@@ -1352,14 +1362,14 @@ val closure_spt_thm = Q.store_thm("closure_spt_thm",
 
 val analysis_reachable_thm = Q.store_thm("analysis_reachable_thm",
    `∀ (compiled : dec list) start tree t .
-        ((start, t) = analyseCode compiled) ∧
+        ((start, t) = analyse_code compiled) ∧
         (tree = mk_wf_set_tree t)
     ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . isReachable tree n a ∧ n ∈ domain start}`
+        {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}`
     ,
     rw[] >> qspecl_then [`mk_wf_set_tree t`, `start`] mp_tac closure_spt_thm >>
     rw[] >> `wf_set_tree(mk_wf_set_tree t)` by metis_tac[mk_wf_set_tree_thm] >>
-    qspecl_then [`compiled`, `start`, `t`] mp_tac analyseCode_thm >>
+    qspecl_then [`compiled`, `start`, `t`] mp_tac analyse_code_thm >>
     qspec_then `t` mp_tac mk_wf_set_tree_domain >> rw[] >>
     metis_tac[SUBSET_TRANS]
 );
@@ -1371,41 +1381,41 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
     `(∀ env (state:'a flatSem$state) exprL new_state
         result reachable:num_set removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
-        domain (findLookupsL exprL) ⊆ domain reachable ∧
+        domain (find_lookupsL exprL) ⊆ domain reachable ∧
         env.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
-        domain (findEnvGlobals env) ⊆ domain reachable ∧
+        domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
     ⇒ ∃ new_removed_state .
         evaluate env removed_state exprL = (new_removed_state, result) ∧
         flat_state_rel reachable new_state new_removed_state ∧
-        domain (findSemPrimResGlobals result) ⊆ domain reachable)
+        domain (find_sem_prim_res_globals result) ⊆ domain reachable)
    ∧
     (∀ env (state:'a flatSem$state) v patExp_list err_v new_state result
         reachable:num_set removed_state .
         evaluate_match env state v patExp_list err_v = (new_state, result) ∧
-        domain (findLookupsL (MAP SND patExp_list)) ⊆ domain reachable ∧
+        domain (find_lookupsL (MAP SND patExp_list)) ⊆ domain reachable ∧
         env.exh_pat ∧
-        domain (findVglobals v) ⊆ domain reachable ∧
+        domain (find_v_globals v) ⊆ domain reachable ∧
         flat_state_rel reachable state removed_state ∧
-        domain (findEnvGlobals env) ⊆ domain reachable ∧
+        domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
     ⇒ ∃ new_removed_state .
         evaluate_match env removed_state v patExp_list err_v =
             (new_removed_state, result) ∧
         flat_state_rel reachable new_state new_removed_state ∧
-        domain (findSemPrimResGlobals result) ⊆ domain reachable)`
+        domain (find_sem_prim_res_globals result) ⊆ domain reachable)`
       ,
         ho_match_mp_tac evaluate_ind >> rpt CONJ_TAC >> rpt GEN_TAC >> strip_tac
         (* EVALUATE CASES *)
             (* EMPTY LIST CASE *)
         >- (fs[evaluate_def] >> rveq >>
-            fs[findSemPrimResGlobals_def, findVglobals_def])
+            fs[find_sem_prim_res_globals_def, find_v_globals_def])
             (* NON_EMPTY, NON-SINGLETON LIST CASE *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> Cases_on `evaluate env state' [e1]` >>
-            fs[findLookups_def, domain_union] >>
+            fs[find_lookups_def, domain_union] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >> fs[] >>
             strip_tac >> Cases_on `r` >> rw[] >> rfs[] >>
@@ -1415,16 +1425,16 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             fs[] >>
             reverse(Cases_on `r` >> fs[]) >- (rw[] >> fs[])
             >- (strip_tac >> rw[] >>
-                fs[findSemPrimResGlobals_def,
-                    findVglobals_def, domain_union] >>
+                fs[find_sem_prim_res_globals_def,
+                    find_v_globals_def, domain_union] >>
                 imp_res_tac evaluate_sing >> rveq >> rveq >>
-                fs[findVglobals_def]))
+                fs[find_v_globals_def]))
         (* SINGLETON LIST CASES *)
             (* Lit - DONE!!! *)
         >- (fs[evaluate_def] >> rveq >> fs[] >>
-            fs[findSemPrimResGlobals_def, findVglobals_def])
+            fs[find_sem_prim_res_globals_def, find_v_globals_def])
             (* Raise *)
-        >- (rpt gen_tac >> strip_tac >> fs[findLookups_def] >>
+        >- (rpt gen_tac >> strip_tac >> fs[find_lookups_def] >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >>
             Cases_on `evaluate env state' [e]` >> fs[] >> strip_tac >>
@@ -1434,15 +1444,15 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             `r ≠ Rerr (Rabort Rtype_error)` by (
                 CCONTR_TAC >> Cases_on `r` >> fs[]) >>
             fs[] >> Cases_on `r` >> fs[] >> rveq >> fs[] >>
-            fs[findSemPrimResGlobals_def,
-                findVglobals_def, findResultGlobals_def] >>
-            imp_res_tac evaluate_sing >> rveq >> rveq >> fs[findVglobals_def])
+            fs[find_sem_prim_res_globals_def,
+                find_v_globals_def, find_result_globals_def] >>
+            imp_res_tac evaluate_sing >> rveq >> rveq >> fs[find_v_globals_def])
             (* Handle - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >>
             Cases_on `evaluate env state' [e]` >> fs[] >>
-            fs[findLookups_def, domain_union] >>
+            fs[find_lookups_def, domain_union] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >> fs[] >>
             strip_tac >>
@@ -1450,55 +1460,55 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             Cases_on `e'` >> rw[] >> rfs[] >> rveq >> rfs[] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] match_mp_tac) >>
-            fs[findSemPrimResGlobals_def, findResultGlobals_def])
+            fs[find_sem_prim_res_globals_def, find_result_globals_def])
             (* Con NONE - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def] >>
+            simp[evaluate_def] >> fs[find_lookups_def] >>
             Cases_on `env.check_ctor` >> fs[] >>
             Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-            simp[Once findLookupsL_REVERSE] >> fs[] >>
+            simp[Once find_lookupsL_REVERSE] >> fs[] >>
             strip_tac >> Cases_on `r` >> rw[] >> rfs[] >>
-            fs[findSemPrimResGlobals_def, findVglobals_def] >>
-            simp[Once findVglobalsL_REVERSE])
+            fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
+            simp[Once find_v_globalsL_REVERSE])
             (* Con SOME - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def] >>
+            simp[evaluate_def] >> fs[find_lookups_def] >>
             Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
             Cases_on `env.check_ctor ∧ (cn, LENGTH es) ∉ env.c` >> fs[] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-            simp[Once findLookupsL_REVERSE] >> fs[] >>
+            simp[Once find_lookupsL_REVERSE] >> fs[] >>
             strip_tac >> Cases_on `r` >> rw[] >> rfs[] >>
-            fs[findSemPrimResGlobals_def, findVglobals_def] >>
-            simp[Once findVglobalsL_REVERSE])
+            fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
+            simp[Once find_v_globalsL_REVERSE])
             (* Var_local - DONE!!! *)
         >- (qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> strip_tac >> rveq >> fs[findLookups_def] >>
+            simp[evaluate_def] >> strip_tac >> rveq >> fs[find_lookups_def] >>
             Cases_on `ALOOKUP env.v n` >>
-            fs[findSemPrimResGlobals_def, findVglobals_def] >>
-            imp_res_tac ALOOKUP_MEM >> imp_res_tac findVglobalsL_MEM >>
-            fs[findEnvGlobals_def] >> fs[SUBSET_DEF])
+            fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
+            imp_res_tac ALOOKUP_MEM >> imp_res_tac find_v_globalsL_MEM >>
+            fs[find_env_globals_def] >> fs[SUBSET_DEF])
             (* Fun - DONE!!! *)
         >- (qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> strip_tac >> rveq >>
-            fs[findSemPrimResGlobals_def,
-                findEnvGlobals_def, findVglobals_def] >>
-            fs[domain_union, findLookups_def])
+            fs[find_sem_prim_res_globals_def,
+                find_env_globals_def, find_v_globals_def] >>
+            fs[domain_union, find_lookups_def])
             (* App *)
         >- (
             rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def] >>
+            simp[evaluate_def] >> fs[find_lookups_def] >>
             Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-            simp[Once findLookupsL_REVERSE] >> fs[] >>
+            simp[Once find_lookupsL_REVERSE] >> fs[] >>
             strip_tac >> fs[] >>
-            `domain (findLookupsL es) ⊆ domain reachable` by (
+            `domain (find_lookupsL es) ⊆ domain reachable` by (
                 Cases_on `op` >> fs[dest_GlobalVarLookup_def] >>
                 fs[domain_insert]) >>
             fs[] >>
@@ -1512,7 +1522,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
                         `flat_state_rel reachable new_state _` mp_tac >>
                     simp[Once flat_state_rel_def] >> strip_tac >> rveq >>
                     fs[flat_state_rel_def,
-                        findSemPrimResGlobals_def, findResultGlobals_def])
+                        find_sem_prim_res_globals_def, find_result_globals_def])
                 >- (first_x_assum (qspecl_then
                         [`reachable`, `dec_clock new_removed_state`] mp_tac) >>
                     fs[] >>
@@ -1521,65 +1531,65 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
                     strip_tac >> strip_tac >>
                     qpat_x_assum `_ ⇒ _` match_mp_tac  >>
                     fs[flat_state_rel_def, globals_rel_def,
-                        dec_clock_def, findEnvGlobals_def] >> rfs[] >> rveq >>
+                        dec_clock_def, find_env_globals_def] >> rfs[] >> rveq >>
                     fs[do_opapp_def] >> EVERY_CASE_TAC >> fs[] >> rveq >>
-                    fs[findSemPrimResGlobals_def] >>
-                    fs[SWAP_REVERSE_SYM, findVglobals_def, domain_union] >>
+                    fs[find_sem_prim_res_globals_def] >>
+                    fs[SWAP_REVERSE_SYM, find_v_globals_def, domain_union] >>
                     rw[]
                     >- (fs[semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] >>
                         imp_res_tac ALOOKUP_MEM >>
                         `MEM r (MAP (SND o SND) l0)` by (
                             fs[MEM_MAP] >> qexists_tac `(s,q'',r)` >> fs[]) >>
-                        imp_res_tac findLookupsL_MEM >> rw[] >>
+                        imp_res_tac find_lookupsL_MEM >> rw[] >>
                         metis_tac[SUBSET_TRANS])
                     >- (fs[build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
-                        fs[findVglobalsL_APPEND, domain_union] >>
+                        fs[find_v_globalsL_APPEND, domain_union] >>
                         fs[MAP_MAP_o] >>
                         `MAP (SND o (λ (f,x,e). (f, Recclosure l l0 f))) l0 =
                         MAP (λ (f,x,e). (Recclosure l l0 f)) l0` by
                             (rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]) >>
                         fs[] >>
-                        `domain (findVglobalsL (MAP (λ(f,x,e).
+                        `domain (find_v_globalsL (MAP (λ(f,x,e).
                             Recclosure l l0 f) l0)) ⊆
-                            domain(findVglobalsL (MAP SND l)) ∪
-                        domain (findLookupsL (MAP (SND o SND) l0))` by
-                            metis_tac[findVglobals_MAP_Recclosure] >>
+                            domain(find_v_globalsL (MAP SND l)) ∪
+                        domain (find_lookupsL (MAP (SND o SND) l0))` by
+                            metis_tac[find_v_globals_MAP_Recclosure] >>
                         fs[SUBSET_DEF, EXTENSION] >> metis_tac[])
                     >- (fs[semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] >>
                         imp_res_tac ALOOKUP_MEM >>
                         `MEM r (MAP (SND o SND) l0)` by (fs[MEM_MAP] >>
                         qexists_tac `(s,q'',r)` >> fs[]) >>
-                        imp_res_tac findLookupsL_MEM >> rw[] >>
+                        imp_res_tac find_lookupsL_MEM >> rw[] >>
                         metis_tac[SUBSET_TRANS])
                     >- (fs[build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
-                        fs[findVglobalsL_APPEND, domain_union] >>
+                        fs[find_v_globalsL_APPEND, domain_union] >>
                         fs[MAP_MAP_o] >>
                         `MAP (SND o (λ (f,x,e). (f, Recclosure l l0 f))) l0 =
                         MAP (λ (f,x,e). (Recclosure l l0 f)) l0` by (
                             rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]) >> fs[] >>
-                        `domain (findVglobalsL
+                        `domain (find_v_globalsL
                             (MAP (λ(f,x,e). Recclosure l l0 f) l0)) ⊆
-                            domain(findVglobalsL (MAP SND l)) ∪
-                        domain (findLookupsL (MAP (SND o SND) l0))` by
-                            metis_tac[findVglobals_MAP_Recclosure] >>
+                            domain(find_v_globalsL (MAP SND l)) ∪
+                        domain (find_lookupsL (MAP (SND o SND) l0))` by
+                            metis_tac[find_v_globals_MAP_Recclosure] >>
                         fs[SUBSET_DEF, EXTENSION] >> metis_tac[]))
                 )
             >- (Cases_on `do_app env.check_ctor q op (REVERSE a)` >> fs[] >>
                 PairCases_on `x` >> fs[] >> rveq >>
                 drule (GEN_ALL do_app_SOME_flat_state_rel) >>
-                fs[findLookups_def] >> disch_then drule >> strip_tac >>
+                fs[find_lookups_def] >> disch_then drule >> strip_tac >>
                 pop_assum (qspecl_then [
                     `env.check_ctor`, `REVERSE a`, `new_state`, `x1`] mp_tac) >>
-                    simp[Once findVglobalsL_REVERSE] >>
+                    simp[Once find_v_globalsL_REVERSE] >>
                 fs[] >> strip_tac >>
                 `domain (case dest_GlobalVarLookup op of
                     NONE => LN | SOME n => insert n () LN) ⊆ domain reachable`
                         by (Cases_on `dest_GlobalVarLookup op` >> fs[]) >>
-                            fs[findSemPrimResGlobals_def] >> rfs[]))
+                            fs[find_sem_prim_res_globals_def] >> rfs[]))
             (* If - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def, domain_union] >>
+            simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
             Cases_on `evaluate env state' [e1]` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
@@ -1593,7 +1603,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             (* Mat - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def, domain_union] >>
+            simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
             Cases_on `evaluate env state' [e]` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
@@ -1603,13 +1613,13 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             Cases_on `r` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `new_removed_state`]
                 match_mp_tac) >> fs[] >>
-            fs[findSemPrimResGlobals_def] >>
+            fs[find_sem_prim_res_globals_def] >>
             imp_res_tac evaluate_sing >> rveq >> fs[] >> rveq >>
-            fs[findVglobals_def])
+            fs[find_v_globals_def])
             (* Let - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def, domain_union] >>
+            simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
             Cases_on `evaluate env state' [e1]` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
@@ -1619,30 +1629,30 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             Cases_on `r` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `new_removed_state`]
                 match_mp_tac) >> fs[] >>
-            fs[findEnvGlobals_def, libTheory.opt_bind_def] >>
+            fs[find_env_globals_def, libTheory.opt_bind_def] >>
             Cases_on `n` >> fs[] >>
-            fs[findVglobals_def, domain_union] >>
-            fs[findSemPrimResGlobals_def] >> imp_res_tac evaluate_sing >>
-            rveq >> fs[] >> rveq >> fs[findVglobals_def])
+            fs[find_v_globals_def, domain_union] >>
+            fs[find_sem_prim_res_globals_def] >> imp_res_tac evaluate_sing >>
+            rveq >> fs[] >> rveq >> fs[find_v_globals_def])
             (* Letrec *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def, domain_union] >>
+            simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
             Cases_on `ALL_DISTINCT (MAP FST funs)` >> fs[] >>
             strip_tac >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`]
                 match_mp_tac) >> fs[] >>
-            fs[findEnvGlobals_def, build_rec_env_def] >>
-            fs[FOLDR_CONS_triple] >> fs[findVglobalsL_APPEND, domain_union] >>
+            fs[find_env_globals_def, build_rec_env_def] >>
+            fs[FOLDR_CONS_triple] >> fs[find_v_globalsL_APPEND, domain_union] >>
             fs[MAP_MAP_o] >>
             `MAP (SND o (λ (f,x,e). (f, Recclosure env.v funs f))) funs =
                 MAP (λ (f,x,e). (Recclosure env.v funs f)) funs` by
                     (rw[MAP_EQ_f] >> PairCases_on `e'` >> fs[]) >>
-            `domain (findVglobalsL (MAP (SND o (λ(f,x,e).
+            `domain (find_v_globalsL (MAP (SND o (λ(f,x,e).
                 (f, Recclosure env.v funs f))) funs)) ⊆
-                domain (findVglobalsL (MAP SND env.v)) ∪
-                domain (findLookupsL (MAP (SND o SND) funs))` by
-                    metis_tac[findVglobals_MAP_Recclosure] >>
+                domain (find_v_globalsL (MAP SND env.v)) ∪
+                domain (find_lookupsL (MAP (SND o SND) funs))` by
+                    metis_tac[find_v_globals_MAP_Recclosure] >>
             fs[SUBSET_DEF] >> metis_tac[])
         (* EVALUATE_MATCH CASES *)
             (* EMPTY LIST CASE - DONE!!! *)
@@ -1650,7 +1660,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             (* NON-EMPTY LIST CASE - DONE!!! *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate_match _ _ _ _ _ =  _` mp_tac >>
-            simp[evaluate_def] >> fs[findLookups_def, domain_union] >>
+            simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
             Cases_on `ALL_DISTINCT (pat_bindings p [])` >> fs[] >>
             strip_tac >>
             `state'.refs = removed_state.refs` by fs[flat_state_rel_def] >>
@@ -1658,9 +1668,9 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             Cases_on `pmatch env removed_state.refs p v []` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`]
                 match_mp_tac) >> fs[] >>
-            fs[findEnvGlobals_def, findVglobalsL_APPEND, domain_union] >>
+            fs[find_env_globals_def, find_v_globalsL_APPEND, domain_union] >>
             drule (CONJUNCT1 pmatch_Match_reachable) >> disch_then drule >>
-            disch_then match_mp_tac >> fs[findVglobals_def] >> rw[] >>
+            disch_then match_mp_tac >> fs[find_v_globals_def] >> rw[] >>
             fs[flat_state_rel_def])
 );
 
@@ -1673,9 +1683,9 @@ val evaluate_sing_keep_flat_state_rel_eq = Q.store_thm(
         flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
         exprL = [expr] ∧
         keep reachable (Dlet expr) ∧ env.exh_pat ∧
-        domain(findLookups expr) ⊆ domain reachable ∧
+        domain(find_lookups expr) ⊆ domain reachable ∧
         flat_state_rel reachable state removed_state ∧
-        domain (findEnvGlobals env) ⊆ domain reachable ∧
+        domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
     ⇒ ∃ new_removed_state .
         evaluate (env with v := []) removed_state exprL
@@ -1687,8 +1697,8 @@ val evaluate_sing_keep_flat_state_rel_eq = Q.store_thm(
         strip_tac >> pop_assum (qspecl_then [`reachable`, `removed_state`]
             mp_tac) >> fs[] >>
         impl_tac >> fs[] >>
-        simp[findEnvGlobals_def, findVglobals_def, Once findLookups_def] >>
-        simp[EVAL ``findLookupsL []``] >> rw[] >> fs[]
+        simp[find_env_globals_def, find_v_globals_def, Once find_lookups_def] >>
+        simp[EVAL ``find_lookupsL []``] >> rw[] >> fs[]
 );
 
 (******** EVALUATE_DEC ********)
@@ -1698,10 +1708,10 @@ val evaluate_dec_flat_state_rel = Q.store_thm("evaluate_dec_flat_state_rel",
         reachable removed_state .
         evaluate_dec env state dec = (new_state, new_ctors, result) ∧
         env.exh_pat ∧
-        decsClosed reachable [dec] ∧
+        decs_closed reachable [dec] ∧
         flat_state_rel reachable state removed_state ∧ keep reachable dec ∧
         result ≠ SOME (Rabort Rtype_error) ∧
-        domain (findEnvGlobals env) ⊆ domain reachable
+        domain (find_env_globals env) ⊆ domain reachable
     ⇒ ∃ new_removed_state .
         evaluate_dec env removed_state dec =
             (new_removed_state, new_ctors, result) ∧
@@ -1712,42 +1722,44 @@ val evaluate_dec_flat_state_rel = Q.store_thm("evaluate_dec_flat_state_rel",
         strip_tac >>
         fs[keep_def]
         >- (reverse(Cases_on `env.check_ctor`) >> fs[is_fresh_exn_def] >>
-            rw[] >> fs[findResultGlobals_def])
+            rw[] >> fs[find_result_globals_def])
         >- (reverse(Cases_on `env.check_ctor`) >> fs[is_fresh_exn_def] >>
-            rw[] >> fs[findResultGlobals_def]) >>
+            rw[] >> fs[find_result_globals_def]) >>
         strip_tac >> strip_tac >>
         assume_tac evaluate_sing_keep_flat_state_rel_eq >> fs[] >>
         Cases_on `evaluate (env with v := []) state' [e]` >> fs[] >>
         first_x_assum (qspecl_then [`env`, `state'`, `q`, `r`, `e`,
             `reachable`, `removed_state`] mp_tac) >> strip_tac >>
         fs[keep_def] >> rfs[] >> fs[] >>
-        `domain (findLookups e) ⊆ domain reachable` by (
-            fs[decsClosed_def] >> fs[analyseCode_def] >> fs[analyseExp_def] >>
-            reverse(Cases_on `isPure e`) >> fs[]
-            >- (fs[codeAnalysis_union_def] >> fs[domain_union]) >>
-            reverse(Cases_on `isHidden e`) >> fs[] >>
-            fs[codeAnalysis_union_def, domain_union] >>
+        `domain (find_lookups e) ⊆ domain reachable` by (
+            fs[decs_closed_def] >> fs[analyse_code_def] >>
+            fs[analyse_exp_def] >>
+            reverse(Cases_on `is_pure e`) >> fs[]
+            >- (fs[code_analysis_union_def] >> fs[domain_union]) >>
+            reverse(Cases_on `is_hidden e`) >> fs[] >>
+            fs[code_analysis_union_def, domain_union] >>
             fs[Once num_set_tree_union_sym, num_set_tree_union_def] >>
             simp[SUBSET_DEF] >>
             rw[] >> first_x_assum match_mp_tac >>
             fs[spt_eq_thm, wf_inter, wf_def] >> fs[lookup_inter_alt] >>
-            fs[lookup_def] >> Cases_on `lookup n (findLoc e)` >> fs[] >>
+            fs[lookup_def] >> Cases_on `lookup n (find_loc e)` >> fs[] >>
             fs[domain_lookup] >>
-            asm_exists_tac >> fs[] >> fs[isReachable_def] >>
-            match_mp_tac RTC_SINGLE >> fs[isAdjacent_def] >>
-            `(lookup n (map (K (findLookups e)) (findLoc e))) =
-                SOME (findLookups e)` by fs[lookup_map] >>
+            asm_exists_tac >> fs[] >> fs[is_reachable_def] >>
+            match_mp_tac RTC_SINGLE >> fs[is_adjacent_def] >>
+            `(lookup n (map (K (find_lookups e)) (find_loc e))) =
+                SOME (find_lookups e)` by fs[lookup_map] >>
             imp_res_tac lookup_mk_wf_set_tree >> fs[] >>
-            `wf_set_tree (mk_wf_set_tree (map (K (findLookups e)) (findLoc e)))`
+            `wf_set_tree (mk_wf_set_tree
+                (map (K (find_lookups e)) (find_loc e)))`
                 by metis_tac[mk_wf_set_tree_thm] >>
-            fs[wf_set_tree_def] >> res_tac >> `y = findLookups e`
-                by metis_tac[wf_findLookups, num_set_domain_eq] >>
+            fs[wf_set_tree_def] >> res_tac >> `y = find_lookups e`
+                by metis_tac[wf_find_lookups, num_set_domain_eq] >>
             rveq >> fs[] >> fs[SUBSET_DEF, domain_lookup]) >>
         fs[] >> `r ≠ Rerr (Rabort Rtype_error)` by
             (CCONTR_TAC >> Cases_on `r` >> fs[]) >> fs[] >>
         qpat_x_assum `_ = (_,_,_) ` mp_tac >> fs[] >>
         EVERY_CASE_TAC >> fs[] >> rw[] >>
-        fs[findResultGlobals_def, findSemPrimResGlobals_def]
+        fs[find_result_globals_def, find_sem_prim_res_globals_def]
 );
 
 
@@ -1762,8 +1774,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
     `(∀ env (state:'a flatSem$state) exprL new_state result
         reachable removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
-        EVERY isPure exprL ∧
-        EVERY (λ e. isEmpty (inter (findLoc e) reachable)) exprL ∧ env.exh_pat ∧
+        EVERY is_pure exprL ∧
+        EVERY (λ e. isEmpty (inter (find_loc e) reachable)) exprL ∧
+        env.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
         result ≠ Rerr (Rabort Rtype_error)
     ⇒ flat_state_rel reachable new_state removed_state ∧
@@ -1772,8 +1785,8 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
     (∀ env (state:'a flatSem$state) v patExp_list err_v new_state result
         reachable removed_state .
         evaluate_match env state v patExp_list err_v = (new_state, result) ∧
-        EVERY isPure (MAP SND patExp_list) ∧
-        EVERY (λ e. isEmpty (inter (findLoc e) reachable))
+        EVERY is_pure (MAP SND patExp_list) ∧
+        EVERY (λ e. isEmpty (inter (find_loc e) reachable))
             (MAP SND patExp_list) ∧
         env.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
@@ -1786,7 +1799,7 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         (* EVALUATE_DECS_CASES *)
 
         (* EMPTY LIST CASE - DONE!!! *)
-        fs[evaluate_def] >> rveq >> fs[findVglobals_def]
+        fs[evaluate_def] >> rveq >> fs[find_v_globals_def]
       ,
         (* NON-EMPTY, NON-SINGLETON LIST CASE - DONE!!! *)
         rpt gen_tac >> strip_tac >>
@@ -1800,9 +1813,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
             fs[] >> Cases_on `r` >> fs[]
             >- (first_x_assum (qspecl_then [`reachable`, `removed_state`]
                     mp_tac) >> fs[] >>
-                rw[] >> fs[findVglobals_def, domain_union] >>
+                rw[] >> fs[find_v_globals_def, domain_union] >>
                 `LENGTH a = 1` by (imp_res_tac evaluate_sing >> fs[]) >>
-                Cases_on `a` >> fs[findVglobals_def, domain_union])
+                Cases_on `a` >> fs[find_v_globals_def, domain_union])
             >- (first_x_assum (qspecl_then [`reachable`, `removed_state`]
                     mp_tac) >>
                 fs[] >> rw[] >> fs[] >> qpat_x_assum `EXISTS _ _` mp_tac >>
@@ -1814,7 +1827,7 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
       , (* SINGLETON LIST CASES *)
 
         (* Lit - DONE!!! *)
-        fs[evaluate_def] >> rveq >> fs[findVglobals_def]
+        fs[evaluate_def] >> rveq >> fs[find_v_globals_def]
       ,
         (* Raise - DONE!!! *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
@@ -1822,7 +1835,7 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         fs[evaluate_def] >> Cases_on `evaluate env state' [e]` >> fs[] >>
         Cases_on `r` >> fs[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-        fs[isPure_def]
+        fs[is_pure_def]
       ,
         (* Handle - DONE!!! *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
@@ -1832,17 +1845,17 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         Cases_on `r` >> fs[]
         >- (rveq >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-            fs[isPure_def] >> strip_tac >>
+            fs[is_pure_def] >> strip_tac >>
             qpat_x_assum `isEmpty _` mp_tac >>
-            simp[Once findLoc_def] >>
+            simp[Once find_loc_def] >>
             strip_tac >>
             qpat_x_assum `isEmpty _ ⇒ _` match_mp_tac >> fs[] >>
             imp_res_tac inter_union_empty)
-        >- (fs[isPure_def] >>
-            qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+        >- (fs[is_pure_def] >>
+            qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
             strip_tac >>
-            `isEmpty(inter (findLocL (MAP SND patExp_list)) reachable) ∧
-            isEmpty (inter (findLoc e) reachable)` by
+            `isEmpty(inter (find_locL (MAP SND patExp_list)) reachable) ∧
+            isEmpty (inter (find_loc e) reachable)` by
                 metis_tac[inter_union_empty] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >> strip_tac >> fs[])
@@ -1856,19 +1869,19 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         >- (first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
             strip_tac >> rveq >>
-            fs[isPure_def, findVglobals_def] >> fs[EVERY_REVERSE] >>
-            simp[Once findVglobalsL_REVERSE] >> fs[isPure_EVERY_aconv] >>
+            fs[is_pure_def, find_v_globals_def] >> fs[EVERY_REVERSE] >>
+            simp[Once find_v_globalsL_REVERSE] >> fs[is_pure_EVERY_aconv] >>
             rfs[] >>
-            qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+            qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
             strip_tac >>
-            fs[findLoc_EVERY_isEmpty])
+            fs[find_loc_EVERY_isEmpty])
         >- (first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
-            rveq >> fs[isPure_def] >> fs[EVERY_REVERSE, isPure_EVERY_aconv] >>
+            rveq >> fs[is_pure_def] >> fs[EVERY_REVERSE, is_pure_EVERY_aconv] >>
             once_rewrite_tac [(GSYM NOT_EXISTS)] >>
             once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
-            qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
-            fs[findLoc_EVERY_isEmpty])
+            qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
+            fs[find_loc_EVERY_isEmpty])
       ,
         (* Con SOME - DONE!!! *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
@@ -1877,46 +1890,49 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         Cases_on `env.check_ctor ∧ (cn, LENGTH es) ∉ env.c` >> fs[] >> fs[] >>
         Cases_on `evaluate env state' (REVERSE es)` >> fs[] >> Cases_on `r` >>
         fs[] >>
-        fs[isPure_def, isPure_EVERY_aconv, EVERY_REVERSE] >> rveq >>
-        fs[findLoc_EVERY_isEmpty] >>
-        qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+        fs[is_pure_def, is_pure_EVERY_aconv, EVERY_REVERSE] >> rveq >>
+        fs[find_loc_EVERY_isEmpty] >>
+        qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
         strip_tac >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-        fs[EVERY_REVERSE, isPure_EVERY_aconv] >>
+        fs[EVERY_REVERSE, is_pure_EVERY_aconv] >>
         once_rewrite_tac [(GSYM NOT_EXISTS)] >>
-        once_rewrite_tac [GSYM NOT_EVERY] >> fs[findLoc_EVERY_isEmpty]
+        once_rewrite_tac [GSYM NOT_EVERY] >> fs[find_loc_EVERY_isEmpty]
       ,
         (* Var_local - DONE!!! *)
         fs[evaluate_def] >> Cases_on `ALOOKUP env.v n` >> fs[] >>
         rveq >> fs[] >>
-        fs[findVglobals_def, findEnvGlobals_def] >> imp_res_tac ALOOKUP_MEM >>
-        imp_res_tac findVglobalsL_MEM >> imp_res_tac SUBSET_TRANS
+        fs[find_v_globals_def, find_env_globals_def] >>
+        imp_res_tac ALOOKUP_MEM >>
+        imp_res_tac find_v_globalsL_MEM >> imp_res_tac SUBSET_TRANS
       ,
         (* Fun - DONE!!! *)
         qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >>
         strip_tac >> fs[evaluate_def] >>
         rveq >>
-        fs[findVglobals_def, domain_union, findEnvGlobals_def, isPure_def] >>
-        fs[findLoc_def]
+        fs[find_v_globals_def, domain_union,
+            find_env_globals_def, is_pure_def] >>
+        fs[find_loc_def]
       ,
         (* App - DONE!!! *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
         Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-        fs[isPure_def] >> qpat_x_assum `isEmpty _` mp_tac >>
-        simp[Once findLoc_def] >>
-        strip_tac >> fs[] >> fs[EVERY_REVERSE] >> fs[findLoc_EVERY_isEmpty] >>
+        fs[is_pure_def] >> qpat_x_assum `isEmpty _` mp_tac >>
+        simp[Once find_loc_def] >>
+        strip_tac >> fs[] >> fs[EVERY_REVERSE] >> fs[find_loc_EVERY_isEmpty] >>
         Cases_on `r` >> fs[]
-        >- (Cases_on `op = Opapp` >> fs[isPure_def, dest_GlobalVarInit_def] >>
+        >- (Cases_on `op = Opapp` >> fs[is_pure_def, dest_GlobalVarInit_def] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             strip_tac >>
             Cases_on `op` >>
-            fs[isPure_def, dest_GlobalVarInit_def, do_app_def] >>
-            fs[isPure_EVERY_aconv] >> imp_res_tac inter_insert_empty >>
+            fs[is_pure_def, dest_GlobalVarInit_def, do_app_def] >>
+            fs[is_pure_EVERY_aconv] >> imp_res_tac inter_insert_empty >>
             EVERY_CASE_TAC >> fs[] >> rveq >> fs[] >>
-            fs[findVglobals_def, flat_state_rel_def] >> rw[] >> fs[] >> rfs[] >>
+            fs[find_v_globals_def, flat_state_rel_def] >> rw[] >>
+            fs[] >> rfs[] >>
             fs[globals_rel_def] >>
             fs[LUPDATE_SEM] >>
             reverse(rw[]) >- metis_tac[] >>
@@ -1929,19 +1945,19 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
             once_rewrite_tac [(GSYM NOT_EXISTS)] >>
             once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
             Cases_on `op` >>
-            fs[isPure_def, isPure_EVERY_aconv, dest_GlobalVarInit_def] >>
+            fs[is_pure_def, is_pure_EVERY_aconv, dest_GlobalVarInit_def] >>
             imp_res_tac inter_insert_empty)
       ,
         (* If - DONE!!! *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >> Cases_on `evaluate env state' [e1]` >> fs[] >>
-        fs[isPure_def] >>
-        qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+        fs[is_pure_def] >>
+        qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
         strip_tac >>
-        `isEmpty (inter (findLoc e1) reachable) ∧
-            isEmpty (inter (findLoc e2) reachable) ∧
-            isEmpty (inter (findLoc e3) reachable)` by
+        `isEmpty (inter (find_loc e1) reachable) ∧
+            isEmpty (inter (find_loc e2) reachable) ∧
+            isEmpty (inter (find_loc e3) reachable)` by
                 metis_tac[inter_union_empty] >>
         Cases_on `r` >> fs[]
         >- (fs[do_if_def, Boolv_def] >> Cases_on `HD a` >> fs[] >>
@@ -1957,27 +1973,27 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
-        Cases_on `evaluate env state' [e]` >> fs[] >> fs[isPure_def] >>
-        qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+        Cases_on `evaluate env state' [e]` >> fs[] >> fs[is_pure_def] >>
+        qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
         strip_tac >>
-        `isEmpty (inter (findLocL (MAP SND patExp_list)) reachable) ∧
-            isEmpty (inter (findLoc e) reachable)` by
+        `isEmpty (inter (find_locL (MAP SND patExp_list)) reachable) ∧
+            isEmpty (inter (find_loc e) reachable)` by
                 metis_tac[inter_union_empty] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
         fs[] >>
         strip_tac >> Cases_on `r` >> fs[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
         fs[] >>
-        strip_tac >> fs[isPure_EVERY_aconv, findLoc_EVERY_isEmpty] >> rfs[] >>
-        imp_res_tac evaluate_sing >> rveq >> fs[findVglobals_def]
+        strip_tac >> fs[is_pure_EVERY_aconv, find_loc_EVERY_isEmpty] >> rfs[] >>
+        imp_res_tac evaluate_sing >> rveq >> fs[find_v_globals_def]
       ,
         (* Let - DONE!!! *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
-        Cases_on `evaluate env state' [e1]` >> fs[isPure_def] >>
-        fs[isPure_def] >> qpat_x_assum `isEmpty _ ` mp_tac >>
-        simp[Once findLoc_def] >>
+        Cases_on `evaluate env state' [e1]` >> fs[is_pure_def] >>
+        fs[is_pure_def] >> qpat_x_assum `isEmpty _ ` mp_tac >>
+        simp[Once find_loc_def] >>
         strip_tac >> imp_res_tac inter_union_empty >>
         Cases_on `r` >> fs[]
         >- (first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
@@ -1985,12 +2001,12 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
             strip_tac >> strip_tac >>
-            fs[findEnvGlobals_def] >>
+            fs[find_env_globals_def] >>
             qpat_x_assum `domain _ ⊆ domain _ ⇒ _` match_mp_tac >>
             fs[libTheory.opt_bind_def] >>
             Cases_on `n` >> fs[] >>
-            fs[findVglobals_def, domain_union] >>
-            imp_res_tac evaluate_sing >> rveq >> fs[findVglobals_def])
+            fs[find_v_globals_def, domain_union] >>
+            imp_res_tac evaluate_sing >> rveq >> fs[find_v_globals_def])
         >- (rveq >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[])
@@ -2001,15 +2017,15 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         fs[evaluate_def] >> Cases_on `ALL_DISTINCT (MAP FST funs)` >> fs[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
         fs[] >>
-        strip_tac >> fs[isPure_def] >> rfs[] >>
-        qpat_x_assum `isEmpty _` mp_tac >> simp[Once findLoc_def] >>
+        strip_tac >> fs[is_pure_def] >> rfs[] >>
+        qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
         strip_tac >>
-        `isEmpty (inter (findLocL (MAP (SND o SND) funs)) reachable) ∧
-            isEmpty (inter (findLoc e) reachable)` by
+        `isEmpty (inter (find_locL (MAP (SND o SND) funs)) reachable) ∧
+            isEmpty (inter (find_loc e) reachable)` by
                 metis_tac[inter_union_empty] >>
         fs[] >> qpat_x_assum `domain _ ⊆ domain _ ⇒ _` match_mp_tac >>
-        fs[findEnvGlobals_def, build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
-        fs[findVglobalsL_APPEND, domain_union] >> fs[MAP_MAP_o] >>
+        fs[find_env_globals_def, build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
+        fs[find_v_globalsL_APPEND, domain_union] >> fs[MAP_MAP_o] >>
         `MAP (SND o (λ (f,x,e). (f, Recclosure env.v funs f))) funs =
             MAP (λ (f,x,e). (Recclosure env.v funs f)) funs` by
                 (rw[MAP_EQ_f] >> PairCases_on `e'` >> fs[]) >>
@@ -2028,10 +2044,10 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
         fs[] >>
         impl_tac >> fs[] >>
-        fs[findEnvGlobals_def, findVglobalsL_APPEND, domain_union] >>
+        fs[find_env_globals_def, find_v_globalsL_APPEND, domain_union] >>
         drule (CONJUNCT1 pmatch_Match_reachable) >> disch_then drule >>
         disch_then match_mp_tac >>
-        fs[findVglobals_def] >> rw[] >> metis_tac[]
+        fs[find_v_globals_def] >> rw[] >> metis_tac[]
     ]
 );
 
@@ -2046,7 +2062,7 @@ val evaluate_sing_notKeep_flat_state_rel = Q.store_thm(
         exprL = [expr] ∧
         ¬keep reachable (Dlet expr) ∧ env.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
-        domain (findEnvGlobals env) ⊆ domain reachable ∧
+        domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
     ⇒ flat_state_rel reachable new_state removed_state ∧
         ∃ value : flatSem$v . result = Rval [value]`
@@ -2054,7 +2070,7 @@ val evaluate_sing_notKeep_flat_state_rel = Q.store_thm(
     rpt gen_tac >> strip_tac >> fs[keep_def] >> rveq >>
     drule (CONJUNCT1 evaluate_flat_state_rel_lemma) >> fs[] >>
     disch_then drule >> disch_then drule >> fs[] >>
-    rw[] >> imp_res_tac evaluate_sing >> fs[] >> fs[findVglobals_def]
+    rw[] >> imp_res_tac evaluate_sing >> fs[] >> fs[find_v_globals_def]
 );
 
 
@@ -2066,18 +2082,18 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
         reachable removed_decs removed_state .
         evaluate_decs env state decs = (new_state, new_ctors, result) ∧
         result ≠ SOME (Rabort Rtype_error) ∧ env.exh_pat ∧
-        removeUnreachable reachable decs = removed_decs ∧
+        remove_unreachable reachable decs = removed_decs ∧
         flat_state_rel reachable state removed_state ∧
-        domain (findEnvGlobals env) ⊆ domain reachable ∧
-        decsClosed reachable decs
+        domain (find_env_globals env) ⊆ domain reachable ∧
+        decs_closed reachable decs
     ⇒ ∃ new_removed_state .
         new_removed_state.ffi = new_state.ffi /\
         evaluate_decs env removed_state removed_decs =
             (new_removed_state, new_ctors, result)`,
     Induct_on `decs`
-    >- (rw[evaluate_decs_def, removeUnreachable_def] >>
-        fs[evaluate_decs_def, findResultGlobals_def, flat_state_rel_def])
-    >>  fs[evaluate_decs_def, removeUnreachable_def] >> rw[] >>
+    >- (rw[evaluate_decs_def, remove_unreachable_def] >>
+        fs[evaluate_decs_def, find_result_globals_def, flat_state_rel_def])
+    >>  fs[evaluate_decs_def, remove_unreachable_def] >> rw[] >>
         qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac
         >- (fs[evaluate_decs_def] >>
@@ -2088,15 +2104,15 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
             rw[] >> fs[] >>
             pop_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
-            `decsClosed reachable [h]` by imp_res_tac decsClosed_reduce_HD >>
+            `decs_closed reachable [h]` by imp_res_tac decs_closed_reduce_HD >>
             fs[] >>
             reverse(Cases_on `r2` >> fs[] >> rw[] >> rveq >> EVERY_CASE_TAC)
             >- fs[flat_state_rel_def] >>
             fs[] >> first_x_assum drule >> fs[] >> rveq >> strip_tac >>
             pop_assum (qspecl_then [`reachable`, `new_removed_state`] mp_tac) >>
             fs[] >>
-            reverse(impl_tac) >- rw[] >> fs[findEnvGlobals_def] >>
-            imp_res_tac decsClosed_reduce)
+            reverse(impl_tac) >- rw[] >> fs[find_env_globals_def] >>
+            imp_res_tac decs_closed_reduce)
         >>  reverse(EVERY_CASE_TAC) >> fs[] >> rveq >>
             rename1 `_ _ decs = (n_state, ctors, res)` >>
             imp_res_tac keep_Dlet >> rveq >>
@@ -2109,7 +2125,7 @@ val flat_decs_removal_lemma = Q.store_thm ("flat_decs_removal_lemma",
                 pop_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
                 strip_tac >> fs[])
             >>  first_x_assum match_mp_tac >> fs[] >> asm_exists_tac >> fs[] >>
-                imp_res_tac decsClosed_reduce >> fs[] >>
+                imp_res_tac decs_closed_reduce >> fs[] >>
                 drule evaluate_sing_notKeep_flat_state_rel >> fs[]
 );
 
@@ -2119,9 +2135,9 @@ val flat_removal_thm = Q.store_thm ("flat_removal_thm",
         evaluate_decs (initial_env exh_pat check_ctor)
             (initial_state ffi k) decs = (new_state, new_ctors, result) ∧
         result ≠ SOME (Rabort Rtype_error) ∧ exh_pat ∧
-        (roots, tree) = analyseCode decs ∧
+        (roots, tree) = analyse_code decs ∧
         reachable = closure_spt roots (mk_wf_set_tree tree) ∧
-        removeUnreachable reachable decs = removed_decs
+        remove_unreachable reachable decs = removed_decs
     ⇒ ∃ s .
         s.ffi = new_state.ffi /\
         evaluate_decs (initial_env exh_pat check_ctor) (initial_state ffi k)
@@ -2135,19 +2151,20 @@ val flat_removal_thm = Q.store_thm ("flat_removal_thm",
     >>  qspecl_then [`decs`, `roots`, `mk_wf_set_tree tree`, `tree`]
             mp_tac analysis_reachable_thm >>
         impl_tac >> rw[initial_env_def, initial_state_def]
-        >- (fs[flat_state_rel_def, globals_rel_def] >> fs[findRefsGlobals_def])
-        >- (fs[findEnvGlobals_def, findVglobals_def])
-        >- (fs[decsClosed_def] >> rw[] >> `(r,t) = (roots, tree)` by
+        >- (fs[flat_state_rel_def, globals_rel_def] >>
+            fs[find_refs_globals_def])
+        >- (fs[find_env_globals_def, find_v_globals_def])
+        >- (fs[decs_closed_def] >> rw[] >> `(r,t) = (roots, tree)` by
             metis_tac[] >> fs[] >> rveq
-            >- (rw[SUBSET_DEF] >> qexists_tac `x` >> fs[isReachable_def])
-            >- (qexists_tac `n'` >> fs[isReachable_def] >>
+            >- (rw[SUBSET_DEF] >> qexists_tac `x` >> fs[is_reachable_def])
+            >- (qexists_tac `n'` >> fs[is_reachable_def] >>
                 metis_tac[transitive_RTC, transitive_def]))
 );
 
 val flat_remove_eval_sim = Q.store_thm("flat_remove_eval_sim",
-  `eval_sim ffi T T ds1 T T (removeFlatProg ds1)
-                            (\d1 d2. d2 = removeFlatProg d1) F`,
-  rw [eval_sim_def] \\ qexists_tac `0` \\ fs [removeFlatProg_def]
+  `eval_sim ffi T T ds1 T T (remove_flat_prog ds1)
+                            (\d1 d2. d2 = remove_flat_prog d1) F`,
+  rw [eval_sim_def] \\ qexists_tac `0` \\ fs [remove_flat_prog_def]
   \\ pairarg_tac \\ fs []
   \\ drule flat_removal_thm \\ rw [] \\ fs []);
 
@@ -2174,34 +2191,34 @@ val elist_globals_filter_SUB_BAG = Q.prove (
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
 
-val removeFlatProg_elist_globals_eq_empty = Q.store_thm (
-  "removeFlatProg_elist_globals_eq_empty",
+val remove_flat_prog_elist_globals_eq_empty = Q.store_thm (
+  "remove_flat_prog_elist_globals_eq_empty",
   `elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds))) = {||}`,
-  simp [removeFlatProg_def, removeUnreachable_def, UNCURRY]
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))) = {||}`,
+  simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [elist_globals_filter]);
 
-val removeFlatProg_esgc_free = Q.store_thm ("removeFlatProg_esgc_free",
+val remove_flat_prog_esgc_free = Q.store_thm ("remove_flat_prog_esgc_free",
   `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds)))`,
-  simp [removeFlatProg_def, removeUnreachable_def, UNCURRY]
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds)))`,
+  simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [esgc_free_filter]);
 
-val removeFlatProg_sub_bag = Q.store_thm ("removeFlatProg_sub_bag",
-  `elist_globals (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds))) <=
+val remove_flat_prog_sub_bag = Q.store_thm ("remove_flat_prog_sub_bag",
+  `elist_globals (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))) <=
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
-  simp [removeFlatProg_def, removeUnreachable_def, UNCURRY]
+  simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [elist_globals_filter_SUB_BAG]);
 
-val removeFlatProg_distinct_globals = Q.store_thm (
-  "removeFlatProg_distinct_globals",
+val remove_flat_prog_distinct_globals = Q.store_thm (
+  "remove_flat_prog_distinct_globals",
   `BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))
    ==>
    BAG_ALL_DISTINCT (elist_globals
-     (MAP dest_Dlet (FILTER is_Dlet (removeFlatProg ds))))`,
-  metis_tac [removeFlatProg_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+     (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))))`,
+  metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 
 val _ = export_theory();
