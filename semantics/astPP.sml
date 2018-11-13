@@ -621,19 +621,13 @@ val _=add_astPP ("eqrealprint", ``App Equality [x;y]``,genPrint (infixrealPrint 
 val _=add_astPP ("refrealprint", ``App Opref x``,genPrint (prefixargsPrint "ref"))
 val _=add_astPP ("derefrealprint", ``App Opderef x``,genPrint (prefixargsPrint "!"))
 
-val _=add_astPP ("W64toIntprint", ``App (WordToInt W64) x``,genPrint (prefixargsPrint "W64toInt"))
-val _=add_astPP ("W8toIntprint", ``App (WordToInt W8) x``,genPrint (prefixargsPrint "W8toInt"))
-val _=add_astPP ("W64fromIntprint", ``App (WordFromInt W64) x``,genPrint (prefixargsPrint "W64fromInt"))
-val _=add_astPP ("W8fromIntprint", ``App (WordFromInt W8) x``,genPrint (prefixargsPrint "W8fromInt"))
+val _=add_astPP ("WtoIntprint", ``App WordToInt x``,genPrint (prefixargsPrint "WtoInt"))
+val _=add_astPP ("W64fromIntprint", ``App (WordFromInt (WordSize 64)) x``,genPrint (prefixargsPrint "W64fromInt"))
+val _=add_astPP ("W8fromIntprint", ``App (WordFromInt (WordSize 8)) x``,genPrint (prefixargsPrint "W8fromInt"))
 
-val _=add_astPP ("Opw64Andwprint", ``App (Opw W64 Andw) x``,genPrint (prefixargsPrint "Opw64Andw"))
-val _=add_astPP ("Opw8Andwprint", ``App (Opw W8 Andw) x``,genPrint (prefixargsPrint "Opw8Andw"))
-val _=add_astPP ("Opw64Orwprint", ``App (Opw W64 Orw) x``,genPrint (prefixargsPrint "Opw64Orw"))
-val _=add_astPP ("Opw8Orwprint", ``App (Opw W8 Orw) x``,genPrint (prefixargsPrint "Opw8Orw"))
-val _=add_astPP ("Opw64Xorprint", ``App (Opw W64 Xor) x``,genPrint (prefixargsPrint "Opw64Xor"))
-val _=add_astPP ("Opw8Xorprint", ``App (Opw W8 Xor) x``,genPrint (prefixargsPrint "Opw8Xor"))
-val _=add_astPP ("Opw64Xorprint", ``App (Opw W64 Xor) x``,genPrint (prefixargsPrint "Opw64Xor"))
-val _=add_astPP ("Opw8Xorprint", ``App (Opw W8 Xor) x``,genPrint (prefixargsPrint "Opw8Xor"))
+val _=add_astPP ("Opw64Andwprint", ``App (Opw Andw) x``,genPrint (prefixargsPrint "OpwAndw"))
+val _=add_astPP ("Opw64Orwprint", ``App (Opw Orw) x``,genPrint (prefixargsPrint "OpwOrw"))
+val _=add_astPP ("Opw64Xorprint", ``App (Opw Xor) x``,genPrint (prefixargsPrint "OpwXor"))
 
 (*Opb*)
 val _=add_astPP ("gteqrealprint", ``App (Opb Geq) [x;y]``,genPrint (infixrealPrint ">="));
