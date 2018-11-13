@@ -99,21 +99,26 @@ val reader_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "reader_machine_sem";
 
-val reader_extract_writes_stdout = Q.store_thm("reader_extract_writes_stdout",
+val _ = temp_overload_on
+  ("reader",
+   ``\fs r. readLines (all_lines fs (IOStream (strlit"stdin"))) init_state r``);
+
+val reader_extract_writes = Q.store_thm("reader_extract_writes",
   `wfcl cl /\
    (LENGTH cl = 1)
    ==>
-   (extract_writes 1
-     (MAP get_output_io_event (reader_io_events cl (stdin_fs inp))) =
-     (case init_reader () init_refs of
-        (Success _, refs) =>
-           explode
-             (case readLines
-               (all_lines (stdin_fs inp) (IOStream (strlit "stdin")))
-               init_state refs of
-                (Success (s, _), refs) => msg_success s refs.the_context
-              | _ => strlit "")
-      | _ => ""))`,
+   let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) in
+   let out = extract_writes 1 events in
+   let err = extract_writes 2 events in
+     case init_reader () init_refs of
+       (Failure (Fail e), refs) =>
+         (out = "") /\ (err = explode (msg_axioms e))
+     | (Success _, refs) =>
+         (case reader (stdin_fs inp) refs of
+            (Failure (Fail e), refs) =>
+              (out = "") /\ (err = explode e)
+          | (Success (s, _), refs) =>
+              (out = explode (msg_success s refs.the_context)) /\ (err = ""))`,
   strip_tac \\ fs []
   \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
   \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
@@ -121,65 +126,80 @@ val reader_extract_writes_stdout = Q.store_thm("reader_extract_writes_stdout",
   \\ impl_tac
   >- (qexists_tac `inp` \\ EVAL_TAC)
   \\ strip_tac
-  \\ drule (GEN_ALL extract_fs_extract_writes)
-  \\ simp [Once stdin_fs_def]
-  \\ disch_then (mp_tac o CONV_RULE SWAP_FORALL_CONV)
-  \\ disch_then (qspec_then `1` mp_tac)
-  \\ simp [Once stdin_fs_def]
-  \\ simp [Once stdin_fs_def]
-  \\ simp [Once stdin_fs_def, fsFFIPropsTheory.inFS_fname_def]
-  \\ disch_then match_mp_tac
-  \\ conj_tac
+  \\ Cases_on `init_reader () init_refs` \\ fs []
+  \\ rename1 `init_reader () init_refs = (res, refs)`
+  \\ reverse (Cases_on `res`) \\ fs []
   >-
-   (rpt gen_tac
-    \\ simp [readerProofTheory.reader_main_def,
-             readerProofTheory.read_stdin_def,
-             fsFFIPropsTheory.inFS_fname_def]
-    \\ rpt (PURE_CASE_TAC \\ fs [])
+   (CASE_TAC \\ fs [] \\ rw []
+    \\ irule extract_fs_extract_writes
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ simp [RIGHT_EXISTS_AND_THM]
+    \\ simp [readerProofTheory.reader_main_def]
+    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+    \\ simp [fsFFIPropsTheory.inFS_fname_def]
     \\ simp [TextIOProofTheory.add_stdo_def]
     \\ SELECT_ELIM_TAC
-    \\ (conj_tac >- (qexists_tac `implode ""` \\ EVAL_TAC))
+    \\ simp [TextIOProofTheory.stdo_def]
+    \\ simp [stdin_fs_def]
+    \\ (conj_tac >- (simp [stdin_fs_def] \\ qexists_tac `implode ""` \\ fs []))
     \\ Cases
-    \\ strip_tac
-    \\ simp [fsFFIPropsTheory.fastForwardFD_def, libTheory.the_def, stdin_fs_def,
-             TextIOProofTheory.stdo_def, TextIOProofTheory.up_stdo_def,
-             ALIST_FUPDKEY_ALOOKUP, fsFFITheory.fsupdate_def,
-             CaseEq "bool", CaseEq "option"]
-    \\ rw [] \\ fs [])
-  \\ conj_tac
+    \\ strip_tac \\ fs [] \\ rveq
+    \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
+    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ simp [fsFFIPropsTheory.inFS_fname_def]
+    \\ rw [OPTREL_def]
+    \\ CCONTR_TAC \\ fs [] \\ rw [])
+  \\ Cases_on `reader (stdin_fs inp) refs` \\ fs []
+  \\ rename1 `reader (stdin_fs inp) refs = (res, _)`
+  \\ reverse (Cases_on `res`) \\ fs []
   >-
-   (rpt gen_tac
-    \\ simp [readerProofTheory.reader_main_def,
-             readerProofTheory.read_stdin_def,
-             fsFFIPropsTheory.inFS_fname_def]
-    \\ rpt (PURE_CASE_TAC \\ fs [])
-    \\ simp [TextIOProofTheory.add_stdo_def]
-    \\ SELECT_ELIM_TAC
-    \\ (conj_tac >- (qexists_tac `implode ""` \\ EVAL_TAC))
-    \\ Cases
-    \\ strip_tac
-    \\ simp [fsFFIPropsTheory.fastForwardFD_def, libTheory.the_def, stdin_fs_def,
-             TextIOProofTheory.stdo_def, TextIOProofTheory.up_stdo_def,
-             ALIST_FUPDKEY_ALOOKUP, fsFFITheory.fsupdate_def,
-             TextIOProofTheory.add_stdo_def,
-             CaseEq "bool", CaseEq "option"]
-    \\ rw [] \\ fs [] \\ rw [])
-  \\ conj_tac >- cheat (* TODO not true; stderr is touched *)
-  \\ conj_tac
-  >-
-   (rw [fsFFIPropsTheory.inFS_fname_def]
+   (CASE_TAC \\ fs [] \\ rw []
+    \\ irule extract_fs_extract_writes
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ simp [RIGHT_EXISTS_AND_THM]
     \\ simp [readerProofTheory.reader_main_def,
              readerProofTheory.read_stdin_def]
-    \\ rpt (PURE_CASE_TAC \\ fs []))
+    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+    \\ simp [fsFFIPropsTheory.inFS_fname_def]
+    \\ simp [TextIOProofTheory.add_stdo_def]
+    \\ SELECT_ELIM_TAC
+    \\ simp [TextIOProofTheory.stdo_def]
+    \\ simp [stdin_fs_def]
+    \\ simp [fsFFIPropsTheory.fastForwardFD_def]
+    \\ simp [libTheory.the_def]
+    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
+    \\ Cases
+    \\ strip_tac \\ fs [] \\ rveq
+    \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
+    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ simp [fsFFIPropsTheory.inFS_fname_def]
+    \\ rw [OPTREL_def]
+    \\ CCONTR_TAC \\ fs [] \\ rw [])
+  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ irule extract_fs_extract_writes
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ simp [RIGHT_EXISTS_AND_THM]
   \\ simp [readerProofTheory.reader_main_def,
            readerProofTheory.read_stdin_def]
-  \\ rpt (PURE_CASE_TAC \\ fs [])
+  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+  \\ simp [fsFFIPropsTheory.inFS_fname_def]
   \\ simp [TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp [fsFFIPropsTheory.fastForwardFD_def, libTheory.the_def, stdin_fs_def,
-           TextIOProofTheory.stdo_def, TextIOProofTheory.up_stdo_def,
-           ALIST_FUPDKEY_ALOOKUP, fsFFITheory.fsupdate_def]
-  \\ qexists_tac `implode ""` \\ fs []);
+  \\ simp [TextIOProofTheory.stdo_def]
+  \\ simp [stdin_fs_def]
+  \\ simp [fsFFIPropsTheory.fastForwardFD_def]
+  \\ simp [libTheory.the_def]
+  \\ simp [ALIST_FUPDKEY_ALOOKUP]
+  \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
+  \\ Cases
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
+  \\ simp [ALIST_FUPDKEY_ALOOKUP]
+  \\ simp [fsFFIPropsTheory.inFS_fname_def]
+  \\ rw [OPTREL_def]
+  \\ CCONTR_TAC \\ fs [] \\ rw []);
 
 val reader_ag32_next = Q.store_thm("reader_ag32_next",
   `SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
