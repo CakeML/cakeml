@@ -117,23 +117,17 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
    let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) in
    let out = extract_writes 1 events in
    let err = extract_writes 2 events in
-     case init_reader () init_refs of
-       (Failure (Fail e), refs) =>
-         (out = "") /\ (err = explode (msg_axioms e))
-     | (Success _, refs) =>
-         (case reader (lines_of (implode inp)) refs of
-            (Failure (Fail e), refs) =>
-              (out = "") /\ (err = explode e)
-          | (Success (s, _), refs) =>
-              (is_set_theory ^mem ==>
-                (!asl c.
-                   MEM (Sequent asl c) s.thms
-                   ==>
-                   (thyof refs.the_context, asl) |= c)) /\
-              refs.the_context extends init_ctxt /\
-              (out = explode (msg_success s refs.the_context)) /\
-              (err = "")
-          | _ => F)
+   let refs = SND (init_reader () init_refs) in
+     case reader (lines_of (implode inp)) refs of
+       (Failure (Fail e), refs) => (out = "") /\ (err = explode e)
+     | (Success (s, _), refs) =>
+         (is_set_theory ^mem ==>
+           (!asl c.
+              MEM (Sequent asl c) s.thms
+              ==>
+              (thyof refs.the_context, asl) |= c)) /\
+         refs.the_context extends init_ctxt /\
+         (out = explode (msg_success s refs.the_context)) /\ (err = "")
      | _ => F`,
   strip_tac \\ fs []
   \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
@@ -142,35 +136,13 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
   \\ impl_tac
   >- (qexists_tac `inp` \\ EVAL_TAC)
   \\ strip_tac
-  \\ Cases_on `init_reader () init_refs` \\ fs []
-  \\ rename1 `init_reader () init_refs = (res, refs)`
-  \\ reverse (Cases_on `res`) \\ fs []
-  >-
-   (CASE_TAC \\ fs [] \\ rw []
-    \\ irule extract_fs_extract_writes
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ simp [RIGHT_EXISTS_AND_THM]
-    \\ simp [readerProofTheory.reader_main_def]
-    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
-    \\ simp [fsFFIPropsTheory.inFS_fname_def]
-    \\ simp [TextIOProofTheory.add_stdo_def]
-    \\ SELECT_ELIM_TAC
-    \\ simp [TextIOProofTheory.stdo_def]
-    \\ simp [stdin_fs_def]
-    \\ (conj_tac >- (simp [stdin_fs_def] \\ qexists_tac `implode ""` \\ fs []))
-    \\ Cases
-    \\ strip_tac \\ fs [] \\ rveq
-    \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-    \\ simp [ALIST_FUPDKEY_ALOOKUP]
-    \\ simp [fsFFIPropsTheory.inFS_fname_def]
-    \\ rw [OPTREL_def]
-    \\ CCONTR_TAC \\ fs [] \\ rw [])
-  \\ Cases_on `reader (lines_of (implode inp)) refs` \\ fs []
-  \\ rename1 `reader (lines_of (implode inp)) refs = (res, _)`
+  \\ Cases_on `init_reader () init_refs`
+  \\ imp_res_tac readerProofTheory.init_reader_success \\ rw []
   \\ fs [GSYM all_lines_stdin_fs]
-  \\ reverse (Cases_on `res`) \\ fs []
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ reverse PURE_TOP_CASE_TAC \\ fs []
   >-
-   (CASE_TAC \\ fs [] \\ rw []
+   (PURE_CASE_TAC \\ fs [] \\ rw []
     \\ irule extract_fs_extract_writes
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [RIGHT_EXISTS_AND_THM]
@@ -193,34 +165,23 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
     \\ simp [fsFFIPropsTheory.inFS_fname_def]
     \\ rw [OPTREL_def]
     \\ CCONTR_TAC \\ fs [] \\ rw [])
-  \\ CASE_TAC \\ fs []
+  \\ PURE_CASE_TAC \\ fs []
+  \\ once_rewrite_tac [CONJ_ASSOC]
   \\ conj_tac
   >-
-   (strip_tac
+   (rw []
     \\ imp_res_tac readerProofTheory.init_reader_ok
     \\ `READER_STATE defs init_state`
       by fs [readerProofTheory.READER_STATE_init_state]
     \\ drule readerProofTheory.readLines_thm
-    \\ rpt (disch_then drule)
-    \\ rw []
+    \\ rpt (disch_then drule) \\ rw []
+    \\ fs [holKernelProofTheory.CONTEXT_def, holKernelProofTheory.STATE_def]
+    \\ fs [EQ_SYM_EQ] \\ rw []
     \\ fs [readerProofTheory.READER_STATE_def, EVERY_MEM]
     \\ irule proves_sound \\ fs []
     \\ first_x_assum (assume_tac o REWRITE_RULE [holKernelProofTheory.THM_def] o
                       Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
-    \\ fs [holKernelProofTheory.CONTEXT_def, holKernelProofTheory.STATE_def]
-    \\ rveq
-    \\ fs [EQ_SYM_EQ])
-  \\ conj_tac
-  >-
-   (imp_res_tac readerProofTheory.init_reader_ok
-    \\ `READER_STATE defs init_state`
-      by fs [readerProofTheory.READER_STATE_init_state]
-    \\ drule readerProofTheory.readLines_thm
-    \\ rpt (disch_then drule)
-    \\ rw [holKernelProofTheory.STATE_def]
-    \\ fs [holKernelProofTheory.CONTEXT_def]
-    \\ rveq
-    \\ fs [EQ_SYM_EQ])
+    \\ fs [])
   \\ rw []
   \\ irule extract_fs_extract_writes
   \\ goal_assum (first_assum o mp_then Any mp_tac)
