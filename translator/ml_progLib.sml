@@ -94,8 +94,9 @@ fun pfun_conv tm = let
 
 end
 
-val nsLookup_conv_arg1_xs = [``option_CASE``, ``COND``,
-  ``OPTION_CHOICE``, ``(/\)``, ``(\/)``, ``(=)``]
+val nsLookup_conv_arg1_xs = [boolSyntax.conjunction, boolSyntax.disjunction,
+  boolSyntax.equality, boolSyntax.conditional, optionSyntax.option_case_tm,
+  prim_mk_const {Name = "OPTION_CHOICE", Thy = "option"}]
 
 fun nsLookup_arg1_conv conv tm = let
     val (f, xs) = strip_comb tm

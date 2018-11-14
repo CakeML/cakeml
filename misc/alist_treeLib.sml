@@ -332,16 +332,14 @@ fun reprs_conv rs tm = let
         repr_thm x
   end
 
-fun test_f_def () = new_definition ("f", mk_eq (``f : num -> num option``,
-    test_mk_alookup (upto 1 300)));
-
-fun extract_test rs i = mk_comb (``f : num -> num option``,
-    numSyntax.term_of_int i)
-  |> reprs_conv rs
+fun extract_test f rs i = mk_comb (f, numSyntax.term_of_int i) |> reprs_conv rs
 
 fun extract_test_1000 rs = let
-    val res1 = timeit "add def" (add_alist_repr rs) (test_f_def ())
-    val res2 = timeit "map extract" (map (extract_test rs)) (upto 1 1000)
+    val alookup = test_mk_alookup (upto 1 300)
+    val f = mk_var ("f", type_of alookup)
+    val f_def = new_definition ("f", mk_eq (f, alookup))
+    val res1 = timeit "add def" (add_alist_repr rs) f_def
+    val res2 = timeit "map extract" (map (extract_test f rs)) (upto 1 1000)
   in res2 end
 
 end
