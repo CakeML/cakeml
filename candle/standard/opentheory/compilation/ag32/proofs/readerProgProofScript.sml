@@ -101,12 +101,14 @@ val reader_machine_sem =
   |> curry save_thm "reader_machine_sem";
 
 val _ = Parse.hide "mem";
-
 val mem = ``mem:'U->'U-> bool``;
+val _ = temp_overload_on ("reader", ``\inp r. readLines inp init_state r``);
 
-val _ = temp_overload_on
-  ("reader",
-   ``\fs r. readLines (all_lines fs (IOStream (strlit"stdin"))) init_state r``);
+val all_lines_stdin_fs = Q.prove (
+  `all_lines (stdin_fs inp) (IOStream (strlit"stdin"))
+   =
+   lines_of (implode inp)`,
+  EVAL_TAC);
 
 val reader_extract_writes = Q.store_thm("reader_extract_writes",
   `wfcl cl /\
@@ -119,7 +121,7 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
        (Failure (Fail e), refs) =>
          (out = "") /\ (err = explode (msg_axioms e))
      | (Success _, refs) =>
-         (case reader (stdin_fs inp) refs of
+         (case reader (lines_of (implode inp)) refs of
             (Failure (Fail e), refs) =>
               (out = "") /\ (err = explode e)
           | (Success (s, _), refs) =>
@@ -161,8 +163,9 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
     \\ simp [fsFFIPropsTheory.inFS_fname_def]
     \\ rw [OPTREL_def]
     \\ CCONTR_TAC \\ fs [] \\ rw [])
-  \\ Cases_on `reader (stdin_fs inp) refs` \\ fs []
-  \\ rename1 `reader (stdin_fs inp) refs = (res, _)`
+  \\ Cases_on `reader (lines_of (implode inp)) refs` \\ fs []
+  \\ rename1 `reader (lines_of (implode inp)) refs = (res, _)`
+  \\ fs [GSYM all_lines_stdin_fs]
   \\ reverse (Cases_on `res`) \\ fs []
   >-
    (CASE_TAC \\ fs [] \\ rw []
