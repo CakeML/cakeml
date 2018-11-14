@@ -2,7 +2,8 @@ open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
      ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
      ag32_machine_configTheory ag32_basis_ffiProofTheory
-     readerProgTheory readerCompileTheory;
+     readerProgTheory readerCompileTheory
+     holSoundnessTheory
 
 val _ = new_theory "readerProgProof";
 
@@ -99,6 +100,10 @@ val reader_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "reader_machine_sem";
 
+val _ = Parse.hide "mem";
+
+val mem = ``mem:'U->'U-> bool``;
+
 val _ = temp_overload_on
   ("reader",
    ``\fs r. readLines (all_lines fs (IOStream (strlit"stdin"))) init_state r``);
@@ -118,7 +123,14 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
             (Failure (Fail e), refs) =>
               (out = "") /\ (err = explode e)
           | (Success (s, _), refs) =>
-              (out = explode (msg_success s refs.the_context)) /\ (err = ""))`,
+              (is_set_theory ^mem ==>
+                (!asl c.
+                   MEM (Sequent asl c) s.thms
+                   ==>
+                   (thyof refs.the_context, asl) |= c)) /\
+              refs.the_context extends init_ctxt /\
+              (out = explode (msg_success s refs.the_context)) /\
+              (err = ""))`,
   strip_tac \\ fs []
   \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
   \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
@@ -176,7 +188,35 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
     \\ simp [fsFFIPropsTheory.inFS_fname_def]
     \\ rw [OPTREL_def]
     \\ CCONTR_TAC \\ fs [] \\ rw [])
-  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ CASE_TAC \\ fs []
+  \\ conj_tac
+  >-
+   (strip_tac
+    \\ imp_res_tac readerProofTheory.init_reader_ok
+    \\ `READER_STATE defs init_state`
+      by fs [readerProofTheory.READER_STATE_init_state]
+    \\ drule readerProofTheory.readLines_thm
+    \\ rpt (disch_then drule)
+    \\ rw []
+    \\ fs [readerProofTheory.READER_STATE_def, EVERY_MEM]
+    \\ irule proves_sound \\ fs []
+    \\ first_x_assum (assume_tac o REWRITE_RULE [holKernelProofTheory.THM_def] o
+                      Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
+    \\ fs [holKernelProofTheory.CONTEXT_def, holKernelProofTheory.STATE_def]
+    \\ rveq
+    \\ fs [EQ_SYM_EQ])
+  \\ conj_tac
+  >-
+   (imp_res_tac readerProofTheory.init_reader_ok
+    \\ `READER_STATE defs init_state`
+      by fs [readerProofTheory.READER_STATE_init_state]
+    \\ drule readerProofTheory.readLines_thm
+    \\ rpt (disch_then drule)
+    \\ rw [holKernelProofTheory.STATE_def]
+    \\ fs [holKernelProofTheory.CONTEXT_def]
+    \\ rveq
+    \\ fs [EQ_SYM_EQ])
+  \\ rw []
   \\ irule extract_fs_extract_writes
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ simp [RIGHT_EXISTS_AND_THM]

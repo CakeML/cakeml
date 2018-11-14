@@ -2,6 +2,7 @@ INCLUDES = ../../../../../../semantics/proofs \
 	   ../../../../../../misc \
 	   .. \
 	   ../../.. \
+	   ../../../../semantics \
 	   ../../../../../../compiler/backend/proofs \
 	   ../../../../../../compiler/encoders/ag32/proofs \
 	   ../../../../../../compiler/backend/ag32 \
