@@ -471,7 +471,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
        \\ imp_res_tac memory_rel_Number_IMP \\ fs []
        \\ fs [Smallnum_def]
        \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
-       \\ fs [] \\ rfs [good_dimindex_def,small_int_def,dimword_def]
+       \\ fs [] \\ rfs [good_dimindex_def,small_int_def,dimword_def] \\ rfs[]
        \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
     \\ fs [] \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def]
     \\ Cases_on `a` \\ fs [FLOOKUP_UPDATE,heap_in_memory_store_def,memory_rel_def]
