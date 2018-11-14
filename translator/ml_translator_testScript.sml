@@ -164,6 +164,20 @@ val _ = Datatype `
 
 val _ = register_type ``:tt``;
 
+(* test no_ind again *)
+
+val test_def = xDefine "test" `test x = (case x of
+  | A1 => [()]
+  | B1 x => test x ++ [()]
+  | C1 NONE => []
+  | C1 (SOME x) => test x ++ REVERSE (test x)
+  | D1 tts => (case tts of [] => [(); ()]
+        | (tt :: tts) => test (D1 tts) ++ test tt)
+  | E1 (x, y) => REVERSE (test x) ++ test y)`
+;
+
+val _ = translate_no_ind test_def;
+
 (* registering types inside modules *)
 
 open ml_progLib

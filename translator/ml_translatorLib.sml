@@ -2031,7 +2031,8 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ TRY tac3
     \\ fsrw_tac[][GSYM FORALL_PROD,(*lookup_var_id_def,*)lookup_cons_def,LIST_TYPE_IF_ELIM]
     \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
-    \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
+    \\ TRY (EVAL_TAC >> NO_TAC)
+    \\ metis_tac [CONTAINER_def])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
