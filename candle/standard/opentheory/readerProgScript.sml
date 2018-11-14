@@ -521,11 +521,11 @@ val _ = (append_prog o process_topdecs) `
         [] => read_stdin ()
       | [file] => read_file file
       | _ => TextIO.output TextIO.stdErr msg_usage
-    end
-    handle Kernel.Fail e => TextIO.output TextIO.stdErr (msg_axioms e)`;
+    end`;
 
 val reader_main_spec = Q.store_thm("reader_main_spec",
-  `(case TL cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs)
+  `(!r s. init_reader () refs = (r, s) ==> r = Success ()) /\
+   (case TL cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs)
    ==>
    app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
      [Conv NONE []]
@@ -539,37 +539,7 @@ val reader_main_spec = Q.store_thm("reader_main_spec",
   \\ reverse (Cases_on `wfcl cl`)
   >- (fs [COMMANDLINE_def] \\ xpull)
   \\ simp [reader_main_def]
-  \\ Cases_on `init_reader () refs`
-  \\ rename1 `init_reader _ _ = (res, _)`
-  \\ reverse (Cases_on `res`) \\ fs []
-  >-
-   (CASE_TAC \\ fs []
-    \\ reverse (xhandle
-      `POSTe ev. HOL_STORE r * STDIO fs *
-                 &(HOL_EXN_TYPE (Fail m) ev)`)
-    >-
-     (fs [HOL_EXN_TYPE_def]
-      \\ xcases
-      \\ xlet_auto
-      >- xsimpl
-      \\ xapp_spec output_stderr_spec
-      \\ instantiate
-      \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV
-      \\ qexists_tac `fs`
-      \\ xsimpl)
-    \\ xlet_auto
-    >- (xcon \\ xsimpl)
-    \\ xlet `POSTe ev. HOL_STORE r * STDIO fs * &(HOL_EXN_TYPE (Fail m) ev)`
-    \\ xsimpl
-    \\ xapp
-    \\ xsimpl
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `refs`
-    \\ xsimpl)
-  \\ qmatch_goalsub_abbrev_tac `$POSTv Q`
-  \\ xhandle `$POSTv Q` \\ xsimpl
-  \\ qunabbrev_tac `Q`
+  \\ Cases_on `init_reader () refs` \\ rw []
   \\ xlet_auto
   >- (xcon \\ xsimpl)
   \\ xlet `POSTv u. STDIO fs * HOL_STORE r * &UNIT_TYPE () u * COMMANDLINE cl`
@@ -644,7 +614,7 @@ val reader_whole_prog_spec = Q.store_thm("reader_whole_prog_spec",
   \\ xsimpl
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ qexists_tac `init_refs` \\ xsimpl
-  \\ qexists_tac `cl` \\ xsimpl);
+  \\ fs [init_reader_success]);
 
 val _ = add_user_heap_thm HOL_STORE_init_precond;
 

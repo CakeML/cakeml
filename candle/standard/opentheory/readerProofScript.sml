@@ -1588,11 +1588,17 @@ val mk_infinity_ax_thm = Q.store_thm("mk_infinity_ax_thm",
   \\ rpt (disch_then drule) \\ rw []
   \\ metis_tac [mk_exists_thm]);
 
+val init_reader_success = Q.store_thm("init_reader_success",
+  `init_reader () init_refs = (res, refs) ==> res = Success ()`,
+  EVAL_TAC \\ fs []);
+
 val init_reader_ok = Q.store_thm("init_reader_ok",
   `init_reader () init_refs = (res, refs)
    ==>
+   res = Success () /\
    ?defs. STATE defs refs`,
-  sg `STATE init_refs.the_context init_refs`
+  simp [init_reader_success]
+  \\ sg `STATE init_refs.the_context init_refs`
   >- (EVAL_TAC \\ rw [])
   \\ qmatch_asmsub_abbrev_tac `STATE defs`
   \\ rw [init_reader_def, st_ex_bind_def, ind_type_def, select_sym_def]
@@ -1730,14 +1736,11 @@ val read_file_def = Define`
 
 val reader_main_def = Define `
    reader_main fs refs cl =
-     case init_reader () refs of
-       (Failure (Fail e), refs) => (add_stderr fs (msg_axioms e), refs, NONE)
-     | (Failure _, refs) => (fs, refs, NONE)
-     | (Success _, refs) =>
-         (case cl of
-            [] => read_stdin fs refs
-          | [fnm] => read_file fs refs fnm
-          | _ => (add_stderr fs msg_usage, refs, NONE))`;
+     let refs = SND (init_reader () refs) in
+       case cl of
+         [] => read_stdin fs refs
+       | [fnm] => read_file fs refs fnm
+       | _ => (add_stderr fs msg_usage, refs, NONE)`;
 
 (* ------------------------------------------------------------------------- *)
 (* Specs imply that invariants are preserved.                                *)
@@ -1773,7 +1776,8 @@ val reader_proves = Q.store_thm("reader_proves",
    refs.the_context extends init_ctxt`,
   rw [reader_main_def, case_eq_thms, read_file_def, read_stdin_def,
       bool_case_eq, PULL_EXISTS]
-  \\ imp_res_tac init_reader_ok
+  \\ Cases_on `init_reader () init_refs` \\ fs []
+  \\ imp_res_tac init_reader_ok \\ rw []
   \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
   \\ drule readLines_thm
   \\ rpt (disch_then drule) \\ rw []
