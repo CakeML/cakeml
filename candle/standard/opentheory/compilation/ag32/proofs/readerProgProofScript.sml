@@ -132,7 +132,9 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
                    (thyof refs.the_context, asl) |= c)) /\
               refs.the_context extends init_ctxt /\
               (out = explode (msg_success s refs.the_context)) /\
-              (err = ""))`,
+              (err = "")
+          | _ => F)
+     | _ => F`,
   strip_tac \\ fs []
   \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
   \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
