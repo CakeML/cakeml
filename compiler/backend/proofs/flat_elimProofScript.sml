@@ -1430,7 +1430,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
                 imp_res_tac evaluate_sing >> rveq >> rveq >>
                 fs[find_v_globals_def]))
         (* SINGLETON LIST CASES *)
-            (* Lit - DONE!!! *)
+            (* Lit *)
         >- (fs[evaluate_def] >> rveq >> fs[] >>
             fs[find_sem_prim_res_globals_def, find_v_globals_def])
             (* Raise *)
@@ -1447,7 +1447,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             fs[find_sem_prim_res_globals_def,
                 find_v_globals_def, find_result_globals_def] >>
             imp_res_tac evaluate_sing >> rveq >> rveq >> fs[find_v_globals_def])
-            (* Handle - DONE!!! *)
+            (* Handle *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >>
@@ -1461,7 +1461,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] match_mp_tac) >>
             fs[find_sem_prim_res_globals_def, find_result_globals_def])
-            (* Con NONE - DONE!!! *)
+            (* Con NONE *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def] >>
@@ -1473,7 +1473,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             strip_tac >> Cases_on `r` >> rw[] >> rfs[] >>
             fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
             simp[Once find_v_globalsL_REVERSE])
-            (* Con SOME - DONE!!! *)
+            (* Con SOME *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def] >>
@@ -1485,14 +1485,14 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             strip_tac >> Cases_on `r` >> rw[] >> rfs[] >>
             fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
             simp[Once find_v_globalsL_REVERSE])
-            (* Var_local - DONE!!! *)
+            (* Var_local *)
         >- (qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> strip_tac >> rveq >> fs[find_lookups_def] >>
             Cases_on `ALOOKUP env.v n` >>
             fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
             imp_res_tac ALOOKUP_MEM >> imp_res_tac find_v_globalsL_MEM >>
             fs[find_env_globals_def] >> fs[SUBSET_DEF])
-            (* Fun - DONE!!! *)
+            (* Fun *)
         >- (qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> strip_tac >> rveq >>
             fs[find_sem_prim_res_globals_def,
@@ -1586,7 +1586,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
                     NONE => LN | SOME n => insert n () LN) ⊆ domain reachable`
                         by (Cases_on `dest_GlobalVarLookup op` >> fs[]) >>
                             fs[find_sem_prim_res_globals_def] >> rfs[]))
-            (* If - DONE!!! *)
+            (* If *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
@@ -1600,7 +1600,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             Cases_on `r` >> fs[] >>
             Cases_on `do_if (HD a) e2 e3` >> fs[] >>
             fs[do_if_def] >> EVERY_CASE_TAC >> fs[])
-            (* Mat - DONE!!! *)
+            (* Mat *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
@@ -1616,7 +1616,7 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
             fs[find_sem_prim_res_globals_def] >>
             imp_res_tac evaluate_sing >> rveq >> fs[] >> rveq >>
             fs[find_v_globals_def])
-            (* Let - DONE!!! *)
+            (* Let *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
@@ -1655,9 +1655,9 @@ val evaluate_sing_keep_flat_state_rel_eq_lemma = Q.store_thm(
                     metis_tac[find_v_globals_MAP_Recclosure] >>
             fs[SUBSET_DEF] >> metis_tac[])
         (* EVALUATE_MATCH CASES *)
-            (* EMPTY LIST CASE - DONE!!! *)
+            (* EMPTY LIST CASE *)
         >- (fs[evaluate_def])
-            (* NON-EMPTY LIST CASE - DONE!!! *)
+            (* NON-EMPTY LIST CASE *)
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate_match _ _ _ _ _ =  _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def, domain_union] >>
@@ -1795,13 +1795,13 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         ∃ values : flatSem$v list . result = Rval values)`
   ,
     ho_match_mp_tac evaluate_ind >> rpt CONJ_TAC >> rpt GEN_TAC >> strip_tac
-    >| [
-        (* EVALUATE_DECS_CASES *)
-
-        (* EMPTY LIST CASE - DONE!!! *)
+    (* EVALUATE_DECS_CASES *)
+    >- (
+        (* EMPTY LIST CASE *)
         fs[evaluate_def] >> rveq >> fs[find_v_globals_def]
-      ,
-        (* NON-EMPTY, NON-SINGLETON LIST CASE - DONE!!! *)
+        )
+    >- (
+        (* NON-EMPTY, NON-SINGLETON LIST CASE *)
         rpt gen_tac >> strip_tac >>
         qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
@@ -1823,21 +1823,23 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         >- (first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >>
             rw[] >> fs[])
-
-      , (* SINGLETON LIST CASES *)
-
-        (* Lit - DONE!!! *)
+        )
+        (* SINGLETON LIST CASES *)
+    >- (
+        (* Lit *)
         fs[evaluate_def] >> rveq >> fs[find_v_globals_def]
-      ,
-        (* Raise - DONE!!! *)
+        )
+    >- (
+        (* Raise *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >> Cases_on `evaluate env state' [e]` >> fs[] >>
         Cases_on `r` >> fs[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
         fs[is_pure_def]
-      ,
-        (* Handle - DONE!!! *)
+        )
+    >- (
+        (* Handle *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
@@ -1859,8 +1861,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
                 metis_tac[inter_union_empty] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[] >> strip_tac >> fs[])
-      ,
-        (* Con NONE - DONE!!! *)
+        )
+    >- (
+        (* Con NONE *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         reverse(Cases_on `env.check_ctor`) >> fs[] >> fs[evaluate_def] >>
@@ -1882,8 +1885,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
             once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
             qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
             fs[find_loc_EVERY_isEmpty])
-      ,
-        (* Con SOME - DONE!!! *)
+        )
+    >- (
+        (* Con SOME *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >>
         strip_tac >> fs[evaluate_def] >>
@@ -1898,15 +1902,17 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         fs[EVERY_REVERSE, is_pure_EVERY_aconv] >>
         once_rewrite_tac [(GSYM NOT_EXISTS)] >>
         once_rewrite_tac [GSYM NOT_EVERY] >> fs[find_loc_EVERY_isEmpty]
-      ,
-        (* Var_local - DONE!!! *)
+        )
+    >- (
+        (* Var_local *)
         fs[evaluate_def] >> Cases_on `ALOOKUP env.v n` >> fs[] >>
         rveq >> fs[] >>
         fs[find_v_globals_def, find_env_globals_def] >>
         imp_res_tac ALOOKUP_MEM >>
         imp_res_tac find_v_globalsL_MEM >> imp_res_tac SUBSET_TRANS
-      ,
-        (* Fun - DONE!!! *)
+        )
+    >- (
+        (* Fun *)
         qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >>
         strip_tac >> fs[evaluate_def] >>
@@ -1914,8 +1920,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         fs[find_v_globals_def, domain_union,
             find_env_globals_def, is_pure_def] >>
         fs[find_loc_def]
-      ,
-        (* App - DONE!!! *)
+        )
+    >- (
+        (* App *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
@@ -1947,8 +1954,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
             Cases_on `op` >>
             fs[is_pure_def, is_pure_EVERY_aconv, dest_GlobalVarInit_def] >>
             imp_res_tac inter_insert_empty)
-      ,
-        (* If - DONE!!! *)
+        )
+    >- (
+        (* If *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >> Cases_on `evaluate env state' [e1]` >> fs[] >>
@@ -1968,8 +1976,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
                 mp_tac) >> fs[])
         >- (rveq >> first_x_assum (qspecl_then [`reachable`, `removed_state`]
             mp_tac) >> fs[])
-      ,
-        (* Mat - DONE!!! *)
+        )
+    >- (
+        (* Mat *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
@@ -1986,8 +1995,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         fs[] >>
         strip_tac >> fs[is_pure_EVERY_aconv, find_loc_EVERY_isEmpty] >> rfs[] >>
         imp_res_tac evaluate_sing >> rveq >> fs[find_v_globals_def]
-      ,
-        (* Let - DONE!!! *)
+        )
+    >- (
+        (* Let *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >>
@@ -2010,8 +2020,9 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         >- (rveq >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             fs[])
-      ,
-        (* Letrec - DONE!!! *)
+        )
+    >- (
+        (* Letrec *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >> Cases_on `ALL_DISTINCT (MAP FST funs)` >> fs[] >>
@@ -2030,12 +2041,14 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
             MAP (λ (f,x,e). (Recclosure env.v funs f)) funs` by
                 (rw[MAP_EQ_f] >> PairCases_on `e'` >> fs[]) >>
         fs[]
-      , (* EVALUATE_MATCH CASES *)
-
-        (* EMPTY LIST CASE - DONE!!! *)
+        )
+    (* EVALUATE_MATCH CASES *)
+    >- (
+        (* EMPTY LIST CASE *)
         fs[evaluate_def]
-      ,
-        (* NON-EMPTY LIST CASE - DONE!!! *)
+        )
+    >- (
+        (* NON-EMPTY LIST CASE *)
         rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
         fs[evaluate_def] >> Cases_on `ALL_DISTINCT (pat_bindings p [])` >>
@@ -2048,7 +2061,7 @@ val evaluate_flat_state_rel_lemma = Q.store_thm (
         drule (CONJUNCT1 pmatch_Match_reachable) >> disch_then drule >>
         disch_then match_mp_tac >>
         fs[find_v_globals_def] >> rw[] >> metis_tac[]
-    ]
+        )
 );
 
 (******** EVALUATE SPECIALISATION ********)
