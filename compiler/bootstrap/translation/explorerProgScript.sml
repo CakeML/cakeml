@@ -6,6 +6,8 @@ val _ = new_theory "explorerProg"
 
 val _ = translation_extends "inferProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
+
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -103,6 +105,9 @@ val res7 = translate presLangTheory.clos_to_json_table_def;
 *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
 val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

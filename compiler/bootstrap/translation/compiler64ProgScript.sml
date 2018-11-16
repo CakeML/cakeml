@@ -8,6 +8,8 @@ val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
+
 val _ = (ml_translatorLib.trace_timing_to
     := SOME "compiler64Prog_translate_timing.txt")
 
@@ -188,6 +190,10 @@ val res = translate export_arm8Theory.arm8_export_def;
 val res = translate
   (arm8_configTheory.arm8_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* Leave the module now, so that key things are available in the toplevel
+   namespace for main. *)
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 (* Rest of the translation *)
 val res = translate (extend_conf_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);

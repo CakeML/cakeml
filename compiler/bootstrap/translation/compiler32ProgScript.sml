@@ -8,6 +8,8 @@ val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "arm6Prog";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
+
 val () = Globals.max_print_depth := 15;
 
 val () = use_long_names := true;
@@ -161,6 +163,10 @@ val res = translate export_arm6Theory.arm6_export_def;
 val res = translate
   (arm6_configTheory.arm6_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* Leave the module now, so that key things are available in the toplevel
+   namespace for main. *)
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 (* Rest of the translation *)
 val res = translate (extend_conf_def |> spec32 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);

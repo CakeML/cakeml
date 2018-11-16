@@ -6,6 +6,8 @@ open basisProgTheory;
 val _ = new_theory "to_dataProg"
 val _ = translation_extends "basisProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_dataProg");
+
 (* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 
 val RW = REWRITE_RULE
@@ -1472,6 +1474,8 @@ val bvi_to_data_compile_prog_side = Q.prove(`∀prog. bvi_to_data_compile_prog_s
      data_space_space_side]) |> update_precondition; *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
