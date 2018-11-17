@@ -72,10 +72,7 @@ val BOOL_def = Define `
 
 val WORD_def = Define `
   WORD (w:'a word) =
-    \v:v. dimindex (:'a) <= 64 /\
-          (v = Litv (if dimindex (:'a) <= 8
-                     then Word8 (w2w w << (8 - dimindex (:'a)))
-                     else Word64 (w2w w << (64 - dimindex (:'a)))))`;
+    \v:v. dimindex (:'a) <= 64 /\ (v = Litv (Word (w2v w)))`;
 
 val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
