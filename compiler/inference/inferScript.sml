@@ -89,15 +89,17 @@ init_state =
   \st.
     (Success (), init_infer_state st)`;
 
+(* TODO: pass in inf_t from top-level instead of Bind [] [] below
+         in order to get proper type names printed *)
 val add_constraint_def = Define `
 add_constraint (l : locs option) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
           (Failure (l, concat [implode "Type mismatch between ";
-                               inf_type_to_string (t_walkstar st.subst t1);
+                               FST (inf_type_to_string (Bind ([]: (string # num # t) list) []) (t_walkstar st.subst t1));
                                implode " and ";
-                               inf_type_to_string (t_walkstar st.subst t2)]), st)
+                               FST (inf_type_to_string (Bind ([]: (string # num # t) list) []) (t_walkstar st.subst t2))]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -1117,5 +1119,22 @@ sub_completion tvs next_uvar s1 extra_constraints s2 =
   (pure_add_constraints s1 extra_constraints s2 ∧
    (count next_uvar SUBSET FDOM s2) ∧
    (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
+
+(* printing of types *)
+
+val ns_to_alist = Define `
+  (ns_to_alist (Bind [] []) = []) /\
+  (ns_to_alist (Bind [] ((n,x)::ms)) =
+    MAP (\(x,y). (n++"."++x,y)) (ns_to_alist x) ++
+    ns_to_alist (Bind [] ms)) /\
+  (ns_to_alist (Bind ((s,x)::xs) m) = (s,x) :: ns_to_alist (Bind xs m))`
+
+val inf_env_to_types_string_def = Define `
+  inf_env_to_types_string s =
+    let l = ns_to_alist s.inf_v in
+    let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
+                                    FST (inf_type_to_string s.inf_t t);
+                                    strlit "\n";]) l in
+      (* QSORT mlstring_le *) REVERSE xs`
 
 val _ = export_theory ();
