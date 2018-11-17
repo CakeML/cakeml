@@ -315,7 +315,15 @@ fun run_full_check () = let
           val _ = assert_for_lines_of (p ^ "/" ^ PREFIX_FILENAME)
                     (not o Option.isSome)
                     (fn s => "File not allowed to exist: " ^ s ^ "\n" ^
-                             "Such files are only allowed in directories with a Holmakefile.\nFix: rename the file to " ^ OUTPUT_FILENAME)
+                             "Such files are only allowed in directories " ^
+                             "with a Holmakefile.\nFix: rename the file to " ^
+                             OUTPUT_FILENAME)
+          val _ = assert_for_lines_of (p ^ "/" ^ OUTPUT_FILENAME)
+                    Option.isSome
+                    (fn s => "Missing file: " ^ s ^ "\n" ^
+                             "Write the file! " ^
+                             "It is not automatically generated due to lack "^
+                             "of a Holmakefile.")
         in () end
     | SOME lines => (* case: Holmake file exists *)
         let
