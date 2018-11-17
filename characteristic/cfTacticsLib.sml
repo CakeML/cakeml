@@ -95,6 +95,8 @@ val reducible_pats = [
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
   ``nsLookup _ _``,
+  ``nsLookup_Short _ _``,
+  ``nsLookup_Mod1 _ _``,
   ``Fun_body _``
 ]
 
