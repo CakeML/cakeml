@@ -36,8 +36,7 @@ val call_main_thm1 = Q.store_thm("call_main_thm1",
   \\ fs [terminationTheory.evaluate_def,PULL_EXISTS,pair_case_eq,
          result_case_eq,do_con_check_def,build_conv_def,bool_case_eq,
          ml_progTheory.lookup_var_def,option_case_eq,match_result_case_eq,
-         EVAL ``nsLookup (merge_env env2 env1).v (Short fname)``,app_def,
-         app_basic_def]
+         ml_progTheory.nsLookup_merge_env,app_def,app_basic_def]
   \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs []
   \\ fs [cfHeapsBaseTheory.POSTv_def]
   \\ Cases_on `r` \\ fs [cond_STAR] \\ fs [cond_def]
