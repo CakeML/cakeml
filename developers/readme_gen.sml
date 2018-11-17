@@ -11,6 +11,7 @@ val MAX_CHAR_COUNT_PER_LINE = 80
 val MAX_LINE_COUNT = 10
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
+val CHECK_OPT = "--check"
 
 (* Helper functions *)
 
@@ -254,20 +255,79 @@ fun create_summary filenames_and_paths = let
   val _ = TextIO.closeOut(f)
   in () end;
 
-fun all_nondot_subdirs () = let
-  val d = OS.FileSys.openDir(OS.FileSys.getDir())
+fun all_nondot_subdirs path = let
+  val d = OS.FileSys.openDir(path)
   fun all () =
     case OS.FileSys.readDir(d) of
       NONE => [] | SOME name => name :: all ()
   val names = all ()
   val _ = OS.FileSys.closeDir(d)
-  val names = List.filter (fn n => OS.FileSys.isDir(n)
+  val names = List.filter (fn n => OS.FileSys.isDir(path ^ "/" ^ n)
                                    handle OS.SysErr _ => false) names
   val names = List.filter (not o String.isPrefix ".") names
   in names end
 
+fun all_dirs f path = let
+  val _ = f path
+  val dirs = map (fn n => path ^ "/" ^ n) (all_nondot_subdirs path)
+  val _ = map (all_dirs f) dirs
+  in () end;
+
+(*
+fun produce_readme_for_path path = 0;
+*)
+
+fun err s = (print s; print "\n"; OS.Process.exit OS.Process.failure; false);
+
+fun read_all_lines filename =
+  let
+    val f = TextIO.openIn(filename)
+    fun read_rest () =
+      case TextIO.inputLine(f) of
+        NONE => []
+      | SOME line => line :: read_rest ()
+    val all_lines = read_rest ()
+    val _ = TextIO.closeIn f
+  in SOME all_lines end
+  handle e => NONE;
+
+fun assert_for_lines_of filename pred err_msg =
+  (pred (read_all_lines filename) handle _ => false)
+  orelse err (err_msg filename);
+
+fun run_full_check () = let
+  val path = OS.FileSys.getDir()
+  val curr_dir = "developers"
+  val _ = String.isSuffix curr_dir path orelse
+          err ("The " ^ CHECK_OPT ^ " option can only be run in the "
+                      ^ curr_dir ^ " dir.")
+  val path = String.substring(path,0,size path - size curr_dir - 1)
+  fun remove_prefix prefix s =
+    if String.isPrefix prefix s then
+      String.substring(s,String.size prefix,String.size s - String.size prefix)
+    else s
+  fun show_path p =
+    if p = path then "." else remove_prefix (path ^ "/") p
+  fun check_dir p =
+    case read_all_lines (p ^ "/Holmakefile") of
+      NONE => ()
+    | SOME lines =>
+        let
+          val _ = assert_for_lines_of (p ^ "/" ^ PREFIX_FILENAME)
+                    Option.isSome (fn s => "Missing file: " ^ s)
+          val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s)
+                    lines (* orelse err ("No README target in " ^ p ^ "/Holmakefile") *)
+        in () end
+  in all_dirs check_dir path end;
+
+fun mem x [] = false
+  | mem x (y::ys) = if x = y then true else mem x ys;
+
 fun main () = let
   val args = CommandLine.arguments ()
-  val dirs = all_nondot_subdirs ()
-  val _ = create_summary (args @ dirs)
+  val path = OS.FileSys.getDir()
+  val dirs = all_nondot_subdirs path
+  val _ = if mem CHECK_OPT args
+          then run_full_check ()
+          else create_summary (args @ dirs)
   in () end;
