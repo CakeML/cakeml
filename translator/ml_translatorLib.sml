@@ -2031,7 +2031,8 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ TRY tac3
     \\ fsrw_tac[][GSYM FORALL_PROD,(*lookup_var_id_def,*)lookup_cons_def,LIST_TYPE_IF_ELIM]
     \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
-    \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
+    \\ TRY (EVAL_TAC >> NO_TAC)
+    \\ metis_tac [CONTAINER_def])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -2752,14 +2753,14 @@ val th = D res
 *)
 
 fun clean_assumptions th = let
+  val start = start_timing "clean assumptions"
   val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
   val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
   val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
                                     orelse can (match_term pattern2) tm) (concl th)
-  val lemmas = map EVAL lookup_assums
-
+  val lemmas = map (EVAL THENC nsLookup_conv THENC EVAL) lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
@@ -2778,6 +2779,7 @@ fun clean_assumptions th = let
   val th1 = th |> REWRITE_RULE [GSYM PreImpEval_def]
   val th2 = CONV_RULE (QCONV (LAND_CONV (ONCE_DEPTH_CONV move_Eval_conv))) th1
   val th = REWRITE_RULE [PreImpEval_def] th2
+  val _ = end_timing start
   in th end;
 
 fun get_pre_var lhs fname = let
@@ -4105,10 +4107,7 @@ fun prove_Eval_assumptions th =
     fun prove_Eval_assum tm =
       let
         val th1 =
-          (ONCE_DEPTH_CONV(
-            REWR_CONV Eval_Var THENC
-            PURE_REWRITE_CONV[(*lookup_var_eq_lookup_var_id*)] THENC
-            QUANT_CONV(LAND_CONV EVAL) THENC REWR_CONV UNWIND_THM1)) tm
+          (ONCE_DEPTH_CONV(REWR_CONV Eval_Var_nsLookup THENC nsLookup_conv)) tm
         val const =
           th1 |> concl |> rand |> strip_forall |> #2 |> repeat (#2 o dest_imp) |> rator |> rand
         val cert = get_cert (get_bare_v_thm const)

@@ -1698,17 +1698,26 @@ val Eval_Fun_rw = Q.store_thm("Eval_Fun_rw",
   `Eval env (Fun n exp) P <=> P (Closure env n exp)`,
   rw[Eval_rw,EQ_IMP_THM,empty_state_def]);
 
+val evaluate_Var_nsLookup = Q.prove(
+   `eval_rel s env (Var id) s' r <=>
+    ?v. nsLookup env.v id = SOME r ∧ s' = s`,
+  fs [eval_rel_def,evaluate_def,lookup_var_def,option_case_eq,
+      state_component_equality] \\ rw [] \\ eq_tac \\ rw []);
+
 val evaluate_Var = Q.prove(
    `eval_rel s env (Var (Short n)) s' r <=>
     ?v. lookup_var n env = SOME r ∧ s' = s`,
-  fs [eval_rel_def,evaluate_def,lookup_var_def,option_case_eq,
-      state_component_equality] \\ rw [] \\ eq_tac \\ rw []);
+  fs [evaluate_Var_nsLookup,lookup_var_def]);
+
+val Eval_Var_nsLookup = Q.store_thm("Eval_Var_nsLookup",
+  `Eval env (Var id) P <=> case nsLookup env.v id of NONE => F | SOME v => P v`,
+  fs [Eval_def,evaluate_Var_nsLookup, state_component_equality]
+  \\ PURE_CASE_TAC \\ fs []);
 
 val Eval_Var = Q.store_thm("Eval_Var",
   `Eval env (Var (Short n)) P <=>
    ?v. lookup_var n env = SOME v /\ P v`,
-  rw[Eval_def,evaluate_Var,EQ_IMP_THM]
-  \\ rw[state_component_equality] \\ metis_tac []);
+  rw[Eval_Var_nsLookup,lookup_var_def] \\ PURE_CASE_TAC \\ fs[]);
 
 val Eval_Fun_Var_intro = Q.store_thm("Eval_Fun_Var_intro",
   `Eval cl_env (Fun n exp) P ==>
