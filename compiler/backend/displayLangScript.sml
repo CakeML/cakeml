@@ -12,7 +12,7 @@ val _ = new_theory"displayLang";
 *   *)
 val _ = Datatype`
   sExp =
-    | Item (tra option) string (sExp list)
+    | Item (tra option) mlstring (sExp list)
     | Tuple (sExp list)
     | List (sExp list)`;
 
@@ -45,7 +45,7 @@ val MEM_sExp_size = store_thm("MEM_sExp_size",
 val display_to_json_def = tDefine"display_to_json" `
   (display_to_json (Item tra name es) =
     let es' = MAP display_to_json es in
-    let props = [("name", String name); ("args", Array es')] in
+    let props = [("name", String (explode name)); ("args", Array es')] in
     let props' = case tra of
                    | NONE => props
                    | SOME t => ("trace", trace_to_json t)::props in

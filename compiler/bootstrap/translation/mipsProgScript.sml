@@ -9,6 +9,8 @@ val _ = new_theory "mipsProg"
 
 val _ = translation_extends "riscvProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "mipsProg");
+
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
@@ -160,6 +162,8 @@ val res = translate mips_enc_thm
 val res = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

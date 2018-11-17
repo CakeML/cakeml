@@ -70,6 +70,7 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
 candle/standard/opentheory/compilation
+candle/standard/opentheory/compilation/proofs
 
 # examples and tests
 characteristic/examples
