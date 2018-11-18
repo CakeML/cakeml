@@ -58,7 +58,7 @@ val type_ident_to_string_def = Define `
     strlit "byte_array"
   else
     case get_tyname ti tys of
-    | NONE => implode (toString (&ti))
+    | NONE => mlint$toString (&ti)
     | SOME s => implode s`;
 
 (* TODO: update for pretty printing *)
@@ -66,7 +66,7 @@ val type_ident_to_string_def = Define `
 val ty_var_name_def = Define `
   ty_var_name n =
     if n < 28 then implode ("'" ++ [CHR (n + ORD #"a")]) else
-                   implode ("'" ++ toString (&n))`;
+                   concat [implode "'"; mlint$toString (&n)]`;
 
 val commas_def = Define `
   commas c [] = [] /\
@@ -84,7 +84,7 @@ val infer_t_size_lemma = prove(
 
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
   (inf_type_to_string tys (Infer_Tuvar n) =
-    (concat [strlit "_"; toString (&n)],0)) ∧
+    (concat [strlit "_"; mlint$toString (&n)],0)) ∧
   (inf_type_to_string tys (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
   (inf_type_to_string tys (Infer_Tapp ts ti) =
@@ -146,9 +146,9 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
  `(∀t. inf_type_to_string t =
     case t of
       Infer_Tuvar n =>
-      concat [implode "<unification variable "; toString (&n); implode ">"]
+      concat [implode "<unification variable "; mlint$toString (&n); implode ">"]
     | Infer_Tvar_db n =>
-      concat [implode "<type variable "; toString (&n); implode ">"]
+      concat [implode "<type variable "; mlint$toString (&n); implode ">"]
     | Infer_Tapp [t1;t2] TC_fn =>
       concat [implode "("; inf_type_to_string t1; implode " -> "; inf_type_to_string t2; implode ")"]
     | Infer_Tapp _ TC_fn => implode "<bad function type>"
