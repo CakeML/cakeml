@@ -21,37 +21,11 @@ val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
                                 (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``
 
-val word_bit_thm = store_thm("word_bit_thm",
-  ``!n w:'a word. word_bit n w <=> n < dimindex (:'a) /\ w ' n``,
-  fs [word_bit_def,LESS_EQ] \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ Cases_on `dimindex (:α)` \\ fs [LESS_EQ]);
-
-val word_bit_or = Q.store_thm("word_bit_or",
-  `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`,
-  fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
-val word_bit_and = Q.store_thm("word_bit_and",
-  `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`,
-  fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
 val word_eq = store_thm("word_eq",
   ``!w v. w = v <=> !n. word_bit n w = word_bit n v``,
   fs [word_bit_thm,fcpTheory.CART_EQ]
   \\ rw [] \\ eq_tac \\ rw []
   \\ eq_tac \\ rw [] \\ res_tac \\ fs []);
-
-val word_bit_lsl = store_thm("word_bit_lsl",
-  ``word_bit n (w << i) <=>
-    word_bit (n - i) (w:'a word) /\ n < dimindex (:'a) /\ i <= n``,
-  fs [word_bit_thm,word_lsl_def] \\ eq_tac \\ fs []
-  \\ rw [] \\ rfs [fcpTheory.FCP_BETA]);
 
 val ZIP_REPLICATE = Q.store_thm("ZIP_REPLICATE",
   `!n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)`,
@@ -139,12 +113,6 @@ val _ = type_abbrev("ml_el",
   ``:('a word_loc, tag # ('a word_loc list)) heap_element``);
 
 val _ = type_abbrev("ml_heap",``:'a ml_el list``);
-
-val bytes_to_word_def = Define `
-  (bytes_to_word 0 a bs w be = w) /\
-  (bytes_to_word (SUC k) a [] w be = w) /\
-  (bytes_to_word (SUC k) a (b::bs) w be =
-     set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
 
 val write_bytes_def = Define `
   (write_bytes bs [] be = []) /\
@@ -5779,8 +5747,6 @@ val decode_length_make_byte_header = Q.store_thm("decode_length_make_byte_header
   \\ `len MOD n + n < n + n` by simp[]
   \\ qunabbrev_tac`n`
   \\ decide_tac);
-
-val bytes_to_word_ind = theorem"bytes_to_word_ind";
 
 val bytes_to_word_same = Q.store_thm("bytes_to_word_same",
   `∀bw k b1 w be b2.

@@ -14,37 +14,6 @@ val _ = new_theory"ag32_memoryProof";
 
 (* TODO: move *)
 
-val IN_all_words = Q.store_thm("IN_all_words", (* should replace IN_all_words_add *)
-  `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
-  qid_spec_tac`base`
-  \\ Induct_on`n`
-  \\ rw[all_words_def, ADD1]
-  \\ rw[EQ_IMP_THM]
-  >- ( qexists_tac`0` \\ simp[] )
-  >- ( qexists_tac`i + 1` \\ simp[GSYM word_add_n2w] )
-  \\ Cases_on`i` \\ fs[ADD1]
-  \\ disj2_tac
-  \\ simp[GSYM word_add_n2w]
-  \\ asm_exists_tac \\ simp[]);
-
-val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
-  `∀be a bs k.
-   LENGTH bs ≤ k ⇒
-   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)`,
-  Induct_on`bs`
-  >- (
-    EVAL_TAC
-    \\ Cases_on`k`
-    \\ EVAL_TAC
-    \\ rw[] )
-  \\ rw[word_of_bytes_def]
-  \\ Cases_on`k` \\ fs[]
-  \\ rw[data_to_word_memoryProofTheory.bytes_to_word_def]
-  \\ AP_THM_TAC
-  \\ AP_TERM_TAC
-  \\ first_x_assum match_mp_tac
-  \\ fs[]);
-
 val get_byte_word_of_bytes = Q.store_thm("get_byte_word_of_bytes",
   `good_dimindex(:'a) ⇒
    i < LENGTH ls ∧ LENGTH ls ≤ w2n (bytes_in_word:'a word) ⇒
@@ -62,13 +31,6 @@ val get_byte_word_of_bytes = Q.store_thm("get_byte_word_of_bytes",
   \\ rw[]
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
   \\ rw[]);
-
-val word_msb_align = Q.store_thm("word_msb_align",
-  `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`,
-  rw[alignmentTheory.align_bitwise_and,word_msb]
-  \\ rw[data_to_word_memoryProofTheory.word_bit_and]
-  \\ rw[data_to_word_memoryProofTheory.word_bit_lsl]
-  \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
 
 val get_byte_EL_words_of_bytes = Q.store_thm("get_byte_EL_words_of_bytes",
   `∀be ls.
@@ -218,50 +180,6 @@ val get_mem_word_get_byte =
   |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
   |> curry save_thm "get_mem_word_get_byte";
 
-val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
-  `8 ≤ dimindex(:'a) ⇒
-   ∀be ls.
-   (LENGTH (words_of_bytes be ls : 'a word list) =
-    LENGTH ls DIV (w2n (bytes_in_word : 'a word)) +
-    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))`,
-  strip_tac
-  \\ recInduct words_of_bytes_ind
-  \\ `1 ≤ w2n bytes_in_word`
-  by (
-    simp[bytes_in_word_def,dimword_def]
-    \\ DEP_REWRITE_TAC[LESS_MOD]
-    \\ rw[DIV_LT_X, X_LT_DIV, X_LE_DIV]
-    \\ match_mp_tac LESS_TRANS
-    \\ qexists_tac`2 ** dimindex(:'a)`
-    \\ simp[] )
-  \\ simp[words_of_bytes_def]
-  \\ conj_tac
-  >- ( DEP_REWRITE_TAC[ZERO_DIV] \\ fs[] )
-  \\ rw[ADD1]
-  \\ `MAX 1 (w2n (bytes_in_word:'a word)) = w2n (bytes_in_word:'a word)`
-      by rw[MAX_DEF]
-  \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`(m - n) DIV _`
-  \\ Cases_on`m < n` \\ fs[]
-  >- (
-    `m - n = 0` by fs[]
-    \\ simp[]
-    \\ simp[LESS_DIV_EQ_ZERO]
-    \\ rw[MIN_DEF]
-    \\ fs[Abbr`m`] )
-  \\ simp[SUB_MOD]
-  \\ qspec_then`1`(mp_tac o GEN_ALL)(Q.GEN`q`DIV_SUB) \\ fs[]
-  \\ disch_then kall_tac
-  \\ Cases_on`m MOD n = 0` \\ fs[]
-  >- (
-    DEP_REWRITE_TAC[SUB_ADD]
-    \\ fs[X_LE_DIV] )
-  \\ `MIN 1 (m MOD n) = 1` by simp[MIN_DEF]
-  \\ fs[]
-  \\ `m DIV n - 1 + 1 = m DIV n` suffices_by fs[]
-  \\ DEP_REWRITE_TAC[SUB_ADD]
-  \\ fs[X_LE_DIV]);
-
 val ag32_enc_lengths = Q.store_thm("ag32_enc_lengths",
   `LENGTH (ag32_enc istr) ∈ {4;8;12;16}`,
   Cases_on`istr`
@@ -275,58 +193,6 @@ val ag32_enc_lengths = Q.store_thm("ag32_enc_lengths",
          ag32_targetTheory.ag32_jump_constant_def,
          ag32_targetTheory.ag32_encode_def,
          ag32_targetTheory.ag32_encode1_def]);
-
-val SUM_MAP_BOUND = Q.store_thm("SUM_MAP_BOUND",`
-  (∀x. f x ≤ c) ⇒ (SUM (MAP f ls) ≤ LENGTH ls * c)`,
-  rw[]>> Induct_on`ls` >>rw[MULT_SUC]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  DECIDE_TAC);
-
-val SUM_MOD = Q.store_thm("SUM_MOD",`
-  k > 0 ⇒
-  (SUM ls MOD k = (SUM (MAP (λn. n MOD k) ls)) MOD k)`,
-  Induct_on`ls`>>rw[]>>
-  DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]>>fs[]);
-
-val words_of_bytes_append = Q.store_thm("words_of_bytes_append",
-  `0 < w2n(bytes_in_word:'a word) ⇒
-   ∀l1 l2.
-   (LENGTH l1 MOD w2n (bytes_in_word:'a word) = 0) ⇒
-   (words_of_bytes be (l1 ++ l2) : 'a word list =
-    words_of_bytes be l1 ++ words_of_bytes be l2)`,
-  strip_tac
-  \\ gen_tac
-  \\ completeInduct_on`LENGTH l1`
-  \\ rw[]
-  \\ Cases_on`l1` \\ fs[]
-  >- EVAL_TAC
-  \\ rw[words_of_bytes_def]
-  \\ fs[PULL_FORALL]
-  >- (
-    simp[TAKE_APPEND]
-    \\ qmatch_goalsub_abbrev_tac`_ ++ xx`
-    \\ `xx = []` suffices_by rw[]
-    \\ simp[Abbr`xx`]
-    \\ fs[ADD1]
-    \\ rfs[MOD_EQ_0_DIVISOR]
-    \\ Cases_on`d` \\ fs[] )
-  \\ simp[DROP_APPEND]
-  \\ qmatch_goalsub_abbrev_tac`_ ++ DROP n l2`
-  \\ `n = 0`
-  by (
-    simp[Abbr`n`]
-    \\ rfs[MOD_EQ_0_DIVISOR]
-    \\ Cases_on`d` \\ fs[ADD1] )
-  \\ simp[]
-  \\ first_x_assum irule
-  \\ simp[]
-  \\ rfs[MOD_EQ_0_DIVISOR, ADD1]
-  \\ Cases_on`d` \\ fs[MULT]
-  \\ simp[MAX_DEF]
-  \\ IF_CASES_TAC \\ fs[NOT_LESS]
-  >- metis_tac[]
-  \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
-  \\ Cases_on`n''` \\ fs[]);
 
 val bytes_in_memory_get_byte_words = Q.store_thm("bytes_in_memory_get_byte_words",
   `∀ls ll a.

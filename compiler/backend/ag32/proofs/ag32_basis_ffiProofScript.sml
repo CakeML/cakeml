@@ -1485,7 +1485,8 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ drule read_bytearray_IMP_mem_SOME
     \\ simp[IS_SOME_EXISTS]
     \\ disch_then(qspec_then`n2w n' + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
+    \\ simp[IN_all_words, PULL_EXISTS]
+    \\ disch_then(qspec_then`0`mp_tac)
     \\ simp[Abbr`md`]
     \\ EVAL_TAC
     \\ simp[LEFT_ADD_DISTRIB]
@@ -1504,8 +1505,8 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
     \\ drule read_bytearray_IMP_mem_SOME
     \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
+    \\ simp[IN_all_words, PULL_EXISTS]
+    \\ disch_then(qspec_then`0`mp_tac)
     \\ simp[Abbr`md`]
     \\ Cases_on`s.R 3w`
     \\ EVAL_TAC
@@ -1523,8 +1524,8 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
     \\ drule read_bytearray_IMP_mem_SOME
     \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
+    \\ simp[IN_all_words, PULL_EXISTS]
+    \\ disch_then(qspec_then`0`mp_tac)
     \\ simp[Abbr`md`]
     \\ Cases_on`s.R 3w`
     \\ EVAL_TAC
@@ -1541,8 +1542,8 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
       \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
       \\ drule read_bytearray_IMP_mem_SOME
       \\ simp[IS_SOME_EXISTS]
-      \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-      \\ simp[IN_all_words_add]
+      \\ simp[IN_all_words, PULL_EXISTS]
+      \\ disch_then(qspec_then`0`mp_tac)
       \\ simp[Abbr`md`]
       \\ Cases_on`s.R 3w`
       \\ EVAL_TAC
@@ -1561,13 +1562,12 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     \\ rfs[]
     \\ qpat_x_assum`read_bytearray (n2w _) _ _ = _`assume_tac
     \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
+    \\ simp[IS_SOME_EXISTS, IN_all_words, PULL_EXISTS]
+    \\ disch_then(qspec_then`0`mp_tac)
     \\ impl_tac
     >- (
       asm_simp_tac bool_ss []
-      \\ irule IN_all_words_add
-      \\ simp[] )
+      \\ simp[IN_all_words] )
     \\ simp[Abbr`md`]
     \\ EVAL_TAC
     \\ fs[LEFT_ADD_DISTRIB, word_ls_n2w, word_lo_n2w, word_add_n2w]
@@ -1586,9 +1586,8 @@ val ag32_ffi_write_thm = Q.store_thm("ag32_ffi_write_thm",
     fs[word_add_n2w, memory_size_def]
     \\ qpat_x_assum`read_bytearray (s.R 3w) _ _ = _`assume_tac
     \\ drule read_bytearray_IMP_mem_SOME
-    \\ simp[IS_SOME_EXISTS]
-    \\ disch_then(qspec_then`s.R 3w + n2w 0`mp_tac)
-    \\ simp[IN_all_words_add]
+    \\ simp[IS_SOME_EXISTS, IN_all_words, PULL_EXISTS]
+    \\ disch_then(qspec_then`0`mp_tac)
     \\ simp[Abbr`md`]
     \\ Cases_on`s.R 3w`
     \\ EVAL_TAC
@@ -4131,8 +4130,8 @@ val ag32_ffi_interfer_write = Q.store_thm("ag32_ffi_interfer_write",
       \\ qpat_x_assum`_ ∉ all_words _ _`mp_tac
       \\ simp[]
       \\ once_rewrite_tac[WORD_ADD_COMM]
-      \\ irule IN_all_words_add
-      \\ simp[] )
+      \\ simp[IN_all_words]
+      \\ asm_exists_tac \\ rw[])
     \\ EVAL_TAC \\ simp[]
     \\ IF_CASES_TAC \\ simp[]
     \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac

@@ -2162,6 +2162,18 @@ val SUM_REPLICATE = Q.store_thm("SUM_REPLICATE",
   `∀n m. SUM (REPLICATE n m) = n * m`,
   Induct \\ simp[REPLICATE,ADD1]);
 
+val SUM_MAP_BOUND = Q.store_thm("SUM_MAP_BOUND",`
+  (∀x. f x ≤ c) ⇒ (SUM (MAP f ls) ≤ LENGTH ls * c)`,
+  rw[]>> Induct_on`ls` >>rw[MULT_SUC]>>
+  first_x_assum(qspec_then`h` assume_tac)>>
+  DECIDE_TAC);
+
+val SUM_MOD = Q.store_thm("SUM_MOD",`
+  k > 0 ⇒
+  (SUM ls MOD k = (SUM (MAP (λn. n MOD k) ls)) MOD k)`,
+  Induct_on`ls`>>rw[]>>
+  DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]>>fs[]);
+
 val FLAT_REPLICATE_NIL = Q.store_thm("FLAT_REPLICATE_NIL",
   `!n. FLAT (REPLICATE n []) = []`,
   Induct \\ fs [REPLICATE]);
@@ -4038,13 +4050,18 @@ val all_words_def = Define `
   (all_words base 0 = ∅) /\
   (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
 
-val IN_all_words_add = Q.store_thm("IN_all_words_add",
-  `∀n base x. x < n ⇒ base + n2w x ∈ all_words base n`,
-  Induct \\ rw[all_words_def]
-  \\ Cases_on`x` \\ fs[ADD1]
+val IN_all_words = Q.store_thm("IN_all_words",
+  `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
+  qid_spec_tac`base`
+  \\ Induct_on`n`
+  \\ rw[all_words_def, ADD1]
+  \\ rw[EQ_IMP_THM]
+  >- ( qexists_tac`0` \\ simp[] )
+  >- ( qexists_tac`i + 1` \\ simp[GSYM word_add_n2w] )
+  \\ Cases_on`i` \\ fs[ADD1]
   \\ disj2_tac
-  \\ first_x_assum(qspec_then`base+1w`(drule_then mp_tac))
-  \\ rw[GSYM word_add_n2w]);
+  \\ simp[GSYM word_add_n2w]
+  \\ asm_exists_tac \\ simp[]);
 
 val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
   `∀p n m ba.
@@ -4191,5 +4208,148 @@ val words_of_bytes_def = tDefine "words_of_bytes" `
      let ys = DROP (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
        word_of_bytes be 0w xs :: words_of_bytes be ys)`
  (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
+
+val words_of_bytes_ind = theorem"words_of_bytes_ind";
+
+val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
+  `8 ≤ dimindex(:'a) ⇒
+   ∀be ls.
+   (LENGTH (words_of_bytes be ls : 'a word list) =
+    LENGTH ls DIV (w2n (bytes_in_word : 'a word)) +
+    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))`,
+  strip_tac
+  \\ recInduct words_of_bytes_ind
+  \\ `1 ≤ w2n bytes_in_word`
+  by (
+    simp[bytes_in_word_def,dimword_def]
+    \\ DEP_REWRITE_TAC[LESS_MOD]
+    \\ rw[DIV_LT_X, X_LT_DIV, X_LE_DIV]
+    \\ match_mp_tac LESS_TRANS
+    \\ qexists_tac`2 ** dimindex(:'a)`
+    \\ simp[X_LT_EXP_X] )
+  \\ simp[words_of_bytes_def]
+  \\ conj_tac
+  >- ( DEP_REWRITE_TAC[ZERO_DIV] \\ fs[] )
+  \\ rw[ADD1]
+  \\ `MAX 1 (w2n (bytes_in_word:'a word)) = w2n (bytes_in_word:'a word)`
+      by rw[MAX_DEF]
+  \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`(m - n) DIV _`
+  \\ Cases_on`m < n` \\ fs[]
+  >- (
+    `m - n = 0` by fs[]
+    \\ simp[]
+    \\ simp[LESS_DIV_EQ_ZERO]
+    \\ rw[MIN_DEF]
+    \\ fs[Abbr`m`] )
+  \\ simp[SUB_MOD]
+  \\ qspec_then`1`(mp_tac o GEN_ALL)(Q.GEN`q`DIV_SUB) \\ fs[]
+  \\ disch_then kall_tac
+  \\ Cases_on`m MOD n = 0` \\ fs[]
+  >- (
+    DEP_REWRITE_TAC[SUB_ADD]
+    \\ fs[X_LE_DIV] )
+  \\ `MIN 1 (m MOD n) = 1` by simp[MIN_DEF]
+  \\ fs[]
+  \\ `m DIV n - 1 + 1 = m DIV n` suffices_by fs[]
+  \\ DEP_REWRITE_TAC[SUB_ADD]
+  \\ fs[X_LE_DIV]);
+
+val words_of_bytes_append = Q.store_thm("words_of_bytes_append",
+  `0 < w2n(bytes_in_word:'a word) ⇒
+   ∀l1 l2.
+   (LENGTH l1 MOD w2n (bytes_in_word:'a word) = 0) ⇒
+   (words_of_bytes be (l1 ++ l2) : 'a word list =
+    words_of_bytes be l1 ++ words_of_bytes be l2)`,
+  strip_tac
+  \\ gen_tac
+  \\ completeInduct_on`LENGTH l1`
+  \\ rw[]
+  \\ Cases_on`l1` \\ fs[]
+  >- EVAL_TAC
+  \\ rw[words_of_bytes_def]
+  \\ fs[PULL_FORALL]
+  >- (
+    simp[TAKE_APPEND]
+    \\ qmatch_goalsub_abbrev_tac`_ ++ xx`
+    \\ `xx = []` suffices_by rw[]
+    \\ simp[Abbr`xx`]
+    \\ fs[ADD1]
+    \\ rfs[MOD_EQ_0_DIVISOR]
+    \\ Cases_on`d` \\ fs[] )
+  \\ simp[DROP_APPEND]
+  \\ qmatch_goalsub_abbrev_tac`_ ++ DROP n l2`
+  \\ `n = 0`
+  by (
+    simp[Abbr`n`]
+    \\ rfs[MOD_EQ_0_DIVISOR]
+    \\ Cases_on`d` \\ fs[ADD1] )
+  \\ simp[]
+  \\ first_x_assum irule
+  \\ simp[]
+  \\ rfs[MOD_EQ_0_DIVISOR, ADD1]
+  \\ Cases_on`d` \\ fs[MULT]
+  \\ simp[MAX_DEF]
+  \\ IF_CASES_TAC \\ fs[NOT_LESS]
+  >- metis_tac[]
+  \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
+  \\ Cases_on`n''` \\ fs[]);
+
+val bytes_to_word_def = Define `
+  (bytes_to_word 0 a bs w be = w) /\
+  (bytes_to_word (SUC k) a [] w be = w) /\
+  (bytes_to_word (SUC k) a (b::bs) w be =
+     set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
+
+val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
+  `∀be a bs k.
+   LENGTH bs ≤ k ⇒
+   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)`,
+  Induct_on`bs`
+  >- (
+    EVAL_TAC
+    \\ Cases_on`k`
+    \\ EVAL_TAC
+    \\ rw[] )
+  \\ rw[word_of_bytes_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ rw[bytes_to_word_def]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ first_x_assum match_mp_tac
+  \\ fs[]);
+
+val word_bit_thm = store_thm("word_bit_thm",
+  ``!n w:'a word. word_bit n w <=> n < dimindex (:'a) /\ w ' n``,
+  fs [word_bit_def,LESS_EQ] \\ rw []
+  \\ assume_tac DIMINDEX_GT_0
+  \\ Cases_on `dimindex (:α)` \\ fs [LESS_EQ]);
+
+val word_bit_and = Q.store_thm("word_bit_and",
+  `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`,
+  fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
+  \\ assume_tac DIMINDEX_GT_0
+  \\ `n < dimindex (:'a)` by decide_tac
+  \\ fs [fcpTheory.FCP_BETA]);
+
+val word_bit_or = Q.store_thm("word_bit_or",
+  `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`,
+  fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
+  \\ assume_tac DIMINDEX_GT_0
+  \\ `n < dimindex (:'a)` by decide_tac
+  \\ fs [fcpTheory.FCP_BETA]);
+
+val word_bit_lsl = store_thm("word_bit_lsl",
+  ``word_bit n (w << i) <=>
+    word_bit (n - i) (w:'a word) /\ n < dimindex (:'a) /\ i <= n``,
+  fs [word_bit_thm,word_lsl_def] \\ eq_tac \\ fs []
+  \\ rw [] \\ rfs [fcpTheory.FCP_BETA]);
+
+val word_msb_align = Q.store_thm("word_msb_align",
+  `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`,
+  rw[alignmentTheory.align_bitwise_and,word_msb]
+  \\ rw[word_bit_and]
+  \\ rw[word_bit_lsl]
+  \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
 
 val _ = export_theory()
