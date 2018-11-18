@@ -417,16 +417,15 @@ val parse_top_config_def = Define`
   let sexp = find_bool (strlit"--sexp=") ls F in
   let prelude = find_bool (strlit"--exclude_prelude=") ls F in
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
-  let onlyprinttypes = find_bool (strlit"--types") ls F in
-  case (heap,stack,sexp,prelude,typeinference,onlyprinttypes) of
-    (INL heap,INL stack,INL sexp,INL prelude,INL typeinference,INL onlyprinttypes) =>
+  let onlyprinttypes = MEMBER (strlit"--types") ls in
+  case (heap,stack,sexp,prelude,typeinference) of
+    (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
       INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes)
   | _ => INR (concat [get_err_str heap;
                get_err_str stack;
                get_err_str sexp;
                get_err_str prelude;
-               get_err_str typeinference;
-               get_err_str onlyprinttypes])`
+               get_err_str typeinference])`
 
 (* Check for version flag
    TODO: fix this
