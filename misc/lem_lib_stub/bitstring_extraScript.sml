@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 open wordsTheory bitstringTheory integerTheory;
+open metisLib;
 
 val _ = numLib.prefer_num();
 
@@ -26,9 +27,15 @@ val fixadd_word_add = Q.store_thm("fixadd_word_add",
   `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y))
      ==> (v2n (fixadd x y) = w2n (word_add (v2w x:'a word) (v2w y:'a word)))`,cheat);
 
+val fixsub_lemma1 = Q.store_thm("fixsub_lemma1",
+  `!x y. ((v2w x:'a word) - (v2w y:'a word) = ((v2w x:'a word) + ~(v2w y:'a word) + (1w:'a word)))`,
+        REPEAT STRIP_TAC >> REWRITE_TAC [word_sub_def] >> REWRITE_TAC [WORD_NEG] >> METIS_TAC [WORD_ADD_ASSOC]); 
+
 val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
   `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y)) 
-     ==> (v2n (fixsub x y) = w2n (word_sub (v2w x:'a word) (v2w y:'a word)))`,cheat);
+     ==> (v2n (fixsub x y) = w2n (word_sub (v2w x:'a word) (v2w y:'a word)))`,
+   REPEAT STRIP_TAC >> REWRITE_TAC [fixsub_def] >> simp [fixsub_lemma1] >> cheat
+           );
 
 val fixshiftr_def = Define`
    fixshiftr a n =
