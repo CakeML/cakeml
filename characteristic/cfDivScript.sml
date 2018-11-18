@@ -288,6 +288,35 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
   \\ imp_res_tac evaluate_IMP_io_events_mono
   \\ fs [evaluatePropsTheory.io_events_mono_def]);
 
+(* example: a simple pure non-terminating loop *)
+
+val _ = (append_prog o cfTacticsLib.process_topdecs) `
+  fun const x = x
+  fun loop  x = repeat const x`
+
+val st = ml_translatorLib.get_ml_prog_state ();
+
+val const_spec = store_thm("const_spec",
+  ``!xv.
+      app (p:'ffi ffi_proj) ^(fetch_v "const" st) [xv]
+        (one (FFI_full [])) (POSTv v. cond (v = xv) * one (FFI_full []))``,
+  xcf "const" st \\ xvar \\ xsimpl);
+
+val loop_spec = store_thm("loop_spec",
+  ``!xv.
+      app (p:'ffi ffi_proj) ^(fetch_v "loop" st) [xv]
+        (one (FFI_full [])) (POSTd (\io. io = [||]))``,
+  xcf "loop" st
+  \\ xapp
+  \\ qexists_tac `\n. one (FFI_full [])`
+  \\ qexists_tac `\n. []`
+  \\ qexists_tac `\n. xv`
+  \\ qexists_tac `[||]`
+  \\ rpt strip_tac \\ xsimpl
+  THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
+  THEN1 (simp [const_spec])
+  \\ rw [lprefix_lub_def]);
+
 (* example: the yes program *)
 
 val _ = (append_prog o cfTacticsLib.process_topdecs)
