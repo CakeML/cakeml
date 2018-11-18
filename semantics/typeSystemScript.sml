@@ -358,6 +358,7 @@ val _ = Define `
                                             (t2 = Tword64) /\ (t = Tword64))
                    | (_,_) => F
                  )
+     | Opwb _ => F
      | Shift s n0 => (case(s,n0,ts) of
                          ( _, _, [t1]) => ((t1 = Tword8) /\ (t = Tword8)) \/
                                             ((t1 = Tword64) /\ (t = Tword64))
@@ -458,7 +459,7 @@ val _ = Define `
                      )
      | Ord => (case ts of [t1] => (t1 = Tchar) /\ (t = Tint) | _ => F )
      | Chr => (case ts of [t1] => (t1 = Tint) /\ (t = Tchar) | _ => F )
-     | Chopb o3 => (case(o3,ts) of
+     | Chopb o4 => (case(o4,ts) of
                        ( _, [t1; t2]) => (t1 = Tchar) /\
                                            (t2 = Tchar) /\ (t = Tbool)
                      | (_,_) => F

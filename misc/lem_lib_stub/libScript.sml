@@ -137,6 +137,16 @@ declare isabelle target_rep function W64sub = `Groups.minus`
 (*val Wadd : list bool -> list bool -> list bool*)
 (*val Wsub : list bool -> list bool -> list bool*)
 
+(*val Wlt : list bool -> list bool -> bool*)
+(*val Wgt : list bool -> list bool -> bool*)
+(*val Wleq : list bool -> list bool -> bool*)
+(*val Wgeq : list bool -> list bool -> bool*)
+(*val Wtest : list bool -> list bool -> bool*)
+(*val WltSign : list bool -> list bool -> bool*)
+(*val WgtSign : list bool -> list bool -> bool*)
+(*val WleqSign : list bool -> list bool -> bool*)
+(*val WgeqSign : list bool -> list bool -> bool*)
+
 (*
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`

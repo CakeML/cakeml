@@ -17,6 +17,7 @@ type lit =
 type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
 type opw = Andw | Orw | Xor | Add | Sub
+type opwb = Ltw | Gtw | Leqw | Geqw | Test | LtSignw | GtSignw | LeqSignw | GeqSignw
 type shift = Lsl | Lsr | Asr | Ror
 
 (* Module names *)
@@ -42,6 +43,7 @@ type op =
   | Opb of opb
   (* Operations on words *)
   | Opw of opw
+  | Opwb of opwb
   | Shift of shift * nat
   | Equality
   (* FP operations *)

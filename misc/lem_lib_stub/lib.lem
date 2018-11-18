@@ -198,6 +198,25 @@ declare hol target_rep function Wadd = `fixadd`
 val Wsub : list bool -> list bool -> list bool
 declare hol target_rep function Wsub = `fixsub`
 
+val Wlt : list bool -> list bool -> bool
+declare hol target_rep function Wlt = `blt`
+val Wgt : list bool -> list bool -> bool
+declare hol target_rep function Wgt = `bgt`
+val Wleq : list bool -> list bool -> bool
+declare hol target_rep function Wleq = `bleq`
+val Wgeq : list bool -> list bool -> bool
+declare hol target_rep function Wgeq = `bgeq`
+val Wtest : list bool -> list bool -> bool
+declare hol target_rep function Wtest = `btest`
+val WltSign : list bool -> list bool -> bool
+declare hol target_rep function WltSign = `blt_sign`
+val WgtSign : list bool -> list bool -> bool
+declare hol target_rep function WgtSign = `bgt_sign`
+val WleqSign : list bool -> list bool -> bool
+declare hol target_rep function WleqSign = `bleq_sign`
+val WgeqSign : list bool -> list bool -> bool
+declare hol target_rep function WgeqSign = `bgeq_sign`
+
 (*
 val W8lsl : word8 -> nat -> word8
 declare hol target_rep function W8lsl = `word_lsl`

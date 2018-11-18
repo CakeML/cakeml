@@ -538,6 +538,21 @@ val _ = Define `
 )))`;
 
 
+(*val opwb_lookup : opwb -> list bool -> list bool -> bool*)
+val _ = Define `
+ (opwb_lookup op=  ((case op of
+    Ltw => blt
+  | Gtw => bgt
+  | Leqw => bleq
+  | Geqw => bgeq
+  | Test => btest
+  | LtSignw => blt_sign
+  | GtSignw => bgt_sign
+  | LeqSignw => bleq_sign
+  | GeqSignw => bgeq_sign
+)))`;
+
+
 (*val shift_lookup : shift -> list bool -> nat -> list bool*)
 val _ = Define `
  (shift_lookup sh=  ((case sh of
@@ -582,6 +597,11 @@ val _ = Define `
     | (Opw op, [Litv (Word w1); Litv (Word w2)]) =>
         if (LENGTH w1 = LENGTH w2) then
           SOME ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
+        else
+          NONE
+    | (Opwb op, [Litv (Word w1); Litv (Word w2)]) =>
+        if (LENGTH w1 = LENGTH w2) then
+          SOME ((s,t), Rval (Boolv (opwb_lookup op w1 w2))) 
         else
           NONE
     | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>

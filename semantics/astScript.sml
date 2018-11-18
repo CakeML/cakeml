@@ -37,6 +37,9 @@ val _ = Hol_datatype `
  opw = Andw | Orw | Xor | Add | Sub`;
 
 val _ = Hol_datatype `
+ opwb = Ltw | Gtw | Leqw | Geqw | Test | LtSignw | GtSignw | LeqSignw | GeqSignw`;
+
+val _ = Hol_datatype `
  shift = Lsl | Lsr | Asr | Ror`;
 
 
@@ -66,6 +69,7 @@ val _ = Hol_datatype `
   | Opb of opb
   (* Operations on words *)
   | Opw of opw
+  | Opwb of opwb
   | Shift of shift => num
   | Equality
   (* FP operations *)
