@@ -6,7 +6,7 @@ val _ = new_theory "readerProgProof";
 
 val reader_io_events_def = new_specification (
   "reader_io_events_def", ["reader_io_events"],
-  semantics_reader_prog
+  reader_semantics
   |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
