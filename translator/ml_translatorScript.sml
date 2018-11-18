@@ -258,8 +258,8 @@ val Eval_Val_STRING = Q.store_thm("Eval_Val_STRING",
   fs [Eval_rw,empty_state_def,state_component_equality,STRING_TYPE_def]);
 
 val Eval_Val_WORD = Q.store_thm("Eval_Val_WORD",
-  `!w. Eval env (Lit (Word (w2v w))) (WORD w)`, cheat
-  (* simp [WORD_def,Eval_rw,state_component_equality]*));
+  `!w. Eval env (Lit (Word (w2v w))) (WORD w)`,
+   simp [WORD_def,Eval_rw,state_component_equality]);
 
 (* Equality *)
 
