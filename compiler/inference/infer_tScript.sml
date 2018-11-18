@@ -97,11 +97,12 @@ val inf_type_to_string_def = tDefine "inf_type_to_string" `
     else if ti = Ttup_num then
      (case ts of
       | [] => (strlit "unit",0)
+      | [t] => inf_type_to_string tys t
       | _ => (concat (commas (implode " * ")
                (MAP (add_parens 1) (MAP (inf_type_to_string tys) ts))),2n))
     else
       case ts of
-      | [] => (type_ident_to_string tys ti,2)
+      | [] => (type_ident_to_string tys ti,0)
       | [t] =>
         (concat [add_parens 1 (inf_type_to_string tys t); implode " ";
                  type_ident_to_string tys ti],1)
