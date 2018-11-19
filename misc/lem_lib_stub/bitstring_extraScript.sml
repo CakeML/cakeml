@@ -65,17 +65,23 @@ val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
   `!a n w. (w2v w = a)
      ==> ((w2v (word_asr w n)) = (fixasr a n))`,cheat);
 
-(* TODO define i2vN and prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
+(* TODO prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
 val i2vN_def = Define`
-    i2vN (i : int) (n : num) : bitstring = n2v n`
+    i2vN (i : int) (n : num) : bitstring = if i < 0 then fixsub (fixwidth n [F]) (fixwidth n (n2v (Num (-i)))) else fixwidth n (n2v (Num i))`
 
 
 val i2vN_length = Q.store_thm("i2vN_length",`!i n. (LENGTH (i2vN i n)) = n`,cheat);
 val i2vN_i2w = Q.store_thm("i2vN_i2w",`!i n. ((i2w i):'a word) = ((v2w (i2vN i (dimindex (:'a)))):'a word)`,cheat);
 
-(* TODO define v2i and prove a theorem relating w2i and v2i *)
+val v2comp_def = Define`
+    v2comp (v : bitstring) : bitstring = fixwidth (LENGTH v) (n2v (2**(LENGTH v) - (v2n v)))`
+
+(* TODO prove a theorem relating w2i and v2i *)
 val v2i_def = Define`
-    v2i (v : bitstring) : int = 0`
+    (v2i ([] : bitstring) : int = 0) /\
+    (v2i ([T] : bitstring) : int = -1) /\
+    (v2i ([F] : bitstring) : int = 0) /\
+    (v2i ((h::t) : bitstring) : int = if ~h then int_of_num (v2n t) else -(int_of_num (v2n (v2comp t))))`
 val v2i_w2i = Q.store_thm("v2i_w2i",`!v w. (v = w2v w) = (v2i v = w2i w)`,cheat);
 
 val _ = export_theory()
