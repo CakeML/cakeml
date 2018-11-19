@@ -1,4 +1,4 @@
-INCLUDES = ../../../misc ../..  ../../../semantics ../../../semantics/proofs
+INCLUDES = ../../../misc ../../../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -13,20 +13,3 @@ README.md: ../../../developers/readme_gen readmePrefix $(README_SOURCES)
 	../../../developers/readme_gen $(README_SOURCES)
 all: README.md
 
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../../../semantics/proofs/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-all: $(HOLHEAP)
-
-PRE_BARE_THYS1 = astTheory tokensTheory semanticPrimitivesTheory astPP
-PRE_BARE_THYS2 = semanticPrimitivesPropsTheory evaluatePropsTheory
-
-BARE_THYS1 =  $(patsubst %,../../../semantics/%,$(PRE_BARE_THYS1))
-BARE_THYS2 =  $(patsubst %,../../../semantics/proofs/%,$(PRE_BARE_THYS2))
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(PARENTHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS2)
-endif
