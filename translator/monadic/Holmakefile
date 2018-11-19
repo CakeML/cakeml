@@ -1,2 +1,6 @@
-INCLUDES = .. ../../misc ../../semantics ../../characteristic ../../semantics/proofs
+INCLUDES = .. ../../misc \
+	   ../../semantics \
+	   ../../characteristic \
+	   ../../semantics/proofs \
+	   monad_base
 OPTIONS = QUIT_ON_FAILURE
