@@ -866,14 +866,14 @@ val x64_target_ok = Q.prove (
    )
 
 (* -------------------------------------------------------------------------
-   x64 backend_correct
+   x64 encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac ""
 
-val x64_backend_correct = Q.store_thm("x64_backend_correct",
-   `backend_correct x64_target`,
-   simp [asmPropsTheory.backend_correct_def, x64_target_ok]
+val x64_encoder_correct = Q.store_thm("x64_encoder_correct",
+   `encoder_correct x64_target`,
+   simp [asmPropsTheory.encoder_correct_def, x64_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel x64_target`
    \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
