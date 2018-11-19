@@ -98,7 +98,7 @@ val bytes_in_memory_IMP_SUBSET = Q.prove(
 
 val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
   `!c s1 ms1 io i s2.
-      backend_correct c.target /\
+      encoder_correct c.target /\
       (c.prog_addresses = s1.mem_domain) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       asm_step c.target.config s1 i s2 /\
@@ -107,7 +107,7 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
                   target_state_rel c.target s2 ms2 /\ l <> 0`,
-  full_simp_tac(srw_ss()) [backend_correct_def, target_ok_def, LET_DEF]
+  full_simp_tac(srw_ss()) [encoder_correct_def, target_ok_def, LET_DEF]
   \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ full_simp_tac(srw_ss())[]
   \\ Q.EXISTS_TAC `n+1` \\ full_simp_tac(srw_ss())[]

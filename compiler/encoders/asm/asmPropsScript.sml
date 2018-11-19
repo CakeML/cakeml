@@ -84,8 +84,8 @@ val asserts_def = zDefine `
   (asserts (SUC n) next ms P Q <=>
      let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
 
-val backend_correct_def = Define `
-  backend_correct t <=>
+val encoder_correct_def = Define `
+  encoder_correct t <=>
     target_ok t /\
     !s1 i s2 ms.
       asm_step t.config s1 i s2 /\ target_state_rel t s1 ms ==>

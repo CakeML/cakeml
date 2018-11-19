@@ -315,14 +315,14 @@ in
 end
 
 (* -------------------------------------------------------------------------
-   mips backend_correct
+   tiny encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
-val tiny_backend_correct = Q.store_thm ("tiny_backend_correct",
-   `backend_correct tiny_target`,
-   simp [asmPropsTheory.backend_correct_def, tiny_target_ok]
+val tiny_encoder_correct = Q.store_thm ("tiny_encoder_correct",
+   `encoder_correct tiny_target`,
+   simp [asmPropsTheory.encoder_correct_def, tiny_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel tiny_target`
    \\ rw [tiny_target_def, tiny_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

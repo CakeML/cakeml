@@ -10,7 +10,7 @@ val is_arm6_machine_config_def = Define`
   mc.len_reg = 1  ∧
   mc.ptr_reg = 0 ∧
   mc.len2_reg = 3  ∧
-  mc.ptr2_reg = 2 ∧                                 
+  mc.ptr2_reg = 2 ∧
   mc.callee_saved_regs = [8;10;11]`;
 
 val names_tac =
@@ -47,13 +47,13 @@ val arm6_machine_config_ok = Q.store_thm("arm6_machine_config_ok",
   `is_arm6_machine_config mc ⇒ mc_conf_ok mc`,
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_arm6_machine_config_def]
   >- EVAL_TAC
-  >- simp[arm6_targetProofTheory.arm6_backend_correct]
+  >- simp[arm6_targetProofTheory.arm6_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,arm6_backend_correct]);
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,arm6_encoder_correct]);
 
 val arm6_init_ok = Q.store_thm("arm6_init_ok",
   `is_arm6_machine_config mc ⇒
