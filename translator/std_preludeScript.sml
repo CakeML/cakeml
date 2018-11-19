@@ -12,9 +12,10 @@ val translate = abs_translate;
 
 (* type registration *)
 
+val _ = (use_full_type_names := false)
 val _ = register_type ``:ordering``;
-val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
+val _ = register_type ``:'a list``;
 val _ = register_type ``:'a # 'b``;
 
 (* pair *)
@@ -28,12 +29,17 @@ val res = translate UNCURRY;
 
 val _ = next_ml_names := ["o"];
 val res = translate o_DEF;
+val _ = next_ml_names := ["I"];
 val res = translate I_THM;
+val _ = next_ml_names := ["C"];
 val res = translate C_DEF;
+val _ = next_ml_names := ["K"];
 val res = translate K_DEF;
+val _ = next_ml_names := ["S"];
 val res = translate S_DEF;
-val res = translate UPDATE_def;
+val _ = next_ml_names := ["W"];
 val res = translate W_DEF;
+val res = translate UPDATE_def;
 
 (* sum *)
 
@@ -41,6 +47,7 @@ val res = translate ISL;
 val res = translate ISR;
 val res = translate OUTL;
 val res = translate OUTR;
+val _ = next_ml_names := ["sum_map"];
 val res = translate SUM_MAP_def;
 
 val outl_side_def = Q.prove(
@@ -67,7 +74,9 @@ val EXP_AUX_THM = Q.prove(
   THEN FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`n`,`0`] |> SIMP_RULE std_ss [EXP] |> GSYM;
 
+val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_def;
+val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
 val res = translate MIN_DEF;
 val res = translate MAX_DEF;

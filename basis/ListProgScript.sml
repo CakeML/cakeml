@@ -13,10 +13,14 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
 
-val result = translate LENGTH;
 val r = translate NULL;
 
-val result = next_ml_names := ["revAppend"]
+val result = next_ml_names := ["length","length"]
+val res = translate LENGTH_AUX_def;
+val res = translate
+  (LENGTH_AUX_THM |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [] |> GSYM);
+
+val result = next_ml_names := ["rev"]
 val res = translate REV_DEF;
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
@@ -35,7 +39,7 @@ val hd_side_def = Q.prove(
   Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "hd_side_def"])
   |> update_precondition;
 
-val result = translate tl_def;
+val result = translate TL_DEF;
 
 val result = translate LAST_DEF;
 
@@ -47,22 +51,16 @@ val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
 
-
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
-
 
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
-
-val result = next_ml_names := ["map","mapi_aux","mapi","mapPartial"];
+val result = next_ml_names := ["map","mapi","mapi","mapPartial"];
 val result = translate MAP;
 val result = translate mllistTheory.mapi_def;
 val result = translate MAPI_thm;
-
-
 val result = translate mapPartial_def;
-
 
 val app = process_topdecs`
   fun app f ls = case ls of [] => ()
@@ -71,36 +69,101 @@ val _ = ml_prog_update(ml_progLib.add_prog app pick_name)
 
 val result = translate FIND_thm;
 
-
 val result = translate FILTER;
 
-
+val result = next_ml_names := ["partition","partition"];
 val result = translate partition_aux_def;
 val result = translate mllistTheory.partition_def;
 
-
 val result = translate FOLDL;
+val result = next_ml_names := ["foldi","foldi"];
 val result = translate foldli_aux_def;
 val result = translate foldli_def;
-
 
 val result = translate FOLDR;
 val result = translate (FOLDRi_def |> REWRITE_RULE[o_DEF]);
 
-
 val result = translate EXISTS_DEF;
-
 
 val result = next_ml_names := ["all"];
 val result = translate EVERY_DEF;
 
-
 val result = translate SNOC;
+
+val result = next_ml_names := ["genlist","genlist"];
 val result = translate GENLIST_AUX;
 val result = translate GENLIST_GENLIST_AUX;
-val res = translate tabulate_aux_def;
 
+val result = next_ml_names := ["tabulate"];
+val result = translate tabulate_aux_def;
+
+val tabulate_aux_inv_spec =
+  let
+    val st = get_ml_prog_state();
+  in
+  Q.store_thm("tabulate_aux_inv_spec",
+  `∀f fv A heap_inv n m nv mv acc accv ls.
+    NUM n nv /\ NUM m mv /\ LIST_TYPE A acc accv /\
+    ls = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m - n) /\
+    (!i iv. NUM i iv /\ n <= i /\ i < m ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
+    ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv;mv;fv;accv] heap_inv
+      (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+  ntac 6 gen_tac
+  \\ Induct_on`m-n`
+  >- (
+    rw[]
+    \\ xcf "tabulate" st
+    \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
+      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+    \\ xif \\ asm_exists_tac \\ simp[]
+    \\ xapp
+    \\ instantiate \\ xsimpl
+    \\ `m - n = 0` by simp[] \\ simp[])
+  \\ rw[]
+  \\ xcf "tabulate" st
+  \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
+    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+  \\ xif \\ asm_exists_tac \\ simp[]
+  \\ Cases_on`m` \\ fs[]
+  \\ rename1`SUC v = SUC m - n`
+  \\ `v = m - n` by decide_tac
+  \\ qpat_x_assum`SUC v = _`(assume_tac o SYM)
+  \\ rw[] \\ fs[GENLIST_CONS,FUNPOW_SUC_PLUS]
+  \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
+  >- ( xapp \\ xsimpl )
+  \\ xlet `POSTv nv. &NUM (n+1) nv * heap_inv`
+  >-( xopn \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
+  \\ xlet `POSTv av. &LIST_TYPE A (f n::acc) av * heap_inv`
+  >-( xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
+  \\ xapp
+  \\ xsimpl
+  \\ map_every qexists_tac[`n+1`,`SUC m`]
+  \\ instantiate
+  \\ simp[o_DEF,ADD1]
+  \\ once_rewrite_tac[CONS_APPEND]
+  \\ simp[]) end;
+
+val result = next_ml_names := ["tabulate"];
 val result = translate tabulate_def;
+
+val tabulate_inv_spec =
+  let
+    val st = get_ml_prog_state();
+  in
+  Q.store_thm("tabulate_inv_spec",
+  `!f fv A heap_inv n nv ls.
+    NUM n nv /\ ls = GENLIST f n /\
+    (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
+    ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+  xcf "tabulate" st \\
+  xlet`POSTv v. &LIST_TYPE A [] v * heap_inv`
+  >- (xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
+  \\ xapp_spec tabulate_aux_inv_spec
+  \\ xsimpl
+  \\ instantiate
+  \\ simp[FUNPOW_SUC_PLUS,o_DEF,ETA_AX]) end;
 
 val result = translate collate_def;
 
@@ -108,9 +171,6 @@ val result = translate ZIP_def;
 
 val result = translate MEMBER_def;
 
-(*Extra translations from std_preludeLib.sml *)
-val res = translate LENGTH_AUX_def;
-(*val res = translate LENGTH_AUX_THM;*)
 val result = translate SUM;
 val result = translate UNZIP;
 val result = translate PAD_RIGHT;
@@ -121,7 +181,6 @@ val result = translate isPREFIX;
 val result = translate FRONT_DEF;
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
-
 
 val front_side_def = Q.prove(
   `!xs. front_side xs = ~(xs = [])`,
@@ -134,7 +193,6 @@ val last_side_def = Q.prove(
   Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
-
 
 val nth_side_def = Q.prove(
   `!n xs. nth_side xs n = (n < LENGTH xs)`,
@@ -189,8 +247,8 @@ val _ =  ml_prog_update (close_module (SOME sigs));
 
 (* sorting -- included here because it depends on List functions like append  *)
 
+val _ = next_ml_names := ["partition","partition"];
 val res = translate sortingTheory.PART_DEF;
-val _ = next_ml_names := ["partition"];
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
 
@@ -255,6 +313,7 @@ val AEVERY_AUX_def = Define `
      if MEMBER x aux then AEVERY_AUX aux P xs else
        P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
 val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
+val _ = next_ml_names := ["aevery","aevery"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
