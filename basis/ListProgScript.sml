@@ -36,12 +36,6 @@ val hd_side_def = Q.prove(
   |> update_precondition;
 
 val result = translate tl_def;
-val result = next_ml_names := ["TL_hol"];
-val result = translate TL;
-val tl_1_side_def = Q.prove(
-  `!xs. tl_1_side xs = ~(xs = [])`,
-  Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "tl_1_side_def"])
-  |> update_precondition;
 
 val result = translate LAST_DEF;
 
