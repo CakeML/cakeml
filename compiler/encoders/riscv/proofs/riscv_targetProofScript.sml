@@ -185,8 +185,7 @@ local
       end
    val ms = ``ms: riscv_state``
    fun new_state_var l =
-     Lib.with_flag (Globals.priming, SOME "_")
-       (Term.variant (List.concat (List.map Term.free_vars l))) ms
+     Term.variant (List.concat (List.map Term.free_vars l)) ms
    fun env (t, tm) =
      let
        (*
