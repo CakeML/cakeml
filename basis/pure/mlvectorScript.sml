@@ -81,7 +81,7 @@ val map_def = Define`
   map vec f = Vector (MAP f (toList vec))`;
 
 val mapi_def = Define`
-  mapi vec f = Vector (mllist$mapi f 0 (toList vec))`;
+  mapi vec f = Vector (MAPi f (toList vec))`;
 
 
 val less_than_length_thm = Q.prove (

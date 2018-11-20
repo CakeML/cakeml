@@ -103,20 +103,6 @@ val isStringThere_aux_side_thm = Q.prove (
      isstringthere_aux_side s1 s2 s1i s2i len`,
   Induct_on `len` \\ rw [Once isStringThere_aux_side_def]);
 
-val _ = next_ml_names := ["isPrefix"];
-val result = translate isPrefix_def;
-val isPrefix_side_def = definition"isprefix_side_def";
-val isPrefix_thm = Q.prove (
-  `!s1 s2. isprefix_side s1 s2`,
-  rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
-
-val _ = next_ml_names := ["isSuffix"];
-val result = translate isSuffix_def;
-val isSuffix_side_def = definition"issuffix_side_def";
-val isSuffix_thm = Q.prove (
-  `!s1 s2. issuffix_side s1 s2`,
-  rw[isSuffix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
-
 val _ = next_ml_names := ["isSubstring"];
 val result = translate isSubstring_aux_def;
 val isSubstring_aux_side_def = theorem"issubstring_aux_side_def";
@@ -134,6 +120,20 @@ val isSubstring_side_def = definition"issubstring_side_def";
 val isSubstring_side_thm = Q.prove (
   `!s1 s2. issubstring_side s1 s2`,
   rw [isSubstring_side_def, isSubstring_aux_side_thm]) |> update_precondition
+
+val _ = next_ml_names := ["isSuffix"];
+val result = translate isSuffix_def;
+val isSuffix_side_def = definition"issuffix_side_def";
+val isSuffix_thm = Q.prove (
+  `!s1 s2. issuffix_side s1 s2`,
+  rw[isSuffix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
+
+val _ = next_ml_names := ["isPrefix"];
+val result = translate isPrefix_def;
+val isPrefix_side_def = definition"isprefix_side_def";
+val isPrefix_thm = Q.prove (
+  `!s1 s2. isprefix_side s1 s2`,
+  rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
 
 val _ = next_ml_names := ["compare","compare"];
 val result = translate compare_aux_def;

@@ -1122,6 +1122,19 @@ sub_completion tvs next_uvar s1 extra_constraints s2 =
 
 (* printing of types *)
 
+val alist_nub_def = tDefine "alist_nub" `
+  alist_nub [] = [] /\
+  alist_nub ((x,y)::xs) = (x,y) :: alist_nub (FILTER (\t. x <> FST t) xs)`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LESS_EQ,LENGTH_FILTER_LEQ]);
+
+val ns_nub_def = tDefine "ns_nub" `
+  ns_nub (Bind xs ys) = Bind (alist_nub xs)
+                             (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))`
+ (WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))` \\ fs []
+  \\ Induct_on `ys` \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [namespace_size_def] \\ res_tac \\ fs []
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []);
+
 val ns_to_alist = Define `
   (ns_to_alist (Bind [] []) = []) /\
   (ns_to_alist (Bind [] ((n,x)::ms)) =
@@ -1131,7 +1144,7 @@ val ns_to_alist = Define `
 
 val inf_env_to_types_string_def = Define `
   inf_env_to_types_string s =
-    let l = ns_to_alist s.inf_v in
+    let l = ns_to_alist (ns_nub s.inf_v) in
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
                                     FST (inf_type_to_string s.inf_t t);
                                     strlit "\n";]) l in

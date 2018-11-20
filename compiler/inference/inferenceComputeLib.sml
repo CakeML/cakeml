@@ -78,7 +78,10 @@ structure inferenceComputeLib = struct
     ,infer_tTheory.commas_def
     ,infer_tTheory.add_parens_def
     ,infer_tTheory.type_ident_to_string_def
-    ,mlnumTheory.toString_def
+    ,mlintTheory.toString_def
+    ,mlintTheory.toChar_def
+    ,mlintTheory.maxSmall_DEC_def
+    ,mlstringTheory.str_def
     ,inferTheory.word_tc_def
     ],
    computeLib.Tys
