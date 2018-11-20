@@ -42,14 +42,14 @@ val ag32_machine_config_ok = Q.store_thm("ag32_machine_config_ok",
   `is_ag32_machine_config mc ⇒ mc_conf_ok mc`,
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_ag32_machine_config_def]
   >- EVAL_TAC
-  >- simp[ag32_backend_correct]
+  >- simp[ag32_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- metis_tac[asmPropsTheory.backend_correct_def,
-       asmPropsTheory.target_ok_def,ag32_backend_correct]);
+  >- metis_tac[asmPropsTheory.encoder_correct_def,
+       asmPropsTheory.target_ok_def,ag32_encoder_correct]);
 
 val ag32_init_ok = Q.store_thm("ag32_init_ok",
   `is_ag32_machine_config mc ⇒

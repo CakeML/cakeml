@@ -831,15 +831,15 @@ val arm8_target_ok = Q.prove (
    )
 
 (* -------------------------------------------------------------------------
-   arm8 backend_correct
+   arm8 encoder_correct
    ------------------------------------------------------------------------- *)
 
 val ext12 = ``(11 >< 0) : word64 -> word12``
 val print_tac = asmLib.print_tac "correct"
 
-val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
-   `backend_correct arm8_target`,
-   simp [asmPropsTheory.backend_correct_def, arm8_target_ok]
+val arm8_encoder_correct = Q.store_thm ("arm8_encoder_correct",
+   `encoder_correct arm8_target`,
+   simp [asmPropsTheory.encoder_correct_def, arm8_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm8_target`
    \\ rw [arm8_target_def, asmSemTheory.asm_step_def, arm8_config]
    \\ qunabbrev_tac `state_rel`

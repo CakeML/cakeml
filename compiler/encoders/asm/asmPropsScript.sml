@@ -95,8 +95,8 @@ val asserts2_def = zDefine`
      P ms (fc ms) ∧
      asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
 
-val backend_correct_def = Define `
-  backend_correct t <=>
+val encoder_correct_def = Define `
+  encoder_correct t <=>
     target_ok t /\
     !s1 i s2 ms.
       asm_step t.config s1 i s2 /\ target_state_rel t s1 ms ==>

@@ -345,14 +345,14 @@ in
 end
 
 (* -------------------------------------------------------------------------
-   ag32 backend_correct
+   ag32 encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
-val ag32_backend_correct = Q.store_thm ("ag32_backend_correct",
-   `backend_correct ag32_target`,
-   simp [asmPropsTheory.backend_correct_def, ag32_target_ok]
+val ag32_encoder_correct = Q.store_thm ("ag32_encoder_correct",
+   `encoder_correct ag32_target`,
+   simp [asmPropsTheory.encoder_correct_def, ag32_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel ag32_target`
    \\ rw [ag32_target_def, ag32_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

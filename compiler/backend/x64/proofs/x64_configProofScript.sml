@@ -40,13 +40,13 @@ val x64_machine_config_ok = Q.store_thm("x64_machine_config_ok",
   `is_x64_machine_config mc ⇒ mc_conf_ok mc`,
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_x64_machine_config_def]
   >- EVAL_TAC
-  >- simp[x64_targetProofTheory.x64_backend_correct]
+  >- simp[x64_targetProofTheory.x64_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- EVAL_TAC  
-  >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,x64_backend_correct]);
+  >- EVAL_TAC
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,x64_encoder_correct]);
 
 val x64_init_ok = Q.store_thm("x64_init_ok",
   `is_x64_machine_config mc ⇒

@@ -554,8 +554,8 @@ val RTC_asm_step_ag32_target_state_rel_io_events = Q.store_thm("RTC_asm_step_ag3
   \\ rpt gen_tac \\ strip_tac
   \\ ntac 2 strip_tac
   \\ ((MATCH_MP
-        (REWRITE_RULE[GSYM AND_IMP_INTRO] targetPropsTheory.backend_correct_asm_step_target_state_rel)
-        ag32_targetProofTheory.ag32_backend_correct) |> GEN_ALL |> drule)
+        (REWRITE_RULE[GSYM AND_IMP_INTRO] targetPropsTheory.encoder_correct_asm_step_target_state_rel)
+        ag32_targetProofTheory.ag32_encoder_correct) |> GEN_ALL |> drule)
   \\ simp[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.config``]
   \\ simp[SIMP_CONV(srw_ss())[ag32_targetTheory.ag32_target_def]``ag32_target.next``]
   \\ disch_then drule

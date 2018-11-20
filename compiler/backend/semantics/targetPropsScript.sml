@@ -167,7 +167,7 @@ val enc_ok_not_empty = Q.prove(
 
 val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
   `!c s1 ms1 io i s2.
-      backend_correct c.target /\
+      encoder_correct c.target /\
       (c.prog_addresses = s1.mem_domain) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       asm_step c.target.config s1 i s2 /\
@@ -176,7 +176,7 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
                   target_state_rel c.target s2 ms2 /\ l <> 0`,
-  full_simp_tac(srw_ss()) [backend_correct_def, target_ok_def, LET_DEF]
+  full_simp_tac(srw_ss()) [encoder_correct_def, target_ok_def, LET_DEF]
   \\ rw[]
   \\ first_x_assum drule
   \\ disch_then drule
@@ -346,8 +346,8 @@ val read_ffi_bytearray_IMP_SUBSET_prog_addresses = store_thm(
   \\ rw [] \\ fs[option_case_eq] \\ rveq \\ fs []
   \\ fs [all_words_def]);
 
-val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm_step_target_state_rel",
-  `backend_correct t ∧
+val encoder_correct_asm_step_target_state_rel = Q.store_thm("encoder_correct_asm_step_target_state_rel",
+  `encoder_correct t ∧
    target_state_rel t s1 ms ∧
    asm_step t.config s1 i s2
    ⇒
@@ -360,7 +360,7 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
        all_pcs (LENGTH (t.config.encode i)) s1.pc t.config.code_alignment) ∧
      (t.state_ok (FUNPOW t.next j ms))) ∧
    (∀j x. j ≤ n ∧ x ∉ s1.mem_domain ⇒ (t.get_byte (FUNPOW t.next j ms) x = t.get_byte ms x))`,
-  rw[asmPropsTheory.backend_correct_def]
+  rw[asmPropsTheory.encoder_correct_def]
   \\ first_x_assum drule
   \\ disch_then drule
   \\ strip_tac
@@ -396,8 +396,8 @@ val backend_correct_asm_step_target_state_rel = Q.store_thm("backend_correct_asm
   \\ fs[ADD1,Abbr`P`]
   \\ simp[reflexive_def,transitive_def]);
 
-val backend_correct_RTC_asm_step_target_state_rel = Q.store_thm("backend_correct_RTC_asm_step_target_state_rel",
-  `backend_correct t ∧
+val encoder_correct_RTC_asm_step_target_state_rel = Q.store_thm("encoder_correct_RTC_asm_step_target_state_rel",
+  `encoder_correct t ∧
    target_state_rel t s1 ms ∧
    RTC (λs1 s2. ∃i. asm_step t.config s1 i s2) s1 s2
    ⇒
@@ -408,7 +408,7 @@ val backend_correct_RTC_asm_step_target_state_rel = Q.store_thm("backend_correct
   \\ reverse conj_tac
   >- ( qexists_tac`0` \\ rw[] )
   \\ rw[]
-  \\ drule (GEN_ALL backend_correct_asm_step_target_state_rel)
+  \\ drule (GEN_ALL encoder_correct_asm_step_target_state_rel)
   \\ disch_then drule
   \\ disch_then drule
   \\ rw[GSYM FUNPOW_ADD]
