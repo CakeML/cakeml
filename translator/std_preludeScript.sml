@@ -42,35 +42,6 @@ val _ = next_ml_names := ["W"];
 val res = translate W_DEF;
 val res = translate UPDATE_def;
 
-(* sum *)
-
-val _ = ml_prog_update (open_module "Sum");
-
-val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "Sum"
-      (Atapp [Atvar "'a"; Atvar "'b"] (Short "sum"))`` I);
-
-val res = translate ISL;
-val res = translate ISR;
-val res = translate OUTL;
-val res = translate OUTR;
-val _ = next_ml_names := ["map"];
-val res = translate SUM_MAP_def;
-
-val outl_side_def = Q.prove(
-  `outl_side = ISL`,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outl_side_def"])
-  |> update_precondition;
-
-val outr_side_def = Q.prove(
-  `outr_side = ISR`,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outr_side_def"])
-  |> update_precondition;
-
-val _ =  ml_prog_update (close_module NONE);
-
 (* arithmetic *)
 
 val EXP_AUX_def = Define `
@@ -149,6 +120,37 @@ val least_side_thm = Q.prove(
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
 *)
+
+val _ = concretise_all () (* needs to be done before module below *)
+
+(* sum *)
+
+val _ = ml_prog_update (open_module "Sum");
+
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a";"'b"] "Sum"
+      (Atapp [Atvar "'a"; Atvar "'b"] (Short "sum"))`` I);
+
+val res = translate ISL;
+val res = translate ISR;
+val res = translate OUTL;
+val res = translate OUTR;
+val _ = next_ml_names := ["map"];
+val res = translate SUM_MAP_def;
+
+val outl_side_def = Q.prove(
+  `outl_side = ISL`,
+  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
+  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outl_side_def"])
+  |> update_precondition;
+
+val outr_side_def = Q.prove(
+  `outr_side = ISR`,
+  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
+  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outr_side_def"])
+  |> update_precondition;
+
+val _ =  ml_prog_update (close_module NONE);
 
 val _ = (print_asts := true);
 

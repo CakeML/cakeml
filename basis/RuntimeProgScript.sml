@@ -7,8 +7,6 @@ val _ = translation_extends"std_prelude"
 
 val () = generate_sigs := true;
 
-val _ = concretise_all () (* TODO: better to leave more abstract longer... *)
-
 val _ = ml_prog_update (open_module "Runtime");
 
 val fullGC_def = Define `
@@ -36,7 +34,7 @@ val _ = append_prog exit
 val abort = process_topdecs `fun abort u = exit 1`
 
 val _ = append_prog abort
-                    
+
 val sigs = module_signatures ["fullGC", "debugMsg","exit","abort"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
