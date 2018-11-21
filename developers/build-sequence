@@ -80,9 +80,8 @@ translator/monadic/examples
 examples
 examples/compilation/x64
 examples/compilation/x64/proofs
-examples/ag32
-examples/ag32/compilation
-examples/ag32/compilation/proofs
+examples/compilation/ag32
+examples/compilation/ag32/proofs
 
 compiler/benchmarks
 
