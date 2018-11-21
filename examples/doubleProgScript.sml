@@ -1,3 +1,6 @@
+(*
+  Examples on the topic of doubling a number.
+*)
 open preamble semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      basisProgTheory

@@ -1,3 +1,6 @@
+(*
+  An example based on searching an array.
+*)
 open preamble semanticPrimitivesTheory
 open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
 open basisProgTheory quicksortProgTheory ArrayProofTheory
