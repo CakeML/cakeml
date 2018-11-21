@@ -294,7 +294,7 @@ val compile_lab_def = Define `
       case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
     in
     if ffis_ok then
-      case remove_labels c.init_clock c.asm_conf 0 LN ffis sec_list of
+      case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           SOME (prog_to_bytes sec_list,
                 c with <| labels := l1;

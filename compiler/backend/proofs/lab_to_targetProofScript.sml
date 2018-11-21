@@ -10,6 +10,8 @@ val aligned_w2n = stack_removeProofTheory.aligned_w2n;
 
 val _ = new_theory "lab_to_targetProof";
 
+fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
+
 val evaluate_ignore_clocks = Q.prove(
   `evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
@@ -4853,6 +4855,8 @@ val find_ffi_names_append = Q.prove(`
   fs[MEM_FILTER,FILTER_APPEND]>>
   fs[]);
 
+val say = say0 "compile_correct";
+
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error) /\
@@ -4874,7 +4878,8 @@ val compile_correct = Q.prove(
   THEN1 (
     fs[case_eq_thms]>>rw[]
     THEN1 (* Asm Inst *) (
-       qmatch_assum_rename_tac `asm_fetch s1 = SOME (Asm (Asmi(Inst i)) bytes len)`
+       say "Asm Inst"
+       \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (Asm (Asmi(Inst i)) bytes len)`
        \\ mp_tac IMP_bytes_in_memory_Inst \\ full_simp_tac(srw_ss())[]
        \\ match_mp_tac IMP_IMP \\ strip_tac
        THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
@@ -4911,7 +4916,8 @@ val compile_correct = Q.prove(
        \\ `^s1.clock - 1 + k + l = ^s1.clock + (k + l - 1)` by decide_tac
        \\ fs[asm_inst_consts])
     THEN1 (* Asm JumpReg *) (
-      qmatch_assum_rename_tac `read_reg r1 s1 = Loc l1 l2`
+      say "Asm JumpReg"
+      \\ qmatch_assum_rename_tac `read_reg r1 s1 = Loc l1 l2`
       \\ Cases_on `loc_to_pc l1 l2 s1.code` \\ full_simp_tac(srw_ss())[]
       \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`, `s1.ffi`, `JumpReg r1`]MP_TAC
            asm_step_IMP_evaluate_step) \\ full_simp_tac(srw_ss())[]
@@ -4963,7 +4969,8 @@ val compile_correct = Q.prove(
       \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
       \\ Q.EXISTS_TAC `k + l' - 1` \\ full_simp_tac(srw_ss())[]
       \\ Q.EXISTS_TAC `ms2'` \\ fs[state_rel_def,shift_interfer_def]))
-  THEN1 ( (* CBW*)
+  THEN1 ( (* CBW *)
+    say "CBW" >>
     fs[case_eq_thms]>>
     fs[dec_clock_def]>>
     qmatch_asmsub_rename_tac `Asm (Cbw r1 r2) bytes len`>>
@@ -5052,7 +5059,8 @@ val compile_correct = Q.prove(
     \\ `^s1.clock - 1 + k + l = ^s1.clock + (k + l - 1)` by decide_tac
     \\ fs[])
   THEN1 (* Jump *)
-   (qmatch_assum_rename_tac
+   (say "Jump"
+    \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump jtarget) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump jtarget) l bytes n)`
@@ -5095,7 +5103,8 @@ val compile_correct = Q.prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ full_simp_tac(srw_ss())[]
     \\ Q.EXISTS_TAC `t2` \\ full_simp_tac(srw_ss())[state_rel_def,shift_interfer_def])
   THEN1 (* JumpCmp *)
-   (qmatch_assum_rename_tac
+   (say "JumpCmp"
+    \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)`
@@ -5178,7 +5187,8 @@ val compile_correct = Q.prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ full_simp_tac(srw_ss())[]
     \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by decide_tac \\ full_simp_tac(srw_ss())[])
   THEN1 (* Call *)
-   (qmatch_assum_rename_tac
+   (say "Call"
+    \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Call lab) x1 x2 x3)`
     \\ Cases_on `lab`
     \\ qmatch_assum_rename_tac
@@ -5188,7 +5198,8 @@ val compile_correct = Q.prove(
     \\ match_mp_tac IMP_IMP \\ strip_tac \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
   THEN1 (* LocValue *)
-   (qmatch_assum_rename_tac
+   (say "LocValue"
+    \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (LocValue reg lab) x1 x2 x3)`
     \\ Cases_on `lab`
     \\ qmatch_assum_rename_tac
@@ -5237,7 +5248,8 @@ val compile_correct = Q.prove(
     \\ Q.EXISTS_TAC `k + l - 1` \\ fs[]
     \\ `s1.clock - 1 + k + l = k + (l + s1.clock) − 1` by decide_tac \\ fs [])
   THEN1 (* CallFFI *)
-   (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI s) l1 l2 l3)`
+   (say "CallFFI"
+    \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI s) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (CallFFI s) l bytes n)`
     \\ Cases_on `s1.regs s1.len_reg` \\ full_simp_tac(srw_ss())[]
@@ -5438,7 +5450,8 @@ val compile_correct = Q.prove(
       \\ metis_tac[find_index_is_MEM] )
     \\ full_simp_tac(srw_ss())[apply_oracle_def])
   THEN1 (* Install *)
-    (qpat_x_assum`_ =(res,s2)` mp_tac >>
+    (say "Install" >>
+    qpat_x_assum`_ =(res,s2)` mp_tac >>
     ntac 6 (TOP_CASE_TAC >> fs[])>>
     pairarg_tac \\ fs[] \\
     ntac 5 (TOP_CASE_TAC \\ fs[]) >>
@@ -5705,7 +5718,8 @@ val compile_correct = Q.prove(
       \\ simp[dimword_def] )
     \\ rfs[apply_oracle_def,target_state_rel_def,state_rel_def,reg_ok_def])
   THEN1 (* Halt *)
-   (srw_tac[][]
+   (say "Hakt"
+    \\ srw_tac[][]
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l bytes n)`
     \\ mp_tac IMP_bytes_in_memory_Halt \\ full_simp_tac(srw_ss())[]
@@ -6271,7 +6285,6 @@ val semantics_compile_lemma = Q.prove(
     good_code mc_conf.target.config LN code ∧
     (* Config state *)
     c.asm_conf = mc_conf.target.config /\
-    c.labels = LN ∧ c.pos = 0 ∧
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     (* FFI is either given or computed *)
     c'.ffi_names = SOME mc_conf.ffi_names /\
@@ -6331,7 +6344,6 @@ val semantics_compile = Q.store_thm("semantics_compile",`
    compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
    good_code c.asm_conf c.labels code ∧
    c.asm_conf = mc_conf.target.config ∧
-   c.labels = LN ∧ c.pos = 0 ∧
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\
    good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
