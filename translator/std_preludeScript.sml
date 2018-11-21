@@ -17,6 +17,7 @@ val _ = register_type ``:ordering``;
 val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a # 'b``;
+val _ = register_type ``:'a + 'b``;
 
 (* pair *)
 
@@ -43,11 +44,17 @@ val res = translate UPDATE_def;
 
 (* sum *)
 
+val _ = ml_prog_update (open_module "Sum");
+
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a";"'b"] "Sum"
+      (Atapp [Atvar "'a"; Atvar "'b"] (Short "sum"))`` I);
+
 val res = translate ISL;
 val res = translate ISR;
 val res = translate OUTL;
 val res = translate OUTR;
-val _ = next_ml_names := ["sum_map"];
+val _ = next_ml_names := ["map"];
 val res = translate SUM_MAP_def;
 
 val outl_side_def = Q.prove(
@@ -61,6 +68,8 @@ val outr_side_def = Q.prove(
   FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
   THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outr_side_def"])
   |> update_precondition;
+
+val _ =  ml_prog_update (close_module NONE);
 
 (* arithmetic *)
 

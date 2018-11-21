@@ -254,6 +254,8 @@ val res = translate sortingTheory.QSORT_DEF;
 
 (* finite maps -- similarly *)
 
+val _ = ml_prog_update (open_module "Alist");
+
 val FMAP_EQ_ALIST_def = Define `
   FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)`;
 
@@ -264,6 +266,7 @@ val FMAP_TYPE_def = Define `
 val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)``
                      ``:('a # 'b) list``;
 
+val _ = next_ml_names := ["lookup"];
 val ALOOKUP_eval = translate ALOOKUP_def;
 
 val Eval_FLOOKUP = Q.prove(
@@ -275,6 +278,7 @@ val Eval_FLOOKUP = Q.prove(
   |> (fn th => MATCH_MP th ALOOKUP_eval)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := ["update"];
 val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
 val AUPDATE_eval = translate AUPDATE_def;
 
@@ -313,7 +317,7 @@ val AEVERY_AUX_def = Define `
      if MEMBER x aux then AEVERY_AUX aux P xs else
        P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
 val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
-val _ = next_ml_names := ["aevery","aevery"];
+val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
@@ -346,6 +350,7 @@ val Eval_FEVERY = Q.prove(
   |> (fn th => MATCH_MP th AEVERY_eval)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := ["map"];
 val AMAP_def = Define `
   (AMAP f [] = []) /\
   (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)`;
@@ -402,6 +407,7 @@ val Eval_FUNION = Q.prove(
   |> (fn th => MATCH_MP th append_eval)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := ["delete"];
 val ADEL_def = Define `
   (ADEL [] z = []) /\
   (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
@@ -428,5 +434,7 @@ val Eval_fmap_domsub = Q.prove(
   METIS_TAC[FMAP_EQ_ALIST_ADEL])
   |> (fn th => MATCH_MP th ADEL_eval)
   |> add_user_proved_v_thm;
+
+val _ =  ml_prog_update (close_module NONE);
 
 val _ = export_theory()
