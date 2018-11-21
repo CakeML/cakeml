@@ -692,6 +692,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.get_coalescecost_def
     ,word_allocTheory.get_spillcost_def
     ,word_allocTheory.get_heu_def
+    ,sptreeTheory.spt_fold_def
     ,sptreeTheory.mapi_def
     ,sptreeTheory.mapi0_def
     ]
