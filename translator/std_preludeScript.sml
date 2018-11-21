@@ -128,7 +128,7 @@ val _ = concretise_all () (* needs to be done before module below *)
 val _ = ml_prog_update (open_module "Sum");
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "Sum"
+  ``Dtabbrev unknown_loc ["'a";"'b"] "sum"
       (Atapp [Atvar "'a"; Atvar "'b"] (Short "sum"))`` I);
 
 val res = translate ISL;
