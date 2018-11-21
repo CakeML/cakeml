@@ -160,6 +160,8 @@ local
   val cons_name_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
                                   (term *         (* constructor name  *)
                                    string option) (* module name       *)) list);
+  val type_mod_state = ref ([] : (string * (* type name *)
+                                  string   (* module name *)) list);
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
@@ -319,6 +321,19 @@ in
     in
       pack_list pack_ns (!cons_name_state)
     end
+  fun pack_type_mods () =
+    let
+      val pack_ns = pack_pair pack_string pack_string
+    in
+      pack_list pack_ns (!type_mod_state)
+    end
+  fun unpack_type_mods th =
+    let
+      val unpack_ns = unpack_pair unpack_string unpack_string
+      val tyms = unpack_list unpack_ns th
+    in
+      type_mod_state := tyms
+    end
   fun unpack_cons_names th =
     let
       val unpack_ns =
@@ -330,6 +345,22 @@ in
     end
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
+  fun get_type_mods () = !type_mod_state
+  fun lookup_type_mod tyname =
+    SOME (Lib.assoc tyname (!type_mod_state))
+    handle HOL_ERR _ => NONE
+  (* TODO not sure we'll ever encounter duplicate type names - they should
+   *      be entered with their full name. *)
+  fun enter_type_mod tyname =
+    let
+      val mname = get_curr_module_name ()
+      val _ = lookup_type_mod tyname = NONE orelse
+              failwith ("duplicate type: " ^ tyname)
+    in
+      case mname of
+        NONE => ()
+      | SOME mname => type_mod_state := (tyname,mname)::(!type_mod_state)
+    end
   fun get_cons_names () = !cons_name_state
   fun mk_cons_name tm =
     let
@@ -357,12 +388,20 @@ in
     end
 end
 
+(*
+ * Returns the 'full' identifier for the type. What this is depends on where the
+ * type was registered. For types that are not in scope (i.e. outside of the
+ * current module) we give a Long name, otherwise the name is short.
+ *)
 fun full_id n =
-  case get_curr_module_name () of
-    (* Single-level module *)
-    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,astSyntax.mk_Short n)
-  | NONE => astSyntax.mk_Short n
-
+  case lookup_type_mod (stringSyntax.fromHOLstring n) of
+    NONE => astSyntax.mk_Short n
+  | SOME type_mod =>
+      if SOME type_mod = get_curr_module_name () then
+        astSyntax.mk_Short n
+      else
+          astSyntax.mk_Long (stringSyntax.fromMLstring type_mod,
+                             astSyntax.mk_Short n);
 
 (* code for managing type information *)
 
@@ -747,17 +786,19 @@ local
     val p1 = pack_types()
     val p2 = pack_v_thms()
     val p3 = pack_cons_names()
-    val p = pack_triple I I I (p1,p2,p3)
+    val p4 = pack_type_mods()
+    val p = pack_4tuple I I I I (p1,p2,p3,p4)
     val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
     val _ = check_uptodate_term (concl th)
     in save_thm(name,th) end
   fun unpack_state name = let
     val th = fetch name (name ^ suffix)
     val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
-    val (p1,p2,p3) = unpack_triple I I I th
+    val (p1,p2,p3,p4) = unpack_4tuple I I I I th
     val _ = unpack_types p1
     val _ = unpack_v_thms p2
     val _ = unpack_cons_names p3
+    val _ = unpack_type_mods p4
     in () end;
   val finalised = ref false
 in
@@ -1628,6 +1669,14 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
     in
       listSyntax.mk_list(decs,dec_ty)
     end
+
+  (* register type to belong to current module if all went well *)
+  val name = ty |> full_name_of_type
+  val _ = case get_curr_module_name () of
+            NONE => ()
+          | SOME m =>
+              print ("Adding " ^ type_to_string ty ^ " to module " ^ m ^ ".\n")
+  val _ = enter_type_mod name
   in (rws1,rws2,res,dprog) end;
 
 local
