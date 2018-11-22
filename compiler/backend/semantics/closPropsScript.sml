@@ -771,10 +771,8 @@ val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
       \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] \\ rveq \\ fs[]
       \\ fs[CaseEq"prod"]
       \\ rveq \\ fs[])
-  (*
   >- (every_case_tac >> simp[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])
-  *))
+  >- (every_case_tac >> full_simp_tac(srw_ss())[]))
   |> SIMP_RULE (srw_ss()) []
 
 val pure_correct = save_thm(
