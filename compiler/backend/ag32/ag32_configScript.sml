@@ -26,7 +26,8 @@ val ag32_backend_config_def = Define`
                word_to_word_conf:=^(word_to_word_conf);
                word_conf:=^(ag32_word_conf);
                stack_conf:=^(ag32_stack_conf);
-               lab_conf:=^(ag32_lab_conf)
+               lab_conf:=^(ag32_lab_conf);
+               tap_conf:=default_tap_config
                |>`;
 
 val _ = export_theory();
