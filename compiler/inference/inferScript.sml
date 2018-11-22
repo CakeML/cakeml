@@ -19,6 +19,8 @@ val _ = Datatype `
 
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 
+val _ = temp_type_abbrev("err_var",type_of ``primTypes$prim_tenv.t``);
+
 val st_ex_bind_def = Define `
 (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
   λs.
@@ -36,7 +38,8 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val failwith_def = Define `
-(failwith : locs option -> α -> (β, γ, (locs option # α)) M) l msg = (\s. (Failure (l, msg), s))`;
+(failwith : (locs option # err_var) -> α -> (β, γ, (locs option # α)) M) l msg =
+    (\s. (Failure (FST l, msg), s))`;
 
 val guard_def = Define `
 guard P l msg = if P then return () else failwith l msg`;
@@ -52,7 +55,7 @@ val write_def = Define `
 val lookup_st_ex_def = Define `
   lookup_st_ex l err id ienv st =
     dtcase nsLookup ienv id of
-    | NONE => (Failure (l, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
+    | NONE => (Failure (FST l, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
@@ -89,17 +92,17 @@ init_state =
   \st.
     (Success (), init_infer_state st)`;
 
-(* TODO: pass in inf_t from top-level instead of Bind [] [] below
-         in order to get proper type names printed *)
 val add_constraint_def = Define `
-add_constraint (l : locs option) t1 t2 =
+add_constraint (l : locs option # err_var) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l, concat [implode "Type mismatch between ";
-                               FST (inf_type_to_string (Bind ([]: (string # num # t) list) []) (t_walkstar st.subst t1));
-                               implode " and ";
-                               FST (inf_type_to_string (Bind ([]: (string # num # t) list) []) (t_walkstar st.subst t2))]), st)
+          (Failure (FST l, concat [implode "Type mismatch between ";
+                                   FST (inf_type_to_string (SND l)
+                                         (t_walkstar st.subst t1));
+                                   implode " and ";
+                                   FST (inf_type_to_string (SND l)
+                                         (t_walkstar st.subst t2))]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -649,7 +652,7 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] Tstring_num)) ∧
 (infer_e l ienv (Lit (Word8 w)) =
   return (Infer_Tapp [] Tword8_num)) ∧
-(infer_e l ienv (Lit (Word64 w)) =
+(infer_e l ienv (Lit (Word64 _)) =
   return (Infer_Tapp [] Tword64_num)) ∧
 (infer_e l ienv (Var id) =
   do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
@@ -751,7 +754,7 @@ val infer_e_def = tDefine "infer_e" `
      return t
   od) ∧
 (infer_e l ienv (Tannot e t) =
-  do t' <- infer_e l ienv e;
+  do t' <- infer_e l ienv e ;
      t'' <- type_name_check_subst l
             (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
                           implode "Type variables are not supported in type annotations."])
@@ -759,8 +762,8 @@ val infer_e_def = tDefine "infer_e" `
      () <- add_constraint l t' (infer_type_subst [] t'');
      return t'
    od) ∧
-(infer_e _ ienv (Lannot e l) =
-  infer_e (SOME l) ienv e) ∧
+(infer_e l ienv (Lannot e new_l) =
+  infer_e (SOME new_l, SND l) ienv e) ∧
 (infer_es l ienv [] =
   return []) ∧
 (infer_es l ienv (e::es) =
@@ -775,7 +778,7 @@ val infer_e_def = tDefine "infer_e" `
     check_dups l (\n. concat [implode "Duplicate variable "; implode n;
                               implode " in pattern"])
               (MAP FST env');
-     () <- add_constraint l t1 t1';
+     () <- add_constraint l t1 t1' ;
      t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
      () <- add_constraint l t2 t2';
      () <- infer_pes l ienv pes t1 t2;
@@ -806,34 +809,39 @@ val lift_ienv_def = Define `
        inf_c := nsLift mn ienv.inf_c;
        inf_t := nsLift mn ienv.inf_t |>`;
 
+
+
 val infer_d_def = Define `
 (infer_d ienv (Dlet locs p e) =
   do () <- init_state;
      n <- get_next_uvar;
-     t1 <- infer_e (SOME locs) ienv e;
-     (t2,env') <- infer_p (SOME locs) ienv p;
-     check_dups (SOME locs) (\n. concat [implode "Duplicate variable "; implode n;
-                                  implode " in the left-hand side of a definition"])
+     t1 <- infer_e (SOME locs, ienv.inf_t) ienv e;
+     (t2,env') <- infer_p (SOME locs, ienv.inf_t) ienv p;
+     check_dups (SOME locs, ienv.inf_t)
+                   (\n. concat [implode "Duplicate variable "; implode n;
+                                implode " in the left-hand side of a definition"])
                 (MAP FST env');
-     () <- add_constraint (SOME locs) t1 t2;
+     () <- add_constraint (SOME locs, ienv.inf_t) t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
-     () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) (implode "Value restriction violated");
+     () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs, ienv.inf_t)
+                 (implode "Value restriction violated");
      return <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
                inf_c := nsEmpty;
                inf_t := nsEmpty |>
   od) ∧
 (infer_d ienv (Dletrec locs funs) =
   do
-    check_dups (SOME locs) (\n. concat [implode "Duplicate function name "; implode n;
-                                        implode " a mutually recursive function definition"])
+    check_dups (SOME locs, ienv.inf_t)
+       (\n. concat [implode "Duplicate function name "; implode n;
+            implode " a mutually recursive function definition"])
                (MAP FST funs);
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
-     funs_ts <- infer_funs (SOME locs) (ienv with inf_v:= env') funs;
-     () <- add_constraints (SOME locs) uvars funs_ts;
+     funs_ts <- infer_funs (SOME locs,ienv.inf_t) (ienv with inf_v:= env') funs;
+     () <- add_constraints (SOME locs,ienv.inf_t) uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      return <| inf_v := alist_to_ns (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts');
@@ -845,18 +853,19 @@ val infer_d_def = Define `
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     check_type_definition (SOME locs) ienvT2 tdefs;
+     check_type_definition (SOME locs,ienv.inf_t) ienvT2 tdefs;
      return <| inf_v := nsEmpty;
                inf_c := build_ctor_tenv ienvT2 tdefs tids;
                inf_t := ienvT1 |>
   od) ∧
 (infer_d ienv (Dtabbrev locs tvs tn t) =
   do
-    check_dups (SOME locs) (\n. concat [implode "Duplicate type variable bindings for ";
-                                        implode n; implode " in type abbreviation ";
-                                        implode tn])
+    check_dups (SOME locs,ienv.inf_t)
+       (\n. concat [implode "Duplicate type variable bindings for ";
+                    implode n; implode " in type abbreviation ";
+                    implode tn])
               tvs;
-     t' <- type_name_check_subst (SOME locs)
+     t' <- type_name_check_subst (SOME locs,ienv.inf_t)
             (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
                           implode tn])
             ienv.inf_t tvs t;
@@ -866,7 +875,7 @@ val infer_d_def = Define `
   od) ∧
 (infer_d ienv (Dexn locs cn ts) =
   do
-    ts' <- type_name_check_subst_list (SOME locs)
+    ts' <- type_name_check_subst_list (SOME locs,ienv.inf_t)
             (\tv. concat [implode "Type variable "; implode tv; implode " found in declaration of exception "; implode cn;
                           implode ". Type variables are not allowed in exception declarations."])
             ienv.inf_t [] ts;

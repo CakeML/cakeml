@@ -214,7 +214,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
             simp[convert_env_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])>>
           fs[])>>
         rpt (disch_then drule) >>
-        disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
+        disch_then (qspecl_then [`st1`,`(SOME l,ienv.inf_t)`] mp_tac) >>
         strip_tac >>
         rfs [] >>
         fs[] >>
@@ -328,7 +328,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      >-
        (match_mp_tac (GEN_ALL infer_e_type_pe_determ)>>
        qexists_tac`st1` >>
-       qexists_tac `SOME l` >>
+       qexists_tac `(SOME l,ienv.inf_t)` >>
        HINT_EXISTS_TAC>>fs[]>>
        imp_res_tac(CONJUNCT2 generalise_none)>>
        pop_assum(qspec_then`count st1'.next_uvar` mp_tac)>>
@@ -348,7 +348,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
   >- (
    rw[infer_d_def] >>
    fs[success_eqns] >>
-   rename1 `infer_funs (SOME loc) _ _ _ = _` >>
+   rename1 `infer_funs (SOME loc,ienv.inf_t) _ _ _ = _` >>
    fs[init_state_def]>>
    pairarg_tac>>fs[success_eqns]>>rw[]>>
    `t_wfs (init_infer_state st1).subst` by rw [init_infer_state_def, t_wfs_def] >>
@@ -465,7 +465,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      imp_res_tac type_funs_Tfn>>
      fs[env_rel_def] >>
      drule (GEN_ALL infer_funs_complete)>>fs[]>>
-     disch_then (qspecl_then [`tvs'`,`tenv`,`st1`,`SOME loc`,`l`,`bindings'`] assume_tac)>>rfs[]>>
+     disch_then (qspecl_then [`tvs'`,`tenv`,`st1`,`(SOME loc,ienv.inf_t)`,`l`,`bindings'`] assume_tac)>>rfs[]>>
      `st'.subst = st'''''.subst` by
        metis_tac[pure_add_constraints_functional]>>
      simp[LIST_REL_EL_EQN]>>
