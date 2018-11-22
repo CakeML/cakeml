@@ -5718,7 +5718,7 @@ val compile_correct = Q.prove(
       \\ simp[dimword_def] )
     \\ rfs[apply_oracle_def,target_state_rel_def,state_rel_def,reg_ok_def])
   THEN1 (* Halt *)
-   (say "Hakt"
+   (say "Halt"
     \\ srw_tac[][]
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l bytes n)`
