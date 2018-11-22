@@ -3988,7 +3988,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[flat_exh_matchTheory.compile_def]
         \\ irule flat_reorder_matchProofTheory.compile_decs_distinct_globals
         \\ irule flat_uncheck_ctorsProofTheory.compile_decs_distinct_globals
-        \\ irule flat_elimProofTheory.removeFlatProg_distinct_globals
+        \\ irule flat_elimProofTheory.remove_flat_prog_distinct_globals
         \\ irule flat_exh_matchProofTheory.compile_exps_distinct_globals
         \\ fs[source_to_flatTheory.compile_prog_def]
         \\ pairarg_tac \\ fs[] \\ rveq
