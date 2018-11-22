@@ -324,6 +324,27 @@ val EqualityType_NUM_BOOL = Q.store_thm("EqualityType_NUM_BOOL",
   \\ imp_res_tac Eq_lemma \\ fs []
   \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]);
 
+val EqualityType_measure = Q.store_thm ("EqualityType_measure",
+  `!m. (!n : num. EqualityType (And TY (\x. m x < n))) ==> EqualityType TY`,
+  rpt strip_tac
+  \\ RULE_ASSUM_TAC (Q.GENL [`x`, `y`] o Q.SPEC `MAX (SUC (m x)) (SUC (m y))`)
+  \\ fs [EqualityType_def, And_def]
+  \\ metis_tac [prim_recTheory.LESS_SUC_REFL]);
+
+val trivial4_def = Define `trivial4 x y a b = T`;
+
+val Conv_args_def = Define `Conv_args v = (case v of
+  | Conv _ vs => vs
+  | _ => [v])`;
+
+val EqualityType_def_rearranged = Q.store_thm (
+  "EqualityType_def_rearranged",
+  `EqualityType abs = (!x y vx vy. trivial4 x y vx vy
+    ==> abs x vx /\ abs y vy
+    ==> (x = y ==> vx = vy ==> no_closures vx)
+        /\ (vx = vy <=> x = y) /\ types_match vx vy)`,
+  fs [EqualityType_def, trivial4_def] \\ metis_tac []);
+
 val types_match_list_length = Q.store_thm("types_match_list_length",
   `!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2`,
   Induct \\ Cases_on`vs2` \\ rw[types_match_def])
