@@ -1101,6 +1101,8 @@ fun mk_EqualityType_proof typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
   in (list_mk_imp (assums, final_goal),
     ASSUM_LIST (fn _ => let
+        val _ = print "Doing proof of: "
+        val _ = print_term final_goal
         val measure_thm = ISPEC (fst (hd mrec)) EqualityType_measure
         val t = TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)
       in simp_tac bool_ss [measure_thm, DISCH_ALL t] end))
