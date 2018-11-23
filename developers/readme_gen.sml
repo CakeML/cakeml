@@ -3,6 +3,13 @@
    given as command-line arguments to this script. The contents of the
    summaries are read from a specific style of comment that needs to
    appear at the top of each given file.
+
+   This program accepts a command-line option --check which performs a
+   recursive check of all of the subdirectories. The global check
+   checks that:
+    - there is a README.md target in every Holmakefile
+    - in dirs without a Holmakefile, there must be a README.md
+    - in dirs with a Holmakefile, there must be a readmePrefix file
 *)
 
 (* Constants *)
@@ -12,6 +19,15 @@ val MAX_LINE_COUNT = 10
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
+
+val HOLMAKEFILE_SUGGESTION =
+ concat ["README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
+         "$(wildcard *Syntax.sml)\n",
+         "DIRS = $(wildcard */)\n",
+         "README.md: $(CAKEMLDIR)/developers/readme_gen",
+         " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
+         "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n",
+         "all: README.md\n"]
 
 (* Helper functions *)
 
@@ -296,7 +312,7 @@ fun assert_for_lines_of filename pred err_msg =
   orelse err (err_msg filename);
 
 fun run_full_check () = let
-  val path = OS.FileSys.getDir()
+  val path = OS.FileSys.getDir() (* assumed to be path of executable *)
   val curr_dir = "developers"
   val _ = String.isSuffix curr_dir path orelse
           err ("The " ^ CHECK_OPT ^ " option can only be run in the "
@@ -308,6 +324,20 @@ fun run_full_check () = let
     else s
   fun show_path p =
     if p = path then "." else remove_prefix (path ^ "/") p
+  fun common_prefix s t = let
+    fun common (x::xs) (y::ys) = if x = y then x::(common xs ys) else []
+      | common _ _ = []
+    in implode (common (explode s) (explode t)) end
+  fun write_file filename content = let
+    val f = TextIO.openOut(filename)
+    val _ = TextIO.output(f,content)
+    val _ = TextIO.closeOut f
+    in content end
+  fun inject_readme_target p [] = ["\n",HOLMAKEFILE_SUGGESTION]
+    | inject_readme_target p (l::ls) =
+        if String.isPrefix "ifdef" l orelse String.isPrefix "ifndef" l then
+          [HOLMAKEFILE_SUGGESTION,"\n"] @ l::ls
+        else l :: inject_readme_target p ls
   fun check_dir p =
     case read_all_lines (p ^ "/Holmakefile") of
       NONE => (* case: Holmake file does not exist *)
@@ -333,7 +363,9 @@ fun run_full_check () = let
           val _ = assert_for_lines_of (p ^ "/" ^ PREFIX_FILENAME)
                     Option.isSome (fn s => "Missing file: " ^ s)
           val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s)
-                    lines (* orelse err ("No README target in " ^ p ^ "/Holmakefile") *)
+                    lines orelse (print ("No "^OUTPUT_FILENAME^" target in " ^ p ^ "/Holmakefile\nConsider adding:\n\n" ^
+                     write_file (p ^ "/Holmakefile")
+                        (concat (inject_readme_target p lines)) ^ "\n\n"); true)
         in () end
   in all_dirs check_dir path end;
 
