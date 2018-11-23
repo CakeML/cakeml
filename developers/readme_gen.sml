@@ -312,12 +312,14 @@ fun run_full_check () = let
     case read_all_lines (p ^ "/Holmakefile") of
       NONE => (* case: Holmake file does not exist *)
         let
+          (* prefix file must not exist *)
           val _ = assert_for_lines_of (p ^ "/" ^ PREFIX_FILENAME)
                     (not o Option.isSome)
                     (fn s => "File not allowed to exist: " ^ s ^ "\n" ^
                              "Such files are only allowed in directories " ^
                              "with a Holmakefile.\nFix: rename the file to " ^
                              OUTPUT_FILENAME)
+          (* README.md file must exist *)
           val _ = assert_for_lines_of (p ^ "/" ^ OUTPUT_FILENAME)
                     Option.isSome
                     (fn s => "Missing file: " ^ s ^ "\n" ^
@@ -327,6 +329,7 @@ fun run_full_check () = let
         in () end
     | SOME lines => (* case: Holmake file exists *)
         let
+          (* prefix file must exist *)
           val _ = assert_for_lines_of (p ^ "/" ^ PREFIX_FILENAME)
                     Option.isSome (fn s => "Missing file: " ^ s)
           val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s)
