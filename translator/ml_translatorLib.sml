@@ -1030,6 +1030,7 @@ fun get_size_rec_Type_insts size_def = let
         |> map (dest_eq o snd o strip_forall)
     val lhs_szs = map (rator o fst) eqs |> mk_set
     fun proc_rhs_t t = if numSyntax.is_numeral t then NONE
+        else if numSyntax.is_suc t then proc_rhs_t (numSyntax.dest_suc t)
         else if is_var t then SOME (type_of t)
         else if mem (rator t) lhs_szs then NONE
         else SOME (type_of (rand t))
@@ -1078,26 +1079,32 @@ fun guess_const_def tm = let
     val stuff = dest_thy_const tm
   in DB.fetch (#Thy stuff) (#Name stuff ^ "_def") end
 
-fun do_EqualityType_proof typ = let
+fun mk_EqualityType_proof typ = let
     val (size_op1, size_def1) = TypeBase.size_of typ
     val t1 = type_of size_op1 |> wfrecUtils.strip_fun_type |> fst |> List.last
     val size_op = size_op1 |> inst (match_type t1 typ)
-    val size_def = size_def1 |> INST_TYPE (match_type t1 typ)
+    val size_def2 = size_def1 |> INST_TYPE (match_type t1 typ)
+    val size_def = if can pairSyntax.dest_prod typ
+        then SIMP_RULE bool_ss [FUN_EQ_THM, pairTheory.FORALL_PROD,
+            pairTheory.UNCURRY_DEF] size_def2
+        else size_def2
     val (mrec, other_tyinvs) = get_size_rec_Type_insts size_def
     val goal = map (mk_EqType_size_prop o fst) mrec |> list_mk_conj
-    val assum_eqtys = map ml_translatorSyntax.mk_EqualityType other_tyinvs
+    val assum_eqtys = map ml_translatorSyntax.mk_EqualityType
+        (mk_set other_tyinvs)
     val assums = if null assum_eqtys then [] else [list_mk_conj assum_eqtys]
     val defs = size_def :: map (guess_const_def o fst o strip_comb o snd) mrec
     val datatypes = map (fst o dom_rng o type_of o fst) mrec
         @ [semanticPrimitivesSyntax.v_ty, semanticPrimitivesSyntax.stamp_ty,
             optionSyntax.mk_option alpha, pairSyntax.mk_prod (alpha, alpha)]
     val simps = map (#rewrs o TypeBase.simpls_of) datatypes |> List.concat
-    val step1 = TAC_PROOF ((assums, goal),
-        prove_EqualityType_tac simps defs)
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
-  in TAC_PROOF ((assums, final_goal),
-    MATCH_MP_TAC (ISPEC (fst (hd mrec)) EqualityType_measure)
-      \\ simp_tac bool_ss [step1]) |> DISCH_ALL end
+  in (list_mk_imp (assums, final_goal),
+    ASSUM_LIST (fn _ => let
+        val measure_thm = ISPEC (fst (hd mrec)) EqualityType_measure
+        val t = TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)
+      in simp_tac bool_ss [measure_thm, DISCH_ALL t] end))
+  end
 
 fun define_ref_inv is_exn_type tys = let
   val is_pair_type = tys_is_pair_type tys
@@ -1264,8 +1271,9 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type *)
-  val eq_lemmas = map (fn ty => do_EqualityType_proof ty
-    handle HOL_ERR _ => TRUTH) tys
+  val eq_lemmas = map (fn ty => mk_EqualityType_proof ty
+        handle HOL_ERR _ => (T, simp_tac bool_ss [])) tys
+    |> map prove
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   in (name,res) end;
