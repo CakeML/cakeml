@@ -1,4 +1,4 @@
-open preamble int_bitwiseTheory bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
+open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory
      labPropsTheory whileTheory set_sepTheory semanticsPropsTheory
@@ -10,9 +10,9 @@ local open gen_gcTheory in end
 val _ = new_theory "data_to_word_assignProof";
 
 val _ = set_grammar_ancestry
-  ["wordSem", "dataSem", "data_to_word",
-   "data_to_word_memoryProof",
-   "data_to_word_gcProof"
+  ["data_to_word_memoryProof",
+   "data_to_word_gcProof",
+   "dataSem", "wordSem", "data_to_word"
   ];
 
 fun drule0 th =
@@ -36,16 +36,13 @@ fun rpt_drule0 th = drule0 (th |> GEN_ALL) \\ rpt (disch_then drule0 \\ fs [])
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
-val do_app = LIST_CONJ [dataSemTheory.do_app_def,do_space_def,
+val do_app = LIST_CONJ [do_app_def,do_app_aux_def,do_space_def,
   data_spaceTheory.op_space_req_def,
-  bvi_to_dataTheory.op_space_reset_def, bviSemTheory.do_app_def,
-  bviSemTheory.do_app_aux_def, bvlSemTheory.do_app_def]
+  dataLangTheory.op_space_reset_def]
 
 val eval_tac = fs [wordSemTheory.evaluate_def,
   wordSemTheory.word_exp_def, wordSemTheory.set_var_def, set_var_def,
-  bvi_to_data_def, wordSemTheory.the_words_def,
-  bviSemTheory.bvl_to_bvi_def, data_to_bvi_def,
-  bviSemTheory.bvi_to_bvl_def,wordSemTheory.mem_load_def,
+  wordSemTheory.the_words_def, wordSemTheory.mem_load_def,
   wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
 
 (* This list must list all auxiliary definitions used in assign_def *)
@@ -311,9 +308,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs`,
   fs [RefArray_code_def]
-  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
-         bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
-         bviSemTheory.do_app_aux_def]
+  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,do_app_aux_def]
   \\ Cases_on `vals` \\ fs []
   \\ Cases_on `t'` \\ fs []
   \\ Cases_on `h` \\ fs []
@@ -321,7 +316,6 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
   \\ IF_CASES_TAC \\ fs [] \\ rw []
   \\ drule0 NONNEG_INT \\ strip_tac \\ rveq \\ fs []
   \\ rename1 `get_vars [0; 1] s.locals = SOME [Number (&i); el]`
-  \\ qpat_abbrev_tac `s3 = bvi_to_data _ _`
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
@@ -372,11 +366,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
   \\ strip_tac \\ fs [set_vars_sing]
   \\ reverse IF_CASES_TAC \\ fs []
   \\ rveq \\ fs []
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ qabbrev_tac `new = LEAST ptr. ptr ∉ FDOM s.refs`
   \\ `new ∉ FDOM s.refs` by metis_tac [LEAST_NOTIN_FDOM]
@@ -495,7 +485,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
   \\ pop_assum mp_tac \\ fs []
   \\ strip_tac \\ fs []
   \\ simp [state_rel_thm]
-  \\ qunabbrev_tac `s3` \\ fs []
+  \\ fs []
   \\ fs [lookup_def]
   \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _` mp_tac
   \\ fs [EVAL ``join_env LN []``]
@@ -552,7 +542,7 @@ fun sort_tac n =
 
 val evaluate_WriteLastBytes = Q.store_thm("evaluate_WriteLastBytes",
   `good_dimindex(:'a) ∧ w2n n < dimindex(:'a) DIV 8 ∧
-   get_vars [av;bv;nv] (s:('a,'c,'ffi)state) = SOME [Word (a:'a word); Word b; Word n] ∧
+   get_vars [av;bv;nv] (s:('a,'c,'ffi)wordSem$state) = SOME [Word (a:'a word); Word b; Word n] ∧
    byte_aligned a ∧ a ∈ s.mdomain ∧ s.memory a = Word w
   ⇒
    evaluate (WriteLastBytes av bv nv,s) =
@@ -622,9 +612,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
                 r [(v,rv)] locs`,
   qpat_abbrev_tac`tag = if fl then _ else _`
   \\ fs [RefByte_code_def]
-  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset (RefByte fl)``,
-         bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
-         bviSemTheory.do_app_aux_def]
+  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset (RefByte fl)``,do_app_aux_def]
   \\ Cases_on `vals` \\ fs []
   \\ Cases_on `t'` \\ fs []
   \\ Cases_on `h` \\ fs []
@@ -634,7 +622,6 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ `good_dimindex (:'a)` by fs [state_rel_def]
   \\ drule0 NONNEG_INT \\ strip_tac \\ rveq \\ fs []
   \\ rename1 `get_vars [0; 1; 2] s.locals = SOME [Number (&i); Number (&w2n w); Number &tag]`
-  \\ qpat_abbrev_tac `s3 = bvi_to_data _ _`
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_NUM_compute]
@@ -693,11 +680,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ strip_tac \\ fs [set_vars_sing]
   \\ reverse IF_CASES_TAC \\ fs []
   \\ rveq \\ fs []
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ qabbrev_tac `new = LEAST ptr. ptr ∉ FDOM s.refs`
   \\ `new ∉ FDOM s.refs` by metis_tac [LEAST_NOTIN_FDOM]
@@ -856,7 +839,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
     simp[Once wordSemTheory.evaluate_def,
          wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.call_env_def]
-    \\ fs[state_rel_thm,Abbr`s3`,fromList2_def,lookup_def]
+    \\ fs[state_rel_thm,fromList2_def,lookup_def]
     \\ fs[make_ptr_def,join_env_NIL,FAPPLY_FUPDATE_THM]
     \\ fs[WORD_MUL_LSL,word_mul_n2w]
     \\ `4 * byte_len (:'a) i = 0`
@@ -912,7 +895,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
       \\ fs [IMP_LESS_MustTerminate_limit])
     \\ fs [WORD_MUL_LSL,word_mul_n2w]
     \\ disch_then kall_tac
-    \\ simp[state_rel_thm,Abbr`s3`,lookup_def]
+    \\ simp[state_rel_thm,lookup_def]
     \\ fs[make_ptr_def,join_env_NIL,FAPPLY_FUPDATE_THM]
     \\ fs [WORD_MUL_LSL,word_mul_n2w]
     \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
@@ -1016,7 +999,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ simp[WORD_MUL_LSL,n2w_sub,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ disch_then kall_tac
   \\ simp [state_rel_thm]
-  \\ qunabbrev_tac `s3` \\ fs []
+  \\ fs []
   \\ fs [lookup_def]
   \\ qhdtm_x_assum `memory_rel` mp_tac
   \\ fs [EVAL ``join_env LN []``,code_oracle_rel_def,FLOOKUP_UPDATE]
@@ -1206,18 +1189,18 @@ val FromList_thm = Q.store_thm("FromList_thm",
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs`,
-  fs [dataSemTheory.do_app_def,bviSemTheory.do_app_def,
-      bviSemTheory.do_app_aux_def,dataSemTheory.do_space_def,
-      bvi_to_dataTheory.op_space_reset_def]
-  \\ CASE_TAC \\ fs []
-  \\ Cases_on `v1 = Number (&LENGTH x)` \\ fs []
+  fs [do_app_def,do_app_aux_def,do_space_def,
+      dataLangTheory.op_space_reset_def]
+  \\ Cases_on `v_to_list v2` \\ fs [with_fresh_ts_def]
+  \\ reverse (Cases_on `v1 = Number (&LENGTH x)`)
+  >- (Cases_on `x` \\ fs [])
   \\ fs [LENGTH_NIL] \\ strip_tac \\ rveq \\ fs [FromList_code_def]
   \\ once_rewrite_tac [wordSemTheory.evaluate_def]
   \\ rpt_drule0 state_rel_get_vars_IMP
   \\ fs[wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def]
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_3]
   \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF,get_vars_SOME_IFF_data]
-  \\ qpat_assum `get_var 0 s.locals = SOME (Number (&LENGTH x))` assume_tac
+  \\ qpat_assum `get_var 0 s.locals = SOME (Number _)` assume_tac
   \\ rpt_drule0 state_rel_IMP_test_zero
   \\ fs [adjust_var_def] \\ strip_tac \\ fs [] \\ rveq
   \\ `small_int (:α) (&(4 * tag))` by
@@ -1231,7 +1214,9 @@ val FromList_thm = Q.store_thm("FromList_thm",
            wordSemTheory.get_var_def,adjust_var_def,wordSemTheory.set_var_def]
     \\ rveq \\ fs [lookup_insert]
     \\ `lookup 0 t.locals = SOME (Loc l1 l2)` by fs [state_rel_def] \\ fs []
-    \\ fs [state_rel_thm,wordSemTheory.call_env_def,lookup_def]
+    \\ fs [state_rel_thm,wordSemTheory.call_env_def,lookup_def,with_fresh_ts_def]
+    \\ reverse (Cases_on `s.tstamps`)
+    \\ fs [] \\ rveq
     \\ fs [EVAL ``(toAList (inter (fromList2 []) (insert 0 () LN)))`` ]
     \\ fs [EVAL ``join_env LN []``,lookup_insert]
     \\ fs [BlockNil_def,Smallnum_def,WORD_MUL_LSL,word_mul_n2w]
@@ -1338,7 +1323,15 @@ val FromList_thm = Q.store_thm("FromList_thm",
     \\ fs [memory_rel_def,heap_in_memory_store_def]
     \\ fs [labPropsTheory.good_dimindex_def] \\ rfs [])
   \\ rpt_drule0 memory_rel_FromList
-  \\ impl_tac THEN1
+  \\ Cases_on `x` \\  fs []
+  \\ qabbrev_tac `x = h::t'`
+  \\ `x ≠ []` by rw [Abbr `x`]
+  \\ qpat_x_assum `Abbrev _` (K ALL_TAC)
+  \\ Cases_on `s.tstamps`
+  \\ fs [] \\ rveq
+  \\ TRY (qpat_assum `s.tstamps = NONE` (K (disch_then (mp_tac o Q.SPEC `0`))))
+  \\ TRY (qpat_assum `s.tstamps = SOME _` (K (disch_then (mp_tac o Q.SPEC `x''`))))
+  \\ (impl_tac THEN1
     (fs [Abbr `s0`,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
   \\ strip_tac
   \\ disch_then drule0
@@ -1350,7 +1343,7 @@ val FromList_thm = Q.store_thm("FromList_thm",
   \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE]
   \\ drule0 memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
-  \\ fs [] \\ rw [] \\ fs []);
+  \\ fs [] \\ rw [] \\ fs []));
 
 val get_var_get_real_addr_lemma =
     GEN_ALL(CONV_RULE(LAND_CONV(move_conj_left(
@@ -1759,7 +1752,7 @@ val MAP_Word64_11 = prove(
   Induct \\ Cases_on `ns'` \\ fs []);
 
 val v_to_list_EQ_SOME_NIL = store_thm("v_to_list_EQ_SOME_NIL",
-  ``v_to_list hv1 = SOME [] <=> hv1 = Block 0 []``,
+  ``v_to_list hv1 = SOME [] <=> ∃ts. hv1 = Block ts 0 []``,
   Cases_on `hv1` \\ fs [v_to_list_def]
   \\ Cases_on `l` \\ fs [v_to_list_def] \\ EVAL_TAC
   \\ Cases_on `t` \\ fs [v_to_list_def]
@@ -2036,8 +2029,8 @@ val th = Q.store_thm("assign_Install",
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ clean_tac
   \\ rename1 `get_vars [v1;v2;v3;v4] _ =
         SOME [hv1;hv2; Number (&LENGTH q1); Number (&LENGTH q2)]`
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs []
   \\ fs [cut_state_opt_def,cut_state_def]
@@ -2724,11 +2717,6 @@ val th = Q.store_thm("assign_CopyByte",
     \\ rename1 `LENGTH args = SUC (LENGTH rest)` \\ Cases_on `rest` \\ fs []
     \\ rename1 `_ = SUC(SUC (LENGTH rest))` \\ Cases_on `rest` \\ fs []
     \\ rename1 `_ = SUC(SUC(SUC (LENGTH rest)))` \\ Cases_on `rest` \\ fs []
-    THEN1
-     (rename1 `_ = SOME [h1;h2;h3]`
-      \\ Cases_on `h3` \\ fs []
-      \\ Cases_on `h2` \\ fs []
-      \\ Cases_on `h1` \\ fs [])
     \\ rename1 `_ = SUC(SUC(SUC(SUC (LENGTH rest))))`
     \\ Cases_on `rest` \\ fs []
     \\ rename1 `_ = SUC(SUC(SUC(SUC(SUC (LENGTH rest)))))`
@@ -2740,10 +2728,10 @@ val th = Q.store_thm("assign_CopyByte",
     \\ Cases_on `h2` \\ fs []
     \\ Cases_on `h1` \\ fs [])
   \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
-  \\ rename1 `FLOOKUP (data_to_bvi x).refs dst = SOME (ByteArray ys_fl ys)`
-  \\ rename1 `FLOOKUP (data_to_bvi x).refs src = SOME (ByteArray xs_fl xs)`
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
+  \\ rename1 `FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys)`
+  \\ rename1 `FLOOKUP x.refs src = SOME (ByteArray xs_fl xs)`
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def,
          wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,
@@ -2768,7 +2756,11 @@ val th = Q.store_thm("assign_CopyByte",
   \\ `x = s1.locals` by fs [Abbr`s1`]
   \\ pop_assum (fn th => rewrite_tac [th]) \\ strip_tac
   \\ rpt_drule0 memory_rel_lookup_var_IMP \\ strip_tac
-  \\ fs [EVAL ``(data_to_bvi x).refs``]
+  \\ fs []
+  \\ `s.refs = s1.refs`     by rw [Abbr `s1`]
+  \\ `s.space = s1.space`   by rw [Abbr `s1`]
+  \\ `s.global = s1.global` by rw [Abbr `s1`]
+  \\ `s.stack  = s1.stack`  by rw [Abbr `s1`]
   \\ `?xp yp len_n.
         srcoff = &xp /\ xp < dimword (:'a) DIV 8 /\
         dstoff = &yp /\ yp < dimword (:'a) DIV 8 /\
@@ -3138,8 +3130,52 @@ val th = Q.store_thm("assign_CopyByte",
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])));
 
-val v_to_list_IFF_list_to_v = store_thm("v_to_list_IFF_list_to_v",
-  ``!r2 in2. bvlSem$v_to_list r2 = SOME in2 <=> r2 = bvlSem$list_to_v in2``,
+(* This equality captures all the information that is preserved
+   after `v_to_list` *)
+val eq_upto_ts_def = tDefine"eq_upto_ts"`
+  eq_upto_ts (Block _ tag1 []) (Block _ tag2 []) = (tag1 = tag2)
+∧ eq_upto_ts (Block _ tag1 (x1::xs1)) (Block _ tag2 (x2::xs2)) =
+    (tag1 = tag2 ∧ x1 = x2 ∧ EVERY2 eq_upto_ts xs1 xs2)
+∧ eq_upto_ts x y = (x = y)`
+(wf_rel_tac `measure (\(x,y). v_size x + v_size y)`
+\\ rw [v1_size_map]
+\\ ho_match_mp_tac LESS_TRANS
+\\ Q.EXISTS_TAC `SUM (MAP v_size xs1) + SUM (MAP v_size xs2) + 1`
+\\ fs [Once MEM_SPLIT_APPEND_first,SUM_APPEND])
+;
+
+val _ = Parse.add_infix("≅ts",425,Parse.NONASSOC);
+val _ = Parse.overload_on("≅ts",``eq_upto_ts``);
+
+val eq_imp_upto_ts = Q.store_thm("eq_imp_upto_ts",
+  `∀x y. x = y ⇒  x ≅ts y`,
+  ho_match_mp_tac (theorem "eq_upto_ts_ind")
+  \\ rw [eq_upto_ts_def]
+  \\ Induct_on `xs1` \\ rw [eq_upto_ts_def]
+);
+
+val eq_upto_ts_refl = Q.store_thm("eq_upto_ts_refl",
+  `∀v. v ≅ts v`,
+  Induct
+  \\ rw [eq_upto_ts_def]
+  \\ Induct_on `l` \\ rw [eq_upto_ts_def,eq_imp_upto_ts]
+  \\ Induct_on `l` \\ rw [eq_upto_ts_def,eq_imp_upto_ts]
+);
+
+
+val v_to_list_IFF_list_to_v = Q.store_thm("v_to_list_IFF_list_to_v",
+  `!r2 in2. v_to_list r2 = SOME in2 <=> ?r3. r3 = list_to_v in2 /\ r2 ≅ts r3`,
+  recInduct v_to_list_ind
+  \\ rw [] \\ fs [v_to_list_def,list_to_v_def,eq_upto_ts_def]
+  \\ TRY (eq_tac \\ rw [list_to_v_def,eq_upto_ts_def])
+  \\ fs [v_to_list_def,list_to_v_def,eq_upto_ts_def]
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
+  \\ rveq \\ fs [list_to_v_def,eq_upto_ts_def,eq_upto_ts_refl]
+  \\ Cases_on `in2` \\ fs [list_to_v_def,eq_upto_ts_def,eq_upto_ts_refl]
+);
+
+val v_to_list_SOME_NIL_IFF = store_thm("v_to_list_SOME_NIL_IFF",
+  ``!v. v_to_list v = SOME [] <=> ?ts. v = Block ts nil_tag []``,
   recInduct v_to_list_ind
   \\ rw [] \\ fs [v_to_list_def,list_to_v_def]
   \\ TRY (eq_tac \\ rw [list_to_v_def])
@@ -3148,17 +3184,114 @@ val v_to_list_IFF_list_to_v = store_thm("v_to_list_IFF_list_to_v",
   \\ rveq \\ fs [list_to_v_def]
   \\ Cases_on `in2` \\ fs [list_to_v_def]);
 
-val v_to_list_SOME_NIL_IFF = store_thm("v_to_list_SOME_NIL_IFF",
-  ``v_to_list v = SOME [] <=> v = Block nil_tag []``,
-  fs [v_to_list_IFF_list_to_v,list_to_v_def]);
-
 val v_to_list_SOME_CONS_IMP = store_thm("v_to_list_SOME_CONS_IMP",
-  ``v_to_list v = SOME (x::xs) ==> ?y1 y2. v = Block cons_tag [y1;y2]``,
-  fs [v_to_list_IFF_list_to_v,list_to_v_def]);
+  ``v_to_list v = SOME (x::xs) ==> ?ts ys. v = Block ts cons_tag [x;ys] ∧
+                                        ys ≅ts list_to_v xs``,
+  Cases_on `v`
+  \\ rw [v_to_list_IFF_list_to_v,list_to_v_def,eq_upto_ts_def]
+  \\ Cases_on `l` \\ fs [v_to_list_IFF_list_to_v,list_to_v_def,eq_upto_ts_def]
+);
+
+val eq_upto_ts_list_to_v_Block = Q.store_thm("eq_upto_ts_list_to_v_Block",
+  `∀v vl. v ≅ts list_to_v vl ⇒ ∃ts t l. v = Block ts t l`,
+  rw [] \\ Cases_on `vl` \\ Cases_on `v` \\ fs [list_to_v_def,eq_upto_ts_def]
+);
+
+val eq_upto_ts_list_to_v_Cons = Q.store_thm("eq_upto_ts_list_to_v_Cons",
+  `∀v vl vs. v ≅ts list_to_v (vs::vl) ⇒ ∃ts t l. v = Block ts t (vs::l)`,
+  rw [] \\ Cases_on `vl` \\ Cases_on `v` \\ fs [list_to_v_def,eq_upto_ts_def]
+  \\ Cases_on `l` \\ fs [list_to_v_def,eq_upto_ts_def]
+);
+
 
 val v_to_list_IMP_list_to_v = store_thm("v_to_list_IMP_list_to_v",
-  ``!r2 in2. bvlSem$v_to_list r2 = SOME in2 ==> r2 = bvlSem$list_to_v in2``,
-  fs [v_to_list_IFF_list_to_v,list_to_v_def]);
+  ``!r2 in2. v_to_list r2 = SOME in2 ==> ?r3. r3 = list_to_v in2 ∧ r2 ≅ts r3``,
+  fs [v_to_list_IFF_list_to_v]
+);
+
+
+val eq_upto_ts_get_refs = Q.store_thm("eq_upto_ts_get_refs",
+  `∀x y. x ≅ts y ⇒ get_refs x = get_refs y`,
+  ho_match_mp_tac (theorem "eq_upto_ts_ind")
+  \\ rw [eq_upto_ts_def,get_refs_def]
+  \\ rw [eq_upto_ts_def,get_refs_def]
+  \\ AP_TERM_TAC
+  \\ rw [MAP_EQ_EVERY2]
+  >- METIS_TAC [GEN_ALL LIST_REL_LENGTH]
+  \\ ntac 2 (last_x_assum mp_tac)
+  \\ EVERY (map Q.SPEC_TAC [(`xs2`,`y`),(`xs1`,`x`)])
+  \\ ho_match_mp_tac LIST_REL_ind
+  \\ rw []
+);
+
+val eq_upto_ts_get_refs_map = Q.store_thm("eq_upto_ts_get_refs_map",
+  `∀x y.
+    LIST_REL (λa' a. a' ≅ts a) x y
+    ⇒ MAP (λa. get_refs a) x  = MAP (λa. get_refs a) y`,
+  Induct
+  \\ rw []
+  \\ rw [eq_upto_ts_get_refs]
+);
+
+val eq_upto_ts_reachable_refs = Q.store_thm("eq_upto_ts_reachable_refs",
+  `∀v v' vars refs n.
+    v ≅ts v' ⇒ reachable_refs (v::vars) refs n = reachable_refs (v'::vars) refs n`,
+  ho_match_mp_tac (theorem "eq_upto_ts_ind")
+  \\ rw [eq_upto_ts_def,reachable_refs_def]
+  \\ EQ_TAC \\ rw []
+  >- (EVERY (map Q.EXISTS_TAC [`Block v' tag1 []`,`r`]) \\ fs [get_refs_def])
+  >- (EVERY (map Q.EXISTS_TAC [`x`,`r`]) \\ fs [get_refs_def])
+  >- (EVERY (map Q.EXISTS_TAC [`Block v0 tag1 []`,`r`]) \\ fs [get_refs_def])
+  >- (EVERY (map Q.EXISTS_TAC [`x`,`r`]) \\ fs [get_refs_def])
+  >- (EVERY (map Q.EXISTS_TAC [`Block v3 tag1 (x1::xs2)`,`r`])
+     \\ first_assum (mp_then Any assume_tac eq_upto_ts_get_refs_map)
+     \\ fs [get_refs_def,eq_upto_ts_get_refs_map])
+  >- (EVERY (map Q.EXISTS_TAC [`x`,`r`]) \\ fs [get_refs_def])
+  >- (EVERY (map Q.EXISTS_TAC [`Block v2 tag1 (x1::xs1)`,`r`])
+     \\ first_assum (mp_then Any assume_tac eq_upto_ts_get_refs_map)
+     \\ fs [get_refs_def,eq_upto_ts_get_refs_map])
+  >- (EVERY (map Q.EXISTS_TAC [`x`,`r`]) \\ fs [get_refs_def])
+);
+
+val eq_upto_ts_v_inv = Q.store_thm("eq_upto_ts_v_inv",
+  `∀v lv c w f heap.
+  v ≅ts list_to_v lv ∧ v_inv c v (w,f,heap) ⇒ v_inv c (list_to_v lv) (w,f,heap)`,
+  `∀v v'. v ≅ts v'
+   ⇒ ∀lv c w f heap. v' = list_to_v lv ∧ v_inv c v (w,f,heap)
+      ⇒ v_inv c v' (w,f,heap)`
+  suffices_by METIS_TAC []
+  \\ ho_match_mp_tac (theorem "eq_upto_ts_ind")
+  \\ rw [eq_upto_ts_def,v_inv_def]
+  \\ fs [list_to_v_def]
+  >- (Cases_on `lv` \\ fs [list_to_v_def])
+  >- (Q.EXISTS_TAC `x'::ys` \\ rw []
+     \\ pop_assum (K ALL_TAC)
+     \\ Induct_on `ys`
+     \\ rw [] \\ fs []
+     \\ rw []
+     \\ Cases_on `lv` \\ fs [list_to_v_def]
+     \\ rveq \\ fs [])
+  \\ Cases_on `lv` \\ fs [list_to_v_def]
+);
+
+val eq_upto_ts_mem_rel = Q.store_thm("eq_upto_ts_mem_rel",
+  `∀v vl c be refs sp m dm st l vars.
+    v ≅ts (list_to_v vl) ∧ memory_rel c be refs sp st m dm ((v,l)::vars)
+    ⇒ memory_rel c be refs sp st m dm ((list_to_v vl,l)::vars)`,
+
+  `∀v v'. v ≅ts v'
+    ⇒ ∀vl c be refs sp m dm st l vars.
+       v' = list_to_v vl ∧ memory_rel c be refs sp st m dm ((v,l)::vars)
+       ⇒ memory_rel c be refs sp st m dm ((v',l)::vars)`
+  suffices_by METIS_TAC []
+  \\ ho_match_mp_tac (theorem "eq_upto_ts_ind")
+  \\ rw [eq_upto_ts_def,v_inv_def]
+  \\ fs [list_to_v_def,memory_rel_def]
+  \\ EVERY (map Q.EXISTS_TAC [`heap`,`limit`,`a`,`sp'`,`sp1`,`gens`])
+  \\ fs [word_ml_inv_def] \\ Q.EXISTS_TAC `hs` \\ rw []
+  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def] \\ Q.EXISTS_TAC `f` \\ rw []
+  \\ METIS_TAC [eq_upto_ts_def,eq_upto_ts_v_inv,eq_upto_ts_reachable_refs]
+);
 
 val evaluate_AppendMainLoop_code = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free.
@@ -3609,8 +3742,8 @@ val th = Q.store_thm("assign_ListAppend",
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP
   \\ fs [assign_def] \\ rveq
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app]
@@ -3671,12 +3804,8 @@ val th = Q.store_thm("assign_ListAppend",
       \\ fs [EXTENSION,domain_lookup,lookup_fromAList])
     \\ fs [wordSemTheory.set_var_def,set_var_def]
     \\ fs [state_rel_thm]
-    \\ fs [bviSemTheory.bvl_to_bvi_def,lookup_insert,
-         bviSemTheory.bvi_to_bvl_def,adjust_var_11,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_var_def]
+    \\ fs [lookup_insert,adjust_var_11, call_env_def,
+           push_env_def,set_var_def,wordSemTheory.set_var_def]
     \\ strip_tac THEN1
      (drule env_to_list_lookup_equiv \\ strip_tac
       \\ fs [lookup_fromAList,wordSemTheory.cut_env_def]
@@ -3697,17 +3826,27 @@ val th = Q.store_thm("assign_ListAppend",
     \\ disch_then (qspec_then `0` mp_tac) \\ fs []
     \\ fs [join_env_def]
     \\ match_mp_tac (METIS_PROVE [] ``x = y ==> x ==> y``)
-    \\ AP_TERM_TAC \\ AP_TERM_TAC \\ fs []
-    \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
-    \\ fs [spt_eq_thm,lookup_inter_alt]
-    \\ rw [] \\ fs []
-    \\ drule env_to_list_lookup_equiv
-    \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
-    \\ rpt strip_tac \\ fs []
-    \\ fs [wordSemTheory.cut_env_def,cut_env_def] \\ rveq
-    \\ fs [lookup_inter_alt] \\ rw []
-    \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
-    \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])
+    \\ sg `inter t.locals (adjust_set x) = inter (fromAList q) (adjust_set x)`
+    >- (fs [spt_eq_thm,lookup_inter_alt]
+        \\ rw [] \\ fs []
+        \\ drule env_to_list_lookup_equiv
+        \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
+        \\ rpt strip_tac \\ fs []
+        \\ fs [wordSemTheory.cut_env_def,cut_env_def] \\ rveq
+        \\ fs [lookup_inter_alt] \\ rw []
+        \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
+        \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])
+    (* ASK: is there a better way?  *)
+    \\ qpat_x_assum `memory_rel _ _ _ _ _ _ _ _` mp_tac
+    \\ ONCE_ASM_REWRITE_TAC []
+    \\ qmatch_goalsub_abbrev_tac `((r2,h')::refs)`
+    \\ rw []
+    \\ EQ_TAC \\ rw []
+    >- rpt_drule0 eq_upto_ts_mem_rel
+    (* Not a fan *)
+    >- (pop_assum (K ALL_TAC)
+       \\ rpt_drule0 memory_rel_zero_space
+        \\ rw []))
   \\ `?ww. h = Word ww /\ (1w && ww) <> 0w` by
    (imp_res_tac v_to_list_SOME_CONS_IMP \\ rveq \\ fs []
     \\ qpat_x_assum `state_rel c l1 l2 s1 t [] locs` mp_tac
@@ -3754,6 +3893,9 @@ val th = Q.store_thm("assign_ListAppend",
   \\ drule (GEN_ALL memory_rel_get_vars_IMP)
   \\ fs [Abbr`s1`] \\ fs [] \\ disch_then drule
   \\ fs [wordSemTheory.get_vars_def] \\ strip_tac
+  (* MEM *)
+  \\ qpat_assum `r1 ≅ts _` (mp_then Any assume_tac eq_upto_ts_mem_rel)
+  \\ pop_assum drule \\ disch_tac
   \\ drule memory_rel_space_max
   \\ simp [] \\ strip_tac \\ fs []
   \\ drule (GEN_ALL memory_rel_IMP_word_list_exists) \\ fs []
@@ -3788,12 +3930,9 @@ val th = Q.store_thm("assign_ListAppend",
     \\ fs []
     \\ fs [wordSemTheory.set_var_def,set_var_def]
     \\ fs [state_rel_thm]
-    \\ fs [bviSemTheory.bvl_to_bvi_def,lookup_insert,
-         bviSemTheory.bvi_to_bvl_def,adjust_var_11,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_var_def]
+    \\ fs [lookup_insert,adjust_var_11,
+           call_env_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_var_def]
     \\ strip_tac THEN1
       fs [code_oracle_rel_def, FLOOKUP_UPDATE]
     \\ strip_tac THEN1
@@ -3820,7 +3959,14 @@ val th = Q.store_thm("assign_ListAppend",
       \\ HINT_EXISTS_TAC
       \\ rw [] \\ fs [])
     \\ map_every qunabbrev_tac [`A`,`B`,`C`]
-    \\ rpt_drule0 memory_rel_append
+    (* MEM r2 *)
+    \\ qpat_assum `r2 ≅ts _` (mp_then Any assume_tac eq_upto_ts_mem_rel)
+    \\ fs []
+    \\ pop_assum drule \\ disch_tac
+    (* This is quite fiddly  *)
+    \\ pop_assum (ASSUME_TAC o ONCE_REWRITE_RULE [GSYM APPEND_ASSOC])
+    \\ pop_assum (ASSUME_TAC o ONCE_REWRITE_RULE [GSYM APPEND_ASSOC])
+    \\ rpt_drule0 (memory_rel_append  |> SIMP_RULE std_ss [APPEND])
     \\ simp [make_cons_ptr_def]
     \\ impl_keep_tac
     >- fs [Abbr`init_ptr`, get_lowerbits_def, make_header_def, encode_header_def]
@@ -3941,7 +4087,7 @@ val th = Q.store_thm("assign_ListAppend",
     \\ fs [lookup_insert])
   \\ disch_then drule \\ fs []
   \\ `dataSem$cut_env ss s3.locals = SOME
-          (fromList [list_to_v (i1::in1); list_to_v in2])` by
+          (fromList [r1; r2])` by
     (fs [Abbr`s3`,Abbr`ss`,dataSemTheory.cut_env_def] \\ EVAL_TAC)
   \\ fs []
   \\ qmatch_asmsub_abbrev_tac `insert 1 (Word ww11)`
@@ -3982,7 +4128,7 @@ val th = Q.store_thm("assign_ListAppend",
   \\ strip_tac
   \\ fs [list_Seq_def,wordSemTheory.evaluate_def,eq_eval]
   \\ qmatch_assum_abbrev_tac `state_rel c n l s4 _ _ _`
-  \\ `dataSem$get_vars [0;1] s4.locals = SOME [list_to_v (i1::in1); list_to_v in2]`
+  \\ `dataSem$get_vars [0;1] s4.locals = SOME [r1; r2]`
     by (qunabbrev_tac `s4` \\ fs [get_vars_SOME_IFF_data] \\ EVAL_TAC)
   \\ rpt_drule0 state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -4018,6 +4164,9 @@ val th = Q.store_thm("assign_ListAppend",
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,
            EVAL ``MAP adjust_var [0; 1]``,list_to_v_def]
   \\ strip_tac
+  \\ first_assum (mp_then Any assume_tac eq_upto_ts_list_to_v_Cons)
+  \\ first_assum (mp_then Any assume_tac eq_upto_ts_list_to_v_Block)
+  \\ fs [] \\ fs []
   \\ rpt_drule0 memory_rel_Block_IMP
   \\ strip_tac \\ fs []
   \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
@@ -4044,6 +4193,10 @@ val th = Q.store_thm("assign_ListAppend",
   \\ SEP_I_TAC "evaluate"
   \\ fs [lookup_insert,FLOOKUP_UPDATE]
   \\ fs [GSYM list_to_v_def]
+  \\ pop_assum mp_tac
+  \\ qpat_assum `Block ts _ _ ≅ts _` (mp_then Any assume_tac eq_upto_ts_mem_rel)
+  \\ pop_assum drule \\ disch_tac
+  \\ disch_tac
   \\ pop_assum drule \\ fs []
   \\ disch_then (qspec_then `0` mp_tac)
   \\ simp [markerTheory.Abbrev_def]
@@ -4085,12 +4238,9 @@ val th = Q.store_thm("assign_ListAppend",
   \\ fs []
   \\ fs [wordSemTheory.set_var_def,set_var_def]
   \\ fs [state_rel_thm]
-  \\ fs [bviSemTheory.bvl_to_bvi_def,lookup_insert,
-         bviSemTheory.bvi_to_bvl_def,adjust_var_11,
-         dataSemTheory.bvi_to_data_def,
+  \\ fs [lookup_insert,adjust_var_11,
          dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_var_def]
+         push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.dec_clock_def,dataSemTheory.dec_clock_def]
   \\ simp [FAPPLY_FUPDATE_THM,memory_rel_Temp]
   \\ fs [memory_rel_Temp,
@@ -4112,7 +4262,9 @@ val th = Q.store_thm("assign_ListAppend",
     \\ HINT_EXISTS_TAC
     \\ rw [] \\ fs [])
   \\ map_every qunabbrev_tac [`A`,`B`,`C`]
-  \\ rpt_drule0 memory_rel_append
+  \\ qpat_assum `Block ts' _ _ ≅ts _` (mp_then Any assume_tac eq_upto_ts_mem_rel)
+  \\ pop_assum (pop_assum o (fn t => t o SIMP_RULE std_ss [APPEND]) o (mp_then Any assume_tac))
+  \\ rpt_drule0 (memory_rel_append  |> SIMP_RULE std_ss [APPEND])
   \\ simp [make_cons_ptr_def]
   \\ impl_keep_tac
   >- fs [Abbr`init_ptr2`, get_lowerbits_def, make_header_def, encode_header_def]
@@ -4163,8 +4315,7 @@ val th = Q.store_thm("assign_ConfigGC",
     \\ rpt_drule0 (alloc_lemma |> Q.INST [`k`|->`0`])
     \\ fs [EVAL ``alloc_size 0``,get_names_def]
     \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
-    \\ fs [state_rel_thm,set_var_def,bvi_to_data_def,bviSemTheory.bvl_to_bvi_def,
-           data_to_bvi_def,bviSemTheory.bvi_to_bvl_def]
+    \\ fs [state_rel_thm,set_var_def]
     \\ fs [lookup_insert,adjust_var_11]
     \\ strip_tac \\ rw []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -4202,8 +4353,7 @@ val th = Q.store_thm("assign_ConfigGC",
   \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
   \\ rveq \\ fs []
   \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
-  \\ fs [state_rel_thm,set_var_def,bvi_to_data_def,bviSemTheory.bvl_to_bvi_def,
-         data_to_bvi_def,bviSemTheory.bvi_to_bvl_def]
+  \\ fs [state_rel_thm,set_var_def]
   \\ fs [lookup_insert,adjust_var_11]
   \\ strip_tac \\ rw []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -4404,14 +4554,46 @@ val th = Q.store_thm("assign_WordToInt",
   \\ simp[Abbr`w1`,Abbr`w2`]
   \\ simp[w2n_w2w]);
 
+val push_env_tstamps = Q.store_thm("push_env_tstamps",
+ `∀x t s. (push_env x t s).tstamps = s.tstamps`,
+  rw [push_env_def] \\ Cases_on `t` \\ rw [push_env_def]
+);
+
+val dec_clock_tstamps = Q.store_thm("dec_clock_tstamps",
+ `∀s. (dec_clock s).tstamps = s.tstamps`,
+ rw [dataSemTheory.dec_clock_def]
+);
+
+val with_fresh_ts_state = Q.store_thm("with_fresh_ts_state",
+  `∀s ts tag lv.
+    with_fresh_ts s (λts s'. Rval (Block ts tag lv,s')) =
+     Rval (Block (with_fresh_ts s K) tag lv, with_fresh_ts s (λx y. y))`,
+  rw [with_fresh_ts_def] \\ Cases_on `s.tstamps` \\ fs []
+);
+
+val with_fresh_ts_state_eq = Q.store_thm("with_fresh_ts_state_eq",
+  `(∀s. (with_fresh_ts s (λx y. y)).ffi = s.ffi) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).locals = s.locals) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).stack = s.stack) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).global = s.global) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).handler = s.handler) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).code = s.code) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).refs = s.refs) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).compile = s.compile) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).compile_oracle = s.compile_oracle) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).clock = s.clock) ∧
+   (∀s. (with_fresh_ts s (λx y. y)).space = s.space)`,
+   rw [with_fresh_ts_def] \\ Cases_on `s.tstamps` \\ fs []
+);
+
 val th = Q.store_thm("assign_FromList",
   `(?tag. op = FromList tag) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ fs [assign_def] \\ rveq
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app]
@@ -4441,7 +4623,7 @@ val th = Q.store_thm("assign_FromList",
   \\ Cases_on `lookup (adjust_var a2) t.locals` \\ fs []
   \\ fs[cut_env_adjust_set_insert_1]
   \\ `dimword (:α) <> 0` by (assume_tac ZERO_LT_dimword \\ decide_tac)
-  \\ fs [wordSemTheory.dec_clock_def,EVAL ``(data_to_bvi s).refs``]
+  \\ fs [wordSemTheory.dec_clock_def]
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (FromList_code _,t4)`
   \\ rveq
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
@@ -4465,11 +4647,15 @@ val th = Q.store_thm("assign_FromList",
   \\ `4 * tag < dimword (:'a) DIV 16` by (fs [encode_header_def] \\ NO_TAC)
   \\ rpt_drule0 state_rel_IMP_Number_arg
   \\ strip_tac
+  \\ Cases_on `vs` \\ fs [with_fresh_ts_def]
+  \\ Cases_on `s.tstamps` \\ fs []
+  \\ `s1.tstamps = s.tstamps` by rw [Abbr `s1`]
   \\ rpt_drule0 FromList_thm
-  \\ simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
+  \\ (simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
            get_vars_def,get_var_def,lookup_insert,fromList_def,
-           do_space_def,bvi_to_dataTheory.op_space_reset_def,
-           bviSemTheory.do_app_def,do_app,call_env_def]
+           do_space_def,dataLangTheory.op_space_reset_def,
+           call_env_def,do_app_aux_def,with_fresh_ts_def,
+           dec_clock_tstamps,push_env_tstamps]
   \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
   \\ qmatch_assum_abbrev_tac
        `evaluate (FromList_code c,t5) = _`
@@ -4478,16 +4664,17 @@ val th = Q.store_thm("assign_FromList",
        wordSemTheory.push_env_def] \\ pairarg_tac \\ fs [] \\ NO_TAC)
   \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule0 state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
-       Once dataSemTheory.bvi_to_data_def]
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
    (qspecl_then [`FromList_code c`,`t4`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def]
-    \\ Cases_on `r'.stack` \\ fs [] \\ Cases_on `h` \\ fs []
-    \\ rename1 `r2.stack = StackFrame ns opt::t'`
+    \\ Cases_on `r'.stack` \\ fs []
+    \\ qmatch_assum_rename_tac `r'.stack = hr::tr`
+    \\ Cases_on `hr` \\ fs []
+    \\ rename1 `r2.stack = StackFrame ns opt::tr`
     \\ unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
     \\ pairarg_tac \\ Cases_on `opt`
@@ -4500,11 +4687,7 @@ val th = Q.store_thm("assign_FromList",
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.pop_env_def]
   \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
@@ -4523,7 +4706,7 @@ val th = Q.store_thm("assign_FromList",
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
-  \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]));
 
 val th = Q.store_thm("assign_RefByte",
   `(?fl. op = RefByte fl) ==> ^assign_thm_goal`,
@@ -4531,8 +4714,8 @@ val th = Q.store_thm("assign_RefByte",
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ fs [assign_def] \\ rveq
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ qmatch_goalsub_abbrev_tac`Const tag`
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
@@ -4563,7 +4746,7 @@ val th = Q.store_thm("assign_RefByte",
         \\ metis_tac []) \\ fs []
   \\ simp[cut_env_adjust_set_insert_1]
   \\ `dimword (:α) <> 0` by (assume_tac ZERO_LT_dimword \\ decide_tac)
-  \\ fs [wordSemTheory.dec_clock_def,EVAL ``(data_to_bvi s).refs``]
+  \\ fs [wordSemTheory.dec_clock_def]
   \\ qmatch_goalsub_abbrev_tac `RefByte_code c,t4`
   \\ rename1 `lookup (adjust_var a1) _ = SOME w1`
   \\ rename1 `lookup (adjust_var a2) _ = SOME w2`
@@ -4596,7 +4779,7 @@ val th = Q.store_thm("assign_RefByte",
     \\ fs[state_rel_def,dimword_def,good_dimindex_def] )
   \\ `n2w (4 * if fl then 0 else 4) = tag`
   by (rw[Abbr`tag`] )
-  \\ fs [do_app,EVAL ``(data_to_bvi s).refs``]
+  \\ fs [do_app]
   \\ fs [EVAL ``get_var 0 (call_env [x1;x2;x3] y)``]
   \\ disch_then (qspecl_then [`l1`,`l2`,`fl`] mp_tac)
   \\ impl_tac THEN1 EVAL_TAC
@@ -4608,8 +4791,7 @@ val th = Q.store_thm("assign_RefByte",
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule0 state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
-       Once dataSemTheory.bvi_to_data_def]
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
    (qspecl_then [`RefByte_code c`,`t4`] mp_tac
@@ -4630,11 +4812,7 @@ val th = Q.store_thm("assign_RefByte",
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.pop_env_def]
   \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
@@ -4661,8 +4839,8 @@ val th = Q.store_thm("assign_RefArray",
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ fs [assign_def] \\ rveq
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app]
@@ -4685,7 +4863,7 @@ val th = Q.store_thm("assign_RefArray",
        (match_mp_tac (GEN_ALL cut_env_IMP_cut_env) \\ fs []
         \\ metis_tac []) \\ fs []
   \\ `dimword (:α) <> 0` by (assume_tac ZERO_LT_dimword \\ decide_tac)
-  \\ fs [wordSemTheory.dec_clock_def,EVAL ``(data_to_bvi s).refs``]
+  \\ fs [wordSemTheory.dec_clock_def]
   \\ qpat_abbrev_tac `t4 = wordSem$call_env [Loc n l; _; _] _ with clock := _`
   \\ rename1 `get_vars [adjust_var a1; adjust_var a2] t = SOME [w1;w2]`
   \\ rename1 `get_vars [a1; a2] x = SOME [Number i;v2]`
@@ -4707,7 +4885,7 @@ val th = Q.store_thm("assign_RefArray",
   \\ strip_tac
   \\ rpt_drule0 RefArray_thm
   \\ simp [get_vars_def,call_env_def,get_var_def,lookup_fromList]
-  \\ fs [do_app,EVAL ``(data_to_bvi s).refs``]
+  \\ fs [do_app]
   \\ fs [EVAL ``get_var 0 (call_env [x1;x2;x3] y)``]
   \\ disch_then (qspecl_then [`l1`,`l2`] mp_tac)
   \\ impl_tac THEN1 EVAL_TAC
@@ -4719,8 +4897,7 @@ val th = Q.store_thm("assign_RefArray",
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule0 state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
-       Once dataSemTheory.bvi_to_data_def]
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
    (qspecl_then [`RefArray_code c`,`t4`] mp_tac
@@ -4741,11 +4918,7 @@ val th = Q.store_thm("assign_RefArray",
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.pop_env_def]
   \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
@@ -5300,7 +5473,7 @@ val th = Q.store_thm("assign_TagEq",
   \\ reverse IF_CASES_TAC THEN1
    (eval_tac
     \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
-    \\ rename1 `get_vars [a1] x.locals = SOME [Block n5 l5]`
+    \\ rename1 `get_vars [a1] x.locals = SOME [Block t5 n5 l5]`
     \\ `n5 <> tag` by
      (strip_tac \\ clean_tac
       \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs []
@@ -5396,7 +5569,7 @@ val th = Q.store_thm("assign_TagLenEq",
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
-  \\ rename1 `get_vars [a8] x.locals = SOME [Block n8 l8]`
+  \\ rename1 `get_vars [a8] s2.locals = SOME [Block t8 n8 l8]`
   \\ `word_exp (t with locals := insert 1 (Word 0w) t.locals)
         (real_addr c (adjust_var a8)) = SOME (Word a)` by
     (match_mp_tac (GEN_ALL get_real_addr_lemma)
@@ -5563,12 +5736,8 @@ val th = Q.store_thm("assign_Mult",
   \\ IF_CASES_TAC \\ fs []
   THEN1
    (fs [eq_eval,wordSemTheory.set_vars_def,alist_insert_def]
-    \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
     \\ fs [state_rel_thm,lookup_insert,adjust_var_11]
     \\ conj_tac THEN1 (rw [] \\ fs [])
     \\ fs [inter_insert_ODD_adjust_set]
@@ -5590,11 +5759,7 @@ val th = Q.store_thm("assign_Mult",
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
   \\ rewrite_tac [list_Seq_def]
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
   \\ match_mp_tac (eval_Call_Mul |> REWRITE_RULE [list_Seq_def])
@@ -5669,18 +5834,16 @@ val th = Q.store_thm("assign_Div",
     \\ Cases_on `c.has_div` \\ fs [] THEN1
      (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
       \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
-      \\ simp [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
+      \\ simp [state_rel_thm,adjust_var_11,
+           lookup_insert,
+           code_oracle_rel_def,FLOOKUP_UPDATE,
            dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
+           push_env_def,
            dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
-      \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-           dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ fs [state_rel_thm,adjust_var_11,lookup_insert,
+             code_oracle_rel_def,FLOOKUP_UPDATE,
+             dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
       \\ conj_tac THEN1 (rw [] \\ fs [])
       \\ fs [inter_insert_ODD_adjust_set]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -5699,18 +5862,15 @@ val th = Q.store_thm("assign_Div",
        (sg `F` \\ rfs [DIV_LT_X]
         \\ pop_assum mp_tac
         \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
-      \\ simp [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
+      \\ simp [state_rel_thm,adjust_var_11,
+           lookup_insert,
+           code_oracle_rel_def,FLOOKUP_UPDATE,
            dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
+           push_env_def,
            dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
-      \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-           dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ fs [state_rel_thm,adjust_var_11,lookup_insert,code_oracle_rel_def,
+             FLOOKUP_UPDATE,dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
       \\ conj_tac THEN1 (rw [] \\ fs [])
       \\ fs [inter_insert_ODD_adjust_set]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -5752,18 +5912,12 @@ val th = Q.store_thm("assign_Div",
       \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
     \\ fs [list_Seq_def,eq_eval]
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
-    \\ simp [state_rel_thm,bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
-         dataSemTheory.bvi_to_data_def,adjust_var_11,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
-    \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
-         dataSemTheory.bvi_to_data_def,adjust_var_11,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ simp [state_rel_thm,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
+             adjust_var_11,dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ fs [state_rel_thm,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
+           adjust_var_11,dataSemTheory.call_env_def,alist_insert_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
     \\ rveq \\ fs []
     \\ conj_tac THEN1
      (drule0 env_to_list_lookup_equiv \\ fs []
@@ -5801,11 +5955,7 @@ val th = Q.store_thm("assign_Div",
   \\ pop_assum kall_tac
   \\ fs [list_Seq_def]
   \\ once_rewrite_tac [wordSemTheory.evaluate_def] \\ fs []
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
   \\ match_mp_tac (eval_Call_Div |> REWRITE_RULE [list_Seq_def])
@@ -5857,18 +6007,12 @@ val th = Q.store_thm("assign_Mod",
     \\ Cases_on `c.has_div` \\ fs [] THEN1
      (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
       \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
-      \\ simp [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-           dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
-      \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-           dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ simp [state_rel_thm,adjust_var_11,lookup_insert,code_oracle_rel_def,
+               FLOOKUP_UPDATE,dataSemTheory.call_env_def,alist_insert_def,
+               push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ fs [state_rel_thm,adjust_var_11,lookup_insert,code_oracle_rel_def,
+             FLOOKUP_UPDATE,dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
       \\ conj_tac THEN1 (rw [] \\ fs [])
       \\ fs [inter_insert_ODD_adjust_set]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -5898,18 +6042,13 @@ val th = Q.store_thm("assign_Mod",
        (sg `F` \\ rfs [DIV_LT_X]
         \\ pop_assum mp_tac
         \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
-      \\ simp [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-           dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
-      \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
-           bviSemTheory.bvi_to_bvl_def,lookup_insert,
-           dataSemTheory.bvi_to_data_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-           dataSemTheory.call_env_def,alist_insert_def,
-           dataSemTheory.data_to_bvi_def,push_env_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ simp [state_rel_thm,adjust_var_11,lookup_insert,
+               code_oracle_rel_def,FLOOKUP_UPDATE,push_env_def,
+               dataSemTheory.call_env_def,alist_insert_def,
+               dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ fs [state_rel_thm,adjust_var_11,lookup_insert,code_oracle_rel_def,
+             FLOOKUP_UPDATE,dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
       \\ conj_tac THEN1 (rw [] \\ fs [])
       \\ fs [inter_insert_ODD_adjust_set]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -5950,18 +6089,12 @@ val th = Q.store_thm("assign_Mod",
       \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
     \\ fs [list_Seq_def,eq_eval,FLOOKUP_UPDATE]
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
-    \\ simp [state_rel_thm,bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
-         dataSemTheory.bvi_to_data_def,adjust_var_11,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
-    \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
-         dataSemTheory.bvi_to_data_def,adjust_var_11,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ simp [state_rel_thm,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
+             adjust_var_11,dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ fs [state_rel_thm,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
+           adjust_var_11,dataSemTheory.call_env_def,alist_insert_def,
+           push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
     \\ rveq \\ fs []
     \\ conj_tac THEN1
      (drule0 env_to_list_lookup_equiv \\ fs []
@@ -5998,11 +6131,7 @@ val th = Q.store_thm("assign_Mod",
   \\ pop_assum kall_tac
   \\ fs [list_Seq_def]
   \\ once_rewrite_tac [wordSemTheory.evaluate_def] \\ fs []
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
   \\ match_mp_tac (eval_Call_Mod |> REWRITE_RULE [list_Seq_def])
@@ -6659,8 +6788,8 @@ val th = Q.store_thm("assign_Less",
   \\ `lookup Compare_location t.code = SOME (3,Compare_code c)` by
        (fs [state_rel_def,code_rel_def,stubs_def] \\ NO_TAC)
   \\ fs [wordSemTheory.add_ret_loc_def]
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def]
   \\ TOP_CASE_TAC THEN1
    (Cases_on `names_opt` \\ fs []
     \\ fs [cut_state_opt_def,cut_state_def]
@@ -6797,8 +6926,8 @@ val th = Q.store_thm("assign_LessEq",
   \\ `lookup Compare_location t.code = SOME (3,Compare_code c)` by
        (fs [state_rel_def,code_rel_def,stubs_def] \\ NO_TAC)
   \\ fs [wordSemTheory.add_ret_loc_def]
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def]
   \\ TOP_CASE_TAC THEN1
    (Cases_on `names_opt` \\ fs []
     \\ fs [cut_state_opt_def,cut_state_def]
@@ -7344,8 +7473,8 @@ val th = Q.store_thm("assign_Equal" ,
   \\ `lookup Equal_location t.code = SOME (3,Equal_code c)` by
        (fs [state_rel_def,code_rel_def,stubs_def] \\ NO_TAC)
   \\ fs [wordSemTheory.add_ret_loc_def]
-  \\ fs [bvi_to_dataTheory.op_requires_names_def,
-         bvi_to_dataTheory.op_space_reset_def]
+  \\ fs [dataLangTheory.op_requires_names_def,
+         dataLangTheory.op_space_reset_def]
   \\ TOP_CASE_TAC THEN1
    (Cases_on `names_opt` \\ fs []
     \\ fs [cut_state_opt_def,cut_state_def]
@@ -8698,14 +8827,9 @@ val do_app_Ref = Q.store_thm("do_app_Ref",
       NONE => Rerr (Rabort Rtype_error)
     | SOME s1 =>
       Rval
-      (RefPtr (LEAST ptr. ptr ∉ FDOM (data_to_bvi s1).refs),
-       bvi_to_data
-         (bvl_to_bvi
-            (bvi_to_bvl (data_to_bvi s1) with
-             refs :=
-               (data_to_bvi s1).refs |+
-               ((LEAST ptr. ptr ∉ FDOM (data_to_bvi s1).refs),
-                ValueArray vals)) (data_to_bvi s1)) s1)`,
+      (RefPtr (LEAST ptr. ptr ∉ FDOM s1.refs),
+         s1 with
+             refs := (s1.refs |+ ((LEAST ptr. ptr ∉ FDOM s1.refs),ValueArray vals)))`,
   fs [do_app] \\ Cases_on `vals` \\ fs [LET_THM]);
 
 val th = Q.store_thm("assign_Ref",
@@ -8814,7 +8938,7 @@ val th = Q.store_thm("assign_Deref",
   \\ drule0 (memory_rel_Deref |> GEN_ALL) \\ fs []
   \\ strip_tac \\ clean_tac
   \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y) /\
-      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x')` by
+      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
         metis_tac [get_real_offset_lemma,get_real_addr_lemma]
   \\ fs [] \\ eval_tac
   \\ fs [lookup_insert,adjust_var_11]
@@ -8836,13 +8960,8 @@ val th = Q.store_thm("assign_UpdateByte",
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
   \\ imp_res_tac get_vars_3_IMP
-  \\ fs [bvlSemTheory.Unit_def] \\ rveq
-  \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
-  \\ fs[bviPropsTheory.bvl_to_bvi_with_refs,
-        bviPropsTheory.bvl_to_bvi_id,
-        bvi_to_data_refs, data_to_bvi_refs]
-  \\ fs[GSYM bvi_to_data_refs]
-  \\ fs[data_to_bvi_def]
+  \\ fs [] \\ rveq
+  \\ fs[] \\ rveq
   \\ fs[state_rel_thm,set_var_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
@@ -8943,14 +9062,13 @@ val th = Q.store_thm("assign_DerefByte",
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
   \\ imp_res_tac get_vars_2_IMP
-  \\ fs[bviPropsTheory.bvl_to_bvi_id]
   \\ fs[state_rel_thm,set_var_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
   \\ strip_tac
   \\ fs[get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[data_to_bvi_def]
+  \\ fs[]
   \\ rpt_drule0 memory_rel_ByteArray_IMP
   \\ strip_tac \\ clean_tac
   \\ first_x_assum(qspec_then`ARB`kall_tac)
@@ -9040,7 +9158,7 @@ val th = Q.store_thm("assign_El",
   \\ drule0 (memory_rel_El |> GEN_ALL) \\ fs []
   \\ strip_tac \\ clean_tac
   \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y) /\
-      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x')` by
+      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
         metis_tac [get_real_offset_lemma,get_real_addr_lemma]
   \\ fs [] \\ eval_tac
   \\ fs [lookup_insert,adjust_var_11]
@@ -9080,7 +9198,6 @@ val th = Q.store_thm("assign_GlobalsPtr",
   \\ fs [do_app] \\ every_case_tac \\ fs []
   \\ rpt var_eq_tac
   \\ fs [assign_def]
-  \\ fs [data_to_bvi_def]
   \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
   \\ fs [state_rel_def]
   \\ fs [the_global_def,libTheory.the_def]
@@ -9111,8 +9228,8 @@ val th = Q.store_thm("assign_SetGlobalsPtr",
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,bvi_to_data_def,
-         wordSemTheory.set_store_def,data_to_bvi_def,code_oracle_rel_def,FLOOKUP_UPDATE]
+         adjust_var_11,libTheory.the_def,set_var_def,
+         wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ rpt_drule0 heap_in_memory_store_IMP_UPDATE
   \\ disch_then (qspec_then `h` assume_tac)
   \\ rw [] \\ fs []
@@ -9296,12 +9413,12 @@ val STAR_fun2set_IMP_SEP_T = store_thm("STAR_fun2set_IMP_SEP_T",
 
 val IMP_memcopy_lemma = store_thm("IMP_memcopy_lemma",
   ``memory_rel c s1.be x.refs sp s1.store m1 s1.mdomain
-      ((Block n' l',Word w_ptr)::(ZIP (ys7,ws1) ++ vars)) /\
+      ((Block ts' n' l',Word w_ptr)::(ZIP (ys7,ws1) ++ vars)) /\
     startptr < LENGTH l' /\ LENGTH ys7 = LENGTH ws1 /\ good_dimindex (:α) /\
     lookup (adjust_var a1) s1.locals = SOME (Word (w_ptr:'a word)) /\
     word_exp s1 (real_addr c (adjust_var a1)) = SOME (Word wx) ==>
     memory_rel c s1.be x.refs sp s1.store m1 s1.mdomain
-      ((Block n' l',Word w_ptr)::
+      ((Block ts' n' l',Word w_ptr)::
        (ZIP (ys7 ++ [EL startptr l'],
         ws1 ++ [m1 (wx + bytes_in_word + bytes_in_word * n2w startptr)]) ++ vars)) /\
     (wx + bytes_in_word + bytes_in_word * n2w startptr) IN s1.mdomain``,
@@ -9330,7 +9447,7 @@ val IMP_memcopy_lemma = store_thm("IMP_memcopy_lemma",
 val IMP_memcopy = store_thm("IMP_memcopy",
   ``!len startptr m1 m2 ws1 ys7 k.
       memory_rel c s1.be x.refs sp s1.store m1 s1.mdomain
-        ((Block n' l',Word w_ptr)::(ZIP (ys7,ws1) ++ vars)) /\
+        ((Block ts' n' l',Word w_ptr)::(ZIP (ys7,ws1) ++ vars)) /\
       (word_list nfree (Word full_header::ws1) *
        word_list_exists
          (nfree + bytes_in_word * n2w (SUC (LENGTH ws1))) k * other)
@@ -9365,7 +9482,7 @@ val IMP_memcopy = store_thm("IMP_memcopy",
   \\ rpt_drule0 IMP_memcopy_lemma
   \\ strip_tac
   \\ `memory_rel c s1.be x.refs sp s1.store m4 s1.mdomain
-         ((Block n' l',Word w_ptr)::
+         ((Block ts' n' l',Word w_ptr)::
               (ZIP (ys7 ++ [EL startptr l'],ws1 ++ [xx]) ++ vars))` by
    (rpt_drule0 memory_rel_write \\ fs []
     \\ disch_then (qspecl_then [`xx`,`LENGTH ws1 + 1`] mp_tac) \\ fs [])
@@ -9396,7 +9513,7 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [do_app] \\ every_case_tac \\ fs [] \\ rveq
   \\ `?startptr len. i = &startptr /\ i' = & len` by
-       (Cases_on `i` \\ Cases_on `i'` \\ fs [] \\ NO_TAC) \\ rveq \\ fs []
+       (Cases_on `i` \\ Cases_on `i'` \\ fs [] \\ NO_TAC) \\ rveq \\ fs [with_fresh_ts_state]
   \\ pop_assum mp_tac
   \\ fs [integerTheory.int_gt,integerTheory.INT_ADD,NOT_LESS]
   \\ fs [IMP] \\ strip_tac
@@ -9436,7 +9553,7 @@ val th = Q.store_thm("assign_ConsExtend",
        (unabbrev_all_tac \\ fs [state_rel_insert_1])
   \\ qmatch_goalsub_abbrev_tac `AllocVar c lim nms` \\ fs [] \\ strip_tac
   \\ `?xx. dataSem$cut_env nms x.locals = SOME xx` by
-   (fs [dataSemTheory.cut_env_def,bvi_to_dataTheory.op_requires_names_def]
+   (fs [dataSemTheory.cut_env_def,dataLangTheory.op_requires_names_def]
     \\ fs [EVAL ``op_space_reset (ConsExtend tag)``]
     \\ Cases_on `names_opt` \\ fs [cut_state_opt_def]
     \\ fs [cut_state_def,dataSemTheory.cut_env_def]
@@ -9482,14 +9599,14 @@ val th = Q.store_thm("assign_ConsExtend",
         (l' <> [] ==> get_real_addr c s1.store w_ptr = SOME a_ptr) /\
         memory_rel c s1.be x.refs (len + (LENGTH ys3 + 1)) s1.store
          s1.memory s1.mdomain
-            ((Block n' l',Word w_ptr)::(ZIP (ys7,ws1) ++
+            ((Block n0 n' l',Word w_ptr)::(ZIP (ys7,ws1) ++
                join_env xx
                  (toAList (inter s1.locals (adjust_set xx))) ++
                [(the_global x.global,s1.store ' Globals)] ++
                flat x.stack s1.stack))` by
    (full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ `get_vars (a1::a2::a3::a4::t7) xx =
-          SOME (Block n' l'::Number (&startptr)::Number (&len)::
+          SOME (Block n0 n' l'::Number (&startptr)::Number (&len)::
                 Number (&tot_len)::ys7)` by
      (rpt_drule0 get_vars_cut_env \\ disch_then match_mp_tac
       \\ fs[Abbr`nms`,domain_list_insert,EVERY_MEM] \\ NO_TAC)
@@ -9654,7 +9771,7 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ rfs [get_vars_delete_lemma] \\ rveq \\ fs []
   \\ Cases_on `len = 0` \\ fs []
   THEN1
-   (once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+   (once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,with_fresh_ts_state_eq]
     \\ fs [state_rel_thm,FAPPLY_FUPDATE_THM,lookup_insert,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set,code_oracle_rel_def,FLOOKUP_UPDATE]
     \\ conj_tac THEN1 (rw [] \\ fs [])
@@ -9734,6 +9851,7 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac IMP_memcopy \\ fs []
     \\ qexists_tac `w_ptr`
+    \\ qexists_tac `n0`
     \\ qexists_tac `other`
     \\ qexists_tac `n'`
     \\ qexists_tac `(len + (LENGTH ys3 + 1) − SUC (LENGTH ws1))`
@@ -9751,7 +9869,7 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ qexists_tac `dimword (:α)`
     \\ conj_tac THEN1 (fs [dimword_def,good_dimindex_def] \\ rfs [])
     \\ fs [wordSemTheory.MustTerminate_limit_def])
-  \\ strip_tac \\ fs [] \\ pop_assum kall_tac
+  \\ strip_tac \\ fs [with_fresh_ts_state_eq] \\ pop_assum kall_tac
   \\ qunabbrev_tac `s88` \\ fs [wordSemTheory.pop_env_def]
   \\ `domain (fromAList q) = domain the_env` by
    (drule0 env_to_list_lookup_equiv
@@ -9801,7 +9919,8 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ fs [] \\ pop_assum kall_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 memory_rel_Cons_alt
-  \\ disch_then (qspecl_then [`tag`,`full_header`] mp_tac)
+  \\ disch_then (qspecl_then [`with_fresh_ts (x with space := 0) K`,
+                              `tag`,`full_header`] mp_tac)
   \\ reverse impl_tac
   THEN1 fs [shift_lsl,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [Abbr `tot_len`] \\ CCONTR_TAC \\ fs [DROP_NIL]);
@@ -9815,11 +9934,11 @@ val th = Q.store_thm("assign_Cons",
   \\ Cases_on `LENGTH args = 0` THEN1
    (fs [assign_def] \\ IF_CASES_TAC \\ fs []
     \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
-    \\ fs [do_app] \\ every_case_tac \\ fs []
+    \\ fs [do_app] \\ every_case_tac \\ fs [with_fresh_ts_state]
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ TRY (Cases_on `vals`) \\ fs [] \\ clean_tac
     \\ eval_tac \\ clean_tac
-    \\ fs [state_rel_def,lookup_insert,adjust_var_11]
+    \\ fs [state_rel_def,lookup_insert,adjust_var_11,with_fresh_ts_state_eq]
     \\ rw [] \\ fs []
     \\ asm_exists_tac \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -9845,7 +9964,11 @@ val th = Q.store_thm("assign_Cons",
   \\ strip_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ `vals <> [] /\ (LENGTH vals = LENGTH ws)` by fs []
-  \\ rpt_drule0 memory_rel_Cons1 \\ strip_tac
+  \\ rpt_drule0 memory_rel_Cons1
+  \\ fs [with_fresh_ts_state] \\ rveq \\ fs [with_fresh_ts_state_eq]
+  \\ qpat_abbrev_tac `x5 = with_fresh_ts (x with space := _) K`
+  \\ strip_tac
+  \\ pop_assum (assume_tac o Q.SPEC `x5`)
   \\ fs [list_Seq_def] \\ eval_tac
   \\ fs [wordSemTheory.set_store_def]
   \\ qpat_abbrev_tac `t5 = t with <| locals := _ |>`
@@ -9867,7 +9990,8 @@ val th = Q.store_thm("assign_Cons",
   \\ fs [inter_insert_ODD_adjust_set]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
-  \\ fs [make_cons_ptr_def,get_lowerbits_def]);
+  \\ fs [make_cons_ptr_def,get_lowerbits_def]
+);
 
 val th = Q.store_thm("assign_FFI",
   `(?n. op = FFI n) ==> ^assign_thm_goal`,
@@ -9879,14 +10003,6 @@ val th = Q.store_thm("assign_FFI",
   \\ fs[do_app] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[CONJUNCT2 bvi_to_data_refs,
-        SYM(CONJUNCT1 bvi_to_data_refs),
-        data_to_bvi_refs,
-        bviPropsTheory.bvl_to_bvi_with_refs,
-        bviPropsTheory.bvl_to_bvi_id,
-        data_to_bvi_ffi,
-        bviPropsTheory.bvi_to_bvl_to_bvi_with_ffi,
-        data_to_bvi_to_data_with_ffi]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
@@ -10301,14 +10417,6 @@ val assign_FFI_final = Q.store_thm("assign_FFI_final",
   \\ fs[do_app] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[CONJUNCT2 bvi_to_data_refs,
-        SYM(CONJUNCT1 bvi_to_data_refs),
-        data_to_bvi_refs,
-        bviPropsTheory.bvl_to_bvi_with_refs,
-        bviPropsTheory.bvl_to_bvi_id,
-        data_to_bvi_ffi,
-        bviPropsTheory.bvi_to_bvl_to_bvi_with_ffi,
-        data_to_bvi_to_data_with_ffi]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
@@ -10486,7 +10594,7 @@ val assign_thm = Q.store_thm("assign_thm",
       (DB.match ["-"] ``_ ==> ^assign_thm_goal`` |> map (#1 o #2))
   \\ fs [] \\ strip_tac
   \\ Cases_on`op = CopyByte T` >- (
-    fs[do_app_def,do_space_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
+    fs[do_app_def,do_space_def,do_app_aux_def]
     \\ every_case_tac \\ fs[] )
   \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
