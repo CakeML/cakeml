@@ -202,7 +202,9 @@ val do_app_aux_def = Define `
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
-    | (Cons tag,xs) => with_fresh_ts s (λts s'. Rval (Block ts tag xs, s'))
+    | (Cons tag,xs) => (if xs = []
+                        then Rval (Block 0 tag [],s)
+                        else with_fresh_ts s (λts s'. Rval (Block ts tag xs, s')))
     | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then

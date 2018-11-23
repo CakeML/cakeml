@@ -365,7 +365,7 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
        do_app_aux op z t = Rval (pres,s2) ∧
        res = data_to_bvi_v pres ∧
        state_rel s1 s2`,
-Cases_on `op`
+  Cases_on `op`
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
                 , bviSemTheory.do_app_def
@@ -415,7 +415,8 @@ Cases_on `op`
         ,data_to_bvi_v_Unit
         ,data_to_bvi_v_Boolv]
   >- METIS_TAC [data_to_bvi_v_def]
-  >- (Cases_on `t.tstamps`
+  >- (Cases_on `z`
+     \\ Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
   >- (Cases_on `t.tstamps`
