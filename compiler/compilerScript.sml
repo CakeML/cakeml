@@ -17,6 +17,7 @@ open arm8_configTheory export_arm8Theory
 open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm6_configTheory export_arm6Theory
+open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
 
@@ -383,13 +384,14 @@ val parse_target_64_def = Define`
     else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
     else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
 
-(* Defaults to arm6, currently no other 32-bit architecture*)
+(* Defaults to arm6 if no target given *)
 val parse_target_32_def = Define`
   parse_target_32 ls =
   case find_str (strlit"--target=") ls of
     NONE => INL (arm6_backend_config,arm6_export)
   | SOME rest =>
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
+    else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
 (* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)

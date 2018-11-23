@@ -3,7 +3,8 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
-open bagTheory optionTheory combinTheory dep_rewrite listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+open bitstringTheory bagTheory optionTheory combinTheory dep_rewrite listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+local open bagLib alignmentTheory addressTheory blastLib in end
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -24,6 +25,8 @@ val _ = remove_ovl_mapping "ln" {Name="ln", Thy="transc"}
 fun drule th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 val rveq = rpt BasicProvers.VAR_EQ_TAC
+val match_exists_tac = part_match_exists_tac (hd o strip_conj)
+val asm_exists_tac = first_assum(match_exists_tac o concl)
 (* -- *)
 
 (* TODO: move/categorize *)
@@ -2159,6 +2162,18 @@ val SUM_REPLICATE = Q.store_thm("SUM_REPLICATE",
   `∀n m. SUM (REPLICATE n m) = n * m`,
   Induct \\ simp[REPLICATE,ADD1]);
 
+val SUM_MAP_BOUND = Q.store_thm("SUM_MAP_BOUND",`
+  (∀x. f x ≤ c) ⇒ (SUM (MAP f ls) ≤ LENGTH ls * c)`,
+  rw[]>> Induct_on`ls` >>rw[MULT_SUC]>>
+  first_x_assum(qspec_then`h` assume_tac)>>
+  DECIDE_TAC);
+
+val SUM_MOD = Q.store_thm("SUM_MOD",`
+  k > 0 ⇒
+  (SUM ls MOD k = (SUM (MAP (λn. n MOD k) ls)) MOD k)`,
+  Induct_on`ls`>>rw[]>>
+  DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]>>fs[]);
+
 val FLAT_REPLICATE_NIL = Q.store_thm("FLAT_REPLICATE_NIL",
   `!n. FLAT (REPLICATE n []) = []`,
   Induct \\ fs [REPLICATE]);
@@ -2665,6 +2680,12 @@ val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
    (∀v. ALOOKUP l k = SOME v ⇒ f1 v = f2 v) ⇒
    ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
   ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
+
+val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
+  `ALIST_FUPDKEY n I = I`,
+  simp[FUN_EQ_THM]
+  \\ Induct
+  \\ simp[ALIST_FUPDKEY_def,FORALL_PROD]);
 
 val FILTER_EL_EQ = Q.store_thm("FILTER_EL_EQ",
   `∀l1 l2. LENGTH l1 = LENGTH l2 ∧
@@ -3314,6 +3335,13 @@ val FST_SPLITP_DROP = Q.store_thm("FST_SPLITP_DROP",
  PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
  fs[SPLITP]);
 
+val TAKE_DROP_SUBLIST = Q.store_thm("TAKE_DROP_SUBLIST",
+  `ll ≼ (DROP n ls) ∧ n < LENGTH ls ∧ (nlll = n + LENGTH ll) ⇒
+   (TAKE n ls ++ ll ++ DROP nlll ls = ls)`,
+  rw[IS_PREFIX_APPEND, LIST_EQ_REWRITE, LENGTH_TAKE_EQ, EL_APPEND_EQN, EL_DROP]
+  \\ rw[] \\ fs[EL_TAKE]
+  \\ fs[NOT_LESS, LESS_EQ_EXISTS]);
+
 (* computes the next position for which P holds *)
 val Lnext_def = tDefine "Lnext" `
   Lnext P ll = if eventually P ll then
@@ -3553,6 +3581,10 @@ val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
 
+val MAP_COUNT_LIST = Q.store_thm("MAP_COUNT_LIST",
+  `MAP f (COUNT_LIST n) = GENLIST f n`,
+  rw[COUNT_LIST_GENLIST,MAP_GENLIST]);
+
 val BAG_ALL_DISTINCT_SUB_BAG = Q.store_thm("BAG_ALL_DISTINCT_SUB_BAG",
   `∀s t.  s ≤ t ∧ BAG_ALL_DISTINCT t ⇒ BAG_ALL_DISTINCT s`,
   fs[bagTheory.BAG_ALL_DISTINCT,bagTheory.SUB_BAG,bagTheory.BAG_INN]>>
@@ -3766,5 +3798,558 @@ val ALOOKUP_MAP_FST_INJ_SOME = Q.store_thm("ALOOKUP_MAP_FST_INJ_SOME",
   \\ rw[]
   \\ first_x_assum irule
   \\ rw[]);
+
+val v2w_32_F = Q.store_thm("v2w_32_F[simp]",
+  `(v2w [F] : word32) = 0w`, EVAL_TAC);
+
+val v2w_32_T = Q.store_thm("v2w_32_T[simp]",
+  `(v2w [T] : word32) = 1w`, EVAL_TAC);
+
+val v2w_sing = store_thm("v2w_sing",
+  ``v2w [b] = if b then 1w else 0w``,
+  Cases_on `b` \\ EVAL_TAC);
+
+val FOLDR_FUNPOW = Q.store_thm("FOLDR_FUNPOW",
+  `FOLDR (λx. f) x ls = FUNPOW f (LENGTH ls) x`,
+  qid_spec_tac`x`
+  \\ Induct_on`ls`
+  \\ rw[FUNPOW_SUC]);
+
+val FUNPOW_refl_trans_chain = Q.store_thm("FUNPOW_refl_trans_chain",
+  `transitive P ∧ reflexive P ⇒
+   ∀n x.  (∀j. j < n ⇒ P (FUNPOW f j x) (f (FUNPOW f j x))) ⇒
+     P x (FUNPOW f n x)`,
+  strip_tac
+  \\ Induct
+  \\ rw[]
+  >- fs[reflexive_def]
+  \\ rw[]
+  \\ fs[transitive_def]
+  \\ last_x_assum irule
+  \\ simp[FUNPOW_SUC]
+  \\ qexists_tac`FUNPOW f n x`
+  \\ simp[]);
+
+val ALIGNED_eq_aligned = Q.store_thm("ALIGNED_eq_aligned",
+  `ALIGNED = aligned 2`,
+  rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
+
+val imp_align_eq_0 = Q.store_thm("imp_align_eq_0",
+  `w2n a < 2 ** p ⇒ (align p a= 0w)`,
+  Cases_on`a` \\ fs[]
+  \\ rw[alignmentTheory.align_w2n]
+  \\ Cases_on`p = 0` \\ fs[]
+  \\ `1 < 2 ** p` by fs[arithmeticTheory.ONE_LT_EXP]
+  \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
+  \\ fs[] );
+
+val byte_align_extract = Q.store_thm("byte_align_extract",
+  `byte_align (x:word32) = (((31 >< 2) x):word30) @@ (0w:word2)`,
+  rw[alignmentTheory.byte_align_def]
+  \\ rw[alignmentTheory.align_def]
+  \\ blastLib.BBLAST_TAC);
+
+val byte_align_aligned = Q.store_thm("byte_align_aligned",
+  `byte_aligned x ⇔ (byte_align x = x)`, EVAL_TAC);
+
+val byte_aligned_add = Q.store_thm("byte_aligned_add",
+  `byte_aligned x ∧ byte_aligned y ⇒ byte_aligned (x+y)`,
+  rw[alignmentTheory.byte_aligned_def]
+  \\ metis_tac[alignmentTheory.aligned_add_sub_cor]);
+
+val align_ls = Q.store_thm("align_ls",
+  `align p n <=+ n`,
+  simp[WORD_LS]
+  \\ Cases_on`n`
+  \\ fs[alignmentTheory.align_w2n]
+  \\ qmatch_asmsub_rename_tac`n < _`
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ conj_asm2_tac >- fs[]
+  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
+  \\ simp[]);
+
+val align_lo = Q.store_thm("align_lo",
+  `¬aligned p n ⇒ align p n <+ n`,
+  simp[WORD_LO]
+  \\ Cases_on`n`
+  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`a < b`
+  \\ `a ≤ b` suffices_by fs[]
+  \\ qmatch_asmsub_rename_tac`n < _`
+  \\ simp[Abbr`a`]
+  \\ DEP_REWRITE_TAC[LESS_MOD]
+  \\ conj_asm2_tac >- fs[]
+  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
+  \\ simp[]);
+
+val aligned_between = Q.store_thm("aligned_between",
+  `¬aligned p n ∧ aligned p m ∧ align p n <+ m ⇒ n <+ m`,
+  rw[WORD_LO]
+  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
+  \\ Cases_on`n` \\ Cases_on`m` \\ fs[]
+  \\ CCONTR_TAC \\ fs[NOT_LESS]
+  \\ qmatch_asmsub_abbrev_tac`n DIV d * d`
+  \\ `n DIV d * d <= n` by (
+    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
+  \\ fs[]
+  \\ qmatch_asmsub_rename_tac`(d * (m DIV d)) MOD _`
+  \\ `m DIV d * d <= m` by (
+    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
+  \\ fs[]
+  \\ `d * (n DIV d) <= m` by metis_tac[]
+  \\ pop_assum mp_tac
+  \\ simp_tac pure_ss [Once MULT_COMM]
+  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
+  \\ conj_tac >- simp[Abbr`d`]
+  \\ simp[NOT_LESS_EQUAL]
+  \\ `d * (m DIV d) < d * (n DIV d)` suffices_by fs[]
+  \\ metis_tac[])
+
+val byte_align_IN_IMP_IN_range = Q.store_thm("byte_align_IN_IMP_IN_range",
+  `byte_align a ∈ dm ∧
+   (dm = { w | low <=+ w ∧ w <+ hi }) ∧
+   byte_aligned low ∧ byte_aligned hi ⇒
+   a ∈ dm`,
+  rw[] \\ fs[]
+  >- (
+    `byte_align a <=+ a` suffices_by metis_tac[WORD_LOWER_EQ_TRANS]
+    \\ simp[alignmentTheory.byte_align_def]
+    \\ simp[align_ls] )
+  \\ Cases_on`byte_aligned a`
+    >- metis_tac[alignmentTheory.byte_aligned_def,
+                 alignmentTheory.aligned_def,
+                 alignmentTheory.byte_align_def]
+  \\ match_mp_tac (GEN_ALL aligned_between)
+  \\ fs[alignmentTheory.byte_aligned_def]
+  \\ asm_exists_tac
+  \\ fs[alignmentTheory.byte_align_def]);
+
+val aligned_or = Q.store_thm("aligned_or",
+  `aligned n (w || v) <=> aligned n w /\ aligned n v`,
+  Cases_on `n = 0`
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [alignmentTheory.aligned_extract]
+  \\ metis_tac [])
+
+val aligned_w2n = Q.store_thm("aligned_w2n",
+  `aligned k w <=> w2n (w:'a word) MOD 2 ** k = 0`,
+  Cases_on `w`
+  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n]
+  \\ `0n < 2 ** k` by simp []
+  \\ drule DIVISION
+  \\ disch_then (qspec_then `n` assume_tac)
+  \\ `(n DIV 2 ** k * 2 ** k) < dimword (:α)` by decide_tac
+  \\ asm_simp_tac std_ss [] \\ decide_tac);
+
+val pow_eq_0 = Q.store_thm("pow_eq_0",
+  `dimindex (:'a) <= k ==> (n2w (2 ** k) = 0w:'a word)`,
+  fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
+  \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
+
+val aligned_pow = Q.store_thm("aligned_pow",
+  `aligned k (n2w (2 ** k))`,
+  Cases_on `k < dimindex (:'a)`
+  \\ fs [NOT_LESS,pow_eq_0,alignmentTheory.aligned_0]
+  \\ `2 ** k < dimword (:'a)` by fs [dimword_def]
+  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n])
+
+local
+  open alignmentTheory
+  val aligned_add_mult_lemma = Q.prove(
+    `aligned k (w + n2w (2 ** k)) = aligned k w`,
+    fs [aligned_add_sub,aligned_pow]) |> GEN_ALL
+  val aligned_add_mult_any = Q.prove(
+    `!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w`,
+    Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
+    \\ pop_assum (qspec_then `w + n2w (2 ** k)` mp_tac)
+    \\ fs [aligned_add_mult_lemma]) |> GEN_ALL
+in
+  val aligned_add_pow = save_thm("aligned_add_pow[simp]",
+    CONJ aligned_add_mult_lemma aligned_add_mult_any)
+end
+
+val align_add_aligned_gen = Q.store_thm("align_add_aligned_gen",
+  `∀a. aligned p a ⇒ (align p (a + b) = a + align p b)`,
+  completeInduct_on`w2n b`
+  \\ rw[]
+  \\ Cases_on`w2n b < 2 ** p`
+  >- (
+    simp[alignmentTheory.align_add_aligned]
+    \\ `align p b = 0w` by simp[imp_align_eq_0]
+    \\ simp[] )
+  \\ fs[NOT_LESS]
+  \\ Cases_on`w2n b = 2 ** p`
+  >- (
+    `aligned p b` by(
+      simp[alignmentTheory.aligned_def,alignmentTheory.align_w2n]
+      \\ metis_tac[n2w_w2n] )
+    \\ `aligned p (a + b)` by metis_tac[alignmentTheory.aligned_add_sub_cor]
+    \\ fs[alignmentTheory.aligned_def])
+  \\ fs[LESS_EQ_EXISTS]
+  \\ qmatch_asmsub_rename_tac`w2n b = z + _`
+  \\ first_x_assum(qspec_then`z`mp_tac)
+  \\ impl_keep_tac >- fs[]
+  \\ `z < dimword(:'a)` by metis_tac[w2n_lt, LESS_TRANS]
+  \\ disch_then(qspec_then`n2w z`mp_tac)
+  \\ impl_tac >- simp[]
+  \\ strip_tac
+  \\ first_assum(qspec_then`a + n2w (2 ** p)`mp_tac)
+  \\ impl_tac >- fs[]
+  \\ rewrite_tac[word_add_n2w, GSYM WORD_ADD_ASSOC]
+  \\ Cases_on`b` \\ fs[GSYM word_add_n2w]
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`n2w (2**p)`mp_tac)
+  \\ impl_tac >- fs[aligned_w2n]
+  \\ simp[]);
+
+open pathTheory
+
+val toPath_fromList = Q.store_thm("toPath_fromList",
+  `(toPath (x, fromList []) = stopped_at x) ∧
+   (toPath (x, fromList ((y,z)::t)) = pcons x y (toPath (z, fromList t)))`,
+  conj_tac >- EVAL_TAC
+  \\ rw[pathTheory.pcons_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]);
+
+val steps_def = Define`
+  (steps f x [] = []) ∧
+  (steps f x (j::js) =
+   let y = f x j in
+   let tr = steps f y js in
+     ((j,y)::tr))`;
+
+val steps_rel_def = Define`
+  (steps_rel R x [] ⇔ T) ∧
+  (steps_rel R x ((j,y)::tr) ⇔
+    R x j y ∧
+    steps_rel R y tr)`;
+
+val steps_rel_ind = theorem"steps_rel_ind";
+
+val steps_rel_okpath = Q.store_thm("steps_rel_okpath",
+  `∀R x tr.
+    steps_rel R x tr ⇔ okpath R (toPath (x,fromList tr))`,
+  recInduct steps_rel_ind
+  \\ rewrite_tac[toPath_fromList]
+  \\ rw[steps_rel_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]);
+
+val steps_rel_LRC = Q.store_thm("steps_rel_LRC",
+   `∀R x tr.
+     steps_rel R x tr ⇒
+     LRC (λx y. ∃i. R x i y)
+       (FRONT(x::(MAP SND tr))) x (LAST (x::(MAP SND tr)))`,
+  recInduct steps_rel_ind
+  \\ rw[steps_rel_def]
+  \\ rw[LRC_def, PULL_EXISTS]
+  \\ asm_exists_tac \\ rw[]);
+
+val LAST_MAP_SND_steps_FOLDL = Q.store_thm("LAST_MAP_SND_steps_FOLDL",
+  `∀f x ls. LAST (x::(MAP SND (steps f x ls))) = FOLDL f x ls`,
+  Induct_on`ls` \\ rw[steps_def]);
+
+val all_words_def = Define `
+  (all_words base 0 = ∅) /\
+  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
+
+val IN_all_words = Q.store_thm("IN_all_words",
+  `x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)`,
+  qid_spec_tac`base`
+  \\ Induct_on`n`
+  \\ rw[all_words_def, ADD1]
+  \\ rw[EQ_IMP_THM]
+  >- ( qexists_tac`0` \\ simp[] )
+  >- ( qexists_tac`i + 1` \\ simp[GSYM word_add_n2w] )
+  \\ Cases_on`i` \\ fs[ADD1]
+  \\ disj2_tac
+  \\ simp[GSYM word_add_n2w]
+  \\ asm_exists_tac \\ simp[]);
+
+val read_bytearray_IMP_mem_SOME = Q.store_thm("read_bytearray_IMP_mem_SOME",
+  `∀p n m ba.
+   (read_bytearray p n m = SOME ba) ⇒
+   ∀k. k ∈ all_words p n ⇒ IS_SOME (m k)`,
+  Induct_on `n`
+  \\ rw[read_bytearray_def,all_words_def]
+  \\ fs[CaseEq"option"]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp []);
+
+val read_bytearray_no_wrap = Q.store_thm("read_bytearray_no_wrap",
+  `∀ptr len.
+   IS_SOME (read_bytearray ptr len (m:'a word -> 'b option)) ∧
+   (∀x. IS_SOME (m x) ⇒ w2n x < dimword(:'a) - 1) ∧
+   w2n ptr < dimword (:'a)
+   ⇒
+   w2n ptr + len < dimword(:'a)`,
+  Induct_on`len`
+  \\ rw[read_bytearray_def]
+  \\ fs[CaseEq"option", IS_SOME_EXISTS, PULL_EXISTS]
+  \\ Cases_on`ptr` \\ fs[word_add_n2w, ADD1]
+  \\ res_tac \\ fs[] \\ rfs[])
+
+val asm_write_bytearray_def = Define `
+  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
+  (asm_write_bytearray a (x::xs) m = (a =+ x) (asm_write_bytearray (a+1w) xs m))`
+
+val mem_eq_imp_asm_write_bytearray_eq = Q.store_thm("mem_eq_imp_asm_write_bytearray_eq",
+  `∀a bs.
+    (m1 k = m2 k) ⇒
+    (asm_write_bytearray a bs m1 k = asm_write_bytearray a bs m2 k)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def]
+  \\ rw[APPLY_UPDATE_THM]);
+
+val asm_write_bytearray_unchanged = Q.store_thm("asm_write_bytearray_unchanged",
+  `∀a bs m z. (x <+ a ∨ a + n2w (LENGTH bs) <=+ x) ∧
+    (w2n a + LENGTH bs < dimword(:'a)) ∧ (z = m x)
+  ⇒ (asm_write_bytearray (a:'a word) bs m x = z)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ TRY (
+    Cases_on`a` \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]
+    \\ NO_TAC )
+  \\ first_x_assum match_mp_tac
+  \\ Cases_on`a`
+  \\ Cases_on`x`
+  \\ fs[word_ls_n2w,word_lo_n2w,word_add_n2w]);
+
+val asm_write_bytearray_id = Q.store_thm("asm_write_bytearray_id",
+  `∀a bs m.
+    (∀j. j < LENGTH bs ⇒ (m (a + n2w j) = EL j bs))
+  ⇒ (asm_write_bytearray (a:'a word) bs m x = m x)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+  \\ first_x_assum match_mp_tac
+  \\ rw[]
+  \\ first_x_assum(qspec_then`SUC j`mp_tac)
+  \\ rw[]
+  \\ fs[ADD1, GSYM word_add_n2w]);
+
+val asm_write_bytearray_unchanged_alt = store_thm("asm_write_bytearray_unchanged_alt",
+  ``∀a bs m z.
+      (z = m x) /\ ~(x IN { a + n2w k | k < LENGTH bs }) ==>
+      (asm_write_bytearray a bs m x = z)``,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  THEN1 (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
+  \\ first_x_assum match_mp_tac \\ fs [] \\ rw []
+  \\ first_x_assum (qspec_then `k + 1` mp_tac)
+  \\ fs [GSYM word_add_n2w,ADD1]);
+
+val asm_write_bytearray_unchanged_all_words = Q.store_thm("asm_write_bytearray_unchanged_all_words",
+  `∀a bs m z x.
+    ~(x ∈ all_words a (LENGTH bs)) ∧ (z = m x) ⇒
+    (asm_write_bytearray (a:'a word) bs m x = z)`,
+  Induct_on`bs`
+  \\ rw[all_words_def,asm_write_bytearray_def,APPLY_UPDATE_THM]);
+
+val asm_write_bytearray_append = Q.store_thm("asm_write_bytearray_append",
+  `∀a l1 l2 m.
+   w2n a + LENGTH l1 + LENGTH l2 < dimword (:'a) ⇒
+   (asm_write_bytearray (a:'a word) (l1 ++ l2) m =
+    asm_write_bytearray (a + n2w (LENGTH l1)) l2 (asm_write_bytearray a l1 m))`,
+  Induct_on`l1` \\ rw[asm_write_bytearray_def]
+  \\ rw[FUN_EQ_THM, APPLY_UPDATE_THM]
+  \\ rw[]
+  >- (
+    irule (GSYM asm_write_bytearray_unchanged)
+    \\ simp[APPLY_UPDATE_THM]
+    \\ Cases_on`a` \\ simp[word_lo_n2w,word_add_n2w,word_ls_n2w]
+    \\ fs[] )
+  \\ fs[ADD1,GSYM word_add_n2w]
+  \\ first_x_assum (qspec_then`a+1w`mp_tac)
+  \\ simp[]
+  \\ Cases_on`a` \\ fs[word_add_n2w]
+  \\ disch_then drule
+  \\ rw[]
+  \\ irule mem_eq_imp_asm_write_bytearray_eq
+  \\ simp[APPLY_UPDATE_THM]);
+
+val asm_write_bytearray_EL = Q.store_thm("asm_write_bytearray_EL",
+  `∀a bs m x. x < LENGTH bs ∧ LENGTH bs < dimword(:'a) ⇒
+   (asm_write_bytearray (a:'a word) bs m (a + n2w x) = EL x bs)`,
+  Induct_on`bs`
+  \\ rw[asm_write_bytearray_def,APPLY_UPDATE_THM]
+  \\ Cases_on`x` \\ fs[]
+  >- ( fs[addressTheory.WORD_EQ_ADD_CANCEL] )
+  \\ first_x_assum drule
+  \\ simp[ADD1,GSYM word_add_n2w]
+  \\ metis_tac[WORD_ADD_ASSOC,WORD_ADD_COMM]);
+
+val byte_index_def = Define `
+  byte_index (a:'a word) is_bigendian =
+    let d = dimindex (:'a) DIV 8 in
+      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
+
+val get_byte_def = Define `
+  get_byte (a:'a word) (w:'a word) is_bigendian =
+    (w2w (w >>> byte_index a is_bigendian)):word8`
+
+val word_slice_alt_def = Define `
+  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
+
+val set_byte_def = Define `
+  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
+    let i = byte_index a is_bigendian in
+      (word_slice_alt (dimindex (:'a)) (i + 8) w
+       || w2w b << i
+       || word_slice_alt i 0 w)`;
+
+val word_of_bytes_def = Define `
+  (word_of_bytes be a [] = 0w) /\
+  (word_of_bytes be a (b::bs) =
+     set_byte a b (word_of_bytes be (a+1w) bs) be)`
+
+val words_of_bytes_def = tDefine "words_of_bytes" `
+  (words_of_bytes be [] = ([]:'a word list)) /\
+  (words_of_bytes be bytes =
+     let xs = TAKE (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
+     let ys = DROP (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
+       word_of_bytes be 0w xs :: words_of_bytes be ys)`
+ (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
+
+val words_of_bytes_ind = theorem"words_of_bytes_ind";
+
+val LENGTH_words_of_bytes = Q.store_thm("LENGTH_words_of_bytes",
+  `8 ≤ dimindex(:'a) ⇒
+   ∀be ls.
+   (LENGTH (words_of_bytes be ls : 'a word list) =
+    LENGTH ls DIV (w2n (bytes_in_word : 'a word)) +
+    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))`,
+  strip_tac
+  \\ recInduct words_of_bytes_ind
+  \\ `1 ≤ w2n bytes_in_word`
+  by (
+    simp[bytes_in_word_def,dimword_def]
+    \\ DEP_REWRITE_TAC[LESS_MOD]
+    \\ rw[DIV_LT_X, X_LT_DIV, X_LE_DIV]
+    \\ match_mp_tac LESS_TRANS
+    \\ qexists_tac`2 ** dimindex(:'a)`
+    \\ simp[X_LT_EXP_X] )
+  \\ simp[words_of_bytes_def]
+  \\ conj_tac
+  >- ( DEP_REWRITE_TAC[ZERO_DIV] \\ fs[] )
+  \\ rw[ADD1]
+  \\ `MAX 1 (w2n (bytes_in_word:'a word)) = w2n (bytes_in_word:'a word)`
+      by rw[MAX_DEF]
+  \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`(m - n) DIV _`
+  \\ Cases_on`m < n` \\ fs[]
+  >- (
+    `m - n = 0` by fs[]
+    \\ simp[]
+    \\ simp[LESS_DIV_EQ_ZERO]
+    \\ rw[MIN_DEF]
+    \\ fs[Abbr`m`] )
+  \\ simp[SUB_MOD]
+  \\ qspec_then`1`(mp_tac o GEN_ALL)(Q.GEN`q`DIV_SUB) \\ fs[]
+  \\ disch_then kall_tac
+  \\ Cases_on`m MOD n = 0` \\ fs[]
+  >- (
+    DEP_REWRITE_TAC[SUB_ADD]
+    \\ fs[X_LE_DIV] )
+  \\ `MIN 1 (m MOD n) = 1` by simp[MIN_DEF]
+  \\ fs[]
+  \\ `m DIV n - 1 + 1 = m DIV n` suffices_by fs[]
+  \\ DEP_REWRITE_TAC[SUB_ADD]
+  \\ fs[X_LE_DIV]);
+
+val words_of_bytes_append = Q.store_thm("words_of_bytes_append",
+  `0 < w2n(bytes_in_word:'a word) ⇒
+   ∀l1 l2.
+   (LENGTH l1 MOD w2n (bytes_in_word:'a word) = 0) ⇒
+   (words_of_bytes be (l1 ++ l2) : 'a word list =
+    words_of_bytes be l1 ++ words_of_bytes be l2)`,
+  strip_tac
+  \\ gen_tac
+  \\ completeInduct_on`LENGTH l1`
+  \\ rw[]
+  \\ Cases_on`l1` \\ fs[]
+  >- EVAL_TAC
+  \\ rw[words_of_bytes_def]
+  \\ fs[PULL_FORALL]
+  >- (
+    simp[TAKE_APPEND]
+    \\ qmatch_goalsub_abbrev_tac`_ ++ xx`
+    \\ `xx = []` suffices_by rw[]
+    \\ simp[Abbr`xx`]
+    \\ fs[ADD1]
+    \\ rfs[MOD_EQ_0_DIVISOR]
+    \\ Cases_on`d` \\ fs[] )
+  \\ simp[DROP_APPEND]
+  \\ qmatch_goalsub_abbrev_tac`_ ++ DROP n l2`
+  \\ `n = 0`
+  by (
+    simp[Abbr`n`]
+    \\ rfs[MOD_EQ_0_DIVISOR]
+    \\ Cases_on`d` \\ fs[ADD1] )
+  \\ simp[]
+  \\ first_x_assum irule
+  \\ simp[]
+  \\ rfs[MOD_EQ_0_DIVISOR, ADD1]
+  \\ Cases_on`d` \\ fs[MULT]
+  \\ simp[MAX_DEF]
+  \\ IF_CASES_TAC \\ fs[NOT_LESS]
+  >- metis_tac[]
+  \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
+  \\ Cases_on`n''` \\ fs[]);
+
+val bytes_to_word_def = Define `
+  (bytes_to_word 0 a bs w be = w) /\
+  (bytes_to_word (SUC k) a [] w be = w) /\
+  (bytes_to_word (SUC k) a (b::bs) w be =
+     set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
+
+val word_of_bytes_bytes_to_word = Q.store_thm("word_of_bytes_bytes_to_word",
+  `∀be a bs k.
+   LENGTH bs ≤ k ⇒
+   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)`,
+  Induct_on`bs`
+  >- (
+    EVAL_TAC
+    \\ Cases_on`k`
+    \\ EVAL_TAC
+    \\ rw[] )
+  \\ rw[word_of_bytes_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ rw[bytes_to_word_def]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ first_x_assum match_mp_tac
+  \\ fs[]);
+
+val word_bit_thm = store_thm("word_bit_thm",
+  ``!n w:'a word. word_bit n w <=> n < dimindex (:'a) /\ w ' n``,
+  fs [word_bit_def,LESS_EQ] \\ rw []
+  \\ assume_tac DIMINDEX_GT_0
+  \\ Cases_on `dimindex (:α)` \\ fs [LESS_EQ]);
+
+val word_bit_and = Q.store_thm("word_bit_and",
+  `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`,
+  fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
+  \\ assume_tac DIMINDEX_GT_0
+  \\ `n < dimindex (:'a)` by decide_tac
+  \\ fs [fcpTheory.FCP_BETA]);
+
+val word_bit_or = Q.store_thm("word_bit_or",
+  `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`,
+  fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
+  \\ assume_tac DIMINDEX_GT_0
+  \\ `n < dimindex (:'a)` by decide_tac
+  \\ fs [fcpTheory.FCP_BETA]);
+
+val word_bit_lsl = store_thm("word_bit_lsl",
+  ``word_bit n (w << i) <=>
+    word_bit (n - i) (w:'a word) /\ n < dimindex (:'a) /\ i <= n``,
+  fs [word_bit_thm,word_lsl_def] \\ eq_tac \\ fs []
+  \\ rw [] \\ rfs [fcpTheory.FCP_BETA]);
+
+val word_msb_align = Q.store_thm("word_msb_align",
+  `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`,
+  rw[alignmentTheory.align_bitwise_and,word_msb]
+  \\ rw[word_bit_and]
+  \\ rw[word_bit_lsl]
+  \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
 
 val _ = export_theory()

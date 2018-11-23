@@ -256,7 +256,8 @@ val init_reader_def = Define `
       new_constant select_sym;
       ax <- mk_select_ax (); new_axiom ax;
       new_type ind_type;
-      ax <- mk_infinity_ax (); new_axiom ax
+      ax <- mk_infinity_ax (); new_axiom ax;
+      return ()
     od`;
 
 val _ = export_theory ();

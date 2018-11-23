@@ -3,6 +3,8 @@ open preamble setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraThe
 
 val _ = new_theory"holSoundness"
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U-> bool``
 
 val binary_inference_rule = Q.store_thm("binary_inference_rule",
