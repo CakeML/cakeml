@@ -1743,9 +1743,8 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
         (q ≠ SOME NotEnoughSpace ⇒
          state_rel c l1 l2
            (x with
-            <|locals := insert dest (Number r) x.locals;
-              global := x.global; refs := x.refs; clock := x.clock;
-              ffi := s.ffi; space := 0|>) r' [] locs ∧ q = NONE)``,
+            <|locals := insert dest (Number r) x.locals; space := 0|>)
+           r' [] locs ∧ q = NONE)``,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP
   \\ Cases_on `names_opt` \\ fs []
