@@ -3,6 +3,12 @@ CLINE_OPTIONS = -j1 --qof
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 all: $(TARGETS)
 .PHONY: all
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md
+
 ifndef CC
 CC=gcc
 endif

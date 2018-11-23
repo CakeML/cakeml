@@ -1,5 +1,11 @@
 INCLUDES = ../../../../semantics/proofs ../../../../misc .. ../../.. ../../../../compiler/backend/proofs ../../../../compiler/encoders/ag32/proofs ../../../../compiler/backend/ag32 ../../../../compiler/backend/ag32/proofs
 CLINE_OPTIONS = --qof
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md
+
 ifdef POLY
 HOLHEAP=../heap
 endif

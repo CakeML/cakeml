@@ -1,3 +1,9 @@
 INCLUDES = $(HOLDIR)/examples/balanced_bst ../misc ../translator ../basis/pure ../basis ../characteristic ../compiler\
 					 ../semantics ../semantics/proofs ../compiler/backend/proofs ../compiler/backend/x64/proofs
 CLINE_OPTIONS = --qof
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md

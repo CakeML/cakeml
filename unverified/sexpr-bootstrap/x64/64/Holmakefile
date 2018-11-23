@@ -6,6 +6,12 @@ CAKE_BIN = ../../../../developers/bin/cake
 INCLUDES = ../../../../compiler/bootstrap/translation ../../../sexpr-bootstrap ../../../../developers/bin/ ../../../../characteristic
 CLINE_OPTIONS = --qof
 
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md
+
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../../../../compiler/bootstrap/translation/heap

@@ -1,6 +1,12 @@
 INCLUDES = ../../../misc ../../../semantics ../../../translator ../monadic ../../../characteristic ../../../basis ../../../basis/pure ../../../translator/monadic
 OPTIONS = QUIT_ON_FAILURE
 
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md
+
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../monadic/heap

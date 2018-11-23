@@ -9,3 +9,9 @@ readerIO: readerIO.S ../../../../../basis/basis_ffi.c
 	$(CC) -DDEBUG_FFI $< ../../../../../basis/basis_ffi.c $(GCCFLAGS) -o $@
 
 EXTRA_CLEANS=readerIO readerIO.S
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md

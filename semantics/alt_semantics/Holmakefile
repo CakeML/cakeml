@@ -20,6 +20,12 @@ $(GENS): $(LEMS) ../../misc/lem_lib_stub/lib.lem ../ffi/ffi.lem ../semanticPrimi
 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../misc/lem_lib_stub/lib.lem -i ../ffi/ffi.lem -i ../ast.lem -i ../semanticPrimitives.lem -hol $(LEMS);\
 	else touch $(GENS); fi
 
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+all: README.md
+
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
