@@ -1077,14 +1077,9 @@ val Eval_word_lsr = Q.store_thm("Eval_word_lsr",
 val Eval_word_asr = Q.store_thm("Eval_word_asr",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (let w = (if dimindex (:'a) <= 8 then W8 else W64) in
-                let k = (if dimindex (:'a) <= 8 then 8 else 64) - dimindex(:'a) in
-                  if dimindex (:'a) = 8 \/ dimindex (:'a) = 64 then
-                    App (Shift w Asr n) [x1]
-                  else
-                    App (Shift w Lsl k) [App (Shift w Asr (n+k)) [x1]])
-        (WORD (word_asr w1 n))`,
-  rw[Eval_rw,WORD_def]
+      Eval env (App (Shift Asr n) [x1])
+        (WORD (word_asr w1 n))`,cheat
+  (* rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ TRY (* takes care of = 8 and = 64 cases *)
@@ -1097,23 +1092,22 @@ val Eval_word_asr = Q.store_thm("Eval_word_asr",
   \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
   \\ fs [fcpTheory.FCP_BETA,w2w,word_msb_def]
   \\ imp_res_tac (DECIDE ``8 = k ==> 7 = k - 1n``) \\ fs []
-  \\ imp_res_tac (DECIDE ``64 = k ==> 63 = k - 1n``) \\ fs []);
+  \\ imp_res_tac (DECIDE ``64 = k ==> 63 = k - 1n``) \\ fs [] *));
 
 val Eval_word_ror = Q.store_thm("Eval_word_ror",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      (dimindex (:'a) <> 8 ==> dimindex (:'a) = 64) ==>
-      Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Ror n) [x1])
-        (WORD (word_ror w1 n))`,
-  Cases_on `dimindex (:'a) = 8` \\ fs []
+      Eval env (App (Shift Ror n) [x1])
+        (WORD (word_ror w1 n))`,cheat
+  (* Cases_on `dimindex (:'a) = 8` \\ fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ fs []
   \\ rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
-  \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []);
-*)
+  \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []*));
+
 (* list definition *)
 
 val LIST_TYPE_def = Define `
