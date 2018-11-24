@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open wordsTheory bitstringTheory integerTheory;
+open wordsTheory bitstringTheory integerTheory arithmeticTheory;
 open metisLib;
 
 val _ = numLib.prefer_num();
@@ -20,21 +20,39 @@ val fixsub_def = Define`
      let fb = fixwidth m b
       in
         fixadd (fixadd fa (bnot fb)) (n2v 1)`
-
 (* TODO prove properties of fixadd and fixsub *)
+
+val fixadd_comm = Q.store_thm("fixadd_comm",
+  `!x y. fixadd x y = fixadd y x`,
+  REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> FULL_SIMP_TAC arith_ss [MAX_COMM] 
+);
+
+val fixadd_length = Q.store_thm("fixadd_length",
+  `!x y. LENGTH (fixadd x y) = MAX (LENGTH x) (LENGTH y)`,
+   REPEAT STRIP_TAC >> simp [fixadd_def]);
+
+
+val fixadd_assoc = Q.store_thm("fixadd_assoc",
+  `!x y z. fixadd (fixadd x y) z = fixadd x (fixadd y z)`,
+  REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length] >> cheat);
+
 
 val fixadd_word_add = Q.store_thm("fixadd_word_add",
   `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y))
-     ==> (v2n (fixadd x y) = w2n (word_add (v2w x:'a word) (v2w y:'a word)))`,cheat);
+     ==> (v2n (fixadd x y) = w2n (word_add (v2w x:'a word) (v2w y:'a word)))`, 
+      REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> cheat
+    );
 
 val fixsub_lemma1 = Q.store_thm("fixsub_lemma1",
   `!x y. ((v2w x:'a word) - (v2w y:'a word) = ((v2w x:'a word) + ~(v2w y:'a word) + (1w:'a word)))`,
         REPEAT STRIP_TAC >> REWRITE_TAC [word_sub_def] >> REWRITE_TAC [WORD_NEG] >> METIS_TAC [WORD_ADD_ASSOC]); 
 
+
+
 val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
   `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y)) 
-     ==> (v2n (fixsub x y) = w2n (word_sub (v2w x:'a word) (v2w y:'a word)))`,
-   REPEAT STRIP_TAC >> REWRITE_TAC [fixsub_def] >> simp [fixsub_lemma1] >> cheat
+     ==> (v2n (fixsub x y) = w2n ((v2w x:'a word) - (v2w y:'a word)))`,
+   REPEAT STRIP_TAC >> simp[fixsub_def] >> REWRITE_TAC [fixsub_lemma1] >> ASM_REWRITE_TAC [fixadd_word_add] >> cheat
            );
 
 val fixshiftr_def = Define`
@@ -53,11 +71,11 @@ val fixshiftl_def = Define`
 
 (* TODO prove properties of fixed size shifts *)
 
-val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_shiftr",
+val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_lsr",
   `!a n w. (w2v w = a)
      ==> ((w2v (word_lsr w n)) = (fixshitr a n))`,cheat);
 
-val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_shiftr",
+val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
   `!a n w. (w2v w = a)
      ==> ((w2v (word_lsl w n)) = (fixshitl a n))`,cheat);
 
