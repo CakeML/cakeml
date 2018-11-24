@@ -129,7 +129,7 @@ val shift_interfer_twice = Q.store_thm("shift_interfer_twice[simp]",
 
 val evaluate_nop_steps = Q.prove(
   `!n s1 ms1 c.
-      backend_correct c.target /\
+      encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       bytes_in_memory s1.pc
@@ -173,7 +173,7 @@ val evaluate_nop_steps = Q.prove(
 
 val asm_step_IMP_evaluate_step_nop = Q.prove(
   `!c s1 ms1 io i s2 bytes.
-      backend_correct c.target /\
+      encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       bytes_in_memory s1.pc bytes s2.mem s1.mem_domain /\
@@ -1735,13 +1735,13 @@ val Inst_lemma = Q.prove(
 (* compile correct *)
 
 val line_length_MOD_0 = Q.prove(
-  `backend_correct mc_conf.target /\
+  `encoder_correct mc_conf.target /\
     (~EVEN p ==> (mc_conf.target.config.code_alignment = 0)) /\
     line_ok mc_conf.target.config labs mc_conf.ffi_names p h ==>
     (line_length h MOD 2 ** mc_conf.target.config.code_alignment = 0)`,
   Cases_on `h` \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[line_ok_def,line_length_def]
   \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def,enc_ok_def]
+  \\ full_simp_tac(srw_ss())[encoder_correct_def,target_ok_def,enc_ok_def]
   \\ fs(bool_case_eq_thms)
   \\ full_simp_tac(srw_ss())[LET_DEF,enc_with_nop_thm] \\ srw_tac[][LENGTH_FLAT,LENGTH_REPLICATE]
   \\ qpat_x_assum `2 ** nn = xx:num` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
@@ -1753,13 +1753,13 @@ val pos_val_MOD_0_lemma = Q.prove(
 
 val pos_val_MOD_0 = Q.prove(
   `!x pos code2.
-      backend_correct mc_conf.target /\
+      encoder_correct mc_conf.target /\
       (has_odd_inst code2 ==> (mc_conf.target.config.code_alignment = 0)) /\
       (~EVEN pos ==> (mc_conf.target.config.code_alignment = 0)) /\
       (pos MOD 2 ** mc_conf.target.config.code_alignment = 0) /\
       all_enc_ok mc_conf.target.config labs mc_conf.ffi_names pos code2 ==>
       (pos_val x pos code2 MOD 2 ** mc_conf.target.config.code_alignment = 0)`,
-  reverse (Cases_on `backend_correct mc_conf.target`)
+  reverse (Cases_on `encoder_correct mc_conf.target`)
   \\ asm_simp_tac pure_ss [] THEN1 full_simp_tac(srw_ss())[]
   \\ HO_MATCH_MP_TAC pos_val_ind
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[pos_val_def] \\ full_simp_tac(srw_ss())[all_enc_ok_def]
@@ -4856,7 +4856,7 @@ val find_ffi_names_append = Q.prove(`
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error) /\
-     backend_correct mc_conf.target /\
+     encoder_correct mc_conf.target /\
      state_rel (mc_conf,code2,labs,p) s1 t1 ms1 ==>
      ?k t2 ms2.
        (evaluate mc_conf s1.ffi (s1.clock + k) ms1 =
@@ -5280,7 +5280,7 @@ val compile_correct = Q.prove(
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())
-           [backend_correct_def,target_ok_def,target_state_rel_def]
+           [encoder_correct_def,target_ok_def,target_state_rel_def]
       \\ unabbrev_all_tac
       \\ full_simp_tac(srw_ss())[asm_def,asmSemTheory.jump_to_offset_def,
            asmSemTheory.upd_pc_def]
@@ -5308,8 +5308,8 @@ val compile_correct = Q.prove(
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())
-           [backend_correct_def,target_ok_def,target_state_rel_def]
-      \\ full_simp_tac(srw_ss())[backend_correct_def |> REWRITE_RULE [GSYM reg_ok_def]]
+           [encoder_correct_def,target_ok_def,target_state_rel_def]
+      \\ full_simp_tac(srw_ss())[encoder_correct_def |> REWRITE_RULE [GSYM reg_ok_def]]
       \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,
            jump_to_offset_def,asmSemTheory.upd_pc_def,AND_IMP_INTRO]
       \\ rpt strip_tac \\ first_x_assum match_mp_tac
@@ -5371,7 +5371,7 @@ val compile_correct = Q.prove(
          `mc_conf.ffi_interfer 0 (get_ffi_index mc_conf.ffi_names s,new_bytes,ms2)`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (rpt strip_tac
-      THEN1 (full_simp_tac(srw_ss())[backend_correct_def,shift_interfer_def]
+      THEN1 (full_simp_tac(srw_ss())[encoder_correct_def,shift_interfer_def]
              \\ metis_tac [])
       \\ unabbrev_all_tac
       \\ imp_res_tac bytes_in_mem_asm_write_bytearray
@@ -5464,7 +5464,7 @@ val compile_correct = Q.prove(
     \\ `mc_conf.target.get_pc ms2 = mc_conf.ccache_pc` by
      (
       fs[Abbr`jj`,asm_def]>>
-      fs[backend_correct_def,target_ok_def,target_state_rel_def]>>
+      fs[encoder_correct_def,target_ok_def,target_state_rel_def]>>
       fs[jump_to_offset_def,state_rel_def]>>
       metis_tac[GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
            WORD_ADD_SUB])
@@ -5733,7 +5733,7 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[shift_interfer_def]
     \\ `mc_conf.target.get_pc ms2 = mc_conf.halt_pc` by
      (full_simp_tac(srw_ss())
-        [backend_correct_def,target_ok_def,target_state_rel_def]
+        [encoder_correct_def,target_ok_def,target_state_rel_def]
       \\ res_tac
       \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[jump_to_offset_def,asmSemTheory.upd_pc_def]
@@ -5752,7 +5752,7 @@ val compile_correct = Q.prove(
     \\ `s1 = s2` by (Cases_on `t1.regs s1.ptr_reg = 0w`
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]) \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())
-         [backend_correct_def,target_ok_def,target_state_rel_def]
+         [encoder_correct_def,target_ok_def,target_state_rel_def]
     \\ first_x_assum (qspec_then `s1.ptr_reg` mp_tac)
     \\ first_x_assum (qspec_then `s1.ptr_reg` mp_tac)
     \\ full_simp_tac(srw_ss())[reg_ok_def]
@@ -5767,7 +5767,7 @@ val init_ok_def = Define `
 
 val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   `!mc_conf p (ms:'state) ^s1.
-     backend_correct mc_conf.target /\
+     encoder_correct mc_conf.target /\
      init_ok (mc_conf,p) s1 ms /\ semantics s1 <> Fail ==>
      machine_sem mc_conf s1.ffi ms = { semantics s1 }`,
   simp[GSYM AND_IMP_INTRO] >>
@@ -6083,7 +6083,7 @@ val compiler_oracle_ok_def = Define`
 val mc_conf_ok_def = Define`
   mc_conf_ok (mc_conf:('a,'b,'c) machine_config) ⇔
     good_dimindex(:'a) ∧
-    backend_correct mc_conf.target ∧
+    encoder_correct mc_conf.target ∧
     reg_ok mc_conf.ptr_reg mc_conf.target.config /\
     reg_ok mc_conf.len_reg mc_conf.target.config /\
     reg_ok mc_conf.ptr2_reg mc_conf.target.config /\
