@@ -40,10 +40,9 @@ namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 
 OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun namespaceProps semantics termination tokenUtils
 
-README_SOURCES = $(LEMS) ast.lem tokens.lem namespace.lem\
-	grammar.txt addancs.sml astPP.sml\
+README_SOURCES = grammar.txt addancs.sml astPP.sml\
 	$(patsubst %,%Script.sml,$(OTHER_SCRIPTS))\
-	$(wildcard *Syntax.sml) $(wildcard *Lib.sml)
+	$(wildcard *Syntax.sml) $(wildcard *Lib.sml) $(wildcard *.lem)
 DIRS = $(wildcard */)
 README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	../developers/readme_gen $(README_SOURCES)
