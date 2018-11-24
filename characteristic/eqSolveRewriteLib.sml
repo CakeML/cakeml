@@ -1,3 +1,6 @@
+(*
+  Defines ELIM_UNKWN_CONV conversion
+*)
 structure eqSolveRewriteLib :> eqSolveRewriteLib =
 struct
 

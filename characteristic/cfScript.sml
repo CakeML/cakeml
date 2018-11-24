@@ -1,3 +1,7 @@
+(*
+  Defines the characteristic formula (CF) function cf_def and proves
+  that it is sound w.r.t. the evaluate semantics of CakeML.
+*)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open ml_translatorTheory semanticPrimitivesTheory

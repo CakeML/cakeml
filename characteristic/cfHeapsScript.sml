@@ -1,3 +1,6 @@
+(*
+  Defines what is means for a CF separation logic assertion to be "local".
+*)
 open preamble set_sepTheory
 open cfHeapsBaseTheory cfHeapsBaseLib
 

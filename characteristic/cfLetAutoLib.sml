@@ -1,3 +1,6 @@
+(*
+  Theorems, conversions, solvers used by the xlet_auto tactic.
+*)
 structure cfLetAutoLib :> cfLetAutoLib =
 struct
 

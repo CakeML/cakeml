@@ -1,3 +1,6 @@
+(*
+  Functions that aid in dealing with syntax of CF-style separation logic.
+*)
 structure cfHeapsBaseSyntax = struct
 
 open preamble

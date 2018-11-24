@@ -1,3 +1,6 @@
+(*
+  Various tactics for reasoning about CF-based goals in HOL.
+*)
 structure cfTacticsBaseLib :> cfTacticsBaseLib =
 struct
 
