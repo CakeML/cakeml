@@ -1,6 +1,8 @@
 open preamble holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = new_theory"holAxiomsSyntax"
 
+val _ = Parse.hide "mem"
+
 val mem = ``mem:'U->'U->bool``
 
 val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)

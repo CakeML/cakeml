@@ -111,7 +111,7 @@ val _ = append_prog get_file_contents;
 val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   `!fs fd fd_v acc_v acc.
     FD fd fd_v ∧
-    IS_SOME (get_file_content fs fd) ∧
+    IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
     app (p : 'ffi ffi_proj)
@@ -194,19 +194,26 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   reverse(Cases_on`STD_streams fs`)>-(fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
   >- xsimpl
-  >- xsimpl  
+  >- xsimpl
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
   imp_res_tac nextFD_ltX \\
   imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
-  pop_assum(qspec_then`0`strip_assume_tac) \\ rfs[] \\
-  xlet_auto >- fs[] \\
+  pop_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac) \\ rfs[] \\
+  xlet_auto >- (
+    fs[Abbr`fs'`]
+    \\ simp[get_mode_def, Abbr`fd`]
+    \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
+    \\ simp[] ) \\
   imp_res_tac STD_streams_nextFD \\ rfs[] \\
   (* TODO: Update xlet_auto so that it can try different specs -
      xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
   >- xsimpl
-  >- xsimpl  
+  >- (xsimpl  \\
+    simp[Abbr`fs'`, validFileFD_def]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[] )
   >- xsimpl >>
   xapp >>
   xsimpl >>
@@ -309,7 +316,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
     \\ `F` suffices_by simp[]
     \\ fs[STD_streams_def]
-    \\ last_assum(qspecl_then[`0`,`inp`]mp_tac)
+    \\ last_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
     \\ rewrite_tac[] \\ strip_tac
     \\ imp_res_tac ALOOKUP_MEM \\ res_tac \\ fs[]
     \\ rw[] \\ fs[]
@@ -375,7 +382,7 @@ val sort_spec = Q.store_thm ("sort_spec",
       simp[LIST_TYPE_def,Abbr`inodes`] \\
       xsimpl \\
       simp[linesFD_def,inFS_fname_def,FD_def,stdin_v_thm,GSYM stdIn_def] \\
-      rw[] \\
+      rw[STD_streams_get_mode] \\
       fs[get_file_content_def,all_lines_def,lines_of_def] \\
       pairarg_tac \\ fs[] \\
       `fnm = IOStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\

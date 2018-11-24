@@ -145,7 +145,7 @@ val res = translate flat_exh_matchTheory.compile_decs_def;
 
 (* flat_elim *)
 
-val res = translate flat_elimTheory.removeFlatProg_def;
+val res = translate flat_elimTheory.remove_flat_prog_def;
 
 (* source_to_flat *)
 

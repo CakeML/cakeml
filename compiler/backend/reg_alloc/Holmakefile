@@ -1,4 +1,4 @@
-INCLUDES = ../../../misc ../../../unverified/reg_alloc ../../../translator/monadic
+INCLUDES = ../../../misc ../../../unverified/reg_alloc ../../../translator/monadic/monad_base
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

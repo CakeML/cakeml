@@ -3,6 +3,8 @@ open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyn
 
 val _ = new_theory"holBool"
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 val _ = Parse.temp_overload_on("p",``Var (strlit "p") Bool``)

@@ -285,7 +285,7 @@ val main_spec = Q.store_thm("main_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin, STD_streams_get_mode])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]

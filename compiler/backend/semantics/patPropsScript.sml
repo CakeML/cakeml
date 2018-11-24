@@ -287,7 +287,7 @@ val set_globals_def = tDefine "set_globals"`
   (elist_globals [] = {||}) ∧
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)`
  (WF_REL_TAC `
-      measure (λa. case a of INL e => exp_size e | INR el => exp1_size el)` >>
+      measure (λa. case a of INL e => exp_size e | INR y => exp1_size y)` >>
   rw[]);
 val _ = export_rewrites ["set_globals_def"]
 
