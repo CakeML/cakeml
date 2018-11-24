@@ -1,3 +1,6 @@
+(*
+  The ML code that implements the main part of the monadic translator.
+*)
 structure ml_monad_translatorLib :> ml_monad_translatorLib = struct
 
 open preamble

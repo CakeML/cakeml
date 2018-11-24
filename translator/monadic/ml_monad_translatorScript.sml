@@ -1,3 +1,7 @@
+(*
+  Defines EvalM and other judgements that are central to the monadic
+  translator.
+*)
 open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
 open terminationTheory ml_progLib ml_progTheory

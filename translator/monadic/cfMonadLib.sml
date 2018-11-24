@@ -1,3 +1,7 @@
+(*
+  Automation that converts between judgements used by CF and
+  judgements used by the monadic translator.
+*)
 structure cfMonadLib (* :> cfMonadLib *) = struct
 
 open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib

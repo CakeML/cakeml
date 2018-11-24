@@ -1,3 +1,7 @@
+(*
+  Automation that derives lemmas about arrays and references for use
+  by the monadic translator.
+*)
 structure ml_monadStoreLib :> ml_monadStoreLib = struct
 
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
