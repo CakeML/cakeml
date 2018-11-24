@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Bottom Up Merge
+  Sort algorithm from Chris Okasaki's book.
+*)
 open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
 val _ = numLib.prefer_num()

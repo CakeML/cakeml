@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Red-Black
+  Set algorithm from Chris Okasaki's book.
+*)
 open preamble;
 open okasaki_miscTheory pred_setTheory pred_setSimps;
 open ml_translatorLib ListProgTheory
