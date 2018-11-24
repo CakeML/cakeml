@@ -54,7 +54,7 @@ val fromOption_def = Define`
   fromOption f opt =
   case opt of
       NONE => List [strlit "NONE"]
-    | SOME el => Append (List [strlit "SOME "]) (f el)
+    | SOME x => Append (List [strlit "SOME "]) (f x)
 `
 
 val fromList_def = Define`
@@ -65,8 +65,8 @@ val fromList_def = Define`
     Append
       (Append
         (List [strlit "["])
-        ( FOLDL (λ acc el .
-            Append (Append acc (List [strlit ", "])) (f el)
+        ( FOLDL (λ acc x .
+            Append (Append acc (List [strlit ", "])) (f x)
           ) (f h) t
         )
       )
@@ -76,9 +76,9 @@ val fromList_def = Define`
 val fromArray_def = Define`
   fromArray f a =
   Append
-    ( foldli (λ i acc el .
-        if i = 0 then f el
-        else Append (Append acc (List [strlit ", "])) (f el)
+    ( foldli (λ i acc x .
+        if i = 0 then f x
+        else Append (Append acc (List [strlit ", "])) (f x)
       ) (List [strlit "fromList["]) a
     )
     (List [strlit "]"])
@@ -87,9 +87,9 @@ val fromArray_def = Define`
 val fromVector_def = Define`
   fromVector f v =
   Append
-    ( foldli (λ i acc el .
-        if i = 0 then f el
-        else Append (Append acc (List [strlit ", "])) (f el)
+    ( foldli (λ i acc x .
+        if i = 0 then f x
+        else Append (Append acc (List [strlit ", "])) (f x)
       ) (List [strlit "fromList["]) v
     )
     (List [strlit "]"])

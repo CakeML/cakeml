@@ -2,7 +2,7 @@ OPTIONS = QUIT_ON_FAILURE
 INCLUDES = ../developers ../misc ../semantics parsing inference backend\
            backend/reg_alloc encoders/asm ../basis ../characteristic\
            backend/arm6 backend/arm8 backend/mips backend/riscv\
-           backend/x64\
+           backend/ag32 backend/x64\
            $(HOLDIR)/examples/formal-languages/context-free
 
 all: compilerTheory.uo compilationLib.uo README.md

@@ -14,6 +14,7 @@ val f = print_find;
 
 val _ = new_theory "word_elimProof";
 
+val _ = Parse.hide"mem";
 
 (**************************** ANALYSIS LEMMAS *****************************)
 

@@ -51,6 +51,7 @@ val empty_def = mlDefine `
 empty = (0, [])`;
 
 val sptree_size = Parse.hide"size"
+val _ = Parse.hide"seg"
 
 val add_seg_def = tDefine "add_seg" `
 add_seg leq seg segs size =
