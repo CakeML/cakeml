@@ -15,41 +15,17 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
+val _ = Parse.hide"el";
+
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
                                 (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``
-
-val word_bit_thm = store_thm("word_bit_thm",
-  ``!n w:'a word. word_bit n w <=> n < dimindex (:'a) /\ w ' n``,
-  fs [word_bit_def,LESS_EQ] \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ Cases_on `dimindex (:α)` \\ fs [LESS_EQ]);
-
-val word_bit_or = Q.store_thm("word_bit_or",
-  `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`,
-  fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
-val word_bit_and = Q.store_thm("word_bit_and",
-  `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`,
-  fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
 
 val word_eq = store_thm("word_eq",
   ``!w v. w = v <=> !n. word_bit n w = word_bit n v``,
   fs [word_bit_thm,fcpTheory.CART_EQ]
   \\ rw [] \\ eq_tac \\ rw []
   \\ eq_tac \\ rw [] \\ res_tac \\ fs []);
-
-val word_bit_lsl = store_thm("word_bit_lsl",
-  ``word_bit n (w << i) <=>
-    word_bit (n - i) (w:'a word) /\ n < dimindex (:'a) /\ i <= n``,
-  fs [word_bit_thm,word_lsl_def] \\ eq_tac \\ fs []
-  \\ rw [] \\ rfs [fcpTheory.FCP_BETA]);
 
 val ZIP_REPLICATE = Q.store_thm("ZIP_REPLICATE",
   `!n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)`,
@@ -137,25 +113,6 @@ val _ = type_abbrev("ml_el",
   ``:('a word_loc, tag # ('a word_loc list)) heap_element``);
 
 val _ = type_abbrev("ml_heap",``:'a ml_el list``);
-
-val word_of_bytes_def = Define `
-  (word_of_bytes be a [] = 0w) /\
-  (word_of_bytes be a (b::bs) =
-     set_byte a b (word_of_bytes be (a+1w) bs) be)`
-
-val words_of_bytes_def = tDefine "words_of_bytes" `
-  (words_of_bytes be [] = ([]:'a word list)) /\
-  (words_of_bytes be bytes =
-     let xs = TAKE (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
-     let ys = DROP (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
-       word_of_bytes be 0w xs :: words_of_bytes be ys)`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
-
-val bytes_to_word_def = Define `
-  (bytes_to_word 0 a bs w be = w) /\
-  (bytes_to_word (SUC k) a [] w be = w) /\
-  (bytes_to_word (SUC k) a (b::bs) w be =
-     set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
 
 val write_bytes_def = Define `
   (write_bytes bs [] be = []) /\
@@ -5692,32 +5649,6 @@ val get_byte_bytes_to_word = Q.store_thm("get_byte_bytes_to_word",
              alignmentTheory.align_w2n]))
   \\ rfs [labPropsTheory.good_dimindex_def]);
 
-val pow_eq_0 = Q.store_thm("pow_eq_0",
-  `dimindex (:'a) <= k ==> (n2w (2 ** k) = 0w:'a word)`,
-  fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
-  \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
-
-val aligned_pow = Q.store_thm("aligned_pow",
-  `aligned k (n2w (2 ** k))`,
-  Cases_on `k < dimindex (:'a)`
-  \\ fs [NOT_LESS,pow_eq_0,aligned_0]
-  \\ `2 ** k < dimword (:'a)` by fs [dimword_def]
-  \\ fs [aligned_def,align_w2n])
-
-local
-  val aligned_add_mult_lemma = Q.prove(
-    `aligned k (w + n2w (2 ** k)) = aligned k w`,
-    fs [aligned_add_sub,aligned_pow]) |> GEN_ALL
-  val aligned_add_mult_any = Q.prove(
-    `!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w`,
-    Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
-    \\ pop_assum (qspec_then `w + n2w (2 ** k)` mp_tac)
-    \\ fs [aligned_add_mult_lemma]) |> GEN_ALL
-in
-  val aligned_add_pow = save_thm("aligned_add_pow[simp]",
-    CONJ aligned_add_mult_lemma aligned_add_mult_any)
-end
-
 val MOD_MULT_MOD_LEMMA = Q.prove(
   `k MOD n = 0 /\ x MOD n = t /\ 0 < k /\ 0 < n /\ n <= k ==>
     x MOD k MOD n = t`,
@@ -5743,8 +5674,8 @@ val w2n_add_byte_align_lemma = Q.store_thm("w2n_add_byte_align_lemma",
 val get_byte_byte_align = Q.store_thm("get_byte_byte_align",
   `good_dimindex (:'a) ==>
     get_byte (a' + byte_align a) w be = get_byte a' (w:'a word) be`,
-  fs [wordSemTheory.get_byte_def] \\ rw [] \\ rpt AP_TERM_TAC
-  \\ fs [wordSemTheory.byte_index_def,w2n_add_byte_align_lemma]);
+  fs [get_byte_def] \\ rw [] \\ rpt AP_TERM_TAC
+  \\ fs [byte_index_def,w2n_add_byte_align_lemma]);
 
 val get_byte_eq = Q.store_thm("get_byte_eq",
   `good_dimindex (:'a) /\ a = byte_align a + a' ==>
@@ -5816,8 +5747,6 @@ val decode_length_make_byte_header = Q.store_thm("decode_length_make_byte_header
   \\ `len MOD n + n < n + n` by simp[]
   \\ qunabbrev_tac`n`
   \\ decide_tac);
-
-val bytes_to_word_ind = theorem"bytes_to_word_ind";
 
 val bytes_to_word_same = Q.store_thm("bytes_to_word_same",
   `∀bw k b1 w be b2.

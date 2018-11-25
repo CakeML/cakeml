@@ -354,9 +354,13 @@ fun state_tac asm =
                [bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``,
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
-         rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2, ror,
-             GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
-             DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
+         rpt strip_tac
+         \\ NO_STRIP_REV_FULL_SIMP_TAC std_ss []
+         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
+         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
+         \\ rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2, ror,
+                GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
+                DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
          \\ (if asmLib.isMem asm then
               rw [boolTheory.FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM]
               \\ full_simp_tac
@@ -391,13 +395,13 @@ local
       in
          exists_tac n
          \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
-              [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+              [asmPropsTheory.asserts_eval,
+               asmPropsTheory.asserts2_eval,
+               asmPropsTheory.interference_ok_def,
                mips_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
-         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
       end gs
    val (_, _, dest_mips_enc, is_mips_enc) =
       HolKernel.syntax_fns1 "mips_target" "mips_enc"

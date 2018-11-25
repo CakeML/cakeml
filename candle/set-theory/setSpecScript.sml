@@ -7,6 +7,8 @@ val _ = Parse.remove_type_abbrev "inf";
 
 (* http://www.lemma-one.com/ProofPower/specs/spc002.pdf *)
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)

@@ -740,6 +740,7 @@ fun state_tac thms =
        arm8_config, asmPropsTheory.all_pcs, arm8_ok_def, lem30,
        set_sepTheory.fun2set_eq] @ thms)
   \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+  \\ rfs []
 
 val shift_cases_tac =
    Cases_on `s`
@@ -776,6 +777,7 @@ fun next_tac n =
    qexists_tac n
    \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
         [arm8_next_def, asmPropsTheory.asserts_eval,
+         asmPropsTheory.asserts2_eval,
          asmPropsTheory.interference_ok_def, arm8_proj_def]
    \\ NTAC 2 strip_tac
    \\ Q.PAT_ABBREV_TAC `instr = arm8_enc aa`
