@@ -1,3 +1,6 @@
+(*
+  Instantiate the CakeML FFI oracle for the oracle of the basis library.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
      cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory

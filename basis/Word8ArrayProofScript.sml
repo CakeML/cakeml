@@ -1,3 +1,6 @@
+(*
+  Proof about the code in the byte-array module Word8Array.
+*)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib
      Word8ArrayProgTheory

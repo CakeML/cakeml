@@ -1,3 +1,6 @@
+(*
+  Module about the built-in string tyoe.
+*)
 open preamble
   ml_translatorLib ml_translatorTheory ml_progLib
   mlstringTheory VectorProgTheory basisFunctionsLib

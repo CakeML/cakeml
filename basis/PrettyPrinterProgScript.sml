@@ -1,3 +1,7 @@
+(*
+  Module providing various functions that can be used to efficiently
+  pretty-print values of different types.
+*)
 open
   preamble
   ml_translatorLib

@@ -1,3 +1,7 @@
+(*
+  Module that contains a few special functions, e.g. a function for
+  forcing a full GC to run, a function for producing debug output.
+*)
 open preamble ml_translatorLib ml_progLib std_preludeTheory
      mloptionTheory basisFunctionsLib
 
@@ -36,7 +40,7 @@ val _ = append_prog exit
 val abort = process_topdecs `fun abort u = exit 1`
 
 val _ = append_prog abort
-                    
+
 val sigs = module_signatures ["fullGC", "debugMsg","exit","abort"];
 
 val _ = ml_prog_update (close_module (SOME sigs));

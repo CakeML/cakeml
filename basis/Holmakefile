@@ -9,7 +9,7 @@ all: $(TARGETS) basis_ffi.o README.md
 .PHONY: all
 
 
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml) $(wildcard *.c)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)

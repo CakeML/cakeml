@@ -1,3 +1,6 @@
+(*
+  Contains the code for the entire CakeML basis library in basis_def.
+*)
 open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
      CommandLineProofTheory TextIOProofTheory RuntimeProofTheory PrettyPrinterProgTheory
 

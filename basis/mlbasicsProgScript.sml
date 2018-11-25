@@ -1,3 +1,8 @@
+(*
+  Bind various built-in functions to function names that the parser
+  expects, e.g. the parser generates a call to a function called "+"
+  when it parses 1+2.
+*)
 open preamble
      semanticPrimitivesTheory ml_translatorTheory
      ml_translatorLib ml_progLib cfLib basisFunctionsLib

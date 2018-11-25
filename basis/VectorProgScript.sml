@@ -1,3 +1,6 @@
+(*
+  Module about the built-in 'a vector.
+*)
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
     mlvectorTheory ListProgTheory basisFunctionsLib
 

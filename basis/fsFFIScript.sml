@@ -1,10 +1,11 @@
+(*
+  Logical model of filesystem and I/O streams
+*)
 open preamble mlstringTheory cfHeapsBaseTheory MarshallingTheory
 
 val _ = new_theory"fsFFI"
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-
-(* Logical model of filesystem and I/O streams *)
 
 val _ = Datatype` inode = IOStream mlstring | File mlstring`
 

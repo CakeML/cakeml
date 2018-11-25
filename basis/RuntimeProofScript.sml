@@ -1,3 +1,6 @@
+(*
+  Proof about the exit function in the Runtime module.
+*)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory runtimeFFITheory RuntimeProgTheory

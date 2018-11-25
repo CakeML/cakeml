@@ -1,3 +1,6 @@
+(*
+  Proofs about the code in the TextIO module.
+*)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIPropsTheory Word8ProgTheory cfMonadLib

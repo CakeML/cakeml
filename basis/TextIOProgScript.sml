@@ -1,3 +1,6 @@
+(*
+  Module for text-based I/O with the underlying file system.
+*)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
      CommandLineProgTheory MarshallingProgTheory
