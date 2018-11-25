@@ -837,7 +837,7 @@ val tac =
 val Eval_word_and = Q.store_thm("Eval_word_and",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw Andw) [x1;x2])
+    Eval env (App (Opw (WordSize (dimindex (:'a))) Andw) [x1;x2])
       (WORD (word_and w1 w2))`,
   tac
   \\ fs [bitstringTheory.word_and_v2w,bitstringTheory.band_def]
@@ -847,14 +847,14 @@ val Eval_word_and = Q.store_thm("Eval_word_and",
 val Eval_word_or = Q.store_thm("Eval_word_or",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw Orw) [x1;x2])
+    Eval env (App (Opw (WordSize (dimindex (:'a))) Orw) [x1;x2])
       (WORD (word_or w1 w2))`,
   cheat);
 
 val Eval_word_xor = Q.store_thm("Eval_word_xor",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw Xor) [x1;x2])
+    Eval env (App (Opw (WordSize (dimindex (:'a))) Xor) [x1;x2])
       (WORD (word_xor w1 w2))`,
   cheat);
 
@@ -887,7 +887,7 @@ val Eval_word_add_lemma = Q.prove(
 val Eval_word_add = Q.store_thm("Eval_word_add",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw Add) [x1;x2])
+    Eval env (App (Opw (WordSize (dimindex (:'a))) Add) [x1;x2])
       (WORD (word_add w1 w2))`,cheat
   (* tac
   \\ Cases_on `w1` \\ Cases_on `w2`
@@ -910,7 +910,7 @@ val Eval_word_sub_lemma = Q.prove(
 val Eval_word_sub = Q.store_thm("Eval_word_sub",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw Sub) [x1;x2])
+    Eval env (App (Opw (WordSize (dimindex (:'a))) Sub) [x1;x2])
       (WORD (word_sub w1 w2))`,cheat
   (* tac
   \\ Cases_on `w1` \\ Cases_on `w2`
@@ -944,7 +944,7 @@ val w2n_w2w_64 = Q.prove(
 
 val Eval_w2n = Q.store_thm("Eval_w2n",
    `Eval env x1 (WORD (w:'a word)) ==>
-    Eval env (App WordToInt [x1]) (NUM (w2n w))`,cheat
+    Eval env (App (WordToInt (WordSize (dimindex (:'a)))) [x1]) (NUM (w2n w))`,cheat
   (*rw[Eval_rw,WORD_def] \\ fs []
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1`
@@ -1017,7 +1017,7 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
 val Eval_w2w = Q.store_thm("Eval_w2w",
    `Eval env x1 (WORD (w:'b word)) ==>
     Eval env
-    (App (WordFromInt (WordSize (dimindex (:'a)))) [App WordToInt [x1]])
+    (App (WordToWord (WordSize (dimindex (:'b))) (WordSize (dimindex (:'a)))) [x1])
     (WORD ((w2w w):'a word))`,cheat)
 
 (*
@@ -1081,7 +1081,7 @@ val Eval_w2w = Q.store_thm("Eval_w2w",
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (App (Shift Lsl n) [x1])
+      Eval env (App (Shift (WordSize (dimindex (:'a))) Lsl n) [x1])
         (WORD (word_lsl w1 n))`,cheat
   (*rw[Eval_rw,WORD_def]
   \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
@@ -1094,7 +1094,7 @@ val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
 val Eval_word_lsr = Q.store_thm("Eval_word_lsr",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (App (Shift Lsr n) [x1])
+      Eval env (App (Shift (WordSize (dimindex (:'a))) Lsr n) [x1])
         (WORD (word_lsr w1 n))`,cheat
   (* rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
@@ -1115,7 +1115,7 @@ val Eval_word_lsr = Q.store_thm("Eval_word_lsr",
 val Eval_word_asr = Q.store_thm("Eval_word_asr",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (App (Shift Asr n) [x1])
+      Eval env (App (Shift (WordSize (dimindex (:'a))) Asr n) [x1])
         (WORD (word_asr w1 n))`,cheat
   (* rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
@@ -1135,7 +1135,7 @@ val Eval_word_asr = Q.store_thm("Eval_word_asr",
 val Eval_word_ror = Q.store_thm("Eval_word_ror",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (App (Shift Ror n) [x1])
+      Eval env (App (Shift (WordSize (dimindex (:'a))) Ror n) [x1])
         (WORD (word_ror w1 n))`,cheat
   (* Cases_on `dimindex (:'a) = 8` \\ fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ fs []
