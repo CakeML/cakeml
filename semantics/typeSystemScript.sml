@@ -340,69 +340,221 @@ val _ = Define `
 (*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
  (type_op op ts t= 
-  ((case (op,ts) of
-         (Opapp, [t1; t2]) => t1 = Tfn t2 t
-     | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
-     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
-     | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
-     | (FP_bop _, [t1; t2]) => (t1 = Tword64) /\
-                                 (t2 = Tword64) /\ (t = Tword64)
-     | (FP_uop _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
-     | (FP_cmp _, [t1; t2]) => (t1 = Tword64) /\
-                                 (t2 = Tword64) /\ (t = Tbool)
-     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
-     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
-     | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])
-     | (Opref, [t1]) => t = Tref t1
-     | (Opderef, [t1]) => t1 = Tref t
-     | (Aw8alloc, [t1; t2]) => (t1 = Tint) /\
-                                 (t2 = Tword8) /\ (t = Tword8array)
-     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\
-                               (t2 = Tint) /\ (t = Tword8)
-     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
-     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\
-                                      (t2 = Tint) /\
-                                        (t3 = Tword8) /\ (t = Ttup [])
-     | (WordFromInt W8, [t1]) => (t1 = Tint) /\ (t = Tword8)
-     | (WordToInt W8, [t1]) => (t1 = Tword8) /\ (t = Tint)
-     | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\
-                                       (t2 = Tint) /\
-                                         (t3 = Tint) /\ (t = Tstring)
-     | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
-   (t1 = Tstring) /\
-     (t2 = Tint) /\
-       (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
-     | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\
-                                       (t2 = Tint) /\
-                                         (t3 = Tint) /\ (t = Tstring)
-     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
-   (t1 = Tword8array) /\
-     (t2 = Tint) /\
-       (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
-     | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
-     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
-     | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
-     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
-     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
-     | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
-     | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
-     | (VfromList, [Tapp [t1] ctor]) => (ctor = Tlist_num) /\
-                                          (t = Tvector t1)
-     | (Vsub, [t1; t2]) => (t2 = Tint) /\ (Tvector t = t1)
-     | (Vlength, [Tapp [t1] ctor]) => (ctor = Tvector_num) /\ (t = Tint)
-     | (Aalloc, [t1; t2]) => (t1 = Tint) /\ (t = Tarray t2)
-     | (AallocEmpty, [t1]) => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
-     | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)
-     | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
-     | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\
-                                    (t2 = Tint) /\ (t = Ttup [])
-     | (ConfigGC, [t1;t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
-     | (FFI n, [t1;t2]) => (t1 = Tstring) /\
-                             (t2 = Tword8array) /\ (t = Ttup [])
-     | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\
-                                               (t2 = Tapp [t1] ctor) /\
-                                                 (t = t2)
-     | _ => F
+  ((case op of
+       Opn o0 => (case(o0,ts) of
+                     ( _, [t1; t2]) => (t1 = Tint) /\
+                                         (t2 = Tint) /\ (t = Tint)
+                   | (_,_) => F
+                 )
+     | Opb o1 => (case(o1,ts) of
+                     ( _, [t1; t2]) => (t1 = Tint) /\
+                                         (t2 = Tint) /\ (t = Tbool)
+                   | (_,_) => F
+                 )
+     | Opw w o2 => (case w of
+                       WordSize n1 =>
+                   if(n1 = ( 8 : num)) then
+                     ((case(o2,ts) of
+                          ( _, [t1; t2]) => (t1 = Tword8) /\
+                                              (t2 = Tword8) /\ (t = Tword8)
+                        | (_,_) => F
+                      )) else
+                     (
+                     if(n1 = ( 64 : num)) then
+                       ((case(o2,ts) of
+                            ( _, [t1; t2]) => (t1 = Tword64) /\
+                                                (t2 = Tword64) /\
+                                                  (t = Tword64)
+                          | (_,_) => F
+                        )) else F)
+                   )
+     | Shift w0 s n0 => (case w0 of
+                            WordSize n2 =>
+                        if(n2 = ( 8 : num)) then
+                          ((case(s,n0,ts) of
+                               ( _, _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
+                             | (_,_,_) => F
+                           )) else
+                          (
+                          if(n2 = ( 64 : num)) then
+                            ((case(s,n0,ts) of
+                                 ( _, _, [t1]) => (t1 = Tword64) /\
+                                                    (t = Tword64)
+                               | (_,_,_) => F
+                             )) else F)
+                        )
+     | Equality => (case ts of
+                       [t1; t2] => (t1 = t2) /\ (t = Tbool)
+                     | _ => F
+                   )
+     | FP_cmp f => (case(f,ts) of
+                       ( _, [t1; t2]) => (t1 = Tword64) /\
+                                           (t2 = Tword64) /\ (t = Tbool)
+                     | (_,_) => F
+                   )
+     | FP_uop f0 => (case(f0,ts) of
+                        ( _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
+                      | (_,_) => F
+                    )
+     | FP_bop f1 => (case(f1,ts) of
+                        ( _, [t1; t2]) => (t1 = Tword64) /\
+                                            (t2 = Tword64) /\ (t = Tword64)
+                      | (_,_) => F
+                    )
+     | Opapp => (case ts of [t1; t2] => t1 = Tfn t2 t | _ => F )
+     | Opassign => (case ts of
+                       [t1; t2] => (t1 = Tref t2) /\ (t = Ttup [])
+                     | _ => F
+                   )
+     | Opref => (case ts of [t1] => t = Tref t1 | _ => F )
+     | Opderef => (case ts of [t1] => t1 = Tref t | _ => F )
+     | Aw8alloc => (case ts of
+                       [t1; t2] => (t1 = Tint) /\
+                                     (t2 = Tword8) /\ (t = Tword8array)
+                     | _ => F
+                   )
+     | Aw8sub => (case ts of
+                     [t1; t2] => (t1 = Tword8array) /\
+                                   (t2 = Tint) /\ (t = Tword8)
+                   | _ => F
+                 )
+     | Aw8length => (case ts of
+                        [t1] => (t1 = Tword8array) /\ (t = Tint)
+                      | _ => F
+                    )
+     | Aw8update => (case ts of
+                        [t1; t2; t3] => (t1 = Tword8array) /\
+                                          (t2 = Tint) /\
+                                            (t3 = Tword8) /\ (t = Ttup [])
+                      | _ => F
+                    )
+     | WordFromInt w1 => (case w1 of
+                             WordSize n3 =>
+                         if(n3 = ( 8 : num)) then
+                           ((case ts of
+                                [t1] => (t1 = Tint) /\ (t = Tword8)
+                              | _ => F
+                            )) else
+                           (
+                           if(n3 = ( 64 : num)) then
+                             ((case ts of
+                                  [t1] => (t1 = Tint) /\ (t = Tword64)
+                                | _ => F
+                              )) else F)
+                         )
+     | WordToInt w2 => (case w2 of
+                           WordSize n4 =>
+                       if(n4 = ( 8 : num)) then
+                         ((case ts of
+                              [t1] => (t1 = Tword8) /\ (t = Tint)
+                            | _ => F
+                          )) else
+                         (
+                         if(n4 = ( 64 : num)) then
+                           ((case ts of
+                                [t1] => (t1 = Tword64) /\ (t = Tint)
+                              | _ => F
+                            )) else F)
+                       )
+     | CopyStrStr => (case ts of
+                         [t1; t2; t3] => (t1 = Tstring) /\
+                                           (t2 = Tint) /\
+                                             (t3 = Tint) /\ (t = Tstring)
+                       | _ => F
+                     )
+     | CopyStrAw8 => (case ts of
+                         [t1; t2; t3; t4; t5] => (t1 = Tstring) /\
+                                                   (t2 = Tint) /\
+                                                     (t3 = Tint) /\
+                                                       (t4 = Tword8array) /\
+                                                         (t5 = Tint) /\
+                                                           (t = Ttup [])
+                       | _ => F
+                     )
+     | CopyAw8Str => (case ts of
+                         [t1; t2; t3] => (t1 = Tword8array) /\
+                                           (t2 = Tint) /\
+                                             (t3 = Tint) /\ (t = Tstring)
+                       | _ => F
+                     )
+     | CopyAw8Aw8 => (case ts of
+                         [t1; t2; t3; t4; t5] => (t1 = Tword8array) /\
+                                                   (t2 = Tint) /\
+                                                     (t3 = Tint) /\
+                                                       (t4 = Tword8array) /\
+                                                         (t5 = Tint) /\
+                                                           (t = Ttup [])
+                       | _ => F
+                     )
+     | Ord => (case ts of [t1] => (t1 = Tchar) /\ (t = Tint) | _ => F )
+     | Chr => (case ts of [t1] => (t1 = Tint) /\ (t = Tchar) | _ => F )
+     | Chopb o3 => (case(o3,ts) of
+                       ( _, [t1; t2]) => (t1 = Tchar) /\
+                                           (t2 = Tchar) /\ (t = Tbool)
+                     | (_,_) => F
+                   )
+     | Implode => (case ts of
+                      [t1] => (t1 = Tlist Tchar) /\ (t = Tstring)
+                    | _ => F
+                  )
+     | Strsub => (case ts of
+                     [t1; t2] => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
+                   | _ => F
+                 )
+     | Strlen => (case ts of [t1] => (t1 = Tstring) /\ (t = Tint) | _ => F )
+     | Strcat => (case ts of
+                     [t1] => (t1 = Tlist Tstring) /\ (t = Tstring)
+                   | _ => F
+                 )
+     | VfromList => (case ts of
+                        [Tapp [t1] ctor] => (ctor = Tlist_num) /\
+                                              (t = Tvector t1)
+                      | _ => F
+                    )
+     | Vsub => (case ts of
+                   [t1; t2] => (t2 = Tint) /\ (Tvector t = t1)
+                 | _ => F
+               )
+     | Vlength => (case ts of
+                      [Tapp [t1] ctor] => (ctor = Tvector_num) /\ (t = Tint)
+                    | _ => F
+                  )
+     | Aalloc => (case ts of
+                     [t1; t2] => (t1 = Tint) /\ (t = Tarray t2)
+                   | _ => F
+                 )
+     | AallocEmpty => (case ts of
+                          [t1] => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
+                        | _ => F
+                      )
+     | Asub => (case ts of
+                   [t1; t2] => (t2 = Tint) /\ (Tarray t = t1)
+                 | _ => F
+               )
+     | Alength => (case ts of
+                      [Tapp [t1] ctor] => (ctor = Tarray_num) /\ (t = Tint)
+                    | _ => F
+                  )
+     | Aupdate => (case ts of
+                      [t1; t2; t3] => (t1 = Tarray t3) /\
+                                        (t2 = Tint) /\ (t = Ttup [])
+                    | _ => F
+                  )
+     | ListAppend => (case ts of
+                         [Tapp [t1] ctor; t2] => (ctor = Tlist_num) /\
+                                                   (t2 = Tapp [t1] ctor) /\
+                                                     (t = t2)
+                       | _ => F
+                     )
+     | ConfigGC => (case ts of
+                       [t1;t2] => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
+                     | _ => F
+                   )
+     | FFI s0 => (case(s0,ts) of
+                     (_, [t1;t2]) => (t1 = Tstring) /\
+                                       (t2 = Tword8array) /\ (t = Ttup [])
+                   | (_,_) => F
+                 )
    )))`;
 
 
