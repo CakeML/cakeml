@@ -18,6 +18,9 @@ val _ = new_theory"backendProof";
 
 (* TODO: move *)
 
+val _ = Parse.hide "all"; (* TODO: replace these with set_grammar_ancestry *)
+val _ = Parse.hide "cf";
+
 fun Abbrev_intro th =
   EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
 
@@ -2827,7 +2830,7 @@ val compile_prog_get_code_labels_TODO_move_1 = Q.store_thm("compile_prog_get_cod
   \\ fs [o_DEF, toList_def, toListA_def]);
 
 val set_MAP_code_sort = Q.store_thm("set_MAP_code_sort",
-  `set (MAP f (code_sort x)) = set (MAP f x)`,
+  `LIST_TO_SET (MAP f (code_sort x)) = set (MAP f x)`,
   Q.ISPEC_THEN`x`mp_tac clos_to_bvlProofTheory.PERM_code_sort
   \\ rw[EXTENSION, MEM_MAP]
   \\ imp_res_tac MEM_PERM \\ fs[]);
