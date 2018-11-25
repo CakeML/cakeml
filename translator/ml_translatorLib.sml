@@ -443,19 +443,6 @@ fun full_name_of_type ty =
     in thy_name ^ name_of_type ty end
   else name_of_type ty;
 
-(* ty must be a word type and dim ≤ 64 *)
-fun word_ty_ok ty =
-  if wordsSyntax.is_word_type ty then
-    let val fcp_dim = wordsSyntax.dest_word_type ty in
-      if fcpSyntax.is_numeric_type fcp_dim then
-        let val dim = fcpSyntax.dest_int_numeric_type fcp_dim in
-          dim <= 64
-        end
-      else
-        false
-    end
-  else false;
-
 val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
   |> type_of |> dest_type |> snd |> last;
 
@@ -510,10 +497,10 @@ in
   val one_ast_t = mk_Attup(listSyntax.mk_list([],ast_t_ty))
   fun type2t ty =
     if ty = bool then bool_ast_t else
-    if word_ty_ok ty then
-      (*dim ≤ 64 guaranteeed*)
-      let val dim = (fcpSyntax.dest_int_numeric_type o wordsSyntax.dest_word_type) ty in
-        if dim <= 8 then word8_ast_t else word64_ast_t
+    if wordsSyntax.is_word_type ty then
+      let val dim = (fcpSyntax.dest_int_numeric_type o
+                     wordsSyntax.dest_word_type) ty in
+        if dim <= 8 then word8_ast_t else word64_ast_t (* TODO: fix *)
       end else
     if ty = intSyntax.int_ty then int_ast_t else
     if ty = numSyntax.num then int_ast_t else
@@ -559,7 +546,7 @@ in
       in mk_Arrow(get_type_inv t1,get_type_inv t2)
       end else
     if ty = bool then BOOL else
-    if wordsSyntax.is_word_type ty andalso word_ty_ok ty then
+    if wordsSyntax.is_word_type ty then
       let val dim = wordsSyntax.dest_word_type ty in
         inst [alpha|->dim] WORD
       end else
@@ -2968,6 +2955,8 @@ val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = ``case l of
        (x,y)::l1 => if y = a then x else x+y:num | _ => d``
 
+val tm = ``5w:word32``
+
 *)
 
 fun hol2deep tm =
@@ -2984,12 +2973,11 @@ fun hol2deep tm =
   if tm ~~ oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
-  if is_word_literal tm andalso word_ty_ok (type_of tm) then let
+  if is_word_literal tm then let
     val dim = wordsSyntax.dim_of tm
     val result = SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD)
-                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
-                 |> (fn th => MP th TRUTH)
-                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val ll = result |> concl |> rator |> rand |> rand |> rand |> EVAL
+    val result = result |> REWRITE_RULE [ll]
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
@@ -3147,21 +3135,21 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_Num th1 |> UNDISCH_ALL
     in check_inv "num" tm result end else
   (* n2w 'a word for known 'a *)
-  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
+  if wordsSyntax.is_n2w tm then let
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
   (* i2w 'a word for known 'a *)
-  if integer_wordSyntax.is_i2w tm andalso word_ty_ok (type_of tm) then let
+  if integer_wordSyntax.is_i2w tm then let
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a *)
-  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
+  if wordsSyntax.is_w2n tm then let
     val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
@@ -3169,7 +3157,7 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
   (* w2i 'a word for known 'a *)
-  if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
+  if integer_wordSyntax.is_w2i tm then let
     val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
@@ -3177,32 +3165,25 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2i" tm result end else
   (* w2w 'a word for known 'a *)
-  if wordsSyntax.is_w2w tm andalso word_ty_ok (type_of (rand tm))
-                           andalso word_ty_ok (type_of tm) then let
+  if wordsSyntax.is_w2w tm then let
     val x1 = tm |> rand
     val dim1 = wordsSyntax.dim_of tm
     val dim2 = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     val lemma = INST_TYPE [alpha|->dim1,beta|->dim2]Eval_w2w
-    val h = lemma |> concl |> dest_imp |> fst
-    val h_thm = EVAL h
-    val lemma = REWRITE_RULE [h_thm] lemma
-    val _ = (rand (concl h_thm) = T) orelse failwith "false pre for w2w"
-    val result =
-        MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
-                        |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
-          (hol2deep x1)
+                |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV))
+    val result = MATCH_MP lemma th1
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
-  if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
+  if can dest_word_binop tm then let
     val lemma = dest_word_binop tm
     val th1 = hol2deep (tm |> rator |> rand)
     val th2 = hol2deep (tm |> rand)
     val result = MATCH_MP lemma (CONJ th1 th2)
-                |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_binop" tm result end else
   (* word_lsl, _lsr, _asr *)
-  if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
+  if can dest_word_shift tm then let
     val n = tm |> rand
     val _ = numSyntax.is_numeral n orelse
             failwith "2nd arg to word shifts must be numeral constant"
