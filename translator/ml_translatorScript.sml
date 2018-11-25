@@ -18,6 +18,36 @@ infix \\ val op \\ = op THEN;
 
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
+(* TODO move *)
+
+val EL_bitwise = store_thm("EL_bitwise",
+  ``i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
+    EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)``,
+  fs [bitstringTheory.bitwise_def]
+  \\ qid_spec_tac `xs`
+  \\ qid_spec_tac `ys`
+  \\ qid_spec_tac `i`
+  \\ Induct_on `xs` \\ Cases_on `ys` \\ fs []
+  \\ rpt gen_tac \\ Cases_on `i` \\ fs []);
+
+val EL_w2v = store_thm("EL_w2v",
+  ``!w i. i < dimindex (:'a) ==>
+          EL i (w2v (w:'a word)) = w ' (dimindex (:'a) − (i + 1))``,
+  fs [bitstringTheory.w2v_def]);
+
+val bitwise_w2v_w2v = store_thm("bitwise_w2v_w2v",
+  ``!(w1:'a word) (w2:'a word) f.
+      bitwise f (w2v w1) (w2v w2) = w2v ((FCP i. f (w1 ' i) (w2 ' i)) :'a word)``,
+  fs [listTheory.LIST_EQ_REWRITE]
+  \\ rpt gen_tac
+  \\ conj_asm1_tac
+  THEN1 fs [bitstringTheory.bitwise_def]
+  \\ fs [] \\ rw []
+  \\ fs [EL_bitwise,EL_w2v]
+  \\ fs [fcpTheory.FCP_BETA]);
+
+(* / TODO *)
+
 (* Definitions *)
 
 val empty_state_def = Define`
@@ -312,9 +342,14 @@ val EqualityType_NUM_BOOL = Q.store_thm("EqualityType_NUM_BOOL",
   \\ fs [w2w_def] \\ Cases_on `x1`
   \\ fs[STRING_TYPE_def] \\ EVAL_TAC
   \\ Cases_on `x2` \\ fs[STRING_TYPE_def] \\ EVAL_TAC
-  \\ cheat (* fs [WORD_MUL_LSL,word_mul_n2w]
-  \\ imp_res_tac Eq_lemma \\ fs []
-  \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]*));
+  \\ fs [GENLIST_FUN_EQ]
+  \\ `n = n' <=> n2w n = (n2w n') :'a word` by fs [n2w_11]
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ rewrite_tac [fcpTheory.CART_EQ]
+  \\ eq_tac \\ rw []
+  \\ first_x_assum (qspec_then `dimindex (:α) − i - 1` mp_tac)
+  \\ `0 < dimindex (:'a)` by fs [wordsTheory.DIMINDEX_GT_0]
+  \\ simp []);
 
 val types_match_list_length = Q.store_thm("types_match_list_length",
   `!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2`,
@@ -795,16 +830,19 @@ val Eval_NUM_EQ_0 = Q.store_thm("Eval_NUM_EQ_0",
 val tac =
   qmatch_goalsub_abbrev_tac`Opw`
   \\ rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def]
-  \\ rw [] \\ fs [WORD_def,Abbr`wx`,state_component_equality]
-  \\ fs [do_app_def,opw_lookup_def]
-  \\ fs [GSYM WORD_w2w_OVER_BITWISE]
+  \\ rw [] \\ fs [WORD_def,state_component_equality]
+  \\ fs [do_app_def,semanticPrimitivesPropsTheory.opw_lookup_def,
+         semanticPrimitivesTheory.opw_lookup_def]
 
 val Eval_word_and = Q.store_thm("Eval_word_and",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw Andw) [x1;x2])
       (WORD (word_and w1 w2))`,
-  cheat);
+  tac
+  \\ fs [bitstringTheory.word_and_v2w,bitstringTheory.band_def]
+  \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
+  \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def]);
 
 val Eval_word_or = Q.store_thm("Eval_word_or",
    `Eval env x1 (WORD (w1:'a word)) /\
@@ -978,7 +1016,7 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
 
 val Eval_w2w = Q.store_thm("Eval_w2w",
    `Eval env x1 (WORD (w:'b word)) ==>
-    Eval env 
+    Eval env
     (App (WordFromInt (WordSize (dimindex (:'a)))) [App WordToInt [x1]])
     (WORD ((w2w w):'a word))`,cheat)
 
@@ -1056,7 +1094,7 @@ val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
 val Eval_word_lsr = Q.store_thm("Eval_word_lsr",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
-      Eval env (App (Shift Lsr n) [x1]) 
+      Eval env (App (Shift Lsr n) [x1])
         (WORD (word_lsr w1 n))`,cheat
   (* rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
