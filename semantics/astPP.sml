@@ -621,12 +621,12 @@ val _=add_astPP ("eqrealprint", ``App Equality [x;y]``,genPrint (infixrealPrint 
 val _=add_astPP ("refrealprint", ``App Opref x``,genPrint (prefixargsPrint "ref"))
 val _=add_astPP ("derefrealprint", ``App Opderef x``,genPrint (prefixargsPrint "!"))
 
-val _=add_astPP ("WtoIntprint", ``App WordToInt x``,genPrint (prefixargsPrint "WtoInt"))
+val _=add_astPP ("WtoIntprint", ``App (WordToInt (WordSize n)) x``,genPrint (prefixargsPrint "WtoInt"))
 val _=add_astPP ("WfromIntprint", ``App (WordFromInt (WordSize n)) x``,genPrint (prefixargsPrint "WfromInt"))
 
-val _=add_astPP ("OpwAndwprint", ``App (Opw Andw) x``,genPrint (prefixargsPrint "OpwAndw"))
-val _=add_astPP ("OpwOrwprint", ``App (Opw Orw) x``,genPrint (prefixargsPrint "OpwOrw"))
-val _=add_astPP ("OpwXorprint", ``App (Opw Xor) x``,genPrint (prefixargsPrint "OpwXor"))
+val _=add_astPP ("OpwAndwprint", ``App (Opw (WordSize n) Andw) x``,genPrint (prefixargsPrint "OpwAndw"))
+val _=add_astPP ("OpwOrwprint", ``App (Opw (WordSize n) Orw) x``,genPrint (prefixargsPrint "OpwOrw"))
+val _=add_astPP ("OpwXorprint", ``App (Opw (WordSize n) Xor) x``,genPrint (prefixargsPrint "OpwXor"))
 
 (*Opb*)
 val _=add_astPP ("gteqrealprint", ``App (Opb Geq) [x;y]``,genPrint (infixrealPrint ">="));
