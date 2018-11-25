@@ -566,6 +566,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t), Rval (Litv (IntLit (integerFromBitstring w))))
         else
           Nothing
+    | (WordToWord (WordSize n1) (WordSize n2), [Litv (Word w)]) ->
+        if length w = n1 then
+          Just ((s,t), Rval (Litv (Word (fixwidth n2 w))))
+        else
+          Nothing
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
         Just ((s,t),
         match copy_array (toCharList str,off) len Nothing with

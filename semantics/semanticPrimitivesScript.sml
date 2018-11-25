@@ -679,6 +679,11 @@ val _ = Define `
           SOME ((s,t), Rval (Litv (IntLit (v2i w))))
         else
           NONE
+    | (WordToWord (WordSize n1) (WordSize n2), [Litv (Word w)]) =>
+        if LENGTH w = n1 then
+          SOME ((s,t), Rval (Litv (Word (fixwidth n2 w))))
+        else
+          NONE
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (EXPLODE str,off) len NONE of

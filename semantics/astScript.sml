@@ -86,6 +86,8 @@ val _ = Hol_datatype `
   (* Word/integer conversions *)
   | WordFromInt of word_size
   | WordToInt of word_size
+  (* Word/word converion, source size, dest size *)
+  | WordToWord of word_size => word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8

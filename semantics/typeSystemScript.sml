@@ -456,6 +456,42 @@ val _ = Define `
                               | _ => F
                             )) else F)
                        )
+     | WordToWord w3 w4 => (case w3 of
+                               WordSize n5 =>
+                           if(n5 = ( 8 : num)) then
+                             ((case w4 of
+                                  WordSize n6 =>
+                              if(n6 = ( 8 : num)) then
+                                ((case ts of
+                                     [t1] => (t1 = Tword8) /\ (t = Tword8)
+                                   | _ => F
+                                 )) else
+                                (
+                                if(n6 = ( 64 : num)) then
+                                  ((case ts of
+                                       [t1] => (t1 = Tword8) /\ (t = Tword64)
+                                     | _ => F
+                                   )) else F)
+                              )) else
+                             (
+                             if(n5 = ( 64 : num)) then
+                               ((case w4 of
+                                    WordSize n7 =>
+                                if(n7 = ( 64 : num)) then
+                                  ((case ts of
+                                       [t1] => (t1 = Tword64) /\
+                                                 (t = Tword64)
+                                     | _ => F
+                                   )) else
+                                  (
+                                  if(n7 = ( 8 : num)) then
+                                    ((case ts of
+                                         [t1] => (t1 = Tword64) /\
+                                                   (t = Tword8)
+                                       | _ => F
+                                     )) else F)
+                                )) else F)
+                           )
      | CopyStrStr => (case ts of
                          [t1; t2; t3] => (t1 = Tstring) /\
                                            (t2 = Tint) /\

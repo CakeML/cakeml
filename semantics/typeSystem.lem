@@ -262,6 +262,10 @@ let type_op op ts t =
     | (WordToInt (WordSize 8), [t1]) -> t1 = Tword8 && t = Tint
     | (WordFromInt (WordSize 64), [t1]) -> t1 = Tint && t = Tword64
     | (WordToInt (WordSize 64), [t1]) -> t1 = Tword64 && t = Tint
+    | (WordToWord (WordSize 8) (WordSize 8), [t1]) -> t1 = Tword8 && t = Tword8
+    | (WordToWord (WordSize 64) (WordSize 64), [t1]) -> t1 = Tword64 && t = Tword64
+    | (WordToWord (WordSize 8) (WordSize 64), [t1]) -> t1 = Tword8 && t = Tword64
+    | (WordToWord (WordSize 64) (WordSize 8), [t1]) -> t1 = Tword64 && t = Tword8
     | (CopyStrStr, [t1; t2; t3]) -> t1 = Tstring && t2 = Tint && t3 = Tint && t = Tstring
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) ->
       t1 = Tstring && t2 = Tint && t3 = Tint && t4 = Tword8array && t5 = Tint && t = Ttup []
