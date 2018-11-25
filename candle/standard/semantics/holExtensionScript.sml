@@ -1,3 +1,8 @@
+(*
+  Proves soundness of the context extension rules: any model of a context can
+  be extended to a model of the context obtained by applying one of the
+  non-axiomatic context updates.
+*)
 open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
 

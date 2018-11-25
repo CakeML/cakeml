@@ -1,3 +1,8 @@
+(*
+  Definitions to extend a theory context to include the theory of
+  Booleans, and some basic syntactic properties about these
+  extensions.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory"holBoolSyntax"
