@@ -1,9 +1,8 @@
-(* ========================================================================= *)
-(* There are two 'frontends' to the OpenTheory reader. This theory contains  *)
-(* translations of the functions which are used by both versions so that we  *)
-(* do not translate more than once.                                          *)
-(* ========================================================================= *)
-
+(*
+  There are two 'frontends' to the OpenTheory reader. This theory contains
+  translations of the functions which are used by both versions so that we
+  do not translate more than once.
+*)
 open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
@@ -276,4 +275,3 @@ val context_spec = save_thm ("context_spec",
   mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm"));
 
 val _ = export_theory ();
-

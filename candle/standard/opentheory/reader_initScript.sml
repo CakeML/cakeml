@@ -1,3 +1,6 @@
+(*
+  Kernel initialisation
+*)
 open preamble readerTheory holSyntaxTheory
 
 val _ = new_theory "reader_init";
@@ -261,4 +264,3 @@ val init_reader_def = Define `
     od`;
 
 val _ = export_theory ();
-
