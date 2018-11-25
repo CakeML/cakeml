@@ -1,3 +1,6 @@
+(*
+  Zermelo's set theory
+*)
 app load ["SatisfySimps", "lcsymtacs"];
 open HolKernel SatisfySimps boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory pairTheory
 val _ = temp_tight_equality()

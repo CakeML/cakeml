@@ -1,3 +1,6 @@
+(*
+  An example universe satisfying setSpecTheory
+*)
 app load ["preamble", "bitTheory", "setSpecTheory", "dep_rewrite"];
 open preamble bitTheory setSpecTheory dep_rewrite
 val _ = temp_tight_equality()
@@ -80,7 +83,7 @@ val FINITE_SET_IMAGE = TAC_PROOF(([],
         `(λx. R e x) = {y}`
           by ( simp[EXTENSION] >> metis_tac[] ) >>
         simp[],
- 
+
         `(λx. R e x) = {}`
           by ( simp[EXTENSION] >> metis_tac[] ) >>
         simp[]
@@ -302,7 +305,7 @@ val l_model_exists = Q.store_thm("l_model_exists",
         qexists_tac`INR x` >>
         pop_assum mp_tac >>
         simp[Abbr`yy`],
-    
+
         simp[Abbr`P`] >>
         strip_tac >>
         `yy < LENGTH ll` by (
