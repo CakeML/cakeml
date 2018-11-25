@@ -12,5 +12,9 @@ with Lem requires)
 Miscellaneous definitions and minor lemmas used throughout the
 development.
 
+[packLib.sml](packLib.sml):
+A library for packing theorems, terms, and types as theorems (which can
+thereby be saved in theories).
+
 [preamble.sml](preamble.sml):
 Proof tools (e.g. tactics) used throughout the development.

@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "evaluate"
 
+(*
+  Functional big-step semantics for evaluation of CakeML programs.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Ast*)
@@ -225,6 +228,20 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
        (case r of
          Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
        | Rerr err => Rerr err
+       ))
+  )))
+/\
+(evaluate_decs st env [Dlocal ds vs cs ms]=  
+ ((case evaluate_decs st env ds of
+    (st', r) =>
+      (st',
+       (case r of
+         Rerr err => Rerr err
+       | Rval env' =>
+          (case build_local_env env vs cs ms of
+            NONE => Rerr (Rabort Rtype_error)
+          | SOME env'' => Rval env''
+          )
        ))
   )))`;
 

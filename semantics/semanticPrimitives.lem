@@ -783,6 +783,39 @@ val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
   <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v |>
 
+val copy_vals : sem_env v -> list varN -> namespace modN varN v -> maybe (namespace modN varN v)
+let rec copy_vals env [] new_env = Just new_env
+    and copy_vals env (n::ns) new_env =
+  match (nsLookup env.v (Short n), copy_vals env ns new_env) with
+  | (Just x, Just new_env') -> Just (nsBind n x new_env')
+  | _ -> Nothing
+  end
+
+val copy_cons : sem_env v -> list conN -> namespace modN conN (nat * stamp) -> maybe (namespace modN conN (nat * stamp))
+let rec copy_cons env [] new_env = Just new_env
+    and copy_cons env (n::ns) new_env =
+  match (nsLookup env.c (Short n), copy_cons env ns new_env) with
+  | (Just x, Just new_env') -> Just (nsBind n x new_env')
+  | _ -> Nothing
+  end
+
+val copy_mods : sem_env v -> list modN -> sem_env v -> maybe (sem_env v)
+let rec copy_mods env [] new_env = Just new_env
+    and copy_mods env (n::ns) new_env =
+  match (nsLookupMod env.v [n], nsLookupMod env.c [n], copy_mods env ns new_env) with
+  | (Just vn, Just cn, Just new_env') ->
+         Just <| v = nsAppend (nsLift n vn) new_env'.v;
+                 c = nsAppend (nsLift n cn) new_env'.c |>
+  | _ -> Nothing
+  end
+
+val build_local_env : sem_env v -> list varN -> list conN -> list modN -> maybe (sem_env v)
+let build_local_env env vs cs ms =
+  match (copy_vals env vs nsEmpty, copy_cons env cs nsEmpty) with
+  | (Just venv, Just cenv) -> copy_mods env ms <| v = venv; c = cenv |>
+  | _ -> Nothing
+  end
+
 (*
 val decs_to_types : list dec -> list typeN
 let decs_to_types ds =

@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "semanticPrimitives"
 
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*import List_extra*)
@@ -909,6 +913,50 @@ val _ = Define `
 val _ = Define `
  (extend_dec_env new_env env=  
  (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v) |>))`;
+
+
+(*val copy_vals : sem_env v -> list varN -> namespace modN varN v -> maybe (namespace modN varN v)*)
+ val copy_vals_defn = Defn.Hol_multi_defns `
+ (copy_vals env [] new_env=  (SOME new_env))
+    /\ (copy_vals env (n::ns) new_env=  
+ ((case (nsLookup env.v (Short n), copy_vals env ns new_env) of
+    (SOME x, SOME new_env') => SOME (nsBind n x new_env')
+  | _ => NONE
+  )))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) copy_vals_defn;
+
+(*val copy_cons : sem_env v -> list conN -> namespace modN conN (nat * stamp) -> maybe (namespace modN conN (nat * stamp))*)
+ val copy_cons_defn = Defn.Hol_multi_defns `
+ (copy_cons env [] new_env=  (SOME new_env))
+    /\ (copy_cons env (n::ns) new_env=  
+ ((case (nsLookup env.c (Short n), copy_cons env ns new_env) of
+    (SOME x, SOME new_env') => SOME (nsBind n x new_env')
+  | _ => NONE
+  )))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) copy_cons_defn;
+
+(*val copy_mods : sem_env v -> list modN -> sem_env v -> maybe (sem_env v)*)
+ val copy_mods_defn = Defn.Hol_multi_defns `
+ (copy_mods env [] new_env=  (SOME new_env))
+    /\ (copy_mods env (n::ns) new_env=  
+ ((case (nsLookupMod env.v [n], nsLookupMod env.c [n], copy_mods env ns new_env) of
+    (SOME vn, SOME cn, SOME new_env') =>
+         SOME <| v := (nsAppend (nsLift n vn) new_env'.v);
+                 c := (nsAppend (nsLift n cn) new_env'.c) |>
+  | _ => NONE
+  )))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) copy_mods_defn;
+
+(*val build_local_env : sem_env v -> list varN -> list conN -> list modN -> maybe (sem_env v)*)
+val _ = Define `
+ (build_local_env env vs cs ms=  
+ ((case (copy_vals env vs nsEmpty, copy_cons env cs nsEmpty) of
+    (SOME venv, SOME cenv) => copy_mods env ms <| v := venv; c := cenv |>
+  | _ => NONE
+  )))`;
 
 
 (*
