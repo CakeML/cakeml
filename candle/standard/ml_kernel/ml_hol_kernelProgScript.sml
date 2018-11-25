@@ -1,3 +1,9 @@
+(*
+  Apply the monadic translator to the Candle kernel to generate the
+  deeply embedded CakeML code for the kernel. As a side effect, the
+  monadic translator proves certificate theorems that state a formal
+  connection between the generated code and the input HOL functions.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory evaluateTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory terminationTheory

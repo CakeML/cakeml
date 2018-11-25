@@ -1,3 +1,7 @@
+(*
+  Prove that the state of the kernel can be initialised in a way that
+  meets the invariants (STATE and HOL_STORE).
+*)
 open preamble
 open ml_hol_kernelProgTheory holKernelProofTheory
 open ml_monad_translatorBaseTheory ml_translatorLib evaluateTheory
