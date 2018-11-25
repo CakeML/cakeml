@@ -238,7 +238,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
        (case r of
          Rerr err => Rerr err
        | Rval env' =>
-          (case build_local_env env vs cs ms of
+          (case build_local_env env' vs cs ms of
             NONE => Rerr (Rabort Rtype_error)
           | SOME env'' => Rval env''
           )

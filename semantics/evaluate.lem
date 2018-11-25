@@ -221,7 +221,7 @@ evaluate_decs st env [Dlocal ds vs cs ms] =
        match r with
        | Rerr err -> Rerr err
        | Rval env' ->
-          match build_local_env env vs cs ms with
+          match build_local_env env' vs cs ms with
           | Nothing -> Rerr (Rabort Rtype_error)
           | Just env'' -> Rval env''
           end
