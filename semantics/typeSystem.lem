@@ -243,11 +243,13 @@ let type_op op ts t =
     | (Opapp, [t1; t2]) -> t1 = Tfn t2 t
     | (Opn _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tint
     | (Opb _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tbool
-    | (Opw _, [t1; t2]) -> (t1 = Tword8 && t2 = Tword8 && t = Tword8) || (t1 = Tword64 && t2 = Tword64 && t = Tword64)
+    | (Opw W8 _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tword8
+    | (Opw W64 _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
     | (FP_bop _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
     | (FP_uop _, [t1]) ->  t1 = Tword64 && t = Tword64
     | (FP_cmp _, [t1; t2]) ->  t1 = Tword64 && t2 = Tword64 && t = Tbool
-    | (Shift _ _, [t1]) -> (t1 = Tword8 && t = Tword8) || (t1 = Tword64 && t = Tword64)
+    | (Shift W8 _ _, [t1]) -> t1 = Tword8 && t = Tword8
+    | (Shift W64 _ _, [t1]) -> t1 = Tword64 && t = Tword64
     | (Equality, [t1; t2]) -> t1 = t2 && t = Tbool
     | (Opassign, [t1; t2]) -> t1 = Tref t2 && t = Ttup []
     | (Opref, [t1]) -> t = Tref t1
@@ -256,10 +258,10 @@ let type_op op ts t =
     | (Aw8sub, [t1; t2]) -> t1 = Tword8array && t2 = Tint && t = Tword8
     | (Aw8length, [t1]) -> t1 = Tword8array && t = Tint
     | (Aw8update, [t1; t2; t3]) -> t1 = Tword8array && t2 = Tint && t3 = Tword8 && t = Ttup []
-    | (WordFromInt (WordSize 8), [t1]) -> t1 = Tint && t = Tword8
-    | (WordToInt, [t1]) -> t1 = Tword8 && t = Tint
-    | (WordFromInt (WordSize 64), [t1]) -> t1 = Tint && t = Tword64
-    | (WordToInt, [t1]) -> t1 = Tword64 && t = Tint
+    | (WordFromInt W8, [t1]) -> t1 = Tint && t = Tword8
+    | (WordToInt W8, [t1]) -> t1 = Tword8 && t = Tint
+    | (WordFromInt W64, [t1]) -> t1 = Tint && t = Tword64
+    | (WordToInt W64, [t1]) -> t1 = Tword64 && t = Tint
     | (CopyStrStr, [t1; t2; t3]) -> t1 = Tstring && t2 = Tint && t3 = Tint && t = Tstring
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) ->
       t1 = Tstring && t2 = Tint && t3 = Tint && t4 = Tword8array && t5 = Tint && t = Ttup []

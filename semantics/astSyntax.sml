@@ -72,7 +72,6 @@ structure astSyntax = struct
   val VfromList = prim_mk_const{Thy="ast",Name="VfromList"};
   val Vlength = prim_mk_const{Thy="ast",Name="Vlength"};
   val Vsub = prim_mk_const{Thy="ast",Name="Vsub"};
-  val WordToInt = prim_mk_const{Thy="ast",Name="WordToInt"};
   val WordSize = prim_mk_const{Thy="ast" ,Name="WordSize"};
   val Xor = prim_mk_const{Thy="ast",Name="Xor"};
   local
@@ -97,7 +96,6 @@ structure astSyntax = struct
   val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit";
   val (Opb_tm,mk_Opb,dest_Opb,is_Opb) = s "Opb";
   val (Opn_tm,mk_Opn,dest_Opn,is_Opn) = s "Opn";
-  val (Opw_tm,mk_Opw,dest_Opw,is_Opw) = s "Opw";
   val (Plit_tm,mk_Plit,dest_Plit,is_Plit) = s "Plit";
   val (Pref_tm,mk_Pref,dest_Pref,is_Pref) = s "Pref";
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar";
@@ -106,6 +104,7 @@ structure astSyntax = struct
   val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var";
   val (Word,mw_Word,dest_Word,is_Word) = s "Word";
   val (WordFromInt_tm,mk_WordFromInt,dest_WordFromInt,is_WordFromInt) = s "WordFromInt";
+  val (WordToInt_tm,mk_WordToInt,dest_WordToInt,is_WordToInt) = s "WordToInt";
   end
   local val s = HolKernel.syntax_fns2 "ast" in
   (* two-argument functions *)
@@ -121,9 +120,9 @@ structure astSyntax = struct
   val (Lannot_tm,mk_Lannot,dest_Lannot,is_Lannot) = s "Lannot";
   val (Letrec_tm,mk_Letrec,dest_Letrec,is_Letrec) = s "Letrec";
   val (Mat_tm,mk_Mat,dest_Mat,is_Mat) = s "Mat";
+  val (Opw_tm,mk_Opw,dest_Opw,is_Opw) = s "Opw";
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon";
   val (Ptannot_tm,mk_Ptannot,dest_Ptannot,is_Ptannot) = s "Ptannot";
-  val (Shift_tm,mk_Shift,dest_Shift,is_Shift) = s "Shift";
   val (Tannot_tm,mk_Tannot,dest_Tannot,is_Tannot) = s "Tannot";
   end
   local val s = HolKernel.syntax_fns3 "ast" in
@@ -133,6 +132,7 @@ structure astSyntax = struct
   val (If_tm,mk_If,dest_If,is_If) = s "If";
   val (Let_tm,mk_Let,dest_Let,is_Let) = s "Let";
   val (Log_tm,mk_Log,dest_Log,is_Log) = s "Log";
+  val (Shift_tm,mk_Shift,dest_Shift,is_Shift) = s "Shift";
   end
   local val s = HolKernel.syntax_fns4 "ast" in
   (* four-argument functions *)
