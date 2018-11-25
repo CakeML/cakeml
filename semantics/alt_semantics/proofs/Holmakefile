@@ -20,7 +20,7 @@ $(GENS) : ../../../misc/lem_lib_stub/lib.lem $(LEMI) $(LEMS) ../../ffi/ffi.lem
 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../ffi/ffi.lem -i ../../../misc/lem_lib_stub/lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
 	else touch $(GENS); fi
 
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml) $(wildcard *.lem)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)

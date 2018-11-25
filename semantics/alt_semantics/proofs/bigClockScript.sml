@@ -1,5 +1,8 @@
-(* Theorems about the clocked big-step semantics. Primarily that they are total,
- * and that they have the proper relationship to the unclocked version. *)
+(*
+  Theorems about the clocked big-step semantics. Primarily that they
+  are total, and that they have the proper relationship to the
+  unclocked version.
+*)
 
 open preamble;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
