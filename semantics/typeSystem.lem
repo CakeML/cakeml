@@ -1001,7 +1001,7 @@ disjoint decls1 decls2 &&
 type_ds extra_checks tenv ds decls1 tenv' &&
 check_sig tenv sn_opt tenv' decls2 tenv_sig
 ==>
-type_d extra_checks tenv (Dmod mn sn_opt ds) (decls1 union decls2) (tenvLift mn tenv_sig)
+type_d extra_checks tenv (Dmod mn sn_opt ds) decls2 (tenvLift mn tenv_sig)
 
 and
 

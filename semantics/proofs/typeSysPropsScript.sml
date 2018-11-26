@@ -2153,10 +2153,10 @@ val extend_dec_tenv_ok = Q.store_thm ("extend_dec_tenv_ok",
  >> simp []);
 
 val check_sig_tenv_ok = Q.store_thm ("check_sig_tenv_ok",
-  `!tenv tenv' sn_opt decls tenv_sig.
+  `!tenv tenv' sn_opt decls1 decls2 tenv_sig.
    tenv_ok tenv ∧
    tenv_ok tenv' ∧
-   check_sig tenv sn_opt tenv' decls tenv_sig
+   check_sig tenv sn_opt tenv' decls1 decls2 tenv_sig
    ⇒
    tenv_ok tenv_sig`,
   rw [check_sig_cases] >>

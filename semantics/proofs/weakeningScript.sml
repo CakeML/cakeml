@@ -608,10 +608,10 @@ val weak_tenv_extend_dec_tenv = Q.store_thm ("weak_tenv_extend_dec_tenv",
 
 val check_sig_weakening = Q.store_thm ("check_sig_weakening",
   `!tenv1 tenv2 tenv tenv_sig sn_opt.
-   check_sig tenv2 sn_opt tenv tids tenv_sig ∧
+   check_sig tenv2 sn_opt tenv tids1 tids2 tenv_sig ∧
    weak tenv1 tenv2
    ⇒
-   check_sig tenv1 sn_opt tenv tids tenv_sig`,
+   check_sig tenv1 sn_opt tenv tids1 tids2 tenv_sig`,
   rw [check_sig_cases] >>
   fs [weak_def] >>
   rfs [] >>
