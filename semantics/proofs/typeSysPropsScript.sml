@@ -2122,6 +2122,28 @@ val check_ctor_tenv_ok = Q.store_thm ("check_ctor_tenv_ok",
  >> irule check_freevars_type_name_subst
  >> simp []);
 
+val nsMap_build_ctor_tenv = Q.store_thm("nsMap_build_ctor_tenv",
+  `∀ga g h tenvT tds ids.
+  LENGTH tds = LENGTH ids
+  ∧ (∀x. MEM x (MAP SND (FLAT (MAP (SND o SND) tds))) ⇒
+         MAP (type_name_subst tenvT) (ga x) = (g (MAP (type_name_subst tenvT) x)))
+  ⇒
+  nsMap (λ(tvs,ts,tid). (tvs, g ts, h tid)) (build_ctor_tenv tenvT tds ids) =
+  build_ctor_tenv tenvT (MAP (I ## I ## MAP (I ## ga)) tds) (MAP h ids)`,
+  ntac 3 gen_tac
+  \\ recInduct build_ctor_tenv_ind
+  \\ rw[build_ctor_tenv_def]
+  \\ rw[nsMap_nsAppend, MAP_REVERSE, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ rw[MAP_EQ_f]
+  \\ pairarg_tac \\ fs[]
+  \\ match_mp_tac EQ_SYM
+  \\ first_x_assum irule
+  \\ rw[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]);
+
   (*
 (* --------- decls_ok ------------ *)
 

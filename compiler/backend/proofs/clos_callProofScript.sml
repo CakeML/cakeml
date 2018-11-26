@@ -8,6 +8,7 @@ val _ = new_theory"clos_callProof";
 (* TODO These are the same. Put in closLang? *)
 val _ = temp_bring_to_front_overload "free" {Name="free", Thy="clos_call"};
 val _ = temp_bring_to_front_overload "closed" {Name="closed", Thy="clos_call"};
+val _ = temp_bring_to_front_overload "compile" {Name="compile", Thy="clos_call"};
 
 val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
@@ -17,39 +18,12 @@ val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 (* TODO: move *)
 
-val _ = temp_bring_to_front_overload "compile" {Name="compile", Thy="clos_call"};
-
 val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
-
-val TAKE_MAP = Q.store_thm("TAKE_MAP",
-  `∀ls n f. TAKE n (MAP f ls) = MAP f (TAKE n ls)`,
-  Induct \\ rw[] \\ Cases_on`n` \\ rw[]);
-
-val IS_SUFFIX_TRANS = Q.store_thm("IS_SUFFIX_TRANS",
-  `∀l1 l2 l3. IS_SUFFIX l1 l2 ∧ IS_SUFFIX l2 l3 ⇒ IS_SUFFIX l1 l3`,
-  rw[IS_SUFFIX_APPEND] \\ metis_tac[APPEND_ASSOC]);
-
-val ALL_DISTINCT_FLAT_EVERY = Q.store_thm("ALL_DISTINCT_FLAT_EVERY",
-  `∀ls. ALL_DISTINCT (FLAT ls) ⇒ EVERY ALL_DISTINCT ls`,
-  Induct \\ simp[ALL_DISTINCT_APPEND]);
-
-val IN_EVEN = SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``;
 
 val v_size_lemma = Q.prove(
   `MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl`,
   Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
   res_tac >> simp[]);
-
-val list_to_num_set_append = Q.store_thm("list_to_num_set_append",
-  `∀l1 l2. list_to_num_set (l1 ++ l2) = union (list_to_num_set l1) (list_to_num_set l2)`,
-  Induct \\ rw[list_to_num_set_def]
-  \\ rw[Once insert_union]
-  \\ rw[Once insert_union,SimpRHS]
-  \\ rw[union_assoc])
-
-val subspt_domain_SUBSET = Q.store_thm("subspt_domain_SUBSET",
-  `subspt s1 s2 ⇒ domain s1 ⊆ domain s2`,
-  rw[subspt_def,SUBSET_DEF]);
 
 val code_locs_GENLIST_Var = Q.store_thm("code_locs_GENLIST_Var[simp]",
   `∀n t i. code_locs (GENLIST_Var t i n) = []`,
@@ -73,20 +47,6 @@ val evaluate_add_clock =
   |> CONJUNCT1 |> GEN_ALL
   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
 
-val DISJOINT_IMAGE_SUC = Q.store_thm("DISJOINT_IMAGE_SUC",
-  `DISJOINT (IMAGE SUC x) (IMAGE SUC y) <=> DISJOINT x y`,
-  fs [IN_DISJOINT] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
-
-val IMAGE_SUC_SUBSET_UNION = Q.store_thm("IMAGE_SUC_SUBSET_UNION",
-  `IMAGE SUC x SUBSET IMAGE SUC y UNION IMAGE SUC z <=>
-    x SUBSET y UNION z`,
-  fs [SUBSET_DEF] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
-
-val ALL_DISTINCT_APPEND_APPEND_IMP = Q.store_thm("ALL_DISTINCT_APPEND_APPEND_IMP",
-  `ALL_DISTINCT (xs ++ ys ++ zs) ==>
-    ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)`,
-  fs [ALL_DISTINCT_APPEND]);
-
 val is_Recclosure_def = Define`
   is_Recclosure (Recclosure _ _ _ _ _) = T ∧
   is_Recclosure _ = F`;
@@ -97,19 +57,14 @@ val every_refv_def = Define
    (every_refv P _ ⇔ T)`
 val _ = export_rewrites["every_refv_def"];
 
-val LENGTH_ZIP_MIN = store_thm("LENGTH_ZIP_MIN",
-  ``!xs ys. LENGTH (ZIP (xs,ys)) = MIN (LENGTH xs) (LENGTH ys)``,
-  Induct \\ fs [LENGTH,ZIP_def]
-  \\ Cases_on `ys` \\ fs [LENGTH,ZIP_def] \\ fs [MIN_DEF]);
-
-(* -- *)
-
-(* correctness of free *)
-
 val IMP_EXISTS_IFF = Q.prove(
   `!xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
          (EXISTS P xs <=> EXISTS Q xs)`,
   Induct \\ fs []);
+
+(* -- *)
+
+(* correctness of free *)
 
 val free_thm = Q.prove(
   `!xs.

@@ -122,6 +122,15 @@ val CARD_IMAGE_EQ_BIJ = Q.store_thm("CARD_IMAGE_EQ_BIJ",
   \\ `SURJ f s (IMAGE f s)` suffices_by metis_tac[FINITE_SURJ_BIJ]
   \\ rw[IMAGE_SURJ]);
 
+val DISJOINT_IMAGE_SUC = Q.store_thm("DISJOINT_IMAGE_SUC",
+  `DISJOINT (IMAGE SUC x) (IMAGE SUC y) <=> DISJOINT x y`,
+  fs [IN_DISJOINT] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
+
+val IMAGE_SUC_SUBSET_UNION = Q.store_thm("IMAGE_SUC_SUBSET_UNION",
+  `IMAGE SUC x SUBSET IMAGE SUC y UNION IMAGE SUC z <=>
+    x SUBSET y UNION z`,
+  fs [SUBSET_DEF] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
+
 val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
   `∀f al x.
     ALOOKUP (MAP (λ(x,y). (x,f x y)) al) x =
@@ -517,6 +526,13 @@ val lookup_list_to_num_set = Q.store_thm("lookup_list_to_num_set",
   `!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE`,
   Induct \\ srw_tac [] [list_to_num_set_def,lookup_def,lookup_insert] \\ full_simp_tac(srw_ss())[]);
 
+val list_to_num_set_append = Q.store_thm("list_to_num_set_append",
+  `∀l1 l2. list_to_num_set (l1 ++ l2) = union (list_to_num_set l1) (list_to_num_set l2)`,
+  Induct \\ rw[list_to_num_set_def]
+  \\ rw[Once insert_union]
+  \\ rw[Once insert_union,SimpRHS]
+  \\ rw[union_assoc])
+
 val OPTION_BIND_SOME = Q.store_thm("OPTION_BIND_SOME",
   `∀f. OPTION_BIND f SOME = f`,
   Cases >> simp[])
@@ -608,6 +624,11 @@ val ZIP_MAP_FST_SND_EQ = Q.store_thm("ZIP_MAP_FST_SND_EQ",
 val MAP_FST_I_PAIR_MAP = store_thm("MAP_FST_I_PAIR_MAP[simp]",
   ``!xs. MAP FST (MAP (I ## f) xs) = MAP FST xs``,
   Induct \\ fs [FORALL_PROD]);
+
+val LENGTH_ZIP_MIN = store_thm("LENGTH_ZIP_MIN",
+  ``!xs ys. LENGTH (ZIP (xs,ys)) = MIN (LENGTH xs) (LENGTH ys)``,
+  Induct \\ fs [LENGTH,ZIP_def]
+  \\ Cases_on `ys` \\ fs [LENGTH,ZIP_def] \\ fs [MIN_DEF]);
 
 val zlookup_def = Define `
   zlookup m k = case lookup k m of NONE => 0n | SOME k => k`;
@@ -1149,6 +1170,10 @@ val IS_SUFFIX_CONS = Q.store_thm("IS_SUFFIX_CONS",
   `∀l1 l2 a. IS_SUFFIX l1 l2 ⇒ IS_SUFFIX (a::l1) l2`,
   srw_tac[][rich_listTheory.IS_SUFFIX_APPEND] >>
   qexists_tac`a::l` >>srw_tac[][])
+
+val IS_SUFFIX_TRANS = Q.store_thm("IS_SUFFIX_TRANS",
+  `∀l1 l2 l3. IS_SUFFIX l1 l2 ∧ IS_SUFFIX l2 l3 ⇒ IS_SUFFIX l1 l3`,
+  rw[IS_SUFFIX_APPEND] \\ metis_tac[APPEND_ASSOC]);
 
 val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
   `∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)`,
@@ -2336,6 +2361,15 @@ val ALL_DISTINCT_FLAT = Q.store_thm(
                ∀e. MEM e (EL i l) ⇒ ¬MEM e (EL j l))`,
   Induct >> dsimp[ALL_DISTINCT_APPEND, LT_SUC, MEM_FLAT] >>
   metis_tac[MEM_EL]);
+
+val ALL_DISTINCT_FLAT_EVERY = Q.store_thm("ALL_DISTINCT_FLAT_EVERY",
+  `∀ls. ALL_DISTINCT (FLAT ls) ⇒ EVERY ALL_DISTINCT ls`,
+  Induct \\ simp[ALL_DISTINCT_APPEND]);
+
+val ALL_DISTINCT_APPEND_APPEND_IMP = Q.store_thm("ALL_DISTINCT_APPEND_APPEND_IMP",
+  `ALL_DISTINCT (xs ++ ys ++ zs) ==>
+    ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)`,
+  fs [ALL_DISTINCT_APPEND]);
 
 val TAKE_EQ_NIL = Q.store_thm(
   "TAKE_EQ_NIL[simp]",
@@ -3603,6 +3637,9 @@ val ODD_SUB = Q.store_thm("ODD_SUB",
   `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`,
   rw[ODD_EVEN,EVEN_SUB]);
 
+val IN_EVEN =
+  save_thm("IN_EVEN", SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``);
+
 val FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM = Q.store_thm("FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM",
   `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`,
   qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
@@ -4351,5 +4388,99 @@ val word_msb_align = Q.store_thm("word_msb_align",
   \\ rw[word_bit_and]
   \\ rw[word_bit_lsl]
   \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
+
+(* TODO: move to sptTheory *)
+
+val eq_shape_def = Define `
+  eq_shape LN LN = T /\
+  eq_shape (LS _) (LS _) = T /\
+  eq_shape (BN t1 t2) (BN u1 u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
+  eq_shape (BS t1 _ t2) (BS u1 _ u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
+  eq_shape _ _ = F`;
+
+val spt_eq = store_thm("spt_eq",
+  ``!t1 t2.
+      t1 = t2 <=>
+      (eq_shape t1 t2 /\ (!k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v))``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,lookup_def]
+  THEN1 metis_tac []
+  \\ rw [] \\ eq_tac \\ rw [] \\ rw [] \\ fs []
+  \\ first_assum (qspec_then `0` mp_tac)
+  \\ first_assum (qspec_then `k * 2 + 1` mp_tac)
+  \\ first_x_assum (qspec_then `k * 2 + 1 + 1` mp_tac)
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] DIV_MULT,EVEN_ADD]
+  \\ fs [GSYM ADD1,EVEN,EVEN_DOUBLE]);
+
+val eq_shape_map = store_thm("eq_shape_map",
+  ``!t1 t2 f. eq_shape (map f t1) t2 <=> eq_shape t1 t2``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,map_def]);
+
+val eq_shape_IMP_domain = store_thm("eq_shape_IMP_domain",
+  ``!t1 t2. eq_shape t1 t2 ==> domain t1 = domain t2``,
+  ho_match_mp_tac (fetch "-" "eq_shape_ind")
+  \\ rw [] \\ fs [eq_shape_def]);
+
+val copy_shape_def = Define `
+  copy_shape LN LN = LN /\
+  copy_shape LN (LS y) = LN /\
+  copy_shape LN (BN t1 t2) = BN (copy_shape LN t1) (copy_shape LN t2) /\
+  copy_shape LN (BS t1 y t2) = LN /\
+  copy_shape (LS x) LN = LS x /\
+  copy_shape (LS x) (LS y) = LS x /\
+  copy_shape (LS x) (BN t1 t2) = LS x /\
+  copy_shape (LS x) (BS t1 y t2) = BS (copy_shape LN t1) x (copy_shape LN t2) /\
+  copy_shape (BN u1 u2) LN = (if domain (BN u1 u2) = {} then LN else BN u1 u2) /\
+  copy_shape (BN u1 u2) (LS y) = BN u1 u2 /\
+  copy_shape (BN u1 u2) (BN t1 t2) = BN (copy_shape u1 t1) (copy_shape u2 t2) /\
+  copy_shape (BN u1 u2) (BS t1 y t2) = BN u1 u2 /\
+  copy_shape (BS u1 x u2) LN = BS u1 x u2 /\
+  copy_shape (BS u1 x u2) (LS y) =
+     (if domain (BN u1 u2) = {} then LS x else BS u1 x u2) /\
+  copy_shape (BS u1 x u2) (BN t1 t2) = BS u1 x u2 /\
+  copy_shape (BS u1 x u2) (BS t1 y t2) = BS (copy_shape u1 t1) x (copy_shape u2 t2)`
+
+val eq_shape_copy_shape = prove(
+  ``!s. domain s = {} ==> eq_shape (copy_shape LN s) s``,
+  Induct \\ fs [copy_shape_def,eq_shape_def]);
+
+val num_lemma = prove(
+  ``(!n. 0 <> 2 * n + 2 /\ 0 <> 2 * n + 1:num) /\
+    (!n m. 2 * n + 2 = 2 * m + 2 <=> (m = n)) /\
+    (!n m. 2 * n + 1 = 2 * m + 1 <=> (m = n)) /\
+    (!n m. 2 * n + 2 <> 2 * m + 1n)``,
+  rw [] \\ fs [] \\ Cases_on `m = n` \\ fs []);
+
+val shape_eq_copy_shape = store_thm("shape_eq_copy_shape",
+  ``!t1 t2. domain t1 = domain t2 ==> eq_shape (copy_shape t1 t2) t2``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,copy_shape_def]
+  \\ rpt strip_tac \\ TRY (first_x_assum match_mp_tac)
+  \\ TRY (match_mp_tac eq_shape_copy_shape) \\ fs []
+  \\ rw [] \\ fs [eq_shape_def] \\ fs [EXTENSION]
+  \\ TRY (first_assum (qspec_then `0` mp_tac) \\ simp_tac std_ss [])
+  \\ rw [] \\ first_assum (qspec_then `2 * x + 2` mp_tac)
+  \\ first_x_assum (qspec_then `2 * x + 1` mp_tac)
+  \\ fs [num_lemma]);
+
+val lookup_copy_shape_LN = prove(
+  ``!s n. lookup n (copy_shape LN s) = NONE``,
+  Induct \\ fs [copy_shape_def,lookup_def] \\ rw [] \\ fs []);
+
+val domain_EMPTY_lookup = prove(
+  ``domain t = EMPTY ==> !x. lookup x t = NONE``,
+  fs [domain_lookup,EXTENSION] \\ rw []
+  \\ pop_assum (qspec_then `x` mp_tac)
+  \\ Cases_on `lookup x t` \\ fs []);
+
+val lookup_copy_shape = store_thm("lookup_copy_shape",
+  ``!t1 t2 n. lookup n (copy_shape t1 t2) = lookup n t1``,
+  Induct \\ Cases_on `t2` \\ fs [copy_shape_def,lookup_def] \\ rw []
+  \\ fs [lookup_def,lookup_copy_shape_LN,domain_EMPTY_lookup]);
+
+val domain_mapi = store_thm("domain_mapi[simp]",
+  ``domain (mapi f x) = domain x``,
+  fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
+
+(* / TODO *)
 
 val _ = export_theory()
