@@ -5882,8 +5882,6 @@ val compile_common_inc_def = Define`
 
 val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   `clos_callProof$syntax_ok es  ∧
-   (IS_SOME kc ⇒ clos_knownProof$globals_approx_every_Fn_SOME (THE kc).val_approx_spt ∧
-                 clos_knownProof$globals_approx_every_Fn_vs_NONE (THE kc).val_approx_spt) ∧
    clos_known$compile kc es = (x,y)
   ⇒
    clos_callProof$syntax_ok y`,
@@ -5897,6 +5895,10 @@ val kcompile_csyntax_ok = Q.store_thm("kcompile_csyntax_ok",
   \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_SOME mp_tac
   \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_vs_NONE mp_tac
   \\ rw[] \\ fs[]
+  \\ `clos_knownProof$globals_approx_every_Fn_SOME LN /\
+      clos_knownProof$globals_approx_every_Fn_vs_NONE LN` by
+   (fs [clos_knownProofTheory.globals_approx_every_Fn_SOME_def,lookup_def,
+        clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def]) \\ fs []
   \\ simp[clos_letopProofTheory.code_locs_let_op]
   \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
   \\ simp[GSYM bag_of_list_ALL_DISTINCT]
@@ -6301,7 +6303,7 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
      FST(SND(SND(FST(co1 0)))) =
        FST(SND(clos_call$compile c.do_call x))) ∧
    (IS_SOME c.known_conf ⇒
-     (THE c.known_conf).val_approx_spt = LN	∧ 1 ≤ c.max_app ∧
+     1 ≤ c.max_app ∧
      FST (SND (FST (co1 0))) =
      (THE (FST (compile c.known_conf
                  (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
@@ -6465,8 +6467,6 @@ val compile_common_semantics = Q.store_thm("compile_common_semantics",
     >- (
       match_mp_tac (GEN_ALL kcompile_csyntax_ok)
       \\ goal_assum(first_assum o mp_then Any mp_tac)
-      \\ reverse conj_tac
-      >- fs[clos_knownProofTheory.globals_approx_every_Fn_SOME_def,clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def,lookup_def]
       \\ match_mp_tac (GEN_ALL renumber_code_locs_list_csyntax_ok)
       \\ asm_exists_tac \\ fs[]
       \\ fs[clos_knownProofTheory.syntax_ok_def])
@@ -7001,7 +7001,7 @@ val syntax_oracle_ok_def = Define`
       1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
       (∀n. clos_mtiProof$syntax_ok (FST(SND(co n))))) ∧
     (IS_SOME c.known_conf ⇒
-       (THE c.known_conf).val_approx_spt = LN ∧ 1 ≤ c.max_app ∧
+       1 ≤ c.max_app ∧
        FST(SND(FST(co 0))) =
        (THE (FST (clos_known$compile c.known_conf
          (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))

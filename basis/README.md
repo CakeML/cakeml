@@ -1,6 +1,9 @@
 Contains the beginnings of a standard basis library for CakeML,
 similar to the standard basis library of SML.
 
+[ag32](ag32):
+A version of the basis library for ag32 (the Silver CPU)
+
 [basis.sml](basis.sml):
 Convenience structure that re-exports all the libraries and theories of the
 CakeML basis library.

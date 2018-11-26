@@ -5,6 +5,8 @@ open preamble explorerProgTheory
 val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "explorerProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
+
 (* TODO: this is duplicated in parserProgTheory *)
 val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
@@ -256,5 +258,7 @@ val sexpdec_alt_side = Q.prove(
   \\ rw[Once(fetch"-""sexpdec_alt_side_def")]
   \\ fs[LENGTH_EQ_NUM_compute])
   |> update_precondition;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = export_theory();

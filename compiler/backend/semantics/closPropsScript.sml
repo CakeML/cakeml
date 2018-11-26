@@ -771,10 +771,8 @@ val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
       \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] \\ rveq \\ fs[]
       \\ fs[CaseEq"prod"]
       \\ rveq \\ fs[])
-  (*
   >- (every_case_tac >> simp[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])
-  *))
+  >- (every_case_tac >> full_simp_tac(srw_ss())[]))
   |> SIMP_RULE (srw_ss()) []
 
 val pure_correct = save_thm(
@@ -1565,7 +1563,7 @@ val set_globals_def = tDefine "set_globals" `
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
 `
   (WF_REL_TAC `
-      measure (λa. case a of INL e => exp_size e | INR el => exp3_size el)` >>
+      measure (λa. case a of INL e => exp_size e | INR x => exp3_size x)` >>
    simp[] >> rpt strip_tac >>
    imp_res_tac exp_size_MEM >> simp[])
 val _ = export_rewrites ["set_globals_def"]

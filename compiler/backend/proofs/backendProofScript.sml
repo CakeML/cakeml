@@ -18,6 +18,9 @@ val _ = new_theory"backendProof";
 
 (* TODO: move *)
 
+val _ = Parse.hide "all"; (* TODO: replace these with set_grammar_ancestry *)
+val _ = Parse.hide "cf";
+
 fun Abbrev_intro th =
   EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
 
@@ -69,8 +72,7 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
-  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
-        data_to_word_memoryProofTheory.aligned_add_pow]);
+  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]);
 
 val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
   `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
@@ -256,6 +258,11 @@ val installed_def = Define`
       (*let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)} in*)
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
       good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
+      byte_aligned (t.regs r1) /\
+      byte_aligned (t.regs r2) /\
+      byte_aligned bitmap_ptr /\
+      t.regs r1 ≤₊ t.regs r2 /\
+      1024w * bytes_in_word ≤₊ t.regs r2 - t.regs r1 /\
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
       m (t.regs r1 + bytes_in_word) =
@@ -277,7 +284,7 @@ val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
   ∀x:'a word.x ∈ byte_aligned ⇒
   w2n x MOD (dimindex (:'a) DIV 8) = 0`,
   rw[IN_DEF]>>
-  fs [stack_removeProofTheory.aligned_w2n, alignmentTheory.byte_aligned_def]>>
+  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
   rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
 
 val prim_config = prim_config_eq |> concl |> lhs
@@ -286,7 +293,6 @@ val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = ^prim_config.source_conf ∧
     0 < c.clos_conf.max_app ∧
-    (case c.clos_conf.known_conf of SOME kcfg => kcfg.val_approx_spt = LN | _ => T) ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
     c.lab_conf.pos = 0 ∧
@@ -296,6 +302,7 @@ val backend_config_ok_def = Define`
     (c.data_conf.has_div ⇒
       c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
       c.lab_conf.asm_conf.ISA = RISC_V) ∧
+    max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
@@ -369,7 +376,8 @@ val backend_config_ok_call_empty_ffi = store_thm("backend_config_ok_call_empty_f
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
     backend_config_ok cc``,
   fs [backend_config_ok_def,data_to_wordTheory.conf_ok_def,
-      data_to_wordTheory.shift_length_def]);
+      data_to_wordTheory.shift_length_def,
+      data_to_wordTheory.max_heap_limit_def]);
 
 (* TODO: ?? where to put these ?? *)
 val mc_init_ok_def = Define`
@@ -1638,7 +1646,8 @@ val word_get_code_labels_assign = Q.prove(`
   word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
   assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))`,
   ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
-  rw[assign_def,assign_get_code_label_def]>>
+  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
+     assign_get_code_label_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
   rpt(every_case_tac>>fs[]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
@@ -1681,7 +1690,7 @@ val word_good_handlers_assign = Q.prove(`
   ∀x.
   word_good_handlers secn (FST (assign c secn v w x y z))`,
   ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
-  rw[assign_def]>>
+  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def]>>
   rpt(
   every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
   rw[]>>EVAL_TAC
@@ -2820,7 +2829,7 @@ val compile_prog_get_code_labels_TODO_move_1 = Q.store_thm("compile_prog_get_cod
   \\ fs [o_DEF, toList_def, toListA_def]);
 
 val set_MAP_code_sort = Q.store_thm("set_MAP_code_sort",
-  `set (MAP f (code_sort x)) = set (MAP f x)`,
+  `LIST_TO_SET (MAP f (code_sort x)) = set (MAP f x)`,
   Q.ISPEC_THEN`x`mp_tac clos_to_bvlProofTheory.PERM_code_sort
   \\ rw[EXTENSION, MEM_MAP]
   \\ imp_res_tac MEM_PERM \\ fs[]);
@@ -3273,8 +3282,7 @@ val syntax_ok_IMP_obeys_max_app = store_thm("syntax_ok_IMP_obeys_max_app",
 
 val compile_common_syntax = store_thm("compile_common_syntax",
   ``!cf e3 cf1 e4.
-      clos_to_bvl$compile_common cf e3 = (cf1,e4) /\
-      (!x. cf.known_conf = SOME x ==> x.val_approx_spt = LN) ==>
+      clos_to_bvl$compile_common cf e3 = (cf1,e4) ==>
       (EVERY no_Labels e3 ==>
        EVERY no_Labels (MAP (SND o SND) e4)) /\
       (0 < cf.max_app /\ clos_mtiProof$syntax_ok e3 ==>
@@ -3292,10 +3300,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
     \\ `EVERY no_Labels es'` by
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
        \\ drule clos_knownProofTheory.compile_no_Labels
-       \\ fs [clos_knownTheory.compile_def]
-       \\ impl_tac
-       THEN1 fs [clos_knownProofTheory.globals_approx_no_Labels_def,lookup_def]
-       \\ rw [] \\ fs [])
+       \\ fs [clos_knownTheory.compile_def] \\ rw [] \\ fs [])
     \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ TRY (drule clos_callProofTheory.calls_no_Labels
@@ -3319,10 +3324,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
        \\ drule (GEN_ALL clos_knownProofTheory.compile_obeys_max_app)
        \\ disch_then (qspec_then `cf.max_app` mp_tac)
-       \\ fs [clos_knownTheory.compile_def]
-       \\ impl_tac
-       THEN1 fs [clos_knownProofTheory.globals_approx_obeys_max_app_def,lookup_def]
-       \\ rw [] \\ fs [])
+       \\ fs [clos_knownTheory.compile_def] \\ rw [] \\ fs [])
     \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ TRY (drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
@@ -3658,8 +3660,7 @@ val BIGUNION_MAP_code_locs_SND_SND = store_thm("BIGUNION_MAP_code_locs_SND_SND",
 
 val compile_common_code_locs = store_thm("compile_common_code_locs",
   ``!c es c1 xs.
-      clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) /\
-      (∀x. c.known_conf = SOME x ⇒ isEmpty x.val_approx_spt) ==>
+      clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
       BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
   rpt strip_tac
@@ -3689,57 +3690,6 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
   \\ rename [`clos_labels$compile input`]
   \\ fs [BIGUNION_MAP_code_locs_SND_SND]
   \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]);
-
-(*
-  \\ fs [MAP_MAP_o,o_DEF]
-  \\ rewrite_tac [GSYM MAP_MAP_o]
-  \\ match_mp_tac SUBSET_TRANS
-  \\ qexists_tac `any_dests (MAP (SND o SND) ls)`
-  \\ conj_tac THEN1
-   (rpt (pop_assum kall_tac)
-    \\ Induct_on `ls` THEN1 (EVAL_TAC \\ fs [])
-    \\ fs [] \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons]
-    \\ strip_tac \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
-    \\ disj1_tac
-    \\ fs [clos_to_bvlProofTheory.HD_annotate_SING]
-    \\ metis_tac [app_call_dests_annotate,SUBSET_DEF])
-  \\ rename [`compile c.do_call known_code = (call_code,g,aux)`]
-  \\ rename [`compile c.known_conf number_code = _`]
-  \\ qmatch_goalsub_abbrev_tac `BIGUNION bb`
-  \\ `BIGUNION bb = set (code_locs (MAP (SND o SND) ls))` by
-   (qunabbrev_tac `bb` \\ rpt (pop_assum kall_tac)
-    \\ Induct_on `ls` THEN1 fs [closPropsTheory.code_locs_def]
-    \\ fs [] \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
-    \\ fs [closPropsTheory.code_locs_def,clos_to_bvlProofTheory.HD_annotate_SING]
-    \\ strip_tac \\ PairCases_on `h`
-    \\ fs [clos_annotateProofTheory.code_locs_annotate])
-  \\ ntac 2 (pop_assum (fn th => fs [th]))
-  \\ fs [Abbr`ls`,closPropsTheory.code_locs_append]
-  \\ simp_tac std_ss [closPropsTheory.app_call_dests_append,MAP_APPEND,UNION_ASSOC,
-       call_dests_chain_exps]
-  \\ qsuff_tac
-      `any_dests call_code ∪ any_dests (MAP (SND ∘ SND) aux) ⊆
-       set (MAP FST aux) ∪ set (code_locs call_code) ∪
-       set (code_locs (MAP (SND ∘ SND) aux))`
-  THEN1
-   (fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
-    \\ fs [MEM_MAP] \\ rveq \\ fs []
-    \\ fs [DECIDE ``y+(k+1)=x+k <=> x = y+1:num``]
-    \\ Cases_on `call_code` \\ fs []
-    THEN1 (pop_assum mp_tac \\ EVAL_TAC)
-    \\ rpt disj1_tac
-    \\ `MAX 1 (SUC (LENGTH t)) = SUC (LENGTH t)` by fs [MAX_DEF]
-    \\ fs [COUNT_LIST_def,MEM_MAP,GSYM ADD1])
-  \\ drule clos_callProofTheory.call_compile_locs \\ strip_tac
-  \\ simp_tac std_ss [closPropsTheory.any_dests_call_dests_app_dests]
-  \\ qsuff_tac `call_dests known_code = ∅ /\
-                app_dests known_code ⊆ set (code_locs known_code)`
-  THEN1 (fs [SUBSET_DEF,EXTENSION] \\ metis_tac [])
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ drule clos_knownProofTheory.compile_locs
-  \\ disch_then match_mp_tac
-  \\ imp_res_tac renumber_code_locs_any_dests
-  \\ fs [closPropsTheory.any_dests_call_dests_app_dests]); *)
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -3922,8 +3872,6 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ conj_tac
     >- (
       strip_tac
-      \\ conj_tac
-      >- ( fs[IS_SOME_EXISTS] \\ fs[backend_config_ok_def] )
       \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`]
       \\ fs[IS_SOME_EXISTS]
       \\ simp[Abbr`coa`]
@@ -3987,7 +3935,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[flat_exh_matchTheory.compile_def]
         \\ irule flat_reorder_matchProofTheory.compile_decs_distinct_globals
         \\ irule flat_uncheck_ctorsProofTheory.compile_decs_distinct_globals
-        \\ irule flat_elimProofTheory.removeFlatProg_distinct_globals
+        \\ irule flat_elimProofTheory.remove_flat_prog_distinct_globals
         \\ irule flat_exh_matchProofTheory.compile_exps_distinct_globals
         \\ fs[source_to_flatTheory.compile_prog_def]
         \\ pairarg_tac \\ fs[] \\ rveq
@@ -4990,16 +4938,16 @@ val compile_correct = Q.store_thm("compile_correct",
       (simp[Abbr`c4_data_conf`] \\ EVAL_TAC) \\
     conj_tac>- fs[Abbr`p7`] \\
     conj_tac>- simp[ETA_AX] \\
+    `max_stack_alloc ≤ 2 * max_heap_limit (:α) c4_data_conf − 1` by
+       fs [] \\ fs [] \\
     conj_tac >- (
-      rfs[memory_assumption_def,Abbr`dm`]
-      \\ qmatch_goalsub_abbrev_tac`a <=+ b` >>
+      rfs[memory_assumption_def,Abbr`dm`] \\
       `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
        rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
       fs [attach_bitmaps_def] \\
       once_rewrite_tac[INTER_COMM] \\
       rewrite_tac[UNION_OVER_INTER] \\
       once_rewrite_tac[UNION_COMM] \\
-      strip_tac \\
       match_mp_tac fun2set_disjoint_union \\
       conj_tac >- (
         match_mp_tac DISJOINT_INTER
@@ -5015,7 +4963,9 @@ val compile_correct = Q.store_thm("compile_correct",
         reverse conj_tac >-
          (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
           \\ rfs [labPropsTheory.good_dimindex_def])
-        \\ `a <=+ b` by metis_tac[WORD_LOWER_IMP_LOWER_OR_EQ]
+        \\ qabbrev_tac `a = tar_st.regs mc.len_reg`
+        \\ qabbrev_tac `b = tar_st.regs mc.len2_reg`
+        \\ qpat_x_assum `a <=+ b` assume_tac
         \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
         \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
         \\ rw [] \\ reverse eq_tac THEN1
@@ -5030,7 +4980,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ qexists_tac `i DIV (dimindex (:α) DIV 8)`
         \\ rfs [alignmentTheory.byte_aligned_def,
              ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-        \\ fs [stack_removeProofTheory.aligned_w2n]
+        \\ fs [aligned_w2n]
         \\ drule DIVISION
         \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
         \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by

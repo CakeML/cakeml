@@ -761,9 +761,9 @@ val do_app_ssgc = Q.store_thm(
 
 val dest_closure_Full_sgc_free = Q.store_thm(
   "dest_closure_Full_sgc_free",
-  `dest_closure max_app loc_opt f (arg1::args) =
+  `dest_closure max_app loc_opt f (arg0::args) =
      SOME (Full_app fbody env rest_args) /\
-   vsgc_free f /\ vsgc_free arg1 /\ EVERY vsgc_free args ==>
+   vsgc_free f /\ vsgc_free arg0 /\ EVERY vsgc_free args ==>
    set_globals fbody = {||} /\ EVERY vsgc_free env /\ EVERY vsgc_free rest_args`,
    rpt gen_tac \\ strip_tac
    \\ imp_res_tac dest_closure_is_closure
@@ -4435,7 +4435,6 @@ val semantics_compile = Q.store_thm("semantics_compile",
    (compile known_conf xs = (known_conf', es)) ∧
    (IS_SOME known_conf ⇒
       syntax_oracle_ok xs co ∧ 1 ≤ max_app ∧
-      (THE known_conf).val_approx_spt = LN ∧
       FST (FST (co 0)) = (THE known_conf').val_approx_spt)
    ⇒
    semantics ffi max_app FEMPTY co1 cc es =
@@ -4949,16 +4948,17 @@ val known_no_Labels = Q.store_thm("known_no_Labels",
   \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
 
 val compile_no_Labels = store_thm("compile_no_Labels",
-  ``compile (SOME c) xs = (res,ys) /\ EVERY no_Labels xs /\
-    globals_approx_no_Labels c.val_approx_spt ==>
+  ``compile (SOME c) xs = (res,ys) /\ EVERY no_Labels xs ==>
     ?c1. res = SOME c1 /\ EVERY no_Labels ys /\
          globals_approx_no_Labels c1.val_approx_spt``,
   fs [clos_knownTheory.compile_def,clos_fvsTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq \\ fs []
-  \\ qspecl_then [`c`,`remove_fvs 0 xs`,`[]`,`c.val_approx_spt`]
+  \\ qspecl_then [`c`,`remove_fvs 0 xs`,`[]`,`LN`]
          mp_tac known_no_Labels
   \\ fs [clos_fvsProofTheory.remove_fvs_no_Labels]
+  \\ impl_tac THEN1
+    (fs [globals_approx_no_Labels_def,lookup_def])
   \\ metis_tac [clos_ticksProofTheory.remove_ticks_no_Labels,
                 clos_letopProofTheory.let_op_no_Labels]);
 
@@ -5096,16 +5096,16 @@ val known_obeys_max_app = Q.store_thm("known_obeys_max_app",
   \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []);
 
 val compile_obeys_max_app = store_thm("compile_obeys_max_app",
-  ``compile (SOME c) xs = (res,ys) /\ EVERY (obeys_max_app k) xs /\
-    globals_approx_obeys_max_app k c.val_approx_spt ==>
+  ``compile (SOME c) xs = (res,ys) /\ EVERY (obeys_max_app k) xs ==>
     ?c1. res = SOME c1 /\ EVERY (obeys_max_app k) ys /\
          globals_approx_obeys_max_app k c1.val_approx_spt``,
   fs [clos_knownTheory.compile_def,clos_fvsTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq \\ fs []
-  \\ qspecl_then [`c`,`remove_fvs 0 xs`,`[]`,`c.val_approx_spt`]
+  \\ qspecl_then [`c`,`remove_fvs 0 xs`,`[]`,`LN`]
          mp_tac known_obeys_max_app
   \\ fs [clos_fvsProofTheory.remove_fvs_obeys_max_app]
+  \\ impl_tac THEN1 (fs [globals_approx_obeys_max_app_def,lookup_def])
   \\ metis_tac [clos_ticksProofTheory.remove_ticks_obeys_max_app,
                 clos_letopProofTheory.let_op_obeys_max_app]);
 

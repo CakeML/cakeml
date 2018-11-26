@@ -50,8 +50,6 @@ val _ = trans "not" `\x. ~x:bool`
 val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
 val _ = trans "^" `mlstring$strcat`
 
-val _ = remove_ovl_mapping "strcat" {Name = "strcat", Thy = "mlbasicsProg"}
-
 val _ = append_prog
   ``[mk_binop ":=" Opassign;
      mk_unop "!" Opderef;

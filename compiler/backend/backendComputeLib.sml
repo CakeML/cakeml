@@ -71,8 +71,6 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- flat_elim ---- *)
   ,computeLib.Defs
     (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="reachability"}))
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -513,6 +511,11 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.bignum_words_def
     ,data_to_wordTheory.Smallnum_def
     ,data_to_wordTheory.MemEqList_def
+    ,data_to_wordTheory.arg1_def
+    ,data_to_wordTheory.arg2_def
+    ,data_to_wordTheory.arg3_def
+    ,data_to_wordTheory.arg4_def
+    ,data_to_wordTheory.all_assign_defs
     ,data_to_wordTheory.assign_def
     ,data_to_wordTheory.fp_cmp_inst_def
     ,data_to_wordTheory.fp_bop_inst_def
@@ -689,6 +692,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.get_coalescecost_def
     ,word_allocTheory.get_spillcost_def
     ,word_allocTheory.get_heu_def
+    ,sptreeTheory.spt_fold_def
     ,sptreeTheory.mapi_def
     ,sptreeTheory.mapi0_def
     ]

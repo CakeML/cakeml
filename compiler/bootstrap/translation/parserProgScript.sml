@@ -7,6 +7,8 @@ val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "parserProg");
+
 (* translator setup *)
 
 val RW = REWRITE_RULE
@@ -225,6 +227,8 @@ val parse_prog_side_lemma = Q.store_thm("parse_prog_side_lemma",
   |> update_precondition;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

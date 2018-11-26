@@ -6,6 +6,11 @@ open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib
 
 val _ = new_theory "cf"
+
+val _ = set_grammar_ancestry
+  ["cfHeapsBase","cfHeaps","cfStore","cfNormalise","cfApp",
+   "ml_translator", "ffi"];
+
 val _ = monadsyntax.temp_disable_monadsyntax()
 
 (*------------------------------------------------------------------*)
@@ -1610,9 +1615,9 @@ val app_ffi_def = Define `
          c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
          (H ==>> F * W8ARRAY a ws * IO s u ns) /\
          (case u ffi_index conf ws s of
-            SOME(FFIreturn vs s') => 
+            SOME(FFIreturn vs s') =>
              (F * W8ARRAY a vs * IO s' u ns) ==>> Q (Val (Conv NONE []))
-          | SOME(FFIdiverge) => 
+          | SOME(FFIdiverge) =>
              (F * W8ARRAY a ws * IO s u ns) ==>> Q(FFIDiv ffi_index conf ws)
           | NONE => bool$F)) /\
      Q ==e> POST_F)`
@@ -1971,10 +1976,10 @@ val cf_letrec_sound_aux = Q.prove (
     cf_strip_sound_full_tac \\
     qpat_x_assum `fun_rec_aux _ _ _ _ _ _ _ _ _ _` mp_tac \\
     (* Rewrite (DROP _ _) to a (_::DROP _ _) *)
-    qpat_abbrev_tac `tail = DROP _ _` \\
-    `tail = (naryRecclosure env (letrec_pull_params funs) f) ::
+    qpat_abbrev_tac `til = DROP _ _` \\
+    `til = (naryRecclosure env (letrec_pull_params funs) f) ::
             DROP (LENGTH (letrec_pull_params rest) + 1) fvs` by (
-      qunabbrev_tac `tail` \\ rewrite_tac [GSYM ADD1] \\
+      qunabbrev_tac `til` \\ rewrite_tac [GSYM ADD1] \\
       fs [letrec_pull_params_LENGTH] \\
       mp_tac (Q.ISPECL [`fvs: v list`,
                         `LENGTH (rest: (tvarN, tvarN # exp) alist)`]
@@ -2172,7 +2177,7 @@ val cf_ffi_sound = Q.prove (
         \\ fs [st2heap_def,Mem_NOT_IN_ffi2heap]
         \\ imp_res_tac store2heap_IN_EL
         \\ imp_res_tac store2heap_IN_LENGTH
-        \\ fs [store_lookup_def] \\ NO_TAC) \\ 
+        \\ fs [store_lookup_def] \\ NO_TAC) \\
      fs [ffiTheory.call_FFI_def] \\
      fs [IO_def,SEP_EXISTS_THM,cond_STAR] \\ rveq \\
      fs [one_def] \\ rveq \\
@@ -2469,7 +2474,7 @@ val cf_sound = Q.store_thm ("cf_sound",
         fs [SEP_IMPPOSTffi_def, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
-      )      
+      )
     )
   )
   THEN1 (

@@ -40,13 +40,13 @@ val mips_machine_config_ok = Q.store_thm("mips_machine_config_ok",
   `is_mips_machine_config mc ⇒ mc_conf_ok mc`,
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_mips_machine_config_def]
   >- EVAL_TAC
-  >- simp[mips_targetProofTheory.mips_backend_correct]
+  >- simp[mips_targetProofTheory.mips_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,mips_backend_correct]);
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,mips_encoder_correct]);
 
 val mips_init_ok = Q.store_thm("mips_init_ok",
   `is_mips_machine_config mc ⇒

@@ -4,6 +4,8 @@ open preamble
 
 val _ = new_theory"holConsistency"
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 val consistent_theory_def = Define`

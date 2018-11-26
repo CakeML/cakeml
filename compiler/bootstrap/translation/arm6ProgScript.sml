@@ -9,6 +9,8 @@ val _ = new_theory "arm6Prog"
 
 val _ = translation_extends "to_target32Prog";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm6Prog");
+
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
@@ -203,6 +205,8 @@ val res = translate arm6_enc_thm
 val res = translate (arm6_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

@@ -164,6 +164,20 @@ val _ = Datatype `
 
 val _ = register_type ``:tt``;
 
+(* test no_ind again *)
+
+val test_def = xDefine "test" `test x = (case x of
+  | A1 => [()]
+  | B1 x => test x ++ [()]
+  | C1 NONE => []
+  | C1 (SOME x) => test x ++ REVERSE (test x)
+  | D1 tts => (case tts of [] => [(); ()]
+        | (tt :: tts) => test (D1 tts) ++ test tt)
+  | E1 (x, y) => REVERSE (test x) ++ test y)`
+;
+
+val _ = translate_no_ind test_def;
+
 (* registering types inside modules *)
 
 open ml_progLib
@@ -208,6 +222,19 @@ val th =
   in
     TAC_PROOF (goal, REFL_TAC)
   end;
+
+(* test the abstract translator is working *)
+
+val map_again_def = Define `map_again f [] = []
+  /\ map_again f (x :: xs) = f x :: map_again f xs`;
+
+val inc_list_def = Define `inc_list xs = map_again (\x. x + SUC 0) xs`;
+
+val _ = reset_translation ();
+
+val r = abs_translate map_again_def;
+val r = abs_translate inc_list_def;
+val r = concretise [``map_again``, ``inc_list``];
 
 val _ = export_theory();
 
