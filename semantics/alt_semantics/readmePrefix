@@ -1,0 +1,3 @@
+Alternative definitions of the semantics:
+  - using inductive relations (as opposed to functional big-step style), and,
+  - as a small-step relation.

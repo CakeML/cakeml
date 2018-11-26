@@ -197,14 +197,16 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     (FST(evaluate env s es)).ffi.io_events ≼
     (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events`,
   ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[dec_clock_def] >> full_simp_tac(srw_ss())[do_app_add_to_clock,do_install_with_clock] >>
-  TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
+  every_case_tac >> fsrw_tac[][] >>
+  imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> fsrw_tac[][] >> srw_tac[][] >>
+  imp_res_tac evaluate_io_events_mono_imp >> fsrw_tac[][] >> srw_tac[][] >>
+  fsrw_tac[][dec_clock_def] >> fsrw_tac[][do_app_add_to_clock,do_install_with_clock] >>
+  TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> fsrw_tac[][]) >>
   imp_res_tac do_app_io_events_mono >>
   imp_res_tac do_install_const >> fsrw_tac[][] >>
   rveq >> fsrw_tac[][do_install_with_clock] >>
+  rpt(first_x_assum(qspec_then`extra`mp_tac) \\ srw_tac[][]) >> rev_full_simp_tac(srw_ss())[] >>
+  TRY(rfs[] \\ fs[] \\ NO_TAC) \\
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,IS_PREFIX_TRANS,lemma])
 
 val evaluate_const = Q.store_thm("evaluate_const",
@@ -285,7 +287,7 @@ val set_globals_def = tDefine "set_globals"`
   (elist_globals [] = {||}) ∧
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)`
  (WF_REL_TAC `
-      measure (λa. case a of INL e => exp_size e | INR el => exp1_size el)` >>
+      measure (λa. case a of INL e => exp_size e | INR y => exp1_size y)` >>
   rw[]);
 val _ = export_rewrites ["set_globals_def"]
 
@@ -297,6 +299,11 @@ val elist_globals_append = Q.store_thm("elist_globals_append",
 val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
   `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
   Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
+
+val elist_globals_FOLDR = Q.store_thm(
+  "elist_globals_FOLDR",
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
+  Induct_on `es` >> simp[]);
 
 val exp_size_MEM = Q.store_thm(
   "exp_size_MEM",

@@ -47,6 +47,8 @@ sig
                      (string -> string) (* pick name for v abbrev const *) ->
                      ml_prog_state -> ml_prog_state
 
+  val nsLookup_conv : conv
+
   val remove_snocs : ml_prog_state -> ml_prog_state
   val clean_state  : ml_prog_state -> ml_prog_state
 

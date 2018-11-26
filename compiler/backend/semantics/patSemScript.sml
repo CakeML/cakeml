@@ -139,8 +139,8 @@ val _ = Datatype`
      ; refs    : patSem$v store
      ; ffi     : 'ffi ffi_state
      ; globals : patSem$v option list
-     ; compile : 'c -> patLang$exp -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # patLang$exp
+     ; compile : 'c -> patLang$exp list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # patLang$exp list
      |>`;
 
 val do_app_def = Define `
@@ -411,12 +411,13 @@ val do_install_def = Define`
     | [v1;v2] =>
       (case (v_to_bytes v1, v_to_words v2) of
        | (SOME bytes, SOME data) =>
-         let (st,exp) = s.compile_oracle 0 in
+         let (st,exps) = s.compile_oracle 0 in
          let new_oracle = shift_seq 1 s.compile_oracle in
-         (case s.compile st exp of
+         (case s.compile st exps of
           | SOME (bytes',data',st') =>
-            if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = st' then
-              SOME (exp, s with compile_oracle := new_oracle)
+            if bytes = bytes' ∧ data = data' ∧
+               FST(new_oracle 0) = st' ∧ exps <> [] then
+              SOME (exps, s with compile_oracle := new_oracle)
             else NONE
           | _ => NONE)
        | _ => NONE)
@@ -453,7 +454,7 @@ val check =
   do_app_cases |> concl |> find_terms TypeBase.is_case
   |> List.map (#1 o strip_comb)
   |> List.all (fn tm => List.exists (same_const tm) [optionSyntax.option_case_tm, eq_result_CASE_tm])
-val () = if check then () else raise(ERR"patSem""do_app_cases failed")
+val () = if check then () else raise(mk_HOL_ERR"patSemTheory""do_app_cases""check failed")
 
 val do_app_cases_none = save_thm("do_app_cases_none",
   ``patSem$do_app s op vs = NONE`` |>
@@ -520,13 +521,15 @@ val evaluate_def = tDefine "evaluate"`
               evaluate env (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = Run then
-         (case do_install (REVERSE vs) s of
-          | SOME (e, s) =>
+         ((*case do_install (REVERSE vs) s of
+          | SOME (es, s) =>
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate [] (dec_clock s) [e]
-          | NONE => (s, Rerr (Rabort Rtype_error)))
+              (case evaluate [] (dec_clock s) es of
+               | (s, Rval vs) => (s, Rval [LAST vs])
+               | res => res)
+          | NONE => *)(s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app s op (REVERSE vs)) of
         | NONE => (s, Rerr (Rabort Rtype_error))

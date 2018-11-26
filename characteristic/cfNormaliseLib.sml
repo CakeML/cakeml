@@ -3,6 +3,8 @@ structure cfNormaliseLib :> cfNormaliseLib = struct
 open preamble
 open astSyntax
 
+val ERR = mk_HOL_ERR "cfNormaliseLib";
+
 (* Normalisation pass.
 
    [normalise_prog] (and friends) implement a preprocessing pass on the

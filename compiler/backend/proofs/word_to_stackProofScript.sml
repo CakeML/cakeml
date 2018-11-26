@@ -28,51 +28,28 @@ val wf_LN = Q.store_thm("wf_LN[simp]",
 val splem1 = Q.prove(`
   a ≠ 0 ⇒
   (a-1) DIV 2 < a`,
-  `0 < (2:num)` by fs[] >>
-  imp_res_tac DIV_LT_X>>rw[]>>
-  DECIDE_TAC)
+  simp[DIV_LT_X]);
 
 val splem2 = Q.prove(`
   ∀a c.
   a ≠ 0 ∧
   a < c ∧
   2 ≤ c-a ⇒
-  (a -1) DIV 2 < (c-1) DIV 2`,
-  Induct>>Induct>>rw[]>>
-  Cases_on`SUC a < c`>>fs[]>>simp[]>>
-  Cases_on` 2 ≤ c - SUC a`>>fs[]
-  >-
-    (`(c-1) DIV 2 ≤ c DIV 2` by
-       simp[DIV_LE_MONOTONE]>>
-     simp[])
-  >>
-    `c = a+2` by DECIDE_TAC>>
-    simp[ADD_DIV_RWT])
+  (a - 1) DIV 2 < (c-1) DIV 2`,
+  intLib.ARITH_TAC);
 
 val EVEN_ODD_diff = Q.prove(`
   ∀a c.
   a < c ∧
   (EVEN a ∧ EVEN c ∨ ODD a ∧ ODD c) ⇒
   2 ≤ c-a`,
-  Induct>>fs[]>>
-  rw[]
-  >-
-    (Cases_on`c`>>fs[]>>Cases_on`n`>>fs[]>>
-    DECIDE_TAC)
-  >>
-    Cases_on`c`>>fs[]>>
-    first_assum match_mp_tac>>
-    fs[EVEN,EVEN_ODD,ODD])
+  intLib.ARITH_TAC);
 
 val splem3 = Q.prove(`
   (EVEN c ∧ EVEN a ∨ ODD a ∧ ODD c) ∧
   a ≠ c ∧ a ≠ 0 ∧ c ≠ 0 ⇒
   (a-1) DIV 2 ≠ (c-1) DIV 2`,
-  rw[]>>
-  `a < c ∨ c <a` by DECIDE_TAC>>
-  imp_res_tac splem2>>
-  imp_res_tac EVEN_ODD_diff>>
-  DECIDE_TAC)
+  intLib.ARITH_TAC);
 
 val insert_swap = Q.store_thm("insert_swap",` (* TODO: move *)
   ∀t a b c d.
@@ -1811,7 +1788,7 @@ val compile_result_def = Define`
   (compile_result (Exception w1 w2) = Exception w1) ∧
   (compile_result TimeOut = TimeOut) ∧
   (compile_result NotEnoughSpace = Halt (Word 1w)) ∧
-  (compile_result (FinalFFI f) = FinalFFI f) ∧  
+  (compile_result (FinalFFI f) = FinalFFI f) ∧
   (compile_result Error = Error)`;
 val _ = export_rewrites["compile_result_def"];
 
@@ -1946,8 +1923,8 @@ val abs_stack_prefix_drop = Q.prove(`
       imp_res_tac abs_stack_to_stack_LENGTH>>
       qpat_x_assum`A=SOME(LASTN h x')` sym_sub_tac>>
       AP_THM_TAC>>AP_TERM_TAC>>
-      qpat_abbrev_tac`length = handler_val A`>>
-      Q.ISPECL_THEN [`length`,`DROP(LENGTH x)stack`] assume_tac LASTN_LENGTH_BOUNDS>>
+      qpat_abbrev_tac`lengt = handler_val A`>>
+      Q.ISPECL_THEN [`lengt`,`DROP(LENGTH x)stack`] assume_tac LASTN_LENGTH_BOUNDS>>
       fs[LET_THM]>>
       simp[LASTN_DROP2,DROP_DROP]>>
       AP_THM_TAC>>
@@ -1979,8 +1956,8 @@ val abs_stack_prefix_drop = Q.prove(`
       imp_res_tac abs_stack_to_stack_LENGTH>>
       qpat_x_assum`A=SOME(LASTN h x')` sym_sub_tac>>
       AP_THM_TAC>> AP_TERM_TAC>>
-      qpat_abbrev_tac`length = handler_val A`>>
-      Q.ISPECL_THEN [`length`,`DROP(LENGTH x)t`] assume_tac LASTN_LENGTH_BOUNDS>>
+      qpat_abbrev_tac`lengt = handler_val A`>>
+      Q.ISPECL_THEN [`lengt`,`DROP(LENGTH x)t`] assume_tac LASTN_LENGTH_BOUNDS>>
       fs[LET_THM]>>
       simp[LASTN_DROP2,DROP_DROP]>>
       AP_THM_TAC>>
@@ -7025,7 +7002,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
     drule0(GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k'`strip_assume_tac) >>
     disch_then drule0 >>
-    simp[] >> strip_tac >>    
+    simp[] >> strip_tac >>
     `t'.ffi.io_events ≼ t1.ffi.io_events` by (
       qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
       Q.ISPECL_THEN[`exps`,`tt`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
@@ -7352,7 +7329,7 @@ val wLive_stack_asm_name = Q.prove(`
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_name_lem = Q.prove(`
+val word_to_stack_stack_asm_name_lem = Q.store_thm("word_to_stack_stack_asm_name_lem",`
   ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
@@ -7462,7 +7439,7 @@ val wLive_stack_asm_remove = Q.prove(`
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-val word_to_stack_stack_asm_remove_lem = Q.prove(`
+val word_to_stack_stack_asm_remove_lem = Q.store_thm("word_to_stack_stack_asm_remove_lem",`
   ∀(p:'a wordLang$prog) bs kf (c:'a asm_config).
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ⇒
   stack_asm_remove c (FST (comp p bs kf))`,

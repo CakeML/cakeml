@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "evaluate"
 
+(*
+  Functional big-step semantics for evaluation of CakeML programs.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Ast*)

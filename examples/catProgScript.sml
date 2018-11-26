@@ -1,3 +1,8 @@
+(*
+  cat program example: concatenate and print lines from files.
+
+  Simple version that operates one character at a time.
+*)
 open preamble basis
 
 val _ = new_theory "catProg"
@@ -46,10 +51,12 @@ val do_onefile_spec = Q.store_thm(
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs (File fnm)) *
-              STDIO fs))`,
+              STDIO fs)
+         (\n c b. &F))`,
   rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
+  >- xsimpl
   >- xsimpl
   >- xsimpl
   \\ imp_res_tac nextFD_ltX
@@ -62,7 +69,8 @@ val do_onefile_spec = Q.store_thm(
   xfun_spec `recurse`
     `!m n fs00 uv.
        UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
-       STD_streams fs00 ∧ get_file_content fs00 fd = SOME (content, n)
+       STD_streams fs00 ∧ get_file_content fs00 fd = SOME (content, n) ∧
+       get_mode fs00 fd = SOME ReadMode
          ==>
        app p recurse [uv]
          (STDIO fs00)
@@ -120,12 +128,14 @@ val do_onefile_spec = Q.store_thm(
   (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
   *)
   xlet `POSTv u3. &(u3 = Conv NONE []) *
-                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) (implode content))`
+                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs ReadMode 0) fd) (implode content))`
   >- (xapp >>
       simp[fsFFITheory.get_file_content_def,PULL_EXISTS,EXISTS_PROD] >>
-      goal_assum(first_assum o (mp_then (Pos (el 3)) mp_tac)) >>
+      first_x_assum(qspec_then`ReadMode`strip_assume_tac) >>
+      goal_assum(first_assum o (mp_then (Pos(el 4)) mp_tac)) >>
       xsimpl >>
-      fs[UNIT_TYPE_def,STD_streams_openFileFS]) >>
+      fs[UNIT_TYPE_def,STD_streams_openFileFS]
+      \\ simp[get_mode_def]) >>
   (* calling close *)
   xapp_spec close_STDIO_spec >>
   xsimpl >> instantiate >>
@@ -134,7 +144,8 @@ val do_onefile_spec = Q.store_thm(
   qexists_tac`fs0` \\ xsimpl \\
   simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
   simp[GSYM add_stdo_A_DELKEY,Abbr`fd`,openFileFS_A_DELKEY_nextFD] \\
-  xsimpl);
+  xsimpl \\
+  simp[validFileFD_def]);
 
 val file_contents_def = Define `
   file_contents fnm fs = implode (THE (ALOOKUP fs.files (File fnm)))`
@@ -174,6 +185,7 @@ val cat_spec0 = Q.prove(
   xmatch >>
   progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME (SPEC_ALL do_onefile_spec))
+  >- xsimpl
   >- xsimpl
   >- xsimpl >>
   xapp \\
@@ -218,7 +230,8 @@ val cat1_spec = Q.store_thm (
                &(ALOOKUP fs.files (File fnm) = SOME content) *
                STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs (File fnm)) *
-                  STDIO fs)` >> fs[]
+               STDIO fs)
+             (\n c b. &F)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
       imp_res_tac ALOOKUP_SOME_inFS_fname >>
@@ -265,7 +278,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
 
 val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
   `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"cat_main"st) cl fs
+   whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
   disch_then assume_tac
   \\ simp[whole_prog_spec_def]

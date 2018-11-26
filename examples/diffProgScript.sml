@@ -1,3 +1,6 @@
+(*
+  diff example: find a patch representing the difference between two files.
+*)
 open preamble basis
      charsetTheory lcsTheory diffTheory
 
@@ -59,28 +62,11 @@ val longest_common_suffix_length_side = Q.prove(
   >> fs[EQ_IMP_THM]
   >> fs[ADD1]) |> update_precondition
 
-val diff_with_lcs_side_IMP = Q.prove(
-  `!l l' n l'' n'.
-   lcs l l' l'' ==> diff_with_lcs_side l l' n l'' n'`,
-  Induct_on `l`
-  >- fs[Once(fetch "-" "diff_with_lcs_side_def")]
-  >> PURE_ONCE_REWRITE_TAC [fetch "-" "diff_with_lcs_side_def"]
-  >> rpt strip_tac
-  >> drule lcs_split
-  >> drule lcs_split2
-  >> drule split_lcs_optimal_substructure
-  >> rpt strip_tac
-  >> fs[]
-  >> rpt(CHANGED_TAC(TRY(qpat_x_assum `a::b = x` (assume_tac o GSYM))))
-  >> rfs[]
-  >> metis_tac[list_distinct]);
-
 val diff_alg2_side_def = Q.prove(`
   !l r. diff_alg2_side l r  ⇔ T`,
   rw[fetch "-" "diff_alg2_side_def"]
   >> rw[longest_common_suffix_length_side]
-  >> fs[mllistTheory.drop_def]
-  >> metis_tac[diff_with_lcs_side_IMP,dynamic_lcs_correct]) |> update_precondition;
+  >> fs[mllistTheory.drop_def]) |> update_precondition;
 
 val notfound_string_def = Define`
   notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]`;
@@ -202,13 +188,13 @@ val st = get_ml_prog_state();
 
 val diff_whole_prog_spec = Q.store_thm("diff_whole_prog_spec",
   `hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"diff"st) cl fs ((=) (diff_sem cl fs))`,
-  strip_tac
-  \\ rw[whole_prog_spec_def]
+   whole_prog_spec ^(fetch_v"diff"st) cl fs NONE ((=) (diff_sem cl fs))`,
+  rw[whole_prog_spec_def]
   \\ qexists_tac`diff_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[diff_sem_def,GSYM add_stdo_with_numchars,with_same_numchars] )
-  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH diff_spec)))
+  \\ simp [SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH diff_spec))))
   \\ xsimpl);
 
 val name = "diff"

@@ -3,6 +3,8 @@ open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
 val _ = new_theory "flat_uncheck_ctorsProof";
 
+val _ = set_grammar_ancestry ["misc","flatProps","flat_uncheck_ctors"];
+
 val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
 `!(p:flatLang$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`,
   ho_match_mp_tac compile_pat_ind >>
@@ -10,32 +12,6 @@ val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
   induct_on `ps` >>
   rw [] >>
   fs [pat_bindings_def,astTheory.pat_bindings_def, PULL_FORALL]);
-
-(* TODO: move? *)
-
-val compile_append = Q.prove (
-  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`,
-  Induct >>
-  rw [compile_def] >>
-  Cases_on `es` >>
-  rw [compile_def] >>
-  fs [compile_def] >>
-  Cases_on `es2` >>
-  rw [] >>
-  Cases_on `h` >>
-  rw [compile_def]);
-
-val compile_reverse = Q.prove (
-  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`,
-  ho_match_mp_tac compile_ind >>
-  rw [compile_def, compile_append]);
-
-val compile_HD_sing = Q.store_thm("compile_HD_sing",
-  `[HD (compile [e])] = compile [e:flatLang$exp]`,
-  qspec_then`e`strip_assume_tac compile_sing
-  \\ fs[]);
-
-(* -- *)
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!lit.
@@ -847,7 +823,7 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
 
 val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
   `eval_sim
-     (ffi:'ffi ffi_state) T T ds1 T F
+     (ffi:'ffi ffi$ffi_state) T T ds1 T F
      (compile_decs ds1)
      (\p1 p2. p2 = compile_decs p1) F`,
   rw [eval_sim_def]
@@ -870,4 +846,110 @@ val compile_decs_semantics = save_thm ("compile_decs_semantics",
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
 
+(* syntactic results *)
+
+val compile_elist_globals_eq_empty = Q.store_thm (
+  "compile_elist_globals_eq_empty",
+  `!es. elist_globals es = {||} ==> elist_globals (compile es) = {||}`,
+  ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+  \\ TRY
+    (rename1 `HD (compile [e])`
+     \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs [])
+  \\ fs [MAP_MAP_o, o_DEF, UNCURRY, elist_globals_append]
+  \\ TRY
+   (map_every (fn tm => qspec_then tm assume_tac compile_sing) [`e1`,`e2`,`e3`]
+    \\ fs [] \\ fs []
+    \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ pop_assum mp_tac
+  \\ rename1 `elist_globals (MAP _ xs)`
+  \\ Induct_on `xs` \\ fs [FORALL_PROD] \\ rw []
+  \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- METIS_TAC[])
+  \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION] \\ rw []
+  \\ rename1 `HD (compile [e])`
+  \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs []);
+
+val compile_set_globals_eq_empty = Q.store_thm ("compile_set_globals_eq_empty",
+  `set_globals e = {||} ==> set_globals (HD (compile [e])) = {||}`,
+  qspec_then`[e]`mp_tac compile_elist_globals_eq_empty
+  \\ rw[] \\ fs[] \\ Cases_on `compile [e]` \\ fs []);
+
+val compile_esgc_free = Q.store_thm ("compile_esgc_free",
+  `!es. EVERY esgc_free es ==> EVERY esgc_free (compile es)`,
+  ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+  \\ fs [compile_set_globals_eq_empty]
+  \\ TRY
+    (rename1 `compile [e]`
+     \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs [])
+  \\ fs [EVERY_MAP, EVERY_MEM, FORALL_PROD, elist_globals_eq_empty]
+  \\ fs [MEM_MAP, MAP_MAP_o, PULL_EXISTS, FORALL_PROD]
+  \\ rw []
+  \\ TRY(
+    match_mp_tac compile_set_globals_eq_empty
+    \\ res_tac )
+  \\ rename1 `HD (compile [p])`
+   \\ qspec_then `p` assume_tac compile_sing \\ fs [] \\ fs []
+  \\ res_tac \\ fs []);
+
+val compile_decs_esgc_free = Q.store_thm("compile_decs_esgc_free",
+  `∀ds. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds)) ⇒
+        EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds)))`,
+  Induct \\ simp[flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ Cases \\ simp[] \\ rw[] \\ fs[flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ qspec_then`[e]`mp_tac compile_esgc_free
+  \\ strip_assume_tac (SPEC_ALL flat_uncheck_ctorsTheory.compile_sing)
+  \\ rw[]);
+
+val compile_sub_bag = Q.store_thm ("compile_sub_bag",
+  `!es. (elist_globals (compile es)) ≤ (elist_globals es)`,
+  ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+  \\ TRY
+    (rename1 `compile [e]`
+     \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs [])
+  \\ TRY
+   (map_every (fn tm => qspec_then tm assume_tac compile_sing) [`e1`,`e2`,`e3`]
+    \\ fs [] \\ fs []
+    \\ fs [SUB_BAG_UNION]
+    \\ NO_TAC)
+  \\ fs [SUB_BAG_UNION, elist_globals_append] \\ rfs []
+  \\ fs [MAP_MAP_o, UNCURRY, o_DEF] \\ fs [LAMBDA_PROD]
+  \\ (FIRST
+    (map (fn th => match_mp_tac (MP_CANON th) \\ conj_tac >- simp[])
+         (CONJUNCTS SUB_BAG_UNION)))
+  \\  rename1 `elist_globals (MAP _ xs)`
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ pop_assum mp_tac
+  \\ Induct_on `xs` \\ fs [FORALL_PROD] \\ rw []
+  \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- METIS_TAC[])
+  \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION] \\ rw []
+  \\ rename1 `HD (compile [e])`
+  \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs []
+  \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION]);
+
+val compile_distinct_globals = Q.store_thm ("compile_distinct_globals",
+  `BAG_ALL_DISTINCT (elist_globals es)
+   ==>
+   BAG_ALL_DISTINCT (elist_globals (compile es))`,
+  metis_tac [compile_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+
+val compile_decs_sub_bag = Q.store_thm("compile_decs_sub_bag",
+  `(elist_globals (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds)))) ≤ (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))`,
+  Induct_on`ds` \\ rw [flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ fs [UNCURRY] \\ rw []
+  \\ Cases_on `h` \\ fs [flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ qspec_then `e` assume_tac flat_uncheck_ctorsTheory.compile_sing \\ fs []
+  \\ `elist_globals [e2] <= elist_globals [e]`
+    by metis_tac [compile_sub_bag]
+  \\ fs [SUB_BAG_UNION]);
+
+val compile_decs_distinct_globals = Q.store_thm("compile_decs_distinct_globals",
+  `BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))) ⇒
+   BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds))))`,
+  metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+
 val _ = export_theory ();
+

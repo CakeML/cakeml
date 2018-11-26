@@ -303,9 +303,126 @@ val _ = m_translate_run reg_alloc_aux_trans_def;
 (* The final function used by the compiler *)
 val _ = translate reg_alloc_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
-val _ = export_theory();
+(* === Translation of linear scan register allocator === *)
+
+open linear_scanTheory libTheory;
+
+(*
+ *  Set up the monadic translator
+ *)
+
+
+(* The record types used for the monadic state and exceptions *)
+val state_type = ``:linear_scan_hidden_state``
+val exn_type   = ``:state_exn``;
+(* val _       = register_exn_type exn_type;  -- already registered above *)
+
+val STATE_EXN_TYPE_def = theorem "REG_ALLOC_STATE_EXN_TYPE_def"
+val exn_ri_def         = STATE_EXN_TYPE_def;
+val store_hprop_name   = "LINEAR_SCAN_HIDDEN_STATE";
+
+(* Accessor functions are defined (and used) previously together
+   with exceptions, etc. *)
+
+val exn_functions = [
+    (raise_Fail_def, handle_Fail_def),
+    (raise_Subscript_def, handle_Subscript_def)
+];
+
+val refs_manip_list = [] : (string * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val farrays_manip_list = [
+    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def)
+];
+
+val add_type_theories  = ([] : string list);
+val store_pinv_def_opt = NONE : thm option;
+
+(* Initialization *)
+
+val _ = start_dynamic_init_fixed_store_translation
+	    refs_manip_list
+	    rarrays_manip_list
+	    farrays_manip_list
+	    store_hprop_name
+	    state_type
+	    exn_ri_def
+	    [] (* exn_functions *)
+	    add_type_theories
+	    store_pinv_def_opt
+
+(* Translate basics *)
+
+val res = translate the_def;
+val res = translate numset_list_delete_def;
+val res = translate is_stack_var_def;
+val res = translate is_phy_var_def;
+val res = translate pairTheory.LEX_DEF;
+
+(* Translate linear scan register allocator *)
+
+val map_colors_sub_def = Define `
+  (map_colors_sub [] = return []) ∧
+  (map_colors_sub (x::xs) =
+     do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
+
+val map_colors_sub_eq = store_thm("map_colors_sub_eq",
+  ``map_colors_sub = st_ex_MAP colors_sub``,
+  once_rewrite_tac [FUN_EQ_THM]
+  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
+
+val res = m_translate spill_register_def;
+val res = m_translate MAP_colors_def;
+val res = m_translate st_ex_FOLDL_def;
+val res = m_translate map_colors_sub_def;
+val res = m_translate remove_inactive_intervals_def;
+
+val res = translate linear_reg_alloc_pass1_initial_state_def;
+val res = translate linear_reg_alloc_pass2_initial_state_def;
+val res = translate add_active_interval_def;
+val res = translate find_color_in_list_def;
+val res = translate find_color_in_colornum_def;
+val res = translate find_color_def;
+val res = m_translate color_register_def;
+val res = m_translate find_last_stealable_def;
+val res = m_translate find_spill_def;
+val res = m_translate (linear_reg_alloc_step_aux_def
+                       |> REWRITE_RULE [MEMBER_INTRO]);
+val res = m_translate (linear_reg_alloc_step_pass1_def
+                       |> REWRITE_RULE [GSYM map_colors_sub_eq]);
+val res = m_translate (linear_reg_alloc_step_pass2_def
+                       |> REWRITE_RULE [GSYM map_colors_sub_eq]);
+
+val res = m_translate find_reg_exchange_def;
+val res = m_translate apply_reg_exchange_def;
+val res = translate edges_to_adjlist_impl_def;
+val res = m_translate st_ex_FILTER_good_def;
+
+val res = translate sort_moves_rev_def;
+
+val res = m_translate (linear_reg_alloc_intervals_def
+                       |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
+
+val res = m_translate extract_coloration_def;
+val res = translate find_bijection_init_def;
+val res = translate find_bijection_step_def;
+val res = translate apply_bijection_def;
+
+val res = m_translate linear_reg_alloc_intervals_and_extract_coloration_def;
+val res = m_translate_run run_linear_reg_alloc_intervals_def;
+
+val res = translate get_live_tree_def;
+val res = translate numset_list_insert_def;
+val res = translate get_live_backward_def;
+val res = translate fix_domination_def;
+val res = translate numset_list_add_if_def;
+val res = translate numset_list_add_if_lt_def;
+val res = translate numset_list_add_if_gt_def;
+val res = translate get_intervals_def;
+val res = translate linear_scan_reg_alloc_def;
+
+val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 (*
 TODO: update the following code (comes from the non-monadic register allocator

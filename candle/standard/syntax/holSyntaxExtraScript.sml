@@ -3464,6 +3464,20 @@ val updates_proves = Q.store_thm("updates_proves",
     (thyof (upd::ctxt),h) |- c`,
   metis_tac[update_extension]);
 
+val extends_proves = Q.store_thm("extends_proves",
+  `!c2 c1.
+     c2 extends c1
+     ==>
+     !h c.
+       (thyof c1,h) |- c ==> (thyof c2,h) |- c`,
+  Induct \\ rw [extends_def]
+  \\ fs [Once RTC_CASES1] \\ rw [] \\ fs [BETA_THM]
+  \\ fs [GSYM extends_def]
+  \\ first_x_assum drule
+  \\ disch_then drule \\ rw []
+  \\ drule updates_proves
+  \\ disch_then drule \\ rw []);
+
 (* types occurring in a term *)
 
 val types_in_def = Define`

@@ -799,7 +799,7 @@ local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
-       | NONE => raise ERR "number_of_instructions" ""
+       | NONE => raise mk_HOL_ERR "arm6_targetProofTheory" "number_of_instructions" ""
    fun can_match t = Lib.can (Term.match_term t)
    fun next_tac' asm (gs as (asl, _)) =
       let
@@ -812,7 +812,8 @@ local
       in
          exists_tac n
          \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
-              [asmPropsTheory.asserts_eval, reg_mode_eq,
+              [asmPropsTheory.asserts_eval,
+               asmPropsTheory.asserts2_eval, reg_mode_eq,
                asmPropsTheory.interference_ok_def, arm6_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
@@ -972,14 +973,14 @@ val arm6_target_ok = Q.prove (
    )
 
 (* -------------------------------------------------------------------------
-   arm6 backend_correct
+   arm6 encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
-val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
-   `backend_correct arm6_target`,
-   simp [asmPropsTheory.backend_correct_def, arm6_target_ok]
+val arm6_encoder_correct = Q.store_thm ("arm6_encoder_correct",
+   `encoder_correct arm6_target`,
+   simp [asmPropsTheory.encoder_correct_def, arm6_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
    \\ rw [arm6_target_def, arm6_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

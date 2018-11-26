@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "typeSystem"
 
+(*
+  Specification of CakeML's type system.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Ast*)
@@ -912,12 +915,12 @@ DISJOINT (IMAGE SND opaque_tids1) datatype_tids2)
 ==>
 type_sps tenv (sp::sps) (datatype_tids1 UNION datatype_tids2) (opaque_tids1 UNION opaque_tids2) (extend_dec_tenv tenv2 tenv1))`;
 
-val _ = Hol_reln ` (! tenv decls tenv_mod.
+val _ = Hol_reln ` (! tenv tenv_mod.
 T
 ==>
-check_sig tenv NONE tenv_mod decls decls tenv_mod)
+check_sig tenv NONE tenv_mod {} tenv_mod)
 
-/\ (! tenv sn tenv_mod tids ts datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig' tenv_sig1 decls1.
+/\ (! tenv sn tenv_mod tids ts datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig' tenv_sig1.
 ((nsLookup tenv.s sn = SOME (datatype_tids, opaque_tids, tenv_sig)) /\
 (LENGTH datatype_tids = LENGTH tids) /\
 (LENGTH opaque_tids = LENGTH ts) /\
@@ -931,7 +934,7 @@ ALL_DISTINCT tids /\
 weak_tenv tenv_mod tenv_sig1 /\
 sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig')
 ==>
-check_sig tenv (SOME sn) tenv_mod decls1 (LIST_TO_SET (datatype_tids' ++ MAP SND opaque_tids')) tenv_sig')`;
+check_sig tenv (SOME sn) tenv_mod (LIST_TO_SET (datatype_tids' ++ MAP SND opaque_tids')) tenv_sig')`;
 
 val _ = Hol_reln ` (! extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
@@ -999,7 +1002,7 @@ type_d extra_checks tenv (Dexn locs cn ts)
 /\ (! extra_checks tenv mn ds decls1 decls2 tenv' tenv_sig sn_opt.
 (DISJOINT decls1 decls2 /\
 type_ds extra_checks tenv ds decls1 tenv' /\
-check_sig tenv sn_opt tenv' decls1 decls2 tenv_sig)
+check_sig tenv sn_opt tenv' decls2 tenv_sig)
 ==>
 type_d extra_checks tenv (Dmod mn sn_opt ds) decls2 (tenvLift mn tenv_sig))
 

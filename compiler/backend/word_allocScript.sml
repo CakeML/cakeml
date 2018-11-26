@@ -1,4 +1,6 @@
-open preamble wordLangTheory reg_allocTheory
+open preamble wordLangTheory;
+open linear_scanTheory;
+open reg_allocTheory;
 
 val _ = new_theory "word_alloc";
 val _ = set_grammar_ancestry [
@@ -931,6 +933,8 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
 
 val _ = type_abbrev ("heu_data",``:num#num#num#num#num``);
 
+val _ = Parse.hide"mem";
+
 val add1_lhs_const_def = Define`
   add1_lhs_const x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
@@ -1122,7 +1126,7 @@ val get_forced_def = Define`
     | Arith (LongMul r1 r2 r3 r4) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
@@ -1169,7 +1173,7 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
@@ -1306,6 +1310,13 @@ val get_heuristics_def = Define`
     let moves = get_prefs prog [] in
     (moves,NONE)`
 
+val select_reg_alloc_def = Define`
+  select_reg_alloc alg spillcosts k heu_moves tree forced =
+    if 4 <= alg then
+      linear_scan$linear_scan_reg_alloc k heu_moves tree forced
+    else
+      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced`
+
 (*
   fc is the current prog number
   alg is the allocation algorithm,
@@ -1313,6 +1324,7 @@ val get_heuristics_def = Define`
     1: simple allocator + spill heuristics
     2: IRC allocator, no spill heuristics (default)
     3: IRC allocator + spill heuristics
+  >=4: linear scan register allocator
   k is the number of registers
   prog is the program to be colored
   col_opt is an optional oracle colour
@@ -1325,7 +1337,7 @@ val word_alloc_def = Define`
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
-      (dtcase reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
+      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))

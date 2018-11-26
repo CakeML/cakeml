@@ -1,4 +1,17 @@
-INCLUDES = .. ../ffi ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = .. ../ffi ../../developers ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
+all: $(TARGETS)
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml)
+README.md: ../../developers/readme_gen readmePrefix $(README_SOURCES)
+	../../developers/readme_gen $(README_SOURCES)
+all: README.md
 
 ifdef POLY
 PARENTHEAP = ../heap

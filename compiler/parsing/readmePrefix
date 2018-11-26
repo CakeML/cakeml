@@ -1,0 +1,16 @@
+The CakeML parser.
+
+The parsing function should conform to the specification, which is the grammar
+in `../semantics/gram`. Here conforming means that if a sequence of tokens has
+a parse tree in the grammar, then the function should return that parse tree
+(*completeness*). Dually, if the function returns a parse tree, it should be
+correct according to the grammar (*soundness*).
+
+The parsing function is one that executes a *Parsing Expression Grammar* (or
+PEG). PEGs provide an LL-like attack on input strings, but add the ability to
+do significant back-tracking if necessary. The CakeML PEG is specified in the
+file cmlPEGScript.sml. The same file includes a proof that the PEG is
+well-formed, which means that execution will always terminate (*totality*). As
+PEG execution really is a function (`peg_exec` to be precise), we also have
+that execution is *deterministic*. (The necessary background theory of PEGs
+is in the main HOL distribution.)

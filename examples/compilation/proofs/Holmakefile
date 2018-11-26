@@ -1,5 +1,0 @@
-INCLUDES = ../../../semantics/proofs ../../../misc .. ../.. ../../../compiler/backend/proofs ../../../compiler/encoders/x64/proofs ../../../compiler/backend/x64/proofs
-CLINE_OPTIONS = -j1 --qof
-ifdef POLY
-HOLHEAP=../heap
-endif

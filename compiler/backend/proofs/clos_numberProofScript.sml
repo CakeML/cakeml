@@ -2,12 +2,11 @@ open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory 
 
 val _ = new_theory"clos_numberProof";
 
-(* TODO: move *)
-val option_case_eq = Q.prove(
-  `(option_CASE opt n s = v) ⇔
-      (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)`,
-  Cases_on `opt` >> simp[EQ_SYM_EQ]);
-(* -- *)
+val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
+val _ = temp_bring_to_front_overload"delete"{Name="delete",Thy="sptree"};
+val _ = temp_bring_to_front_overload"map"{Name="map",Thy="sptree"};
+val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 (* properties of renumber_code_locs *)
 
@@ -28,6 +27,11 @@ fun tac (g as (asl,w)) =
   in
     map_every (fn tm => Cases_on [ANTIQUOTE tm]) tms g
   end
+
+val renumber_code_locs_list_IMP_LENGTH = store_thm(
+   "renumber_code_locs_list_IMP_LENGTH",
+  ``renumber_code_locs_list loc es = (l1,es2) ==> LENGTH es2 = LENGTH es``,
+  metis_tac [SND,renumber_code_locs_length]);
 
 val renumber_code_locs_inc = Q.store_thm("renumber_code_locs_inc",
   `(∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
@@ -167,15 +171,26 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
    ⇒
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))`
 
+val compile_inc_def = Define `
+  compile_inc n xs =
+    (* leave space in the naming for the daisy chaining of clos_to_bvl *)
+    let n1 = make_even (n + MAX (LENGTH xs) 1) in
+    let (m,ys) = renumber_code_locs_list n1 xs in
+      (* embed the name of the first free slot (n) in the code *)
+      (* no code will be generated for this pure Const expression *)
+      (m, Op None (Const (&n)) [] :: ys)`;
+
 val state_rel_def = Define `
   state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
-    s.compile = state_cc (ignore_table renumber_code_locs) t.compile /\
-    t.compile_oracle = state_co (ignore_table renumber_code_locs) s.compile_oracle /\
+    s.compile = state_cc (ignore_table compile_inc) t.compile /\
+    t.compile_oracle = state_co (ignore_table compile_inc) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
+    (*
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
-         ¬contains_App_SOME s.max_app [FST(SND(s.compile_oracle n))]) /\
+         ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
+    *)
     s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
@@ -421,7 +436,7 @@ val do_app_lemma = store_thm("do_app_lemma",
 
 val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
   `!xs ys.
-     LIST_REL (v_rel app) xs ys ==> v_rel app (list_to_v xs) (list_to_v ys)`,
+     LIST_REL (v_rel ap) xs ys ==> v_rel ap (list_to_v xs) (list_to_v ys)`,
   Induct
   >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
@@ -478,6 +493,7 @@ val v_to_words = Q.prove(
   \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
   \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
 
+(*
 val do_install = Q.prove(
   `state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
@@ -486,8 +502,8 @@ val do_install = Q.prove(
                  state_rel t t') ∧
    (∀e1 t1. do_install x1 s1 = (Rval e1,t1) ⇒
      ∃e2 t2. do_install x2 s2 = (Rval e2,t2) ∧
-             ¬contains_App_SOME t1.max_app [e1] ∧ t1.max_app = s1.max_app ∧
-             e2 = SND (renumber_code_locs (FST(FST(s1.compile_oracle 0))) e1) ∧
+             ¬contains_App_SOME t1.max_app (e1) ∧ t1.max_app = s1.max_app ∧
+             e2 = SND (compile_inc (FST(FST(s1.compile_oracle 0))) e1) ∧
              state_rel t1 t2)`,
   strip_tac
   \\ `∃res. do_install x1 s1 = res` by fs[]
@@ -499,8 +515,8 @@ val do_install = Q.prove(
   \\ imp_res_tac state_rel_max_app \\ fs[]
   \\ imp_res_tac state_rel_clock \\ fs[]
   \\ fs[shift_seq_def]
-  \\ `s2.compile_oracle = state_co (ignore_table renumber_code_locs) s1.compile_oracle` by fs[state_rel_def]
-  \\ `s1.compile = state_cc (ignore_table renumber_code_locs) s2.compile` by fs[state_rel_def]
+  \\ `s2.compile_oracle = state_co (ignore_table compile_inc) s1.compile_oracle` by fs[state_rel_def]
+  \\ `s1.compile = state_cc (ignore_table compile_inc) s2.compile` by fs[state_rel_def]
   \\ fs[]
   \\ qpat_x_assum`state_co _ _ _ = _`mp_tac
   \\ simp[Once state_co_def]
@@ -516,10 +532,15 @@ val do_install = Q.prove(
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ split_pair_case_tac \\ fs[] \\ rveq
   \\ IF_CASES_TAC \\ fs[]
-  \\ IF_CASES_TAC \\ fs[]
+  \\ fs[CaseEq"bool"]
+  \\ fs[ignore_table_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ rename [`_ = (st1,code1)`]
+  \\ `code1 <> []` by
+    (fs [compile_inc_def] \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
   \\ fs[state_rel_def,state_co_def,ignore_table_def]
-  \\ pairarg_tac \\ fs[]
-  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] );
+  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL] );
+*)
 
 (* compiler correctness *)
 
@@ -536,9 +557,10 @@ val lookup_vars_SOME_related_env = Q.store_thm(
    lookup_vars vs e2 = SOME e2' ⇒ LIST_REL (v_rel max_app) e1' e2'`,
   map_every qid_spec_tac [`e2'`, `e1'`, `e2`, `e1`, `vs`] >> Induct >>
   simp[lookup_vars_def] >>
-  dsimp[option_case_eq] >> reverse conj_tac >- metis_tac[] >>
+  dsimp[CaseEq"option"] >> reverse conj_tac >- metis_tac[] >>
   simp[LIST_REL_EL_EQN]);
 
+(*
 val do_install_Rabort = prove(
   ``closSem$do_install xs s2 = (Rerr (Rabort a),s3) ==>
     a = Rtype_error \/ a = Rtimeout_error``,
@@ -546,6 +568,7 @@ val do_install_Rabort = prove(
   \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
   \\ pairarg_tac \\ fs []
   \\ fs [do_install_def,case_eq_thms,pair_case_eq,bool_case_eq]);
+*)
 
 val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
   `(!tmp xs env (s1:(num#'c,'ffi) closSem$state) env' t1 res s2 n.
@@ -668,6 +691,14 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       fs[]
       \\ first_x_assum drule
       \\ disch_then drule
+      \\ disch_then(qspec_then`n`mp_tac)
+      \\ rw[] \\ rw[]
+      \\ fs[case_eq_thms]
+      \\ rw[] \\ simp[PULL_EXISTS] \\ fs[] )
+    (*
+      fs[]
+      \\ first_x_assum drule
+      \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
       \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
       \\ imp_res_tac state_rel_max_app
@@ -675,14 +706,47 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
       \\ drule (GEN_ALL do_install) \\ fs[]
       \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
       \\ disch_then drule
-      \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
-      \\ TRY (strip_tac \\ fs[])
-      \\ imp_res_tac do_install_Rabort \\ fs []
-      \\ Cases_on `err` \\ fs []
-      \\ imp_res_tac do_install_not_Rraise \\ fs []
-      \\ rename1 `aa = Rtimeout_error ==> _`
-      \\ Cases_on `aa` \\ fs []
-      \\ imp_res_tac do_install_not_Rffi_error \\ fs[]) >>
+      \\ reverse (strip_tac
+        \\ fsrw_tac[DNF_ss][case_eq_thms,pair_case_eq]
+        \\ rfs[] \\ fs[] \\ rveq \\ fs[])
+      THEN1
+       (Cases_on `err` \\ fs []
+        \\ imp_res_tac do_install_not_Rraise \\ fs []
+        \\ rename1 `aa = Rtimeout_error ==> _`
+        \\ Cases_on `aa` \\ fs []
+        \\ imp_res_tac do_install_not_Rffi_error \\ fs[])
+      \\ first_x_assum drule
+      \\ fs [compile_inc_def]
+      \\ qmatch_goalsub_abbrev_tac`renumber_code_locs_list nn`
+      \\ disch_then(qspec_then`nn`strip_assume_tac)
+      \\ rveq \\ fs[]
+      THEN1
+       (rename [`LIST_REL (v_rel t1.max_app) a vss`]
+        \\ Q.ISPEC_THEN`vss`FULL_STRUCT_CASES_TAC SNOC_CASES
+        >- (
+          imp_res_tac evaluate_IMP_LENGTH
+          \\ fs[do_install_def,CaseEq"list",CaseEq"option",CaseEq"prod"]
+          \\ pairarg_tac \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"] )
+        \\ fs[LIST_REL_SNOC]
+        \\ pairarg_tac \\ fs []
+        \\ once_rewrite_tac [evaluate_CONS]
+        \\ fs [EVAL ``evaluate ([Op None (Const n) []],[],t)``])
+      \\ Q.ISPEC_THEN`v'`FULL_STRUCT_CASES_TAC SNOC_CASES
+      >- (
+        imp_res_tac evaluate_IMP_LENGTH
+        \\ fs[do_install_def,CaseEq"list",CaseEq"option",CaseEq"prod"]
+        \\ pairarg_tac \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"] )
+      \\ fs[LIST_REL_SNOC]
+      \\ pairarg_tac \\ fs []
+      \\ once_rewrite_tac [evaluate_CONS]
+      \\ fs [EVAL ``evaluate ([Op None (Const n) []],[],t)``]
+      \\ rename [`LIST_REL _ a vss`]
+      \\ reverse (Q.ISPEC_THEN`vss`FULL_STRUCT_CASES_TAC SNOC_CASES)
+      THEN1 (rewrite_tac [GSYM SNOC,LAST_SNOC] \\ fs [LIST_REL_SNOC])
+      \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ fs [do_install_def,case_eq_thms]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]*) >>
     srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
@@ -810,10 +874,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[find_code_def] >>
     `FDOM s2'.code = FDOM t2.code` by full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def] >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
-      srw_tac[][] ) >>
-    rfs[state_rel_def])
+    fs [FLOOKUP_DEF,state_rel_def])
   THEN1 (* App empty *)
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
@@ -914,7 +975,7 @@ val renumber_code_locs_elist_globals = Q.store_thm(
       set_globals e' = set_globals e)`,
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag Add``] >>
   rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
   qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
@@ -937,20 +998,48 @@ val renumber_code_locs_esgc_free = Q.store_thm(
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
       simp[]));
 
+val renumber_code_locs_obeys_max_app = Q.store_thm(
+  "renumber_code_locs_obeys_max_app",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY (obeys_max_app m) es ⇒
+      EVERY (obeys_max_app m) es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ obeys_max_app m e ⇒ obeys_max_app m e')`,
+  ho_match_mp_tac renumber_code_locs_ind
+  \\ rw [renumber_code_locs_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs []
+  \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
+
+val renumber_code_locs_no_Labels = Q.store_thm(
+  "renumber_code_locs_no_Labels",
+  `(∀loc es n es'.
+      renumber_code_locs_list loc es = (n,es') ∧ EVERY no_Labels es ⇒
+      EVERY no_Labels es') ∧
+   (∀loc e n e'.
+      renumber_code_locs loc e = (n,e') ∧ no_Labels e ⇒ no_Labels e')`,
+  ho_match_mp_tac renumber_code_locs_ind
+  \\ rw [renumber_code_locs_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs []
+  \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
+
 (* preservation of observable semantics *)
 
 val semantics_number = Q.store_thm ("semantics_number",
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
-     (state_cc (ignore_table renumber_code_locs) cc) xs <> Fail ==>
-   ¬contains_App_SOME max_app xs /\
+     (state_cc (ignore_table compile_inc) cc) xs <> Fail ==>
+   ¬contains_App_SOME max_app xs (* /\
    (∀n.
       SND (SND (co n)) = [] ∧
-      ¬contains_App_SOME max_app [FST (SND (co n))]) ==>
+      ¬contains_App_SOME max_app (FST (SND (co n)))) *) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (state_co (ignore_table renumber_code_locs) co) cc
+     (state_co (ignore_table compile_inc) co) cc
         (SND (renumber_code_locs_list n xs)) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (state_cc (ignore_table renumber_code_locs) cc) xs`
+     co (state_cc (ignore_table compile_inc) cc) xs`
   ,
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -959,7 +1048,7 @@ val semantics_number = Q.store_thm ("semantics_number",
        |> CONJUNCT1 |> SIMP_RULE std_ss [])
   \\ simp []
   \\ qabbrev_tac `ff = initial_state ffi max_app FEMPTY
-       (state_co (ignore_table renumber_code_locs) co) cc`
+       (state_co (ignore_table compile_inc) co) cc`
   \\ disch_then (qspec_then `ff k` mp_tac)
   \\ qunabbrev_tac `ff`
   \\ disch_then (qspec_then `n` mp_tac)

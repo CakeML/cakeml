@@ -1,3 +1,6 @@
+(*
+  A functional specification of lexing from strings to token lists.
+*)
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";
@@ -255,7 +258,7 @@ val optioneq = CaseEq "option"
 val _ = print "next_sym_LESS takes a while\n"
 val next_sym_LESS = Q.store_thm("next_sym_LESS",
   `!input l s l' rest.
-      (next_sym input l = SOME (s, l', rest)) ⇒ LENGTH rest < LENGTH input`,
+     (next_sym input l = SOME (s, l', rest)) ==> LENGTH rest < LENGTH input`,
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
@@ -269,7 +272,7 @@ val next_sym_LESS = Q.store_thm("next_sym_LESS",
        imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `read_FFIcall` >>
        imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
-  qpat_x_assum `SOME _ = next_sym _ _` (assume_tac o SYM) >>
+  qpat_x_assum ‘SOME _ = next_sym _ _’ (assume_tac o SYM) >>
   first_x_assum drule >> simp[]);
 
 val _ = Define ` init_loc = <| row := 1; col := 1; offset := 0|>`

@@ -1,4 +1,6 @@
-(* Theorems about the type system. *)
+(*
+  Theorems about the type system.
+*)
 
 open preamble
 open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
@@ -1839,6 +1841,32 @@ val check_ctor_tenv_type_decs_to_ctMap = Q.store_thm ("check_ctor_tenv_type_decs
     FLOOKUP (type_decs_to_ctMap mn tenvT tds) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)`,
  metis_tac [REVERSE_REVERSE, check_ctor_tenv_type_decs_to_ctMap_lemma]);
  *)
+
+val check_ctor_tenv_change_tenvT = Q.store_thm("check_ctor_tenv_change_tenvT",
+  `∀tenvT1 env tenvT2.
+   EVERY (λ(cn,ts). EVERY (check_type_names tenvT1) ts ⇒
+                    EVERY (check_type_names tenvT2) ts)
+         (FLAT (MAP (SND o SND) env)) ∧
+   check_ctor_tenv tenvT1 env ⇒
+   check_ctor_tenv tenvT2 env`,
+  recInduct check_ctor_tenv_ind
+  \\ rw[check_ctor_tenv_def]
+  \\ fs[EVERY_MEM, UNCURRY, MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  \\ metis_tac[]);
+
+val check_ctor_tenv_EVERY = Q.store_thm("check_ctor_tenv_EVERY",
+  `∀tenvT tds.
+     check_ctor_tenv tenvT tds ⇔
+     EVERY check_dup_ctors tds ∧
+     EVERY (ALL_DISTINCT o FST) tds ∧
+     EVERY (λ(tvs,tn,ctors).
+       EVERY (λ(cn,ts). EVERY (check_freevars_ast tvs) ts ∧
+                        EVERY (check_type_names tenvT) ts) ctors) tds ∧
+    ALL_DISTINCT (MAP (FST o SND) tds)`,
+  recInduct check_ctor_tenv_ind
+  \\ rw[check_ctor_tenv_def,LAMBDA_PROD]
+  \\ rw[EQ_IMP_THM]
+  \\ fs[MEM_MAP,EXISTS_PROD]);
 
 (* ---------- consistent_decls ---------- *)
 

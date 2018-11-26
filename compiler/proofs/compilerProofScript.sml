@@ -16,7 +16,9 @@ val config_ok_def = Define`
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
-    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    ¬cc.only_print_types ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
@@ -33,7 +35,9 @@ val initial_condition_def = Define`
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
-    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    ¬cc.only_print_types ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
   `parse_prog = parse`,
@@ -116,10 +120,15 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ fs[Abbr`st1`, inferTheory.init_infer_state_def]
   \\ rfs[DISJOINT_SYM]);
 
+val compile_tap_compile = Q.store_thm("compile_tap_compile",
+  `∀conf p res td. backend$compile_tap conf p = (res,td) ⇒
+    backend$compile conf p = res`,
+  simp[backendTheory.compile_def]);
+
 val compile_correct_gen = Q.store_thm("compile_correct_gen",
   `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
-    case compiler$compile cc prelude input of
+    case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
@@ -137,22 +146,24 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   rpt strip_tac
   \\ simp[compilerTheory.compile_def]
   \\ simp[parse_prog_correct]
+  \\ qpat_abbrev_tac `tt = if _ then _ else _`
+  \\ BasicProvers.CASE_TAC
+  \\ fs[initial_condition_def,Abbr`tt`]
   \\ BasicProvers.CASE_TAC
   \\ fs[initial_condition_def]
-  \\ BasicProvers.CASE_TAC
   \\ simp[semantics_def]
-  \\ fs[initial_condition_def]
   \\ drule (GEN_ALL infertype_prog_correct)
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
   \\ qhdtm_assum`type_sound_invariant`
-       (strip_assume_tac o SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
+       (strip_assume_tac o
+        SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
+  \\ simp[semantics_def]
+  \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct
       |> SIMP_RULE std_ss [LET_THM,UNCURRY]
@@ -181,7 +192,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
 val compile_correct = Q.store_thm("compile_correct",
   `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
-    case compiler$compile cc prelude input of
+    case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
@@ -224,7 +235,8 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs[] )
     \\ fs[])
   \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
-  \\ simp[]);
+  \\ simp[])
+  |> check_thm;
 
 val type_config_ok = Q.store_thm ("type_config_ok",
   `env_rel prim_tenv infer$init_config ∧

@@ -1,15 +1,22 @@
+(*
+  A collection of functions that have in the past turned out to be tricky to
+  translate.
+*)
+
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 
-(* This file contains a collection of functions that have in the past
-   turned out to be tricky to translate. *)
-
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
+
+(* test timing by setting this
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "ml_translator_test_timing.txt")
+*)
 
 val res = translate ZIP2_def;
 
@@ -156,5 +163,45 @@ val _ = Datatype `
      | E1 (tt # tt)`
 
 val _ = register_type ``:tt``;
+
+(* test no_ind again *)
+
+val test_def = xDefine "test" `test x = (case x of
+  | A1 => [()]
+  | B1 x => test x ++ [()]
+  | C1 NONE => []
+  | C1 (SOME x) => test x ++ REVERSE (test x)
+  | D1 tts => (case tts of [] => [(); ()]
+        | (tt :: tts) => test (D1 tts) ++ test tt)
+  | E1 (x, y) => REVERSE (test x) ++ test y)`
+;
+
+val _ = translate_no_ind test_def;
+
+(* registering types inside modules *)
+
+open ml_progLib
+
+val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
+val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
+                         (my_fun my_case3 = 2n)`;
+
+val _ = ml_prog_update (open_module "My_module");
+val r = register_type ``:my_type``;
+val _ = ml_prog_update (close_module NONE);
+val r = translate my_fun_def;
+
+(* test the abstract translator is working *)
+
+val map_again_def = Define `map_again f [] = []
+  /\ map_again f (x :: xs) = f x :: map_again f xs`;
+
+val inc_list_def = Define `inc_list xs = map_again (\x. x + SUC 0) xs`;
+
+val _ = reset_translation ();
+
+val r = abs_translate map_again_def;
+val r = abs_translate inc_list_def;
+val r = concretise [``map_again``, ``inc_list``];
 
 val _ = export_theory();

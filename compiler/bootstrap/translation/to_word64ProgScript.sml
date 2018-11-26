@@ -7,6 +7,8 @@ val _ = new_theory "to_word64Prog"
 
 val _ = translation_extends "sexp_parserProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word64Prog");
+
 val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
@@ -459,9 +461,19 @@ val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv64);
 val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv64);
 val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64);
 
-(*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
+val _ = translate arg1_def;
+val _ = translate arg2_pmatch;
+val _ = translate arg3_pmatch;
+val _ = translate arg4_pmatch;
 
-val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
+fun tweak_assign_def th =
+  th |> SIMP_RULE std_ss [assign_rw]
+     |> inline_simp |> conv64 |> we_simp
+     |> SIMP_RULE std_ss [SHIFT_ZERO,shift_left_rwt]
+     |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
+
+val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
+val res = translate (assign_def |> tweak_assign_def);
 
 val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
 
@@ -600,6 +612,7 @@ val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_pmatch
 
 val _ = translate (get_delta_inst_def |> conv64)
 val _ = translate (wordLangTheory.every_var_inst_def |> conv64)
+val _ = translate select_reg_alloc_def
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 
 val res = translate_no_ind (spec64 three_to_two_reg_pmatch);
@@ -777,7 +790,13 @@ val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |>
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS);
 
+(* translate some 32/64 specific parts of the tap/explorer
+   that can't be translated in explorerProgScript *)
+val res = translate (presLangTheory.tap_word_def |> conv64);
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

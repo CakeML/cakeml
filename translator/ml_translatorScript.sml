@@ -1699,17 +1699,26 @@ val Eval_Fun_rw = Q.store_thm("Eval_Fun_rw",
   `Eval env (Fun n exp) P <=> P (Closure env n exp)`,
   rw[Eval_rw,EQ_IMP_THM,empty_state_def]);
 
+val evaluate_Var_nsLookup = Q.prove(
+   `eval_rel s env (Var id) s' r <=>
+    ?v. nsLookup env.v id = SOME r ∧ s' = s`,
+  fs [eval_rel_def,evaluate_def,lookup_var_def,option_case_eq,
+      state_component_equality] \\ rw [] \\ eq_tac \\ rw []);
+
 val evaluate_Var = Q.prove(
    `eval_rel s env (Var (Short n)) s' r <=>
     ?v. lookup_var n env = SOME r ∧ s' = s`,
-  fs [eval_rel_def,evaluate_def,lookup_var_def,option_case_eq,
-      state_component_equality] \\ rw [] \\ eq_tac \\ rw []);
+  fs [evaluate_Var_nsLookup,lookup_var_def]);
+
+val Eval_Var_nsLookup = Q.store_thm("Eval_Var_nsLookup",
+  `Eval env (Var id) P <=> case nsLookup env.v id of NONE => F | SOME v => P v`,
+  fs [Eval_def,evaluate_Var_nsLookup, state_component_equality]
+  \\ PURE_CASE_TAC \\ fs []);
 
 val Eval_Var = Q.store_thm("Eval_Var",
   `Eval env (Var (Short n)) P <=>
    ?v. lookup_var n env = SOME v /\ P v`,
-  rw[Eval_def,evaluate_Var,EQ_IMP_THM]
-  \\ rw[state_component_equality] \\ metis_tac []);
+  rw[Eval_Var_nsLookup,lookup_var_def] \\ PURE_CASE_TAC \\ fs[]);
 
 val Eval_Fun_Var_intro = Q.store_thm("Eval_Fun_Var_intro",
   `Eval cl_env (Fun n exp) P ==>
@@ -1855,7 +1864,7 @@ val Mat_cases_def = Define `
   Mat_cases (INL (vars,x:exp)) = [(Pcon NONE (MAP Pvar vars),x)] /\
   Mat_cases (INR ps) =
     MAP (\(name,vars,x:exp,t:stamp).
-      (Pcon (SOME (Short name)) (MAP Pvar vars),x)) ps`;
+      (Pcon (SOME name) (MAP Pvar vars),x)) ps`;
 
 val good_cons_env_def = Define `
   good_cons_env ps env <=>
@@ -1876,7 +1885,7 @@ val evaluate_match_MAP = store_thm("evaluate_match_MAP",
       ~MEM t1 (MAP (SND o SND o SND) l1) ==>
       evaluate_match (s:'ffi state) env
         (Conv (SOME t1) vals)
-        (MAP (λ(name,vars,x,t). (Pcon (SOME (Short name))
+        (MAP (λ(name,vars,x,t). (Pcon (SOME name)
            (MAP Pvar vars),x)) l1 ++ xs) err =
       evaluate_match s env (Conv (SOME t1) vals) xs err``,
   Induct
@@ -2014,7 +2023,7 @@ val Eval_Con = store_thm("Eval_Con",
       (!vals.
          LIST_REL (\(p,x) v. p v) ps vals ==>
          q (Conv (SOME stamp) vals)) ==>
-      Eval env (Con (SOME (Short name)) (MAP SND ps)) q``,
+      Eval env (Con (SOME name) (MAP SND ps)) q``,
   rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
   \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
   \\ fs [lookup_cons_def,build_conv_def]

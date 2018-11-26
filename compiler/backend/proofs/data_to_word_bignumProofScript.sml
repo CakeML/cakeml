@@ -53,10 +53,11 @@ val word_exp_set_var_ShiftVar_lemma = store_thm("word_exp_set_var_ShiftVar_lemma
   ``word_exp t (ShiftVar sow v n) =
     case lookup v t.locals of
     | SOME (Word w) =>
-        lift Word (case sow of Lsl => SOME (w << n)
-                             | Lsr => SOME (w >>> n)
-                             | Asr => SOME (w >> n)
-                             | Ror => SOME (word_ror w n))
+        OPTION_MAP Word
+          (case sow of Lsl => SOME (w << n)
+                     | Lsr => SOME (w >>> n)
+                     | Asr => SOME (w >> n)
+                     | Ror => SOME (word_ror w n))
     | _ => FAIL (word_exp t (ShiftVar sow v n)) "lookup failed"``,
   Cases_on `lookup v t.locals` \\ fs [] \\ rw [FAIL_DEF]
   \\ fs [ShiftVar_def]
@@ -471,7 +472,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
        \\ imp_res_tac memory_rel_Number_IMP \\ fs []
        \\ fs [Smallnum_def]
        \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
-       \\ fs [] \\ rfs [good_dimindex_def,small_int_def,dimword_def]
+       \\ fs [] \\ rfs [good_dimindex_def,small_int_def,dimword_def] \\ rfs[]
        \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
     \\ fs [] \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def]
     \\ Cases_on `a` \\ fs [FLOOKUP_UPDATE,heap_in_memory_store_def,memory_rel_def]
@@ -775,7 +776,7 @@ val Replicate_code_alt_thm = Q.store_thm("Replicate_code_alt_thm",
   rw [] \\ fs [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.bad_dest_args_def,
         wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def]
-  \\ fs [EVAL ``fromList [()]``]
+  \\ fs [EVAL ``sptree$fromList [()]``]
   \\ fs [wordSemTheory.cut_env_def,wordSemTheory.get_var_def,domain_lookup]
   \\ rw [] \\ simp [Replicate_code_def]
   \\ Cases_on `n`
@@ -1145,9 +1146,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
       \\ `?k. MustTerminate_limit (:α) =
               10 * dimword (:'a) * dimword (:'a) +
               10 * dimword (:'a) + 100 + k` by metis_tac [MustTerminate_limit_eq]
-      \\ qabbrev_tac `dd = dimword (:α) * dimword (:α)`
-      \\ qabbrev_tac `ij = il * jl`
-      \\ qabbrev_tac `id = il * dimword (:'a)`
+      \\ qmatch_asmsub_abbrev_tac `_ * _ ≤ dd`
+      \\ qmatch_goalsub_abbrev_tac `2 * ij`
       \\ `il < dimword (:'a) /\ jl < dimword (:'a)` by fs []
       \\ `dimindex (:'a) < dimword (:'a)` by
             (fs [good_dimindex_def] \\ simp [dimword_def])

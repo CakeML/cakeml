@@ -28,7 +28,10 @@ val app_basic_def = Define `
         do_opapp [f;x] = SOME (env, exp) /\
         case r of
           | Val v => evaluate_ck ck st env [exp] = (st', Rval [v])
-          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
+          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))
+          | FFIDiv name conf bytes =>
+              evaluate_ck ck st env [exp]
+              = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged))))`
 
 val app_basic_local = Q.prove (
   `!f x. is_local (app_basic p f x)`,

@@ -547,15 +547,6 @@ val gc_move_simulation = prove(
   \\ fs [GSYM heap_length_def]
   \\ rw [] \\ fs [] \\ metis_tac []);
 
-(* TODO: probably useless *)
-val gc_move_pointer_in_heap = Q.prove(
-  `(gc_move conf state h = (x,state'')) /\ state''.ok ==>
-   (∀ptr' u. (h = Pointer ptr' u) ⇒ ptr' < heap_length state.heap)`,
-  rpt strip_tac
-  >> qpat_x_assum `gc_move conf state h = (x,state'')` (assume_tac o GSYM)
-  >> Cases_on `h`
-  >> fs [gc_move_def] >> every_case_tac >> fs[] >> metis_tac[heap_lookup_LESS]);
-
 val gc_forward_ptr_heap_length = Q.store_thm("gc_forward_ptr_heap_length",`
   !n h m a ok h' ok'. (gc_forward_ptr n h m a ok = (h',ok')) ==> (heap_length h = heap_length h')`,
   Induct_on `h`

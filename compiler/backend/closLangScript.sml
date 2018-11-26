@@ -114,7 +114,7 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (Raise _ _) ⇔ F)
     ∧
-  (pure (Handle _ e1 _) ⇔ pure e1)
+  (pure (Handle _ e1 e2) ⇔ pure e1)
     ∧
   (pure (Tick _ _) ⇔ F)
     ∧

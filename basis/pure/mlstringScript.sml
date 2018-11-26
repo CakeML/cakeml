@@ -1,3 +1,9 @@
+(*
+  Pure functions for the String module.
+
+  Defines mlstring as a separate type from string in HOL's standard library (a
+  synonym for char list).
+*)
 open preamble totoTheory mllistTheory
 
 val _ = new_theory"mlstring"

@@ -657,7 +657,7 @@ val sp_inverts_def = Define`
     lookup m f = SOME fm ⇒
     lookup fm g = SOME m`
 
-val sp_inverts_insert = Q.prove(`
+val sp_inverts_insert = Q.store_thm("sp_inverts_insert",`
   sp_inverts f g ∧
   x ∉ domain f ∧
   y ∉ domain g ⇒
@@ -992,7 +992,7 @@ val INJ_less = Q.prove(`
   INJ f s t`,
   metis_tac[INJ_DEF,SUBSET_DEF]);
 
-val check_partial_col_success = Q.prove(`
+val check_partial_col_success = Q.store_thm("check_partial_col_success",`
   ∀ls live flive col.
   domain flive = IMAGE col (domain live) ∧
   INJ col (set ls ∪ domain live) UNIV
