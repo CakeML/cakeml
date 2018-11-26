@@ -203,7 +203,7 @@ val th =
       |> dest_pair |> #2
       |> listSyntax.dest_list |> #1 |> hd
       |> rand
-    val ok_tm = ``Long "Dep_mod" (Short "ml_translator_test_my_type")``
+    val ok_tm = ``Long "My_module" (Short "ml_translator_test_my_type")``
     val goal = ([], ``^id_tm = ^ok_tm``)
   in
     TAC_PROOF (goal, REFL_TAC)
