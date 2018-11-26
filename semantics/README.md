@@ -74,9 +74,6 @@ semanticPrimitivesTheory.
 [semanticsComputeLib.sml](semanticsComputeLib.sml):
 compset for parts of the semantics, including the lexer.
 
-[semanticsLib.sml](semanticsLib.sml):
-TODO: move
-
 [semanticsScript.sml](semanticsScript.sml):
 The top-level semantics of CakeML programs.
 
