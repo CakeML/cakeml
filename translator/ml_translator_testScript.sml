@@ -177,4 +177,37 @@ val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
 
+(*
+ * Registering a type that carries a type which lives inside another module,
+ * inside yet another module.
+ *)
+
+val _ = Datatype `dep_type = depends_on my_type`;
+
+val _ = ml_prog_update (open_module "Dep_mod");
+val r = register_type ``:dep_type``;
+val _ = ml_prog_update (close_module NONE);
+
+val th =
+  let
+    val id_tm =
+      get_ml_prog_state ()
+      |> remove_snocs
+      |> get_thm
+      |> concl |> rator |> rator |> rator |> rand
+      |> listSyntax.dest_list |> #1 |> last
+      |> rand |> listSyntax.dest_list |> #1 |> hd
+      |> rand |> listSyntax.dest_list |> #1 |> hd
+      |> dest_pair |> #2 |> dest_pair |> #2
+      |> listSyntax.dest_list |> #1 |> hd
+      |> dest_pair |> #2
+      |> listSyntax.dest_list |> #1 |> hd
+      |> rand
+    val ok_tm = ``Long "Dep_mod" (Short "ml_translator_test_my_type")``
+    val goal = ([], ``^id_tm = ^ok_tm``)
+  in
+    TAC_PROOF (goal, REFL_TAC)
+  end;
+
 val _ = export_theory();
+
