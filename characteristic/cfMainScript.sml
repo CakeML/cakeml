@@ -2,7 +2,7 @@ open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
-     semanticsLib evaluatePropsTheory
+     evaluatePropsTheory
 
 val _ = new_theory "cfMain";
 
