@@ -293,7 +293,6 @@ val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = ^prim_config.source_conf ∧
     0 < c.clos_conf.max_app ∧
-    (case c.clos_conf.known_conf of SOME kcfg => kcfg.val_approx_spt = LN | _ => T) ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
     c.lab_conf.pos = 0 ∧
@@ -3283,8 +3282,7 @@ val syntax_ok_IMP_obeys_max_app = store_thm("syntax_ok_IMP_obeys_max_app",
 
 val compile_common_syntax = store_thm("compile_common_syntax",
   ``!cf e3 cf1 e4.
-      clos_to_bvl$compile_common cf e3 = (cf1,e4) /\
-      (!x. cf.known_conf = SOME x ==> x.val_approx_spt = LN) ==>
+      clos_to_bvl$compile_common cf e3 = (cf1,e4) ==>
       (EVERY no_Labels e3 ==>
        EVERY no_Labels (MAP (SND o SND) e4)) /\
       (0 < cf.max_app /\ clos_mtiProof$syntax_ok e3 ==>
@@ -3302,10 +3300,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
     \\ `EVERY no_Labels es'` by
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
        \\ drule clos_knownProofTheory.compile_no_Labels
-       \\ fs [clos_knownTheory.compile_def]
-       \\ impl_tac
-       THEN1 fs [clos_knownProofTheory.globals_approx_no_Labels_def,lookup_def]
-       \\ rw [] \\ fs [])
+       \\ fs [clos_knownTheory.compile_def] \\ rw [] \\ fs [])
     \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ TRY (drule clos_callProofTheory.calls_no_Labels
@@ -3329,10 +3324,7 @@ val compile_common_syntax = store_thm("compile_common_syntax",
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
        \\ drule (GEN_ALL clos_knownProofTheory.compile_obeys_max_app)
        \\ disch_then (qspec_then `cf.max_app` mp_tac)
-       \\ fs [clos_knownTheory.compile_def]
-       \\ impl_tac
-       THEN1 fs [clos_knownProofTheory.globals_approx_obeys_max_app_def,lookup_def]
-       \\ rw [] \\ fs [])
+       \\ fs [clos_knownTheory.compile_def] \\ rw [] \\ fs [])
     \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ TRY (drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
@@ -3668,8 +3660,7 @@ val BIGUNION_MAP_code_locs_SND_SND = store_thm("BIGUNION_MAP_code_locs_SND_SND",
 
 val compile_common_code_locs = store_thm("compile_common_code_locs",
   ``!c es c1 xs.
-      clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) /\
-      (∀x. c.known_conf = SOME x ⇒ isEmpty x.val_approx_spt) ==>
+      clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
       BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))``,
   rpt strip_tac
@@ -3699,57 +3690,6 @@ val compile_common_code_locs = store_thm("compile_common_code_locs",
   \\ rename [`clos_labels$compile input`]
   \\ fs [BIGUNION_MAP_code_locs_SND_SND]
   \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]);
-
-(*
-  \\ fs [MAP_MAP_o,o_DEF]
-  \\ rewrite_tac [GSYM MAP_MAP_o]
-  \\ match_mp_tac SUBSET_TRANS
-  \\ qexists_tac `any_dests (MAP (SND o SND) ls)`
-  \\ conj_tac THEN1
-   (rpt (pop_assum kall_tac)
-    \\ Induct_on `ls` THEN1 (EVAL_TAC \\ fs [])
-    \\ fs [] \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons]
-    \\ strip_tac \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
-    \\ disj1_tac
-    \\ fs [clos_to_bvlProofTheory.HD_annotate_SING]
-    \\ metis_tac [app_call_dests_annotate,SUBSET_DEF])
-  \\ rename [`compile c.do_call known_code = (call_code,g,aux)`]
-  \\ rename [`compile c.known_conf number_code = _`]
-  \\ qmatch_goalsub_abbrev_tac `BIGUNION bb`
-  \\ `BIGUNION bb = set (code_locs (MAP (SND o SND) ls))` by
-   (qunabbrev_tac `bb` \\ rpt (pop_assum kall_tac)
-    \\ Induct_on `ls` THEN1 fs [closPropsTheory.code_locs_def]
-    \\ fs [] \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
-    \\ fs [closPropsTheory.code_locs_def,clos_to_bvlProofTheory.HD_annotate_SING]
-    \\ strip_tac \\ PairCases_on `h`
-    \\ fs [clos_annotateProofTheory.code_locs_annotate])
-  \\ ntac 2 (pop_assum (fn th => fs [th]))
-  \\ fs [Abbr`ls`,closPropsTheory.code_locs_append]
-  \\ simp_tac std_ss [closPropsTheory.app_call_dests_append,MAP_APPEND,UNION_ASSOC,
-       call_dests_chain_exps]
-  \\ qsuff_tac
-      `any_dests call_code ∪ any_dests (MAP (SND ∘ SND) aux) ⊆
-       set (MAP FST aux) ∪ set (code_locs call_code) ∪
-       set (code_locs (MAP (SND ∘ SND) aux))`
-  THEN1
-   (fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
-    \\ fs [MEM_MAP] \\ rveq \\ fs []
-    \\ fs [DECIDE ``y+(k+1)=x+k <=> x = y+1:num``]
-    \\ Cases_on `call_code` \\ fs []
-    THEN1 (pop_assum mp_tac \\ EVAL_TAC)
-    \\ rpt disj1_tac
-    \\ `MAX 1 (SUC (LENGTH t)) = SUC (LENGTH t)` by fs [MAX_DEF]
-    \\ fs [COUNT_LIST_def,MEM_MAP,GSYM ADD1])
-  \\ drule clos_callProofTheory.call_compile_locs \\ strip_tac
-  \\ simp_tac std_ss [closPropsTheory.any_dests_call_dests_app_dests]
-  \\ qsuff_tac `call_dests known_code = ∅ /\
-                app_dests known_code ⊆ set (code_locs known_code)`
-  THEN1 (fs [SUBSET_DEF,EXTENSION] \\ metis_tac [])
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ drule clos_knownProofTheory.compile_locs
-  \\ disch_then match_mp_tac
-  \\ imp_res_tac renumber_code_locs_any_dests
-  \\ fs [closPropsTheory.any_dests_call_dests_app_dests]); *)
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -3932,8 +3872,6 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ conj_tac
     >- (
       strip_tac
-      \\ conj_tac
-      >- ( fs[IS_SOME_EXISTS] \\ fs[backend_config_ok_def] )
       \\ simp[Abbr`e3`, Abbr`p''`, Abbr`p'`]
       \\ fs[IS_SOME_EXISTS]
       \\ simp[Abbr`coa`]
