@@ -173,8 +173,8 @@ type dec =
   | Dexn of locs * conN * list ast_t
   (* Module *)
   | Dmod of modN * list dec
-  (* Local: decs and visible names of values, constructors and modules *)
-  | Dlocal of list dec * list varN * list conN * list modN
+  (* Local: local part, visible part *)
+  | Dlocal of list dec * list dec
 
 (*
 (* Specifications

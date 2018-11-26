@@ -207,8 +207,8 @@ val _ = Hol_datatype `
   | Dexn of locs => conN => ast_t list
   (* Module *)
   | Dmod of modN => dec list
-  (* Local: decs and visible names of values, constructors and modules *)
-  | Dlocal of dec list => varN list => conN list => modN list`;
+  (* Local: local part, visible part *)
+  | Dlocal of dec list => dec list`;
 
 
 (*

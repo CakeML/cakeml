@@ -231,20 +231,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
        ))
   )))
 /\
-(evaluate_decs st env [Dlocal ds vs cs ms]=  
- ((case evaluate_decs st env ds of
-    (st', r) =>
-      (st',
-       (case r of
-         Rerr err => Rerr err
-       | Rval env' =>
-          (case build_local_env env' vs cs ms of
-            NONE => Rerr (Rabort Rtype_error)
-          | SOME env'' => Rval env''
-          )
-       ))
+(evaluate_decs st env [Dlocal lds ds]=  
+ ((case evaluate_decs st env lds of
+    (st1, Rval env1) =>
+    evaluate_decs st1 (extend_dec_env env1 env) ds
+  | res => res
   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
+
 val _ = export_theory()
 

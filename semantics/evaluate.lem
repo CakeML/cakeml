@@ -214,16 +214,10 @@ evaluate_decs st env [Dmod mn ds] =
        end)
   end
 and
-evaluate_decs st env [Dlocal ds vs cs ms] =
-  match evaluate_decs st env ds with
-  | (st', r) ->
-      (st',
-       match r with
-       | Rerr err -> Rerr err
-       | Rval env' ->
-          match build_local_env env' vs cs ms with
-          | Nothing -> Rerr (Rabort Rtype_error)
-          | Just env'' -> Rval env''
-          end
-       end)
+evaluate_decs st env [Dlocal lds ds] =
+  match evaluate_decs st env lds with
+  | (st1, Rval env1) ->
+    evaluate_decs st1 (extend_dec_env env1 env) ds
+  | res -> res
   end
+
