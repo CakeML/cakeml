@@ -1,3 +1,7 @@
+(*
+  For ARMv8, prove that the compiler configuration is well formed, and
+  instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
      arm8_configTheory arm8_targetProofTheory
 open blastLib;

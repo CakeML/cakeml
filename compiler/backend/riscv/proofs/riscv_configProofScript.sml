@@ -1,3 +1,7 @@
+(*
+  For RISC-V, prove that the compiler configuration is well formed,
+  and instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
      riscv_configTheory riscv_targetProofTheory
 open blastLib;
