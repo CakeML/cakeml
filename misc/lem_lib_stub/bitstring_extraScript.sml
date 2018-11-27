@@ -102,4 +102,34 @@ val v2i_def = Define`
     (v2i ((h::t) : bitstring) : int = if ~h then int_of_num (v2n t) else -(int_of_num (v2n (v2comp t))))`
 val v2i_w2i = Q.store_thm("v2i_w2i",`!v w. (v = w2v w) = (v2i v = w2i w)`,cheat);
 
+val blt_def = Define`
+    blt x y = v2n x < v2n y`
+
+val bgt_def = Define`
+    bgt x y = v2n x > v2n y`
+
+val bleq_def = Define`
+    bleq x y = v2n x <= v2n y`
+
+val bgeq_def = Define`
+    bgeq x y = v2n x >= v2n y`
+
+val blt_sign_def = Define`
+    blt_sign x y = v2i x < v2i y`
+
+val bgt_sign_def = Define`
+    bgt_sign x y = v2i x > v2i y`
+
+val bleq_sign_def = Define`
+    bleq_sign x y = v2i x <= v2i y`
+
+val bgeq_sign_def = Define`
+    bgeq_sign x y = v2i x >= v2i y`
+
+val btest_def = Define`
+    btest x y =
+      let m = MAX (LENGTH x) (LENGTH y)
+       in
+         band x y = fixwidth m (n2v 0)`
+
 val _ = export_theory()
