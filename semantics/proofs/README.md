@@ -11,7 +11,6 @@ TODO: check this description is correct
 
 [evaluateComputeLib.sml](evaluateComputeLib.sml):
 compset for the operational semantics.
-TODO: move up one level (cf. semanticsComputeLib)
 
 [evaluatePropsScript.sml](evaluatePropsScript.sml):
 Properties of the operational semantics.
@@ -21,11 +20,17 @@ Properties of the CakeML CFG, including automatically derived
 nullability results for various non-terminals, and results about
 the grammar’s rules finite map.
 
+[namespacePropsScript.sml](namespacePropsScript.sml):
+Proofs about the namespace datatype.
+
 [primSemEnvScript.sml](primSemEnvScript.sml):
 TODO: document
 
 [semanticPrimitivesPropsScript.sml](semanticPrimitivesPropsScript.sml):
 Various basic properties of the semantic primitives.
+
+[semanticsComputeLib.sml](semanticsComputeLib.sml):
+compset for parts of the semantics, including the lexer.
 
 [semanticsPropsScript.sml](semanticsPropsScript.sml):
 Theorems about the top-level semantics, including totality and determinism.
