@@ -3,6 +3,9 @@ Examples of verified programs built using CakeML infrastructure.
 Larger examples (like the CakeML compiler and Candle theorem prover) can be
 found in their own top-level directories.
 
+[array_searchProgScript.sml](array_searchProgScript.sml):
+An example based on searching an array.
+
 [catProgScript.sml](catProgScript.sml):
 cat program example: concatenate and print lines from files.
 
@@ -14,6 +17,9 @@ diff example: find a patch representing the difference between two files.
 
 [diffScript.sml](diffScript.sml):
 Implementation and verification of diff and patch algorithms
+
+[doubleProgScript.sml](doubleProgScript.sml):
+Examples on the topic of doubling a number.
 
 [echoProgScript.sml](echoProgScript.sml):
 echo program example: print the command line arguments.
